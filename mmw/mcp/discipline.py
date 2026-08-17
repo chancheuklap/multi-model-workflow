@@ -15,14 +15,15 @@
     Claude subagent        同一个宿主，同样读到
     Codex headless         读不到，由本模块拼进提示词（adapters/claude-code.sh）
     原生 subagent          Codex App、Pi、Cursor、Grok 的主 agent 直调原生 subagent。
-                           这四个宿主的 adapter 只交参数不执行派发，codex/runtime.py
-                           与 cli/lib/materialize_agents.py 也不注入本模块，四条都
-                           插不进去。planner、reviewer 靠各自技能里
-                           那一句，worker 靠 agent-src/bodies/mmw-worker.md 的
-                           Retrieval 一节
+                           这四个宿主不走 `mmw dispatch`：CLI 在入口拒绝，
+                           adapters/ 里没有它们的 shim。codex/runtime.py 与
+                           cli/lib/materialize_agents.py 也不注入本模块，四条都
+                           插不进去。现役可写角色靠 agent-src/bodies/mmw-worker.md
+                           的 Retrieval 一节。planner / reviewer / research 技能正文
+                           没有 Retrieval 段；research 现役只有一份 SKILL.md
 
-所以 mmw-planner、mmw-research/internal-brief、mmw-reviewer 里那几句不是可以删掉的
-重复：删了原生 subagent 那一侧就没有任何地方讲这件事。
+所以 mmw-worker.md 的 Retrieval 不是可以删掉的重复：删了原生 worker 那一侧就没有
+任何地方讲这件事。
 
 这张表是执行面地图的唯一事实来源。别处引用它，不要抄一份——抄出去的那份不会跟着
 新宿主接入而更新，而它恰好是判断「某段正文能不能删」的依据。

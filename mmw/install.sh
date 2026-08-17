@@ -249,7 +249,7 @@ install_pi() {
 }
 
 # Cursor 的任务树与结果树都在 ~/.cursor/worktrees/。用户开任务树，agent 只在树上建分支。
-# 工人树由 mmw-cursor-agent --worktree 创建，回收交给 Cursor 自己的 GC。
+# worker 结果树由 mmw-cursor-agent --worktree 创建，回收交给 Cursor 自己的 GC。
 install_cursor_skills() {
   local src="$RUNTIME_ROOT/mmw/skills-cursor"
   local dest="$HOME/.cursor/skills"
@@ -364,7 +364,7 @@ install_cursor() {
 }
 
 sync_grok_skills() {
-  local src dest name
+  local src dest name dest_name
   src="$RUNTIME_ROOT/mmw/skills-grok"
   dest="$HOME/.grok/skills"
   mkdir -p "$dest"
@@ -372,6 +372,10 @@ sync_grok_skills() {
     [ -d "$name" ] || continue
     rm -rf "$dest/$(basename "$name")"
     cp -R "$name" "$dest/$(basename "$name")"
+  done
+  for dest_name in "$dest"/mmw-*; do
+    [ -d "$dest_name" ] || continue
+    [ -d "$src/$(basename "$dest_name")" ] || rm -rf "${dest_name:?}"
   done
 }
 

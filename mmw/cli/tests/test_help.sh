@@ -68,15 +68,35 @@ check "顶层 --version 没有标准错误" "" "$(cat "$LAST_ERR")"
 
 echo "--help 查用法"
 
-capture "顶层无参" "$MMW"
+capture "顶层无参" env -u MMW_HOST -u CLAUDECODE -u PI_CODING_AGENT \
+  -u CODEX_THREAD_ID -u CURSOR_AGENT -u GROK_AGENT "$MMW"
 check "顶层无参退出码" "2" "$LAST_STATUS"
 check "顶层无参没有标准输出" "" "$(cat "$LAST_OUT")"
 
-capture "顶层 --help" "$MMW" --help
+capture "顶层 --help" env -u MMW_HOST -u CLAUDECODE -u PI_CODING_AGENT \
+  -u CODEX_THREAD_ID -u CURSOR_AGENT -u GROK_AGENT "$MMW" --help
 check "顶层 --help 退出码" "0" "$LAST_STATUS"
 check "顶层 --help 没有标准输出" "" "$(cat "$LAST_OUT")"
 contains "顶层 --help 列出命令" "artifact" "$(cat "$LAST_ERR")"
+contains "顶层 --help 有会话栏" "会话：" "$(cat "$LAST_ERR")"
+contains "顶层 --help 有安装栏" "安装：" "$(cat "$LAST_ERR")"
 contains "顶层 --help 有 Examples" "Examples:" "$(cat "$LAST_ERR")"
+contains "顶层 --help 有真实调用" "mmw artifact path spec" "$(cat "$LAST_ERR")"
+contains "无宿主顶层标明 dispatch 仅 Claude Code" "仅 Claude Code" "$(cat "$LAST_ERR")"
+
+capture "Cursor 顶层 --help" env MMW_HOST=cursor "$MMW" --help
+check "Cursor 顶层 --help 退出码" "0" "$LAST_STATUS"
+absent "Cursor 顶层不把 dispatch 当命令" "  dispatch    " "$(cat "$LAST_ERR")"
+absent "Cursor 顶层不把 worktree 当命令" "  worktree    " "$(cat "$LAST_ERR")"
+contains "Cursor 顶层点名不要跑" "不要跑 dispatch 或 worktree" "$(cat "$LAST_ERR")"
+
+capture "CC 顶层 --help" env MMW_HOST=claude-code "$MMW" --help
+contains "CC 顶层列出 dispatch" "  dispatch    " "$(cat "$LAST_ERR")"
+contains "CC 顶层列出 worktree" "  worktree    " "$(cat "$LAST_ERR")"
+
+capture "Pi 顶层 --help" env MMW_HOST=pi "$MMW" --help
+contains "Pi 顶层列出 worktree" "  worktree    " "$(cat "$LAST_ERR")"
+absent "Pi 顶层不把 dispatch 当命令" "  dispatch    " "$(cat "$LAST_ERR")"
 
 capture "artifact --help" "$MMW" artifact --help
 check "artifact --help 退出码" "0" "$LAST_STATUS"
@@ -114,13 +134,36 @@ capture "issue create 缺 --title" "$MMW" issue create
 check "issue create 缺 --title 退出码" "2" "$LAST_STATUS"
 contains "issue create 缺 --title 点名旗标" "要 --title" "$(cat "$LAST_ERR")"
 contains "issue create 缺 --title 给出调用" "mmw issue create --title <标题> --body-file <文件>" "$(cat "$LAST_ERR")"
-absent "issue create 缺 --title 不倒整段用法" "以上七条" "$(cat "$LAST_ERR")"
+absent "issue create 缺 --title 不倒整段用法" "这七条之外" "$(cat "$LAST_ERR")"
 
 capture "agents materialize 缺 --host" "$MMW" agents materialize
 check "agents materialize 缺 --host 退出码" "2" "$LAST_STATUS"
 contains "agents materialize 缺 --host 点名旗标" "要 --host" "$(cat "$LAST_ERR")"
 contains "agents materialize 缺 --host 给出调用" "mmw agents materialize --host <pi|cursor|grok|all>" "$(cat "$LAST_ERR")"
 absent "agents materialize 缺 --host 不倒整段用法" "Claude Code：仍用 mmw dispatch" "$(cat "$LAST_ERR")"
+
+capture "skills materialize 缺 --host" "$MMW" skills materialize
+check "skills materialize 缺 --host 退出码" "2" "$LAST_STATUS"
+contains "skills materialize 缺 --host 点名旗标" "要 --host" "$(cat "$LAST_ERR")"
+contains "skills materialize 缺 --host 给出调用" "mmw skills materialize --host <pi|claude-code|codex|cursor|grok|all>" "$(cat "$LAST_ERR")"
+
+capture "result --help" "$MMW" result --help
+check "result --help 退出码" "0" "$LAST_STATUS"
+contains "result --help 有 integrate" "mmw result integrate" "$(cat "$LAST_ERR")"
+absent "result --help 不含 verify 子命令" "mmw result verify" "$(cat "$LAST_ERR")"
+
+capture "issue create --help" "$MMW" issue create --help
+check "issue create --help 退出码" "0" "$LAST_STATUS"
+contains "create --help 有 --body-file" "--body-file" "$(cat "$LAST_ERR")"
+absent "create --help 不倒 frontier" "可认领的子 issue" "$(cat "$LAST_ERR")"
+absent "create --help 不倒七条清单" "这七条之外" "$(cat "$LAST_ERR")"
+
+capture "dispatch --help" "$MMW" dispatch --help
+check "dispatch --help 退出码" "0" "$LAST_STATUS"
+contains "dispatch --help 写明只给 Claude Code" "只给 Claude Code" "$(cat "$LAST_ERR")"
+
+got="$(find "$HERE/../adapters" -maxdepth 1 -name '*.sh' -exec basename {} \; | sort)"
+check "dispatch adapter 只有 claude-code.sh" "claude-code.sh" "$got"
 
 echo
 echo "过 ${pass}，失败 ${fail}"

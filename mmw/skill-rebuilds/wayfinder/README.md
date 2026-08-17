@@ -26,7 +26,7 @@
 - `delivery-workflow.md` 的 `共同理解` 在发布本技能时改成 `shared understanding`（本技能第一次用这个英文名）。现役 `/mmw-grilling` 仍写 `## 共同理解`，发布前是混用窗口。
 - 现役 `/mmw-grilling` 仍写「按 `/mmw-wayfinder` 的解析必读材料声明读取」。发布后那一节不在了；grilling 那一轮改成读 Required materials 那两句。
 - 已有 map 的 `## 分支` / `## 必读材料声明` / `## 答案` 不会自动改名。新 map 用英文标题。
-- `mmw artifact list` 本轮不再从 wayfinder 调用。CLI 子命令留下，等别的技能要不要用。
+- `mmw artifact list` 已删除。现役 wayfinder 由 agent 自己写 Required materials 行，再用 `artifact path` 解析。
 - `handback-comment` 仍在 CLI 产物类型里。本技能不再生产它；删不删留给 CLI 自己那一轮。
 
 ## 先前阶段（中文重建，已过时）

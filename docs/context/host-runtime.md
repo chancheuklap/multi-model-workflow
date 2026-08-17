@@ -27,5 +27,5 @@ Codex App 为 `worker` 和 `worker-high-risk` 创建的独立任务与 worktree�
 _Avoid_: 原生只读 subagent、任务 worktree
 
 **Cursor 任务树与结果树**：
-Cursor 为任务和结果创建的 linked worktree，物理位置在 `~/.cursor/worktrees/<仓库>/<slug>`。任务树由用户打开；agent 在已有的树上创建任务分支。工人结果树由 `mmw-cursor-agent --worktree` 从当前任务分支长出。`mmw worktree add` 与 `mmw worktree remove` 在这个宿主上不可用。
+Cursor 为任务和结果创建的 linked worktree，物理位置在 `~/.cursor/worktrees/<仓库>/<slug>`。任务树由用户打开；agent 在已有的树上创建任务分支。worker 结果树由 `mmw-cursor-agent --worktree` 从当前任务分支长出。`mmw worktree add` 与 `mmw worktree remove` 在这个宿主上不可用。
 _Avoid_: 仓库 `paths.worktrees`、`mmw worktree add`

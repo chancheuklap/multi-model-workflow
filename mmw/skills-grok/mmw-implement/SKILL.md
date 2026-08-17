@@ -40,19 +40,19 @@ Task fields:
 - **Constraints:** source and tests in this worktree; leave `docs/` as they are; stay inside the ticket
 - **Acceptance:** the ticket's criteria; HEAD SHA on the result branch
 
-启动：调用原生 subagent，agent 设为 `mmw-worker`，打开 worktree 隔离。把四栏 task 作为初始 prompt。工人完成工作并提交。交回结果分支名、HEAD SHA、基点 SHA。提交前自己跑 `mmw toolchain check --changed-only`。
+启动：调用原生 subagent，agent 设为 `mmw-worker`，打开 worktree 隔离。把四栏 task 作为初始 prompt。worker 完成工作并提交。交回结果分支名、HEAD SHA、基点 SHA。提交前自己跑 `mmw toolchain check --changed-only`。
 
 派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告。报告交回后不重做整个 task。
 
 Billing, permissions, data migration, or irreversible mistakes: use
 
-启动：调用原生 subagent，agent 设为 `mmw-worker-high-risk`，打开 worktree 隔离。把四栏 task 作为初始 prompt。工人完成工作并提交。交回结果分支名、HEAD SHA、基点 SHA。提交前自己跑 `mmw toolchain check --changed-only`。
+启动：调用原生 subagent，agent 设为 `mmw-worker-high-risk`，打开 worktree 隔离。把四栏 task 作为初始 prompt。worker 完成工作并提交。交回结果分支名、HEAD SHA、基点 SHA。提交前自己跑 `mmw toolchain check --changed-only`。
 
 派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告。报告交回后不重做整个 task。
 
 instead. You choose the upgrade.
 
-Integrate one result at a time: `mmw result integrate <result-branch> <HEAD SHA> <base SHA>`. Conflicts: `/mmw-integrate`. Then `gh issue close <ticket number>` and `mmw worktree remove <result-branch>`. Host-created trees: the host removes them.
+Integrate one result at a time: `mmw result integrate <result-branch> <HEAD SHA> <base SHA>`. Conflicts: `/mmw-integrate`. Then `gh issue close <ticket number>`. If this result tree was created with `mmw worktree add`, run `mmw worktree remove <result-branch>`. Otherwise the host removes it.
 
 **Done** or **Done with concerns**: integrate, then close. Give concerns to the user. Any other outcome: stop and give the user what the `worker` said.
 

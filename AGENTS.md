@@ -44,7 +44,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 1. 对应宿主的 manifest、根 marketplace 或 Pi package；Codex 角色结构只认 `mmw/codex/profiles.json`，模型只认 `mmw/cli/mmw.default.json` 的 `hosts.codex` 覆盖。
 2. `mmw/cli/` 的机械动作、宿主 adapter、`.mmw.json` 配置合同和 `mmw/cli/artifacts.json` 的产物落点数据。
-3. `mmw/skills-src/` 技能源（含 `[[mmw-launch:…]]`、`[[mmw-launch-group:…]]` 与 `[[mmw-enter-worktree]]`）与 `mmw skills materialize` 产物；流程判据以源为准，宿主动作以对应产物为准。
+3. `mmw/skills-src/` 技能源（含 `[[mmw-launch:…]]`、`[[mmw-launch-group:…]]`、`[[mmw-resume:…]]` 与 `[[mmw-require-task-branch]]`）与 `mmw skills materialize` 产物；流程判据以源为准，宿主动作以对应产物为准。
 
 `.mmw.json` 保存目标仓库的标签、CLI 路径和领域文档形态。模型档属于已安装 runtime，不进入目标仓库配置。
 
@@ -54,7 +54,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 ## 宿主边界
 
-共享角色、技能和流程语义。宿主差异留在 Codex profile、原生 agent frontmatter、`mmw/cli/adapters/`、manifest 与 runtime 模型档的 hosts 覆盖：
+共享角色、技能和流程语义。宿主差异留在 Codex profile、原生 agent frontmatter、Claude Code 的 dispatch adapter（`mmw/cli/adapters/claude-code.sh`）、manifest 与 runtime 模型档的 hosts 覆盖：
 
 - Codex App 是 MMW 的主 agent 运行时，不调用外部模型 CLI 或 harness。Codex plugin 以 `mmw/` 为发布根；运行时不得回退 MMW 源码 checkout 或目标项目里的同名目录。App 设置里的 Worktree root 是所有项目共用的 managed worktree 物理存放目录，不是 MMW 源码路径，也不受目标项目 `.mmw.json` 的 `paths.worktrees` 控制。
 - Claude Code 只接 claude 与 gpt 两个模型族：GPT 角色通过后台 Bash 执行 Codex CLI，Claude 角色通过后台 Agent 工具执行。

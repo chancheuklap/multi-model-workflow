@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 工人树：Pi / Claude Code 从当前 HEAD 长出隔离 worktree，以及结果验证与合入。
+# 结果树：Pi / Claude Code 从当前 HEAD 长出隔离 worktree，以及结果核对与合入。
 #
 # 任务工作树由用户和宿主创建。这里不认领、不绑定、不写 git 配置、不打空提交。
 
@@ -120,7 +120,7 @@ mmw_worktree_remove() {
 mmw_result_verify() {
   local branch="${1:-}" reported_head="${2:-}" base="${3:-}"
   [ -n "$branch" ] && [ -n "$reported_head" ] && [ -n "$base" ] || {
-    echo "mmw: result verify 要 <结果分支> <HEAD SHA> <基点 SHA>" >&2
+    echo "mmw: 结果核对要 <结果分支> <HEAD SHA> <基点 SHA>" >&2
     return 1
   }
   local actual_head reported_sha base_sha

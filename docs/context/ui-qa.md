@@ -1,6 +1,6 @@
 # 界面 QA
 
-这个 Context 定义 `/mmw-ui-qa` 使用的语言。它检查界面本身，不是六道审的任何一道。范围标签用 `this-task` 与 `full`。
+这个 Context 定义 `/mmw-ui-qa` 使用的语言。它检查界面本身，不是六道审的任何一道。无标签默认是 `this-change`。用户可挂的标签是 `this-task` 与 `full`。
 
 ## Language
 
@@ -33,6 +33,10 @@ _Avoid_: 路由表、站点地图、界面清单、界面全图
 **coverage report**：
 本次运行到不了的状态清单，逐条写明状态名与到不了的原因。它不驱动修改，也不进用户裁决。
 _Avoid_: 覆盖率、遗漏项、跳过清单、覆盖报告
+
+**范围**：
+一次 UI QA 检查哪些界面。无标签默认 `this-change`，用最新一次提交的 diff。用户可挂的标签只有 `this-task`（当前任务分支相对父分支的 diff）与 `full`（screen map 里每一个界面）。`this-change` 不是用户标签。
+_Avoid_: 三档标签、把 this-change 写成要挂的标签
 
 **路径形状**：
 (authoritative: [路径形状](./artifact-location.md))

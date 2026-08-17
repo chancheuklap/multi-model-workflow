@@ -5,6 +5,8 @@ amends: []
 
 # 工作名与任务分支名是两个值
 
+> 现行读法见 [ADR 0017](./0017-name-segment-from-task-branch.md)。下面正文里的 `mmw task new` / `bind` / `state` 已删除。名字段取这次交付的任务分支 slug。
+
 MMW 原来有两个名字管产物落点：普通任务用一个值同时当任务分支名和产物目录名，Wayfinder 用两个互相独立的值。合并成一个概念「工作名」时，我们让它与任务分支名解耦——工作名标识产物归哪次交付，任务分支名标识改动在哪条线上。原因是一项 Wayfinder effort 有多条任务分支（每张 decision ticket 一条），用分支名当产物名会把同一项 effort 的 research、prototype 和 spec 散进多个目录，互相找不到。
 
 ## Considered Options

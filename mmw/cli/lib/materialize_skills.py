@@ -67,7 +67,7 @@ RESUME_MATERIAL = (
 )
 RESUME_FALLBACK = f"这个宿主没有续跑通道：{RESUME_MATERIAL}"
 CODEX_SKILL_REF_RE = re.compile(r"`/(mmw-[a-z0-9-]+)`")
-SKIP_DIR_NAMES = frozenset({"mmw-dispatching-agents", "mmw-setup"})
+SKIP_DIR_NAMES = frozenset({"mmw-setup"})
 POST_LAUNCH_RULE = (
     "派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。"
     "没有明确不重叠的协调工作时，立即等待 subagent 交回报告。"
@@ -119,7 +119,7 @@ def expand_grok(role: str, agent: str, cwd_mode: str) -> str:
         return (
             f"启动：调用原生 subagent，agent 设为 `{agent}`，打开 worktree 隔离。"
             "把四栏 task 作为初始 prompt。"
-            "工人完成工作并提交。"
+            "worker 完成工作并提交。"
             "交回结果分支名、HEAD SHA、基点 SHA。"
             "提交前自己跑 `mmw toolchain check --changed-only`。"
         )
@@ -270,18 +270,20 @@ def expand_reviewers(host: str, role_agents: dict[str, str], profiles: dict) -> 
         expand = expand_grok
     elif host == "cursor":
         expand = expand_cursor
-    else:
+    elif host == "claude-code":
         expand = expand_claude
+    else:
+        die(f"未支持的宿主 {host}")
     gpt = expand("reviewer-gpt", role_agents["reviewer-gpt"], "none")
     claude = expand("reviewer-claude", role_agents["reviewer-claude"], "none")
     return (
         "当前宿主使用两个审查角色。⓪ 启动一个 `reviewer-gpt`："
-        "共同理解是主 agent 自己问出来的，复核它的审查者必须换一个模型。"
+        "共同理解是主 agent 自己问出来的，审查者必须换一个模型。"
         f"{gpt}① 每个视角启动一个 `reviewer-gpt`。"
         f"{gpt}② 每个视角启动一个 `reviewer-claude`。{claude}"
         "⑤ 每个视角分别启动一个 `reviewer-gpt` 和一个 `reviewer-claude`。"
-        "同一视角的两份 findings 并排比较；只由一个审查者报告的条目优先验证，"
-        "两个审查者都报告的条目仍需验证出处。每个审查者只收到自己的四栏 task。"
+        "同一视角的两份 findings 并排比较后按 `/mmw-review` 处置。"
+        "每个审查者只收到自己的四栏 task。"
     )
 
 
@@ -297,8 +299,12 @@ def expand_text(
         expand = expand_grok
     elif host == "cursor":
         expand = expand_cursor
-    else:
+    elif host == "claude-code":
         expand = expand_claude
+    elif host == "codex":
+        expand = None
+    else:
+        die(f"未支持的宿主 {host}")
 
     def launch(match: re.Match[str]) -> str:
         role, cwd_mode = match.group(1), match.group(2)
@@ -307,6 +313,7 @@ def expand_text(
         if host == "codex":
             instruction = expand_codex(role, cwd_mode, codex_profiles)
             return f"{instruction}\n\n{POST_LAUNCH_RULE}"
+        assert expand is not None
         instruction = expand(role, role_agents[role], cwd_mode)
         if host in {"grok", "cursor"} and cwd_mode == "worktree":
             return f"{instruction}\n\n{POST_LAUNCH_RULE}"
@@ -336,7 +343,9 @@ def expand_text(
             return expand_resume_grok()
         if host == "cursor" and cwd_mode == "worktree":
             return expand_resume_cursor(role, cwd_mode)
-        return RESUME_FALLBACK
+        if host in {"pi", "codex"} or (host == "cursor" and cwd_mode != "worktree"):
+            return RESUME_FALLBACK
+        die(f"未支持的宿主 {host}")
 
     text = LAUNCH_RE.sub(launch, text)
     text = LAUNCH_GROUP_RE.sub(launch_group, text)
