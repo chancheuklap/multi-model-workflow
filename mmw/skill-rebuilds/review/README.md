@@ -26,6 +26,6 @@ MMW 原创编排技能，没有 Matt 上游。对照计划和落地那一轮：�
 - `self-review.md`。
 - 视角计数、总冠军、报告排版讲义。
 
-发布时：`docs/context/review.md` 按 leaf 草稿改。`mmw/cli/lib/materialize_skills.py` 的 `expand_reviewers` 里「验证出处」那句与已取消的验证打架，本轮不改 CLI，发布时单独立项。
+发布时：`docs/context/review.md` 按 leaf 草稿改。`expand_reviewers` 里「验证出处」那句已删，双模型审查交回后按 `/mmw-review` 处置。
 
 本轮不派冷读 subagent。

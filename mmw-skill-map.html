@@ -433,7 +433,7 @@
 </header>
 
 <div class="contract-strip" aria-label="版本与方法合同">
-  <div><strong>MMW 0.31.0</strong></div>
+  <div><strong>MMW 0.32.0</strong></div>
   <div><strong>上游基线 Matt Pocock Skills 1.2.3</strong></div>
   <div>MMW 技能源保留 Matt 的方法、步骤、解释和完成判据，并接入 MMW 的 worktree、tracker、领域文档、人工审批关卡和宿主承载。</div>
 </div>
@@ -510,14 +510,14 @@ subgraph RAMP["支线入口 · 先产生工作，再并回主干"]
   wfd[["<b>mmw-wayfinder</b><br/>· effort 超过一个 agent 会话且路线尚不清楚<br/>· 三段：画 map、每会话解一张 decision ticket、收尾<br/>· 内部展开见第二张图"]]
 end
 
-  ica[["<b>mmw-improve-codebase-architecture</b><br/>· 派 3 到 4 个 Explore<br/>· 每份 task 相同，都自然探索同一范围<br/>· 主 agent 去重后出报告<br/>· 用户挑中候选之后才绑定任务 worktree"]]
+  ica[["<b>mmw-improve-codebase-architecture</b><br/>· 派 3 到 4 个 Explore<br/>· 每份 task 相同，都自然探索同一范围<br/>· 主 agent 去重后出报告<br/>· 用户挑中候选之后才进入任务树"]]
 
 subgraph VOCAB["跑在别的技能底下"]
   direction TB
   ups[/"<b>Matt Pocock Skills 1.2.3</b><br/>· 对应技能的方法、步骤与解释<br/>· 完成判据和产物方法"/]
   mmwc[/"<b>MMW 正式工作流合同</b><br/>· worktree · tracker<br/>· 领域文档 · 人工审批关卡 · 宿主边界"/]
   src["<b>共享技能源 · mmw/skills-src/</b><br/>· 同时保留上游方法与 MMW 工作流<br/>· 有证据的适配保留<br/>· 无证据且改变方法效果的偏离修正"]
-  dsp["<b>宿主动作物化</b><br/>· subagent 派发使用 [[mmw-launch:…]] 与 launch-group<br/>· 进树使用 [[mmw-enter-worktree]]<br/>· 其他宿主能力保留按能力判断的自然语言<br/>· Codex→后台任务或原生 subagent<br/>· Pi→subagent / CC→dispatch<br/>· Grok→原生 subagent"]
+  dsp["<b>宿主动作物化</b><br/>· subagent 派发使用 [[mmw-launch:…]] 与 launch-group<br/>· 确认任务分支使用 [[mmw-require-task-branch]]<br/>· 其他宿主能力保留按能力判断的自然语言<br/>· Codex→后台任务或原生 subagent<br/>· Pi→subagent / CC→dispatch<br/>· Grok→原生 subagent"]
   cdx["<b>Codex App 原生运行面</b><br/>· 已安装 plugin 提供全部 skills 与三台 MCP<br/>· mmw 命令只指向稳定 runtime，不依赖源码 checkout<br/>· reviewer-gpt / planner / designer 原生 subagent<br/>· 模型从 runtime 的 hosts.codex 覆盖解析"]
   cwt["<b>Codex worktree 合同</b><br/>· Worktree root 是 App 的跨项目全局存放目录<br/>· 用户创建 detached 主任务，确认父分支后绑定 codex/&lt;slug&gt;<br/>· MMW 不从物理目录名识别任务<br/>· 后台结果直接集成"]
   dmo["<b>mmw-domain-modeling</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 计划或想法的整体追问转 grilling<br/>· 唯一往仓库写领域文档的技能<br/>· none 仅在明确建模且首个长期术语定下时创建<br/>· 多 context 首次建模由 mmw domain map-init 注入受管骨架<br/>· 术语写 leaf；三项判据全成立才写 ADR<br/>· 领域入口看仓库根；ADR 固定在 docs/adr/"]
@@ -538,9 +538,9 @@ end
 ctx[/"<b>目标 AGENTS.md 与领域文档</b><br/>· 主 agent 与 subagent 的共同领域入口<br/>· Map 是 Context / Leaf / Owns 三列表<br/>· leaf 是已登记的命名 Markdown 文件<br/>· 共享术语使用 authoritative 引用<br/>· ADR 固定在 docs/adr/"/]
 trk[/"<b>issue tracker</b><br/>· map、spec、ticket 三层"/]
 oos[/"<b>.out-of-scope/</b><br/>· 一个概念一个文件"/]
-pta[/"<b>持久 prototype 资产</b><br/>· Wayfinder 共用 map 的产物目录<br/>· decision ticket 使用 issue 子目录<br/>· 索引列出选中产物与长期证据<br/>· prototype 外壳不直接进入正式产品"/]
+pta[/"<b>持久 prototype 资产</b><br/>· Wayfinder 共用 map 分支 slug 作为名字段<br/>· decision ticket 使用 issue 子目录<br/>· 索引列出选中产物与长期证据<br/>· prototype 外壳不直接进入正式产品"/]
 ina[/"<b>用户选择保存的 research</b><br/>· 一个 research 主题一个子目录<br/>· README 是 research 索引<br/>· 下游只读点名的索引与精确文件<br/>· 保存不代表下游必须引用"/]
-rfacts["<b>综合后的 research</b><br/>直接交回当前调用方；<br/>是否保存不影响结果成立"]
+rfacts["<b>research 目录</b><br/>Explore 的 findings 加主 agent 写的索引；<br/>是否保存不影响结果成立"]
 tmp[/"<b>Git 忽略的 scratch</b><br/>· 截图、DOM、console、录屏与中间输出<br/>· 只提升长期决定所需的最小证据<br/>· 不进 Git，工作树拆掉即消失"/]
 rvr[("<b>mmw-reviewer</b><br/>· 审查方法论单源<br/>· 共享纪律加八个视角<br/>· 审查者进门按技能名调用它，主 agent 不读")]
 
@@ -757,10 +757,10 @@ direction TB
   a1["第一步，给 destination 命名。<br/>它固定了范围，所以最先定"]
   a2["第二步，广度优先横扫整个空间。<br/>每条线都碰一下，不在任何一条上扎深"]
   a3{"广度扫完，<br/>还有 fog 吗？"}
-  a4["建 map issue，打上 wayfinder:map 标签。<br/>正文固定一个产物目录，整个 effort 不再改名"]
+  a4["建 map issue，打上 wayfinder:map 标签。<br/>正文记录 map 分支；名字段从该分支计算，整个 effort 不再改名"]
   a5["已经能精确表述的问题，各建一张 decision ticket"]
   a6["第二遍补阻塞关系。<br/>issue 要先有编号，才能互相引用"]
-  a7[["并行运行每张 research ticket。<br/>ticket 已经批准保存；主 agent 验证并综合，<br/>再把事实与 research 索引写进 ticket 评论"]]
+  a7[["并行运行每张 research ticket。<br/>ticket 已经批准保存；Explore 写 findings，<br/>主 agent 写索引，再把结论写进 ticket 评论"]]
 end
 
 hA(["停，交回用户<br/>报 map、已完成的 research 和当前 frontier，<br/>说明每张 decision ticket 使用一个新会话"])
@@ -772,12 +772,12 @@ direction TB
   b1["读一遍 map，只看整体，不逐个打开 ticket"]
   b0{"frontier 上<br/>还有 ticket 吗？"}
   b2["挑一张没有阻塞、也没人认领的"]
-  b3["先 claim 指派给自己，再从 map 分支建任务 worktree 并绑定任务分支。<br/>ticket 继承 map 的产物目录，并使用 issue 编号子目录"]
+  b3["先 claim 指派给自己。任务树由用户开；agent 在已有的树上创建任务分支。<br/>ticket 继承 map 分支 slug 作为名字段，并使用 issue 编号子目录"]
   b4{"这张是哪一类？"}
   b5["把答案写成结案评论，然后关掉这张 ticket"]
   b6{"mmw-domain-modeling 的<br/>三项 ADR 判据全部成立吗？"}
   b7["回头改 map。<br/>新问题先建 ticket 再连阻塞关系，<br/>判出范围的直接关掉"]
-  b9["本张 decision ticket 收尾：交回任务分支名、HEAD SHA 与基点 SHA；<br/>map 任务验证后集成，草稿 ADR 在集成后换正式编号"]
+  b9["本张 decision ticket 收尾：写结案评论并关票；<br/>草稿 ADR 保持 draft- 文件名"]
 end
 
 hB(["停，交回用户<br/>报告本次结果，并列出当前 frontier 上的 ticket 名称"])
@@ -789,9 +789,9 @@ direction TB
   t3[["research 类，人不用在场。<br/>只查当前这一个决定等待的事实，答完就停"]]
   t4{"task 类。<br/>agent 自己做得了吗？"}
   r1[["按 mmw-research 拆角度，一个角度派一个 Explore；<br/>单角度不硬拆"]]
-  r2["过滤无出处断言，打开出处验证，再由主 agent 综合。<br/>subagent 原始报告不等于 research"]
-  r4["继承 map 的产物目录和 issue 子目录。<br/>这张 ticket 已经批准保存，<br/>research 不再询问是否保存"]
-  r3["验证过的事实始终写进 ticket 评论。<br/>保存时再链接 research 索引；<br/>没查清的另起一节列出来"]
+  r2["每个 Explore 写一份 findings，引用一手出处。<br/>主 agent 写索引，不重写 findings"]
+  r4["继承 map 分支 slug 作为名字段，并用 issue 子目录。<br/>这张 ticket 已经批准保存，<br/>research 不再询问是否保存"]
+  r3["结论写进 ticket 评论。<br/>保存时再链接 research 索引；<br/>没查清的另起一节列出来"]
   hT(["停，交回用户<br/>简单任务给精确清单；复杂任务先用 wizard 生成向导"])
 end
 
@@ -808,12 +808,12 @@ hC(["停或移交<br/>spec destination 交给 mmw-to-spec；<br/>其余 destinat
 
 subgraph PD["D 段 · 每份 spec 各自的会话"]
 direction TB
-  d1["mmw-to-spec 接收 map 名称及 URL 或编号、<br/>产物目录和任务 slug"]
+  d1["mmw-to-spec 接收 map 名称及 URL 或编号；<br/>名字段取 map 分支 slug"]
   d2["mmw-to-spec 综合成 spec，钉住 seam。<br/>用户点头通过 spec 定稿的人工审批关卡"]
   d3["mmw-to-tickets 切 tracer bullet。<br/>用户批准切分与阻塞关系后才发布"]
   d4[["mmw-implement，一张 ticket 创建一个 Codex 后台 Worktree 任务"]]
   d5[["mmw-review，每个视角派独立 reviewer subagent"]]
-  d6["spec 任务交回分支、HEAD 与基点；map 任务验证后集成"]
+  d6["spec 任务在自己的任务树上完成；合回由用户或后续技能处理"]
   d7["整个 effort 收尾，map 分支交回最终目标分支"]
 end
 
@@ -962,35 +962,32 @@ direction LR
   internal[["内部 research<br/>当前仓库的实现、seam、数据流、<br/>调用链与影响面<br/>出处是文件与行号"]]
   external[["外部 research<br/>第三方库、接口、规范与本地知识库<br/>出处是一手链接或命令与输出"]]
   tasks["一个问题一份四栏 task。<br/>目标、读、约束、验收写全；<br/>互不依赖的问题并行派 Explore"]
-  reports["subagent 交回原始报告。<br/>它是待验证输入，还不是 research"]
+  reports["Explore 各自写一份 findings 文件。<br/>主 agent 不重写"]
 end
 
-subgraph RVERIFY["三、主 agent 验证与综合 · 判定权不下放"]
+subgraph RINDEX["三、主 agent 写索引 · 不重写 findings"]
 direction LR
-  filter["过滤没有出处的断言，<br/>记录被过滤的数量与内容"]
-  verify["打开每个出处验证。<br/>内部的「没有找到」与外部二手来源必须重新查"]
-  conflict["证据冲突时并列展示，<br/>未通过验证的内容只进未查清项"]
-  synth["跨问题去重并综合。<br/>每条保留出处；综合不再派发"]
-  done["此时才形成 research：<br/>主 agent 验证并综合的最终事实"]
+  verify["主 agent 写 README.md：问题，以及目录中的文件"]
+  done["research 目录 = 索引 + findings 文件"]
 end
 
 subgraph RSAVE["四、确定路径与保存 · Wayfinder 和实测直接保存"]
 direction LR
   owner["mmw artifact path research 给出索引路径。<br/>Wayfinder ticket 传入 --name 与 --issue"]
   path{"是否是 Wayfinder<br/>decision ticket？"}
-  normal["普通任务使用<br/>docs/research/&lt;产物目录&gt;/&lt;research 主题&gt;/"]
-  wfpath["Wayfinder ticket 使用<br/>docs/research/&lt;产物目录&gt;/issue-&lt;编号&gt;/&lt;research 主题&gt;/"]
+  normal["普通任务使用<br/>docs/research/&lt;名字段&gt;/&lt;research 主题&gt;/"]
+  wfpath["Wayfinder ticket 使用<br/>docs/research/&lt;名字段&gt;/issue-&lt;编号&gt;/&lt;research 主题&gt;/"]
   direct{"Wayfinder ticket、外部系统实测，<br/>或调用方传入「直接保存」？"}
   proposal["展示 research 问题、结论摘要、<br/>拟保存文件和完整路径"]
   gate{"用户是否保存<br/>本次 research？"}
   saved["创建 research 目录。<br/>README.md 是 research 索引；<br/>每个 Explore 一份 findings 文件"]
-  none["不创建 research 目录或文件。<br/>验证后的事实仍然有效，仍可交回调用方"]
+  none["不创建 research 目录或文件。<br/>findings 仍然有效，仍可交回调用方"]
   scratch["subagent 原始报告、网页转储、抓取缓存、<br/>未采信内容需要跨进程转交时写入 scratch。<br/>scratch 不进 Git，任务结束时清理"]
 end
 
 subgraph RRETURN["五、交回与下游读取 · 保存和引用是两次独立决定"]
 direction LR
-  handoff["始终交回验证后的事实、出处和未查清项"]
+  handoff["始终交回 findings、出处和未查清项"]
   whandoff["Wayfinder：事实写入 decision ticket 评论。<br/>保存时再链接 research 索引"]
   dhandoff["用户直接调用：结论留在当前会话。<br/>保存时再给 research 索引路径"]
   callers["其他技能：先接收事实。<br/>只有确实需要已保存 research 时，<br/>再接收索引与精确文件路径"]
@@ -1024,11 +1021,8 @@ kind -->|"仓库之外"| external
 internal --> tasks
 external --> tasks
 tasks --> reports
-reports --> filter
-filter --> verify
-verify --> conflict
-conflict --> synth
-synth --> done
+reports --> verify
+verify --> done
 reports -.->|"确需跨进程转交"| scratch
 done --> owner
 owner --> path

@@ -138,7 +138,7 @@ mmw_issue_create() {
       --parent) parent="${2:-}"; shift 2 ;;
       --label) labels="${2:-}"; shift 2 ;;
       --blocked-by) blocked_by="${2:-}"; shift 2 ;;
-      -h|--help) mmw_help usage_issue; return 0 ;;
+      -h|--help) mmw_help usage_issue_create; return 0 ;;
       *) echo "mmw: issue create 认不出参数 $1" >&2; return 2 ;;
     esac
   done
@@ -291,7 +291,7 @@ mmw_issue_append() {
         got_line=1
         shift 2
         ;;
-      -h|--help) mmw_help usage_issue; return 0 ;;
+      -h|--help) mmw_help usage_issue_append; return 0 ;;
       *) echo "mmw: issue append 认不出参数 $1" >&2; return 2 ;;
     esac
   done
@@ -411,7 +411,7 @@ mmw_issue_set_parent() {
         parent="$2"
         shift 2
         ;;
-      -h|--help) mmw_help usage_issue; return 0 ;;
+      -h|--help) mmw_help usage_issue_set_parent; return 0 ;;
       *) echo "mmw: issue set-parent 认不出参数 $1" >&2; return 2 ;;
     esac
   done

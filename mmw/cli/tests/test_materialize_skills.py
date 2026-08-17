@@ -276,6 +276,17 @@ def test_两个审查角色的宿主让共同理解审换一个模型(
     assert "reviewer-claude" not in 第零道
 
 
+def test_两个审查角色的宿主不叫主_agent_验证出处(
+    假源: Path, tmp_path: Path
+) -> None:
+    for host in ("pi", "claude-code", "cursor", "grok"):
+        正文 = 审查组(host, 假源, tmp_path)
+        assert "验证出处" not in 正文
+        assert "优先验证" not in 正文
+        assert "复核" not in 正文
+        assert "按 `/mmw-review` 处置" in 正文
+
+
 def test_只有一个审查角色的宿主说清楚换不了模型(假源: Path, tmp_path: Path) -> None:
     正文 = 审查组("codex", 假源, tmp_path)
     assert "换不了模型" in 正文
@@ -376,7 +387,7 @@ def test_审查组两个角色缺一个就退出(假源: Path, tmp_path: Path) -
 
 def test_旧背景材料目录不进任何产物(假源: Path, tmp_path: Path) -> None:
     写(假源 / "mmw-setup" / "legacy.md", "旧材料。\n")
-    for host in ("pi", "claude-code", "codex", "cursor"):
+    for host in ("pi", "claude-code", "codex", "cursor", "grok"):
         out = tmp_path / host
         物化(host, out)
         assert not (out / "mmw-setup").exists()
@@ -411,6 +422,8 @@ def test_grok_worktree_含隔离不含认领(
     assert "worktree 隔离" in 正文
     assert "mmw dispatch" not in 正文
     assert "grok -p" not in 正文
+    assert "工人" not in 正文
+    assert "worker 完成工作并提交" in 正文
     assert "主 agent 不得执行与该 subagent task 重叠的" in 正文
 
 

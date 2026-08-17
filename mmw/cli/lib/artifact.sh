@@ -10,14 +10,12 @@ usage_artifact() {
 mmw artifact path <类别> [--name <名字段>] [--issue <编号>] [--sub <类别内细分>] [--absolute]
 mmw artifact index <类别>
 mmw artifact check
-mmw artifact list [--name <名字段>] [--map <map 编号>]
 
 Examples:
   mmw artifact path spec
   mmw artifact path scratch --sub understanding.md
   mmw artifact path research --name release --issue 19 --sub report
   mmw artifact index adr
-  mmw artifact list --map 12
 
 类别与术语：
 EOF
@@ -142,7 +140,7 @@ mmw_artifact_path() {
   case "$status" in
     no-file)
       if [ "$category" = "task" ]; then
-        mmw_artifact_error "$term 不写文件；正文经标准输入传给 mmw dispatch"
+        mmw_artifact_error "$term 不写文件；正文走宿主启动块的标准输入"
       else
         mmw_artifact_error "$term 不写文件；正文走 subagent 的标准输出"
       fi
@@ -262,110 +260,6 @@ mmw_artifact_path() {
   if [ "$sub_naming" = "ad-hoc" ]; then
     echo "mmw artifact: 这一类的名字当场取，写第一个文件之前先列一次父目录" >&2
   fi
-}
-
-mmw_artifact_list() {
-  local name="" map=""
-  local name_given=false map_given=false record root repo_root category category_dir index
-  local relative issue sub ticket number title children
-
-  if mmw_is_help "$@"; then mmw_help usage_artifact; return 0; fi
-  while [ "$#" -gt 0 ]; do
-    case "$1" in
-      --name)
-        [ $# -ge 2 ] || { mmw_artifact_error "--name 要有名字段"; return 1; }
-        [ "$name_given" = false ] || { mmw_artifact_error "--name 只能给一次"; return 1; }
-        name="$2"
-        name_given=true
-        shift 2
-        ;;
-      --map)
-        [ $# -ge 2 ] || { mmw_artifact_error "--map 要有编号"; return 1; }
-        [ "$map_given" = false ] || { mmw_artifact_error "--map 只能给一次"; return 1; }
-        map="$2"
-        map_given=true
-        shift 2
-        ;;
-      -h|--help)
-        mmw_help usage_artifact
-        return 0
-        ;;
-      *)
-        mmw_artifact_error "认不出参数 $1"
-        return 1
-        ;;
-    esac
-  done
-
-  [ -f "$MMW_ARTIFACT_DATA" ] || {
-    mmw_artifact_error "找不到产物落点数据 $MMW_ARTIFACT_DATA"
-    return 1
-  }
-
-  if [ "$name_given" = false ]; then
-    name="$(mmw_current_name_segment)" || return 1
-  fi
-  mmw_artifact_validate_segment "$name" "--name" || return 1
-
-  if [ "$map_given" = true ] && [[ ! "$map" =~ ^[0-9]+$ ]]; then
-    mmw_artifact_error "--map 只接收纯编号"
-    return 1
-  fi
-
-  repo_root="$(mmw_repo_root)" || return 1
-
-  # 先取 tracker 那一半。读不到就一条候选都不输出：调用方拿这份清单补必读材料
-  # 声明，一份缺了结论评论的清单会让它以为 map 上没有已关闭的 decision ticket，
-  # 于是一条上游结论都不补——那正是必读材料声明本身要修的失效。
-  if [ "$map_given" = true ]; then
-    children="$(mmw_issue_children_raw "$map")" || {
-      mmw_artifact_error "读不到 map $map 的子 issue，清单会缺结论评论那一半"
-      return 1
-    }
-  fi
-
-  {
-    for category in prototype research; do
-      if ! record="$(jq -ce --arg category "$category" '.[$category]' "$MMW_ARTIFACT_DATA" 2>/dev/null)"; then
-        mmw_artifact_error "找不到类别 $category 的产物落点数据"
-        return 1
-      fi
-      root="$(jq -r '.root' <<< "$record")"
-      category_dir="$repo_root/$root/$name"
-      [ -d "$category_dir" ] || continue
-
-      while IFS= read -r index; do
-        relative="${index#"$category_dir"/}"
-        relative="${relative%/README.md}"
-        [ -n "$relative" ] || continue
-        issue=""
-        sub="$relative"
-        if [[ "$relative" =~ ^issue-([0-9]+)/(.*)$ ]]; then
-          issue="${BASH_REMATCH[1]}"
-          sub="${BASH_REMATCH[2]}"
-        fi
-        [ -n "$sub" ] || continue
-        mmw_artifact_validate_sub "$sub" "$record" > /dev/null 2>&1 || continue
-        if [ -n "$issue" ]; then
-          printf '%s\n' "- category=$category name=$name issue=$issue sub=$sub"
-        else
-          printf '%s\n' "- category=$category name=$name sub=$sub"
-        fi
-      done < <(find "$category_dir" -type f -name README.md -print | LC_ALL=C sort)
-    done
-
-    if [ "$map_given" = true ]; then
-      while IFS= read -r ticket; do
-        [ -n "$ticket" ] || continue
-        if jq -e '(.state == "closed") and any(.labels[]?; .name | startswith("wayfinder:"))' \
-          <<< "$ticket" > /dev/null; then
-          number="$(jq -r '.number' <<< "$ticket")"
-          title="$(jq -r '.title' <<< "$ticket")"
-          printf '%s\n' "- issue=$number 结论评论 $title"
-        fi
-      done <<< "$children"
-    fi
-  } | LC_ALL=C sort
 }
 
 mmw_artifact_index() {

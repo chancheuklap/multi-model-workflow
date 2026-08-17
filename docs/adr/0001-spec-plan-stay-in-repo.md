@@ -5,6 +5,8 @@ amends: []
 
 # spec 与 plan 长期留在仓库，废除 Wiki 归档
 
+> 现行收尾见 [出包与收尾](../context/release-and-closure.md)。`/mmw-closing` 已取消；过程材料随任务结束清理，不经独立 closing 技能。`/mmw-start` 已取消。下面正文里的这两处技能名是当时的读法。
+
 MMW 原来在 `/mmw-closing` 收尾时把 spec 与 plan 推到 GitHub Wiki，再从仓库删除 `docs/specs/<任务 slug>/` 与 `docs/plans/<任务 slug>/`，Wiki 页面是唯一的长期副本。现在改为：spec 与 plan 长期留在仓库，收尾不再删除；`/mmw-closing` 不再写 Wiki；`mmw wiki` 的 `ensure`、`nav`、`verify` 三个子命令退役。理由是仓库里的 spec 与代码在同一条 Git 历史上，能通过提交和 PR 关联到实现，而 Wiki 是另一个 Git 仓库，没有分支，也不参与 PR。
 
 ## Considered Options

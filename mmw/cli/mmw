@@ -58,35 +58,88 @@ mmw_need() {
   exit 2
 }
 
-# 用法分两层：这里只列命令名，参数在各命令自己的 usage_* 里。要查 dispatch
-# 怎么写的人不该顺带读完 issue 的六个子命令——认不出参数时打的也是那一个命令
-# 自己的用法，不是全部。
+# 用法分两层：顶层只列命令名，参数在各命令自己的 usage_* 里。认不出参数时
+# 打的也是那一个命令自己的用法，不是全部。
+#
+# 顶层再按宿主过滤：Cursor / Codex / Grok 的 agent 看见 dispatch 会去跑它。
+# 认不出宿主时（人在终端里）把宿主专用命令标上「仅 …」，不藏。
 usage() {
+  local host=""
+  host="$(mmw_host 2>/dev/null)" || host=""
+
   cat >&2 <<'EOF'
 mmw <命令> [参数]
 
-  dispatch    Claude Code：把 task 正文编成宿主工具参数（Pi 主路径不用）
-  agents      把角色物化成宿主原生 subagent 文件
-  skills      把技能源占位符物化成宿主写死的启动句
-  artifact    产物：查询类别的落点
-  worktree    Pi / Claude Code：从当前 HEAD 长出或收回工人树
-  result      后台结果：验证分支并集成到当前任务
-  issue       tracker：建 issue、挂父子、算可认领集合
-  domain      领域文档：初始化 Map、同步和检查消费合同、查询落点与 ADR 编号
-  graph       结构图谱：状态、建一次、验证建对了
-  toolchain   语言工具链：探测该配哪些语言服务器与检查器，报缺失与版本不对齐
-  mcp         MCP：按唯一服务器定义启动 Codex plugin 的 stdio 进程
-  release     出包：起循环、问状态、跑一个阶段、派修、收束
-  doctor      检查这台机器上跑 mmw 需要的东西（无参：跑一次就是检查）
-  init        把当前仓库配置成能跑这套工作流的样子；幂等（无参：跑一次就是配置）
+会话：
+  artifact    产物落点：path / index / check
+  issue       tracker：create / frontier / children / claim / link / append / set-parent
+  result      把结果分支合进当前任务
+  domain      领域文档：path / check / adr-next / dirs
+EOF
 
-除 doctor 与 init 外，各命令不带参数运行时只显示该命令的用法。doctor 与 init 不带 --help 运行时就是执行。
+  case "$host" in
+    claude-code)
+      cat >&2 <<'EOF'
+  worktree    从当前 HEAD 长出或收回结果树
+  dispatch    把 task 正文编成宿主工具参数
+EOF
+      ;;
+    pi)
+      cat >&2 <<'EOF'
+  worktree    从当前 HEAD 长出或收回结果树
+EOF
+      ;;
+    cursor|codex|grok)
+      ;;
+    *)
+      cat >&2 <<'EOF'
+  worktree    仅 Pi / Claude Code：长出或收回结果树
+  dispatch    仅 Claude Code：把 task 正文编成宿主工具参数
+EOF
+      ;;
+  esac
+
+  cat >&2 <<'EOF'
+
+按技能：
+  graph       结构图谱：build / verify
+  toolchain   提交前诊断与语言工具链
+  release     出包状态机（/mmw-release）
+
+安装：
+  init        配置当前仓库（幂等）
+  doctor      检查这台机器
+  skills      物化技能产物
+  agents      物化原生 subagent
+  mcp         Codex plugin 的 stdio 入口
+
+查某一个命令：mmw <命令> --help
+除 doctor 与 init 外，无参只显示用法。doctor 与 init 无参就是执行。
+EOF
+
+  case "$host" in
+    cursor|codex|grok)
+      cat >&2 <<EOF
+
+当前宿主 ${host}：不要跑 dispatch 或 worktree。按技能产物启动 subagent。
+EOF
+      ;;
+    pi)
+      cat >&2 <<'EOF'
+
+当前宿主 pi：不要跑 dispatch。按技能产物启动 subagent。
+EOF
+      ;;
+  esac
+
+  cat >&2 <<'EOF'
 
 Examples:
-  mmw --version
-  mmw artifact --help
+  mmw artifact path spec
+  mmw issue frontier 12 --label ready-for-agent
+  mmw result integrate result-login-form <HEAD SHA> <基点 SHA>
+  mmw domain path
   mmw issue --help
-  mmw doctor --help
 EOF
   return 2
 }
@@ -94,6 +147,8 @@ EOF
 usage_dispatch() {
   cat >&2 <<'EOF'
 mmw dispatch <角色> [--task-text <正文>] [--cwd <目录>] [--issue <编号>]
+
+只给 Claude Code。Pi、Cursor、Grok 按物化后的技能产物启动 subagent，不要调这条命令。
 
 角色：
   worker            按一份 plan 写代码
@@ -144,17 +199,14 @@ EOF
 
 usage_result() {
   cat >&2 <<'EOF'
-mmw result verify <结果分支> <HEAD SHA> <基点 SHA>
-    检查这条分支存在、它的 HEAD 等于给的 SHA、它确实从给的基点分叉、而且有新提交。
-    通过时输出结果 worktree 的绝对路径，供你去那里读报告和 diff。不改任何 Git 状态。
 mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>
-    先做一次同样的验证，再用 git merge --no-ff 把它合进当前分支。
+    先核对这条分支存在、它的 HEAD 等于给的 SHA、它确实从给的基点分叉、而且有新提交，
+    再用 git merge --no-ff 把它合进当前分支。
 
 三个参数都由交回结果的那一方给出，不要自己去查。SHA 对不上时退出码非 0，说明报告
 和实际提交不一致：先查清楚差在哪，不要重试，也不要改用 git merge 绕过去。
 
 Examples:
-  mmw result verify result-login-form abcdef1 1234567
   mmw result integrate result-login-form abcdef1 1234567
 EOF
   return 2
@@ -162,38 +214,19 @@ EOF
 
 usage_issue() {
   cat >&2 <<'EOF'
-mmw issue create --title <标题> --body-file <文件>
-                 [--parent <编号>] [--blocked-by <编号,编号>] [--label <标签,标签>]
-    建一张 issue，同时挂上父 issue、连好阻塞边、打好标签。只输出新 issue 的编号。
-    --body-file 收的是文件路径，不是正文本身：正文先写进一个文件再传路径。
-    --label 的取值来自正在使用这条命令的技能，例如 Wayfinder 用 wayfinder:map 和
-    wayfinder:<类型>，To Spec 用 ready-for-agent。这条命令不校验标签含义。
+mmw issue <动作>
 
-mmw issue frontier <map 或父 issue 编号> [--label <标签> | --label-prefix <前缀>]
-    列出 open、没有被还开着的 issue 挡住、也没有人认领的子 issue，编号升序。
-    每行两列，制表符分隔：编号、标题。要全部就读全部行，要下一张就取第一行。
-    一行都没有输出，说明当前没有可认领的子 issue，退出码仍然是 0。
-    --label 和 --label-prefix 不能同时给。
+  create      建 issue，可同时挂父、阻塞边、标签
+  frontier    可认领的子 issue
+  children    全部子 issue
+  claim       认领给当前用户
+  link        连一条阻塞边
+  append      向已有小节追加一行
+  set-parent  给已存在的 issue 设父
 
-mmw issue children <map 或父 issue 编号>
-    列出全部子 issue，编号升序，用来看这一批走到哪一步了。每行六列，制表符分隔：
-    编号、状态、认领人（无人认领时是 -）、还有几张开着的 issue 挡着它、
-    标签（多个用逗号分隔）、标题。
+查某一动作：mmw issue <动作> --help
 
-mmw issue claim <编号>
-    把这张 issue 认领给当前用户。已经被别人认领时退出码非 0，说明另一个会话正在
-    处理它：改取下一张，不要重试。
-
-mmw issue link <被挡的编号> --blocked-by <挡住它的编号>
-    连一条阻塞边。一次只连一条，要连多条就多跑几次。
-
-mmw issue append <issue 编号> --section <小节标题> --line <要追加的一行>
-    向现有二级标题的小节追加一行。不要拼整份正文写回。
-
-mmw issue set-parent <子 issue 编号> --parent <父 issue 编号>
-    给已存在的 issue 设置父 issue。
-
-以上七条之外的 tracker 动作直接用 gh：
+这七条之外的 tracker 动作直接用 gh：
     读 issue 和评论   gh issue view <编号> --comments
     发评论            gh issue comment <编号> --body-file <文件>
     追加一行          mmw issue append <编号> --section <小节标题> --line <要追加的一行>
@@ -206,6 +239,96 @@ Examples:
   mmw issue frontier 12 --label-prefix wayfinder:
   mmw issue claim 34
   mmw issue append 12 --section "Decisions so far" --line "- 选 A"
+  mmw issue set-parent 34 --parent 12
+  mmw issue create --help
+EOF
+  return 2
+}
+
+usage_issue_create() {
+  cat >&2 <<'EOF'
+mmw issue create --title <标题> --body-file <文件>
+                 [--parent <编号>] [--blocked-by <编号,编号>] [--label <标签,标签>]
+    建一张 issue，同时挂上父 issue、连好阻塞边、打好标签。只输出新 issue 的编号。
+    --body-file 收的是文件路径，不是正文本身：正文先写进一个文件再传路径。
+    --label 的取值来自正在使用这条命令的技能，例如 Wayfinder 用 wayfinder:map 和
+    wayfinder:<类型>，To Spec 用 ready-for-agent。这条命令不校验标签含义。
+
+Examples:
+  mmw issue create --title "拆 tickets" --body-file /tmp/body.md --parent 12 --label ready-for-agent
+EOF
+  return 2
+}
+
+usage_issue_frontier() {
+  cat >&2 <<'EOF'
+mmw issue frontier <map 或父 issue 编号> [--label <标签> | --label-prefix <前缀>]
+    列出 open、没有被还开着的 issue 挡住、也没有人认领的子 issue，编号升序。
+    每行两列，制表符分隔：编号、标题。要全部就读全部行，要下一张就取第一行。
+    一行都没有输出，说明当前没有可认领的子 issue，退出码仍然是 0。
+    --label 和 --label-prefix 不能同时给。
+
+Examples:
+  mmw issue frontier 12 --label ready-for-agent
+  mmw issue frontier 12 --label-prefix wayfinder:
+EOF
+  return 2
+}
+
+usage_issue_children() {
+  cat >&2 <<'EOF'
+mmw issue children <map 或父 issue 编号>
+    列出全部子 issue，编号升序，用来看这一批走到哪一步了。每行六列，制表符分隔：
+    编号、状态、认领人（无人认领时是 -）、还有几张开着的 issue 挡着它、
+    标签（多个用逗号分隔）、标题。
+
+Examples:
+  mmw issue children 12
+EOF
+  return 2
+}
+
+usage_issue_claim() {
+  cat >&2 <<'EOF'
+mmw issue claim <编号>
+    把这张 issue 认领给当前用户。已经被别人认领时退出码非 0，说明另一个会话正在
+    处理它：改取下一张，不要重试。
+
+Examples:
+  mmw issue claim 34
+EOF
+  return 2
+}
+
+usage_issue_link() {
+  cat >&2 <<'EOF'
+mmw issue link <被挡的编号> --blocked-by <挡住它的编号>
+    连一条阻塞边。一次只连一条，要连多条就多跑几次。
+
+Examples:
+  mmw issue link 34 --blocked-by 12
+EOF
+  return 2
+}
+
+usage_issue_append() {
+  cat >&2 <<'EOF'
+mmw issue append <issue 编号> --section <小节标题> --line <要追加的一行>
+    向现有二级标题的小节追加一行。不要拼整份正文写回。
+
+Examples:
+  mmw issue append 12 --section "Decisions so far" --line "- 选 A"
+EOF
+  return 2
+}
+
+usage_issue_set_parent() {
+  cat >&2 <<'EOF'
+mmw issue set-parent <子 issue 编号> --parent <父 issue 编号>
+    给已存在的 issue 设置父 issue。
+
+Examples:
+  mmw issue set-parent 34 --parent 12
 EOF
   return 2
 }
@@ -298,6 +421,13 @@ cmd_dispatch() {
     usage_dispatch
   }
 
+  local host
+  host="$(mmw_host)" || return 1
+  if [ "$host" != "claude-code" ]; then
+    echo "mmw: dispatch 只给 Claude Code。当前宿主是 ${host}，按物化后的技能产物启动 subagent。" >&2
+    return 1
+  fi
+
   local task_text="" task_text_set="no" cwd="" issue="" resume=""
   local resume_given=0
   while [ $# -gt 0 ]; do
@@ -364,10 +494,8 @@ cmd_dispatch() {
   [ -d "$cwd" ] || { echo "mmw: 工作目录不存在：$cwd" >&2; return 1; }
   cwd="$(cd "$cwd" && pwd)"
 
-  local host adapter
-  host="$(mmw_host)"
-  adapter="$MMW_ROOT/cli/adapters/$host.sh"
-  [ -f "$adapter" ] || { echo "mmw: 没有 $host 的 adapter" >&2; return 1; }
+  local adapter="$MMW_ROOT/cli/adapters/claude-code.sh"
+  [ -f "$adapter" ] || { echo "mmw: 找不到 Claude Code 的 dispatch adapter" >&2; return 1; }
 
   export MMW_D_ROLE="$role"
   export MMW_D_ROSTER="$roster"
@@ -444,9 +572,9 @@ cmd_agents() {
 
 usage_skills() {
   cat >&2 <<'EOF'
-mmw skills materialize --host <pi|claude-code|codex|cursor|all> [--check] [--out <目录>]
+mmw skills materialize --host <pi|claude-code|codex|cursor|grok|all> [--check] [--out <目录>]
     把 skills/ 源里的启动块与宿主动作块物化成宿主写死的操作
-    pi → skills-pi/；claude-code → skills-claude-code/；codex → skills-codex/；cursor → skills-cursor/
+    pi → skills-pi/；claude-code → skills-claude-code/；codex → skills-codex/；cursor → skills-cursor/；grok → skills-grok/
 
 Examples:
   mmw skills materialize --host all
@@ -476,7 +604,7 @@ cmd_skills() {
           *) echo "mmw: 认不出参数 $1" >&2; usage_skills ;;
         esac
       done
-      [ -n "$host" ] || mmw_need "skills materialize 要 --host" "mmw skills materialize --host <pi|claude-code|codex|cursor|all>"
+      [ -n "$host" ] || mmw_need "skills materialize 要 --host" "mmw skills materialize --host <pi|claude-code|codex|cursor|grok|all>"
       args+=(--host "$host")
       python3 "$MMW_ROOT/cli/lib/materialize_skills.py" "${args[@]}"
       ;;
@@ -505,7 +633,6 @@ cmd_result() {
   local sub="${1:-}"
   shift || true
   case "$sub" in
-    verify) mmw_result_verify "$@" ;;
     integrate) mmw_result_integrate "$@" ;;
     *) usage_result ;;
   esac
@@ -517,26 +644,26 @@ cmd_issue() {
   shift || true
   case "$sub" in
     append)
-      if mmw_is_help "$@"; then mmw_help usage_issue; return 0; fi
+      if mmw_is_help "$@"; then mmw_help usage_issue_append; return 0; fi
       [ -n "${1:-}" ] || mmw_need "issue append 要 issue 编号" "mmw issue append <issue 编号> --section <小节标题> --line <要追加的一行>"
       mmw_issue_append "$@"
       ;;
     create)
-      if mmw_is_help "$@"; then mmw_help usage_issue; return 0; fi
+      if mmw_is_help "$@"; then mmw_help usage_issue_create; return 0; fi
       mmw_issue_create "$@"
       ;;
     children)
-      if mmw_is_help "$@"; then mmw_help usage_issue; return 0; fi
+      if mmw_is_help "$@"; then mmw_help usage_issue_children; return 0; fi
       [ -n "${1:-}" ] || mmw_need "issue children 要 map 或父 issue 编号" "mmw issue children <map 或父 issue 编号>"
       mmw_issue_children "$1"
       ;;
     claim)
-      if mmw_is_help "$@"; then mmw_help usage_issue; return 0; fi
+      if mmw_is_help "$@"; then mmw_help usage_issue_claim; return 0; fi
       [ -n "${1:-}" ] || mmw_need "issue claim 要编号" "mmw issue claim <编号>"
       mmw_issue_claim "$1"
       ;;
     frontier)
-      if mmw_is_help "$@"; then mmw_help usage_issue; return 0; fi
+      if mmw_is_help "$@"; then mmw_help usage_issue_frontier; return 0; fi
       local parent="${1:-}" label="" label_prefix=""
       [ -n "$parent" ] || mmw_need "issue frontier 要 map 或父 issue 编号" "mmw issue frontier <map 或父 issue 编号> [--label <标签> | --label-prefix <前缀>]"
       shift
@@ -544,8 +671,8 @@ cmd_issue() {
         case "$1" in
           --label) label="${2:-}"; shift 2 ;;
           --label-prefix) label_prefix="${2:-}"; shift 2 ;;
-          -h|--help) mmw_help usage_issue; return 0 ;;
-          *) echo "mmw: issue frontier 认不出参数 $1" >&2; usage_issue ;;
+          -h|--help) mmw_help usage_issue_frontier; return 0 ;;
+          *) echo "mmw: issue frontier 认不出参数 $1" >&2; usage_issue_frontier ;;
         esac
       done
       if [ -n "$label" ] && [ -n "$label_prefix" ]; then
@@ -554,22 +681,22 @@ cmd_issue() {
       mmw_issue_frontier "$parent" "$label" "$label_prefix"
       ;;
     link)
-      if mmw_is_help "$@"; then mmw_help usage_issue; return 0; fi
+      if mmw_is_help "$@"; then mmw_help usage_issue_link; return 0; fi
       local child="${1:-}" blocker=""
       [ -n "$child" ] || mmw_need "issue link 要被挡的编号" "mmw issue link <被挡的编号> --blocked-by <挡住它的编号>"
       shift
       while [ $# -gt 0 ]; do
         case "$1" in
           --blocked-by) blocker="${2:-}"; shift 2 ;;
-          -h|--help) mmw_help usage_issue; return 0 ;;
-          *) echo "mmw: issue link 认不出参数 $1" >&2; usage_issue ;;
+          -h|--help) mmw_help usage_issue_link; return 0 ;;
+          *) echo "mmw: issue link 认不出参数 $1" >&2; usage_issue_link ;;
         esac
       done
       [ -n "$blocker" ] || mmw_need "issue link 要 --blocked-by" "mmw issue link <被挡的编号> --blocked-by <挡住它的编号>"
       mmw_issue_link "$child" "$blocker"
       ;;
     set-parent)
-      if mmw_is_help "$@"; then mmw_help usage_issue; return 0; fi
+      if mmw_is_help "$@"; then mmw_help usage_issue_set_parent; return 0; fi
       [ -n "${1:-}" ] || mmw_need "issue set-parent 要子 issue 编号" "mmw issue set-parent <子 issue 编号> --parent <父 issue 编号>"
       mmw_issue_set_parent "$@"
       ;;
@@ -602,7 +729,6 @@ cmd_artifact() {
     path) mmw_artifact_path "$@" ;;
     index) mmw_artifact_index "$@" ;;
     check) mmw_artifact_check "$@" ;;
-    list) mmw_artifact_list "$@" ;;
     *) usage_artifact ;;
   esac
 }

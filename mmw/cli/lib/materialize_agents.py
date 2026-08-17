@@ -2,7 +2,7 @@
 """把角色真源与 MMW runtime 模型档物化成各宿主原生 subagent 文件。
 
 用法：
-  materialize_agents.py --host pi|cursor|all [--check] [--config <path>] [--out <dir>]
+  materialize_agents.py --host pi|cursor|grok|all [--check] [--config <path>] [--out <dir>]
 
 --check  只比对，漂移非零退出。
 --out    覆盖 profile 默认输出目录（测试用）。
@@ -390,7 +390,7 @@ def sync_group(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="materialize_agents.py")
-    parser.add_argument("--host", required=True, help="pi | cursor | all")
+    parser.add_argument("--host", required=True, help="pi | cursor | grok | all")
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--config", default="", help="源码模型档路径；默认使用 MMW 模型档")
     parser.add_argument("--out", default="", help="覆盖输出目录")

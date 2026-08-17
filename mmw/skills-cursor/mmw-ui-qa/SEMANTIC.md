@@ -56,7 +56,7 @@ Consecutive steps across two paths do not merge — each path is scored on its o
 
 Walkthrough tasks cover **screens in this run's scope** (scope is [SKILL.md](SKILL.md) step 7). Two sources, different bars:
 
-- **Paths from MMW artifacts.** Run `mmw artifact index prototype` and `mmw artifact index spec`, read the files about this product, and take operation paths written in user walkthrough conclusions and acceptance sections. The path must be a full path the user walked for a real goal, across several screens, and must include at least one failure path or edge. A single action merges up into its full path. Do not split to pad the count.
+- **Paths from MMW artifacts.** Run `mmw artifact path prototype --sub README.md` and `mmw artifact index spec`, read the files about this product, and take operation paths written in user walkthrough conclusions and acceptance sections. The path must be a full path the user walked for a real goal, across several screens, and must include at least one failure path or edge. A single action merges up into its full path. Do not split to pad the count.
 - **No artifact path in scope: build from jumps in the screen map** ([SKILL.md](SKILL.md) step 6). From the main window, one shortest path to each in-scope screen. Failure paths are not required. **The report must mark these as constructed** — they guarantee reach, not that a user would walk them.
 
 The second source means B2, B3, and B4 always have a path. **Do not skip these three checks when artifacts yield nothing.**

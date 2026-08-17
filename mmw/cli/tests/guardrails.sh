@@ -136,40 +136,39 @@ grow_branch() {
   git -C "$wt" rev-parse HEAD
 }
 
-# ---------------------------------------------------------------- result verify
+# ---------------------------------------------------------------- result verify（内部核对，公开入口已拿掉）
 
 suite_result_verify() {
-  echo "mmw result verify"
+  echo "mmw result verify 不是公开子命令；核对仍由 integrate 执行"
   local repo base new unrelated
   repo="$(fresh_repo)"
   base="$(git -C "$repo" rev-parse HEAD)"
   new="$(grow_branch "$repo" feat)"
 
-  expect_ok "报告与实际一致时通过" "$repo" \
+  expect_deny "公开的 result verify 拒绝" "$repo" \
     env MMW_HOST=codex "$MMW" result verify feat "$new" "$base"
+
   expect_deny "报告的 HEAD 与分支实际 HEAD 不符" "$repo" \
-    env MMW_HOST=codex "$MMW" result verify feat "$base" "$base"
+    env MMW_HOST=codex "$MMW" result integrate feat "$base" "$base"
   expect_deny "结果分支不存在" "$repo" \
-    env MMW_HOST=codex "$MMW" result verify nosuch "$new" "$base"
+    env MMW_HOST=codex "$MMW" result integrate nosuch "$new" "$base"
   expect_deny "报告的 HEAD 不是这个仓库里的提交" "$repo" \
-    env MMW_HOST=codex "$MMW" result verify feat 0000000 "$base"
+    env MMW_HOST=codex "$MMW" result integrate feat 0000000 "$base"
   expect_deny "基点不是这个仓库里的提交" "$repo" \
-    env MMW_HOST=codex "$MMW" result verify feat "$new" 0000000
+    env MMW_HOST=codex "$MMW" result integrate feat "$new" 0000000
 
   git -C "$repo" branch -q stalled "$base"
   git -C "$repo" worktree add -q "$repo/.worktrees/stalled" stalled
   expect_deny "分支停在基点上，没有产生新提交" "$repo" \
-    env MMW_HOST=codex "$MMW" result verify stalled "$base" "$base"
+    env MMW_HOST=codex "$MMW" result integrate stalled "$base" "$base"
 
-  # 另起一条与 feat 无关的线，拿它当基点：feat 不是从这里长出来的。
   unrelated="$(grow_branch "$repo" elsewhere)"
   expect_deny "结果分支不是从给定基点分叉的" "$repo" \
-    env MMW_HOST=codex "$MMW" result verify feat "$new" "$unrelated"
+    env MMW_HOST=codex "$MMW" result integrate feat "$new" "$unrelated"
 
-  # 分支存在、SHA 都对，但那棵 worktree 已经被撤掉：报告无处可读。
   git -C "$repo" worktree remove "$repo/.worktrees/feat"
   expect_deny "分支的 worktree 已经不在时拒绝" "$repo" \
-    env MMW_HOST=codex "$MMW" result verify feat "$new" "$base"
+    env MMW_HOST=codex "$MMW" result integrate feat "$new" "$base"
 }
 
 # ------------------------------------------------------------- result integrate
@@ -261,14 +260,14 @@ suite_worktree_add() {
   repo="$(fresh_repo)"
   head="$(git -C "$repo" rev-parse HEAD)"
 
-  expect_ok "从当前 HEAD 长出工人树" "$repo" \
+  expect_ok "从当前 HEAD 长出结果树" "$repo" \
     env MMW_HOST=pi "$MMW" worktree add first
-  expect_state "从当前 HEAD 长出工人树" "分支从当前 HEAD 长出" \
+  expect_state "从当前 HEAD 长出结果树" "分支从当前 HEAD 长出" \
     test "$(git -C "$repo/.worktrees/first" rev-parse HEAD)" = "$head"
-  expect_state "从当前 HEAD 长出工人树" "不写 mmw.task 配置" \
+  expect_state "从当前 HEAD 长出结果树" "不写 mmw.task 配置" \
     test -z "$(git -C "$repo/.worktrees/first" config --get-regexp '^mmw\.task' || true)"
   before="$(git -C "$repo" rev-list --count first)"
-  expect_state "从当前 HEAD 长出工人树" "不打空提交" \
+  expect_state "从当前 HEAD 长出结果树" "不打空提交" \
     test "$before" -eq "$(git -C "$repo" rev-list --count main)"
 
   expect_deny "目录已经存在时不覆盖" "$repo" \
@@ -453,7 +452,7 @@ suite_dispatch_output() {
       "$(cat "$execution_err" 2>/dev/null || true)"
   fi
   log="$(find "$log_dir" -maxdepth 1 -type f -name 'worker-*.log' -print -quit 2>/dev/null)"
-  expect_state "失败的派发进度日志" "路径带工作名与范围段" \
+  expect_state "失败的派发进度日志" "路径带名字段与范围段" \
     test -n "$log"
   expect_state "失败的派发进度日志" "文件名是角色、时间戳和随机段" \
     sh -c 'test "$(basename "$1")" != "" && echo "$(basename "$1")" | grep -Eq "^worker-[0-9]{8}-[0-9]{6}-[A-Za-z0-9]{6}\\.log$"' sh "$log"
@@ -540,7 +539,7 @@ suite_dispatch_output() {
 
 suite_dispatch() {
   echo "mmw dispatch（可写角色）"
-  local repo task_body task_text out actual
+  local repo task_body task_text out actual host
   repo="$(fresh_repo)"
   task_body="$WORKBENCH/task-body.txt"
   printf '%s' '## 目标
@@ -570,14 +569,14 @@ suite_dispatch() {
 
   out="$WORKBENCH/dispatch-stdin.out"
   actual="$WORKBENCH/dispatch-stdin-task.txt"
-  if (cd "$repo" && env MMW_HOST=pi "$MMW" dispatch reviewer-gpt \
+  if (cd "$repo" && env MMW_HOST=claude-code "$MMW" dispatch reviewer-claude \
       < "$task_body" > "$out" 2>&1) \
-      && sed -n 's/^params: //p' "$out" | jq -j '.task' > "$actual" \
+      && sed -n 's/^params: //p' "$out" | jq -j '.prompt' > "$actual" \
       && cmp -s "$task_body" "$actual" \
       && ! grep -q '^task-file:' "$out"; then
-    report pass "标准输入把多行 task 正文一字不差地交给 Pi adapter"
+    report pass "标准输入把多行 task 正文一字不差地交给 Claude adapter"
   else
-    report fail "标准输入把多行 task 正文一字不差地交给 Pi adapter" \
+    report fail "标准输入把多行 task 正文一字不差地交给 Claude adapter" \
       "$(cat "$out" 2>/dev/null || true)"
   fi
 
@@ -598,8 +597,8 @@ suite_dispatch() {
   out="$WORKBENCH/dispatch-precedence.out"
   actual="$WORKBENCH/dispatch-precedence-task.txt"
   if (cd "$repo" && printf '管道正文' \
-      | env MMW_HOST=pi "$MMW" dispatch reviewer-gpt --task-text "参数正文" > "$out" 2>&1) \
-      && sed -n 's/^params: //p' "$out" | jq -j '.task' > "$actual" \
+      | env MMW_HOST=claude-code "$MMW" dispatch reviewer-claude --task-text "参数正文" > "$out" 2>&1) \
+      && sed -n 's/^params: //p' "$out" | jq -j '.prompt' > "$actual" \
       && [ "$(cat "$actual")" = "参数正文" ]; then
     report pass "两种都给时用 --task-text"
   else
@@ -611,7 +610,7 @@ suite_dispatch() {
   # `cat` 一次来拦「两种都给了」，于是命令永久挂住——没有输出，也没有退出码。
   out="$WORKBENCH/dispatch-openpipe.out"
   if run_with_deadline 20 \
-      bash -c 'cd "$1" && env MMW_HOST=pi "$2" dispatch reviewer-gpt \
+      bash -c 'cd "$1" && env MMW_HOST=claude-code "$2" dispatch reviewer-claude \
         --task-text "正文" > "$3" 2>&1 < <(sleep 60; :)' \
       bash "$repo" "$MMW" "$out"; then
     report pass "标准输入是开着的空管道时不挂住"
@@ -620,7 +619,19 @@ suite_dispatch() {
       "20 秒内没有返回，或者返回了非零：$(cat "$out" 2>/dev/null || true)"
   fi
   expect_deny "旧 --task 文件接口已经删除" "$repo" \
-    env MMW_HOST=pi "$MMW" dispatch reviewer-gpt --task "$task_body"
+    env MMW_HOST=claude-code "$MMW" dispatch reviewer-gpt --task "$task_body"
+
+  for host in pi cursor grok; do
+    out="$WORKBENCH/dispatch-${host}.err"
+    if (cd "$repo" && MMW_HOST="$host" "$MMW" dispatch reviewer-gpt \
+         --task-text "$task_text") >"$out" 2>&1; then
+      report fail "${host} 不走 dispatch" "期望拒绝，实际成功"
+    else
+      report pass "${host} 不走 dispatch"
+    fi
+    expect_state "${host} 不走 dispatch" "诊断点名 Claude Code" \
+      grep -F "dispatch 只给 Claude Code" "$out"
+  done
 
   printf 'dirty\n' > "$repo/.worktrees/dispatchable/dirty.txt"
   expect_deny "任务 worktree 工作区不干净" "$repo" \
@@ -651,8 +662,11 @@ suite_dispatch_resume() {
 
   expect_deny "--resume 空句柄当场拒绝" "$repo" \
     env MMW_HOST=claude-code "$MMW" dispatch reviewer-gpt --task-text "$task_text" --resume ""
-  expect_deny "pi 宿主没有 resume 通道" "$repo" \
+  expect_deny "Pi 上带 --resume 的 dispatch 同样拒绝" "$repo" \
     env MMW_HOST=pi "$MMW" dispatch reviewer-gpt --task-text "$task_text" --resume abc
+  out="$(cd "$repo" && MMW_HOST=pi "$MMW" dispatch reviewer-gpt \
+    --task-text "$task_text" --resume abc 2>&1)" || true
+  expect_out_has "Pi 上带 --resume 的 dispatch 诊断点名 Claude Code" "dispatch 只给 Claude Code" "$out"
 
   out="$(env MMW_HOST=claude-code "$MMW" dispatch 2>&1)" || true
   expect_out_has "usage 登记了 --resume" "--resume" "$out"
@@ -772,7 +786,7 @@ suite_dispatch_writable_roots() {
 
 suite_cursor_host() {
   echo "Cursor 宿主"
-  local repo home slug_dir out
+  local repo
   repo="$(fresh_repo)"
 
   expect_deny "Cursor 拒绝 worktree add" "$repo" \
@@ -788,34 +802,6 @@ suite_cursor_host() {
 
   expect_deny "Cursor 拒绝 worktree remove" "$repo" \
     env MMW_HOST=cursor "$MMW" worktree remove nosuch
-
-  mmw_in "$repo" pi worktree add pi-tree >/dev/null
-  out="$WORKBENCH/cursor-writable.err"
-  if (cd "$repo" && MMW_HOST=cursor "$MMW" dispatch worker --task-text "x" \
-       --cwd "$repo/.worktrees/pi-tree") >"$out" 2>&1; then
-    report fail "Cursor 可写角色不在 ~/.cursor/worktrees 时拒绝" "期望拒绝，实际成功"
-  else
-    report pass "Cursor 可写角色不在 ~/.cursor/worktrees 时拒绝"
-  fi
-  expect_state "Cursor 可写角色不在 ~/.cursor/worktrees 时拒绝" "诊断点名 ~/.cursor/worktrees" \
-    grep -F ".cursor/worktrees" "$out"
-
-  home="$WORKBENCH/cursor-home"
-  mkdir -p "$home/.cursor/worktrees"
-  slug_dir="$home/.cursor/worktrees/$(basename "$repo")/ok"
-  git -C "$repo" worktree add -q -b cursor-ok "$slug_dir" HEAD
-  out="$WORKBENCH/cursor-dispatch.err"
-  if (cd "$slug_dir" && HOME="$home" MMW_HOST=cursor "$MMW" dispatch worker \
-       --task-text "x" --cwd "$slug_dir") >"$out" 2>&1; then
-    report fail "Cursor worker 不走 dispatch" "期望拒绝，实际成功"
-  else
-    report pass "Cursor worker 不走 dispatch"
-  fi
-  expect_state "Cursor worker 不走 dispatch" "诊断点名 mmw-cursor-agent" \
-    grep -F "mmw-cursor-agent" "$out"
-
-  out="$(cd "$repo" && MMW_HOST=cursor "$MMW" dispatch designer --task-text "查" 2>&1)"
-  expect_out_has "Cursor 只读角色走原生 Task" "tool: Task" "$out"
 }
 
 # -------------------------------------------------------------- gitfacts 谓词
@@ -850,19 +836,13 @@ suite_gitfacts
 
 suite_grok_host() {
   echo "grok 宿主"
-  local repo fake_home
+  local repo
   repo="$(fresh_repo)"
-  fake_home="$WORKBENCH/grok-home"
-  mkdir -p "$fake_home/.grok/worktrees/demo"
 
   expect_deny "Grok 拒绝 worktree add" "$repo" \
     env MMW_HOST=grok "$MMW" worktree add grok-new
   expect_deny "Grok 拒绝 worktree remove" "$repo" \
     env MMW_HOST=grok "$MMW" worktree remove grok-new
-
-  expect_deny "Grok 拒绝仓库内 .worktrees 当可写目录" "$repo" \
-    env HOME="$fake_home" MMW_HOST=grok "$MMW" dispatch worker --task-text "干活" \
-      --cwd "$repo"
 
   expect_deny "GROK_AGENT 认出 grok 宿主" "$repo" \
     env -u MMW_HOST -u CLAUDECODE -u PI_CODING_AGENT -u CODEX_THREAD_ID \

@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Claude Code 宿主：怎么把一个角色变成一次真正的派发。
 #
+# `mmw dispatch` 只给这个宿主。adapters/ 里只有这一份；Pi / Cursor / Grok
+# 在 cmd_dispatch 入口拒绝，不设 shim。
+#
 # 这个宿主的会话内 subagent 只能是 Claude，所以派 GPT 必须走 codex exec 外部
 # 进程——CLI 自己跑得完，直接跑。派 Claude 走 Agent 工具，CLI 跑不了，只能把
 # 参数交给模型去调。

@@ -19,7 +19,7 @@ ADR 0005 把工作名和任务分支名做成两个值，并把工作名写进 g
 
 ## Consequences
 
-- `mmw artifact path` / `list` 未给 `--name` 时，从 `git symbolic-ref --short HEAD` 取最后一个 `/` 之后作为名字段。当前在主检出里，或没有分支，则非零退出。
-- 删除 `mmw task` 的 state / name / bind / new / cleanup。Pi 与 Claude Code 的工人树改用 `mmw worktree add` / `remove`，不写 git 配置。
+- `mmw artifact path` 未给 `--name` 时，从 `git symbolic-ref --short HEAD` 取最后一个 `/` 之后作为名字段。当前在主检出里，或没有分支，则非零退出。
+- 删除 `mmw task` 的 state / name / bind / new / cleanup。Pi 与 Claude Code 的结果树改用 `mmw worktree add` / `remove`，不写 git 配置。
 - map 正文不再有 `## 工作名`。后来的会话从 `## 分支` 计算名字段。
 - 历史 `docs/specs/<旧工作名>/` 不搬家。新任务走新规则。
