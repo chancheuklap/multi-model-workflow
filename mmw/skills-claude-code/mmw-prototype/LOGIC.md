@@ -23,7 +23,7 @@ Do not invent business actions, states, or edges the question needs. Ask.
 
 ### 2. Isolate the logic in a portable module
 
-Put the actual logic — the bit that's answering the question — in a small, pure module that could be lifted out and dropped into the real codebase later. Write that module as its own file in this prototype. The HTML page around it is throwaway; this module isn't.
+Put the actual logic — the bit that's answering the question — in a small, pure module that could be lifted out and dropped into the real codebase later. Write that module as its own file in this prototype. The HTML page around it is the shell; this module isn't.
 
 The right shape depends on the question:
 

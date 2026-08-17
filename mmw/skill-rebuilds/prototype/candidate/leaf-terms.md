@@ -2,8 +2,8 @@
 
 Publish `/mmw-prototype` English candidate, then change these entries in `docs/context/delivery-workflow.md`. Do not patch the live leaf until then.
 
-**prototype** (keep meaning, English skill says throwaway for how it is written):
-A running asset that answers a question talk cannot settle, before real code lands. The first cut can be rough. Later rounds edit the same prototype until a walkthrough answers the current question. Throwaway is how it is written. The files stay in the repo.
+**prototype** (keep meaning):
+A running asset that answers a question talk cannot settle, before real code lands. The first cut can be rough. Later rounds edit the same prototype until a walkthrough answers the current question. Write it without tests, extra error handling, or abstractions. The files stay in the repo.
 _Avoid_: MVP, static mock, disposable one-off, promoting the shell to production
 
 **prototype 资产** (update):
