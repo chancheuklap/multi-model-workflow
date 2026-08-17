@@ -1,21 +1,17 @@
 ---
 name: mmw-prototype
-description: Build a throwaway prototype to answer a design question. Use when talk cannot decide how something should look or behave, a `wayfinder:prototype` ticket arrives, or the user wants to sanity-check a state model, data shape, or UI.
+description: Build a prototype to answer a design question. Use when talk cannot decide how something should look or behave, a `wayfinder:prototype` ticket arrives, or the user wants to sanity-check a state model, data shape, or UI.
 ---
 
 # Prototype
 
-A prototype is **throwaway code that answers a question**. The question decides the shape. Throwaway is how it is written — no tests, no extra error handling, no abstractions. The files stay in the repo as a prototype asset, edited in place across rounds, until a walkthrough answers the current question.
+A prototype is a **running asset that answers a question**. The question decides the shape. Write it without tests, extra error handling, or abstractions. The files stay in the repo as a prototype asset, edited in place across rounds, until a walkthrough answers the current question.
 
 `mmw domain path` prints the domain docs to read. Use those terms.
 
 If the question is an external system as it actually behaves under our load, data, or account, invoke `/mmw-research`. If the question cannot be made concrete enough to walk through, invoke `/mmw-grilling`, then return.
 
 One question this round. Later rounds edit the same prototype. Do not start a new prototype for a new question. Stop this direction only when a walkthrough shows the whole direction is wrong.
-
-Before the first write:
-
-[[mmw-require-task-branch]]
 
 `mmw artifact path prototype --sub README.md` prints the index path. The directory that contains it is this prototype. Add `--name` and `--issue` when the caller passed them. Each other file: `mmw artifact path prototype --sub <path>`. Process shots: `mmw artifact path scratch --sub evidence`.
 
@@ -31,7 +27,7 @@ The branches produce very different artifacts — getting this wrong wastes the 
 
 ## Rules that apply to both
 
-1. **Throwaway from day one, and clearly marked as such.** Write the files where `mmw artifact path prototype` prints. Thin wiring may sit next to the real page or module so context is obvious — but name every file, title, and route so a casual reader can see it's a prototype, not production. For UI routes, obey whatever routing convention the project already uses; don't invent a new top-level structure.
+1. **Clearly marked as a prototype.** Write the files where `mmw artifact path prototype` prints. Thin wiring may sit next to the real page or module so context is obvious — but name every file, title, and route so a casual reader can see it's a prototype, not production. For UI routes, obey whatever routing convention the project already uses; don't invent a new top-level structure.
 2. **Trivial to run.** A UI prototype starts from one command in the project's task runner — `pnpm <name>`, `python <path>`, `bun <path>`, etc. A logic demo is a single HTML file the user double-clicks. Either way, no thinking required to start it. Write that command or path in `README.md`.
 3. **No persistence by default.** State lives in memory. Persistence is the thing the prototype is _checking_, not something it should depend on. If the question explicitly involves a database, hit a scratch DB or a local file with a clear "PROTOTYPE — wipe me" name.
 4. **Skip the polish.** No tests, no error handling beyond what makes the prototype _runnable_, no abstractions. The point is to learn something fast.

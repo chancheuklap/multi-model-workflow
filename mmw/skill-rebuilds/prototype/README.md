@@ -6,7 +6,7 @@
 
 底稿是上游英文原文（`SKILL.md` + `LOGIC.md` + `UI.md`）。候选是 **3 个文件**：[`candidate/SKILL.md`](candidate/SKILL.md)、[`candidate/LOGIC.md`](candidate/LOGIC.md)、[`candidate/UI.md`](candidate/UI.md)，按将来位于 `mmw/skills-src/mmw-prototype/` 书写。无 `capture.md`。现役四文件技能源未改。
 
-上游骨架留下：问题决定形态、两条主分支、六条共同规则、Logic 的 shareable demo、UI 的 radically different variants 与 floating switcher。throwaway 只约束写法。
+上游骨架留下：问题决定形态、两条主分支、六条共同规则、Logic 的 shareable demo、UI 的 radically different variants 与 floating switcher。
 
 已叠进候选的接线：
 
@@ -15,7 +15,7 @@
 - 本轮只走一条分支。第三条「看一次输出就够」留在 `SKILL.md`，不另开文件。
 - 走查：用户操作。各开一页。不替用户点、选、宣布完成。
 - 外部系统既有表现交给 `/mmw-research`。问题还走查不了交给 `/mmw-grilling`。
-- 首次写入前 `[[mmw-require-task-branch]]`。调用方传了 `--name` / `--issue` 就加上。
+- 调用方传了 `--name` / `--issue` 就加上。
 - Logic 的纯 `module` 单独成文件；HTML 外壳不列为可复用、不挂产品路由。
 - UI 变体留在这份 prototype 里。选中的写成 current UI。本技能不折进正式代码。
 - 多个结构方向并行时，派一组宿主自带的可写 subagent，`current` worktree。不派 `prototype-worker`，不派 `worker`。
@@ -24,6 +24,7 @@
 未叠：
 
 - throwaway 分支、不进 main、本技能负责折进正式代码。
+- `[[mmw-require-task-branch]]`。路径命令自己拒绝主检出和没分支。
 - `capture.md`、目录树、浏览器步骤表、变体 `preview/` 目录、撞名 `-02`、四栏 task 开篇。
 - 把 Logic HTML 再绕去 `/mmw-wait-what`。
 
@@ -32,6 +33,10 @@
 leaf 草稿见 [`candidate/leaf-terms.md`](candidate/leaf-terms.md)。
 
 本轮不派冷读 subagent。
+
+## 2026-08-17：去掉 throwaway 身份
+
+现役技能源已改。开场不再把 prototype 叫成 throwaway code。描述、rule 1、Logic 外壳、UI 孤立路由都不使用 throwaway 命名。写法约束留下：不写测试、错误处理最少、不做抽象。删除 `[[mmw-require-task-branch]]`，不补替代说明。
 
 ## 先前阶段（中文重建）
 
