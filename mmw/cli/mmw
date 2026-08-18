@@ -110,7 +110,6 @@ EOF
 安装：
   init        配置当前仓库（幂等）
   doctor      检查这台机器
-  skills      物化技能产物
   agents      物化原生 subagent
   mcp         Codex plugin 的 stdio 入口
 
@@ -627,48 +626,6 @@ cmd_agents() {
   esac
 }
 
-usage_skills() {
-  cat >&2 <<'EOF'
-mmw skills materialize --host <pi|claude-code|codex|cursor|grok|all> [--check] [--out <目录>]
-    把 skills/ 源里的启动块与宿主动作块物化成宿主写死的操作
-    pi → skills-pi/；claude-code → skills-claude-code/；codex → skills-codex/；cursor → skills-cursor/；grok → skills-grok/
-
-Examples:
-  mmw skills materialize --host all
-  mmw skills materialize --host cursor --check
-EOF
-  return 2
-}
-
-cmd_skills() {
-  if mmw_is_help "$@"; then mmw_help usage_skills; return 0; fi
-  local sub="${1:-}"
-  shift || true
-  case "$sub" in
-    materialize)
-      if mmw_is_help "$@"; then mmw_help usage_skills; return 0; fi
-      local host=""
-      local -a args=()
-      while [ $# -gt 0 ]; do
-        case "$1" in
-          --host) host="${2:-}"; shift 2 ;;
-          --check) args+=(--check); shift ;;
-          --out)
-            [ -n "${2:-}" ] || { echo "mmw: --out 要目录" >&2; usage_skills; }
-            args+=(--out "$2"); shift 2
-            ;;
-          -h|--help) mmw_help usage_skills; return 0 ;;
-          *) echo "mmw: 认不出参数 $1" >&2; usage_skills ;;
-        esac
-      done
-      [ -n "$host" ] || mmw_need "skills materialize 要 --host" "mmw skills materialize --host <pi|claude-code|codex|cursor|grok|all>"
-      args+=(--host "$host")
-      python3 "$MMW_ROOT/cli/lib/materialize_skills.py" "${args[@]}"
-      ;;
-    *) usage_skills ;;
-  esac
-}
-
 # 派出去的那一侧从哪个路径读方法论。宿主自己会送到位的，什么都不输出。
 cmd_worktree() {
   if mmw_is_help "$@"; then mmw_help usage_worktree; return 0; fi
@@ -1059,18 +1016,18 @@ cmd_doctor() {
         echo "Pi agent : 与 installed runtime 不一致，重新运行 $repair"
         status=1
       fi
-      if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host pi --check >/dev/null 2>&1; then
-        echo "Pi skills: skills-pi 与 skills/ 源一致"
+      if bash "$MMW_ROOT/cli/lib/install-skills.sh" --dest "${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME/.pi}/agent}/skills" --check >/dev/null 2>&1; then
+        echo "Pi skills: 技能已软链进 Pi 的技能目录"
       else
-        echo "Pi skills: 与 installed runtime 不一致，重新运行 $repair"
+        echo "Pi skills: 未装齐或链接指向别处，重新运行 $repair"
         status=1
       fi
       ;;
     claude-code)
-      if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host claude-code --check >/dev/null 2>&1; then
-        echo "CC skills: skills-claude-code 与 skills/ 源一致"
+      if bash "$MMW_ROOT/cli/lib/install-skills.sh" --dest "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills" --check >/dev/null 2>&1; then
+        echo "CC skills: 技能已软链进 ~/.claude/skills"
       else
-        echo "CC skills: 与 installed runtime 不一致，重新运行 $repair"
+        echo "CC skills: 未装齐或链接指向别处，重新运行 $repair"
         status=1
       fi
       ;;
@@ -1081,10 +1038,10 @@ cmd_doctor() {
         echo "Cursor ag: 与 installed runtime 不一致，重新运行 $repair"
         status=1
       fi
-      if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host cursor --check >/dev/null 2>&1; then
-        echo "Cursor sk: skills-cursor 与 skills/ 源一致"
+      if bash "$MMW_ROOT/cli/lib/install-skills.sh" --dest "$HOME/.cursor/skills" --check >/dev/null 2>&1; then
+        echo "Cursor sk: 技能已软链进 ~/.cursor/skills"
       else
-        echo "Cursor sk: 与 installed runtime 不一致，重新运行 $repair"
+        echo "Cursor sk: 未装齐或链接指向别处，重新运行 $repair"
         status=1
       fi
       if [ -x "$HOME/.cursor/hooks/mmw-toolchain-check.sh" ] \
@@ -1098,6 +1055,12 @@ cmd_doctor() {
       fi
       ;;
     codex)
+      if bash "$MMW_ROOT/cli/lib/install-skills.sh" --dest "${CODEX_HOME:-$HOME/.codex}/skills" --check >/dev/null 2>&1; then
+        echo "Codex sk : 技能已软链进 ~/.codex/skills"
+      else
+        echo "Codex sk : 未装齐或链接指向别处，重新运行 $repair"
+        status=1
+      fi
       if python3 "$MMW_ROOT/codex/runtime.py" materialize --check >/dev/null 2>&1; then
         echo "Codex src: plugin、agent 与 profiles 一致"
       else
@@ -1106,10 +1069,10 @@ cmd_doctor() {
       fi
       ;;
     grok)
-      if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host grok --check >/dev/null 2>&1; then
-        echo "Grok sk  : skills-grok 与技能源一致"
+      if bash "$MMW_ROOT/cli/lib/install-skills.sh" --dest "$HOME/.grok/skills" --check >/dev/null 2>&1; then
+        echo "Grok sk  : 技能已软链进 ~/.grok/skills"
       else
-        echo "Grok sk  : 与 installed runtime 不一致，重新运行 $repair"
+        echo "Grok sk  : 未装齐或链接指向别处，重新运行 $repair"
         status=1
       fi
       if python3 "$MMW_ROOT/cli/lib/materialize_agents.py" --host grok --check >/dev/null 2>&1; then
@@ -1203,7 +1166,6 @@ case "${1:-}" in
   resume) shift; cmd_launch resume "$@" ;;
   dispatch) shift; cmd_dispatch "$@" ;;
   agents) shift; cmd_agents "$@" ;;
-  skills) shift; cmd_skills "$@" ;;
   artifact) shift; cmd_artifact "$@" ;;
   worktree) shift; cmd_worktree "$@" ;;
   result) shift; cmd_result "$@" ;;

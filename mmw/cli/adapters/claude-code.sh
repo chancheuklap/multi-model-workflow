@@ -9,8 +9,8 @@
 # 参数交给模型去调。
 #
 # 两条路都不写方法论的文件路径，只写技能名。技能已经装进对方的 harness：
-# codex exec 那边由 install-agent-skills.sh 软链进它自己的技能目录，会话内
-# subagent 那边由 plugin.json 的 skills 列表装好。派发只负责说清楚该调用哪个。
+# install-skills.sh 把同一份 skills-src 软链进每个宿主自己的技能目录，codex exec
+# 与会话内 subagent 读到的是同一批技能。派发只负责说清楚该调用哪个。
 #
 # 本文件不做流程判断。它只回答「这个宿主管这个动作叫什么」。
 #

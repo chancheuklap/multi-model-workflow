@@ -29,7 +29,6 @@ require_source_repo() {
 }
 
 verify_source() {
-  "$SOURCE_MMW/cli/mmw" skills materialize --host all --check
   "$SOURCE_MMW/cli/mmw" agents materialize --host pi --check
   python3 "$SOURCE_MMW/codex/runtime.py" materialize --check
 }
@@ -123,6 +122,13 @@ EOF
   echo "mmw CLI  : $target"
 }
 
+# 五个宿主的技能都从同一份 skills-src 软链过去：目标目录不同，动作相同。技能正文
+# 对所有宿主是同一句，宿主差异由 cli/host-actions.json 在运行期回答。
+install_skills_into() {
+  bash "$RUNTIME_ROOT/mmw/cli/lib/install-skills.sh" --dest "$1" \
+    || die "技能装不进 $1，按上面的冲突行处理后重跑"
+}
+
 install_codex() {
   command -v codex >/dev/null 2>&1 || { echo "Codex    : 未安装，跳过"; return; }
   local marketplace_json marketplace
@@ -131,6 +137,7 @@ install_codex() {
     || die "Codex marketplace 安装结果缺少 marketplaceName"
   codex plugin add "mmw@$marketplace" --json >/dev/null
   python3 "$RUNTIME_ROOT/mmw/codex/runtime.py" install
+  install_skills_into "${CODEX_HOME:-$HOME/.codex}/skills"
   echo "Codex    : 已安装 mmw@$marketplace"
 }
 
@@ -152,8 +159,7 @@ install_claude_code() {
   else
     claude plugin install "mmw@$name" --scope user >/dev/null
   fi
-  MMW_AGENT_SKILLS_DIR="${CODEX_HOME:-$HOME/.codex}/skills" \
-    bash "$RUNTIME_ROOT/mmw/cli/lib/install-agent-skills.sh"
+  install_skills_into "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills"
   settings="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
   mkdir -p "$(dirname "$settings")"
   if [ ! -f "$settings" ]; then
@@ -244,6 +250,7 @@ install_pi() {
   runtime_package="$(cd "$RUNTIME_ROOT/mmw" && pwd -P)"
   remove_old_pi_mmw
   pi install "$runtime_package" >/dev/null
+  install_skills_into "${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME/.pi}/agent}/skills"
   echo "Pi       : 已安装 $runtime_package"
   install_pi_toolchain_extension
 }
@@ -251,28 +258,8 @@ install_pi() {
 # Cursor 的任务树与结果树都在 ~/.cursor/worktrees/。用户开任务树，agent 只在树上建分支。
 # worker 结果树由 mmw-cursor-agent --worktree 创建，回收交给 Cursor 自己的 GC。
 install_cursor_skills() {
-  local src="$RUNTIME_ROOT/mmw/skills-cursor"
-  local dest="$HOME/.cursor/skills"
-  local manifest name tmp
-  [ -d "$src" ] || die "缺 skills-cursor，先在源码仓库跑 mmw skills materialize --host cursor"
-  mkdir -p "$dest"
-  manifest="$dest/.mmw-skill-names"
-  tmp="$(mktemp "$dest/.mmw-skill-names.XXXXXX")"
-  find "$src" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort > "$tmp"
-  if [ -f "$manifest" ]; then
-    while IFS= read -r name; do
-      [ -n "$name" ] || continue
-      grep -qx "$name" "$tmp" && continue
-      rm -rf "$dest/$name"
-    done < "$manifest"
-  fi
-  while IFS= read -r name; do
-    [ -n "$name" ] || continue
-    rm -rf "$dest/$name"
-    cp -R "$src/$name" "$dest/$name"
-  done < "$tmp"
-  mv "$tmp" "$manifest"
-  echo "Cursor   : 已装技能到 $dest"
+  install_skills_into "$HOME/.cursor/skills"
+  echo "Cursor   : 已装技能到 $HOME/.cursor/skills"
 }
 
 install_cursor_hooks() {
@@ -363,29 +350,12 @@ install_cursor() {
   install_cursor_wrapper
 }
 
-sync_grok_skills() {
-  local src dest name dest_name
-  src="$RUNTIME_ROOT/mmw/skills-grok"
-  dest="$HOME/.grok/skills"
-  mkdir -p "$dest"
-  for name in "$src"/mmw-*; do
-    [ -d "$name" ] || continue
-    rm -rf "$dest/$(basename "$name")"
-    cp -R "$name" "$dest/$(basename "$name")"
-  done
-  for dest_name in "$dest"/mmw-*; do
-    [ -d "$dest_name" ] || continue
-    [ -d "$src/$(basename "$dest_name")" ] || rm -rf "${dest_name:?}"
-  done
-}
-
 install_grok() {
   command -v grok >/dev/null 2>&1 || [ -d "$HOME/.grok" ] || {
     echo "Grok     : 未安装，跳过"
     return
   }
-  "$RUNTIME_ROOT/mmw/cli/mmw" skills materialize --host grok
-  sync_grok_skills
+  install_skills_into "$HOME/.grok/skills"
   "$RUNTIME_ROOT/mmw/cli/mmw" agents materialize --host grok
   mkdir -p "$HOME/.grok/hooks"
   cp "$RUNTIME_ROOT/mmw/toolchain/hooks/grok-stop.sh" \

@@ -16,7 +16,7 @@
     "code-review",
     "tdd"
   ],
-  "skills": "./skills-codex/",
+  "skills": "./skills-src/",
   "mcpServers": "./.mcp-codex.json",
   "hooks": "./hooks.json",
   "interface": {

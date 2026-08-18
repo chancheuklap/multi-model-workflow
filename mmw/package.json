@@ -6,12 +6,6 @@
   "license": "MIT",
   "repository": "https://github.com/chancheuklap/multi-model-workflow",
   "pi": {
-    "skills": [
-      "./skills-pi"
-    ],
-    "prompts": [
-      "./prompts-pi"
-    ],
     "subagents": {
       "agents": [
         "./agents-pi"

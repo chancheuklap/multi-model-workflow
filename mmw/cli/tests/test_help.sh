@@ -142,11 +142,6 @@ contains "agents materialize 缺 --host 点名旗标" "要 --host" "$(cat "$LAST
 contains "agents materialize 缺 --host 给出调用" "mmw agents materialize --host <pi|cursor|grok|all>" "$(cat "$LAST_ERR")"
 absent "agents materialize 缺 --host 不倒整段用法" "Claude Code：仍用 mmw dispatch" "$(cat "$LAST_ERR")"
 
-capture "skills materialize 缺 --host" "$MMW" skills materialize
-check "skills materialize 缺 --host 退出码" "2" "$LAST_STATUS"
-contains "skills materialize 缺 --host 点名旗标" "要 --host" "$(cat "$LAST_ERR")"
-contains "skills materialize 缺 --host 给出调用" "mmw skills materialize --host <pi|claude-code|codex|cursor|grok|all>" "$(cat "$LAST_ERR")"
-
 capture "result --help" "$MMW" result --help
 check "result --help 退出码" "0" "$LAST_STATUS"
 contains "result --help 有 integrate" "mmw result integrate" "$(cat "$LAST_ERR")"

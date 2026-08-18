@@ -146,17 +146,6 @@ def materialize_plugin(check: bool) -> int:
             write_atomic(target, content)
             print(f"写  {target}")
 
-    command = [
-        sys.executable,
-        str(MMW_ROOT / "cli" / "lib" / "materialize_skills.py"),
-        "--host",
-        "codex",
-    ]
-    if check:
-        command.append("--check")
-    proc = subprocess.run(command, check=False)
-    if proc.returncode != 0:
-        failures += 1
     return 1 if failures else 0
 
 
@@ -204,7 +193,7 @@ def valid_plugin_root(root: Path, version: str) -> bool:
         and (root / "cli" / "mmw").is_file()
         and (root / "codex" / "runtime.py").is_file()
         and (root / "codex" / "config.py").is_file()
-        and (root / "skills-codex" / "mmw-grilling" / "SKILL.md").is_file()
+        and (root / "skills-src" / "mmw-grilling" / "SKILL.md").is_file()
         and (root / ".mcp-codex.json").is_file()
         and (root / ".mcp.json").is_file()
         and (root / "codex" / "profiles.json").is_file()

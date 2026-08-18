@@ -26,7 +26,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# 技能源目录现在叫 skills-src；skills-claude-code 等是物化产物，不在这里查。
+# 技能源目录是 skills-src。五个宿主装的都是它，没有第二份可查。
 SKILLS="$(cd "$HERE/../../skills-src" && pwd)"
 CLI="$(cd "$HERE/.." && pwd)"
 
@@ -187,25 +187,29 @@ for p in sorted(skills.glob('*/SKILL.md')):
         ok += 1
 
 # 第五类：派发时点名的方法论技能。roles.json 的 skill 字段非空时，派发会让那个
-# agent 去调用它。技能名写错，或者技能没装进 headless Codex 的技能目录，agent
-# 那边同样不会报错——它调不到，就自己按印象审。
+# agent 去调用它。技能名写错，agent 那边不会报错——它调不到，就自己按印象审。
+# 装没装不在这里判：install-skills.sh 把 skills-src 全套装进五个宿主，没有子集。
 roles = json.loads((cli.parent / 'agent-src' / 'roles.json').read_text())['roles']
-wanted = re.search(r'^WANTED=\(([^)]*)\)',
-                   (cli / 'lib' / 'install-agent-skills.sh').read_text(), re.M)
-if not wanted:
-    print("  失败  解析不出 install-agent-skills.sh 的 WANTED 列表，写法变了就改这里")
-    sys.exit(1)
-installed = set(wanted.group(1).split())
 for role, meta in sorted(roles.items()):
     skill = (meta.get('skill') or '').strip()
     if not skill:
         continue
     if skill not in names:
         bad.append(f"agent-src/roles.json 角色 {role} 的 skill 指向不存在的技能 {skill}")
-    elif skill not in installed:
-        bad.append(
-            f"agent-src/roles.json 角色 {role} 要 {skill}，"
-            "但 install-agent-skills.sh 的 WANTED 里没有它")
+    else:
+        ok += 1
+
+# 第六类：派发占位符。派发动作曾经在构建期展开，正文里写 [[mmw-…]] 占位符；现在
+# 派发由 mmw launch 在运行期回答，技能直接装给宿主，没有哪一层会再展开它。留下
+# 的占位符对模型就是一句看不懂的话，那一跳会静悄悄地没人做。
+for p in sorted(skills.rglob('*.md')):
+    text = p.read_text()
+    if '[[mmw-' in text:
+        for i, line in enumerate(text.split('\n'), 1):
+            if '[[mmw-' in line:
+                bad.append(
+                    f"{p.relative_to(skills)}:{i} 还在用 [[mmw-…]] 占位符；"
+                    "派发写 `mmw launch`，见 cli/host-actions.json")
     else:
         ok += 1
 
