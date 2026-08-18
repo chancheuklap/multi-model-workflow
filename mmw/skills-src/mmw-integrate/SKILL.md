@@ -11,7 +11,14 @@ Rebase an unfinished result branch in that result worktree. This session stays o
 
 Before any write:
 
-[[mmw-require-task-branch]]
+Confirm where this repo is first. Judge top to bottom; stop at the first row that hits.
+
+| Case | How to tell | What you do |
+| --- | --- | --- |
+| Not in a git repo | `git rev-parse --is-inside-work-tree` fails | Ask the user for the target repo path. Enter that repo, then judge again |
+| In the main checkout | `git rev-parse --path-format=absolute --git-dir` equals `--git-common-dir` | Stop. Ask the user to open a worktree with this host, then start a session there |
+| No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>`. Use the name this skill or the caller already gave; with none in hand, name it after the work in this repo's own branch-naming shape, and say which name you took |
+| Task branch already there | None of the above holds | Use the current branch |
 
 1. **See the current state** of the merge/rebase. Check git history, and the conflicting files.
 

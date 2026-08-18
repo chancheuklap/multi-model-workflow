@@ -20,7 +20,6 @@ Confirm where this repo is first. Judge top to bottom; stop at the first row tha
 | No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>`. Use the name this skill or the caller already gave; with none in hand, name it after the work in this repo's own branch-naming shape, and say which name you took |
 | Task branch already there | None of the above holds | Use the current branch |
 
-
 1. **See the current state** of the merge/rebase. Check git history, and the conflicting files.
 
 2. **Find the primary sources** for each conflict. Understand deeply why each change was made, and what the original intent was. Read the commit messages, check the PRs, check original issues/tickets.

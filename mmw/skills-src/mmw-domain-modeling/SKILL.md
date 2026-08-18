@@ -42,7 +42,14 @@ Create files lazily — only when you have something to write. If the shape from
 
 Before the first write of a domain doc or ADR:
 
-[[mmw-require-task-branch]]
+Confirm where this repo is first. Judge top to bottom; stop at the first row that hits.
+
+| Case | How to tell | What you do |
+| --- | --- | --- |
+| Not in a git repo | `git rev-parse --is-inside-work-tree` fails | Ask the user for the target repo path. Enter that repo, then judge again |
+| In the main checkout | `git rev-parse --path-format=absolute --git-dir` equals `--git-common-dir` | Stop. Ask the user to open a worktree with this host, then start a session there |
+| No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>`. Use the name this skill or the caller already gave; with none in hand, name it after the work in this repo's own branch-naming shape, and say which name you took |
+| Task branch already there | None of the above holds | Use the current branch |
 
 When creating the first domain doc, how many bounded contexts the project has decides the shape:
 

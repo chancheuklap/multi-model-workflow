@@ -44,7 +44,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 1. 对应宿主的 manifest、根 marketplace 或 Pi package；Codex 角色结构只认 `mmw/codex/profiles.json`，模型只认 `mmw/cli/mmw.default.json` 的 `hosts.codex` 覆盖。
 2. `mmw/cli/` 的机械动作、宿主 adapter、`.mmw.json` 配置合同和 `mmw/cli/artifacts.json` 的产物落点数据。
-3. `mmw/skills-src/` 技能源（含 `[[mmw-launch:…]]`、`[[mmw-launch-group:…]]`、`[[mmw-resume:…]]` 与 `[[mmw-require-task-branch]]`）与 `mmw skills materialize` 产物；流程判据以源为准，宿主动作以对应产物为准。
+3. `mmw/skills-src/` 技能源与 `mmw skills materialize` 产物；流程判据以源为准。派发动作不在技能里，宿主差异只认 `mmw/cli/host-actions.json`，由 `mmw launch` 在运行期回答。
 
 `.mmw.json` 保存目标仓库的标签、CLI 路径和领域文档形态。模型档属于已安装 runtime，不进入目标仓库配置。
 
@@ -62,7 +62,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 - Claude Code 只接 claude 与 gpt 两个模型族：GPT 角色通过后台 Bash 执行 Codex CLI，Claude 角色通过后台 Agent 工具执行。
 - Pi、Cursor 与 Grok 的全部角色走宿主原生 `subagent`，frontmatter 由 `mmw/agent-src/` 按 profile 生成（`mmw agents materialize`）。
 - 模型分配默认各宿主相同。某个宿主接不了基线模型时，在 `mmw/cli/mmw.default.json` 该角色底下写 `hosts.<宿主>` 覆盖，按字段生效。
-- **禁止**在技能源或产物正文里按宿主名称分支。派发 subagent 使用完整的 `[[mmw-launch:…]]` 或 `[[mmw-launch-group:…]]` 动作块；确认任务分支使用 `[[mmw-require-task-branch]]`——任务树由用户用宿主打开，agent 只在已有的树上创建任务分支。写死 `mmw worktree add` 会让 Cursor、Codex、Grok 拿到错的指令。两类都由 `mmw skills materialize` 整块替换。新增占位符时，`materialize_skills.py` 里对应的展开函数**每个具名宿主各给一个显式分支**，兜底只留给行为确实相同的那几个宿主：让具名宿主掉进兜底，它拿到的是另一个宿主的指令，而且不报错。其他宿主能力使用按能力判断的自然语言，在所有宿主上保留同一份正文。**没有** `mmw-dispatching-agents` 中转技能。
+- **禁止**在技能源或产物正文里按宿主名称分支。派发 subagent 写 `mmw launch <角色> --scope <范围>`、`mmw launch-group reviewers` 或 `mmw resume <角色> --scope <范围>`，正文只说跑哪条命令、照它打印的动作做；五个宿主拿到的是同一句。宿主差异全部收在 `mmw/cli/host-actions.json`，加一个宿主就是给那张表补一个 key，技能源和展开代码都不动；缺 key 时 `mmw launch` 当场失败，不回退到别的宿主的指令。任务树由用户用宿主打开，agent 只在已有的树上创建任务分支——写死 `mmw worktree add` 会让 Cursor、Codex、Grok 拿到错的指令。其他宿主能力使用按能力判断的自然语言，在所有宿主上保留同一份正文。**没有** `mmw-dispatching-agents` 中转技能。
 
 ## 修改规则
 

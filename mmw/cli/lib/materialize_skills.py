@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""把共享 skill 中的宿主动作整块物化成 Pi、Claude Code、Codex、Cursor 或 Grok 版本。"""
+"""把共享 skill 物化成 Pi、Claude Code、Codex、Cursor 或 Grok 版本。
+
+派发动作不在这里展开：技能正文写 `mmw launch …`，宿主差异由 cli/host-actions.json
+在运行期回答。这里只处理宿主之间无法共用的字面差异和产物落盘。"""
 
 from __future__ import annotations
 
@@ -13,12 +16,7 @@ from pathlib import Path
 from typing import NoReturn
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
-CODEX_ROOT = PLUGIN_ROOT / "codex"
-sys.path.insert(0, str(CODEX_ROOT))
-from config import CodexConfigError, load_profiles as load_codex_profiles  # noqa: E402
-
 SKILLS_SRC = PLUGIN_ROOT / "skills-src"
-ROLES_PATH = PLUGIN_ROOT / "agent-src" / "roles.json"
 DEFAULT_OUT = {
     "pi": PLUGIN_ROOT / "skills-pi",
     "claude-code": PLUGIN_ROOT / "skills-claude-code",
@@ -28,359 +26,19 @@ DEFAULT_OUT = {
 }
 PI_PROMPTS_OUT = PLUGIN_ROOT / "prompts-pi"
 
-LAUNCH_RE = re.compile(
-    r"\[\[mmw-launch:([a-z0-9-]+):(worktree|current|none)\]\]"
-)
-LAUNCH_GROUP_RE = re.compile(
-    r"\[\[mmw-launch-group:([a-z0-9-]+):(worktree|current|none)\]\]"
-)
-RESUME_RE = re.compile(
-    r"\[\[mmw-resume:([a-z0-9-]+):(worktree|current|none)\]\]"
-)
-REQUIRE_TASK_BRANCH_RE = re.compile(r"\[\[mmw-require-task-branch\]\]")
-# 任务树由用户开。agent 只在已有的树上创建任务分支。各宿主正文相同：用户怎么开树
-# 由宿主自己的界面负责，技能不替用户建任务树。
-REQUIRE_TASK_BRANCH = (
-    "Confirm where this repo is first. Judge top to bottom; stop at the first row that hits.\n"
-    "\n"
-    "| Case | How to tell | What you do |\n"
-    "| --- | --- | --- |\n"
-    "| Not in a git repo | `git rev-parse --is-inside-work-tree` fails | "
-    "Ask the user for the target repo path. Enter that repo, then judge again |\n"
-    "| In the main checkout | `git rev-parse --path-format=absolute --git-dir` equals "
-    "`--git-common-dir` | Stop. Ask the user to open a worktree with this host, "
-    "then start a session there |\n"
-    "| No branch | `git symbolic-ref --quiet --short HEAD` is empty | "
-    "Run `git switch -c <full task-branch name>`. Use the name this skill or the caller "
-    "already gave; with none in hand, name it after the work in this repo's own "
-    "branch-naming shape, and say which name you took |\n"
-    "| Task branch already there | None of the above holds | Use the current branch |\n"
-)
-# 没有续跑通道的宿主统一给这句退路。静默降级成全新派发会让调用方以为上下文还在，
-# 所以退路必须显式写明重派时要带什么材料。
-#
-# 这里说的是「正文」不是「路径」：task 与报告都不落盘，task 走标准输入，报告走标准
-# 输出，主 agent 手上有的就是那两段正文。
-#
-# 分两段：材料清单两处共用——没有续跑通道的宿主整块用它，有续跑通道的宿主在句柄失效
-# 时也退回到它。前缀分开写，不然「这个宿主没有续跑通道」会出现在明明有通道的宿主里。
-RESUME_MATERIAL = (
-    "re-dispatch a new instance with the matching launch action, and let the task body "
-    "carry the original task in full, the original report in full, and this round's "
-    "repair instruction."
-)
-RESUME_FALLBACK = f"This host has no resume channel: {RESUME_MATERIAL}"
 CODEX_SKILL_REF_RE = re.compile(r"`/(mmw-[a-z0-9-]+)`")
 SKIP_DIR_NAMES = frozenset({"mmw-setup"})
-# 只有 Codex 拿这条。别的宿主的主 agent 派完就等，Codex 的会自己把 subagent 的活再干
-# 一遍（引入它的那次修的就是这个）。其他宿主没有这个行为时不发这条规则：一条没有对应
-# 失败模式的禁令，只会把被禁的动作带进上下文。哪个宿主真出现同样的重做，再按证据加。
-POST_LAUNCH_RULE = (
-    "Dispatching hands the task over: that subagent owns the research, implementation, and "
-    "review inside it. The main agent's own work from here is coordination that clearly does "
-    "not overlap — with none in hand, wait for the report, then continue from what it says "
-    "rather than redoing the task."
-)
-
-
 def die(message: str, code: int = 1) -> NoReturn:
     print(f"mmw skills: {message}", file=sys.stderr)
     raise SystemExit(code)
 
 
-def load_role_agents() -> dict[str, str]:
-    data = json.loads(ROLES_PATH.read_text(encoding="utf-8"))
-    roles = data.get("roles") or {}
-    agents: dict[str, str] = {}
-    for role, metadata in roles.items():
-        agent = (metadata or {}).get("agent")
-        if not agent:
-            die(f"roles.json 角色 {role} 缺 agent")
-        agents[str(role)] = str(agent)
-    return agents
+def expand_text(text: str, host: str) -> str:
+    """物化只剩宿主之间真正无法共用的字面差异：Codex 的技能引用语法。
 
-
-def expand_require_task_branch(host: str) -> str:
-    if host in ("pi", "claude-code", "codex", "cursor", "grok"):
-        return REQUIRE_TASK_BRANCH
-    die(f"未支持的宿主 {host}")
-
-
-def expand_pi(role: str, agent: str, cwd_mode: str) -> str:
-    if cwd_mode == "worktree":
-        return (
-            "Launch: run `mmw worktree add <result branch>` first. Then call the native "
-            f"`subagent` tool with agent `{agent}`, the four-field task table in full as "
-            "task, and cwd set to the worktree absolute path that command returned."
-        )
-    if cwd_mode == "current":
-        return (
-            f"Launch: call the native `subagent` tool with agent `{agent}`, the four-field "
-            "task table in full as task, and cwd set to the absolute path of the current "
-            "worktree. That subagent uses the current worktree; it does not open a result tree."
-        )
-    return (
-        f"Launch: call the native `subagent` tool with agent `{agent}` and the four-field "
-        "task table in full as task."
-    )
-
-
-def expand_grok(role: str, agent: str, cwd_mode: str) -> str:
-    del role
-    if cwd_mode == "worktree":
-        return (
-            f"Launch: call the native subagent tool with agent `{agent}` and worktree "
-            "isolation on. Pass the four-field task as the initial prompt. "
-            "The worker completes the work and commits. "
-            "It returns the result-branch name, the HEAD SHA, and the base SHA. "
-            "It runs `mmw toolchain check --changed-only` itself before committing."
-        )
-    if cwd_mode == "current":
-        return (
-            f"Launch: call the native subagent tool with agent `{agent}` and the four-field "
-            "task table in full as task. "
-            "That subagent uses the current worktree; it does not open a result tree. "
-            "Set cwd to the absolute path of the current worktree."
-        )
-    return (
-        f"Launch: call the native subagent tool with agent `{agent}`, "
-        "read-only capability for a read-only role, and the four-field task table in full as task. "
-        "Instances that do not depend on each other launch in the same message."
-    )
-
-
-def expand_resume_grok() -> str:
-    return (
-        "Resume: call the native subagent tool with `resume_from` set to the original "
-        "subagent id. For a top-level grok session, run `grok --resume <sessionId>` instead. "
-        f"If the handle cannot be found or the command fails, {RESUME_MATERIAL}"
-    )
-
-
-def expand_claude(role: str, agent: str, cwd_mode: str) -> str:
-    del agent
-    if cwd_mode == "worktree":
-        return (
-            "Launch: run `mmw worktree add <result branch>` first and use the worktree "
-            "absolute path it returns. In the background, run "
-            f"`mmw dispatch {role} --cwd <result worktree absolute path>`. "
-            "Pass the four-field task body as the command's standard input. "
-            "Add `--issue <current decision ticket number>` when this task belongs to a "
-            "decision ticket. "
-            "When the command returns `mode: host-tool`, call the matching host tool with "
-            "the `params` in its output."
-        )
-    cwd = " --cwd <current worktree absolute path>" if cwd_mode == "current" else ""
-    return (
-        f"Launch: in the background, run `mmw dispatch {role}{cwd}`. "
-        "Pass the four-field task body as the command's standard input. "
-        "Add `--issue <current decision ticket number>` when this task belongs to a "
-        "decision ticket. "
-        "When the command returns `mode: host-tool`, call the matching host tool with "
-        "the `params` in its output."
-    )
-
-
-def expand_cursor(role: str, agent: str, cwd_mode: str) -> str:
-    if cwd_mode == "worktree":
-        return (
-            "Launch: in the background, run `mmw-cursor-agent --mmw-role "
-            f"{role} -p --force --trust --approve-mcps "
-            "--worktree <result branch> --worktree-base <current task branch>`. "
-            "Pass the four-field task body as the command's standard input. "
-            "The worker enters the result tree, completes the work, and commits. "
-            "It returns the result-branch name, the HEAD SHA, and the base SHA."
-        )
-    if cwd_mode == "current":
-        return (
-            f"Launch: call the native Task tool with agent `{agent}` and the four-field "
-            "task table in full as prompt. "
-            "That subagent uses the current worktree; it does not open a result tree. "
-            "Instances that do not depend on each other launch in the same message."
-        )
-    return (
-        f"Launch: call the native Task tool with agent `{agent}` and the four-field "
-        "task table in full as prompt. "
-        "Instances that do not depend on each other launch in the same message."
-    )
-
-
-def expand_codex(role: str, cwd_mode: str, profiles: dict) -> str:
-    if cwd_mode in {"none", "current"}:
-        profile = (profiles.get("subagents") or {}).get(role)
-        if not profile:
-            die(f"Codex 没有原生 subagent profile：{role}")
-        location = (
-            "; that subagent uses the current worktree and does not open a result tree"
-            if cwd_mode == "current"
-            else ""
-        )
-        return (
-            f"Launch: call the Codex native subagent `{profile['name']}` by name, with the "
-            f"four-field task table in full as task{location}. Instances that do not depend "
-            "on each other launch in the same message; summarize after all of them finish."
-        )
-
-    profile = (profiles.get("background_roles") or {}).get(role)
-    if not profile:
-        die(f"Codex 没有后台 worktree profile：{role}")
-    method = profile.get("method_skill")
-    method_instruction = (
-        f", and reads `${method}` in full before starting work" if method else ""
-    )
-    return (
-        "Launch: get this repo's projectId with `list_projects`, then call `create_thread`. "
-        "Use that projectId as target, set environment.type to `worktree`, set "
-        "startingState.type to `branch`, and set branchName to the task branch as already "
-        "committed. "
-        f"Use model `{profile['model']}` and thinking level `{profile['thinking']}`. "
-        "The task prompt carries the four-field task, the full result-branch name, and the "
-        "base SHA at dispatch time; the result-branch name uses a separate `codex/<slug>`. "
-        f"The background agent completes the work and commits{method_instruction}. "
-        "It returns the result-branch name, the HEAD SHA, the base SHA, and the verification "
-        "result. "
-        "Once `create_thread` returns a threadId, wait with `wait_threads`; when only a "
-        "clientThreadId comes back, wait for the App to finish setting up the worktree, get "
-        "the threadId, then wait."
-    )
-
-
-def expand_resume_claude(role: str, cwd_mode: str) -> str:
-    if cwd_mode == "worktree":
-        cwd = " --cwd <original result worktree absolute path>"
-    elif cwd_mode == "current":
-        cwd = " --cwd <current task worktree absolute path>"
-    else:
-        cwd = ""
-    return (
-        "Resume: in the background, run "
-        f"`mmw dispatch {role} --resume <handle text>{cwd}`. "
-        "Pass the repair task body as the command's standard input. "
-        "The handle is the `session:` or `handle:` line from the original dispatch output, "
-        "verbatim. "
-        "When that line is not in hand, run `mmw artifact path scratch --sub dispatch` for "
-        f"the dispatch progress directory, and read the `.session` file there that starts "
-        f"with `{role}-`. "
-        "When the command returns `mode: host-tool`, call the matching host tool with the "
-        "`params` in its output. "
-        f"If the handle cannot be found or the command fails, {RESUME_MATERIAL}"
-    )
-
-
-def expand_resume_cursor(role: str, cwd_mode: str) -> str:
-    del role, cwd_mode
-    return (
-        "Resume: in the background, run `mmw-cursor-agent --resume <handle text>`. "
-        "Pass the repair task body as the command's standard input. "
-        "The handle is the session id from the original dispatch output. "
-        f"If the handle cannot be found or the command fails, {RESUME_MATERIAL}"
-    )
-
-
-def expand_reviewers(host: str, role_agents: dict[str, str], profiles: dict) -> str:
-    if host == "codex":
-        profile = (profiles.get("subagents") or {}).get("reviewer-gpt")
-        if not profile:
-            die("Codex 缺 reviewer-gpt subagent profile")
-        return (
-            "Codex uses one reviewer role. On ⓪, ①, ②, and ⑤, launch one Codex native "
-            f"`{profile['name']}` subagent per perspective. "
-            "Each reviewer works in an independent context and may run the same model as "
-            "the author of the object. "
-            "⓪ is no exception: this host swaps the context, not the model. "
-            "Review tasks that do not depend on each other launch in the same message."
-        )
-    for role in ("reviewer-gpt", "reviewer-claude"):
-        if role not in role_agents:
-            die(f"启动组角色不在 roles.json：{role}")
-    if host == "pi":
-        expand = expand_pi
-    elif host == "grok":
-        expand = expand_grok
-    elif host == "cursor":
-        expand = expand_cursor
-    elif host == "claude-code":
-        expand = expand_claude
-    else:
-        die(f"未支持的宿主 {host}")
-    gpt = expand("reviewer-gpt", role_agents["reviewer-gpt"], "none")
-    claude = expand("reviewer-claude", role_agents["reviewer-claude"], "none")
-    return (
-        "This host uses two reviewer roles. ⓪ launches one `reviewer-gpt`: the shared "
-        "understanding is what the main agent interviewed out itself, so the reviewer must "
-        "be a different model."
-        f"{gpt}① launches one `reviewer-gpt` per perspective."
-        f"{gpt}② launches one `reviewer-claude` per perspective.{claude}"
-        "⑤ launches one `reviewer-gpt` and one `reviewer-claude` per perspective. "
-        "Compare the two sets of findings for the same perspective side by side, then "
-        "dispose as `/mmw-review` specifies. "
-        "Each reviewer receives only its own four-field task."
-    )
-
-
-def expand_text(
-    text: str,
-    host: str,
-    role_agents: dict[str, str],
-    codex_profiles: dict,
-) -> str:
-    if host == "pi":
-        expand = expand_pi
-    elif host == "grok":
-        expand = expand_grok
-    elif host == "cursor":
-        expand = expand_cursor
-    elif host == "claude-code":
-        expand = expand_claude
-    elif host == "codex":
-        expand = None
-    else:
-        die(f"未支持的宿主 {host}")
-
-    def launch(match: re.Match[str]) -> str:
-        role, cwd_mode = match.group(1), match.group(2)
-        if role not in role_agents:
-            die(f"占位符角色不在 roles.json：{role}")
-        if host == "codex":
-            instruction = expand_codex(role, cwd_mode, codex_profiles)
-            return f"{instruction}\n\n{POST_LAUNCH_RULE}"
-        assert expand is not None
-        return expand(role, role_agents[role], cwd_mode)
-
-    def launch_group(match: re.Match[str]) -> str:
-        group, cwd_mode = match.group(1), match.group(2)
-        if group != "reviewers" or cwd_mode != "none":
-            die(f"不认识的启动组：{group}:{cwd_mode}")
-        instruction = expand_reviewers(host, role_agents, codex_profiles)
-        if host == "codex":
-            return f"{instruction}\n\n{POST_LAUNCH_RULE}"
-        return instruction
-
-    def resume(match: re.Match[str]) -> str:
-        role, cwd_mode = match.group(1), match.group(2)
-        if role not in role_agents:
-            die(f"占位符角色不在 roles.json：{role}")
-        # 只有 Claude Code 已验证续跑通道（codex exec resume 与 SendMessage）。
-        # Grok 的 resume_from 与 grok --resume 写在展开里。
-        # Cursor 的 CLI `--resume` 用于结果 worktree worker；原生 Task 还没有续跑通道。
-        # Pi 的原生 subagent 与 Codex App 的 thread 后续消息工具都还没实测，
-        # 先物化为显式退路，不做静默降级。
-        if host == "claude-code":
-            return expand_resume_claude(role, cwd_mode)
-        if host == "grok":
-            return expand_resume_grok()
-        if host == "cursor" and cwd_mode == "worktree":
-            return expand_resume_cursor(role, cwd_mode)
-        if host in {"pi", "codex"} or (host == "cursor" and cwd_mode != "worktree"):
-            return RESUME_FALLBACK
-        die(f"未支持的宿主 {host}")
-
-    text = LAUNCH_RE.sub(launch, text)
-    text = LAUNCH_GROUP_RE.sub(launch_group, text)
-    text = RESUME_RE.sub(resume, text)
-    text = REQUIRE_TASK_BRANCH_RE.sub(
-        lambda _match: expand_require_task_branch(host), text
-    )
+    派发动作不在这里展开。技能正文写 `mmw launch …`，五个宿主拿到同一句，
+    动作由 cli/host-actions.json 在运行期回答。
+    """
     if host == "codex":
         text = CODEX_SKILL_REF_RE.sub(r"`$mmw:\1`", text)
     return text
@@ -438,20 +96,9 @@ def inline_reference_links(text: str, reference_names: set[str]) -> str:
     return re.sub(r"\[([^\]]+)\]\(([^):#]+\.md)\)", replace, text)
 
 
-def render_pi_prompt(
-    skill_dir: Path,
-    role_agents: dict[str, str] | None = None,
-    codex_profiles: dict | None = None,
-) -> str:
+def render_pi_prompt(skill_dir: Path) -> str:
     skill_file = skill_dir / "SKILL.md"
     raw = skill_file.read_text(encoding="utf-8")
-    if role_agents is None:
-        role_agents = load_role_agents()
-    if codex_profiles is None:
-        try:
-            codex_profiles = load_codex_profiles()
-        except CodexConfigError:
-            codex_profiles = {}
     frontmatter = skill_frontmatter(raw)
     description_match = re.search(r"(?m)^description:\s*(.+?)\s*$", frontmatter)
     if not description_match:
@@ -468,11 +115,11 @@ def render_pi_prompt(
     )
     reference_names = {path.name for path in references}
     body = strip_frontmatter(raw).replace("$ARGUMENTS", "$@")
-    body = expand_text(body, "pi", role_agents, codex_profiles)
+    body = expand_text(body, "pi")
     parts = [inline_reference_links(body, reference_names).rstrip()]
     for reference in references:
         text = strip_frontmatter(reference.read_text(encoding="utf-8"))
-        text = expand_text(text, "pi", role_agents, codex_profiles)
+        text = expand_text(text, "pi")
         text = inline_reference_links(text, reference_names).rstrip()
         parts.append(f"## {reference.name}\n\n{text}")
     rendered = (
@@ -489,20 +136,13 @@ def render_pi_prompt(
         + "\n"
     )
     if "[[mmw-" in rendered:
-        die(f"{skill_file} 仍有未识别的 MMW 物化标记")
+        die(f"{skill_file} 还在用 [[mmw-…]] 占位符；派发改成 `mmw launch`")
     return rendered
 
 
-def materialize_pi_prompts(
-    role_agents: dict[str, str],
-    codex_profiles: dict,
-    *,
-    check: bool,
-) -> int:
+def materialize_pi_prompts(*, check: bool) -> int:
     expected = {
-        f"{name}.md": render_pi_prompt(
-            SKILLS_SRC / name, role_agents, codex_profiles
-        )
+        f"{name}.md": render_pi_prompt(SKILLS_SRC / name)
         for name in sorted(user_only_skill_names())
     }
     if check:
@@ -534,14 +174,7 @@ def materialize_pi_prompts(
     return 0
 
 
-def materialize_host(
-    host: str,
-    out_root: Path,
-    role_agents: dict[str, str],
-    codex_profiles: dict,
-    *,
-    check: bool,
-) -> int:
+def materialize_host(host: str, out_root: Path, *, check: bool) -> int:
     if not SKILLS_SRC.is_dir():
         die(f"找不到技能源 {SKILLS_SRC}")
     tmp = Path(tempfile.mkdtemp(prefix=f"mmw-skills-{host}-"))
@@ -557,9 +190,9 @@ def materialize_host(
                 dst.write_bytes(raw)
                 continue
             if src.suffix.lower() == ".md":
-                text = expand_text(text, host, role_agents, codex_profiles)
+                text = expand_text(text, host)
                 if "[[mmw-" in text:
-                    die(f"{rel} 仍有未识别的 MMW 物化标记")
+                    die(f"{rel} 还在用 [[mmw-…]] 占位符；派发改成 `mmw launch`，见 cli/host-actions.json")
             dst.write_text(text, encoding="utf-8")
 
         if check:
@@ -603,24 +236,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, default=None)
     args = parser.parse_args(argv)
 
-    role_agents = load_role_agents()
-    try:
-        codex_profiles = load_codex_profiles()
-    except CodexConfigError as exc:
-        die(str(exc))
     hosts = (
         ["pi", "claude-code", "codex", "cursor", "grok"] if args.host == "all" else [args.host]
     )
     status = 0
     for host in hosts:
         out = args.out if args.out and args.host != "all" else DEFAULT_OUT[host]
-        status |= materialize_host(
-            host, out, role_agents, codex_profiles, check=args.check
-        )
+        status |= materialize_host(host, out, check=args.check)
         if host == "pi" and args.out is None:
-            status |= materialize_pi_prompts(
-                role_agents, codex_profiles, check=args.check
-            )
+            status |= materialize_pi_prompts(check=args.check)
     return status
 
 

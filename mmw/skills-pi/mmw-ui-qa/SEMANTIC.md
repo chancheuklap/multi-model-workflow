@@ -115,7 +115,7 @@ Four fields:
 **Copy the four questions, the six questions, and the three bands into the task in full.** The `designer` is independent context and cannot read this file. "Evaluate with the cognitive walkthrough" makes it invent four questions, different per path, and results are not comparable. Criteria travel with the task.
 
 Dispatch one independent-context `designer`. Read-only. No working directory.
-Launch: call the native `subagent` tool with agent `mmw-designer` and the four-field task table in full as task.
+Run `mmw launch designer --scope none` and follow the action it prints.
 
 Independent paths start in the same message. Summarize after all have returned.
 

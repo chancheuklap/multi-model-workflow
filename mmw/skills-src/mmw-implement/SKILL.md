@@ -13,7 +13,14 @@ The caller passes `<spec issue number>` for spec work.
 
 Before dispatch:
 
-[[mmw-require-task-branch]]
+Confirm where this repo is first. Judge top to bottom; stop at the first row that hits.
+
+| Case | How to tell | What you do |
+| --- | --- | --- |
+| Not in a git repo | `git rev-parse --is-inside-work-tree` fails | Ask the user for the target repo path. Enter that repo, then judge again |
+| In the main checkout | `git rev-parse --path-format=absolute --git-dir` equals `--git-common-dir` | Stop. Ask the user to open a worktree with this host, then start a session there |
+| No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>`. Use the name this skill or the caller already gave; with none in hand, name it after the work in this repo's own branch-naming shape, and say which name you took |
+| Task branch already there | None of the above holds | Use the current branch |
 
 ## Loop
 
@@ -32,13 +39,9 @@ Task fields:
 - **Constraints:** source and tests in this worktree; leave `docs/` as they are; stay inside the ticket
 - **Acceptance:** the ticket's criteria; HEAD SHA on the result branch
 
-[[mmw-launch:worker:worktree]]
+Run `mmw launch worker --scope worktree` and follow the action it prints.
 
-Billing, permissions, data migration, or irreversible mistakes: use
-
-[[mmw-launch:worker-high-risk:worktree]]
-
-instead. You choose the upgrade.
+Billing, permissions, data migration, or irreversible mistakes: run `mmw launch worker-high-risk --scope worktree` instead. You choose the upgrade.
 
 Integrate one result at a time: `mmw result integrate <result-branch> <HEAD SHA> <base SHA>`. Conflicts: `/mmw-integrate`. Then `gh issue close <ticket number>`. If this result tree was created with `mmw worktree add`, run `mmw worktree remove <result-branch>`. Otherwise the host removes it.
 
@@ -50,9 +53,7 @@ After the claimed tickets are closed, run children again and follow the loop.
 
 When children has no open tickets, send ⑤ final review (`/mmw-review`). The fixed point is `git merge-base HEAD <parent-branch>` — the branch this task was created from, or the map branch when this task came from `/mmw-wayfinder`. Handle findings as `/mmw-review` specifies.
 
-Accepted findings on one ticket: merge the task branch into that result branch (`git merge --no-ff`), then
-
-[[mmw-resume:worker:worktree]]
+Accepted findings on one ticket: merge the task branch into that result branch (`git merge --no-ff`), then run `mmw resume worker --scope worktree` and follow the action it prints.
 
 Conflict, missing worktree, or dead handle: one new repair ticket and a new `worker`. Findings that span tickets: the same. After repair, register the commits as `/mmw-review` specifies.
 

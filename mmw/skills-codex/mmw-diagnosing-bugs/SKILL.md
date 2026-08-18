@@ -20,7 +20,6 @@ Confirm where this repo is first. Judge top to bottom; stop at the first row tha
 | No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>`. Use the name this skill or the caller already gave; with none in hand, name it after the work in this repo's own branch-naming shape, and say which name you took |
 | Task branch already there | None of the above holds | Use the current branch |
 
-
 `mmw artifact path scratch --sub diagnosis/<short-name>` prints the directory for HAR files, traces, log dumps, core dumps, screen recordings, throwaway harnesses, and other process artifacts. A regression test that belongs at a correct seam is source code — write it there in Phase 5.
 
 ## Redact

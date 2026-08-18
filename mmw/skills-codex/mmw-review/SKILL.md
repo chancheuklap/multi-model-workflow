@@ -31,7 +31,6 @@ Confirm where this repo is first. Judge top to bottom; stop at the first row tha
 | No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>`. Use the name this skill or the caller already gave; with none in hand, name it after the work in this repo's own branch-naming shape, and say which name you took |
 | Task branch already there | None of the above holds | Use the current branch |
 
-
 ## 1. Pin the object
 
 If ⑤ touches UI, run `$mmw:mmw-ui-qa` tagged `this-task` first, then pin HEAD. It is not a seventh gate.
@@ -58,9 +57,7 @@ Task fields. Goal's first sentence is the perspective name, copied exactly:
 - **Constraints:** read-only; leave the object as it is
 - **Acceptance:** findings, or why the review cannot run
 
-Codex uses one reviewer role. On ⓪, ①, ②, and ⑤, launch one Codex native `mmw-reviewer-gpt` subagent per perspective. Each reviewer works in an independent context and may run the same model as the author of the object. ⓪ is no exception: this host swaps the context, not the model. Review tasks that do not depend on each other launch in the same message.
-
-Dispatching hands the task over: that subagent owns the research, implementation, and review inside it. The main agent's own work from here is coordination that clearly does not overlap — with none in hand, wait for the report, then continue from what it says rather than redoing the task.
+Run `mmw launch-group reviewers` and follow the actions it prints.
 
 If a reviewer cannot run: missing materials you failed to pass — fill them and resume that perspective; missing from the artifact itself — that is a finding. If they say the problem to solve is the wrong problem, give the user their words.
 
