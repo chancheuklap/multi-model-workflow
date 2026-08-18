@@ -156,7 +156,14 @@ User invokes with a loose idea. This session creates the map and fires research.
 
 Name this effort's task branch.
 
-[[mmw-require-task-branch]]
+Confirm where this repo is first. Judge top to bottom; stop at the first row that hits.
+
+| Case | How to tell | What you do |
+| --- | --- | --- |
+| Not in a git repo | `git rev-parse --is-inside-work-tree` fails | Ask the user for the target repo path. Enter that repo, then judge again |
+| In the main checkout | `git rev-parse --path-format=absolute --git-dir` equals `--git-common-dir` | Stop. Ask the user to open a worktree with this host, then start a session there |
+| No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>`. Use the name this skill or the caller already gave; with none in hand, name it after the work in this repo's own branch-naming shape, and say which name you took |
+| Task branch already there | None of the above holds | Use the current branch |
 
 1. **Name the destination.** Run a `/mmw-grilling` session to pin down what this map is finding its way to — the spec, decision, or change. `/mmw-grilling` applies `/mmw-domain-modeling` in the same discussion. The destination fixes the scope, so it's settled first.
 2. **Map the frontier.** Grill again, **breadth-first** this time: fan out across the whole space rather than deep on any one thread, surfacing the open decisions and the first steps takeable now. This round surfaces questions and fog; it does not settle answers. Stop when the space is fanned out. Do not chase the frontier empty. **If this surfaces no fog** — the way to the destination is already clear, the whole journey small enough for one session — you don't need a map. Stop and ask the user how they'd like to proceed.

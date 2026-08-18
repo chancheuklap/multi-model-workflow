@@ -43,7 +43,6 @@ Confirm where this repo is first. Judge top to bottom; stop at the first row tha
 | No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>`. Use the name this skill or the caller already gave; with none in hand, name it after the work in this repo's own branch-naming shape, and say which name you took |
 | Task branch already there | None of the above holds | Use the current branch |
 
-
 Copy `template.sh` to the target path. `mmw artifact path scratch --sub wizard/<procedure>.sh` prints that path for a one-run wizard. `<procedure>` is the name of this procedure, not the task branch. If the user wants a repeatable setup path in the repo, write to the path they confirm instead — do not keep a second copy in scratch.
 
 Replace the example stage with one `stage` per step, in dependency order. Use the library helpers — `stage`, `say`/`step`, `open_url`, `ask`/`ask_secret`, `write_env`, `set_secret`/`set_var`, `pause`/`confirm` — and set `TOTAL_STAGES` to the number of stages you wrote.

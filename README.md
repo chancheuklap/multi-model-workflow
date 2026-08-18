@@ -219,7 +219,7 @@ mmw-domain-modeling 为这个仓库建立领域模型。先和我确认 bounded 
 mmw-grilling 为订单导出增加按日期筛选，并补齐测试和文档。
 ```
 
-宿主先提供工作树。技能在首次写入前用 `[[mmw-require-task-branch]]` 确认任务分支。下游缺少任务上下文时只报告缺失并停止。
+宿主先提供工作树。技能在首次写入前用一张判断表确认任务分支。下游缺少任务上下文时只报告缺失并停止。
 
 `mmw-prototype` 产生 prototype 资产。逻辑 prototype 使用可直接双击打开的单文件 HTML，并同时提供自由操作和引导式走查。同一 Wayfinder effort 共用 map 的 `产物目录`，每张 decision ticket 使用自己的 `issue-<编号>` 子目录。下游先读该子目录的 `README.md`，再读取用户选中的产物和明确引用的长期证据。临时运行材料进入 Git 忽略的 scratch。
 

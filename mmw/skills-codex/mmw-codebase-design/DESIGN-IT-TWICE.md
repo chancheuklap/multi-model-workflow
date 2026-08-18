@@ -20,9 +20,7 @@ Show this to the user, then immediately proceed to Step 2. The user reads and th
 
 Spawn 3+ `designer` instances in parallel. Each must produce a **radically different** interface for the deepened module.
 
-Launch: call the Codex native subagent `mmw-designer` by name, with the four-field task table in full as task. Instances that do not depend on each other launch in the same message; summarize after all of them finish.
-
-Dispatching hands the task over: that subagent owns the research, implementation, and review inside it. The main agent's own work from here is coordination that clearly does not overlap — with none in hand, wait for the report, then continue from what it says rather than redoing the task.
+Run `mmw launch designer --scope none` and follow the action it prints.
 
 Prompt each `designer` with a separate technical brief (file paths, coupling details, dependency category from [DEEPENING.md](DEEPENING.md), what sits behind the seam). The brief is independent of the user-facing problem-space explanation in Step 1. Give each instance a different design constraint:
 

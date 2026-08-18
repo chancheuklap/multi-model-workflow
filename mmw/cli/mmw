@@ -71,6 +71,7 @@ usage() {
 mmw <命令> [参数]
 
 会话：
+  launch      派 subagent：打印当前宿主的启动动作。另有 launch-group 与 resume
   artifact    产物落点：path / index / check
   issue       tracker：create / frontier / children / claim / link / append / set-parent
   result      把结果分支合进当前任务
@@ -144,11 +145,38 @@ EOF
   return 2
 }
 
+usage_launch() {
+  cat >&2 <<'EOF'
+mmw launch <角色> --scope worktree|current|none
+mmw launch-group reviewers
+mmw resume <角色> --scope worktree|current|none
+
+打印当前宿主该怎么派这一个 subagent，照着做就行。宿主取自各宿主自己标的身份，
+认不出时用 MMW_HOST=claude-code|pi|cursor|grok|codex 指定。
+
+角色：
+  worker            按一份 plan 写代码
+  worker-high-risk  同上，但这块代码错了代价大
+  planner           按一张 ticket 写一份 plan
+  designer          按一个约束提出 interface 方案
+  reviewer-gpt      审查，GPT 那一侧
+  reviewer-claude   审查，Claude 那一侧
+
+范围：
+  worktree  subagent 进一棵新的结果树干活
+  current   subagent 用当前工作树
+  none      不涉及工作树
+
+resume 在没有续跑通道的宿主上打印退路，说明重派要带哪些材料。
+EOF
+  exit 2
+}
+
 usage_dispatch() {
   cat >&2 <<'EOF'
 mmw dispatch <角色> [--task-text <正文>] [--cwd <目录>] [--issue <编号>]
 
-只给 Claude Code。Pi、Cursor、Grok 按物化后的技能产物启动 subagent，不要调这条命令。
+只给 Claude Code，而且由 `mmw launch` 打印的动作指名调用。别的宿主不要调这条命令。
 
 角色：
   worker            按一份 plan 写代码
@@ -407,6 +435,35 @@ agents_role_field() {
       return 1
       ;;
   esac
+}
+
+# 派发动作按宿主查表打印，不在物化时烧进技能正文：技能源五个宿主共用同一句
+# `mmw launch …`，宿主差异全部收在 cli/host-actions.json。加宿主只动那张表。
+cmd_launch() {
+  local action="$1"
+  shift
+  if mmw_is_help "$@"; then mmw_help usage_launch; return 0; fi
+  local subject="${1:-}"
+  shift || true
+  [ -n "$subject" ] || usage_launch
+
+  local scope="none"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --scope)
+        [ $# -ge 2 ] && [ -n "$2" ] || { echo "mmw: --scope 要范围" >&2; usage_launch; }
+        scope="$2"
+        shift 2
+        ;;
+      -h|--help) mmw_help usage_launch; return 0 ;;
+      *) echo "mmw: 认不出参数 $1" >&2; usage_launch ;;
+    esac
+  done
+
+  local host
+  host="$(mmw_host)" || return 1
+  python3 "$MMW_ROOT/cli/lib/host_action.py" \
+    "$action" "$subject" --host "$host" --scope "$scope"
 }
 
 cmd_dispatch() {
@@ -1141,6 +1198,9 @@ cmd_init_entry() {
 case "${1:-}" in
   -h|--help) mmw_help usage ;;
   -v|--version) jq -er .version "$MMW_ROOT/package.json" ;;
+  launch) shift; cmd_launch launch "$@" ;;
+  launch-group) shift; cmd_launch launch-group "$@" ;;
+  resume) shift; cmd_launch resume "$@" ;;
   dispatch) shift; cmd_dispatch "$@" ;;
   agents) shift; cmd_agents "$@" ;;
   skills) shift; cmd_skills "$@" ;;

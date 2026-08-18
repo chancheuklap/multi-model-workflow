@@ -28,7 +28,6 @@ Confirm where this repo is first. Judge top to bottom; stop at the first row tha
 | No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>`. Use the name this skill or the caller already gave; with none in hand, name it after the work in this repo's own branch-naming shape, and say which name you took |
 | Task branch already there | None of the above holds | Use the current branch |
 
-
 `mmw artifact path spec` prints a path; write the spec there. After writing or editing, run `mmw artifact check`. If it exits non-zero, fix the artifact-ref declarations first.
 
 If writing surfaces a missing decision, write what is missing and where you looked, then stop.

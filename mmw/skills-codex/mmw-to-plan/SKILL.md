@@ -24,7 +24,6 @@ Confirm where this repo is first. Judge top to bottom; stop at the first row tha
 | No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>`. Use the name this skill or the caller already gave; with none in hand, name it after the work in this repo's own branch-naming shape, and say which name you took |
 | Task branch already there | None of the above holds | Use the current branch |
 
-
 ## 1. Read
 
 `mmw artifact path spec` prints the spec path; read that file. Stop if the spec issue does not have `ready-for-agent`. `mmw issue children <spec issue number>` lists the tickets. Stop if there are none — run `$mmw:mmw-to-tickets` first.
@@ -42,9 +41,7 @@ Task fields:
 
 Same message, one `planner` per ticket, current task worktree:
 
-Launch: call the Codex native subagent `mmw-planner` by name, with the four-field task table in full as task; that subagent uses the current worktree and does not open a result tree. Instances that do not depend on each other launch in the same message; summarize after all of them finish.
-
-Dispatching hands the task over: that subagent owns the research, implementation, and review inside it. The main agent's own work from here is coordination that clearly does not overlap — with none in hand, wait for the report, then continue from what it says rather than redoing the task.
+Run `mmw launch planner --scope current` and follow the action it prints.
 
 If a `planner` cannot write the plan, give the user the reason. Do not edit approved acceptance, spec decisions, or blocking edges unless the user says so.
 

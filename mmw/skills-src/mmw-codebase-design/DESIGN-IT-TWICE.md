@@ -20,7 +20,7 @@ Show this to the user, then immediately proceed to Step 2. The user reads and th
 
 Spawn 3+ `designer` instances in parallel. Each must produce a **radically different** interface for the deepened module.
 
-[[mmw-launch:designer:none]]
+Run `mmw launch designer --scope none` and follow the action it prints.
 
 Prompt each `designer` with a separate technical brief (file paths, coupling details, dependency category from [DEEPENING.md](DEEPENING.md), what sits behind the seam). The brief is independent of the user-facing problem-space explanation in Step 1. Give each instance a different design constraint:
 

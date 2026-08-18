@@ -20,7 +20,6 @@ Confirm where this repo is first. Judge top to bottom; stop at the first row tha
 | No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>`. Use the name this skill or the caller already gave; with none in hand, name it after the work in this repo's own branch-naming shape, and say which name you took |
 | Task branch already there | None of the above holds | Use the current branch |
 
-
 `<topic>` is a short kebab of the overall question. `mmw artifact path research --sub <topic>/README.md` prints the index path. For each Explore, `mmw artifact path research --sub <topic>/<slug>.md` prints that agent's findings path. `<slug>` is a short kebab of that agent's question. Add `--name` and `--issue` when the caller passed them.
 
 4. Spin up a **group of Explore** agents to do the research, so you keep working while they read. Independent questions: one Explore each, one group, same turn. Pass each its question and its findings path. Do not pass a file list; the question is the boundary. Do not pass the README path.

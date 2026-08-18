@@ -31,7 +31,6 @@ Confirm where this repo is first. Judge top to bottom; stop at the first row tha
 | No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>`. Use the name this skill or the caller already gave; with none in hand, name it after the work in this repo's own branch-naming shape, and say which name you took |
 | Task branch already there | None of the above holds | Use the current branch |
 
-
 ## 1. Pin the object
 
 If ⑤ touches UI, run `/mmw-ui-qa` tagged `this-task` first, then pin HEAD. It is not a seventh gate.
@@ -58,7 +57,7 @@ Task fields. Goal's first sentence is the perspective name, copied exactly:
 - **Constraints:** read-only; leave the object as it is
 - **Acceptance:** findings, or why the review cannot run
 
-This host uses two reviewer roles. ⓪ launches one `reviewer-gpt`: the shared understanding is what the main agent interviewed out itself, so the reviewer must be a different model.Launch: call the native Task tool with agent `mmw-reviewer-gpt` and the four-field task table in full as prompt. Instances that do not depend on each other launch in the same message.① launches one `reviewer-gpt` per perspective.Launch: call the native Task tool with agent `mmw-reviewer-gpt` and the four-field task table in full as prompt. Instances that do not depend on each other launch in the same message.② launches one `reviewer-claude` per perspective.Launch: call the native Task tool with agent `mmw-reviewer-claude` and the four-field task table in full as prompt. Instances that do not depend on each other launch in the same message.⑤ launches one `reviewer-gpt` and one `reviewer-claude` per perspective. Compare the two sets of findings for the same perspective side by side, then dispose as `/mmw-review` specifies. Each reviewer receives only its own four-field task.
+Run `mmw launch-group reviewers` and follow the actions it prints.
 
 If a reviewer cannot run: missing materials you failed to pass — fill them and resume that perspective; missing from the artifact itself — that is a finding. If they say the problem to solve is the wrong problem, give the user their words.
 
