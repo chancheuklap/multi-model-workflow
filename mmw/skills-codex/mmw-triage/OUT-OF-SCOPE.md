@@ -18,7 +18,11 @@ One file per **concept**, not per issue. Multiple issues requesting the same thi
 
 ## File format
 
-The file should be written in a relaxed, readable style — more like a short design document than a database entry. Use paragraphs, code samples, and examples to make the reasoning clear and useful to someone encountering it for the first time.
+Write the file as a short design document, not a database entry. Use paragraphs, code samples, and examples to make the reasoning clear to someone meeting it for the first time. Someone hits this file years later while triaging a similar request, and they scan rather than read.
+
+- Put the point of each paragraph in its first sentence. A reason buried in the last sentence gets missed.
+- One idea per paragraph. Past 5 or 6 sentences the paragraph is carrying too much — split it or cut it.
+- Write link text that stands on its own: "see the Ordering context leaf", not "see this document".
 
 ```markdown
 # Dark Mode
