@@ -1,6 +1,6 @@
 {
   "name": "@cheuklapchan/mmw",
-  "version": "0.35.0",
+  "version": "0.36.0",
   "private": true,
   "description": "多模型开发编排。编排与判定、写代码的 `worker`、写 plan 的 `planner` 和跨模型的 `reviewer-gpt` 与 `reviewer-claude` 各自绑定模型档，宿主之间共享同一套流程。",
   "license": "MIT",
