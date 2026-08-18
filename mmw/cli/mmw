@@ -1030,6 +1030,12 @@ cmd_doctor() {
         echo "CC skills: 未装齐或链接指向别处，重新运行 $repair"
         status=1
       fi
+      if [ -e "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/agents/mmw-reviewer-claude.md" ]; then
+        echo "CC agent : 审查者 agent 已装进 ~/.claude/agents"
+      else
+        echo "CC agent : 审查者 agent 没装，重新运行 $repair"
+        status=1
+      fi
       ;;
     cursor)
       if python3 "$MMW_ROOT/cli/lib/materialize_agents.py" --host cursor --check >/dev/null 2>&1; then

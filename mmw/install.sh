@@ -141,6 +141,37 @@ install_codex() {
   echo "Codex    : 已安装 mmw@$marketplace"
 }
 
+# Claude Code 的会话内 subagent。这个宿主只有一个：审查者。别的角色都是 GPT 族，
+# 由 adapter 走 codex exec，不需要 agent 文件。
+#
+# 软链不拷贝，理由同技能。目标目录里同名的文件不是本脚本装的软链就不动它。
+install_claude_code_agents() {
+  local src dest manifest tmp name
+  src="$RUNTIME_ROOT/mmw/agents"
+  dest="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/agents"
+  manifest="$dest/.mmw-agents"
+  mkdir -p "$dest"
+  if [ -f "$manifest" ]; then
+    while IFS= read -r name; do
+      [ -n "$name" ] || continue
+      [ -f "$src/$name" ] && continue
+      [ -L "$dest/$name" ] && rm -f "$dest/$name"
+    done < "$manifest"
+  fi
+  tmp="$(mktemp "$dest/.mmw-agents.XXXXXX")"
+  for name in "$src"/*.md; do
+    [ -f "$name" ] || continue
+    name="$(basename "$name")"
+    if [ -e "$dest/$name" ] && [ ! -L "$dest/$name" ]; then
+      die "Claude   : $dest/$name 已被非 MMW 内容占用，先处理它再装"
+    fi
+    ln -sfn "$src/$name" "$dest/$name"
+    printf '%s\n' "$name" >> "$tmp"
+  done
+  mv "$tmp" "$manifest"
+  echo "Claude   : 已装 agent 到 $dest"
+}
+
 install_claude_code() {
   command -v claude >/dev/null 2>&1 || { echo "Claude   : 未安装，跳过"; return; }
   local name="multi-model-workflow" registered installed settings temp
@@ -160,6 +191,7 @@ install_claude_code() {
     claude plugin install "mmw@$name" --scope user >/dev/null
   fi
   install_skills_into "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills"
+  install_claude_code_agents
   settings="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
   mkdir -p "$(dirname "$settings")"
   if [ ! -f "$settings" ]; then
