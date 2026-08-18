@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""upsert_grok_config 往 Grok 的 config.toml 里写服务器时做了什么。
+"""upsert_toml_config 往 Grok 的 config.toml 里写服务器时做了什么。
 
 看的是写出来的文件：Grok 能不能解析、原有内容还在不在、连写两次是不是同一份。
 """
@@ -15,7 +15,7 @@ import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from resolve import upsert_grok_config
+from resolve import upsert_toml_config
 
 SERVERS = {
     "serena": {"command": "serena", "args": ["start-mcp-server", "--project-from-cwd"]},
@@ -74,7 +74,7 @@ class GrokConfigTest(unittest.TestCase):
         return tomllib.loads(self.path.read_text(encoding="utf-8"))
 
     def test_writes_three_servers_into_empty_file(self) -> None:
-        upsert_grok_config(self.path, SERVERS)
+        upsert_toml_config(self.path, SERVERS)
         data = self.parsed()
         self.assertEqual(set(data["mcp_servers"]), {"serena", "graphify", "context7"})
         self.assertEqual(
@@ -86,7 +86,7 @@ class GrokConfigTest(unittest.TestCase):
         # 子表留下来的话，新写的内联 env 就是同一个 key 的第二次定义，Grok 报
         # duplicate key 起不来。所以这里先看解析得动，再看值是新的。
         self.write(NORMALIZED)
-        upsert_grok_config(self.path, SERVERS)
+        upsert_toml_config(self.path, SERVERS)
         data = self.parsed()
         self.assertEqual(
             data["mcp_servers"]["graphify"]["env"],
@@ -98,7 +98,7 @@ class GrokConfigTest(unittest.TestCase):
 
     def test_keeps_other_tables(self) -> None:
         self.write(NORMALIZED)
-        upsert_grok_config(self.path, SERVERS)
+        upsert_toml_config(self.path, SERVERS)
         data = self.parsed()
         self.assertEqual(data["cli"]["installer"], "internal")
         self.assertEqual(data["ui"]["theme"], "grokday")
@@ -107,20 +107,20 @@ class GrokConfigTest(unittest.TestCase):
     def test_keeps_array_of_tables_after_servers(self) -> None:
         # 服务器块后面的 [[…]] 曾经被当成不算数的边界，整段被吃掉。
         self.write(NORMALIZED + '\n[[marketplace.sources]]\nname = "Second"\ngit = "x"\n')
-        upsert_grok_config(self.path, SERVERS)
+        upsert_toml_config(self.path, SERVERS)
         names = [item["name"] for item in self.parsed()["marketplace"]["sources"]]
         self.assertEqual(names, ["xAI Official", "Second"])
 
     def test_second_run_changes_nothing(self) -> None:
         self.write(NORMALIZED)
-        upsert_grok_config(self.path, SERVERS)
+        upsert_toml_config(self.path, SERVERS)
         once = self.path.read_text(encoding="utf-8")
-        upsert_grok_config(self.path, SERVERS)
+        upsert_toml_config(self.path, SERVERS)
         self.assertEqual(self.path.read_text(encoding="utf-8"), once)
 
     def test_file_without_trailing_newline(self) -> None:
         self.write('[cli]\ninstaller = "internal"')
-        upsert_grok_config(self.path, SERVERS)
+        upsert_toml_config(self.path, SERVERS)
         self.assertEqual(self.parsed()["cli"]["installer"], "internal")
         self.assertIn("serena", self.parsed()["mcp_servers"])
 

@@ -5,7 +5,7 @@ model = "gpt-5.6-sol"
 model_reasoning_effort = "medium"
 sandbox_mode = "workspace-write"
 developer_instructions = """
-Call `$mmw:mmw-planner` first. Method lives only in that skill.
+Call `mmw-planner` first. Method lives only in that skill.
 
 You write one plan for one ticket. The working directory is the one you were given.
 

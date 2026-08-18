@@ -14,7 +14,7 @@
 | Agent | [Agent](./docs/context/agent-coordination.md) | 主 agent、subagent、角色、task、报告、handoff、验证、任务分支、结果分支和任务 worktree。 |
 | 审查 | [审查](./docs/context/review.md) | 六道审、共同理解审、视角（任务名）、finding、处置、固定点、Reviewed HEAD、Final commit、Repair commit、审查记录、逐份验收和合同门。 |
 | 出包与收尾 | [出包与收尾](./docs/context/release-and-closure.md) | product、release config、`mmw release`、stage、release state、stage artifact、delivery record、user install test 和 external publish。 |
-| 宿主 | [宿主](./docs/context/host-runtime.md) | 技能源、技能产物、物化、宿主动作表、原生 subagent、Codex App 后台 Worktree 任务和 Cursor 任务树与结果树。 |
+| 宿主 | [宿主](./docs/context/host-runtime.md) | 技能源、角色物化、软链安装、宿主动作表、原生 subagent、Codex App 后台 Worktree 任务和 Cursor 任务树与结果树。 |
 | 领域上下文与检索 | [领域上下文与检索](./docs/context/project-context.md) | domain model、Context Map、leaf、ADR、ADR 索引、authoritative reference、structure graph 和 structure candidate。 |
 | 产物落点 | [产物落点](./docs/context/artifact-location.md) | 路径形状、类别根、固定类别根、工作目录根、名字段、工作名、范围段、类别内细分、当场取名、产物引用、撞名、安全路径段、工作名重复和不落盘判据。 |
 | 界面 QA | [界面 QA](./docs/context/ui-qa.md) | UI QA、check、violation、criterion self-check、screen map、coverage report 和范围。 |
@@ -28,7 +28,7 @@
 - 交付工作流通过 Agent 派发 task；subagent 交回报告，主 agent 按报告继续流程。独立审查者仍派。
 - 审查读取 shared-understanding record、spec、plan、实现改动和集成结果；`accepted` finding 交回产物拥有者处理。
 - 出包与收尾接收通过 final 终审的结果。user install test 通过后，任务结束。
-- 宿主把共享技能源物化为技能产物；宿主差异不改变共享流程语义。
+- 五个宿主装的是同一份技能源；宿主差异只出现在角色物化与宿主动作表里，不改变共享流程语义。
 - 领域上下文与检索向其他 Context 提供 canonical term 和 structure candidate；关键结论由主 agent 回到当前源码验证。
 - Context Map 与 Wayfinding 的 map 是两个现有对象。Context Map 索引 bounded context；Wayfinding 的 map 索引一个 effort 的决定。
 - 产物落点向其他 Context 提供路径形状；交付工作流、Wayfinding、审查和 Agent 的产物按它确定位置。

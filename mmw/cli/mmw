@@ -111,7 +111,6 @@ EOF
   init        配置当前仓库（幂等）
   doctor      检查这台机器
   agents      物化原生 subagent
-  mcp         Codex plugin 的 stdio 入口
 
 查某一个命令：mmw <命令> --help
 除 doctor 与 init 外，无参只显示用法。doctor 与 init 无参就是执行。
@@ -789,32 +788,6 @@ EOF
   return 2
 }
 
-usage_mcp() {
-  cat >&2 <<'EOF'
-mmw mcp serve <服务器名>
-    从 mmw/.mcp.json 展开并启动一台 stdio MCP 服务器。
-    这是 Codex plugin 的进程入口，不安装用户级 MCP 配置。
-
-Examples:
-  mmw mcp serve serena
-EOF
-  return 2
-}
-
-cmd_mcp() {
-  if mmw_is_help "$@"; then mmw_help usage_mcp; return 0; fi
-  local sub="${1:-}"
-  shift || true
-  case "$sub" in
-    serve)
-      if mmw_is_help "$@"; then mmw_help usage_mcp; return 0; fi
-      [ $# -eq 1 ] || mmw_need "mcp serve 要服务器名" "mmw mcp serve <服务器名>"
-      exec python3 "$MMW_ROOT/mcp/serve.py" "$1"
-      ;;
-    *) usage_mcp ;;
-  esac
-}
-
 cmd_graph() {
   if mmw_is_help "$@"; then mmw_help usage_graph; return 0; fi
   case "${1:-}" in
@@ -1091,19 +1064,19 @@ cmd_doctor() {
   esac
 
   # Pi 与 Cursor 的插件规格没有声明 MCP 的位置，只能写用户级配置。
-  # Codex 与 Claude Code 的 plugin 自己携带 MCP。
-  if [ "${host:-}" = "pi" ] || [ "${host:-}" = "cursor" ]; then
+  # 五个宿主的检索服务器都装在用户级：JSON 三面一起查，config.toml 两面一起查。
+  if [ "${host:-}" = "pi" ] || [ "${host:-}" = "cursor" ] || [ "${host:-}" = "claude-code" ]; then
     if bash "$MMW_ROOT/mcp/install-mcp.sh" --check >/dev/null 2>&1; then
-      echo "pi/Cursor: 用户级 MCP 已装（这台机器上没有的那一面自动跳过）"
+      echo "MCP      : 用户级 MCP 已装（这台机器上没有的那一面自动跳过）"
     else
-      echo "pi/Cursor: 有一面没装或与 plugin 定义不一致，重新运行 $repair"
+      echo "MCP      : 有一面没装或与当前定义不一致，重新运行 $repair"
       status=1
     fi
-  elif [ "${host:-}" = "grok" ]; then
-    if bash "$MMW_ROOT/mcp/install-mcp.sh" --check-grok >/dev/null 2>&1; then
-      echo "Grok MCP : 用户级三台检索服务器已装"
+  elif [ "${host:-}" = "grok" ] || [ "${host:-}" = "codex" ]; then
+    if bash "$MMW_ROOT/mcp/install-mcp.sh" --check-toml >/dev/null 2>&1; then
+      echo "MCP      : 用户级三台检索服务器已装"
     else
-      echo "Grok MCP : 没装或与 plugin 定义不一致，重新运行 $repair"
+      echo "MCP      : 没装或与当前定义不一致，重新运行 $repair"
       status=1
     fi
   elif [ "${host:-}" = "codex" ]; then
@@ -1179,7 +1152,6 @@ case "${1:-}" in
   domain) shift; cmd_domain "$@" ;;
   graph) shift; cmd_graph "$@" ;;
   toolchain) shift; cmd_toolchain "$@" ;;
-  mcp) shift; cmd_mcp "$@" ;;
   release) shift; exec bash "$MMW_ROOT/release/release-flow.sh" "$@" ;;
   doctor) shift; cmd_doctor_entry "$@" ;;
   init) shift; cmd_init_entry "$@" ;;

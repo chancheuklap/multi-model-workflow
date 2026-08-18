@@ -1,30 +1,40 @@
 # AGENTS.md
 
-这个仓库是用户的一整套工作流集合工具箱。它不是一个简单的技能仓库或者 plugin 仓库。任何有可能在不同的 agent harness、不同的仓库、不同的电脑上面使用的通用工作流工具，都应该由这个仓库管理，而不是写到某一个项目仓库里面。
+这个仓库是用户的一整套工作流集合工具箱。它不是一个简单的技能仓库。任何有可能在不同的 agent harness、不同的仓库、不同的电脑上面使用的通用工作流工具，都应该由这个仓库管理，而不是写到某一个项目仓库里面。
 
-这个仓库是里面的技能和 plugin，不是你的工作指南。永远站在要使用这些技能和 plugin 的全新 agent 的角度去思考问题和撰写文档。
+这个仓库是里面的技能和工具，不是你的工作指南。永远站在要使用它们的全新 agent 的角度去思考问题和撰写文档。
 
 ## 仓库范围
 
 `mmw/` 是仓库唯一活跃的多模型工作流（Multi-Model Workflow，MMW）。
 
-| 宿主 | 发布入口 | 版本号位置 |
-| --- | --- | --- |
-| Codex App | 根 `.agents/plugins/marketplace.json`、`mmw/.codex-plugin/plugin.json`、`mmw/codex/runtime.py` | `mmw/.codex-plugin/plugin.json` |
-| Claude Code | `mmw/.claude-plugin/plugin.json`、根 `.claude-plugin/marketplace.json` | 两份都有；根 marketplace 的插件版本与顶层版本各算一处 |
-| Pi | `mmw/package.json` | `mmw/package.json` |
-| Cursor（安装面） | `mmw/install.sh` 散装 `~/.cursor/skills`、`~/.cursor/agents`、hooks、mcp、`mmw-cursor-agent` | 无 |
-| Grok Build（安装面） | `mmw skills materialize --host grok`、`mmw agents materialize --host grok` → `~/.grok/skills/` 与 `~/.grok/agents/` | 无 |
+MMW 不打包成任何宿主的插件。`mmw/install.sh` 是唯一安装入口：它从源码仓库构建稳定
+runtime，再把五个组件装进每个宿主自己的用户级目录。
 
-改产品版本时，上表「版本号位置」列的全部五处必须同步。Grok 与 Cursor 没有 plugin 版本号。
+| 组件 | Claude Code | Codex App | Pi | Cursor | Grok Build |
+| --- | --- | --- | --- | --- | --- |
+| 技能 | `~/.claude/skills` | `~/.codex/skills` | `~/.pi/agent/skills` | `~/.cursor/skills` | `~/.grok/skills` |
+| 原生 subagent | `~/.claude/agents` | `~/.codex/agents` | `~/.pi/agent/agents` | `~/.cursor/agents` | `~/.grok/agents` 与 `~/.grok/roles` |
+| hooks | `~/.claude/settings.json` | `~/.codex/hooks.json` | 扩展目录 | `~/.cursor/hooks.json` | `~/.grok/hooks` |
+| MCP | `~/.claude.json` | `~/.codex/config.toml` | `~/.pi/agent/mcp.json` | `~/.cursor/mcp.json` | `~/.grok/config.toml` |
+| 权限 | `~/.claude/settings.json` | — | — | `~/.cursor/permissions.json` | — |
+
+`mmw` CLI 与 `mmw-cursor-agent`、`mmw-ui-qa` 三个转发器装进 `$BIN_DIR`，五个宿主共用。
+
+技能是软链，不是拷贝：升级 runtime 之后技能跟着变，不用重装。每个目标目录留一份
+`.mmw-skills` 或 `.mmw-agents` 清单，装之前按它清理上一次装了、这次没有的那些。目录
+里同名的东西不是 MMW 装的就一律不动，报冲突并非零退出。
+
+产品没有插件版本号，也没有版本号闸门。以前那道闸门防的是插件缓存不刷新，没有插件
+就没有缓存：改完跑一次 `mmw/install.sh`，宿主读到的就是新内容。
 
 原生多模型宿主的 agent 文件不要手改 model 行。模型档只保存在 `mmw/cli/mmw.default.json`。修改模型档后，用 `mmw agents materialize` 更新 Pi、Cursor 与 Grok，并运行：
 
 ```bash
-python3 mmw/codex/runtime.py materialize  # 更新 Codex plugin 与原生 subagent
+python3 mmw/codex/runtime.py materialize  # 更新 Codex 原生 subagent
 ```
 
-`mmw/install.sh` 是本机安装的统一入口。它从 MMW 源码仓库构建稳定 runtime，再安装到本机已有的宿主。目标仓库初始化只执行 `mmw init`；验收本机运行时时另行执行只读的 `mmw doctor`。
+目标仓库初始化只执行 `mmw init`；验收本机运行时时另行执行只读的 `mmw doctor`。
 
 `archive/` 是冻结归档。
 
@@ -42,9 +52,9 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 同一项行为按以下顺序核对：
 
-1. 对应宿主的 manifest、根 marketplace 或 Pi package；Codex 角色结构只认 `mmw/codex/profiles.json`，模型只认 `mmw/cli/mmw.default.json` 的 `hosts.codex` 覆盖。
+1. `mmw/install.sh` 的安装动作；Codex 角色结构只认 `mmw/codex/profiles.json`，模型只认 `mmw/cli/mmw.default.json` 的 `hosts.codex` 覆盖。
 2. `mmw/cli/` 的机械动作、宿主 adapter、`.mmw.json` 配置合同和 `mmw/cli/artifacts.json` 的产物落点数据。
-3. `mmw/skills-src/` 技能源与 `mmw skills materialize` 产物；流程判据以源为准。派发动作不在技能里，宿主差异只认 `mmw/cli/host-actions.json`，由 `mmw launch` 在运行期回答。
+3. `mmw/skills-src/` 技能源。五个宿主装的都是它，没有第二份；流程判据以它为准。派发动作不在技能里，宿主差异只认 `mmw/cli/host-actions.json`，由 `mmw launch` 在运行期回答。
 
 `.mmw.json` 保存目标仓库的标签、CLI 路径和领域文档形态。模型档属于已安装 runtime，不进入目标仓库配置。
 
@@ -58,7 +68,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 共享角色、技能和流程语义。宿主差异留在 Codex profile、原生 agent frontmatter、Claude Code 的 dispatch adapter（`mmw/cli/adapters/claude-code.sh`）、manifest 与 runtime 模型档的 hosts 覆盖：
 
-- Codex App 的全部角色走它自己的原生 subagent 与后台 worktree 任务，不调用外部模型 CLI 或 harness。Codex plugin 以 `mmw/` 为发布根；运行时不得回退 MMW 源码 checkout 或目标项目里的同名目录。App 设置里的 Worktree root 是所有项目共用的 managed worktree 物理存放目录，不是 MMW 源码路径，也不受目标项目 `.mmw.json` 的 `paths.worktrees` 控制。
+- Codex App 的全部角色走它自己的原生 subagent 与后台 worktree 任务，不调用外部模型 CLI 或 harness。Codex 的技能与原生 subagent 由 `mmw/install.sh` 装进 `~/.codex/`；运行时读已安装 runtime，不回退 MMW 源码 checkout 或目标项目里的同名目录。App 设置里的 Worktree root 是所有项目共用的 managed worktree 物理存放目录，不是 MMW 源码路径，也不受目标项目 `.mmw.json` 的 `paths.worktrees` 控制。
 - Claude Code 只接 claude 与 gpt 两个模型族：GPT 角色通过后台 Bash 执行 Codex CLI，Claude 角色通过后台 Agent 工具执行。
 - Pi、Cursor 与 Grok 的全部角色走宿主原生 `subagent`，frontmatter 由 `mmw/agent-src/` 按 profile 生成（`mmw agents materialize`）。
 - 模型分配默认各宿主相同。某个宿主接不了基线模型时，在 `mmw/cli/mmw.default.json` 该角色底下写 `hosts.<宿主>` 覆盖，按字段生效。

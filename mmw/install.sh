@@ -20,11 +20,8 @@ die() {
 }
 
 require_source_repo() {
-  [ -f "$SOURCE_REPO/.agents/plugins/marketplace.json" ] \
-    || die "找不到 Codex marketplace：$SOURCE_REPO/.agents/plugins/marketplace.json"
-  [ -f "$SOURCE_REPO/.claude-plugin/marketplace.json" ] \
-    || die "找不到 Claude Code marketplace：$SOURCE_REPO/.claude-plugin/marketplace.json"
-  [ -f "$SOURCE_MMW/.codex-plugin/plugin.json" ] \
+  [ -f "$SOURCE_MMW/cli/mmw" ] && [ -d "$SOURCE_MMW/skills-src" ] \
+    && [ -f "$SOURCE_MMW/codex/runtime.py" ] \
     || die "当前目录不是完整的 MMW 源码仓库：$SOURCE_MMW"
 }
 
@@ -37,9 +34,6 @@ build_runtime() {
   local stage previous
   mkdir -p "$RUNTIME_HOME"
   stage="$(mktemp -d "$RUNTIME_HOME/.runtime.XXXXXX")"
-  mkdir -p "$stage/.agents/plugins" "$stage/.claude-plugin"
-  cp "$SOURCE_REPO/.agents/plugins/marketplace.json" "$stage/.agents/plugins/marketplace.json"
-  cp "$SOURCE_REPO/.claude-plugin/marketplace.json" "$stage/.claude-plugin/marketplace.json"
   cp -R "$SOURCE_MMW" "$stage/mmw"
   printf '%s\n' "$SOURCE_REPO" > "$stage/.mmw-source-root"
 
@@ -67,33 +61,6 @@ build_runtime() {
   fi
   mv "$stage" "$RUNTIME_ROOT"
   echo "runtime  : $RUNTIME_ROOT"
-}
-
-# 同一个版本号下改了内容就停下。
-#
-# Codex 与 Claude Code 运行的都是 plugins/cache 里的副本，不是这份 runtime。
-# Claude Code 的 plugin update 按版本号判定：版本号不动，它认定已是最新，副本
-# 一个字都不换。于是「install.sh 报了已安装」和「宿主真的读到新内容」是两回事。
-#
-# 绕过去的办法是 uninstall 再 install 强行覆盖，但那等于把版本号这道机制废掉，
-# 而且只有动手的人知道自己绕过了，下一个人照样踩。所以这里直接拦：内容变了就
-# 升版本号，五处一起升（见 AGENTS.md）。
-require_version_bump() {
-  local version cache_dir
-  version="$(jq -er '.version' "$RUNTIME_ROOT/mmw/.claude-plugin/plugin.json")" \
-    || die "读不出 runtime 的插件版本"
-  for cache_dir in \
-    "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/cache/multi-model-workflow/mmw/$version" \
-    "${CODEX_HOME:-$HOME/.codex}/plugins/cache/mmw-codex/mmw/$version"; do
-    [ -d "$cache_dir" ] || continue
-    if ! diff -r -q -x '__pycache__' -x '*.pyc' \
-        "$RUNTIME_ROOT/mmw" "$cache_dir" >/dev/null 2>&1; then
-      echo "mmw install: 版本仍是 ${version}，但内容与已安装副本不同：" >&2
-      diff -r -q -x '__pycache__' -x '*.pyc' "$RUNTIME_ROOT/mmw" "$cache_dir" 2>&1 \
-        | sed 's/^/  /' >&2
-      die "先把五处版本号一起升上去再装（见 AGENTS.md「版本号位置」）"
-    fi
-  done
 }
 
 install_forwarder() {
@@ -129,16 +96,29 @@ install_skills_into() {
     || die "技能装不进 $1，按上面的冲突行处理后重跑"
 }
 
+# 上一版把 MMW 装成插件。装过的机器上那份插件还在，技能会出现两遍：一遍来自插件，
+# 一遍来自用户级目录。这一步把它摘掉。摘的是 MMW 自己那一份，认名字，不动别人的插件。
+remove_legacy_plugin() {
+  if command -v claude >/dev/null 2>&1 \
+     && claude plugin list --json 2>/dev/null | jq -e '.[] | select(.name == "mmw")' >/dev/null 2>&1; then
+    claude plugin uninstall "mmw@multi-model-workflow" >/dev/null 2>&1 || true
+    claude plugin marketplace remove multi-model-workflow >/dev/null 2>&1 || true
+    echo "Claude   : 已摘掉上一版的 mmw 插件"
+  fi
+  if command -v codex >/dev/null 2>&1 \
+     && codex plugin list --json 2>/dev/null | jq -e '.installed[]? | select(.name == "mmw")' >/dev/null 2>&1; then
+    codex plugin remove "mmw@mmw-codex" --json >/dev/null 2>&1 || true
+    codex plugin marketplace remove mmw-codex --json >/dev/null 2>&1 || true
+    echo "Codex    : 已摘掉上一版的 mmw 插件"
+  fi
+}
+
 install_codex() {
   command -v codex >/dev/null 2>&1 || { echo "Codex    : 未安装，跳过"; return; }
-  local marketplace_json marketplace
-  marketplace_json="$(codex plugin marketplace add "$RUNTIME_ROOT" --json)"
-  marketplace="$(jq -er '.marketplaceName' <<< "$marketplace_json")" \
-    || die "Codex marketplace 安装结果缺少 marketplaceName"
-  codex plugin add "mmw@$marketplace" --json >/dev/null
   python3 "$RUNTIME_ROOT/mmw/codex/runtime.py" install
   install_skills_into "${CODEX_HOME:-$HOME/.codex}/skills"
-  echo "Codex    : 已安装 mmw@$marketplace"
+  merge_post_tool_use_hook "${CODEX_HOME:-$HOME/.codex}/hooks.json" "Codex   "
+  echo "Codex    : 已装技能、原生 subagent、编辑后诊断 hook"
 }
 
 # Claude Code 的会话内 subagent。这个宿主只有一个：审查者。别的角色都是 GPT 族，
@@ -174,24 +154,10 @@ install_claude_code_agents() {
 
 install_claude_code() {
   command -v claude >/dev/null 2>&1 || { echo "Claude   : 未安装，跳过"; return; }
-  local name="multi-model-workflow" registered installed settings temp
-  registered="$(claude plugin marketplace list --json \
-    | jq -r --arg n "$name" '.[] | select(.name == $n) | (.path // .installLocation)')"
-  if [ -n "$registered" ] && [ "$registered" != "$RUNTIME_ROOT" ]; then
-    claude plugin marketplace remove "$name" >/dev/null
-  fi
-  if [ "$registered" != "$RUNTIME_ROOT" ]; then
-    claude plugin marketplace add "$RUNTIME_ROOT" >/dev/null
-  fi
-  installed="$(claude plugin list --json \
-    | jq -r --arg n "mmw@$name" '.[] | select((.id // .name // "") == $n or .name == "mmw") | (.id // .name)')"
-  if [ -n "$installed" ]; then
-    claude plugin update "mmw@$name" >/dev/null
-  else
-    claude plugin install "mmw@$name" --scope user >/dev/null
-  fi
+  local settings temp
   install_skills_into "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills"
   install_claude_code_agents
+  merge_post_tool_use_hook "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json" "Claude  "
   settings="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
   mkdir -p "$(dirname "$settings")"
   if [ ! -f "$settings" ]; then
@@ -203,7 +169,7 @@ install_claude_code() {
   jq '.permissions.allow = (((.permissions.allow // []) + ["Bash(mmw:*)"]) | unique)' \
     "$settings" > "$temp"
   mv "$temp" "$settings"
-  echo "Claude   : 已安装 mmw@$name"
+  echo "Claude   : 已装技能、agent、权限与编辑后诊断 hook"
   install_claude_code_lsp
 }
 
@@ -298,12 +264,11 @@ install_cursor_hooks() {
   local hooks_json="$HOME/.cursor/hooks.json"
   local hook_dir="$HOME/.cursor/hooks"
   local hook_script="$hook_dir/mmw-toolchain-check.sh"
-  local source="$RUNTIME_ROOT/mmw/toolchain/hooks/cursor-post-tool-use.sh"
+  local source="$RUNTIME_ROOT/mmw/toolchain/hooks/cursor.sh"
   local tmp
   [ -f "$source" ] || die "缺 Cursor 诊断 hook 源：$source"
   mkdir -p "$hook_dir"
-  cp "$source" "$hook_script"
-  chmod 0755 "$hook_script"
+  ln -sfn "$source" "$hook_script"
   if [ ! -f "$hooks_json" ]; then
     printf '{"version":1,"hooks":{}}\n' > "$hooks_json"
   fi
@@ -389,13 +354,49 @@ install_grok() {
   }
   install_skills_into "$HOME/.grok/skills"
   "$RUNTIME_ROOT/mmw/cli/mmw" agents materialize --host grok
-  mkdir -p "$HOME/.grok/hooks"
-  cp "$RUNTIME_ROOT/mmw/toolchain/hooks/grok-stop.sh" \
-    "$HOME/.grok/hooks/mmw-toolchain-check.sh"
-  chmod 0755 "$HOME/.grok/hooks/mmw-toolchain-check.sh"
-  cp "$RUNTIME_ROOT/mmw/toolchain/hooks/grok-stop.json" \
-    "$HOME/.grok/hooks/mmw-toolchain.json"
+  install_grok_hooks
   echo "Grok     : 已装技能、角色、Stop hook"
+}
+
+# Grok 的诊断挂在 Stop 与 SubagentStop：它的 PostToolUse 忽略 stdout，诊断在那里
+# 交不回模型。命令写相对名，与 Grok 自己的 hooks 目录约定一致。
+install_grok_hooks() {
+  local hook_dir="$HOME/.grok/hooks"
+  mkdir -p "$hook_dir"
+  ln -sfn "$RUNTIME_ROOT/mmw/toolchain/hooks/grok.sh" "$hook_dir/mmw-toolchain-check.sh"
+  jq -n '
+    {hooks: {
+      Stop: [{hooks: [{type: "command", command: "./mmw-toolchain-check.sh", timeout: 60}]}],
+      SubagentStop: [{hooks: [{type: "command", command: "./mmw-toolchain-check.sh", timeout: 60}]}]
+    }}
+  ' > "$hook_dir/mmw-toolchain.json"
+}
+
+# Claude Code 与 Codex 的 hook 合同一样，注册位置不一样：
+#   Claude Code  ~/.claude/settings.json 的 .hooks
+#   Codex        ~/.codex/hooks.json 的 .hooks
+# 两边都是合并，不是覆盖：别人的 hook 留着，只换掉我们自己那一条。认自己那一条靠
+# 命令里出现 mmw/toolchain/hooks，改安装位置也认得出来。
+merge_post_tool_use_hook() {
+  local file="$1" label="$2" cmd tmp
+  cmd="bash \"$RUNTIME_ROOT/mmw/toolchain/hooks/claude-codex.sh\""
+  mkdir -p "$(dirname "$file")"
+  [ -f "$file" ] || printf '{}\n' > "$file"
+  jq -e . "$file" >/dev/null 2>&1 || die "$label 的 $file 不是合法 JSON"
+  tmp="$(mktemp "$(dirname "$file")/.mmw-hooks.XXXXXX")"
+  jq --arg cmd "$cmd" '
+    .hooks = (.hooks // {})
+    | .hooks.PostToolUse = (
+        ((.hooks.PostToolUse // [])
+          | map(.hooks = ((.hooks // [])
+              | map(select((.command // "") | tostring | contains("mmw/toolchain/hooks") | not))))
+          | map(select((.hooks | length) > 0)))
+        + [{hooks: [{type: "command", command: $cmd, timeout: 120}]}]
+      )
+  ' "$file" > "$tmp"
+  jq -e . "$tmp" >/dev/null 2>&1 || die "合并 $label 的 hook 失败"
+  mv "$tmp" "$file"
+  echo "$label: 已合并编辑后诊断 hook 到 $file"
 }
 
 install_mcp() {
@@ -432,8 +433,8 @@ EOF
 require_source_repo
 verify_source
 build_runtime
-require_version_bump
 install_forwarder
+remove_legacy_plugin
 install_codex
 install_claude_code
 install_pi

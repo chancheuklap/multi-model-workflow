@@ -26,7 +26,9 @@ install-mcp.sh 装完会对每个保留下来的变量查一次可达性，取�
     resolve.py --format raw    展开后的 {"mcpServers": {...}}
     resolve.py --format pi     pi 的 ~/.pi/agent/mcp.json 要的服务器 map（带 type）
     resolve.py --format cursor Cursor 的 ~/.cursor/mcp.json 要的服务器 map（不带 type）
+    resolve.py --format claude Claude Code 的 ~/.claude.json 要的服务器 map
     resolve.py --format codex  Claude Code 启动 headless Codex 时注入的 key=value
+    resolve.py --merge-toml P  把服务器合并进 P 这份 config.toml（Grok 与 Codex）
 """
 
 from __future__ import annotations
@@ -149,7 +151,7 @@ def toml_scalar(value: str) -> str:
     return json.dumps(value)
 
 
-def grok_table(name: str, spec: dict) -> str:
+def toml_table(name: str, spec: dict) -> str:
     lines = [f"[mcp_servers.{name}]"]
     lines.append(f"command = {json.dumps(spec['command'])}")
     if spec.get("args"):
@@ -178,8 +180,8 @@ def owns_table(table: str, name: str) -> bool:
     return table == root or table.startswith(root + ".")
 
 
-def upsert_grok_config(path: Path, servers: dict[str, dict]) -> None:
-    """把三台服务器写进 Grok 的 config.toml，保留文件里其他内容。
+def upsert_toml_config(path: Path, servers: dict[str, dict]) -> None:
+    """把三台服务器写进一份 config.toml，保留文件里其他内容。Grok 与 Codex 共用。
 
     整块替换，而且连子表一起替换：Grok 自己保存配置时会把 `env = { … }` 内联表
     改写成 `[mcp_servers.<name>.env]` 子表。只替换到子表前面就会留下那份子表，
@@ -192,12 +194,12 @@ def upsert_grok_config(path: Path, servers: dict[str, dict]) -> None:
     if text and not text.endswith("\n"):
         text += "\n"
     for name, spec in servers.items():
-        text = replace_grok_server(text, name, grok_table(name, spec))
+        text = replace_toml_server(text, name, toml_table(name, spec))
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
 
 
-def replace_grok_server(text: str, name: str, block: str) -> str:
+def replace_toml_server(text: str, name: str, block: str) -> str:
     kept: list[str] = []
     insert_at: int | None = None
     dropping = False
@@ -220,7 +222,7 @@ def replace_grok_server(text: str, name: str, block: str) -> str:
     return "".join(kept)
 
 
-def grok_config_has_servers(path: Path, servers: dict[str, dict]) -> bool:
+def toml_config_has_servers(path: Path, servers: dict[str, dict]) -> bool:
     if not path.is_file():
         return False
     text = path.read_text(encoding="utf-8")
@@ -246,11 +248,13 @@ def as_codex(servers: dict[str, dict]) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(add_help=True)
-    parser.add_argument("--format", choices=["raw", "pi", "cursor", "codex", "grok"])
     parser.add_argument(
-        "--merge-grok",
+        "--format", choices=["raw", "pi", "cursor", "claude", "codex", "grok"]
+    )
+    parser.add_argument(
+        "--merge-toml",
         metavar="PATH",
-        help="把 Grok 格式的三台服务器合并进这份 config.toml",
+        help="把三台服务器合并进这份 config.toml（Grok 与 Codex 是同一种形状）",
     )
     opts = parser.parse_args()
 
@@ -259,9 +263,9 @@ def main() -> int:
         return 2
 
     resolver = Resolver()
-    if opts.merge_grok:
+    if opts.merge_toml:
         servers = resolver.servers(want_type=False, keep_env_placeholders=False)
-        upsert_grok_config(Path(opts.merge_grok).expanduser(), servers)
+        upsert_toml_config(Path(opts.merge_toml).expanduser(), servers)
         return 0
     fmt = opts.format
     # 只有 pi 那一面的目标文件入库。codex 靠命令行注入、退出即无痕，raw 要拿真值去拉
@@ -272,7 +276,7 @@ def main() -> int:
 
     if fmt == "raw":
         print(json.dumps({"mcpServers": servers}, ensure_ascii=False, indent=2))
-    elif fmt in ("pi", "cursor", "grok"):
+    elif fmt in ("pi", "cursor", "claude", "grok"):
         print(json.dumps(servers, ensure_ascii=False, indent=2))
     elif fmt == "codex":
         text = as_codex(servers)
