@@ -10,10 +10,16 @@
 # `docs/specs/…` 是同一种做法。
 #
 #   mmw-ui-qa check                     四个依赖装没装、版本对不对
+#   mmw-ui-qa preflight [product]       开跑前的事实：工作树、依赖、判据文件、两份 lint
+#   mmw-ui-qa wiring-lint <文件>         按 wiring.schema.json 判一份接线文件
 #   mmw-ui-qa home                      打印依赖根目录（Node 脚本 require Playwright 时用）
 #   mmw-ui-qa browser <参数...>          转发到 Playwright 的命令行
 #   mmw-ui-qa design-lint <文件>         转发到设计系统格式校验器的 lint
 #   mmw-ui-qa accessibility-source      打印规则引擎那份注入脚本的绝对路径
+#
+# preflight 与 wiring-lint 不是转发，是这里自己的判定。它们占准入判据第 2 条：
+# 起步的五件事全是机械判定，散在技能正文里由 agent 逐条照做，最容易被跳过的正是
+# 接线文件里写成明文的 secret。
 
 set -euo pipefail
 
@@ -27,6 +33,8 @@ usage() {
 mmw-ui-qa <动作> [参数]
 
   check                  四个依赖装没装、版本对不对
+  preflight              开跑前的事实收集，打印一份 JSON；带 product id 时连它的判据文件一起判
+  wiring-lint            按字段声明判一份接线文件；文件参数不能省
   home                   打印依赖根目录
   browser <参数...>       转发到浏览器自动化框架的命令行
   design-lint <文件>      转发到设计系统格式校验器；文件参数不能省
@@ -64,6 +72,14 @@ shift || true
 case "$action" in
   check)
     exec bash "$UI_QA_SRC/install-ui-qa-deps.sh" --check
+    ;;
+  preflight)
+    exec python3 "$UI_QA_SRC/preflight.py" "$@"
+    ;;
+  wiring-lint)
+    # 跟 design-lint 一样先拦一道：省了文件参数，判的就不知道是哪一份接线文件。
+    [ $# -ge 1 ] || die "wiring-lint 要带文件路径。语法是 mmw-ui-qa wiring-lint <文件>"
+    exec python3 "$UI_QA_SRC/wiring_lint.py" "$@"
     ;;
   home)
     [ -d "$DEPS_ROOT" ] || die "依赖目录不存在：$DEPS_ROOT"

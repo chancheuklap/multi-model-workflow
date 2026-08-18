@@ -2,7 +2,7 @@
 
 The nine checks are listed in [SKILL.md](SKILL.md) under "Checks: two classes, nine kinds". **Windows runs the same nine.** This file is what differs on this side: how the app starts, how you connect, what you prove after connect, and what you ask before editing.
 
-The Electron renderer is Chromium. It runs HTML, CSS, and DOM. Treat it as web. Do not design a third platform from scratch.
+The Electron renderer is Chromium. It runs HTML, CSS, and DOM. Treat it as web.
 
 Shell differences are different. **Mac cannot check these. The report must list them**, so the user does not think they were covered:
 
@@ -25,13 +25,13 @@ Correct order:
 & "<full path of the app executable>" --remote-debugging-port=<windows.debugPort>
 ```
 
-Derive the executable path from the first item of wiring `launch.command`. If you cannot, ask. **Give the command as-is. Do not rewrite it. Do not wrap it.**
+Derive the executable path from the first item of wiring `launch.command`. If you cannot, ask. **Give the command as-is, in one line the user can paste.**
 
 **Second, the main agent connects from Mac.** Use the browser automation's CDP connect entry, URL `http://<windows.host>:<windows.debugPort>` (`host` defaults to `127.0.0.1`; two machines: the Windows machine's address). To `require` the browser automation from a Node script, the module root is `mmw-ui-qa home`. After connect, recognize the main window from wiring `mainWindow` `titlePattern` or `urlPattern`.
 
-**Third, the check is automatic.** Main-file step 6's "start the app" becomes the two steps above. The other eight steps stay the same.
+**Third, the check is automatic.** Main-file step 4's "start the app" becomes the two steps above. The other six steps stay the same.
 
-If connect fails, **stop the Windows run**, name the port, and say the app must start in an interactive user session. Do not try to start it yourself.
+If connect fails, **stop the Windows run**, name the port, and say the app must start in an interactive user session.
 
 ## After connect, prove capabilities
 
@@ -50,10 +50,10 @@ What each miss does:
 | --- | --- |
 | 1 Accessibility-tree snapshot | **Stop.** No element location. None of the nine can run |
 | 2 Batch computed style | Skip A1 and A3. Run the other seven |
-| 3 Cropped screenshot | Do not skip a check. B2 question 2 judges from structured visual-salience numbers only, and that finding notes there was no screenshot |
+| 3 Cropped screenshot | All nine still run. B2 question 2 judges from structured visual-salience numbers only, and that finding notes there was no screenshot |
 | 4 Inject the accessibility engine | Skip A2. Run the other eight |
 
-Skipped check ids go in the report header "Skipped this run". **Do not treat a missing-capability result as a complete QA.**
+Skipped check ids go in the report header "Skipped this run". **A run with a missing capability is a partial QA, and the report says so.**
 
 ## Count first, wait for a yes, then edit
 
@@ -68,4 +68,4 @@ Edit only after they say continue. They may answer "report only this time": turn
 
 ## This trip is not AFK
 
-Tell the user: **they start at least once; if they let the skill edit, they start once more per repair round.** When you count, say the expected number. Do not blur it into "once".
+Tell the user: **they start at least once; if they let the skill edit, they start once more per repair round.** When you count, say the expected number.

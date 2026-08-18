@@ -46,95 +46,64 @@ Each run executes nine **checks**. The set is closed. This skill does not invent
 
 **What a failing check produces has a different name per class:**
 
-- **Class A** (A1–A4) is deterministic. The result is a fact, a **violation**. Fix it. Do not spend the user's time.
+- **Class A** (A1–A4) is deterministic. The result is a fact, a **violation**. Fix it without asking.
 - **Class B** (B1–B5) is model judgment. The result is a candidate, a **finding**. Report it. Wait for a verdict.
 
 The split is the kind of judgment, not where the criterion lives.
 
-Three more **report items**: coverage report, criterion self-check, declaration-vs-implementation mismatch. They are facts. They have no interface fix target, so they do not enter user verdicts and they do not drive edits.
+**Report items are the third thing, and this is their only definition.** Three of them: coverage report, criterion self-check, declaration-vs-implementation mismatch. They are facts about this run, not problems in the interface. They have no interface fix target, so they drive no edits and take no user verdict. Later steps say "report item" and mean exactly this.
 
-## 1. Clean working tree
+## 1. Preflight
 
-Run `git status --porcelain`. **If it prints anything, stop.** List the uncommitted files. Ask the user to commit, then invoke this skill again. After they commit they call you. This run ends here.
+Run `mmw-ui-qa preflight`. It prints one JSON: working tree, the four dependencies, and the products this repo already wired.
 
-This step makes three later facts hold: scope is the latest commit (step 6), a bad edit rolls back with git (step 9), and this skill's edits can be one commit with none of the user's code mixed in.
+| Fact in the JSON | Action |
+| --- | --- |
+| `git.clean` is false | **Stop.** List `git.uncommitted`. Ask the user to commit, then invoke this skill again. This run ends here |
+| `deps.stopMissing` is not empty | **Stop.** Name those capabilities and ask the user to run the MMW install entry |
+| `deps.skipChecks` is not empty | Continue. Those check ids go in the report header "Skipped this run" |
+| A degraded capability carries `degrade_note` | Write the report header the way that note says |
+| The command is missing from `PATH` | **Stop.** Ask the user to run the MMW install entry |
 
-Continue. Criteria and wiring paths have no name segment. The screen map and the report do not enter the repo. Behavior is the same from the main checkout or a task worktree.
+`deps` comes from the runtime dependency declaration, which also owns what a missing capability costs. Read the costs from the JSON.
 
-## 2. Dependencies
+**A clean working tree makes three later facts hold:** scope is the latest commit (step 5), a bad edit rolls back with git (step 7), and this run's edits land in commits that hold none of the user's code.
 
-Run `mmw-ui-qa check`. It prints package name, required version, and actual version for four dependencies. Exit 0 when all four are present.
+## 2. Product
 
-`mmw-ui-qa` is on `PATH` from the MMW install entry. If the command is missing, **stop** and ask the user to run the MMW install entry.
-
-On non-zero `check`, switch on which capability is missing:
-
-| Missing capability | Name in `check` | Action |
-| --- | --- | --- |
-| Browser automation | `browser` | **Stop.** It drives every check |
-| Design-system author | `design-system-author` | **Stop.** Step 4 uses it when the design system is missing |
-| Accessibility engine | `accessibility` | Degrade: skip A2. Run the other eight |
-| Design-system linter | `design-lint` | Degrade: skip the criterion self-check in step 5. Mark the report header that criteria were not linted this run. Run all nine |
-
-The first two stop: there is no fallback. The last two each affect only their own slice.
-
-## 3. Product
-
-Criteria and wiring are per product, so the product is first. **Four levels. Stop at the first hit:**
+Criteria and wiring are per product, so the product is next. `criteria.products` in the preflight JSON lists what this repo already has, each with its `product` field. **Four levels. Stop at the first hit:**
 
 1. The free text in the argument hint names a product → use it. Do not ask.
-2. No name, and there is one wiring file → use it. Do not ask. A single-app repo is never asked.
-3. No name, and there are several wiring files → list them and let the user pick once. **List the `product` field, not the filename.**
-4. **No wiring file** (first run on a new repo) → ask which product this run checks. Product id: lowercase letters, digits, hyphens.
+2. One product in the list → use it. A single-app repo is never asked.
+3. Several products → list them and let the user pick once. **List the `product` field, not the filename.**
+4. Empty list (first run on a new repo) → ask which product this run checks. Product id: lowercase letters, digits, hyphens.
 
 The name from level 4 is the id used when creating files in the next step. Do not ask it again in the questionnaire.
 
-**All four paths come from `mmw artifact path`:**
-
-| Want | Command |
-| --- | --- |
-| This product's wiring file | `mmw artifact path ui-qa-wiring --sub <product-id>.json` |
-| Threshold table (one per repo) | `mmw artifact path ui-criteria --sub thresholds.json` |
-| This product's usability criteria | `mmw artifact path ui-criteria --sub products/<product-id>.md` |
-| Design-system file | Wiring field `designSystem`. Repo-relative path. It does not go through `mmw artifact path` — the target repo owns that file |
-
-Levels 2 and 3 list existing products: drop the last path segment from the wiring command to get the wiring category root, list files there, read each `product` field.
-
 **One product per run.** A second product is a second invocation.
 
-## 4. Criteria and wiring; create what is missing
+Now run `mmw-ui-qa preflight <product-id>`. The JSON gains `criteria.selected` (the three per-product files and their paths), `wiringLint`, and `designSystem`.
 
-If all four files from the previous step exist, skip this step and go to step 5.
+## 3. Criteria and wiring
 
-If any is missing, enter **setup mode**: **read [SETUP.md](SETUP.md) in full now**, create the missing files, then return to step 5 and continue this run.
+**If any of `criteria.selected` does not exist, enter setup mode: read [SETUP.md](SETUP.md) in full now**, create the missing files, then re-run `mmw-ui-qa preflight <product-id>` and continue down this table.
 
-## 5. Lint the criteria first
-
-Once the files exist, lint the design-system file:
-
-```bash
-mmw-ui-qa design-lint <design-system file from the previous step>
-```
-
-The file argument is required. The linter checks format, cross-token WCAG contrast, and reference integrity. It does not start the app. It prints JSON. Each item has `severity` `error` or `warning`.
-
-Do not skip this step. A3 and B1 treat the design system as criteria.
-
-| Lint result | Action |
+| Fact in the JSON | Action |
 | --- | --- |
-| No findings | Continue. Criterion self-check says "linted, no issues" |
-| Any `error` | **Stop.** The file will not parse. A3 and B1 cannot run |
-| Only `warning` | Continue. List each in the report. **Mark them as criteria problems, not interface problems** |
-| Command fails, or output is not JSON | Continue. Mark the report header that criteria were not linted this run |
-| Step 4 did not create a design system (user refused) | Skip this step. Report header: "A3, B1 (no design-system file)" |
+| `wiringLint.ok` is false | **Stop.** Give the user `wiringLint.output` as it stands. The app cannot start from a wiring file that does not parse |
+| `designSystem.declared` is null | Continue. Skip A3 and B1. Report header: "A3, B1 (no design-system file)" |
+| `designSystem.exists` is false | **Stop.** Wiring points at a design system that is not there |
+| `designSystem.errors` above zero | **Stop.** List them. A3 and B1 have no criteria to judge against |
+| `designSystem.warnings` above zero | Continue. List each in the report. **Mark them as criteria problems, not interface problems** |
+| `designSystem.linted` is false | Continue. Mark the report header that criteria were not linted this run |
 
-Lint results go in the report's **criterion self-check**. They **are not one of the nine checks**. No interface fix target. No user verdict.
+Design-system lint results are the **criterion self-check** report item. Field-level wiring rules live in the wiring schema next to the linter, so this file keeps only what the linter cannot decide: the flow above.
 
-## 6. Build the screen map
+## 4. Build the screen map
 
-**Read [CRITERIA.md](CRITERIA.md) in full now.** This step starts the app from wiring fields. Step 8 judges the nine checks from that file.
+**Read [CRITERIA.md](CRITERIA.md) in full now.** This step starts the app from wiring fields. Step 6 judges the nine checks from that file.
 
-The map records screens, states per screen, and jumps between screens. The next step maps changed files to screens from it. Step 8's cognitive walkthrough builds paths from it. **It is built in-process. It is not a file. Discard it after the run.**
+The map records screens, states per screen, and jumps between screens. The next step maps changed files to screens from it. Step 6's cognitive walkthrough builds paths from it. **It is built in-process. It is not a file. Discard it after the run.**
 
 Start the app from wiring `launch` (command, working directory, env). Secrets are `env:<name>` or `keychain:<name>`; resolve by prefix. Recognize the main window from `mainWindow` `titlePattern` or `urlPattern`. If `prepare.steps` exists, run them in order for login and test data.
 
@@ -146,13 +115,13 @@ Three sources merge into one map. Union, not exclusive:
 | Runtime probe | Walk reachable paths from the main window | Jumps code does not show, and reachability |
 | Usability criteria | States named in this product's usability criteria | States the probe cannot reach without special conditions |
 
-The same state from several sources becomes one node, recording which sources hit it. **Reachability is runtime probe only:** probed states are reached; states only in the other two sources are unreached. Keep unreached states in the map. Do not delete them.
+The same state from several sources becomes one node, recording which sources hit it. **Reachability is runtime probe only:** probed states are reached; states only in the other two sources are unreached. Keep unreached states in the map.
 
 **What you can reach depends on the wiring file.** Empty, loading, error, and permission states enter the check when `prepare.steps` can reach them. What it cannot declare (fault injection, several permission identities, resetting data mid-check) becomes one coverage-report line — that is the product's own test-fixture work.
 
-Unreached states go in the **coverage report**, one line per state name and why. They do not drive edits. They do not enter user verdicts.
+Unreached states go in the **coverage report** report item, one line per state name and why.
 
-## 7. Scope
+## 5. Scope
 
 **Three levels. The user's tag picks the level. No tag is the default.**
 
@@ -162,7 +131,7 @@ Unreached states go in the **coverage report**, one line per state name and why.
 | **this-task** | `this-task` | `git diff $(git merge-base HEAD <parent>)...HEAD --name-only` | A task has landed; before handoff |
 | **full** | `full` | Every screen and state in the map. Ignore git | First landing, or before Windows |
 
-`<parent>` is the branch this branch was created from. Several long-lived branches: ask once. Do not guess. One main branch: use it.
+`<parent>` is the branch this branch was created from. Several long-lived branches: ask once. One main branch: use it.
 
 **Changed files become screens.** File F maps to every screen node whose `source-files` contains F. That is a lookup in the map from the previous step, not another code scan.
 
@@ -177,40 +146,17 @@ Unreached states go in the **coverage report**, one line per state name and why.
 
 **All nine checks run at every level.** The level only chooses which screens they act on.
 
-## 8. Run the checks
+## 6. Run the checks
 
-**Run all nine, collect every result, then go to step 9.** Do not fix while checking: an A3 token edit would change what B1 sees, and the report would not match the interface the user opens.
+**Run all nine, collect every result, then go to step 7.** Fixing while checking would break the report: an A3 token edit changes what B1 sees, and the report would no longer match the interface the user opens.
 
-Per-check rules are in [CRITERIA.md](CRITERIA.md). Method and dispatch for B2, B3, B4 are in [SEMANTIC.md](SEMANTIC.md). Read that file in full before those three.
+Per-check rules, the four probe inputs, and the five numeric fields are in [CRITERIA.md](CRITERIA.md). Method and dispatch for B2, B3, B4 are in [SEMANTIC.md](SEMANTIC.md). Read that file in full before those three.
 
-**Primary input is structured data, not screenshots.** Four sources, all from a browser session driven by `mmw-ui-qa browser`:
-
-| Input | How | Feeds |
-| --- | --- | --- |
-| Accessibility-tree snapshot | ARIA snapshot from the browser automation | Element location; all of class B |
-| Computed style and layout box | Batch `getComputedStyle` and `getBoundingClientRect` on candidates | A1, A3 |
-| Runtime CSS custom properties | `getComputedStyle(document.documentElement)` | A3 implementation-layer compare |
-| Renderer console | Listen for console and page error | A4 |
-
-The accessibility snapshot has roles and accessible names only. No class, test id, wrapper, or inline style. The same method covers native DOM, React, and web apps. No per-framework adapter.
-
-**A2:** `mmw-ui-qa accessibility-source` prints the absolute path of the engine's inject script. Inject the whole file, call the engine's analyze entry, and each violation is one A2.
-
-To `require` the browser automation from a Node script, the module root is `mmw-ui-qa home`.
-
-**Five numeric fields** (used by `interactive elements` and B2 question 2):
-
-| Field | How |
-| --- | --- |
-| In first screen | Element `getBoundingClientRect` intersects the viewport |
-| Size | `getBoundingClientRect` width and height, px |
-| Contrast | WCAG contrast of foreground against actual background |
-| Occluded | `elementFromPoint` at the element's center is not the element and not a descendant |
-| Stacking | `z-index` of the first ancestor that forms a stacking context |
+**Primary input is structured data, not screenshots.** All of it comes from a browser session driven by `mmw-ui-qa browser`. The accessibility snapshot carries roles and accessible names only — no class, test id, wrapper, or inline style — so the same method covers native DOM, React, and web apps with no per-framework adapter.
 
 Screenshots only in two cases, **cropped to the relevant region, never full screen**: cognitive-walkthrough question 2, and when you must show the user evidence.
 
-## 9. Dispose and report
+## 7. Dispose and report
 
 Class A produces violations: **edit and commit them alone**. Class B produces findings: **report only, wait for a verdict**.
 
@@ -224,6 +170,6 @@ Class A produces violations: **edit and commit them alone**. Class B produces fi
 
 ## Platform
 
-The nine steps above are the Mac side: the skill starts the app and runs the whole flow.
+The seven steps above are the Mac side: the skill starts the app and runs the whole flow.
 
-**On Windows, read [WINDOWS.md](WINDOWS.md) in full first.** The user must be present and start the app once. Step 6's start becomes a connect to the debug port they opened. The other eight steps stay the same.
+**On Windows, read [WINDOWS.md](WINDOWS.md) in full first.** The user must be present and start the app once. Step 4's start becomes a connect to the debug port they opened. The other six steps stay the same.
