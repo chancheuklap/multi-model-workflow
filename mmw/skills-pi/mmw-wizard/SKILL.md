@@ -28,18 +28,7 @@ Then show the user the ordered list of stages and the values each produces, and 
 
 For each stage, write the precise path a human follows: which URL to open, what to do there, where a value is shown, which variable it fills — e.g. "Dashboard → Developers → API keys → Reveal test key → copy". Where you don't actually know the current UI or the exact command, say so and ask the user or check the docs — never invent steps that may not exist.
 
-Write each `step` line by these rules. A human is reading it on screen with the browser open beside them.
-
-- **Say where before you say what.** "On the API keys page, click **Reveal test key**" — not "Click Reveal test key on the API keys page".
-- **State the goal before the action** when the step's purpose isn't obvious: "To let CI read the bucket, click **Add member**".
-- **One action per step.** The exception is a menu chain: `Click **Settings > Developers > API keys**`.
-- **Optional steps start with `Optional:`** — not `(optional)` at the end. The human must know it's skippable before they read it.
-- **Put the result in the next step, not at the end of this one.** Write "In the **New file** dialog that appears, click **Next**" rather than ending the previous step with "The New file dialog appears."
-- **Name UI elements by their label, in bold.** "Click **Save**", not "click the Save button". Never use a UI element's name as a verb.
-- **No directional words** — no *above*, *below*, *top right*. The UI moves and screen sizes differ.
-- **No `please`.**
-- **Don't write "run the following command".** Say what the command does: "Deploy the load generator:".
-- **When there's more than one way, give only the best one.** A wizard is a path, not a menu.
+Each `step` line is read by a human at the terminal, browser open beside them, going through once. A step they can't act on from where they're standing costs them the whole run.
 
 **List every prerequisite in stage 1**, before the human starts: accounts they must already have, tools that must be installed, access they must already hold. Someone who finds out at stage 5 that they need an account they haven't got has to abandon the run and start over.
 
