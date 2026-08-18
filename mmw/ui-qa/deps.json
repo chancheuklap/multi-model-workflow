@@ -31,7 +31,7 @@
       "version": "0.4.0",
       "kind": "command",
       "bin": "design.md",
-      "purpose": "起步第五步的判据自检：格式校验、跨 token 的 WCAG 对比度计算、引用完整性检查",
+      "purpose": "起步阶段的判据自检：格式校验、跨 token 的 WCAG 对比度计算、引用完整性检查",
       "missing": "degrade",
       "version_note": "格式规范当前是 alpha，官方明确标明可能有破坏性变更。版本必须钉死。",
       "skips": [],

@@ -142,7 +142,7 @@ mkdir -p "$DEPS_ROOT"
 have_npm=1
 command -v npm >/dev/null 2>&1 || {
   have_npm=0
-  echo "界面 QA  : 没有 npm，跳过 npm 那几个依赖。/mmw-ui-qa 会在第 2 步停下来说缺什么" >&2
+  echo "界面 QA  : 没有 npm，跳过 npm 那几个依赖。/mmw-ui-qa 会在起步的 preflight 停下来说缺什么" >&2
 }
 
 install_npm_deps() {
@@ -207,7 +207,7 @@ install_skill_dep() {
   fi
 
   command -v git >/dev/null 2>&1 || {
-    echo "界面 QA  : 没有 git，装不了 ${pkg}。/mmw-ui-qa 会在第 2 步停下来" >&2
+    echo "界面 QA  : 没有 git，装不了 ${pkg}。/mmw-ui-qa 会在起步的 preflight 停下来" >&2
     return 0
   }
 
@@ -215,7 +215,7 @@ install_skill_dep() {
   if ! git clone --quiet --depth 1 --branch "$tag" --filter=blob:none --sparse \
        "$repo" "$stage/src" 2>/dev/null; then
     find "$stage" -depth -delete
-    echo "界面 QA  : 取不到 ${pkg} 的 ${tag}，装不上。/mmw-ui-qa 会在第 2 步停下来" >&2
+    echo "界面 QA  : 取不到 ${pkg} 的 ${tag}，装不上。/mmw-ui-qa 会在起步的 preflight 停下来" >&2
     return 0
   fi
   ( cd "$stage/src" && git sparse-checkout set "$repo_path" >/dev/null 2>&1 )
