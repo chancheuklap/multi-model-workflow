@@ -49,6 +49,6 @@
   },
   "reviewers": {
     "codex": "Codex uses one reviewer role. On ⓪, ①, ②, and ⑤, launch one Codex native `{reviewer_name}` subagent per perspective. Each reviewer works in an independent context and may run the same model as the author of the object. ⓪ is no exception: this host swaps the context, not the model. Review tasks that do not depend on each other launch in the same message.",
-    "_default": "This host uses two reviewer roles. ⓪ launches one `reviewer-gpt`: the shared understanding is what the main agent interviewed out itself, so the reviewer must be a different model.{gpt_launch}① launches one `reviewer-gpt` per perspective.{gpt_launch}② launches one `reviewer-claude` per perspective.{claude_launch}⑤ launches one `reviewer-gpt` and one `reviewer-claude` per perspective. Compare the two sets of findings for the same perspective side by side, then dispose as `/mmw-review` specifies. Each reviewer receives only its own four-field task."
+    "_default": "This host uses two reviewer roles.\n\n⓪ launches one `reviewer-gpt`: the shared understanding is what the main agent interviewed out itself, so the reviewer must be a different model.\n{gpt_launch}\n\n① launches one `reviewer-gpt` per perspective.\n{gpt_launch}\n\n② launches one `reviewer-claude` per perspective.\n{claude_launch}\n\n⑤ launches one `reviewer-gpt` and one `reviewer-claude` per perspective. Compare the two sets of findings for the same perspective side by side, then dispose as `/mmw-review` specifies.\n\nEach reviewer receives only its own four-field task."
   }
 }
