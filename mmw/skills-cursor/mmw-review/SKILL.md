@@ -9,7 +9,7 @@ Run one round. Review method lives in `/mmw-reviewer`. Do not read it. Do not re
 
 The author of the object does not review it. Reviewers use independent context.
 
-③ per-ticket check and ④ contract gate are gone. Do not start them.
+These four gates are the whole set:
 
 | Gate | When | Perspectives | Gate? |
 | --- | --- | --- | --- |
