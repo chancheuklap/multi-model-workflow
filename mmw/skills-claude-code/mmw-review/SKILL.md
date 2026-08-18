@@ -22,14 +22,14 @@ Merged integration results also use ⑤.
 
 Before any write:
 
-先确认当前仓库位置。判定从上到下，命中一行就停。
+Confirm where this repo is first. Judge top to bottom; stop at the first row that hits.
 
-| 情况 | 怎么判断 | 你做什么 |
+| Case | How to tell | What you do |
 | --- | --- | --- |
-| 不在 git 仓库里 | `git rev-parse --is-inside-work-tree` 失败 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新判断 |
-| 在主检出里 | `git rev-parse --path-format=absolute --git-dir` 等于 `--git-common-dir` | 停下，请用户用当前宿主开一棵工作树再开会话 |
-| 没有分支 | `git symbolic-ref --quiet --short HEAD` 为空 | 按上文已定的任务分支名运行 `git switch -c <完整任务分支名>` |
-| 已有任务分支 | 上面都不成立 | 用当前分支 |
+| Not in a git repo | `git rev-parse --is-inside-work-tree` fails | Ask the user for the target repo path. Enter that repo, then judge again |
+| In the main checkout | `git rev-parse --path-format=absolute --git-dir` equals `--git-common-dir` | Stop. Ask the user to open a worktree with this host, then start a session there |
+| No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>` with the task-branch name decided above |
+| Task branch already there | None of the above holds | Use the current branch |
 
 
 ## 1. Pin the object
@@ -58,13 +58,18 @@ Task fields. Goal's first sentence is the perspective name, copied exactly:
 - **Constraints:** read-only; leave the object as it is
 - **Acceptance:** findings, or why the review cannot run
 
-当前宿主使用两个审查角色。⓪ 启动一个 `reviewer-gpt`：共同理解是主 agent 自己问出来的，审查者必须换一个模型。启动：后台执行 `mmw dispatch reviewer-gpt`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。① 每个视角启动一个 `reviewer-gpt`。启动：后台执行 `mmw dispatch reviewer-gpt`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。② 每个视角启动一个 `reviewer-claude`。启动：后台执行 `mmw dispatch reviewer-claude`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。⑤ 每个视角分别启动一个 `reviewer-gpt` 和一个 `reviewer-claude`。同一视角的两份 findings 并排比较后按 `/mmw-review` 处置。每个审查者只收到自己的四栏 task。
+This host uses two reviewer roles. ⓪ launches one `reviewer-gpt`: the shared understanding is what the main agent interviewed out itself, so the reviewer must be a different model.Launch: in the background, run `mmw dispatch reviewer-gpt`. Pass the four-field task body as the command's standard input. Add `--issue <current decision ticket number>` when this task belongs to a decision ticket. When the command returns `mode: host-tool`, call the matching host tool with the `params` in its output.① launches one `reviewer-gpt` per perspective.Launch: in the background, run `mmw dispatch reviewer-gpt`. Pass the four-field task body as the command's standard input. Add `--issue <current decision ticket number>` when this task belongs to a decision ticket. When the command returns `mode: host-tool`, call the matching host tool with the `params` in its output.② launches one `reviewer-claude` per perspective.Launch: in the background, run `mmw dispatch reviewer-claude`. Pass the four-field task body as the command's standard input. Add `--issue <current decision ticket number>` when this task belongs to a decision ticket. When the command returns `mode: host-tool`, call the matching host tool with the `params` in its output.⑤ launches one `reviewer-gpt` and one `reviewer-claude` per perspective. Compare the two sets of findings for the same perspective side by side, then dispose as `/mmw-review` specifies. Each reviewer receives only its own four-field task.
 
 If a reviewer cannot run: missing materials you failed to pass — fill them and resume that perspective; missing from the artifact itself — that is a finding. If they say the problem to solve is the wrong problem, give the user their words.
 
 ## 3. Record and mark
 
-Paste each report into the record under its perspective name. Do not rewrite. Put the fixed point and Reviewed HEAD at the top.
+Paste each report into the record under its perspective name. Do not rewrite. Head the record with these labels, one per line, spelled exactly — `/mmw-release` reads them back:
+
+```
+Fixed point: <the fixed point>
+Reviewed HEAD: <git rev-parse HEAD>
+```
 
 On ⑤, if HEAD moved since you pinned it, this round is void. Report both HEADs. Do not restart on your own.
 
@@ -82,6 +87,6 @@ Show findings with marks, by perspective. Then fix.
 
 A one-line copy, number, or assertion: you may land it.
 
-After the fix, register Repair commit as HEAD. On ⑤ that value is also Final commit. If any accepted item is still open, stop.
+After the fix, add `Repair commit: <git rev-parse HEAD>` to the record head. On ⑤ add `Final commit: <that same value>`. Same spelling; `/mmw-release` checks both. If any accepted item is still open, stop.
 
 No `accepted` items: return to the caller. If the user invoked you, report counts and wait.

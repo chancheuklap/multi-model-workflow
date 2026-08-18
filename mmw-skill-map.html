@@ -471,6 +471,7 @@ flowchart LR
 
 subgraph SETUP["前置"]
   direction TB
+  ins["<b>mmw-install</b><br/>· 本机装一次，目标仓库配一次<br/>· install.sh 建稳定 runtime，装进本机已有宿主<br/>· mmw init 配仓库，mmw toolchain 补缺的工具<br/>· 宿主 hooks 信任与 Cursor 三项由用户自己做"]
   set(["<b>mmw init</b><br/>· 只配置当前目标仓库<br/>· 铺 .mmw.json 与 TESTING.md 骨架<br/>· 同步 AGENTS.md 与 CLAUDE.md 领域规则<br/>· 补标签与 .gitignore；幂等"])
   subgraph CLIBOX["mmw · 技能写判据，它做动作"]
     direction TB
@@ -478,7 +479,7 @@ subgraph SETUP["前置"]
     cl2(["<b>mmw issue</b><br/>create / frontier / children / claim<br/>link / set-parent / append"])
     cl3(["<b>宿主角色入口</b><br/>Codex：后台任务或原生 subagent<br/>Pi / Cursor / Grok：原生 Task 或 subagent<br/>Claude Code：mmw dispatch<br/>Cursor 结果树：mmw-cursor-agent"])
     cl4(["<b>mmw domain</b><br/>path / map-init / sync / check / adr-next / dirs"])
-    cl5(["<b>mmw artifact</b><br/>path / index / check / list"])
+    cl5(["<b>mmw artifact</b><br/>path / index / check"])
     cl6(["<b>mmw/install.sh</b><br/>从源码仓库构建稳定 runtime<br/>统一安装到本机已有宿主"])
     cl7(["<b>mmw doctor</b><br/>检查机器依赖与领域合同"])
     cl8(["<b>产物落点</b><br/>技能不写路径字面值<br/>落点全部由 mmw artifact path 回答"])
@@ -522,7 +523,8 @@ subgraph VOCAB["跑在别的技能底下"]
   cwt["<b>Codex worktree 合同</b><br/>· Worktree root 是 App 的跨项目全局存放目录<br/>· 用户创建 detached 主任务，确认父分支后绑定 codex/&lt;slug&gt;<br/>· MMW 不从物理目录名识别任务<br/>· 后台结果直接集成"]
   dmo["<b>mmw-domain-modeling</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 计划或想法的整体追问转 grilling<br/>· 唯一往仓库写领域文档的技能<br/>· none 仅在明确建模且首个长期术语定下时创建<br/>· 多 context 首次建模由 mmw domain map-init 注入受管骨架<br/>· 术语写 leaf；三项判据全成立才写 ADR<br/>· 领域入口看仓库根；ADR 固定在 docs/adr/"]
   cbd["<b>mmw-codebase-design</b><br/>· module · interface · seam<br/>· adapter · depth<br/>· DESIGN-IT-TWICE 派 designer"]
-  phb["<b>用户专用技能</b><br/>· mmw-handoff 负责把会话交给另一个 agent<br/>· mmw-wait-what 负责重新解释<br/>· Agent 不会隐式调用这些入口"]
+  rtv["<b>mmw-retrieval</b><br/>· 怎么查在 Serena 与 Graphify 的服务器说明里，这里不抄<br/>· 图谱三态：缺失 / 过期 / 新鲜<br/>· 只有 mmw graph build 更新图谱<br/>· mmw doctor 真起三台 MCP 对合同<br/>· 连不上就退回文本搜索，并在报告里说明"]
+  phb["<b>辅助入口</b><br/>· mmw-handoff 负责把会话交给另一个 agent<br/>· mmw-wait-what 负责重新解释<br/>· 与其他技能一样，用户可点名，agent 也可按 description 触发"]
 end
 
 subgraph SOLO["独立使用"]
@@ -665,6 +667,7 @@ class cl1,cl2,cl3,cl4,cl5,cl6,cl7,cl8 hSetCli;
 class shp,rfacts term;
 class ups,mmwc art;
 class set hSetCli;
+class ins,rtv model;
 class cfg hSetArt;
 class gri hGwd;
 class dmo hDmo;

@@ -13,14 +13,14 @@ The caller passes `<spec issue number>` for spec work.
 
 Before dispatch:
 
-先确认当前仓库位置。判定从上到下，命中一行就停。
+Confirm where this repo is first. Judge top to bottom; stop at the first row that hits.
 
-| 情况 | 怎么判断 | 你做什么 |
+| Case | How to tell | What you do |
 | --- | --- | --- |
-| 不在 git 仓库里 | `git rev-parse --is-inside-work-tree` 失败 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新判断 |
-| 在主检出里 | `git rev-parse --path-format=absolute --git-dir` 等于 `--git-common-dir` | 停下，请用户用当前宿主开一棵工作树再开会话 |
-| 没有分支 | `git symbolic-ref --quiet --short HEAD` 为空 | 按上文已定的任务分支名运行 `git switch -c <完整任务分支名>` |
-| 已有任务分支 | 上面都不成立 | 用当前分支 |
+| Not in a git repo | `git rev-parse --is-inside-work-tree` fails | Ask the user for the target repo path. Enter that repo, then judge again |
+| In the main checkout | `git rev-parse --path-format=absolute --git-dir` equals `--git-common-dir` | Stop. Ask the user to open a worktree with this host, then start a session there |
+| No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>` with the task-branch name decided above |
+| Task branch already there | None of the above holds | Use the current branch |
 
 
 ## Loop
@@ -40,15 +40,11 @@ Task fields:
 - **Constraints:** source and tests in this worktree; leave `docs/` as they are; stay inside the ticket
 - **Acceptance:** the ticket's criteria; HEAD SHA on the result branch
 
-启动：调用原生 subagent，agent 设为 `mmw-worker`，打开 worktree 隔离。把四栏 task 作为初始 prompt。worker 完成工作并提交。交回结果分支名、HEAD SHA、基点 SHA。提交前自己跑 `mmw toolchain check --changed-only`。
-
-派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告。报告交回后不重做整个 task。
+Launch: call the native subagent tool with agent `mmw-worker` and worktree isolation on. Pass the four-field task as the initial prompt. The worker completes the work and commits. It returns the result-branch name, the HEAD SHA, and the base SHA. It runs `mmw toolchain check --changed-only` itself before committing.
 
 Billing, permissions, data migration, or irreversible mistakes: use
 
-启动：调用原生 subagent，agent 设为 `mmw-worker-high-risk`，打开 worktree 隔离。把四栏 task 作为初始 prompt。worker 完成工作并提交。交回结果分支名、HEAD SHA、基点 SHA。提交前自己跑 `mmw toolchain check --changed-only`。
-
-派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告。报告交回后不重做整个 task。
+Launch: call the native subagent tool with agent `mmw-worker-high-risk` and worktree isolation on. Pass the four-field task as the initial prompt. The worker completes the work and commits. It returns the result-branch name, the HEAD SHA, and the base SHA. It runs `mmw toolchain check --changed-only` itself before committing.
 
 instead. You choose the upgrade.
 
@@ -64,7 +60,7 @@ When children has no open tickets, send ⑤ final review (`/mmw-review`). The fi
 
 Accepted findings on one ticket: merge the task branch into that result branch (`git merge --no-ff`), then
 
-恢复：调用原生 subagent，`resume_from` 设为原 subagent id。顶层 grok 会话则运行 `grok --resume <sessionId>`。句柄取不到或命令失败时退回重派：按对应的启动动作重派新实例，task 正文带上原 task 全文、原报告全文和本轮修复指令。
+Resume: call the native subagent tool with `resume_from` set to the original subagent id. For a top-level grok session, run `grok --resume <sessionId>` instead. If the handle cannot be found or the command fails, re-dispatch a new instance with the matching launch action, and let the task body carry the original task in full, the original report in full, and this round's repair instruction.
 
 Conflict, missing worktree, or dead handle: one new repair ticket and a new `worker`. Findings that span tickets: the same. After repair, register the commits as `/mmw-review` specifies.
 

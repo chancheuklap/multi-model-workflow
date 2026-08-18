@@ -13,14 +13,14 @@ The caller passes `<spec issue number>` for spec work.
 
 Before dispatch:
 
-先确认当前仓库位置。判定从上到下，命中一行就停。
+Confirm where this repo is first. Judge top to bottom; stop at the first row that hits.
 
-| 情况 | 怎么判断 | 你做什么 |
+| Case | How to tell | What you do |
 | --- | --- | --- |
-| 不在 git 仓库里 | `git rev-parse --is-inside-work-tree` 失败 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新判断 |
-| 在主检出里 | `git rev-parse --path-format=absolute --git-dir` 等于 `--git-common-dir` | 停下，请用户用当前宿主开一棵工作树再开会话 |
-| 没有分支 | `git symbolic-ref --quiet --short HEAD` 为空 | 按上文已定的任务分支名运行 `git switch -c <完整任务分支名>` |
-| 已有任务分支 | 上面都不成立 | 用当前分支 |
+| Not in a git repo | `git rev-parse --is-inside-work-tree` fails | Ask the user for the target repo path. Enter that repo, then judge again |
+| In the main checkout | `git rev-parse --path-format=absolute --git-dir` equals `--git-common-dir` | Stop. Ask the user to open a worktree with this host, then start a session there |
+| No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>` with the task-branch name decided above |
+| Task branch already there | None of the above holds | Use the current branch |
 
 
 ## Loop
@@ -40,15 +40,15 @@ Task fields:
 - **Constraints:** source and tests in this worktree; leave `docs/` as they are; stay inside the ticket
 - **Acceptance:** the ticket's criteria; HEAD SHA on the result branch
 
-启动：用 `list_projects` 取得当前仓库的 projectId，并调用 `create_thread`。target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 `branch`，branchName 设为当前已提交的任务分支。模型使用 `gpt-5.6-terra`，思考档使用 `xhigh`。任务提示包含四栏 task、完整结果分支名和派发前基点 SHA；结果分支名使用独立的 `codex/<slug>`。后台 agent 完成工作并提交，并在工作前完整读取 `$mmw:mmw-tdd`。后台 agent 交回结果分支名、HEAD SHA、基点 SHA 和验证结果。`create_thread` 返回 threadId 后用 `wait_threads` 等待；只返回 clientThreadId 时先等 App 完成 worktree 设置，取得 threadId 后再等待。
+Launch: get this repo's projectId with `list_projects`, then call `create_thread`. Use that projectId as target, set environment.type to `worktree`, set startingState.type to `branch`, and set branchName to the task branch as already committed. Use model `gpt-5.6-terra` and thinking level `xhigh`. The task prompt carries the four-field task, the full result-branch name, and the base SHA at dispatch time; the result-branch name uses a separate `codex/<slug>`. The background agent completes the work and commits, and reads `$mmw:mmw-tdd` in full before starting work. It returns the result-branch name, the HEAD SHA, the base SHA, and the verification result. Once `create_thread` returns a threadId, wait with `wait_threads`; when only a clientThreadId comes back, wait for the App to finish setting up the worktree, get the threadId, then wait.
 
-派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告。报告交回后不重做整个 task。
+After dispatching a subagent, the main agent does not run research, implementation, or review that overlaps that subagent's task. With no clearly non-overlapping coordination work in hand, wait for the report. Do not redo the whole task once it arrives.
 
 Billing, permissions, data migration, or irreversible mistakes: use
 
-启动：用 `list_projects` 取得当前仓库的 projectId，并调用 `create_thread`。target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 `branch`，branchName 设为当前已提交的任务分支。模型使用 `gpt-5.6-sol`，思考档使用 `medium`。任务提示包含四栏 task、完整结果分支名和派发前基点 SHA；结果分支名使用独立的 `codex/<slug>`。后台 agent 完成工作并提交，并在工作前完整读取 `$mmw:mmw-tdd`。后台 agent 交回结果分支名、HEAD SHA、基点 SHA 和验证结果。`create_thread` 返回 threadId 后用 `wait_threads` 等待；只返回 clientThreadId 时先等 App 完成 worktree 设置，取得 threadId 后再等待。
+Launch: get this repo's projectId with `list_projects`, then call `create_thread`. Use that projectId as target, set environment.type to `worktree`, set startingState.type to `branch`, and set branchName to the task branch as already committed. Use model `gpt-5.6-sol` and thinking level `medium`. The task prompt carries the four-field task, the full result-branch name, and the base SHA at dispatch time; the result-branch name uses a separate `codex/<slug>`. The background agent completes the work and commits, and reads `$mmw:mmw-tdd` in full before starting work. It returns the result-branch name, the HEAD SHA, the base SHA, and the verification result. Once `create_thread` returns a threadId, wait with `wait_threads`; when only a clientThreadId comes back, wait for the App to finish setting up the worktree, get the threadId, then wait.
 
-派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告。报告交回后不重做整个 task。
+After dispatching a subagent, the main agent does not run research, implementation, or review that overlaps that subagent's task. With no clearly non-overlapping coordination work in hand, wait for the report. Do not redo the whole task once it arrives.
 
 instead. You choose the upgrade.
 
@@ -64,7 +64,7 @@ When children has no open tickets, send ⑤ final review (`$mmw:mmw-review`). Th
 
 Accepted findings on one ticket: merge the task branch into that result branch (`git merge --no-ff`), then
 
-这个宿主没有续跑通道：按对应的启动动作重派新实例，task 正文带上原 task 全文、原报告全文和本轮修复指令。
+This host has no resume channel: re-dispatch a new instance with the matching launch action, and let the task body carry the original task in full, the original report in full, and this round's repair instruction.
 
 Conflict, missing worktree, or dead handle: one new repair ticket and a new `worker`. Findings that span tickets: the same. After repair, register the commits as `$mmw:mmw-review` specifies.
 

@@ -21,13 +21,15 @@ Before any write:
 
 Resolve each artifact-ref line as `/mmw-wayfinder` specifies for Required materials. `none` or `[]` means skip. Copy into this ticket only the refs this ticket consumes. Write `none` when there are none.
 
-If a prototype index is missing its question, walkthrough conclusions, chosen artifacts, rejected constraints, or long-lived evidence, go back to `/mmw-prototype` to fill the gap; write `none` for a field that has none.
+If a prototype index is missing its question, walkthrough conclusions, chosen artifacts, rejected constraints, mounted wiring, or long-lived evidence, go back to `/mmw-prototype` to fill the gap; write `none` for a field that has none.
 
 ## 2. Explore the codebase (optional)
 
 If you have not already explored the codebase, do so to understand the current state of the code. Ticket titles and descriptions should use the project's domain glossary vocabulary, and respect ADRs in the area you're touching.
 
 Look for opportunities to prefactor the code to make the implementation easier. "Make the change easy, then make the easy change." When the materials do not cover the code, read the entry points, callers, and tests in range yourself. Several independent angles: `/mmw-research`. It returns a README path. Read that index and the files it lists. Put those facts into the tickets that consume them.
+
+A prototype that reached this spec left production code mounted: take `## Mounted wiring` from its `README.md` and give those sites a prefactor ticket that removes them. The prototype files themselves stay where they are — only the mounts come out. `none` means skip.
 
 If nothing is worth a prefactor ticket, go to step 3. Do not invent a ticket to fill this step. Prefactor tickets go first.
 

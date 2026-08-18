@@ -20,7 +20,7 @@ Show this to the user, then immediately proceed to Step 2. The user reads and th
 
 Spawn 3+ `designer` instances in parallel. Each must produce a **radically different** interface for the deepened module.
 
-启动：后台执行 `mmw dispatch designer`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
+Launch: in the background, run `mmw dispatch designer`. Pass the four-field task body as the command's standard input. Add `--issue <current decision ticket number>` when this task belongs to a decision ticket. When the command returns `mode: host-tool`, call the matching host tool with the `params` in its output.
 
 Prompt each `designer` with a separate technical brief (file paths, coupling details, dependency category from [DEEPENING.md](DEEPENING.md), what sits behind the seam). The brief is independent of the user-facing problem-space explanation in Step 1. Give each instance a different design constraint:
 

@@ -74,7 +74,7 @@ mmw <命令> [参数]
   artifact    产物落点：path / index / check
   issue       tracker：create / frontier / children / claim / link / append / set-parent
   result      把结果分支合进当前任务
-  domain      领域文档：path / check / adr-next / dirs
+  domain      领域文档：path / dirs / map-init / sync / check / adr-next
 EOF
 
   case "$host" in

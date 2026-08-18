@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "multi-model-workflow",
-  "description": "多模型开发编排。Claude 主 agent 编排与判定，GPT `worker` 写代码，GPT `planner` 写 plan，`reviewer-gpt` 与 `reviewer-claude` 跨模型审查。",
+  "description": "多模型开发编排。编排与判定、写代码的 `worker`、写 plan 的 `planner` 和跨模型的 `reviewer-gpt` 与 `reviewer-claude` 各自绑定模型档，宿主之间共享同一套流程。",
   "owner": {
     "name": "Cheuk Lap Chan",
     "email": "chancheuklapincn@gmail.com"
@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "mmw",
-      "description": "多模型开发编排。Claude 主 agent 编排与判定，GPT `worker` 写代码，GPT `planner` 写 plan，`reviewer-gpt` 与 `reviewer-claude` 跨模型审查。长在 Matt Pocock 的工程技能之上。",
+      "description": "多模型开发编排。编排与判定、写代码的 `worker`、写 plan 的 `planner` 和跨模型的 `reviewer-gpt` 与 `reviewer-claude` 各自绑定模型档，宿主之间共享同一套流程。长在 Matt Pocock 的工程技能之上。",
       "version": "0.32.0",
       "author": {
         "name": "Cheuk Lap Chan",
