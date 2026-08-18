@@ -19,7 +19,7 @@ At each step ask:
 3. Will the user connect the correct action with the outcome they want
 4. After the action, will the user see feedback that things are moving
 
-**Only question 2 needs visual information.** It uses both: structured visual-salience numbers (in first screen, size, contrast, occluded, stacking — how each is computed is [SKILL.md](SKILL.md) step 8) and one screenshot cropped to the relevant region. Questions 1, 3, and 4 use structured data only.
+**Only question 2 needs visual information.** It uses both: structured visual-salience numbers (in first screen, size, contrast, occluded, stacking — how each is computed is [CRITERIA.md](CRITERIA.md), "What the probe collects") and one screenshot cropped to the relevant region. Questions 1, 3, and 4 use structured data only.
 
 Ask the four questions per step. As many rounds as the path has steps.
 
@@ -54,10 +54,10 @@ Consecutive steps across two paths do not merge — each path is scored on its o
 
 ## Where walkthrough tasks come from
 
-Walkthrough tasks cover **screens in this run's scope** (scope is [SKILL.md](SKILL.md) step 7). Two sources, different bars:
+Walkthrough tasks cover **screens in this run's scope** (scope is [SKILL.md](SKILL.md) step 5). Two sources, different bars:
 
 - **Paths from MMW artifacts.** Run `mmw artifact path prototype --sub README.md` and `mmw artifact index spec`, read the files about this product, and take operation paths written in user walkthrough conclusions and acceptance sections. The path must be a full path the user walked for a real goal, across several screens, and must include at least one failure path or edge. A single action merges up into its full path. Do not split to pad the count.
-- **No artifact path in scope: build from jumps in the screen map** ([SKILL.md](SKILL.md) step 6). From the main window, one shortest path to each in-scope screen. Failure paths are not required. **The report must mark these as constructed** — they guarantee reach, not that a user would walk them.
+- **No artifact path in scope: build from jumps in the screen map** ([SKILL.md](SKILL.md) step 4). From the main window, one shortest path to each in-scope screen. Failure paths are not required. **The report must mark these as constructed** — they guarantee reach, not that a user would walk them.
 
 The second source means B2, B3, and B4 always have a path. **Do not skip these three checks when artifacts yield nothing.**
 

@@ -1,5 +1,5 @@
 {
-  "comment": "界面 QA 的四个运行时依赖。这份文件是它们的唯一事实来源：install-ui-qa-deps.sh 照它装，mmw-ui-qa 照它定位，test_ui_qa_deps.sh 照它断言。版本写死，不用 npx 当场拉取——npx 离线直接失败，联网取到的版本不受控，而设计系统格式规范目前是 alpha、可能有破坏性变更，版本不固定会让判据自检的结果在两台机器上不一致。kind 有三种：command 是有可执行入口的 npm 包，source 是要注入浏览器的一份 npm 包内文件，skill 是从 GitHub 稀疏检出、软链进各宿主技能目录的一份技能。",
+  "comment": "界面 QA 的四个运行时依赖。这份文件是它们的唯一事实来源：install-ui-qa-deps.sh 照它装，mmw-ui-qa 照它定位，preflight.py 照它报缺失后果，test_ui_qa_deps.sh 照它断言。版本写死，不用 npx 当场拉取——npx 离线直接失败，联网取到的版本不受控，而设计系统格式规范目前是 alpha、可能有破坏性变更，版本不固定会让判据自检的结果在两台机器上不一致。kind 有三种：command 是有可执行入口的 npm 包，source 是要注入浏览器的一份 npm 包内文件，skill 是从 GitHub 稀疏检出、软链进各宿主技能目录的一份技能。missing 为 degrade 的条目要写 skips 与 degrade_note：缺了它跳哪几种 check、报告头怎么写。技能正文不再抄这份映射。",
   "packages": [
     {
       "capability": "browser",
@@ -19,7 +19,11 @@
       "source": "axe.min.js",
       "purpose": "供给 A2：对比度、ARIA 误用、缺 label、缺 alt、tabindex 取值、aria-hidden 元素可聚焦、嵌套交互控件、可滚动区域可达性、跳过链接",
       "missing": "degrade",
-      "version_note": "它没有可执行入口，是一份注入浏览器的脚本，所以这里记的是文件名不是 bin 名。"
+      "version_note": "它没有可执行入口，是一份注入浏览器的脚本，所以这里记的是文件名不是 bin 名。",
+      "skips": [
+        "A2"
+      ],
+      "degrade_note": "A2 本次不跑。报告头「Skipped this run」写 A2 与原因"
     },
     {
       "capability": "design-lint",
@@ -29,7 +33,9 @@
       "bin": "design.md",
       "purpose": "起步第五步的判据自检：格式校验、跨 token 的 WCAG 对比度计算、引用完整性检查",
       "missing": "degrade",
-      "version_note": "格式规范当前是 alpha，官方明确标明可能有破坏性变更。版本必须钉死。"
+      "version_note": "格式规范当前是 alpha，官方明确标明可能有破坏性变更。版本必须钉死。",
+      "skips": [],
+      "degrade_note": "判据自检本次没跑。报告头标注本次没有 lint 判据，九种 check 照跑"
     },
     {
       "capability": "design-system-author",

@@ -2,35 +2,49 @@
 
 The nine checks are listed in [SKILL.md](SKILL.md) under "Checks: two classes, nine kinds". This file is what happens after they run.
 
-## Class A edit flow
+## The commits this run makes
 
-**The working tree is clean**, from [SKILL.md](SKILL.md) step 1. That fact makes every line below hold. No home-grown rollback.
+**The working tree was clean at step 1 of [SKILL.md](SKILL.md).** That fact makes every line below hold. No home-grown rollback.
+
+A run makes up to three commits, in this order. Each stands alone so the user can revert one without losing the others:
+
+| # | Holds | When it happens |
+| --- | --- | --- |
+| 1 | The criteria and wiring files setup mode created | End of setup mode, before the app starts. First run for a product only |
+| 2 | Class A edits | After all nine checks finish. Its SHA goes in report section 1 |
+| 3 | Fixes for class B findings the user marked `accepted` | After the user returns verdicts, which is after the report. Only when at least one item came back `accepted` |
+
+**Commit 2 holds interface fixes only.** Keeping the criteria in commit 1 is what makes "revert section 1's SHA" safe: it undoes this run's interface edits and leaves the criteria the next run needs.
+
+**Commit 3 is a separate commit, not an amend of commit 2.** The report already gave the user commit 2's SHA. Rewriting that commit would leave them holding a SHA that no longer exists.
+
+## Class A edit flow
 
 1. **Run all nine checks, collect every result, then enter edits.**
 2. **Edit one, verify one.** After each edit, re-run only the check that produced that violation. The test: that violation's criterion now holds.
 3. **After all edits, re-run all four class A checks.** Per-item verify cannot see a new class A problem this edit introduced. All four are deterministic. The re-run needs no model, and does not re-walk the semantic layer.
 4. **A bad edit rolls back with git.** If the full re-run finds a new class A violation, or a per-item verify fails, `git checkout` that file to undo that edit. That item degrades to a finding. Verification result is `reverted`.
-5. **Do not edit what you cannot edit in source.** A violation inside a third-party component or a dependency package becomes a finding.
+5. **Edit only what you can edit in source.** A violation inside a third-party component or a dependency package becomes a finding.
 
-**Do not re-run class B.** The user judges the interface from before the class A edits. Say that in the report. Class A fixes thresholds, WCAG, tokens, and runtime errors. It does not change the flows and meaning class B cares about.
+**Class B is judged on the interface as it stood before the class A edits, and stays that way.** Say so in the report. Class A fixes thresholds, WCAG, tokens, and runtime errors; it leaves the flows and meaning class B cares about untouched.
 
-**All class A edits this run become one commit, not one commit per item.** The message says this is a UI QA edit and lists the violations. Report section 1 still lists each. To undo one item, the user edits on top of that commit.
+**All class A edits this run go in one commit, not one commit per item.** The message says this is a UI QA edit and lists the violations. Report section 1 still lists each. To undo one item, the user edits on top of that commit.
 
 ## Where the five disposition marks go
 
-Class B uses MMW's existing five disposition marks. This skill does not auto-edit class B. Wait for a verdict. "Criteria" means this product's usability-criteria file. Fields are in [CRITERIA.md](CRITERIA.md) under "Usability criteria".
+Class B uses MMW's existing five disposition marks. Class B waits for a verdict; this skill edits nothing there on its own. "Criteria" means this product's usability-criteria file. Fields are in [CRITERIA.md](CRITERIA.md) under "Usability criteria".
 
 | Verdict | Who fixes | Store in criteria? | Next run, fingerprint hits |
 | --- | --- | --- | --- |
-| `accepted` | **Main agent fixes now**, in the same commit as class A | Yes, status `confirmed` | **Report again**, marked "accepted and fixed last time, present again" |
-| `rejected` | No fix | Yes, status `rejected` | Suppress. Do not report |
-| `waived` | No fix | Yes, status `waived` | Suppress. Do not report |
+| `accepted` | **Main agent fixes after the verdict comes back**, in commit 3 | Yes, status `confirmed` | **Report again**, marked "accepted and fixed last time, present again" |
+| `rejected` | No fix | Yes, status `rejected` | Suppress. Leave it out of the report |
+| `waived` | No fix | Yes, status `waived` | Suppress. Leave it out of the report |
 | `duplicate` | Follow the item it points at | Do not store on its own | n/a |
 | `needs-evidence` | No fix | **Do not store** | n/a |
 
 **`accepted` is a regression mark, not a suppress mark.** `rejected` and `waived` mean "not a problem", so a later hit is suppressed. `accepted` means "it was a problem, and it was fixed", so a later hit means **it came back**.
 
-**`needs-evidence` does not enter criteria.** It means this finding's source was not verified in source, so it is not yet a standing judgment. It lives in this run's report only.
+**`needs-evidence` stays out of criteria.** It means this finding's source was not verified in source, so it is not yet a standing judgment. It lives in this run's report only.
 
 Class B fixes have no deterministic check to re-run. Verify is the next run: if the problem is gone, that finding does not appear; if not, report again per the table.
 
@@ -58,11 +72,11 @@ element-role: button
 element-name: Sync
 ```
 
-`screen` and `state` come from ids already on the screen map ([SKILL.md](SKILL.md) step 6). `element-role` and `element-name` come from the accessibility snapshot ([SKILL.md](SKILL.md) step 8).
+`screen` and `state` come from ids already on the screen map ([SKILL.md](SKILL.md) step 4). `element-role` and `element-name` come from the accessibility snapshot ([CRITERIA.md](CRITERIA.md), "What the probe collects").
 
 **`criterion` is required.** One element can break two different criteria — spacing in the design system, and a product usability criterion. Without which rule, the two findings share a fingerprint, and `rejected` on one suppresses the other. B1 takes the rule id from design-system prose. B5 takes the usability-criterion id (`U-001`).
 
-**Location is not a CSS selector.** Selectors carry class names and positional indexes. A relayout changes all of them.
+**Location is a screen-and-element address, never a CSS selector.** Selectors carry class names and positional indexes, and a relayout changes all of them.
 
 **Step grain (B2)**
 
@@ -104,7 +118,7 @@ Each run compares every class B finding fingerprint this run to stored verdicts 
 
 | Level | Condition | Result |
 | --- | --- | --- |
-| Level 1 · exact | Every fingerprint field matches | Same thing. Follow the stored verdict. **Do not report** |
+| Level 1 · exact | Every fingerprint field matches | Same thing. Follow the stored verdict. Leave it out of the report |
 | Level 2 · near | Same check, **exactly one** location field differs | Maybe the same thing. Report, attach the previous verdict, ask if it is the same thing |
 | Neither | Different check, or two or more location fields differ | New problem. Report as usual |
 
@@ -123,17 +137,17 @@ B3 `screen` and `state` are arrays. Compare **the whole array as one field**: id
 
 **After a level 2 hit.** User says "yes": update that verdict's fingerprint to this run's values, then follow the verdict. User says "no": treat as new; the user judges again; criteria gain an item.
 
-**Do not fall back to comparing content when location misses.** A relayout can reshuffle the whole screen. That fallback suppresses too often. Level 2 asks. It does not auto-judge.
+**Location miss ends the match at level 2, which asks.** A relayout can reshuffle the whole screen, so falling back to comparing content would suppress far too often.
 
-## Stale verdicts: list them, do not delete
+## Stale verdicts: list them, keep them
 
 At the end of each run, inspect verdict items in this product's usability criteria. **Only items whose fingerprint falls in this run's scope:** the fingerprint's screen was checked this run, and neither match level hit. Those go in the report's last section.
 
-**Verdicts outside scope never enter the stale test.** Default level is this-change (three levels in [SKILL.md](SKILL.md) step 7). Most screens were not checked this run, so they will not hit — listing them as "maybe dead" treats "not checked" as "checked and absent", and invites deleting criteria that still hold. B2 fingerprints locate by walkthrough; same rule: only walkthroughs actually walked this run.
+**Verdicts outside scope never enter the stale test.** Default level is this-change (three levels in [SKILL.md](SKILL.md) step 5). Most screens were not checked this run, so they will not hit — listing them as "maybe dead" treats "not checked" as "checked and absent", and invites deleting criteria that still hold. B2 fingerprints locate by walkthrough; same rule: only walkthroughs actually walked this run.
 
 So only the `full` level runs a complete stale check across every verdict.
 
-**List them. Do not auto-delete. Do not fail the run.** If the user wants one gone, they say so. This line is how criteria stop rotting: verdicts only grow, and would keep suppressing problems that no longer exist.
+**List them, keep them, and let the run pass.** If the user wants one gone, they say so. This line is how criteria stop rotting: verdicts only grow, and would keep suppressing problems that no longer exist.
 
 ## Report shape: five sections
 
@@ -141,10 +155,10 @@ Order is "what the user must do":
 
 | Section | Content | User does |
 | --- | --- | --- |
-| 1 · Class A edits | One line per item: violation id, file and location, before, after, verification. End with this edit commit SHA | Nothing required. Look. To undo the whole run, revert that SHA |
+| 1 · Class A edits | One line per item: violation id, file and location, before, after, verification. End with commit 2's SHA | Nothing required. Look. To undo the whole run, revert that SHA |
 | 2 · Class B new findings | Neither match level hit. Class A items whose verification is `reverted` also degrade into this section | Per-item verdict |
 | 3 · Class B near matches | Level 2 hits, each with the previous verdict | Per item: "same / not the same" |
-| 4 · Three report items | Coverage report, criterion self-check, declaration-vs-implementation mismatch | Nothing required. They may say one line |
+| 4 · Report items | The three defined in [SKILL.md](SKILL.md) under "Checks: two classes, nine kinds" | Nothing required. They may say one line |
 | 5 · Stale verdicts | Fingerprint in this run's scope, no matching check result | Nothing required. To delete, they say so |
 
 Sections 2 and 3 stay apart: section 3 only wants "same / not". Mixing them makes every item feel like a full verdict. Section 4 is **this run's boundary**. Section 5 is **existing criteria that may need cleaning**. Keep them apart.
@@ -165,11 +179,11 @@ Where each line comes from:
 
 | Line | Value |
 | --- | --- |
-| Scope | The level name from [SKILL.md](SKILL.md) step 7. After a degrade: "this-change → this-task (this-change did not touch interface files)", with the reason |
+| Scope | The level name from [SKILL.md](SKILL.md) step 5. After a degrade: "this-change → this-task (this-change did not touch interface files)", with the reason |
 | Covered | Screens and states actually checked this run, counted from in-scope nodes on the screen map |
 | Uncovered | Screen-map totals minus the previous line. Includes unreached states from the coverage report |
-| Criteria | Three parts: threshold-table `version`; count of `confirmed` items in this product's usability criteria; design-system handling, one of "read and linted", "read, not linted", "missing" — matching [SKILL.md](SKILL.md) step 5 |
-| Skipped this run | Check ids skipped this run, plus why. Missing design-system file: "A3, B1 (no design-system file)". Semantic layer returned nothing: "B2, B3, B4 (semantic evaluation returned nothing)". Windows capability self-check missing items: name them. None skipped: "none" |
+| Criteria | Three parts: threshold-table `version`; count of `confirmed` items in this product's usability criteria; design-system handling, one of "read and linted", "read, not linted", "missing" — matching [SKILL.md](SKILL.md) step 3 |
+| Skipped this run | Check ids skipped this run, plus why. Missing design-system file: "A3, B1 (no design-system file)". A degraded dependency: the `degrade_note` from the preflight JSON. Semantic layer returned nothing: "B2, B3, B4 (semantic evaluation returned nothing)". Windows capability self-check missing items: name them. None skipped: "none" |
 
 ## Where verdicts flow back
 
@@ -177,4 +191,4 @@ Where each line comes from:
 
 **A threshold-shaped verdict enters the threshold table.** For example the user confirms a min size for a class of elements: add an item in the four-field shape in [CRITERIA.md](CRITERIA.md) "Threshold table". The next run judges it as A1.
 
-Every flow-back names this UI QA run and the date as source. Fields and format for both files are in [CRITERIA.md](CRITERIA.md) "Fields of the three cross-boundary files".
+Every flow-back names this UI QA run and the date as source. Fields and format for both files are in [CRITERIA.md](CRITERIA.md) under "The three cross-boundary files".

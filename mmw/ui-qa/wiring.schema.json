@@ -1,0 +1,93 @@
+{
+  "comment": "界面 QA 接线文件的字段声明。这份文件是它们的唯一事实来源：wiring_lint.py 照它判，技能正文不再抄一份字段表。技能正文只留「缺了某个字段之后流程怎么走」，那部分是流程决策，判不出来。type 有六种：string、integer、object、string-array、string-map、object-array。requiredWhen 表达条件必填。oneOf 表达一组里至少要有一个。",
+  "version": 1,
+  "secretRefPattern": "^(env|keychain):.+$",
+  "knownVersion": 1,
+  "fields": [
+    {
+      "path": "version",
+      "type": "integer",
+      "required": true,
+      "note": "格式版本。技能认得的值在 knownVersion"
+    },
+    {
+      "path": "product",
+      "type": "string",
+      "required": true,
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "note": "product id，与可用性判据文件名一致"
+    },
+    { "path": "launch", "type": "object", "required": true },
+    {
+      "path": "launch.command",
+      "type": "string-array",
+      "required": true,
+      "minItems": 1,
+      "note": "启动命令与参数，一项一个元素，不是一行待解析的字符串"
+    },
+    { "path": "launch.cwd", "type": "string", "required": false },
+    { "path": "launch.env", "type": "string-map", "required": false },
+    { "path": "launch.readyTimeoutMs", "type": "integer", "required": false },
+    { "path": "mainWindow", "type": "object", "required": true },
+    { "path": "mainWindow.titlePattern", "type": "string", "required": false, "regex": true },
+    { "path": "mainWindow.urlPattern", "type": "string", "required": false, "regex": true },
+    { "path": "environment", "type": "object", "required": true },
+    {
+      "path": "environment.kind",
+      "type": "string",
+      "required": true,
+      "enum": ["local-server", "test-account"],
+      "note": "两个取值，没有第三个。原型样稿也算 local-server"
+    },
+    { "path": "environment.endpoint", "type": "string", "required": true },
+    {
+      "path": "environment.account",
+      "type": "object",
+      "required": false,
+      "requiredWhen": { "path": "environment.kind", "equals": "test-account" }
+    },
+    {
+      "path": "environment.account.id",
+      "type": "string",
+      "required": false,
+      "requiredWhen": { "path": "environment.kind", "equals": "test-account" }
+    },
+    {
+      "path": "environment.account.secret",
+      "type": "string",
+      "required": false,
+      "secretRef": true,
+      "requiredWhen": { "path": "environment.kind", "equals": "test-account" }
+    },
+    { "path": "prepare", "type": "object", "required": false },
+    {
+      "path": "prepare.steps",
+      "type": "object-array",
+      "required": false,
+      "itemFields": [
+        { "name": "name", "type": "string", "required": true },
+        { "name": "command", "type": "string-array", "required": true, "minItems": 1 }
+      ]
+    },
+    {
+      "path": "designSystem",
+      "type": "string",
+      "required": false,
+      "note": "设计系统文件的仓库相对路径。缺了它跳过 A3 与 B1，那是技能的流程决策"
+    },
+    { "path": "windows", "type": "object", "required": false },
+    {
+      "path": "windows.debugPort",
+      "type": "integer",
+      "required": false,
+      "requiredWhen": { "path": "windows", "exists": true }
+    },
+    { "path": "windows.host", "type": "string", "required": false }
+  ],
+  "oneOf": [
+    {
+      "paths": ["mainWindow.titlePattern", "mainWindow.urlPattern"],
+      "note": "认主窗口要有其中一条"
+    }
+  ]
+}

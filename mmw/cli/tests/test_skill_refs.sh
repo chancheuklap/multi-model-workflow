@@ -90,6 +90,24 @@ RE_STEP = re.compile(r'`/([a-z0-9-]+)`[^|。，]{0,12}第 ([0-9]+) 步')
 # 步骤两种写法都要认：标题式的 `## 3. 干什么`，和 `## 流程` 底下的有序列表 `3. 干什么`。
 # 只认一种就是跟排版绑死：技能把步骤从标题改成列表，语义没动，测试却红。
 RE_STEP_NUM = re.compile(r'^(?:#{2,3} )?([0-9]+)\. ', re.M)
+
+# 同一个技能目录里，一份 reference 指主文件或另一份 reference 的第 N 步。上面那条
+# RE_STEP 只认跨技能的 `/技能名` 加中文「第 N 步」，这一类它一条都抓不到——
+# mmw-ui-qa 全英文，指的又都是同目录 sibling，14 处引用里错了一处（scope 写成第 6 步，
+# 实际在第 7 步）在仓库里躺着，正是这条测试当初要防的那种错。
+# 三种写法，都要有明确的目标文件，才判得出「第 N 步」指的是哪一份的第 N 步：
+#   [SKILL.md](SKILL.md) step 4        文件在前
+#   Step 3 of [SKILL.md](SKILL.md)     步骤在前
+#   main-file step 4                   指同目录 SKILL.md
+# 不认没有目标文件的裸 `step 3`：技能里的「第 3 步」和路径包里的「第 3 步」机械上
+# 分不开（SEMANTIC.md 的 `Step 1 writes ...` 说的是走查路径的第一步），
+# 硬认就只能靠豁免清单撑着，那按 AGENTS.md 就不算机械校验了。
+STEP_WORD = r'(?:step|Step|第\s*)'
+RE_FILE_THEN_STEP = re.compile(
+    r'\[[^\]]+\.md\]\((?!http)([^)]+\.md)\)[^|。，]{0,40}?' + STEP_WORD + r'\s*([0-9]+)')
+RE_STEP_THEN_FILE = re.compile(
+    STEP_WORD + r'\s*([0-9]+)[^|。，]{0,20}?of \[[^\]]+\.md\]\((?!http)([^)]+\.md)\)')
+RE_MAINFILE_STEP = re.compile(r'main-file ' + STEP_WORD + r'\s*([0-9]+)')
 RE_CMD = re.compile(r'`mmw ([a-z-]+)(?: ([a-z-]+))?')
 
 RE_ARTIFACT_PATH = re.compile(r'`mmw artifact path ([a-z0-9][a-z0-9-]*)')
@@ -152,6 +170,18 @@ for p in sorted(skills.rglob('*.md')):
             else:
                 bad.append(f"{rel}:{i} 说「/{skill} 第 {step} 步」，但那个技能里没有第 {step} 步")
 
+        sibling_refs = [(m.group(1), m.group(2)) for m in RE_FILE_THEN_STEP.finditer(line)]
+        sibling_refs += [(m.group(2), m.group(1)) for m in RE_STEP_THEN_FILE.finditer(line)]
+        sibling_refs += [('SKILL.md', m.group(1)) for m in RE_MAINFILE_STEP.finditer(line)]
+        for name, step in sibling_refs:
+            target = p.parent / name
+            if not target.is_file():
+                bad.append(f"{rel}:{i} 指向不存在的文件 {name}")
+            elif step in RE_STEP_NUM.findall(target.read_text()):
+                ok += 1
+            else:
+                bad.append(f"{rel}:{i} 说 {name} 的第 {step} 步，但那份文件里没有第 {step} 步")
+
 # MMW 的技能面全部可被模型触发：一个技能只有用户点名才进得去时，需要它的那一跳
 # 只能靠用户记得它存在。frontmatter 里出现 disable-model-invocation 就是把它关掉。
 for p in sorted(skills.glob('*/SKILL.md')):
@@ -185,6 +215,22 @@ for role, meta in sorted(roles.items()):
             "但 install-agent-skills.sh 的 WANTED 里没有它")
     else:
         ok += 1
+
+# 上面那三条规则得真能抓到东西，不然全绿也说明不了什么。反例同样要测：裸的
+# `step 3` 没有目标文件，判不出指的是哪一份，抓到它才是错的。
+probes = [
+    (RE_FILE_THEN_STEP, 'the map is in [SKILL.md](SKILL.md) step 4', True),
+    (RE_STEP_THEN_FILE, 'Step 3 of [SKILL.md](SKILL.md) sends you here', True),
+    (RE_MAINFILE_STEP, 'goes in the coverage report (main-file step 4)', True),
+    (RE_FILE_THEN_STEP, 'go back to step 3 and continue', False),
+    (RE_STEP_THEN_FILE, 'old step 3 is now 4', False),
+]
+for rx, sample, want in probes:
+    if bool(rx.search(sample)) != want:
+        verb = "抓不到" if want else "误抓了"
+        print(f"  失败  sibling 步骤引用的正则{verb}：{sample}")
+        sys.exit(1)
+    ok += 1
 
 for b in bad:
     print(f"  失败  {b}")

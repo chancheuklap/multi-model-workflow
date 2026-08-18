@@ -75,6 +75,14 @@ if [ -f "$DEPS_JSON" ]; then
     "$(jq -r 'all(.packages[].version; test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))' "$DEPS_JSON")"
   check "缺失时的行为受限" "true" \
     "$(jq -r 'all(.packages[].missing; IN("stop", "degrade"))' "$DEPS_JSON")"
+  # 降级后果只存在这里：技能正文原先抄过一张同样的表，改这份声明带不动它。
+  # degrade 的条目缺了 skips 或 degrade_note，preflight 就报不出「跳了什么」。
+  check "降级条目都写了后果" "true" \
+    "$(jq -r 'all(.packages[] | select(.missing == "degrade");
+      has("skips") and has("degrade_note"))' "$DEPS_JSON")"
+  check "停级条目不写降级后果" "true" \
+    "$(jq -r 'all(.packages[] | select(.missing == "stop");
+      (has("skips") | not) and (has("degrade_note") | not))' "$DEPS_JSON")"
   # 能力名是技能正文与这份声明之间的连接点，重复了就有一条永远取不到。
   check "能力名不重复" "true" \
     "$(jq -r '(.packages | map(.capability) | unique | length) == (.packages | length)' "$DEPS_JSON")"
@@ -168,6 +176,100 @@ if [ -x "$FORWARDER" ] && [ -d "$SKILLS" ]; then
     printf '%s\n' "$known" | grep -qx "$a" || unknown="$unknown $a"
   done
   check "技能正文没有引用不存在的动作" "" "$unknown"
+fi
+
+echo
+echo "接线文件校验"
+# 技能正文不再写字段表，判定全在这里。判不出来的那几条（缺 designSystem 跳哪两种
+# check）留在正文，这里不测那部分——它不是这个命令的事。
+WIRING_FIXTURES="$(mktemp -d)"
+trap 'rm -rf "$EMPTY" "$TAKE" "$WIRING_FIXTURES"' EXIT
+if [ -x "$FORWARDER" ]; then
+  cat > "$WIRING_FIXTURES/good.json" <<'JSON'
+{
+  "version": 1,
+  "product": "duck",
+  "launch": { "command": ["npm", "run", "dev"] },
+  "mainWindow": { "urlPattern": "^http://localhost:5173" },
+  "environment": { "kind": "local-server", "endpoint": "http://localhost:5173" }
+}
+JSON
+  # 明文 secret 是这条命令存在的头号理由：接线文件带着它开跑，密码就进了运行会话。
+  cat > "$WIRING_FIXTURES/secret.json" <<'JSON'
+{
+  "version": 1,
+  "product": "duck",
+  "launch": { "command": ["npm", "start"] },
+  "mainWindow": { "titlePattern": "Duck" },
+  "environment": {
+    "kind": "test-account",
+    "endpoint": "https://qa.example.com",
+    "account": { "id": "qa", "secret": "hunter2" }
+  }
+}
+JSON
+  cat > "$WIRING_FIXTURES/kind.json" <<'JSON'
+{
+  "version": 1,
+  "product": "duck",
+  "launch": { "command": ["npm", "start"] },
+  "mainWindow": { "titlePattern": "Duck" },
+  "environment": { "kind": "staging", "endpoint": "https://x" }
+}
+JSON
+  cat > "$WIRING_FIXTURES/nowindow.json" <<'JSON'
+{
+  "version": 1,
+  "product": "duck",
+  "launch": { "command": ["npm", "start"] },
+  "mainWindow": {},
+  "environment": { "kind": "local-server", "endpoint": "http://localhost:1" }
+}
+JSON
+  printf '{ "version": 1, ' > "$WIRING_FIXTURES/broken.json"
+
+  set +e
+  "$FORWARDER" wiring-lint "$WIRING_FIXTURES/good.json" >/dev/null 2>&1
+  good_status=$?
+  secret_out="$("$FORWARDER" wiring-lint "$WIRING_FIXTURES/secret.json" 2>&1)"
+  secret_status=$?
+  kind_out="$("$FORWARDER" wiring-lint "$WIRING_FIXTURES/kind.json" 2>&1)"
+  nowindow_out="$("$FORWARDER" wiring-lint "$WIRING_FIXTURES/nowindow.json" 2>&1)"
+  broken_out="$("$FORWARDER" wiring-lint "$WIRING_FIXTURES/broken.json" 2>&1)"
+  broken_status=$?
+  noarg_out="$("$FORWARDER" wiring-lint 2>&1 >/dev/null)"
+  set -e
+
+  check "合法接线文件退 0" "0" "$good_status"
+  check "明文 secret 非零退出" "1" "$secret_status"
+  contains "明文 secret 点名字段" "environment.account.secret" "$secret_out"
+  contains "明文 secret 说清该写成什么" "env:" "$secret_out"
+  contains "environment.kind 只认两个取值" "local-server" "$kind_out"
+  contains "认窗口的两条至少要有一条" "mainWindow.titlePattern" "$nowindow_out"
+  check "文件不是 JSON 时非零退出" "1" "$broken_status"
+  contains "文件不是 JSON 时原样给解析器的报错" "line" "$broken_out"
+  contains "wiring-lint 缺文件参数时说清语法" "mmw-ui-qa wiring-lint <文件>" "$noarg_out"
+fi
+
+echo
+echo "字段声明与校验器对得上"
+SCHEMA="$UI_QA/wiring.schema.json"
+check "字段声明存在" "存在" "$([ -f "$SCHEMA" ] && echo 存在 || echo 缺失)"
+if [ -f "$SCHEMA" ]; then
+  check "字段声明是 JSON 对象" "true" "$(jq -r 'type == "object"' "$SCHEMA")"
+  # 校验器只认这六种类型，声明里冒出第七种会当场抛。
+  check "类型取值受限" "true" \
+    "$(jq -r '[.fields[].type] + [.fields[].itemFields // [] | .[].type] | unique
+      | all(IN("string","integer","object","string-array","string-map","object-array"))' "$SCHEMA")"
+  check "字段路径不重复" "true" \
+    "$(jq -r '([.fields[].path] | unique | length) == ([.fields[].path] | length)' "$SCHEMA")"
+  # oneOf 里点名的路径必须在 fields 里，否则那条约束永远判不到东西。
+  check "oneOf 点名的路径都在字段表里" "true" \
+    "$(jq -r '[.fields[].path] as $p | all(.oneOf // [] | .[].paths[]; IN($p[]))' "$SCHEMA")"
+  # requiredWhen 依赖的那个路径同理：指到一个不存在的字段，条件必填就永不成立。
+  check "requiredWhen 依赖的路径都在字段表里" "true" \
+    "$(jq -r '[.fields[].path] as $p
+      | all(.fields[] | select(has("requiredWhen")) | .requiredWhen.path; IN($p[]))' "$SCHEMA")"
 fi
 
 echo
