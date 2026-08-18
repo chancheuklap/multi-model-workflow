@@ -19,7 +19,7 @@ Confirm where this repo is first. Judge top to bottom; stop at the first row tha
 | --- | --- | --- |
 | Not in a git repo | `git rev-parse --is-inside-work-tree` fails | Ask the user for the target repo path. Enter that repo, then judge again |
 | In the main checkout | `git rev-parse --path-format=absolute --git-dir` equals `--git-common-dir` | Stop. Ask the user to open a worktree with this host, then start a session there |
-| No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>` with the task-branch name decided above |
+| No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>`. Use the name this skill or the caller already gave; with none in hand, name it after the work in this repo's own branch-naming shape, and say which name you took |
 | Task branch already there | None of the above holds | Use the current branch |
 
 
@@ -40,11 +40,11 @@ Task fields:
 - **Constraints:** source and tests in this worktree; leave `docs/` as they are; stay inside the ticket
 - **Acceptance:** the ticket's criteria; HEAD SHA on the result branch
 
-Launch: run `mmw worktree add <result branch>` first and use the worktree absolute path it returns as cwd. Then call the native `subagent` tool with agent `mmw-worker`, the four-field task table in full as task, and cwd set to that absolute path.
+Launch: run `mmw worktree add <result branch>` first. Then call the native `subagent` tool with agent `mmw-worker`, the four-field task table in full as task, and cwd set to the worktree absolute path that command returned.
 
 Billing, permissions, data migration, or irreversible mistakes: use
 
-Launch: run `mmw worktree add <result branch>` first and use the worktree absolute path it returns as cwd. Then call the native `subagent` tool with agent `mmw-worker-high-risk`, the four-field task table in full as task, and cwd set to that absolute path.
+Launch: run `mmw worktree add <result branch>` first. Then call the native `subagent` tool with agent `mmw-worker-high-risk`, the four-field task table in full as task, and cwd set to the worktree absolute path that command returned.
 
 instead. You choose the upgrade.
 

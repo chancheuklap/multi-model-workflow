@@ -29,7 +29,7 @@ If you have not already explored the codebase, do so to understand the current s
 
 Look for opportunities to prefactor the code to make the implementation easier. "Make the change easy, then make the easy change." When the materials do not cover the code, read the entry points, callers, and tests in range yourself. Several independent angles: `/mmw-research`. It returns a README path. Read that index and the files it lists. Put those facts into the tickets that consume them.
 
-A prototype that reached this spec left production code mounted: take `## Mounted wiring` from its `README.md` and give those sites a prefactor ticket that removes them. The prototype files themselves stay where they are — only the mounts come out. `none` means skip.
+When this spec came from a prototype, read `## Mounted wiring` in its `README.md`. Every site it lists gets a prefactor ticket that removes it; the prototype files themselves stay where they are. `none` means skip.
 
 If nothing is worth a prefactor ticket, go to step 3. Do not invent a ticket to fill this step. Prefactor tickets go first.
 

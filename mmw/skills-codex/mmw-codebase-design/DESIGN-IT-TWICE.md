@@ -22,7 +22,7 @@ Spawn 3+ `designer` instances in parallel. Each must produce a **radically diffe
 
 Launch: call the Codex native subagent `mmw-designer` by name, with the four-field task table in full as task. Instances that do not depend on each other launch in the same message; summarize after all of them finish.
 
-After dispatching a subagent, the main agent does not run research, implementation, or review that overlaps that subagent's task. With no clearly non-overlapping coordination work in hand, wait for the report. Do not redo the whole task once it arrives.
+Dispatching hands the task over: that subagent owns the research, implementation, and review inside it. The main agent's own work from here is coordination that clearly does not overlap — with none in hand, wait for the report, then continue from what it says rather than redoing the task.
 
 Prompt each `designer` with a separate technical brief (file paths, coupling details, dependency category from [DEEPENING.md](DEEPENING.md), what sits behind the seam). The brief is independent of the user-facing problem-space explanation in Step 1. Give each instance a different design constraint:
 
