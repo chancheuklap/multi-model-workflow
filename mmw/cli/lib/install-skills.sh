@@ -32,11 +32,20 @@ resolve_link() {
   (cd "$target" 2>/dev/null && pwd -P) || true
 }
 
-# Cursor 与 Grok 上一版是整目录拷贝，记账文件叫 .mmw-skill-names。名字在那份清单里
-# 就是 MMW 自己装的，可以换成软链。
+# 上一版是整目录拷贝。判断某个目录是不是 MMW 自己拷过去的，两条判据任一成立即可：
+#
+#   1. 名字在 .mmw-skill-names 里。那是 Cursor 那一面上一版留下的记账文件。
+#   2. 它的 SKILL.md 与技能源逐字节相同。Grok 那一面上一版不记账，只有这条判得出来。
+#
+# 第二条不会误伤：内容一模一样时换成软链没有任何损失；用户改过一个字，两边就不同，
+# 这里立刻退回报冲突，不动它。
 was_old_copy() {
-  [ -f "$dest/.mmw-skill-names" ] || return 1
-  grep -qx "$1" "$dest/.mmw-skill-names"
+  local name="$1"
+  if [ -f "$dest/.mmw-skill-names" ] && grep -qx "$name" "$dest/.mmw-skill-names"; then
+    return 0
+  fi
+  [ -f "$dest/$name/SKILL.md" ] && [ -f "$SKILLS_SRC/$name/SKILL.md" ] \
+    && cmp -s "$dest/$name/SKILL.md" "$SKILLS_SRC/$name/SKILL.md"
 }
 
 dest=""
@@ -114,6 +123,13 @@ for name in $names; do
       ln -s "$src" "$dst"
       echo "换链  $name"
     fi
+  elif [ -d "$dst" ] && [ -f "$dst/SKILL.md" ]; then
+    # 是个技能目录，但既不在记账文件里，内容也跟技能源对不上。两种可能：上一版
+    # 拷过去之后技能源改过（那是 MMW 的旧内容，删掉即可），或者有人改过它。
+    # 这里分不出来，也不该替人决定。
+    echo "停下  $dst 是拷贝，内容与技能源不同" >&2
+    echo "      没改过它就删掉再重跑；改过就先把改动挪走" >&2
+    rc=1
   elif [ -e "$dst" ]; then
     echo "冲突  $dst 已被非 MMW 内容占用，先处理它再装" >&2
     rc=1

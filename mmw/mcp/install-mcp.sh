@@ -188,7 +188,7 @@ install_face() {
 check_toml_face() {
   local label="$1" config="$2"
   if [ ! -d "$(dirname "$config")" ] && [ ! -e "$config" ]; then
-    echo "跳过  这台机器没有 $label（$(dirname "$config") 不在）"
+    echo "跳过  这台机器没有 ${label}（$(dirname "$config") 不在）"
     return 0
   fi
   if python3 - "$config" "$PLUGIN_ROOT" <<'PY'
@@ -210,7 +210,7 @@ PY
 install_toml_face() {
   local label="$1" config="$2"
   if [ ! -d "$(dirname "$config")" ] && [ ! -e "$config" ]; then
-    echo "跳过  这台机器没有 $label（$(dirname "$config") 不在）"
+    echo "跳过  这台机器没有 ${label}（$(dirname "$config") 不在）"
     return 0
   fi
   python3 "$PLUGIN_ROOT/mcp/resolve.py" --merge-toml "$config" || return 2

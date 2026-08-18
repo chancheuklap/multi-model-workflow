@@ -1079,22 +1079,6 @@ cmd_doctor() {
       echo "MCP      : 没装或与当前定义不一致，重新运行 $repair"
       status=1
     fi
-  elif [ "${host:-}" = "codex" ]; then
-    local codex_config project_codex_config
-    codex_config="${CODEX_HOME:-$HOME/.codex}/config.toml"
-    project_codex_config=""
-    if git rev-parse --show-toplevel >/dev/null 2>&1; then
-      project_codex_config="$(mmw_repo_root)/.codex/config.toml"
-    fi
-    local mcp_config_error
-    if mcp_config_error="$(python3 "$MMW_ROOT/codex/runtime.py" check-mcp-config \
-      "$codex_config" "$project_codex_config" 2>&1)"; then
-      echo "Codex MCP: 三台服务器由 plugin 或等价的 mmw 项目入口启动"
-    else
-      echo "Codex MCP: 旧手工命令正在绕过 plugin："
-      printf '%s\n' "$mcp_config_error" | sed 's/^/           /'
-      status=1
-    fi
   fi
 
   # 密钥只报来源不报值。没配不算故障——三个服务器都能不带密钥跑，只是额度小。
@@ -1106,11 +1090,7 @@ cmd_doctor() {
   # 真把每个服务器拉起来握一次手，不只看配置在不在——旧实现出过一次事故：配置在、
   # 工具名在列表里、直到模型真去调用才报错，那时它已经在一次审查中途了。
   local probe_out
-  local -a probe_command=(python3 "$MMW_ROOT/mcp/probe.py")
-  if [ "${host:-}" = "codex" ]; then
-    probe_command+=(--config "$MMW_ROOT/.mcp-codex.json")
-  fi
-  if probe_out="$("${probe_command[@]}" 2>&1)"; then
+  if probe_out="$(python3 "$MMW_ROOT/mcp/probe.py" 2>&1)"; then
     printf '检索工具 : %s\n' "$(printf '%s' "$probe_out" | head -1)"
     printf '%s\n' "$probe_out" | tail -n +2 | sed 's/^/           /'
   else
