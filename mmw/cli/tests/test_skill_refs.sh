@@ -22,9 +22,6 @@
 #
 # 解析用内嵌 python：四类都是正则提取加路径判断，写成 sed 管道要跟分隔符转义
 # 缠斗，BSD 与 GNU 的 sed 行为还不一样。
-#
-# mmw-setup 排除在外，理由同 test_labels_sync.sh：那个目录是上一版做法的背景
-# 线索，不是技能。
 
 set -euo pipefail
 
@@ -116,8 +113,6 @@ ok = 0
 bad = []
 
 for p in sorted(skills.rglob('*.md')):
-    if 'mmw-setup' in p.parts:
-        continue
     rel = p.relative_to(skills)
     text = p.read_text()
 
@@ -185,8 +180,6 @@ for p in sorted(skills.rglob('*.md')):
 # MMW 的技能面全部可被模型触发：一个技能只有用户点名才进得去时，需要它的那一跳
 # 只能靠用户记得它存在。frontmatter 里出现 disable-model-invocation 就是把它关掉。
 for p in sorted(skills.glob('*/SKILL.md')):
-    if 'mmw-setup' in p.parts:
-        continue
     head = p.read_text().split('\n---', 1)[0]
     if re.search(r'(?m)^disable-model-invocation:\s*true\s*$', head):
         bad.append(f"{p.relative_to(skills)} 声明了 disable-model-invocation")

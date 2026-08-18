@@ -27,7 +27,6 @@ DEFAULT_OUT = {
 PI_PROMPTS_OUT = PLUGIN_ROOT / "prompts-pi"
 
 CODEX_SKILL_REF_RE = re.compile(r"`/(mmw-[a-z0-9-]+)`")
-SKIP_DIR_NAMES = frozenset({"mmw-setup"})
 def die(message: str, code: int = 1) -> NoReturn:
     print(f"mmw skills: {message}", file=sys.stderr)
     raise SystemExit(code)
@@ -67,8 +66,6 @@ def iter_skill_files(host: str) -> list[Path]:
         if not path.is_file():
             continue
         rel = path.relative_to(SKILLS_SRC)
-        if any(part in SKIP_DIR_NAMES for part in rel.parts):
-            continue
         if rel.parts[0] in hidden_from_pi:
             continue
         files.append(path)

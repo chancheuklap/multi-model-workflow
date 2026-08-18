@@ -94,14 +94,6 @@ def test_展不开的标记不许留进产物(假源: Path, tmp_path: Path, 标�
 
 # -------------------------------------------------------------------- 谁不该进
 
-def test_旧背景材料目录不进任何产物(假源: Path, tmp_path: Path) -> None:
-    写(假源 / "mmw-setup" / "legacy.md", "旧材料。\n")
-    for host in ("pi", "claude-code", "codex", "cursor", "grok"):
-        out = tmp_path / host
-        物化(host, out)
-        assert not (out / "mmw-setup").exists()
-
-
 def test_只给人调的技能不进_pi_技能目录但进别的宿主(
     假源: Path, tmp_path: Path
 ) -> None:
