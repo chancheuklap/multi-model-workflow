@@ -13,14 +13,14 @@ The caller passes `<spec issue number>` for spec work.
 
 Before dispatch:
 
-先确认当前仓库位置。判定从上到下，命中一行就停。
+Confirm where this repo is first. Judge top to bottom; stop at the first row that hits.
 
-| 情况 | 怎么判断 | 你做什么 |
+| Case | How to tell | What you do |
 | --- | --- | --- |
-| 不在 git 仓库里 | `git rev-parse --is-inside-work-tree` 失败 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新判断 |
-| 在主检出里 | `git rev-parse --path-format=absolute --git-dir` 等于 `--git-common-dir` | 停下，请用户用当前宿主开一棵工作树再开会话 |
-| 没有分支 | `git symbolic-ref --quiet --short HEAD` 为空 | 按上文已定的任务分支名运行 `git switch -c <完整任务分支名>` |
-| 已有任务分支 | 上面都不成立 | 用当前分支 |
+| Not in a git repo | `git rev-parse --is-inside-work-tree` fails | Ask the user for the target repo path. Enter that repo, then judge again |
+| In the main checkout | `git rev-parse --path-format=absolute --git-dir` equals `--git-common-dir` | Stop. Ask the user to open a worktree with this host, then start a session there |
+| No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>` with the task-branch name decided above |
+| Task branch already there | None of the above holds | Use the current branch |
 
 
 ## Loop
@@ -40,11 +40,11 @@ Task fields:
 - **Constraints:** source and tests in this worktree; leave `docs/` as they are; stay inside the ticket
 - **Acceptance:** the ticket's criteria; HEAD SHA on the result branch
 
-启动：先运行 `mmw worktree add <结果分支>`，使用命令返回的 worktree 绝对路径。后台执行 `mmw dispatch worker --cwd <结果 worktree 绝对路径>`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
+Launch: run `mmw worktree add <result branch>` first and use the worktree absolute path it returns. In the background, run `mmw dispatch worker --cwd <result worktree absolute path>`. Pass the four-field task body as the command's standard input. Add `--issue <current decision ticket number>` when this task belongs to a decision ticket. When the command returns `mode: host-tool`, call the matching host tool with the `params` in its output.
 
 Billing, permissions, data migration, or irreversible mistakes: use
 
-启动：先运行 `mmw worktree add <结果分支>`，使用命令返回的 worktree 绝对路径。后台执行 `mmw dispatch worker-high-risk --cwd <结果 worktree 绝对路径>`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
+Launch: run `mmw worktree add <result branch>` first and use the worktree absolute path it returns. In the background, run `mmw dispatch worker-high-risk --cwd <result worktree absolute path>`. Pass the four-field task body as the command's standard input. Add `--issue <current decision ticket number>` when this task belongs to a decision ticket. When the command returns `mode: host-tool`, call the matching host tool with the `params` in its output.
 
 instead. You choose the upgrade.
 
@@ -60,7 +60,7 @@ When children has no open tickets, send ⑤ final review (`/mmw-review`). The fi
 
 Accepted findings on one ticket: merge the task branch into that result branch (`git merge --no-ff`), then
 
-恢复：后台执行 `mmw dispatch worker --resume <句柄原文> --cwd <原结果 worktree 绝对路径>`。把修复 task 正文作为命令的标准输入。句柄是原派发输出里的 `session:` 或 `handle:` 行原文。那一行不在手上时，运行 `mmw artifact path scratch --sub dispatch` 取得派发进度目录，读其中以 `worker-` 开头的那个 `.session` 文件。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。句柄取不到或命令失败时退回重派：按对应的启动动作重派新实例，task 正文带上原 task 全文、原报告全文和本轮修复指令。
+Resume: in the background, run `mmw dispatch worker --resume <handle text> --cwd <original result worktree absolute path>`. Pass the repair task body as the command's standard input. The handle is the `session:` or `handle:` line from the original dispatch output, verbatim. When that line is not in hand, run `mmw artifact path scratch --sub dispatch` for the dispatch progress directory, and read the `.session` file there that starts with `worker-`. When the command returns `mode: host-tool`, call the matching host tool with the `params` in its output. If the handle cannot be found or the command fails, re-dispatch a new instance with the matching launch action, and let the task body carry the original task in full, the original report in full, and this round's repair instruction.
 
 Conflict, missing worktree, or dead handle: one new repair ticket and a new `worker`. Findings that span tickets: the same. After repair, register the commits as `/mmw-review` specifies.
 

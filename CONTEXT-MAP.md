@@ -8,7 +8,7 @@
 
 | Context | Leaf | Owns |
 | --- | --- | --- |
-| 交付工作流 | [交付工作流](./docs/context/delivery-workflow.md) | prototype、prototype 资产、prototype 索引、解释 HTML、research、research 索引、research 目录、research 路径、shared understanding、shared-understanding record、spec、spec issue、tracer bullet ticket、plan、批次、点名、HITL、AFK 和人工审批关卡。 |
+| 交付工作流 | [交付工作流](./docs/context/delivery-workflow.md) | prototype、prototype 资产、prototype 索引、挂载接线、解释 HTML、research、research 索引、research 目录、research 路径、shared understanding、shared-understanding record、spec、spec issue、tracer bullet ticket、plan、批次、点名、HITL、AFK 和人工审批关卡。 |
 | Tracker | [Tracker](./docs/context/tracker.md) | 类别角色、状态角色、agent brief、认领、frontier、权威副本、tracker 索引和否决记录。 |
 | Wayfinding | [Wayfinding](./docs/context/wayfinding.md) | effort、destination、map、decision ticket、Required materials、fog of war、resolution comment、Materials used 和会话边界。 |
 | Agent | [Agent](./docs/context/agent-coordination.md) | 主 agent、subagent、角色、task、报告、handoff、验证、任务分支、结果分支和任务 worktree。 |

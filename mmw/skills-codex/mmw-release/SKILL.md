@@ -15,8 +15,8 @@ All four must hold. If one fails, stop and name it.
 
 | Check | How |
 | --- | --- |
-| Final review ran; accepted findings are fixed and verified | Run `mmw artifact path review --sub final.md`. The file exists. When there were accepted findings, its header has `修复提交` |
-| Current HEAD is that final-review commit | Run `mmw artifact path review --sub final.md`. Read the file. `终审提交` equals `git rev-parse HEAD` |
+| Final review ran; accepted findings are fixed and verified | Run `mmw artifact path review --sub final.md`. The file exists. When there were accepted findings, its header has `Repair commit` |
+| Current HEAD is that final-review commit | Run `mmw artifact path review --sub final.md`. Read the file. `Final commit` equals `git rev-parse HEAD` |
 | Working tree is clean | `git status --porcelain` is empty. The engine refuses to mix self-heal commits with uncommitted work |
 | This repo has a release config | At least one release config exists (next step) |
 
@@ -30,7 +30,7 @@ The repo registers release configs. One product per file. The filename ends with
 grep -rl '"product"' --include='*.release-adapter.json' .
 ```
 
-Decide which to ship: take the paths this change touched (`git diff --name-only $(git merge-base HEAD <parent>)..HEAD`; `<parent>` is the branch this task branch was created from — the repo default branch, or the map branch when this task came from `$mmw:mmw-wayfinder`, recorded under `## 分支` in the map body). Match each config's `build_target.desktop_dir` and `asset_roots`. A hit means ship that product.
+Decide which to ship: take the paths this change touched (`git diff --name-only $(git merge-base HEAD <parent>)..HEAD`; `<parent>` is the branch this task branch was created from — the repo default branch, or the map branch when this task came from `$mmw:mmw-wayfinder`, recorded under `## Branch` in the map body). Match each config's `build_target.desktop_dir` and `asset_roots`. A hit means ship that product.
 
 If you cannot tell, ask the user. Do not omit a product.
 

@@ -118,8 +118,6 @@ def check(skills_path, artifacts_path, model_path, output):
         relative = source.relative_to(root)
         if "mmw-setup" in relative.parts:
             continue
-        if relative == pathlib.Path("mmw-triage/examples.md"):
-            continue
         # 一个根扫完接着下一个根，报告路径要带上根名才定位得到是哪一份。
         if len(roots) > 1:
             relative = pathlib.Path(root.name) / relative
@@ -261,14 +259,12 @@ def run_examples(artifacts_path, model_path):
 
         skills = write_case(root / "source-boundaries", {
             "mmw-setup/SKILL.md": fixed_root + "<工作名>\n",
-            "mmw-triage/examples.md": fixed_root + "<工作名>\n",
             "mmw-triage/SKILL.md": fixed_root + "<工作名>\n",
         })
         status, output = capture_check(skills, fixture_artifacts, fixture_model)
-        cases.append(("两处来源排除且不扩大", status == 1 and
+        cases.append(("mmw-setup 排除且不扩大", status == 1 and
                       "mmw-triage/SKILL.md:1 规则一" in output and
-                      "mmw-setup/SKILL.md" not in output and
-                      "mmw-triage/examples.md" not in output))
+                      "mmw-setup/SKILL.md" not in output))
 
         broken_model = copy.deepcopy(model)
         broken_key = workdir_defaults[0][0]

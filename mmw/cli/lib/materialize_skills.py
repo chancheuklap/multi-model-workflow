@@ -41,17 +41,18 @@ REQUIRE_TASK_BRANCH_RE = re.compile(r"\[\[mmw-require-task-branch\]\]")
 # 任务树由用户开。agent 只在已有的树上创建任务分支。各宿主正文相同：用户怎么开树
 # 由宿主自己的界面负责，技能不替用户建任务树。
 REQUIRE_TASK_BRANCH = (
-    "先确认当前仓库位置。判定从上到下，命中一行就停。\n"
+    "Confirm where this repo is first. Judge top to bottom; stop at the first row that hits.\n"
     "\n"
-    "| 情况 | 怎么判断 | 你做什么 |\n"
+    "| Case | How to tell | What you do |\n"
     "| --- | --- | --- |\n"
-    "| 不在 git 仓库里 | `git rev-parse --is-inside-work-tree` 失败 | "
-    "向用户索取目标仓库路径。拿到路径后进入该仓库，再重新判断 |\n"
-    "| 在主检出里 | `git rev-parse --path-format=absolute --git-dir` 等于 "
-    "`--git-common-dir` | 停下，请用户用当前宿主开一棵工作树再开会话 |\n"
-    "| 没有分支 | `git symbolic-ref --quiet --short HEAD` 为空 | "
-    "按上文已定的任务分支名运行 `git switch -c <完整任务分支名>` |\n"
-    "| 已有任务分支 | 上面都不成立 | 用当前分支 |\n"
+    "| Not in a git repo | `git rev-parse --is-inside-work-tree` fails | "
+    "Ask the user for the target repo path. Enter that repo, then judge again |\n"
+    "| In the main checkout | `git rev-parse --path-format=absolute --git-dir` equals "
+    "`--git-common-dir` | Stop. Ask the user to open a worktree with this host, "
+    "then start a session there |\n"
+    "| No branch | `git symbolic-ref --quiet --short HEAD` is empty | "
+    "Run `git switch -c <full task-branch name>` with the task-branch name decided above |\n"
+    "| Task branch already there | None of the above holds | Use the current branch |\n"
 )
 # 没有续跑通道的宿主统一给这句退路。静默降级成全新派发会让调用方以为上下文还在，
 # 所以退路必须显式写明重派时要带什么材料。
@@ -62,16 +63,20 @@ REQUIRE_TASK_BRANCH = (
 # 分两段：材料清单两处共用——没有续跑通道的宿主整块用它，有续跑通道的宿主在句柄失效
 # 时也退回到它。前缀分开写，不然「这个宿主没有续跑通道」会出现在明明有通道的宿主里。
 RESUME_MATERIAL = (
-    "按对应的启动动作重派新实例，"
-    "task 正文带上原 task 全文、原报告全文和本轮修复指令。"
+    "re-dispatch a new instance with the matching launch action, and let the task body "
+    "carry the original task in full, the original report in full, and this round's "
+    "repair instruction."
 )
-RESUME_FALLBACK = f"这个宿主没有续跑通道：{RESUME_MATERIAL}"
+RESUME_FALLBACK = f"This host has no resume channel: {RESUME_MATERIAL}"
 CODEX_SKILL_REF_RE = re.compile(r"`/(mmw-[a-z0-9-]+)`")
 SKIP_DIR_NAMES = frozenset({"mmw-setup"})
+# 只有 Codex 拿这条。别的宿主的主 agent 派完就等，Codex 的会自己把 subagent 的活再干
+# 一遍（引入它的那次修的就是这个）。其他宿主没有这个行为时不发这条规则：一条没有对应
+# 失败模式的禁令，只会把被禁的动作带进上下文。哪个宿主真出现同样的重做，再按证据加。
 POST_LAUNCH_RULE = (
-    "派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。"
-    "没有明确不重叠的协调工作时，立即等待 subagent 交回报告。"
-    "报告交回后不重做整个 task。"
+    "After dispatching a subagent, the main agent does not run research, implementation, "
+    "or review that overlaps that subagent's task. With no clearly non-overlapping "
+    "coordination work in hand, wait for the report. Do not redo the whole task once it arrives."
 )
 
 
@@ -101,46 +106,52 @@ def expand_require_task_branch(host: str) -> str:
 def expand_pi(role: str, agent: str, cwd_mode: str) -> str:
     if cwd_mode == "worktree":
         return (
-            "启动：先运行 `mmw worktree add <结果分支>`，"
-            "使用命令返回的 worktree 绝对路径作为 cwd。然后调用原生 `subagent`，"
-            f"agent 设为 `{agent}`，task 传四栏表全文，cwd 设为该绝对路径。"
+            "Launch: run `mmw worktree add <result branch>` first and use the worktree "
+            "absolute path it returns as cwd. Then call the native `subagent` tool with "
+            f"agent `{agent}`, the four-field task table in full as task, and cwd set to "
+            "that absolute path."
         )
     if cwd_mode == "current":
         return (
-            f"启动：调用原生 `subagent`，agent 设为 `{agent}`，task 传四栏表全文，"
-            "cwd 设为当前工作树的绝对路径。该 subagent 使用当前工作树，不另开结果树。"
+            f"Launch: call the native `subagent` tool with agent `{agent}`, the four-field "
+            "task table in full as task, and cwd set to the absolute path of the current "
+            "worktree. That subagent uses the current worktree; it does not open a result tree."
         )
-    return f"启动：调用原生 `subagent`，agent 设为 `{agent}`，task 传四栏表全文。"
+    return (
+        f"Launch: call the native `subagent` tool with agent `{agent}` and the four-field "
+        "task table in full as task."
+    )
 
 
 def expand_grok(role: str, agent: str, cwd_mode: str) -> str:
     del role
     if cwd_mode == "worktree":
         return (
-            f"启动：调用原生 subagent，agent 设为 `{agent}`，打开 worktree 隔离。"
-            "把四栏 task 作为初始 prompt。"
-            "worker 完成工作并提交。"
-            "交回结果分支名、HEAD SHA、基点 SHA。"
-            "提交前自己跑 `mmw toolchain check --changed-only`。"
+            f"Launch: call the native subagent tool with agent `{agent}` and worktree "
+            "isolation on. Pass the four-field task as the initial prompt. "
+            "The worker completes the work and commits. "
+            "It returns the result-branch name, the HEAD SHA, and the base SHA. "
+            "It runs `mmw toolchain check --changed-only` itself before committing."
         )
     if cwd_mode == "current":
         return (
-            f"启动：调用原生 subagent，agent 设为 `{agent}`，task 传四栏表全文。"
-            "该 subagent 使用当前工作树，不另开结果树。"
-            "cwd 设为当前工作树的绝对路径。"
+            f"Launch: call the native subagent tool with agent `{agent}` and the four-field "
+            "task table in full as task. "
+            "That subagent uses the current worktree; it does not open a result tree. "
+            "Set cwd to the absolute path of the current worktree."
         )
     return (
-        f"启动：调用原生 subagent，agent 设为 `{agent}`，"
-        "只读角色加上只读能力，task 传四栏表全文。"
-        "互不依赖的实例在同一条消息中并行启动。"
+        f"Launch: call the native subagent tool with agent `{agent}`, "
+        "read-only capability for a read-only role, and the four-field task table in full as task. "
+        "Instances that do not depend on each other launch in the same message."
     )
 
 
 def expand_resume_grok() -> str:
     return (
-        "恢复：调用原生 subagent，`resume_from` 设为原 subagent id。"
-        "顶层 grok 会话则运行 `grok --resume <sessionId>`。"
-        f"句柄取不到或命令失败时退回重派：{RESUME_MATERIAL}"
+        "Resume: call the native subagent tool with `resume_from` set to the original "
+        "subagent id. For a top-level grok session, run `grok --resume <sessionId>` instead. "
+        f"If the handle cannot be found or the command fails, {RESUME_MATERIAL}"
     )
 
 
@@ -148,41 +159,47 @@ def expand_claude(role: str, agent: str, cwd_mode: str) -> str:
     del agent
     if cwd_mode == "worktree":
         return (
-            "启动：先运行 `mmw worktree add <结果分支>`，"
-            "使用命令返回的 worktree 绝对路径。后台执行 "
-            f"`mmw dispatch {role} --cwd <结果 worktree 绝对路径>`。"
-            "把四栏 task 正文作为命令的标准输入。"
-            "当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。"
-            "命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。"
+            "Launch: run `mmw worktree add <result branch>` first and use the worktree "
+            "absolute path it returns. In the background, run "
+            f"`mmw dispatch {role} --cwd <result worktree absolute path>`. "
+            "Pass the four-field task body as the command's standard input. "
+            "Add `--issue <current decision ticket number>` when this task belongs to a "
+            "decision ticket. "
+            "When the command returns `mode: host-tool`, call the matching host tool with "
+            "the `params` in its output."
         )
-    cwd = " --cwd <当前工作树绝对路径>" if cwd_mode == "current" else ""
+    cwd = " --cwd <current worktree absolute path>" if cwd_mode == "current" else ""
     return (
-        f"启动：后台执行 `mmw dispatch {role}{cwd}`。"
-        "把四栏 task 正文作为命令的标准输入。"
-        "当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。"
-        "命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。"
+        f"Launch: in the background, run `mmw dispatch {role}{cwd}`. "
+        "Pass the four-field task body as the command's standard input. "
+        "Add `--issue <current decision ticket number>` when this task belongs to a "
+        "decision ticket. "
+        "When the command returns `mode: host-tool`, call the matching host tool with "
+        "the `params` in its output."
     )
 
 
 def expand_cursor(role: str, agent: str, cwd_mode: str) -> str:
     if cwd_mode == "worktree":
         return (
-            "启动：后台执行 `mmw-cursor-agent --mmw-role "
+            "Launch: in the background, run `mmw-cursor-agent --mmw-role "
             f"{role} -p --force --trust --approve-mcps "
-            "--worktree <结果分支> --worktree-base <当前任务分支>`。"
-            "把四栏 task 正文作为命令的标准输入。"
-            "worker 进入结果树后直接完成工作并提交。"
-            "交回结果分支名、HEAD SHA、基点 SHA。"
+            "--worktree <result branch> --worktree-base <current task branch>`. "
+            "Pass the four-field task body as the command's standard input. "
+            "The worker enters the result tree, completes the work, and commits. "
+            "It returns the result-branch name, the HEAD SHA, and the base SHA."
         )
     if cwd_mode == "current":
         return (
-            f"启动：调用原生 Task，agent 设为 `{agent}`，prompt 传四栏表全文。"
-            "该 subagent 使用当前工作树，不另开结果树。"
-            "互不依赖的实例在同一条消息中并行启动。"
+            f"Launch: call the native Task tool with agent `{agent}` and the four-field "
+            "task table in full as prompt. "
+            "That subagent uses the current worktree; it does not open a result tree. "
+            "Instances that do not depend on each other launch in the same message."
         )
     return (
-        f"启动：调用原生 Task，agent 设为 `{agent}`，prompt 传四栏表全文。"
-        "互不依赖的实例在同一条消息中并行启动。"
+        f"Launch: call the native Task tool with agent `{agent}` and the four-field "
+        "task table in full as prompt. "
+        "Instances that do not depend on each other launch in the same message."
     )
 
 
@@ -192,60 +209,69 @@ def expand_codex(role: str, cwd_mode: str, profiles: dict) -> str:
         if not profile:
             die(f"Codex 没有原生 subagent profile：{role}")
         location = (
-            "；该 subagent 使用当前工作树，不另开结果树"
+            "; that subagent uses the current worktree and does not open a result tree"
             if cwd_mode == "current"
             else ""
         )
         return (
-            f"启动：按名称调用 Codex 原生 subagent `{profile['name']}`，task 传四栏表全文"
-            f"{location}。互不依赖的实例在同一条消息中并行启动，全部完成后再汇总。"
+            f"Launch: call the Codex native subagent `{profile['name']}` by name, with the "
+            f"four-field task table in full as task{location}. Instances that do not depend "
+            "on each other launch in the same message; summarize after all of them finish."
         )
 
     profile = (profiles.get("background_roles") or {}).get(role)
     if not profile:
         die(f"Codex 没有后台 worktree profile：{role}")
     method = profile.get("method_skill")
-    method_instruction = f"，并在工作前完整读取 `${method}`" if method else ""
+    method_instruction = (
+        f", and reads `${method}` in full before starting work" if method else ""
+    )
     return (
-        "启动：用 `list_projects` 取得当前仓库的 projectId，并调用 `create_thread`。"
-        "target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 "
-        "`branch`，branchName 设为当前已提交的任务分支。"
-        f"模型使用 `{profile['model']}`，思考档使用 `{profile['thinking']}`。"
-        "任务提示包含四栏 task、完整结果分支名和派发前基点 SHA；"
-        "结果分支名使用独立的 `codex/<slug>`。后台 agent 完成工作并提交"
-        f"{method_instruction}。"
-        "后台 agent 交回结果分支名、HEAD SHA、基点 SHA 和验证结果。"
-        "`create_thread` 返回 threadId 后用 `wait_threads` 等待；只返回 clientThreadId 时先等 App 完成 "
-        "worktree 设置，取得 threadId 后再等待。"
+        "Launch: get this repo's projectId with `list_projects`, then call `create_thread`. "
+        "Use that projectId as target, set environment.type to `worktree`, set "
+        "startingState.type to `branch`, and set branchName to the task branch as already "
+        "committed. "
+        f"Use model `{profile['model']}` and thinking level `{profile['thinking']}`. "
+        "The task prompt carries the four-field task, the full result-branch name, and the "
+        "base SHA at dispatch time; the result-branch name uses a separate `codex/<slug>`. "
+        f"The background agent completes the work and commits{method_instruction}. "
+        "It returns the result-branch name, the HEAD SHA, the base SHA, and the verification "
+        "result. "
+        "Once `create_thread` returns a threadId, wait with `wait_threads`; when only a "
+        "clientThreadId comes back, wait for the App to finish setting up the worktree, get "
+        "the threadId, then wait."
     )
 
 
 def expand_resume_claude(role: str, cwd_mode: str) -> str:
     if cwd_mode == "worktree":
-        cwd = " --cwd <原结果 worktree 绝对路径>"
+        cwd = " --cwd <original result worktree absolute path>"
     elif cwd_mode == "current":
-        cwd = " --cwd <当前任务 worktree 绝对路径>"
+        cwd = " --cwd <current task worktree absolute path>"
     else:
         cwd = ""
     return (
-        "恢复：后台执行 "
-        f"`mmw dispatch {role} --resume <句柄原文>{cwd}`。"
-        "把修复 task 正文作为命令的标准输入。"
-        "句柄是原派发输出里的 `session:` 或 `handle:` 行原文。"
-        "那一行不在手上时，运行 `mmw artifact path scratch --sub dispatch` "
-        f"取得派发进度目录，读其中以 `{role}-` 开头的那个 `.session` 文件。"
-        "命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。"
-        f"句柄取不到或命令失败时退回重派：{RESUME_MATERIAL}"
+        "Resume: in the background, run "
+        f"`mmw dispatch {role} --resume <handle text>{cwd}`. "
+        "Pass the repair task body as the command's standard input. "
+        "The handle is the `session:` or `handle:` line from the original dispatch output, "
+        "verbatim. "
+        "When that line is not in hand, run `mmw artifact path scratch --sub dispatch` for "
+        f"the dispatch progress directory, and read the `.session` file there that starts "
+        f"with `{role}-`. "
+        "When the command returns `mode: host-tool`, call the matching host tool with the "
+        "`params` in its output. "
+        f"If the handle cannot be found or the command fails, {RESUME_MATERIAL}"
     )
 
 
 def expand_resume_cursor(role: str, cwd_mode: str) -> str:
     del role, cwd_mode
     return (
-        "恢复：后台执行 `mmw-cursor-agent --resume <句柄原文>`。"
-        "把修复 task 正文作为命令的标准输入。"
-        "句柄是原派发输出里的会话 id。"
-        f"句柄取不到或命令失败时退回重派：{RESUME_MATERIAL}"
+        "Resume: in the background, run `mmw-cursor-agent --resume <handle text>`. "
+        "Pass the repair task body as the command's standard input. "
+        "The handle is the session id from the original dispatch output. "
+        f"If the handle cannot be found or the command fails, {RESUME_MATERIAL}"
     )
 
 
@@ -255,11 +281,12 @@ def expand_reviewers(host: str, role_agents: dict[str, str], profiles: dict) -> 
         if not profile:
             die("Codex 缺 reviewer-gpt subagent profile")
         return (
-            "Codex 只使用一个审查角色。⓪、①、②、⑤ 每个视角各启动一个 "
-            f"Codex 原生 `{profile['name']}` subagent。"
-            "每个审查者使用独立上下文，可以与产物作者使用相同模型。"
-            "⓪ 也一样：这个宿主换不了模型，只换上下文。"
-            "互不依赖的审查任务在同一条消息中并行启动。"
+            "Codex uses one reviewer role. On ⓪, ①, ②, and ⑤, launch one Codex native "
+            f"`{profile['name']}` subagent per perspective. "
+            "Each reviewer works in an independent context and may run the same model as "
+            "the author of the object. "
+            "⓪ is no exception: this host swaps the context, not the model. "
+            "Review tasks that do not depend on each other launch in the same message."
         )
     for role in ("reviewer-gpt", "reviewer-claude"):
         if role not in role_agents:
@@ -277,13 +304,15 @@ def expand_reviewers(host: str, role_agents: dict[str, str], profiles: dict) -> 
     gpt = expand("reviewer-gpt", role_agents["reviewer-gpt"], "none")
     claude = expand("reviewer-claude", role_agents["reviewer-claude"], "none")
     return (
-        "当前宿主使用两个审查角色。⓪ 启动一个 `reviewer-gpt`："
-        "共同理解是主 agent 自己问出来的，审查者必须换一个模型。"
-        f"{gpt}① 每个视角启动一个 `reviewer-gpt`。"
-        f"{gpt}② 每个视角启动一个 `reviewer-claude`。{claude}"
-        "⑤ 每个视角分别启动一个 `reviewer-gpt` 和一个 `reviewer-claude`。"
-        "同一视角的两份 findings 并排比较后按 `/mmw-review` 处置。"
-        "每个审查者只收到自己的四栏 task。"
+        "This host uses two reviewer roles. ⓪ launches one `reviewer-gpt`: the shared "
+        "understanding is what the main agent interviewed out itself, so the reviewer must "
+        "be a different model."
+        f"{gpt}① launches one `reviewer-gpt` per perspective."
+        f"{gpt}② launches one `reviewer-claude` per perspective.{claude}"
+        "⑤ launches one `reviewer-gpt` and one `reviewer-claude` per perspective. "
+        "Compare the two sets of findings for the same perspective side by side, then "
+        "dispose as `/mmw-review` specifies. "
+        "Each reviewer receives only its own four-field task."
     )
 
 
@@ -314,10 +343,7 @@ def expand_text(
             instruction = expand_codex(role, cwd_mode, codex_profiles)
             return f"{instruction}\n\n{POST_LAUNCH_RULE}"
         assert expand is not None
-        instruction = expand(role, role_agents[role], cwd_mode)
-        if host in {"grok", "cursor"} and cwd_mode == "worktree":
-            return f"{instruction}\n\n{POST_LAUNCH_RULE}"
-        return instruction
+        return expand(role, role_agents[role], cwd_mode)
 
     def launch_group(match: re.Match[str]) -> str:
         group, cwd_mode = match.group(1), match.group(2)
@@ -402,9 +428,9 @@ def inline_reference_links(text: str, reference_names: set[str]) -> str:
     def replace(match: re.Match[str]) -> str:
         label, target = match.group(1), match.group(2)
         if target == "SKILL.md":
-            return f"上文的「{label}」"
+            return f"“{label}” above"
         if target in reference_names:
-            return f"下文的「{label}」"
+            return f"“{label}” below"
         die(f"Pi 用户命令含无法内联的相对链接：{target}")
 
     return re.sub(r"\[([^\]]+)\]\(([^):#]+\.md)\)", replace, text)

@@ -1,0 +1,3 @@
+# Pi 的用户命令面。技能全部可被模型触发之后，这里暂时没有内容：
+# materialize_pi_prompts 只渲染 frontmatter 声明了 disable-model-invocation 的技能。
+# 目录保留，因为 mmw/package.json 的 pi.prompts 仍指向它。

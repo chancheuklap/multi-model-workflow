@@ -1,29 +1,8 @@
----
-description: "Stop. That last message did not land — re-pitch it, or draw it."
----
-
-
-Wait — I don't understand where you've got to here. Re-pitch that: give me a little bit of context, talk in ASD-STE100 Simplified Technical English, and use the ubiquitous language from the domain docs.
-
-`mmw domain path` prints those docs. Use those terms. No domain docs: use the field's standard terms.
-
-Unless the user names something else, re-pitch the last message. If they name a document, re-pitch that. Session output and repo documents are both in scope.
-
-Re-pitch only what they named. Do not start a new direction. Expand abbreviations and identifiers the reader is missing.
-
-| They need | Do |
-| --- | --- |
-| Simpler words | Add the context the last pitch skipped, then re-pitch in short sentences. Show it. Wait. |
-| Drawn | Read 下文的「HTML.md」. Write 解释 HTML. |
-| To click through a state model, data shape, or business logic | Invoke `/mmw-prototype`. Pass what they did not get, the path of any existing state model or script, and the question. It uses the Logic HTML branch. |
-
-## HTML.md
-
 # 解释 HTML
 
 An `/mmw-wait-what` visualisation is a **re-pitch in pictures**. The diagrams carry the weight. Prose is sparse, in ASD-STE100 Simplified Technical English, and uses the domain docs' canonical terms. If a diagram needs a paragraph to be understood, redraw the diagram.
 
-It is not a prototype and not Logic HTML. If they need to push buttons through a state model, go back to 上文的「SKILL.md」 and invoke `/mmw-prototype`.
+It is not a prototype and not Logic HTML. If they need to push buttons through a state model, go back to [SKILL.md](SKILL.md) and invoke `/mmw-prototype`.
 
 Render it as a single self-contained HTML file. Tailwind and Mermaid both come from CDNs. Mermaid handles graph-shaped diagrams reliably; hand-built divs and inline SVG handle the more editorial visuals (cross-sections, mass, emphasis). Mix the two — don't lean on Mermaid for everything, it'll start to look generic.
 

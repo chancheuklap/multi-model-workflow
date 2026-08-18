@@ -13,14 +13,14 @@ The caller passes `<spec issue number>` for spec work.
 
 Before dispatch:
 
-先确认当前仓库位置。判定从上到下，命中一行就停。
+Confirm where this repo is first. Judge top to bottom; stop at the first row that hits.
 
-| 情况 | 怎么判断 | 你做什么 |
+| Case | How to tell | What you do |
 | --- | --- | --- |
-| 不在 git 仓库里 | `git rev-parse --is-inside-work-tree` 失败 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新判断 |
-| 在主检出里 | `git rev-parse --path-format=absolute --git-dir` 等于 `--git-common-dir` | 停下，请用户用当前宿主开一棵工作树再开会话 |
-| 没有分支 | `git symbolic-ref --quiet --short HEAD` 为空 | 按上文已定的任务分支名运行 `git switch -c <完整任务分支名>` |
-| 已有任务分支 | 上面都不成立 | 用当前分支 |
+| Not in a git repo | `git rev-parse --is-inside-work-tree` fails | Ask the user for the target repo path. Enter that repo, then judge again |
+| In the main checkout | `git rev-parse --path-format=absolute --git-dir` equals `--git-common-dir` | Stop. Ask the user to open a worktree with this host, then start a session there |
+| No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>` with the task-branch name decided above |
+| Task branch already there | None of the above holds | Use the current branch |
 
 
 ## Loop
@@ -40,11 +40,11 @@ Task fields:
 - **Constraints:** source and tests in this worktree; leave `docs/` as they are; stay inside the ticket
 - **Acceptance:** the ticket's criteria; HEAD SHA on the result branch
 
-启动：先运行 `mmw worktree add <结果分支>`，使用命令返回的 worktree 绝对路径作为 cwd。然后调用原生 `subagent`，agent 设为 `mmw-worker`，task 传四栏表全文，cwd 设为该绝对路径。
+Launch: run `mmw worktree add <result branch>` first and use the worktree absolute path it returns as cwd. Then call the native `subagent` tool with agent `mmw-worker`, the four-field task table in full as task, and cwd set to that absolute path.
 
 Billing, permissions, data migration, or irreversible mistakes: use
 
-启动：先运行 `mmw worktree add <结果分支>`，使用命令返回的 worktree 绝对路径作为 cwd。然后调用原生 `subagent`，agent 设为 `mmw-worker-high-risk`，task 传四栏表全文，cwd 设为该绝对路径。
+Launch: run `mmw worktree add <result branch>` first and use the worktree absolute path it returns as cwd. Then call the native `subagent` tool with agent `mmw-worker-high-risk`, the four-field task table in full as task, and cwd set to that absolute path.
 
 instead. You choose the upgrade.
 
@@ -60,7 +60,7 @@ When children has no open tickets, send ⑤ final review (`/mmw-review`). The fi
 
 Accepted findings on one ticket: merge the task branch into that result branch (`git merge --no-ff`), then
 
-这个宿主没有续跑通道：按对应的启动动作重派新实例，task 正文带上原 task 全文、原报告全文和本轮修复指令。
+This host has no resume channel: re-dispatch a new instance with the matching launch action, and let the task body carry the original task in full, the original report in full, and this round's repair instruction.
 
 Conflict, missing worktree, or dead handle: one new repair ticket and a new `worker`. Findings that span tickets: the same. After repair, register the commits as `/mmw-review` specifies.
 

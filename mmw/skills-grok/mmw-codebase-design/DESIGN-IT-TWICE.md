@@ -20,7 +20,7 @@ Show this to the user, then immediately proceed to Step 2. The user reads and th
 
 Spawn 3+ `designer` instances in parallel. Each must produce a **radically different** interface for the deepened module.
 
-启动：调用原生 subagent，agent 设为 `mmw-designer`，只读角色加上只读能力，task 传四栏表全文。互不依赖的实例在同一条消息中并行启动。
+Launch: call the native subagent tool with agent `mmw-designer`, read-only capability for a read-only role, and the four-field task table in full as task. Instances that do not depend on each other launch in the same message.
 
 Prompt each `designer` with a separate technical brief (file paths, coupling details, dependency category from [DEEPENING.md](DEEPENING.md), what sits behind the seam). The brief is independent of the user-facing problem-space explanation in Step 1. Give each instance a different design constraint:
 

@@ -90,7 +90,7 @@ def test_四个宿主对同一个占位符给出各自的动作(假源: Path, tm
         产出[host] = 读(out, "mmw-alpha/SKILL.md")
     # Pi 直接调原生 subagent，Claude Code 走 mmw dispatch，Codex 开后台 worktree 任务，
     # Cursor 结果树走隔离包装 mmw-cursor-agent。
-    assert "原生 `subagent`" in 产出["pi"]
+    assert "native `subagent` tool" in 产出["pi"]
     assert "mmw dispatch worker" in 产出["claude-code"]
     assert "create_thread" in 产出["codex"]
     assert "mmw-cursor-agent" in 产出["cursor"]
@@ -101,8 +101,8 @@ def test_四个宿主对同一个占位符给出各自的动作(假源: Path, tm
 @pytest.mark.parametrize(
     ("host", "启动命令"),
     [
-        ("pi", "mmw worktree add <结果分支>"),
-        ("claude-code", "mmw worktree add <结果分支>"),
+        ("pi", "mmw worktree add <result branch>"),
+        ("claude-code", "mmw worktree add <result branch>"),
         ("codex", "create_thread"),
         ("cursor", "mmw-cursor-agent"),
     ],
@@ -136,7 +136,7 @@ def test_current_模式用当前任务_worktree(假源: Path, tmp_path: Path) ->
     物化("pi", out)
     正文 = 读(out, "mmw-alpha/SKILL.md")
     assert "mmw worktree add" not in 正文
-    assert "当前工作树" in 正文
+    assert "current worktree" in 正文
 
 
 def test_cursor_current_模式不创建结果树(假源: Path, tmp_path: Path) -> None:
@@ -148,8 +148,8 @@ def test_cursor_current_模式不创建结果树(假源: Path, tmp_path: Path) -
     正文 = 读(out, "mmw-alpha/SKILL.md")
     assert "mmw-cursor-agent" not in 正文
     assert "--worktree" not in 正文
-    assert "原生 Task" in 正文
-    assert "不另开结果树" in 正文
+    assert "native Task tool" in 正文
+    assert "does not open a result tree" in 正文
     assert "mmw task state" not in 正文
 
 
@@ -165,7 +165,7 @@ def test_require_task_branch_各宿主相同(假源: Path, tmp_path: Path) -> No
         assert "[[mmw-require-task-branch]]" not in 文本
         assert "git switch -c" in 文本
         assert "mmw task" not in 文本
-        assert "请用户用当前宿主开一棵工作树" in 文本
+        assert "open a worktree with this host" in 文本
     assert len(set(产出.values())) == 1
 
 
@@ -179,13 +179,13 @@ def test_claude_各工作目录模式直接从标准输入接收四栏_task(
     out = tmp_path / "claude-code"
     物化("claude-code", out)
     正文 = 读(out, "mmw-alpha/SKILL.md")
-    assert "标准输入" in 正文
-    assert "写入 task 文件" not in 正文
+    assert "standard input" in 正文
+    assert "write the task to a file" not in 正文
     assert "--task " not in 正文
     assert "--task-text" not in 正文
     assert (
-        "当前 task 属于 decision ticket 时，加 "
-        "`--issue <当前 decision ticket 编号>`"
+        "Add `--issue <current decision ticket number>` when this task belongs to a "
+        "decision ticket"
     ) in 正文
 
 
@@ -193,13 +193,13 @@ def test_claude_审查启动组直接从标准输入接收四栏_task(
     假源: Path, tmp_path: Path
 ) -> None:
     正文 = 审查组("claude-code", 假源, tmp_path)
-    assert "标准输入" in 正文
-    assert "写入 task 文件" not in 正文
+    assert "standard input" in 正文
+    assert "write the task to a file" not in 正文
     assert "--task " not in 正文
     assert "--task-text" not in 正文
     assert (
-        "当前 task 属于 decision ticket 时，加 "
-        "`--issue <当前 decision ticket 编号>`"
+        "Add `--issue <current decision ticket number>` when this task belongs to a "
+        "decision ticket"
     ) in 正文
 
 
@@ -227,14 +227,14 @@ def test_resume_只在已验证通道的宿主给出恢复动作(假源: Path, t
     # 修复 task 走标准输入，不落盘：`--task` 这个参数在升级后的接口里已经没有了，
     # 物化产物里出现它就是在教主 agent 去调一个不存在的参数。
     assert "--task " not in 产出["claude-code"]
-    assert "标准输入" in 产出["claude-code"]
+    assert "standard input" in 产出["claude-code"]
     assert "mmw-cursor-agent --resume" in 产出["cursor"]
-    assert "标准输入" in 产出["cursor"]
+    assert "standard input" in 产出["cursor"]
     # 没验证过续跑通道的宿主给显式退路，不静默降级。
     for host in ("pi", "codex"):
         assert "--resume" not in 产出[host]
-        assert "重派新实例" in 产出[host]
-        assert "原报告全文" in 产出[host]
+        assert "re-dispatch a new instance" in 产出[host]
+        assert "the original report in full" in 产出[host]
 
 
 def test_resume_的_cwd_模式落进恢复指令(假源: Path, tmp_path: Path) -> None:
@@ -245,8 +245,8 @@ def test_resume_的_cwd_模式落进恢复指令(假源: Path, tmp_path: Path) -
     out = tmp_path / "claude-code"
     物化("claude-code", out)
     正文 = 读(out, "mmw-alpha/SKILL.md")
-    assert "原结果 worktree 绝对路径" in 正文
-    assert "当前任务 worktree 绝对路径" in 正文
+    assert "original result worktree absolute path" in 正文
+    assert "current task worktree absolute path" in 正文
     assert "mmw dispatch reviewer-gpt" in 正文
 
 
@@ -281,15 +281,15 @@ def test_两个审查角色的宿主不叫主_agent_验证出处(
 ) -> None:
     for host in ("pi", "claude-code", "cursor", "grok"):
         正文 = 审查组(host, 假源, tmp_path)
-        assert "验证出处" not in 正文
-        assert "优先验证" not in 正文
-        assert "复核" not in 正文
-        assert "按 `/mmw-review` 处置" in 正文
+        assert "verify the source" not in 正文
+        assert "double-check" not in 正文
+        assert "re-run" not in 正文
+        assert "dispose as `/mmw-review` specifies" in 正文
 
 
 def test_只有一个审查角色的宿主说清楚换不了模型(假源: Path, tmp_path: Path) -> None:
     正文 = 审查组("codex", 假源, tmp_path)
-    assert "换不了模型" in 正文
+    assert "swaps the context, not the model" in 正文
 
 
 # ------------------------------------------------------------------ Codex 专属
@@ -309,15 +309,16 @@ def test_别的宿主保留斜杠写法(假源: Path, tmp_path: Path) -> None:
         assert "$mmw:" not in 正文
 
 
-def test_codex_与_cursor_在结果树派活后追加不重做规则(
+def test_只有_codex_在派活后追加不重做规则(
     假源: Path, tmp_path: Path
 ) -> None:
-    片段 = "主 agent 不得执行与该 subagent task 重叠的"
-    for host in ("codex", "cursor"):
-        out = tmp_path / host
-        物化(host, out)
-        assert 片段 in 读(out, "mmw-alpha/SKILL.md")
-    for host in ("pi", "claude-code"):
+    # 只有 Codex 的主 agent 会把 subagent 的活再干一遍。别的宿主发这条，等于把被禁的
+    # 动作介绍给一个本来不会做它的 agent。
+    片段 = "does not run research, implementation, or review that overlaps"
+    out = tmp_path / "codex"
+    物化("codex", out)
+    assert 片段 in 读(out, "mmw-alpha/SKILL.md")
+    for host in ("pi", "claude-code", "cursor", "grok"):
         out = tmp_path / host
         物化(host, out)
         assert 片段 not in 读(out, "mmw-alpha/SKILL.md")
@@ -336,7 +337,10 @@ def test_codex_后台_worktree_任务不认领(
     assert "create_thread" in 正文
     assert "mmw task" not in 正文
     assert "第四字段" not in 正文
-    assert "四栏 task、完整结果分支名和派发前基点 SHA" in 正文
+    assert (
+        "the four-field task, the full result-branch name, and the base SHA at "
+        "dispatch time"
+    ) in 正文
 
 
 # ------------------------------------------------------------------ 必须当场失败
@@ -419,12 +423,11 @@ def test_grok_worktree_含隔离不含认领(
     物化("grok", out)
     正文 = 读(out, "mmw-alpha/SKILL.md")
     assert "mmw task" not in 正文
-    assert "worktree 隔离" in 正文
+    assert "worktree isolation" in 正文
     assert "mmw dispatch" not in 正文
     assert "grok -p" not in 正文
     assert "工人" not in 正文
-    assert "worker 完成工作并提交" in 正文
-    assert "主 agent 不得执行与该 subagent task 重叠的" in 正文
+    assert "The worker completes the work and commits" in 正文
 
 
 def test_grok_none_与_current_不含_task_new(假源: Path, tmp_path: Path) -> None:
@@ -435,8 +438,8 @@ def test_grok_none_与_current_不含_task_new(假源: Path, tmp_path: Path) -> 
     物化("grok", out)
     正文 = 读(out, "mmw-alpha/SKILL.md")
     assert "mmw task" not in 正文
-    assert "原生 subagent" in 正文
-    assert "当前工作树" in 正文
+    assert "native subagent tool" in 正文
+    assert "current worktree" in 正文
 
 
 def test_grok_resume_含续跑(假源: Path, tmp_path: Path) -> None:
@@ -453,7 +456,7 @@ def test_grok_审查组双角色(假源: Path, tmp_path: Path) -> None:
     正文 = 审查组("grok", 假源, tmp_path)
     assert "reviewer-gpt" in 正文
     assert "reviewer-claude" in 正文
-    assert "换不了模型" not in 正文
+    assert "swaps the context, not the model" not in 正文
 
 
 @pytest.mark.parametrize("host", ["pi", "claude-code", "codex"])
@@ -543,8 +546,8 @@ def test_用户命令把_reference_接在正文后面(
     渲染 = ms.render_pi_prompt(假源 / "mmw-alpha")
     # 相对链接在单文件命令里点不动，必须换成方位词。
     assert "[细则](detail.md)" not in 渲染
-    assert "下文的「细则」" in 渲染
-    assert "上文的「上面」" in 渲染
+    assert "“细则” below" in 渲染
+    assert "“上面” above" in 渲染
     assert "## detail.md" in 渲染
     assert "细则正文。" in 渲染
 

@@ -152,6 +152,17 @@ for p in sorted(skills.rglob('*.md')):
             else:
                 bad.append(f"{rel}:{i} 说「/{skill} 第 {step} 步」，但那个技能里没有第 {step} 步")
 
+# MMW 的技能面全部可被模型触发：一个技能只有用户点名才进得去时，需要它的那一跳
+# 只能靠用户记得它存在。frontmatter 里出现 disable-model-invocation 就是把它关掉。
+for p in sorted(skills.glob('*/SKILL.md')):
+    if 'mmw-setup' in p.parts:
+        continue
+    head = p.read_text().split('\n---', 1)[0]
+    if re.search(r'(?m)^disable-model-invocation:\s*true\s*$', head):
+        bad.append(f"{p.relative_to(skills)} 声明了 disable-model-invocation")
+    else:
+        ok += 1
+
 # 第五类：派发时点名的方法论技能。roles.json 的 skill 字段非空时，派发会让那个
 # agent 去调用它。技能名写错，或者技能没装进 headless Codex 的技能目录，agent
 # 那边同样不会报错——它调不到，就自己按印象审。

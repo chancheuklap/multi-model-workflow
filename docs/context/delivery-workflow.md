@@ -13,8 +13,12 @@ _Avoid_: MVP、静态设计稿、用完即丢的一次性文件、把外壳提�
 _Avoid_: 过程截图、DOM、console、录屏、scratch、把未完成工作接入生产路由、没有可运行文件的结论
 
 **prototype 索引**：
-该目录里的 `README.md`。它记录问题、怎么运行、走查结论、选中的产物、否决的约束和长期证据。它不是可运行的 prototype。
+该目录里的 `README.md`。它记录问题、怎么运行、走查结论、选中的产物、否决的约束、挂载接线和长期证据。它不是可运行的 prototype。
 _Avoid_: 资产索引、capture.md、五项交接
+
+**挂载接线**：
+prototype 为了能在真实页面或模块旁边跑起来，写进生产代码的那几处挂载点。prototype 文件本身留在 prototype 目录，挂载接线不留：prototype 索引逐处列出它们，`/mmw-to-tickets` 据此开一张 prefactor ticket 把它们摘掉。
+_Avoid_: switcher、throwaway route、临时路由
 
 **解释 HTML**：
 把用户点名内容重新说明为普通 HTML 可视化的文档。

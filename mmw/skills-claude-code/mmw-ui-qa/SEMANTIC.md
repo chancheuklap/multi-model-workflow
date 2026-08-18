@@ -115,7 +115,7 @@ Four fields:
 **Copy the four questions, the six questions, and the three bands into the task in full.** The `designer` is independent context and cannot read this file. "Evaluate with the cognitive walkthrough" makes it invent four questions, different per path, and results are not comparable. Criteria travel with the task.
 
 Dispatch one independent-context `designer`. Read-only. No working directory.
-启动：后台执行 `mmw dispatch designer`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
+Launch: in the background, run `mmw dispatch designer`. Pass the four-field task body as the command's standard input. Add `--issue <current decision ticket number>` when this task belongs to a decision ticket. When the command returns `mode: host-tool`, call the matching host tool with the `params` in its output.
 
 Independent paths start in the same message. Summarize after all have returned.
 

@@ -6,7 +6,7 @@ Does this spec fit this repo's own contracts — domain terms and engineering ru
 
 ## Look
 
-- Words and data landings match the domain docs (`CONTEXT.md`, or `CONTEXT-MAP.md` and the leaves it lists) and ADRs in `docs/adr/`. One structure is not copied as a second source of truth.
+- Words and data landings match the domain docs (`mmw domain path` prints the shape and the path to read) and the ADRs `mmw artifact index adr` lists. One structure is not copied as a second source of truth.
 - Declared invariants hold — money, permissions, identity.
 - New things other code will call are designed as registered: ports, commands, billable actions, capabilities, migrations, ADRs.
 - The spec records real decisions, not a filled template.

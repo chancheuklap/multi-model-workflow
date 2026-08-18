@@ -1,7 +1,6 @@
 ---
 name: mmw-wait-what
-description: Stop. That last message did not land — re-pitch it, or draw it.
-disable-model-invocation: true
+description: Stop. That last message did not land — re-pitch it, or draw it. Use when the user says they did not follow, asks for it in simpler words, or asks to see it drawn.
 ---
 
 Wait — I don't understand where you've got to here. Re-pitch that: give me a little bit of context, talk in ASD-STE100 Simplified Technical English, and use the ubiquitous language from the domain docs.

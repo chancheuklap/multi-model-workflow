@@ -20,9 +20,9 @@ Show this to the user, then immediately proceed to Step 2. The user reads and th
 
 Spawn 3+ `designer` instances in parallel. Each must produce a **radically different** interface for the deepened module.
 
-启动：按名称调用 Codex 原生 subagent `mmw-designer`，task 传四栏表全文。互不依赖的实例在同一条消息中并行启动，全部完成后再汇总。
+Launch: call the Codex native subagent `mmw-designer` by name, with the four-field task table in full as task. Instances that do not depend on each other launch in the same message; summarize after all of them finish.
 
-派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告。报告交回后不重做整个 task。
+After dispatching a subagent, the main agent does not run research, implementation, or review that overlaps that subagent's task. With no clearly non-overlapping coordination work in hand, wait for the report. Do not redo the whole task once it arrives.
 
 Prompt each `designer` with a separate technical brief (file paths, coupling details, dependency category from [DEEPENING.md](DEEPENING.md), what sits behind the seam). The brief is independent of the user-facing problem-space explanation in Step 1. Give each instance a different design constraint:
 

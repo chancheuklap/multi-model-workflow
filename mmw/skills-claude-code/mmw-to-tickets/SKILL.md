@@ -13,14 +13,14 @@ The caller passes `<spec issue number>`. Stop if it is missing. Stop if that spe
 
 Before any write:
 
-先确认当前仓库位置。判定从上到下，命中一行就停。
+Confirm where this repo is first. Judge top to bottom; stop at the first row that hits.
 
-| 情况 | 怎么判断 | 你做什么 |
+| Case | How to tell | What you do |
 | --- | --- | --- |
-| 不在 git 仓库里 | `git rev-parse --is-inside-work-tree` 失败 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新判断 |
-| 在主检出里 | `git rev-parse --path-format=absolute --git-dir` 等于 `--git-common-dir` | 停下，请用户用当前宿主开一棵工作树再开会话 |
-| 没有分支 | `git symbolic-ref --quiet --short HEAD` 为空 | 按上文已定的任务分支名运行 `git switch -c <完整任务分支名>` |
-| 已有任务分支 | 上面都不成立 | 用当前分支 |
+| Not in a git repo | `git rev-parse --is-inside-work-tree` fails | Ask the user for the target repo path. Enter that repo, then judge again |
+| In the main checkout | `git rev-parse --path-format=absolute --git-dir` equals `--git-common-dir` | Stop. Ask the user to open a worktree with this host, then start a session there |
+| No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>` with the task-branch name decided above |
+| Task branch already there | None of the above holds | Use the current branch |
 
 
 ## 1. Gather context
@@ -29,13 +29,15 @@ Before any write:
 
 Resolve each artifact-ref line as `/mmw-wayfinder` specifies for Required materials. `none` or `[]` means skip. Copy into this ticket only the refs this ticket consumes. Write `none` when there are none.
 
-If a prototype index is missing its question, walkthrough conclusions, chosen artifacts, rejected constraints, or long-lived evidence, go back to `/mmw-prototype` to fill the gap; write `none` for a field that has none.
+If a prototype index is missing its question, walkthrough conclusions, chosen artifacts, rejected constraints, mounted wiring, or long-lived evidence, go back to `/mmw-prototype` to fill the gap; write `none` for a field that has none.
 
 ## 2. Explore the codebase (optional)
 
 If you have not already explored the codebase, do so to understand the current state of the code. Ticket titles and descriptions should use the project's domain glossary vocabulary, and respect ADRs in the area you're touching.
 
 Look for opportunities to prefactor the code to make the implementation easier. "Make the change easy, then make the easy change." When the materials do not cover the code, read the entry points, callers, and tests in range yourself. Several independent angles: `/mmw-research`. It returns a README path. Read that index and the files it lists. Put those facts into the tickets that consume them.
+
+A prototype that reached this spec left production code mounted: take `## Mounted wiring` from its `README.md` and give those sites a prefactor ticket that removes them. The prototype files themselves stay where they are — only the mounts come out. `none` means skip.
 
 If nothing is worth a prefactor ticket, go to step 3. Do not invent a ticket to fill this step. Prefactor tickets go first.
 

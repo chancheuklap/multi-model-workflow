@@ -22,14 +22,14 @@ Merged integration results also use ⑤.
 
 Before any write:
 
-先确认当前仓库位置。判定从上到下，命中一行就停。
+Confirm where this repo is first. Judge top to bottom; stop at the first row that hits.
 
-| 情况 | 怎么判断 | 你做什么 |
+| Case | How to tell | What you do |
 | --- | --- | --- |
-| 不在 git 仓库里 | `git rev-parse --is-inside-work-tree` 失败 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新判断 |
-| 在主检出里 | `git rev-parse --path-format=absolute --git-dir` 等于 `--git-common-dir` | 停下，请用户用当前宿主开一棵工作树再开会话 |
-| 没有分支 | `git symbolic-ref --quiet --short HEAD` 为空 | 按上文已定的任务分支名运行 `git switch -c <完整任务分支名>` |
-| 已有任务分支 | 上面都不成立 | 用当前分支 |
+| Not in a git repo | `git rev-parse --is-inside-work-tree` fails | Ask the user for the target repo path. Enter that repo, then judge again |
+| In the main checkout | `git rev-parse --path-format=absolute --git-dir` equals `--git-common-dir` | Stop. Ask the user to open a worktree with this host, then start a session there |
+| No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>` with the task-branch name decided above |
+| Task branch already there | None of the above holds | Use the current branch |
 
 
 ## 1. Pin the object
@@ -58,15 +58,20 @@ Task fields. Goal's first sentence is the perspective name, copied exactly:
 - **Constraints:** read-only; leave the object as it is
 - **Acceptance:** findings, or why the review cannot run
 
-Codex 只使用一个审查角色。⓪、①、②、⑤ 每个视角各启动一个 Codex 原生 `mmw-reviewer-gpt` subagent。每个审查者使用独立上下文，可以与产物作者使用相同模型。⓪ 也一样：这个宿主换不了模型，只换上下文。互不依赖的审查任务在同一条消息中并行启动。
+Codex uses one reviewer role. On ⓪, ①, ②, and ⑤, launch one Codex native `mmw-reviewer-gpt` subagent per perspective. Each reviewer works in an independent context and may run the same model as the author of the object. ⓪ is no exception: this host swaps the context, not the model. Review tasks that do not depend on each other launch in the same message.
 
-派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告。报告交回后不重做整个 task。
+After dispatching a subagent, the main agent does not run research, implementation, or review that overlaps that subagent's task. With no clearly non-overlapping coordination work in hand, wait for the report. Do not redo the whole task once it arrives.
 
 If a reviewer cannot run: missing materials you failed to pass — fill them and resume that perspective; missing from the artifact itself — that is a finding. If they say the problem to solve is the wrong problem, give the user their words.
 
 ## 3. Record and mark
 
-Paste each report into the record under its perspective name. Do not rewrite. Put the fixed point and Reviewed HEAD at the top.
+Paste each report into the record under its perspective name. Do not rewrite. Head the record with these labels, one per line, spelled exactly — `$mmw:mmw-release` reads them back:
+
+```
+Fixed point: <the fixed point>
+Reviewed HEAD: <git rev-parse HEAD>
+```
 
 On ⑤, if HEAD moved since you pinned it, this round is void. Report both HEADs. Do not restart on your own.
 
@@ -84,6 +89,6 @@ Show findings with marks, by perspective. Then fix.
 
 A one-line copy, number, or assertion: you may land it.
 
-After the fix, register Repair commit as HEAD. On ⑤ that value is also Final commit. If any accepted item is still open, stop.
+After the fix, add `Repair commit: <git rev-parse HEAD>` to the record head. On ⑤ add `Final commit: <that same value>`. Same spelling; `$mmw:mmw-release` checks both. If any accepted item is still open, stop.
 
 No `accepted` items: return to the caller. If the user invoked you, report counts and wait.

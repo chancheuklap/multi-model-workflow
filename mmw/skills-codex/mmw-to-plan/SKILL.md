@@ -15,14 +15,14 @@ This round is the open tickets that have no `ready-for-agent` and that you can p
 
 Before any write:
 
-先确认当前仓库位置。判定从上到下，命中一行就停。
+Confirm where this repo is first. Judge top to bottom; stop at the first row that hits.
 
-| 情况 | 怎么判断 | 你做什么 |
+| Case | How to tell | What you do |
 | --- | --- | --- |
-| 不在 git 仓库里 | `git rev-parse --is-inside-work-tree` 失败 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新判断 |
-| 在主检出里 | `git rev-parse --path-format=absolute --git-dir` 等于 `--git-common-dir` | 停下，请用户用当前宿主开一棵工作树再开会话 |
-| 没有分支 | `git symbolic-ref --quiet --short HEAD` 为空 | 按上文已定的任务分支名运行 `git switch -c <完整任务分支名>` |
-| 已有任务分支 | 上面都不成立 | 用当前分支 |
+| Not in a git repo | `git rev-parse --is-inside-work-tree` fails | Ask the user for the target repo path. Enter that repo, then judge again |
+| In the main checkout | `git rev-parse --path-format=absolute --git-dir` equals `--git-common-dir` | Stop. Ask the user to open a worktree with this host, then start a session there |
+| No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>` with the task-branch name decided above |
+| Task branch already there | None of the above holds | Use the current branch |
 
 
 ## 1. Read
@@ -42,9 +42,9 @@ Task fields:
 
 Same message, one `planner` per ticket, current task worktree:
 
-启动：按名称调用 Codex 原生 subagent `mmw-planner`，task 传四栏表全文；该 subagent 使用当前工作树，不另开结果树。互不依赖的实例在同一条消息中并行启动，全部完成后再汇总。
+Launch: call the Codex native subagent `mmw-planner` by name, with the four-field task table in full as task; that subagent uses the current worktree and does not open a result tree. Instances that do not depend on each other launch in the same message; summarize after all of them finish.
 
-派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告。报告交回后不重做整个 task。
+After dispatching a subagent, the main agent does not run research, implementation, or review that overlaps that subagent's task. With no clearly non-overlapping coordination work in hand, wait for the report. Do not redo the whole task once it arrives.
 
 If a `planner` cannot write the plan, give the user the reason. Do not edit approved acceptance, spec decisions, or blocking edges unless the user says so.
 
