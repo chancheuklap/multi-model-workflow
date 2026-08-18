@@ -54,9 +54,11 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 ## 宿主边界
 
+五个宿主平权。没有主力宿主，也没有参考宿主：描述、默认值和文档示例都不得把某一个宿主当成默认或首选，也不得只给一个宿主写路径。
+
 共享角色、技能和流程语义。宿主差异留在 Codex profile、原生 agent frontmatter、Claude Code 的 dispatch adapter（`mmw/cli/adapters/claude-code.sh`）、manifest 与 runtime 模型档的 hosts 覆盖：
 
-- Codex App 是 MMW 的主 agent 运行时，不调用外部模型 CLI 或 harness。Codex plugin 以 `mmw/` 为发布根；运行时不得回退 MMW 源码 checkout 或目标项目里的同名目录。App 设置里的 Worktree root 是所有项目共用的 managed worktree 物理存放目录，不是 MMW 源码路径，也不受目标项目 `.mmw.json` 的 `paths.worktrees` 控制。
+- Codex App 的全部角色走它自己的原生 subagent 与后台 worktree 任务，不调用外部模型 CLI 或 harness。Codex plugin 以 `mmw/` 为发布根；运行时不得回退 MMW 源码 checkout 或目标项目里的同名目录。App 设置里的 Worktree root 是所有项目共用的 managed worktree 物理存放目录，不是 MMW 源码路径，也不受目标项目 `.mmw.json` 的 `paths.worktrees` 控制。
 - Claude Code 只接 claude 与 gpt 两个模型族：GPT 角色通过后台 Bash 执行 Codex CLI，Claude 角色通过后台 Agent 工具执行。
 - Pi、Cursor 与 Grok 的全部角色走宿主原生 `subagent`，frontmatter 由 `mmw/agent-src/` 按 profile 生成（`mmw agents materialize`）。
 - 模型分配默认各宿主相同。某个宿主接不了基线模型时，在 `mmw/cli/mmw.default.json` 该角色底下写 `hosts.<宿主>` 覆盖，按字段生效。

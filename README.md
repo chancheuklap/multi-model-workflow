@@ -2,7 +2,7 @@
 
 多模型工作流（Multi-Model Workflow，MMW）是一套面向软件开发 agent 团队的交付工作流。它把需求讨论、research、设计、计划、实现、审查、集成和发布连接起来，让一项工作可以跨 agent、跨会话、跨 worktree 持续推进。
 
-MMW 的用户界面是技能。日常工作按当前阶段直接调用对应技能。新需求用 `$mmw:mmw-grilling`。超过一个 agent 会话且路线还不清楚的 effort 用 `$mmw:mmw-wayfinder`。已经谈定、要写成 spec 的用 `$mmw:mmw-to-spec`。本机安装和仓库配置用 `$mmw:mmw-install`。
+MMW 的用户界面是技能。日常工作按当前阶段直接调用对应技能。新需求用 `mmw-grilling`。超过一个 agent 会话且路线还不清楚的 effort 用 `mmw-wayfinder`。已经谈定、要写成 spec 的用 `mmw-to-spec`。本机安装和仓库配置用 `mmw-install`。
 
 `mmw` 命令行界面（Command-Line Interface，CLI）是技能使用的机械层。它负责 Git、worktree、issue tracker、领域文档和 release 等确定性动作。用户不需要手动运行这些命令。
 
@@ -67,7 +67,7 @@ Explore 只回答一个可验证的 research 问题。`worker` 只实现一张 t
 | 安装 | `mmw-install` | 把 MMW 装到这台电脑，并把当前仓库配好 |
 | 角色方法论 | `mmw-planner`、`mmw-reviewer` | 分别供 `planner` 和审查者读取；主 agent 与用户不直接使用 |
 
-直接触发技能时使用 `$mmw:<技能名>`。例如，审查一条已有分支可以显式调用 `$mmw:mmw-review`。
+直接触发技能时点名它，前缀按宿主。例如，审查一条已有分支可以显式调用 `mmw-review`。
 
 MMW 插件（plugin）还包含五个辅助技能。它们不属于上述 22 个 MMW 工作流技能。
 
@@ -115,24 +115,24 @@ prototype 同时体现这两层合同。后端脚本、Logic HTML 和 UI/UX 是�
 | 每个仓库首次接入 | 要求初始化当前仓库 | 运行 `mmw init` 配置仓库，再运行 `mmw doctor` 只读检查本机运行时 |
 | 开始或继续工作 | 显式调用当前阶段的技能 | 确认任务分支，执行该技能，出口点名接下来常见的两三个选项 |
 
-语法见 [Codex Skills 文档](https://learn.chatgpt.com/docs/build-skills)。在提示词中写 `$mmw:<技能名>`。不要只写“使用 MMW”。
+调用时点名具体技能，不要只写“使用 MMW”。前缀按宿主：Codex 写 `$mmw:mmw-grilling`，Claude Code 写 `/mmw-grilling`，其余宿主按它自己的技能调用方式点名 `mmw-grilling`。下面的表格和示例都写裸技能名。
 
 常见阶段：
 
 | 你现在要做的 | 调用 |
 | --- | --- |
-| 新需求，或改进还没谈定 | `$mmw:mmw-grilling` |
-| effort 超过一个会话，而且到终点的路线还不清楚 | `$mmw:mmw-wayfinder` |
-| 有东西坏了 | `$mmw:mmw-diagnosing-bugs` |
-| 还没评估过的 issue 或 PR | `$mmw:mmw-triage` |
-| 已经谈定，要写成 spec | `$mmw:mmw-to-spec` |
-| 计划已通过审查，要落地 | `$mmw:mmw-implement` |
-| 终审通过，要出安装包 | `$mmw:mmw-release` |
-| 第一次把 MMW 装到这台电脑，或给这个仓库做配置 | `$mmw:mmw-install` |
+| 新需求，或改进还没谈定 | `mmw-grilling` |
+| effort 超过一个会话，而且到终点的路线还不清楚 | `mmw-wayfinder` |
+| 有东西坏了 | `mmw-diagnosing-bugs` |
+| 还没评估过的 issue 或 PR | `mmw-triage` |
+| 已经谈定，要写成 spec | `mmw-to-spec` |
+| 计划已通过审查，要落地 | `mmw-implement` |
+| 终审通过，要出安装包 | `mmw-release` |
+| 第一次把 MMW 装到这台电脑，或给这个仓库做配置 | `mmw-install` |
 
 ## 从源码仓库安装到本机宿主
 
-安装只做一次。用户在任意 Codex 本地任务中发送下面的请求，并把 `<本机目录>` 换成希望保存源码的位置。
+安装只做一次。用户在本机任意一个 agent 会话中发送下面的请求，并把 `<本机目录>` 换成希望保存源码的位置。
 
 ```text
 请把 MMW 安装到这台电脑已有的 agent harness。
@@ -141,7 +141,7 @@ prototype 同时体现这两层合同。后端脚本、Logic HTML 和 UI/UX 是�
 源码位置：<本机目录>
 
 请运行源码仓库里的 mmw/install.sh。
-让它安装 Codex、Claude Code、Pi、原生 subagent、mmw 命令和 MCP 中当前可用的部分。
+让它安装 Codex、Claude Code、Pi、Cursor、Grok、原生 subagent、mmw 命令和 MCP 中当前可用的部分。
 安装后按仓库规则完成运行时和依赖检查。
 需要我登录 GitHub、确认权限或提供 Context7 密钥时再停下来问我。
 最后说明安装了什么、检查是否通过、哪些能力仍不可用。
@@ -151,12 +151,12 @@ prototype 同时体现这两层合同。后端脚本、Logic HTML 和 UI/UX 是�
 
 ### 从已有版本升级
 
-升级从 MMW 源码仓库统一运行 `mmw/install.sh`。安装器构建稳定 runtime，再更新本机已有的 Codex、Claude Code、Pi、原生 subagent、`mmw` 命令和 Pi/Cursor MCP。
+升级从 MMW 源码仓库统一运行 `mmw/install.sh`。安装器构建稳定 runtime，再更新本机已有的 Codex、Claude Code、Pi、Cursor、Grok、原生 subagent、`mmw` 命令和各宿主 MCP。
 
-用户可以在 MMW 源码仓库的 Codex 任务中发送：
+用户可以在 MMW 源码仓库中，用任意一个 agent 发送：
 
 ```text
-请把当前 MMW 升级安装到 Codex。
+请把当前 MMW 升级安装到这台电脑已有的 agent harness。
 
 先确认源码版本和工作区状态，再运行 mmw/install.sh。
 随后运行 mmw doctor，按它报告的缺项处理。
@@ -166,15 +166,15 @@ prototype 同时体现这两层合同。后端脚本、Logic HTML 和 UI/UX 是�
 
 升级完成需要同时满足以下条件：
 
-1. `codex plugin list` 显示 MMW 已安装、已启用，并使用当前版本。
-2. 四个原生 subagent 已更新。
+1. 每个已安装的宿主，在它自己的插件或技能列表里显示 MMW 已启用，并使用当前版本。
+2. 各宿主的原生 subagent 已更新。
 3. `mmw` 命令指向当前版本的稳定 runtime。
-4. Codex runtime 检查和物化检查通过。
-5. 用户新建 Codex 任务，或者重启 Codex。已经打开的任务不会热加载新技能。
+4. `mmw doctor` 与物化检查通过。
+5. 用户在每个用到的宿主里新建会话，或者重启它。已经打开的会话不会热加载新技能。
 
 ## 初始化目标仓库
 
-在 Codex App 中打开目标仓库，然后发送：
+在任意一个宿主中打开目标仓库，然后发送：
 
 ```text
 请为当前仓库初始化 MMW。
@@ -185,7 +185,7 @@ prototype 同时体现这两层合同。后端脚本、Logic HTML 和 UI/UX 是�
 这一步不要替项目创建领域模型。
 ```
 
-Codex 会完成初始化和检查。用户不需要打开终端，也不需要手动执行 MMW 命令。
+宿主里的 agent 会完成初始化和检查。用户不需要打开终端，也不需要手动执行 MMW 命令。
 
 初始化可能生成或修改以下内容：
 
@@ -202,7 +202,7 @@ Codex 会完成初始化和检查。用户不需要打开终端，也不需要�
 需要建立领域文档时，显式调用对应技能：
 
 ```text
-$mmw:mmw-domain-modeling 为这个仓库建立领域模型。先和我确认 bounded context 的数量和边界。
+mmw-domain-modeling 为这个仓库建立领域模型。先和我确认 bounded context 的数量和边界。
 ```
 
 单一 bounded context 默认使用 `CONTEXT.md`。多个 bounded context 默认使用 `CONTEXT-MAP.md` 和 `docs/context/`。ADR 默认放入 `docs/adr/`。
@@ -216,7 +216,7 @@ $mmw:mmw-domain-modeling 为这个仓库建立领域模型。先和我确认 bou
 3. 在新任务中显式调用当前阶段的技能，并写明目标。
 
 ```text
-$mmw:mmw-grilling 为订单导出增加按日期筛选，并补齐测试和文档。
+mmw-grilling 为订单导出增加按日期筛选，并补齐测试和文档。
 ```
 
 宿主先提供工作树。技能在首次写入前用 `[[mmw-require-task-branch]]` 确认任务分支。下游缺少任务上下文时只报告缺失并停止。
