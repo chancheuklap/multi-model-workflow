@@ -10,7 +10,7 @@
     {
       "name": "mmw",
       "description": "多模型开发编排。编排与判定、写代码的 `worker`、写 plan 的 `planner` 和跨模型的 `reviewer-gpt` 与 `reviewer-claude` 各自绑定模型档，宿主之间共享同一套流程。长在 Matt Pocock 的工程技能之上。",
-      "version": "0.32.0",
+      "version": "0.33.0",
       "author": {
         "name": "Cheuk Lap Chan",
         "email": "chancheuklapincn@gmail.com"
@@ -28,5 +28,5 @@
       ]
     }
   ],
-  "version": "0.32.0"
+  "version": "0.33.0"
 }
