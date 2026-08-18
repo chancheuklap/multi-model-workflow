@@ -521,9 +521,13 @@ def materialize_pi_prompts(
                 drift = 1
         return drift
 
-    if PI_PROMPTS_OUT.exists():
-        shutil.rmtree(PI_PROMPTS_OUT)
-    PI_PROMPTS_OUT.mkdir(parents=True)
+    # 只收自己产的 `.md`，不整目录重建：`mmw/package.json` 的 `pi.prompts` 指着这个
+    # 目录，而没有 user-only 技能时 expected 为空——重建会连目录一起从 git 里消失，
+    # 声明就指向一个不存在的路径。
+    PI_PROMPTS_OUT.mkdir(parents=True, exist_ok=True)
+    for path in PI_PROMPTS_OUT.glob("*.md"):
+        if path.name not in expected:
+            path.unlink()
     for name, content in expected.items():
         (PI_PROMPTS_OUT / name).write_text(content, encoding="utf-8")
     print(f"物化完成：pi 用户命令 → {PI_PROMPTS_OUT}")
