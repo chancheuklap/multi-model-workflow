@@ -7,7 +7,7 @@ description: Build official install packages for changes that passed final revie
 
 Ship an install package for every product this change touched, far enough that the user can install it.
 
-The engine is the deterministic layer: the state machine, the three failure grades, path guards, same-cause circuit breakers, and budget breakers all live in `mmw release`. **You are the judgment layer:** name the products for this run, read the state and run the action it names, and diagnose the one class of pause the engine cannot judge. You do not grade failures. You do not bypass guards. You do not build a second executor.
+The engine is the deterministic layer: the state machine, the three failure grades, path guards, same-cause circuit breakers, and budget breakers all live in `mmw release`. **You are the judgment layer:** name the products for this run, read the state and run the action it names, and diagnose the one class of pause the engine cannot judge. Grades, guards, and the executor stay with the engine — [driving.md](driving.md) holds that line at the point where it bites.
 
 ## 1. Preconditions
 

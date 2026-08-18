@@ -56,7 +56,7 @@ If a reviewer cannot run: missing materials you failed to pass — fill them and
 
 ## 3. Record and mark
 
-Paste each report into the record under its perspective name. Do not rewrite. Head the record with these labels, one per line, spelled exactly — `/mmw-release` reads them back:
+Paste each report into the record under its perspective name. Do not rewrite. Head the record with these labels, spelled exactly — `/mmw-release` reads them back:
 
 ```
 Fixed point: <the fixed point>
@@ -79,6 +79,6 @@ Show findings with marks, by perspective. Then fix.
 
 A one-line copy, number, or assertion: you may land it.
 
-After the fix, add `Repair commit: <git rev-parse HEAD>` to the record head. On ⑤ add `Final commit: <that same value>`. Same spelling; `/mmw-release` checks both. If any accepted item is still open, stop.
+After the fix, add `Repair commit: <git rev-parse HEAD>` to the record head. On ⑤ add `Final commit: <that same value>`. If any accepted item is still open, stop.
 
 No `accepted` items: return to the caller. If the user invoked you, report counts and wait.

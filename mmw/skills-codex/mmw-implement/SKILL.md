@@ -19,7 +19,7 @@ Confirm where this repo is first. Judge top to bottom; stop at the first row tha
 | --- | --- | --- |
 | Not in a git repo | `git rev-parse --is-inside-work-tree` fails | Ask the user for the target repo path. Enter that repo, then judge again |
 | In the main checkout | `git rev-parse --path-format=absolute --git-dir` equals `--git-common-dir` | Stop. Ask the user to open a worktree with this host, then start a session there |
-| No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>` with the task-branch name decided above |
+| No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>`. Use the name this skill or the caller already gave; with none in hand, name it after the work in this repo's own branch-naming shape, and say which name you took |
 | Task branch already there | None of the above holds | Use the current branch |
 
 
@@ -42,13 +42,13 @@ Task fields:
 
 Launch: get this repo's projectId with `list_projects`, then call `create_thread`. Use that projectId as target, set environment.type to `worktree`, set startingState.type to `branch`, and set branchName to the task branch as already committed. Use model `gpt-5.6-terra` and thinking level `xhigh`. The task prompt carries the four-field task, the full result-branch name, and the base SHA at dispatch time; the result-branch name uses a separate `codex/<slug>`. The background agent completes the work and commits, and reads `$mmw:mmw-tdd` in full before starting work. It returns the result-branch name, the HEAD SHA, the base SHA, and the verification result. Once `create_thread` returns a threadId, wait with `wait_threads`; when only a clientThreadId comes back, wait for the App to finish setting up the worktree, get the threadId, then wait.
 
-After dispatching a subagent, the main agent does not run research, implementation, or review that overlaps that subagent's task. With no clearly non-overlapping coordination work in hand, wait for the report. Do not redo the whole task once it arrives.
+Dispatching hands the task over: that subagent owns the research, implementation, and review inside it. The main agent's own work from here is coordination that clearly does not overlap — with none in hand, wait for the report, then continue from what it says rather than redoing the task.
 
 Billing, permissions, data migration, or irreversible mistakes: use
 
 Launch: get this repo's projectId with `list_projects`, then call `create_thread`. Use that projectId as target, set environment.type to `worktree`, set startingState.type to `branch`, and set branchName to the task branch as already committed. Use model `gpt-5.6-sol` and thinking level `medium`. The task prompt carries the four-field task, the full result-branch name, and the base SHA at dispatch time; the result-branch name uses a separate `codex/<slug>`. The background agent completes the work and commits, and reads `$mmw:mmw-tdd` in full before starting work. It returns the result-branch name, the HEAD SHA, the base SHA, and the verification result. Once `create_thread` returns a threadId, wait with `wait_threads`; when only a clientThreadId comes back, wait for the App to finish setting up the worktree, get the threadId, then wait.
 
-After dispatching a subagent, the main agent does not run research, implementation, or review that overlaps that subagent's task. With no clearly non-overlapping coordination work in hand, wait for the report. Do not redo the whole task once it arrives.
+Dispatching hands the task over: that subagent owns the research, implementation, and review inside it. The main agent's own work from here is coordination that clearly does not overlap — with none in hand, wait for the report, then continue from what it says rather than redoing the task.
 
 instead. You choose the upgrade.
 

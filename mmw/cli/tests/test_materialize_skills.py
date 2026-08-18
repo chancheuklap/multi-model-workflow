@@ -314,7 +314,7 @@ def test_只有_codex_在派活后追加不重做规则(
 ) -> None:
     # 只有 Codex 的主 agent 会把 subagent 的活再干一遍。别的宿主发这条，等于把被禁的
     # 动作介绍给一个本来不会做它的 agent。
-    片段 = "does not run research, implementation, or review that overlaps"
+    片段 = "Dispatching hands the task over"
     out = tmp_path / "codex"
     物化("codex", out)
     assert 片段 in 读(out, "mmw-alpha/SKILL.md")

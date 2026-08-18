@@ -51,7 +51,9 @@ REQUIRE_TASK_BRANCH = (
     "`--git-common-dir` | Stop. Ask the user to open a worktree with this host, "
     "then start a session there |\n"
     "| No branch | `git symbolic-ref --quiet --short HEAD` is empty | "
-    "Run `git switch -c <full task-branch name>` with the task-branch name decided above |\n"
+    "Run `git switch -c <full task-branch name>`. Use the name this skill or the caller "
+    "already gave; with none in hand, name it after the work in this repo's own "
+    "branch-naming shape, and say which name you took |\n"
     "| Task branch already there | None of the above holds | Use the current branch |\n"
 )
 # 没有续跑通道的宿主统一给这句退路。静默降级成全新派发会让调用方以为上下文还在，
@@ -74,9 +76,10 @@ SKIP_DIR_NAMES = frozenset({"mmw-setup"})
 # 一遍（引入它的那次修的就是这个）。其他宿主没有这个行为时不发这条规则：一条没有对应
 # 失败模式的禁令，只会把被禁的动作带进上下文。哪个宿主真出现同样的重做，再按证据加。
 POST_LAUNCH_RULE = (
-    "After dispatching a subagent, the main agent does not run research, implementation, "
-    "or review that overlaps that subagent's task. With no clearly non-overlapping "
-    "coordination work in hand, wait for the report. Do not redo the whole task once it arrives."
+    "Dispatching hands the task over: that subagent owns the research, implementation, and "
+    "review inside it. The main agent's own work from here is coordination that clearly does "
+    "not overlap — with none in hand, wait for the report, then continue from what it says "
+    "rather than redoing the task."
 )
 
 
@@ -106,10 +109,9 @@ def expand_require_task_branch(host: str) -> str:
 def expand_pi(role: str, agent: str, cwd_mode: str) -> str:
     if cwd_mode == "worktree":
         return (
-            "Launch: run `mmw worktree add <result branch>` first and use the worktree "
-            "absolute path it returns as cwd. Then call the native `subagent` tool with "
-            f"agent `{agent}`, the four-field task table in full as task, and cwd set to "
-            "that absolute path."
+            "Launch: run `mmw worktree add <result branch>` first. Then call the native "
+            f"`subagent` tool with agent `{agent}`, the four-field task table in full as "
+            "task, and cwd set to the worktree absolute path that command returned."
         )
     if cwd_mode == "current":
         return (

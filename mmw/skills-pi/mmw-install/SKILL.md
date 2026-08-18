@@ -7,7 +7,7 @@ description: Install MMW on this machine and configure this repo. Use on a new m
 
 Two jobs, in this order. Install once per machine. Configure once per repo. A new machine needs both. A new repo on an already-installed machine needs only configure.
 
-Each step is idempotent. Skip what is already done. Re-running is safe.
+Each step is idempotent. Skip what is already done.
 
 ## 1. Install on this machine
 

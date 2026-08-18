@@ -19,7 +19,7 @@ Confirm where this repo is first. Judge top to bottom; stop at the first row tha
 | --- | --- | --- |
 | Not in a git repo | `git rev-parse --is-inside-work-tree` fails | Ask the user for the target repo path. Enter that repo, then judge again |
 | In the main checkout | `git rev-parse --path-format=absolute --git-dir` equals `--git-common-dir` | Stop. Ask the user to open a worktree with this host, then start a session there |
-| No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>` with the task-branch name decided above |
+| No branch | `git symbolic-ref --quiet --short HEAD` is empty | Run `git switch -c <full task-branch name>`. Use the name this skill or the caller already gave; with none in hand, name it after the work in this repo's own branch-naming shape, and say which name you took |
 | Task branch already there | None of the above holds | Use the current branch |
 
 
@@ -37,7 +37,7 @@ If you have not already explored the codebase, do so to understand the current s
 
 Look for opportunities to prefactor the code to make the implementation easier. "Make the change easy, then make the easy change." When the materials do not cover the code, read the entry points, callers, and tests in range yourself. Several independent angles: `/mmw-research`. It returns a README path. Read that index and the files it lists. Put those facts into the tickets that consume them.
 
-A prototype that reached this spec left production code mounted: take `## Mounted wiring` from its `README.md` and give those sites a prefactor ticket that removes them. The prototype files themselves stay where they are — only the mounts come out. `none` means skip.
+When this spec came from a prototype, read `## Mounted wiring` in its `README.md`. Every site it lists gets a prefactor ticket that removes it; the prototype files themselves stay where they are. `none` means skip.
 
 If nothing is worth a prefactor ticket, go to step 3. Do not invent a ticket to fill this step. Prefactor tickets go first.
 
