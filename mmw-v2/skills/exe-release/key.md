@@ -203,6 +203,28 @@ general table. A rule's `fingerprint` prefix decides what the engine does with i
 means there is no code to fix and the stage is simply re-run. Get that prefix wrong and a network
 blip is dispatched to a code fix, or a real defect is retried until the budget runs out.
 
+## An existing product that already has packaging scripts
+
+A product that ships today through its own Python is the same job read backwards. Open each
+script and sort it with the one question:
+
+- **Constants — lists of packages, paths, flags,版本, names.** These are the key. Copy the values
+  across verbatim. Do not re-decide any of them: a value in there is usually a fix for something
+  that once broke, and the commit that explains it is long gone.
+- **Functions that build a command or copy a tree.** These are the skill. If the skill already
+  does it, delete the copy. If it does not, add the capability there — not a second copy here.
+- **What is left.** Usually one or two things: fetching a runtime, assembling a delivery format
+  the app invented. That stays, and it becomes a `build_hooks` entry.
+
+Prove the move before deleting anything: generate the command the key produces, generate the
+command the old script produces, and compare them. Flag order carries no meaning to the
+compiler — compare the set of flags and check the entrypoint is last. That comparison costs
+seconds and covers the part where a silent difference is most expensive.
+
+Keep the old path working until a package built the new way installs. Then delete the old one:
+two ways to build the same product is the state where the next person edits the one that no
+longer runs.
+
 ## Step 3 — prove it without building
 
 ```bash
