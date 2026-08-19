@@ -246,20 +246,41 @@ def changed_lines(repo: Path, rel_file: str) -> set[int] | None:
     return lines
 
 
-def filter_to_changed(entries: list[str], rel_file: str, allowed: set[int] | None) -> list[str]:
-    if allowed is None:
-        return entries
+def normalize_entry(entry: str, repo: Path, rel_file: str) -> tuple[str, int | None]:
+    """把诊断行开头的路径改写成仓库相对路径，并取出行号。
+
+    检查器报的路径形状不一致：oxlint 与 ruff 报我们传进去的相对路径，swiftlint 的
+    xcode reporter 一律展开成绝对路径。早先这里用字符串前缀判断「这一条是不是在说
+    这个文件」，于是 swiftlint 报的每一条都判成「在说别的文件」，整批绕过改动行
+    过滤——一个有历史违规的 Swift 文件每改一次就把旧账全报一遍，而这正是过滤这一层
+    要防的事。判定改成解析路径再比对，不比字符串。
+
+    回 (改写后的行, 行号)。这一条不是在说这个文件、或者认不出路径时，行号回 None，
+    调用方据此不过滤它。
+    """
+    found = LINE_PATTERN.match(entry)
+    if not found:
+        return entry, None
+    raw = found.group("path")
+    candidate = Path(raw)
+    if not candidate.is_absolute():
+        candidate = repo / raw
+    try:
+        if candidate.resolve() != (repo / rel_file).resolve():
+            return entry, None
+    except OSError:
+        return entry, None
+    return rel_file + entry[len(raw):], int(found.group("line"))
+
+
+def filter_to_changed(
+    entries: list[str], repo: Path, rel_file: str, allowed: set[int] | None
+) -> list[str]:
     kept = []
     for entry in entries:
-        found = LINE_PATTERN.match(entry)
-        if not found:
-            kept.append(entry)
-            continue
-        if not entry.startswith(rel_file):
-            kept.append(entry)
-            continue
-        if int(found.group("line")) in allowed:
-            kept.append(entry)
+        text, number = normalize_entry(entry, repo, rel_file)
+        if allowed is None or number is None or number in allowed:
+            kept.append(text)
     return kept
 
 
@@ -306,7 +327,7 @@ def check(repo: Path, files: list[str], changed_only: bool = False) -> dict:
             lines = run_checker(repo, workspace, checker, rel_file)
             if not lines:
                 continue
-            kept = filter_to_changed(lines, rel_file, allowed)
+            kept = filter_to_changed(lines, repo, rel_file, allowed)
             suppressed += len(lines) - len(kept)
             if kept:
                 findings.setdefault(checker["id"], []).extend(kept)
