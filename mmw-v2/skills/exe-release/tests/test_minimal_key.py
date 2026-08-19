@@ -8,6 +8,7 @@ Python 才能过，都会在这里红。
 可选，要么把它做成技能自己提供的能力。
 """
 
+from copy import deepcopy
 import json
 import subprocess
 import sys
@@ -257,7 +258,7 @@ def test_the_skill_scans_for_shipped_source_without_being_asked(tmp_path):
 
     编译这一整套动作的目的就是不发源码；发出去了，这个产品的商业前提当场没了。而它不像
     崩溃那样会自己暴露——包能装、能用，源码就在里面躺着。所以钥匙里一个字都不用写：
-    业务包名就是 include_packages，扫的树就是打包产物的树。
+    源码根从编译入口推，扫的树就是打包产物的树。
     """
     key = tmp_path / "k.json"
     key.write_text(json.dumps(MINIMAL_KEY), encoding="utf-8")
@@ -266,7 +267,7 @@ def test_the_skill_scans_for_shipped_source_without_being_asked(tmp_path):
 
     text = script.read_text(encoding="utf-8")
     assert "Assert-NoBusinessSource" in text
-    assert "'newcomer'" in text, "扫的包名要来自 include_packages"
+    assert "-SourceRoots @('src')" in text, "源码根要从编译入口推出来"
     assert "Assert-InstallerProduced" in text
 
 
@@ -280,3 +281,25 @@ def test_a_key_with_an_installer_step_must_say_where_the_installer_lands():
     del bad["build_target"]["installer_glob"]
     with pytest.raises(Exception, match="installer_glob"):
         rc.ReleaseAdapterManifest.model_validate(bad)
+
+
+def test_third_party_packages_in_the_key_are_not_mistaken_for_business_source(tmp_path):
+    """真发生过，而且卡住了一次正式出包。
+
+    include_packages 里混着第三方依赖（一把真钥匙里 hedgehog 跟 moderngl、glcontext 并排）。
+    照它扫，嵌入式运行时里合法的 moderngl/__init__.py 会被判成源码泄漏，出包停在一个
+    不存在的问题上。业务代码的定义只有一个可靠来源：这个仓库源码根下面有什么。
+    """
+    doc = deepcopy(MINIMAL_KEY)
+    doc["python_backend"]["include_packages"] = ["newcomer", "moderngl", "glcontext"]
+    key = tmp_path / "k.json"
+    key.write_text(json.dumps(doc), encoding="utf-8")
+    script = tmp_path / "release.ps1"
+    assembler.assemble(key, tmp_path, script, tmp_path / "ctx.json")
+
+    scan = next(
+        line for line in script.read_text(encoding="utf-8").splitlines()
+        if "Assert-NoBusinessSource -Roots" in line
+    )
+    assert "moderngl" not in scan and "glcontext" not in scan
+    assert "-SourceRoots @('src')" in scan

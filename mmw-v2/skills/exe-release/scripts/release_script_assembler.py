@@ -444,14 +444,24 @@ def _has_installer_step(manifest: ReleaseAdapterManifest) -> bool:
 
 
 def _source_scan_lines(manifest: ReleaseAdapterManifest) -> list[str]:
-    """扫哪几棵树，用哪几个包名——两样都从钥匙已有的字段推，不新增一个字段。
+    """扫哪几棵树、拿什么算「这个产品自己的代码」——都从钥匙已有的字段推，不新增字段。
 
-    树：Electron 打出来的目录，和后端编译产物的目录。包名：include_packages，
-    也就是「这个产品自己的代码」的定义，它本来就在钥匙里。
+    树：Electron 打出来的目录，和后端编译产物的目录。
+
+    自己的代码：仓库源码根下的顶层名字，在构建机上现读（源码根取编译入口的第一段，
+    `src/hedgehog/__main__.py` → `src`）。**不是 include_packages**——那一份里混着第三方
+    依赖（真实的一把钥匙里 `hedgehog` 跟 `moderngl`、`glcontext` 并排），拿它当业务代码，
+    嵌入式运行时里合法的第三方 .py 会被整片判成泄漏，出包卡在一个不存在的问题上。
     """
     backend = manifest.python_backend
-    packages = sorted(set(backend.include_packages))
-    if not packages:
+    source_roots = sorted(
+        {
+            PurePosixPath(target.entrypoint).parts[0]
+            for target in backend.targets
+            if len(PurePosixPath(target.entrypoint).parts) > 1
+        }
+    )
+    if not source_roots:
         return []
     desktop_dir = manifest.build_target.desktop_dir
     roots: list[str] = []
@@ -470,7 +480,7 @@ def _source_scan_lines(manifest: ReleaseAdapterManifest) -> list[str]:
     )
     return [
         "  Assert-NoBusinessSource -Roots @(" + ", ".join(roots) + ") "
-        "-Packages @(" + ", ".join(_ps(name) for name in packages) + ")"
+        "-SourceRoots @(" + ", ".join(_ps(name) for name in source_roots) + ")"
     ]
 
 
