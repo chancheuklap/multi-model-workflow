@@ -26,6 +26,7 @@ fi
 
 payload="$(cat)"
 mmw_collect_files "$payload"
+mmw_trace claude-codex "$payload"
 mmw_diagnose && exit 0
 
 printf '%s\n' "$MMW_OUTPUT" >&2

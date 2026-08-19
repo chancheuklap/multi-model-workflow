@@ -86,6 +86,30 @@ mmw_collect_worktree_files() {
   )
 }
 
+# 探针：这次触发到底发生了没有，收到了哪些文件。
+#
+# 只在 MMW_DIAG_TRACE 指着一个文件时写，平时一行都不产生。留着是因为「subagent
+# 改文件时这个 hook 会不会触发」这类问题没有一家宿主在文档里说过，只能实测，而且
+# 宿主升级之后要能重测。诊断本身到没到模型是另一个问题，那个要看会话记录；这里
+# 回答的是更前面那一问：hook 触发了吗，它看见了哪个文件。
+#
+# 写失败不影响主流程：探针坏掉不该挡住干活。
+# 用法：mmw_trace <适配器名> <载荷>
+mmw_trace() {
+  [ -n "${MMW_DIAG_TRACE:-}" ] || return 0
+  command -v jq >/dev/null 2>&1 || return 0
+  local event=""
+  if [ -n "${2:-}" ]; then
+    event="$(printf '%s' "$2" | jq -r '.hookEventName // .hook_event_name // empty' 2>/dev/null || true)"
+  fi
+  jq -nc \
+    --arg adapter "${1:-未知}" \
+    --arg event "$event" \
+    --argjson files "$(printf '%s\n' ${MMW_FILES[@]+"${MMW_FILES[@]}"} | jq -R . | jq -sc 'map(select(. != ""))')" \
+    '{adapter: $adapter, event: $event, files: $files}' \
+    >> "$MMW_DIAG_TRACE" 2>/dev/null || true
+}
+
 # 返回 0 表示没有要报的：干净、没有文件、或者检查器跑不起来。
 # 返回 1 表示 MMW_OUTPUT 里有诊断。
 mmw_diagnose() {
