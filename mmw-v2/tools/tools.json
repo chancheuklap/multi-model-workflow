@@ -51,7 +51,7 @@
       "title": "TypeScript 与 JavaScript 的检查",
       "install": { "manager": "pnpm", "package": "oxlint", "companions": ["oxlint-tsgolint"] },
       "checker": {
-        "extensions": [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"],
+        "extensions": [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".vue"],
         "workspace_marker": "package.json",
         "project_bin": ["node_modules/.bin/oxlint"],
         "bin": "oxlint",
@@ -94,6 +94,46 @@
       "title": "Shell 脚本的符号",
       "install": { "manager": "pnpm", "package": "bash-language-server" },
       "language_server": { "serena_language": "bash", "bin": "bash-language-server" }
+    },
+    {
+      "id": "swiftlint",
+      "title": "Swift 风格与常见错误",
+      "install": { "manager": "brew", "package": "swiftlint" },
+      "checker": {
+        "extensions": [".swift"],
+        "workspace_marker": null,
+        "project_bin": [],
+        "bin": "swiftlint",
+        "file_args": ["lint", "--quiet", "--reporter", "xcode"],
+        "config_flag": "--config",
+        "config": "swiftlint.yml",
+        "parse": "concise"
+      },
+      "_format_why": "xcode reporter 是 path:line:col: level: message (rule_id)，跟 ruff 的 concise、shellcheck 的 gcc 同构，共用一个解析器，行号过滤直接可用。",
+      "_manager_why": "编译好的二进制，跟 shellcheck 一样只能走 Homebrew。"
+    },
+    {
+      "id": "sourcekit-lsp",
+      "title": "Swift 的符号",
+      "language_server": { "serena_language": "swift", "bin": "sourcekit-lsp", "lookup": "path" },
+      "_no_install_why": "Xcode 命令行工具自带，装在 /usr/bin/sourcekit-lsp。系统只有这一份，没有第二个版本可收。",
+      "_lookup_why": "serena 把它写死成 ProcessLaunchInfo(cmd=\"sourcekit-lsp\")，不走 create_launch_command，所以 ls_path 对它是空转。它只认 PATH 上的那一个。"
+    },
+    {
+      "id": "gopls",
+      "title": "Go 的符号",
+      "install": { "manager": "brew", "package": "gopls" },
+      "language_server": { "serena_language": "go", "bin": "gopls", "lookup": "path" },
+      "_manager_why": "go install 会装进 ~/go/bin，而那个目录不在这台机器的 PATH 上，serena 找不到。走 Homebrew 装进 /opt/homebrew/bin，PATH 上已经有它。",
+      "_lookup_why": "跟 sourcekit-lsp 一样写死成 ProcessLaunchInfo(cmd=\"gopls\")，ls_path 空转，只认 PATH。"
+    },
+    {
+      "id": "rust-analyzer",
+      "title": "Rust 的符号",
+      "install": { "manager": "brew", "package": "rust-analyzer" },
+      "language_server": { "serena_language": "rust", "bin": "rust-analyzer", "lookup": "ls_path" },
+      "_manager_why": "标准装法是 rustup component add，但这台机器的 Rust 来自 Homebrew，没有 rustup。同一个来源装，升级也走同一条命令。",
+      "_lookup_why": "它走 DependencyProviderSinglePath，ls_path 真的生效——不写的话 serena 会自己去下一份。"
     },
     {
       "id": "secrets",
