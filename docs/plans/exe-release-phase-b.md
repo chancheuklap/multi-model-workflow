@@ -31,6 +31,26 @@
       这不只是省字数：**v2 钥匙指着 v1 钥匙那个 bug，正是抄这段样板抄出来的**，而且它在日志里
       每一步都是绿的。样板由引擎生成，这一类 bug 整个消失。
 
+## 1a. 构建机准备搬进技能
+
+`build_machine_setup.py` 在两个产品仓库各有一份，**239 行一字不差**，只差一张产品名表和
+一句注释。一件事被抄了第二遍，就说明它不属于任何一个仓库。
+
+按内容分三堆：
+
+| 内容 | 归谁 | 怎么落 |
+| --- | --- | --- |
+| `UV_LINK_MODE=copy`、`PYTHONDONTWRITEBYTECODE=1`、TEMP 重定向到仓库内、ccache 探测后设 `NUITKA_CCACHE_BINARY`（Nuitka 不会自己从 PATH 找）、Defender 排除的加与撤 | **技能** | 渲染成 PowerShell 进 `release.ps1`，跟编译命令一样烤成字面量 |
+| uv 镜像、electron 镜像、ccache 的具体路径 | **这台构建机** | `remote-build.json` 里加一段可选的 `build_env`，跟 host/root 放一起——它们本来就是同一类事实 |
+| duck 那枚 vendored setuptools wheel 的 sha 核对（离线出包用）、按产品排除的 LOCALAPPDATA 缓存目录 | **产品** | 留在 `build_machine.setup` 钩子里 |
+
+Defender 那几条在 PowerShell 里是 `Add-MpPreference` / `Remove-MpPreference`，比现在这份 Python
+再 subprocess 回 PowerShell 更直接。
+
+- [ ] 技能侧渲染 setup/teardown。
+- [ ] 引擎把 `remote-build.json` 的 `build_env` 放进 `release-context.json`。
+- [ ] 两个仓库的 `build_machine_setup.py` 只留产品自己那部分。
+
 ## 1c. 删掉编出来的字段
 
 「通用」不等于「万能」。这个技能针对的就是 agentflow 那一种形式的产品：Electron 外壳 +
