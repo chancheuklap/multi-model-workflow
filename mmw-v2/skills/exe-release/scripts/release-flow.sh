@@ -672,6 +672,9 @@ cmd_init() {
   sd="$(release_subdir)"
   f="$top/$sd/$STATE_NAME"
   [ -f "$f" ] && die "已有未收束 release loop;先 release close 或复用"
+  # 上一轮的 attempt 目录不能留:attempt 号从 a0 重新数,旧目录跟本轮同名对撞,于是
+  # 「本轮的 a4-verify_key」读到的是上一个产品的结果,而没有任何一步报错。
+  rm -rf "$top/$sd/release-artifacts"
   mkdir -p "$top/$sd"
   mp="$(cd "$(dirname "$manifest")" && pwd)/$(basename "$manifest")"
   printf '%s' "$canon" | jq --arg mp "$mp" --arg sc "$source_commit" --argjson mr "$max_rounds" --argjson wall "$max_wall_clock" --arg ts "$(now)" \
@@ -844,7 +847,15 @@ _run_remote_build() {
   _write_remote_wrapper "$wrapper"
 
   _ssh_ps "$remote_host" "New-Item -ItemType Directory -Force -Path '$remote_input' | Out-Null" || return $?
+  # 失败的构建目录是现场,留着;但只留最近两个。再往前的没有人会读,而一个就是几个 GB。
+  # 只动 <12位commit>-<本产品> 这种目录名,交付目录与别的产品都不在范围内。
+  if ! _ssh_ps "$remote_host" "Get-ChildItem -LiteralPath '${remote_root%/}' -Directory -ErrorAction SilentlyContinue | Where-Object { \$_.Name -match '^[0-9a-f]{12}-$product\$' -and \$_.Name -ne '${source_commit:0:12}-$product' } | Sort-Object LastWriteTime -Descending | Select-Object -Skip 2 | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue"; then
+    echo "WARN: 远端旧构建目录清理失败(不影响本轮),需手动看一眼: $remote_root" >&2
+  fi
   scp "$archive" "$remote_host:$remote_input/source.zip" || return $?
+  # 传完即删:这份 zip 是 `git archive $(cat SOURCE_COMMIT.txt)` 一字不差重生得出来的,
+  # 不是记录,只是每一次尝试在 Mac 上多占的几百 MB。
+  rm -f "$archive"
   scp "$commit_file" "$remote_host:$remote_input/SOURCE_COMMIT.txt" || return $?
   scp "$script" "$remote_host:$remote_input/release.ps1" || return $?
   scp "$remote_context" "$remote_host:$remote_input/release-context.json" || return $?
@@ -863,7 +874,7 @@ _run_remote_build() {
   # 源码解压:在 harness 独立 ssh 会话里同步做完(~60s、断 ssh 无碍),失败必 fail-loud 不进构建。
   # (现役旧路径是在脱附会话内的 build ps1 里解压,同样可靠;此处前置做只是让解压失败在 Mac 侧即时可见。)
   # 先删旧 source 避免跨轮残留半解压文件;解压后校验目录非空,空即判失败。
-  if ! _ssh_ps "$remote_host" "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue '$remote_input/source'; Expand-Archive -Force '$remote_input/source.zip' '$remote_input/source'; if (-not (Test-Path '$remote_input/source') -or -not (Get-ChildItem -Force '$remote_input/source')) { exit 1 }"; then
+  if ! _ssh_ps "$remote_host" "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue '$remote_input/source'; Expand-Archive -Force '$remote_input/source.zip' '$remote_input/source'; if (-not (Test-Path '$remote_input/source') -or -not (Get-ChildItem -Force '$remote_input/source')) { exit 1 }; Remove-Item -Force -ErrorAction SilentlyContinue '$remote_input/source.zip'"; then
     echo "ERROR: 远端源码解压失败或产出为空(构建任务前置准备): $remote_input/source" >&2
     return 71
   fi
@@ -890,7 +901,7 @@ _run_remote_build() {
   # 结束可能仍在跑的构建 + 删计划任务:超时那类会有孤儿构建抢写下次同 commit 的 exitcode,其余虽只在
   # Task Scheduler 堆无害死条目也一并清。用子函数跑「/run + 轮询」拿 rc,函数尾部统一清理一次,不在每个
   # return 前重复 cleanup(避免上轮只补超时分支、漏掉 /run 失败与 exitcode 非法两个出口那类遗漏)。
-  local rc=0
+  local rc=0 delivered=0
   _remote_run_and_poll "$remote_host" "$remote_input" "$task_name" "$stage_dir" || rc=$?
   # 清理经 _ssh_ps 的 PowerShell 分号顺序执行(/end 失败不挡 /delete):cmd 的 `&` 在
   # PowerShell 5.1 解析失败、PS6+ 变后台 job,跨默认 shell 没有顺序语义。任务名与创建端
@@ -923,9 +934,19 @@ foreach ($it in $items) { Copy-Item -LiteralPath $it.FullName -Destination $Dest
 DELIVER_PS1
     if scp "$deliver_ps" "$remote_host:$remote_input/deliver-installer.ps1" >/dev/null 2>&1 &&
       deliver_out="$(ssh "$remote_host" "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File '$remote_input_win\\deliver-installer.ps1' -Dest '$dest_win' -SrcGlob '$src_glob_win'" 2>&1)"; then
-      printf '%s\n' "$deliver_out" | grep '^DELIVERED ' >&2 || true
+      printf '%s\n' "$deliver_out" | grep '^DELIVERED ' >&2 && delivered=1 || true
     else
       echo "WARN: 安装包交付到 $dest_win 失败(构建已成功,安装包仍在 $src_glob_win):$deliver_out" >&2
+    fi
+  fi
+  # 构建目录是过程,不是记录。安装包已经收进交付目录、日志已经回传到 stage_dir 之后,
+  # 剩下的源码树、node_modules 与中间产物(一轮几个 GB)再没有人会读。
+  # **失败的整个留着**:根因只存在于那台机器上的那个目录里。
+  if [ "$rc" -eq 0 ] && [ "$delivered" -eq 1 ]; then
+    if _ssh_ps "$remote_host" "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue '$remote_input'"; then
+      REMOTE_LOG_REF=""
+    else
+      echo "WARN: 远端构建目录清理失败,需手动删: $remote_input" >&2
     fi
   fi
   return "$rc"

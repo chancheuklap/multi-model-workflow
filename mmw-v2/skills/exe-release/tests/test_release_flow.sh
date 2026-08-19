@@ -25,7 +25,7 @@ echo s > s
 git add -A
 git commit -qm s
 
-jq 'del(.event_sink)' "$FIX/manifest.fake.json" > bad.json
+jq 'del(.product)' "$FIX/manifest.fake.json" > bad.json
 if bash "$RF" init --manifest bad.json 2>/dev/null; then
   no "bad manifest 应 fail-loud"
 else
@@ -147,10 +147,16 @@ if remote_build >/dev/null; then
     && ok "构建机拿到的是当前 HEAD" || no "SOURCE_COMMIT 不是 HEAD"
   [ "$(cat "$bd/source/s" 2>/dev/null)" = "$(cat s)" ] \
     && ok "源码真的解压到构建机且内容一致" || no "远端源码内容对不上"
-  for f in release.ps1 release-context.json run-release.ps1 run-release.cmd source.zip; do
+  for f in release.ps1 release-context.json run-release.ps1 run-release.cmd SOURCE_COMMIT.txt; do
     [ -s "$bd/$f" ] || { no "构建输入缺 $f"; continue; }
   done
-  ok "五份构建输入都上传了"
+  ok "构建输入都上传了"
+
+  # 守:源码 zip 是 `git archive $(cat SOURCE_COMMIT.txt)` 一字不差重生得出来的,不是记录。
+  # 一份几百 MB,每一次尝试在两端各留一份,几轮就把两台机器塞满。
+  [ ! -e "$bd/source.zip" ] && ok "解压后构建机上不留源码 zip" || no "构建机上留着源码 zip"
+  [ -z "$(find "$(dirname "$SF")/release-artifacts" -name source.zip 2>/dev/null)" ] \
+    && ok "上传后 Mac 上不留源码 zip" || no "Mac 上留着源码 zip"
 
   # 守:同一个 commit 出第二个产品时,只按 commit 命名会让后一个产品的重解压把前一个
   # 已产出的安装包整片冲掉。短 commit 是因为全 commit 会让 NSIS 的 include 路径越过
@@ -182,6 +188,37 @@ case "$task_cmd" in
   *\'*|*'"'*) no "计划任务命令行带引号(跨三个解析器会被当字面字符)" ;;
   *) ok "计划任务命令行裸传不带引号" ;;
 esac
+
+# 守:构建目录是过程不是记录。一轮的源码树、node_modules 与中间产物是几个 GB,安装包收进
+# 交付目录、日志回传之后再没有人会读它。留着的话构建机在几十轮内被自己的中间产物填满。
+remote_reset
+bash "$RF" init --manifest remote-build-manifest.json >/dev/null
+printf '{"repo_root":"/placeholder","product":"test-product","build_target":{"installer_glob":"out/*-setup.exe"}}\n' \
+  > release-context.json
+remote_build >/dev/null 2>&1 || true
+[ -n "$(find "$FAKE_REMOTE_ROOT" -name '*-setup.exe' -path '*releases*' 2>/dev/null)" ] \
+  && ok "安装包收进交付目录" || no "安装包没进交付目录"
+[ -z "$(build_dir)" ] && ok "成功并交付后删掉远端构建目录" || no "远端构建目录留在构建机上"
+bash "$RF" close >/dev/null
+
+# 守:失败的构建目录必须留下。根因只存在于那台机器上的那个目录里,删了就再也查不出来。
+remote_reset
+bash "$RF" init --manifest remote-build-manifest.json >/dev/null
+export FAKE_BUILD_OUTCOME=fail:3
+remote_build >/dev/null 2>&1 || true
+[ -n "$(build_dir)" ] && ok "失败的构建目录留在构建机上" || no "失败现场被删掉了"
+bash "$RF" close >/dev/null
+printf '{"repo_root":"/placeholder","product":"test-product"}\n' > release-context.json
+
+# 守:上一轮的 attempt 目录不能留。attempt 号从 a0 重新数,旧目录跟本轮同名对撞,于是
+# 「本轮的 a0-build」读到的是上一个产品的结果,而没有任何一步报错。
+remote_reset
+mkdir -p "$(dirname "$SF")/release-artifacts/a0-build"
+printf '别的产品的结果\n' > "$(dirname "$SF")/release-artifacts/a0-build/build.findings.json"
+bash "$RF" init --manifest remote-build-manifest.json >/dev/null
+[ ! -e "$(dirname "$SF")/release-artifacts/a0-build/build.findings.json" ] \
+  && ok "init 不继承上一轮的 attempt 目录" || no "上一轮的 attempt 目录跟本轮同名对撞"
+bash "$RF" close >/dev/null
 
 # 守:重跑同一个 commit 时,若不清上一轮的退出码,第一次轮询就会读到上轮的 0,把仍在跑
 # 或已失败的本轮判成成功——错的包会被当成好包发出去。
