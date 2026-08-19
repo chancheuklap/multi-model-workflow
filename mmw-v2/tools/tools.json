@@ -5,6 +5,11 @@
     "（pyright-langserver），同一个包的两个入口。分成两张表就会出现同一个引擎两个版本。",
     "",
     "两个消费者：编辑后诊断读 checker 那一段，serena 读 language_server 那一段。",
+    "",
+    "language_server 里的 extensions 不是给启动服务器用的，是用来判断一个仓库里有没有这门",
+    "语言。serena 头一次遇到一个仓库时只启用文件数最多的那一门（非交互模式下它不问），",
+    "别的语言的文件一律被当成「不是这个项目关心的类型」，find_symbol 直接拒绝。",
+    "serena-languages.py 拿这份后缀表把该有的语言补齐。",
     "两边拿到的是同一个安装，不是同一个版本号——是同一个可执行文件。",
     "",
     "install 说这个工具归哪个包管理器装。install.sh 照着装，每次装最新稳定版，不锁版本。",
@@ -44,7 +49,11 @@
         "parse": "pyright_json",
         "_no_config_why": "pyright 没有「配置文件放在仓库外」这种用法：它只认 --project，而 --project 同时决定搜索根，指到仓库外会让它找不到源码。用它的默认判定级别。"
       },
-      "language_server": { "serena_language": "python", "bin": "pyright-langserver" }
+      "language_server": {
+        "serena_language": "python",
+        "bin": "pyright-langserver",
+        "extensions": [".py", ".pyi"]
+      }
     },
     {
       "id": "oxlint",
@@ -71,7 +80,11 @@
         "package": "typescript-language-server",
         "companions": ["typescript"]
       },
-      "language_server": { "serena_language": "typescript", "bin": "typescript-language-server" },
+      "language_server": {
+        "serena_language": "typescript",
+        "bin": "typescript-language-server",
+        "extensions": [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"]
+      },
       "_companion_why": "typescript-language-server 只是个外壳，真正解析代码的是 typescript 包。不装它，服务器起得来但答不出东西。"
     },
     {
@@ -93,7 +106,11 @@
       "id": "bash-language-server",
       "title": "Shell 脚本的符号",
       "install": { "manager": "pnpm", "package": "bash-language-server" },
-      "language_server": { "serena_language": "bash", "bin": "bash-language-server" }
+      "language_server": {
+        "serena_language": "bash",
+        "bin": "bash-language-server",
+        "extensions": [".sh", ".bash"]
+      }
     },
     {
       "id": "swiftlint",
@@ -115,7 +132,12 @@
     {
       "id": "sourcekit-lsp",
       "title": "Swift 的符号",
-      "language_server": { "serena_language": "swift", "bin": "sourcekit-lsp", "lookup": "path" },
+      "language_server": {
+        "serena_language": "swift",
+        "bin": "sourcekit-lsp",
+        "lookup": "path",
+        "extensions": [".swift"]
+      },
       "_no_install_why": "Xcode 命令行工具自带，装在 /usr/bin/sourcekit-lsp。系统只有这一份，没有第二个版本可收。",
       "_lookup_why": "serena 把它写死成 ProcessLaunchInfo(cmd=\"sourcekit-lsp\")，不走 create_launch_command，所以 ls_path 对它是空转。它只认 PATH 上的那一个。"
     },
@@ -123,7 +145,12 @@
       "id": "gopls",
       "title": "Go 的符号",
       "install": { "manager": "brew", "package": "gopls" },
-      "language_server": { "serena_language": "go", "bin": "gopls", "lookup": "path" },
+      "language_server": {
+        "serena_language": "go",
+        "bin": "gopls",
+        "lookup": "path",
+        "extensions": [".go"]
+      },
       "_manager_why": "go install 会装进 ~/go/bin，而那个目录不在这台机器的 PATH 上，serena 找不到。走 Homebrew 装进 /opt/homebrew/bin，PATH 上已经有它。",
       "_lookup_why": "跟 sourcekit-lsp 一样写死成 ProcessLaunchInfo(cmd=\"gopls\")，ls_path 空转，只认 PATH。"
     },
@@ -131,7 +158,12 @@
       "id": "rust-analyzer",
       "title": "Rust 的符号",
       "install": { "manager": "brew", "package": "rust-analyzer" },
-      "language_server": { "serena_language": "rust", "bin": "rust-analyzer", "lookup": "ls_path" },
+      "language_server": {
+        "serena_language": "rust",
+        "bin": "rust-analyzer",
+        "lookup": "ls_path",
+        "extensions": [".rs"]
+      },
       "_manager_why": "标准装法是 rustup component add，但这台机器的 Rust 来自 Homebrew，没有 rustup。同一个来源装，升级也走同一条命令。",
       "_lookup_why": "它走 DependencyProviderSinglePath，ls_path 真的生效——不写的话 serena 会自己去下一份。"
     },
