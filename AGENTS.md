@@ -66,6 +66,7 @@ git diff <上一个 Squashed 提交> -- mmw-v2/upstream/skills/engineering/wayfi
 | `mmw-v2/mcp/resolve.py` | 唯一的展开器。`${MMW_ROOT}` 与密钥占位符都在这里换成真值 |
 | `mmw-v2/mcp/install-mcp.sh` | 写进五个宿主的配置。只加不删，同名才覆盖 |
 | `mmw-v2/mcp/graphify_mcp.py` | graphify 服务器本体。查询前先保证图对得上当前 checkout |
+| `mmw-v2/mcp/serena-languages.py` | 把一个仓库的 serena 项目语言补齐。见下 |
 | `mmw-v2/config/serena-readonly.yml` | serena 的只读白名单。上游默认 29 个工具，含任意命令执行和写文件 |
 | `mmw-v2/config/serena-connection-prompt.yml` | serena 下发的服务器说明。装到 `~/.serena/prompt_templates/`，**不是** `serena-readonly.yml` 里的 `prompt` |
 | `mmw-v2/config/retrieval-contract.json` | 裁剪面的唯一事实来源。`probe.py` 拿真实工具列表跟它**集合相等**比对 |
@@ -74,6 +75,30 @@ git diff <上一个 Squashed 提交> -- mmw-v2/upstream/skills/engineering/wayfi
 
 **服务器说明是让 agent 主动调用检索的唯一渠道**——五个宿主都在握手时把它读进上下文（逐一实测过），
 而技能正文里一个字都不提这两台服务器。改说明就是改这一层，一处改动五家共用。
+
+### serena 只认一门语言
+
+serena 头一次遇到一个仓库时，非交互地**只启用文件数最多的那一门语言**
+（`serena_config.py` 里 `languages_to_use = [top_language_pair[0]]`，其余的只在 `interactive`
+为真时才逐个问，而它当 MCP 服务器跑时那个值是 `False`）。
+
+后果不是「那门语言慢一点」，是**直接查不到**：`is_ignored_path` 把不属于已启用语言的文件判成
+ignored，`find_symbol` 抛 `Explicitly requested symbols in '…' while the path is ignored`——
+报错文字里完全不提语言这回事。一个 335 个 `.sh` 对 75 个 `.py` 的仓库拿到的就是
+`languages: [bash]`，之后每一次查 Python 符号都被拒绝。
+
+`serena-languages.py` 按 `tools/tools.json` 里每个 `language_server` 的 `extensions` 数一遍仓库
+里真有哪几门语言，把 `.serena/project.yml` 的 `languages:` 补齐。只加不删，只改那一段文本
+（serena 生成的配置里每个键上面都有说明，YAML 读写往返会把它们全抹掉）。
+
+**触发点在 `graphify_mcp.py` 的 `initialize`。** 这件事不属于 graphify，放那儿是因为它需要一个
+「每次会话、在仓库目录里、跑一次」的落点，而五个宿主的 SessionStart 配置形状各不相同——按宿主
+分支正是「宿主边界」那一节要避免的。MCP 服务器的握手满足这三条，五家共用一份，而 graphify 是
+我们自己唯一的服务器。
+
+**已知时序窟窿：**serena 与 graphify 都在会话开始时启动，谁先由宿主定。serena 先跑的话这一次
+会话它手里还是那一门语言，下一次会话才生效。**一个全新仓库的第一次会话仍可能查不到非主语言的
+符号。** 要当场生效就手动跑一次 `python3 mmw-v2/mcp/serena-languages.py <仓库>` 再重开会话。
 
 技能改完下次调用就生效，**服务器说明不是**：改完要重跑 `bash mmw-v2/install.sh`。Pi 把握手拿到的
 说明缓存在 `~/.pi/agent/mcp-cache.json`，判失效只看配置哈希（command、args、env、cwd、工具过滤），

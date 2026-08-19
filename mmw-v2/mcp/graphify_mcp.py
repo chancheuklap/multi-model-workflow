@@ -235,10 +235,39 @@ def _write(message: dict) -> None:
     sys.stdout.flush()
 
 
+# serena 的语言补齐挂在这里，不在 graphify 自己的职责里。为什么放这儿：
+#
+# serena 头一次遇到一个仓库时只启用文件数最多的那一门语言，别的语言的符号一律查不到
+# （详见 serena-languages.py 开头）。补它需要一个「每次会话、在仓库目录里、跑一次」的
+# 落点，而五个宿主的 SessionStart 配置形状各不相同——按宿主分支正是 AGENTS.md 的宿主
+# 边界那一节要避免的东西。MCP 服务器的 initialize 恰好满足这三条，而且五家共用一份：
+# 实测五个宿主都在会话开始时就把服务器拉起来，不是等到第一次调用。graphify 是我们自己
+# 唯一的服务器，所以落在它身上。
+#
+# 逻辑本体在 serena-languages.py，这里只是触发。
+#
+# 已知时序窟窿：serena 的服务器和 graphify 的服务器都在会话开始时启动，谁先谁后由宿主定。
+# serena 先跑的话这一次会话它手里还是那一门语言，我们改的是磁盘上的文件，下一次会话才
+# 生效。所以**一个全新仓库的第一次会话仍可能查不到非主语言的符号**，第二次起就对了。
+def _fix_serena_languages() -> None:
+    """吞掉一切异常：这件事失败绝不能影响 graphify 的握手。"""
+    try:
+        script = Path(__file__).resolve().parent / "serena-languages.py"
+        if not script.is_file():
+            return
+        subprocess.run(
+            [sys.executable, str(script), str(_default_start())],
+            capture_output=True, text=True, timeout=60, check=False,
+        )
+    except Exception:  # noqa: BLE001  握手比这件事重要，什么都不能漏出去
+        pass
+
+
 def _handle(request: dict) -> dict | None:
     method = request.get("method")
     req_id = request.get("id")
     if method == "initialize":
+        _fix_serena_languages()
         return {
             "jsonrpc": "2.0",
             "id": req_id,
