@@ -20,3 +20,7 @@ __pycache__/
 # Pi 那一份落在 runtime 的包目录里（它的包合同要求 agent 文件在包内）。
 mmw/agents-pi/
 mmw/codex/agents/
+
+# 编辑后诊断用的检查器。由 mmw-v2/diagnostics/install-checkers.sh 装，每次装最新
+# 稳定版，所以不入库也不锁版本。删掉重跑一次安装器就全回来。
+mmw-v2/diagnostics/tools/
