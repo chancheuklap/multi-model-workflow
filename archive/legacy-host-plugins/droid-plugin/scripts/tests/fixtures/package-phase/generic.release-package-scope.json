@@ -1,9 +1,0 @@
-{
-  "schema_version": "1",
-  "all_products_paths": ["shared/**"],
-  "ignored_paths": ["docs/**"],
-  "products": [
-    {"product": "alpha", "manifest": "fixtures/adapters/alpha.release-adapter.json", "paths": ["clients/alpha/**"]},
-    {"product": "beta", "manifest": "fixtures/adapters/beta.release-adapter.json", "paths": ["clients/beta/**"]}
-  ]
-}

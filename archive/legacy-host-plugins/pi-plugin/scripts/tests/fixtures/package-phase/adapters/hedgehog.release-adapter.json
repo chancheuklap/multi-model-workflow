@@ -1,9 +1,0 @@
-{
-  "schema_version": "1",
-  "product": "hedgehog",
-  "build_target": {"desktop_dir": "desktop-hedgehog", "runtime_lane": "embedded_python", "entry_module": "hedgehog", "installer_brand": "Hedgehog"},
-  "stages": [{"name": "build", "run": ["build"]}],
-  "diagnose": ["diagnose"], "derive": ["derive"], "editable_paths": [], "protection_source": "release-protection.json",
-  "build_hooks": {"runtime_prepare": ["prepare"], "artifact_scan": ["scan"], "package_integrity": ["integrity"]},
-  "post_fix_gate": ["gate"], "fix_executor": ["fix"], "event_sink": ["sink"]
-}

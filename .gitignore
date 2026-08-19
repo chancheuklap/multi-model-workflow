@@ -1,16 +1,1 @@
-.DS_Store
-*.swp
-*.swo
-*~
-.claude/*
-!.claude/skills/
-.worktrees/
-.codex/multi-model-workflow/
-.serena/
-graphify-out/
-node_modules/
-.reviews/
-.scratch/
-__pycache__/
-.dispatch/
-.release/
+node_modules
