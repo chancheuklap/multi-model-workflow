@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""把 mmw/.mcp.json 展开成某个执行面要的形状。唯一的展开器。
+"""把 mmw-v2/.mcp.json 展开成某个宿主要的形状。唯一的展开器。
 
-`.mcp.json` 是服务器定义的唯一事实来源，但四个执行面各要不同的形状，而且里面的
+`.mcp.json` 是服务器定义的唯一事实来源，但各宿主要不同的形状，而且里面的
 `${…}` 占位符要在写出去之前换成这台机器上的真值。展开规则收在本文件一处——分散
-到 install-mcp.sh、claude-code.sh、probe.py 各写一遍，加一条新占位符就要改三处，
+到 install-mcp.sh、probe.py 各写一遍，加一条新占位符就要改多处，
 漏改的那一处会静默写出带 `${…}` 原文的配置。
 
 两类占位符：
 
-    ${CLAUDE_PLUGIN_ROOT}   插件根的绝对路径
+    ${MMW_ROOT}             mmw-v2/ 的绝对路径
     ${VAR} / ${VAR:-默认}   先查进程环境，再查密钥文件，都没有就用默认值
 
 密钥文件是 ~/.mmw/secrets.env（`MMW_SECRETS_FILE` 可覆盖），`KEY=value` 一行一条，
@@ -27,7 +27,7 @@ install-mcp.sh 装完会对每个保留下来的变量查一次可达性，取�
     resolve.py --format pi     pi 的 ~/.pi/agent/mcp.json 要的服务器 map（带 type）
     resolve.py --format cursor Cursor 的 ~/.cursor/mcp.json 要的服务器 map（不带 type）
     resolve.py --format claude Claude Code 的 ~/.claude.json 要的服务器 map
-    resolve.py --format codex  Claude Code 启动 headless Codex 时注入的 key=value
+    resolve.py --format codex  起 headless Codex 时用 --config 注入的 key=value
     resolve.py --merge-toml P  把服务器合并进 P 这份 config.toml（Grok 与 Codex）
 """
 
@@ -40,8 +40,8 @@ import re
 import sys
 from pathlib import Path
 
-PLUGIN_ROOT = Path(__file__).resolve().parent.parent
-MCP_JSON = PLUGIN_ROOT / ".mcp.json"
+MMW_ROOT = Path(__file__).resolve().parent.parent
+MCP_JSON = MMW_ROOT / ".mcp.json"
 
 # ${VAR} 与 ${VAR:-默认}。默认值里不允许再出现 }，够用且不用写递归解析。
 PLACEHOLDER = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}")
@@ -81,7 +81,7 @@ class Resolver:
         return os.environ.get(name) or self.secrets.get(name) or ""
 
     def expand(self, value: str) -> str:
-        value = value.replace("${CLAUDE_PLUGIN_ROOT}", str(PLUGIN_ROOT))
+        value = value.replace("${MMW_ROOT}", str(MMW_ROOT))
 
         def sub(match: re.Match[str]) -> str:
             name, default = match.group(1), match.group(2)
@@ -259,7 +259,7 @@ def main() -> int:
     opts = parser.parse_args()
 
     if not MCP_JSON.is_file():
-        print(f"ERROR: 插件里没有 .mcp.json: {MCP_JSON}", file=sys.stderr)
+        print(f"ERROR: 没找到 .mcp.json: {MCP_JSON}", file=sys.stderr)
         return 2
 
     resolver = Resolver()

@@ -5,7 +5,7 @@
       "args": [
         "start-mcp-server",
         "--context",
-        "${CLAUDE_PLUGIN_ROOT}/config/serena-readonly.yml",
+        "${MMW_ROOT}/config/serena-readonly.yml",
         "--project-from-cwd",
         "--enable-web-dashboard",
         "false",
@@ -17,9 +17,9 @@
     },
     "graphify": {
       "command": "python3",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/graphify_mcp.py"],
+      "args": ["${MMW_ROOT}/mcp/graphify_mcp.py"],
       "env": {
-        "GRAPHIFY_ENSURE_BIN": "${CLAUDE_PLUGIN_ROOT}/mcp/graphify_ensure.py"
+        "GRAPHIFY_ENSURE_BIN": "${MMW_ROOT}/mcp/graphify_ensure.py"
       }
     },
     "context7": {

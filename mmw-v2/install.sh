@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# 把 skills.txt 列出的上游技能软链进本机装了的每个宿主。
+# 装两样东西进本机的每个宿主：skills.txt 列出的上游技能（软链），以及 .mcp.json
+# 声明的检索服务器（写进宿主自己的配置，由 mcp/install-mcp.sh 完成）。
 #
 # 软链不是拷贝：宿主读的就是仓库里那个文件。在用技能的当中直接改
 # mmw-v2/upstream/skills/<桶>/<名>/SKILL.md，下一次调用就是新的，不用重装。
 # （只有 frontmatter 的 description 是宿主启动时扫的，改它要重开会话。）
+#
+# MCP 那一侧写的是绝对路径，指向这个 checkout：要从主检出装，不要从任务 worktree 装。
 #
 #   install.sh            装
 #   install.sh --check    只看装没装，不动磁盘。齐了回 0，缺东西回 1
@@ -131,12 +134,23 @@ done
 
 [ "$installed_hosts" -gt 0 ] || die "一个宿主都没找到，什么都没装"
 
+# 检索服务器。技能是软链、MCP 是写进各宿主自己的配置文件，两件事形状不同，
+# 所以分两个脚本；这里只负责按同一个模式调用它，服务器定义在 .mcp.json。
+echo
 if [ "$mode" = check ]; then
-  [ "$rc" -eq 0 ] && echo "齐了：$installed_hosts 个宿主 × ${#wanted_names[@]} 个技能"
+  bash "$ROOT/mcp/install-mcp.sh" --check || rc=1
+  bash "$ROOT/mcp/install-mcp.sh" --check-toml || rc=1
+else
+  bash "$ROOT/mcp/install-mcp.sh" || rc=$?
+fi
+
+if [ "$mode" = check ]; then
+  [ "$rc" -eq 0 ] && echo "齐了：$installed_hosts 个宿主 × ${#wanted_names[@]} 个技能，加三台检索服务器"
 else
   echo
   echo "源目录：$SKILLS_SRC"
   echo "改技能直接改源目录里的文件，宿主下次调用就是新的。"
+  echo "MCP 写的是绝对路径，指向 $ROOT——换仓库位置要重跑本脚本。"
 fi
 
 exit "$rc"
