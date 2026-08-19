@@ -41,11 +41,20 @@ python3 mmw/codex/runtime.py materialize      # Codex，写进 ~/.codex/agents/
 
 `mmw/skill-rebuilds/` 保存上游翻译与技能重建的候选材料。
 
-`vendor/mattpocock-skills/` 是上游 `mattpocock/skills` 的完整副本，通过 Git subtree squash 更新。不要手改；更新时运行：
+`mmw-v2/` 是正在建的下一代 MMW。它不复制上游技能，直接改上游那一份。
+
+`mmw-v2/upstream/` 是上游 `mattpocock/skills` 的 Git subtree（squash）。它**是可编辑的工作副本**，
+不是只读供应商目录：`mmw-v2/install.sh` 把 `mmw-v2/skills.txt` 列出的技能软链进各宿主，宿主读的就是
+这里的文件。在用某个技能的当中发现要改，就直接改这里，下一次调用即生效（改 frontmatter 的
+`description` 要重开会话，那一行是宿主启动时扫的）。
+
+上游更新走一条命令，你的改动和上游改动由 git 三方合并，冲突照常解：
 
 ```bash
-git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock/skills main --squash
+git subtree pull --prefix mmw-v2/upstream https://github.com/mattpocock/skills main --squash
 ```
+
+「我们改了什么」不另立台账，跟基线 diff 即可：`git diff <上一个 Squashed 提交> -- mmw-v2/upstream/skills/<桶>/<名>/`。
 
 根 `mmw-skill-map.html` 是当前 MMW 架构的可视化产物，必须保留并随架构变化更新。
 
