@@ -246,6 +246,42 @@ check_serena_prompt() {
   return 1
 }
 
+# Pi 的说明缓存。它把每台服务器握手拿到的 instructions 与工具列表存进 mcp-cache.json，
+# 七天有效，判失效只看配置哈希（command、args、env、cwd、工具过滤那几项）。说明正文
+# 不在哈希里，所以改 config/serena-connection-prompt.yml 或 mcp/graphify_mcp.py 的
+# INSTRUCTIONS 之后，配置一个字没动，Pi 就继续端出上一版，最长七天。实测过：新说明
+# 已经装好，pi -p 打印出来的还是旧的那一份。
+#
+# 删掉我们这几台的条目，就是这套缓存自带的失效手段：Pi 下次启动重新探测并写回，而它
+# 的写入是合并（已有条目 ∪ 新探到的），用户自己配的别的服务器不受影响。
+invalidate_pi_cache() {
+  local cache dir names tmp dropped
+  cache="$(dirname "$PI_MCP")/mcp-cache.json"
+  [ -f "$cache" ] || return 0
+  jq -e . "$cache" >/dev/null 2>&1 || {
+    echo "注意  $cache 不是合法 JSON，没清 Pi 的说明缓存；Pi 可能继续用旧说明" >&2
+    return 0
+  }
+
+  names="$(translate pi | jq -c 'keys')" || return 2
+  dropped="$(jq -r --argjson n "$names" \
+    '[(.servers // {} | keys[]) as $k | select($n | index($k))] | length' "$cache")"
+  [ "$dropped" -gt 0 ] || return 0
+
+  dir="$(dirname "$cache")"
+  tmp="$(mktemp "$dir/.mcpcacheXXXXXX")"
+  jq --argjson n "$names" \
+    '.servers = ((.servers // {}) | with_entries(select(.key as $k | $n | index($k) | not)))' \
+    "$cache" > "$tmp"
+  if [ ! -s "$tmp" ] || ! jq -e . "$tmp" >/dev/null 2>&1; then
+    rm -f "$tmp"
+    echo "ERROR: 拒绝写入空或非法 JSON，$cache 保留原样" >&2
+    return 1
+  fi
+  mv "$tmp" "$cache"
+  echo "清掉  Pi 的说明缓存 ${dropped} 台 → ${cache}（下次启动重新探测）"
+}
+
 rc=0
 if [ "$mode" = check ]; then
   check_face pi "$PI_MCP" || rc=1
@@ -257,6 +293,7 @@ elif [ "$mode" = check-toml ]; then
   check_toml_face codex "$CODEX_CONFIG" || rc=1
 else
   install_face pi "$PI_MCP" || rc=$?
+  invalidate_pi_cache || rc=$?
   install_face cursor "$CURSOR_MCP" || rc=$?
   install_face claude "$CLAUDE_JSON" wrapped || rc=$?
   install_toml_face grok "$GROK_CONFIG" || rc=$?
