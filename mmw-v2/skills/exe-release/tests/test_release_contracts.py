@@ -26,11 +26,20 @@ def test_manifest_rejects_unknown_field():
         rc.ReleaseAdapterManifest.model_validate({**good, "bogus": 1})
 
 
-def test_manifest_missing_one_of_eight_rejected():
+@pytest.mark.parametrize(
+    "field",
+    ["event_sink", "derive", "post_fix_gate", "fix_executor", "protection_source"],
+)
+def test_a_product_can_ship_before_it_has_any_of_the_self_heal_machinery(field):
+    """自愈与观测那一套是可选装备，不是入场券。
+
+    一个产品第一次出包时，它没有派生物要重生、没有闸门要跑、没有日志系统要接。
+    把这些设成必填，等于要求「能出包」之前先写四份仓库侧 Python——而这个技能存在的
+    全部理由就是不必再写那些。
+    """
     good = _fake_manifest()
-    del good["event_sink"]
-    with pytest.raises(Exception):
-        rc.ReleaseAdapterManifest.model_validate(good)
+    del good[field]
+    assert getattr(rc.ReleaseAdapterManifest.model_validate(good), field) is None
 
 
 def test_manifest_empty_stages_allowed():
@@ -47,7 +56,7 @@ def test_manifest_rejects_echo_stage_as_fake_build_teeth():
         rc.ReleaseAdapterManifest.model_validate(good)
 
 
-@pytest.mark.parametrize("field", ["build_target", "protection_source", "build_hooks"])
+@pytest.mark.parametrize("field", ["build_target", "build_hooks", "stages", "diagnose"])
 def test_manifest_requires_v3_contract_fields(field):
     bad = _fake_manifest()
     del bad[field]
@@ -65,9 +74,7 @@ def test_manifest_rejects_removed_v2_fields(field):
         rc.ReleaseAdapterManifest.model_validate(bad)
 
 
-@pytest.mark.parametrize(
-    "field", ["desktop_dir", "runtime_lane", "entry_module", "installer_brand"]
-)
+@pytest.mark.parametrize("field", ["runtime_lane", "entry_module", "installer_brand"])
 def test_build_target_requires_every_build_identity_field(field):
     bad = deepcopy(_fake_manifest()["build_target"])
     del bad[field]
@@ -79,6 +86,14 @@ def test_build_target_requires_every_build_identity_field(field):
         rc.BuildTarget.model_validate(
             {**_fake_manifest()["build_target"], "runtime_lane": "other"}
         )
+
+
+def test_a_product_without_an_electron_shell_has_no_desktop_dir():
+    """纯后端产品没有 desktop_dir。必填它，就是逼这种钥匙填一个不存在的目录——
+    然后装配出来的脚本会带着一个指向空处的 $DesktopDir 跑到某一步才失败。"""
+    bare = deepcopy(_fake_manifest()["build_target"])
+    del bare["desktop_dir"]
+    assert rc.BuildTarget.model_validate(bare).desktop_dir is None
 
 
 def test_native_ext_dll_requires_non_empty_names_and_package_dir_target():

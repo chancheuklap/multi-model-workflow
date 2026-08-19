@@ -124,13 +124,7 @@ ${RENDERED_HOOK_FUNCTIONS}
 $ReleaseContextPath = (Resolve-Path -LiteralPath $ReleaseContextPath).Path
 $Context = Get-Content -Raw -Encoding UTF8 $ReleaseContextPath | ConvertFrom-Json
 $RepoRoot = [string]$Context.repo_root
-$DesktopDir = Join-Path $RepoRoot ${DESKTOP_DIR_LITERAL}
-$DistDir = Join-Path $DesktopDir ${DIST_DIR_LITERAL}
-$UnpackedDir = Join-Path $DesktopDir ${UNPACKED_DIR_LITERAL}
-
-# 正式安装包压缩档：嵌入式 runtime 几百 MB，压缩档对客户下载体验有实际影响，所以默认最高档。
-# 现场验证时用环境变量压到 store 换速度。
-$BuilderCompression = ${COMPRESSION_EXPR}
+${ELECTRON_SETUP}
 
 # build_machine 协议：setup 在耗时步骤前备好构建机（uv 镜像 / ccache / electron 镜像 /
 # TEMP 重定向等 env + 系统级杀软排除 + 构建缓存预检），stdout 每行 KEY=VALUE 应用到本进程 env，

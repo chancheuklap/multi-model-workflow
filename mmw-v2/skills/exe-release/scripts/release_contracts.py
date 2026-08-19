@@ -86,7 +86,7 @@ class NativeExtDll(BaseModel):
 
     Nuitka 冻结后端不会自动带 abi3 转发库 / MSVC C++ 运行库，必须显式打进包。
     这些事实随钥匙声明、由验钥匙对实际 `.pyd` 核对、由拼脚本器落进脚本；漏一条
-    = 客户跑到该功能就空 ImportError 整批崩（如 uharfbuzz 字幕、hedgehog 后端）。
+    = 客户跑到该功能就空 ImportError 整批崩。
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -122,13 +122,13 @@ class BuildTarget(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    desktop_dir: str = Field(min_length=1)
+    # 只有带 Electron 外壳的产品有。纯后端产品不声明。
+    desktop_dir: str | None = None
     runtime_lane: RuntimeLane
     entry_module: str = Field(min_length=1)
     installer_brand: str = Field(min_length=1)
-    # 产品成品安装包在源码树里的落点（仓库相对 glob）。出包成功后引擎按此把安装包收拢到统一交付目录
-    # （$RELEASE_DELIVERY_ROOT/<product>/），不再让客户去 commit 哈希构建目录里翻。产品各自落点不同
-    # （duck 在 runtime/assistant-release，parrot/hedgehog 在 desktop-*/dist），故随钥匙声明、引擎零产品知识。
+    # 成品安装包在源码树里的落点（仓库相对 glob）。出包成功后引擎按此把安装包从 commit 哈希构建目录
+    # 收拢到统一交付目录。落点每个产品都不同，所以它是钥匙的值——引擎因此不需要知道任何产品。
     installer_glob: str | None = None
     deps_extra: str | None = None
     asset_roots: list[str] = Field(default_factory=list)
@@ -142,6 +142,9 @@ class ReleaseBuildHooks(BaseModel):
 
     钩子挂在阶段上，不挂在步号上：步号随钥匙声明的内容变，阶段不变。
 
+    全部可选。钩子是「这个产品自己要在这个时刻做的事」，产品没有就是没有——
+    强制声明只会逼出一条什么也不做的命令，那比不声明更糟：它看着配好了。
+
     | 阶段 | 钩子 | 这时候做什么 |
     | --- | --- | --- |
     | runtime_ready | runtime_prepare / asset_parity / credential_proof | 造运行时、核资产、出凭证证明 |
@@ -153,16 +156,14 @@ class ReleaseBuildHooks(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    # v1 必须有：那时整条出包链都靠它。v2 起可以没有——没有嵌入式运行时要造的产品
-    # （比如 duck）这一步本来就是空的。
+    # 没有嵌入式运行时要造的产品，这一步本来就是空的。
     runtime_prepare: list[str] | None = None
-    artifact_scan: list[str] = Field(min_length=1)
-    package_integrity: list[str] = Field(min_length=1)
     asset_parity: list[str] | None = None
     credential_proof: list[str] | None = None
-    # v2 新增两个槽。
     backend_verify: list[str] | None = None
+    artifact_scan: list[str] | None = None
     installer: list[str] | None = None
+    package_integrity: list[str] | None = None
 
     @model_validator(mode="after")
     def _declared_hooks_must_have_argv(self) -> "ReleaseBuildHooks":
@@ -197,10 +198,8 @@ class BuildMachine(BaseModel):
 
 # ── 钥匙 schema v2：编译后端 ────────────────────────────────────────────────────
 #
-# v1 里「怎么编译这个产品的 Python 后端」写在产品仓库的三份 Python 里
-# （release_builder._build_duck_nuitka_command / build_parrot_dubbing_python_dist /
-# build_hedgehog_python_dist），三份各自硬编码同一套 Nuitka 知识。v2 把它们的**差异**
-# 收进下面这些字段，**动作**收进技能的 builders/nuitka.py。
+# 「怎么编译这个产品的 Python 后端」从前写在每个产品仓库自己的 Python 里，各自硬编码
+# 同一套 Nuitka 知识。现在**差异**收进下面这些字段，**动作**收进技能的 builders/nuitka.py。
 #
 # 路径字段一律是仓库相对 POSIX 路径，可用两个模板变量：
 #   ${DESKTOP_DIR}  build_target.desktop_dir
@@ -227,7 +226,7 @@ class NuitkaJobs(BaseModel):
 
 
 class NuitkaTarget(BaseModel):
-    """一个编译产物。duck 有两个（launcher + core），parrot / hedgehog 各一个。"""
+    """一个编译产物。一个产品可以有多个（例如启动器与主进程各一个）。"""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -238,7 +237,7 @@ class NuitkaTarget(BaseModel):
 
 class BuiltExeSmoke(BaseModel):
     """编译完当场用产物自己跑一次 import：把「冻结包缺动态依赖」暴露在构建机上，
-    而不是等客户装完打开才崩。`--run-module` 是这三个产品后端共用的自检入口。"""
+    而不是等客户装完打开才崩。产品后端要接得住这个自检入口。"""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -253,10 +252,10 @@ class BuiltExeSmoke(BaseModel):
 class PythonBackend(BaseModel):
     """用 Nuitka 把 Python 后端编成 Windows exe。
 
-    坑（三个产品各踩过一次，写死在这里不再让下一个产品重踩）：
+    坑（每一条都是一次真实的出包失败换来的，写死在这里不再让下一个产品重踩）：
     - `--include-package` 只带代码，包内的数据文件要另外 `--include-package-data`。
     - 函数体里 lazy import 的 C 扩展 Nuitka 静态追不到，必须显式 include。
-    - abi3 扩展（如 uharfbuzz `_harfbuzz.pyd`）按名字链 `python3.dll` 转发库和 MSVC
+    - abi3 扩展按名字链 `python3.dll` 转发库和 MSVC
       C++ 运行库，Nuitka 都不带；而 Windows 加载 .pyd 只在 .pyd 自己的目录找依赖，
       所以补的 DLL 必须落到那个包目录，落 dist 根找不到。见 native_ext_dll。
     - GUI 程序要 `--windows-console-mode=disable`，否则客户双击弹黑框。
@@ -266,8 +265,7 @@ class PythonBackend(BaseModel):
 
     builder: Literal["nuitka"] = "nuitka"
     # 跑 Nuitka 的解释器命令，到 `python` 为止（`-m nuitka` 由技能补）。
-    # 三个产品各不同：duck 用 `uv run --extra build --no-dev python`，
-    # parrot 用 `uv run --extra parrot-dubbing python`，hedgehog 两个 extra 都要。
+    # 它决定编译时解析到哪一套依赖，所以是钥匙的值：装了什么就编出什么。
     runner: list[str] = Field(min_length=1)
     output_dir: str = Field(min_length=1)
     build_root: str | None = None
@@ -306,12 +304,22 @@ class ElectronBuild(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    # 前端包管理器与它的两条命令。默认那套是最常见的组合，产品用别的就在这里说。
+    # 写死在技能里，等于把「换个包管理器就得改技能」写进设计。
+    package_manager: str = "pnpm"
+    # 装依赖。锁文件是依赖的唯一权威，出包时静默改写它意味着这次出的包
+    # 用的依赖跟仓库记录的不是一套，所以默认带 --frozen-lockfile。
+    install_args: list[str] = Field(
+        default_factory=lambda: ["install", "--frozen-lockfile", "--prefer-offline"]
+    )
+    # 打前端的 package.json 脚本名。
+    build_script: str = "build"
     # 打完 `--win dir` 之后产物落在哪（相对 desktop_dir）。
     unpacked_dir: str = "dist/win-unpacked"
     dist_dir: str = "dist"
     compression: Literal["store", "normal", "maximum"] = "maximum"
     compression_env: str | None = "MMW_ELECTRON_BUILDER_COMPRESSION"
-    # 出安装包这一步交给 electron-builder，还是产品自己的脚本（duck 手写 NSIS）。
+    # 出安装包这一步交给 electron-builder，还是产品自己那套交付格式。
     installer: Literal["electron_builder", "repo_hook"] = "electron_builder"
 
 
@@ -363,13 +371,20 @@ class ReleaseAdapterManifest(BaseModel):
     diagnose_core_exe_glob: str | None = None
     stages: list[StageSpec]
     diagnose: list[str] = Field(min_length=1)
-    derive: list[str] = Field(min_length=1)
-    editable_paths: list[str]
-    protection_source: str = Field(min_length=1)
     build_hooks: ReleaseBuildHooks
-    post_fix_gate: list[str] = Field(min_length=1)
-    fix_executor: list[str] = Field(min_length=1)
-    event_sink: list[str] = Field(min_length=1)
+    # ── 以下都是自愈与观测的可选装备 ──────────────────────────────────────
+    #
+    # 一个产品第一次出包时，这些一个都没有：没有派生物要重生，没有闸门要跑，
+    # 没有日志系统要接。把它们设成必填，等于要求「能出包」之前先写四份仓库侧
+    # Python——而那正是这个技能存在的理由的反面。
+    #
+    # 没声明就没有那一步：引擎跳过，不报错，也不假装做过。
+    fix_executor: list[str] | None = None
+    editable_paths: list[str] = Field(default_factory=list)
+    protection_source: str | None = None
+    post_fix_gate: list[str] | None = None
+    derive: list[str] | None = None
+    event_sink: list[str] | None = None
 
     @model_validator(mode="after")
     def _version_matches_content(self) -> "ReleaseAdapterManifest":

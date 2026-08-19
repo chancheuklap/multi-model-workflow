@@ -68,7 +68,7 @@ def test_assembles_and_the_script_parses_as_one_pipeline(tmp_path):
     assert titles == [
         "Prepare build machine",
         "Validate prerequisites",
-        "Install frozen frontend dependencies",
+        "Install frontend dependencies",
         "Prepare runtime",
         "Compile Python backend",
         "Verify compiled backend",

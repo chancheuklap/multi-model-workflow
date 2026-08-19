@@ -4,10 +4,8 @@
 # ///
 """按钥匙生成 Nuitka 编译命令。
 
-三个产品原本各有一份手写的 Nuitka argv（`release_builder._build_duck_nuitka_command`、
-`build_parrot_dubbing_python_dist.build_backend_compile_command`、
-`build_hedgehog_python_dist.build_backend_compile_command`）。三份写的是同一套知识，
-只有值不同。这个模块是那套知识的唯一一份，值来自钥匙的 `python_backend` 段。
+「怎么正确调用 Nuitka 打一个 Windows 程序」是同一套知识，产品之间只有值不同。
+这个模块是那套知识的唯一一份，值来自钥匙的 `python_backend` 段。
 
 ## 两个渲染面
 
@@ -21,7 +19,7 @@
 
 两个出口共用同一份片段，所以它们不可能各自漂移。
 
-## Nuitka 的坑（三个产品各踩过，写在这里不再重踩）
+## Nuitka 的坑（每一条都是一次真实的出包失败换来的）
 
 - `--include-package` 只带代码。包里的数据文件要另外一条 `--include-package-data`，
   两条必须成对，漏了在客户机上是运行时 FileNotFound。
@@ -74,13 +72,17 @@ class Segment:
         return cls(tuple(parts))
 
 
-def expand(value: str, *, desktop_dir: str, build_root: str | None) -> str:
+def expand(value: str, *, desktop_dir: str | None, build_root: str | None) -> str:
     """把路径里的 `${DESKTOP_DIR}` / `${BUILD_ROOT}` 换成钥匙声明的值。
 
     展开后必须仍是一条不含 `..` 的仓库相对 POSIX 路径——钥匙不写绝对路径，因为写钥匙的
     人在 Mac 上，跑命令的是 Windows 构建机。
     """
-    result = value.replace("${DESKTOP_DIR}", desktop_dir)
+    if "${DESKTOP_DIR}" in value and not desktop_dir:
+        raise ValueError(
+            f"用了 ${{DESKTOP_DIR}} 但钥匙没声明 build_target.desktop_dir: {value}"
+        )
+    result = value.replace("${DESKTOP_DIR}", desktop_dir or "")
     if "${BUILD_ROOT}" in result:
         if not build_root:
             raise ValueError(f"用了 ${{BUILD_ROOT}} 但钥匙没声明 build_root: {value}")
@@ -117,7 +119,7 @@ def commands(
     native_ext_dll: list | None = None,
     job_count: int | None = None,
 ) -> list[list[Segment]]:
-    """一个 target 一条命令。duck 编两个（launcher + core），另外两个产品各编一个。"""
+    """一个 target 一条命令。"""
     count = job_count if job_count is not None else jobs(spec)
     output_dir = expand(
         spec.output_dir, desktop_dir=desktop_dir, build_root=spec.build_root

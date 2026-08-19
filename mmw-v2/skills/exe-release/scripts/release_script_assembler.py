@@ -180,7 +180,7 @@ def _render_hook_calls(calls: list[dict[str, object]], *, stage: int) -> str:
 def _render_lane_block(manifest: ReleaseAdapterManifest) -> str:
     # 造运行时(嵌入式 Python / 编译后端 / 补原生 DLL / 落资产 / BGM)是每个产品出包独特的一步,
     # 各产品不同、无法通用几行复刻。按设计留在仓库当"钥匙",由钥匙的 runtime_prepare 钩子整段
-    # 准备(小黄鸭 prepare_duck_core_runtime.py / 小鹦鹉小刺猬 prepare_*_embedded_runtime.py);
+    # 准备(仓库侧的 prepare_*_runtime.py);
     # plugin 只做通用编排,不在模板里通用地造包——过度抽象只会让每接一个产品都更复杂、且复刻不全。
     # 两条车道都把造运行时交给紧随其后的 ${RUNTIME_HOOK_CALLS} 里的 runtime_prepare 钩子。
     lane = manifest.build_target.runtime_lane
@@ -197,7 +197,7 @@ def _render_lane_block(manifest: ReleaseAdapterManifest) -> str:
 # 四步编排。结果是「怎么打一个 Windows 安装包」这套知识有一份在技能里、一份在产品仓库里，
 # 而后者每接一个产品要重写一遍。
 #
-# v2 把编译与打包的步骤放回技能，产品仓库只留它自己独有的交付格式（比如 duck 的自更新
+# v2 把编译与打包的步骤放回技能，产品仓库只留它自己独有的交付格式（例如自更新
 # feed 和它手写的 NSIS）。步号不再写死在模板里——哪几步存在由钥匙决定，所以步号是算出来的。
 
 # 钩子挂阶段，不挂步号。
@@ -249,15 +249,14 @@ def _v2_steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
     )
 
     if electron is not None:
+        install_args = ", ".join(_ps(arg) for arg in electron.install_args)
         steps.append(
             {
-                "title": "Install frozen frontend dependencies",
+                "title": "Install frontend dependencies",
                 "hooks": [],
-                # --frozen-lockfile：锁文件是依赖的唯一权威，出包时静默改写它，
-                # 意味着这次出的包用的依赖跟仓库记录的不是一套。
                 "lines": [
-                    "  Invoke-Checked -Command 'pnpm' -WorkingDirectory $DesktopDir "
-                    "-Arguments @('install', '--frozen-lockfile', '--prefer-offline')",
+                    f"  Invoke-Checked -Command {_ps(electron.package_manager)} "
+                    f"-WorkingDirectory $DesktopDir -Arguments @({install_args})",
                 ],
             }
         )
@@ -314,8 +313,9 @@ def _v2_steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
                 "title": "Build Electron application",
                 "hooks": [],
                 "lines": [
-                    "  Invoke-Checked -Command 'pnpm' -WorkingDirectory $DesktopDir "
-                    "-Arguments @('run', 'build')",
+                    f"  Invoke-Checked -Command {_ps(electron.package_manager)} "
+                    f"-WorkingDirectory $DesktopDir "
+                    f"-Arguments @('run', {_ps(electron.build_script)})",
                 ],
             }
         )
@@ -324,7 +324,8 @@ def _v2_steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
                 "title": "Build win-unpacked",
                 "hooks": [],
                 "lines": [
-                    "  Invoke-Checked -Command 'pnpm' -WorkingDirectory $DesktopDir "
+                    f"  Invoke-Checked -Command {_ps(electron.package_manager)} "
+                    "-WorkingDirectory $DesktopDir "
                     "-Arguments @('exec', 'electron-builder', '--win', 'dir', "
                     "'--publish', 'never', \"-c.compression=$BuilderCompression\")",
                     "  if (-not (Test-Path $UnpackedDir)) {",
@@ -334,20 +335,21 @@ def _v2_steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
             }
         )
 
-    steps.append(
-        {
-            "title": "Scan release artifacts",
-            "hooks": ["artifact_scan"],
-            "lines": [_hook_line("artifact_scan", hooks.artifact_scan)],
-        }
-    )
+    if hooks.artifact_scan is not None:
+        steps.append(
+            {
+                "title": "Scan release artifacts",
+                "hooks": ["artifact_scan"],
+                "lines": [_hook_line("artifact_scan", hooks.artifact_scan)],
+            }
+        )
 
     if electron is not None and electron.installer == "electron_builder":
         steps.append(
             {
                 "title": "Build installer",
                 "hooks": [],
-                "lines": _nsis_lines(),
+                "lines": _nsis_lines(electron.package_manager),
             }
         )
     elif hooks.installer is not None:
@@ -359,17 +361,18 @@ def _v2_steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
             }
         )
 
-    steps.append(
-        {
-            "title": "Verify package integrity",
-            "hooks": ["package_integrity"],
-            "lines": [_hook_line("package_integrity", hooks.package_integrity)],
-        }
-    )
+    if hooks.package_integrity is not None:
+        steps.append(
+            {
+                "title": "Verify package integrity",
+                "hooks": ["package_integrity"],
+                "lines": [_hook_line("package_integrity", hooks.package_integrity)],
+            }
+        )
     return steps
 
 
-def _compile_lines(backend, build_target: BuildTarget, desktop_dir: str) -> list[str]:
+def _compile_lines(backend, build_target: BuildTarget, desktop_dir: str | None) -> list[str]:
     """编译后端。原生扩展缺的 DLL 先探再编——探不到当场停，不进几十分钟的编译。"""
     nuitka.validate_import_plan(backend)
     lines: list[str] = []
@@ -421,7 +424,7 @@ def _compile_lines(backend, build_target: BuildTarget, desktop_dir: str) -> list
     return lines
 
 
-def _nsis_lines() -> list[str]:
+def _nsis_lines(package_manager: str) -> list[str]:
     """electron-builder 出 NSIS。
 
     不用 Invoke-Checked：electron-builder 打完 NSIS 清理临时 nsis.7z 偶发 ENOENT unlink
@@ -429,7 +432,7 @@ def _nsis_lines() -> list[str]:
     安装包已产出且日志命中 nsis.7z ENOENT 时只告警继续，否则 throw。
     """
     return [
-        "  $nsisOut = (& pnpm --dir $DesktopDir exec electron-builder --win nsis "
+        f"  $nsisOut = (& {package_manager} --dir $DesktopDir exec electron-builder --win nsis "
         "--publish never --prepackaged $UnpackedDir "
         '"-c.compression=$BuilderCompression" 2>&1 | Out-String)',
         "  $nsisExit = $LASTEXITCODE",
@@ -462,6 +465,32 @@ def _render_pipeline(steps: list[dict[str, object]]) -> str:
     return "\n\n".join(blocks)
 
 
+def _electron_setup(manifest: ReleaseAdapterManifest) -> str:
+    """Electron 外壳那几个路径变量。没有外壳的产品这里是空的——凭空造出一个指向
+    不存在目录的 $DesktopDir，只会让后面某一步以一个看不出根因的方式失败。"""
+    electron = manifest.electron
+    desktop_dir = manifest.build_target.desktop_dir
+    if electron is None or desktop_dir is None:
+        return ""
+    compression = (
+        f"if ($env:{electron.compression_env}) "
+        f"{{ $env:{electron.compression_env} }} else {{ {_ps(electron.compression)} }}"
+        if electron.compression_env
+        else _ps(electron.compression)
+    )
+    return "\n".join(
+        [
+            f"$DesktopDir = Join-Path $RepoRoot {_ps(desktop_dir)}",
+            f"$DistDir = Join-Path $DesktopDir {_ps(electron.dist_dir)}",
+            f"$UnpackedDir = Join-Path $DesktopDir {_ps(electron.unpacked_dir)}",
+            "",
+            "# 安装包压缩档：嵌入式 runtime 几百 MB，压缩档对客户下载体验有实际影响，",
+            "# 所以默认最高档。现场验证时用环境变量压到 store 换速度。",
+            f"$BuilderCompression = {compression}",
+        ]
+    )
+
+
 def _render_bootstrap_v2(
     context_path: Path, manifest: ReleaseAdapterManifest
 ) -> str:
@@ -469,22 +498,9 @@ def _render_bootstrap_v2(
         encoding="utf-8"
     )
     steps = _v2_steps(manifest)
-    electron = manifest.electron
-    dist_dir = electron.dist_dir if electron else "dist"
-    unpacked_dir = electron.unpacked_dir if electron else "dist/win-unpacked"
-    if electron and electron.compression_env:
-        compression = (
-            f"if ($env:{electron.compression_env}) "
-            f"{{ $env:{electron.compression_env} }} else {{ {_ps(electron.compression)} }}"
-        )
-    else:
-        compression = _ps(electron.compression if electron else "maximum")
     replacements = {
         "${CONTEXT_DEFAULT_PATH}": _ps(context_path.name),
-        "${DESKTOP_DIR_LITERAL}": _ps(manifest.build_target.desktop_dir),
-        "${DIST_DIR_LITERAL}": _ps(dist_dir),
-        "${UNPACKED_DIR_LITERAL}": _ps(unpacked_dir),
-        "${COMPRESSION_EXPR}": compression,
+        "${ELECTRON_SETUP}": _electron_setup(manifest),
         "${RENDERED_HOOK_FUNCTIONS}": _render_hook_functions(),
         "${STEP_TOTAL}": str(len(steps)),
         "${PIPELINE}": _render_pipeline(steps),
@@ -527,10 +543,12 @@ def _validate_paths(repo_root: Path, output: Path, context_output: Path) -> None
 
 
 def _validate_manifest_paths(manifest: ReleaseAdapterManifest) -> None:
-    assert_repo_relative(
-        manifest.build_target.desktop_dir, field="build_target.desktop_dir"
-    )
-    assert_repo_relative(manifest.protection_source, field="protection_source")
+    if manifest.build_target.desktop_dir is not None:
+        assert_repo_relative(
+            manifest.build_target.desktop_dir, field="build_target.desktop_dir"
+        )
+    if manifest.protection_source is not None:
+        assert_repo_relative(manifest.protection_source, field="protection_source")
     for index, root in enumerate(manifest.build_target.asset_roots):
         assert_repo_relative(root, field=f"build_target.asset_roots[{index}]")
     for index, path in enumerate(manifest.editable_paths):
@@ -559,7 +577,7 @@ def assemble(
         ),
     }
     if manifest.schema_version == "2":
-        # 钩子要读得到「这次按哪把钥匙编的」——产品仓库的收尾步骤（duck 的 bundle 组装）
+        # 钩子要读得到「这次按哪把钥匙编的」——产品仓库的收尾步骤（例如自己组装 bundle）
         # 得知道编译产物叫什么、落在哪。
         context["python_backend"] = manifest.python_backend.model_dump(mode="json")
         context["electron"] = (

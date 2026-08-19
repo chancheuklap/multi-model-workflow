@@ -58,7 +58,7 @@ RULES: tuple[tuple[str, str, str, str], ...] = (
         "missing_remote_root",
         "env:missing_RELEASE_REMOTE_ROOT",
         "钥匙旁边的 remote-build.json 缺 root（安全字符 Windows 绝对路径，"
-        "如 D:/agentflow-release-input）；补好后 resume"
+        "构建机上的绝对路径）；补好后 resume"
         "（也可导出 RELEASE_REMOTE_ROOT 临时覆盖）",
     ),
     (
@@ -317,7 +317,7 @@ def run_branch(argv: list[str], *, cwd: Path) -> list[dict]:
 
 
 def _resolve_core_exe(repo_root: Path, pattern: str | None) -> str | None:
-    """产品编译产物的位置。写成 glob 是因为 duck 的产物名带版本号。"""
+    """产品编译产物的位置。写成 glob 是因为产物名里可能带版本号。"""
     if not pattern:
         return None
     matches = sorted(repo_root.glob(pattern))

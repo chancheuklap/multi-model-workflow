@@ -26,9 +26,9 @@ Both must hold. If one fails, stop and name it.
 | Check | How |
 | --- | --- |
 | Working tree is clean | `git status --porcelain` is empty. The engine refuses to mix self-heal commits with uncommitted work |
-| This repo has a release config | At least one release config exists (next step) |
+| This repo ships something | At least one release config exists (next step) |
 
-**No release config is not a failure.** Report that this repo does not ship, and the current branch HEAD. Hand back to the user.
+**A repo with no release config at all does not ship.** Report that, and the current branch HEAD. Hand back to the user. (One product missing a config in a repo that does ship is a different case — step 2.)
 
 ## 2. Name the products for this run
 
@@ -42,10 +42,11 @@ Decide which to ship: take the paths this change touched (`git diff --name-only 
 
 If you cannot tell, ask the user. Do not omit a product.
 
-**A product with no release config does not ship yet — write it one.** A key is JSON, and writing
-one is the whole job of adding a product: [key.md](key.md). Do not write packaging scripts in the
-product repo to work around a key that cannot say something; add the field or the capability
-where every product gets it.
+**A product this change touched but no config names does not ship yet — write it a key.** Writing
+one key is the whole job of adding a product, and it is JSON: [key.md](key.md) has the three steps,
+including what the product repo must already have before a key is worth writing. Do not write
+packaging scripts in the product repo to work around a key that cannot say something; add the
+field or the capability, where every product gets it.
 
 Show this list once and continue. Do not wait for a reply:
 

@@ -68,7 +68,7 @@ not on it.)
 A product that builds on another machine needs two facts: which machine, and which folder on it. The engine takes them from `RELEASE_REMOTE_HOST` and `RELEASE_REMOTE_ROOT`, and when either is empty it falls back to `remote-build.json` sitting next to that product's `.release-adapter.json`:
 
 ```json
-{"host": "pc", "root": "D:/agentflow-release-input"}
+{"host": "<build machine>", "root": "D:/<a folder on it>"}
 ```
 
 Missing in both places is a `PAUSED:needs-context` you can often close yourself: the engine's log names the variable. Write the file so the next run does not stop here again. The environment variables win over the file — that is how a one-off switch to another machine is done.
