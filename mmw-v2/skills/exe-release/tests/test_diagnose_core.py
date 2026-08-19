@@ -303,4 +303,22 @@ def test_a_hook_that_crashed_printing_its_own_output_is_not_graded_as_a_hook_fai
         encoding="utf-8",
     )
     (finding,) = dc.build_log_findings("hedgehog", log, "build")
-    assert finding["root_cause_fingerprint"] == "hook_output_decoding:hedgehog"
+    assert finding["root_cause_fingerprint"] == "hook_output_encoding:hedgehog"
+
+
+def test_a_hook_that_crashed_writing_its_own_output_is_the_same_root_cause():
+    """反方向的同一件事：解码放宽之后，替换字符 U+FFFD 反而 GBK 编不出来。
+
+    真发生过，而且就发生在修好解码那一侧之后的下一轮：失败点从 backend_verify 挪到了
+    asset_parity，看着像换了个毛病，其实是同一处日志搬运。两个方向必须一起修。
+    """
+    log = Path(_tmp) / "log"
+    log.write_text(
+        "Installed 153 packages in 53.11s\n"
+        "    sys.stdout.write(result.stdout or \"\")\n"
+        "UnicodeEncodeError: 'gbk' codec can't encode character '\\ufffd' in position 15\n"
+        "Release hook failed: asset_parity phase=runtime_ready\n",
+        encoding="utf-8",
+    )
+    (finding,) = dc.build_log_findings("hedgehog", log, "build")
+    assert finding["root_cause_fingerprint"] == "hook_output_encoding:hedgehog"

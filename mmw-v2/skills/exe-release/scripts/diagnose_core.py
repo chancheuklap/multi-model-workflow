@@ -163,13 +163,14 @@ RULES: tuple[tuple[str, str, str, str], ...] = (
     (
         # 必须排在 hook_failed 前面：这一条崩的是「报错那一行」自己，日志里同时也有
         # Release hook failed，按那条只会得到「读日志定位根因」，而根因就在这里。
-        r"_readerthread\b[\s\S]{0,600}?UnicodeDecodeError",
-        "hook_output_decoding",
-        "hook_output_decoding:{product}",
-        "构建机是中文 Windows。subprocess 的 text=True 按本机代码页(GBK)解子进程输出，"
-        "遇上任何一个非 GBK 字节，读取线程就抛 UnicodeDecodeError 死掉，stdout/stderr 变 None，"
-        "于是打印它们的那一行自己先崩——检查本身可能是通过的。"
-        "给那个 subprocess.run 显式加 encoding=\"utf-8\", errors=\"replace\"",
+        r"_readerthread\b[\s\S]{0,600}?UnicodeDecodeError|UnicodeEncodeError: '\w+' codec",
+        "hook_output_encoding",
+        "hook_output_encoding:{product}",
+        "构建机是中文 Windows，本机代码页是 GBK。钩子崩在搬运日志文本这一步上，检查本身"
+        "可能是通过的。两个方向都要修："
+        "读子进程输出给 subprocess.run 加 encoding=\"utf-8\", errors=\"replace\"（否则读取线程死掉、"
+        "stdout 变 None）；写自己的输出在进程启动时 sys.stdout/sys.stderr.reconfigure(errors=\"replace\")"
+        "（否则一个中文或替换字符就抛 UnicodeEncodeError）",
     ),
     (
         r"Release hook failed: (\S+)",

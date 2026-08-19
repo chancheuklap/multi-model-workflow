@@ -182,6 +182,14 @@ so the numbers move; the phases do not.
 check of its own to run at that moment. Declaring a hook with an empty argv is refused: that reads
 as configured but does nothing.
 
+**A hook's own logging has to survive the build machine's codepage.** A Windows build machine
+outside an English locale runs Python with a legacy codepage on both ends, and a hook that moves
+subprocess output around crashes on it while the check it ran was passing. Both directions need
+saying, once, in the hook: read with `subprocess.run(..., encoding="utf-8", errors="replace")`,
+and at start-up `sys.stdout.reconfigure(errors="replace")` for what the hook prints itself.
+Without the first, the reader thread dies and `result.stdout` is `None`; without the second, one
+Chinese character or one replacement character raises on the way out.
+
 A hook is an **addition**, never a substitute. Two checks the skill runs on every build, with no
 hook and no key field:
 
