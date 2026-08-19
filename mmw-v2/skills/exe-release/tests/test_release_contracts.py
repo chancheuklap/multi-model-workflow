@@ -28,7 +28,7 @@ def test_manifest_rejects_unknown_field():
 
 @pytest.mark.parametrize(
     "field",
-    ["event_sink", "derive", "post_fix_gate", "fix_executor", "protection_source"],
+    ["event_sink", "derive", "post_fix_gate", "fix_executor"],
 )
 def test_a_product_can_ship_before_it_has_any_of_the_self_heal_machinery(field):
     """自愈与观测那一套是可选装备，不是入场券。
@@ -40,6 +40,13 @@ def test_a_product_can_ship_before_it_has_any_of_the_self_heal_machinery(field):
     good = _fake_manifest()
     del good[field]
     assert getattr(rc.ReleaseAdapterManifest.model_validate(good), field) is None
+
+
+def test_a_key_that_automates_nothing_needs_no_path_gate():
+    """protection_source 同理可缺，只是它跟 editable_paths 绑在一起（见下）。"""
+    good = {**_fake_manifest(), "editable_paths": []}
+    del good["protection_source"]
+    assert rc.ReleaseAdapterManifest.model_validate(good).protection_source is None
 
 
 def test_manifest_empty_stages_allowed():
@@ -274,3 +281,19 @@ def test_contract_import_robust_via_spec_from_file_location():
                 "detail": "缺 tier",
             }
         )
+
+
+def test_editable_paths_without_a_protection_source_is_refused():
+    """允许自动修复改文件，却不声明任何硬禁止路径，等于闸门整个是开的。
+
+    两者一起缺是合法的：那把钥匙的意思是「这个产品不自动改任何东西」。
+    """
+    good = _fake_manifest()
+    del good["protection_source"]
+    with pytest.raises(Exception, match="protection_source"):
+        rc.ReleaseAdapterManifest.model_validate(good)
+
+    both_gone = {**good, "editable_paths": []}
+    manifest = rc.ReleaseAdapterManifest.model_validate(both_gone)
+    assert manifest.protection_source is None
+    assert manifest.editable_paths == []
