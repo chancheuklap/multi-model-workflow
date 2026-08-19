@@ -156,6 +156,31 @@ function Write-HookSkipped {
 }"""
 
 
+def _render_hook_functions_v2() -> str:
+    """v2 的钩子辅助函数。
+
+    跟 v1 的差别有两处，都不是修辞：v2 里缺席的钩子整步都不生成，所以没有「跳过」要打印；
+    钩子的 cwd 注释也不再提 Electron——一个没有外壳的产品，脚本里根本没有那个变量。
+    """
+    return """function Invoke-ReleaseHook {
+  param([string]$Name, [string[]]$Argv, [string]$Phase)
+  $command = [string]$Argv[0]
+  $arguments = @()
+  if ($Argv.Count -gt 1) { $arguments += @($Argv[1..($Argv.Count - 1)]) }
+  $arguments += @('--release-context', $ReleaseContextPath, '--release-phase', $Phase)
+  # 钩子 argv 是仓库相对路径。构建机把这一轮的源码解到 $RepoRoot，所以钩子从那里跑，
+  # 而不是从某个构建步骤当时所在的目录。$ReleaseContextPath 已在脚本头绝对化，
+  # cwd 怎么切都不影响钩子读到它。
+  Push-Location $RepoRoot
+  try {
+    & $command @arguments
+    if ($LASTEXITCODE -ne 0) { throw "Release hook failed: $Name phase=$Phase" }
+  } finally {
+    Pop-Location
+  }
+}"""
+
+
 def _render_hook_calls(calls: list[dict[str, object]], *, stage: int) -> str:
     rendered = []
     for call in calls:
@@ -501,7 +526,11 @@ def _render_bootstrap_v2(
     replacements = {
         "${CONTEXT_DEFAULT_PATH}": _ps(context_path.name),
         "${ELECTRON_SETUP}": _electron_setup(manifest),
-        "${RENDERED_HOOK_FUNCTIONS}": _render_hook_functions(),
+        "${RENDERED_HOOK_FUNCTIONS}": (
+            _render_hook_functions_v2()
+            if any(step["hooks"] for step in steps)
+            else ""
+        ),
         "${STEP_TOTAL}": str(len(steps)),
         "${PIPELINE}": _render_pipeline(steps),
     }
