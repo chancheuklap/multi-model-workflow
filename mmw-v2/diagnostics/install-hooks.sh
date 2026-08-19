@@ -23,6 +23,11 @@
 #
 #   install-hooks.sh          装
 #   install-hooks.sh --check  只看装没装，不动磁盘。齐了回 0，缺东西回 1
+#
+# 在沙箱里试跑本脚本时，五个宿主的配置位置有 MMW_* 环境变量可以改道，但提交前门禁
+# 那一步写的是 git 的全局配置，那几个变量管不着它。要连它一起隔离，加上 git 自己的
+# GIT_CONFIG_GLOBAL=<沙箱里的一个文件>。少这一条，一次沙箱试跑就会把你真正的
+# core.hooksPath 指到沙箱去——本文件作者踩过。
 
 set -euo pipefail
 
