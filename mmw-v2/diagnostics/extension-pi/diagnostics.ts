@@ -13,11 +13,17 @@
 // 和「它引入了这些问题」，因果是连着的。
 
 import { execFile } from "node:child_process";
-import { appendFileSync } from "node:fs";
+import { appendFileSync, existsSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
-const HERE = dirname(fileURLToPath(import.meta.url));
+// 装进 Pi 的是一条软链，本体在这个仓库里。要先解软链再算 check.py 的位置。
+//
+// 早先这里直接用 import.meta.url，理由是「Node 解析模块默认走 realpath」。那句话
+// 对 Pi 的加载器不成立：2026-08-19 实测它拿到的是软链自己的路径，于是 check.py 被
+// 算成 ~/.pi/agent/check.py，每次调用都是 Errno 2 文件不存在——而扩展照样把「有
+// 诊断问题」那句话贴了上去，看起来像在工作。这个洞是 probe-subagent.sh 撞出来的。
+const HERE = dirname(realpathSync(fileURLToPath(import.meta.url)));
 const CHECK = resolve(HERE, "..", "check.py");
 
 const EDIT_TOOLS = new Set(["write", "edit", "multiedit", "apply_patch", "str_replace"]);
@@ -70,6 +76,16 @@ function trace(file: string | null): void {
 }
 
 export default function (pi: any) {
+  // check.py 不在就当场喊出来，而且不挂处理器。
+  //
+  // 不加这一道的话，坏掉长得像在工作：python3 跑一个不存在的文件自己就退 2，而退出码 2
+  // 在这里的约定是「查到问题了，正文在 stderr」，于是 Python 那句 "can't open file" 被
+  // 当成诊断贴进工具结果，模型看到的是「有诊断问题」加一句它看不懂的报错。实测发生过。
+  if (!existsSync(CHECK)) {
+    console.error(`[mmw-diagnostics] 找不到 ${CHECK}，这一侧的编辑后诊断没有装上。跑一次 mmw-v2/install.sh`);
+    return;
+  }
+
   pi.on("tool_result", async (event: any) => {
     if (!event || !EDIT_TOOLS.has(event.toolName) || event.isError) return;
     const file = pickPath(event.input);
