@@ -85,6 +85,38 @@ function Invoke-BuiltExeSmoke {
   }
 }
 
+# 编译期间把指定目录挪开，之后原样挪回。
+#
+# Electron 的 node_modules 被 hoist 到 Python 包扫描路径下时，Nuitka 会去扫它：编译时间暴涨，
+# 还可能把前端的东西打进包。挪回失败必须当场停——留下一个没有 node_modules 的工作树，
+# 会让紧随其后的 Electron 构建以一个完全看不出根因的方式失败。
+function Move-AsideForCompile {
+  param([string[]]$Paths, [string]$Holding)
+  $moved = @()
+  foreach ($path in $Paths) {
+    if (-not (Test-Path -LiteralPath $path)) { continue }
+    $target = Join-Path $Holding ([System.IO.Path]::GetRandomFileName())
+    New-Item -ItemType Directory -Force -Path $Holding | Out-Null
+    Move-Item -LiteralPath $path -Destination $target
+    Write-Host "  moved aside for the compile: $path"
+    $moved += ,@($path, $target)
+  }
+  return ,$moved
+}
+
+function Restore-AfterCompile {
+  param($Moved)
+  foreach ($pair in $Moved) {
+    $path = $pair[0]
+    $target = $pair[1]
+    if (Test-Path -LiteralPath $path) {
+      throw "Cannot restore $path after the compile: something else already created it"
+    }
+    Move-Item -LiteralPath $target -Destination $path
+    Write-Host "  restored after the compile: $path"
+  }
+}
+
 ${RENDERED_HOOK_FUNCTIONS}
 
 # 上下文路径绝对化：钩子在 $RepoRoot 下跑，若传的是相对路径，cwd 一切换就读不到。

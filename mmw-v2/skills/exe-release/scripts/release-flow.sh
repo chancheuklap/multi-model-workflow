@@ -387,6 +387,25 @@ _invalidate_all_stages() {
      | .pause=null'
 }
 
+# 钥匙里的 argv 可以指向技能自己带的脚本，路径写 ${RELEASE_PLUGIN_DIR}——技能装在哪由宿主决定，
+# 钥匙不该知道。${RELEASE_STAGE_DIR}/${RELEASE_LOOP_DIR} 只在 stage 里有意义，其余场合传空。
+_expand_argv_token() {
+  local raw="$1" stage_dir="${2:-}" loop_dir="${3:-}" out
+  # 每-attempt 目录与整轮目录只在 stage 里存在。diagnose 之外的字段（fix_executor / post_fix_gate /
+  # event_sink）没有它们，此时用了就直接停——展开成空字符串会变成一条指向根目录的路径，
+  # 那种失败要到跑起来才看得见，而且看不出是这里丢的。
+  case "$raw" in
+    *'${RELEASE_STAGE_DIR}'*) [ -n "$stage_dir" ] || die "这个字段里不能用 \${RELEASE_STAGE_DIR}: $raw" ;;
+  esac
+  case "$raw" in
+    *'${RELEASE_LOOP_DIR}'*) [ -n "$loop_dir" ] || die "这个字段里不能用 \${RELEASE_LOOP_DIR}: $raw" ;;
+  esac
+  out="${raw//\$\{RELEASE_STAGE_DIR\}/$stage_dir}"
+  out="${out//\$\{RELEASE_LOOP_DIR\}/$loop_dir}"
+  out="${out//\$\{RELEASE_PLUGIN_DIR\}/$SCRIPT_DIR}"
+  printf '%s' "$out"
+}
+
 _run_direct_action() {
   local f="$1" mode="$2" findings="$3" top mp key arg ref_file
   top="$(_repo_top)"
@@ -397,7 +416,7 @@ _run_direct_action() {
     *) die "未知 direct action: $mode" ;;
   esac
   ACTION_ARGV=()
-  while IFS= read -r arg; do ACTION_ARGV+=("$arg"); done < <(jq -r --arg key "$key" '.[$key][]' "$mp")
+  while IFS= read -r arg; do ACTION_ARGV+=("$(_expand_argv_token "$arg")"); done < <(jq -r --arg key "$key" '.[$key][]' "$mp")
   [ ${#ACTION_ARGV[@]} -gt 0 ] || die "manifest.$key 为空(引擎载入应已挡,防御)"
   ACTION_COMMAND="${ACTION_ARGV[*]}"
   ACTION_RC=0
@@ -425,7 +444,7 @@ _post_fix_gate() {
   local f="$1" name="$2" fp="$3" repair_sha="$4" mp a rc=0 gate_out
   mp="$(jq -r '.manifest_path' "$f")"
   local gate_argv=()
-  while IFS= read -r a; do gate_argv+=("$a"); done < <(jq -r '.post_fix_gate[]' "$mp")
+  while IFS= read -r a; do gate_argv+=("$(_expand_argv_token "$a")"); done < <(jq -r '.post_fix_gate[]' "$mp")
   [ ${#gate_argv[@]} -gt 0 ] || die "manifest.post_fix_gate 为空(引擎载入应已挡,防御)"
   gate_out="$( cd "$(_repo_top)" && "${gate_argv[@]}" 2>&1 )" || rc=$?
 
@@ -456,7 +475,7 @@ _post_fix_gate() {
   append_attempt "$f" "$name" "post_fix_gate" "fail" "$fp" "git-revert:$revert_sha"
   patch_last_attempt "$f" "[]" "[]" "$gate_result" "" "$gate_cmd"
   edit "$f" --arg sc "$revert_sha" '.source_commit=$sc'
-  while IFS= read -r a; do diag_argv+=("$a"); done < <(jq -r '.diagnose[]' "$mp")
+  while IFS= read -r a; do diag_argv+=("$(_expand_argv_token "$a")"); done < <(jq -r '.diagnose[]' "$mp")
   findings_tmp="$(mktemp)"
   ( cd "$top" && "${diag_argv[@]}" ) > "$findings_tmp" 2>/dev/null || true
   echo "FIX-REVERTED:$repair_sha commit=$revert_sha"
@@ -612,7 +631,7 @@ emit_event() {
 
   local sink_argv=()
   while IFS= read -r arg; do
-    sink_argv+=("$arg")
+    sink_argv+=("$(_expand_argv_token "$arg")")
   done < <(jq -r '.event_sink[]' "$mp")
   # sink 要按 ReleaseLoopEvent 合同 model_validate 后再落地,得先拿到本引擎正在用的那份
   # release_contracts.py。它恒是 release-flow.sh 的同目录兄弟($SCRIPT_DIR/release_contracts.py,
@@ -1014,10 +1033,7 @@ cmd_stage_run() {
 
   local argv=()
   while IFS= read -r raw; do
-    expanded="${raw//\$\{RELEASE_STAGE_DIR\}/$stage_dir}"
-    expanded="${expanded//\$\{RELEASE_LOOP_DIR\}/$loop_dir}"
-    expanded="${expanded//\$\{RELEASE_PLUGIN_DIR\}/$SCRIPT_DIR}"
-    argv+=("$expanded")
+    argv+=("$(_expand_argv_token "$raw" "$stage_dir" "$loop_dir")")
   done < <(jq -r --arg n "$name" '.stages[] | select(.name == $n) | .run[]' "$f")
   [ ${#argv[@]} -gt 0 ] || die "stage $name 的 argv 为空"
 
@@ -1071,7 +1087,7 @@ cmd_stage_run() {
   findings_file="$stage_dir/$name.findings.json"
   local diagnose_argv=()
   while IFS= read -r diag_arg; do
-    diagnose_argv+=("$diag_arg")
+    diagnose_argv+=("$(_expand_argv_token "$diag_arg" "$stage_dir" "$loop_dir")")
   done < <(jq -r '.diagnose[]' "$mp")
   [ ${#diagnose_argv[@]} -gt 0 ] || die "manifest.diagnose 为空"
   # 把失败现场交给 diagnose:RELEASE_BUILD_LOG 是回传的远端构建日志(仅远程 build 失败时有),

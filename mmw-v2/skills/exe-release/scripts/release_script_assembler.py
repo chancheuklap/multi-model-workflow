@@ -374,6 +374,13 @@ def _compile_lines(backend, build_target: BuildTarget, desktop_dir: str) -> list
     nuitka.validate_import_plan(backend)
     lines: list[str] = []
     runner = ", ".join(_ps(token) for token in backend.runner)
+    for name, value in backend.env.items():
+        rendered = _ps(value)
+        if "${REPO_ROOT}" in value:
+            head, _, tail = value.partition("${REPO_ROOT}")
+            pieces = [p for p in (_ps(head), "$RepoRoot", _ps(tail)) if p != "''"]
+            rendered = pieces[0] if len(pieces) == 1 else "(" + " + ".join(pieces) + ")"
+        lines.append(f"  $env:{name} = {rendered}")
     for source, name in nuitka.probe_names(build_target.native_ext_dll):
         var = "$Dll_" + "".join(
             char if char.isalnum() else "_" for char in f"{source}:{name}"
@@ -387,14 +394,30 @@ def _compile_lines(backend, build_target: BuildTarget, desktop_dir: str) -> list
         desktop_dir=desktop_dir,
         native_ext_dll=build_target.native_ext_dll,
     )
+    compile_lines: list[str] = []
     for target, segments in zip(backend.targets, commands, strict=True):
         argv = nuitka.powershell_argv(segments)
-        lines.append(f"  Write-Host {_ps('  compiling ' + target.exe)}")
-        lines.append(f"  $argv = {argv}")
-        lines.append(
+        compile_lines.append(f"  Write-Host {_ps('  compiling ' + target.exe)}")
+        compile_lines.append(f"  $argv = {argv}")
+        compile_lines.append(
             "  Invoke-Checked -Command ([string]$argv[0]) "
             "-Arguments @($argv[1..($argv.Count - 1)]) -WorkingDirectory $RepoRoot"
         )
+    if not backend.isolate_dirs:
+        return [*lines, *compile_lines]
+
+    isolate = ", ".join(
+        f"(Join-Path $RepoRoot {_ps(nuitka.expand(path, desktop_dir=desktop_dir, build_root=backend.build_root))})"
+        for path in backend.isolate_dirs
+    )
+    lines.append(
+        "  $moved = Move-AsideForCompile -Paths @(" + isolate + ") "
+        "-Holding (Join-Path $RepoRoot 'runtime/.mmw-compile-holding')"
+    )
+    lines.append("  try {")
+    lines.extend("  " + line for line in compile_lines)
+    lines.append("  }")
+    lines.append("  finally { Restore-AfterCompile -Moved $moved }")
     return lines
 
 

@@ -159,6 +159,10 @@ def commands(
             for name in spec.include_package_data
         ]
         segments += [
+            Segment.lit(f"--include-distribution-metadata={name}")
+            for name in spec.include_distribution_metadata
+        ]
+        segments += [
             Segment.lit(f"--include-module={name}") for name in spec.include_modules
         ]
         segments += [

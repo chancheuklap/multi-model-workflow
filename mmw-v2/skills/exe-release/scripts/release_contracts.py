@@ -279,6 +279,9 @@ class PythonBackend(BaseModel):
     console: bool = True
     include_packages: list[str] = Field(default_factory=list)
     include_package_data: list[str] = Field(default_factory=list)
+    # 有些包在运行时读自己的发行元数据（版本、entry points）。Nuitka 默认不带，
+    # 带不带跟 include-package 是两回事，漏了在客户机上才炸。
+    include_distribution_metadata: list[str] = Field(default_factory=list)
     include_modules: list[str] = Field(default_factory=list)
     nofollow_imports: list[str] = Field(default_factory=list)
     include_data_dirs: list[PathTemplate] = Field(default_factory=list)
@@ -287,6 +290,14 @@ class PythonBackend(BaseModel):
     extra_flags: list[str] = Field(default_factory=list)
     targets: list[NuitkaTarget] = Field(min_length=1)
     smoke: BuiltExeSmoke | None = None
+    # 编译时才要设的环境变量。值里可以用 ${REPO_ROOT}——构建机上的仓库路径每一轮都不同
+    # （目录名带 commit），所以像 CCACHE_BASEDIR 这种「把源码路径归一化好让缓存能复用」的
+    # 变量，只能在构建机上现算。
+    env: dict[str, str] = Field(default_factory=dict)
+    # 编译期间要挪开的目录。Electron 的 node_modules 被 hoist 到 Python 包扫描路径下时，
+    # Nuitka 会去扫它——编译时间暴涨，还可能把前端的东西打进包。编译前挪走，之后必须原样挪回，
+    # 挪不回去要当场停：留下一个没有 node_modules 的工作树，下一步 Electron 构建会莫名其妙地失败。
+    isolate_dirs: list[str] = Field(default_factory=list)
 
 
 class ElectronBuild(BaseModel):
@@ -302,6 +313,26 @@ class ElectronBuild(BaseModel):
     compression_env: str | None = "MMW_ELECTRON_BUILDER_COMPRESSION"
     # 出安装包这一步交给 electron-builder，还是产品自己的脚本（duck 手写 NSIS）。
     installer: Literal["electron_builder", "repo_hook"] = "electron_builder"
+
+
+
+class DiagnoseRule(BaseModel):
+    """产品自己的一条日志翻译规则。
+
+    通用规则表在技能里（`diagnose_core.RULES`），因为它匹配的是引擎和打包工具打印的文字。
+    这里补的是这个产品自己的日志才有的模式，排在通用表前面——产品比技能更知道自己那条日志
+    长什么样。
+
+    `fingerprint` 的前缀决定引擎怎么分派：`transient:` 直接重跑，`env:` 交驱动 agent 处置，
+    其余进 P1 修复。写错前缀等于把一条环境问题派给代码修复。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    pattern: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    fingerprint: str = Field(min_length=1)
+    remediation: str = Field(min_length=1)
 
 
 class ReleaseAdapterManifestV2Fields(BaseModel):
@@ -326,6 +357,10 @@ class ReleaseAdapterManifest(BaseModel):
     python_backend: PythonBackend | None = None
     electron: ElectronBuild | None = None
     toolchain: list[str] = Field(default_factory=list)
+    # 诊断：产品自己跑哪几条检查、认哪几条自己的日志模式、编译产物在哪。
+    diagnose_branches: list[list[str]] = Field(default_factory=list)
+    diagnose_rules: list[DiagnoseRule] = Field(default_factory=list)
+    diagnose_core_exe_glob: str | None = None
     stages: list[StageSpec]
     diagnose: list[str] = Field(min_length=1)
     derive: list[str] = Field(min_length=1)
@@ -342,6 +377,9 @@ class ReleaseAdapterManifest(BaseModel):
             "python_backend": self.python_backend,
             "electron": self.electron,
             "toolchain": self.toolchain or None,
+            "diagnose_branches": self.diagnose_branches or None,
+            "diagnose_rules": self.diagnose_rules or None,
+            "diagnose_core_exe_glob": self.diagnose_core_exe_glob,
         }
         present = sorted(name for name, value in v2_fields.items() if value is not None)
         v2_hooks = sorted(
