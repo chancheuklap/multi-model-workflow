@@ -97,13 +97,20 @@ mmw_diagnose() {
 
   # 仓库根按第一个文件所在位置算。宿主给的 cwd 不一定是仓库根，而 check.py 要用
   # 仓库根来算相对路径和改动行。
-  local first="${MMW_FILES[0]}" dir root
+  local first="${MMW_FILES[0]}" dir root changed=(--changed-only)
   dir="$(dirname "$first")"
   [ -d "$dir" ] || dir="$PWD"
-  root="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || return 0
-  [ -n "$root" ] || return 0
+  root="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null || true)"
 
-  if MMW_OUTPUT="$(python3 "$MMW_CHECK" --repo "$root" --changed-only "${MMW_FILES[@]}" 2>&1)"; then
+  # 不是 git 仓库也要检查，只是没有「改动行」这个概念，所以整份文件都报。
+  # 早先这里直接 return 0，于是在一个还没 git init 的目录里改文件，一条诊断都不报，
+  # 而那跟「代码干净」长得一模一样。
+  if [ -z "$root" ]; then
+    root="$dir"
+    changed=()
+  fi
+
+  if MMW_OUTPUT="$(python3 "$MMW_CHECK" --repo "$root" "${changed[@]+"${changed[@]}"}" "${MMW_FILES[@]}" 2>&1)"; then
     MMW_OUTPUT=""
     return 0
   fi
