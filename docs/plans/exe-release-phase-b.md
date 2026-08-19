@@ -31,6 +31,27 @@
       这不只是省字数：**v2 钥匙指着 v1 钥匙那个 bug，正是抄这段样板抄出来的**，而且它在日志里
       每一步都是绿的。样板由引擎生成，这一类 bug 整个消失。
 
+## 1c. 删掉编出来的字段
+
+「通用」不等于「万能」。这个技能针对的就是 agentflow 那一种形式的产品：Electron 外壳 +
+Nuitka 编译的 Python 后端 + NSIS 安装包 + 远端 Windows 构建机。下面这些字段没有任何一个
+真实产品在用，是为假想中的产品留的口子——留着就是在教下一个人「这里有得选」，而那个选项
+从来没有人走过、也从来没有被验证过。
+
+- [ ] `python_backend.builder`：只有一个取值的 Literal。
+- [ ] `python_backend.output_mode` 与 `folder_per_target`：四个产品全是 onefile。
+      改成永远 `--standalone --onefile`。
+- [ ] `python_backend.include_data_files`：没人用，`include_data_dirs` 覆盖了真实场景。
+- [ ] `electron.package_manager` / `install_args` / `build_script`：五个产品全是 pnpm +
+      `install --frozen-lockfile --prefer-offline` + `run build`。改回装配器里的常量。
+      （`_required_tools` 跟着改成常量。）
+- [ ] `NativeExtDll.dll_source` 的 `"repo"` 取值与 `repo_dir`：没人用。
+- [ ] 没有 Electron 外壳的产品那条分支：没有这样的产品。`electron` 与
+      `build_target.desktop_dir` 改回必填，`_electron_setup` 的条件分支删掉，
+      `tests/test_minimal_key.py` 里那条纯后端测试一并删。
+
+这一批全部要改钥匙（`extra="forbid"`），所以必须和第 4 节同一批做完。
+
 ## 2. 删掉 v1
 
 - [ ] `release_contracts.py`：`SchemaVersion` 只剩 `"2"`，删 v1 的分支与

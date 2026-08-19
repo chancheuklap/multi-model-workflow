@@ -30,26 +30,79 @@ Two things are genuinely the product's own and stay in its repo: fetching an emb
 and a delivery format the app invented (a self-update feed, a hand-written installer with its own
 install semantics). Everything else about producing a Windows package is the skill's.
 
+## The product shape this skill packages
+
+An Electron shell plus a Python backend compiled to a Windows executable, installed by an NSIS
+installer, built on a Windows machine over SSH. That is the shape. A product outside it — a
+different OS, no compiled backend, a different frontend runtime — is not something to bend a key
+into; it is a capability the skill does not have yet.
+
 ## Step 1 — what the repo must already have
 
-Check each one. A missing item is work in the product repo before the key is worth writing.
+Each item below is work in the product repo, and the agent adding the product writes it. A key
+written before these exist fails at minute forty of a compile, not at minute zero.
 
-| The repo must have | Why the skill needs it | Missing shows up as |
+| The repo must have | Missing shows up as |
+| --- | --- |
+| A backend entry module per compiled executable | nothing to compile |
+| Runtime dependencies resolvable by one command | the compile packages the dev environment, not the shipped one |
+| A self-check module the **compiled exe** can run | a green build that crashes on the customer's machine |
+| An `electron-builder.yml` that carries the backend | a package that installs and then does nothing |
+| A committed frontend lockfile | this package's dependencies are not the ones the repo records |
+| An `.ico` per window the product shows | a default icon on a paid product |
+
+Two facts about the build machine — which machine, and which folder on it — go in
+`remote-build.json` next to the key. [driving.md](driving.md) covers it.
+
+### The self-check module
+
+The one that gets skipped, and the only thing standing between a missing dynamic dependency and
+a customer finding it. It is a module that imports everything the app needs before it can serve
+its first request, and returns:
+
+```python
+SMOKE_IMPORTS = (
+    "fastapi", "uvicorn",
+    "<pkg>.app",
+    # 函数体里 lazy import 的原生依赖：编译器静态追踪追不到，
+    # 不在这里点名，客户跑到那个功能才崩。
+    "PIL.Image",
+)
+```
+
+The compiled exe must accept an argument that runs it — the existing products use
+`<exe> --run-module <pkg>._build_smoke`, handled in the backend's `__main__`. Whatever the
+product's argument is, the key declares it, and the build runs it right after the compile.
+
+List the same modules in `python_backend.smoke.modules`. That list is checked against
+`nofollow_imports` **before** the compile starts, because finding out afterwards costs tens of
+minutes.
+
+### The chain that carries the backend into the package
+
+This is the one that produces a package that installs cleanly and then does nothing. Three files
+have to agree, and nothing checks them for you until the app fails to start:
+
+| Where | What it says | Existing convention |
 | --- | --- | --- |
-| A backend entry module the compiler can start from | one Nuitka run per `targets[]` entry | nothing to compile |
-| Runtime dependencies resolvable by one command | that command becomes `python_backend.runner` | the compile imports the dev environment, not the shipped one |
-| A self-check the **compiled exe** can run and exit 0 from | the only way a missing dynamic dependency is caught before a customer finds it | a green build that crashes on the customer's machine |
-| An electron-builder config — app id, product name, icon | what the installer is called and looks like is the product's identity, not packaging knowledge | electron-builder refuses, or ships a nameless app |
-| A committed lockfile for the frontend | dependencies install frozen: the lockfile is the only authority on what shipped | this package's dependencies do not match what the repo records |
-| An `.ico` for the backend exe, if it shows a window | Windows needs that format | a default icon on a paid product |
+| the key | where the compiler writes the exe | `python_backend.output_dir: ${DESKTOP_DIR}/python-runtime/backend` |
+| `electron-builder.yml` | copy that tree into the installed app | `extraResources: [{from: "python-runtime/", to: "python-runtime/"}]` |
+| the Electron main process | where to spawn it at run time | `{process.resourcesPath}/python-runtime/backend/<exe>` |
 
-Two facts about the build machine — which machine, and which folder on it — come from
-`remote-build.json` next to the key, or from the environment. [driving.md](driving.md) covers it.
+Give `extraResources` a filter that drops the business packages, `__pycache__`, and tests — the
+compiled exe already contains that code, and a stray copy of the sources beside it is the leak
+the whole compile exists to prevent. The skill scans the built tree for exactly this and stops
+the build, but the filter is where it should never have happened.
 
-**The self-check is the one that gets skipped.** It is a module that imports what the app needs at
-startup and returns. The compiled exe must accept an argument that runs it — the key declares
-that argument, so the shape is the product's choice, but something must be there. A build without
-it proves only that the compiler exited 0.
+### The installer name has to match the key
+
+`win.artifactName` in `electron-builder.yml` decides the installer's filename; the key's
+`installer_glob` is where the build looks for it afterwards and where the engine collects it
+from. Disagree, and the build reports success while nothing is delivered.
+
+A product whose installer needs semantics electron-builder's generic NSIS cannot express —
+carrying the VC++ runtime, stamping an app id, keeping user data on uninstall — writes its own
+`nsis.include` script, or takes over the whole step with `"installer": "repo_hook"`.
 
 ## Step 2 — write the key
 
