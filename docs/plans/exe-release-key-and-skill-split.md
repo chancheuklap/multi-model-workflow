@@ -6,6 +6,27 @@
 
 写给执行这次迁移的 agent。读完就能开工，不需要再去做调研——调研结论都在下面，带出处。
 
+## 落地状态（2026-08-19）
+
+第 1–5 步与第 8 步已落地，第 6 步的前两层验收已过。下面「迁移步骤」里的形状是动工前的方案，
+实现有几处按事实收窄了，以实现为准：
+
+| 计划里写的 | 实际做的 | 为什么 |
+| --- | --- | --- |
+| 钥匙里有 `lane` 字段 | 没有。声明了 `python_backend` 就编译后端，声明了 `electron` 就打壳 | 车道是从声明推得出来的，再写一遍就是同一件事说两处 |
+| `builders/` 下有 `nuitka/pyinstaller/electron/vendored` 四个 | 只有 `nuitka.py` | 四个产品都用 Nuitka；electron 与随包资源在模板里就是几条命令，不值一个模块。用到 PyInstaller 时再加 |
+| `doctor.py`、`manifest_check.py`、`gate_core.py`、`protection_rules.py` | 没建 | 引擎已有路径闸与闸门；体检与清单比对是钥匙指向的仓库侧钩子，本来就该在产品那边 |
+| builder 在构建机上跑 | builder 在 Mac 上把 argv 渲染成字面 PowerShell，烤进 `release.ps1` | 上构建机的只有 5 个文件，技能的 Python 不在其中。这样零新增运输，引擎一行不动 |
+| 三层验收的第一层「新旧 argv 逐字相同」 | 比 flag 多重集合 + 入口在最后 | flag 顺序对 Nuitka 无语义。测试里写明了这一点 |
+
+**未做，且被第三层验收挡着的：**
+
+- **第 6 步第三层：duck 真出一次包。** 唯一预算内的那次构建，没跑。
+- **第 7 步：删旧的。** 三层没全过，一样旧东西都没删。v1 与 v2 并存中。
+- v2 钥匙叫 `*.release-adapter.v2.json`。`SKILL.md` 第 2 步的 `grep --include='*.release-adapter.json'`
+  扫不到它——并存期间就是要这样。要驱一次 v2 出包，把 `<engine> init --manifest` 直接指向
+  `.v2.json`。
+
 ## 目标
 
 **新加一个 App 要打包时，只写一把钥匙，一行 Python 都不用写。**

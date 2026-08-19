@@ -20,10 +20,14 @@
 3. 非零退出。
 
 引擎看到非零退出就 `PAUSED:needs-context` 并保留现场。驱动 agent 读 receipt、按简报改代码、
-`resume`。改动留在工作树，仍然由引擎统一过路径闸再提交——**唯一的 committer 还是引擎**。
+提交到当前分支、`resume`。
 
-`RELEASE_FIX_BACKEND` 仍然是逃生口：设了它就跑那条命令，行为跟以前一样（含把 worker 自建的
-提交回退成工作树改动）。
+**这条路上必须提交。** 远端构建取的是 `git archive HEAD`，改动留在工作树到不了构建机——
+不提交就等于没改，而下一轮会用同一份代码再失败一次。（`resume` 看见 HEAD 变了会重验全部
+stage，这正是要的。）
+
+`RELEASE_FIX_BACKEND` 是逃生口，走的是另一条路：那时引擎在动作返回后收集工作树改动、过路径闸、
+统一提交，所以交给后端的简报说的是「不要自己提交」。两份简报的措辞按路走，不能混。
 """
 
 from __future__ import annotations
@@ -49,18 +53,36 @@ def _load_findings(path: str) -> list[dict]:
     return findings if isinstance(findings, list) else [findings]
 
 
-def brief(findings: list[dict]) -> str:
+_AGENT_RULES = [
+    "- 只改这把钥匙 `editable_paths` 允许的文件。碰受保护路径的改动引擎会拒。",
+    "- 改完**提交到当前分支**，再 `resume`。远端构建取的是 `git archive HEAD`，"
+    "改动留在工作树到不了构建机——不提交等于没改，下一轮用同一份代码再失败一次。",
+    "- 同一个根因修第二次还不过，停下交人，不要继续循环。",
+]
+
+_BACKEND_RULES = [
+    "- 只改路径闸允许的文件。引擎会拒绝任何越界改动。",
+    "- 改完把改动留在工作树——**不要 git add，不要 git commit**。",
+    "  这条路上引擎是唯一的 committer，它会统一过路径闸再提交。",
+    "- 同一个根因修第二次还不过，停下交人，不要继续循环。",
+]
+
+
+def brief(findings: list[dict], *, for_backend: bool = False) -> str:
+    """写给谁，规则就按谁那条路写。
+
+    默认这份是给驱动 agent 的：它在引擎之外，所以必须自己提交。给外部后端的那份相反——
+    引擎会在动作返回后收工作树、过路径闸、统一提交。措辞混了，改动要么到不了构建机，
+    要么绕过路径闸。
+    """
     lines = [
         "# Release fix brief",
         "",
-        "出包卡在一条可修的失败上。按下面的 findings 改，改完 `resume`。",
+        "出包卡在一条可修的失败上。按下面的 findings 改。",
         "",
         "规则：",
         "",
-        "- 只改路径闸允许的文件。引擎会拒绝任何越界改动。",
-        "- 改完把改动留在工作树——**不要 git add，不要 git commit**。",
-        "  引擎是唯一的 committer，它会统一过路径闸再提交。",
-        "- 同一个根因修第二次还不过，停下交人，不要继续循环。",
+        *(_BACKEND_RULES if for_backend else _AGENT_RULES),
         "",
         "## Findings",
         "",
@@ -173,11 +195,11 @@ def main() -> int:
         return _die("RELEASE_FIX_FINDINGS 没给，或不是一个文件")
 
     findings = _load_findings(findings_path)
+    override = os.environ.get("RELEASE_FIX_BACKEND")
     path = _brief_path(repo_root)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(brief(findings), encoding="utf-8")
+    path.write_text(brief(findings, for_backend=bool(override)), encoding="utf-8")
 
-    override = os.environ.get("RELEASE_FIX_BACKEND")
     if override:
         return _run_backend(shlex.split(override), repo_root, ref_file, path)
 
@@ -186,7 +208,7 @@ def main() -> int:
     print(f"FIX-BRIEF={path}")
     print(
         "没有配自动修复后端，这条 P1 交给正在驱动出包的 agent：读上面那份简报，改代码，"
-        "改动留在工作树不要提交，然后 resume。"
+        "提交到当前分支，然后 resume。"
         "要接一个外部修复后端就设 RELEASE_FIX_BACKEND。",
         file=sys.stderr,
     )

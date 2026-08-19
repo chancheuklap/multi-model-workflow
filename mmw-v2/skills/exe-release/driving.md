@@ -19,6 +19,7 @@ Act on this output only. Do not predict the next state. A stage, a dispatch, or 
 | Output | Do | Hand back? |
 | --- | --- | --- |
 | `STAGE:<name>` or `RETRY-STAGE:<name>` | `<engine> stage run --stage <name>`. The engine expands args, routes remote builds, runs diagnostics, writes the result from the exit code, and records findings | No |
+| `PAUSED:needs-context` with a `FIX-BRIEF=` line in the log | Read that brief. It names the findings and what to change. Fix, **commit**, then `<engine> resume` | No |
 | `SUCCESS:all stages done` | `<engine> exit-check` must return `DONE`, then `<engine> close` | No. Success without `DONE` is an engine bug. Do not announce success |
 | `PAUSED:needs-context` | See "Pause: missing context" below. This is not the end | Hand back only after two failed attempts |
 | `PAUSED:needs-redirection` | Read `<engine> receipt`. Give it to the user as-is | Yes. Protected paths, circuit breakers, and spent budget must not continue on their own |
@@ -43,11 +44,24 @@ When `stage run` fails, the engine has already diagnosed and graded. Read `where
 
 `PAUSED:needs-context` means the engine lacks information it cannot judge. **Resolve it yourself when you can.**
 
+A P1 failure the engine could grade but cannot fix by itself arrives here too, with a
+`FIX-BRIEF=<path>` line in the log. That brief is the findings written out for you to act on — read
+it instead of re-diagnosing.
+
 1. `<engine> receipt` for what was already tried. Read engine logs, builder logs, and finding text from the latest record.
 2. Diagnose from log text. Do not guess.
-3. If you can act: environment issues (network, busy builder) you may handle. Code or config changes commit to the current branch as usual, and the current stage re-verifies them.
+3. If you can act: environment issues (network, busy builder) you may handle. **Code or config changes commit to the current branch**, and the current stage re-verifies them.
 4. Run `<engine> resume`, then follow engine state through this stage and the remaining full-package checks.
 5. **Same root cause twice, or the cause is billing, a contract, a protected path, or a product decision the user must make — stop and hand it over.** Do not loop.
+
+Step 3 says commit because the remote build ships `git archive HEAD`. A change left in the
+worktree never reaches the build machine, so the next round rebuilds the same code and fails the
+same way. `resume` sees the new HEAD and re-verifies every stage — that is what you want after a
+code change.
+
+(An automated fix backend works the other way: there the engine collects the worktree changes,
+runs them through the path gate, and commits. That path is `dispatch`, not `resume`, and you are
+not on it.)
 
 ## Remote build machine
 

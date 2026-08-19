@@ -86,8 +86,10 @@ def test_writes_a_brief_next_to_the_findings_and_stops(tmp_path):
     assert "missing_module:uharfbuzz" in text
     assert "No module named 'uharfbuzz'" in text
     assert "补 uharfbuzz 到钥匙的 include_packages 后重建" in text
-    # 简报必须说清楚谁提交——引擎是唯一 committer，worker 自己提交会绕过路径闸。
-    assert "不要 git commit" in text
+    # 简报必须说清楚谁提交。这条路上驱动 agent 在引擎之外，改动不提交就进不了
+    # git archive HEAD，到不了构建机。
+    assert "提交到当前分支" in text
+    assert "git archive HEAD" in text
     assert ref_file.read_text(encoding="utf-8") == ""
 
 
@@ -123,8 +125,11 @@ def test_backend_gets_the_brief_path_and_its_exit_code_is_kept(tmp_path):
     )
 
     assert result.returncode == 0
-    assert str(findings.parent / "release-fix-brief.md") in record.read_text("utf-8")
+    brief = findings.parent / "release-fix-brief.md"
+    assert str(brief) in record.read_text("utf-8")
     assert ref_file.read_text(encoding="utf-8") == "stub-123"
+    # 走后端那条路时引擎是唯一 committer，所以简报的措辞相反。
+    assert "不要 git commit" in brief.read_text(encoding="utf-8")
 
 
 def test_backend_commits_are_unwound_back_into_the_worktree(tmp_path):

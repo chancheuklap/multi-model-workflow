@@ -65,13 +65,25 @@ git diff <上一个 Squashed 提交> -- mmw-v2/upstream/skills/engineering/wayfi
 | --- | --- |
 | `SKILL.md` | 判断层：这次要出哪几个产品、包出来之后交给谁 |
 | `driving.md` | 驱动合同：`where` 说什么就做什么 |
+| `key.md` | 怎么写一把钥匙，以及每个字段是被哪次失败逼出来的 |
 | `scripts/release-flow.sh` | 引擎。状态机、P0/P1/P2 分级、路径闸、同根因熔断、轮次预算、pause/resume/receipt、派修 |
 | `scripts/release_contracts.py` | 钥匙（`*.release-adapter.json`）与事件的合同 |
-| `scripts/release_script_assembler.py`、`scripts/release_templates/` | 按钥匙装配 Windows 出包脚本 |
-| `tests/run.sh` | 四份测试。改了 `scripts/` 下任何东西之后跑一次 |
+| `scripts/builders/`、`scripts/release_templates/`、`scripts/release_script_assembler.py` | 按钥匙装配 Windows 出包脚本 |
+| `scripts/diagnose_core.py` | 把失败日志翻成根因。引擎和模板自己打印的那些话由它认 |
+| `scripts/fix_dispatch.py` | 没有自动修复后端时，把 findings 写成简报交给驱动 agent |
+| `tests/run.sh` | 全部测试。改了 `scripts/` 下任何东西之后跑一次 |
 
-产品仓库提供一把钥匙：`*.release-adapter.json`，一个产品一把。引擎只认钥匙，不认产品——
-诊断、修复、闸门都是钥匙指向的仓库侧脚本。
+产品仓库提供一把钥匙：`*.release-adapter.json`，一个产品一把。**加一个产品就是写一把钥匙，
+不写 Python。** 钥匙说不出来的事，答案是给钥匙加字段或给技能加能力，不是在产品仓库里加脚本——
+那是把出包知识抄一份，下一个产品还得再抄一次。
+
+出包踩过的坑归拢在技能里：Nuitka 的命令、编译期挪开前端依赖、abi3 DLL 落在 `.pyd` 自己的目录、
+GUI 关控制台、编译产物的导入冒烟。产品仓库只留两件真属于它自己的：取嵌入式运行时，和它自己
+发明的交付格式（自更新源、语义特殊的手写 NSIS）。
+
+Mac 上装配好的 `release.ps1` 是构建机上唯一跑的东西，技能的 Python 不上构建机。生成的脚本
+在 Mac 上验不了语法，`tests/check-generated-powershell.sh <构建机> <脚本>` 送过去让
+PowerShell 自己解析。
 
 **引擎跑不动的时候会自己修再来。** 这套自愈的唯一存在理由就是这个：出包失败 → 诊断 →
 按分级派修 → 重跑那一阶段。P0 与保护路径不自动修，停下来交人。

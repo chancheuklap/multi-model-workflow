@@ -42,6 +42,11 @@ Decide which to ship: take the paths this change touched (`git diff --name-only 
 
 If you cannot tell, ask the user. Do not omit a product.
 
+**A product with no release config does not ship yet — write it one.** A key is JSON, and writing
+one is the whole job of adding a product: [key.md](key.md). Do not write packaging scripts in the
+product repo to work around a key that cannot say something; add the field or the capability
+where every product gets it.
+
 Show this list once and continue. Do not wait for a reply:
 
 ```
