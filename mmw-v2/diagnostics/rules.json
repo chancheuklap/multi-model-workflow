@@ -1,0 +1,88 @@
+{
+  "_why": [
+    "检查器表：编辑后诊断要跑哪些命令、怎么解析它们的输出、缺了怎么装。",
+    "",
+    "按检查器分组，不按语言分组。上一代按语言分组是因为同一张表还要回答另外两件事",
+    "（这门语言配哪个语言服务器、往仓库写哪些 CI 文件）。那两件事现在不由这张表管，",
+    "语言那一层就没有内容了，留着只会让人以为改它有用。",
+    "",
+    "config 指向 config/ 下的文件，由 check.py 用命令行传给检查器。不往被检查的仓库",
+    "写任何配置文件：写进去的副本会各自漂移，而命令行传的这一份，所有仓库、所有宿主",
+    "拿到的是同一份。",
+    "",
+    "install 说这个检查器归哪个包管理器装。install-checkers.sh 照着装，每次都装最新",
+    "稳定版，不锁版本。"
+  ],
+  "version": 1,
+  "checkers": [
+    {
+      "id": "ruff",
+      "title": "Python 风格与常见错误",
+      "extensions": [".py", ".pyi"],
+      "workspace_marker": "pyproject.toml",
+      "project_bin": [".venv/bin/ruff"],
+      "bin": "ruff",
+      "file_args": ["check", "--quiet", "--no-cache", "--output-format", "concise"],
+      "config_flag": "--config",
+      "config": "ruff.toml",
+      "parse": "concise",
+      "install": { "manager": "uv", "package": "ruff" }
+    },
+    {
+      "id": "pyright",
+      "title": "Python 类型",
+      "extensions": [".py", ".pyi"],
+      "workspace_marker": "pyproject.toml",
+      "project_bin": [".venv/bin/pyright"],
+      "bin": "pyright",
+      "file_args": ["--outputjson"],
+      "parse": "pyright_json",
+      "install": { "manager": "uv", "package": "pyright" },
+      "_no_config_why": "pyright 没有「配置文件放在仓库外」这种用法：它只认 --project，而 --project 同时决定搜索根，指到仓库外会让它找不到源码。用它的默认判定级别。"
+    },
+    {
+      "id": "oxlint",
+      "title": "TypeScript 与 JavaScript",
+      "extensions": [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"],
+      "workspace_marker": "package.json",
+      "project_bin": ["node_modules/.bin/oxlint"],
+      "bin": "oxlint",
+      "file_args": ["--type-aware"],
+      "config_flag": "--config",
+      "config": "oxlintrc.json",
+      "parse": "concise",
+      "install": { "manager": "pnpm", "package": "oxlint", "companions": ["oxlint-tsgolint"] },
+      "_why": "选 oxlint 不选 eslint：typescript-eslint 需要 TypeScript 的编程接口，而 TypeScript 7 是 Go 重写版、不带那个接口，装上会直接拒绝启动。oxlint 自带 parser，类型感知规则经 oxlint-tsgolint 走 tsgo。",
+      "_config_why": "传了 --config，oxlint 就不再向上找 .oxlintrc.json。这正是我们要的：被检查的仓库里有没有它自己的配置，都不影响判定。"
+    },
+    {
+      "id": "shellcheck",
+      "title": "Shell 脚本",
+      "extensions": [".sh", ".bash"],
+      "workspace_marker": null,
+      "project_bin": [],
+      "bin": "shellcheck",
+      "file_args": ["--format", "gcc"],
+      "parse": "concise",
+      "install": { "manager": "brew", "package": "shellcheck" },
+      "_format_why": "gcc 格式是 path:line:col: level: message [SC####]，跟 ruff 的 concise 同构，两个检查器共用一个解析器，行号过滤也直接可用。"
+    },
+    {
+      "id": "secrets",
+      "title": "明文密钥",
+      "kind": "patterns",
+      "extensions": null,
+      "patterns": [
+        "discord\\.com/api/webhooks/[0-9]{16,}/[A-Za-z0-9_-]{32,}",
+        "hooks\\.slack\\.com/services/T[A-Za-z0-9]+/B[A-Za-z0-9]+/[A-Za-z0-9]{20,}",
+        "AKIA[0-9A-Z]{16}",
+        "^-----BEGIN (RSA |OPENSSH |EC |DSA )?PRIVATE KEY-----$",
+        "gh[pousr]_[A-Za-z0-9]{36,}",
+        "sk-[A-Za-z0-9]{32,}",
+        "AIza[0-9A-Za-z_-]{35}"
+      ],
+      "_why": "不需要装任何东西，是纯正则，所以对每个改过的文件都扫。extensions 为 null 表示不限后缀。上一代只在 CI 扫，那意味着一个粘进来的密钥要等到推上去才被发现。",
+      "_private_key_why": "私钥那条要求整行只有 BEGIN 标记。不加行首行尾锚点会命中文档里的占位示例。代价是嵌在代码字符串里的私钥抓不到；宁可少抓那一种，也不能让门一直红——红久了就没人看了。"
+    }
+  ]
+}
