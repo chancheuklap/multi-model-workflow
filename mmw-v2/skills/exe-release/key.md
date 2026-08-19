@@ -208,7 +208,7 @@ blip is dispatched to a code fix, or a real defect is retried until the budget r
 A product that ships today through its own Python is the same job read backwards. Open each
 script and sort it with the one question:
 
-- **Constants — lists of packages, paths, flags,版本, names.** These are the key. Copy the values
+- **Constants — lists of packages, paths, flags, versions, names.** These are the key. Copy the values
   across verbatim. Do not re-decide any of them: a value in there is usually a fix for something
   that once broke, and the commit that explains it is long gone.
 - **Functions that build a command or copy a tree.** These are the skill. If the skill already
