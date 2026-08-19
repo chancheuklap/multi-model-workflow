@@ -78,14 +78,14 @@
       "install": {
         "manager": "pnpm",
         "package": "typescript-language-server",
-        "companions": ["typescript"]
+        "companions": ["typescript@5"]
       },
       "language_server": {
         "serena_language": "typescript",
         "bin": "typescript-language-server",
         "extensions": [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"]
       },
-      "_companion_why": "typescript-language-server 只是个外壳，真正解析代码的是 typescript 包。不装它，服务器起得来但答不出东西。"
+      "_companion_why": "typescript-language-server 只是个外壳，真正解析代码的是 typescript 包。不装它，服务器起得来但答不出东西。收到 5 是因为它驱动的是 tsserver.js：TypeScript 7 是 Go 重写版，lib/ 下只剩 tsc.js 与一个指向原生可执行文件的 getExePath，没有 tsserver.js，服务器 initialize 当场抛 Could not find a valid TypeScript installation。5 是仍然提供它的最后一条线，@5 仍然每次拉最新的 5.x。"
     },
     {
       "id": "shellcheck",

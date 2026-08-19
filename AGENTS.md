@@ -151,7 +151,7 @@ serena 按仓库里的文件数自动定的，不是把装了的全起一遍。
 | 语言 | 检查 | 符号 |
 | --- | --- | --- |
 | Python | `ruff` + `pyright` | `pyright-langserver`（`ls_path`） |
-| TypeScript / JavaScript | `oxlint`（带 `oxlint-tsgolint`） | `typescript-language-server`（带 `typescript`，`ls_path`） |
+| TypeScript / JavaScript | `oxlint`（带 `oxlint-tsgolint`） | `typescript-language-server`（带 `typescript@5`，`ls_path`） |
 | Vue | `oxlint`，规则在 `oxlintrc.json` 的 `plugins` 里开 `vue` | 不接，见下 |
 | Shell | `shellcheck` | `bash-language-server`（`ls_path`） |
 | Swift | `swiftlint` | `/usr/bin/sourcekit-lsp`（`path`，Xcode 命令行工具自带） |
@@ -171,6 +171,13 @@ serena 按仓库里的文件数自动定的，不是把装了的全起一遍。
 上，serena 找不到。
 
 **不锁版本，每次安装都升到最新稳定版。** 锁住换来的"一致"只保证两个陈旧副本相同。
+
+**唯一的例外是 `typescript`，收到 `5`。** `typescript-language-server` 只是外壳，真正解析代码的是
+`typescript` 包里的 `tsserver.js`；而 TypeScript 7 是 Go 重写版，`lib/` 下只剩 `tsc.js` 和一个指向
+原生可执行文件的 `getExePath`，没有 `tsserver.js`。装上 7 之后 serena 起 typescript 服务器会当场抛
+`Could not find a valid TypeScript installation`——而且**只在真的要查 TypeScript 符号的仓库里才炸**，
+安装器一路报「装好」。`5` 是仍然提供 `tsserver.js` 的最后一条线，`@5` 仍然每次拉最新的 5.x。
+清单里写成 `包@范围` 的就照它装，其余仍然 `@latest`。
 
 装在 MMW 自己的目录里，不碰机器的全局环境，也不碰 `~/dev-environment`：那个控制平面管的是
 **用户自己敲的命令**（brew、shell 启动、你用的 CLI），这里管的是 agent 的工具。两边互不影响。

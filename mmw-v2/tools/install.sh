@@ -82,7 +82,15 @@ install_pnpm() {
   fi
   mkdir -p "$NODE_DIR"
   [ -f "$NODE_DIR/package.json" ] || printf '{"private":true}\n' > "$NODE_DIR/package.json"
-  for pkg in $pkgs; do spec+=("${pkg}@latest"); done
+  # 缺省每次拉最新稳定版。清单里自己写了版本范围的（`包@范围`）照它装——目前只有一个：
+  # typescript-language-server 驱动的是 tsserver.js，而 TypeScript 7 是 Go 重写版、不再
+  # 提供它。作用域包以 @ 开头，判断时先剥掉那一个。
+  for pkg in $pkgs; do
+    case "${pkg#@}" in
+      *@*) spec+=("$pkg") ;;
+      *) spec+=("${pkg}@latest") ;;
+    esac
+  done
   if ! (cd "$NODE_DIR" && pnpm add --silent "${spec[@]}" >/dev/null 2>&1); then
     echo "ERROR: 装 $(echo "$pkgs" | tr '\n' ' ') 失败" >&2
     return 1
