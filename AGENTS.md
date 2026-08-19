@@ -25,11 +25,13 @@
 | --- | --- |
 | `mmw-v2/upstream/` | 上游 `mattpocock/skills` 的 Git subtree（squash）。**可编辑**，不是只读供应商目录 |
 | `mmw-v2/skills.txt` | 装哪些技能。加减技能只改这一处 |
-| `mmw-v2/install.sh` | 按名单软链进各宿主。`--check` 只看不动 |
+| `mmw-v2/.mcp.json` | 装哪些检索服务器。服务器定义的唯一事实来源 |
+| `mmw-v2/install.sh` | 唯一安装入口：技能软链加 MCP 写配置。`--check` 只看不动 |
 
 ```bash
 bash mmw-v2/install.sh            # 装
 bash mmw-v2/install.sh --check    # 齐了回 0，缺东西回 1
+python3 mmw-v2/mcp/probe.py       # 真起一次三台服务器，握手并列工具
 ```
 
 技能装进五个宿主自己的用户级目录：`~/.claude/skills`、`~/.codex/skills`、`~/.pi/agent/skills`、
@@ -49,6 +51,25 @@ git subtree pull --prefix mmw-v2/upstream https://github.com/mattpocock/skills m
 ```bash
 git diff <上一个 Squashed 提交> -- mmw-v2/upstream/skills/engineering/wayfinder/
 ```
+
+## 检索
+
+三台 MCP 服务器装进五个宿主各自的配置：**serena**（符号定义、引用、实现、文件概览）、
+**graphify**（模块关系、依赖路径、反向影响、跨语言数据流）、**context7**（第三方库文档）。
+
+技能是软链，MCP 是写进宿主自己的配置文件——形状不同，所以是两个脚本，`install.sh` 统一调用。
+写进去的是**绝对路径**，指向这个 checkout：要从主检出装，不要从任务 worktree 装，worktree
+合并后会删掉，写进去的路径就断了。换仓库位置也要重跑安装器。
+
+| 位置 | 是什么 |
+| --- | --- |
+| `mmw-v2/mcp/resolve.py` | 唯一的展开器。`${MMW_ROOT}` 与密钥占位符都在这里换成真值 |
+| `mmw-v2/mcp/install-mcp.sh` | 写进五个宿主的配置。只加不删，同名才覆盖 |
+| `mmw-v2/mcp/graphify_mcp.py` | graphify 服务器本体。查询前先保证图对得上当前 checkout |
+| `mmw-v2/config/serena-readonly.yml` | serena 的只读白名单。上游默认 29 个工具，含任意命令执行和写文件 |
+| `mmw-v2/config/retrieval-contract.json` | 裁剪面的唯一事实来源。`probe.py` 拿真实工具列表跟它**集合相等**比对 |
+
+密钥不进仓库：`.mcp.json` 只写 `${VAR}` 声明，值从进程环境或 `~/.mmw/secrets.env` 取。
 
 ## 宿主边界
 
