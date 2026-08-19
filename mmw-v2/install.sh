@@ -150,7 +150,7 @@ else
   echo
   echo "源目录：$SKILLS_SRC"
   echo "改技能直接改源目录里的文件，宿主下次调用就是新的。"
-  echo "MCP 写的是绝对路径，指向 $ROOT——换仓库位置要重跑本脚本。"
+  echo "MCP 写的是绝对路径，指向 ${ROOT}。换仓库位置要重跑本脚本。"
 fi
 
 exit "$rc"
