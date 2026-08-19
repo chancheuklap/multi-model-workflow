@@ -1,0 +1,130 @@
+param(
+  [string]$ReleaseContextPath = ${CONTEXT_DEFAULT_PATH}
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+function Step {
+  param([string]$Label)
+  Write-Host $Label
+}
+
+function Assert-Tool {
+  param([string]$Name)
+  if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
+    throw "Required build tool is unavailable: $Name"
+  }
+}
+
+function Invoke-Checked {
+  param([string]$Command, [string[]]$Arguments, [string]$WorkingDirectory)
+  Push-Location $WorkingDirectory
+  try {
+    & $Command @Arguments
+    if ($LASTEXITCODE -ne 0) {
+      throw "Build command failed: $Command ($LASTEXITCODE)"
+    }
+  }
+  finally { Pop-Location }
+}
+
+# 原生扩展缺的 DLL 在构建机上的真实路径，只有构建机自己知道。
+#
+# compile_interpreter：必须取自**跑 Nuitka 的那个解释器**。abi3 扩展链的 python3.dll 是转发库，
+#   版本不匹配就转发到一个不存在的 pythonNNN.dll，客户机上是空 ImportError。
+# system32：MSVC C++ 运行库，版本无关，从构建机官方位置取，让包对客户机自包含（客户不用装 VC++）。
+#
+# 缺就当场停。让它静默漏掉，代价是客户跑到那个功能才崩，而那时已经出货了。
+function Resolve-BuildDll {
+  param([string]$Source, [string]$Name, [string[]]$RunnerArgv, [string]$WorkingDirectory)
+  if ($Source -eq 'system32') {
+    $root = if ($env:SystemRoot) { $env:SystemRoot } else { 'C:\Windows' }
+    $candidate = Join-Path (Join-Path $root 'System32') $Name
+    if (-not (Test-Path -LiteralPath $candidate)) {
+      throw "Build machine is missing $Name at $candidate; the native extension that links it would fail on customer machines"
+    }
+    return $candidate
+  }
+  if ($Source -ne 'compile_interpreter') {
+    throw "Unknown native extension DLL source: $Source"
+  }
+  Push-Location $WorkingDirectory
+  try {
+    $command = [string]$RunnerArgv[0]
+    $arguments = @()
+    if ($RunnerArgv.Count -gt 1) { $arguments += @($RunnerArgv[1..($RunnerArgv.Count - 1)]) }
+    $arguments += @('-c', 'import sys; print(sys.base_prefix)')
+    $basePrefix = (& $command @arguments | Select-Object -Last 1)
+    if ($LASTEXITCODE -ne 0) { throw "Cannot resolve the compile interpreter base_prefix ($LASTEXITCODE)" }
+  }
+  finally { Pop-Location }
+  $basePrefix = "$basePrefix".Trim()
+  foreach ($dir in @($basePrefix, (Join-Path $basePrefix 'DLLs'))) {
+    $candidate = Join-Path $dir $Name
+    if (Test-Path -LiteralPath $candidate) { return $candidate }
+  }
+  throw "The compile interpreter at $basePrefix is missing $Name; an abi3 native extension needs it, and without it the packaged app fails to import that extension"
+}
+
+# 编译产物原地跑一次 import。冻结包缺动态依赖只有真跑起来才看得见，在构建机上暴露它，
+# 比等客户装完打开才崩便宜几个数量级。超时也算失败：挂死的自检和失败的自检一样不能放行。
+function Invoke-BuiltExeSmoke {
+  param([string]$Exe, [string]$Module, [int]$TimeoutSeconds)
+  if (-not (Test-Path -LiteralPath $Exe)) {
+    throw "Compiled backend is missing, cannot run the import smoke: $Exe"
+  }
+  $process = Start-Process -FilePath $Exe -ArgumentList @('--run-module', $Module) `
+    -WorkingDirectory (Split-Path -Parent $Exe) -NoNewWindow -PassThru
+  if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+    try { $process.Kill() } catch { }
+    throw "Compiled backend import smoke timed out after $($TimeoutSeconds)s (an import likely started a thread that never exits)"
+  }
+  if ($process.ExitCode -ne 0) {
+    throw "Compiled backend import smoke failed ($($process.ExitCode)); the frozen build is missing a dynamic dependency. Fix the Nuitka include flags in the release adapter key and rebuild."
+  }
+}
+
+${RENDERED_HOOK_FUNCTIONS}
+
+# 上下文路径绝对化：钩子在 $RepoRoot 下跑，若传的是相对路径，cwd 一切换就读不到。
+# 远程 harness 已按绝对路径传 -ReleaseContextPath，此处对绝对路径幂等。
+$ReleaseContextPath = (Resolve-Path -LiteralPath $ReleaseContextPath).Path
+$Context = Get-Content -Raw -Encoding UTF8 $ReleaseContextPath | ConvertFrom-Json
+$RepoRoot = [string]$Context.repo_root
+$DesktopDir = Join-Path $RepoRoot ${DESKTOP_DIR_LITERAL}
+$DistDir = Join-Path $DesktopDir ${DIST_DIR_LITERAL}
+$UnpackedDir = Join-Path $DesktopDir ${UNPACKED_DIR_LITERAL}
+
+# 正式安装包压缩档：嵌入式 runtime 几百 MB，压缩档对客户下载体验有实际影响，所以默认最高档。
+# 现场验证时用环境变量压到 store 换速度。
+$BuilderCompression = ${COMPRESSION_EXPR}
+
+# build_machine 协议：setup 在耗时步骤前备好构建机（uv 镜像 / ccache / electron 镜像 /
+# TEMP 重定向等 env + 系统级杀软排除 + 构建缓存预检），stdout 每行 KEY=VALUE 应用到本进程 env，
+# 随后所有步骤继承。teardown 在 finally 跑，best-effort，不改变构建判定。
+$BuildMachine = if ($Context.PSObject.Properties.Match('build_machine').Count -gt 0) { $Context.build_machine } else { $null }
+try {
+  if ($BuildMachine -and $BuildMachine.setup) {
+    Step "[0/${STEP_TOTAL}] Prepare build machine"
+    Push-Location $RepoRoot
+    try {
+      $envLines = & $BuildMachine.setup[0] @($BuildMachine.setup[1..($BuildMachine.setup.Count - 1)])
+    } finally { Pop-Location }
+    if ($LASTEXITCODE -ne 0) { throw "build machine setup failed ($LASTEXITCODE)" }
+    foreach ($line in @($envLines)) {
+      if ("$line" -match '^([A-Za-z_][A-Za-z0-9_]*)=(.*)$') {
+        [Environment]::SetEnvironmentVariable($Matches[1], $Matches[2])
+        Write-Host ("  build env: " + $Matches[1])
+      }
+    }
+  }
+
+${PIPELINE}
+}
+finally {
+  if ($BuildMachine -and $BuildMachine.teardown) {
+    Push-Location $RepoRoot
+    try { & $BuildMachine.teardown[0] @($BuildMachine.teardown[1..($BuildMachine.teardown.Count - 1)]) | Out-Null } catch { } finally { Pop-Location }
+  }
+}

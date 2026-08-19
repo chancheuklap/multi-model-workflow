@@ -15,7 +15,8 @@
           "missing.dll"
         ],
         "dll_source": "repo",
-        "dest": "dist_root"
+        "dest": "dist_root",
+        "repo_dir": "resources/native/dll"
       }
     ],
     "nuitka_include": [],

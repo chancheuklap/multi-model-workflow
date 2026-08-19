@@ -289,6 +289,8 @@ def powershell_argv(segments: list[Segment]) -> str:
         literal_only = True
         for kind, value in segment.parts:
             if kind == "lit":
+                if not value:
+                    continue
                 pieces.append(_ps_literal(value))
             elif kind == "path":
                 literal_only = False

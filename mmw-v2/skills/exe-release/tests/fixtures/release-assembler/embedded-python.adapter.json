@@ -7,40 +7,82 @@
     "entry_module": "runtime_backend",
     "installer_brand": "Runtime Desktop",
     "deps_extra": "desktop-runtime",
-    "asset_roots": ["src/runtime_backend/assets/**"],
+    "asset_roots": [
+      "src/runtime_backend/assets/**"
+    ],
     "native_ext_dll": [
       {
         "reason": "abi3 forwarders",
-        "dll_names": ["python3.dll", "vcruntime140_1.dll"],
+        "dll_names": [
+          "python3.dll",
+          "vcruntime140_1.dll"
+        ],
         "dll_source": "compile_interpreter",
         "dest": "pyd_package_dir",
         "pyd_package": "native_pkg"
       },
       {
         "reason": "C++ runtime",
-        "dll_names": ["msvcp140.dll"],
+        "dll_names": [
+          "msvcp140.dll"
+        ],
         "dll_source": "repo",
-        "dest": "dist_root"
+        "dest": "dist_root",
+        "repo_dir": "resources/native/dll"
       }
     ],
-    "nuitka_include": ["native_pkg", "runtime_pkg"],
-    "nuitka_nofollow": ["scipy"]
+    "nuitka_include": [
+      "native_pkg",
+      "runtime_pkg"
+    ],
+    "nuitka_nofollow": [
+      "scipy"
+    ]
   },
   "stages": [
-    {"name": "verify_key", "run": ["verify-key"]}
+    {
+      "name": "verify_key",
+      "run": [
+        "verify-key"
+      ]
+    }
   ],
-  "diagnose": ["diagnose-release"],
-  "derive": ["derive-release"],
-  "editable_paths": ["src/**"],
+  "diagnose": [
+    "diagnose-release"
+  ],
+  "derive": [
+    "derive-release"
+  ],
+  "editable_paths": [
+    "src/**"
+  ],
   "protection_source": "release-protection.json",
   "build_hooks": {
-    "runtime_prepare": ["prepare-runtime", "--mode", "embedded"],
-    "artifact_scan": ["scan-artifact"],
-    "package_integrity": ["check-package"],
-    "asset_parity": ["verify-assets"],
-    "credential_proof": ["prove-credentials"]
+    "runtime_prepare": [
+      "prepare-runtime",
+      "--mode",
+      "embedded"
+    ],
+    "artifact_scan": [
+      "scan-artifact"
+    ],
+    "package_integrity": [
+      "check-package"
+    ],
+    "asset_parity": [
+      "verify-assets"
+    ],
+    "credential_proof": [
+      "prove-credentials"
+    ]
   },
-  "post_fix_gate": ["post-fix-gate"],
-  "fix_executor": ["fix-release"],
-  "event_sink": ["write-event"]
+  "post_fix_gate": [
+    "post-fix-gate"
+  ],
+  "fix_executor": [
+    "fix-release"
+  ],
+  "event_sink": [
+    "write-event"
+  ]
 }

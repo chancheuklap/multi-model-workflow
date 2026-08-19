@@ -105,9 +105,11 @@ class NativeExtDll(BaseModel):
     pyd_package: str | None = None
 
     @model_validator(mode="after")
-    def _pyd_package_required_for_package_dir(self) -> "NativeExtDll":
+    def _sources_and_destinations_must_be_complete(self) -> "NativeExtDll":
         if self.dest == "pyd_package_dir" and not self.pyd_package:
             raise ValueError("dest=pyd_package_dir 必须给 pyd_package")
+        if self.dll_source == "repo" and not self.repo_dir:
+            raise ValueError("dll_source=repo 必须给 repo_dir")
         return self
 
 
@@ -136,15 +138,44 @@ class BuildTarget(BaseModel):
 
 
 class ReleaseBuildHooks(BaseModel):
-    """流水线模板按具名阶段消费的仓库钩子 argv。"""
+    """流水线按具名阶段回调的仓库钩子 argv。
+
+    钩子挂在阶段上，不挂在步号上：步号随钥匙声明的内容变，阶段不变。
+
+    | 阶段 | 钩子 | 这时候做什么 |
+    | --- | --- | --- |
+    | runtime_ready | runtime_prepare / asset_parity / credential_proof | 造运行时、核资产、出凭证证明 |
+    | backend_ready | backend_verify | 编译产物刚出来，验它能不能起来 |
+    | artifact_ready | artifact_scan | Electron 打完 dir，扫产物 |
+    | installer_ready | installer | 产品自己出安装包（不走 electron-builder 那条） |
+    | release_ready | package_integrity | 安装包已产出，验完整性 |
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    runtime_prepare: list[str] = Field(min_length=1)
+    # v1 必须有：那时整条出包链都靠它。v2 起可以没有——没有嵌入式运行时要造的产品
+    # （比如 duck）这一步本来就是空的。
+    runtime_prepare: list[str] | None = None
     artifact_scan: list[str] = Field(min_length=1)
     package_integrity: list[str] = Field(min_length=1)
     asset_parity: list[str] | None = None
     credential_proof: list[str] | None = None
+    # v2 新增两个槽。
+    backend_verify: list[str] | None = None
+    installer: list[str] | None = None
+
+    @model_validator(mode="after")
+    def _declared_hooks_must_have_argv(self) -> "ReleaseBuildHooks":
+        """要么不声明，要么给一条真命令。空 argv 是「声明了但什么也不做」，
+        看着配好了、实际那一步是空的——这种失败要到出货之后才发现。"""
+        empty = sorted(
+            name
+            for name in type(self).model_fields
+            if getattr(self, name) is not None and not getattr(self, name)
+        )
+        if empty:
+            raise ValueError(f"这些钩子的 argv 是空的: {', '.join(empty)}")
+        return self
 
 
 class BuildMachine(BaseModel):
@@ -313,16 +344,34 @@ class ReleaseAdapterManifest(BaseModel):
             "toolchain": self.toolchain or None,
         }
         present = sorted(name for name, value in v2_fields.items() if value is not None)
+        v2_hooks = sorted(
+            name
+            for name in ("backend_verify", "installer")
+            if getattr(self.build_hooks, name) is not None
+        )
         if self.schema_version == "1":
-            if present:
+            if present or v2_hooks:
                 raise ValueError(
-                    f"schema_version=1 的钥匙不能带 v2 段: {', '.join(present)}"
+                    "schema_version=1 的钥匙不能带 v2 段: "
+                    + ", ".join([*present, *v2_hooks])
                 )
+            if self.build_hooks.runtime_prepare is None:
+                raise ValueError("schema_version=1 的钥匙必须声明 build_hooks.runtime_prepare")
             return self
         if self.python_backend is None:
             raise ValueError("schema_version=2 的钥匙必须声明 python_backend")
         if not self.toolchain:
             raise ValueError("schema_version=2 的钥匙必须声明 toolchain")
+        if self.electron and self.electron.installer == "repo_hook":
+            if self.build_hooks.installer is None:
+                raise ValueError(
+                    "electron.installer=repo_hook 必须同时声明 build_hooks.installer——"
+                    "否则装配出来的脚本走到出安装包那一步是空的"
+                )
+        elif self.build_hooks.installer is not None:
+            raise ValueError(
+                "build_hooks.installer 只在 electron.installer=repo_hook 时有意义"
+            )
         return self
 
 
