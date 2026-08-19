@@ -24,10 +24,17 @@ mmw_collect_files() {
   local payload="$1"
   MMW_FILES=()
   command -v jq >/dev/null 2>&1 || return 0
+  local base
+  base="$(mmw_payload_cwd "$payload")"
   # 不用 mapfile：macOS 自带的是 bash 3.2，没有这个内建。
   local line
   while IFS= read -r line; do
-    [ -n "$line" ] && MMW_FILES+=("$line")
+    [ -n "$line" ] || continue
+    # 相对路径按载荷里的 cwd 补全，不按进程的工作目录——见 mmw_payload_cwd。
+    case "$line" in
+      /*) MMW_FILES+=("$line") ;;
+      *) MMW_FILES+=("$base/$line") ;;
+    esac
   done < <(
     printf '%s' "$payload" | jq -r '
       ((.tool_input // .toolInput // {}) as $i
@@ -49,16 +56,32 @@ mmw_collect_files() {
   )
 }
 
+# agent 在哪个目录干活。取载荷里的字段，不取进程的工作目录。
+#
+# 这一条是实测出来的，而且踩过：Grok 的 hook 命令按它的目录约定写成相对名
+# ./mmw-diagnostics.sh，于是 Grok 从 ~/.grok/hooks 启动它。在那里跑 git diff 什么
+# 都看不到，诊断一条不报——而 hook 明明触发了，看起来跟「代码干净」一模一样。
+mmw_payload_cwd() {
+  local payload="$1" dir=""
+  if command -v jq >/dev/null 2>&1; then
+    dir="$(printf '%s' "$payload" | jq -r '.cwd // .workspaceRoot // .workspace_root // empty' 2>/dev/null || true)"
+  fi
+  [ -n "$dir" ] && [ -d "$dir" ] || dir="$PWD"
+  printf '%s' "$dir"
+}
+
 # 会话结束那一类事件的载荷里没有工具输入，改用工作树里动过的文件。
+# 输出绝对路径：调用方拿到的路径要能脱离任何工作目录使用。
 mmw_collect_worktree_files() {
+  local dir="${1:-$PWD}" root line
   command -v git >/dev/null 2>&1 || return 0
-  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
-  local line
+  root="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || return 0
+  [ -n "$root" ] || return 0
   while IFS= read -r line; do
-    [ -n "$line" ] && MMW_FILES+=("$line")
+    [ -n "$line" ] && MMW_FILES+=("$root/$line")
   done < <(
-    git diff --name-only HEAD 2>/dev/null
-    git ls-files --others --exclude-standard 2>/dev/null
+    git -C "$root" diff --name-only HEAD 2>/dev/null
+    git -C "$root" ls-files --others --exclude-standard 2>/dev/null
   )
 }
 
