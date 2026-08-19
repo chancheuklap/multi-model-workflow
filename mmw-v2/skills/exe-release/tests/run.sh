@@ -36,7 +36,8 @@ if command -v uv >/dev/null 2>&1; then
     uv run --quiet --with pytest --with 'pydantic>=2' python -m pytest \
       "$HERE/test_release_contracts.py" "$HERE/test_release_script_assembler.py" \
       "$HERE/test_release_script_assembler_v2.py" "$HERE/test_diagnose_core.py" \
-      "$HERE/test_fix_dispatch.py" "$HERE/test_minimal_key.py" -q
+      "$HERE/test_fix_dispatch.py" "$HERE/test_minimal_key.py" \
+      "$HERE/test_verify_key.py" -q
 else
   echo
   echo "没装 uv：Python 那几份没跑。引擎本身也要 uv 才能校验 manifest。" >&2

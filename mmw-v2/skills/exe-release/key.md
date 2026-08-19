@@ -304,6 +304,21 @@ longer runs.
 
 ## Step 3 — prove it without building
 
+Core the key against the repo first. It is seconds, and it catches the class of mistake whose
+alternative is finding out forty minutes into a compile:
+
+```bash
+uv run --with 'pydantic>=2' python scripts/verify_key.py --adapter <key> --repo-root <repo>
+```
+
+It checks only what a machine can decide: every path the key names exists, the self-check runs an
+executable the key actually builds, no two compile targets write the same filename, no
+`nofollow_imports` pattern blocks a module the self-check needs, and — the expensive one — the
+key's `--adapter` arguments point at *this* key. Give a key a stage that reads a different key and
+the build runs from that one while every step reports green.
+
+Then assemble and read the script:
+
 ```bash
 uv run --with 'pydantic>=2' python scripts/release_script_assembler.py assemble \
   --adapter <key> --repo-root <repo> --output /tmp/release.ps1 --context-output /tmp/ctx.json
