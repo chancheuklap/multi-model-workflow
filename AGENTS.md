@@ -59,7 +59,7 @@ git diff <上一个 Squashed 提交> -- mmw-v2/upstream/skills/engineering/wayfi
 
 ## 出包
 
-`mmw-v2/skills/mmw-release/` 让 agent 用当前分支的代码，对指定产品出一个正式安装包。
+`mmw-v2/skills/exe-release/` 让 agent 用当前分支的代码，对指定产品出一个正式安装包。
 
 | 位置 | 是什么 |
 | --- | --- |

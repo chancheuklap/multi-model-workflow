@@ -1,5 +1,5 @@
 ---
-name: mmw-release
+name: exe-release
 description: Build an official install package from the code on the current branch. Use when the user asks to ship, to package, or to build an installer, or when the work touched a product that has a release config.
 ---
 

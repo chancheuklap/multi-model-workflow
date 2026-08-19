@@ -1,6 +1,6 @@
 # Drive one product
 
-`mmw-release` step 3 reads this file. By then this product's loop is started, or a previous loop is still there to resume.
+`exe-release` step 3 reads this file. By then this product's loop is started, or a previous loop is still there to resume.
 
 `<engine>` below is `bash <absolute path of scripts/release-flow.sh>`, the same path step 3 resolved.
 
@@ -63,5 +63,5 @@ Missing in both places is a `PAUSED:needs-context` you can often close yourself:
 
 - `SUCCESS` is not spoken success. Only `<engine> exit-check` returning `DONE` means the package is ready. Then `<engine> close`.
 - Package paths come from this stage's `DELIVERED` lines. On gather failure, read the WARN path left in the build directory. If neither exists, say you have no path. Do not invent one.
-- `close` leaves a delivery record (product name plus the ship commit). `mmw-release` step 4 uses it for the same-commit check. **Do not delete it by hand.**
+- `close` leaves a delivery record (product name plus the ship commit). `exe-release` step 4 uses it for the same-commit check. **Do not delete it by hand.**
 - `CORRUPT`, `FAILED-STAGE`, and `NO-STAGES` never run the next stage and never `resume` on their own. The receipt is the only log of what was tried. Give it to the user as-is.

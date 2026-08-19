@@ -30,4 +30,4 @@ productivity/to-questionnaire
 productivity/wait-what
 productivity/writing-for-agents
 
-self/mmw-release
+self/exe-release
