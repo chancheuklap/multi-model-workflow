@@ -58,9 +58,10 @@ mmw_collect_files() {
 
 # agent 在哪个目录干活。取载荷里的字段，不取进程的工作目录。
 #
-# 这一条是实测出来的，而且踩过：Grok 的 hook 命令按它的目录约定写成相对名
-# ./mmw-diagnostics.sh，于是 Grok 从 ~/.grok/hooks 启动它。在那里跑 git diff 什么
-# 都看不到，诊断一条不报——而 hook 明明触发了，看起来跟「代码干净」一模一样。
+# 进程的工作目录由宿主决定，五家没有一家承诺过它是什么。实测 Grok 用的是工作区，
+# 但它的 hook 命令按目录约定写成相对名 ./mmw-diagnostics.sh，那个写法本身就允许它
+# 从别处启动。真在别处启动时，git diff 什么都看不到，诊断一条不报——而 hook 明明
+# 触发了，看起来跟「代码干净」一模一样。载荷里的 cwd 是宿主明说的，用它。
 mmw_payload_cwd() {
   local payload="$1" dir=""
   if command -v jq >/dev/null 2>&1; then
