@@ -60,6 +60,14 @@ TEMPLATE_ERRORS = [
     ),
     ("Compiled backend import smoke timed out after 180s", "frozen_smoke_timeout:duck"),
     ("electron-builder did not create an installer", "build_step:duck"),
+    (
+        "Business Python source shipped in the package: C:\\x\\duck\\app.py",
+        "shipped_source:duck",
+    ),
+    (
+        "No installer matched the key's installer_glob: C:\\x\\dist\\*.exe",
+        "installer_missing:duck",
+    ),
 ]
 
 
@@ -87,6 +95,8 @@ def test_the_template_still_throws_the_messages_the_rules_match():
         "Compiled backend import smoke failed",
         "Compiled backend import smoke timed out",
         "import smoke ran but its exit code could not be read",
+        "Business Python source shipped in the package",
+        "No installer matched the key's installer_glob",
     ):
         assert fragment in template, f"模板不再抛这句，对应的翻译规则成了死规则：{fragment}"
 

@@ -31,6 +31,9 @@ MINIMAL_KEY = {
         "runtime_lane": "embedded_python",
         "entry_module": "newcomer",
         "installer_brand": "Newcomer",
+        # 有出安装包这一步，就得说它落在哪：技能每次都去那里确认真有一个包，
+        # 引擎也按它把包收拢到交付目录。
+        "installer_glob": "desktop-newcomer/dist/*-setup.exe",
     },
     "toolchain": ["python", "pnpm", "node", "uv"],
     "python_backend": {
@@ -138,7 +141,9 @@ def test_it_assembles_into_a_build_that_goes_all_the_way_to_an_installer(tmp_pat
         "Verify compiled backend",
         "Build Electron application",
         "Build win-unpacked",
+        "Scan release artifacts",
         "Build installer",
+        "Verify package integrity",
     ]
 
 
@@ -173,7 +178,6 @@ def test_the_key_carries_no_hook_and_the_script_calls_none(tmp_path):
         "build_machine",
         "diagnose_branches",
         "diagnose_rules",
-        "installer_glob",
     ],
 )
 def test_the_self_heal_equipment_is_all_optional(field):
@@ -191,6 +195,7 @@ def test_a_product_without_an_electron_shell_also_assembles(tmp_path):
     bare = json.loads(json.dumps(MINIMAL_KEY))
     del bare["electron"]
     del bare["build_target"]["desktop_dir"]
+    del bare["build_target"]["installer_glob"]
     bare["python_backend"]["output_dir"] = "build/backend"
     bare["toolchain"] = ["python", "uv"]
 
@@ -213,6 +218,8 @@ def test_a_product_without_an_electron_shell_also_assembles(tmp_path):
         "Validate prerequisites",
         "Compile Python backend",
         "Verify compiled backend",
+        # 没有外壳、没有安装包，源码泄漏这一条照样查：它查的是编译产物的目录。
+        "Scan release artifacts",
     ]
 
 
@@ -243,3 +250,33 @@ def test_validate_manifest_cli_accepts_it(tmp_path):
         text=True,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_the_skill_scans_for_shipped_source_without_being_asked(tmp_path):
+    """扫源码泄漏不是产品可选的检查。
+
+    编译这一整套动作的目的就是不发源码；发出去了，这个产品的商业前提当场没了。而它不像
+    崩溃那样会自己暴露——包能装、能用，源码就在里面躺着。所以钥匙里一个字都不用写：
+    业务包名就是 include_packages，扫的树就是打包产物的树。
+    """
+    key = tmp_path / "k.json"
+    key.write_text(json.dumps(MINIMAL_KEY), encoding="utf-8")
+    script = tmp_path / "release.ps1"
+    assembler.assemble(key, tmp_path, script, tmp_path / "ctx.json")
+
+    text = script.read_text(encoding="utf-8")
+    assert "Assert-NoBusinessSource" in text
+    assert "'newcomer'" in text, "扫的包名要来自 include_packages"
+    assert "Assert-InstallerProduced" in text
+
+
+def test_a_key_with_an_installer_step_must_say_where_the_installer_lands():
+    """「出安装包那一步退了 0」和「真的有一个安装包」是两回事。
+
+    打包工具清理临时文件失败、钩子只走了一半，都能让那一步成功而目录里什么也没有。
+    分不开这两件事，下一个发现的人是客户。
+    """
+    bad = json.loads(json.dumps(MINIMAL_KEY))
+    del bad["build_target"]["installer_glob"]
+    with pytest.raises(Exception, match="installer_glob"):
+        rc.ReleaseAdapterManifest.model_validate(bad)

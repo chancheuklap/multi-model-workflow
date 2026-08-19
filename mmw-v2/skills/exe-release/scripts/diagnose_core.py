@@ -135,6 +135,20 @@ RULES: tuple[tuple[str, str, str, str], ...] = (
         "自检跑完了，但构建机上读不到它的退出码。这是构建机制故障，不要动钥匙的 include",
     ),
     (
+        r"Business Python source shipped in the package",
+        "business_source_shipped",
+        "shipped_source:{product}",
+        "出的包里有业务源码。看日志里列出的文件，通常是编译产物之外的目录被原样拷进了包；"
+        "编译这一整套动作的目的就是不发源码，这一条不能放行",
+    ),
+    (
+        r"No installer matched the key's installer_glob",
+        "installer_missing",
+        "installer_missing:{product}",
+        "出安装包那一步退了 0，但钥匙 installer_glob 指的地方什么也没有。"
+        "看那一步的输出，通常是打包工具或仓库钩子只走了一半",
+    ),
+    (
         r"Compiled backend import smoke failed",
         "built_exe_smoke_failed",
         "frozen_smoke:{product}",

@@ -191,12 +191,30 @@ so the numbers move; the phases do not.
 check of its own to run at that moment. Declaring a hook with an empty argv is refused: that reads
 as configured but does nothing.
 
-### The rest is optional too
+A hook is an **addition**, never a substitute. Two checks the skill runs on every build, with no
+hook and no key field:
 
-`fix_executor`, `editable_paths`, `protection_source`, `post_fix_gate`, `derive`, `event_sink`
-are the self-heal and observability equipment. A product that has none of it still ships; the
-engine skips what the key does not declare. Add each one when the product grows the thing it
-guards.
+- **No business source in the shipped tree.** Compiling exists to not ship source. A package that
+  ships it still installs and still runs, so nothing reveals the leak — the product's commercial
+  premise is simply gone. The packages to look for are `python_backend.include_packages`, which
+  the key already declares.
+- **An installer really landed at `installer_glob`.** "The installer step exited 0" and "there is
+  an installer" are different facts: a packer can fail its own cleanup, a repo hook can run half
+  way. Which is why a key with an installer step must declare where the installer lands.
+
+### What is genuinely optional
+
+`fix_executor`, `editable_paths`, `protection_source`, `post_fix_gate`, `derive`, `event_sink` are
+the self-heal and observability equipment. These are optional because each one only exists once
+the product has grown the thing it guards — a derived artifact to regenerate, a test suite to
+re-run after an automated fix, a log system to feed. A product with none of them still ships a
+correct package; the engine skips what the key does not declare, and says so rather than
+pretending it ran.
+
+That is the line: **a check that every product needs is the skill's job and is never optional. A
+check that only exists because of how one repo is built is the product's, and is.** When you find
+yourself about to require a new field, ask which side of that line it falls on. If every product
+would have to write the same thing, the skill should be writing it instead.
 
 `diagnose_rules` are log patterns only this product produces, matched **before** the skill's
 general table. A rule's `fingerprint` prefix decides what the engine does with it: `transient:`

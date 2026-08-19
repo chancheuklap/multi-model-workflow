@@ -360,12 +360,17 @@ def _v2_steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
             }
         )
 
+    # 扫源码泄漏是技能每次都做的，不是产品可选的检查：编译这一整套动作的目的就是
+    # 不发源码。产品的 artifact_scan 钩子加在它后面，扫产品自己关心的东西。
+    scan_lines = _source_scan_lines(manifest)
     if hooks.artifact_scan is not None:
+        scan_lines.append(_hook_line("artifact_scan", hooks.artifact_scan))
+    if scan_lines:
         steps.append(
             {
                 "title": "Scan release artifacts",
-                "hooks": ["artifact_scan"],
-                "lines": [_hook_line("artifact_scan", hooks.artifact_scan)],
+                "hooks": ["artifact_scan"] if hooks.artifact_scan is not None else [],
+                "lines": scan_lines,
             }
         )
 
@@ -386,15 +391,62 @@ def _v2_steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
             }
         )
 
+    verify_lines = []
+    if _has_installer_step(manifest) and manifest.build_target.installer_glob:
+        verify_lines.append(
+            "  Assert-InstallerProduced -Glob (Join-Path $RepoRoot "
+            f"{_ps(manifest.build_target.installer_glob)})"
+        )
     if hooks.package_integrity is not None:
+        verify_lines.append(_hook_line("package_integrity", hooks.package_integrity))
+    if verify_lines:
         steps.append(
             {
                 "title": "Verify package integrity",
-                "hooks": ["package_integrity"],
-                "lines": [_hook_line("package_integrity", hooks.package_integrity)],
+                "hooks": ["package_integrity"] if hooks.package_integrity is not None else [],
+                "lines": verify_lines,
             }
         )
     return steps
+
+
+def _has_installer_step(manifest: ReleaseAdapterManifest) -> bool:
+    electron = manifest.electron
+    return bool(
+        (electron is not None and electron.installer == "electron_builder")
+        or manifest.build_hooks.installer is not None
+    )
+
+
+def _source_scan_lines(manifest: ReleaseAdapterManifest) -> list[str]:
+    """扫哪几棵树，用哪几个包名——两样都从钥匙已有的字段推，不新增一个字段。
+
+    树：Electron 打出来的目录，和后端编译产物的目录。包名：include_packages，
+    也就是「这个产品自己的代码」的定义，它本来就在钥匙里。
+    """
+    backend = manifest.python_backend
+    packages = sorted(set(backend.include_packages))
+    if not packages:
+        return []
+    desktop_dir = manifest.build_target.desktop_dir
+    roots: list[str] = []
+    if manifest.electron is not None and desktop_dir is not None:
+        roots.append("$UnpackedDir")
+    roots.append(
+        "(Join-Path $RepoRoot "
+        + _ps(
+            nuitka.expand(
+                backend.output_dir,
+                desktop_dir=desktop_dir,
+                build_root=backend.build_root,
+            )
+        )
+        + ")"
+    )
+    return [
+        "  Assert-NoBusinessSource -Roots @(" + ", ".join(roots) + ") "
+        "-Packages @(" + ", ".join(_ps(name) for name in packages) + ")"
+    ]
 
 
 def _compile_lines(backend, build_target: BuildTarget, desktop_dir: str | None) -> list[str]:

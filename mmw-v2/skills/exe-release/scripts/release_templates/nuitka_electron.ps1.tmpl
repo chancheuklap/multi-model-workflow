@@ -128,6 +128,48 @@ function Restore-AfterCompile {
   }
 }
 
+# 出的包里不能有业务源码。
+#
+# 编译这一整套动作的目的就是不发源码；发出去了，这个产品的商业前提当场没了。而它不像
+# 崩溃那样会自己暴露——包能装、能用，源码就在里面躺着，没有人会发现。所以这一条不是
+# 「产品可以选择要不要做的检查」，是技能每次都做的事，钥匙里一个字都不用写：
+# 业务包名就是 python_backend.include_packages，本来就在钥匙里。
+#
+# 只查业务包。嵌入式运行时里第三方包带 .py 是正常的，把它们一起报出来就等于没报。
+function Assert-NoBusinessSource {
+  param([string[]]$Roots, [string[]]$Packages)
+  $found = @()
+  foreach ($root in $Roots) {
+    if (-not (Test-Path -LiteralPath $root)) { continue }
+    $prefix = (Resolve-Path -LiteralPath $root).Path
+    foreach ($file in @(Get-ChildItem -LiteralPath $prefix -Recurse -File -Filter *.py -ErrorAction SilentlyContinue)) {
+      $parts = $file.FullName.Substring($prefix.Length).Split([char[]]@('\', '/'), [StringSplitOptions]::RemoveEmptyEntries)
+      foreach ($package in $Packages) {
+        if ($parts -contains $package) { $found += $file.FullName; break }
+      }
+    }
+  }
+  if ($found.Count -gt 0) {
+    throw "Business Python source shipped in the package: $($found -join '; ')"
+  }
+  Write-Host "  no business source in the shipped tree ($($Packages.Count) packages checked)"
+}
+
+# 安装包真的产出了，且落在钥匙说的地方。
+#
+# 出安装包那一步退 0，不等于有安装包——打包工具清理临时文件失败、钩子只走了一半，都能
+# 让这一步「成功」而目录里什么也没有。而下一个发现的人是客户。
+function Assert-InstallerProduced {
+  param([string]$Glob)
+  $items = @(Get-ChildItem -Path $Glob -File -ErrorAction SilentlyContinue)
+  if ($items.Count -eq 0) {
+    throw "No installer matched the key's installer_glob: $Glob"
+  }
+  foreach ($item in $items) {
+    Write-Host ("  installer: " + $item.FullName + "  " + [math]::Round($item.Length / 1MB, 1) + " MB")
+  }
+}
+
 ${RENDERED_HOOK_FUNCTIONS}
 
 # 上下文路径绝对化：钩子在 $RepoRoot 下跑，若传的是相对路径，cwd 一切换就读不到。

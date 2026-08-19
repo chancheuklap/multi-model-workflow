@@ -388,6 +388,14 @@ class ReleaseAdapterManifest(BaseModel):
 
     @model_validator(mode="after")
     def _version_matches_content(self) -> "ReleaseAdapterManifest":
+        installs = bool(self.build_hooks.installer) or bool(
+            self.electron and self.electron.installer == "electron_builder"
+        )
+        if self.schema_version == "2" and installs and not self.build_target.installer_glob:
+            raise ValueError(
+                "钥匙有出安装包这一步，就必须声明 build_target.installer_glob——"
+                "没有它，「那一步退了 0」和「真的有一个安装包」分不开，而下一个发现的人是客户"
+            )
         writers = sorted(
             name
             for name in ("fix_executor", "editable_paths")

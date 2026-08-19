@@ -6,6 +6,7 @@
     "runtime_lane": "embedded_python",
     "entry_module": "runtime_backend",
     "installer_brand": "Runtime Desktop",
+    "installer_glob": "desktop-fixture/dist/*-setup.exe",
     "deps_extra": "desktop-runtime",
     "asset_roots": [
       "src/runtime_backend/assets/**"
