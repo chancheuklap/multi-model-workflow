@@ -80,6 +80,43 @@ git diff <上一个 Squashed 提交> -- mmw-v2/upstream/skills/engineering/wayfi
 说明正文不在里面，条目七天才过期——不重装它就一直端上一版，另外四家已经换了，没有一处会说出来。
 安装器会清掉我们那几台的缓存条目；`probe.py` 起真服务器拿到下发的说明，跟 Pi 缓存对不上时当场报出来。
 
+## 语言工具
+
+这台机器上的检查器和语言服务器**只有一份**，由 MMW 装、由 MMW 升级，位置是
+`mmw-v2/tools/`。
+
+| 位置 | 是什么 |
+| --- | --- |
+| `mmw-v2/tools/tools.json` | 清单。每个工具是什么、给谁用、怎么装、怎么跑 |
+| `mmw-v2/tools/install.sh` | 装齐并把 serena 指过来。`--check` 只看不动 |
+| `mmw-v2/tools/serena-language-servers.py` | 写 serena 的 `ls_specific_settings` |
+| `mmw-v2/tools/bin`、`mmw-v2/tools/node` | 装出来的东西。不入库，删掉重跑安装器就回来 |
+
+工具有六个：`ruff`、`pyright`、`oxlint`（带 `oxlint-tsgolint`）、`shellcheck`、
+`typescript-language-server`（带 `typescript`）、`bash-language-server`，加一条不需要外部
+命令的密钥扫描。
+
+**语言服务器和检查器写在同一张清单里，不分两张。** `pyright` 那一条本来就既是命令行检查器
+（`pyright`）又是语言服务器（`pyright-langserver`），同一个包的两个入口；分两张表就会出现
+同一个引擎两个版本。
+
+两个消费者读同一张表：编辑后诊断读 `checker` 那一段，serena 读 `language_server` 那一段。
+**它们拿到的是同一个可执行文件，不只是同一个版本号。**
+
+serena 默认自己下一份——`pyright` 走 uvx 且版本钉死在它源码里（实测 1.1.403），`typescript`
+与 `bash` 下载到 `~/.serena/language_servers/`。安装器把它的
+`ls_specific_settings.<语言>.ls_path` 指到 `mmw-v2/tools/`，它就不再自己下、也不再用那个旧
+版本。`probe.py` 会真调一次 `find_symbol` 验它答不答得出来——**工具列表对得上不等于答得
+出来**，而 serena 现在跑在跟上游钉死版本不同的 pyright 上。
+
+**不锁版本，每次安装都升到最新稳定版。** 锁住换来的"一致"只保证两个陈旧副本相同。
+
+装在 MMW 自己的目录里，不碰机器的全局环境，也不碰 `~/dev-environment`：那个控制平面管的是
+**用户自己敲的命令**（brew、shell 启动、你用的 CLI），这里管的是 agent 的工具。两边互不影响。
+
+找可执行文件是固定的三段顺序：**仓库自带的 → MMW 装的 → PATH 上的**。仓库排第一是因为
+那是它自己锁定、CI 也在用的那一个；用别的版本，编辑时看到的错和门禁判的对不上。
+
 ## 编辑后诊断
 
 agent 改完一个文件，立刻对这个文件跑检查器，把**落在改动行上**的问题交回它。存量另行
@@ -89,17 +126,12 @@ agent 改完一个文件，立刻对这个文件跑检查器，把**落在改动
 | 位置 | 是什么 |
 | --- | --- |
 | `mmw-v2/diagnostics/check.py` | 跑检查器、过滤到改动行。五个宿主调的都是它 |
-| `mmw-v2/diagnostics/rules.json` | 有哪些检查器、怎么解析输出、缺了归哪个包管理器装 |
 | `mmw-v2/diagnostics/config/` | ruff 与 oxlint 的规则。**用命令行传给检查器，不往被检查的仓库写文件** |
 | `mmw-v2/diagnostics/hooks/` | 四个宿主的适配器，共用 `core.sh` |
 | `mmw-v2/diagnostics/extension-pi/` | pi 那一份。pi 至今没有 hook，只有扩展 |
-| `mmw-v2/diagnostics/install-checkers.sh` | 装齐检查器，装进 `tools/`，每次最新稳定版 |
 | `mmw-v2/diagnostics/install-hooks.sh` | 注册进五个宿主。只加不删 |
 
-检查器有五个：`ruff`、`pyright`、`oxlint`、`shellcheck`，加一条不需要外部命令的密钥扫描。
-
-找可执行文件是固定的三段顺序：**仓库自带的 → 我们装的 → PATH 上的**。仓库排第一是因为
-那是它自己锁定、CI 也在用的那一个；用别的版本，编辑时看到的错和门禁判的对不上。
+检查器有哪些、从哪儿来，看下一节「语言工具」。
 
 各家挂在哪不一样，都是在本机实测出来的，不是照抄上一代：
 
