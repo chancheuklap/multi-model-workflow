@@ -123,15 +123,25 @@ echo "变量名紧跟全角标点"
 # 报 unbound variable。shellcheck 抓不到，只有跑到那一行才炸——而那一行往往
 # 是出错分支，正常路径上跑不到。写成 `${name}（` 就好了。
 # 这里只列本仓库正文实际用到的几个全角标点。
+#
+# 扫 mmw/ 下全部 shell 文件，不是挑几个。这个坑跟文件是哪一个无关，只跟
+# 「这一行同时有变量和中文」有关，而这个仓库里几乎每个脚本都往用户脸上打中文。
+# 上一版只扫三个文件，于是 mcp/install-mcp.sh 带着两处踩进去，装 MCP 时当场炸。
 FULLWIDTH='（），。：、；！？「」'
-for f in "$FORWARDER" "$INSTALLER" "$INSTALL_SH"; do
+fullwidth_hits=""
+while IFS= read -r f; do
   [ -f "$f" ] || continue
   # 只判可执行行。整行注释里解释这个坑本身就要举反例，排掉的只是整行注释，
   # 行尾带注释的可执行行照样判。
   hits="$(grep -nE "\\\$[A-Za-z_][A-Za-z0-9_]*[$FULLWIDTH]" "$f" \
     | grep -v '^[0-9]*:[[:space:]]*#' || true)"
-  check "$(basename "$f") 的变量名都用花括号界定" "" "$hits"
-done
+  [ -z "$hits" ] || fullwidth_hits="$fullwidth_hits$f
+$hits
+"
+done < <(find "$MMW_DIR" -name '*.sh' -not -path '*/node_modules/*' \
+           -not -path '*/skill-rebuilds/*' -not -name 'test_ui_qa_deps.sh'; \
+         printf '%s\n' "$MMW_DIR/cli/mmw" "$FORWARDER")
+check "mmw/ 下所有 shell 的变量名都用花括号界定" "" "$fullwidth_hits"
 # 上面那条规则得真能抓到东西，不然它过了也说明不了什么。
 # 两份样本里的 $ 都是要留在字面上的，所以用单引号。
 # shellcheck disable=SC2016

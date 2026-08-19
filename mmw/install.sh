@@ -97,20 +97,79 @@ install_skills_into() {
 }
 
 # 上一版把 MMW 装成插件。装过的机器上那份插件还在，技能会出现两遍：一遍来自插件，
-# 一遍来自用户级目录。这一步把它摘掉。摘的是 MMW 自己那一份，认名字，不动别人的插件。
+# 一遍来自用户级目录。这一步把它摘掉。摘的是 MMW 自己那两个 id
+# （mmw@multi-model-workflow 与 mmw@mmw-codex），别人的插件一个都不碰。
 remove_legacy_plugin() {
-  if command -v claude >/dev/null 2>&1 \
-     && claude plugin list --json 2>/dev/null | jq -e '.[] | select(.name == "mmw")' >/dev/null 2>&1; then
+  # 摘 marketplace 与摘插件都直接执行，不拿 `plugin list` 当闸门。
+  #
+  # 上一版这里用 `plugin list` 当闸门，两个宿主上都没生效，各错各的：
+  #
+  #   Claude Code 的 JSON 里插件字段叫 id（"mmw@multi-model-workflow"），没有 name，
+  #   select(.name == "mmw") 永远不匹配。
+  #
+  #   Codex 更糟：marketplace 的 source 指着 runtime 根，而那底下的清单已经随打包
+  #   一起删了。清单读不到时 `codex plugin list` 整个非零退出——不只是查不到 mmw，
+  #   是它的插件子系统全废。闸门自己先倒了，摘除永远轮不到。
+  #
+  # 摘之前先从磁盘上读一次「装没装过」。退出码当不了证据：两个宿主的
+  # `marketplace remove` 对根本不存在的 marketplace 也返回 0，拿它判断的话
+  # 每台机器每次安装都会报一遍「已摘掉上一版插件」，那句话就成了噪音。
+  local claude_dir codex_dir had
+  claude_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+  codex_dir="${CODEX_HOME:-$HOME/.codex}"
+
+  if command -v claude >/dev/null 2>&1; then
+    had=""
+    [ -d "$claude_dir/plugins/cache/multi-model-workflow" ] && had=yes
+    jq -e '.plugins | has("mmw@multi-model-workflow")' \
+      "$claude_dir/plugins/installed_plugins.json" >/dev/null 2>&1 && had=yes
+    jq -e 'has("multi-model-workflow")' \
+      "$claude_dir/plugins/known_marketplaces.json" >/dev/null 2>&1 && had=yes
+
     claude plugin uninstall "mmw@multi-model-workflow" >/dev/null 2>&1 || true
     claude plugin marketplace remove multi-model-workflow >/dev/null 2>&1 || true
-    echo "Claude   : 已摘掉上一版的 mmw 插件"
+    rm -rf "$claude_dir/plugins/cache/multi-model-workflow"
+    [ -z "$had" ] || echo "Claude   : 已摘掉上一版的 mmw 插件"
   fi
-  if command -v codex >/dev/null 2>&1 \
-     && codex plugin list --json 2>/dev/null | jq -e '.installed[]? | select(.name == "mmw")' >/dev/null 2>&1; then
-    codex plugin remove "mmw@mmw-codex" --json >/dev/null 2>&1 || true
+
+  if command -v codex >/dev/null 2>&1; then
+    had=""
+    [ -d "$codex_dir/plugins/cache/mmw-codex" ] && had=yes
+    grep -q 'mmw-codex' "$codex_dir/config.toml" 2>/dev/null && had=yes
+
+    # marketplace 先摘：它的 source 指着 runtime 根，清单已随打包删掉，
+    # 留着它 `codex plugin list` 会整个非零退出，插件也就摘不掉。
     codex plugin marketplace remove mmw-codex --json >/dev/null 2>&1 || true
-    echo "Codex    : 已摘掉上一版的 mmw 插件"
+    codex plugin remove "mmw@mmw-codex" --json >/dev/null 2>&1 || true
+    rm -rf "$codex_dir/plugins/cache/mmw-codex"
+    remove_legacy_codex_hook_state
+    [ -z "$had" ] || echo "Codex    : 已摘掉上一版的 mmw 插件"
   fi
+}
+
+# `codex plugin remove` 不清 hooks.state 里那条信任记录。它指的 hooks.json 已经
+# 随打包删掉，留着是个指向空处的哈希。整段删掉，其余内容一个字节不动。
+remove_legacy_codex_hook_state() {
+  local config
+  config="${CODEX_HOME:-$HOME/.codex}/config.toml"
+  [ -f "$config" ] || return 0
+  grep -q 'hooks\.state\."mmw@mmw-codex' "$config" || return 0
+  python3 - "$config" <<'CLEAN'
+import re
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+block = re.compile(r'\n\[hooks\.state\."mmw@mmw-codex[^"]*"\]\n(?:(?!\[)[^\n]*\n)*', re.M)
+cleaned, count = block.subn("\n", text)
+if not count:
+    sys.exit(0)
+tmp = path.with_name(path.name + ".mmw-tmp")
+tmp.write_text(cleaned, encoding="utf-8")
+tmp.replace(path)
+print(f"Codex    : 清掉 {count} 条指向已删 hooks.json 的信任记录")
+CLEAN
 }
 
 install_codex() {
