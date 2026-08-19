@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""真起一次每个 MCP 服务器，握手并列工具。给 mmw doctor 用。
+"""真起一次每个 MCP 服务器，握手并列工具。给安装后的体检用。
 
 为什么不能只看配置文件在不在：旧实现出过一次真事故——配置在、工具名在工具列表里、
 直到模型真去调用才报错，而那时它已经在一次审查中途了。本脚本把服务器进程真拉起来、
@@ -157,7 +157,7 @@ def main() -> int:
             return 2
     else:
         if not MCP_JSON.is_file():
-            print(f"ERROR: runtime 里没有 .mcp.json: {MCP_JSON}", file=sys.stderr)
+            print(f"ERROR: 没找到 .mcp.json: {MCP_JSON}", file=sys.stderr)
             return 2
         servers = Resolver().servers(want_type=False)
     contract, contract_error = contract_servers()

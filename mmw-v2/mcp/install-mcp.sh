@@ -10,11 +10,9 @@
 #
 # 两种形状，两套合并代码。同一形状的宿主共用一套，不按宿主名分支。
 #
-# 技能、原生 subagent、hooks 与隔离包装由 install.sh 装；本脚本只接管这三个检索工具。
-# Claude Code 启动 headless Codex 时由 adapter 临时注入同一批服务器，那条路在
-# cli/adapters/claude-code.sh。
+# 技能由 mmw-v2/install.sh 装；本脚本只接管这三个检索工具，由那个入口调用。
 #
-# 服务器定义的唯一事实来源是 mmw/.mcp.json，本脚本只做翻译，不另存一份清单。
+# 服务器定义的唯一事实来源是 mmw-v2/.mcp.json，本脚本只做翻译，不另存一份清单。
 # 只读白名单在 Serena 服务器那一侧（config/serena-readonly.yml），在这里再列一遍就是第二处
 # 要维护的清单，旧实现四个 harness 各抄一份白名单就是这么散掉的。
 #
@@ -24,8 +22,8 @@
 #
 # 只加不删：用户自己配的别的服务器原样保留，同名的才覆盖成我们这份。
 #
-# 本脚本由源码仓库的 install.sh 从已安装 runtime 调用。写进用户配置的绝对路径
-# 指向 runtime，不指向源码 checkout 或任务 worktree。
+# 写进用户配置的绝对路径指向本脚本所在的这个 checkout。所以要从主检出装，不要从任务
+# worktree 装——worktree 合并后会删掉，写进去的路径就断了。
 #
 #   install-mcp.sh          装
 #   install-mcp.sh --check       只看 JSON 那三面装没装。装齐回 0，缺东西回 1
@@ -50,9 +48,9 @@ case "${1:-}" in
   *) echo "用法: install-mcp.sh [--check|--check-toml]" >&2; exit 2 ;;
 esac
 
-[ -f "$SOURCE" ] || { echo "ERROR: runtime 里没有 .mcp.json: $SOURCE" >&2; exit 2; }
+[ -f "$SOURCE" ] || { echo "ERROR: 没找到 .mcp.json: $SOURCE" >&2; exit 2; }
 
-# 把 .mcp.json 翻译成某一面要的服务器 map。展开规则（runtime 根、密钥、默认值）全在
+# 把 .mcp.json 翻译成某一面要的服务器 map。展开规则（MMW_ROOT、密钥、默认值）全在
 # resolve.py 里，本脚本不自己解析占位符——两处解析就是两处维护。
 translate() {
   python3 "$MMW_ROOT/mcp/resolve.py" --format "$1"
