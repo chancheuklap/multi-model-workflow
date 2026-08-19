@@ -388,10 +388,15 @@ class ReleaseAdapterManifest(BaseModel):
 
     @model_validator(mode="after")
     def _version_matches_content(self) -> "ReleaseAdapterManifest":
-        if self.editable_paths and self.protection_source is None:
+        writers = sorted(
+            name
+            for name in ("fix_executor", "editable_paths")
+            if getattr(self, name)
+        )
+        if writers and self.protection_source is None:
             raise ValueError(
-                "声明了 editable_paths 就必须声明 protection_source——"
-                "允许自动修复改文件，却没有任何硬禁止路径，等于闸门整个是开的"
+                f"声明了 {', '.join(writers)} 就必须声明 protection_source——"
+                "有东西能自动改文件，却没有任何硬禁止路径，等于闸门整个是开的"
             )
         v2_fields = {
             "python_backend": self.python_backend,
