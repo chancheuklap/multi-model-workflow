@@ -144,15 +144,16 @@ else
   bash "$ROOT/mcp/install-mcp.sh" || rc=$?
 fi
 
-# 编辑后诊断。两步：先把检查器装齐（装进 diagnostics/tools/，每次最新稳定版），
-# 再把适配器注册进五个宿主。分两步是因为它们的失败原因完全不同——检查器装不上是
-# 包管理器的事，注册不上是宿主配置的事，混在一条命令里会让报错指不到地方。
+# 语言工具与编辑后诊断。两步：先把语言工具装齐（装进 mmw-v2/tools/，每次最新稳定版，
+# 并把 serena 的语言服务器指过来），再把诊断适配器注册进五个宿主。分两步是因为失败
+# 原因完全不同——工具装不上是包管理器的事，注册不上是宿主配置的事，混在一条命令里
+# 会让报错指不到地方。
 echo
 if [ "$mode" = check ]; then
-  bash "$ROOT/diagnostics/install-checkers.sh" --check || rc=1
+  bash "$ROOT/tools/install.sh" --check || rc=1
   bash "$ROOT/diagnostics/install-hooks.sh" --check || rc=1
 else
-  bash "$ROOT/diagnostics/install-checkers.sh" || rc=$?
+  bash "$ROOT/tools/install.sh" || rc=$?
   bash "$ROOT/diagnostics/install-hooks.sh" || rc=$?
 fi
 

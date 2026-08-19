@@ -21,6 +21,8 @@ __pycache__/
 mmw/agents-pi/
 mmw/codex/agents/
 
-# 编辑后诊断用的检查器。由 mmw-v2/diagnostics/install-checkers.sh 装，每次装最新
-# 稳定版，所以不入库也不锁版本。删掉重跑一次安装器就全回来。
-mmw-v2/diagnostics/tools/
+# 语言工具（检查器与语言服务器）。由 mmw-v2/tools/install.sh 装，每次装最新稳定版，
+# 所以不入库也不锁版本。删掉重跑一次安装器就全回来。
+mmw-v2/tools/bin/
+mmw-v2/tools/uv/
+mmw-v2/tools/node/

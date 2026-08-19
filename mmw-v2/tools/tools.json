@@ -1,0 +1,118 @@
+{
+  "_why": [
+    "这台机器上的语言工具清单。语言服务器和检查器在同一张表里，因为它们本来就是",
+    "同一批东西——pyright 这一条既是命令行检查器（pyright）又是语言服务器",
+    "（pyright-langserver），同一个包的两个入口。分成两张表就会出现同一个引擎两个版本。",
+    "",
+    "两个消费者：编辑后诊断读 checker 那一段，serena 读 language_server 那一段。",
+    "两边拿到的是同一个安装，不是同一个版本号——是同一个可执行文件。",
+    "",
+    "install 说这个工具归哪个包管理器装。install.sh 照着装，每次装最新稳定版，不锁版本。",
+    "锁住换来的一致只保证两个陈旧副本相同。",
+    "",
+    "serena 默认会自己下一份语言服务器（pyright 走 uvx 且在它源码里钉死 1.1.403，",
+    "typescript 与 bash 下载到 ~/.serena/language_servers/）。install.sh 把 serena 的",
+    "ls_specific_settings.<语言>.ls_path 指到这里，它就不再自己下、也不再用那个旧版本。"
+  ],
+  "version": 1,
+  "tools": [
+    {
+      "id": "ruff",
+      "title": "Python 风格与常见错误",
+      "install": { "manager": "uv", "package": "ruff" },
+      "checker": {
+        "extensions": [".py", ".pyi"],
+        "workspace_marker": "pyproject.toml",
+        "project_bin": [".venv/bin/ruff"],
+        "bin": "ruff",
+        "file_args": ["check", "--quiet", "--no-cache", "--output-format", "concise"],
+        "config_flag": "--config",
+        "config": "ruff.toml",
+        "parse": "concise"
+      }
+    },
+    {
+      "id": "pyright",
+      "title": "Python 类型",
+      "install": { "manager": "uv", "package": "pyright" },
+      "checker": {
+        "extensions": [".py", ".pyi"],
+        "workspace_marker": "pyproject.toml",
+        "project_bin": [".venv/bin/pyright"],
+        "bin": "pyright",
+        "file_args": ["--outputjson"],
+        "parse": "pyright_json",
+        "_no_config_why": "pyright 没有「配置文件放在仓库外」这种用法：它只认 --project，而 --project 同时决定搜索根，指到仓库外会让它找不到源码。用它的默认判定级别。"
+      },
+      "language_server": { "serena_language": "python", "bin": "pyright-langserver" }
+    },
+    {
+      "id": "oxlint",
+      "title": "TypeScript 与 JavaScript 的检查",
+      "install": { "manager": "pnpm", "package": "oxlint", "companions": ["oxlint-tsgolint"] },
+      "checker": {
+        "extensions": [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"],
+        "workspace_marker": "package.json",
+        "project_bin": ["node_modules/.bin/oxlint"],
+        "bin": "oxlint",
+        "file_args": ["--type-aware"],
+        "config_flag": "--config",
+        "config": "oxlintrc.json",
+        "parse": "concise"
+      },
+      "_why": "选 oxlint 不选 eslint：typescript-eslint 需要 TypeScript 的编程接口，而 TypeScript 7 是 Go 重写版、不带那个接口，装上会直接拒绝启动。oxlint 自带 parser，类型感知规则经 oxlint-tsgolint 走 tsgo。",
+      "_companion_why": "oxlint-tsgolint 提供的可执行文件叫 tsgolint，不叫包名。找不到它 oxlint 不报错，只是类型感知那一类规则安静地不生效。"
+    },
+    {
+      "id": "typescript-language-server",
+      "title": "TypeScript 与 JavaScript 的符号",
+      "install": {
+        "manager": "pnpm",
+        "package": "typescript-language-server",
+        "companions": ["typescript"]
+      },
+      "language_server": { "serena_language": "typescript", "bin": "typescript-language-server" },
+      "_companion_why": "typescript-language-server 只是个外壳，真正解析代码的是 typescript 包。不装它，服务器起得来但答不出东西。"
+    },
+    {
+      "id": "shellcheck",
+      "title": "Shell 脚本的检查",
+      "install": { "manager": "brew", "package": "shellcheck" },
+      "checker": {
+        "extensions": [".sh", ".bash"],
+        "workspace_marker": null,
+        "project_bin": [],
+        "bin": "shellcheck",
+        "file_args": ["--format", "gcc"],
+        "parse": "concise"
+      },
+      "_format_why": "gcc 格式是 path:line:col: level: message [SC####]，跟 ruff 的 concise 同构，两个检查器共用一个解析器，行号过滤也直接可用。",
+      "_manager_why": "它是编译好的二进制，没有 uv 或 pnpm 那种私有目录装法，只能走 Homebrew。"
+    },
+    {
+      "id": "bash-language-server",
+      "title": "Shell 脚本的符号",
+      "install": { "manager": "pnpm", "package": "bash-language-server" },
+      "language_server": { "serena_language": "bash", "bin": "bash-language-server" }
+    },
+    {
+      "id": "secrets",
+      "title": "明文密钥",
+      "checker": {
+        "kind": "patterns",
+        "extensions": null,
+        "patterns": [
+          "discord\\.com/api/webhooks/[0-9]{16,}/[A-Za-z0-9_-]{32,}",
+          "hooks\\.slack\\.com/services/T[A-Za-z0-9]+/B[A-Za-z0-9]+/[A-Za-z0-9]{20,}",
+          "AKIA[0-9A-Z]{16}",
+          "^-----BEGIN (RSA |OPENSSH |EC |DSA )?PRIVATE KEY-----$",
+          "gh[pousr]_[A-Za-z0-9]{36,}",
+          "sk-[A-Za-z0-9]{32,}",
+          "AIza[0-9A-Za-z_-]{35}"
+        ]
+      },
+      "_why": "不需要装任何东西，是纯正则，所以对每个改过的文件都扫，不限后缀。",
+      "_private_key_why": "私钥那条要求整行只有 BEGIN 标记。不加行首行尾锚点会命中文档里的占位示例。代价是嵌在代码字符串里的私钥抓不到；宁可少抓那一种，也不能让门一直红——红久了就没人看了。"
+    }
+  ]
+}
