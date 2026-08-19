@@ -27,8 +27,8 @@ from resolve import MCP_JSON, Resolver  # noqa: E402  展开规则的唯一来�
 HANDSHAKE_TIMEOUT = 40
 
 
-def probe(spec: dict) -> tuple[bool, str, list[str]]:
-    """起服务器、握手、列工具。回状态、说明与工具名。
+def probe(spec: dict) -> tuple[bool, str, list[str], str]:
+    """起服务器、握手、列工具。回状态、一句话、工具名与服务器下发的 instructions。
 
     默认 spec 由 Resolver 展开。--config 读到的是宿主最终配置；两种路径都探真正会启动的
     command、args、env 与 cwd。
@@ -52,9 +52,9 @@ def probe(spec: dict) -> tuple[bool, str, list[str]]:
             cwd=spec.get("cwd"),
         )
     except FileNotFoundError:
-        return False, f"起不来：找不到命令 {command}", []
+        return False, f"起不来：找不到命令 {command}", [], ""
     except OSError as exc:
-        return False, f"起不来：{exc}", []
+        return False, f"起不来：{exc}", [], ""
 
     requests = "".join(json.dumps(obj) + "\n" for obj in (
         {
@@ -74,12 +74,13 @@ def probe(spec: dict) -> tuple[bool, str, list[str]]:
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.communicate()
-        return False, f"{HANDSHAKE_TIMEOUT} 秒内没应答", []
+        return False, f"{HANDSHAKE_TIMEOUT} 秒内没应答", [], ""
     finally:
         if proc.poll() is None:
             proc.kill()
 
     payload = None
+    instructions = ""
     for line in out.splitlines():
         line = line.strip()
         if not line.startswith("{"):
@@ -88,16 +89,18 @@ def probe(spec: dict) -> tuple[bool, str, list[str]]:
             obj = json.loads(line)
         except json.JSONDecodeError:
             continue
+        if obj.get("id") == 1:
+            instructions = obj.get("result", {}).get("instructions", "") or ""
         if obj.get("id") == 2:
             payload = obj
 
     if payload is None:
         tail = (err or "").strip().splitlines()
-        return False, f"没要到工具列表：{tail[-1] if tail else '进程没输出就退了'}", []
+        return False, f"没要到工具列表：{tail[-1] if tail else '进程没输出就退了'}", [], instructions
     if "error" in payload:
-        return False, f"服务器报错：{payload['error']}", []
+        return False, f"服务器报错：{payload['error']}", [], instructions
     tools = sorted(tool["name"] for tool in payload.get("result", {}).get("tools", []))
-    return True, f"{len(tools)} 个工具：{', '.join(tools)}", tools
+    return True, f"{len(tools)} 个工具：{', '.join(tools)}", tools, instructions
 
 
 CONTRACT = Path(__file__).resolve().parent.parent / "config" / "retrieval-contract.json"
@@ -135,6 +138,40 @@ def contract_drift(name: str, tools: list[str], servers: dict) -> str | None:
     return "；".join(parts) or None
 
 
+def pi_cache_path() -> Path:
+    """Pi 的说明缓存在哪。跟 install-mcp.sh 用同一条优先级，两边指向同一个文件。"""
+    override = os.environ.get("MMW_PI_MCP_FILE")
+    if override:
+        return Path(override).parent / "mcp-cache.json"
+    agent = os.environ.get("PI_CODING_AGENT_DIR")
+    if agent:
+        return Path(agent) / "mcp-cache.json"
+    home = os.environ.get("PI_HOME") or str(Path.home() / ".pi")
+    return Path(home) / "agent" / "mcp-cache.json"
+
+
+def pi_cache_drift(name: str, live: str) -> str | None:
+    """Pi 端缓存的说明跟服务器现在下发的对不上时，回一句差异；对得上或没缓存回 None。
+
+    Pi 判缓存失效只看配置哈希——command、args、env、cwd 与工具过滤，说明正文不在里面，
+    条目七天有效。于是改完说明不重装，另外四个宿主下一次启动就是新的，只有 Pi 继续把
+    上一版读进上下文，而且没有任何一处会说出来。装的时候 install-mcp.sh 会清掉这些条目；
+    这里管的是改完直接体检、没重装的那条路。
+    """
+    try:
+        cached = json.loads(pi_cache_path().read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    entry = (cached.get("servers") or {}).get(name)
+    if not isinstance(entry, dict) or "instructions" not in entry:
+        return None
+    stale = entry.get("instructions") or ""
+    if stale == live:
+        return None
+    return (f"Pi 端缓存的还是上一版说明（缓存 {len(stale)} 字，现在下发 {len(live)} 字）；"
+            f"跑一次 mmw-v2/install.sh 清掉它")
+
+
 def configured_servers(path: Path) -> dict[str, dict]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     servers = payload.get("mcpServers") or payload.get("mcp_servers") or payload
@@ -168,11 +205,15 @@ def main() -> int:
         if not as_json:
             print(f"不可用  裁剪合同：{contract_error}。这一轮没做护栏检查")
     for name, spec in servers.items():
-        ok, detail, tools = probe(spec)
+        ok, detail, tools, instructions = probe(spec)
         drift = contract_drift(name, tools, contract) if ok else None
         if drift:
             ok = False
             detail = f"{detail}。跟裁剪合同对不上：{drift}"
+        stale = pi_cache_drift(name, instructions) if ok else None
+        if stale:
+            ok = False
+            detail = f"{detail}。{stale}"
         results[name] = {"ok": ok, "detail": detail}
         if not ok:
             status = 1
