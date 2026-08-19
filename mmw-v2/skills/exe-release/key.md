@@ -58,7 +58,7 @@ it proves only that the compiler exited 0.
   "schema_version": "2",
   "product": "<name>",                 // one word, used in fingerprints and delivery paths
 
-  "toolchain": ["python", "pnpm", "node", "uv"],   // checked before anything expensive runs
+  "toolchain": [],                     // extra tools only — see below
 
   "build_target": {
     "desktop_dir": "<electron app dir>",   // omit for a product with no Electron shell
@@ -85,6 +85,12 @@ machine and executed on another.
 
 **`stages` reads this key.** `assemble` points its `--adapter` at the key's own filename. Point it
 at another key and the build runs from that one instead, while every step reports green.
+
+**`toolchain` is extras only.** Step 1 of the build checks every command the generated script
+actually invokes — the compile runner, the package manager, the build-machine setup script — all
+derived from what this key already says. List a tool here only when the product needs one beyond
+those. Restating the derived ones is how a key ends up demanding a tool the build does not use,
+and turning a working build machine away at step 1.
 
 ### `python_backend` — compiling the backend
 

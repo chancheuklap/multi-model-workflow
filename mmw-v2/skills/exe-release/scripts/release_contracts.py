@@ -364,6 +364,9 @@ class ReleaseAdapterManifest(BaseModel):
     # 静默忽略这几段，出来一份看着对、其实少了编译步骤的脚本。
     python_backend: PythonBackend | None = None
     electron: ElectronBuild | None = None
+    # 除了钥匙已经点到的命令之外，这个产品还要构建机上有什么。
+    # 编译用的解释器命令、前端包管理器、构建机准备脚本都不用写在这里——装配器从
+    # 钥匙已有的字段里推得出来，让钥匙再抄一遍只会抄漏或抄多。
     toolchain: list[str] = Field(default_factory=list)
     # 诊断：产品自己跑哪几条检查、认哪几条自己的日志模式、编译产物在哪。
     diagnose_branches: list[list[str]] = Field(default_factory=list)
@@ -431,8 +434,6 @@ class ReleaseAdapterManifest(BaseModel):
             return self
         if self.python_backend is None:
             raise ValueError("schema_version=2 的钥匙必须声明 python_backend")
-        if not self.toolchain:
-            raise ValueError("schema_version=2 的钥匙必须声明 toolchain")
         if self.electron and self.electron.installer == "repo_hook":
             if self.build_hooks.installer is None:
                 raise ValueError(

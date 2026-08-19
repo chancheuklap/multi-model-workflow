@@ -17,6 +17,7 @@ FIX = Path(__file__).resolve().parent / "fixtures" / "release-assembler"
 
 sys.path.insert(0, str(SCRIPTS))
 import release_contracts as rc  # noqa: E402
+import release_script_assembler as assembler  # noqa: E402
 
 
 
@@ -195,7 +196,6 @@ def test_check_rejects_a_script_whose_steps_do_not_match_its_context(tmp_path):
     "mutation",
     [
         {"schema_version": "1"},
-        {"toolchain": []},
         {"python_backend": None},
     ],
 )
@@ -203,6 +203,26 @@ def test_version_and_content_must_agree(mutation):
     doc = {**_key(), **mutation}
     with pytest.raises(Exception):
         rc.ReleaseAdapterManifest.model_validate(doc)
+
+
+def test_the_tool_check_covers_every_command_the_script_actually_runs(tmp_path):
+    """第一步查的工具从钥匙已经说过的话里推，不靠钥匙再抄一遍。
+
+    抄漏了要等构建跑到那一步才炸；抄多了会把一台本来能用的构建机挡在第一步。
+    """
+    doc = {**_key(), "toolchain": ["makensis"]}
+    key = tmp_path / "k.json"
+    key.write_text(json.dumps(doc), encoding="utf-8")
+    script = tmp_path / "release.ps1"
+    assembler.assemble(key, tmp_path, script, tmp_path / "ctx.json")
+
+    line = next(
+        l for l in script.read_text(encoding="utf-8").splitlines() if "foreach ($tool" in l
+    )
+    manifest = rc.ReleaseAdapterManifest.model_validate(doc)
+    assert manifest.python_backend.runner[0] in line, "编译用的解释器命令"
+    assert manifest.electron.package_manager in line, "前端包管理器"
+    assert "makensis" in line, "钥匙补充的那件"
 
 
 def test_jobs_falls_back_when_the_override_is_not_a_number():

@@ -260,7 +260,7 @@ def _v2_steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
     desktop_dir = manifest.build_target.desktop_dir
     steps: list[dict[str, object]] = []
 
-    tools = ", ".join(_ps(tool) for tool in manifest.toolchain)
+    tools = ", ".join(_ps(tool) for tool in _required_tools(manifest))
     steps.append(
         {
             "title": "Validate prerequisites",
@@ -408,6 +408,31 @@ def _v2_steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
             }
         )
     return steps
+
+
+def _required_tools(manifest: ReleaseAdapterManifest) -> list[str]:
+    """第一步要检查哪几件工具。
+
+    先从钥匙已经说过的话里推：脚本直接调的每一条命令的第一个词——编译用的解释器命令、
+    前端包管理器、构建机准备脚本。钥匙的 `toolchain` 是**补充**，写这些之外还要什么
+    （比如产品自己那套安装包要的 makensis）。
+
+    让每把钥匙自己抄一遍这份清单，是在要求它把已经说过的话再说一次：抄漏了要等构建
+    跑到那一步才炸，抄多了会把一台本来能用的构建机挡在第一步——electron-builder 自带
+    NSIS，钥匙却写着要独立 makensis，就是这种。
+    """
+    tools: list[str] = [manifest.python_backend.runner[0]]
+    if manifest.electron is not None:
+        tools.append(manifest.electron.package_manager)
+    if manifest.build_machine and manifest.build_machine.setup:
+        tools.append(manifest.build_machine.setup[0])
+    tools.extend(manifest.toolchain)
+    seen: list[str] = []
+    for tool in tools:
+        # 带路径分隔符的不是 PATH 上的命令，是一条具体路径，Get-Command 查它没有意义。
+        if tool not in seen and "/" not in tool and "\\" not in tool:
+            seen.append(tool)
+    return seen
 
 
 def _has_installer_step(manifest: ReleaseAdapterManifest) -> bool:
