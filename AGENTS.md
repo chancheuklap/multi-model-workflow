@@ -161,7 +161,9 @@ agent 改完一个文件，立刻对这个文件跑检查器，把**落在改动
 | `mmw-v2/diagnostics/config/` | ruff 与 oxlint 的规则。**用命令行传给检查器，不往被检查的仓库写文件** |
 | `mmw-v2/diagnostics/hooks/` | 四个宿主的适配器，共用 `core.sh` |
 | `mmw-v2/diagnostics/extension-pi/` | pi 那一份。pi 至今没有 hook，只有扩展 |
-| `mmw-v2/diagnostics/install-hooks.sh` | 注册进五个宿主。只加不删 |
+| `mmw-v2/diagnostics/git-hooks/pre-commit` | 提交前门禁。补编辑工具够不到的那一块 |
+| `mmw-v2/diagnostics/probe-subagent.sh` | 实测五家的通道通不通。改完宿主或升级之后重跑 |
+| `mmw-v2/diagnostics/install-hooks.sh` | 注册进五个宿主，外加提交前门禁。只加不删 |
 
 检查器有哪些、从哪儿来，看下一节「语言工具」。
 
@@ -188,8 +190,70 @@ agent 改完一个文件，立刻对这个文件跑检查器，把**落在改动
 的 `LSP` 工具还在工具表里，但没有语言服务器，调用会报错——**符号级的问题在五个宿主上都走
 serena，调用层级走 graphify。**
 
-诊断只覆盖 agent 用编辑工具改过的文件。用 shell 命令改的（`cat >>`、`sed -i`）拿不到文件路径，
-不在覆盖范围里；手改的、别的电脑改的也不在。补这个缺口的正确落点是 git 的 pre-commit，不是 CI。
+### 通道通不通要实测
+
+**装上不等于通。** 三家宿主的通道曾经长期是死的，而死法都跟「代码干净」长得一模一样：
+
+| 宿主 | 死在哪 | 表现 |
+| --- | --- | --- |
+| pi | 扩展是软链，它按 `import.meta.url` 算 `check.py`，而 Pi 的加载器不解软链 | 每次都 `Errno 2`，但扩展照样贴上「有诊断问题」那句话 |
+| Grok | 它把 hook 命令当可执行文件直接 spawn，而适配器没有执行位 | `Permission denied`，fail-open，只在 `--debug-file` 里留一行 WARN |
+| Codex | hook 要先被人信任才会跑 | `hooks.json` 写对了也不触发 |
+
+所以有 `probe-subagent.sh`：它在临时 git 仓库里真起一次 headless 会话，让宿主写一个带假密钥的
+文件，然后分开量两件事——**触发**（hook 跑了而且看见了那个文件）和**送达**（诊断正文进了模型的
+上下文）。分开量是因为修法完全不同：触发了没送达是返回通道的问题，没触发是事件挂错了地方或者
+根本没跑起来。
+
+探针靠 `MMW_DIAG_TRACE`：这个环境变量指着一个文件时，五个适配器各写一行 JSON。平时一行都不产生。
+
+2026-08-19 的结果：
+
+| 宿主 | 触发 | 送达 | 子 agent |
+| --- | --- | --- | --- |
+| Claude Code | 是 | 是 | 子 agent 的编辑照常触发 PostToolUse |
+| Cursor | 是 | 是 | 同上 |
+| Grok | 是 | 是 | 走 SubagentStop |
+| pi | 是 | 是 | 有子 agent，走同一个 `tool_result` |
+| Codex | 否 | 否 | 见下 |
+
+**Codex 那一格要人动手。** 它有一道人审关：新加或改动过的 hook 处在待审状态，界面上写着
+`1 hook needs review before it can run`，信任之后才把 `trusted_hash` 记进 `~/.codex/config.toml`
+的 `[hooks.state]`。安装器**不替你做这一步**——伪造 `trusted_hash` 正好破掉这道关存在的理由
+（它防的就是「hook 在用户没看见的情况下开始跑」），而信任与否是用户的决定。安装器只检测并
+说清楚要做什么。
+
+另外实测：Codex 的子 agent（它叫 `collab`）改文件时父会话的 `PostToolUse` 不触发，所以另挂了一份
+`SubagentStop`（`hooks/codex-subagent.sh`，拿不到工具输入就扫工作树，跟 Grok 那一份同理）。
+这一条同样要先被信任。
+
+### 提交前门禁
+
+编辑后诊断挂在 agent 的编辑工具上，靠工具载荷里的文件路径触发。用 shell 命令改的
+（`cat >>`、`sed -i`）拿不到路径，你自己在编辑器里改的、别的电脑改的更拿不到。**漏检跟代码
+干净长得一模一样**，所以这一块必须另有人管。
+
+管它的是 git 的 pre-commit，不是 CI：不管谁怎么改的，进历史之前都要过这一关。
+
+```bash
+git config --global core.hooksPath /path/to/mmw-v2/diagnostics/git-hooks
+```
+
+`install-hooks.sh` 会设这个。它是**全局**开关，会把每个仓库自己的 `.git/hooks` 整个盖掉，
+所以 `pre-commit` 第一件事就是把仓库自己那份接回来先跑，它说不行就不往下走。用 husky 的仓库
+不受影响：husky 在仓库级设 `core.hooksPath`，仓库级压过全局。别人已经设过全局值时安装器不
+覆盖，报出来让人自己定。
+
+边界：检的是**工作区**的内容，按「相对 HEAD 改过的行」过滤。只 `git add` 了一部分时这两者
+不一致，会多报没暂存的那几行。多报不会漏掉真问题，方向是安全的。
+
+### worktree
+
+**用的时候不挑检出，装的时候必须在主检出。** 宿主配置里写的是绝对路径；从任务 worktree 装，
+worktree 合并后被删，路径就断了。
+
+在 worktree 里干活时编辑后诊断和提交前门禁都照常工作：前者的 hook 指向主检出的
+`check.py`，后者的 `core.hooksPath` 是全局的。
 
 ## 宿主边界
 

@@ -279,6 +279,42 @@ disable_claude_lsp_plugins() {
   echo "关掉  Claude Code 的 ${on} 个 LSP 插件，诊断统一由编辑后诊断供给"
 }
 
+# Codex 的 hook 要先被人信任才会跑，写进 hooks.json 不等于装好了。
+#
+# 2026-08-19 实测：hooks.json 写对了、形状跟同一份文件里能跑的那条 session_start
+# 一模一样，PostToolUse 就是不触发——Codex 自己直接改文件也不触发。真因是它有一道
+# 人审关：新加或改动过的 hook 处在待审状态，界面上写着「1 hook needs review before
+# it can run」，信任之后才会把 trusted_hash 记进 ~/.codex/config.toml 的 [hooks.state]。
+# herdr 那条 session_start 早就信任过，所以只有它在跑。
+#
+# 这一步安装器不替你做。伪造 trusted_hash 正好破掉这道关存在的理由——它防的就是
+# 「hook 在用户没看见的情况下开始跑」——而信任与否是用户的决定。所以只精确检测，
+# 并且说清楚要做什么。
+#
+# 检测靠 [hooks.state] 里有没有对应的表头。键的形状是
+#   [hooks.state."<hooks.json 绝对路径>:<事件名小写下划线>:<序号>:<序号>"]
+codex_trust() {
+  local file="$CODEX_HOOKS" config="${CODEX_HOME:-$HOME/.codex}/config.toml" event missing=()
+
+  host_present "$(dirname "$file")" || return 0
+  [ -f "$file" ] || return 0
+
+  for event in post_tool_use subagent_stop; do
+    if ! grep -q "^\[hooks\.state\.\"${file}:${event}:" "$config" 2>/dev/null; then
+      missing+=("$event")
+    fi
+  done
+
+  [ "${#missing[@]}" -gt 0 ] || { echo "已信任  Codex 的 post_tool_use 与 subagent_stop"; return 0; }
+
+  {
+    echo "待审  Codex 的 ${missing[*]} 还没有被信任，写进去了但不会跑"
+    echo "      去 Codex 里打开 hooks 界面把它们信任一次（会记进 ${config} 的 [hooks.state]）"
+    echo "      这一步安装器不替你做：伪造信任等于绕过 Codex 的人审关"
+  } >&2
+  return 1
+}
+
 # 提交前门禁。装法是全局 core.hooksPath，一处设置覆盖这台机器上所有仓库。
 #
 # 这一条跟上面五个宿主不是一回事：它们补的是「agent 用编辑工具改了文件」，这一条
@@ -318,5 +354,6 @@ install_grok || rc=$?
 install_pi || rc=$?
 disable_claude_lsp_plugins || rc=$?
 install_git_hooks || rc=$?
+codex_trust || rc=$?
 
 exit "$rc"
