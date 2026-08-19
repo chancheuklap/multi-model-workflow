@@ -42,6 +42,7 @@ active="$(printf '%s' "$payload" | jq -r '.stopHookActive // .stop_hook_active /
 
 mmw_collect_files "$payload"
 [ "${#MMW_FILES[@]}" -gt 0 ] || mmw_collect_worktree_files "$(mmw_payload_cwd "$payload")"
+mmw_trace grok "$payload"
 mmw_diagnose && exit 0
 
 context="$(printf '刚改过的文件有诊断问题，先看一遍再继续：\n%s' "$MMW_OUTPUT")"

@@ -13,6 +13,7 @@
 // 和「它引入了这些问题」，因果是连着的。
 
 import { execFile } from "node:child_process";
+import { appendFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
@@ -55,16 +56,35 @@ async function repoRoot(file: string): Promise<string | null> {
   return out || null;
 }
 
+// 探针：这次触发到底发生了没有，看见了哪个文件。跟四个 shell 适配器的 mmw_trace
+// 写同一种行，同一个文件。只在 MMW_DIAG_TRACE 指着一个文件时写。
+function trace(file: string | null): void {
+  const target = process.env.MMW_DIAG_TRACE;
+  if (!target) return;
+  try {
+    const line = JSON.stringify({ adapter: "pi", event: "tool_result", files: file ? [file] : [] });
+    appendFileSync(target, line + "\n");
+  } catch {
+    // 探针坏掉不该挡住干活。
+  }
+}
+
 export default function (pi: any) {
   pi.on("tool_result", async (event: any) => {
     if (!event || !EDIT_TOOLS.has(event.toolName) || event.isError) return;
     const file = pickPath(event.input);
     if (!file) return;
+    trace(file);
 
+    // 不是 git 仓库也要检查，只是没有「改动行」这个概念，所以整份文件都报。
+    // 早先这里直接 return，于是在一个还没 git init 的目录里改文件，一条诊断都不报，
+    // 而那跟「代码干净」长得一模一样。这跟 hooks/core.sh 的 mmw_diagnose 是同一条规则。
     const root = await repoRoot(file);
-    if (!root) return;
+    const args = root
+      ? [CHECK, "--repo", root, "--changed-only", file]
+      : [CHECK, "--repo", dirname(file), file];
 
-    const findings = await run("python3", [CHECK, "--repo", root, "--changed-only", file]);
+    const findings = await run("python3", args);
     if (!findings) return;
 
     const note = { type: "text", text: `刚改过的文件有诊断问题，先看一遍再继续：\n${findings}` };

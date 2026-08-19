@@ -24,7 +24,8 @@ fi
 
 payload="$(cat)"
 mmw_collect_files "$payload"
-if mmw_diagnose; then
+if mmw_trace cursor "$payload"
+mmw_diagnose; then
   printf '%s\n' '{}'
   exit 0
 fi
