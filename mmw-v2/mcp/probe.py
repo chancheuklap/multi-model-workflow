@@ -19,27 +19,43 @@ import json
 import os
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+# pyright: reportMissingImports=false
+# resolve 是同目录的兄弟模块，靠上一行的 sys.path 才找得到；静态检查跟不进运行期
+# 改的搜索路径。
 from resolve import MCP_JSON, Resolver  # noqa: E402  展开规则的唯一来源
 
 HANDSHAKE_TIMEOUT = 40
+SMOKE_TIMEOUT = 180
+
+# 服务器默认从仓库根启动。serena 用 --project-from-cwd 认项目，从别处起它就没有
+# 项目可查，冒烟那一关会失败在一个跟真实故障无关的地方。
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
-def probe(spec: dict) -> tuple[bool, str, list[str], str]:
-    """起服务器、握手、列工具。回状态、一句话、工具名与服务器下发的 instructions。
+def probe(spec: dict, smoke: dict | None = None) -> tuple[bool, str, list[str], str]:
+    """起服务器、握手、列工具，必要时再真调一次工具。
+
+    回状态、一句话、工具名与服务器下发的 instructions。
 
     默认 spec 由 Resolver 展开。--config 读到的是宿主最终配置；两种路径都探真正会启动的
     command、args、env 与 cwd。
 
-    三条请求一次性写进 stdin 再用 communicate 收全部输出：stdio 上逐条 readline
-    没有超时机制，服务器一卡住体检命令就跟着挂死，而体检本身必须有头。
+    stdin 全程开着，用一个后台线程收 stdout，主线程按截止时间等自己要的那几条回应。
+    不能写完就关 stdin：实测 serena 答完 tools/list 就跟着 EOF 关掉了，后面那条
+    tools/call 根本没被处理，而现象是「没有回应」，跟服务器坏掉长得一模一样。
+    也不能在主线程上逐条 readline：stdio 上的 readline 没有超时，服务器一卡住体检
+    命令就跟着挂死，而体检本身必须有头。
     """
     command = spec["command"]
     args = spec.get("args", [])
     env = dict(os.environ)
     env.update(spec.get("env") or {})
+    timeout = SMOKE_TIMEOUT if smoke else HANDSHAKE_TIMEOUT
 
     try:
         proc = subprocess.Popen(
@@ -49,14 +65,14 @@ def probe(spec: dict) -> tuple[bool, str, list[str], str]:
             stderr=subprocess.PIPE,
             text=True,
             env=env,
-            cwd=spec.get("cwd"),
+            cwd=spec.get("cwd") or str(REPO_ROOT),
         )
     except FileNotFoundError:
         return False, f"起不来：找不到命令 {command}", [], ""
     except OSError as exc:
         return False, f"起不来：{exc}", [], ""
 
-    requests = "".join(json.dumps(obj) + "\n" for obj in (
+    calls = [
         {
             "jsonrpc": "2.0", "id": 1, "method": "initialize",
             "params": {
@@ -67,40 +83,94 @@ def probe(spec: dict) -> tuple[bool, str, list[str], str]:
         },
         {"jsonrpc": "2.0", "method": "notifications/initialized"},
         {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
-    ))
+    ]
+    if smoke:
+        calls.append({
+            "jsonrpc": "2.0", "id": 3, "method": "tools/call",
+            "params": {"name": smoke["tool"], "arguments": smoke.get("arguments", {})},
+        })
+    wanted_ids = {2, 3} if smoke else {2}
+
+    seen: dict[int, dict] = {}
+    errors: list[str] = []
+    instructions = ""
+
+    def collect() -> None:
+        for line in proc.stdout:  # type: ignore[union-attr]
+            line = line.strip()
+            if not line.startswith("{"):
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            ident = obj.get("id")
+            if isinstance(ident, int):
+                seen[ident] = obj
+
+    # stderr 也用线程收，不在杀进程之后 read()。serena 会派生 pyright、bash 与
+    # typescript 三个语言服务器，它们继承同一个 stderr；杀掉 serena 本身管道不会关，
+    # read() 会一直等 EOF 等不到——实测体检命令因此挂死超过十分钟。
+    def collect_errors() -> None:
+        for line in proc.stderr:  # type: ignore[union-attr]
+            errors.append(line)
+
+    reader = threading.Thread(target=collect, daemon=True)
+    reader.start()
+    threading.Thread(target=collect_errors, daemon=True).start()
 
     try:
-        out, err = proc.communicate(input=requests, timeout=HANDSHAKE_TIMEOUT)
-    except subprocess.TimeoutExpired:
+        proc.stdin.write("".join(json.dumps(obj) + "\n" for obj in calls))  # type: ignore[union-attr]
+        proc.stdin.flush()  # type: ignore[union-attr]
+    except OSError as exc:
         proc.kill()
-        proc.communicate()
-        return False, f"{HANDSHAKE_TIMEOUT} 秒内没应答", [], ""
-    finally:
-        if proc.poll() is None:
-            proc.kill()
+        return False, f"写不进去：{exc}", [], ""
 
-    payload = None
-    instructions = ""
-    for line in out.splitlines():
-        line = line.strip()
-        if not line.startswith("{"):
-            continue
-        try:
-            obj = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if obj.get("id") == 1:
-            instructions = obj.get("result", {}).get("instructions", "") or ""
-        if obj.get("id") == 2:
-            payload = obj
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if wanted_ids <= seen.keys():
+            break
+        if proc.poll() is not None and not reader.is_alive():
+            break
+        time.sleep(0.2)
 
+    proc.kill()
+    err = "".join(errors)
+
+    if 1 in seen:
+        instructions = seen[1].get("result", {}).get("instructions", "") or ""
+
+    payload = seen.get(2)
     if payload is None:
-        tail = (err or "").strip().splitlines()
+        tail = err.strip().splitlines()
         return False, f"没要到工具列表：{tail[-1] if tail else '进程没输出就退了'}", [], instructions
     if "error" in payload:
         return False, f"服务器报错：{payload['error']}", [], instructions
+
     tools = sorted(tool["name"] for tool in payload.get("result", {}).get("tools", []))
-    return True, f"{len(tools)} 个工具：{', '.join(tools)}", tools, instructions
+    detail = f"{len(tools)} 个工具：{', '.join(tools)}"
+
+    if smoke:
+        # 工具列表对得上不等于答得出来。这一关真调一次，答不出就是装坏了。
+        answer = seen.get(3)
+        if answer is None:
+            return False, f"{detail}。{timeout} 秒内没等到 {smoke['tool']} 的回应", tools, instructions
+        if "error" in answer:
+            return False, f"{detail}。调 {smoke['tool']} 报错：{answer['error']}", tools, instructions
+        result = answer.get("result", {})
+        body = json.dumps(result, ensure_ascii=False)
+        # MCP 的工具错误不走 JSON-RPC 的 error，走 result 里的 isError。不单独认它的话，
+        # 一次失败的调用会被当成一次「答得出但内容不对」，报错指向错的地方。
+        if result.get("isError"):
+            return False, f"{detail}。调 {smoke['tool']} 失败：{body[:300]}", tools, instructions
+        if smoke["expect_contains"] not in body:
+            return False, (
+                f"{detail}。调 {smoke['tool']} 答不出 {smoke['expect_contains']}，"
+                "语言服务器可能起不来或版本不合"
+            ), tools, instructions
+        detail = f"{detail}；{smoke['tool']} 真查得到符号"
+
+    return True, detail, tools, instructions
 
 
 CONTRACT = Path(__file__).resolve().parent.parent / "config" / "retrieval-contract.json"
@@ -205,7 +275,7 @@ def main() -> int:
         if not as_json:
             print(f"不可用  裁剪合同：{contract_error}。这一轮没做护栏检查")
     for name, spec in servers.items():
-        ok, detail, tools, instructions = probe(spec)
+        ok, detail, tools, instructions = probe(spec, contract.get(name, {}).get("smoke"))
         drift = contract_drift(name, tools, contract) if ok else None
         if drift:
             ok = False

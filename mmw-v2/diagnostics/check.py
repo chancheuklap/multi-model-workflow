@@ -27,14 +27,20 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-RULES = HERE / "rules.json"
 CONFIG_DIR = HERE / "config"
-# 我们自己装的检查器在这两个目录里。分两个不是历史包袱：uv 装的是真的可执行文件，
-# 可以集中放；pnpm 装的是按 $0 算相对路径的脚本外壳，软链到别处它就找不到自己的包
-# （实测 oxlint 会去 tools/.pnpm 找，那里什么都没有）。所以就地用，不搬。
+
+# 语言工具的清单与安装都在 mmw-v2/tools/，不在这里：serena 的语言服务器用的是同一份
+# 安装（pyright 那一条同时是命令行检查器和语言服务器），清单分两处就会出现同一个引擎
+# 两个版本。
+TOOLS = HERE.parent / "tools"
+RULES = TOOLS / "tools.json"
+
+# 装出来的东西在这两个目录里。分两个不是历史包袱：uv 装的是真的可执行文件，可以集中
+# 放；pnpm 装的是按 $0 算相对路径的脚本外壳，软链到别处它就找不到自己的包（实测
+# oxlint 会去 tools/.pnpm 找）。所以就地用，不搬。
 TOOL_DIRS = (
-    HERE / "tools" / "bin",
-    HERE / "tools" / "node" / "node_modules" / ".bin",
+    TOOLS / "bin",
+    TOOLS / "node" / "node_modules" / ".bin",
 )
 
 CHECK_TIMEOUT = 120
@@ -46,6 +52,20 @@ def read_json(path: Path) -> dict:
         return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
+
+
+def load_checkers() -> list[dict]:
+    """从工具清单里挑出有 checker 这一段的，并把工具 id 带进去。
+
+    清单里一个工具可以既是检查器又是语言服务器（pyright 就是），这里只取前者那一段。
+    """
+    out = []
+    for tool in read_json(RULES).get("tools", []):
+        spec = tool.get("checker")
+        if not spec:
+            continue
+        out.append({"id": tool["id"], **spec})
+    return out
 
 
 def owning_workspace(repo: Path, rel_file: str, marker: str | None) -> str:
@@ -251,7 +271,7 @@ def applies_to(checker: dict, rel_file: str) -> bool:
 
 
 def check(repo: Path, files: list[str], changed_only: bool = False) -> dict:
-    checkers = read_json(RULES).get("checkers", [])
+    checkers = load_checkers()
     findings: dict[str, list[str]] = {}
     outside: list[str] = []
     suppressed = 0
@@ -319,7 +339,7 @@ def render(report: dict) -> int:
 
 def doctor(repo: Path) -> int:
     """每个检查器现在会用哪个可执行文件。装完之后应该一个 missing 都没有。"""
-    checkers = read_json(RULES).get("checkers", [])
+    checkers = load_checkers()
     status = 0
     for checker in checkers:
         if checker.get("kind") == "patterns":

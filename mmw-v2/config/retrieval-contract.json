@@ -4,22 +4,45 @@
   "uv_tools": {
     "serena-agent": {
       "pypi": "serena-agent",
-      "binaries": ["serena"],
-      "required_cli_tokens": ["start-mcp-server"]
+      "binaries": [
+        "serena"
+      ],
+      "required_cli_tokens": [
+        "start-mcp-server"
+      ]
     },
     "graphifyy": {
       "pypi": "graphifyy",
-      "binaries": ["graphify"],
-      "required_cli_subcommands": ["query", "affected", "path", "explain"],
+      "binaries": [
+        "graphify"
+      ],
+      "required_cli_subcommands": [
+        "query",
+        "affected",
+        "path",
+        "explain"
+      ],
       "_note": "官方的 graphify-mcp 可能随这个包一起装上。不要改用它：它暴露 10 个工具，且假定图已存在、不检查新鲜度，图过期时照样回答，回答的是历史。"
     }
   },
   "graph_relations": {
     "_why": "跨语言边的关系名。原生抽取给不出这几类——它按语言各扫各的。图里有没有它们，就是这个仓库的检索能不能回答『这个接口谁在调』『改这个函数影响哪个页面』的分界。",
-    "route": ["handles_route", "implements_route_handler"],
-    "http": ["http_calls"],
-    "ipc": ["ipc_handles", "ipc_invokes"],
-    "topic": ["produces_topic", "drains_topic", "consumes_topic"]
+    "route": [
+      "handles_route",
+      "implements_route_handler"
+    ],
+    "http": [
+      "http_calls"
+    ],
+    "ipc": [
+      "ipc_handles",
+      "ipc_invokes"
+    ],
+    "topic": [
+      "produces_topic",
+      "drains_topic",
+      "consumes_topic"
+    ]
   },
   "servers": {
     "serena": {
@@ -28,14 +51,34 @@
         "find_referencing_symbols",
         "find_symbol",
         "get_symbols_overview"
-      ]
+      ],
+      "smoke": {
+        "tool": "find_symbol",
+        "arguments": {
+          "name_path_pattern": "resolve_checker",
+          "relative_path": "mmw-v2/diagnostics/check.py",
+          "max_matches": 1
+        },
+        "expect_contains": "resolve_checker"
+      }
     },
     "graphify": {
-      "exact_tools": ["graphify"],
-      "actions": ["affected", "explain", "path", "query"]
+      "exact_tools": [
+        "graphify"
+      ],
+      "actions": [
+        "affected",
+        "explain",
+        "path",
+        "query"
+      ]
     },
     "context7": {
-      "exact_tools": ["query-docs", "resolve-library-id"]
+      "exact_tools": [
+        "query-docs",
+        "resolve-library-id"
+      ]
     }
-  }
+  },
+  "_smoke": "工具列表对得上不等于答得出来。serena 的语言服务器由 mmw-v2/tools 提供，版本跟 serena 上游钉死的那个不同（它钉 pyright 1.1.403，我们装最新稳定版），所以必须真查一次符号才算装好。graphify 与 context7 没有这一关：前者的 tools/call 会触发建图，是分钟级操作；后者要联网。"
 }
