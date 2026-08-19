@@ -144,6 +144,16 @@ else
   bash "$ROOT/mcp/install-mcp.sh" || rc=$?
 fi
 
+# 真起一次三台服务器，握手并列工具。写完配置不等于装好：配置写对了、而服务器因为
+# 别的原因起不来，是这一层唯一能发现的失败。刚踩过一次——serena 的 context 里删掉一个
+# 必填字段，配置文件看着完全正常，安装器一路报「装好」，服务器却根本起不来。
+# 约半分钟，值这个钱。
+echo
+if ! python3 "$ROOT/mcp/probe.py"; then
+  echo "检索服务器起不来，上面那行说了是哪一台。配置已经写完，修好再跑一次本脚本。" >&2
+  rc=1
+fi
+
 if [ "$mode" = check ]; then
   [ "$rc" -eq 0 ] && echo "齐了：$installed_hosts 个宿主 × ${#wanted_names[@]} 个技能，加三台检索服务器"
 else

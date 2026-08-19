@@ -7,11 +7,18 @@
 #
 # 改这份文件之前先想清楚：多放进来一个工具，每个宿主的每个 agent 立刻都拿得到。
 #
-# 这里**没有** prompt 字段，那不是笔误。serena 的 MCP 服务器说明取自 connection_prompt
-# 模板，不取自 context 的 prompt——实测握手下发的正是前者，逐字相同。context 的 prompt
-# 走的是项目激活那条路，写在这里的文字任何 agent 都看不见。说明正文在
-# config/serena-connection-prompt.yml，由 install.sh 装到 ~/.serena/prompt_templates/。
+# 下面的 prompt 必须存在但**不要**往里写使用纪律，两件事都是实测出来的：
+#
+#   必须存在：SerenaAgentContext 把它列为必填，删掉这一行 serena 直接起不来
+#             （TypeError: missing 1 required keyword-only argument: 'prompt'）。
+#   写了也白写：serena 的 MCP 服务器说明取自 connection_prompt 模板，不取自这里。
+#             握手实测下发的逐字是前者。context 的 prompt 走项目激活那条路，
+#             写在这里的文字任何 agent 都看不见。
+#
+# 说明正文在 config/serena-connection-prompt.yml，由 install-mcp.sh 装到
+# ~/.serena/prompt_templates/connection_prompt.yml。改说明改那一份。
 description: MMW read-only symbol retrieval
+prompt: ""
 fixed_tools:
   - find_symbol
   - find_referencing_symbols
