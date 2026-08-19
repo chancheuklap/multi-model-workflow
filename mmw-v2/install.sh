@@ -144,6 +144,18 @@ else
   bash "$ROOT/mcp/install-mcp.sh" || rc=$?
 fi
 
+# 编辑后诊断。两步：先把检查器装齐（装进 diagnostics/tools/，每次最新稳定版），
+# 再把适配器注册进五个宿主。分两步是因为它们的失败原因完全不同——检查器装不上是
+# 包管理器的事，注册不上是宿主配置的事，混在一条命令里会让报错指不到地方。
+echo
+if [ "$mode" = check ]; then
+  bash "$ROOT/diagnostics/install-checkers.sh" --check || rc=1
+  bash "$ROOT/diagnostics/install-hooks.sh" --check || rc=1
+else
+  bash "$ROOT/diagnostics/install-checkers.sh" || rc=$?
+  bash "$ROOT/diagnostics/install-hooks.sh" || rc=$?
+fi
+
 # 真起一次三台服务器，握手并列工具。写完配置不等于装好：配置写对了、而服务器因为
 # 别的原因起不来，是这一层唯一能发现的失败。刚踩过一次——serena 的 context 里删掉一个
 # 必填字段，配置文件看着完全正常，安装器一路报「装好」，服务器却根本起不来。
@@ -155,7 +167,7 @@ if ! python3 "$ROOT/mcp/probe.py"; then
 fi
 
 if [ "$mode" = check ]; then
-  [ "$rc" -eq 0 ] && echo "齐了：$installed_hosts 个宿主 × ${#wanted_names[@]} 个技能，加三台检索服务器"
+  [ "$rc" -eq 0 ] && echo "齐了：$installed_hosts 个宿主 × ${#wanted_names[@]} 个技能，加三台检索服务器与编辑后诊断"
 else
   echo
   echo "源目录：$SKILLS_SRC"
