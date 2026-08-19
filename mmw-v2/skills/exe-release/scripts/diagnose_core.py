@@ -161,6 +161,17 @@ RULES: tuple[tuple[str, str, str, str], ...] = (
         "自检挂死，通常是某个 import 起了退不掉的后台线程。按日志定位那个模块",
     ),
     (
+        # 必须排在 hook_failed 前面：这一条崩的是「报错那一行」自己，日志里同时也有
+        # Release hook failed，按那条只会得到「读日志定位根因」，而根因就在这里。
+        r"_readerthread\b[\s\S]{0,600}?UnicodeDecodeError",
+        "hook_output_decoding",
+        "hook_output_decoding:{product}",
+        "构建机是中文 Windows。subprocess 的 text=True 按本机代码页(GBK)解子进程输出，"
+        "遇上任何一个非 GBK 字节，读取线程就抛 UnicodeDecodeError 死掉，stdout/stderr 变 None，"
+        "于是打印它们的那一行自己先崩——检查本身可能是通过的。"
+        "给那个 subprocess.run 显式加 encoding=\"utf-8\", errors=\"replace\"",
+    ),
+    (
         r"Release hook failed: (\S+)",
         "release_hook_failed",
         "hook_failed:{group}",

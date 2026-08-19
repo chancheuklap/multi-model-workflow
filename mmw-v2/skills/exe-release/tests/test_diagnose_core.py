@@ -282,3 +282,25 @@ def test_a_smoke_that_ran_is_not_graded_as_a_missing_dependency():
     )
     (finding,) = dc.build_log_findings("duck", log, "build")
     assert finding["root_cause_fingerprint"] == "env:smoke_harness:duck"
+
+
+def test_a_hook_that_crashed_printing_its_own_output_is_not_graded_as_a_hook_failure():
+    """检查通过了，是打印检查输出的那一行自己崩了。
+
+    构建机是中文 Windows：subprocess 的 text=True 按 GBK 解子进程输出，遇非 GBK 字节读取线程
+    就死，stdout/stderr 变 None，随后 write(None) 抛 TypeError。日志里同时也有一句
+    Release hook failed，按那一条得到的是「读日志定位根因」——而根因就是这个，往下读只会
+    看见一个 traceback 指着报错语句自己。
+    """
+    log = Path(_tmp) / "log"
+    log.write_text(
+        "hedgehog python-runtime preflight passed\n"
+        "Exception in thread Thread-2 (_readerthread):\n"
+        "    buffer.append(fh.read())\n"
+        "UnicodeDecodeError: 'gbk' codec can't decode byte 0x81 in position 27\n"
+        "TypeError: write() argument must be str, not None\n"
+        "Release hook failed: backend_verify phase=backend_ready\n",
+        encoding="utf-8",
+    )
+    (finding,) = dc.build_log_findings("hedgehog", log, "build")
+    assert finding["root_cause_fingerprint"] == "hook_output_decoding:hedgehog"
