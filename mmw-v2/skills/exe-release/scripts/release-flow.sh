@@ -848,8 +848,11 @@ _run_remote_build() {
 
   _ssh_ps "$remote_host" "New-Item -ItemType Directory -Force -Path '$remote_input' | Out-Null" || return $?
   # 失败的构建目录是现场,留着;但只留最近两个。再往前的没有人会读,而一个就是几个 GB。
-  # 只动 <12位commit>-<本产品> 这种目录名,交付目录与别的产品都不在范围内。
-  if ! _ssh_ps "$remote_host" "Get-ChildItem -LiteralPath '${remote_root%/}' -Directory -ErrorAction SilentlyContinue | Where-Object { \$_.Name -match '^[0-9a-f]{12}-$product\$' -and \$_.Name -ne '${source_commit:0:12}-$product' } | Sort-Object LastWriteTime -Descending | Select-Object -Skip 2 | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue"; then
+  # 只动 <短commit>-<本产品> 这种目录名,交付目录与别的产品都不在范围内。
+  # 用 -Property/-Like 而不是 `Where-Object { $_.Name ... }`:这条命令要穿过 bash 双引号、
+  # 远端默认 shell(PowerShell)与 powershell.exe 三层,$_ 会在到达 powershell.exe 之前就被
+  # 当成变量吃掉,于是筛选条件恒空、什么也不匹配,而且一声不响。
+  if ! _ssh_ps "$remote_host" "Get-ChildItem -LiteralPath '${remote_root%/}' -Directory -ErrorAction SilentlyContinue | Where-Object -Property Name -Like '*-$product' | Where-Object -Property Name -NE '${source_commit:0:12}-$product' | Sort-Object LastWriteTime -Descending | Select-Object -Skip 2 | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue"; then
     echo "WARN: 远端旧构建目录清理失败(不影响本轮),需手动看一眼: $remote_root" >&2
   fi
   scp "$archive" "$remote_host:$remote_input/source.zip" || return $?

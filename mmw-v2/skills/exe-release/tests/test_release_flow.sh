@@ -210,6 +210,28 @@ remote_build >/dev/null 2>&1 || true
 bash "$RF" close >/dev/null
 printf '{"repo_root":"/placeholder","product":"test-product"}\n' > release-context.json
 
+# 守:失败的构建目录只留最近两个。一个几个 GB,不封顶的话构建机迟早被自己的中间产物填满;
+# 而封过头就是把还要查的现场删掉——所以断的是「哪几个还在」,不是「删过东西」。
+remote_reset
+bash "$RF" init --manifest remote-build-manifest.json >/dev/null
+input_root="$FAKE_REMOTE_ROOT/release-input"
+mkdir -p "$input_root"
+for old_dir in 000000000001 000000000002 000000000003; do
+  mkdir -p "$input_root/$old_dir-test-product"
+  printf 'x\n' > "$input_root/$old_dir-test-product/build-run.log"
+done
+mkdir -p "$input_root/000000000004-other-product"
+touch -t 202601010101 "$input_root/000000000001-test-product"
+touch -t 202601010102 "$input_root/000000000002-test-product"
+touch -t 202601010103 "$input_root/000000000003-test-product"
+export FAKE_BUILD_OUTCOME=fail:3
+remote_build >/dev/null 2>&1 || true
+[ ! -e "$input_root/000000000001-test-product" ] && ok "更老的失败目录被清掉" || no "旧构建目录无上限地堆着"
+[ -e "$input_root/000000000002-test-product" ] && [ -e "$input_root/000000000003-test-product" ] \
+  && ok "最近两个失败目录留着" || no "还要查的现场被删掉了"
+[ -e "$input_root/000000000004-other-product" ] && ok "不碰别的产品的目录" || no "删到了别的产品"
+bash "$RF" close >/dev/null
+
 # 守:上一轮的 attempt 目录不能留。attempt 号从 a0 重新数,旧目录跟本轮同名对撞,于是
 # 「本轮的 a0-build」读到的是上一个产品的结果,而没有任何一步报错。
 remote_reset

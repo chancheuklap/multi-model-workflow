@@ -87,6 +87,25 @@ def do_powershell(cmd: str) -> int:
                 local(path).unlink(missing_ok=True)
         return 0
 
+    if cmd.strip().startswith("Get-ChildItem") and "Select-Object -Skip" in cmd:
+        # 上一轮失败的构建目录只留最近几个。真的按 mtime 排序再删,不是「命令里出现了
+        # Remove-Item 就算数」——留几个、留哪几个,错了就是把现场删掉或者一个都没删。
+        import fnmatch
+
+        paths = quoted(cmd)
+        if len(paths) < 3:
+            return 1
+        root, like, exclude = local(paths[0]), paths[1], paths[2]
+        skip = int(re.search(r"-Skip\s+(\d+)", cmd).group(1))
+        kept = [
+            d for d in root.iterdir()
+            if d.is_dir() and fnmatch.fnmatch(d.name, like) and d.name != exclude
+        ]
+        kept.sort(key=lambda d: d.stat().st_mtime, reverse=True)
+        for d in kept[skip:]:
+            shutil.rmtree(d, ignore_errors=True)
+        return 0
+
     if "Remove-Item" in cmd:
         if os.environ.get("FAKE_REMOVE_FAILS"):
             return 1
