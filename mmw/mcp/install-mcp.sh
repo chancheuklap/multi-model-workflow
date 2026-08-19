@@ -14,7 +14,7 @@
 # Claude Code 启动 headless Codex 时由 adapter 临时注入同一批服务器，那条路在
 # cli/adapters/claude-code.sh。
 #
-# 服务器定义的唯一事实来源是插件根的 .mcp.json，本脚本只做翻译，不另存一份清单。
+# 服务器定义的唯一事实来源是 mmw/.mcp.json，本脚本只做翻译，不另存一份清单。
 # 只读白名单在 Serena 服务器那一侧（config/serena-readonly.yml），在这里再列一遍就是第二处
 # 要维护的清单，旧实现四个 harness 各抄一份白名单就是这么散掉的。
 #
@@ -33,8 +33,8 @@
 
 set -euo pipefail
 
-PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SOURCE="$PLUGIN_ROOT/.mcp.json"
+MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SOURCE="$MMW_ROOT/.mcp.json"
 PI_AGENT_DIR="${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME/.pi}/agent}"
 PI_MCP="${MMW_PI_MCP_FILE:-$PI_AGENT_DIR/mcp.json}"
 CURSOR_MCP="${MMW_CURSOR_MCP_FILE:-$HOME/.cursor/mcp.json}"
@@ -50,12 +50,12 @@ case "${1:-}" in
   *) echo "用法: install-mcp.sh [--check|--check-toml]" >&2; exit 2 ;;
 esac
 
-[ -f "$SOURCE" ] || { echo "ERROR: 插件里没有 .mcp.json: $SOURCE" >&2; exit 2; }
+[ -f "$SOURCE" ] || { echo "ERROR: runtime 里没有 .mcp.json: $SOURCE" >&2; exit 2; }
 
-# 把 .mcp.json 翻译成某一面要的服务器 map。展开规则（插件根、密钥、默认值）全在
+# 把 .mcp.json 翻译成某一面要的服务器 map。展开规则（runtime 根、密钥、默认值）全在
 # resolve.py 里，本脚本不自己解析占位符——两处解析就是两处维护。
 translate() {
-  python3 "$PLUGIN_ROOT/mcp/resolve.py" --format "$1"
+  python3 "$MMW_ROOT/mcp/resolve.py" --format "$1"
 }
 
 # 服务器 map 在这个文件里放在哪一层。调用方给定形状，auto 表示按文件现状判。
@@ -133,7 +133,7 @@ check_face() {
         '(($h[$n] // {}) * $w[$n]) == ($h[$n] // {})')" = true ]; then
       echo "已装  $label $n"
     else
-      echo "未装  $label ${n}（或与插件当前定义不一致）" >&2
+      echo "未装  $label ${n}（或与 MMW 当前定义不一致）" >&2
       rc=1
     fi
   done
@@ -191,7 +191,7 @@ check_toml_face() {
     echo "跳过  这台机器没有 ${label}（$(dirname "$config") 不在）"
     return 0
   fi
-  if python3 - "$config" "$PLUGIN_ROOT" <<'PY'
+  if python3 - "$config" "$MMW_ROOT" <<'PY'
 import sys
 from pathlib import Path
 sys.path.insert(0, sys.argv[2] + "/mcp")
@@ -213,7 +213,7 @@ install_toml_face() {
     echo "跳过  这台机器没有 ${label}（$(dirname "$config") 不在）"
     return 0
   fi
-  python3 "$PLUGIN_ROOT/mcp/resolve.py" --merge-toml "$config" || return 2
+  python3 "$MMW_ROOT/mcp/resolve.py" --merge-toml "$config" || return 2
   echo "装好  $label serena/graphify/context7 → $config"
 }
 

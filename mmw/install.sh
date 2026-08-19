@@ -38,7 +38,7 @@ build_runtime() {
   printf '%s\n' "$SOURCE_REPO" > "$stage/.mmw-source-root"
 
   # 测试只在源码仓库跑，不跟着发到各宿主：它们要 uv、要建一次性 git 仓库，
-  # 装到用户机器上既用不到，又把 plugin 撑大。Python 缓存同理。
+  # 装到用户机器上既用不到，又把 runtime 撑大。Python 缓存同理。
   # -prune 不能省：不剪枝的话 find 会走进刚被 rm 掉的目录，报错退非零，
   # 而那个错误正好被 2>/dev/null 吞掉，看起来像删干净了。
   rm -f "$stage/mmw/test.sh" "$stage/mmw/mcp/test_graphify_ensure.py"
@@ -180,42 +180,11 @@ install_codex() {
   echo "Codex    : 已装技能、原生 subagent、编辑后诊断 hook"
 }
 
-# Claude Code 的会话内 subagent。这个宿主只有一个：审查者。别的角色都是 GPT 族，
-# 由 adapter 走 codex exec，不需要 agent 文件。
-#
-# 软链不拷贝，理由同技能。目标目录里同名的文件不是本脚本装的软链就不动它。
-install_claude_code_agents() {
-  local src dest manifest tmp name
-  src="$RUNTIME_ROOT/mmw/agents"
-  dest="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/agents"
-  manifest="$dest/.mmw-agents"
-  mkdir -p "$dest"
-  if [ -f "$manifest" ]; then
-    while IFS= read -r name; do
-      [ -n "$name" ] || continue
-      [ -f "$src/$name" ] && continue
-      [ -L "$dest/$name" ] && rm -f "$dest/$name"
-    done < "$manifest"
-  fi
-  tmp="$(mktemp "$dest/.mmw-agents.XXXXXX")"
-  for name in "$src"/*.md; do
-    [ -f "$name" ] || continue
-    name="$(basename "$name")"
-    if [ -e "$dest/$name" ] && [ ! -L "$dest/$name" ]; then
-      die "Claude   : $dest/$name 已被非 MMW 内容占用，先处理它再装"
-    fi
-    ln -sfn "$src/$name" "$dest/$name"
-    printf '%s\n' "$name" >> "$tmp"
-  done
-  mv "$tmp" "$manifest"
-  echo "Claude   : 已装 agent 到 $dest"
-}
-
 install_claude_code() {
   command -v claude >/dev/null 2>&1 || { echo "Claude   : 未安装，跳过"; return; }
   local settings temp
   install_skills_into "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills"
-  install_claude_code_agents
+  "$RUNTIME_ROOT/mmw/cli/mmw" agents materialize --host claude-code
   merge_post_tool_use_hook "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json" "Claude  "
   settings="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
   mkdir -p "$(dirname "$settings")"
@@ -286,7 +255,7 @@ remove_old_pi_mmw() {
 
 # 编辑后诊断在 Pi 那一侧靠扩展，不靠 hook——Pi 没有 hooks.json 那一层。扩展要落到
 # Pi 自己的 extensions 目录才会被自动发现，所以这一步是拷贝，不是登记路径。
-# Codex 那一侧同一件事走 plugin.json 的 hooks 字段，跟着插件走，不用单独拷。
+# Codex 那一侧同一件事走 ~/.codex/hooks.json，由 merge_post_tool_use_hook 登记路径。
 install_pi_toolchain_extension() {
   local source target dir
   source="$RUNTIME_ROOT/mmw/toolchain/extensions-pi/toolchain-diagnostics.ts"

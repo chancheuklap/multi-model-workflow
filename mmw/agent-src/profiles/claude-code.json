@@ -1,0 +1,20 @@
+{
+  "host": "claude-code",
+  "output": {
+    "kind": "user-dir",
+    "path": "~/.claude/agents"
+  },
+  "managed_glob": "mmw-*.md",
+  "roles": ["reviewer-claude"],
+  "provider_map": {},
+  "model_format": "{id}",
+  "tools": {
+    "writable": "Skill, Read, Grep, Glob, Bash, Edit, Write, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols, mcp__serena__get_symbols_overview, mcp__serena__find_implementations, mcp__graphify__graphify, mcp__context7__resolve-library-id, mcp__context7__query-docs",
+    "readonly": "Skill, Read, Grep, Glob, Bash, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols, mcp__serena__get_symbols_overview, mcp__serena__find_implementations, mcp__graphify__graphify, mcp__context7__resolve-library-id, mcp__context7__query-docs"
+  },
+  "frontmatter": {
+    "name": "{agent}",
+    "description": "{description}",
+    "tools": "{tools}"
+  }
+}

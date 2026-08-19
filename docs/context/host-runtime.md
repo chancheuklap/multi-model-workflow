@@ -9,7 +9,7 @@
 _Avoid_: 技能产物、宿主版本、安装副本
 
 **角色物化**：
-把角色真源与模型档渲染成某个宿主的原生 subagent 文件。角色定义在各宿主的 frontmatter 形状不同，这一步只处理那个差异。
+把角色真源与模型档渲染成某个宿主的原生 subagent 文件。角色定义在各宿主的 frontmatter 形状不同，这一步只处理那个差异。收哪几个角色由 profile 的 `roles` 键决定：Claude Code 只收 `reviewer-claude`，因为其余角色在这个宿主上不经过 subagent。
 _Avoid_: 技能物化、手工改 model 行
 
 **软链安装**：

@@ -55,9 +55,9 @@ Run `mmw toolchain detect` again. The pending line should be none.
 
 ## 4. Hosts that ask the user to trust hooks
 
-If this host prompts to trust plugin hooks in an interactive session, tell the user to open one interactive session and accept once. Non-interactive runs do not prompt and do not run the hooks.
+`install.sh` registers the edit-time diagnostics hook in the host's own config, not through any package the host installs. If this host prompts to trust that hook in an interactive session, tell the user to open one interactive session and accept once. Non-interactive runs do not prompt and do not run the hook.
 
-After every MMW upgrade the prompt comes back: the trust hash includes the expanded plugin path, and that path contains the version.
+The registered command is an absolute path into the installed runtime, and that path holds no version. Upgrading in place does not move it, so the prompt comes back only when the registration itself changes.
 
 Do not edit the host's trusted-hash config.
 

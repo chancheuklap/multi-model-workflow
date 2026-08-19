@@ -7,7 +7,7 @@
 
 这个模块不写第三份纪律，只从两处唯一事实来源取：Serena 的在 config/serena-readonly.yml
 的 prompt，Graphify 的在 mcp/graphify_mcp.py 的 INSTRUCTIONS。取不出来就非零退出——
-那说明插件自己装坏了，让 `worker` 裸跑比派发失败更糟。
+那说明 MMW 自己装坏了，让 `worker` 裸跑比派发失败更糟。
 
 四个执行面各自怎么拿到纪律，看着像重复，其实是四条互不相通的路：
 
@@ -34,12 +34,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-PLUGIN_ROOT = Path(__file__).resolve().parent.parent
-SERENA_CONFIG = PLUGIN_ROOT / "config" / "serena-readonly.yml"
+MMW_ROOT = Path(__file__).resolve().parent.parent
+SERENA_CONFIG = MMW_ROOT / "config" / "serena-readonly.yml"
 
 
 class DisciplineError(RuntimeError):
-    """纪律取不出来。插件文件缺失或者格式变了。"""
+    """纪律取不出来。runtime 里的文件缺失或者格式变了。"""
 
 
 def _serena_prompt() -> str:
@@ -71,7 +71,7 @@ def _serena_prompt() -> str:
 
 
 def _graphify_instructions() -> str:
-    sys.path.insert(0, str(PLUGIN_ROOT / "mcp"))
+    sys.path.insert(0, str(MMW_ROOT / "mcp"))
     try:
         from graphify_mcp import INSTRUCTIONS
     except ImportError as exc:

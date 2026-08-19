@@ -157,7 +157,7 @@ def main() -> int:
             return 2
     else:
         if not MCP_JSON.is_file():
-            print(f"ERROR: 插件里没有 .mcp.json: {MCP_JSON}", file=sys.stderr)
+            print(f"ERROR: runtime 里没有 .mcp.json: {MCP_JSON}", file=sys.stderr)
             return 2
         servers = Resolver().servers(want_type=False)
     contract, contract_error = contract_servers()

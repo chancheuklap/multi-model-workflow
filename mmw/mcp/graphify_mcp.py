@@ -119,7 +119,7 @@ def _resolve(name: str) -> str:
 
 
 def _resolve_ensure() -> str:
-    """只用插件旁路 ensure（或 GRAPHIFY_ENSURE_BIN），不依赖 PATH 别名。"""
+    """只用 MMW 自带的 ensure（或 GRAPHIFY_ENSURE_BIN），不依赖 PATH 别名。"""
     configured = (os.environ.get("GRAPHIFY_ENSURE_BIN") or "").strip()
     if configured:
         return configured
@@ -127,7 +127,7 @@ def _resolve_ensure() -> str:
     if sibling.is_file():
         return str(sibling)
     raise GraphifyError(
-        "找不到插件 ensure：期望与 graphify_mcp.py 同目录的 graphify_ensure.py"
+        "找不到 ensure：期望与 graphify_mcp.py 同目录的 graphify_ensure.py"
     )
 
 

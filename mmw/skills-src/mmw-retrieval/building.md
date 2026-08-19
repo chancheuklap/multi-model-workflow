@@ -38,13 +38,13 @@ Path exclusion is primarily `.graphifyignore` at the repo root, the retrieval to
 
 ## 2. How to enumerate routes
 
-`routes.provider` points at a function in this repo, written `relative/path.py:function_name`. It returns `{service_name: app_object}`. The plugin runs it in an isolated subprocess and reads the full route table.
+`routes.provider` points at a function in this repo, written `relative/path.py:function_name`. It returns `{service_name: app_object}`. MMW runs it in an isolated subprocess and reads the full route table.
 
 Do not scan decorators in source. When routers mount in layers, the prefix is joined at the mount, and the decorator only has the last segment. That segment will not match a frontend call to `/api/v1/hold`, and the edge breaks there.
 
 The provider wires. It does not start user state: no boot, no directories, no migrations, no locks, no credentials. `routes.env` points the app's on-disk locations at a temp directory. `{tmp}` is the only placeholder.
 
-`routes.user_data_guard` points at another function that returns the list of real user-data directories. The probe fingerprints before and after. A change fails immediately. That function runs in the plugin process and may use only the standard library — it computes paths.
+`routes.user_data_guard` points at another function that returns the list of real user-data directories. The probe fingerprints before and after. A change fails immediately. That function runs in MMW's own process and may use only the standard library — it computes paths.
 
 ## 3. Topology assertions
 

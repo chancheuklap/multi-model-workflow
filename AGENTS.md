@@ -28,7 +28,7 @@ runtime，再把五个组件装进每个宿主自己的用户级目录。
 产品没有插件版本号，也没有版本号闸门。以前那道闸门防的是插件缓存不刷新，没有插件
 就没有缓存：改完跑一次 `mmw/install.sh`，宿主读到的就是新内容。
 
-原生多模型宿主的 agent 文件不要手改 model 行。模型档只保存在 `mmw/cli/mmw.default.json`。修改模型档后，用 `mmw agents materialize` 更新 Pi、Cursor 与 Grok，并运行：
+原生多模型宿主的 agent 文件不要手改 model 行。模型档只保存在 `mmw/cli/mmw.default.json`。修改模型档后，用 `mmw agents materialize` 更新 Pi、Cursor、Grok 与 Claude Code，并运行：
 
 ```bash
 python3 mmw/codex/runtime.py materialize  # 更新 Codex 原生 subagent
@@ -70,7 +70,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 - Codex App 的全部角色走它自己的原生 subagent 与后台 worktree 任务，不调用外部模型 CLI 或 harness。Codex 的技能与原生 subagent 由 `mmw/install.sh` 装进 `~/.codex/`；运行时读已安装 runtime，不回退 MMW 源码 checkout 或目标项目里的同名目录。App 设置里的 Worktree root 是所有项目共用的 managed worktree 物理存放目录，不是 MMW 源码路径，也不受目标项目 `.mmw.json` 的 `paths.worktrees` 控制。
 - Claude Code 只接 claude 与 gpt 两个模型族：GPT 角色通过后台 Bash 执行 Codex CLI，Claude 角色通过后台 Agent 工具执行。
-- Pi、Cursor 与 Grok 的全部角色走宿主原生 `subagent`，frontmatter 由 `mmw/agent-src/` 按 profile 生成（`mmw agents materialize`）。
+- Pi、Cursor 与 Grok 的全部角色走宿主原生 `subagent`。Claude Code 只有 `reviewer-claude` 一个原生 subagent：其余角色在这个宿主上都是 gpt 族，由 adapter 走后台 Codex CLI，不经过 subagent。四家的 frontmatter 都由 `mmw/agent-src/` 按 profile 生成（`mmw agents materialize`），profile 的 `roles` 键决定这个宿主收哪几个角色。
 - 模型分配默认各宿主相同。某个宿主接不了基线模型时，在 `mmw/cli/mmw.default.json` 该角色底下写 `hosts.<宿主>` 覆盖，按字段生效。
 - **禁止**在技能源或产物正文里按宿主名称分支。派发 subagent 写 `mmw launch <角色> --scope <范围>`、`mmw launch-group reviewers` 或 `mmw resume <角色> --scope <范围>`，正文只说跑哪条命令、照它打印的动作做；五个宿主拿到的是同一句。宿主差异全部收在 `mmw/cli/host-actions.json`，加一个宿主就是给那张表补一个 key，技能源和展开代码都不动；缺 key 时 `mmw launch` 当场失败，不回退到别的宿主的指令。任务树由用户用宿主打开，agent 只在已有的树上创建任务分支——写死 `mmw worktree add` 会让 Cursor、Codex、Grok 拿到错的指令。其他宿主能力使用按能力判断的自然语言，在所有宿主上保留同一份正文。**没有** `mmw-dispatching-agents` 中转技能。
 

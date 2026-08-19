@@ -579,7 +579,7 @@ cmd_dispatch() {
 
 usage_agents() {
   cat >&2 <<'EOF'
-mmw agents materialize --host <pi|cursor|grok|all> [--check] [--config <文件>] [--out <目录>]
+mmw agents materialize --host <pi|cursor|grok|claude-code|all> [--check] [--config <文件>] [--out <目录>]
     把 agent-src 与模型档物化成宿主原生 subagent 文件
 Pi / Cursor / Grok：主 agent 直调原生 subagent，不经 mmw dispatch。
 Grok 另出一份同名 role TOML：思考档只有那份文件读得到。
@@ -617,7 +617,7 @@ cmd_agents() {
           *) echo "mmw: 认不出参数 $1" >&2; usage_agents ;;
         esac
       done
-      [ -n "$host" ] || mmw_need "agents materialize 要 --host" "mmw agents materialize --host <pi|cursor|grok|all>"
+      [ -n "$host" ] || mmw_need "agents materialize 要 --host" "mmw agents materialize --host <pi|cursor|grok|claude-code|all>"
       args+=(--host "$host")
       python3 "$MMW_ROOT/cli/lib/materialize_agents.py" "${args[@]}"
       ;;
@@ -1003,10 +1003,10 @@ cmd_doctor() {
         echo "CC skills: 未装齐或链接指向别处，重新运行 $repair"
         status=1
       fi
-      if [ -e "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/agents/mmw-reviewer-claude.md" ]; then
-        echo "CC agent : 审查者 agent 已装进 ~/.claude/agents"
+      if python3 "$MMW_ROOT/cli/lib/materialize_agents.py" --host claude-code --check >/dev/null 2>&1; then
+        echo "CC agent : ~/.claude/agents 与 agent-src / 模型档一致"
       else
-        echo "CC agent : 审查者 agent 没装，重新运行 $repair"
+        echo "CC agent : 与 installed runtime 不一致，重新运行 $repair"
         status=1
       fi
       ;;

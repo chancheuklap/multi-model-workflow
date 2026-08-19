@@ -50,7 +50,7 @@ def _tree_fingerprint(path: Path) -> tuple[object, ...]:
 def _guarded_dirs(repo_root: Path, config: RoutesConfig) -> list[Path]:
     """跑仓库声明的守护函数，拿到要盯住的真实数据目录。
 
-    这个函数在插件进程里跑，不在仓库的虚拟环境里，所以它只能依赖标准库。它做的
+    这个函数在 MMW 自己的进程里跑，不在仓库的虚拟环境里，所以它只能依赖标准库。它做的
     是路径计算，本来也不该需要别的东西。
     """
     if not config.user_data_guard:

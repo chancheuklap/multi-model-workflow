@@ -2,7 +2,7 @@
 """把角色真源与 MMW runtime 模型档物化成各宿主原生 subagent 文件。
 
 用法：
-  materialize_agents.py --host pi|cursor|grok|all [--check] [--config <path>] [--out <dir>]
+  materialize_agents.py --host pi|cursor|grok|claude-code|all [--check] [--config <path>] [--out <dir>]
 
 --check  只比对，漂移非零退出。
 --out    覆盖 profile 默认输出目录（测试用）。
@@ -61,18 +61,45 @@ def resolve_config_path(explicit: str = "") -> Path:
     return DEFAULT_CONFIG.resolve()
 
 
-def role_applies_to_host(role: dict[str, Any], role_name: str, host: str) -> bool:
-    """未写 hosts 的角色对每个宿主都生成；写了则只生成列出的宿主。"""
+def role_applies_to_host(
+    role: dict[str, Any],
+    role_name: str,
+    host: str,
+    profile: dict[str, Any] | None = None,
+) -> bool:
+    """两道过滤都要过。
+
+    角色侧的 `hosts`：未写就对每个宿主都生成，写了则只生成列出的宿主。
+    宿主侧的 `roles`：未写就收全部角色，写了则只收列出的那几个。
+
+    两个方向都需要，因为「哪些角色去哪些宿主」这件事两边都有话说。advisor 只在
+    Cursor 上有意义，那是角色自己的性质，写在角色上。Claude Code 只需要
+    reviewer-claude 一个原生 subagent——其余角色在这个宿主上都是 gpt 族，由 adapter
+    走后台 Codex CLI，根本不经过 subagent——那是宿主的性质，写在宿主上。
+    只留角色那一侧的话，Claude Code 会凭空多出五个用不到的 subagent 名字挂在用户的
+    列表里，而那些名字派发时一个都不会被用到。
+    """
     allowed = role.get("hosts")
-    if allowed is None:
-        return True
-    if (
-        not isinstance(allowed, list)
-        or not allowed
-        or not all(isinstance(item, str) and item.strip() for item in allowed)
-    ):
-        die(f"角色 {role_name} 的 hosts 必须是非空字符串列表")
-    return host in allowed
+    if allowed is not None:
+        if (
+            not isinstance(allowed, list)
+            or not allowed
+            or not all(isinstance(item, str) and item.strip() for item in allowed)
+        ):
+            die(f"角色 {role_name} 的 hosts 必须是非空字符串列表")
+        if host not in allowed:
+            return False
+    wanted = (profile or {}).get("roles")
+    if wanted is not None:
+        if (
+            not isinstance(wanted, list)
+            or not wanted
+            or not all(isinstance(item, str) and item.strip() for item in wanted)
+        ):
+            die(f"profile {host} 的 roles 必须是非空字符串列表")
+        if role_name not in wanted:
+            return False
+    return True
 
 
 def resolve_model(config: dict[str, Any], role: str, host: str) -> dict[str, str]:
@@ -264,7 +291,7 @@ def materialize_host(
     planned: dict[str, str] = {}
 
     for role_name, role in roles.items():
-        if not role_applies_to_host(role, role_name, host):
+        if not role_applies_to_host(role, role_name, host, profile):
             continue
         body_name = role.get("body")
         if not body_name:
@@ -300,7 +327,7 @@ def materialize_host(
                 ),
             )
             for role_name, role in roles.items()
-            if role_applies_to_host(role, role_name, host)
+            if role_applies_to_host(role, role_name, host, profile)
         }
         groups.append(
             (companion_dir, companion_glob, companion_planned, "reasoning_effort")
@@ -380,17 +407,20 @@ def sync_group(
             except OSError:
                 pass
             raise
+        # 报告里回显一行关键信息。这个宿主的 frontmatter 没有那一行就不回显——
+        # 写成 `(model: ?)` 会读成「模型解析不出来」，而真实情况是这个宿主的
+        # subagent 文件本来就不写 model（Claude Code 的档位由 adapter 现场给）。
         key_line = next(
             (line for line in content.splitlines() if line.startswith(report_key)),
-            f"{report_key} ?",
+            "",
         )
-        reports.append(f"写  {target}  ({key_line})")
+        reports.append(f"写  {target}  ({key_line})" if key_line else f"写  {target}")
     return reports
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="materialize_agents.py")
-    parser.add_argument("--host", required=True, help="pi | cursor | grok | all")
+    parser.add_argument("--host", required=True, help="pi | cursor | grok | claude-code | all")
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--config", default="", help="源码模型档路径；默认使用 MMW 模型档")
     parser.add_argument("--out", default="", help="覆盖输出目录")

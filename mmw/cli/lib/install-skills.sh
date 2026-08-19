@@ -17,8 +17,8 @@
 
 set -euo pipefail
 
-PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-SKILLS_SRC="$PLUGIN_ROOT/skills-src"
+MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+SKILLS_SRC="$MMW_ROOT/skills-src"
 
 # readlink -f 在 macOS 自带的 BSD coreutils 上没有，自己解一次：相对链接按它所在
 # 目录算，绝对链接直接用。目标不存在时回空串，调用方按「指向非 MMW 内容」处理。

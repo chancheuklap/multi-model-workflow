@@ -53,9 +53,9 @@ It actually starts the three servers — Serena, Graphify, and Context7 for `/mm
 
 | doctor reports | Means |
 | --- | --- |
-| A server will not start | That Python package is not installed. The plugin does not install it. The command is in the output |
+| A server will not start | That Python package is not installed. MMW does not install it. The command is in the output |
 | Tool set does not match the contract | Upstream changed the default surface. An extra tool is a broken guard. A missing tool is a missing capability. Handle both now |
-| User-level config is missing or disagrees with the plugin | Run the install script it prints. This face only shows up when switching hosts |
+| User-level config is missing or disagrees with MMW's current definition | Run the install script it prints. This face only shows up when switching hosts |
 | None of the above | Keep the raw doctor output. Degrade as the end of section 4: continue with text search, and say so in the report |
 
 ## 4. Three rules

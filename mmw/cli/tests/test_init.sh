@@ -315,8 +315,7 @@ mkdir -p "$CODEX_HOME/skills/mmw-reviewer"
 # 各走各的，那时这几条用例就不再验安装。
 MMW_SRC="$HERE/../.."
 bash "$MMW_SRC/cli/lib/install-skills.sh" --dest "$HOME/.claude/skills" > /dev/null
-mkdir -p "$HOME/.claude/agents"
-ln -sfn "$MMW_SRC/agents/mmw-reviewer-claude.md" "$HOME/.claude/agents/mmw-reviewer-claude.md"
+python3 "$MMW_SRC/cli/lib/materialize_agents.py" --host claude-code > /dev/null
 bash "$MMW_SRC/mcp/install-mcp.sh" > /dev/null
 
 newrepo doctor
