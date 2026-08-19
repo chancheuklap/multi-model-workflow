@@ -1,15 +1,12 @@
 #!/usr/bin/env bash
-# 装两样东西进本机的每个宿主：skills.txt 列出的技能（软链），以及 .mcp.json
-# 声明的检索服务器（写进宿主自己的配置，由 mcp/install-mcp.sh 完成）。
+# 把 skills.txt 列出的技能软链进本机的每个宿主。就这一件事。
 #
 # 技能有两个来源：上游的在 upstream/skills/，我们自己写的在 skills/，名单里用 self/ 前缀
-# 区分。两者装法完全一样，都是软链。
+# 区分。两者装法完全一样。
 #
-# 软链不是拷贝：宿主读的就是仓库里那个文件。在用技能的当中直接改
-# mmw-v2/upstream/skills/<桶>/<名>/SKILL.md，下一次调用就是新的，不用重装。
-# （只有 frontmatter 的 description 是宿主启动时扫的，改它要重开会话。）
-#
-# MCP 那一侧写的是绝对路径，指向这个 checkout：要从主检出装，不要从任务 worktree 装。
+# 软链不是拷贝：宿主读的就是仓库里那个文件。在用技能的当中直接改源目录下的 SKILL.md，
+# 下一次调用就是新的，不用重装。（只有 frontmatter 的 description 是宿主启动时扫的，
+# 改它要重开会话。）
 #
 #   install.sh            装
 #   install.sh --check    只看装没装，不动磁盘。齐了回 0，缺东西回 1
@@ -142,46 +139,12 @@ done
 
 [ "$installed_hosts" -gt 0 ] || die "一个宿主都没找到，什么都没装"
 
-# 检索服务器。技能是软链、MCP 是写进各宿主自己的配置文件，两件事形状不同，
-# 所以分两个脚本；这里只负责按同一个模式调用它，服务器定义在 .mcp.json。
-echo
 if [ "$mode" = check ]; then
-  bash "$ROOT/mcp/install-mcp.sh" --check || rc=1
-  bash "$ROOT/mcp/install-mcp.sh" --check-toml || rc=1
-else
-  bash "$ROOT/mcp/install-mcp.sh" || rc=$?
-fi
-
-# 语言工具与编辑后诊断。两步：先把语言工具装齐（装进 mmw-v2/tools/，每次最新稳定版，
-# 并把 serena 的语言服务器指过来），再把诊断适配器注册进五个宿主。分两步是因为失败
-# 原因完全不同——工具装不上是包管理器的事，注册不上是宿主配置的事，混在一条命令里
-# 会让报错指不到地方。
-echo
-if [ "$mode" = check ]; then
-  bash "$ROOT/tools/install.sh" --check || rc=1
-  bash "$ROOT/diagnostics/install-hooks.sh" --check || rc=1
-else
-  bash "$ROOT/tools/install.sh" || rc=$?
-  bash "$ROOT/diagnostics/install-hooks.sh" || rc=$?
-fi
-
-# 真起一次三台服务器，握手并列工具。写完配置不等于装好：配置写对了、而服务器因为
-# 别的原因起不来，是这一层唯一能发现的失败。刚踩过一次——serena 的 context 里删掉一个
-# 必填字段，配置文件看着完全正常，安装器一路报「装好」，服务器却根本起不来。
-# 约半分钟，值这个钱。
-echo
-if ! python3 "$ROOT/mcp/probe.py"; then
-  echo "检索服务器起不来，上面那行说了是哪一台。配置已经写完，修好再跑一次本脚本。" >&2
-  rc=1
-fi
-
-if [ "$mode" = check ]; then
-  [ "$rc" -eq 0 ] && echo "齐了：$installed_hosts 个宿主 × ${#wanted_names[@]} 个技能，加三台检索服务器与编辑后诊断"
+  [ "$rc" -eq 0 ] && echo "齐了：$installed_hosts 个宿主 × ${#wanted_names[@]} 个技能"
 else
   echo
   echo "源目录：${SKILLS_SRC}（上游）、${SELF_SRC}（自研）"
   echo "改技能直接改源目录里的文件，宿主下次调用就是新的。"
-  echo "MCP 写的是绝对路径，指向 ${ROOT}。换仓库位置要重跑本脚本。"
 fi
 
 exit "$rc"
