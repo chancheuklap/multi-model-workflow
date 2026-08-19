@@ -1,0 +1,25 @@
+# Serena 下发给宿主的 MCP 服务器说明。install.sh 把这份装到
+# ~/.serena/prompt_templates/connection_prompt.yml。
+#
+# 为什么在这里而不在 serena-readonly.yml 里：serena 的 MCP instructions 取自
+# connection_prompt 模板（serena/mcp.py 的 _get_initial_instructions ->
+# agent.create_connection_prompt），用户目录的同名条目先注册、内置的 skip。
+# serena-readonly.yml 的 prompt 字段是 context/mode 提示词，走的是项目激活那条路，
+# 不进 MCP 握手——放在那里的文字没有任何 agent 看得见。
+#
+# 只覆盖 connection_prompt 一条，其余模板继续走 Serena 内置。
+#
+# 正文的写法约束：
+#   前 150 字符要自足。Pi 的 mcp 元工具只常驻这么长的摘要，触发条件必须在里面。
+#   每一句都实测过：find_symbol 不用给路径且返回 relative_path；
+#   find_referencing_symbols 返回的是包含引用的那个函数加片段；
+#   find_implementations 在 Pyright 上报 Unhandled method。
+prompts:
+  connection_prompt: |
+    Serena answers symbol questions with a language server. Reach for it ahead of grep whenever the question is about a symbol rather than a string: where it is defined, what references it, what implements it, what a file holds.
+
+    Start with find_symbol when all you have is a name. It takes a name path (`Class/method`), searches the whole project with no path argument, and returns the repo-relative path that the other three tools require. find_referencing_symbols returns each direct reference as the function or method containing it, with a snippet, so you get the call site in context rather than a line number. find_implementations returns implementations of an interface or abstract method. get_symbols_overview lists one file's top-level symbols and is the cheapest way into a file you have not read.
+
+    Coverage is what the language server resolves statically, and two shapes sit outside it: handlers registered by a decorator, and symbols destructured from a dynamic import. An empty Serena result does not make those absent. Ask Graphify for them, and for module relationships, reverse impact, cross-service routes, IPC channels, event topics and call paths. find_implementations needs a language server that answers textDocument/implementation: TypeScript does, Pyright raises `Unhandled method` instead, so read the source when you see that error.
+
+    Serena gives you the candidate set; the current source gives you the fact. Open what it returns before you write the claim down. An empty result never proves absence.
