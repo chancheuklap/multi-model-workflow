@@ -24,7 +24,8 @@
 | 位置 | 是什么 |
 | --- | --- |
 | `mmw-v2/upstream/` | 上游 `mattpocock/skills` 的 Git subtree（squash）。**可编辑**，不是只读供应商目录 |
-| `mmw-v2/skills.txt` | 装哪些技能。加减技能只改这一处 |
+| `mmw-v2/skills/` | 我们自己写的技能。一个目录一个技能，自带脚本与测试 |
+| `mmw-v2/skills.txt` | 装哪些技能。加减技能只改这一处。`self/<名>` 指自研的，其余指上游的 |
 | `mmw-v2/.mcp.json` | 装哪些检索服务器。服务器定义的唯一事实来源 |
 | `mmw-v2/install.sh` | 唯一安装入口：技能软链加 MCP 写配置。`--check` 只看不动 |
 
@@ -37,8 +38,11 @@ python3 mmw-v2/mcp/probe.py       # 真起一次三台服务器，握手并列�
 技能装进五个宿主自己的用户级目录：`~/.claude/skills`、`~/.codex/skills`、`~/.pi/agent/skills`、
 `~/.cursor/skills`、`~/.grok/skills`。目录不存在就当这个宿主没装，跳过。
 
-**改技能就直接改 `mmw-v2/upstream/skills/<桶>/<名>/` 下的文件。** 宿主读的就是它，下一次调用即
-生效，不用重装。只有 frontmatter 的 `description` 是宿主启动时扫进系统提示的，改它要重开会话。
+**改技能就直接改源目录下的文件**——上游的在 `mmw-v2/upstream/skills/<桶>/<名>/`，自研的在
+`mmw-v2/skills/<名>/`。宿主读的就是它，下一次调用即生效，不用重装。只有 frontmatter 的
+`description` 是宿主启动时扫进系统提示的，改它要重开会话。
+
+技能自带的脚本用相对路径引用，跟着软链一起进五个宿主，**不装命令、不进 PATH**。
 
 上游更新走一条命令，你的改动和上游改动由 git 三方合并，冲突照常解：
 
@@ -279,6 +283,29 @@ worktree 合并后被删，路径就断了。
 
 在 worktree 里干活时编辑后诊断和提交前门禁都照常工作：前者的 hook 指向主检出的
 `check.py`，后者的 `core.hooksPath` 是全局的。
+
+## 出包
+
+`mmw-v2/skills/mmw-release/` 让 agent 用当前分支的代码，对指定产品出一个正式安装包。
+
+| 位置 | 是什么 |
+| --- | --- |
+| `SKILL.md` | 判断层：这次要出哪几个产品、包出来之后交给谁 |
+| `driving.md` | 驱动合同：`where` 说什么就做什么 |
+| `scripts/release-flow.sh` | 引擎。状态机、P0/P1/P2 分级、路径闸、同根因熔断、轮次预算、pause/resume/receipt、派修 |
+| `scripts/release_contracts.py` | 钥匙（`*.release-adapter.json`）与事件的合同 |
+| `scripts/release_script_assembler.py`、`scripts/release_templates/` | 按钥匙装配 Windows 出包脚本 |
+| `tests/run.sh` | 四份测试。改了 `scripts/` 下任何东西之后跑一次 |
+
+产品仓库提供一把钥匙：`*.release-adapter.json`，一个产品一把。引擎只认钥匙，不认产品——
+诊断、修复、闸门都是钥匙指向的仓库侧脚本。
+
+**引擎跑不动的时候会自己修再来。** 这套自愈的唯一存在理由就是这个：出包失败 → 诊断 →
+按分级派修 → 重跑那一阶段。P0 与保护路径不自动修，停下来交人。
+
+远端构建机（Windows）两个事实的来源顺序是：`RELEASE_REMOTE_HOST` / `RELEASE_REMOTE_ROOT`
+两个环境变量优先，都为空时回落到钥匙旁边的 `remote-build.json`（`{"host":…, "root":…}`）。
+落成文件是为了没有人需要记住它；环境变量留着，是临时换一台构建机的唯一手段。
 
 ## 宿主边界
 

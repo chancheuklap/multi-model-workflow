@@ -1,6 +1,9 @@
-# 装进各宿主的上游技能。一行一个，路径相对 mmw-v2/upstream/skills/。
-# 加减技能只改这里；install.sh 按它安装，也按上一次的记录清理。
+# 装进各宿主的技能。一行一个。加减技能只改这里；install.sh 按它安装，也按上一次的记录清理。
 # `#` 开头和空行忽略。
+#
+# 两种来源：
+#   <桶>/<名>        上游的，路径相对 mmw-v2/upstream/skills/
+#   self/<名>        我们自己写的，路径相对 mmw-v2/skills/
 
 engineering/ask-matt
 engineering/code-review
@@ -26,3 +29,5 @@ productivity/handoff
 productivity/to-questionnaire
 productivity/wait-what
 productivity/writing-for-agents
+
+self/mmw-release
