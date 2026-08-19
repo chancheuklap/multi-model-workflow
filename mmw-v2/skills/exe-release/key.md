@@ -8,8 +8,6 @@ script in the product repo. A script there is a copy of packaging knowledge that
 will have to write again.
 
 You are here for a product that has no key, or one whose key predates a capability it now needs.
-Work the three steps in order: a key written before the repo can support it fails at minute forty
-of a compile, not at minute zero.
 
 `scripts/release_contracts.py` is the authority on field names and shapes. This file is why each
 part exists and what it costs to get wrong.

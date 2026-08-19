@@ -72,6 +72,11 @@ Nuitka 编译的 Python 后端 + NSIS 安装包 + 远端 Windows 构建机。下
 
 这一批全部要改钥匙（`extra="forbid"`），所以必须和第 4 节同一批做完。
 
+- [ ] `key.md` 里对应的段落同一批删掉：`output_mode` 那一行、`electron` 段的前三个字段与
+      「Every field has a default」那句、`dll_source` 的 `repo` 取值、「Omit `electron`
+      entirely」那一句。**schema 和这份文档必须一起改**——文档还写着一个已经不存在的字段，
+      比没写更糟：照着写出来的钥匙过不了合同，而写的人以为自己照文档做了。
+
 ## 2. 删掉 v1
 
 - [ ] `release_contracts.py`：`SchemaVersion` 只剩 `"2"`，删 v1 的分支与
