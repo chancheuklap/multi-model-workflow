@@ -275,6 +275,9 @@ def check(repo: Path, files: list[str], changed_only: bool = False) -> dict:
     findings: dict[str, list[str]] = {}
     outside: list[str] = []
     suppressed = 0
+    # 有没有真的按改动行过滤过。不是 git 仓库、或者文件还没提交过时拿不到改动行，
+    # 那时报的是整份文件——说成「改动行上共 N 条」就是假话。
+    filtered = False
 
     for raw_file in files:
         path = Path(raw_file)
@@ -294,6 +297,7 @@ def check(repo: Path, files: list[str], changed_only: bool = False) -> dict:
             continue
 
         allowed = changed_lines(repo, rel_file) if changed_only else None
+        filtered = filtered or allowed is not None
 
         for checker in checkers:
             if not applies_to(checker, rel_file):
@@ -307,19 +311,25 @@ def check(repo: Path, files: list[str], changed_only: bool = False) -> dict:
             if kept:
                 findings.setdefault(checker["id"], []).extend(kept)
 
-    return {"findings": findings, "suppressed": suppressed, "outside": outside}
+    return {
+        "findings": findings,
+        "suppressed": suppressed,
+        "outside": outside,
+        "filtered": filtered,
+    }
 
 
 def render(report: dict) -> int:
     findings = report["findings"]
     suppressed = report.get("suppressed", 0)
+    scope = "改动行上" if report.get("filtered") else ""
     for path in report.get("outside", []):
         print(f"（{path} 不在这个仓库里，没有检查）", file=sys.stderr)
     if not findings:
         # 只在真的压掉了东西时才提一句，否则每次干净通过都多一行噪音。
         if suppressed:
             print(
-                f"（改动行上没有问题。这些文件另有 {suppressed} 条既有问题，不是这次引入的。）",
+                f"（{scope}没有问题。这些文件另有 {suppressed} 条既有问题，不是这次引入的。）",
                 file=sys.stderr,
             )
         return 0
@@ -333,7 +343,7 @@ def render(report: dict) -> int:
         if len(lines) > len(shown):
             print(f"  （还有 {len(lines) - len(shown)} 条未显示）", file=sys.stderr)
     tail = f"，另有 {suppressed} 条既有问题不是这次引入的" if suppressed else ""
-    print(f"改动行上共 {total} 条{tail}。先看一遍再继续。", file=sys.stderr)
+    print(f"{scope}共 {total} 条{tail}。先看一遍再继续。", file=sys.stderr)
     return 2
 
 
