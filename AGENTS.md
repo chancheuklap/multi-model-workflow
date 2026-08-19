@@ -28,10 +28,11 @@ runtime，再把五个组件装进每个宿主自己的用户级目录。
 产品没有插件版本号，也没有版本号闸门。以前那道闸门防的是插件缓存不刷新，没有插件
 就没有缓存：改完跑一次 `mmw/install.sh`，宿主读到的就是新内容。
 
-原生多模型宿主的 agent 文件不要手改 model 行。模型档只保存在 `mmw/cli/mmw.default.json`。修改模型档后，用 `mmw agents materialize` 更新 Pi、Cursor、Grok 与 Claude Code，并运行：
+原生多模型宿主的 agent 文件不要手改 model 行。模型档只保存在 `mmw/cli/mmw.default.json`。角色产物不入库。五个宿主的 agent 文件都在 `mmw/install.sh` 里从源码渲染进各自的目标目录：Pi 落在已安装 runtime 的包目录（它的包合同要求 agent 文件在包内），另外四家落在宿主自己的用户目录。改完模型档或角色真源，跑一次 `mmw/install.sh` 即可；只想单独更新某一家时：
 
 ```bash
-python3 mmw/codex/runtime.py materialize  # 更新 Codex 原生 subagent
+mmw agents materialize --host <pi|cursor|grok|claude-code|all>
+python3 mmw/codex/runtime.py materialize      # Codex，写进 ~/.codex/agents/
 ```
 
 目标仓库初始化只执行 `mmw init`；验收本机运行时时另行执行只读的 `mmw doctor`。
@@ -52,7 +53,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 同一项行为按以下顺序核对：
 
-1. `mmw/install.sh` 的安装动作；Codex 角色结构只认 `mmw/codex/profiles.json`，模型只认 `mmw/cli/mmw.default.json` 的 `hosts.codex` 覆盖。
+1. `mmw/install.sh` 的安装动作；角色真源是 `mmw/agent-src/roles.json`（五个宿主共用），Codex 的 `mmw/codex/profiles.json` 只补它自己的字段（哪些角色走后台 worktree、哪些走原生 subagent、各自的 `sandbox_mode`），模型只认 `mmw/cli/mmw.default.json` 的 `hosts.codex` 覆盖。
 2. `mmw/cli/` 的机械动作、宿主 adapter、`.mmw.json` 配置合同和 `mmw/cli/artifacts.json` 的产物落点数据。
 3. `mmw/skills-src/` 技能源。五个宿主装的都是它，没有第二份；流程判据以它为准。派发动作不在技能里，宿主差异只认 `mmw/cli/host-actions.json`，由 `mmw launch` 在运行期回答。
 

@@ -25,9 +25,24 @@ require_source_repo() {
     || die "当前目录不是完整的 MMW 源码仓库：$SOURCE_MMW"
 }
 
+# 装之前先在源码上把角色渲染一遍，落到临时目录扔掉。要的不是产物，是「渲染跑得通」：
+# profile 写坏、body 少一个文件、模型档里角色对不上，都在这里当场停，而不是等到已经
+# 开始改用户机器的配置之后才炸。
+#
+# 上一版这里比对的是仓库内的生成物有没有漂。那种检查现在没有对象了——五个宿主的角色
+# 都在安装时从源码渲染进各自的目标目录，仓库里不留副本，漂不起来。
 verify_source() {
-  "$SOURCE_MMW/cli/mmw" agents materialize --host pi --check
-  python3 "$SOURCE_MMW/codex/runtime.py" materialize --check
+  local probe
+  probe="$(mktemp -d)"
+  # shellcheck disable=SC2064
+  trap "rm -rf '$probe'" RETURN
+  local host
+  for host in pi cursor grok claude-code; do
+    "$SOURCE_MMW/cli/mmw" agents materialize --host "$host" --out "$probe/$host" >/dev/null \
+      || die "角色渲染不出来（${host}），先修 agent-src 再装"
+  done
+  CODEX_HOME="$probe/codex" python3 "$SOURCE_MMW/codex/runtime.py" materialize >/dev/null \
+    || die "Codex 角色渲染不出来，先修 codex/profiles.json 或 agent-src 再装"
 }
 
 build_runtime() {
@@ -275,6 +290,10 @@ install_pi() {
   local runtime_package
   runtime_package="$(cd "$RUNTIME_ROOT/mmw" && pwd -P)"
   remove_old_pi_mmw
+  # Pi 是唯一按 npm 包装的宿主：它的包合同（package.json 的 pi.subagents.agents）
+  # 要求 agent 文件在包目录内，所以这一步先往 runtime 里渲染，再把 runtime 交给 pi。
+  # 源码仓库不留这份产物——包目录指的是已安装 runtime，不是 checkout。
+  "$RUNTIME_ROOT/mmw/cli/mmw" agents materialize --host pi
   pi install "$runtime_package" >/dev/null
   install_skills_into "${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME/.pi}/agent}/skills"
   echo "Pi       : 已安装 $runtime_package"

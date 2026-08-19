@@ -15,3 +15,8 @@ __pycache__/
 .dispatch/
 .release/
 .playwright-cli/
+
+# 角色物化产物。安装时从源码渲染进各宿主目录，仓库不留副本。
+# Pi 那一份落在 runtime 的包目录里（它的包合同要求 agent 文件在包内）。
+mmw/agents-pi/
+mmw/codex/agents/

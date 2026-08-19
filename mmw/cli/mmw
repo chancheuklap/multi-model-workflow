@@ -984,7 +984,7 @@ cmd_doctor() {
   case "${host:-}" in
     pi)
       if python3 "$MMW_ROOT/cli/lib/materialize_agents.py" --host pi --check >/dev/null 2>&1; then
-        echo "Pi agent : agents-pi 与 agent-src / 模型档一致"
+        echo "Pi agent : runtime 包里的角色与 agent-src / 模型档一致"
       else
         echo "Pi agent : 与 installed runtime 不一致，重新运行 $repair"
         status=1
@@ -1041,9 +1041,9 @@ cmd_doctor() {
         status=1
       fi
       if python3 "$MMW_ROOT/codex/runtime.py" materialize --check >/dev/null 2>&1; then
-        echo "Codex src: plugin、agent 与 profiles 一致"
+        echo "Codex ag : ~/.codex/agents 与 agent-src / 模型档一致"
       else
-        echo "Codex src: installed runtime 内部不一致，重新运行 $repair"
+        echo "Codex ag : 与 installed runtime 不一致，重新运行 $repair"
         status=1
       fi
       ;;
@@ -1096,7 +1096,7 @@ cmd_doctor() {
   else
     printf '检索工具 : 有起不来的，下面这几行说的是哪一个\n'
     printf '%s\n' "$probe_out" | sed 's/^/           /'
-    echo "           Serena 与 Graphify 是两个 Python 工具包，插件替不了你装："
+    echo "           Serena 与 Graphify 是两个 Python 工具包，MMW 不替你装："
     echo "           uv tool install serena-agent && uv tool install graphifyy"
     status=1
   fi
