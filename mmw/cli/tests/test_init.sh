@@ -310,6 +310,15 @@ export GIT_CONFIG_GLOBAL="$WORK/gitconfig-global" GIT_CONFIG_SYSTEM=/dev/null
 : > "$GIT_CONFIG_GLOBAL"
 mkdir -p "$CODEX_HOME/skills/mmw-reviewer"
 
+# doctor 除了看目标仓库，还看这台机器装没装。沙箱的 HOME 是空的，所以先在沙箱里
+# 按真安装器装一遍。手工摆几个文件也能骗过检查，但摆出来的样子会跟安装器的产出
+# 各走各的，那时这几条用例就不再验安装。
+MMW_SRC="$HERE/../.."
+bash "$MMW_SRC/cli/lib/install-skills.sh" --dest "$HOME/.claude/skills" > /dev/null
+mkdir -p "$HOME/.claude/agents"
+ln -sfn "$MMW_SRC/agents/mmw-reviewer-claude.md" "$HOME/.claude/agents/mmw-reviewer-claude.md"
+bash "$MMW_SRC/mcp/install-mcp.sh" > /dev/null
+
 newrepo doctor
 "$MMW" init > "$WORK/out-doctor-init" 2>&1
 git config credential.helper "$WORK/bin/git-credential-mmw-test"

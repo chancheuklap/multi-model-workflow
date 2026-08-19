@@ -37,7 +37,7 @@ run "release 引擎" bash "$MMW_DIR/release/tests/test_release_flow.sh"
 run "release 分级" bash "$MMW_DIR/release/tests/test_release_classify.sh"
 run "release 修复派发与路径闸" bash "$MMW_DIR/release/tests/test_release_dispatch.sh"
 run "图谱构建准入" python3 "$MMW_DIR/mcp/test_graphify_ensure.py"
-run "Grok 配置合并" python3 "$MMW_DIR/mcp/test_grok_config.py"
+run "config.toml 合并" python3 "$MMW_DIR/mcp/test_toml_config.py"
 
 if command -v uv >/dev/null 2>&1; then
   run "release 合同与出包脚本装配" \
@@ -48,8 +48,6 @@ if command -v uv >/dev/null 2>&1; then
     uv run --quiet --with pytest python -m pytest "$MMW_DIR/graph/tests/test_graph.py" -q
   run "宿主动作表" \
     uv run --quiet --with pytest python -m pytest "$MMW_DIR/cli/tests/test_host_action.py" -q
-  run "技能物化" \
-    uv run --quiet --with pytest python -m pytest "$MMW_DIR/cli/tests/test_materialize_skills.py" -q
   run "角色物化" \
     uv run --quiet --with pytest python -m pytest "$MMW_DIR/cli/tests/test_materialize_agents.py" -q
 else

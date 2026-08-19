@@ -11,10 +11,9 @@ MMW="$(cd "$HERE/../.." && pwd)"
 ARTIFACTS="$HERE/../artifacts.json"
 MODEL="$HERE/../mmw.default.json"
 
-# 源和五份物化产物都扫。启动块的正文不在源里，它在 lib/materialize_skills.py 的
-# 展开模板里——只扫源的话，模板里写死的落点和按序号取值都躲得过去。物化一致性由
-# `skills materialize --check` 保证，所以扫产物等于同时扫到了源和模板。
-SKILLS="$MMW/skills-src:$MMW/skills-pi:$MMW/skills-claude-code:$MMW/skills-codex:$MMW/skills-cursor:$MMW/skills-grok:$MMW/prompts-pi"
+# 只扫技能源。五个宿主装的就是这一份：install-skills.sh 软链过去，中间没有展开
+# 模板，也没有产物副本，所以扫源等于扫到了每个宿主读到的正文。
+SKILLS="$MMW/skills-src"
 
 python3 - "$SKILLS" "$ARTIFACTS" "$MODEL" <<'PY'
 import copy
@@ -116,8 +115,6 @@ def check(skills_path, artifacts_path, model_path, output):
     ]
     for root, source in sources:
         relative = source.relative_to(root)
-        if "mmw-setup" in relative.parts:
-            continue
         # 一个根扫完接着下一个根，报告路径要带上根名才定位得到是哪一份。
         if len(roots) > 1:
             relative = pathlib.Path(root.name) / relative
@@ -256,15 +253,6 @@ def run_examples(artifacts_path, model_path):
         })
         status, output = capture_check(skills, fixture_artifacts, fixture_model)
         cases.append(("state 的第一个词通过", status == 0))
-
-        skills = write_case(root / "source-boundaries", {
-            "mmw-setup/SKILL.md": fixed_root + "<工作名>\n",
-            "mmw-triage/SKILL.md": fixed_root + "<工作名>\n",
-        })
-        status, output = capture_check(skills, fixture_artifacts, fixture_model)
-        cases.append(("mmw-setup 排除且不扩大", status == 1 and
-                      "mmw-triage/SKILL.md:1 规则一" in output and
-                      "mmw-setup/SKILL.md" not in output))
 
         broken_model = copy.deepcopy(model)
         broken_key = workdir_defaults[0][0]

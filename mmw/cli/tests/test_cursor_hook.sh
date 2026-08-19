@@ -5,7 +5,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HOOK="$HERE/../../toolchain/hooks/cursor-post-tool-use.sh"
+HOOK="$HERE/../../toolchain/hooks/cursor.sh"
 
 pass=0
 fail=0

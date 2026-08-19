@@ -110,9 +110,7 @@ EOF
 安装：
   init        配置当前仓库（幂等）
   doctor      检查这台机器
-  skills      物化技能产物
   agents      物化原生 subagent
-  mcp         Codex plugin 的 stdio 入口
 
 查某一个命令：mmw <命令> --help
 除 doctor 与 init 外，无参只显示用法。doctor 与 init 无参就是执行。
@@ -627,48 +625,6 @@ cmd_agents() {
   esac
 }
 
-usage_skills() {
-  cat >&2 <<'EOF'
-mmw skills materialize --host <pi|claude-code|codex|cursor|grok|all> [--check] [--out <目录>]
-    把 skills/ 源里的启动块与宿主动作块物化成宿主写死的操作
-    pi → skills-pi/；claude-code → skills-claude-code/；codex → skills-codex/；cursor → skills-cursor/；grok → skills-grok/
-
-Examples:
-  mmw skills materialize --host all
-  mmw skills materialize --host cursor --check
-EOF
-  return 2
-}
-
-cmd_skills() {
-  if mmw_is_help "$@"; then mmw_help usage_skills; return 0; fi
-  local sub="${1:-}"
-  shift || true
-  case "$sub" in
-    materialize)
-      if mmw_is_help "$@"; then mmw_help usage_skills; return 0; fi
-      local host=""
-      local -a args=()
-      while [ $# -gt 0 ]; do
-        case "$1" in
-          --host) host="${2:-}"; shift 2 ;;
-          --check) args+=(--check); shift ;;
-          --out)
-            [ -n "${2:-}" ] || { echo "mmw: --out 要目录" >&2; usage_skills; }
-            args+=(--out "$2"); shift 2
-            ;;
-          -h|--help) mmw_help usage_skills; return 0 ;;
-          *) echo "mmw: 认不出参数 $1" >&2; usage_skills ;;
-        esac
-      done
-      [ -n "$host" ] || mmw_need "skills materialize 要 --host" "mmw skills materialize --host <pi|claude-code|codex|cursor|grok|all>"
-      args+=(--host "$host")
-      python3 "$MMW_ROOT/cli/lib/materialize_skills.py" "${args[@]}"
-      ;;
-    *) usage_skills ;;
-  esac
-}
-
 # 派出去的那一侧从哪个路径读方法论。宿主自己会送到位的，什么都不输出。
 cmd_worktree() {
   if mmw_is_help "$@"; then mmw_help usage_worktree; return 0; fi
@@ -830,32 +786,6 @@ Examples:
   mmw toolchain check --changed-only src/app.ts
 EOF
   return 2
-}
-
-usage_mcp() {
-  cat >&2 <<'EOF'
-mmw mcp serve <服务器名>
-    从 mmw/.mcp.json 展开并启动一台 stdio MCP 服务器。
-    这是 Codex plugin 的进程入口，不安装用户级 MCP 配置。
-
-Examples:
-  mmw mcp serve serena
-EOF
-  return 2
-}
-
-cmd_mcp() {
-  if mmw_is_help "$@"; then mmw_help usage_mcp; return 0; fi
-  local sub="${1:-}"
-  shift || true
-  case "$sub" in
-    serve)
-      if mmw_is_help "$@"; then mmw_help usage_mcp; return 0; fi
-      [ $# -eq 1 ] || mmw_need "mcp serve 要服务器名" "mmw mcp serve <服务器名>"
-      exec python3 "$MMW_ROOT/mcp/serve.py" "$1"
-      ;;
-    *) usage_mcp ;;
-  esac
 }
 
 cmd_graph() {
@@ -1059,18 +989,24 @@ cmd_doctor() {
         echo "Pi agent : 与 installed runtime 不一致，重新运行 $repair"
         status=1
       fi
-      if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host pi --check >/dev/null 2>&1; then
-        echo "Pi skills: skills-pi 与 skills/ 源一致"
+      if bash "$MMW_ROOT/cli/lib/install-skills.sh" --dest "${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME/.pi}/agent}/skills" --check >/dev/null 2>&1; then
+        echo "Pi skills: 技能已软链进 Pi 的技能目录"
       else
-        echo "Pi skills: 与 installed runtime 不一致，重新运行 $repair"
+        echo "Pi skills: 未装齐或链接指向别处，重新运行 $repair"
         status=1
       fi
       ;;
     claude-code)
-      if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host claude-code --check >/dev/null 2>&1; then
-        echo "CC skills: skills-claude-code 与 skills/ 源一致"
+      if bash "$MMW_ROOT/cli/lib/install-skills.sh" --dest "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills" --check >/dev/null 2>&1; then
+        echo "CC skills: 技能已软链进 ~/.claude/skills"
       else
-        echo "CC skills: 与 installed runtime 不一致，重新运行 $repair"
+        echo "CC skills: 未装齐或链接指向别处，重新运行 $repair"
+        status=1
+      fi
+      if [ -e "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/agents/mmw-reviewer-claude.md" ]; then
+        echo "CC agent : 审查者 agent 已装进 ~/.claude/agents"
+      else
+        echo "CC agent : 审查者 agent 没装，重新运行 $repair"
         status=1
       fi
       ;;
@@ -1081,10 +1017,10 @@ cmd_doctor() {
         echo "Cursor ag: 与 installed runtime 不一致，重新运行 $repair"
         status=1
       fi
-      if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host cursor --check >/dev/null 2>&1; then
-        echo "Cursor sk: skills-cursor 与 skills/ 源一致"
+      if bash "$MMW_ROOT/cli/lib/install-skills.sh" --dest "$HOME/.cursor/skills" --check >/dev/null 2>&1; then
+        echo "Cursor sk: 技能已软链进 ~/.cursor/skills"
       else
-        echo "Cursor sk: 与 installed runtime 不一致，重新运行 $repair"
+        echo "Cursor sk: 未装齐或链接指向别处，重新运行 $repair"
         status=1
       fi
       if [ -x "$HOME/.cursor/hooks/mmw-toolchain-check.sh" ] \
@@ -1098,6 +1034,12 @@ cmd_doctor() {
       fi
       ;;
     codex)
+      if bash "$MMW_ROOT/cli/lib/install-skills.sh" --dest "${CODEX_HOME:-$HOME/.codex}/skills" --check >/dev/null 2>&1; then
+        echo "Codex sk : 技能已软链进 ~/.codex/skills"
+      else
+        echo "Codex sk : 未装齐或链接指向别处，重新运行 $repair"
+        status=1
+      fi
       if python3 "$MMW_ROOT/codex/runtime.py" materialize --check >/dev/null 2>&1; then
         echo "Codex src: plugin、agent 与 profiles 一致"
       else
@@ -1106,10 +1048,10 @@ cmd_doctor() {
       fi
       ;;
     grok)
-      if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host grok --check >/dev/null 2>&1; then
-        echo "Grok sk  : skills-grok 与技能源一致"
+      if bash "$MMW_ROOT/cli/lib/install-skills.sh" --dest "$HOME/.grok/skills" --check >/dev/null 2>&1; then
+        echo "Grok sk  : 技能已软链进 ~/.grok/skills"
       else
-        echo "Grok sk  : 与 installed runtime 不一致，重新运行 $repair"
+        echo "Grok sk  : 未装齐或链接指向别处，重新运行 $repair"
         status=1
       fi
       if python3 "$MMW_ROOT/cli/lib/materialize_agents.py" --host grok --check >/dev/null 2>&1; then
@@ -1122,35 +1064,19 @@ cmd_doctor() {
   esac
 
   # Pi 与 Cursor 的插件规格没有声明 MCP 的位置，只能写用户级配置。
-  # Codex 与 Claude Code 的 plugin 自己携带 MCP。
-  if [ "${host:-}" = "pi" ] || [ "${host:-}" = "cursor" ]; then
+  # 五个宿主的检索服务器都装在用户级：JSON 三面一起查，config.toml 两面一起查。
+  if [ "${host:-}" = "pi" ] || [ "${host:-}" = "cursor" ] || [ "${host:-}" = "claude-code" ]; then
     if bash "$MMW_ROOT/mcp/install-mcp.sh" --check >/dev/null 2>&1; then
-      echo "pi/Cursor: 用户级 MCP 已装（这台机器上没有的那一面自动跳过）"
+      echo "MCP      : 用户级 MCP 已装（这台机器上没有的那一面自动跳过）"
     else
-      echo "pi/Cursor: 有一面没装或与 plugin 定义不一致，重新运行 $repair"
+      echo "MCP      : 有一面没装或与当前定义不一致，重新运行 $repair"
       status=1
     fi
-  elif [ "${host:-}" = "grok" ]; then
-    if bash "$MMW_ROOT/mcp/install-mcp.sh" --check-grok >/dev/null 2>&1; then
-      echo "Grok MCP : 用户级三台检索服务器已装"
+  elif [ "${host:-}" = "grok" ] || [ "${host:-}" = "codex" ]; then
+    if bash "$MMW_ROOT/mcp/install-mcp.sh" --check-toml >/dev/null 2>&1; then
+      echo "MCP      : 用户级三台检索服务器已装"
     else
-      echo "Grok MCP : 没装或与 plugin 定义不一致，重新运行 $repair"
-      status=1
-    fi
-  elif [ "${host:-}" = "codex" ]; then
-    local codex_config project_codex_config
-    codex_config="${CODEX_HOME:-$HOME/.codex}/config.toml"
-    project_codex_config=""
-    if git rev-parse --show-toplevel >/dev/null 2>&1; then
-      project_codex_config="$(mmw_repo_root)/.codex/config.toml"
-    fi
-    local mcp_config_error
-    if mcp_config_error="$(python3 "$MMW_ROOT/codex/runtime.py" check-mcp-config \
-      "$codex_config" "$project_codex_config" 2>&1)"; then
-      echo "Codex MCP: 三台服务器由 plugin 或等价的 mmw 项目入口启动"
-    else
-      echo "Codex MCP: 旧手工命令正在绕过 plugin："
-      printf '%s\n' "$mcp_config_error" | sed 's/^/           /'
+      echo "MCP      : 没装或与当前定义不一致，重新运行 $repair"
       status=1
     fi
   fi
@@ -1164,11 +1090,7 @@ cmd_doctor() {
   # 真把每个服务器拉起来握一次手，不只看配置在不在——旧实现出过一次事故：配置在、
   # 工具名在列表里、直到模型真去调用才报错，那时它已经在一次审查中途了。
   local probe_out
-  local -a probe_command=(python3 "$MMW_ROOT/mcp/probe.py")
-  if [ "${host:-}" = "codex" ]; then
-    probe_command+=(--config "$MMW_ROOT/.mcp-codex.json")
-  fi
-  if probe_out="$("${probe_command[@]}" 2>&1)"; then
+  if probe_out="$(python3 "$MMW_ROOT/mcp/probe.py" 2>&1)"; then
     printf '检索工具 : %s\n' "$(printf '%s' "$probe_out" | head -1)"
     printf '%s\n' "$probe_out" | tail -n +2 | sed 's/^/           /'
   else
@@ -1203,7 +1125,6 @@ case "${1:-}" in
   resume) shift; cmd_launch resume "$@" ;;
   dispatch) shift; cmd_dispatch "$@" ;;
   agents) shift; cmd_agents "$@" ;;
-  skills) shift; cmd_skills "$@" ;;
   artifact) shift; cmd_artifact "$@" ;;
   worktree) shift; cmd_worktree "$@" ;;
   result) shift; cmd_result "$@" ;;
@@ -1211,7 +1132,6 @@ case "${1:-}" in
   domain) shift; cmd_domain "$@" ;;
   graph) shift; cmd_graph "$@" ;;
   toolchain) shift; cmd_toolchain "$@" ;;
-  mcp) shift; cmd_mcp "$@" ;;
   release) shift; exec bash "$MMW_ROOT/release/release-flow.sh" "$@" ;;
   doctor) shift; cmd_doctor_entry "$@" ;;
   init) shift; cmd_init_entry "$@" ;;

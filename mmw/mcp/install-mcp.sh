@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
-# 把三个检索工具装进那些「宿主规格里没有声明 MCP 位置」的执行面。
+# 把三个检索工具装进五个宿主各自的用户级配置。
 #
-# 四个执行面各自怎么拿到这三个工具：
-#   Claude Code  插件根的 .mcp.json 自动生效；它启动 headless Codex 时由 adapter 临时注入
-#   Codex App    plugin 的 .mcp-codex.json 把三个入口统一指向 mmw mcp serve；不写用户 config.toml
-#   pi           package.json 的 pi 字段只收 extensions / skills / prompts，扩展接口
-#                也没有注册 MCP 的能力，所以只能写用户级的 ~/.pi/agent/mcp.json
-#   Cursor       它的插件规格同样没有 MCP 的位置，只能写用户级的 ~/.cursor/mcp.json。
-#                技能、原生 subagent、hooks 与隔离包装由 install.sh 另外散装到
-#                ~/.cursor/ 与 PATH；本脚本只接管这三个检索工具。
-#   Grok         用户级 ~/.grok/config.toml 的 [mcp_servers]
+# 每个宿主的位置与形状：
+#   Claude Code  ~/.claude.json 的 mcpServers（JSON）
+#   Codex App    ~/.codex/config.toml 的 [mcp_servers]（TOML）
+#   pi           ~/.pi/agent/mcp.json（JSON）
+#   Cursor       ~/.cursor/mcp.json（JSON）
+#   Grok         ~/.grok/config.toml 的 [mcp_servers]（TOML）
+#
+# 两种形状，两套合并代码。同一形状的宿主共用一套，不按宿主名分支。
+#
+# 技能、原生 subagent、hooks 与隔离包装由 install.sh 装；本脚本只接管这三个检索工具。
+# Claude Code 启动 headless Codex 时由 adapter 临时注入同一批服务器，那条路在
+# cli/adapters/claude-code.sh。
 #
 # 服务器定义的唯一事实来源是插件根的 .mcp.json，本脚本只做翻译，不另存一份清单。
 # 只读白名单在 Serena 服务器那一侧（config/serena-readonly.yml），在这里再列一遍就是第二处
@@ -25,7 +28,8 @@
 # 指向 runtime，不指向源码 checkout 或任务 worktree。
 #
 #   install-mcp.sh          装
-#   install-mcp.sh --check  只看装没装。装齐回 0，缺东西回 1
+#   install-mcp.sh --check       只看 JSON 那三面装没装。装齐回 0，缺东西回 1
+#   install-mcp.sh --check-toml  只看 config.toml 那两面（Grok 与 Codex）
 
 set -euo pipefail
 
@@ -35,13 +39,15 @@ PI_AGENT_DIR="${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME/.pi}/agent}"
 PI_MCP="${MMW_PI_MCP_FILE:-$PI_AGENT_DIR/mcp.json}"
 CURSOR_MCP="${MMW_CURSOR_MCP_FILE:-$HOME/.cursor/mcp.json}"
 GROK_CONFIG="${MMW_GROK_CONFIG_FILE:-$HOME/.grok/config.toml}"
+CODEX_CONFIG="${MMW_CODEX_CONFIG_FILE:-${CODEX_HOME:-$HOME/.codex}/config.toml}"
+CLAUDE_JSON="${MMW_CLAUDE_JSON_FILE:-$HOME/.claude.json}"
 
 mode=install
 case "${1:-}" in
   --check) mode=check ;;
-  --check-grok) mode=check-grok ;;
+  --check-toml) mode=check-toml ;;
   "") ;;
-  *) echo "用法: install-mcp.sh [--check|--check-grok]" >&2; exit 2 ;;
+  *) echo "用法: install-mcp.sh [--check|--check-toml]" >&2; exit 2 ;;
 esac
 
 [ -f "$SOURCE" ] || { echo "ERROR: 插件里没有 .mcp.json: $SOURCE" >&2; exit 2; }
@@ -52,12 +58,20 @@ translate() {
   python3 "$PLUGIN_ROOT/mcp/resolve.py" --format "$1"
 }
 
-# 服务器 map 在这个文件里放在哪一层。两种形状都有真实来源：pi 的适配器写
-# {"mcpServers": {...}}，而 Cursor 会把同一个文件规范化成顶层直接放服务器。
-# 认错层会写出两套并存的定义，所以按文件现状判，不按我们的偏好写。
-# 文件不存在时用 mcpServers——两个面都认它。
+# 服务器 map 在这个文件里放在哪一层。调用方给定形状，auto 表示按文件现状判。
+#
+# pi 与 Cursor 用 auto：两种形状都有真实来源——pi 的适配器写 {"mcpServers": {...}}，
+# 而 Cursor 会把同一个文件规范化成顶层直接放服务器。认错层会写出两套并存的定义。
+#
+# Claude Code 固定 wrapped，不能猜：~/.claude.json 本来就有 projects、oauthAccount
+# 这些顶层键，第一次装（还没有 mcpServers 这个键）会被猜成顶层，于是三台服务器
+# 倒在那些键旁边，Claude Code 一台都读不到。
 shape_of() {
-  local file="$1"
+  local file="$1" declared="${2:-auto}"
+  if [ "$declared" != auto ]; then
+    echo "$declared"
+    return
+  fi
   if [ -f "$file" ] && jq -e 'has("mcpServers") | not' "$file" >/dev/null 2>&1; then
     echo top
   else
@@ -67,8 +81,8 @@ shape_of() {
 
 # 读某个面里已经装了什么，输出服务器 map。
 current_servers() {
-  local file="$1"
-  if [ "$(shape_of "$file")" = top ]; then
+  local file="$1" declared="${2:-auto}"
+  if [ "$(shape_of "$file" "$declared")" = top ]; then
     jq '.' "$file"
   else
     jq '.mcpServers // {}' "$file"
@@ -80,7 +94,7 @@ current_servers() {
 # 服务器把空 key 当成配错，而配置文件看上去是对的。这一步把那种失败当场说出来。
 warn_unreachable_placeholders() {
   local label="$1" file="$2" names name
-  names="$(current_servers "$file" \
+  names="$(current_servers "$file" "${3:-auto}" \
     | jq -r '.[] | (.env // {}) | .[]' \
     | { grep -o '\${[A-Za-z_][A-Za-z0-9_]*}' || true; } \
     | tr -d '${}' | sort -u)"
@@ -91,7 +105,7 @@ warn_unreachable_placeholders() {
 }
 
 check_face() {
-  local label="$1" file="$2"
+  local label="$1" file="$2" declared="${3:-auto}"
   local wanted names rc=0
   # 展开失败必须当场停：翻译不出来时 wanted 是空的，后面的 jq 会把它当空 map，
   # 于是「什么都没装」看起来跟「装好了」一模一样。
@@ -109,8 +123,8 @@ check_face() {
   fi
 
   local have
-  have="$(current_servers "$file")"
-  warn_unreachable_placeholders "$label" "$file"
+  have="$(current_servers "$file" "$declared")"
+  warn_unreachable_placeholders "$label" "$file" "$declared"
   for n in $names; do
     # 只断我们定义的那些字段，不断整个对象相等：目标那一侧可能有宿主自己的字段
     # （pi 的 directTools 就是），断相等会把「它多了个我们不管的字段」误判成未装，
@@ -127,7 +141,7 @@ check_face() {
 }
 
 install_face() {
-  local label="$1" file="$2"
+  local label="$1" file="$2" declared="${3:-auto}"
   local wanted names dir
   wanted="$(translate "$label")" || { echo "ERROR: 展开 .mcp.json 失败" >&2; return 2; }
   [ -n "$wanted" ] || { echo "ERROR: 展开 .mcp.json 得到空结果" >&2; return 2; }
@@ -148,7 +162,7 @@ install_face() {
   }
 
   local shape tmp
-  shape="$(shape_of "$file")"
+  shape="$(shape_of "$file" "$declared")"
   # 原子写：先写同目录临时文件、验合法、再替换。中途失败保留原文件。
   tmp="$(mktemp "$dir/.mcpXXXXXX")"
   # 递归合并而不是整对象替换：宿主自己在服务器对象里加的字段要留着。pi 的
@@ -166,50 +180,56 @@ install_face() {
   fi
   mv "$tmp" "$file"
 
-  warn_unreachable_placeholders "$label" "$file"
+  warn_unreachable_placeholders "$label" "$file" "$declared"
   for n in $names; do echo "装好  $label $n → $file"; done
 }
 
-check_grok() {
-  if [ ! -d "$(dirname "$GROK_CONFIG")" ] && [ ! -e "$GROK_CONFIG" ]; then
-    echo "跳过  这台机器没有 grok（$(dirname "$GROK_CONFIG") 不在）"
+# TOML 那一面：Grok 与 Codex 的 config.toml 是同一种形状，同一段代码两个宿主。
+check_toml_face() {
+  local label="$1" config="$2"
+  if [ ! -d "$(dirname "$config")" ] && [ ! -e "$config" ]; then
+    echo "跳过  这台机器没有 ${label}（$(dirname "$config") 不在）"
     return 0
   fi
-  if python3 "$PLUGIN_ROOT/mcp/resolve.py" --format grok >/dev/null \
-     && python3 - "$GROK_CONFIG" "$PLUGIN_ROOT" <<'PY'
-import json, sys
+  if python3 - "$config" "$PLUGIN_ROOT" <<'PY'
+import sys
 from pathlib import Path
 sys.path.insert(0, sys.argv[2] + "/mcp")
 import resolve as r
 servers = r.Resolver().servers(want_type=False, keep_env_placeholders=False)
-sys.exit(0 if r.grok_config_has_servers(Path(sys.argv[1]), servers) else 1)
+sys.exit(0 if r.toml_config_has_servers(Path(sys.argv[1]), servers) else 1)
 PY
   then
-    echo "已装  grok 三台检索服务器 → $GROK_CONFIG"
+    echo "已装  $label 三台检索服务器 → $config"
     return 0
   fi
-  echo "未装  grok 的 $GROK_CONFIG 缺三台检索服务器（或与插件当前定义不一致）" >&2
+  echo "未装  $label 的 $config 缺三台检索服务器（或与当前定义不一致）" >&2
   return 1
 }
 
-install_grok() {
-  if [ ! -d "$(dirname "$GROK_CONFIG")" ] && [ ! -e "$GROK_CONFIG" ]; then
-    echo "跳过  这台机器没有 grok（$(dirname "$GROK_CONFIG") 不在）"
+install_toml_face() {
+  local label="$1" config="$2"
+  if [ ! -d "$(dirname "$config")" ] && [ ! -e "$config" ]; then
+    echo "跳过  这台机器没有 ${label}（$(dirname "$config") 不在）"
     return 0
   fi
-  python3 "$PLUGIN_ROOT/mcp/resolve.py" --merge-grok "$GROK_CONFIG" || return 2
-  echo "装好  grok serena/graphify/context7 → $GROK_CONFIG"
+  python3 "$PLUGIN_ROOT/mcp/resolve.py" --merge-toml "$config" || return 2
+  echo "装好  $label serena/graphify/context7 → $config"
 }
 
 rc=0
 if [ "$mode" = check ]; then
   check_face pi "$PI_MCP" || rc=1
   check_face cursor "$CURSOR_MCP" || rc=1
-elif [ "$mode" = check-grok ]; then
-  check_grok || rc=1
+  check_face claude "$CLAUDE_JSON" wrapped || rc=1
+elif [ "$mode" = check-toml ]; then
+  check_toml_face grok "$GROK_CONFIG" || rc=1
+  check_toml_face codex "$CODEX_CONFIG" || rc=1
 else
   install_face pi "$PI_MCP" || rc=$?
   install_face cursor "$CURSOR_MCP" || rc=$?
-  install_grok || rc=$?
+  install_face claude "$CLAUDE_JSON" wrapped || rc=$?
+  install_toml_face grok "$GROK_CONFIG" || rc=$?
+  install_toml_face codex "$CODEX_CONFIG" || rc=$?
 fi
 exit "$rc"

@@ -9,8 +9,8 @@
 # 参数交给模型去调。
 #
 # 两条路都不写方法论的文件路径，只写技能名。技能已经装进对方的 harness：
-# codex exec 那边由 install-agent-skills.sh 软链进它自己的技能目录，会话内
-# subagent 那边由 plugin.json 的 skills 列表装好。派发只负责说清楚该调用哪个。
+# install-skills.sh 把同一份 skills-src 软链进每个宿主自己的技能目录，codex exec
+# 与会话内 subagent 读到的是同一批技能。派发只负责说清楚该调用哪个。
 #
 # 本文件不做流程判断。它只回答「这个宿主管这个动作叫什么」。
 #
@@ -78,16 +78,9 @@ mmw_adapter_dispatch() {
           return 1
           ;;
       esac
-      # 这个宿主给插件带来的角色加插件名前缀，形如 mmw:mmw-reviewer。插件名
-      # 从 plugin.json 读，改名时跟着变。
-      # Claude Code 会话内 agent 文件仍是 agents/mmw-reviewer.md；原生多模型宿主
-      # 才拆成 mmw-reviewer-gpt / mmw-reviewer-claude。
-      local plugin_name roster
-      plugin_name="$(jq -er .name "$MMW_ROOT/.claude-plugin/plugin.json")"
-      roster="$MMW_D_ROSTER"
-      case "$roster" in
-        mmw-reviewer-claude) roster="mmw-reviewer" ;;
-      esac
+      # agent 文件装在 ~/.claude/agents/，名字就是 roles.json 的 agent 字段，
+      # 五个宿主同一个名。以前它由插件带进来，要加 mmw: 这个插件名前缀。
+      local roster="$MMW_D_ROSTER"
 
       # 句柄让这个 subagent 可寻址：修复轮 SendMessage 到同名即恢复原生产者。
       # 名字由角色加 task 正文摘要确定性生成。旧接口用 task 文件名，新接口没有 task
@@ -111,7 +104,7 @@ mmw_adapter_dispatch() {
       printf 'tool: Agent\n'
       printf 'handle: %s\n' "$handle"
       # Agent 固定后台运行；task 正文进 prompt，与 Pi 的 task 同一概念。
-      jq -nc --arg r "$plugin_name:$roster" --arg t "$tier" --arg e "$MMW_D_EFFORT" \
+      jq -nc --arg r "$roster" --arg t "$tier" --arg e "$MMW_D_EFFORT" \
         --arg n "$handle" \
         --arg p "$MMW_D_TASK_TEXT" \
         '{subagent_type: $r, model: $t, effort: $e, name: $n, prompt: $p, run_in_background: true}' \
