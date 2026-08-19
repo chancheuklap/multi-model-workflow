@@ -15,7 +15,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-SchemaVersion = Literal["1"]
+SchemaVersion = Literal["1", "2"]
+# Finding / Event 的合同没变，仍然只认 "1"：钥匙升到 v2 不改这两个信封。
+FindingSchemaVersion = Literal["1"]
 Tier = Literal["P0", "P1", "P2"]
 Status = Literal["ok", "warn", "fail", "deferred"]
 
@@ -25,7 +27,7 @@ _TIER_ORDER = {"P0": 0, "P1": 1, "P2": 2}
 class ReleaseFinding(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: SchemaVersion
+    schema_version: FindingSchemaVersion
     product: str = Field(min_length=1)
     dimension: str = Field(min_length=1)
     name: str = Field(min_length=1)
@@ -50,7 +52,7 @@ class ReleaseFinding(BaseModel):
 class ReleaseLoopEvent(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: SchemaVersion
+    schema_version: FindingSchemaVersion
     event: str = Field(min_length=1)
     product: str = Field(min_length=1)
     stage: str | None = None
@@ -91,8 +93,15 @@ class NativeExtDll(BaseModel):
 
     reason: str = Field(min_length=1)
     dll_names: list[str] = Field(min_length=1)
-    dll_source: Literal["compile_interpreter", "repo"] = "compile_interpreter"
+    # compile_interpreter: 取自跑 Nuitka 的那个解释器目录（python3.dll 必须版本匹配）。
+    # system32: 取自构建机 %SystemRoot%\\System32（MSVC 运行库，版本无关）。
+    # repo: 取自仓库里 vendored 的一份。
+    dll_source: Literal["compile_interpreter", "system32", "repo"] = (
+        "compile_interpreter"
+    )
     dest: Literal["pyd_package_dir", "dist_root"]
+    # dll_source=repo 时的仓库相对目录。
+    repo_dir: str | None = None
     pyd_package: str | None = None
 
     @model_validator(mode="after")
@@ -155,6 +164,125 @@ class BuildMachine(BaseModel):
     teardown: list[str] | None = None
 
 
+# ── 钥匙 schema v2：编译后端 ────────────────────────────────────────────────────
+#
+# v1 里「怎么编译这个产品的 Python 后端」写在产品仓库的三份 Python 里
+# （release_builder._build_duck_nuitka_command / build_parrot_dubbing_python_dist /
+# build_hedgehog_python_dist），三份各自硬编码同一套 Nuitka 知识。v2 把它们的**差异**
+# 收进下面这些字段，**动作**收进技能的 builders/nuitka.py。
+#
+# 路径字段一律是仓库相对 POSIX 路径，可用两个模板变量：
+#   ${DESKTOP_DIR}  build_target.desktop_dir
+#   ${BUILD_ROOT}   python_backend.build_root（不声明时不可用）
+# 它们在构建机上按 $RepoRoot 拼成绝对路径，钥匙里不写绝对路径。
+
+
+class PathTemplate(BaseModel):
+    """一条 source=dest 的打包数据映射（--include-data-dir / --include-data-files）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source: str = Field(min_length=1)
+    dest: str = Field(min_length=1)
+
+
+class NuitkaJobs(BaseModel):
+    """并行度。构建机内存有限，jobs 开太大 Nuitka 会被 OOM 杀掉，所以它是钥匙的值不是常数。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    default: int = Field(ge=1)
+    env: str | None = None
+
+
+class NuitkaTarget(BaseModel):
+    """一个编译产物。duck 有两个（launcher + core），parrot / hedgehog 各一个。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1)
+    exe: str = Field(min_length=1)
+    entrypoint: str = Field(min_length=1)
+
+
+class BuiltExeSmoke(BaseModel):
+    """编译完当场用产物自己跑一次 import：把「冻结包缺动态依赖」暴露在构建机上，
+    而不是等客户装完打开才崩。`--run-module` 是这三个产品后端共用的自检入口。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    exe: str = Field(min_length=1)
+    run_module: str = Field(min_length=1)
+    timeout_seconds: int = Field(default=180, ge=1)
+    # 编译产物必须 import 得起来的模块。既是 smoke 的清单，也是编译前查
+    # `--nofollow-import-to` 有没有把它们挡掉的依据。
+    modules: list[str] = Field(default_factory=list)
+
+
+class PythonBackend(BaseModel):
+    """用 Nuitka 把 Python 后端编成 Windows exe。
+
+    坑（三个产品各踩过一次，写死在这里不再让下一个产品重踩）：
+    - `--include-package` 只带代码，包内的数据文件要另外 `--include-package-data`。
+    - 函数体里 lazy import 的 C 扩展 Nuitka 静态追不到，必须显式 include。
+    - abi3 扩展（如 uharfbuzz `_harfbuzz.pyd`）按名字链 `python3.dll` 转发库和 MSVC
+      C++ 运行库，Nuitka 都不带；而 Windows 加载 .pyd 只在 .pyd 自己的目录找依赖，
+      所以补的 DLL 必须落到那个包目录，落 dist 根找不到。见 native_ext_dll。
+    - GUI 程序要 `--windows-console-mode=disable`，否则客户双击弹黑框。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    builder: Literal["nuitka"] = "nuitka"
+    # 跑 Nuitka 的解释器命令，到 `python` 为止（`-m nuitka` 由技能补）。
+    # 三个产品各不同：duck 用 `uv run --extra build --no-dev python`，
+    # parrot 用 `uv run --extra parrot-dubbing python`，hedgehog 两个 extra 都要。
+    runner: list[str] = Field(min_length=1)
+    output_dir: str = Field(min_length=1)
+    build_root: str | None = None
+    output_mode: Literal["onefile", "standalone"]
+    # standalone 模式下每个 target 落进各自的 <name>.dist 子目录，需要 --output-folder-name。
+    folder_per_target: bool = False
+    jobs: NuitkaJobs
+    icon: str | None = None
+    console: bool = True
+    include_packages: list[str] = Field(default_factory=list)
+    include_package_data: list[str] = Field(default_factory=list)
+    include_modules: list[str] = Field(default_factory=list)
+    nofollow_imports: list[str] = Field(default_factory=list)
+    include_data_dirs: list[PathTemplate] = Field(default_factory=list)
+    include_data_files: list[PathTemplate] = Field(default_factory=list)
+    # 上面表达不了的原样 flag。它是逃生口，不是常规入口：能进上面字段的不要写这里。
+    extra_flags: list[str] = Field(default_factory=list)
+    targets: list[NuitkaTarget] = Field(min_length=1)
+    smoke: BuiltExeSmoke | None = None
+
+
+class ElectronBuild(BaseModel):
+    """Electron 外壳与安装包。NSIS 由 electron-builder 自带，不要求构建机 PATH 上有独立
+    makensis——多要一件工具就把本来能用的构建机挡在第一步。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # 打完 `--win dir` 之后产物落在哪（相对 desktop_dir）。
+    unpacked_dir: str = "dist/win-unpacked"
+    dist_dir: str = "dist"
+    compression: Literal["store", "normal", "maximum"] = "maximum"
+    compression_env: str | None = "MMW_ELECTRON_BUILDER_COMPRESSION"
+    # 出安装包这一步交给 electron-builder，还是产品自己的脚本（duck 手写 NSIS）。
+    installer: Literal["electron_builder", "repo_hook"] = "electron_builder"
+
+
+class ReleaseAdapterManifestV2Fields(BaseModel):
+    """v2 新增段。v1 钥匙这些全部缺席，两版并存到迁移收尾。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    python_backend: PythonBackend | None = None
+    electron: ElectronBuild | None = None
+    toolchain: list[str] = Field(default_factory=list)
+
+
 class ReleaseAdapterManifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -162,6 +290,11 @@ class ReleaseAdapterManifest(BaseModel):
     product: str = Field(min_length=1)
     build_target: BuildTarget
     build_machine: BuildMachine | None = None
+    # v2 段。v1 钥匙不写，写了即报错——版本号与内容必须一致，否则装配器会按 v1 走却
+    # 静默忽略这几段，出来一份看着对、其实少了编译步骤的脚本。
+    python_backend: PythonBackend | None = None
+    electron: ElectronBuild | None = None
+    toolchain: list[str] = Field(default_factory=list)
     stages: list[StageSpec]
     diagnose: list[str] = Field(min_length=1)
     derive: list[str] = Field(min_length=1)
@@ -171,6 +304,26 @@ class ReleaseAdapterManifest(BaseModel):
     post_fix_gate: list[str] = Field(min_length=1)
     fix_executor: list[str] = Field(min_length=1)
     event_sink: list[str] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _version_matches_content(self) -> "ReleaseAdapterManifest":
+        v2_fields = {
+            "python_backend": self.python_backend,
+            "electron": self.electron,
+            "toolchain": self.toolchain or None,
+        }
+        present = sorted(name for name, value in v2_fields.items() if value is not None)
+        if self.schema_version == "1":
+            if present:
+                raise ValueError(
+                    f"schema_version=1 的钥匙不能带 v2 段: {', '.join(present)}"
+                )
+            return self
+        if self.python_backend is None:
+            raise ValueError("schema_version=2 的钥匙必须声明 python_backend")
+        if not self.toolchain:
+            raise ValueError("schema_version=2 的钥匙必须声明 toolchain")
+        return self
 
 
 def _read(path: str) -> str:
