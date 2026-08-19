@@ -1,25 +1,17 @@
-# Serena 的只读工具白名单，四个宿主共用这一份。
+# Serena 的只读工具白名单，五个宿主共用这一份。
 #
-# 为什么白名单做在服务器这一侧，不只做在宿主那一侧：Claude Code 派出的 headless
-# Codex 没有宿主工具过滤；Codex App、Pi 与 Cursor 的策略也可能由用户改动。上游默认
-# 暴露的工具里有任意命令执行、创建覆写文件、在符号前后插入代码、重命名与删除符号，
-# 还有一套往仓库落文件的记忆系统。fixed_tools 让 Serena 进程自己只注册下面四个，
-# 任何客户端连上来看到的都一样。
+# 为什么白名单做在服务器这一侧，不只做在宿主那一侧：宿主的工具过滤策略各不相同，
+# 也随时可能被用户改动。上游默认暴露的工具里有任意命令执行、创建覆写文件、在符号
+# 前后插入代码、重命名与删除符号，还有一套往仓库落文件的记忆系统。fixed_tools 让
+# Serena 进程自己只注册下面四个，任何客户端连上来看到的都一样。
 #
-# 改这份文件之前先想清楚：多放进来一个工具，五个 GPT 角色立刻都拿得到。
+# 改这份文件之前先想清楚：多放进来一个工具，每个宿主的每个 agent 立刻都拿得到。
 #
-# prompt 覆盖掉上游那份自带的系统提示词，是使用纪律的单一事实来源。Claude Code 与
-# Codex App 直接读取服务器说明。Claude Code 派出的旧 headless Codex 不读取说明，仍由
-# mcp/discipline.py 把同一段拼进提示词。
+# 这里**没有** prompt 字段，那不是笔误。serena 的 MCP 服务器说明取自 connection_prompt
+# 模板，不取自 context 的 prompt——实测握手下发的正是前者，逐字相同。context 的 prompt
+# 走的是项目激活那条路，写在这里的文字任何 agent 都看不见。说明正文在
+# config/serena-connection-prompt.yml，由 install.sh 装到 ~/.serena/prompt_templates/。
 description: MMW read-only symbol retrieval
-prompt: |
-  A structural claim passes an admission rule before you write it down. A structural claim says that one symbol calls another, that a change reaches some other place, or that nothing references a definition. Such a claim may enter a design, plan, review, fix or delivery report only after two steps: retrieve a candidate from Serena or Graphify, then verify that candidate in the current source. Text search locates a line, but it cannot show that a set of references is complete, so it does not satisfy the first step. The trigger is the claim you are about to write, not how hard the investigation felt.
-
-  Use Serena to retrieve static symbol candidates from the current checkout: find_symbol for a definition or a symbol body, find_referencing_symbols for direct references, get_symbols_overview for one file's top-level symbols, find_implementations for implementations of an interface or abstract method. The last three need the repo-relative path of the file that holds the definition.
-
-  Coverage is what a language server resolves statically: module-level references in Python, and symbols reached through a static import in TypeScript. Two kinds of relationship fall outside it — handlers registered by a decorator, and symbols destructured from a dynamic import. For those two, and for module relationships, reverse impact, cross-service routes, IPC channels, event topics and call paths, use Graphify instead. find_implementations depends on the language server: TypeScript answers it, Pyright does not and will error — go to the source when that happens.
-
-  Verify every candidate in the current source with the host's read and search tools. An empty result never proves absence. When retrieval is unavailable, say so in the report and name what you used instead. Use the host's own editing tools for all changes.
 fixed_tools:
   - find_symbol
   - find_referencing_symbols

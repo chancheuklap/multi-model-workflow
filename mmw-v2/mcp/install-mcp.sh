@@ -39,6 +39,8 @@ CURSOR_MCP="${MMW_CURSOR_MCP_FILE:-$HOME/.cursor/mcp.json}"
 GROK_CONFIG="${MMW_GROK_CONFIG_FILE:-$HOME/.grok/config.toml}"
 CODEX_CONFIG="${MMW_CODEX_CONFIG_FILE:-${CODEX_HOME:-$HOME/.codex}/config.toml}"
 CLAUDE_JSON="${MMW_CLAUDE_JSON_FILE:-$HOME/.claude.json}"
+SERENA_PROMPT_DIR="${MMW_SERENA_HOME:-$HOME/.serena}/prompt_templates"
+SERENA_PROMPT="$SERENA_PROMPT_DIR/connection_prompt.yml"
 
 mode=install
 case "${1:-}" in
@@ -215,11 +217,41 @@ install_toml_face() {
   echo "装好  $label serena/graphify/context7 → $config"
 }
 
+# Serena 的服务器说明。它不走 .mcp.json，走 Serena 自己的 connection_prompt 模板：
+# serena/mcp.py 的 _get_initial_instructions 取的是那一份，取不到我们传的 --context
+# 里的 prompt。所以这份文件必须落到 Serena 的用户目录，否则新机器上下发的是上游默认
+# 说明，MMW 的检索纪律一个字都不在。
+#
+# 拷贝不软链：Serena 按目录扫描模板并解析 YAML，软链在它自己的加载顺序里没有保证，
+# 而这份文件很小，拷贝的代价可以忽略。
+install_serena_prompt() {
+  local source="$MMW_ROOT/config/serena-connection-prompt.yml"
+  [ -f "$source" ] || { echo "ERROR: 缺 Serena 说明源：$source" >&2; return 2; }
+  mkdir -p "$SERENA_PROMPT_DIR"
+  if cmp -s "$source" "$SERENA_PROMPT"; then
+    echo "已装  serena 服务器说明 → $SERENA_PROMPT"
+    return 0
+  fi
+  cp "$source" "$SERENA_PROMPT" || return 1
+  echo "装好  serena 服务器说明 → $SERENA_PROMPT"
+}
+
+check_serena_prompt() {
+  local source="$MMW_ROOT/config/serena-connection-prompt.yml"
+  if cmp -s "$source" "$SERENA_PROMPT"; then
+    echo "已装  serena 服务器说明"
+    return 0
+  fi
+  echo "未装  $SERENA_PROMPT 与 config/serena-connection-prompt.yml 不一致" >&2
+  return 1
+}
+
 rc=0
 if [ "$mode" = check ]; then
   check_face pi "$PI_MCP" || rc=1
   check_face cursor "$CURSOR_MCP" || rc=1
   check_face claude "$CLAUDE_JSON" wrapped || rc=1
+  check_serena_prompt || rc=1
 elif [ "$mode" = check-toml ]; then
   check_toml_face grok "$GROK_CONFIG" || rc=1
   check_toml_face codex "$CODEX_CONFIG" || rc=1
@@ -229,5 +261,6 @@ else
   install_face claude "$CLAUDE_JSON" wrapped || rc=$?
   install_toml_face grok "$GROK_CONFIG" || rc=$?
   install_toml_face codex "$CODEX_CONFIG" || rc=$?
+  install_serena_prompt || rc=$?
 fi
 exit "$rc"

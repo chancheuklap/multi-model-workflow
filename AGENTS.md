@@ -67,9 +67,14 @@ git diff <上一个 Squashed 提交> -- mmw-v2/upstream/skills/engineering/wayfi
 | `mmw-v2/mcp/install-mcp.sh` | 写进五个宿主的配置。只加不删，同名才覆盖 |
 | `mmw-v2/mcp/graphify_mcp.py` | graphify 服务器本体。查询前先保证图对得上当前 checkout |
 | `mmw-v2/config/serena-readonly.yml` | serena 的只读白名单。上游默认 29 个工具，含任意命令执行和写文件 |
+| `mmw-v2/config/serena-connection-prompt.yml` | serena 下发的服务器说明。装到 `~/.serena/prompt_templates/`，**不是** `serena-readonly.yml` 里的 `prompt` |
 | `mmw-v2/config/retrieval-contract.json` | 裁剪面的唯一事实来源。`probe.py` 拿真实工具列表跟它**集合相等**比对 |
 
 密钥不进仓库：`.mcp.json` 只写 `${VAR}` 声明，值从进程环境或 `~/.mmw/secrets.env` 取。
+
+**服务器说明是让 agent 主动调用检索的唯一渠道**——五个宿主都在握手时把它读进上下文（逐一实测过），
+而技能正文里一个字都不提这两台服务器。改说明就是改这一层，改一处五家全生效。改完用
+`mmw-v2/mcp/probe.py` 起一次真服务器复核，不要只看文件。
 
 ## 宿主边界
 
