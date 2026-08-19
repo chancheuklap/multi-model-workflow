@@ -207,10 +207,58 @@ install_pi() {
   echo "装好  pi 编辑后诊断 → ${link}"
 }
 
+# Claude Code 官方的两个 LSP 插件。关掉它们，让五家走同一条路。
+#
+# 那两个插件的全部内容是一句声明：命令 pyright-langserver --stdio，加一个扩展名映射。
+# 它写死走 PATH，所以永远拿全局版本；而 check.py 是仓库自带的优先。同一台机器上
+# 全局 pyright 与仓库 .venv 里的版本不同时，编辑时看到的类型错误和门禁判定的不是
+# 同一套——2026-08-10 实测过一次（全局 1.1.411、仓库 1.1.409）。
+#
+# 关掉丢的是 Claude Code 那个 LSP 工具的服务器。逐条对过：跳转定义、找引用、找实现、
+# 列文件符号、看类型签名，serena 全有而且五家都有；只有调用层级 serena 没有，那类
+# 问题归 graphify，同样五家都有。丢掉的东西没有一样是别的宿主本来有的。
+#
+# 设成 false 而不是删掉这两个键：留着才看得见它被关了，也才好改回去。
+disable_claude_lsp_plugins() {
+  local file="$CLAUDE_SETTINGS" tmp dir
+  dir="$(dirname "$file")"
+  local names='["pyright-lsp@claude-plugins-official","typescript-lsp@claude-plugins-official"]'
+
+  host_present "$dir" || return 0
+  [ -f "$file" ] || return 0
+  jq -e . "$file" >/dev/null 2>&1 || return 0
+
+  local on
+  on="$(jq -r --argjson n "$names" \
+    '[(.enabledPlugins // {}) | to_entries[] | select((.key as $k | $n | index($k)) and .value == true) | .key] | length' \
+    "$file")"
+
+  if [ "$mode" = check ]; then
+    [ "$on" -eq 0 ] && { echo "已关  Claude Code 的两个 LSP 插件"; return 0; }
+    echo "未关  Claude Code 还开着 ${on} 个 LSP 插件，诊断会来自两条不同的路" >&2
+    return 1
+  fi
+
+  [ "$on" -gt 0 ] || return 0
+  tmp="$(mktemp "$dir/.mmw-plugins.XXXXXX")"
+  jq --argjson n "$names" '
+    .enabledPlugins = ((.enabledPlugins // {})
+      | with_entries(if (.key as $k | $n | index($k)) then .value = false else . end))
+  ' "$file" > "$tmp"
+  if [ ! -s "$tmp" ] || ! jq -e . "$tmp" >/dev/null 2>&1; then
+    rm -f "$tmp"
+    echo "ERROR: 关 Claude Code 的 LSP 插件失败，${file} 保留原样" >&2
+    return 1
+  fi
+  mv "$tmp" "$file"
+  echo "关掉  Claude Code 的 ${on} 个 LSP 插件，诊断统一由编辑后诊断供给"
+}
+
 merge_post_tool_use "$CLAUDE_SETTINGS" "Claude Code" || rc=$?
 merge_post_tool_use "$CODEX_HOOKS" "Codex" || rc=$?
 install_cursor || rc=$?
 install_grok || rc=$?
 install_pi || rc=$?
+disable_claude_lsp_plugins || rc=$?
 
 exit "$rc"
