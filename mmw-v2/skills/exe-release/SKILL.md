@@ -42,11 +42,11 @@ Decide which to ship: take the paths this change touched (`git diff --name-only 
 
 If you cannot tell, ask the user. Do not omit a product. A product whose config names no path that could ever match is a config to fix, not a product to skip.
 
-**A product this change touched but no config names does not ship yet — write it a key.** Writing
-one key is the whole job of adding a product, and it is JSON: [key.md](key.md) has the three steps,
-including what the product repo must already have before a key is worth writing. Do not write
-packaging scripts in the product repo to work around a key that cannot say something; add the
-field or the capability, where every product gets it.
+**A product this change touched but no config names does not ship yet.** Bringing it in is one
+JSON file plus whatever the repo still lacks: [new-product.md](new-product.md) starts there and
+hands off to [key.md](key.md) for the fields. Do not write packaging scripts in the product repo
+to work around a key that cannot say something; add the field or the capability, where every
+product gets it.
 
 Show this list once and continue. Do not wait for a reply:
 
