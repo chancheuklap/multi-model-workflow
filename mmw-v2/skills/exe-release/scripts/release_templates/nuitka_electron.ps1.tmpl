@@ -76,12 +76,23 @@ function Invoke-BuiltExeSmoke {
   }
   $process = Start-Process -FilePath $Exe -ArgumentList @('--run-module', $Module) `
     -WorkingDirectory (Split-Path -Parent $Exe) -NoNewWindow -PassThru
+  # 必须在进程退出前取一次 Handle。Start-Process -PassThru 返回的对象不持有句柄，
+  # 进程一退出 .NET 就把它释放掉，ExitCode 从此读不到——而 PowerShell 里 $null -ne 0 是**真**，
+  # 于是「读不到退出码」会被判成「冒烟失败」。这个自检因此永远不可能通过，而日志上一行
+  # 明明写着它通过了。取一次句柄，.NET 才会替我们把退出码留下来。
+  $null = $process.Handle
   if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
     try { $process.Kill() } catch { }
     throw "Compiled backend import smoke timed out after $($TimeoutSeconds)s (an import likely started a thread that never exits)"
   }
-  if ($process.ExitCode -ne 0) {
-    throw "Compiled backend import smoke failed ($($process.ExitCode)); the frozen build is missing a dynamic dependency. Fix the Nuitka include flags in the release adapter key and rebuild."
+  # 带超时的那次返回后再无参等一次：确保退出码与输出流都已就绪。
+  $process.WaitForExit()
+  $exitCode = $process.ExitCode
+  if ($null -eq $exitCode) {
+    throw "Compiled backend import smoke ran but its exit code could not be read; treat this as a build harness fault, not a missing dependency"
+  }
+  if ($exitCode -ne 0) {
+    throw "Compiled backend import smoke failed ($exitCode); the frozen build is missing a dynamic dependency. Fix the Nuitka include flags in the release adapter key and rebuild."
   }
 }
 

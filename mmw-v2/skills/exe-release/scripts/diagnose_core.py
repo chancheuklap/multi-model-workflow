@@ -127,6 +127,14 @@ RULES: tuple[tuple[str, str, str, str], ...] = (
         "构建机缺这个原生扩展依赖的 DLL。补齐后 resume——缺它出的包，客户跑到那个功能才崩",
     ),
     (
+        # 「跑了但读不到退出码」不是缺依赖。分不开这两条，一次构建机的机制故障会被
+        # 派去改钥匙的 include，改不好，然后一遍遍重跑。
+        r"import smoke ran but its exit code could not be read",
+        "built_exe_smoke_harness_fault",
+        "env:smoke_harness:{product}",
+        "自检跑完了，但构建机上读不到它的退出码。这是构建机制故障，不要动钥匙的 include",
+    ),
+    (
         r"Compiled backend import smoke failed",
         "built_exe_smoke_failed",
         "frozen_smoke:{product}",

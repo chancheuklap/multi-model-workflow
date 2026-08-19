@@ -53,6 +53,11 @@ TEMPLATE_ERRORS = [
         "env:missing_dll:msvcp140.dll",
     ),
     ("Compiled backend import smoke failed (1)", "frozen_smoke:duck"),
+    (
+        "Compiled backend import smoke ran but its exit code could not be read; "
+        "treat this as a build harness fault, not a missing dependency",
+        "env:smoke_harness:duck",
+    ),
     ("Compiled backend import smoke timed out after 180s", "frozen_smoke_timeout:duck"),
     ("electron-builder did not create an installer", "build_step:duck"),
 ]
@@ -81,6 +86,7 @@ def test_the_template_still_throws_the_messages_the_rules_match():
         "Build machine is missing",
         "Compiled backend import smoke failed",
         "Compiled backend import smoke timed out",
+        "import smoke ran but its exit code could not be read",
     ):
         assert fragment in template, f"模板不再抛这句，对应的翻译规则成了死规则：{fragment}"
 
@@ -249,3 +255,20 @@ def test_cli_fails_loudly_when_a_branch_cannot_produce_findings(tmp_path):
     )
     assert result.returncode == 2
     assert "diagnose_core" in result.stderr
+
+
+def test_a_smoke_that_ran_is_not_graded_as_a_missing_dependency():
+    """自检跑完了、只是读不到退出码，跟自检真的失败是两回事。
+
+    分不开这两条，一次构建机的机制故障会被派去改钥匙的 include——改不好，然后一遍遍重跑。
+    真发生过：模板漏了 Start-Process 的句柄，退出码读成空，而 PowerShell 里 $null -ne 0 是真，
+    于是日志上一行写着 smoke ok，下一行构建被判成缺依赖。
+    """
+    log = Path(_tmp) / "log"
+    log.write_text(
+        "duck built-exe import smoke ok (8 modules)\n"
+        "Compiled backend import smoke ran but its exit code could not be read",
+        encoding="utf-8",
+    )
+    (finding,) = dc.build_log_findings("duck", log, "build")
+    assert finding["root_cause_fingerprint"] == "env:smoke_harness:duck"
