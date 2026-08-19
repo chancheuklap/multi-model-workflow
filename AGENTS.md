@@ -92,10 +92,6 @@ git diff <上一个 Squashed 提交> -- mmw-v2/upstream/skills/engineering/wayfi
 | `mmw-v2/tools/serena-language-servers.py` | 写 serena 的 `ls_specific_settings` |
 | `mmw-v2/tools/bin`、`mmw-v2/tools/node` | 装出来的东西。不入库，删掉重跑安装器就回来 |
 
-工具有六个：`ruff`、`pyright`、`oxlint`（带 `oxlint-tsgolint`）、`shellcheck`、
-`typescript-language-server`（带 `typescript`）、`bash-language-server`，加一条不需要外部
-命令的密钥扫描。
-
 **语言服务器和检查器写在同一张清单里，不分两张。** `pyright` 那一条本来就既是命令行检查器
 （`pyright`）又是语言服务器（`pyright-langserver`），同一个包的两个入口；分两张表就会出现
 同一个引擎两个版本。
@@ -103,11 +99,47 @@ git diff <上一个 Squashed 提交> -- mmw-v2/upstream/skills/engineering/wayfi
 两个消费者读同一张表：编辑后诊断读 `checker` 那一段，serena 读 `language_server` 那一段。
 **它们拿到的是同一个可执行文件，不只是同一个版本号。**
 
+覆盖 serena 的口子按语言分两种，清单里的 `lookup` 字段说明是哪一种：
+
+| `lookup` | serena 那边长什么样 | 我们做什么 |
+| --- | --- | --- |
+| `ls_path`（缺省） | 走 `create_launch_command`，读 `ls_specific_settings.<语言>.ls_path` | 写这个键，指到 `mmw-v2/tools/` |
+| `path` | 命令写死成 `ProcessLaunchInfo(cmd="gopls")`，不经过那条路径 | 只保证 PATH 上有且只有一个 |
+
+`lookup: path` 那一类**不写配置**：`ls_path` 对它是空转，写了就造出「配了但没生效」的假象。
+
 serena 默认自己下一份——`pyright` 走 uvx 且版本钉死在它源码里（实测 1.1.403），`typescript`
-与 `bash` 下载到 `~/.serena/language_servers/`。安装器把它的
-`ls_specific_settings.<语言>.ls_path` 指到 `mmw-v2/tools/`，它就不再自己下、也不再用那个旧
-版本。`probe.py` 会真调一次 `find_symbol` 验它答不答得出来——**工具列表对得上不等于答得
-出来**，而 serena 现在跑在跟上游钉死版本不同的 pyright 上。
+与 `bash` 下载到 `~/.serena/language_servers/`。`ls_path` 指过来之后它就不再自己下、也不再用
+那个旧版本。`probe.py` 会真调一次 `find_symbol` 验它答不答得出来——**工具列表对得上不等于
+答得出来**，而 serena 现在跑在跟上游钉死版本不同的 pyright 上。
+
+**装了不等于跑。** 检查器是一次性进程，改一次文件跑一次就退出。语言服务器只在 serena 打开
+一个项目、且那个项目 `.serena/project.yml` 的 `languages:` 里列了那门语言时才起——那份列表是
+serena 按仓库里的文件数自动定的，不是把装了的全起一遍。
+
+覆盖的语言：
+
+| 语言 | 检查 | 符号 |
+| --- | --- | --- |
+| Python | `ruff` + `pyright` | `pyright-langserver`（`ls_path`） |
+| TypeScript / JavaScript | `oxlint`（带 `oxlint-tsgolint`） | `typescript-language-server`（带 `typescript`，`ls_path`） |
+| Vue | `oxlint`，规则在 `oxlintrc.json` 的 `plugins` 里开 `vue` | 不接，见下 |
+| Shell | `shellcheck` | `bash-language-server`（`ls_path`） |
+| Swift | `swiftlint` | `/usr/bin/sourcekit-lsp`（`path`，Xcode 命令行工具自带） |
+| Go | 无 | `gopls`（`path`） |
+| Rust | 无 | `rust-analyzer`（`ls_path`） |
+| 全部 | 密钥扫描，纯正则，不限后缀 | — |
+
+**Vue 的语言服务器不接。** serena 的 `VueLanguageServer` 在构造函数里直接拼
+`ProcessLaunchInfo(cmd=vue_lsp_executable_path)`，完全不走 `create_launch_command`，而且它要
+三个包（`@vue/language-server`、`typescript`、`typescript-language-server`）版本互相配合。
+`ls_path` 在这里既是空转，强接还会把服务器弄挂。检查那一面 `oxlint` 已经覆盖 `.vue`。
+
+**Go 与 Rust 没有检查器。** `go vet` 与 `cargo clippy` 都以包／crate 为单位，而编辑后诊断是
+按文件跑的，两者对不上。装的是符号那一面。
+
+`gopls` 走 Homebrew 不走 `go install`：后者装进 `~/go/bin`，而那个目录不在这台机器的 PATH
+上，serena 找不到。
 
 **不锁版本，每次安装都升到最新稳定版。** 锁住换来的"一致"只保证两个陈旧副本相同。
 
