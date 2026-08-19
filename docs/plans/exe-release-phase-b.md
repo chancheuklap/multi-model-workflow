@@ -77,6 +77,36 @@ Nuitka 编译的 Python 后端 + NSIS 安装包 + 远端 Windows 构建机。下
       entirely」那一句。**schema 和这份文档必须一起改**——文档还写着一个已经不存在的字段，
       比没写更糟：照着写出来的钥匙过不了合同，而写的人以为自己照文档做了。
 
+## 1d. 出包不再堆垃圾
+
+实测：构建机上 48 个构建目录，最老的来自 07-16，抽一个量是 **6.11 GB**；Mac 侧一个 worktree
+的 `.release` 是 **1.1 GB**。而每一次尝试真正值得留下的东西加起来 **约 80 KB**。
+
+判据一句话：**能从更小的东西一字不差地重生出来，就不是记录。**
+
+| 东西 | 大小 | 判 | 为什么 |
+| --- | --- | --- | --- |
+| `.release/delivered/<产品>.json` | ~100 B | **记录** | 产品 + 出货 commit。跨会话唯一的事实，SKILL.md 第 4 步靠它 |
+| `build-run.log` | ~34 KB | **记录** | 失败只存在于这里 |
+| `build.findings.json` | ~18 KB | **记录** | 当时是怎么分级的 |
+| `release.ps1` + `release-context.json` | ~21 KB | **记录** | 真正跑的是它 |
+| `SOURCE_COMMIT.txt` | 41 B | **记录** | 正是它让 source.zip 变成多余 |
+| `source.zip` | **372 MB × 每次** | 垃圾 | 就是 `git archive $(cat SOURCE_COMMIT.txt)`，git 里本来就有 |
+| 远端解开的 `source/` | **数 GB** | 垃圾 | 仓库 + node_modules + Nuitka 的 .build/.dist/.onefile-build + dist |
+| 远端历史构建目录 | 48 个 | 垃圾 | 早已被后面的轮次取代 |
+| `D:\agentflow-releases\<产品>\` 里的安装包 | ~100 MB | **产品** | 那是要发的东西 |
+| ccache | ≤5 GB 自封顶 | **留** | 下一轮快不快全靠它 |
+
+- [ ] 构建阶段一返回就删两端的 `source.zip`。`SOURCE_COMMIT.txt` 留着，源码随时从 git 取回。
+- [ ] 构建**成功**且安装包已收拢到交付目录后，删掉远端整个构建目录。**失败的留着**——
+      现场只存在于那里。
+- [ ] 失败目录也只留最近几轮，再老的一并删。
+- [ ] `init` 不能继承上一轮的 attempt 目录。
+
+最后一条不是省空间，是**正确性**：放弃小黄鸭那轮之后，它的 `a4-verify_key` 跟小刺猬的
+`a3-verify_key` 并排躺着，编号还撞了——我自己就读错了一次，把小黄鸭的结果当成小刺猬的。
+一次出包的现场里混着上一次出包的现场，是会让人得出错误结论的。
+
 ## 2. 删掉 v1
 
 - [ ] `release_contracts.py`：`SchemaVersion` 只剩 `"2"`，删 v1 的分支与
