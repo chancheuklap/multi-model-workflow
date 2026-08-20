@@ -278,6 +278,37 @@ function Get-VendorArtifact {
 #
 # Nothing here is named or matched by convention. Each payload is claimed by exactly one exe, and
 # an exe that claims a payload another exe already claimed is the failure we are looking for.
+function Assert-DistinctExeTails {
+  param([string[]]$Exes)
+  $seen = @{}
+  $sha = [Security.Cryptography.SHA256]::Create()
+  try {
+    foreach ($exe in $Exes) {
+      if (-not (Test-Path -LiteralPath $exe)) { throw "A compiled exe the key asked for is missing: $exe" }
+      $stream = [IO.File]::OpenRead($exe)
+      try {
+        $size = [int][math]::Min(1MB, $stream.Length)
+        if ($size -lt 8192) { throw "A compiled exe is implausibly small: $exe ($($stream.Length) bytes)" }
+        $null = $stream.Seek(-$size, [IO.SeekOrigin]::End)
+        $buffer = New-Object byte[] $size
+        $offset = 0
+        while ($offset -lt $size) {
+          $read = $stream.Read($buffer, $offset, $size - $offset)
+          if ($read -le 0) { throw "Could not read the tail of $exe" }
+          $offset += $read
+        }
+      } finally { $stream.Dispose() }
+      $tail = [BitConverter]::ToString($sha.ComputeHash($buffer))
+      if ($seen.ContainsKey($tail)) {
+        throw ("Onefile payload mismatch: $exe ends with the same bytes as $($seen[$tail]) " +
+               "-- one of them is the wrong program")
+      }
+      $seen[$tail] = $exe
+      Write-Host ("  payload tail verified: " + (Split-Path -Leaf $exe))
+    }
+  } finally { $sha.Dispose() }
+}
+
 function Assert-OnefilePayloads {
   param([string]$OutputDir, [string[]]$Exes)
   if (-not (Test-Path -LiteralPath $OutputDir)) {
@@ -289,7 +320,14 @@ function Assert-OnefilePayloads {
       Where-Object { Test-Path -LiteralPath $_ }
   )
   if ($payloads.Count -eq 0) {
-    Write-Host '  onefile payloads: this build produced none, nothing to check'
+    if ($Exes.Count -lt 2) {
+      Write-Host '  onefile payloads: none kept, and a single exe cannot collide with itself'
+      return
+    }
+    # --remove-output deletes the payload directories, and without them the check above has
+    # nothing to read. The collision is still visible in the exes: Nuitka appends the payload,
+    # so two exes carrying the same one end with the same bytes.
+    Assert-DistinctExeTails -Exes $Exes
     return
   }
   # Latin1 maps every byte to one char, so a byte search becomes a native string search. Reading

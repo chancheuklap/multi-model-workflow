@@ -30,6 +30,7 @@ function Get-TemplateFunction([string]$name) {
 
 # 点源在脚本作用域，函数才留得住——在别的函数里 Invoke-Expression，出了那个函数就没了。
 . ([scriptblock]::Create((Get-TemplateFunction 'Assert-NoBusinessSource')))
+. ([scriptblock]::Create((Get-TemplateFunction 'Assert-DistinctExeTails')))
 
 $lab = Join-Path $env:TEMP ("mmw-template-behaviour-" + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $lab | Out-Null
@@ -92,6 +93,37 @@ try {
     no "顶层单文件模块进包却没被拦下"
   } catch {
     ok "顶层单文件模块进包被拦下"
+  }
+
+  # --remove-output 把 payload 目录删了之后走的兜底：两个 exe 的尾巴一样就是同一个 payload。
+  $exeDir = Join-Path $lab 'exes'
+  New-Item -ItemType Directory -Force -Path $exeDir | Out-Null
+  $head = New-Object byte[] 4096
+  $tailA = New-Object byte[] 16384
+  $tailB = New-Object byte[] 16384
+  for ($i = 0; $i -lt 4096; $i++) { $head[$i] = [byte]($i % 251) }
+  for ($i = 0; $i -lt 16384; $i++) { $tailA[$i] = [byte]($i % 253) }
+  for ($i = 0; $i -lt 16384; $i++) { $tailB[$i] = [byte](($i * 7 + 3) % 241) }
+  $one = Join-Path $exeDir 'one.exe'
+  $two = Join-Path $exeDir 'two.exe'
+  [IO.File]::WriteAllBytes($one, ($head + $tailA))
+  [IO.File]::WriteAllBytes($two, ($head + $tailB))
+  try {
+    Assert-DistinctExeTails -Exes @($one, $two)
+    ok "两个 exe 各带各的 payload 时放行"
+  } catch {
+    no ("两个不同的 exe 被误判成同一个 payload：" + $_.Exception.Message)
+  }
+  [IO.File]::WriteAllBytes($two, ($head + $tailA))
+  try {
+    Assert-DistinctExeTails -Exes @($one, $two)
+    no "两个 exe 带同一个 payload 却没被拦下"
+  } catch {
+    if ($_.Exception.Message -like '*same bytes*') {
+      ok "两个 exe 带同一个 payload 被拦下"
+    } else {
+      no ("拦下了但说的不是这件事：" + $_.Exception.Message)
+    }
   }
 }
 finally {
