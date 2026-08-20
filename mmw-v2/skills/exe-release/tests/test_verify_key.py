@@ -27,6 +27,9 @@ def repo(tmp_path):
     (tmp_path / "src" / "newcomer").mkdir(parents=True)
     (tmp_path / "src" / "newcomer" / "__main__.py").write_text("", encoding="utf-8")
     (tmp_path / "desktop-newcomer").mkdir()
+    (tmp_path / "desktop-newcomer" / "electron-builder.yml").write_text(
+        "directories:\n  output: dist\n", encoding="utf-8"
+    )
     return tmp_path
 
 
@@ -66,7 +69,7 @@ def test_a_key_pointing_at_another_key_is_caught(repo):
     doc = deepcopy(MINIMAL_KEY)
     doc["stages"] = [
         {
-            "name": "assemble",
+            "name": "verify_repo_truth",
             "run": [
                 "uv",
                 "run",
@@ -118,6 +121,40 @@ def test_a_nofollow_that_blocks_a_smoke_module_is_caught(repo):
     doc["python_backend"]["nofollow_imports"] = ["newcomer"]
     names = [f["name"] for f in _verify(doc, repo)]
     assert "nofollow_blocks_smoke_module" in names
+
+
+def test_a_hook_pointing_at_a_file_nobody_wrote_is_caught(repo):
+    """钩子路径拼错一个字母，要到构建机跑到那一步才知道——那时已经编了四十分钟。"""
+    doc = deepcopy(MINIMAL_KEY)
+    doc["build_hooks"] = {"runtime_prepare": ["python", "release/prepare_runtime.py"]}
+    (finding,) = _verify(doc, repo)
+    assert finding["name"] == "argv_script_missing"
+    assert "release/prepare_runtime.py" in finding["detail"]
+
+
+def test_a_hook_reaching_outside_the_repo_is_caught(repo):
+    doc = deepcopy(MINIMAL_KEY)
+    doc["derive"] = ["python", "../elsewhere/derive.py"]
+    (finding,) = _verify(doc, repo)
+    assert finding["name"] == "argv_script_outside_repo"
+
+
+def test_an_engine_injected_path_is_not_mistaken_for_a_repo_file(repo):
+    """`${RELEASE_PLUGIN_DIR}/...` 指的是技能自己的脚本，在 Mac 上还没有值。"""
+    doc = deepcopy(MINIMAL_KEY)
+    doc["diagnose"] = ["python", "${RELEASE_PLUGIN_DIR}/diagnose_core.py"]
+    assert _verify(doc, repo) == []
+
+
+def test_electron_builder_writing_somewhere_else_is_caught(repo):
+    """钥匙的 dist_dir 决定脚本去哪里捡安装包，yml 的 output 决定 electron-builder
+    把它放到哪里。两处漂开，构建机会在长编译之后报一句「找不到」。"""
+    (repo / "desktop-newcomer" / "electron-builder.yml").write_text(
+        "directories:\n  output: release-out\n", encoding="utf-8"
+    )
+    (finding,) = _verify(MINIMAL_KEY, repo)
+    assert finding["name"] == "electron_builder_output_drift"
+    assert "release-out" in finding["detail"]
 
 
 def test_the_cli_exits_non_zero_so_the_engine_stops_the_run(repo):

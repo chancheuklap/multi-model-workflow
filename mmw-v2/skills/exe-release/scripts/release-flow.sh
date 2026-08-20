@@ -697,8 +697,10 @@ _skill_fingerprint() {
 
 # 标准流水线：验钥匙 → 装配 → 远端构建。每把钥匙的这三段曾经逐字相同，只有钥匙路径不同，
 # 于是它是抄的——而 v2 钥匙指着 v1 钥匙那个 bug 正是这么抄出来的，日志里每一步还都是绿的。
-# 钥匙不声明 stages 就用这一份。声明了就是整条自己的流水线，engine 不再往里塞东西：
-# 「一半是你的、一半是我的」说不清失败该问谁。
+# 钥匙自己的 stages 排在这一份**前面**：产品在出发前要跑的检查（版本号没重、仓库现状跟钥匙
+# 还对得上）是它自己的事，而后面这三段每把钥匙都一样。
+# 这三个名字是保留字，钥匙用不了（合同挡在 init 之前）。曾经允许钥匙用同名接管整条，
+# 于是抄来的一句 assemble 就把引擎的验钥匙整段关掉了，而日志每一步都是绿的。
 _standard_stages() {
   jq -nc --arg mp "$1" '[
     {name:"verify_key", run:["uv","run","--with","pydantic>=2","python",
@@ -754,9 +756,8 @@ cmd_init() {
   standard="$(_standard_stages "$mp")"
   printf '%s' "$canon" | jq --arg mp "$mp" --arg sc "$source_commit" --argjson mr "$max_rounds" --argjson wall "$max_wall_clock" --arg ts "$(now)" --argjson std "$standard" \
     '{schema_version:"1", product:.product, manifest_path:$mp, source_commit:$sc,
-      stages:[(if (.stages|length) > 0 then .stages else $std end)[]
-              | {name:.name, run:.run, status:"pending"}],
-      current_stage:((if (.stages|length) > 0 then .stages else $std end)[0].name // null),
+      stages:[(.stages + $std)[] | {name:.name, run:.run, status:"pending"}],
+      current_stage:(.stages[0].name // $std[0].name // null),
       round:1, max_rounds:$mr, fingerprint_ledger:[],
       budget:{attempts:0, fix_rounds:0, max_fix_rounds:$mr, started_at:$ts, max_wall_clock_seconds:$wall},
       attempt_ledger:[], pause:null}' | write "$f"

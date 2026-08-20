@@ -65,7 +65,15 @@ class ReleaseLoopEvent(BaseModel):
     timestamp: str = Field(min_length=1)
 
 
+# 引擎的标准流水线用这三个名字，钥匙用不了。曾经允许同名接管——钥匙里出现其中一个，
+# 引擎就整条不加。于是从别的钥匙抄来的一句 assemble，把引擎的验钥匙整段关掉了，而日志
+# 每一步都是绿的。产品真需要一段不一样的装配或构建，那是技能缺能力，给技能加，不在这里覆盖。
+ENGINE_STAGE_NAMES = ("verify_key", "assemble", "build")
+
+
 class StageSpec(BaseModel):
+    """钥匙自己的出发前检查。引擎把标准三段追加在这些之后。"""
+
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1)
@@ -75,6 +83,15 @@ class StageSpec(BaseModel):
     def _run_must_not_be_echo(self) -> "StageSpec":
         if self.run[0] == "echo":
             raise ValueError("build stage 不能是 echo")
+        return self
+
+    @model_validator(mode="after")
+    def _name_must_not_shadow_the_engine(self) -> "StageSpec":
+        if self.name in ENGINE_STAGE_NAMES:
+            raise ValueError(
+                f"stage 名 {self.name!r} 是引擎的保留字（{', '.join(ENGINE_STAGE_NAMES)}），"
+                "这三段由引擎追加。给这一段换个说得出它自己在做什么的名字"
+            )
         return self
 
 

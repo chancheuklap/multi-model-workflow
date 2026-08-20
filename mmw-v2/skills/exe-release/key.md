@@ -57,11 +57,16 @@ have to write the same thing, the skill should be writing it instead.
 }
 ```
 
-That is a complete key. The engine supplies the pipeline — verify the key, assemble the script,
-build on the remote machine — and the skill supplies the diagnoser. A key adds `stages` only to
-run something of its own first, and then it owns the whole list: half yours and half the engine's
-leaves nobody able to say which half failed. Copying that list is how a key ends up pointing its
-`--adapter` at *another product's key*, with every step still reporting green.
+That is a complete key. The engine supplies the pipeline — `verify_key`, `assemble`, `build` —
+and the skill supplies the diagnoser. A key adds `stages` only for what it needs to run *before*
+that, on its own repository: the version is not one that already shipped, the repository still
+matches what the key claims. The engine appends its three afterwards.
+
+Those three names are reserved; a key that uses one is refused. The rule used to be that a key
+naming one of them took over the whole list — and a key that had copied `assemble` from another
+key silently turned the engine's `verify_key` off, with every step still reporting green. If a
+product needs a different assemble or a different build, the skill is missing a capability: add
+it there, not by shadowing a stage here.
 
 Paths in the key are repository-relative POSIX paths, and two templates are available:
 `${DESKTOP_DIR}` and `${BUILD_ROOT}`. Absolute paths are refused: the key is written on one

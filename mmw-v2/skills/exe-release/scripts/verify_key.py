@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -46,6 +47,56 @@ def _finding(
         "detail": detail,
         "remediation": remediation,
     }
+
+
+# argv 里的仓库相对脚本按扩展名认，不猜顶级目录——钩子放在哪个目录是产品自己的事。
+# 含 ${...} 的是引擎注入的路径（技能自己的脚本、本轮工作目录），在 Mac 上还没有值，跳过。
+_SCRIPT_TOKEN_RE = re.compile(r"^[A-Za-z0-9_\-./]+\.(?:py|mjs|cjs|js|ps1|sh)$")
+
+
+def _iter_argvs(manifest: ReleaseAdapterManifest) -> list[tuple[str, list[str]]]:
+    """钥匙里全部会被执行的 argv。"""
+    argvs: list[tuple[str, list[str]]] = [
+        *((f"stages[{stage.name}]", stage.run) for stage in manifest.stages),
+        ("diagnose", manifest.diagnose),
+        *(
+            (f"diagnose_branches[{index}]", argv)
+            for index, argv in enumerate(manifest.diagnose_branches)
+        ),
+        ("toolchain", manifest.toolchain),
+    ]
+    for field in ("derive", "fix_executor", "post_fix_gate", "event_sink"):
+        value = getattr(manifest, field)
+        if value:
+            argvs.append((field, value))
+    if manifest.build_machine is not None:
+        for field in ("setup", "teardown"):
+            value = getattr(manifest.build_machine, field)
+            if value:
+                argvs.append((f"build_machine.{field}", value))
+    for field, value in manifest.build_hooks.model_dump().items():
+        if value:
+            argvs.append((f"build_hooks.{field}", value))
+    return argvs
+
+
+def _electron_builder_output_dir(config: Path) -> str | None:
+    """从 electron-builder.yml 读 directories.output（行级解析，读不出返回 None）。"""
+    try:
+        lines = config.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    in_directories = False
+    for line in lines:
+        stripped = line.split("#", 1)[0].rstrip()
+        if not stripped.strip():
+            continue
+        if not stripped.startswith((" ", "\t")):
+            in_directories = stripped.strip() == "directories:"
+            continue
+        if in_directories and stripped.strip().startswith("output:"):
+            return stripped.split(":", 1)[1].strip().strip("'\"").rstrip("/")
+    return None
 
 
 def _expand(manifest: ReleaseAdapterManifest, value: str) -> str | None:
@@ -153,6 +204,66 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                 "把被挡的模块从 nofollow_imports 里去掉，或从 smoke.modules 里去掉",
             )
         )
+
+    # ── 钥匙点到的每一条命令，里面的仓库脚本在不在 ──────────────────────────
+    #
+    # 钩子路径拼错一个字母，要到构建机跑到那一步才知道——而那时候已经编了四十分钟。
+    repo_resolved = repo_root.resolve()
+    for label, argv in _iter_argvs(manifest):
+        for token in argv:
+            if "${" in token or token.startswith("/") or not _SCRIPT_TOKEN_RE.match(token):
+                continue
+            candidate = (repo_root / token).resolve()
+            if not candidate.is_relative_to(repo_resolved):
+                findings.append(
+                    _finding(
+                        product,
+                        "key",
+                        "argv_script_outside_repo",
+                        label,
+                        f"{label} 引用越出仓库根: {token}",
+                        "改成仓库内的相对路径",
+                    )
+                )
+            elif not candidate.is_file():
+                findings.append(
+                    _finding(
+                        product,
+                        "key",
+                        "argv_script_missing",
+                        label,
+                        f"{label} 引用的仓库文件不存在: {token}",
+                        f"改钥匙指向真实路径，或把 {token} 加进仓库",
+                    )
+                )
+
+    # ── electron-builder 的产物落点跟钥匙说的是不是同一处 ────────────────────
+    #
+    # 钥匙的 dist_dir 决定装配出来的脚本去哪里捡安装包；yml 的 directories.output 决定
+    # electron-builder 把它放到哪里。两处漂开，构建机会在长编译之后报一句「找不到」。
+    if manifest.electron.installer == "electron_builder" and manifest.build_target.desktop_dir:
+        config = repo_root / manifest.build_target.desktop_dir / "electron-builder.yml"
+        declared = manifest.electron.dist_dir.rstrip("/")
+        if not config.is_file():
+            missing(
+                "electron",
+                "electron_builder_config_missing",
+                f"{manifest.build_target.desktop_dir}/electron-builder.yml",
+                "electron-builder 配置",
+            )
+        else:
+            actual = _electron_builder_output_dir(config)
+            if actual != declared:
+                findings.append(
+                    _finding(
+                        product,
+                        "electron",
+                        "electron_builder_output_drift",
+                        f"{manifest.build_target.desktop_dir}/electron-builder.yml",
+                        f"directories.output 是 {actual!r}，钥匙的 electron.dist_dir 是 {declared!r}",
+                        "把两处改成同一个目录",
+                    )
+                )
 
     # ── 钥匙里指向钥匙自己的地方，指的是不是自己 ────────────────────────────
     #

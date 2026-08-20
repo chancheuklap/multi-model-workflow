@@ -105,14 +105,7 @@
       "--teardown"
     ]
   },
-  "stages": [
-    {
-      "name": "verify_key",
-      "run": [
-        "verify-key"
-      ]
-    }
-  ],
+  "stages": [],
   "diagnose": [
     "diagnose-release"
   ],

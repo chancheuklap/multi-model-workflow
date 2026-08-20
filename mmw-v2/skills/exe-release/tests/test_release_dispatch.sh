@@ -47,9 +47,7 @@ new_case() {
     --argjson gate "$gate_argv" --argjson diagnose "$diagnose_argv" \
     --argjson editable "$editable_paths" \
     '.stages=[
-        {name:"verify_key",run:["true"]},
-        {name:"assemble",run:["true"]},
-        {name:"build",run:["true"]}
+        {name:"doctor",run:["true"]}
       ]
      | .fix_executor=$fix
      | .derive=$derive
@@ -73,7 +71,7 @@ fail_stage_p2() {
 assert_all_pending_from_verify_key() {
   local sf
   sf="$(state_file "$1")"
-  jq -e '.source_commit != "" and .current_stage == "verify_key"
+  jq -e '.source_commit != "" and .current_stage == "doctor"
     and all(.stages[]; .status == "pending")' "$sf" >/dev/null
 }
 
