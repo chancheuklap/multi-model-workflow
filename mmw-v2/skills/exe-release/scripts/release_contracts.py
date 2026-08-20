@@ -128,6 +128,9 @@ class VendorArtifactMember(BaseModel):
     file: str = Field(min_length=1)
     dest: str = Field(min_length=1)
     sha256_key: str = Field(min_length=1)
+    # 上游自己的许可证正文。标了它，打包之后有一道闸按字节去成品里找这份文件——
+    # 拷进仓库不等于随包出厂，中间隔着一份 electron-builder 的过滤规则。
+    license: bool = False
 
 
 class VendorArtifact(BaseModel):
@@ -151,6 +154,9 @@ class VendorArtifact(BaseModel):
     # 是因为产品自己的仓库真相检查已经在读它，抄一份就会漂。
     lock: str = Field(min_length=1)
     members: list[VendorArtifactMember] = Field(min_length=1)
+    # 这份二进制随身要带的、由本仓库自己写的正文：给客户的源码索取声明之类。仓库相对路径，
+    # 进 git。它和 license 成员走同一道闸——区别只是这一份是我们写的，那一份是上游给的。
+    notices: list[str] = Field(default_factory=list)
 
 
 class BuildTarget(BaseModel):
@@ -167,6 +173,10 @@ class BuildTarget(BaseModel):
     # 成品安装包在源码树里的落点（仓库相对 glob）。出包成功后引擎按此把安装包从 commit 哈希构建目录
     # 收拢到统一交付目录。落点每个产品都不同，所以它是钥匙的值——引擎因此不需要知道任何产品。
     installer_glob: str | None = None
+    # 成品还是一棵目录树时它在哪（仓库相对，可带通配）。缺省是 electron 的 unpacked 目录——
+    # 三个产品的成品就是它。第四个产品的 unpacked 只是个壳，真正交给客户的那棵树由它自己的
+    # installer 钩子在别处装配，所以「成品在哪」是钥匙的值。随包出厂的闸门认这棵树。
+    package_tree: str | None = None
     asset_roots: list[str] = Field(default_factory=list)
     native_ext_dll: list[NativeExtDll] = Field(default_factory=list)
 

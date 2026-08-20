@@ -31,6 +31,8 @@ function Get-TemplateFunction([string]$name) {
 # 点源在脚本作用域，函数才留得住——在别的函数里 Invoke-Expression，出了那个函数就没了。
 . ([scriptblock]::Create((Get-TemplateFunction 'Assert-NoBusinessSource')))
 . ([scriptblock]::Create((Get-TemplateFunction 'Assert-DistinctExeTails')))
+. ([scriptblock]::Create((Get-TemplateFunction 'Remove-CompilerIntermediates')))
+. ([scriptblock]::Create((Get-TemplateFunction 'Assert-LicensesShipped')))
 
 $lab = Join-Path $env:TEMP ("mmw-template-behaviour-" + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $lab | Out-Null
@@ -121,6 +123,59 @@ try {
   } catch {
     if ($_.Exception.Message -like '*same bytes*') {
       ok "两个 exe 带同一个 payload 被拦下"
+    } else {
+      no ("拦下了但说的不是这件事：" + $_.Exception.Message)
+    }
+  }
+
+  # 编译中间产物：<入口>.dist 与 <入口>.onefile-build 删掉，成品 exe 留着。
+  $outDir = Join-Path $lab 'compiled'
+  New-Item -ItemType Directory -Force -Path (Join-Path $outDir '__main__.build') | Out-Null
+  New-Item -ItemType Directory -Force -Path (Join-Path $outDir '__main__.dist\sub') | Out-Null
+  New-Item -ItemType Directory -Force -Path (Join-Path $outDir '__main__.onefile-build\blobs') | Out-Null
+  New-Item -ItemType Directory -Force -Path (Join-Path $outDir 'runtime-assets') | Out-Null
+  Set-Content -Path (Join-Path $outDir '__main__.build\scons-debug.py') -Value 'x' -Encoding Ascii
+  Set-Content -Path (Join-Path $outDir '__main__.dist\sub\lib.pyd') -Value 'x' -Encoding Ascii
+  Set-Content -Path (Join-Path $outDir '__main__.onefile-build\blobs\__payload.bin') -Value 'y' -Encoding Ascii
+  Set-Content -Path (Join-Path $outDir 'runtime-assets\keep.txt') -Value 'z' -Encoding Ascii
+  Set-Content -Path (Join-Path $outDir 'product.exe') -Value 'exe' -Encoding Ascii
+  Remove-CompilerIntermediates -OutputDir $outDir
+  if ((Test-Path (Join-Path $outDir '__main__.build')) -or
+      (Test-Path (Join-Path $outDir '__main__.dist')) -or
+      (Test-Path (Join-Path $outDir '__main__.onefile-build'))) {
+    no "编译中间目录没被删掉"
+  } else {
+    ok "编译中间目录被删掉（含 .build：里面是编译器从本产品源码生成的 C）"
+  }
+  if ((Test-Path (Join-Path $outDir 'product.exe')) -and
+      (Test-Path (Join-Path $outDir 'runtime-assets\keep.txt'))) {
+    ok "成品与运行时资产原样留着"
+  } else {
+    no "把不该删的也删了"
+  }
+
+  # 许可证随包：闸门认字节，不认路径。成品里换个名字、挪个位置都算到位，删掉才算没到位。
+  $licRepo = Join-Path $lab 'licrepo'
+  New-Item -ItemType Directory -Force -Path (Join-Path $licRepo 'resources\ffmpeg') | Out-Null
+  $licSrc = Join-Path $licRepo 'resources\ffmpeg\LICENSE.txt'
+  Set-Content -Path $licSrc -Value 'GPL version 2 or later, the whole text' -Encoding Ascii
+  $pkg = Join-Path $lab 'packaged'
+  New-Item -ItemType Directory -Force -Path (Join-Path $pkg 'resources\app\vendor') | Out-Null
+  Copy-Item -LiteralPath $licSrc -Destination (Join-Path $pkg 'resources\app\vendor\ffmpeg-LICENSE.txt')
+  Set-Content -Path (Join-Path $pkg 'app.exe') -Value 'not a licence' -Encoding Ascii
+  try {
+    Assert-LicensesShipped -Licenses @(@{Name = 'ffmpeg'; Path = 'resources/ffmpeg/LICENSE.txt'}) -RepoRoot $licRepo -PackageDir $pkg
+    ok "许可证改了名字挪了位置，只要字节在包里就算随包出厂"
+  } catch {
+    no ("许可证在包里却被判成没到位：" + $_.Exception.Message)
+  }
+  Remove-Item -LiteralPath (Join-Path $pkg 'resources\app\vendor\ffmpeg-LICENSE.txt') -Force
+  try {
+    Assert-LicensesShipped -Licenses @(@{Name = 'ffmpeg'; Path = 'resources/ffmpeg/LICENSE.txt'}) -RepoRoot $licRepo -PackageDir $pkg
+    no "许可证被打包过滤掉了却没被拦下"
+  } catch {
+    if ($_.Exception.Message -like '*without*') {
+      ok "许可证被打包过滤掉，出包停下"
     } else {
       no ("拦下了但说的不是这件事：" + $_.Exception.Message)
     }

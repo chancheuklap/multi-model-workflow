@@ -191,6 +191,22 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
             )
         seen[target.exe] = target.name
 
+    # --remove-output 现在是引擎自己的事：编完、验完 payload，引擎删掉 <入口>.dist 与
+    # <入口>.onefile-build。钥匙再传一遍只有坏处——目录在编译当场就没了，payload 校验
+    # 只能退到比 exe 尾部，两个 exe 拿到同一份 payload 这种事就查得没那么准。
+    if "--remove-output" in backend.extra_flags:
+        findings.append(
+            _finding(
+                product,
+                "compile",
+                "remove_output_is_the_engine_s_job",
+                "python_backend.extra_flags",
+                "extra_flags carries --remove-output; the engine removes the compiler "
+                "intermediates itself, after the payload check has read them",
+                "drop --remove-output from extra_flags",
+            )
+        )
+
     try:
         nuitka.validate_import_plan(backend)
     except ValueError as exc:
@@ -324,6 +340,10 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                         f"add {key} to the lock; without a hash there is no check, and the wrong build of a tool does not announce itself",
                     )
                 )
+        for notice in artifact.notices:
+            notice_rel = _expand(manifest, notice)
+            if notice_rel is None or not (repo_root / notice_rel).is_file():
+                missing("vendor", "artifact_notice_missing", notice, f"the {artifact.name} notice")
         for member in artifact.members:
             dest = _expand(manifest, member.dest)
             if dest is None or Path(dest).is_absolute() or ".." in Path(dest).parts:

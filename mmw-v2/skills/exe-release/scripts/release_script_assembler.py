@@ -271,7 +271,7 @@ def _steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
     # 先跑钩子再断言安装包在位。installer_glob 指的是「交付件最后落在哪」，而产品完全可以
     # 让 package_integrity 这个钩子来落它——只有两道闸都判过才把安装包拷进交付目录，是合理
     # 的设计。断言写在钩子前面，这类产品第一次就被拒，而它其实什么都没做错。
-    verify_lines = []
+    verify_lines = _license_gate_lines(manifest)
     if hooks.package_integrity is not None:
         verify_lines.append(_hook_line("package_integrity", hooks.package_integrity))
     if _has_installer_step(manifest) and manifest.build_target.installer_glob:
@@ -311,6 +311,36 @@ def _vendor_artifact_lines(manifest) -> list[str]:
             "-CacheRoot $CacheRoot -RepoRoot $RepoRoot"
         )
     return lines
+
+
+def _license_gate_lines(manifest) -> list[str]:
+    """把「这份许可证随包出厂」变成安装包做完之后的一道闸。
+
+    拷进仓库和随包出厂是两件事，中间隔着一份打包过滤规则。闸门不认路径，只认字节。
+
+    位置在装完安装包之后，不在打包之后：有的产品的 unpacked 目录只是个壳，真正交给客户的
+    那棵树由它自己的 installer 钩子在别处装配（钥匙的 `package_tree` 指出来）。
+    """
+    licenses: list[tuple[str, str]] = []
+    for artifact in manifest.vendor_artifacts:
+        for member in artifact.members:
+            if member.license:
+                licenses.append((artifact.name, member.dest))
+        for notice in artifact.notices:
+            licenses.append((artifact.name, notice))
+    if not licenses:
+        return []
+    entries = ", ".join(
+        "@{Name = " + _ps(name) + "; Path = " + _ps(path) + "}" for name, path in licenses
+    )
+    tree = manifest.build_target.package_tree
+    package_dir = (
+        f"(Join-Path $RepoRoot {_ps(tree)})" if tree else "$UnpackedDir"
+    )
+    return [
+        f"  Assert-LicensesShipped -Licenses @({entries}) "
+        f"-RepoRoot $RepoRoot -PackageDir {package_dir}"
+    ]
 
 
 def _required_tools(manifest: ReleaseAdapterManifest) -> list[str]:
@@ -439,9 +469,16 @@ def _compile_lines(backend, build_target: BuildTarget, desktop_dir: str | None) 
         f"  Assert-OnefilePayloads -OutputDir (Join-Path $RepoRoot {_ps(out_dir)}) "
         f"-Exes @({exes})"
     )
+    # 校验完就把编译中间产物删掉。Nuitka 的 <入口>.dist 和 <入口>.onefile-build 是编译过程
+    # 的临时目录，编完就没用了，而它们跟成品 exe 躺在同一个目录里——那个目录整个进安装包。
+    # 于是同一份内容发三遍：exe 里一份、dist 一份、payload.bin 一份。删在校验之后，是因为
+    # 校验正要读 payload。
+    cleanup_line = (
+        f"  Remove-CompilerIntermediates -OutputDir (Join-Path $RepoRoot {_ps(out_dir)})"
+    )
 
     if not backend.isolate_dirs:
-        return [*lines, *compile_lines, assert_line]
+        return [*lines, *compile_lines, assert_line, cleanup_line]
 
     isolate = ", ".join(
         f"(Join-Path $RepoRoot {_ps(nuitka.expand(path, desktop_dir=desktop_dir, build_root=backend.build_root))})"
@@ -456,6 +493,7 @@ def _compile_lines(backend, build_target: BuildTarget, desktop_dir: str | None) 
     lines.append("  }")
     lines.append("  finally { Restore-AfterCompile -Moved $moved }")
     lines.append(assert_line)
+    lines.append(cleanup_line)
     return lines
 
 

@@ -49,6 +49,7 @@ have to write the same thing, the skill should be writing it instead.
     "desktop_dir": "<electron app dir>",
     "installer_brand": "…",
     "installer_glob": "…/*-setup.exe",     // where the finished installer lands
+    "package_tree": null,                  // only when it is not the electron unpacked dir
     "asset_roots": ["src/…/assets/**"]     // which paths mean "this product changed"
   },
 
@@ -109,6 +110,28 @@ customers in between lose GPU encoding and never see an error.
 
 Keep the hashes in the lock file rather than in the key when the repo already reads them -- one
 place, or they drift.
+
+**A copyleft binary travels with its licence.** Mark the upstream licence file `"license": true`,
+and list the notices your repo writes itself -- the offer of source a GPL binary obliges you to
+make:
+
+```jsonc
+{"file": "LICENSE.txt", "dest": "resources/ffmpeg/LICENSE.txt",
+ "sha256_key": "license_sha256", "license": true}
+// and on the artifact, beside `members`:
+"notices": ["resources/ffmpeg/NOTICE-ffmpeg.txt"]
+```
+
+Both then face one gate, once the installer is built: the bytes of each file must appear somewhere
+inside the finished package tree. Staging a licence into the repository is not shipping it -- a
+packaging filter sits in between, and when it drops the licence every build log stays green while
+the installer goes out in breach. The gate holds no path inside the package, because where a staged
+file lands there is the packaging config's business.
+
+The tree it reads is the electron unpacked directory. When a product's unpacked directory is only a
+shell and its own installer step assembles the tree that reaches the customer somewhere else, name
+that one in `build_target.package_tree` -- a repository-relative path, wildcards allowed, because
+such a tree often carries the version in its name. It must resolve to exactly one directory.
 
 ### `python_backend` — compiling the backend
 
@@ -231,6 +254,14 @@ hook and no key field:
   ships it still installs and still runs, so nothing reveals the leak — the product's commercial
   premise is simply gone. The packages to look for are `python_backend.include_packages`, which
   the key already declares.
+- **The compiler's leftovers do not ship.** Nuitka leaves `<entry>.build`, `<entry>.dist` and
+  `<entry>.onefile-build` beside the finished exe, in the directory the packer copies whole.
+  Left there, the same content ships three times over — inside the exe, as the dist tree, and as
+  the raw payload; one product carried 4 GB that way. `.build` is worse than bloat: it holds the
+  C the compiler generated from the product's own source. The engine removes all three, right
+  after the
+  payload check reads them, so **do not put `--remove-output` in `extra_flags`**: it deletes the
+  directories during the compile and downgrades the payload check to comparing exe tails.
 - **An installer really landed at `installer_glob`.** "The installer step exited 0" and "there is
   an installer" are different facts: a packer can fail its own cleanup, a repo hook can run half
   way. Which is why a key with an installer step must declare where the installer lands. The

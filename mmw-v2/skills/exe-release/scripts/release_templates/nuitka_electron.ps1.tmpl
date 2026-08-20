@@ -264,6 +264,55 @@ function Get-VendorArtifact {
   }
 }
 
+# A copyleft binary travels with its licence, and the licence travels inside the package -- not in
+# the repository where the build staged it. Between the two sits a packaging filter, and when that
+# filter drops the licence the build stays green and the shipped installer is in breach.
+#
+# The gate holds no path inside the package: where the packaging config puts a staged file is the
+# packaging config's business. It takes the bytes of the staged file and asks whether any file in
+# the package has them. Size first, hash only for the files that could match, so the scan stays
+# cheap on a tree of many gigabytes.
+function Assert-LicensesShipped {
+  param(
+    [object[]]$Licenses,
+    [string]$RepoRoot,
+    [string]$PackageDir
+  )
+  if (-not $Licenses -or $Licenses.Count -eq 0) { return }
+  # The package tree can carry the version in its name, so this may be a wildcard. One tree, or
+  # the gate does not know which one it just checked.
+  $roots = @(Resolve-Path -Path $PackageDir -ErrorAction SilentlyContinue | ForEach-Object { $_.Path })
+  if ($roots.Count -ne 1) {
+    throw ("There is no single package to look for the licences in: " + $PackageDir +
+           " matched " + $roots.Count + " paths")
+  }
+  $PackageDir = $roots[0]
+  $packaged = @(Get-ChildItem -LiteralPath $PackageDir -Recurse -File -Force -ErrorAction SilentlyContinue)
+  foreach ($licence in $Licenses) {
+    $name = [string]$licence.Name
+    $staged = Join-Path $RepoRoot ([string]$licence.Path)
+    if (-not (Test-Path -LiteralPath $staged)) {
+      throw ("The licence " + $name + " needs is not in the tree: " + $staged)
+    }
+    $size = (Get-Item -LiteralPath $staged).Length
+    $expected = (Get-FileHash -LiteralPath $staged -Algorithm SHA256).Hash.ToLowerInvariant()
+    $hit = $null
+    foreach ($candidate in @($packaged | Where-Object { $_.Length -eq $size })) {
+      if ((Get-FileHash -LiteralPath $candidate.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -eq $expected) {
+        $hit = $candidate
+        break
+      }
+    }
+    if (-not $hit) {
+      throw ("The package ships " + $name + " without " + [string]$licence.Path +
+             ". Those bytes reach no file under " + $PackageDir +
+             ", so the packaging config filters them out")
+    }
+    Write-Host ("  licence shipped: " + $name + " -> " + $hit.FullName)
+  }
+}
+
+
 # Every onefile exe must carry the payload that was built for it, in this round.
 #
 # A onefile exe is a small bootstrap with the whole program appended to it as a payload. How that
@@ -278,6 +327,37 @@ function Get-VendorArtifact {
 #
 # Nothing here is named or matched by convention. Each payload is claimed by exactly one exe, and
 # an exe that claims a payload another exe already claimed is the failure we are looking for.
+# The compiler's leftovers do not go to the customer.
+#
+# Nuitka writes three scratch directories next to the finished exe: <entry>.build (the C it
+# generated from the product's own source, plus the scons debug files), <entry>.dist (the
+# standalone tree) and <entry>.onefile-build (holding blobs\__payload.bin). All three sit in the
+# directory the packer copies wholesale into the installer -- so the same content ships three
+# times over: once inside the exe, once as the dist tree, once as the raw payload. And .build is
+# worse than bloat, because compiling exists to not ship source.
+#
+# This runs after the payload check, which is the one step that needs those directories.
+function Remove-CompilerIntermediates {
+  param([string]$OutputDir)
+  if (-not (Test-Path -LiteralPath $OutputDir)) { return }
+  $leftovers = @(
+    Get-ChildItem -LiteralPath $OutputDir -Directory -ErrorAction SilentlyContinue |
+      Where-Object {
+        $_.Name -like '*.build' -or $_.Name -like '*.dist' -or $_.Name -like '*.onefile-build'
+      }
+  )
+  if ($leftovers.Count -eq 0) {
+    Write-Host '  compiler intermediates: none left behind'
+    return
+  }
+  foreach ($dir in $leftovers) {
+    $bytes = (Get-ChildItem -LiteralPath $dir.FullName -Recurse -File -Force -ErrorAction SilentlyContinue |
+      Measure-Object -Sum Length).Sum
+    Remove-Item -LiteralPath $dir.FullName -Recurse -Force
+    Write-Host ("  removed compiler intermediate: " + $dir.Name + "  " + [math]::Round($bytes / 1MB, 1) + " MB")
+  }
+}
+
 function Assert-DistinctExeTails {
   param([string[]]$Exes)
   $seen = @{}
