@@ -52,16 +52,16 @@ release-flow.sh receipt
 release-flow.sh dispatch --stage <n> --findings <path>
 
 Examples:
-  bash <这个脚本的绝对路径> where
-  bash <这个脚本的绝对路径> init --manifest path/to/product.release-adapter.json
-  bash <这个脚本的绝对路径> receipt
+  bash <absolute path to this script> where
+  bash <absolute path to this script> init --manifest path/to/product.release-adapter.json
+  bash <absolute path to this script> receipt
 EOF
   return 2
 }
 
 state_file() {
   local top sd
-  top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
+  top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "not inside a git repository"
   sd="$(release_subdir)"
   echo "$top/$sd/$STATE_NAME"
 }
@@ -69,7 +69,7 @@ state_file() {
 need_state() {
   local f
   f="$(state_file)"
-  [ -f "$f" ] || die "无 release-state(先 release init)"
+  [ -f "$f" ] || die "no release-state (run release init first)"
   echo "$f"
 }
 
@@ -81,7 +81,7 @@ write() {
   cat > "$tmp"
   if [ ! -s "$tmp" ] || ! jq -e . "$tmp" >/dev/null 2>&1; then
     rm -f "$tmp"
-    echo "ERROR: 拒绝写入空/非法 JSON 到 $f;原文件保留" >&2
+    echo "ERROR: refusing to write empty/invalid JSON to $f; original kept" >&2
     return 1
   fi
   mv "$tmp" "$f"
@@ -107,7 +107,7 @@ append_attempt() {
      | .budget.attempts += 1'
 }
 
-_repo_top() { git rev-parse --show-toplevel 2>/dev/null || die "不在 git 仓库内"; }
+_repo_top() { git rev-parse --show-toplevel 2>/dev/null || die "not inside a git repository"; }
 
 iso_to_epoch() {
   date -u -d "$1" +%s 2>/dev/null || date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$1" +%s 2>/dev/null || echo 0
@@ -121,9 +121,9 @@ _convergence_guard() {
     if [ "$cnt" -ge "$RF_MAX_SAME_FINGERPRINT" ]; then
       edit "$f" --arg s "$stage" --arg fp "$fp" --argjson n "$RF_MAX_SAME_FINGERPRINT" \
         '.pause={at_stage:$s, kind:"surface", reason:"needs-redirection",
-                 question:("同根因("+$fp+")重复达阈值 "+($n|tostring)+" 次仍未收敛,引擎熔断交人")}'
+                 question:("the same root cause ("+$fp+") reached the threshold of "+($n|tostring)+" observations without converging; the engine stops and hands it to a human")}'
       emit_event "$f" "paused" "$stage" "" "$fp" ""
-      echo "CIRCUIT-BREAK:fingerprint=$fp ×$cnt(>=$RF_MAX_SAME_FINGERPRINT),熔断交人"
+      echo "CIRCUIT-BREAK:fingerprint=$fp x$cnt(>=$RF_MAX_SAME_FINGERPRINT), same cause keeps coming back; hand to a person"
       return 1
     fi
   done < <(printf '%s' "$cls" | jq -r '.failing[].root_cause_fingerprint')
@@ -137,9 +137,9 @@ _convergence_guard() {
   if [ "$max" -gt 0 ] && [ "$fr" -ge "$max" ]; then
     edit "$f" --arg s "$stage" --argjson a "$fr" --argjson m "$max" \
       '.pause={at_stage:$s, kind:"surface", reason:"needs-redirection",
-               question:("修复轮次预算越界(fix_rounds="+($a|tostring)+">=max="+($m|tostring)+"),引擎熔断交人")}'
+               question:("fix round budget exceeded (fix_rounds="+($a|tostring)+">=max="+($m|tostring)+"); the engine stops and hands it to a human")}'
     emit_event "$f" "paused" "$stage" "" "" ""
-    echo "BUDGET-EXCEEDED:fix_rounds=$fr>=max=$max,熔断交人"
+    echo "BUDGET-EXCEEDED:fix_rounds=$fr>=max=$max; hand to a person"
     return 1
   fi
 
@@ -151,9 +151,9 @@ _convergence_guard() {
     if [ "$elapsed" -ge "$wallmax" ]; then
       edit "$f" --arg s "$stage" --argjson e "$elapsed" --argjson w "$wallmax" \
         '.pause={at_stage:$s, kind:"surface", reason:"needs-redirection",
-                 question:("墙钟预算越界(elapsed="+($e|tostring)+"s>=max="+($w|tostring)+"s),引擎熔断交人")}'
+                 question:("wall clock budget exceeded (elapsed="+($e|tostring)+"s>=max="+($w|tostring)+"s); the engine stops and hands it to a human")}'
       emit_event "$f" "paused" "$stage" "" "" ""
-      echo "BUDGET-EXCEEDED:wallclock=${elapsed}s>=${wallmax}s,熔断交人"
+      echo "BUDGET-EXCEEDED:wallclock=${elapsed}s>=${wallmax}s; hand to a person"
       return 1
     fi
   fi
@@ -269,6 +269,17 @@ _collect_candidate_paths() {
   fi
 }
 
+# 不管产品声明了什么，自动修复永远不许碰这几类路径。产品的 protection_source 加在它之上，
+# 不是取代它——一把新钥匙什么都还没写的时候，闸门不该是整个开着的。
+# 匹配用 bash 的 [[ == ]]，其中 * 也跨 /，所以 *foo 等于「任意深度下的 foo」。
+_SKILL_HARD_DENY=(
+  '.env' '.env.*' '*/.env' '*/.env.*'
+  '*.pem' '*.key' '*.p12' '*.pfx' '*id_rsa' '*id_ed25519' '*id_ecdsa'
+  '.git' '.git/*'
+  '*.lock' '*package-lock.json' '*pnpm-lock.yaml' '*yarn.lock'
+  '*.release-adapter.json'
+)
+
 _load_path_hard_deny() {
   local f="$1" top mp source_rel source_file matchers path
   # P0:本轮 dispatch 若已在跑修复前冻结过 hard-deny 快照,后续一律用冻结值,不再从可能被修复
@@ -276,20 +287,25 @@ _load_path_hard_deny() {
   # 把 P0 受保护路径违规降级成 needs-context「规则源不可读」,等于破坏被保护物就能关掉它自己的闸。
   if [ "${PROTECTION_FROZEN:-0}" = "1" ]; then
     [ ${#PROTECTION_MATCHERS[@]} -gt 0 ] && return 0
-    PATH_GATE_ERROR="protection_source 冻结快照为空"
+    PATH_GATE_ERROR="the frozen protection_source snapshot is empty"
     return 1
   fi
   top="$(_repo_top)"
   mp="$(jq -r '.manifest_path' "$f")"
+  PROTECTION_MATCHERS=("${_SKILL_HARD_DENY[@]}")
+  # 钥匙没有自己的保护规则，就只有技能这份底线——这不是缺陷，是一把还没长出自愈装备的钥匙。
+  if [ "$(jq -r 'has("protection_source") and (.protection_source != null)' "$mp")" != "true" ]; then
+    return 0
+  fi
   source_rel="$(jq -er '.protection_source' "$mp" 2>/dev/null)" || {
-    PATH_GATE_ERROR="manifest.protection_source 不可读"
+    PATH_GATE_ERROR="manifest.protection_source cannot be read"
     return 1
   }
   case "$source_rel" in
-    /*|..|../*|*/../*) PATH_GATE_ERROR="protection_source 必须是仓库内相对路径: $source_rel"; return 1 ;;
+    /*|..|../*|*/../*) PATH_GATE_ERROR="protection_source must be a path relative to the repo root: $source_rel"; return 1 ;;
   esac
   source_file="$top/$source_rel"
-  [ -f "$source_file" ] || { PATH_GATE_ERROR="protection_source 不存在: $source_rel"; return 1; }
+  [ -f "$source_file" ] || { PATH_GATE_ERROR="protection_source does not exist: $source_rel"; return 1; }
   matchers="$(mktemp)"
   if ! jq -er '.rules
     | if type == "array" then . else error("rules must be array") end
@@ -300,16 +316,17 @@ _load_path_hard_deny() {
       ]
     | if length > 0 then .[] else error("no path_hard_deny matcher") end' "$source_file" > "$matchers"; then
     rm -f "$matchers"
-    PATH_GATE_ERROR="protection_source 不合规: $source_rel"
+    PATH_GATE_ERROR="protection_source is not valid: $source_rel"
     return 1
   fi
-  PROTECTION_MATCHERS=()
   while IFS= read -r path; do
     [ -n "$path" ] && PROTECTION_MATCHERS+=("$path")
   done < "$matchers"
+  # 规则源自己也不许被自动修复改：改得掉它，就等于能关掉自己头上的闸。
+  PROTECTION_MATCHERS+=("$source_rel")
   rm -f "$matchers"
   [ ${#PROTECTION_MATCHERS[@]} -gt 0 ] || {
-    PATH_GATE_ERROR="protection_source 没有 path_hard_deny matcher"
+    PATH_GATE_ERROR="protection_source declares no path_hard_deny matcher"
     return 1
   }
 }
@@ -387,6 +404,37 @@ _invalidate_all_stages() {
      | .pause=null'
 }
 
+# 钥匙里的 argv 可以指向技能自己带的脚本，路径写 ${RELEASE_PLUGIN_DIR}——技能装在哪由宿主决定，
+# 钥匙不该知道。${RELEASE_STAGE_DIR}/${RELEASE_LOOP_DIR} 只在 stage 里有意义，其余场合传空。
+_expand_argv_token() {
+  local raw="$1" stage_dir="${2:-}" loop_dir="${3:-}" out
+  # 每-attempt 目录与整轮目录只在 stage 里存在。diagnose 之外的字段（fix_executor / post_fix_gate /
+  # event_sink）没有它们，此时用了就直接停——展开成空字符串会变成一条指向根目录的路径，
+  # 那种失败要到跑起来才看得见，而且看不出是这里丢的。
+  case "$raw" in
+    *'${RELEASE_STAGE_DIR}'*) [ -n "$stage_dir" ] || die "\${RELEASE_STAGE_DIR} has no meaning in this field: $raw" ;;
+  esac
+  case "$raw" in
+    *'${RELEASE_LOOP_DIR}'*) [ -n "$loop_dir" ] || die "\${RELEASE_LOOP_DIR} has no meaning in this field: $raw" ;;
+  esac
+  out="${raw//\$\{RELEASE_STAGE_DIR\}/$stage_dir}"
+  out="${out//\$\{RELEASE_LOOP_DIR\}/$loop_dir}"
+  out="${out//\$\{RELEASE_PLUGIN_DIR\}/$SCRIPT_DIR}"
+  printf '%s' "$out"
+}
+
+# 钥匙没声明 diagnose 时用技能自己的诊断器。这一段在每把钥匙里逐字相同，只有 --adapter
+# 后面的路径不同——而那条路径引擎手里就有。抄的东西一旦有四份，其中一份迟早抄错。
+_diagnose_argv_source() {
+  local mp="$1"
+  if [ "$(jq -r '(.diagnose // []) | length' "$mp")" -gt 0 ]; then
+    jq -r '.diagnose[]' "$mp"
+    return 0
+  fi
+  printf '%s\n' uv run --with 'pydantic>=2' python \
+    '${RELEASE_PLUGIN_DIR}/diagnose_core.py' --adapter "$mp"
+}
+
 _run_direct_action() {
   local f="$1" mode="$2" findings="$3" top mp key arg ref_file
   top="$(_repo_top)"
@@ -394,11 +442,11 @@ _run_direct_action() {
   case "$mode" in
     fix) key="fix_executor" ;;
     derive) key="derive" ;;
-    *) die "未知 direct action: $mode" ;;
+    *) die "unknown direct action: $mode" ;;
   esac
   ACTION_ARGV=()
-  while IFS= read -r arg; do ACTION_ARGV+=("$arg"); done < <(jq -r --arg key "$key" '.[$key][]' "$mp")
-  [ ${#ACTION_ARGV[@]} -gt 0 ] || die "manifest.$key 为空(引擎载入应已挡,防御)"
+  while IFS= read -r arg; do ACTION_ARGV+=("$(_expand_argv_token "$arg")"); done \
+    < <(jq -r --arg key "$key" '(.[$key] // [])[]' "$mp")
   ACTION_COMMAND="${ACTION_ARGV[*]}"
   ACTION_RC=0
   RF_WORKER_REF=""
@@ -424,9 +472,14 @@ _run_direct_action() {
 _post_fix_gate() {
   local f="$1" name="$2" fp="$3" repair_sha="$4" mp a rc=0 gate_out
   mp="$(jq -r '.manifest_path' "$f")"
+  # 没有这一关，跟「跑了并通过」在回执里必须分得开。
+  if [ "$(jq -r '(.post_fix_gate // []) | length' "$mp")" -eq 0 ]; then
+    append_attempt "$f" "$name" "post_fix_gate" "skipped" "$fp" "git-commit:$repair_sha"
+    echo "POST-FIX-GATE-SKIPPED:$name (the key declares no post_fix_gate)"
+    return 0
+  fi
   local gate_argv=()
-  while IFS= read -r a; do gate_argv+=("$a"); done < <(jq -r '.post_fix_gate[]' "$mp")
-  [ ${#gate_argv[@]} -gt 0 ] || die "manifest.post_fix_gate 为空(引擎载入应已挡,防御)"
+  while IFS= read -r a; do gate_argv+=("$(_expand_argv_token "$a")"); done < <(jq -r '.post_fix_gate[]' "$mp")
   gate_out="$( cd "$(_repo_top)" && "${gate_argv[@]}" 2>&1 )" || rc=$?
 
   local gate_cmd
@@ -440,7 +493,7 @@ _post_fix_gate() {
     patch_last_attempt "$f" "[]" "[]" "$gate_result" "" "$gate_cmd"
     _invalidate_all_stages "$f" "$repair_sha"
     emit_event "$f" "classified" "$name" "P1" "$fp" "$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
-    echo "POST-FIX-GATE-PASS:$name(架构闸绿,待重跑)"
+    echo "POST-FIX-GATE-PASS:$name (gate green, rerun the stage)"
     return 0
   fi
 
@@ -448,7 +501,7 @@ _post_fix_gate() {
   top="$(_repo_top)"
   if ! git -C "$top" revert --no-edit "$repair_sha" >/dev/null; then
     _record_pause "$f" "$name" "post_fix_gate" "revert_failed" "$fp" "git-commit:$repair_sha" \
-      "needs-context" "post-fix-gate 红后无法撤回 repair commit，停下交人" "[]" "[]" "" "$gate_cmd" "P1"
+      "needs-context" "the post-fix gate went red and the repair commit could not be rolled back; stopping for a human" "[]" "[]" "" "$gate_cmd" "P1"
     echo "POST-FIX-GATE-REVERT-FAILED:$name"
     return 0
   fi
@@ -456,23 +509,24 @@ _post_fix_gate() {
   append_attempt "$f" "$name" "post_fix_gate" "fail" "$fp" "git-revert:$revert_sha"
   patch_last_attempt "$f" "[]" "[]" "$gate_result" "" "$gate_cmd"
   edit "$f" --arg sc "$revert_sha" '.source_commit=$sc'
-  while IFS= read -r a; do diag_argv+=("$a"); done < <(jq -r '.diagnose[]' "$mp")
+  while IFS= read -r a; do diag_argv+=("$(_expand_argv_token "$a")"); done < <(_diagnose_argv_source "$mp")
   findings_tmp="$(mktemp)"
   ( cd "$top" && "${diag_argv[@]}" ) > "$findings_tmp" 2>/dev/null || true
   echo "FIX-REVERTED:$repair_sha commit=$revert_sha"
-  echo "POST-FIX-GATE-FAIL:$name(架构闸红,重分级)"
+  echo "POST-FIX-GATE-FAIL:$name (gate red, classify again)"
   cmd_stage_fail --stage "$name" --findings "$findings_tmp"
   rm -f "$findings_tmp"
 }
 
 cmd_dispatch_direct() {
-  local f="$1" name="$2" fp="$3" findings="$4" mode="$5" top commit_sha message
+  local f="$1" name="$2" fp="$3" findings="$4" mode="$5" top mp commit_sha message
   local changed_json blocked_json artifact_ref="" action_kind
   top="$(_repo_top)"
+  mp="$(jq -r '.manifest_path' "$f")"
   action_kind="$mode"
   if ! git -C "$top" diff --quiet HEAD; then
     _record_pause "$f" "$name" "preflight" "tracked_dirty" "$fp" "" \
-      "needs-context" "功能分支已有未提交 tracked 改动，不能混入自动修复提交" "[]" "[]" "" "git diff --quiet HEAD" ""
+      "needs-context" "the feature branch already holds uncommitted tracked changes; they must not be mixed into an automatic fix commit" "[]" "[]" "" "git diff --quiet HEAD" ""
     echo "DISPATCH-PAUSED:$name(pre-existing tracked diff)"
     return 0
   fi
@@ -482,11 +536,21 @@ cmd_dispatch_direct() {
   PROTECTION_FROZEN=0
   if ! _load_path_hard_deny "$f"; then
     _record_pause "$f" "$name" "preflight" "protection_source_unreadable" "$fp" "" \
-      "needs-context" "protection_source 在自动修复前已不可用($PATH_GATE_ERROR)，保留现场交人" "[]" "[]" "" "" ""
+      "needs-context" "protection_source was already unusable before the automatic fix ($PATH_GATE_ERROR); keeping the state for a human" "[]" "[]" "" "" ""
     echo "DISPATCH-PAUSED:$name(protection source unreadable)"
     return 0
   fi
   PROTECTION_FROZEN=1
+
+  # 钥匙没配这一件自愈装备，就没有这一步。说成引擎坏了，下一个人会去查引擎。
+  if [ "$(jq -r --arg k "$( [ "$mode" = fix ] && echo fix_executor || echo derive )" \
+        '(.[$k] // []) | length' "$mp")" -eq 0 ]; then
+    _record_pause "$f" "$name" "preflight" "no_${mode}_executor" "$fp" "" \
+      "needs-context" "the key declares no $( [ "$mode" = fix ] && echo fix_executor || echo derive ); this class of failure has no automatic path, hand it to a person" \
+      "[]" "[]" "" "" ""
+    echo "DISPATCH-PAUSED:$name(no $mode executor in the key)"
+    return 0
+  fi
 
   _snapshot_baseline_untracked "$top" "$f"
   _run_direct_action "$f" "$mode" "$findings"
@@ -495,7 +559,7 @@ cmd_dispatch_direct() {
 
   if ! _baseline_untracked_changed "$top"; then
     _record_pause "$f" "$name" "$action_kind" "baseline_untracked_changed" "$fp" "" \
-      "needs-context" "自动修复改写了本轮前已存在的未跟踪文件，保留现场交人" \
+      "needs-context" "the automatic fix rewrote an untracked file that existed before this round; keeping the state for a human" \
       "$(_json_array "${BASELINE_CHANGED_PATHS[@]-}")" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
     echo "DISPATCH-PAUSED:$name(baseline untracked changed)"
     return 0
@@ -503,14 +567,14 @@ cmd_dispatch_direct() {
 
   if [ "$ACTION_RC" -ne 0 ]; then
     _record_pause "$f" "$name" "$action_kind" "action_failed" "$fp" "" \
-      "needs-context" "$mode 执行非零退出，保留现场交人" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
+      "needs-context" "$mode exited non-zero; keeping the state for a human" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
     echo "DISPATCH-PAUSED:$name($mode rc=$ACTION_RC)"
     return 0
   fi
 
   if [ ${#CHANGED_PATHS[@]} -eq 0 ]; then
     _record_pause "$f" "$name" "$action_kind" "no_change" "$fp" "" \
-      "needs-context" "$mode 未产生任何可提交改动，不能伪装为已修复" "[]" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
+      "needs-context" "$mode produced no committable change; this must not pass as fixed" "[]" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
     echo "DISPATCH-PAUSED:$name(no change)"
     return 0
   fi
@@ -519,7 +583,7 @@ cmd_dispatch_direct() {
     BLOCKED_PATHS=("${CHANGED_PATHS[@]-}")
     if ! _write_path_gate_patch "$f" "$name" "$top" || ! _restore_rejected_candidates "$top"; then
       _record_pause "$f" "$name" "path_gate" "cleanup_failed" "$fp" "" \
-        "needs-context" "protection_source 不可用且无法完整保存或复原本轮改动，保留现场交人" \
+        "needs-context" "protection_source is unusable and this round's changes could not be fully saved or restored; keeping the state for a human" \
         "$changed_json" "$(_json_array "${BLOCKED_PATHS[@]-}")" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
       echo "PATH-GATE-PAUSED:$name($PATH_GATE_ERROR)"
       return 0
@@ -527,7 +591,7 @@ cmd_dispatch_direct() {
     artifact_ref="$PATH_GATE_ARTIFACT"
     blocked_json="$(_json_array "${BLOCKED_PATHS[@]-}")"
     _record_pause "$f" "$name" "path_gate" "rejected" "$fp" "$artifact_ref" \
-      "needs-context" "protection_source 无法作为路径闸唯一事实来源($PATH_GATE_ERROR)，已保存 patch 并停下交人" \
+      "needs-context" "protection_source cannot serve as the path gate's single source of truth ($PATH_GATE_ERROR); the patch is saved and this stops for a human" \
       "$changed_json" "$blocked_json" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
     echo "PATH-GATE-REJECT:$name protection_source=[$PATH_GATE_ERROR]"
     return 0
@@ -536,7 +600,7 @@ cmd_dispatch_direct() {
   if [ ${#BLOCKED_PATHS[@]} -gt 0 ]; then
     if ! _write_path_gate_patch "$f" "$name" "$top" || ! _restore_rejected_candidates "$top"; then
       _record_pause "$f" "$name" "path_gate" "cleanup_failed" "$fp" "" \
-        "needs-context" "路径闸拒绝后无法完整保存或复原本轮改动，保留现场交人" \
+        "needs-context" "the path gate rejected the changes and they could not be fully saved or restored; keeping the state for a human" \
         "$changed_json" "$(_json_array "${BLOCKED_PATHS[@]-}")" "$RF_WORKER_REF" "$ACTION_COMMAND" "P0"
       echo "PATH-GATE-PAUSED:$name(cleanup failed)"
       return 0
@@ -544,15 +608,15 @@ cmd_dispatch_direct() {
     artifact_ref="$PATH_GATE_ARTIFACT"
     blocked_json="$(_json_array "${BLOCKED_PATHS[@]-}")"
     _record_pause "$f" "$name" "path_gate" "rejected" "$fp" "$artifact_ref" \
-      "needs-redirection" "自动修复触及受保护路径或超出 editable_paths，已保存 patch、复原改动，停下请负责人拍板" \
+      "needs-redirection" "the automatic fix touched a protected path or reached outside editable_paths; the patch is saved, the changes are restored, and this stops for the owner to decide" \
       "$changed_json" "$blocked_json" "$RF_WORKER_REF" "$ACTION_COMMAND" "P0"
-    echo "PATH-GATE-REJECT:$name 越界=[${BLOCKED_PATHS[*]}]"
+    echo "PATH-GATE-REJECT:$name out-of-bounds=[${BLOCKED_PATHS[*]}]"
     return 0
   fi
 
   if ! git -C "$top" add -- "${CHANGED_PATHS[@]-}"; then
     _record_pause "$f" "$name" "$action_kind" "add_failed" "$fp" "" \
-      "needs-context" "自动修复通过路径闸后无法暂存改动，保留现场交人" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
+      "needs-context" "the automatic fix passed the path gate but the changes could not be staged; keeping the state for a human" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
     echo "DISPATCH-PAUSED:$name(git add failed)"
     return 0
   fi
@@ -562,7 +626,7 @@ cmd_dispatch_direct() {
   esac
   if ! git -C "$top" commit -m "$message" >/dev/null; then
     _record_pause "$f" "$name" "$action_kind" "commit_failed" "$fp" "" \
-      "needs-context" "自动修复通过路径闸后无法创建功能分支提交，保留现场交人" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
+      "needs-context" "the automatic fix passed the path gate but the feature branch commit could not be created; keeping the state for a human" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
     echo "DISPATCH-PAUSED:$name(git commit failed)"
     return 0
   fi
@@ -590,10 +654,10 @@ cmd_dispatch_p2() {
 
 # $1=state $2=event $3=stage $4=tier $5=fingerprint $6=attempt_ref
 emit_event() {
-  local f="$1" event="$2" stage="$3" tier="$4" fp="$5" aref="$6"
+  local f="$1" event="$2" stage="$3" tier="$4" fp="$5" aref="$6" mp
   local mp
   mp="$(jq -r '.manifest_path' "$f")"
-  [ -f "$mp" ] || { echo "WARN: manifest 已清($mp),跳过 event 落地: $event" >&2; return 0; }
+  [ -f "$mp" ] || { echo "WARN: the manifest is gone ($mp), not recording event: $event" >&2; return 0; }
 
   local product round trace ev
   product="$(jq -r '.product' "$f")"
@@ -608,18 +672,49 @@ emit_event() {
           round:$r, trace_id:$tr,
           attempt_ref:(if $ar=="" then null else $ar end), timestamp:$ts}')"
   printf '%s' "$ev" | uv run --quiet "$SCRIPT_DIR/release_contracts.py" validate-event - \
-    || { echo "ERROR: 引擎产出非法 ReleaseLoopEvent: $ev" >&2; return 0; }
+    || { echo "ERROR: the engine produced an invalid ReleaseLoopEvent: $ev" >&2; return 0; }
 
+  # 没接日志系统的产品，事件到此为止：验过合同就够了，不凭空造一个落地点。
+  [ "$(jq -r '(.event_sink // []) | length' "$mp")" -gt 0 ] || return 0
   local sink_argv=()
   while IFS= read -r arg; do
-    sink_argv+=("$arg")
+    sink_argv+=("$(_expand_argv_token "$arg")")
   done < <(jq -r '.event_sink[]' "$mp")
   # sink 要按 ReleaseLoopEvent 合同 model_validate 后再落地,得先拿到本引擎正在用的那份
   # release_contracts.py。它恒是 release-flow.sh 的同目录兄弟($SCRIPT_DIR/release_contracts.py,
   # 见上方 validate-event),已安装扁平 cache 与源仓库 plugin/scripts/ 两种布局都成立。把这个权威
   # 路径交给 sink,两端加载同一份合同、不靠 sink 自己猜 plugin 根下的子路径(那条假设只在源仓库
   # 布局成立、已安装 cache 无 plugin/ 中间层,是 event 落地长期失败的根因)。
-  printf '%s\n' "$ev" | MMW_PLUGIN_DIR="$SCRIPT_DIR" "${sink_argv[@]}" || echo "WARN: event_sink 落地失败: $event" >&2
+  printf '%s\n' "$ev" | MMW_PLUGIN_DIR="$SCRIPT_DIR" "${sink_argv[@]}" || echo "WARN: event_sink did not record: $event" >&2
+}
+
+# 生成脚本这件事的输入不止钥匙，还有技能自己。技能改了而产品仓库 HEAD 没动时，引擎原本
+# 看不见——于是 build 拿着上一次装配出来的脚本去构建机跑，日志里每一步都对，只是跑的不是
+# 你刚改的那一份。指纹存在状态里，build 前对一次。
+_skill_fingerprint() {
+  find "$SCRIPT_DIR" -type f \( -name '*.py' -o -name '*.tmpl' -o -name '*.sh' \) \
+    ! -path '*/__pycache__/*' -print0 | sort -z | xargs -0 shasum | shasum | cut -d' ' -f1
+}
+
+# 标准流水线：验钥匙 → 装配 → 远端构建。每把钥匙的这三段曾经逐字相同，只有钥匙路径不同，
+# 于是它是抄的——而 v2 钥匙指着 v1 钥匙那个 bug 正是这么抄出来的，日志里每一步还都是绿的。
+# 钥匙自己的 stages 排在这一份**前面**：产品在出发前要跑的检查（版本号没重、仓库现状跟钥匙
+# 还对得上）是它自己的事，而后面这三段每把钥匙都一样。
+# 这三个名字是保留字，钥匙用不了（合同挡在 init 之前）。曾经允许钥匙用同名接管整条，
+# 于是抄来的一句 assemble 就把引擎的验钥匙整段关掉了，而日志每一步都是绿的。
+_standard_stages() {
+  jq -nc --arg mp "$1" '[
+    {name:"verify_key", run:["uv","run","--with","pydantic>=2","python",
+      "${RELEASE_PLUGIN_DIR}/verify_key.py","--adapter",$mp,"--repo-root","."]},
+    {name:"assemble", run:["uv","run","--with","pydantic>=2","python",
+      "${RELEASE_PLUGIN_DIR}/release_script_assembler.py","assemble",
+      "--adapter",$mp,"--repo-root",".",
+      "--output","${RELEASE_LOOP_DIR}/release.ps1",
+      "--context-output","${RELEASE_LOOP_DIR}/release-context.json"]},
+    {name:"build", run:["mmw-release-remote-build",
+      "--script","${RELEASE_LOOP_DIR}/release.ps1",
+      "--context","${RELEASE_LOOP_DIR}/release-context.json"]}
+  ]'
 }
 
 cmd_init() {
@@ -635,47 +730,52 @@ cmd_init() {
         if usage_release; then :; fi
         exit 0
         ;;
-      *) die "未知参数 $1" ;;
+      *) die "unknown argument $1" ;;
     esac
   done
-  [ -n "$manifest" ] || die "--manifest 必填"
-  [ -f "$manifest" ] || die "manifest 文件不存在: $manifest"
-  case "$max_rounds" in ''|*[!0-9]*) die "--max-rounds 必须是非负整数" ;; esac
-  case "$max_wall_clock" in ''|*[!0-9]*) die "--max-wall-clock 必须是非负整数(秒)" ;; esac
+  [ -n "$manifest" ] || die "--manifest is required"
+  [ -f "$manifest" ] || die "no such manifest file: $manifest"
+  case "$max_rounds" in ''|*[!0-9]*) die "--max-rounds must be a non-negative integer" ;; esac
+  case "$max_wall_clock" in ''|*[!0-9]*) die "--max-wall-clock must be a non-negative integer (seconds)" ;; esac
 
   local canon
   canon="$(uv run --quiet "$SCRIPT_DIR/release_contracts.py" validate-manifest "$manifest")" \
-    || die "manifest 不合规(引擎载入 fail-loud，请人改 manifest)"
+    || die "the manifest does not satisfy the contract; a person has to fix the key"
 
   local f top sd mp source_commit
   top="$(git rev-parse --show-toplevel)"
   source_commit="$(git -C "$top" rev-parse HEAD)"
   sd="$(release_subdir)"
   f="$top/$sd/$STATE_NAME"
-  [ -f "$f" ] && die "已有未收束 release loop;先 release close 或复用"
+  [ -f "$f" ] && die "a release loop is already open; close it or continue it"
+  # 上一轮的 attempt 目录不能留:attempt 号从 a0 重新数,旧目录跟本轮同名对撞,于是
+  # 「本轮的 a4-verify_key」读到的是上一个产品的结果,而没有任何一步报错。
+  rm -rf "$top/$sd/release-artifacts"
   mkdir -p "$top/$sd"
   mp="$(cd "$(dirname "$manifest")" && pwd)/$(basename "$manifest")"
-  printf '%s' "$canon" | jq --arg mp "$mp" --arg sc "$source_commit" --argjson mr "$max_rounds" --argjson wall "$max_wall_clock" --arg ts "$(now)" \
+  local standard
+  standard="$(_standard_stages "$mp")"
+  printf '%s' "$canon" | jq --arg mp "$mp" --arg sc "$source_commit" --argjson mr "$max_rounds" --argjson wall "$max_wall_clock" --arg ts "$(now)" --argjson std "$standard" \
     '{schema_version:"1", product:.product, manifest_path:$mp, source_commit:$sc,
-      stages:[.stages[]|{name:.name, run:.run, status:"pending"}],
-      current_stage:(.stages[0].name // null),
+      stages:[(.stages + $std)[] | {name:.name, run:.run, status:"pending"}],
+      current_stage:(.stages[0].name // $std[0].name // null),
       round:1, max_rounds:$mr, fingerprint_ledger:[],
       budget:{attempts:0, fix_rounds:0, max_fix_rounds:$mr, started_at:$ts, max_wall_clock_seconds:$wall},
       attempt_ledger:[], pause:null}' | write "$f"
-  echo "INIT product=$(printf '%s' "$canon" | jq -r .product) stages=$(printf '%s' "$canon" | jq -r '.stages|length') max_rounds=$max_rounds"
+  echo "INIT product=$(printf '%s' "$canon" | jq -r .product) stages=$(jq -r '.stages|length' "$f") max_rounds=$max_rounds"
 }
 
 cmd_where() {
   local f
   f="$(need_state)"
-  jq -e . "$f" >/dev/null 2>&1 || { echo "CORRUPT:release-state 空/非法 JSON"; return 0; }
+  jq -e . "$f" >/dev/null 2>&1 || { echo "CORRUPT:release-state is empty or not valid JSON"; return 0; }
   if [ "$(jq -r '.pause // "null"' "$f")" != "null" ]; then
     echo "PAUSED:$(jq -r '.pause.reason' "$f")"
     return 0
   fi
   local n
   n="$(jq -r '.stages|length' "$f")"
-  [ "$n" -gt 0 ] || { echo "NO-STAGES:manifest 合规但无阶段可跑(请人改 manifest)"; return 0; }
+  [ "$n" -gt 0 ] || { echo "NO-STAGES:the manifest is valid but has no stage to run; a person has to fix the key"; return 0; }
   # running 优先于 failed/pending:进程在「已标 running、未写终态」间中断后,该 stage 必须重跑。
   # 不认 running 会让 where 指向下一个 pending(stage run 二次防线 die)甚至误报 SUCCESS。
   local interrupted
@@ -684,21 +784,19 @@ cmd_where() {
     jq -r --arg c "$interrupted" '"RETRY-STAGE:"+$c+" RUN:"+([.stages[]|select(.name==$c)][0].run|join(" "))' "$f"
     return 0
   fi
-  local failed
-  failed="$(jq -r '[.stages[]|select(.status=="failed")][0].name // ""' "$f")"
-  if [ -n "$failed" ]; then
-    jq -r --arg c "$failed" '"RETRY-STAGE:"+$c+" RUN:"+([.stages[]|select(.name==$c)][0].run|join(" "))' "$f"
-    return 0
-  fi
-  local cur
-  cur="$(jq -r '[.stages[]|select(.status=="pending")][0].name // ""' "$f")"
+  # 管线是有序的,所以下一步就是**第一个还没 done 的阶段**——按位置,不按状态。曾经这里先挑
+  # failed 再挑 pending,于是失效守卫把靠前的 assemble 打回 pending 之后,where 还指着靠后
+  # 那个 failed 的 build:引擎要求先重装配,where 却让人重跑构建,驱动在这里原地打转。
+  local cur status
+  cur="$(jq -r '[.stages[]|select(.status!="done")][0].name // ""' "$f")"
   if [ -z "$cur" ]; then
-    local failed
-    failed="$(jq -r '[.stages[]|select(.status=="failed")|.name]|join(",")' "$f")"
-    [ -z "$failed" ] && echo "SUCCESS:all stages done" || echo "FAILED-STAGE:$failed"
+    echo "SUCCESS:all stages done"
     return 0
   fi
-  jq -r --arg c "$cur" '"STAGE:"+$c+" RUN:"+([.stages[]|select(.name==$c)][0].run|join(" "))' "$f"
+  status="$(jq -r --arg c "$cur" '[.stages[]|select(.name==$c)][0].status' "$f")"
+  local verb="STAGE"
+  [ "$status" = "failed" ] && verb="RETRY-STAGE"
+  jq -r --arg c "$cur" --arg v "$verb" '$v+":"+$c+" RUN:"+([.stages[]|select(.name==$c)][0].run|join(" "))' "$f"
 }
 
 cmd_stage() {
@@ -708,7 +806,7 @@ cmd_stage() {
     done) cmd_stage_done "$@" ;;
     fail) cmd_stage_fail "$@" ;;
     run) cmd_stage_run "$@" ;;
-    *) die "用法 stage run|done|fail" ;;
+    *) die "usage: stage run|done|fail" ;;
   esac
 }
 
@@ -730,6 +828,10 @@ _write_remote_wrapper() {
   cat > "$wrapper" <<'PS1'
 param([Parameter(Mandatory=$true)][string]$InputRoot)
 $ErrorActionPreference = 'Continue'
+# 这一层读子进程的输出。构建机是中文 Windows，不设的话按 GBK(cp936) 解——而下面那个子进程
+# 里的一切（release.ps1 自己的报错、Python 钩子的日志）都是 UTF-8。解错了整段中文变乱码，
+# 而这份日志是出包失败之后唯一的现场，人和自愈链读到的都是它。
+try { [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false) } catch { }
 $log = Join-Path $InputRoot 'build-run.log'
 $rel = Join-Path $InputRoot 'release.ps1'
 $ctx = Join-Path $InputRoot 'release-context.json'
@@ -749,43 +851,40 @@ PS1
 _run_remote_build() {
   local top="$1" source_commit="$2" stage_dir="$3"
   shift 3
-  local script="" context="" remote_host remote_root remote_conf manifest_path remote_input remote_input_win archive commit_file remote_context wrapper cmd_file runner_cmd_win task_name product installer_glob
+  local script="" context="" build_env remote_host remote_root remote_conf manifest_path remote_input remote_input_win archive commit_file remote_context wrapper cmd_file runner_cmd_win task_name product installer_glob
   while [ $# -gt 0 ]; do
     case "$1" in
       --script) script="${2:-}"; shift 2 ;;
       --context) context="${2:-}"; shift 2 ;;
-      *) echo "ERROR: mmw-release-remote-build 未知参数 $1" >&2; return 64 ;;
+      *) echo "ERROR: mmw-release-remote-build got an unknown argument $1" >&2; return 64 ;;
     esac
   done
-  case "$script" in /*) ;; *) echo "ERROR: remote build --script 必须是绝对路径" >&2; return 64 ;; esac
-  case "$context" in /*) ;; *) echo "ERROR: remote build --context 必须是绝对路径" >&2; return 64 ;; esac
-  [ -f "$script" ] || { echo "ERROR: remote build script 不存在: $script" >&2; return 64; }
-  [ -f "$context" ] || { echo "ERROR: remote build context 不存在: $context" >&2; return 64; }
+  case "$script" in /*) ;; *) echo "ERROR: remote build --script must be an absolute path" >&2; return 64 ;; esac
+  case "$context" in /*) ;; *) echo "ERROR: remote build --context must be an absolute path" >&2; return 64 ;; esac
+  [ -f "$script" ] || { echo "ERROR: no such remote build script: $script" >&2; return 64; }
+  [ -f "$context" ] || { echo "ERROR: no such remote build context: $context" >&2; return 64; }
   remote_host="${RELEASE_REMOTE_HOST:-}"
   remote_root="${RELEASE_REMOTE_ROOT:-}"
   # 环境变量为空时回落到 remote-build.json：跟 *.release-adapter.json 同一个目录，
   # 一台构建机一份，不用每把钥匙抄一遍。落成文件是为了没有人需要记住这两个值——
   # 只活在人的记忆里，出包就会走到这一步停下来等人补。
   # 环境变量仍然优先：临时换一次构建机、以及测试灌假值，都只能走它。
-  if [ -z "$remote_host" ] || [ -z "$remote_root" ]; then
-    manifest_path="$(jq -r '.manifest_path // empty' "$(state_file)" 2>/dev/null || true)"
-    if [ -n "$manifest_path" ]; then
-      remote_conf="$(dirname "$manifest_path")/remote-build.json"
-      if [ -f "$remote_conf" ]; then
-        [ -n "$remote_host" ] || remote_host="$(jq -r '.host // empty' "$remote_conf" 2>/dev/null || true)"
-        [ -n "$remote_root" ] || remote_root="$(jq -r '.root // empty' "$remote_conf" 2>/dev/null || true)"
-      fi
-    fi
+  remote_conf=""
+  manifest_path="$(jq -r '.manifest_path // empty' "$(state_file)" 2>/dev/null || true)"
+  if [ -n "$manifest_path" ] && [ -f "$(dirname "$manifest_path")/remote-build.json" ]; then
+    remote_conf="$(dirname "$manifest_path")/remote-build.json"
+    [ -n "$remote_host" ] || remote_host="$(jq -r '.host // empty' "$remote_conf" 2>/dev/null || true)"
+    [ -n "$remote_root" ] || remote_root="$(jq -r '.root // empty' "$remote_conf" 2>/dev/null || true)"
   fi
   # 这两行报错文字是产品仓库 diagnose 的匹配面，改它等于改掉那边的根因指纹。补充说明另起一行。
   if [ -z "$remote_host" ]; then
-    echo "ERROR: remote build 缺 RELEASE_REMOTE_HOST" >&2
-    echo "HINT: 导出这个变量，或在钥匙旁边放 remote-build.json：{\"host\": \"...\", \"root\": \"...\"}" >&2
+    echo "ERROR: remote build has no RELEASE_REMOTE_HOST" >&2
+    echo "HINT: export it, or put remote-build.json next to the key: {\"host\": \"...\", \"root\": \"...\"}" >&2
     return 64
   fi
   if [ -z "$remote_root" ]; then
-    echo "ERROR: remote build 缺 RELEASE_REMOTE_ROOT" >&2
-    echo "HINT: 导出这个变量，或在钥匙旁边放 remote-build.json：{\"host\": \"...\", \"root\": \"...\"}" >&2
+    echo "ERROR: remote build has no RELEASE_REMOTE_ROOT" >&2
+    echo "HINT: export it, or put remote-build.json next to the key: {\"host\": \"...\", \"root\": \"...\"}" >&2
     return 64
   fi
 
@@ -794,7 +893,7 @@ _run_remote_build() {
   # 引号就没有统一合同。唯一稳定做法:远端根收紧为字符白名单(盘符开头,只允许字母数字与
   # ._-/\),空格/引号/美元符/反引号/分号等一律拒,所有 schtasks 参数裸传不加引号。
   if ! printf '%s' "$remote_root" | grep -Eq '^[A-Za-z]:[/\\][A-Za-z0-9._/\\-]*$'; then
-    echo "ERROR: RELEASE_REMOTE_ROOT 必须是安全字符的 Windows 绝对路径(盘符开头,仅字母数字._-/\\): $remote_root" >&2
+    echo "ERROR: RELEASE_REMOTE_ROOT must be an absolute Windows path in safe characters (drive letter, then letters/digits/._-/\\): $remote_root" >&2
     return 64
   fi
   # 远端构建目录按 <短commit>-<product> 命名:
@@ -808,7 +907,7 @@ _run_remote_build() {
   product="$(jq -r '.product // empty' "$context" 2>/dev/null)"
   case "$product" in
     '' | *[!A-Za-z0-9._-]*)
-      echo "ERROR: remote build context.product 缺失或含非法字符: '$product'" >&2
+      echo "ERROR: remote build context.product is missing or has illegal characters: '$product'" >&2
       return 64
       ;;
   esac
@@ -821,11 +920,39 @@ _run_remote_build() {
   wrapper="$stage_dir/run-release.ps1"
   git -C "$top" archive --format=zip --output "$archive" HEAD || return $?
   printf '%s\n' "$source_commit" > "$commit_file"
-  jq --arg root "$remote_input/source" '.repo_root = $root' "$context" > "$remote_context" || return $?
+  # 构建机自己的事实（镜像地址、ccache 装在哪）跟着 context 上去，模板在第一步就应用它们。
+  # 它们不属于任何一把钥匙：换一台构建机，这些全变，而钥匙一个字都不用改。
+  build_env='{}'
+  if [ -n "$remote_conf" ]; then
+    build_env="$(jq -c '.build_env // {}' "$remote_conf" 2>/dev/null || echo '{}')"
+  fi
+  # 工具链缓存放哪。不设的话 uv / Nuitka / pnpm / Electron 全都落在 %LOCALAPPDATA%,
+  # 也就是系统盘——构建目录在 D 盘上跑得好好的,系统盘却被这几个缓存慢慢填满,直到某一轮
+  # 磁盘闸把出包拦下来。缓存必须跨轮活着(那是它存在的理由),所以放在构建输入根**旁边**,
+  # 不放在会被删掉的构建目录里面。命名跟 <根>-delivered 一致。
+  local cache_root
+  cache_root="${RELEASE_CACHE_ROOT:-}"
+  if [ -z "$cache_root" ] && [ -n "$remote_conf" ]; then
+    cache_root="$(jq -r '.cache_root // empty' "$remote_conf" 2>/dev/null || true)"
+  fi
+  [ -n "$cache_root" ] || cache_root="${remote_root%/}-cache"
+  jq --arg root "$remote_input/source" --argjson be "$build_env" --arg cr "$cache_root" \
+    '.repo_root = $root | .build_env = $be | .cache_root = $cr' "$context" > "$remote_context" || return $?
   _write_remote_wrapper "$wrapper"
 
   _ssh_ps "$remote_host" "New-Item -ItemType Directory -Force -Path '$remote_input' | Out-Null" || return $?
+  # 失败的构建目录是现场,留着;但只留最近两个。再往前的没有人会读,而一个就是几个 GB。
+  # 只动 <短commit>-<本产品> 这种目录名,交付目录与别的产品都不在范围内。
+  # 用 -Property/-Like 而不是 `Where-Object { $_.Name ... }`:这条命令要穿过 bash 双引号、
+  # 远端默认 shell(PowerShell)与 powershell.exe 三层,$_ 会在到达 powershell.exe 之前就被
+  # 当成变量吃掉,于是筛选条件恒空、什么也不匹配,而且一声不响。
+  if ! _ssh_ps "$remote_host" "Get-ChildItem -LiteralPath '${remote_root%/}' -Directory -ErrorAction SilentlyContinue | Where-Object -Property Name -Like '*-$product' | Where-Object -Property Name -NE '${source_commit:0:12}-$product' | Sort-Object LastWriteTime -Descending | Select-Object -Skip 2 | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue"; then
+    echo "WARN: could not prune old remote build dirs (this round is unaffected); take a look by hand: $remote_root" >&2
+  fi
   scp "$archive" "$remote_host:$remote_input/source.zip" || return $?
+  # 传完即删:这份 zip 是 `git archive $(cat SOURCE_COMMIT.txt)` 一字不差重生得出来的,
+  # 不是记录,只是每一次尝试在 Mac 上多占的几百 MB。
+  rm -f "$archive"
   scp "$commit_file" "$remote_host:$remote_input/SOURCE_COMMIT.txt" || return $?
   scp "$script" "$remote_host:$remote_input/release.ps1" || return $?
   scp "$remote_context" "$remote_host:$remote_input/release-context.json" || return $?
@@ -844,8 +971,8 @@ _run_remote_build() {
   # 源码解压:在 harness 独立 ssh 会话里同步做完(~60s、断 ssh 无碍),失败必 fail-loud 不进构建。
   # (现役旧路径是在脱附会话内的 build ps1 里解压,同样可靠;此处前置做只是让解压失败在 Mac 侧即时可见。)
   # 先删旧 source 避免跨轮残留半解压文件;解压后校验目录非空,空即判失败。
-  if ! _ssh_ps "$remote_host" "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue '$remote_input/source'; Expand-Archive -Force '$remote_input/source.zip' '$remote_input/source'; if (-not (Test-Path '$remote_input/source') -or -not (Get-ChildItem -Force '$remote_input/source')) { exit 1 }"; then
-    echo "ERROR: 远端源码解压失败或产出为空(构建任务前置准备): $remote_input/source" >&2
+  if ! _ssh_ps "$remote_host" "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue '$remote_input/source'; Expand-Archive -Force '$remote_input/source.zip' '$remote_input/source'; if (-not (Test-Path '$remote_input/source') -or -not (Get-ChildItem -Force '$remote_input/source')) { exit 1 }; Remove-Item -Force -ErrorAction SilentlyContinue '$remote_input/source.zip'"; then
+    echo "ERROR: source did not expand on the build machine, or expanded to nothing: $remote_input/source" >&2
     return 71
   fi
 
@@ -853,7 +980,7 @@ _run_remote_build() {
   # 时若不清,首次轮询就会读到过期 exitcode(如上轮的 "0")而把仍在跑或已失败的本轮误判成功——
   # 清除失败必须 fail-loud,不能静默继续。
   if ! _ssh_ps "$remote_host" "Remove-Item -Force -ErrorAction SilentlyContinue '$remote_input/build-run.log','$remote_input/build-run.exitcode'; if ((Test-Path '$remote_input/build-run.exitcode') -or (Test-Path '$remote_input/build-run.log')) { exit 1 }"; then
-    echo "ERROR: 无法清除远端上一轮构建产物(旧 exitcode 会把本轮误判成功): $remote_input" >&2
+    echo "ERROR: could not clear the previous round on the build machine; a stale exitcode would read as this round succeeding: $remote_input" >&2
     return 70
   fi
 
@@ -871,14 +998,14 @@ _run_remote_build() {
   # 结束可能仍在跑的构建 + 删计划任务:超时那类会有孤儿构建抢写下次同 commit 的 exitcode,其余虽只在
   # Task Scheduler 堆无害死条目也一并清。用子函数跑「/run + 轮询」拿 rc,函数尾部统一清理一次,不在每个
   # return 前重复 cleanup(避免上轮只补超时分支、漏掉 /run 失败与 exitcode 非法两个出口那类遗漏)。
-  local rc=0
+  local rc=0 delivered=0
   _remote_run_and_poll "$remote_host" "$remote_input" "$task_name" "$stage_dir" || rc=$?
   # 清理经 _ssh_ps 的 PowerShell 分号顺序执行(/end 失败不挡 /delete):cmd 的 `&` 在
   # PowerShell 5.1 解析失败、PS6+ 变后台 job,跨默认 shell 没有顺序语义。任务名与创建端
   # 同样裸传(无空格无引号,PowerShell 原样传给 schtasks native)。清理失败不改变构建判定,
   # 但必须留痕(残留任务会在下轮同 commit 抢写产物)。
   if ! _ssh_ps "$remote_host" "schtasks /end /tn $task_name; schtasks /delete /tn $task_name /f" >/dev/null 2>&1; then
-    echo "WARN: 远端计划任务清理失败(task=$task_name),残留条目需手动 schtasks /delete" >&2
+    echo "WARN: could not delete the scheduled task (task=$task_name); remove it by hand with schtasks /delete" >&2
   fi
   # 构建成功且钥匙声明了安装包落点:把安装包从 commit 哈希构建目录收拢到统一交付目录
   # $RELEASE_DELIVERY_ROOT/<product>/(缺省 D:\agentflow-releases),按产品分子目录、覆盖同名(每产品各占各的,
@@ -887,7 +1014,13 @@ _run_remote_build() {
   # 构建目录产出,交付是收拢便利,不该让一次拷贝故障把成功的构建标成失败——但必须留痕并指出源路径。
   if [ "$rc" -eq 0 ] && [ -n "$installer_glob" ]; then
     local delivery_root glob_win dest_win src_glob_win deliver_ps deliver_out
-    delivery_root="${RELEASE_DELIVERY_ROOT:-D:\\agentflow-releases}"
+    # 交付目录是构建机的事实，不是技能的常量：先看环境变量，再看钥匙旁边的
+    # remote-build.json，最后从构建输入根推一个同级目录出来。
+    delivery_root="${RELEASE_DELIVERY_ROOT:-}"
+    if [ -z "$delivery_root" ] && [ -n "$remote_conf" ]; then
+      delivery_root="$(jq -r '.delivery_root // empty' "$remote_conf" 2>/dev/null || true)"
+    fi
+    [ -n "$delivery_root" ] || delivery_root="$(printf '%s' "${remote_root%/}" | tr '/' '\\')-delivered"
     glob_win="$(printf '%s' "$installer_glob" | tr '/' '\\')"
     dest_win="${delivery_root%\\}\\${product}"
     src_glob_win="${remote_input_win}\\source\\${glob_win}"
@@ -904,9 +1037,19 @@ foreach ($it in $items) { Copy-Item -LiteralPath $it.FullName -Destination $Dest
 DELIVER_PS1
     if scp "$deliver_ps" "$remote_host:$remote_input/deliver-installer.ps1" >/dev/null 2>&1 &&
       deliver_out="$(ssh "$remote_host" "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File '$remote_input_win\\deliver-installer.ps1' -Dest '$dest_win' -SrcGlob '$src_glob_win'" 2>&1)"; then
-      printf '%s\n' "$deliver_out" | grep '^DELIVERED ' >&2 || true
+      printf '%s\n' "$deliver_out" | grep '^DELIVERED ' >&2 && delivered=1 || true
     else
-      echo "WARN: 安装包交付到 $dest_win 失败(构建已成功,安装包仍在 $src_glob_win):$deliver_out" >&2
+      echo "WARN: could not gather the installer into $dest_win (the build did succeed; the installer is still at $src_glob_win): $deliver_out" >&2
+    fi
+  fi
+  # 构建目录是过程,不是记录。安装包已经收进交付目录、日志已经回传到 stage_dir 之后,
+  # 剩下的源码树、node_modules 与中间产物(一轮几个 GB)再没有人会读。
+  # **失败的整个留着**:根因只存在于那台机器上的那个目录里。
+  if [ "$rc" -eq 0 ] && [ "$delivered" -eq 1 ]; then
+    if _ssh_ps "$remote_host" "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue '$remote_input'"; then
+      REMOTE_LOG_REF=""
+    else
+      echo "WARN: could not remove the remote build dir; delete it by hand: $remote_input" >&2
     fi
   fi
   return "$rc"
@@ -934,10 +1077,10 @@ _remote_run_and_poll() {
       sleep 5
     done
     [ "$launched" = "1" ] && break
-    echo "WARN: detached 构建任务未启动,重试 schtasks /run(第 ${attempt} 次)" >&2
+    echo "WARN: the detached build task did not start; retrying schtasks /run (attempt ${attempt})" >&2
   done
   if [ "$launched" != "1" ]; then
-    echo "ERROR: detached 构建任务在 $remote_host 启动失败(build-run.log/exitcode 一直未出现,task=$task_name)" >&2
+    echo "ERROR: the detached build task never started on $remote_host (no build-run.log and no exitcode ever appeared, task=$task_name)" >&2
     return 70
   fi
 
@@ -957,7 +1100,7 @@ _remote_run_and_poll() {
     fi
     # 超时按真实墙钟判(不累加 poll_seconds):即使 poll=0(测试用的快轮询)也不会因 waited 恒为 0 而永不超时。
     if [ "$(( $(date +%s) - start_ts ))" -ge "$max_seconds" ]; then
-      echo "ERROR: remote build 超时 ${max_seconds}s 未产出 exitcode(task=$task_name)" >&2
+      echo "ERROR: remote build produced no exitcode within ${max_seconds}s (task=$task_name)" >&2
       _fetch_remote_build_log "$remote_host" "$remote_input" "$stage_dir"
       return 70
     fi
@@ -965,7 +1108,7 @@ _remote_run_and_poll() {
   done
   _fetch_remote_build_log "$remote_host" "$remote_input" "$stage_dir"
   case "$exit_code" in
-    ''|*[!0-9-]*) echo "ERROR: remote build exit-code 非法: $exit_code" >&2; return 70 ;;
+    ''|*[!0-9-]*) echo "ERROR: remote build returned an illegal exit code: $exit_code" >&2; return 70 ;;
   esac
   REMOTE_LOG_REF="pc:$remote_input/build-run.log"
   [ "$exit_code" = "0" ] || return "$exit_code"
@@ -979,25 +1122,25 @@ _fetch_remote_build_log() {
   if scp "$remote_host:$remote_input/build-run.log" "$stage_dir/build-run.log" 2>/dev/null; then
     REMOTE_LOG_LOCAL="$stage_dir/build-run.log"
   else
-    echo "WARN: 无法回传远端构建日志 $remote_input/build-run.log" >&2
+    echo "WARN: could not fetch the build log back from $remote_input/build-run.log" >&2
   fi
 }
 
 cmd_stage_run() {
-  local requested="" f name top source_commit attempt_id stage_dir loop_dir log_file raw expanded rc=0
+  local requested="" f name top mp source_commit attempt_id stage_dir loop_dir log_file raw expanded rc=0
   while [ $# -gt 0 ]; do
     case "$1" in
       --stage) requested="$2"; shift 2 ;;
-      *) die "未知参数 $1" ;;
+      *) die "unknown argument $1" ;;
     esac
   done
 
   f="$(need_state)"
-  jq -e . "$f" >/dev/null 2>&1 || die "release-state 损坏，拒绝执行 stage"
+  jq -e . "$f" >/dev/null 2>&1 || die "release-state is corrupt; refusing to run a stage"
   name="$(jq -r '[.stages[] | select(.status == "pending" or .status == "failed" or .status == "running")][0].name // ""' "$f")"
-  [ -n "$name" ] || die "没有可执行的 stage"
+  [ -n "$name" ] || die "no stage left to run"
   if [ -n "$requested" ] && [ "$requested" != "$name" ]; then
-    die "只能执行最早未完成 stage: $name"
+    die "only the earliest unfinished stage may run: $name"
   fi
 
   top="$(_repo_top)"
@@ -1014,12 +1157,23 @@ cmd_stage_run() {
 
   local argv=()
   while IFS= read -r raw; do
-    expanded="${raw//\$\{RELEASE_STAGE_DIR\}/$stage_dir}"
-    expanded="${expanded//\$\{RELEASE_LOOP_DIR\}/$loop_dir}"
-    expanded="${expanded//\$\{RELEASE_PLUGIN_DIR\}/$SCRIPT_DIR}"
-    argv+=("$expanded")
+    argv+=("$(_expand_argv_token "$raw" "$stage_dir" "$loop_dir")")
   done < <(jq -r --arg n "$name" '.stages[] | select(.name == $n) | .run[]' "$f")
-  [ ${#argv[@]} -gt 0 ] || die "stage $name 的 argv 为空"
+  [ ${#argv[@]} -gt 0 ] || die "stage $name has an empty argv"
+
+  # 装配之后技能自己改了，$loop_dir 里那份脚本就过期了。拿它去构建机跑，每一步都对，
+  # 只是跑的不是刚改的那一份——这一类失败在日志里完全看不出来。
+  if [ "$name" = "build" ] && [ "${argv[0]}" = "mmw-release-remote-build" ]; then
+    local recorded current
+    recorded="$(jq -r '.skill_fingerprint // ""' "$f")"
+    current="$(_skill_fingerprint)"
+    if [ -n "$recorded" ] && [ "$recorded" != "$current" ]; then
+      edit "$f" '(.stages |= map(if .name == "assemble" then .status = "pending" else . end))
+                 | .current_stage = "assemble"'
+      echo "STALE-SCRIPT: the skill changed after assemble; rerun assemble, then build" >&2
+      return 1
+    fi
+  fi
 
   edit "$f" --arg n "$name" '(.stages |= map(if .name == $n then .status = "running" else . end)) | .current_stage = $n'
   append_attempt "$f" "$name" "stage_run" "running" "" ""
@@ -1057,6 +1211,7 @@ cmd_stage_run() {
        | .current_stage = ([.stages[] | select(.status == "pending")][0].name // null)
        | .attempt_ledger[-1].outcome = "done"
        | .attempt_ledger[-1].log_refs = ([$log, (if $remote == "" then empty else $remote end), (if $local_log == "" then empty else "file:" + $local_log end)])'
+    [ "$name" = "assemble" ] && edit "$f" --arg fp "$(_skill_fingerprint)" '.skill_fingerprint = $fp'
     echo "STAGE-RUN-DONE $name"
     return 0
   fi
@@ -1071,9 +1226,9 @@ cmd_stage_run() {
   findings_file="$stage_dir/$name.findings.json"
   local diagnose_argv=()
   while IFS= read -r diag_arg; do
-    diagnose_argv+=("$diag_arg")
-  done < <(jq -r '.diagnose[]' "$mp")
-  [ ${#diagnose_argv[@]} -gt 0 ] || die "manifest.diagnose 为空"
+    diagnose_argv+=("$(_expand_argv_token "$diag_arg" "$stage_dir" "$loop_dir")")
+  done < <(_diagnose_argv_source "$mp")
+  [ ${#diagnose_argv[@]} -gt 0 ] || die "manifest.diagnose is empty"
   # 把失败现场交给 diagnose:RELEASE_BUILD_LOG 是回传的远端构建日志(仅远程 build 失败时有),
   # RELEASE_STAGE_LOG 是本 stage 的引擎侧日志。diagnose 据此把真实失败翻译成带 tier+fingerprint
   # 的 finding,而不是只看 Mac 本地状态、把远程失败降级成「无法分类交人」。
@@ -1084,7 +1239,7 @@ cmd_stage_run() {
     RELEASE_BUILD_LOG="$remote_log_local" \
     "${diagnose_argv[@]}"
   ) > "$findings_file" 2>&1 || true
-  echo "STAGE-RUN-FAILED $name rc=$rc; 进入 diagnose 分级" >&2
+  echo "STAGE-RUN-FAILED $name rc=$rc; going to diagnose and classify" >&2
   cmd_stage_fail --stage "$name" --findings "$findings_file"
 }
 
@@ -1093,18 +1248,18 @@ cmd_stage_done() {
   while [ $# -gt 0 ]; do
     case "$1" in
       --stage) name="$2"; shift 2 ;;
-      *) die "未知参数 $1" ;;
+      *) die "unknown argument $1" ;;
     esac
   done
-  [ -n "$name" ] || die "--stage 必填"
+  [ -n "$name" ] || die "--stage is required"
   local f earliest
   f="$(need_state)"
-  jq -e --arg n "$name" 'any(.stages[]; .name==$n)' "$f" >/dev/null || die "无此 stage: $name"
+  jq -e --arg n "$name" 'any(.stages[]; .name==$n)' "$f" >/dev/null || die "no such stage: $name"
   # stage run 是唯一执行器;stage done 只是人工确认位,只能确认最早未完成 stage,否则可把从未
   # 执行的 build 直接标 done、让 exit-check 在没有安装包的情况下报 DONE。
   earliest="$(jq -r '[.stages[] | select(.status == "pending" or .status == "failed" or .status == "running")][0].name // ""' "$f")"
-  [ -n "$earliest" ] || die "没有未完成 stage 可确认"
-  [ "$name" = "$earliest" ] || die "只能确认最早未完成 stage: $earliest(拒绝跳步标 done)"
+  [ -n "$earliest" ] || die "no unfinished stage to confirm"
+  [ "$name" = "$earliest" ] || die "only the earliest unfinished stage may be confirmed: $earliest"
   append_attempt "$f" "$name" "stage" "done" "" ""
   edit "$f" --arg n "$name" \
     '(.stages |= map(if .name==$n then .status="done" else . end))
@@ -1118,16 +1273,16 @@ cmd_stage_fail() {
     case "$1" in
       --stage) name="$2"; shift 2 ;;
       --findings) findings="$2"; shift 2 ;;
-      *) die "未知参数 $1" ;;
+      *) die "unknown argument $1" ;;
     esac
   done
-  [ -n "$name" ] || die "--stage 必填"
-  [ -n "$findings" ] || die "--findings 必填"
-  [ -f "$findings" ] || die "findings 文件不存在: $findings"
+  [ -n "$name" ] || die "--stage is required"
+  [ -n "$findings" ] || die "--findings is required"
+  [ -f "$findings" ] || die "no such findings file: $findings"
 
   local f
   f="$(need_state)"
-  jq -e --arg n "$name" 'any(.stages[]; .name==$n)' "$f" >/dev/null || die "无此 stage: $name"
+  jq -e --arg n "$name" 'any(.stages[]; .name==$n)' "$f" >/dev/null || die "no such stage: $name"
 
   local cls
   if ! cls="$(uv run --quiet "$SCRIPT_DIR/release_contracts.py" classify-findings "$findings")"; then
@@ -1136,7 +1291,7 @@ cmd_stage_fail() {
       '(.stages |= map(if .name==$n then .status="failed" else . end))
        | .current_stage=$n
        | .pause={at_stage:$n, kind:"surface", reason:"needs-context",
-                 question:("stage "+$n+" 的 diagnose 产不出合规 Finding("+$fd+"),无法分级,交人")}'
+                 question:("diagnose for stage "+$n+" produced no valid Finding ("+$fd+"); it cannot be classified, so it goes to a human")}'
     emit_event "$f" "stage.failed" "$name" "" "" ""
     echo "UNCLASSIFIABLE:$name(escalate PAUSE)"
     return 0
@@ -1148,7 +1303,7 @@ cmd_stage_fail() {
       '(.stages |= map(if .name==$n then .status="failed" else . end))
        | .current_stage=$n
        | .pause={at_stage:$n, kind:"surface", reason:"needs-context",
-                 question:("stage "+$n+" 的 diagnose 未产出 fail Finding("+$fd+"),无法诊断,交人")}'
+                 question:("diagnose for stage "+$n+" produced no fail Finding ("+$fd+"); there is nothing to diagnose, so it goes to a human")}'
     emit_event "$f" "stage.failed" "$name" "" "" "$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
     echo "UNCLASSIFIABLE:$name(empty findings escalate PAUSE)"
     return 0
@@ -1174,14 +1329,14 @@ cmd_stage_fail() {
   if [ "$tier" = "P0" ]; then
     edit "$f" --arg n "$name" --arg fp "$fp" \
       '.pause={at_stage:$n, kind:"surface", reason:"needs-redirection",
-               question:("stage "+$n+" P0 硬约束失败("+$fp+"),触发人工审批关卡,停")}'
+               question:("stage "+$n+" broke a P0 hard constraint ("+$fp+"); this needs human approval and stops here")}'
     emit_event "$f" "paused" "$name" "P0" "$fp" "$aref"
-    echo "CLASSIFY=P0 $name -> PAUSE(交人)"
+    echo "CLASSIFY=P0 $name -> PAUSE (hand to a person)"
     return 0
   fi
 
   emit_event "$f" "classified" "$name" "$tier" "$fp" "$aref"
-  echo "CLASSIFY=$tier $name(待 fix-dispatch,归 002)"
+  echo "CLASSIFY=$tier $name (waiting for fix-dispatch)"
 }
 
 cmd_dispatch() {
@@ -1190,10 +1345,10 @@ cmd_dispatch() {
     case "$1" in
       --stage) name="$2"; shift 2 ;;
       --findings) findings="$2"; shift 2 ;;
-      *) die "未知参数 $1" ;;
+      *) die "unknown argument $1" ;;
     esac
   done
-  [ -n "$name" ] || die "--stage 必填"
+  [ -n "$name" ] || die "--stage is required"
 
   local f cls
   f="$(need_state)"
@@ -1202,14 +1357,14 @@ cmd_dispatch() {
   if [ -z "$findings" ]; then
     findings="$(jq -r '.attempt_ledger[-1].artifact_refs[0] // ""' "$f")"
   fi
-  [ -n "$findings" ] || die "--findings 未给且 ledger 无可用 findings 引用"
-  [ -f "$findings" ] || die "findings 文件不存在: $findings"
-  jq -e --arg n "$name" 'any(.stages[]; .name==$n)' "$f" >/dev/null || die "无此 stage: $name"
+  [ -n "$findings" ] || die "--findings not given and the ledger holds no usable findings reference"
+  [ -f "$findings" ] || die "no such findings file: $findings"
+  jq -e --arg n "$name" 'any(.stages[]; .name==$n)' "$f" >/dev/null || die "no such stage: $name"
 
   if ! cls="$(uv run --quiet "$SCRIPT_DIR/release_contracts.py" classify-findings "$findings")"; then
     edit "$f" --arg n "$name" --arg fd "$findings" \
       '.pause={at_stage:$n, kind:"surface", reason:"needs-context",
-               question:("dispatch 时 findings("+$fd+")产不出合规 Finding,无法分级,交人")}'
+               question:("the findings at dispatch ("+$fd+") produced no valid Finding; they cannot be classified, so this goes to a human")}'
     echo "UNCLASSIFIABLE:$name(dispatch escalate)"
     return 0
   fi
@@ -1217,7 +1372,7 @@ cmd_dispatch() {
   local tier fp
   tier="$(printf '%s' "$cls" | jq -r '.highest_tier // ""')"
   fp="$(printf '%s' "$cls" | jq -r '.failing[0].root_cause_fingerprint // ""')"
-  [ -n "$tier" ] || { echo "NOTHING-TO-DISPATCH:$name 无 failing finding"; return 0; }
+  [ -n "$tier" ] || { echo "NOTHING-TO-DISPATCH:$name has no failing finding"; return 0; }
   if ! _convergence_guard "$f" "$cls" "$name"; then return 0; fi
 
   # 瞬态失败(fingerprint 前缀 transient:,如构建机网络抖动)没有可修的代码——正确处置是直接
@@ -1230,7 +1385,7 @@ cmd_dispatch() {
       '(.stages |= map(if .name==$n then .status="pending" else . end))
        | .current_stage=$n'
     emit_event "$f" "classified" "$name" "$tier" "$fp" "$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
-    echo "TRANSIENT-RETRY:$name($fp,直接重跑不派修)"
+    echo "TRANSIENT-RETRY:$name ($fp, rerun as-is, no fix dispatched)"
     return 0
   fi
 
@@ -1243,29 +1398,29 @@ cmd_dispatch() {
         '(.stages |= map(if .name==$n then .status="failed" else . end))
          | .current_stage=$n
          | .pause={at_stage:$n, kind:"surface", reason:"needs-redirection",
-                  question:("dispatch "+$n+" P0 硬约束("+$fp+"),触发人工审批关卡,停")}'
+                  question:("dispatch "+$n+" broke a P0 hard constraint ("+$fp+"); this needs human approval and stops here")}'
       emit_event "$f" "paused" "$name" "P0" "$fp" "$aref"
-      echo "P0:$name P0 硬约束($fp),交人(已 PAUSE)"
+      echo "P0:$name hard constraint ($fp), handed to a person (PAUSED)"
       ;;
     P2) cmd_dispatch_p2 "$f" "$name" "$fp" "$findings" ;;
     P1) cmd_dispatch_p1 "$f" "$name" "$fp" "$findings" ;;
-    *) die "未知 tier: $tier" ;;
+    *) die "unknown tier: $tier" ;;
   esac
 }
 
 cmd_round() {
   local verb="${1:-}"
   shift || true
-  [ "$verb" = "next" ] || die "用法 round next"
+  [ "$verb" = "next" ] || die "usage: round next"
   local f max cur new
   f="$(need_state)"
   max="$(jq -r '.max_rounds // 0' "$f")"
   cur="$(jq -r '.round // 1' "$f")"
   new=$(( cur + 1 ))
   if [ "$max" -gt 0 ] && [ "$new" -gt "$max" ]; then
-    edit "$f" --arg q "跑满 $max 轮未收敛，引擎熔断交人(防无限打转)" \
+    edit "$f" --arg q "ran the full $max rounds without converging; the engine stops and hands it to a human (loop guard)" \
       '.pause={at_stage:(.current_stage // ""), kind:"surface", reason:"needs-redirection", question:$q}'
-    echo "ROUND-CAP:max=$max(已自动 surface 交人)"
+    echo "ROUND-CAP:max=$max (surfaced to a person)"
     return 0
   fi
   edit "$f" --argjson r "$new" '.round=$r'
@@ -1279,11 +1434,11 @@ cmd_surface() {
       --kind) kind="$2"; shift 2 ;;
       --question) q="$2"; shift 2 ;;
       --at-stage) at="$2"; shift 2 ;;
-      *) die "未知参数 $1" ;;
+      *) die "unknown argument $1" ;;
     esac
   done
-  case "$kind" in needs-context|needs-redirection) ;; *) die "--kind 只能 needs-context|needs-redirection" ;; esac
-  [ -n "$q" ] || die "--question 必填"
+  case "$kind" in needs-context|needs-redirection) ;; *) die "--kind must be needs-context or needs-redirection" ;; esac
+  [ -n "$q" ] || die "--question is required"
   edit "$(need_state)" --arg at "$at" --arg k "$kind" --arg q "$q" \
     '.pause={at_stage:$at, kind:"surface", reason:$k, question:$q}'
   echo "SURFACED $kind"
@@ -1292,7 +1447,7 @@ cmd_surface() {
 cmd_resume() {
   local f live saved start
   f="$(need_state)"
-  jq -e . "$f" >/dev/null 2>&1 || die "release-state 损坏，拒绝 resume"
+  jq -e . "$f" >/dev/null 2>&1 || die "release-state is corrupt; refusing to resume"
   live="$(git -C "$(_repo_top)" rev-parse HEAD)"
   saved="$(jq -r '.source_commit // ""' "$f")"
   if [ "$saved" != "$live" ]; then
@@ -1301,7 +1456,7 @@ cmd_resume() {
        | .source_commit = $sc
        | .current_stage = (.stages[0].name // null)
        | .pause = null'
-    echo "RESUMED:HEAD-CHANGED 重验全部 stages"
+    echo "RESUMED:HEAD-CHANGED every stage will run again"
     return 0
   fi
 
@@ -1349,14 +1504,14 @@ cmd_close() {
 cmd_exit_check() {
   local f
   f="$(need_state)"
-  jq -e . "$f" >/dev/null 2>&1 || { echo "CORRUPT:release-state 空/非法 JSON"; return 0; }
+  jq -e . "$f" >/dev/null 2>&1 || { echo "CORRUPT:release-state is empty or not valid JSON"; return 0; }
   if [ "$(jq -r '.pause // "null"' "$f")" != "null" ]; then
     echo "PAUSED:$(jq -r '.pause.reason' "$f")"
     return 0
   fi
   local n
   n="$(jq -r '.stages|length' "$f")"
-  [ "$n" -gt 0 ] || { echo "NOT-DONE:stages=EMPTY(manifest 无阶段)"; return 0; }
+  [ "$n" -gt 0 ] || { echo "NOT-DONE:stages=EMPTY (the manifest has no stages)"; return 0; }
   local rem
   rem="$(jq -r '[.stages[]|select(.status=="failed")|.name]|join(",")' "$f")"
   [ -n "$rem" ] || rem="$(jq -r '[.stages[]|select(.status!="done")|.name]|join(",")' "$f")"
@@ -1366,17 +1521,17 @@ cmd_exit_check() {
 cmd_receipt() {
   local f
   f="$(need_state)"
-  jq -e . "$f" >/dev/null 2>&1 || { echo "CORRUPT:release-state 空/非法 JSON"; return 0; }
+  jq -e . "$f" >/dev/null 2>&1 || { echo "CORRUPT:release-state is empty or not valid JSON"; return 0; }
   echo "# release receipt - product=$(jq -r .product "$f")"
   if [ "$(jq -r '.pause // "null"' "$f")" != "null" ]; then
-    echo "## 停在 stage=$(jq -r '.pause.at_stage' "$f") 原因=$(jq -r '.pause.reason' "$f")"
+    echo "## paused at stage=$(jq -r '.pause.at_stage' "$f") reason=$(jq -r '.pause.reason' "$f")"
     jq -r '.pause.question' "$f"
   fi
-  echo "## 已试 attempt:"
+  echo "## attempts so far:"
   # log_refs 必须进入 receipt：PAUSED:needs-context 的自主处置政策
   # 在 driving.md 第一步从该命令读取日志 locator(file:/pc:)，漏印会迫使主 agent 翻 state 文件猜路径。
   jq -r '.attempt_ledger[] | "- ["+.action_kind+"] stage="+.stage+" outcome="+.outcome+(if .root_cause_fingerprint then " fp="+.root_cause_fingerprint else "" end)+(if (.artifact_refs|length)>0 then " findings="+(.artifact_refs|join(",")) else "" end)+(if (.log_refs//[]|length)>0 then " logs="+(.log_refs|join(",")) else "" end)' "$f"
-  echo "## fingerprint 累计:"
+  echo "## fingerprints seen:"
   jq -r '.fingerprint_ledger[] | "- "+.fingerprint+" x"+(.count|tostring)' "$f"
 }
 

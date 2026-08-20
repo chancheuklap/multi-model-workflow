@@ -76,7 +76,35 @@ def do_powershell(cmd: str) -> int:
         dest.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(archive) as z:
             z.extractall(dest)
-        return 0 if any(dest.iterdir()) else 1
+        if not any(dest.iterdir()):
+            return 1
+        # 引擎这一条的最后一段:解压成功之后把 zip 删掉。zip 是源码的第二份副本,
+        # 一份几百 MB,留着就是每一次尝试在构建机上多占一份。
+        # 按最后一段解析而不是按第 N 个引号取:中间那个 if 自己就带着两个引号路径。
+        tail = cmd.rsplit(";", 1)[-1].strip()
+        if tail.startswith("Remove-Item"):
+            for path in quoted(tail):
+                local(path).unlink(missing_ok=True)
+        return 0
+
+    if cmd.strip().startswith("Get-ChildItem") and "Select-Object -Skip" in cmd:
+        # 上一轮失败的构建目录只留最近几个。真的按 mtime 排序再删,不是「命令里出现了
+        # Remove-Item 就算数」——留几个、留哪几个,错了就是把现场删掉或者一个都没删。
+        import fnmatch
+
+        paths = quoted(cmd)
+        if len(paths) < 3:
+            return 1
+        root, like, exclude = local(paths[0]), paths[1], paths[2]
+        skip = int(re.search(r"-Skip\s+(\d+)", cmd).group(1))
+        kept = [
+            d for d in root.iterdir()
+            if d.is_dir() and fnmatch.fnmatch(d.name, like) and d.name != exclude
+        ]
+        kept.sort(key=lambda d: d.stat().st_mtime, reverse=True)
+        for d in kept[skip:]:
+            shutil.rmtree(d, ignore_errors=True)
+        return 0
 
     if "Remove-Item" in cmd:
         if os.environ.get("FAKE_REMOVE_FAILS"):
@@ -112,6 +140,22 @@ def do_powershell(cmd: str) -> int:
         return rc
 
     if "deliver-installer.ps1" in cmd:
+        # 真的收拢:引擎按 DELIVERED 行判断安装包到底有没有落到交付目录,而那一行的有无
+        # 又决定它敢不敢删掉远端构建目录。这里回一句空话,测的就成了「引擎说了什么」。
+        paths = quoted(cmd)
+        if len(paths) < 3:
+            return 1
+        dest, src_glob = local(paths[1]), local(paths[2])
+        hits = [
+            f for f in sorted(src_glob.parent.glob(src_glob.name))
+            if f.is_file() and f.suffix == ".exe" and "__" not in f.name
+        ]
+        if not hits:
+            return 3
+        dest.mkdir(parents=True, exist_ok=True)
+        for hit in hits:
+            shutil.copy2(hit, dest / hit.name)
+            print(f"DELIVERED {dest / hit.name}")
         return 0
 
     return 0
@@ -179,6 +223,11 @@ def produce_build_output() -> None:
         return
     build_dir = inputs[0].parent
     (build_dir / "build-run.log").write_text("fake build log\n", encoding="utf-8")
+    if outcome == "success":
+        # 真实构建把安装包产在源码树里,交付步骤再从那里收拢。没有这一份,交付永远空跑。
+        out = build_dir / "source" / "out"
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "test-product-setup.exe").write_text("fake installer\n", encoding="utf-8")
     if outcome == "garbage":
         (build_dir / "build-run.exitcode").write_text("garbage\n", encoding="utf-8")
     elif outcome.startswith("fail:"):

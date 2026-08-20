@@ -1,48 +1,231 @@
+"""v2 装配：一份模板，步骤由钥匙声明了什么决定。
+
+v1 的两条车道各有一份模板，步号写死在模板里。v2 只有一份，步号是算出来的——所以这里验的是
+「钥匙里有什么，脚本里就有哪几步」，而不是「这条车道该有几步」。
+"""
+
 import json
 import subprocess
 import sys
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
 
-
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
-ASSEMBLER = SCRIPTS / "release_script_assembler.py"
-FIXTURES = Path(__file__).resolve().parent / "fixtures" / "release-assembler"
-TEMPLATE = SCRIPTS / "release_templates" / "windows_electron_python.ps1.tmpl"
+FIX = Path(__file__).resolve().parent / "fixtures" / "release-assembler"
 
 sys.path.insert(0, str(SCRIPTS))
-from release_contracts import BuildTarget, ReleaseBuildHooks  # noqa: E402
+import release_contracts as rc  # noqa: E402
+import release_script_assembler as assembler  # noqa: E402
 
 
-def _assemble(
-    adapter: Path, output: Path, context_output: Path
-) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+
+def _key():
+    return json.loads((FIX / "v2.adapter.json").read_text(encoding="utf-8"))
+
+
+def _assemble(tmp_path, doc):
+    adapter = tmp_path / "key.json"
+    adapter.write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+    script = tmp_path / "release.ps1"
+    context = tmp_path / "release-context.json"
+    result = subprocess.run(
         [
             sys.executable,
-            str(ASSEMBLER),
+            str(SCRIPTS / "release_script_assembler.py"),
             "assemble",
             "--adapter",
             str(adapter),
             "--repo-root",
-            str(adapter.parent),
+            str(tmp_path),
             "--output",
-            str(output),
+            str(script),
             "--context-output",
-            str(context_output),
+            str(context),
         ],
         capture_output=True,
         text=True,
-        check=False,
     )
+    return result, script, context
 
 
-def _check(script: Path, context: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+def _steps(script: Path) -> list[str]:
+    text = script.read_text(encoding="utf-8-sig")
+    return [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip().startswith('Step "[')
+    ]
+
+
+def test_assembles_and_the_script_parses_as_one_pipeline(tmp_path):
+    result, script, context = _assemble(tmp_path, _key())
+    assert result.returncode == 0, result.stderr
+    steps = _steps(script)
+    # 第 0 步是构建机准备，它是 build_machine 声明的，不算进流水线编号的分母。
+    assert steps[0].startswith('Step "[0/')
+    titles = [step.split("] ", 1)[1].rstrip('"') for step in steps]
+    assert titles == [
+        "Prepare build machine",
+        "Validate prerequisites",
+        "Install frontend dependencies",
+        "Prepare runtime",
+        "Compile Python backend",
+        "Verify compiled backend",
+        "Build Electron application",
+        "Build win-unpacked",
+        "Scan release artifacts",
+        "Build installer",
+        "Verify package integrity",
+    ]
+    doc = json.loads(context.read_text(encoding="utf-8"))
+    assert doc["schema_version"] == "2"
+    assert [step["title"] for step in doc["render_metadata"]["steps"]] == titles[1:]
+
+
+def test_compile_step_carries_every_nuitka_flag_from_the_key(tmp_path):
+    _, script, _ = _assemble(tmp_path, _key())
+    text = script.read_text(encoding="utf-8-sig")
+    key = _key()["python_backend"]
+    for package in key["include_packages"]:
+        assert f"'--include-package={package}'" in text
+    for package in key["include_package_data"]:
+        assert f"'--include-package-data={package}'" in text
+    for module in key["nofollow_imports"]:
+        assert f"'--nofollow-import-to={module}'" in text
+    for target in key["targets"]:
+        assert f"'--output-filename={target['exe']}'" in text
+        assert target["entrypoint"] in text
+
+
+def test_the_skill_puts_nothing_non_ascii_into_the_generated_script(tmp_path):
+    """守：技能往 release.ps1 里写的每一个字节都是 ASCII。
+
+    那份脚本在构建机上被读，而那台机器的控制台是 GBK。模板早就扫成纯 ASCII 了，装配器往同一个
+    文件里写的注释却漏了三行中文——同一份文件，两个来源，只扫了一个。钥匙自己带的非 ASCII
+    （产品显示名一类）不归这里管，所以用全 ASCII 的 fixture 钥匙：进去是 ASCII，出来就该是 ASCII。
+    """
+    _, script, _ = _assemble(tmp_path, _key())
+    raw = script.read_bytes().lstrip(b"\xef\xbb\xbf")
+    offenders = sorted({bytes([b]) for b in raw if b > 127})
+    assert not offenders, f"技能往生成脚本里写了非 ASCII 字节: {offenders}"
+
+
+VENDOR_ARTIFACT = {
+    "name": "ffmpeg",
+    "lock": "resources/ffmpeg/.lock.json",
+    "members": [
+        {
+            "file": "ffmpeg.exe",
+            "dest": "resources/ffmpeg/bin/ffmpeg.exe",
+            "sha256_key": "ffmpeg_exe_sha256",
+        }
+    ],
+}
+
+
+def test_a_key_that_declares_a_vendor_artifact_gets_a_step_that_fetches_it(tmp_path):
+    """守：太大不进 git 的第三方二进制由技能取，钥匙只声明要什么。
+
+    这件事四个产品做的完全一样——从构建机上拷进来、对 sha256。写在产品仓库里，就是每加一个
+    产品再抄一遍四百行 Python，而第四份正是某一步悄悄漏掉的地方。
+    """
+    doc = _key()
+    doc["vendor_artifacts"] = [VENDOR_ARTIFACT]
+    result, script, context = _assemble(tmp_path, doc)
+    assert result.returncode == 0, result.stderr
+    text = script.read_text(encoding="utf-8-sig")
+    assert "Get-VendorArtifact" in text
+    assert "'resources/ffmpeg/.lock.json'" in text
+    assert "'ffmpeg_exe_sha256'" in text
+    steps = _steps(script)
+    assert any("Fetch vendor artifacts" in step for step in steps), steps
+
+
+def test_a_key_that_declares_no_vendor_artifact_has_no_such_step(tmp_path):
+    # 函数定义一直在模板里；这里验的是没有人调用它，也没有那一步。
+    _, script, _ = _assemble(tmp_path, _key())
+    text = script.read_text(encoding="utf-8-sig")
+    assert "Get-VendorArtifact -Name" not in text
+    assert not any("Fetch vendor artifacts" in step for step in _steps(script))
+
+
+def test_every_compiled_exe_is_checked_against_its_own_payload(tmp_path):
+    """守：编译完当场验每个 exe 装的是不是自己这一轮的 payload。
+
+    payload 走的是编译器缓存看不见的路，第二个目标曾经拿回第一个目标的 object——两个 exe
+    字节相同、都在跑第一个程序，而每一步都是绿的。设置能被覆盖、默认会变、工具链会换，
+    所以这里验的是 exe 里实际装着什么，跟走哪条路无关。
+    """
+    _, script, _ = _assemble(tmp_path, _key())
+    text = script.read_text(encoding="utf-8-sig")
+    assert "Assert-OnefilePayloads" in text
+    for target in _key()["python_backend"]["targets"]:
+        assert target["exe"] in text
+
+
+def test_the_onefile_payload_never_goes_through_a_compiler_cache(tmp_path):
+    """守：payload 不许经过 C 编译器。
+
+    Nuitka 在 zig 下的默认做法是写一个三百字节的 C 文件，用 C23 `#embed` 把整个 payload 吸进去。
+    没有哪个编译器缓存会去哈希 `#embed` 进来的那个文件，而那三百字节对每个目标、每个产品、每一轮
+    都逐字相同——于是第二次编译拿回第一次的 object，exe 里装着别的程序，构建日志全绿。这在构建机上
+    实测过：同一轮两个目标产出了字节数完全相同、payload 也相同的两个 exe。
+    """
+    _, script, _ = _assemble(tmp_path, _key())
+    text = script.read_text(encoding="utf-8-sig")
+    assert "NUITKA_RESOURCE_MODE = 'coff_obj'" in text
+    # zig 自己的编译缓存跟 ccache 一样有这个洞，也跟其他工具链缓存一样必须离开系统盘。
+    assert "'ZIG_GLOBAL_CACHE_DIR'" in text
+    assert "'ZIG_LOCAL_CACHE_DIR'" in text
+
+
+def test_repo_hook_installer_replaces_the_electron_builder_step(tmp_path):
+    doc = deepcopy(_key())
+    doc["electron"]["installer"] = "repo_hook"
+    doc["build_hooks"]["installer"] = ["true", "--hook", "installer"]
+    result, script, context = _assemble(tmp_path, doc)
+    assert result.returncode == 0, result.stderr
+    text = script.read_text(encoding="utf-8-sig")
+    assert "electron-builder --win nsis" not in text
+    assert "-Name 'installer'" in text
+    calls = json.loads(context.read_text(encoding="utf-8"))["render_metadata"][
+        "hook_calls"
+    ]
+    assert {"name": "installer", "phase": "installer_ready"}.items() <= next(
+        call for call in calls if call["name"] == "installer"
+    ).items()
+
+
+def test_repo_hook_installer_without_the_hook_is_rejected(tmp_path):
+    doc = deepcopy(_key())
+    doc["electron"]["installer"] = "repo_hook"
+    doc["build_hooks"]["installer"] = None
+    result, script, context = _assemble(tmp_path, doc)
+    assert result.returncode != 0
+    assert "build_hooks.installer" in result.stderr
+    assert not script.exists() and not context.exists()
+
+
+def test_nofollow_that_blocks_a_smoke_module_stops_before_assembling(tmp_path):
+    """编译一次几十分钟。nofollow 把 smoke 要 import 的模块挡掉了，要在装配这一刻就停。"""
+    doc = deepcopy(_key())
+    doc["python_backend"]["nofollow_imports"].append(
+        doc["python_backend"]["smoke"]["modules"][0]
+    )
+    result, script, _ = _assemble(tmp_path, doc)
+    assert result.returncode != 0
+    assert "nofollow" in result.stderr
+    assert not script.exists()
+
+
+def test_check_accepts_the_pair_it_just_assembled(tmp_path):
+    _, script, context = _assemble(tmp_path, _key())
+    result = subprocess.run(
         [
             sys.executable,
-            str(ASSEMBLER),
+            str(SCRIPTS / "release_script_assembler.py"),
             "check",
             "--script",
             str(script),
@@ -51,432 +234,122 @@ def _check(script: Path, context: Path) -> subprocess.CompletedProcess[str]:
         ],
         capture_output=True,
         text=True,
-        check=False,
     )
-
-
-def test_assemble_core_exe_writes_bom_script_and_validated_context(
-    tmp_path: Path,
-) -> None:
-    output = tmp_path / "release.ps1"
-    context_output = tmp_path / "release-context.json"
-
-    result = _assemble(FIXTURES / "core-exe.adapter.json", output, context_output)
-
-    assert result.returncode == 0, result.stderr
-    assert output.read_bytes().startswith(b"\xef\xbb\xbf")
-    context = json.loads(context_output.read_text(encoding="utf-8"))
-    assert context["product"] == "desktop-core"
-    assert context["build_target"]["runtime_lane"] == "core_exe"
-    assert context["build_target"]["native_ext_dll"] == []
-    assert context["build_hooks"]["runtime_prepare"] == ["prepare-runtime"]
-    assert context["render_metadata"]["stages"] == [1, 2, 3, 4]
-    assert len(context["render_metadata"]["hook_calls"]) == 5
-    assert (
-        BuildTarget.model_validate(context["build_target"]).runtime_lane == "core_exe"
-    )
-    assert ReleaseBuildHooks.model_validate(context["build_hooks"]).artifact_scan == [
-        "scan-artifact"
-    ]
-
-
-def test_assemble_embedded_python_preserves_build_teeth_deterministically(
-    tmp_path: Path,
-) -> None:
-    output = tmp_path / "release.ps1"
-    context_output = tmp_path / "release-context.json"
-
-    first = _assemble(FIXTURES / "embedded-python.adapter.json", output, context_output)
-    first_script = output.read_bytes()
-    first_context = context_output.read_bytes()
-    second = _assemble(
-        FIXTURES / "embedded-python.adapter.json", output, context_output
-    )
-
-    assert first.returncode == second.returncode == 0
-    assert output.read_bytes() == first_script
-    assert context_output.read_bytes() == first_context
-    context = json.loads(first_context)
-    build_target = BuildTarget.model_validate(context["build_target"])
-    assert build_target.deps_extra == "desktop-runtime"
-    assert build_target.native_ext_dll[0].pyd_package == "native_pkg"
-    assert build_target.native_ext_dll[1].dest == "dist_root"
-    assert build_target.nuitka_include == ["native_pkg", "runtime_pkg"]
-    assert build_target.nuitka_nofollow == ["scipy"]
-    assert ReleaseBuildHooks.model_validate(context["build_hooks"]).asset_parity == [
-        "verify-assets"
-    ]
-
-
-def test_assemble_flows_build_machine_into_context_and_renders_setup_teardown(
-    tmp_path: Path,
-) -> None:
-    """声明 build_machine 的钥匙:setup/teardown 进 context,模板渲染出构建机准备段(在 $RepoRoot 下跑)。"""
-    adapter = json.loads(
-        (FIXTURES / "embedded-python.adapter.json").read_text(encoding="utf-8")
-    )
-    adapter["build_machine"] = {
-        "setup": ["prep", "--mode", "setup"],
-        "teardown": ["prep", "--mode", "teardown"],
-    }
-    tweaked = tmp_path / "adapter.json"
-    tweaked.write_text(json.dumps(adapter), encoding="utf-8")
-    output = tmp_path / "release.ps1"
-    context_output = tmp_path / "release-context.json"
-
-    result = _assemble(tweaked, output, context_output)
-
-    assert result.returncode == 0, result.stderr
-    context = json.loads(context_output.read_text(encoding="utf-8"))
-    assert context["build_machine"]["setup"] == ["prep", "--mode", "setup"]
-    assert context["build_machine"]["teardown"] == ["prep", "--mode", "teardown"]
-    script = output.read_text(encoding="utf-8")
-    assert "Prepare build machine" in script
-    assert "Push-Location $RepoRoot" in script
-
-
-def test_assemble_leaves_build_machine_null_when_key_omits_it(tmp_path: Path) -> None:
-    """不声明 build_machine 的钥匙:context 里 build_machine 为 null,模板整段跳过、老钥匙不受影响。"""
-    output = tmp_path / "release.ps1"
-    context_output = tmp_path / "release-context.json"
-
-    result = _assemble(FIXTURES / "core-exe.adapter.json", output, context_output)
-
-    assert result.returncode == 0, result.stderr
-    context = json.loads(context_output.read_text(encoding="utf-8"))
-    assert context["build_machine"] is None
-
-
-def test_assemble_rejects_unsafe_desktop_path_without_replacing_outputs(
-    tmp_path: Path,
-) -> None:
-    adapter = json.loads((FIXTURES / "core-exe.adapter.json").read_text())
-    adapter["build_target"]["desktop_dir"] = "../desktop"
-    adapter_path = tmp_path / "unsafe.adapter.json"
-    adapter_path.write_text(json.dumps(adapter), encoding="utf-8")
-    output = tmp_path / "release.ps1"
-    context_output = tmp_path / "release-context.json"
-    output.write_text("old script", encoding="utf-8")
-    context_output.write_text("old context", encoding="utf-8")
-
-    result = _assemble(adapter_path, output, context_output)
-
-    assert result.returncode != 0
-    assert output.read_text(encoding="utf-8") == "old script"
-    assert context_output.read_text(encoding="utf-8") == "old context"
-
-
-def test_assemble_rejects_windows_absolute_desktop_path(tmp_path: Path) -> None:
-    adapter = json.loads((FIXTURES / "core-exe.adapter.json").read_text())
-    adapter["build_target"]["desktop_dir"] = r"C:\desktop"
-    adapter_path = tmp_path / "windows-absolute.adapter.json"
-    adapter_path.write_text(json.dumps(adapter), encoding="utf-8")
-
-    result = _assemble(
-        adapter_path, tmp_path / "release.ps1", tmp_path / "release-context.json"
-    )
-
-    assert result.returncode != 0
-
-
-@pytest.mark.parametrize(
-    "mutation",
-    [
-        lambda adapter: adapter["build_target"].update({"desktop_dir": "/desktop"}),
-        lambda adapter: adapter["build_hooks"].update({"runtime_prepare": []}),
-        lambda adapter: adapter.update({"unexpected": True}),
-        lambda adapter: adapter["build_target"]["native_ext_dll"].append(
-            {
-                "reason": "invalid package destination",
-                "dll_names": ["broken.dll"],
-                "dll_source": "repo",
-                "dest": "pyd_package_dir",
-            }
-        ),
-    ],
-    ids=["absolute-path", "empty-required-hook", "unknown-field", "invalid-native-dll"],
-)
-def test_assemble_rejects_invalid_adapter_without_replacing_outputs(
-    tmp_path: Path, mutation: object
-) -> None:
-    adapter = json.loads((FIXTURES / "core-exe.adapter.json").read_text())
-    mutation(adapter)  # type: ignore[operator]
-    adapter_path = tmp_path / "invalid.adapter.json"
-    adapter_path.write_text(json.dumps(adapter), encoding="utf-8")
-    output = tmp_path / "release.ps1"
-    context_output = tmp_path / "release-context.json"
-    output.write_text("old script", encoding="utf-8")
-    context_output.write_text("old context", encoding="utf-8")
-
-    result = _assemble(adapter_path, output, context_output)
-
-    assert result.returncode != 0
-    assert output.read_text(encoding="utf-8") == "old script"
-    assert context_output.read_text(encoding="utf-8") == "old context"
-
-
-def test_check_accepts_matching_bom_script_and_context(tmp_path: Path) -> None:
-    output = tmp_path / "release.ps1"
-    context_output = tmp_path / "release-context.json"
-    assert (
-        _assemble(FIXTURES / "core-exe.adapter.json", output, context_output).returncode
-        == 0
-    )
-
-    result = _check(output, context_output)
-
     assert result.returncode == 0, result.stderr
 
 
-def test_assemble_keeps_existing_context_when_script_replacement_fails(
-    tmp_path: Path,
-) -> None:
-    output = tmp_path / "release.ps1"
-    output.mkdir()
-    context_output = tmp_path / "release-context.json"
-    context_output.write_text("old context", encoding="utf-8")
-
-    result = _assemble(FIXTURES / "core-exe.adapter.json", output, context_output)
-
-    assert result.returncode != 0
-    assert context_output.read_text(encoding="utf-8") == "old context"
-
-
-def test_assemble_renders_embedded_lane_as_ordered_seven_stage_pipeline(
-    tmp_path: Path,
-) -> None:
-    output = tmp_path / "release.ps1"
-    context_output = tmp_path / "release-context.json"
-    assert (
-        _assemble(
-            FIXTURES / "embedded-python.adapter.json", output, context_output
-        ).returncode
-        == 0
+def test_check_rejects_a_script_whose_steps_do_not_match_its_context(tmp_path):
+    _, script, context = _assemble(tmp_path, _key())
+    text = script.read_text(encoding="utf-8-sig")
+    script.write_text(
+        text.replace('Step "[5/10] Verify compiled backend"', 'Step "[5/10] Nothing"'),
+        encoding="utf-8-sig",
     )
-    script = output.read_text(encoding="utf-8-sig")
-
-    positions = [script.index(f'Step "[{stage}/7]') for stage in range(1, 8)]
-    assert positions == sorted(positions)
-    # 工具前置与旧嵌入式产品出包脚本一致;NSIS 由 electron-builder 自带,不得要求独立 makensis。
-    for tool in ("python", "pnpm", "node", "uv"):
-        assert f"'{tool}'" in script
-    assert "'makensis'" not in script
-    for token in (
-        "--frozen-lockfile",
-        "--prefer-offline",
-        "'run', 'build'",
-        "electron-builder",
-        "--win",
-        "--prepackaged",
-    ):
-        assert token in script
-
-
-def test_assemble_renders_core_lane_as_hook_orchestration_pipeline(
-    tmp_path: Path,
-) -> None:
-    # core_exe 车道的出包主体是产品自己的一体化脚本(runtime_prepare 钩子驱动),模板不含
-    # Electron 通用步骤,只做验工具 + 钩子编排四步;手写 NSIS 需要 PATH 里有 makensis。
-    output = tmp_path / "release.ps1"
-    context_output = tmp_path / "release-context.json"
-    assert (
-        _assemble(FIXTURES / "core-exe.adapter.json", output, context_output).returncode
-        == 0
-    )
-    script = output.read_text(encoding="utf-8-sig")
-
-    positions = [script.index(f'Step "[{stage}/4]') for stage in range(1, 5)]
-    assert positions == sorted(positions)
-    for tool in ("python", "pnpm", "node", "uv", "makensis"):
-        assert f"'{tool}'" in script
-    assert "Invoke-Checked -Command 'pnpm'" not in script
-    assert "--prepackaged" not in script
-
-
-def test_assemble_delegates_runtime_build_to_repo_hook_for_both_lanes(
-    tmp_path: Path,
-) -> None:
-    # 造运行时是每个产品独特的一步(嵌入式 Python / 编译 / 补 DLL / 落资产各产品不同),
-    # 按设计留在仓库、由钥匙的 runtime_prepare 钩子整段准备;通用模板两条车道都不在模板里
-    # 通用地造包(不复刻 Nuitka / DLL),只把它交给紧随其后的 runtime_prepare 钩子。
-    core_script = tmp_path / "core.ps1"
-    core_context = tmp_path / "core-context.json"
-    embedded_script = tmp_path / "embedded.ps1"
-    embedded_context = tmp_path / "embedded-context.json"
-    assert (
-        _assemble(
-            FIXTURES / "core-exe.adapter.json", core_script, core_context
-        ).returncode
-        == 0
-    )
-    assert (
-        _assemble(
-            FIXTURES / "embedded-python.adapter.json", embedded_script, embedded_context
-        ).returncode
-        == 0
-    )
-
-    for script_path in (core_script, embedded_script):
-        script = script_path.read_text(encoding="utf-8-sig")
-        # 两条车道都不在模板里通用地造包
-        assert "nuitka" not in script.lower()
-        assert "Remove-PythonBytecode" not in script
-        assert "Copy-NativeExtensionDll" not in script
-        assert "--include-package" not in script
-        # 都把造运行时交给仓库的 runtime_prepare 钩子
-        assert "-Name 'runtime_prepare'" in script
-    assert (
-        "prepared by the repository runtime_prepare hook"
-        in embedded_script.read_text(encoding="utf-8-sig")
-    )
-
-
-@pytest.mark.parametrize(
-    ("fixture", "missing_step"),
-    [
-        ("embedded-python.adapter.json", 'Step "[5/7] Build win-unpacked"'),
-        ("core-exe.adapter.json", 'Step "[3/4] Scan release artifacts"'),
-    ],
-)
-def test_check_rejects_script_missing_one_lane_stage(
-    tmp_path: Path, fixture: str, missing_step: str
-) -> None:
-    output = tmp_path / "release.ps1"
-    context_output = tmp_path / "release-context.json"
-    assert _assemble(FIXTURES / fixture, output, context_output).returncode == 0
-    script = output.read_text(encoding="utf-8-sig")
-    assert missing_step in script
-    output.write_text(script.replace(missing_step, ""), encoding="utf-8-sig")
-
-    result = _check(output, context_output)
-
-    assert result.returncode != 0
-
-
-def test_template_and_neutral_fixtures_hold_no_product_specific_release_rules() -> None:
-    product_specific_terms = (
-        "duck",
-        "parrot",
-        "hedgehog",
-        "agentflow",
-        "scripts/release/",
-    )
-    for template_path in sorted(TEMPLATE.parent.glob("*.ps1.tmpl")):
-        template = template_path.read_text(encoding="utf-8").lower()
-        assert not any(term in template for term in product_specific_terms), (
-            template_path.name
-        )
-    for fixture in FIXTURES.glob("*.json"):
-        assert not any(
-            term in fixture.read_text(encoding="utf-8").lower()
-            for term in product_specific_terms
-        )
-
-
-@pytest.mark.parametrize(
-    ("fixture", "optional_skipped"),
-    [("core-exe.adapter.json", True), ("embedded-python.adapter.json", False)],
-)
-def test_check_reports_fixed_hook_lifecycle_contract(
-    tmp_path: Path, fixture: str, optional_skipped: bool
-) -> None:
-    output = tmp_path / "release.ps1"
-    context_output = tmp_path / "release-context.json"
-    assert _assemble(FIXTURES / fixture, output, context_output).returncode == 0
-
-    result = _check(output, context_output)
-
-    assert result.returncode == 0, result.stderr
-    hook_calls = json.loads(result.stdout)["hook_calls"]
-    assert [(item["stage"], item["name"], item["phase"]) for item in hook_calls] == [
-        (3, "runtime_prepare", "runtime_ready"),
-        (3, "asset_parity", "runtime_ready"),
-        (3, "credential_proof", "runtime_ready"),
-        (6, "artifact_scan", "artifact_ready"),
-        (7, "package_integrity", "release_ready"),
-    ]
-    assert [item["skipped"] for item in hook_calls] == [
-        False,
-        optional_skipped,
-        optional_skipped,
-        False,
-        False,
-    ]
-
-
-def test_check_rejects_metadata_that_claims_an_unconfigured_hook_ran(
-    tmp_path: Path,
-) -> None:
-    output = tmp_path / "release.ps1"
-    context_output = tmp_path / "release-context.json"
-    assert (
-        _assemble(FIXTURES / "core-exe.adapter.json", output, context_output).returncode
-        == 0
-    )
-    context = json.loads(context_output.read_text(encoding="utf-8"))
-    context["render_metadata"]["hook_calls"][1]["skipped"] = False
-    context_output.write_text(json.dumps(context), encoding="utf-8")
-
-    result = _check(output, context_output)
-
-    assert result.returncode != 0
-
-
-@pytest.mark.parametrize(
-    "unsafe_token", ["bad&hook", "bad;hook", "bad|hook", "bad\nhook", "bad\x00hook"]
-)
-def test_assemble_rejects_shell_control_characters_in_hook_argv(
-    tmp_path: Path, unsafe_token: str
-) -> None:
-    adapter = json.loads((FIXTURES / "core-exe.adapter.json").read_text())
-    adapter["build_hooks"]["runtime_prepare"] = [unsafe_token]
-    adapter_path = tmp_path / "unsafe-hook.adapter.json"
-    adapter_path.write_text(json.dumps(adapter), encoding="utf-8")
-
-    result = _assemble(
-        adapter_path, tmp_path / "release.ps1", tmp_path / "release-context.json"
-    )
-
-    assert result.returncode != 0
-
-
-def test_assemble_escapes_a_single_quote_hook_token_without_shell_evaluation(
-    tmp_path: Path,
-) -> None:
-    adapter = json.loads((FIXTURES / "core-exe.adapter.json").read_text())
-    adapter["build_hooks"]["runtime_prepare"] = ["prepare'o", "--label", "O'Brien"]
-    adapter_path = tmp_path / "quoted-hook.adapter.json"
-    adapter_path.write_text(json.dumps(adapter), encoding="utf-8")
-    output = tmp_path / "release.ps1"
-
-    result = _assemble(adapter_path, output, tmp_path / "release-context.json")
-
-    assert result.returncode == 0, result.stderr
-    script = output.read_text(encoding="utf-8-sig")
-    assert "'prepare''o'" in script
-    assert "'O''Brien'" in script
-    assert "Invoke-Expression" not in script
-    assert "cmd.exe /c" not in script
-
-
-def test_assembler_parses_under_declared_minimum_python() -> None:
-    # 回归：assemble stage 以裸 python 调本模块，构建机 python 可能是声明的最低 3.11；
-    # native DLL 拷贝行的路径拼接曾放进 f-string 表达式内含反斜杠，3.11 下模块解析即 SyntaxError。
-    probe = subprocess.run(
+    result = subprocess.run(
         [
-            "uv",
-            "run",
-            "--python",
-            "3.11",
-            "python",
-            "-c",
-            f"import ast; ast.parse(open({str(ASSEMBLER)!r}).read())",
+            sys.executable,
+            str(SCRIPTS / "release_script_assembler.py"),
+            "check",
+            "--script",
+            str(script),
+            "--context",
+            str(context),
         ],
         capture_output=True,
         text=True,
     )
-    if probe.returncode != 0 and "No interpreter found" in (
-        probe.stderr + probe.stdout
-    ):
-        pytest.skip("环境无 Python 3.11 解释器，跳过最低版本解析守卫")
-    assert probe.returncode == 0, probe.stderr
+    assert result.returncode != 0
+    assert "Verify compiled backend" in result.stderr
+
+
+@pytest.mark.parametrize("mutation", [{"schema_version": "1"}, {"python_backend": None}])
+def test_a_key_that_says_nothing_about_the_backend_is_refused(mutation):
+    doc = {**_key(), **mutation}
+    with pytest.raises(Exception):
+        rc.ReleaseAdapterManifest.model_validate(doc)
+
+
+def test_the_tool_check_covers_every_command_the_script_actually_runs(tmp_path):
+    """第一步查的工具从钥匙已经说过的话里推，不靠钥匙再抄一遍。
+
+    抄漏了要等构建跑到那一步才炸；抄多了会把一台本来能用的构建机挡在第一步。
+    """
+    doc = {**_key(), "toolchain": ["makensis"]}
+    key = tmp_path / "k.json"
+    key.write_text(json.dumps(doc), encoding="utf-8")
+    script = tmp_path / "release.ps1"
+    assembler.assemble(key, tmp_path, script, tmp_path / "ctx.json")
+
+    line = next(
+        l for l in script.read_text(encoding="utf-8").splitlines() if "foreach ($tool" in l
+    )
+    manifest = rc.ReleaseAdapterManifest.model_validate(doc)
+    assert manifest.python_backend.runner[0] in line, "编译用的解释器命令"
+    assert assembler._PACKAGE_MANAGER in line, "前端包管理器"
+    assert "makensis" in line, "钥匙补充的那件"
+
+
+def test_jobs_falls_back_when_the_override_is_not_a_number():
+    key = rc.ReleaseAdapterManifest.model_validate(_key())
+    from builders import nuitka  # noqa: PLC0415
+
+    backend = key.python_backend
+    assert nuitka.jobs(backend, {}) == backend.jobs.default
+    assert nuitka.jobs(backend, {backend.jobs.env: "4"}) == 4
+    assert nuitka.jobs(backend, {backend.jobs.env: "0"}) == 1
+    assert nuitka.jobs(backend, {backend.jobs.env: "とても"}) == backend.jobs.default
+
+
+def test_key_paths_must_stay_inside_the_repository():
+    from builders import nuitka  # noqa: PLC0415
+
+    assert nuitka.expand("${DESKTOP_DIR}/x", desktop_dir="d", build_root=None) == "d/x"
+    for bad in ("/abs/path", "../escape", "a\\b", "${DESKTOP_DIR}/../out"):
+        with pytest.raises(ValueError):
+            nuitka.expand(bad, desktop_dir="d", build_root=None)
+    with pytest.raises(ValueError, match="build_root"):
+        nuitka.expand("${BUILD_ROOT}/x", desktop_dir="d", build_root=None)
+
+
+def test_assemble_leaves_the_previous_pair_alone_when_the_key_is_bad(tmp_path):
+    result, script, context = _assemble(tmp_path, _key())
+    assert result.returncode == 0
+    before = (script.read_bytes(), context.read_bytes())
+
+    bad = deepcopy(_key())
+    bad["python_backend"]["targets"] = []
+    adapter = tmp_path / "key.json"
+    adapter.write_text(json.dumps(bad), encoding="utf-8")
+    again = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPTS / "release_script_assembler.py"),
+            "assemble",
+            "--adapter",
+            str(adapter),
+            "--repo-root",
+            str(tmp_path),
+            "--output",
+            str(script),
+            "--context-output",
+            str(context),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert again.returncode != 0
+    assert (script.read_bytes(), context.read_bytes()) == before
+
+
+def test_package_integrity_hook_runs_before_the_installer_assert(tmp_path):
+    """installer_glob 指交付件最后落在哪，而落它的可以就是 package_integrity 这个钩子。
+
+    产品让钩子先判两道闸、判过了才把安装包拷进交付目录，是合理设计。断言排在钩子前面，
+    这类产品第一次就被拒，日志里只看得到「没找到安装包」，看不出是顺序的问题。
+    """
+    result, script, _ = _assemble(tmp_path, _key())
+    assert result.returncode == 0, result.stderr
+    text = script.read_text(encoding="utf-8-sig")
+    hook = text.index("'package_integrity'")
+    assert_at = text.index("Assert-InstallerProduced -Glob")
+    assert hook < assert_at

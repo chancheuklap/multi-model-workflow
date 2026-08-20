@@ -26,11 +26,28 @@ def test_manifest_rejects_unknown_field():
         rc.ReleaseAdapterManifest.model_validate({**good, "bogus": 1})
 
 
-def test_manifest_missing_one_of_eight_rejected():
+@pytest.mark.parametrize(
+    "field",
+    ["event_sink", "derive", "post_fix_gate"],
+)
+def test_a_product_can_ship_before_it_has_any_of_the_self_heal_machinery(field):
+    """自愈与观测那一套是可选装备，不是入场券。
+
+    一个产品第一次出包时，它没有派生物要重生、没有闸门要跑、没有日志系统要接。
+    把这些设成必填，等于要求「能出包」之前先写四份仓库侧 Python——而这个技能存在的
+    全部理由就是不必再写那些。
+    """
     good = _fake_manifest()
-    del good["event_sink"]
-    with pytest.raises(Exception):
-        rc.ReleaseAdapterManifest.model_validate(good)
+    del good[field]
+    assert getattr(rc.ReleaseAdapterManifest.model_validate(good), field) is None
+
+
+def test_a_key_that_automates_nothing_needs_no_path_gate():
+    """protection_source 同理可缺，只是它跟「谁能写」绑在一起（见下）。"""
+    good = {**_fake_manifest(), "editable_paths": []}
+    for name in ("protection_source", "fix_executor"):
+        good.pop(name, None)
+    assert rc.ReleaseAdapterManifest.model_validate(good).protection_source is None
 
 
 def test_manifest_empty_stages_allowed():
@@ -47,13 +64,22 @@ def test_manifest_rejects_echo_stage_as_fake_build_teeth():
         rc.ReleaseAdapterManifest.model_validate(good)
 
 
-@pytest.mark.parametrize("field", ["build_target", "protection_source", "build_hooks"])
-def test_manifest_requires_v3_contract_fields(field):
+@pytest.mark.parametrize("field", ["build_target", "python_backend", "electron"])
+def test_a_key_must_say_what_it_builds(field):
     bad = _fake_manifest()
     del bad[field]
 
     with pytest.raises(Exception):
         rc.ReleaseAdapterManifest.model_validate(bad)
+
+
+@pytest.mark.parametrize("field", ["stages", "diagnose", "build_hooks"])
+def test_a_key_leaves_the_standard_pipeline_to_the_engine(field):
+    """这三段每把钥匙都一样，只有钥匙路径不同——抄四遍的直接后果是有一把抄成了
+    指向另一把钥匙，而每一步都报绿。不声明就用引擎的标准流水线。"""
+    lean = _fake_manifest()
+    del lean[field]
+    rc.ReleaseAdapterManifest.model_validate(lean)
 
 
 @pytest.mark.parametrize("field", ["p0_paths", "post_fix_diagnose"])
@@ -65,20 +91,13 @@ def test_manifest_rejects_removed_v2_fields(field):
         rc.ReleaseAdapterManifest.model_validate(bad)
 
 
-@pytest.mark.parametrize(
-    "field", ["desktop_dir", "runtime_lane", "entry_module", "installer_brand"]
-)
+@pytest.mark.parametrize("field", ["desktop_dir", "installer_brand"])
 def test_build_target_requires_every_build_identity_field(field):
     bad = deepcopy(_fake_manifest()["build_target"])
     del bad[field]
 
     with pytest.raises(Exception):
         rc.BuildTarget.model_validate(bad)
-
-    with pytest.raises(Exception):
-        rc.BuildTarget.model_validate(
-            {**_fake_manifest()["build_target"], "runtime_lane": "other"}
-        )
 
 
 def test_native_ext_dll_requires_non_empty_names_and_package_dir_target():
@@ -191,8 +210,8 @@ def _cli(*args, **kw):
 def test_cli_validate_manifest_ok_and_bad():
     ok = _cli("validate-manifest", str(FIX / "manifest.fake.json"))
     assert ok.returncode == 0
-    assert json.loads(ok.stdout)["product"] == "duck"
-    bad = _cli("validate-manifest", "-", input='{"schema_version":"1"}')
+    assert json.loads(ok.stdout)["product"] == "fixture-product"
+    bad = _cli("validate-manifest", "-", input='{"schema_version":"2"}')
     assert bad.returncode == 3
 
 
@@ -259,3 +278,18 @@ def test_contract_import_robust_via_spec_from_file_location():
                 "detail": "缺 tier",
             }
         )
+
+
+@pytest.mark.parametrize("writer", ["fix_executor", "editable_paths"])
+def test_anything_that_can_write_needs_a_path_gate(writer):
+    """有东西能自动改文件，却不声明任何硬禁止路径，等于闸门整个是开的。
+
+    全都缺是合法的：那把钥匙的意思是「这个产品不自动改任何东西」。
+    """
+    bad = _fake_manifest()
+    del bad["protection_source"]
+    for name in ("fix_executor", "editable_paths"):
+        if name != writer:
+            bad.pop(name, None)
+    with pytest.raises(Exception, match="protection_source"):
+        rc.ReleaseAdapterManifest.model_validate(bad)

@@ -1,0 +1,153 @@
+{
+  "schema_version": "2",
+  "product": "desktop-runtime",
+  "build_target": {
+    "desktop_dir": "desktop",
+    "installer_brand": "Runtime Desktop",
+    "installer_glob": "desktop-fixture/dist/*-setup.exe",
+    "asset_roots": [
+      "src/runtime_backend/assets/**"
+    ],
+    "native_ext_dll": [
+      {
+        "reason": "abi3 forwarders",
+        "dll_names": [
+          "python3.dll",
+          "vcruntime140_1.dll"
+        ],
+        "dll_source": "compile_interpreter",
+        "dest": "pyd_package_dir",
+        "pyd_package": "native_pkg"
+      },
+      {
+        "reason": "C++ runtime",
+        "dll_names": [
+          "msvcp140.dll"
+        ],
+        "dll_source": "system32",
+        "dest": "dist_root"
+      }
+    ]
+  },
+  "toolchain": [],
+  "python_backend": {
+    "runner": [
+      "uv",
+      "run",
+      "--extra",
+      "desktop-runtime",
+      "python"
+    ],
+    "output_dir": "${DESKTOP_DIR}/python-runtime/backend",
+    "jobs": {
+      "default": 10,
+      "env": "RUNTIME_NUITKA_JOBS"
+    },
+    "console": false,
+    "icon": "src/runtime_backend/assets/app.ico",
+    "extra_flags": [
+      "--noinclude-default-mode=nofollow"
+    ],
+    "include_packages": [
+      "runtime_backend",
+      "native_pkg"
+    ],
+    "include_package_data": [
+      "runtime_backend"
+    ],
+    "include_modules": [
+      "numpy"
+    ],
+    "nofollow_imports": [
+      "scipy",
+      "pytest"
+    ],
+    "include_data_dirs": [
+      {
+        "source": "src/runtime_backend/assets",
+        "dest": "runtime_backend/assets"
+      }
+    ],
+    "targets": [
+      {
+        "name": "runtime-backend",
+        "exe": "runtime-backend.exe",
+        "entrypoint": "src/runtime_backend/__main__.py"
+      }
+    ],
+    "smoke": {
+      "exe": "runtime-backend.exe",
+      "timeout_seconds": 180,
+      "modules": [
+        "numpy",
+        "runtime_backend.app"
+      ],
+      "args": [
+        "--run-module",
+        "runtime_backend._build_smoke"
+      ]
+    }
+  },
+  "electron": {
+    "unpacked_dir": "dist/win-unpacked",
+    "dist_dir": "dist",
+    "compression": "maximum",
+    "compression_env": "MMW_ELECTRON_BUILDER_COMPRESSION",
+    "installer": "electron_builder"
+  },
+  "build_machine": {
+    "setup": [
+      "true",
+      "--setup"
+    ],
+    "teardown": [
+      "true",
+      "--teardown"
+    ]
+  },
+  "stages": [],
+  "diagnose": [
+    "diagnose-release"
+  ],
+  "derive": [
+    "derive-release"
+  ],
+  "editable_paths": [
+    "src/**"
+  ],
+  "protection_source": "release-protection.json",
+  "build_hooks": {
+    "runtime_prepare": [
+      "prepare-runtime",
+      "--mode",
+      "embedded"
+    ],
+    "artifact_scan": [
+      "scan-artifact"
+    ],
+    "package_integrity": [
+      "check-package"
+    ],
+    "asset_parity": [
+      "verify-assets"
+    ],
+    "credential_proof": [
+      "prove-credentials"
+    ],
+    "backend_verify": [
+      "true",
+      "--hook",
+      "backend_verify"
+    ],
+    "installer": null
+  },
+  "post_fix_gate": [
+    "post-fix-gate"
+  ],
+  "fix_executor": [
+    "fix-release"
+  ],
+  "event_sink": [
+    "write-event"
+  ]
+}

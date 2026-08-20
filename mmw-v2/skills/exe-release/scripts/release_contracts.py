@@ -15,7 +15,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-SchemaVersion = Literal["1"]
+SchemaVersion = Literal["2"]
+# Finding / Event 的合同没变，仍然只认 "1"：钥匙升到 v2 不改这两个信封。
+FindingSchemaVersion = Literal["1"]
 Tier = Literal["P0", "P1", "P2"]
 Status = Literal["ok", "warn", "fail", "deferred"]
 
@@ -25,7 +27,7 @@ _TIER_ORDER = {"P0": 0, "P1": 1, "P2": 2}
 class ReleaseFinding(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: SchemaVersion
+    schema_version: FindingSchemaVersion
     product: str = Field(min_length=1)
     dimension: str = Field(min_length=1)
     name: str = Field(min_length=1)
@@ -41,16 +43,16 @@ class ReleaseFinding(BaseModel):
         if self.status != "fail":
             return self
         if self.tier is None:
-            raise ValueError("status=fail 的 Finding 必须带 tier")
+            raise ValueError("a Finding with status=fail must carry a tier")
         if not self.root_cause_fingerprint:
-            raise ValueError("status=fail 的 Finding 必须带 root_cause_fingerprint")
+            raise ValueError("a Finding with status=fail must carry a root_cause_fingerprint")
         return self
 
 
 class ReleaseLoopEvent(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: SchemaVersion
+    schema_version: FindingSchemaVersion
     event: str = Field(min_length=1)
     product: str = Field(min_length=1)
     stage: str | None = None
@@ -63,7 +65,15 @@ class ReleaseLoopEvent(BaseModel):
     timestamp: str = Field(min_length=1)
 
 
+# 引擎的标准流水线用这三个名字，钥匙用不了。曾经允许同名接管——钥匙里出现其中一个，
+# 引擎就整条不加。于是从别的钥匙抄来的一句 assemble，把引擎的验钥匙整段关掉了，而日志
+# 每一步都是绿的。产品真需要一段不一样的装配或构建，那是技能缺能力，给技能加，不在这里覆盖。
+ENGINE_STAGE_NAMES = ("verify_key", "assemble", "build")
+
+
 class StageSpec(BaseModel):
+    """钥匙自己的出发前检查。引擎把标准三段追加在这些之后。"""
+
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1)
@@ -72,11 +82,17 @@ class StageSpec(BaseModel):
     @model_validator(mode="after")
     def _run_must_not_be_echo(self) -> "StageSpec":
         if self.run[0] == "echo":
-            raise ValueError("build stage 不能是 echo")
+            raise ValueError("a build stage cannot be echo")
         return self
 
-
-RuntimeLane = Literal["core_exe", "embedded_python"]
+    @model_validator(mode="after")
+    def _name_must_not_shadow_the_engine(self) -> "StageSpec":
+        if self.name in ENGINE_STAGE_NAMES:
+            raise ValueError(
+                f"stage name {self.name!r} is reserved by the engine ({', '.join(ENGINE_STAGE_NAMES)}); "
+                "the engine appends those three itself. Rename this stage after what it actually does"
+            )
+        return self
 
 
 class NativeExtDll(BaseModel):
@@ -84,22 +100,57 @@ class NativeExtDll(BaseModel):
 
     Nuitka 冻结后端不会自动带 abi3 转发库 / MSVC C++ 运行库，必须显式打进包。
     这些事实随钥匙声明、由验钥匙对实际 `.pyd` 核对、由拼脚本器落进脚本；漏一条
-    = 客户跑到该功能就空 ImportError 整批崩（如 uharfbuzz 字幕、hedgehog 后端）。
+    = 客户跑到该功能就空 ImportError 整批崩。
     """
 
     model_config = ConfigDict(extra="forbid")
 
     reason: str = Field(min_length=1)
     dll_names: list[str] = Field(min_length=1)
-    dll_source: Literal["compile_interpreter", "repo"] = "compile_interpreter"
+    # compile_interpreter: 取自跑 Nuitka 的那个解释器目录（python3.dll 必须版本匹配）。
+    # system32: 取自构建机 %SystemRoot%\\System32（MSVC 运行库，版本无关）。
+    dll_source: Literal["compile_interpreter", "system32"] = "compile_interpreter"
     dest: Literal["pyd_package_dir", "dist_root"]
     pyd_package: str | None = None
 
     @model_validator(mode="after")
-    def _pyd_package_required_for_package_dir(self) -> "NativeExtDll":
+    def _sources_and_destinations_must_be_complete(self) -> "NativeExtDll":
         if self.dest == "pyd_package_dir" and not self.pyd_package:
-            raise ValueError("dest=pyd_package_dir 必须给 pyd_package")
+            raise ValueError("dest=pyd_package_dir needs a pyd_package")
         return self
+
+
+class VendorArtifactMember(BaseModel):
+    """一个文件：叫什么、落在仓库哪里、它的 sha256 记在锁的哪个字段。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    file: str = Field(min_length=1)
+    dest: str = Field(min_length=1)
+    sha256_key: str = Field(min_length=1)
+
+
+class VendorArtifact(BaseModel):
+    """出包要用、但太大不进 git 的第三方二进制。
+
+    这几件事四个产品做的完全一样：把文件拷进来、对 sha256。所以它是技能的活，钥匙只说要什么。
+    从前是每个产品各写一份四百行的 Python，第四个产品还得再写一遍。
+
+    文件放在构建机上，不下载。上游的保留策略不归我们管：这里锁的那个地址已经死过一次——
+    它指的那条发布分支被整支从上游的 tag 里删掉了，换机器就再也拿不回一模一样的字节。
+    我们自己机器上的一个文件不会烂掉，一个链接会。
+
+    位置是约定，不是钥匙字段：`<cache_root>/vendor/<name>/`。钥匙里不写绝对路径——它在一台
+    机器上写，在另一台机器上跑。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1)
+    # 仓库相对路径，一个 JSON：记着每个文件的 sha256。用锁文件而不是把哈希抄进钥匙，
+    # 是因为产品自己的仓库真相检查已经在读它，抄一份就会漂。
+    lock: str = Field(min_length=1)
+    members: list[VendorArtifactMember] = Field(min_length=1)
 
 
 class BuildTarget(BaseModel):
@@ -112,30 +163,54 @@ class BuildTarget(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     desktop_dir: str = Field(min_length=1)
-    runtime_lane: RuntimeLane
-    entry_module: str = Field(min_length=1)
     installer_brand: str = Field(min_length=1)
-    # 产品成品安装包在源码树里的落点（仓库相对 glob）。出包成功后引擎按此把安装包收拢到统一交付目录
-    # （$RELEASE_DELIVERY_ROOT/<product>/），不再让客户去 commit 哈希构建目录里翻。产品各自落点不同
-    # （duck 在 runtime/assistant-release，parrot/hedgehog 在 desktop-*/dist），故随钥匙声明、引擎零产品知识。
+    # 成品安装包在源码树里的落点（仓库相对 glob）。出包成功后引擎按此把安装包从 commit 哈希构建目录
+    # 收拢到统一交付目录。落点每个产品都不同，所以它是钥匙的值——引擎因此不需要知道任何产品。
     installer_glob: str | None = None
-    deps_extra: str | None = None
     asset_roots: list[str] = Field(default_factory=list)
     native_ext_dll: list[NativeExtDll] = Field(default_factory=list)
-    nuitka_include: list[str] = Field(default_factory=list)
-    nuitka_nofollow: list[str] = Field(default_factory=list)
 
 
 class ReleaseBuildHooks(BaseModel):
-    """流水线模板按具名阶段消费的仓库钩子 argv。"""
+    """流水线按具名阶段回调的仓库钩子 argv。
+
+    钩子挂在阶段上，不挂在步号上：步号随钥匙声明的内容变，阶段不变。
+
+    全部可选。钩子是「这个产品自己要在这个时刻做的事」，产品没有就是没有——
+    强制声明只会逼出一条什么也不做的命令，那比不声明更糟：它看着配好了。
+
+    | 阶段 | 钩子 | 这时候做什么 |
+    | --- | --- | --- |
+    | runtime_ready | runtime_prepare / asset_parity / credential_proof | 造运行时、核资产、出凭证证明 |
+    | backend_ready | backend_verify | 编译产物刚出来，验它能不能起来 |
+    | artifact_ready | artifact_scan | Electron 打完 dir，扫产物 |
+    | installer_ready | installer | 产品自己出安装包（不走 electron-builder 那条） |
+    | release_ready | package_integrity | 安装包已产出，验完整性 |
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    runtime_prepare: list[str] = Field(min_length=1)
-    artifact_scan: list[str] = Field(min_length=1)
-    package_integrity: list[str] = Field(min_length=1)
+    # 没有嵌入式运行时要造的产品，这一步本来就是空的。
+    runtime_prepare: list[str] | None = None
     asset_parity: list[str] | None = None
     credential_proof: list[str] | None = None
+    backend_verify: list[str] | None = None
+    artifact_scan: list[str] | None = None
+    installer: list[str] | None = None
+    package_integrity: list[str] | None = None
+
+    @model_validator(mode="after")
+    def _declared_hooks_must_have_argv(self) -> "ReleaseBuildHooks":
+        """要么不声明，要么给一条真命令。空 argv 是「声明了但什么也不做」，
+        看着配好了、实际那一步是空的——这种失败要到出货之后才发现。"""
+        empty = sorted(
+            name
+            for name in type(self).model_fields
+            if getattr(self, name) is not None and not getattr(self, name)
+        )
+        if empty:
+            raise ValueError(f"these hooks have an empty argv: {', '.join(empty)}")
+        return self
 
 
 class BuildMachine(BaseModel):
@@ -155,6 +230,140 @@ class BuildMachine(BaseModel):
     teardown: list[str] | None = None
 
 
+# ── 钥匙 schema v2：编译后端 ────────────────────────────────────────────────────
+#
+# 「怎么编译这个产品的 Python 后端」从前写在每个产品仓库自己的 Python 里，各自硬编码
+# 同一套 Nuitka 知识。现在**差异**收进下面这些字段，**动作**收进技能的 builders/nuitka.py。
+#
+# 路径字段一律是仓库相对 POSIX 路径，可用两个模板变量：
+#   ${DESKTOP_DIR}  build_target.desktop_dir
+#   ${BUILD_ROOT}   python_backend.build_root（不声明时不可用）
+# 它们在构建机上按 $RepoRoot 拼成绝对路径，钥匙里不写绝对路径。
+
+
+class PathTemplate(BaseModel):
+    """一条 source=dest 的打包数据映射（--include-data-dir / --include-data-files）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source: str = Field(min_length=1)
+    dest: str = Field(min_length=1)
+
+
+class NuitkaJobs(BaseModel):
+    """并行度。构建机内存有限，jobs 开太大 Nuitka 会被 OOM 杀掉，所以它是钥匙的值不是常数。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    default: int = Field(ge=1)
+    env: str | None = None
+
+
+class NuitkaTarget(BaseModel):
+    """一个编译产物。一个产品可以有多个（例如启动器与主进程各一个）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1)
+    exe: str = Field(min_length=1)
+    entrypoint: str = Field(min_length=1)
+
+
+class BuiltExeSmoke(BaseModel):
+    """编译完当场用产物自己跑一次 import：把「冻结包缺动态依赖」暴露在构建机上，
+    而不是等客户装完打开才崩。产品后端要接得住这个自检入口。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    exe: str = Field(min_length=1)
+    # 拿什么参数跑这个自检，整串由钥匙给。`--run-module <模块>` 是某几个后端的约定，
+    # 不是通用事实——写死在技能里，下一个后端就得为了这个技能改自己的 __main__。
+    args: list[str] = Field(min_length=1)
+    timeout_seconds: int = Field(default=180, ge=1)
+    # 编译产物必须 import 得起来的模块。既是 smoke 的清单，也是编译前查
+    # `--nofollow-import-to` 有没有把它们挡掉的依据。
+    modules: list[str] = Field(default_factory=list)
+
+
+class PythonBackend(BaseModel):
+    """用 Nuitka 把 Python 后端编成 Windows exe。
+
+    坑（每一条都是一次真实的出包失败换来的，写死在这里不再让下一个产品重踩）：
+    - `--include-package` 只带代码，包内的数据文件要另外 `--include-package-data`。
+    - 函数体里 lazy import 的 C 扩展 Nuitka 静态追不到，必须显式 include。
+    - abi3 扩展按名字链 `python3.dll` 转发库和 MSVC
+      C++ 运行库，Nuitka 都不带；而 Windows 加载 .pyd 只在 .pyd 自己的目录找依赖，
+      所以补的 DLL 必须落到那个包目录，落 dist 根找不到。见 native_ext_dll。
+    - GUI 程序要 `--windows-console-mode=disable`，否则客户双击弹黑框。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    # 跑 Nuitka 的解释器命令，到 `python` 为止（`-m nuitka` 由技能补）。
+    # 它决定编译时解析到哪一套依赖，所以是钥匙的值：装了什么就编出什么。
+    runner: list[str] = Field(min_length=1)
+    output_dir: str = Field(min_length=1)
+    build_root: str | None = None
+    jobs: NuitkaJobs
+    icon: str | None = None
+    console: bool = True
+    include_packages: list[str] = Field(default_factory=list)
+    include_package_data: list[str] = Field(default_factory=list)
+    # 有些包在运行时读自己的发行元数据（版本、entry points）。Nuitka 默认不带，
+    # 带不带跟 include-package 是两回事，漏了在客户机上才炸。
+    include_distribution_metadata: list[str] = Field(default_factory=list)
+    include_modules: list[str] = Field(default_factory=list)
+    nofollow_imports: list[str] = Field(default_factory=list)
+    include_data_dirs: list[PathTemplate] = Field(default_factory=list)
+    # 上面表达不了的原样 flag。它是逃生口，不是常规入口：能进上面字段的不要写这里。
+    extra_flags: list[str] = Field(default_factory=list)
+    targets: list[NuitkaTarget] = Field(min_length=1)
+    smoke: BuiltExeSmoke | None = None
+    # 编译时才要设的环境变量。值里可以用 ${REPO_ROOT}——构建机上的仓库路径每一轮都不同
+    # （目录名带 commit），所以像 CCACHE_BASEDIR 这种「把源码路径归一化好让缓存能复用」的
+    # 变量，只能在构建机上现算。
+    env: dict[str, str] = Field(default_factory=dict)
+    # 编译期间要挪开的目录。Electron 的 node_modules 被 hoist 到 Python 包扫描路径下时，
+    # Nuitka 会去扫它——编译时间暴涨，还可能把前端的东西打进包。编译前挪走，之后必须原样挪回，
+    # 挪不回去要当场停：留下一个没有 node_modules 的工作树，下一步 Electron 构建会莫名其妙地失败。
+    isolate_dirs: list[str] = Field(default_factory=list)
+
+
+class ElectronBuild(BaseModel):
+    """Electron 外壳与安装包。NSIS 由 electron-builder 自带，不要求构建机 PATH 上有独立
+    makensis——多要一件工具就把本来能用的构建机挡在第一步。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # 打完 `--win dir` 之后产物落在哪（相对 desktop_dir）。
+    unpacked_dir: str = "dist/win-unpacked"
+    dist_dir: str = "dist"
+    compression: Literal["store", "normal", "maximum"] = "maximum"
+    compression_env: str | None = "MMW_ELECTRON_BUILDER_COMPRESSION"
+    # 出安装包这一步交给 electron-builder，还是产品自己那套交付格式。
+    installer: Literal["electron_builder", "repo_hook"] = "electron_builder"
+
+
+
+class DiagnoseRule(BaseModel):
+    """产品自己的一条日志翻译规则。
+
+    通用规则表在技能里（`diagnose_core.RULES`），因为它匹配的是引擎和打包工具打印的文字。
+    这里补的是这个产品自己的日志才有的模式，排在通用表前面——产品比技能更知道自己那条日志
+    长什么样。
+
+    `fingerprint` 的前缀决定引擎怎么分派：`transient:` 直接重跑，`env:` 交驱动 agent 处置，
+    其余进 P1 修复。写错前缀等于把一条环境问题派给代码修复。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    pattern: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    fingerprint: str = Field(min_length=1)
+    remediation: str = Field(min_length=1)
+
+
 class ReleaseAdapterManifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -162,15 +371,70 @@ class ReleaseAdapterManifest(BaseModel):
     product: str = Field(min_length=1)
     build_target: BuildTarget
     build_machine: BuildMachine | None = None
-    stages: list[StageSpec]
-    diagnose: list[str] = Field(min_length=1)
-    derive: list[str] = Field(min_length=1)
-    editable_paths: list[str]
-    protection_source: str = Field(min_length=1)
-    build_hooks: ReleaseBuildHooks
-    post_fix_gate: list[str] = Field(min_length=1)
-    fix_executor: list[str] = Field(min_length=1)
-    event_sink: list[str] = Field(min_length=1)
+    python_backend: PythonBackend
+    electron: ElectronBuild
+    # 除了钥匙已经点到的命令之外，这个产品还要构建机上有什么。
+    # 编译用的解释器命令、前端包管理器、构建机准备脚本都不用写在这里——装配器从
+    # 钥匙已有的字段里推得出来，让钥匙再抄一遍只会抄漏或抄多。
+    toolchain: list[str] = Field(default_factory=list)
+    # 出包要用、但太大不进 git 的第三方二进制（ffmpeg、嵌入式解释器一类）。
+    vendor_artifacts: list[VendorArtifact] = Field(default_factory=list)
+    # 诊断：产品自己跑哪几条检查、认哪几条自己的日志模式、编译产物在哪。
+    diagnose_branches: list[list[str]] = Field(default_factory=list)
+    diagnose_rules: list[DiagnoseRule] = Field(default_factory=list)
+    diagnose_core_exe_glob: str | None = None
+    # 不声明就用引擎的标准流水线（`verify_key` → `assemble` → `build`）与技能自己的
+    # 诊断器。声明了是「在标准之外还要跑什么」。四把钥匙里这两段曾经逐字相同、只有钥匙
+    # 路径不同——抄四遍的直接后果就是有一把抄成了指向另一把钥匙，而每一步都报绿。
+    stages: list[StageSpec] = Field(default_factory=list)
+    diagnose: list[str] = Field(default_factory=list)
+    build_hooks: ReleaseBuildHooks = Field(default_factory=lambda: ReleaseBuildHooks())
+    # ── 以下都是自愈与观测的可选装备 ──────────────────────────────────────
+    #
+    # 一个产品第一次出包时，这些一个都没有：没有派生物要重生，没有闸门要跑，
+    # 没有日志系统要接。把它们设成必填，等于要求「能出包」之前先写四份仓库侧
+    # Python——而那正是这个技能存在的理由的反面。
+    #
+    # 没声明就没有那一步：引擎跳过，不报错，也不假装做过。
+    fix_executor: list[str] | None = None
+    editable_paths: list[str] = Field(default_factory=list)
+    protection_source: str | None = None
+    post_fix_gate: list[str] | None = None
+    derive: list[str] | None = None
+    event_sink: list[str] | None = None
+
+    @model_validator(mode="after")
+    def _declarations_must_agree(self) -> "ReleaseAdapterManifest":
+        installs = bool(self.build_hooks.installer) or (
+            self.electron.installer == "electron_builder"
+        )
+        if installs and not self.build_target.installer_glob:
+            raise ValueError(
+                "a key that produces an installer must declare build_target.installer_glob: "
+                "without it, \"the step exited 0\" and \"an installer really exists\" are indistinguishable, "
+                "and the next one to find out is the customer"
+            )
+        writers = sorted(
+            name
+            for name in ("fix_executor", "editable_paths")
+            if getattr(self, name)
+        )
+        if writers and self.protection_source is None:
+            raise ValueError(
+                f"declaring {', '.join(writers)} requires protection_source: "
+                "something can rewrite files while no path is hard-denied, which leaves the gate wide open"
+            )
+        if self.electron.installer == "repo_hook":
+            if self.build_hooks.installer is None:
+                raise ValueError(
+                    "electron.installer=repo_hook requires build_hooks.installer: "
+                    "otherwise the assembled script reaches the installer step with nothing to run"
+                )
+        elif self.build_hooks.installer is not None:
+            raise ValueError(
+                "build_hooks.installer only means anything when electron.installer=repo_hook"
+            )
+        return self
 
 
 def _read(path: str) -> str:
@@ -189,7 +453,7 @@ def cmd_validate_manifest(path: str) -> int:
     try:
         manifest = ReleaseAdapterManifest.model_validate_json(_read(path))
     except Exception as exc:  # noqa: BLE001 - CLI must report validation failure.
-        return _fail(f"manifest 不合规: {exc}")
+        return _fail(f"manifest is not valid: {exc}")
     print(manifest.model_dump_json())
     return 0
 
@@ -198,7 +462,7 @@ def cmd_validate_event(path: str) -> int:
     try:
         ReleaseLoopEvent.model_validate_json(_read(path))
     except Exception as exc:  # noqa: BLE001 - CLI must report validation failure.
-        return _fail(f"event 不合规: {exc}")
+        return _fail(f"event is not valid: {exc}")
     return 0
 
 
@@ -209,7 +473,7 @@ def cmd_classify_findings(path: str) -> int:
             ReleaseFinding.model_validate(item) for item in doc.get("findings", [])
         ]
     except Exception as exc:  # noqa: BLE001 - CLI must report validation failure.
-        return _fail(f"findings 不合规: {exc}")
+        return _fail(f"findings are not valid: {exc}")
 
     failing = [item for item in findings if item.status == "fail"]
     highest = None
@@ -244,7 +508,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
     for name in ("validate-manifest", "classify-findings", "validate-event"):
         sp = sub.add_parser(name)
-        sp.add_argument("path", help="文件路径，或 - 读 stdin")
+        sp.add_argument("path", help="file path, or - to read stdin")
     args = parser.parse_args(argv)
     return {
         "validate-manifest": cmd_validate_manifest,

@@ -26,9 +26,9 @@ Both must hold. If one fails, stop and name it.
 | Check | How |
 | --- | --- |
 | Working tree is clean | `git status --porcelain` is empty. The engine refuses to mix self-heal commits with uncommitted work |
-| This repo has a release config | At least one release config exists (next step) |
+| This repo ships something | At least one release config exists (next step) |
 
-**No release config is not a failure.** Report that this repo does not ship, and the current branch HEAD. Hand back to the user.
+**A repo with no release config at all does not ship.** Report that, and the current branch HEAD. Hand back to the user. (One product missing a config in a repo that does ship is a different case — step 2.)
 
 ## 2. Name the products for this run
 
@@ -38,9 +38,15 @@ The repo registers release configs. One product per file. The filename ends with
 grep -rl '"product"' --include='*.release-adapter.json' .
 ```
 
-Decide which to ship: take the paths this change touched (`git diff --name-only $(git merge-base HEAD <parent>)..HEAD`; `<parent>` is the branch this task branch was created from — the repo default branch when you have nothing better). Match each config's `build_target.desktop_dir` and `asset_roots`. A hit means ship that product.
+Decide which to ship: take the paths this change touched (`git diff --name-only $(git merge-base HEAD <parent>)..HEAD`; `<parent>` is the branch this task branch was created from — the repo default branch when you have nothing better). Match them against the paths each config names — its shell directory, its compile entrypoints and packaged data, its `asset_roots`. A hit means ship that product.
 
-If you cannot tell, ask the user. Do not omit a product.
+If you cannot tell, ask the user. Do not omit a product. A product whose config names no path that could ever match is a config to fix, not a product to skip.
+
+**A product this change touched but no config names does not ship yet.** Bringing it in is one
+JSON file plus whatever the repo still lacks: [new-product.md](new-product.md) starts there and
+hands off to [key.md](key.md) for the fields. Do not write packaging scripts in the product repo
+to work around a key that cannot say something; add the field or the capability, where every
+product gets it.
 
 Show this list once and continue. Do not wait for a reply:
 
