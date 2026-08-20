@@ -4,8 +4,6 @@
 
 这个仓库是里面的技能和工具，不是你的工作指南。永远站在要使用它们的全新 agent 的角度去思考问题和撰写文档。
 
-写给用户的任何文字都遵守 [`communication-rule.md`](./communication-rule.md)。
-
 ## 仓库范围
 
 `mmw-v2/` 是唯一活跃的多模型工作流（Multi-Model Workflow，MMW）。
