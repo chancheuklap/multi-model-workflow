@@ -3,8 +3,12 @@
 #
 #   bash mmw-v2/skills/exe-release/tests/run.sh
 #
-# 生成出来的 PowerShell 语法对不对，这里验不了——Mac 上没有 PowerShell 解析器。
-# 手上有构建机时跑 check-generated-powershell.sh，它把脚本送到构建机上让 PowerShell 自己解析。
+# PowerShell 那两条这里都验不了——Mac 上没有 PowerShell。手上有构建机时跑：
+#
+#   bash tests/check-generated-powershell.sh <构建机> <release.ps1>   # 语法
+#   bash tests/check-template-behaviour.sh <构建机>                    # 那几个守卫函数判得对不对
+#
+# 语法过了不代表判得对：源码泄漏扫描误报过两次，每次都挡下了一个本来没问题的发布。
 #
 # 两份 Python 测试要 uv（引擎自己也要，manifest 校验走 uv run）。没装 uv 就说清楚
 # 少跑了哪两份，不静默跳过。

@@ -102,9 +102,10 @@ GUI 关控制台、编译产物的导入冒烟、onefile 的 payload 不许经�
 缓存看不见它，第二个目标会拿回第一个目标的 payload，日志全绿而 exe 装着别的程序）。产品仓库只留两件真属于它自己的：取嵌入式运行时，和它自己
 发明的交付格式（自更新源、语义特殊的手写 NSIS）。
 
-Mac 上装配好的 `release.ps1` 是构建机上唯一跑的东西，技能的 Python 不上构建机。生成的脚本
-在 Mac 上验不了语法，`tests/check-generated-powershell.sh <构建机> <脚本>` 送过去让
-PowerShell 自己解析。
+Mac 上装配好的 `release.ps1` 是构建机上唯一跑的东西，技能的 Python 不上构建机。Mac 上没有
+PowerShell，所以两件事都要送到构建机上验：`tests/check-generated-powershell.sh <构建机> <脚本>`
+验语法，`tests/check-template-behaviour.sh <构建机>` 验模板里那几个守卫函数判得对不对。
+语法过了不代表判得对——源码泄漏扫描误报过两次，每次都挡下了一个本来没问题的发布。
 
 **引擎跑不动的时候会自己修再来。** 这套自愈的唯一存在理由就是这个：出包失败 → 诊断 →
 按分级派修 → 重跑那一阶段。P0 与保护路径不自动修，停下来交人。
