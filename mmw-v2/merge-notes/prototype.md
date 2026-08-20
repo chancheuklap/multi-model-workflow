@@ -23,7 +23,7 @@
 | frontmatter `description` | 三类触发：逻辑、UI、实现方式。上游改措辞可跟，但第三类不能丢。改它要重开会话 |
 | 首句「A prototype is …」 | 去掉 throwaway；说明它留在仓库、持续迭代、正式代码以它为参考 |
 | Pick a branch | 三枝，第三枝指向 `EXP.md`；兜底规则里库/算法/集成 → experiment |
-| 标题「Rules that apply to …」、规则 2、规则 5 | 覆盖三枝（every branch；experiment 也一条命令起；experiment 每次跑都打印状态） |
+| 标题「Rules that apply to …」、规则 2、规则 5 | 覆盖三枝（every branch；experiment 也一条命令起；experiment 每次跑写证据页） |
 | 规则 2「A logic demo is …」 | 宿主能发布就是在线页，否则双击 |
 | 规则 1 | 存放约定 `prototypes/<task>/<issue>/<UI\|LOGIC\|EXP>/` + 叶子 `README.md`；`<task>` 的来源顺序（wayfinder 地图标题 → 问用户 → 分支名，`/` 换 `-`）；main 上先停；UI 自建路由仍守项目路由约定 |
 | 规则 4 | 保留「无测试」并写明测试归正式代码；「不抽象」放宽为「复用部分要有清楚边界」 |
@@ -49,9 +49,9 @@
 | 第 6 步 | 结论进叶子 README；赢家按正式标准重写进页面；挂载点/原型路由留着（有 production 门控）；全套变体留在叶子目录 |
 | 第 1、2、4、5 步、反模式 | 上游的，照收 |
 
-### EXP.md
+### EXP.md、evidence-page.md
 
-整个文件是我们的，上游没有。上游若新增同名文件，按「怎么做」归类逐段比对后合并，结构以我们的五步为准。
+两个文件整个是我们的，上游没有。上游若新增同名文件，按「怎么做」归类逐段比对后合并，结构以我们的五步为准。
 
 ### agents/openai.yaml
 
