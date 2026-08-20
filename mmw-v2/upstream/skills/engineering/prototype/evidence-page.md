@@ -13,7 +13,7 @@ The question picks the shape; both share the same header.
 
 1. **Header** — `<title>` and `<h1>` carry the issue and the round so several open tabs stay distinguishable. Under it: the question and the bar, the run parameters, the run time, the commit.
 2. **Legend** — every colour, box style, and marker the page uses, before any of them appears.
-3. **Summary table** — one row per approach, one column per measure the bar names, plus the verdict column left blank: the page reports, the `README.md` judges.
+3. **Summary table** — one row per approach, one column per measure the bar names. No verdict column: the page reports, the `README.md` judges.
 4. **Body** — the grid or the catalogue.
 5. **How it decided** — the rules the approach applied, one line each, naming the file and function in the leaf directory that implements it, so a reader can map what they see back to code.
 
