@@ -56,7 +56,8 @@ Grok 把推理力度和只读能力放在 `~/.grok/roles/<名>.toml`，Pi 是 `m
 之前，打包上下文咨询更强模型拿 verdict。只读，不实现。它的 description 写给主线程 agent
 （何时调、prompt 里装什么），`body.md` 写给 advisor 自己（怎么答）——改哪份先想清楚读者是谁。
 
-上游更新走一条命令，你的改动和上游改动由 git 三方合并，冲突照常解：
+上游更新走一条命令，你的改动和上游改动由 git 三方合并。冲突照常解，被我们改过的技能在
+`mmw-v2/merge-notes/<技能名>.md` 里写着每一段的意图和取舍规则，解冲突先读它：
 
 ```bash
 git subtree pull --prefix mmw-v2/upstream https://github.com/mattpocock/skills main --squash
