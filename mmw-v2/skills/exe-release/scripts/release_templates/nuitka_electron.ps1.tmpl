@@ -5,6 +5,14 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# PowerShell writes its own errors in the machine's display language, and a Chinese Windows build
+# machine then hands back a GBK-encoded sentence that arrives on the driving side as mojibake --
+# the one line naming the file and column where the build stopped. Pin this script's UI language so
+# every word in the log is English, whatever language the machine was installed in.
+try {
+  [Threading.Thread]::CurrentThread.CurrentUICulture = [Globalization.CultureInfo]::new('en-US')
+} catch { }
+
 function Step {
   param([string]$Label)
   Write-Host $Label
