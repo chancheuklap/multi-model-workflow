@@ -108,9 +108,14 @@ every value in it.
 
 Each of these fields exists because a build failed without it:
 
-- **`include_package_data` is separate from `include_packages`.** The first brings code, the
-  second brings the data files inside it. Miss it and the app raises FileNotFound on a customer
-  machine, not on the build machine.
+- **`include_packages` brings the code; the data files inside it do not come with it.** Miss the
+  data and the app raises FileNotFound on a customer machine, not on the build machine. Name the
+  directories you need in `include_data_dirs`. Reach for `include_package_data` only when you
+  cannot name them, because it sweeps the *whole* package: every non-code file that happens to sit
+  there, including the `CLAUDE.md` and `AGENTS.override.md` written for people inside your company.
+  One product shipped 36 of those inside the customer's exe, and nothing said a word. When both
+  fields cover the same file, Nuitka prints `Duplicate data file ... ignored` -- that line is
+  telling you `include_package_data` is doing nothing you asked for and something you did not.
 - **`include_modules` for anything imported inside a function body.** The compiler traces imports
   statically; a C extension imported lazily is invisible to it and simply will not be in the
   package. The customer finds out when they reach that feature.
@@ -118,9 +123,9 @@ Each of these fields exists because a build failed without it:
   module the built exe needs. The skill checks this at assemble time, because finding out after
   the compile costs tens of minutes.
 - **`console: false` for a GUI app**, or every customer gets a black console window.
-- **`env` values may use `${REPO_ROOT}`.** The build machine's repository path changes every
-  round (the directory is named after the commit), so a value like `CCACHE_BASEDIR` can only be
-  computed there. Without it the compile cache never hits and every build starts from scratch.
+- **`env` values may use `${REPO_ROOT}`.** The build machine's repository path changes every round
+  (the directory is named after the commit), so anything that has to name that path -- a compile
+  cache's base directory, for one -- can only be computed there.
 - **`isolate_dirs` moves directories out of the way during the compile.** When the Electron app's
   `node_modules` sits inside the Python package scan path, the compiler scans it: compile time
   explodes and front-end files can end up in the package. They are moved back afterwards, and a

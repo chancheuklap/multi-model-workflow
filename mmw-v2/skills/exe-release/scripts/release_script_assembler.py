@@ -77,9 +77,9 @@ def _render_hook_functions() -> str:
   $arguments = @()
   if ($Argv.Count -gt 1) { $arguments += @($Argv[1..($Argv.Count - 1)]) }
   $arguments += @('--release-context', $ReleaseContextPath, '--release-phase', $Phase)
-  # 钩子 argv 是仓库相对路径。构建机把这一轮的源码解到 $RepoRoot，所以钩子从那里跑，
-  # 而不是从某个构建步骤当时所在的目录。$ReleaseContextPath 已在脚本头绝对化，
-  # cwd 怎么切都不影响钩子读到它。
+  # A hook's argv is relative to the repository. This round's source is unpacked into $RepoRoot, so
+  # a hook runs from there and not from wherever a build step happened to leave the working
+  # directory. $ReleaseContextPath was made absolute at the top of this script, so no cd affects it.
   Push-Location $RepoRoot
   try {
     & $command @arguments

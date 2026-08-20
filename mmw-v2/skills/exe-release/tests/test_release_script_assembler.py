@@ -99,6 +99,19 @@ def test_compile_step_carries_every_nuitka_flag_from_the_key(tmp_path):
         assert target["entrypoint"] in text
 
 
+def test_the_skill_puts_nothing_non_ascii_into_the_generated_script(tmp_path):
+    """守：技能往 release.ps1 里写的每一个字节都是 ASCII。
+
+    那份脚本在构建机上被读，而那台机器的控制台是 GBK。模板早就扫成纯 ASCII 了，装配器往同一个
+    文件里写的注释却漏了三行中文——同一份文件，两个来源，只扫了一个。钥匙自己带的非 ASCII
+    （产品显示名一类）不归这里管，所以用全 ASCII 的 fixture 钥匙：进去是 ASCII，出来就该是 ASCII。
+    """
+    _, script, _ = _assemble(tmp_path, _key())
+    raw = script.read_bytes().lstrip(b"\xef\xbb\xbf")
+    offenders = sorted({bytes([b]) for b in raw if b > 127})
+    assert not offenders, f"技能往生成脚本里写了非 ASCII 字节: {offenders}"
+
+
 def test_the_onefile_payload_never_goes_through_a_compiler_cache(tmp_path):
     """守：payload 不许经过 C 编译器。
 
