@@ -248,8 +248,8 @@ function Initialize-BuildMachine {
   $env:PYTHONDONTWRITEBYTECODE = '1'
 
   # Every toolchain cache defaults to %LOCALAPPDATA%, which is the system drive. The build directory
-  # runs happily on the data drive while the system drive slowly fills with uv / Nuitka / ccache /
-  # pnpm / Electron caches, until one round's disk gate stops the release outright. That has really
+  # runs happily on the data drive while the system drive slowly fills with uv / Nuitka / zig /
+  # ccache / pnpm / Electron caches, until one round's disk gate stops the release outright. That has really
   # happened. Caches must survive across rounds (that is what they are for), so they go *beside* the
   # build input root, not inside the build directory that gets deleted.
   #
@@ -263,6 +263,10 @@ function Initialize-BuildMachine {
       'UV_CACHE_DIR'          = 'uv'
       'UV_PYTHON_INSTALL_DIR' = 'uv-python'
       'NUITKA_CACHE_DIR'      = 'nuitka'
+      # Nuitka compiles through zig here, and zig keeps its own compilation cache. Left alone it
+      # grows to gigabytes under %LOCALAPPDATA% while everything else is on the data drive.
+      'ZIG_GLOBAL_CACHE_DIR'  = 'zig'
+      'ZIG_LOCAL_CACHE_DIR'   = 'zig'
       # Nuitka points ccache at its own cache only when CCACHE_DIR is unset. Set it explicitly
       # rather than lean on that fallback.
       'CCACHE_DIR'            = 'ccache'
@@ -298,6 +302,17 @@ function Initialize-BuildMachine {
     $env:TMP = $buildTemp
   } catch { Write-Host ("  build temp skip: " + $_.Exception.Message) }
 
+  # How the onefile payload gets into the exe. Under zig, Nuitka's default writes a ~300-byte C file
+  # that pulls the whole payload in with C23 #embed -- and no compiler cache hashes an #embed'd
+  # file. That C text is byte-identical for every target, every product and every round, so zig's
+  # cache (and ccache) hand the second compile the first one's object: the exe ships another
+  # program's payload while the build log stays green. Measured on this machine: two targets in one
+  # round produced byte-identical exes carrying the same payload.
+  # 'coff_obj' has Nuitka write that object itself, in Python. The payload never reaches a compiler,
+  # so no compiler cache can be blind to it.
+  if (-not $env:NUITKA_RESOURCE_MODE) { $env:NUITKA_RESOURCE_MODE = 'coff_obj' }
+  Write-Host ("  onefile payload: " + $env:NUITKA_RESOURCE_MODE)
+
   # Nuitka does not look for ccache on PATH; it has to be pointed at it. Without it every compile
   # starts from scratch.
   if (-not $env:NUITKA_CCACHE_BINARY) {
@@ -317,7 +332,7 @@ function Initialize-BuildMachine {
   $paths = @($RepoRoot, $buildTemp)
   if ($env:NUITKA_CCACHE_BINARY) { $paths += (Split-Path -Parent $env:NUITKA_CCACHE_BINARY) }
   if ($CacheRoot) { $paths += $CacheRoot }
-  foreach ($name in @('UV_CACHE_DIR', 'NUITKA_CACHE_DIR', 'CCACHE_DIR', 'npm_config_store_dir')) {
+  foreach ($name in @('UV_CACHE_DIR', 'NUITKA_CACHE_DIR', 'CCACHE_DIR', 'ZIG_GLOBAL_CACHE_DIR', 'npm_config_store_dir')) {
     $value = [Environment]::GetEnvironmentVariable($name)
     if ($value) { $paths += $value }
   }

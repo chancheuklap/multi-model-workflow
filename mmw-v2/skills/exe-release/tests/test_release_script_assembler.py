@@ -99,6 +99,22 @@ def test_compile_step_carries_every_nuitka_flag_from_the_key(tmp_path):
         assert target["entrypoint"] in text
 
 
+def test_the_onefile_payload_never_goes_through_a_compiler_cache(tmp_path):
+    """守：payload 不许经过 C 编译器。
+
+    Nuitka 在 zig 下的默认做法是写一个三百字节的 C 文件，用 C23 `#embed` 把整个 payload 吸进去。
+    没有哪个编译器缓存会去哈希 `#embed` 进来的那个文件，而那三百字节对每个目标、每个产品、每一轮
+    都逐字相同——于是第二次编译拿回第一次的 object，exe 里装着别的程序，构建日志全绿。这在构建机上
+    实测过：同一轮两个目标产出了字节数完全相同、payload 也相同的两个 exe。
+    """
+    _, script, _ = _assemble(tmp_path, _key())
+    text = script.read_text(encoding="utf-8-sig")
+    assert "NUITKA_RESOURCE_MODE = 'coff_obj'" in text
+    # zig 自己的编译缓存跟 ccache 一样有这个洞，也跟其他工具链缓存一样必须离开系统盘。
+    assert "'ZIG_GLOBAL_CACHE_DIR'" in text
+    assert "'ZIG_LOCAL_CACHE_DIR'" in text
+
+
 def test_repo_hook_installer_replaces_the_electron_builder_step(tmp_path):
     doc = deepcopy(_key())
     doc["electron"]["installer"] = "repo_hook"
