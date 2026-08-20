@@ -340,6 +340,10 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                         f"add {key} to the lock; without a hash there is no check, and the wrong build of a tool does not announce itself",
                     )
                 )
+        for notice in artifact.notices:
+            notice_rel = _expand(manifest, notice)
+            if notice_rel is None or not (repo_root / notice_rel).is_file():
+                missing("vendor", "artifact_notice_missing", notice, f"the {artifact.name} notice")
         for member in artifact.members:
             dest = _expand(manifest, member.dest)
             if dest is None or Path(dest).is_absolute() or ".." in Path(dest).parts:

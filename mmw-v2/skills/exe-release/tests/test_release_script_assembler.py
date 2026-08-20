@@ -143,6 +143,65 @@ def test_a_key_that_declares_a_vendor_artifact_gets_a_step_that_fetches_it(tmp_p
     assert any("Fetch vendor artifacts" in step for step in steps), steps
 
 
+def test_a_licence_the_vendored_binary_needs_is_checked_against_the_finished_package(tmp_path):
+    """守：拷进仓库 != 随包出厂。
+
+    ffmpeg 是 GPL 的，义务是让客户拿到许可证正文和源码索取声明。两份文本都放进了树里，
+    随后 electron-builder 的过滤规则把它们丢掉——构建全绿，装出来的包在违约。闸门不认
+    路径（成品里的位置是打包配置的事），认字节。
+    """
+    doc = _key()
+    artifact = deepcopy(VENDOR_ARTIFACT)
+    artifact["members"].append(
+        {
+            "file": "LICENSE.txt",
+            "dest": "resources/ffmpeg/LICENSE.txt",
+            "sha256_key": "license_sha256",
+            "license": True,
+        }
+    )
+    artifact["notices"] = ["resources/ffmpeg/NOTICE-ffmpeg.txt"]
+    doc["vendor_artifacts"] = [artifact]
+    result, script, _ = _assemble(tmp_path, doc)
+    assert result.returncode == 0, result.stderr
+    text = script.read_text(encoding="utf-8-sig")
+    gate = [line for line in text.splitlines() if "Assert-LicensesShipped -Licenses" in line]
+    assert len(gate) == 1, text
+    assert "'resources/ffmpeg/LICENSE.txt'" in gate[0]
+    assert "'resources/ffmpeg/NOTICE-ffmpeg.txt'" in gate[0]
+    assert "-PackageDir $UnpackedDir" in gate[0]
+    # 有的产品的成品树是 installer 钩子造的，闸门必须在它之后。
+    assert text.index("Assert-LicensesShipped -Licenses") > text.index("Build installer")
+    # 二进制本身不是许可证，不进这道闸的名单。
+    assert "ffmpeg.exe" not in gate[0]
+
+
+def test_a_key_that_says_where_its_finished_tree_is_gets_the_gate_pointed_there(tmp_path):
+    """守：unpacked 目录只是个壳的产品，闸门要看它自己那棵成品树。
+
+    第四个产品的 electron 产物是外壳，交给客户的那棵树由它自己的 installer 钩子在别处装配，
+    树名里还带着版本号。闸门照默认去看 unpacked，看到的是一棵没有许可证也没有 ffmpeg 的树。
+    """
+    doc = _key()
+    artifact = deepcopy(VENDOR_ARTIFACT)
+    artifact["notices"] = ["resources/ffmpeg/NOTICE-ffmpeg.txt"]
+    doc["vendor_artifacts"] = [artifact]
+    doc["build_target"]["package_tree"] = "runtime/windows-release/product-v*/bundle"
+    _, script, _ = _assemble(tmp_path, doc)
+    text = script.read_text(encoding="utf-8-sig")
+    gate = [line for line in text.splitlines() if "Assert-LicensesShipped -Licenses" in line]
+    assert len(gate) == 1, text
+    assert "'runtime/windows-release/product-v*/bundle'" in gate[0]
+    assert "$UnpackedDir" not in gate[0]
+
+
+def test_a_vendored_binary_with_no_licence_declared_gets_no_licence_gate(tmp_path):
+    doc = _key()
+    doc["vendor_artifacts"] = [VENDOR_ARTIFACT]
+    _, script, _ = _assemble(tmp_path, doc)
+    assert "Assert-LicensesShipped -Licenses" not in script.read_text(encoding="utf-8-sig")
+
+
 def test_a_key_that_declares_no_vendor_artifact_has_no_such_step(tmp_path):
     # 函数定义一直在模板里；这里验的是没有人调用它，也没有那一步。
     _, script, _ = _assemble(tmp_path, _key())

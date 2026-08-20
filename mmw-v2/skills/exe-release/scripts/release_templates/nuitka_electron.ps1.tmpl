@@ -264,6 +264,55 @@ function Get-VendorArtifact {
   }
 }
 
+# A copyleft binary travels with its licence, and the licence travels inside the package -- not in
+# the repository where the build staged it. Between the two sits a packaging filter, and when that
+# filter drops the licence the build stays green and the shipped installer is in breach.
+#
+# The gate holds no path inside the package: where the packaging config puts a staged file is the
+# packaging config's business. It takes the bytes of the staged file and asks whether any file in
+# the package has them. Size first, hash only for the files that could match, so the scan stays
+# cheap on a tree of many gigabytes.
+function Assert-LicensesShipped {
+  param(
+    [object[]]$Licenses,
+    [string]$RepoRoot,
+    [string]$PackageDir
+  )
+  if (-not $Licenses -or $Licenses.Count -eq 0) { return }
+  # The package tree can carry the version in its name, so this may be a wildcard. One tree, or
+  # the gate does not know which one it just checked.
+  $roots = @(Resolve-Path -Path $PackageDir -ErrorAction SilentlyContinue | ForEach-Object { $_.Path })
+  if ($roots.Count -ne 1) {
+    throw ("There is no single package to look for the licences in: " + $PackageDir +
+           " matched " + $roots.Count + " paths")
+  }
+  $PackageDir = $roots[0]
+  $packaged = @(Get-ChildItem -LiteralPath $PackageDir -Recurse -File -Force -ErrorAction SilentlyContinue)
+  foreach ($licence in $Licenses) {
+    $name = [string]$licence.Name
+    $staged = Join-Path $RepoRoot ([string]$licence.Path)
+    if (-not (Test-Path -LiteralPath $staged)) {
+      throw ("The licence " + $name + " needs is not in the tree: " + $staged)
+    }
+    $size = (Get-Item -LiteralPath $staged).Length
+    $expected = (Get-FileHash -LiteralPath $staged -Algorithm SHA256).Hash.ToLowerInvariant()
+    $hit = $null
+    foreach ($candidate in @($packaged | Where-Object { $_.Length -eq $size })) {
+      if ((Get-FileHash -LiteralPath $candidate.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -eq $expected) {
+        $hit = $candidate
+        break
+      }
+    }
+    if (-not $hit) {
+      throw ("The package ships " + $name + " without " + [string]$licence.Path +
+             ". Those bytes reach no file under " + $PackageDir +
+             ", so the packaging config filters them out")
+    }
+    Write-Host ("  licence shipped: " + $name + " -> " + $hit.FullName)
+  }
+}
+
+
 # Every onefile exe must carry the payload that was built for it, in this round.
 #
 # A onefile exe is a small bootstrap with the whole program appended to it as a payload. How that
