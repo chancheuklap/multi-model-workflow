@@ -36,6 +36,8 @@ Pick whichever shape best fits the question being asked, *not* whichever is easi
 
 One file, plain HTML/CSS/JS — no framework, no bundler, no server, everything inline so it opens by double-click and survives being emailed around. Anyone should be able to run it by opening it.
 
+Write the file into the leaf directory. If the host can publish a file as a live interactive page (an artifact, a site, a canvas — whatever it calls it), publish it from there and hand over the link: the file in the repo stays the source, the page is how it's viewed. Otherwise the file itself is what you hand over.
+
 Write it for a non-developer. Every label is in **domain language**, not code — buttons and state read like the business, not the reducer. Explain in plain words what's happening.
 
 Lay it out with a clean hierarchy, top to bottom:
@@ -51,7 +53,7 @@ Keep it beautiful but restrained: clean typography, generous spacing, one accent
 
 ### 4. Hand it over
 
-Send them the file, or open it for them. They'll click through the walkthroughs and free-play whenever they get to it; the interesting moments are when they say "wait, that shouldn't be possible" or "huh, I assumed X would be different" — those are the bugs in the _idea_, which is the whole point. If they want new actions or a new scenario, add them. Prototypes evolve.
+Send them the link or the file, or open it for them. They'll click through the walkthroughs and free-play whenever they get to it; the interesting moments are when they say "wait, that shouldn't be possible" or "huh, I assumed X would be different" — those are the bugs in the _idea_, which is the whole point. If they want new actions or a new scenario, add them. Prototypes evolve.
 
 ### 5. Capture the answer and the prototype
 
