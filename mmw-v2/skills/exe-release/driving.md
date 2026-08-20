@@ -68,10 +68,22 @@ not on it.)
 A product that builds on another machine needs two facts: which machine, and which folder on it. The engine takes them from `RELEASE_REMOTE_HOST` and `RELEASE_REMOTE_ROOT`, and when either is empty it falls back to `remote-build.json` sitting next to that product's `.release-adapter.json`:
 
 ```json
-{"host": "<build machine>", "root": "D:/<a folder on it>", "delivery_root": "D:/<where packages are kept>"}
+{
+  "host": "<build machine>",
+  "root": "D:/<a folder on it>",
+  "delivery_root": "D:/<where packages are kept>",
+  "cache_root": "D:/<where toolchain caches live>",
+  "build_env": {"UV_INDEX_URL": "<a mirror that is reachable from there>"}
+}
 ```
 
-`delivery_root` is optional and says where finished installers are gathered; without it the engine uses `<root>-delivered`. Set it when that machine already keeps packages somewhere, or they land in a second place and the person looking for them finds half a shelf.
+Everything after `root` is optional, and each says something only that machine knows.
+
+`delivery_root` is where finished installers are gathered; without it the engine uses `<root>-delivered`. Set it when that machine already keeps packages somewhere, or they land in a second place and the person looking for them finds half a shelf.
+
+`cache_root` is where uv, Nuitka, ccache, pnpm and Electron keep their caches; without it the engine uses `<root>-cache`. Left to themselves those five write under `%LOCALAPPDATA%` — the system drive — so a build staged on a roomy data drive slowly fills the one drive nobody was watching, until a disk check stops the release outright. Point several products at one folder and they share the downloads; the caches are content-addressed, so a second copy buys nothing. It has to be a folder the build survives, not one inside the build directory: a successful build deletes that directory, and a cache that dies each round is not a cache.
+
+`build_env` is applied before anything else runs — mirrors that are reachable from that machine, where ccache is installed. Anything named here wins over what the engine would have chosen, including the cache directories.
 
 Missing in both places is a `PAUSED:needs-context` you can often close yourself: the engine's log names the variable. Write the file so the next run does not stop here again. The environment variables win over the file — that is how a one-off switch to another machine is done.
 

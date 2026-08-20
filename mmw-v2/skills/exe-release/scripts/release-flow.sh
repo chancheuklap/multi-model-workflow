@@ -829,6 +829,10 @@ _write_remote_wrapper() {
   cat > "$wrapper" <<'PS1'
 param([Parameter(Mandatory=$true)][string]$InputRoot)
 $ErrorActionPreference = 'Continue'
+# 这一层读子进程的输出。构建机是中文 Windows，不设的话按 GBK(cp936) 解——而下面那个子进程
+# 里的一切（release.ps1 自己的报错、Python 钩子的日志）都是 UTF-8。解错了整段中文变乱码，
+# 而这份日志是出包失败之后唯一的现场，人和自愈链读到的都是它。
+try { [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false) } catch { }
 $log = Join-Path $InputRoot 'build-run.log'
 $rel = Join-Path $InputRoot 'release.ps1'
 $ctx = Join-Path $InputRoot 'release-context.json'
