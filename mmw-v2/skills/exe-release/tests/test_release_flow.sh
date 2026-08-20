@@ -146,6 +146,7 @@ seed_loop_pair() {
 }
 jq '.stages=[]' "$FIX/manifest.fake.json" > remote-build-manifest.json
 init_for_remote_build() {
+  bash "$RF" close >/dev/null 2>&1 || true
   bash "$RF" init --manifest remote-build-manifest.json >/dev/null
   bash "$RF" stage done --stage verify_key >/dev/null
   bash "$RF" stage done --stage assemble >/dev/null
@@ -202,6 +203,23 @@ case "$task_cmd" in
   *\'*|*'"'*) no "计划任务命令行带引号(跨三个解析器会被当字面字符)" ;;
   *) ok "计划任务命令行裸传不带引号" ;;
 esac
+
+# 守:工具链缓存必须落在构建机的数据盘上。不设的话 uv / Nuitka / ccache / pnpm / Electron
+# 全都落在 %LOCALAPPDATA%——构建目录在数据盘上跑得好好的,系统盘却被这几个缓存慢慢填满,
+# 直到某一轮磁盘闸把出包整个拦下来。这是真发生过的。
+remote_reset
+init_for_remote_build
+remote_build >/dev/null 2>&1 || true
+bd="$(build_dir)"
+[ "$(jq -r '.cache_root' "$bd/release-context.json" 2>/dev/null)" = "C:/release-input-cache" ] \
+  && ok "缓存根没人指定时从构建输入根推:<根>-cache" || no "缓存根 ($(jq -r '.cache_root' "$bd/release-context.json" 2>/dev/null))"
+
+remote_reset
+init_for_remote_build
+RELEASE_CACHE_ROOT="D:/shared-cache" remote_build >/dev/null 2>&1 || true
+bd="$(build_dir)"
+[ "$(jq -r '.cache_root' "$bd/release-context.json" 2>/dev/null)" = "D:/shared-cache" ] \
+  && ok "环境变量能临时把缓存指到别处" || no "缓存根环境变量没生效"
 
 # 守:构建目录是过程不是记录。一轮的源码树、node_modules 与中间产物是几个 GB,安装包收进
 # 交付目录、日志回传之后再没有人会读它。留着的话构建机在几十轮内被自己的中间产物填满。

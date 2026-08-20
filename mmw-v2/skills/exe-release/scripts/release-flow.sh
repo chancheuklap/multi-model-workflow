@@ -923,8 +923,18 @@ _run_remote_build() {
   if [ -n "$remote_conf" ]; then
     build_env="$(jq -c '.build_env // {}' "$remote_conf" 2>/dev/null || echo '{}')"
   fi
-  jq --arg root "$remote_input/source" --argjson be "$build_env" \
-    '.repo_root = $root | .build_env = $be' "$context" > "$remote_context" || return $?
+  # 工具链缓存放哪。不设的话 uv / Nuitka / pnpm / Electron 全都落在 %LOCALAPPDATA%,
+  # 也就是系统盘——构建目录在 D 盘上跑得好好的,系统盘却被这几个缓存慢慢填满,直到某一轮
+  # 磁盘闸把出包拦下来。缓存必须跨轮活着(那是它存在的理由),所以放在构建输入根**旁边**,
+  # 不放在会被删掉的构建目录里面。命名跟 <根>-delivered 一致。
+  local cache_root
+  cache_root="${RELEASE_CACHE_ROOT:-}"
+  if [ -z "$cache_root" ] && [ -n "$remote_conf" ]; then
+    cache_root="$(jq -r '.cache_root // empty' "$remote_conf" 2>/dev/null || true)"
+  fi
+  [ -n "$cache_root" ] || cache_root="${remote_root%/}-cache"
+  jq --arg root "$remote_input/source" --argjson be "$build_env" --arg cr "$cache_root" \
+    '.repo_root = $root | .build_env = $be | .cache_root = $cr' "$context" > "$remote_context" || return $?
   _write_remote_wrapper "$wrapper"
 
   _ssh_ps "$remote_host" "New-Item -ItemType Directory -Force -Path '$remote_input' | Out-Null" || return $?

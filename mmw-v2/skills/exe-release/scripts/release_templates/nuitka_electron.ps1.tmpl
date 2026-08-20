@@ -203,7 +203,7 @@ function Assert-InstallerProduced {
 $Script:DefenderExclusions = @()
 
 function Initialize-BuildMachine {
-  param([string]$RepoRoot, [object]$BuildEnv)
+  param([string]$RepoRoot, [object]$BuildEnv, [string]$CacheRoot)
 
   # 构建机给的事实先落地：镜像地址、ccache 的确切路径这类只有这台机器知道的东西。
   if ($BuildEnv) {
@@ -228,6 +228,44 @@ function Initialize-BuildMachine {
   # 目录就会被源码泄漏扫描判成业务源码——一次谁也看不懂的假失败。
   $env:PYTHONDONTWRITEBYTECODE = '1'
 
+  # 工具链缓存全都默认落在 %LOCALAPPDATA%，也就是系统盘。构建目录在数据盘上跑得好好的，
+  # 系统盘却被 uv / Nuitka / ccache / pnpm / Electron 的缓存慢慢填满，直到某一轮磁盘闸把
+  # 出包整个拦下来——这是真发生过的。缓存必须跨轮活着（那是它存在的理由），所以放在构建
+  # 输入根**旁边**，不放在会被删掉的构建目录里面。
+  #
+  # 每一个都「没设才设」：build_env 在上面已经应用完，那里指了就以那里为准。
+  #
+  # 硬链接：uv 的缓存要和它装出来的 venv 同盘、pnpm 的 store 要和 node_modules 同盘，
+  # 否则退化成整份复制。缓存根跟源码在同一个盘上，这个条件自然满足。
+  if ($CacheRoot) {
+    $cacheDirs = @{
+      'UV_CACHE_DIR'          = 'uv'
+      'UV_PYTHON_INSTALL_DIR' = 'uv-python'
+      'NUITKA_CACHE_DIR'      = 'nuitka'
+      # Nuitka 只在 CCACHE_DIR 没设时才把 ccache 指进自己的缓存。显式设上，省得靠那条回落。
+      'CCACHE_DIR'            = 'ccache'
+      # electron 这个 npm 包 postinstall 下载的 zip。它读的是裸环境变量，写进 .npmrc 不管用。
+      'electron_config_cache' = 'electron'
+      # electron-builder 的工具链缓存（winCodeSign / nsis / …）。**必须是绝对路径**，
+      # 相对路径它会静默忽略、回落默认值，不报错。
+      'ELECTRON_BUILDER_CACHE' = 'electron-builder'
+      # pnpm 给的是 store 的**父**目录，它自己再追加 v3/v10 这层版本子目录。
+      # 名字随版本变：≤10 认 npm_config_*，11 起改认 pnpm_config_*。两个都设，
+      # 各自的版本会忽略不认识的那个。
+      'npm_config_store_dir'  = 'pnpm-store'
+      'pnpm_config_store_dir' = 'pnpm-store'
+    }
+    foreach ($name in $cacheDirs.Keys) {
+      if ([Environment]::GetEnvironmentVariable($name)) { continue }
+      $dir = Join-Path $CacheRoot $cacheDirs[$name]
+      try {
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+        [Environment]::SetEnvironmentVariable($name, $dir)
+      } catch { Write-Host ("  cache dir skip: " + $name + " (" + $_.Exception.Message + ")") }
+    }
+    Write-Host ("  toolchain caches: " + $CacheRoot)
+  }
+
   # 构建期 TEMP 放进仓库目录：不占系统盘、随构建目录一起清掉，也一并进杀软排除。
   $buildTemp = Join-Path $RepoRoot 'runtime\.build-temp'
   try {
@@ -248,12 +286,13 @@ function Initialize-BuildMachine {
   }
 
   # 实时扫描会把编译器写出的每一个中间文件都过一遍，编译时间成倍长。加排除，收尾时原样撤掉。
+  # 排的是缓存**实际所在**的目录——上面刚把它们指走，再按 %LOCALAPPDATA% 排就排了个空目录。
   $paths = @($RepoRoot, $buildTemp)
   if ($env:NUITKA_CCACHE_BINARY) { $paths += (Split-Path -Parent $env:NUITKA_CCACHE_BINARY) }
-  if ($env:LOCALAPPDATA) {
-    $paths += (Join-Path $env:LOCALAPPDATA 'Nuitka')
-    $paths += (Join-Path $env:LOCALAPPDATA 'uv\cache')
-    $paths += (Join-Path $env:LOCALAPPDATA 'pnpm\store')
+  if ($CacheRoot) { $paths += $CacheRoot }
+  foreach ($name in @('UV_CACHE_DIR', 'NUITKA_CACHE_DIR', 'CCACHE_DIR', 'npm_config_store_dir')) {
+    $value = [Environment]::GetEnvironmentVariable($name)
+    if ($value) { $paths += $value }
   }
   $Script:DefenderExclusions = @($paths | Where-Object { $_ } | Select-Object -Unique)
   foreach ($path in $Script:DefenderExclusions) { Set-DefenderExclusion 'Add' $path }
@@ -289,9 +328,10 @@ ${ELECTRON_SETUP}
 # teardown 在 finally 跑，best-effort，不改变构建判定。
 $BuildMachine = if ($Context.PSObject.Properties.Match('build_machine').Count -gt 0) { $Context.build_machine } else { $null }
 $BuildEnv = if ($Context.PSObject.Properties.Match('build_env').Count -gt 0) { $Context.build_env } else { $null }
+$CacheRoot = if ($Context.PSObject.Properties.Match('cache_root').Count -gt 0) { [string]$Context.cache_root } else { '' }
 try {
   Step "[0/${STEP_TOTAL}] Prepare build machine"
-  Initialize-BuildMachine -RepoRoot $RepoRoot -BuildEnv $BuildEnv
+  Initialize-BuildMachine -RepoRoot $RepoRoot -BuildEnv $BuildEnv -CacheRoot $CacheRoot
 
   if ($BuildMachine -and $BuildMachine.setup) {
     Push-Location $RepoRoot
