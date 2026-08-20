@@ -439,9 +439,16 @@ def _compile_lines(backend, build_target: BuildTarget, desktop_dir: str | None) 
         f"  Assert-OnefilePayloads -OutputDir (Join-Path $RepoRoot {_ps(out_dir)}) "
         f"-Exes @({exes})"
     )
+    # 校验完就把编译中间产物删掉。Nuitka 的 <入口>.dist 和 <入口>.onefile-build 是编译过程
+    # 的临时目录，编完就没用了，而它们跟成品 exe 躺在同一个目录里——那个目录整个进安装包。
+    # 于是同一份内容发三遍：exe 里一份、dist 一份、payload.bin 一份。删在校验之后，是因为
+    # 校验正要读 payload。
+    cleanup_line = (
+        f"  Remove-CompilerIntermediates -OutputDir (Join-Path $RepoRoot {_ps(out_dir)})"
+    )
 
     if not backend.isolate_dirs:
-        return [*lines, *compile_lines, assert_line]
+        return [*lines, *compile_lines, assert_line, cleanup_line]
 
     isolate = ", ".join(
         f"(Join-Path $RepoRoot {_ps(nuitka.expand(path, desktop_dir=desktop_dir, build_root=backend.build_root))})"
@@ -456,6 +463,7 @@ def _compile_lines(backend, build_target: BuildTarget, desktop_dir: str | None) 
     lines.append("  }")
     lines.append("  finally { Restore-AfterCompile -Moved $moved }")
     lines.append(assert_line)
+    lines.append(cleanup_line)
     return lines
 
 

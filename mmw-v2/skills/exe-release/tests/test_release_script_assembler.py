@@ -353,3 +353,33 @@ def test_package_integrity_hook_runs_before_the_installer_assert(tmp_path):
     hook = text.index("'package_integrity'")
     assert_at = text.index("Assert-InstallerProduced -Glob")
     assert hook < assert_at
+
+
+def test_compiler_intermediates_are_removed_after_the_payload_check(tmp_path):
+    """Nuitka 的 .dist 与 .onefile-build 跟成品 exe 同一个目录，而那个目录整个进安装包。
+
+    不删就是同一份内容发三遍：exe 里一份、dist 一份、payload.bin 一份。删必须排在 payload
+    校验之后——校验正要读 payload。
+    """
+    result, script, _ = _assemble(tmp_path, _key())
+    assert result.returncode == 0, result.stderr
+    text = script.read_text(encoding="utf-8-sig")
+    check = text.index("Assert-OnefilePayloads -Exes") if "Assert-OnefilePayloads -Exes" in text \
+        else text.index("Assert-OnefilePayloads -OutputDir")
+    cleanup = text.index("Remove-CompilerIntermediates -OutputDir")
+    assert check < cleanup
+
+
+def test_a_key_that_removes_the_output_itself_is_rejected(tmp_path):
+    """钥匙自己传 --remove-output，目录在编译当场就没了，payload 校验只能退到比尾部。"""
+    doc = _key()
+    doc["python_backend"]["extra_flags"] = ["--remove-output"]
+    adapter = tmp_path / "key.json"
+    adapter.write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+    import subprocess as sp
+    out = sp.run(
+        [sys.executable, str(SCRIPTS / "verify_key.py"), "--adapter", str(adapter),
+         "--repo-root", str(tmp_path)],
+        capture_output=True, text=True,
+    )
+    assert "remove_output_is_the_engine_s_job" in out.stdout, out.stdout + out.stderr

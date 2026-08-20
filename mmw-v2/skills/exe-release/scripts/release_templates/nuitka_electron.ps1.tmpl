@@ -278,6 +278,33 @@ function Get-VendorArtifact {
 #
 # Nothing here is named or matched by convention. Each payload is claimed by exactly one exe, and
 # an exe that claims a payload another exe already claimed is the failure we are looking for.
+# The compiler's leftovers do not go to the customer.
+#
+# Nuitka writes <entry>.dist (the standalone tree it just built) and <entry>.onefile-build
+# (holding blobs\__payload.bin) next to the finished exe. Both are build scratch, and both sit
+# in the directory the packer copies wholesale into the installer -- so the same content ships
+# three times: once inside the exe, once as the dist tree, once as the raw payload.
+#
+# This runs after the payload check, which is the one step that needs those directories.
+function Remove-CompilerIntermediates {
+  param([string]$OutputDir)
+  if (-not (Test-Path -LiteralPath $OutputDir)) { return }
+  $leftovers = @(
+    Get-ChildItem -LiteralPath $OutputDir -Directory -ErrorAction SilentlyContinue |
+      Where-Object { $_.Name -like '*.dist' -or $_.Name -like '*.onefile-build' }
+  )
+  if ($leftovers.Count -eq 0) {
+    Write-Host '  compiler intermediates: none left behind'
+    return
+  }
+  foreach ($dir in $leftovers) {
+    $bytes = (Get-ChildItem -LiteralPath $dir.FullName -Recurse -File -Force -ErrorAction SilentlyContinue |
+      Measure-Object -Sum Length).Sum
+    Remove-Item -LiteralPath $dir.FullName -Recurse -Force
+    Write-Host ("  removed compiler intermediate: " + $dir.Name + "  " + [math]::Round($bytes / 1MB, 1) + " MB")
+  }
+}
+
 function Assert-DistinctExeTails {
   param([string[]]$Exes)
   $seen = @{}

@@ -31,6 +31,7 @@ function Get-TemplateFunction([string]$name) {
 # 点源在脚本作用域，函数才留得住——在别的函数里 Invoke-Expression，出了那个函数就没了。
 . ([scriptblock]::Create((Get-TemplateFunction 'Assert-NoBusinessSource')))
 . ([scriptblock]::Create((Get-TemplateFunction 'Assert-DistinctExeTails')))
+. ([scriptblock]::Create((Get-TemplateFunction 'Remove-CompilerIntermediates')))
 
 $lab = Join-Path $env:TEMP ("mmw-template-behaviour-" + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $lab | Out-Null
@@ -124,6 +125,29 @@ try {
     } else {
       no ("拦下了但说的不是这件事：" + $_.Exception.Message)
     }
+  }
+
+  # 编译中间产物：<入口>.dist 与 <入口>.onefile-build 删掉，成品 exe 留着。
+  $outDir = Join-Path $lab 'compiled'
+  New-Item -ItemType Directory -Force -Path (Join-Path $outDir '__main__.dist\sub') | Out-Null
+  New-Item -ItemType Directory -Force -Path (Join-Path $outDir '__main__.onefile-build\blobs') | Out-Null
+  New-Item -ItemType Directory -Force -Path (Join-Path $outDir 'runtime-assets') | Out-Null
+  Set-Content -Path (Join-Path $outDir '__main__.dist\sub\lib.pyd') -Value 'x' -Encoding Ascii
+  Set-Content -Path (Join-Path $outDir '__main__.onefile-build\blobs\__payload.bin') -Value 'y' -Encoding Ascii
+  Set-Content -Path (Join-Path $outDir 'runtime-assets\keep.txt') -Value 'z' -Encoding Ascii
+  Set-Content -Path (Join-Path $outDir 'product.exe') -Value 'exe' -Encoding Ascii
+  Remove-CompilerIntermediates -OutputDir $outDir
+  if ((Test-Path (Join-Path $outDir '__main__.dist')) -or
+      (Test-Path (Join-Path $outDir '__main__.onefile-build'))) {
+    no "编译中间目录没被删掉"
+  } else {
+    ok "编译中间目录被删掉"
+  }
+  if ((Test-Path (Join-Path $outDir 'product.exe')) -and
+      (Test-Path (Join-Path $outDir 'runtime-assets\keep.txt'))) {
+    ok "成品与运行时资产原样留着"
+  } else {
+    no "把不该删的也删了"
   }
 }
 finally {
