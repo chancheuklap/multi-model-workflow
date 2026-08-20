@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 把 skills.txt 列出的技能软链进本机的每个宿主。就这一件事。
+# 把 skills.txt 列出的技能和 agents/ 下的 subagent 软链进本机的每个宿主。就这两件事。
 #
 # 技能有两个来源：上游的在 upstream/skills/，我们自己写的在 skills/，名单里用 self/ 前缀
 # 区分。两者装法完全一样。
@@ -13,7 +13,12 @@
 #
 # 五个宿主的用户触发开关都读 SKILL.md 的 disable-model-invocation，
 # Codex 另读技能目录里的 agents/openai.yaml。两者都在技能目录内，软链一并带过去，
-# 所以这里没有任何按宿主分支的逻辑。
+# 所以技能安装没有任何按宿主分支的逻辑。
+#
+# subagent 跟技能不同：模型字段各家写法不一样，同一份正文必须按宿主换壳。壳由
+# agents/assemble.py 从 body.md + agent.json 装配到 agents/<名>/out/，这里只把成品
+# 软链到各宿主的 agent 目录。软链仍指回仓库：改了 body.md 跑一次装配（或本脚本），
+# 宿主下一次调用就是新的。
 
 set -euo pipefail
 
@@ -136,6 +141,96 @@ for dest in "${HOST_DIRS[@]}"; do
   printf '%s\n' "${linked[@]}" > "$manifest"
   echo "已装  ${#linked[@]} 个技能 -> $dest"
 done
+
+# ---------------- subagent ----------------
+
+AGENTS_SRC="$ROOT/agents"
+AGENT_MANIFEST_NAME=".mmw-agents"
+
+if [ -d "$AGENTS_SRC" ]; then
+  # 成品必须与源一致：装的时候先装配，查的时候只验不写。
+  if [ "$mode" = check ]; then
+    python3 "$AGENTS_SRC/assemble.py" --check || rc=1
+  else
+    python3 "$AGENTS_SRC/assemble.py"
+  fi
+
+  agent_names=()
+  for d in "$AGENTS_SRC"/*/; do
+    [ -f "${d}agent.json" ] || continue
+    agent_names+=("$(basename "$d")")
+  done
+  [ "${#agent_names[@]}" -gt 0 ] || die "agents/ 目录在，里面却一个 agent 都没有"
+
+  # 一行一个安装点：宿主根|目标目录|成品文件名|落地后缀。
+  # grok 一家两处：agents/ 放定义与模型，roles/ 放只读能力与推理力度。
+  agent_dests=(
+    "$HOME_DIR/.claude|$HOME_DIR/.claude/agents|claude.md|.md"
+    "${CODEX_HOME:-$HOME_DIR/.codex}|${CODEX_HOME:-$HOME_DIR/.codex}/agents|codex.toml|.toml"
+    "${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME_DIR/.pi}/agent}|${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME_DIR/.pi}/agent}/agents|pi.md|.md"
+    "$HOME_DIR/.cursor|$HOME_DIR/.cursor/agents|cursor.md|.md"
+    "$HOME_DIR/.grok|$HOME_DIR/.grok/agents|grok.md|.md"
+    "$HOME_DIR/.grok|$HOME_DIR/.grok/roles|grok.role.toml|.toml"
+  )
+
+  for row in "${agent_dests[@]}"; do
+    IFS='|' read -r host_home dest src_name suffix <<<"$row"
+    [ -d "$host_home" ] || continue
+
+    manifest="$dest/$AGENT_MANIFEST_NAME"
+
+    if [ "$mode" = check ]; then
+      for name in "${agent_names[@]}"; do
+        link="$dest/$name$suffix"
+        want="$AGENTS_SRC/$name/out/$src_name"
+        if [ ! -L "$link" ] || [ "$(readlink "$link")" != "$want" ]; then
+          echo "缺    $link" >&2
+          rc=1
+        fi
+      done
+      continue
+    fi
+
+    mkdir -p "$dest"
+
+    # 清理上次装了、这次没有的。只摘指回本仓库 agents/ 的软链。
+    if [ -f "$manifest" ]; then
+      while IFS= read -r old; do
+        [ -n "$old" ] || continue
+        printf '%s\n' "${agent_names[@]/%/$suffix}" | grep -qx "$old" && continue
+        stale="$dest/$old"
+        [ -L "$stale" ] || continue
+        case "$(readlink "$stale")" in
+          "$AGENTS_SRC"/*) rm "$stale"; echo "摘掉  $stale" ;;
+        esac
+      done < "$manifest"
+    fi
+
+    linked=()
+    for name in "${agent_names[@]}"; do
+      link="$dest/$name$suffix"
+      want="$AGENTS_SRC/$name/out/$src_name"
+      if [ -e "$link" ] || [ -L "$link" ]; then
+        if [ -L "$link" ] && [[ "$(readlink "$link")" == "$AGENTS_SRC"/* ]]; then
+          :
+        else
+          echo "冲突  $link 已存在且不是本仓库装的，跳过" >&2
+          rc=1
+          continue
+        fi
+      fi
+      ln -sfn "$want" "$link"
+      linked+=("$name$suffix")
+    done
+
+    if [ "${#linked[@]}" -gt 0 ]; then
+      printf '%s\n' "${linked[@]}" > "$manifest"
+    else
+      : > "$manifest"
+    fi
+    echo "已装  ${#linked[@]} 个 agent -> $dest"
+  done
+fi
 
 [ "$installed_hosts" -gt 0 ] || die "一个宿主都没找到，什么都没装"
 

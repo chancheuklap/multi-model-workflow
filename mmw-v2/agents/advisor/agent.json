@@ -1,0 +1,11 @@
+{
+  "name": "advisor",
+  "description": "Second-opinion advisor on a stronger model; read-only, never implements. Consult at most once per decision, only at moments that decide whether the next hour of work is wasted: before committing to an architecture choice, a data migration, a big refactor, or an API shape; when the same problem has resisted two attempts; or before treating a disputed interpretation of the task as settled. Not for questions you can settle yourself by reading the code. In your prompt, quote the recent user/assistant exchange, then state your current understanding, the constraints, the options you considered, and the relevant file paths — the advisor sees nothing else, and will read the code itself before answering. Returns a short verdict with the deciding risk.",
+  "hosts": {
+    "claude": { "model": "fable", "effort": "medium", "tools": "Read, Grep, Glob, Bash" },
+    "cursor": { "model": "claude-fable-5", "effort": "medium" },
+    "codex": { "model": "gpt-5.6-sol", "effort": "high" },
+    "grok": { "model": "grok-4.6", "effort": "xhigh" },
+    "pi": { "model": "openai-codex/gpt-5.6-sol", "effort": "high", "tools": "read, grep, find, ls, bash" }
+  }
+}
