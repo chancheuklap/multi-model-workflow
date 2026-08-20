@@ -254,10 +254,12 @@ hook and no key field:
   ships it still installs and still runs, so nothing reveals the leak — the product's commercial
   premise is simply gone. The packages to look for are `python_backend.include_packages`, which
   the key already declares.
-- **The compiler's leftovers do not ship.** Nuitka leaves `<entry>.dist` and
+- **The compiler's leftovers do not ship.** Nuitka leaves `<entry>.build`, `<entry>.dist` and
   `<entry>.onefile-build` beside the finished exe, in the directory the packer copies whole.
-  Left there, the same content ships three times — inside the exe, as the dist tree, and as the
-  raw payload; one product carried 4 GB that way. The engine removes both, right after the
+  Left there, the same content ships three times over — inside the exe, as the dist tree, and as
+  the raw payload; one product carried 4 GB that way. `.build` is worse than bloat: it holds the
+  C the compiler generated from the product's own source. The engine removes all three, right
+  after the
   payload check reads them, so **do not put `--remove-output` in `extra_flags`**: it deletes the
   directories during the compile and downgrades the payload check to comparing exe tails.
 - **An installer really landed at `installer_glob`.** "The installer step exited 0" and "there is

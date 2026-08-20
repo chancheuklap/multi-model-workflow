@@ -130,19 +130,22 @@ try {
 
   # 编译中间产物：<入口>.dist 与 <入口>.onefile-build 删掉，成品 exe 留着。
   $outDir = Join-Path $lab 'compiled'
+  New-Item -ItemType Directory -Force -Path (Join-Path $outDir '__main__.build') | Out-Null
   New-Item -ItemType Directory -Force -Path (Join-Path $outDir '__main__.dist\sub') | Out-Null
   New-Item -ItemType Directory -Force -Path (Join-Path $outDir '__main__.onefile-build\blobs') | Out-Null
   New-Item -ItemType Directory -Force -Path (Join-Path $outDir 'runtime-assets') | Out-Null
+  Set-Content -Path (Join-Path $outDir '__main__.build\scons-debug.py') -Value 'x' -Encoding Ascii
   Set-Content -Path (Join-Path $outDir '__main__.dist\sub\lib.pyd') -Value 'x' -Encoding Ascii
   Set-Content -Path (Join-Path $outDir '__main__.onefile-build\blobs\__payload.bin') -Value 'y' -Encoding Ascii
   Set-Content -Path (Join-Path $outDir 'runtime-assets\keep.txt') -Value 'z' -Encoding Ascii
   Set-Content -Path (Join-Path $outDir 'product.exe') -Value 'exe' -Encoding Ascii
   Remove-CompilerIntermediates -OutputDir $outDir
-  if ((Test-Path (Join-Path $outDir '__main__.dist')) -or
+  if ((Test-Path (Join-Path $outDir '__main__.build')) -or
+      (Test-Path (Join-Path $outDir '__main__.dist')) -or
       (Test-Path (Join-Path $outDir '__main__.onefile-build'))) {
     no "编译中间目录没被删掉"
   } else {
-    ok "编译中间目录被删掉"
+    ok "编译中间目录被删掉（含 .build：里面是编译器从本产品源码生成的 C）"
   }
   if ((Test-Path (Join-Path $outDir 'product.exe')) -and
       (Test-Path (Join-Path $outDir 'runtime-assets\keep.txt'))) {
