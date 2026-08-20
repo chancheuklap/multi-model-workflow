@@ -34,7 +34,7 @@ fi
 [ ! -f "$SF" ] && ok "fail-loud 不写 release-state" || no "fail-loud 竟写了 state"
 
 bash "$RF" init --manifest "$FIX/manifest.fake.json" >/dev/null
-[ "$(jq -r .product "$SF")" = "duck" ] && ok "init 注入 product" || no "product ($(jq -r .product "$SF"))"
+[ "$(jq -r .product "$SF")" = "fixture-product" ] && ok "init 注入 product" || no "product ($(jq -r .product "$SF"))"
 [ "$(jq -r '.stages|length' "$SF")" = "2" ] && ok "init 注入 2 stages" || no "stages len"
 [ "$(jq -r '[.stages[]|select(.status=="pending")]|length' "$SF")" = "2" ] && ok "stages 全 pending" || no "pending"
 
@@ -196,8 +196,9 @@ bash "$RF" init --manifest remote-build-manifest.json >/dev/null
 printf '{"repo_root":"/placeholder","product":"test-product","build_target":{"installer_glob":"out/*-setup.exe"}}\n' \
   > release-context.json
 remote_build >/dev/null 2>&1 || true
-[ -n "$(find "$FAKE_REMOTE_ROOT" -name '*-setup.exe' -path '*releases*' 2>/dev/null)" ] \
-  && ok "安装包收进交付目录" || no "安装包没进交付目录"
+# 交付目录没人指定时从构建输入根推：<根>-delivered。技能里不写死任何一个仓库的路径。
+[ -n "$(find "$FAKE_REMOTE_ROOT/release-input-delivered" -name '*-setup.exe' 2>/dev/null)" ] \
+  && ok "安装包收进推出来的交付目录" || no "安装包没进交付目录"
 [ -z "$(build_dir)" ] && ok "成功并交付后删掉远端构建目录" || no "远端构建目录留在构建机上"
 bash "$RF" close >/dev/null
 
@@ -230,6 +231,20 @@ remote_build >/dev/null 2>&1 || true
 [ -e "$input_root/000000000002-test-product" ] && [ -e "$input_root/000000000003-test-product" ] \
   && ok "最近两个失败目录留着" || no "还要查的现场被删掉了"
 [ -e "$input_root/000000000004-other-product" ] && ok "不碰别的产品的目录" || no "删到了别的产品"
+bash "$RF" close >/dev/null
+
+# 守:装配之后技能自己改了，那份生成脚本就过期了。拿它去构建机跑，日志里每一步都对——
+# 只是跑的不是刚改的那一份。引擎只按产品仓库的 HEAD 判断要不要重来，看不见这一类改动。
+remote_reset
+bash "$RF" init --manifest remote-build-manifest.json >/dev/null
+edit_state() { jq "$1" "$SF" > "$SF.tmp" && mv "$SF.tmp" "$SF"; }
+edit_state '.skill_fingerprint = "从前那一份"'
+if remote_build >/dev/null 2>&1; then
+  no "拿着过期的脚本照跑了"
+else
+  [ "$(jq -r '.current_stage' "$SF")" = "assemble" ] \
+    && ok "技能改过就先回去重新装配" || no "没有回到 assemble"
+fi
 bash "$RF" close >/dev/null
 
 # 守:上一轮的 attempt 目录不能留。attempt 号从 a0 重新数,旧目录跟本轮同名对撞,于是

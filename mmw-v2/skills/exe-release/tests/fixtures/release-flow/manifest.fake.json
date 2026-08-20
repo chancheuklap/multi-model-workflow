@@ -1,27 +1,42 @@
 {
-  "schema_version": "1",
-  "product": "duck",
+  "schema_version": "2",
+  "product": "fixture-product",
   "build_target": {
     "desktop_dir": "desktop-fixture",
-    "runtime_lane": "embedded_python",
-    "entry_module": "fixture.missing",
     "installer_brand": "Fixture",
-    "deps_extra": "not_a_real_extra",
+    "installer_glob": "desktop-fixture/dist/*.exe",
     "asset_roots": [],
     "native_ext_dll": [
       {
         "reason": "fixture",
         "dll_names": [
-          "missing.dll"
+          "python3.dll"
         ],
-        "dll_source": "repo",
-        "dest": "dist_root",
-        "repo_dir": "resources/native/dll"
+        "dll_source": "compile_interpreter",
+        "dest": "dist_root"
       }
-    ],
-    "nuitka_include": [],
-    "nuitka_nofollow": []
+    ]
   },
+  "python_backend": {
+    "runner": [
+      "true"
+    ],
+    "output_dir": "${DESKTOP_DIR}/python-runtime/backend",
+    "jobs": {
+      "default": 2
+    },
+    "include_packages": [
+      "fixture_pkg"
+    ],
+    "targets": [
+      {
+        "name": "fixture-backend",
+        "exe": "fixture-backend.exe",
+        "entrypoint": "src/fixture_pkg/__main__.py"
+      }
+    ]
+  },
+  "electron": {},
   "stages": [
     {
       "name": "doctor",

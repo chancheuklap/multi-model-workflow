@@ -29,18 +29,14 @@ MINIMAL_KEY = {
     "product": "newcomer",
     "build_target": {
         "desktop_dir": "desktop-newcomer",
-        "runtime_lane": "embedded_python",
-        "entry_module": "newcomer",
         "installer_brand": "Newcomer",
         # 有出安装包这一步，就得说它落在哪：技能每次都去那里确认真有一个包，
         # 引擎也按它把包收拢到交付目录。
         "installer_glob": "desktop-newcomer/dist/*-setup.exe",
     },
-    "toolchain": ["python", "pnpm", "node", "uv"],
     "python_backend": {
         "runner": ["uv", "run", "--extra", "newcomer", "python"],
         "output_dir": "${DESKTOP_DIR}/python-runtime/backend",
-        "output_mode": "onefile",
         "jobs": {"default": 10},
         "include_packages": ["newcomer"],
         "include_package_data": ["newcomer"],
@@ -53,50 +49,11 @@ MINIMAL_KEY = {
         ],
         "smoke": {
             "exe": "newcomer-backend.exe",
-            "run_module": "newcomer._build_smoke",
+            "args": ["--run-module", "newcomer._build_smoke"],
             "modules": ["fastapi", "newcomer.app"],
         },
     },
     "electron": {},
-    "stages": [
-        {
-            "name": "assemble",
-            "run": [
-                "uv",
-                "run",
-                "python",
-                "${RELEASE_PLUGIN_DIR}/release_script_assembler.py",
-                "assemble",
-                "--adapter",
-                "release/newcomer.release-adapter.json",
-                "--repo-root",
-                ".",
-                "--output",
-                "${RELEASE_LOOP_DIR}/release.ps1",
-                "--context-output",
-                "${RELEASE_LOOP_DIR}/release-context.json",
-            ],
-        },
-        {
-            "name": "build",
-            "run": [
-                "mmw-release-remote-build",
-                "--script",
-                "${RELEASE_LOOP_DIR}/release.ps1",
-                "--context",
-                "${RELEASE_LOOP_DIR}/release-context.json",
-            ],
-        },
-    ],
-    "diagnose": [
-        "uv",
-        "run",
-        "python",
-        "${RELEASE_PLUGIN_DIR}/diagnose_core.py",
-        "--adapter",
-        "release/newcomer.release-adapter.json",
-    ],
-    "build_hooks": {},
 }
 
 
@@ -179,6 +136,12 @@ def test_the_key_carries_no_hook_and_the_script_calls_none(tmp_path):
         "build_machine",
         "diagnose_branches",
         "diagnose_rules",
+        # 标准流水线与诊断器由引擎提供，钥匙不声明就是用标准的那一套。
+        "stages",
+        "diagnose",
+        "build_hooks",
+        # 第一步查的工具从钥匙已经说过的话里推，不用钥匙再抄一遍。
+        "toolchain",
     ],
 )
 def test_the_self_heal_equipment_is_all_optional(field):
@@ -189,39 +152,6 @@ def test_the_self_heal_equipment_is_all_optional(field):
     """
     assert field not in MINIMAL_KEY and field not in MINIMAL_KEY["build_target"]
     rc.ReleaseAdapterManifest.model_validate(MINIMAL_KEY)
-
-
-def test_a_product_without_an_electron_shell_also_assembles(tmp_path):
-    """纯后端产品：没有前端，也就没有 desktop_dir、没有装依赖、没有打壳、没有安装包步。"""
-    bare = json.loads(json.dumps(MINIMAL_KEY))
-    del bare["electron"]
-    del bare["build_target"]["desktop_dir"]
-    del bare["build_target"]["installer_glob"]
-    bare["python_backend"]["output_dir"] = "build/backend"
-    bare["toolchain"] = ["python", "uv"]
-
-    key = tmp_path / "k.json"
-    key.write_text(json.dumps(bare), encoding="utf-8")
-    script = tmp_path / "release.ps1"
-    context = tmp_path / "ctx.json"
-    assembler.assemble(key, tmp_path, script, context)
-    assembler.check(script, context)
-
-    text = script.read_text(encoding="utf-8")
-    assert "$DesktopDir" not in text, "没有外壳却造出了 $DesktopDir，它指向不存在的目录"
-    titles = [
-        step["title"]
-        for step in json.loads(context.read_text(encoding="utf-8"))["render_metadata"][
-            "steps"
-        ]
-    ]
-    assert titles == [
-        "Validate prerequisites",
-        "Compile Python backend",
-        "Verify compiled backend",
-        # 没有外壳、没有安装包，源码泄漏这一条照样查：它查的是编译产物的目录。
-        "Scan release artifacts",
-    ]
 
 
 def test_the_generated_script_is_the_only_thing_the_build_machine_needs(tmp_path):

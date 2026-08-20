@@ -269,6 +269,17 @@ _collect_candidate_paths() {
   fi
 }
 
+# 不管产品声明了什么，自动修复永远不许碰这几类路径。产品的 protection_source 加在它之上，
+# 不是取代它——一把新钥匙什么都还没写的时候，闸门不该是整个开着的。
+# 匹配用 bash 的 [[ == ]]，其中 * 也跨 /，所以 *foo 等于「任意深度下的 foo」。
+_SKILL_HARD_DENY=(
+  '.env' '.env.*' '*/.env' '*/.env.*'
+  '*.pem' '*.key' '*.p12' '*.pfx' '*id_rsa' '*id_ed25519' '*id_ecdsa'
+  '.git' '.git/*'
+  '*.lock' '*package-lock.json' '*pnpm-lock.yaml' '*yarn.lock'
+  '*.release-adapter.json'
+)
+
 _load_path_hard_deny() {
   local f="$1" top mp source_rel source_file matchers path
   # P0:本轮 dispatch 若已在跑修复前冻结过 hard-deny 快照,后续一律用冻结值,不再从可能被修复
@@ -281,6 +292,11 @@ _load_path_hard_deny() {
   fi
   top="$(_repo_top)"
   mp="$(jq -r '.manifest_path' "$f")"
+  PROTECTION_MATCHERS=("${_SKILL_HARD_DENY[@]}")
+  # 钥匙没有自己的保护规则，就只有技能这份底线——这不是缺陷，是一把还没长出自愈装备的钥匙。
+  if [ "$(jq -r 'has("protection_source") and (.protection_source != null)' "$mp")" != "true" ]; then
+    return 0
+  fi
   source_rel="$(jq -er '.protection_source' "$mp" 2>/dev/null)" || {
     PATH_GATE_ERROR="manifest.protection_source 不可读"
     return 1
@@ -303,10 +319,11 @@ _load_path_hard_deny() {
     PATH_GATE_ERROR="protection_source 不合规: $source_rel"
     return 1
   fi
-  PROTECTION_MATCHERS=()
   while IFS= read -r path; do
     [ -n "$path" ] && PROTECTION_MATCHERS+=("$path")
   done < "$matchers"
+  # 规则源自己也不许被自动修复改：改得掉它，就等于能关掉自己头上的闸。
+  PROTECTION_MATCHERS+=("$source_rel")
   rm -f "$matchers"
   [ ${#PROTECTION_MATCHERS[@]} -gt 0 ] || {
     PATH_GATE_ERROR="protection_source 没有 path_hard_deny matcher"
@@ -406,6 +423,18 @@ _expand_argv_token() {
   printf '%s' "$out"
 }
 
+# 钥匙没声明 diagnose 时用技能自己的诊断器。这一段在每把钥匙里逐字相同，只有 --adapter
+# 后面的路径不同——而那条路径引擎手里就有。抄的东西一旦有四份，其中一份迟早抄错。
+_diagnose_argv_source() {
+  local mp="$1"
+  if [ "$(jq -r '(.diagnose // []) | length' "$mp")" -gt 0 ]; then
+    jq -r '.diagnose[]' "$mp"
+    return 0
+  fi
+  printf '%s\n' uv run --with 'pydantic>=2' python \
+    '${RELEASE_PLUGIN_DIR}/diagnose_core.py' --adapter "$mp"
+}
+
 _run_direct_action() {
   local f="$1" mode="$2" findings="$3" top mp key arg ref_file
   top="$(_repo_top)"
@@ -416,8 +445,8 @@ _run_direct_action() {
     *) die "未知 direct action: $mode" ;;
   esac
   ACTION_ARGV=()
-  while IFS= read -r arg; do ACTION_ARGV+=("$(_expand_argv_token "$arg")"); done < <(jq -r --arg key "$key" '.[$key][]' "$mp")
-  [ ${#ACTION_ARGV[@]} -gt 0 ] || die "manifest.$key 为空(引擎载入应已挡,防御)"
+  while IFS= read -r arg; do ACTION_ARGV+=("$(_expand_argv_token "$arg")"); done \
+    < <(jq -r --arg key "$key" '(.[$key] // [])[]' "$mp")
   ACTION_COMMAND="${ACTION_ARGV[*]}"
   ACTION_RC=0
   RF_WORKER_REF=""
@@ -443,9 +472,14 @@ _run_direct_action() {
 _post_fix_gate() {
   local f="$1" name="$2" fp="$3" repair_sha="$4" mp a rc=0 gate_out
   mp="$(jq -r '.manifest_path' "$f")"
+  # 没有这一关，跟「跑了并通过」在回执里必须分得开。
+  if [ "$(jq -r '(.post_fix_gate // []) | length' "$mp")" -eq 0 ]; then
+    append_attempt "$f" "$name" "post_fix_gate" "skipped" "$fp" "git-commit:$repair_sha"
+    echo "POST-FIX-GATE-SKIPPED:$name(钥匙没有配这一关)"
+    return 0
+  fi
   local gate_argv=()
   while IFS= read -r a; do gate_argv+=("$(_expand_argv_token "$a")"); done < <(jq -r '.post_fix_gate[]' "$mp")
-  [ ${#gate_argv[@]} -gt 0 ] || die "manifest.post_fix_gate 为空(引擎载入应已挡,防御)"
   gate_out="$( cd "$(_repo_top)" && "${gate_argv[@]}" 2>&1 )" || rc=$?
 
   local gate_cmd
@@ -475,7 +509,7 @@ _post_fix_gate() {
   append_attempt "$f" "$name" "post_fix_gate" "fail" "$fp" "git-revert:$revert_sha"
   patch_last_attempt "$f" "[]" "[]" "$gate_result" "" "$gate_cmd"
   edit "$f" --arg sc "$revert_sha" '.source_commit=$sc'
-  while IFS= read -r a; do diag_argv+=("$(_expand_argv_token "$a")"); done < <(jq -r '.diagnose[]' "$mp")
+  while IFS= read -r a; do diag_argv+=("$(_expand_argv_token "$a")"); done < <(_diagnose_argv_source "$mp")
   findings_tmp="$(mktemp)"
   ( cd "$top" && "${diag_argv[@]}" ) > "$findings_tmp" 2>/dev/null || true
   echo "FIX-REVERTED:$repair_sha commit=$revert_sha"
@@ -506,6 +540,16 @@ cmd_dispatch_direct() {
     return 0
   fi
   PROTECTION_FROZEN=1
+
+  # 钥匙没配这一件自愈装备，就没有这一步。说成引擎坏了，下一个人会去查引擎。
+  if [ "$(jq -r --arg k "$( [ "$mode" = fix ] && echo fix_executor || echo derive )" \
+        '(.[$k] // []) | length' "$mp")" -eq 0 ]; then
+    _record_pause "$f" "$name" "preflight" "no_${mode}_executor" "$fp" "" \
+      "needs-context" "这把钥匙没有配 $( [ "$mode" = fix ] && echo fix_executor || echo derive )，这一类失败没有自动修复通路，交人" \
+      "[]" "[]" "" "" ""
+    echo "DISPATCH-PAUSED:$name(no $mode executor in the key)"
+    return 0
+  fi
 
   _snapshot_baseline_untracked "$top" "$f"
   _run_direct_action "$f" "$mode" "$findings"
@@ -629,6 +673,8 @@ emit_event() {
   printf '%s' "$ev" | uv run --quiet "$SCRIPT_DIR/release_contracts.py" validate-event - \
     || { echo "ERROR: 引擎产出非法 ReleaseLoopEvent: $ev" >&2; return 0; }
 
+  # 没接日志系统的产品，事件到此为止：验过合同就够了，不凭空造一个落地点。
+  [ "$(jq -r '(.event_sink // []) | length' "$mp")" -gt 0 ] || return 0
   local sink_argv=()
   while IFS= read -r arg; do
     sink_argv+=("$(_expand_argv_token "$arg")")
@@ -639,6 +685,33 @@ emit_event() {
   # 路径交给 sink,两端加载同一份合同、不靠 sink 自己猜 plugin 根下的子路径(那条假设只在源仓库
   # 布局成立、已安装 cache 无 plugin/ 中间层,是 event 落地长期失败的根因)。
   printf '%s\n' "$ev" | MMW_PLUGIN_DIR="$SCRIPT_DIR" "${sink_argv[@]}" || echo "WARN: event_sink 落地失败: $event" >&2
+}
+
+# 生成脚本这件事的输入不止钥匙，还有技能自己。技能改了而产品仓库 HEAD 没动时，引擎原本
+# 看不见——于是 build 拿着上一次装配出来的脚本去构建机跑，日志里每一步都对，只是跑的不是
+# 你刚改的那一份。指纹存在状态里，build 前对一次。
+_skill_fingerprint() {
+  find "$SCRIPT_DIR" -type f \( -name '*.py' -o -name '*.tmpl' -o -name '*.sh' \) \
+    ! -path '*/__pycache__/*' -print0 | sort -z | xargs -0 shasum | shasum | cut -d' ' -f1
+}
+
+# 标准流水线：验钥匙 → 装配 → 远端构建。每把钥匙的这三段曾经逐字相同，只有钥匙路径不同，
+# 于是它是抄的——而 v2 钥匙指着 v1 钥匙那个 bug 正是这么抄出来的，日志里每一步还都是绿的。
+# 钥匙不声明 stages 就用这一份。声明了就是整条自己的流水线，engine 不再往里塞东西：
+# 「一半是你的、一半是我的」说不清失败该问谁。
+_standard_stages() {
+  jq -nc --arg mp "$1" '[
+    {name:"verify_key", run:["uv","run","--with","pydantic>=2","python",
+      "${RELEASE_PLUGIN_DIR}/verify_key.py","--adapter",$mp,"--repo-root","."]},
+    {name:"assemble", run:["uv","run","--with","pydantic>=2","python",
+      "${RELEASE_PLUGIN_DIR}/release_script_assembler.py","assemble",
+      "--adapter",$mp,"--repo-root",".",
+      "--output","${RELEASE_LOOP_DIR}/release.ps1",
+      "--context-output","${RELEASE_LOOP_DIR}/release-context.json"]},
+    {name:"build", run:["mmw-release-remote-build",
+      "--script","${RELEASE_LOOP_DIR}/release.ps1",
+      "--context","${RELEASE_LOOP_DIR}/release-context.json"]}
+  ]'
 }
 
 cmd_init() {
@@ -677,14 +750,17 @@ cmd_init() {
   rm -rf "$top/$sd/release-artifacts"
   mkdir -p "$top/$sd"
   mp="$(cd "$(dirname "$manifest")" && pwd)/$(basename "$manifest")"
-  printf '%s' "$canon" | jq --arg mp "$mp" --arg sc "$source_commit" --argjson mr "$max_rounds" --argjson wall "$max_wall_clock" --arg ts "$(now)" \
+  local standard
+  standard="$(_standard_stages "$mp")"
+  printf '%s' "$canon" | jq --arg mp "$mp" --arg sc "$source_commit" --argjson mr "$max_rounds" --argjson wall "$max_wall_clock" --arg ts "$(now)" --argjson std "$standard" \
     '{schema_version:"1", product:.product, manifest_path:$mp, source_commit:$sc,
-      stages:[.stages[]|{name:.name, run:.run, status:"pending"}],
-      current_stage:(.stages[0].name // null),
+      stages:[(if (.stages|length) > 0 then .stages else $std end)[]
+              | {name:.name, run:.run, status:"pending"}],
+      current_stage:((if (.stages|length) > 0 then .stages else $std end)[0].name // null),
       round:1, max_rounds:$mr, fingerprint_ledger:[],
       budget:{attempts:0, fix_rounds:0, max_fix_rounds:$mr, started_at:$ts, max_wall_clock_seconds:$wall},
       attempt_ledger:[], pause:null}' | write "$f"
-  echo "INIT product=$(printf '%s' "$canon" | jq -r .product) stages=$(printf '%s' "$canon" | jq -r '.stages|length') max_rounds=$max_rounds"
+  echo "INIT product=$(printf '%s' "$canon" | jq -r .product) stages=$(jq -r '.stages|length' "$f") max_rounds=$max_rounds"
 }
 
 cmd_where() {
@@ -771,7 +847,7 @@ PS1
 _run_remote_build() {
   local top="$1" source_commit="$2" stage_dir="$3"
   shift 3
-  local script="" context="" remote_host remote_root remote_conf manifest_path remote_input remote_input_win archive commit_file remote_context wrapper cmd_file runner_cmd_win task_name product installer_glob
+  local script="" context="" build_env remote_host remote_root remote_conf manifest_path remote_input remote_input_win archive commit_file remote_context wrapper cmd_file runner_cmd_win task_name product installer_glob
   while [ $# -gt 0 ]; do
     case "$1" in
       --script) script="${2:-}"; shift 2 ;;
@@ -789,15 +865,12 @@ _run_remote_build() {
   # 一台构建机一份，不用每把钥匙抄一遍。落成文件是为了没有人需要记住这两个值——
   # 只活在人的记忆里，出包就会走到这一步停下来等人补。
   # 环境变量仍然优先：临时换一次构建机、以及测试灌假值，都只能走它。
-  if [ -z "$remote_host" ] || [ -z "$remote_root" ]; then
-    manifest_path="$(jq -r '.manifest_path // empty' "$(state_file)" 2>/dev/null || true)"
-    if [ -n "$manifest_path" ]; then
-      remote_conf="$(dirname "$manifest_path")/remote-build.json"
-      if [ -f "$remote_conf" ]; then
-        [ -n "$remote_host" ] || remote_host="$(jq -r '.host // empty' "$remote_conf" 2>/dev/null || true)"
-        [ -n "$remote_root" ] || remote_root="$(jq -r '.root // empty' "$remote_conf" 2>/dev/null || true)"
-      fi
-    fi
+  remote_conf=""
+  manifest_path="$(jq -r '.manifest_path // empty' "$(state_file)" 2>/dev/null || true)"
+  if [ -n "$manifest_path" ] && [ -f "$(dirname "$manifest_path")/remote-build.json" ]; then
+    remote_conf="$(dirname "$manifest_path")/remote-build.json"
+    [ -n "$remote_host" ] || remote_host="$(jq -r '.host // empty' "$remote_conf" 2>/dev/null || true)"
+    [ -n "$remote_root" ] || remote_root="$(jq -r '.root // empty' "$remote_conf" 2>/dev/null || true)"
   fi
   # 这两行报错文字是产品仓库 diagnose 的匹配面，改它等于改掉那边的根因指纹。补充说明另起一行。
   if [ -z "$remote_host" ]; then
@@ -843,7 +916,14 @@ _run_remote_build() {
   wrapper="$stage_dir/run-release.ps1"
   git -C "$top" archive --format=zip --output "$archive" HEAD || return $?
   printf '%s\n' "$source_commit" > "$commit_file"
-  jq --arg root "$remote_input/source" '.repo_root = $root' "$context" > "$remote_context" || return $?
+  # 构建机自己的事实（镜像地址、ccache 装在哪）跟着 context 上去，模板在第一步就应用它们。
+  # 它们不属于任何一把钥匙：换一台构建机，这些全变，而钥匙一个字都不用改。
+  build_env='{}'
+  if [ -n "$remote_conf" ]; then
+    build_env="$(jq -c '.build_env // {}' "$remote_conf" 2>/dev/null || echo '{}')"
+  fi
+  jq --arg root "$remote_input/source" --argjson be "$build_env" \
+    '.repo_root = $root | .build_env = $be' "$context" > "$remote_context" || return $?
   _write_remote_wrapper "$wrapper"
 
   _ssh_ps "$remote_host" "New-Item -ItemType Directory -Force -Path '$remote_input' | Out-Null" || return $?
@@ -920,7 +1000,13 @@ _run_remote_build() {
   # 构建目录产出,交付是收拢便利,不该让一次拷贝故障把成功的构建标成失败——但必须留痕并指出源路径。
   if [ "$rc" -eq 0 ] && [ -n "$installer_glob" ]; then
     local delivery_root glob_win dest_win src_glob_win deliver_ps deliver_out
-    delivery_root="${RELEASE_DELIVERY_ROOT:-D:\\agentflow-releases}"
+    # 交付目录是构建机的事实，不是技能的常量：先看环境变量，再看钥匙旁边的
+    # remote-build.json，最后从构建输入根推一个同级目录出来。
+    delivery_root="${RELEASE_DELIVERY_ROOT:-}"
+    if [ -z "$delivery_root" ] && [ -n "$remote_conf" ]; then
+      delivery_root="$(jq -r '.delivery_root // empty' "$remote_conf" 2>/dev/null || true)"
+    fi
+    [ -n "$delivery_root" ] || delivery_root="$(printf '%s' "${remote_root%/}" | tr '/' '\\')-delivered"
     glob_win="$(printf '%s' "$installer_glob" | tr '/' '\\')"
     dest_win="${delivery_root%\\}\\${product}"
     src_glob_win="${remote_input_win}\\source\\${glob_win}"
@@ -1061,6 +1147,20 @@ cmd_stage_run() {
   done < <(jq -r --arg n "$name" '.stages[] | select(.name == $n) | .run[]' "$f")
   [ ${#argv[@]} -gt 0 ] || die "stage $name 的 argv 为空"
 
+  # 装配之后技能自己改了，$loop_dir 里那份脚本就过期了。拿它去构建机跑，每一步都对，
+  # 只是跑的不是刚改的那一份——这一类失败在日志里完全看不出来。
+  if [ "$name" = "build" ] && [ "${argv[0]}" = "mmw-release-remote-build" ]; then
+    local recorded current
+    recorded="$(jq -r '.skill_fingerprint // ""' "$f")"
+    current="$(_skill_fingerprint)"
+    if [ -n "$recorded" ] && [ "$recorded" != "$current" ]; then
+      edit "$f" '(.stages |= map(if .name == "assemble" then .status = "pending" else . end))
+                 | .current_stage = "assemble"'
+      echo "STALE-SCRIPT:技能在装配之后改过，先重跑 assemble 再 build" >&2
+      return 1
+    fi
+  fi
+
   edit "$f" --arg n "$name" '(.stages |= map(if .name == $n then .status = "running" else . end)) | .current_stage = $n'
   append_attempt "$f" "$name" "stage_run" "running" "" ""
   local remote_log_ref="" remote_log_local=""
@@ -1097,6 +1197,7 @@ cmd_stage_run() {
        | .current_stage = ([.stages[] | select(.status == "pending")][0].name // null)
        | .attempt_ledger[-1].outcome = "done"
        | .attempt_ledger[-1].log_refs = ([$log, (if $remote == "" then empty else $remote end), (if $local_log == "" then empty else "file:" + $local_log end)])'
+    [ "$name" = "assemble" ] && edit "$f" --arg fp "$(_skill_fingerprint)" '.skill_fingerprint = $fp'
     echo "STAGE-RUN-DONE $name"
     return 0
   fi
@@ -1112,7 +1213,7 @@ cmd_stage_run() {
   local diagnose_argv=()
   while IFS= read -r diag_arg; do
     diagnose_argv+=("$(_expand_argv_token "$diag_arg" "$stage_dir" "$loop_dir")")
-  done < <(jq -r '.diagnose[]' "$mp")
+  done < <(_diagnose_argv_source "$mp")
   [ ${#diagnose_argv[@]} -gt 0 ] || die "manifest.diagnose 为空"
   # 把失败现场交给 diagnose:RELEASE_BUILD_LOG 是回传的远端构建日志(仅远程 build 失败时有),
   # RELEASE_STAGE_LOG 是本 stage 的引擎侧日志。diagnose 据此把真实失败翻译成带 tier+fingerprint

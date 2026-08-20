@@ -52,74 +52,11 @@ def _restore(path: Path, *, previous: bytes | None, existed: bool) -> None:
         path.unlink()
 
 
-# v1 每条 runtime 车道一份模板:embedded_python 走通用 Electron 七步;core_exe 的出包主体是
-# 产品自己的一体化脚本(经 runtime_prepare 钩子),模板只做验工具+钩子编排四步。
-#
-# v2 只有一份模板。车道不再选模板——步骤由钥匙声明了什么决定,而三个产品的差异全部是值。
-_TEMPLATE_BY_LANE = {
-    "embedded_python": "windows_electron_python.ps1.tmpl",
-    "core_exe": "windows_core_exe.ps1.tmpl",
-}
-_TEMPLATE_V2 = "nuitka_electron.ps1.tmpl"
-# hook token 在两份模板里挂的步号不同,但 hook 生命周期(runtime_ready/artifact_ready/
-# release_ready)一致;check() 按车道校验对应步集。
-_STAGES_BY_LANE = {
-    "embedded_python": [1, 2, 3, 4, 5, 6, 7],
-    "core_exe": [1, 2, 3, 4],
-}
-_STEP_TOTAL_BY_LANE = {"embedded_python": 7, "core_exe": 4}
-
-
-def _render_bootstrap(context_path: Path, manifest: ReleaseAdapterManifest) -> str:
-    if manifest.schema_version == "2":
-        return _render_bootstrap_v2(context_path, manifest)
-    lane = manifest.build_target.runtime_lane
-    template = (
-        Path(__file__).parent / "release_templates" / _TEMPLATE_BY_LANE[lane]
-    ).read_text(encoding="utf-8")
-    hook_calls = _hook_calls(manifest)
-    replacements = {
-        "${CONTEXT_DEFAULT_PATH}": powershell_literal(context_path.name),
-        "${DESKTOP_DIR_LITERAL}": powershell_literal(manifest.build_target.desktop_dir),
-        "${LANE_BLOCK}": _render_lane_block(manifest),
-        "${RENDERED_HOOK_FUNCTIONS}": _render_hook_functions(),
-        "${RUNTIME_HOOK_CALLS}": _render_hook_calls(hook_calls, stage=3),
-        "${ARTIFACT_HOOK_CALLS}": _render_hook_calls(hook_calls, stage=6),
-        "${RELEASE_HOOK_CALLS}": _render_hook_calls(hook_calls, stage=7),
-    }
-    rendered = template
-    for token, value in replacements.items():
-        rendered = rendered.replace(token, value)
-    if re.search(r"\$\{[^}]+\}", rendered):
-        raise ValueError("release template 含未消费 token")
-    return rendered
-
-
-def _hook_calls(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
-    hooks = manifest.build_hooks.model_dump(mode="json")
-    definitions = [
-        (3, "runtime_prepare", "runtime_ready", True),
-        (3, "asset_parity", "runtime_ready", False),
-        (3, "credential_proof", "runtime_ready", False),
-        (6, "artifact_scan", "artifact_ready", True),
-        (7, "package_integrity", "release_ready", True),
-    ]
-    calls = []
-    for stage, name, phase, required in definitions:
-        argv = hooks[name]
-        if argv is not None:
-            _assert_safe_argv(argv, field=f"build_hooks.{name}")
-        calls.append(
-            {
-                "stage": stage,
-                "name": name,
-                "phase": phase,
-                "required": required,
-                "skipped": argv is None,
-                "argv": argv,
-            }
-        )
-    return calls
+_TEMPLATE = "nuitka_electron.ps1.tmpl"
+# 前端包管理器与它的两条命令。所有产品同一套；哪天真有产品不一样，那时它才是钥匙的字段。
+_PACKAGE_MANAGER = "pnpm"
+_INSTALL_ARGS = ["install", "--frozen-lockfile", "--prefer-offline"]
+_BUILD_SCRIPT = "build"
 
 
 def _assert_safe_argv(argv: list[str], *, field: str) -> None:
@@ -129,34 +66,6 @@ def _assert_safe_argv(argv: list[str], *, field: str) -> None:
 
 
 def _render_hook_functions() -> str:
-    return """function Invoke-ReleaseHook {
-  param([string]$Name, [string[]]$Argv, [string]$Phase)
-  if ($null -eq $Argv -or $Argv.Count -eq 0) {
-    throw "Required release hook missing: $Name"
-  }
-  $command = [string]$Argv[0]
-  $arguments = @()
-  if ($Argv.Count -gt 1) { $arguments += @($Argv[1..($Argv.Count - 1)]) }
-  $arguments += @('--release-context', $ReleaseContextPath, '--release-phase', $Phase)
-  # 钩子 argv 是仓库相对路径(如 scripts/release/prepare_*.py):构建机把功能分支源码解到
-  # $RepoRoot,故从 $RepoRoot 跑钩子,而非 pnpm/electron/NSIS 步所在的 $DesktopDir。
-  # $ReleaseContextPath 已在脚本头绝对化,cwd 切换不影响它被钩子读到。
-  Push-Location $RepoRoot
-  try {
-    & $command @arguments
-    if ($LASTEXITCODE -ne 0) { throw "Release hook failed: $Name phase=$Phase" }
-  } finally {
-    Pop-Location
-  }
-}
-
-function Write-HookSkipped {
-  param([string]$Name)
-  Write-Host "HOOK-SKIPPED:$Name:not-configured"
-}"""
-
-
-def _render_hook_functions_v2() -> str:
     """v2 的钩子辅助函数。
 
     跟 v1 的差别有两处，都不是修辞：v2 里缺席的钩子整步都不生成，所以没有「跳过」要打印；
@@ -181,49 +90,8 @@ def _render_hook_functions_v2() -> str:
 }"""
 
 
-def _render_hook_calls(calls: list[dict[str, object]], *, stage: int) -> str:
-    rendered = []
-    for call in calls:
-        if call["stage"] != stage:
-            continue
-        if call["skipped"]:
-            rendered.append(
-                f"  Write-HookSkipped -Name {powershell_literal(str(call['name']))}"
-            )
-            continue
-        argv = call["argv"]
-        assert isinstance(argv, list)
-        tokens = ", ".join(powershell_literal(str(token)) for token in argv)
-        rendered.append(
-            "  Invoke-ReleaseHook "
-            f"-Name {powershell_literal(str(call['name']))} -Argv @({tokens}) "
-            f"-Phase {powershell_literal(str(call['phase']))}"
-        )
-    return "\n".join(rendered)
-
-
-def _render_lane_block(manifest: ReleaseAdapterManifest) -> str:
-    # 造运行时(嵌入式 Python / 编译后端 / 补原生 DLL / 落资产 / BGM)是每个产品出包独特的一步,
-    # 各产品不同、无法通用几行复刻。按设计留在仓库当"钥匙",由钥匙的 runtime_prepare 钩子整段
-    # 准备(仓库侧的 prepare_*_runtime.py);
-    # plugin 只做通用编排,不在模板里通用地造包——过度抽象只会让每接一个产品都更复杂、且复刻不全。
-    # 两条车道都把造运行时交给紧随其后的 ${RUNTIME_HOOK_CALLS} 里的 runtime_prepare 钩子。
-    lane = manifest.build_target.runtime_lane
-    return (
-        f"  Write-Host 'Runtime lane ({lane}) is prepared by the repository "
-        "runtime_prepare hook'"
-    )
-
-
-
-# ── v2：一份模板，步骤由钥匙声明了什么决定 ──────────────────────────────────────
-#
-# v1 的两条车道各有一份模板，其中 core_exe 那份把整条出包链外包给仓库脚本，模板自己只做
-# 四步编排。结果是「怎么打一个 Windows 安装包」这套知识有一份在技能里、一份在产品仓库里，
-# 而后者每接一个产品要重写一遍。
-#
-# v2 把编译与打包的步骤放回技能，产品仓库只留它自己独有的交付格式（例如自更新
-# feed 和它手写的 NSIS）。步号不再写死在模板里——哪几步存在由钥匙决定，所以步号是算出来的。
+# 编译与打包的步骤在技能里，产品仓库只留它自己独有的交付格式（例如自更新 feed 和它手写的
+# NSIS）。步号不写死在模板里——哪几步存在由钥匙决定，所以步号是算出来的。
 
 # 钩子挂阶段，不挂步号。
 _HOOK_PHASES = {
@@ -252,7 +120,7 @@ def _hook_line(name: str, argv: list[str] | None, indent: str = "  ") -> str:
     )
 
 
-def _v2_steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
+def _steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
     """算出这把钥匙要走哪几步。每一步是 (标题, PowerShell 行, 这一步回调了哪些钩子)。"""
     hooks = manifest.build_hooks
     backend = manifest.python_backend
@@ -273,18 +141,17 @@ def _v2_steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
         }
     )
 
-    if electron is not None:
-        install_args = ", ".join(_ps(arg) for arg in electron.install_args)
-        steps.append(
-            {
-                "title": "Install frontend dependencies",
-                "hooks": [],
-                "lines": [
-                    f"  Invoke-Checked -Command {_ps(electron.package_manager)} "
-                    f"-WorkingDirectory $DesktopDir -Arguments @({install_args})",
-                ],
-            }
-        )
+    install_args = ", ".join(_ps(arg) for arg in _INSTALL_ARGS)
+    steps.append(
+        {
+            "title": "Install frontend dependencies",
+            "hooks": [],
+            "lines": [
+                f"  Invoke-Checked -Command {_ps(_PACKAGE_MANAGER)} "
+                f"-WorkingDirectory $DesktopDir -Arguments @({install_args})",
+            ],
+        }
+    )
 
     runtime_hooks = [
         name
@@ -317,7 +184,9 @@ def _v2_steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
         )
         verify_lines.append(
             f"  Invoke-BuiltExeSmoke -Exe (Join-Path $RepoRoot {_ps(exe)}) "
-            f"-Module {_ps(backend.smoke.run_module)} "
+            "-Arguments @("
+            + ", ".join(_ps(arg) for arg in backend.smoke.args)
+            + ") "
             f"-TimeoutSeconds {backend.smoke.timeout_seconds}"
         )
     verify_hooks = ["backend_verify"] if hooks.backend_verify is not None else []
@@ -332,33 +201,32 @@ def _v2_steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
             }
         )
 
-    if electron is not None:
-        steps.append(
-            {
-                "title": "Build Electron application",
-                "hooks": [],
-                "lines": [
-                    f"  Invoke-Checked -Command {_ps(electron.package_manager)} "
-                    f"-WorkingDirectory $DesktopDir "
-                    f"-Arguments @('run', {_ps(electron.build_script)})",
-                ],
-            }
-        )
-        steps.append(
-            {
-                "title": "Build win-unpacked",
-                "hooks": [],
-                "lines": [
-                    f"  Invoke-Checked -Command {_ps(electron.package_manager)} "
-                    "-WorkingDirectory $DesktopDir "
-                    "-Arguments @('exec', 'electron-builder', '--win', 'dir', "
-                    "'--publish', 'never', \"-c.compression=$BuilderCompression\")",
-                    "  if (-not (Test-Path $UnpackedDir)) {",
-                    "    throw 'electron-builder did not create the unpacked directory'",
-                    "  }",
-                ],
-            }
-        )
+    steps.append(
+        {
+            "title": "Build Electron application",
+            "hooks": [],
+            "lines": [
+                f"  Invoke-Checked -Command {_ps(_PACKAGE_MANAGER)} "
+                f"-WorkingDirectory $DesktopDir "
+                f"-Arguments @('run', {_ps(_BUILD_SCRIPT)})",
+            ],
+        }
+    )
+    steps.append(
+        {
+            "title": "Build win-unpacked",
+            "hooks": [],
+            "lines": [
+                f"  Invoke-Checked -Command {_ps(_PACKAGE_MANAGER)} "
+                "-WorkingDirectory $DesktopDir "
+                "-Arguments @('exec', 'electron-builder', '--win', 'dir', "
+                "'--publish', 'never', \"-c.compression=$BuilderCompression\")",
+                "  if (-not (Test-Path $UnpackedDir)) {",
+                "    throw 'electron-builder did not create the unpacked directory'",
+                "  }",
+            ],
+        }
+    )
 
     # 扫源码泄漏是技能每次都做的，不是产品可选的检查：编译这一整套动作的目的就是
     # 不发源码。产品的 artifact_scan 钩子加在它后面，扫产品自己关心的东西。
@@ -374,12 +242,12 @@ def _v2_steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
             }
         )
 
-    if electron is not None and electron.installer == "electron_builder":
+    if electron.installer == "electron_builder":
         steps.append(
             {
                 "title": "Build installer",
                 "hooks": [],
-                "lines": _nsis_lines(electron.package_manager),
+                "lines": _nsis_lines(),
             }
         )
     elif hooks.installer is not None:
@@ -422,8 +290,7 @@ def _required_tools(manifest: ReleaseAdapterManifest) -> list[str]:
     NSIS，钥匙却写着要独立 makensis，就是这种。
     """
     tools: list[str] = [manifest.python_backend.runner[0]]
-    if manifest.electron is not None:
-        tools.append(manifest.electron.package_manager)
+    tools.append(_PACKAGE_MANAGER)
     if manifest.build_machine and manifest.build_machine.setup:
         tools.append(manifest.build_machine.setup[0])
     tools.extend(manifest.toolchain)
@@ -438,7 +305,7 @@ def _required_tools(manifest: ReleaseAdapterManifest) -> list[str]:
 def _has_installer_step(manifest: ReleaseAdapterManifest) -> bool:
     electron = manifest.electron
     return bool(
-        (electron is not None and electron.installer == "electron_builder")
+        electron.installer == "electron_builder"
         or manifest.build_hooks.installer is not None
     )
 
@@ -465,8 +332,7 @@ def _source_scan_lines(manifest: ReleaseAdapterManifest) -> list[str]:
         return []
     desktop_dir = manifest.build_target.desktop_dir
     roots: list[str] = []
-    if manifest.electron is not None and desktop_dir is not None:
-        roots.append("$UnpackedDir")
+    roots.append("$UnpackedDir")
     roots.append(
         "(Join-Path $RepoRoot "
         + _ps(
@@ -536,7 +402,7 @@ def _compile_lines(backend, build_target: BuildTarget, desktop_dir: str | None) 
     return lines
 
 
-def _nsis_lines(package_manager: str) -> list[str]:
+def _nsis_lines() -> list[str]:
     """electron-builder 出 NSIS。
 
     不用 Invoke-Checked：electron-builder 打完 NSIS 清理临时 nsis.7z 偶发 ENOENT unlink
@@ -544,7 +410,7 @@ def _nsis_lines(package_manager: str) -> list[str]:
     安装包已产出且日志命中 nsis.7z ENOENT 时只告警继续，否则 throw。
     """
     return [
-        f"  $nsisOut = (& {package_manager} --dir $DesktopDir exec electron-builder --win nsis "
+        f"  $nsisOut = (& {_PACKAGE_MANAGER} --dir $DesktopDir exec electron-builder --win nsis "
         "--publish never --prepackaged $UnpackedDir "
         '"-c.compression=$BuilderCompression" 2>&1 | Out-String)',
         "  $nsisExit = $LASTEXITCODE",
@@ -578,12 +444,9 @@ def _render_pipeline(steps: list[dict[str, object]]) -> str:
 
 
 def _electron_setup(manifest: ReleaseAdapterManifest) -> str:
-    """Electron 外壳那几个路径变量。没有外壳的产品这里是空的——凭空造出一个指向
-    不存在目录的 $DesktopDir，只会让后面某一步以一个看不出根因的方式失败。"""
+    """Electron 外壳那几个路径变量。"""
     electron = manifest.electron
     desktop_dir = manifest.build_target.desktop_dir
-    if electron is None or desktop_dir is None:
-        return ""
     compression = (
         f"if ($env:{electron.compression_env}) "
         f"{{ $env:{electron.compression_env} }} else {{ {_ps(electron.compression)} }}"
@@ -603,18 +466,18 @@ def _electron_setup(manifest: ReleaseAdapterManifest) -> str:
     )
 
 
-def _render_bootstrap_v2(
+def _render_bootstrap(
     context_path: Path, manifest: ReleaseAdapterManifest
 ) -> str:
-    template = (Path(__file__).parent / "release_templates" / _TEMPLATE_V2).read_text(
+    template = (Path(__file__).parent / "release_templates" / _TEMPLATE).read_text(
         encoding="utf-8"
     )
-    steps = _v2_steps(manifest)
+    steps = _steps(manifest)
     replacements = {
         "${CONTEXT_DEFAULT_PATH}": _ps(context_path.name),
         "${ELECTRON_SETUP}": _electron_setup(manifest),
         "${RENDERED_HOOK_FUNCTIONS}": (
-            _render_hook_functions_v2()
+            _render_hook_functions()
             if any(step["hooks"] for step in steps)
             else ""
         ),
@@ -629,8 +492,8 @@ def _render_bootstrap_v2(
     return rendered
 
 
-def _v2_render_metadata(manifest: ReleaseAdapterManifest) -> dict[str, object]:
-    steps = _v2_steps(manifest)
+def _render_metadata(manifest: ReleaseAdapterManifest) -> dict[str, object]:
+    steps = _steps(manifest)
     return {
         "steps": [
             {"index": index, "title": step["title"], "hooks": step["hooks"]}
@@ -659,10 +522,9 @@ def _validate_paths(repo_root: Path, output: Path, context_output: Path) -> None
 
 
 def _validate_manifest_paths(manifest: ReleaseAdapterManifest) -> None:
-    if manifest.build_target.desktop_dir is not None:
-        assert_repo_relative(
-            manifest.build_target.desktop_dir, field="build_target.desktop_dir"
-        )
+    assert_repo_relative(
+        manifest.build_target.desktop_dir, field="build_target.desktop_dir"
+    )
     if manifest.protection_source is not None:
         assert_repo_relative(manifest.protection_source, field="protection_source")
     for index, root in enumerate(manifest.build_target.asset_roots):
@@ -692,23 +554,11 @@ def assemble(
             else None
         ),
     }
-    if manifest.schema_version == "2":
-        # 钩子要读得到「这次按哪把钥匙编的」——产品仓库的收尾步骤（例如自己组装 bundle）
-        # 得知道编译产物叫什么、落在哪。
-        context["python_backend"] = manifest.python_backend.model_dump(mode="json")
-        context["electron"] = (
-            manifest.electron.model_dump(mode="json") if manifest.electron else None
-        )
-        context["render_metadata"] = _v2_render_metadata(manifest)
-    else:
-        hook_calls = _hook_calls(manifest)
-        context["render_metadata"] = {
-            "stages": _STAGES_BY_LANE[manifest.build_target.runtime_lane],
-            "hook_calls": [
-                {key: value for key, value in call.items() if key != "argv"}
-                for call in hook_calls
-            ],
-        }
+    # 钩子要读得到「这次按哪把钥匙编的」——产品仓库的收尾步骤（例如自己组装 bundle）
+    # 得知道编译产物叫什么、落在哪。
+    context["python_backend"] = manifest.python_backend.model_dump(mode="json")
+    context["electron"] = manifest.electron.model_dump(mode="json")
+    context["render_metadata"] = _render_metadata(manifest)
     script = _render_bootstrap(context_output, manifest)
     script_tmp: Path | None = None
     context_tmp: Path | None = None
@@ -763,57 +613,17 @@ def check(script: Path, context: Path) -> None:
     if not script_bytes.startswith(b"\xef\xbb\xbf"):
         raise ValueError("script 必须是 UTF-8 BOM 编码")
     context_doc = json.loads(context.read_text(encoding="utf-8"))
-    target = BuildTarget.model_validate(context_doc["build_target"])
+    BuildTarget.model_validate(context_doc["build_target"])
     ReleaseBuildHooks.model_validate(context_doc["build_hooks"])
-    if context_doc.get("schema_version") not in ("1", "2") or not context_doc.get(
-        "product"
-    ):
+    if context_doc.get("schema_version") != "2" or not context_doc.get("product"):
         raise ValueError("context 缺少有效 schema_version 或 product")
     script_text = script_bytes.decode("utf-8-sig")
     expected_context_literal = powershell_literal(context.name)
     if expected_context_literal not in script_text:
         raise ValueError("script 未引用对应的 context 文件")
-    if context_doc["schema_version"] == "2":
-        _check_v2(script_text, context_doc)
-        return
-    expected_stages = _STAGES_BY_LANE[target.runtime_lane]
-    step_total = _STEP_TOTAL_BY_LANE[target.runtime_lane]
-    if context_doc.get("render_metadata", {}).get("stages") != expected_stages:
-        raise ValueError("context 未声明该车道的完整流水线")
-    stage_positions = [
-        script_text.find(f'Step "[{stage}/{step_total}]') for stage in expected_stages
-    ]
-    if -1 in stage_positions or stage_positions != sorted(stage_positions):
-        raise ValueError("script 未按顺序包含该车道的完整流水线")
-    hook_calls = context_doc.get("render_metadata", {}).get("hook_calls")
-    if not isinstance(hook_calls, list):
-        raise ValueError("context 缺少 hook 生命周期记录")
-    hooks = ReleaseBuildHooks.model_validate(context_doc["build_hooks"])
-    expected_hooks = [
-        (3, "runtime_prepare", "runtime_ready", True, False),
-        (3, "asset_parity", "runtime_ready", False, hooks.asset_parity is None),
-        (3, "credential_proof", "runtime_ready", False, hooks.credential_proof is None),
-        (6, "artifact_scan", "artifact_ready", True, False),
-        (7, "package_integrity", "release_ready", True, False),
-    ]
-    actual_hooks = [
-        (
-            item.get("stage"),
-            item.get("name"),
-            item.get("phase"),
-            item.get("required"),
-            item.get("skipped"),
-        )
-        for item in hook_calls
-        if isinstance(item, dict)
-    ]
-    if actual_hooks != expected_hooks:
-        raise ValueError("context hook 生命周期绑定不完整或顺序错误")
-    print(json.dumps({"hook_calls": hook_calls}, ensure_ascii=False))
+    _check_script(script_text, context_doc)
 
-
-
-def _check_v2(script_text: str, context_doc: dict) -> None:
+def _check_script(script_text: str, context_doc: dict) -> None:
     """脚本与它的 context 说的是不是同一件事。
 
     v1 的步号写死在模板里，所以那时校验的是「车道该有的步集」。v2 步号是算出来的，

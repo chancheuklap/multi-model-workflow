@@ -68,8 +68,10 @@ not on it.)
 A product that builds on another machine needs two facts: which machine, and which folder on it. The engine takes them from `RELEASE_REMOTE_HOST` and `RELEASE_REMOTE_ROOT`, and when either is empty it falls back to `remote-build.json` sitting next to that product's `.release-adapter.json`:
 
 ```json
-{"host": "<build machine>", "root": "D:/<a folder on it>"}
+{"host": "<build machine>", "root": "D:/<a folder on it>", "delivery_root": "D:/<where packages are kept>"}
 ```
+
+`delivery_root` is optional and says where finished installers are gathered; without it the engine uses `<root>-delivered`. Set it when that machine already keeps packages somewhere, or they land in a second place and the person looking for them finds half a shelf.
 
 Missing in both places is a `PAUSED:needs-context` you can often close yourself: the engine's log names the variable. Write the file so the next run does not stop here again. The environment variables win over the file — that is how a one-off switch to another machine is done.
 

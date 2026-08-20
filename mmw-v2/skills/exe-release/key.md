@@ -46,30 +46,28 @@ have to write the same thing, the skill should be writing it instead.
   "toolchain": [],                     // extra tools only — see below
 
   "build_target": {
-    "desktop_dir": "<electron app dir>",   // omit for a product with no Electron shell
+    "desktop_dir": "<electron app dir>",
     "installer_brand": "…",
     "installer_glob": "…/*-setup.exe",     // where the finished installer lands
     "asset_roots": ["src/…/assets/**"]     // which paths mean "this product changed"
   },
 
   "python_backend": { /* below */ },
-  "electron": { /* below */ },
-
-  "stages": [ /* what the engine runs, in order, ending in the remote build */ ],
-  "diagnose": ["…", "${RELEASE_PLUGIN_DIR}/diagnose_core.py", "--adapter", "<this file>"],
-  "build_hooks": {}                        // add one only when the product has something to do
+  "electron": { /* below */ }
 }
 ```
 
-`${RELEASE_PLUGIN_DIR}` expands to the skill's own `scripts/` directory. Use it for anything the
-skill provides — where the skill is installed is the host's business, not the key's.
+That is a complete key. The engine supplies the pipeline — verify the key, assemble the script,
+build on the remote machine — and the skill supplies the diagnoser. A key adds `stages` only to
+run something of its own first, and then it owns the whole list: half yours and half the engine's
+leaves nobody able to say which half failed. Copying that list is how a key ends up pointing its
+`--adapter` at *another product's key*, with every step still reporting green.
 
 Paths in the key are repository-relative POSIX paths, and two templates are available:
 `${DESKTOP_DIR}` and `${BUILD_ROOT}`. Absolute paths are refused: the key is written on one
-machine and executed on another.
-
-**`stages` reads this key.** `assemble` points its `--adapter` at the key's own filename. Point it
-at another key and the build runs from that one instead, while every step reports green.
+machine and executed on another. `${RELEASE_PLUGIN_DIR}` expands to the skill's own `scripts/`
+directory — use it for anything the skill provides, since where the skill is installed is the
+host's business.
 
 **`toolchain` is extras only.** Step 1 of the build checks every command the generated script
 actually invokes — the compile runner, the package manager, the build-machine setup script — all
@@ -86,7 +84,6 @@ every value in it.
 "python_backend": {
   "runner": ["uv", "run", "--extra", "<runtime extra>", "python"],  // up to `python`
   "output_dir": "${DESKTOP_DIR}/python-runtime/backend",
-  "output_mode": "onefile",
   "jobs": {"default": 10, "env": "…_NUITKA_JOBS"},
   "console": false,                    // false ⇒ --windows-console-mode=disable
   "icon": "src/…/tray.ico",
@@ -100,7 +97,7 @@ every value in it.
   "env": {"CCACHE_BASEDIR": "${REPO_ROOT}"},
   "isolate_dirs": ["${DESKTOP_DIR}/node_modules"],
   "targets": [{"name": "…", "exe": "….exe", "entrypoint": "src/…/__main__.py"}],
-  "smoke": {"exe": "….exe", "run_module": "…._build_smoke", "modules": [...]}
+  "smoke": {"exe": "….exe", "args": ["--run-module", "…._build_smoke"], "modules": [...]}
 }
 ```
 
@@ -135,16 +132,13 @@ Native extensions that need a DLL the compiler does not carry go in `build_targe
 `dest` matters more than it looks. Windows loads a `.pyd` looking for its dependencies **only in
 the `.pyd`'s own directory**, so a DLL dropped at the dist root is not found. `dll_source`
 decides where the build machine looks: `compile_interpreter` (an abi3 forwarder like
-`python3.dll`, which must match the interpreter the compiler ran under), `system32` (the MSVC C++
-runtime), or `repo`.
+`python3.dll`, which must match the interpreter the compiler ran under) or `system32` (the MSVC
+C++ runtime).
 
 ### `electron` — the shell and the installer
 
 ```jsonc
 "electron": {
-  "package_manager": "pnpm",           // and its two commands, if yours differ
-  "install_args": ["install", "--frozen-lockfile", "--prefer-offline"],
-  "build_script": "build",             // the package.json script that builds the front end
   "dist_dir": "dist",
   "unpacked_dir": "dist/win-unpacked",
   "compression": "maximum",
@@ -154,15 +148,15 @@ runtime), or `repo`.
 ```
 
 Every field has a default that fits the common case; `"electron": {}` is a complete declaration.
-NSIS comes with electron-builder, so the build machine does not need a standalone `makensis` —
-requiring one more tool would turn a working build machine away at step 1.
+The front end is installed and built with pnpm and a `build` script — one set of commands in the
+skill, not a field each key restates. NSIS comes with electron-builder, so the build machine does
+not need a standalone `makensis`: requiring one more tool would turn a working build machine away
+at step 1.
 
 `"installer": "repo_hook"` is for a product whose delivery format is its own — a self-update feed,
 or a hand-written installer whose semantics (carrying the VC++ runtime, stamping an app id,
 keeping user data on uninstall) the generic installer cannot reproduce. That key must also declare
 `build_hooks.installer`. Leave a product on `electron_builder` unless it truly has its own format.
-
-Omit `electron` entirely for a product with no Electron shell.
 
 ### `build_hooks` — where the product gets called back
 
@@ -178,7 +172,7 @@ so the numbers move; the phases do not.
 | `installer_ready` | `installer` | only with `"installer": "repo_hook"` |
 | `release_ready` | `package_integrity` | the installer exists — verify it |
 
-**Every hook is optional, and a first key usually declares none.** Add one when the product has a
+**`build_hooks` is optional as a whole, and a first key omits it.** Add one when the product has a
 check of its own to run at that moment. Declaring a hook with an empty argv is refused: that reads
 as configured but does nothing.
 

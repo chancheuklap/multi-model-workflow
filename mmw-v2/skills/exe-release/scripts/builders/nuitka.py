@@ -135,15 +135,14 @@ def commands(
             Segment.lit("-m"),
             Segment.lit("nuitka"),
             Segment.lit("--standalone"),
+            # 一个 exe 一个文件。四个产品都是这样交付的，也是 Electron 那边
+            # 按单个文件名去 spawn 后端的前提。
+            Segment.lit("--onefile"),
             Segment.lit("--assume-yes-for-downloads"),
             Segment.lit(f"--jobs={count}"),
             Segment.flag("--output-dir=", output_dir),
             Segment.lit(f"--output-filename={target.exe}"),
         ]
-        if spec.output_mode == "onefile":
-            segments.append(Segment.lit("--onefile"))
-        elif spec.folder_per_target:
-            segments.append(Segment.lit(f"--output-folder-name={target.name}"))
         if spec.icon:
             segments.append(Segment.flag("--windows-icon-from-ico=", _path(spec.icon)))
         if not spec.console:
@@ -171,10 +170,6 @@ def commands(
             Segment.flag("--include-data-dir=", _path(entry.source), f"={entry.dest}")
             for entry in spec.include_data_dirs
         ]
-        segments += [
-            Segment.flag("--include-data-files=", _path(entry.source), f"={entry.dest}")
-            for entry in spec.include_data_files
-        ]
         segments += _native_ext_segments(native_ext_dll or [])
         segments.append(Segment.flag("", _path(target.entrypoint)))
         out.append(segments)
@@ -195,17 +190,6 @@ def _native_ext_segments(entries: list) -> list[Segment]:
                 if entry.dest == "pyd_package_dir"
                 else name
             )
-            if entry.dll_source == "repo":
-                if not entry.repo_dir:
-                    raise ValueError("dll_source=repo 必须给 repo_dir")
-                segments.append(
-                    Segment.flag(
-                        "--include-data-files=",
-                        f"{entry.repo_dir.rstrip('/')}/{name}",
-                        f"={dest}",
-                    )
-                )
-                continue
             segments.append(
                 Segment(
                     (
@@ -329,11 +313,7 @@ def validate_import_plan(spec) -> None:
     """
     if spec.smoke is None:
         return
-    required = [
-        *spec.include_modules,
-        *spec.smoke.modules,
-        spec.smoke.run_module,
-    ]
+    required = [*spec.include_modules, *spec.smoke.modules]
     blocked = [
         f"{module} 被 --nofollow-import-to={pattern} 挡住"
         for module in required

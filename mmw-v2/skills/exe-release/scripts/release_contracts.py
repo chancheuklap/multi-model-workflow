@@ -15,7 +15,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-SchemaVersion = Literal["1", "2"]
+SchemaVersion = Literal["2"]
 # Finding / Event 的合同没变，仍然只认 "1"：钥匙升到 v2 不改这两个信封。
 FindingSchemaVersion = Literal["1"]
 Tier = Literal["P0", "P1", "P2"]
@@ -78,9 +78,6 @@ class StageSpec(BaseModel):
         return self
 
 
-RuntimeLane = Literal["core_exe", "embedded_python"]
-
-
 class NativeExtDll(BaseModel):
     """一条产品特有的原生扩展 DLL 打包事实（消灭深抽丢编译知识：F-A）。
 
@@ -95,21 +92,14 @@ class NativeExtDll(BaseModel):
     dll_names: list[str] = Field(min_length=1)
     # compile_interpreter: 取自跑 Nuitka 的那个解释器目录（python3.dll 必须版本匹配）。
     # system32: 取自构建机 %SystemRoot%\\System32（MSVC 运行库，版本无关）。
-    # repo: 取自仓库里 vendored 的一份。
-    dll_source: Literal["compile_interpreter", "system32", "repo"] = (
-        "compile_interpreter"
-    )
+    dll_source: Literal["compile_interpreter", "system32"] = "compile_interpreter"
     dest: Literal["pyd_package_dir", "dist_root"]
-    # dll_source=repo 时的仓库相对目录。
-    repo_dir: str | None = None
     pyd_package: str | None = None
 
     @model_validator(mode="after")
     def _sources_and_destinations_must_be_complete(self) -> "NativeExtDll":
         if self.dest == "pyd_package_dir" and not self.pyd_package:
             raise ValueError("dest=pyd_package_dir 必须给 pyd_package")
-        if self.dll_source == "repo" and not self.repo_dir:
-            raise ValueError("dll_source=repo 必须给 repo_dir")
         return self
 
 
@@ -122,19 +112,13 @@ class BuildTarget(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    # 只有带 Electron 外壳的产品有。纯后端产品不声明。
-    desktop_dir: str | None = None
-    runtime_lane: RuntimeLane
-    entry_module: str = Field(min_length=1)
+    desktop_dir: str = Field(min_length=1)
     installer_brand: str = Field(min_length=1)
     # 成品安装包在源码树里的落点（仓库相对 glob）。出包成功后引擎按此把安装包从 commit 哈希构建目录
     # 收拢到统一交付目录。落点每个产品都不同，所以它是钥匙的值——引擎因此不需要知道任何产品。
     installer_glob: str | None = None
-    deps_extra: str | None = None
     asset_roots: list[str] = Field(default_factory=list)
     native_ext_dll: list[NativeExtDll] = Field(default_factory=list)
-    nuitka_include: list[str] = Field(default_factory=list)
-    nuitka_nofollow: list[str] = Field(default_factory=list)
 
 
 class ReleaseBuildHooks(BaseModel):
@@ -242,7 +226,9 @@ class BuiltExeSmoke(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     exe: str = Field(min_length=1)
-    run_module: str = Field(min_length=1)
+    # 拿什么参数跑这个自检，整串由钥匙给。`--run-module <模块>` 是某几个后端的约定，
+    # 不是通用事实——写死在技能里，下一个后端就得为了这个技能改自己的 __main__。
+    args: list[str] = Field(min_length=1)
     timeout_seconds: int = Field(default=180, ge=1)
     # 编译产物必须 import 得起来的模块。既是 smoke 的清单，也是编译前查
     # `--nofollow-import-to` 有没有把它们挡掉的依据。
@@ -263,15 +249,11 @@ class PythonBackend(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    builder: Literal["nuitka"] = "nuitka"
     # 跑 Nuitka 的解释器命令，到 `python` 为止（`-m nuitka` 由技能补）。
     # 它决定编译时解析到哪一套依赖，所以是钥匙的值：装了什么就编出什么。
     runner: list[str] = Field(min_length=1)
     output_dir: str = Field(min_length=1)
     build_root: str | None = None
-    output_mode: Literal["onefile", "standalone"]
-    # standalone 模式下每个 target 落进各自的 <name>.dist 子目录，需要 --output-folder-name。
-    folder_per_target: bool = False
     jobs: NuitkaJobs
     icon: str | None = None
     console: bool = True
@@ -283,7 +265,6 @@ class PythonBackend(BaseModel):
     include_modules: list[str] = Field(default_factory=list)
     nofollow_imports: list[str] = Field(default_factory=list)
     include_data_dirs: list[PathTemplate] = Field(default_factory=list)
-    include_data_files: list[PathTemplate] = Field(default_factory=list)
     # 上面表达不了的原样 flag。它是逃生口，不是常规入口：能进上面字段的不要写这里。
     extra_flags: list[str] = Field(default_factory=list)
     targets: list[NuitkaTarget] = Field(min_length=1)
@@ -304,16 +285,6 @@ class ElectronBuild(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    # 前端包管理器与它的两条命令。默认那套是最常见的组合，产品用别的就在这里说。
-    # 写死在技能里，等于把「换个包管理器就得改技能」写进设计。
-    package_manager: str = "pnpm"
-    # 装依赖。锁文件是依赖的唯一权威，出包时静默改写它意味着这次出的包
-    # 用的依赖跟仓库记录的不是一套，所以默认带 --frozen-lockfile。
-    install_args: list[str] = Field(
-        default_factory=lambda: ["install", "--frozen-lockfile", "--prefer-offline"]
-    )
-    # 打前端的 package.json 脚本名。
-    build_script: str = "build"
     # 打完 `--win dir` 之后产物落在哪（相对 desktop_dir）。
     unpacked_dir: str = "dist/win-unpacked"
     dist_dir: str = "dist"
@@ -343,16 +314,6 @@ class DiagnoseRule(BaseModel):
     remediation: str = Field(min_length=1)
 
 
-class ReleaseAdapterManifestV2Fields(BaseModel):
-    """v2 新增段。v1 钥匙这些全部缺席，两版并存到迁移收尾。"""
-
-    model_config = ConfigDict(extra="forbid")
-
-    python_backend: PythonBackend | None = None
-    electron: ElectronBuild | None = None
-    toolchain: list[str] = Field(default_factory=list)
-
-
 class ReleaseAdapterManifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -360,10 +321,8 @@ class ReleaseAdapterManifest(BaseModel):
     product: str = Field(min_length=1)
     build_target: BuildTarget
     build_machine: BuildMachine | None = None
-    # v2 段。v1 钥匙不写，写了即报错——版本号与内容必须一致，否则装配器会按 v1 走却
-    # 静默忽略这几段，出来一份看着对、其实少了编译步骤的脚本。
-    python_backend: PythonBackend | None = None
-    electron: ElectronBuild | None = None
+    python_backend: PythonBackend
+    electron: ElectronBuild
     # 除了钥匙已经点到的命令之外，这个产品还要构建机上有什么。
     # 编译用的解释器命令、前端包管理器、构建机准备脚本都不用写在这里——装配器从
     # 钥匙已有的字段里推得出来，让钥匙再抄一遍只会抄漏或抄多。
@@ -372,9 +331,12 @@ class ReleaseAdapterManifest(BaseModel):
     diagnose_branches: list[list[str]] = Field(default_factory=list)
     diagnose_rules: list[DiagnoseRule] = Field(default_factory=list)
     diagnose_core_exe_glob: str | None = None
-    stages: list[StageSpec]
-    diagnose: list[str] = Field(min_length=1)
-    build_hooks: ReleaseBuildHooks
+    # 不声明就用引擎的标准流水线（`verify_key` → `assemble` → `build`）与技能自己的
+    # 诊断器。声明了是「在标准之外还要跑什么」。四把钥匙里这两段曾经逐字相同、只有钥匙
+    # 路径不同——抄四遍的直接后果就是有一把抄成了指向另一把钥匙，而每一步都报绿。
+    stages: list[StageSpec] = Field(default_factory=list)
+    diagnose: list[str] = Field(default_factory=list)
+    build_hooks: ReleaseBuildHooks = Field(default_factory=lambda: ReleaseBuildHooks())
     # ── 以下都是自愈与观测的可选装备 ──────────────────────────────────────
     #
     # 一个产品第一次出包时，这些一个都没有：没有派生物要重生，没有闸门要跑，
@@ -390,11 +352,11 @@ class ReleaseAdapterManifest(BaseModel):
     event_sink: list[str] | None = None
 
     @model_validator(mode="after")
-    def _version_matches_content(self) -> "ReleaseAdapterManifest":
-        installs = bool(self.build_hooks.installer) or bool(
-            self.electron and self.electron.installer == "electron_builder"
+    def _declarations_must_agree(self) -> "ReleaseAdapterManifest":
+        installs = bool(self.build_hooks.installer) or (
+            self.electron.installer == "electron_builder"
         )
-        if self.schema_version == "2" and installs and not self.build_target.installer_glob:
+        if installs and not self.build_target.installer_glob:
             raise ValueError(
                 "钥匙有出安装包这一步，就必须声明 build_target.installer_glob——"
                 "没有它，「那一步退了 0」和「真的有一个安装包」分不开，而下一个发现的人是客户"
@@ -409,32 +371,7 @@ class ReleaseAdapterManifest(BaseModel):
                 f"声明了 {', '.join(writers)} 就必须声明 protection_source——"
                 "有东西能自动改文件，却没有任何硬禁止路径，等于闸门整个是开的"
             )
-        v2_fields = {
-            "python_backend": self.python_backend,
-            "electron": self.electron,
-            "toolchain": self.toolchain or None,
-            "diagnose_branches": self.diagnose_branches or None,
-            "diagnose_rules": self.diagnose_rules or None,
-            "diagnose_core_exe_glob": self.diagnose_core_exe_glob,
-        }
-        present = sorted(name for name, value in v2_fields.items() if value is not None)
-        v2_hooks = sorted(
-            name
-            for name in ("backend_verify", "installer")
-            if getattr(self.build_hooks, name) is not None
-        )
-        if self.schema_version == "1":
-            if present or v2_hooks:
-                raise ValueError(
-                    "schema_version=1 的钥匙不能带 v2 段: "
-                    + ", ".join([*present, *v2_hooks])
-                )
-            if self.build_hooks.runtime_prepare is None:
-                raise ValueError("schema_version=1 的钥匙必须声明 build_hooks.runtime_prepare")
-            return self
-        if self.python_backend is None:
-            raise ValueError("schema_version=2 的钥匙必须声明 python_backend")
-        if self.electron and self.electron.installer == "repo_hook":
+        if self.electron.installer == "repo_hook":
             if self.build_hooks.installer is None:
                 raise ValueError(
                     "electron.installer=repo_hook 必须同时声明 build_hooks.installer——"

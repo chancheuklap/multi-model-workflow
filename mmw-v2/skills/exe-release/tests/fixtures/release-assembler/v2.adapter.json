@@ -3,11 +3,8 @@
   "product": "desktop-runtime",
   "build_target": {
     "desktop_dir": "desktop",
-    "runtime_lane": "embedded_python",
-    "entry_module": "runtime_backend",
     "installer_brand": "Runtime Desktop",
     "installer_glob": "desktop-fixture/dist/*-setup.exe",
-    "deps_extra": "desktop-runtime",
     "asset_roots": [
       "src/runtime_backend/assets/**"
     ],
@@ -27,25 +24,12 @@
         "dll_names": [
           "msvcp140.dll"
         ],
-        "dll_source": "repo",
-        "dest": "dist_root",
-        "repo_dir": "resources/native/dll"
+        "dll_source": "system32",
+        "dest": "dist_root"
       }
-    ],
-    "nuitka_include": [
-      "native_pkg",
-      "runtime_pkg"
-    ],
-    "nuitka_nofollow": [
-      "scipy"
     ]
   },
-  "toolchain": [
-    "python",
-    "pnpm",
-    "node",
-    "uv"
-  ],
+  "toolchain": [],
   "python_backend": {
     "runner": [
       "uv",
@@ -55,7 +39,6 @@
       "python"
     ],
     "output_dir": "${DESKTOP_DIR}/python-runtime/backend",
-    "output_mode": "onefile",
     "jobs": {
       "default": 10,
       "env": "RUNTIME_NUITKA_JOBS"
@@ -94,11 +77,14 @@
     ],
     "smoke": {
       "exe": "runtime-backend.exe",
-      "run_module": "runtime_backend._build_smoke",
       "timeout_seconds": 180,
       "modules": [
         "numpy",
         "runtime_backend.app"
+      ],
+      "args": [
+        "--run-module",
+        "runtime_backend._build_smoke"
       ]
     }
   },

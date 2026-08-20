@@ -66,16 +66,21 @@ git diff <上一个 Squashed 提交> -- mmw-v2/upstream/skills/engineering/wayfi
 | `SKILL.md` | 判断层：这次要出哪几个产品、包出来之后交给谁 |
 | `driving.md` | 驱动合同：`where` 说什么就做什么 |
 | `key.md` | 怎么写一把钥匙，以及每个字段是被哪次失败逼出来的 |
-| `scripts/release-flow.sh` | 引擎。状态机、P0/P1/P2 分级、路径闸、同根因熔断、轮次预算、pause/resume/receipt、派修 |
+| `new-product.md` | 一个还没出过包的产品，仓库里要先有什么 |
+| `scripts/release-flow.sh` | 引擎。状态机、标准流水线、P0/P1/P2 分级、路径闸、同根因熔断、轮次预算、pause/resume/receipt、派修 |
 | `scripts/release_contracts.py` | 钥匙（`*.release-adapter.json`）与事件的合同 |
 | `scripts/builders/`、`scripts/release_templates/`、`scripts/release_script_assembler.py` | 按钥匙装配 Windows 出包脚本 |
 | `scripts/diagnose_core.py` | 把失败日志翻成根因。引擎和模板自己打印的那些话由它认 |
 | `scripts/fix_dispatch.py` | 没有自动修复后端时，把 findings 写成简报交给驱动 agent |
+| `scripts/verify_key.py` | 出发前把钥匙对着仓库核一遍，秒级，挡的是编译四十分钟之后才发现路径写错 |
 | `tests/run.sh` | 全部测试。改了 `scripts/` 下任何东西之后跑一次 |
 
 产品仓库提供一把钥匙：`*.release-adapter.json`，一个产品一把。**加一个产品就是写一把钥匙，
 不写 Python。** 钥匙说不出来的事，答案是给钥匙加字段或给技能加能力，不是在产品仓库里加脚本——
 那是把出包知识抄一份，下一个产品还得再抄一次。
+
+流水线（验钥匙 → 装配 → 远端构建）与日志翻译都由引擎和技能提供，钥匙不声明就用那一份。
+钥匙自己写 `stages` 就是整条自己负责——半条是它的、半条是引擎的，失败了说不清该问谁。
 
 出包踩过的坑归拢在技能里：Nuitka 的命令、编译期挪开前端依赖、abi3 DLL 落在 `.pyd` 自己的目录、
 GUI 关控制台、编译产物的导入冒烟。产品仓库只留两件真属于它自己的：取嵌入式运行时，和它自己
@@ -89,8 +94,13 @@ PowerShell 自己解析。
 按分级派修 → 重跑那一阶段。P0 与保护路径不自动修，停下来交人。
 
 远端构建机（Windows）两个事实的来源顺序是：`RELEASE_REMOTE_HOST` / `RELEASE_REMOTE_ROOT`
-两个环境变量优先，都为空时回落到钥匙旁边的 `remote-build.json`（`{"host":…, "root":…}`）。
+两个环境变量优先，都为空时回落到钥匙旁边的 `remote-build.json`。那份文件里还有另外两样
+**属于这台机器、不属于任何一把钥匙**的事实：`delivery_root`（安装包收拢到哪，缺省
+`<root>-delivered`）与 `build_env`（镜像地址、ccache 装在哪，构建脚本第一步就应用）。
 落成文件是为了没有人需要记住它；环境变量留着，是临时换一台构建机的唯一手段。
+
+出包不在两台机器上留过程：源码 zip 传完即删，构建成功且安装包已收进交付目录之后整个构建目录
+删掉。**失败的留着**，每个产品留最近两个——现场只存在于那里。
 
 ## 宿主边界
 

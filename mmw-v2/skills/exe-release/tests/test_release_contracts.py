@@ -64,13 +64,22 @@ def test_manifest_rejects_echo_stage_as_fake_build_teeth():
         rc.ReleaseAdapterManifest.model_validate(good)
 
 
-@pytest.mark.parametrize("field", ["build_target", "build_hooks", "stages", "diagnose"])
-def test_manifest_requires_v3_contract_fields(field):
+@pytest.mark.parametrize("field", ["build_target", "python_backend", "electron"])
+def test_a_key_must_say_what_it_builds(field):
     bad = _fake_manifest()
     del bad[field]
 
     with pytest.raises(Exception):
         rc.ReleaseAdapterManifest.model_validate(bad)
+
+
+@pytest.mark.parametrize("field", ["stages", "diagnose", "build_hooks"])
+def test_a_key_leaves_the_standard_pipeline_to_the_engine(field):
+    """这三段每把钥匙都一样，只有钥匙路径不同——抄四遍的直接后果是有一把抄成了
+    指向另一把钥匙，而每一步都报绿。不声明就用引擎的标准流水线。"""
+    lean = _fake_manifest()
+    del lean[field]
+    rc.ReleaseAdapterManifest.model_validate(lean)
 
 
 @pytest.mark.parametrize("field", ["p0_paths", "post_fix_diagnose"])
@@ -82,26 +91,13 @@ def test_manifest_rejects_removed_v2_fields(field):
         rc.ReleaseAdapterManifest.model_validate(bad)
 
 
-@pytest.mark.parametrize("field", ["runtime_lane", "entry_module", "installer_brand"])
+@pytest.mark.parametrize("field", ["desktop_dir", "installer_brand"])
 def test_build_target_requires_every_build_identity_field(field):
     bad = deepcopy(_fake_manifest()["build_target"])
     del bad[field]
 
     with pytest.raises(Exception):
         rc.BuildTarget.model_validate(bad)
-
-    with pytest.raises(Exception):
-        rc.BuildTarget.model_validate(
-            {**_fake_manifest()["build_target"], "runtime_lane": "other"}
-        )
-
-
-def test_a_product_without_an_electron_shell_has_no_desktop_dir():
-    """纯后端产品没有 desktop_dir。必填它，就是逼这种钥匙填一个不存在的目录——
-    然后装配出来的脚本会带着一个指向空处的 $DesktopDir 跑到某一步才失败。"""
-    bare = deepcopy(_fake_manifest()["build_target"])
-    del bare["desktop_dir"]
-    assert rc.BuildTarget.model_validate(bare).desktop_dir is None
 
 
 def test_native_ext_dll_requires_non_empty_names_and_package_dir_target():
@@ -214,8 +210,8 @@ def _cli(*args, **kw):
 def test_cli_validate_manifest_ok_and_bad():
     ok = _cli("validate-manifest", str(FIX / "manifest.fake.json"))
     assert ok.returncode == 0
-    assert json.loads(ok.stdout)["product"] == "duck"
-    bad = _cli("validate-manifest", "-", input='{"schema_version":"1"}')
+    assert json.loads(ok.stdout)["product"] == "fixture-product"
+    bad = _cli("validate-manifest", "-", input='{"schema_version":"2"}')
     assert bad.returncode == 3
 
 

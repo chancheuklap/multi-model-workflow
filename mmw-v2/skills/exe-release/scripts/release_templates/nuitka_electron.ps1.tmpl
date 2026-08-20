@@ -70,11 +70,11 @@ function Resolve-BuildDll {
 # 编译产物原地跑一次 import。冻结包缺动态依赖只有真跑起来才看得见，在构建机上暴露它，
 # 比等客户装完打开才崩便宜几个数量级。超时也算失败：挂死的自检和失败的自检一样不能放行。
 function Invoke-BuiltExeSmoke {
-  param([string]$Exe, [string]$Module, [int]$TimeoutSeconds)
+  param([string]$Exe, [string[]]$Arguments, [int]$TimeoutSeconds)
   if (-not (Test-Path -LiteralPath $Exe)) {
     throw "Compiled backend is missing, cannot run the import smoke: $Exe"
   }
-  $process = Start-Process -FilePath $Exe -ArgumentList @('--run-module', $Module) `
+  $process = Start-Process -FilePath $Exe -ArgumentList $Arguments `
     -WorkingDirectory (Split-Path -Parent $Exe) -NoNewWindow -PassThru
   # 必须在进程退出前取一次 Handle。Start-Process -PassThru 返回的对象不持有句柄，
   # 进程一退出 .NET 就把它释放掉，ExitCode 从此读不到——而 PowerShell 里 $null -ne 0 是**真**，
@@ -196,6 +196,76 @@ function Assert-InstallerProduced {
   }
 }
 
+# 长编译开始前把这台构建机备好。下面每一条都是一次「一个包打一天」或者「编到深处才炸」换来的，
+# 而且每个产品都一样——所以它在技能里，不在任何一个产品仓库里。
+# 这台机器自己的事实（镜像地址、ccache 装在哪）走 remote-build.json 的 build_env；
+# 产品自己的事实（离线 wheel、它自己的缓存目录）走钥匙的 build_machine.setup 钩子。
+$Script:DefenderExclusions = @()
+
+function Initialize-BuildMachine {
+  param([string]$RepoRoot, [object]$BuildEnv)
+
+  # 构建机给的事实先落地：镜像地址、ccache 的确切路径这类只有这台机器知道的东西。
+  if ($BuildEnv) {
+    foreach ($item in $BuildEnv.PSObject.Properties) {
+      [Environment]::SetEnvironmentVariable($item.Name, [string]$item.Value)
+      Write-Host ("  build env: " + $item.Name)
+    }
+  }
+
+  # uv 默认把包硬链接进环境。构建目录与缓存常常不在同一个卷上，硬链接失败会退化成一次次重下。
+  if (-not $env:UV_LINK_MODE) { $env:UV_LINK_MODE = 'copy' }
+  # 出包全程不写 .pyc：解释器跑自检、编译器做导入分析都会 byte-compile，落进要打包的 runtime
+  # 目录就会被源码泄漏扫描判成业务源码——一次谁也看不懂的假失败。
+  $env:PYTHONDONTWRITEBYTECODE = '1'
+
+  # 构建期 TEMP 放进仓库目录：不占系统盘、随构建目录一起清掉，也一并进杀软排除。
+  $buildTemp = Join-Path $RepoRoot 'runtime\.build-temp'
+  try {
+    New-Item -ItemType Directory -Force -Path $buildTemp | Out-Null
+    $env:TEMP = $buildTemp
+    $env:TMP = $buildTemp
+  } catch { Write-Host ("  build temp skip: " + $_.Exception.Message) }
+
+  # Nuitka 不会自己去 PATH 上找 ccache，必须显式指给它。没有它，每一轮编译都从零开始。
+  if (-not $env:NUITKA_CCACHE_BINARY) {
+    $ccache = (Get-Command ccache -ErrorAction SilentlyContinue)
+    if ($ccache) { $env:NUITKA_CCACHE_BINARY = $ccache.Source }
+  }
+  if ($env:NUITKA_CCACHE_BINARY) {
+    Write-Host ("  ccache: " + $env:NUITKA_CCACHE_BINARY)
+  } else {
+    Write-Host "  ccache: not found (every compile will start from scratch)"
+  }
+
+  # 实时扫描会把编译器写出的每一个中间文件都过一遍，编译时间成倍长。加排除，收尾时原样撤掉。
+  $paths = @($RepoRoot, $buildTemp)
+  if ($env:NUITKA_CCACHE_BINARY) { $paths += (Split-Path -Parent $env:NUITKA_CCACHE_BINARY) }
+  if ($env:LOCALAPPDATA) {
+    $paths += (Join-Path $env:LOCALAPPDATA 'Nuitka')
+    $paths += (Join-Path $env:LOCALAPPDATA 'uv\cache')
+    $paths += (Join-Path $env:LOCALAPPDATA 'pnpm\store')
+  }
+  $Script:DefenderExclusions = @($paths | Where-Object { $_ } | Select-Object -Unique)
+  foreach ($path in $Script:DefenderExclusions) { Set-DefenderExclusion 'Add' $path }
+}
+
+# 加不上（没有管理员、没有 Defender、不是 Windows）只记一行，不挡构建：它是快慢问题，不是对错问题。
+function Set-DefenderExclusion {
+  param([string]$Action, [string]$Path)
+  try {
+    & "$Action-MpPreference" -ExclusionPath $Path -ErrorAction Stop
+    Write-Host ("  defender " + $Action.ToLower() + ": " + $Path)
+  } catch {
+    Write-Host ("  defender " + $Action.ToLower() + " skip: " + $Path)
+  }
+}
+
+function Reset-BuildMachine {
+  foreach ($path in $Script:DefenderExclusions) { Set-DefenderExclusion 'Remove' $path }
+  $Script:DefenderExclusions = @()
+}
+
 ${RENDERED_HOOK_FUNCTIONS}
 
 # 上下文路径绝对化：钩子在 $RepoRoot 下跑，若传的是相对路径，cwd 一切换就读不到。
@@ -205,13 +275,16 @@ $Context = Get-Content -Raw -Encoding UTF8 $ReleaseContextPath | ConvertFrom-Jso
 $RepoRoot = [string]$Context.repo_root
 ${ELECTRON_SETUP}
 
-# build_machine 协议：setup 在耗时步骤前备好构建机（uv 镜像 / ccache / electron 镜像 /
-# TEMP 重定向等 env + 系统级杀软排除 + 构建缓存预检），stdout 每行 KEY=VALUE 应用到本进程 env，
-# 随后所有步骤继承。teardown 在 finally 跑，best-effort，不改变构建判定。
+# 通用的那一套上面已经做完了。钥匙的 build_machine.setup 只补这个产品自己的：离线 wheel、
+# 它自己的缓存目录、它自己的预检。stdout 每行 KEY=VALUE 应用到本进程 env，随后所有步骤继承。
+# teardown 在 finally 跑，best-effort，不改变构建判定。
 $BuildMachine = if ($Context.PSObject.Properties.Match('build_machine').Count -gt 0) { $Context.build_machine } else { $null }
+$BuildEnv = if ($Context.PSObject.Properties.Match('build_env').Count -gt 0) { $Context.build_env } else { $null }
 try {
+  Step "[0/${STEP_TOTAL}] Prepare build machine"
+  Initialize-BuildMachine -RepoRoot $RepoRoot -BuildEnv $BuildEnv
+
   if ($BuildMachine -and $BuildMachine.setup) {
-    Step "[0/${STEP_TOTAL}] Prepare build machine"
     Push-Location $RepoRoot
     try {
       $envLines = & $BuildMachine.setup[0] @($BuildMachine.setup[1..($BuildMachine.setup.Count - 1)])
@@ -228,6 +301,7 @@ try {
 ${PIPELINE}
 }
 finally {
+  Reset-BuildMachine
   if ($BuildMachine -and $BuildMachine.teardown) {
     Push-Location $RepoRoot
     try { & $BuildMachine.teardown[0] @($BuildMachine.teardown[1..($BuildMachine.teardown.Count - 1)]) | Out-Null } catch { } finally { Pop-Location }

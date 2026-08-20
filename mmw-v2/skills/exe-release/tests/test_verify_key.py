@@ -64,7 +64,26 @@ def test_a_key_pointing_at_another_key_is_caught(repo):
     整条新通路一次都没跑到，而没有任何一步报错。
     """
     doc = deepcopy(MINIMAL_KEY)
-    doc["stages"][0]["run"][-5] = "release/someone-else.release-adapter.json"
+    doc["stages"] = [
+        {
+            "name": "assemble",
+            "run": [
+                "uv",
+                "run",
+                "python",
+                "${RELEASE_PLUGIN_DIR}/release_script_assembler.py",
+                "assemble",
+                "--adapter",
+                "release/someone-else.release-adapter.json",
+                "--repo-root",
+                ".",
+                "--output",
+                "${RELEASE_LOOP_DIR}/release.ps1",
+                "--context-output",
+                "${RELEASE_LOOP_DIR}/release-context.json",
+            ],
+        }
+    ]
     findings = _verify(doc, repo)
     assert [f["name"] for f in findings] == ["adapter_points_at_another_key"]
     assert "someone-else" in findings[0]["detail"]

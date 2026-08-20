@@ -34,8 +34,8 @@ run "修复派发与路径闸" bash "$HERE/test_release_dispatch.sh"
 if command -v uv >/dev/null 2>&1; then
   run "合同、装配、诊断、派修与最小钥匙" \
     uv run --quiet --with pytest --with 'pydantic>=2' python -m pytest \
-      "$HERE/test_release_contracts.py" "$HERE/test_release_script_assembler.py" \
-      "$HERE/test_release_script_assembler_v2.py" "$HERE/test_diagnose_core.py" \
+      "$HERE/test_release_contracts.py" \
+      "$HERE/test_release_script_assembler.py" "$HERE/test_diagnose_core.py" \
       "$HERE/test_fix_dispatch.py" "$HERE/test_minimal_key.py" \
       "$HERE/test_verify_key.py" -q
 else
