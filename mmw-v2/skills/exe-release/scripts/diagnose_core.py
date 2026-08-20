@@ -159,8 +159,10 @@ RULES: tuple[tuple[str, str, str, str], ...] = (
         r"Compiled backend import smoke failed",
         "built_exe_smoke_failed",
         "frozen_smoke:{product}",
-        "the frozen build is missing a dynamic dependency. Follow the ImportError in the log, add it to the "
-        "key's python_backend include list, then rebuild",
+        "the compiled exe did not survive its own import check. Read what it printed: an ImportError names a "
+        "module the key does not include, so add it to python_backend's include list; a usage or unknown-argument "
+        "error from another target's CLI means this exe carries the wrong payload, so check that "
+        "NUITKA_RESOURCE_MODE was not overridden back to an #embed mode. Then rebuild",
     ),
     (
         r"Compiled backend import smoke timed out",

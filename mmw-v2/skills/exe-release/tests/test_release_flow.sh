@@ -191,6 +191,29 @@ else
 fi
 bash "$RF" close >/dev/null
 
+# 守:装配之后技能自己改了,_loop 里那份 release.ps1 就过期了。拿它去构建机跑,每一步都对,
+# 只是跑的不是刚改的那一份——这一类失败在日志里完全看不出来。
+# 连带守 where 的判定顺序:管线有序,下一步是第一个还没 done 的阶段。曾经先挑 failed 再挑
+# pending,于是这里把靠前的 assemble 打回 pending 之后,where 还指着靠后那个 build,驱动原地打转。
+remote_reset
+init_for_remote_build
+tmp_state="$(mktemp)"
+jq '.skill_fingerprint = "recorded-when-the-skill-looked-different"
+    | (.stages |= map(if .name == "build" then .status = "failed" else . end))' "$SF" > "$tmp_state"
+mv "$tmp_state" "$SF"
+if remote_build >/dev/null 2>&1; then
+  no "技能改过之后 build 应该拒跑"
+else
+  ok "技能改过之后 build 拒跑,不拿过期脚本上构建机"
+fi
+[ "$(jq -r '.stages[]|select(.name=="assemble").status' "$SF")" = "pending" ] \
+  && ok "拒跑同时把装配打回 pending" || no "装配没被打回 pending"
+case "$(bash "$RF" where)" in
+  STAGE:assemble*) ok "where 指向第一个还没 done 的阶段(装配),不是靠后那个 failed 的构建" ;;
+  *) no "where ($(bash "$RF" where))" ;;
+esac
+bash "$RF" close >/dev/null
+
 # 守:schtasks 的命令行跨 cmd、PowerShell 语言、native CLI 三个解析器,单引号只在其中
 # 一个是定界符。任务必须指向一个上传好的 .cmd,不能把多段命令串进任务命令行,也不能带
 # 引号——带了的话清理时找不到任务,构建机上会堆死条目。

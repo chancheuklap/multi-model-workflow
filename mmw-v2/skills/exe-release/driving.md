@@ -23,7 +23,7 @@ Act on this output only. Do not predict the next state. A stage, a dispatch, or 
 | `SUCCESS:all stages done` | `<engine> exit-check` must return `DONE`, then `<engine> close` | No. Success without `DONE` is an engine bug. Do not announce success |
 | `PAUSED:needs-context` | See "Pause: missing context" below. This is not the end | Hand back only after two failed attempts |
 | `PAUSED:needs-redirection` | Read `<engine> receipt`. Give it to the user as-is | Yes. Protected paths, circuit breakers, and spent budget must not continue on their own |
-| `CORRUPT:` / `FAILED-STAGE:` / `NO-STAGES:` | Read `<engine> receipt`. Do not run a stage. Do not `resume` | Yes |
+| `CORRUPT:` / `NO-STAGES:` | Read `<engine> receipt`. Do not run a stage. Do not `resume` | Yes |
 | Any other output, or the command itself errors | Do not guess the state. Do not `init` again | Yes, with the raw output |
 
 After a stage, ask `where` again until the table names a terminal state. **Do not stop to report to the user after every `where`.**
@@ -92,4 +92,4 @@ Missing in both places is a `PAUSED:needs-context` you can often close yourself:
 - `SUCCESS` is not spoken success. Only `<engine> exit-check` returning `DONE` means the package is ready. Then `<engine> close`.
 - Package paths come from this stage's `DELIVERED` lines. On gather failure, read the WARN path left in the build directory. If neither exists, say you have no path. Do not invent one.
 - `close` leaves a delivery record (product name plus the ship commit). `exe-release` step 4 uses it for the same-commit check. **Do not delete it by hand.**
-- `CORRUPT`, `FAILED-STAGE`, and `NO-STAGES` never run the next stage and never `resume` on their own. The receipt is the only log of what was tried. Give it to the user as-is.
+- `CORRUPT` and `NO-STAGES` never run the next stage and never `resume` on their own. The receipt is the only log of what was tried. Give it to the user as-is.

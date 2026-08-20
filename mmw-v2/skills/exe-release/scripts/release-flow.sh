@@ -519,9 +519,10 @@ _post_fix_gate() {
 }
 
 cmd_dispatch_direct() {
-  local f="$1" name="$2" fp="$3" findings="$4" mode="$5" top commit_sha message
+  local f="$1" name="$2" fp="$3" findings="$4" mode="$5" top mp commit_sha message
   local changed_json blocked_json artifact_ref="" action_kind
   top="$(_repo_top)"
+  mp="$(jq -r '.manifest_path' "$f")"
   action_kind="$mode"
   if ! git -C "$top" diff --quiet HEAD; then
     _record_pause "$f" "$name" "preflight" "tracked_dirty" "$fp" "" \
@@ -653,7 +654,7 @@ cmd_dispatch_p2() {
 
 # $1=state $2=event $3=stage $4=tier $5=fingerprint $6=attempt_ref
 emit_event() {
-  local f="$1" event="$2" stage="$3" tier="$4" fp="$5" aref="$6"
+  local f="$1" event="$2" stage="$3" tier="$4" fp="$5" aref="$6" mp
   local mp
   mp="$(jq -r '.manifest_path' "$f")"
   [ -f "$mp" ] || { echo "WARN: the manifest is gone ($mp), not recording event: $event" >&2; return 0; }
@@ -783,21 +784,19 @@ cmd_where() {
     jq -r --arg c "$interrupted" '"RETRY-STAGE:"+$c+" RUN:"+([.stages[]|select(.name==$c)][0].run|join(" "))' "$f"
     return 0
   fi
-  local failed
-  failed="$(jq -r '[.stages[]|select(.status=="failed")][0].name // ""' "$f")"
-  if [ -n "$failed" ]; then
-    jq -r --arg c "$failed" '"RETRY-STAGE:"+$c+" RUN:"+([.stages[]|select(.name==$c)][0].run|join(" "))' "$f"
-    return 0
-  fi
-  local cur
-  cur="$(jq -r '[.stages[]|select(.status=="pending")][0].name // ""' "$f")"
+  # 管线是有序的,所以下一步就是**第一个还没 done 的阶段**——按位置,不按状态。曾经这里先挑
+  # failed 再挑 pending,于是失效守卫把靠前的 assemble 打回 pending 之后,where 还指着靠后
+  # 那个 failed 的 build:引擎要求先重装配,where 却让人重跑构建,驱动在这里原地打转。
+  local cur status
+  cur="$(jq -r '[.stages[]|select(.status!="done")][0].name // ""' "$f")"
   if [ -z "$cur" ]; then
-    local failed
-    failed="$(jq -r '[.stages[]|select(.status=="failed")|.name]|join(",")' "$f")"
-    [ -z "$failed" ] && echo "SUCCESS:all stages done" || echo "FAILED-STAGE:$failed"
+    echo "SUCCESS:all stages done"
     return 0
   fi
-  jq -r --arg c "$cur" '"STAGE:"+$c+" RUN:"+([.stages[]|select(.name==$c)][0].run|join(" "))' "$f"
+  status="$(jq -r --arg c "$cur" '[.stages[]|select(.name==$c)][0].status' "$f")"
+  local verb="STAGE"
+  [ "$status" = "failed" ] && verb="RETRY-STAGE"
+  jq -r --arg c "$cur" --arg v "$verb" '$v+":"+$c+" RUN:"+([.stages[]|select(.name==$c)][0].run|join(" "))' "$f"
 }
 
 cmd_stage() {
@@ -1128,7 +1127,7 @@ _fetch_remote_build_log() {
 }
 
 cmd_stage_run() {
-  local requested="" f name top source_commit attempt_id stage_dir loop_dir log_file raw expanded rc=0
+  local requested="" f name top mp source_commit attempt_id stage_dir loop_dir log_file raw expanded rc=0
   while [ $# -gt 0 ]; do
     case "$1" in
       --stage) requested="$2"; shift 2 ;;

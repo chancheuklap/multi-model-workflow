@@ -14,17 +14,32 @@ set -uo pipefail
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 rc=0
 
+# bash 自己的运行时错误（未绑定变量、参数为空导致的比较失败）出现在 $( ) 里时只杀掉子 shell：
+# 外面拿到空串照常往下走，测试还是绿的，而引擎已经走进了另一条分支。所以这些字样一出现就算失败。
+ENGINE_FAULTS=': unbound variable|: integer expression expected|: command not found|syntax error near'
+
 run() {
   local label="$1"
   shift
   echo
   echo "### $label"
-  if "$@"; then
-    echo "### $label 通过"
+  local out ok=0
+  out="$(mktemp)"
+  "$@" >"$out" 2>&1 || ok=1
+  cat "$out"
+  if [ "$ok" -eq 0 ]; then
+    if grep -qE "$ENGINE_FAULTS" "$out"; then
+      echo "### $label 失败：输出里有 bash 运行时错误" >&2
+      grep -nE "$ENGINE_FAULTS" "$out" | sed 's/^/    /' >&2
+      rc=1
+    else
+      echo "### $label 通过"
+    fi
   else
     echo "### $label 失败" >&2
     rc=1
   fi
+  rm -f "$out"
 }
 
 run "引擎状态机" bash "$HERE/test_release_flow.sh"
