@@ -233,7 +233,9 @@ hook and no key field:
   the key already declares.
 - **An installer really landed at `installer_glob`.** "The installer step exited 0" and "there is
   an installer" are different facts: a packer can fail its own cleanup, a repo hook can run half
-  way. Which is why a key with an installer step must declare where the installer lands.
+  way. Which is why a key with an installer step must declare where the installer lands. The
+  check runs after the `package_integrity` hook, so the glob may point at a delivery directory
+  that the hook itself fills once the gates pass.
 
 ### What is genuinely optional
 

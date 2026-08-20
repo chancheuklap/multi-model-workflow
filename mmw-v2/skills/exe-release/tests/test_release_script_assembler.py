@@ -339,3 +339,17 @@ def test_assemble_leaves_the_previous_pair_alone_when_the_key_is_bad(tmp_path):
     )
     assert again.returncode != 0
     assert (script.read_bytes(), context.read_bytes()) == before
+
+
+def test_package_integrity_hook_runs_before_the_installer_assert(tmp_path):
+    """installer_glob 指交付件最后落在哪，而落它的可以就是 package_integrity 这个钩子。
+
+    产品让钩子先判两道闸、判过了才把安装包拷进交付目录，是合理设计。断言排在钩子前面，
+    这类产品第一次就被拒，日志里只看得到「没找到安装包」，看不出是顺序的问题。
+    """
+    result, script, _ = _assemble(tmp_path, _key())
+    assert result.returncode == 0, result.stderr
+    text = script.read_text(encoding="utf-8-sig")
+    hook = text.index("'package_integrity'")
+    assert_at = text.index("Assert-InstallerProduced -Glob")
+    assert hook < assert_at

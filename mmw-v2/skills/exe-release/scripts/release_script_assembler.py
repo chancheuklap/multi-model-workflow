@@ -268,14 +268,17 @@ def _steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
             }
         )
 
+    # 先跑钩子再断言安装包在位。installer_glob 指的是「交付件最后落在哪」，而产品完全可以
+    # 让 package_integrity 这个钩子来落它——只有两道闸都判过才把安装包拷进交付目录，是合理
+    # 的设计。断言写在钩子前面，这类产品第一次就被拒，而它其实什么都没做错。
     verify_lines = []
+    if hooks.package_integrity is not None:
+        verify_lines.append(_hook_line("package_integrity", hooks.package_integrity))
     if _has_installer_step(manifest) and manifest.build_target.installer_glob:
         verify_lines.append(
             "  Assert-InstallerProduced -Glob (Join-Path $RepoRoot "
             f"{_ps(manifest.build_target.installer_glob)})"
         )
-    if hooks.package_integrity is not None:
-        verify_lines.append(_hook_line("package_integrity", hooks.package_integrity))
     if verify_lines:
         steps.append(
             {
