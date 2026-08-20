@@ -87,6 +87,11 @@ TEMPLATE_ERRORS = [
     ("Compiled backend import smoke timed out after 180s", "frozen_smoke_timeout:duck"),
     ("electron-builder did not create an installer", "build_step:duck"),
     (
+        "Onefile payload mismatch: C:\\x\\core.exe carries the same payload as C:\\x\\launcher.exe "
+        "-- one of them is the wrong program (payload: C:\\x\\core.onefile-build\\blobs\\__payload.bin)",
+        "payload_mismatch:duck",
+    ),
+    (
         "Business Python source shipped in the package: C:\\x\\duck\\app.py",
         "shipped_source:duck",
     ),

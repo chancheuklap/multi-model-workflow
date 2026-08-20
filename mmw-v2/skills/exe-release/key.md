@@ -80,6 +80,36 @@ derived from what this key already says. List a tool here only when the product 
 those. Restating the derived ones is how a key ends up demanding a tool the build does not use,
 and turning a working build machine away at step 1.
 
+### `vendor_artifacts` — a binary the package ships but git cannot hold
+
+ffmpeg, an embedded interpreter, anything too large to commit. Put the files on the build machine
+under `<cache_root>/vendor/<name>/`, and the key says which ones to copy in and where:
+
+```jsonc
+"vendor_artifacts": [{
+  "name": "ffmpeg",
+  "lock": "resources/ffmpeg/.ffmpeg-version-lock-win64.json",
+  "members": [
+    {"file": "ffmpeg.exe",  "dest": "resources/ffmpeg/bin/ffmpeg.exe",  "sha256_key": "ffmpeg_exe_sha256"},
+    {"file": "ffprobe.exe", "dest": "resources/ffmpeg/bin/ffprobe.exe", "sha256_key": "ffprobe_exe_sha256"}
+  ]
+}]
+```
+
+**Nothing is downloaded.** Upstream retention is not yours to control: one product locked an address
+that has since gone dead -- the release branch it named was dropped from the upstream tag, so those
+exact bytes can no longer be obtained by anyone. A file on a machine you own does not rot.
+
+**The hashes are the point.** `lock` is a JSON file in the repository recording each file's sha256,
+and a copy that does not match stops the release. The same tool built from a different source is
+not the same file, and the difference does not announce itself: the build succeeds, the app runs,
+and on a customer machine it quietly does the slow thing. The one this rule caught: the locked
+ffmpeg needs an NVIDIA driver from 2021, the current upstream build needs one from 2025, and
+customers in between lose GPU encoding and never see an error.
+
+Keep the hashes in the lock file rather than in the key when the repo already reads them -- one
+place, or they drift.
+
 ### `python_backend` — compiling the backend
 
 One Nuitka invocation per entry in `targets`. The skill renders the command; the key supplies

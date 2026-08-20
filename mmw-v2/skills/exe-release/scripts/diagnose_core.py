@@ -141,6 +141,16 @@ RULES: tuple[tuple[str, str, str, str], ...] = (
         "the smoke test ran, but its exit code could not be read on the build machine. This is a harness fault; leave the key's include list alone",
     ),
     (
+        r"Onefile payload mismatch",
+        "onefile_payload_mismatch",
+        "payload_mismatch:{product}",
+        "a compiled exe does not carry the payload built for it this round, so it is running another "
+        "target's program or a stale one. Something between Nuitka and the C compiler handed one "
+        "compile another one's object: check that NUITKA_RESOURCE_MODE is still a route that keeps the "
+        "payload out of the compiler, clear the compiler caches named in the log, and rebuild. Never "
+        "ship the package from this build",
+    ),
+    (
         r"Business Python source shipped in the package",
         "business_source_shipped",
         "shipped_source:{product}",

@@ -141,6 +141,15 @@ def _steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
         }
     )
 
+    if manifest.vendor_artifacts:
+        steps.append(
+            {
+                "title": "Fetch vendor artifacts",
+                "hooks": [],
+                "lines": _vendor_artifact_lines(manifest),
+            }
+        )
+
     install_args = ", ".join(_ps(arg) for arg in _INSTALL_ARGS)
     steps.append(
         {
@@ -278,6 +287,29 @@ def _steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
     return steps
 
 
+def _vendor_artifact_lines(manifest) -> list[str]:
+    """把第三方二进制拷进仓库并对哈希。写在这里而不是每个产品各写一份 Python。"""
+    lines: list[str] = []
+    for artifact in manifest.vendor_artifacts:
+        members = ", ".join(
+            "@{File = "
+            + _ps(member.file)
+            + "; Dest = "
+            + _ps(member.dest)
+            + "; Sha256Key = "
+            + _ps(member.sha256_key)
+            + "}"
+            for member in artifact.members
+        )
+        lines.append(
+            f"  Get-VendorArtifact -Name {_ps(artifact.name)} "
+            f"-LockPath (Join-Path $RepoRoot {_ps(artifact.lock)}) "
+            f"-Members @({members}) "
+            "-CacheRoot $CacheRoot -RepoRoot $RepoRoot"
+        )
+    return lines
+
+
 def _required_tools(manifest: ReleaseAdapterManifest) -> list[str]:
     """第一步要检查哪几件工具。
 
@@ -384,8 +416,29 @@ def _compile_lines(backend, build_target: BuildTarget, desktop_dir: str | None) 
             "  Invoke-Checked -Command ([string]$argv[0]) "
             "-Arguments @($argv[1..($argv.Count - 1)]) -WorkingDirectory $RepoRoot"
         )
+    # 编译完当场验：每个 exe 装的必须是这一轮为它自己编出来的 payload。
+    out_dir = nuitka.expand(
+        backend.output_dir, desktop_dir=desktop_dir, build_root=backend.build_root
+    )
+    exes = ", ".join(
+        "(Join-Path $RepoRoot "
+        + _ps(
+            nuitka.expand(
+                f"{backend.output_dir}/{target.exe}",
+                desktop_dir=desktop_dir,
+                build_root=backend.build_root,
+            )
+        )
+        + ")"
+        for target in backend.targets
+    )
+    assert_line = (
+        f"  Assert-OnefilePayloads -OutputDir (Join-Path $RepoRoot {_ps(out_dir)}) "
+        f"-Exes @({exes})"
+    )
+
     if not backend.isolate_dirs:
-        return [*lines, *compile_lines]
+        return [*lines, *compile_lines, assert_line]
 
     isolate = ", ".join(
         f"(Join-Path $RepoRoot {_ps(nuitka.expand(path, desktop_dir=desktop_dir, build_root=backend.build_root))})"
@@ -399,6 +452,7 @@ def _compile_lines(backend, build_target: BuildTarget, desktop_dir: str | None) 
     lines.extend("  " + line for line in compile_lines)
     lines.append("  }")
     lines.append("  finally { Restore-AfterCompile -Moved $moved }")
+    lines.append(assert_line)
     return lines
 
 

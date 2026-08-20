@@ -289,6 +289,55 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                         )
                     )
 
+    # ── 第三方二进制：锁在不在、锁里该有的字段有没有 ────────────────────────
+    #
+    # 这几件事都是秒级可判的，而错了要等到编译几十分钟之后、组装安装包那一步才炸。
+    for artifact in manifest.vendor_artifacts:
+        lock_rel = _expand(manifest, artifact.lock)
+        lock_path = (repo_root / lock_rel) if lock_rel else None
+        if lock_path is None or not lock_path.is_file():
+            missing("vendor", "artifact_lock_missing", artifact.lock, f"the {artifact.name} lock")
+            continue
+        try:
+            lock = json.loads(lock_path.read_text(encoding="utf-8"))
+        except (ValueError, OSError) as exc:
+            findings.append(
+                _finding(
+                    product,
+                    "vendor",
+                    "artifact_lock_unreadable",
+                    artifact.lock,
+                    f"the {artifact.name} lock cannot be read as JSON: {exc}",
+                    "fix the lock file; the build reads the hashes from it",
+                )
+            )
+            continue
+        for key in [m.sha256_key for m in artifact.members]:
+            if not lock.get(key):
+                findings.append(
+                    _finding(
+                        product,
+                        "vendor",
+                        "artifact_lock_incomplete",
+                        artifact.lock,
+                        f"the {artifact.name} lock records no {key}",
+                        f"add {key} to the lock; without a hash there is no check, and the wrong build of a tool does not announce itself",
+                    )
+                )
+        for member in artifact.members:
+            dest = _expand(manifest, member.dest)
+            if dest is None or Path(dest).is_absolute() or ".." in Path(dest).parts:
+                findings.append(
+                    _finding(
+                        product,
+                        "vendor",
+                        "artifact_dest_outside_repo",
+                        member.dest,
+                        f"{artifact.name} would write outside the repository: {member.dest}",
+                        "make every dest a repository-relative path",
+                    )
+                )
+
     return findings
 
 

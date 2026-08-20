@@ -120,6 +120,39 @@ class NativeExtDll(BaseModel):
         return self
 
 
+class VendorArtifactMember(BaseModel):
+    """一个文件：叫什么、落在仓库哪里、它的 sha256 记在锁的哪个字段。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    file: str = Field(min_length=1)
+    dest: str = Field(min_length=1)
+    sha256_key: str = Field(min_length=1)
+
+
+class VendorArtifact(BaseModel):
+    """出包要用、但太大不进 git 的第三方二进制。
+
+    这几件事四个产品做的完全一样：把文件拷进来、对 sha256。所以它是技能的活，钥匙只说要什么。
+    从前是每个产品各写一份四百行的 Python，第四个产品还得再写一遍。
+
+    文件放在构建机上，不下载。上游的保留策略不归我们管：这里锁的那个地址已经死过一次——
+    它指的那条发布分支被整支从上游的 tag 里删掉了，换机器就再也拿不回一模一样的字节。
+    我们自己机器上的一个文件不会烂掉，一个链接会。
+
+    位置是约定，不是钥匙字段：`<cache_root>/vendor/<name>/`。钥匙里不写绝对路径——它在一台
+    机器上写，在另一台机器上跑。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1)
+    # 仓库相对路径，一个 JSON：记着每个文件的 sha256。用锁文件而不是把哈希抄进钥匙，
+    # 是因为产品自己的仓库真相检查已经在读它，抄一份就会漂。
+    lock: str = Field(min_length=1)
+    members: list[VendorArtifactMember] = Field(min_length=1)
+
+
 class BuildTarget(BaseModel):
     """钥匙的 build 齿：声明本产品出包差异的**构建目标**（修正1 验齿 + 修正2 深抽）。
 
@@ -344,6 +377,8 @@ class ReleaseAdapterManifest(BaseModel):
     # 编译用的解释器命令、前端包管理器、构建机准备脚本都不用写在这里——装配器从
     # 钥匙已有的字段里推得出来，让钥匙再抄一遍只会抄漏或抄多。
     toolchain: list[str] = Field(default_factory=list)
+    # 出包要用、但太大不进 git 的第三方二进制（ffmpeg、嵌入式解释器一类）。
+    vendor_artifacts: list[VendorArtifact] = Field(default_factory=list)
     # 诊断：产品自己跑哪几条检查、认哪几条自己的日志模式、编译产物在哪。
     diagnose_branches: list[list[str]] = Field(default_factory=list)
     diagnose_rules: list[DiagnoseRule] = Field(default_factory=list)

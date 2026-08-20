@@ -112,6 +112,59 @@ def test_the_skill_puts_nothing_non_ascii_into_the_generated_script(tmp_path):
     assert not offenders, f"技能往生成脚本里写了非 ASCII 字节: {offenders}"
 
 
+VENDOR_ARTIFACT = {
+    "name": "ffmpeg",
+    "lock": "resources/ffmpeg/.lock.json",
+    "members": [
+        {
+            "file": "ffmpeg.exe",
+            "dest": "resources/ffmpeg/bin/ffmpeg.exe",
+            "sha256_key": "ffmpeg_exe_sha256",
+        }
+    ],
+}
+
+
+def test_a_key_that_declares_a_vendor_artifact_gets_a_step_that_fetches_it(tmp_path):
+    """守：太大不进 git 的第三方二进制由技能取，钥匙只声明要什么。
+
+    这件事四个产品做的完全一样——从构建机上拷进来、对 sha256。写在产品仓库里，就是每加一个
+    产品再抄一遍四百行 Python，而第四份正是某一步悄悄漏掉的地方。
+    """
+    doc = _key()
+    doc["vendor_artifacts"] = [VENDOR_ARTIFACT]
+    result, script, context = _assemble(tmp_path, doc)
+    assert result.returncode == 0, result.stderr
+    text = script.read_text(encoding="utf-8-sig")
+    assert "Get-VendorArtifact" in text
+    assert "'resources/ffmpeg/.lock.json'" in text
+    assert "'ffmpeg_exe_sha256'" in text
+    steps = _steps(script)
+    assert any("Fetch vendor artifacts" in step for step in steps), steps
+
+
+def test_a_key_that_declares_no_vendor_artifact_has_no_such_step(tmp_path):
+    # 函数定义一直在模板里；这里验的是没有人调用它，也没有那一步。
+    _, script, _ = _assemble(tmp_path, _key())
+    text = script.read_text(encoding="utf-8-sig")
+    assert "Get-VendorArtifact -Name" not in text
+    assert not any("Fetch vendor artifacts" in step for step in _steps(script))
+
+
+def test_every_compiled_exe_is_checked_against_its_own_payload(tmp_path):
+    """守：编译完当场验每个 exe 装的是不是自己这一轮的 payload。
+
+    payload 走的是编译器缓存看不见的路，第二个目标曾经拿回第一个目标的 object——两个 exe
+    字节相同、都在跑第一个程序，而每一步都是绿的。设置能被覆盖、默认会变、工具链会换，
+    所以这里验的是 exe 里实际装着什么，跟走哪条路无关。
+    """
+    _, script, _ = _assemble(tmp_path, _key())
+    text = script.read_text(encoding="utf-8-sig")
+    assert "Assert-OnefilePayloads" in text
+    for target in _key()["python_backend"]["targets"]:
+        assert target["exe"] in text
+
+
 def test_the_onefile_payload_never_goes_through_a_compiler_cache(tmp_path):
     """守：payload 不许经过 C 编译器。
 

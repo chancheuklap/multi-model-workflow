@@ -59,6 +59,60 @@ def test_a_missing_data_dir_is_caught_before_the_build(repo):
     assert finding["name"] == "data_dir_missing"
 
 
+_ARTIFACT = {
+    "name": "ffmpeg",
+    "lock": "resources/ffmpeg/.lock.json",
+    "members": [
+        {
+            "file": "ffmpeg.exe",
+            "dest": "resources/ffmpeg/bin/ffmpeg.exe",
+            "sha256_key": "ffmpeg_exe_sha256",
+        }
+    ],
+}
+
+
+def _with_artifact(repo, lock: dict | None):
+    doc = deepcopy(MINIMAL_KEY)
+    doc["vendor_artifacts"] = [deepcopy(_ARTIFACT)]
+    if lock is not None:
+        path = repo / "resources" / "ffmpeg" / ".lock.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(lock), encoding="utf-8")
+    return doc
+
+
+def test_a_vendor_artifact_with_a_complete_lock_has_nothing_to_say(repo):
+    doc = _with_artifact(
+        repo,
+        {"ffmpeg_exe_sha256": "ab" * 32},
+    )
+    assert _verify(doc, repo) == []
+
+
+def test_a_vendor_artifact_whose_lock_is_missing_is_caught_before_the_build(repo):
+    doc = _with_artifact(repo, None)
+    (finding,) = _verify(doc, repo)
+    assert finding["name"] == "artifact_lock_missing"
+
+
+def test_a_lock_that_records_no_hash_is_caught_before_the_build(repo):
+    """守：没有哈希就没有校验，而装错版本的二进制不会当场报错。"""
+    doc = _with_artifact(repo, {})
+    (finding,) = _verify(doc, repo)
+    assert finding["name"] == "artifact_lock_incomplete"
+
+
+def test_a_vendor_artifact_writing_outside_the_repository_is_caught(repo):
+    doc = _with_artifact(
+        repo,
+        {"ffmpeg_exe_sha256": "ab" * 32},
+    )
+    doc["vendor_artifacts"][0]["members"][0]["dest"] = "../elsewhere/ffmpeg.exe"
+    (finding,) = _verify(doc, repo)
+    assert finding["name"] == "artifact_dest_outside_repo"
+
+
 def test_a_key_pointing_at_another_key_is_caught(repo):
     """真发生过，而且是最贵的一种：日志里每一步都绿。
 

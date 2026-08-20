@@ -202,6 +202,125 @@ function Assert-NoBusinessSource {
   Write-Host "  no business source in the shipped tree ($($repoFiles.Count) repo modules checked)"
 }
 
+# A third-party binary the package ships but the repository cannot hold: too large for git, so it
+# lives on the build machine and is copied in, then checked against the hashes the repository does
+# hold. No download: upstream retention is not ours to control, and the address one product locked
+# has already gone dead -- the release branch it named was dropped from the upstream tag entirely.
+# A file on a machine we own does not rot; a link does.
+#
+# The hash check is the whole difference between "a file" and "the right file". A build of the same
+# tool from a different source can be wrong in a way nothing reports: it runs, it encodes, and on a
+# customer machine whose driver is too old for it, it falls back to software encoding and takes many
+# times longer. So a mismatch stops the release rather than warning.
+#
+# Where the files live is a convention, not a key field: <cache_root>/vendor/<name>/. Keys hold no
+# absolute paths -- they are written on one machine and run on another.
+function Get-VendorArtifact {
+  param(
+    [string]$Name,
+    [string]$LockPath,
+    [object[]]$Members,
+    [string]$CacheRoot,
+    [string]$RepoRoot
+  )
+  if (-not (Test-Path -LiteralPath $LockPath)) {
+    throw "The vendor artifact lock is missing: $LockPath ($Name)"
+  }
+  $lock = Get-Content -LiteralPath $LockPath -Raw -Encoding UTF8 | ConvertFrom-Json
+  $sourceDir = if ($CacheRoot) { Join-Path $CacheRoot ("vendor\" + $Name) } else { "" }
+  if (-not $sourceDir) {
+    throw "This build has no cache root, so there is nowhere for the $Name files to live"
+  }
+
+  foreach ($member in $Members) {
+    $file = [string]$member.File
+    $expected = [string]$lock.($member.Sha256Key)
+    if (-not $expected) { throw "The lock records no $($member.Sha256Key) : $LockPath ($Name)" }
+    $expected = $expected.ToLowerInvariant()
+    $dest = Join-Path $RepoRoot ([string]$member.Dest)
+
+    if ((Test-Path -LiteralPath $dest) -and
+        (Get-FileHash -LiteralPath $dest -Algorithm SHA256).Hash.ToLowerInvariant() -eq $expected) {
+      Write-Host ("  vendor " + $Name + ": " + $file + " already in place")
+      continue
+    }
+    $source = Join-Path $sourceDir $file
+    if (-not (Test-Path -LiteralPath $source)) {
+      throw ("This build machine has no " + $file + " for " + $Name + ". Put it in " + $sourceDir +
+             " (the hash it must have is " + $($member.Sha256Key) + " in " + $LockPath + ")")
+    }
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dest) | Out-Null
+    Copy-Item -LiteralPath $source -Destination $dest -Force
+    $actual = (Get-FileHash -LiteralPath $dest -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actual -ne $expected) {
+      Remove-Item -LiteralPath $dest -Force -ErrorAction SilentlyContinue
+      throw ("Vendor artifact " + $Name + " does not match the lock: " + $file +
+             " expected " + $expected + ", got " + $actual + " (from " + $source + ")")
+    }
+    Write-Host ("  vendor " + $Name + ": " + $file + " copied and verified")
+  }
+}
+
+# Every onefile exe must carry the payload that was built for it, in this round.
+#
+# A onefile exe is a small bootstrap with the whole program appended to it as a payload. How that
+# payload reaches the exe is the compiler's business, and it has gone wrong in a way no build log
+# shows: with Nuitka's default under zig the payload arrives through a C file that names it with
+# C23 #embed, no compiler cache hashes a file pulled in that way, and the second target of a run
+# gets handed the first one's object. Two exes, byte-identical, both running the first program,
+# every step green. The skill now asks Nuitka for a payload route that never touches a compiler,
+# but that is a setting, and a setting can be overridden, a default can change, a toolchain can be
+# swapped. This check does not care which route was taken or which cache was involved: it reads
+# what is actually inside the exe.
+#
+# Nothing here is named or matched by convention. Each payload is claimed by exactly one exe, and
+# an exe that claims a payload another exe already claimed is the failure we are looking for.
+function Assert-OnefilePayloads {
+  param([string]$OutputDir, [string[]]$Exes)
+  if (-not (Test-Path -LiteralPath $OutputDir)) {
+    throw "The compiler wrote no output directory: $OutputDir"
+  }
+  $payloads = @(
+    Get-ChildItem -LiteralPath $OutputDir -Directory -Filter '*.onefile-build' -ErrorAction SilentlyContinue |
+      ForEach-Object { Join-Path $_.FullName 'blobs\__payload.bin' } |
+      Where-Object { Test-Path -LiteralPath $_ }
+  )
+  if ($payloads.Count -eq 0) {
+    Write-Host '  onefile payloads: this build produced none, nothing to check'
+    return
+  }
+  # Latin1 maps every byte to one char, so a byte search becomes a native string search. Reading
+  # the exe any other way would mean a per-byte loop over fifty megabytes in PowerShell.
+  $latin1 = [Text.Encoding]::GetEncoding(28591)
+  $probes = @{}
+  foreach ($payload in $payloads) {
+    $bytes = [IO.File]::ReadAllBytes($payload)
+    if ($bytes.Length -lt 8192) { throw "A onefile payload is implausibly small: $payload ($($bytes.Length) bytes)" }
+    # Probe from the middle: a header two payloads could share proves nothing.
+    $offset = [int]($bytes.Length / 2)
+    $probes[$payload] = $latin1.GetString($bytes[$offset..($offset + 255)])
+  }
+  $claimedBy = @{}
+  foreach ($exe in $Exes) {
+    if (-not (Test-Path -LiteralPath $exe)) { throw "A compiled exe the key asked for is missing: $exe" }
+    $haystack = $latin1.GetString([IO.File]::ReadAllBytes($exe))
+    $hits = @($payloads | Where-Object { $haystack.IndexOf($probes[$_], [StringComparison]::Ordinal) -ge 0 })
+    if ($hits.Count -eq 0) {
+      throw "Onefile payload mismatch: $exe carries none of the payloads this build produced"
+    }
+    if ($hits.Count -gt 1) {
+      throw "Onefile payload mismatch: $exe carries more than one payload ($($hits -join '; '))"
+    }
+    $payload = $hits[0]
+    if ($claimedBy.ContainsKey($payload)) {
+      throw ("Onefile payload mismatch: $exe carries the same payload as $($claimedBy[$payload]) " +
+             "-- one of them is the wrong program (payload: $payload)")
+    }
+    $claimedBy[$payload] = $exe
+    Write-Host ("  payload verified: " + (Split-Path -Leaf $exe))
+  }
+}
+
 # An installer really exists, and it is where the key says it will be.
 #
 # The installer step exiting 0 does not mean an installer exists: the packaging tool failing to
