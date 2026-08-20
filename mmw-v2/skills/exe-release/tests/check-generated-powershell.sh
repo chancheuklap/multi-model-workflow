@@ -22,7 +22,7 @@ rc=0
 for script in "$@"; do
   name="$(basename "$script")"
   scp -q "$script" "$host:$remote/$name"
-  out="$(ssh "$host" "powershell -NoProfile -NonInteractive -File $remote/check.ps1 -Path $remote/$name" 2>&1 | tr -d '\r')"
+  out="$(ssh "$host" "powershell -NoProfile -NonInteractive -File $remote/check.ps1 -Path $remote/$name" 2>&1 | LC_ALL=C tr -d '\r')"
   if [ "$out" = "OK" ]; then
     echo "$name 解析通过"
   else
