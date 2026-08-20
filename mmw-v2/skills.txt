@@ -26,6 +26,7 @@ engineering/wizard
 productivity/grill-me
 productivity/grilling
 productivity/handoff
+productivity/teach
 productivity/to-questionnaire
 productivity/wait-what
 productivity/writing-for-agents
