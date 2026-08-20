@@ -213,6 +213,15 @@ function Initialize-BuildMachine {
     }
   }
 
+  # 构建机是中文 Windows，控制台按 GBK(cp936) 解子进程的输出。而仓库钩子是 Python 写的，
+  # 它打出来的中文是 UTF-8——按 GBK 解就是一屏乱码，出包失败的原因谁也读不出来。两头都钉死
+  # 成 UTF-8：让 Python 确定用 UTF-8 写，让控制台确定按 UTF-8 读。
+  $env:PYTHONIOENCODING = 'utf-8'
+  try {
+    [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+    $OutputEncoding = [Text.UTF8Encoding]::new($false)
+  } catch { Write-Host ("  utf-8 console skip: " + $_.Exception.Message) }
+
   # uv 默认把包硬链接进环境。构建目录与缓存常常不在同一个卷上，硬链接失败会退化成一次次重下。
   if (-not $env:UV_LINK_MODE) { $env:UV_LINK_MODE = 'copy' }
   # 出包全程不写 .pyc：解释器跑自检、编译器做导入分析都会 byte-compile，落进要打包的 runtime
