@@ -80,18 +80,18 @@ def expand(value: str, *, desktop_dir: str | None, build_root: str | None) -> st
     """
     if "${DESKTOP_DIR}" in value and not desktop_dir:
         raise ValueError(
-            f"用了 ${{DESKTOP_DIR}} 但钥匙没声明 build_target.desktop_dir: {value}"
+            f"${{DESKTOP_DIR}} is used, but the key does not declare build_target.desktop_dir: {value}"
         )
     result = value.replace("${DESKTOP_DIR}", desktop_dir or "")
     if "${BUILD_ROOT}" in result:
         if not build_root:
-            raise ValueError(f"用了 ${{BUILD_ROOT}} 但钥匙没声明 build_root: {value}")
+            raise ValueError(f"${{BUILD_ROOT}} is used but the key declares no build_root: {value}")
         result = result.replace("${BUILD_ROOT}", build_root)
     if "${" in result:
-        raise ValueError(f"路径里有认不出的模板变量: {value}")
+        raise ValueError(f"the path holds a template variable nobody knows: {value}")
     path = PurePosixPath(result)
     if not result or path.is_absolute() or ".." in path.parts or "\\" in result:
-        raise ValueError(f"必须是无 .. 的仓库相对 POSIX 路径: {value}")
+        raise ValueError(f"must be a repository-relative POSIX path with no ..: {value}")
     return result
 
 
@@ -236,10 +236,10 @@ def argv(
                 buffer += str(repo_root / value)
             elif kind == "probe":
                 if value not in resolved:
-                    raise KeyError(f"没给这个 DLL 的探测结果: {value}")
+                    raise KeyError(f"no probe result was given for this DLL: {value}")
                 buffer += resolved[value]
             else:  # pragma: no cover - 片段类型是本模块自己造的
-                raise ValueError(f"未知片段类型: {kind}")
+                raise ValueError(f"unknown fragment kind: {kind}")
         out.append(buffer)
     return out
 
@@ -289,7 +289,7 @@ def powershell_argv(segments: list[Segment]) -> str:
                 literal_only = False
                 pieces.append(f"$Dll_{_probe_var(value)}")
             else:  # pragma: no cover
-                raise ValueError(f"未知片段类型: {kind}")
+                raise ValueError(f"unknown fragment kind: {kind}")
         if literal_only and len(pieces) == 1:
             rendered.append(pieces[0])
         else:
@@ -315,13 +315,13 @@ def validate_import_plan(spec) -> None:
         return
     required = [*spec.include_modules, *spec.smoke.modules]
     blocked = [
-        f"{module} 被 --nofollow-import-to={pattern} 挡住"
+        f"{module} is blocked by --nofollow-import-to={pattern}"
         for module in required
         for pattern in spec.nofollow_imports
         if _nofollow_hits(pattern, module)
     ]
     if blocked:
-        raise ValueError("Nuitka 的 nofollow 会挡掉编译后要 import 的模块：\n  - " + "\n  - ".join(blocked))
+        raise ValueError("nofollow_imports blocks modules the smoke test imports after compiling:\n  - " + "\n  - ".join(blocked))
 
 
 def _nofollow_hits(pattern: str, module: str) -> bool:

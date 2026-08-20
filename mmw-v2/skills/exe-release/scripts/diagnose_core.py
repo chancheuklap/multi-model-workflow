@@ -47,38 +47,40 @@ LOG_TAIL_CAP = 4000
 RULES: tuple[tuple[str, str, str, str], ...] = (
     # ── 环境：一眼可读，禁止派代码修 ──
     (
-        r"ERROR: remote build 缺 RELEASE_REMOTE_HOST",
+        r"ERROR: remote build has no RELEASE_REMOTE_HOST",
         "missing_remote_host",
         "env:missing_RELEASE_REMOTE_HOST",
-        "钥匙旁边的 remote-build.json 缺 host，或该文件不存在；补好后 resume"
-        "（也可在驱动 shell 导出 RELEASE_REMOTE_HOST 临时覆盖）",
+        "remote-build.json next to the key has no host, or the file does not exist; fill it in and resume "
+        "(exporting RELEASE_REMOTE_HOST in the driving shell overrides it for one run)",
     ),
     (
-        r"ERROR: remote build 缺 RELEASE_REMOTE_ROOT",
+        r"ERROR: remote build has no RELEASE_REMOTE_ROOT",
         "missing_remote_root",
         "env:missing_RELEASE_REMOTE_ROOT",
-        "钥匙旁边的 remote-build.json 缺 root（安全字符 Windows 绝对路径，"
-        "构建机上的绝对路径）；补好后 resume"
-        "（也可导出 RELEASE_REMOTE_ROOT 临时覆盖）",
+        "remote-build.json next to the key has no root (an absolute Windows path on the build machine, "
+        "in safe characters); fill it in and resume "
+        "(exporting RELEASE_REMOTE_ROOT overrides it for one run)",
     ),
     (
-        r"ERROR: RELEASE_REMOTE_ROOT 必须是安全字符",
+        r"ERROR: RELEASE_REMOTE_ROOT must be an absolute Windows path",
         "remote_root_charset",
         "env:invalid_RELEASE_REMOTE_ROOT",
-        "远端根只能含盘符与字母数字._-/\\，去掉空格与特殊字符后 resume",
+        "the remote root may hold only a drive letter and letters/digits/._-/\\; "
+        "drop the spaces and special characters, then resume",
     ),
     (
         r"build machine setup failed|build-cache doctor failed",
         "build_machine_setup_failed",
         "env:build_machine_setup:{product}",
-        "读构建机日志里 setup 的输出定位缺什么；常见是产品进程没停。处理完后 resume",
+        "read the setup output in the build machine log to see what is missing; usually a product process is "
+        "still running. Deal with it, then resume",
     ),
     (
-        r"active product process|仍有活跃开发版|先停止",
+        r"active product process",
         "active_product_process",
         "env:active_product_process:{product}",
-        "先停止构建机上该产品的开发版与安装版（前端 watcher、后端、Electron 子进程），"
-        "确认无残留后 resume",
+        "stop this product's dev build and installed build on the build machine (frontend watcher, "
+        "backend, Electron child processes), confirm nothing is left, then resume",
     ),
     # ── 瞬态：无代码可修，重跑这一阶段 ──
     (
@@ -90,7 +92,8 @@ RULES: tuple[tuple[str, str, str, str], ...] = (
         r"|Couldn't resolve host|TLS handshake timeout|Connection reset by peer)",
         "remote_network_failure",
         "transient:network.build_fetch",
-        "构建机网络瞬态失败，重跑该 stage；反复出现则检查构建机代理与镜像",
+        "transient network failure on the build machine; rerun this stage. If it keeps happening, check the "
+        "build machine proxy and mirrors",
     ),
     (
         r"ssh: connect to host .*port \d+|kex_exchange_identification"
@@ -98,33 +101,36 @@ RULES: tuple[tuple[str, str, str, str], ...] = (
         r"|scp: .*(?:[Cc]onnection|lost connection|No route to host)|Broken pipe",
         "remote_transport_failure",
         "transient:network.remote_transport",
-        "到构建机的 SSH/SCP 传输瞬态失败，重跑该 stage；反复出现则检查构建机可达性",
+        "transient SSH/SCP transport failure to the build machine; rerun this stage. If it keeps happening, "
+        "check that the build machine is reachable",
     ),
     (
-        r"ERROR: remote build 超时|ERROR: 无法清除远端上一轮构建产物"
-        r"|schtasks.*(?:失败|denied|ERROR)|Access is denied",
+        r"remote build produced no exitcode within|could not clear the previous round"
+        r"|the detached build task never started"
+        r"|schtasks.*(?:denied|ERROR)|Access is denied",
         "remote_harness_failure",
         "env:remote_harness",
-        "远端调度（计划任务、产物清理、超时）失败，读日志定位构建机环境问题后 resume",
+        "the remote harness failed (scheduled task, clearing the previous round, or the timeout). "
+        "Read the log to find the build machine problem, then resume",
     ),
     # ── 编译与打包：可派代码修 ──
     (
         r"No module named ['\"]([\w.]+)['\"]",
         "frozen_import_missing",
         "missing_module:{group}",
-        "把 {group} 补进钥匙 python_backend 的 include_packages 或 include_modules 后重建",
+        "add {group} to the key's python_backend include_packages or include_modules, then rebuild",
     ),
     (
         r"Required build tool is unavailable: (\S+)",
         "build_tool_missing",
         "env:missing_tool:{group}",
-        "在构建机装上 {group} 并加进 PATH 后 resume",
+        "install {group} on the build machine, put it on PATH, then resume",
     ),
     (
         r"Build machine is missing (\S+) at|is missing (\S+); an abi3",
         "native_ext_dll_missing",
         "env:missing_dll:{group}",
-        "构建机缺这个原生扩展依赖的 DLL。补齐后 resume——缺它出的包，客户跑到那个功能才崩",
+        "the build machine has no DLL for this native extension. Supply it and resume: a package built without it crashes only once the customer reaches that feature",
     ),
     (
         # 「跑了但读不到退出码」不是缺依赖。分不开这两条，一次构建机的机制故障会被
@@ -132,33 +138,36 @@ RULES: tuple[tuple[str, str, str, str], ...] = (
         r"import smoke ran but its exit code could not be read",
         "built_exe_smoke_harness_fault",
         "env:smoke_harness:{product}",
-        "自检跑完了，但构建机上读不到它的退出码。这是构建机制故障，不要动钥匙的 include",
+        "the smoke test ran, but its exit code could not be read on the build machine. This is a harness fault; leave the key's include list alone",
     ),
     (
         r"Business Python source shipped in the package",
         "business_source_shipped",
         "shipped_source:{product}",
-        "出的包里有业务源码。看日志里列出的文件，通常是编译产物之外的目录被原样拷进了包；"
-        "编译这一整套动作的目的就是不发源码，这一条不能放行",
+        "the package holds business Python source. Look at the files listed in the log; usually a "
+        "directory outside the compiled output was copied in verbatim. Shipping no source is the whole "
+        "point of compiling, so this one never passes",
     ),
     (
         r"No installer matched the key's installer_glob",
         "installer_missing",
         "installer_missing:{product}",
-        "出安装包那一步退了 0，但钥匙 installer_glob 指的地方什么也没有。"
-        "看那一步的输出，通常是打包工具或仓库钩子只走了一半",
+        "the installer step exited 0, but nothing is at the key's installer_glob. Read that step's "
+        "output; usually the packaging tool or the repo hook only got halfway",
     ),
     (
         r"Compiled backend import smoke failed",
         "built_exe_smoke_failed",
         "frozen_smoke:{product}",
-        "冻结产物缺动态依赖。按日志里的 ImportError 补钥匙 python_backend 的 include 后重建",
+        "the frozen build is missing a dynamic dependency. Follow the ImportError in the log, add it to the "
+        "key's python_backend include list, then rebuild",
     ),
     (
         r"Compiled backend import smoke timed out",
         "built_exe_smoke_timeout",
         "frozen_smoke_timeout:{product}",
-        "自检挂死，通常是某个 import 起了退不掉的后台线程。按日志定位那个模块",
+        "the smoke test hung, usually because an import started a background thread that never exits. Use the "
+        "log to find that module",
     ),
     (
         # 必须排在 hook_failed 前面：这一条崩的是「报错那一行」自己，日志里同时也有
@@ -166,29 +175,32 @@ RULES: tuple[tuple[str, str, str, str], ...] = (
         r"_readerthread\b[\s\S]{0,600}?UnicodeDecodeError|UnicodeEncodeError: '\w+' codec",
         "hook_output_encoding",
         "hook_output_encoding:{product}",
-        "构建机是中文 Windows，本机代码页是 GBK。钩子崩在搬运日志文本这一步上，检查本身"
-        "可能是通过的。两个方向都要修："
-        "读子进程输出给 subprocess.run 加 encoding=\"utf-8\", errors=\"replace\"（否则读取线程死掉、"
-        "stdout 变 None）；写自己的输出在进程启动时 sys.stdout/sys.stderr.reconfigure(errors=\"replace\")"
-        "（否则一个中文或替换字符就抛 UnicodeEncodeError）",
+        "the build machine runs Chinese Windows, so its ANSI code page is GBK. The hook crashed while "
+        "moving log text around; the check itself may well have passed. Fix both directions: when reading "
+        "child output pass encoding=\"utf-8\", errors=\"replace\" to subprocess.run (otherwise the reader "
+        "thread dies and stdout becomes None); when writing your own output call "
+        "sys.stdout/sys.stderr.reconfigure(errors=\"replace\") at startup (otherwise one non-ASCII or "
+        "replacement character raises UnicodeEncodeError)",
     ),
     (
         r"Release hook failed: (\S+)",
         "release_hook_failed",
         "hook_failed:{group}",
-        "读本日志里该钩子的输出定位根因；钩子脚本在产品仓库里，路径见钥匙的 build_hooks",
+        "read that hook's output in this log to find the root cause. The hook script lives in the product "
+        "repo; the key's build_hooks holds its path",
     ),
     (
         r"Nuitka[-:].*(?:error|FATAL)|FATAL:.*[Nn]uitka",
         "nuitka_build_failed",
         "nuitka_build:{product}",
-        "按日志里 Nuitka 的报错修编译输入（钥匙的 include / nofollow / 依赖）后重建",
+        "follow the Nuitka error in the log to fix the compile inputs (the key's include / nofollow / "
+        "dependencies), then rebuild",
     ),
     (
         r"electron-builder did not create|Build command failed:",
         "build_step_failed",
         "build_step:{product}",
-        "按日志里失败命令的输出修对应的打包步骤",
+        "follow the failing command's output in the log to fix that packaging step",
     ),
 )
 
@@ -289,7 +301,7 @@ def build_log_findings(
             ),
             locator=str(log_path),
             detail=tail,
-            remediation="按日志尾部定位失败命令；根因不在仓库可修范围时交驱动 agent 处置",
+            remediation="Find the failing command at the tail of the log. If the cause is outside what this repository can fix, hand it to the driving agent.",
         )
     ]
 
@@ -330,7 +342,7 @@ def _findings_from(doc: object) -> list[dict]:
         return doc
     if isinstance(doc, dict) and isinstance(doc.get("findings"), list):
         return doc["findings"]
-    raise BranchError(f"支路输出既不是 findings 列表也不是带 findings 的对象: {type(doc).__name__}")
+    raise BranchError(f"branch output is neither a findings list nor an object holding findings: {type(doc).__name__}")
 
 
 def run_branch(argv: list[str], *, cwd: Path) -> list[dict]:
@@ -338,13 +350,13 @@ def run_branch(argv: list[str], *, cwd: Path) -> list[dict]:
     stdout = proc.stdout.strip()
     if not stdout:
         raise BranchError(
-            f"支路没有 stdout (rc={proc.returncode}): {' '.join(argv)}\n{proc.stderr[-800:]}"
+            f"branch produced no stdout (rc={proc.returncode}): {' '.join(argv)}\n{proc.stderr[-800:]}"
         )
     try:
         doc = json.loads(stdout)
     except json.JSONDecodeError as exc:
         raise BranchError(
-            f"支路输出不是合法 JSON (rc={proc.returncode}): {' '.join(argv)}: {exc}\n"
+            f"branch output is not valid JSON (rc={proc.returncode}): {' '.join(argv)}: {exc}\n"
             f"{proc.stderr[-800:]}"
         ) from exc
     return _findings_from(doc)
@@ -370,9 +382,9 @@ def _expand(argv: list[str], core_exe: str | None) -> list[str] | None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="把出包失败现场翻译成 findings，并跑钥匙声明的检查支路"
+        description="translate a release failure into findings, and run the check branches the key declares"
     )
-    parser.add_argument("--adapter", type=Path, required=True, help="这个产品的钥匙")
+    parser.add_argument("--adapter", type=Path, required=True, help="this product's key")
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     args = parser.parse_args(argv)
 
@@ -393,7 +405,7 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             findings.extend(run_branch(expanded, cwd=repo_root))
     except BranchError as exc:
-        print(f"diagnose_core: 支路失败，无法产出 findings: {exc}", file=sys.stderr)
+        print(f"diagnose_core: a branch failed and produced no findings: {exc}", file=sys.stderr)
         return 2
 
     # 失败现场翻译：引擎把远端构建日志和本地 stage 输出经环境变量交过来。

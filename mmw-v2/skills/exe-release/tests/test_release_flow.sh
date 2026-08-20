@@ -368,8 +368,8 @@ remote_reset
 init_for_remote_build
 PATH="$REMOTE_FIX:$PATH" RELEASE_REMOTE_BUILD_POLL_SECONDS=0 \
   bash "$RF" stage run --stage build >/dev/null 2>&1 || true
-if grep -rq 'ERROR: remote build 缺 RELEASE_REMOTE_HOST' "$STATE_SUBDIR" 2>/dev/null; then
-  ok "两处都没有时报错文字不变(产品仓库的根因指纹靠它)"
+if grep -rq 'ERROR: remote build has no RELEASE_REMOTE_HOST' "$STATE_SUBDIR" 2>/dev/null; then
+  ok "两处都没有时报错文字不变(诊断的根因指纹靠它)"
 else
   no "缺构建机的报错文字变了"
 fi

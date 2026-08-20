@@ -29,13 +29,16 @@ function Invoke-Checked {
   finally { Pop-Location }
 }
 
-# 原生扩展缺的 DLL 在构建机上的真实路径，只有构建机自己知道。
+# Only the build machine knows where a native extension's missing DLL really is.
 #
-# compile_interpreter：必须取自**跑 Nuitka 的那个解释器**。abi3 扩展链的 python3.dll 是转发库，
-#   版本不匹配就转发到一个不存在的 pythonNNN.dll，客户机上是空 ImportError。
-# system32：MSVC C++ 运行库，版本无关，从构建机官方位置取，让包对客户机自包含（客户不用装 VC++）。
+# compile_interpreter: must come from *the interpreter that runs Nuitka*. The python3.dll an abi3
+#   extension links is a forwarder; a version mismatch forwards to a pythonNNN.dll that does not
+#   exist, and the customer machine gets a bare ImportError.
+# system32: the MSVC C++ runtime, version independent, taken from its official location so the
+#   package is self-contained on customer machines (no VC++ install needed).
 #
-# 缺就当场停。让它静默漏掉，代价是客户跑到那个功能才崩，而那时已经出货了。
+# Missing means stop here. Letting it slip through costs a crash once the customer reaches that
+# feature, and by then the product has shipped.
 function Resolve-BuildDll {
   param([string]$Source, [string]$Name, [string[]]$RunnerArgv, [string]$WorkingDirectory)
   if ($Source -eq 'system32') {
@@ -67,8 +70,10 @@ function Resolve-BuildDll {
   throw "The compile interpreter at $basePrefix is missing $Name; an abi3 native extension needs it, and without it the packaged app fails to import that extension"
 }
 
-# 编译产物原地跑一次 import。冻结包缺动态依赖只有真跑起来才看得见，在构建机上暴露它，
-# 比等客户装完打开才崩便宜几个数量级。超时也算失败：挂死的自检和失败的自检一样不能放行。
+# Run one import in the compiled exe, in place. A frozen build missing a dynamic dependency shows
+# up only when it really runs; surfacing that on the build machine is orders of magnitude cheaper
+# than a crash after the customer installs. A timeout counts as failure: a hung smoke test passes
+# no more than a failed one.
 function Invoke-BuiltExeSmoke {
   param([string]$Exe, [string[]]$Arguments, [int]$TimeoutSeconds)
   if (-not (Test-Path -LiteralPath $Exe)) {
@@ -76,16 +81,18 @@ function Invoke-BuiltExeSmoke {
   }
   $process = Start-Process -FilePath $Exe -ArgumentList $Arguments `
     -WorkingDirectory (Split-Path -Parent $Exe) -NoNewWindow -PassThru
-  # 必须在进程退出前取一次 Handle。Start-Process -PassThru 返回的对象不持有句柄，
-  # 进程一退出 .NET 就把它释放掉，ExitCode 从此读不到——而 PowerShell 里 $null -ne 0 是**真**，
-  # 于是「读不到退出码」会被判成「冒烟失败」。这个自检因此永远不可能通过，而日志上一行
-  # 明明写着它通过了。取一次句柄，.NET 才会替我们把退出码留下来。
+  # Touch Handle once before the process exits. The object Start-Process -PassThru returns holds no
+  # handle, so .NET releases it the moment the process ends and ExitCode can never be read again.
+  # In PowerShell $null -ne 0 is *true*, so "could not read the exit code" reads as "smoke failed":
+  # the check can then never pass, while the line above it in the log says it did. Touching the
+  # handle once makes .NET keep the exit code for us.
   $null = $process.Handle
   if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
     try { $process.Kill() } catch { }
     throw "Compiled backend import smoke timed out after $($TimeoutSeconds)s (an import likely started a thread that never exits)"
   }
-  # 带超时的那次返回后再无参等一次：确保退出码与输出流都已就绪。
+  # Wait once more with no argument after the timed wait returns: this settles both the exit code
+  # and the output streams.
   $process.WaitForExit()
   $exitCode = $process.ExitCode
   if ($null -eq $exitCode) {
@@ -96,11 +103,12 @@ function Invoke-BuiltExeSmoke {
   }
 }
 
-# 编译期间把指定目录挪开，之后原样挪回。
+# Move the named directories aside for the compile, then move them back unchanged.
 #
-# Electron 的 node_modules 被 hoist 到 Python 包扫描路径下时，Nuitka 会去扫它：编译时间暴涨，
-# 还可能把前端的东西打进包。挪回失败必须当场停——留下一个没有 node_modules 的工作树，
-# 会让紧随其后的 Electron 构建以一个完全看不出根因的方式失败。
+# When Electron's node_modules is hoisted under a path Python scans for packages, Nuitka walks it:
+# compile time explodes, and frontend files can land in the package. A failed move-back must stop
+# the build: leaving a working tree without node_modules makes the Electron build right after it
+# fail in a way whose root cause is invisible.
 function Move-AsideForCompile {
   param([string[]]$Paths, [string]$Holding)
   $moved = @()
@@ -128,23 +136,27 @@ function Restore-AfterCompile {
   }
 }
 
-# 出的包里不能有业务源码。
+# The package must carry no business source.
 #
-# 编译这一整套动作的目的就是不发源码；发出去了，这个产品的商业前提当场没了。而它不像
-# 崩溃那样会自己暴露——包能装、能用，源码就在里面躺着，没有人会发现。所以这一条不是
-# 「产品可以选择要不要做的检查」，是技能每次都做的事，钥匙里一个字都不用写：
-# 业务包名就是 python_backend.include_packages，本来就在钥匙里。
+# Shipping no source is the whole point of compiling; ship it and the product's commercial premise
+# is gone. Unlike a crash, this never announces itself: the package installs, it works, and the
+# source just sits inside where nobody looks. So this is not a check a product opts into, it is
+# something the skill does every time, and the key says nothing about it: the business package
+# names are python_backend.include_packages, which the key already holds.
 #
-# 只查业务包。嵌入式运行时里第三方包带 .py 是正常的，把它们一起报出来就等于没报。
+# Only business packages are checked. Third-party packages in an embedded runtime legitimately
+# carry .py files, and reporting those too is the same as reporting nothing.
 function Assert-NoBusinessSource {
   param([string[]]$Roots, [string[]]$SourceRoots)
-  # 「这个产品自己的代码」现读仓库源码树，按**路径后缀**比，不按名字比。
+  # "This product's own code" is read from the repo source tree now, and compared by *path suffix*,
+  # not by name.
   #
-  # 按名字比过一次，卡住了一次正式出包：钥匙的 include_packages 里混着第三方依赖，而源码根
-  # 底下又常有 shared / gateway / dashboard 这种到处都是的目录名。嵌入式运行时里合法的第三方
-  # .py 于是被判成源码泄漏，而这个问题根本不存在。
-  # 路径后缀能分开这两件事：src/<pkg>/app.py 泄漏出去还是 .../<pkg>/app.py；第三方包里的
-  # <dep>/__init__.py 在源码根底下没有对应物。
+  # Comparing by name once blocked a real release: the key's include_packages mixes in third-party
+  # dependencies, and a source root often holds directory names as common as shared / gateway /
+  # dashboard. Legitimate third-party .py files in the embedded runtime were then reported as a
+  # source leak that did not exist.
+  # A path suffix separates the two: src/<pkg>/app.py leaks as .../<pkg>/app.py, while a third-party
+  # <dep>/__init__.py has no counterpart under the source root.
   $repoFiles = New-Object 'System.Collections.Generic.HashSet[string]'
   $topLevel = New-Object 'System.Collections.Generic.HashSet[string]'
   foreach ($sourceRoot in $SourceRoots) {
@@ -154,7 +166,8 @@ function Assert-NoBusinessSource {
     foreach ($file in @(Get-ChildItem -LiteralPath $base -Recurse -File -Filter *.py -ErrorAction SilentlyContinue)) {
       $rel = $file.FullName.Substring($base.Length).TrimStart('\', '/').Replace('\', '/').ToLowerInvariant()
       [void]$repoFiles.Add($rel)
-      # 顶层单文件模块（src/foo.py）泄漏时只剩一段路径，后缀比不到，按文件名单独认。
+      # A top-level single-file module (src/foo.py) leaks as one path segment, which no suffix
+      # comparison catches, so match it by filename separately.
       if ($rel -notmatch '/') { [void]$topLevel.Add($rel) }
     }
   }
@@ -181,10 +194,11 @@ function Assert-NoBusinessSource {
   Write-Host "  no business source in the shipped tree ($($repoFiles.Count) repo modules checked)"
 }
 
-# 安装包真的产出了，且落在钥匙说的地方。
+# An installer really exists, and it is where the key says it will be.
 #
-# 出安装包那一步退 0，不等于有安装包——打包工具清理临时文件失败、钩子只走了一半，都能
-# 让这一步「成功」而目录里什么也没有。而下一个发现的人是客户。
+# The installer step exiting 0 does not mean an installer exists: the packaging tool failing to
+# clean up a temp file, or a hook that only got halfway, both leave the step "successful" with an
+# empty directory. The next one to find out is the customer.
 function Assert-InstallerProduced {
   param([string]$Glob)
   $items = @(Get-ChildItem -Path $Glob -File -ErrorAction SilentlyContinue)
@@ -196,16 +210,19 @@ function Assert-InstallerProduced {
   }
 }
 
-# 长编译开始前把这台构建机备好。下面每一条都是一次「一个包打一天」或者「编到深处才炸」换来的，
-# 而且每个产品都一样——所以它在技能里，不在任何一个产品仓库里。
-# 这台机器自己的事实（镜像地址、ccache 装在哪）走 remote-build.json 的 build_env；
-# 产品自己的事实（离线 wheel、它自己的缓存目录）走钥匙的 build_machine.setup 钩子。
+# Prepare the build machine before the long compile starts. Every line below was bought with one
+# "a package took all day" or one "it blew up deep into the compile", and every product needs the
+# same ones, which is why they live in the skill and in no product repo.
+# Facts about this machine (mirror URLs, where ccache is installed) come through build_env in
+# remote-build.json; facts about the product (offline wheels, its own cache dirs) come through the
+# key's build_machine.setup hook.
 $Script:DefenderExclusions = @()
 
 function Initialize-BuildMachine {
   param([string]$RepoRoot, [object]$BuildEnv, [string]$CacheRoot)
 
-  # 构建机给的事实先落地：镜像地址、ccache 的确切路径这类只有这台机器知道的东西。
+  # Apply the build machine's own facts first: mirror URLs, the exact ccache path, the things only
+  # this machine knows.
   if ($BuildEnv) {
     foreach ($item in $BuildEnv.PSObject.Properties) {
       [Environment]::SetEnvironmentVariable($item.Name, [string]$item.Value)
@@ -213,45 +230,51 @@ function Initialize-BuildMachine {
     }
   }
 
-  # 构建机是中文 Windows，控制台按 GBK(cp936) 解子进程的输出。而仓库钩子是 Python 写的，
-  # 它打出来的中文是 UTF-8——按 GBK 解就是一屏乱码，出包失败的原因谁也读不出来。两头都钉死
-  # 成 UTF-8：让 Python 确定用 UTF-8 写，让控制台确定按 UTF-8 读。
+  # A Chinese Windows build machine decodes child output as GBK (cp936), while repo hooks are
+  # Python and write UTF-8. Decoded as GBK that is a screenful of mojibake, and nobody can read why
+  # the release failed. Pin both ends to UTF-8: Python writes it, the console reads it.
   $env:PYTHONIOENCODING = 'utf-8'
   try {
     [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
     $OutputEncoding = [Text.UTF8Encoding]::new($false)
   } catch { Write-Host ("  utf-8 console skip: " + $_.Exception.Message) }
 
-  # uv 默认把包硬链接进环境。构建目录与缓存常常不在同一个卷上，硬链接失败会退化成一次次重下。
+  # uv hardlinks packages into the environment by default. The build directory and the cache are
+  # often on different volumes, and a failed hardlink degrades into downloading again and again.
   if (-not $env:UV_LINK_MODE) { $env:UV_LINK_MODE = 'copy' }
-  # 出包全程不写 .pyc：解释器跑自检、编译器做导入分析都会 byte-compile，落进要打包的 runtime
-  # 目录就会被源码泄漏扫描判成业务源码——一次谁也看不懂的假失败。
+  # Write no .pyc for the whole release: the interpreter running a smoke test and the compiler doing
+  # import analysis both byte-compile, and a .pyc landing in the runtime directory being packaged
+  # reads to the source-leak scan as business source: a false failure nobody can explain.
   $env:PYTHONDONTWRITEBYTECODE = '1'
 
-  # 工具链缓存全都默认落在 %LOCALAPPDATA%，也就是系统盘。构建目录在数据盘上跑得好好的，
-  # 系统盘却被 uv / Nuitka / ccache / pnpm / Electron 的缓存慢慢填满，直到某一轮磁盘闸把
-  # 出包整个拦下来——这是真发生过的。缓存必须跨轮活着（那是它存在的理由），所以放在构建
-  # 输入根**旁边**，不放在会被删掉的构建目录里面。
+  # Every toolchain cache defaults to %LOCALAPPDATA%, which is the system drive. The build directory
+  # runs happily on the data drive while the system drive slowly fills with uv / Nuitka / ccache /
+  # pnpm / Electron caches, until one round's disk gate stops the release outright. That has really
+  # happened. Caches must survive across rounds (that is what they are for), so they go *beside* the
+  # build input root, not inside the build directory that gets deleted.
   #
-  # 每一个都「没设才设」：build_env 在上面已经应用完，那里指了就以那里为准。
+  # Each one is set only if unset: build_env was applied above, and what it names wins.
   #
-  # 硬链接：uv 的缓存要和它装出来的 venv 同盘、pnpm 的 store 要和 node_modules 同盘，
-  # 否则退化成整份复制。缓存根跟源码在同一个盘上，这个条件自然满足。
+  # Hardlinks: uv's cache must share a volume with the venv it installs into, and pnpm's store must
+  # share one with node_modules, or both degrade into full copies. A cache root on the same drive as
+  # the source satisfies that by itself.
   if ($CacheRoot) {
     $cacheDirs = @{
       'UV_CACHE_DIR'          = 'uv'
       'UV_PYTHON_INSTALL_DIR' = 'uv-python'
       'NUITKA_CACHE_DIR'      = 'nuitka'
-      # Nuitka 只在 CCACHE_DIR 没设时才把 ccache 指进自己的缓存。显式设上，省得靠那条回落。
+      # Nuitka points ccache at its own cache only when CCACHE_DIR is unset. Set it explicitly
+      # rather than lean on that fallback.
       'CCACHE_DIR'            = 'ccache'
-      # electron 这个 npm 包 postinstall 下载的 zip。它读的是裸环境变量，写进 .npmrc 不管用。
+      # The zip the electron npm package downloads in postinstall. It reads the bare environment
+      # variable; putting it in .npmrc does nothing.
       'electron_config_cache' = 'electron'
-      # electron-builder 的工具链缓存（winCodeSign / nsis / …）。**必须是绝对路径**，
-      # 相对路径它会静默忽略、回落默认值，不报错。
+      # electron-builder's toolchain cache (winCodeSign / nsis / ...). It *must* be an absolute
+      # path: a relative one is silently ignored and falls back to the default, with no error.
       'ELECTRON_BUILDER_CACHE' = 'electron-builder'
-      # pnpm 给的是 store 的**父**目录，它自己再追加 v3/v10 这层版本子目录。
-      # 名字随版本变：≤10 认 npm_config_*，11 起改认 pnpm_config_*。两个都设，
-      # 各自的版本会忽略不认识的那个。
+      # pnpm takes the store's *parent* directory and appends its own v3/v10 version subdirectory.
+      # The variable name moves with the version: 10 and below read npm_config_*, 11 and up read
+      # pnpm_config_*. Set both; each version ignores the one it does not know.
       'npm_config_store_dir'  = 'pnpm-store'
       'pnpm_config_store_dir' = 'pnpm-store'
     }
@@ -266,7 +289,8 @@ function Initialize-BuildMachine {
     Write-Host ("  toolchain caches: " + $CacheRoot)
   }
 
-  # 构建期 TEMP 放进仓库目录：不占系统盘、随构建目录一起清掉，也一并进杀软排除。
+  # Put the build's TEMP inside the repo directory: it stays off the system drive, it is deleted
+  # with the build directory, and it goes into the antivirus exclusions with everything else.
   $buildTemp = Join-Path $RepoRoot 'runtime\.build-temp'
   try {
     New-Item -ItemType Directory -Force -Path $buildTemp | Out-Null
@@ -274,7 +298,8 @@ function Initialize-BuildMachine {
     $env:TMP = $buildTemp
   } catch { Write-Host ("  build temp skip: " + $_.Exception.Message) }
 
-  # Nuitka 不会自己去 PATH 上找 ccache，必须显式指给它。没有它，每一轮编译都从零开始。
+  # Nuitka does not look for ccache on PATH; it has to be pointed at it. Without it every compile
+  # starts from scratch.
   if (-not $env:NUITKA_CCACHE_BINARY) {
     $ccache = (Get-Command ccache -ErrorAction SilentlyContinue)
     if ($ccache) { $env:NUITKA_CCACHE_BINARY = $ccache.Source }
@@ -285,8 +310,10 @@ function Initialize-BuildMachine {
     Write-Host "  ccache: not found (every compile will start from scratch)"
   }
 
-  # 实时扫描会把编译器写出的每一个中间文件都过一遍，编译时间成倍长。加排除，收尾时原样撤掉。
-  # 排的是缓存**实际所在**的目录——上面刚把它们指走，再按 %LOCALAPPDATA% 排就排了个空目录。
+  # Real-time scanning inspects every intermediate file the compiler writes, multiplying compile
+  # time. Add exclusions, and remove exactly those again at teardown.
+  # Exclude where the caches *actually* are: they were just redirected above, so excluding
+  # %LOCALAPPDATA% would exclude an empty directory.
   $paths = @($RepoRoot, $buildTemp)
   if ($env:NUITKA_CCACHE_BINARY) { $paths += (Split-Path -Parent $env:NUITKA_CCACHE_BINARY) }
   if ($CacheRoot) { $paths += $CacheRoot }
@@ -298,7 +325,8 @@ function Initialize-BuildMachine {
   foreach ($path in $Script:DefenderExclusions) { Set-DefenderExclusion 'Add' $path }
 }
 
-# 加不上（没有管理员、没有 Defender、不是 Windows）只记一行，不挡构建：它是快慢问题，不是对错问题。
+# If it cannot be added (no administrator, no Defender, not Windows) log one line and let the build
+# run: this is a speed question, not a correctness one.
 function Set-DefenderExclusion {
   param([string]$Action, [string]$Path)
   try {
@@ -316,16 +344,18 @@ function Reset-BuildMachine {
 
 ${RENDERED_HOOK_FUNCTIONS}
 
-# 上下文路径绝对化：钩子在 $RepoRoot 下跑，若传的是相对路径，cwd 一切换就读不到。
-# 远程 harness 已按绝对路径传 -ReleaseContextPath，此处对绝对路径幂等。
+# Absolutize the context path: hooks run under $RepoRoot, and a relative path stops resolving the
+# moment cwd changes. The remote harness already passes -ReleaseContextPath as an absolute path, and
+# this is idempotent for one.
 $ReleaseContextPath = (Resolve-Path -LiteralPath $ReleaseContextPath).Path
 $Context = Get-Content -Raw -Encoding UTF8 $ReleaseContextPath | ConvertFrom-Json
 $RepoRoot = [string]$Context.repo_root
 ${ELECTRON_SETUP}
 
-# 通用的那一套上面已经做完了。钥匙的 build_machine.setup 只补这个产品自己的：离线 wheel、
-# 它自己的缓存目录、它自己的预检。stdout 每行 KEY=VALUE 应用到本进程 env，随后所有步骤继承。
-# teardown 在 finally 跑，best-effort，不改变构建判定。
+# The generic preparation is done above. The key's build_machine.setup only adds what belongs to
+# this product: offline wheels, its own cache directories, its own preflight. Each KEY=VALUE line on
+# its stdout is applied to this process's environment, which every later step inherits.
+# teardown runs in finally, best-effort, and never changes the build verdict.
 $BuildMachine = if ($Context.PSObject.Properties.Match('build_machine').Count -gt 0) { $Context.build_machine } else { $null }
 $BuildEnv = if ($Context.PSObject.Properties.Match('build_env').Count -gt 0) { $Context.build_env } else { $null }
 $CacheRoot = if ($Context.PSObject.Properties.Match('cache_root').Count -gt 0) { [string]$Context.cache_root } else { '' }

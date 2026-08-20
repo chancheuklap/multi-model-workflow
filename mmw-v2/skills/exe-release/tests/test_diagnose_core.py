@@ -33,15 +33,41 @@ def _with_tmp(tmp_path):
 # 规则表原本在产品仓库，匹配的却是引擎打印的文字。改一句引擎的报错，要去每个产品仓库改一遍
 # 正则，否则那条根因静默失效。规则搬到引擎这边之后，这条对照就能在同一个仓库里验。
 
+# 每条是 (引擎日志里的一整句, 期望的根因指纹, 引擎源码里逐字出现的片段)。
+# 第三项跟前两项分开，是因为报错句里常常带变量（超时秒数、主机名），源码里没有那一段字面量。
 ENGINE_ERRORS = [
-    ("ERROR: remote build 缺 RELEASE_REMOTE_HOST", "env:missing_RELEASE_REMOTE_HOST"),
-    ("ERROR: remote build 缺 RELEASE_REMOTE_ROOT", "env:missing_RELEASE_REMOTE_ROOT"),
     (
-        "ERROR: RELEASE_REMOTE_ROOT 必须是安全字符的 Windows 绝对路径",
-        "env:invalid_RELEASE_REMOTE_ROOT",
+        "ERROR: remote build has no RELEASE_REMOTE_HOST",
+        "env:missing_RELEASE_REMOTE_HOST",
+        "ERROR: remote build has no RELEASE_REMOTE_HOST",
     ),
-    ("ERROR: remote build 超时", "env:remote_harness"),
-    ("ERROR: 无法清除远端上一轮构建产物", "env:remote_harness"),
+    (
+        "ERROR: remote build has no RELEASE_REMOTE_ROOT",
+        "env:missing_RELEASE_REMOTE_ROOT",
+        "ERROR: remote build has no RELEASE_REMOTE_ROOT",
+    ),
+    (
+        "ERROR: RELEASE_REMOTE_ROOT must be an absolute Windows path in safe characters",
+        "env:invalid_RELEASE_REMOTE_ROOT",
+        "ERROR: RELEASE_REMOTE_ROOT must be an absolute Windows path in safe characters",
+    ),
+    (
+        "ERROR: remote build produced no exitcode within 7200s (task=mmw-release-duck)",
+        "env:remote_harness",
+        "remote build produced no exitcode within ",
+    ),
+    (
+        "ERROR: could not clear the previous round on the build machine; a stale exitcode "
+        "would read as this round succeeding: D:/duck-release-input",
+        "env:remote_harness",
+        "could not clear the previous round on the build machine",
+    ),
+    (
+        "ERROR: the detached build task never started on pc (no build-run.log and no "
+        "exitcode ever appeared, task=mmw-release-duck)",
+        "env:remote_harness",
+        "the detached build task never started on ",
+    ),
 ]
 
 TEMPLATE_ERRORS = [
@@ -71,7 +97,10 @@ TEMPLATE_ERRORS = [
 ]
 
 
-@pytest.mark.parametrize(("line", "fingerprint"), [*ENGINE_ERRORS, *TEMPLATE_ERRORS])
+@pytest.mark.parametrize(
+    ("line", "fingerprint"),
+    [(line, fp) for line, fp, _ in ENGINE_ERRORS] + list(TEMPLATE_ERRORS),
+)
 def test_every_engine_and_template_failure_is_translated(line, fingerprint):
     assert _fingerprints(f"...\n{line}\n...") == [fingerprint]
 
@@ -82,8 +111,10 @@ def test_the_engine_still_prints_the_lines_the_rules_match():
     只查引擎那几句固定前缀——它们是钥匙与产品仓库之外的失败现场唯一的入口文字。
     """
     engine = ENGINE.read_text(encoding="utf-8")
-    for line, _ in ENGINE_ERRORS:
-        assert line in engine, f"引擎不再打印这句，对应的翻译规则成了死规则：{line}"
+    for _, _, fragment in ENGINE_ERRORS:
+        assert fragment in engine, (
+            f"the engine no longer prints this, so its translation rule is dead: {fragment}"
+        )
 
 
 def test_the_template_still_throws_the_messages_the_rules_match():
@@ -98,7 +129,7 @@ def test_the_template_still_throws_the_messages_the_rules_match():
         "Business Python source shipped in the package",
         "No installer matched the key's installer_glob",
     ):
-        assert fragment in template, f"模板不再抛这句，对应的翻译规则成了死规则：{fragment}"
+        assert fragment in template, f"the template no longer throws this, so its translation rule is dead: {fragment}"
 
 
 # ── 其余行为 ────────────────────────────────────────────────────────────────────
@@ -117,7 +148,7 @@ def test_utf16_logs_are_read_not_mangled():
     于是整张规则表一条都匹配不上——失败现场明明在日志里，翻译却全线失效。"""
     log = Path(_tmp) / "utf16.log"
     log.write_bytes(
-        b"\xff\xfe" + "ERROR: remote build 缺 RELEASE_REMOTE_HOST".encode("utf-16-le")
+        b"\xff\xfe" + "ERROR: remote build has no RELEASE_REMOTE_HOST".encode("utf-16-le")
     )
     (finding,) = dc.build_log_findings("duck", log, "build")
     assert finding["root_cause_fingerprint"] == "env:missing_RELEASE_REMOTE_HOST"
@@ -136,7 +167,7 @@ def test_env_and_transient_findings_carry_a_short_excerpt_not_the_whole_tail():
     """回执要人一眼读懂。环境类失败塞 4000 字日志尾，等于没写。"""
     noise = "x" * 5000
     log = Path(_tmp) / "log"
-    log.write_text(noise + "\nERROR: remote build 缺 RELEASE_REMOTE_HOST\n" + noise, "utf-8")
+    log.write_text(noise + "\nERROR: remote build has no RELEASE_REMOTE_HOST\n" + noise, "utf-8")
     (finding,) = dc.build_log_findings("duck", log, "build")
     assert len(finding["detail"]) < 600
 
@@ -146,7 +177,7 @@ def test_product_rules_win_over_the_generic_table():
     log = Path(_tmp) / "log"
     log.write_text("Build command failed: pnpm (1)", encoding="utf-8")
     extra = (
-        (r"Build command failed: pnpm", "pnpm_failed", "pnpm:{product}", "改前端"),
+        (r"Build command failed: pnpm", "pnpm_failed", "pnpm:{product}", "fix the frontend"),
     )
     (finding,) = dc.build_log_findings("duck", log, "build", extra)
     assert finding["root_cause_fingerprint"] == "pnpm:duck"

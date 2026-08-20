@@ -32,7 +32,7 @@ def assert_repo_relative(value: str, *, field: str) -> PurePosixPath:
         or ":" in path.parts[0]
         or ".." in path.parts
     ):
-        raise ValueError(f"{field} 必须是无 .. 的仓库相对 POSIX 路径")
+        raise ValueError(f"{field} must be a repository-relative POSIX path with no ..")
     return path
 
 
@@ -62,7 +62,7 @@ _BUILD_SCRIPT = "build"
 def _assert_safe_argv(argv: list[str], *, field: str) -> None:
     for index, token in enumerate(argv):
         if any(char in token for char in ("\n", "\r", "\x00", "&", ";", "|")):
-            raise ValueError(f"{field}[{index}] 含不允许的 shell 控制字符")
+            raise ValueError(f"{field}[{index}] holds a shell control character that is not allowed")
 
 
 def _render_hook_functions() -> str:
@@ -459,8 +459,9 @@ def _electron_setup(manifest: ReleaseAdapterManifest) -> str:
             f"$DistDir = Join-Path $DesktopDir {_ps(electron.dist_dir)}",
             f"$UnpackedDir = Join-Path $DesktopDir {_ps(electron.unpacked_dir)}",
             "",
-            "# 安装包压缩档：嵌入式 runtime 几百 MB，压缩档对客户下载体验有实际影响，",
-            "# 所以默认最高档。现场验证时用环境变量压到 store 换速度。",
+            "# Installer compression: an embedded runtime is hundreds of MB, so the level really",
+            "# changes what the customer downloads. Default to maximum; drop it to store through the",
+            "# environment variable when verifying on the machine and speed matters more.",
             f"$BuilderCompression = {compression}",
         ]
     )
@@ -488,7 +489,7 @@ def _render_bootstrap(
     for token, value in replacements.items():
         rendered = rendered.replace(token, value)
     if re.search(r"\$\{[^}]+\}", rendered):
-        raise ValueError("release template 含未消费 token")
+        raise ValueError("the release template still holds an unconsumed token")
     return rendered
 
 
@@ -513,12 +514,12 @@ def _render_metadata(manifest: ReleaseAdapterManifest) -> dict[str, object]:
 
 def _validate_paths(repo_root: Path, output: Path, context_output: Path) -> None:
     if not repo_root.is_dir():
-        raise ValueError(f"--repo-root 不存在或不是目录: {repo_root}")
+        raise ValueError(f"--repo-root does not exist or is not a directory: {repo_root}")
     if output.parent.resolve() != context_output.parent.resolve():
-        raise ValueError("--output 与 --context-output 必须在同一目录")
+        raise ValueError("--output and --context-output must live in the same directory")
     for label, path in (("--output", output), ("--context-output", context_output)):
         if not path.name:
-            raise ValueError(f"{label} 必须指向文件")
+            raise ValueError(f"{label} must point at a file")
 
 
 def _validate_manifest_paths(manifest: ReleaseAdapterManifest) -> None:
@@ -611,16 +612,16 @@ def cmd_assemble(args: argparse.Namespace) -> int:
 def check(script: Path, context: Path) -> None:
     script_bytes = script.read_bytes()
     if not script_bytes.startswith(b"\xef\xbb\xbf"):
-        raise ValueError("script 必须是 UTF-8 BOM 编码")
+        raise ValueError("the script must be UTF-8 with a BOM")
     context_doc = json.loads(context.read_text(encoding="utf-8"))
     BuildTarget.model_validate(context_doc["build_target"])
     ReleaseBuildHooks.model_validate(context_doc["build_hooks"])
     if context_doc.get("schema_version") != "2" or not context_doc.get("product"):
-        raise ValueError("context 缺少有效 schema_version 或 product")
+        raise ValueError("the context has no valid schema_version or product")
     script_text = script_bytes.decode("utf-8-sig")
     expected_context_literal = powershell_literal(context.name)
     if expected_context_literal not in script_text:
-        raise ValueError("script 未引用对应的 context 文件")
+        raise ValueError("the script does not reference its own context file")
     _check_script(script_text, context_doc)
 
 def _check_script(script_text: str, context_doc: dict) -> None:
@@ -631,28 +632,28 @@ def _check_script(script_text: str, context_doc: dict) -> None:
     """
     metadata = context_doc.get("render_metadata")
     if not isinstance(metadata, dict):
-        raise ValueError("context 缺少 render_metadata")
+        raise ValueError("the context has no render_metadata")
     steps = metadata.get("steps")
     if not isinstance(steps, list) or not steps:
-        raise ValueError("context 没记下这次装配了哪几步")
+        raise ValueError("the context does not record which steps this assembly produced")
     total = len(steps)
     positions = []
     for step in steps:
         marker = f'Step "[{step["index"]}/{total}] {step["title"]}"'
         position = script_text.find(marker)
         if position < 0:
-            raise ValueError(f"script 里找不到这一步: {marker}")
+            raise ValueError(f"this step is not in the script: {marker}")
         positions.append(position)
     if positions != sorted(positions):
-        raise ValueError("script 里的步骤顺序与 context 记的不一致")
+        raise ValueError("the steps in the script are in a different order than the context records")
     hook_calls = metadata.get("hook_calls")
     if not isinstance(hook_calls, list):
-        raise ValueError("context 缺少 hook 生命周期记录")
+        raise ValueError("the context has no hook lifecycle record")
     hooks = ReleaseBuildHooks.model_validate(context_doc["build_hooks"])
     for call in hook_calls:
         expected_skipped = getattr(hooks, call["name"]) is None
         if call["skipped"] != expected_skipped:
-            raise ValueError(f"hook {call['name']} 的 skipped 与钥匙不一致")
+            raise ValueError(f"hook {call['name']}: the script and the key disagree on whether it is skipped")
     print(json.dumps({"steps": steps, "hook_calls": hook_calls}, ensure_ascii=False))
 
 

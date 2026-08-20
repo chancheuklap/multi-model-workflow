@@ -43,9 +43,9 @@ class ReleaseFinding(BaseModel):
         if self.status != "fail":
             return self
         if self.tier is None:
-            raise ValueError("status=fail 的 Finding 必须带 tier")
+            raise ValueError("a Finding with status=fail must carry a tier")
         if not self.root_cause_fingerprint:
-            raise ValueError("status=fail 的 Finding 必须带 root_cause_fingerprint")
+            raise ValueError("a Finding with status=fail must carry a root_cause_fingerprint")
         return self
 
 
@@ -82,15 +82,15 @@ class StageSpec(BaseModel):
     @model_validator(mode="after")
     def _run_must_not_be_echo(self) -> "StageSpec":
         if self.run[0] == "echo":
-            raise ValueError("build stage 不能是 echo")
+            raise ValueError("a build stage cannot be echo")
         return self
 
     @model_validator(mode="after")
     def _name_must_not_shadow_the_engine(self) -> "StageSpec":
         if self.name in ENGINE_STAGE_NAMES:
             raise ValueError(
-                f"stage 名 {self.name!r} 是引擎的保留字（{', '.join(ENGINE_STAGE_NAMES)}），"
-                "这三段由引擎追加。给这一段换个说得出它自己在做什么的名字"
+                f"stage name {self.name!r} is reserved by the engine ({', '.join(ENGINE_STAGE_NAMES)}); "
+                "the engine appends those three itself. Rename this stage after what it actually does"
             )
         return self
 
@@ -116,7 +116,7 @@ class NativeExtDll(BaseModel):
     @model_validator(mode="after")
     def _sources_and_destinations_must_be_complete(self) -> "NativeExtDll":
         if self.dest == "pyd_package_dir" and not self.pyd_package:
-            raise ValueError("dest=pyd_package_dir 必须给 pyd_package")
+            raise ValueError("dest=pyd_package_dir needs a pyd_package")
         return self
 
 
@@ -176,7 +176,7 @@ class ReleaseBuildHooks(BaseModel):
             if getattr(self, name) is not None and not getattr(self, name)
         )
         if empty:
-            raise ValueError(f"这些钩子的 argv 是空的: {', '.join(empty)}")
+            raise ValueError(f"these hooks have an empty argv: {', '.join(empty)}")
         return self
 
 
@@ -375,8 +375,9 @@ class ReleaseAdapterManifest(BaseModel):
         )
         if installs and not self.build_target.installer_glob:
             raise ValueError(
-                "钥匙有出安装包这一步，就必须声明 build_target.installer_glob——"
-                "没有它，「那一步退了 0」和「真的有一个安装包」分不开，而下一个发现的人是客户"
+                "a key that produces an installer must declare build_target.installer_glob: "
+                "without it, \"the step exited 0\" and \"an installer really exists\" are indistinguishable, "
+                "and the next one to find out is the customer"
             )
         writers = sorted(
             name
@@ -385,18 +386,18 @@ class ReleaseAdapterManifest(BaseModel):
         )
         if writers and self.protection_source is None:
             raise ValueError(
-                f"声明了 {', '.join(writers)} 就必须声明 protection_source——"
-                "有东西能自动改文件，却没有任何硬禁止路径，等于闸门整个是开的"
+                f"declaring {', '.join(writers)} requires protection_source: "
+                "something can rewrite files while no path is hard-denied, which leaves the gate wide open"
             )
         if self.electron.installer == "repo_hook":
             if self.build_hooks.installer is None:
                 raise ValueError(
-                    "electron.installer=repo_hook 必须同时声明 build_hooks.installer——"
-                    "否则装配出来的脚本走到出安装包那一步是空的"
+                    "electron.installer=repo_hook requires build_hooks.installer: "
+                    "otherwise the assembled script reaches the installer step with nothing to run"
                 )
         elif self.build_hooks.installer is not None:
             raise ValueError(
-                "build_hooks.installer 只在 electron.installer=repo_hook 时有意义"
+                "build_hooks.installer only means anything when electron.installer=repo_hook"
             )
         return self
 
@@ -417,7 +418,7 @@ def cmd_validate_manifest(path: str) -> int:
     try:
         manifest = ReleaseAdapterManifest.model_validate_json(_read(path))
     except Exception as exc:  # noqa: BLE001 - CLI must report validation failure.
-        return _fail(f"manifest 不合规: {exc}")
+        return _fail(f"manifest is not valid: {exc}")
     print(manifest.model_dump_json())
     return 0
 
@@ -426,7 +427,7 @@ def cmd_validate_event(path: str) -> int:
     try:
         ReleaseLoopEvent.model_validate_json(_read(path))
     except Exception as exc:  # noqa: BLE001 - CLI must report validation failure.
-        return _fail(f"event 不合规: {exc}")
+        return _fail(f"event is not valid: {exc}")
     return 0
 
 
@@ -437,7 +438,7 @@ def cmd_classify_findings(path: str) -> int:
             ReleaseFinding.model_validate(item) for item in doc.get("findings", [])
         ]
     except Exception as exc:  # noqa: BLE001 - CLI must report validation failure.
-        return _fail(f"findings 不合规: {exc}")
+        return _fail(f"findings are not valid: {exc}")
 
     failing = [item for item in findings if item.status == "fail"]
     highest = None
@@ -472,7 +473,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
     for name in ("validate-manifest", "classify-findings", "validate-event"):
         sp = sub.add_parser(name)
-        sp.add_argument("path", help="文件路径，或 - 读 stdin")
+        sp.add_argument("path", help="file path, or - to read stdin")
     args = parser.parse_args(argv)
     return {
         "validate-manifest": cmd_validate_manifest,

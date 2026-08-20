@@ -115,7 +115,7 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
     product = manifest.product
     backend = manifest.python_backend
     if backend is None:  # schema_version=2 的合同已经挡住，这里是防御
-        raise ValueError("verify_key 只认声明了 python_backend 的钥匙")
+        raise ValueError("verify_key only accepts a key that declares python_backend")
     findings: list[dict] = []
 
     def missing(dimension: str, name: str, rel: str, what: str) -> None:
@@ -125,8 +125,8 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                 dimension,
                 name,
                 rel,
-                f"{what}在仓库里不存在: {rel}",
-                f"改钥匙指向真实路径，或把 {what}加进仓库",
+                f"{what} does not exist in the repo: {rel}",
+                f"point the key at a real path, or add the {what} to the repo",
             )
         )
 
@@ -134,17 +134,17 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
     for target in backend.targets:
         rel = _expand(manifest, target.entrypoint)
         if rel is None or not (repo_root / rel).is_file():
-            missing("compile", "entrypoint_missing", target.entrypoint, "编译入口")
+            missing("compile", "entrypoint_missing", target.entrypoint, "compile entrypoint")
 
     if backend.icon:
         rel = _expand(manifest, backend.icon)
         if rel is None or not (repo_root / rel).is_file():
-            missing("compile", "icon_missing", backend.icon, "图标")
+            missing("compile", "icon_missing", backend.icon, "icon")
 
     for entry in backend.include_data_dirs:
         rel = _expand(manifest, entry.source)
         if rel is None or not (repo_root / rel).is_dir():
-            missing("compile", "data_dir_missing", entry.source, "要打进包的数据目录")
+            missing("compile", "data_dir_missing", entry.source, "bundled data directory")
 
     if manifest.build_target.desktop_dir:
         if not (repo_root / manifest.build_target.desktop_dir).is_dir():
@@ -152,12 +152,12 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                 "electron",
                 "desktop_dir_missing",
                 manifest.build_target.desktop_dir,
-                "Electron 应用目录",
+                "Electron app directory",
             )
 
     if manifest.protection_source:
         if not (repo_root / manifest.protection_source).is_file():
-            missing("guard", "protection_source_missing", manifest.protection_source, "保护规则源")
+            missing("guard", "protection_source_missing", manifest.protection_source, "protection rule source")
 
     # ── 声明之间自不自洽 ────────────────────────────────────────────────────
     if backend.smoke is not None:
@@ -169,8 +169,8 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                     "compile",
                     "smoke_exe_not_built",
                     backend.smoke.exe,
-                    f"自检要跑 {backend.smoke.exe}，但编译产物只有 {sorted(exes)}",
-                    "把 smoke.exe 改成 targets 里真会编出来的那一个",
+                    f"smoke test runs {backend.smoke.exe}, but the compiled targets are only {sorted(exes)}",
+                    "set smoke.exe to one of the exes that targets actually builds",
                 )
             )
 
@@ -185,8 +185,8 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                     "compile",
                     "duplicate_output_filename",
                     target.exe,
-                    f"target {seen[target.exe]} 与 {target.name} 输出同一个文件名，后者会盖掉前者",
-                    "给每个 target 一个自己的 exe 名",
+                    f"target {seen[target.exe]} and {target.name} write the same filename; the later one overwrites the earlier",
+                    "give each target its own exe name",
                 )
             )
         seen[target.exe] = target.name
@@ -201,7 +201,7 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                 "nofollow_blocks_smoke_module",
                 "python_backend.nofollow_imports",
                 str(exc),
-                "把被挡的模块从 nofollow_imports 里去掉，或从 smoke.modules 里去掉",
+                "drop the blocked module from nofollow_imports, or drop it from smoke.modules",
             )
         )
 
@@ -221,8 +221,8 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                         "key",
                         "argv_script_outside_repo",
                         label,
-                        f"{label} 引用越出仓库根: {token}",
-                        "改成仓库内的相对路径",
+                        f"{label} references a path outside the repo root: {token}",
+                        "use a path relative to the repo root",
                     )
                 )
             elif not candidate.is_file():
@@ -232,8 +232,8 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                         "key",
                         "argv_script_missing",
                         label,
-                        f"{label} 引用的仓库文件不存在: {token}",
-                        f"改钥匙指向真实路径，或把 {token} 加进仓库",
+                        f"{label} references a repo file that does not exist: {token}",
+                        f"point the key at a real path, or add {token} to the repo",
                     )
                 )
 
@@ -249,7 +249,7 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                 "electron",
                 "electron_builder_config_missing",
                 f"{manifest.build_target.desktop_dir}/electron-builder.yml",
-                "electron-builder 配置",
+                "electron-builder config",
             )
         else:
             actual = _electron_builder_output_dir(config)
@@ -260,8 +260,8 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                         "electron",
                         "electron_builder_output_drift",
                         f"{manifest.build_target.desktop_dir}/electron-builder.yml",
-                        f"directories.output 是 {actual!r}，钥匙的 electron.dist_dir 是 {declared!r}",
-                        "把两处改成同一个目录",
+                        f"directories.output is {actual!r}, the key says electron.dist_dir is {declared!r}",
+                        "make both point at the same directory",
                     )
                 )
 
@@ -284,8 +284,8 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                             "key",
                             "adapter_points_at_another_key",
                             label,
-                            f"{label} 的 --adapter 指着 {token}，不是这把钥匙 {name}",
-                            f"改成指向 {name}——否则这一轮用的是另一把钥匙，而日志每一步都是绿的",
+                            f"{label} passes --adapter {token}, which is not this key {name}",
+                            f"point it at {name}; otherwise this round runs another product key and every log line still reads green",
                         )
                     )
 

@@ -54,17 +54,18 @@ def _load_findings(path: str) -> list[dict]:
 
 
 _AGENT_RULES = [
-    "- 只改这把钥匙 `editable_paths` 允许的文件。碰受保护路径的改动引擎会拒。",
-    "- 改完**提交到当前分支**，再 `resume`。远端构建取的是 `git archive HEAD`，"
-    "改动留在工作树到不了构建机——不提交等于没改，下一轮用同一份代码再失败一次。",
-    "- 同一个根因修第二次还不过，停下交人，不要继续循环。",
+    "- Change only files this key's `editable_paths` allows. The engine rejects edits to protected paths.",
+    "- **Commit to the current branch**, then `resume`. The remote build takes `git archive HEAD`; "
+    "edits left in the working tree never reach the build machine, so not committing means not changing, "
+    "and the next round fails on the same code.",
+    "- If the same root cause survives a second fix, stop and hand it to a human. Do not keep looping.",
 ]
 
 _BACKEND_RULES = [
-    "- 只改路径闸允许的文件。引擎会拒绝任何越界改动。",
-    "- 改完把改动留在工作树——**不要 git add，不要 git commit**。",
-    "  这条路上引擎是唯一的 committer，它会统一过路径闸再提交。",
-    "- 同一个根因修第二次还不过，停下交人，不要继续循环。",
+    "- Change only files the path gate allows. The engine rejects any edit outside them.",
+    "- Leave the edits in the working tree: **do not git add, do not git commit**.",
+    "  On this path the engine is the only committer; it runs the path gate and commits them together.",
+    "- If the same root cause survives a second fix, stop and hand it to a human. Do not keep looping.",
 ]
 
 
@@ -78,9 +79,9 @@ def brief(findings: list[dict], *, for_backend: bool = False) -> str:
     lines = [
         "# Release fix brief",
         "",
-        "出包卡在一条可修的失败上。按下面的 findings 改。",
+        "The release is stuck on a fixable failure. Fix it from the findings below.",
         "",
-        "规则：",
+        "Rules:",
         "",
         *(_BACKEND_RULES if for_backend else _AGENT_RULES),
         "",
@@ -94,7 +95,7 @@ def brief(findings: list[dict], *, for_backend: bool = False) -> str:
             f"{finding.get('name')} ({fingerprint}): {finding.get('detail') or ''}"
         )
         if finding.get("remediation"):
-            lines.append(f"  建议：{finding['remediation']}")
+            lines.append(f"  Suggested fix: {finding['remediation']}")
     return "\n".join(lines) + "\n"
 
 
@@ -134,7 +135,7 @@ def _unwind_worker_commits(repo_root: Path, start_sha: str) -> int:
     """
     current = _head_sha(repo_root)
     if current is None:
-        return _die("dispatch 后无法解析 HEAD，无法回退 worker 提交")
+        return _die("cannot resolve HEAD after dispatch; cannot roll back the worker commits")
     if current == start_sha:
         return 0
     proc = subprocess.run(
@@ -144,7 +145,7 @@ def _unwind_worker_commits(repo_root: Path, start_sha: str) -> int:
     )
     sys.stderr.write(proc.stderr)
     if proc.returncode != 0:
-        return _die(f"无法把 worker 提交回退到 {start_sha}，保留现场交引擎")
+        return _die(f"cannot roll the worker commits back to {start_sha}; leaving the state for the engine")
     return 0
 
 
@@ -153,7 +154,7 @@ def _run_backend(
 ) -> int:
     start_sha = _head_sha(repo_root)
     if start_sha is None:
-        return _die("dispatch 前无法解析 HEAD")
+        return _die("cannot resolve HEAD before dispatch")
 
     # 后端的 argv 原样跑，简报路径走环境变量交给它：往 argv 尾部塞一个参数会改掉
     # 已经在用这个逃生口的命令行。
@@ -192,7 +193,7 @@ def main() -> int:
     )
 
     if not findings_path or not Path(findings_path).is_file():
-        return _die("RELEASE_FIX_FINDINGS 没给，或不是一个文件")
+        return _die("RELEASE_FIX_FINDINGS is unset, or is not a file")
 
     findings = _load_findings(findings_path)
     override = os.environ.get("RELEASE_FIX_BACKEND")
@@ -207,9 +208,9 @@ def main() -> int:
         Path(ref_file).write_text("", encoding="utf-8")
     print(f"FIX-BRIEF={path}")
     print(
-        "没有配自动修复后端，这条 P1 交给正在驱动出包的 agent：读上面那份简报，改代码，"
-        "提交到当前分支，然后 resume。"
-        "要接一个外部修复后端就设 RELEASE_FIX_BACKEND。",
+        "No automatic fix backend is configured, so this P1 goes to the agent driving the release: "
+        "read the brief above, change the code, commit to the current branch, then resume. "
+        "Set RELEASE_FIX_BACKEND to wire an external fix backend.",
         file=sys.stderr,
     )
     return 1

@@ -21,7 +21,7 @@ FINDINGS = {
             "tier": "P1",
             "root_cause_fingerprint": "missing_module:uharfbuzz",
             "detail": "No module named 'uharfbuzz'",
-            "remediation": "补 uharfbuzz 到钥匙的 include_packages 后重建",
+            "remediation": "add uharfbuzz to the key's include_packages, then rebuild",
         }
     ]
 }
@@ -85,10 +85,10 @@ def test_writes_a_brief_next_to_the_findings_and_stops(tmp_path):
     text = brief.read_text(encoding="utf-8")
     assert "missing_module:uharfbuzz" in text
     assert "No module named 'uharfbuzz'" in text
-    assert "补 uharfbuzz 到钥匙的 include_packages 后重建" in text
+    assert "add uharfbuzz to the key's include_packages, then rebuild" in text
     # 简报必须说清楚谁提交。这条路上驱动 agent 在引擎之外，改动不提交就进不了
     # git archive HEAD，到不了构建机。
-    assert "提交到当前分支" in text
+    assert "Commit to the current branch" in text
     assert "git archive HEAD" in text
     assert ref_file.read_text(encoding="utf-8") == ""
 
@@ -129,7 +129,7 @@ def test_backend_gets_the_brief_path_and_its_exit_code_is_kept(tmp_path):
     assert str(brief) in record.read_text("utf-8")
     assert ref_file.read_text(encoding="utf-8") == "stub-123"
     # 走后端那条路时引擎是唯一 committer，所以简报的措辞相反。
-    assert "不要 git commit" in brief.read_text(encoding="utf-8")
+    assert "do not git commit" in brief.read_text(encoding="utf-8")
 
 
 def test_backend_commits_are_unwound_back_into_the_worktree(tmp_path):
@@ -167,15 +167,15 @@ def test_backend_commits_are_unwound_back_into_the_worktree(tmp_path):
         },
     )
 
-    assert result.returncode == 7, "后端的退出码不能被吞掉"
+    assert result.returncode == 7, "the backend exit code must not be swallowed"
     after = subprocess.run(
         ["git", "-C", str(repo), "rev-parse", "HEAD"],
         capture_output=True,
         text=True,
         check=True,
     ).stdout.strip()
-    assert after == before, "worker 的提交没有被回退"
-    assert (repo / "fix.txt").read_text(encoding="utf-8") == "fixed\n", "改动被丢了"
+    assert after == before, "the worker commits were not rolled back"
+    assert (repo / "fix.txt").read_text(encoding="utf-8") == "fixed\n", "the changes were lost"
 
 
 @pytest.mark.parametrize("tier", ["P0", "P1", "P2"])
