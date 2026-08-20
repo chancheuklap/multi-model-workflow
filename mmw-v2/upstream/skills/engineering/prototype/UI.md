@@ -1,6 +1,6 @@
 # UI Prototype
 
-Generate **several radically different UI variations** on a single route, switchable from a floating bottom bar. The user flips between variants in the browser, picks one (or steals bits from each), then throws the rest away.
+Generate **several radically different UI variations** on a single route, switchable from a floating bottom bar. The user flips between variants in the browser and picks one (or steals bits from each); the rest stay as reference.
 
 If the question is about logic/state rather than what something looks like — wrong branch. Use [LOGIC.md](LOGIC.md).
 
@@ -13,7 +13,7 @@ If the question is about logic/state rather than what something looks like — w
 
 ## Two sub-shapes — strongly prefer sub-shape A
 
-A UI prototype is much easier to judge when it's **butting up against the rest of the app** — real header, real sidebar, real data, real density. A throwaway route on its own is a vacuum: every variant looks fine in isolation. Default to sub-shape A whenever there's a plausible existing page to host the variants. Only reach for sub-shape B if the prototype genuinely has no nearby home.
+A UI prototype is much easier to judge when it's **butting up against the rest of the app** — real header, real sidebar, real data, real density. A prototype route on its own is a vacuum: every variant looks fine in isolation. Default to sub-shape A whenever there's a plausible existing page to host the variants. Only reach for sub-shape B if the prototype genuinely has no nearby home.
 
 ### Sub-shape A — adjustment to an existing page (preferred)
 
@@ -25,7 +25,7 @@ If the prototype is for something that doesn't yet have a page but *would natura
 
 Only use this when the thing being prototyped genuinely has no existing page to live inside — e.g. an entirely new top-level surface, or a flow that can't be embedded anywhere sensible.
 
-Create a **throwaway route** following whatever routing convention the project already uses — don't invent a new top-level structure. Name it so it's obviously a prototype (e.g. include the word `prototype` in the path or filename). Same `?variant=` pattern.
+Create a **prototype route** following whatever routing convention the project already uses — don't invent a new top-level structure. Name it so it's obviously a prototype (e.g. include the word `prototype` in the path or filename). Same `?variant=` pattern.
 
 Before committing to sub-shape B, sanity-check: is there really no existing page this could be embedded in? An empty route hides design problems that a populated one would expose.
 
@@ -72,7 +72,9 @@ return (
 
 For sub-shape A (existing page): keep all the existing data fetching above the switcher; only the rendered subtree changes per variant.
 
-For sub-shape B (new page): the throwaway route under `/prototype/<name>` mounts the same switcher.
+For sub-shape B (new page): the prototype route under `/prototype/<name>` mounts the same switcher.
+
+In both sub-shapes the variant components live in the leaf directory `prototypes/<task>/<issue>/UI/`; the route holds only the mount point above, importing the variants from there (a path alias or a relative import; if the project can't import across that boundary, symlink the leaf directory beside the route). Iterating means editing or adding variants in the leaf directory — the mount point doesn't change.
 
 ### 4. Build the floating switcher
 
@@ -97,12 +99,12 @@ Surface the URL (and the `?variant=` keys). The user will flip through whenever 
 
 ### 6. Capture the answer and clean up
 
-Once a variant has won, capture the answer — which variant and why — then capture the prototype the way the [SKILL](SKILL.md) describes. Fold the winner into the real code and move the rest onto the throwaway branch, not into main:
+Once a variant has won, record the answer — which variant and why — in the leaf `README.md`, the way the [SKILL](SKILL.md) describes. Fold the winner into the real code, rewritten to production standard:
 
-- **Sub-shape A** — fold the winner into the existing page; drop the losing variants and the switcher from main.
-- **Sub-shape B** — promote the winning variant to a real route; drop the throwaway route and the switcher from main.
+- **Sub-shape A** — the existing page renders the winner for real; the mount point stays, gated, for the next round.
+- **Sub-shape B** — promote the winning variant to a real route; the prototype route stays, gated, for the next round.
 
-The full set of variants is the primary source, so it lands on the throwaway branch, not the bin — variant components and the switcher left in the main branch rot fast and confuse the next reader.
+The full set of variants stays in the leaf directory as reference — the next round of this page's design starts from them, not from scratch.
 
 ## Anti-patterns
 
