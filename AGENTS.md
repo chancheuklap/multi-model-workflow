@@ -19,8 +19,8 @@
 
 ## mmw-v2 怎么工作
 
-**MMW 只管技能。** 检索服务器、语言服务器、检查器和编辑后诊断都已经从这个仓库和这台机器上
-整个移除，不要再加回来。
+**MMW 只管技能和 subagent。** 检索服务器、语言服务器、检查器和编辑后诊断都已经从这个仓库
+和这台机器上整个移除，不要再加回来。
 
 技能不复制、不物化、不打包。上游那一份就是工作副本，宿主软链直接指进去。
 
@@ -29,7 +29,9 @@
 | `mmw-v2/upstream/` | 上游 `mattpocock/skills` 的 Git subtree（squash）。**可编辑**，不是只读供应商目录 |
 | `mmw-v2/skills/` | 我们自己写的技能。一个目录一个技能，自带脚本与测试 |
 | `mmw-v2/skills.txt` | 装哪些技能。加减技能只改这一处。`self/<名>` 指自研的，其余指上游的 |
-| `mmw-v2/install.sh` | 唯一安装入口：把技能软链进五个宿主。`--check` 只看不动 |
+| `mmw-v2/agents/` | 自研 subagent。一个 agent 一个目录：`body.md` 是提示词正文的单一来源，`agent.json` 放 name、description 和五宿主各自的模型与工具 |
+| `mmw-v2/agents/assemble.py` | 把 body.md + agent.json 装配成五宿主格式的成品，写进 `agents/<名>/out/`。`--check` 只验不写 |
+| `mmw-v2/install.sh` | 唯一安装入口：把技能和 subagent 成品软链进五个宿主。`--check` 只看不动 |
 
 ```bash
 bash mmw-v2/install.sh            # 装
@@ -44,6 +46,17 @@ bash mmw-v2/install.sh --check    # 齐了回 0，缺东西回 1
 `description` 是宿主启动时扫进系统提示的，改它要重开会话。
 
 技能自带的脚本用相对路径引用，跟着软链一起进五个宿主，**不装命令、不进 PATH**。
+
+subagent 做不到技能那样五家共用一份文件：模型字段各家写法不一样（Claude Code 是 `model` +
+`effort` 两个字段，Cursor 是 `model: <id>[effort=…]`，Codex 是 TOML 的 `model_reasoning_effort`，
+Grok 把推理力度和只读能力放在 `~/.grok/roles/<名>.toml`，Pi 是 `model: <provider>/<id>` +
+`thinking`）。所以正文和 description 只写一份，壳由 `agents/assemble.py` 按宿主装配到
+`agents/<名>/out/`，成品进 git，宿主软链的是成品。**改正文或 agent.json 后要重跑装配**
+（或直接跑 install.sh），宿主下一次调用才是新的；改 description 与技能一样要重开会话。
+
+目前唯一的 subagent 是 `advisor`：主线程在承诺边界、同一问题两次失败、把有争议的解读当事实
+之前，打包上下文咨询更强模型拿 verdict。只读，不实现。它的 description 写给主线程 agent
+（何时调、prompt 里装什么），`body.md` 写给 advisor 自己（怎么答）——改哪份先想清楚读者是谁。
 
 上游更新走一条命令，你的改动和上游改动由 git 三方合并，冲突照常解：
 
