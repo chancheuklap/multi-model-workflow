@@ -98,32 +98,24 @@ state: [default]
 
 **Class A stores no fingerprint.** It edits. There is no verdict to remember.
 
-## Two-level match
+## Match a stored verdict, or ask
 
 Each run compares every class B finding fingerprint this run to stored verdicts in this product's usability criteria.
 
-| Level | Condition | Result |
-| --- | --- | --- |
-| Level 1 · exact | Every fingerprint field matches | Same thing. Follow the stored verdict. **Do not report** |
-| Level 2 · near | Same check, **exactly one** location field differs | Maybe the same thing. Report, attach the previous verdict, ask if it is the same thing |
-| Neither | Different check, or two or more location fields differ | New problem. Report as usual |
+| Condition | Result |
+| --- | --- |
+| **Exact** · every fingerprint field matches | Same thing. Follow the stored verdict. **Do not report** |
+| **No exact match** | Report as usual. If a stored verdict on the same check plausibly describes this same problem, attach it and ask the user whether it is the same thing |
 
-"Exactly one field differs" is deterministic. Same input, same result. No model. **`check` is not a location field** — it must match, or the item falls through to "neither". Four examples:
+Exact match is mechanical: same input, same result, no model. **`check` is not a location field** — it must match, or there is no exact match. B3's `screen` and `state` are arrays; compare **the whole array as one field**, identical contents means that field matches.
 
-| What changed | Which field | Level |
-| --- | --- | --- |
-| Button copy "Sync" → "Sync now" | element-name | Level 2 |
-| State `default` split into `default` and `syncing` | state | Level 2 |
-| A step inserted in the walkthrough; old step 3 is now 4 | step | Level 2 |
-| Button moved screen and renamed | screen + element-name | New problem |
+**Whether a near miss is the same problem is a judgment, and it is the user's.** A renamed button, a state split in two, a step inserted ahead of the old step 3 — each of these may or may not be the thing that was judged before, and no rule about how many fields differ can tell you which. Do not encode one. Attach what you found, say what changed, and let the user answer.
 
-The last row is intended: a new screen and a new name is not the old thing. Ask again.
+Attach at most the stored verdicts that could plausibly be this problem. Attaching every verdict on the check is noise, and noise is how a run stops being read.
 
-B3 `screen` and `state` are arrays. Compare **the whole array as one field**: identical contents means that field matches.
+**After the user answers.** "Same": update that verdict's fingerprint to this run's values, then follow the verdict. "Not the same": treat as new; the user judges it; criteria gain an item.
 
-**After a level 2 hit.** User says "yes": update that verdict's fingerprint to this run's values, then follow the verdict. User says "no": treat as new; the user judges again; criteria gain an item.
-
-**Do not fall back to comparing content when location misses.** A relayout can reshuffle the whole screen. That fallback suppresses too often. Level 2 asks. It does not auto-judge.
+**Do not fall back to comparing finding text when the fingerprint misses.** A relayout reshuffles the whole screen, and text similarity would suppress far too often. Ask instead.
 
 ## Stale verdicts: list them, do not delete
 
@@ -143,7 +135,7 @@ Order is "what the user must do":
 | --- | --- | --- |
 | 1 · Class A edits | One line per item: violation id, file and location, before, after, verification. End with this edit commit SHA | Nothing required. Look. To undo the whole run, revert that SHA |
 | 2 · Class B new findings | Neither match level hit. Class A items whose verification is `reverted` also degrade into this section | Per-item verdict |
-| 3 · Class B near matches | Level 2 hits, each with the previous verdict | Per item: "same / not the same" |
+| 3 · Class B possible repeats | Findings with a plausibly-related stored verdict attached | Per item: "same / not the same" |
 | 4 · Three report items | Coverage report, criterion self-check, declaration-vs-implementation mismatch | Nothing required. They may say one line |
 | 5 · Stale verdicts | Fingerprint in this run's scope, no matching check result | Nothing required. To delete, they say so |
 

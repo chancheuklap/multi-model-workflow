@@ -16,7 +16,7 @@ Kind 5 is not target-repo config. Every repo with MMW has it.
 
 **The design system is a read-only boundary.** UI QA reads it, does not write it, and the target repo owns it. The only exception is creating it once when it is missing. See below.
 
-The design system uses **DESIGN.md format** — one Markdown file, YAML frontmatter for machine-readable tokens (`colors`, `typography`, `rounded`, `spacing`, `components`), body for named rules and Do's/Don'ts. A3 judges the former. B1 judges the latter. Lint command: `mmw-ui-qa design-lint <file>`. `mmw-ui-qa check` prints this linter's actual package name and version.
+The design system uses **DESIGN.md format** — one Markdown file, YAML frontmatter for machine-readable tokens (`colors`, `typography`, `rounded`, `spacing`, `components`), body for named rules and Do's/Don'ts. A3 judges the former. B1 judges the latter. Main-file step 2 says where the linter lives and step 5 runs it; `scripts/deps.json` holds its package name and pinned version.
 
 ## A3 judges the declaration layer
 
@@ -43,7 +43,7 @@ The engine covers contrast, ARIA misuse, missing label, missing alt, `tabindex` 
 
 All three must have integer `version`. Format changes use it to recognize an old file and explain, not to silently misread. The screen map is not in this set — it is in-process and does not cross a boundary.
 
-**The version this skill knows is `1`.** All three use that value. Greater than 1: stop, and say a newer skill wrote the file. Less than 1: read as 1, and leave one report line. Corrupt or not JSON: stop, print the parser's raw error, do not guess.
+**The version this skill knows is `1`.** All three use that value. Anything else: stop, and say which version wrote the file. Corrupt or not JSON: stop, print the parser's raw error, do not guess.
 
 **Unknown content follows the consumer-behavior table in the design-system format spec.** Do not invent another: keep unknown sections, no error; accept unknown keys when the value is valid; accept unknown attributes and leave one report line; duplicate same-named sections error and reject the file. These four are that spec's consumer behavior, not ours.
 
@@ -74,10 +74,10 @@ Inner fields:
 | `environment` | `endpoint` | string | yes | Local server URL, or real server URL |
 | `environment` | `account` | object | required when `kind` is `test-account` | `id` (string, test-account id) and `secret` (string, secret ref, format below) |
 | `prepare` | `steps` | object array | no | Each item has `name` and `command` (string array), in order |
-| `windows` | `debugPort` | integer | yes | Remote debug port. Questionnaire question 7 defaults to `9222` |
+| `windows` | `debugPort` | integer | yes | Remote debug port. Setup does not ask for it; [WINDOWS.md](WINDOWS.md) asks on the first Windows run, defaulting to `9222` |
 | `windows` | `host` | string | no | Default `127.0.0.1` |
 
-Missing `environment`, or `kind` not one of those two: **stop and explain**. Do not guess. No exemption: questionnaire question 5 always asks, two options only. A prototype mockup is still a local server — write `local-server`.
+Missing `environment`, or `kind` not one of those two: **stop and explain**. Do not guess. No exemption: the intake questionnaire always asks where the product runs, two options only. A prototype mockup is still a local server — write `local-server`.
 
 **Secrets are refs, never plaintext.** A ref is a fixed prefix plus a name: `env:<env-var>` or `keychain:<entry>`. Resolve by prefix at run time. **Any other shape is plaintext: refuse it and stop.** Missing required fields: stop and explain. Do not fill defaults.
 
@@ -136,6 +136,6 @@ One criterion per level-2 heading. The heading is the id. Six fields per item:
 | Source | yes | Which discussion, spec, or UI QA run |
 | Status | yes | `confirmed`, `rejected`, or `waived` — the user verdict |
 | Fingerprint | required on items created from a verdict | One of the four shapes in [VERDICTS.md](VERDICTS.md). This skill generates it |
-| Last hit | required on items created from a verdict | Date this item last matched at level 1 or level 2 |
+| Last hit | required on items created from a verdict | Date this item last matched a finding |
 
-**B5 judges `confirmed` items only.** The other two statuses stay in the file for two-level matching. They do not judge.
+**B5 judges `confirmed` items only.** The other two statuses stay in the file so a repeat of the same finding can be matched against them. They do not judge.

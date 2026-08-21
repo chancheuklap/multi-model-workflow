@@ -1,5 +1,5 @@
 ---
-name: mmw-ui-qa
+name: ui-qa
 description: UI QA: check the interface against agreed criteria, and produce violations and findings. Use to check the piece just finished during prototype iteration, or to run a full flow after the app has landed. Do not use when the user operates the interface and gives opinions — that is a walkthrough.
 argument-hint: "[this-task|full] [product name; omit to auto-detect]"
 ---
@@ -16,17 +16,17 @@ UI QA does not take these:
 
 | The user wants | Hand to |
 | --- | --- |
-| To operate the interface and give opinions | `/mmw-prototype`. That is a walkthrough. Only the user can do it. UI QA does not judge "this version is good" |
-| To decide whether an interface design should be this way | `/mmw-grilling`. UI QA checks against agreed criteria. It does not make design decisions |
+| To operate the interface and give opinions | `prototype`. That is a walkthrough. Only the user can do it. UI QA does not judge "this version is good" |
+| To decide whether an interface design should be this way | `grilling`. UI QA checks against agreed criteria. It does not make design decisions |
 | To change the design system itself | The target repo. The design system is read-only to UI QA. An accepted rule break flows back as a usability criterion |
-| To check that code is correct, or that the diff matches the artifact | `/mmw-review`. UI QA does not read the diff |
+| To check that code is correct, or that the diff matches the artifact | `code-review`. UI QA does not read the diff |
 
 ## Context
 
 | Material | How | Read for |
 | --- | --- | --- |
-| Domain docs | Read this run's range as `/mmw-domain-modeling` specifies | Report and finding bodies use the project's canonical terms |
-| ADR | Run `mmw artifact index adr`, then read the ones about the interface | Interface decisions must not conflict with them |
+| Domain docs | Read this run's range as `domain-modeling` specifies | Report and finding bodies use the project's canonical terms |
+| ADR | If the repo has `docs/adr/`, read the ones about the interface | Interface decisions must not conflict with them |
 
 ## Checks: two classes, nine kinds
 
@@ -63,11 +63,24 @@ Continue. Criteria and wiring paths have no name segment. The screen map and the
 
 ## 2. Dependencies
 
-Run `mmw-ui-qa check`. It prints package name, required version, and actual version for four dependencies. Exit 0 when all four are present.
+This skill carries its own scripts, next to this file. Resolve their absolute paths once; every command below is written relative to the skill directory.
 
-`mmw-ui-qa` is on `PATH` from the MMW install entry. If the command is missing, **stop** and ask the user to run the MMW install entry.
+```bash
+bash scripts/install-deps.sh --check
+```
 
-On non-zero `check`, switch on which capability is missing:
+It prints package name, required version, and actual version for the npm dependencies, and whether the external skill is installed. Exit 0 when all four capabilities are present.
+
+**Where each capability lives**, once installed. `scripts/deps.json` is the single source for names and versions — read it, do not hardcode what it declares:
+
+| Capability | Path |
+| --- | --- |
+| A `command` entry | `scripts/deps/node_modules/.bin/<its `bin` field>` |
+| A `source` entry | `scripts/deps/node_modules/<its `package` field>/<its `source` field>` |
+| The module root, to `require` from a Node script | `scripts/deps` |
+| An `external-skill` entry | The host already loaded it. Invoke it by its `skill` field, as a skill |
+
+On non-zero `--check`, install what is missing: `bash scripts/install-deps.sh` for the npm ones, and for the external skill the command its `installedBy` field prints. Then switch on which capability is still missing:
 
 | Missing capability | Name in `check` | Action |
 | --- | --- | --- |
@@ -89,16 +102,24 @@ Criteria and wiring are per product, so the product is first. **Four levels. Sto
 
 The name from level 4 is the id used when creating files in the next step. Do not ask it again in the questionnaire.
 
-**All four paths come from `mmw artifact path`:**
+**The four paths, relative to the target repo root:**
 
-| Want | Command |
+| Want | Path |
 | --- | --- |
-| This product's wiring file | `mmw artifact path ui-qa-wiring --sub <product-id>.json` |
-| Threshold table (one per repo) | `mmw artifact path ui-criteria --sub thresholds.json` |
-| This product's usability criteria | `mmw artifact path ui-criteria --sub products/<product-id>.md` |
-| Design-system file | Wiring field `designSystem`. Repo-relative path. It does not go through `mmw artifact path` — the target repo owns that file |
+| This product's wiring file | `docs/ui-qa-wiring/<product-id>.json` |
+| Threshold table (one per repo) | `docs/ui-criteria/thresholds.json` |
+| This product's usability criteria | `docs/ui-criteria/products/<product-id>.md` |
+| Design-system file | Wiring field `designSystem`. Repo-relative path. **The target repo owns that file**, so it does not live under either root above |
 
-Levels 2 and 3 list existing products: drop the last path segment from the wiring command to get the wiring category root, list files there, read each `product` field.
+Levels 2 and 3 list existing products: list `docs/ui-qa-wiring/`, read each file's `product` field.
+
+**Lint the wiring file before using anything in it:**
+
+```bash
+python3 scripts/wiring_lint.py docs/ui-qa-wiring/<product-id>.json
+```
+
+Non-zero exit: **stop**, and give the user its output as it stands. It also refuses a file whose name does not match its own `product` field — that check is what keeps a malformed product id from writing outside these roots.
 
 **One product per run.** A second product is a second invocation.
 
@@ -113,10 +134,10 @@ If any is missing, enter **setup mode**: **read [SETUP.md](SETUP.md) in full now
 Once the files exist, lint the design-system file:
 
 ```bash
-mmw-ui-qa design-lint <design-system file from the previous step>
+scripts/deps/node_modules/.bin/design.md lint <design-system file from the previous step>
 ```
 
-The file argument is required. The linter checks format, cross-token WCAG contrast, and reference integrity. It does not start the app. It prints JSON. Each item has `severity` `error` or `warning`.
+The file argument is required. Without it the linter reads whatever `DESIGN.md` happens to sit in the working directory, and that is not necessarily the file wiring `designSystem` points at. The linter checks format, cross-token WCAG contrast, and reference integrity. It does not start the app. It prints JSON. Each item has `severity` `error` or `warning`.
 
 Do not skip this step. A3 and B1 treat the design system as criteria.
 
@@ -166,14 +187,9 @@ Unreached states go in the **coverage report**, one line per state name and why.
 
 **Changed files become screens.** File F maps to every screen node whose `source-files` contains F. That is a lookup in the map from the previous step, not another code scan.
 
-**Degrade changes scope only. It does not drop checks.**
+**If the scope maps to zero screens, say so and stop.** "This commit touched no interface files. Tag `this-task` or `full` and call me again." Do not widen the scope yourself — that is the inference this skill already forbids, and a person who did not touch the interface did not come here by accident.
 
-| Case | Degrade to | Report first line |
-| --- | --- | --- |
-| At least one screen | No degrade | The level name |
-| Zero screens (backend, config, or docs) | this-task | this-change → this-task (this-change did not touch interface files) |
-| this-task also maps to zero screens | Smallest set: the `mainWindow` screen plus its direct children in the map | this-task → main window and next level (this-task did not touch interface files) |
-| `HEAD~1` does not exist (first commit on the branch) | this-task | Write "this-task". No extra note |
+`HEAD~1` missing (first commit on the branch) is the same answer: say it, ask for a tag.
 
 **All nine checks run at every level.** The level only chooses which screens they act on.
 
@@ -183,7 +199,7 @@ Unreached states go in the **coverage report**, one line per state name and why.
 
 Per-check rules are in [CRITERIA.md](CRITERIA.md). Method and dispatch for B2, B3, B4 are in [SEMANTIC.md](SEMANTIC.md). Read that file in full before those three.
 
-**Primary input is structured data, not screenshots.** Four sources, all from a browser session driven by `mmw-ui-qa browser`:
+**Primary input is structured data, not screenshots.** Four sources, all from a browser session driven by the browser automation (step 2 says where it lives):
 
 | Input | How | Feeds |
 | --- | --- | --- |
@@ -194,9 +210,7 @@ Per-check rules are in [CRITERIA.md](CRITERIA.md). Method and dispatch for B2, B
 
 The accessibility snapshot has roles and accessible names only. No class, test id, wrapper, or inline style. The same method covers native DOM, React, and web apps. No per-framework adapter.
 
-**A2:** `mmw-ui-qa accessibility-source` prints the absolute path of the engine's inject script. Inject the whole file, call the engine's analyze entry, and each violation is one A2.
-
-To `require` the browser automation from a Node script, the module root is `mmw-ui-qa home`.
+**A2:** inject the accessibility engine's whole script file (step 2 says where it lives), call its analyze entry, and each violation is one A2.
 
 **Five numeric fields** (used by `interactive elements` and B2 question 2):
 
@@ -220,7 +234,7 @@ Class A produces violations: **edit and commit them alone**. Class B produces fi
 | --- | --- |
 | Report given to the user; sections 2 and 3 have items to judge or answer | Wait for per-item verdicts and the "same thing?" answers in section 3. After they finish, write verdicts into usability criteria as [VERDICTS.md](VERDICTS.md) specifies, then report the final result once more |
 | Report given to the user; sections 2 and 3 are empty | Nothing for them this run. The report ends the run |
-| Called by `/mmw-prototype` or `/mmw-review`, and the user already judged | Hand the report back to the caller |
+| Called by `prototype` or `code-review`, and the user already judged | Hand the report back to the caller |
 
 ## Platform
 

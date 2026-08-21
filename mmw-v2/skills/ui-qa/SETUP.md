@@ -6,23 +6,24 @@ One missing file and four missing files take the same path. The questionnaire co
 
 ## Intake questionnaire
 
-**Ask only what this skill cannot look up. Seven questions, once.**
+**Ask only what this skill cannot look up, and only what an answer changes. Four questions, once.**
 
-Do not ask what the skill can look up: whether a design-system file exists, which component specs it declares, how the app starts (scripts in the build config), usability requirements the user already stated in `/mmw-grilling` and the spec.
+Do not ask what the skill can look up: whether a design-system file exists, which component specs it declares, how the app starts (scripts in the build config), usability requirements the user already stated in `grilling` and the spec.
 
-**Prefill only from reading code.** The questionnaire runs at main-file step 4. The wiring file does not exist yet, so the app cannot start, so there is no screen map and no runtime element sizes — questions 2 and 3 prefill from source only.
+**Prefill only from reading code.** The questionnaire runs at main-file step 4. The wiring file does not exist yet, so the app cannot start, so there is no screen map and no runtime element sizes.
 
 | # | Ask | What the skill does first, so the user types less |
 | --- | --- | --- |
 | 1 | Who this product is for, and in which situations | Draft a paragraph from spec or shared understanding. The user edits |
-| 2 | Which flows are core | Read routes and state machines, list jump chains from the entry route. The user picks |
-| 3 | Which elements are intentionally small and presentational | Read design-system frontmatter `components` and size constants in component source. List components below the generic floor. The user ticks |
-| 4 | Is the start command right | Read candidate commands from the build config. The user confirms or edits |
-| 5 | Where this product runs: a local server, or a test account on a real server | Cannot prefill. **Two options, no third** |
-| 6 | How to prepare login and test data | Cannot prefill. If unanswered, record empty; unreached states go in the coverage report (main-file step 6) |
-| 7 | Windows remote-debug port | Default `9222`. The user edits or leaves it |
+| 2 | Is the start command right | Read candidate commands from the build config. The user confirms or edits |
+| 3 | Where this product runs: a local server, or a test account on a real server | Cannot prefill. **Two options, no third** |
+| 4 | How to prepare login and test data | Cannot prefill. If unanswered, record empty; unreached states go in the coverage report (main-file step 6) |
 
-Question 5 is the data-safety gate. After the product has landed, walkthrough tasks are full user paths and include at least one failure path — they really click, really create, really submit, really trigger errors. Local servers and test accounts are isolated from production data, so **there is no forbidden-action list, and no per-irreversible-action pause**.
+**Every question must have a field to land in.** An answer that nothing later reads is an answer the user gave for nothing. Before adding a question, name the field it writes; if there is none, the question does not belong here.
+
+**Ask a question where it is used, not in advance.** The Windows remote-debug port has a working default and only matters on the Windows pass, so [WINDOWS.md](WINDOWS.md) asks it there.
+
+Question 3 is the data-safety gate. After the product has landed, walkthrough tasks are full user paths and include at least one failure path — they really click, really create, really submit, really trigger errors. Local servers and test accounts are isolated from production data, so **there is no forbidden-action list, and no per-irreversible-action pause**.
 
 **Show extracted usability criteria from shared understanding and spec once. Default: accept all. The user crosses out what they do not want.** Do not confirm item by item. Do not silently adopt — extract is model judgment, and a wrong item becomes a long-lived B5 criterion. Show extract results with the questionnaire. Do not add another interaction.
 
@@ -39,15 +40,19 @@ The design-system row is different: missing it drops two checks. Missing any of 
 
 New cross-boundary files always write `"version": 1`. Fields and format are in [CRITERIA.md](CRITERIA.md) under "Fields of the three cross-boundary files".
 
-## The design system is created by `/impeccable`
+## The design system is created by `create-design-md`
 
-**Do not write it yourself.** DESIGN.md format is an upstream practice. The `document` flow covers scanning existing tokens, components, and render output, then confirming descriptive language. Step 2 already required this dependency; it is stop-level, so it is present here.
+**Do not write it yourself.** DESIGN.md format is an upstream practice, and that skill is the one that knows it: it works from repository sources, and it will not return a file until both lint and export pass. Step 2 already required this capability; it is stop-level, so it is present here.
 
-Hand it three things: the product id, the intake answers, and **do not extract current values from a running page** — that reverse-extracts current defects into the standard.
+Hand it two things: the product id, and the intake answers.
+
+**Use its repository mode.** Its other mode reconstructs a design system from a rendered page, and a value read off a rendered page is the current state, not the intended standard — a contrast failure that exists today would be written down as the rule, and A3 would then judge the interface against its own defect. Repository sources say what was intended; rendered pages only say what happened.
+
+The same reasoning governs what you may take from elsewhere. A DESIGN.md published by another company can be read as a model for how to write one. It becomes criteria for this product only if it passes lint with zero errors, and it never becomes this product's own file by being renamed. See ADR 0019 in the target repo, or ask the user.
 
 After it returns a file, this skill does two things:
 
-1. Lint with `mmw-ui-qa design-lint <file>`. Handle the result as main-file step 5.
+1. Lint it as main-file step 5 does, and handle the result the same way.
 2. Write the path into wiring `designSystem`, **then read-only, never write it again**.
 
-If `/impeccable` will not start or returns no file, **stop** and say the design system could not be created. Do not fall back to writing one yourself — two sources produce different DESIGN.md files, and this file is the criterion for A3 and B1. The next run would not match.
+If `create-design-md` will not start or returns no file, **stop** and say the design system could not be created. Do not fall back to writing one yourself — two sources produce different DESIGN.md files, and this file is the criterion for A3 and B1. The next run would not match.

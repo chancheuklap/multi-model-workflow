@@ -56,16 +56,16 @@ Consecutive steps across two paths do not merge — each path is scored on its o
 
 Walkthrough tasks cover **screens in this run's scope** (scope is [SKILL.md](SKILL.md) step 7). Two sources, different bars:
 
-- **Paths from MMW artifacts.** Run `mmw artifact index prototype` and `mmw artifact index spec`, read the files about this product, and take operation paths written in user walkthrough conclusions and acceptance sections. The path must be a full path the user walked for a real goal, across several screens, and must include at least one failure path or edge. A single action merges up into its full path. Do not split to pad the count.
+- **Paths from existing artifacts.** If the repo has `docs/prototypes/` or `docs/specs/`, read the files about this product, and take operation paths written in user walkthrough conclusions and acceptance sections. The path must be a full path the user walked for a real goal, across several screens, and must include at least one failure path or edge. A single action merges up into its full path. Do not split to pad the count.
 - **No artifact path in scope: build from jumps in the screen map** ([SKILL.md](SKILL.md) step 6). From the main window, one shortest path to each in-scope screen. Failure paths are not required. **The report must mark these as constructed** — they guarantee reach, not that a user would walk them.
 
 The second source means B2, B3, and B4 always have a path. **Do not skip these three checks when artifacts yield nothing.**
 
-## Handoff: main agent walks, `designer` judges
+## Handoff: main agent walks, `ui-evaluator` judges
 
-**The main agent owns the browser. The `designer` does not get it.** A second instance would reset app state, and a screen that appears at step five would be unreachable.
+**The main agent owns the browser. The `ui-evaluator` does not get it.** A second instance would reset app state, and a screen that appears at step five would be unreachable.
 
-**One `designer` per full path, not one per step.** Per-step dispatch gives each `designer` an empty context, and question 4 cannot judge — it needs the state before the action.
+**One `ui-evaluator` per full path, not one per step.** Per-step dispatch gives each instance an empty context, and question 4 cannot judge — it needs the state before the action.
 
 **The main agent walks the whole path first, then delivers once.** Operate the app step by step, collect the data below, and after the path is done hand the whole **path pack** over once.
 
@@ -95,11 +95,11 @@ Each step:
 | `crop-screenshot` | string | Path of the cropped region. Question 2 uses it. The other three questions do not |
 | `runtime-errors` | array | Errors this step produced. Empty array if none |
 
-**Screenshots go in a temp directory and are deleted when the run ends.** A subagent cannot read bytes in the main agent's process, so screenshots go through files. Create the directory with `mktemp -d`, pass the path in the pack, delete the directory at the end of this run. After the run they have no consumer. **They are not artifacts. Do not resolve them with `mmw artifact path`.**
+**Screenshots go in a temp directory and are deleted when the run ends.** A subagent cannot read bytes in the main agent's process, so screenshots go through files. Create the directory with `mktemp -d`, pass the path in the pack, delete the directory at the end of this run. After the run they have no consumer. **They are not artifacts. They belong to no artifact root.**
 
 If `mktemp -d` fails, continue. Question 2 judges from structured visual-salience numbers only, and that finding notes there was no screenshot.
 
-**Session history is not a file.** The path pack is the full history, loaded once into the `designer` context. Inside one task it can see every earlier step, so question 4 can judge.
+**Session history is not a file.** The path pack is the full history, loaded once into the `ui-evaluator` context. Inside one task it can see every earlier step, so question 4 can judge.
 
 ### Dispatch
 
@@ -112,18 +112,17 @@ Four fields:
 | Constraints | Read-only; do not touch the browser; do not edit any file; do not start the app; ask the four and the six in the wording given, verbatim, no rewrite, no add, no drop |
 | Acceptance | The structured list below, plus a confusion band per step |
 
-**Copy the four questions, the six questions, and the three bands into the task in full.** The `designer` is independent context and cannot read this file. "Evaluate with the cognitive walkthrough" makes it invent four questions, different per path, and results are not comparable. Criteria travel with the task.
+**Copy the four questions, the six questions, and the three bands into the task in full.** The `ui-evaluator` is independent context and cannot read this file. "Evaluate with the cognitive walkthrough" makes it invent four questions, different per path, and results are not comparable. Criteria travel with the task.
 
-Dispatch one independent-context `designer`. Read-only. No working directory.
-[[mmw-launch:designer:none]]
+Dispatch one `ui-evaluator`. It is read-only and has no code-search tools by design.
 
 Independent paths start in the same message. Summarize after all have returned.
 
-### What the `designer` returns
+### What the `ui-evaluator` returns
 
 A structured list. Each item: `check` (`B2`, `B3`, or `B4`), `step-index`, `screen-id`, `element` (filled when a specific element was judged, else empty), `failed-question` (number of the four or the six), `one-line-problem`, `reason`.
 
-Also a confusion band per step, one of the three bands above. **The main agent computes B3 from those bands with the rule above. The `designer` does not report B3 directly.**
+Also a confusion band per step, one of the three bands above. **The main agent computes B3 from those bands with the rule above. The `ui-evaluator` does not report B3 directly.**
 
 Empty return, bad shape, or a mid-run failure: skip B2, B3, B4. The report header "Skipped this run" names why. **Do not substitute the main agent's own judgment for the independent-context evaluation.**
 

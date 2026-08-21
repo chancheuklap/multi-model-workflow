@@ -19,7 +19,7 @@ Shell differences are different. **Mac cannot check these. The report must list 
 
 Correct order:
 
-**First, give the user this command to run themselves in PowerShell on the Windows machine.** Port from wiring `windows.debugPort`:
+**First, give the user this command to run themselves in PowerShell on the Windows machine.** Port from wiring `windows.debugPort`. **If the wiring file has no `windows` block** — setup does not ask for one — offer `9222`, let the user change it, and write their answer into wiring before going on. Ask this once per product, here, on the first Windows run:
 
 ```powershell
 & "<full path of the app executable>" --remote-debugging-port=<windows.debugPort>
@@ -27,7 +27,7 @@ Correct order:
 
 Derive the executable path from the first item of wiring `launch.command`. If you cannot, ask. **Give the command as-is. Do not rewrite it. Do not wrap it.**
 
-**Second, the main agent connects from Mac.** Use the browser automation's CDP connect entry, URL `http://<windows.host>:<windows.debugPort>` (`host` defaults to `127.0.0.1`; two machines: the Windows machine's address). To `require` the browser automation from a Node script, the module root is `mmw-ui-qa home`. After connect, recognize the main window from wiring `mainWindow` `titlePattern` or `urlPattern`.
+**Second, the main agent connects from Mac.** Use the browser automation's CDP connect entry, URL `http://<windows.host>:<windows.debugPort>` (`host` defaults to `127.0.0.1`; two machines: the Windows machine's address). The module root for `require` is in main-file step 2. After connect, recognize the main window from wiring `mainWindow` `titlePattern` or `urlPattern`.
 
 **Third, the check is automatic.** Main-file step 6's "start the app" becomes the two steps above. The other eight steps stay the same.
 
@@ -42,7 +42,7 @@ Taking over an existing instance through the debug port yields fewer capabilitie
 | 1 | Accessibility-tree snapshot | One ARIA snapshot of the main window | Non-empty, and at least one element with an accessible name |
 | 2 | Batch computed style | One `getComputedStyle` on `document.body` | Non-empty `font-family` |
 | 3 | Cropped screenshot | One shot of any visible element in the main window | Non-empty bytes |
-| 4 | Inject the accessibility engine | Inject the whole script from `mmw-ui-qa accessibility-source` | After inject, the engine's window global is readable |
+| 4 | Inject the accessibility engine | Inject its whole script file, located as main-file step 2 says | After inject, the engine's window global is readable |
 
 What each miss does:
 
