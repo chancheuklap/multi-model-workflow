@@ -26,3 +26,7 @@ mmw/codex/agents/
 mmw-v2/tools/bin/
 mmw-v2/tools/uv/
 mmw-v2/tools/node/
+
+# 界面 QA 的运行时依赖，由技能自带的 install-deps.sh 按 deps.json 装。
+# 版本钉死在声明里，装出来的东西不进 git。
+mmw-v2/skills/ui-qa/scripts/deps/
