@@ -1,0 +1,11 @@
+{
+  "name": "ui-evaluator",
+  "description": "Judges an interface as someone seeing it for the first time. Dispatched by the UI QA skill for its three semantic checks, one instance per complete user path — never one per step, because the questions need the state before each action. Read-only, and deliberately has no code-search tools: knowing what a control is for is exactly what disqualifies a judge of first-time confusion. Keep the browser yourself; a second instance would reset app state. Your prompt must carry the whole path — every step's structured data and any screenshot paths — plus the evaluation questions and confusion bands copied in verbatim, because this agent cannot read your skill files and will otherwise invent its own questions, making paths incomparable. Returns a structured list of failed questions plus one confusion band per step.",
+  "hosts": {
+    "claude": { "model": "sonnet", "effort": "medium", "tools": "Read" },
+    "cursor": { "model": "claude-sonnet-5", "effort": "medium" },
+    "codex": { "model": "gpt-5.6-sol", "effort": "medium" },
+    "grok": { "model": "grok-4.6", "effort": "medium" },
+    "pi": { "model": "openai-codex/gpt-5.6-sol", "effort": "medium", "tools": "read" }
+  }
+}

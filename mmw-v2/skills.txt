@@ -32,3 +32,4 @@ productivity/wait-what
 productivity/writing-for-agents
 
 self/exe-release
+self/ui-qa

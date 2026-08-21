@@ -1,0 +1,51 @@
+{
+  "comment": "界面 QA 四个运行时依赖。这份文件是它们的唯一事实来源：install-deps.sh 照它装与查，技能正文照它报缺失后果，tests 照它断言。kind 有三种：command 是有可执行入口的 npm 包，source 是要注入浏览器的一份 npm 包内文件，external-skill 是由 skills CLI 装在 ~/.agents/skills 的一份技能——那一种 MMW 不装也不钉版本，只判它在不在。npm 那两种版本写死，不用 npx 当场拉取：npx 离线直接失败，联网取到的版本不受控，而设计系统格式规范目前是 alpha、可能有破坏性变更，版本不固定会让判据自检的结果在两台机器上不一致。missing 为 degrade 的条目要写 skips 与 degrade_note：缺了它跳哪几种 check、报告头怎么写。技能正文不抄这份映射。",
+  "packages": [
+    {
+      "capability": "browser",
+      "package": "@playwright/test",
+      "version": "1.61.0",
+      "kind": "command",
+      "bin": "playwright",
+      "purpose": "启动 Electron、取无障碍树快照、批量提取计算样式、读运行时 CSS 变量、局部截图",
+      "missing": "stop",
+      "version_note": "跟目标仓库 node_modules 里的实际版本对齐。目标仓库升版本时这里一起升，否则同一段脚本在两边行为可能不同。"
+    },
+    {
+      "capability": "accessibility",
+      "package": "axe-core",
+      "version": "4.13.0",
+      "kind": "source",
+      "source": "axe.min.js",
+      "purpose": "供给 A2：对比度、ARIA 误用、缺 label、缺 alt、tabindex 取值、aria-hidden 元素可聚焦、嵌套交互控件、可滚动区域可达性、跳过链接",
+      "missing": "degrade",
+      "version_note": "它没有可执行入口，是一份注入浏览器的脚本，所以这里记的是文件名不是 bin 名。",
+      "skips": [
+        "A2"
+      ],
+      "degrade_note": "A2 本次不跑。报告头「Skipped this run」写 A2 与原因"
+    },
+    {
+      "capability": "design-lint",
+      "package": "@google/design.md",
+      "version": "0.4.0",
+      "kind": "command",
+      "bin": "design.md",
+      "purpose": "起步阶段的判据自检：格式校验、跨 token 的 WCAG 对比度计算、引用完整性检查",
+      "missing": "degrade",
+      "version_note": "格式规范当前是 alpha，官方明确标明可能有破坏性变更。版本必须钉死。",
+      "skips": [],
+      "degrade_note": "判据自检本次没跑。报告头标注本次没有 lint 判据，九种 check 照跑"
+    },
+    {
+      "capability": "design-system-author",
+      "skill": "create-design-md",
+      "kind": "external-skill",
+      "detect": ".agents/skills/create-design-md/SKILL.md",
+      "installedBy": "npx skills add ibelick/ui-skills@create-design-md -g -y",
+      "purpose": "设计系统不存在时，由它按 DESIGN.md 格式建一份。它的仓库模式与网址模式各自带证据闸，lint 与 export 都通过之前不返回文件",
+      "missing": "stop",
+      "version_note": "版本由 skills CLI 自己的 lock 文件管，这里不重复钉——两处钉版本就有两个事实来源。这一条只判 detect 那个路径在不在。它不是 npm 包，跟着 npm 那几个一起按包名回读会把它永远判成已装，直到委派时才当场失败。detect 是相对家目录的路径。"
+    }
+  ]
+}
