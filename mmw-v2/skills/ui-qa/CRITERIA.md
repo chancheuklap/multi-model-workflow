@@ -58,7 +58,7 @@ All three must have integer `version`. Format changes use it to recognize an old
 | `environment` | object | yes | Below |
 | `prepare` | object | no | Below. If missing, related states go in the coverage report |
 | `designSystem` | string | no | Repo-relative path of the design-system file. If missing, skip A3 and B1 |
-| `windows` | object | no | Below. Required only when running on Windows |
+| `windows` | object | no | Below. Only when the Windows machine is a second machine |
 
 Inner fields:
 
@@ -68,14 +68,14 @@ Inner fields:
 | `launch` | `cwd` | string | no | Repo-relative. Default: repo root |
 | `launch` | `env` | string-to-string map | no | Start env. Values may be secret refs |
 | `launch` | `readyTimeoutMs` | integer | no | Wait for the main window. Default 30000 |
+| `launch` | `debugPort` | integer | no | The port the app is started with and the automation attaches to. Default `9222`. Both platforms use it |
 | `mainWindow` | `titlePattern` | string | one of two required | Regex on window title |
 | `mainWindow` | `urlPattern` | string | one of two required | Regex on renderer URL |
 | `environment` | `kind` | enum | yes | `local-server` or `test-account` |
 | `environment` | `endpoint` | string | yes | Local server URL, or real server URL |
 | `environment` | `account` | object | required when `kind` is `test-account` | `id` (string, test-account id) and `secret` (string, secret ref, format below) |
 | `prepare` | `steps` | object array | no | Each item has `name` and `command` (string array), in order |
-| `windows` | `debugPort` | integer | yes | Remote debug port. Setup does not ask for it; [WINDOWS.md](WINDOWS.md) asks on the first Windows run, defaulting to `9222` |
-| `windows` | `host` | string | no | Default `127.0.0.1` |
+| `windows` | `host` | string | no | Where the Windows machine is. Default `127.0.0.1` |
 
 Missing `environment`, or `kind` not one of those two: **stop and explain**. Do not guess. No exemption: the intake questionnaire always asks where the product runs, two options only. A prototype mockup is still a local server — write `local-server`.
 

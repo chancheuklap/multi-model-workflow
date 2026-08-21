@@ -1,50 +1,47 @@
 {
-  "comment": "界面 QA 四个运行时依赖。这份文件是它们的唯一事实来源：install-deps.sh 照它装与查，技能正文照它报缺失后果，tests 照它断言。kind 有三种：command 是有可执行入口的 npm 包，source 是要注入浏览器的一份 npm 包内文件，external-skill 是由 skills CLI 装在 ~/.agents/skills 的一份技能——那一种 MMW 不装也不钉版本，只判它在不在。npm 那两种版本写死，不用 npx 当场拉取：npx 离线直接失败，联网取到的版本不受控，而设计系统格式规范目前是 alpha、可能有破坏性变更，版本不固定会让判据自检的结果在两台机器上不一致。missing 为 degrade 的条目要写 skips 与 degrade_note：缺了它跳哪几种 check、报告头怎么写。技能正文不抄这份映射。",
-  "packages": [
+  "comment": "界面 QA 要的四个能力。这份文件说的是「能力从哪来、怎么找、缺了怎么办」，不说版本——版本归提供方管，这里再钉一次就有了两个事实来源。这个技能自己不装任何东西：npm 那几个来自这台机器的 Node 全局工具目录（PATH 上有它们的命令），技能那一个来自 skills CLI 装的 ~/.agents/skills。两个来源，各一种装法，各一种找法。kind 有三种：command 是 PATH 上的命令；sibling-file 是没有命令入口的包，从 PATH 上某个命令的位置反推出它的文件；skill 是宿主已经加载的技能，按名字调。missing 为 degrade 的要写 skips 与 degrade_note：缺了它跳哪几种 check、报告头怎么写。技能正文不抄这份映射。",
+  "capabilities": [
     {
       "capability": "browser",
-      "package": "@playwright/test",
-      "version": "1.61.0",
       "kind": "command",
-      "bin": "playwright",
-      "purpose": "启动 Electron、取无障碍树快照、批量提取计算样式、读运行时 CSS 变量、局部截图",
-      "missing": "stop",
-      "version_note": "跟目标仓库 node_modules 里的实际版本对齐。目标仓库升版本时这里一起升，否则同一段脚本在两边行为可能不同。"
+      "command": "playwright-cli",
+      "package": "@playwright/cli",
+      "purpose": "驱动界面：连上应用、取无障碍树快照、跑任意页面脚本取计算样式与运行时 CSS 变量、读 console、局部截图",
+      "missing": "stop"
     },
     {
       "capability": "accessibility",
+      "kind": "sibling-file",
       "package": "axe-core",
-      "version": "4.13.0",
-      "kind": "source",
-      "source": "axe.min.js",
+      "file": "axe.min.js",
+      "nextTo": "playwright-cli",
       "purpose": "供给 A2：对比度、ARIA 误用、缺 label、缺 alt、tabindex 取值、aria-hidden 元素可聚焦、嵌套交互控件、可滚动区域可达性、跳过链接",
       "missing": "degrade",
-      "version_note": "它没有可执行入口，是一份注入浏览器的脚本，所以这里记的是文件名不是 bin 名。",
       "skips": [
         "A2"
       ],
-      "degrade_note": "A2 本次不跑。报告头「Skipped this run」写 A2 与原因"
+      "degrade_note": "A2 本次不跑。报告头「Skipped this run」写 A2 与原因",
+      "note": "它没有命令入口，是一份注入页面的脚本。跟浏览器能力装在同一个目录下，所以从那个命令的位置反推：命令所在目录的同级 <package>/<file>。"
     },
     {
       "capability": "design-lint",
+      "kind": "command",
+      "command": "design.md",
       "package": "@google/design.md",
-      "kind": "shared-npx",
-      "invoke": "npx @google/design.md",
       "purpose": "起步阶段的判据自检：格式校验、跨 token 的 WCAG 对比度计算、引用完整性检查",
       "missing": "degrade",
-      "version_note": "不钉版本，也不由这里装：设计系统作者技能用的是同一条 npx 调用，两边因此在同一台机器上解析到同一份。规范是 alpha，钉一个跟它不一样的版本比不钉更糟——它建好文件、通过自己的 lint 才返回，这里换个版本校验同一份文件却报 error，于是流程停在一个看起来像文件写坏了的地方，而真相是两个版本不一致。这一条上，两边一致比版本固定重要。另外两个依赖没有第二个使用者，版本照钉。",
       "skips": [],
-      "degrade_note": "判据自检本次没跑。报告头标注本次没有 lint 判据，九种 check 照跑"
+      "degrade_note": "判据自检本次没跑。报告头标注本次没有 lint 判据，九种 check 照跑",
+      "note": "设计系统作者技能跑的是同一个包。两边都从 PATH 取，因此是同一份——这一条上，两边一致比版本固定重要：它建好文件、通过自己的 lint 才返回，这里换个版本校验同一份文件却报 error，流程就停在一个看起来像文件写坏了的地方。"
     },
     {
       "capability": "design-system-author",
+      "kind": "skill",
       "skill": "create-design-md",
-      "kind": "external-skill",
       "detect": ".agents/skills/create-design-md/SKILL.md",
       "installedBy": "npx skills add ibelick/ui-skills@create-design-md -g -y",
       "purpose": "设计系统不存在时，由它按 DESIGN.md 格式建一份。它的仓库模式与网址模式各自带证据闸，lint 与 export 都通过之前不返回文件",
-      "missing": "stop",
-      "version_note": "版本由 skills CLI 自己的 lock 文件管，这里不重复钉——两处钉版本就有两个事实来源。这一条只判 detect 那个路径在不在。它不是 npm 包，跟着 npm 那几个一起按包名回读会把它永远判成已装，直到委派时才当场失败。detect 是相对家目录的路径。"
+      "missing": "stop"
     }
   ]
 }

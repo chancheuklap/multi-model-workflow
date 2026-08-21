@@ -28,6 +28,7 @@
     { "path": "launch.cwd", "type": "string", "required": false },
     { "path": "launch.env", "type": "string-map", "required": false },
     { "path": "launch.readyTimeoutMs", "type": "integer", "required": false },
+    { "path": "launch.debugPort", "type": "integer", "required": false },
     { "path": "mainWindow", "type": "object", "required": true },
     { "path": "mainWindow.titlePattern", "type": "string", "required": false, "regex": true },
     { "path": "mainWindow.urlPattern", "type": "string", "required": false, "regex": true },
@@ -76,12 +77,6 @@
       "note": "设计系统文件的仓库相对路径。缺了它跳过 A3 与 B1，那是技能的流程决策"
     },
     { "path": "windows", "type": "object", "required": false },
-    {
-      "path": "windows.debugPort",
-      "type": "integer",
-      "required": false,
-      "requiredWhen": { "path": "windows", "exists": true }
-    },
     { "path": "windows.host", "type": "string", "required": false }
   ],
   "oneOf": [

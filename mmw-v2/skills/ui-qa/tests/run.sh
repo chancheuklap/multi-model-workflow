@@ -42,7 +42,7 @@ run() {
   rm -f "$out"
 }
 
-run "依赖检查" bash "$HERE/test_install_deps.sh"
+run "依赖检查" bash "$HERE/test_check_deps.sh"
 
 if command -v uv >/dev/null 2>&1; then
   run "接线文件校验" \

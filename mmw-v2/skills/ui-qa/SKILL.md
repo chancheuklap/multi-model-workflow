@@ -66,22 +66,14 @@ Continue. Criteria and wiring paths have no name segment. The screen map and the
 This skill carries its own scripts, next to this file. Resolve their absolute paths once; every command below is written relative to the skill directory.
 
 ```bash
-bash scripts/install-deps.sh --check
+bash scripts/check-deps.sh
 ```
 
-It prints package name, required version, and actual version for the npm dependencies, and whether the external skill is installed. Exit 0 when all four capabilities are present.
+It prints one line per capability with the path it resolved to, and exits 0 when all four are there. **Use the paths it printed** — this skill installs nothing and hardcodes no location.
 
-**Where each capability lives**, once installed. Names and versions come from `scripts/deps.json`; read the entry, then build its path:
+Where they come from is not this skill's business, and deliberately so: the browser automation, the accessibility engine, and the design-system linter come from wherever this machine keeps its Node CLIs; the design-system author is a skill the host has already loaded. Installing a private copy of any of them would make a second version of something another tool is also running, and two versions of a linter disagree about the same file only once the run is already half done.
 
-| Capability | Path |
-| --- | --- |
-| A `command` entry | `scripts/deps/node_modules/.bin/` plus its **bin** field |
-| A `source` entry | `scripts/deps/node_modules/` plus its **package** field, then its **source** field |
-| The module root, to `require` from a Node script | `scripts/deps` |
-| An `external-skill` entry | The host already loaded it. Invoke its **skill** field as a skill |
-| A `shared-npx` entry | Run its **invoke** field as written. It is deliberately unpinned — another skill runs the same line, and the two resolving to one copy matters more here than pinning a version |
-
-On non-zero `--check`, install what is missing: `bash scripts/install-deps.sh` for the npm ones, and for the external skill the command its `installedBy` field prints. Then switch on which capability is still missing:
+On non-zero exit, install what it named, then switch on which capability is still missing:
 
 | Missing capability | Name in `deps.json` | Action |
 | --- | --- | --- |
@@ -135,7 +127,7 @@ If any is missing, enter **setup mode**: **read [SETUP.md](SETUP.md) in full now
 Once the files exist, lint the design-system file:
 
 ```bash
-npx @google/design.md lint <design-system file from the previous step>
+design.md lint <design-system file from the previous step>
 ```
 
 The file argument is required. Without it the linter reads whatever `DESIGN.md` happens to sit in the working directory, and that is not necessarily the file wiring `designSystem` points at. The linter checks format, cross-token WCAG contrast, and reference integrity. It does not start the app. It prints JSON. Each item has `severity` `error` or `warning`.
@@ -158,7 +150,27 @@ Lint results go in the report's **criterion self-check**. They **are not one of 
 
 The map records screens, states per screen, and jumps between screens. The next step maps changed files to screens from it. Step 8's cognitive walkthrough builds paths from it. **It is built in-process. It is not a file. Discard it after the run.**
 
-Start the app from wiring `launch` (command, working directory, env). Secrets are `env:<name>` or `keychain:<name>`; resolve by prefix. Recognize the main window from `mainWindow` `titlePattern` or `urlPattern`. If `prepare.steps` exists, run them in order for login and test data.
+**Start the app, then attach to it.** Run wiring `launch` (command, working directory, env) with a remote-debugging-port argument on the end, using `launch.debugPort` or `9222`. Secrets are `env:<name>` or `keychain:<name>`; resolve by prefix. Then point the browser automation's attach entry at that port and recognize the main window from `mainWindow` `titlePattern` or `urlPattern`. If `prepare.steps` exists, run them in order for login and test data.
+
+Attaching is what makes an Electron app and a web app the same job here, and it is why [WINDOWS.md](WINDOWS.md) is short: over there the user presses start instead of you, and everything after the attach is identical.
+
+**A successful attach is not four working capabilities.** Attaching to a running instance yields less than owning one from the start, and which parts survive depends on how the app was built. Right after you have the main window, prove each by doing it once:
+
+| # | Capability | How | Pass |
+| --- | --- | --- | --- |
+| 1 | Accessibility-tree snapshot | One snapshot of the main window | Non-empty, and at least one element with an accessible name |
+| 2 | Batch computed style | One `eval` reading `document.body`'s computed style | Non-empty `font-family` |
+| 3 | Cropped screenshot | One shot of any visible element | Non-empty bytes |
+| 4 | Inject the accessibility engine | Inject its whole file, at the path step 2 printed | The engine's window global is readable afterwards |
+
+| Missing | Effect |
+| --- | --- |
+| 1 Snapshot | **Stop.** No element location. None of the nine can run |
+| 2 Computed style | Skip A1 and A3. Run the other seven |
+| 3 Screenshot | Skip no check. B2 question 2 judges from the structured visual-salience numbers alone, and that finding notes there was no screenshot |
+| 4 Accessibility engine | Skip A2. Run the other eight |
+
+Skipped check ids go in the report header "Skipped this run". **A missing capability makes a partial QA, and the report says so.**
 
 Three sources merge into one map. Union, not exclusive:
 
@@ -202,16 +214,20 @@ Per-check rules are in [CRITERIA.md](CRITERIA.md). Method and dispatch for B2, B
 
 **Primary input is structured data, not screenshots.** Four sources, all from a browser session driven by the browser automation (step 2 says where it lives):
 
-| Input | How | Feeds |
+| Input | Command | Feeds |
 | --- | --- | --- |
-| Accessibility-tree snapshot | ARIA snapshot from the browser automation | Element location; all of class B |
-| Computed style and layout box | Batch `getComputedStyle` and `getBoundingClientRect` on candidates | A1, A3 |
-| Runtime CSS custom properties | `getComputedStyle(document.documentElement)` | A3 implementation-layer compare |
-| Renderer console | Listen for console and page error | A4 |
+| Accessibility-tree snapshot | `snapshot` | Element location; all of class B |
+| Computed style and layout box | `eval` returning JSON for a batch of elements at once | A1, A3 |
+| Runtime CSS custom properties | `eval` over `document.documentElement`'s computed style | A3 implementation-layer compare |
+| Renderer console | `console` | A4 |
 
-The accessibility snapshot has roles and accessible names only. No class, test id, wrapper, or inline style. The same method covers native DOM, React, and web apps. No per-framework adapter.
+**Add `--raw` to anything you parse.** Without it the output carries page status and a snapshot section, and the JSON you meant to read is buried in prose.
 
-**A2:** inject the accessibility engine's whole script file (step 2 says where it lives), call its analyze entry, and each violation is one A2.
+The accessibility snapshot has roles and accessible names only. No class, test id, wrapper, or inline style. Elements come back as refs (`e5`), and every later command takes that ref. The same method covers native DOM, React, and web apps. No per-framework adapter.
+
+**Batch, do not loop.** One `eval` that returns an array for every candidate costs one round trip; one `eval` per element costs hundreds, and a screen full of elements is where a run stops being worth waiting for.
+
+**A2:** run a page script that injects the accessibility engine's whole file (step 2 printed its path) and calls its analyze entry. Each violation is one A2. The browser automation's run-code entry takes a file, which is how the injection and the call travel together.
 
 **Five numeric fields** (used by `interactive elements` and B2 question 2):
 
