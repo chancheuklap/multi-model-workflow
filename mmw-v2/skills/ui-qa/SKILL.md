@@ -79,6 +79,7 @@ It prints package name, required version, and actual version for the npm depende
 | A `source` entry | `scripts/deps/node_modules/` plus its **package** field, then its **source** field |
 | The module root, to `require` from a Node script | `scripts/deps` |
 | An `external-skill` entry | The host already loaded it. Invoke its **skill** field as a skill |
+| A `shared-npx` entry | Run its **invoke** field as written. It is deliberately unpinned — another skill runs the same line, and the two resolving to one copy matters more here than pinning a version |
 
 On non-zero `--check`, install what is missing: `bash scripts/install-deps.sh` for the npm ones, and for the external skill the command its `installedBy` field prints. Then switch on which capability is still missing:
 
@@ -134,7 +135,7 @@ If any is missing, enter **setup mode**: **read [SETUP.md](SETUP.md) in full now
 Once the files exist, lint the design-system file:
 
 ```bash
-scripts/deps/node_modules/.bin/design.md lint <design-system file from the previous step>
+npx @google/design.md lint <design-system file from the previous step>
 ```
 
 The file argument is required. Without it the linter reads whatever `DESIGN.md` happens to sit in the working directory, and that is not necessarily the file wiring `designSystem` points at. The linter checks format, cross-token WCAG contrast, and reference integrity. It does not start the app. It prints JSON. Each item has `severity` `error` or `warning`.

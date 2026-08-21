@@ -16,7 +16,7 @@ Kind 5 is not target-repo config. Every repo with MMW has it.
 
 **The design system is a read-only boundary.** UI QA reads it, does not write it, and the target repo owns it. The only exception is creating it once when it is missing. See below.
 
-The design system uses **DESIGN.md format** — one Markdown file, YAML frontmatter for machine-readable tokens (`colors`, `typography`, `rounded`, `spacing`, `components`), body for named rules and Do's/Don'ts. A3 judges the former. B1 judges the latter. Main-file step 2 says where the linter lives and step 5 runs it; `scripts/deps.json` holds its package name and pinned version.
+The design system uses **DESIGN.md format** — one Markdown file, YAML frontmatter for machine-readable tokens (`colors`, `typography`, `rounded`, `spacing`, `components`), body for named rules and Do's/Don'ts. A3 judges the former. B1 judges the latter. Main-file step 2 says how to reach the linter and step 5 runs it; `scripts/deps.json` names the package.
 
 ## A3 judges the declaration layer
 

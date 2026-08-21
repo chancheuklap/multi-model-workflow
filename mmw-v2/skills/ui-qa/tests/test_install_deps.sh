@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # 依赖检查的测试。
 #
-# 判的重点是第四个依赖：它不是 npm 包，跟着前三个按包名回读会被永远判成已装，
-# 直到委派时才当场失败。这里把 HOME 指到一个临时目录，验它缺了确实报得出来。
+# 三种 kind 各判各的，这里验它们不会互相顶替：
+#   command / source  npm 装的，判版本
+#   external-skill    skills CLI 装的，判落点在不在。跟着 npm 那几个按包名回读，
+#                     会被永远判成已装，直到委派时才当场失败
+#   shared-npx        不装也不判版本，报出来即可——它跟设计系统作者技能共用同一条
+#                     npx 调用，两边解析同一份
 #
-# npm 那三个不在这里装——装一次要拉 Chromium。只验「没装时报得出来」。
+# HOME 与 UI_QA_DEPS_ROOT 都指到临时目录，好验「没装时报得出来」，也不碰真的家目录。
 
 set -uo pipefail
 
@@ -19,6 +23,7 @@ fail() {
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+export UI_QA_DEPS_ROOT="$TMP/deps"
 
 echo "--- 外部技能缺失时报得出来，并给出该跑的命令"
 out="$(HOME="$TMP" bash "$SCRIPT" --check 2>&1)"
@@ -27,19 +32,22 @@ code=$?
 grep -q "create-design-md" <<<"$out" || fail "没点名缺的技能"
 grep -q "npx skills add" <<<"$out" || fail "没给出该跑的命令"
 
+echo "--- npm 那几个没装时逐个点名，并带上声明里的版本"
+grep -q "@playwright/test（要 1.61.0）" <<<"$out" || fail "没点名浏览器自动化框架与版本"
+grep -q "axe-core（要 4.13.0）" <<<"$out" || fail "没点名可访问性引擎与版本"
+
+echo "--- 共享调用那条不判版本，但要报出来"
+grep -q "@google/design.md 走共享调用" <<<"$out" || fail "没报出共享调用那一条"
+grep -q "@google/design.md（要" <<<"$out" && fail "共享调用那条不该被当成 npm 包判版本"
+
 echo "--- 外部技能在时不报它"
 mkdir -p "$TMP/.agents/skills/create-design-md"
 touch "$TMP/.agents/skills/create-design-md/SKILL.md"
 out="$(HOME="$TMP" bash "$SCRIPT" --check 2>&1)"
 grep -q "缺技能" <<<"$out" && fail "技能已在，不该报缺"
 
-echo "--- npm 那三个没装时逐个点名，并带上声明里的版本"
-grep -q "@playwright/test（要 1.61.0）" <<<"$out" || fail "没点名浏览器自动化框架与版本"
-grep -q "axe-core（要 4.13.0）" <<<"$out" || fail "没点名可访问性引擎与版本"
-grep -q "@google/design.md（要 0.4.0）" <<<"$out" || fail "没点名设计系统校验器与版本"
-
 echo "--- 版本从声明里读，不写死在脚本里"
-grep -qE '1\.61\.0|4\.13\.0|0\.4\.0' "$SCRIPT" && fail "脚本里写死了版本号，应当只从 deps.json 读"
+grep -qE '1\.61\.0|4\.13\.0' "$SCRIPT" && fail "脚本里写死了版本号，应当只从 deps.json 读"
 
 echo "--- 用法错误退出码是 2"
 HOME="$TMP" bash "$SCRIPT" --nonsense >/dev/null 2>&1

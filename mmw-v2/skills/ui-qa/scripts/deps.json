@@ -28,12 +28,11 @@
     {
       "capability": "design-lint",
       "package": "@google/design.md",
-      "version": "0.4.0",
-      "kind": "command",
-      "bin": "design.md",
+      "kind": "shared-npx",
+      "invoke": "npx @google/design.md",
       "purpose": "起步阶段的判据自检：格式校验、跨 token 的 WCAG 对比度计算、引用完整性检查",
       "missing": "degrade",
-      "version_note": "格式规范当前是 alpha，官方明确标明可能有破坏性变更。版本必须钉死。",
+      "version_note": "不钉版本，也不由这里装：设计系统作者技能用的是同一条 npx 调用，两边因此在同一台机器上解析到同一份。规范是 alpha，钉一个跟它不一样的版本比不钉更糟——它建好文件、通过自己的 lint 才返回，这里换个版本校验同一份文件却报 error，于是流程停在一个看起来像文件写坏了的地方，而真相是两个版本不一致。这一条上，两边一致比版本固定重要。另外两个依赖没有第二个使用者，版本照钉。",
       "skips": [],
       "degrade_note": "判据自检本次没跑。报告头标注本次没有 lint 判据，九种 check 照跑"
     },

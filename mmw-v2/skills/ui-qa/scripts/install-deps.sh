@@ -15,7 +15,8 @@ set -euo pipefail
 
 HERE="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPS_JSON="$HERE/deps.json"
-DEPS_ROOT="$HERE/deps"
+# UI_QA_DEPS_ROOT 只给测试用：把依赖根挪到一次性目录，好验「没装时报得出来」。
+DEPS_ROOT="${UI_QA_DEPS_ROOT:-$HERE/deps}"
 
 mode=install
 case "${1:-}" in
@@ -57,7 +58,7 @@ if [ "$mode" = check ]; then
       echo "ui-qa deps: ${pkg} 版本是 ${have}，声明要 ${want}" >&2
       missing=1
     fi
-  done < <(jq -r '.packages[] | select(.kind != "external-skill") | [.package, .version] | @tsv' "$DEPS_JSON")
+  done < <(jq -r '.packages[] | select(.kind == "command" or .kind == "source") | [.package, .version] | @tsv' "$DEPS_JSON")
 
   # 外部技能：单独判它自己的落点。跟着上面按包名回读会把它永远判成已装，
   # 直到委派时才当场失败。
@@ -68,6 +69,13 @@ if [ "$mode" = check ]; then
       missing=1
     fi
   done < <(jq -r '.packages[] | select(.kind == "external-skill") | [.skill, .detect, .installedBy] | @tsv' "$DEPS_JSON")
+
+  # 共享调用：不装也不判版本，两边解析同一份。这里只把它报出来，
+  # 免得四个能力少报一个，让人以为漏了。
+  while IFS=$'\t' read -r pkg invoke; do
+    [ -n "$pkg" ] || continue
+    echo "ui-qa deps: ${pkg} 走共享调用 ${invoke}，不在这里装"
+  done < <(jq -r '.packages[] | select(.kind == "shared-npx") | [.package, .invoke] | @tsv' "$DEPS_JSON")
 
   [ "$missing" -eq 0 ] || exit 1
   echo "ui-qa deps: ${dep_count} 个运行时依赖齐了"
@@ -96,7 +104,7 @@ while IFS=$'\t' read -r pkg want; do
   have="$(installed_version "$pkg" || true)"
   [ "$have" = "$want" ] && continue
   specs+=("$pkg@$want")
-done < <(jq -r '.packages[] | select(.kind != "external-skill") | [.package, .version] | @tsv' "$DEPS_JSON")
+done < <(jq -r '.packages[] | select(.kind == "command" or .kind == "source") | [.package, .version] | @tsv' "$DEPS_JSON")
 
 if [ "${#specs[@]}" -eq 0 ]; then
   echo "ui-qa deps: npm 那几个已是声明版本"
