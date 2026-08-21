@@ -71,18 +71,18 @@ bash scripts/install-deps.sh --check
 
 It prints package name, required version, and actual version for the npm dependencies, and whether the external skill is installed. Exit 0 when all four capabilities are present.
 
-**Where each capability lives**, once installed. `scripts/deps.json` is the single source for names and versions — read it, do not hardcode what it declares:
+**Where each capability lives**, once installed. Names and versions come from `scripts/deps.json`; read the entry, then build its path:
 
 | Capability | Path |
 | --- | --- |
-| A `command` entry | `scripts/deps/node_modules/.bin/<its `bin` field>` |
-| A `source` entry | `scripts/deps/node_modules/<its `package` field>/<its `source` field>` |
+| A `command` entry | `scripts/deps/node_modules/.bin/` plus its **bin** field |
+| A `source` entry | `scripts/deps/node_modules/` plus its **package** field, then its **source** field |
 | The module root, to `require` from a Node script | `scripts/deps` |
-| An `external-skill` entry | The host already loaded it. Invoke it by its `skill` field, as a skill |
+| An `external-skill` entry | The host already loaded it. Invoke its **skill** field as a skill |
 
 On non-zero `--check`, install what is missing: `bash scripts/install-deps.sh` for the npm ones, and for the external skill the command its `installedBy` field prints. Then switch on which capability is still missing:
 
-| Missing capability | Name in `check` | Action |
+| Missing capability | Name in `deps.json` | Action |
 | --- | --- | --- |
 | Browser automation | `browser` | **Stop.** It drives every check |
 | Design-system author | `design-system-author` | **Stop.** Step 4 uses it when the design system is missing |
@@ -187,7 +187,7 @@ Unreached states go in the **coverage report**, one line per state name and why.
 
 **Changed files become screens.** File F maps to every screen node whose `source-files` contains F. That is a lookup in the map from the previous step, not another code scan.
 
-**If the scope maps to zero screens, say so and stop.** "This commit touched no interface files. Tag `this-task` or `full` and call me again." Do not widen the scope yourself — that is the inference this skill already forbids, and a person who did not touch the interface did not come here by accident.
+**If the scope maps to zero screens, say so and stop.** "This commit touched no interface files. Tag `this-task` or `full` and call me again." Someone who did not touch the interface did not arrive here by accident — ask which scope they meant, rather than picking one for them.
 
 `HEAD~1` missing (first commit on the branch) is the same answer: say it, ask for a tag.
 

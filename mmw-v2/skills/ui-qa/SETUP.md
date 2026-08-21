@@ -19,9 +19,7 @@ Do not ask what the skill can look up: whether a design-system file exists, whic
 | 3 | Where this product runs: a local server, or a test account on a real server | Cannot prefill. **Two options, no third** |
 | 4 | How to prepare login and test data | Cannot prefill. If unanswered, record empty; unreached states go in the coverage report (main-file step 6) |
 
-**Every question must have a field to land in.** An answer that nothing later reads is an answer the user gave for nothing. Before adding a question, name the field it writes; if there is none, the question does not belong here.
-
-**Ask a question where it is used, not in advance.** The Windows remote-debug port has a working default and only matters on the Windows pass, so [WINDOWS.md](WINDOWS.md) asks it there.
+The Windows remote-debug port is not here. It has a working default and only matters on the Windows pass, so [WINDOWS.md](WINDOWS.md) asks it there, when it is about to be used.
 
 Question 3 is the data-safety gate. After the product has landed, walkthrough tasks are full user paths and include at least one failure path — they really click, really create, really submit, really trigger errors. Local servers and test accounts are isolated from production data, so **there is no forbidden-action list, and no per-irreversible-action pause**.
 
@@ -48,7 +46,7 @@ Hand it two things: the product id, and the intake answers.
 
 **Use its repository mode.** Its other mode reconstructs a design system from a rendered page, and a value read off a rendered page is the current state, not the intended standard — a contrast failure that exists today would be written down as the rule, and A3 would then judge the interface against its own defect. Repository sources say what was intended; rendered pages only say what happened.
 
-The same reasoning governs what you may take from elsewhere. A DESIGN.md published by another company can be read as a model for how to write one. It becomes criteria for this product only if it passes lint with zero errors, and it never becomes this product's own file by being renamed. See ADR 0019 in the target repo, or ask the user.
+The same reasoning governs a DESIGN.md published by another company: read it as a model for how one is written, and hand it over as a model. It becomes criteria for this product only by passing lint with zero errors — published by a well-known company is not the same as correct, and renaming someone else's file is not authoring this product's.
 
 After it returns a file, this skill does two things:
 

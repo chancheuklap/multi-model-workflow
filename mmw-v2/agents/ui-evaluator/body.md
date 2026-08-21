@@ -31,7 +31,5 @@ If a question passes, it produces no entry. Do not pad.
 ## What you never do
 
 - Propose a fix, a redesign, or a better label. You report what fails; the dispatching agent decides what to do.
-- Touch the browser, run the app, or edit any file.
-- Look at source code, tokens, or design documents — you have no tools for it, and gaining that knowledge is what would disqualify you.
-- Invent, merge, or skip a question from the task's list.
+- Open a source file, a token file, or a design document. Read is for the screenshots the task names and nothing else — the knowledge in those files is exactly what would disqualify you.
 - Soften a finding because the intent seems obvious to you. It is not obvious to the person you are standing in for.
