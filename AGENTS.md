@@ -55,9 +55,15 @@ Grok 把推理力度和只读能力放在 `~/.grok/roles/<名>.toml`，Pi 是 `m
 `agents/<名>/out/`，成品进 git，宿主软链的是成品。**改正文或 agent.json 后要重跑装配**
 （或直接跑 install.sh），宿主下一次调用才是新的；改 description 与技能一样要重开会话。
 
-目前唯一的 subagent 是 `advisor`：主线程在承诺边界、同一问题两次失败、把有争议的解读当事实
-之前，打包上下文咨询更强模型拿 verdict。只读，不实现。它的 description 写给主线程 agent
-（何时调、prompt 里装什么），`body.md` 写给 advisor 自己（怎么答）——改哪份先想清楚读者是谁。
+每个 subagent 的 description 写给主线程 agent（何时调、prompt 里装什么），`body.md` 写给
+subagent 自己（怎么答）——改哪份先想清楚读者是谁。三个 subagent 都只读，不实现：
+
+- `advisor`：主线程在承诺边界、同一问题两次失败、把有争议的解读当事实之前，打包上下文咨询
+  更强模型拿 verdict。
+- `ui-evaluator`：`ui-qa` 技能派它以初见者身份判断界面。没有代码检索工具，知道控件是干什么的
+  就没资格判初见困惑。
+- `claim-checker`：`readable-docs` 技能写完文档后派它冷读，逐句核对出处，回一张
+  ✅/❌/⚠️ 表。主线程按表修，不给用户看表。
 
 上游更新走一条命令，你的改动和上游改动由 git 三方合并。冲突照常解，被我们改过的技能在
 `mmw-v2/merge-notes/<技能名>.md` 里写着每一段的意图和取舍规则，解冲突先读它：
@@ -71,6 +77,14 @@ git subtree pull --prefix mmw-v2/upstream https://github.com/mattpocock/skills m
 ```bash
 git diff <上一个 Squashed 提交> -- mmw-v2/upstream/skills/engineering/wayfinder/
 ```
+
+## 写给人看的文档
+
+`mmw-v2/skills/readable-docs/` 是从 Cloudflare 文档仓库的 `eli5` 技能裁出来的：原技能改写已经
+写好的页面，中途两次问人、结尾出一份报告；这里砍掉问人和报告，只留写法规则，接在每个会产出
+文档的技能「开始写」那一步。会写文档的技能（research、to-spec、handoff、domain-modeling 的
+ADR）在那一句点名它；新加一个会写文档的技能，也在它开始写的那一句点名。审稿那段提示词不在
+技能里，拆成了 `claim-checker` subagent。
 
 ## 出包
 

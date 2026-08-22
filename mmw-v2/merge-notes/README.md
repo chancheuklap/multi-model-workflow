@@ -14,3 +14,7 @@
 ## 目前有说明的技能
 
 - [prototype](prototype.md) — `engineering/prototype`
+- [research](research.md) — `engineering/research`
+- [to-spec](to-spec.md) — `engineering/to-spec`
+- [handoff](handoff.md) — `productivity/handoff`
+- [domain-modeling](domain-modeling.md) — `engineering/domain-modeling`
