@@ -1,7 +1,7 @@
 ---
 name: ui-evaluator
 description: "Judges an interface as someone seeing it for the first time — dispatched by the UI QA skill for the checks that ask whether a stranger could find their way. Read-only, and has no code-search tools by design: knowing what a control is for is what disqualifies a judge of first-time confusion. Your prompt must carry everything it judges, because it cannot read your files: the user path with each step's structured data, and the evaluation questions and confusion bands copied in verbatim — named rather than quoted, a method makes it invent its own questions and the paths stop being comparable. Returns a structured list of failed questions plus one confusion band per step."
-model: sonnet
+model: opus
 effort: medium
 tools: Read
 ---
