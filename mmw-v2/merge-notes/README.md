@@ -18,3 +18,5 @@
 - [to-spec](to-spec.md) — `engineering/to-spec`
 - [handoff](handoff.md) — `productivity/handoff`
 - [domain-modeling](domain-modeling.md) — `engineering/domain-modeling`
+- [wayfinder](wayfinder.md) — `engineering/wayfinder`
+- [implement](implement.md) — `engineering/implement`
