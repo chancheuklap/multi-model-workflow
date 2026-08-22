@@ -24,7 +24,7 @@ Any statement in the document that a reader could reasonably question:
 - Net-new context — any "why," "when you'd use this," or "what problem it solves" framing not present in the sources
 - Any claim about how a skill, script, or tool in this repository behaves
 
-Opinions, definitions created by the doc itself, and procedural steps ("Select **Save**") are not claims.
+Opinions, definitions created by the doc itself, and procedural steps ("Select **Save**") are not claims. Framing that restates what the sources show without asserting anything new ("maintaining five copies means one edit misses four") is sourced by the facts it rests on — cite those; do not invent a status for it.
 
 ## Focus areas
 

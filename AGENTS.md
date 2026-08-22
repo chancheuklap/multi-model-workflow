@@ -9,9 +9,9 @@
 `mmw-v2/` 是唯一活跃的多模型工作流（Multi-Model Workflow，MMW）。
 
 `mmw/` 是上一代，已从本机全部卸载，留在仓库里只作为搬运来源：一件一件挑出还有用的东西搬进
-`mmw-v2/`，搬完即止。不要往 `mmw/` 里加东西，也不要修它。根上的 `README.md`、
-`mmw-skill-map.html`、`TESTING.md` 描述的都是上一代，尚未重写，读它们时按史料对待，
-不作为 `mmw-v2/` 的事实。
+`mmw-v2/`，搬完即止。不要往 `mmw/` 里加东西，也不要修它。根上的 `mmw-skill-map.html`、
+`TESTING.md` 描述的都是上一代，尚未重写，读它们时按史料对待，不作为 `mmw-v2/` 的事实。
+根上的 `README.md` 已按 `mmw-v2/` 重写。
 
 这个仓库现在没有领域上下文文档。原来的 `CONTEXT-MAP.md` 与 `docs/context/` 写的是上一代的
 词汇，已整个删掉，等有空重建。`.mmw.json` 的 `domain` 段留着那几个路径，重建时按它落位。

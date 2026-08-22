@@ -33,6 +33,8 @@ Do not assume that general industry knowledge applies to the thing you are docum
 3. **Flag uncertainty** — If you cannot verify a claim, explicitly mark it for the reader to confirm rather than presenting it as fact.
 4. **Verify terminology in context** — Established terms carry specific meaning. Verify not just that the term exists, but that it is used in the same context and with the same meaning as the source. A real term applied in the wrong context is as misleading as a fabricated one.
 
+**Language:** Write in the language the surrounding documents of the repository use. If they are mixed, use the language of the file the reader will open right before this one.
+
 **Tone:** Clear, direct, professional. Not condescending, not overly casual, not hyperbolic. Never use "simply," "just," "obviously," "clearly," "as everyone knows," or "it's easy to."
 
 ## Enhancement constraints
@@ -143,6 +145,6 @@ Give the checker:
 - the sources the document was built from — file paths, URLs, command output — so it can verify claims against them; anything you do not list, it searches the repository for
 - which parts are net new: explanations, analogies, "why" and "when" framing you added that the sources do not state
 
-The checker returns a claim table with each claim marked ✅ sourced, ❌ unsourced, or ⚠️ misleading. Do not present the table to the user. Fix every ❌ and ⚠️ in the document — remove the claim, add a source, or adjust the wording — then run the checker once more. If the second pass still has ❌ or ⚠️ findings, stop and show them to the user; do not loop a third time.
+The checker returns a claim table with each claim marked ✅ sourced, ❌ unsourced, or ⚠️ misleading, each with a severity. Do not present the table to the user. Fix every ❌ and ⚠️ in the document — remove the claim, add a source, or adjust the wording — then run the checker once more and fix what it finds. A fresh checker always finds a few low-severity rows; that is not a reason for a third pass. If the second pass reports a **critical** or **high** finding, show those rows to the user after fixing them. Do not run a third pass.
 
-The document is finished when the checker's table has no ❌ and no ⚠️.
+The document is finished after the second pass's findings are fixed.
