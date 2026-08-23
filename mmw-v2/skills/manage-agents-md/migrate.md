@@ -1,6 +1,6 @@
 # Migrate
 
-Branch: **rewrite**. You have `inventory.md` (the old files, read in full), `inputs.md` (their commands and imports), and `survey-list.md`. Now every old line gets a destination: a section of the new format, the maintainer's questions, or the removal list. No line is lost without a reason written down.
+Branch: **rewrite**. You have `inventory.md` (the old files, read in full), `inputs.md` (their commands and imports), and `survey-list.md`. Now every old line gets a destination: a section of the new format, the maintainer's questions, or the "what was removed" list. No line is lost without a reason written down.
 
 ## How to apply
 
@@ -9,7 +9,7 @@ Branch: **rewrite**. You have `inventory.md` (the old files, read in full), `inp
 3. **Extract commands** — every command in the old file passes through the command rule in [write.md](write.md): one whose meaning the manifest's scripts or `--help` already give stays in `inputs.md`; every other one is kept.
 4. **Break apart rules** — split any list of rules into individual `<important if>` blocks with specific conditions. You can group rules, but never group unrelated rules under one broad condition. A rule every task needs stays bare, as a convention or a gotcha.
 5. **Wrap domain sections** — testing, API patterns, state management, i18n, etc. each get their own block with a condition describing when that knowledge matters.
-6. **Send the rest to prune** — a line that matches the list in [prune.md](prune.md) gets `removed: <reason>` as its destination now, so the removal list is complete before writing starts.
+6. **Send the rest to prune** — a line that matches the list in [prune.md](prune.md) gets `removed: <reason>` as its destination now, so the "what was removed" list is complete before writing starts.
 
 Record the outcome as `destinations.md` in the scratch directory: one line per old line, as `<old file>:<line> → <destination>`, where the destination is a section name of the templates in [write.md](write.md), `ask` (identity lines only), `removed: <reason>`, or `blank` for an empty line; a heading, a table rule, or a code fence is `removed: markup`.
 
@@ -23,7 +23,7 @@ Then append every line whose destination is a section to `survey-list.md` as an 
 | Nested `AGENTS.md` whose only content says "read the override" | Replaced by the migrated body |
 | Nested `CLAUDE.md` holding `@AGENTS.override.md` | Rewritten to `@AGENTS.md` |
 | Root `CLAUDE.md` with several `@` lines | Keeps every import; `@AGENTS.md` is one of them; nothing else in the file |
-| A nested pair whose every rule moved to the root or was removed | Both files deleted; the directory goes on the removal list |
+| A nested pair whose every rule moved to the root or was removed | Both files deleted; the directory goes on the "what was removed" list |
 | `> ` metadata lines at the top of old files (last-checked commit, domain context, review scope) | Removed; git history is the anchor now |
 
 A nested file survives only on entries whose place is that directory.
