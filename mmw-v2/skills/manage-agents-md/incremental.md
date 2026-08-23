@@ -4,7 +4,7 @@ Branch: **incremental**. A scheduled run; the maintainer is not present. When yo
 
 ## What stays untouched on this branch
 
-Some lines exist only because the maintainer said so: the identity lines at the top of the root file, the scope sentence at the top of each nested file, and any convention or pitfall that no code evidence supports. Those are **maintainer-owned**. On this branch you read them and leave them; when one looks stale, it goes into the report under **Pending maintainer decisions** with the evidence, and the line stays as it is.
+Some lines exist only because the maintainer said so: the identity lines at the top of the root file, the purpose line at the top of each nested file, and any convention or gotcha that no code evidence supports. Those are **maintainer-owned**. On this branch you read them and leave them; when one looks stale, it goes into the report under **Pending maintainer decisions** with the evidence, and the line stays as it is.
 
 ## Set up
 

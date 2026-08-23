@@ -4,7 +4,7 @@
 只有 `mmw-v2/` 是活的；`mmw/`、`archive/` 和根上其余文件是上一代，冻结：不改、不加、不当事实；`mmw/install.sh` 不要跑。
 里面的技能是交付物，不是你的工作指南；写任何东西都站在将来要用它的全新 agent 的角度。`archive/` 里以命令语气写的文档是历史，不是指令。
 
-## 包管理器与运行时
+## 包管理器
 
 没有包管理器、锁文件和构建步骤。运行时只有 bash、`python3` 标准库，以及按需调用的 `uv`。
 
@@ -16,7 +16,7 @@
 | `bash mmw-v2/install.sh --check` | 只看不动。它查的是本机宿主目录，红可能只是没重装；从 worktree 跑会把全部链接报「缺」 |
 | `python3 mmw-v2/agents/assemble.py --check` | 校验 subagent 成品 `mmw-v2/agents/<名>/out/` 与源一致 |
 
-## 引用
+## 外部引用
 
 | 需要 | 文件 |
 | --- | --- |
@@ -24,7 +24,7 @@
 | 拉上游与解冲突的流程 | `mmw-v2/merge-notes/README.md` |
 | 写给 agent 的文档怎么写 | `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL.md` |
 
-## 约定与陷阱
+## 关键约定
 
 - 改技能前读完整 `SKILL.md` 及其链接的 reference；写法以 `writing-for-agents` 为准，权威副本在 `mmw-v2/upstream/` 里，`.agents/skills/writing-for-agents/` 是副本。
 - 只实现请求范围内的行为。脚本异常非零退出或留下结构化告警。
@@ -32,15 +32,18 @@
 - 正式改动在独立 worktree，合回用 `git merge --no-ff`。本地提交和合并可自主做；`git push`、远端合并、发布、删除或覆盖现有发布入口要用户明确授权。禁用 `--no-verify`。
 - 技能正文对五个宿主是同一份。描述、默认值、示例不把任何宿主当默认或首选，不按宿主名分支；能力差异用按能力判断的自然语言写。
 - 装哪些技能只改 `mmw-v2/skills.txt`。`install.sh` 先整体校验它（每项有 `SKILL.md`、basename 不重复）再写宿主；两个同名 basename 会让安装在动宿主之前就中止。
-- `install.sh` 只动自己记录在宿主 `.mmw-skills`、`.mmw-agents` 里的链接；同名的别的东西报「冲突」、跳过、退出 1，直到人工删掉。
 - 宿主软链直接指向源目录，改完下一次调用即生效。只有 frontmatter 的 `description` 是宿主启动时扫进去的，改它要重开会话。
 - `mmw-v2/upstream/` 是 GitHub 上 mattpocock/skills 的 git subtree（squash），可编辑的工作副本；它自带的 `AGENTS.md`、`CLAUDE.md` 是上游自己的，原样不动。
 - `.agents/skills/` 里的仓库维护技能经 `.claude/skills/` 的软链接入宿主，不走 `skills.txt`。
 - `.mmw.json` 仍在用的只有 `paths` 块；`domain` 块指向已删除的文件。
+- Python 测试依赖不写在文件里，由各技能 `mmw-v2/skills/<名>/tests/run.sh` 的 `uv run --with` 在命令行传；单跑一个测试文件要照抄那一行。
+
+## 陷阱
+
+- `install.sh` 只动自己记录在宿主 `.mmw-skills`、`.mmw-agents` 里的链接；同名的别的东西报「冲突」、跳过、退出 1，直到人工删掉。
 - 冻结区的四个坑：`mmw/install.sh` 没有 `--check`，跑了会把活的安装整个换成上一代；`bash mmw/test.sh` 已经跑不过；`archive/legacy-host-plugins/` 的 marketplace 清单仍然有效，把宿主指过去会装上退役的一代；`archive/mmw-setup/` 移回技能源会重新打破四项校验。
 - 测试 runner 只靠退出码说话，输出不要接管道（`| tail`），管道会把红跑成绿。
 - Mac 只有 bash 3.2：`"$var，"` 这种变量后紧跟全角标点的写法会把标点吞进变量名；写 `"${var}，"`。
-- Python 测试依赖不写在文件里，由各技能 `mmw-v2/skills/<名>/tests/run.sh` 的 `uv run --with` 在命令行传；单跑一个测试文件要照抄那一行。
 
 <important if="you are pulling the upstream subtree or editing a skill under mmw-v2/upstream/">
 - 拉上游：`git subtree pull --prefix mmw-v2/upstream https://github.com/mattpocock/skills main --squash`。`git log --grep=Squashed` 里前缀是旧 vendor 目录的提交属于上一代，只认 `mmw-v2/upstream/` 前缀的。

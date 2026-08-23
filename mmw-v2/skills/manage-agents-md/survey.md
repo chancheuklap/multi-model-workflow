@@ -55,14 +55,14 @@ Report format, one entry per fact, nothing else:
 - fact: one sentence
   evidence: <file>:<line>, or the command you ran and its output
   place: root | <directory path> | omit
-  type: command | convention | pitfall | reference | defect
+  type: command | convention | gotcha | reference | defect
   when: <one kind of work, only if the fact matters to that kind of work alone; leave the line out otherwise>
 
 A group that finds nothing reports the single line "nothing found".
 
-"place" is where the fact belongs: root when it holds everywhere, a directory path when it holds only under that directory, omit when it is obvious from the code or enforced by a linter, formatter, or type checker. "type": command for something to run, convention for how things are done here, pitfall for what goes wrong and how to avoid it, reference for a document that already covers a need (give its path as the fact), defect for something broken or stale in the repository (a wrong count, a dead link, an orphaned file) that someone should fix — a defect is reported, never written into an AGENTS.md. "when": the one kind of work the fact matters to (for example "adding or modifying API routes"); most facts have no when line.
+"place" is where the fact belongs: root when it holds everywhere, a directory path when it holds only under that directory, omit when it is obvious from the code or enforced by a linter, formatter, or type checker. "type": command for something to run, convention for how things are done here, gotcha for what goes wrong and how to avoid it, reference for a document that already covers a need (give its path as the fact), defect for something broken or stale in the repository (a wrong count, a dead link, an orphaned file) that someone should fix — a defect is reported, never written into an AGENTS.md. "when": the one kind of work the fact matters to (for example "adding or modifying API routes"); most facts have no when line.
 
-When two parts of the repository do the same thing differently, report both with their evidence and place "root"; the maintainer decides. When a documented command fails or a referenced file is missing, report that as a pitfall with the evidence.
+When two parts of the repository do the same thing differently, report both with their evidence and place "root"; the maintainer decides. When a documented command fails or a referenced file is missing, report that as a gotcha with the evidence.
 ```
 
 ## Collect

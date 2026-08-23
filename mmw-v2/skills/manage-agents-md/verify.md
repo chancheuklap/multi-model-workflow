@@ -44,6 +44,6 @@ What was NOT removed:
 ```
 ```
 
-followed by **Pending maintainer decisions**: one line per maintainer-owned line that looks stale, per empty pair, and per new pair awaiting its scope sentence — each with the file, the line, and the code evidence. The maintainer merges the branch after reading.
+followed by **Pending maintainer decisions**: one line per maintainer-owned line that looks stale, per empty pair, and per new pair awaiting its purpose line — each with the file, the line, and the code evidence. The maintainer merges the branch after reading.
 
 Done when `check.sh` prints `ok`, every command in every file you wrote or edited has been verified, and the report is written. On the incremental branch, done also requires the one commit on the branch.

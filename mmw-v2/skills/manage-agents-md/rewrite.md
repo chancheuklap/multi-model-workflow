@@ -1,6 +1,6 @@
 # Rewrite
 
-Branch: **rewrite**. The repository has agent instruction files in some form, and the user wants them redone. When you are done the old files are gone or rewritten, every command they held is still there, and what only the maintainer knows has been confirmed by the maintainer.
+Branch: **rewrite**. The repository has agent instruction files in some form, and the maintainer wants them redone. When you are done the old files are gone or rewritten, every command they held is still there, and what only the maintainer knows has been confirmed by the maintainer.
 
 ## Set up
 

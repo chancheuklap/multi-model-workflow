@@ -22,45 +22,57 @@ Write the file in this shape. A section with no entries is left out, heading inc
 
 <identity: one to four lines, from the entries of type identity — who it serves and what it solves; what stage it is at and whether real users, data, or money run through it; what this repository is not (split-out repositories, frozen directories); how an agent should treat the repository's contents. The tech stack is not identity.>
 
-## Package manager and runtime
+## Package Manager
 
-<one or two lines>
+<one or two lines: package manager and runtime>
 
 ## Commands
 
 | Command | What it does |
 | --- | --- |
-| `<command>` | <from entries of type command whose meaning --help and the manifest do not give; file-scoped test, lint, and typecheck commands first> |
+| `<command>` | <from entries of type command, filtered by the command rule below> |
 
-## References
+## External References
 
 | Need | File |
 | --- | --- |
 | <setup, architecture, API, security, release, policy> | `<repository-relative path, from entries of type reference>` |
 
-## Conventions and pitfalls
+## Key Conventions
 
-- <one rule per bullet, from entries of type convention or pitfall that have no when line>
+- <one per bullet, from entries of type convention with no when line: how things are done here — generated files and the command that regenerates them, fixed orderings, which of two records wins, deliberate unconventional choices and their reason>
+
+## Gotchas
+
+- <one per bullet, from entries of type gotcha with no when line: what goes wrong — problems debugged more than once, differences between machines and environments, legacy areas>
 
 <important if="<the when value: one kind of work>">
-<the entries that share this when value>
+<the convention and gotcha entries that share this when value>
 </important>
 
 Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.
 ```
 
+A fact that describes a practice is a convention; a fact that describes a consequence is a gotcha. "Generated files are not hand-edited; run `make gen`" is a convention; "hand edits under `gen/` are overwritten on the next build" is a gotcha.
+
 The last line is written exactly as shown, in English whatever the file's language. Hosts that load nested files on their own lose nothing by it; hosts that stop at the working directory depend on it.
 
-A root file carries only the sections above: no directory map, no environment variables, no list of installed skills, no commit attribution, no metadata header, no index of nested files. It is 150 lines at most; past that, rules that hold only in one directory move to that directory's file and documents get a row in References instead of a summary.
+A root file carries only the sections above: no directory map, no environment variables, no list of installed skills, no commit attribution, no metadata header, no index of nested files. It is 150 lines at most; past that, rules that hold only in one directory move to that directory's file and documents get a row in External References instead of a summary.
 
 ## Nested template
 
 ```markdown
 # <directory path>
 
-<scope: one sentence — what this directory owns and what it does not own, from the maintainer's nested-scope answer>
+<purpose: one sentence — what this directory owns and what it does not own, from the maintainer's nested-purpose answer>
 
-- <one rule per bullet, requirements and prohibitions mixed, from entries whose place is this directory>
+## Key Conventions
+
+- <from entries of type convention whose place is this directory>
+
+## Gotchas
+
+- <from entries of type gotcha whose place is this directory>
 
 ## Commands
 
@@ -68,40 +80,22 @@ A root file carries only the sections above: no directory map, no environment va
 | --- | --- |
 | `<only commands that apply here and the root does not list>` | |
 
-## References
+## External References
 
 | Need | File |
 | --- | --- |
 | <only documents that cover this directory and the root does not list> | `<path>` |
 ```
 
-Commands and References appear only when they have rows. A nested file says only what differs from the root: keep narrower files shorter than root files. Nothing in it points back to the root, wraps in `<important if>`, names a skill, or carries a metadata header.
+Every section after the purpose line appears only when it has rows. A nested file says only what differs from the root: keep narrower files shorter than root files. Nothing in it points back to the root, wraps in `<important if>`, names a skill, or carries a metadata header.
 
-## Wrapping in `<important if>`
+## Domain sections
 
-### Core Problem
+A **domain section** is guidance that only matters for certain tasks — testing patterns, API conventions, state management, i18n — wrapped in an `<important if>` block with a targeted condition. In the survey list it is every entry that carries a `when` line; entries with the same `when` value share one block.
 
-Claude Code injects a system reminder with every CLAUDE.md that says:
+Not everything goes in a domain section. Context that is relevant to virtually every task — identity, package manager, commands, external references, key conventions, gotchas — is left as plain markdown at the top of the file. This is onboarding context the agent always needs. The rule: inline what every task needs, and wrap what only some tasks reach.
 
-> "this context may or may not be relevant to your tasks. You should not respond to this context unless it is highly relevant to your task."
-
-This means Claude will ignore parts of your CLAUDE.md it deems irrelevant. The more content that isn't applicable to the current task, the more likely Claude is to ignore everything — including the parts that matter.
-
-### Solution: `<important if="condition">` Blocks
-
-Wrap conditionally-relevant sections of the CLAUDE.md in `<important if="condition">` XML tags. This exploits the same XML tag pattern used in Claude Code's own system prompt, giving the model an explicit relevance signal that cuts through the "may or may not be relevant" framing.
-
-The problem and the mechanism above are Claude Code's. A host whose system prompt uses this XML pattern acts on the tag; a host without it reads the tag as text, which costs a line and changes nothing. The format keeps the tag because it costs the other hosts nothing.
-
-### 1. Foundational context stays bare, domain guidance gets wrapped
-
-Not everything should be in an `<important if>` block. Context that is relevant to virtually every task — identity, runtime, commands, references, conventions — should be left as plain markdown at the top of the file. This is onboarding context the agent always needs.
-
-Domain-specific guidance that only matters for certain tasks — testing patterns, API conventions, state management, i18n — gets wrapped in `<important if>` blocks with targeted conditions.
-
-The rule: inline what every task needs, and wrap what only some tasks reach.
-
-### 2. Conditions must be specific and targeted
+Conditions must be specific and targeted.
 
 Bad — overly broad conditions that match everything:
 ```
@@ -132,35 +126,22 @@ Good — each rule has its own narrow trigger:
 
 Write the smallest useful file. Use only sections that add non-obvious value.
 
-- **Concise**: Dense, human-readable content; one line per concept when possible
-- **Actionable**: Commands should be copy-paste ready
-- **Project-specific**: Document patterns unique to this project, not generic advice
-- **Current**: All info should reflect actual codebase state
-
-- Use headings, bullets, and tables; avoid paragraphs.
-- Use repo-relative paths; avoid vague references like "see docs".
-- A path that stands for a whole class of files carries a `<name>` placeholder for the varying segment (`mmw-v2/skills/<name>/tests/run.sh`); `scripts/check.sh` skips a backticked token with `<…>` and checks every other slashed token against the disk.
-- Reference existing docs/specs/policies instead of copying them.
-- List exact external files for setup, architecture, API specs, security, release, and policy docs when they exist.
-- Prefer file-scoped test/lint/typecheck commands; include full builds only when no narrower command exists.
-- Put commands in tables when there is more than one.
-- Keep one rule per bullet.
-- Keep rationale out unless it prevents a likely mistake.
-- Do not restate linter, formatter, or typechecker config.
-- Do not list installed skills or plugins.
-- Do not include generic quality slogans.
-
-State each rule as the behaviour to perform. A prohibition stays only where no positive phrasing exists, and then sits next to the positive target.
-
-Where the rules above meet this format:
-
-- The identity lines are the one place prose is allowed; every other section is headings, bullets, and tables.
-- "Keep rationale out unless it prevents a likely mistake" and "cache the reason behind a choice" agree: the reason behind a deliberate unconventional choice is what stops the next agent from "fixing" it, so that reason stays; any other reason goes.
-- Commands that the old file held are all kept (see [migrate.md](migrate.md)); commands the survey newly found are filtered by the file-scoped rule above and by the cache test in [prune.md](prune.md).
+| Rule | Meaning |
+| --- | --- |
+| Concise | One line per concept. Dense, human-readable content; no verbose explanations |
+| Actionable | Commands are copy-paste ready; paths are real; steps are concrete, not vague |
+| Project-specific | Patterns unique to this project, not generic advice |
+| Current | Every line reflects the codebase as it is now |
+| Form | Headings, bullets, and tables; the identity lines are the one place prose is allowed. One rule per bullet. Commands in a table when there is more than one |
+| Paths | Repo-relative, never "see docs". A path that stands for a whole class of files carries a `<name>` placeholder for the varying segment (`mmw-v2/skills/<name>/tests/run.sh`); `scripts/check.sh` skips a backticked token with `<…>` and checks every other slashed token against the disk |
+| External References | Name the exact file for setup, architecture, API specs, security, release, and policy docs when they exist; reference them instead of copying them |
+| Commands | Only commands whose meaning `--help` and the manifest's scripts do not give; file-scoped test, lint, and typecheck commands first, full builds only when no narrower command exists. On a rewrite every command in the old file passes through this rule: one whose meaning is discoverable stays in `inputs.md`, every other one is kept |
+| Rationale | One kind only — the reason behind a deliberate unconventional choice, which stops the next agent from "fixing" it. No other reason is written |
+| Phrasing | State each rule as the behaviour to perform. A prohibition stays only where no positive phrasing exists, and then sits next to the positive target |
 
 ## Pointers
 
-A References row and the subdirectory sentence are context pointers: their wording decides whether an agent reaches the file.
+An External References row and the subdirectory sentence are context pointers: their wording decides whether an agent reaches the file.
 
 - **Front-load the leading word**: the pointer is where it does its triggering work.
 - **One trigger per branch.** Synonyms that rename a single branch are one branch written twice; collapse them and keep only genuinely distinct branches.
