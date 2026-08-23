@@ -20,4 +20,6 @@ find . \( -name .git -o -name node_modules -o -name .worktrees -o -name .claude 
 | Any file, and a person asked you (to rewrite, migrate, redo, or change these files) | **rewrite** | [rewrite.md](rewrite.md) |
 | Any file, and the prompt that started you says this is the scheduled incremental update | **incremental** | [incremental.md](incremental.md) |
 
+Nothing found and a scheduled prompt means the create branch has never run: report that and stop.
+
 Remember your branch name; the shared steps ask for it at their end to send you on.
