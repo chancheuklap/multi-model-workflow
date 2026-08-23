@@ -37,6 +37,7 @@
 - `mmw-v2/upstream/` 是 GitHub 上 mattpocock/skills 的 git subtree（squash），可编辑的工作副本；它自带的 `AGENTS.md`、`CLAUDE.md` 是上游自己的，原样不动。
 - `.agents/skills/` 里的仓库维护技能经 `.claude/skills/` 的软链接入宿主，不走 `skills.txt`。
 - `.mmw.json` 仍在用的只有 `paths` 块；`domain` 块指向已删除的文件。
+- 冻结区的四个坑：`mmw/install.sh` 没有 `--check`，跑了会把活的安装整个换成上一代；`bash mmw/test.sh` 已经跑不过；`archive/legacy-host-plugins/` 的 marketplace 清单仍然有效，把宿主指过去会装上退役的一代；`archive/mmw-setup/` 移回技能源会重新打破四项校验。
 - 测试 runner 只靠退出码说话，输出不要接管道（`| tail`），管道会把红跑成绿。
 - Mac 只有 bash 3.2：`"$var，"` 这种变量后紧跟全角标点的写法会把标点吞进变量名；写 `"${var}，"`。
 - Python 测试依赖不写在文件里，由各技能 `mmw-v2/skills/<名>/tests/run.sh` 的 `uv run --with` 在命令行传；单跑一个测试文件要照抄那一行。
