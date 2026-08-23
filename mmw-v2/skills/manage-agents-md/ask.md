@@ -37,7 +37,7 @@ The recommended answer quotes the survey entry and its evidence. When the survey
 
 ## Nested scope, one question per directory
 
-A directory **earns a pair** when the survey list has at least one entry of type command, convention, or pitfall whose place is that directory. For every directory that earns a pair: "What is `<directory>` not responsible for?" The recommended answer is that directory group's scope finding.
+A directory **earns a pair** when the survey list has at least one entry of type command, convention, or pitfall whose place is that directory; entries of type defect and reference do not count. Ask about every directory that earns a pair in one question: a table with one row per directory, the recommended scope sentence in the second column, drawn from that directory group's scope finding. The maintainer edits rows or strikes directories out.
 
 ## Record
 

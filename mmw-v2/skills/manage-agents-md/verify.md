@@ -18,9 +18,9 @@ Verify exact paths and commands exist. The script covers paths. Commands you ver
 
 The report goes into the conversation (or the scheduled run's output), never into a file in the repository.
 
-**create** — the files written with their line counts, and the maintainer answers that became lines.
+**create** — the files written with their line counts, and the maintainer answers that became lines. Then **Defects found**: every survey entry of type defect, one line each with its evidence.
 
-**rewrite** — the two lists from the end of `destinations.md`:
+**rewrite** — the two lists from the end of `destinations.md`, then **Defects found** as above:
 
 ```
 What was removed and why:

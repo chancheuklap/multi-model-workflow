@@ -1,6 +1,10 @@
 # Write
 
-Branches **create** and **rewrite**. You have `survey-list.md`, with the maintainer's answers appended. You now write the files, root first, one at a time, from that list alone. Each line you write comes from one entry; an idea with no entry is not written.
+Branches **create** and **rewrite**. You have `survey-list.md`, with the maintainer's answers appended. You now write the files, root first, one at a time, from that list alone. Each line you write comes from one entry; an idea with no entry is not written. Entries of type defect are never written; they go to the report.
+
+## Language
+
+Write in the language the repository's existing instruction files use; on the create branch, the language the maintainer answered in. Translate the section headings of the templates; keep the subdirectory sentence in English as shown, because `scripts/check.sh` looks for it by its English words.
 
 ## Steps
 
@@ -45,7 +49,7 @@ Write the file in this shape. A section with no entries is left out, heading inc
 Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.
 ```
 
-The last line is written exactly as shown. Hosts that load nested files on their own lose nothing by it; hosts that stop at the working directory depend on it.
+The last line is written exactly as shown, in English whatever the file's language. Hosts that load nested files on their own lose nothing by it; hosts that stop at the working directory depend on it.
 
 A root file carries only the sections above: no directory map, no environment variables, no list of installed skills, no commit attribution, no metadata header, no index of nested files. It is 150 lines at most; past that, rules that hold only in one directory move to that directory's file and documents get a row in References instead of a summary.
 
@@ -116,6 +120,7 @@ The tag acts on a host whose own system prompt uses this XML pattern; a host wit
 
 - Use headings, bullets, and tables; avoid paragraphs.
 - Use repo-relative paths; avoid vague references like "see docs".
+- A path that stands for a whole class of files carries a `<name>` placeholder for the varying segment (`mmw-v2/skills/<name>/tests/run.sh`); `scripts/check.sh` skips a backticked token with `<…>` and checks every other slashed token against the disk.
 - Reference existing docs/specs/policies instead of copying them.
 - List exact external files for setup, architecture, API specs, security, release, and policy docs when they exist.
 - Prefer file-scoped test/lint/typecheck commands; include full builds only when no narrower command exists.
