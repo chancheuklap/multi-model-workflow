@@ -20,3 +20,4 @@
 - [domain-modeling](domain-modeling.md) — `engineering/domain-modeling`
 - [wayfinder](wayfinder.md) — `engineering/wayfinder`
 - [implement](implement.md) — `engineering/implement`
+- [wait-what](wait-what.md) — `productivity/wait-what`
