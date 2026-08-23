@@ -12,7 +12,7 @@ For each file in `scope.md`:
 
 ## What TO Add
 
-### 1. Commands discovered
+### 1. Commands/Workflows Discovered
 
 ```markdown
 ## Commands
@@ -23,9 +23,9 @@ For each file in `scope.md`:
 | `npm run build:dev` | Fast dev build (no minification) |
 ```
 
-Why: saves future sessions from discovering these again.
+Why: Saves future sessions from discovering these again.
 
-### 2. Gotchas
+### 2. Gotchas and Non-Obvious Patterns
 
 ```markdown
 ## Gotchas
@@ -34,30 +34,31 @@ Why: saves future sessions from discovering these again.
 - `yarn.lock` is authoritative; delete `node_modules` if deps mismatch
 ```
 
-Why: prevents repeating debugging sessions.
+Why: Prevents repeating debugging sessions.
 
-### 3. Package relationships
+### 3. Package Relationships
 
 ```markdown
 ## Key Conventions
 
-- The `auth` module depends on `crypto` being initialized first; import order in `src/bootstrap.ts` matters
+- The `auth` module depends on `crypto` being initialized first.
+- Import order matters in `src/bootstrap.ts`.
 ```
 
-Why: architecture knowledge that isn't obvious from code.
+Why: Architecture knowledge that isn't obvious from code.
 
-### 4. Testing approaches that worked
+### 4. Testing Approaches That Worked
 
 ```markdown
 <important if="you are writing or modifying tests">
-- API endpoints: use `supertest` with the test helper in `tests/setup.ts`
-- Mocking: factory functions in `tests/factories/` (not inline mocks)
+For API endpoints: Use `supertest` with the test helper in `tests/setup.ts`
+Mocking: Factory functions in `tests/factories/` (not inline mocks)
 </important>
 ```
 
-Why: establishes patterns that work.
+Why: Establishes patterns that work.
 
-### 5. Configuration quirks
+### 5. Configuration Quirks
 
 ```markdown
 ## Gotchas
@@ -66,7 +67,7 @@ Why: establishes patterns that work.
 - Redis connection requires `?family=0` suffix for IPv6
 ```
 
-Why: environment-specific knowledge.
+Why: Environment-specific knowledge.
 
 ## Where an addition goes
 

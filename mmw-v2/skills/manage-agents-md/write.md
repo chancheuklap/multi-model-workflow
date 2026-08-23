@@ -91,11 +91,15 @@ Every section after the purpose line appears only when it has rows. A nested fil
 
 ## Domain sections
 
-A **domain section** is guidance that only matters for certain tasks — testing patterns, API conventions, state management, i18n — wrapped in an `<important if>` block with a targeted condition. In the survey list it is every entry that carries a `when` line; entries with the same `when` value share one block.
+### 1. Foundational context stays bare, domain guidance gets wrapped
 
-Not everything goes in a domain section. Context that is relevant to virtually every task — identity, package manager, commands, external references, key conventions, gotchas — is left as plain markdown at the top of the file. This is onboarding context the agent always needs. The rule: inline what every task needs, and wrap what only some tasks reach.
+Not everything should be in an `<important if>` block. Context that is relevant to virtually every task — identity, package manager, commands, external references, key conventions, gotchas — should be left as plain markdown at the top of the file. This is onboarding context the agent always needs.
 
-Conditions must be specific and targeted.
+Domain-specific guidance that only matters for certain tasks — testing patterns, API conventions, state management, i18n — gets wrapped in `<important if>` blocks with targeted conditions. Such a block is a **domain section**; in the survey list it is every entry that carries a `when` line, and entries with the same `when` value share one block.
+
+The rule: inline what every task needs, and wrap what only some tasks reach.
+
+### 2. Conditions must be specific and targeted
 
 Bad — overly broad conditions that match everything:
 ```
@@ -126,18 +130,19 @@ Good — each rule has its own narrow trigger:
 
 Write the smallest useful file. Use only sections that add non-obvious value.
 
-| Rule | Meaning |
-| --- | --- |
-| Concise | One line per concept. Dense, human-readable content; no verbose explanations |
-| Actionable | Commands are copy-paste ready; paths are real; steps are concrete, not vague |
-| Project-specific | Patterns unique to this project, not generic advice |
-| Current | Every line reflects the codebase as it is now |
-| Form | Headings, bullets, and tables; the identity lines are the one place prose is allowed. One rule per bullet. Commands in a table when there is more than one |
-| Paths | Repo-relative, never "see docs". A path that stands for a whole class of files carries a `<name>` placeholder for the varying segment (`mmw-v2/skills/<name>/tests/run.sh`); `scripts/check.sh` skips a backticked token with `<…>` and checks every other slashed token against the disk |
-| External References | Name the exact file for setup, architecture, API specs, security, release, and policy docs when they exist; reference them instead of copying them |
-| Commands | Only commands whose meaning `--help` and the manifest's scripts do not give; file-scoped test, lint, and typecheck commands first, full builds only when no narrower command exists. On a rewrite every command in the old file passes through this rule: one whose meaning is discoverable stays in `inputs.md`, every other one is kept |
-| Rationale | One kind only — the reason behind a deliberate unconventional choice, which stops the next agent from "fixing" it. No other reason is written |
-| Phrasing | State each rule as the behaviour to perform. A prohibition stays only where no positive phrasing exists, and then sits next to the positive target |
+- **Concise**: Dense, human-readable content; one line per concept when possible
+- **Actionable**: Commands should be copy-paste ready
+- **Project-specific**: Document patterns unique to this project, not generic advice
+- **Current**: All info should reflect actual codebase state
+
+- Use headings, bullets, and tables; avoid paragraphs outside the identity lines.
+- Use repo-relative paths; avoid vague references like "see docs". A path that stands for a whole class of files carries a `<name>` placeholder for the varying segment (`mmw-v2/skills/<name>/tests/run.sh`); `scripts/check.sh` skips a backticked token with `<…>` and checks every other slashed token against the disk.
+- List exact external files for setup, architecture, API specs, security, release, and policy docs when they exist.
+- Prefer file-scoped test/lint/typecheck commands; include full builds only when no narrower command exists. Write only commands whose meaning `--help` and the manifest's scripts do not give. On a rewrite every command in the old file passes through this rule: one whose meaning is discoverable stays in `inputs.md`, every other one is kept.
+- Put commands in tables when there is more than one.
+- Keep one rule per bullet.
+- Keep rationale out unless it prevents a likely mistake. The one rationale that does is the reason behind a deliberate unconventional choice: it stops the next agent from "fixing" it.
+- State each rule as the behaviour to perform. A prohibition stays only where no positive phrasing exists, and then sits next to the positive target.
 
 ## Pointers
 
