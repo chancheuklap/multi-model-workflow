@@ -1,21 +1,13 @@
 # Create
 
-The repository has no agent instruction file. You will survey it, ask the maintainer what the repository cannot tell you, then write the root `AGENTS.md`, its `CLAUDE.md`, and a nested pair for every directory that has a rule of its own.
+Branch: **create**. The repository has no agent instruction file. When you are done it has a root `AGENTS.md` with a `CLAUDE.md` beside it, and the same pair in every directory that has a rule of its own.
 
-## Before the shared steps
+## Set up
 
-1. Resolve the repository root: `git rev-parse --show-toplevel`. Every path you write from now on is relative to it. If the directory is not a git repository, stop and say so; the incremental branch depends on git history.
-2. Confirm the premise: `find . \( -name .git -o -name node_modules -o -name .worktrees -o -name .claude -o -name .codex -o -name .pi -o -name .venv -o -name vendor \) -prune -o \( -name AGENTS.md -o -name CLAUDE.md -o -name AGENTS.override.md \) -print` (the directories `scripts/check.sh` skips) returns nothing. If it returns anything, switch to [rewrite.md](rewrite.md).
-3. Note other tools' instruction files as survey input, not as templates: `.cursor/rules/`, `.cursorrules`, `.github/copilot-instructions.md`, `GEMINI.md`. The survey reads them for facts; nothing is copied from them by form.
+1. Resolve the repository root with `git rev-parse --show-toplevel` and work from there; every path you write from now on is relative to it. If this is not a git repository, stop and tell the user: the skill's update branch reads git history and this repository has none.
+2. Make a scratch directory outside the repository, for example `mktemp -d`, and keep its path. Survey reports and the maintainer's answers go there, never into the repository.
+3. List other tools' instruction files, if any: `.cursor/rules/`, `.cursorrules`, `.github/copilot-instructions.md`, `GEMINI.md`. Write the list into the scratch directory as `inputs.md`. They are survey input: read for facts, their form is not reused.
 
-Done when the root is resolved, the premise holds, and the list from step 3 is written down for the survey.
+Done when the root is resolved, the scratch directory exists, and `inputs.md` is in it (empty is fine).
 
-The branch is done when [verify.md](verify.md) reports `ok` and every maintainer answer is either a line in a file or recorded as "no".
-
-## Shared steps, in order
-
-1. [survey.md](survey.md) — the whole repository, topic groups and directory groups.
-2. [ask.md](ask.md) — the fixed questions, with recommended answers drawn from the survey.
-3. [write.md](write.md) — decide which directories get a nested file; write root and nested files.
-4. [prune.md](prune.md) — cut what must not be there; run the self-check.
-5. [verify.md](verify.md) — run the checks; report what was written.
+Next: [survey.md](survey.md).

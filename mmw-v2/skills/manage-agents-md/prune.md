@@ -1,6 +1,6 @@
 # Prune
 
-Every line of an `AGENTS.md` is read on every turn. Only add information that will genuinely help future sessions. The context window is precious - every line must earn its place. Go through the file you just wrote line by line against the list below, then run the self-check.
+All branches. The files are written. Now read each one you wrote or edited line by line, first against the list of what must not be there, then with the four pruning tests, then through the self-check. Every line is read on every turn of every future session; each one earns its place here or leaves.
 
 ## What NOT to Add
 
@@ -59,7 +59,7 @@ Cut code snippets. They go stale and bloat the file. Use file path references in
 
 Do not list installed skills or plugins.
 
-### 8. Duplicated content from `README.md`, `CONTRIBUTING.md`, or policy docs
+### 8. Copies of `README.md`, `CONTRIBUTING.md`, or policy docs
 
 Reference existing docs/specs/policies instead of copying them.
 
@@ -95,4 +95,6 @@ Red flags to look for while checking:
 - "TODO" items never completed
 - Duplicate info across multiple AGENTS.md files
 
-Done when every line survived the list above, every check answers yes, and no red flag remains.
+Done when every line of every file you wrote or edited has passed the list, the four tests, and the self-check, and no red flag remains.
+
+Next: [verify.md](verify.md).

@@ -1,23 +1,16 @@
 # Rewrite
 
-The repository already has agent instruction files in some form. You will inventory them, survey the repository, migrate the old content into the one format, confirm with the maintainer what only they know, and write the new files in place of the old.
+Branch: **rewrite**. The repository has agent instruction files in some form, and the user wants them redone. When you are done the old files are gone or rewritten, every command they held is still there, and what only the maintainer knows has been confirmed by the maintainer.
 
-## Before the shared steps
+## Set up
 
-1. Resolve the repository root: `git rev-parse --show-toplevel`.
-2. Inventory every existing file, skipping the directories `scripts/check.sh` skips: `find . \( -name .git -o -name node_modules -o -name .worktrees -o -name .claude -o -name .codex -o -name .pi -o -name .venv -o -name vendor \) -prune -o \( -name AGENTS.md -o -name CLAUDE.md -o -name AGENTS.override.md \) -print`. Write the list down with each file's line count. This list is the migration's input and the final report's baseline.
-3. Read every file on the list in full. While reading, copy out two things into a scratch note: every command (with the line it came from), and every `@import` line in any `CLAUDE.md`. Commands are kept whole in the rewrite; imports other than `@AGENTS.md` are kept in the root bridge.
-4. Note other tools' instruction files as survey input: `.cursor/rules/`, `.cursorrules`, `.github/copilot-instructions.md`, `GEMINI.md`.
+1. Resolve the repository root with `git rev-parse --show-toplevel` and work from there. Make a scratch directory outside the repository (`mktemp -d`) and keep its path.
+2. Inventory the old files. Run the `find` from [SKILL.md](SKILL.md) again and save its output, one path per line with the file's line count, as `inventory.md` in the scratch directory. This is the migration's input and the final report's baseline.
+3. Read every file in the inventory in full. While reading, append to `inputs.md` in the scratch directory:
+   - every command, with the file and line it came from — commands are kept whole through the rewrite;
+   - every `@` line in every `CLAUDE.md` — imports other than `@AGENTS.md` survive in the root bridge;
+   - the paths of other tools' instruction files, if any: `.cursor/rules/`, `.cursorrules`, `.github/copilot-instructions.md`, `GEMINI.md`.
 
-Done when the inventory exists, every file on it has been read, and the scratch note lists every command and every import.
+Done when `inventory.md` lists every old file, every one of them has been read, and `inputs.md` holds every command and every import.
 
-The branch is done when [verify.md](verify.md) reports `ok` and the removal list accounts for every inventoried line.
-
-## Shared steps, in order
-
-1. [survey.md](survey.md) — the whole repository; the inventory and the scratch note go to the surveyors as extra input.
-2. [migrate.md](migrate.md) — map old content onto the new format; decide per line: keep, move, or drop.
-3. [ask.md](ask.md) — the fixed questions. Old identity and convention lines are the recommended answers; the maintainer confirms or corrects each one.
-4. [write.md](write.md) — write root and nested files.
-5. [prune.md](prune.md) — cut what must not be there; run the self-check.
-6. [verify.md](verify.md) — run the checks; report what was removed and why, and what was kept.
+Next: [survey.md](survey.md).

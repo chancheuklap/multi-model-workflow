@@ -1,8 +1,8 @@
 # Ask the maintainer
 
-The survey gives you what the repository shows. Four things it cannot show: who the project serves and how serious it is, what this repository is not, the conventions nobody wrote down, and the reasons behind the odd choices. You get those by asking the maintainer the fixed questions below, each with a recommended answer drawn from the survey, so the maintainer confirms or corrects instead of composing.
+Branches **create** and **rewrite**. The survey list holds what the repository shows. Four things it cannot show: who the project serves and how serious it is, what this repository is not, the conventions nobody wrote down, and the reasons behind the odd choices. You get those from the maintainer now, with the fixed questions below. Each question carries a recommended answer drawn from the survey list, so the maintainer confirms or corrects instead of composing.
 
-This is one round of questions and answers. It is not a design interview: the questions are fixed, there is no follow-up tree, and nothing else is asked here.
+This is one round: the questions are fixed, there is no follow-up tree, and nothing else is asked here.
 
 ## Format
 
@@ -16,7 +16,7 @@ Each question should be formatted like so:
 ➡️ <your recommended answer>
 ```
 
-The recommended answer comes from the survey: quote the fact and its evidence. When the survey has nothing for a question, say "the survey found nothing for this" as the recommended answer; do not invent one. On a rewrite, the old file's line is the recommended answer for the question it answers, marked "from the current file".
+The recommended answer quotes the survey entry and its evidence. When the survey list has nothing for a question, the recommended answer is "the survey found nothing for this". On the rewrite branch, the lines `migration.md` sent to "ask" are the recommended answers, each marked "from the current file".
 
 ## Project identity, four questions
 
@@ -37,10 +37,12 @@ The recommended answer comes from the survey: quote the fact and its evidence. W
 
 ## Nested scope, one question per directory
 
-For every directory that will get its own `AGENTS.md`: "What is `<directory>` not responsible for?" The recommended answer is the directory group's scope finding.
+For every directory whose survey entries have a `place` of their own: "What is `<directory>` not responsible for?" The recommended answer is that directory group's scope finding.
 
-## Recording
+## Record
 
-Write the answers into the survey list as entries with `evidence: maintainer, <date>` and the place and type they belong to. An answer of "no" or "nothing" is recorded too, so the writer does not go looking.
+Append every answer to `survey-list.md` as an entry with `evidence: maintainer, <date>`, the place it belongs to, and its type. An answer of "no" or "nothing" is appended too, so the writer does not go looking. Identity answers take the type `identity`.
 
-Done when every question has a recorded answer or the maintainer's explicit "skip".
+Done when every question has an appended answer or the maintainer's explicit "skip".
+
+Next: [write.md](write.md).

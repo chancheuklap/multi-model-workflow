@@ -5,14 +5,19 @@ description: Create, rewrite, or incrementally update a repository's AGENTS.md a
 
 # Manage AGENTS.md
 
-This file only routes. Pick the branch, open its file, and follow that file; it names the shared steps in the order they run. Every AGENTS.md this skill produces follows the one format in [write.md](write.md).
+You are about to maintain a repository's agent instruction files. There are three situations and one file for each. Find yours below, open that file, and follow it to the end; from then on every file you read ends by naming the next one.
 
-| Situation | Branch |
-| --- | --- |
-| The repository has no `AGENTS.md` and no `CLAUDE.md` anywhere | [create.md](create.md) |
-| Any `AGENTS.md`, `CLAUDE.md`, or `AGENTS.override.md` exists and the user asked to rewrite, migrate, or redo them | [rewrite.md](rewrite.md) |
-| The prompt says this is the scheduled incremental update | [incremental.md](incremental.md) |
+From the repository root, list what exists:
 
-A repository with nested instruction files but no root file is a rewrite, not a create. When the user asked for something else about these files (one addition, one fix), treat it as a rewrite scoped to what they asked.
+```bash
+find . \( -name .git -o -name node_modules -o -name .worktrees -o -name .claude -o -name .codex -o -name .pi -o -name .venv -o -name vendor \) -prune \
+  -o \( -name AGENTS.md -o -name CLAUDE.md -o -name AGENTS.override.md \) -print
+```
 
-The branch is chosen when you have run `find` for the three filenames and matched one row. Do not start a branch on a guess.
+| What you see | Your branch | Open |
+| --- | --- | --- |
+| Nothing | **create** | [create.md](create.md) |
+| Any file, and a person asked you (to rewrite, migrate, redo, or change these files) | **rewrite** | [rewrite.md](rewrite.md) |
+| Any file, and the prompt that started you says this is the scheduled incremental update | **incremental** | [incremental.md](incremental.md) |
+
+Remember your branch name; the shared steps ask for it at their end to send you on.

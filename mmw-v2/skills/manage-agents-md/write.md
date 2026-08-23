@@ -1,38 +1,77 @@
 # Write
 
-One format for every `AGENTS.md` this skill produces. You write from the merged survey list and the maintainer's answers, one file at a time, root first.
+Branches **create** and **rewrite**. You have `survey-list.md`, with the maintainer's answers appended. You now write the files, root first, one at a time, from that list alone. Each line you write comes from one entry; an idea with no entry is not written.
 
-## Root files
+## Steps
 
-`AGENTS.md` is the only body, 150 lines at most. `CLAUDE.md` beside it is a bridge: the line `@AGENTS.md`, plus any other `@import` lines the repository already had. No symlinks.
+1. **Decide the nested directories.** Every `place` in the survey list that is a directory path and holds at least one entry of type command, convention, or pitfall gets its own pair. One entry is enough. A place whose entries are all of type `omit` gets nothing.
+2. **Write the root `AGENTS.md`** on the root template below, from the entries whose place is `root`.
+3. **Write the root `CLAUDE.md`**: the line `@AGENTS.md`, plus any other `@` lines `inputs.md` recorded from the old root `CLAUDE.md`. Nothing else.
+4. **Write each nested pair** on the nested template, from the entries whose place is that directory. The `CLAUDE.md` beside it holds the one line `@AGENTS.md`.
 
-Sections, in this order. Use only the ones that have content; a section with nothing to say is left out, not left empty.
+## Root template
 
-1. **Identity** — one to four lines, from the maintainer's answers, not from the manifest: who it serves and what it solves; what stage it is at and whether real users, data, or money run through it; what this repository is not (split-out repositories, frozen directories); how an agent should treat the repository's contents. The tech stack is not identity.
-2. **Package manager and runtime** — one or two lines.
-3. **Commands** — only commands whose meaning `--help` and the manifest's scripts do not give; prefer file-scoped test, lint, and typecheck commands. A table when there is more than one.
-4. **References** — two columns, "Need" and "File", repository-relative paths to documents that already exist: setup, architecture, API, security, release, policy.
-5. **Conventions and pitfalls** — one rule per bullet: generated files and the command that regenerates them; fixed orderings; which of two records wins; problems debugged more than once; deliberate unconventional choices and why; differences between machines and environments; legacy areas. Rationale only where it prevents a likely mistake.
-6. **Task-scoped sections** — guidance that matters only for one kind of work, each wrapped in `<important if="...">` (below).
-7. **The subdirectory sentence**, verbatim:
-   ```
-   Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.
-   ```
-   Hosts that load nested files on their own lose nothing; hosts that stop at the working directory depend on it.
+Write the file in this shape. A section with no entries is left out, heading included.
 
-Not in a root file: a directory map, environment variables, the list of installed skills, commit attribution, metadata headers, an index of nested files.
+```markdown
+# AGENTS.md
 
-## Nested files
+<identity: one to four lines, from the entries of type identity — who it serves and what it solves; what stage it is at and whether real users, data, or money run through it; what this repository is not (split-out repositories, frozen directories); how an agent should treat the repository's contents. The tech stack is not identity.>
 
-`AGENTS.md` with the body, `CLAUDE.md` with `@AGENTS.md`. The body file is always named `AGENTS.md`.
+## Package manager and runtime
 
-A directory gets a nested pair when the survey or the maintainer gives one rule that holds only there and the root does not carry. One rule is enough.
+<one or two lines>
 
-Sections: a scope sentence (what the directory owns and does not own); rules, one per bullet, requirements and prohibitions mixed; then only if present, commands that apply only here and references to documents that cover only here.
+## Commands
 
-Not in a nested file: a line pointing back to the root, `<important if>` blocks, skill ownership, metadata headers.
+| Command | What it does |
+| --- | --- |
+| `<command>` | <from entries of type command whose meaning --help and the manifest do not give; file-scoped test, lint, and typecheck commands first> |
 
-Keep narrower files shorter than root files; a nested file says only what differs from the root.
+## References
+
+| Need | File |
+| --- | --- |
+| <setup, architecture, API, security, release, policy> | `<repository-relative path, from entries of type reference>` |
+
+## Conventions and pitfalls
+
+- <one rule per bullet, from entries of type convention or pitfall that every task needs>
+
+<important if="<a specific trigger: one kind of work>">
+<entries of type convention or pitfall that only this kind of work reaches>
+</important>
+
+Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.
+```
+
+The last line is written exactly as shown. Hosts that load nested files on their own lose nothing by it; hosts that stop at the working directory depend on it.
+
+A root file carries only the sections above: no directory map, no environment variables, no list of installed skills, no commit attribution, no metadata header, no index of nested files. It is 150 lines at most; past that, rules that hold only in one directory move to that directory's file and documents get a row in References instead of a summary.
+
+## Nested template
+
+```markdown
+# <directory path>
+
+<scope: one sentence — what this directory owns and what it does not own, from the maintainer's nested-scope answer>
+
+- <one rule per bullet, requirements and prohibitions mixed, from entries whose place is this directory>
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `<only commands that apply here and the root does not list>` | |
+
+## References
+
+| Need | File |
+| --- | --- |
+| <only documents that cover this directory and the root does not list> | `<path>` |
+```
+
+Commands and References appear only when they have rows. A nested file says only what differs from the root: keep narrower files shorter than root files. Nothing in it points back to the root, wraps in `<important if>`, names a skill, or carries a metadata header.
 
 ## Wrapping in `<important if>`
 
@@ -91,39 +130,12 @@ State each rule as the behaviour to perform. A prohibition stays only where no p
 
 ## Pointers
 
-A reference-table row and the subdirectory sentence are context pointers: the wording decides whether the agent reaches the file.
+A References row and the subdirectory sentence are context pointers: their wording decides whether an agent reaches the file.
 
 - **Front-load the leading word**: the pointer is where it does its triggering work.
 - **One trigger per branch.** Synonyms that rename a single branch are one branch written twice; collapse them and keep only genuinely distinct branches.
 - **Cut identity the body already carries.**
 
-## Output structure
+Done when every pair from step 1 exists, every line in every file traces to one survey-list entry, and the root is within 150 lines.
 
-```
-# AGENTS.md
-
-[identity, one to four lines]
-
-## Package manager and runtime
-[one or two lines]
-
-## Commands
-[table]
-
-## References
-| Need | File |
-|---|---|
-
-## Conventions and pitfalls
-- [one rule]
-
-<important if="<specific trigger for domain area 1>">
-[guidance]
-</important>
-
-... more domain sections ...
-
-Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.
-```
-
-Done when every file named in the survey list's "place" column exists with its bridge, every line in it traces to a survey entry or a maintainer answer, and the root is within 150 lines.
+Next: [prune.md](prune.md).

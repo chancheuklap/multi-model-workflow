@@ -1,8 +1,14 @@
 # Additions
 
-On the incremental branch you decide, from the change sets and the scoped survey, what each `AGENTS.md` has lost and gained. Two kinds of edit: a line the changes made false (fix it or remove it, with the evidence), and a fact the changes introduced that belongs in the file (add it).
+Branch: **incremental**. You have `scope.md` and `survey-list.md` built from the change sets. For each `AGENTS.md` in scope you now decide what the code changes made false and what they added, and edit the file. Every edit has code evidence in the survey list; the maintainer-owned lines named in [incremental.md](incremental.md) stay as they are, and a doubt about one of them goes to the report.
 
-Only lines with code evidence are yours. The identity lines, the scope sentence, and any convention without code evidence stay as they are; a doubt about one of them goes to the report's **Pending maintainer decisions**.
+## Steps
+
+For each file in `scope.md`:
+
+1. Read the file. For each line, look for a survey entry that contradicts it. A contradicted line is fixed when the entry gives the new fact, removed when it gives none. Write the old line, the new line, and the evidence into `changes.md` in the scratch directory.
+2. For each survey entry with no line covering it, decide whether it belongs in the file by the categories below, and add it where its type goes: command to Commands, convention or pitfall to Conventions and pitfalls or to the `<important if>` block for its kind of work, reference to References.
+3. When no entry contradicts or extends the file, record "no change needed" for it in `changes.md`.
 
 ## What TO Add
 
@@ -61,7 +67,7 @@ Why: Establishes patterns that work.
 
 Why: Environment-specific knowledge.
 
-The section headings in these examples are the reference's; in this skill's format an addition lands in the section [write.md](write.md) names for its type (command, convention and pitfall, reference, or a task-scoped block).
+The headings in these examples are the reference's own; in this skill's files an addition lands in the section its type names, as in step 2.
 
 ## Draft Additions
 
@@ -76,6 +82,8 @@ Avoid:
 
 ## Where an addition goes
 
-A fact that holds only under one directory goes into that directory's `AGENTS.md`; create the pair if the directory has none. A fact that holds everywhere goes into the root. A directory whose only rule just disappeared keeps its pair on this branch; the report's **Pending maintainer decisions** says the pair is empty and the maintainer removes it.
+A fact whose place is a directory goes into that directory's `AGENTS.md`; when the directory has no pair yet, create both files on the nested template in [write.md](write.md), with the scope sentence left as the directory group's scope finding and listed under **Pending maintainer decisions** for confirmation. A fact whose place is `root` goes into the root file. A directory whose last rule just disappeared keeps its pair; the report lists it under **Pending maintainer decisions** and the maintainer removes it.
 
-Done when every change set has produced either edits with evidence or an explicit "no change needed", and nothing maintainer-owned was touched.
+Done when every file in `scope.md` has an entry in `changes.md` — edits with evidence, or "no change needed".
+
+Next: [prune.md](prune.md).

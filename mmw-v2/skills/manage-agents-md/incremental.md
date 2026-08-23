@@ -1,32 +1,22 @@
 # Incremental update
 
-A scheduled run. The maintainer is not present. You will find which `AGENTS.md` files have code changes under them since each was last committed, update only what code evidence supports, commit on a branch, and leave a report.
+Branch: **incremental**. A scheduled run; the maintainer is not present. When you are done, a branch holds one commit that brings every `AGENTS.md` with code changes under it back in line with the code, and a report says what changed and what waits for the maintainer.
 
-## What this branch never touches
+## What stays untouched on this branch
 
-Content that only the maintainer knows is not yours to change here: the root identity lines, each nested file's scope sentence, and any convention or pitfall line that no code evidence supports. If one of them looks stale, say so in the report under **Pending maintainer decisions** and leave the file line as it is. The maintainer questions in [ask.md](ask.md) are not asked on this branch.
+Some lines exist only because the maintainer said so: the identity lines at the top of the root file, the scope sentence at the top of each nested file, and any convention or pitfall that no code evidence supports. Those are **maintainer-owned**. On this branch you read them and leave them; when one looks stale, it goes into the report under **Pending maintainer decisions** with the evidence, and the line stays as it is.
 
-## Before the shared steps
+## Set up
 
-1. Resolve the repository root and confirm the working tree is clean: `git status --porcelain` prints nothing. A dirty tree means someone is mid-change; stop and report instead of committing on top of it.
+1. Resolve the repository root with `git rev-parse --show-toplevel`. Confirm the working tree is clean: `git status --porcelain` prints nothing. A dirty tree means someone is mid-change; stop and report instead of committing on top of it.
 2. Create the working branch from the current head: `git switch -c agents-md/incremental-<YYYY-MM-DD>`.
-3. For every `AGENTS.md` (skipping the directories `scripts/check.sh` skips), compute its anchor and its change set:
+3. Make a scratch directory outside the repository (`mktemp -d`) and keep its path.
+4. For every `AGENTS.md` the `find` in [SKILL.md](SKILL.md) lists, compute its anchor and its change set:
    - anchor: `git log -1 --format=%H -- <dir>/AGENTS.md`
    - change set: `git diff --name-only <anchor>..HEAD -- <dir> | grep -v '\.md$'`
-   A file whose change set is empty is skipped for the rest of the run. Write the remaining files down with their change sets; this list is the survey's scope.
-4. If no file has a change set, commit nothing, delete the branch, and report "no code changes under any AGENTS.md since its last commit".
+   Save the files whose change set is not empty, each with its change set, as `scope.md` in the scratch directory. A file with an empty change set is out of this run.
+5. If `scope.md` is empty: delete the branch, report "no code changes under any AGENTS.md since its last commit", and stop.
 
-Done when the branch exists and the list of files with non-empty change sets is written down.
+Done when the branch exists and `scope.md` lists every `AGENTS.md` that has code changes under it.
 
-## Shared steps, in order
-
-1. [survey.md](survey.md) — scoped to the change sets only; one directory group per listed file, no topic groups.
-2. [additions.md](additions.md) — decide what the changes make stale and what they add.
-3. [prune.md](prune.md) — cut what must not be there; run the self-check on every file you edited.
-4. [verify.md](verify.md) — run the checks; commit; write the report.
-
-## Commit and report
-
-Commit every edited file on the branch with one message: `agents-md: incremental update <YYYY-MM-DD>`. The report goes to the conversation (or the run's output) in the diff format from [verify.md](verify.md), followed by **Pending maintainer decisions**: one line per maintainer-owned line you believe is stale, with the file, the line, and the code evidence. The maintainer merges the branch after reading.
-
-Done when the branch holds one commit, every listed file was either edited or explicitly reported as "no change needed", and the report is written.
+Next: [survey.md](survey.md).
