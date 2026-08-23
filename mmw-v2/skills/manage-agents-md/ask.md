@@ -16,7 +16,7 @@ Each question should be formatted like so:
 ➡️ <your recommended answer>
 ```
 
-The recommended answer quotes the survey entry and its evidence. When the survey list has nothing for a question, the recommended answer is "the survey found nothing for this". On the rewrite branch, the lines `destinations.md` sent to `ask` are the recommended answers, each marked "from the current file".
+The recommended answer quotes the survey entry and its evidence. When the survey list has nothing for a question, the recommended answer is "the survey found nothing for this". On the rewrite branch, the lines `destinations.md` sent to `ask` are the old file's identity lines; they are the recommended answers to the four identity questions, each marked "from the current file".
 
 ## Project identity, four questions
 
@@ -37,7 +37,7 @@ The recommended answer quotes the survey entry and its evidence. When the survey
 
 ## Nested purpose, one question per directory
 
-A directory **earns a pair** when the survey list has at least one entry of type command, convention, or gotcha whose place is that directory; entries of type defect and reference do not count. Ask about every directory that earns a pair in one question: a table with one row per directory, the recommended purpose line in the second column, drawn from that directory group's scope finding. The maintainer edits rows or strikes directories out.
+A directory **earns a pair** when the survey list has at least one entry of type command, convention, or gotcha whose place is that directory; entries of type defect and reference do not count. Ask about every directory that earns a pair in one question: a table with one row per directory, the recommended purpose line in the second column, drawn from that directory's purpose entry in the survey list. The maintainer edits rows or strikes directories out.
 
 ## Record
 

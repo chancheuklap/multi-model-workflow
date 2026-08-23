@@ -11,7 +11,7 @@ Branch: **rewrite**. You have `inventory.md` (the old files, read in full), `inp
 5. **Wrap domain sections** — testing, API patterns, state management, i18n, etc. each get their own block with a condition describing when that knowledge matters.
 6. **Send the rest to prune** — a line that matches the list in [prune.md](prune.md) gets `removed: <reason>` as its destination now, so the removal list is complete before writing starts.
 
-Record the outcome as `destinations.md` in the scratch directory: one line per old line, as `<old file>:<line> → <destination>`, where the destination is a section name of the templates in [write.md](write.md), `ask`, or `removed: <reason>`.
+Record the outcome as `destinations.md` in the scratch directory: one line per old line, as `<old file>:<line> → <destination>`, where the destination is a section name of the templates in [write.md](write.md), `ask` (identity lines only), `removed: <reason>`, or `blank` for an empty line; a heading, a table rule, or a code fence is `removed: markup`.
 
 Then append every line whose destination is a section to `survey-list.md` as an entry: `fact` is the line, `evidence` is `<old file>:<line>`, `place` is root or the directory the old file sat in, `type` is command, convention, gotcha, or reference by the section, and `when` is the block condition chosen in steps 4 and 5 for a line that goes into a domain section. The writer reads only the survey list; a kept line that is not in it is not written. Lines whose destination is `ask` stay in `destinations.md`; [ask.md](ask.md) reads them there as recommended answers.
 
@@ -19,21 +19,21 @@ Then append every line whose destination is a section to `survey-list.md` as an 
 
 | Old file | Destination |
 | --- | --- |
-| `AGENTS.override.md` in a directory | Its content becomes that directory's `AGENTS.md`; the override file is deleted |
+| `AGENTS.override.md` in a directory | Its lines get destinations like any other old file's and reach that directory's `AGENTS.md` through the survey list; the override file is deleted |
 | Nested `AGENTS.md` whose only content says "read the override" | Replaced by the migrated body |
 | Nested `CLAUDE.md` holding `@AGENTS.override.md` | Rewritten to `@AGENTS.md` |
 | Root `CLAUDE.md` with several `@` lines | Keeps every import; `@AGENTS.md` is one of them; nothing else in the file |
 | A nested pair whose every rule moved to the root or was removed | Both files deleted; the directory goes on the removal list |
 | `> ` metadata lines at the top of old files (last-checked commit, domain context, review scope) | Removed; git history is the anchor now |
 
-A nested file survives only on rules the directory group's survey report confirms hold only there.
+A nested file survives only on entries whose place is that directory.
 
-## Removal list
+## Two lists for the report
 
 Keep two lists at the end of `destinations.md` as you go; the final report prints them:
 
 - **What was removed and why** — one line per removed rule or section with its reason, in the words of the list in [prune.md](prune.md); a linter-territory line carries the hook suggestion.
-- **What was NOT removed** — every command, and every rule that will stay only if the maintainer confirms it.
+- **What was NOT removed** — every kept command, and every rule that will stay only if the maintainer confirms it.
 
 Done when, for every file in `inventory.md`, `wc -l` of the old file equals the number of `destinations.md` lines that start with its path, and every line with a section destination is an entry in `survey-list.md`.
 

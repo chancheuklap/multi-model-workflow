@@ -1,6 +1,6 @@
 # Write
 
-Branches **create** and **rewrite**. You have `survey-list.md`, with the maintainer's answers appended. You now write the files, root first, one at a time, from that list alone. Each line you write comes from one entry; an idea with no entry is not written. Entries of type defect are never written; they go to the report.
+Branches **create** and **rewrite**. You have `survey-list.md`, with the maintainer's answers appended. You now write the files, root first, one at a time, from that list alone. Each line you write comes from one entry; an idea with no entry is not written. Entries of type defect are never written; they go to the report that [verify.md](verify.md) writes at the end.
 
 ## Language
 
@@ -87,7 +87,7 @@ A root file carries only the sections above: no directory map, no environment va
 | <only documents that cover this directory and the root does not list> | `<path>` |
 ```
 
-Every section after the purpose line appears only when it has rows. A nested file says only what differs from the root: keep narrower files shorter than root files. Nothing in it points back to the root, wraps in `<important if>`, names a skill, or carries a metadata header.
+Every section after the purpose line appears only when it has rows. An entry whose place is this directory and which carries a `when` line goes in bare under its type: the nested file is already scoped, so it carries no domain sections. A nested file says only what differs from the root: keep narrower files shorter than root files. Nothing in it points back to the root, wraps in `<important if>`, names a skill, or carries a metadata header.
 
 ## Domain sections
 

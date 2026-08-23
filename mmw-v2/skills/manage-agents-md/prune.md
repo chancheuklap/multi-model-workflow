@@ -49,7 +49,7 @@ Each rule, then what it catches.
 
 ## Self-check
 
-Answer each for the file in front of you. A "no" sends you back to the section it names. A "no" whose cause is that the repository has none of the thing (a project with no commands, no documents to reference) is a pass; write that cause down.
+Answer each for the file in front of you. A "no" means the file is not finished: fix the lines behind it before going on. A "no" whose cause is that the repository has none of the thing (a project with no commands, no documents to reference) is a pass; write that cause down.
 
 | Criterion | Check |
 | --- | --- |
@@ -61,6 +61,6 @@ Answer each for the file in front of you. A "no" sends you back to the section i
 | Actionability | Are instructions executable, not vague — no template text left uncustomized, no "TODO"? |
 | Single source | Does no line repeat a line of another `AGENTS.md` in this repository? |
 
-Done when every line of every file you wrote or edited has passed the list, the four tests under Pruning, and the self-check.
+Done when every line of every file you wrote or edited has passed the list, the four tests under Pruning, and the self-check, and every rule is phrased as the behaviour to perform or, where a prohibition had to stay, sits next to its positive target.
 
 Next: [verify.md](verify.md).
