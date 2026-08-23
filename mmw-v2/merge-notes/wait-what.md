@@ -14,13 +14,17 @@
 
 ### VISUAL.md
 
-整份是我们写的，上游没有这个文件。上游更新不会碰它。
+`mattpocock/skills` 里没有这个文件，subtree pull 不会碰它。
 
-内容改写自 humanlayer/skills 的 `show-me` 技能（<https://github.com/humanlayer/skills/blob/main/plugins/show-me/skills/show-me/SKILL.md>，2026-08 取）。取它的**视图选择判断表**——什么内容配哪种视图。三处按本仓库的规矩改掉：
+正文是 humanlayer 的 `show-me` 技能，逐字照抄（<https://github.com/humanlayer/skills/blob/main/plugins/show-me/skills/show-me/SKILL.md>，2026-08 取）。那些示例块——伪代码、调用树、组件树、文件树、Mermaid、四种 diff、整块代码——是这份提示词的主体，一个字都不改写。
 
-- 上游 show-me 把视图当聊天里的 code fence 发，只有 HTML 那一条例外。我们全部收敛成一页 HTML，于是「这个宿主渲不渲染 Mermaid」不再是问题——图在 HTML 里永远成立。
-- 上游写死 `Bash(open ...)`，是 macOS 命令，也假定宿主只能靠文件系统交付。改成按呈现能力判断：有渲染 HTML 的工具就用它，纯 CLI 才落盘再打开。不点任何宿主的名字。
-- 上游把文件写在工作目录里。改成工作目录之外的临时位置，别脏了用户的仓库。
+| 段落 | 我们的意图 |
+| --- | --- |
+| 开头到 `## Put the page where the user is looking` 那一节 | 我们写的。接上 `wait-what` 的语境，并规定呈现面：有渲染 HTML 的工具就用它，纯 CLI 才落盘再打开。不点任何宿主的名字——五宿主平权禁止按宿主名分支，写成能力语言，新宿主出现也不过时 |
+| `## Views` 这个标题 | 替掉 show-me 的第一句 `Help the user understand the current topic of conversation visually.`——那句的职责已经由本文件第 3 行承担。同段后半句 `Skip the preamble...` 照抄，末尾加一句「每种视图都放在那一页上」 |
+| 各视图条目与全部示例块 | show-me 原文逐字。上游 show-me 更新 → 重新逐字取，只把下面这一条的改动重做一遍 |
+| 最末一条（原文的 `For a visual UI, ... write one focused HTML file` + `Bash(open ...)`） | 只有这一条改了表述。原文里写 HTML 是「太密的东西才走」的条件分支，还写死了 macOS 的 `open` 和工作目录里的文件名。我们无论如何都出一页 HTML，交付也已由上面那节处理，所以改成「承载这些的那一页本身就是可视化」。原文的实质要求全部留着：形态自选（图解／信息图／短幻灯）、配色排版跟产品走、真实标签与数据、桌面和手机都要支持 |
+| `### guidance` | show-me 原文逐字 |
 
 ### agents/openai.yaml
 
