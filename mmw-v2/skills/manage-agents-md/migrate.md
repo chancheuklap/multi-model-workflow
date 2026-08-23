@@ -19,6 +19,12 @@ Record the outcome as `destinations.md` in the scratch directory: one line per o
 
 Then append every line whose destination is a section to `survey-list.md` as an entry: `fact` is the line, `evidence` is `<old file>:<line>`, `place` is root or the directory the old file sat in, `type` is command, convention, pitfall, or reference by the section, and `when` is the block condition chosen in steps 4 and 5 for a line that goes into an `<important if>` block. The writer reads only the survey list; a kept line that is not in it is not written. Lines whose destination is `ask` stay in `destinations.md`; [ask.md](ask.md) reads them there as recommended answers.
 
+## Keep all commands
+
+Do not drop commands from the original file. The commands table is foundational reference — the agent needs to know what's available even if some commands are used less frequently.
+
+The one exception, from step 3 above: a command whose meaning the manifest's scripts or `--help` already give stays in `inputs.md` rather than the file.
+
 ## What happens to each old file on disk
 
 | Old file | Destination |

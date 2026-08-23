@@ -142,21 +142,45 @@ mmw-v2/skills/manage-agents-md/
 | A 调查 | anthropic `quality-criteria.md`「Assessment Process」第 2 步 | 「对照实际代码库：跑命令、查引用文件是否存在、核对架构描述」 | 放进调查员提示词 |
 | Q 问维护者 | `grilling` `SKILL.md` | 提问格式：每题编号、一句标题、正文含上下文和选项、一个推荐答案；一轮问完等答复 | 问题集固定（见第四节），不做设计树和多轮扩展；推荐答案从调查报告推出 |
 | B 决定子文件 | sentry `SKILL.md`「Workflow 2. Choose scope」 | 「closest instruction file wins; keep narrower files shorter than root files」 | 建文件门槛改成「有一条只在本目录成立的规则就建」 |
+| C 写根文件 | humanlayer `SKILL.md`「Core Problem」「Solution」 | 两段原文 | 后接一段我们写的：机制属于 Claude Code，其他宿主把标签当文本，代价一行 |
 | C 写根文件 | humanlayer `SKILL.md`「Principles 1、2」 | 什么裸露、什么包；条件要窄，含 Bad/Good 例子 | 「90%+ 任务相关就裸露」改成 `writing-for-agents` 的判据：所有分支都要的内联，只有部分分支要的包；Principle 1 列举的裸露内容「project identity, project map, tech stack」改成我们的裸露段（身份、运行时、命令、引用、约定），因为目录图已禁 |
-| C 写根文件 | sentry `SKILL.md`「Writing Rules」 | 全部 11 条 | 删「Do not list installed skills or plugins」以外与我们冲突的条目：无。保留全部 |
+| C 写根文件 | sentry `SKILL.md`「Writing Rules」 | 全部 11 条 | 原文；其后加一段「冲突裁决」（见第三节末） |
+| C 写根文件 | sentry `SKILL.md`「3. Write the smallest useful file.」「Use only sections that add non-obvious value.」 | 两句 | 原文 |
+| C 写根文件 | anthropic `templates.md`「Key Principles」 | 四条 | 原文 |
 | C 写根文件 | `writing-for-agents`「Context pointers」 | 指针写法三条 | 用于引用表每行和子目录提示句 |
-| D 删减 | anthropic `update-guidelines.md`「What NOT to Add」 | 四类，各带 Bad 例子，第四类另有 Good 例子 | 作为底本；追加 humanlayer「Principle 4」的「cut code snippets，改成文件路径引用」「cut anything a linter can enforce」；追加 sentry「Writing Rules」的「Do not list installed skills or plugins」和「Anti-Patterns」的「不从 README/CONTRIBUTING 复制」 |
+| D 删减 | anthropic `update-guidelines.md`「Core Principle」 | 原句 | `Claude sessions` → `sessions` |
+| D 删减 | humanlayer `SKILL.md`「Principle 4 Less is more」 | 四条全部 | 第 1 条 `CLAUDE.md` → `AGENTS.md`；第 2、3、4 条原文 |
+| D 删减 | anthropic `update-guidelines.md`「What NOT to Add」 | 四类，各带 Bad 例子，第四类另有 Good 例子 | 作为底本 |
+| D 删减 | sentry `SKILL.md`「Anti-Patterns」 | 五条全部 | 原文；另加 Writing Rules 的「Do not list installed skills or plugins」 |
 | D 删减 | `writing-for-agents`「Pruning」四条与「Negation」一段 | 原文 | 并入 `prune.md`，接受与已安装技能重复 |
 | D 自查 | anthropic `SKILL.md`「Quick Assessment Checklist」六个维度 | 维度名与 Check 列 | 去掉 Weight 列和分数；每维改成一个是/否问题 |
 | E 核对 | sentry `SKILL.md`「Workflow 4. Verify exact paths and commands exist」 | 原句 | 机器能判的交给 `scripts/check.sh` |
 | E 核对 | anthropic `quality-criteria.md`「Red Flags」 | 七条 | 机器能判的（引用已删文件）交给脚本；其余（会失败的命令、模板未定制、泛泛建议、TODO、多文件重复）作为 agent 自查 |
-| F 报告 | anthropic `SKILL.md`「Diff Format」 | `### Update: 文件` / `**Why:**` / diff 块 | 增量模式用 |
+| F 报告 | anthropic `commands/revise-claude-md.md`「Step 4」的 diff 块 | `### Update: 文件` / `**Why:** [one-line reason]` / `+ [the addition - keep it brief]` | 增量模式用；diff 里加一行 `- [the line removed]`，因为增量会删行 |
 | F 报告 | humanlayer `SKILL.md`「Example」末尾 | 「What was removed and why」「What was NOT removed」两个清单 | 重写模式用 |
 | G 增量加什么 | anthropic `update-guidelines.md`「What TO Add」 | 五类 | 原文 |
-| G 增量加什么 | anthropic `commands/revise-claude-md.md`「Step 3 Draft Additions」 | 一行一概念；格式 `<命令或模式> - <说明>`；三条 Avoid | 原文 |
+| G 增量加什么 | anthropic `commands/revise-claude-md.md`「Step 3 Draft Additions」 | 一行一概念；格式 `<命令或模式> - <说明>`；三条 Avoid | `CLAUDE.md` → `AGENTS.md` |
+| G 增量加什么 | anthropic `templates.md`「Update Principles」、`update-guidelines.md`「Validation Checklist」 | 四条、六项 | `CLAUDE.md` → `AGENTS.md`，`Claude session` → `session` |
+| H 重写旧文件 | humanlayer `SKILL.md`「Principle 5 Keep all commands」 | 整段 | 原文；后接一句例外：manifest 或 `--help` 已给出含义的命令留在 `inputs.md` |
 | H 重写旧文件 | humanlayer `SKILL.md`「How to Apply」 | 九步 | 第 1 步「提取一句话身份」改成「提取旧文件对身份的说法，作为 ask 步骤的推荐答案」，因为身份由维护者定；第 2 步（目录图）删；第 3 步（技术栈）改成「包管理器与运行时一行」；第 4 步保留「命令全保留」并加「能从 scripts 查到含义的不写」 |
 
-四份参考里明确**不用**的：anthropic 的六维打分和 A–F 等级；anthropic 的项目类型模板；sentry 的 `Commit Attribution` 段；sentry 的 `CLAUDE.md` symlink 做法；agentflow 的 `> 最后核对` 与 `> 领域上下文` 头部字段。
+四份参考里明确**不用**的，以及原因：
+
+- humanlayer「Principle 3 Keep it short, use progressive disclosure sparingly」：反对拆文件，和嵌套文件、引用表正面冲突；我们选 sentry 与 `writing-for-agents` 的分层。
+- humanlayer「Output Structure」「Example」正文：被我们的模板取代；只取 Example 末尾两个清单的格式。
+- sentry「Target under 60 lines; never exceed 100」：用户定 150。
+- sentry「File Setup」的 symlink、「Commit Attribution」段。
+- anthropic 的六维打分和 A–F 等级、「Quality Report」、「Phase 5 用户批准后再写」、项目类型模板、「Common Issues to Flag」（含「缺环境变量」）、「User Tips」、「Recommended sections」（含 Architecture、Environment）。
+- anthropic `SKILL.md`「Phase 4 Update Guidelines」三条：与 `update-guidelines.md` 重复，取后者。
+- `writing-for-agents` 除 Pruning、Negation、Context pointers 三节外的正文：管技能自身的写法，不进产物规则。
+- agentflow 的 `> 最后核对` 与 `> 领域上下文` 头部字段。
+
+抄来的原文之间有四处冲突，裁决写在 `write.md`「Writing rules」末尾和 `prune.md` 自查表前：
+
+1. 命令：humanlayer「一条不删」管旧文件里的命令；sentry「优先文件级」和 `writing-for-agents`「一文件一命令的查询留给环境」管调查新发现的命令。
+2. 理由：sentry「只在防错时写」与 `writing-for-agents`「缓存选择背后的原因」一致——有意为之的反常做法，理由正是防止被「修正」。
+3. 散文：sentry「避免段落」；身份段是唯一允许散文的地方。
+4. 自查「架构清晰」：靠身份段和引用表回答，不靠目录图。
 
 ### 四、问维护者
 

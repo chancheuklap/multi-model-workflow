@@ -80,6 +80,26 @@ Avoid:
 - Obvious information
 - One-off fixes unlikely to recur
 
+## Update Principles
+
+When updating any AGENTS.md:
+
+1. **Be specific**: Use actual file paths, real commands from this project
+2. **Be current**: Verify info against the actual codebase
+3. **Be brief**: One line per concept when possible
+4. **Be useful**: Would this help a new session understand the project?
+
+## Validation Checklist
+
+Before finalizing an update, verify:
+
+- [ ] Each addition is project-specific
+- [ ] No generic advice or obvious info
+- [ ] Commands are tested and work
+- [ ] File paths are accurate
+- [ ] Would a new session find this helpful?
+- [ ] Is this the most concise way to express the info?
+
 ## Where an addition goes
 
 A fact whose place is a directory goes into that directory's `AGENTS.md`; when the directory has no pair yet, create both files on the nested template in [write.md](write.md), with the scope sentence left as the directory group's scope finding and listed under **Pending maintainer decisions** for confirmation. A fact whose place is `root` goes into the root file. A directory whose last rule just disappeared is an **empty pair**: it keeps both files on this branch; the report lists it under **Pending maintainer decisions** and the maintainer removes it.

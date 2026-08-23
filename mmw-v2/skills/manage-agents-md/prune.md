@@ -1,6 +1,10 @@
 # Prune
 
-All branches. The files are written. Now read each one you wrote or edited line by line, first against the list of what must not be there, then with the four tests under Pruning, then through the self-check. Every line is read on every turn of every future session; each one earns its place here or leaves.
+All branches. The files are written. Now read each one you wrote or edited line by line, first against the list of what must not be there, then with the four tests under Pruning, then through the self-check.
+
+Only add information that will genuinely help future sessions. The context window is precious - every line must earn its place.
+
+Frontier models can reliably follow a few hundred instructions. Claude Code's system prompt and tools already use ~50 of those. Your AGENTS.md should be as lean as possible.
 
 On the **incremental** branch the maintainer-owned lines named in [incremental.md](incremental.md) are exempt: read them, leave them, and put a doubt about one into the report.
 
@@ -53,17 +57,29 @@ Auth: JWT with HS256, tokens in `Authorization: Bearer <token>` header.
 
 Cut any instruction that a linter, formatter, or pre-commit hook can enforce.
 
-### 6. Code snippets
+### 6. Discoverable from code
+
+Cut any instruction the agent can discover from existing code patterns. LLMs are in-context learners — if your codebase consistently uses a pattern, the agent will follow it after a few searches.
+
+### 7. Code snippets
 
 Cut code snippets. They go stale and bloat the file. Use file path references instead (e.g., "see `src/utils/example.ts` for the pattern").
 
-### 7. Installed skills and plugins
+### 8. Installed skills and plugins
 
 Do not list installed skills or plugins.
 
-### 8. Copies of `README.md`, `CONTRIBUTING.md`, or policy docs
+### 9. Copies of `README.md`, `CONTRIBUTING.md`, or policy docs
 
 Reference existing docs/specs/policies instead of copying them.
+
+### 10. Anti-Patterns
+
+- welcome text, intros, conclusions, or pleasantries
+- long prose explaining why instructions matter
+- duplicated content from `README.md`, `CONTRIBUTING.md`, or policy docs
+- project-wide commands when file-scoped commands are available
+- nested `AGENTS.md` files that repeat root instructions
 
 ## Pruning
 
@@ -78,7 +94,7 @@ Reference existing docs/specs/policies instead of copying them.
 
 ## Self-check
 
-Answer each for the file in front of you. A "no" sends you back to the section it names. A "no" whose cause is that the repository has none of the thing (a project with no commands, no documents to reference) is a pass; write that cause down.
+Answer each for the file in front of you. A "no" sends you back to the section it names. A "no" whose cause is that the repository has none of the thing (a project with no commands, no documents to reference) is a pass; write that cause down. "Architecture clarity" is answered by the identity lines and the References table, since this format carries no directory map.
 
 | Criterion | Check |
 | --- | --- |

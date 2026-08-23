@@ -79,7 +79,21 @@ Commands and References appear only when they have rows. A nested file says only
 
 ## Wrapping in `<important if>`
 
-### Foundational context stays bare, domain guidance gets wrapped
+### Core Problem
+
+Claude Code injects a system reminder with every CLAUDE.md that says:
+
+> "this context may or may not be relevant to your tasks. You should not respond to this context unless it is highly relevant to your task."
+
+This means Claude will ignore parts of your CLAUDE.md it deems irrelevant. The more content that isn't applicable to the current task, the more likely Claude is to ignore everything — including the parts that matter.
+
+### Solution: `<important if="condition">` Blocks
+
+Wrap conditionally-relevant sections of the CLAUDE.md in `<important if="condition">` XML tags. This exploits the same XML tag pattern used in Claude Code's own system prompt, giving the model an explicit relevance signal that cuts through the "may or may not be relevant" framing.
+
+The problem and the mechanism above are Claude Code's. A host whose system prompt uses this XML pattern acts on the tag; a host without it reads the tag as text, which costs a line and changes nothing. The format keeps the tag because it costs the other hosts nothing.
+
+### 1. Foundational context stays bare, domain guidance gets wrapped
 
 Not everything should be in an `<important if>` block. Context that is relevant to virtually every task — identity, runtime, commands, references, conventions — should be left as plain markdown at the top of the file. This is onboarding context the agent always needs.
 
@@ -87,7 +101,7 @@ Domain-specific guidance that only matters for certain tasks — testing pattern
 
 The rule: inline what every task needs, and wrap what only some tasks reach.
 
-### Conditions must be specific and targeted
+### 2. Conditions must be specific and targeted
 
 Bad — overly broad conditions that match everything:
 ```
@@ -114,9 +128,14 @@ Good — each rule has its own narrow trigger:
 </important>
 ```
 
-The tag acts on a host whose own system prompt uses this XML pattern; a host without it reads the tag as text, which costs a line and changes nothing.
-
 ## Writing rules
+
+Write the smallest useful file. Use only sections that add non-obvious value.
+
+- **Concise**: Dense, human-readable content; one line per concept when possible
+- **Actionable**: Commands should be copy-paste ready
+- **Project-specific**: Document patterns unique to this project, not generic advice
+- **Current**: All info should reflect actual codebase state
 
 - Use headings, bullets, and tables; avoid paragraphs.
 - Use repo-relative paths; avoid vague references like "see docs".
@@ -132,6 +151,12 @@ The tag acts on a host whose own system prompt uses this XML pattern; a host wit
 - Do not include generic quality slogans.
 
 State each rule as the behaviour to perform. A prohibition stays only where no positive phrasing exists, and then sits next to the positive target.
+
+Where the rules above meet this format:
+
+- The identity lines are the one place prose is allowed; every other section is headings, bullets, and tables.
+- "Keep rationale out unless it prevents a likely mistake" and "cache the reason behind a choice" agree: the reason behind a deliberate unconventional choice is what stops the next agent from "fixing" it, so that reason stays; any other reason goes.
+- Commands that the old file held are all kept (see [migrate.md](migrate.md)); commands the survey newly found are filtered by the file-scoped rule above and by the cache test in [prune.md](prune.md).
 
 ## Pointers
 
