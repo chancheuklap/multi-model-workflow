@@ -1,7 +1,7 @@
 ---
 name: wait-what
 description: Stop. That last message did not land — re-pitch it.
-argument-hint: "[visual] — omit to re-pitch in words"
+argument-hint: "[visual; omit to re-pitch in words]"
 disable-model-invocation: true
 ---
 
