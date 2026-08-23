@@ -145,6 +145,6 @@ Give the checker:
 - the sources the document was built from — file paths, URLs, command output — so it can verify claims against them; anything you do not list, it searches the repository for
 - which parts are net new: explanations, analogies, "why" and "when" framing you added that the sources do not state
 
-The checker returns a claim table with each claim marked ✅ sourced, ❌ unsourced, or ⚠️ misleading, each with a severity. Do not present the table to the user. Fix every ❌ and ⚠️ in the document — remove the claim, add a source, or adjust the wording — then run the checker once more and fix what it finds. A fresh checker always finds a few low-severity rows; that is not a reason for a third pass. If the second pass reports a **critical** or **high** finding, show those rows to the user after fixing them. Do not run a third pass.
+The checker returns a claim table with each claim marked ✅ sourced, ❌ unsourced, or ⚠️ misleading, each with a severity. Do not present the table to the user. Fix every ❌ and ⚠️ in the document — remove the claim, add a source, or adjust the wording. If any of the findings you fixed was **critical** or **high**, show those rows to the user. Run the checker once; do not run it again. A fresh checker always finds a few low-severity rows; a second pass spends a full cold read to surface more of the same.
 
-The document is finished after the second pass's findings are fixed.
+The document is finished after the checker's findings are fixed.
