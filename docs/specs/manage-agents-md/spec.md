@@ -140,33 +140,26 @@ mmw-v2/skills/manage-agents-md/
 
 这是技能正文的来源合同。「抄什么」指该段内容取自哪里；「改什么」指为了词汇统一、格式统一或与我们的决定相符而做的改动。一条规则只住一个文件：删减类规则只在 `prune.md`，写法类规则只在 `write.md`，`migrate.md` 只管旧行去向，`additions.md` 只管增量三步和「加到哪」。
 
-| 步骤 | 来源 | 抄什么 | 改什么 |
+| 落点 | 来源 | 抄什么 | 改什么 |
 | --- | --- | --- | --- |
-| A 调查 | sentry `SKILL.md`「Workflow 1. Inspect before writing」 | 四条清单（包管理器、命令、docs/specs/policies、约定） | 标为调查员的「必读重点」；加两项：`git log` 里近期改动最密集的目录；仓库里已有的全部 `AGENTS.md`、`CLAUDE.md`、`AGENTS.override.md`、`.cursor/rules`、`.github/copilot-instructions.md` |
-| A 调查 | anthropic `quality-criteria.md`「Assessment Process」第 2 步 | 「对照实际代码库：跑命令、查引用文件是否存在、核对架构描述」 | 放进调查员提示词 |
-| Q 问维护者 | `grilling` `SKILL.md` | 提问格式：每题编号、一句标题、正文含上下文和选项、一个推荐答案；一轮问完等答复 | 问题集固定（见第四节），不做设计树和多轮扩展；推荐答案从调查报告推出 |
-| B 决定子文件 | sentry `SKILL.md`「Workflow 2. Choose scope」 | 「closest instruction file wins; keep narrower files shorter than root files」 | 建文件门槛改成「有一条只在本目录成立的规则就建」 |
-| C 写根文件 | humanlayer `SKILL.md`「Core Problem」「Solution」 | 两段原文 | 后接一段我们写的：机制属于 Claude Code，其他宿主把标签当文本，代价一行 |
-| C 写根文件 | humanlayer `SKILL.md`「Principles 1、2」 | 什么裸露、什么包；条件要窄，含 Bad/Good 例子 | 「90%+ 任务相关就裸露」改成 `writing-for-agents` 的判据：所有分支都要的内联，只有部分分支要的包；Principle 1 列举的裸露内容「project identity, project map, tech stack」改成我们的裸露段（身份、运行时、命令、引用、约定），因为目录图已禁 |
-| C 写根文件 | sentry `SKILL.md`「Writing Rules」 | 全部 11 条 | 原文；其后加一段「冲突裁决」（见第三节末） |
-| C 写根文件 | sentry `SKILL.md`「3. Write the smallest useful file.」「Use only sections that add non-obvious value.」 | 两句 | 原文 |
-| C 写根文件 | anthropic `templates.md`「Key Principles」 | 四条 | 原文 |
-| C 写根文件 | `writing-for-agents`「Context pointers」 | 指针写法三条 | 用于引用表每行和子目录提示句 |
-| D 删减 | anthropic `update-guidelines.md`「Core Principle」 | 原句 | `Claude sessions` → `sessions` |
-| D 删减 | humanlayer `SKILL.md`「Principle 4 Less is more」 | 四条全部 | 第 1 条 `CLAUDE.md` → `AGENTS.md`；第 2、3、4 条原文 |
-| D 删减 | anthropic `update-guidelines.md`「What NOT to Add」 | 四类，各带 Bad 例子，第四类另有 Good 例子 | 作为底本 |
-| D 删减 | sentry `SKILL.md`「Anti-Patterns」 | 五条全部 | 原文；另加 Writing Rules 的「Do not list installed skills or plugins」 |
-| D 删减 | `writing-for-agents`「Pruning」四条与「Negation」一段 | 原文 | 并入 `prune.md`，接受与已安装技能重复 |
-| D 自查 | anthropic `SKILL.md`「Quick Assessment Checklist」六个维度 | 维度名与 Check 列 | 去掉 Weight 列和分数；每维改成一个是/否问题 |
-| E 核对 | sentry `SKILL.md`「Workflow 4. Verify exact paths and commands exist」 | 原句 | 机器能判的交给 `scripts/check.sh` |
-| E 核对 | anthropic `quality-criteria.md`「Red Flags」 | 七条 | 机器能判的（引用已删文件）交给脚本；其余（会失败的命令、模板未定制、泛泛建议、TODO、多文件重复）作为 agent 自查 |
-| F 报告 | anthropic `commands/revise-claude-md.md`「Step 4」的 diff 块 | `### Update: 文件` / `**Why:** [one-line reason]` / `+ [the addition - keep it brief]` | 增量模式用；diff 里加一行 `- [the line removed]`，因为增量会删行 |
-| F 报告 | humanlayer `SKILL.md`「Example」末尾 | 「What was removed and why」「What was NOT removed」两个清单 | 重写模式用 |
-| G 增量加什么 | anthropic `update-guidelines.md`「What TO Add」 | 五类 | 原文 |
-| G 增量加什么 | anthropic `commands/revise-claude-md.md`「Step 3 Draft Additions」 | 一行一概念；格式 `<命令或模式> - <说明>`；三条 Avoid | `CLAUDE.md` → `AGENTS.md` |
-| G 增量加什么 | anthropic `templates.md`「Update Principles」、`update-guidelines.md`「Validation Checklist」 | 四条、六项 | `CLAUDE.md` → `AGENTS.md`，`Claude session` → `session` |
-| H 重写旧文件 | humanlayer `SKILL.md`「Principle 5 Keep all commands」 | 整段 | 原文；后接一句例外：manifest 或 `--help` 已给出含义的命令留在 `inputs.md` |
-| H 重写旧文件 | humanlayer `SKILL.md`「How to Apply」 | 九步 | 第 1 步「提取一句话身份」改成「提取旧文件对身份的说法，作为 ask 步骤的推荐答案」，因为身份由维护者定；第 2 步（目录图）删；第 3 步（技术栈）改成「包管理器与运行时一行」；第 4 步保留「命令全保留」并加「能从 scripts 查到含义的不写」 |
+| survey.md | sentry `SKILL.md`「1. Inspect before writing」 | 四条清单 | 作为调查员的必读重点；加 git 热点和已有指令文件两项 |
+| survey.md 提示词模板 | anthropic `quality-criteria.md`「Assessment Process」第 2 步 | 「对照实际代码库」三行 | 原文，放进模板 |
+| survey.md | sentry「2. Choose scope」 | 「closest instruction file wins; keep narrower files shorter than root files」 | 后半句进 write.md 嵌套节；建文件门槛改成「有一条只在本目录成立的约定、陷阱或命令就建」 |
+| ask.md | `grilling` `SKILL.md` | 提问格式：编号、推荐答案、一轮问完等答复 | `user` → `maintainer`；问题集固定，不做设计树 |
+| write.md 根模板 | sentry「Default Sections」的段名 `Package Manager`、`Commands`、`External References`、`Key Conventions` 与表格形式；anthropic `templates.md` 的 `Gotchas` 段及其三个占位符；humanlayer「Output Structure」的身份行和条件块位置 | 段名、表头、占位符 | 合成一份模板；删 humanlayer 的 Project map、sentry 的 Commit Attribution、anthropic 的 Architecture/Key Files/Environment/Testing/Workflow |
+| write.md 嵌套模板 | anthropic `templates.md`「Template: Package/Module」的「Purpose of this package」 | purpose 行 | 其余段复用根模板的段名 |
+| write.md「Domain sections」 | humanlayer「Principle 1」「Principle 2」 | 什么裸露、什么包；条件要窄，含 Bad/Good 例子 | 「domain sections」作为词；裸露清单改成我们的段名；「90%+」那句改成 `writing-for-agents` 的「所有分支都要的内联，只有部分分支要的包」；不抄 Core Problem/Solution（Claude Code 专属叙述，标签对所有宿主都是文字） |
+| write.md「Writing rules」 | sentry「3. Write the smallest useful file」「Use only sections that add non-obvious value」；sentry「Writing Rules」11 条；anthropic `templates.md`「Key Principles」4 条；humanlayer「Principle 5 Keep all commands」 | 合成一张表 | 去重：sentry 的「Do not restate linter」「Do not list skills」「Do not include slogans」三条归 prune.md；sentry「避免段落」改成「身份段以外」；sentry「理由只在防错时写」与 mattpocock「缓存选择背后的原因」合成一条「只写有意为之的反常做法的理由」；sentry「优先文件级」与 humanlayer「全留」合成一条命令规则（见第一节第 3 条） |
+| write.md「Pointers」 | `writing-for-agents`「Context pointers」三条 | 原文 | 用于引用表每行和子目录句 |
+| prune.md「What NOT to Add」 | anthropic `update-guidelines.md`「What NOT to Add」四类及例子；humanlayer「Principle 4」四条；sentry「Anti-Patterns」五条；sentry Writing Rules 的三条禁令 | 合成 11 条，每条一句规则加一个反例 | 同义项合并（anthropic「Generic Best Practices」+ sentry「slogans」+ humanlayer「vague instructions」为一条；sentry「duplicated content from README」+ sentry「Reference existing docs instead of copying」为一条；sentry「project-wide commands when file-scoped available」并入 write.md 命令规则）；humanlayer「约 50 条系统提示」那句不抄（宿主专属） |
+| prune.md「Pruning」「Negation」 | `writing-for-agents` | 四条与一段原文 | Pruning 第二条末句「Leave the one-file, one-command lookups to the environment」删，命令规则只在 write.md |
+| prune.md「Self-check」 | anthropic `SKILL.md`「Quick Assessment Checklist」六维；`quality-criteria.md`「Red Flags」 | 维度名 | 去掉 Weight 和分数；每维改成是/否问题；「命令」「架构」两维按我们的格式重写；红旗七条并进各维（已删文件归 currency，模板未定制与 TODO 归 actionability，多文件重复成第七维「Single source」） |
+| migrate.md「How to apply」 | humanlayer「How to Apply」九步 | 前五步 | 第 1 步改成「旧身份作为 ask 的推荐答案」；第 2 步（目录图）删；第 3 步引用 write.md 的命令规则；第 6–8 步（删 linter/片段/空话）合成一句「送 prune」，删减规则只在 prune.md |
+| migrate.md 磁盘处理表、去向记录 | 我们自己的 | — | — |
+| additions.md 三步 | anthropic `commands/revise-claude-md.md`「Step 3」的格式 `<command or pattern>` - `<brief description>` 与「一行一概念」 | 格式 | 并入第 2 步；三条 Avoid 与 prune.md 重复，删 |
+| additions.md「What TO Add」 | anthropic `update-guidelines.md`「What TO Add」五类 | 五类、例子、Why | 例子的段名改成我们的（`## Commands`、`## Gotchas`、`## Key Conventions`、domain section）；「Update Principles」「Validation Checklist」与 write.md、prune.md 重复，删 |
+| verify.md | sentry「4. Verify exact paths and commands exist」；anthropic `commands/revise-claude-md.md`「Step 4」的 diff 块；humanlayer「Example」末尾两个清单 | 原句、格式 | diff 块加 `- [the line removed]`；路径由脚本查，命令由 agent 查 |
+| incremental.md 的维护者专属行、branch 与报告 | 我们自己的 | — | — |
 
 四份参考里明确**不用**的，以及原因：
 
