@@ -4,10 +4,10 @@ Branches **create** and **rewrite**. You have `survey-list.md`, with the maintai
 
 ## Steps
 
-1. **Decide the nested directories.** Every `place` in the survey list that is a directory path and holds at least one entry of type command, convention, or pitfall gets its own pair. One entry is enough. A place whose entries are all of type `omit` gets nothing.
+1. **List the nested directories**: the directories that earned a pair in [ask.md](ask.md). One entry was enough.
 2. **Write the root `AGENTS.md`** on the root template below, from the entries whose place is `root`.
-3. **Write the root `CLAUDE.md`**: the line `@AGENTS.md`, plus any other `@` lines `inputs.md` recorded from the old root `CLAUDE.md`. Nothing else.
-4. **Write each nested pair** on the nested template, from the entries whose place is that directory. The `CLAUDE.md` beside it holds the one line `@AGENTS.md`.
+3. **Write the root `CLAUDE.md`**: the line `@AGENTS.md`, plus any other `@` line listed under `## Imports found in old CLAUDE.md files` in `inputs.md` that came from the root `CLAUDE.md`. Nothing else.
+4. **Write each nested pair** on the nested template, from the entries whose place is that directory. The `CLAUDE.md` beside it holds the one line `@AGENTS.md`, replacing whatever was there.
 
 ## Root template
 
@@ -36,10 +36,10 @@ Write the file in this shape. A section with no entries is left out, heading inc
 
 ## Conventions and pitfalls
 
-- <one rule per bullet, from entries of type convention or pitfall that every task needs>
+- <one rule per bullet, from entries of type convention or pitfall that have no when line>
 
-<important if="<a specific trigger: one kind of work>">
-<entries of type convention or pitfall that only this kind of work reaches>
+<important if="<the when value: one kind of work>">
+<the entries that share this when value>
 </important>
 
 Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.

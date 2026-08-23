@@ -14,7 +14,7 @@ Inspect before writing:
 
 Added for this skill:
 - history: the directories with the most commits in the last year (`git log --since='1 year ago' --name-only --format= | cut -d/ -f1-2 | sort | uniq -c | sort -rn`), which tells where nested files earn their place
-- `inputs.md` from your scratch directory: existing instruction files of any tool, read for facts
+- the files under `## Other tools' instruction files` in your scratch directory's `inputs.md`, read for facts
 
 ## Groups
 
@@ -25,7 +25,7 @@ Topic groups, always these four, feeding the root file:
 | Group | Assignment |
 | --- | --- |
 | toolchain | manifests, lock files, `Makefile`, task runners, `scripts/`, CI workflows: which package manager and runtime; which commands exist; which of them a reader cannot understand from `--help` or the manifest alone; which are file-scoped |
-| documents | `README.md`, `CONTRIBUTING.md`, `docs/`, `specs/`, `SECURITY.md`, `.github/`, and every file in `inputs.md`: which documents cover setup, architecture, API, security, release, policy; where they disagree with each other or with the code |
+| documents | `README.md`, `CONTRIBUTING.md`, `docs/`, `specs/`, `SECURITY.md`, `.github/`, and every file listed in `inputs.md`: which documents cover setup, architecture, API, security, release, policy; where they disagree with each other or with the code |
 | history | commit history: the busiest directories; directories untouched for a year; committed files that a command generates; areas that look legacy |
 | patterns | the code: test layout and how one test file is run; generated files and their generators; ordering dependencies between modules; anything two parts of the code do differently |
 
@@ -56,17 +56,20 @@ Report format, one entry per fact, nothing else:
   evidence: <file>:<line>, or the command you ran and its output
   place: root | <directory path> | omit
   type: command | convention | pitfall | reference
+  when: <one kind of work, only if the fact matters to that kind of work alone; leave the line out otherwise>
 
-"place" is where the fact belongs: root when it holds everywhere, a directory path when it holds only under that directory, omit when it is obvious from the code or enforced by a linter, formatter, or type checker. "type": command for something to run, convention for how things are done here, pitfall for what goes wrong and how to avoid it, reference for a document that already covers a need (give its path as the fact).
+A group that finds nothing reports the single line "nothing found".
+
+"place" is where the fact belongs: root when it holds everywhere, a directory path when it holds only under that directory, omit when it is obvious from the code or enforced by a linter, formatter, or type checker. "type": command for something to run, convention for how things are done here, pitfall for what goes wrong and how to avoid it, reference for a document that already covers a need (give its path as the fact). "when": the one kind of work the fact matters to (for example "adding or modifying API routes"); most facts have no when line.
 
 When two parts of the repository do the same thing differently, report both with their evidence and place "root"; the maintainer decides. When a documented command fails or a referenced file is missing, report that as a pitfall with the evidence.
 ```
 
 ## Collect
 
-Merge every report into one file, `survey-list.md` in the scratch directory: every entry kept with its evidence, exact duplicates dropped, sorted by place with `root` first. This file is the survey list.
+Merge every report into one file, `survey-list.md` in the scratch directory: every entry kept with its evidence, exact duplicates dropped, sorted by place with `root` first. This file is the **survey list**; every later step reads it and nothing else from the survey.
 
-Done when every group has reported, every entry in `survey-list.md` has an evidence field naming a file and line or a command and its output, and the entries are sorted by place.
+Done when every group has reported ("nothing found" counts), `grep -c '^- fact:' survey-list.md` equals `grep -c '^  evidence:' survey-list.md`, and the entries are sorted by place.
 
 Next, by branch:
 

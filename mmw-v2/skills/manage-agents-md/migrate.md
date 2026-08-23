@@ -15,9 +15,9 @@ When given an existing file to improve:
 7. **Delete code snippets** — replace with file path references.
 8. **Delete vague instructions** — remove anything like "leverage the X agent" or "follow best practices" that isn't concrete and actionable.
 
-Record the outcome as `migration.md` in the scratch directory: for each old file, each line's destination — a section name, "ask", or "removed: <reason>".
+Record the outcome as `destinations.md` in the scratch directory: one line per old line, as `<old file>:<line> → <destination>`, where the destination is a section name of the templates in [write.md](write.md), `ask`, or `removed: <reason>`. A line removed as linter territory carries the hook suggestion from step 6 in its reason, so the final report prints it.
 
-Then append every line whose destination is a section to `survey-list.md` as an entry: `fact` is the line, `evidence` is `<old file>:<line>`, `place` is root or the directory the old file sat in, `type` is command, convention, pitfall, or reference by the section. The writer reads only the survey list; a kept line that is not in it is not written. Lines whose destination is "ask" stay in `migration.md`; [ask.md](ask.md) reads them there as recommended answers.
+Then append every line whose destination is a section to `survey-list.md` as an entry: `fact` is the line, `evidence` is `<old file>:<line>`, `place` is root or the directory the old file sat in, `type` is command, convention, pitfall, or reference by the section, and `when` is the block condition chosen in steps 4 and 5 for a line that goes into an `<important if>` block. The writer reads only the survey list; a kept line that is not in it is not written. Lines whose destination is `ask` stay in `destinations.md`; [ask.md](ask.md) reads them there as recommended answers.
 
 ## What happens to each old file on disk
 
@@ -34,11 +34,11 @@ A nested file survives only on rules the directory group's survey report confirm
 
 ## Removal list
 
-Keep two lists in `migration.md` as you go; the final report prints them:
+Keep two lists at the end of `destinations.md` as you go; the final report prints them:
 
 - **What was removed and why** — one line per removed rule or section with its reason: linter territory, discoverable from code, code snippet, duplicate of a document, one-off, vague.
 - **What was NOT removed** — every command, and every rule that will stay only if the maintainer confirms it.
 
-Done when every line of every file in `inventory.md` has exactly one destination in `migration.md`, and every line with a section destination is an entry in `survey-list.md`.
+Done when, for every file in `inventory.md`, `wc -l` of the old file equals the number of `destinations.md` lines that start with its path, and every line with a section destination is an entry in `survey-list.md`.
 
 Next: [ask.md](ask.md).

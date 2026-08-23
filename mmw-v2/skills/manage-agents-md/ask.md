@@ -16,7 +16,7 @@ Each question should be formatted like so:
 ➡️ <your recommended answer>
 ```
 
-The recommended answer quotes the survey entry and its evidence. When the survey list has nothing for a question, the recommended answer is "the survey found nothing for this". On the rewrite branch, the lines `migration.md` sent to "ask" are the recommended answers, each marked "from the current file".
+The recommended answer quotes the survey entry and its evidence. When the survey list has nothing for a question, the recommended answer is "the survey found nothing for this". On the rewrite branch, the lines `destinations.md` sent to `ask` are the recommended answers, each marked "from the current file".
 
 ## Project identity, four questions
 
@@ -37,7 +37,7 @@ The recommended answer quotes the survey entry and its evidence. When the survey
 
 ## Nested scope, one question per directory
 
-For every directory whose survey entries have a `place` of their own: "What is `<directory>` not responsible for?" The recommended answer is that directory group's scope finding.
+A directory **earns a pair** when the survey list has at least one entry of type command, convention, or pitfall whose place is that directory. For every directory that earns a pair: "What is `<directory>` not responsible for?" The recommended answer is that directory group's scope finding.
 
 ## Record
 

@@ -7,7 +7,7 @@ Branch: **incremental**. You have `scope.md` and `survey-list.md` built from the
 For each file in `scope.md`:
 
 1. Read the file. For each line, look for a survey entry that contradicts it. A contradicted line is fixed when the entry gives the new fact, removed when it gives none. Write the old line, the new line, and the evidence into `changes.md` in the scratch directory.
-2. For each survey entry with no line covering it, decide whether it belongs in the file by the categories below, and add it where its type goes: command to Commands, convention or pitfall to Conventions and pitfalls or to the `<important if>` block for its kind of work, reference to References.
+2. For each survey entry with no line covering it, decide whether it belongs in the file by the categories below, and add it where its type goes: command to `## Commands`, reference to `## References`, convention or pitfall to `## Conventions and pitfalls` when it has no `when` line and to the `<important if>` block whose condition is its `when` value otherwise (open the block if none exists).
 3. When no entry contradicts or extends the file, record "no change needed" for it in `changes.md`.
 
 ## What TO Add
@@ -67,7 +67,7 @@ Why: Establishes patterns that work.
 
 Why: Environment-specific knowledge.
 
-The headings in these examples are the reference's own; in this skill's files an addition lands in the section its type names, as in step 2.
+The headings in these examples are the reference's own; in this skill's files an addition lands in the section step 2 names for its type.
 
 ## Draft Additions
 
@@ -82,7 +82,7 @@ Avoid:
 
 ## Where an addition goes
 
-A fact whose place is a directory goes into that directory's `AGENTS.md`; when the directory has no pair yet, create both files on the nested template in [write.md](write.md), with the scope sentence left as the directory group's scope finding and listed under **Pending maintainer decisions** for confirmation. A fact whose place is `root` goes into the root file. A directory whose last rule just disappeared keeps its pair; the report lists it under **Pending maintainer decisions** and the maintainer removes it.
+A fact whose place is a directory goes into that directory's `AGENTS.md`; when the directory has no pair yet, create both files on the nested template in [write.md](write.md), with the scope sentence left as the directory group's scope finding and listed under **Pending maintainer decisions** for confirmation. A fact whose place is `root` goes into the root file. A directory whose last rule just disappeared is an **empty pair**: it keeps both files on this branch; the report lists it under **Pending maintainer decisions** and the maintainer removes it.
 
 Done when every file in `scope.md` has an entry in `changes.md` — edits with evidence, or "no change needed".
 

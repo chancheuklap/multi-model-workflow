@@ -2,6 +2,8 @@
 
 All branches. The files are written. Now read each one you wrote or edited line by line, first against the list of what must not be there, then with the four pruning tests, then through the self-check. Every line is read on every turn of every future session; each one earns its place here or leaves.
 
+On the **incremental** branch the maintainer-owned lines named in [incremental.md](incremental.md) are exempt: read them, leave them, and put a doubt about one into the report.
+
 ## What NOT to Add
 
 ### 1. Obvious Code Info
@@ -63,7 +65,7 @@ Do not list installed skills or plugins.
 
 Reference existing docs/specs/policies instead of copying them.
 
-## Pruning
+## Four pruning tests
 
 - Keep each meaning in a **single source of truth**: one authoritative place, so changing the behaviour is a one-place edit. **Duplication** (the same meaning in more than one place) costs maintenance and tokens, and inflates a meaning's prominence on the ladder past its real rank. (The accidental inverse of a leading word, which repeats a token on purpose, never the meaning.)
 - The **environment** is a source of truth too (`package.json` scripts, config files, the directory layout, `--help` output), and a document that restates it is a **cache**: a copy of a lookup, earning its load only when the lookup is expensive. Cache what the agent cannot find by looking: the unwritten convention, the reason behind a choice, the gotcha no config confesses. Leave the one-file, one-command lookups to the environment, where they cannot go stale.
@@ -76,7 +78,7 @@ Reference existing docs/specs/policies instead of copying them.
 
 ## Self-check
 
-Answer each for the file in front of you. A "no" sends you back to the section it names.
+Answer each for the file in front of you. A "no" sends you back to the section it names. A "no" whose cause is that the repository has none of the thing (a project with no commands, no documents to reference) is a pass; write that cause down.
 
 | Criterion | Check |
 | --- | --- |
