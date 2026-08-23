@@ -10,7 +10,7 @@ Run, from the repository root:
 bash <this skill's directory>/scripts/check.sh .
 ```
 
-It judges only what a machine can: the root file is within 150 lines; every `AGENTS.md` has a `CLAUDE.md` beside it made of `@import` lines including `@AGENTS.md`; every backticked path with a slash exists; every `<important if="...">` closes and carries its condition; the root carries the subdirectory sentence; no `AGENTS.override.md` remains. It prints one line per failure and exits non-zero. Fix every line it prints and run it again until it prints `ok`.
+It judges only what a machine can: the root file is within 150 lines; every `AGENTS.md` has a `CLAUDE.md` beside it made of `@import` lines including `@AGENTS.md`; every backticked path with a slash exists; every `<important if="...">` closes; the root carries the subdirectory sentence; no `AGENTS.override.md` remains. It prints one line per failure and exits non-zero. Fix every line it prints and run it again until it prints `ok`.
 
 Verify exact paths and commands exist. The script covers paths; commands you verify yourself: run each one the file names, or read the script it invokes, and fix the line if it fails.
 

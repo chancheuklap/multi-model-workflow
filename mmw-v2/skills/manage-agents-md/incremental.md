@@ -10,7 +10,7 @@ Content that only the maintainer knows is not yours to change here: the root ide
 
 1. Resolve the repository root and confirm the working tree is clean: `git status --porcelain` prints nothing. A dirty tree means someone is mid-change; stop and report instead of committing on top of it.
 2. Create the working branch from the current head: `git switch -c agents-md/incremental-<YYYY-MM-DD>`.
-3. For every `AGENTS.md` (skip `.git`, `node_modules`, `.worktrees`), compute its anchor and its change set:
+3. For every `AGENTS.md` (skipping the directories `scripts/check.sh` skips), compute its anchor and its change set:
    - anchor: `git log -1 --format=%H -- <dir>/AGENTS.md`
    - change set: `git diff --name-only <anchor>..HEAD -- <dir> | grep -v '\.md$'`
    A file whose change set is empty is skipped for the rest of the run. Write the remaining files down with their change sets; this list is the survey's scope.

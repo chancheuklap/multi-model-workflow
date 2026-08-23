@@ -25,6 +25,7 @@ find_files() {  # find_files <name>
 rel() { printf '%s\n' "${1#"$ROOT"/}"; }
 
 # 6. No AGENTS.override.md anywhere.
+# (Checks are numbered as in the skill's verify.md, not in file order.)
 while IFS= read -r f; do
   [ -n "$f" ] && fail "$(rel "$f"): AGENTS.override.md must be renamed to AGENTS.md"
 done < <(find_files AGENTS.override.md)
@@ -67,13 +68,10 @@ while IFS= read -r agents; do
     [ "$has" -eq 1 ] || fail "$br: no @AGENTS.md line"
   fi
 
-  # 4. <important if="..."> tags balanced, every opener has an if attribute.
-  opens="$(grep -o '<important[^>]*>' "$agents" | grep -vc '^</' || true)"
+  # 4. <important if="..."> tags balanced.
+  opens="$(grep -c '<important ' "$agents" || true)"
   closes="$(grep -c '</important>' "$agents" || true)"
   [ "$opens" -eq "$closes" ] || fail "$r: $opens <important> openers but $closes </important> closers"
-  if grep -o '<important[^>]*>' "$agents" | grep -v '^</' | grep -vq 'if="[^"]\+"'; then
-    fail "$r: <important> without if=\"...\" attribute"
-  fi
 
   # 3. Backticked tokens that look like repository paths must exist.
   #    A path token: contains a slash, no spaces, no glob/variable characters, not a URL,

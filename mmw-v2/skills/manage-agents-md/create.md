@@ -5,10 +5,12 @@ The repository has no agent instruction file. You will survey it, ask the mainta
 ## Before the shared steps
 
 1. Resolve the repository root: `git rev-parse --show-toplevel`. Every path you write from now on is relative to it. If the directory is not a git repository, stop and say so; the incremental branch depends on git history.
-2. Confirm the premise: `find . -name AGENTS.md -o -name CLAUDE.md -o -name AGENTS.override.md` (skip `.git`, `node_modules`, `.worktrees`) returns nothing. If it returns anything, switch to [rewrite.md](rewrite.md).
+2. Confirm the premise: `find . \( -name .git -o -name node_modules -o -name .worktrees -o -name .claude -o -name .codex -o -name .pi -o -name .venv -o -name vendor \) -prune -o \( -name AGENTS.md -o -name CLAUDE.md -o -name AGENTS.override.md \) -print` (the directories `scripts/check.sh` skips) returns nothing. If it returns anything, switch to [rewrite.md](rewrite.md).
 3. Note other tools' instruction files as survey input, not as templates: `.cursor/rules/`, `.cursorrules`, `.github/copilot-instructions.md`, `GEMINI.md`. The survey reads them for facts; nothing is copied from them by form.
 
 Done when the root is resolved, the premise holds, and the list from step 3 is written down for the survey.
+
+The branch is done when [verify.md](verify.md) reports `ok` and every maintainer answer is either a line in a file or recorded as "no".
 
 ## Shared steps, in order
 

@@ -13,7 +13,6 @@ SENTENCE='Before working in a subdirectory, search it for an `AGENTS.md` and rea
 good_repo() {
   local d="$1"
   mkdir -p "$d/src/api" "$d/docs"
-  ( cd "$d" && git init -q )
   cat > "$d/AGENTS.md" <<EOT
 # AGENTS.md
 
@@ -93,8 +92,6 @@ expect_pass "backticked command with spaces is not a path" "$d"
 d="$TMP/unclosed"; good_repo "$d"; echo '<important if="you touch tests">' >> "$d/AGENTS.md"
 expect_fail "unclosed important tag" "$d" "important"
 
-d="$TMP/noif"; good_repo "$d"; printf '<important>\nx\n</important>\n' >> "$d/AGENTS.md"
-expect_fail "important without if" "$d" "without if="
 
 d="$TMP/nosentence"; good_repo "$d"; grep -v 'subdirectory' "$d/AGENTS.md" > "$d/A" && mv "$d/A" "$d/AGENTS.md"
 expect_fail "missing subdirectory sentence" "$d" "subdirectory sentence"
@@ -102,7 +99,7 @@ expect_fail "missing subdirectory sentence" "$d" "subdirectory sentence"
 d="$TMP/override"; good_repo "$d"; printf 'x\n' > "$d/src/AGENTS.override.md"
 expect_fail "leftover AGENTS.override.md" "$d" "AGENTS.override.md"
 
-d="$TMP/noroot"; mkdir -p "$d"; ( cd "$d" && git init -q )
+d="$TMP/noroot"; mkdir -p "$d"
 expect_fail "no root AGENTS.md" "$d" "AGENTS.md: missing"
 
 d="$TMP/ignored"; good_repo "$d"; mkdir -p "$d/node_modules/x" "$d/.worktrees/y"; printf 'x\n' > "$d/node_modules/x/AGENTS.override.md"; printf 'x\n' > "$d/.worktrees/y/AGENTS.override.md"

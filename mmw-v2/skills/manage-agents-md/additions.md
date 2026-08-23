@@ -76,6 +76,6 @@ Avoid:
 
 ## Where an addition goes
 
-A fact that holds only under one directory goes into that directory's `AGENTS.md`; create the pair if the directory has none. A fact that holds everywhere goes into the root. A directory whose only rule just disappeared loses its pair: delete both files and say so in the report.
+A fact that holds only under one directory goes into that directory's `AGENTS.md`; create the pair if the directory has none. A fact that holds everywhere goes into the root. A directory whose only rule just disappeared keeps its pair on this branch; the report's **Pending maintainer decisions** says the pair is empty and the maintainer removes it.
 
 Done when every change set has produced either edits with evidence or an explicit "no change needed", and nothing maintainer-owned was touched.

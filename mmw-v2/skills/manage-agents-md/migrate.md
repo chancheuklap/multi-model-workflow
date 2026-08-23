@@ -9,7 +9,7 @@ When given an existing file to improve:
 1. **Identify the project identity** — extract what the old files say about what this is. Leave it bare at the top; it becomes the recommended answer in [ask.md](ask.md), where the maintainer confirms or replaces it.
 2. **Extract the package manager and runtime** — condense to one or two lines.
 3. **Extract commands** — keep ALL commands from the original, except a command whose meaning the manifest's scripts or `--help` already give. Keep those in the scratch note, not the file.
-4. **Break apart rules** — split any list of rules into individual `<important if>` blocks with specific conditions. You can group rules, but never group unrelated rules under one broad condition. A rule that every task needs stays bare under conventions and pitfalls.
+4. **Break apart rules** — split any list of rules into individual `<important if>` blocks with specific conditions. You can group rules, but never group unrelated rules under one broad condition.
 5. **Wrap domain sections** — testing, API patterns, state management, i18n, etc. each get their own block with a condition describing when that knowledge matters.
 6. **Delete linter territory** — remove style guidelines, formatting rules, and anything enforceable by tooling. Suggest replacing with pre-push or pre-commit hooks.
 7. **Delete code snippets** — replace with file path references.

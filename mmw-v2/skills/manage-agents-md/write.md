@@ -24,7 +24,7 @@ Not in a root file: a directory map, environment variables, the list of installe
 
 ## Nested files
 
-`AGENTS.md` with the body, `CLAUDE.md` with `@AGENTS.md`. Never `AGENTS.override.md`.
+`AGENTS.md` with the body, `CLAUDE.md` with `@AGENTS.md`. The body file is always named `AGENTS.md`.
 
 A directory gets a nested pair when the survey or the maintainer gives one rule that holds only there and the root does not carry. One rule is enough.
 
@@ -71,7 +71,7 @@ Good — each rule has its own narrow trigger:
 </important>
 ```
 
-The tag's observed effect is in Claude Code, whose own system prompt uses this XML pattern. Other hosts read it as text; it costs them a line and changes nothing.
+The tag acts on a host whose own system prompt uses this XML pattern; a host without it reads the tag as text, which costs a line and changes nothing.
 
 ## Writing rules
 

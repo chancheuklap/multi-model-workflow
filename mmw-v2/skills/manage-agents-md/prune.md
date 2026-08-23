@@ -80,14 +80,16 @@ Answer each for the file in front of you. A "no" sends you back to the section i
 
 | Criterion | Check |
 | --- | --- |
-| Commands/workflows documented | Are the build/test/lint commands an agent cannot infer present, and nothing it can infer? |
-| Architecture clarity | Does the identity and the references table let an agent find where things live without a directory map? |
-| Non-obvious patterns | Are the gotchas and quirks the survey and the maintainer gave all captured? |
+| Commands/workflows documented | Are build/test/deploy commands present? |
+| Architecture clarity | Can an agent understand the codebase structure? |
+| Non-obvious patterns | Are gotchas and quirks documented? |
 | Conciseness | No verbose explanations or obvious info? |
 | Currency | Does it reflect current codebase state? |
 | Actionability | Are instructions executable, not vague? |
 
 Red flags to look for while checking:
+- Commands that would fail (wrong paths, missing deps)
+- Outdated tech versions
 - Copy-paste from templates without customization
 - Generic advice not specific to the project
 - "TODO" items never completed

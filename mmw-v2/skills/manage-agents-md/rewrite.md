@@ -5,11 +5,13 @@ The repository already has agent instruction files in some form. You will invent
 ## Before the shared steps
 
 1. Resolve the repository root: `git rev-parse --show-toplevel`.
-2. Inventory every existing file: `find . \( -name .git -o -name node_modules -o -name .worktrees \) -prune -o \( -name AGENTS.md -o -name CLAUDE.md -o -name AGENTS.override.md -o -name CLAUDE.local.md \) -print`. Write the list down with each file's line count. This list is the migration's input and the final report's baseline.
+2. Inventory every existing file, skipping the directories `scripts/check.sh` skips: `find . \( -name .git -o -name node_modules -o -name .worktrees -o -name .claude -o -name .codex -o -name .pi -o -name .venv -o -name vendor \) -prune -o \( -name AGENTS.md -o -name CLAUDE.md -o -name AGENTS.override.md \) -print`. Write the list down with each file's line count. This list is the migration's input and the final report's baseline.
 3. Read every file on the list in full. While reading, copy out two things into a scratch note: every command (with the line it came from), and every `@import` line in any `CLAUDE.md`. Commands are kept whole in the rewrite; imports other than `@AGENTS.md` are kept in the root bridge.
 4. Note other tools' instruction files as survey input: `.cursor/rules/`, `.cursorrules`, `.github/copilot-instructions.md`, `GEMINI.md`.
 
 Done when the inventory exists, every file on it has been read, and the scratch note lists every command and every import.
+
+The branch is done when [verify.md](verify.md) reports `ok` and the removal list accounts for every inventoried line.
 
 ## Shared steps, in order
 

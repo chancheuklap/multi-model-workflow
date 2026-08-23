@@ -73,7 +73,7 @@ artifact_refs: []
 
 **根目录**
 
-- `AGENTS.md` 是唯一正文，上限 150 行。`CLAUDE.md` 只有一行 `@AGENTS.md`。不用软链接。
+- `AGENTS.md` 是唯一正文，上限 150 行。`CLAUDE.md` 是桥：一行 `@AGENTS.md`，加上仓库原有的其他 `@` 引入行，没有别的内容。不用软链接。
 - 段落按顺序：
   1. 项目身份，一到四行，来自维护者而不是 manifest：给谁解决什么问题；处于什么阶段、有没有真实用户和资金；这个仓库管什么、不管什么（拆出去的仓库、冻结的目录）；agent 该怎么对待仓库里的内容。技术栈不写。
   2. 包管理器与运行时，一两行。
@@ -142,7 +142,7 @@ mmw-v2/skills/manage-agents-md/
 | A 调查 | anthropic `quality-criteria.md`「Assessment Process」第 2 步 | 「对照实际代码库：跑命令、查引用文件是否存在、核对架构描述」 | 放进调查员提示词 |
 | Q 问维护者 | `grilling` `SKILL.md` | 提问格式：每题编号、一句标题、正文含上下文和选项、一个推荐答案；一轮问完等答复 | 问题集固定（见第四节），不做设计树和多轮扩展；推荐答案从调查报告推出 |
 | B 决定子文件 | sentry `SKILL.md`「Workflow 2. Choose scope」 | 「closest instruction file wins; keep narrower files shorter than root files」 | 建文件门槛改成「有一条只在本目录成立的规则就建」 |
-| C 写根文件 | humanlayer `SKILL.md`「Principles 1、2」 | 什么裸露、什么包；条件要窄，含 Bad/Good 例子 | 「90%+ 任务相关就裸露」改成 `writing-for-agents` 的判据：所有分支都要的内联，只有部分分支要的包 |
+| C 写根文件 | humanlayer `SKILL.md`「Principles 1、2」 | 什么裸露、什么包；条件要窄，含 Bad/Good 例子 | 「90%+ 任务相关就裸露」改成 `writing-for-agents` 的判据：所有分支都要的内联，只有部分分支要的包；Principle 1 列举的裸露内容「project identity, project map, tech stack」改成我们的裸露段（身份、运行时、命令、引用、约定），因为目录图已禁 |
 | C 写根文件 | sentry `SKILL.md`「Writing Rules」 | 全部 11 条 | 删「Do not list installed skills or plugins」以外与我们冲突的条目：无。保留全部 |
 | C 写根文件 | `writing-for-agents`「Context pointers」 | 指针写法三条 | 用于引用表每行和子目录提示句 |
 | D 删减 | anthropic `update-guidelines.md`「What NOT to Add」 | 四类，各带 Bad 例子，第四类另有 Good 例子 | 作为底本；追加 humanlayer「Principle 4」的「cut code snippets，改成文件路径引用」「cut anything a linter can enforce」；追加 sentry「Writing Rules」的「Do not list installed skills or plugins」和「Anti-Patterns」的「不从 README/CONTRIBUTING 复制」 |
@@ -154,7 +154,7 @@ mmw-v2/skills/manage-agents-md/
 | F 报告 | humanlayer `SKILL.md`「Example」末尾 | 「What was removed and why」「What was NOT removed」两个清单 | 重写模式用 |
 | G 增量加什么 | anthropic `update-guidelines.md`「What TO Add」 | 五类 | 原文 |
 | G 增量加什么 | anthropic `commands/revise-claude-md.md`「Step 3 Draft Additions」 | 一行一概念；格式 `<命令或模式> - <说明>`；三条 Avoid | 原文 |
-| H 重写旧文件 | humanlayer `SKILL.md`「How to Apply」 | 九步 | 第 2 步（目录图）删；第 3 步（技术栈）改成「包管理器与运行时一行」；第 4 步保留「命令全保留」并加「能从 scripts 查到含义的不写」 |
+| H 重写旧文件 | humanlayer `SKILL.md`「How to Apply」 | 九步 | 第 1 步「提取一句话身份」改成「提取旧文件对身份的说法，作为 ask 步骤的推荐答案」，因为身份由维护者定；第 2 步（目录图）删；第 3 步（技术栈）改成「包管理器与运行时一行」；第 4 步保留「命令全保留」并加「能从 scripts 查到含义的不写」 |
 
 四份参考里明确**不用**的：anthropic 的六维打分和 A–F 等级；anthropic 的项目类型模板；sentry 的 `Commit Attribution` 段；sentry 的 `CLAUDE.md` symlink 做法；agentflow 的 `> 最后核对` 与 `> 领域上下文` 头部字段。
 
@@ -205,8 +205,8 @@ mmw-v2/skills/manage-agents-md/
 
 `scripts/check.sh` 只判六项，失败非零退出：
 
-1. 根 `AGENTS.md` 不超过 150 行。
-2. 每个 `AGENTS.md` 同目录有 `CLAUDE.md`，内容恰好是一行 `@AGENTS.md`。
+1. 根 `AGENTS.md` 存在且不超过 150 行。
+2. 每个 `AGENTS.md` 同目录有 `CLAUDE.md`，内容只有 `@` 引入行，其中一行是 `@AGENTS.md`。
 3. 反引号里形如仓库相对路径的引用在仓库里存在。
 4. `<important if>` 标签成对闭合。
 5. 根 `AGENTS.md` 含「进入子目录先读 `AGENTS.md`」那句。

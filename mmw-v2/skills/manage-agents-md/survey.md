@@ -14,11 +14,6 @@ Added for this skill:
 - history: the directories with the most commits in the last year (`git log --since='1 year ago' --name-only --format= | cut -d/ -f1-2 | sort | uniq -c | sort -rn`), which tells where nested files earn their place
 - existing instruction files of any tool: `AGENTS.md`, `CLAUDE.md`, `AGENTS.override.md`, `.cursor/rules/`, `.cursorrules`, `.github/copilot-instructions.md`, `GEMINI.md` — read for facts, their form is not reused
 
-Cross-reference with actual codebase:
-- Run documented commands (mentally or actually)
-- Check if referenced files exist
-- Verify architecture descriptions
-
 ## Groups
 
 Survey in parallel. Two kinds of group; every group gets the same prompt template below with its own **assignment**.
@@ -58,6 +53,11 @@ Report format, one entry per fact, nothing else:
   type: command | convention | pitfall | reference
 
 "place" is where the fact belongs: root when it holds everywhere, a directory path when it holds only under that directory, omit when it is obvious from the code or enforced by a linter, formatter, or type checker. "type": command for something to run, convention for how things are done here, pitfall for what goes wrong and how to avoid it, reference for a document that already covers a need (give its path as the fact).
+
+Cross-reference with actual codebase:
+- Run documented commands (mentally or actually)
+- Check if referenced files exist
+- Verify architecture descriptions
 
 When two parts of the repository do the same thing differently, report both with their evidence and place "root"; the maintainer decides. When a documented command fails or a referenced file is missing, report that as a pitfall with the evidence.
 ```
