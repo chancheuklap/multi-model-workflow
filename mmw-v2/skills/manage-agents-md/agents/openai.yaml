@@ -1,0 +1,3 @@
+interface:
+  display_name: "Manage AGENTS.md"
+  short_description: "Create, rewrite, or incrementally update AGENTS.md"

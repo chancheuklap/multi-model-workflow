@@ -34,3 +34,4 @@ productivity/writing-for-agents
 self/exe-release
 self/ui-qa
 self/readable-docs
+self/manage-agents-md
