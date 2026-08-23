@@ -17,6 +17,7 @@
 - [research](research.md) — `engineering/research`
 - [to-spec](to-spec.md) — `engineering/to-spec`
 - [handoff](handoff.md) — `productivity/handoff`
+- [teach](teach.md) — `productivity/teach`
 - [domain-modeling](domain-modeling.md) — `engineering/domain-modeling`
 - [wayfinder](wayfinder.md) — `engineering/wayfinder`
 - [implement](implement.md) — `engineering/implement`

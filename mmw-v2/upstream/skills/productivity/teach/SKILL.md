@@ -52,7 +52,7 @@ A lesson should be **beautiful** — clean, readable typography and layout — s
 
 The lesson should be short, and completable very quickly. Learners' working memory is very small, and we need to stay within it. But each lesson should give the user a single tangible win that they can build on. It should be directly tied to the mission, and should be in the user's zone of proximal development.
 
-If possible, open the lesson file for the user by running a CLI command.
+Hand the finished lesson over by serving the workspace root over a local HTTP server and giving the user the lesson's URL. A page opened straight from disk sits under `file://`, where some browsers refuse to reach anything outside the page's own directory — cross-document links go dead and the reader cannot tell why.
 
 Each lesson should link via HTML anchors to other lessons and reference documents.
 
@@ -64,9 +64,15 @@ Each lesson should contain a reminder to ask followup questions to the agent. Th
 
 Lessons are built from reusable **components**, stored in `./assets/`: stylesheets, quiz widgets, simulators, diagram helpers — anything a second lesson could reuse.
 
-Reuse is the default, not the exception. Before authoring a lesson, read `./assets/` and build from the components already there. When a lesson needs something new and reusable, write it as a component in `./assets/` and link to it — never inline code a future lesson would duplicate.
+Reuse is the default, not the exception. Before authoring a lesson, read `./assets/` and build from the components already there. When a lesson needs something new and reusable, write it as a component in `./assets/` — never write code inline that a future lesson would duplicate.
 
-A shared stylesheet is the first component every workspace earns: every lesson links it, so the lessons look like one consistent course rather than a pile of one-offs. As the workspace grows, so should the component library.
+A shared stylesheet is the first component every workspace earns, so the lessons look like one consistent course rather than a pile of one-offs. As the workspace grows, so should the component library.
+
+### Self-contained pages
+
+A lesson opened away from its folder — an editor preview, a rendering pane, a copy someone was sent — loses every file it points at, and arrives as unstyled text.
+
+Embed each component the page uses as a `<style>` or `<script>` block between `<!--CSS-->` and `<!--JS-->` markers. `./assets/` stays the editable source: write `./assets/build.py` alongside the first component so it refills those markers across `./lessons/` and `./reference/`, and re-run it after editing a component.
 
 ## The Mission
 
