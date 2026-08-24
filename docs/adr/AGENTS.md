@@ -4,7 +4,7 @@
 
 ## 关键约定
 
-- 编号来自 `mmw domain adr-next`（在冻结的 `mmw/cli/` 里）；多个会话可能并行写时先命名 `draft-<ticket>-<slug>.md`，合回后再取号。
+- 编号 = 现有最大号 + 1（ADR 0023，不再调用冻结区命令）；多个会话可能并行写时先命名 `draft-<ticket>-<slug>.md`，合回后再取号。
 - 被改写的 ADR 不重写：新 ADR 的 `amends:` 列旧编号，旧文件顶部加一行引用块指向现行读法，旧正文原样保留。`amends` 是两份 ADR 之间唯一的机器可读关联。
 - 每份必须有 `---` frontmatter（`date`、`amends`）和一个 H1。
 
