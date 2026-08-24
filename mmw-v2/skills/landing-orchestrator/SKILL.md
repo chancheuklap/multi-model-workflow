@@ -84,9 +84,8 @@ gh issue edit <票号> --add-assignee @me
 按定级取角色：`worker:junior` → `junior-worker`，`worker:senior` → `senior-worker`；从 `$TABLE` 取 `kind` / `model` / `effort`。每票一个 worktree、一个 pane、一个常驻 agent，名字 `ticket-<票号>`：
 
 ```bash
-herdr worktree create --branch "ticket/<票号>-<slug>" --cwd "<消费仓库根>" --no-focus   # 读 JSON 里的 worktree 路径与 workspace/pane id
-herdr pane split --current --direction right --cwd "<worktree 路径>" --no-focus         # 或直接用 worktree create 返回的 root pane；读 .result.pane.pane_id
-herdr agent start "ticket-<票号>" --kind <kind> --pane <pane id> -- <该宿主的模型、强度、注入参数>
+herdr worktree create --branch "ticket/<票号>-<slug>" --cwd "<消费仓库根>" --no-focus   # 它新建一个 workspace 并附带一个 shell pane：worktree 路径在 .result.worktree.path，pane id 在 .result.root_pane.pane_id，workspace id 在 .result.workspace.workspace_id
+herdr agent start "ticket-<票号>" --kind <kind> --pane <.result.root_pane.pane_id> -- <该宿主的模型、强度、注入参数>
 herdr agent prompt "ticket-<票号>" "<简报全文>" --wait --timeout 600000
 ```
 
