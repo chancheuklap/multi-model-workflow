@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 把 skills.txt 列出的技能和 agents/ 下的 subagent 软链进本机的每个宿主。就这两件事。
+# 把 skills.txt 列出的技能、agents/ 下的 subagent 和 hooks/ 下的纪律注入层装进本机的每个宿主。就这三件事。
 #
 # 技能有两个来源：上游的在 upstream/skills/，我们自己写的在 skills/，名单里用 self/ 前缀
 # 区分。两者装法完全一样。
@@ -19,6 +19,11 @@
 # agents/assemble.py 从 body.md + agent.json 装配到 agents/<名>/out/，这里只把成品
 # 软链到各宿主的 agent 目录。软链仍指回仓库：改了 body.md 跑一次装配（或本脚本），
 # 宿主下一次调用就是新的。
+#
+# hook 层（hooks/）跟前两者又不同：Claude、Codex、Cursor、Grok 读的是各自的 hook 配置文件，
+# 本脚本把 hooks/mmw-hooks.json 里的三条合并进去（保留别人的条目，只摘自己的），pi 装的是
+# 扩展目录软链，Grok 另装一份规则文件做开场降级。每个宿主根留一份 .mmw-hooks 清单记录本脚本
+# 动过哪些文件与链接。--check 顺带跑承重句校验（hooks/check-invariants.js）。
 
 set -euo pipefail
 
@@ -230,6 +235,104 @@ if [ -d "$AGENTS_SRC" ]; then
     fi
     echo "已装  ${#linked[@]} 个 agent -> $dest"
   done
+fi
+
+# ---------------- hook 层 ----------------
+
+HOOKS_SRC="$ROOT/hooks"
+HOOK_MANIFEST_NAME=".mmw-hooks"
+
+if [ -d "$HOOKS_SRC" ]; then
+  command -v node >/dev/null 2>&1 || die "hook 层要 node（三个注入脚本与承重句校验都是 Node）"
+  CODEX_DIR="${CODEX_HOME:-$HOME_DIR/.codex}"
+  PI_DIR="${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME_DIR/.pi}/agent}"
+
+  # 一行一个安装点：宿主根|种类|目标|格式或来源。
+  # json：把三条 hook 合并进该文件（格式给 hooks-config.py）；link：软链到本仓库的一个路径。
+  # Grok 两行：hooks/ 下一份自己的 hook 文件（它对 Claude/Cursor 配置的兼容扫描本机已关），
+  # rules/ 下一份规则文件——它的开场事件是被动的，纪律只能走常驻规则。
+  hook_dests=(
+    "$HOME_DIR/.claude|json|$HOME_DIR/.claude/settings.json|claude"
+    "$CODEX_DIR|json|$CODEX_DIR/hooks.json|codex"
+    "$HOME_DIR/.cursor|json|$HOME_DIR/.cursor/hooks.json|cursor"
+    "$HOME_DIR/.grok|json|$HOME_DIR/.grok/hooks/mmw-discipline.json|grok"
+    "$HOME_DIR/.grok|link|$HOME_DIR/.grok/rules/mmw-discipline.md|$HOOKS_SRC/discipline/worker.md"
+    "$PI_DIR|link|$PI_DIR/extensions/mmw-discipline|$HOOKS_SRC/pi-extension"
+  )
+
+  # 装前按清单清理退役条目：上次记录了、这次安装点里没有的。json 只摘本仓库的条目，
+  # link 只摘指回本仓库 hooks/ 的软链。
+  if [ "$mode" != check ]; then
+    for row in "${hook_dests[@]}"; do
+      IFS='|' read -r host_home _ _ _ <<<"$row"
+      manifest="$host_home/$HOOK_MANIFEST_NAME"
+      [ -f "$manifest" ] || continue
+      while IFS= read -r old; do
+        [ -n "$old" ] || continue
+        printf '%s\n' "${hook_dests[@]}" | cut -d'|' -f2,3 | grep -qxF "$old" && continue
+        kind="${old%%|*}"
+        target="${old#*|}"
+        case "$kind" in
+          json) python3 "$HOOKS_SRC/hooks-config.py" strip "$target" "$HOOKS_SRC" ;;
+          link)
+            [ -L "$target" ] || continue
+            case "$(readlink "$target")" in
+              "$HOOKS_SRC"/*) rm "$target"; echo "摘掉  $target" ;;
+            esac ;;
+        esac
+      done < "$manifest"
+      : > "$manifest"
+    done
+  fi
+
+  hooks_installed=0
+  for row in "${hook_dests[@]}"; do
+    IFS='|' read -r host_home kind target spec <<<"$row"
+    [ -d "$host_home" ] || continue
+    manifest="$host_home/$HOOK_MANIFEST_NAME"
+
+    if [ "$mode" = check ]; then
+      case "$kind" in
+        json) python3 "$HOOKS_SRC/hooks-config.py" check "$target" "$spec" "$HOOKS_SRC" "$spec" || rc=1 ;;
+        link)
+          if [ ! -L "$target" ] || [ "$(readlink "$target")" != "$spec" ]; then
+            echo "缺    $target" >&2
+            rc=1
+          fi ;;
+      esac
+      continue
+    fi
+
+    case "$kind" in
+      json)
+        if python3 "$HOOKS_SRC/hooks-config.py" merge "$target" "$spec" "$HOOKS_SRC" "$spec" >/dev/null; then
+          echo "json|$target" >> "$manifest"
+          hooks_installed=$((hooks_installed + 1))
+        else
+          rc=1
+        fi ;;
+      link)
+        if [ -e "$target" ] || [ -L "$target" ]; then
+          if [ -L "$target" ] && [[ "$(readlink "$target")" == "$HOOKS_SRC"/* ]]; then
+            :
+          else
+            echo "冲突  $target 已存在且不是本仓库装的，跳过" >&2
+            rc=1
+            continue
+          fi
+        fi
+        mkdir -p "$(dirname "$target")"
+        ln -sfn "$spec" "$target"
+        echo "link|$target" >> "$manifest"
+        hooks_installed=$((hooks_installed + 1)) ;;
+    esac
+  done
+  [ "$mode" = check ] || echo "已装  $hooks_installed 处 hook -> 各宿主的 .mmw-hooks 清单"
+
+  # 承重句：清单里的短语逐字存在于权威位置。只在 --check 跑，装的时候不拦。
+  if [ "$mode" = check ]; then
+    node "$HOOKS_SRC/check-invariants.js" || rc=1
+  fi
 fi
 
 [ "$installed_hosts" -gt 0 ] || die "一个宿主都没找到，什么都没装"
