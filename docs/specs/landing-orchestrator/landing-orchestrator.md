@@ -72,8 +72,8 @@ artifact_refs: []
 ## Sources
 
 - ADR 0020（Herdr 派发工人、CC 内角色走 subagent）；ADR 0022（判决与关卡语义）；根 `CONTEXT.md`
-- 调研 artifact <https://claude.ai/code/artifact/280359df-e0fb-445c-81c6-9bd6882ecd35>：第 9 章为本 spec 的图形化全景；herdr 能力与五 CLI 无头矩阵的取证记录
-- 循环蓝本：unlazy `references/orchestration.md` 与 `references/method.md`（driver loop、简报封闭清单、契约七项；本地克隆 scratchpad/unlazy，commit 见存档第 2 章章首——这两份不在存档内，存档只收了 v1 SKILL.md 与关卡写法一节）；失败处理蓝本：pstack orchestrate 的 liveness 一节；frontier/认领实现：issue-tracker-github.md「Wayfinding operations」与 wayfinder 技能的既有用法
+- **五 CLI 无头调用矩阵：本目录附件 `headless-cli-matrix.md`**（本机取证记录；herdr 能力以本机 `herdr --help` 现查）；图形化全景见调研 artifact <https://claude.ai/code/artifact/280359df-e0fb-445c-81c6-9bd6882ecd35> 第 9 章
+- 循环蓝本：**本目录附件 `unlazy-orchestration-blueprint.md` 与 `unlazy-method-blueprint.md`**（unlazy <https://github.com/Leonxlnx/unlazy> @754d9a6 两份 reference 的逐字副本：driver loop、简报封闭清单、契约七项）；失败处理蓝本：pstack <https://github.com/cursor/plugins> `pstack/skills/poteto-mode/playbooks/orchestrate.md` 的 liveness 一节（@46125561）；frontier/认领实现：`docs/agents/issue-tracker.md`「Wayfinding operations」与 wayfinder 技能的既有用法
 - 消费仓库现状（agentflow）：三机拓扑约束、`ready-for-agent` 流转先例、无 CI 的验收现实——2026-08-24 现场探查
 
 ## Further Notes

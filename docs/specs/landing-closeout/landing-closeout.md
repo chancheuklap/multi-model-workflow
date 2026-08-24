@@ -41,7 +41,7 @@ artifact_refs: []
 
 **验收关卡格式（写进 to-tickets 的票模板，ADR 0022）。** 票的验收小节仍是 `- [ ]` 条目列表；可跑条目在其下缩进两行 `CHECK:`（无交互命令）与 `EXPECT:`（期望出现在输出中的成功标记），完成时由工人在条目下追加 `EVIDENCE:` 行（检查输出的最小决定性片段）。通过判定是双条件：进程退出码为 0 且输出含 EXPECT 标记。人工条目不写 CHECK/EXPECT，改写一行 `MANUAL: <裁决人>`。关卡写法遵守存档 `discipline-sources.md` 第 2 章「Author gates that can fail」中与可跑检查相关的五条（意译）：直接观测结果物、成功标记只在全部断言通过后打印、否定断言先过正例、给定数字独立测量、证据取最小决定性输出。
 
-**定级与阻塞边（写进 to-tickets）。** 拆票时为每票打 `worker:junior` 或 `worker:senior` 标签，用户批准拆分时顺手校准；运行中只升不降（升级策略属编排 spec）。阻塞关系必须用 GitHub 原生依赖 API 建立，具体命令引用 setup 种子文件 issue-tracker-github.md 的「Wayfinding operations」一节，不再允许写成正文 `Blocked by:` 文字。两处改动都写 merge-note（to-tickets 是上游技能）。
+**定级与阻塞边（写进 to-tickets）。** 拆票时为每票打 `worker:junior` 或 `worker:senior` 标签，用户批准拆分时顺手校准；运行中只升不降（升级策略属编排 spec）。阻塞关系必须用 GitHub 原生依赖 API 建立，具体命令引用本仓 `docs/agents/issue-tracker.md` 的「Wayfinding operations」一节（ADR 0023 过继后已落位），不再允许写成正文 `Blocked by:` 文字。两处改动都写 merge-note（to-tickets 是上游技能）。
 
 **implement 的完成步骤（替换正文末句「Commit your work to the current branch」；步骤序列是本 spec 的净新决策，其中关卡留证一步承接 ADR 0022 的「勾选不算数、证据才算数」）。** 顺序：既有的「开写之前先读」段不动（并由 discipline-hooks spec 钉为承重句）→ 实现 → 调用自查技能 → 逐条跑关卡、勾选并附 EVIDENCE → commit message 引用票号（这同时满足上游 code-review 按 commit 引用找 spec 的前提）→ 创建并推送票分支（命名 `ticket/<票号>-<slug>`）→ 开 PR（正文链接票）→ 关票。写 merge-note。
 
@@ -68,9 +68,9 @@ artifact_refs: []
 
 - 设计对话与全部裁决：2026-08-24/25 grill 会话；调研综述 artifact <https://claude.ai/code/artifact/280359df-e0fb-445c-81c6-9bd6882ecd35>
 - ADR 0020（载体分配）、0022（关卡进票正文）；根 `CONTEXT.md`（术语）
-- 纪律原文存档：本目录 `discipline-sources.md`（含各来源仓库 commit）
+- 纪律原文存档：本目录 `discipline-sources.md`（含各来源仓库 commit）。四家上游仓库地址：swarm-forge <https://github.com/unclebob/swarm-forge>（main @7c1d1c9，six-pack 分支 @b933d68）；pstack <https://github.com/cursor/plugins> 的 `pstack/`（@46125561）；unlazy <https://github.com/Leonxlnx/unlazy>（v1 @baf39ef，main @265fbd5）；ponytail <https://github.com/DietrichGebert/ponytail>（@2ed6c52）
 - 被修改的上游技能：`mmw-v2/upstream/skills/engineering/{to-tickets,implement}/SKILL.md` 及各自 merge-note
-- GitHub 原生依赖命令：`mmw-v2/upstream/skills/engineering/setup-matt-pocock-skills/issue-tracker-github.md`
+- GitHub 原生依赖命令：`docs/agents/issue-tracker.md`（种子出处 `mmw-v2/upstream/skills/engineering/setup-matt-pocock-skills/issue-tracker-github.md`）
 
 ## Further Notes
 
