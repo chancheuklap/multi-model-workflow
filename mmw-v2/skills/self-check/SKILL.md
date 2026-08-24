@@ -21,10 +21,10 @@ Walk every file you touched, once per item, in this order:
 4. **duplication** — > Run the language CRAP tool first and reduce CRAP to 6 or below. Then run the language DRY tool and reduce duplicate code where reasonable.
 5. **complexity** — > Keep refactors small enough to verify locally.
 6. **test readability** — > Clean test names, setup, fixtures, helpers, and assertions without changing behavior.
-7. **stale comments**
+7. **stale comments** — > Comments state only non-obvious rationale. [...] The finished file must read as current truth, never as a log of prior versions, process notes, or residual explanations of what was removed or changed.
 8. **dead code** — > `delete:` dead code, unused flexibility, speculative feature. Replacement: nothing.
 
-Item 4 is the cleaner prompt's own tool sentence; where the CRAP and DRY tools are not installed, apply the same two measures by reading. Item 8 is the `delete:` tag definition from ponytail's review skill (`ponytail/skills/ponytail-review/SKILL.md`, commit 2ed6c52), the only source sentence for dead code across the four reference projects. Item 7 has no sentence of its own in any of them; it stays as the name from the scope line, nothing added.
+Item 4 is the cleaner prompt's own tool sentence; where the CRAP and DRY tools are not installed, apply the same two measures by reading. Item 7 has no sentence of its own in any of the four reference projects; the two sentences quoted are the maintainer's standing editing rule («Clean edits» in their global agent instructions), which is what makes a comment stale here: it explains something other than rationale, or it describes a version of the file that no longer exists. Item 8 is the `delete:` tag definition from ponytail's review skill (`ponytail/skills/ponytail-review/SKILL.md`, commit 2ed6c52), the only source sentence for dead code across the four reference projects.
 
 ## Boundaries
 
