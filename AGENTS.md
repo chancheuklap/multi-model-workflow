@@ -77,4 +77,8 @@
 
 单 context：根 `CONTEXT.md` + `docs/adr/`。See `docs/agents/domain.md`.
 
+### Models
+
+落地流水线六个角色到宿主 kind、模型串、思考强度的映射，`landing-orchestrator` 技能运行时现读。See `docs/agents/models.md`.
+
 Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.
