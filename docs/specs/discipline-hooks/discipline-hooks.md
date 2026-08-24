@@ -57,9 +57,9 @@ artifact_refs: []
 
 ## Sources
 
-- ADR 0021（hook 层决定与四产物形态）；调研 artifact <https://claude.ai/code/artifact/280359df-e0fb-445c-81c6-9bd6882ecd35>（五宿主 hook 能力矩阵的取证记录）
-- 蓝本：ponytail 本地克隆（取证时 commit 见 `docs/specs/landing-closeout/discipline-sources.md` 第 1 章章首）的 hooks 目录、pi-extension、分流 runtime 与副本校验器
-- 完成拦截思想：unlazy 的 Stop hook（存档第 2 章来源仓库）
+- ADR 0021（hook 层决定与四产物形态）；**五宿主 hook 能力矩阵：本目录附件 `host-hook-matrix.md`**（本机取证记录，含各宿主输出形状与取证对象路径）；背景综述另见调研 artifact <https://claude.ai/code/artifact/280359df-e0fb-445c-81c6-9bd6882ecd35>
+- 蓝本：ponytail <https://github.com/DietrichGebert/ponytail>（@2ed6c52）的 `hooks/` 目录、`pi-extension/`、分流 runtime 与 `scripts/check-rule-copies.js`——实现时按该 commit 克隆取原件
+- 完成拦截思想：unlazy <https://github.com/Leonxlnx/unlazy>（main @265fbd5）的 `scripts/stop-hook.mjs`
 - 本机取证对象：五宿主 CLI 与配置目录（Claude/Codex 共享 schema、Grok 的兼容扫描与三形状、Cursor 的 hooks 文件、pi 的扩展事件）
 
 ## Further Notes
