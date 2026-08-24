@@ -18,13 +18,13 @@ Walk every file you touched, once per item, in this order:
 1. **names** — > Rename functions, variables, files, modules, tests, and helpers when better names make intent clearer.
 2. **function cohesion** — > Split functions or files that mix unrelated local responsibilities, but leave high-level dependency direction and architectural boundary decisions to the architect.
 3. **local coupling** — > Reduce unnecessary parameter chains, shared mutable state, and knowledge of unrelated modules.
-4. **duplication** — a helper that already lives in the codebase replaces the copy you wrote.
+4. **duplication** — > Run the language CRAP tool first and reduce CRAP to 6 or below. Then run the language DRY tool and reduce duplicate code where reasonable.
 5. **complexity** — > Keep refactors small enough to verify locally.
 6. **test readability** — > Clean test names, setup, fixtures, helpers, and assertions without changing behavior.
-7. **stale comments** — a comment states only rationale that is still true; one that narrates a version of the code that no longer exists is deleted.
-8. **dead code** — code nothing reaches after your change is deleted, not commented out.
+7. **stale comments**
+8. **dead code** — > `delete:` dead code, unused flexibility, speculative feature. Replacement: nothing.
 
-Items 4, 7 and 8 are the names from the scope line above; the cleaner prompt gives them no sentence of their own, so the one-line reading here is ours.
+Item 4 is the cleaner prompt's own tool sentence; where the CRAP and DRY tools are not installed, apply the same two measures by reading. Item 8 is the `delete:` tag definition from ponytail's review skill (`ponytail/skills/ponytail-review/SKILL.md`, commit 2ed6c52), the only source sentence for dead code across the four reference projects. Item 7 has no sentence of its own in any of them; it stays as the name from the scope line, nothing added.
 
 ## Boundaries
 
