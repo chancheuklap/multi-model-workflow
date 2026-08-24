@@ -1,6 +1,6 @@
 ---
 name: readable-docs
-description: Write documents that people can understand — context before details, jargon defined on first use, every added explanation verified against its source. Use whenever writing a document a person will read: research findings, specs, handoffs, ADRs, READMEs, reports. Other skills name this skill at the step where they start writing.
+description: "Write documents that people can understand — context before details, jargon defined on first use, every added explanation verified against its source. Use whenever writing a document a person will read: research findings, specs, handoffs, ADRs, READMEs, reports. Other skills name this skill at the step where they start writing."
 ---
 
 # Readable docs

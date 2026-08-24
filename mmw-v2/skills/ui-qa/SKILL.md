@@ -1,6 +1,6 @@
 ---
 name: ui-qa
-description: UI QA: check the interface against agreed criteria, and produce violations and findings. Use to check the piece just finished during prototype iteration, or to run a full flow after the app has landed. Do not use when the user operates the interface and gives opinions — that is a walkthrough.
+description: "UI QA: check the interface against agreed criteria, and produce violations and findings. Use to check the piece just finished during prototype iteration, or to run a full flow after the app has landed. Do not use when the user operates the interface and gives opinions — that is a walkthrough."
 argument-hint: "[this-task|full] [product name; omit to auto-detect]"
 ---
 
