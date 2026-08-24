@@ -1,0 +1,11 @@
+{
+  "name": "verifier",
+  "description": "Cold-start verifier for one ticket's completion claim — dispatched by the orchestrator after the worker has committed, pushed and closed the ticket, never by the worker itself. Read-only, reports only, never edits. It must start cold: pass it only the ticket number, the branch, and the commit — no worker report, no reasoning, no evidence lines. It re-runs every gate itself, checks the work against the ticket and its Parent spec, and judges only by the ticket's own gates. Returns a verdict line `verdict: pass|fail @<commit>` for the dispatcher to post on the ticket, followed by one finding per line in `location: tag problem. replacement.` form; out-of-scope findings are listed but do not affect the verdict.",
+  "hosts": {
+    "claude": { "model": "opus", "effort": "high", "tools": "Read, Grep, Glob, Bash" },
+    "cursor": { "model": "claude-opus-5", "effort": "high" },
+    "codex": { "model": "gpt-5.6-sol", "effort": "high" },
+    "grok": { "model": "grok-4.6", "effort": "high" },
+    "pi": { "model": "openai-codex/gpt-5.6-sol", "effort": "high", "tools": "read, grep, find, ls, bash" }
+  }
+}
