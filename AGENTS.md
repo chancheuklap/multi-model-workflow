@@ -12,8 +12,8 @@
 
 | 命令 | 干什么 |
 | --- | --- |
-| `bash mmw-v2/install.sh` | 唯一安装入口，把技能和 subagent 成品软链进五个宿主 |
-| `bash mmw-v2/install.sh --check` | 只看不动。它查的是本机宿主目录，红可能只是没重装；从 worktree 跑会把全部链接报「缺」 |
+| `bash mmw-v2/install.sh` | 唯一安装入口，把技能、subagent 成品软链进五个宿主，并把 hook 注入层合并进各宿主的 hook 配置 |
+| `bash mmw-v2/install.sh --check` | 只看不动，顺带跑承重句校验。它查的是本机宿主目录，红可能只是没重装；从 worktree 跑会把全部链接报「缺」 |
 | `python3 mmw-v2/agents/assemble.py --check` | 校验 subagent 成品 `mmw-v2/agents/<名>/out/` 与源一致 |
 
 ## 外部引用
@@ -32,6 +32,7 @@
 - 正式改动在独立 worktree，合回用 `git merge --no-ff`。本地提交、合并、push 分支和开 PR 可自主做；远端合并、发布、删除或覆盖现有发布入口要用户明确授权。禁用 `--no-verify`。
 - 技能正文对五个宿主是同一份。描述、默认值、示例不把任何宿主当默认或首选，不按宿主名分支；能力差异用按能力判断的自然语言写。
 - 装哪些技能只改 `mmw-v2/skills.txt`。`install.sh` 先整体校验它（每项有 `SKILL.md`、basename 不重复）再写宿主；两个同名 basename 会让安装在动宿主之前就中止。
+- 执行纪律经 `mmw-v2/hooks/` 的 hook 层送达（ADR 0021），不写进技能正文；改注入内容或承重句先读 `mmw-v2/hooks/AGENTS.md`。
 - 宿主软链直接指向源目录，改完下一次调用即生效。只有 frontmatter 的 `description` 是宿主启动时扫进去的，改它要重开会话。
 - `mmw-v2/upstream/` 是 GitHub 上 mattpocock/skills 的 git subtree（squash），可编辑的工作副本；它自带的 `AGENTS.md`、`CLAUDE.md` 是上游自己的，原样不动。
 - `.agents/skills/` 里的仓库维护技能经 `.claude/skills/` 的软链接入宿主，不走 `skills.txt`。

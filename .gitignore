@@ -33,3 +33,8 @@ mmw-v2/tools/node/
 # 界面 QA 的运行时依赖，由技能自带的 install-deps.sh 按 deps.json 装。
 # 版本钉死在声明里，装出来的东西不进 git。
 mmw-v2/skills/ui-qa/scripts/deps/
+
+# 纪律注入层的完成拦截（mmw-v2/hooks/mmw-stop.mjs）在被拦的 worktree 根留下的本地状态：
+# 拦截计数与文件锁。任何装了 hook 层的宿主在任何仓库里都会写，所以本仓也要忽略。
+.mmw/
+.mmw-hook-state.json
