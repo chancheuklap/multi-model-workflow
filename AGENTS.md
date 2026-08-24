@@ -62,4 +62,18 @@
 - `MMW_V2_HOME` 把五个宿主目录整体改到一个临时根，用它练手而不碰真家目录；`CODEX_HOME`、`PI_CODING_AGENT_DIR`、`PI_HOME` 也认。
 </important>
 
+## Agent skills
+
+### Issue tracker
+
+本仓 issue 在 GitHub Issues，全部操作走 `gh` CLI。See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+五个规范角色用默认标签串（`needs-triage` / `needs-info` / `ready-for-agent` / `ready-for-human` / `wontfix`）。See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+单 context：根 `CONTEXT.md` + `docs/adr/`。See `docs/agents/domain.md`.
+
 Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.

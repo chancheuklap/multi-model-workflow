@@ -1,7 +1,14 @@
 # spec 索引
 
-由 `mmw artifact index spec` 生成。
+手工维护：新增 spec 时追加一行（ADR 0023）。
 
 | 工作名 | 摘要 | 日期 | 任务分支名 | spec issue 编号 |
 | --- | --- | --- | --- | --- |
 | mmw-artifact-wiring | 为 MMW 全部产物定义唯一的路径形状与产物引用合同，让生产产物的技能按合同命名和归档，读取产物的技能按合同找到产物 | 2026-08-11 | mmw-artifact-wiring | 36 |
+| plan-loop-and-resume | plan 按批次与实现交替推进；ticket 验收标准有写作判据；planner 的 needs-repair 有定义；② plan 审首批次做覆盖扫描；审查之后的修复默认发回原生产者续跑 | 2026-08-12 | worktree-plan-loop-and-resume |  |
+| ui-qa | 新增 `/mmw-ui-qa` 界面 QA 技能，让 agent 依据已谈定的判据自动检查界面并分流处置 finding | 2026-08-12 | mmw-ui-qa | 52 |
+| grok-host | 把 Grok Build 做成完整 MMW 宿主，切断 Claude 兼容加载，接上全部技能、角色、工作树和外部工具。 | 2026-08-13 | grok-host | 0 |
+| manage-agents-md | 一个跨五宿主的技能，按一套固定的文档格式新建、重写、定时增量更新仓库里的 AGENTS.md 与 CLAUDE.md；正文从四份公开参考里抄段拼接，只做精确修改。 | 2026-08-23 | manage-agents-md | 0 |
+| discipline-hooks | 新增跨宿主 hook 注入层：开场纪律注入、subagent 注入、完成拦截三类事件，宿主缺口按能力降级，install.sh 学会安装第三类交付物 | 2026-08-25 | discipline-hooks | 54 |
+| landing-closeout | implement 补完成步骤、to-tickets 产验收关卡与定级、新增自查技能与复验者 subagent，让一张票能无人值守地干净收尾 | 2026-08-25 | landing-closeout | 53 |
+| landing-orchestrator | 新增编排技能与规划者 subagent：Herdr 会话内无人值守循环，跨宿主派发两级工人、复验分诊、停车 issue、失败升级，直至 frontier 排空、PR 全开好 | 2026-08-25 | landing-orchestrator | 55 |

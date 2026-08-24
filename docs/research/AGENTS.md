@@ -1,6 +1,6 @@
 # docs/research
 
-调研产物。只为 Wayfinder 决策工单服务。
+调研产物。Wayfinder 决策工单的调研走 `issue-<编号>` 子层；其余调研直接用 `<名字段>/<主题>/`。
 
 ## 关键约定
 
