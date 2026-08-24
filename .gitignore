@@ -16,6 +16,9 @@ __pycache__/
 .release/
 .playwright-cli/
 
+# implement 技能开工时写在工人 worktree 根的关卡状态文件；Stop hook 读它决定放不放行。每个 worktree 一份，不入库。
+.mmw-ticket-state.json
+
 # 角色物化产物。安装时从源码渲染进各宿主目录，仓库不留副本。
 # Pi 那一份落在 runtime 的包目录里（它的包合同要求 agent 文件在包内）。
 mmw/agents-pi/
