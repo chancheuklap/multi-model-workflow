@@ -19,10 +19,17 @@
 
 | 段落 | 我们的意图 |
 | --- | --- |
+| frontmatter 的 `disable-model-invocation: true` | 删掉。本仓库要求全部技能模型可触发——不留上游的人工触发限制，免得漏输入指令时 agent 没法自己认出该用这个技能。上游改这一行 → 仍然删，跟 `agents/openai.yaml` 的 `policy` 块一起处理 |
 | Lessons：`If possible, open the lesson file…` | 改成「起本地 HTTP 服务、给 URL」。原句落到 `open <file>` 就是 `file://`，Safari 一类浏览器不允许 `file://` 页面碰自己目录之外的东西，跨目录的样式和超链接一起失效 |
 | Assets：`write it as a component in ./assets/ and link to it` | 删掉 `and link to it`。组件仍然只写在 `./assets/`，但课件不链它 |
 | Assets：`every lesson links it` | 删掉。理由同上 |
 | Assets：新增 `### Self-contained pages` | 我们加的整节：`<!--CSS-->` / `<!--JS-->` 标记块、`./assets/build.py` 回填 |
+
+### agents/openai.yaml
+
+| 字段 | 我们的意图 |
+| --- | --- |
+| `policy` 整块（`allow_implicit_invocation: false`） | 删掉。跟 `SKILL.md` 的 `disable-model-invocation` 同步去掉，两处必须同增同删 |
 
 ## 上游再动这几段时
 

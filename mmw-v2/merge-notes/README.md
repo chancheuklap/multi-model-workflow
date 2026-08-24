@@ -13,12 +13,18 @@
 
 ## 目前有说明的技能
 
+- [ask-matt](ask-matt.md) — `engineering/ask-matt`
+- [domain-modeling](domain-modeling.md) — `engineering/domain-modeling`
+- [grill-with-docs](grill-with-docs.md) — `engineering/grill-with-docs`
+- [implement](implement.md) — `engineering/implement`
+- [improve-codebase-architecture](improve-codebase-architecture.md) — `engineering/improve-codebase-architecture`
 - [prototype](prototype.md) — `engineering/prototype`
 - [research](research.md) — `engineering/research`
 - [to-spec](to-spec.md) — `engineering/to-spec`
+- [to-tickets](to-tickets.md) — `engineering/to-tickets`
+- [triage](triage.md) — `engineering/triage`
+- [wayfinder](wayfinder.md) — `engineering/wayfinder`
 - [handoff](handoff.md) — `productivity/handoff`
 - [teach](teach.md) — `productivity/teach`
-- [domain-modeling](domain-modeling.md) — `engineering/domain-modeling`
-- [wayfinder](wayfinder.md) — `engineering/wayfinder`
-- [implement](implement.md) — `engineering/implement`
+- [to-questionnaire](to-questionnaire.md) — `productivity/to-questionnaire`
 - [wait-what](wait-what.md) — `productivity/wait-what`
