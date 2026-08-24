@@ -29,7 +29,7 @@
 - 改技能前读完整 `SKILL.md` 及其链接的 reference；写法以 `writing-for-agents` 为准，权威副本在 `mmw-v2/upstream/` 里，`.agents/skills/writing-for-agents/` 是副本。
 - 只实现请求范围内的行为。脚本异常非零退出或留下结构化告警。
 - 机械校验只判机器能直接判定的事实：语法、结构、路径、配置完整性、产物一致性。质量、方法、语义和完成度由技能和主 agent 判断；校验越界就删掉它，不加例外。
-- 正式改动在独立 worktree，合回用 `git merge --no-ff`。本地提交和合并可自主做；`git push`、远端合并、发布、删除或覆盖现有发布入口要用户明确授权。禁用 `--no-verify`。
+- 正式改动在独立 worktree，合回用 `git merge --no-ff`。本地提交、合并、push 分支和开 PR 可自主做；远端合并、发布、删除或覆盖现有发布入口要用户明确授权。禁用 `--no-verify`。
 - 技能正文对五个宿主是同一份。描述、默认值、示例不把任何宿主当默认或首选，不按宿主名分支；能力差异用按能力判断的自然语言写。
 - 装哪些技能只改 `mmw-v2/skills.txt`。`install.sh` 先整体校验它（每项有 `SKILL.md`、basename 不重复）再写宿主；两个同名 basename 会让安装在动宿主之前就中止。
 - 宿主软链直接指向源目录，改完下一次调用即生效。只有 frontmatter 的 `description` 是宿主启动时扫进去的，改它要重开会话。
