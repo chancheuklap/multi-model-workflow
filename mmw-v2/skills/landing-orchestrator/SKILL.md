@@ -84,10 +84,12 @@ gh issue edit <票号> --add-assignee @me
 按定级取角色：`worker:junior` → `junior-worker`，`worker:senior` → `senior-worker`；从 `$TABLE` 取 `kind` / `model` / `effort`。每票一个 worktree、一个 pane、一个常驻 agent，名字 `ticket-<票号>`：
 
 ```bash
-herdr worktree create --branch "ticket/<票号>-<slug>" --cwd "<消费仓库根>" --no-focus   # 它新建一个 workspace 并附带一个 shell pane：worktree 路径在 .result.worktree.path，pane id 在 .result.root_pane.pane_id，workspace id 在 .result.workspace.workspace_id
+herdr worktree create --branch "ticket/<票号>-<slug>" --base <基分支> --cwd "<消费仓库根>" --no-focus   # 它新建一个 workspace 并附带一个 shell pane：worktree 路径在 .result.worktree.path，pane id 在 .result.root_pane.pane_id，workspace id 在 .result.workspace.workspace_id
 herdr agent start "ticket-<票号>" --kind <kind> --pane <.result.root_pane.pane_id> -- <该宿主的模型、强度、注入参数>
 herdr agent prompt "ticket-<票号>" "<简报全文>" --wait --timeout 600000
 ```
+
+`<基分支>`：票没有上游票时是主分支；有上游票时是上游票的分支 `ticket/<上游票号>-<slug>`（上游 PR 尚未合并，主分支里没有它的改动；多个上游时取最后关闭的那张，其余上游的改动由工人按简报的上游产出摘录核对）。下游票的 PR 的 base 也指向同一个上游票分支，上游 PR 合并后 GitHub 会自动把它的 base 改回主分支。
 
 `--` 之后按宿主 CLI 传原生参数（`docs/specs/landing-orchestrator/headless-cli-matrix.md` 取证）：
 
