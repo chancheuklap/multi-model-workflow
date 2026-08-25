@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # 把 skills.txt 列出的技能、agents/ 下的 subagent 和 hooks/ 下的纪律注入层装进本机的每个宿主。就这三件事。
 #
-# 技能有两个来源：上游的在 upstream/skills/，我们自己写的在 skills/，名单里用 self/ 前缀
-# 区分。两者装法完全一样。
+# 技能有三个来源：mattpocock 上游的在 upstream/skills/，我们自己写的在 skills/（名单里
+# 前缀 self/），diagram-design 上游的在 upstream-diagram-design/skills/（前缀 dd/）。三者
+# 装法完全一样。
 #
 # 软链不是拷贝：宿主读的就是仓库里那个文件。在用技能的当中直接改源目录下的 SKILL.md，
 # 下一次调用就是新的，不用重装。（只有 frontmatter 的 description 是宿主启动时扫的，
@@ -30,7 +31,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS_SRC="$ROOT/upstream/skills"
 SELF_SRC="$ROOT/skills"
-VENDOR_SRC="$ROOT/vendor"
+DD_SRC="$ROOT/upstream-diagram-design/skills"
 LIST="$ROOT/skills.txt"
 MANIFEST_NAME=".mmw-skills"
 
@@ -69,7 +70,7 @@ while IFS= read -r line; do
   [ -n "$line" ] || continue
   case "$line" in
     self/*) dir="$SELF_SRC/${line#self/}" ;;
-    vendor/*) dir="$VENDOR_SRC/${line#vendor/}" ;;
+    dd/*) dir="$DD_SRC/${line#dd/}" ;;
     *) dir="$SKILLS_SRC/$line" ;;
   esac
   [ -f "$dir/SKILL.md" ] || die "名单里的技能不存在：$line"
@@ -119,7 +120,7 @@ for dest in "${HOST_DIRS[@]}"; do
       stale="$dest/$old"
       [ -L "$stale" ] || continue
       case "$(readlink "$stale")" in
-        "$SKILLS_SRC"/* | "$SELF_SRC"/* | "$VENDOR_SRC"/*) rm "$stale"; echo "摘掉  $stale" ;;
+        "$SKILLS_SRC"/* | "$SELF_SRC"/* | "$DD_SRC"/*) rm "$stale"; echo "摘掉  $stale" ;;
       esac
     done < "$manifest"
   fi
@@ -133,7 +134,7 @@ for dest in "${HOST_DIRS[@]}"; do
 
     if [ -e "$link" ] || [ -L "$link" ]; then
       # 已经是我们指向本仓库的软链，直接重指（升级路径时也走这条）。
-      if [ -L "$link" ] && { [[ "$(readlink "$link")" == "$SKILLS_SRC"/* ]] || [[ "$(readlink "$link")" == "$SELF_SRC"/* ]] || [[ "$(readlink "$link")" == "$VENDOR_SRC"/* ]]; }; then
+      if [ -L "$link" ] && { [[ "$(readlink "$link")" == "$SKILLS_SRC"/* ]] || [[ "$(readlink "$link")" == "$SELF_SRC"/* ]] || [[ "$(readlink "$link")" == "$DD_SRC"/* ]]; }; then
         :
       else
         echo "冲突  $dest/$name 已存在且不是本仓库装的，跳过" >&2
@@ -343,7 +344,7 @@ if [ "$mode" = check ]; then
   [ "$rc" -eq 0 ] && echo "齐了：$installed_hosts 个宿主 × ${#wanted_names[@]} 个技能"
 else
   echo
-  echo "源目录：${SKILLS_SRC}（上游）、${SELF_SRC}（自研）、${VENDOR_SRC}（第三方）"
+  echo "源目录：${SKILLS_SRC}（上游）、${SELF_SRC}（自研）、${DD_SRC}（diagram-design 上游）"
   echo "改技能直接改源目录里的文件，宿主下次调用就是新的。"
 fi
 
