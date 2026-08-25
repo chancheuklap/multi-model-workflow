@@ -8,38 +8,35 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCK="$HERE/VENDOR.lock"
 
-# <本地目录>|<owner/repo>|<分支>|<仓库内路径>|<许可证文件>|<故意没取的兄弟技能引用，空格分隔>
+# <本地目录>|<owner/repo>|<分支>|<仓库内路径>|<许可证文件>|<附加文件>|<故意没取的兄弟技能引用>
 #
-# 末段声明这份 vendor 指向本目录之外的哪些技能。我们只取需要的技能，被指向的
-# 兄弟技能没跟过来，那条链接就断着——这是选择，不是损坏。校验要求实际断链与
-# 这里声明的完全相等：上游新加或去掉一条跨技能引用，校验立刻红。
+# 附加文件是「上游装成技能时不带、但我们要」的单个文件，写成
+# `<仓库内源路径>:<vendor 内目标路径>`，多条用空格分隔。
+#
+# 末段声明这份 vendor 指向本目录之外的哪些技能，空格分隔。我们只取需要的技能，
+# 被指向的兄弟技能没跟过来，那条链接就断着——这是选择，不是损坏。校验要求实际
+# 断链与这里声明的完全相等：上游新加或去掉一条跨技能引用，校验立刻红。
 SOURCES='
-diagram-design|cathrynlavery/diagram-design|main|skills/diagram-design|LICENSE|
-html-diagram|plannotator/effective-html|main|skills/html-diagram|LICENSE|../design-artifact/SKILL.md
+diagram-design|cathrynlavery/diagram-design|main|skills/diagram-design|LICENSE|scripts/verify-geometry.py:scripts/verify-geometry.py|
+html-diagram|plannotator/effective-html|main|skills/html-diagram|LICENSE||../design-artifact/SKILL.md
 '
 
 die() { echo "错：$*" >&2; exit 1; }
 
 # 每行一份 vendor，输出「目录<TAB>故意没取的兄弟技能引用」。
-entries() {
-  echo "$SOURCES" | grep -v '^[[:space:]]*$' \
-    | while IFS='|' read -r name repo branch path license external; do
-        printf '%s\t%s\n' "$name" "$external"
-      done
-}
-
 check_all() {
-  local red=0 name external
-  while IFS=$'\t' read -r name external; do
-    check_one "$name" "$external" || red=1
-  done < <(entries)
+  local red=0 name repo branch path license extra external
+  while IFS='|' read -r name repo branch path license extra external; do
+    [ -n "$name" ] || continue
+    check_one "$name" "$extra" "$external" || red=1
+  done < <(echo "$SOURCES" | grep -v '^[[:space:]]*$')
   return "$red"
 }
 
 # 先把分支解析成 commit，再按那个 commit 取归档，下来的内容和写进 lock 的 sha
 # 必定是同一份。走 api / codeload 而不是 git 远程，只需要 HTTPS。
 sync_one() {
-  local name="$1" repo="$2" branch="$3" path="$4" license="$5"
+  local name="$1" repo="$2" branch="$3" path="$4" license="$5" extra="$6"
   local tmp; tmp="$(mktemp -d)"
 
   local commit=""
@@ -63,6 +60,14 @@ sync_one() {
   cp -R "$root/$path" "$HERE/$name"
   [ -f "$root/$license" ] && cp "$root/$license" "$HERE/LICENSE-$name"
 
+  local pair src dst
+  for pair in $extra; do
+    src="${pair%%:*}"; dst="${pair#*:}"
+    [ -f "$root/$src" ] || die "${name}：上游没有附加文件 $src"
+    mkdir -p "$(dirname "$HERE/$name/$dst")"
+    cp "$root/$src" "$HERE/$name/$dst"
+  done
+
   rm -rf "$tmp"
   echo "${name}|${repo}|${path}|${commit}|$(date -u +%Y-%m-%d)"
 }
@@ -80,7 +85,7 @@ broken_links() {
 }
 
 check_one() {
-  local name="$1" declared="$2" red=0
+  local name="$1" extra="$2" declared="$3" red=0
   local dir="$HERE/$name"
 
   [ -d "$dir" ] || { echo "缺  ${name}/"; return 1; }
@@ -99,6 +104,11 @@ check_one() {
     red=1
   fi
 
+  local pair
+  for pair in $extra; do
+    [ -f "$dir/${pair#*:}" ] || { echo "缺  ${name}/${pair#*:}（附加文件）"; red=1; }
+  done
+
   grep -q "^${name}|" "$LOCK" 2>/dev/null || { echo "缺  VENDOR.lock 里没有 ${name}"; red=1; }
 
   [ "$red" -eq 0 ] && echo "好  ${name}/"
@@ -116,8 +126,8 @@ command -v curl >/dev/null || die "没有 curl"
 {
   echo "# 本目录的每一份 vendor 从哪来、锁在哪个 commit。由 sync.sh 写，不要手改。"
   echo "# <目录>|<owner/repo>|<仓库内路径>|<commit>|<同步日期 UTC>"
-  echo "$SOURCES" | grep -v '^[[:space:]]*$' | while IFS='|' read -r name repo branch path license external; do
-    sync_one "$name" "$repo" "$branch" "$path" "$license"
+  echo "$SOURCES" | grep -v '^[[:space:]]*$' | while IFS='|' read -r name repo branch path license extra external; do
+    sync_one "$name" "$repo" "$branch" "$path" "$license" "$extra"
   done
 } > "$LOCK.new"
 mv "$LOCK.new" "$LOCK"

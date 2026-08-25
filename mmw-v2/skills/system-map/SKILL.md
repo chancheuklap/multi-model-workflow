@@ -13,7 +13,9 @@ Two vendored upstream skills do the drawing. They sit next to this file under `v
 
 ## 1. Survey
 
-Read the system end to end before shaping anything. What counts as the whole system depends on what you were handed:
+Fix the boundary first. Name the entry point; everything it reaches while it runs is inside. What runs later — triggered by whatever this system installed, configured or scheduled — is outside. Write the outside down as excluded rather than drawing it.
+
+Then read the inside end to end. Take the row closest to what you were handed, and say which row you took:
 
 | Handed | Read |
 | --- | --- |
@@ -33,7 +35,7 @@ The survey is complete when every node on your list has its inbound and outbound
 Faults are what the reader came for. Walk the two lists and tag:
 
 - **Dead end** — a node with inbound edges and no outbound one, where the flow was supposed to continue.
-- **Orphan** — a node nothing reaches.
+- **Orphan** — a node nothing reaches. Confirm against the filesystem before tagging; a name you failed to grep for is not an orphan.
 - **Redundancy** — two nodes doing one job, or two edges carrying one thing.
 - **Unlabelled edge** — a connection you could not name what crosses. This is a fault in the system or a gap in your survey; say which.
 
@@ -48,7 +50,7 @@ Read the two upstream skills in this order. Each owns a different decision, and 
 
 Four rulings, each overriding what the upstream file says:
 
-**One canvas.** `diagram-design` reads *"Above 9 nodes, it's probably two diagrams."* Here, above nine nodes reach for a type that nests — nested, layers, or high-level — and hold the system on one canvas. Its density budget still applies within each level.
+**One canvas.** `diagram-design` reads *"Above 9 nodes, it's probably two diagrams."* Here, above nine nodes reach for a type that nests — nested, layers, or high-level — and hold the system on one canvas. Take the closest of the three and bend it: each is written for its own canonical subject, and Layers in particular draws no connectors between its bands at all. Your §1 edges go on the canvas whatever the type's own example omits. Its density budget then binds per **level** — each self-contained visual region, one band or one container, stays inside the budget on its own while the whole canvas exceeds it.
 
 **Type selection is `diagram-design`'s.** Both files carry a selection layer. Use `html-diagram` to decide that a diagram is the right answer at all and what to render it with; take the type itself from `diagram-design`'s semantic-pattern and visual-type tables, which are the finer instrument.
 
@@ -56,11 +58,14 @@ Four rulings, each overriding what the upstream file says:
 
 **Take the shipped default style.** `diagram-design` opens by asking whether to customise the style guide to a brand. Answer option **(e)**, proceed with the default, unless the reader asked for a branded artifact. A map is read once to understand something, not shipped to a client.
 
+Keep the map static. The animation path's verifier is the one script this vendored copy leaves behind.
+
 ## Completion
 
 The map is done when all four hold:
 
-- Every node and edge from §1 is on the canvas, and every fault from §2 carries a visible mark.
+- Every node and edge from §1 is on the canvas, and every fault from §2 carries a visible mark. Near-identical edges may collapse into one connector under a labelled key naming each target — drawn once, none dropped.
 - It is one file, and one canvas inside that file.
+- Both mechanical checks pass, run from the `diagram-design` directory: `python3 scripts/verify-geometry.py <file>` reports zero findings, and `python3 scripts/self_check.py <file>` passes.
 - The prose beside it carries only what the canvas cannot show — the reason behind a fault, a question the survey could not settle. Sentences restating what the reader can see get deleted.
 - You state what you left out and why.
