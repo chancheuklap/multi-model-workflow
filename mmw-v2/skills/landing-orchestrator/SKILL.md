@@ -89,7 +89,15 @@ herdr agent start "ticket-<票号>" --kind <kind> --pane <.result.root_pane.pane
 herdr agent prompt "ticket-<票号>" "<简报全文>" --wait --timeout 600000
 ```
 
-`<基分支>`：票没有上游票时是主分支；有上游票时是上游票的分支 `ticket/<上游票号>-<slug>`（上游 PR 尚未合并，主分支里没有它的改动；多个上游时取最后关闭的那张，其余上游的改动由工人按简报的上游产出摘录核对）。下游票的 PR 的 base 也指向同一个上游票分支，上游 PR 合并后 GitHub 会自动把它的 base 改回主分支。
+`<基分支>`：票没有上游票时是主分支；有上游票时是上游票的分支 `ticket/<上游票号>-<slug>`（上游 PR 尚未合并，主分支里没有它的改动）。下游票的 PR 的 base 也指向同一个上游票分支，上游 PR 合并后 GitHub 会自动把它的 base 改回主分支。
+
+多个上游时基分支取最后关闭的那张，其余每个上游的分支在 worktree 建好之后、派 agent 之前合进来：
+
+```bash
+git -C "<worktree 路径>" merge --no-ff "ticket/<其余上游票号>-<slug>"
+```
+
+合不上就停车（第 6 节），该票让路——不要让工人在一棵编不过的树上开工。代价是这张票的 PR diff 里会带着上游的改动，直到上游的 PR 落地。简报第 3 段的上游产出摘录照旧要给：那是上下文接力，代码在手上不等于工人知道上游为什么这么做。
 
 `--` 之后按宿主 CLI 传原生参数（`docs/specs/landing-orchestrator/headless-cli-matrix.md` 取证）：
 
@@ -160,7 +168,7 @@ herdr agent prompt "ticket-<票号>" "<简报全文>" --wait --timeout 600000
 
 `gates.md entry` 在本仓库 = 一张停车 issue，格式与创建命令见 `reference/parking-issue.md`：标签 `blocked:decision`，挂任务父 issue 为父，正文四段 Question / Options / Consequences / Default。停车不阻塞循环：摘掉该票的认领、把停车 issue 设成它的原生 blocker、写票评论「停车 → #<停车 issue>」、pane 保留（工人上下文留给早上），编排者回到查 frontier。人裁决后关掉停车 issue，票的 `blocked_by` 归零，它自己回到 frontier——没有任何一步靠人记得补做。「asking」在本仓库 = 推送一条通知，不是提问。
 
-触发停车的情形：工人 `blocked`；复验发现需要人决定；第二次复验仍 fail；同票两败；升级链到底；发现跨仓库依赖或未声明的票间依赖；票要求触碰 Win-PC 或 ECS。
+触发停车的情形：工人 `blocked`；复验发现需要人决定；第二次复验仍 fail；同票两败；升级链到底；发现跨仓库依赖或未声明的票间依赖；多个上游的分支互相冲突合不进同一棵树；票要求触碰 Win-PC 或 ECS。
 
 ## 7. 终止
 

@@ -14,6 +14,7 @@ spec「Testing Decisions」里需要真实票与 Herdr 会话的部分。离线�
 - [ ] 两张有原生阻塞关系的票；上游收尾（关闭）后，frontier 查询的输出（`scripts/frontier.py` 的 stdout）出现下游票号
 - [ ] 下游票被自动派发，简报第 3 段含上游票的产出摘录
 - [ ] 刻意安排一对「看似无关实则同文件」的票：规划者把它们判为串行（计划评论「### 并行分组」里不同组）
+- [ ] 一张有两个上游的票：worktree 建好后另一个上游分支已经 merge 进来，`git -C <worktree> log --oneline` 里两个上游的 commit 都在，工人开工前这棵树编得过
 
 ## ③ 过夜批
 
