@@ -107,7 +107,7 @@ When the source has more than the level allows, cut in this order and stop as so
 3. **Leaf clusters** — a container whose children are all leaves collapses to the container: `Core Services` replaces its three boxes. The extractor lists these under *collapsible groups*.
 4. **Degree-1 sinks that don't change the story** — a monitoring hook, a log bucket, an archive tier.
 5. **Cross-cutting infrastructure** — logging, metrics, secrets, CI. At `simplified` these go without asking; at `balanced` keep at most one, and only if the diagram is about it.
-6. **Still over?** Split into overview + detail. Splitting beats shrinking.
+6. **Still over?** Re-draw in a type that nests — nested, layers, tree, high-level — with the budget binding per level. Nesting beats shrinking, and both beat splitting; split into overview + detail only when the source holds two independent questions.
 
 Anything cut in steps 2–6 goes in the fidelity ledger (§5). Step 1 doesn't need reporting.
 

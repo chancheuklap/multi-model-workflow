@@ -14,21 +14,19 @@ Thirty-nine visual types. Semantic patterns describe behavior independently; typ
 
 ---
 
-## 0. First-time setup — style guide gate
+## 0. First-time setup — which style guide
 
-**Before generating your first diagram in a new project, verify the style guide has been customized.**
+**Before your first diagram in a new project, settle which style guide it draws in.**
 
-Don't silently ship default-skinned diagrams into a branded project.
+Name the one you used beside the deliverable, so a default-skinned diagram never reaches a branded context unannounced.
 
 First check the project root for a `.diagram-design` marker and resolve it per [`references/profiles.md`](references/profiles.md). A valid marker whose profile exists selects that file directly and skips this gate; `profile: default` also skips it. A malformed or missing-profile marker follows the visible failure handling in that reference. Never copy a marker-selected profile over the installed working copy.
 
-Open [`references/style-guide.md`](references/style-guide.md) and check the default tokens. If they're still the shipped defaults (paper `#f5f5f5`, ink `#2d3142`, accent `#eb6c36` atomic-tangerine), **pause and ask the user**:
+Open [`references/style-guide.md`](references/style-guide.md) and check the default tokens. If they're still the shipped defaults (paper `#f5f5f5`, ink `#2d3142`, accent `#eb6c36` atomic-tangerine), **draw with them** and say so in one line beside the deliverable, naming the four ways to change it: from a website URL, from a local design-system directory, from pasted tokens, or from a saved client profile. Most diagrams are read once to understand something and never leave the room; stopping every one of them at a branding question costs more than it saves.
 
-> *"This is your first diagram in this project. The style guide is still at the default (neutral white-smoke + atomic-tangerine). Do you want to customize it to match your brand first? Options: (a) pull from your website URL, (b) extract from an installed skill, (c) extract from a local folder / design-system directory, (d) paste tokens manually, (e) proceed with the default for now, (f) load a saved client profile."*
+Branding first is the right call when the artifact is going to a client, a customer, or anywhere the project's own visual identity is part of the message. Ask then, and branch per the matching section of [`references/onboarding.md`](references/onboarding.md); for a saved profile follow [`references/profiles.md`](references/profiles.md).
 
-Then branch per the matching section of [`references/onboarding.md`](references/onboarding.md); for **(f)** follow [`references/profiles.md`](references/profiles.md).
-
-**Once the style guide has been customized** (or the user explicitly opted for default), skip this gate on subsequent runs. A leading profile header names the copied-in active profile. Without a header, any semantic-role value or typography family differing from shipped defaults means **custom-unsaved**: skip the gate and offer to save it as a profile. All-default tokens with no marker/header trigger the gate. At the end of every onboarding method, offer to save the result as a named client profile per `references/profiles.md`.
+**Once the style guide has been customized** (or the user explicitly opted for default), skip this gate on subsequent runs. A leading profile header names the copied-in active profile. Without a header, any semantic-role value or typography family differing from shipped defaults means **custom-unsaved**: skip the gate and offer to save it as a profile. All-default tokens with no marker/header take the default path above: draw with them and name the four ways to change it. At the end of every onboarding method, offer to save the result as a named client profile per `references/profiles.md`.
 
 ---
 
@@ -43,7 +41,7 @@ Applied to schematics:
 - Coral is **editorial, not a flag.** 1–2 focal nodes per diagram. Using it on 5 nodes erases the signal.
 - The schematic isn't done when everything is added. It's done when nothing can be removed.
 
-**Target density: 4/10.** Enough to be technically complete. Not so dense it needs a guide. Above 9 nodes, it's probably two diagrams.
+**Target density: 4/10.** Enough to be technically complete. Not so dense it needs a guide. Above 9 nodes, reach for a type that nests before you reach for a second diagram.
 
 ---
 
@@ -126,7 +124,7 @@ Rules of thumb:
 
 - If a 3-column table communicates the same thing, pick the table.
 - If two types seem useful, pick the dominant axis; a semantic pattern may add behavior-specific primitives, not a second layout grammar.
-- If you're past the complexity budget (§7), split into an overview + detail.
+- If you're past the complexity budget (§7), re-pick a type that nests — nested, layers, tree, high-level — and carry the whole subject on one canvas.
 
 **Always load the chosen type reference linked in the guide before drawing.** When routed above, also load `semantic-patterns.md`; when animation is chosen, load `animation.md`.
 
@@ -286,7 +284,7 @@ These six rules are **non-negotiable**. Run the pre-output checklist (§9) to ve
 
    When in doubt, reroute. The exception exists for the narrow case where rerouting is geometrically impossible, not as a shortcut to avoid layout work.
 
-6. **A label mask must not overlap a node drawn after it.** Rule 2 keeps the label off its own connector; this one keeps it off the boxes. Because nodes are painted after labels, a mask that lands partly inside a node is covered by the node fill and the text renders as a fragment sitting on the node border. Place the label on a segment of the connector that runs through open canvas — for a connector leaving a node's right edge, that means clearing the node's `x + width` before the mask starts. A mask fully *inside* a node is a badge chip and is fine; a mask overlapping a zone container is fine too, since zones are painted first. From a repository checkout, verify with `python3 <repo-root>/scripts/verify-geometry.py <file>`.
+6. **A label mask must not overlap a node drawn after it.** Rule 2 keeps the label off its own connector; this one keeps it off the boxes. Because nodes are painted after labels, a mask that lands partly inside a node is covered by the node fill and the text renders as a fragment sitting on the node border. Place the label on a segment of the connector that runs through open canvas — for a connector leaving a node's right edge, that means clearing the node's `x + width` before the mask starts. A mask fully *inside* a node is a badge chip and is fine; a mask overlapping a zone container is fine too, since zones are painted first. Verify with `python3 repo-root/scripts/verify-geometry.py <file>`, run from this skill's own directory.
 
 ### Node box — full pattern
 
@@ -405,7 +403,9 @@ Quick check: if a coordinate ends in 1, 2, 3, 5, 6, 7, 9 — fix it.
 | Max annotation callouts | 2 |
 | Max motion (optional) | 8 steps, 12 marked items, 2 simultaneous items — see [animation.md](references/animation.md) |
 
-If you exceed, split into two diagrams (overview + detail).
+If you exceed, re-draw in a type that nests — nested, layers, tree, high-level — and hold the whole subject on one canvas. The budget then binds **per level**: each band, container or sub-region stays inside it on its own, while the canvas as a whole may exceed it. These types are written for their own canonical subjects and will need bending; a Layers example that draws no connectors between its bands does not mean your connectors come off.
+
+Split into overview + detail only when the subject genuinely holds two independent questions — then say which question each diagram answers. A reader who has to hold two canvases in their head to see one system has lost the thing they came for. The per-type caps above (lanes, entities, axes, series) are physical limits of their grammar and still bind absolutely.
 
 ### Page layout
 
@@ -479,14 +479,14 @@ Run before producing any diagram.
 - [ ] **No two connectors overlap, share a stroke path, or run on top of each other? Crossings use the bridge/hop primitive?**
 - [ ] **When several connectors enter or exit the same edge of a box, each has its own attach point (≥12px apart)? No connector hides another?**
 - [ ] **No connector passes behind a non-endpoint box, except the unavoidable-intervening-box case (§6 rule 5) — and in that case, the stroke is dashed and the label sits at the visible end?**
-- [ ] **No label mask overlaps a node drawn after it? (Node fill would clip the text — §6 rule 6. From a repository checkout, run `python3 <repo-root>/scripts/verify-geometry.py <file>`.)**
+- [ ] **No label mask overlaps a node drawn after it? (Node fill would clip the text — §6 rule 6. Run `python3 repo-root/scripts/verify-geometry.py <file>` from this skill's own directory.)**
 - [ ] Every arrow label has an opaque `fill="#f5f5f5"` rect behind it?
 - [ ] Legend is a horizontal bottom strip, not floating?
 - [ ] No vertical `writing-mode` text?
 - [ ] `viewBox` expanded for the legend strip (~60px)?
 - [ ] Every font size, coord, width, height, gap divisible by 4?
 - [ ] From the installed skill directory, did `python3 scripts/self_check.py <file>` pass? (Accessible-SVG contract, single-file safety, motion basics; ships with the skill.)
-- [ ] If animated, does the complete static/no-JS frame work, does reduced motion hide/disable playback, and is the controller copied verbatim from `assets/template-motion.html`? From a repository checkout, also run `python3 <repo-root>/scripts/verify-motion.py path/to/generated.html` plus the skin linter; from an installed skill, manually check print and static-query states on top of the self-check.
+- [ ] If animated, does the complete static/no-JS frame work, does reduced motion hide/disable playback, and is the controller copied verbatim from `assets/template-motion.html`? Also run `python3 repo-root/scripts/verify-motion.py path/to/generated.html` from this skill's own directory.
 
 **Typography:**
 
