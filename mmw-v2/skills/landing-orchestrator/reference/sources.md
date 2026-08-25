@@ -8,8 +8,8 @@
 | --- | --- | --- |
 | unlazy `references/orchestration.md` | 754d9a6 | `docs/specs/landing-orchestrator/unlazy-orchestration-blueprint.md`（已 diff 确认逐字一致） |
 | unlazy `references/method.md` | 754d9a6 | `docs/specs/landing-orchestrator/unlazy-method-blueprint.md`（已 diff 确认逐字一致） |
-| pstack `pstack/skills/poteto-mode/playbooks/orchestrate.md` | 46125561 | 无副本；引用段落见下 |
-| pstack `pstack/skills/poteto-mode/scripts/orch/store.ts` `renderGates` | 46125561 | 无副本；格式见 `parking-issue.md` |
+| pstack `pstack/skills/poteto-mode/playbooks/orchestrate.md` | 46125561 | `docs/specs/landing-orchestrator/pstack-orchestrate-blueprint.md`（已 diff 确认逐字一致） |
+| pstack `pstack/skills/poteto-mode/scripts/orch/store.ts` `renderGates` | 46125561 | 无副本（源是 TypeScript，不是散文）；渲染出的格式见 `parking-issue.md` |
 
 ## 抄进了哪里、改了什么
 
