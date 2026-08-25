@@ -12,9 +12,6 @@ agent.json（name、description、五宿主各自的模型与工具）。这里�
            -> out/grok.role.toml  description/default_capability_mode/reasoning_effort（装到 ~/.grok/roles/）
   pi       -> out/pi.md           frontmatter: name/description/model/thinking/tools
 
-agent.json 顶层可选键 sandbox 决定这三家的沙箱档位，缺省 read-only。写 workspace-write
-的 agent 才能跑会写文件的命令——只给职责就是执行的 agent（verifier 要重跑关卡命令）。
-
 用法：
   assemble.py            装配（有变化才写）
   assemble.py --check    只比对 out/ 是否与源一致。齐了回 0，不齐回 1
@@ -36,10 +33,6 @@ def render(agent_dir: Path) -> dict[str, str]:
     spec = json.loads((agent_dir / "agent.json").read_text(encoding="utf-8"))
     body = (agent_dir / "body.md").read_text(encoding="utf-8").strip() + "\n"
     name, desc, hosts = spec["name"], spec["description"], spec["hosts"]
-    sandbox = spec.get("sandbox", "read-only")
-    if sandbox not in ("read-only", "workspace-write"):
-        raise ValueError(f"{agent_dir.name}: sandbox 只能是 read-only 或 workspace-write，得到 {sandbox!r}")
-    readonly = sandbox == "read-only"
 
     missing = {"claude", "cursor", "codex", "grok", "pi"} - hosts.keys()
     if missing:
@@ -71,7 +64,7 @@ def render(agent_dir: Path) -> dict[str, str]:
         "name": name,
         "description": q(desc),
         "model": f"{h['model']}[effort={h['effort']}]",
-        "readonly": "true" if readonly else "false",
+        "readonly": "true",
     }) + body
 
     h = hosts["codex"]
@@ -80,7 +73,7 @@ def render(agent_dir: Path) -> dict[str, str]:
         f"description = {q(desc)}\n"
         f"model = {q(h['model'])}\n"
         f"model_reasoning_effort = {q(h['effort'])}\n"
-        f"sandbox_mode = {q('read-only' if readonly else 'workspace-write')}\n"
+        'sandbox_mode = "read-only"\n'
         f"developer_instructions = '''\n{body}'''\n"
     )
 
@@ -92,7 +85,7 @@ def render(agent_dir: Path) -> dict[str, str]:
     }) + body
     out["grok.role.toml"] = (
         f"description = {q(desc)}\n"
-        f"default_capability_mode = {q('read-only' if readonly else 'all')}\n"
+        'default_capability_mode = "read-only"\n'
         f"reasoning_effort = {q(h['effort'])}\n"
     )
 
