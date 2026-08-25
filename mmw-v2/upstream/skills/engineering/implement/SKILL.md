@@ -20,7 +20,7 @@ The ticket is the unit of work, and it is not done until it is closed. Steps, in
 3. **Self-check.** Run the `self-check` skill over your own output before touching a gate.
 4. **Run every gate, one at a time.** A runnable gate passes only on both conditions: exit code 0 and the `EXPECT:` marker in the output. When it passes, tick the criterion in the ticket body, add an `EVIDENCE:` line directly after its `EXPECT:` line holding the smallest decisive slice of the output, and set that gate's `checked: true` and `evidence` in the state file. A manual gate is not yours to tick: leave it unchecked and name its adjudicator in your final report. A ticked box without evidence counts as unticked.
 5. **Commit**, message referencing the ticket (`#<number>`), so a later review can find the spec through the ticket.
-6. **Review.** Use /code-review on the committed work; fix what it finds and commit again.
+6. **Review.** Use /code-review on the committed work; fix what it finds and commit again. Carry both axes' conclusions into your final report and into the PR body — one line each for what the review found and what you changed. A review whose conclusion lands nowhere is a review no one can check.
 7. **Push the ticket branch** `ticket/<number>-<slug>`.
 8. **Open the PR**, body linking the ticket.
 9. **Close the ticket.** Closing releases every ticket this one blocks; the verifier's verdict is recorded on the ticket by whoever dispatched you, not by you.

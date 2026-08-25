@@ -126,11 +126,11 @@ git -C "<worktree 路径>" merge --no-ff "ticket/<其余上游票号>-<slug>"
 
 把判决行原样写成票评论（`gh issue comment <票号> --body "verdict: … @<commit>"`）。
 
-- **pass**：票已关闭、PR 已开、下游已解锁。写分诊结果评论「pass，无需修」；`herdr pane close <pane id>` 收掉工人 pane，worktree 保留到 PR 合并（合并是用户的事）。
+- **pass**：票已关闭、PR 已开、下游已解锁。写分诊结果评论「pass，无需修」；`herdr pane close <pane id>` 收掉工人 pane，worktree 保留到 PR 合并（合并是用户的事），路径记进第 7 节的 `### 保留的 worktree`。
 - **fail**：先 `gh issue reopen <票号>`（重新挡住下游，直到修好再关），再按标签分诊：
   - `gate` / `evidence` / `align` / `design` → fix 类。经 `herdr agent prompt "ticket-<票号>"` 递回原工人 agent（pane 常驻、上下文还在）：正文 = 全部 fix 类发现原文 + 纪律块全文 + 简报第 5 段汇报格式 + 「修完重新走完成规则到票关闭」。`--wait` 等它结束，再按第 3 节读硬状态。修完以宿主的消息续用能力唤醒**同一个复验者 subagent**，只发新 commit——它记得第一轮发现，只核对是否命中。
   - `out of scope` → dismiss 类。原文记进票评论，不派修。
-  - `manual` → 记进票评论「待 <裁决人> 人工验收」，不挡 pass 也不派修。
+  - `manual` → 记进票评论「待 <裁决人> 人工验收」，不挡 pass 也不派修；同一条汇进第 7 节的 `### 待人工验收`。
   - 发现里写明需要人决定的（工人回复 blocked、或替代物是两个互斥方案）→ park 类，停车（第 6 节）。
 - **硬上限**：每票复验 2 次、自动修 1 轮。第二次复验仍 fail → 停车，正文 Question 写「第二轮复验未过」、Options 列复验发现，该票让路。绝不出现第三次复验。
 
@@ -150,9 +150,11 @@ git -C "<worktree 路径>" merge --no-ff "ticket/<其余上游票号>-<slug>"
 
 - **资源类**（cap-hit / oom，宿主报额度或上下文耗尽）→ 缩小范围重派：简报第 3 段只留该票直接依赖的上游摘录，重开 agent。
 - **网络类** → 原样重试一次。
-- **工具类**（宿主 CLI 崩溃、`agent_not_ready`、`agent_prompt_stalled`）→ 换模型重试：`worker:junior` → `worker:senior`，改票标签（只升不降），按 `senior-worker` 重派。
+- **工具类**（宿主 CLI 崩溃、`agent_not_ready`、`agent_prompt_stalled`）→ 换模型重试：按 `senior-worker` 重派，但不动票的定级标签——崩的是工具，不是这活变难了，标签只表达难度。改派写成票评论「本轮改派 senior（工具类失败）」。
 - **未知** → 重试一次。
 - 同票两败（同一票累计两次失败，不论类别）→ 弃单：停车 issue 记录两次失败的证据，该票让路。
+
+重接在途工人之前先读票评论里的改派记录：工具类改派不动标签，只看标签会把上一轮已经改派 senior 的票静默降回 junior。
 
 升级链：初级两败 → 高级接手 → 高级再败 → 派升级顾问 subagent（`advisor`，现有 agent，prompt 装票全文、两级工人的失败证据、复验发现、消费仓库路径）→ 顾问给出可执行方向就按它再派高级工人一次 → 仍无解 → 停车。每一步升级写票评论「重试原因：<类别> <证据>」。
 
@@ -172,7 +174,13 @@ git -C "<worktree 路径>" merge --no-ff "ticket/<其余上游票号>-<slug>"
 
 ## 7. 终止
 
-frontier 为空且没有在途票：写父 issue 评论，固定标题 `## 落地结果`，正文只有数字与链接：通过票数与 PR 链接、停车 issue 数与链接、弃单票号、未派发的票号（frontier 里从未出现的、仍被阻塞的）。然后推送一条通知，结束。
+frontier 为空且没有在途票：写父 issue 评论，固定标题 `## 落地结果`，三节固定标题：
+
+- `### 数字` —— 通过票数与 PR 链接、停车 issue 数与链接、弃单票号、未派发的票号（frontier 里从未出现的、仍被阻塞的）。只有数字与链接。
+- `### 待人工验收` —— 每条一行：票号、该关卡的验收条目原文连同它的 `MANUAL:` 行、裁决人。这是人早上唯一的待验清单，来源是第 4 节分诊写的「待 <裁决人> 人工验收」评论与复验发现里的 `manual:` 行。一条都没有就写「无」。验收结果由裁决人自己在票里勾选并补 `EVIDENCE:`——编排者不代勾。
+- `### 保留的 worktree` —— 每条一行：票号、分支、worktree 绝对路径。这些树留着是给 PR 用的；合并 PR 的人一并删掉（删除命令以本机 `herdr worktree` 的 help 为准）。
+
+然后推送一条通知，结束。
 
 ## 通知
 
