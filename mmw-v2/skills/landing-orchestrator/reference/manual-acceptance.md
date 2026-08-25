@@ -24,6 +24,8 @@ spec「Testing Decisions」里需要真实票与 Herdr 会话的部分。离线�
 
 - [ ] 一张故意含未决问题的票：工人进入 `blocked`（`herdr agent get` 的状态字段），编排者读屏取到问题文本
 - [ ] 停车 issue 正文四段齐全（Question / Options / Consequences / Default），标签 `blocked:decision`，`gh api …/issues/<n>` 的父子关系指向任务父 issue
+- [ ] 停车后该票没有 assignee，且 `issue_dependencies_summary.blocked_by` 为 1；`scripts/frontier.py` 的输出里既没有这张票，也没有停车 issue 自己
+- [ ] 人裁决并关闭停车 issue 后，不做任何别的动作，下一轮 `scripts/frontier.py` 的输出里这张票重新出现
 - [ ] 推送通知到达手机
 
 ## 复验轮次上限

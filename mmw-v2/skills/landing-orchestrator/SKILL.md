@@ -158,7 +158,7 @@ herdr agent prompt "ticket-<票号>" "<简报全文>" --wait --timeout 600000
 >
 > Never reaches the human: frontier nudges, restack mechanics, retries, CI flake triage, review-thread triage, format fixes, scope the brief already forbids (refuse and continue), and "should I keep going". When in doubt, act and log; deferring is the measured failure mode.
 
-`gates.md entry` 在本仓库 = 一张停车 issue，格式与创建命令见 `reference/parking-issue.md`：标签 `blocked:decision`，挂任务父 issue 为父，正文四段 Question / Options / Consequences / Default。停车不阻塞循环：该票保留认领、写票评论「停车 → #<停车 issue>」、pane 保留（工人上下文留给早上），编排者回到查 frontier。「asking」在本仓库 = 推送一条通知，不是提问。
+`gates.md entry` 在本仓库 = 一张停车 issue，格式与创建命令见 `reference/parking-issue.md`：标签 `blocked:decision`，挂任务父 issue 为父，正文四段 Question / Options / Consequences / Default。停车不阻塞循环：摘掉该票的认领、把停车 issue 设成它的原生 blocker、写票评论「停车 → #<停车 issue>」、pane 保留（工人上下文留给早上），编排者回到查 frontier。人裁决后关掉停车 issue，票的 `blocked_by` 归零，它自己回到 frontier——没有任何一步靠人记得补做。「asking」在本仓库 = 推送一条通知，不是提问。
 
 触发停车的情形：工人 `blocked`；复验发现需要人决定；第二次复验仍 fail；同票两败；升级链到底；发现跨仓库依赖或未声明的票间依赖；票要求触碰 Win-PC 或 ECS。
 
