@@ -3,7 +3,7 @@
 //
 // mmw：本层的完成拦截。原件：unlazy scripts/stop-hook.mjs @265fbd5。精确修改：
 //   - 判定物换成 worktree 根的 .mmw-ticket-state.json（与 landing-closeout 的 implement 共享契约：
-//     gates[] 里存在 checked:false 即未清），不再解析 GATES.md 账本与 dispatch；
+//     gates[] 里存在 kind 不为 "manual" 且 checked:false 的条目即未清），不再解析 GATES.md 账本与 dispatch；
 //   - 文件缺失、解析失败一律放行（契约要求；unlazy 原件把坏账本算作待办）；
 //   - stdin 改为带超时的异步读取（ponytail #443：宿主不关 stdin 时 readFileSync(0) 会挂死）；
 //   - block 输出经 mmw-runtime.js 分流成各宿主的形状；
@@ -121,6 +121,9 @@ const unmet = [];
 const resolved = [];
 for (const [index, gate] of ticketState.gates.entries()) {
   const id = "G" + (index + 1);
+  // 人工关卡不是工人能清的：implement 明令工人不勾 MANUAL gate，裁决人另有其人。
+  // 算进未清，每张带人工关卡的票都要撞满 MAX_BLOCKS 才收得了尾。
+  if (gate && typeof gate === "object" && gate.kind === "manual") continue;
   const state = gate && typeof gate === "object" && gate.checked === true ? "met" : "unmet";
   resolved.push(id + "=" + state);
   if (state === "unmet") unmet.push(id + " " + safeHostText(gate && gate.text ? gate.text : "", 80));
