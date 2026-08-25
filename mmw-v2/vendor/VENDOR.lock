@@ -1,0 +1,4 @@
+# 本目录的每一份 vendor 从哪来、锁在哪个 commit。由 sync.sh 写，不要手改。
+# <目录>|<owner/repo>|<仓库内路径>|<commit>|<同步日期 UTC>
+diagram-design|cathrynlavery/diagram-design|skills/diagram-design|4faae6696c2953b59dee2b89ad89c688f80c3a67|2026-08-25
+html-diagram|plannotator/effective-html|skills/html-diagram|d95debbaef15af1d201fc6c10c77cf92b524a0d6|2026-08-25
