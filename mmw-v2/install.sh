@@ -30,6 +30,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS_SRC="$ROOT/upstream/skills"
 SELF_SRC="$ROOT/skills"
+VENDOR_SRC="$ROOT/vendor"
 LIST="$ROOT/skills.txt"
 MANIFEST_NAME=".mmw-skills"
 
@@ -68,6 +69,7 @@ while IFS= read -r line; do
   [ -n "$line" ] || continue
   case "$line" in
     self/*) dir="$SELF_SRC/${line#self/}" ;;
+    vendor/*) dir="$VENDOR_SRC/${line#vendor/}" ;;
     *) dir="$SKILLS_SRC/$line" ;;
   esac
   [ -f "$dir/SKILL.md" ] || die "名单里的技能不存在：$line"
@@ -117,7 +119,7 @@ for dest in "${HOST_DIRS[@]}"; do
       stale="$dest/$old"
       [ -L "$stale" ] || continue
       case "$(readlink "$stale")" in
-        "$SKILLS_SRC"/* | "$SELF_SRC"/*) rm "$stale"; echo "摘掉  $stale" ;;
+        "$SKILLS_SRC"/* | "$SELF_SRC"/* | "$VENDOR_SRC"/*) rm "$stale"; echo "摘掉  $stale" ;;
       esac
     done < "$manifest"
   fi
@@ -131,7 +133,7 @@ for dest in "${HOST_DIRS[@]}"; do
 
     if [ -e "$link" ] || [ -L "$link" ]; then
       # 已经是我们指向本仓库的软链，直接重指（升级路径时也走这条）。
-      if [ -L "$link" ] && { [[ "$(readlink "$link")" == "$SKILLS_SRC"/* ]] || [[ "$(readlink "$link")" == "$SELF_SRC"/* ]]; }; then
+      if [ -L "$link" ] && { [[ "$(readlink "$link")" == "$SKILLS_SRC"/* ]] || [[ "$(readlink "$link")" == "$SELF_SRC"/* ]] || [[ "$(readlink "$link")" == "$VENDOR_SRC"/* ]]; }; then
         :
       else
         echo "冲突  $dest/$name 已存在且不是本仓库装的，跳过" >&2
@@ -341,7 +343,7 @@ if [ "$mode" = check ]; then
   [ "$rc" -eq 0 ] && echo "齐了：$installed_hosts 个宿主 × ${#wanted_names[@]} 个技能"
 else
   echo
-  echo "源目录：${SKILLS_SRC}（上游）、${SELF_SRC}（自研）"
+  echo "源目录：${SKILLS_SRC}（上游）、${SELF_SRC}（自研）、${VENDOR_SRC}（第三方）"
   echo "改技能直接改源目录里的文件，宿主下次调用就是新的。"
 fi
 

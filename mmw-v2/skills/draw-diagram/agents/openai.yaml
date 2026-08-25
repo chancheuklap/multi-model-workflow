@@ -1,0 +1,3 @@
+interface:
+  display_name: "Draw Diagram"
+  short_description: "Settle a diagram's form, then draw it"
