@@ -114,7 +114,7 @@ herdr agent prompt "ticket-<票号>" "<简报全文>" --wait --timeout 600000
 
 ## 4. 复验与分诊
 
-工人完成后派复验者 subagent（`verifier`）。prompt 只带三样：票号、分支、commit——不带工人的汇报，不带你的推断。它返回第一行 `verdict: pass|fail @<commit>`，之后每行一条发现 `位置: 标签 问题. 替代物.`。
+工人完成后派复验者 subagent（`verifier`）。prompt 只带四样：票号、分支、commit、该票 worktree 的绝对路径——不带工人的汇报，不带你的推断。复验者在那个 worktree 里跑关卡，绝不 checkout：编排会话的工作树和别的在途票共用同一个仓库，一次 checkout 就把并行的票全踩了。它返回第一行 `verdict: pass|fail @<commit>`，之后每行一条发现 `位置: 标签 问题. 替代物.`。
 
 把判决行原样写成票评论（`gh issue comment <票号> --body "verdict: … @<commit>"`）。
 
