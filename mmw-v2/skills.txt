@@ -4,6 +4,7 @@
 # 两种来源：
 #   <桶>/<名>        上游的，路径相对 mmw-v2/upstream/skills/
 #   self/<名>        我们自己写的，路径相对 mmw-v2/skills/
+#   vendor/<名>      第三方仓库的，路径相对 mmw-v2/vendor/
 
 engineering/ask-matt
 engineering/code-review
@@ -37,4 +38,7 @@ self/readable-docs
 self/manage-agents-md
 self/self-check
 self/landing-orchestrator
-self/system-map
+self/draw-diagram
+
+vendor/diagram-design
+vendor/html-diagram
