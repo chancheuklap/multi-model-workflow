@@ -9,7 +9,7 @@
 | `mmw-hooks.json` | 共享 hook JSON，Claude 与 Codex 同 schema；`${MMW_HOOKS_ROOT}` 由 `install.sh` 换成本目录绝对路径，并给每条命令加 `--host <宿主>` | ponytail `hooks/claude-codex-hooks.json` |
 | `mmw-activate.js` | SessionStart：注入 `discipline/worker.md` | ponytail `hooks/ponytail-activate.js` |
 | `mmw-subagent.js` | SubagentStart：默认注入工人块；`agent_type` 命中 `MMW_VERIFIER_MATCHER`（默认 `verifier`）注入复验者块；`MMW_SUBAGENT_MATCHER` 可限定只注入哪些 agent 类型 | ponytail `hooks/ponytail-subagent.js` |
-| `mmw-stop.mjs` | Stop：worktree 根有 `.mmw-ticket-state.json` 且有 `checked:false` 的 gate 就顶回；同一会话连续 6 次顶回而关卡集合无变化则放行；文件缺失、解析失败、stdin 超时一律放行 | unlazy `scripts/stop-hook.mjs` |
+| `mmw-stop.mjs` | Stop：worktree 根有 `.mmw-ticket-state.json` 且有 `kind` 不为 `manual` 的 `checked:false` gate 就顶回；同一会话连续 6 次顶回而关卡集合无变化则放行；文件缺失、解析失败、stdin 超时一律放行 | unlazy `scripts/stop-hook.mjs` |
 | `lib/state.mjs` | Stop 用的 sha256、原子写、文件锁；状态落在被拦仓库的 `.mmw-hook-state.json` 与 `.mmw/locks/` | unlazy `scripts/lib/gates.mjs` |
 | `mmw-runtime.js` | 分流：按 `--host` 与环境变量判宿主，输出各家的 JSON 形状 | ponytail `hooks/ponytail-runtime.js` |
 | `mmw-instructions.js` | 按角色读 `discipline/<role>.md` | ponytail `hooks/ponytail-instructions.js` |
@@ -31,7 +31,7 @@
 
 - 注入内容只增删 `discipline/*.md`，且每条要带存档出处；改承重句先改 `invariants.json`，否则 `--check` 先红。
 - `invariants.json` 里 `files` 为空、带 `pending` 的条目是占位，校验只报告不判红；权威位置落地后填入短语与路径。
-- 每个脚本都要 fail-open：stdin 读取带超时、任何异常都放行。Stop 的判定物契约（`.mmw-ticket-state.json` 的字段）与 landing-closeout 的 implement 共享，改一边要改另一边。
+- 每个脚本都要 fail-open：stdin 读取带超时、任何异常都放行。Stop 的判定物契约（`.mmw-ticket-state.json` 的字段）与 landing-closeout 的 implement 共享，改一边要改另一边。人工关卡（`kind: "manual"`）由裁决人清，不属于工人的收尾条件，拦截不计入它。
 - 宿主判定：Grok 给 hook 进程设 `GROK_HOOK_EVENT`，优先；其余靠 `install.sh` 写进命令行的 `--host`。用户级 hook 下 Codex 与 Cursor 不设可辨识的环境变量。
 
 ## 陷阱

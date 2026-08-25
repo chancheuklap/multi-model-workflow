@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 完成拦截：有未清关卡顶回、全清放行、文件损坏/缺失放行、连续无进展放行、三家输出形状、stdin 不关闭超时。
+# 完成拦截：有未清关卡顶回、人工关卡不计入、全清放行、文件损坏/缺失放行、连续无进展放行、三家输出形状、stdin 不关闭超时。
 set -uo pipefail
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 H="$(dirname "$HERE")"
@@ -8,7 +8,7 @@ fail() { echo "失败：$1" >&2; rc=1; }
 ROOT="$(mktemp -d)"
 STATE="$ROOT/.mmw-ticket-state.json"
 stop() { printf '{"cwd":"%s","session_id":"s1"}' "$ROOT" | node "$H/mmw-stop.mjs" "$@"; }
-unmet='{"ticket":54,"branch":"ticket/54-x","gates":[{"text":"tests green","kind":"check","check":"bash run.sh","expect":"全过","manual":null,"checked":true,"evidence":"全过"},{"text":"README updated","kind":"manual","check":null,"expect":null,"manual":"user","checked":false,"evidence":null}]}'
+unmet='{"ticket":54,"branch":"ticket/54-x","gates":[{"text":"tests green","kind":"check","check":"bash run.sh","expect":"全过","manual":null,"checked":true,"evidence":"全过"},{"text":"README updated","kind":"check","check":"bash docs.sh","expect":"齐","manual":null,"checked":false,"evidence":null},{"text":"截图给维护者过目","kind":"manual","check":null,"expect":null,"manual":"user","checked":false,"evidence":null}]}'
 
 # 文件缺失：放行，无输出。
 out="$(stop)"; [ -z "$out" ] || fail "缺失应放行且无输出：$out"
@@ -16,8 +16,11 @@ out="$(stop)"; [ -z "$out" ] || fail "缺失应放行且无输出：$out"
 # 未清：顶回，Claude 形状。
 printf '%s' "$unmet" > "$STATE"
 out="$(stop)"
-python3 - "$out" <<'PY' || fail "未清应输出 decision:block 并点名关卡"
-import json,sys; d=json.loads(sys.argv[1]); assert d["decision"]=="block" and "G2 README updated" in d["reason"] and "#54" in d["reason"], d
+python3 - "$out" <<'PY' || fail "未清应输出 decision:block、点名可跑关卡、不点名人工关卡"
+import json,sys
+d=json.loads(sys.argv[1])
+assert d["decision"]=="block" and "G2 README updated" in d["reason"] and "#54" in d["reason"], d
+assert "1 gate(s)" in d["reason"] and "G3" not in d["reason"], d
 PY
 
 # 各家形状。
@@ -34,11 +37,11 @@ python3 - "$out" <<'PY' || fail "Codex 应是 decision:block"
 import json,sys; d=json.loads(sys.argv[1]); assert d["decision"]=="block"
 PY
 
-# 全清：放行，会话状态清掉。
+# 可跑关卡全清、人工关卡仍未勾：放行，会话状态清掉。
 python3 - "$STATE" <<'PY'
-import json,sys; p=sys.argv[1]; d=json.load(open(p)); [g.update(checked=True, evidence="ok") for g in d["gates"]]; json.dump(d, open(p,"w"))
+import json,sys; p=sys.argv[1]; d=json.load(open(p)); [g.update(checked=True, evidence="ok") for g in d["gates"] if g["kind"] == "check"]; json.dump(d, open(p,"w"))
 PY
-out="$(stop)"; [ -z "$out" ] || fail "全清应放行：$out"
+out="$(stop)"; [ -z "$out" ] || fail "人工关卡不该挡住收尾：$out"
 [ ! -e "$ROOT/.mmw-hook-state.json" ] || fail "全清后钩子状态文件应被清掉"
 
 # 损坏：放行。
@@ -54,9 +57,9 @@ for i in 1 2 3 4 5 6; do
   out="$(stop)"; [[ "$out" == *'"decision":"block"'* ]] || fail "第 $i 次应仍顶回：$out"
 done
 out="$(stop)"; [[ "$out" == *"releasing after 6 blocks"* ]] || fail "第 7 次应放行并说明：$out"
-# 有进展（勾掉一条）就重新计数。
+# 关卡集合变了就重新计数。
 python3 - "$STATE" <<'PY'
-import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["gates"].append({"text":"x","kind":"manual","check":None,"expect":None,"manual":"u","checked":False,"evidence":None}); json.dump(d, open(p,"w"))
+import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["gates"].append({"text":"x","kind":"check","check":"bash x.sh","expect":"ok","manual":None,"checked":False,"evidence":None}); json.dump(d, open(p,"w"))
 PY
 out="$(stop)"; [[ "$out" == *'"decision":"block"'* ]] || fail "关卡集合变了应重新顶回：$out"
 

@@ -77,10 +77,10 @@ mk() { # number state blocked_by assignees(0/1) label
   printf '{"number":%s,"state":"%s","assignees":[%s],"labels":[{"name":"%s"}],"issue_dependencies_summary":{"blocked_by":%s}}' \
     "$1" "$2" "$( [ "$4" = 1 ] && printf '{"login":"x"}' )" "$5" "$3"
 }
-input="[$(mk 12 open 0 0 worker:senior),$(mk 10 open 0 0 worker:junior),$(mk 11 open 1 0 worker:junior),$(mk 13 open 0 1 worker:junior),$(mk 14 closed 0 0 worker:junior),$(mk 15 open 0 0 ready-for-agent)]"
+input="[$(mk 12 open 0 0 worker:senior),$(mk 10 open 0 0 worker:junior),$(mk 11 open 1 0 worker:junior),$(mk 13 open 0 1 worker:junior),$(mk 14 closed 0 0 worker:junior),$(mk 15 open 0 0 ready-for-agent),$(mk 16 open 0 0 blocked:decision)]"
 got="$(printf '%s' "$input" | python3 "$F")"
 want=$'10 worker:junior\n12 worker:senior\n15 ungraded'
-[ "$got" = "$want" ] && ok "frontier 过滤阻塞/认领/关闭并按编号排序" || bad "frontier 判定（得到: $got）"
+[ "$got" = "$want" ] && ok "frontier 过滤阻塞/认领/关闭/停车 issue 并按编号排序" || bad "frontier 判定（得到: $got）"
 got="$(printf '[]' | python3 "$F")"; rc=$?
 [ "$rc" -eq 0 ] && [ -z "$got" ] && ok "frontier 空输入退出 0 无输出" || bad "frontier 空输入"
 expect_fail "frontier 非 JSON 报错" "不是 JSON" bash -c "printf 'nope' | python3 '$F'"

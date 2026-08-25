@@ -14,16 +14,20 @@ spec「Testing Decisions」里需要真实票与 Herdr 会话的部分。离线�
 - [ ] 两张有原生阻塞关系的票；上游收尾（关闭）后，frontier 查询的输出（`scripts/frontier.py` 的 stdout）出现下游票号
 - [ ] 下游票被自动派发，简报第 3 段含上游票的产出摘录
 - [ ] 刻意安排一对「看似无关实则同文件」的票：规划者把它们判为串行（计划评论「### 并行分组」里不同组）
+- [ ] 一张有两个上游的票：worktree 建好后另一个上游分支已经 merge 进来，`git -C <worktree> log --oneline` 里两个上游的 commit 都在，工人开工前这棵树编得过
 
 ## ③ 过夜批
 
 - [ ] 一批真实票跑整夜；晨检：PR 数 = 通过票数，停车 issue 数 = 停车次数，每票评论里四条留痕完整，无一次向用户提问
+- [ ] 父 issue 的 `## 落地结果` 评论三节齐全；`### 待人工验收` 列全了本批每一条 `MANUAL:` 关卡（与逐票 `gh issue view` 数出来的条数一致）；`### 保留的 worktree` 里每条路径在磁盘上都还在
 - [ ] 通知只收到两类：每次停车一条、循环终止一条
 
 ## 停车路径
 
 - [ ] 一张故意含未决问题的票：工人进入 `blocked`（`herdr agent get` 的状态字段），编排者读屏取到问题文本
 - [ ] 停车 issue 正文四段齐全（Question / Options / Consequences / Default），标签 `blocked:decision`，`gh api …/issues/<n>` 的父子关系指向任务父 issue
+- [ ] 停车后该票没有 assignee，且 `issue_dependencies_summary.blocked_by` 为 1；`scripts/frontier.py` 的输出里既没有这张票，也没有停车 issue 自己
+- [ ] 人裁决并关闭停车 issue 后，不做任何别的动作，下一轮 `scripts/frontier.py` 的输出里这张票重新出现
 - [ ] 推送通知到达手机
 
 ## 复验轮次上限
