@@ -16,9 +16,6 @@ __pycache__/
 .release/
 .playwright-cli/
 
-# implement 技能开工时写在工人 worktree 根的关卡状态文件；Stop hook 读它决定放不放行。每个 worktree 一份，不入库。
-.mmw-ticket-state.json
-
 # 角色物化产物。安装时从源码渲染进各宿主目录，仓库不留副本。
 # Pi 那一份落在 runtime 的包目录里（它的包合同要求 agent 文件在包内）。
 mmw/agents-pi/
@@ -33,8 +30,3 @@ mmw-v2/tools/node/
 # 界面 QA 的运行时依赖，由技能自带的 install-deps.sh 按 deps.json 装。
 # 版本钉死在声明里，装出来的东西不进 git。
 mmw-v2/skills/ui-qa/scripts/deps/
-
-# 纪律注入层的完成拦截（mmw-v2/hooks/mmw-stop.mjs）在被拦的 worktree 根留下的本地状态：
-# 拦截计数与文件锁。任何装了 hook 层的宿主在任何仓库里都会写，所以本仓也要忽略。
-.mmw/
-.mmw-hook-state.json

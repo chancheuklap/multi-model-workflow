@@ -36,7 +36,5 @@ self/exe-release
 self/ui-qa
 self/readable-docs
 self/manage-agents-md
-self/self-check
-self/landing-orchestrator
 
 dd/diagram-design
