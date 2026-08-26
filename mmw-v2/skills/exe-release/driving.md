@@ -92,4 +92,11 @@ Missing in both places is a `PAUSED:needs-context` you can often close yourself:
 - `SUCCESS` is not spoken success. Only `<engine> exit-check` returning `DONE` means the package is ready. Then `<engine> close`.
 - Package paths come from this stage's `DELIVERED` lines. On gather failure, read the WARN path left in the build directory. If neither exists, say you have no path. Do not invent one.
 - `close` leaves a delivery record (product name plus the ship commit). `exe-release` step 4 uses it for the same-commit check. **Do not delete it by hand.**
+- **A round that is not going to produce a package ends with `<engine> abort`, never `close`.** `close` writes that delivery record unconditionally — use it on a round that failed, or on one you are abandoning to ship a different product first, and you have written down a package that does not exist, on top of the last record that was true. `abort` drops the round and keeps the artifacts; it writes no record.
+
+## The build machine keeps building without you
+
+The build runs as a scheduled task on that machine. This side only watches for its exit code, so losing this side — the process killed, the network dropped, the session ended — does not stop the build. It finishes, it produces an installer, and nothing here knows.
+
+Just run the build stage again. It asks the build machine first whether this round (same commit, same product) is still running, and attaches to it instead of starting a second one. Do not re-run it hoping to "restart" a build you think is stuck: attaching is the only safe move while a build is live, because a fresh round wipes the source tree that build is reading.
 - `CORRUPT` and `NO-STAGES` never run the next stage and never `resume` on their own. The receipt is the only log of what was tried. Give it to the user as-is.

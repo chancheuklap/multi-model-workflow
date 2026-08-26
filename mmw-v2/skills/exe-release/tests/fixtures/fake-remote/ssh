@@ -127,6 +127,31 @@ def do_powershell(cmd: str) -> int:
             return 0
         return 1
 
+    if "'LIVE'" in cmd:
+        # 断线重连的探测：有日志、没有 exitcode、日志还在长 => 那一轮还在跑。
+        # 真的去看这两个文件，而不是认命令文本——引擎把路径拼错，探测就该说 NONE。
+        paths = quoted(cmd)
+        if len(paths) < 2:
+            return 1
+        log, exitcode = local(paths[0]), local(paths[1])
+        # 假构建机上的文件都是刚写的，mtime 那一半条件天然成立。
+        live = log.is_file() and not exitcode.is_file()
+        print("LIVE" if live else "NONE")
+        # 接上去的那一刻它跑完了——真实构建也可能在任何一秒结束。设了这个变量才发生，
+        # 否则轮询会一直等下去（那是「接上了但还在跑」，由另一条断言守）。
+        if live and os.environ.get("FAKE_ATTACH_FINISH"):
+            exitcode.write_text(os.environ["FAKE_ATTACH_FINISH"], encoding="utf-8")
+        return 0
+
+    if "Set-Content" in cmd:
+        parts = quoted(cmd)
+        if len(parts) < 2:
+            return 1
+        target = local(parts[0])
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(parts[1], encoding="utf-8")
+        return 0
+
     if "Test-Path" in cmd:
         print("Y" if any(local(p).exists() for p in quoted(cmd)) else "N")
         return 0
