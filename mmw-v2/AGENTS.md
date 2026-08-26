@@ -11,4 +11,4 @@
 
 ## 陷阱
 
-- `install.sh` 从哪个 checkout 跑，宿主软链就指向哪个路径；在 worktree 里跑会把五个宿主都指到 worktree。只从主 checkout 跑。
+- `install.sh` 从哪个 checkout 跑，软链就指向哪个路径；在 worktree 里跑会把所有安装位置都指到 worktree。只从主 checkout 跑，或者用 `MMW_V2_HOME` 指到临时根。

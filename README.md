@@ -1,6 +1,6 @@
 # multi-model-workflow
 
-一个人同时用好几个 coding agent（Claude Code、Codex、Pi、Cursor、Grok），每一个都有自己的技能目录和 subagent 目录。同一套工作方法要在五个地方各维护一份，改一处漏四处。这个仓库把那套方法收成一份，软链进五个宿主：改仓库里的技能正文，五个宿主下一次调用就是新的（description 要重开会话，subagent 要重跑装配，见文末）。
+一个人同时用好几个 coding agent（Claude Code、Codex、Pi、Cursor、Grok），每一个都有自己的技能目录和 subagent 目录。同一套工作方法要在五个地方各维护一份，改一处漏四处。这个仓库把那套方法收成一份软链出去：改仓库里的技能正文，五个宿主下一次调用就是新的（description 要重开会话，subagent 要重跑装配，见文末）。
 
 活跃的只有 `mmw-v2/`。`mmw/` 是上一代，留着当搬运来源；`archive/` 是冻结归档。详细的维护规则在 [AGENTS.md](AGENTS.md)。
 
@@ -16,7 +16,11 @@ bash mmw-v2/install.sh
 bash mmw-v2/install.sh --check
 ```
 
-安装器把 `mmw-v2/skills.txt` 列出的技能、`mmw-v2/agents/` 下的 subagent 成品，软链进每个宿主的用户级目录；上一次装过、这次名单里没有的链，它会删掉。技能缺省在 `~/.claude/skills`、`~/.codex/skills`、`~/.pi/agent/skills`、`~/.cursor/skills`、`~/.grok/skills`（Codex 与 Pi 的位置可用环境变量改）；agent 在各宿主的 `agents/` 目录，Grok 把能力模式和推理力度另放在 `~/.grok/roles/`。宿主的主目录（如 `~/.codex`）不存在就当没装这个宿主，跳过。来源：[mmw-v2/install.sh](mmw-v2/install.sh)。
+安装器把 `mmw-v2/skills.txt` 列出的技能、`mmw-v2/agents/` 下的 subagent 成品软链出去；上一次装过、这次名单里没有的链，它会删掉。
+
+技能只装两处：`~/.agents/skills` 是各家通用的位置，Codex、Cursor、Grok、Pi 都原生扫它；Claude Code 只认 `~/.claude/skills`，所以那一处再装一份同样的软链。两处都直接指向仓库源目录。`~/.agents` 不属于任何宿主，无条件创建。
+
+subagent 仍按宿主各装一份——各家的模型字段写法不同。它们落在各宿主的 `agents/` 目录（Codex 与 Pi 的位置可用环境变量改），Grok 把能力模式和推理力度另放在 `~/.grok/roles/`。宿主的主目录（如 `~/.codex`）不存在就当没装这个宿主，跳过。来源：[mmw-v2/install.sh](mmw-v2/install.sh)。
 
 ## 里面有什么
 

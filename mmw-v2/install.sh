@@ -10,11 +10,15 @@
 # 改它要重开会话。）
 #
 #   install.sh            装
-#   install.sh --check    只看装没装，不动磁盘。齐了回 0，缺东西回 1
+#   install.sh --check    只看装没装，不动磁盘。齐了回 0，缺东西或有残留回 1
 #
-# 五个宿主的用户触发开关都读 SKILL.md 的 disable-model-invocation，
-# Codex 另读技能目录里的 agents/openai.yaml。两者都在技能目录内，软链一并带过去，
-# 所以技能安装没有任何按宿主分支的逻辑。
+# 技能装两处，不按宿主分。~/.agents/skills 是各家通用的位置，Codex、Cursor、Grok、Pi
+# 都原生扫它；Claude Code 不扫，只认 ~/.claude/skills，所以那一处再装一份。两处装的是
+# 同一批软链，都直接指向仓库源目录，彼此不串。
+#
+# 宿主的用户触发开关都读 SKILL.md 的 disable-model-invocation，Codex 另读技能目录里的
+# agents/openai.yaml。两者都在技能目录内，软链一并带过去，所以技能安装没有任何按宿主
+# 分支的逻辑。
 #
 # subagent 跟技能不同：模型字段各家写法不一样，同一份正文必须按宿主换壳。壳由
 # agents/assemble.py 从 body.md + agent.json 装配到 agents/<名>/out/，这里只把成品
@@ -31,15 +35,17 @@ DD_SRC="$ROOT/upstream-diagram-design/skills"
 LIST="$ROOT/skills.txt"
 MANIFEST_NAME=".mmw-skills"
 
-# 宿主的用户级技能目录。目录不存在就当这个宿主没装，跳过。
-# MMW_V2_HOME 只给测试用：把五个宿主整体搬到一个一次性目录下，不碰真的家目录。
+# MMW_V2_HOME 只给测试用：把安装位置整体搬到一个一次性目录下，不碰真的家目录。
 HOME_DIR="${MMW_V2_HOME:-$HOME}"
+
+# 通用位置。不属于任何一个宿主，所以无条件建。
+NEUTRAL_DIR="$HOME_DIR/.agents/skills"
+# Claude Code 专用。它不扫通用位置。宿主没装就跳过。
+CLAUDE_DIR="$HOME_DIR/.claude/skills"
+
 HOST_DIRS=(
-  "$HOME_DIR/.claude/skills"
-  "${CODEX_HOME:-$HOME_DIR/.codex}/skills"
-  "${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME_DIR/.pi}/agent}/skills"
-  "$HOME_DIR/.cursor/skills"
-  "$HOME_DIR/.grok/skills"
+  "$NEUTRAL_DIR"
+  "$CLAUDE_DIR"
 )
 
 die() {
@@ -81,15 +87,15 @@ dupes="$(printf '%s\n' "${wanted_names[@]}" | sort | uniq -d)"
 [ -z "$dupes" ] || die "名单里有重名技能：$(echo "$dupes" | tr '\n' ' ')"
 
 rc=0
-installed_hosts=0
+installed_dests=0
 
 for dest in "${HOST_DIRS[@]}"; do
   host_home="$(dirname "$dest")"
-  if [ ! -d "$host_home" ]; then
+  if [ "$dest" != "$NEUTRAL_DIR" ] && [ ! -d "$host_home" ]; then
     echo "跳过  ${dest}（宿主没装）"
     continue
   fi
-  installed_hosts=$((installed_hosts + 1))
+  installed_dests=$((installed_dests + 1))
 
   manifest="$dest/$MANIFEST_NAME"
 
@@ -144,6 +150,50 @@ for dest in "${HOST_DIRS[@]}"; do
 
   printf '%s\n' "${linked[@]}" > "$manifest"
   echo "已装  ${#linked[@]} 个技能 -> $dest"
+done
+
+# ---------------- 退役的技能位置 ----------------
+
+# 技能以前按宿主各装一份。下面四处不再是安装目标，主循环也不会再走到它们，残留的软链
+# 就会一直留着。这不是洁癖：Cursor 扫到同名技能时 ~/.claude/skills 压过 ~/.agents/skills，
+# 一条陈旧的残留会静默盖掉新的，不报错也不提示。所以每次安装都摘一遍。
+RETIRED_DIRS=(
+  "${CODEX_HOME:-$HOME_DIR/.codex}/skills"
+  "${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME_DIR/.pi}/agent}/skills"
+  "$HOME_DIR/.cursor/skills"
+  "$HOME_DIR/.grok/skills"
+)
+
+for dest in "${RETIRED_DIRS[@]}"; do
+  manifest="$dest/$MANIFEST_NAME"
+  [ -f "$manifest" ] || continue
+
+  # 只摘指回本仓库的软链。别人放在同一个目录里的东西一律不碰。
+  stale_links=()
+  while IFS= read -r old; do
+    [ -n "$old" ] || continue
+    stale="$dest/$old"
+    [ -L "$stale" ] || continue
+    case "$(readlink "$stale")" in
+      "$SKILLS_SRC"/* | "$SELF_SRC"/* | "$DD_SRC"/*) stale_links+=("$stale") ;;
+    esac
+  done < "$manifest"
+
+  if [ "$mode" = check ]; then
+    if [ "${#stale_links[@]}" -gt 0 ]; then
+      echo "残留  ${dest} 还有 ${#stale_links[@]} 条上一代的技能软链，跑一次 install.sh 摘掉" >&2
+      rc=1
+    fi
+    continue
+  fi
+
+  if [ "${#stale_links[@]}" -gt 0 ]; then
+    for stale in "${stale_links[@]}"; do
+      rm "$stale"
+    done
+  fi
+  rm "$manifest"
+  echo "退役  摘掉 ${#stale_links[@]} 个技能 <- ${dest}"
 done
 
 # ---------------- subagent ----------------
@@ -236,10 +286,8 @@ if [ -d "$AGENTS_SRC" ]; then
   done
 fi
 
-[ "$installed_hosts" -gt 0 ] || die "一个宿主都没找到，什么都没装"
-
 if [ "$mode" = check ]; then
-  [ "$rc" -eq 0 ] && echo "齐了：$installed_hosts 个宿主 × ${#wanted_names[@]} 个技能"
+  [ "$rc" -eq 0 ] && echo "齐了：${installed_dests} 处 × ${#wanted_names[@]} 个技能"
 else
   echo
   echo "源目录：${SKILLS_SRC}（上游）、${SELF_SRC}（自研）、${DD_SRC}（diagram-design 上游）"
