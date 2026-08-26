@@ -72,7 +72,7 @@ return (
 
 For sub-shape A (existing page): keep all the existing data fetching above the switcher; only the rendered subtree changes per variant.
 
-For sub-shape B (new page): the prototype route under `/prototype/<name>` mounts the same switcher.
+For sub-shape B (new page): the prototype route you created above mounts the same switcher.
 
 In both sub-shapes the variant components live in the leaf directory `prototypes/<task>/<issue>/UI/`; the route holds only the mount point above, importing the variants from there (a path alias or a relative import; if the project can't import across that boundary, symlink the leaf directory beside the route). The mount point — and the symlink, if you needed one — is **scaffolding**: it exists so the variants render inside the real app, and it comes down in step 6. Iterating means editing or adding variants in the leaf directory; the mount point doesn't change.
 
