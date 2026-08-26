@@ -3,7 +3,7 @@ date: 2026-08-18
 amends: []
 ---
 
-> 现行读法见 ADR 0018：技能改装 `~/.agents/skills` 与 `~/.claude/skills` 两处，本篇「五个宿主各装一份」只对 subagent 仍然成立。取消插件打包、由安装器散装这个决定本身没有变。
+> 现行读法见 ADR 0006：技能改装 `~/.agents/skills` 与 `~/.claude/skills` 两处，本篇「五个宿主各装一份」只对 subagent 仍然成立。取消插件打包、由安装器散装这个决定本身没有变。
 >
 > 下面正文写的是 2026-08-18 当时的状态。安装入口现在是 `mmw-v2/install.sh`；正文里的 `mmw/install.sh` 已进 `archive/`，**不要跑它**，它会把活的安装整个换成上一代。九个交付面现在只剩技能与 subagent 两面，其余七面连同 `mmw` CLI 一起退役。
 
