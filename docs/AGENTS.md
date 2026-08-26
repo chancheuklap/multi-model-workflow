@@ -7,7 +7,7 @@
 - 每个路径的名字段是这次交付的任务分支 slug（最后一个 `/` 之后）；Wayfinder 工作用地图分支的 slug。
 - 路径段一律小写的单个安全段（macOS 不分大小写，Linux 分）。
 - spec 和 plan 的 frontmatter 必须带 `artifact_refs`，空也写 `artifact_refs: []`。
-- `adr/README.md`、`specs/README.md` 手工维护：新增条目时顺手追加一行（过继决定见 ADR 0023；不再依赖冻结区生成器）。
+- `adr/README.md`、`specs/README.md` 手工维护：新增条目时顺手追加一行（过继决定见 ADR 0017；不再依赖冻结区生成器）。
 
 ## 陷阱
 
