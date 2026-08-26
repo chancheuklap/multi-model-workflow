@@ -74,7 +74,7 @@ For sub-shape A (existing page): keep all the existing data fetching above the s
 
 For sub-shape B (new page): the prototype route under `/prototype/<name>` mounts the same switcher.
 
-In both sub-shapes the variant components live in the leaf directory `prototypes/<task>/<issue>/UI/`; the route holds only the mount point above, importing the variants from there (a path alias or a relative import; if the project can't import across that boundary, symlink the leaf directory beside the route). Iterating means editing or adding variants in the leaf directory — the mount point doesn't change.
+In both sub-shapes the variant components live in the leaf directory `prototypes/<task>/<issue>/UI/`; the route holds only the mount point above, importing the variants from there (a path alias or a relative import; if the project can't import across that boundary, symlink the leaf directory beside the route). The mount point — and the symlink, if you needed one — is **scaffolding**: it exists so the variants render inside the real app, and it comes down in step 6. Iterating means editing or adding variants in the leaf directory; the mount point doesn't change.
 
 ### 4. Build the floating switcher
 
@@ -97,14 +97,16 @@ Put the switcher in a single shared component so both sub-shapes can reuse it. L
 
 Surface the URL (and the `?variant=` keys). The user will flip through whenever they get to it. The interesting feedback is usually **"I want the header from B with the sidebar from C"** — that's the actual design they want.
 
-### 6. Capture the answer and clean up
+### 6. Capture the answer and take the scaffolding down
 
-Once a variant has won, record the answer — which variant and why — in the leaf `README.md`, the way the [SKILL](SKILL.md) describes. Fold the winner into the real code, rewritten to production standard:
+Once a variant has won, record the answer — which variant and why — in the leaf `README.md`, the way the [SKILL](SKILL.md) describes. Fold the winner into the real code, rewritten to production standard, then remove the scaffolding:
 
-- **Sub-shape A** — the existing page renders the winner for real; the mount point stays, gated, for the next round.
-- **Sub-shape B** — promote the winning variant to a real route; the prototype route stays, gated, for the next round.
+- **Sub-shape A** — the existing page renders the winner for real; delete the mount point, the switcher, and the import of the leaf directory.
+- **Sub-shape B** — promote the winning variant to a real route; delete the prototype route file and the switcher.
 
-The full set of variants stays in the leaf directory as reference — the next round of this page's design starts from them, not from scratch.
+Delete the symlink beside the route as well, if step 3 needed one.
+
+Done when nothing outside the leaf directory imports it and `?variant=` reaches nothing — the leaf directory can be deleted at any time without breaking the build. The full set of variants stays there as reference; the next round of this page's design reads them and writes a fresh mount point.
 
 ## Anti-patterns
 
