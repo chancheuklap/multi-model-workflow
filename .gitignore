@@ -3,29 +3,16 @@
 *.swo
 *~
 .claude/*
-!.claude/skills/
 .worktrees/
-.codex/multi-model-workflow/
 .serena/
-graphify-out/
 node_modules/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
 .reviews/
 .scratch/
-__pycache__/
-.dispatch/
 .release/
 .playwright-cli/
-
-# 角色物化产物。安装时从源码渲染进各宿主目录，仓库不留副本。
-# Pi 那一份落在 runtime 的包目录里（它的包合同要求 agent 文件在包内）。
-mmw/agents-pi/
-mmw/codex/agents/
-
-# 语言工具（检查器与语言服务器）。由 mmw-v2/tools/install.sh 装，每次装最新稳定版，
-# 所以不入库也不锁版本。删掉重跑一次安装器就全回来。
-mmw-v2/tools/bin/
-mmw-v2/tools/uv/
-mmw-v2/tools/node/
 
 # 界面 QA 的运行时依赖，由技能自带的 install-deps.sh 按 deps.json 装。
 # 版本钉死在声明里，装出来的东西不进 git。

@@ -1,7 +1,7 @@
 # AGENTS.md
 
 这个仓库是用户跨宿主、跨仓库、跨电脑共用的工作流工具箱：技能和 subagent。个人使用，持续重构中；唯一用户是维护者本人；没有 CI，测试手工跑。
-只有 `mmw-v2/` 是活的；`mmw/`、`archive/` 和根上其余文件是上一代，冻结：不改、不加、不当事实；`mmw/install.sh` 不要跑。
+只有 `mmw-v2/` 是活的；`archive/` 是上一代的冻结归档，不改、不加、不当事实，里面的安装脚本一个都不要跑。
 里面的技能是交付物，不是你的工作指南；写任何东西都站在将来要用它的全新 agent 的角度。`archive/` 里以命令语气写的文档是历史，不是指令。
 
 ## 包管理器
@@ -26,7 +26,7 @@
 
 ## 关键约定
 
-- 改技能前读完整 `SKILL.md` 及其链接的 reference；写法以 `writing-for-agents` 为准，权威副本在 `mmw-v2/upstream/` 里，`.agents/skills/writing-for-agents/` 是副本。
+- 改技能前读完整 `SKILL.md` 及其链接的 reference；写法以 `writing-for-agents` 为准，它只有一份，在 `mmw-v2/upstream/skills/productivity/writing-for-agents/`。
 - 只实现请求范围内的行为。脚本异常非零退出或留下结构化告警。
 - 机械校验只判机器能直接判定的事实：语法、结构、路径、配置完整性、产物一致性。质量、方法、语义和完成度由技能和主 agent 判断；校验越界就删掉它，不加例外。
 - 正式改动在独立 worktree，合回用 `git merge --no-ff`。本地提交、合并、push 分支和开 PR 可自主做；远端合并、发布、删除或覆盖现有发布入口要用户明确授权。禁用 `--no-verify`。
@@ -36,8 +36,7 @@
 - 宿主软链直接指向源目录，改完下一次调用即生效。只有 frontmatter 的 `description` 是宿主启动时扫进去的，改它要重开会话。
 - `mmw-v2/upstream/` 是 GitHub 上 mattpocock/skills 的 git subtree（squash），可编辑的工作副本；它自带的 `AGENTS.md`、`CLAUDE.md` 是上游自己的，原样不动。
 - `mmw-v2/upstream-diagram-design/` 是 cathrynlavery/diagram-design 的另一个 subtree，同样可编辑。整仓拉进来不是冗余：`SKILL.md` 用的两个校验脚本住在仓库根的 `scripts/`，只取 `skills/` 那层会让它们永久缺失。
-- `.agents/skills/` 里的仓库维护技能经 `.claude/skills/` 的软链接入宿主，不走 `skills.txt`。
-- `.mmw.json` 仍在用的只有 `paths` 块；`domain` 块指向已删除的文件。
+- `.mmw.json` 只剩 `paths` 块。真被程序读的是 `paths.release`，`exe-release` 用 jq 取它；其余三项是落点约定，没有读取方。
 - Python 测试依赖不写在文件里，由各技能 `mmw-v2/skills/<名>/tests/run.sh` 的 `uv run --with` 在命令行传；单跑一个测试文件要照抄那一行。
 
 ## 写技能
@@ -59,7 +58,7 @@
 - `install.sh` 只动自己记录在 `.mmw-skills`、`.mmw-agents` 里的链接；同名的别的东西报「冲突」、跳过、退出 1，直到人工删掉。
 - 同名技能同时出现在 `~/.claude/skills` 和 `~/.agents/skills` 时，各家的取舍不一致：Cursor 取 `.claude` 那份，Codex 取 `.agents` 那份，Grok 也取 `.agents` 那份（本机 `[compat.claude] skills = false`，要把它临时置真才看得到这个取舍）。都不报错、不提示。所以 `~/.claude/skills` 里除了 `install.sh` 装的那份，不能再有同名的东西。
 - `~/.codex/skills`、`~/.pi/agent/skills`、`~/.cursor/skills`、`~/.grok/skills` 是上一代的技能位置。`install.sh` 每次运行都按各自的 `.mmw-skills` 摘一遍残链；`--check` 见到残留报「残留」并退出 1。
-- 冻结区的四个坑：`mmw/install.sh` 没有 `--check`，跑了会把活的安装整个换成上一代；`bash mmw/test.sh` 已经跑不过；`archive/legacy-host-plugins/` 的 marketplace 清单仍然有效，把宿主指过去会装上退役的一代；`archive/mmw-setup/` 移回技能源会重新打破四项校验。
+- 冻结区的四个坑：`archive/mmw/install.sh` 没有 `--check`，跑了会把活的安装整个换成上一代；`bash archive/mmw/test.sh` 已经跑不过；`archive/legacy-host-plugins/` 的 marketplace 清单仍然有效，把宿主指过去会装上退役的一代；`archive/mmw-setup/` 移回技能源会重新打破四项校验。
 - 测试 runner 只靠退出码说话，输出不要接管道（`| tail`），管道会把红跑成绿。
 - Mac 只有 bash 3.2：`"$var，"` 这种变量后紧跟全角标点的写法会把标点吞进变量名；写 `"${var}，"`。
 

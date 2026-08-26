@@ -113,8 +113,8 @@ bash "$RF" close >/dev/null
 # Task Scheduler，不记录命令文本。下面每条断的都是这两样的最终状态——引擎把任务名
 # 拼错、create 与 delete 用了两个名字，登记表里就会留下残骸，断言自然红。
 #
-# 验不了的写在 TESTING.md：上传的 wrapper 内容对不对（脱附会话里日志落不落地、
-# PS 5.1 的编码转换）要一台 Windows 构建机才能验，这里只断它被上传了。
+# 上传的 wrapper 内容对不对（脱附会话里日志落不落地、PS 5.1 的编码转换）要一台
+# 真的 Windows 构建机才能验，这里只断它被上传了。
 REMOTE_FIX="$SCRIPT_DIR/fixtures/fake-remote"
 export FAKE_REMOTE_ROOT="$TMP/remote-fs"
 export FAKE_REMOTE_TASKS="$TMP/remote-tasks.json"

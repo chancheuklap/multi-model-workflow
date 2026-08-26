@@ -2,7 +2,7 @@
 
 一个人同时用好几个 coding agent（Claude Code、Codex、Pi、Cursor、Grok），每一个都有自己的技能目录和 subagent 目录。同一套工作方法要在五个地方各维护一份，改一处漏四处。这个仓库把那套方法收成一份软链出去：改仓库里的技能正文，五个宿主下一次调用就是新的（description 要重开会话，subagent 要重跑装配，见文末）。
 
-活跃的只有 `mmw-v2/`。`mmw/` 是上一代，留着当搬运来源；`archive/` 是冻结归档。详细的维护规则在 [AGENTS.md](AGENTS.md)。
+活跃的只有 `mmw-v2/`；`archive/` 是上一代的冻结归档，留着查历史，不当事实用。详细的维护规则在 [AGENTS.md](AGENTS.md)。
 
 ## 装
 
