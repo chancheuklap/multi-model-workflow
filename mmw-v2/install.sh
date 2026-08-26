@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 把 skills.txt 列出的技能和 agents/ 下的 subagent 装进本机的每个宿主。就这两件事。
+# 把 skills.txt 列出的技能和 agents/ 下的 subagent 装到本机，让每个宿主都读得到。就这两件事。
 #
 # 技能有三个来源：mattpocock 上游的在 upstream/skills/，我们自己写的在 skills/（名单里
 # 前缀 self/），diagram-design 上游的在 upstream-diagram-design/skills/（前缀 dd/）。三者
