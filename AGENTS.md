@@ -25,11 +25,20 @@
 
 | 需要 | 文件 |
 | --- | --- |
-| 写技能的补充规则 | `docs/agents/writing-skills.md` |
-| 安装、宿主、冻结区的坑 | `docs/agents/pitfalls.md` |
 | 决策记录索引 | `docs/adr/README.md` |
-| Issue tracker（GitHub Issues，走 `gh`） | `docs/agents/issue-tracker.md` |
-| Triage 标签 | `docs/agents/triage-labels.md` |
-| 领域文档 | `docs/agents/domain.md` |
+
+## Agent skills
+
+### Issue tracker
+
+本仓 issue 在 GitHub Issues，全部操作走 `gh` CLI。See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+五个规范角色用默认标签串（`needs-triage` / `needs-info` / `ready-for-agent` / `ready-for-human` / `wontfix`）。See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+单 context：`docs/adr/`。根 `CONTEXT.md` 尚未建立，需要时由 `/domain-modeling` 按需创建。See `docs/agents/domain.md`.
 
 Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.
