@@ -1,6 +1,6 @@
 ---
 date: 2026-08-25
-amends: [0003, 0010]
+amends: [0003, 0008]
 ---
 
 # docs 文档层过继到 v2：spec 文件名带名字段，索引与编号脱离冻结 CLI
@@ -17,7 +17,7 @@ docs 层（adr、specs、research）的约定与工具一直接在上一代：sp
 
 ## Consequences
 
-- ADR 0003（同一路径形状）与 0010（索引由命令算出）在 docs 层不再成立，两篇顶部已加引用块指向本篇；其余产物（research、prototype 的路径约定）照旧。
+- ADR 0003（同一路径形状）与 0008（索引由命令算出）在 docs 层不再成立，两篇顶部已加引用块指向本篇；其余产物（research、prototype 的路径约定）照旧。
 - `docs/AGENTS.md`、`docs/specs/AGENTS.md`、`docs/adr/AGENTS.md`、`docs/research/AGENTS.md` 相应改写；两个 README 重建为手工维护的完整索引。
 - 冻结区 `mmw/cli/` 自此对活层零调用；它自身照旧冻结，不删不改。
 - engineering 技能（to-spec、to-tickets、triage、code-review）的 tracker 前置检查自此在本仓成立。
