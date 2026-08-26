@@ -21,12 +21,6 @@
 - 装哪些技能只改 `mmw-v2/skills.txt`。宿主软链直接指向源目录，改完下一次调用即生效；只有 frontmatter 的 `description` 是宿主启动时扫进去的，改它要重开会话。
 - `mmw-v2/upstream/` 是 mattpocock/skills 的 git subtree（squash），`mmw-v2/upstream-diagram-design/` 是 cathrynlavery/diagram-design 的另一个。两者都可编辑；上游自带的 `AGENTS.md`、`CLAUDE.md` 原样不动。拉上游和解冲突见 `mmw-v2/merge-notes/README.md`；改了上游技能就写或更新它的 merge-note。
 
-## 外部引用
-
-| 需要 | 文件 |
-| --- | --- |
-| 决策记录索引 | `docs/adr/README.md` |
-
 ## Agent skills
 
 ### Issue tracker
@@ -40,5 +34,3 @@
 ### Domain docs
 
 单 context：`docs/adr/`。根 `CONTEXT.md` 尚未建立，需要时由 `/domain-modeling` 按需创建。See `docs/agents/domain.md`.
-
-Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.
