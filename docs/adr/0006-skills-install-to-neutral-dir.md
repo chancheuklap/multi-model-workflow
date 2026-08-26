@@ -1,6 +1,6 @@
 ---
 date: 2026-08-26
-amends: [0015]
+amends: [0003]
 ---
 
 # 技能装进一个各家通用的位置，只为 Claude Code 单独再装一份
@@ -9,7 +9,7 @@ amends: [0015]
 
 四家读 `~/.agents/skills` 是当天在本机逐个实测的：把一个探针技能放进 `~/.agents/skills/`，再用全新进程问每一家看不看得到。Grok 由 `grok inspect --json` 报出 `source.path`，Codex、Pi、Cursor 各起一个非交互进程原样贴出探针的 description。把探针换成指向仓库外的软链重测，四家同样认得。其中三家另有独立佐证：Grok 的用户文档写明它在每一层都扫 `.agents/skills/`，Pi 的 README 把 `~/.agents/skills/` 列进技能放置位置，Cursor 的 bundle 里这一条无条件加入用户级根目录列表。Codex 只有探针实测支撑，它的二进制里没有一处能直接读出用户级根目录清单。
 
-Claude Code 在同一条件下答「没有」，它的二进制里 `.agents/skills` 零命中，技能根目录全部落在 `.claude` 体系内。能追加技能目录的设置键也搜不到——`skillDirs`、`extraSkill`、`additionalSkill` 三个都零命中。插件可以从别处带技能进来，但 ADR `0015` 已经否掉了插件这条路。
+Claude Code 在同一条件下答「没有」，它的二进制里 `.agents/skills` 零命中，技能根目录全部落在 `.claude` 体系内。能追加技能目录的设置键也搜不到——`skillDirs`、`extraSkill`、`additionalSkill` 三个都零命中。插件可以从别处带技能进来，但 ADR `0003` 已经否掉了插件这条路。
 
 ## Considered Options
 
@@ -26,6 +26,6 @@ Claude Code 在同一条件下答「没有」，它的二进制里 `.agents/skil
 - `~/.agents/skills` 不属于任何宿主，无条件创建，不套用「宿主主目录不存在就跳过」那条规则。`~/.claude/skills` 照旧跳过。
 - `~/.codex/skills`、`~/.pi/agent/skills`、`~/.cursor/skills`、`~/.grok/skills` 退役。它们不再是安装目标，主循环也不会走到，但各自的宿主仍在扫它们——残留的是上一轮名单里的旧版本，跟通用位置的那份撞名。实测里 Grok 取 `~/.grok/skills` 那份，把通用位置的盖住，不报错也不提示。因此 `install.sh` 每次运行都按各自的 `.mmw-skills` 摘一遍，`--check` 见到残留报「残留」并退出 1。
 - `~/.claude/skills` 里除了 `install.sh` 装的那份，不能再有同名的东西，否则在 Cursor 那边会盖掉通用位置的版本。
-- ADR `0015` 的「五个宿主由 `install.sh` 统一散装」对 subagent 仍然成立，对技能不再成立。0015 取消插件打包、由安装器散装这个决定本身没有变。
+- ADR `0003` 的「五个宿主由 `install.sh` 统一散装」对 subagent 仍然成立，对技能不再成立。0003 取消插件打包、由安装器散装这个决定本身没有变。
 
 来源：2026-08-26 与用户的设计对话；当天在本机对 Grok 1.0.5、Codex 0.149.1、Cursor CLI 2026.08.11-e8db854、Claude Code 2.1.246、pi-coding-agent 0.84.3 所做的探针实测（探针测完已清理，磁盘上不可复核；撞名那一组在 Cursor 上复测两次并对调过标记文字）；以及 `~/.grok/docs/user-guide/08-skills.md`、`~/.grok/docs/user-guide/05-configuration.md`、`~/.grok/config.toml`、pi-coding-agent 的 `README.md`、Cursor CLI bundle 与 Claude Code 二进制里的技能发现代码。
