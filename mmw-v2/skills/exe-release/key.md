@@ -170,9 +170,12 @@ the running app looks — the exe's own directory, then one level up. Change it 
 present in the installed package while the program cannot find any of them, with every build step
 green.
 
-Staging runs after the `runtime_prepare` hook and before the compile, and it **does not clear the
-destination**: a product hook may be filling the same tree (one fetches its music into it), so the
-two stack instead of deleting each other. After each entry the build counts what landed; an entry
+Staging runs **after** the `runtime_prepare` hook and **before** `asset_parity` /
+`credential_proof` — fetch, then stage, then check. Those three hooks share one phase but not one
+moment: `runtime_prepare` fetches, the other two check what was fetched. Stage after the checks and
+a product's own check reports the data missing while the build log says the download succeeded.
+Staging also **does not clear the destination**: a product hook may be filling the same tree (one
+fetches its music into it), so the two stack instead of deleting each other. After each entry the build counts what landed; an entry
 that copies nothing stops the release, because "the copy step ran" and "the data is in the package"
 are different facts.
 
@@ -279,7 +282,7 @@ so the numbers move; the phases do not.
 | Phase | Hook | What the product does here |
 | --- | --- | --- |
 | `runtime_ready` | `runtime_prepare` | fetch the embedded runtime, media assets |
-| `runtime_ready` | `asset_parity`, `credential_proof` | check assets, emit proofs |
+| `runtime_ready` | `asset_parity`, `credential_proof` | check assets, emit proofs — these run **after** the skill stages `runtime_assets`, so they can check what it put there |
 | `backend_ready` | `backend_verify` | the compiled exe just landed — prove it starts |
 | `artifact_ready` | `artifact_scan` | scan the packed output |
 | `installer_ready` | `installer` | only with `"installer": "repo_hook"` |
