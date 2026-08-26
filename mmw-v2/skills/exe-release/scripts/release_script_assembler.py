@@ -162,29 +162,41 @@ def _steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
         }
     )
 
-    runtime_hooks = [
-        name
-        for name in ("runtime_prepare", "asset_parity", "credential_proof")
-        if getattr(hooks, name) is not None
-    ]
-    if runtime_hooks:
+    # runtime_ready 这个阶段里有三个钩子，但它们不在同一个时刻：`runtime_prepare` 是**抓**
+    # （造嵌入式解释器、按清单下载资源），`asset_parity` 与 `credential_proof` 是**核对抓完
+    # 的结果**。技能把随包资产落地，属于「抓」的最后一步，必须夹在两者中间——放到核对之后，
+    # 产品的核对就会在资产还没到位时说它缺；放到抓之前，抓下来的东西又会盖在半棵树上。
+    # 这不是假设：小刺猬的 BGM 下载成功，而 asset_parity 报 bgm_manifest.json 缺失，
+    # 因为那份 manifest 由这一步从仓库拷过去，当时排在核对之后。
+    if hooks.runtime_prepare is not None:
         steps.append(
             {
                 "title": "Prepare runtime",
-                "hooks": runtime_hooks,
-                "lines": [_hook_line(name, getattr(hooks, name)) for name in runtime_hooks],
+                "hooks": ["runtime_prepare"],
+                "lines": [_hook_line("runtime_prepare", hooks.runtime_prepare)],
             }
         )
 
-    # 随包但不嵌入的数据，排在 runtime_prepare 之后：一个产品的钩子会往同一棵树里抓东西
-    # （按清单拉 BGM），钩子先跑，这一步再往上叠，两边互不删除。都在编译之前，因为编译
-    # 产物的目录与这棵树平级，Electron 打包时一起收走。
     if manifest.runtime_assets is not None:
         steps.append(
             {
                 "title": "Stage runtime assets",
                 "hooks": [],
                 "lines": _runtime_asset_lines(manifest, desktop_dir),
+            }
+        )
+
+    check_runtime_hooks = [
+        name for name in ("asset_parity", "credential_proof") if getattr(hooks, name) is not None
+    ]
+    if check_runtime_hooks:
+        steps.append(
+            {
+                "title": "Check runtime assets",
+                "hooks": check_runtime_hooks,
+                "lines": [
+                    _hook_line(name, getattr(hooks, name)) for name in check_runtime_hooks
+                ],
             }
         )
 

@@ -71,6 +71,7 @@ def test_assembles_and_the_script_parses_as_one_pipeline(tmp_path):
         "Validate prerequisites",
         "Install frontend dependencies",
         "Prepare runtime",
+        "Check runtime assets",
         "Compile Python backend",
         "Verify compiled backend",
         "Build Electron application",
@@ -300,8 +301,11 @@ def test_check_accepts_the_pair_it_just_assembled(tmp_path):
 def test_check_rejects_a_script_whose_steps_do_not_match_its_context(tmp_path):
     _, script, context = _assemble(tmp_path, _key())
     text = script.read_text(encoding="utf-8-sig")
+    # 按标题找那一行，不写死步号：步号是算出来的，加一步就会把写死编号的测试打红，
+    # 而它要守的根本不是编号。
+    line = next(s for s in _steps(script) if "Verify compiled backend" in s)
     script.write_text(
-        text.replace('Step "[5/10] Verify compiled backend"', 'Step "[5/10] Nothing"'),
+        text.replace(line, line.replace("Verify compiled backend", "Nothing")),
         encoding="utf-8-sig",
     )
     result = subprocess.run(
@@ -493,22 +497,29 @@ def test_runtime_assets_land_beside_the_compiled_backend_by_default(tmp_path):
     assert "python-runtime/runtime-assets/app/assets" in script.read_text(encoding="utf-8-sig")
 
 
-def test_runtime_assets_are_staged_after_the_hooks_and_before_the_compile(tmp_path):
-    """守：顺序。
+def test_runtime_assets_are_staged_between_fetching_and_checking(tmp_path):
+    """守：顺序，抓 → 落地 → 核对。
 
-    一个产品的 runtime_prepare 钩子往同一棵树里抓东西（按清单拉音乐）。技能这一步排在钩子
-    之后往上叠，两边互不删除；又排在编译之前，因为 Electron 打包时把这棵树一起收走。
+    runtime_ready 里的三个钩子不在同一个时刻：`runtime_prepare` 是抓（造嵌入式解释器、
+    按清单下载资源），`asset_parity` 与 `credential_proof` 是核对抓完的结果。技能落地
+    随包资产属于「抓」的最后一步。
+
+    排错了会怎样，是实测出来的：这一步曾经排在核对之后，于是小刺猬的 BGM 下载成功、
+    asset_parity 却报 bgm_manifest.json 缺失——那份 manifest 正是由这一步从仓库拷过去的。
+    排到抓之前也不行：抓下来的东西会盖在半棵树上。
     """
     doc = _key()
     doc["runtime_assets"] = deepcopy(RUNTIME_ASSETS)
     doc["build_hooks"] = dict(doc.get("build_hooks") or {})
     doc["build_hooks"]["runtime_prepare"] = ["python", "scripts/prepare.py"]
+    doc["build_hooks"]["asset_parity"] = ["python", "scripts/parity.py"]
     _, script, _ = _assemble(tmp_path, doc)
     steps = _steps(script)
     prepare = next(i for i, s in enumerate(steps) if "Prepare runtime" in s)
     stage = next(i for i, s in enumerate(steps) if "Stage runtime assets" in s)
+    check = next(i for i, s in enumerate(steps) if "Check runtime assets" in s)
     compiled = next(i for i, s in enumerate(steps) if "Compile Python backend" in s)
-    assert prepare < stage < compiled, steps
+    assert prepare < stage < check < compiled, steps
 
 
 def test_a_key_that_declares_no_runtime_assets_has_no_such_step(tmp_path):
