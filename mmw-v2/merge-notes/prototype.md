@@ -27,7 +27,7 @@
 | Pick a branch | 三枝，第三枝指向 `EXP.md`；兜底规则里库/算法/集成 → experiment |
 | 标题「Rules that apply to …」、规则 2、规则 5 | 覆盖三枝（every branch；experiment 也一条命令起；experiment 每次跑写证据页） |
 | 规则 2「A logic demo is …」 | 宿主能发布就是在线页，否则双击 |
-| 规则 1 | 存放约定 `prototypes/<task>/<issue>/<UI\|LOGIC\|EXP>/` + 叶子 `README.md`；`<task>` 的来源顺序（wayfinder 地图标题 → 问用户 → 分支名，`/` 换 `-`）；main 上先停；UI 自建路由仍守项目路由约定 |
+| 规则 1 | 存放约定 `prototypes/<task>/<issue>/<UI\|LOGIC\|EXP>/` + 叶子 `README.md`；`<task>` 的来源分级按「有没有 wayfinder 地图」判，不按「有没有 ticket」（地图标题 → 问用户 → 分支名，`/` 换 `-`）；main 上先停；UI 自建路由仍守项目路由约定 |
 | 规则 4 | 保留「无测试」并写明测试归正式代码；「不抽象」放宽为「复用部分要有清楚边界」 |
 | 规则 6 | 结论进叶子 README；决定并进正式代码并按正式标准重写；落地后叶子目录是原型唯一的家；有 ticket 就把目录链为 asset。**没有**一次性分支 |
 
