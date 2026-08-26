@@ -33,6 +33,7 @@ function Get-TemplateFunction([string]$name) {
 . ([scriptblock]::Create((Get-TemplateFunction 'Assert-DistinctExeTails')))
 . ([scriptblock]::Create((Get-TemplateFunction 'Remove-CompilerIntermediates')))
 . ([scriptblock]::Create((Get-TemplateFunction 'Assert-LicensesShipped')))
+. ([scriptblock]::Create((Get-TemplateFunction 'Copy-RuntimeAsset')))
 
 $lab = Join-Path $env:TEMP ("mmw-template-behaviour-" + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $lab | Out-Null
@@ -176,6 +177,66 @@ try {
   } catch {
     if ($_.Exception.Message -like '*without*') {
       ok "许可证被打包过滤掉，出包停下"
+    } else {
+      no ("拦下了但说的不是这件事：" + $_.Exception.Message)
+    }
+  }
+  # ── 随包但不嵌入的数据 ────────────────────────────────────────────────────
+  #
+  # 从包目录取成员那一种要问真解释器要位置，本机不一定有那个包，所以这里只验不依赖
+  # 解释器的三条；那一种由真实出包做端到端证明。
+  $raRepo = Join-Path $lab 'ra-repo'
+  $raSrc = Join-Path $raRepo 'runtime-assets\app\assets'
+  New-Item -ItemType Directory -Force -Path (Join-Path $raSrc 'bgm') | Out-Null
+  Set-Content -Path (Join-Path $raSrc 'manifest.json') -Value '{}' -Encoding Ascii
+  Set-Content -Path (Join-Path $raSrc 'bgm\track.mp3') -Value 'AUDIO' -Encoding Ascii
+  $raDest = Join-Path $lab 'ra-out\app\assets'
+  try {
+    Copy-RuntimeAsset -Source 'runtime-assets/app/assets' -Dest $raDest -RepoRoot $raRepo -Label 'app/assets'
+    if ((Test-Path -LiteralPath (Join-Path $raDest 'bgm\track.mp3')) -and
+        (Test-Path -LiteralPath (Join-Path $raDest 'manifest.json'))) {
+      ok "仓库里的资产目录整棵拷到落点"
+    } else {
+      no "拷过去了但文件不在落点"
+    }
+  } catch {
+    no ("仓库源拷贝报错：" + $_.Exception.Message)
+  }
+
+  # 落点已有别人写进去的东西（产品钩子抓下来的曲子）时，这一步只叠加不清空——
+  # 清空会把同一棵树里兄弟步骤的成果删掉，而两边都不会报错。
+  Set-Content -Path (Join-Path $raDest 'bgm\fetched.mp3') -Value 'FETCHED' -Encoding Ascii
+  try {
+    Copy-RuntimeAsset -Source 'runtime-assets/app/assets' -Dest $raDest -RepoRoot $raRepo -Label 'app/assets'
+    if (Test-Path -LiteralPath (Join-Path $raDest 'bgm\fetched.mp3')) {
+      ok "再拷一次不清空落点，钩子先放进去的东西还在"
+    } else {
+      no "第二次拷贝把钩子放进去的文件删了"
+    }
+  } catch {
+    no ("重复拷贝报错：" + $_.Exception.Message)
+  }
+
+  try {
+    Copy-RuntimeAsset -Source 'runtime-assets/app/nope' -Dest (Join-Path $lab 'ra-out2') -RepoRoot $raRepo -Label 'app/nope'
+    no "源在仓库里根本不存在却没被拦下"
+  } catch {
+    if ($_.Exception.Message -like '*no source in the repository*') {
+      ok "源不在仓库里，出包停下"
+    } else {
+      no ("拦下了但说的不是这件事：" + $_.Exception.Message)
+    }
+  }
+
+  # 拷贝跑完了和数据在包里是两件事：源目录是空的，Copy-Item 一声不吭地成功。
+  $emptySrc = Join-Path $raRepo 'runtime-assets\app\empty'
+  New-Item -ItemType Directory -Force -Path $emptySrc | Out-Null
+  try {
+    Copy-RuntimeAsset -Source 'runtime-assets/app/empty' -Dest (Join-Path $lab 'ra-out3') -RepoRoot $raRepo -Label 'app/empty'
+    no "一个文件都没拷进去却报成功"
+  } catch {
+    if ($_.Exception.Message -like '*copied nothing*') {
+      ok "拷贝跑完但落点是空的，出包停下"
     } else {
       no ("拦下了但说的不是这件事：" + $_.Exception.Message)
     }
