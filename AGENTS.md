@@ -57,7 +57,7 @@
 ## 陷阱
 
 - `install.sh` 只动自己记录在 `.mmw-skills`、`.mmw-agents` 里的链接；同名的别的东西报「冲突」、跳过、退出 1，直到人工删掉。
-- 同名技能同时出现在 `~/.claude/skills` 和 `~/.agents/skills` 时，各家的取舍不一致：Cursor 取 `.claude` 那份，Grok、Codex 取 `.agents` 那份。都不报错、不提示。所以 `~/.claude/skills` 里除了 `install.sh` 装的那份，不能再有同名的东西。
+- 同名技能同时出现在 `~/.claude/skills` 和 `~/.agents/skills` 时，各家的取舍不一致：Cursor 取 `.claude` 那份，Codex 取 `.agents` 那份，Grok 也取 `.agents` 那份（本机 `[compat.claude] skills = false`，要把它临时置真才看得到这个取舍）。都不报错、不提示。所以 `~/.claude/skills` 里除了 `install.sh` 装的那份，不能再有同名的东西。
 - `~/.codex/skills`、`~/.pi/agent/skills`、`~/.cursor/skills`、`~/.grok/skills` 是上一代的技能位置。`install.sh` 每次运行都按各自的 `.mmw-skills` 摘一遍残链；`--check` 见到残留报「残留」并退出 1。
 - 冻结区的四个坑：`mmw/install.sh` 没有 `--check`，跑了会把活的安装整个换成上一代；`bash mmw/test.sh` 已经跑不过；`archive/legacy-host-plugins/` 的 marketplace 清单仍然有效，把宿主指过去会装上退役的一代；`archive/mmw-setup/` 移回技能源会重新打破四项校验。
 - 测试 runner 只靠退出码说话，输出不要接管道（`| tail`），管道会把红跑成绿。
