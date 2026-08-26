@@ -17,4 +17,4 @@ MMW 的同一份内容常常同时存在于 issue tracker 和仓库文件两处�
 
 - decision ticket 的结论评论是长期产物。`wayfinder:grilling` 与 `wayfinder:task` 两种 ticket 在仓库里没有对应文件，它们的决定只存在于结论评论。
 - tracker 正文中被下游按位置读取的节必须固定标题。生产方规定标题字面，读取方引用同一字面。
-- spec 发布后，带 agent brief 的原 issue 关闭并挂到 spec issue 底下。这需要 CLI 新增一个动作：给已存在的 issue 设置父 issue。
+- spec 发布后，带 agent brief 的原 issue 关闭并挂到 spec issue 底下。
