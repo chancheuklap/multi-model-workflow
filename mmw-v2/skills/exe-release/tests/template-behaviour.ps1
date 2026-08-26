@@ -228,6 +228,37 @@ try {
     }
   }
 
+  # 从包目录取成员那一种：用构建机上的 python 和标准库的 json 包代替产品的真实依赖，
+  # 验的是「解析包目录 → 取点名的成员 → 落地」这条链，不是某个具体的包。
+  #
+  # 这一条本来被跳过了，理由是「留给真实出包做端到端证明」——而它第一次真实出包就炸了：
+  # runner 多半是 `uv run --extra …`，不在项目目录里跑，uv 会打一句 warning 到 stderr；
+  # 当时的实现用 2>&1 捕获输出，那句 warning 变成 ErrorRecord，把整步判成失败。
+  $pkgDest = Join-Path $lab 'ra-pkg'
+  try {
+    Copy-RuntimeAsset -SourcePackage 'json' -Members @('decoder.py') -Dest $pkgDest -RepoRoot $lab -Runner @('python') -Label 'probe/json'
+    if (Test-Path -LiteralPath (Join-Path $pkgDest 'decoder.py')) {
+      ok "按包名解析出包目录，点名的成员落到位"
+    } else {
+      no "解析成功但成员没落地"
+    }
+  } catch {
+    no ("从包目录取成员报错：" + $_.Exception.Message)
+  }
+
+  try {
+    Copy-RuntimeAsset -SourcePackage 'no_such_package_xyzzy' -Members @('x.py') -Dest (Join-Path $lab 'ra-pkg2') -RepoRoot $lab -Runner @('python') -Label 'probe/missing'
+    no "包在编译环境里根本没有却没被拦下"
+  } catch {
+    # 断言认的是「解析不出这个包」这件事，不是随便什么异常——catch 得太宽，
+    # 上一条里那个 & 传参的错也会在这里冒充成功。
+    if ($_.Exception.Message -like '*Could not locate the package*') {
+      ok "包不在编译环境里，出包停下"
+    } else {
+      no ("拦下了但说的不是这件事：" + $_.Exception.Message)
+    }
+  }
+
   # 拷贝跑完了和数据在包里是两件事：源目录是空的，Copy-Item 一声不吭地成功。
   $emptySrc = Join-Path $raRepo 'runtime-assets\app\empty'
   New-Item -ItemType Directory -Force -Path $emptySrc | Out-Null
