@@ -504,5 +504,67 @@ NOCFG="$(mktemp -d)"
 [ -f "$NOCFG/.release/release-state.json" ] && ok "无 .mmw.json 时状态落 .release" || no "无 .mmw.json 缺省落点"
 rm -rf "$NOCFG"
 
+# ── 放弃这一轮 ──────────────────────────────────────────────────────────────
+#
+# 守:abort 不写交付记录。close 无条件写那一份,它说的是「这个产品在这个 commit 上出过包」;
+# 中途换产品、放弃重来时用 close,写下的就是一个根本不存在的包,而且盖掉上一次真实的记录——
+# 第 4 步的同 commit 校验读的正是它。真发生过:一轮构建被环境挡下,要换另一个产品先出,
+# 当时没有这条命令,只能手工把状态文件挪走。
+remote_reset
+init_for_remote_build
+prev_delivered="$TMP/.release/delivered/test-product.json"
+mkdir -p "$(dirname "$prev_delivered")"
+printf '{"product":"test-product","source_commit":"realcommit","closed_at":"earlier"}' > "$prev_delivered"
+out="$(bash "$RF" abort)"
+case "$out" in
+  ABORTED:*) ok "abort 收掉这一轮" ;;
+  *) no "abort 输出 ($out)" ;;
+esac
+[ ! -f "$SF" ] && ok "abort 之后没有正在进行的一轮" || no "abort 没删活状态"
+[ "$(jq -r '.source_commit' "$prev_delivered")" = "realcommit" ] \
+  && ok "abort 不碰上一次真实的交付记录" || no "abort 把交付记录改了"
+[ -n "$(find "$TMP/.release/release-artifacts" -name 'aborted-*.json' 2>/dev/null | head -1)" ] \
+  && ok "放弃的那一轮状态留在现场" || no "abort 把现场也删了"
+[ "$(bash "$RF" abort)" = "NO-LOOP" ] && ok "没有正在进行的一轮时 abort 说清楚" || no "空 abort 的输出"
+rm -f "$prev_delivered"
+
+# ── 断线重连 ────────────────────────────────────────────────────────────────
+#
+# 守:构建跑在那台机器的计划任务里,这一侧只是在看 exitcode 出没出现。看的人被杀掉,
+# 构建照样跑完,而这一侧什么都不知道——收拢没跑,状态停在「构建中」。真发生过一次,
+# 代价是一轮四十分钟的编译要靠人手工收尾。
+#
+# 这里模拟那个现场:远端目录里有日志、没有 exitcode(还在跑),再让引擎重新 stage run。
+# 它该接上去,而不是重传源码——重传会 Remove-Item 掉正在被读写的源码树。
+remote_reset
+init_for_remote_build
+# 先跑一轮成功的,借它把远端目录与源码树建起来。
+remote_build >/dev/null 2>&1 || true
+bash "$RF" close >/dev/null
+remote_reset
+init_for_remote_build
+bd_live="$FAKE_REMOTE_ROOT/release-input/$(git rev-parse HEAD | cut -c1-12)-test-product"
+mkdir -p "$bd_live/source"
+printf 'building...\n' > "$bd_live/build-run.log"
+printf 'sentinel\n' > "$bd_live/source/DO-NOT-WIPE"
+printf 'mmw-release-existing-task\n' > "$bd_live/build-run.task"
+# 有日志、没有 exitcode = 还在跑。产出由假构建机在被接上的那一刻写(真实构建也可能
+# 在任何一秒结束);接上去的那条路不会 schtasks /run,所以不能指望 /run 去写它。
+FAKE_ATTACH_FINISH=0 remote_build >/dev/null 2>&1 && attach_rc=0 || attach_rc=$?
+# 这一句由 _run_remote_build 打出，而它的输出整段进了这一步的日志文件，不在 stage run
+# 自己的 stdout 上。
+attach_log="$(find "$TMP/.release/release-artifacts" -name build.log 2>/dev/null | tail -1)"
+if grep -q "attaching to it" "$attach_log" 2>/dev/null; then
+  ok "认出远端还有一轮在跑,接上去"
+else
+  no "没认出正在跑的那一轮 ($(tail -2 "$attach_log" 2>/dev/null))"
+fi
+[ "${attach_rc:-1}" -eq 0 ] && ok "接上去的那一轮按远端的 exitcode 判定" || no "接上去之后判定错 (rc=$attach_rc)"
+# 重传会先 Remove-Item 掉 source 再解压。这个哨兵文件只有不重传才活得下来。
+[ -f "$bd_live/source/DO-NOT-WIPE" ] \
+  && ok "接上去不重传,正在被读写的源码树没被冲掉" || no "接上去时把远端源码树重传了"
+[ "$(task_count)" = "0" ] && ok "接上去的那一轮也把计划任务清干净" || no "残留计划任务($(cat "$FAKE_REMOTE_TASKS"))"
+bash "$RF" close >/dev/null
+
 echo "=== $pass PASS / $fail FAIL ==="
 [ "$fail" -eq 0 ]

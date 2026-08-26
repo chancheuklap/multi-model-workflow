@@ -66,6 +66,8 @@ Then read [driving.md](driving.md) in full and drive until the package is ready.
 
 `<engine> close` one product before starting the next. Do not run two at once — the repo has one state file.
 
+Leaving a product before it produced a package — it is blocked and you are shipping another one first — ends that round with `<engine> abort`, not `close`. `close` writes a delivery record whatever happened, and step 4 below reads those records as fact.
+
 ## 4. Same-commit check
 
 Do this after every product has shipped. A stage, a dispatch, or a self-heal can create new commits, so an earlier package may not match the final code.

@@ -912,99 +912,134 @@ _run_remote_build() {
       ;;
   esac
   remote_input="${remote_root%/}/${source_commit:0:12}-${product}"
+  remote_input_win="$(printf '%s' "$remote_input" | tr '/' '\\')"
   # 成品安装包在源码树里的落点(仓库相对 glob),供出包成功后收拢到统一交付目录;缺省则不收拢。
   installer_glob="$(jq -r '.build_target.installer_glob // empty' "$context" 2>/dev/null)"
-  archive="$stage_dir/source.zip"
-  commit_file="$stage_dir/SOURCE_COMMIT.txt"
-  remote_context="$stage_dir/release-context.remote.json"
-  wrapper="$stage_dir/run-release.ps1"
-  git -C "$top" archive --format=zip --output "$archive" HEAD || return $?
-  printf '%s\n' "$source_commit" > "$commit_file"
-  # 构建机自己的事实（镜像地址、ccache 装在哪）跟着 context 上去，模板在第一步就应用它们。
-  # 它们不属于任何一把钥匙：换一台构建机，这些全变，而钥匙一个字都不用改。
-  build_env='{}'
-  if [ -n "$remote_conf" ]; then
-    build_env="$(jq -c '.build_env // {}' "$remote_conf" 2>/dev/null || echo '{}')"
-  fi
-  # 工具链缓存放哪。不设的话 uv / Nuitka / pnpm / Electron 全都落在 %LOCALAPPDATA%,
-  # 也就是系统盘——构建目录在 D 盘上跑得好好的,系统盘却被这几个缓存慢慢填满,直到某一轮
-  # 磁盘闸把出包拦下来。缓存必须跨轮活着(那是它存在的理由),所以放在构建输入根**旁边**,
-  # 不放在会被删掉的构建目录里面。命名跟 <根>-delivered 一致。
-  local cache_root
-  cache_root="${RELEASE_CACHE_ROOT:-}"
-  if [ -z "$cache_root" ] && [ -n "$remote_conf" ]; then
-    cache_root="$(jq -r '.cache_root // empty' "$remote_conf" 2>/dev/null || true)"
-  fi
-  [ -n "$cache_root" ] || cache_root="${remote_root%/}-cache"
-  jq --arg root "$remote_input/source" --argjson be "$build_env" --arg cr "$cache_root" \
-    '.repo_root = $root | .build_env = $be | .cache_root = $cr' "$context" > "$remote_context" || return $?
-  _write_remote_wrapper "$wrapper"
 
-  _ssh_ps "$remote_host" "New-Item -ItemType Directory -Force -Path '$remote_input' | Out-Null" || return $?
-  # 失败的构建目录是现场,留着;但只留最近两个。再往前的没有人会读,而一个就是几个 GB。
-  # 只动 <短commit>-<本产品> 这种目录名,交付目录与别的产品都不在范围内。
-  # 用 -Property/-Like 而不是 `Where-Object { $_.Name ... }`:这条命令要穿过 bash 双引号、
-  # 远端默认 shell(PowerShell)与 powershell.exe 三层,$_ 会在到达 powershell.exe 之前就被
-  # 当成变量吃掉,于是筛选条件恒空、什么也不匹配,而且一声不响。
-  if ! _ssh_ps "$remote_host" "Get-ChildItem -LiteralPath '${remote_root%/}' -Directory -ErrorAction SilentlyContinue | Where-Object -Property Name -Like '*-$product' | Where-Object -Property Name -NE '${source_commit:0:12}-$product' | Sort-Object LastWriteTime -Descending | Select-Object -Skip 2 | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue"; then
-    echo "WARN: could not prune old remote build dirs (this round is unaffected); take a look by hand: $remote_root" >&2
+  # ── 断线重连 ────────────────────────────────────────────────────────────────
+  #
+  # 构建跑在那台机器的计划任务里,跟这一侧断不断没有关系;这一侧只是在看 exitcode 出没出现。
+  # 看的人被杀掉(进程被停、网络断、会话结束),构建照样跑完、照样产出安装包,而这边什么都不知道:
+  # 收拢没跑、状态停在「构建中」。真发生过一次,代价是一轮四十分钟的编译要靠人手工收尾。
+  #
+  # 所以传源码之前先问一句:这一轮(同 commit、同产品,也就是同一个远端目录)是不是还在跑?
+  # 是就接上去轮询,不重传、不再建一个任务——重传会 Remove-Item 掉正在被读写的源码树,
+  # 把一次快要跑完的编译毁掉,那比白等更贵。
+  #
+  # 判据是「有日志、没有 exitcode、而且日志刚刚还在长」。跑完的那一轮不在这条判据里:
+  # 它留下的 exitcode 可能属于上一次失败,重跑才是重试该有的语义。
+  local attached=0 live_probe
+  live_probe="$(_ssh_ps "$remote_host" "if ((Test-Path '$remote_input/build-run.log') -and -not (Test-Path '$remote_input/build-run.exitcode') -and (((Get-Date) - (Get-Item '$remote_input/build-run.log').LastWriteTime).TotalMinutes -lt 10)) { 'LIVE' } else { 'NONE' }" 2>/dev/null || true)"
+  live_probe="${live_probe%%[$'\r\n']*}"
+  if [ "$live_probe" = "LIVE" ]; then
+    attached=1
+    # 任务名是建任务那一步写下的。读不回来也继续接:轮询与收拢都不需要它,
+    # 只有尾部的清理需要,那一步自己会说清楚它没清掉什么。
+    task_name="$(_ssh_ps "$remote_host" "Get-Content -LiteralPath '$remote_input/build-run.task' -ErrorAction SilentlyContinue" 2>/dev/null || true)"
+    task_name="${task_name%%[$'\r\n']*}"
+    echo "NOTE: a build for this commit is still running on $remote_host ($remote_input); attaching to it instead of starting a second one" >&2
   fi
-  scp "$archive" "$remote_host:$remote_input/source.zip" || return $?
-  # 传完即删:这份 zip 是 `git archive $(cat SOURCE_COMMIT.txt)` 一字不差重生得出来的,
-  # 不是记录,只是每一次尝试在 Mac 上多占的几百 MB。
-  rm -f "$archive"
-  scp "$commit_file" "$remote_host:$remote_input/SOURCE_COMMIT.txt" || return $?
-  scp "$script" "$remote_host:$remote_input/release.ps1" || return $?
-  scp "$remote_context" "$remote_host:$remote_input/release-context.json" || return $?
-  scp "$wrapper" "$remote_host:$remote_input/run-release.ps1" || return $?
+  # 接上去的那一轮,源码、脚本、计划任务在远端都已经就位,这一整段跳过。
+  if [ "$attached" != "1" ]; then
+    archive="$stage_dir/source.zip"
+    commit_file="$stage_dir/SOURCE_COMMIT.txt"
+    remote_context="$stage_dir/release-context.remote.json"
+    wrapper="$stage_dir/run-release.ps1"
+    git -C "$top" archive --format=zip --output "$archive" HEAD || return $?
+    printf '%s\n' "$source_commit" > "$commit_file"
+    # 构建机自己的事实（镜像地址、ccache 装在哪）跟着 context 上去，模板在第一步就应用它们。
+    # 它们不属于任何一把钥匙：换一台构建机，这些全变，而钥匙一个字都不用改。
+    build_env='{}'
+    if [ -n "$remote_conf" ]; then
+      build_env="$(jq -c '.build_env // {}' "$remote_conf" 2>/dev/null || echo '{}')"
+    fi
+    # 工具链缓存放哪。不设的话 uv / Nuitka / pnpm / Electron 全都落在 %LOCALAPPDATA%,
+    # 也就是系统盘——构建目录在 D 盘上跑得好好的,系统盘却被这几个缓存慢慢填满,直到某一轮
+    # 磁盘闸把出包拦下来。缓存必须跨轮活着(那是它存在的理由),所以放在构建输入根**旁边**,
+    # 不放在会被删掉的构建目录里面。命名跟 <根>-delivered 一致。
+    local cache_root
+    cache_root="${RELEASE_CACHE_ROOT:-}"
+    if [ -z "$cache_root" ] && [ -n "$remote_conf" ]; then
+      cache_root="$(jq -r '.cache_root // empty' "$remote_conf" 2>/dev/null || true)"
+    fi
+    [ -n "$cache_root" ] || cache_root="${remote_root%/}-cache"
+    jq --arg root "$remote_input/source" --argjson be "$build_env" --arg cr "$cache_root" \
+      '.repo_root = $root | .build_env = $be | .cache_root = $cr' "$context" > "$remote_context" || return $?
+    _write_remote_wrapper "$wrapper"
 
-  # 忠实复刻现役 build-pc-installers.sh:schtasks /tr 指向一个 .cmd,由 .cmd 再调 run-release.ps1。
-  # .cmd 单路径无空格无嵌套引号,规避 schtasks /tr 跨 cmd/PowerShell/native CLI 三解析器的引号地雷。
-  # remote_input 已被上面字符白名单收紧(无空格),win 路径用反斜杠;-InputRoot 烘进 .cmd,不用 %~dp0
-  # (末尾反斜杠+引号在 cmd→powershell 参数解析里会转义掉引号)。
-  remote_input_win="$(printf '%s' "$remote_input" | tr '/' '\\')"
-  cmd_file="$stage_dir/run-release.cmd"
-  printf '@echo off\r\npowershell -NoProfile -ExecutionPolicy Bypass -File "%s\\run-release.ps1" -InputRoot "%s"\r\n' "$remote_input_win" "$remote_input_win" > "$cmd_file"
-  scp "$cmd_file" "$remote_host:$remote_input/run-release.cmd" || return $?
-  runner_cmd_win="${remote_input_win}\\run-release.cmd"
+    _ssh_ps "$remote_host" "New-Item -ItemType Directory -Force -Path '$remote_input' | Out-Null" || return $?
+    # 失败的构建目录是现场,留着;但只留最近两个。再往前的没有人会读,而一个就是几个 GB。
+    # 只动 <短commit>-<本产品> 这种目录名,交付目录与别的产品都不在范围内。
+    # 用 -Property/-Like 而不是 `Where-Object { $_.Name ... }`:这条命令要穿过 bash 双引号、
+    # 远端默认 shell(PowerShell)与 powershell.exe 三层,$_ 会在到达 powershell.exe 之前就被
+    # 当成变量吃掉,于是筛选条件恒空、什么也不匹配,而且一声不响。
+    if ! _ssh_ps "$remote_host" "Get-ChildItem -LiteralPath '${remote_root%/}' -Directory -ErrorAction SilentlyContinue | Where-Object -Property Name -Like '*-$product' | Where-Object -Property Name -NE '${source_commit:0:12}-$product' | Sort-Object LastWriteTime -Descending | Select-Object -Skip 2 | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue"; then
+      echo "WARN: could not prune old remote build dirs (this round is unaffected); take a look by hand: $remote_root" >&2
+    fi
+    scp "$archive" "$remote_host:$remote_input/source.zip" || return $?
+    # 传完即删:这份 zip 是 `git archive $(cat SOURCE_COMMIT.txt)` 一字不差重生得出来的,
+    # 不是记录,只是每一次尝试在 Mac 上多占的几百 MB。
+    rm -f "$archive"
+    scp "$commit_file" "$remote_host:$remote_input/SOURCE_COMMIT.txt" || return $?
+    scp "$script" "$remote_host:$remote_input/release.ps1" || return $?
+    scp "$remote_context" "$remote_host:$remote_input/release-context.json" || return $?
+    scp "$wrapper" "$remote_host:$remote_input/run-release.ps1" || return $?
 
-  # 源码解压:在 harness 独立 ssh 会话里同步做完(~60s、断 ssh 无碍),失败必 fail-loud 不进构建。
-  # (现役旧路径是在脱附会话内的 build ps1 里解压,同样可靠;此处前置做只是让解压失败在 Mac 侧即时可见。)
-  # 先删旧 source 避免跨轮残留半解压文件;解压后校验目录非空,空即判失败。
-  if ! _ssh_ps "$remote_host" "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue '$remote_input/source'; Expand-Archive -Force '$remote_input/source.zip' '$remote_input/source'; if (-not (Test-Path '$remote_input/source') -or -not (Get-ChildItem -Force '$remote_input/source')) { exit 1 }; Remove-Item -Force -ErrorAction SilentlyContinue '$remote_input/source.zip'"; then
-    echo "ERROR: source did not expand on the build machine, or expanded to nothing: $remote_input/source" >&2
-    return 71
+    # 忠实复刻现役 build-pc-installers.sh:schtasks /tr 指向一个 .cmd,由 .cmd 再调 run-release.ps1。
+    # .cmd 单路径无空格无嵌套引号,规避 schtasks /tr 跨 cmd/PowerShell/native CLI 三解析器的引号地雷。
+    # remote_input 已被上面字符白名单收紧(无空格),win 路径用反斜杠;-InputRoot 烘进 .cmd,不用 %~dp0
+    # (末尾反斜杠+引号在 cmd→powershell 参数解析里会转义掉引号)。
+    cmd_file="$stage_dir/run-release.cmd"
+    printf '@echo off\r\npowershell -NoProfile -ExecutionPolicy Bypass -File "%s\\run-release.ps1" -InputRoot "%s"\r\n' "$remote_input_win" "$remote_input_win" > "$cmd_file"
+    scp "$cmd_file" "$remote_host:$remote_input/run-release.cmd" || return $?
+    runner_cmd_win="${remote_input_win}\\run-release.cmd"
+
+    # 源码解压:在 harness 独立 ssh 会话里同步做完(~60s、断 ssh 无碍),失败必 fail-loud 不进构建。
+    # (现役旧路径是在脱附会话内的 build ps1 里解压,同样可靠;此处前置做只是让解压失败在 Mac 侧即时可见。)
+    # 先删旧 source 避免跨轮残留半解压文件;解压后校验目录非空,空即判失败。
+    if ! _ssh_ps "$remote_host" "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue '$remote_input/source'; Expand-Archive -Force '$remote_input/source.zip' '$remote_input/source'; if (-not (Test-Path '$remote_input/source') -or -not (Get-ChildItem -Force '$remote_input/source')) { exit 1 }; Remove-Item -Force -ErrorAction SilentlyContinue '$remote_input/source.zip'"; then
+      echo "ERROR: source did not expand on the build machine, or expanded to nothing: $remote_input/source" >&2
+      return 71
+    fi
+
+    # 清掉上一轮遗留的构建产物并验证清干净:remote_input 只按 commit 命名,resume / 重跑同 commit
+    # 时若不清,首次轮询就会读到过期 exitcode(如上轮的 "0")而把仍在跑或已失败的本轮误判成功——
+    # 清除失败必须 fail-loud,不能静默继续。
+    if ! _ssh_ps "$remote_host" "Remove-Item -Force -ErrorAction SilentlyContinue '$remote_input/build-run.log','$remote_input/build-run.exitcode'; if ((Test-Path '$remote_input/build-run.exitcode') -or (Test-Path '$remote_input/build-run.log')) { exit 1 }"; then
+      echo "ERROR: could not clear the previous round on the build machine; a stale exitcode would read as this round succeeding: $remote_input" >&2
+      return 70
+    fi
+
+    task_name="mmw-release-${source_commit:0:12}-${RANDOM}"
+    # schtasks 忠实复刻现役 build-pc-installers.sh 的成熟做法(已实测能出三产品包):
+    # - /tr 指向上面上传的 .cmd(无空格裸传,charset 白名单保证),不直接串 powershell + 多参数;
+    # - /sc weekly /d SUN 而非 /sc once:过期的 once 任务会被 Task Scheduler 判「不再运行」而在
+    #   create→run 之间自动删除(旧路径注释记 build5 踩过此竞态);weekly 任务永不过期,/run 强制立即跑;
+    # - 不加 /it /rl HIGHEST:构建机是已登录交互工作机,默认就在登录用户会话跑,旧路径长年长构建无需 /it。
+    # 先删同名残留任务再建,避免上轮崩溃遗留条目。三条 schtasks 各一次 ssh:PC 默认 shell 是 PowerShell,
+    # `&`/`;` 串联在 PS5.1 非法或变后台 job,没有顺序语义。
+    ssh "$remote_host" "schtasks /delete /tn $task_name /f" >/dev/null 2>&1 || true
+    ssh "$remote_host" "schtasks /create /tn $task_name /tr $runner_cmd_win /sc weekly /d SUN /st 23:59 /f" || return $?
+    # 任务名留在远端:这一侧断掉之后再来接,尾部的清理要靠它才知道该结束哪个任务。
+    # 写不下去不挡构建——它只影响清理,而清理失败本来就是 WARN 不是失败。
+    _ssh_ps "$remote_host" "Set-Content -LiteralPath '$remote_input/build-run.task' -Value '$task_name' -Encoding Ascii" >/dev/null 2>&1 ||
+      echo "WARN: could not record the task name on $remote_host; a later attach will not be able to clean it up" >&2
   fi
-
-  # 清掉上一轮遗留的构建产物并验证清干净:remote_input 只按 commit 命名,resume / 重跑同 commit
-  # 时若不清,首次轮询就会读到过期 exitcode(如上轮的 "0")而把仍在跑或已失败的本轮误判成功——
-  # 清除失败必须 fail-loud,不能静默继续。
-  if ! _ssh_ps "$remote_host" "Remove-Item -Force -ErrorAction SilentlyContinue '$remote_input/build-run.log','$remote_input/build-run.exitcode'; if ((Test-Path '$remote_input/build-run.exitcode') -or (Test-Path '$remote_input/build-run.log')) { exit 1 }"; then
-    echo "ERROR: could not clear the previous round on the build machine; a stale exitcode would read as this round succeeding: $remote_input" >&2
-    return 70
-  fi
-
-  task_name="mmw-release-${source_commit:0:12}-${RANDOM}"
-  # schtasks 忠实复刻现役 build-pc-installers.sh 的成熟做法(已实测能出三产品包):
-  # - /tr 指向上面上传的 .cmd(无空格裸传,charset 白名单保证),不直接串 powershell + 多参数;
-  # - /sc weekly /d SUN 而非 /sc once:过期的 once 任务会被 Task Scheduler 判「不再运行」而在
-  #   create→run 之间自动删除(旧路径注释记 build5 踩过此竞态);weekly 任务永不过期,/run 强制立即跑;
-  # - 不加 /it /rl HIGHEST:构建机是已登录交互工作机,默认就在登录用户会话跑,旧路径长年长构建无需 /it。
-  # 先删同名残留任务再建,避免上轮崩溃遗留条目。三条 schtasks 各一次 ssh:PC 默认 shell 是 PowerShell,
-  # `&`/`;` 串联在 PS5.1 非法或变后台 job,没有顺序语义。
-  ssh "$remote_host" "schtasks /delete /tn $task_name /f" >/dev/null 2>&1 || true
-  ssh "$remote_host" "schtasks /create /tn $task_name /tr $runner_cmd_win /sc weekly /d SUN /st 23:59 /f" || return $?
   # 任务一旦 /create 成功,此后所有出口(/run 起不来、轮询超时、exitcode 损坏、正常结束)都必须
   # 结束可能仍在跑的构建 + 删计划任务:超时那类会有孤儿构建抢写下次同 commit 的 exitcode,其余虽只在
   # Task Scheduler 堆无害死条目也一并清。用子函数跑「/run + 轮询」拿 rc,函数尾部统一清理一次,不在每个
   # return 前重复 cleanup(避免上轮只补超时分支、漏掉 /run 失败与 exitcode 非法两个出口那类遗漏)。
   local rc=0 delivered=0
-  _remote_run_and_poll "$remote_host" "$remote_input" "$task_name" "$stage_dir" || rc=$?
+  _remote_run_and_poll "$remote_host" "$remote_input" "$task_name" "$stage_dir" "$attached" || rc=$?
   # 清理经 _ssh_ps 的 PowerShell 分号顺序执行(/end 失败不挡 /delete):cmd 的 `&` 在
   # PowerShell 5.1 解析失败、PS6+ 变后台 job,跨默认 shell 没有顺序语义。任务名与创建端
   # 同样裸传(无空格无引号,PowerShell 原样传给 schtasks native)。清理失败不改变构建判定,
   # 但必须留痕(残留任务会在下轮同 commit 抢写产物)。
-  if ! _ssh_ps "$remote_host" "schtasks /end /tn $task_name; schtasks /delete /tn $task_name /f" >/dev/null 2>&1; then
+  if [ -z "$task_name" ]; then
+    # 接上来的那一轮没读回任务名(建任务时没写下,或文件丢了)。构建判定不受影响,
+    # 但残留的任务会在下一轮同 commit 抢写产物,所以必须留痕、指出手工清的办法。
+    echo "WARN: this round attached to a running build and could not learn its task name; look for a leftover mmw-release-* task on $remote_host and delete it by hand" >&2
+  elif ! _ssh_ps "$remote_host" "schtasks /end /tn $task_name; schtasks /delete /tn $task_name /f" >/dev/null 2>&1; then
     echo "WARN: could not delete the scheduled task (task=$task_name); remove it by hand with schtasks /delete" >&2
   fi
   # 构建成功且钥匙声明了安装包落点:把安装包从 commit 哈希构建目录收拢到统一交付目录
@@ -1061,7 +1096,14 @@ DELIVER_PS1
 # 则 Mac 侧 diagnose 永远翻译不出 finding,自愈闭环断裂。
 # 计划任务的 /end + /delete 清理由调用方 _run_remote_build 统一在尾部做,本函数只管 run+poll+判定。
 _remote_run_and_poll() {
-  local remote_host="$1" remote_input="$2" task_name="$3" stage_dir="$4"
+  local remote_host="$1" remote_input="$2" task_name="$3" stage_dir="$4" attach="${5:-0}"
+
+  # 接上一轮已经在跑的构建:任务早就起来了,这里只剩轮询。再 /run 一次会在同一个目录里
+  # 起第二个构建,两个进程抢写同一份 exitcode 与同一棵源码树。
+  if [ "$attach" = "1" ]; then
+    _remote_poll_exitcode "$remote_host" "$remote_input" "$task_name" "$stage_dir"
+    return $?
+  fi
 
   # 启动确认(复刻现役 build-pc-installers.sh):schtasks /run 偶发「返回 0 但任务没起来」,
   # 静默失败会让下面的 exitcode 轮询干等到墙钟超时。/run 后最多等 ~40s 看 build-run.log 或 exitcode
@@ -1083,6 +1125,14 @@ _remote_run_and_poll() {
     echo "ERROR: the detached build task never started on $remote_host (no build-run.log and no exitcode ever appeared, task=$task_name)" >&2
     return 70
   fi
+
+  _remote_poll_exitcode "$remote_host" "$remote_input" "$task_name" "$stage_dir"
+}
+
+# 轮询到本轮 exitcode 出现为止。起任务的那条路与接上去的那条路共用它——两边等的是同一件事,
+# 分成两份写,改了一边忘另一边就是超时判定与日志回传各行其是。
+_remote_poll_exitcode() {
+  local remote_host="$1" remote_input="$2" task_name="$3" stage_dir="$4"
 
   # 真实 Windows 构建耗时分钟级:轮询「本轮 exitcode 文件出现」而非日志出现,带间隔、有上限,
   # running 不当 fail。间隔/上限可经 env 调,测试用 fake ssh 首轮即有 exitcode、不进 sleep。
@@ -1501,6 +1551,29 @@ cmd_close() {
   echo "CLOSED"
 }
 
+# 放弃这一轮:删活状态,**不写交付记录**。
+#
+# close 无条件写那份记录,它说的是「这个产品在这个 commit 上出过包」。中途换产品、
+# 放弃重来时用 close,就等于写下一个根本不存在的包,而且盖掉上一次真实的记录——
+# 第 4 步的同 commit 校验读的正是它,假记录会让那道校验失效。
+#
+# 现场留着:release-artifacts/ 下的日志与 findings 是这一轮唯一的记录,活状态也另存一份,
+# 出了事还能翻。真正要清掉的只是「有一轮正在进行」这个事实。
+cmd_abort() {
+  local top sd f keep
+  top="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "NO-GIT"; return 0; }
+  sd="$(release_subdir)"
+  f="$top/$sd/$STATE_NAME"
+  if [ ! -f "$f" ]; then
+    echo "NO-LOOP"
+    return 0
+  fi
+  keep="$top/$sd/release-artifacts/aborted-$(jq -r '.product // "unknown"' "$f" 2>/dev/null || echo unknown)-$(date +%Y%m%d-%H%M%S).json"
+  mkdir -p "$(dirname "$keep")"
+  mv "$f" "$keep"
+  echo "ABORTED:no delivery record written; the state of this round is kept at $keep"
+}
+
 cmd_exit_check() {
   local f
   f="$(need_state)"
@@ -1547,6 +1620,7 @@ case "${1:-}" in
   surface)    shift; cmd_surface "$@" ;;
   resume)     shift; cmd_resume "$@" ;;
   close)      shift; cmd_close "$@" ;;
+  abort)      shift; cmd_abort "$@" ;;
   exit-check) shift; cmd_exit_check "$@" ;;
   receipt)    shift; cmd_receipt "$@" ;;
   dispatch)   shift; cmd_dispatch "$@" ;;
