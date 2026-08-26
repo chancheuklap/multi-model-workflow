@@ -442,3 +442,98 @@ def test_a_key_that_removes_the_output_itself_is_rejected(tmp_path):
         capture_output=True, text=True,
     )
     assert "remove_output_is_the_engine_s_job" in out.stdout, out.stdout + out.stderr
+
+
+# ── 随包但不嵌入的数据 ─────────────────────────────────────────────────────────
+
+
+RUNTIME_ASSETS = {
+    "entries": [
+        {"source": "src/app/assets", "dest": "app/assets"},
+        {
+            "source_package": "rapidocr_onnxruntime",
+            "members": ["config.yaml", "models"],
+            "dest": "app/rapidocr",
+        },
+    ]
+}
+
+
+def test_a_key_that_declares_runtime_assets_gets_a_step_that_stages_them(tmp_path):
+    """守：随包但不嵌入的数据由技能拷，钥匙只说拷什么、拷到哪。
+
+    嵌进编译产物（include_data_dirs）与放在 exe 旁边是两种落点，理由不同：有的包 Nuitka
+    嵌不进去，有的资源大到不值得每次启动解压一遍。少了后一种，产品只能在自己仓库写一份
+    拷贝脚本——两个产品两份，而其中一份改了三轮各 45–60 分钟的构建都没生效，因为出包
+    不调用它。
+    """
+    doc = _key()
+    doc["runtime_assets"] = deepcopy(RUNTIME_ASSETS)
+    result, script, _ = _assemble(tmp_path, doc)
+    assert result.returncode == 0, result.stderr
+    text = script.read_text(encoding="utf-8-sig")
+    assert "Copy-RuntimeAsset" in text
+    # 仓库源那一条按仓库相对路径拷。
+    assert "-Source 'src/app/assets'" in text
+    # 包内数据那一条从编译解释器解析，且只取点名的成员——整包点名会把代码当数据发出去。
+    assert "-SourcePackage 'rapidocr_onnxruntime'" in text
+    assert "-Members @('config.yaml', 'models')" in text
+    assert any("Stage runtime assets" in step for step in _steps(script))
+
+
+def test_runtime_assets_land_beside_the_compiled_backend_by_default(tmp_path):
+    """守：落点默认与编译产物平级。
+
+    运行时按「exe 的上一层」找这棵树，所以这个默认值不是随便挑的：改了它，装出来的包里
+    文件都在、程序却找不到，而构建每一步都是绿的。
+    """
+    doc = _key()
+    doc["runtime_assets"] = deepcopy(RUNTIME_ASSETS)
+    _, script, _ = _assemble(tmp_path, doc)
+    assert "python-runtime/runtime-assets/app/assets" in script.read_text(encoding="utf-8-sig")
+
+
+def test_runtime_assets_are_staged_after_the_hooks_and_before_the_compile(tmp_path):
+    """守：顺序。
+
+    一个产品的 runtime_prepare 钩子往同一棵树里抓东西（按清单拉音乐）。技能这一步排在钩子
+    之后往上叠，两边互不删除；又排在编译之前，因为 Electron 打包时把这棵树一起收走。
+    """
+    doc = _key()
+    doc["runtime_assets"] = deepcopy(RUNTIME_ASSETS)
+    doc["build_hooks"] = dict(doc.get("build_hooks") or {})
+    doc["build_hooks"]["runtime_prepare"] = ["python", "scripts/prepare.py"]
+    _, script, _ = _assemble(tmp_path, doc)
+    steps = _steps(script)
+    prepare = next(i for i, s in enumerate(steps) if "Prepare runtime" in s)
+    stage = next(i for i, s in enumerate(steps) if "Stage runtime assets" in s)
+    compiled = next(i for i, s in enumerate(steps) if "Compile Python backend" in s)
+    assert prepare < stage < compiled, steps
+
+
+def test_a_key_that_declares_no_runtime_assets_has_no_such_step(tmp_path):
+    """守：不声明就没有这一步。引擎跳过，不报错，也不假装做过。"""
+    doc = _key()
+    doc.pop("runtime_assets", None)
+    _, script, _ = _assemble(tmp_path, doc)
+    # 函数定义住在模板里，恒在；判的是有没有人调用它。
+    assert "Copy-RuntimeAsset -Label" not in script.read_text(encoding="utf-8-sig")
+    assert not any("Stage runtime assets" in step for step in _steps(script))
+
+
+def test_a_runtime_asset_whose_repo_source_is_missing_is_caught_before_the_build(tmp_path):
+    """守：仓库里那一份源不在，秒级判得出来，不必等四十分钟编译之后。
+
+    包内数据那一种判不了——源在构建机的编译环境里，这台机器上没有它。那一条由构建时
+    当场 fail-loud，不在这里假装检查过。
+    """
+    doc = _key()
+    doc["runtime_assets"] = {"entries": [{"source": "src/app/nope", "dest": "app/x"}]}
+    adapter = tmp_path / "key.json"
+    adapter.write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+    out = subprocess.run(
+        [sys.executable, str(SCRIPTS / "verify_key.py"), "--adapter", str(adapter),
+         "--repo-root", str(tmp_path)],
+        capture_output=True, text=True,
+    )
+    assert "asset_source_missing" in out.stdout, out.stdout + out.stderr

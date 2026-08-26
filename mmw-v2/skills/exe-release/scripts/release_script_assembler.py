@@ -176,6 +176,18 @@ def _steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
             }
         )
 
+    # 随包但不嵌入的数据，排在 runtime_prepare 之后：一个产品的钩子会往同一棵树里抓东西
+    # （按清单拉 BGM），钩子先跑，这一步再往上叠，两边互不删除。都在编译之前，因为编译
+    # 产物的目录与这棵树平级，Electron 打包时一起收走。
+    if manifest.runtime_assets is not None:
+        steps.append(
+            {
+                "title": "Stage runtime assets",
+                "hooks": [],
+                "lines": _runtime_asset_lines(manifest, desktop_dir),
+            }
+        )
+
     steps.append(
         {
             "title": "Compile Python backend",
@@ -310,6 +322,37 @@ def _vendor_artifact_lines(manifest) -> list[str]:
             f"-Members @({members}) "
             "-CacheRoot $CacheRoot -RepoRoot $RepoRoot"
         )
+    return lines
+
+
+def _runtime_asset_lines(manifest, desktop_dir: str | None) -> list[str]:
+    """把「这份数据随包出厂，但不嵌进编译产物」变成拷贝加落地校验。
+
+    嵌进去（`include_data_dirs`）与放旁边是两种落点，理由各不相同：有的包 Nuitka 根本嵌不
+    进去（构建日志里别的包都有 included data file 记录，它一条没有），有的资源大到不值得
+    每次启动解压一遍，有的装完之后还要能单独替换。少了这一种落点，产品只能在自己仓库写一份
+    拷贝脚本——两个产品就是两份，而其中一份改了三轮长构建都没生效，因为出包不调用它。
+    """
+    spec = manifest.runtime_assets
+    backend = manifest.python_backend
+    runner = ", ".join(_ps(token) for token in backend.runner)
+    lines: list[str] = []
+    for entry in spec.entries:
+        dest = nuitka.expand(
+            f"{spec.root.rstrip('/')}/{entry.dest.lstrip('/')}",
+            desktop_dir=desktop_dir,
+            build_root=backend.build_root,
+        )
+        call = (
+            f"  Copy-RuntimeAsset -Label {_ps(entry.dest)} "
+            f"-Dest (Join-Path $RepoRoot {_ps(dest)}) -RepoRoot $RepoRoot -Runner @({runner})"
+        )
+        if entry.source:
+            call += f" -Source {_ps(entry.source)}"
+        else:
+            members = ", ".join(_ps(member) for member in entry.members)
+            call += f" -SourcePackage {_ps(entry.source_package)} -Members @({members})"
+        lines.append(call)
     return lines
 
 

@@ -264,6 +264,78 @@ function Get-VendorArtifact {
   }
 }
 
+function Copy-RuntimeAsset {
+  # One piece of data that ships beside the exe instead of inside it. Two kinds of source: a path
+  # in the repository, or a few members of a package directory resolved from the interpreter that
+  # compiles this backend.
+  #
+  # This does NOT clear the destination first. A product hook may write into the same tree (one
+  # product fetches its music there), and a remote build directory is unpacked fresh every round
+  # anyway, so clearing it could only ever destroy a sibling step's work.
+  param(
+    [string]$Source,
+    [string]$SourcePackage,
+    [string[]]$Members,
+    [string]$Dest,
+    [string]$RepoRoot,
+    [string[]]$Runner,
+    [string]$Label
+  )
+  New-Item -ItemType Directory -Force -Path $Dest | Out-Null
+
+  if ($Source) {
+    $from = Join-Path $RepoRoot $Source
+    if (-not (Test-Path -LiteralPath $from)) {
+      throw "Runtime asset $Label has no source in the repository: $from"
+    }
+    if (Test-Path -LiteralPath $from -PathType Container) {
+      Copy-Item -Path (Join-Path $from '*') -Destination $Dest -Recurse -Force
+    } else {
+      Copy-Item -LiteralPath $from -Destination $Dest -Force
+    }
+  } else {
+    # The package directory has to come from the interpreter that runs the compile, the same one
+    # the abi3 DLLs come from. Resolved through any other python, the bytes copied into the
+    # package could belong to a different install.
+    $probe = 'import importlib.util,pathlib,sys;spec=importlib.util.find_spec(sys.argv[1]);sys.exit("not importable: " + sys.argv[1]) if spec is None or not spec.origin else None;print(pathlib.Path(spec.origin).parent)'
+    $runnerExe = $Runner[0]
+    $runnerArgs = @()
+    if ($Runner.Length -gt 1) { $runnerArgs = $Runner[1..($Runner.Length - 1)] }
+    $probeOut = (& $runnerExe @runnerArgs '-c' $probe $SourcePackage 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+      throw "Could not locate the package $SourcePackage with the compile interpreter: $probeOut"
+    }
+    $pkgDir = ([string](@($probeOut) | Select-Object -Last 1)).Trim()
+    if (-not $pkgDir -or -not (Test-Path -LiteralPath $pkgDir -PathType Container)) {
+      throw ("The compile interpreter reported no directory for the package " + $SourcePackage +
+             ": " + $probeOut)
+    }
+    foreach ($member in $Members) {
+      $from = Join-Path $pkgDir $member
+      if (-not (Test-Path -LiteralPath $from)) {
+        throw ("The compile interpreter's " + $SourcePackage + " has no " + $member +
+               " (looked in " + $pkgDir + "). The feature that reads it would be missing from the package.")
+      }
+      $to = Join-Path $Dest $member
+      if (Test-Path -LiteralPath $from -PathType Container) {
+        Copy-Item -LiteralPath $from -Destination $to -Recurse -Force
+      } else {
+        Copy-Item -LiteralPath $from -Destination $to -Force
+      }
+    }
+  }
+
+  # Copied and landed are different facts. A wrong relative path, an empty source directory or a
+  # filter upstream all leave the step green and the package short of the data it needs.
+  $landed = @(Get-ChildItem -LiteralPath $Dest -Recurse -File -ErrorAction SilentlyContinue)
+  if ($landed.Count -eq 0) {
+    throw "Runtime asset $Label copied nothing into $Dest"
+  }
+  $bytes = ($landed | Measure-Object -Property Length -Sum).Sum
+  Write-Host ("  runtime asset " + $Label + ": " + $landed.Count + " files, " +
+              [math]::Round($bytes / 1MB, 1) + " MB -> " + $Dest)
+}
+
 # A copyleft binary travels with its licence, and the licence travels inside the package -- not in
 # the repository where the build staged it. Between the two sits a packaging filter, and when that
 # filter drops the licence the build stays green and the shipped installer is in breach.

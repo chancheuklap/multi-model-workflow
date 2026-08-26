@@ -305,6 +305,23 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                         )
                     )
 
+    # ── 随包但不嵌入的数据：仓库里那一份在不在 ──────────────────────────────
+    #
+    # 只判仓库源。`source_package` 那种的源在构建机的编译环境里，这台机器上没有它，
+    # 判不了就不判——那一条由构建时的 Copy-RuntimeAsset 当场 fail-loud。
+    if manifest.runtime_assets is not None:
+        for entry in manifest.runtime_assets.entries:
+            if not entry.source:
+                continue
+            source_rel = _expand(manifest, entry.source)
+            if not source_rel or not (repo_root / source_rel).exists():
+                missing(
+                    "runtime_assets",
+                    "asset_source_missing",
+                    entry.source,
+                    f"the runtime asset source for {entry.dest}",
+                )
+
     # ── 第三方二进制：锁在不在、锁里该有的字段有没有 ────────────────────────
     #
     # 这几件事都是秒级可判的，而错了要等到编译几十分钟之后、组装安装包那一步才炸。

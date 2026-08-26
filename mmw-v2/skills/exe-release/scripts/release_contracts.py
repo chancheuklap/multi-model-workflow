@@ -159,6 +159,60 @@ class VendorArtifact(BaseModel):
     notices: list[str] = Field(default_factory=list)
 
 
+class RuntimeAssetEntry(BaseModel):
+    """一份随包出厂、但不嵌进编译产物的数据。
+
+    源有两种，二选一：
+
+    - `source`：仓库相对路径（目录或文件）。
+    - `source_package` + `members`：从**编译用的那个解释器**解析出包目录，取其中几个成员。
+      Nuitka 的 `--include-package-data` 本该覆盖这一类，但对某些包它一条 included data
+      file 记录都不产出（rapidocr 就是，上游文档同样绕开自动打包）。源取自编译解释器而不是
+      随便一个 python，与 abi3 DLL 同源——否则拷进包的数据可能来自另一套依赖。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    source: str | None = None
+    source_package: str | None = None
+    members: list[str] = Field(default_factory=list)
+    dest: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _exactly_one_source(self) -> "RuntimeAssetEntry":
+        if bool(self.source) == bool(self.source_package):
+            raise ValueError("a runtime asset needs exactly one of source / source_package")
+        if self.source_package and not self.members:
+            raise ValueError(
+                "source_package needs members: naming the whole package would ship its code "
+                "as data, which is what compiling exists to prevent"
+            )
+        if self.source and self.members:
+            raise ValueError("members belongs to source_package, not to source")
+        return self
+
+
+class RuntimeAssets(BaseModel):
+    """随包但不嵌入的数据放哪、放什么。
+
+    为什么它不是 `python_backend.include_data_dirs`：那一份是**嵌进**编译产物的，Nuitka
+    在运行时解压到临时目录。这一份留在 exe 旁边，运行时按路径读。两种落点，两种理由——
+    嵌不进去的包（rapidocr）、大到不值得每次启动解压一遍的资源（一个产品的 BGM 有 156 MB）、
+    以及装完之后还想单独替换的文件，都只能走这一种。
+
+    从前这件事每个产品在自己仓库写一份 Python：两个产品两份，第三个还要再写一遍。而其中
+    一份改了三轮各 45–60 分钟的构建都没生效——出包不调用它。同一个动作、只有值不同，所以
+    值归钥匙、动作归技能。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    # 落点根。默认与编译产物目录平级（`python_backend.output_dir` 是 .../python-runtime/backend），
+    # 因为运行时是按「exe 的上一层」找它的。产品的布局不同才需要写这一行。
+    root: str = "${DESKTOP_DIR}/python-runtime/runtime-assets"
+    entries: list[RuntimeAssetEntry] = Field(min_length=1)
+
+
 class BuildTarget(BaseModel):
     """钥匙的 build 齿：声明本产品出包差异的**构建目标**（修正1 验齿 + 修正2 深抽）。
 
@@ -389,6 +443,8 @@ class ReleaseAdapterManifest(BaseModel):
     toolchain: list[str] = Field(default_factory=list)
     # 出包要用、但太大不进 git 的第三方二进制（ffmpeg、嵌入式解释器一类）。
     vendor_artifacts: list[VendorArtifact] = Field(default_factory=list)
+    # 随包出厂但不嵌进编译产物的数据。不声明就是没有这一步。
+    runtime_assets: RuntimeAssets | None = None
     # 诊断：产品自己跑哪几条检查、认哪几条自己的日志模式、编译产物在哪。
     diagnose_branches: list[list[str]] = Field(default_factory=list)
     diagnose_rules: list[DiagnoseRule] = Field(default_factory=list)

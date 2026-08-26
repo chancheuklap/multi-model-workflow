@@ -133,6 +133,53 @@ shell and its own installer step assembles the tree that reaches the customer so
 that one in `build_target.package_tree` -- a repository-relative path, wildcards allowed, because
 such a tree often carries the version in its name. It must resolve to exactly one directory.
 
+### `runtime_assets` — data that ships beside the exe instead of inside it
+
+A compiled backend has two places its data can live, and they are not interchangeable:
+
+- **Inside the executable** — `python_backend.include_data_dirs`. Nuitka unpacks it to a temporary
+  directory at run time.
+- **Beside the executable** — this field. Ordinary files in the installed tree, read by path.
+
+Three reasons a file has to take the second road. **Some packages cannot be embedded at all**: the
+build log shows `included data file` records for every other package and none for this one, and the
+compiled exe still reports the file missing — one product's OCR package behaves exactly this way,
+and its upstream documentation tells you to place the files by hand after compiling. **Some are too
+large to unpack on every launch** — one product's music is 156 MB. **Some have to stay replaceable**
+after the app is installed.
+
+```jsonc
+"runtime_assets": {
+  "root": "${DESKTOP_DIR}/python-runtime/runtime-assets",   // the default; write it only to override
+  "entries": [
+    {"source": "src/<pkg>/assets", "dest": "<pkg>/assets"},
+    {"source_package": "<the installed package>", "members": ["config.yaml", "models"],
+     "dest": "<pkg>/<name>"}
+  ]
+}
+```
+
+An entry names **exactly one** source. `source` is a repository-relative path. `source_package`
+resolves the package directory **through the interpreter that runs the compile** — the same one the
+abi3 DLLs come from; resolved through any other python, the bytes copied into the package could
+belong to a different install. It must name its `members`: pointing at a whole package would ship
+that package's code as data, which is what compiling exists to prevent.
+
+**The default `root` is not arbitrary.** It sits beside the compiled backend because that is where
+the running app looks — the exe's own directory, then one level up. Change it and the files are all
+present in the installed package while the program cannot find any of them, with every build step
+green.
+
+Staging runs after the `runtime_prepare` hook and before the compile, and it **does not clear the
+destination**: a product hook may be filling the same tree (one fetches its music into it), so the
+two stack instead of deleting each other. After each entry the build counts what landed; an entry
+that copies nothing stops the release, because "the copy step ran" and "the data is in the package"
+are different facts.
+
+`verify_key` checks that a `source` path exists in the repository. It cannot check a
+`source_package` — that source lives in the build machine's compile environment — so that one
+fails loudly during the build instead of pretending to have been checked.
+
 ### `python_backend` — compiling the backend
 
 One Nuitka invocation per entry in `targets`. The skill renders the command; the key supplies
@@ -169,6 +216,9 @@ Each of these fields exists because a build failed without it:
   One product shipped 36 of those inside the customer's exe, and nothing said a word. When both
   fields cover the same file, Nuitka prints `Duplicate data file ... ignored` -- that line is
   telling you `include_package_data` is doing nothing you asked for and something you did not.
+  And when neither field works — the build log records `included data file` for every package but
+  this one, and the compiled exe still cannot find the file — the package cannot be embedded at
+  all. Ship it beside the exe with `runtime_assets` instead; do not keep trying flags.
 - **`include_modules` for anything imported inside a function body.** The compiler traces imports
   statically; a C extension imported lazily is invisible to it and simply will not be in the
   package. The customer finds out when they reach that feature.
