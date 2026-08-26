@@ -155,8 +155,9 @@ done
 # ---------------- 退役的技能位置 ----------------
 
 # 技能以前按宿主各装一份。下面四处不再是安装目标，主循环也不会再走到它们，残留的软链
-# 就会一直留着。这不是洁癖：Cursor 扫到同名技能时 ~/.claude/skills 压过 ~/.agents/skills，
-# 一条陈旧的残留会静默盖掉新的，不报错也不提示。所以每次安装都摘一遍。
+# 就会一直留着——而各自的宿主仍在扫它们。残留是上一轮名单里的旧版本，跟通用位置的那份
+# 撞名；实测里 Grok 取 ~/.grok/skills 那份，把通用位置的盖住，不报错也不提示。
+# 所以每次安装都摘一遍。
 RETIRED_DIRS=(
   "${CODEX_HOME:-$HOME_DIR/.codex}/skills"
   "${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME_DIR/.pi}/agent}/skills"

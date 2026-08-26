@@ -3,6 +3,8 @@ date: 2026-08-18
 amends: [0009]
 ---
 
+> 现行读法见 ADR 0024：技能改装 `~/.agents/skills` 与 `~/.claude/skills` 两处，本篇「五个宿主各装一份」只对 subagent 仍然成立。取消插件打包、由安装器散装这个决定本身没有变。
+
 # MMW 不打包成插件，五个宿主由 `install.sh` 统一散装
 
 MMW 由九个交付面组成：CLI 与 runtime、技能、角色、hooks、MCP、权限、UI QA 依赖、Cursor 隔离包装、语言服务器插件。插件格式最多装得下其中四面，而且只在两个宿主上——Claude Code 与 Codex。实际行为几乎全在 CLI 里（`mmw launch`、`mmw artifact path`、`mmw worktree`、`mmw dispatch`、图谱、出包），没有任何插件格式装得下它，2026-08-06 发布的 Agent Plugins 1.0 也明确不定义安装机制。半个插件加半个安装器，等于两条安装路径都要维护，而任何一条都不完整。
