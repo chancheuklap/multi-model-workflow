@@ -297,18 +297,38 @@ function Copy-RuntimeAsset {
     # The package directory has to come from the interpreter that runs the compile, the same one
     # the abi3 DLLs come from. Resolved through any other python, the bytes copied into the
     # package could belong to a different install.
-    $probe = 'import importlib.util,pathlib,sys;spec=importlib.util.find_spec(sys.argv[1]);sys.exit("not importable: " + sys.argv[1]) if spec is None or not spec.origin else None;print(pathlib.Path(spec.origin).parent)'
+    # Run it from the repository root: the runner is usually `uv run --extra ...`, and uv's
+    # --extra only means anything inside the project -- elsewhere it warns on stderr and resolves
+    # a different set of dependencies.
+    #
+    # stderr is not captured either. `2>&1` turns every stderr line of a native command into an
+    # ErrorRecord, and under $ErrorActionPreference='Stop' one harmless warning is enough to fail
+    # the step. Success is $LASTEXITCODE; the path is the last stdout line. Same shape as
+    # Resolve-BuildDll.
+    #
+    # The probe holds no double quote: PowerShell 5.1 mangles quoted arguments on their way to a
+    # native command, and the package name ends up inside the code (observed as a NameError, not
+    # as "package not found"). When the package is absent, spec.origin raises on its own -- a
+    # non-zero exit is all this needs, and Python prints the reason.
+    $probe = 'import importlib.util,pathlib,sys;s=importlib.util.find_spec(sys.argv[1]);print(pathlib.Path(s.origin).parent)'
+    # Build the argument list once, then splat it. Splatting and then appending direct arguments
+    # reorders them on PowerShell 5.1, and python receives the package name as its -c payload.
     $runnerExe = $Runner[0]
-    $runnerArgs = @()
-    if ($Runner.Length -gt 1) { $runnerArgs = $Runner[1..($Runner.Length - 1)] }
-    $probeOut = (& $runnerExe @runnerArgs '-c' $probe $SourcePackage 2>&1)
-    if ($LASTEXITCODE -ne 0) {
-      throw "Could not locate the package $SourcePackage with the compile interpreter: $probeOut"
+    $arguments = @()
+    if ($Runner.Count -gt 1) { $arguments += @($Runner[1..($Runner.Count - 1)]) }
+    $arguments += @('-c', $probe, $SourcePackage)
+    Push-Location $RepoRoot
+    try {
+      $pkgDir = (& $runnerExe @arguments | Select-Object -Last 1)
+      if ($LASTEXITCODE -ne 0) {
+        throw "Could not locate the package $SourcePackage with the compile interpreter ($LASTEXITCODE)"
+      }
     }
-    $pkgDir = ([string](@($probeOut) | Select-Object -Last 1)).Trim()
+    finally { Pop-Location }
+    $pkgDir = "$pkgDir".Trim()
     if (-not $pkgDir -or -not (Test-Path -LiteralPath $pkgDir -PathType Container)) {
       throw ("The compile interpreter reported no directory for the package " + $SourcePackage +
-             ": " + $probeOut)
+             ": " + $pkgDir)
     }
     foreach ($member in $Members) {
       $from = Join-Path $pkgDir $member
