@@ -1,9 +1,11 @@
 ---
 date: 2026-08-18
-amends: [0007]
+amends: []
 ---
 
 > 现行读法见 ADR 0018：技能改装 `~/.agents/skills` 与 `~/.claude/skills` 两处，本篇「五个宿主各装一份」只对 subagent 仍然成立。取消插件打包、由安装器散装这个决定本身没有变。
+>
+> 下面正文写的是 2026-08-18 当时的状态。安装入口现在是 `mmw-v2/install.sh`；正文里的 `mmw/install.sh` 已进 `archive/`，**不要跑它**，它会把活的安装整个换成上一代。九个交付面现在只剩技能与 subagent 两面，其余七面连同 `mmw` CLI 一起退役。
 
 # MMW 不打包成插件，五个宿主由 `install.sh` 统一散装
 
@@ -24,7 +26,6 @@ MMW 由九个交付面组成：CLI 与 runtime、技能、角色、hooks、MCP�
 - 插件命名空间随之消失：Claude Code 的 subagent 从 `mmw:mmw-reviewer` 变成 `mmw-reviewer-claude`，Codex 的技能引用从 `$mmw:mmw-reviewer` 变成 `mmw-reviewer`，检索工具名从 `mcp__plugin_mmw_<服务器>__` 变成 `mcp__<服务器>__`。
 - `mmw mcp serve` 与 `mmw/mcp/serve.py` 删除。它们是 Codex 插件的 stdio 进程入口；Codex 现在从 `~/.codex/config.toml` 直接读真实命令。`runtime.py check-mcp-config` 同理删除——它要求 MCP 配置写成 `mmw mcp serve <名>`，那条护栏现在拦的是正确配置。
 - 技能物化随之作废。物化曾经展开派发动作，派发改成运行期查表（`cli/host-actions.json`）之后只剩 Codex 的技能引用语法一条改写；Codex 认 `/mmw-review`，那条也没有了。五份技能产物删除，五个宿主软链同一份 `mmw/skills-src/`。
-- ADR `0007` 为 `mmw/skills-src/mmw-setup/` 留的那处扫描排除失效：该目录已移出技能源，进 `archive/mmw-setup/`。四道扫描技能正文的机械校验因此各删一处排除。
 - 卸载改由安装器负责：每个目标目录留一份 `.mmw-skills` 或 `.mmw-agents` 清单，装之前按它清理退役的条目。目录里同名的东西不是 MMW 装的就不动，报冲突并非零退出。
 
 来源：2026-08-18 与用户的设计对话，以及当天在本机对 Codex 0.147.0、Claude Code 2.1.234、Grok 1.0.4 三家插件清单互认所做的实测（测完已还原）。
