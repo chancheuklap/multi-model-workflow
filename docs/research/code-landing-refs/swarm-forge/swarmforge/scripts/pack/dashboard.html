@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SwarmForge Pack</title>
+<style>
+:root{--bg:#eef0eb;--panel:#fbfbf8;--ink:#1e221f;--muted:#68726c;--line:#d5d9d2;--line-soft:#e8ebe5;--accent:#3d5a45;--amber:#c9851a;--amber-bg:#fff6e5;--red:#9b1c1c;--green:#2f6b3a;--green-bg:#e7f3ea;--chip:#e8eee9;--card:#fffef9;--rail:340px;--card-min-w:148px;--card-min-h:72px;--card-max-w:200px;font-family:ui-sans-serif,system-ui,sans-serif}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{background:#cfd4cc;color:var(--ink);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.cockpit{flex:1;min-width:0;min-height:0;width:calc(100% - 20px);margin:10px;background:var(--bg);border:1px solid #b8bfb6;border-radius:12px;display:flex;flex-direction:column;overflow:hidden}
+header.top{display:flex;gap:12px;align-items:center;padding:10px 14px;background:#f4f5f1;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header.top h1{margin:0;font-size:15px}.meta{color:var(--muted);font-size:12px}.meta .dot{color:var(--green)}.spacer{flex:1}
+.pack-identity,.pack-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.error{color:var(--red);padding:0 14px;font-size:12px;min-height:1em}
+.btn{border:1px solid #9aa59e;background:#fff;color:var(--ink);padding:5px 10px;border-radius:7px;font-size:12px;cursor:pointer}
+.btn:hover,.btn:focus-visible{background:#f0f2ee;color:var(--ink);border-color:#8a9188}
+.btn:active{background:#d5d9d2;color:#000;border-color:#6a726c;transform:translateY(1px)}
+.btn-danger{border-color:#c45c5c;color:var(--red);background:#fff}
+.btn-danger:hover{background:#fdf0f0}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{background:#4a6b54;border-color:#4a6b54;color:#fff}
+.btn-sm{padding:4px 8px;font-size:11px}
+.btn-approve{background:#2f6b3a;border-color:#2f6b3a;color:#fff}
+.btn-approve:hover{background:#3d8a4a;border-color:#3d8a4a;color:#fff}
+.btn:disabled,.btn[disabled]{opacity:.45;cursor:not-allowed;transform:none}
+.btn:disabled:hover,.btn[disabled]:hover{background:#fff;border-color:#9aa59e;color:var(--ink)}
+.btn-approve:disabled:hover,.btn-approve[disabled]:hover{background:#2f6b3a;border-color:#2f6b3a;color:#fff}
+.attention{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;padding:8px 14px;background:var(--amber-bg);border-bottom:1px solid #efd7a8;font-size:12px;max-height:120px;overflow:auto;position:relative;z-index:30}
+.attention .tag{font-weight:700;text-transform:uppercase;font-size:10px;color:#8a5a0a;padding-top:4px}
+.att-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:rgba(255,255,255,.65);border:1px solid #efd7a8;border-radius:6px;padding:4px 8px;margin:0 0 4px}
+.menu{position:relative;display:inline-block}
+.menu-list{display:none;position:fixed;z-index:200;min-width:12rem;background:#fff;border:1px solid var(--line);border-radius:6px;box-shadow:0 8px 20px rgba(0,0,0,.12);padding:4px 0}
+.menu.open .menu-list{display:block}
+.menu-list button{display:flex;align-items:center;gap:6px;width:100%;text-align:left;border:0;background:none;padding:6px 10px;font:inherit;font-size:11px;cursor:pointer}
+.doc-mark{flex:0 0 auto;width:1em;font-weight:700;line-height:1}
+.doc-mark-ok{color:var(--green)}
+.doc-mark-bad{color:var(--red)}
+.menu-list button:hover{background:#f0f2ee}
+.batch-more{margin-left:2px;color:var(--muted);font-weight:700;cursor:default;vertical-align:baseline}
+.menu-list .batch-item{display:block;padding:6px 10px;font-size:11px;white-space:nowrap}
+.pill{display:inline-block;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:600;background:var(--chip)}
+.pill-warn{background:#ffe2a8;color:#7a4e00}.pill-ok{background:var(--green-bg);color:var(--green)}
+.body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 8px minmax(220px,var(--rail));overflow:hidden}
+.splitter{background:var(--line);width:8px;min-width:8px;cursor:col-resize}
+.board{padding:12px;overflow:auto;min-width:0;background:linear-gradient(180deg,#e8ebe4 0%,var(--bg) 48px);display:flex;flex-direction:column;min-height:0}
+.board-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:10px;font-size:11px;color:var(--muted);flex:0 0 auto}
+.columns{display:flex;gap:12px;align-items:stretch;min-width:min-content;flex:1;min-height:0}
+.col{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;min-height:0;max-height:100%}
+.col h3{margin:0 0 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.col-body{display:flex;flex-direction:column;align-items:flex-start;gap:8px;flex:1;min-height:100px;overflow:auto;padding:8px;background:rgba(255,255,255,.35);border:1px dashed #c5cbc2;border-radius:10px;width:max-content;min-width:var(--card-min-w)}
+.batch{display:flex;flex-direction:column;gap:0;width:max-content;min-width:var(--card-min-w)}
+.card{background:var(--card);border:1px solid #d0cbb8;border-radius:8px;padding:7px 8px;font-size:11px;width:max-content;max-width:var(--card-max-w);min-width:var(--card-min-w);min-height:var(--card-min-h);cursor:pointer;display:flex;flex-direction:column;gap:3px}
+.card:hover{border-color:#a89f7e}
+.card .title{font-weight:700;font-size:12px;display:flex;align-items:flex-start;gap:6px;width:100%;min-width:0}
+.card .title .name{overflow:hidden;text-overflow:ellipsis;max-width:11rem;display:block;flex:1;min-width:0}
+.audit-count{display:inline-flex;align-items:center;gap:2px;flex:0 0 auto;color:var(--muted);font-size:10px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.2}
+.audit-icon{font-size:10px}
+.card .status{color:var(--muted);font-size:10px;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.card-rejected .status{color:var(--red);font-weight:700;-webkit-line-clamp:1}
+.card-del{margin-left:auto;padding:1px 6px;font-size:10px;line-height:1.2}
+.card .foot{display:flex;justify-content:flex-end;gap:8px;color:var(--muted);font-size:10px;margin-top:auto}
+.card-thin{min-height:0;padding:4px 8px;gap:0}
+.timer{font-variant-numeric:tabular-nums}
+.rail{background:var(--panel);display:flex;flex-direction:column;min-height:0;overflow:hidden;font-size:12px;scrollbar-gutter:stable}
+.rail section{padding:10px 12px;border-bottom:1px solid var(--line-soft);display:flex;flex-direction:column;min-height:0}
+.rail section.work-sec{flex:1 1 36%;min-height:100px}
+.rail section.ts{flex:1 1 48%;min-height:200px;background:#f7f8f5;border-bottom:0}
+.rail h2{margin:0 0 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.work-wrap{flex:1;min-height:0;overflow:auto;border:1px solid var(--line-soft);border-radius:6px;background:#fff}
+.work{width:100%;table-layout:fixed;border-collapse:collapse;font-size:11px}
+.work th,.work td{padding:5px 4px;border-bottom:1px solid var(--line-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.work th{text-align:left;color:var(--muted);font-weight:600;font-size:10px;background:#f3f4f0}
+.work col.c-story{width:42%}.work col.c-role{width:5.5rem}.work col.c-state{width:2.25rem}.work col.c-age{width:2.75rem}
+.work td:nth-child(4),.work th:nth-child(4){text-align:right}
+.linkish{color:var(--accent);text-decoration:underline;background:none;border:0;font:inherit;padding:0;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;text-align:left}
+.st-ico{display:inline-block;width:10px;height:10px;vertical-align:middle;border-radius:50%;background:#c5cbc2}
+.st-ico.dot-green{background:var(--green)}
+.st-ico.dot-yellow{background:#d4a017}
+.wif-therm{display:inline-flex;align-items:center;gap:1px;margin-left:4px;vertical-align:middle}
+.wif-therm .bar{width:2px;height:8px;border-radius:1px;background:#c5cbc2}
+.wif-therm[data-heat="1"] .bar:nth-child(-n+1),
+.wif-therm[data-heat="2"] .bar:nth-child(-n+2),
+.wif-therm[data-heat="3"] .bar:nth-child(-n+3),
+.wif-therm[data-heat="4"] .bar:nth-child(-n+4),
+.wif-therm[data-heat="5"] .bar:nth-child(-n+5),
+.wif-therm[data-heat="6"] .bar:nth-child(-n+6){background:var(--green)}
+.ts-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}.ts-head h2{margin:0;flex:1}
+.history{flex:1;min-height:0;background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px;overflow:auto;display:flex;flex-direction:column;gap:8px;font-size:11px}
+.att-row input[type=text]{flex:1;min-width:8rem;border:1px solid #c6cbc5;border-radius:6px;padding:4px 6px;font:inherit;font-size:11px}
+.bubble-you{border-left:3px solid #6b7c72;padding-left:8px;white-space:pre-wrap}
+.bubble-ts{color:#4a4f4c;padding-left:12px;font-style:italic;white-space:pre-wrap}
+.composer{display:flex;gap:6px;margin-top:8px;align-items:flex-end}
+.composer textarea{flex:1;height:calc(1.35em * 4 + 16px);line-height:1.35;border:1px solid #c6cbc5;border-radius:6px;padding:6px 8px;font:inherit;font-size:12px;resize:none}
+.float-layer{position:fixed;inset:0;background:rgba(30,34,31,.28);z-index:100;display:none;align-items:center;justify-content:center}
+.float-layer.open{display:flex}
+.float{background:#f8f8f5;border:1px solid #8a9188;border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.2);min-width:min(520px,92vw);width:min(520px,92vw);overflow:hidden}
+.float .titlebar{display:flex;align-items:center;gap:8px;padding:7px 10px;background:linear-gradient(180deg,#eceee8,#e0e3dc);font-weight:600;font-size:12px}
+.float .body-pad{padding:12px;background:#fffef9}
+.float label{display:block;font-size:10px;text-transform:uppercase;color:var(--muted);margin:0 0 4px;font-weight:700}
+.float input[type=text],.float textarea{width:100%;border:1px solid #c6cbc5;border-radius:6px;padding:8px;font:inherit;margin-bottom:10px}
+.float textarea{min-height:140px;resize:vertical}
+.float .actions{display:flex;gap:8px;justify-content:flex-end}
+.note{font-size:11px;color:var(--muted);margin:-4px 0 10px}
+@media (max-width:700px){
+  header.top{align-items:flex-start;flex-direction:column}
+  header.top .spacer{display:none}
+  .board-toolbar span:last-child{display:none}
+  .body{display:flex;flex-direction:column;overflow:auto}
+  .splitter{display:none}
+  .board{flex:0 0 390px;min-height:390px}
+  .rail{flex:0 0 580px;min-height:580px;border-top:1px solid var(--line)}
+  .rail section.work-sec{flex:0 0 220px}
+  .rail section.ts{flex:1 1 auto}
+}
+</style>
+</head>
+<body>
+<div class="cockpit">
+  <header class="top">
+    <div class="pack-identity">
+      <h1 id="pack-title">SwarmForge Pack</h1>
+      <button class="btn btn-danger btn-sm" type="button" id="teardown-btn">Teardown</button>
+      <span class="meta" id="pack-meta"><span class="dot">●</span> live</span>
+    </div>
+    <span class="spacer"></span>
+    <div class="pack-actions">
+      <button class="btn btn-primary" type="button" id="btn-new-task">New Task</button>
+    </div>
+  </header>
+  <p id="error" class="error"></p>
+
+  <div class="attention" id="attention">
+    <div class="tag">Attention</div>
+    <div id="attention-rows">
+      <div id="attention-approvals"></div>
+      <div id="attention-clarifications"></div>
+    </div>
+  </div>
+
+  <div class="body">
+    <main class="board">
+      <div class="board-toolbar">
+        <span>Board</span>
+        <span class="spacer"></span>
+        <span>lanes from swarmforge.conf · cards are tasks</span>
+      </div>
+      <div class="columns" id="columns"></div>
+    </main>
+    <div class="splitter" title="Drag to resize"></div>
+    <aside class="rail">
+      <section class="work-sec">
+        <h2>Work Queue</h2>
+        <div class="work-wrap">
+          <table class="work">
+            <colgroup>
+              <col class="c-story"><col class="c-role"><col class="c-state"><col class="c-age">
+            </colgroup>
+            <thead><tr><th>Task</th><th>Role</th><th></th><th>Age</th></tr></thead>
+            <tbody id="work-rows"></tbody>
+          </table>
+        </div>
+      </section>
+      <section class="ts">
+        <div class="ts-head">
+          <h2 id="master-title">Master</h2>
+          <button class="btn btn-sm" type="button" id="btn-open-master-rail">Open</button>
+        </div>
+        <div class="history" id="chat-history"></div>
+        <div class="composer">
+          <textarea id="chat-input" rows="4" placeholder="Follow-up… (Enter send · Shift+Enter newline)"></textarea>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<div class="float-layer" id="reject-layer">
+  <div class="float" role="dialog" aria-labelledby="rt-title">
+    <div class="titlebar" id="rt-title">Rejected task</div>
+    <div class="body-pad">
+      <label for="rt-text">Comments</label>
+      <textarea id="rt-text" placeholder="Audit comments for retry…"></textarea>
+      <div class="actions">
+        <button type="button" class="btn btn-danger" id="rt-delete">Delete</button>
+        <button type="button" class="btn btn-primary" id="rt-retry">Retry</button>
+        <button type="button" class="btn btn-approve" id="rt-accept">Accept</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="float-layer" id="new-task-layer">
+  <div class="float" role="dialog" aria-labelledby="nt-title">
+    <div class="titlebar" id="nt-title">New Task</div>
+    <div class="body-pad">
+      <p class="note">Creates a card in the master lane and sends name + text to the master agent.</p>
+      <label for="nt-name">Name</label>
+      <input id="nt-name" type="text" placeholder="task-name">
+      <label for="nt-text">Task</label>
+      <textarea id="nt-text" placeholder="What the master agent should do…"></textarea>
+      <div class="actions">
+        <button type="button" class="btn" id="nt-cancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="nt-ok">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+function displayName(role) {
+  if (!role) return "";
+  return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
+function cardEl(task, opts) {
+  const thin = opts && opts.thin;
+  const card = document.createElement("article");
+  card.className = thin ? "card card-thin" : "card";
+  if (task.status === "REJECTED") card.classList.add("card-rejected");
+  card.setAttribute("data-task-name", task.name || "");
+  const title = document.createElement("div");
+  title.className = "title";
+  const name = document.createElement("span");
+  name.className = "name";
+  name.textContent = task.name;
+  title.appendChild(name);
+  const audit = document.createElement("span");
+  audit.className = "audit-count";
+  audit.title = "Audit count: " + (task.audit_count || 0);
+  const auditIcon = document.createElement("span");
+  auditIcon.className = "audit-icon";
+  auditIcon.setAttribute("role", "img");
+  auditIcon.setAttribute("aria-label", "Audit count");
+  auditIcon.title = "Audit count";
+  auditIcon.textContent = "\u2713";
+  const auditValue = document.createElement("span");
+  auditValue.textContent = String(task.audit_count || 0);
+  audit.append(auditIcon, auditValue);
+  title.appendChild(audit);
+  card.appendChild(title);
+  if (!thin && task.status) {
+    const status = document.createElement("div");
+    status.className = "status";
+    status.textContent = task.status;
+    card.appendChild(status);
+  }
+  card.onclick = () => {
+    openGrowable("/task?name=" + encodeURIComponent(task.name || ""), "task-" + (task.name || ""));
+  };
+  return card;
+}
+
+function columnEl(lane, tasks) {
+  const col = document.createElement("div");
+  col.className = "col";
+  col.dataset.lane = lane;
+  const heading = document.createElement("h3");
+  heading.textContent = displayName(lane);
+  const body = document.createElement("div");
+  body.className = "col-body";
+  body.id = "lane-" + lane;
+  const mine = tasks.filter((task) => task.lane === lane);
+  let i = 0;
+  while (i < mine.length) {
+    const id = mine[i].batch;
+    if (id) {
+      const group = [];
+      while (i < mine.length && mine[i].batch === id) group.push(mine[i++]);
+      if (group.length > 1) {
+        const wrap = document.createElement("div");
+        wrap.className = "batch";
+        group.forEach((task, idx) => wrap.appendChild(cardEl(task, {thin: idx > 0})));
+        body.appendChild(wrap);
+      } else {
+        body.appendChild(cardEl(group[0]));
+      }
+    } else {
+      body.appendChild(cardEl(mine[i++]));
+    }
+  }
+  col.append(heading, body);
+  return col;
+}
+
+function renderBoard(data) {
+  const columns = $("columns");
+  columns.replaceChildren();
+  const lanes = (data.lanes || []).concat(["done"]);
+  const tasks = data.tasks || [];
+  lanes.forEach((lane) => columns.appendChild(columnEl(lane, tasks)));
+}
+
+function renderChrome(data) {
+  const master = data.master_display || displayName(data.master_role);
+  const masterRole = data.master_role || "";
+  $("pack-meta").replaceChildren();
+  const dot = document.createElement("span");
+  dot.className = "dot";
+  dot.textContent = "●";
+  $("pack-meta").append(dot, " live · master = " + master);
+  $("btn-open-master-rail").textContent = "Open " + master;
+  $("btn-open-master-rail").setAttribute("data-open-agent", masterRole);
+  $("master-title").textContent = master;
+}
+
+function age(iso) {
+  const then = Date.parse(iso || "");
+  if (Number.isNaN(then)) return "";
+  const mins = Math.max(0, Math.round((Date.now() - then) / 60000));
+  if (mins < 60) return mins + "m";
+  const hours = Math.round(mins / 60);
+  if (hours < 48) return hours + "h";
+  return Math.round(hours / 24) + "d";
+}
+
+function openGrowable(url, name) {
+  const sep = url.indexOf("?") >= 0 ? "&" : "?";
+  window.open(url + sep + "_open=" + Date.now(), name, "resizable=yes,scrollbars=yes,width=780,height=560");
+}
+
+function openAgentWindow(url, name) {
+  openGrowable(url, name);
+}
+
+function stateIcon(state) {
+  const ico = document.createElement("span");
+  if (state === "live") {
+    ico.className = "st-ico dot-green";
+    ico.title = "live";
+  } else if (state === "idle") {
+    ico.className = "st-ico dot-yellow";
+    ico.title = "idle";
+  } else {
+    ico.className = "st-ico";
+    ico.title = "no session";
+  }
+  return ico;
+}
+
+function workRow(item) {
+  const tr = document.createElement("tr");
+  tr.dataset.workRole = item.role || "";
+  const task = document.createElement("td");
+  const names = item.tasks && item.tasks.length ? item.tasks : (item.task ? [item.task] : []);
+  const batchNames = item.batch_tasks && item.batch_tasks.length ? item.batch_tasks : [];
+  task.dataset.tasks = names.join("\n");
+  task.dataset.batchTasks = batchNames.join("\n");
+  task.append(names[0] || "");
+  if (batchNames.length > 1) {
+    const more = document.createElement("span");
+    more.className = "menu batch-more";
+    const mark = document.createElement("span");
+    mark.textContent = "+";
+    const list = document.createElement("div");
+    list.className = "menu-list";
+    batchNames.forEach((name) => {
+      const row = document.createElement("div");
+      row.className = "batch-item";
+      row.textContent = name;
+      list.appendChild(row);
+    });
+    const place = () => {
+      const box = mark.getBoundingClientRect();
+      list.style.top = box.bottom + "px";
+      list.style.left = box.left + "px";
+    };
+    more.addEventListener("mouseenter", () => {
+      more.classList.add("open");
+      place();
+    });
+    more.addEventListener("mouseleave", () => more.classList.remove("open"));
+    more.append(mark, list);
+    task.append(" ", more);
+  }
+  const role = document.createElement("td");
+  const link = document.createElement("button");
+  link.type = "button";
+  link.className = "linkish";
+  link.setAttribute("data-open-agent", item.role || "");
+  link.title = "open " + (item.role || "") + " session";
+  link.textContent = item.role || "";
+  const therm = document.createElement("span");
+  const heat = Number(item.activity) || 0;
+  therm.className = "wif-therm";
+  therm.dataset.heat = String(heat);
+  for (let i = 0; i < 6; i++) {
+    const bar = document.createElement("span");
+    bar.className = "bar";
+    therm.appendChild(bar);
+  }
+  role.append(link, therm);
+  const state = document.createElement("td");
+  state.appendChild(stateIcon(item.state));
+  const ageCell = document.createElement("td");
+  ageCell.textContent = age(item.updated_at);
+  tr.append(task, role, state, ageCell);
+  return tr;
+}
+
+function renderWork(data) {
+  const rows = $("work-rows");
+  const items = data.work_in_flight || [];
+  const live = {};
+  items.forEach((item) => {
+    live[item.role] = true;
+  });
+  [...rows.querySelectorAll("[data-work-role]")].forEach((tr) => {
+    if (!live[tr.dataset.workRole]) tr.remove();
+  });
+  items.forEach((item, i) => {
+    let tr = rows.querySelector("[data-work-role=\"" + item.role + "\"]");
+    if (!tr) {
+      tr = workRow(item);
+      const before = rows.children[i];
+      if (before) rows.insertBefore(tr, before);
+      else rows.appendChild(tr);
+      return;
+    }
+    const names = item.tasks && item.tasks.length ? item.tasks : (item.task ? [item.task] : []);
+    const batchNames = item.batch_tasks && item.batch_tasks.length ? item.batch_tasks : [];
+    const key = names.join("\n");
+    const batchKey = batchNames.join("\n");
+    if (tr.children[0].dataset.tasks !== key || tr.children[0].dataset.batchTasks !== batchKey) {
+      tr.replaceWith(workRow(item));
+      return;
+    }
+    tr.querySelector(".wif-therm").dataset.heat = String(Number(item.activity) || 0);
+    tr.children[2].replaceChildren(stateIcon(item.state));
+    tr.children[3].textContent = age(item.updated_at);
+  });
+}
+
+function fileName(path) {
+  const parts = (path || "").split("/");
+  return parts[parts.length - 1] || path;
+}
+
+async function postApproval(id, action) {
+  await fetch("/api/approvals/" + encodeURIComponent(id) + "/" + action, {method: "POST"});
+  loadState();
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function fillDocWindow(win, name, text, comments) {
+  win.document.open();
+  win.document.write(
+    "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>" +
+    escapeHtml(name) + "</title>" +
+    "<style>html,body{height:100%;margin:0;display:flex;flex-direction:column;background:#f8f8f5;color:#1e221f;font-family:ui-sans-serif,system-ui,sans-serif}" +
+    "header{display:flex;align-items:center;gap:8px;padding:8px 10px;background:linear-gradient(180deg,#eceee8,#e0e3dc);border-bottom:1px solid #d5d9d2;flex:0 0 auto}" +
+    "h1{margin:0;font-size:14px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
+    "pre{flex:1;min-height:0;margin:0;padding:12px;overflow:auto;white-space:pre-wrap;font:12px/1.4 ui-monospace,Menlo,monospace}" +
+    ".comments{flex:0 0 auto;display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-top:1px solid #d5d9d2;background:#fffef9}" +
+    "label{font-size:10px;text-transform:uppercase;font-weight:700;color:#68726c}" +
+    "textarea{width:100%;min-height:7rem;max-height:40vh;overflow:auto;resize:vertical;white-space:pre-wrap;overflow-wrap:anywhere;word-wrap:break-word;border:1px solid #c6cbc5;border-radius:6px;padding:8px;font:12px/1.4 ui-sans-serif,system-ui,sans-serif}" +
+    ".actions{display:flex;gap:8px;justify-content:flex-end}" +
+    "button{border:1px solid #9aa59e;background:#fff;padding:5px 10px;border-radius:7px;font-size:12px;cursor:pointer}" +
+    "#doc-save{background:#3d5a45;border-color:#3d5a45;color:#fff}</style></head><body>" +
+    "<header><h1>" + escapeHtml(name) + "</h1></header>" +
+    "<pre>" + escapeHtml(text) + "</pre>" +
+    "<div class=\"comments\"><label for=\"doc-comments\">Comments</label>" +
+    "<textarea id=\"doc-comments\">" + escapeHtml(comments || "") + "</textarea>" +
+    "<div class=\"actions\">" +
+    "<button type=\"button\" id=\"doc-cancel\">Cancel</button>" +
+    "<button type=\"button\" id=\"doc-save\">Save</button></div></div>" +
+    "</body></html>"
+  );
+  win.document.close();
+}
+
+function hasRemedialComments(item) {
+  const reviews = (item && item.reviews) || {};
+  return Object.keys(reviews).some((path) => String(reviews[path] || "").trim());
+}
+
+function docMark(path, reviews) {
+  const mark = document.createElement("span");
+  mark.className = "doc-mark";
+  if (!reviews || !Object.prototype.hasOwnProperty.call(reviews, path)) {
+    mark.textContent = "\u2610";
+    mark.title = "Not read";
+  } else if (!String(reviews[path] || "").trim()) {
+    mark.className += " doc-mark-ok";
+    mark.textContent = "\u2713";
+    mark.title = "No comments";
+  } else {
+    mark.className += " doc-mark-bad";
+    mark.textContent = "\u2717";
+    mark.title = "Has comments";
+  }
+  return mark;
+}
+
+async function viewDoc(path, approvalId, comments) {
+  const res = await fetch("/doc?path=" + encodeURIComponent(path));
+  const text = res.ok ? await res.text() : "Not found";
+  const name = fileName(path);
+  const win = window.open("about:blank", "doc-" + encodeURIComponent(path), "resizable=yes,scrollbars=yes,width=780,height=560");
+  if (!win) return;
+  fillDocWindow(win, name, text, comments);
+  win.document.getElementById("doc-cancel").onclick = () => win.close();
+  win.document.getElementById("doc-save").onclick = async () => {
+    if (approvalId) {
+      await fetch("/api/approvals/" + encodeURIComponent(approvalId) + "/comments", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({path, comments: win.document.getElementById("doc-comments").value})
+      });
+    }
+    win.close();
+    loadState();
+  };
+}
+
+const openDocMenus = new Set();
+const clarDrafts = {};
+
+function artifactMenu(paths, item) {
+  const id = item && item.id ? item.id : "";
+  const reviews = (item && item.reviews) || {};
+  const wrap = document.createElement("div");
+  wrap.className = "menu";
+  wrap.dataset.docId = id || "";
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "btn btn-sm";
+  btn.textContent = "Documents";
+  const list = document.createElement("div");
+  list.className = "menu-list";
+  (paths || []).forEach((path) => {
+    const choice = document.createElement("button");
+    choice.type = "button";
+    const name = document.createElement("span");
+    name.textContent = fileName(path);
+    choice.append(docMark(path, reviews), name);
+    choice.onclick = (event) => {
+      event.stopPropagation();
+      wrap.classList.remove("open");
+      if (id) openDocMenus.delete(id);
+      viewDoc(path, id, Object.prototype.hasOwnProperty.call(reviews, path) ? reviews[path] : "");
+    };
+    list.appendChild(choice);
+  });
+  const place = () => {
+    const box = btn.getBoundingClientRect();
+    list.style.top = box.bottom + "px";
+    list.style.left = box.left + "px";
+  };
+  btn.onclick = (event) => {
+    event.stopPropagation();
+    wrap.classList.toggle("open");
+    if (wrap.classList.contains("open")) {
+      if (id) openDocMenus.add(id);
+      place();
+    } else if (id) {
+      openDocMenus.delete(id);
+    }
+  };
+  wrap.append(btn, list);
+  if (id && openDocMenus.has(id)) {
+    wrap.classList.add("open");
+    requestAnimationFrame(place);
+  }
+  return wrap;
+}
+
+function approvalButton(item, action, label, className) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = className;
+  btn.textContent = label;
+  btn.onclick = () => postApproval(item.id, action);
+  return btn;
+}
+
+function attentionRow(item) {
+  const row = document.createElement("div");
+  row.className = "att-row";
+  const pill = document.createElement("span");
+  pill.className = "pill pill-warn";
+  pill.textContent = "Approval";
+  const summary = document.createElement("span");
+  summary.textContent = item.gate + " · " + item.task;
+  row.append(pill, summary);
+  if ((item.artifacts || []).length) row.appendChild(artifactMenu(item.artifacts, item));
+  const reject = document.createElement("button");
+  reject.type = "button";
+  reject.className = "btn btn-sm";
+  reject.textContent = "Reject";
+  reject.onclick = () => openRejectDialog(item);
+  const approve = approvalButton(item, "approve", "Approve", "btn btn-sm btn-approve");
+  approve.disabled = hasRemedialComments(item);
+  row.append(approve, reject);
+  return row;
+}
+
+function clarificationRow(item) {
+  const row = document.createElement("form");
+  row.className = "att-row";
+  const pill = document.createElement("span");
+  pill.className = "pill pill-warn";
+  pill.textContent = "Clarification requested from: " + (item.role || "agent");
+  const summary = document.createElement("span");
+  summary.textContent = item.body || "";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.placeholder = "Answer…";
+  input.dataset.clarId = item.id || "";
+  input.value = clarDrafts[item.id] || "";
+  input.addEventListener("input", () => {
+    clarDrafts[item.id] = input.value;
+  });
+  const send = document.createElement("button");
+  send.type = "submit";
+  send.className = "btn btn-sm btn-primary";
+  send.textContent = "Submit";
+  row.addEventListener("submit", (event) => {
+    event.preventDefault();
+    postClarification(item.id, input.value);
+  });
+  row.append(pill, summary, input, send);
+  return row;
+}
+
+async function postClarification(id, text) {
+  if (!text || !text.trim()) return;
+  await fetch("/api/clarifications/" + encodeURIComponent(id) + "/answer", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({text})
+  });
+  loadState();
+}
+
+function renderApprovals(items) {
+  const box = $("attention-approvals");
+  box.replaceChildren();
+  (items || []).forEach((item) => box.appendChild(attentionRow(item)));
+}
+
+function renderClarifications(items) {
+  const box = $("attention-clarifications");
+  const pending = (items || []).filter((item) => item.status === "pending");
+  const live = {};
+  pending.forEach((item) => {
+    live[item.id] = true;
+  });
+  [...box.querySelectorAll("[data-clar-id]")].forEach((input) => {
+    if (!live[input.dataset.clarId]) input.closest(".att-row").remove();
+  });
+  pending.forEach((item) => {
+    if (!box.querySelector("[data-clar-id=\"" + item.id + "\"]")) {
+      box.appendChild(clarificationRow(item));
+    }
+  });
+}
+
+function renderAttention(data) {
+  renderApprovals(data.approvals);
+  renderClarifications(data.clarifications);
+}
+
+async function loadState() {
+  try {
+    const res = await fetch("/api/state", {cache: "no-store"});
+    if (!res.ok) throw new Error("offline");
+    const data = await res.json();
+    $("error").textContent = "";
+    renderChrome(data);
+    renderBoard(data);
+    renderAttention(data);
+    renderWork(data);
+    renderChat(data);
+  } catch (_) {
+    $("error").textContent = "Swarm disconnected";
+  }
+}
+
+function closeNewTask() {
+  $("new-task-layer").classList.remove("open");
+}
+
+async function submitNewTask() {
+  const name = $("nt-name").value.trim();
+  const text = $("nt-text").value;
+  if (!name) return;
+  const res = await fetch("/api/tasks", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({name, text})
+  });
+  if (!res.ok) {
+    let msg = "Could not create task";
+    try {
+      const body = await res.json();
+      msg = body.error || msg;
+    } catch (_) {}
+    alert(msg);
+    $("nt-name").focus();
+    return;
+  }
+  $("nt-name").value = "";
+  $("nt-text").value = "";
+  closeNewTask();
+  loadState();
+}
+
+async function deleteTask(name) {
+  if (!name) return;
+  await fetch("/api/tasks/delete", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({name})
+  });
+  loadState();
+}
+
+let rejectApprovalId = "";
+let rejectHasComments = false;
+function closeRejectDialog() {
+  $("reject-layer").classList.remove("open");
+  rejectApprovalId = "";
+  rejectHasComments = false;
+}
+
+function openRejectDialog(item) {
+  rejectApprovalId = item && item.id ? item.id : "";
+  rejectHasComments = hasRemedialComments(item);
+  $("rt-title").textContent = (item && item.task) || "Rejected task";
+  $("rt-text").value = "";
+  $("reject-layer").classList.add("open");
+}
+
+async function retryRejected() {
+  if (!rejectApprovalId) return;
+  await fetch("/api/tasks/retry", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({id: rejectApprovalId, comments: $("rt-text").value})
+  });
+  closeRejectDialog();
+  loadState();
+}
+
+async function deleteRejected() {
+  if (!rejectApprovalId) return;
+  await fetch("/api/tasks/delete", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({id: rejectApprovalId})
+  });
+  closeRejectDialog();
+  loadState();
+}
+
+async function acceptRejected() {
+  if (!rejectApprovalId) return;
+  if (rejectHasComments && !confirm("Remedial comments will be ignored.")) return;
+  await fetch("/api/approvals/" + encodeURIComponent(rejectApprovalId) + "/approve", {method: "POST"});
+  closeRejectDialog();
+  loadState();
+}
+
+function bindSplitter() {
+  const split = document.querySelector(".splitter");
+  const body = document.querySelector(".body");
+  if (!split || !body) return;
+  split.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    const move = (e) => {
+      const rect = body.getBoundingClientRect();
+      const width = Math.max(220, Math.min(rect.width - 180, rect.right - e.clientX));
+      document.documentElement.style.setProperty("--rail", width + "px");
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  });
+}
+
+let firstPaint = true;
+function chatToEnd() {
+  const history = $("chat-history");
+  history.scrollTop = history.scrollHeight;
+}
+
+function chatTurn(item) {
+  const wrap = document.createElement("div");
+  wrap.dataset.chatId = item.id || "";
+  const you = document.createElement("div");
+  you.className = "bubble-you";
+  you.textContent = item.body || "";
+  wrap.appendChild(you);
+  if (item.response) {
+    const reply = document.createElement("div");
+    reply.className = "bubble-ts";
+    reply.textContent = item.response;
+    wrap.appendChild(reply);
+  }
+  return wrap;
+}
+
+function renderChat(data) {
+  const history = $("chat-history");
+  const items = data.chat || [];
+  const nearEnd = firstPaint
+    || (history.scrollHeight - history.scrollTop - history.clientHeight) <= 64;
+  const live = {};
+  items.forEach((item) => {
+    live[item.id] = true;
+  });
+  [...history.querySelectorAll("[data-chat-id]")].forEach((el) => {
+    if (!live[el.dataset.chatId]) el.remove();
+  });
+  items.forEach((item) => {
+    let wrap = history.querySelector("[data-chat-id=\"" + item.id + "\"]");
+    if (!wrap) {
+      history.appendChild(chatTurn(item));
+      return;
+    }
+    const reply = wrap.querySelector(".bubble-ts");
+    if (item.response && !reply) {
+      const next = document.createElement("div");
+      next.className = "bubble-ts";
+      next.textContent = item.response;
+      wrap.appendChild(next);
+    } else if (item.response && reply && reply.textContent !== item.response) {
+      reply.textContent = item.response;
+    }
+  });
+  if (nearEnd) {
+    chatToEnd();
+    requestAnimationFrame(chatToEnd);
+  }
+  firstPaint = false;
+}
+
+async function sendChat() {
+  const text = $("chat-input").value.trim();
+  if (!text) return;
+  await fetch("/api/chat", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({text})
+  });
+  $("chat-input").value = "";
+  loadState();
+}
+
+async function teardownSwarm() {
+  if (!confirm("Stop this swarm? Agent sessions and tmux windows will be terminated. Project files stay on disk.")) return;
+  const btn = $("teardown-btn");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Tearing down…";
+  }
+  try {
+    await fetch("/api/teardown", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({confirm: "TEARDOWN"})
+    });
+    $("pack-meta").textContent = "Swarm teardown started — this page will go offline.";
+  } catch (_) {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Teardown";
+    }
+  }
+}
+
+$("btn-new-task").onclick = () => $("new-task-layer").classList.add("open");
+$("nt-cancel").onclick = closeNewTask;
+$("nt-ok").onclick = submitNewTask;
+$("rt-delete").onclick = deleteRejected;
+$("rt-retry").onclick = retryRejected;
+$("rt-accept").onclick = acceptRejected;
+bindSplitter();
+$("teardown-btn").onclick = teardownSwarm;
+$("chat-input").addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    sendChat();
+  }
+});
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".menu")) {
+    document.querySelectorAll(".menu.open").forEach((el) => {
+      el.classList.remove("open");
+      if (el.dataset.docId) openDocMenus.delete(el.dataset.docId);
+    });
+  }
+  const btn = event.target.closest("[data-open-agent]");
+  if (!btn) return;
+  const role = btn.getAttribute("data-open-agent");
+  if (role) openAgentWindow("/agent/" + encodeURIComponent(role), "agent-" + role);
+});
+loadState();
+setInterval(loadState, 2000);
+</script>
+</body>
+</html>
