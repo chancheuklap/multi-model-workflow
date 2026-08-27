@@ -93,3 +93,24 @@
 | 失败词汇 | `ALL MET` 关票；`HANDOFF REQUIRED` 不关票、`ready-for-agent → ready-for-human`；`ABANDON: AC<n> <failed|blocked|impossible|decision> <理由>`；sub-issue 带 `needs-triage`；开工 `--add-assignee @me` |
 
 下一步：`to-spec`。
+
+## 第三轮调查结果（2026-08-28）
+
+| 项 | 文件 | 结论 |
+| --- | --- | --- |
+| UI 验收实验 | `prototypes/code-landing/ui-gate/EXP/README.md` | **可行。** 下载回来的 Claude Design 页离线可渲染（本地化 `support.js` 从 unpkg 取的 React/ReactDOM/Babel 三个脚本）；ARIA 树经三条归一化（去 generic/group、去 landmark 名、提升嵌套 `main`）后与 React 实现 diff 为 0；像素差 0.027%/0.044%（只是字形抗锯齿）；负控制（错误场景）23–29% 像素、28 行树差，被抓住。默认阈值定 1%。未覆盖：非默认场景要靠 props 而非 URL 切换 |
+| Herdr 派发模型 | `09-herdr-dispatch-model.md` | Herdr 只负责起会话、发 prompt、看生命周期；**没有完成信号**，"做完"= 票状态（关票或 `HANDOFF REQUIRED` 评论）+ agent idle。派发词最小形态"技能名 + 票号"，前提是 cwd 在票的 worktree、`gh` 已登录、权限参数随 `agent start -- <args>`。子代理对 Herdr 不可见。**冲突**：定案"verifier 是编排会话的子代理"在白天手工场景没有对象、在夜间场景要求 worker 停下等握手；verifier 作为运行 `implement` 的那个会话的子代理则两个场景同一份流程（§5.3–§6） |
+| 上次尝试尸检 | `10-previous-attempt-postmortem.md` | 19 小时、34 个提交、77 文件 5345 行、无一张真实代码票即合 main；hook 事件注给了不该拿工人纪律的那组；纪律两处存放；关卡镜像文件重新引入漂移；抄参考漏了消费端、三态压两态、逐字校验全绿但无效；技能写成带出处的中文说明书。§5 十条"不能再犯"；§6 标出本轮可能漏项：交接前自审、每票派给哪个宿主/模型、新词集中定义 |
+
+### 第三轮之后的定案
+
+| 议题 | 决定 |
+| --- | --- |
+| verifier 的父会话 | 运行 `implement` 的那个会话派 verifier 子代理（白天手工、夜间 Herdr 派发同一份流程）；编排会话只读票上的 `VERDICT` 行。不能派子代理时按 `06` §6 降级为 `self-reported` |
+| 交接前自审 | 采 unlazy "Audit the final report"：写收尾评论前重读票全文与 `Read first` 每项，把每条验收标准追到 `EVIDENCE:`，`Counts:` 重数后填；不做 swarm-forge 二次调用 |
+| UI 验收阈值 | ARIA 树 diff = 0；像素 ≤ 1%（Testing Decisions 可改）；工具自带负控制，负控制不过则不信任本次结果 |
+| 新词定义 | 进入 spec 阶段时由 `grill-with-docs`/`domain-modeling` 建根 `CONTEXT.md`，全英文术语（`Owns`、`CHECK`/`EXPECT`/`EVIDENCE`、`MANUAL`、`ABANDON` 四个 kind、`ALL MET`/`HANDOFF REQUIRED`、`VERDICT` 五级） |
+| 技能正文纪律（沿用上次裁决） | 一律英文；不写出处、不写落地记录；每个角色的纪律只写在它自己的定义文件里 |
+| 落地节奏（沿用尸检 §5） | 一次一份 spec、一组机制；没有一张真实代码票从头跑到尾不合 main；抄机制先列消费者 |
+
+仍要用户定：**每张票派给哪个宿主、哪个模型，写在哪里**（上次的 `models.md` 六角色表与初/高级定级都已删；本轮定案未承接）。
