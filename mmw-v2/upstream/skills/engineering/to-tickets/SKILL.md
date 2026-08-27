@@ -73,7 +73,7 @@ Do NOT close or modify any parent issue.
 
 ### 6. Read every ticket back
 
-Publishing is where tickets get mixed up — a title paired with the wrong body, a blocker written as a name instead of a number. After publishing, open each ticket again (on a real tracker, fetch it; locally, read the file) and check:
+After publishing, open each ticket again (on a real tracker, fetch it; locally, read the file) and check:
 
 - The title and **What to build** describe the same slice.
 - Every entry under **Blocked by** is an identifier that resolves to one of this batch's tickets, and the ticket it resolves to is the one meant.
@@ -128,8 +128,8 @@ Where this ticket is verified: the test layer and directory from the spec's Test
 
 ## Blocked by
 
-- The issue number of each blocking ticket (never a name or an ordinal like "S2-4"), or "None — can start immediately". On a tracker with native blocking links, add the same edges there too.
+- The issue number of each blocking ticket, or "None — can start immediately". On a tracker with native blocking links, add the same edges there too.
 
 </issue-template>
 
-In either form, avoid implementation file paths or code snippets — they go stale fast. Paths to source material and test directories are required, not forbidden. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts — not a working demo, just the important bits.
+In either form, avoid implementation file paths or code snippets — they go stale fast; paths to source material and test directories stay. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts — not a working demo, just the important bits.

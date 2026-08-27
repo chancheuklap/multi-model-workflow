@@ -47,7 +47,7 @@ This list of user stories should be extremely extensive and cover all aspects of
 
 ## Implementation Decisions
 
-The implementation decisions that were made, grouped into numbered subsections (`### 1. …`, `### 2. …`) so that tickets can point at "section 5" instead of quoting. Each subsection can cover:
+The implementation decisions that were made, grouped into numbered subsections (`### 1. …`, `### 2. …`) that tickets point at by number. Each subsection can cover:
 
 - The modules that will be built/modified
 - The interfaces of those modules that will be modified
@@ -57,9 +57,9 @@ The implementation decisions that were made, grouped into numbered subsections (
 - API contracts
 - Specific interactions
 
-**Every decision names where it came from**, at the end of the sentence or table row that states it: a decision ticket number, an ADR id, a research or prototype path, a user-story number. A decision with no source is written as "this spec's decision" (and, where the user confirmed it, say so). A reader must be able to tell a decision that was settled upstream from one that was settled while writing this spec.
+**Every decision names where it came from**, at the end of the sentence or table row that states it: a decision ticket number, an ADR id, a research or prototype path, a user-story number. A decision with no source is written as "this spec's decision" (and, where the user confirmed it, say so).
 
-Do NOT include implementation file paths (the module you will edit, the function you will add) or code snippets. They may end up being outdated very quickly. Paths to source material — ADRs, research files, prototype directories, domain docs, test directories, shared contract locations — are required, not forbidden: they are what the tickets and the implementer read from.
+Do NOT include implementation file paths (the module you will edit, the function you will add) or code snippets. They may end up being outdated very quickly. Paths to source material — ADRs, research files, prototype directories, domain docs, test directories, shared contract locations — are what the tickets and the implementer read from: write them.
 
 Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it within the relevant decision and note briefly that it came from a prototype. Trim to the decision-rich parts — not a working demo, just the important bits.
 
