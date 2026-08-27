@@ -108,7 +108,7 @@ worktree 是仓库的完整副本，根目录的 `AGENTS.md` 和 `docs/agents/` 
 
 - `agent prompt --wait` / `agent wait` 在第一个稳定态返回。`implement` 是一个长回合，回合结束就 idle / done，`--wait` 会在那时返回；但回合也可能提前结束——agent 在正文里问了问题就停（idle，不是 blocked）、agent 崩了、宿主自己中断——这些同样是「稳定态」。
 - `blocked` 能区分「停在审批 / 提问对话框」；`unknown` 什么都不证明（`SKILL.md:58`）。
-- 没有推送机制。`herdr notification` 只有 `notification show <title>`（`herdr notification` 清单），是给人看的桌面通知，不是回调。
+- CLI 没有推送机制（`herdr notification show` 是给人看的桌面通知）；socket API 的 `events.subscribe` 能实时推送 `pane.agent_status_changed`（§7 实测），是唯一的推送通道，但推的仍是生命周期状态。
 
 ### 3.2 靠什么判断
 
@@ -180,14 +180,29 @@ worktree 是仓库的完整副本，根目录的 `AGENTS.md` 和 `docs/agents/` 
 6. **`herdr agent start` 依赖宿主的 Herdr integration**（§1.1 倒数第二行）。没装 hook 的宿主 `agent_session` 为空，§4.2 的 transcript 路径就接不上。换机器时要 `herdr integration install <kind>`。
 7. **`--wait` 的语义**。旧 spec `landing-orchestrator.md:81` 的「Further Notes」已指出 `agent prompt --wait` 等的是稳定态而非单轮完成；本文 §3.1 复核仍成立。凡是把 `--wait` 返回当「做完」的设计都要改成 §3.2 的合看。
 
-## 7. 未读、未确定
+## 7. 实测（2026-08-28，herdr 0.8.2，本会话所在的 Herdr 会话）
 
-- 未确定：命名后 `herdr api snapshot` / `agent list` 里 `name` 字段的名字与位置（本次没有命名过的活 agent）。
-- 未确定：Grok Build、Cursor、Codex 能否在启动时设宿主侧会话名；Grok `-r` 按 title 匹配意味着有 title，设法未查。
+实验：在本 tab 右侧分一个 pane，`herdr agent start probe1 --kind claude --pane <id> -- -n probe1 --model haiku`；另用 `herdr worktree create --cwd "$PWD" --branch probe-herdr-wt --no-focus` 开一个 worktree 工作区，在其根 pane 用带初始 prompt 的参数启动 `probe2`；用 python 直连 `$HERDR_SOCKET_PATH` 订阅 `pane.agent_status_changed`。做完后 `/exit` 两个 agent、`pane close`、`worktree remove`、删分支，全部清理。
+
+| 问题 | 结果 |
+| --- | --- |
+| `agent start` 返回什么 | 3.97 秒返回 `type: agent_started`，`.result.agent` 含 `name: "probe1"`、`interactive_ready: true`、`agent_status: idle`、`agent_session.value`（session id）、`terminal_title_stripped: "probe1"`（`-n` 生效）、`argv`（Herdr 实际执行的命令行） |
+| `agent list` 有没有 `name` | 有：`agent start` 命名的 agent 在 `agent list` / `agent get` 里带 `name` 字段；手工启动的没有该字段 |
+| 带初始 prompt 启动 | `herdr agent start probe2 … -- -n probe2 --model haiku "<prompt>"` 4.8 秒返回 `idle`，argv 里带着 prompt；agent 已把回复做完（transcript 里最后一条 assistant 文本是 `PONG2`）。可用，但 `agent start` 的返回不等回复完成 |
+| `agent prompt --wait` 返回什么 | 3.1 秒返回 `type: agent_prompted`，`.result.agent.agent_status: "done"`，`.result.wait: null`。因为 pane 没被看过，是 `done` 不是 `idle` |
+| 事件订阅 | `events.subscribe` 订 `{"type":"pane.agent_status_changed","pane_id":…}` 后，每次状态变化实时推一行：`working`（发 prompt 后 2 秒）→ `done`（再 2 秒）；提问时 `working` → `blocked` → 按 esc 后 `done`；agent 退出后 `agent_status: "unknown"` 且无 `agent` 字段。**这是 CLI 没暴露的推送通道**，一个订阅进程能同时盯多个 pane |
+| 正文里提问（不用工具）后停下 | `--wait` 照样返回 `done`；只有读屏能看到 `⏺ Which colour do you prefer?`。证实 §3.1：`done` 不等于做完 |
+| `blocked` | `AskUserQuestion` 弹出后 `agent wait --until blocked` 3 秒命中；`agent explain` 给出规则 `live_blocked_form`；此时 `agent prompt` 被拒 `agent_blocked`；`send-keys esc` 后回到 `done` |
+| 读回复 | `agent read --source recent-unwrapped --lines 40` 只看到提示框（alt-screen）；`--lines 200` 触发滚动读取，能读到 `❯ prompt` / `⏺ PONG` / `✻ … done`。probe2 同样参数读不到它的初始回复（启动即回答，历史被压到更早），改从磁盘 transcript 读到 `PONG2` |
+| transcript 路径 | 按 §4.2 公式推算的两个路径都存在：主仓 cwd → `~/.claude/projects/-Users-cheuklapchan-multi-model-workflow/<id>.jsonl`；worktree cwd → `~/.claude/projects/-Users-cheuklapchan--herdr-worktrees-multi-model-workflow-probe-herdr-wt/<id>.jsonl` |
+| `worktree create` 返回 | `type: worktree_created`，含新 `workspace`（带 `worktree` 出处：`checkout_path`、`repo_root`、`is_linked_worktree`）、`tab`、`root_pane`（`pane_id` 可直接给 `agent start`）、`worktree`（`branch`、`path`、`open_workspace_id`）。默认路径 `~/.herdr/worktrees/<repo>/<branch>`，分支从当前 HEAD 建。`worktree remove --workspace <id>` 返回 `worktree_removed`，不删分支 |
+| 完成信号 | 没有"任务完成"事件；能拿到的最细粒度是 `pane.agent_status_changed` 推送 + `terminal_title` 变化（`◐` working / `✳` idle 是 Claude 的 OSC 标题，`agent explain` 的 `osc_title_working` 规则用它） |
+
+## 8. 未读、未确定
+
+- 未测：Grok、Cursor、Codex 能否在启动时设宿主侧会话名；这三家 `agent start` 的就绪检测与 `--wait` 表现（本次只测了 Claude Code）。
+- 未测：`done` → `idle` 的"被看过"转换（`agent focus` 会抢用户焦点，没做）。
 - 未确定：Codex、Cursor、pi 里用户显式调用技能的语法；Codex 与 Cursor 是否读仓库根 `AGENTS.md`。
-- 未实测：`agent start -- "<prompt>"` 带初始 prompt 启动时，Herdr 的就绪检测（`SKILL.md:120`）怎么表现。
-- 未实测：`herdr worktree create` 的返回结构（是否连带创建 workspace、返回哪些 ID）；`SKILL.md:88` 只写了 `workspace create` / `tab create` / `pane split` 的返回。
-- 未确定：Cursor `create-chat` 返回的 ID 能否用 `--resume <id>` 开成一个可派的会话。
-- 未确定：哪些宿主默认在 alternate screen 上运行（影响 §1.5 第一种来源）；`grok --help`、`codex --help` 有 `--no-alt-screen`，Claude、Cursor、pi 未查。
-- 旧 `headless-cli-matrix.md` 的无头参数在当前版本仍存在（`claude -p`、`grok -p/--single`、`codex exec`、`cursor-agent -p`、`pi -p`；会话续用 `claude --resume`、`codex exec resume [SESSION_ID]`、`cursor-agent --resume`、`grok -r`、`pi --session-id`），但无头路径与本文无关：定案是 Herdr 拉起的交互会话；`ADR 0020:18` 当时否决无头的理由（卡在提问界面只能挂死）在机制上仍成立。
-- 未读：Herdr 官方文档 `https://herdr.dev/llms.txt` 与 `agent-guide.md`（`herdr --help` 末尾列出）；本文只依据本机技能文件、命令清单和实测输出。
+- 未确定：`pane process-info --pane <id>` 对 agent pane 返回了 `shell_pid: null`、空 `foreground_processes`，原因未查。
+- 未读：`terminal session observe`（只读实时帧流）能否替代 alt-screen 读取；`herdr.dev/llms-full.txt`。
+- 旧 `headless-cli-matrix.md` 的无头参数在当前版本仍存在，但与本文无关：定案是 Herdr 拉起的交互会话；`ADR 0020:18` 当时否决无头的理由（卡在提问界面只能挂死）在机制上仍成立。
