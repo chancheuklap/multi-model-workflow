@@ -79,3 +79,17 @@
 - Claude Design 项目文件可整体读回：`.dc.html`、`styles/`、`data/`、`support.js`（变色龙项目 `638b3e81…` 的 `list_files` 实测 21 个文件）。基线 = 下载回叶子目录的整个目录，静态服务即可渲染；像素工具截 `#dc-root`（`05` §6.4 的未定项由此定）。
 - `playwright-cli` 能截图、能 diff ARIA snapshot，但无 `device_scale_factor`/`reduced_motion` 控制，逐像素比对用 playwright-python（`05` §6.3）。
 - `gh` 2.96.0：`--parent`、`--blocked-by`、`close --reason`、JSON `blockedBy/parent/stateReason` 可用（`08` §5.1）。
+
+## 第二轮之后的定案（2026-08-28）
+
+| 议题 | 决定 |
+| --- | --- |
+| Worker 与 verifier 是谁 | Worker 是 Herdr 拉起的独立会话（可在任一宿主），每票一个 worktree，按阻塞关系决定启动顺序；verifier 是编排会话自己的只读子代理。"票即输入"= Herdr 启动 worker 时喂的提示词 |
+| `Owns:` | 加；路径外改动记在收尾评论 `Outside Owns:` 行，不开 sub-issue |
+| `CHECK:`/`EXPECT:`/`EVIDENCE:` | 加；写不出命令的标 `MANUAL:`，不过半 |
+| verifier 次数 | 只审一次。worker 自跑 → verifier 一次 → 没过的 worker 修并自跑填证据 → 关票；不复审 |
+| ponytail | 收：grep 每个调用方修共用处；写 helper 前先在仓库与 Read first 的 prototype 找现成；加文件/依赖/配置前说出已有的为何不够；安全与"票里明确要求的东西"不许简化；收尾 `skipped: [X], add when [Y]`。不收：原生控件替代自绘、先交懒版本再问、`demo()` 自检、`ponytail:` 注释、交互模式段。措辞写成动作 + 票字段；"逐字复制"改为保留骨架只换对象；用第一张真实票穿行验证 |
+| UI 验收 | 两档自动判定：ARIA 树（去 Claude Design 运行时包裹）diff 必须为零；同场景同窗口截图差异像素 ≤ 3%（默认，Testing Decisions 可改）。没过即 `failed`，worker 修；不产生 `decision`；三张图贴票供人参考。不用 `accepted-diffs.json` |
+| 失败词汇 | `ALL MET` 关票；`HANDOFF REQUIRED` 不关票、`ready-for-agent → ready-for-human`；`ABANDON: AC<n> <failed|blocked|impossible|decision> <理由>`；sub-issue 带 `needs-triage`；开工 `--add-assignee @me` |
+
+下一步：`to-spec`。
