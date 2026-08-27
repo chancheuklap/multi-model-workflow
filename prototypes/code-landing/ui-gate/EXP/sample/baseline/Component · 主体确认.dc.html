@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="stylesheet" href="./styles/tokens.css" />
+        <link rel="stylesheet" href="./styles/product-project-library.css" />
+        <script src="./data/fixtures.js"></script>
+        <style>
+          body { margin: 0; min-height: 100vh; background: #e6e3df; }
+          #dc-root { width: 1440px; height: 900px; margin: 0 auto; overflow: hidden; position: relative; transform: translateZ(0); }
+          #dc-root > * { height: 100%; }
+          .dc-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 50; padding: 10px 16px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; box-shadow: 0 12px 32px rgba(45, 25, 34, 0.25); }
+          .dc-backdrop { position: fixed; inset: 0; background: rgba(40, 25, 32, 0.38); z-index: 40; }
+          .dc-modal { position: fixed; inset: 0; margin: auto; height: fit-content; z-index: 41; }
+          .workspace { height: 100%; }
+          .confirm-canvas { touch-action: none; }
+        </style>
+      </helmet>
+      <section class="workspace" data-screen-label="主体确认">
+        <section class="product-subject-confirm active">
+          <div class="confirm-layout">
+            <aside class="confirm-rail">
+              <div class="confirm-rail-head"><strong class="confirm-rail-head-strong">本组素材</strong><span class="confirm-rail-head-span">{{ progress }}</span></div>
+              <div class="confirm-material-list">
+                <sc-for list="{{ materials }}" as="m" hint-placeholder-count="2">
+                  <button type="button" class="{{ m.cls }}" onClick="{{ m.pick }}">
+                    <span class="confirm-material-span {{ m.artCls }}" style="{{ miniArtStyle }}" aria-hidden="true"></span>
+                    <span class="confirm-material-span"><b class="confirm-material-b">{{ m.name }}</b><span class="confirm-material-span {{ m.stateCls }}">{{ m.stateText }}</span></span>
+                  </button>
+                </sc-for>
+              </div>
+              <div class="confirm-rail-foot">
+                <p class="confirm-rail-foot-p">本组素材确认后，商品主体图将保存到“<span>{{ projectName }}</span>”。</p>
+                <button class="confirm-rail-foot-button" type="button" onClick="{{ openAbandon }}">放弃这次任务</button>
+              </div>
+            </aside>
+            <main class="confirm-stage-wrap">
+              <div class="confirm-stage-bar">
+                <span class="confirm-stage-name">{{ cur.name }}</span>
+                <span class="confirm-stage-dim">{{ cur.dim }}</span>
+                <div class="confirm-stage-tools">
+                  <button class="confirm-tool" type="button" disabled="{{ cur.boundaryMissing }}" title="{{ restoreTitle }}" onClick="{{ restore }}">恢复系统建议</button>
+                  <span class="title-divider" style="margin: 0 4px" aria-hidden="true"></span>
+                  <button class="{{ toggleSubjectCls }}" type="button" onClick="{{ toggleSubject }}"><span class="confirm-tool-swatch subject"></span>商品主体边界</button>
+                  <button class="{{ toggleBrandCls }}" type="button" onClick="{{ toggleBrand }}"><span class="confirm-tool-swatch brand-region"></span>去品牌标记框 <span>{{ brandCount }}</span></button>
+                </div>
+              </div>
+              <div class="confirm-stage">
+                <div class="{{ canvasCls }}" id="confirm-canvas">
+                  <div class="{{ artCls }}" style="{{ artStyle }}"></div>
+                  <div class="{{ maskCls }}">
+                    <span class="subject-mask top" style="{{ maskTop }}"></span><span class="subject-mask bottom" style="{{ maskBottom }}"></span><span class="subject-mask left" style="{{ maskLeft }}"></span><span class="subject-mask right" style="{{ maskRight }}"></span>
+                  </div>
+                  <div class="{{ boundaryCls }}" style="{{ boundaryStyle }}" onPointerDown="{{ boundaryDown }}">
+                    <span class="subject-handle nw" data-boundary-handle="nw"></span><span class="subject-handle n" data-boundary-handle="n"></span><span class="subject-handle ne" data-boundary-handle="ne"></span>
+                    <span class="subject-handle e" data-boundary-handle="e"></span><span class="subject-handle se" data-boundary-handle="se"></span><span class="subject-handle s" data-boundary-handle="s"></span>
+                    <span class="subject-handle sw" data-boundary-handle="sw"></span><span class="subject-handle w" data-boundary-handle="w"></span>
+                  </div>
+                  <div class="{{ brandLayerCls }}" onPointerDown="{{ brandDown }}">
+                    <sc-for list="{{ brands }}" as="b" hint-placeholder-count="1">
+                      <div class="{{ b.cls }}" data-brand-index="{{ b.index }}" style="{{ b.style }}" tabindex="0"><span class="confirm-brand-box-span">{{ b.n }}</span><i class="brand-resize-handle" aria-hidden="true"></i></div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+              <div class="confirm-stage-hint">{{ hint }}</div>
+            </main>
+            <aside class="confirm-panel">
+              <div class="confirm-panel-scroll">
+                <section class="confirm-section">
+                  <div class="confirm-section-head"><strong class="confirm-section-head-strong">商品主体边界</strong></div>
+                  <sc-if value="{{ cur.boundaryMissing }}" hint-placeholder-val="{{ false }}"><p class="confirm-boundary-alert confirm-section-p" role="alert">没有可用的系统建议。请手动框选，或使用整图。</p></sc-if>
+                  <div class="confirm-choice-row">
+                    <button class="{{ useBoundaryCls }}" type="button" onClick="{{ useBoundary }}"><strong class="confirm-choice-strong">{{ useBoundaryLabel }}</strong></button>
+                    <button class="{{ useFullCls }}" type="button" onClick="{{ useFull }}"><strong class="confirm-choice-strong">使用整图</strong></button>
+                  </div>
+                  <sc-if value="{{ isFull }}" hint-placeholder-val="{{ false }}"><p class="confirm-section-p">使用整图时不会裁切商品素材。</p></sc-if>
+                </section>
+                <section class="confirm-section">
+                  <div class="confirm-section-head"><strong class="confirm-section-head-strong">要清除的品牌和 Logo</strong><span class="confirm-section-head-span">{{ brandPanelCount }}</span></div>
+                  <p class="confirm-section-p">框住的品牌字和商标，新图里会去掉。</p>
+                  <div>
+                    <sc-if value="{{ noBrands }}" hint-placeholder-val="{{ false }}"><p class="confirm-section-p">当前没有去品牌标记框。</p></sc-if>
+                    <sc-if value="{{ hasBrands }}" hint-placeholder-val="{{ true }}">
+                      <div class="confirm-mark-list">
+                        <sc-for list="{{ brands }}" as="b" hint-placeholder-count="1">
+                          <div class="confirm-mark-row" onMouseEnter="{{ b.hot }}" onMouseLeave="{{ b.cool }}"><span class="confirm-mark-index">{{ b.n }}</span><span class="confirm-mark-name">标记 {{ b.n }}<em class="confirm-mark-name-em">　{{ b.source }}</em></span><button class="confirm-mark-delete" type="button" onClick="{{ b.remove }}">×</button></div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                  <button class="confirm-add-mark" type="button" onClick="{{ addMark }}">＋ 在图上框一个</button>
+                </section>
+              </div>
+              <footer class="confirm-panel-foot">
+                <button class="btn-secondary" type="button" disabled="{{ prevDisabled }}" onClick="{{ prev }}">上一张</button>
+                <button class="btn-primary" type="button" disabled="{{ nextDisabled }}" onClick="{{ next }}">{{ nextLabel }}</button>
+                <span class="confirm-progress">{{ progress }}</span>
+              </footer>
+            </aside>
+          </div>
+        </section>
+        <sc-if value="{{ abandonOpen }}" hint-placeholder-val="{{ false }}">
+          <div class="dc-backdrop" onClick="{{ keep }}"></div>
+          <div class="subject-abandon-dialog dc-modal" role="dialog" aria-modal="true" data-screen-label="放弃任务弹窗">
+            <div class="subject-abandon-shell">
+              <header class="subject-abandon-shell-header"><h2 class="subject-abandon-shell-h2">{{ abandonTitle }}</h2><p class="subject-abandon-shell-p">{{ abandonDesc }}</p></header>
+              <footer class="subject-abandon-shell-footer">
+                <button class="btn-secondary" type="button" onClick="{{ keep }}">继续确认商品主体</button>
+                <button class="btn-primary subject-abandon-shell-btn-primary" type="button" onClick="{{ confirmAbandon }}">{{ abandonConfirmLabel }}</button>
+              </footer>
+            </div>
+          </div>
+        </sc-if>
+      </section>
+      <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+        <div class="dc-toast" role="status">{{ toast }}</div>
+      </sc-if>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{
+  "$preview": {
+    "width": 1440,
+    "height": 900
+  },
+  "scenario": {
+    "editor": "enum",
+    "default": "subject-boundary-edit",
+    "tsType": "string",
+    "options": [
+      "subject-boundary-edit",
+      "subject-boundary-missing",
+      "subject-full-image",
+      "subject-brand-boxes",
+      "subject-confirm-one",
+      "subject-multiple",
+      "subject-last",
+      "subject-abandon"
+    ]
+  },
+  "newProject": {
+    "editor": "boolean",
+    "default": false,
+    "tsType": "boolean"
+  }
+}'
+    >
+      class Component extends DCLogic {
+        constructor(props) {
+          super(props);
+          this.state = Object.assign({ fx: false, toast: "" }, this.init(props));
+        }
+        componentDidMount() {
+          const tick = () => {
+            if (window.CHAMELEON) { this.setState({ fx: true }, () => this.onReady && this.onReady()); return; }
+            this._w = setTimeout(tick, 50);
+          };
+          tick();
+        }
+        componentWillUnmount() { clearTimeout(this._w); clearTimeout(this._t); this.cleanup && this.cleanup(); }
+        componentDidUpdate(prev) {
+          if (prev.scenario !== this.props.scenario) this.setState(this.init(this.props), () => this.onReady && this.onReady());
+          this.afterUpdate && this.afterUpdate(prev);
+        }
+        toast(msg) {
+          this.setState({ toast: msg });
+          clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: "" }), 2400);
+        }
+        emit(name, detail, fallback) {
+          if (this.props[name]) this.props[name](detail); else this.toast(fallback);
+        }
+        fx() { return window.CHAMELEON || {}; }
+        mat(o) { const b = (o.boundary || [24, 11, 52, 80]).slice(); return { name: o.name, dim: o.dim || "1024 × 1024", art: o.art || "art-cleaner", state: o.state || "pending", boundary: b, originalBoundary: b.slice(), boundaryMissing: Boolean(o.boundaryMissing), boundaryMode: o.boundaryMode === undefined ? "suggested" : o.boundaryMode, brands: (o.brands || []).map(x => x.slice()), brandSources: (o.brandSources || []).slice() }; }
+        init(props) {
+          const sc = props.scenario || "subject-boundary-edit";
+          const primary = this.mat({ name: "营销图 · 商品素材_洗洁精.jpg", art: "art-cleaner", brands: [[38, 24, 24, 9]], brandSources: ["系统建议"] });
+          if (sc === "subject-boundary-missing") Object.assign(primary, { boundaryMissing: true, boundaryMode: null, brands: [], brandSources: [] });
+          if (sc === "subject-full-image") primary.boundaryMode = "full";
+          if (sc === "subject-brand-boxes") { primary.brands = [[38, 24, 24, 9], [31, 68, 38, 10]]; primary.brandSources = ["系统建议", "系统建议"]; }
+          let materials = [primary], index = 0;
+          if (["subject-confirm-one", "subject-multiple", "subject-last"].includes(sc)) {
+            materials = [
+              this.mat({ name: "营销图 · 商品素材_洗洁精.jpg", art: "art-cleaner", state: sc === "subject-confirm-one" ? "pending" : "done", brands: [[38, 24, 24, 9]], brandSources: ["系统建议"] }),
+              this.mat({ name: "场景图 · 商品素材_使用场景.jpg", art: "art-lotion", brands: [[31, 68, 38, 10]], brandSources: ["系统建议"] })
+            ];
+            if (sc === "subject-multiple") materials.push(this.mat({ name: "白底图 · 商品素材_补充角度.jpg", art: "art-tea", brands: [], brandSources: [] }));
+            index = sc === "subject-confirm-one" ? 0 : 1;
+          }
+          return { scenario: sc, materials, index, showSubject: true, showBrand: true, hot: -1, abandonOpen: sc === "subject-abandon" };
+        }
+        onReady() {
+          if (this._bound) return; this._bound = true;
+          this._move = (e) => {
+            const d = this._drag; if (!d) return;
+            const dx = (e.clientX - d.x) / d.rect.width * 100, dy = (e.clientY - d.y) / d.rect.height * 100;
+            const materials = this.state.materials.slice(); const item = Object.assign({}, materials[this.state.index]);
+            if (d.kind === "boundary") {
+              const s = d.start; let l = s[0], t = s[1], r = s[0] + s[2], b = s[1] + s[3]; const c = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+              if (d.dir.includes("w")) l = c(s[0] + dx, 2, r - 12); if (d.dir.includes("e")) r = c(r + dx, l + 12, 98);
+              if (d.dir.includes("n")) t = c(s[1] + dy, 2, b - 12); if (d.dir.includes("s")) b = c(b + dy, t + 12, 98);
+              item.boundary = [l, t, r - l, b - t]; item.boundaryMode = item.boundaryMissing ? "manual" : "suggested";
+            } else {
+              const o = d.start, n = o.slice(); const c = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+              if (d.mode === "move") { n[0] = c(o[0] + dx, 0, 100 - o[2]); n[1] = c(o[1] + dy, 0, 100 - o[3]); } else { n[2] = c(o[2] + dx, 6, 100 - o[0]); n[3] = c(o[3] + dy, 6, 100 - o[1]); }
+              item.brands = item.brands.slice(); item.brands[d.i] = n;
+            }
+            materials[this.state.index] = item; this.setState({ materials });
+          };
+          this._up = () => { this._drag = null; };
+          window.addEventListener("pointermove", this._move); window.addEventListener("pointerup", this._up);
+        }
+        cleanup() { window.removeEventListener("pointermove", this._move); window.removeEventListener("pointerup", this._up); }
+        editCur(fn) { const materials = this.state.materials.slice(); const item = Object.assign({}, materials[this.state.index]); fn(item); materials[this.state.index] = item; this.setState({ materials }); }
+        renderVals() {
+          const fx = this.fx(); const st = this.state; const cur = st.materials[st.index];
+          const project = this.props.newProject ? { name: "晨雾保温杯", id: "PRJ-240806-N01" } : ((fx.projects || [])[0] || { name: "山野净洗洁精", id: "PRJ-240716-C08" });
+          const done = st.materials.filter(m => m.state === "done").length; const progress = done + " / " + st.materials.length;
+          let nextIdx = -1; for (let o = 1; o < st.materials.length; o++) { const i = (st.index + o) % st.materials.length; if (st.materials[i].state !== "done") { nextIdx = i; break; } }
+          const STATE = { done: "已确认", current: "确认中", pending: "待确认" };
+          const [l, t, w, h] = cur.boundary; const pct = v => v + "%";
+          const rect = () => document.getElementById("confirm-canvas").getBoundingClientRect();
+          const isFull = cur.boundaryMode === "full"; const hasMode = Boolean(cur.boundaryMode);
+          return {
+            toast: st.toast, cur, projectName: project.name, progress, miniArtStyle: { "--art-label": "'商品素材'" },
+            materials: st.materials.map((m, i) => { const s = i === st.index ? "current" : m.state; return { name: m.name, cls: "confirm-material" + (i === st.index ? " current" : ""), artCls: "mini-art " + m.art, stateCls: "confirm-material-state " + s, stateText: STATE[s], pick: () => this.setState({ index: i }) }; }),
+            restoreTitle: cur.boundaryMissing ? "当前素材没有系统建议" : "",
+            restore: () => { if (cur.boundaryMissing) return; this.editCur(it => { it.boundary = it.originalBoundary.slice(); it.boundaryMode = "suggested"; }); },
+            toggleSubjectCls: "confirm-tool" + (st.showSubject ? " active" : " muted"), toggleBrandCls: "confirm-tool" + (st.showBrand ? " active" : " muted"),
+            toggleSubject: () => this.setState({ showSubject: !st.showSubject }), toggleBrand: () => this.setState({ showBrand: !st.showBrand }),
+            brandCount: cur.brands.length, brandPanelCount: cur.brands.length ? cur.brands.length + " 处" : "",
+            canvasCls: "confirm-canvas" + (isFull ? " full-image" : ""), artCls: "source-art " + cur.art, artStyle: { "--art-label": "'" + cur.name + "'" },
+            maskCls: (hasMode && st.showSubject) ? "" : "confirm-layer-hidden",
+            maskTop: { height: pct(t) }, maskBottom: { height: pct(Math.max(0, 100 - t - h)) },
+            maskLeft: { top: pct(t), bottom: "auto", width: pct(l), height: pct(h) }, maskRight: { top: pct(t), bottom: "auto", width: pct(Math.max(0, 100 - l - w)), height: pct(h) },
+            boundaryCls: "subject-boundary" + ((hasMode && st.showSubject) ? "" : " confirm-layer-hidden"), boundaryStyle: { left: pct(l), top: pct(t), width: pct(w), height: pct(h) },
+            boundaryDown: (e) => { const hd = e.target.closest("[data-boundary-handle]"); if (!hd || !cur.boundaryMode || cur.boundaryMode === "full") return; this._drag = { kind: "boundary", dir: hd.getAttribute("data-boundary-handle"), x: e.clientX, y: e.clientY, rect: rect(), start: cur.boundary.slice() }; e.preventDefault(); },
+            brandLayerCls: "confirm-brand-layer" + (st.showBrand ? "" : " confirm-layer-hidden"),
+            brandDown: (e) => { const box = e.target.closest(".confirm-brand-box"); if (!box) return; const i = Number(box.getAttribute("data-brand-index")); this._drag = { kind: "brand", mode: e.target.closest(".brand-resize-handle") ? "resize" : "move", i, x: e.clientX, y: e.clientY, rect: rect(), start: cur.brands[i].slice() }; e.preventDefault(); },
+            brands: cur.brands.map((b, i) => ({ index: i, n: i + 1, source: cur.brandSources[i] || "系统建议", cls: "confirm-brand-box" + (st.hot === i ? " hot" : ""), style: { left: pct(b[0]), top: pct(b[1]), width: pct(b[2]), height: pct(b[3]) }, hot: () => this.setState({ hot: i }), cool: () => this.setState({ hot: -1 }), remove: () => this.editCur(it => { it.brands = it.brands.filter((_, k) => k !== i); it.brandSources = it.brandSources.filter((_, k) => k !== i); }) })),
+            noBrands: cur.brands.length === 0, hasBrands: cur.brands.length > 0,
+            addMark: () => this.editCur(it => { it.brands = it.brands.concat([[36, 36, 28, 14]]); it.brandSources = it.brandSources.concat(["手动添加"]); }),
+            hint: isFull ? "当前使用整张商品素材，不裁切。" : hasMode ? "拖动控制点调整商品主体边界，框住整件商品和包装。" : "请先手动框选商品主体，或使用整图。",
+            useBoundaryCls: "confirm-choice" + ((cur.boundaryMode === "suggested" || cur.boundaryMode === "manual") ? " active" : ""), useFullCls: "confirm-choice" + (isFull ? " active" : ""),
+            useBoundaryLabel: isFull ? "恢复框选" : cur.boundaryMissing ? "手动框选" : "框选商品", isFull,
+            useBoundary: () => this.editCur(it => { if (it.boundaryMissing) { it.boundaryMode = "manual"; if (!it.boundary) it.boundary = [12, 12, 76, 76]; } else it.boundaryMode = "suggested"; }),
+            useFull: () => this.editCur(it => { it.boundaryMode = "full"; }),
+            prevDisabled: st.index === 0, prev: () => { if (st.index > 0) this.setState({ index: st.index - 1 }); },
+            nextDisabled: !hasMode, nextLabel: nextIdx < 0 ? "保存商品主体图并确认文案" : "确认这张，下一张",
+            next: () => { if (!hasMode) return; const materials = st.materials.slice(); materials[st.index] = Object.assign({}, cur, { state: "done" }); if (nextIdx >= 0) { this.toast("商品主体图和去品牌标记图已保存。"); this.setState({ materials, index: nextIdx }); return; } this.setState({ materials }); this.emit("onConfirmed", project.id, "→ 进入工作台文案确认 " + project.id); },
+            openAbandon: () => this.setState({ abandonOpen: true }), keep: () => this.setState({ abandonOpen: false }), abandonOpen: st.abandonOpen,
+            abandonTitle: this.props.newProject ? "放弃这次任务并删除新商品项目？" : "放弃这次任务？",
+            abandonDesc: this.props.newProject ? "“" + project.name + "”商品项目会被删除。" : "当前生成任务设置和本次新增的商品主体图会被删除。任务开始前已有的商品主体图会继续保留。",
+            abandonConfirmLabel: this.props.newProject ? "放弃并删除项目" : "放弃这次任务",
+            confirmAbandon: () => { this.setState({ abandonOpen: false }); this.props.newProject ? this.emit("onAbandonToLibrary", project.id, "→ 返回商品项目库（已删除 " + project.name + "）") : this.emit("onAbandonToWorkbench", project.id, "→ 返回商品工作台 " + project.id); }
+          };
+        }
+      }
+    </script>
+  </body>
+</html>

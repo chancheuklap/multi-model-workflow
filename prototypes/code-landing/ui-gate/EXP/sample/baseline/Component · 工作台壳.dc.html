@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="stylesheet" href="./styles/tokens.css" />
+        <link rel="stylesheet" href="./styles/product-workbench.css" />
+        <script src="./data/fixtures.js"></script>
+        <style>
+          body { margin: 0; min-height: 100vh; background: #e6e3df; }
+          #dc-root { width: 1440px; height: 900px; margin: 0 auto; overflow: hidden; position: relative; transform: translateZ(0); }
+          #dc-root > * { height: 100%; }
+          .dc-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 50; padding: 10px 16px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; box-shadow: 0 12px 32px rgba(45, 25, 34, 0.25); }
+          .dc-backdrop { position: fixed; inset: 0; background: rgba(40, 25, 32, 0.38); z-index: 40; }
+          .dc-modal { position: fixed; inset: 0; margin: auto; height: fit-content; z-index: 41; }
+          .wb-shell { height: 100%; display: grid; grid-template-rows: 44px auto 44px minmax(0, 1fr); background: var(--canvas); }
+          .wb-shell-body { background: var(--surface); }
+          .draft-replace-dialog.dc-modal { display: block; }
+        </style>
+      </helmet>
+      <div class="wb-shell" data-screen-label="工作台壳">
+        <section class="project-context-bar" aria-label="当前商品项目">
+          <a class="back-library" href="#" onClick="{{ backLibrary }}">返回商品项目库</a>
+          <div class="active-project"><strong class="active-project-strong">{{ project.name }}</strong><span class="active-project-span">{{ project.id }}</span></div>
+          <div class="project-context-actions">
+            <span class="project-local-fact">项目数据保存在本机</span>
+            <button class="project-delete" type="button" onClick="{{ openDelete }}">删除商品项目</button>
+          </div>
+        </section>
+        <section class="subject-picker" aria-labelledby="subject-picker-title">
+          <div class="subject-picker-copy"><h2 class="subject-picker-copy-h2" id="subject-picker-title">商品主体图库</h2><div class="subject-picker-meta"><span class="subject-picker-guide">拖到下方使用，或在功能图片中直接选择</span><span class="subject-picker-count">已保存 {{ project.subjectCount }} 张</span></div></div>
+          <sc-for list="{{ subjects }}" as="s" hint-placeholder-count="2">
+            <div class="subject-option" draggable="true" role="listitem" onDragStart="{{ s.drag }}" onDragEnd="{{ dragEnd }}"><div class="{{ s.thumbCls }}" aria-hidden="true"></div><span class="subject-option-span"><b class="subject-option-b">{{ s.name }}</b><span class="subject-option-span">{{ s.origin }} · 可拖拽</span></span></div>
+          </sc-for>
+          <button type="button" class="subject-add" disabled="{{ serviceDown }}" onClick="{{ addMaterial }}"><span class="subject-add-span"><b class="subject-add-b">添加新的商品素材</b><span class="subject-add-span">先选择要生成的功能图片，再完成设置和商品主体确认。</span></span></button>
+        </section>
+        <nav class="tabs" role="tablist" aria-label="生成模式">
+          <button class="tab" type="button" role="tab" aria-selected="true">
+            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+            商品主图
+          </button>
+          <button class="tab" type="button" role="tab" aria-selected="false" aria-disabled="true" disabled="{{ true }}" title="商品详情图暂未开放">
+            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg>
+            商品详情图
+            <span class="tab-coming-soon">暂未开放</span>
+          </button>
+          <span class="tab-spacer"></span>
+          <span class="nav-note" role="status" aria-live="polite">{{ note }}</span>
+        </nav>
+        <div class="wb-shell-body"></div>
+        <sc-if value="{{ del }}" hint-placeholder-val="{{ false }}">
+          <div class="dc-backdrop" onClick="{{ closeDelete }}"></div>
+          <div class="draft-replace-dialog dc-modal" role="dialog" aria-modal="true" data-screen-label="删除商品项目">
+            <div class="draft-replace-shell">
+              <header class="draft-replace-head"><h2 class="draft-replace-head-h2">{{ del.title }}</h2><p class="draft-replace-head-p">{{ del.desc }}</p></header>
+              <footer class="draft-replace-foot">
+                <button class="btn" type="button" onClick="{{ closeDelete }}">{{ del.cancel }}</button>
+                <sc-if value="{{ del.confirm }}" hint-placeholder-val="{{ true }}"><button class="{{ del.confirmCls }}" type="button" onClick="{{ confirmDelete }}">{{ del.confirm }}</button></sc-if>
+              </footer>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+      <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+        <div class="dc-toast" role="status">{{ toast }}</div>
+      </sc-if>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{
+  "$preview": {
+    "width": 1440,
+    "height": 900
+  },
+  "scenario": {
+    "editor": "enum",
+    "default": "default",
+    "tsType": "string",
+    "options": [
+      "default",
+      "new-project",
+      "material-added",
+      "service-down",
+      "library-delete-confirm",
+      "library-delete-blocked"
+    ]
+  },
+  "projectId": {
+    "editor": "text",
+    "default": "PRJ-240716-C08",
+    "tsType": "string"
+  },
+  "navNote": {
+    "editor": "text",
+    "default": "",
+    "tsType": "string"
+  }
+}'
+    >
+      class Component extends DCLogic {
+        constructor(props) {
+          super(props);
+          this.state = Object.assign({ fx: false, toast: "" }, this.init(props));
+        }
+        componentDidMount() {
+          const tick = () => {
+            if (window.CHAMELEON) { this.setState({ fx: true }, () => this.onReady && this.onReady()); return; }
+            this._w = setTimeout(tick, 50);
+          };
+          tick();
+        }
+        componentWillUnmount() { clearTimeout(this._w); clearTimeout(this._t); this.cleanup && this.cleanup(); }
+        componentDidUpdate(prev) {
+          if (prev.scenario !== this.props.scenario) this.setState(this.init(this.props), () => this.onReady && this.onReady());
+          this.afterUpdate && this.afterUpdate(prev);
+        }
+        toast(msg) {
+          this.setState({ toast: msg });
+          clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: "" }), 2400);
+        }
+        emit(name, detail, fallback) {
+          if (this.props[name]) this.props[name](detail); else this.toast(fallback);
+        }
+        fx() { return window.CHAMELEON || {}; }
+        init(props) {
+          const sc = props.scenario || "default";
+          return { scenario: sc, delMode: sc === "library-delete-confirm" ? "confirm" : sc === "library-delete-blocked" ? "blocked" : "", note: props.navNote || "从上方拖入商品主体图，或在功能图片中直接选择" };
+        }
+        onReady() { this.setState(this.init(this.props)); }
+        afterUpdate(prev) { if (prev.navNote !== this.props.navNote && this.props.navNote) this.setState({ note: this.props.navNote }); }
+        project() {
+          const wb = this.fx().wb; if (!wb) return { name: "", id: "", subjectCount: 0 };
+          const sc = this.state.scenario;
+          let p = Object.assign({}, wb.projects.find(x => x.id === this.props.projectId) || wb.projects[0]);
+          if (sc === "new-project") p = Object.assign({}, wb.projects[4]);
+          if (sc === "material-added") { p.originalSubjectCount = p.subjectCount; p.hasAddedSubject = true; p.subjectCount += 1; }
+          if (sc === "library-delete-confirm") p.unresolvedBillingCount = 0;
+          if (sc === "library-delete-blocked") p.unresolvedBillingCount = 2;
+          return p;
+        }
+        renderVals() {
+          const wb = this.fx().wb; const p = this.project(); const st = this.state; const serviceDown = st.scenario === "service-down";
+          const subjects = wb ? wb.subjects(p).map(s => ({ name: s.name, origin: s.origin, thumbCls: "product-thumb " + s.thumb, drag: e => { e.dataTransfer.effectAllowed = "copy"; e.dataTransfer.setData("text/product-subject-id", s.id); e.currentTarget.classList.add("dragging"); } })) : [];
+          let del = null;
+          if (st.delMode === "confirm") del = { title: "删除“" + p.name + "”？", desc: "商品主体图、生成任务和项目设置会从本机删除。此操作无法恢复。已导出的图片不会删除。", cancel: "取消", confirm: "删除商品项目", confirmCls: "btn danger" };
+          if (st.delMode === "blocked") del = { title: "暂时不能删除商品项目", desc: "“" + p.name + "”还有 " + p.unresolvedBillingCount + " 笔账务没有收口。处理完成后才能删除。", cancel: "返回商品项目", confirm: "查看账务状态", confirmCls: "btn primary" };
+          if (st.delMode === "billing-status") del = { title: p.unresolvedBillingCount + " 笔账务正在处理", desc: "系统会自动处理。全部收口后，你才能删除这个商品项目。", cancel: "返回商品项目", confirm: "" };
+          return { toast: st.toast, project: p, subjects, serviceDown, note: serviceDown ? "服务配置不完整；已有内容仍可查看" : st.note, del,
+            dragEnd: e => e.currentTarget.classList.remove("dragging"),
+            backLibrary: e => { e.preventDefault(); this.emit("onBackLibrary", null, "→ 返回商品项目库"); },
+            addMaterial: () => this.emit("onAddMaterial", p, "→ 新建商品项目（添加素材）"),
+            openDelete: () => this.setState({ delMode: p.unresolvedBillingCount > 0 ? "blocked" : "confirm" }),
+            closeDelete: () => this.setState({ delMode: "" }),
+            confirmDelete: () => { if (st.delMode === "blocked") { this.setState({ delMode: "billing-status" }); return; } this.setState({ delMode: "" }); this.emit("onDeleted", p, "→ 返回商品项目库（已删除 " + p.name + "）"); } };
+        }
+      }
+    </script>
+  </body>
+</html>

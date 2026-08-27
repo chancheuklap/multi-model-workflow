@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link rel="stylesheet" href="./styles/tokens.css" />
+        <style>
+          html body #dc-root { width: auto; height: auto; margin: 0; overflow: visible; transform: none; }
+          .ov-title { position: absolute; left: 40px; top: 28px; margin: 0; font-family: var(--sans); font-size: 24px; color: var(--ink); }
+          .ov-title small { display: block; margin-top: 6px; font-size: 13px; font-weight: 400; color: var(--muted); }
+          .ov-frame { position: absolute; font-family: var(--sans); }
+          .ov-label { display: flex; align-items: baseline; gap: 10px; height: 30px; cursor: grab; }
+          .ov-label h2 { margin: 0; font-size: 15px; color: var(--ink); }
+          .ov-label span { font-size: 12px; color: var(--muted); }
+          .ov-view { overflow: hidden; border: 1px solid #d9d3cf; border-radius: 8px; background: #fff; box-shadow: 0 6px 24px rgba(45, 25, 34, 0.08); }
+          .ov-scale { width: 1440px; height: 900px; transform: scale(0.5); transform-origin: 0 0; }
+          .ov-scale > .sc-host, .ov-scale > .sc-host > * { width: 1440px; height: 900px; }
+        </style>
+      </helmet>
+      <h1 class="ov-title">变色龙 · 界面块总览<small>「App ·」是整条流程可点通的 app 页，「Component ·」是单个界面块（区域内可点，状态由 Tweaks 切换）。每块按 50% 缩放，可拖动标题移动，可直接点击。</small></h1>
+      <section class="ov-frame" style="left: 40px; top: 120px; width: 720px;" data-screen-label="App · 商品项目库">
+        <header class="ov-label" data-drags-parent="1"><h2>App · 商品项目库</h2><span>app 页 · 项目库侧全流程</span></header>
+        <div class="ov-view" style="height: 450px;"><div class="ov-scale"><dc-import name="App · 商品项目库"></dc-import></div></div>
+      </section>
+      <section class="ov-frame" style="left: 820px; top: 120px; width: 720px;" data-screen-label="App · 商品工作台">
+        <header class="ov-label" data-drags-parent="1"><h2>App · 商品工作台</h2><span>app 页 · 工作台侧全流程</span></header>
+        <div class="ov-view" style="height: 450px;"><div class="ov-scale"><dc-import name="App · 商品工作台"></dc-import></div></div>
+      </section>
+      <section class="ov-frame" style="left: 1600px; top: 120px; width: 720px;" data-screen-label="Component · 壳头">
+        <header class="ov-label" data-drags-parent="1"><h2>Component · 壳头</h2><span>标题栏 / 登录门禁 / 服务状态</span></header>
+        <div class="ov-view" style="height: 450px;"><div class="ov-scale"><dc-import name="Component · 壳头"></dc-import></div></div>
+      </section>
+      <section class="ov-frame" style="left: 40px; top: 666px; width: 720px;" data-screen-label="Component · 项目列表">
+        <header class="ov-label" data-drags-parent="1"><h2>Component · 项目列表</h2><span></span></header>
+        <div class="ov-view" style="height: 450px;"><div class="ov-scale"><dc-import name="Component · 项目列表"></dc-import></div></div>
+      </section>
+      <section class="ov-frame" style="left: 820px; top: 666px; width: 720px;" data-screen-label="Component · 新建商品项目">
+        <header class="ov-label" data-drags-parent="1"><h2>Component · 新建商品项目</h2><span></span></header>
+        <div class="ov-view" style="height: 450px;"><div class="ov-scale"><dc-import name="Component · 新建商品项目"></dc-import></div></div>
+      </section>
+      <section class="ov-frame" style="left: 1600px; top: 666px; width: 720px;" data-screen-label="Component · 主体分析">
+        <header class="ov-label" data-drags-parent="1"><h2>Component · 主体分析</h2><span></span></header>
+        <div class="ov-view" style="height: 450px;"><div class="ov-scale"><dc-import name="Component · 主体分析"></dc-import></div></div>
+      </section>
+      <section class="ov-frame" style="left: 40px; top: 1212px; width: 720px;" data-screen-label="Component · 主体确认">
+        <header class="ov-label" data-drags-parent="1"><h2>Component · 主体确认</h2><span></span></header>
+        <div class="ov-view" style="height: 450px;"><div class="ov-scale"><dc-import name="Component · 主体确认"></dc-import></div></div>
+      </section>
+      <section class="ov-frame" style="left: 820px; top: 1212px; width: 720px;" data-screen-label="Component · 自由模式">
+        <header class="ov-label" data-drags-parent="1"><h2>Component · 自由模式</h2><span></span></header>
+        <div class="ov-view" style="height: 450px;"><div class="ov-scale"><dc-import name="Component · 自由模式"></dc-import></div></div>
+      </section>
+      <section class="ov-frame" style="left: 1600px; top: 1212px; width: 720px;" data-screen-label="Component · 设置">
+        <header class="ov-label" data-drags-parent="1"><h2>Component · 设置</h2><span></span></header>
+        <div class="ov-view" style="height: 450px;"><div class="ov-scale"><dc-import name="Component · 设置"></dc-import></div></div>
+      </section>
+      <section class="ov-frame" style="left: 40px; top: 1758px; width: 720px;" data-screen-label="Component · 欠费门禁">
+        <header class="ov-label" data-drags-parent="1"><h2>Component · 欠费门禁</h2><span></span></header>
+        <div class="ov-view" style="height: 450px;"><div class="ov-scale"><dc-import name="Component · 欠费门禁"></dc-import></div></div>
+      </section>
+      <section class="ov-frame" style="left: 820px; top: 1758px; width: 720px;" data-screen-label="Component · 工作台壳">
+        <header class="ov-label" data-drags-parent="1"><h2>Component · 工作台壳</h2><span>项目上下文 / 主体图库 / 页签</span></header>
+        <div class="ov-view" style="height: 450px;"><div class="ov-scale"><dc-import name="Component · 工作台壳"></dc-import></div></div>
+      </section>
+      <section class="ov-frame" style="left: 1600px; top: 1758px; width: 720px;" data-screen-label="Component · 任务队列">
+        <header class="ov-label" data-drags-parent="1"><h2>Component · 任务队列</h2><span></span></header>
+        <div class="ov-view" style="height: 450px;"><div class="ov-scale"><dc-import name="Component · 任务队列"></dc-import></div></div>
+      </section>
+      <section class="ov-frame" style="left: 40px; top: 2304px; width: 720px;" data-screen-label="Component · 原图设置">
+        <header class="ov-label" data-drags-parent="1"><h2>Component · 原图设置</h2><span></span></header>
+        <div class="ov-view" style="height: 450px;"><div class="ov-scale"><dc-import name="Component · 原图设置"></dc-import></div></div>
+      </section>
+      <section class="ov-frame" style="left: 820px; top: 2304px; width: 720px;" data-screen-label="Component · 文案确认">
+        <header class="ov-label" data-drags-parent="1"><h2>Component · 文案确认</h2><span></span></header>
+        <div class="ov-view" style="height: 450px;"><div class="ov-scale"><dc-import name="Component · 文案确认"></dc-import></div></div>
+      </section>
+      <section class="ov-frame" style="left: 1600px; top: 2304px; width: 720px;" data-screen-label="Component · 任务详情">
+        <header class="ov-label" data-drags-parent="1"><h2>Component · 任务详情</h2><span></span></header>
+        <div class="ov-view" style="height: 450px;"><div class="ov-scale"><dc-import name="Component · 任务详情"></dc-import></div></div>
+      </section>
+      <section class="ov-frame" style="left: 40px; top: 2850px; width: 720px;" data-screen-label="Component · 门禁一">
+        <header class="ov-label" data-drags-parent="1"><h2>Component · 门禁一</h2><span></span></header>
+        <div class="ov-view" style="height: 450px;"><div class="ov-scale"><dc-import name="Component · 门禁一"></dc-import></div></div>
+      </section>
+      <section class="ov-frame" style="left: 820px; top: 2850px; width: 720px;" data-screen-label="Component · 门禁二">
+        <header class="ov-label" data-drags-parent="1"><h2>Component · 门禁二</h2><span></span></header>
+        <div class="ov-view" style="height: 450px;"><div class="ov-scale"><dc-import name="Component · 门禁二"></dc-import></div></div>
+      </section>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{}'>
+      class Component extends DCLogic {
+        renderVals() { return {}; }
+      }
+    </script>
+  </body>
+</html>

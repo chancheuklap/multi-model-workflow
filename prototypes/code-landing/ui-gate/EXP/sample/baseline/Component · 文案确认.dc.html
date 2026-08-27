@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="stylesheet" href="./styles/tokens.css" />
+        <link rel="stylesheet" href="./styles/product-workbench.css" />
+        <script src="./data/fixtures.js"></script>
+        <style>
+          body { margin: 0; min-height: 100vh; background: #e6e3df; }
+          #dc-root { width: 1440px; height: 900px; margin: 0 auto; overflow: hidden; position: relative; transform: translateZ(0); }
+          #dc-root > * { height: 100%; }
+          .dc-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 50; padding: 10px 16px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; box-shadow: 0 12px 32px rgba(45, 25, 34, 0.25); }
+          .dc-backdrop { position: fixed; inset: 0; background: rgba(40, 25, 32, 0.38); z-index: 40; }
+          .dc-modal { position: fixed; inset: 0; margin: auto; height: fit-content; z-index: 41; }
+          .wb-copy { height: 100%; display: grid; grid-template-rows: minmax(0, 1fr); background: var(--surface); }
+          .draft-replace-dialog.dc-modal { display: block; }
+        </style>
+      </helmet>
+      <div class="wb-copy" data-screen-label="文案确认">
+        <sc-if value="{{ drafting }}" hint-placeholder-val="{{ false }}">
+          <section class="{{ drafting.cls }}" aria-label="文案草拟">
+            <div class="copy-drafting-layout">
+              <aside class="copy-drafting-rail"><header class="copy-drafting-rail-head"><strong class="copy-drafting-rail-head-strong">功能图片</strong><span class="copy-drafting-rail-head-span">{{ drafting.count }} 项</span></header><div class="copy-drafting-rail-list"><div class="copy-drafting-function current"><div class="{{ drafting.thumbCls }}" aria-hidden="true"></div><span class="copy-drafting-function-span"><b class="copy-drafting-function-b">{{ drafting.name }}</b><span class="copy-drafting-function-span">{{ drafting.subject }}</span><span class="copy-drafting-function-state copy-drafting-function-span">{{ drafting.railState }}</span></span></div></div><p class="copy-drafting-rail-foot">{{ drafting.railFoot }}</p></aside>
+              <main class="copy-drafting-stage">
+                <header class="copy-drafting-stage-head"><strong class="copy-drafting-stage-head-strong">文案草拟</strong><span class="copy-drafting-stage-head-span">{{ drafting.progressText }}</span></header>
+                <div class="copy-drafting-status" role="status" aria-live="polite">
+                  <div class="copy-drafting-preview"><div class="{{ drafting.thumbCls }}" aria-hidden="true"></div><span class="copy-drafting-spinner" aria-hidden="true"></span></div>
+                  <h1 class="copy-drafting-status-h1">{{ drafting.title }}</h1><p class="copy-drafting-status-p">{{ drafting.name }} · {{ drafting.subject }}</p>
+                  <sc-if value="{{ drafting.running }}" hint-placeholder-val="{{ true }}"><div class="copy-drafting-progress" role="progressbar" aria-label="文案草拟进度"><span class="copy-drafting-progress-span"></span></div></sc-if>
+                  <small class="copy-drafting-status-small">{{ drafting.small }}</small>
+                  <sc-if value="{{ drafting.failed }}" hint-placeholder-val="{{ false }}"><div class="copy-drafting-actions"><button class="btn primary" type="button" onClick="{{ retryDrafting }}">重新草拟</button><button class="btn" type="button" onClick="{{ useBlank }}">改为空白填写</button></div></sc-if>
+                </div>
+              </main>
+            </div>
+          </section>
+        </sc-if>
+        <sc-if value="{{ confirm }}" hint-placeholder-val="{{ true }}">
+          <section class="copy-flow" aria-label="文案确认">
+            <div class="copy-flow-body">
+              <aside class="copy-flow-rail">
+                <header class="copy-flow-rail-head"><strong class="copy-flow-rail-head-strong">功能图片</strong><span class="copy-flow-rail-head-span">{{ confirmedSets }} / {{ totalSets }}</span></header>
+                <div class="copy-flow-rail-list">
+                  <sc-for list="{{ rail }}" as="r" hint-placeholder-count="2"><button type="button" class="{{ r.cls }}" onClick="{{ r.pick }}"><div class="{{ r.thumbCls }}" aria-hidden="true"></div><span class="copy-function-button-span"><b class="copy-function-button-b">{{ r.name }}</b><span class="copy-function-button-span">{{ r.subject }}</span><span class="copy-function-button-span {{ r.stateCls }}">{{ r.stateText }}</span></span></button></sc-for>
+                </div>
+                <div class="copy-flow-rail-foot">每张带文案的功能图片都有 {{ setCount }} 套文案。逐套确认后开始生成。</div>
+              </aside>
+              <main class="copy-flow-work">
+                <header class="copy-flow-work-head"><div class="{{ head.thumbCls }}" aria-hidden="true"></div><strong class="copy-flow-work-head-strong">{{ head.name }}</strong><span class="copy-flow-work-head-span">{{ head.subject }}</span><span class="copy-flow-work-head-span">每套一份文案</span><span class="copy-source-badge copy-flow-work-head-span">{{ head.source }}</span></header>
+                <div class="{{ gridCls }}">
+                  <sc-if value="{{ keepNote }}" hint-placeholder-val="{{ false }}"><section class="copy-source-note" aria-label="素材原文说明"><strong class="copy-source-note-strong">已填入素材原文</strong><span class="copy-source-note-span">主标题、副标题和卖点来自你上传的商品素材。系统按识别到的层级填入每一套。请检查识别结果，你可以分别修改。</span></section></sc-if>
+                  <sc-for list="{{ cards }}" as="c" hint-placeholder-count="2">
+                    <article class="{{ c.cls }}">
+                      <header class="copy-set-head"><h3 class="copy-set-head-h3">第 {{ c.n }} 套文案</h3><sc-if value="{{ c.confirmed }}" hint-placeholder-val="{{ false }}"><span class="copy-set-confirmed">已确认</span></sc-if></header>
+                      <div class="copy-set-body">
+                        <div class="copy-field"><div class="copy-field-head"><label class="copy-field-head-label">主标题</label><span class="copy-field-count">{{ c.headlineCount }}</span></div><input class="copy-field-input" value="{{ c.headline }}" onInput="{{ c.setHeadline }}" aria-label="主标题"></div>
+                        <div class="copy-field"><div class="copy-field-head"><label class="copy-field-head-label">副标题</label><span class="copy-field-count">{{ c.subtitleCount }}</span></div><input class="copy-field-input" value="{{ c.subtitle }}" onInput="{{ c.setSubtitle }}" aria-label="副标题"></div>
+                        <div class="copy-field"><div class="copy-field-head"><label class="copy-field-head-label">卖点</label><span class="copy-field-count">{{ c.pointsCount }}</span></div>
+                          <div class="copy-point-list"><sc-for list="{{ c.points }}" as="p" hint-placeholder-count="3"><div class="copy-point-row"><button type="button" class="copy-point-remove" aria-label="删除卖点" onClick="{{ p.remove }}">−</button><input class="copy-field-input copy-point-row-input" value="{{ p.text }}" onInput="{{ p.set }}" aria-label="卖点"><span class="copy-point-count">{{ p.count }}</span></div></sc-for></div>
+                          <button type="button" class="copy-add-point" disabled="{{ c.full }}" onClick="{{ c.addPoint }}">＋ 加一条卖点</button>
+                        </div>
+                      </div>
+                      <sc-if value="{{ c.error }}" hint-placeholder-val="{{ false }}"><p class="copy-card-error" role="alert">{{ c.error }}</p></sc-if>
+                      <footer class="copy-set-foot"><button type="button" class="copy-set-confirm" disabled="{{ c.hasError }}" onClick="{{ c.toggle }}">{{ c.confirmLabel }}</button></footer>
+                    </article>
+                  </sc-for>
+                </div>
+                <footer class="copy-flow-foot">
+                  <div class="{{ statusCls }}" role="status"><strong class="copy-flow-status-strong">{{ statusTitle }}</strong><span class="copy-flow-status-span">{{ statusDetail }}</span></div>
+                  <button class="btn danger-quiet" type="button" onClick="{{ openAbandon }}">放弃这次任务</button>
+                  <button class="btn" type="button" onClick="{{ back }}">{{ backLabel }}</button>
+                  <sc-if value="{{ allConfirmed }}" hint-placeholder-val="{{ false }}"><button class="btn primary" type="button" disabled="{{ serviceDown }}" onClick="{{ submit }}">进入提交确认</button></sc-if>
+                  <sc-if value="{{ notAllConfirmed }}" hint-placeholder-val="{{ true }}"><button class="btn primary" type="button" onClick="{{ nextPending }}">查看下一套</button></sc-if>
+                </footer>
+              </main>
+            </div>
+          </section>
+        </sc-if>
+        <sc-if value="{{ abandon }}" hint-placeholder-val="{{ false }}">
+          <div class="dc-backdrop" onClick="{{ closeAbandon }}"></div>
+          <div class="draft-replace-dialog dc-modal" role="dialog" aria-modal="true" data-screen-label="放弃任务">
+            <div class="draft-replace-shell"><header class="draft-replace-head"><h2 class="draft-replace-head-h2">{{ abandon.title }}</h2><p class="draft-replace-head-p">当前未提交的设置会被删除。商品主体图库不会改变。</p></header><footer class="draft-replace-foot"><button class="btn" type="button" onClick="{{ closeAbandon }}">{{ abandon.keep }}</button><button class="btn danger" type="button" onClick="{{ confirmAbandon }}">放弃这次任务</button></footer></div>
+          </div>
+        </sc-if>
+      </div>
+      <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+        <div class="dc-toast" role="status">{{ toast }}</div>
+      </sc-if>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{
+  "$preview": {
+    "width": 1440,
+    "height": 900
+  },
+  "scenario": {
+    "editor": "enum",
+    "default": "copy-unconfirmed",
+    "tsType": "string",
+    "options": [
+      "copy-unconfirmed",
+      "copy-ready",
+      "copy-blank",
+      "copy-keep-source",
+      "copy-back-subject",
+      "copy-drafting",
+      "copy-drafting-failed",
+      "copy-abandon",
+      "gate-one-return-blocked",
+      "service-down"
+    ]
+  }
+}'
+    >
+      class Component extends DCLogic {
+        constructor(props) {
+          super(props);
+          this.state = Object.assign({ fx: false, toast: "" }, this.init(props));
+        }
+        componentDidMount() {
+          const tick = () => {
+            if (window.CHAMELEON) { this.setState({ fx: true }, () => this.onReady && this.onReady()); return; }
+            this._w = setTimeout(tick, 50);
+          };
+          tick();
+        }
+        componentWillUnmount() { clearTimeout(this._w); clearTimeout(this._t); this.cleanup && this.cleanup(); }
+        componentDidUpdate(prev) {
+          if (prev.scenario !== this.props.scenario) this.setState(this.init(this.props), () => this.onReady && this.onReady());
+          this.afterUpdate && this.afterUpdate(prev);
+        }
+        toast(msg) {
+          this.setState({ toast: msg });
+          clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: "" }), 2400);
+        }
+        emit(name, detail, fallback) {
+          if (this.props[name]) this.props[name](detail); else this.toast(fallback);
+        }
+        fx() { return window.CHAMELEON || {}; }
+        init(props) {
+          const sc = props.scenario || "copy-unconfirmed"; const wb = this.fx().wb; const shots = wb ? wb.mainShots : [];
+          const H = ["清透去油", "厨房净澈", "一抹洁净", "洁净焕新"], S = ["深入瓦解油污", "轻松清洁多区域", "泡沫绵密易冲洗", "日常清洁更省心"], P = [["强力去油", "清洁力强", "不伤厨具", "气味清新"], ["乳化油污", "洗完亮洁", "清洁彻底", "清新柠檬"], ["泡沫细腻", "轻松冲净", "适用多处", "洁净清爽"], ["快速瓦解", "一冲即净", "厨房适用", "清香不腻"]];
+          const blank = sc === "copy-blank"; const keep = sc === "copy-keep-source";
+          const mk = (id, subjectId, copy) => { const s = shots.find(x => x.id === id) || { id, name: id, desc: "" }; return { id: s.id, name: s.name, desc: s.desc, copy, subjectId }; };
+          let items = [mk("marketing", "front", keep ? "keep" : "rewrite"), mk("macro1", "side", "rewrite")]; let setCount = 2; let confirmed = { marketing: [true, false], macro1: [false, false] };
+          if (["copy-ready", "copy-back-subject", "copy-abandon", "gate-one-return-blocked", "service-down"].indexOf(sc) >= 0) { items = [mk("marketing", sc === "copy-back-subject" ? "added" : "front", "rewrite")]; confirmed = { marketing: [true, true] }; }
+          if (blank || keep) { items = [mk("marketing", "front", keep ? "keep" : "rewrite")]; confirmed = { marketing: [false, false] }; }
+          const drafts = {}; items.forEach(it => { drafts[it.id] = Array.from({ length: setCount }, (_, i) => { const k = it.copy === "keep" ? 0 : i % 4; return blank ? { headline: "", subtitle: "", points: [] } : { headline: H[k], subtitle: S[k], points: P[k].slice() }; }); });
+          const project = wb ? Object.assign({}, wb.projects[0], sc === "copy-back-subject" ? { originalSubjectCount: 2, hasAddedSubject: true, subjectCount: 3 } : {}) : {};
+          return { scenario: sc, project, items, setCount, drafts, confirmed, current: items[0].id, copySource: blank ? "none" : "material", returnTarget: sc === "copy-back-subject" ? "subject" : "settings", mode: sc === "copy-drafting" ? "drafting" : sc === "copy-drafting-failed" ? "drafting-failed" : "confirm", abandon: sc === "copy-abandon" ? "plain" : sc === "gate-one-return-blocked" ? "return" : "" };
+        }
+        onReady() { this.setState(this.init(this.props)); }
+        err(d) { const bad = /[!-\/:-@\[-`{-~]/; if (!d.headline.trim()) return "主标题不能空着"; if (d.headline.length > 8) return "主标题最多 8 个字"; if (bad.test(d.headline)) return "主标题不能用半角标点"; if (!d.subtitle.trim()) return "副标题不能空着"; if (d.subtitle.length > 8) return "副标题最多 8 个字"; if (bad.test(d.subtitle)) return "副标题不能用半角标点";
+          for (let i = 0; i < d.points.length; i++) { const p = d.points[i]; if (!p.trim()) return "第 " + (i + 1) + " 条卖点不能空着"; if (p.length > 6) return "第 " + (i + 1) + " 条卖点最多 6 个字"; if (bad.test(p)) return "第 " + (i + 1) + " 条卖点不能用半角标点"; if (d.points.slice(0, i).some(e => e.trim() === p.trim())) return "卖点不能重复"; } return ""; }
+        editDraft(setIndex, fn) { const drafts = {}; Object.keys(this.state.drafts).forEach(k => { drafts[k] = this.state.drafts[k].map(d => Object.assign({}, d, { points: d.points.slice() })); }); fn(drafts[this.state.current][setIndex]); const confirmed = Object.assign({}, this.state.confirmed); confirmed[this.state.current] = confirmed[this.state.current].slice(); confirmed[this.state.current][setIndex] = false; this.setState({ drafts, confirmed }); }
+        renderVals() {
+          const st = this.state; const wb = this.fx().wb; const serviceDown = st.scenario === "service-down"; const subjects = wb ? wb.subjects(st.project) : []; const find = id => subjects.find(s => s.id === id);
+          const curItem = st.items.find(i => i.id === st.current) || st.items[0]; const curSubj = find(curItem.subjectId); const pthumb = st.project.thumb;
+          const sourceLabel = it => st.copySource === "material" ? (it.copy === "keep" ? "使用素材原文" : "AI 改写文案") : st.copySource === "history" ? (it.copy === "keep" ? "沿用所选成图文案" : "根据所选成图再次改写") : "自行填写文案";
+          const totalSets = st.items.length * st.setCount; const confirmedSets = st.items.reduce((t, it) => t + st.confirmed[it.id].filter(Boolean).length, 0); const allConfirmed = totalSets === confirmedSets;
+          const pendingGroups = st.items.map(it => ({ it, nums: st.confirmed[it.id].map((c, i) => c ? 0 : i + 1).filter(Boolean) })).filter(g => g.nums.length);
+          const cards = st.drafts[curItem.id].map((d, i) => { const e = this.err(d); const c = Boolean(st.confirmed[curItem.id][i]); return { n: i + 1, cls: "copy-set-card" + (c ? " confirmed" : ""), confirmed: c, headline: d.headline, subtitle: d.subtitle, headlineCount: d.headline.length + "/8", subtitleCount: d.subtitle.length + "/8", pointsCount: d.points.length + "/8", full: d.points.length >= 8, error: e, hasError: Boolean(e), confirmLabel: c ? "已确认，可继续修改" : "确认这套",
+            setHeadline: ev => this.editDraft(i, x => { x.headline = ev.target.value; }), setSubtitle: ev => this.editDraft(i, x => { x.subtitle = ev.target.value; }), addPoint: () => this.editDraft(i, x => x.points.push("")),
+            points: d.points.map((p, j) => ({ text: p, count: p.length + "/6", set: ev => this.editDraft(i, x => { x.points[j] = ev.target.value; }), remove: () => this.editDraft(i, x => x.points.splice(j, 1)) })),
+            toggle: () => { const confirmed = Object.assign({}, st.confirmed); confirmed[curItem.id] = confirmed[curItem.id].slice(); confirmed[curItem.id][i] = !confirmed[curItem.id][i]; this.setState({ confirmed }); } }; });
+          let drafting = null;
+          if (st.mode !== "confirm") { const failed = st.mode === "drafting-failed"; const cur = Math.min(2, st.setCount); const done = cur - 1; drafting = { cls: "copy-drafting" + (failed ? " failed" : ""), failed, running: !failed, count: st.items.filter(i => i.copy === "rewrite").length, thumbCls: "product-thumb " + (curSubj ? curSubj.thumb : pthumb), name: curItem.name, subject: curSubj ? curSubj.name : "新商品主体", railState: failed ? "草拟失败" : "草拟中 · " + done + "/" + st.setCount, railFoot: failed ? "商品素材、商品主体图和生成任务设置已保留。" : "每张选择 AI 改写的功能图片，会按生成套数草拟文案。全部完成后进入文案确认。", progressText: failed ? "草拟失败" : "进度 " + cur + " / " + st.setCount, title: failed ? "这项文案暂时无法草拟" : "正在草拟第 " + cur + " 套文案", small: failed ? "你可以重新草拟，或者保留当前设置并改为空白填写。" : "第 " + cur + " 套完成后，系统会继续草拟剩余文案。" }; }
+          const abandon = st.abandon ? { title: st.abandon === "return" ? "要修改设置，先放弃这次任务" : "放弃这次任务？", keep: st.abandon === "return" ? "继续确认文案" : "继续这次任务" } : null;
+          return { toast: st.toast, drafting, confirm: st.mode === "confirm", serviceDown,
+            retryDrafting: () => { this.setState({ mode: "drafting" }); this.emit("onNote", "正在重新草拟文案", "正在重新草拟文案"); }, useBlank: () => { const s = this.init({ scenario: "copy-blank" }); this.setState(Object.assign(s, { scenario: st.scenario, mode: "confirm" })); },
+            confirmedSets, totalSets, setCount: st.setCount, allConfirmed, notAllConfirmed: !allConfirmed,
+            rail: st.items.map(it => { const b = find(it.subjectId); const n = st.confirmed[it.id].filter(Boolean).length; const done = n === st.setCount; return { name: it.name, subject: b ? b.name : "新商品主体", cls: "copy-function-button" + (it.id === curItem.id ? " current" : ""), thumbCls: "product-thumb " + (b ? b.thumb : pthumb), stateCls: "copy-function-state" + (done ? " done" : ""), stateText: (done ? "已确认" : it.id === curItem.id ? "确认中" : "待确认") + " · " + n + "/" + st.setCount, pick: () => this.setState({ current: it.id }) }; }),
+            head: { thumbCls: "product-thumb " + (curSubj ? curSubj.thumb : pthumb), name: curItem.name, subject: curSubj ? curSubj.name : "新商品主体", source: sourceLabel(curItem) },
+            gridCls: "copy-set-grid" + (st.setCount === 1 ? " single" : ""), keepNote: curItem.copy === "keep", cards,
+            statusCls: "copy-flow-status" + (allConfirmed ? " ready" : ""), statusTitle: allConfirmed ? "所有文案已确认" : "还有 " + (totalSets - confirmedSets) + " 套文案未确认", statusDetail: allConfirmed ? "可以进入提交确认。" : pendingGroups.map(g => g.it.name + "：第 " + g.nums.join("、") + " 套").join("；"),
+            backLabel: st.returnTarget === "subject" ? "返回商品主体确认" : "返回设置",
+            back: () => { if (st.returnTarget === "subject") { this.emit("onBackSubject", null, "→ 返回商品主体确认"); return; } this.setState({ abandon: "return" }); },
+            nextPending: () => { if (pendingGroups.length) this.setState({ current: pendingGroups[0].it.id }); },
+            submit: () => this.emit("onSubmit", { setCount: st.setCount, items: st.items, drafts: st.drafts }, "→ 打开第二道门"),
+            abandon, openAbandon: () => this.setState({ abandon: "plain" }), closeAbandon: () => this.setState({ abandon: "" }),
+            confirmAbandon: () => { this.setState({ abandon: "" }); this.emit("onAbandoned", null, "→ 回到设置面板（已清空）"); } };
+        }
+      }
+    </script>
+  </body>
+</html>

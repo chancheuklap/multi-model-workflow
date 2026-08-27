@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="stylesheet" href="./styles/tokens.css" />
+        <script src="./data/fixtures.js"></script>
+        <style>
+          body { margin: 0; min-height: 100vh; background: #e6e3df; }
+          #dc-root { width: 1440px; height: 900px; margin: 0 auto; overflow: hidden; position: relative; transform: translateZ(0); }
+          #dc-root > * { height: 100%; }
+          .dc-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 50; padding: 10px 16px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; box-shadow: 0 12px 32px rgba(45, 25, 34, 0.25); }
+          .dc-backdrop { position: fixed; inset: 0; background: rgba(40, 25, 32, 0.38); z-index: 40; }
+          .dc-modal { position: fixed; inset: 0; margin: auto; height: fit-content; z-index: 41; }
+          .stage { min-height: 100%; display: grid; place-items: center; background: var(--canvas); color: var(--ink); font-family: var(--sans); font-size: 13px; }
+          .stage-hint { color: var(--quiet); font-size: 11px; margin-top: 10px; }
+          .draft-replace-dialog {
+            width: min(440px, calc(100vw - 48px));
+            padding: 0;
+            overflow: hidden;
+            border: 1px solid var(--line-strong);
+            border-radius: 14px;
+            background: var(--surface);
+            color: var(--ink);
+            font-family: var(--sans);
+            font-size: 13px;
+            box-shadow: 0 24px 70px rgba(45, 25, 34, 0.22);
+          }
+          .draft-replace-shell { display: grid; }
+          .draft-replace-head { padding: 22px 22px 18px; background: var(--surface); }
+          .draft-replace-head h2 { margin: 0; font-size: 20px; letter-spacing: -0.02em; }
+          .draft-replace-head p { margin: 7px 0 0; color: var(--muted); font-size: 11.5px; line-height: 1.55; }
+          .draft-replace-head p + p { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); color: var(--ink); }
+          .draft-replace-foot { display: flex; justify-content: flex-end; gap: 9px; padding: 14px 22px; border-top: 1px solid var(--line); background: var(--rail); }
+          .billing-debt-facts { margin: 14px 0 0; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; }
+          .billing-debt-facts div { display: grid; grid-template-columns: 96px minmax(0, 1fr); border-bottom: 1px solid var(--line); }
+          .billing-debt-facts div:last-child { border-bottom: 0; }
+          .billing-debt-facts dt, .billing-debt-facts dd { margin: 0; padding: 8px 10px; font-size: 10px; }
+          .billing-debt-facts dt { background: var(--rail); color: var(--quiet); }
+          .billing-debt-facts dd { color: var(--ink); }
+          .billing-debt-facts strong { color: var(--red); }
+          .billing-debt-list { margin-top: 14px; }
+          .billing-debt-list h3 { margin: 0 0 7px; font-size: 11px; }
+          .billing-debt-list article { display: flex; align-items: center; gap: 12px; padding: 9px 10px; border: 1px solid var(--line); border-bottom: 0; background: var(--surface); }
+          .billing-debt-list article:first-of-type { border-radius: 8px 8px 0 0; }
+          .billing-debt-list article:last-of-type { border-bottom: 1px solid var(--line); border-radius: 0 0 8px 8px; }
+          .billing-debt-list article > span { min-width: 0; flex: 1; }
+          .billing-debt-list article strong, .billing-debt-list article small { display: block; }
+          .billing-debt-list article strong { font-size: 10.5px; }
+          .billing-debt-list article small { margin-top: 3px; color: var(--quiet); font-size: 9px; }
+          .billing-debt-list article b { flex: 0 0 auto; color: var(--red); font-size: 10px; }
+          .billing-debt-list-summary { margin: 7px 0 0; color: var(--quiet); font-size: 9px; text-align: right; }
+        </style>
+      </helmet>
+      <sc-if value="{{ standalone }}" hint-placeholder-val="{{ true }}">
+        <div class="stage" data-screen-label="欠费门禁 · 舞台">
+          <div style="text-align:center">
+            <div>钱包余额：<strong>{{ balanceText }}</strong> 鸭豆</div>
+            <button class="btn primary" type="button" style="margin-top:14px" onClick="{{ reopen }}">开始新生成（触发欠费门禁）</button>
+            <div class="stage-hint">这个舞台只在单独查看本块时出现，拼进应用后不显示。</div>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ open }}" hint-placeholder-val="{{ true }}">
+        <div class="dc-backdrop" onClick="{{ later }}"></div>
+        <div class="draft-replace-dialog dc-modal" role="dialog" aria-modal="true" data-screen-label="欠费门禁弹窗">
+          <div class="draft-replace-shell">
+            <header class="draft-replace-head">
+              <h2 class="draft-replace-head-h2">鸭豆余额不足，暂时不能开始新生成</h2>
+              <p class="draft-replace-head-p">共有 {{ debt.count }} 笔已交付图片的费用还没有结清。完成充值后，系统会自动处理。</p>
+              <dl class="billing-debt-facts">
+                <div class="billing-debt-facts-div"><dt class="billing-debt-facts-dt">当前可用</dt><dd class="billing-debt-facts-dd">{{ balanceText }} 鸭豆</dd></div>
+                <div class="billing-debt-facts-div"><dt class="billing-debt-facts-dt">应结清</dt><dd class="billing-debt-facts-dd"><strong class="billing-debt-facts-strong">{{ dueText }} 鸭豆</strong></dd></div>
+                <div class="billing-debt-facts-div"><dt class="billing-debt-facts-dt">还差</dt><dd class="billing-debt-facts-dd"><strong class="billing-debt-facts-strong">{{ shortText }} 鸭豆</strong></dd></div>
+              </dl>
+              <section class="billing-debt-list">
+                <h3 class="billing-debt-list-h3">欠费明细</h3>
+                <sc-for list="{{ debt.entries }}" as="e" hint-placeholder-count="3">
+                  <article class="billing-debt-list-article"><span class="billing-debt-list-span"><strong class="billing-debt-list-strong">{{ e.name }}</strong><small class="billing-debt-list-small">{{ e.note }}</small></span><b class="billing-debt-list-b">{{ e.amount }} 鸭豆</b></article>
+                </sc-for>
+                <p class="billing-debt-list-summary draft-replace-head-p">仅显示最近 {{ entryCount }} 笔，共 {{ debt.count }} 笔</p>
+              </section>
+              <p class="draft-replace-head-p">已有商品项目、历史任务和已交付图片仍可查看与导出。</p>
+            </header>
+            <footer class="draft-replace-foot">
+              <button class="btn" type="button" onClick="{{ later }}">暂不充值</button>
+              <button class="btn primary" type="button" onClick="{{ recharge }}">充值鸭豆</button>
+            </footer>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+        <div class="dc-toast" role="status">{{ toast }}</div>
+      </sc-if>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{
+  "$preview": {
+    "width": 1440,
+    "height": 900
+  },
+  "open": {
+    "editor": "boolean",
+    "default": true,
+    "tsType": "boolean"
+  },
+  "standalone": {
+    "editor": "boolean",
+    "default": true,
+    "tsType": "boolean"
+  }
+}'
+    >
+      class Component extends DCLogic {
+        constructor(props) {
+          super(props);
+          this.state = Object.assign({ fx: false, toast: "" }, this.init(props));
+        }
+        componentDidMount() {
+          const tick = () => {
+            if (window.CHAMELEON) { this.setState({ fx: true }, () => this.onReady && this.onReady()); return; }
+            this._w = setTimeout(tick, 50);
+          };
+          tick();
+        }
+        componentWillUnmount() { clearTimeout(this._w); clearTimeout(this._t); this.cleanup && this.cleanup(); }
+        componentDidUpdate(prev) {
+          if (prev.scenario !== this.props.scenario) this.setState(this.init(this.props), () => this.onReady && this.onReady());
+          this.afterUpdate && this.afterUpdate(prev);
+        }
+        toast(msg) {
+          this.setState({ toast: msg });
+          clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: "" }), 2400);
+        }
+        emit(name, detail, fallback) {
+          if (this.props[name]) this.props[name](detail); else this.toast(fallback);
+        }
+        fx() { return window.CHAMELEON || {}; }
+        init(props) { return { open: props.open ?? true, balance: ((window.CHAMELEON || {}).wallet || {}).balance ?? 20 }; }
+        onReady() { this.setState({ balance: this.fx().wallet.balance }); }
+        afterUpdate(prev) { if (prev.open !== this.props.open && this.props.open !== undefined) this.setState({ open: this.props.open }); }
+        fmt(n) { return Number(n).toLocaleString("zh-CN"); }
+        renderVals() {
+          const fx = this.fx(); const debt = fx.billingDebt || { count: 0, due: 0, entries: [] };
+          const short = Math.max(debt.due - this.state.balance, 0);
+          return {
+            standalone: this.props.standalone ?? true, open: this.state.open, toast: this.state.toast, debt, entryCount: debt.entries.length,
+            balanceText: this.fmt(this.state.balance), dueText: this.fmt(debt.due), shortText: this.fmt(short),
+            reopen: () => this.setState({ open: true }),
+            later: () => { this.setState({ open: false }); this.emit("onLater", null, ""); },
+            recharge: () => { const r = (fx.wallet || {}).rechargedBalance ?? 12480; this.setState({ open: false, balance: r }); this.toast("欠费已结清，可以继续生成"); this.emit("onRecharge", r, ""); }
+          };
+        }
+      }
+    </script>
+  </body>
+</html>

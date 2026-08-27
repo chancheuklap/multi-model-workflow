@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="stylesheet" href="./styles/tokens.css" />
+        <link rel="stylesheet" href="./styles/product-project-library.css" />
+        <script src="./data/fixtures.js"></script>
+        <style>
+          body { margin: 0; min-height: 100vh; background: #e6e3df; }
+          #dc-root { width: 1440px; height: 900px; margin: 0 auto; overflow: hidden; position: relative; transform: translateZ(0); }
+          #dc-root > * { height: 100%; }
+          .dc-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 50; padding: 10px 16px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; box-shadow: 0 12px 32px rgba(45, 25, 34, 0.25); }
+          .dc-backdrop { position: fixed; inset: 0; background: rgba(40, 25, 32, 0.38); z-index: 40; }
+          .dc-modal { position: fixed; inset: 0; margin: auto; height: fit-content; z-index: 41; }
+          .workspace { height: 100%; }
+        </style>
+      </helmet>
+      <section class="workspace" data-screen-label="主体分析">
+        <section class="{{ sectionClass }}">
+          <div class="subject-analysis-layout">
+            <aside class="subject-analysis-rail" aria-label="待分析商品素材">
+              <header class="subject-analysis-rail-head"><strong class="subject-analysis-rail-head-strong">商品素材</strong><span class="subject-analysis-rail-head-span">1 张</span></header>
+              <div class="subject-analysis-material current">
+                <span class="subject-analysis-material-span {{ miniArtClass }}" style="{{ miniArtStyle }}" aria-hidden="true"></span>
+                <span class="subject-analysis-material-span"><b class="subject-analysis-material-b">{{ fileName }}</b><span class="subject-analysis-material-state subject-analysis-material-span">{{ stateLabel }}</span></span>
+              </div>
+              <p class="subject-analysis-rail-foot">分析完成后，你可以确认商品主体边界和要清除的品牌区域。</p>
+            </aside>
+            <main class="subject-analysis-stage">
+              <header class="subject-analysis-stage-head"><strong class="subject-analysis-stage-head-strong">商品素材分析</strong><span class="subject-analysis-stage-head-span">{{ totalLabel }}</span></header>
+              <div class="subject-analysis-status" role="status" aria-live="polite">
+                <div class="subject-analysis-preview">
+                  <div class="{{ artClass }}" style="{{ artStyle }}" aria-hidden="true"></div>
+                  <span class="subject-analysis-spinner" aria-hidden="true"></span>
+                </div>
+                <h1 class="subject-analysis-status-h1">{{ heading }}</h1>
+                <p class="subject-analysis-status-p">{{ fileName }}</p>
+                <sc-if value="{{ analyzing }}" hint-placeholder-val="{{ true }}">
+                  <div class="subject-analysis-progress" role="progressbar" aria-label="商品素材分析进度" aria-valuetext="正在分析第 1 张，共 1 张"><span class="subject-analysis-progress-span"></span></div>
+                </sc-if>
+                <small class="subject-analysis-status-small">{{ detail }}</small>
+                <sc-if value="{{ failed }}" hint-placeholder-val="{{ false }}">
+                  <div class="subject-analysis-actions">
+                    <button class="btn-primary" type="button" onClick="{{ retry }}">重新分析</button>
+                    <button class="btn-secondary subject-analysis-abandon" type="button" onClick="{{ openAbandon }}">放弃这次任务</button>
+                  </div>
+                </sc-if>
+              </div>
+            </main>
+          </div>
+        </section>
+        <sc-if value="{{ abandonOpen }}" hint-placeholder-val="{{ false }}">
+          <div class="dc-backdrop" onClick="{{ keep }}"></div>
+          <div class="subject-abandon-dialog dc-modal" role="dialog" aria-modal="true" data-screen-label="放弃任务弹窗">
+            <div class="subject-abandon-shell">
+              <header class="subject-abandon-shell-header"><h2 class="subject-abandon-shell-h2">{{ abandonTitle }}</h2><p class="subject-abandon-shell-p">{{ abandonDesc }}</p></header>
+              <footer class="subject-abandon-shell-footer">
+                <button class="btn-secondary" type="button" onClick="{{ keep }}">继续重新分析</button>
+                <button class="btn-primary subject-abandon-shell-btn-primary" type="button" onClick="{{ confirmAbandon }}">{{ abandonConfirmLabel }}</button>
+              </footer>
+            </div>
+          </div>
+        </sc-if>
+      </section>
+      <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+        <div class="dc-toast" role="status">{{ toast }}</div>
+      </sc-if>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{
+  "$preview": {
+    "width": 1440,
+    "height": 900
+  },
+  "scenario": {
+    "editor": "enum",
+    "default": "analyzing",
+    "tsType": "string",
+    "options": [
+      "analyzing",
+      "subject-analysis-failed"
+    ]
+  },
+  "newProject": {
+    "editor": "boolean",
+    "default": false,
+    "tsType": "boolean"
+  }
+}'
+    >
+      class Component extends DCLogic {
+        constructor(props) {
+          super(props);
+          this.state = Object.assign({ fx: false, toast: "" }, this.init(props));
+        }
+        componentDidMount() {
+          const tick = () => {
+            if (window.CHAMELEON) { this.setState({ fx: true }, () => this.onReady && this.onReady()); return; }
+            this._w = setTimeout(tick, 50);
+          };
+          tick();
+        }
+        componentWillUnmount() { clearTimeout(this._w); clearTimeout(this._t); this.cleanup && this.cleanup(); }
+        componentDidUpdate(prev) {
+          if (prev.scenario !== this.props.scenario) this.setState(this.init(this.props), () => this.onReady && this.onReady());
+          this.afterUpdate && this.afterUpdate(prev);
+        }
+        toast(msg) {
+          this.setState({ toast: msg });
+          clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: "" }), 2400);
+        }
+        emit(name, detail, fallback) {
+          if (this.props[name]) this.props[name](detail); else this.toast(fallback);
+        }
+        fx() { return window.CHAMELEON || {}; }
+        init(props) { return { scenario: props.scenario || "analyzing", failed: (props.scenario || "analyzing") === "subject-analysis-failed", abandonOpen: false }; }
+        onReady() { clearTimeout(this._a); if (!this.state.failed && this.props.onAnalyzed) this._a = setTimeout(() => this.props.onAnalyzed(), 1800); }
+        cleanup() { clearTimeout(this._a); }
+        renderVals() {
+          const fx = this.fx(); const p = (fx.projects || [])[0] || { name: "山野净洗洁精", id: "PRJ-240716-C08", art: "art-cleaner" };
+          const project = this.props.newProject ? { name: "晨雾保温杯", id: "PRJ-240806-N01", art: "art-cleaner" } : p;
+          const failed = this.state.failed; const fileName = "商品素材_洗洁精.jpg";
+          return {
+            toast: this.state.toast,
+            sectionClass: "product-subject-analysis active" + (failed ? " failed" : ""),
+            miniArtClass: "mini-art " + project.art, miniArtStyle: { "--art-label": "'商品素材'" },
+            artClass: "source-art " + project.art, artStyle: { "--art-label": "'" + fileName + "'" },
+            fileName, analyzing: !failed, failed,
+            stateLabel: failed ? "分析失败" : "分析中",
+            totalLabel: failed ? "分析失败" : "进度 1 / 1",
+            heading: failed ? "这张商品素材暂时无法分析" : "正在分析商品素材",
+            detail: failed ? "商品素材和生成任务设置已保留。你可以重新分析。" : "正在生成商品主体边界建议和去品牌标记框建议。",
+            retry: () => this.setState({ failed: false }),
+            openAbandon: () => this.setState({ abandonOpen: true }),
+            keep: () => this.setState({ abandonOpen: false }),
+            abandonOpen: this.state.abandonOpen,
+            abandonTitle: this.props.newProject ? "放弃这次任务并删除新商品项目？" : "放弃这次任务？",
+            abandonDesc: this.props.newProject ? "“" + project.name + "”商品项目会被删除。" : "当前生成任务设置和这张商品素材会被删除。商品主体图库不会改变。",
+            abandonConfirmLabel: this.props.newProject ? "放弃并删除项目" : "放弃这次任务",
+            confirmAbandon: () => { this.setState({ abandonOpen: false }); this.props.newProject ? this.emit("onAbandonToLibrary", project.id, "→ 返回商品项目库（已删除 " + project.name + "）") : this.emit("onAbandonToWorkbench", project.id, "→ 返回商品工作台 " + project.id); }
+          };
+        }
+      }
+    </script>
+  </body>
+</html>

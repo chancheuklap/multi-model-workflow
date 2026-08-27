@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>变色龙 · 商品项目库</title>
+<link rel="icon" href="data:," />
+<!--
+  本轮问题：怎样完成全局交互、实时状态和窗口适配？
+  当前范围：UX-01 至 UX-22、FLOW-04。
+-->
+<link rel="stylesheet" href="styles/product-project-library.css?round=074" />
+</head>
+<body>
+<main class="app" id="product-app" aria-label="变色龙商品项目库原型">
+  <header class="titlebar">
+    <div class="brand" aria-label="变色龙商品图助手">
+      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M5.2 6.2c2.1-2.8 6.4-3.7 9.6-1.8 2.2 1.3 3.6 3.8 3.2 6.4-.3 2.3-2 4.1-4.3 4.6-1.8.4-3.8-.2-4.9-1.8-.8-1.1-.9-2.7-.1-3.8.6-.8 1.6-1.3 2.6-1.1.8.1 1.5.8 1.6 1.6.1.6-.2 1.3-.8 1.6-.5.2-1.1.1-1.4-.3" fill="none" stroke="var(--rose)" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M5.2 6.2 3.6 4.8M5.4 6.3 3.2 7.1M15.9 6.5l2.7-1.4" fill="none" stroke="var(--rose)" stroke-width="1.7" stroke-linecap="round"/>
+        <circle cx="14.7" cy="7.4" r="1" fill="var(--rose)"/>
+        <path d="M6.6 13.8 4.1 18h3.1l1.5-2.5m6 0 1.7 3.1h3.2l-2.5-4.7" fill="none" stroke="var(--rose)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span id="product-display-name">变色龙商品图助手</span>
+    </div>
+    <span class="title-context" id="product-title-context">商品项目库</span>
+    <span class="service-status ready" id="service-status" role="status" aria-live="polite">
+      <span class="service-status-dot" aria-hidden="true"></span>
+      <span id="service-status-label">服务正常</span>
+    </span>
+    <span class="wallet">鸭豆余额 <b id="wallet-balance">12,480</b></span>
+  </header>
+
+  <section class="global-status-bar" id="global-status-bar" role="status" aria-live="polite" aria-atomic="true" hidden tabindex="-1">
+    <div class="global-status-content">
+      <strong id="global-status-title"></strong>
+      <span id="global-status-detail"></span>
+    </div>
+  </section>
+
+  <section class="login-gate" id="login-gate" role="dialog" aria-modal="true" aria-labelledby="login-gate-title" aria-describedby="login-gate-description" hidden>
+    <div class="login-gate-card" data-tone="progress" id="login-gate-card">
+      <div class="login-gate-status" aria-hidden="true"><span></span></div>
+      <div class="login-gate-copy">
+        <p class="login-gate-eyebrow" id="login-gate-eyebrow">登录变色龙商品图助手</p>
+        <h1 id="login-gate-title">正在确认登录状态</h1>
+        <p class="login-gate-description" id="login-gate-description">请稍候。确认完成后，应用会继续下一步。</p>
+        <div class="login-gate-detail" id="login-gate-detail" hidden></div>
+      </div>
+      <div class="login-gate-feedback" id="login-gate-feedback" role="status" aria-live="polite" hidden></div>
+      <footer class="login-gate-actions">
+        <button class="btn-secondary login-gate-exit" type="button" id="login-gate-exit">退出应用</button>
+        <button class="btn-primary" type="button" id="login-gate-primary" hidden>登录</button>
+      </footer>
+    </div>
+  </section>
+
+  <section class="workspace">
+    <section class="product-library active" id="product-library" role="tabpanel" aria-label="商品项目库">
+      <div class="canvas-shell">
+        <section class="visual-canvas">
+          <header class="section-head">
+            <div class="workspace-tabs" role="tablist" aria-label="变色龙功能">
+              <button class="workspace-tab" type="button" role="tab" data-workspace-tab="product-library" aria-selected="true">商品项目库</button>
+              <button class="workspace-tab" type="button" role="tab" data-workspace-tab="free-mode" aria-selected="false">自由模式</button>
+              <button class="workspace-tab" type="button" role="tab" data-workspace-tab="settings" aria-selected="false">设置</button>
+            </div>
+          </header>
+
+          <div class="project-grid" id="project-grid">
+            <button class="project-card" type="button" data-project="cleaner" data-selected="false">
+              <div class="source-art art-cleaner" style="--art-label:'山野净洗洁精'"><span class="art-label-top">最近使用</span></div>
+              <div class="project-card-body">
+                <div class="source-kicker"><span class="status running">1 个任务进行中</span><span class="project-id">PRJ-240716-C08</span></div>
+                <h2 class="project-card-name">山野净洗洁精</h2>
+                <div class="project-card-summary"><span><strong>2 张</strong> 商品主体图</span><span><strong>4 个</strong> 生成任务</span></div>
+                <div class="project-card-footer"><span>5 分钟前更新</span><span class="project-enter">进入商品项目</span></div>
+              </div>
+            </button>
+
+            <button class="project-card" type="button" data-project="lotion" data-selected="false">
+              <div class="source-art art-bag" style="--art-label:'绒雾身体乳'"><span class="art-label-top">全部完成</span></div>
+              <div class="project-card-body">
+                <div class="source-kicker"><span class="status done">任务已完成</span><span class="project-id">PRJ-240629-D04</span></div>
+                <h2 class="project-card-name">绒雾身体乳</h2>
+                <div class="project-card-summary"><span><strong>1 张</strong> 商品主体图</span><span><strong>3 个</strong> 生成任务</span></div>
+                <div class="project-card-footer"><span>昨天 21:18 更新</span><span class="project-enter">进入商品项目</span></div>
+              </div>
+            </button>
+
+            <button class="project-card" type="button" data-project="tea" data-selected="false">
+              <div class="source-art art-kettle" style="--art-label:'暮山冷泡茶'"><span class="art-label-top">全部完成</span></div>
+              <div class="project-card-body">
+                <div class="source-kicker"><span class="status done">任务已完成</span><span class="project-id">PRJ-240618-F21</span></div>
+                <h2 class="project-card-name">暮山冷泡茶</h2>
+                <div class="project-card-summary"><span><strong>2 张</strong> 商品主体图</span><span><strong>2 个</strong> 生成任务</span></div>
+                <div class="project-card-footer"><span>07-28 09:31 更新</span><span class="project-enter">进入商品项目</span></div>
+              </div>
+            </button>
+
+            <button class="project-card" type="button" data-project="lamp" data-selected="false">
+              <div class="source-art art-lamp"><span class="art-label-top">尚无任务</span></div>
+              <div class="project-card-body">
+                <div class="source-kicker"><span class="status new">刚刚创建</span><span class="project-id">PRJ-240805-A17</span></div>
+                <h2 class="project-card-name">暖光护眼台灯</h2>
+                <div class="project-card-summary"><span><strong>1 张</strong> 商品主体图</span><span><strong>0 个</strong> 生成任务</span></div>
+                <div class="project-card-footer"><span>今天 10:42 更新</span><span class="project-enter">进入商品项目</span></div>
+              </div>
+            </button>
+
+            <button class="new-project-card" type="button" id="new-project-card">
+              <span class="new-project-inner">
+                <span class="new-project-kicker">新建入口</span>
+                <h2>新建商品项目</h2>
+                <p>添加至少一张商品素材，指定它要生成的功能图片，再继续完成本次生成任务。</p>
+              </span>
+            </button>
+          </div>
+
+          <div class="library-tip"><strong>一个商品，一个长期项目。</strong> 可复用的商品主体图与每次生成任务都保存在对应的商品项目中。</div>
+        </section>
+
+      </div>
+    </section>
+
+    <section class="product-create" id="product-create" aria-labelledby="create-project-heading">
+      <div class="create-scroll">
+        <header class="create-head">
+          <button class="back-button" type="button" id="back-from-create">返回商品项目库</button>
+          <div>
+            <h1 id="create-project-heading">新建商品项目</h1>
+            <p id="create-project-description">填写项目名称，并添加至少一张商品素材。</p>
+          </div>
+        </header>
+
+        <section class="create-panel" id="create-panel" aria-label="新建商品项目资料">
+          <div class="create-field" id="create-project-name-field">
+            <label class="create-label" for="new-project-name"><strong>商品项目名称</strong><span>必填</span></label>
+            <input class="create-input" id="new-project-name" type="text" placeholder="例如：山野净洗洁精" autocomplete="off" aria-describedby="new-project-name-error" />
+            <p class="create-field-error" id="new-project-name-error" role="alert" hidden>已经有同名商品项目。请换一个名称。</p>
+          </div>
+
+          <div class="create-field">
+            <div class="create-label"><strong>商品素材</strong><span>至少一张</span></div>
+            <button class="create-dropzone" type="button" id="new-project-material">
+              <span class="create-material-art source-art art-cleaner" style="--art-label:'商品素材_洗洁精.jpg'" aria-hidden="true"></span>
+              <span class="create-material-copy"><b id="material-title">添加商品素材</b><span id="material-note">拖入图片，或从本机选择</span></span>
+              <span class="btn-secondary create-replace" aria-hidden="true">更换素材</span>
+            </button>
+          </div>
+
+          <div class="create-field">
+            <div class="create-label"><strong>这个素材用于生成</strong><span>必选</span></div>
+            <div class="material-function-grid" id="new-project-function-grid" role="group" aria-label="选择商品素材对应的功能图片">
+              <button class="material-function" type="button" data-material-function="marketing" aria-pressed="false"><strong>营销图</strong><span>带文案的营销头图</span></button>
+              <button class="material-function" type="button" data-material-function="macro1" aria-pressed="false"><strong>细节图</strong><span>商品外观与局部特写</span></button>
+              <button class="material-function" type="button" data-material-function="scene" aria-pressed="false"><strong>场景图</strong><span>真实使用环境</span></button>
+              <button class="material-function" type="button" data-material-function="white" aria-pressed="false"><strong>白底图</strong><span>纯白背景完整展示</span></button>
+            </div>
+          </div>
+
+          <footer class="create-foot">
+            <p id="create-project-footnote">下一步先完成这张功能图片的生成设置。原始素材会暂时占据商品主体位置。</p>
+            <button class="btn-primary" type="button" id="next-to-subject" disabled>下一步：设置功能图片</button>
+          </footer>
+        </section>
+      </div>
+    </section>
+
+    <section class="product-subject-analysis" id="product-subject-analysis" aria-labelledby="subject-analysis-heading">
+      <div class="subject-analysis-layout">
+        <aside class="subject-analysis-rail" aria-label="待分析商品素材">
+          <header class="subject-analysis-rail-head">
+            <strong>商品素材</strong>
+            <span id="subject-analysis-rail-count">1 张</span>
+          </header>
+          <div class="subject-analysis-material current">
+            <span class="mini-art art-cleaner" id="subject-analysis-rail-art" style="--art-label:'商品素材'" aria-hidden="true"></span>
+            <span>
+              <b id="subject-analysis-rail-name">商品素材_洗洁精.jpg</b>
+              <span class="subject-analysis-material-state" id="subject-analysis-material-state">分析中</span>
+            </span>
+          </div>
+          <p class="subject-analysis-rail-foot">分析完成后，你可以确认商品主体边界和要清除的品牌区域。</p>
+        </aside>
+
+        <main class="subject-analysis-stage">
+          <header class="subject-analysis-stage-head">
+            <strong>商品素材分析</strong>
+            <span id="subject-analysis-total">进度 1 / 1</span>
+          </header>
+          <div class="subject-analysis-status" role="status" aria-live="polite">
+            <div class="subject-analysis-preview">
+              <div class="source-art art-cleaner" id="subject-analysis-art" style="--art-label:'商品素材_洗洁精.jpg'" aria-hidden="true"></div>
+              <span class="subject-analysis-spinner" aria-hidden="true"></span>
+            </div>
+            <h1 id="subject-analysis-heading">正在分析商品素材</h1>
+            <p id="subject-analysis-current">商品素材_洗洁精.jpg</p>
+            <div class="subject-analysis-progress" role="progressbar" aria-label="商品素材分析进度" aria-valuetext="正在分析第 1 张，共 1 张"><span></span></div>
+            <small id="subject-analysis-detail">正在生成商品主体边界建议和去品牌标记框建议。</small>
+            <div class="subject-analysis-actions" id="subject-analysis-actions" hidden>
+              <button class="btn-primary" type="button" id="retry-subject-analysis">重新分析</button>
+              <button class="btn-secondary subject-analysis-abandon" type="button" id="abandon-subject-analysis">放弃这次任务</button>
+            </div>
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <dialog class="subject-abandon-dialog" id="subject-abandon-dialog" aria-labelledby="subject-abandon-title" aria-describedby="subject-abandon-description">
+      <div class="subject-abandon-shell">
+        <header>
+          <h2 id="subject-abandon-title">放弃这次任务？</h2>
+          <p id="subject-abandon-description">当前生成任务设置和这张商品素材会被删除。商品主体图库不会改变。</p>
+        </header>
+        <footer>
+          <button class="btn-secondary" type="button" id="keep-subject-task">继续这次任务</button>
+          <button class="btn-primary" type="button" id="confirm-abandon-subject-task">放弃这次任务</button>
+        </footer>
+      </div>
+    </dialog>
+
+    <section class="product-subject-confirm" id="product-subject-confirm" aria-labelledby="confirm-subject-heading">
+      <div class="confirm-layout">
+        <aside class="confirm-rail">
+          <div class="confirm-rail-head"><strong>本组素材</strong><span id="confirm-rail-count">2 / 6</span></div>
+          <div class="confirm-material-list" id="confirm-material-list"></div>
+          <div class="confirm-rail-foot">
+            <p>本组素材确认后，商品主体图将保存到“<span id="confirm-project-name">新商品项目</span>”。</p>
+            <button type="button" id="abandon-subject-confirmation">放弃这次任务</button>
+          </div>
+        </aside>
+
+        <main class="confirm-stage-wrap">
+          <div class="confirm-stage-bar">
+            <span class="confirm-stage-name" id="confirm-stage-name">下水道除臭珠主图.png</span>
+            <span class="confirm-stage-dim" id="confirm-stage-dim">800 × 800</span>
+            <div class="confirm-stage-tools">
+              <button class="confirm-tool" type="button" id="restore-subject">恢复系统建议</button>
+              <span class="title-divider" style="margin: 0 4px" aria-hidden="true"></span>
+              <button class="confirm-tool active" type="button" id="toggle-subject"><span class="confirm-tool-swatch subject"></span>商品主体边界</button>
+              <button class="confirm-tool active" type="button" id="toggle-brand"><span class="confirm-tool-swatch brand-region"></span>去品牌标记框 <span id="confirm-brand-count">1</span></button>
+            </div>
+          </div>
+          <div class="confirm-stage">
+            <div class="confirm-canvas" id="confirm-canvas">
+              <div class="source-art art-cleaner" id="confirm-art" style="--art-label:'下水道除臭珠主图.png'"></div>
+              <div id="confirm-mask-layer"><span class="subject-mask top"></span><span class="subject-mask bottom"></span><span class="subject-mask left"></span><span class="subject-mask right"></span></div>
+              <div class="subject-boundary" id="subject-boundary">
+                <span class="subject-handle nw" data-boundary-handle="nw"></span><span class="subject-handle n" data-boundary-handle="n"></span><span class="subject-handle ne" data-boundary-handle="ne"></span>
+                <span class="subject-handle e" data-boundary-handle="e"></span><span class="subject-handle se" data-boundary-handle="se"></span><span class="subject-handle s" data-boundary-handle="s"></span>
+                <span class="subject-handle sw" data-boundary-handle="sw"></span><span class="subject-handle w" data-boundary-handle="w"></span>
+              </div>
+              <div class="confirm-brand-layer" id="confirm-brand-layer"></div>
+            </div>
+          </div>
+          <div class="confirm-stage-hint" id="confirm-stage-hint">拖动控制点调整商品主体边界，框住整件商品和包装。</div>
+        </main>
+
+        <aside class="confirm-panel">
+          <div class="confirm-panel-scroll">
+            <section class="confirm-section">
+              <div class="confirm-section-head"><strong id="confirm-subject-heading">商品主体边界</strong></div>
+              <p class="confirm-boundary-alert" id="confirm-boundary-alert" role="alert" hidden>没有可用的系统建议。请手动框选，或使用整图。</p>
+              <div class="confirm-choice-row">
+                <button class="confirm-choice active" type="button" id="use-boundary"><strong id="use-boundary-label">框选商品</strong></button>
+                <button class="confirm-choice" type="button" id="use-full-image"><strong>使用整图</strong></button>
+              </div>
+              <p id="full-image-note" hidden>使用整图时不会裁切商品素材。</p>
+            </section>
+            <section class="confirm-section">
+              <div class="confirm-section-head"><strong>要清除的品牌和 Logo</strong><span id="confirm-brand-panel-count">1 处</span></div>
+              <p>框住的品牌字和商标，新图里会去掉。</p>
+              <div id="confirm-mark-list"></div>
+              <button class="confirm-add-mark" type="button" id="add-confirm-mark">＋ 在图上框一个</button>
+            </section>
+          </div>
+          <footer class="confirm-panel-foot">
+            <button class="btn-secondary" type="button" id="previous-material">上一张</button>
+            <button class="btn-primary" type="button" id="confirm-next-material">确认这张，下一张</button>
+            <span class="confirm-progress" id="confirm-progress">2 / 6</span>
+          </footer>
+        </aside>
+      </div>
+    </section>
+
+    <section class="product-free-mode" id="product-free-mode" role="tabpanel" aria-label="自由模式">
+      <div class="free-mode-scroll">
+        <header class="section-head free-mode-head">
+          <div class="workspace-tabs" role="tablist" aria-label="变色龙功能">
+            <button class="workspace-tab" type="button" role="tab" data-workspace-tab="product-library" aria-selected="false">商品项目库</button>
+            <button class="workspace-tab" type="button" role="tab" data-workspace-tab="free-mode" aria-selected="true">自由模式</button>
+            <button class="workspace-tab" type="button" role="tab" data-workspace-tab="settings" aria-selected="false">设置</button>
+          </div>
+        </header>
+        <div class="free-mode-layout">
+          <section class="free-panel" aria-labelledby="free-panel-heading">
+            <h2 id="free-panel-heading">自由生成</h2>
+            <p>上传一张图片并直接描述想要的画面。自由模式保存独立历史记录，不进入商品项目。</p>
+            <div class="free-form-grid">
+              <div class="free-image-field wide">
+                <input class="visually-hidden" id="free-image-input" type="file" accept="image/png,image/jpeg,image/webp" tabindex="-1" aria-hidden="true" />
+                <button type="button" class="free-drop" id="free-add-image" aria-describedby="free-image-help free-image-error">
+                  <span class="free-drop-empty"><b>添加输入图片</b>支持 JPG、PNG 或 WebP，只能选择一张</span>
+                  <span class="free-drop-selected" hidden><i aria-hidden="true"></i><span><b id="free-image-name">商品图片.jpg</b><small>已选择一张图片 · 点击替换</small></span></span>
+                </button>
+                <small class="free-field-help" id="free-image-help">这张图片是本次自由生成的画面基础。</small>
+                <small class="free-field-error" id="free-image-error" role="alert" hidden>请选择一张输入图片。</small>
+              </div>
+              <div class="free-field wide">
+                <div class="free-field-label-row"><label for="free-prompt">画面提示词</label><span id="free-prompt-count">0 / 2000</span></div>
+                <textarea class="free-textarea" id="free-prompt" maxlength="2000" aria-describedby="free-prompt-error" placeholder="描述想生成的画面、氛围与构图"></textarea>
+                <small class="free-field-error" id="free-prompt-error" role="alert" hidden>请填写画面提示词。</small>
+              </div>
+              <div class="free-field"><label for="free-ratio">宽高比</label><select class="free-select" id="free-ratio"><option>1:1</option><option>3:4</option><option>4:3</option></select></div>
+              <div class="free-field"><label for="free-count">生成数量</label><select class="free-select" id="free-count"><option>1 张</option><option>2 张</option><option>4 张</option></select></div>
+              <label class="free-logo-option wide" for="free-remove-logo">
+                <input type="checkbox" id="free-remove-logo" />
+                <span><b>去除商标与 Logo</b><small>默认关闭。打开后，系统会在提示词中加入去除要求。</small></span>
+              </label>
+              <aside class="free-logo-warning wide" aria-label="去除商标与 Logo 的效果说明">
+                <strong>文字指令不能保证完全去除商标。</strong>
+                <span>要可靠去掉商标，请改用商品主图功能，在那里可以自己框出要去掉的位置。</span>
+              </aside>
+              <aside class="free-quality-note wide" aria-label="自由模式质量说明">
+                <strong>自由模式按你的原始描述直接生成。</strong>
+                <span>这里不包含商品主图中的商品分析、文案确认和视觉方案设计。</span>
+              </aside>
+              <button class="btn-primary free-submit wide" type="button" id="free-submit">开始自由生成</button>
+            </div>
+          </section>
+          <section class="free-history" aria-labelledby="free-history-heading">
+            <header class="free-history-head">
+              <div>
+                <h2 id="free-history-heading">独立历史记录</h2>
+                <p>每条记录直接显示生成状态、全部图片结果、参数和结算。</p>
+              </div>
+              <span class="free-history-count" id="free-history-count">5 条记录</span>
+            </header>
+            <div class="free-history-grid" id="free-history-grid"></div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section class="product-settings" id="product-settings" role="tabpanel" aria-label="设置">
+      <div class="settings-page-scroll">
+        <header class="section-head settings-page-head">
+          <div class="workspace-tabs" role="tablist" aria-label="变色龙功能">
+            <button class="workspace-tab" type="button" role="tab" data-workspace-tab="product-library" aria-selected="false">商品项目库</button>
+            <button class="workspace-tab" type="button" role="tab" data-workspace-tab="free-mode" aria-selected="false">自由模式</button>
+            <button class="workspace-tab" type="button" role="tab" data-workspace-tab="settings" aria-selected="true">设置</button>
+          </div>
+        </header>
+
+        <div class="settings-page-layout">
+          <section class="settings-card" aria-labelledby="settings-files-heading">
+            <header class="settings-card-head">
+              <div>
+                <h1 id="settings-files-heading">文件与导出</h1>
+                <p>设置成图导出到本机的位置。</p>
+              </div>
+              <span class="settings-saved-state" id="settings-saved-state">已保存</span>
+            </header>
+
+            <div class="settings-row">
+              <div class="settings-row-copy">
+                <strong>默认导出路径</strong>
+                <span>任务详情中的“导出”会直接把成图保存到这里。</span>
+              </div>
+              <div class="settings-path-control">
+                <output id="default-export-path" aria-live="polite">D:\变色龙成图</output>
+                <button class="btn-secondary" type="button" id="choose-export-path">选择文件夹</button>
+              </div>
+            </div>
+
+            <p class="settings-card-note">设置保存在当前电脑上。更改路径不会移动已经导出的图片。</p>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <dialog class="free-image-dialog" id="free-image-preview-dialog" aria-labelledby="free-image-preview-title">
+      <header class="free-image-dialog-head">
+        <h3 id="free-image-preview-title">查看成图</h3>
+      </header>
+      <div class="free-image-dialog-body">
+        <div class="free-image-preview-large" id="free-image-preview-large" aria-label="自由模式成图"></div>
+      </div>
+      <footer class="free-image-dialog-foot">
+        <button class="btn-secondary" type="button" id="free-image-preview-close">关闭</button>
+        <button class="btn-primary" type="button" id="free-image-preview-export">导出</button>
+      </footer>
+    </dialog>
+
+    <dialog class="subject-abandon-dialog free-gate-dialog" id="free-gate-dialog" aria-labelledby="free-gate-title" aria-describedby="free-gate-description">
+      <div class="subject-abandon-shell">
+        <header>
+          <span class="free-gate-step">生成确认</span>
+          <h2 id="free-gate-title">确认并提交自由生成</h2>
+          <p id="free-gate-description">请核对本次生成数量和最大鸭豆数。</p>
+          <div id="free-gate-body"></div>
+          <p class="free-gate-footnote" id="free-gate-footnote">提交后不能修改本次设置。</p>
+        </header>
+        <footer>
+          <button class="btn-secondary" type="button" id="free-gate-back">再看看</button>
+          <button class="btn-secondary" type="button" id="free-gate-recharge" hidden>充值鸭豆</button>
+          <button class="btn-primary" type="button" id="free-gate-confirm">确认并提交</button>
+        </footer>
+      </div>
+    </dialog>
+
+    <dialog class="subject-abandon-dialog" id="billing-debt-dialog" aria-labelledby="billing-debt-title" aria-describedby="billing-debt-description">
+      <div class="subject-abandon-shell">
+        <header>
+          <h2 id="billing-debt-title">鸭豆余额不足，暂时不能开始新生成</h2>
+          <p id="billing-debt-description">共有 100 笔已交付图片的费用还没有结清。完成充值后，系统会自动处理。</p>
+          <dl class="billing-debt-facts">
+            <div><dt>当前可用</dt><dd>20 鸭豆</dd></div>
+            <div><dt>应结清</dt><dd><strong>3,240 鸭豆</strong></dd></div>
+            <div><dt>还差</dt><dd><strong>3,220 鸭豆</strong></dd></div>
+          </dl>
+          <section class="billing-debt-list" aria-labelledby="billing-debt-list-title">
+            <h3 id="billing-debt-list-title">欠费明细</h3>
+            <article><span><strong>山野净洗洁精</strong><small>商品主图生成任务 · 今天 16:18</small></span><b>90 鸭豆</b></article>
+            <article><span><strong>自由模式</strong><small>自由生成记录 · 今天 15:42</small></span><b>60 鸭豆</b></article>
+            <article><span><strong>绒雾身体乳</strong><small>商品主图生成任务 · 昨天 21:18</small></span><b>30 鸭豆</b></article>
+            <p class="billing-debt-list-summary">仅显示最近 3 笔，共 100 笔</p>
+          </section>
+          <p>已有商品项目、历史任务和已交付图片仍可查看与导出。</p>
+        </header>
+        <footer>
+          <button class="btn-secondary" type="button" id="billing-debt-later">暂不充值</button>
+          <button class="btn-primary" type="button" id="billing-debt-recharge">充值鸭豆</button>
+        </footer>
+      </div>
+    </dialog>
+
+  </section>
+</main>
+
+<div class="selection-toast" id="selection-toast" role="status" aria-live="polite"></div>
+
+<script src="scripts/product-project-library.js?round=074"></script>
+</body>
+</html>

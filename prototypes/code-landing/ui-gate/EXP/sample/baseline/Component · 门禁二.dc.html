@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="stylesheet" href="./styles/tokens.css" />
+        <link rel="stylesheet" href="./styles/product-workbench.css" />
+        <script src="./data/fixtures.js"></script>
+        <style>
+          body { margin: 0; min-height: 100vh; background: #e6e3df; }
+          #dc-root { width: 1440px; height: 900px; margin: 0 auto; overflow: hidden; position: relative; transform: translateZ(0); }
+          #dc-root > * { height: 100%; }
+          .dc-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 50; padding: 10px 16px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; box-shadow: 0 12px 32px rgba(45, 25, 34, 0.25); }
+          .dc-backdrop { position: fixed; inset: 0; background: rgba(40, 25, 32, 0.38); z-index: 40; }
+          .dc-modal { position: fixed; inset: 0; margin: auto; height: fit-content; z-index: 41; }
+          .wb-gate { height: 100%; background: var(--canvas); }
+          .gate-one-dialog.dc-modal { display: block; max-height: calc(100% - 64px); overflow: auto; }
+        </style>
+      </helmet>
+      <div class="wb-gate" data-screen-label="第二道门">
+        <sc-if value="{{ open }}" hint-placeholder-val="{{ true }}">
+          <div class="dc-backdrop" onClick="{{ backdrop }}"></div>
+          <div class="gate-one-dialog dc-modal" role="dialog" aria-modal="true" data-screen-label="第二道门">
+            <div class="gate-one-shell">
+              <header class="gate-one-head"><span class="gate-one-step">第二道门</span><h2 class="gate-one-head-h2">{{ title }}</h2><p class="gate-one-head-p">{{ intro }}</p></header>
+              <div class="gate-one-body">
+                <sc-if value="{{ rejected }}" hint-placeholder-val="{{ false }}"><section class="gate-two-status rejected" role="alert"><div><strong class="gate-two-status-strong">还差 {{ missing }} 鸭豆</strong><span class="gate-two-status-span">当前余额 {{ balance }} 鸭豆，最多需要 {{ max }} 鸭豆。</span></div></section><section class="gate-two-rule"><strong class="gate-two-rule-strong">{{ keepTitle }}</strong><span class="gate-two-rule-span">{{ keepDesc }}</span></section></sc-if>
+                <sc-if value="{{ recovered }}" hint-placeholder-val="{{ false }}"><section class="gate-two-status recovered" role="status"><div><strong class="gate-two-status-strong">当前余额 {{ balance }} 鸭豆</strong><span class="gate-two-status-span">最多需要 {{ max }} 鸭豆。</span></div></section></sc-if>
+                <sc-if value="{{ showSummary }}" hint-placeholder-val="{{ true }}"><section class="gate-one-metrics gate-two-metrics" aria-label="提交数量和最大预扣鸭豆数"><div class="gate-one-metrics-div"><span class="gate-one-metrics-span">本次总图片张数</span><strong class="gate-one-metrics-strong">{{ total }} 张</strong><small class="gate-one-metrics-small">{{ setCount }} 套 × 每套 {{ perSet }} 张</small></div><div class="gate-one-metrics-div"><span class="gate-one-metrics-span">最多预扣鸭豆数</span><strong class="gate-one-metrics-strong">{{ max }}</strong><small class="gate-one-metrics-small">{{ price }} 鸭豆／张</small></div></section></sc-if>
+                <sc-if value="{{ confirmMode }}" hint-placeholder-val="{{ true }}"><section class="gate-two-rule"><strong class="gate-two-rule-strong">按实际生成成功的张数结算</strong><span class="gate-two-rule-span">最多预扣 {{ max }} 鸭豆。没有成功生成的图片不会结算。</span></section><section class="gate-two-rule lock"><strong class="gate-two-rule-strong">{{ lockTitle }}</strong><span class="gate-two-rule-span">{{ lockDesc }}</span></section></sc-if>
+                <sc-if value="{{ confirming }}" hint-placeholder-val="{{ false }}"><section class="gate-two-status confirming" role="status"><span class="gate-two-spinner gate-two-status-span" aria-hidden="true"></span><div><strong class="gate-two-status-strong">系统正在自动处理</strong><span class="gate-two-status-span">确认完成后会自动打开生成任务，不需要再次操作。</span></div></section></sc-if>
+              </div>
+              <footer class="gate-one-foot"><p class="gate-one-foot-p">{{ foot }}</p>
+                <div class="gate-one-actions">
+                  <sc-if value="{{ showBack }}" hint-placeholder-val="{{ true }}"><button class="btn" type="button" onClick="{{ back }}">{{ backLabel }}</button></sc-if>
+                  <sc-if value="{{ rejected }}" hint-placeholder-val="{{ false }}"><button class="btn" type="button" onClick="{{ recharge }}">充值鸭豆</button></sc-if>
+                  <sc-if value="{{ showConfirm }}" hint-placeholder-val="{{ true }}"><button class="btn primary" type="button" disabled="{{ confirming }}" onClick="{{ confirm }}">{{ confirmLabel }}</button></sc-if>
+                </div>
+              </footer>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+      <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+        <div class="dc-toast" role="status">{{ toast }}</div>
+      </sc-if>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{
+  "$preview": {
+    "width": 1440,
+    "height": 900
+  },
+  "scenario": {
+    "editor": "enum",
+    "default": "gate-two-open",
+    "tsType": "string",
+    "options": [
+      "gate-two-open",
+      "gate-two-submitting",
+      "gate-two-rejected",
+      "gate-two-recovered",
+      "restart-confirm",
+      "restart-rejected"
+    ]
+  },
+  "balance": {
+    "editor": "text",
+    "default": "",
+    "tsType": "string"
+  }
+}'
+    >
+      class Component extends DCLogic {
+        constructor(props) {
+          super(props);
+          this.state = Object.assign({ fx: false, toast: "" }, this.init(props));
+        }
+        componentDidMount() {
+          const tick = () => {
+            if (window.CHAMELEON) { this.setState({ fx: true }, () => this.onReady && this.onReady()); return; }
+            this._w = setTimeout(tick, 50);
+          };
+          tick();
+        }
+        componentWillUnmount() { clearTimeout(this._w); clearTimeout(this._t); this.cleanup && this.cleanup(); }
+        componentDidUpdate(prev) {
+          if (prev.scenario !== this.props.scenario) this.setState(this.init(this.props), () => this.onReady && this.onReady());
+          this.afterUpdate && this.afterUpdate(prev);
+        }
+        toast(msg) {
+          this.setState({ toast: msg });
+          clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: "" }), 2400);
+        }
+        emit(name, detail, fallback) {
+          if (this.props[name]) this.props[name](detail); else this.toast(fallback);
+        }
+        fx() { return window.CHAMELEON || {}; }
+        init(props) {
+          const sc = props.scenario || "gate-two-open"; const restart = sc.indexOf("restart") === 0;
+          const ctx = props.context || (restart ? { restart: true, setCount: 1, perSet: 3, total: 3, names: ["商品主图生成任务"] } : { restart: false, setCount: 2, perSet: 1, total: 2, names: ["营销图"] });
+          const mode = sc === "gate-two-submitting" ? "confirming" : sc === "gate-two-rejected" || sc === "restart-rejected" ? "rejected" : sc === "gate-two-recovered" ? "recovered" : "confirm";
+          return { scenario: sc, open: true, ctx, mode, balance: Number(props.balance) || (mode === "rejected" ? 20 : mode === "recovered" ? ctx.total * 30 + 40 : 12480) };
+        }
+        onReady() { this.setState(this.init(this.props)); }
+        cleanup() { clearTimeout(this._s); }
+        fmt(n) { return Number(n).toLocaleString("zh-CN"); }
+        finish() { const c = this.state.ctx; this.setState({ open: false, mode: "confirm" }); this.emit("onAccepted", Object.assign({ maxCredits: c.total * 30 }, c), c.restart ? "→ 已建立新任务，打开任务详情（排队中）" : "→ 任务已提交，打开任务详情（排队中）"); }
+        renderVals() {
+          const st = this.state; const c = st.ctx; const r = c.restart; const m = st.mode; const wb = this.fx().wb; const price = wb ? wb.unitPrice : 30; const maxN = c.total * price; const max = this.fmt(maxN);
+          const v = { toast: st.toast, open: st.open, total: c.total, setCount: c.setCount, perSet: c.perSet, max, price, balance: this.fmt(st.balance), missing: this.fmt(Math.max(0, maxN - st.balance)), rejected: m === "rejected", recovered: m === "recovered", confirming: m === "confirming", confirmMode: m === "confirm", showSummary: m !== "rejected", showBack: m !== "confirming", showConfirm: m !== "rejected",
+            keepTitle: r ? "原失败任务保持不变" : "文案和设置已经保留", keepDesc: r ? "充值后可以继续使用相同设置重新发起。" : "充值后可以继续提交，不需要重新填写。", lockTitle: r ? "沿用原失败任务设置" : "提交后不能修改设置", lockDesc: r ? "原失败任务和原结算保持不变。确认后会按相同设置建立新任务。" : "商品主体图、文案、功能图片和生成套数将按当前确认内容执行。",
+            back: () => { if (m === "confirming") return; this.setState({ open: false }); this.emit("onBack", null, r ? "已返回原失败任务；原任务和原结算没有改变" : "可以继续检查已确认文案"); }, backdrop: () => { if (m !== "confirming") v.back(); },
+            recharge: () => this.setState({ balance: maxN + 40, mode: "recovered" }),
+            confirm: () => { if (m === "confirming") return; this.setState({ mode: "confirming" }); this._s = setTimeout(() => this.finish(), 900); } };
+          if (m === "confirm") Object.assign(v, { title: r ? "确认重新发起任务" : "确认并提交生成任务", intro: r ? "请核对原失败任务的图片数量和最大鸭豆数。确认后会建立一个新任务。" : "请核对本次图片数量和最大鸭豆数。确认后将提交任务。", foot: r ? "确认前可以返回原失败任务。" : "提交后不能修改本次任务设置。", backLabel: r ? "返回失败任务" : "再看看", confirmLabel: r ? "确认并重新发起" : "确认并提交" });
+          if (m === "confirming") Object.assign(v, { title: r ? "正在确认新任务" : "正在确认任务", intro: "正在确认鸭豆预扣和任务创建结果，请稍候。", foot: "确认完成前，本次设置保持锁定。", confirmLabel: "正在确认…" });
+          if (m === "rejected") Object.assign(v, { title: "鸭豆余额不足，任务没有提交", intro: "提交前余额发生变化。当前余额不足以完成本次预扣。", foot: "本次没有预扣鸭豆，也没有创建生成任务。", backLabel: r ? "返回失败任务" : "返回文案确认" });
+          if (m === "recovered") Object.assign(v, { title: r ? "余额已更新，可以重新发起" : "余额已更新，可以重新提交", intro: r ? "当前余额足够。原失败任务的设置保持不变。" : "当前余额足够。本次文案和设置保持不变。", foot: r ? "重新发起前仍然可以返回原失败任务。" : "重新提交前仍然可以返回文案确认。", backLabel: r ? "返回失败任务" : "返回文案确认", confirmLabel: r ? "确认并重新发起" : "重新提交" });
+          return v;
+        }
+      }
+    </script>
+  </body>
+</html>

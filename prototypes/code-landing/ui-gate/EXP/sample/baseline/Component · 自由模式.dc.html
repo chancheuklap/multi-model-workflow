@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="stylesheet" href="./styles/tokens.css" />
+        <link rel="stylesheet" href="./styles/product-project-library.css" />
+        <script src="./data/fixtures.js"></script>
+        <style>
+          body { margin: 0; min-height: 100vh; background: #e6e3df; }
+          #dc-root { width: 1440px; height: 900px; margin: 0 auto; overflow: hidden; position: relative; transform: translateZ(0); }
+          #dc-root > * { height: 100%; }
+          .dc-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 50; padding: 10px 16px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; box-shadow: 0 12px 32px rgba(45, 25, 34, 0.25); }
+          .dc-backdrop { position: fixed; inset: 0; background: rgba(40, 25, 32, 0.38); z-index: 40; }
+          .dc-modal { position: fixed; inset: 0; margin: auto; height: fit-content; z-index: 41; }
+          .workspace { height: 100%; }
+          .free-image-dialog.dc-modal { display: block; }
+        </style>
+      </helmet>
+      <section class="workspace" data-screen-label="自由模式">
+        <section class="product-free-mode active" role="tabpanel" aria-label="自由模式">
+          <div class="free-mode-scroll">
+            <header class="section-head free-mode-head">
+              <div class="workspace-tabs" role="tablist" aria-label="变色龙功能">
+                <button class="workspace-tab" type="button" role="tab" aria-selected="false" onClick="{{ goLibrary }}">商品项目库</button>
+                <button class="workspace-tab" type="button" role="tab" aria-selected="true">自由模式</button>
+                <button class="workspace-tab" type="button" role="tab" aria-selected="false" onClick="{{ goSettings }}">设置</button>
+              </div>
+            </header>
+            <div class="free-mode-layout">
+              <section class="free-panel">
+                <h2 class="free-panel-h2">自由生成</h2>
+                <p class="free-panel-p">上传一张图片并直接描述想要的画面。自由模式保存独立历史记录，不进入商品项目。</p>
+                <div class="free-form-grid">
+                  <div class="free-image-field wide">
+                    <button type="button" class="{{ dropCls }}" aria-invalid="{{ imageErrStr }}" onClick="{{ pickImage }}">
+                      <sc-if value="{{ noImage }}" hint-placeholder-val="{{ true }}"><span class="free-drop-empty"><b class="free-drop-b">添加输入图片</b>支持 JPG、PNG 或 WebP，只能选择一张</span></sc-if>
+                      <sc-if value="{{ hasImage }}" hint-placeholder-val="{{ false }}"><span class="free-drop-selected"><i class="free-drop-selected-i" aria-hidden="true"></i><span><b class="free-drop-b">{{ imageName }}</b><small class="free-drop-selected-small">已选择一张图片 · 点击替换</small></span></span></sc-if>
+                    </button>
+                    <small class="free-field-help">这张图片是本次自由生成的画面基础。</small>
+                    <sc-if value="{{ imageErr }}" hint-placeholder-val="{{ false }}"><small class="free-field-error" role="alert">{{ imageErr }}</small></sc-if>
+                  </div>
+                  <div class="free-field wide">
+                    <div class="free-field-label-row"><label class="free-field-label">画面提示词</label><span class="free-field-label-row-span">{{ promptCount }}</span></div>
+                    <textarea class="free-textarea" maxlength="2000" placeholder="描述想生成的画面、氛围与构图" value="{{ prompt }}" onInput="{{ setPrompt }}" aria-invalid="{{ promptErrStr }}"></textarea>
+                    <sc-if value="{{ promptErr }}" hint-placeholder-val="{{ false }}"><small class="free-field-error" role="alert">{{ promptErr }}</small></sc-if>
+                  </div>
+                  <div class="free-field"><label class="free-field-label">宽高比</label><select class="free-select" value="{{ ratio }}" onChange="{{ setRatio }}"><option>1:1</option><option>3:4</option><option>4:3</option></select></div>
+                  <div class="free-field"><label class="free-field-label">生成数量</label><select class="free-select" value="{{ countText }}" onChange="{{ setCount }}"><option>1 张</option><option>2 张</option><option>4 张</option></select></div>
+                  <label class="free-logo-option wide">
+                    <input class="free-logo-option-input" type="checkbox" checked="{{ removeLogo }}" onChange="{{ setRemoveLogo }}" />
+                    <span class="free-logo-option-span"><b class="free-logo-option-b">去除商标与 Logo</b><small class="free-logo-option-small">默认关闭。打开后，系统会在提示词中加入去除要求。</small></span>
+                  </label>
+                  <aside class="free-logo-warning wide"><strong class="free-logo-warning-strong">文字指令不能保证完全去除商标。</strong><span class="free-logo-warning-span">要可靠去掉商标，请改用商品主图功能，在那里可以自己框出要去掉的位置。</span></aside>
+                  <aside class="free-quality-note wide"><strong class="free-quality-note-strong">自由模式按你的原始描述直接生成。</strong><span class="free-quality-note-span">这里不包含商品主图中的商品分析、文案确认和视觉方案设计。</span></aside>
+                  <button class="btn-primary free-submit wide" type="button" disabled="{{ serviceDown }}" onClick="{{ submit }}">开始自由生成</button>
+                </div>
+              </section>
+              <section class="free-history">
+                <header class="free-history-head">
+                  <div><h2 class="free-history-head-h2">独立历史记录</h2><p class="free-history-head-p">每条记录直接显示生成状态、全部图片结果、参数和结算。</p></div>
+                  <span class="free-history-count">{{ runCount }} 条记录</span>
+                </header>
+                <div class="free-history-grid">
+                  <sc-for list="{{ runs }}" as="r" hint-placeholder-count="2">
+                    <article class="free-run-card">
+                      <header class="free-run-head"><div><span class="free-run-time">{{ r.time }}</span><h3 class="free-run-head-h3">自由模式记录</h3><p class="free-run-head-p">{{ r.delivered }} / {{ r.requested }} 张已交付</p></div><span class="{{ r.statusCls }}">{{ r.statusLabel }}</span></header>
+                      <sc-if value="{{ r.msg }}" hint-placeholder-val="{{ false }}"><div class="{{ r.msgCls }}"><strong class="free-run-message-strong">{{ r.msg.t }}</strong><span class="free-run-message-span">{{ r.msg.d }}</span></div></sc-if>
+                      <div class="free-run-output-grid">
+                        <sc-for list="{{ r.outputs }}" as="o" hint-placeholder-count="2">
+                          <article class="{{ o.cls }}">
+                            <sc-if value="{{ o.delivered }}" hint-placeholder-val="{{ true }}"><div class="free-run-image"><span class="{{ o.imgCls }}"></span></div></sc-if>
+                            <sc-if value="{{ o.notDelivered }}" hint-placeholder-val="{{ false }}"><div class="{{ o.phCls }}"><strong class="free-run-placeholder-strong">{{ o.phLabel }}</strong><sc-if value="{{ o.generating }}" hint-placeholder-val="{{ false }}"><span class="free-run-progress" role="progressbar"><i class="free-run-progress-i"></i></span></sc-if></div></sc-if>
+                            <div class="free-run-output-copy"><div class="free-run-output-copy-div"><strong class="free-run-output-copy-strong">成图 {{ o.n }}</strong><span class="{{ o.stateCls }}">{{ o.label }}</span></div><small class="free-run-output-copy-small">{{ o.detail }}</small>
+                              <sc-if value="{{ o.delivered }}" hint-placeholder-val="{{ true }}"><div class="free-run-output-actions free-run-output-copy-div"><button class="free-run-output-actions-button" type="button" onClick="{{ o.preview }}">查看</button><button class="free-run-output-actions-button" type="button" onClick="{{ exportImage }}">导出</button></div></sc-if>
+                            </div>
+                          </article>
+                        </sc-for>
+                      </div>
+                      <dl class="free-run-facts"><div class="free-run-facts-div"><dt class="free-run-facts-dt">输入图片</dt><dd class="free-run-facts-dd">{{ r.inputName }}</dd></div><div class="free-run-facts-div"><dt class="free-run-facts-dt">生成参数</dt><dd class="free-run-facts-dd">{{ r.ratio }} · {{ r.requested }} 张</dd></div><div class="free-run-facts-div"><dt class="free-run-facts-dt">去除商标与 Logo</dt><dd class="free-run-facts-dd">{{ r.logoText }}</dd></div><div class="wide free-run-facts-div"><dt class="free-run-facts-dt">画面提示词</dt><dd class="free-run-facts-dd">{{ r.prompt }}</dd></div></dl>
+                      <div class="free-run-settlement"><div class="free-run-settlement-div"><span class="free-run-settlement-span">预扣额度</span><strong class="free-run-settlement-strong">{{ r.held }}</strong></div><div class="free-run-settlement-div"><span class="free-run-settlement-span">实际结算</span><strong class="free-run-settlement-strong">{{ r.settled }}</strong></div><div class="free-run-settlement-div"><span class="free-run-settlement-span">已释放</span><strong class="free-run-settlement-strong">{{ r.released }}</strong></div></div>
+                      <sc-if value="{{ r.retry }}" hint-placeholder-val="{{ false }}"><div class="free-run-actions"><button class="btn-primary" type="button" onClick="{{ r.retry }}">用相同设置再试一次 · {{ r.failedCount }} 张</button></div></sc-if>
+                    </article>
+                  </sc-for>
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+        <sc-if value="{{ preview }}" hint-placeholder-val="{{ false }}">
+          <div class="dc-backdrop" onClick="{{ closePreview }}"></div>
+          <div class="free-image-dialog dc-modal" role="dialog" aria-modal="true" data-screen-label="成图预览">
+            <header class="free-image-dialog-head"><h3 class="free-image-dialog-head-h3">自由模式成图 {{ preview.n }}</h3></header>
+            <div class="free-image-dialog-body"><div class="free-image-preview-large"><span class="{{ preview.imgCls }}"></span></div></div>
+            <footer class="free-image-dialog-foot"><button class="btn-secondary" type="button" onClick="{{ closePreview }}">关闭</button><button class="btn-primary" type="button" onClick="{{ exportFromPreview }}">导出</button></footer>
+          </div>
+        </sc-if>
+        <sc-if value="{{ gate }}" hint-placeholder-val="{{ false }}">
+          <div class="dc-backdrop" onClick="{{ gateBackdrop }}"></div>
+          <div class="subject-abandon-dialog free-gate-dialog dc-modal" role="dialog" aria-modal="true" data-screen-label="自由生成确认">
+            <div class="subject-abandon-shell">
+              <header class="subject-abandon-shell-header">
+                <span class="free-gate-step">生成确认</span>
+                <h2 class="subject-abandon-shell-h2">{{ gate.title }}</h2>
+                <p class="subject-abandon-shell-p">{{ gate.desc }}</p>
+                <div>
+                  <sc-if value="{{ gate.rejected }}" hint-placeholder-val="{{ false }}">
+                    <section class="free-gate-status rejected" role="alert"><strong class="free-gate-status-strong">还差 {{ gate.missing }} 鸭豆</strong><span class="free-gate-status-span">当前余额 {{ gate.balance }} 鸭豆，最多需要 {{ gate.max }} 鸭豆。</span></section>
+                    <section class="free-gate-rule"><strong class="free-gate-rule-strong">表单内容已经保留</strong><span class="free-gate-rule-span">充值后可以继续提交，不需要重新选择图片或填写提示词。</span></section>
+                  </sc-if>
+                  <sc-if value="{{ gate.recovered }}" hint-placeholder-val="{{ false }}">
+                    <section class="free-gate-status recovered" role="status"><strong class="free-gate-status-strong">当前余额 {{ gate.balance }} 鸭豆</strong><span class="free-gate-status-span">最多需要 {{ gate.max }} 鸭豆。</span></section>
+                  </sc-if>
+                  <sc-if value="{{ gate.summary }}" hint-placeholder-val="{{ true }}">
+                    <section class="free-gate-summary"><div class="free-gate-summary-div"><span class="free-gate-summary-span">生成数量</span><strong class="free-gate-summary-strong">{{ gate.count }} 张</strong></div><div class="free-gate-summary-div"><span class="free-gate-summary-span">每张费用</span><strong class="free-gate-summary-strong">20 鸭豆</strong></div><div class="free-gate-summary-div"><span class="free-gate-summary-span">最大预扣</span><strong class="free-gate-summary-strong">{{ gate.max }} 鸭豆</strong></div><div class="free-gate-summary-div"><span class="free-gate-summary-span">当前余额</span><strong class="free-gate-summary-strong">{{ gate.balance }} 鸭豆</strong></div></section>
+                  </sc-if>
+                  <sc-if value="{{ gate.confirm }}" hint-placeholder-val="{{ true }}">
+                    <div class="free-gate-rules">
+                      <section class="free-gate-rule"><strong class="free-gate-rule-strong">按实际成功生成的张数结算</strong><span class="free-gate-rule-span">最多预扣 {{ gate.max }} 鸭豆。没有成功生成的图片不会结算。</span></section>
+                      <section class="free-gate-rule"><strong class="free-gate-rule-strong">{{ gate.rule2t }}</strong><span class="free-gate-rule-span">{{ gate.rule2d }}</span></section>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ gate.busy }}" hint-placeholder-val="{{ false }}">
+                    <section class="free-gate-status" role="status"><strong class="free-gate-status-strong">{{ gate.busyT }}</strong><span class="free-gate-status-span">{{ gate.busyD }}</span><div class="free-gate-progress" aria-hidden="true"></div></section>
+                  </sc-if>
+                </div>
+                <p class="free-gate-footnote subject-abandon-shell-p">{{ gate.foot }}</p>
+              </header>
+              <footer class="subject-abandon-shell-footer">
+                <sc-if value="{{ gate.showBack }}" hint-placeholder-val="{{ true }}"><button class="btn-secondary" type="button" onClick="{{ gateBack }}">{{ gate.backLabel }}</button></sc-if>
+                <sc-if value="{{ gate.rejected }}" hint-placeholder-val="{{ false }}"><button class="btn-secondary" type="button" onClick="{{ gateRecharge }}">充值鸭豆</button></sc-if>
+                <sc-if value="{{ gate.showConfirm }}" hint-placeholder-val="{{ true }}"><button class="btn-primary subject-abandon-shell-btn-primary" type="button" onClick="{{ gateConfirm }}">确认并提交</button></sc-if>
+              </footer>
+            </div>
+          </div>
+        </sc-if>
+      </section>
+      <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+        <div class="dc-toast" role="status">{{ toast }}</div>
+      </sc-if>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{
+  "$preview": {
+    "width": 1440,
+    "height": 900
+  },
+  "scenario": {
+    "editor": "enum",
+    "default": "free-form",
+    "tsType": "string",
+    "options": [
+      "free-form",
+      "free-gate",
+      "free-hold-rejected",
+      "free-hold-unknown"
+    ]
+  },
+  "serviceDown": {
+    "editor": "boolean",
+    "default": false,
+    "tsType": "boolean"
+  }
+}'
+    >
+      class Component extends DCLogic {
+        constructor(props) {
+          super(props);
+          this.state = Object.assign({ fx: false, toast: "" }, this.init(props));
+        }
+        componentDidMount() {
+          const tick = () => {
+            if (window.CHAMELEON) { this.setState({ fx: true }, () => this.onReady && this.onReady()); return; }
+            this._w = setTimeout(tick, 50);
+          };
+          tick();
+        }
+        componentWillUnmount() { clearTimeout(this._w); clearTimeout(this._t); this.cleanup && this.cleanup(); }
+        componentDidUpdate(prev) {
+          if (prev.scenario !== this.props.scenario) this.setState(this.init(this.props), () => this.onReady && this.onReady());
+          this.afterUpdate && this.afterUpdate(prev);
+        }
+        toast(msg) {
+          this.setState({ toast: msg });
+          clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: "" }), 2400);
+        }
+        emit(name, detail, fallback) {
+          if (this.props[name]) this.props[name](detail); else this.toast(fallback);
+        }
+        fx() { return window.CHAMELEON || {}; }
+        init(props) {
+          const sc = props.scenario || "free-form"; const gateMode = { "free-gate": "confirm", "free-hold-rejected": "rejected", "free-hold-unknown": "unknown" }[sc] || null;
+          const fx = window.CHAMELEON || {};
+          const base = { scenario: sc, runs: (fx.freeRuns || []).map(r => Object.assign({}, r, { itemStates: r.itemStates.slice() })), imageName: "", prompt: "", ratio: "1:1", countText: "1 张", removeLogo: false, imageErr: "", promptErr: "", preview: null, gateMode: null, gateCtx: null, balance: props.balance ?? 12480 };
+          if (gateMode) { Object.assign(base, { imageName: "商品图片_洗洁精.jpg", prompt: "把商品放在清晨的厨房台面上，保留包装完整。", ratio: "3:4", countText: "2 张" }); if (gateMode === "rejected") base.balance = 20; base.gateCtx = this.ctxFrom(base); base.gateMode = gateMode; }
+          return base;
+        }
+        onReady() { this.setState(this.init(this.props)); }
+        cleanup() { clearTimeout(this._g); }
+        ctxFrom(s) { const count = parseInt(s.countText, 10) || 1; return { count, maxCredits: count * 20, prompt: s.prompt.trim(), ratio: s.ratio, removeLogo: s.removeLogo, inputName: s.imageName || "输入图片" }; }
+        fmt(n) { return Number(n).toLocaleString("zh-CN"); }
+        runStatus(s) { return s === "queued" ? ["排队中", "running"] : s === "running" ? ["进行中", "running"] : s === "completed" ? ["已完成", "done"] : s === "partial" ? ["部分完成", "failed"] : ["失败", "failed"]; }
+        imgState(s) { return s === "delivered" ? ["已交付", "delivered", "图片已经保存到当前电脑"] : s === "generating" ? ["生成中", "generating", "完成后会自动显示"] : s === "failed" ? ["已失败", "failed", "生成服务暂时不可用"] : s === "ungenerated" ? ["未生成", "ungenerated", "本次记录结束前没有再次生成"] : ["待生成", "pending", "轮到这张图片时自动开始"]; }
+        finishGate() {
+          const c = this.state.gateCtx; const run = { id: "FREE-NEW-" + this.state.runs.length, state: "queued", time: "刚刚", ratio: c.ratio, requested: c.count, prompt: c.prompt, inputName: c.inputName, removeLogo: c.removeLogo, itemStates: Array(c.count).fill("pending") };
+          const next = { runs: [run].concat(this.state.runs), gateMode: null, gateCtx: null };
+          if (!c.retrySourceId) Object.assign(next, { imageName: "", prompt: "", ratio: "1:1", countText: "1 张", removeLogo: false, imageErr: "", promptErr: "" });
+          this.setState(next); this.emit("onSubmitted", run, "");
+        }
+        renderVals() {
+          const st = this.state; const ctx = st.gateCtx; const m = st.gateMode; const bal = this.fmt(st.balance);
+          const tone = i => i % 3 === 1 ? " warm" : i % 3 === 2 ? " cool" : "";
+          let gate = null;
+          if (m && ctx) {
+            const isRetry = Boolean(ctx.retrySourceId); const max = this.fmt(ctx.maxCredits);
+            gate = { count: ctx.count, max, balance: bal, summary: m === "confirm" || m === "confirming" || m === "unknown" || m === "recovered", confirm: m === "confirm", busy: m === "confirming" || m === "unknown", rejected: m === "rejected", recovered: m === "recovered", showBack: m !== "confirming" && m !== "unknown", showConfirm: m === "confirm" || m === "recovered" };
+            if (m === "confirm") Object.assign(gate, { title: isRetry ? "确认并重新生成" : "确认并提交自由生成", desc: isRetry ? "请核对未交付图片数量和最大鸭豆数。" : "请核对本次生成数量和最大鸭豆数。", rule2t: isRetry ? "沿用原记录的生成设置" : "提交后不能修改本次设置", rule2d: isRetry ? "输入图片、提示词、宽高比和去除商标选项保持不变。" : "输入图片、提示词、宽高比、生成数量和去除商标选项将按当前内容执行。", foot: isRetry ? "确认前可以返回原记录。" : "确认前仍然可以返回表单修改。", backLabel: isRetry ? "返回原记录" : "再看看" });
+            else if (m === "confirming" || m === "unknown") { const u = m === "unknown"; Object.assign(gate, { title: u ? "提交处理中" : "正在确认自由生成", desc: u ? "提交结果暂时没有返回。系统正在继续核对这一次提交。" : "正在确认鸭豆预扣和记录创建结果，请稍候。", busyT: u ? "正在等待原提交结果" : "系统正在自动处理", busyD: u ? "不会重复预扣，也不会建立第二条记录。" : "确认成功后会在独立历史中显示排队中记录。", foot: u ? "结果返回前不能再次提交。" : "确认完成前，本次设置保持锁定。" }); }
+            else if (m === "rejected") Object.assign(gate, { title: "鸭豆余额不足，本次没有提交", desc: "提交前余额发生变化。当前余额不足以完成本次预扣。", missing: this.fmt(Math.max(0, ctx.maxCredits - st.balance)), foot: "本次没有预扣鸭豆，也没有建立自由模式记录。", backLabel: "返回表单" });
+            else Object.assign(gate, { title: "余额已更新，可以重新提交", desc: "当前余额足够。本次表单内容保持不变。", foot: "重新提交前仍然可以返回表单。", backLabel: "返回表单" });
+          }
+          const runs = st.runs.map(r => {
+            const [statusLabel, statusCls] = this.runStatus(r.state); const delivered = r.itemStates.filter(s => s === "delivered").length; const failedCount = r.itemStates.filter(s => s === "failed" || s === "ungenerated").length; const terminal = ["completed", "partial", "failed"].includes(r.state); const held = r.requested * 20;
+            const msg = r.state === "queued" ? { cls: "queued", t: "轮到它时自动开始生成，不需要你再点一次。", d: "这条记录已经进入队列。你可以离开自由模式去做别的事。" } : r.state === "running" ? { cls: "running", t: "正在生成 " + delivered + " / " + r.requested, d: "已交付图片会立即保留，其余图片继续生成。" } : (r.state === "partial" || r.state === "failed") ? { cls: "failed", t: "生成服务暂时不可用。", d: "已交付图片继续保留，未交付图片不收费。" } : null;
+            return { time: r.time, requested: r.requested, delivered, statusCls: "status " + statusCls, statusLabel, msg, msgCls: msg ? "free-run-message " + msg.cls : "", inputName: r.inputName, ratio: r.ratio, logoText: r.removeLogo ? "已开启" : "未开启", prompt: r.prompt,
+              held: r.requested + " 张 · " + held + " 鸭豆", settled: terminal ? delivered + " 张 · " + (delivered * 20) + " 鸭豆" : "等待完成", released: terminal ? (r.requested - delivered) + " 张 · " + ((r.requested - delivered) * 20) + " 鸭豆" : "等待完成", failedCount,
+              outputs: r.itemStates.map((s, i) => { const [label, cls, detail] = this.imgState(s); return { n: i + 1, label, detail, cls: "free-run-output state-" + cls, stateCls: "free-run-image-state " + cls, delivered: s === "delivered", notDelivered: s !== "delivered", generating: s === "generating", phCls: "free-run-placeholder " + cls, phLabel: s === "generating" ? "图片生成中" : label, imgCls: "free-history-image" + tone(i), preview: () => this.setState({ preview: { n: i + 1, imgCls: "free-history-image" + tone(i) } }) }; }),
+              retry: failedCount > 0 && r.failureKind === "service" ? () => this.setState({ gateMode: "confirm", gateCtx: { count: failedCount, maxCredits: failedCount * 20, prompt: r.prompt, ratio: r.ratio, removeLogo: r.removeLogo, inputName: r.inputName, retrySourceId: r.id } }) : null };
+          });
+          return {
+            toast: st.toast, serviceDown: Boolean(this.props.serviceDown),
+            goLibrary: () => this.emit("onSwitchView", "product-library", "→ 切到商品项目库"), goSettings: () => this.emit("onSwitchView", "settings", "→ 切到设置"),
+            noImage: !st.imageName, hasImage: Boolean(st.imageName), imageName: st.imageName, dropCls: "free-drop" + (st.imageName ? " has-image" : "") + (st.imageErr ? " has-error" : ""), imageErr: st.imageErr, imageErrStr: String(Boolean(st.imageErr)),
+            pickImage: () => this.setState({ imageName: "商品图片_洗洁精.jpg", imageErr: "" }),
+            prompt: st.prompt, promptCount: st.prompt.length + " / 2000", promptErr: st.promptErr, promptErrStr: String(Boolean(st.promptErr)), setPrompt: (e) => this.setState({ prompt: e.target.value, promptErr: e.target.value.trim() ? "" : st.promptErr }),
+            ratio: st.ratio, setRatio: (e) => this.setState({ ratio: e.target.value }), countText: st.countText, setCount: (e) => this.setState({ countText: e.target.value }), removeLogo: st.removeLogo, setRemoveLogo: (e) => this.setState({ removeLogo: e.target.checked }),
+            submit: () => { if (this.props.billingDebt) { this.emit("onBillingDebt", null, "→ 欠费门禁"); return; } const imageErr = st.imageName ? "" : "请选择一张输入图片。"; const promptErr = !st.prompt.trim() ? "请填写画面提示词。" : st.prompt.length > 2000 ? "画面提示词不能超过 2000 字。" : ""; if (imageErr || promptErr) { this.setState({ imageErr, promptErr }); return; } this.setState({ imageErr: "", promptErr: "", gateMode: "confirm", gateCtx: this.ctxFrom(st) }); },
+            runs, runCount: st.runs.length, exportImage: () => this.toast("图片已导出到设置页面中的默认导出路径。"),
+            preview: st.preview, closePreview: () => this.setState({ preview: null }), exportFromPreview: () => { this.setState({ preview: null }); this.toast("图片已导出到设置页面中的默认导出路径。"); },
+            gate, gateBackdrop: () => { if (m !== "confirming" && m !== "unknown") this.setState({ gateMode: null }); }, gateBack: () => this.setState({ gateMode: null }),
+            gateRecharge: () => this.setState({ balance: 12480, gateMode: "recovered" }),
+            gateConfirm: () => { this.setState({ gateMode: "confirming" }); clearTimeout(this._g); this._g = setTimeout(() => this.finishGate(), 900); }
+          };
+        }
+      }
+    </script>
+  </body>
+</html>
