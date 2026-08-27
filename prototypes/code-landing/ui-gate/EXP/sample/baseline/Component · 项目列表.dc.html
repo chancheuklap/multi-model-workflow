@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="stylesheet" href="./styles/tokens.css" />
+        <link rel="stylesheet" href="./styles/product-project-library.css" />
+        <script src="./data/fixtures.js"></script>
+        <style>
+          body { margin: 0; min-height: 100vh; background: #e6e3df; }
+          #dc-root { width: 1440px; height: 900px; margin: 0 auto; overflow: hidden; position: relative; transform: translateZ(0); }
+          #dc-root > * { height: 100%; }
+          .dc-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 50; padding: 10px 16px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; box-shadow: 0 12px 32px rgba(45, 25, 34, 0.25); }
+          .dc-backdrop { position: fixed; inset: 0; background: rgba(40, 25, 32, 0.38); z-index: 40; }
+          .dc-modal { position: fixed; inset: 0; margin: auto; height: fit-content; z-index: 41; }
+          .workspace { height: 100%; }
+        </style>
+      </helmet>
+      <section class="workspace" data-screen-label="商品项目库">
+        <section class="product-library active" role="tabpanel" aria-label="商品项目库">
+          <div class="canvas-shell">
+            <section class="visual-canvas">
+              <header class="section-head">
+                <div class="workspace-tabs" role="tablist" aria-label="变色龙功能">
+                  <button class="workspace-tab" type="button" role="tab" aria-selected="true">商品项目库</button>
+                  <button class="workspace-tab" type="button" role="tab" aria-selected="false" disabled="{{ serviceDown }}" title="{{ downTitle }}" onClick="{{ goFreeMode }}">自由模式</button>
+                  <button class="workspace-tab" type="button" role="tab" aria-selected="false" onClick="{{ goSettings }}">设置</button>
+                </div>
+              </header>
+              <div class="project-grid">
+                <sc-for list="{{ projects }}" as="p" hint-placeholder-count="4">
+                  <button class="project-card" type="button" data-selected="false" onClick="{{ p.enter }}">
+                    <div class="{{ p.artClass }}" style="{{ p.artStyle }}"><span class="art-label-top">{{ p.artTop }}</span></div>
+                    <div class="project-card-body">
+                      <div class="source-kicker"><span class="{{ p.statusClass }}">{{ p.statusLabel }}</span><span class="project-id">{{ p.id }}</span></div>
+                      <h2 class="project-card-name">{{ p.name }}</h2>
+                      <div class="project-card-summary"><span><strong class="project-card-summary-strong">{{ p.subjectCount }} 张</strong> 商品主体图</span><span><strong class="project-card-summary-strong">{{ p.taskCount }} 个</strong> 生成任务</span></div>
+                      <div class="project-card-footer"><span>{{ p.updated }}</span><span class="project-enter">进入商品项目</span></div>
+                    </div>
+                  </button>
+                </sc-for>
+                <button class="new-project-card" type="button" disabled="{{ serviceDown }}" title="{{ downTitle }}" onClick="{{ createProject }}">
+                  <span class="new-project-inner">
+                    <span class="new-project-kicker">新建入口</span>
+                    <h2 class="new-project-inner-h2">新建商品项目</h2>
+                    <p class="new-project-inner-p">添加至少一张商品素材，指定它要生成的功能图片，再继续完成本次生成任务。</p>
+                  </span>
+                </button>
+              </div>
+              <div class="library-tip"><strong class="library-tip-strong">一个商品，一个长期项目。</strong> 可复用的商品主体图与每次生成任务都保存在对应的商品项目中。</div>
+            </section>
+          </div>
+        </section>
+      </section>
+      <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+        <div class="dc-toast" role="status">{{ toast }}</div>
+      </sc-if>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{
+  "$preview": {
+    "width": 1440,
+    "height": 900
+  },
+  "scenario": {
+    "editor": "enum",
+    "default": "ready",
+    "tsType": "string",
+    "options": [
+      "ready",
+      "library-empty"
+    ]
+  },
+  "serviceDown": {
+    "editor": "boolean",
+    "default": false,
+    "tsType": "boolean"
+  }
+}'
+    >
+      class Component extends DCLogic {
+        constructor(props) {
+          super(props);
+          this.state = Object.assign({ fx: false, toast: "" }, this.init(props));
+        }
+        componentDidMount() {
+          const tick = () => {
+            if (window.CHAMELEON) { this.setState({ fx: true }, () => this.onReady && this.onReady()); return; }
+            this._w = setTimeout(tick, 50);
+          };
+          tick();
+        }
+        componentWillUnmount() { clearTimeout(this._w); clearTimeout(this._t); this.cleanup && this.cleanup(); }
+        componentDidUpdate(prev) {
+          if (prev.scenario !== this.props.scenario) this.setState(this.init(this.props), () => this.onReady && this.onReady());
+          this.afterUpdate && this.afterUpdate(prev);
+        }
+        toast(msg) {
+          this.setState({ toast: msg });
+          clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: "" }), 2400);
+        }
+        emit(name, detail, fallback) {
+          if (this.props[name]) this.props[name](detail); else this.toast(fallback);
+        }
+        fx() { return window.CHAMELEON || {}; }
+        init(props) { return { scenario: props.scenario || "ready" }; }
+        renderVals() {
+          const fx = this.fx(); const serviceDown = Boolean(this.props.serviceDown);
+          const projects = this.state.scenario === "library-empty" ? [] : (fx.projects || []).map(p => ({
+            ...p, artClass: "source-art " + p.art, artStyle: p.noArtLabel ? {} : { "--art-label": "'" + p.name + "'" },
+            enter: () => this.emit("onEnterProject", p.id, "→ 进入商品项目 " + p.id + "（" + p.name + "）")
+          }));
+          return {
+            serviceDown, downTitle: serviceDown ? "服务恢复后可以使用" : "", projects, toast: this.state.toast,
+            goFreeMode: () => this.emit("onSwitchView", "free-mode", "→ 切到自由模式"),
+            goSettings: () => this.emit("onSwitchView", "settings", "→ 切到设置"),
+            createProject: () => this.emit("onCreateProject", null, "→ 新建商品项目")
+          };
+        }
+      }
+    </script>
+  </body>
+</html>

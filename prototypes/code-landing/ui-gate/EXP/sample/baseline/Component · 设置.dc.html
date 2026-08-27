@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="stylesheet" href="./styles/tokens.css" />
+        <link rel="stylesheet" href="./styles/product-project-library.css" />
+        <script src="./data/fixtures.js"></script>
+        <style>
+          body { margin: 0; min-height: 100vh; background: #e6e3df; }
+          #dc-root { width: 1440px; height: 900px; margin: 0 auto; overflow: hidden; position: relative; transform: translateZ(0); }
+          #dc-root > * { height: 100%; }
+          .dc-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 50; padding: 10px 16px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; box-shadow: 0 12px 32px rgba(45, 25, 34, 0.25); }
+          .dc-backdrop { position: fixed; inset: 0; background: rgba(40, 25, 32, 0.38); z-index: 40; }
+          .dc-modal { position: fixed; inset: 0; margin: auto; height: fit-content; z-index: 41; }
+          .workspace { height: 100%; }
+        </style>
+      </helmet>
+      <section class="workspace" data-screen-label="设置">
+        <section class="product-settings active" role="tabpanel" aria-label="设置">
+          <div class="settings-page-scroll">
+            <header class="section-head settings-page-head">
+              <div class="workspace-tabs" role="tablist" aria-label="变色龙功能">
+                <button class="workspace-tab" type="button" role="tab" aria-selected="false" onClick="{{ goLibrary }}">商品项目库</button>
+                <button class="workspace-tab" type="button" role="tab" aria-selected="false" disabled="{{ serviceDown }}" onClick="{{ goFreeMode }}">自由模式</button>
+                <button class="workspace-tab" type="button" role="tab" aria-selected="true">设置</button>
+              </div>
+            </header>
+            <div class="settings-page-layout">
+              <section class="settings-card">
+                <header class="settings-card-head">
+                  <div><h1 class="settings-card-head-h1">文件与导出</h1><p class="settings-card-head-p">设置成图导出到本机的位置。</p></div>
+                  <span class="settings-saved-state">已保存</span>
+                </header>
+                <div class="settings-row">
+                  <div class="settings-row-copy"><strong class="settings-row-copy-strong">默认导出路径</strong><span class="settings-row-copy-span">任务详情中的“导出”会直接把成图保存到这里。</span></div>
+                  <div class="settings-path-control"><output class="settings-path-control-output" aria-live="polite">{{ path }}</output><button class="btn-secondary" type="button" onClick="{{ choose }}">选择文件夹</button></div>
+                </div>
+                <p class="settings-card-note">设置保存在当前电脑上。更改路径不会移动已经导出的图片。</p>
+              </section>
+            </div>
+          </div>
+        </section>
+      </section>
+      <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+        <div class="dc-toast" role="status">{{ toast }}</div>
+      </sc-if>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{
+  "$preview": {
+    "width": 1440,
+    "height": 900
+  },
+  "serviceDown": {
+    "editor": "boolean",
+    "default": false,
+    "tsType": "boolean"
+  }
+}'
+    >
+      class Component extends DCLogic {
+        constructor(props) {
+          super(props);
+          this.state = Object.assign({ fx: false, toast: "" }, this.init(props));
+        }
+        componentDidMount() {
+          const tick = () => {
+            if (window.CHAMELEON) { this.setState({ fx: true }, () => this.onReady && this.onReady()); return; }
+            this._w = setTimeout(tick, 50);
+          };
+          tick();
+        }
+        componentWillUnmount() { clearTimeout(this._w); clearTimeout(this._t); this.cleanup && this.cleanup(); }
+        componentDidUpdate(prev) {
+          if (prev.scenario !== this.props.scenario) this.setState(this.init(this.props), () => this.onReady && this.onReady());
+          this.afterUpdate && this.afterUpdate(prev);
+        }
+        toast(msg) {
+          this.setState({ toast: msg });
+          clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: "" }), 2400);
+        }
+        emit(name, detail, fallback) {
+          if (this.props[name]) this.props[name](detail); else this.toast(fallback);
+        }
+        fx() { return window.CHAMELEON || {}; }
+        init(props) { return { path: "D:\\变色龙成图" }; }
+        renderVals() {
+          return { toast: this.state.toast, path: this.state.path, serviceDown: Boolean(this.props.serviceDown),
+            goLibrary: () => this.emit("onSwitchView", "product-library", "→ 切到商品项目库"), goFreeMode: () => this.emit("onSwitchView", "free-mode", "→ 切到自由模式"),
+            choose: () => { this.setState({ path: "D:\\电商素材\\变色龙成图" }); this.toast("默认导出路径已更新。"); } };
+        }
+      }
+    </script>
+  </body>
+</html>

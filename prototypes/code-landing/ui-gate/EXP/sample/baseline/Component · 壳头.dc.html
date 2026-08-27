@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="stylesheet" href="./styles/tokens.css" />
+        <link rel="stylesheet" href="./styles/product-project-library.css" />
+        <script src="./data/fixtures.js"></script>
+        <style>
+          body { margin: 0; min-height: 100vh; background: #e6e3df; }
+          #dc-root { width: 1440px; height: 900px; margin: 0 auto; overflow: hidden; position: relative; transform: translateZ(0); }
+          #dc-root > * { height: 100%; }
+          .dc-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 50; padding: 10px 16px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; box-shadow: 0 12px 32px rgba(45, 25, 34, 0.25); }
+          .dc-backdrop { position: fixed; inset: 0; background: rgba(40, 25, 32, 0.38); z-index: 40; }
+          .dc-modal { position: fixed; inset: 0; margin: auto; height: fit-content; z-index: 41; }
+
+        </style>
+      </helmet>
+      <main class="{{ appClass }}" data-screen-label="壳头">
+        <header class="titlebar">
+          <div class="brand" aria-label="变色龙商品图助手">
+            <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5.2 6.2c2.1-2.8 6.4-3.7 9.6-1.8 2.2 1.3 3.6 3.8 3.2 6.4-.3 2.3-2 4.1-4.3 4.6-1.8.4-3.8-.2-4.9-1.8-.8-1.1-.9-2.7-.1-3.8.6-.8 1.6-1.3 2.6-1.1.8.1 1.5.8 1.6 1.6.1.6-.2 1.3-.8 1.6-.5.2-1.1.1-1.4-.3" fill="none" stroke="var(--rose)" stroke-width="2.2" stroke-linecap="round"></path>
+              <path d="M5.2 6.2 3.6 4.8M5.4 6.3 3.2 7.1M15.9 6.5l2.7-1.4" fill="none" stroke="var(--rose)" stroke-width="1.7" stroke-linecap="round"></path>
+              <circle cx="14.7" cy="7.4" r="1" fill="var(--rose)"></circle>
+              <path d="M6.6 13.8 4.1 18h3.1l1.5-2.5m6 0 1.7 3.1h3.2l-2.5-4.7" fill="none" stroke="var(--rose)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            <span>变色龙商品图助手</span>
+          </div>
+          <span class="title-context">{{ context }}</span>
+          <span class="{{ serviceClass }}" role="status" aria-live="polite">
+            <span class="service-status-dot" aria-hidden="true"></span>
+            <span>{{ serviceLabel }}</span>
+          </span>
+          <span class="wallet">鸭豆余额 <b class="wallet-b">{{ balanceText }}</b></span>
+        </header>
+        <sc-if value="{{ statusBar }}" hint-placeholder-val="{{ false }}">
+          <section class="{{ statusBarClass }}" role="status" aria-live="polite" aria-atomic="true" tabindex="-1">
+            <div class="global-status-content"><strong class="global-status-content-strong">{{ statusBar.title }}</strong><span class="global-status-content-span">{{ statusBar.detail }}</span></div>
+          </section>
+        </sc-if>
+        <sc-if value="{{ login }}" hint-placeholder-val="{{ false }}">
+          <section class="login-gate" role="dialog" aria-modal="true" data-screen-label="登录门禁">
+            <div class="login-gate-card" data-tone="{{ login.tone }}">
+              <div class="login-gate-status" aria-hidden="true"><span class="login-gate-status-span"></span></div>
+              <div class="login-gate-copy">
+                <p class="login-gate-eyebrow">{{ login.eyebrow }}</p>
+                <h1 class="login-gate-copy-h1">{{ login.title }}</h1>
+                <p class="login-gate-description">{{ login.description }}</p>
+                <sc-if value="{{ login.detail }}" hint-placeholder-val="{{ true }}"><div class="login-gate-detail">{{ login.detail }}</div></sc-if>
+              </div>
+              <sc-if value="{{ loginFeedback }}" hint-placeholder-val="{{ false }}"><div class="login-gate-feedback" role="status" aria-live="polite">{{ loginFeedback }}</div></sc-if>
+              <footer class="login-gate-actions">
+                <button class="btn-secondary login-gate-exit login-gate-actions-button" type="button" disabled="{{ exitRequested }}" onClick="{{ loginExit }}">{{ exitLabel }}</button>
+                <sc-if value="{{ login.primaryLabel }}" hint-placeholder-val="{{ true }}"><button class="btn-primary login-gate-actions-button" type="button" onClick="{{ loginPrimary }}">{{ login.primaryLabel }}</button></sc-if>
+              </footer>
+            </div>
+          </section>
+        </sc-if>
+        <section class="workspace"></section>
+      </main>
+      <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+        <div class="dc-toast" role="status">{{ toast }}</div>
+      </sc-if>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{
+  "$preview": {
+    "width": 1440,
+    "height": 900
+  },
+  "scenario": {
+    "editor": "enum",
+    "default": "ready",
+    "tsType": "string",
+    "options": [
+      "ready",
+      "app-service-unavailable",
+      "app-service-config-sync",
+      "ux-realtime-disconnected",
+      "ux-realtime-consistent",
+      "ux-safe-error",
+      "app-checking",
+      "app-login-required",
+      "app-awaiting-browser",
+      "app-capybara-unreachable",
+      "app-login-failed",
+      "app-login-incomplete",
+      "app-account-change-blocked",
+      "app-upgrade-required"
+    ]
+  },
+  "context": {
+    "editor": "text",
+    "default": "商品项目库",
+    "tsType": "string"
+  },
+  "standalone": {
+    "editor": "boolean",
+    "default": true,
+    "tsType": "boolean"
+  }
+}'
+    >
+      class Component extends DCLogic {
+        constructor(props) {
+          super(props);
+          this.state = Object.assign({ fx: false, toast: "" }, this.init(props));
+        }
+        componentDidMount() {
+          const tick = () => {
+            if (window.CHAMELEON) { this.setState({ fx: true }, () => this.onReady && this.onReady()); return; }
+            this._w = setTimeout(tick, 50);
+          };
+          tick();
+        }
+        componentWillUnmount() { clearTimeout(this._w); clearTimeout(this._t); this.cleanup && this.cleanup(); }
+        componentDidUpdate(prev) {
+          if (prev.scenario !== this.props.scenario) this.setState(this.init(this.props), () => this.onReady && this.onReady());
+          this.afterUpdate && this.afterUpdate(prev);
+        }
+        toast(msg) {
+          this.setState({ toast: msg });
+          clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: "" }), 2400);
+        }
+        emit(name, detail, fallback) {
+          if (this.props[name]) this.props[name](detail); else this.toast(fallback);
+        }
+        fx() { return window.CHAMELEON || {}; }
+        init(props) { return { scenario: props.scenario || "ready", recovered: false, loginOverride: null, loginFeedback: "", exitRequested: false }; }
+        onReady() {
+          clearTimeout(this._r);
+          const s = (this.fx().serviceStatusScenarios || {})[this.state.scenario];
+          if (s && s.recoverAutomatically) this._r = setTimeout(() => { this.setState({ recovered: true }); this.toast("服务配置已同步，可以开始新的生成任务。"); this.emit("onServiceRecovered", null, ""); }, 2600);
+        }
+        cleanup() { clearTimeout(this._r); }
+        renderVals() {
+          const fx = this.fx(); const sc = this.state.scenario;
+          const service = !this.state.recovered ? (fx.serviceStatusScenarios || {})[sc] : null;
+          const feedback = (fx.globalFeedbackScenarios || {})[sc];
+          const login = this.state.loginOverride || (fx.loginScenarios || {})[sc] || null;
+          const statusBar = service || feedback || null;
+          const tone = service ? service.tone : (feedback && feedback.label ? feedback.tone : "ready");
+          return {
+            appClass: "app" + (statusBar ? " service-status-visible" : "") + (login ? " login-blocked" : ""),
+            context: this.props.context ?? "商品项目库",
+            serviceClass: "service-status " + tone,
+            serviceLabel: service ? service.label : (feedback && feedback.label ? feedback.label : "服务正常"),
+            balanceText: (this.props.balance ?? (fx.wallet || {}).rechargedBalance ?? 12480).toLocaleString("zh-CN"),
+            statusBar, statusBarClass: "global-status-bar " + (statusBar ? statusBar.tone : ""),
+            login, loginFeedback: this.state.loginFeedback, exitRequested: this.state.exitRequested,
+            exitLabel: this.state.exitRequested ? "已请求退出" : "退出应用",
+            toast: this.state.toast,
+            loginPrimary: () => {
+              if (!login) return;
+              const waiting = (detail) => Object.assign({}, fx.loginScenarios["app-awaiting-browser"], { detail });
+              if (login.primaryAction === "reopen-login") { this.setState({ loginFeedback: "已重新打开当前卡皮巴拉登录页面。" }); return; }
+              if (login.primaryAction === "restore-original-account") { this.setState({ loginOverride: waiting("已为原账号建立新的登录请求。请在卡皮巴拉页面完成登录。"), loginFeedback: "" }); return; }
+              this.setState({ loginOverride: waiting("已建立新的登录请求。请在卡皮巴拉页面完成登录。"), loginFeedback: "" });
+            },
+            loginExit: () => this.setState({ loginFeedback: "正式应用将在这里退出。Prototype 保留页面，便于继续走查。", exitRequested: true })
+          };
+        }
+      }
+    </script>
+  </body>
+</html>

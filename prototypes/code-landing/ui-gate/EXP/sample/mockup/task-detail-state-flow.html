@@ -1,0 +1,1140 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>变色龙 · 商品任务详情状态流转稿</title>
+  <link rel="stylesheet" href="styles/product-workbench.css?round=066">
+  <style>
+    html,
+    body {
+      min-width: 1000px;
+      min-height: 100%;
+      overflow: auto;
+      background: #f6f3f4;
+    }
+
+    body { padding: 14px; }
+
+    .flow-prototype {
+      width: min(1500px, calc(100vw - 28px));
+      min-height: calc(100vh - 28px);
+      margin: 0 auto;
+      border: 1px solid var(--line-strong);
+      border-radius: 16px;
+      background: var(--surface);
+      box-shadow: 0 18px 48px rgba(54, 30, 40, 0.08);
+    }
+
+    .flow-prototype-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 18px;
+      padding: 18px 22px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .flow-prototype-title { min-width: 0; }
+
+    .flow-prototype-title small {
+      display: block;
+      color: var(--rose-text);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .flow-prototype-title h1 {
+      margin: 5px 0 0;
+      font-size: 20px;
+    }
+
+    .flow-prototype-title p {
+      max-width: 760px;
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 11.5px;
+      line-height: 1.55;
+    }
+
+    .prototype-badge {
+      margin-left: auto;
+      padding: 7px 10px;
+      border: 1px solid #fecdd3;
+      border-radius: 999px;
+      background: var(--rose-soft);
+      color: var(--rose-text);
+      font-size: 10.5px;
+      white-space: nowrap;
+    }
+
+    .flow-map {
+      padding: 16px 22px 18px;
+      border-bottom: 1px solid var(--line);
+      background: var(--rail);
+    }
+
+    .flow-map-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+
+    .flow-map-head h2 {
+      margin: 0;
+      font-size: 13px;
+    }
+
+    .flow-map-head p {
+      margin: 0;
+      color: var(--quiet);
+      font-size: 10.5px;
+    }
+
+    .flow-path {
+      display: grid;
+      grid-template-columns: minmax(170px, 0.9fr) 34px minmax(150px, 0.8fr) 34px minmax(180px, 0.95fr) 46px minmax(380px, 2fr);
+      align-items: center;
+      gap: 8px;
+    }
+
+    .flow-arrow {
+      position: relative;
+      height: 1px;
+      background: var(--line-strong);
+    }
+
+    .flow-arrow::after {
+      content: "";
+      position: absolute;
+      top: -3px;
+      right: -1px;
+      width: 7px;
+      height: 7px;
+      border-top: 1px solid var(--quiet);
+      border-right: 1px solid var(--quiet);
+      transform: rotate(45deg);
+    }
+
+    .flow-node {
+      min-height: 66px;
+      display: grid;
+      grid-template-columns: 26px minmax(0, 1fr);
+      gap: 9px;
+      align-items: center;
+      padding: 9px 10px;
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--ink);
+      text-align: left;
+    }
+
+    .flow-node:hover { border-color: var(--rose); }
+
+    .flow-node[aria-pressed="true"] {
+      border-color: var(--rose);
+      background: var(--rose-soft);
+      box-shadow: 0 0 0 2px rgba(194, 38, 76, 0.08);
+    }
+
+    .flow-node-index {
+      width: 26px;
+      height: 26px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: #eee8eb;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .flow-node[aria-pressed="true"] .flow-node-index {
+      background: var(--rose);
+      color: #fff;
+    }
+
+    .flow-node strong,
+    .flow-node span { display: block; }
+
+    .flow-node .flow-node-index { display: grid; }
+
+    .flow-node strong { font-size: 11.5px; }
+
+    .flow-node span {
+      margin-top: 3px;
+      color: var(--quiet);
+      font-size: 9.5px;
+      line-height: 1.35;
+    }
+
+    .flow-node .flow-node-branchcopy {
+      color: var(--red);
+      font-size: 8.5px;
+      line-height: 1.35;
+    }
+
+    .terminal-branches {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      padding-left: 14px;
+    }
+
+    .terminal-branches::before {
+      content: "";
+      position: absolute;
+      top: 10px;
+      bottom: 10px;
+      left: 0;
+      width: 1px;
+      background: var(--line-strong);
+    }
+
+    .terminal-branches .flow-node {
+      min-height: 66px;
+      grid-template-columns: 22px minmax(0, 1fr);
+      padding: 8px;
+    }
+
+    .terminal-branches .flow-node-index {
+      width: 22px;
+      height: 22px;
+      font-size: 9px;
+    }
+
+    .flow-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .flow-legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-mark {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--blue);
+    }
+
+    .legend-mark.transient { border-radius: 2px; background: var(--green); }
+    .legend-mark.item { background: var(--amber); }
+    .legend-mark.branch { background: var(--red); }
+
+    .flow-stage {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 250px;
+      gap: 18px;
+      padding: 18px 22px 24px;
+      background: var(--canvas);
+    }
+
+    .detail-canvas {
+      min-width: 0;
+      min-height: 690px;
+      padding: 16px 18px 26px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+
+    .detail-canvas .task-detail { max-width: 980px; }
+
+    .latest-message-slot {
+      display: grid;
+      grid-template-rows: 1fr;
+      opacity: 1;
+      transition: grid-template-rows 220ms ease, opacity 180ms ease, margin 220ms ease;
+    }
+
+    .latest-message-slot[hidden] {
+      display: grid;
+      grid-template-rows: 0fr;
+      margin: 0;
+      opacity: 0;
+    }
+
+    .latest-message-wrap { min-height: 0; overflow: hidden; }
+
+    .latest-message {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr) auto;
+      gap: 9px;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      border: 1px solid #bbf7d0;
+      border-radius: 9px;
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .latest-message-icon {
+      width: 18px;
+      height: 18px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--green);
+      color: #fff;
+      line-height: 0;
+    }
+
+    .latest-message-icon svg {
+      width: 11px;
+      height: 11px;
+      display: block;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .latest-message strong,
+    .latest-message span { display: block; }
+
+    .latest-message .latest-message-icon { display: grid; }
+
+    .latest-message strong { font-size: 11px; }
+
+    .latest-message span {
+      margin-top: 2px;
+      font-size: 9.5px;
+      line-height: 1.4;
+    }
+
+    .latest-message-time {
+      align-self: start;
+      color: #4f8f65;
+      font-size: 9px;
+      white-space: nowrap;
+    }
+
+    .state-caption {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-bottom: 8px;
+      color: var(--quiet);
+      font-size: 9.5px;
+    }
+
+    .state-caption::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--rose);
+    }
+
+    .timeline-event-copy {
+      margin: 9px 0 0;
+      color: var(--muted);
+      font-size: 10.5px;
+      line-height: 1.55;
+    }
+
+    .timeline-facts {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 7px;
+      margin-top: 10px;
+    }
+
+    .timeline-fact {
+      padding: 8px 9px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--rail);
+    }
+
+    .timeline-fact span,
+    .timeline-fact strong { display: block; }
+
+    .timeline-fact span { color: var(--quiet); font-size: 9px; }
+    .timeline-fact strong { margin-top: 3px; font-size: 10.5px; }
+
+    .generation-grid-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .generation-grid-head strong { font-size: 11px; }
+    .generation-grid-head span { color: var(--quiet); font-size: 9.5px; }
+
+    .generation-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 7px;
+      margin-top: 7px;
+    }
+
+    .generation-item {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .generation-item-preview {
+      position: relative;
+      height: 128px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background: #f3eff1;
+      color: var(--quiet);
+      font-size: 9.5px;
+    }
+
+    .generation-item-preview .product-thumb {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      border-radius: 0;
+    }
+
+    .generation-item-state {
+      position: absolute;
+      top: 5px;
+      left: 5px;
+      min-height: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border: 1px solid;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.94);
+      font-size: 8.5px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .generation-item-state::before {
+      content: "";
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .generation-item.pending .generation-item-state { border-color: #d6d3d1; color: #78716c; }
+    .generation-item.generating .generation-item-state { border-color: #bfdbfe; color: var(--blue); }
+    .generation-item.delivered .generation-item-state { border-color: #bbf7d0; color: var(--green); }
+    .generation-item.failed .generation-item-state { border-color: #fecdd3; color: var(--red); }
+    .generation-item.ungenerated .generation-item-state { border-color: #d6d3d1; color: #78716c; }
+
+    .generation-item.generating .generation-item-preview::after {
+      content: "";
+      position: absolute;
+      right: 12px;
+      bottom: 12px;
+      left: 12px;
+      height: 3px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--blue) 0 58%, #dbeafe 58% 100%);
+    }
+
+    .generation-item.failed .generation-item-preview {
+      background: var(--red-soft);
+      color: #9f1239;
+    }
+
+    .generation-item.ungenerated .generation-item-preview {
+      background: repeating-linear-gradient(-45deg, #fafafa, #fafafa 7px, #f2f0f1 7px, #f2f0f1 14px);
+    }
+
+    .generation-item-copy { padding: 7px; }
+
+    .generation-item-copy-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .generation-item-copy strong,
+    .generation-item-copy span { display: block; }
+
+    .generation-item-copy strong {
+      overflow: hidden;
+      font-size: 9.5px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .generation-item-copy span {
+      margin-top: 3px;
+      color: var(--quiet);
+      font-size: 8.5px;
+      line-height: 1.35;
+    }
+
+    .generation-item-copy .image-state {
+      display: inline-flex;
+      margin-top: 0;
+    }
+
+    .generation-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      padding: 0 7px 7px;
+    }
+
+    .mini-action {
+      min-height: 22px;
+      padding: 2px 7px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 8.5px;
+    }
+
+    .mini-action:hover { border-color: var(--rose); color: var(--rose-text); }
+    .mini-action.primary { border-color: #fecdd3; background: var(--rose-soft); color: var(--rose-text); }
+
+    .timeline-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 7px;
+      margin-top: 10px;
+    }
+
+    .timeline-action {
+      min-height: 30px;
+      padding: 0 11px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: var(--surface);
+      color: var(--ink);
+      font-size: 10.5px;
+    }
+
+    .timeline-action.primary {
+      border-color: var(--rose);
+      background: var(--rose);
+      color: #fff;
+    }
+
+    .settlement-card {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 7px;
+      margin-top: 9px;
+    }
+
+    .settlement-card div {
+      padding: 8px 9px;
+      border: 1px solid #bbf7d0;
+      border-radius: 7px;
+      background: var(--green-soft);
+    }
+
+    .settlement-card span,
+    .settlement-card strong { display: block; }
+    .settlement-card span { color: #4f8f65; font-size: 8.5px; }
+    .settlement-card strong { margin-top: 3px; color: var(--green); font-size: 10.5px; }
+
+    .flow-inspector {
+      align-self: start;
+      position: sticky;
+      top: 18px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .inspector-card {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .inspector-card h2,
+    .inspector-card h3 { margin: 0; }
+    .inspector-card h2 { font-size: 13px; }
+    .inspector-card h3 { font-size: 11.5px; }
+
+    .inspector-card p {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 10.5px;
+      line-height: 1.55;
+    }
+
+    .inspector-list {
+      display: grid;
+      gap: 7px;
+      margin: 9px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .inspector-list li {
+      position: relative;
+      padding-left: 13px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.45;
+    }
+
+    .inspector-list li::before {
+      content: "";
+      position: absolute;
+      top: 5px;
+      left: 0;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--rose);
+    }
+
+    .inspector-card.warn {
+      border-color: #fde68a;
+      background: var(--amber-soft);
+    }
+
+    .inspector-card.warn h3 { color: var(--amber); }
+
+    .replay-message {
+      width: 100%;
+      min-height: 30px;
+      margin-top: 9px;
+      border: 1px solid #bbf7d0;
+      border-radius: 7px;
+      background: var(--green-soft);
+      color: var(--green);
+      font-size: 10px;
+    }
+
+    .child-flow {
+      display: grid;
+      gap: 6px;
+      margin-top: 9px;
+    }
+
+    .child-flow-row {
+      display: grid;
+      grid-template-columns: 1fr 16px 1fr;
+      gap: 5px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    .child-flow-step {
+      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--rail);
+      text-align: center;
+    }
+
+    .child-flow-arrow { text-align: center; color: var(--quiet); }
+
+    .flow-dialog {
+      width: min(720px, calc(100vw - 80px));
+      padding: 0;
+      border: 0;
+      border-radius: 12px;
+      box-shadow: 0 22px 70px rgba(33, 18, 25, 0.28);
+    }
+
+    .flow-dialog::backdrop { background: rgba(25, 16, 20, 0.38); }
+
+    .flow-dialog-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 13px 15px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .flow-dialog-head h2 { margin: 0; font-size: 14px; }
+
+    .flow-dialog-close {
+      margin-left: auto;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 20px;
+    }
+
+    .flow-dialog-body { padding: 15px; }
+
+    .preview-layout {
+      display: grid;
+      grid-template-columns: minmax(240px, 1.1fr) minmax(220px, 0.9fr);
+      gap: 14px;
+    }
+
+    .preview-image {
+      height: 310px;
+      border-radius: 9px;
+    }
+
+    .preview-params {
+      display: grid;
+      align-content: start;
+      gap: 8px;
+    }
+
+    .preview-param {
+      padding: 9px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--rail);
+    }
+
+    .preview-param span,
+    .preview-param strong { display: block; }
+    .preview-param span { color: var(--quiet); font-size: 9px; }
+    .preview-param strong { margin-top: 3px; font-size: 10.5px; }
+
+    .export-branch {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .export-step {
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--rail);
+    }
+
+    .export-step strong,
+    .export-step span { display: block; }
+    .export-step strong { font-size: 10.5px; }
+    .export-step span { margin-top: 4px; color: var(--muted); font-size: 9px; line-height: 1.4; }
+
+    @media (max-width: 1260px) {
+      .flow-path { grid-template-columns: 150px 26px 140px 26px 160px 32px minmax(340px, 1fr); }
+      .flow-stage { grid-template-columns: minmax(0, 1fr) 220px; }
+      .generation-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <main class="flow-prototype">
+    <header class="flow-prototype-head">
+      <div class="flow-prototype-title">
+        <small>UI state-flow storyboard</small>
+        <h1>商品任务详情状态流转稿</h1>
+        <p>只验证商品任务详情。上方按任务生命周期和终态分支切换，下方始终复用同一块任务详情、任务时间线和图片格子。</p>
+      </div>
+      <span class="prototype-badge">Prototype · 不代表正式实现</span>
+    </header>
+
+    <section class="flow-map" aria-labelledby="flow-map-title">
+      <div class="flow-map-head">
+        <h2 id="flow-map-title">任务生命周期与分支</h2>
+        <p>点击任意节点，查看这一时刻的完整任务详情。</p>
+      </div>
+      <div class="flow-path">
+        <button class="flow-node" type="button" data-state="submitted" aria-pressed="true">
+          <span class="flow-node-index">01</span>
+          <span><strong>提交成功消息</strong><span>短暂出现，随后自动消失</span></span>
+        </button>
+        <span class="flow-arrow" aria-hidden="true"></span>
+        <button class="flow-node" type="button" data-state="queued" aria-pressed="false">
+          <span class="flow-node-index">02</span>
+          <span><strong>排队中</strong><span>稳定任务状态</span></span>
+        </button>
+        <span class="flow-arrow" aria-hidden="true"></span>
+        <button class="flow-node" type="button" data-state="running" aria-pressed="false">
+          <span class="flow-node-index">03</span>
+          <span><strong>进行中</strong><span>总体结果与单张进度同屏</span></span>
+        </button>
+        <span class="flow-arrow" aria-hidden="true"></span>
+        <div class="terminal-branches" aria-label="任务终态分支">
+          <button class="flow-node" type="button" data-state="completed" aria-pressed="false">
+            <span class="flow-node-index">04A</span>
+            <span><strong>已完成</strong><span>全部图片已交付</span></span>
+          </button>
+          <button class="flow-node" type="button" data-state="partial" aria-pressed="false">
+            <span class="flow-node-index">04B</span>
+            <span><strong>部分完成</strong><span>含失败或未生成</span></span>
+          </button>
+          <button class="flow-node" type="button" data-state="failed-service" aria-pressed="false">
+            <span class="flow-node-index">04C</span>
+            <span><strong>失败 · 服务异常</strong><span>可以使用相同设置重新发起</span></span>
+          </button>
+          <button class="flow-node" type="button" data-state="failed-safety" aria-pressed="false">
+            <span class="flow-node-index">04D</span>
+            <span><strong>失败 · 内容安全</strong><span>只显示失败理由</span></span>
+          </button>
+        </div>
+      </div>
+      <div class="flow-legend" aria-label="流转稿图例">
+        <span><i class="legend-mark transient"></i>最新消息提醒条：短暂</span>
+        <span><i class="legend-mark"></i>生成任务状态：长期</span>
+        <span><i class="legend-mark item"></i>生成工作项状态：嵌入时间线</span>
+        <span><i class="legend-mark branch"></i>失败原因由系统确定，客户不能切换</span>
+      </div>
+    </section>
+
+    <section class="flow-stage">
+      <div class="detail-canvas" aria-live="polite">
+        <span class="state-caption" id="state-caption">当前节点：提交成功消息</span>
+        <div class="task-detail">
+          <div class="latest-message-slot" id="latest-message-slot">
+            <div class="latest-message-wrap">
+              <aside class="latest-message" role="status">
+                <span class="latest-message-icon" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="m4 8 2.5 2.5L12 5"/></svg></span>
+                <span><strong>生成任务已提交</strong><span>任务已进入排队中。轮到它时会自动开始。</span></span>
+                <span class="latest-message-time">最新消息</span>
+              </aside>
+            </div>
+          </div>
+          <header class="task-detail-head">
+            <div class="task-detail-title">
+              <h2 id="task-title">营销图生成任务</h2>
+              <p id="task-meta">刚刚 · 0 / 5 张</p>
+            </div>
+            <span class="status wait" id="task-status">排队中</span>
+          </header>
+          <div class="task-detail-timeline-head">
+            <h3>任务时间线</h3>
+            <span>最新进度在前</span>
+          </div>
+          <div class="timeline task-result-timeline" id="task-timeline"></div>
+        </div>
+      </div>
+
+      <aside class="flow-inspector">
+        <section class="inspector-card">
+          <h2 id="inspector-title">提交成功消息</h2>
+          <p id="inspector-summary">这是一次瞬时反馈，不是任务历史。消息消失后，排队事实仍保留在任务时间线。</p>
+          <ul class="inspector-list" id="inspector-list"></ul>
+          <button class="replay-message" id="replay-message" type="button">重播短暂消息</button>
+        </section>
+
+        <section class="inspector-card warn">
+          <h3>不应该存在</h3>
+          <p id="forbidden-copy">消息提醒条不能常驻，也不能在切换到另一任务后继续显示。</p>
+        </section>
+
+        <section class="inspector-card">
+          <h3>已交付成图的下级分支</h3>
+          <div class="child-flow">
+            <div class="child-flow-row"><span class="child-flow-step">查看大图</span><span class="child-flow-arrow">→</span><span class="child-flow-step">参数与操作</span></div>
+            <div class="child-flow-row"><span class="child-flow-step">导出</span><span class="child-flow-arrow">→</span><span class="child-flow-step">默认导出路径</span></div>
+            <div class="child-flow-row"><span class="child-flow-step">未使用参考图</span><span class="child-flow-arrow">→</span><span class="child-flow-step">继续生成</span><span class="child-flow-arrow">→</span><span class="child-flow-step">新任务设置</span></div>
+            <div class="child-flow-row"><span class="child-flow-step">使用过参考图</span><span class="child-flow-arrow">→</span><span class="child-flow-step">只查看或导出</span></div>
+          </div>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <dialog class="flow-dialog" id="preview-dialog">
+    <header class="flow-dialog-head">
+      <h2>查看已交付成图</h2>
+      <button class="flow-dialog-close" type="button" data-close-dialog="preview-dialog" aria-label="关闭">×</button>
+    </header>
+    <div class="flow-dialog-body preview-layout">
+      <div class="product-thumb thumb-cleaner preview-image" aria-label="营销图大图预览"></div>
+      <div class="preview-params">
+        <div class="preview-param"><span>功能图片</span><strong>营销图</strong></div>
+        <div class="preview-param"><span>套序号</span><strong>第 1 套</strong></div>
+        <div class="preview-param"><span>商品主体图</span><strong>商品主体图 1</strong></div>
+        <div class="preview-param"><span>视觉方案</span><strong>套内视觉方案 A</strong></div>
+        <div class="timeline-actions">
+          <button class="timeline-action" type="button" data-direct-export>导出</button>
+          <button class="timeline-action primary" id="flow-preview-continue" type="button">继续生成</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var latestMessageTimer = null;
+      var latestMessageSlot = document.getElementById("latest-message-slot");
+      var timeline = document.getElementById("task-timeline");
+      var statusLabel = document.getElementById("task-status");
+      var taskTitle = document.getElementById("task-title");
+      var taskMeta = document.getElementById("task-meta");
+      var stateCaption = document.getElementById("state-caption");
+      var inspectorTitle = document.getElementById("inspector-title");
+      var inspectorSummary = document.getElementById("inspector-summary");
+      var inspectorList = document.getElementById("inspector-list");
+      var forbiddenCopy = document.getElementById("forbidden-copy");
+      var replayMessage = document.getElementById("replay-message");
+      var previewDialog = document.getElementById("preview-dialog");
+      var previewContinue = document.getElementById("flow-preview-continue");
+
+      var itemTemplates = {
+        pending: { label: "待生成", note: "尚未发出调用", preview: "等待前序工作项" },
+        generating: { label: "生成中", note: "完成后会自动显示", preview: "图片生成中" },
+        delivered: { label: "已交付", note: "成图已保存到本机", preview: "" },
+        failedSafety: { label: "已失败", note: "内容安全拒绝", preview: "画面要求没有通过内容审核" },
+        failedService: { label: "已失败", note: "生成服务失败", preview: "生成服务暂时不可用" },
+        ungenerated: { label: "未生成", note: "没有发出成图调用", preview: "未生成" }
+      };
+
+      var stateMap = {
+        submitted: {
+          name: "提交成功消息",
+          meta: "刚刚 · 0 / 5 张",
+          status: "排队中",
+          tone: "wait",
+          notice: true,
+          event: "queued",
+          summary: "这是一次瞬时反馈，不是任务历史。消息消失后，排队事实仍保留在任务时间线。",
+          bullets: ["只显示最新消息", "约 2.6 秒后自动消失", "不随任务详情长期保存"],
+          forbidden: "消息提醒条不能常驻，也不能在切换到另一任务后继续显示。"
+        },
+        queued: {
+          name: "排队中",
+          meta: "刚刚 · 0 / 5 张",
+          status: "排队中",
+          tone: "wait",
+          notice: false,
+          event: "queued",
+          summary: "排队中是任务长期状态。用户可以离开当前商品项目，任务轮到后自动开始。",
+          bullets: ["排队事实留在任务时间线", "不显示排队位次或等待时间", "不提供取消排队入口"],
+          forbidden: "不显示跨商品项目的生成执行队列、排队位次、预计时间或取消按钮。"
+        },
+        running: {
+          name: "进行中",
+          meta: "今天 16:18 · 3 / 5 张",
+          status: "进行中",
+          tone: "running",
+          notice: false,
+          event: "running",
+          summary: "总体进度和全部生成工作项放在同一个最新时间线节点。这里不再建立独立进度页面。",
+          bullets: ["任务级只显示成功数和总数", "单张只显示待生成或生成中", "已经交付的图片立即留在原位置"],
+          forbidden: "不显示百分比、预计剩余时间、供应商名称、HTTP 状态码或内部阶段。"
+        },
+        completed: {
+          name: "已完成",
+          meta: "今天 16:24 · 5 / 5 张",
+          status: "已完成",
+          tone: "complete",
+          notice: false,
+          event: "completed",
+          summary: "全部生成工作项已交付。完整结果、结算事实和成图操作都留在最终时间线节点。",
+          bullets: ["全部承诺图片始终可见", "成功图片都可以查看和导出", "未使用参考图的成功图片可以继续生成"],
+          forbidden: "不能把继续生成写成任务状态，也不能覆盖原任务和原账务。"
+        },
+        partial: {
+          name: "部分完成",
+          meta: "今天 16:24 · 已交付 3 / 5 张",
+          status: "部分完成",
+          tone: "failed",
+          notice: false,
+          event: "partial",
+          summary: "部分完成是终态。全部承诺图片仍保留原位置，未交付图片不收费。",
+          bullets: ["已交付、已失败和未生成同屏", "只从同一套未使用参考图的已交付成图继续生成", "结算显示成功数、未收费数和实际鸭豆"],
+          forbidden: "不能写成“中断”，不能隐藏失败或未生成图片，也不能提供单张重新生成。"
+        },
+        "failed-service": {
+          name: "失败 · 服务异常",
+          meta: "今天 16:24 · 0 / 5 张",
+          status: "失败",
+          tone: "failed",
+          notice: false,
+          event: "failedService",
+          summary: "生成服务异常且零交付时，用户可以使用相同设置建立新任务。",
+          bullets: ["显示生成服务暂时不可用", "显示全部图片状态和额度释放结果", "只提供一个相同设置重新发起入口"],
+          forbidden: "不提供失败原因切换，也不恢复原失败任务继续执行。"
+        },
+        "failed-safety": {
+          name: "失败 · 内容安全",
+          meta: "今天 16:24 · 0 / 5 张",
+          status: "失败",
+          tone: "failed",
+          notice: false,
+          event: "failedSafety",
+          summary: "内容安全拒绝且零交付时，任务停在失败终态。",
+          bullets: ["显示画面要求没有通过内容审核", "显示全部图片状态和额度释放结果", "不提供重新发起或返回修改入口"],
+          forbidden: "不让用户切换失败原因，不提供修改设置按钮。"
+        }
+      };
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>\"]/g, function (character) {
+          return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[character];
+        });
+      }
+
+      function statusClass(itemKey) {
+        if (itemKey.indexOf("generating") === 0) return "generating";
+        if (itemKey === "delivered") return "delivered";
+        if (itemKey.indexOf("failed") === 0) return "failed";
+        if (itemKey === "ungenerated") return "ungenerated";
+        return "pending";
+      }
+
+      function renderItem(itemKey, index, showActions) {
+        var item = itemTemplates[itemKey];
+        var names = ["营销图", "细节图一", "细节图二", "场景图", "白底图"];
+        var itemClass = statusClass(itemKey);
+        var usedReference = itemKey === "delivered" && index === 1;
+        var preview = itemKey === "delivered"
+          ? '<div class="product-thumb ' + (index % 2 ? "thumb-cleaner-alt" : "thumb-cleaner") + '"></div>'
+          : '<span>' + escapeHtml(item.preview) + '</span>';
+        var continueAction = usedReference ? '' : '<button class="mini-action primary" type="button">继续生成</button>';
+        var actions = itemKey === "delivered" && showActions
+          ? '<div class="generation-actions"><button class="mini-action" type="button" data-preview data-used-reference="' + String(usedReference) + '">查看</button><button class="mini-action" type="button" data-export>导出</button>' + continueAction + '</div>'
+          : '';
+        return '<article class="generation-item ' + itemClass + '">' +
+          '<div class="generation-item-preview">' + preview + '</div>' +
+          '<div class="generation-item-copy"><div class="generation-item-copy-head"><strong>' + names[index] + '</strong><span class="image-state ' + itemClass + '">' + escapeHtml(item.label) + '</span></div><span>第 1 套 · ' + escapeHtml(item.note) + '</span></div>' +
+          actions +
+        '</article>';
+      }
+
+      function renderGrid(itemKeys, actions) {
+        return '<div class="generation-grid-head"><strong>本次承诺的全部图片</strong><span>每张图片保留原位置</span></div>' +
+          '<div class="generation-grid">' + itemKeys.map(function (itemKey, index) {
+            return renderItem(itemKey, index, actions);
+          }).join("") + '</div>';
+      }
+
+      function settingsHistory() {
+        return '<article class="task complete"><div class="task-head"><div class="task-title"><h3>已提交生成设置</h3><p>图片尺寸、生成套数和功能图片配置已经写入任务</p></div><span class="status complete">已保存</span></div>' +
+          '<div class="task-parameter-list"><div class="task-parameter"><span>商品主体图</span><strong>按功能图片分别使用</strong></div><div class="task-parameter"><span>图片尺寸</span><strong>1:1 · 1024×1024</strong></div><div class="task-parameter"><span>生成套数</span><strong>1 套</strong></div><div class="task-parameter"><span>视觉方案</span><strong>每套独立保存</strong></div></div></article>' +
+          '<article class="task complete"><div class="task-head"><div class="task-title"><h3>已创建生成任务</h3><p>本次任务的商品主体图和生成参数已保存在当前商品项目</p></div><span class="status complete">已保存</span></div></article>';
+      }
+
+      function settlement(successCount, unpaidCount, credits, released) {
+        return '<div class="settlement-card"><div><span>成功交付</span><strong>' + successCount + ' 张</strong></div><div><span>未收费</span><strong>' + unpaidCount + ' 张</strong></div><div><span>' + (released ? "释放鸭豆" : "实际结算") + '</span><strong>' + credits + ' 鸭豆</strong></div></div>';
+      }
+
+      function latestEvent(eventKey) {
+        if (eventKey === "queued") {
+          return '<article class="task running"><div class="task-head"><div class="task-title"><h3>排队中</h3><p>刚刚 · 共 5 张</p></div><span class="status wait">排队中</span></div>' +
+            '<p class="timeline-event-copy">轮到这个任务时会自动开始生成，不需要你再点一次。你可以离开当前商品项目去做别的事。</p>' +
+            renderGrid(["pending", "pending", "pending", "pending", "pending"], false) + '</article>';
+        }
+        if (eventKey === "running") {
+          return '<article class="task running"><div class="task-head"><div class="task-title"><h3>正在生成</h3><p>今天 16:18 · 已交付 3 / 5 张</p></div><span class="status running">进行中</span></div>' +
+            renderGrid(["delivered", "delivered", "delivered", "generating", "pending"], true) + '</article>';
+        }
+        if (eventKey === "completed") {
+          return '<article class="task complete"><div class="task-head"><div class="task-title"><h3>生成完成</h3><p>今天 16:24 · 5 / 5 张已交付</p></div><span class="status complete">已完成</span></div>' +
+            renderGrid(["delivered", "delivered", "delivered", "delivered", "delivered"], true) + settlement(5, 0, 150, false) + '</article>';
+        }
+        if (eventKey === "partial") {
+          return '<article class="task failed"><div class="task-head"><div class="task-title"><h3>任务部分完成</h3><p>今天 16:24 · 已交付 3 / 5 张</p></div><span class="status failed">部分完成</span></div>' +
+            '<p class="timeline-event-copy">已经生成的图片继续保留。失败和未生成的图片不收费。</p>' +
+            renderGrid(["delivered", "delivered", "delivered", "failedSafety", "ungenerated"], true) + settlement(3, 2, 90, false) + '</article>';
+        }
+        var isSafetyFailure = eventKey === "failedSafety";
+        var failureItems = isSafetyFailure
+          ? ["failedSafety", "ungenerated", "ungenerated", "ungenerated", "ungenerated"]
+          : ["failedService", "failedService", "ungenerated", "ungenerated", "ungenerated"];
+        return '<article class="task failed"><div class="task-head"><div class="task-title"><h3>任务失败</h3><p>今天 16:24 · 0 / 5 张交付</p></div><span class="status failed">失败</span></div>' +
+          '<p class="timeline-event-copy">' + (isSafetyFailure ? '画面要求没有通过内容审核。任务已经结束，未交付图片的预扣额度已经释放。' : '生成服务暂时不可用，请稍后重新发起任务。') + '</p>' +
+          renderGrid(failureItems, false) + settlement(0, 5, 150, true) +
+          (isSafetyFailure ? '' : '<div class="timeline-actions"><button class="timeline-action primary" type="button" data-restart-service>用相同设置重新发起</button></div>') + '</article>' +
+          '';
+      }
+
+      function showLatestMessage() {
+        window.clearTimeout(latestMessageTimer);
+        latestMessageSlot.hidden = false;
+        latestMessageTimer = window.setTimeout(function () {
+          latestMessageSlot.hidden = true;
+        }, 2600);
+      }
+
+      function hideLatestMessage() {
+        window.clearTimeout(latestMessageTimer);
+        latestMessageSlot.hidden = true;
+      }
+
+      function bindRenderedActions() {
+        Array.prototype.forEach.call(document.querySelectorAll("[data-preview]"), function (button) {
+          button.addEventListener("click", function () {
+            previewContinue.hidden = button.getAttribute("data-used-reference") === "true";
+            previewDialog.showModal();
+          });
+        });
+        Array.prototype.forEach.call(document.querySelectorAll("[data-export]"), function (button) {
+          button.addEventListener("click", function () { stateCaption.textContent = "图片已导出到设置页面中的默认导出路径"; });
+        });
+        var restartService = document.querySelector("[data-restart-service]");
+        if (restartService) restartService.addEventListener("click", function () {
+          renderState("queued");
+          stateCaption.textContent = "已建立新的排队任务；原失败任务和原结算保持不变";
+        });
+      }
+
+      function renderState(stateKey) {
+        var state = stateMap[stateKey];
+        document.querySelectorAll("[data-state]").forEach(function (button) {
+          button.setAttribute("aria-pressed", String(button.getAttribute("data-state") === stateKey));
+        });
+        stateCaption.textContent = "当前节点：" + state.name;
+        taskTitle.textContent = "营销图生成任务";
+        taskMeta.textContent = state.meta;
+        statusLabel.textContent = state.status;
+        statusLabel.className = "status " + state.tone;
+        inspectorTitle.textContent = state.name;
+        inspectorSummary.textContent = state.summary;
+        inspectorList.innerHTML = state.bullets.map(function (bullet) { return "<li>" + escapeHtml(bullet) + "</li>"; }).join("");
+        forbiddenCopy.textContent = state.forbidden;
+        replayMessage.hidden = stateKey !== "submitted";
+        timeline.innerHTML = latestEvent(state.event) + settingsHistory();
+        if (state.notice) showLatestMessage(); else hideLatestMessage();
+        bindRenderedActions();
+      }
+
+      document.querySelectorAll("[data-state]").forEach(function (button) {
+        button.addEventListener("click", function () { renderState(button.getAttribute("data-state")); });
+      });
+
+      replayMessage.addEventListener("click", showLatestMessage);
+
+      document.querySelectorAll("[data-close-dialog]").forEach(function (button) {
+        button.addEventListener("click", function () { document.getElementById(button.getAttribute("data-close-dialog")).close(); });
+      });
+
+      document.querySelector("[data-direct-export]").addEventListener("click", function () {
+        previewDialog.close();
+        stateCaption.textContent = "图片已导出到设置页面中的默认导出路径";
+      });
+
+      [previewDialog].forEach(function (dialog) {
+        dialog.addEventListener("click", function (event) {
+          if (event.target === dialog) dialog.close();
+        });
+      });
+
+      renderState("submitted");
+    })();
+  </script>
+</body>
+</html>

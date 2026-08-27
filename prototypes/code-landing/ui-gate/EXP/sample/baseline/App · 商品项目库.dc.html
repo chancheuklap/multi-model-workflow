@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="stylesheet" href="./styles/tokens.css" />
+        <link rel="stylesheet" href="./styles/product-project-library.css" />
+        <script src="./data/fixtures.js"></script>
+        <style>
+          body { margin: 0; min-height: 100vh; background: #e6e3df; }
+          #dc-root { width: 1440px; height: 900px; margin: 0 auto; overflow: hidden; position: relative; transform: translateZ(0); }
+          #dc-root > * { height: 100%; }
+          .dc-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 50; padding: 10px 16px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; box-shadow: 0 12px 32px rgba(45, 25, 34, 0.25); }
+          .dc-backdrop { position: fixed; inset: 0; background: rgba(40, 25, 32, 0.38); z-index: 40; }
+          .dc-modal { position: fixed; inset: 0; margin: auto; height: fit-content; z-index: 41; }
+          .lib-app { height: 100%; min-width: 1180px; display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--surface); }
+          .lib-app > * { min-width: 0; min-height: 0; }
+          .lib-app .app { height: auto; min-height: 0; grid-template-rows: 46px auto; }
+          .lib-app .app > .workspace { display: none; }
+          .lib-app .workspace { height: 100%; }
+          .lib-app > .sc-host:nth-child(n+3) { height: 0; }
+          .lib-app .stage { display: none; }
+          .lib-app.wb-mode { grid-template-rows: minmax(0, 1fr); }
+          .lib-app.wb-mode > .sc-host:nth-child(n+2) { height: 0; }
+          .lib-app .wb-app { height: 100%; }
+        </style>
+      </helmet>
+      <main class="{{ appCls }}" data-screen-label="商品项目库">
+        <sc-if value="{{ notWorkbench }}" hint-placeholder-val="{{ true }}">
+          <dc-import name="Component · 壳头" scenario="{{ shellScenario }}" context="{{ context }}" standalone="{{ false }}" balance="{{ balance }}" onServiceRecovered="{{ onRecovered }}"></dc-import>
+        </sc-if>
+        <sc-if value="{{ isLibrary }}" hint-placeholder-val="{{ true }}"><dc-import name="Component · 项目列表" scenario="{{ listScenario }}" serviceDown="{{ serviceDown }}" onEnterProject="{{ enterProject }}" onCreateProject="{{ createProject }}" onSwitchView="{{ switchView }}"></dc-import></sc-if>
+        <sc-if value="{{ isCreate }}" hint-placeholder-val="{{ false }}"><dc-import name="Component · 新建商品项目" scenario="{{ createScenario }}" onNext="{{ createNext }}" onBack="{{ createBack }}"></dc-import></sc-if>
+        <sc-if value="{{ isAnalysis }}" hint-placeholder-val="{{ false }}"><dc-import name="Component · 主体分析" scenario="analyzing" newProject="{{ newProject }}" onAnalyzed="{{ analyzed }}" onAbandonToLibrary="{{ toLibrary }}" onAbandonToWorkbench="{{ toWorkbench }}"></dc-import></sc-if>
+        <sc-if value="{{ isConfirm }}" hint-placeholder-val="{{ false }}"><dc-import name="Component · 主体确认" scenario="subject-boundary-edit" newProject="{{ newProject }}" onConfirmed="{{ confirmed }}" onAbandonToLibrary="{{ toLibrary }}" onAbandonToWorkbench="{{ toWorkbench }}"></dc-import></sc-if>
+        <sc-if value="{{ isFree }}" hint-placeholder-val="{{ false }}"><dc-import name="Component · 自由模式" scenario="free-form" serviceDown="{{ serviceDown }}" billingDebt="{{ debtActive }}" balance="{{ balance }}" onSwitchView="{{ switchView }}" onBillingDebt="{{ openDebt }}"></dc-import></sc-if>
+        <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}"><dc-import name="Component · 设置" serviceDown="{{ serviceDown }}" onSwitchView="{{ switchView }}"></dc-import></sc-if>
+        <sc-if value="{{ isWorkbench }}" hint-placeholder-val="{{ false }}"><dc-import name="App · 商品工作台" entry="{{ wbEntry }}" scenario="{{ wbScenario }}" projectId="{{ projectId }}" onBackLibrary="{{ toLibrary }}" onAddMaterial="{{ addMaterial }}" onConfirmMaterial="{{ confirmMaterial }}" onBackSubject="{{ backSubject }}"></dc-import></sc-if>
+        <sc-if value="{{ debt }}" hint-placeholder-val="{{ false }}"><dc-import name="Component · 欠费门禁" open="{{ true }}" standalone="{{ false }}" onLater="{{ debtLater }}" onRecharge="{{ debtRecharge }}"></dc-import></sc-if>
+      </main>
+      <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+        <div class="dc-toast" role="status">{{ toast }}</div>
+      </sc-if>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{
+  "$preview": {
+    "width": 1440,
+    "height": 900
+  },
+  "view": {
+    "editor": "enum",
+    "default": "library",
+    "tsType": "string",
+    "options": [
+      "library",
+      "create",
+      "analysis",
+      "confirm",
+      "free-mode",
+      "settings",
+      "workbench"
+    ]
+  },
+  "scenario": {
+    "editor": "enum",
+    "default": "ready",
+    "tsType": "string",
+    "options": [
+      "ready",
+      "library-empty",
+      "app-service-unavailable",
+      "app-service-config-sync",
+      "app-login-required",
+      "billing-debt"
+    ]
+  }
+}'
+    >
+      class Component extends DCLogic {
+        constructor(props) {
+          super(props);
+          this.state = Object.assign({ fx: false, toast: "" }, this.init(props));
+        }
+        componentDidMount() {
+          const tick = () => {
+            if (window.CHAMELEON) { this.setState({ fx: true }, () => this.onReady && this.onReady()); return; }
+            this._w = setTimeout(tick, 50);
+          };
+          tick();
+        }
+        componentWillUnmount() { clearTimeout(this._w); clearTimeout(this._t); this.cleanup && this.cleanup(); }
+        componentDidUpdate(prev) {
+          if (prev.scenario !== this.props.scenario) this.setState(this.init(this.props), () => this.onReady && this.onReady());
+          this.afterUpdate && this.afterUpdate(prev);
+        }
+        toast(msg) {
+          this.setState({ toast: msg });
+          clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: "" }), 2400);
+        }
+        emit(name, detail, fallback) {
+          if (this.props[name]) this.props[name](detail); else this.toast(fallback);
+        }
+        fx() { return window.CHAMELEON || {}; }
+        init(props) {
+          const sc = props.scenario || "ready";
+          return { scenario: sc, view: props.view || "library", projectId: "PRJ-240716-C08", newProject: false, createScenario: "empty", wbEntry: "edit", recovered: false, debt: sc === "billing-debt", debtCleared: false };
+        }
+        onReady() { this.setState(this.init(this.props)); }
+        afterUpdate(prev) { if (prev.view !== this.props.view) this.setState({ view: this.props.view }); }
+        renderVals() {
+          const st = this.state; const v = st.view; const serviceDown = st.scenario === "app-service-unavailable" || (st.scenario === "app-service-config-sync" && !st.recovered); const debtActive = st.scenario === "billing-debt" && !st.debtCleared;
+          const contexts = { library: "商品项目库", create: "新建商品项目", analysis: "商品主体分析", confirm: "商品主体确认", "free-mode": "自由模式", settings: "设置" };
+          const go = (view, extra) => this.setState(Object.assign({ view }, extra || {}));
+          return { toast: st.toast, appCls: "lib-app" + (v === "workbench" ? " wb-mode" : ""), notWorkbench: v !== "workbench", isLibrary: v === "library", isCreate: v === "create", isAnalysis: v === "analysis", isConfirm: v === "confirm", isFree: v === "free-mode", isSettings: v === "settings", isWorkbench: v === "workbench",
+            shellScenario: st.recovered ? "ready" : (st.scenario === "billing-debt" || st.scenario === "library-empty") ? "ready" : st.scenario, context: contexts[v] || "商品项目库", balance: debtActive ? 20 : 12480, onRecovered: () => this.setState({ recovered: true }),
+            serviceDown, debtActive, listScenario: st.scenario === "library-empty" ? "library-empty" : "ready", createScenario: st.createScenario, newProject: st.newProject, projectId: st.projectId, wbEntry: st.wbEntry, wbScenario: st.scenario === "billing-debt" ? "billing-debt" : serviceDown ? st.scenario : "ready",
+            enterProject: id => { if (debtActive) { this.setState({ debt: true }); return; } go("workbench", { projectId: id, wbEntry: "edit", newProject: false }); },
+            createProject: () => { if (debtActive) { this.setState({ debt: true }); return; } go("create", { createScenario: "empty", newProject: true }); },
+            switchView: target => go(target === "product-library" ? "library" : target),
+            createNext: r => go("analysis", { projectId: r.projectId, newProject: !st.createScenario.startsWith("add") }), createBack: id => go(id ? "workbench" : "library", id ? { projectId: id, wbEntry: "edit" } : {}),
+            analyzed: () => go("confirm"), confirmed: id => go("workbench", { projectId: id, wbEntry: "copy-confirm" }),
+            toLibrary: () => go("library", { newProject: false }), toWorkbench: id => go("workbench", { projectId: id || st.projectId, wbEntry: "edit" }),
+            addMaterial: p => go("create", { createScenario: "add-material", newProject: false, projectId: p.id }), confirmMaterial: () => go("analysis", { newProject: false }), backSubject: () => go("confirm"),
+            debt: st.debt, openDebt: () => this.setState({ debt: true }), debtLater: () => this.setState({ debt: false }), debtRecharge: () => this.setState({ debt: false, debtCleared: true }) };
+        }
+      }
+    </script>
+  </body>
+</html>

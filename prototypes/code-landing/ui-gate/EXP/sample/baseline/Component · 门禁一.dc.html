@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="stylesheet" href="./styles/tokens.css" />
+        <link rel="stylesheet" href="./styles/product-workbench.css" />
+        <script src="./data/fixtures.js"></script>
+        <style>
+          body { margin: 0; min-height: 100vh; background: #e6e3df; }
+          #dc-root { width: 1440px; height: 900px; margin: 0 auto; overflow: hidden; position: relative; transform: translateZ(0); }
+          #dc-root > * { height: 100%; }
+          .dc-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 50; padding: 10px 16px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; box-shadow: 0 12px 32px rgba(45, 25, 34, 0.25); }
+          .dc-backdrop { position: fixed; inset: 0; background: rgba(40, 25, 32, 0.38); z-index: 40; }
+          .dc-modal { position: fixed; inset: 0; margin: auto; height: fit-content; z-index: 41; }
+          .wb-gate { height: 100%; background: var(--canvas); }
+          .gate-one-dialog.dc-modal { display: block; max-height: calc(100% - 64px); overflow: auto; }
+        </style>
+      </helmet>
+      <div class="wb-gate" data-screen-label="第一道门">
+        <sc-if value="{{ open }}" hint-placeholder-val="{{ true }}">
+          <div class="dc-backdrop" onClick="{{ back }}"></div>
+          <div class="gate-one-dialog dc-modal" role="dialog" aria-modal="true" data-screen-label="第一道门">
+            <div class="gate-one-shell">
+              <header class="gate-one-head"><span class="gate-one-step">第一道门</span><h2 class="gate-one-head-h2">确认本次商品主图设置</h2><p class="gate-one-head-p">请先核对商品主体来源、生成数量和鸭豆上限。确认后进入内容确认流程。</p></header>
+              <div class="gate-one-body">
+                <section class="gate-one-section"><div class="gate-one-section-head"><h3 class="gate-one-section-head-h3">商品主体来源</h3><span class="gate-one-section-head-span">{{ perSet }} 个功能图片配置项</span></div>
+                  <ul class="gate-one-source-list">
+                    <sc-for list="{{ rows }}" as="r" hint-placeholder-count="2"><li class="gate-one-source"><span><b class="gate-one-source-b">{{ r.name }}</b><small class="gate-one-source-small">{{ r.desc }}</small></span>
+                      <sc-if value="{{ r.subject }}" hint-placeholder-val="{{ true }}"><span class="gate-one-subject"><div class="{{ r.thumbCls }}" aria-hidden="true"></div><span><b class="gate-one-source-b">{{ r.subjectTitle }}</b><small class="gate-one-source-small">{{ r.subjectSub }}</small></span></span></sc-if>
+                      <sc-if value="{{ r.missing }}" hint-placeholder-val="{{ false }}"><span class="gate-one-subject-missing">尚未选择商品主体图</span></sc-if>
+                    </li></sc-for>
+                  </ul>
+                </section>
+                <section class="gate-one-metrics" aria-label="生成数量和费用上限"><div class="gate-one-metrics-div"><span class="gate-one-metrics-span">生成套数</span><strong class="gate-one-metrics-strong">{{ setCount }} 套</strong></div><div class="gate-one-metrics-div"><span class="gate-one-metrics-span">每套功能图片</span><strong class="gate-one-metrics-strong">{{ perSet }} 张</strong></div><div class="gate-one-metrics-div"><span class="gate-one-metrics-span">总图片张数</span><strong class="gate-one-metrics-strong">{{ total }} 张</strong></div><div class="gate-one-metrics-div"><span class="gate-one-metrics-span">最大鸭豆数</span><strong class="gate-one-metrics-strong">{{ max }}</strong><small class="gate-one-metrics-small">{{ price }} 鸭豆／张</small></div></section>
+                <sc-if value="{{ enough }}" hint-placeholder-val="{{ true }}"><section class="gate-one-balance sufficient" aria-label="余额足够"><div><b class="gate-one-balance-b">当前鸭豆余额足够</b><span class="gate-one-balance-span gate-one-balance-span-2">余额 {{ balance }} 鸭豆，最多需要 {{ max }} 鸭豆。</span></div></section></sc-if>
+                <sc-if value="{{ short }}" hint-placeholder-val="{{ false }}"><section class="gate-one-balance insufficient" aria-label="余额不足"><div><b class="gate-one-balance-b">还差 {{ missing }} 鸭豆</b><span class="gate-one-balance-span gate-one-balance-span-2">当前余额 {{ balance }} 鸭豆，最多需要 {{ max }} 鸭豆。</span></div></section></sc-if>
+                <section class="gate-one-no-hold"><div><b class="gate-one-no-hold-b">当前不会扣费</b><span class="gate-one-no-hold-span gate-one-no-hold-span-2">这一步只确认任务设置。完成文案确认并通过第二道门后，系统才会预扣鸭豆。</span></div></section>
+              </div>
+              <footer class="gate-one-foot"><p class="gate-one-foot-p">{{ foot }}</p>
+                <div class="gate-one-actions">
+                  <button class="btn" type="button" onClick="{{ back }}">返回修改</button>
+                  <sc-if value="{{ short }}" hint-placeholder-val="{{ false }}"><button class="btn" type="button" disabled="{{ recharged }}" onClick="{{ recharge }}">{{ rechargeLabel }}</button><button class="btn primary" type="button" onClick="{{ recheck }}">重新检查余额</button></sc-if>
+                  <sc-if value="{{ enough }}" hint-placeholder-val="{{ true }}"><button class="btn primary" type="button" onClick="{{ confirm }}">确认，继续</button></sc-if>
+                </div>
+              </footer>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+      <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+        <div class="dc-toast" role="status">{{ toast }}</div>
+      </sc-if>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{
+  "$preview": {
+    "width": 1440,
+    "height": 900
+  },
+  "scenario": {
+    "editor": "enum",
+    "default": "gate-one-sufficient",
+    "tsType": "string",
+    "options": [
+      "gate-one-sufficient",
+      "gate-one-insufficient",
+      "gate-one-pending-material"
+    ]
+  },
+  "balance": {
+    "editor": "text",
+    "default": "",
+    "tsType": "string"
+  }
+}'
+    >
+      class Component extends DCLogic {
+        constructor(props) {
+          super(props);
+          this.state = Object.assign({ fx: false, toast: "" }, this.init(props));
+        }
+        componentDidMount() {
+          const tick = () => {
+            if (window.CHAMELEON) { this.setState({ fx: true }, () => this.onReady && this.onReady()); return; }
+            this._w = setTimeout(tick, 50);
+          };
+          tick();
+        }
+        componentWillUnmount() { clearTimeout(this._w); clearTimeout(this._t); this.cleanup && this.cleanup(); }
+        componentDidUpdate(prev) {
+          if (prev.scenario !== this.props.scenario) this.setState(this.init(this.props), () => this.onReady && this.onReady());
+          this.afterUpdate && this.afterUpdate(prev);
+        }
+        toast(msg) {
+          this.setState({ toast: msg });
+          clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: "" }), 2400);
+        }
+        emit(name, detail, fallback) {
+          if (this.props[name]) this.props[name](detail); else this.toast(fallback);
+        }
+        fx() { return window.CHAMELEON || {}; }
+        init(props) {
+          const sc = props.scenario || "gate-one-sufficient"; const wb = this.fx().wb; const shots = wb ? wb.mainShots : [];
+          const cfg = props.config || { setCount: 2, items: sc === "gate-one-pending-material" ? [{ id: "marketing", on: true, pendingMaterial: true }] : [{ id: "marketing", on: true, subjectId: "front" }, { id: "scene", on: true, subjectId: "side" }] };
+          const items = cfg.items.filter(i => i.on).map(i => Object.assign({}, shots.find(s => s.id === i.id) || {}, i));
+          return { scenario: sc, open: true, items, setCount: cfg.setCount, balance: Number(props.balance) || (sc === "gate-one-insufficient" ? 80 : 12480), recharged: false, pendingBalance: null };
+        }
+        onReady() { this.setState(this.init(this.props)); }
+        fmt(n) { return Number(n).toLocaleString("zh-CN"); }
+        renderVals() {
+          const st = this.state; const wb = this.fx().wb; const p = wb ? wb.projects[0] : {}; const price = wb ? wb.unitPrice : 30; const subjects = wb ? wb.subjects(p) : [];
+          const perSet = st.items.length; const total = perSet * st.setCount; const max = total * price; const enough = st.balance >= max;
+          const rows = st.items.map(i => { const s = subjects.find(x => x.id === i.subjectId); return i.pendingMaterial ? { name: i.name, desc: i.desc, subject: true, thumbCls: "product-thumb " + p.thumb, subjectTitle: p.file, subjectSub: "待确认商品主体" } : s ? { name: i.name, desc: i.desc, subject: true, thumbCls: "product-thumb " + s.thumb, subjectTitle: "已选择商品主体图", subjectSub: "由当前配置项绑定" } : { name: i.name, desc: i.desc, missing: true }; });
+          return { toast: st.toast, open: st.open, rows, perSet, setCount: st.setCount, total, max: this.fmt(max), price, enough, short: !enough, balance: this.fmt(st.balance), missing: this.fmt(Math.max(0, max - st.balance)), recharged: st.recharged, rechargeLabel: st.recharged ? "已打开充值页面" : "充值鸭豆",
+            foot: st.recharged ? "完成充值后，请重新检查余额。" : enough ? "按 Esc 也可以返回修改。本次确认不会预扣鸭豆。" : "余额不足时不能继续。本次检查不会预扣鸭豆。",
+            back: () => { this.setState({ open: false }); this.emit("onBack", null, "已返回任务设置，可以继续修改"); },
+            recharge: () => this.setState({ recharged: true, pendingBalance: max + 80 }),
+            recheck: () => { if (st.pendingBalance) this.setState({ balance: st.pendingBalance, recharged: false, pendingBalance: null }); else this.toast("余额没有变化"); },
+            confirm: () => { this.setState({ open: false }); this.emit("onConfirm", { items: st.items, setCount: st.setCount }, st.items.some(i => i.pendingMaterial) ? "→ 进入主体分析" : "→ 进入文案确认"); } };
+        }
+      }
+    </script>
+  </body>
+</html>

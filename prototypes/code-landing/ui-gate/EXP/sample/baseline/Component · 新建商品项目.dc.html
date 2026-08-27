@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="stylesheet" href="./styles/tokens.css" />
+        <link rel="stylesheet" href="./styles/product-project-library.css" />
+        <script src="./data/fixtures.js"></script>
+        <style>
+          body { margin: 0; min-height: 100vh; background: #e6e3df; }
+          #dc-root { width: 1440px; height: 900px; margin: 0 auto; overflow: hidden; position: relative; transform: translateZ(0); }
+          #dc-root > * { height: 100%; }
+          .dc-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 50; padding: 10px 16px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; box-shadow: 0 12px 32px rgba(45, 25, 34, 0.25); }
+          .dc-backdrop { position: fixed; inset: 0; background: rgba(40, 25, 32, 0.38); z-index: 40; }
+          .dc-modal { position: fixed; inset: 0; margin: auto; height: fit-content; z-index: 41; }
+          .workspace { height: 100%; }
+        </style>
+      </helmet>
+      <section class="workspace" data-screen-label="新建商品项目">
+        <section class="product-create active">
+          <div class="create-scroll">
+            <header class="create-head">
+              <button class="back-button" type="button" onClick="{{ back }}">{{ backLabel }}</button>
+              <div>
+                <h1 class="create-head-h1">{{ heading }}</h1>
+                <p class="create-head-p">{{ description }}</p>
+              </div>
+            </header>
+            <section class="create-panel">
+              <sc-if value="{{ showName }}" hint-placeholder-val="{{ true }}">
+                <div class="create-field">
+                  <label class="create-label"><strong class="create-label-strong">商品项目名称</strong><span class="create-label-span">必填</span></label>
+                  <input class="create-input" type="text" placeholder="例如：山野净洗洁精" autocomplete="off" value="{{ name }}" onInput="{{ setName }}" aria-invalid="{{ duplicateStr }}" />
+                  <sc-if value="{{ duplicate }}" hint-placeholder-val="{{ false }}"><p class="create-field-error" role="alert">{{ duplicateMsg }}</p></sc-if>
+                </div>
+              </sc-if>
+              <div class="create-field">
+                <div class="create-label"><strong class="create-label-strong">商品素材</strong><span class="create-label-span">至少一张</span></div>
+                <button class="{{ dropzoneClass }}" type="button" onClick="{{ addMaterial }}">
+                  <span class="create-material-art source-art art-cleaner" style="{{ artStyle }}" aria-hidden="true"></span>
+                  <span class="create-material-copy"><b class="create-material-copy-b">{{ materialTitle }}</b><span class="create-material-copy-span">{{ materialNote }}</span></span>
+                  <span class="btn-secondary create-replace" aria-hidden="true">更换素材</span>
+                </button>
+              </div>
+              <div class="create-field">
+                <div class="create-label"><strong class="create-label-strong">这个素材用于生成</strong><span class="create-label-span">必选</span></div>
+                <div class="material-function-grid" role="group" aria-label="选择商品素材对应的功能图片">
+                  <sc-for list="{{ functions }}" as="f" hint-placeholder-count="4">
+                    <button class="material-function" type="button" aria-pressed="{{ f.pressed }}" disabled="{{ f.disabled }}" onClick="{{ f.pick }}"><strong class="material-function-strong">{{ f.label }}</strong><span class="material-function-span">{{ f.note }}</span></button>
+                  </sc-for>
+                </div>
+              </div>
+              <footer class="create-foot">
+                <p class="create-foot-p">{{ footnote }}</p>
+                <button class="btn-primary" type="button" disabled="{{ nextDisabled }}" onClick="{{ next }}">下一步：设置功能图片</button>
+              </footer>
+            </section>
+          </div>
+        </section>
+      </section>
+      <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+        <div class="dc-toast" role="status">{{ toast }}</div>
+      </sc-if>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{
+  "$preview": {
+    "width": 1440,
+    "height": 900
+  },
+  "scenario": {
+    "editor": "enum",
+    "default": "empty",
+    "tsType": "string",
+    "options": [
+      "empty",
+      "library-material-required",
+      "library-function-required",
+      "library-name-duplicate",
+      "add-material"
+    ]
+  }
+}'
+    >
+      class Component extends DCLogic {
+        constructor(props) {
+          super(props);
+          this.state = Object.assign({ fx: false, toast: "" }, this.init(props));
+        }
+        componentDidMount() {
+          const tick = () => {
+            if (window.CHAMELEON) { this.setState({ fx: true }, () => this.onReady && this.onReady()); return; }
+            this._w = setTimeout(tick, 50);
+          };
+          tick();
+        }
+        componentWillUnmount() { clearTimeout(this._w); clearTimeout(this._t); this.cleanup && this.cleanup(); }
+        componentDidUpdate(prev) {
+          if (prev.scenario !== this.props.scenario) this.setState(this.init(this.props), () => this.onReady && this.onReady());
+          this.afterUpdate && this.afterUpdate(prev);
+        }
+        toast(msg) {
+          this.setState({ toast: msg });
+          clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: "" }), 2400);
+        }
+        emit(name, detail, fallback) {
+          if (this.props[name]) this.props[name](detail); else this.toast(fallback);
+        }
+        fx() { return window.CHAMELEON || {}; }
+        init(props) {
+          const sc = props.scenario || "empty"; const fx = window.CHAMELEON || {}; const cleaner = ((fx.projects || [])[0] || {}).name || "山野净洗洁精";
+          const preset = {
+            "empty": { name: "", material: false, fn: "" },
+            "library-material-required": { name: "晨雾保温杯", material: false, fn: "" },
+            "library-function-required": { name: "晨雾保温杯", material: true, fn: "" },
+            "library-name-duplicate": { name: cleaner, material: true, fn: "marketing" },
+            "add-material": { name: "", material: false, fn: "" }
+          }[sc] || { name: "", material: false, fn: "" };
+          return { scenario: sc, ...preset };
+        }
+        onReady() { this.setState(this.init(this.props)); }
+        renderVals() {
+          const fx = this.fx(); const st = this.state;
+          const FUNCS = [["marketing", "营销图", "带文案的营销头图"], ["macro1", "细节图", "商品外观与局部特写"], ["scene", "场景图", "真实使用环境"], ["white", "白底图", "纯白背景完整展示"]];
+          const adding = st.scenario === "add-material";
+          const existing = adding ? ((fx.projects || [])[0] || { name: "山野净洗洁精", id: "PRJ-240716-C08" }) : null;
+          const name = st.name.trim();
+          const duplicate = !adding && Boolean(name) && (fx.projects || []).some(p => p.name === name);
+          const nameReady = adding || (name && !duplicate);
+          const fnLabel = (FUNCS.find(f => f[0] === st.fn) || [])[1];
+          return {
+            toast: st.toast,
+            backLabel: adding ? "返回商品项目" : "返回商品项目库",
+            heading: adding ? "添加商品素材" : "新建商品项目",
+            description: adding ? "向“" + existing.name + "”添加新的商品素材。" : "填写项目名称，并添加至少一张商品素材。",
+            showName: !adding, name: st.name, duplicate, duplicateStr: String(duplicate),
+            duplicateMsg: duplicate ? "已经有一个叫“" + name + "”的商品项目。请换一个名称。" : "",
+            setName: (e) => this.setState({ name: e.target.value }),
+            dropzoneClass: "create-dropzone" + (st.material ? " added" : ""),
+            artStyle: { "--art-label": "'商品素材_洗洁精.jpg'" },
+            materialTitle: st.material ? "商品素材_洗洁精.jpg" : "添加商品素材",
+            materialNote: st.material ? (fnLabel ? "已添加 · 已选择" + fnLabel : "已添加 · 请选择要生成的功能图片") : "拖入图片，或从本机选择",
+            addMaterial: () => this.setState({ material: true }),
+            functions: FUNCS.map(([k, label, note]) => ({ label, note, pressed: String(st.fn === k), disabled: !st.material, pick: () => this.setState({ fn: k }) })),
+            footnote: adding ? "下一步先完成这张功能图片的生成设置。商品主体将在设置完成后确认。" : "下一步先完成这张功能图片的生成设置。原始素材会暂时占据商品主体位置。",
+            nextDisabled: !(st.material && st.fn && nameReady),
+            next: () => { const id = adding ? existing.id : "PRJ-240806-N01"; const pn = adding ? existing.name : name; this.emit("onNext", { projectId: id, name: pn, materialFunction: st.fn }, "→ 进入工作台 " + id + "（" + pn + "，" + fnLabel + "）"); },
+            back: () => this.emit("onBack", adding ? existing.id : null, adding ? "→ 返回商品项目 " + existing.id : "→ 返回商品项目库")
+          };
+        }
+      }
+    </script>
+  </body>
+</html>

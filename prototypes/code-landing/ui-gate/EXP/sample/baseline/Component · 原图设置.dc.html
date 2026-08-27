@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="stylesheet" href="./styles/tokens.css" />
+        <link rel="stylesheet" href="./styles/product-workbench.css" />
+        <script src="./data/fixtures.js"></script>
+        <style>
+          body { margin: 0; min-height: 100vh; background: #e6e3df; }
+          #dc-root { width: 1440px; height: 900px; margin: 0 auto; overflow: hidden; position: relative; transform: translateZ(0); }
+          #dc-root > * { height: 100%; }
+          .dc-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 50; padding: 10px 16px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; box-shadow: 0 12px 32px rgba(45, 25, 34, 0.25); }
+          .dc-backdrop { position: fixed; inset: 0; background: rgba(40, 25, 32, 0.38); z-index: 40; }
+          .dc-modal { position: fixed; inset: 0; margin: auto; height: fit-content; z-index: 41; }
+          .wb-settings { height: 100%; display: grid; grid-template-rows: minmax(0, 1fr); background: var(--surface); }
+          .draft-replace-dialog.dc-modal { display: block; }
+        </style>
+      </helmet>
+      <div class="wb-settings" data-screen-label="原图设置">
+        <section class="settings" aria-label="当前生成任务设置">
+          <div class="settings-scroll">
+            <sc-if value="{{ cont }}" hint-placeholder-val="{{ false }}">
+              <aside class="continue-source" aria-label="继续生成来源"><div class="{{ cont.thumbCls }}" aria-hidden="true"></div><div class="continue-source-copy"><strong class="continue-source-copy-strong">基于“{{ cont.name }}”继续生成</strong><span class="continue-source-copy-span">已沿用 {{ cont.subject }} 和所选成图的视觉设计</span></div><div class="continue-source-rule">在下方选择要新增的功能图片。<br>新参考图只会替换你勾选的视觉内容。</div></aside>
+            </sc-if>
+            <div class="original-section-head"><div class="original-section-title">功能图片</div><div class="original-section-hint">{{ hint }}</div><div class="original-section-count">{{ countText }}</div></div>
+            <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+              <div class="original-option-row"><div class="original-option-label">详情尺寸</div><div class="original-option-items">
+                <sc-for list="{{ sizes }}" as="z" hint-placeholder-count="4"><button type="button" class="{{ z.cls }}" aria-pressed="{{ z.onStr }}" onClick="{{ z.pick }}"><span class="{{ z.glyphCls }}" aria-hidden="true">{{ z.glyphText }}</span><span class="original-size-copy"><span class="original-size-ratio">{{ z.ratio }}</span><span class="original-size-px">{{ z.px }}</span></span></button></sc-for>
+              </div></div>
+            </sc-if>
+            <div class="original-option-row"><div class="original-option-label">生成套数</div>
+              <div class="original-set-counts" role="group" aria-label="生成套数">
+                <sc-for list="{{ setCounts }}" as="c" hint-placeholder-count="4"><button type="button" class="{{ c.cls }}" aria-pressed="{{ c.onStr }}" onClick="{{ c.pick }}">{{ c.n }} 套</button></sc-for>
+                <span class="original-set-help">每套按当前选择生成对应数量的功能图片</span>
+              </div>
+            </div>
+            <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+              <div class="original-option-row"><div class="original-option-label">详情风格</div><div class="original-option-items">
+                <sc-for list="{{ styles }}" as="y" hint-placeholder-count="9"><button type="button" class="{{ y.cls }}" aria-pressed="{{ y.onStr }}" onClick="{{ y.pick }}">{{ y.name }}</button></sc-for>
+              </div></div>
+            </sc-if>
+            <div class="{{ picksCls }}">
+              <sc-for list="{{ picks }}" as="p" hint-placeholder-count="5">
+                <button type="button" class="{{ p.cls }}" aria-pressed="{{ p.onStr }}" disabled="{{ p.pending }}" onClick="{{ p.toggle }}"><span class="original-pick-box" aria-hidden="true">✓</span><span><span class="original-pick-name">{{ p.name }}</span><span class="original-pick-desc">{{ p.desc }}</span></span></button>
+              </sc-for>
+            </div>
+            <div class="original-configs">
+              <sc-if value="{{ noneSelected }}" hint-placeholder-val="{{ false }}"><div class="original-empty">选择上方任意一种功能图片，开始配置当前生成任务</div></sc-if>
+              <sc-for list="{{ configs }}" as="c" hint-placeholder-count="1">
+                <article class="original-config">
+                  <div class="original-config-head"><div class="original-config-title"><span class="original-config-name">{{ c.name }}</span><span class="original-config-desc">{{ c.desc }}</span></div><sc-if value="{{ c.removable }}" hint-placeholder-val="{{ true }}"><button type="button" class="original-remove" aria-label="移除" onClick="{{ c.remove }}">×</button></sc-if></div>
+                  <div class="original-config-divider"></div>
+                  <sc-if value="{{ c.pending }}" hint-placeholder-val="{{ false }}">
+                    <div class="original-config-label">商品素材 <span class="original-config-label-span">待确认商品主体</span></div><div class="original-subject-drop pending-material"><div class="{{ c.projThumbCls }}" aria-hidden="true"></div><span class="original-subject-drop-copy"><b class="original-subject-drop-copy-b">{{ c.file }}</b><span class="original-subject-drop-copy-span">下一步统一识别并确认商品主体</span></span></div>
+                  </sc-if>
+                  <sc-if value="{{ c.needSubject }}" hint-placeholder-val="{{ true }}">
+                    <div class="original-config-label">商品主体图 <span class="original-config-label-span">必选</span></div>
+                    <div class="{{ c.dropCls }}" onDragEnter="{{ c.dragEnter }}" onDragOver="{{ c.dragOver }}" onDragLeave="{{ c.dragLeave }}" onDrop="{{ c.drop }}"><span class="original-subject-drop-icon" aria-hidden="true">↓</span><span class="original-subject-drop-copy"><b class="original-subject-drop-copy-b">从上方拖入商品主体图</b><span class="original-subject-drop-copy-span">也可以使用下方选择框</span></span></div>
+                  </sc-if>
+                  <sc-if value="{{ c.hasSubject }}" hint-placeholder-val="{{ false }}">
+                    <div class="original-config-label">商品主体图 <span class="original-config-label-span">已绑定</span></div>
+                    <div class="{{ c.dropCls }}" onDragEnter="{{ c.dragEnter }}" onDragOver="{{ c.dragOver }}" onDragLeave="{{ c.dragLeave }}" onDrop="{{ c.drop }}"><div class="{{ c.subjectThumbCls }}" aria-hidden="true"></div><span class="original-subject-drop-copy"><b class="original-subject-drop-copy-b">{{ c.subjectName }}</b><span class="original-subject-drop-copy-span">{{ c.subjectOrigin }} · 拖入其他主体图可替换</span></span></div>
+                  </sc-if>
+                  <sc-if value="{{ c.notPending }}" hint-placeholder-val="{{ true }}">
+                    <label class="original-subject-select"><span>直接选择商品主体图</span><select class="original-subject-select-select" value="{{ c.subjectId }}" onChange="{{ c.select }}"><option value="">请选择</option><sc-for list="{{ subjects }}" as="s" hint-placeholder-count="2"><option value="{{ s.id }}">{{ s.name }}</option></sc-for></select></label>
+                  </sc-if>
+                  <div class="original-config-divider"></div>
+                  <div class="original-config-label">参考图 <span class="original-config-label-span">选填 · 最多一张</span><button type="button" class="original-reference-help" onClick="{{ openRefHelp }}">使用说明</button></div>
+                  <sc-if value="{{ c.noRef }}" hint-placeholder-val="{{ true }}"><button type="button" class="original-reference-empty" onClick="{{ c.addRef }}"><span class="original-reference-add-icon original-reference-empty-span" aria-hidden="true">+</span><span class="original-reference-empty-span"><b class="original-reference-empty-b">添加参考图</b><span class="original-reference-empty-span original-reference-empty-span-2">从本机选择一张图片</span></span></button></sc-if>
+                  <sc-if value="{{ c.ref }}" hint-placeholder-val="{{ false }}"><div class="original-reference-selected"><span class="original-reference-thumb" aria-hidden="true"></span><span class="original-reference-file"><b class="original-reference-file-b">{{ c.refName }}</b><span class="original-reference-file-span">已添加 1 张参考图</span></span><span class="original-reference-actions"><button class="original-reference-actions-button" type="button" onClick="{{ c.replaceRef }}">更换</button><button type="button" class="remove original-reference-actions-button" onClick="{{ c.removeRef }}">移除</button></span></div></sc-if>
+                  <div class="original-reference-note">{{ c.refNote }}</div>
+                  <div class="original-reference-basis"><div class="original-reference-basis-head">参考这张图的<span class="original-reference-basis-head-span">{{ c.basisHint }}</span></div><div class="original-reference-basis-grid">
+                    <sc-for list="{{ c.aspects }}" as="a" hint-placeholder-count="4"><label class="original-reference-basis-option"><input class="original-reference-basis-option-input" type="checkbox" checked="{{ a.checked }}" disabled="{{ a.disabled }}" onChange="{{ a.toggle }}"><span>{{ a.label }}</span></label></sc-for>
+                  </div></div>
+                  <sc-if value="{{ c.copyNone }}" hint-placeholder-val="{{ false }}"><div class="original-config-row">文案<span class="original-no-copy">画面上不放文字</span></div></sc-if>
+                  <sc-if value="{{ c.copyBlank }}" hint-placeholder-val="{{ false }}"><div class="original-config-row">文案<span class="original-no-copy">下一步自行填写</span></div><div class="original-copy-note">新建任务没有旧文案来源</div></sc-if>
+                  <sc-if value="{{ c.copySeg }}" hint-placeholder-val="{{ true }}"><div class="original-config-row">文案<div class="original-segment" role="group" aria-label="文案处理"><button type="button" class="original-segment-button {{ c.rewriteCls }}" onClick="{{ c.setRewrite }}">AI 改写</button><button type="button" class="original-segment-button {{ c.keepCls }}" onClick="{{ c.setKeep }}">{{ c.keepLabel }}</button></div></div><div class="original-copy-note">{{ c.copyNote }}</div></sc-if>
+                </article>
+              </sc-for>
+            </div>
+          </div>
+          <footer class="settings-foot">
+            <div class="foot-copy"><div class="foot-summary"><b class="foot-copy-b">{{ setCount }} 套 × 每套 {{ perSet }} 张功能图片，共 {{ imageCount }} 张成图</b><span class="foot-max-credit">最多 {{ maxCredits }} 鸭豆</span></div><span>{{ footNote }}</span></div>
+            <button class="btn danger-quiet" type="button" onClick="{{ openAbandon }}">放弃这次任务</button>
+            <button class="btn primary" type="button" disabled="{{ cannotSubmit }}" onClick="{{ next }}">下一步</button>
+          </footer>
+        </section>
+        <sc-if value="{{ draft }}" hint-placeholder-val="{{ false }}">
+          <div class="{{ draft.cls }}" role="status"><span class="draft-save-toast-dot" aria-hidden="true"></span><span class="draft-save-toast-copy"><strong class="draft-save-toast-copy-strong">{{ draft.title }}</strong><span class="draft-save-toast-copy-span">{{ draft.detail }}</span></span><sc-if value="{{ draft.failed }}" hint-placeholder-val="{{ false }}"><button type="button" class="draft-save-retry" onClick="{{ retryDraft }}">立即重试</button></sc-if></div>
+        </sc-if>
+        <sc-if value="{{ refHelp }}" hint-placeholder-val="{{ false }}">
+          <div class="dc-backdrop" onClick="{{ closeRefHelp }}"></div>
+          <div class="draft-replace-dialog dc-modal" role="dialog" aria-modal="true" data-screen-label="参考图边界">
+            <div class="draft-replace-shell"><header class="draft-replace-head"><h2 class="draft-replace-head-h2">参考图只用于视觉设计</h2><p class="draft-replace-head-p">你选择的构图、场景、字体或色彩会作为参考。</p><p class="draft-replace-head-p draft-replace-head-p-2">商品主体、品牌、文案、价格、功效、规格和其他商品事实都不会从参考图读取。</p></header><footer class="draft-replace-foot"><button class="btn primary" type="button" onClick="{{ closeRefHelp }}">知道了</button></footer></div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ abandon }}" hint-placeholder-val="{{ false }}">
+          <div class="dc-backdrop" onClick="{{ closeAbandon }}"></div>
+          <div class="draft-replace-dialog dc-modal" role="dialog" aria-modal="true" data-screen-label="放弃任务">
+            <div class="draft-replace-shell"><header class="draft-replace-head"><h2 class="draft-replace-head-h2">{{ abandon.title }}</h2><p class="draft-replace-head-p">{{ abandon.desc }}</p></header><footer class="draft-replace-foot"><button class="btn" type="button" onClick="{{ closeAbandon }}">继续这次任务</button><button class="btn danger" type="button" onClick="{{ confirmAbandon }}">{{ abandon.confirm }}</button></footer></div>
+          </div>
+        </sc-if>
+      </div>
+      <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+        <div class="dc-toast" role="status">{{ toast }}</div>
+      </sc-if>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{
+  "$preview": {
+    "width": 1440,
+    "height": 900
+  },
+  "tab": {
+    "editor": "enum",
+    "default": "main",
+    "tsType": "string",
+    "options": [
+      "main",
+      "detail"
+    ]
+  },
+  "scenario": {
+    "editor": "enum",
+    "default": "main-setup-ready",
+    "tsType": "string",
+    "options": [
+      "main-setup-empty",
+      "main-setup-ready",
+      "main-setup-reference",
+      "main-setup-reference-required",
+      "main-setup-reference-boundary",
+      "main-setup-autosave",
+      "new-material",
+      "continue-edit",
+      "library-abandon-existing",
+      "library-abandon-new",
+      "service-down"
+    ]
+  }
+}'
+    >
+      class Component extends DCLogic {
+        constructor(props) {
+          super(props);
+          this.state = Object.assign({ fx: false, toast: "" }, this.init(props));
+        }
+        componentDidMount() {
+          const tick = () => {
+            if (window.CHAMELEON) { this.setState({ fx: true }, () => this.onReady && this.onReady()); return; }
+            this._w = setTimeout(tick, 50);
+          };
+          tick();
+        }
+        componentWillUnmount() { clearTimeout(this._w); clearTimeout(this._t); this.cleanup && this.cleanup(); }
+        componentDidUpdate(prev) {
+          if (prev.scenario !== this.props.scenario) this.setState(this.init(this.props), () => this.onReady && this.onReady());
+          this.afterUpdate && this.afterUpdate(prev);
+        }
+        toast(msg) {
+          this.setState({ toast: msg });
+          clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: "" }), 2400);
+        }
+        emit(name, detail, fallback) {
+          if (this.props[name]) this.props[name](detail); else this.toast(fallback);
+        }
+        fx() { return window.CHAMELEON || {}; }
+        init(props) {
+          const sc = props.scenario || "main-setup-ready"; const wb = this.fx().wb;
+          if (!wb) return { scenario: sc, project: {}, items: [], setCount: 1, copySource: "none", cont: null, draft: null, abandon: false, refHelp: false, over: -1 };
+          const isDetail = props.tab === "detail"; const shots = isDetail ? wb.detailSections : wb.mainShots;
+          const items = shots.map(s => ({ id: s.id, name: s.name, desc: s.desc, copy: s.copy || null, on: false, subjectId: null, pendingMaterial: false, ref: false, referenceName: "", referenceAspects: [] }));
+          let project = Object.assign({}, wb.projects[0]); let setCount = 1; let copySource = "none"; let cont = null; let draft = null; let abandon = false; let refHelp = false;
+          if (sc === "main-setup-ready" || sc === "library-abandon-existing") { items[0].on = true; items[0].subjectId = "front"; items[3].on = true; items[3].subjectId = "side"; setCount = 2; }
+          if (sc === "main-setup-reference") { items[0].on = true; items[0].subjectId = "front"; }
+          if (sc === "main-setup-reference-required" || sc === "main-setup-reference-boundary") { items[0].on = true; items[0].subjectId = "front"; items[0].ref = true; items[0].referenceName = "营销图_参考图.jpg"; }
+          if (sc === "main-setup-autosave") { items[0].on = true; items[0].subjectId = "front"; setCount = 2; draft = { tone: "failed", title: "生成任务设置未保存", detail: "可以继续设置。下次修改时会自动重试。" }; }
+          if (sc === "new-material") { items[0].on = true; items[0].pendingMaterial = true; copySource = "material"; }
+          if (sc === "continue-edit") { copySource = "history"; cont = { name: "营销图 · 柔润留香", subject: "商品主体图 1", subjectId: "front", thumb: project.thumb }; }
+          if (sc === "library-abandon-new") { project = Object.assign({}, wb.projects[4]); items[0].on = true; items[0].pendingMaterial = true; copySource = "material"; abandon = true; }
+          if (sc === "library-abandon-existing") abandon = true;
+          if (sc === "main-setup-reference-boundary") refHelp = true;
+          return { scenario: sc, isDetail, size: "d2", style: wb.detailStyles[0], project, items, setCount, copySource, cont, draft, abandon, refHelp, over: -1 };
+        }
+        onReady() { this.setState(this.init(this.props)); }
+        afterUpdate(prev) { if (prev.tab !== this.props.tab) this.setState(this.init(this.props)); }
+        cleanup() { clearTimeout(this._d); clearTimeout(this._h); }
+        edit(fn) { const items = this.state.items.map(i => Object.assign({}, i, { referenceAspects: i.referenceAspects.slice() })); const next = { items }; fn(items, next); this.setState(next); this.saveDraft(); }
+        showDraft(title, detail, tone) { clearTimeout(this._h); this.setState({ draft: { title, detail, tone } }); if (tone === "saved") this._h = setTimeout(() => this.setState({ draft: null }), 1800); }
+        saveDraft(delay) { clearTimeout(this._d); this.showDraft("正在保存生成任务设置", "继续修改不会打断保存。", "saving"); this._d = setTimeout(() => this.showDraft("生成任务设置已保存到本机", "返回当前商品项目时会直接恢复。", "saved"), delay || 2000); }
+        fmt(n) { return Number(n).toLocaleString("zh-CN"); }
+        renderVals() {
+          const st = this.state; const wb = this.fx().wb; const p = st.project; const serviceDown = st.scenario === "service-down";
+          const subjects = wb ? wb.subjects(p) : []; const find = id => subjects.find(s => s.id === id);
+          const selected = st.items.filter(i => i.on); const perSet = selected.length; const imageCount = perSet * st.setCount;
+          const hasPending = selected.some(i => i.pendingMaterial); const missing = selected.some(i => i.on && !i.subjectId && !i.pendingMaterial); const incompleteRef = selected.some(i => i.ref && !i.referenceAspects.length);
+          const cannotSubmit = serviceDown || perSet === 0 || missing || incompleteRef;
+          const keepLabel = st.copySource === "material" ? "使用素材原文" : "沿用所选成图文案";
+          const configs = st.items.map((item, index) => item.on ? (() => {
+            const subj = find(item.subjectId); const aspects = (wb ? wb.referenceAspects : []).map(([id, label]) => ({ label, checked: item.referenceAspects.indexOf(id) >= 0, disabled: !item.ref, toggle: e => this.edit(items => { const a = items[index].referenceAspects; items[index].referenceAspects = e.target.checked ? a.concat(a.indexOf(id) < 0 ? [id] : []) : a.filter(x => x !== id); }) }));
+            const dz = { dragEnter: e => { e.preventDefault(); this.setState({ over: index }); }, dragOver: e => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }, dragLeave: e => { if (!e.currentTarget.contains(e.relatedTarget)) this.setState({ over: -1 }); }, drop: e => { e.preventDefault(); const id = e.dataTransfer.getData("text/product-subject-id"); const s = find(id); this.setState({ over: -1 }); if (!s) return; this.edit(items => { items[index].subjectId = s.id; }); this.emit("onNote", s.name + "已用于当前功能图片", ""); } };
+            return Object.assign({ name: item.name, desc: item.desc, removable: !item.pendingMaterial, pending: item.pendingMaterial, notPending: !item.pendingMaterial, projThumbCls: "product-thumb " + p.thumb, file: p.file, needSubject: !item.pendingMaterial && !subj, hasSubject: Boolean(subj), dropCls: "original-subject-drop" + (subj ? " has-subject" : "") + (st.over === index ? " is-over" : ""), subjectThumbCls: subj ? "product-thumb " + subj.thumb : "", subjectName: subj ? subj.name : "", subjectOrigin: subj ? subj.origin : "", subjectId: item.subjectId || "",
+              select: e => { const s = find(e.target.value); this.edit(items => { items[index].subjectId = s ? s.id : null; }); },
+              remove: () => this.edit(items => { items[index].on = false; }),
+              noRef: !item.ref, ref: item.ref, refName: item.referenceName || item.name + "_参考图.jpg", refNote: item.ref ? (item.referenceAspects.length ? "已选择 " + item.referenceAspects.length + " 项，未选内容由系统设计" : "请选择要从这张图参考的内容") : "不添加参考图时，由系统完成视觉设计", basisHint: item.ref ? "至少选择一项" : "上传后可选", aspects,
+              addRef: () => this.edit(items => { items[index].ref = true; items[index].referenceName = item.name + "_参考图.jpg"; }), replaceRef: () => this.edit(items => { items[index].referenceName = item.name + "_新参考图.jpg"; }), removeRef: () => this.edit(items => { items[index].ref = false; items[index].referenceName = ""; items[index].referenceAspects = []; }),
+              copyNone: !item.copy, copyBlank: Boolean(item.copy) && st.copySource === "none", copySeg: Boolean(item.copy) && st.copySource !== "none", rewriteCls: item.copy === "rewrite" ? "on" : "", keepCls: item.copy === "keep" ? "on" : "", keepLabel,
+              copyNote: item.copy === "keep" ? (st.copySource === "material" ? "把商品素材中识别到的文案按原有层级填入每一套" : "把所选成图已经确认的文案填入当前任务") : (st.copySource === "material" ? "根据商品素材中识别到的文案草拟新文案" : "根据所选成图已经确认的文案草拟新文案"),
+              setRewrite: () => this.edit(items => { items[index].copy = "rewrite"; }), setKeep: () => this.edit(items => { items[index].copy = "keep"; }) }, dz);
+          })() : null).filter(Boolean);
+          const isNew = Boolean(p.isNew);
+          const abandon = st.abandon ? { title: isNew ? "放弃这次任务并删除新商品项目？" : "放弃这次任务？", desc: isNew ? "“" + p.name + "”会被删除。" : p.hasAddedSubject ? "当前未提交的设置和本次新增的商品主体图会被删除。任务开始前已有的 " + p.originalSubjectCount + " 张商品主体图会继续保留。" : "当前未提交的设置会被删除。商品主体图库不会改变。", confirm: isNew ? "放弃并删除项目" : "放弃这次任务" } : null;
+          const glyph = z => z.shape === "custom" ? ["original-size-glyph custom", "☷"] : ["original-size-glyph " + z.shape, ""];
+          return { toast: st.toast, isDetail: Boolean(st.isDetail), picksCls: "original-picks " + (st.isDetail ? "sections" : "shots"),
+            sizes: (wb ? wb.detailSizes : []).map(z => ({ ratio: z.ratio, px: z.px, cls: "original-size" + (st.size === z.id ? " on" : ""), onStr: String(st.size === z.id), glyphCls: glyph(z)[0], glyphText: glyph(z)[1], pick: () => { this.setState({ size: z.id }); this.saveDraft(); } })),
+            styles: (wb ? wb.detailStyles : []).map(y => ({ name: y, cls: "original-style" + (st.style === y ? " on" : ""), onStr: String(st.style === y), pick: () => { this.setState({ style: y }); this.saveDraft(); } })),
+            cont: st.cont ? Object.assign({ thumbCls: "product-thumb " + st.cont.thumb }, st.cont) : null,
+            hint: hasPending ? "新商品素材已占据对应配置项，下一步确认商品主体" : "为每张功能图片拖入或选择商品主体图", countText: perSet ? "每套 " + perSet + " 张" : "还没选择功能图片",
+            setCounts: [1, 2, 3, 4].map(n => ({ n, cls: "original-set-count" + (st.setCount === n ? " on" : ""), onStr: String(st.setCount === n), pick: () => { this.setState({ setCount: n }); this.saveDraft(); } })),
+            picks: st.items.map((item, index) => ({ name: item.name, desc: item.desc, cls: "original-pick" + (item.on ? " on" : ""), onStr: String(item.on), pending: item.pendingMaterial, toggle: () => this.edit(items => { items[index].on = !items[index].on; if (items[index].on && st.cont && !items[index].subjectId) items[index].subjectId = st.cont.subjectId; }) })),
+            noneSelected: perSet === 0, configs, subjects: subjects.map(s => ({ id: s.id, name: s.name })),
+            setCount: st.setCount, perSet, imageCount, maxCredits: this.fmt(imageCount * (wb ? wb.unitPrice : 30)), cannotSubmit,
+            footNote: perSet === 0 ? "请选择至少一种要新增的功能图片。" : missing ? "请为每张功能图片选择一张商品主体图。" : incompleteRef ? "请为已上传的参考图选择至少一项视觉依据。" : hasPending ? "下一步统一识别文案并确认商品主体。" : "下一步确认当前任务的文案。",
+            draft: st.draft ? Object.assign({ cls: "draft-save-toast " + st.draft.tone, failed: st.draft.tone === "failed" }, st.draft) : null,
+            retryDraft: () => this.saveDraft(900),
+            refHelp: st.refHelp, openRefHelp: () => this.setState({ refHelp: true }), closeRefHelp: () => this.setState({ refHelp: false }),
+            abandon, openAbandon: () => this.setState({ abandon: true }), closeAbandon: () => this.setState({ abandon: false }),
+            confirmAbandon: () => { clearTimeout(this._d); this.setState({ abandon: false, draft: null }); if (isNew) { this.emit("onAbandonNewProject", p, "→ 返回商品项目库（新项目已删除）"); return; } this.setState(Object.assign(this.init({ scenario: "main-setup-empty" }), { scenario: st.scenario })); this.emit("onAbandoned", null, "已放弃这次任务，设置已清空"); },
+            next: () => { const cfg = { setCount: st.setCount, items: st.items, copySource: st.copySource }; this.emit("onNext", cfg, hasPending ? "→ 进入主体分析（待确认商品主体）" : "→ 打开第一道门"); } };
+        }
+      }
+    </script>
+  </body>
+</html>

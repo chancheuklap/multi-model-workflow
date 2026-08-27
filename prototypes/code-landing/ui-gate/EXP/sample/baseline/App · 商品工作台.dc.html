@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="stylesheet" href="./styles/tokens.css" />
+        <link rel="stylesheet" href="./styles/product-project-library.css" />
+        <link rel="stylesheet" href="./styles/product-workbench.css" />
+        <script src="./data/fixtures.js"></script>
+        <style>
+          body { margin: 0; min-height: 100vh; background: #e6e3df; }
+          #dc-root { width: 1440px; height: 900px; margin: 0 auto; overflow: hidden; position: relative; transform: translateZ(0); }
+          #dc-root > * { height: 100%; }
+          .dc-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 50; padding: 10px 16px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; box-shadow: 0 12px 32px rgba(45, 25, 34, 0.25); }
+          .dc-backdrop { position: fixed; inset: 0; background: rgba(40, 25, 32, 0.38); z-index: 40; }
+          .dc-modal { position: fixed; inset: 0; margin: auto; height: fit-content; z-index: 41; }
+          .wb-app { height: 100%; min-width: 1180px; display: grid; grid-template-rows: auto auto minmax(0, 1fr); background: var(--canvas); }
+          .wb-app > * { min-width: 0; min-height: 0; }
+          .wb-app .app { height: auto; min-height: 0; grid-template-rows: 46px auto; }
+          .wb-app .app > .workspace { display: none; }
+          .wb-app .wb-shell { height: auto; grid-template-rows: 44px auto 44px; }
+          .wb-app .wb-shell-body { display: none; }
+          .wb-app.copy-flow-mode .wb-shell { display: none; }
+          .wb-app .work-grid { height: 100%; }
+          .wb-app .work-grid > * { min-height: 0; height: 100%; }
+          .wb-app > .sc-host:nth-child(n+4) { height: 0; }
+          .wb-app .wb-queue { height: 100%; grid-template-columns: minmax(0, 1fr); }
+          .wb-app .wb-queue-rest { display: none; }
+          .wb-app .wb-settings, .wb-app .wb-task, .wb-app .wb-copy { height: 100%; }
+          .wb-app .wb-gate { height: 0; overflow: visible; }
+          .wb-app .stage { display: none; }
+        </style>
+      </helmet>
+      <main class="{{ appCls }}" data-screen-label="商品工作台">
+        <dc-import name="Component · 壳头" scenario="{{ shellScenario }}" context="商品工作台" standalone="{{ false }}" balance="{{ balance }}" onServiceRecovered="{{ onRecovered }}"></dc-import>
+        <dc-import name="Component · 工作台壳" scenario="{{ shellBlock }}" projectId="{{ projectId }}" navNote="{{ note }}" onBackLibrary="{{ backLibrary }}" onAddMaterial="{{ addMaterial }}" onDeleted="{{ deleted }}"></dc-import>
+        <sc-if value="{{ copyMode }}" hint-placeholder-val="{{ false }}">
+          <dc-import name="Component · 文案确认" scenario="{{ copyScenario }}" onSubmit="{{ copySubmit }}" onBackSubject="{{ backSubject }}" onAbandoned="{{ abandoned }}" onNote="{{ setNote }}"></dc-import>
+        </sc-if>
+        <sc-if value="{{ gridMode }}" hint-placeholder-val="{{ true }}">
+          <section class="workbench" aria-label="商品主图工作台">
+            <div class="work-grid">
+              <dc-import name="Component · 任务队列" scenario="{{ queueScenario }}" selectedTaskId="{{ taskId }}" hasDraft="{{ hasDraft }}" extraTasks="{{ extraTasks }}" failedKind="{{ failedKind }}" onSelectTask="{{ selectTask }}" onNewTask="{{ newTask }}" onBillingDebt="{{ openDebt }}"></dc-import>
+              <sc-if value="{{ editMode }}" hint-placeholder-val="{{ true }}"><dc-import name="Component · 原图设置" scenario="{{ settingsScenario }}" onNext="{{ settingsNext }}" onAbandoned="{{ abandoned }}" onAbandonNewProject="{{ abandonNew }}" onNote="{{ setNote }}"></dc-import></sc-if>
+              <sc-if value="{{ taskMode }}" hint-placeholder-val="{{ false }}"><dc-import name="Component · 任务详情" scenario="{{ taskScenario }}" taskId="{{ taskId }}" extraTasks="{{ extraTasks }}" onContinue="{{ continueFrom }}" onRestart="{{ restart }}"></dc-import></sc-if>
+            </div>
+          </section>
+        </sc-if>
+        <sc-if value="{{ gate1 }}" hint-placeholder-val="{{ false }}"><dc-import name="Component · 门禁一" scenario="{{ gate1.scenario }}" config="{{ gate1.config }}" balance="{{ balance }}" onBack="{{ gateBack }}" onConfirm="{{ gate1Confirm }}"></dc-import></sc-if>
+        <sc-if value="{{ gate2 }}" hint-placeholder-val="{{ false }}"><dc-import name="Component · 门禁二" scenario="{{ gate2.scenario }}" context="{{ gate2.context }}" balance="{{ balance }}" onBack="{{ gateBack }}" onAccepted="{{ gate2Accepted }}"></dc-import></sc-if>
+        <sc-if value="{{ debt }}" hint-placeholder-val="{{ false }}"><dc-import name="Component · 欠费门禁" open="{{ true }}" standalone="{{ false }}" onLater="{{ debtLater }}" onRecharge="{{ debtRecharge }}"></dc-import></sc-if>
+      </main>
+      <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+        <div class="dc-toast" role="status">{{ toast }}</div>
+      </sc-if>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{
+  "$preview": {
+    "width": 1440,
+    "height": 900
+  },
+  "entry": {
+    "editor": "enum",
+    "default": "edit",
+    "tsType": "string",
+    "options": [
+      "edit",
+      "new-material",
+      "copy-confirm",
+      "task-detail",
+      "empty-new-project"
+    ]
+  },
+  "scenario": {
+    "editor": "enum",
+    "default": "ready",
+    "tsType": "string",
+    "options": [
+      "ready",
+      "app-service-unavailable",
+      "app-service-config-sync",
+      "billing-debt"
+    ]
+  },
+  "projectId": {
+    "editor": "text",
+    "default": "PRJ-240716-C08",
+    "tsType": "string"
+  }
+}'
+    >
+      class Component extends DCLogic {
+        constructor(props) {
+          super(props);
+          this.state = Object.assign({ fx: false, toast: "" }, this.init(props));
+        }
+        componentDidMount() {
+          const tick = () => {
+            if (window.CHAMELEON) { this.setState({ fx: true }, () => this.onReady && this.onReady()); return; }
+            this._w = setTimeout(tick, 50);
+          };
+          tick();
+        }
+        componentWillUnmount() { clearTimeout(this._w); clearTimeout(this._t); this.cleanup && this.cleanup(); }
+        componentDidUpdate(prev) {
+          if (prev.scenario !== this.props.scenario) this.setState(this.init(this.props), () => this.onReady && this.onReady());
+          this.afterUpdate && this.afterUpdate(prev);
+        }
+        toast(msg) {
+          this.setState({ toast: msg });
+          clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: "" }), 2400);
+        }
+        emit(name, detail, fallback) {
+          if (this.props[name]) this.props[name](detail); else this.toast(fallback);
+        }
+        fx() { return window.CHAMELEON || {}; }
+        init(props) {
+          const entry = props.entry || "edit"; const sc = props.scenario || "ready";
+          const mode = entry === "copy-confirm" ? "copy" : entry === "task-detail" ? "task" : "edit";
+          return { scenario: sc, mode, settingsScenario: entry === "new-material" ? "new-material" : entry === "empty-new-project" ? "main-setup-empty" : "main-setup-ready", copyScenario: entry === "copy-confirm" ? "copy-back-subject" : "copy-unconfirmed", taskScenario: "task-running", taskId: entry === "task-detail" ? "running-main" : "", gate1: null, gate2: null, debt: sc === "billing-debt", debtCleared: false, recovered: false, note: "", shellBlock: entry === "empty-new-project" ? "new-project" : entry === "copy-confirm" ? "material-added" : "default", hasDraft: entry !== "empty-new-project", extraTasks: [] };
+        }
+        onReady() { this.setState(this.init(this.props)); }
+        afterUpdate(prev) { if (prev.entry !== this.props.entry) this.setState(this.init(this.props)); }
+        renderVals() {
+          const st = this.state; const serviceDown = (st.scenario === "app-service-unavailable") || (st.scenario === "app-service-config-sync" && !st.recovered);
+          const debtActive = st.scenario === "billing-debt" && !st.debtCleared;
+          const guard = fn => (...a) => { if (serviceDown) { this.setState({ note: "服务配置不完整；已有内容仍可查看" }); return; } if (debtActive) { this.setState({ debt: true }); return; } fn(...a); };
+          return { toast: st.toast, appCls: "wb-app" + (st.mode === "copy" ? " copy-flow-mode" : ""), projectId: this.props.projectId || "PRJ-240716-C08",
+            shellScenario: st.recovered ? "ready" : (st.scenario === "billing-debt" ? "ready" : st.scenario), balance: debtActive ? 20 : 12480, onRecovered: () => this.setState({ recovered: true, note: "服务配置已同步，可以开始新的生成任务" }),
+            shellBlock: serviceDown ? "service-down" : st.shellBlock, note: st.note, setNote: n => this.setState({ note: n }),
+            backLibrary: () => this.emit("onBackLibrary", null, "→ 打开「商品项目库」页面"), addMaterial: p => this.emit("onAddMaterial", p, "→ 打开「商品项目库」页面的新建商品项目（添加素材）"), deleted: p => this.emit("onBackLibrary", { deleted: p.id }, "→ 打开「商品项目库」页面（已删除 " + p.name + "）"),
+            copyMode: st.mode === "copy", gridMode: st.mode !== "copy", editMode: st.mode === "edit", taskMode: st.mode === "task",
+            copyScenario: serviceDown ? "service-down" : st.copyScenario, settingsScenario: serviceDown ? "service-down" : st.settingsScenario, taskScenario: serviceDown ? "service-down" : st.taskScenario, taskId: st.taskId,
+            queueScenario: serviceDown ? "service-down" : debtActive ? "billing-debt-gate" : "default", hasDraft: st.hasDraft, extraTasks: st.extraTasks, failedKind: "service",
+            selectTask: t => this.setState({ mode: "task", taskId: t.taskId, taskScenario: t.state === "running" ? "task-running" : t.state === "ready" ? "task-ready" : t.state === "partial" ? "task-partial" : t.state === "failed" ? "task-failed" : "task-wait", note: t.state === "ready" ? "已交付图片可以查看和导出；未使用参考图的图片可以继续生成" : t.state === "partial" ? "已交付图片仍然保留，未完成图片的额度已经释放" : t.state === "failed" ? "任务已停止，未交付图片的额度已经释放" : t.state === "wait" ? "该任务排队中，轮到它时自动开始" : "该任务正在生成中" }),
+            newTask: guard(() => this.setState({ mode: "edit", taskId: "", settingsScenario: "main-setup-empty", hasDraft: true, note: "正在配置新的商品主图生成任务" })),
+            settingsNext: guard(cfg => { const pending = cfg.items.some(i => i.on && i.pendingMaterial); this.setState({ gate1: { scenario: "gate-one-sufficient", config: cfg, pending } }); }),
+            gateBack: () => this.setState({ gate1: null, gate2: null, note: st.gate1 ? "已返回任务设置，可以继续修改" : "可以继续检查已确认文案" }),
+            gate1Confirm: cfg => { const pending = st.gate1 && st.gate1.pending; this.setState({ gate1: null }); if (pending) { this.emit("onConfirmMaterial", cfg, "→ 打开「商品项目库」页面的主体分析"); return; } this.setState({ mode: "copy", copyScenario: "copy-unconfirmed", note: "确认文案后开始生成任务" }); },
+            copySubmit: guard(c => this.setState({ gate2: { scenario: "gate-two-open", context: { restart: false, setCount: c.setCount, perSet: c.items.length, total: c.setCount * c.items.length, names: c.items.map(i => i.name) } } })),
+            backSubject: () => this.emit("onBackSubject", null, "→ 打开「商品项目库」页面的主体确认"),
+            gate2Accepted: c => { const id = (c.restart ? "restarted-" : "continued-") + (st.extraTasks.length + 1); const wb = this.fx().wb || {}; const p = (wb.projects || [])[0] || {}; const t = { taskId: id, name: c.restart ? "商品主图生成任务" : c.names.join("、") + "生成任务", meta: "刚刚 · 0 / " + c.total + " 张", total: c.total, itemStates: Array(c.total).fill("pending"), setCount: c.setCount, state: "wait", stateText: "排队中", thumb: c.restart ? p.sideThumb : p.thumb }; this.setState({ extraTasks: [t].concat(st.extraTasks), gate2: null, mode: "task", taskId: id, taskScenario: c.restart ? "restarted-notice" : "submitted-notice", hasDraft: false, note: c.restart ? "新任务正在排队；原失败任务和原结算保持不变" : "生成任务已进入排队中，轮到它时自动开始" }); },
+            abandoned: () => this.setState({ mode: "edit", settingsScenario: "main-setup-empty", hasDraft: false, note: "从上方商品主体图库拖入各功能图片设置" }),
+            abandonNew: p => this.emit("onBackLibrary", { deleted: p.id }, "→ 打开「商品项目库」页面（新项目已删除）"),
+            continueFrom: guard(o => this.setState({ mode: "edit", taskId: "", settingsScenario: "continue-edit", hasDraft: true, note: "请选择要继续生成的功能图片" })),
+            restart: guard(t => this.setState({ gate2: { scenario: "restart-confirm", context: { restart: true, setCount: t.setCount || 1, perSet: Math.max(1, Math.ceil(t.total / (t.setCount || 1))), total: t.total, names: [t.name] } } })),
+            gate1: st.gate1, gate2: st.gate2, debt: st.debt, openDebt: () => this.setState({ debt: true }), debtLater: () => this.setState({ debt: false }), debtRecharge: () => this.setState({ debt: false, debtCleared: true, note: "欠费已结清，可以继续生成" }) };
+        }
+      }
+    </script>
+  </body>
+</html>

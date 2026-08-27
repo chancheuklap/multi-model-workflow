@@ -1,0 +1,1002 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>变色龙 · 重启与账务恢复落点流转稿</title>
+  <link rel="stylesheet" href="styles/product-workbench.css?round=066">
+  <style>
+    html,
+    body {
+      min-width: 980px;
+      min-height: 100%;
+      overflow: auto;
+      background: #f6f3f4;
+    }
+
+    body { padding: 14px; }
+
+    .prototype {
+      width: min(1480px, calc(100vw - 28px));
+      min-height: calc(100vh - 28px);
+      margin: 0 auto;
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      border-radius: 16px;
+      background: var(--surface);
+      box-shadow: 0 18px 48px rgba(54, 30, 40, 0.08);
+    }
+
+    .prototype-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+      padding: 18px 22px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .prototype-head small {
+      display: block;
+      color: var(--rose-text);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .prototype-head h1 {
+      margin: 5px 0 0;
+      font-size: 20px;
+    }
+
+    .prototype-head p {
+      max-width: 850px;
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 11.5px;
+      line-height: 1.55;
+    }
+
+    .prototype-badge {
+      margin-left: auto;
+      padding: 7px 10px;
+      border: 1px solid #fecdd3;
+      border-radius: 999px;
+      background: var(--rose-soft);
+      color: var(--rose-text);
+      font-size: 10.5px;
+      white-space: nowrap;
+    }
+
+    .placement-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      border-bottom: 1px solid var(--line);
+      background: var(--rail);
+    }
+
+    .placement-summary article {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 10px;
+      padding: 13px 18px;
+      border-right: 1px solid var(--line);
+    }
+
+    .placement-summary article:last-child { border-right: 0; }
+
+    .placement-id {
+      width: 34px;
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: #eee8eb;
+      color: var(--rose-text);
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .placement-summary strong,
+    .placement-summary span { display: block; }
+
+    .placement-summary strong { font-size: 11.5px; }
+
+    .placement-summary span {
+      margin-top: 3px;
+      color: var(--quiet);
+      font-size: 10px;
+      line-height: 1.4;
+    }
+
+    .flow-board {
+      padding: 14px 20px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .flow-board-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 10px;
+    }
+
+    .flow-board-head h2 { margin: 0; font-size: 13px; }
+    .flow-board-head p { margin: 0; color: var(--quiet); font-size: 10.5px; }
+
+    .flow-lanes { display: grid; gap: 8px; }
+
+    .flow-lane {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr);
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .flow-lane-label {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 9px 11px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--rail);
+    }
+
+    .flow-lane-label strong { font-size: 11px; }
+    .flow-lane-label span { margin-top: 3px; color: var(--quiet); font-size: 9.5px; }
+
+    .flow-steps {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .flow-step {
+      min-height: 48px;
+      flex: 1 1 0;
+      padding: 7px 10px;
+      border: 1px solid var(--line-strong);
+      border-radius: 9px;
+      background: var(--surface);
+      color: var(--ink);
+      text-align: left;
+    }
+
+    .flow-step:hover { border-color: var(--rose); }
+
+    .flow-step[aria-pressed="true"] {
+      border-color: var(--rose);
+      background: var(--rose-soft);
+      box-shadow: 0 0 0 2px rgba(194, 38, 76, 0.08);
+    }
+
+    .flow-step strong,
+    .flow-step span { display: block; }
+    .flow-step strong { font-size: 10.5px; }
+    .flow-step span { margin-top: 3px; color: var(--quiet); font-size: 9px; line-height: 1.3; }
+
+    .flow-arrow {
+      position: relative;
+      width: 26px;
+      height: 1px;
+      flex: 0 0 26px;
+      background: var(--line-strong);
+    }
+
+    .flow-arrow::after {
+      content: "";
+      position: absolute;
+      top: -3px;
+      right: 0;
+      width: 7px;
+      height: 7px;
+      border-top: 1px solid var(--quiet);
+      border-right: 1px solid var(--quiet);
+      transform: rotate(45deg);
+    }
+
+    .branch-wrap {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+      flex: 2 1 0;
+    }
+
+    .stage-wrap {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 250px;
+      gap: 14px;
+      padding: 16px 20px 20px;
+      background: #faf8f9;
+    }
+
+    .screen {
+      min-width: 0;
+      min-height: 590px;
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      border-radius: 12px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .app-top {
+      height: 42px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 0 16px;
+      border-bottom: 1px solid #ead9df;
+      background: #fff5f7;
+    }
+
+    .app-brand { color: var(--rose-text); font-size: 13px; font-weight: 700; }
+    .app-section { padding-left: 18px; border-left: 1px solid #d9cbd0; color: var(--muted); }
+
+    .service-pill,
+    .balance-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 9px;
+      border: 1px solid #bbf7d0;
+      border-radius: 999px;
+      background: var(--green-soft);
+      color: var(--green);
+      font-size: 10px;
+    }
+
+    .service-pill::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .balance-pill {
+      margin-left: auto;
+      border-color: var(--line-strong);
+      background: var(--surface);
+      color: var(--muted);
+    }
+
+    .balance-pill b { color: var(--rose-text); font-family: var(--mono); }
+
+    .project-bar {
+      height: 42px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 15px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .back-button {
+      padding: 5px 9px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: var(--surface);
+      font-size: 10px;
+    }
+
+    .project-bar strong { font-size: 11px; }
+    .project-bar code { color: var(--quiet); font-family: var(--mono); font-size: 9px; }
+
+    .workbench {
+      min-height: 506px;
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+    }
+
+    .task-rail {
+      padding: 12px;
+      border-right: 1px solid var(--line);
+      background: #fffafb;
+    }
+
+    .task-rail h2 { margin: 0 0 10px; font-size: 12px; }
+
+    .task-row {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 8px;
+      margin-bottom: 7px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .task-row.active { border-color: var(--rose); }
+
+    .task-thumb {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      background: #dfebe2;
+      color: var(--green);
+      font-weight: 800;
+    }
+
+    .task-row strong,
+    .task-row span { display: block; }
+    .task-row strong { font-size: 10px; }
+    .task-row span { margin-top: 3px; color: var(--quiet); font-size: 8.5px; }
+
+    .task-detail-area { padding: 14px 16px 18px; }
+
+    .task-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .task-head h2 { margin: 0; font-size: 15px; }
+    .task-head p { margin: 5px 0 0; color: var(--muted); font-size: 10px; }
+    .task-head .status { margin-left: auto; }
+
+    .timeline-title {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      padding: 13px 0 10px;
+    }
+
+    .timeline-title h3 { margin: 0; font-size: 12px; }
+    .timeline-title span { color: var(--quiet); font-size: 9px; }
+
+    .story-timeline {
+      position: relative;
+      padding-left: 42px;
+    }
+
+    .story-timeline::before {
+      content: "";
+      position: absolute;
+      top: 15px;
+      bottom: 15px;
+      left: 17px;
+      width: 1px;
+      background: var(--line-strong);
+    }
+
+    .timeline-card {
+      position: relative;
+      margin-bottom: 10px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .timeline-dot {
+      position: absolute;
+      top: 16px;
+      left: -33px;
+      width: 15px;
+      height: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid var(--surface);
+      border-radius: 50%;
+      background: var(--blue);
+      box-shadow: 0 0 0 1px var(--line-strong);
+    }
+
+    .timeline-dot.green { background: var(--green); }
+    .timeline-dot.red { background: var(--red); }
+    .timeline-dot.amber { background: var(--amber); }
+
+    .timeline-card-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .timeline-card-head h4 { margin: 0; font-size: 11px; }
+    .timeline-card-head p { margin: 4px 0 0; color: var(--quiet); font-size: 9px; }
+    .timeline-card-head .status { margin-left: auto; }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 11px;
+    }
+
+    .result-card {
+      min-width: 0;
+      padding: 6px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .result-preview {
+      height: 62px;
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      background: #dfebe2;
+      color: var(--green);
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .result-card.pending .result-preview { background: #f4f1f2; color: var(--quiet); }
+    .result-card.failed .result-preview { background: var(--red-soft); color: var(--red); }
+    .result-card h5 { margin: 6px 1px 0; font-size: 9.5px; }
+    .result-card p { margin: 3px 1px 0; color: var(--quiet); font-size: 8px; line-height: 1.35; }
+
+    .mini-progress {
+      height: 5px;
+      margin: 9px 1px 2px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #dedbe0;
+    }
+
+    .mini-progress span { display: block; width: 58%; height: 100%; background: var(--blue); }
+
+    .settlement {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 7px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+
+    .settlement div { padding: 7px 8px; border-radius: 7px; background: var(--rail); }
+    .settlement span,
+    .settlement strong { display: block; }
+    .settlement span { color: var(--quiet); font-size: 8px; }
+    .settlement strong { margin-top: 3px; font-size: 9px; }
+
+    .settlement-pending {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+      padding: 10px 11px;
+      border: 1px solid #fde68a;
+      border-radius: 8px;
+      background: var(--amber-soft);
+    }
+
+    .settlement-pending-icon {
+      width: 26px;
+      height: 26px;
+      flex: 0 0 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: #fef3c7;
+      color: var(--amber);
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .settlement-pending strong,
+    .settlement-pending span { display: block; }
+    .settlement-pending strong { color: #92400e; font-size: 10px; }
+    .settlement-pending span { margin-top: 3px; color: #a16207; font-size: 8.5px; }
+
+    .task-actions { display: flex; gap: 7px; margin-top: 10px; }
+
+    .task-action {
+      min-height: 27px;
+      padding: 0 10px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--ink);
+      font-size: 9px;
+    }
+
+    .task-action.primary { border-color: #fecdd3; color: var(--rose-text); }
+
+    .library-canvas {
+      position: relative;
+      min-height: 506px;
+      padding: 18px;
+      background: #fffafb;
+    }
+
+    .library-head { display: flex; align-items: baseline; gap: 14px; }
+    .library-head h2 { margin: 0; font-size: 16px; }
+    .library-head span { color: var(--muted); font-size: 12px; }
+
+    .library-actions { display: flex; gap: 8px; margin-left: auto; }
+    .library-action {
+      padding: 6px 10px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: var(--surface);
+      font-size: 9px;
+    }
+
+    .project-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+
+    .project-card {
+      min-height: 150px;
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+
+    .project-card-visual { height: 78px; background: #e5e8ed; }
+    .project-card-copy { padding: 10px; }
+    .project-card-copy strong { font-size: 11px; }
+    .project-card-copy p { margin: 5px 0 0; color: var(--quiet); font-size: 9px; }
+
+    .screen-dim {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: rgba(35, 25, 30, 0.33);
+    }
+
+    .debt-dialog {
+      width: min(420px, calc(100% - 30px));
+      padding: 18px;
+      border: 1px solid var(--line-strong);
+      border-radius: 12px;
+      background: var(--surface);
+      box-shadow: 0 22px 55px rgba(35, 20, 27, 0.22);
+    }
+
+    .debt-dialog-head { display: flex; gap: 11px; align-items: flex-start; }
+
+    .debt-icon {
+      width: 34px;
+      height: 34px;
+      flex: 0 0 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: var(--red-soft);
+      color: var(--red);
+      font-size: 17px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .debt-dialog h3 { margin: 0; font-size: 14px; }
+    .debt-dialog .lead { margin: 5px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+
+    .debt-facts {
+      display: grid;
+      grid-template-columns: 105px minmax(0, 1fr);
+      gap: 0;
+      margin-top: 14px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .debt-facts dt,
+    .debt-facts dd { margin: 0; padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 9.5px; }
+    .debt-facts dt { background: var(--rail); color: var(--quiet); }
+    .debt-facts dd { color: var(--ink); }
+    .debt-facts dt:last-of-type,
+    .debt-facts dd:last-of-type { border-bottom: 0; }
+    .debt-facts b { color: var(--red); }
+
+    .debt-list { margin-top: 12px; }
+    .debt-list h4 { margin: 0 0 6px; font-size: 9.5px; }
+    .debt-list article {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 9px;
+      border: 1px solid var(--line);
+      border-bottom: 0;
+      background: var(--surface);
+    }
+    .debt-list article:first-of-type { border-radius: 7px 7px 0 0; }
+    .debt-list article:last-of-type { border-bottom: 1px solid var(--line); border-radius: 0 0 7px 7px; }
+    .debt-list article > span { min-width: 0; flex: 1; }
+    .debt-list strong,
+    .debt-list small { display: block; }
+    .debt-list strong { font-size: 9px; }
+    .debt-list small { margin-top: 2px; color: var(--quiet); font-size: 8px; }
+    .debt-list b { flex: 0 0 auto; color: var(--red); font-size: 9px; }
+    .debt-list-summary { margin: 6px 0 0; color: var(--quiet); font-size: 8px; text-align: right; }
+
+    .dialog-note { margin: 11px 0 0; color: var(--quiet); font-size: 9px; line-height: 1.45; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
+    .dialog-actions button {
+      min-height: 31px;
+      padding: 0 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: var(--surface);
+      font-size: 10px;
+    }
+
+    .dialog-actions .primary { border-color: var(--rose); background: var(--rose); color: #fff; }
+
+    .toast {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      background: var(--green-soft);
+      color: var(--green);
+      font-size: 9.5px;
+      box-shadow: var(--shadow);
+      transform: translateX(-50%);
+    }
+
+    .toast-mark {
+      width: 18px;
+      height: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: var(--green);
+      color: #fff;
+      font-size: 11px;
+      line-height: 1;
+    }
+
+    .inspector { display: grid; align-content: start; gap: 10px; }
+
+    .inspector-card {
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--surface);
+    }
+
+    .inspector-card h2,
+    .inspector-card h3 { margin: 0; }
+    .inspector-card h2 { font-size: 12px; }
+    .inspector-card h3 { font-size: 10.5px; }
+    .inspector-card p { margin: 7px 0 0; color: var(--muted); font-size: 9.5px; line-height: 1.55; }
+    .inspector-card ul { margin: 9px 0 0; padding-left: 17px; color: var(--muted); font-size: 9.5px; line-height: 1.55; }
+
+    .placement-chip {
+      display: inline-flex;
+      margin-top: 9px;
+      padding: 5px 7px;
+      border-radius: 6px;
+      background: var(--rose-soft);
+      color: var(--rose-text);
+      font-size: 9px;
+      font-weight: 600;
+    }
+
+    .inspector-card.warn { border-color: #fde68a; background: var(--amber-soft); }
+    .inspector-card.warn p { color: #92400e; }
+
+    @media (max-width: 1180px) {
+      .flow-lane { grid-template-columns: 130px minmax(0, 1fr); }
+      .flow-arrow { width: 16px; flex-basis: 16px; }
+      .stage-wrap { grid-template-columns: minmax(0, 1fr) 220px; }
+      .workbench { grid-template-columns: 180px minmax(0, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <main class="prototype">
+    <header class="prototype-head">
+      <div>
+        <small>UI placement and state-flow storyboard</small>
+        <h1>重启与账务恢复落点流转稿</h1>
+        <p>只回答三个问题：状态出现在哪里、用户看到什么、下一步去哪里。点击流程节点，下方会切换到对应的完整页面位置。</p>
+      </div>
+      <span class="prototype-badge">Prototype · 不代表正式实现</span>
+    </header>
+
+    <section class="placement-summary" aria-label="三个状态的页面落点">
+      <article><span class="placement-id">REC</span><span><strong>重启后的任务结果</strong><span>落在原任务详情的任务时间线。</span></span></article>
+      <article><span class="placement-id">B01</span><span><strong>结算处理中</strong><span>落在原任务详情的结算区域。</span></span></article>
+      <article><span class="placement-id">B03</span><span><strong>欠费门禁</strong><span>落在任一新生成入口之前，使用窗口级弹窗。</span></span></article>
+    </section>
+
+    <section class="flow-board" aria-labelledby="flow-title">
+      <div class="flow-board-head">
+        <h2 id="flow-title">三个客户可见流程</h2>
+        <p>粉色节点是下方当前展示的页面状态。</p>
+      </div>
+      <div class="flow-lanes">
+        <div class="flow-lane">
+          <div class="flow-lane-label"><strong>REC-01</strong><span>应用重启后的原任务</span></div>
+          <div class="flow-steps">
+            <button class="flow-step" type="button" data-view="recovery-running" aria-pressed="true"><strong>已有调用</strong><span>继续显示普通“进行中”</span></button>
+            <span class="flow-arrow" aria-hidden="true"></span>
+            <div class="branch-wrap">
+              <button class="flow-step" type="button" data-view="recovery-partial" aria-pressed="false"><strong>收到部分结果</strong><span>进入普通“部分完成”</span></button>
+              <button class="flow-step" type="button" data-view="recovery-failed" aria-pressed="false"><strong>从未发出调用</strong><span>进入普通“失败”并释放鸭豆</span></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flow-lane">
+          <div class="flow-lane-label"><strong>BILL-01</strong><span>图片已交付，账务未收口</span></div>
+          <div class="flow-steps">
+            <button class="flow-step" type="button" data-view="billing-pending" aria-pressed="false"><strong>原任务详情</strong><span>结算区域显示“结算处理中”</span></button>
+            <span class="flow-arrow" aria-hidden="true"></span>
+            <button class="flow-step" type="button" data-view="billing-finished" aria-pressed="false"><strong>联网后自动完成</strong><span>原地变为最终结算，不增加页面</span></button>
+          </div>
+        </div>
+
+        <div class="flow-lane">
+          <div class="flow-lane-label"><strong>BILL-03</strong><span>Gateway 明确返回余额不足</span></div>
+          <div class="flow-steps">
+            <button class="flow-step" type="button" data-view="debt-gate" aria-pressed="false"><strong>点击新生成入口</strong><span>仅在余额不足已确认时显示门禁</span></button>
+            <span class="flow-arrow" aria-hidden="true"></span>
+            <button class="flow-step" type="button" data-view="debt-resolved" aria-pressed="false"><strong>完成充值</strong><span>门禁消失，回到刚才的入口</span></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="stage-wrap">
+      <div class="screen" id="screen" aria-live="polite"></div>
+      <aside class="inspector">
+        <section class="inspector-card">
+          <h2 id="inspector-title">REC-01 · 已有调用</h2>
+          <span class="placement-chip" id="placement-chip">原任务详情 → 任务时间线</span>
+          <p id="inspector-summary">应用重启不增加“正在恢复”状态。原任务仍显示进行中，图片格子继续显示生成中、已交付和待生成。</p>
+          <ul id="inspector-list"></ul>
+        </section>
+        <section class="inspector-card warn">
+          <h3>这一状态不应该出现什么</h3>
+          <p id="forbidden-copy">不显示供应商回查、恢复次数或“正在恢复已发出的调用”。</p>
+        </section>
+        <section class="inspector-card">
+          <h3>这三条不新增顶层页面</h3>
+          <p>REC-01 和 BILL-01 留在原任务详情。BILL-03 只在用户准备开始新生成时阻止操作。已有项目、已有任务和已交付图片仍然可以查看。</p>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var screen = document.getElementById("screen");
+      var inspectorTitle = document.getElementById("inspector-title");
+      var placementChip = document.getElementById("placement-chip");
+      var inspectorSummary = document.getElementById("inspector-summary");
+      var inspectorList = document.getElementById("inspector-list");
+      var forbiddenCopy = document.getElementById("forbidden-copy");
+
+      var views = {
+        "recovery-running": {
+          title: "REC-01 · 已有调用",
+          placement: "原任务详情 → 任务时间线",
+          summary: "应用重启不增加“正在恢复”状态。原任务仍显示进行中，图片格子继续显示生成中、已交付和待生成。",
+          bullets: ["用户只需等待", "只收下应用关闭前已经发出的调用", "最后进入已有的三个任务终态"],
+          forbidden: "不显示供应商回查、恢复次数或“正在恢复已发出的调用”。",
+          render: renderRecoveryRunning
+        },
+        "recovery-partial": {
+          title: "REC-01 · 收到部分结果",
+          placement: "原任务详情 → 已有“部分完成”终态",
+          summary: "恢复完成后不建立恢复结果页。原任务直接使用现有部分完成时间线、图片格子和实际结算。",
+          bullets: ["已交付图片可以查看和导出", "未生成图片保留明确状态", "符合现有资格的成图才显示继续生成"],
+          forbidden: "不增加“恢复完成”提示条，也不把未发出的图片重新送去生成。",
+          render: renderRecoveryPartial
+        },
+        "recovery-failed": {
+          title: "REC-01 · 从未发出调用",
+          placement: "原任务详情 → 已有“失败”终态",
+          summary: "任务在应用关闭前没有开始生成。原任务显示失败原因和鸭豆释放结果，并使用现有任务级重新发起操作。",
+          bullets: ["失败原因写成客户可理解的事实", "整笔预扣已经释放", "重新发起会建立一条新任务"],
+          forbidden: "不建立“恢复失败”状态，不让用户选择内部恢复方式。",
+          render: renderRecoveryFailed
+        },
+        "billing-pending": {
+          title: "BILL-01 · 结算处理中",
+          placement: "原任务详情 → 结果节点的结算区域",
+          summary: "图片已经交付。只有结算区域暂时改为处理中，查看和导出保持可用。",
+          bullets: ["说明联网后自动处理", "不要求用户点击重试", "处理完成后原地显示最终结算"],
+          forbidden: "不显示“补预扣”、价格比较、账务状态码或内部重试次数。",
+          render: function () { return renderBilling(false); }
+        },
+        "billing-finished": {
+          title: "BILL-01 · 自动处理完成",
+          placement: "原任务详情 → 同一个结算区域",
+          summary: "系统联网后自动处理。结算区域原地变成最终金额，不增加恢复成功页面。",
+          bullets: ["任务和图片状态不变", "最终只显示实际收费事实", "本次不收时显示零收费结果"],
+          forbidden: "不弹出需要用户确认的成功窗口。",
+          render: function () { return renderBilling(true); }
+        },
+        "debt-gate": {
+          title: "BILL-03 · 全局欠费门禁",
+          placement: "商品主图或自由模式 → 新生成入口之前",
+          summary: "Gateway 已经明确返回补预扣余额不足。用户再次准备生成时，窗口级弹窗显示欠费汇总和逐笔明细，并提供充值入口。",
+          bullets: ["唯一触发条件是 Gateway 明确返回余额不足", "商品主图与自由模式使用同一门禁", "已有项目和任务仍可查看"],
+          forbidden: "Gateway 暂时不可达、结算处理中或结果未知时，绝不能显示这个门禁。",
+          render: function () { return renderLibrary("insufficient_balance", false); }
+        },
+        "debt-resolved": {
+          title: "BILL-03 · 充值后恢复",
+          placement: "返回用户刚才点击的新生成入口",
+          summary: "充值完成后系统自动处理。门禁清除，用户回到原入口；只用短暂消息确认结果。",
+          bullets: ["不要求再次寻找原入口", "不建立“自动重试中”页面", "若仍欠费，继续显示同一个门禁"],
+          forbidden: "不新增“恢复成功”页面或账务中心。",
+          render: function () { return renderLibrary("settled", true); }
+        }
+      };
+
+      function appTop(section, balance) {
+        var visibleBalance = typeof balance === "number" ? balance.toLocaleString("zh-CN") : "12,480";
+        return '<div class="app-top">' +
+          '<span class="app-brand">变色龙商品图助手</span>' +
+          '<span class="app-section">' + section + '</span>' +
+          '<span class="service-pill">服务正常</span>' +
+          '<span class="balance-pill">鸭豆余额 <b>' + visibleBalance + '</b></span>' +
+        '</div>';
+      }
+
+      function taskRail(activeMeta) {
+        return '<aside class="task-rail">' +
+          '<h2>商品任务队列</h2>' +
+          '<div class="task-row"><span class="task-thumb">▰</span><span><strong>营销图生成任务</strong><span>今天 16:18 · 进行中</span></span></div>' +
+          '<div class="task-row active"><span class="task-thumb">▰</span><span><strong>商品主图生成任务</strong><span>' + activeMeta + '</span></span></div>' +
+          '<div class="task-row"><span class="task-thumb">▰</span><span><strong>商品主图生成任务</strong><span>07-09 09:31 · 已完成</span></span></div>' +
+        '</aside>';
+      }
+
+      function projectBar() {
+        return '<div class="project-bar"><button class="back-button" type="button">返回商品项目库</button><strong>山野净洗洁精</strong><code>PRJ-240716-C08</code></div>';
+      }
+
+      function resultCard(kind, name, note) {
+        var symbol = kind === "failed" ? "×" : kind === "pending" ? "…" : "▰";
+        return '<article class="result-card ' + kind + '"><div class="result-preview">' + symbol + '</div><h5>' + name + '</h5><p>' + note + '</p></article>';
+      }
+
+      function taskShell(meta, statusClass, statusText, content) {
+        return appTop("商品项目工作台", 12480) + projectBar() +
+          '<div class="workbench">' + taskRail(meta) +
+            '<main class="task-detail-area">' +
+              '<header class="task-head"><div><h2>商品主图生成任务</h2><p>' + meta + '</p></div><span class="status ' + statusClass + '">' + statusText + '</span></header>' +
+              '<div class="timeline-title"><h3>任务时间线</h3><span>最新进度在前</span></div>' +
+              '<div class="story-timeline">' + content + '</div>' +
+            '</main>' +
+          '</div>';
+      }
+
+      function baseSavedCard() {
+        return '<article class="timeline-card"><span class="timeline-dot green"></span><div class="timeline-card-head"><div><h4>已提交生成设置</h4><p>图片尺寸、生成套数和功能图片配置已经写入任务</p></div><span class="status complete">已保存</span></div></article>';
+      }
+
+      function renderRecoveryRunning() {
+        var content = '<article class="timeline-card"><span class="timeline-dot"></span>' +
+          '<div class="timeline-card-head"><div><h4>正在生成</h4><p>今天 16:18 · 3 / 5 张</p></div><span class="status running">进行中</span></div>' +
+          '<div class="result-grid">' +
+            resultCard("", "营销图 · 柔润留香", "已交付") +
+            resultCard("", "细节图 · 乳霜质感", "已交付") +
+            '<article class="result-card"><div class="result-preview">▰</div><h5>场景图 · 厨房晨光</h5><p>生成中</p><div class="mini-progress"><span></span></div></article>' +
+            resultCard("pending", "细节图 · 泡沫特写", "待生成") +
+          '</div></article>' + baseSavedCard();
+        return taskShell("今天 16:18 · 3 / 5 张", "running", "进行中", content);
+      }
+
+      function renderRecoveryPartial() {
+        var content = '<article class="timeline-card"><span class="timeline-dot amber"></span>' +
+          '<div class="timeline-card-head"><div><h4>部分完成</h4><p>今天 16:31 · 3 / 5 张已交付</p></div><span class="status wait">部分完成</span></div>' +
+          '<div class="result-grid">' +
+            resultCard("", "营销图 · 柔润留香", "已交付 · 可查看和导出") +
+            resultCard("", "细节图 · 乳霜质感", "已交付 · 可查看和导出") +
+            resultCard("", "白底图 · 标准展示", "已交付 · 可查看和导出") +
+            resultCard("failed", "场景图 · 厨房晨光", "已失败 · 生成服务暂时不可用") +
+            resultCard("pending", "细节图 · 泡沫特写", "未生成") +
+          '</div>' +
+          '<div class="settlement"><div><span>预扣额度</span><strong>5 张 · 150 鸭豆</strong></div><div><span>实际结算</span><strong>3 张 · 90 鸭豆</strong></div><div><span>已释放</span><strong>2 张 · 60 鸭豆</strong></div></div>' +
+        '</article>' + baseSavedCard();
+        return taskShell("今天 16:31 · 3 / 5 张已交付", "wait", "部分完成", content);
+      }
+
+      function renderRecoveryFailed() {
+        var content = '<article class="timeline-card"><span class="timeline-dot red"></span>' +
+          '<div class="timeline-card-head"><div><h4>生成失败</h4><p>应用关闭前，本次任务尚未开始生成。</p></div><span class="status failed">失败</span></div>' +
+          '<div class="result-grid">' +
+            resultCard("pending", "营销图 · 柔润留香", "未生成") +
+            resultCard("pending", "细节图 · 乳霜质感", "未生成") +
+            resultCard("pending", "场景图 · 厨房晨光", "未生成") +
+          '</div>' +
+          '<div class="settlement"><div><span>预扣额度</span><strong>3 张 · 90 鸭豆</strong></div><div><span>实际结算</span><strong>0 张 · 0 鸭豆</strong></div><div><span>已释放</span><strong>3 张 · 90 鸭豆</strong></div></div>' +
+          '<div class="task-actions"><button class="task-action primary" type="button">用相同设置重新发起</button></div>' +
+        '</article>' + baseSavedCard();
+        return taskShell("今天 16:18 · 0 / 3 张已交付", "failed", "失败", content);
+      }
+
+      function renderBilling(finished) {
+        var billing = finished ?
+          '<div class="settlement"><div><span>预扣额度</span><strong>3 张 · 90 鸭豆</strong></div><div><span>实际结算</span><strong>3 张 · 90 鸭豆</strong></div><div><span>已释放</span><strong>0 张 · 0 鸭豆</strong></div></div>' :
+          '<div class="settlement-pending"><span class="settlement-pending-icon">…</span><span><strong>结算处理中</strong><span>图片已经保存。网络恢复后会自动处理，不影响查看和导出。</span></span></div>';
+        var content = '<article class="timeline-card"><span class="timeline-dot green"></span>' +
+          '<div class="timeline-card-head"><div><h4>生成完成</h4><p>今天 16:31 · 3 / 3 张已交付</p></div><span class="status complete">已完成</span></div>' +
+          '<div class="result-grid">' +
+            resultCard("", "营销图 · 柔润留香", "已交付") +
+            resultCard("", "细节图 · 乳霜质感", "已交付") +
+            resultCard("", "白底图 · 标准展示", "已交付") +
+          '</div>' + billing +
+          '<div class="task-actions"><button class="task-action" type="button">查看</button><button class="task-action" type="button">导出</button></div>' +
+        '</article>' + baseSavedCard();
+        return taskShell("今天 16:31 · 3 / 3 张已交付", "complete", "已完成", content);
+      }
+
+      function renderLibrary(gatewayResult, showToast) {
+        var amountDue = 3240;
+        var gatewayConfirmedInsufficient = gatewayResult === "insufficient_balance";
+        var availableBalance = gatewayConfirmedInsufficient ? 20 : 12480;
+        var gate = gatewayConfirmedInsufficient ? '<div class="screen-dim"><section class="debt-dialog" role="dialog" aria-modal="true" aria-labelledby="debt-title">' +
+          '<div class="debt-dialog-head"><span class="debt-icon">!</span><div><h3 id="debt-title">鸭豆余额不足，暂时不能开始新生成</h3><p class="lead">共有 100 笔已交付图片的费用还没有结清。完成充值后，系统会自动处理。</p></div></div>' +
+          '<dl class="debt-facts"><dt>当前可用</dt><dd>20 鸭豆</dd><dt>应结清</dt><dd><b>3,240 鸭豆</b></dd><dt>还差</dt><dd><b>3,220 鸭豆</b></dd></dl>' +
+          '<section class="debt-list"><h4>欠费明细</h4>' +
+            '<article><span><strong>山野净洗洁精</strong><small>商品主图生成任务 · 今天 16:18</small></span><b>90 鸭豆</b></article>' +
+            '<article><span><strong>自由模式</strong><small>自由生成记录 · 今天 15:42</small></span><b>60 鸭豆</b></article>' +
+            '<article><span><strong>绒雾身体乳</strong><small>商品主图生成任务 · 昨天 21:18</small></span><b>30 鸭豆</b></article>' +
+            '<p class="debt-list-summary">仅显示最近 3 笔，共 100 笔</p>' +
+          '</section>' +
+          '<p class="dialog-note">已有商品项目、历史任务和已交付图片仍可查看与导出。</p>' +
+          '<div class="dialog-actions"><button type="button">暂不充值</button><button class="primary" type="button" data-view-jump="debt-resolved">充值鸭豆</button></div>' +
+        '</section></div>' : '';
+        var toast = showToast ? '<div class="toast" role="status"><span class="toast-mark">✓</span><span>欠费已结清，可以继续生成</span></div>' : '';
+        return appTop("商品项目库", availableBalance) + '<div class="library-canvas">' + toast +
+          '<div class="library-head"><h2>商品项目库</h2><span>自由模式</span><div class="library-actions"><button class="library-action" type="button">自由模式</button><button class="library-action" type="button">新建商品项目</button></div></div>' +
+          '<div class="project-cards"><article class="project-card"><div class="project-card-visual"></div><div class="project-card-copy"><strong>山野净洗洁精</strong><p>2 张商品主体图 · 4 个生成任务</p></div></article><article class="project-card"><div class="project-card-visual" style="background:#eadfd9"></div><div class="project-card-copy"><strong>绒雾身体乳</strong><p>1 张商品主体图 · 3 个生成任务</p></div></article><article class="project-card"><div class="project-card-visual" style="background:#dbe9e6"></div><div class="project-card-copy"><strong>暮山冷泡茶</strong><p>2 张商品主体图 · 2 个生成任务</p></div></article></div>' + gate +
+        '</div>';
+      }
+
+      function selectView(key) {
+        var view = views[key];
+        if (!view) { return; }
+        document.querySelectorAll("[data-view]").forEach(function (button) {
+          button.setAttribute("aria-pressed", button.getAttribute("data-view") === key ? "true" : "false");
+        });
+        inspectorTitle.textContent = view.title;
+        placementChip.textContent = view.placement;
+        inspectorSummary.textContent = view.summary;
+        inspectorList.innerHTML = view.bullets.map(function (item) { return "<li>" + item + "</li>"; }).join("");
+        forbiddenCopy.textContent = view.forbidden;
+        screen.innerHTML = view.render();
+      }
+
+      document.addEventListener("click", function (event) {
+        var control = event.target.closest("[data-view]");
+        var jump = event.target.closest("[data-view-jump]");
+        if (control) { selectView(control.getAttribute("data-view")); }
+        if (jump) { selectView(jump.getAttribute("data-view-jump")); }
+      });
+
+      selectView("recovery-running");
+    }());
+  </script>
+</body>
+</html>
