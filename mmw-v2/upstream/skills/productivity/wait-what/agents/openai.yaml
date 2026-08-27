@@ -1,5 +1,5 @@
 interface:
   display_name: "Wait What"
-  short_description: "Re-pitch that — simpler, or tag visual for a page"
+  short_description: "Re-pitch that: simpler, or tag visual for a page"
 policy:
   allow_implicit_invocation: false

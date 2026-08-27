@@ -1,9 +1,9 @@
 ---
 name: to-spec
-description: Turn the current conversation into a spec and publish it to the project issue tracker — no interview, just synthesis of what you've already discussed.
+description: "Turn the current conversation into a spec and publish it to the project issue tracker: no interview, just synthesis of what you've already discussed."
 ---
 
-This skill takes the current conversation context and codebase understanding and produces a spec. Do NOT interview the user for facts — just synthesize what you already know. Step 1 names the one judgement you hand back to them.
+This skill takes the current conversation context and codebase understanding and produces a spec. Do NOT interview the user for facts; just synthesize what you already know. Step 1 names the one judgement you hand back to them.
 
 The issue tracker and triage label vocabulary should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
 
@@ -61,7 +61,7 @@ The implementation decisions that were made, grouped into numbered subsections (
 
 Do NOT include implementation file paths (the module you will edit, the function you will add) or code snippets. They may end up being outdated very quickly. Paths to source material — ADRs, research files, prototype directories, domain docs, test directories, shared contract locations — are what the tickets and the implementer read from: write them.
 
-Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it within the relevant decision and note briefly that it came from a prototype. Trim to the decision-rich parts — not a working demo, just the important bits.
+Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it within the relevant decision and note briefly that it came from a prototype. Trim to the decision-rich parts, not a working demo, just the important bits.
 
 ## Testing Decisions
 
