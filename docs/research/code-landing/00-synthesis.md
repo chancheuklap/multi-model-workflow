@@ -135,3 +135,7 @@
 | 验收标准编号 | 每条 `AC<n>`，出票时编号，之后不重排；评论按 id 引用 |
 | 人工项写法 | 显式一行 `MANUAL: <谁> <看哪个制品>`；不写 CHECK/EXPECT |
 | 人工项比例 | 出票硬规则：人工项过半不出票，回 `/to-spec` 补测试层 |
+| `Outside Owns:` 的起点 | `git merge-base main HEAD` 自动算，不记进票（每票一个 worktree、按阻塞关系串行开工，分支都从 main 开） |
+| `Owns` 两档规则 | 确认：为过本票 AC 不得不改的范围外文件 → 改并在收尾评论 `Outside Owns:` 逐条说明；与 AC 无关的顺手改动 → 不改，开 sub-issue |
+
+新增待定：**F14** 验收标准的跑与判用手写约定还是直接装 unlazy `gate-check.mjs`（归块 B；`05` §2.5、`04` §2.4）。
