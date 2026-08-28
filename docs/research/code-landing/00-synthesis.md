@@ -143,6 +143,14 @@
 ## 讨论进度（2026-08-28）
 
 - 已定：块 A（F1 AC 编号与 MANUAL 行、F2 Outside Owns 起点）。
-- 进行到：块 B 的 F9「verifier 每票都派还是四类票才派」，已把两边代价与建议（每票都派）摆出，等用户定。
+- 进行到：块 B。已定先验后审、code-review 一轮；F9（每票都派 vs 四类票才派）等用户定。
 - 未开：F3、F8、F10、F14（块 B 其余）；F7（块 C）；F4、F5、F6、F12（块 D）；F11（块 E）；F13（块 F）。
 - 蓝图页：`11-target-pipeline.html`（artifact 9cb8f46c…），第 7 节登记表随每次定案更新。
+
+## 块 B 定案（2026-08-28，进行中）
+
+| 议题 | 决定 |
+| --- | --- |
+| verifier 与 code-review 的顺序 | **先验后审**：worker 自跑 CHECK → 在 worker 会话内派 verifier 重跑 → 没过 worker 修并自跑填证据（不派第二次）→ 全过后才 code-review。理由：verifier 若在后面发现漏项，返工后又要再 review，是浪费 |
+| code-review 轮数 | **一轮**审、worker 修一轮、不复审（覆盖「第一轮之后已定的事」的 ≤2 轮）。修完在最终 commit 自跑 CHECK 填 EVIDENCE；`VERDICT` 行照实绑 verifier 验的那个 commit |
+| verifier 与 code-review 是否合并 | 不合并：verifier 只跑票上的 CHECK，code-review 只读 diff；两者都是子代理 |

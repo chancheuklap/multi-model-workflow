@@ -159,11 +159,11 @@ input.chk{width:16px;height:16px;cursor:pointer}
         <li class="arrow">↓</li>
         <li><a class="stage mod hasfork" href="#s7"><span class="n">7</span><span><span class="t">implement · 写码纪律</span><span class="d">契约即 prototype 胜出物；ponytail 五句；Owns 外改动</span><span class="forks"><span class="tag mod">改</span><span class="tag fork">◆F7</span></span></span></a></li>
         <li class="arrow">↓</li>
-        <li><a class="stage mod hasfork" href="#s8"><span class="n">8</span><span><span class="t">code-review ≤ 2 轮</span><span class="d">票内发现修；票外开 sub-issue</span><span class="forks"><span class="tag mod">改</span><span class="tag fork">◆F8</span></span></span></a></li>
+        <li><a class="stage mod hasfork" href="#s8"><span class="n">8</span><span><span class="t">worker 自跑全部 CHECK</span><span class="d">UI 票跑 visual-parity 工具；填 EVIDENCE</span><span class="forks"><span class="tag mod">改</span><span class="tag new">新工具</span><span class="tag fork">◆F12</span></span></span></a></li>
         <li class="arrow">↓</li>
-        <li><a class="stage mod hasfork" href="#s9"><span class="n">9</span><span><span class="t">worker 自跑全部 CHECK</span><span class="d">UI 票跑 visual-parity 工具；填 EVIDENCE</span><span class="forks"><span class="tag mod">改</span><span class="tag new">新工具</span><span class="tag fork">◆F12</span></span></span></a></li>
+        <li><a class="stage new hasfork" href="#s9"><span class="n">9</span><span><span class="t">verifier 子代理，只审一次</span><span class="d">worker 会话内派出，重跑 CHECK，写 <code>VERDICT</code>；没过 worker 修并自跑</span><span class="forks"><span class="tag new">新</span><span class="tag fork">◆F9</span><span class="tag fork">◆F10</span></span></span></a></li>
         <li class="arrow">↓</li>
-        <li><a class="stage new hasfork" href="#s10"><span class="n">10</span><span><span class="t">verifier 子代理，只审一次</span><span class="d">在最终 SHA 重跑 CHECK，写 <code>VERDICT</code> 行</span><span class="forks"><span class="tag new">新</span><span class="tag fork">◆F9</span><span class="tag fork">◆F10</span></span></span></a></li>
+        <li><a class="stage mod hasfork" href="#s10"><span class="n">10</span><span><span class="t">code-review 一轮，修一轮，不复审</span><span class="d">票内发现修；票外开 sub-issue；修完在最终 SHA 自跑 CHECK</span><span class="forks"><span class="tag mod">改</span><span class="tag fork">◆F8</span></span></span></a></li>
         <li class="arrow">↓</li>
         <li><a class="stage mod" href="#s11"><span class="n">11</span><span><span class="t">交接前自审 + 收尾评论</span><span class="d">Audit；<code>ALL MET</code> 或 <code>HANDOFF REQUIRED</code></span><span class="forks"><span class="tag mod">改</span></span></span></a></li>
         <li class="arrow">↓</li>
@@ -353,22 +353,7 @@ tests/api/，先例 tests/api/projects.create.test.ts        <span class="cm">�
   </div>
 
   <div class="panel detail mod hasfork" id="s8">
-    <header><span class="n">步 8</span><h3>code-review，最多两轮</h3><span class="tag mod">改</span><a class="fid" href="#F8">◆F8</a></header>
-    <div class="io">
-      <div><h4>输入</h4><ul><li><code>git diff &lt;base&gt;...HEAD</code>、spec</li></ul></div>
-      <div><h4>动作</h4><ul><li>Standards + Spec 两轴并行子代理（不变）</li><li><b>改</b>：发现分两类——与本票 AC 或 spec 决策相关的 → 修；其余 → sub-issue，不阻塞</li><li>第二轮仍有票内发现 → 票不关，走 HANDOFF（kind <code>failed</code>）</li></ul></div>
-      <div><h4>产出</h4><ul><li>修完的 commit；sub-issue 列表</li></ul></div>
-    </div>
-    <div class="changes"><ul>
-      <li><span class="tag mod">改</span> 轮数上限与分类进 <code>implement</code> 收尾段（<code>code-review</code> 本身只报告不裁决）。<span class="src">定案 <code>00</code>「code-review 之后」行；记忆「Reviewer must not self-set pass criteria」（<code>03</code> §4）。</span></li>
-    </ul></div>
-    <div class="forklist"><ul>
-      <li><a class="fid" href="#F8">◆F8</a> <code>code-review/SKILL.md</code> 第 2 步找 spec 的顺序不含 <code>prototypes/</code>，Spec 轴的子代理只拿 spec 文本；要不要让它也拿票的 Read first（基线目录），还是「照不照基线」全交给步 9 的像素/ARIA 工具（<code>03</code> §3 末行、§5 第 4 条）。</li>
-    </ul></div>
-  </div>
-
-  <div class="panel detail mod hasfork" id="s9">
-    <header><span class="n">步 9</span><h3>worker 自跑全部 CHECK，填 EVIDENCE</h3><span class="tag mod">改</span><span class="tag new">新工具</span><a class="fid" href="#F12">◆F12</a></header>
+    <header><span class="n">步 8</span><h3>worker 自跑全部 CHECK，填 EVIDENCE</h3><span class="tag mod">改</span><span class="tag new">新工具</span><a class="fid" href="#F12">◆F12</a></header>
     <div class="io">
       <div><h4>输入</h4><ul><li>最终 commit；票上每条 CHECK</li></ul></div>
       <div><h4>动作</h4><ul><li>逐条原样运行；exit 0 且 EXPECT 匹配 → 填 <code>EVIDENCE: &lt;sha&gt;; cwd=…; exit=0; matched="…"; &lt;日期&gt;</code> → 打勾；否则记失败、不打勾</li><li>UI 票：跑 visual-parity 工具（自带负控制；负控制不过则不信本次结果）；ARIA diff = 0 且像素 ≤ 1% → <code>PARITY OK n/n</code>；没过 = <code>failed</code>，worker 修，三图贴票供人参考，<b>不问人</b></li><li><code>MANUAL:</code> 条目不代填</li></ul></div>
@@ -384,11 +369,11 @@ tests/api/，先例 tests/api/projects.create.test.ts        <span class="cm">�
     </ul></div>
   </div>
 
-  <div class="panel detail new hasfork" id="s10">
-    <header><span class="n">步 10</span><h3>verifier 子代理，只审一次</h3><span class="tag new">新</span><a class="fid" href="#F9">◆F9</a><a class="fid" href="#F10">◆F10</a></header>
+  <div class="panel detail new hasfork" id="s9">
+    <header><span class="n">步 9</span><h3>verifier 子代理，只审一次</h3><span class="tag new">新</span><a class="fid" href="#F9">◆F9</a><a class="fid" href="#F10">◆F10</a></header>
     <div class="io">
       <div><h4>输入（brief，原样粘贴，不给 diff / spec / 基线）</h4><ul><li><code>TICKET</code> 票链接 + 每条 AC 原文与 CHECK/EXPECT/MANUAL</li><li><code>SHA</code> + 分支 + worktree 绝对路径</li><li><code>SEAM</code> 原文 + 起 app 的命令</li><li><code>FORBIDDEN</code> 不改文件不 commit 不修不加标准；首尾各跑 <code>git status --porcelain</code></li><li><code>REPORT</code> 格式</li></ul></div>
-      <div><h4>动作</h4><ul><li>由<b>运行 implement 的那个会话</b>派出（白天手工、夜间 Herdr 同一流程）；能选模型就选与自己不同的；不能派子代理 → 自己从干净 shell 重跑，标 <code>self-reported</code></li><li>在最终 SHA 重跑每条 CHECK；不评代码</li><li>只审一次；没过 → worker 修并自跑填证据 → 关票；<b>不复审</b></li></ul></div>
+      <div><h4>动作</h4><ul><li>在 code-review <b>之前</b>跑（定案 2026-08-28：先验后审，避免 verifier 返工后再复审）；由<b>运行 implement 的那个会话</b>派出（白天手工、夜间 Herdr 同一流程）；能选模型就选与自己不同的；不能派子代理 → 自己从干净 shell 重跑，标 <code>self-reported</code></li><li>在最终 SHA 重跑每条 CHECK；不评代码</li><li>只审一次；没过 → worker 修并自跑填证据；<b>不复审</b>。全过后才进步 10 code-review</li></ul></div>
       <div><h4>产出</h4><ul><li>票评论一行 <code>VERDICT &lt;sha&gt; &lt;level&gt; by &lt;model|self-reported&gt; — 一句话</code>；level ∈ <code>live-ui-verified / unit-test-verified / type-check-only / verifier-blocked / verifier-failed</code></li></ul></div>
     </div>
     <div class="changes"><ul>
@@ -397,7 +382,22 @@ tests/api/，先例 tests/api/projects.create.test.ts        <span class="cm">�
     </ul></div>
     <div class="forklist"><ul>
       <li><a class="fid" href="#F9">◆F9</a> 派发条件：定案序列「worker 自跑 → verifier 一次」读起来是每票都派；<code>06</code> §5.2 只对四类票派（有 MANUAL 或 Seam 在界面、无人看守、Owns 触及迁移/鉴权/对外接口/共用路径、CHECK 要起 app/DB），其余 <code>self-reported</code>。</li>
-      <li><a class="fid" href="#F10">◆F10</a> <code>verifier-failed</code> 之后：worker 修并自跑 → 关票；此时票上最后一行 VERDICT 仍是 failed，关票依据是什么、修后写不写一行 <code>VERDICT … by self-reported</code>；<code>verifier-blocked</code> 是修环境再派还是直接 HANDOFF。</li>
+      <li><a class="fid" href="#F10">◆F10</a> 剩余：<code>verifier-blocked</code>（命令起不来、缺凭据）是修环境再派，还是直接 HANDOFF blocked。</li>
+    </ul></div>
+  </div>
+
+  <div class="panel detail mod hasfork" id="s10">
+    <header><span class="n">步 10</span><h3>code-review 一轮，worker 修一轮，不复审</h3><span class="tag mod">改</span><a class="fid" href="#F8">◆F8</a></header>
+    <div class="io">
+      <div><h4>输入</h4><ul><li><code>git diff &lt;base&gt;...HEAD</code>、spec</li></ul></div>
+      <div><h4>动作</h4><ul><li>Standards + Spec 两轴并行子代理（不变）</li><li><b>改</b>：发现分两类——与本票 AC 或 spec 决策相关的 → 修；其余 → sub-issue，不阻塞</li><li><b>只审一轮</b>；worker 修一轮后在最终 commit 上再自跑全部 CHECK 填 EVIDENCE（<code>VERDICT</code> 行仍绑 verifier 实际验的那个 commit，不再派第二次）；修不了的票内发现 → HANDOFF（kind <code>failed</code>）</li></ul></div>
+      <div><h4>产出</h4><ul><li>修完的 commit；sub-issue 列表</li></ul></div>
+    </div>
+    <div class="changes"><ul>
+      <li><span class="tag mod">改</span> 一轮上限与分类进 <code>implement</code> 收尾段（<code>code-review</code> 本身只报告不裁决）。<span class="src">定案 2026-08-28 覆盖昨晚「≤2 轮」；记忆「Reviewer must not self-set pass criteria」（<code>03</code> §4）。</span></li>
+    </ul></div>
+    <div class="forklist"><ul>
+      <li><a class="fid" href="#F8">◆F8</a> <code>code-review/SKILL.md</code> 第 2 步找 spec 的顺序不含 <code>prototypes/</code>，Spec 轴的子代理只拿 spec 文本；要不要让它也拿票的 Read first（基线目录），还是「照不照基线」全交给步 9 的像素/ARIA 工具（<code>03</code> §3 末行、§5 第 4 条）。</li>
     </ul></div>
   </div>
 
@@ -409,7 +409,7 @@ tests/api/，先例 tests/api/projects.create.test.ts        <span class="cm">�
       <div><h4>产出</h4><ul><li>一条结构化收尾评论</li></ul></div>
     </div>
     <div class="changes"><ul>
-      <li><span class="tag mod">改</span> <code>implement/SKILL.md</code> 现行收尾三步改成：code-review ≤2 轮 → 自跑 CHECK → verifier 一次 → Audit → 评论 → push/PR → 关票或 HANDOFF。<span class="src"><code>06</code> §8.1；<code>08</code> §7.1；定案「交接前自审」行。</span></li>
+      <li><span class="tag mod">改</span> <code>implement/SKILL.md</code> 现行收尾三步改成：自跑 CHECK → verifier 一次（没过修并自跑）→ code-review 一轮 → 修一轮并自跑 → Audit → 评论 → push/PR → 关票或 HANDOFF。<span class="src"><code>06</code> §8.1；<code>08</code> §7.1；定案「交接前自审」行。</span></li>
     </ul></div>
   </div>
 
@@ -443,7 +443,7 @@ Branch: feat/42-magic-link  Commit: 3f9c2e1a  PR: #57
   CHECK: npm test -- src/auth/magic-link-expiry.spec.ts
   EXPECT: 2 passed
   EVIDENCE: exit 1; "1 passed, 1 failed: expected 'link expired' got 'invalid token'"
-<span class="fk">ABANDON: AC3 failed code-review 第二轮仍报「过期与无效走同一分支」；两轮上限已到</span>
+<span class="fk">ABANDON: AC3 failed code-review 报「过期与无效走同一分支」，修一轮后仍未过</span>
 - [ ] AC4: /login 在 1440×900 与 1180×720 下与基线 ARIA diff 0、像素 ≤ 1%
   CHECK: uv run &lt;visual-parity&gt; …
   EXPECT: PARITY OK 4/4
@@ -459,7 +459,7 @@ Sub-issues opened: #58 (契约装不下：冷却时间), #59 (code-review 票外
       <h3>四个 kind 的准入</h3>
       <div class="tablewrap"><table>
         <tr><th>kind</th><th>情况</th><th>谁写</th></tr>
-        <tr><td><code>failed</code></td><td>验失败且修不了：code-review 两轮仍有票内发现；或 verifier <code>verifier-failed</code></td><td>收尾者，抄 verifier 行，不自己判</td></tr>
+        <tr><td><code>failed</code></td><td>验失败且修不了：code-review 的票内发现修一轮后仍未过；或 verifier <code>verifier-failed</code> 修后自跑仍不过</td><td>收尾者，抄 verifier 行，不自己判</td></tr>
         <tr><td><code>blocked</code></td><td>验不了：CHECK 起不来、缺凭据/设备；或 <code>verifier-blocked</code>。理由须含试过的路径</td><td>同上</td></tr>
         <tr><td><code>impossible</code></td><td>任务内做不到；理由指向记录它的 sub-issue</td><td>worker</td></tr>
         <tr><td><code>decision</code></td><td>两个选项都合法、票和 spec 都没说；写「问题 + 选项 + 无人答复时的默认」。UI 差异<b>不</b>走这里</td><td>worker</td></tr>
@@ -523,7 +523,7 @@ gh issue list --state open --json number,title,blockedBy --jq '.[]|select(.block
     <tr id="F7"><td><input class="chk" type="checkbox" data-f="F7"></td><td class="mono">F7</td><td>ponytail 句子入正文的门槛</td><td><span class="opt">探针两臂实测（<code>07</code> §8 四探针，n≥4）</span><span class="opt">★ 定案：第一张真实票穿行验证</span></td><td>C</td><td><code>10</code> §5 第 2 条 vs <code>00</code> 定案 ponytail 行</td></tr>
     <tr id="F8"><td><input class="chk" type="checkbox" data-f="F8"></td><td class="mono">F8</td><td><code>code-review</code> Spec 轴要不要也拿基线目录 / Read first</td><td><span class="opt">★ 不拿：照不照基线由步 9 的工具判，code-review 只读 spec</span><span class="opt">拿：Spec 轴 brief 加 Read first</span></td><td>B</td><td><code>03</code> §3 末行、§5 第 4 条</td></tr>
     <tr id="F9"><td><input class="chk" type="checkbox" data-f="F9"></td><td class="mono">F9</td><td>verifier 每票都派，还是只对四类票派</td><td><span class="opt">每票都派（定案序列的字面）</span><span class="opt">★ 四类票才派，其余 <code>self-reported</code>（pstack「一条命令的 verifier 是 ceremony」）</span></td><td>B</td><td><code>06</code> §5.2；<code>00</code>「verifier 次数」行</td></tr>
-    <tr id="F10"><td><input class="chk" type="checkbox" data-f="F10"></td><td class="mono">F10</td><td><code>verifier-failed</code> 修完后的收尾行怎么写、凭什么关票；<code>verifier-blocked</code> 走修环境还是 HANDOFF</td><td><span class="opt">修后追加 <code>VERDICT … by self-reported</code> 再关</span><span class="opt">修后不关，HANDOFF failed（<code>08</code> §7.4 写法）</span><span class="opt">blocked：★ HANDOFF blocked</span></td><td>B</td><td><code>06</code> §4.3、§8.1；<code>08</code> §8 第 5 条</td></tr>
+    <tr id="F10"><td><input class="chk" type="checkbox" data-f="F10"></td><td class="mono">F10</td><td><code>verifier-failed</code> 修完后的收尾行怎么写、凭什么关票；<code>verifier-blocked</code> 走修环境还是 HANDOFF</td><td><b>部分已定 2026-08-28</b>：<code>verifier-failed</code> → worker 修并自跑填 EVIDENCE，不再派第二次，继续进 code-review。仍待定：<code>verifier-blocked</code> 走修环境还是 HANDOFF blocked（★ HANDOFF）</td><td>B</td><td><code>06</code> §4.3、§8.1；<code>08</code> §8 第 5 条</td></tr>
     <tr id="F11"><td><input class="chk" type="checkbox" data-f="F11"></td><td class="mono">F11</td><td>派发三前提取值（各宿主权限参数、Herdr 名字、角色表文件名与位置）</td><td><span class="opt">名字 = 票号；角色表 = 消费仓库 <code>docs/agents/&lt;?&gt;.md</code>；权限参数逐宿主定</span></td><td>E</td><td><code>09</code> §2.2、§6 第 2–3 条；<code>00</code>「每票派给谁」</td></tr>
     <tr id="F12"><td><input class="chk" type="checkbox" data-f="F12"></td><td class="mono">F12</td><td>visual-parity 工具放哪、怎么装到消费仓库</td><td><span class="opt"><code>mmw-v2/tools/</code> + install.sh 软链</span><span class="opt">随 <code>prototype</code> 或新技能的 <code>scripts/</code> 走</span><span class="opt">复制进消费仓库 <code>prototypes/</code></span></td><td>D</td><td><code>05</code> §6.3、§6.2 gate 例；<code>AGENTS.md</code> 命令表</td></tr>
     <tr id="F13"><td><input class="chk" type="checkbox" data-f="F13"></td><td class="mono">F13</td><td>第一张真实代码票在哪个消费仓库、哪张票；落地顺序（第 8 节）认不认</td><td><span class="opt">见第 8 节</span></td><td>F</td><td><code>10</code> §5 第 1、3 条</td></tr>
