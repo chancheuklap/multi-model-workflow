@@ -111,6 +111,7 @@ input.chk{width:16px;height:16px;cursor:pointer}
 <nav class="rail" aria-label="页内导航">
   <ol>
     <li><a href="#overview">0 全局图</a></li>
+    <li><a href="#decisions">0.5 定案总表</a></li>
     <li><a href="#day">1 白天：出票前</a></li>
     <li><a href="#ticket">2 票的形态</a></li>
     <li><a href="#night">3 夜间：写码与收尾</a></li>
@@ -180,6 +181,20 @@ input.chk{width:16px;height:16px;cursor:pointer}
       <p class="src" style="margin-top:12px">本轮明确不做的（<code>00-synthesis.md</code>「这轮明确不动的」）：编排主循环、提问出口、时限、常驻规则通道、决策日志、agent 停了没收尾的处置。图里只画一张票的路径。</p>
     </div>
   </div>
+</section>
+
+<section id="decisions">
+  <h2>定案总表（2026-08-28，按块）</h2>
+  <p class="lede">每一行都已写进 <code>00-synthesis.md</code> 对应的「块 X 定案」表并提交。第 7 节登记表里对应的行已划掉。</p>
+  <div class="tablewrap"><table>
+    <tr><th>块</th><th>定了什么</th></tr>
+    <tr><td>A 票的形态</td><td>AC 编号 <code>AC&lt;n&gt;</code>，不重排；人工项明写 <code>MANUAL: &lt;谁&gt; &lt;看什么&gt;</code>；人工项过半不出票；<code>Outside Owns:</code> 起点 = <code>git merge-base main HEAD</code>；Owns 两档（为过 AC 不得不改 → 改并记；顺手改 → sub-issue）</td></tr>
+    <tr><td>B 收尾与复查</td><td><b>先验后审</b>：自跑 CHECK → verifier（每票都派，worker 会话内的子代理，只审一次，失败/环境问题都由 worker 修并自跑、不交人）→ code-review <b>一轮</b>、修一轮、不复审；<b>子代理只收此刻才知道的信息</b>（票号、起点 commit），固定内容进定义文件，票是唯一事实存放处、不转述；verifier 自己把 <code>VERDICT</code> 评论到票；<code>code-review</code> 改成 SKILL.md 路由 + 三个 reference，报告评论到票；reviewer 必须强模型（Claude Code opus）→ worker 经 Herdr 起 Claude Code 会话；Spec 轴不看基线；<code>decision</code> 也贴 <code>ready-for-human</code>，不加标签；<b>vendor unlazy <code>gate-check.mjs</code></b>，账本从票派生</td></tr>
+    <tr><td>C 写码纪律</td><td>ponytail 五句写进 <code>implement</code>，用第一张真实的票跑一遍验证，不做对照实验</td></tr>
+    <tr><td>D UI 基线与工具</td><td>prototype 流程不变；<code>claude-design-blocks</code> 改第 1、2 步接受叶子目录组件 + 真实页面渲染结果，收进 <code>mmw-v2/skills/</code>；<code>to-spec</code> 不改，CHECK 由 <code>to-tickets</code> 从 Testing Decisions 与先例推出、EXPECT 跑先例一次抄；场景 = 组件 + <code>scenario</code> 属性，工具生成包装页离线渲染；<b>新技能 <code>verify-ticket</code></b> 装 gate-check 与 visual-parity；Claude Design 交接包 README 进叶子目录、DESIGN.md 上传 design system 并放进消费仓库；没有「UI 票」，只有「UI 验收标准」</td></tr>
+    <tr><td>E 派发</td><td>worktree 由宿主自己开；权限全部放行；Herdr 名 <code>issue-&lt;n&gt;</code>；角色表 <code>docs/agents/models.md</code> 每行完整启动命令，<code>AGENTS.md</code> 指向它</td></tr>
+    <tr><td>F 落地</td><td>待定：第一张真实的票在哪个仓库；改动顺序</td></tr>
+  </table></div>
 </section>
 
 <section id="day">
@@ -311,8 +326,8 @@ tests/api/，先例 tests/api/projects.create.test.ts        <span class="cm">�
     <header><span class="n">步 5</span><h3>派发：Herdr 起 worker 会话</h3><span class="tag new">新</span><a class="fid" href="#F11">◆F11</a></header>
     <div class="io">
       <div><h4>输入</h4><ul><li>frontier 上的票号；角色表（宿主 kind / 模型 / 思考强度）</li></ul></div>
-      <div><h4>动作</h4><ul><li><code>herdr worktree create --branch &lt;票&gt;</code> → 拿 <code>root_pane</code></li><li><code>herdr agent start &lt;票号名&gt; --kind &lt;宿主&gt; --pane &lt;id&gt; -- &lt;权限参数&gt; [-n &lt;名&gt;]</code>，等 idle</li><li><code>herdr agent prompt &lt;名&gt; "implement #&lt;n&gt;"</code></li><li>白天手工：你自己在 worktree 里开会话，说同一句</li></ul></div>
-      <div><h4>产出</h4><ul><li>一个 cwd 在票 worktree、`gh` 已登录、权限放开的 worker 会话</li></ul></div>
+      <div><h4>动作</h4><ul><li>在仓库根开 pane；<code>herdr agent start issue-&lt;n&gt; --kind &lt;宿主&gt; --pane &lt;id&gt; -- &lt;models.md 该行的命令：--worktree、模型、全部放行&gt;</code>，等 idle</li><li><code>herdr agent prompt &lt;名&gt; "implement #&lt;n&gt;"</code></li><li>白天手工：你自己在 worktree 里开会话，说同一句</li></ul></div>
+      <div><h4>产出</h4><ul><li>一个 cwd 在票 worktree、权限放开的 worker 会话</li></ul></div>
     </div>
     <div class="changes"><ul>
       <li><span class="tag new">新</span> 派发词最小形态 = 技能名 + 票号；票由技能自己去读。<span class="src"><code>09-herdr-dispatch-model.md</code> §2.2；实测 §7（<code>agent start</code> 约 4 秒返回、带 <code>name</code>）。</span></li>
@@ -320,7 +335,7 @@ tests/api/，先例 tests/api/projects.create.test.ts        <span class="cm">�
       <li><span class="tag keep">后补</span> 完成信号：Herdr 没有；「做完」= 票状态（关票或 <code>HANDOFF REQUIRED</code>）+ agent idle/done；票不动而 agent idle = 停了没收尾，处置留自动化阶段。<span class="src"><code>09</code> §3、§6.4。</span></li>
     </ul></div>
     <div class="forklist"><ul>
-      <li><a class="fid" href="#F11">◆F11</a> 三个前提的取值没定：各宿主的权限参数（<code>claude --permission-mode</code> / <code>codex -a never -s workspace-write</code> / <code>cursor-agent --force</code> / grok / pi）、Herdr 名字规则（用票号；只有 Claude 与 pi 能同时设宿主侧名）、角色表放消费仓库 <code>docs/agents/</code> 的哪个文件（上次的 <code>models.md</code> 已删）。</li>
+      <li><a class="fid" href="#F11">◆F11</a> 已定：见第 7 节。</li>
     </ul></div>
   </div>
 
@@ -527,7 +542,7 @@ gh issue list --state open --json number,title,blockedBy --jq '.[]|select(.block
     <tr id="F8" class="resolved"><td><input class="chk" type="checkbox" data-f="F8" checked disabled></td><td class="mono">F8</td><td><code>code-review</code> Spec 轴要不要也拿基线目录 / Read first</td><td><b>已定 2026-08-28</b>：不拿。照不照基线由 含 UI 验收标准的票的 visual-parity <code>CHECK:</code> 判：worker 写码期间迭代跑、步 8 自跑、步 9 verifier 重跑</td><td>B</td><td><code>03</code> §3 末行、§5 第 4 条</td></tr>
     <tr id="F9" class="resolved"><td><input class="chk" type="checkbox" data-f="F9" checked disabled></td><td class="mono">F9</td><td>verifier 每票都派，还是只对四类票派</td><td><b>已定 2026-08-28</b>：每票都派，不分类型</td><td>B</td><td><code>06</code> §5.2；<code>00</code>「verifier 次数」行</td></tr>
     <tr id="F10" class="resolved"><td><input class="chk" type="checkbox" data-f="F10" checked disabled></td><td class="mono">F10</td><td><code>verifier-failed</code> 修完后的收尾行怎么写、凭什么关票；<code>verifier-blocked</code> 走修环境还是 HANDOFF</td><td><b>已定 2026-08-28</b>：<code>verifier-failed</code> → worker 修并自跑填 EVIDENCE，不再派第二次；<code>verifier-blocked</code> → verifier 先自修环境（可动环境、不改仓库文件），仍起不来由 worker 修环境后自跑；都不交人</td><td>B</td><td><code>06</code> §4.3、§8.1；<code>08</code> §8 第 5 条</td></tr>
-    <tr id="F11"><td><input class="chk" type="checkbox" data-f="F11"></td><td class="mono">F11</td><td>派发三前提取值（各宿主权限参数、Herdr 名字、角色表文件名与位置）</td><td><span class="opt">名字 = 票号；角色表 = 消费仓库 <code>docs/agents/&lt;?&gt;.md</code>；权限参数逐宿主定</span></td><td>E</td><td><code>09</code> §2.2、§6 第 2–3 条；<code>00</code>「每票派给谁」</td></tr>
+    <tr id="F11" class="resolved"><td><input class="chk" type="checkbox" data-f="F11" checked disabled></td><td class="mono">F11</td><td>派发前提（worktree、权限、名字、角色表）</td><td><b>已定 2026-08-28</b>：worktree 由宿主自己开（<code>cursor-agent -w</code> / <code>grok --worktree</code>）；权限全部放行；名字 <code>issue-&lt;n&gt;</code>；角色表 <code>docs/agents/models.md</code> 每行完整启动命令，<code>AGENTS.md</code> Agent skills 段指向它；<code>gh</code> 是一次性登录不算前提</td><td>E</td><td><code>09</code> §2.2、§6 第 2–3 条；<code>00</code>「每票派给谁」</td></tr>
     <tr id="F12" class="resolved"><td><input class="chk" type="checkbox" data-f="F12" checked disabled></td><td class="mono">F12</td><td>visual-parity 与 <code>gate-check.mjs</code> 放哪</td><td><b>已定 2026-08-28</b>：新自有技能 <code>verify-ticket</code>，两个脚本放它的 <code>scripts/</code>；正文一段「取票 AC 段 → gate-check → 贴回票」；步 8 worker 调 <code>/verify-ticket #n</code>，步 9 verifier 调 <code>--reverify</code></td><td>D</td><td><code>05</code> §6.3、§6.2 gate 例；<code>AGENTS.md</code> 命令表</td></tr>
     <tr id="F13"><td><input class="chk" type="checkbox" data-f="F13"></td><td class="mono">F13</td><td>第一张真实代码票在哪个消费仓库、哪张票；落地顺序（第 8 节）认不认</td><td><span class="opt">见第 8 节</span></td><td>F</td><td><code>10</code> §5 第 1、3 条</td></tr>
     <tr id="F14" class="resolved"><td><input class="chk" type="checkbox" data-f="F14" checked disabled></td><td class="mono">F14</td><td>验收标准的跑与判：手写约定，还是直接用 unlazy 的 <code>gate-check.mjs</code></td><td><b>已定 2026-08-28</b>：vendor <code>gate-check.mjs</code>（MIT，需 Node ≥ 16）。账本每次从 <code>gh issue view</code> 的 AC 段派生到临时文件，跑完贴回票评论，没有第二份文件；<code>--approve</code> 每次带，审批目录在仓库外 0700。实测 <code>05</code> §10：我们的格式原样可解析，<code>MANUAL:</code> 静默为人工项，双条件与 <code>--reverify</code> 均正确。放哪并入 F12</td><td>B</td><td><code>05</code> §2.5；<code>04</code> §2.4；你的提问 2026-08-28</td></tr>
@@ -553,8 +568,8 @@ gh issue list --state open --json number,title,blockedBy --jq '.[]|select(.block
     <div class="panel"><span class="k">块 B · 已定 08-28</span><h3>收尾与失败词汇</h3><p>全部定完。改 <code>implement</code> 收尾段；新建 <code>agents/verifier/</code>；<code>code-review</code> 改成路由 + 三个 reference；vendor <code>gate-check.mjs</code>；建 <code>CONTEXT.md</code>。</p></div>
     <div class="panel"><span class="k">块 C · 已定 08-28</span><h3>写码中纪律</h3><p>F7 已定。改 <code>implement</code> 读入段之后的十行，用真实的票跑一遍验证。</p></div>
     <div class="panel"><span class="k">块 D · 已定 08-28</span><h3>UI 基线与工具</h3><p>全部定完。改 <code>claude-design-blocks</code>；新建 <code>verify-ticket</code> 技能装两个脚本；交接包 README 与 DESIGN.md 进流程。</p></div>
-    <div class="panel next"><span class="k">块 E · 下一步</span><h3>派发</h3><p>F11。角色表文件、权限参数；白天手工即可先跑，不阻塞 A–D。</p></div>
-    <div class="panel"><span class="k">块 F</span><h3>第一张真实票</h3><p>F13。A–D 各定一块就用它跑一遍；全部跑通才合 main。</p></div>
+    <div class="panel"><span class="k">块 E · 已定 08-28</span><h3>派发</h3><p>F11 已定：<code>docs/agents/models.md</code> 放完整启动命令。</p></div>
+    <div class="panel next"><span class="k">块 F · 下一步</span><h3>第一张真实票</h3><p>F13。A–D 各定一块就用它跑一遍；全部跑通才合 main。</p></div>
   </div>
   <p class="src">改到上游技能（<code>to-spec</code>、<code>to-tickets</code>、<code>implement</code>、<code>code-review</code>、<code>prototype</code>）要写 <code>mmw-v2/merge-notes/</code>；技能正文一律英文、不写出处、不写落地记录（<code>10</code> §5 第 6 条）。</p>
 </section>

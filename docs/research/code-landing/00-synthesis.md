@@ -187,3 +187,16 @@
 | Claude Design 的两样产出 | 都进流程。① 「开发交接包」README 随基线下载进叶子目录，票 `Read first` 指向它，`to-tickets` 写 AC 的精确值与逐字文案从它抄。② 精修前用 `create-design-md` 生成 DESIGN.md，上传 Claude Design 建 design system；同一份放进消费仓库，`AGENTS.md` External References 指一行；每个项目一次。F16 关闭。**块 D 定完** |
 
 - 块 D 定完（F4、F5、F6、F12、F16）。下一步：块 E 的 F11（派发三前提：各宿主权限参数、Herdr 名字、角色表放消费仓库哪个文件）。
+
+## 块 E 定案（2026-08-28）
+
+| 议题 | 决定 |
+| --- | --- |
+| worker 的 worktree | 宿主自己开：`cursor-agent -w issue-<n> --worktree-base main`、`grok --worktree=issue-<n>`；Herdr pane 开在仓库根，不用 `herdr worktree create` |
+| 权限 | 全部放行：cursor `--force --trust`；grok / claude `--permission-mode bypassPermissions` |
+| Herdr 名字 | `issue-<n>`（正则 `[a-z][a-z0-9_-]{0,31}` 不许数字开头）；claude / pi 同时 `-n issue-<n>`；cursor / grok 只有 Herdr 一侧有名 |
+| `gh` | 电脑上一次性登好，不是派发前提 |
+| 角色表 | 消费仓库 `docs/agents/models.md`，每行「角色 → 宿主 → 完整启动命令」。读法：`AGENTS.md` `## Agent skills` 段加「### Roles … See docs/agents/models.md」（与 issue-tracker 同一机制）；`implement` 派 reviewer 那段写「用 models.md 的 reviewer 行起会话」。读者：白天的用户、worker（起 reviewer）、以后的编排会话。F11 关闭。**块 E 定完** |
+| `to-tickets` 正文补一句（F5 落地） | 「每条 AC 的 CHECK 从 spec Testing Decisions 的层与先例推出；EXPECT 把先例跑一次抄成功那行」 |
+
+- 块 E 定完。剩块 F：F13（第一张真实的票在哪个仓库、落地顺序）。
