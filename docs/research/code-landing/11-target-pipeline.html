@@ -218,7 +218,7 @@ input.chk{width:16px;height:16px;cursor:pointer}
     <header><span class="n">步 3</span><h3>prototype → Claude Design 精修 → 下载基线</h3><span class="tag mod">改</span><a class="fid" href="#F4">◆F4</a><a class="fid" href="#F6">◆F6</a></header>
     <div class="io">
       <div><h4>输入</h4><ul><li>UI 问题「这页该长什么样」</li></ul></div>
-      <div><h4>动作</h4><ul><li>① <code>prototype</code> UI 分支出一版总体满意的 mockup（现状：`?variant=` 组件挂真实路由，`prototype/UI.md` 步 1–5）</li><li>② 上传 Claude Design 精修：<code>claude-design-blocks</code> 读叶子目录里胜出版本的源码 + 真实页面 <code>?variant=</code> 的渲染结果（<b>改</b>它的第 1、2 步；收进 <code>mmw-v2/skills/</code>，正文按能力判断需要 claude-design MCP 工具）</li><li>③ 下载回 <code>prototypes/&lt;task&gt;/&lt;issue&gt;/UI/</code> 叶子目录：<code>.dc.html</code> + <code>styles/</code> + <code>data/</code> + <code>support.js</code></li></ul></div>
+      <div><h4>动作</h4><ul><li>① <code>prototype</code> UI 分支出一版总体满意的 mockup（现状：`?variant=` 组件挂真实路由，`prototype/UI.md` 步 1–5）</li><li>② 上传 Claude Design 精修：<code>claude-design-blocks</code> 读叶子目录里胜出版本的源码 + 真实页面 <code>?variant=</code> 的渲染结果（<b>改</b>它的第 1、2 步；收进 <code>mmw-v2/skills/</code>，正文按能力判断需要 claude-design MCP 工具）</li><li>②′ 精修前：<code>create-design-md</code> 生成消费仓库的 DESIGN.md，上传 Claude Design 建 design system；同一份放进仓库、<code>AGENTS.md</code> External References 指一行（每项目一次）</li><li>③ 下载回 <code>prototypes/&lt;task&gt;/&lt;issue&gt;/UI/</code> 叶子目录：<code>.dc.html</code> + <code>styles/</code> + <code>data/</code> + <code>support.js</code> + <b>开发交接包 README</b>（逐屏尺寸、色值、逐字文案、状态迁移）</li></ul></div>
       <div><h4>产出</h4><ul><li>叶子目录里的整个下载目录 = <b>基线</b>；叶子 <code>README.md</code> 记结论</li></ul></div>
     </div>
     <div class="changes"><ul>
@@ -532,7 +532,7 @@ gh issue list --state open --json number,title,blockedBy --jq '.[]|select(.block
     <tr id="F13"><td><input class="chk" type="checkbox" data-f="F13"></td><td class="mono">F13</td><td>第一张真实代码票在哪个消费仓库、哪张票；落地顺序（第 8 节）认不认</td><td><span class="opt">见第 8 节</span></td><td>F</td><td><code>10</code> §5 第 1、3 条</td></tr>
     <tr id="F14" class="resolved"><td><input class="chk" type="checkbox" data-f="F14" checked disabled></td><td class="mono">F14</td><td>验收标准的跑与判：手写约定，还是直接用 unlazy 的 <code>gate-check.mjs</code></td><td><b>已定 2026-08-28</b>：vendor <code>gate-check.mjs</code>（MIT，需 Node ≥ 16）。账本每次从 <code>gh issue view</code> 的 AC 段派生到临时文件，跑完贴回票评论，没有第二份文件；<code>--approve</code> 每次带，审批目录在仓库外 0700。实测 <code>05</code> §10：我们的格式原样可解析，<code>MANUAL:</code> 静默为人工项，双条件与 <code>--reverify</code> 均正确。放哪并入 F12</td><td>B</td><td><code>05</code> §2.5；<code>04</code> §2.4；你的提问 2026-08-28</td></tr>
     <tr id="F15"><td><input class="chk" type="checkbox" data-f="F15"></td><td class="mono">F15</td><td>code-review 方法论要不要从参考加：发现闭环 <code>Status: fixed/wontfix</code>（grok）、Verification 一栏（pstack rubric）、Security/Tests 人格（grok）</td><td><span class="opt">暂用现役两轴；以后只改 <code>code-review</code> 技能（已定「本轮不动」）</span></td><td>后补</td><td><code>03</code> §5「可以后补的」</td></tr>
-    <tr id="F16"><td><input class="chk" type="checkbox" data-f="F16"></td><td class="mono">F16</td><td>Claude Design 两样产出要不要进流程：「开发交接包」README（逐屏尺寸、色值、逐字文案、状态迁移、token）随基线下载进叶子目录、<code>Read first</code> 指向它；用 <code>create-design-md</code> 生成 DESIGN.md 上传为 design system 并放进消费仓库</td><td><span class="opt">★ 都采纳（AC 精确值与文案从 README 抄；精修与写码守同一套 token）</span><span class="opt">只采其一 / 不采</span></td><td>D</td><td>你在 Claude Design 里的两段问答（2026-08-28）</td></tr>
+    <tr id="F16" class="resolved"><td><input class="chk" type="checkbox" data-f="F16" checked disabled></td><td class="mono">F16</td><td>Claude Design 两样产出要不要进流程：「开发交接包」README（逐屏尺寸、色值、逐字文案、状态迁移、token）随基线下载进叶子目录、<code>Read first</code> 指向它；用 <code>create-design-md</code> 生成 DESIGN.md 上传为 design system 并放进消费仓库</td><td><b>已定 2026-08-28</b>：都进。交接包 README 进叶子目录、<code>Read first</code> 指向、AC 精确值与文案从它抄；<code>create-design-md</code> 生成 DESIGN.md 上传 design system 并放进消费仓库，每项目一次</td><td>D</td><td>你在 Claude Design 里的两段问答（2026-08-28）</td></tr>
   </table></div>
   <div class="panel">
     <h3>待核事实（不是决定，是要去测）</h3>
@@ -552,8 +552,8 @@ gh issue list --state open --json number,title,blockedBy --jq '.[]|select(.block
     <div class="panel"><span class="k">块 A · 已定 08-28</span><h3>票的形态</h3><p>F1、F2 已定。改 <code>to-tickets</code> 模板与 Read back。</p></div>
     <div class="panel"><span class="k">块 B · 已定 08-28</span><h3>收尾与失败词汇</h3><p>全部定完。改 <code>implement</code> 收尾段；新建 <code>agents/verifier/</code>；<code>code-review</code> 改成路由 + 三个 reference；vendor <code>gate-check.mjs</code>；建 <code>CONTEXT.md</code>。</p></div>
     <div class="panel"><span class="k">块 C · 已定 08-28</span><h3>写码中纪律</h3><p>F7 已定。改 <code>implement</code> 读入段之后的十行，用真实的票跑一遍验证。</p></div>
-    <div class="panel next"><span class="k">块 D · 下一步</span><h3>UI 基线与工具</h3><p>F4、F5、F6、F12 已定。剩 F16。改 <code>claude-design-blocks</code>；新建 <code>verify-ticket</code> 技能装两个脚本。</p></div>
-    <div class="panel"><span class="k">块 E</span><h3>派发</h3><p>F11。角色表文件、权限参数；白天手工即可先跑，不阻塞 A–D。</p></div>
+    <div class="panel"><span class="k">块 D · 已定 08-28</span><h3>UI 基线与工具</h3><p>全部定完。改 <code>claude-design-blocks</code>；新建 <code>verify-ticket</code> 技能装两个脚本；交接包 README 与 DESIGN.md 进流程。</p></div>
+    <div class="panel next"><span class="k">块 E · 下一步</span><h3>派发</h3><p>F11。角色表文件、权限参数；白天手工即可先跑，不阻塞 A–D。</p></div>
     <div class="panel"><span class="k">块 F</span><h3>第一张真实票</h3><p>F13。A–D 各定一块就用它跑一遍；全部跑通才合 main。</p></div>
   </div>
   <p class="src">改到上游技能（<code>to-spec</code>、<code>to-tickets</code>、<code>implement</code>、<code>code-review</code>、<code>prototype</code>）要写 <code>mmw-v2/merge-notes/</code>；技能正文一律英文、不写出处、不写落地记录（<code>10</code> §5 第 6 条）。</p>

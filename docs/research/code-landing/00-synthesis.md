@@ -184,4 +184,6 @@
 | 两个脚本放哪 | 新自有技能 `mmw-v2/skills/verify-ticket/`：`scripts/gate-check/`（vendor 的 6 个文件）+ `scripts/visual-parity.py`；正文一段：取票 AC 段 → 临时账本 → `gate-check --approve [--reverify]` → 更新后的账本评论到票。`implement` 步 8 写 `/verify-ticket #n`，verifier 定义文件写 `/verify-ticket #n --reverify`。UI 验收标准的 `CHECK:` 写 `uv run ~/.agents/skills/verify-ticket/scripts/visual-parity.py …`。不放 `implement/scripts/`（上游 subtree、且 verifier 也用）。F12 关闭 |
 | 措辞 | 票是纵切的，没有「UI 票」；说「UI 验收标准」 |
 
-待定 **F16**（块 D）：Claude Design 的「开发交接包」README（逐屏尺寸、色值、逐字文案、状态迁移、token）是否随基线一起下载进叶子目录、票 `Read first` 指向它；是否用 `create-design-md` 生成 DESIGN.md 上传为 design system 并放进消费仓库。
+| Claude Design 的两样产出 | 都进流程。① 「开发交接包」README 随基线下载进叶子目录，票 `Read first` 指向它，`to-tickets` 写 AC 的精确值与逐字文案从它抄。② 精修前用 `create-design-md` 生成 DESIGN.md，上传 Claude Design 建 design system；同一份放进消费仓库，`AGENTS.md` External References 指一行；每个项目一次。F16 关闭。**块 D 定完** |
+
+- 块 D 定完（F4、F5、F6、F12、F16）。下一步：块 E 的 F11（派发三前提：各宿主权限参数、Herdr 名字、角色表放消费仓库哪个文件）。
