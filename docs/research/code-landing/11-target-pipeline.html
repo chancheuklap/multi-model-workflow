@@ -136,11 +136,11 @@ input.chk{width:16px;height:16px;cursor:pointer}
     <span><span class="tag mod">改</span> 现有技能正文要改</span>
     <span><span class="tag new">新</span> 本轮新增的件</span>
     <span><span class="tag fork">◆ F?</span> 未定分岔，编号见第 7 节</span>
-    <span>三个色带 = 一天里的三个时段（本轮先做「白天手工一张票」，夜间派发是同一份流程）</span>
+    <span>三个色带 = 一天里的三个时段。全天只有一个<b>主 agent</b>（Claude Code 会话）：白天与你讨论、出 spec、出票；晚上当 coordinator 经 Herdr 派 worker（cursor / grok 会话）。你只讨论、拍板、改 <code>models.md</code>、早上看票。</span>
   </div>
   <div class="pipe">
     <div class="band day">
-      <h3>白天 · 与人一起把票准备好</h3>
+      <h3>白天 · 主 agent 与你一起把票准备好</h3>
       <ol>
         <li><a class="stage keep" href="#s1"><span class="n">1</span><span><span class="t">wayfinder / grill-with-docs</span><span class="d">决策票、ADR；本轮起要建根 <code>CONTEXT.md</code></span><span class="forks"><span class="tag mod">改</span></span></span></a></li>
         <li class="arrow">↓</li>
@@ -152,7 +152,7 @@ input.chk{width:16px;height:16px;cursor:pointer}
       </ol>
     </div>
     <div class="band night">
-      <h3>夜间 · 一张票从开工到关票（白天手工同一流程）</h3>
+      <h3>夜间 · 主 agent 派 worker，一张票从开工到关票</h3>
       <ol>
         <li><a class="stage new hasfork" href="#s5"><span class="n">5</span><span><span class="t">派发：Herdr 起 worker 会话</span><span class="d">每票一个 worktree；派发词 = 技能名 + 票号</span><span class="forks"><span class="tag new">新</span><span class="tag fork">◆F11</span></span></span></a></li>
         <li class="arrow">↓</li>
@@ -311,13 +311,13 @@ tests/api/，先例 tests/api/projects.create.test.ts        <span class="cm">�
 
 <section id="night">
   <h2>3 夜间：一张票从开工到关票</h2>
-  <p class="lede">白天你手工开一个会话做一张票，和夜间 Herdr 派 worker，走的是<b>同一份</b> <code>implement</code>；差别只在步 5 有没有人手敲。</p>
+  <p class="lede">worker 永远是主 agent 经 Herdr 派出的 cursor / grok 会话，跑同一份 <code>implement</code>；主 agent 派完只读票，不做票。</p>
 
   <div class="panel detail new hasfork" id="s5">
     <header><span class="n">步 5</span><h3>派发：Herdr 起 worker 会话</h3><span class="tag new">新</span><a class="fid" href="#F11">◆F11</a></header>
     <div class="io">
       <div><h4>输入</h4><ul><li>frontier 上的票号；角色表（宿主 kind / 模型 / 思考强度）</li></ul></div>
-      <div><h4>动作</h4><ul><li>在仓库根开 pane；<code>herdr agent start issue-&lt;n&gt; --kind &lt;宿主&gt; --pane &lt;id&gt; -- &lt;models.md 该行的命令：--worktree、模型、全部放行&gt;</code>，等 idle</li><li><code>herdr agent prompt &lt;名&gt; "implement #&lt;n&gt;"</code></li><li>白天手工：你自己在 worktree 里开会话，说同一句</li></ul></div>
+      <div><h4>动作</h4><ul><li>在仓库根开 pane；<code>herdr agent start issue-&lt;n&gt; --kind &lt;宿主&gt; --pane &lt;id&gt; -- &lt;models.md 该行的命令：--worktree、模型、全部放行&gt;</code>，等 idle</li><li><code>herdr agent prompt &lt;名&gt; "implement #&lt;n&gt;"</code></li><li>派发者是主 agent；派完只读票的状态</li></ul></div>
       <div><h4>产出</h4><ul><li>一个 cwd 在票 worktree、权限放开的 worker 会话</li></ul></div>
     </div>
     <div class="changes"><ul>
@@ -379,7 +379,7 @@ tests/api/，先例 tests/api/projects.create.test.ts        <span class="cm">�
     <header><span class="n">步 9</span><h3>verifier 子代理，只审一次</h3><span class="tag new">新</span><a class="fid" href="#F9">◆F9</a><a class="fid" href="#F10">◆F10</a></header>
     <div class="io">
       <div><h4>输入（brief）</h4><ul><li><b>只有票号</b>。它自己 <code>gh issue view</code> 读每条 AC 的 CHECK/EXPECT/MANUAL 与 Seam；与 worker 同一 worktree，<code>git rev-parse HEAD</code> 自取 commit</li><li>禁令（不改仓库文件不 commit 不修不加标准、首尾 <code>git status --porcelain</code>；<b>可以动环境</b>：装依赖、换端口、找配置）、五级定义、汇报格式全在 <code>agents/verifier/body.md</code>，不由 worker 转述</li></ul></div>
-      <div><h4>动作</h4><ul><li>在 code-review <b>之前</b>跑（定案 2026-08-28：先验后审，避免 verifier 返工后再复审）；由<b>运行 implement 的那个会话</b>派出（白天手工、夜间 Herdr 同一流程）；能选模型就选与自己不同的；不能派子代理 → 自己从干净 shell 重跑，标 <code>self-reported</code></li><li><code>/verify-ticket #n --reverify</code>（已勾的也重跑）；不评代码</li><li>只审一次；没过 → worker 修并自跑填证据；<b>不复审</b>。全过后才进步 10 code-review</li></ul></div>
+      <div><h4>动作</h4><ul><li>在 code-review <b>之前</b>跑（定案 2026-08-28：先验后审，避免 verifier 返工后再复审）；由<b>worker 会话</b>派出；能选模型就选与自己不同的；不能派子代理 → 自己从干净 shell 重跑，标 <code>self-reported</code></li><li><code>/verify-ticket #n --reverify</code>（已勾的也重跑）；不评代码</li><li>只审一次；没过 → worker 修并自跑填证据；<b>不复审</b>。全过后才进步 10 code-review</li></ul></div>
       <div><h4>产出</h4><ul><li>verifier <b>自己</b> <code>gh issue comment</code> 到票上：一行 <code>VERDICT &lt;sha&gt; &lt;level&gt; by &lt;model|self-reported&gt; — 一句话</code> + 逐条结果；worker 之后读票。level ∈ <code>live-ui-verified / unit-test-verified / type-check-only / verifier-blocked / verifier-failed</code></li></ul></div>
     </div>
     <div class="changes"><ul>
@@ -402,7 +402,7 @@ tests/api/，先例 tests/api/projects.create.test.ts        <span class="cm">�
     </div>
     <div class="changes"><ul>
       <li><span class="tag mod">改</span> 技能形态：<code>SKILL.md</code> 只路由 + 三个 reference（<code>dispatch.md</code> 派发者做什么 / <code>standards-reviewer.md</code> brief + smell baseline / <code>spec-reviewer.md</code>）；派发 prompt 只给起点 commit + 票号，spec 沿 <code>Parent</code> 自读；报告由 reviewer 评论到票上。改上游技能，写 merge-note。<span class="src">定案 2026-08-28。</span></li>
-      <li><span class="tag new">新</span> 谁派、跑在哪：worker 派（<code>implement</code> 加一段）。reviewer 必须是强模型（目前只有 Claude Code 的 opus 5）；worker 是 cursor / grok build 会话 → 用 Herdr 起一个 Claude Code 会话，派发词 <code>code-review &lt;起点 commit&gt; #&lt;票&gt;</code>，该会话再派两个 reviewer 子代理；白天你在 Claude Code 里直接 <code>/code-review</code>。<span class="src">定案 2026-08-28；前提：worker 在 Herdr pane 里（<code>09</code> §1.1）。</span></li>
+      <li><span class="tag new">新</span> 谁派、跑在哪：worker 派（<code>implement</code> 加一段）。reviewer 必须是强模型（目前只有 Claude Code 的 opus 5）；worker 是 cursor / grok build 会话 → 用 Herdr 起一个 Claude Code 会话，派发词 <code>code-review &lt;起点 commit&gt; #&lt;票&gt;</code>，该会话再派两个 reviewer 子代理。<span class="src">定案 2026-08-28；前提：worker 在 Herdr pane 里（<code>09</code> §1.1）。</span></li>
       <li><span class="tag mod">改</span> 一轮上限与分类进 <code>implement</code> 收尾段（<code>code-review</code> 本身只报告不裁决）。<span class="src">定案 2026-08-28 覆盖昨晚「≤2 轮」；记忆「Reviewer must not self-set pass criteria」（<code>03</code> §4）。</span></li>
     </ul></div>
     <div class="forklist"><ul>

@@ -58,7 +58,7 @@
 
 | 议题 | 决定 | 今天 |
 | --- | --- | --- |
-| verifier 的父会话 | 运行 `implement` 的那个会话派 verifier 子代理（白天手工、夜间 Herdr 派发同一份流程）；编排会话只读票上的 `VERDICT` 行。不能派子代理时按 `06` §6 降级为 `self-reported` | 沿用 |
+| verifier 的父会话 | 运行 `implement` 的那个会话（worker）派 verifier 子代理；主 agent 作为 coordinator 只读票上的 `VERDICT` 行。不能派子代理时按 `06` §6 降级为 `self-reported` | 沿用 |
 | 交接前自审 | 采 unlazy「Audit the final report」：写收尾评论前重读票全文与 `Read first` 每项，把每条验收标准追到 `EVIDENCE:`，`Counts:` 重数后填；不做 swarm-forge 二次调用 | 沿用 |
 | UI 验收阈值 | ARIA 树 diff = 0；像素 ≤ 1%（Testing Decisions 可改）；工具自带负控制，负控制不过则不信任本次结果 | 沿用 |
 | 新词定义 | 进入 spec 阶段时由 `grill-with-docs`/`domain-modeling` 建根 `CONTEXT.md`，全英文术语（`Owns`、`CHECK`/`EXPECT`/`EVIDENCE`、`MANUAL`、`ABANDON` 四个 kind、`ALL MET`/`HANDOFF REQUIRED`、`VERDICT` 五级） | 沿用；落地 spec 里建 |
@@ -67,7 +67,7 @@
 
 ### 0.4 每票派给谁
 
-沿用上次的角色表数值，只取本轮存在的角色；表放消费仓库 `docs/agents/`，派发时人现场选初级或高级，不写进票、不打定级标签。
+沿用上次的角色表数值，只取本轮存在的角色；表放消费仓库 `docs/agents/`，主 agent 派发时选初级或高级（白天与用户定好），不写进票、不打定级标签。
 
 | 角色 | 宿主 kind | 模型串 | 思考强度 | 今天 |
 | --- | --- | --- | --- | --- |
@@ -80,6 +80,15 @@
 规划者、升级顾问本轮没有对应角色，不列。
 
 ## 通用原则（讨论中由用户裁定，覆盖多个分岔）
+
+### P0. 角色：主 agent 是谁，用户是谁
+
+- 用户原话（2026-08-28 晚）：「出票的不是人类，是使用了 to-ticket 的主 agent。白天的时候主 agent 通过 mmw v2 前半段一系列技能与我讨论调查研究确定一系列参考资料和 spec、ticket，晚上主 agent 作为 coordinator 指挥其他一系列 agent subagent 工作。目前主 agent 就是 claude code 里的 agent。」
+- 结论：**主 agent** = Claude Code 里的那个会话，全天只有它一个：白天用 wayfinder / grill-with-docs / research / prototype / to-spec / to-tickets 与用户讨论、出 spec、出票；晚上作为 coordinator，按 `docs/agents/models.md` 经 Herdr 起 worker（cursor / grok 会话），等票的状态。**用户**只讨论、拍板、改 `models.md` 里的安排、早上看票；用户不出票、不做票。**worker** 永远是主 agent 派出的 cursor / grok 会话，不存在「白天用户自己在 Claude Code 里做一张票」的场景。verifier 是 worker 的子代理；reviewer 会话是 worker 经 Herdr 起的 Claude Code 会话。
+- 更正范围：此前所有文档里「白天你手工做票」「白天用户在 Claude Code 里直接 `/code-review`」「白天手工、夜间派发同一份流程」的说法作废；「出票的人」= 主 agent；`models.md` 的读者 = 主 agent（起 worker）与 `implement`（起 reviewer 会话）。
+- 测试时的例外：落地 spec #60 第 1–10 节用虚构票测技能时，由我（本会话，即主 agent）临时扮演 worker 直接跑 `implement` 等技能，只为验技能文本；真实流程里主 agent 不做票。
+- 落点：本文各处、蓝图页、#60。
+
 
 ### P1. 子代理只收此刻才知道的信息；票是唯一的事实存放处；不转述
 
@@ -177,8 +186,8 @@
 ### B7 code-review 的形态、谁派、跑在哪、方法论（F15）
 
 - 形态：用户否决「做成 `mmw-v2/agents/` 下两个 subagent 定义」，裁决：「这种情况就应该把 code review 技能做成一个 skill.md 加三个 reference，对应派发 reviewer 的 agent……和两种 reviewer，利用 skill.md 去路由」。结论：`code-review/SKILL.md` 只路由；`references/dispatch.md`（派发者：取起点 commit、票号、收两份报告、分票内/票外）、`references/standards-reviewer.md`（brief + smell baseline）、`references/spec-reviewer.md`；派发 prompt 只给起点 commit + 票号；报告由 reviewer 评论到票上（P1）。
-- 谁派：用户「我还不清楚到底是主 agent 派发还是 worker 派发，我倾向主 agent」。我说明白天你自己的会话既是 worker 也是主 agent，夜间才有编排会话；建议 worker 会话派（review 发现要 worker 修，编排会话派会引出 `09` §5.4 的握手问题、白天夜里两套流程）。用户裁决：「worker 派，在 implement 技能里加一段派发方式就行」。
-- 跑在哪：用户「如果 reviewer 由 worker 去派，那 reviewer 不能够是 worker 的 subagent，这是因为 reviewer 所使用的模型必须足够强，目前我的手上只有 Claude code 里的 opus 5 有资格做 reviewer，但 worker 已经确定是 cursor 或 grok build 里的 agent，所以 worker 要用 herdr 调用 Claude code 派发 reviewer」。结论：worker 经 Herdr 起一个 Claude Code 会话，派发词 `code-review <起点 commit> #<票>`，该会话再派两个 reviewer 子代理；白天用户在 Claude Code 里直接 `/code-review`。前提：worker 在 Herdr pane 里。
+- 谁派：用户「我还不清楚到底是主 agent 派发还是 worker 派发，我倾向主 agent」。我建议 worker 会话派（review 发现要 worker 修；主 agent 派会引出 `09` §5.4 的握手问题——worker 停下等主 agent 读评论再把结果 prompt 回去）。当时我误以为「白天用户自己做票」是一种场景，P0 已更正。用户裁决：「worker 派，在 implement 技能里加一段派发方式就行」。
+- 跑在哪：用户「如果 reviewer 由 worker 去派，那 reviewer 不能够是 worker 的 subagent，这是因为 reviewer 所使用的模型必须足够强，目前我的手上只有 Claude code 里的 opus 5 有资格做 reviewer，但 worker 已经确定是 cursor 或 grok build 里的 agent，所以 worker 要用 herdr 调用 Claude code 派发 reviewer」。结论：worker 经 Herdr 起一个 Claude Code 会话，派发词 `code-review <起点 commit> #<票>`，该会话再派两个 reviewer 子代理。前提：worker 在 Herdr pane 里（主 agent 经 Herdr 起的 worker 天然满足）。
 - 方法论：用户问「code review 阶段的步骤与方法论是否已经确定是只用现役的 code-review 技能还是要从参考资料里再加入」。回答：没定；`03` §5 列了三样参考里有的（pstack rubric Verification 一栏、grok 发现闭环 `Status: fixed/wontfix`、grok 四人格）。用户裁决：「暂时先这样问题不大，因为后期需要加内容也只是修改 code review 技能就行」。结论：暂用现役两轴，登记 F15 后补。
 
 ### B8（F14）验收标准怎么跑、怎么判：vendor unlazy `gate-check.mjs`
@@ -250,7 +259,7 @@
 
 - 我第一版列「三样前提」：worktree 由 `herdr worktree create` 建、`gh` 已登录、权限放开；并跑 `--help` 核出参数：claude `--permission-mode {acceptEdits,auto,bypassPermissions,manual,dontAsk,plan}`、`-n`、`--model`；grok `--permission-mode {default,acceptEdits,auto,dontAsk,bypassPermissions,plan}`、`--always-approve`、`-m`、`--reasoning-effort`、`--worktree=<名>`；cursor-agent `--force`/`--yolo`、`--trust`、`--model 'x[effort=high]'`、`-w <名>`、`--worktree-base`；codex `-a never`、`-s`；pi `--name`、`--session-id`。
 - 用户纠正：「你没查清楚，cursor 和 grok 应该都可以从新 worktree 启动。gh 登录与否这个为啥要给，肯定是提前在电脑里登录好的呀」；三条裁决「1. 全部放行 2. 可以 3. 表可以单独放，关键是怎么去读它」；随后「我不会去读 docs/agents/models.md，我只会修改优化它里面的 agent 和模型安排」。
-- 结论：worktree 由宿主自己开（`cursor-agent -w issue-<n> --worktree-base main`、`grok --worktree=issue-<n>`），Herdr pane 开在仓库根，不用 `herdr worktree create`；权限全部放行（cursor `--force --trust`；grok/claude `--permission-mode bypassPermissions`）；Herdr 名 `issue-<n>`（正则不许数字开头），claude/pi 同时 `-n`，cursor/grok 只有 Herdr 一侧有名；`gh` 一次性登好不算前提；角色表 `docs/agents/models.md` 每行「角色 → 宿主 → 完整启动命令」，读者是 `implement`（起 reviewer 会话时抄 reviewer 行）和以后的编排会话，读法是 `AGENTS.md` `## Agent skills` 段加「### Roles … See docs/agents/models.md」（与 issue-tracker 同机制），用户只改表里的安排、不读它。
+- 结论：worktree 由宿主自己开（`cursor-agent -w issue-<n> --worktree-base main`、`grok --worktree=issue-<n>`），Herdr pane 开在仓库根，不用 `herdr worktree create`；权限全部放行（cursor `--force --trust`；grok/claude `--permission-mode bypassPermissions`）；Herdr 名 `issue-<n>`（正则不许数字开头），claude/pi 同时 `-n`，cursor/grok 只有 Herdr 一侧有名；`gh` 一次性登好不算前提；角色表 `docs/agents/models.md` 每行「角色 → 宿主 → 完整启动命令」，读者是主 agent（起 worker 时抄 worker 行）和 `implement`（起 reviewer 会话时抄 reviewer 行），读法是 `AGENTS.md` `## Agent skills` 段加「### Roles … See docs/agents/models.md」（与 issue-tracker 同机制），用户只改表里的安排、不读它。
 - 补充（写落地 spec 时发现）：Herdr 名在活着的 agent 里必须唯一，同一票的 worker 已占 `issue-<n>`，worker 起的 reviewer 会话用 `issue-<n>-review`；cursor 的模型串是 `cursor-grok-4.6-high`（effort 烧在 slug 里，`cursor-agent models` 无裸 `cursor-grok-4.6`）；grok 要加 `--worktree-ref main`（缺省从当前 HEAD 开，A2 的起点算法要求从 main 开）。
 - 角色表数值（昨晚定、今天沿用）：初级 worker cursor `cursor-grok-4.6` effort high；高级 worker grok `grok-4.6` xhigh；reviewer 会话 claude opus；verifier 同宿主不同模型写在 `agents/verifier/agent.json`；编排者 claude opus medium（自动化阶段再用）。
 
