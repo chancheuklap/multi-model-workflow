@@ -26,6 +26,7 @@
 | F14 | 验收标准怎么跑怎么判 | 已定 | B8 |
 | F15 | code-review 方法论扩充 | 后补 | B7 |
 | F16 | Claude Design 交接包与 DESIGN.md | 已定 | D5 |
+| F17 | 按机制用途复查：verify-ticket 脚本化、两个 hook gate、派发脚本 | 已定 | G1–G3 |
 
 ## 块 0 · 昨晚三轮调查后的定案（2026-08-27 夜 → 08-28 凌晨）
 
@@ -274,3 +275,35 @@
 
 - 用户：「你要一次性规划出完整的改动顺序，如何一点点落地，你检查完我检查，再修改，再下一步」。
 - 落点：落地 spec，本仓 issue #60（Implementation Decisions 十一节 = 改动顺序，每节带「我检查 / 你检查」）；经 claim-checker 核查 55 条陈述、修 13 条后发布。
+
+## 块 G · 按机制用途复查（2026-08-29）
+
+### G0 原则：每种机制只为一个目的而用
+
+- 用户原话：「你要从 agent 原理上去思考，之所以用技能是因为里面的内容需要被多个 agent 使用或者主 agent 需要完成多项任务，之所以用 agent 配置文档是因为可以自定义模型思考并且在调用 subagent 时自动加载固定的上下文，之所以用 herdr 派发外部 agent 是因为要使用搭载多种模型的 agent，之所以使用 hooks 是因为要强制执行并进行判断，之所以要用脚本是因为固定的操作可以脚本化避免出错跳步同时减少 agent 不必要的思考和 token 消耗，之所以通过文档传递上下文是为了避免漏传、错传，标定事实，同时一份文档可以服务多个流程多个 agent，同时已经记录在文档里的内容绝对不需要再次抄写进提示词里，只需要用路径或者章节指针」；「我从来没有说过不许用 hooks」。
+- 结论：设计每一步先按这张表核对用的是不是对的机制。此前各文档写「无 hook」的两条理由（`10` §3.a.1 注入送错会话、§3.a.3 镜像文件）只针对注入型 hook 与本地账本，对不注入、不建文件的 gate 不适用；`10` §6 表「hook 层 … 不做」一行由本块覆盖。
+- 落点：记忆「工作流机制选择原则」；`13-scriptable-steps.md`。
+
+### G1 `verify-ticket` 是一个脚本，技能正文只剩调用形
+
+- 现状：#60 第 2 节把三种用法写成「取票 → 临时账本 → gate-check → 算 Outside Owns → 贴评论」的散文步骤，由模型逐步照做。
+- 结论：`scripts/verify-ticket.py <n> [--reverify|--lint|--preflight|--closeout]` 一个脚本；`--lint` 加同 spec 票图的环与悬空核对（grok `validate_dag` 复用）；`--preflight` 做开工守卫后认领；`--closeout` 核收尾评论首行、`ABANDON` kind、`Counts:`、`VERDICT` commit == HEAD、工作区与分支，全过才由脚本关票或换标签。不持有状态文件。verifier `body.md` 只补 `VERDICT <完整 commit> <level> …` 一行，level 是它唯一要判的事。
+- 用户裁决：「看起来没问题」（对 `13-scriptable-steps.md` 的提议）。
+- 落点：#60 第 2、3、5、7、9 节；Testing Decisions 加自写脚本的 `tests/`。
+
+### G2 两个 hook gate：worker 半途不许停、不经校验不许关票
+
+- 事实（2026-08-29 核实，`13-scriptable-steps.md`「五个宿主的 hook 能力」）：Claude Code / Grok Build / Codex 有 `Stop` 硬 gate 与 `PreToolUse` deny；Cursor 的 `stop` 只能 `followup_message` 软顶回（`loop_limit` 5），`beforeShellExecution` 可 deny；pi 用扩展 `tool_call` block、`agent_end` 续一轮。本机 `~/.grok/config.toml` 关了 `[compat.claude]`/`[compat.cursor]` 的 `hooks`，Grok 要单独写 `~/.grok/hooks/`。Herdr 已在五宿主各装一个 `SessionStart` hook，安装方式照抄。
+- 结论：`scripts/hook.py <stop|pretool> <host>`，只在 `HERDR_ENV=1` 且分支名匹配 `issue-<n>` 时动作（自定位，主 agent 与 reviewer 会话不命中），读 `gh` 不读文件，`gh` 失败放行。`stop`：票没关也没 `HANDOFF REQUIRED` 就 block；`pretool`：`gh issue close` / 换标签前跑 `--closeout --check-only`，非零 deny。`install.sh` 多装这一层（四份 JSON 合并 + pi 一个 `.ts`），`--check` 核对。
+- 落点：#60 第 2 节（hook.py、install.sh 段）、第 9 节第 6 步、Out of Scope「票不动而 agent 已 idle」一句。
+
+### G3 派发是固定操作：`dispatch.sh`
+
+- 现状：主 agent 每票重复「读 `models.md` 抄行 → `herdr pane split` → `agent start` → 等 idle → `agent prompt`」；worker 起 reviewer 会话是同一串；等评论出现靠模型自己轮询。
+- 结论：`scripts/dispatch.sh <n> <role>` 从 `models.md` 三列表按角色读第三列；`dispatch.sh wait <n> <首行前缀> [秒]` 轮询票评论。`models.md` 定为「角色 | 宿主 | 完整启动命令」三列，用户照旧只改表。
+- 落点：#60 第 2 节、第 4 节、第 9 节第 3 步。
+
+### G4 不采的
+
+merge-note 与正文一致性 canary（「关键句」无法机械定义）；二次调用审计（0.3）；对照实验 harness（C1）；跨票记忆（消费端是提示词）。
+
