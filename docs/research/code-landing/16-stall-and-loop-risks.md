@@ -2,7 +2,7 @@
 
 无人看守时，一张票有两种坏结局：**停**（本来能继续，却因为一条判定不通过而交给人）和**转圈**（两个 agent 互相返工，永不收敛）。#60 与 `12-decisions.md` 里防转圈的设定是齐的（code-review 一轮、不复审、verifier 一次），防停的设定则有缺口：本文逐条检查这些硬性判定，列出会触发的条件与改法。
 
-检查范围：#60 全部十一节、`12-decisions.md` 块 A–G、`08-failure-vocabulary.md` §5、`05-runnable-acceptance-gates.md` §8 与 §10、`06-independent-verifier.md` §8。本文只调查、只提议；定案登记在 `12-decisions.md` H4–H6。
+检查范围：#60 全部十一节、`12-decisions.md` 块 A–G、`08-failure-vocabulary.md` §2.1 与 §5、`05-runnable-acceptance-gates.md` §8 与 §10、`06-independent-verifier.md` §8。本文只调查、只提议；定案登记在 `12-decisions.md` H4–H6。
 
 判断依据是用户 2026-08-29 定的原则：**约束 agent 的工作方法以提高结果质量，而不是轻易判定失败或让人接管；同时不许陷入 agent 之间的无限循环，遇到收不了的问题要完整、及时地记录下来供以后修**。
 
@@ -28,7 +28,7 @@
 
 ### 1.2 带 `MANUAL:` 的票在夜里必然 `HANDOFF REQUIRED`
 
-`08-failure-vocabulary.md` §5 表第一行：manual gate 算 met 的条件是「勾了且 `EVIDENCE:` 非 `pending`」；`05-runnable-acceptance-gates.md` §8.2 第 4 条：「manual 标准 → 由 `MANUAL:` 里命名的人填 EVIDENCE，**worker 不代填、不代勾**」；#60 第 5 节：verifier 对 MANUAL 条目「标『manual, not run』」。
+`08-failure-vocabulary.md` §2.1 的标准层三态表（第 19 行）：manual gate 算 met 的条件是「勾了且 `EVIDENCE:` 非 `pending`」；`05-runnable-acceptance-gates.md` §8.2 第 4 条：「manual 标准 → 由 `MANUAL:` 里命名的人填 EVIDENCE，**worker 不代填、不代勾**」；#60 第 5 节：verifier 对 MANUAL 条目「标『manual, not run』」。
 
 于是任何带一条 `MANUAL:` 的票，夜里跑完必然有一条 unmet，必然不得 `ALL MET`，必然 `HANDOFF REQUIRED`、换 `ready-for-human`、不关票。
 

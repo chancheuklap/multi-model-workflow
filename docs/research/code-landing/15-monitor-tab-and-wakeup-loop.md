@@ -2,7 +2,7 @@
 
 `14-herdr-utilization.md` 盘的是 Herdr 有哪些能力、一张票在里面怎么摆。本文回答另一个问题：这套东西自动跑起来时，**信息在 agent 之间怎么流动**，**下级没到终点就停下时上级做什么**，以及**这一切摆在哪个界面上给人和 agent 同时看**。本文只调查、只提议，不定案。
 
-取证时间 2026-08-29。新增的取证来源：herdr 官方插件文档（`https://raw.githubusercontent.com/herdrdev/herdr/v0.8.2/docs/next/website/src/content/docs/plugins.mdx`）与市场文档（同目录 `marketplace.mdx`）、GitHub 上带 `herdr-plugin` 话题的 882 个仓库（`gh api search/repositories -f q='topic:herdr-plugin'`）中六个同类项目的 README 与 manifest、本机 `herdr plugin` 命令组清单。
+取证时间 2026-08-29。新增的取证来源：herdr 官方插件文档（`https://raw.githubusercontent.com/herdrdev/herdr/v0.8.2/docs/next/website/src/content/docs/plugins.mdx`）与市场文档（同目录 `marketplace.mdx`）、GitHub 上带 `herdr-plugin` 话题的仓库（`gh api search/repositories -f q='topic:herdr-plugin'`，2026-08-29 查得 882，这个数每天在涨）中六个同类项目的 README 与 manifest、本机 `herdr plugin` 命令组清单。
 
 ## 1. 「自动化 = 信息交换直到终点信息出现」成立，但要分开两种信息
 
@@ -23,7 +23,7 @@
 
 ## 2. 「未到终点就停下 → 上级唤醒、诊断、重新 prompt」也成立，且已有人做出来
 
-同意，且它不是新发明——GitHub 上带 `herdr-plugin` 话题的仓库里，这条闭环的每一段都有现成实现。下表是六个同类项目，都在本次取证中读过 README 或 manifest。
+同意，且它不是新发明——GitHub 上带 `herdr-plugin` 话题的八百多个仓库里，这条闭环的每一段都有现成实现。下表是六个同类项目，都在本次取证中读过 README 或 manifest。
 
 | 项目 | 它做的事 | 对我们有用的部分 |
 | --- | --- | --- |
@@ -52,7 +52,7 @@
 
 ### 4.1 硬约束：全屏 TUI 的内容 agent 读不到
 
-`09-herdr-dispatch-model.md` §1.5 与 §7 已实测：grok / codex / claude 默认跑在终端的备用屏（alternate screen）上，滚出去的行不进 Herdr 的滚动缓冲，`herdr agent read --lines` 加大也读不回来。一个用备用屏画的全屏 TUI 面板（scuttlebutt 的聊天 pane、corral 的看板都是这种）对**人**很好，对**agent** 是黑的。
+备用屏（alternate screen）上滚出去的行不进 Herdr 的滚动缓冲，`herdr agent read --lines` 加大也读不回来（`09-herdr-dispatch-model.md` §1.5）。Claude Code 在备用屏上跑是 `09` §7 的实测；grok 与 codex 默认在备用屏是 `09` §3.2 从两家 `--help` 都有 `--no-alt-screen` 推断的，未实测。一个用备用屏画的全屏 TUI 面板（scuttlebutt 的聊天 pane、corral 的看板都是这种）对**人**很好，对**agent** 是黑的。
 
 用户要的是「既能被 agent 看懂并利用，也能被人类看懂」。所以监控端不能只是一个 TUI。
 

@@ -149,7 +149,7 @@ gh issue view <n> --json comments                  # 确认评论到了；没到
 
 ### 4.5 不采：读屏找完成标记
 
-`pane.output_matched` 订阅与 `herdr pane wait-output --match` 能在输出里出现某行时触发，看上去可以让 worker 打印一行 `MMW-DONE #61` 当完成信号。不采：`09` §1.5 与 §7 已实测 grok / codex / claude 默认跑在 alternate screen 上，滚出的行不进 scrollback，读屏不可靠。token 走的是 socket，与渲染层无关。
+`pane.output_matched` 订阅与 `herdr pane wait-output --match` 能在输出里出现某行时触发，看上去可以让 worker 打印一行 `MMW-DONE #61` 当完成信号。不采：Claude Code 在备用屏（alternate screen）上跑是 `09` §7 的实测（`agent read --lines 40` 只看到提示框），grok 与 codex 默认在备用屏是 `09` §3.2 从两家 `--help` 都有 `--no-alt-screen` 推断的，未实测；无论哪一种，滚出去的行不进 scrollback，读屏都不可靠。token 走的是 socket，与渲染层无关。
 
 同样不采「worker 用 `agent prompt` 通知 coordinator」：`agent prompt` 会打断对方当前回合，且对方在 working 时可能返回 `agent_prompt_stalled`（`SKILL.md:130`）。反向通道用 token 加票评论。唯一值得保留 `agent prompt` 的反向用途是「必须让 coordinator 立刻做一件只有它能做的事」，而这属于 #60 Out of Scope 的夜间主循环。
 

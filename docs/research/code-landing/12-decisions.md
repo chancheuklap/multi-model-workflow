@@ -31,6 +31,7 @@
 | F19 | 自动化里信息怎么交换；监控界面在哪 | 已定 | H2 |
 | F20 | 需要人的那一点（`ABANDON: decision`、没人填 EVIDENCE 的 `MANUAL:`）之后票停不停 | 已定 | H3、H6 |
 | F21 | 会让 agent 停下或转圈的设定 | 已定（S1–S11 全部） | H4、H5 |
+| F22 | `Owns` 写到什么粒度 | 已定 | H7 |
 
 ## 块 0 · 昨晚三轮调查后的定案（2026-08-27 夜 → 08-28 凌晨）
 
@@ -375,8 +376,16 @@ merge-note 与正文一致性 canary（「关键句」无法机械定义）；�
 
 ### H6（S3）带 `MANUAL:` 的票按 decision 同样处理
 
-- 现状：manual gate 算 met 的条件是「勾了且 `EVIDENCE:` 非 `pending`」（`08-failure-vocabulary.md` §5 表首行），而 `05-runnable-acceptance-gates.md` §8.2 第 4 条定「worker 不代填、不代勾」，verifier 对 MANUAL 条目「标 manual, not run」（#60 第 5 节）。于是任何带一条 `MANUAL:` 的票夜里必然有一条 unmet、必然 `HANDOFF REQUIRED`，首行同时表示「出事了」和「一切正常只等你看一眼」。
+- 现状：manual gate 算 met 的条件是「勾了且 `EVIDENCE:` 非 `pending`」（`08-failure-vocabulary.md` §2.1 标准层三态表，第 19 行），而 `05-runnable-acceptance-gates.md` §8.2 第 4 条定「worker 不代填、不代勾」，verifier 对 MANUAL 条目「标 manual, not run」（#60 第 5 节）。于是任何带一条 `MANUAL:` 的票夜里必然有一条 unmet、必然 `HANDOFF REQUIRED`，首行同时表示「出事了」和「一切正常只等你看一眼」。
 - 选项：甲——每条 MANUAL 项开成 spec 下的 sub-issue，其余标准全过就 `ALL MET` 关票；乙——维持整票 HANDOFF，首行计数把人工项单列；丙——出票禁止 MANUAL（与 #60 US3 冲突）。
 - **用户裁决：甲。**
 - 结论：worker 收尾时把每条未填 EVIDENCE 的 `MANUAL:` 标准开成 sub-issue（`--parent <spec> --label ready-for-human`，正文抄 `MANUAL:` 行原文与相关材料），列进收尾评论的 `Sub-issues opened:`；这些标准不计入 unmet，其余标准全过即 `ALL MET` 关票。`Counts:` 增加一个 `manual` 数，形如 `Counts: 5 met, 0 unmet, 0 abandoned, 1 manual of 6`。与 H3 是同一条逻辑：需要人的那一点小到能单独记成一张 issue，票本身不停。
 - 落点：`08-failure-vocabulary.md` §5.3 的计数格式、#60 第 9 节第 5–6 步、#63 的 `--closeout` 校验、#68（`to-tickets` 出票时 MANUAL 行的写法不变）、#73。
+
+### H7（F22）`Owns` 的粒度：同一目录内多票分工时写到文件级
+
+- 触发：把块 H 与 S1–S11 同步进 #61–#75 之后，用 `Blocked by` 边算传递闭包、再两两比 `Owns`，发现四对「同一 frontier 上 Owns 重叠却没有阻塞边」——#63、#64、#65、#67 四张票都在新建的 `mmw-v2/skills/verify-ticket/` 里做不同文件（`verify-ticket.py` 的子命令、`hook.py`、`visual-parity.py`、`dispatch.sh`），按「目录级 glob」写就是四份 `mmw-v2/skills/verify-ticket/**`，两两重叠；`tests/**` 同理；`mmw-v2/skills.txt` 被 #62 与 #74 同时声明，`mmw-v2/install.sh` 被 #64 与 #69 同时声明。
+- A2 与 #60 第 3 节定的是「仓库相对的**目录** glob」，`04-owns-write-boundary.md` §7.1 的原意是「逼出票人想清楚动哪些目录」。在一张 spec 把一个新目录拆给四张票做的场合，目录级粒度不够：要么给本来能并行的票加上假的阻塞边，要么放任重叠。
+- 结论：**`Owns` 的粒度跟着实际分工走**——多张票分工同一个目录时写到文件级（`scripts/hook.py`、`tests/test_hook.py`），一张票独占一个目录时仍写目录 glob（`mmw-v2/agents/verifier/**`、`mmw-v2/upstream/skills/engineering/implement/**`）。判据不是「目录还是文件」，而是「同一 frontier 上两票的 `Owns` 不得相交」——这条是 A2 与 #60 第 3 节本来就有的，粒度只是满足它的手段。共用的单个文件（`skills.txt`、`install.sh`）无法再切，只能加阻塞边。
+- 已按此改：#63、#64 从整目录收窄到具体文件；#65、#67 的 `tests/**` 收窄到各自的测试文件；#65 加 `Blocked by #63`、#67 加 `#65`、#64 加 `#69`、#74 加 `#62`、#75 补 `#68`。改完重算票图：同 frontier 且 Owns 重叠的票对 0 个、无环、无悬空引用、启动层级六层。
+- 落点：#68（`to-tickets` 的 `## Owns` 规则加这一句）、#60 第 3 节同一处；`--lint` 的票图核对（#63）已经会查环与悬空，重叠仍靠出票时人眼比对（A2 原样）。
