@@ -36,7 +36,7 @@ tab 是三层里唯一「聚合一组 pane 的状态、又不绑定仓库」的�
 `dispatch.sh <n> worker` 的第一步因此不是 `pane split`，而是：
 
 ```
-herdr tab create --workspace "$MMW_NIGHT_WS" --cwd "$REPO_ROOT" \
+herdr tab create --workspace "$HERDR_WORKSPACE_ID" --cwd "$REPO_ROOT" \
   --label "#<n> <票标题前 20 字>" --env MMW_TICKET=<n> --no-focus
 ```
 
@@ -46,17 +46,11 @@ herdr tab create --workspace "$MMW_NIGHT_WS" --cwd "$REPO_ROOT" \
 
 worker 起 reviewer 时在**同一个 tab** 里分屏。方向由 `herdr pane layout --pane <id>` 的 `.result.layout.area` 决定：**实测**本机当前 area 为 `width 210 / height 48`，宽 pane 应向右分（`SKILL.md:100`「Split a wide pane to the right and a narrow or tall pane down」），分完两个 pane 各 105 列。窗口尺寸会变，所以脚本读一次 area、`width >= 160` 走 `--direction right`，否则 `--direction down`，比写死一个方向可靠，代价是一次只读调用。
 
-### 2.4 今晚这批票放一个专用 workspace
+### 2.4 不给夜里的票另开 workspace
 
 本机现在四个 workspace（**实测** `api snapshot`），每个对应一个仓库或 worktree，`$ws` 与 `$br` token 由 `user.agent-display-names` 上报，Spaces 面板一行一个。夜里若每张票开一个 workspace，Spaces 面板会被票挤满，`$br` 的「一个工作台一个分支」也不再成立（worker 的 worktree 是宿主自己开的，见 `12-decisions.md` E1，herdr workspace 并不跟着切）。
 
-反过来，**给今晚这批票开一个 workspace**（`herdr workspace create --cwd <仓库根> --label mmw-night --no-focus`，一次性）有三个直接好处，且不需要写任何新代码：
-
-1. 夜里的 worker 与用户白天的会话在 Spaces 面板上分开。
-2. `user.ws-agents-filter` 插件已经把 Agents 面板过滤成「只显示当前 workspace 的 agent」（`apply_view.py` 的 filter 是 `workspace_id eq {context: current_workspace_id}`）。切到 `mmw-night`，Agents 面板**自动**变成今晚的票看板。
-3. workspace 的 token 是现成的汇总位（§5.2）。
-
-worker 的 cwd 仍是仓库根，worktree 由宿主自己开（E1），与 workspace 无关。
+给整批票开一个共用 workspace（label `mmw-night`）也不做：它唯一的额外好处是 Spaces 面板分组与 `user.ws-agents-filter` 的侧栏过滤，而这两处的读者只有侧栏。归组已经由「一张票一个 tab」加 `ticket` token 完成——任何监控端从 `herdr api snapshot` 按 `tokens.ticket` 筛就够，workspace 不多给一个机器可读的字段。worker 的 pane 就开在主 agent 所在的 workspace 里。
 
 ### 2.5 什么时候不开 pane
 
@@ -69,7 +63,7 @@ worker 的 cwd 仍是仓库根，worktree 由宿主自己开（E1），与 works
 | verifier | 不开 | 子代理，跑在 worker 的进程里（`09` §1.1） |
 | `verify-ticket.py` / `visual-parity.py` / 测试 | 不开 | worker 自己的 Bash 调用，退出码就是结果 |
 | coordinator 自己 | 单独一个 tab | 全夜常驻，不属于任何票 |
-| 常驻监视（§5.2） | 不开 pane | 插件由 herdr spawn，不是终端进程 |
+| 监控与唤醒（`15-monitor-tab-and-wakeup-loop.md`） | 开，单独一个 tab | 人要看它，它也要被 agent 读 |
 
 要单独细看某个 worker 时用 `herdr pane zoom <pane_id> --on`，不必调整布局。
 
@@ -82,12 +76,12 @@ worker 的 cwd 仍是仓库根，worktree 由宿主自己开（E1），与 works
 | agent name | `agent start <name>` / `agent rename <target> <name>` | `issue-<n>`、`issue-<n>-review` | **CLI 的定位句柄**。须匹配 `[a-z][a-z0-9_-]{0,31}` 且在活着的 agent 里唯一（`SKILL.md:56`），所以不能只写票号 |
 | pane label | `pane rename <pane_id> <label>` | `#<n> worker`、`#<n> reviewer` | 人眼。显示在 pane 边框（config.toml:10） |
 | tab label | `tab create --label` / `tab rename` | `#<n> <标题前 20 字>` | 人眼。tab 条与 `tab list` |
-| token（source `mmw`） | `pane report-metadata --token` | `ticket`、`role`、`phase`、`ac`、`verdict` | **机读**。coordinator 的台账；侧栏的行 |
+| token（source `mmw`） | `pane report-metadata --token` | `ticket`、`role`、`phase`、`ac`、`verdict` | **机读**。coordinator 与监控端的台账 |
 
 命名方案的关键不在名字取得多好，而在**名字可预测**：coordinator 要对 #61 的 worker 做任何事，直接写 `herdr agent prompt issue-61 …`，不必先 `agent list` 找 pane id，也不必记住任何映射。这一条已经由 E1 满足，本文只补两点：
 
 - **`agent rename` 让命名不再依赖启动那一刻**。`agent start` 在启动期被挡时返回 `agent_not_ready`（`SKILL.md:120`），名字仍保留；即使某个宿主的就绪检测失败导致没命名成功，`dispatch.sh` 也可以在确认 pane 里跑起来之后补一条 `agent rename`。
-- **`display_agent` 补上 cursor / grok 缺的那半个名字**。E1 记下「cursor / grok 只有 Herdr 一侧有名」。`pane report-metadata --display-agent "cursor · grok-4.6-high"` 覆盖侧栏显示的 agent 种类字段，用户扫一眼就知道这张票用的哪个模型，不必去查 `models.md`。
+- **模型写进 token，不写进 `display_agent`**。E1 记下「cursor / grok 只有 Herdr 一侧有名」。`pane report-metadata --display-agent` 能覆盖侧栏显示的 agent 种类字段，但它的读者只有侧栏；`--token model=grok-4.6-xhigh` 同样能让监控端说出这张票用的哪个模型，且是机读的。
 
 coordinator 要的不是记忆，是一张表。`herdr api snapshot` 的 `agents[]` 每行已含 `name`、`pane_id`、`tab_id`、`workspace_id`、`agent_status`、`tokens`、`cwd`——加上 §4 的 phase token，一条命令就是全局台账，无需逐个 `agent get`。
 
@@ -125,13 +119,14 @@ coordinator 要的不是记忆，是一张表。`herdr api snapshot` 的 `agents
 | `--closeout` 成功 | `phase=closed` 或 `phase=handoff`，并 `--clear-token` 掉 `ac` |
 | `--closeout --check-only` 被拒 | `phase=closeout-rejected` |
 
-同一处再写一行 `--state-label`，侧栏的 `state_text`（config.toml:35、58）就直接显示这张票的话，例如 `--state-label idle="#61 停在 verify"`。写入形如：
+写入形如：
 
 ```
 herdr pane report-metadata "$HERDR_PANE_ID" --source mmw \
-  --token ticket=<n> --token role=worker --token phase=<阶段> \
-  --state-label idle="#<n> 停在 <阶段>" --ttl-ms 86400000
+  --token ticket=<n> --token role=worker --token phase=<阶段> --ttl-ms 86400000
 ```
+
+不写 `--state-label`：它的唯一读者是侧栏的 `state_text`（config.toml:35、58）。
 
 脚本里做三件保护：`HERDR_ENV` 不为 1 时整段跳过（脚本在 Herdr 外也要能跑）；`HERDR_PANE_ID` 为空时跳过；socket 调用失败不影响退出码（照抄 `~/.claude/hooks/herdr-task-state.sh` 的写法，它对每个前提都 `exit 0`）。
 
@@ -150,7 +145,7 @@ gh issue view <n> --json comments                  # 确认评论到了；没到
 
 ### 4.4 blocked 是谁的 blocked
 
-`09` §6 第 5 条记了一个真问题：verifier 是子代理，它的审批弹窗会表现为 **worker pane 的 blocked**，从外面分不清是 worker 自己卡住还是 verifier 卡住。缓解办法很便宜：worker 派 verifier 之前那一步（也就是 `verify-ticket.py --reverify` 的开头）写一次 `--state-label blocked="#<n> verifier 等审批"`，reverify 结束时清掉。侧栏与 `agent get` 都能看到这句话。
+`09` §6 第 5 条记了一个真问题：verifier 是子代理，它的审批弹窗会表现为 **worker pane 的 blocked**，从外面分不清是 worker 自己卡住还是 verifier 卡住。`phase` token 已经回答了这个问题：`blocked` 且 `phase=verify` 就是 verifier 卡住的那段时间。不必再加一个字段。
 
 ### 4.5 不采：读屏找完成标记
 
@@ -162,50 +157,37 @@ gh issue view <n> --json comments                  # 确认评论到了；没到
 
 ### 5.1 worker
 
-除了 §4.2 的 token（由脚本代劳）与已定的「起 reviewer 会话」，worker 值得多做的只有一件：`herdr notification show "#<n> HANDOFF REQUIRED" --body "<首行>" --sound none`。夜里没人看，通知会静默堆在屏幕上，早上一眼看见几张要人处理——比 `08-failure-vocabulary.md` §5.4 的五条 `gh issue list` 查询更早一步。`--sound request` 留给真正需要立刻打断人的情况（本轮没有这种情况）。
+除了 §4.2 的 token（由脚本代劳）与已定的「起 reviewer 会话」，worker 在 Herdr 这一侧不需要多做别的。`herdr notification show` 的桌面通知只在人守着屏幕时有用，本仓的用户在 GitHub 网页上看票，不看 Herdr 的侧栏与通知，所以不安排。
 
-### 5.2 一个常驻插件，替掉「守夜」
+### 5.2 唤醒闭环与监控 tab
 
-本机三个插件给出了完整模板：`herdr-plugin.toml` 里 `[[events]] on = "pane.agent_status_changed"` + `command = ["python3", "sync_status.py"]`，herdr 在事件到来时 spawn 一个进程，进程用 `HERDR_SOCKET_PATH` 回调 socket（`~/.pi/packages/integrations/herdr/space-status/` 是一个 17 行的 manifest 加一个 190 行的 python 脚本，其中 socket 样板约 60 行）。
-
-一个 `mmw-night-watch` 插件能做的事，全部不需要模型、不消耗任何 token 配额：
-
-1. 每次有 pane 的状态变成 `idle` / `done` 时，读它的 `phase` token：若不是 `closed` / `handoff`，就是 §4.1 表里的「半路停了」。
-2. 把这张票写进 workspace token 汇总（`herdr workspace report-metadata <ws> --source mmw --token run=2 --token stalled=1 --token handoff=1`），Spaces 面板加一行就能显示。
-3. 发一条 `notification.show`。
-4. 需要时 `agent prompt issue-<n> "…"` 把 worker 推回去，或叫醒 idle 的 coordinator。
-
-第 4 条是 #60 Out of Scope 的「夜间编排主循环」与「票不动而 agent 已 idle 的处置」的最短实现路径：coordinator 派完票就可以停下（idle，不占上下文），由插件在状态变化时叫醒它。**本轮不做**，但知道它是插件而不是循环脚本，会影响 #64 与 #67 的形状——两个 hook gate 与 `dispatch.sh` 写的 token，正好是这个插件将来要读的输入。
+「下级停在半路 → 上级被通知、去查为什么、重新 prompt 它继续」这条闭环，以及一个人和 agent 都能读的监控界面，是另一份调查的题目：`15-monitor-tab-and-wakeup-loop.md`。本文只留下它需要的两个输入：§4.2 的 phase token（判断「停了没收尾」）、§3 的可预测 agent 名（`issue-<n>`，唤醒方不查表就能 prompt 到人）。
 
 ### 5.3 不动 `agent.view`
 
-`agent.view.set` 能让 Agents 面板按 token 过滤和排序，看上去正好做「夜间票看板」。但它是全局单例（`apply_view.py` 一个 `source` 一个 `label`），已被 `user.ws-agents-filter` 占用。改它会打掉用户现有的「Agents 跟随当前 Space」行为。§2.4 的专用 workspace 不写一行代码就得到同样的效果。
+`agent.view.set` 能让 Agents 面板按 token 过滤和排序。它是全局单例（`apply_view.py` 一个 `source` 一个 `label`），已被 `user.ws-agents-filter` 占用，且读者是侧栏。不动。
 
-### 5.4 侧栏加一行就看得见
+### 5.4 不给侧栏加行
 
-`[ui.sidebar.agents.rows_by_agent]`（config.toml:48 起）现在给 claude 排了四行：会话标题、`$ws`、`state_text`、`$task`。cursor / grok 走默认的 `[ui.sidebar.agents]`（24 行起）。给它加一行 `{ token = "$mmw" }`，再让 `verify-ticket.py` 写一个合成 token（形如 `#61 verify 3/5`，因为 token 值不能带换行，见 config.toml:74 的注释），侧栏就直接是夜间看板。是否加、加在第几行由用户定——这是配置，不是仓库文件。
-
+`[ui.sidebar.agents]`（config.toml:24 起）能用一个 token 换一行。不安排：侧栏已有四行（会话标题、`$ws`、`state_text`、`$task`），宽 38 列（config.toml:13），而这套流程的读者在 GitHub 网页与监控 tab 上。§4.2 的 token 写进 herdr 是给机器读的，不是为了显示。
 ## 6. 落点
 
 | 改法 | 落在哪张票 | 具体位置 |
 | --- | --- | --- |
 | `dispatch.sh <n> worker` 先 `tab create --label "#<n> …" --env MMW_TICKET=<n> --no-focus`，用返回的 `root_pane.pane_id` 起 agent | #67 | `dispatch.sh` 第一步；#60 第 2 节 `dispatch.sh` 一段 |
-| 起完 agent 后 `pane rename`（`#<n> worker`）、`report-metadata --display-agent`（宿主 · 模型） | #67 | 同上 |
+| 起完 agent 后 `pane rename` 成 `#<n> worker`；模型写进 `--token model=` | #67 | 同上 |
 | reviewer 在同 tab 分屏，方向按 `pane layout` 的 `area.width` 判断（≥160 向右，否则向下） | #67 | `dispatch.sh <n> reviewer` |
 | `dispatch.sh wait` 内部改成 `agent wait` + 一次 `gh` 确认，调用形不变 | #67 | #60 第 2 节 `dispatch.sh wait` 一句、第 9 节第 3 步 |
 | `models.md` 第三列里的 `<n>` 由 `dispatch.sh` 替换（现在没写明谁替换） | #66、#67 | #60 第 4 节 `models.md` 三列表的说明 |
-| 今晚这批票开一个 workspace（label `mmw-night`），由 `dispatch.sh` 首次调用时按 label 找不到就建 | #67 | `dispatch.sh` |
-| `verify-ticket.py` 五个子命令首尾写 `ticket/role/phase/ac` token 与 `state_label`，`HERDR_ENV` 不为 1 时整段跳过 | #62、#63 | #60 第 2 节 `verify-ticket.py` 各子命令 |
-| `--reverify` 期间把 `blocked` 的 state_label 标成「verifier 等审批」 | #63 | 同上 |
+| `verify-ticket.py` 五个子命令首尾写 `ticket/role/phase/ac/model` token，`HERDR_ENV` 不为 1 时整段跳过 | #62、#63 | #60 第 2 节 `verify-ticket.py` 各子命令 |
 | `hook.py` 的票号优先取 `$MMW_TICKET`，取不到再按分支名 `issue-<n>` 匹配 | #64 | #60 第 2 节 `hook.py` 自定位一段 |
 | `hook.py stop` 顶回时写 `phase=stalled` | #64 | 同上 |
-| HANDOFF 时 `herdr notification show … --sound none` | #73 | #60 第 9 节第 6 步之后 |
-| 侧栏加一行显示 mmw token | 不进仓库 | `~/.config/herdr/config.toml`，用户自己定 |
-| `mmw-night-watch` 插件 | 本轮不做 | #60 Out of Scope「夜间编排主循环」的实现路径记一句 |
+
+不落地的：夜里另开 workspace（§2.4）、`--state-label` 与侧栏行（§4.2、§5.4）、`--display-agent`（§3）、`notification show`（§5.1）、动 `agent.view`（§5.3）——它们的读者都只有 Herdr 的侧栏，而这套流程的读者在 GitHub 网页与监控 tab 上。监控 tab 与唤醒闭环见 `15-monitor-tab-and-wakeup-loop.md`。
 
 ## 7. 与现有记载冲突或要修正的地方
 
-1. **`09-herdr-dispatch-model.md` §1.2**「名字跟着 pane 里当前的占用者走」没错，但缺了 `agent rename`：命名不必发生在 `agent start` 那一刻，事后可改可清（**实测**）。E1 里「cursor / grok 只有 Herdr 一侧有名」因此可以补上 `--display-agent`。
+1. **`09-herdr-dispatch-model.md` §1.2**「名字跟着 pane 里当前的占用者走」没错，但缺了 `agent rename`：命名不必发生在 `agent start` 那一刻，事后可改可清（**实测**）。
 2. **`09` §3.1「Herdr 没有完成信号」要加一句限定**：Herdr 自己不产生完成信号，但 pane token 让 worker 能自己发一个，且一写即广播（**实测**）。「做完」的判据仍是票状态（`08-failure-vocabulary.md`），token 解决的是「票没变时，它是在跑还是死了」。
 3. **`09` §1.5 的三种读输出方式**之外还有第四种：token。它不经渲染层，不受 alternate screen 影响。
 4. **#60 第 2 节 `dispatch.sh` 的第一步**现在写的是 `herdr pane split`。若采 §2.2，第一步是 `tab create`；`pane split` 只用于 reviewer。
