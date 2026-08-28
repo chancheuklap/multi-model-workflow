@@ -185,7 +185,7 @@ input.chk{width:16px;height:16px;cursor:pointer}
 
 <section id="decisions">
   <h2>定案总表（2026-08-28，按块）</h2>
-  <p class="lede">每一行都已写进 <code>00-synthesis.md</code> 对应的「块 X 定案」表并提交。第 7 节登记表里对应的行已划掉。</p>
+  <p class="lede">每一行都已写进 <code>00-synthesis.md</code> 对应的「块 X 定案」表并提交；每个分岔的背景、选项、你的原话、结论在 <code>docs/research/code-landing/12-decisions.md</code>。第 7 节登记表里对应的行已划掉。</p>
   <div class="tablewrap"><table>
     <tr><th>块</th><th>定了什么</th></tr>
     <tr><td>A 票的形态</td><td>AC 编号 <code>AC&lt;n&gt;</code>，不重排；人工项明写 <code>MANUAL: &lt;谁&gt; &lt;看什么&gt;</code>；人工项过半不出票；<code>Outside Owns:</code> 起点 = <code>git merge-base main HEAD</code>；Owns 两档（为过 AC 不得不改 → 改并记；顺手改 → sub-issue）</td></tr>
@@ -193,7 +193,7 @@ input.chk{width:16px;height:16px;cursor:pointer}
     <tr><td>C 写码纪律</td><td>ponytail 五句写进 <code>implement</code>，用第一张真实的票跑一遍验证，不做对照实验</td></tr>
     <tr><td>D UI 基线与工具</td><td>prototype 流程不变；<code>claude-design-blocks</code> 改第 1、2 步接受叶子目录组件 + 真实页面渲染结果，收进 <code>mmw-v2/skills/</code>；<code>to-spec</code> 不改，CHECK 由 <code>to-tickets</code> 从 Testing Decisions 与先例推出、EXPECT 跑先例一次抄；场景 = 组件 + <code>scenario</code> 属性，工具生成包装页离线渲染；<b>新技能 <code>verify-ticket</code></b> 装 gate-check 与 visual-parity；Claude Design 交接包 README 进叶子目录、DESIGN.md 上传 design system 并放进消费仓库；没有「UI 票」，只有「UI 验收标准」</td></tr>
     <tr><td>E 派发</td><td>worktree 由宿主自己开；权限全部放行；Herdr 名 <code>issue-&lt;n&gt;</code>；角色表 <code>docs/agents/models.md</code> 每行完整启动命令，<code>AGENTS.md</code> 指向它</td></tr>
-    <tr><td>F 落地</td><td>待定：第一张真实的票在哪个仓库；改动顺序</td></tr>
+    <tr><td>F 落地</td><td><code>docs/agents/models.md</code> 的读者是 <code>implement</code> 与以后的编排会话，用户只改表里的安排；技能改动用<b>虚构的、结构完整的票</b>在测试小仓库里逐处快速测，一次只改一处，测过、用户检查过再下一处；真实的票留到最后跑一遍，跑通才合 main；改动顺序见第 8 节与落地 spec</td></tr>
   </table></div>
 </section>
 
@@ -561,17 +561,23 @@ gh issue list --state open --json number,title,blockedBy --jq '.[]|select(.block
 </section>
 
 <section id="landing">
-  <h2>8 落地顺序（沿用 <code>10</code> §5：一次一组机制；没有真实票跑通不合 main）</h2>
-  <p class="lede">先定分岔，再动技能；每块定完只改它牵涉的文件，用同一张真实的票跑一遍。建议的讨论顺序：</p>
-  <div class="order">
-    <div class="panel"><span class="k">块 A · 已定 08-28</span><h3>票的形态</h3><p>F1、F2 已定。改 <code>to-tickets</code> 模板与 Read back。</p></div>
-    <div class="panel"><span class="k">块 B · 已定 08-28</span><h3>收尾与失败词汇</h3><p>全部定完。改 <code>implement</code> 收尾段；新建 <code>agents/verifier/</code>；<code>code-review</code> 改成路由 + 三个 reference；vendor <code>gate-check.mjs</code>；建 <code>CONTEXT.md</code>。</p></div>
-    <div class="panel"><span class="k">块 C · 已定 08-28</span><h3>写码中纪律</h3><p>F7 已定。改 <code>implement</code> 读入段之后的十行，用真实的票跑一遍验证。</p></div>
-    <div class="panel"><span class="k">块 D · 已定 08-28</span><h3>UI 基线与工具</h3><p>全部定完。改 <code>claude-design-blocks</code>；新建 <code>verify-ticket</code> 技能装两个脚本；交接包 README 与 DESIGN.md 进流程。</p></div>
-    <div class="panel"><span class="k">块 E · 已定 08-28</span><h3>派发</h3><p>F11 已定：<code>docs/agents/models.md</code> 放完整启动命令。</p></div>
-    <div class="panel next"><span class="k">块 F · 下一步</span><h3>第一张真实票</h3><p>F13。A–D 各定一块就用它跑一遍；全部跑通才合 main。</p></div>
-  </div>
-  <p class="src">改到上游技能（<code>to-spec</code>、<code>to-tickets</code>、<code>implement</code>、<code>code-review</code>、<code>prototype</code>）要写 <code>mmw-v2/merge-notes/</code>；技能正文一律英文、不写出处、不写落地记录（<code>10</code> §5 第 6 条）。</p>
+  <h2>8 落地顺序（落地 spec 的 Implementation Decisions 十一节）</h2>
+  <p class="lede">一节一处改动、一次提交、一次检查（我检查 → 你检查 → 修改）；上一节没过不进下一节。第 1–10 节都用第 1 节的虚构票在测试小仓库里测；第 11 节才用真实的票。</p>
+  <div class="tablewrap"><table>
+    <tr><th>节</th><th>改什么</th><th>我检查</th><th>你检查</th></tr>
+    <tr><td>1</td><td>测试台：<code>prototypes/code-landing/fixture/</code>（Python 包 + pytest + 静态页 + 从 EXP 复制的基线 + 场景列表）；本仓 <code>[fixture]</code> spec 与票各一张</td><td>pytest 过、静态页能起、基线可离线渲染</td><td>票读起来像真票；fixture README 一眼能懂</td></tr>
+    <tr><td>2</td><td><code>to-tickets</code>：<code>## Owns</code>、AC 四行、<code>MANUAL:</code>、人工项过半不出票、CHECK/EXPECT 推导句、Read back 七项自检、L135 措辞、基线是契约（merge-note）</td><td>对 fixture spec 跑 <code>/to-tickets</code>，产出与手写票同形；坏 AC 被自检报出</td><td>模板原文；一张产出的票</td></tr>
+    <tr><td>3</td><td>本仓根 <code>CONTEXT.md</code> 收新词；<code>docs/agents/models.md</code> 每行完整启动命令；<code>AGENTS.md</code> Agent skills 段加 Roles</td><td>每个词有出处；三条启动命令各起一次不报错</td><td><code>models.md</code> 的安排</td></tr>
+    <tr><td>4</td><td>新技能 <code>verify-ticket</code>：vendor gate-check 六文件 + 测试；<code>visual-parity.py</code>；SKILL.md 一段流程</td><td>对 fixture 票跑：pytest 条 PASS、故意失败条 FAIL、MANUAL 不跑、UI 条按差异判；<code>--reverify</code> 重跑已勾；vendor 测试绿；负控制被抓</td><td>票上那条评论能否一眼看出过没过</td></tr>
+    <tr><td>5</td><td>新 subagent <code>agents/verifier/</code>：只收票号；两次 <code>git status</code>；调 <code>/verify-ticket --reverify</code>；自己评论 VERDICT；可动环境</td><td>派一次，票上多一条 VERDICT；删一个依赖再派，它自己装回</td><td><code>body.md</code> 全文</td></tr>
+    <tr><td>6</td><td><code>code-review</code>：SKILL.md 路由 + <code>references/dispatch.md</code> / <code>standards-reviewer.md</code> / <code>spec-reviewer.md</code>；报告评论到票（merge-note）</td><td>分支上留一处 scope creep、一处漏做，跑一次，评论里两份报告与票内/票外分类正确</td><td>三个 reference 原文</td></tr>
+    <tr><td>7</td><td><code>implement</code> 开工段：认领、Owns 核对、读法收窄、基线是契约（merge-note）</td><td>跑 <code>/implement</code> 到「说出 Seam」</td><td>这一段原文</td></tr>
+    <tr><td>8</td><td><code>implement</code> 写码纪律十行：契约装不下 → sub-issue；ponytail 五句；Owns 两档</td><td>被两处调用的函数修在共用处；范围外一行改动记进 <code>Outside Owns:</code></td><td>那十行原文</td></tr>
+    <tr><td>9</td><td><code>implement</code> 收尾：<code>/verify-ticket</code> → verifier → code-review 一轮（其他宿主经 Herdr 起 Claude Code）→ 修一轮 → Audit → 固定格式评论 → PR → 关票或 HANDOFF</td><td>一次 ALL MET 关票；一次 HANDOFF REQUIRED 换标签、票与 PR 开着</td><td>收尾评论样子；早上五条查询各捞到什么</td></tr>
+    <tr><td>10</td><td><code>claude-design-blocks</code> 收进 <code>mmw-v2/skills/</code>；按能力判断需要 claude-design MCP；第 1、2 步接受叶子目录组件；Finish 加交接包 README 与 DESIGN.md</td><td><code>install.sh --check</code>；改动处对照 12-decisions D1</td><td>改动处原文</td></tr>
+    <tr><td>11</td><td>真实的票（消费仓库与票由你定）从 <code>/to-tickets</code> 跑到关票或 HANDOFF；跑通才 <code>merge --no-ff</code> 进 main</td><td>全程无人中途替 agent 做决定；四种评论都在票上</td><td>合不合 main</td></tr>
+  </table></div>
+  <p class="src">不动：<code>manage-agents-md</code>、<code>to-spec</code>、<code>prototype</code>。改上游技能写 <code>mmw-v2/merge-notes/</code>；技能正文一律英文、不写出处、不写落地记录（<code>10</code> §5 第 6 条）。</p>
 </section>
 </main>
 </div>
