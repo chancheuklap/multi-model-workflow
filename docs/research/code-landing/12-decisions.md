@@ -1,8 +1,83 @@
 # 落地定案全记录（2026-08-28）
 
-本文按讨论顺序完整记录每一个定案：当时的现状、摆出的选项、用户的裁决与原话、最终结论、落到哪个文件。`00-synthesis.md` 末尾的六张「块 X 定案」表是本文的摘要；蓝图页 `11-target-pipeline.html` 第 0.5 节「定案总表」与第 7 节登记表按本文更新。
+**本文是全部定案的唯一登记处。** `00-synthesis.md` 只做调查汇总，蓝图页 `11-target-pipeline.html` 只画流程和分岔状态并指向本文编号；两处都不复述定案内容。改定案只改本文。
+
+每条记录：当时的现状、摆出的选项、用户的裁决与原话、最终结论、落到哪个文件。编号：P = 通用原则；0 = 昨晚三轮调查后的定案（标明今天是否沿用）；A–F = 今天六块讨论；F<n> 是蓝图页登记表的分岔号。
 
 讨论的组织方式：蓝图页把改造后的流程画成 14 步、登记 16 个未定分岔（F1–F16），按逻辑分成六块（A 票的形态、B 收尾与复查、C 写码纪律、D UI 基线与工具、E 派发、F 落地），一次只讨论一个分岔。用户要求：讨论时重新说明上下文、用直白中文、不用自造词；每次定案立刻登记并提交。
+
+## 分岔状态总表
+
+| 分岔 | 一句话 | 状态 | 记录 |
+| --- | --- | --- | --- |
+| F1 | AC 编号与 MANUAL 行 | 已定 | A1 |
+| F2 | Outside Owns 的起点；Owns 两档 | 已定 | A2 |
+| F3 | decision 类 HANDOFF 的标签 | 已定 | B6 |
+| F4 | prototype 产物怎么进 Claude Design | 已定 | D1 |
+| F5 | CHECK 命令与 EXPECT 从哪来 | 已定 | D2 |
+| F6 | 非默认场景的基线 | 已定 | D3 |
+| F7 | ponytail 五句怎么验证 | 已定 | C1 |
+| F8 | code-review Spec 轴看不看基线 | 已定 | B9 |
+| F9 | verifier 每票都派还是分类派 | 已定 | B3 |
+| F10 | verifier-failed / blocked 之后 | 已定 | B5 |
+| F11 | 派发前提 | 已定 | E1 |
+| F12 | 两个脚本放哪 | 已定 | D4 |
+| F13 | 第一张真实的票、改动顺序 | 进行中 | F1、F2；落地 spec |
+| F14 | 验收标准怎么跑怎么判 | 已定 | B8 |
+| F15 | code-review 方法论扩充 | 后补 | B7 |
+| F16 | Claude Design 交接包与 DESIGN.md | 已定 | D5 |
+
+## 块 0 · 昨晚三轮调查后的定案（2026-08-27 夜 → 08-28 凌晨）
+
+原在 `00-synthesis.md` 的「第一轮之后已定的事」「第二轮之后的定案」「第三轮之后的定案」「每票派给谁」四张表，搬到这里；每条标明今天是否沿用。
+
+### 0.1 第一轮之后已定的事
+
+| 议题 | 决定 | 今天 |
+| --- | --- | --- |
+| agent 开工拿到的输入 | 票本身；不另写派发词 | 沿用；E1 定派发词 = 技能名 + 票号 |
+| spec 怎么进票 | 只给指针，不抄；`implement` 只读 `Parent` 指名的小节 + Testing Decisions + Out of Scope，不读 spec 全文 | 沿用 |
+| UI 原型的路径 | `prototype` 出一版满意的 mockup → 上传 Claude Design 精修（沿用 claude-design-blocks 技能）→ 下载回叶子目录，下载回来的文件是基线 | 沿用；D1 定 claude-design-blocks 改输入；D5 加交接包 README 与 DESIGN.md |
+| 实现与基线怎么比 | 按场景 × 窗口截图逐像素比对；差异非零不判失败，把基线、实现、diff 三张图贴到票上给人看 | **被 0.2「UI 验收」覆盖**：没过即 failed，不交人 |
+| 写码中发现契约装不下 | 继续做，在 spec 下开 sub-issue 记录 | 沿用 |
+| code-review 之后 | 修与票的验收标准或 spec 决策相关的发现，其余开 sub-issue；最多两轮，第二轮仍有票内发现则不关票 | **被 B2 覆盖**：一轮、修一轮、不复审 |
+
+### 0.2 第二轮之后的定案
+
+| 议题 | 决定 | 今天 |
+| --- | --- | --- |
+| Worker 与 verifier 是谁 | Worker 是 Herdr 拉起的独立会话（可在任一宿主），每票一个 worktree，按阻塞关系决定启动顺序；verifier 是编排会话自己的只读子代理。「票即输入」= Herdr 启动 worker 时喂的提示词 | worker 部分沿用；verifier 父会话**被 0.3 覆盖**（运行 implement 的会话派） |
+| `Owns:` | 加；路径外改动记在收尾评论 `Outside Owns:` 行，不开 sub-issue | 沿用；A2 定起点与两档 |
+| `CHECK:`/`EXPECT:`/`EVIDENCE:` | 加；写不出命令的标 `MANUAL:`，不过半 | 沿用；A1 定编号与写法；B8 定用 gate-check 跑 |
+| verifier 次数 | 只审一次。worker 自跑 → verifier 一次 → 没过的 worker 修并自跑填证据 → 关票；不复审 | 沿用；B2 定它在 code-review 之前 |
+| ponytail | 收：grep 每个调用方修共用处；写 helper 前先在仓库与 Read first 的 prototype 找现成；加文件/依赖/配置前说出已有的为何不够；安全与「票里明确要求的东西」不许简化；收尾 `skipped: [X], add when [Y]`。不收：原生控件替代自绘、先交懒版本再问、`demo()` 自检、`ponytail:` 注释、交互模式段。措辞写成动作 + 票字段；「逐字复制」改为保留骨架只换对象；用第一张真实的票跑一遍验证 | 沿用；C1 定不做对照实验 |
+| UI 验收 | 两档自动判定：ARIA 树（去 Claude Design 运行时包裹）diff 必须为零；同场景同窗口截图差异像素 ≤ 3%（默认，Testing Decisions 可改）。没过即 `failed`，worker 修；不产生 `decision`；三张图贴票供人参考。不用 `accepted-diffs.json` | 沿用；阈值**被 0.3 改为 1%** |
+| 失败词汇 | `ALL MET` 关票；`HANDOFF REQUIRED` 不关票、`ready-for-agent → ready-for-human`；`ABANDON: AC<n> <failed|blocked|impossible|decision> <理由>`；sub-issue 带 `needs-triage`；开工 `--add-assignee @me` | 沿用；B6 定 decision 也贴 ready-for-human |
+
+### 0.3 第三轮之后的定案
+
+| 议题 | 决定 | 今天 |
+| --- | --- | --- |
+| verifier 的父会话 | 运行 `implement` 的那个会话派 verifier 子代理（白天手工、夜间 Herdr 派发同一份流程）；编排会话只读票上的 `VERDICT` 行。不能派子代理时按 `06` §6 降级为 `self-reported` | 沿用 |
+| 交接前自审 | 采 unlazy「Audit the final report」：写收尾评论前重读票全文与 `Read first` 每项，把每条验收标准追到 `EVIDENCE:`，`Counts:` 重数后填；不做 swarm-forge 二次调用 | 沿用 |
+| UI 验收阈值 | ARIA 树 diff = 0；像素 ≤ 1%（Testing Decisions 可改）；工具自带负控制，负控制不过则不信任本次结果 | 沿用 |
+| 新词定义 | 进入 spec 阶段时由 `grill-with-docs`/`domain-modeling` 建根 `CONTEXT.md`，全英文术语（`Owns`、`CHECK`/`EXPECT`/`EVIDENCE`、`MANUAL`、`ABANDON` 四个 kind、`ALL MET`/`HANDOFF REQUIRED`、`VERDICT` 五级） | 沿用；落地 spec 里建 |
+| 技能正文纪律（沿用上次裁决） | 一律英文；不写出处、不写落地记录；每个角色的纪律只写在它自己的定义文件里 | 沿用 |
+| 落地节奏（沿用尸检 §5） | 一次一份 spec、一组机制；没有一张真实代码票从头跑到尾不合 main；抄机制先列消费者 | 沿用；F1 定用虚构票逐处测 |
+
+### 0.4 每票派给谁
+
+沿用上次的角色表数值，只取本轮存在的角色；表放消费仓库 `docs/agents/`，派发时人现场选初级或高级，不写进票、不打定级标签。
+
+| 角色 | 宿主 kind | 模型串 | 思考强度 | 今天 |
+| --- | --- | --- | --- | --- |
+| 初级工人 | cursor | cursor-grok-4.6-high | high | 沿用；E1 定完整启动命令 |
+| 高级工人 | grok | grok-4.6 | xhigh | 沿用 |
+| 复验者（worker 会话的只读子代理） | 与 worker 同宿主 | 该宿主里与 worker 不同的模型（`06` §6） | high | 沿用 |
+| 编排者（自动化阶段再用） | claude | opus | medium | 沿用 |
+| reviewer 会话 | claude | opus | — | **今天新增**（B7） |
+
+规划者、升级顾问本轮没有对应角色，不列。
 
 ## 通用原则（讨论中由用户裁定，覆盖多个分岔）
 
@@ -12,13 +87,13 @@
 - 用户原话：「为什么票里都有的东西……还需要 worker 再去向 verifier 转述一次，这是在任何步骤里都不应该的，之所以用文档把事实和状态记录下来就是不需要 agent 再去转述，不然肯定会漏」「既然 verifier 是 worker 的 subagent，最终 commit 号 + 分支 + worktree 路径都不需要转述，两者本来就在同一个 commit/分支/worktree 工作」「verifier 的禁令和汇报格式，包括它的工作方式和流程同样不需要 worker 转述，直接写在 verifier 的配置文件里就可以。所有 subagent 形式的 agent 都应该这样去设计，只有像 worker 这样的跨 harness agent 才需要被现场传递信息，但是传递的只能是实时变化的信息，固定的信息应该做成技能让 agent 调用」
 - 结论：子代理的 prompt 只含票号（和起点 commit 这类此刻才知道的值）；动作、禁令、汇报格式写在子代理自己的定义文件；任何 agent 要票上的信息自己 `gh issue view`；跨宿主的 worker 派发词只有「技能名 + 票号」。
 - 按此要改的地方（当时列出的清单）：① verifier brief → 只有票号，其余进 `mmw-v2/agents/verifier/body.md`；② verifier 的结果由它自己 `gh issue comment` 写到票上，worker 之后读票；③ `code-review` 两个子代理的 prompt 现在粘 smell baseline 全文、标准文件、spec 全文——固定内容要挪出 prompt（后来定为三个 reference 文件，见 B7）；④ `06` §8.2「粘贴原文而不是让它读票」及其 pstack 理由「workers cannot see siblings」作废——那是云端 worker 读不到本地的场景，我们的子代理在同一 worktree、有 `gh`；⑤ 现有 `ui-evaluator` agent 同样要求把评估问题逐字粘进 prompt，违反此原则，但 ui-qa 本轮不接入，只登记；⑥ worker 派发（`09` §2.2）已符合，不改；⑦ ponytail 五句、Owns 核对、读法收窄已在 `implement` 正文，不改。
-- 落点：`00-synthesis.md`「块 B 定案」子代理收什么 行；蓝图页步 9、步 10 详情。
+- 落点：本文；蓝图页步 9、步 10 详情。
 
 ### P2. 措辞：用直白中文，不用自造词；「穿行」「探针」「UI 票」都不用
 
 - 用户原话：「太多自创的词汇和说法，我看不懂」「不要用这么奇怪的词汇行不行，就用直白的中文不可以吗」「根本就不存在独立的 UI 票，你根本就没有看过 to ticket 技能，ticket 都是纵切的」
 - 结论：说「用真实的票跑一遍」不说「穿行」；说「有句/没句的对照实验」不说「探针」；票是纵切的，一张票贯穿数据、接口、界面，只有「UI 验收标准」没有「UI 票」。今天写进 `00-synthesis.md` 与蓝图页的措辞已按此改。
-- 落点：`00-synthesis.md`「块 D 定案」措辞 行；`10-previous-attempt-postmortem.md` §5 第 2 条改写。
+- 落点：本文；`10-previous-attempt-postmortem.md` §5 第 2 条改写。
 
 ### P3. 提问前先把牵涉的原件读完，不凭报告转述发问
 
@@ -46,7 +121,7 @@
 - 建议：`AC<n>` 出票时编、不重排；明写 `MANUAL:` 行；过半为出票硬规则，回 `/to-spec` 补测试层（夜里跑的票人工项 agent 跑不了，过半的票出了也白出）。
 - 用户裁决：「都可以」。
 - 结论：三条全采。
-- 落点：`to-tickets` 模板与 Read back；`00-synthesis.md`「块 A 定案」。
+- 落点：`to-tickets` 模板与 Read back。
 
 ### A2（F2）`Outside Owns:` 的 diff 起点；Owns 的两档规则
 
@@ -56,7 +131,7 @@
 - 回答要点：范围不是「一律不许碰」，是两档——为过本票 AC 不得不改的范围外文件照改并在收尾评论 `Outside Owns:` 说明；与 AC 无关的顺手改动不改、开 sub-issue。判据：不改它本票哪条 AC 过不了。目的是让票外改动可见（上次尸检里工人「自己拿了六个主意」用户看不懂）。堆积会堆在 sub-issue 里早上分诊；质量由 tdd、code-review、verifier 管，范围不拦第一档。unlazy 的 `OWNS` 脚本只做并发加锁、从不检查实际改了哪里（`04` §2.4），用不上；它的 `gate-check.mjs` 跑验收标准值得考虑——登记为 F14。
 - 用户裁决：「A」。
 - 结论：起点 `git merge-base main HEAD`，不记进票（每票一个 worktree、按阻塞关系串行开工，分支都从 main 开）；两档规则确认。
-- 落点：`implement` 收尾段；`00-synthesis.md`「块 A 定案」。
+- 落点：`implement` 收尾段。
 
 ## 块 B · 收尾与复查
 
@@ -70,7 +145,7 @@
 
 - 用户看蓝图页步 8–10（code-review → 自跑 → verifier）后裁决：「verifier 放在 code review 后面，是完全错误的，设想如果 verifier 发现漏掉内容，又要返工给 worker，worker 改完还要不要再次 code review 呢，这是资源浪费，所以就应该先在 worker 那个 agent 里直接派一个 subagent verify，没问题了再交给 code review，另外，code review 只能审一轮，然后 worker 修一轮，不再复审」。
 - 结论：步 8 worker 自跑 CHECK → 步 9 verifier（worker 会话内派）→ 没过 worker 修并自跑、不派第二次 → 步 10 code-review 一轮、worker 修一轮、不复审（覆盖昨晚「≤2 轮」）。连带：修完在最终 commit 上再自跑 CHECK 填 EVIDENCE；VERDICT 行照实绑 verifier 验过的那个 commit。
-- 落点：蓝图页步 8–10 重排；`implement` 收尾段；`00-synthesis.md`「块 B 定案」。
+- 落点：蓝图页步 8–10 重排；`implement` 收尾段。
 
 ### B3（F9）verifier 每票都派
 
@@ -128,7 +203,7 @@
 - 证据（读原件 `benchmarks/results/2026-06-22-issue-245-217-comprehension.md`）：第 1 句在 Sonnet/Opus 上 1/6→6/6，且同一意思写成散文 0/3、写成动作 6/6；第 2 句两臂都 1.0 测不出；其余三句没测过。
 - 分歧：`10` §5 第 2 条要求「每句入正文前做有句/没句两臂对照实验」；定案表写「用第一张真实的票跑一遍」。
 - 建议：用真实的票跑一遍；不做对照实验（只 5 句、写错代价是删掉、第 1 句已有强证据、搭测试台投入不成比例）。
-- 用户裁决：「穿行，但是不要用这么奇怪的词汇」（P2）。
+- 用户裁决：用真实的票跑一遍，「但是不要用这么奇怪的词汇」（P2）。
 - 结论：先写进正文，用第一张真实的票跑一遍；真票跑出具体问题再针对那一句做对照实验。`10` §5 第 2 条已改写。
 
 ## 块 D · UI 基线与工具
@@ -188,4 +263,4 @@
 ### F2 改动顺序（用户要求一次性规划完整）
 
 - 用户：「你要一次性规划出完整的改动顺序，如何一点点落地，你检查完我检查，再修改，再下一步」。
-- 落点：落地 spec（见 `00-synthesis.md`「讨论进度」指向的 spec issue）。
+- 落点：落地 spec（本仓 GitHub issue，编号见状态总表 F13 行）。
