@@ -143,7 +143,7 @@
 ## 讨论进度（2026-08-28）
 
 - 已定：块 A（F1 AC 编号与 MANUAL 行、F2 Outside Owns 起点）。
-- 进行到：块 B。已定：先验后审、code-review 一轮、F8、F9、F10、子代理原则、code-review 形态与派发。剩 F3、F14；F15 后补。
+- 进行到：块 B。已定：先验后审、code-review 一轮、F8、F9、F10、F14（vendor gate-check）、子代理原则、code-review 形态与派发。剩 F3；F15 后补。
 - 未开：F3、F8、F10、F14（块 B 其余）；F7（块 C）；F4、F5、F6、F12（块 D）；F11（块 E）；F13（块 F）。
 - 蓝图页：`11-target-pipeline.html`（artifact 9cb8f46c…），第 7 节登记表随每次定案更新。
 
@@ -163,3 +163,4 @@
 | code-review 谁派、reviewer 跑在哪 | worker 派（`implement` 加一段派发方式）。reviewer 模型必须够强，目前只有 Claude Code 的 opus 5 有资格；worker 是 cursor / grok build 会话，派不出 opus 子代理 → worker 用 Herdr 起一个 Claude Code 会话，派发词「`code-review <起点 commit> #<票>`」；该会话再派两个 reviewer 子代理。reviewer 的报告由它评论到票上，worker 读票，不经终端转述。白天你自己在 Claude Code 里做票时直接调 `/code-review` |
 | code-review 方法论 | 暂用现役两轴；要加内容（发现闭环 `Status: fixed/wontfix`、Verification 一栏、更多人格）以后只改 `code-review` 技能。登记 F15，本轮不定 |
 | code-review Spec 轴要不要看基线 | 不看。Spec 轴只读 spec 文本；照不照基线由 UI 票的 visual-parity `CHECK:` 判（worker 写码期间迭代跑、步 8 自跑、步 9 verifier 重跑，三次都不需要人）。F8 关闭 |
+| 验收标准怎么跑、怎么判 | **vendor unlazy `gate-check.mjs`**（MIT，6 个文件约 2000 行，需 Node ≥ 16），账本从票派生：`gh issue view` 取 AC 段 → 临时文件 → `gate-check --approve [--timeout N]`（verifier 加 `--reverify`）→ 更新后的账本贴回票评论。没有第二份文件；审批目录设 `UNLAZY_APPROVAL_DIR` 到仓库外的 0700 目录，`--approve` 每次都带。实测见 `05` §10。`05` §7 手写 EVIDENCE 格式作废。放哪、怎么到消费仓库并入 F12。F14 关闭 |

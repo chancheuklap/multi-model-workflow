@@ -303,3 +303,19 @@ manual 标准的例子（`gates.md:25-26` 型）：
 - 未读：`unlazy/scripts/gate-check.mjs` 只读了 `:27-29`、`:52`、`:675-780` 与 grep 命中行；`scripts/lib/check-supervisor.mjs`、`SECURITY.md`、`references/orchestration.md`（只读了 `:20`、`:32-35`、`:43`、`:53`、`:70`、`:80`）、`references/parallel.md`、`method.md`。
 - 未读：`issue-534/EXP/react-library/src/App.tsx`（73 KB，与比对工具无关）；agentflow 的 `pyproject.toml` 只 grep 了依赖行。
 - 未运行：按任务要求没有运行 `run.py`、`gate-lint.mjs`、`gate-check.mjs`；§6.1 的行为描述来自读代码，第 2 轮结果引自 `issue-534/README.md:45` 和 `.scratch/…/evidence/round-2/index.html` 的表头。
+
+## 10. 实测：`gate-check.mjs` 能否直接吃票上的 AC 段（2026-08-28）
+
+副本放在会话 scratchpad（不动 `docs/research/code-landing-refs/unlazy/`），node 24.13.1，账本是按 §8.1 格式写的四条：`AC1` 正常通过、`AC2` `echo "ok"; exit 3`（负控制）、`AC3` 正则 EXPECT、`AC7` 只有 `MANUAL:` 行；文件里另有 `## Acceptance criteria` 与 `## Blocked by` 两个标题和一条 `- #536`。
+
+| 问题 | 结果 |
+| --- | --- |
+| 账本必须在 `.unlazy/` 或叫 `GATES.md` 吗 | 否。`gate-check.mjs` L46 接受任意路径的显式文件；§2 只读了 `--scope` 模式 |
+| 我们的格式能解析吗 | 能：`AC.md: 4 gates`。`MANUAL:` 不在 `ATTR_RE`（`gates.mjs` L46）里，静默落到 `current` 不变的分支，该条成为无 CHECK/EXPECT 的人工项；标题行与 `- #536` 被 `/^#\|^- /` 重置后忽略 |
+| 双条件 | `AC2` 判 `FAIL … exit=3; EXPECT=matched`，输出含期望串但退出码非零不过 |
+| 回写 | 通过的条目打勾并写 `EVIDENCE: exit=0; shell=/bin/sh; cwd=…; path=<hash>/18 entries; EXPECT=matched; output-sha256=…; output-bytes=…`；未过保持 `pending` |
+| `--reverify` | 已勾的两条重跑，汇总 `UNMET: 2 (met: 2, reran: 3, previously met reverified: 2)`，退出码 1 |
+| 审批 | 无 `--approve` 时打印 oracle 并 `NOT RUN`，退出 1；审批目录必须 0700 且在仓库外（第一次因 0755 报 `must not grant group or other permissions`，退出 2）；审批绑定账本绝对路径，临时账本每次都要 `--approve`，审批文件按 gate 各生成一个 |
+| 依赖 | `lib/dispatch.mjs` 被导入，无 scope 时 `dispatchStatus` 返回空（L182），不影响 |
+
+结论：账本可以每次从 `gh issue view` 的票正文 AC 段派生到临时文件，跑完把更新后的账本贴回票评论，没有第二份需要维护的文件；§6.2、§7 假设「不装脚本」的手写 EVIDENCE 约定由此作废。
