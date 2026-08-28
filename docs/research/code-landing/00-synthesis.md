@@ -163,7 +163,7 @@
 | code-review 技能形态 | `SKILL.md` 只做路由 + 三个 reference：`dispatch.md`（派发者做什么）、`standards-reviewer.md`（brief + smell baseline）、`spec-reviewer.md`；派发 prompt 只给起点 commit + 票号 |
 | code-review 谁派、reviewer 跑在哪 | worker 派（`implement` 加一段派发方式）。reviewer 模型必须够强，目前只有 Claude Code 的 opus 5 有资格；worker 是 cursor / grok build 会话，派不出 opus 子代理 → worker 用 Herdr 起一个 Claude Code 会话，派发词「`code-review <起点 commit> #<票>`」；该会话再派两个 reviewer 子代理。reviewer 的报告由它评论到票上，worker 读票，不经终端转述。白天你自己在 Claude Code 里做票时直接调 `/code-review` |
 | code-review 方法论 | 暂用现役两轴；要加内容（发现闭环 `Status: fixed/wontfix`、Verification 一栏、更多人格）以后只改 `code-review` 技能。登记 F15，本轮不定 |
-| code-review Spec 轴要不要看基线 | 不看。Spec 轴只读 spec 文本；照不照基线由 UI 票的 visual-parity `CHECK:` 判（worker 写码期间迭代跑、步 8 自跑、步 9 verifier 重跑，三次都不需要人）。F8 关闭 |
+| code-review Spec 轴要不要看基线 | 不看。Spec 轴只读 spec 文本；照不照基线由 UI 验收标准的 visual-parity `CHECK:` 判（worker 写码期间迭代跑、步 8 自跑、步 9 verifier 重跑，三次都不需要人）。F8 关闭 |
 | 验收标准怎么跑、怎么判 | **vendor unlazy `gate-check.mjs`**（MIT，6 个文件约 2000 行，需 Node ≥ 16），账本从票派生：`gh issue view` 取 AC 段 → 临时文件 → `gate-check --approve [--timeout N]`（verifier 加 `--reverify`）→ 更新后的账本贴回票评论。没有第二份文件；审批目录设 `UNLAZY_APPROVAL_DIR` 到仓库外的 0700 目录，`--approve` 每次都带。实测见 `05` §10。`05` §7 手写 EVIDENCE 格式作废。放哪、怎么到消费仓库并入 F12。F14 关闭 |
 | `decision` 类 HANDOFF 的标签 | `ready-for-human`，与其余三种 kind 相同；不加新标签、不改既有标签含义（用户：agentflow 的标签已够乱，要清理到只剩合法标签）。区分 kind 靠收尾评论 `ABANDON:` 行第二个词。F3 关闭。**块 B 全部定完** |
 
@@ -179,4 +179,9 @@
 | --- | --- |
 | prototype 产物怎么进 Claude Design | 流程不变：`prototype` UI 分支在真实页面上挂载变体（叶子目录 + 挂载点，落地删挂载点）→ 胜出后上传 Claude Design 精修 → 下载回叶子目录做基线。上传时 `claude-design-blocks` 读叶子目录里胜出版本的源码（状态、交互）和真实页面 `?variant=<胜出>` 的渲染结果（DOM、CSS），不加转换步骤，`prototype` 技能不改。F4 关闭 |
 | `claude-design-blocks` | 改第 1、2 步：输入可以是 `prototype` 叶子目录的框架组件——源码读组件文件，CSS 与 DOM 取自真实页面 `?variant=<胜出>` 的渲染结果，数据从组件 props 抽。收进 `mmw-v2/skills/`（`self/claude-design-blocks`），正文开头按能力判断：需要 claude-design MCP 工具（`get_claude_design_prompt`、`DesignSync`、`render_preview`），没有就停下说明；不写宿主名 |
-| `CHECK:` 的命令与 `EXPECT:` 从哪来 | 不改 `to-spec`，不建 TESTING.md。命令形态取消费仓库 `AGENTS.md` 的 `## Commands` 表（`manage-agents-md` 规则「Prefer file-scoped test commands」）；表里没有则按 `--help` 与先例推出并补一行。`EXPECT:` 对 spec Testing Decisions 点名的先例测试跑一次，抄成功输出那一行。UI 层用 F14 的 gate-check 跑 visual-parity；场景列表放叶子目录随基线维护。参考资料无 TESTING.md 模板（unlazy `PLAN.md` Contract 段、pstack 探索子代理回报、swarm-forge 按语言工具清单，均非项目级文件）。F5 关闭 |
+| `CHECK:` 的命令与 `EXPECT:` 从哪来 | 不改 `to-spec`，不建 TESTING.md，不给 `AGENTS.md` 加规矩。命令只在出票时写一次：`to-tickets` 从 spec 的 Testing Decisions（层、目录、先例、提交前命令）和先例文件用的框架推出；`EXPECT:` 对先例测试跑一次抄成功那一行。之后 worker 写码中跑单测、步 8/9 跑 gate-check，读的都是票上的 `CHECK:` 行。UI 验收标准用 F14 的 gate-check 跑 visual-parity；场景列表放叶子目录随基线维护。参考资料无 TESTING.md 模板。F5 关闭 |
+| 非默认场景的基线 | 场景 = 组件 + `scenario` 属性。visual-parity 为每个场景生成一页只含 `<dc-import name="<组件>" scenario="<场景>">` 的包装页（照 `claude-design-blocks/scripts/mkharness.py` 的模式），放临时目录引用下载回来的组件文件，离线渲染截 `#dc-root`；基线文件不动。做工具时验证一次写死 `scenario` 属性能生效。F6 关闭 |
+| 两个脚本放哪 | 新自有技能 `mmw-v2/skills/verify-ticket/`：`scripts/gate-check/`（vendor 的 6 个文件）+ `scripts/visual-parity.py`；正文一段：取票 AC 段 → 临时账本 → `gate-check --approve [--reverify]` → 更新后的账本评论到票。`implement` 步 8 写 `/verify-ticket #n`，verifier 定义文件写 `/verify-ticket #n --reverify`。UI 验收标准的 `CHECK:` 写 `uv run ~/.agents/skills/verify-ticket/scripts/visual-parity.py …`。不放 `implement/scripts/`（上游 subtree、且 verifier 也用）。F12 关闭 |
+| 措辞 | 票是纵切的，没有「UI 票」；说「UI 验收标准」 |
+
+待定 **F16**（块 D）：Claude Design 的「开发交接包」README（逐屏尺寸、色值、逐字文案、状态迁移、token）是否随基线一起下载进叶子目录、票 `Read first` 指向它；是否用 `create-design-md` 生成 DESIGN.md 上传为 design system 并放进消费仓库。
