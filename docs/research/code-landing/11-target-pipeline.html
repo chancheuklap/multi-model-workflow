@@ -117,6 +117,7 @@ input.chk{width:16px;height:16px;cursor:pointer}
     <li><a href="#night">3 夜间：写码与收尾</a></li>
     <li><a href="#closeout">4 收尾评论形态</a></li>
     <li><a href="#morning">5 早上：人接手</a></li>
+    <li><a href="#parts">0.6 落地后的件</a></li>
     <li><a href="#vocab">6 新词表</a></li>
     <li><a href="#forks">7 未定分岔登记</a></li>
     <li><a href="#landing">8 落地顺序</a></li>
@@ -130,12 +131,13 @@ input.chk{width:16px;height:16px;cursor:pointer}
 <main>
 <section id="overview">
   <h1>MMW v2 落地流水线蓝图</h1>
-  <p class="lede">改造完成后，一张票从 spec 到关票要经过的每一步；每步标出<b>本轮动不动</b>、<b>动什么</b>、<b>哪里还没定</b>。资料来源：<code>docs/research/code-landing/00–10</code>、<code>prototypes/code-landing/ui-gate/EXP/README.md</code>、现行 <code>mmw-v2/upstream/skills/engineering/{to-spec,to-tickets,implement,code-review,prototype}/SKILL.md</code>。本页只画，不定；讨论一次解决一块，在第 7 节勾掉。</p>
+  <p class="lede">改造完成后，一张票从 spec 到关票要经过的每一步；每步标出<b>本轮动不动</b>、<b>动什么</b>、<b>哪里还没定</b>。资料来源：<code>docs/research/code-landing/00–10</code>、<code>prototypes/code-landing/ui-gate/EXP/README.md</code>、现行 <code>mmw-v2/upstream/skills/engineering/{to-spec,to-tickets,implement,code-review,prototype}/SKILL.md</code>。全部分岔已定（F13 的真实票、F15 后补除外），落地顺序是 <a href="https://github.com/chancheuklap/multi-model-workflow/issues/60">#60</a> 的十一节；本页画的是落地完成后的样子。</p>
   <div class="legend">
     <span><span class="tag keep">不动</span> 现状沿用</span>
     <span><span class="tag mod">改</span> 现有技能正文要改</span>
     <span><span class="tag new">新</span> 本轮新增的件</span>
     <span><span class="tag fork">◆ F?</span> 未定分岔，编号见第 7 节</span>
+    <span><span class="tag new">脚本</span> 固定操作由脚本做，模型不逐步照做；<span class="tag new">hook</span> 宿主强制，模型绕不过</span>
     <span>三个色带 = 一天里的三个时段。全天只有一个<b>主 agent</b>（Claude Code 会话）：白天与你讨论、出 spec、出票；晚上当 coordinator 经 Herdr 派 worker（cursor / grok 会话）。你只讨论、拍板、改 <code>models.md</code>、早上看票。</span>
   </div>
   <div class="pipe">
@@ -152,23 +154,23 @@ input.chk{width:16px;height:16px;cursor:pointer}
       </ol>
     </div>
     <div class="band night">
-      <h3>夜间 · 主 agent 派 worker，一张票从开工到关票</h3>
+      <h3>夜间 · 主 agent 派 worker，一张票从开工到关票（worker 会话装着两个 hook：票没关也没 HANDOFF 不许停；不经 <code>--closeout</code> 不许关票）</h3>
       <ol>
-        <li><a class="stage new hasfork" href="#s5"><span class="n">5</span><span><span class="t">派发：Herdr 起 worker 会话</span><span class="d">每票一个 worktree；派发词 = 技能名 + 票号</span><span class="forks"><span class="tag new">新</span><span class="tag fork">◆F11</span></span></span></a></li>
+        <li><a class="stage new hasfork" href="#s5"><span class="n">5</span><span><span class="t">派发：<code>dispatch.sh &lt;n&gt; worker</code></span><span class="d">读 <code>models.md</code> 一行 → Herdr 起会话 → 发「implement #n」</span><span class="forks"><span class="tag new">脚本</span><span class="tag fork">◆F11</span></span></span></a></li>
         <li class="arrow">↓</li>
-        <li><a class="stage mod" href="#s6"><span class="n">6</span><span><span class="t">implement · 开工核对与读入</span><span class="d">认领；核对 Owns；只读 Parent 指名小节</span><span class="forks"><span class="tag mod">改</span></span></span></a></li>
+        <li><a class="stage mod" href="#s6"><span class="n">6</span><span><span class="t">implement · 开工核对与读入</span><span class="d"><code>--preflight</code> 守卫后认领；核对 Owns；只读 Parent 指名小节</span><span class="forks"><span class="tag mod">改</span><span class="tag new">脚本</span></span></span></a></li>
         <li class="arrow">↓</li>
         <li><a class="stage mod hasfork" href="#s7"><span class="n">7</span><span><span class="t">implement · 写码纪律</span><span class="d">契约即 prototype 胜出物；ponytail 五句；Owns 外改动</span><span class="forks"><span class="tag mod">改</span><span class="tag fork">◆F7</span></span></span></a></li>
         <li class="arrow">↓</li>
-        <li><a class="stage mod hasfork" href="#s8"><span class="n">8</span><span><span class="t">worker 自跑全部 CHECK</span><span class="d">UI 验收标准跑 visual-parity 工具；填 EVIDENCE</span><span class="forks"><span class="tag mod">改</span><span class="tag new">新工具</span><span class="tag fork">◆F12</span></span></span></a></li>
+        <li><a class="stage mod hasfork" href="#s8"><span class="n">8</span><span><span class="t">worker 自跑：<code>verify-ticket.py &lt;n&gt;</code></span><span class="d">gate-check 跑与判；UI 验收标准调 visual-parity；结果贴票</span><span class="forks"><span class="tag new">脚本</span><span class="tag fork">◆F12</span></span></span></a></li>
         <li class="arrow">↓</li>
-        <li><a class="stage new hasfork" href="#s9"><span class="n">9</span><span><span class="t">verifier 子代理，只审一次</span><span class="d">worker 会话内派出，重跑 CHECK，写 <code>VERDICT</code>；没过 worker 修并自跑</span><span class="forks"><span class="tag new">新</span><span class="tag fork">◆F9</span><span class="tag fork">◆F10</span></span></span></a></li>
+        <li><a class="stage new hasfork" href="#s9"><span class="n">9</span><span><span class="t">verifier 子代理，只审一次</span><span class="d">跑 <code>--reverify</code>，只判 level，写 <code>VERDICT &lt;完整 commit&gt;</code>；没过 worker 修并自跑</span><span class="forks"><span class="tag new">新</span><span class="tag fork">◆F9</span><span class="tag fork">◆F10</span></span></span></a></li>
         <li class="arrow">↓</li>
-        <li><a class="stage mod hasfork" href="#s10"><span class="n">10</span><span><span class="t">code-review 一轮，修一轮，不复审</span><span class="d">票内发现修；票外开 sub-issue；修完在最终 SHA 自跑 CHECK</span><span class="forks"><span class="tag mod">改</span><span class="tag fork">◆F8</span></span></span></a></li>
+        <li><a class="stage mod hasfork" href="#s10"><span class="n">10</span><span><span class="t">code-review 一轮，修一轮，不复审</span><span class="d"><code>dispatch.sh &lt;n&gt; reviewer</code> 起 Claude Code 会话，<code>wait</code> 等评论；票内修、票外 sub-issue</span><span class="forks"><span class="tag mod">改</span><span class="tag new">脚本</span><span class="tag fork">◆F8</span></span></span></a></li>
         <li class="arrow">↓</li>
-        <li><a class="stage mod" href="#s11"><span class="n">11</span><span><span class="t">交接前自审 + 收尾评论</span><span class="d">Audit；<code>ALL MET</code> 或 <code>HANDOFF REQUIRED</code></span><span class="forks"><span class="tag mod">改</span></span></span></a></li>
+        <li><a class="stage mod" href="#s11"><span class="n">11</span><span><span class="t">交接前自审 + 收尾评论草稿</span><span class="d">Audit；草稿写到文件，首行 <code>ALL MET</code> 或 <code>HANDOFF REQUIRED</code></span><span class="forks"><span class="tag mod">改</span></span></span></a></li>
         <li class="arrow">↓</li>
-        <li><a class="stage mod hasfork" href="#s12"><span class="n">12</span><span><span class="t">push / PR / 关票或换标签</span><span class="d">关票 <code>--reason completed</code>；HANDOFF → <code>ready-for-human</code></span><span class="forks"><span class="tag mod">改</span><span class="tag fork">◆F3</span></span></span></a></li>
+        <li><a class="stage mod hasfork" href="#s12"><span class="n">12</span><span><span class="t">push / PR / <code>--closeout</code> 关票或换标签</span><span class="d">脚本核首行、计数、VERDICT==HEAD 后才关票；hook 拦下绕过它的 <code>gh issue close</code></span><span class="forks"><span class="tag new">脚本</span><span class="tag new">hook</span><span class="tag fork">◆F3</span></span></span></a></li>
       </ol>
     </div>
     <div class="band morn">
@@ -186,6 +188,29 @@ input.chk{width:16px;height:16px;cursor:pointer}
 <section id="decisions">
   <h2>0.5 定案在哪</h2>
   <p class="lede">全部定案只登记在 <code>docs/research/code-landing/12-decisions.md</code>（分岔状态总表 + 每条的背景、选项、原话、结论、落点）。本页只画流程和分岔状态；第 7 节每行指向该文件的编号。</p>
+</section>
+
+<section id="parts">
+  <h2>0.6 落地后的件：每样东西是什么机制、给谁用</h2>
+  <p class="lede">机制各司其职：技能 = 多个 agent 复用的做法；agent 配置文件 = 自定义模型 + 自动加载固定上下文；Herdr = 起搭载别的模型的会话；hook = 强制；脚本 = 固定操作；文档 = 事实，只给指针不抄写（<code>12-decisions.md</code> G0）。</p>
+  <div class="tablewrap"><table>
+    <tr><th>件</th><th>机制</th><th>谁用、在哪一步</th><th>#60 节</th></tr>
+    <tr><td><code>to-tickets</code>（改）</td><td>技能</td><td>主 agent 出票：<code>## Owns</code>、AC 四行、<code>MANUAL:</code>、CHECK/EXPECT 推导句、Read back 跑 <code>--lint</code></td><td>3</td></tr>
+    <tr><td><code>verify-ticket/scripts/verify-ticket.py</code></td><td>脚本</td><td><code>--lint</code> 出票后（步 4）；<code>--preflight</code> 开工（步 6）；默认自跑（步 8）；<code>--reverify</code> verifier（步 9）；<code>--closeout</code> 关票（步 12）。不持有状态文件，只往票评论输出</td><td>2</td></tr>
+    <tr><td><code>verify-ticket/scripts/gate-check/</code>（vendor unlazy）+ <code>visual-parity.py</code></td><td>脚本</td><td>被 <code>verify-ticket.py</code> 调：跑 CHECK、判 exit 0 ∧ EXPECT、写 EVIDENCE；UI 验收标准的 CHECK 直接调 visual-parity</td><td>2</td></tr>
+    <tr><td><code>verify-ticket/scripts/hook.py stop|pretool</code></td><td>hook</td><td>worker 会话（<code>HERDR_ENV=1</code> 且分支 <code>issue-&lt;n&gt;</code> 才动作）：票没关也没 HANDOFF 就顶回；<code>gh issue close</code> / 换标签前跑 <code>--closeout --check-only</code>，非零拒绝。Claude / Grok / Codex 硬 gate，Cursor 软顶回，pi 扩展</td><td>2</td></tr>
+    <tr><td><code>verify-ticket/scripts/dispatch.sh</code></td><td>脚本</td><td>主 agent 派 worker（步 5）、worker 起 reviewer 会话（步 10）：读 <code>models.md</code> 一行 → Herdr 四步；<code>wait</code> 轮询票评论首行</td><td>2</td></tr>
+    <tr><td><code>agents/verifier/</code>（新）</td><td>agent 配置文件</td><td>worker 会话派出（步 9）：只收票号；禁令、可动环境、五级定义都在 <code>body.md</code>；跑 <code>--reverify</code> 后只补 <code>VERDICT</code> 行</td><td>5</td></tr>
+    <tr><td><code>code-review</code>（改）</td><td>技能 + 三个 reference</td><td>reviewer 会话（Claude Code, opus）：<code>SKILL.md</code> 路由，<code>references/dispatch.md</code> / <code>standards-reviewer.md</code> / <code>spec-reviewer.md</code>；派发 prompt 只有起点 commit + 票号</td><td>6</td></tr>
+    <tr><td><code>implement</code>（改三段）</td><td>技能</td><td>worker：开工 <code>--preflight</code> + Owns 核对 + 读法收窄；写码纪律十行；收尾七步（自跑 → verifier → review 一轮 → 修 → Audit → 草稿 → <code>--closeout</code>）</td><td>7、8、9</td></tr>
+    <tr><td><code>claude-design-blocks</code>（收进 mmw-v2）</td><td>技能</td><td>做 UI 精修的会话（需 claude-design MCP）：吃叶子目录组件；Finish 下载交接包与 DESIGN.md</td><td>10</td></tr>
+    <tr><td>根 <code>CONTEXT.md</code></td><td>文档</td><td>每个读仓库的 agent：第 6 节全部新词，全英文</td><td>4</td></tr>
+    <tr><td><code>docs/agents/models.md</code></td><td>文档</td><td>三列表「角色 | 宿主 | 完整启动命令」，<code>dispatch.sh</code> 读第三列；你只改表</td><td>4</td></tr>
+    <tr><td><code>AGENTS.md</code> Roles 一行</td><td>文档指针</td><td>让任何 agent 找到 <code>models.md</code></td><td>4</td></tr>
+    <tr><td><code>install.sh</code>（加 hook 安装）</td><td>脚本</td><td>五宿主各写一条指向 <code>hook.py</code> 的配置（Claude / Codex / Cursor 合并 JSON、Grok 新文件、pi 扩展）；<code>--check</code> 核对</td><td>2</td></tr>
+    <tr><td><code>prototypes/code-landing/fixture/</code> + <code>[fixture]</code> 票</td><td>测试台</td><td>第 1–10 节每改一处用它测一处</td><td>1</td></tr>
+    <tr><td><code>mmw-v2/merge-notes/</code></td><td>文档</td><td>改到上游 subtree 的三个技能各一份</td><td>3、6、7–9</td></tr>
+  </table></div>
 </section>
 
 <section id="day">
@@ -317,7 +342,7 @@ tests/api/，先例 tests/api/projects.create.test.ts        <span class="cm">�
     <header><span class="n">步 5</span><h3>派发：Herdr 起 worker 会话</h3><span class="tag new">新</span><a class="fid" href="#F11">◆F11</a></header>
     <div class="io">
       <div><h4>输入</h4><ul><li>frontier 上的票号；角色表（宿主 kind / 模型 / 思考强度）</li></ul></div>
-      <div><h4>动作</h4><ul><li>在仓库根开 pane；<code>herdr agent start issue-&lt;n&gt; --kind &lt;宿主&gt; --pane &lt;id&gt; -- &lt;models.md 该行的命令：--worktree、模型、全部放行&gt;</code>，等 idle</li><li><code>herdr agent prompt &lt;名&gt; "implement #&lt;n&gt;"</code></li><li>派发者是主 agent；派完只读票的状态</li></ul></div>
+      <div><h4>动作</h4><ul><li><code>dispatch.sh &lt;n&gt; worker</code>：从 <code>models.md</code> 按角色取完整启动命令 → <code>herdr pane split</code> → <code>herdr agent start issue-&lt;n&gt; --kind &lt;宿主&gt; --pane &lt;id&gt; -- &lt;该命令&gt;</code> → 等 idle → <code>herdr agent prompt issue-&lt;n&gt; "implement #&lt;n&gt;"</code>（<span class="tag new">脚本</span>，主 agent 不再手抄）</li><li>派发者是主 agent；派完只读票的状态，可用 <code>dispatch.sh wait &lt;n&gt; "ALL MET|HANDOFF REQUIRED"</code> 等</li></ul></div>
       <div><h4>产出</h4><ul><li>一个 cwd 在票 worktree、权限放开的 worker 会话</li></ul></div>
     </div>
     <div class="changes"><ul>
@@ -334,7 +359,7 @@ tests/api/，先例 tests/api/projects.create.test.ts        <span class="cm">�
     <header><span class="n">步 6</span><h3>implement · 开工核对与读入</h3><span class="tag mod">改</span></header>
     <div class="io">
       <div><h4>输入</h4><ul><li>票全文含评论</li></ul></div>
-      <div><h4>动作</h4><ul><li><b>新</b>：<code>gh issue edit &lt;n&gt; --add-assignee @me</code> 认领</li><li>核对：标题与 What to build 同一片；在 frontier 上；<b>新</b>：每条 Owns glob 匹配现存路径或标 (new)</li><li>读入：票 → Read first 每项读到结论 → <b>改</b>：沿 Parent 只读指名小节 + Testing Decisions + Out of Scope → 词表</li><li>说出 Seam；没有就推导并评论到票上（不变）</li></ul></div>
+      <div><h4>动作</h4><ul><li><b>新</b>：<code>verify-ticket.py &lt;n&gt; --preflight</code>（<span class="tag new">脚本</span>）：分支名 == <code>issue-&lt;n&gt;</code>、工作区干净、票 OPEN 且 <code>ready-for-agent</code> 且 blocker 全关、未被认领 → 才 <code>--add-assignee @me</code>；否则 <code>NOT_READY</code> 停下</li><li>核对：标题与 What to build 同一片；在 frontier 上；<b>新</b>：每条 Owns glob 匹配现存路径或标 (new)</li><li>读入：票 → Read first 每项读到结论 → <b>改</b>：沿 Parent 只读指名小节 + Testing Decisions + Out of Scope → 词表</li><li>说出 Seam；没有就推导并评论到票上（不变）</li></ul></div>
       <div><h4>产出</h4><ul><li>一句 Seam；票上可能多一条 Owns/Seam 补充评论</li></ul></div>
     </div>
     <div class="changes"><ul>
@@ -362,7 +387,7 @@ tests/api/，先例 tests/api/projects.create.test.ts        <span class="cm">�
     <header><span class="n">步 8</span><h3>worker 自跑全部 CHECK，填 EVIDENCE</h3><span class="tag mod">改</span><span class="tag new">新工具</span><a class="fid" href="#F12">◆F12</a></header>
     <div class="io">
       <div><h4>输入</h4><ul><li>最终 commit；票上每条 CHECK</li></ul></div>
-      <div><h4>动作</h4><ul><li><code>/verify-ticket #n</code>（新技能）：<code>gh issue view</code> 取 AC 段 → 临时 <code>AC.md</code> → <code>gate-check.mjs --approve [--timeout N]</code>：exit 0 且 EXPECT 匹配才打勾并写 EVIDENCE（脚本判，agent 不判）→ 更新后的账本贴回票评论</li><li>含 UI 验收标准的票：跑 visual-parity 工具（自带负控制；负控制不过则不信本次结果）；ARIA diff = 0 且像素 ≤ 1% → <code>PARITY OK n/n</code>；没过 = <code>failed</code>，worker 修，三图贴票供人参考，<b>不问人</b></li><li><code>MANUAL:</code> 条目不代填</li></ul></div>
+      <div><h4>动作</h4><ul><li><code>verify-ticket.py &lt;n&gt;</code>（<span class="tag new">脚本</span>，五步都在脚本里）：<code>gh issue view</code> 取 AC 段 → 临时账本 → <code>gate-check.mjs --approve [--timeout N]</code>：exit 0 且 EXPECT 匹配才打勾并写 EVIDENCE → 算 <code>Outside Owns</code> → 更新后的账本贴回票评论，首行 <code>self-run</code></li><li>含 UI 验收标准的票：跑 visual-parity 工具（自带负控制；负控制不过则不信本次结果）；ARIA diff = 0 且像素 ≤ 1% → <code>PARITY OK n/n</code>；没过 = <code>failed</code>，worker 修，三图贴票供人参考，<b>不问人</b></li><li><code>MANUAL:</code> 条目不代填</li></ul></div>
       <div><h4>产出</h4><ul><li>每条 AC 的 EVIDENCE；UI 证据页（三列：baseline / impl / diff）</li></ul></div>
     </div>
     <div class="changes"><ul>
@@ -379,7 +404,7 @@ tests/api/，先例 tests/api/projects.create.test.ts        <span class="cm">�
     <header><span class="n">步 9</span><h3>verifier 子代理，只审一次</h3><span class="tag new">新</span><a class="fid" href="#F9">◆F9</a><a class="fid" href="#F10">◆F10</a></header>
     <div class="io">
       <div><h4>输入（brief）</h4><ul><li><b>只有票号</b>。它自己 <code>gh issue view</code> 读每条 AC 的 CHECK/EXPECT/MANUAL 与 Seam；与 worker 同一 worktree，<code>git rev-parse HEAD</code> 自取 commit</li><li>禁令（不改仓库文件不 commit 不修不加标准、首尾 <code>git status --porcelain</code>；<b>可以动环境</b>：装依赖、换端口、找配置）、五级定义、汇报格式全在 <code>agents/verifier/body.md</code>，不由 worker 转述</li></ul></div>
-      <div><h4>动作</h4><ul><li>在 code-review <b>之前</b>跑（定案 2026-08-28：先验后审，避免 verifier 返工后再复审）；由<b>worker 会话</b>派出；能选模型就选与自己不同的；不能派子代理 → 自己从干净 shell 重跑，标 <code>self-reported</code></li><li><code>/verify-ticket #n --reverify</code>（已勾的也重跑）；不评代码</li><li>只审一次；没过 → worker 修并自跑填证据；<b>不复审</b>。全过后才进步 10 code-review</li></ul></div>
+      <div><h4>动作</h4><ul><li>在 code-review <b>之前</b>跑（定案 2026-08-28：先验后审，避免 verifier 返工后再复审）；由<b>worker 会话</b>派出；能选模型就选与自己不同的；不能派子代理 → 自己从干净 shell 重跑，标 <code>self-reported</code></li><li><code>verify-ticket.py &lt;n&gt; --reverify</code>（已勾的也重跑，逐条结果由脚本评论到票）；它只判 level，写 <code>VERDICT &lt;完整 40 位 commit&gt; &lt;level&gt; by &lt;model&gt; — 一句话</code>（<code>--closeout</code> 拿这个 commit 与 HEAD 比）；不评代码</li><li>只审一次；没过 → worker 修并自跑填证据；<b>不复审</b>。全过后才进步 10 code-review</li></ul></div>
       <div><h4>产出</h4><ul><li>verifier <b>自己</b> <code>gh issue comment</code> 到票上：一行 <code>VERDICT &lt;sha&gt; &lt;level&gt; by &lt;model|self-reported&gt; — 一句话</code> + 逐条结果；worker 之后读票。level ∈ <code>live-ui-verified / unit-test-verified / type-check-only / verifier-blocked / verifier-failed</code></li></ul></div>
     </div>
     <div class="changes"><ul>
@@ -402,7 +427,7 @@ tests/api/，先例 tests/api/projects.create.test.ts        <span class="cm">�
     </div>
     <div class="changes"><ul>
       <li><span class="tag mod">改</span> 技能形态：<code>SKILL.md</code> 只路由 + 三个 reference（<code>dispatch.md</code> 派发者做什么 / <code>standards-reviewer.md</code> brief + smell baseline / <code>spec-reviewer.md</code>）；派发 prompt 只给起点 commit + 票号，spec 沿 <code>Parent</code> 自读；报告由 reviewer 评论到票上。改上游技能，写 merge-note。<span class="src">定案 2026-08-28。</span></li>
-      <li><span class="tag new">新</span> 谁派、跑在哪：worker 派（<code>implement</code> 加一段）。reviewer 必须是强模型（目前只有 Claude Code 的 opus 5）；worker 是 cursor / grok build 会话 → 用 Herdr 起一个 Claude Code 会话，派发词 <code>code-review &lt;起点 commit&gt; #&lt;票&gt;</code>，该会话再派两个 reviewer 子代理。<span class="src">定案 2026-08-28；前提：worker 在 Herdr pane 里（<code>09</code> §1.1）。</span></li>
+      <li><span class="tag new">新</span> 谁派、跑在哪：worker 派，用 <code>dispatch.sh &lt;n&gt; reviewer</code>（读 <code>models.md</code> reviewer 行，经 Herdr 起 Claude Code 会话 <code>issue-&lt;n&gt;-review</code>，发 <code>code-review &lt;起点 commit&gt; #&lt;票&gt;</code>），再 <code>dispatch.sh wait</code> 等 review 评论出现；该会话派两个 reviewer 子代理。reviewer 必须是强模型（目前只有 Claude Code 的 opus 5）。<span class="src">定案 2026-08-28；前提：worker 在 Herdr pane 里（<code>09</code> §1.1）。</span></li>
       <li><span class="tag mod">改</span> 一轮上限与分类进 <code>implement</code> 收尾段（<code>code-review</code> 本身只报告不裁决）。<span class="src">定案 2026-08-28 覆盖昨晚「≤2 轮」；记忆「Reviewer must not self-set pass criteria」（<code>03</code> §4）。</span></li>
     </ul></div>
     <div class="forklist"><ul>
@@ -414,7 +439,7 @@ tests/api/，先例 tests/api/projects.create.test.ts        <span class="cm">�
     <header><span class="n">步 11</span><h3>交接前自审 + 收尾评论</h3><span class="tag mod">改</span></header>
     <div class="io">
       <div><h4>输入</h4><ul><li>票全文、Read first 每项、每条 EVIDENCE、VERDICT 行</li></ul></div>
-      <div><h4>动作</h4><ul><li><b>Audit</b>（unlazy「Audit the final report」）：重读票与 Read first，把每条 AC 追到 EVIDENCE，<code>Counts:</code> 重数后填；不做 swarm-forge 二次调用</li><li>写评论（形态见第 4 节）：首行 <code>ALL MET</code> 或 <code>HANDOFF REQUIRED: …</code>；未过的 AC 保留原文 + 列首 <code>ABANDON: AC&lt;n&gt; &lt;kind&gt; &lt;理由&gt;</code></li></ul></div>
+      <div><h4>动作</h4><ul><li><b>Audit</b>（unlazy「Audit the final report」）：重读票与 Read first，把每条 AC 追到 EVIDENCE，<code>Counts:</code> 重数后填；不做 swarm-forge 二次调用</li><li>写评论<b>草稿到文件</b>（形态见第 4 节）：首行 <code>ALL MET</code> 或 <code>HANDOFF REQUIRED: …</code>；未过的 AC 保留原文 + 列首 <code>ABANDON: AC&lt;n&gt; &lt;kind&gt; &lt;理由&gt;</code>；末尾「本票我自己拿的主意」一段。贴评论与关票由步 12 的脚本做</li></ul></div>
       <div><h4>产出</h4><ul><li>一条结构化收尾评论</li></ul></div>
     </div>
     <div class="changes"><ul>
@@ -426,7 +451,7 @@ tests/api/，先例 tests/api/projects.create.test.ts        <span class="cm">�
     <header><span class="n">步 12</span><h3>push / PR / 关票或换标签</h3><span class="tag mod">改</span><a class="fid" href="#F3">◆F3</a></header>
     <div class="io">
       <div><h4>输入</h4><ul><li>收尾评论首行</li></ul></div>
-      <div><h4>动作</h4><ul><li>push 分支，开引用票的 PR（不变）</li><li><code>ALL MET</code> → <code>gh issue close &lt;n&gt; --reason completed</code></li><li><code>HANDOFF REQUIRED</code> → 不关票不关 PR；<code>--remove-label ready-for-agent --add-label ready-for-human</code></li><li>夜里开的 sub-issue：<code>gh issue create --parent &lt;spec&gt; --label needs-triage</code>，不给 <code>ready-for-agent</code></li><li>下游被 block 的票什么都不做（frontier 定义已是「blocker 全关才解锁」）</li></ul></div>
+      <div><h4>动作</h4><ul><li>push 分支，开引用票的 PR（不变）</li><li><code>verify-ticket.py &lt;n&gt; --closeout &lt;草稿&gt;</code>（<span class="tag new">脚本</span>）：核首行与 <code>Counts:</code> 一致、<code>ABANDON</code> kind 合法、勾了必有 EVIDENCE、最后一条 <code>VERDICT</code> 的 commit == HEAD、工作区干净、分支从 main 开且有改动、票 OPEN 且 assignee 是我；全过 → 贴评论并 <code>gh issue close &lt;n&gt; --reason completed</code>；<code>HANDOFF REQUIRED</code> → 贴评论并 <code>--remove-label ready-for-agent --add-label ready-for-human</code>；不过 → stderr 原因，worker 修草稿或修票再跑</li><li><span class="tag new">hook</span> worker 直接 <code>gh issue close</code> / 换标签会被 <code>hook.py pretool</code> 拦下（它跑 <code>--closeout --check-only</code>）；票没关也没 HANDOFF 就想结束会话被 <code>hook.py stop</code> 顶回</li><li>夜里开的 sub-issue：<code>gh issue create --parent &lt;spec&gt; --label needs-triage</code>，不给 <code>ready-for-agent</code></li><li>下游被 block 的票什么都不做（frontier 定义已是「blocker 全关才解锁」）</li></ul></div>
       <div><h4>产出</h4><ul><li>关掉的票 / 换了标签的票；PR</li></ul></div>
     </div>
     <div class="changes"><ul>
@@ -538,6 +563,7 @@ gh issue list --state open --json number,title,blockedBy --jq '.[]|select(.block
     <tr id="F13"><td><input class="chk" type="checkbox" data-f="F13"></td><td class="mono">F13</td><td>第一张真实的票在哪个消费仓库；改动顺序</td><td><b>改动顺序已定</b> → 落地 spec <a href="https://github.com/chancheuklap/multi-model-workflow/issues/60">#60</a>（第 8 节即其十一节）；真实的票待定</td><td>F</td><td><code>10</code> §5 第 1、3 条</td></tr>
     <tr id="F14" class="resolved"><td><input class="chk" type="checkbox" data-f="F14" checked disabled></td><td class="mono">F14</td><td>验收标准的跑与判：手写约定，还是直接用 unlazy 的 <code>gate-check.mjs</code></td><td><b>已定</b> → <code>12-decisions.md</code> B8</td><td>B</td><td><code>05</code> §2.5；<code>04</code> §2.4；你的提问 2026-08-28</td></tr>
     <tr id="F15"><td><input class="chk" type="checkbox" data-f="F15"></td><td class="mono">F15</td><td>code-review 方法论要不要从参考加：发现闭环 <code>Status: fixed/wontfix</code>（grok）、Verification 一栏（pstack rubric）、Security/Tests 人格（grok）</td><td><b>后补</b> → <code>12-decisions.md</code> B7</td><td>后补</td><td><code>03</code> §5「可以后补的」</td></tr>
+    <tr id="F17" class="resolved"><td><input class="chk" type="checkbox" data-f="F17" checked disabled></td><td class="mono">F17</td><td>按机制用途复查：<code>verify-ticket</code> 是脚本不是散文步骤；worker 会话装 Stop / PreToolUse 两个 hook gate；派发与等评论做成 <code>dispatch.sh</code>；<code>install.sh</code> 装五宿主 hook</td><td><b>已定</b> → <code>12-decisions.md</code> G1–G3</td><td>G</td><td><code>13-scriptable-steps.md</code>；五宿主 hook 能力 2026-08-29 核实</td></tr>
     <tr id="F16" class="resolved"><td><input class="chk" type="checkbox" data-f="F16" checked disabled></td><td class="mono">F16</td><td>Claude Design 两样产出要不要进流程：「开发交接包」README（逐屏尺寸、色值、逐字文案、状态迁移、token）随基线下载进叶子目录、<code>Read first</code> 指向它；用 <code>create-design-md</code> 生成 DESIGN.md 上传为 design system 并放进消费仓库</td><td><b>已定</b> → <code>12-decisions.md</code> D5</td><td>D</td><td>你在 Claude Design 里的两段问答（2026-08-28）</td></tr>
   </table></div>
   <div class="panel">
@@ -547,6 +573,7 @@ gh issue list --state open --json number,title,blockedBy --jq '.[]|select(.block
       <li>各宿主压缩上下文后技能正文是否还在（<code>07</code> §9）</li>
       <li>Grok / Cursor / Codex 在 <code>herdr agent start</code> 下的就绪检测与 <code>--wait</code> 表现；能否启动时设宿主侧会话名（<code>09</code> §8）</li>
       <li>评论首行大写词能否被 <code>gh issue list --search</code> 稳定命中（<code>08</code> §8）</li>
+      <li>Cursor CLI 的 <code>stop</code> hook 在本机版本上是否真的触发（社区报告过只发 shell 两个事件；<code>13</code>「五个宿主的 hook 能力」）</li>
     </ul>
   </div>
 </section>
@@ -557,14 +584,14 @@ gh issue list --state open --json number,title,blockedBy --jq '.[]|select(.block
   <div class="tablewrap"><table>
     <tr><th>节</th><th>改什么</th><th>我检查</th><th>你检查</th></tr>
     <tr><td>1</td><td>测试台：<code>prototypes/code-landing/fixture/</code>（Python 包 + pytest + 静态页 + 从 EXP 复制的基线 + 场景列表）；本仓 <code>[fixture]</code> spec 与票各一张</td><td>pytest 过、静态页能起、基线可离线渲染</td><td>票读起来像真票；fixture README 一眼能懂</td></tr>
-    <tr><td>2</td><td>新技能 <code>verify-ticket</code>：vendor gate-check + gate-lint 七文件与测试（改路径常量、删 hook/install 用例）；<code>visual-parity.py</code>（先验 <code>dc-import scenario</code> 写死能生效）；三种用法：自跑 / <code>--reverify</code> / <code>--lint</code>；顺带算 <code>Outside Owns</code></td><td>对 fixture 票跑：pytest 条 PASS、故意失败条 FAIL、MANUAL 不跑、UI 条按差异判；<code>--reverify</code> 重跑已勾；<code>--lint</code> 报出坏 AC；vendor 测试绿；负控制被抓</td><td>票上那条评论能否一眼看出过没过</td></tr>
+    <tr><td>2</td><td>新技能 <code>verify-ticket</code>：vendor gate-check + gate-lint 七文件与测试；<code>visual-parity.py</code>（先验 <code>dc-import scenario</code> 写死能生效）；<code>verify-ticket.py</code> 五个子命令（默认 / <code>--reverify</code> / <code>--lint</code> 含票图查环 / <code>--preflight</code> / <code>--closeout</code>）；<code>hook.py stop|pretool</code>；<code>dispatch.sh</code> + <code>wait</code>；<code>install.sh</code> 装五宿主 hook；两个自写脚本各带 <code>tests/</code></td><td>对 fixture 票跑：pytest 条 PASS、故意失败条 FAIL、MANUAL 不跑、UI 条按差异判；<code>--reverify</code> 重跑已勾；<code>--lint</code> 报坏 AC 与环；<code>--preflight</code> 三种拒绝；<code>--closeout --check-only</code> 两种拒绝；五宿主各起一次会话看 Stop 顶回、close 被拒、别的分支不动作；<code>dispatch.sh</code> 起 cursor worker 与 claude reviewer；vendor 测试绿；负控制被抓</td><td>票上那条评论能否一眼看出过没过；被顶回 / 被拒时模型看到的话读不读得懂</td></tr>
     <tr><td>3</td><td><code>to-tickets</code>：<code>## Owns</code>、AC 四行、<code>MANUAL:</code>、人工项过半不出票、CHECK/EXPECT 推导句、Read back 跑 <code>--lint</code>、L135 措辞、基线是契约（merge-note）</td><td>对 fixture spec 跑 <code>/to-tickets</code>，产出与手写票同形；<code>--lint</code> 零发现</td><td>模板原文；一张产出的票</td></tr>
-    <tr><td>4</td><td>本仓根 <code>CONTEXT.md</code> 收新词；<code>docs/agents/models.md</code> 每行完整启动命令（cursor slug <code>cursor-grok-4.6-high</code>、grok 加 <code>--worktree-ref main</code>、reviewer 名 <code>issue-&lt;n&gt;-review</code>）；<code>AGENTS.md</code> Agent skills 段加 Roles</td><td>每个词有出处；三条启动命令各起一次不报错</td><td><code>models.md</code> 的安排</td></tr>
-    <tr><td>5</td><td>新 subagent <code>agents/verifier/</code>：只收票号；两次 <code>git status</code>；调 <code>/verify-ticket --reverify</code>；自己评论 VERDICT；可动环境</td><td>派一次，票上多一条 VERDICT；删一个依赖再派，它自己装回</td><td><code>body.md</code> 全文</td></tr>
+    <tr><td>4</td><td>本仓根 <code>CONTEXT.md</code> 收新词；<code>docs/agents/models.md</code> 三列表「角色 | 宿主 | 完整启动命令」供 <code>dispatch.sh</code> 读（cursor slug <code>cursor-grok-4.6-high</code>、grok 加 <code>--worktree-ref main</code>、reviewer 名 <code>issue-&lt;n&gt;-review</code>）；<code>AGENTS.md</code> Agent skills 段加 Roles</td><td>每个词有出处；三条启动命令各起一次不报错</td><td><code>models.md</code> 的安排</td></tr>
+    <tr><td>5</td><td>新 subagent <code>agents/verifier/</code>：只收票号；两次 <code>git status</code>；调 <code>verify-ticket.py --reverify</code>；只补 <code>VERDICT &lt;完整 commit&gt; &lt;level&gt;</code>；可动环境</td><td>派一次，票上多一条 VERDICT；删一个依赖再派，它自己装回</td><td><code>body.md</code> 全文</td></tr>
     <tr><td>6</td><td><code>code-review</code>：SKILL.md 路由 + <code>references/dispatch.md</code> / <code>standards-reviewer.md</code> / <code>spec-reviewer.md</code>；报告评论到票（merge-note）</td><td>分支上留一处 scope creep、一处漏做，跑一次，评论里两份报告与票内/票外分类正确</td><td>三个 reference 原文</td></tr>
-    <tr><td>7</td><td><code>implement</code> 开工段：认领、Owns 核对、读法收窄、基线是契约（merge-note）</td><td>跑 <code>/implement</code> 到「说出 Seam」</td><td>这一段原文</td></tr>
+    <tr><td>7</td><td><code>implement</code> 开工段：<code>--preflight</code> 认领、Owns 核对、读法收窄、基线是契约（merge-note）</td><td>跑 <code>/implement</code> 到「说出 Seam」；摘掉 <code>ready-for-agent</code> 再跑看 <code>NOT_READY</code> 停下</td><td>这一段原文</td></tr>
     <tr><td>8</td><td><code>implement</code> 写码纪律十行：契约装不下 → sub-issue；ponytail 五句；Owns 两档</td><td>被两处调用的函数修在共用处；范围外一行改动记进 <code>Outside Owns:</code></td><td>那十行原文</td></tr>
-    <tr><td>9</td><td><code>implement</code> 收尾：<code>/verify-ticket</code> → verifier → code-review 一轮（其他宿主经 Herdr 起 Claude Code）→ 修一轮 → Audit → 固定格式评论 → PR → 关票或 HANDOFF</td><td>一次 ALL MET 关票；一次 HANDOFF REQUIRED 换标签、票与 PR 开着</td><td>收尾评论样子；早上五条查询各捞到什么</td></tr>
+    <tr><td>9</td><td><code>implement</code> 收尾：<code>verify-ticket.py</code> → verifier → <code>dispatch.sh reviewer</code> + <code>wait</code> → 修一轮 → Audit → 草稿到文件 → PR → <code>--closeout</code> 关票或 HANDOFF（worker 不直接 close）</td><td>一次 ALL MET 由 <code>--closeout</code> 关票；一次 HANDOFF REQUIRED 换标签、票与 PR 开着；一次半途结束会话被 Stop hook 顶回</td><td>收尾评论样子；早上五条查询各捞到什么</td></tr>
     <tr><td>10</td><td><code>claude-design-blocks</code> 收进 <code>mmw-v2/skills/</code>；按能力判断需要 claude-design MCP；第 1、2 步接受叶子目录组件；Finish 加交接包 README 与 DESIGN.md</td><td><code>install.sh --check</code>；改动处对照 12-decisions D1</td><td>改动处原文</td></tr>
     <tr><td>11</td><td>真实的票（消费仓库与票由你定）从 <code>/to-tickets</code> 跑到关票或 HANDOFF；跑通才 <code>merge --no-ff</code> 进 main</td><td>全程无人中途替 agent 做决定；四种评论都在票上</td><td>合不合 main</td></tr>
   </table></div>
