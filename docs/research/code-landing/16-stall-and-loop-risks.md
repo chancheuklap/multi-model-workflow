@@ -51,7 +51,7 @@
 
 1. **`--preflight` 返回 `NOT_READY` 之后**。#60 第 7 节写「`NOT_READY` 就停下报原因」——报给谁？会话里打印一行，票上没有任何痕迹，Herdr 那边 agent 变 idle。早上看票，这张票和从没派过一模一样。**应当**：`--preflight` 失败时由脚本自己在票上评论一行 `NOT_READY: <原因>`（脚本已经会调 `gh`），worker 再停。另外 `blockedBy` 全 CLOSED 这一项应该由 `dispatch.sh` 在**派发前**查，不满足就根本不派，省掉一个会话。
 2. **`dispatch.sh wait` 超时之后**。#60 第 9 节第 3 步让 worker 等 reviewer 的评论出现，超时 exit 1，然后没写做什么。reviewer 会话崩了、被墙挡住、或 `code-review` 本身出错，worker 就悬在那里。**应当**：超时后在票上评论一行说明 code-review 没能完成，跳过这一轮，继续走第 4 步收尾——一个挂掉的 reviewer 不该让整张票交给人。
-3. **`visual-parity.py` 的负控制不过之后**。#60 第 2 节写「自带负控制（故意错的场景必须失败，否则本次结果不可信）」，没写不可信之后怎么办。**应当**：负控制不过时工具退出码与 CHECK 失败一致，并在输出首行说明是负控制失败（不是实现不对），worker 修工具或环境而不是修实现。
+3. **`visual-parity.py` 的负控制不过之后**。#60 第 2 节写「自带负控制（故意错的场景必须失败，否则本次结果不可信）」，没写不可信之后怎么办；#65 的 AC8 已经写了：exit 2 并打印 `NEGATIVE CONTROL FAILED`，不再输出 PARITY 结论。退出码非零，gate-check 照样判这条标准没过，而 2 与 1 的区别告诉 worker 要修的是工具或环境。缺的只是 #60 第 2 节没把这一句写上，补进去即可。
 
 ## 4. 唯一没有上限的循环
 
@@ -88,5 +88,5 @@
 | S7 | `--preflight` 失败时由脚本在票上评论 `NOT_READY: <原因>` | 补缺口 | 同上 |
 | S8 | `dispatch.sh` 派发前查 `blockedBy` 全 CLOSED | 补缺口 | #67 |
 | S9 | `dispatch.sh wait` 超时后：票上评论 + 跳过 code-review 继续收尾 | 补缺口 | #60 第 9 节第 3 步；#67、#73 |
-| S10 | `visual-parity.py` 负控制失败的退出码与首行说明 | 补缺口 | #60 第 2 节；#65 |
+| S10 | `visual-parity.py` 负控制失败 exit 2 加 `NEGATIVE CONTROL FAILED`（#65 AC8 已有，#60 第 2 节补写） | 补缺口 | #60 第 2 节 |
 | S11 | 第 1 步自跑修复循环上限三轮，超出写 `ABANDON: AC<n> failed` 继续其余标准 | 补上限（防转圈） | #60 第 9 节第 1 步；#73 |
