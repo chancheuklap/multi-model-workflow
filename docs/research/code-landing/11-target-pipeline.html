@@ -544,8 +544,8 @@ gh issue list --state open --json number,title,blockedBy --jq '.[]|select(.block
   <h2>8 落地顺序（沿用 <code>10</code> §5：一次一组机制；没有真实票跑通不合 main）</h2>
   <p class="lede">先定分岔，再动技能；每块定完只改它牵涉的文件，用同一张真实票穿行一次。建议的讨论顺序：</p>
   <div class="order">
-    <div class="panel next"><span class="k">块 A · 下一步</span><h3>票的形态</h3><p>F1、F2。改 <code>to-tickets</code> 模板与 Read back。一切后面的步骤都读这张票。</p></div>
-    <div class="panel"><span class="k">块 B</span><h3>收尾与失败词汇</h3><p>F3、F8、F9、F10、F14。改 <code>implement</code> 收尾段；新建 <code>agents/verifier/</code>；建 <code>CONTEXT.md</code>。</p></div>
+    <div class="panel"><span class="k">块 A · 已定 08-28</span><h3>票的形态</h3><p>F1、F2 已定。改 <code>to-tickets</code> 模板与 Read back。</p></div>
+    <div class="panel next"><span class="k">块 B · 下一步（停在 F9）</span><h3>收尾与失败词汇</h3><p>F3、F8、F9、F10、F14。改 <code>implement</code> 收尾段；新建 <code>agents/verifier/</code>；建 <code>CONTEXT.md</code>。</p></div>
     <div class="panel"><span class="k">块 C</span><h3>写码中纪律</h3><p>F7。改 <code>implement</code> 读入段之后的十行。</p></div>
     <div class="panel"><span class="k">块 D</span><h3>UI 基线与工具</h3><p>F4、F5、F6、F12。改 <code>to-spec</code>、<code>prototype</code>；把 EXP 的 <code>run.py</code> 提成工具。</p></div>
     <div class="panel"><span class="k">块 E</span><h3>派发</h3><p>F11。角色表文件、权限参数；白天手工即可先跑，不阻塞 A–D。</p></div>
