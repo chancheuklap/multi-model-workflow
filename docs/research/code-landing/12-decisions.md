@@ -27,6 +27,10 @@
 | F15 | code-review 方法论扩充 | 后补 | B7 |
 | F16 | Claude Design 交接包与 DESIGN.md | 已定 | D5 |
 | F17 | 按机制用途复查：verify-ticket 脚本化、两个 hook gate、派发脚本 | 已定 | G1–G3 |
+| F18 | Herdr 怎么排 pane 与 tab、怎么命名、状态怎么互知 | 已定 | H1 |
+| F19 | 自动化里信息怎么交换；监控界面在哪 | 已定 | H2 |
+| F20 | `ABANDON: decision` 之后票停不停 | 已定 | H3 |
+| F21 | 会让 agent 停下或转圈的设定 | S1、S4–S11 已定；S2（verifier 二次）、S3（MANUAL 项怎么收尾）待定 | H4 |
 
 ## 块 0 · 昨晚三轮调查后的定案（2026-08-27 夜 → 08-28 凌晨）
 
@@ -307,3 +311,61 @@
 
 merge-note 与正文一致性 canary（「关键句」无法机械定义）；二次调用审计（0.3）；对照实验 harness（C1）；跨票记忆（消费端是提示词）。
 
+## 块 H · Herdr 与自动化（2026-08-29 下午）
+
+调查文件：`14-herdr-utilization.md`（Herdr 能力盘点与编排）、`15-monitor-tab-and-wakeup-loop.md`（信息交换、监控 tab、唤醒闭环）、`16-stall-and-loop-risks.md`（会让 agent 停下或转圈的设定）。
+
+### H0 两条新原则（用户裁定，覆盖多处）
+
+- **可见性的读者不在 Herdr 的侧栏。** 用户原话：「其实我通常会去 GitHub 上面查看 issue，更加直观全面，几乎不会使用 gh 命令更不会在 herdr 里查看」「我看你的潜在用法全部是修改 herdr 侧边栏，但是现在侧边栏已经足够拥挤复杂了，我想知道是否开一个 tab 利用终端去监控和汇总工作流信息呢……这个 tab 终端里的内容既可以被 agent 看懂并利用，也可以被人类看懂而不是全是满满的命令和代码」。落点：`14` §2.4、§4.2、§5.1、§5.3、§5.4 全部改为不做（读者只有侧栏）；`15` §4 的监控 tab。
+- **约束工作方法以提高质量，而不是轻易判失败或让人接管；同时不许无限循环，收不了的问题要完整及时地记录下来供以后修。** 用户原话：「关键就在于不要过度干预 agent 工作、约束 agent 的工作方法论以提高结果质量而不是轻易判定失败或人类接管。但是又要警惕不能够陷入 agent 之间的无限循环（我明令禁止的反复 review 就是例子），此时应该完整并及时地记录问题供后续修复优化」。落点：`16` 全文；H4。
+
+### H1（F18）Herdr 的编排、命名与状态互知
+
+九项实测见 `14` §1。定下五条，其余提议按 H0 第一条丢弃（`14` §6 表末段列了丢掉的五项）：
+
+1. **一张票一个 tab**。`dispatch.sh <n> worker` 的第一步是 `herdr tab create --workspace "$HERDR_WORKSPACE_ID" --cwd <仓库根> --label "#<n> <标题前 20 字>" --env MMW_TICKET=<n> --no-focus`，用返回的 `.result.root_pane.pane_id` 直接 `agent start`；worker 在根 pane，收尾时的 reviewer 会话在同一个 tab 分屏，方向按 `herdr pane layout` 的 `area.width` 判（≥160 向右，否则向下）。不为夜里的票另开 workspace。（`14` §2.2–§2.5）
+2. **四个命名位各管一件事**：`agent name` = `issue-<n>` / `issue-<n>-review`（CLI 定位句柄，可预测，唤醒方不必查表）；`pane label` = `#<n> worker`（人眼）；`tab label` = 票号加标题（人眼）；token = 机读台账。`herdr agent rename` 让命名不必发生在 `agent start` 那一刻。（`14` §3）
+3. **phase token 由 `verify-ticket.py` 写**，取值 `implement|selfcheck|verify|closed|handoff|stalled`，连同 `ticket`/`role`/`ac`/`model` 一起，`--ttl-ms 86400000`；`HERDR_ENV` 不为 1 或 `HERDR_PANE_ID` 为空时整段跳过，socket 失败不影响退出码。它让「`agent_status` 是 idle 但 phase 不是 `closed`/`handoff`」= 半路停了，可机器判定。技能正文不改，worker 无感。（`14` §4.1–§4.2）
+4. **`dispatch.sh wait` 内部用 `herdr agent wait` 加一次 `gh` 确认**，不再每 30 秒轮询；调用形不变。（`14` §4.3）
+5. **`hook.py` 的票号优先取 `$MMW_TICKET`**（由 `tab create --env` 注入，已实测能到达 pane 里的 agent 进程），取不到再按分支名 `issue-<n>` 匹配。（`14` §6）
+
+- 咨询过 advisor（读了 `14`、`09`、`12`、#60 后作答），它判 1、3、4、5 成立，第 2 条砍掉 `--state-label`，专用 workspace 丢弃；用户裁决「advisor 的判定没问题」。
+
+### H2（F19）账本与通知分开；监控开在一个 tab 里
+
+- **账本是票，通知是 Herdr。** 票（GitHub Issue）承接结论：EVIDENCE、VERDICT、收尾评论、sub-issue，永久、跨机器、用户在网页上看。Herdr 的 pane token 与事件推送承接心跳：谁 idle 了、phase 变了，会话内有效。唤醒信号不写进票——它是用户唯一常看的界面，写进去会淹掉真正要读的评论，而且读回来还得轮询。（`15` §1）
+- **监控 tab 是一个程序三种形态**：`board.py --once` 打印一屏表格给 agent 读；无参常驻、事件到来时**追加一行**（不重绘、不进终端备用屏，所以 `herdr pane read` 也读得到）给人看；`--watch` 按查表动手。数据源只有 `herdr api snapshot` 的 token 与 `gh issue list`，不持有状态文件。输出里的词全部沿用已有词汇（phase 取值、Herdr 状态词、`ALL MET`/`HANDOFF REQUIRED`、`VERDICT` 五级）。（`15` §4）
+- **不能只做全屏 TUI**：备用屏滚出的行不进 Herdr 滚动缓冲（`09` §1.5、§7 实测），agent 读不到。
+- **重新 prompt 别人之前的七条前提**见 `15` §3，前五条抄自 `andybarilla/herdr-scuttlebutt` 与 `rcosteira79/herdr-autocontinue` 在真实使用中付出的代价，后两条是 Herdr 自身的拒绝行为（`agent_blocked`、`agent_prompt_stalled`）。
+- **本轮不做**：把 board 包成 Herdr 插件（`[[panes]] placement = "tab"`，scuttlebutt 的 manifest 是模板）；夜间编排主循环本身仍在 #60 的 Out of Scope 里。#62、#63、#64、#67 不为迁就某一种唤醒方的形态而改形状，它们只需产出 `phase` token 这一个输入。
+
+### H3（F20）`ABANDON: decision` 之后不停整张票
+
+- 现状：`08-failure-vocabulary.md` §5.3 与 B6 定的是——只要有一条 `ABANDON`（四个 kind 之一），整张票就是 `HANDOFF REQUIRED`，不关票、不关 PR、`ready-for-agent` 换 `ready-for-human`。
+- 用户原则（H0 第二条）：任何需要人决策的地方都应该小到可以先记录在 issue 里、等人重新决策后再精确修改。
+- 选项：甲——`decision` 改为「在 spec 下开 sub-issue（`--parent <spec> --label needs-triage`）+ 继续做完其余标准」，只在其余标准也没过时才整票 HANDOFF；乙——维持现状。
+- **用户裁决：甲。**
+- 结论：`ABANDON: AC<n> decision <理由>` 触发开 sub-issue 并继续；`failed` / `blocked` / `impossible` 维持整票 HANDOFF。`decision` 走的通道与 0.1「写码中发现契约装不下 → 继续做，开 sub-issue」是同一条，只是此前没有接上。连带：`failed` 在自动化下先走 H4 的三轮自跑上限，到上限才写 `ABANDON: failed`。
+- 落点：`08-failure-vocabulary.md` §5.3 的 kind 表、#60 第 9 节第 5 步与第 6 步、#73；`--closeout` 对「有 ABANDON 就不得 `ALL MET`」的校验要放行 `decision` 这一支。
+
+### H4（F21）会让 agent 停下或转圈的设定
+
+逐条检查见 `16-stall-and-loop-risks.md`，编号 S1–S11。已定的九条：
+
+- **S1**：`--closeout` 的「最后一条 `VERDICT` 的 commit == HEAD」与 B2 结论末句「`VERDICT` 行照实绑 verifier 验过的那个 commit」直接矛盾，且会让任何一张 code-review 提出票内发现的票**永远关不掉**。改为 `git merge-base --is-ancestor <VERDICT commit> HEAD`，收尾评论加 `Post-verdict:` 行列出 VERDICT 之后的 commit 与来源。
+- **S4**：verifier 前后两次 `git status --porcelain`（B4）与 `--closeout` 的同一项，改成只查已跟踪文件（`--untracked-files=no`）——否则 `visual-parity.py --out` 的证据页、`.pytest_cache` 会让它必然报「动了东西」。
+- **S5**：`--closeout` 的「diff 非空」改为警告，容纳「不需要改代码」的票。
+- **S6**：`--preflight` 的 assignee 条件改成「为空**或就是我**」，让重派同一张票是幂等的。
+- **S7**：`--preflight` 失败时由脚本自己在票上评论 `NOT_READY: <原因>` 再让 worker 停——否则票上没有任何痕迹，早上看不出派过。
+- **S8**：`blockedBy` 全 CLOSED 由 `dispatch.sh` 在**派发前**查，不满足就不派。
+- **S9**：`dispatch.sh wait` 超时后在票上评论说明 code-review 没能完成，跳过这一轮继续收尾——一个挂掉的 reviewer 不该让整张票交给人。
+- **S10**：`visual-parity.py` 负控制失败时退出码与 CHECK 失败一致，首行说明是负控制失败（要修的是工具或环境，不是实现）。
+- **S11**：#60 第 9 节第 1 步「没过的修，再跑，直到全过或确认修不了」是整条流水线上**唯一没有上限**的循环。定为同一条 AC 连续三轮仍未过就停手，写 `ABANDON: AC<n> failed <三次各做了什么>`，继续处理其余标准。
+
+不动的防转圈设定（`16` §5）：code-review 一轮不复审、verifier 一次、`verifier-failed`/`verifier-blocked` 不触发 HANDOFF、两个 hook gate、gate-check 的双条件。
+
+仍要用户拍板的两条：
+
+- **S2**：是否允许 verifier 在 code-review 引出代码修改时再派一次（上限二次，不构成循环，因为 code-review 本身不复审）。代价是多一次子代理调用，收益是 `VERDICT` 真的绑在最终 commit 上。不采则按 S1 处理。
+- **S3**：带 `MANUAL:` 的票怎么收尾。现在它必然 unmet、必然 `HANDOFF REQUIRED`，于是首行同时表示「出事了」和「一切正常只等你看一眼」。甲：MANUAL 项开成 sub-issue，其余全过就 `ALL MET` 关票（与 H3 同一逻辑）；乙：维持整票 HANDOFF，但首行计数把人工项单列，如 `HANDOFF REQUIRED: 0 abandoned, 1 manual, 5 met of 6`；丙：出票禁止 MANUAL（与 #60 US3 冲突，不建议）。

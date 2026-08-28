@@ -128,12 +128,11 @@ mmw board · 02:14 · 5 张票在跑
 
 差距在 `decision` 这个 kind 上：按用户的原则，它应该触发「**把这个决策点开成 spec 下的 sub-issue（`--parent <spec> --label needs-triage`），票的其余标准继续做完**」，而不是让整张票停住。这个通道本仓已经有了——`12-decisions.md` 0.1「写码中发现契约装不下」定的就是「继续做，在 spec 下开 sub-issue 记录」——只是没有接到 `ABANDON: decision` 上。
 
-这是一处要用户拍板的分岔，不是本文能定的：
+用户已裁决取甲（`12-decisions.md` H3）：`ABANDON: AC<n> decision <理由>` 触发「在 spec 下开 sub-issue（`--parent <spec> --label needs-triage`）+ 继续做完其余标准」，只在其余标准也没过时才整票 `HANDOFF REQUIRED`；`failed` / `blocked` / `impossible` 三个 kind 维持整票 HANDOFF。
 
-- 甲：`decision` 改为「开 sub-issue + 继续做其余 AC」，票只在**其余标准也没过**时才 HANDOFF。`failed` / `blocked` / `impossible` 不变。
-- 乙：维持现状（任何 ABANDON 都整票 HANDOFF），理由是收尾评论的 `Counts:` 与 `ALL MET` 的语义建立在「一条都不能少」上。
+另外两个 kind 的处境不同，不跟着改：`blocked`（等外部条件）与 `impossible`（做不到）本来就不是人一句话能解决的，整票交人是合理的；`failed`（跑了没过）在自动化下应该先走重试，到上限才算 ABANDON——上限定为同一条 AC 连续三轮（`16-stall-and-loop-risks.md` S11）。
 
-另外两个 kind 也值得顺带看一眼：`blocked`（等外部条件）与 `impossible`（做不到）本身就不是人能立刻拍板的事，维持整票 HANDOFF 是合理的；`failed`（跑了没过）在自动化下应该先走 §5 的重新 prompt，重试到上限才算 ABANDON。
+带 `MANUAL:` 的标准是同一个问题的另一面：它必然 unmet，于是带人工项的票夜里必然 `HANDOFF REQUIRED`，首行分不清「出事了」和「一切正常只等你看一眼」。选项与状态见 `16-stall-and-loop-risks.md` §1.2 与 S3，待用户拍板。
 
 ## 7. 落点与待定
 
@@ -143,7 +142,8 @@ mmw board · 02:14 · 5 张票在跑
 | 开 board tab 的命令 | 同上 | `dispatch.sh`（#67） |
 | §3 的七条唤醒规则 | 调查结论，可直接引用 | 写唤醒实现时；#60 Out of Scope 的「夜间编排主循环」 |
 | §5 的查表 | 待定 | 同上 |
-| `ABANDON: decision` 是否改为开 sub-issue 后继续 | **要用户拍板**（§6 的甲 / 乙） | `12-decisions.md` 新的一条；影响 #73（`implement` 收尾）与 #60 第 9 节第 5 步 |
+| `ABANDON: decision` 改为开 sub-issue 后继续做完其余标准 | 已定（`12-decisions.md` H3） | #73（`implement` 收尾）、#60 第 9 节第 5–6 步、`08-failure-vocabulary.md` §5.3 |
+| 带 `MANUAL:` 的票怎么收尾 | **要用户拍板** | `16-stall-and-loop-risks.md` S3 |
 | 把这套东西包成 Herdr 插件 | 以后 | — |
 
 `12-decisions.md` 的 P0 定的是「主 agent 派完 worker 只读票」，#60 的 Out of Scope 把夜间编排主循环整个留到以后。本文写的 §5 与 §3 是那件事的材料，不是它的定案；#62、#63、#64、#67 这几张票不应该为了迁就某一种唤醒方的形态而改形状——它们只需要产出 `phase` token 这一个输入。
