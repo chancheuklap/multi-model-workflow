@@ -178,3 +178,5 @@
 | 议题 | 决定 |
 | --- | --- |
 | prototype 产物怎么进 Claude Design | 流程不变：`prototype` UI 分支在真实页面上挂载变体（叶子目录 + 挂载点，落地删挂载点）→ 胜出后上传 Claude Design 精修 → 下载回叶子目录做基线。上传时 `claude-design-blocks` 读叶子目录里胜出版本的源码（状态、交互）和真实页面 `?variant=<胜出>` 的渲染结果（DOM、CSS），不加转换步骤，`prototype` 技能不改。F4 关闭 |
+| `claude-design-blocks` | 改第 1、2 步：输入可以是 `prototype` 叶子目录的框架组件——源码读组件文件，CSS 与 DOM 取自真实页面 `?variant=<胜出>` 的渲染结果，数据从组件 props 抽。收进 `mmw-v2/skills/`（`self/claude-design-blocks`），正文开头按能力判断：需要 claude-design MCP 工具（`get_claude_design_prompt`、`DesignSync`、`render_preview`），没有就停下说明；不写宿主名 |
+| `CHECK:` 的命令与 `EXPECT:` 从哪来 | 不改 `to-spec`，不建 TESTING.md。命令形态取消费仓库 `AGENTS.md` 的 `## Commands` 表（`manage-agents-md` 规则「Prefer file-scoped test commands」）；表里没有则按 `--help` 与先例推出并补一行。`EXPECT:` 对 spec Testing Decisions 点名的先例测试跑一次，抄成功输出那一行。UI 层用 F14 的 gate-check 跑 visual-parity；场景列表放叶子目录随基线维护。参考资料无 TESTING.md 模板（unlazy `PLAN.md` Contract 段、pstack 探索子代理回报、swarm-forge 按语言工具清单，均非项目级文件）。F5 关闭 |

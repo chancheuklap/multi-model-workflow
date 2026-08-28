@@ -143,7 +143,7 @@ input.chk{width:16px;height:16px;cursor:pointer}
       <ol>
         <li><a class="stage keep" href="#s1"><span class="n">1</span><span><span class="t">wayfinder / grill-with-docs</span><span class="d">决策票、ADR；本轮起要建根 <code>CONTEXT.md</code></span><span class="forks"><span class="tag mod">改</span></span></span></a></li>
         <li class="arrow">↓</li>
-        <li><a class="stage mod" href="#s2"><span class="n">2</span><span><span class="t">to-spec</span><span class="d">Testing Decisions 每层加「单文件调用形 + 成功输出」</span><span class="forks"><span class="tag mod">改</span><span class="tag fork">◆F5</span></span></span></a></li>
+        <li><a class="stage keep" href="#s2"><span class="n">2</span><span><span class="t">to-spec</span><span class="d">不改；测试命令在消费仓库 AGENTS.md Commands 表</span><span class="forks"><span class="tag keep">不动</span></span></span></a></li>
         <li class="arrow">↓</li>
         <li><a class="stage mod hasfork" href="#s3"><span class="n">3</span><span><span class="t">prototype → Claude Design 精修 → 下载基线</span><span class="d">下载回叶子目录的整个目录 = UI 票基线</span><span class="forks"><span class="tag mod">改</span><span class="tag fork">◆F4</span><span class="tag fork">◆F6</span></span></span></a></li>
         <li class="arrow">↓</li>
@@ -198,19 +198,19 @@ input.chk{width:16px;height:16px;cursor:pointer}
     </ul></div>
   </div>
 
-  <div class="panel detail mod" id="s2">
-    <header><span class="n">步 2</span><h3>to-spec</h3><span class="tag mod">改</span><a class="fid" href="#F5">◆F5</a></header>
+  <div class="panel detail keep" id="s2">
+    <header><span class="n">步 2</span><h3>to-spec</h3><span class="tag keep">不动</span><a class="fid" href="#F5">◆F5</a></header>
     <div class="io">
       <div><h4>输入</h4><ul><li>map、决策票、prototype 结论</li></ul></div>
-      <div><h4>动作</h4><ul><li>现状：Implementation Decisions 分小节编号，Testing Decisions 给「层 → 目录 → 先例 → 提交前命令」</li><li><b>拟加</b>：每层再写「跑单个文件/用例的调用形 + 成功输出长什么样」；UI 层写像素工具的调用形与基线目录</li></ul></div>
+      <div><h4>动作</h4><ul><li>不变：Implementation Decisions 分小节编号，Testing Decisions 给「层 → 目录 → 先例 → 提交前命令」</li></ul></div>
       <div><h4>产出</h4><ul><li>spec issue（<code>ready-for-agent</code>）</li></ul></div>
     </div>
     <div class="changes"><ul>
-      <li><span class="tag mod">改</span> <code>to-spec/SKILL.md</code> 的 Testing Decisions 段第三条（现行 L71「The test layers…」）加调用形。<span class="src">提议出处：<code>05-runnable-acceptance-gates.md</code> §5.2；理由：spec 写时没有测试文件，票写时才有标准，所以 spec 只给「层级调用形」，票推导每条。</span></li>
+      <li><span class="tag keep">不动</span> 「跑单个测试」的命令属于项目级信息，放消费仓库 <code>AGENTS.md</code> 的 Commands 表，不进每份 spec。<span class="src">定案 2026-08-28；<code>manage-agents-md/write.md</code>「Writing rules」。</span></li>
       <li><span class="tag keep">不动</span> spec 不抄进票，只给指针。<span class="src">定案：<code>00-synthesis.md</code>「第一轮之后已定的事」spec 怎么进票 行。</span></li>
     </ul></div>
     <div class="forklist"><ul>
-      <li><a class="fid" href="#F5">◆F5</a> 「调用形」是 <code>05</code> 的提议，三轮定案表都没写它；要不要进 <code>to-spec</code>；UI 场景键（<code>scenes.json</code>）由谁维护。</li>
+      <li><a class="fid" href="#F5">◆F5</a> 已定：<code>to-spec</code> 不改；命令取消费仓库 <code>AGENTS.md</code> Commands 表，EXPECT 跑先例一次抄。</li>
     </ul></div>
   </div>
 
@@ -218,7 +218,7 @@ input.chk{width:16px;height:16px;cursor:pointer}
     <header><span class="n">步 3</span><h3>prototype → Claude Design 精修 → 下载基线</h3><span class="tag mod">改</span><a class="fid" href="#F4">◆F4</a><a class="fid" href="#F6">◆F6</a></header>
     <div class="io">
       <div><h4>输入</h4><ul><li>UI 问题「这页该长什么样」</li></ul></div>
-      <div><h4>动作</h4><ul><li>① <code>prototype</code> UI 分支出一版总体满意的 mockup（现状：`?variant=` 组件挂真实路由，`prototype/UI.md` 步 1–5）</li><li>② 上传 Claude Design 精修（做法沿用 <code>claude-design-blocks</code> 技能，不在参考快照内）</li><li>③ 下载回 <code>prototypes/&lt;task&gt;/&lt;issue&gt;/UI/</code> 叶子目录：<code>.dc.html</code> + <code>styles/</code> + <code>data/</code> + <code>support.js</code></li></ul></div>
+      <div><h4>动作</h4><ul><li>① <code>prototype</code> UI 分支出一版总体满意的 mockup（现状：`?variant=` 组件挂真实路由，`prototype/UI.md` 步 1–5）</li><li>② 上传 Claude Design 精修：<code>claude-design-blocks</code> 读叶子目录里胜出版本的源码 + 真实页面 <code>?variant=</code> 的渲染结果（<b>改</b>它的第 1、2 步；收进 <code>mmw-v2/skills/</code>，正文按能力判断需要 claude-design MCP 工具）</li><li>③ 下载回 <code>prototypes/&lt;task&gt;/&lt;issue&gt;/UI/</code> 叶子目录：<code>.dc.html</code> + <code>styles/</code> + <code>data/</code> + <code>support.js</code></li></ul></div>
       <div><h4>产出</h4><ul><li>叶子目录里的整个下载目录 = <b>基线</b>；叶子 <code>README.md</code> 记结论</li></ul></div>
     </div>
     <div class="changes"><ul>
@@ -521,7 +521,7 @@ gh issue list --state open --json number,title,blockedBy --jq '.[]|select(.block
     <tr id="F2" class="resolved"><td><input class="chk" type="checkbox" data-f="F2" checked disabled></td><td class="mono">F2</td><td><code>Outside Owns</code> 的 diff base；将来怎么从 issue 正文解析 <code>## Owns</code></td><td><b>已定 2026-08-28</b>：起点 = <code>git merge-base main HEAD</code> 自动算，不记进票；Owns 两档规则确认（为过 AC 不得不改 → 改并记 <code>Outside Owns:</code>；顺手想改 → sub-issue）。解析约定「<code>## Owns</code> 下的列表项」</td><td>A</td><td><code>04</code> §8 第 4、5 条</td></tr>
     <tr id="F3" class="resolved"><td><input class="chk" type="checkbox" data-f="F3" checked disabled></td><td class="mono">F3</td><td><code>decision</code> 类 HANDOFF 打什么标签</td><td><b>已定 2026-08-28</b>：<code>ready-for-human</code>，与其余 kind 相同；不加标签、不改既有含义。kind 靠 <code>ABANDON:</code> 行第二个词区分</td><td>B</td><td><code>08</code> §5.2、§8</td></tr>
     <tr id="F4" class="resolved"><td><input class="chk" type="checkbox" data-f="F4" checked disabled></td><td class="mono">F4</td><td><code>prototype</code> 产物（<code>?variant=</code> 组件）怎么变成 Claude Design 的输入</td><td><b>已定 2026-08-28</b>：流程不变、<code>prototype</code> 不改。上传时读叶子目录里胜出版本的源码 + 真实页面 <code>?variant=</code> 的渲染结果；不加转换步骤</td><td>D</td><td>你的原话 U3、U11；<code>03</code> §3 首段；<code>05</code> §6.4</td></tr>
-    <tr id="F5"><td><input class="chk" type="checkbox" data-f="F5"></td><td class="mono">F5</td><td><code>to-spec</code> Testing Decisions 加不加「单文件调用形 + 成功输出」；UI 场景键谁维护</td><td><span class="opt">★ 加，spec 给层级调用形，票推导每条；场景键随基线目录一起维护</span><span class="opt">不加，to-tickets 自己查测试框架</span></td><td>D</td><td><code>05</code> §5.2、§9</td></tr>
+    <tr id="F5" class="resolved"><td><input class="chk" type="checkbox" data-f="F5" checked disabled></td><td class="mono">F5</td><td><code>CHECK:</code> 的命令和 <code>EXPECT:</code> 从哪来</td><td><b>已定 2026-08-28</b>：不改 <code>to-spec</code>、不建 TESTING.md。命令取消费仓库 <code>AGENTS.md</code> 的 Commands 表（file-scoped 测试命令，缺则补一行）；<code>EXPECT:</code> 对先例测试跑一次抄成功那行；场景列表随基线放叶子目录</td><td>D</td><td><code>05</code> §5.2、§9</td></tr>
     <tr id="F6"><td><input class="chk" type="checkbox" data-f="F6"></td><td class="mono">F6</td><td>非默认场景的基线怎么产（Claude Design 靠 props 不靠 URL）</td><td><span class="opt">每场景各下载一页</span><span class="opt">工具渲染前设 props（<code>support.js parseDataProps</code>）</span></td><td>D</td><td>EXP README「Open」；<code>05</code> §6.3 场景表</td></tr>
     <tr id="F7" class="resolved"><td><input class="chk" type="checkbox" data-f="F7" checked disabled></td><td class="mono">F7</td><td>ponytail 五句写进 <code>implement</code> 后怎么验证有效</td><td><b>已定 2026-08-28</b>：先写进正文，用第一张真实的票跑一遍；不做有句/没句的对照实验。真票跑出具体问题时再针对那一句做对照实验</td><td>C</td><td><code>10</code> §5 第 2 条 vs <code>00</code> 定案 ponytail 行</td></tr>
     <tr id="F8" class="resolved"><td><input class="chk" type="checkbox" data-f="F8" checked disabled></td><td class="mono">F8</td><td><code>code-review</code> Spec 轴要不要也拿基线目录 / Read first</td><td><b>已定 2026-08-28</b>：不拿。照不照基线由 UI 票的 visual-parity <code>CHECK:</code> 判：worker 写码期间迭代跑、步 8 自跑、步 9 verifier 重跑</td><td>B</td><td><code>03</code> §3 末行、§5 第 4 条</td></tr>
@@ -551,7 +551,7 @@ gh issue list --state open --json number,title,blockedBy --jq '.[]|select(.block
     <div class="panel"><span class="k">块 A · 已定 08-28</span><h3>票的形态</h3><p>F1、F2 已定。改 <code>to-tickets</code> 模板与 Read back。</p></div>
     <div class="panel"><span class="k">块 B · 已定 08-28</span><h3>收尾与失败词汇</h3><p>全部定完。改 <code>implement</code> 收尾段；新建 <code>agents/verifier/</code>；<code>code-review</code> 改成路由 + 三个 reference；vendor <code>gate-check.mjs</code>；建 <code>CONTEXT.md</code>。</p></div>
     <div class="panel"><span class="k">块 C · 已定 08-28</span><h3>写码中纪律</h3><p>F7 已定。改 <code>implement</code> 读入段之后的十行，用真实的票跑一遍验证。</p></div>
-    <div class="panel next"><span class="k">块 D · 下一步</span><h3>UI 基线与工具</h3><p>F4、F5、F6、F12。改 <code>to-spec</code>、<code>prototype</code>；把 EXP 的 <code>run.py</code> 提成工具。</p></div>
+    <div class="panel next"><span class="k">块 D · 下一步</span><h3>UI 基线与工具</h3><p>F4、F5 已定。剩 F6、F12。改 <code>claude-design-blocks</code>；把 EXP 的 <code>run.py</code> 提成工具。</p></div>
     <div class="panel"><span class="k">块 E</span><h3>派发</h3><p>F11。角色表文件、权限参数；白天手工即可先跑，不阻塞 A–D。</p></div>
     <div class="panel"><span class="k">块 F</span><h3>第一张真实票</h3><p>F13。A–D 各定一块就用它跑一遍；全部跑通才合 main。</p></div>
   </div>
