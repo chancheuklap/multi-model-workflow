@@ -2,7 +2,7 @@
 
 无人看守时，一张票有两种坏结局：**停**（本来能继续，却因为一条判定不通过而交给人）和**转圈**（两个 agent 互相返工，永不收敛）。#60 与 `12-decisions.md` 里防转圈的设定是齐的（code-review 一轮、不复审、verifier 一次），防停的设定则有缺口：本文逐条检查这些硬性判定，列出会触发的条件与改法。
 
-检查范围：#60 全部十一节、`12-decisions.md` 块 A–G、`08-failure-vocabulary.md` §5、`05-runnable-acceptance-gates.md` §8 与 §10、`06-independent-verifier.md` §8。本文只调查、只提议；标「要拍板」的三条要用户定。
+检查范围：#60 全部十一节、`12-decisions.md` 块 A–G、`08-failure-vocabulary.md` §5、`05-runnable-acceptance-gates.md` §8 与 §10、`06-independent-verifier.md` §8。本文只调查、只提议；定案登记在 `12-decisions.md` H4–H6。
 
 判断依据是用户 2026-08-29 定的原则：**约束 agent 的工作方法以提高结果质量，而不是轻易判定失败或让人接管；同时不许陷入 agent 之间的无限循环，遇到收不了的问题要完整、及时地记录下来供以后修**。
 
@@ -24,7 +24,7 @@
 
 改法：把这一项改成 B2 的语义——`git merge-base --is-ancestor <VERDICT 的 commit> HEAD`（验过的那个 commit 必须在当前历史里，即没有被回退或重写），并在收尾评论里多一行 `Post-verdict:` 列出 VERDICT 之后的 commit 与它们的来源（`code-review 票内发现`）。最终 commit 的可信度由第 3 步末尾那次自跑承担，这也正是 B2 写「修完在最终 commit 上再自跑 CHECK 填 EVIDENCE」的原因。
 
-**要拍板**的是另一个选项：允许 verifier 在 code-review 引出代码修改时**再派一次**（上限二次，不构成循环，因为 code-review 本身不复审）。代价是多一个子代理调用，收益是 `VERDICT` 真的绑在最终 commit 上。
+另一个选项——允许 verifier 在 code-review 引出代码修改时再派一次——**已定不采**（`12-decisions.md` H5）：verifier 第二次跑的命令、判定与环境都与 worker 第 3 步末尾那次自跑相同，`level` 大概率不变，增量只剩「换一个没有写码记忆的上下文」，而它防的「自评自勾」已被脚本挡住。
 
 ### 1.2 带 `MANUAL:` 的票在夜里必然 `HANDOFF REQUIRED`
 
@@ -34,11 +34,7 @@
 
 这未必是错的——#60 的 User Story 3 本来就写「写不出命令的标准明写『谁看哪个东西』」。问题在于 `HANDOFF REQUIRED` 这个词此时同时表示两件事：**「出问题了，需要人来救」** 和 **「一切正常，只有一条等你看一眼」**。早上从首行分不清哪张票是真出了事。
 
-三个选项，**要拍板**：
-
-- **甲**（与 `ABANDON: decision` 的裁决一致）：worker 把每条 MANUAL 项开成 spec 下的 sub-issue（`--parent <spec> --label ready-for-human`，正文抄 `MANUAL:` 行原文与相关的 EVIDENCE 材料），其余标准全过就 `ALL MET` 关票，收尾评论的 `Sub-issues opened:` 行列出它们。代价：一张票在一条标准没被验的情况下算完成。
-- **乙**：维持现状（整票 HANDOFF），但首行的计数把人工项单独列出来，例如 `HANDOFF REQUIRED: 0 abandoned, 1 manual, 5 met of 6`，让早上一眼分得清。
-- **丙**：出票时禁止 MANUAL（与 US3 冲突，不建议）。
+**已定取甲**（`12-decisions.md` H6，与 `ABANDON: decision` 同一条逻辑）：worker 收尾时把每条未填 EVIDENCE 的 `MANUAL:` 标准开成 spec 下的 sub-issue（`--parent <spec> --label ready-for-human`，正文抄 `MANUAL:` 行原文与相关材料），列进收尾评论的 `Sub-issues opened:`；这些标准不计入 unmet，其余标准全过即 `ALL MET` 关票。`Counts:` 增加一个 `manual` 数，形如 `Counts: 5 met, 0 unmet, 0 abandoned, 1 manual of 6`。
 
 ## 2. 常见情况会触发的四处
 
@@ -79,13 +75,13 @@
 | `stop` hook 顶回半途结束 | 同上 | 有 `stop_hook_active` 兜底，最多顶一次 |
 | gate-check 的双条件（exit 0 **且** EXPECT 匹配） | `12-decisions.md` B8 | 这是「判过没过」的定义本身 |
 
-## 6. 汇总：要改的与要拍板的
+## 6. 汇总
 
 | 编号 | 事项 | 性质 | 落点 |
 | --- | --- | --- | --- |
 | S1 | `--closeout` 的 `VERDICT` commit 检查改为「是 HEAD 的祖先」，收尾评论加 `Post-verdict:` 行 | 修矛盾（必然停） | #60 第 9 节第 6 步与第 5 步；#63 |
-| S2 | 是否允许 verifier 在 code-review 引出修改时再派一次（上限二次） | **要拍板** | `12-decisions.md` B2、B5；#69、#73 |
-| S3 | 带 `MANUAL:` 的票怎么收尾（甲 / 乙 / 丙） | **要拍板** | `08` §5、#60 第 9 节第 5 步；#68、#73 |
+| S2 | verifier 仍然只派一次（不采二次） | 已定（H5） | 无改动；B2、B5 不变 |
+| S3 | MANUAL 项开成 sub-issue，不计入 unmet，其余全过即 `ALL MET` | 已定（H6） | #60 第 9 节第 5–6 步；#63、#73 |
 | S4 | 两处 `git status --porcelain` 改成只查已跟踪文件 | 修（常见触发） | #60 第 5 节、第 9 节第 6 步；#63、#69 |
 | S5 | `--closeout` 的 diff 非空改为警告 | 修（少见触发） | #60 第 9 节第 6 步；#63 |
 | S6 | `--preflight` 的 assignee 条件改成「空或就是我」 | 修（幂等） | #60 第 7 节；#63 |

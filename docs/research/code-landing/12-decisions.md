@@ -30,7 +30,7 @@
 | F18 | Herdr 怎么排 pane 与 tab、怎么命名、状态怎么互知 | 已定 | H1 |
 | F19 | 自动化里信息怎么交换；监控界面在哪 | 已定 | H2 |
 | F20 | `ABANDON: decision` 之后票停不停 | 已定 | H3 |
-| F21 | 会让 agent 停下或转圈的设定 | S1、S4–S11 已定；S2（verifier 二次）、S3（MANUAL 项怎么收尾）待定 | H4 |
+| F21 | 会让 agent 停下或转圈的设定 | 已定（S1–S11 全部） | H4、H5、H6 |
 
 ## 块 0 · 昨晚三轮调查后的定案（2026-08-27 夜 → 08-28 凌晨）
 
@@ -365,7 +365,18 @@ merge-note 与正文一致性 canary（「关键句」无法机械定义）；�
 
 不动的防转圈设定（`16` §5）：code-review 一轮不复审、verifier 一次、`verifier-failed`/`verifier-blocked` 不触发 HANDOFF、两个 hook gate、gate-check 的双条件。
 
-仍要用户拍板的两条：
+### H5 verifier 仍然只派一次（S2 不采）
 
-- **S2**：是否允许 verifier 在 code-review 引出代码修改时再派一次（上限二次，不构成循环，因为 code-review 本身不复审）。代价是多一次子代理调用，收益是 `VERDICT` 真的绑在最终 commit 上。不采则按 S1 处理。
-- **S3**：带 `MANUAL:` 的票怎么收尾。现在它必然 unmet、必然 `HANDOFF REQUIRED`，于是首行同时表示「出事了」和「一切正常只等你看一眼」。甲：MANUAL 项开成 sub-issue，其余全过就 `ALL MET` 关票（与 H3 同一逻辑）；乙：维持整票 HANDOFF，但首行计数把人工项单列，如 `HANDOFF REQUIRED: 0 abandoned, 1 manual, 5 met of 6`；丙：出票禁止 MANUAL（与 #60 US3 冲突，不建议）。
+- 我提的选项：允许 verifier 在 code-review 引出代码修改时再派一次（上限二次），好处是 `VERDICT` 绑在最终 commit 上。
+- 用户反问：「S2 为啥非要再派一次 verifier，派他去干什么」。
+- 回答与结论：说不出它第二次要做的事。verifier 的工作是在最终 commit 上重跑每条 `CHECK:` 并判一个 `level`（B4）；code-review 之后 worker 改完，#60 第 9 节第 3 步已定「修完再 `verify-ticket.py <n>`」——同一套 CHECK、同一个 `gate-check.mjs`、同一个双条件判定，EVIDENCE 由脚本写，worker 伪造不了。第二次的命令、环境（同一个 worktree）都一样，`level` 大概率不变，增量只剩「换一个没有写码记忆的上下文」，而它防的「自评自勾」风险已被脚本挡住。这正是 `06-independent-verifier.md` §5.2 引 pstack 的「重跑一条命令的 verifier 是仪式」；B3 否掉的是给票分类，不是这个判断。
+- **结论：不采。verifier 仍然只派一次。** 剩余风险（code-review 之后的改动没有独立确认）由 S1 的两样东西承接：`--closeout` 核 `VERDICT` 的 commit 是 HEAD 的祖先，收尾评论的 `Post-verdict:` 行列出之后的每个 commit 与来源，早上一眼看得到「验的是 A，之后因 code-review 改了 B」。
+- 落点：`16-stall-and-loop-risks.md` §1.1 与 S2；B2、B5 不变。
+
+### H6（S3）带 `MANUAL:` 的票按 decision 同样处理
+
+- 现状：manual gate 算 met 的条件是「勾了且 `EVIDENCE:` 非 `pending`」（`08-failure-vocabulary.md` §5 表首行），而 `05-runnable-acceptance-gates.md` §8.2 第 4 条定「worker 不代填、不代勾」，verifier 对 MANUAL 条目「标 manual, not run」（#60 第 5 节）。于是任何带一条 `MANUAL:` 的票夜里必然有一条 unmet、必然 `HANDOFF REQUIRED`，首行同时表示「出事了」和「一切正常只等你看一眼」。
+- 选项：甲——每条 MANUAL 项开成 spec 下的 sub-issue，其余标准全过就 `ALL MET` 关票；乙——维持整票 HANDOFF，首行计数把人工项单列；丙——出票禁止 MANUAL（与 #60 US3 冲突）。
+- **用户裁决：甲。**
+- 结论：worker 收尾时把每条未填 EVIDENCE 的 `MANUAL:` 标准开成 sub-issue（`--parent <spec> --label ready-for-human`，正文抄 `MANUAL:` 行原文与相关材料），列进收尾评论的 `Sub-issues opened:`；这些标准不计入 unmet，其余标准全过即 `ALL MET` 关票。`Counts:` 增加一个 `manual` 数，形如 `Counts: 5 met, 0 unmet, 0 abandoned, 1 manual of 6`。与 H3 是同一条逻辑：需要人的那一点小到能单独记成一张 issue，票本身不停。
+- 落点：`08-failure-vocabulary.md` §5.3 的计数格式、#60 第 9 节第 5–6 步、#63 的 `--closeout` 校验、#68（`to-tickets` 出票时 MANUAL 行的写法不变）、#73。
