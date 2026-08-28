@@ -93,7 +93,7 @@ th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px soli
 th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
 .tablewrap{overflow-x:auto}
 tr.resolved td{opacity:.45}
-tr.resolved td:first-child{text-decoration:line-through}
+tr.resolved td:nth-child(2){text-decoration:line-through}
 td .opt{display:block;margin:2px 0}
 input.chk{width:16px;height:16px;cursor:pointer}
 /* order */
@@ -514,7 +514,7 @@ gh issue list --state open --json number,title,blockedBy --jq '.[]|select(.block
   <p class="lede">每行一个决定；勾选框存在你的浏览器里，讨论定了就勾掉。「块」= 第 8 节建议的讨论块。</p>
   <div class="tablewrap"><table id="forktable">
     <tr><th></th><th>ID</th><th>问题</th><th>选项（★ = 报告里的倾向）</th><th>块</th><th>出处</th></tr>
-    <tr id="F1"><td><input class="chk" type="checkbox" data-f="F1"></td><td class="mono">F1</td><td>AC 稳定 id 与 <code>MANUAL:</code> 行的形态；「manual 不过半」是硬规则还是回 <code>/to-spec</code> 的触发</td><td><span class="opt">★ 采 <code>05</code> §8.1：<code>AC&lt;n&gt;</code> + <code>MANUAL: &lt;人&gt; 看什么</code>；过半回 to-spec</span><span class="opt">unlazy 原样：manual = 什么都不写</span></td><td>A</td><td><code>05</code> §5.3、§8.1</td></tr>
+    <tr id="F1" class="resolved"><td><input class="chk" type="checkbox" data-f="F1" checked disabled></td><td class="mono">F1</td><td>AC 稳定 id 与 <code>MANUAL:</code> 行的形态；「manual 不过半」是硬规则还是回 <code>/to-spec</code> 的触发</td><td><b>已定 2026-08-28</b>：编号 <code>AC&lt;n&gt;</code>，出票时编、不重排；人工项明写 <code>MANUAL: &lt;谁&gt; &lt;看哪个制品&gt;</code>；人工项过半是出票硬规则，回 <code>/to-spec</code> 补测试层</td><td>A</td><td><code>05</code> §5.3、§8.1</td></tr>
     <tr id="F2"><td><input class="chk" type="checkbox" data-f="F2"></td><td class="mono">F2</td><td><code>Outside Owns</code> 的 diff base；将来怎么从 issue 正文解析 <code>## Owns</code></td><td><span class="opt">★ base = <code>git merge-base main HEAD</code>；解析约定「## Owns 下的列表项」</span><span class="opt">票评论记起始 commit</span></td><td>A</td><td><code>04</code> §8 第 4、5 条</td></tr>
     <tr id="F3"><td><input class="chk" type="checkbox" data-f="F3"></td><td class="mono">F3</td><td><code>decision</code> 类 HANDOFF 打什么标签</td><td><span class="opt">★ <code>ready-for-human</code>（<code>needs-info</code> 定义是等 reporter）</span><span class="opt">改 <code>needs-info</code> 含义 / 加第六个标签</span></td><td>B</td><td><code>08</code> §5.2、§8</td></tr>
     <tr id="F4"><td><input class="chk" type="checkbox" data-f="F4"></td><td class="mono">F4</td><td><code>prototype</code> 产物（`?variant=` 组件）怎么变成 Claude Design 的输入</td><td><span class="opt">导出静态 HTML 再上传（沿用 claude-design-blocks）</span><span class="opt">prototype UI 分支改为直接产 HTML 页</span><span class="opt">在 Claude Design 里从零画，prototype 只出决定</span></td><td>D</td><td>你的原话 U3、U11；<code>03</code> §3 首段；<code>05</code> §6.4</td></tr>
