@@ -22,7 +22,7 @@
 | F10 | verifier-failed / blocked 之后 | 已定 | B5 |
 | F11 | 派发前提 | 已定 | E1 |
 | F12 | 两个脚本放哪 | 已定 | D4 |
-| F13 | 第一张真实的票、改动顺序 | 进行中 | F1、F2；落地 spec |
+| F13 | 第一张真实的票、改动顺序 | 改动顺序已定于落地 spec issue #60（十一节）；真实的票待用户定 | F1、F2；#60 |
 | F14 | 验收标准怎么跑怎么判 | 已定 | B8 |
 | F15 | code-review 方法论扩充 | 后补 | B7 |
 | F16 | Claude Design 交接包与 DESIGN.md | 已定 | D5 |
@@ -251,6 +251,7 @@
 - 我第一版列「三样前提」：worktree 由 `herdr worktree create` 建、`gh` 已登录、权限放开；并跑 `--help` 核出参数：claude `--permission-mode {acceptEdits,auto,bypassPermissions,manual,dontAsk,plan}`、`-n`、`--model`；grok `--permission-mode {default,acceptEdits,auto,dontAsk,bypassPermissions,plan}`、`--always-approve`、`-m`、`--reasoning-effort`、`--worktree=<名>`；cursor-agent `--force`/`--yolo`、`--trust`、`--model 'x[effort=high]'`、`-w <名>`、`--worktree-base`；codex `-a never`、`-s`；pi `--name`、`--session-id`。
 - 用户纠正：「你没查清楚，cursor 和 grok 应该都可以从新 worktree 启动。gh 登录与否这个为啥要给，肯定是提前在电脑里登录好的呀」；三条裁决「1. 全部放行 2. 可以 3. 表可以单独放，关键是怎么去读它」；随后「我不会去读 docs/agents/models.md，我只会修改优化它里面的 agent 和模型安排」。
 - 结论：worktree 由宿主自己开（`cursor-agent -w issue-<n> --worktree-base main`、`grok --worktree=issue-<n>`），Herdr pane 开在仓库根，不用 `herdr worktree create`；权限全部放行（cursor `--force --trust`；grok/claude `--permission-mode bypassPermissions`）；Herdr 名 `issue-<n>`（正则不许数字开头），claude/pi 同时 `-n`，cursor/grok 只有 Herdr 一侧有名；`gh` 一次性登好不算前提；角色表 `docs/agents/models.md` 每行「角色 → 宿主 → 完整启动命令」，读者是 `implement`（起 reviewer 会话时抄 reviewer 行）和以后的编排会话，读法是 `AGENTS.md` `## Agent skills` 段加「### Roles … See docs/agents/models.md」（与 issue-tracker 同机制），用户只改表里的安排、不读它。
+- 补充（写落地 spec 时发现）：Herdr 名在活着的 agent 里必须唯一，同一票的 worker 已占 `issue-<n>`，worker 起的 reviewer 会话用 `issue-<n>-review`；cursor 的模型串是 `cursor-grok-4.6-high`（effort 烧在 slug 里，`cursor-agent models` 无裸 `cursor-grok-4.6`）；grok 要加 `--worktree-ref main`（缺省从当前 HEAD 开，A2 的起点算法要求从 main 开）。
 - 角色表数值（昨晚定、今天沿用）：初级 worker cursor `cursor-grok-4.6` effort high；高级 worker grok `grok-4.6` xhigh；reviewer 会话 claude opus；verifier 同宿主不同模型写在 `agents/verifier/agent.json`；编排者 claude opus medium（自动化阶段再用）。
 
 ## 块 F · 落地
@@ -263,4 +264,4 @@
 ### F2 改动顺序（用户要求一次性规划完整）
 
 - 用户：「你要一次性规划出完整的改动顺序，如何一点点落地，你检查完我检查，再修改，再下一步」。
-- 落点：落地 spec（本仓 GitHub issue，编号见状态总表 F13 行）。
+- 落点：落地 spec，本仓 issue #60（Implementation Decisions 十一节 = 改动顺序，每节带「我检查 / 你检查」）；经 claim-checker 核查 55 条陈述、修 13 条后发布。
