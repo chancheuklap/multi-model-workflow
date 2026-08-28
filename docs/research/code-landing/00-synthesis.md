@@ -143,7 +143,7 @@
 ## 讨论进度（2026-08-28）
 
 - 已定：块 A（F1 AC 编号与 MANUAL 行、F2 Outside Owns 起点）。
-- 进行到：块 B。已定先验后审、code-review 一轮；F9（每票都派 vs 四类票才派）等用户定。
+- 进行到：块 B。已定先验后审、code-review 一轮、F9 每票都派、子代理只收实时信息原则；剩 F3、F8、F10（verifier-blocked）、F14。
 - 未开：F3、F8、F10、F14（块 B 其余）；F7（块 C）；F4、F5、F6、F12（块 D）；F11（块 E）；F13（块 F）。
 - 蓝图页：`11-target-pipeline.html`（artifact 9cb8f46c…），第 7 节登记表随每次定案更新。
 
@@ -154,3 +154,7 @@
 | verifier 与 code-review 的顺序 | **先验后审**：worker 自跑 CHECK → 在 worker 会话内派 verifier 重跑 → 没过 worker 修并自跑填证据（不派第二次）→ 全过后才 code-review。理由：verifier 若在后面发现漏项，返工后又要再 review，是浪费 |
 | code-review 轮数 | **一轮**审、worker 修一轮、不复审（覆盖「第一轮之后已定的事」的 ≤2 轮）。修完在最终 commit 自跑 CHECK 填 EVIDENCE；`VERDICT` 行照实绑 verifier 验的那个 commit |
 | verifier 与 code-review 是否合并 | 不合并：verifier 只跑票上的 CHECK，code-review 只读 diff；两者都是子代理 |
+| verifier 派发条件 | **每票都派**，不分类型（否决 `06` §5.2 的四类票） |
+| 子代理收什么 | **原则**：子代理只收此刻才知道的信息（票号、起点 commit）；固定的动作、禁令、汇报格式写进它自己的定义文件；票是事实与状态的唯一存放处，谁要都自己 `gh issue view`，不由另一个 agent 转述。跨宿主的 worker 同理：派发词只有技能名 + 票号 |
+| verifier 的 brief 与产出 | brief = 票号。它自己读票、`git rev-parse HEAD` 取 commit、在同一 worktree 跑 CHECK；结果由它自己 `gh issue comment` 写 `VERDICT` 行与逐条结果到票上，worker 之后读票。`06` §8.2「原样粘贴」及其 pstack 理由作废 |
+| code-review 的两个子代理 | 待改：smell baseline 与两轴 brief 固定 → 做成 `mmw-v2/agents/` 下两个定义；prompt 只给起点 commit + 票号，spec 沿票的 `Parent` 自读。改上游技能，写 merge-note。`ui-evaluator` 同样违反此原则，但 ui-qa 本轮不接入，只登记 |

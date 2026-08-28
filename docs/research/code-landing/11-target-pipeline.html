@@ -372,11 +372,12 @@ tests/api/，先例 tests/api/projects.create.test.ts        <span class="cm">�
   <div class="panel detail new hasfork" id="s9">
     <header><span class="n">步 9</span><h3>verifier 子代理，只审一次</h3><span class="tag new">新</span><a class="fid" href="#F9">◆F9</a><a class="fid" href="#F10">◆F10</a></header>
     <div class="io">
-      <div><h4>输入（brief，原样粘贴，不给 diff / spec / 基线）</h4><ul><li><code>TICKET</code> 票链接 + 每条 AC 原文与 CHECK/EXPECT/MANUAL</li><li><code>SHA</code> + 分支 + worktree 绝对路径</li><li><code>SEAM</code> 原文 + 起 app 的命令</li><li><code>FORBIDDEN</code> 不改文件不 commit 不修不加标准；首尾各跑 <code>git status --porcelain</code></li><li><code>REPORT</code> 格式</li></ul></div>
+      <div><h4>输入（brief）</h4><ul><li><b>只有票号</b>。它自己 <code>gh issue view</code> 读每条 AC 的 CHECK/EXPECT/MANUAL 与 Seam；与 worker 同一 worktree，<code>git rev-parse HEAD</code> 自取 commit</li><li>禁令（不改文件不 commit 不修不加标准、首尾 <code>git status --porcelain</code>）、五级定义、汇报格式全在 <code>agents/verifier/body.md</code>，不由 worker 转述</li></ul></div>
       <div><h4>动作</h4><ul><li>在 code-review <b>之前</b>跑（定案 2026-08-28：先验后审，避免 verifier 返工后再复审）；由<b>运行 implement 的那个会话</b>派出（白天手工、夜间 Herdr 同一流程）；能选模型就选与自己不同的；不能派子代理 → 自己从干净 shell 重跑，标 <code>self-reported</code></li><li>在最终 SHA 重跑每条 CHECK；不评代码</li><li>只审一次；没过 → worker 修并自跑填证据；<b>不复审</b>。全过后才进步 10 code-review</li></ul></div>
-      <div><h4>产出</h4><ul><li>票评论一行 <code>VERDICT &lt;sha&gt; &lt;level&gt; by &lt;model|self-reported&gt; — 一句话</code>；level ∈ <code>live-ui-verified / unit-test-verified / type-check-only / verifier-blocked / verifier-failed</code></li></ul></div>
+      <div><h4>产出</h4><ul><li>verifier <b>自己</b> <code>gh issue comment</code> 到票上：一行 <code>VERDICT &lt;sha&gt; &lt;level&gt; by &lt;model|self-reported&gt; — 一句话</code> + 逐条结果；worker 之后读票。level ∈ <code>live-ui-verified / unit-test-verified / type-check-only / verifier-blocked / verifier-failed</code></li></ul></div>
     </div>
     <div class="changes"><ul>
+      <li><span class="tag mod">原则</span> 子代理只收此刻才知道的信息；固定的东西进定义文件；票是唯一的事实与状态存放处，不转述。<code>06</code> §8.2「原样粘贴」及 pstack「workers cannot see siblings」的理由作废（我们的子代理在同一 worktree、有 <code>gh</code>）。<span class="src">定案 2026-08-28，<code>00</code>「块 B 定案」。</span></li>
       <li><span class="tag new">新</span> 第四个 subagent <code>mmw-v2/agents/verifier/</code>：<code>agent.json</code> 五宿主各选与写码常用模型不同的；Claude/pi 给 <code>Read, Grep, Glob, Bash</code>；body 写动作、五级定义、两次 git status、REPORT。<span class="src"><code>06-independent-verifier.md</code> §8.2–8.3；定案 <code>00</code>「第三轮之后的定案」verifier 的父会话 行。</span></li>
       <li><span class="tag keep">事实</span> 「不同模型家族」pstack 无数据；Claude Code 只能选 Anthropic 内模型；Grok/Codex 子代理能否按定义切模型未实测。<span class="src"><code>06</code> §3。</span></li>
     </ul></div>
@@ -394,6 +395,7 @@ tests/api/，先例 tests/api/projects.create.test.ts        <span class="cm">�
       <div><h4>产出</h4><ul><li>修完的 commit；sub-issue 列表</li></ul></div>
     </div>
     <div class="changes"><ul>
+      <li><span class="tag mod">改</span> 两个子代理的 prompt 现在粘 smell baseline 全文、标准文件、spec 全文（<code>code-review/SKILL.md</code> 第 4 步）——固定内容应做成 <code>mmw-v2/agents/</code> 下两个定义，prompt 只给起点 commit + 票号，spec 沿 <code>Parent</code> 自读。改上游技能，写 merge-note。</li>
       <li><span class="tag mod">改</span> 一轮上限与分类进 <code>implement</code> 收尾段（<code>code-review</code> 本身只报告不裁决）。<span class="src">定案 2026-08-28 覆盖昨晚「≤2 轮」；记忆「Reviewer must not self-set pass criteria」（<code>03</code> §4）。</span></li>
     </ul></div>
     <div class="forklist"><ul>
@@ -522,7 +524,7 @@ gh issue list --state open --json number,title,blockedBy --jq '.[]|select(.block
     <tr id="F6"><td><input class="chk" type="checkbox" data-f="F6"></td><td class="mono">F6</td><td>非默认场景的基线怎么产（Claude Design 靠 props 不靠 URL）</td><td><span class="opt">每场景各下载一页</span><span class="opt">工具渲染前设 props（<code>support.js parseDataProps</code>）</span></td><td>D</td><td>EXP README「Open」；<code>05</code> §6.3 场景表</td></tr>
     <tr id="F7"><td><input class="chk" type="checkbox" data-f="F7"></td><td class="mono">F7</td><td>ponytail 句子入正文的门槛</td><td><span class="opt">探针两臂实测（<code>07</code> §8 四探针，n≥4）</span><span class="opt">★ 定案：第一张真实票穿行验证</span></td><td>C</td><td><code>10</code> §5 第 2 条 vs <code>00</code> 定案 ponytail 行</td></tr>
     <tr id="F8"><td><input class="chk" type="checkbox" data-f="F8"></td><td class="mono">F8</td><td><code>code-review</code> Spec 轴要不要也拿基线目录 / Read first</td><td><span class="opt">★ 不拿：照不照基线由步 9 的工具判，code-review 只读 spec</span><span class="opt">拿：Spec 轴 brief 加 Read first</span></td><td>B</td><td><code>03</code> §3 末行、§5 第 4 条</td></tr>
-    <tr id="F9"><td><input class="chk" type="checkbox" data-f="F9"></td><td class="mono">F9</td><td>verifier 每票都派，还是只对四类票派</td><td><span class="opt">每票都派（定案序列的字面）</span><span class="opt">★ 四类票才派，其余 <code>self-reported</code>（pstack「一条命令的 verifier 是 ceremony」）</span></td><td>B</td><td><code>06</code> §5.2；<code>00</code>「verifier 次数」行</td></tr>
+    <tr id="F9" class="resolved"><td><input class="chk" type="checkbox" data-f="F9" checked disabled></td><td class="mono">F9</td><td>verifier 每票都派，还是只对四类票派</td><td><b>已定 2026-08-28</b>：每票都派，不分类型</td><td>B</td><td><code>06</code> §5.2；<code>00</code>「verifier 次数」行</td></tr>
     <tr id="F10"><td><input class="chk" type="checkbox" data-f="F10"></td><td class="mono">F10</td><td><code>verifier-failed</code> 修完后的收尾行怎么写、凭什么关票；<code>verifier-blocked</code> 走修环境还是 HANDOFF</td><td><b>部分已定 2026-08-28</b>：<code>verifier-failed</code> → worker 修并自跑填 EVIDENCE，不再派第二次，继续进 code-review。仍待定：<code>verifier-blocked</code> 走修环境还是 HANDOFF blocked（★ HANDOFF）</td><td>B</td><td><code>06</code> §4.3、§8.1；<code>08</code> §8 第 5 条</td></tr>
     <tr id="F11"><td><input class="chk" type="checkbox" data-f="F11"></td><td class="mono">F11</td><td>派发三前提取值（各宿主权限参数、Herdr 名字、角色表文件名与位置）</td><td><span class="opt">名字 = 票号；角色表 = 消费仓库 <code>docs/agents/&lt;?&gt;.md</code>；权限参数逐宿主定</span></td><td>E</td><td><code>09</code> §2.2、§6 第 2–3 条；<code>00</code>「每票派给谁」</td></tr>
     <tr id="F12"><td><input class="chk" type="checkbox" data-f="F12"></td><td class="mono">F12</td><td>visual-parity 工具放哪、怎么装到消费仓库</td><td><span class="opt"><code>mmw-v2/tools/</code> + install.sh 软链</span><span class="opt">随 <code>prototype</code> 或新技能的 <code>scripts/</code> 走</span><span class="opt">复制进消费仓库 <code>prototypes/</code></span></td><td>D</td><td><code>05</code> §6.3、§6.2 gate 例；<code>AGENTS.md</code> 命令表</td></tr>
@@ -545,7 +547,7 @@ gh issue list --state open --json number,title,blockedBy --jq '.[]|select(.block
   <p class="lede">先定分岔，再动技能；每块定完只改它牵涉的文件，用同一张真实票穿行一次。建议的讨论顺序：</p>
   <div class="order">
     <div class="panel"><span class="k">块 A · 已定 08-28</span><h3>票的形态</h3><p>F1、F2 已定。改 <code>to-tickets</code> 模板与 Read back。</p></div>
-    <div class="panel next"><span class="k">块 B · 下一步（停在 F9）</span><h3>收尾与失败词汇</h3><p>F3、F8、F9、F10、F14。改 <code>implement</code> 收尾段；新建 <code>agents/verifier/</code>；建 <code>CONTEXT.md</code>。</p></div>
+    <div class="panel next"><span class="k">块 B · 下一步（停在 F9）</span><h3>收尾与失败词汇</h3><p>已定：顺序、一轮、F9、子代理原则。剩 F3、F8、F10、F14。改 <code>implement</code> 收尾段；新建 <code>agents/verifier/</code> 与 code-review 两个子代理定义；建 <code>CONTEXT.md</code>。</p></div>
     <div class="panel"><span class="k">块 C</span><h3>写码中纪律</h3><p>F7。改 <code>implement</code> 读入段之后的十行。</p></div>
     <div class="panel"><span class="k">块 D</span><h3>UI 基线与工具</h3><p>F4、F5、F6、F12。改 <code>to-spec</code>、<code>prototype</code>；把 EXP 的 <code>run.py</code> 提成工具。</p></div>
     <div class="panel"><span class="k">块 E</span><h3>派发</h3><p>F11。角色表文件、权限参数；白天手工即可先跑，不阻塞 A–D。</p></div>
