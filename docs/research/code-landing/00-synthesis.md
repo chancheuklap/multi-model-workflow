@@ -144,7 +144,7 @@
 
 - 已定：块 A（F1 AC 编号与 MANUAL 行、F2 Outside Owns 起点）。
 - 块 B 全部定完（顺序、一轮、F3、F8、F9、F10、F14、子代理原则、code-review 形态与派发）；F15 后补。
-- 下一步：块 C 的 F7（ponytail 句子入正文的门槛：探针实测 vs 真票穿行）。
+- 块 C 定完（F7）。下一步：块 D（F4 prototype 产物怎么进 Claude Design、F5 to-spec 加调用形、F6 非默认场景基线、F12 工具放哪）。
 - 未开：F3、F8、F10、F14（块 B 其余）；F7（块 C）；F4、F5、F6、F12（块 D）；F11（块 E）；F13（块 F）。
 - 蓝图页：`11-target-pipeline.html`（artifact 9cb8f46c…），第 7 节登记表随每次定案更新。
 
@@ -166,3 +166,9 @@
 | code-review Spec 轴要不要看基线 | 不看。Spec 轴只读 spec 文本；照不照基线由 UI 票的 visual-parity `CHECK:` 判（worker 写码期间迭代跑、步 8 自跑、步 9 verifier 重跑，三次都不需要人）。F8 关闭 |
 | 验收标准怎么跑、怎么判 | **vendor unlazy `gate-check.mjs`**（MIT，6 个文件约 2000 行，需 Node ≥ 16），账本从票派生：`gh issue view` 取 AC 段 → 临时文件 → `gate-check --approve [--timeout N]`（verifier 加 `--reverify`）→ 更新后的账本贴回票评论。没有第二份文件；审批目录设 `UNLAZY_APPROVAL_DIR` 到仓库外的 0700 目录，`--approve` 每次都带。实测见 `05` §10。`05` §7 手写 EVIDENCE 格式作废。放哪、怎么到消费仓库并入 F12。F14 关闭 |
 | `decision` 类 HANDOFF 的标签 | `ready-for-human`，与其余三种 kind 相同；不加新标签、不改既有标签含义（用户：agentflow 的标签已够乱，要清理到只剩合法标签）。区分 kind 靠收尾评论 `ABANDON:` 行第二个词。F3 关闭。**块 B 全部定完** |
+
+## 块 C 定案（2026-08-28）
+
+| 议题 | 决定 |
+| --- | --- |
+| ponytail 五句入 `implement` 正文的验证方式 | 先写进正文，用第一张真实的票跑一遍看有没有问题；不做有句/没句两臂的对照实验。真票跑出具体问题（例如又过度构建）时，再针对那一句做对照实验。`10` §5 第 2 条按此修正。F7 关闭。**块 C 定完** |
