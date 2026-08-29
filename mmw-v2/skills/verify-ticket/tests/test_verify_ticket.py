@@ -74,7 +74,6 @@ class TestDoubleCondition(LedgerRun):
         ))
         self.assertEqual(code, 1)
         self.assertNotIn("RUN  AC:AC2", printed)
-        self.assertNotIn("APPROVAL REQUIRED AC:AC2", printed)
         self.assertIn("- [ ] AC2:", comment)
 
     def test_the_comment_carries_the_first_line_and_the_owns_list(self):

@@ -5,8 +5,8 @@ Source: https://github.com/Leonxlnx/unlazy, commit `da0b00a3` (snapshot kept at
 
 ## Files taken as-is (byte-identical to the snapshot)
 
-`gate-check.mjs`, `gate-lint.mjs`, `lib/gates.mjs`, `lib/check-supervisor.mjs`,
-`lib/process-tree.mjs`, `lib/regex-worker.mjs`, `lib/dispatch.mjs`.
+`gate-lint.mjs`, `lib/gates.mjs`, `lib/check-supervisor.mjs`, `lib/process-tree.mjs`,
+`lib/regex-worker.mjs`, `lib/dispatch.mjs`.
 
 The pass/fail logic is upstream's and is not edited here: three states, the
 exit-0-**and**-EXPECT double condition, timeouts, output caps, the regex worker.
@@ -17,8 +17,20 @@ set, which is always the case here.
 
 | File | Edit |
 | --- | --- |
-| `tests/run-tests.mjs` | `GATE_CHECK` now resolves to `../gate-check.mjs` (upstream: `../scripts/gate-check.mjs`); the `STOP_HOOK` and `INSTALL` constants and the 13 `hook:` / `install:` cases that use them are removed, because `stop-hook.mjs` and `install-hooks.mjs` are not vendored. 19 of upstream's 32 cases remain. |
+| `gate-check.mjs` | The approval store is removed: `--approve`, the `~/.unlazy/approved` directory and its ownership and no-follow checks, the per-oracle records and their locks, and the `APPROVAL REQUIRED` / `NOT RUN` path. A CHECK now runs as written. 894 lines upstream, 701 here. |
+| `tests/run-tests.mjs` | `GATE_CHECK` now resolves to `../gate-check.mjs` (upstream: `../scripts/gate-check.mjs`); the `STOP_HOOK` and `INSTALL` constants and the 13 `hook:` / `install:` cases that use them are removed, because `stop-hook.mjs` and `install-hooks.mjs` are not vendored; the harness no longer injects `--approve` and `UNLAZY_APPROVAL_DIR`. 19 of upstream's 32 cases remain. |
 | `tests/lint-tests.mjs` | `LINT` now resolves to `../gate-lint.mjs`; the `lint: shipped leaf and node templates satisfy the documented size policy` case is removed, because `templates/` is not vendored — a ledger here is derived from the ticket body, never written from a template. 18 of upstream's 19 cases remain. |
+
+### Why the approval store went
+
+Upstream's safety boundary is a person reading an inherited ledger and approving it once
+(`SECURITY.md:3`), because there a ledger arrives inside a repository someone else wrote.
+Here the `CHECK:` lines are written by the main agent onto a ticket in this user's own
+tracker, `--lint` audits how they are written before the ticket goes out, and the ticket
+is the thing the user reads. Nothing is inherited, so nobody ever read those records:
+`--approve` was passed on every run. Nothing reused them either — a record is keyed on the
+ledger's absolute path, and the ledger is a fresh temp file each run. What was left was a
+directory outside the repository that every host's sandbox then had to be widened for.
 
 ## Not vendored
 

@@ -619,22 +619,6 @@ def report_phase(ticket: int, phase: str, extra: dict[str, str] | None = None,
 
 # ----------------------------------------------------------------- subcommands
 
-def approval_dir(tmp: Path) -> Path:
-    """Where gate-check records its consent to run each command, for this run only.
-
-    Upstream's approval store is durable because a person reads an inherited ledger once
-    and the record remembers that yes. Here the ledger is written fresh into `tmp` every
-    run, and gate-check keys an approval on the ledger's absolute path, so a stored record
-    can never be reused: it would be one dead file per run. What reviews these commands is
-    the ticket itself, before the ticket goes out. So the store lives beside the ledger and
-    goes away with it. gate-check only requires it to be a real, owner-private directory
-    outside the repository, which this is.
-    """
-    directory = tmp / "approvals"
-    directory.mkdir(mode=0o700)
-    return directory
-
-
 def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
     phase = "verify" if reverify else "selfcheck"
     report_phase(number, phase)
@@ -643,14 +627,13 @@ def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
     carried = previous_ledger(number) if reverify else []
     with tempfile.TemporaryDirectory(prefix="verify-ticket-") as tmp:
         ledger = write_ledger(body, Path(tmp), carried or None)
-        cmd = ["node", str(GATE_CHECK), "--approve", "--cwd", str(root)]
+        cmd = ["node", str(GATE_CHECK), "--cwd", str(root)]
         if reverify:
             cmd.append("--reverify")
         if timeout:
             cmd += ["--timeout", str(timeout)]
         cmd.append(str(ledger))
-        env = {**os.environ, "UNLAZY_APPROVAL_DIR": str(approval_dir(Path(tmp)))}
-        result = subprocess.run(cmd, capture_output=True, text=True, cwd=root, env=env)
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=root)
         printed = (result.stdout or "") + (result.stderr or "")
         sys.stdout.write(printed)
         if result.returncode == 2:

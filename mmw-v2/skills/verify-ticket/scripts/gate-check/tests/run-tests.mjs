@@ -17,7 +17,6 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const GATE_CHECK = join(HERE, "..", "gate-check.mjs");
 const filter = process.argv[2] || "";
-const APPROVAL_ROOT = mkdtempSync(join(tmpdir(), "unlazy-test-approvals-"));
 
 const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
@@ -41,12 +40,9 @@ function sandbox() {
 
 function run(script, args, opts = {}) {
   return new Promise((res) => {
-    const actions = new Set(["--status", "--claim", "--release", "--list-scopes", "--log", "--bind", "--help", "-h"]);
-    const needsApproval = script === GATE_CHECK && !opts.noApprove && !args.some((arg) => actions.has(arg));
-    const actualArgs = needsApproval && !args.includes("--approve") ? ["--approve", ...args] : args;
-    const child = execFile(process.execPath, [script, ...actualArgs], {
+    const child = execFile(process.execPath, [script, ...args], {
       cwd: opts.cwd, encoding: "utf8", maxBuffer: 8 * 1024 * 1024,
-      env: { ...process.env, UNLAZY_APPROVAL_DIR: APPROVAL_ROOT, ...(opts.env || {}) },
+      env: { ...process.env, ...(opts.env || {}) },
     }, (err, stdout, stderr) => {
       res({ code: err ? (err.code ?? 1) : 0, out: (stdout || "") + (stderr || "") });
     });
@@ -355,5 +351,4 @@ for (const t of selected) {
 
 console.log("");
 console.log(passed + "/" + selected.length + " passed");
-try { rmSync(APPROVAL_ROOT, { recursive: true, force: true }); } catch { /* best effort */ }
 process.exit(failures.length ? 1 : 0);

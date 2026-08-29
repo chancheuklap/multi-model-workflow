@@ -2,21 +2,15 @@
 // Execute gate oracles, update evidence, coordinate scopes, and manage leases.
 // Zero dependencies. Node 16+.
 
-import {
-  closeSync, constants as fsConstants, existsSync, fstatSync, lstatSync,
-  mkdirSync, openSync, readFileSync, realpathSync, statSync, unlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { Worker } from "node:worker_threads";
-import { randomBytes } from "node:crypto";
-import { delimiter, dirname, basename, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { homedir } from "node:os";
+import { delimiter, dirname, basename, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   UNLAZY_DIR, appendStatus, claimLeases, formatDocument, gateState,
-  hookStatePath, listScopes, parseGates, qualify, releaseLeases, resolveTarget,
-  scopeRoot, sha256, sleep, validateScopeId, withFileLock, writeAtomic,
+  listScopes, parseGates, qualify, releaseLeases, resolveTarget,
+  scopeRoot, sha256, validateScopeId, withFileLock, writeAtomic,
 } from "./lib/gates.mjs";
 import { terminateProcessTree } from "./lib/process-tree.mjs";
 import { dispatchStatus } from "./lib/dispatch.mjs";
@@ -25,9 +19,8 @@ const HELP = `usage: gate-check.mjs [options] [file ...]
 
 run modes:
   (default)             run unmet runnable gates and update their ledgers
-  --status              report only; never execute, approve, or write
+  --status              report only; never execute or write
   --reverify            re-run every runnable gate and demote stale failures
-  --approve             approve each exact pending oracle, then run it
   --jobs N              rolling concurrency, integer 1..64 (default 1)
   --timeout S           per-check timeout, integer seconds 1..86400 (default 120)
   --shell PATH          command shell (UNLAZY_SHELL, then platform default)
@@ -45,15 +38,13 @@ targeting:
   --root DIR             repository/pipeline root (default current directory)
   file ...               explicit regular ledger files; all are honored
 
-CHECK execution requires prior approval keyed to the exact CHECK, EXPECT,
-resolved CWD, resolved shell, timeout, output/regex limits, platform, and PATH.
-Approvals live outside the repository under ~/.unlazy/approved by default.
+A CHECK runs as written, in the resolved shell, with the inherited environment.
 
 exit codes: 0 all met/action succeeded; 1 unmet; 2 usage/parse/infrastructure;
             3 lease conflict.`;
 
 const FLAG_OPTIONS = new Set([
-  "--status", "--reverify", "--approve", "--claim", "--release",
+  "--status", "--reverify", "--claim", "--release",
   "--list-scopes", "--help", "-h",
 ]);
 const VALUE_OPTIONS = new Set([
@@ -61,7 +52,6 @@ const VALUE_OPTIONS = new Set([
   "--log", "--bind", "--shell",
 ]);
 const MAX_OUTPUT_BYTES = 1024 * 1024;
-const MAX_APPROVAL_BYTES = 256 * 1024;
 const REGEX_TIMEOUT_MS = 250;
 const REGEX_STARTUP_TIMEOUT_MS = 5000;
 const MAX_REGEX_WORKERS = 4;
@@ -159,8 +149,7 @@ if (actionNames.length > 1) failUsage("pipeline actions are mutually exclusive: 
 const action = actionNames[0] || null;
 
 if (opt.status && opt.reverify) failUsage("--status and --reverify are mutually exclusive");
-if (opt.status && opt.approve) failUsage("--status never approves commands; remove --approve");
-if (action && (opt.status || opt.reverify || opt.approve)) failUsage(action + " cannot be combined with a run mode");
+if (action && (opt.status || opt.reverify)) failUsage(action + " cannot be combined with a run mode");
 if (action && fileArgs.length) failUsage(action + " cannot be combined with explicit files");
 if (fileArgs.length && opt.scope) failUsage("explicit files and --scope are mutually exclusive");
 if (opt.leaf && !opt.claim && !opt.release) failUsage("--leaf is only valid with --claim or --release");
@@ -352,148 +341,6 @@ function oracle(file, gate) {
 
 function signature(file, gate) {
   return sha256(JSON.stringify(oracle(file, gate)));
-}
-
-function pathIsInside(parent, child) {
-  const rel = relative(resolve(parent), resolve(child));
-  return rel === "" || (!rel.startsWith(".." + sep) && rel !== ".." && !isAbsolute(rel));
-}
-
-const approvalDir = resolve(process.env.UNLAZY_APPROVAL_DIR || join(homedir(), ".unlazy", "approved"));
-const canonicalRoot = realpathSync(root);
-if (!opt.status && pathIsInside(root, approvalDir)) failUsage("UNLAZY_APPROVAL_DIR must be outside the repository root");
-
-function approvalPath(file, gate, directory = approvalDir) {
-  const identity = resolve(file) + "\0" + gate.id + "\0" + signature(file, gate);
-  return join(directory, sha256(identity) + ".json");
-}
-
-function assertPrivateApprovalEntry(path, info, kind) {
-  if (info.isSymbolicLink() || (kind === "directory" ? !info.isDirectory() : !info.isFile())) {
-    throw new Error(path + " must be a real " + kind);
-  }
-  const uid = typeof process.geteuid === "function" ? process.geteuid()
-    : typeof process.getuid === "function" ? process.getuid() : null;
-  if (uid !== null && info.uid !== uid) {
-    throw new Error(path + " must be owned by the current user");
-  }
-  if (process.platform !== "win32" && (info.mode & 0o077) !== 0) {
-    throw new Error(path + " must not grant group or other permissions");
-  }
-}
-
-function validatedApprovalDir({ create = false } = {}) {
-  if (create) mkdirSync(approvalDir, { recursive: true, mode: 0o700 });
-  else if (!existsSync(approvalDir)) return null;
-  const info = lstatSync(approvalDir);
-  assertPrivateApprovalEntry(approvalDir, info, "directory");
-  const canonical = realpathSync(approvalDir);
-  if (pathIsInside(canonicalRoot, canonical)) {
-    throw new Error("approval directory resolves inside the repository root: " + canonical);
-  }
-  const canonicalInfo = lstatSync(canonical);
-  assertPrivateApprovalEntry(canonical, canonicalInfo, "directory");
-  return { path: canonical, dev: canonicalInfo.dev, ino: canonicalInfo.ino };
-}
-
-function assertApprovalDirUnchanged(store) {
-  const current = lstatSync(store.path);
-  assertPrivateApprovalEntry(store.path, current, "directory");
-  if (current.dev !== store.dev || current.ino !== store.ino) {
-    throw new Error("approval directory changed during use: " + store.path);
-  }
-}
-
-function readApprovalFile(path) {
-  let fd = null;
-  try {
-    const noFollow = process.platform === "win32" ? 0 : (fsConstants.O_NOFOLLOW || 0);
-    fd = openSync(path, fsConstants.O_RDONLY | (fsConstants.O_NONBLOCK || 0) | noFollow);
-    const opened = fstatSync(fd);
-    const named = lstatSync(path);
-    assertPrivateApprovalEntry(path, opened, "file");
-    if (opened.size > MAX_APPROVAL_BYTES) {
-      throw new Error("approval record exceeds " + MAX_APPROVAL_BYTES + " bytes: " + path);
-    }
-    if (named.isSymbolicLink() || !named.isFile() || named.nlink !== 1 || opened.nlink !== 1 ||
-        named.dev !== opened.dev || named.ino !== opened.ino) {
-      throw new Error("refusing linked or replaced approval record " + path);
-    }
-    const text = readFileSync(fd, "utf8");
-    const after = lstatSync(path);
-    if (after.isSymbolicLink() || !after.isFile() || after.nlink !== 1 ||
-        after.dev !== opened.dev || after.ino !== opened.ino) {
-      throw new Error("approval record changed while it was read: " + path);
-    }
-    return text;
-  } finally {
-    if (fd !== null) try { closeSync(fd); } catch { /* ignore */ }
-  }
-}
-
-function approvalExists(file, gate) {
-  const store = validatedApprovalDir();
-  if (!store) return false;
-  const path = approvalPath(file, gate, store.path);
-  let text;
-  try { text = readApprovalFile(path); }
-  catch (error) {
-    if (error.code === "ENOENT") return false;
-    throw error;
-  }
-  let value;
-  try { value = JSON.parse(text); }
-  catch { return false; }
-  assertApprovalDirUnchanged(store);
-  return value && value.file === resolve(file) && value.gate === gate.id && value.signature === signature(file, gate);
-}
-
-async function recordApproval(file, gate) {
-  const store = validatedApprovalDir({ create: true });
-  const token = approvalPath(file, gate, store.path);
-  const lock = token + ".lock";
-  const deadline = Date.now() + 10000;
-  const owner = randomBytes(16).toString("hex");
-  let fd = null;
-  for (;;) {
-    try { fd = openSync(lock, "wx", 0o600); break; }
-    catch (error) {
-      if (error.code !== "EEXIST") throw error;
-      // Fail closed instead of trying to steal by path: an owner can release
-      // and a successor can acquire between stat and unlink.
-      try { statSync(lock); } catch (statError) {
-        if (statError.code === "ENOENT") continue;
-        throw statError;
-      }
-      if (Date.now() >= deadline) throw new Error("timed out waiting for approval lock");
-      await sleep(20);
-    }
-  }
-  try {
-    writeFileSync(fd, JSON.stringify({ owner, pid: process.pid, at: Date.now() }));
-    const value = {
-      schema: 1, file: resolve(file), gate: gate.id, signature: signature(file, gate),
-      oracle: oracle(file, gate), approvedAt: new Date().toISOString(),
-    };
-    writeAtomic(token, JSON.stringify(value, null, 2) + "\n");
-    assertApprovalDirUnchanged(store);
-  } finally {
-    try { closeSync(fd); } catch { /* ignore */ }
-    try {
-      const current = JSON.parse(readFileSync(lock, "utf8"));
-      if (current.owner === owner) unlinkSync(lock);
-    } catch { /* manual cleanup or a successor owns the lock */ }
-  }
-}
-
-function printOracle(file, gate, prefix) {
-  const value = oracle(file, gate);
-  console.log(prefix + " " + qualify(file, gate.id));
-  console.log("    CHECK: " + value.check);
-  console.log("    EXPECT: " + value.expect);
-  console.log("    CWD: " + value.cwd);
-  console.log("    SHELL: " + value.shell);
-  console.log("    PATH: " + pathTranscript);
 }
 
 let activeRegexWorkers = 0;
@@ -691,37 +538,7 @@ for (const ledger of ledgers) {
   }
 }
 
-const runnable = [];
-const notRun = [];
-let approvalInfrastructureFailures = 0;
-for (const task of pending) {
-  let approved = false;
-  try { approved = approvalExists(task.file, task.gate); }
-  catch (error) {
-    console.error("gate-check: could not validate approval for " + qualify(task.file, task.gate.id) + ": " + error.message);
-    approvalInfrastructureFailures++;
-    notRun.push(task);
-    continue;
-  }
-  if (!approved) {
-    printOracle(task.file, task.gate, "APPROVAL REQUIRED");
-    if (!opt.approve) {
-      console.log("    NOT RUN: inspect this oracle, then re-run with --approve");
-      notRun.push(task);
-      continue;
-    }
-    try {
-      await recordApproval(task.file, task.gate);
-      console.log("    APPROVED: " + approvalPath(task.file, task.gate, validatedApprovalDir().path));
-    } catch (error) {
-      console.error("gate-check: could not record approval for " + qualify(task.file, task.gate.id) + ": " + error.message);
-      approvalInfrastructureFailures++;
-      notRun.push(task);
-      continue;
-    }
-  }
-  runnable.push(task);
-}
+const runnable = pending;
 
 for (const task of runnable) {
   console.log("  RUN  " + qualify(task.file, task.gate.id) + " shell=" + shell + " cwd=" + task.cwd + " PATH=" + pathTranscript);
@@ -857,13 +674,7 @@ const where = scope ? " [scope " + scope + "]" : "";
 const verifyNote = opt.reverify
   ? ", reran: " + results.length + ", previously met reverified: " + reverified
   : "";
-const unverifiedMet = opt.reverify ? notRun.filter((task) => task.wasMet) : [];
 const extraUnmet = new Map();
-for (const task of unverifiedMet) {
-  const key = resultKey(task.file, task.gate.id);
-  const state = finalStates.get(key);
-  if (state === "met" || state === undefined) extraUnmet.set(key, qualify(task.file, task.gate.id) + " (reverify not run)");
-}
 for (const [key, label] of staleResults) {
   const state = finalStates.get(key);
   if (state === "met" || state === undefined) extraUnmet.set(key, label + " (stale result discarded)");
@@ -871,10 +682,6 @@ for (const [key, label] of staleResults) {
 const effectiveUnmet = totalUnmet + extraUnmet.size + aggregateDispatch.blocking.length;
 unmetIds.push(...extraUnmet.values());
 unmetIds.push(...aggregateDispatch.blocking);
-if (approvalInfrastructureFailures) {
-  console.error("gate-check: infrastructure failure prevented " + approvalInfrastructureFailures + " approval(s)");
-  process.exit(2);
-}
 if (effectiveUnmet === 0 && totalAbandoned === 0) {
   console.log("ALL MET (" + totalMet + " met" + verifyNote + ")" + where);
   process.exit(0);
