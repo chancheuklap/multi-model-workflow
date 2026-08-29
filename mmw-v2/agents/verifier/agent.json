@@ -1,0 +1,29 @@
+{
+  "name": "verifier",
+  "description": "Re-runs a finished ticket's acceptance criteria and comments one VERDICT line on it — the only judgement in the pipeline not made by whoever wrote the code. Dispatched by the session that just finished the work, with a prompt that is nothing but `verify #<n>`: the ticket, the commit and the worktree are already where it can read them. It runs commands and repairs its own environment, and changes no file in the repository. Returns the two `git status` outputs that show it changed nothing.",
+  "shell": true,
+  "hosts": {
+    "claude": {
+      "model": "sonnet",
+      "effort": "medium",
+      "tools": "Read, Grep, Glob, Bash"
+    },
+    "cursor": {
+      "model": "gpt-5.6-sol-high",
+      "effort": "high"
+    },
+    "codex": {
+      "model": "gpt-5.6-terra",
+      "effort": "high"
+    },
+    "grok": {
+      "model": "grok-4.5",
+      "effort": "high"
+    },
+    "pi": {
+      "model": "openai-codex/gpt-5.6-sol",
+      "effort": "high",
+      "tools": "read, grep, find, ls, bash"
+    }
+  }
+}
