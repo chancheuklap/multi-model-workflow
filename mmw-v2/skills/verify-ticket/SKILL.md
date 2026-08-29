@@ -9,8 +9,10 @@ Each acceptance criterion on the ticket carries a `CHECK:` command and the `EXPE
 string a passing run prints. This skill runs them and comments the outcome on the ticket.
 Every run reads the ticket fresh; there is no state to carry between runs.
 
-A `CHECK:` is a shell command, and may run to several lines: the lines under it, up to
-the criterion's next attribute, are part of the same command.
+A `CHECK:` is a shell command. One that needs more than a line carries it in a fenced
+block directly under `CHECK:`, and nothing inside that block is read as ledger syntax:
+a `- [ ]` line in a heredoc is text the command prints, not the next criterion. A bare
+line under a `CHECK:` is refused, and the refusal says to use a fence.
 
 ## The engine
 

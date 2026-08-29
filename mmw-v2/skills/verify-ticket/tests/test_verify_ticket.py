@@ -30,31 +30,48 @@ class LedgerRun(unittest.TestCase):
 
 
 class TestACheckMaySpanLines(LedgerRun):
-    """A CHECK is a shell command, and a shell command may be several lines long."""
+    """A CHECK is a shell command; a command longer than a line goes in a fenced block."""
 
-    def test_the_lines_under_a_check_are_part_of_the_command(self):
+    def test_the_lines_inside_the_fence_are_the_command(self):
         code, comment, _ = self.run_ticket(ticket(
             "- [ ] AC1: the importer writes six rows",
-            "  CHECK: python3 -c \"",
+            "  CHECK:",
+            "  ```sh",
+            "  python3 -c \"",
             "rows = 6",
             "print('wrote', rows, 'rows')\"",
+            "  ```",
             "  EXPECT: wrote 6 rows",
             "  EVIDENCE: pending",
         ))
-        self.assertEqual(code, 0)
+        self.assertEqual(code, 0, comment)
         self.assertIn("- [x] AC1:", comment)
 
-    def test_the_evidence_lands_after_the_whole_command(self):
+    def test_the_evidence_lands_after_the_closing_fence(self):
         _, comment, _ = self.run_ticket(ticket(
             "- [ ] AC1: the importer writes six rows",
-            "  CHECK: python3 -c \"",
-            "print('wrote 6 rows')\"",
+            "  CHECK:",
+            "  ```sh",
+            "  python3 -c \"print('wrote 6 rows')\"",
+            "  ```",
             "  EXPECT: wrote 6 rows",
         ))
         body = comment.splitlines()
         evidence = next(i for i, l in enumerate(body) if l.strip().startswith("EVIDENCE:"))
-        command = next(i for i, l in enumerate(body) if l.strip().startswith("print("))
+        command = next(i for i, l in enumerate(body) if "wrote 6 rows" in l and "print" in l)
         self.assertGreater(evidence, command)
+
+    def test_a_bare_line_under_a_check_says_to_use_a_fence(self):
+        code, comment, printed = self.run_ticket(ticket(
+            "- [ ] AC1: the importer writes six rows",
+            "  CHECK: python3 -c \"",
+            "print('wrote 6 rows')\"",
+            "  EXPECT: wrote 6 rows",
+            "  EVIDENCE: pending",
+        ))
+        self.assertEqual(code, 2)
+        self.assertEqual(comment, "", "a ledger it could not read is not a result to post")
+        self.assertIn("fenced block", printed)
 
 
 class TestDoubleCondition(LedgerRun):

@@ -48,6 +48,8 @@ ISSUE_REF_RE = re.compile(r"#(\d+)")
 EXPECT_LINE_RE = re.compile(r"^\s+EXPECT:\s*(.+?)\s*$")
 CHECK_LINE_RE = re.compile(r"^\s+CHECK:\s*(.+?)\s*$")
 ATTR_LINE_RE = re.compile(r"^\s+(CHECK|EXPECT|EVIDENCE|CWD|MANUAL):")
+FENCE_OPEN_RE = re.compile(r"^( {0,3})(`{3,}|~{3,})(.*)$")
+FENCE_CLOSE_RE = re.compile(r"^ {0,3}(`+|~+)[ \t]*$")
 REGEX_EXPECT_RE = re.compile(r"^/([\s\S]*)/([a-z]*)$")
 # A pattern author escapes a literal dollar or has none, so an unescaped one is
 # the anchor. Same reading gate-lint gives an unescaped slash.
@@ -275,58 +277,70 @@ def write_ledger(body: str, directory: Path, lines: list[str] | None = None) -> 
     return path
 
 
-def count_gates(ledger: Path) -> tuple[int, int]:
-    """(met, total) read off the ledger: a met gate is ticked with real evidence."""
-    met = total = 0
-    lines = ledger.read_text(encoding="utf-8").splitlines()
-    for i, line in enumerate(lines):
-        m = GATE_LINE_RE.match(line)
-        if not m:
-            continue
-        total += 1
-        if m.group(1) == " ":
-            continue
-        evidence = ""
-        for follow in lines[i + 1:]:
-            if GATE_LINE_RE.match(follow):
-                break
-            if follow.strip().startswith("EVIDENCE:"):
-                evidence = follow.split("EVIDENCE:", 1)[1].strip()
-                break
-        if evidence and evidence != "pending":
-            met += 1
-    return met, total
-
-
 # ------------------------------------------------------------- closing comment
 
 def parse_criteria(text: str) -> list[dict]:
-    """One record per criterion: its id, its tick, its evidence, and whether it is manual.
+    """Every criterion in `text`, with the attributes written under it.
 
-    A criterion ends where the next one begins, not where the indentation stops. A
-    `CHECK:` may run to several lines and those lines are flush left (`12-decisions.md`
-    G6), so reading a criterion by indentation stops at the first continuation line and
-    never reaches the `EVIDENCE:` below it — every such criterion then looks ticked with
-    nothing to show for it, and its ticket can never close. `count_gates` already breaks
-    on the next criterion; this is the same reading.
+    One reader, because a ledger has one shape. Three readers, each deciding for itself
+    where a criterion ends, is how a criterion came to be read three different ways and
+    a ticket with a fenced `CHECK:` could not close.
+
+    A `CHECK:` whose command needs more than a line carries it in a fenced block, and
+    nothing inside that block is ledger syntax: a `- [ ]` line in a heredoc is text the
+    command prints, not the next criterion. Every other fence in the text is skipped
+    whole, the way a ticket quoting an example criterion has always been skipped.
     """
-    out = []
-    lines = text.splitlines()
-    for i, line in enumerate(lines):
-        m = GATE_LINE_RE.match(line)
-        if not m:
+    out: list[dict] = []
+    item = None
+    fence = None
+    last_attr = None
+    for line in text.splitlines():
+        previous_attr, last_attr = last_attr, None
+        if fence is not None:
+            close = FENCE_CLOSE_RE.match(line)
+            if close and close.group(1)[0] == fence["char"] and len(close.group(1)) >= fence["length"]:
+                if fence["item"] is not None:
+                    indent = fence["indent"]
+                    fence["item"]["check"] = "\n".join(
+                        row[len(indent):] if row.startswith(indent) else row.lstrip()
+                        for row in fence["body"])
+                fence = None
+            elif fence["item"] is not None:
+                fence["body"].append(line)
             continue
-        item = {"id": m.group(2), "ticked": m.group(1) != " ", "evidence": "", "manual": False}
-        for follow in lines[i + 1:]:
-            if GATE_LINE_RE.match(follow):
-                break
-            stripped = follow.strip()
-            if stripped.startswith("EVIDENCE:"):
-                item["evidence"] = stripped.split("EVIDENCE:", 1)[1].strip()
-            elif stripped.startswith("MANUAL:"):
+        opened = FENCE_OPEN_RE.match(line)
+        if opened:
+            fence = {"char": opened.group(2)[0], "length": len(opened.group(2)),
+                     "indent": opened.group(1), "body": [],
+                     "item": item if previous_attr == "check" else None}
+            continue
+        gate = GATE_LINE_RE.match(line)
+        if gate:
+            item = {"id": gate.group(2), "ticked": gate.group(1) != " ",
+                    "check": "", "expect": "", "evidence": "", "manual": False}
+            out.append(item)
+            continue
+        if item is None:
+            continue
+        attr = ATTR_LINE_RE.match(line)
+        if attr:
+            key = attr.group(1).lower()
+            value = line.split(":", 1)[1].strip()
+            if key == "manual":
                 item["manual"] = True
-        out.append(item)
+            elif key in ("check", "expect", "evidence"):
+                item[key] = value
+            last_attr = key
     return out
+
+
+def count_gates(ledger: Path) -> tuple[int, int]:
+    """(met, total) read off the ledger: a met gate is ticked with real evidence."""
+    criteria = parse_criteria(ledger.read_text(encoding="utf-8"))
+    met = sum(1 for c in criteria
+              if c["ticked"] and c["evidence"] and c["evidence"] != "pending")
+    return met, len(criteria)
 
 
 def parse_abandons(text: str) -> list[dict]:
@@ -792,33 +806,9 @@ def lint_ticket_graph(number: int, body: str) -> int:
 
 
 def criteria_lines(body: str) -> list[tuple[str, str, str]]:
-    """`(id, CHECK, EXPECT)` per criterion; a missing line reads as an empty string."""
-    out = []
-    in_check = False
-    for line in section(body, "Acceptance criteria"):
-        gate = GATE_LINE_RE.match(line)
-        if gate:
-            out.append([gate.group(2), "", ""])
-            in_check = False
-            continue
-        if not out:
-            continue
-        check = CHECK_LINE_RE.match(line)
-        if check:
-            out[-1][1] = check.group(1)
-            in_check = True
-            continue
-        expect = EXPECT_LINE_RE.match(line)
-        if expect:
-            out[-1][2] = expect.group(1)
-            in_check = False
-            continue
-        if ATTR_LINE_RE.match(line):
-            in_check = False
-            continue
-        if in_check and line.strip():
-            out[-1][1] += "\n" + line
-    return [tuple(item) for item in out]
+    """`(id, CHECK, EXPECT)` per criterion; a missing attribute reads as an empty string."""
+    return [(c["id"], c["check"], c["expect"])
+            for c in parse_criteria("\n".join(section(body, "Acceptance criteria")))]
 
 
 def lint_expectations(body: str) -> list[str]:

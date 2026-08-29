@@ -333,7 +333,7 @@ merge-note 与正文一致性 canary（「关键句」无法机械定义）；�
 - 连带：Codex 的沙箱不必为一个仓库外的目录放宽（G7）。
 - 落点：`mmw-v2/skills/verify-ticket/scripts/gate-check/gate-check.mjs` 与它的 `UPSTREAM.md`；`verify-ticket.py` 的 `run_checks`；`05-runnable-acceptance-gates.md` §2.6 与 §10；#60 第 2 节。
 
-### G6 一条 `CHECK:` 可以写好几行
+### G6 一条 `CHECK:` 可以写好几行（**已被 G8 取代**）
 
 - 触发：#69 第一次自跑，9 条标准里 8 条 unmet，报的全是 `/bin/sh: -c: line 0: unexpected EOF while looking for matching `"'`。
 - 原因：账本一行一条属性（`gate-check/lib/gates.mjs:46` 的 `ATTR_RE`），上游对 `CHECK:` 底下那些行什么也不做，于是只有第一行进 shell，剩下的一声不响地消失，命令成了一个没闭合的引号。全批 35 条 `CHECK:` 是这么写的，分布在 #62、#64、#66、#68、#70、#71、#72、#73、#74。
@@ -342,6 +342,17 @@ merge-note 与正文一致性 canary（「关键句」无法机械定义）；�
 - 那 35 条一条都不用改；不写成出票规则，也不进 `--lint`。
 - 落点：`gate-check/lib/gates.mjs`、`gate-check.mjs` 的 `insertOrUpdateEvidence`、`verify-ticket.py` 的 `criteria_lines`、`count_gates` 与 `parse_criteria`；`gate-check/UPSTREAM.md`。
 - **「到下一条标准为止」这条读法，凡是逐条读标准的地方都要用。** `parse_criteria` 是 #63 为 `--closeout` 后来新写的，不在上面这张清单上，于是仍按缩进读——带多行 `CHECK:` 的标准一律显示为「打了勾但 EVIDENCE 还是 pending」，这样的票关不掉，而且改草稿没用，因为要改的不是草稿。2026-08-30 关 #64 时撞出来（它的 AC6 是一段 heredoc），修在 `019632c8`，记在 #84 的评论里。
+
+### G8 多行 `CHECK:` 写成代码块围栏，隐式续行退场（取代 G6）
+
+- 现状：G6 定的读法是「一条 `CHECK:` 底下、到下一条属性或下一条标准之间的非空行都属于它」。这条断句规则是隐式的，**每一个逐条读标准的读者都要各自复刻一遍**，而它无法表述成可查的规则——G6 自己就写了「不写成出票规则，也不进 `--lint`」。
+- 代价已经付了两次：G6 那次一次性改了四处；`parse_criteria`（#63 为 `--closeout` 后来新写的）漏了，带多行 `CHECK:` 的标准一律显示「打了勾但 EVIDENCE 还是 pending」，票永远关不掉、改草稿没用、不报错。
+- 而且隐式续行**当时就在静默丢数据**：`gates.mjs` 的续行条件要求该行非空，所以多行命令里一个空行就丢掉后面全部；续行里出现 ` ``` ` 会被 `FENCE_OPEN_RE` 当围栏开口吞掉后文；出现 `- [ ] AC1:` 会被 `GATE_RE` 当成新标准。而这个工具的 `CHECK:` 恰恰经常要生成含这两样的 markdown。
+- 曾考虑「一行写不下就放进仓库当脚本，`CHECK:` 调它」。不采：`gate-check.mjs` 的 `signature` 只 hash `gate.check` 的文本，`CHECK: bash scripts/x.sh` 之后脚本内容改了签名不变，STALE 核对失效；而且命令搬出票面之后，「出票那一步人读命令」这条依据没了——那正是 G5 砍掉整套批准机制的全部理由。
+- 用户裁决：「解析器解析不了就改他妈的解析器呀」——vendor 的 `gate-check` 是我们的，改它不算代价；判据是「以后每一张票、每一个读票的东西长期要付的成本」。咨询过 advisor（读了 `gates.mjs`、`gate-check.mjs`、`verify-ticket.py` 后作答），判围栏最优，并要求配套把无围栏续行改成解析错误，否则隐式规则还在。
+- 结论：**一条 `CHECK:` 的命令，一行写得下就照旧写在冒号后面；写不下就紧跟一个代码块围栏，围栏内是命令正文，按围栏自身的缩进剥掉。** 围栏内不扫标准行、属性行、`ABANDON:`——正是原来「代码块一律不当真」守的那件事，一寸未失；只在「围栏紧跟一条活标准的 `CHECK:`」时被当作命令。没有围栏的顶格续行改为解析错误，错误话里指明用围栏。同一条 `CHECK:` 既有值又跟围栏也报错。
+- 连带：`verify-ticket.py` 原本三个各自读标准的函数（`criteria_lines`、`count_gates`、`parse_criteria`）合成**一个** `parse_criteria`，另两个成为它的薄封装——三个读者各自判断边界，正是这条规则出事的形状。
+- 落点：`gate-check/lib/gates.mjs`、`gate-check/UPSTREAM.md`、`verify-ticket.py`、`verify-ticket/SKILL.md`、`tests/test_fenced_check.py`；#68 的出票规则；存量 30 条多行 `CHECK:`（#68、#70–#74）已包进围栏。#90。
 
 ### G7 落地 verifier 时三处宿主细节
 

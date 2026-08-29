@@ -99,12 +99,39 @@ export function parseGates(text, options = {}) {
     lastAttr = null;
     if (fence) {
       const close = line.match(/^( {0,3})(`+|~+)[ \t]*$/);
-      if (close && close[2][0] === fence.character && close[2].length >= fence.length) fence = null;
+      if (close && close[2][0] === fence.character && close[2].length >= fence.length) {
+        if (fence.gate) {
+          // The command is what the author wrote inside the fence, less the fence's
+          // own indentation: a heredoc body cannot carry the two spaces the ledger
+          // puts on an attribute line and still be the script it was written as.
+          fence.gate.check = fence.body
+            .map((row) => (row.startsWith(fence.indent) ? row.slice(fence.indent.length) : row.trimStart()))
+            .join("\n");
+          fence.gate.attrEnd = index + 1;
+        }
+        fence = null;
+      } else if (fence.gate) fence.body.push(line);
       continue;
     }
     const fenceMatch = line.match(FENCE_OPEN_RE);
     if (fenceMatch && !(fenceMatch[2][0] === "`" && fenceMatch[3].includes("`"))) {
-      fence = { character: fenceMatch[2][0], length: fenceMatch[2].length };
+      // A fence anywhere else in the ledger is prose — a ticket quotes example gate
+      // lines and must not have them read as gates, which is why every other fence is
+      // skipped whole. A fence directly under a gate's own `CHECK:` is the exception,
+      // and only that one: it is where the command lives. Inside it nothing is scanned
+      // for gates, attributes or ABANDON either way, so the guard still holds.
+      const owner = previousAttr === "check" && current ? current : null;
+      if (owner && owner.check) {
+        errors.push("line " + (index + 1) + ": gate " + owner.id +
+          " has both a CHECK value and a fenced block; put the command in one or the other");
+      }
+      fence = {
+        character: fenceMatch[2][0],
+        length: fenceMatch[2].length,
+        indent: fenceMatch[1],
+        gate: owner,
+        body: [],
+      };
       continue;
     }
 
@@ -210,14 +237,17 @@ export function parseGates(text, options = {}) {
       }
       continue;
     }
-    // A CHECK is a shell command, and a shell command is allowed to be several
-    // lines long. Upstream reads one line per attribute and drops the rest in
-    // silence, which hands the shell half a command. Keep reading instead: the
-    // lines under a CHECK, up to the next attribute or gate, belong to it.
+    // A CHECK is a shell command and may run to several lines, but where it ends has
+    // to be written down rather than inferred. A bare line under a CHECK was once read
+    // as part of it; the rule that decided where that stopped was invisible, every
+    // reader of a ledger had to reproduce it, and a blank line, a ``` or a `- [ ]`
+    // inside the command each broke it in a different silent way. Say it with a fence.
     if (previousAttr === "check" && current && line.trim()) {
-      current.check += "\n" + line;
-      current.attrEnd = index + 1;
-      lastAttr = "check";
+      // Keep the gate open: the EXPECT and EVIDENCE below still belong to it, and
+      // orphaning them buries the one error worth reading under three that follow.
+      errors.push("line " + (index + 1) + ": gate " + current.id +
+        " continues its CHECK onto another line; wrap the command in a fenced block " +
+        "under `CHECK:` instead");
       continue;
     }
     if (/^#|^- /.test(line)) current = null;
