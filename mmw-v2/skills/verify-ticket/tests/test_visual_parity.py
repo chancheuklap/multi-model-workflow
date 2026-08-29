@@ -137,6 +137,66 @@ class TestSizeMismatch(unittest.TestCase):
         self.assertEqual([r.kind for r in reasons], ["size"])
 
 
+class TestRegions(unittest.TestCase):
+    """A scene can differ in a hundred places; one box around all of them is the whole
+    page again, which is what the reader was already looking at."""
+
+    SIZE = (1440, 900)
+
+    def test_places_far_apart_stay_apart(self):
+        far = [{"box": [100, 100, 110, 110], "count": 9},
+               {"box": [100, 700, 110, 710], "count": 4},
+               {"box": [1300, 100, 1310, 110], "count": 1}]
+        self.assertEqual(len(vp.merge_regions(far, self.SIZE)), 3)
+
+    def test_places_that_would_show_the_same_picture_become_one(self):
+        near = [{"box": [100, 100, 110, 110], "count": 9, "parts": [[100, 100, 110, 110]]},
+                {"box": [130, 105, 140, 115], "count": 4, "parts": [[130, 105, 140, 115]]}]
+        merged = vp.merge_regions(near, self.SIZE)
+        self.assertEqual([(m["box"], m["count"]) for m in merged],
+                         [([100, 100, 140, 115], 13)])
+
+    def test_a_merged_place_still_knows_its_separate_blocks(self):
+        """The picture is cropped around all of them together, but the ring is drawn
+        around each one: a rectangle enclosing two changes several rows apart would
+        circle rows that did not change."""
+        near = [{"box": [100, 100, 110, 110], "count": 9, "parts": [[100, 100, 110, 110]]},
+                {"box": [130, 105, 140, 115], "count": 4, "parts": [[130, 105, 140, 115]]}]
+        self.assertEqual(vp.merge_regions(near, self.SIZE)[0]["parts"],
+                         [[100, 100, 110, 110], [130, 105, 140, 115]])
+
+    def test_a_merge_that_brings_a_third_into_reach_keeps_going(self):
+        """The middle place is read last, so only after it has been folded into the
+        left one do the left and right ones reach each other. A single pass stops
+        one merge short."""
+        out_of_order = [{"box": [100, 100, 110, 110], "count": 1},
+                        {"box": [420, 100, 430, 110], "count": 4},
+                        {"box": [260, 100, 270, 110], "count": 2}]
+        merged = vp.merge_regions(out_of_order, self.SIZE)
+        self.assertEqual([(m["box"], m["count"]) for m in merged],
+                         [([100, 100, 430, 110], 7)])
+
+    def test_a_place_read_after_a_merge_is_not_dropped(self):
+        """The first two places merge; the third is nowhere near them and has to
+        survive. Restarting the scan on the merged list alone loses it, and the
+        scene silently reports fewer differing pixels than it has."""
+        places = [{"box": [10, 10, 20, 20], "count": 1},
+                  {"box": [40, 10, 50, 20], "count": 2},
+                  {"box": [1200, 800, 1210, 810], "count": 99}]
+        merged = vp.merge_regions(places, self.SIZE)
+        self.assertEqual(len(merged), 2)
+        self.assertEqual(sum(m["count"] for m in merged), 102)
+
+    def test_a_small_place_is_blown_up_and_a_whole_page_is_not(self):
+        self.assertGreater(vp.zoom_for(vp.pad_box([122, 129, 133, 140], self.SIZE)), 1)
+        self.assertEqual(vp.zoom_for((0, 0, 1440, 900)), 1)
+
+    def test_a_shown_area_never_leaves_the_image(self):
+        for box in ([0, 0, 2, 2], [1438, 898, 1439, 899], [700, 400, 701, 401]):
+            x0, y0, x1, y1 = vp.pad_box(box, self.SIZE)
+            self.assertTrue(0 <= x0 < x1 <= 1440 and 0 <= y0 < y1 <= 900, box)
+
+
 class TestNegativeControl(unittest.TestCase):
     def test_a_control_that_passed_stops_the_run(self):
         passing_control = comparison(scene="__negative_control__")

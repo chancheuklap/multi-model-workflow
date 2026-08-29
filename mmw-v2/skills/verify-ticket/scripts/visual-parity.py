@@ -147,7 +147,8 @@ def diff_images(ia, ib, out: Path | None = None) -> dict:
     """
     if ia.size != ib.size:
         return {"size_equal": False, "pct": 100.0, "count": None, "total": None,
-                "box": None, "size_a": tuple(ia.size), "size_b": tuple(ib.size)}
+                "box": None, "regions": [], "extra_regions": 0,
+                "size_a": tuple(ia.size), "size_b": tuple(ib.size)}
     import numpy as np
     from PIL import Image
 
@@ -155,30 +156,121 @@ def diff_images(ia, ib, out: Path | None = None) -> dict:
     nb = np.asarray(ib, dtype=np.int16)
     mask = (np.abs(na - nb) > PIXEL_TOLERANCE).any(axis=2)
     count, total = int(mask.sum()), int(mask.size)
-    box = None
+    box, regions, extra = None, [], 0
     if count:
         ys, xs = np.nonzero(mask)
         box = [int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())]
+        regions, extra = find_regions(mask, ia.size)
     if out is not None:
         # A washed-out baseline under the red, so a difference can be located on the
         # page it belongs to rather than on a black field.
         vis = (na * 0.22 + 196).astype(np.uint8)
         vis[mask] = (230, 20, 60)
-        if box:
-            _outline(vis, pad_box(box, ia.size))
-        Image.fromarray(vis).save(out)
+        image = Image.fromarray(vis)
+        _mark_regions(image, regions, ia.size)
+        image.save(out)
     return {"size_equal": True, "pct": round(100 * count / total, 3), "count": count,
-            "total": total, "box": box, "size_a": tuple(ia.size), "size_b": tuple(ib.size)}
+            "total": total, "box": box, "regions": regions, "extra_regions": extra,
+            "size_a": tuple(ia.size), "size_b": tuple(ib.size)}
 
 
-# The area a reader is sent to when a scene differs: the differing pixels plus enough
-# of what surrounds them to recognise what they are part of.
-CROP_PAD = 56
-CROP_MIN = (360, 220)
+# How a difference is shown. Differing pixels are grouped into separate places on the
+# page, because a scene can differ in a hundred places at once and one bounding box
+# around all of them is the whole page again — which is what a reader was already
+# looking at.
+CELL = 16           # differing pixels within this of each other belong to one place
+CROP_PAD = 40       # how much of the surroundings a place is shown with
+CROP_MIN = (280, 180)
+MAX_REGIONS = 8     # places shown one by one; the rest are counted, not drawn
+ZOOM_TARGET = 1000   # how wide a place is written out, so it reads on screen
+ZOOM_TARGET_H = 760  # and how tall, so it still fits in front of a reader
+MAX_ZOOM = 6
+
+
+def find_regions(mask, size: tuple[int, int]) -> tuple[list[dict], int]:
+    """Group the differing pixels into the separate places they occur in.
+
+    The mask is reduced to a grid of `CELL`-sized cells, cells that touch are one
+    group, and each group is measured back on the real pixels. The biggest
+    `MAX_REGIONS` are returned in order; the count of the rest comes back with them.
+    """
+    import numpy as np
+
+    height, width = mask.shape
+    rows = (height + CELL - 1) // CELL
+    cols = (width + CELL - 1) // CELL
+    padded = np.zeros((rows * CELL, cols * CELL), dtype=bool)
+    padded[:height, :width] = mask
+    grid = padded.reshape(rows, CELL, cols, CELL).any(axis=(1, 3))
+
+    seen = np.zeros_like(grid)
+    boxes = []
+    for r, c in zip(*np.nonzero(grid)):
+        if seen[r, c]:
+            continue
+        stack, cells = [(int(r), int(c))], []
+        seen[r, c] = True
+        while stack:
+            cr, cc = stack.pop()
+            cells.append((cr, cc))
+            for dr in (-1, 0, 1):
+                for dc in (-1, 0, 1):
+                    nr, nc = cr + dr, cc + dc
+                    if 0 <= nr < rows and 0 <= nc < cols and grid[nr, nc] \
+                            and not seen[nr, nc]:
+                        seen[nr, nc] = True
+                        stack.append((nr, nc))
+        y0 = min(cr for cr, _ in cells) * CELL
+        y1 = min(height, (max(cr for cr, _ in cells) + 1) * CELL)
+        x0 = min(cc for _, cc in cells) * CELL
+        x1 = min(width, (max(cc for _, cc in cells) + 1) * CELL)
+        part = mask[y0:y1, x0:x1]
+        ys, xs = np.nonzero(part)
+        tight = [x0 + int(xs.min()), y0 + int(ys.min()),
+                 x0 + int(xs.max()), y0 + int(ys.max())]
+        boxes.append({"box": tight, "count": int(part.sum()), "parts": [tight]})
+
+    boxes = merge_regions(boxes, size)
+    boxes.sort(key=lambda b: b["count"], reverse=True)
+    return boxes[:MAX_REGIONS], max(0, len(boxes) - MAX_REGIONS)
+
+
+def merge_regions(regions: list[dict], size: tuple[int, int]) -> list[dict]:
+    """Fold together places whose shown areas would overlap, so a reader is never
+    given the same picture twice under two numbers.
+
+    Merging two places can bring a third into reach, so the pass repeats until one
+    pass changes nothing.
+    """
+    current = [dict(r) for r in regions]
+    changed = True
+    while changed:
+        changed = False
+        merged: list[dict] = []
+        for region in current:
+            area = pad_box(region["box"], size)
+            for other in merged:
+                if _overlap(area, pad_box(other["box"], size)):
+                    other["box"] = [min(other["box"][0], region["box"][0]),
+                                    min(other["box"][1], region["box"][1]),
+                                    max(other["box"][2], region["box"][2]),
+                                    max(other["box"][3], region["box"][3])]
+                    other["count"] += region["count"]
+                    other["parts"] = other.get("parts", []) + region.get("parts", [])
+                    changed = True
+                    break
+            else:
+                merged.append(dict(region))
+        current = merged
+    return current
+
+
+def _overlap(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> bool:
+    return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
 
 
 def pad_box(box: list[int], size: tuple[int, int]) -> tuple[int, int, int, int]:
-    """Grow a bounding box to something worth looking at, without leaving the image."""
+    """Grow a place to something worth looking at, without leaving the image."""
     width, height = size
     x0, y0, x1, y1 = box
     x0, y0, x1, y1 = x0 - CROP_PAD, y0 - CROP_PAD, x1 + CROP_PAD, y1 + CROP_PAD
@@ -189,26 +281,54 @@ def pad_box(box: list[int], size: tuple[int, int]) -> tuple[int, int, int, int]:
     return x0, y0, x1, y1
 
 
-def _outline(array, box: tuple[int, int, int, int], width: int = 3) -> None:
-    x0, y0, x1, y1 = box
-    array[y0:y0 + width, x0:x1] = (230, 20, 60)
-    array[y1 - width:y1, x0:x1] = (230, 20, 60)
-    array[y0:y1, x0:x0 + width] = (230, 20, 60)
-    array[y0:y1, x1 - width:x1] = (230, 20, 60)
+def zoom_for(area: tuple[int, int, int, int]) -> int:
+    """How many times to blow a place up so it is readable and still fits on screen."""
+    width = max(1, area[2] - area[0])
+    height = max(1, area[3] - area[1])
+    return max(1, min(MAX_ZOOM, int(min(ZOOM_TARGET / width, ZOOM_TARGET_H / height))))
 
 
-def write_crops(images: dict[str, Path], box: list[int], stem: Path) -> tuple:
-    """Save the same padded region out of each image, so the three can be read side
-    by side at a size a person can actually see."""
-    from PIL import Image
+def _mark_regions(image, regions: list[dict], size: tuple[int, int]) -> None:
+    """Draw a numbered box around every place, so the whole-scene picture says where
+    the numbered close-ups below it came from."""
+    from PIL import ImageDraw
 
-    region = None
+    draw = ImageDraw.Draw(image)
+    for index, region in enumerate(regions, 1):
+        x0, y0, x1, y1 = pad_box(region["box"], size)
+        draw.rectangle([x0, y0, x1 - 1, y1 - 1], outline=(230, 20, 60), width=3)
+        label = str(index)
+        draw.rectangle([x0, max(0, y0 - 18), x0 + 8 + 7 * len(label), y0],
+                       fill=(230, 20, 60))
+        draw.text((x0 + 4, max(0, y0 - 16)), label, fill=(255, 255, 255))
+
+
+def write_crops(images: dict[str, Path], region: dict, stem: Path) -> tuple:
+    """Save one place out of each image, blown up to the same scale and with the
+    changed pixels ringed, so a still picture already says where to look and
+    flipping between two of them says what changed."""
+    from PIL import Image, ImageDraw
+
+    area, zoom = None, 1
+    parts = region.get("parts") or [region["box"]]
     for label, path in images.items():
         img = Image.open(path)
-        if region is None:
-            region = pad_box(box, img.size)
-        img.crop(region).save(stem.with_name(f"{stem.name}-{label}-crop.png"))
-    return region
+        if area is None:
+            area = pad_box(region["box"], img.size)
+            zoom = zoom_for(area)
+        crop = img.crop(area)
+        if zoom > 1:
+            crop = crop.resize((crop.width * zoom, crop.height * zoom), Image.NEAREST)
+        if label != "diff":
+            draw = ImageDraw.Draw(crop)
+            for part in parts:
+                draw.rectangle(
+                    [(part[0] - area[0]) * zoom - 4, (part[1] - area[1]) * zoom - 4,
+                     (part[2] - area[0] + 1) * zoom + 3,
+                     (part[3] - area[1] + 1) * zoom + 3],
+                    outline=(230, 20, 60), width=2)
+        crop.save(stem.with_name(f"{stem.name}-{label}-crop.png"))
+    return area
 
 
 def pixel_diff(a: Path, b: Path, out: Path | None = None) -> dict:
@@ -580,141 +700,286 @@ def _copy(src: Path, dst: Path) -> None:
     dst.write_bytes(src.read_bytes())
 
 
+# ---------------------------------------------------------------- reading the diff
+ARIA_LINE = re.compile(
+    r'^\s*- (?P<role>[a-zA-Z]+)(?: "(?P<name>.*?)")?(?::(?:\s*(?P<value>.*))?)?\s*$')
+
+
+def text_changes(diff: str) -> list[dict]:
+    """Say what changed in words, out of the ARIA tree's own unified diff.
+
+    A person opening this page asks "what is different" before "how many pixels".
+    The tree carries the answer as text — a button's name, a line of copy — so the
+    page can say it instead of printing coordinates.
+    """
+    removed, added, changes = [], [], []
+
+    def flush():
+        for i in range(max(len(removed), len(added))):
+            before = removed[i] if i < len(removed) else None
+            after = added[i] if i < len(added) else None
+            if before and after and before["role"] == after["role"]:
+                changes.append({"kind": "changed", "role": before["role"],
+                                "before": before["text"], "after": after["text"]})
+            elif before and after:
+                changes.append({"kind": "replaced", "role": after["role"],
+                                "before": f'{before["role"]} {before["text"]}'.strip(),
+                                "after": f'{after["role"]} {after["text"]}'.strip()})
+            elif before:
+                changes.append({"kind": "removed", "role": before["role"],
+                                "before": before["text"], "after": None})
+            else:
+                changes.append({"kind": "added", "role": after["role"],
+                                "before": None, "after": after["text"]})
+        removed.clear()
+        added.clear()
+
+    for line in diff.splitlines():
+        if line.startswith(("+++", "---", "@@")):
+            continue
+        sign, rest = (line[:1], line[1:]) if line[:1] in "+- " else (" ", line)
+        parsed = ARIA_LINE.match(rest)
+        if sign == " " or not parsed:
+            flush()
+            continue
+        entry = {"role": parsed.group("role"),
+                 "text": (parsed.group("name") or parsed.group("value") or "").strip()}
+        (removed if sign == "-" else added).append(entry)
+        if sign == "-" and added:
+            flush()
+            removed.append(entry)
+    flush()
+    return changes
+
+
+def mark_change(before: str, after: str) -> tuple[str, str]:
+    """The two strings with the part that actually differs wrapped in `<mark>`."""
+    matcher = difflib.SequenceMatcher(None, before, after, autojunk=False)
+    left, right = [], []
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            left.append(_esc(before[i1:i2]))
+            right.append(_esc(after[j1:j2]))
+        else:
+            if i2 > i1:
+                left.append(f"<mark>{_esc(before[i1:i2])}</mark>")
+            if j2 > j1:
+                right.append(f"<mark>{_esc(after[j1:j2])}</mark>")
+    return "".join(left), "".join(right)
+
+
+def headline(scenes: list[Comparison], args) -> str:
+    """The one sentence the page opens with."""
+    bad = [c for c in scenes if failures(c, args.max_pct, args.console_errors)]
+    if not bad:
+        return "实现和基线一模一样，每个场景、每档窗口都对得上。"
+    names = sorted({c.scene for c in bad})
+    places = max(len(c.pixel.get("regions") or []) + (c.pixel.get("extra_regions") or 0)
+                 for c in bad)
+    where = "、".join(f"「{n}」" for n in names)
+    return (f"{where} 场景对不上，最多的一档窗口里有 <b>{places}</b> 处不一样。"
+            "下面一处一处放大给你看。")
+
+
 # ---------------------------------------------------------------- evidence page
 def write_evidence(out: Path, rows: list[Comparison], args, code: int) -> None:
-    """One page a person reads to see what differed and where.
+    """One page a person reads to answer two questions: 哪儿不一样，这算不算真错。
 
-    A scene that differs is shown twice: the region around the differing pixels,
-    cropped out of all three images and blown up until the difference is legible,
-    and then the whole scene, so the region can be placed. The negative control is
-    last: it is a machine's self-check, not a finding.
+    So it opens with the answer in words, then shows each differing place blown up
+    beside its baseline, and keeps the numbers — and the run's own self-check — out
+    of the way at the bottom, where they settle an argument rather than start one.
     """
     media = out / "media"
     scenes = [c for c in rows if c.scene != NEGATIVE_CONTROL_SCENE]
     control = [c for c in rows if c.scene == NEGATIVE_CONTROL_SCENE]
-    verdict = {0: "每个场景都与基线一致",
-               1: "至少一个场景与基线不一致",
-               2: "负控制没有失败，本页的结论一律不算数"}[code]
-    summary = ""
-    for c in rows:
-        p_, a = c.pixel, c.aria
-        size = "一样" if p_["size_equal"] else f"不一样 {p_['size_a']} / {p_['size_b']}"
-        state = "过" if not failures(c, args.max_pct, args.console_errors) else "不过"
-        summary += (f"<tr><td>{_esc(c.scene)}</td><td>{c.viewport}</td>"
-                    f"<td class=n>{p_['pct']}</td>"
-                    f"<td class=n>{p_['count'] if p_['count'] is not None else '—'}</td>"
-                    f"<td>{size}</td><td class=n>{a['changed']}</td>"
-                    f"<td class=n>{len(c.console_baseline)}/{len(c.console_impl)}</td>"
-                    f"<td>{state}</td></tr>")
-    body = "".join(_block(c, media, args) for c in scenes)
+    if code == 2:
+        lead = ("<b>这次运行不算数。</b>工具每次都拿一张被插了红色横幅的基线图自检一次，"
+                "这次它没有报出差异，说明比对本身出了问题。下面的结论一律不要采信。")
+    else:
+        lead = headline(scenes, args)
+    body = "".join(_block(first, media, args, same)
+                   for first, same in group_by_finding(scenes, args))
+    control_line = ""
     if control:
-        body += ("<h2 class=control-head>负控制</h2><p class=note>工具每次运行自带的一次"
-                 "自检：拿同一张基线图与一张被插了红色横幅的基线图比，必须报出差异。"
-                 "它下面这一行满屏红是预期的；它要是比平了，上面所有结论都不算数。</p>"
-                 + "".join(_block(c, media, args) for c in control))
+        c = control[0]
+        caught = bool(failures(c, args.max_pct, args.console_errors))
+        control_line = (
+            f'<p class=selfcheck>自检：本次运行拿同一张基线图与一张被插了红色横幅的基线图'
+            f'比了一次，{"报出了" if caught else "<b class=bad>没有报出</b>"} '
+            f'{c.pixel["pct"]}% 的差异与 {c.aria["changed"]} 行 ARIA 差异。'
+            f'{"比对本身是灵的，上面的结论可信。" if caught else "比对本身失灵，上面的结论不可信。"}'
+            f'（<a href="media/{NEGATIVE_CONTROL_SCENE}-{c.viewport}-diff.png">自检图</a>）</p>')
     html = f"""<!doctype html>
 <meta charset="utf-8">
 <title>实现与基线的差异</title>
 <style>
-  body{{margin:24px auto;max-width:1180px;background:#121416;color:#e6e6e3;
-    font:14px/1.6 system-ui,"PingFang SC",sans-serif}}
-  h1{{font-size:20px;margin:0 0 4px}}
-  h2{{font-size:16px;margin:32px 0 2px}}
-  .meta{{color:#9a9fa4;font-size:12px;margin-bottom:18px}}
-  .note{{color:#9a9fa4;font-size:12px;margin:2px 0 12px}}
-  table{{border-collapse:collapse;margin:0 0 8px;font-size:13px}}
-  th,td{{padding:4px 10px;border-bottom:1px solid #2b2f33;text-align:left}}
-  td.n,th.n{{text-align:right;font-variant-numeric:tabular-nums}}
-  .stat{{color:#9a9fa4;font-size:12px;margin:2px 0 10px}}
-  .row{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 6px}}
-  .row img{{width:100%;background:#fff;border-radius:4px;border:1px solid #2b2f33}}
-  .zoom img{{image-rendering:pixelated}}
-  .whole img{{opacity:.85}}
-  .whole{{margin-top:14px}}
-  .cap{{color:#8fb8d8;font-size:12px;margin-top:4px}}
-  .lead{{color:#e6e6e3;font-size:13px;margin:0 0 8px}}
+  :root{{color-scheme:dark}}
+  body{{margin:0;padding:28px 32px 80px;background:#121416;color:#e6e6e3;
+    font:15px/1.65 system-ui,"PingFang SC",sans-serif}}
+  h1{{font-size:24px;margin:0 0 10px}}
+  h2{{font-size:19px;margin:52px 0 4px;padding-top:22px;border-top:1px solid #2b2f33}}
+  h3{{font-size:16px;margin:26px 0 4px;color:#c9d1d9;font-weight:600}}
+  .lead{{font-size:17px;line-height:1.6;margin:0 0 6px;max-width:70ch}}
+  .meta{{color:#8b9095;font-size:12px;margin:0 0 28px}}
+  .note{{color:#9a9fa4;font-size:13px;margin:2px 0 12px;max-width:90ch}}
+  .said{{margin:10px 0 16px;padding:12px 16px;background:#181b1e;
+    border-left:3px solid #d0364f;border-radius:0 4px 4px 0;max-width:110ch}}
+  .said div{{margin:3px 0}}
+  .said b{{display:inline-block;min-width:3.5em;color:#8b9095;font-weight:400}}
+  .said mark{{background:#4a1020;color:#ffb3c0;padding:0 2px;border-radius:2px}}
+  .said code{{font:14px/1.5 ui-monospace,monospace}}
+  .pair{{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:0 0 10px}}
+  .pair img{{width:100%;display:block;background:#fff;border-radius:5px;
+    border:1px solid #2b2f33;image-rendering:pixelated}}
+  .whole{{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:0 0 6px}}
+  .whole img{{width:100%;display:block;background:#fff;border-radius:5px;
+    border:1px solid #2b2f33;opacity:.92}}
+  .cap{{color:#8fb8d8;font-size:13px;margin-top:6px}}
   .ok{{color:#7fc08a}} .bad{{color:#ff6b81}}
-  code,pre{{font:12px/1.5 ui-monospace,monospace;white-space:pre-wrap}}
-  pre{{background:#0d0f11;border:1px solid #2b2f33;border-radius:4px;padding:10px;
-    margin:6px 0 0;overflow-x:auto}}
-  pre .add{{color:#7fc08a}} pre .del{{color:#ff6b81}}
-  a{{color:#8fb8d8}} li{{margin:2px 0}}
-  .control-head{{margin-top:44px;padding-top:18px;border-top:1px solid #2b2f33}}
+  .selfcheck{{color:#8b9095;font-size:13px;margin:36px 0 0;padding-top:16px;
+    border-top:1px solid #2b2f33}}
+  details{{margin-top:16px;color:#9a9fa4;font-size:13px}}
+  summary{{cursor:pointer;color:#8fb8d8}}
+  table{{border-collapse:collapse;margin:10px 0 0;font-size:13px}}
+  th,td{{padding:4px 12px;border-bottom:1px solid #2b2f33;text-align:left}}
+  td.n,th.n{{text-align:right;font-variant-numeric:tabular-nums}}
+  pre{{background:#0d0f11;border:1px solid #2b2f33;border-radius:4px;padding:12px;
+    margin:6px 0 0;overflow-x:auto;font:12px/1.5 ui-monospace,monospace}}
+  a{{color:#8fb8d8}} li{{margin:3px 0}}
 </style>
 <h1>实现与基线的差异</h1>
+<p class=lead>{lead}</p>
 <p class=meta>基线 {_esc(str(args.baseline))} · 实现 {_esc(str(args.impl))} · 场景 {_esc(args.scenes)}
-· 像素阈值 {args.max_pct}% · 窗口 {_esc(args.viewports)} · 允许的控制台 error {args.console_errors} 条
-· 跑于 {time.strftime('%Y-%m-%d %H:%M:%S')} · 结论：{verdict}</p>
-<table><tr><th>场景</th><th>窗口</th><th class=n>像素差 %</th><th class=n>差异像素</th>
-<th>尺寸</th><th class=n>ARIA 差异行</th><th class=n>控制台 error 基线/实现</th><th>判定</th></tr>
-{summary}</table>
-<p class=note>一个场景要三样同时成立才算过：ARIA 树 0 行差异、像素差不超过 {args.max_pct}%、
-两边控制台各不超过 {args.console_errors} 条 error。两张图尺寸不等直接判不过，不做缩放。</p>
+· 跑于 {time.strftime('%Y-%m-%d %H:%M')}
+· 过关线：ARIA 树 0 行差异、像素差 ≤ {args.max_pct}%、每边控制台 error ≤ {args.console_errors} 条、两张图尺寸相同</p>
 {body}
-<h2>怎么判的</h2>
-<ul>
-<li>每个场景的基线，是一页只含一个钉死在该场景的 <code>dc-import</code> 的包装页渲染出来的；包装页只存在于内存里，基线目录只被读。</li>
-<li>基线截 <code>#dc-root</code>，用一条注入的规则把它撑到窗口大小；实现截整个窗口。</li>
-<li>某个 RGB 通道差超过 {PIXEL_TOLERANCE}/255 的像素算差异像素。diff 图上红色就是它们，红框是放大那一段取的范围。</li>
-<li>ARIA 树比的是归一化之后的：去掉运行时自己加的 <code>generic</code> / <code>group</code> 包裹行、去掉 landmark 的名字、把套在 <code>main</code> 里的 <code>main</code> 提上来。</li>
-</ul>"""
+{control_line}
+{_numbers(rows, args)}
+"""
     (out / "index.html").write_text(html, encoding="utf-8")
 
 
-def _block(c: Comparison, media: Path, args) -> str:
-    """One scene at one window: what differed, blown up, then in place."""
+def group_by_finding(scenes: list[Comparison], args) -> list[tuple]:
+    """Put the windows that found the same thing together.
+
+    Two windows of the same scene usually differ in exactly the same place for
+    exactly the same reason. Telling a reader that story twice makes them compare
+    two identical sections to find out they are identical.
+    """
+    groups: dict[tuple, list[Comparison]] = {}
+    for c in scenes:
+        key = (c.scene,
+               c.aria["diff"],
+               tuple(tuple(r["box"]) for r in (c.pixel.get("regions") or [])),
+               tuple(r.kind for r in failures(c, args.max_pct, args.console_errors)))
+        groups.setdefault(key, []).append(c)
+    return [(members[0], members[1:]) for members in groups.values()]
+
+
+def _numbers(rows: list[Comparison], args) -> str:
+    """The measurements, folded away: they settle an argument, they do not start one."""
+    body = ""
+    for c in rows:
+        p_, a = c.pixel, c.aria
+        size = "一样" if p_["size_equal"] else f"{p_['size_a']} / {p_['size_b']}"
+        state = "过" if not failures(c, args.max_pct, args.console_errors) else "不过"
+        body += (f"<tr><td>{_esc(c.scene)}</td><td>{c.viewport}</td>"
+                 f"<td class=n>{p_['pct']}</td>"
+                 f"<td class=n>{p_['count'] if p_['count'] is not None else '—'}</td>"
+                 f"<td>{size}</td><td class=n>{a['changed']}</td>"
+                 f"<td class=n>{len(c.console_baseline)}/{len(c.console_impl)}</td>"
+                 f"<td>{state}</td></tr>")
+    return f"""<details><summary>量出来的数字，以及这些数字是怎么来的</summary>
+<table><tr><th>场景</th><th>窗口</th><th class=n>像素差 %</th><th class=n>差异像素</th>
+<th>尺寸</th><th class=n>ARIA 差异行</th><th class=n>控制台 error 基线/实现</th><th>判定</th></tr>
+{body}</table>
+<ul>
+<li>每个场景的基线，是一页只含一个钉死在该场景的 <code>dc-import</code> 的包装页渲染出来的；包装页只存在于内存里，基线目录只被读。</li>
+<li>基线截 <code>#dc-root</code>，用一条注入的规则把它撑到窗口大小；实现截整个窗口。</li>
+<li>某个 RGB 通道差超过 {PIXEL_TOLERANCE}/255 的像素算差异像素。相距不到 {CELL} 像素的算同一处。</li>
+<li>ARIA 树比的是归一化之后的：去掉运行时自己加的 <code>generic</code> / <code>group</code> 包裹行、去掉 landmark 的名字、把套在 <code>main</code> 里的 <code>main</code> 提上来。</li>
+</ul></details>"""
+
+
+def _block(c: Comparison, media: Path, args, same: list[Comparison] = ()) -> str:
+    """One scene: what differed, said in words, then shown.
+
+    `same` are the other windows that found the very same thing; they are named in
+    the heading and shown only as links, not told over again.
+    """
     stem = f"{c.scene}-{c.viewport}"
     reasons = failures(c, args.max_pct, args.console_errors)
-    pixel, box = c.pixel, c.pixel["box"]
-    head = (f'<h2>{_esc(c.scene)} · {c.viewport} '
-            + (f'<span class=bad>不过</span></h2>' if reasons
-               else '<span class=ok>过</span></h2>'))
-    lead = (("这一格的问题：" + "；".join(_esc(r.zh) for r in reasons)) if reasons
-            else "这一格没有差异。")
-    out = (head + f'<p class=lead>{lead}</p>'
-           f'<p class=stat>像素差 {pixel["pct"]}%（{pixel["count"]} 个像素）'
-           f' · ARIA 树差 {c.aria["changed"]} 行'
-           f' · 控制台 error 基线 {len(c.console_baseline)} 条、实现 {len(c.console_impl)} 条</p>')
-    if box:
-        region = write_crops({"baseline": media / f"{stem}-baseline.png",
-                              "impl": media / f"{stem}-impl.png",
-                              "diff": media / f"{stem}-diff.png"},
-                             box, media / stem)
-        out += (f'<p class=note>差异落在 {box[0]},{box[1]} 到 {box[2]},{box[3]} 这块，'
-                f'{box[2] - box[0] + 1}×{box[3] - box[1] + 1} 像素。下面第一排是把'
-                f'{region[0]},{region[1]}–{region[2]},{region[3]} 这一段裁出来放大的，'
-                f'左右两张对着看。</p>'
-                '<div class="row zoom">'
-                f'<div><img src="media/{_esc(stem)}-baseline-crop.png" alt=""><div class=cap>基线</div></div>'
-                f'<div><img src="media/{_esc(stem)}-impl-crop.png" alt=""><div class=cap>实现</div></div>'
-                f'<div><img src="media/{_esc(stem)}-diff-crop.png" alt=""><div class=cap>红色 = 差异像素</div></div>'
+    pixel = c.pixel
+    regions = pixel.get("regions") or []
+    extra = pixel.get("extra_regions") or 0
+    verdict = '<span class=bad>不过</span>' if reasons else '<span class=ok>过</span>'
+    windows = " / ".join([c.viewport] + [o.viewport for o in same])
+    out = f'<h2>{_esc(c.scene)} · {windows} {verdict}</h2>'
+    if not reasons:
+        return out + '<p class=note>这一格与基线一致。</p>'
+    if same:
+        out += ('<p class=note>这几档窗口差的是同一处、同一行 ARIA，'
+                f'下面按 {c.viewport} 讲一遍；'
+                + "、".join(f'{o.viewport} 的像素差是 {o.pixel["pct"]}%'
+                            for o in same) + '。</p>')
+    out += ('<p class=note>' + "；".join(_esc(r.zh) for r in reasons) + '。'
+            + (f'差异分在 {len(regions) + extra} 处'
+               + (f'，下面放大前 {len(regions)} 处，其余在整页图上有红框。'
+                  if extra else '，下面一处一处放大。') if regions else '')
+            + '</p>')
+    changes = text_changes(c.aria["diff"])
+    if changes:
+        out += '<div class=said>'
+        for change in changes:
+            if change["kind"] == "changed":
+                left, right = mark_change(change["before"], change["after"])
+                out += (f'<div><b>基线</b><code>{change["role"]} {left}</code></div>'
+                        f'<div><b>实现</b><code>{change["role"]} {right}</code></div>')
+            elif change["kind"] == "removed":
+                out += (f'<div><b>少了</b><code>{change["role"]} '
+                        f'{_esc(change["before"])}</code></div>')
+            elif change["kind"] == "added":
+                out += (f'<div><b>多了</b><code>{change["role"]} '
+                        f'{_esc(change["after"])}</code></div>')
+            else:
+                out += (f'<div><b>基线</b><code>{_esc(change["before"])}</code></div>'
+                        f'<div><b>实现</b><code>{_esc(change["after"])}</code></div>')
+        out += '</div>'
+    for index, region in enumerate(regions, 1):
+        area = write_crops({"baseline": media / f"{stem}-baseline.png",
+                            "impl": media / f"{stem}-impl.png",
+                            "diff": media / f"{stem}-diff.png"},
+                           region, media / f"{stem}-r{index}")
+        zoom = zoom_for(area)
+        blocks = len(region.get("parts") or [region["box"]])
+        out += (f'<h3>第 {index} 处，{region["count"]} 个像素'
+                + (f'，分 {blocks} 小块' if blocks > 1 else '') + '</h3>'
+                f'<p class=note>红圈里就是不一样的地方，放大了 {zoom} 倍。'
+                f'整页图上标 <b>{index}</b> 号的是这里。</p>'
+                '<div class=pair>'
+                f'<div><img src="media/{_esc(stem)}-r{index}-baseline-crop.png" alt="">'
+                '<div class=cap>基线</div></div>'
+                f'<div><img src="media/{_esc(stem)}-r{index}-impl-crop.png" alt="">'
+                '<div class=cap>实现</div></div>'
                 '</div>')
-    if c.aria["diff"]:
-        out += ("<p class=note>ARIA 树的差异行（<code>-</code> 是基线，<code>+</code> 是实现）：</p>"
-                "<pre>" + _diff_html(c.aria["diff"]) + "</pre>")
-    out += ('<div class="row whole">'
-            f'<div><img src="media/{_esc(stem)}-baseline.png" alt=""><div class=cap>基线全图</div></div>'
-            f'<div><img src="media/{_esc(stem)}-impl.png" alt=""><div class=cap>实现全图</div></div>'
-            f'<div><img src="media/{_esc(stem)}-diff.png" alt=""><div class=cap>差异位置 · '
-            f'<a href="media/{_esc(stem)}.aria.diff">ARIA diff 全文</a> · '
-            f'<a href="media/{_esc(stem)}-baseline.aria.yml">基线树</a> · '
-            f'<a href="media/{_esc(stem)}-impl.aria.yml">实现树</a></div></div>'
+    out += ('<h3>在整页里的位置</h3>'
+            '<div class=whole>'
+            f'<div><img src="media/{_esc(stem)}-baseline.png" alt=""><div class=cap>基线</div></div>'
+            f'<div><img src="media/{_esc(stem)}-impl.png" alt=""><div class=cap>实现</div></div>'
+            f'<div><img src="media/{_esc(stem)}-diff.png" alt=""><div class=cap>红色是差异像素，红框与编号对应上面每一处 · '
+            f'<a href="media/{_esc(stem)}.aria.diff">ARIA diff 全文</a></div></div>'
             '</div>')
+    for other in same:
+        other_stem = f"{other.scene}-{other.viewport}"
+        out += (f'<p class=note>{other.viewport} 下的三张图：'
+                f'<a href="media/{_esc(other_stem)}-baseline.png">基线</a> · '
+                f'<a href="media/{_esc(other_stem)}-impl.png">实现</a> · '
+                f'<a href="media/{_esc(other_stem)}-diff.png">差异位置</a></p>')
     console = [f"[基线] {m}" for m in c.console_baseline] + \
               [f"[实现] {m}" for m in c.console_impl]
     if console:
-        out += "<pre>" + _esc("\n".join(console)) + "</pre>"
+        out += "<h3>控制台</h3><pre>" + _esc("\n".join(console)) + "</pre>"
     return out
-
-
-def _diff_html(diff: str) -> str:
-    lines = []
-    for line in diff.splitlines():
-        if line.startswith(("+++", "---", "@@")):
-            continue
-        css = "add" if line.startswith("+") else "del" if line.startswith("-") else ""
-        lines.append(f'<span class="{css}">{_esc(line)}</span>' if css else _esc(line))
-    return "\n".join(lines)
 
 
 def _esc(text: str) -> str:
