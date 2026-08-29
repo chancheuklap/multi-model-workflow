@@ -179,7 +179,7 @@ class TestBody(unittest.TestCase):
                      counts=counts_line(met=1, abandoned=1, total=2))
         code, err, _ = check(text)
         self.assertEqual(code, 1)
-        self.assertIn("first line's numbers do not match", err)
+        self.assertIn("first line says 2, `Counts:` says 1", err)
 
 
 class TestVerdict(unittest.TestCase):

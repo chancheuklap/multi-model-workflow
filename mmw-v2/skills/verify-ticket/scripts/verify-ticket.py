@@ -422,8 +422,11 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
         if handoff:
             said = {"abandoned": int(handoff.group(1)), "unmet": int(handoff.group(3)),
                     "met": int(handoff.group(4)), "total": int(handoff.group(5))}
-            if any(said[k] != got[k] for k in said):
-                problems.append("the first line's numbers do not match the `Counts:` line")
+            off = [f"{k}: first line says {said[k]}, `Counts:` says {got[k]}"
+                   for k in ("abandoned", "unmet", "met", "total") if said[k] != got[k]]
+            if off:
+                problems.append("the first line and the `Counts:` line disagree — "
+                                + "; ".join(off))
 
     verdict = last_verdict(comments)
     if verdict is None:
@@ -665,21 +668,23 @@ def refusals(number: int, ticket: dict, me: str, branch: str, dirty: list[str]) 
                    f"commit or discard them before starting a ticket")
     state = ticket.get("state", "")
     if state != "OPEN":
-        out.append(f"NOT_READY: #{number} is {state or 'unreadable'}, not OPEN")
+        out.append(f"NOT_READY: #{number} is {state or 'unreadable'}, not OPEN; "
+                   f"nothing for you to do here — stop, this comment is the record")
     labels = [l.get("name", "") for l in ticket.get("labels", [])]
     if "ready-for-agent" not in labels:
-        out.append(f"NOT_READY: #{number} has no ready-for-agent label; "
-                   f"it has not been cleared for an agent yet")
+        out.append(f"NOT_READY: #{number} has no ready-for-agent label, so it has not been "
+                   f"cleared for an agent yet; stop and leave it to whoever triages it")
     blockers = [b for b in ticket.get("blockedBy", {}).get("nodes", [])
                 if b.get("state") != "CLOSED"]
     if blockers:
         names = ", ".join(f"#{b['number']}" for b in blockers)
-        out.append(f"NOT_READY: #{number} is blocked by {names}; finish those first")
+        out.append(f"NOT_READY: #{number} is blocked by {names}; stop and come back once "
+                   f"those are closed")
     holders = [a.get("login", "") for a in ticket.get("assignees", [])]
     others = [h for h in holders if h != me]
     if others:
         out.append(f"NOT_READY: #{number} is assigned to {', '.join(others)}, not you ({me}); "
-                   f"someone else is on it")
+                   f"stop rather than work on someone else's ticket")
     return out
 
 
