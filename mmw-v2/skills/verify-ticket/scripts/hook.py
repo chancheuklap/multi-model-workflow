@@ -32,11 +32,18 @@ import sys
 HOSTS = ("claude", "codex", "grok", "cursor", "pi")
 GATES = ("pretool",)
 
+# Grok Build clips a deny reason at 256 characters and marks the rest `… [+N chars]`,
+# and it spends 13 of those on a `Hook denied: ` of its own (2026-08-29, measured: a
+# 350-character reason reached the model as its first 256). Everything a refused worker
+# needs — the ticket, the command, the way out when the work is not finished — has to fit
+# in what is left, for every ticket number this tracker will reach.
+REASON_LIMIT = 256
+HOST_PREFIX = len("Hook denied: ")
+
 REFUSAL = (
-    "#{n} closes through `verify-ticket.py {n} --closeout <draft>`, not by hand: it checks "
-    "the closing comment, posts it on #{n}, and closes the ticket for you. Write the closing "
-    "comment to a file and run that instead. If the work is not finished, make the first line "
-    "of that draft `HANDOFF REQUIRED` — it posts the same way and leaves #{n} open for a person."
+    "Close #{n} with `verify-ticket.py {n} --closeout <draft>`, not by hand: it checks the "
+    "closing comment, posts it, then closes the ticket. Write it to a file and run that. "
+    "Unfinished work leaves the same way, first line `HANDOFF REQUIRED`."
 )
 
 

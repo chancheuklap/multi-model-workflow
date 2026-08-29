@@ -244,6 +244,17 @@ class TestTheWordingSaysWhatToDoNext(unittest.TestCase):
     def test_no_placeholder_survives_into_what_the_model_reads(self):
         self.assertNotIn("{", self.reason())
 
+    def test_it_arrives_whole_on_the_host_that_clips_it(self):
+        """Grok Build clips a deny reason at 256 characters and hides the rest.
+
+        A sentence that runs past that loses its tail, and the tail is where the way
+        out lives. Five digits is more ticket numbers than this tracker will ever hold.
+        """
+        for number in (7, 86, 640, 6400, 99999):
+            with self.subTest(ticket=number):
+                whole = hk.HOST_PREFIX + len(hk.REFUSAL.format(n=number))
+                self.assertLessEqual(whole, hk.REASON_LIMIT)
+
 
 class TestNothingBlocksOnBadInput(unittest.TestCase):
     """A gate that cannot read its input has learned nothing, so it refuses nothing."""
