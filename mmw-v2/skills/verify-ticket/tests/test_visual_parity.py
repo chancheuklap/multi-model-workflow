@@ -107,8 +107,7 @@ class TestAria(unittest.TestCase):
                                          ROUND2_CARD.replace("2 张", "3 张", 1)))
         self.assertEqual(c.pixel["pct"], 0.0)
         reasons = vp.failures(c, max_pct=1.0, console_limit=0)
-        self.assertEqual(len(reasons), 1)
-        self.assertIn("aria", reasons[0])
+        self.assertEqual([r.kind for r in reasons], ["aria"])
         self.assertEqual(vp.gate(comparison(aria={"changed": 4, "lines_a": 1,
                                                   "lines_b": 1, "diff": ""}),
                                  [c], 1.0, 0)[0], 1)
@@ -135,8 +134,7 @@ class TestSizeMismatch(unittest.TestCase):
         reasons = vp.failures(comparison(pixel=vp.diff_images(_Render((1440, 900)),
                                                               _Render((1440, 1180)))),
                               max_pct=100.0, console_limit=0)
-        self.assertEqual(len(reasons), 1)
-        self.assertIn("size", reasons[0])
+        self.assertEqual([r.kind for r in reasons], ["size"])
 
 
 class TestNegativeControl(unittest.TestCase):
@@ -164,8 +162,9 @@ class TestConsole(unittest.TestCase):
         message = "error: Uncaught TypeError: wb.tasks is not a function"
         reasons = vp.failures(comparison(console_impl=[message]), max_pct=1.0,
                               console_limit=0)
-        self.assertEqual(len(reasons), 1)
-        self.assertIn(message, reasons[0])
+        self.assertEqual([r.kind for r in reasons], ["console"])
+        self.assertIn(message, reasons[0].en)
+        self.assertIn(message, reasons[0].zh)
 
     def test_the_allowance_is_what_console_errors_says(self):
         c = comparison(console_impl=["error: one"])

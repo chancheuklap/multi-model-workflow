@@ -160,11 +160,55 @@ def diff_images(ia, ib, out: Path | None = None) -> dict:
         ys, xs = np.nonzero(mask)
         box = [int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())]
     if out is not None:
-        vis = np.full(na.shape, 24, dtype=np.uint8)
-        vis[mask] = (255, 64, 64)
+        # A washed-out baseline under the red, so a difference can be located on the
+        # page it belongs to rather than on a black field.
+        vis = (na * 0.22 + 196).astype(np.uint8)
+        vis[mask] = (230, 20, 60)
+        if box:
+            _outline(vis, pad_box(box, ia.size))
         Image.fromarray(vis).save(out)
     return {"size_equal": True, "pct": round(100 * count / total, 3), "count": count,
             "total": total, "box": box, "size_a": tuple(ia.size), "size_b": tuple(ib.size)}
+
+
+# The area a reader is sent to when a scene differs: the differing pixels plus enough
+# of what surrounds them to recognise what they are part of.
+CROP_PAD = 56
+CROP_MIN = (360, 220)
+
+
+def pad_box(box: list[int], size: tuple[int, int]) -> tuple[int, int, int, int]:
+    """Grow a bounding box to something worth looking at, without leaving the image."""
+    width, height = size
+    x0, y0, x1, y1 = box
+    x0, y0, x1, y1 = x0 - CROP_PAD, y0 - CROP_PAD, x1 + CROP_PAD, y1 + CROP_PAD
+    grow_x = max(0, CROP_MIN[0] - (x1 - x0)) // 2
+    grow_y = max(0, CROP_MIN[1] - (y1 - y0)) // 2
+    x0, x1 = max(0, x0 - grow_x), min(width, x1 + grow_x)
+    y0, y1 = max(0, y0 - grow_y), min(height, y1 + grow_y)
+    return x0, y0, x1, y1
+
+
+def _outline(array, box: tuple[int, int, int, int], width: int = 3) -> None:
+    x0, y0, x1, y1 = box
+    array[y0:y0 + width, x0:x1] = (230, 20, 60)
+    array[y1 - width:y1, x0:x1] = (230, 20, 60)
+    array[y0:y1, x0:x0 + width] = (230, 20, 60)
+    array[y0:y1, x1 - width:x1] = (230, 20, 60)
+
+
+def write_crops(images: dict[str, Path], box: list[int], stem: Path) -> tuple:
+    """Save the same padded region out of each image, so the three can be read side
+    by side at a size a person can actually see."""
+    from PIL import Image
+
+    region = None
+    for label, path in images.items():
+        img = Image.open(path)
+        if region is None:
+            region = pad_box(box, img.size)
+        img.crop(region).save(stem.with_name(f"{stem.name}-{label}-crop.png"))
+    return region
 
 
 def pixel_diff(a: Path, b: Path, out: Path | None = None) -> dict:
@@ -184,18 +228,44 @@ class Comparison:
     console_impl: list[str] = field(default_factory=list)
 
 
-def failures(c: Comparison, max_pct: float, console_limit: int) -> list[str]:
+@dataclass
+class Reason:
+    """Why a pair failed, said once in the line a machine reads and once in the line
+    a person reads, so the two cannot drift apart."""
+    kind: str
+    en: str
+    zh: str
+
+    def __str__(self) -> str:
+        return self.en
+
+
+def failures(c: Comparison, max_pct: float, console_limit: int) -> list[Reason]:
     """Every reason this pair fails. An empty list is a pass."""
     reasons = []
     if not c.pixel["size_equal"]:
-        reasons.append(f"size {c.pixel['size_a']} vs {c.pixel['size_b']}")
+        reasons.append(Reason(
+            "size",
+            f"size {c.pixel['size_a']} vs {c.pixel['size_b']}",
+            f"两张图尺寸不等，基线 {c.pixel['size_a']}、实现 {c.pixel['size_b']}"))
     if c.aria["changed"]:
-        reasons.append(f"aria {c.aria['changed']} changed lines")
+        reasons.append(Reason(
+            "aria",
+            f"aria {c.aria['changed']} changed lines",
+            f"ARIA 树差 {c.aria['changed']} 行"))
     if c.pixel["size_equal"] and c.pixel["pct"] > max_pct:
-        reasons.append(f"pixel {c.pixel['pct']}% > {max_pct}%")
-    for side, msgs in (("baseline", c.console_baseline), ("impl", c.console_impl)):
+        reasons.append(Reason(
+            "pixel",
+            f"pixel {c.pixel['pct']}% > {max_pct}%",
+            f"像素差 {c.pixel['pct']}%，超过 {max_pct}%"))
+    for side, side_zh, msgs in (("baseline", "基线", c.console_baseline),
+                                ("impl", "实现", c.console_impl)):
         if len(msgs) > console_limit:
-            reasons.append(f"{side} console: " + " | ".join(msgs))
+            joined = " | ".join(msgs)
+            reasons.append(Reason(
+                "console",
+                f"{side} console: {joined}",
+                f"{side_zh}页控制台有 {len(msgs)} 条 error：{joined}"))
     return reasons
 
 
@@ -219,7 +289,7 @@ def gate(control: Comparison, comparisons: list[Comparison], max_pct: float,
             failed += 1
             box = c.pixel["box"]
             lines.append(f"DIFF {c.scene} {c.viewport} {c.pixel['pct']}% box={box} "
-                         f"— {'; '.join(reasons)}")
+                         f"— {'; '.join(r.en for r in reasons)}")
     if failed:
         return 1, lines
     return 0, [f"PARITY OK {len(comparisons)}/{len(comparisons)}"]
@@ -512,70 +582,139 @@ def _copy(src: Path, dst: Path) -> None:
 
 # ---------------------------------------------------------------- evidence page
 def write_evidence(out: Path, rows: list[Comparison], args, code: int) -> None:
+    """One page a person reads to see what differed and where.
+
+    A scene that differs is shown twice: the region around the differing pixels,
+    cropped out of all three images and blown up until the difference is legible,
+    and then the whole scene, so the region can be placed. The negative control is
+    last: it is a machine's self-check, not a finding.
+    """
+    media = out / "media"
+    scenes = [c for c in rows if c.scene != NEGATIVE_CONTROL_SCENE]
+    control = [c for c in rows if c.scene == NEGATIVE_CONTROL_SCENE]
+    verdict = {0: "每个场景都与基线一致",
+               1: "至少一个场景与基线不一致",
+               2: "负控制没有失败，本页的结论一律不算数"}[code]
     summary = ""
     for c in rows:
-        p, a = c.pixel, c.aria
-        size = "yes" if p["size_equal"] else f"no {p['size_a']} vs {p['size_b']}"
+        p_, a = c.pixel, c.aria
+        size = "一样" if p_["size_equal"] else f"不一样 {p_['size_a']} / {p_['size_b']}"
+        state = "过" if not failures(c, args.max_pct, args.console_errors) else "不过"
         summary += (f"<tr><td>{_esc(c.scene)}</td><td>{c.viewport}</td>"
-                    f"<td class=n>{p['pct']}</td>"
-                    f"<td class=n>{p['count'] if p['count'] is not None else '—'}</td>"
+                    f"<td class=n>{p_['pct']}</td>"
+                    f"<td class=n>{p_['count'] if p_['count'] is not None else '—'}</td>"
                     f"<td>{size}</td><td class=n>{a['changed']}</td>"
-                    f"<td class=n>{a['lines_a']}/{a['lines_b']}</td>"
                     f"<td class=n>{len(c.console_baseline)}/{len(c.console_impl)}</td>"
-                    "</tr>")
-    body = ""
-    for c in rows:
-        stem = f"{c.scene}-{c.viewport}"
-        p = c.pixel
-        body += f"""<div class=sample><h2>{_esc(c.scene)} · {c.viewport}</h2>
-<p class=stat>pixel diff {p['pct']}% · box {p['box']} · aria changed lines {c.aria['changed']} · console errors {len(c.console_baseline)}/{len(c.console_impl)}</p>
-<p class=look>What to look for: red in the third column is a pixel the two renders differ on by more than {PIXEL_TOLERANCE}/255 on some channel. The aria diff link lists the tree lines that differ once the runtime's own wrapper lines are dropped.</p>
-<div class=row>
-<div><img src="media/{_esc(stem)}-baseline.png" alt=""><div class=cap>baseline</div></div>
-<div><img src="media/{_esc(stem)}-impl.png" alt=""><div class=cap>impl</div></div>
-<div><img src="media/{_esc(stem)}-diff.png" alt=""><div class=cap>diff · <a href="media/{_esc(stem)}.aria.diff">aria diff</a> · <a href="media/{_esc(stem)}-baseline.aria.yml">baseline tree</a> · <a href="media/{_esc(stem)}-impl.aria.yml">impl tree</a></div></div>
-</div></div>"""
-        console = [f"[baseline] {m}" for m in c.console_baseline] + \
-                  [f"[impl] {m}" for m in c.console_impl]
-        if console:
-            body += "<pre>" + _esc("\n".join(console)) + "</pre>"
-    verdict = {0: "every scene matched", 1: "at least one scene differed",
-               2: "the negative control did not fail, so nothing here is trusted"}[code]
+                    f"<td>{state}</td></tr>")
+    body = "".join(_block(c, media, args) for c in scenes)
+    if control:
+        body += ("<h2 class=control-head>负控制</h2><p class=note>工具每次运行自带的一次"
+                 "自检：拿同一张基线图与一张被插了红色横幅的基线图比，必须报出差异。"
+                 "它下面这一行满屏红是预期的；它要是比平了，上面所有结论都不算数。</p>"
+                 + "".join(_block(c, media, args) for c in control))
     html = f"""<!doctype html>
 <meta charset="utf-8">
-<title>visual parity · evidence</title>
+<title>实现与基线的差异</title>
 <style>
-  body{{margin:24px;background:#121416;color:#e6e6e3;font:14px/1.6 system-ui,sans-serif}}
+  body{{margin:24px auto;max-width:1180px;background:#121416;color:#e6e6e3;
+    font:14px/1.6 system-ui,"PingFang SC",sans-serif}}
   h1{{font-size:20px;margin:0 0 4px}}
-  .meta{{color:#9a9fa4;font-size:12px;margin-bottom:20px}}
-  .legend{{display:flex;gap:16px;flex-wrap:wrap;margin:0 0 20px;padding:10px 12px;border:1px solid #2b2f33;border-radius:6px}}
-  .legend i{{display:inline-block;width:14px;height:14px;border:2px solid currentColor;margin-right:6px;vertical-align:-2px}}
-  table{{border-collapse:collapse;margin:0 0 24px}}
+  h2{{font-size:16px;margin:32px 0 2px}}
+  .meta{{color:#9a9fa4;font-size:12px;margin-bottom:18px}}
+  .note{{color:#9a9fa4;font-size:12px;margin:2px 0 12px}}
+  table{{border-collapse:collapse;margin:0 0 8px;font-size:13px}}
   th,td{{padding:4px 10px;border-bottom:1px solid #2b2f33;text-align:left}}
   td.n,th.n{{text-align:right;font-variant-numeric:tabular-nums}}
-  .sample{{margin:28px 0 8px}} .sample h2{{font-size:15px;margin:0}}
-  .stat{{color:#9a9fa4;font-size:12px;margin:2px 0 8px}}
-  .look{{color:#c8b458;font-size:12px;margin:0 0 8px}}
-  .row{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}}
-  img{{width:100%;background:#000;border-radius:4px}}
+  .stat{{color:#9a9fa4;font-size:12px;margin:2px 0 10px}}
+  .row{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 6px}}
+  .row img{{width:100%;background:#fff;border-radius:4px;border:1px solid #2b2f33}}
+  .zoom img{{image-rendering:pixelated}}
+  .whole img{{opacity:.85}}
+  .whole{{margin-top:14px}}
   .cap{{color:#8fb8d8;font-size:12px;margin-top:4px}}
-  code,pre{{font:12px ui-monospace,monospace;color:#c9d1d9;white-space:pre-wrap}}
+  .lead{{color:#e6e6e3;font-size:13px;margin:0 0 8px}}
+  .ok{{color:#7fc08a}} .bad{{color:#ff6b81}}
+  code,pre{{font:12px/1.5 ui-monospace,monospace;white-space:pre-wrap}}
+  pre{{background:#0d0f11;border:1px solid #2b2f33;border-radius:4px;padding:10px;
+    margin:6px 0 0;overflow-x:auto}}
+  pre .add{{color:#7fc08a}} pre .del{{color:#ff6b81}}
   a{{color:#8fb8d8}} li{{margin:2px 0}}
+  .control-head{{margin-top:44px;padding-top:18px;border-top:1px solid #2b2f33}}
 </style>
-<h1>visual parity</h1>
-<p class=meta>baseline {_esc(str(args.baseline))} · impl {_esc(str(args.impl))} · scenes {_esc(args.scenes)} · threshold {args.max_pct}% · viewports {_esc(args.viewports)} · console errors allowed {args.console_errors} · run {time.strftime('%Y-%m-%d %H:%M:%S')} · outcome: {verdict}</p>
-<div class=legend><span><i style="color:#ff4040"></i>differing pixel</span><span><i style="color:#181818"></i>identical pixel</span><span>aria changed lines = added + removed lines of the unified diff over the normalised trees</span></div>
-<table><tr><th>scene</th><th>viewport</th><th class=n>pixel %</th><th class=n>pixels</th><th>size equal</th><th class=n>aria changed</th><th class=n>aria lines b/i</th><th class=n>console err b/i</th></tr>{summary}</table>
+<h1>实现与基线的差异</h1>
+<p class=meta>基线 {_esc(str(args.baseline))} · 实现 {_esc(str(args.impl))} · 场景 {_esc(args.scenes)}
+· 像素阈值 {args.max_pct}% · 窗口 {_esc(args.viewports)} · 允许的控制台 error {args.console_errors} 条
+· 跑于 {time.strftime('%Y-%m-%d %H:%M:%S')} · 结论：{verdict}</p>
+<table><tr><th>场景</th><th>窗口</th><th class=n>像素差 %</th><th class=n>差异像素</th>
+<th>尺寸</th><th class=n>ARIA 差异行</th><th class=n>控制台 error 基线/实现</th><th>判定</th></tr>
+{summary}</table>
+<p class=note>一个场景要三样同时成立才算过：ARIA 树 0 行差异、像素差不超过 {args.max_pct}%、
+两边控制台各不超过 {args.console_errors} 条 error。两张图尺寸不等直接判不过，不做缩放。</p>
 {body}
-<h2>How it decided</h2>
+<h2>怎么判的</h2>
 <ul>
-<li>Each scene's baseline is rendered from a wrapper page holding one <code>dc-import</code> pinned to that scene, served from the baseline directory's own URL space; the directory's files are only read.</li>
-<li>The baseline screenshot and ARIA snapshot are taken on <code>#dc-root</code>, resized to the viewport by one injected rule; the implementation uses the whole viewport.</li>
-<li>A pixel differs when some RGB channel differs by more than {PIXEL_TOLERANCE}. Images of unequal size fail on the spot and are not scaled.</li>
-<li>A scene passes only with 0 changed ARIA lines, at most {args.max_pct}% differing pixels, and at most {args.console_errors} console errors on each side.</li>
-<li>The row named <code>{NEGATIVE_CONTROL_SCENE}</code> is the negative control: the same baseline render with an error banner inserted. It has to fail before any other row is believed.</li>
+<li>每个场景的基线，是一页只含一个钉死在该场景的 <code>dc-import</code> 的包装页渲染出来的；包装页只存在于内存里，基线目录只被读。</li>
+<li>基线截 <code>#dc-root</code>，用一条注入的规则把它撑到窗口大小；实现截整个窗口。</li>
+<li>某个 RGB 通道差超过 {PIXEL_TOLERANCE}/255 的像素算差异像素。diff 图上红色就是它们，红框是放大那一段取的范围。</li>
+<li>ARIA 树比的是归一化之后的：去掉运行时自己加的 <code>generic</code> / <code>group</code> 包裹行、去掉 landmark 的名字、把套在 <code>main</code> 里的 <code>main</code> 提上来。</li>
 </ul>"""
     (out / "index.html").write_text(html, encoding="utf-8")
+
+
+def _block(c: Comparison, media: Path, args) -> str:
+    """One scene at one window: what differed, blown up, then in place."""
+    stem = f"{c.scene}-{c.viewport}"
+    reasons = failures(c, args.max_pct, args.console_errors)
+    pixel, box = c.pixel, c.pixel["box"]
+    head = (f'<h2>{_esc(c.scene)} · {c.viewport} '
+            + (f'<span class=bad>不过</span></h2>' if reasons
+               else '<span class=ok>过</span></h2>'))
+    lead = (("这一格的问题：" + "；".join(_esc(r.zh) for r in reasons)) if reasons
+            else "这一格没有差异。")
+    out = (head + f'<p class=lead>{lead}</p>'
+           f'<p class=stat>像素差 {pixel["pct"]}%（{pixel["count"]} 个像素）'
+           f' · ARIA 树差 {c.aria["changed"]} 行'
+           f' · 控制台 error 基线 {len(c.console_baseline)} 条、实现 {len(c.console_impl)} 条</p>')
+    if box:
+        region = write_crops({"baseline": media / f"{stem}-baseline.png",
+                              "impl": media / f"{stem}-impl.png",
+                              "diff": media / f"{stem}-diff.png"},
+                             box, media / stem)
+        out += (f'<p class=note>差异落在 {box[0]},{box[1]} 到 {box[2]},{box[3]} 这块，'
+                f'{box[2] - box[0] + 1}×{box[3] - box[1] + 1} 像素。下面第一排是把'
+                f'{region[0]},{region[1]}–{region[2]},{region[3]} 这一段裁出来放大的，'
+                f'左右两张对着看。</p>'
+                '<div class="row zoom">'
+                f'<div><img src="media/{_esc(stem)}-baseline-crop.png" alt=""><div class=cap>基线</div></div>'
+                f'<div><img src="media/{_esc(stem)}-impl-crop.png" alt=""><div class=cap>实现</div></div>'
+                f'<div><img src="media/{_esc(stem)}-diff-crop.png" alt=""><div class=cap>红色 = 差异像素</div></div>'
+                '</div>')
+    if c.aria["diff"]:
+        out += ("<p class=note>ARIA 树的差异行（<code>-</code> 是基线，<code>+</code> 是实现）：</p>"
+                "<pre>" + _diff_html(c.aria["diff"]) + "</pre>")
+    out += ('<div class="row whole">'
+            f'<div><img src="media/{_esc(stem)}-baseline.png" alt=""><div class=cap>基线全图</div></div>'
+            f'<div><img src="media/{_esc(stem)}-impl.png" alt=""><div class=cap>实现全图</div></div>'
+            f'<div><img src="media/{_esc(stem)}-diff.png" alt=""><div class=cap>差异位置 · '
+            f'<a href="media/{_esc(stem)}.aria.diff">ARIA diff 全文</a> · '
+            f'<a href="media/{_esc(stem)}-baseline.aria.yml">基线树</a> · '
+            f'<a href="media/{_esc(stem)}-impl.aria.yml">实现树</a></div></div>'
+            '</div>')
+    console = [f"[基线] {m}" for m in c.console_baseline] + \
+              [f"[实现] {m}" for m in c.console_impl]
+    if console:
+        out += "<pre>" + _esc("\n".join(console)) + "</pre>"
+    return out
+
+
+def _diff_html(diff: str) -> str:
+    lines = []
+    for line in diff.splitlines():
+        if line.startswith(("+++", "---", "@@")):
+            continue
+        css = "add" if line.startswith("+") else "del" if line.startswith("-") else ""
+        lines.append(f'<span class="{css}">{_esc(line)}</span>' if css else _esc(line))
+    return "\n".join(lines)
 
 
 def _esc(text: str) -> str:
