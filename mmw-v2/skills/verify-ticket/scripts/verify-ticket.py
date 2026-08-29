@@ -9,9 +9,11 @@ comment. Nothing is cached and no file is left behind.
     verify-ticket.py <n>              run the unmet criteria, comment `self-run`
     verify-ticket.py <n> --reverify   re-run every criterion, comment `reverify`
     verify-ticket.py <n> --lint       audit how the criteria are written; print only
+    verify-ticket.py <n> --preflight  claim the ticket, or refuse and say why
+    verify-ticket.py <n> --closeout <draft>  check the closing comment, then post it
 
 Exit code follows gate-check: 0 all met, 1 unmet or abandoned, 2 usage or
-infrastructure.
+infrastructure. `--preflight` exits 2 when it refuses; `--closeout` exits 1.
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from collections import defaultdict, deque
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -33,6 +36,16 @@ LEDGER_NAME = "AC.md"
 SUMMARY_RE = re.compile(r"^(ALL MET|UNMET:|HANDOFF REQUIRED:)")
 GATE_LINE_RE = re.compile(r"^- \[( |x|X)\] ([A-Za-z0-9][A-Za-z0-9._-]*):")
 TTL_MS = "86400000"
+
+ABANDON_KINDS = ("failed", "blocked", "impossible", "decision")
+HANDOFF_KINDS = ("failed", "blocked", "impossible")
+ABANDON_RE = re.compile(r"^ABANDON:\s+(\S+)\s+(\S+)\s*(.*)$")
+COUNTS_RE = re.compile(
+    r"^Counts:\s*(\d+)\s+met,\s*(\d+)\s+unmet,\s*(\d+)\s+abandoned,\s*(\d+)\s+manual of\s*(\d+)\s*$")
+HANDOFF_RE = re.compile(
+    r"^HANDOFF REQUIRED:\s*(\d+)\s+abandoned\s*\(([^)]*)\),\s*(\d+)\s+unmet,\s*(\d+)\s+met of\s*(\d+)\s*$")
+VERDICT_RE = re.compile(r"^VERDICT\s+([0-9a-fA-F]{7,40})\b")
+ISSUE_REF_RE = re.compile(r"#(\d+)")
 
 
 # ----------------------------------------------------------------- ticket text
@@ -66,6 +79,52 @@ def post_comment(number: int, body: str) -> None:
         os.unlink(path)
 
 
+def fetch_ticket(number: int) -> dict:
+    """State, labels, assignees and blockers of the ticket. Patched out in tests."""
+    out = subprocess.run(
+        ["gh", "issue", "view", str(number), "--json", "state,labels,assignees,blockedBy"],
+        capture_output=True, text=True, check=True,
+    )
+    return json.loads(out.stdout)
+
+
+def gh_login() -> str:
+    """The account `gh` is signed in as. Patched out in tests."""
+    out = subprocess.run(["gh", "api", "user", "-q", ".login"],
+                         capture_output=True, text=True, check=True)
+    return out.stdout.strip()
+
+
+def assign_self(number: int) -> None:
+    """Claim the ticket. Patched out in tests."""
+    subprocess.run(["gh", "issue", "edit", str(number), "--add-assignee", "@me"], check=True)
+
+
+def close_ticket(number: int) -> None:
+    """Close the ticket as done. Patched out in tests."""
+    subprocess.run(["gh", "issue", "close", str(number), "--reason", "completed"], check=True)
+
+
+def hand_to_human(number: int) -> None:
+    """Move the ticket out of the agent lane. Patched out in tests."""
+    subprocess.run(
+        ["gh", "issue", "edit", str(number),
+         "--remove-label", "ready-for-agent", "--add-label", "ready-for-human"],
+        check=True,
+    )
+
+
+def fetch_sub_issues(spec: int) -> list[int]:
+    """The tickets GitHub records under `spec`, in its own order. Patched out in tests."""
+    out = subprocess.run(
+        ["gh", "api", f"repos/{{owner}}/{{repo}}/issues/{spec}/sub_issues",
+         "-q", "[.[] | .number] | @json"],
+        capture_output=True, text=True, check=True,
+    )
+    text = out.stdout.strip()
+    return json.loads(text) if text else []
+
+
 def section(body: str, heading: str) -> list[str]:
     """The lines under `## <heading>`, up to the next `## ` heading."""
     lines = body.splitlines()
@@ -85,6 +144,24 @@ def section(body: str, heading: str) -> list[str]:
         out.pop(0)
     while out and not out[-1].strip():
         out.pop()
+    return out
+
+
+def parent_spec(body: str) -> int | None:
+    """The spec number in `## Parent`, e.g. `#76, Implementation Decisions section 1`."""
+    for line in section(body, "Parent"):
+        m = ISSUE_REF_RE.search(line)
+        if m:
+            return int(m.group(1))
+    return None
+
+
+def blocked_by(body: str) -> list[int]:
+    """The ticket numbers in `## Blocked by`. `None (can start immediately)` is empty."""
+    out = []
+    for line in section(body, "Blocked by"):
+        for m in ISSUE_REF_RE.finditer(line):
+            out.append(int(m.group(1)))
     return out
 
 
@@ -112,6 +189,25 @@ def git(*args: str, cwd: Path | None = None) -> str:
 def repo_root() -> Path:
     top = git("rev-parse", "--show-toplevel")
     return Path(top) if top else Path.cwd()
+
+
+def current_branch(root: Path | None = None) -> str:
+    return git("rev-parse", "--abbrev-ref", "HEAD", cwd=root)
+
+
+def dirty_tracked(root: Path | None = None) -> list[str]:
+    """Uncommitted changes to tracked files. Untracked files do not count: a CHECK
+    command writes its own evidence pages and cache directories as it runs."""
+    out = git("status", "--porcelain", "--untracked-files=no", cwd=root)
+    return [line for line in out.splitlines() if line.strip()]
+
+
+def is_ancestor(commit: str, descendant: str, root: Path | None = None) -> bool:
+    result = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", commit, descendant],
+        capture_output=True, text=True, cwd=root,
+    )
+    return result.returncode == 0
 
 
 def outside_owns(globs: list[str], root: Path) -> list[str]:
@@ -187,9 +283,296 @@ def count_gates(ledger: Path) -> tuple[int, int]:
     return met, total
 
 
+# ------------------------------------------------------------- closing comment
+
+def parse_criteria(text: str) -> list[dict]:
+    """One record per criterion: its id, its tick, its evidence, and whether it is manual."""
+    out = []
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        m = GATE_LINE_RE.match(line)
+        if not m:
+            continue
+        item = {"id": m.group(2), "ticked": m.group(1) != " ", "evidence": "", "manual": False}
+        for follow in lines[i + 1:]:
+            if not follow.startswith((" ", "\t")):
+                break
+            stripped = follow.strip()
+            if stripped.startswith("EVIDENCE:"):
+                item["evidence"] = stripped.split("EVIDENCE:", 1)[1].strip()
+            elif stripped.startswith("MANUAL:"):
+                item["manual"] = True
+        out.append(item)
+    return out
+
+
+def parse_abandons(text: str) -> list[dict]:
+    """The `ABANDON: AC<n> <kind> <reason>` lines, which sit flush left under their criterion."""
+    out = []
+    for line in text.splitlines():
+        m = ABANDON_RE.match(line)
+        if m:
+            out.append({"ac": m.group(1), "kind": m.group(2), "reason": m.group(3).strip()})
+    return out
+
+
+def tally(criteria: list[dict], abandons: list[dict]) -> dict:
+    """Recount the draft. A tick with `EVIDENCE: pending` is unmet, not met; a manual
+    criterion nobody has filled in is neither (`12-decisions.md` H6)."""
+    abandoned_ids = {a["ac"] for a in abandons}
+    counts = {"met": 0, "unmet": 0, "abandoned": 0, "manual": 0, "total": len(criteria)}
+    for c in criteria:
+        filled = c["evidence"] and c["evidence"] != "pending"
+        if c["id"] in abandoned_ids:
+            counts["abandoned"] += 1
+        elif c["ticked"] and filled:
+            counts["met"] += 1
+        elif c["manual"] and not filled:
+            counts["manual"] += 1
+        else:
+            counts["unmet"] += 1
+    return counts
+
+
+def draft_line(text: str, prefix: str) -> str | None:
+    """The first line starting with `prefix`, without it."""
+    for line in text.splitlines():
+        if line.startswith(prefix):
+            return line[len(prefix):].strip()
+    return None
+
+
+def last_verdict(comments: list[str]) -> str | None:
+    """The commit on the newest `VERDICT <commit> <level> …` line the verifier left."""
+    for comment in reversed(comments):
+        for line in reversed(comment.splitlines()):
+            m = VERDICT_RE.match(line.strip())
+            if m:
+                return m.group(1)
+    return None
+
+
+def draft_problems(draft: str, comments: list[str]) -> list[str]:
+    """Everything wrong with the draft itself, in the order a reader would hit it."""
+    problems = []
+    lines = draft.strip().splitlines()
+    first = lines[0].strip() if lines else ""
+    handoff = HANDOFF_RE.match(first)
+    if first != "ALL MET" and not handoff:
+        return ["first line is neither `ALL MET` nor `HANDOFF REQUIRED: <n> abandoned "
+                "(<kinds>), <m> unmet, <k> met of <total>`: " + (first or "(empty draft)")]
+
+    criteria = parse_criteria(draft)
+    ids = [c["id"] for c in criteria]
+    abandons = parse_abandons(draft)
+    for a in abandons:
+        if a["kind"] not in ABANDON_KINDS:
+            problems.append(f"ABANDON: {a['ac']} has kind `{a['kind']}`; "
+                            f"it must be one of {', '.join(ABANDON_KINDS)}")
+        if a["ac"] not in ids:
+            problems.append(f"ABANDON: {a['ac']} points at a criterion the draft does not list")
+
+    blocking = sorted({a["kind"] for a in abandons if a["kind"] in HANDOFF_KINDS})
+    if first == "ALL MET" and blocking:
+        problems.append(f"first line is `ALL MET` but the draft abandons a criterion as "
+                        f"{', '.join(blocking)}; only `decision` may be abandoned and still "
+                        f"close the ticket")
+
+    for c in criteria:
+        if c["ticked"] and (not c["evidence"] or c["evidence"] == "pending"):
+            problems.append(f"{c['id']} is ticked but its EVIDENCE is pending; "
+                            f"either fill in what proved it or untick it")
+
+    counts = tally(criteria, abandons)
+    if first == "ALL MET" and counts["unmet"]:
+        problems.append(f"first line is `ALL MET` but {counts['unmet']} criteria are unmet")
+
+    opened = set(ISSUE_REF_RE.findall(draft_line(draft, "Sub-issues opened:") or ""))
+    unfilled_manual = [c["id"] for c in criteria
+                       if c["manual"] and (not c["evidence"] or c["evidence"] == "pending")]
+    if len(opened) < len(unfilled_manual):
+        problems.append(f"{len(unfilled_manual)} MANUAL criteria "
+                        f"({', '.join(unfilled_manual)}) still need a person, but "
+                        f"`Sub-issues opened:` lists {len(opened)} sub-issues; open one per "
+                        f"criterion so the ticket itself can close")
+
+    stated = draft_line(draft, "Counts:")
+    m = COUNTS_RE.match("Counts: " + stated) if stated is not None else None
+    if not m:
+        problems.append("no `Counts: <k> met, <m> unmet, <n> abandoned, <j> manual of <total>` line")
+    else:
+        got = dict(zip(("met", "unmet", "abandoned", "manual", "total"),
+                       (int(g) for g in m.groups())))
+        if got != counts:
+            problems.append(
+                "Counts: says {met} met, {unmet} unmet, {abandoned} abandoned, {manual} manual "
+                "of {total}".format(**got) +
+                "; the draft reads {met} met, {unmet} unmet, {abandoned} abandoned, {manual} "
+                "manual of {total}".format(**counts))
+        if handoff:
+            said = {"abandoned": int(handoff.group(1)), "unmet": int(handoff.group(3)),
+                    "met": int(handoff.group(4)), "total": int(handoff.group(5))}
+            if any(said[k] != got[k] for k in said):
+                problems.append("the first line's numbers do not match the `Counts:` line")
+
+    verdict = last_verdict(comments)
+    if verdict is None:
+        problems.append("the ticket carries no `VERDICT <commit> <level> …` line; "
+                        "dispatch the verifier before closing")
+    else:
+        head = git("rev-parse", "HEAD")
+        if not is_ancestor(verdict, "HEAD"):
+            problems.append(f"the verdict commit {verdict} is not in the current history; "
+                            f"it was reverted or rewritten, so nothing here has been verified")
+        elif not head.startswith(verdict) and draft_line(draft, "Post-verdict:") is None:
+            problems.append(f"the verdict is on {verdict} and HEAD has moved on; add a "
+                            f"`Post-verdict:` line naming every commit since it and where "
+                            f"it came from")
+    return problems
+
+
+def git_problems(root: Path | None = None) -> list[str]:
+    """The repository conditions a ticket must be in to close, plus one warning."""
+    problems = []
+    dirty = dirty_tracked(root)
+    if dirty:
+        problems.append(f"{len(dirty)} tracked files have uncommitted changes; "
+                        f"commit them so the closing comment names a real commit")
+    if not is_ancestor("main", "HEAD", root):
+        problems.append("this branch does not contain main; rebase or merge main into it")
+        return problems
+    base = git("merge-base", "main", "HEAD", cwd=root)
+    if base and not git("diff", "--name-only", f"{base}..HEAD", cwd=root):
+        sys.stderr.write("warning: this branch changes no files since it left main\n")
+    return problems
+
+
+# ---------------------------------------------------------------- ticket graph
+# `validate_dag`, `_detect_cycles`, `_trace_cycle` and `compute_levels` are
+# grok-bundled's `execute-plan/scripts/validate-plan.py` L145-280, function for
+# function. Only the shape of an entry changed: an id is an issue number rather
+# than a `pr-<n>` string, and dependencies come from `## Blocked by`.
+
+def validate_dag(entries: list[dict]) -> list[str]:
+    """Check unique ids, valid dependency references, and no cycles."""
+    errors = []
+
+    seen = set()
+    for entry in entries:
+        if entry["id"] in seen:
+            errors.append(f"duplicate ticket: #{entry['id']}")
+        seen.add(entry["id"])
+
+    for entry in entries:
+        for dep in entry["dependencies"]:
+            if dep not in seen:
+                errors.append(f"dangling dependency: #{entry['id']} is blocked by #{dep}, "
+                              f"which is not a ticket under this spec")
+
+    if not errors:
+        errors.extend(_detect_cycles(entries))
+
+    return errors
+
+
+def _detect_cycles(entries: list[dict]) -> list[str]:
+    """Kahn's algorithm for topological sort; returns cycle errors."""
+    in_degree = {e["id"]: 0 for e in entries}
+    children = defaultdict(list)
+    dep_map = {e["id"]: e["dependencies"] for e in entries}
+
+    for entry in entries:
+        for dep in entry["dependencies"]:
+            children[dep].append(entry["id"])
+            in_degree[entry["id"]] += 1
+
+    queue = deque(eid for eid, deg in in_degree.items() if deg == 0)
+    visited = 0
+
+    while queue:
+        node = queue.popleft()
+        visited += 1
+        for child in children[node]:
+            in_degree[child] -= 1
+            if in_degree[child] == 0:
+                queue.append(child)
+
+    if visited == len(entries):
+        return []
+
+    unvisited = [e["id"] for e in entries if in_degree[e["id"]] > 0]
+    cycle = _trace_cycle(dep_map, unvisited)
+    if cycle:
+        return ["cycle detected: " + " -> ".join(f"#{i}" for i in cycle)]
+    return ["cycle detected involving: " + ", ".join(f"#{i}" for i in sorted(unvisited))]
+
+
+def _trace_cycle(dep_map: dict, unvisited_ids: list) -> list | None:
+    """Walk deps among *unvisited_ids* to report one cycle path."""
+    unvisited = set(unvisited_ids)
+    current = unvisited_ids[0]
+    path = [current]
+    visited_in_path = {current}
+
+    while True:
+        next_node = None
+        for dep in dep_map.get(current, []):
+            if dep in unvisited:
+                next_node = dep
+                break
+        if next_node is None:
+            break
+        if next_node in visited_in_path:
+            idx = path.index(next_node)
+            return path[idx:] + [next_node]
+        path.append(next_node)
+        visited_in_path.add(next_node)
+        current = next_node
+
+    return None
+
+
+def compute_levels(entries: list[dict]) -> dict:
+    """Return ``{ticket: level}``; level 0 = nothing blocks it, so it starts first."""
+    children = defaultdict(list)
+    in_degree = {e["id"]: 0 for e in entries}
+
+    for e in entries:
+        for dep in e["dependencies"]:
+            children[dep].append(e["id"])
+            in_degree[e["id"]] += 1
+
+    levels = {}
+    queue = deque()
+    for eid, deg in in_degree.items():
+        if deg == 0:
+            levels[eid] = 0
+            queue.append(eid)
+
+    while queue:
+        node = queue.popleft()
+        for child in children[node]:
+            candidate = levels[node] + 1
+            levels[child] = max(levels.get(child, 0), candidate)
+            in_degree[child] -= 1
+            if in_degree[child] == 0:
+                queue.append(child)
+
+    return levels
+
+
+def ticket_entries(numbers: list[int]) -> list[dict]:
+    """One entry per ticket, its dependencies read off its own `## Blocked by`.
+
+    A dependency on a ticket outside this batch is kept, so `validate_dag` reports it.
+    """
+    return [{"id": n, "dependencies": blocked_by(fetch_body(n))} for n in numbers]
+
+
 # -------------------------------------------------------------------- herdr
 
-def report_phase(ticket: int, phase: str, extra: dict[str, str] | None = None) -> bool:
+def report_phase(ticket: int, phase: str, extra: dict[str, str] | None = None,
+                 clear: list[str] | None = None) -> bool:
     """Publish where this ticket stands to the Herdr pane. Never fails a run."""
     if os.environ.get("HERDR_ENV") != "1":
         return False
@@ -203,6 +586,8 @@ def report_phase(ticket: int, phase: str, extra: dict[str, str] | None = None) -
     ]
     for key, value in (extra or {}).items():
         cmd += ["--token", f"{key}={value}"]
+    for key in (clear or []):
+        cmd += ["--clear-token", key]
     try:
         subprocess.run(cmd, capture_output=True, timeout=10, check=False)
     except Exception:
@@ -259,6 +644,109 @@ def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
     return result.returncode
 
 
+def refusals(number: int, ticket: dict, me: str, branch: str, dirty: list[str]) -> list[str]:
+    """Why this ticket is not ready to be worked on, in the order a worker would hit it."""
+    out = []
+    if branch != f"issue-{number}":
+        out.append(f"NOT_READY: branch {branch or '(detached)'} is not issue-{number}; "
+                   f"work on this ticket in its own worktree on that branch")
+    if dirty:
+        out.append(f"NOT_READY: {len(dirty)} tracked files have uncommitted changes; "
+                   f"commit or discard them before starting a ticket")
+    state = ticket.get("state", "")
+    if state != "OPEN":
+        out.append(f"NOT_READY: #{number} is {state or 'unreadable'}, not OPEN")
+    labels = [l.get("name", "") for l in ticket.get("labels", [])]
+    if "ready-for-agent" not in labels:
+        out.append(f"NOT_READY: #{number} has no ready-for-agent label; "
+                   f"it has not been cleared for an agent yet")
+    blockers = [b for b in ticket.get("blockedBy", {}).get("nodes", [])
+                if b.get("state") != "CLOSED"]
+    if blockers:
+        names = ", ".join(f"#{b['number']}" for b in blockers)
+        out.append(f"NOT_READY: #{number} is blocked by {names}; finish those first")
+    holders = [a.get("login", "") for a in ticket.get("assignees", [])]
+    others = [h for h in holders if h != me]
+    if others:
+        out.append(f"NOT_READY: #{number} is assigned to {', '.join(others)}, not you ({me}); "
+                   f"someone else is on it")
+    return out
+
+
+def run_preflight(number: int) -> int:
+    """Claim the ticket, or say on the ticket itself why it cannot be claimed."""
+    root = repo_root()
+    problems = refusals(number, fetch_ticket(number), gh_login(),
+                        current_branch(root), dirty_tracked(root))
+    if problems:
+        reason = problems[0]
+        post_comment(number, reason)
+        sys.stderr.write(reason + "\n")
+        return 2
+    assign_self(number)
+    report_phase(number, "implement")
+    print(f"READY: #{number} claimed on issue-{number}")
+    return 0
+
+
+def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
+    """Check the closing comment against the ticket and the repository, then post it."""
+    draft = draft_path.read_text(encoding="utf-8")
+    problems = draft_problems(draft, fetch_comments(number))
+    problems += git_problems(repo_root())
+    ticket = fetch_ticket(number)
+    if ticket.get("state") != "OPEN":
+        problems.append(f"#{number} is already {ticket.get('state', 'unreadable')}")
+    me = gh_login()
+    if not any(a.get("login") == me for a in ticket.get("assignees", [])):
+        problems.append(f"#{number} is not assigned to you ({me}); run --preflight first")
+
+    if problems:
+        for problem in problems:
+            sys.stderr.write(problem + "\n")
+        report_phase(number, "closeout-rejected")
+        return 1
+    if check_only:
+        print(f"CLOSEOUT OK: #{number} draft passes every check")
+        return 0
+
+    post_comment(number, draft)
+    if draft.strip().splitlines()[0].strip() == "ALL MET":
+        close_ticket(number)
+        report_phase(number, "closed", clear=["ac"])
+        print(f"CLOSED: #{number}")
+    else:
+        hand_to_human(number)
+        report_phase(number, "handoff", clear=["ac"])
+        print(f"HANDED OFF: #{number} is now ready-for-human and stays open")
+    return 0
+
+
+def lint_ticket_graph(number: int, body: str) -> int:
+    """Read the batch this ticket belongs to and check it is a startable graph."""
+    spec = parent_spec(body)
+    if spec is None:
+        print("ticket graph: no `## Parent` section, so there is no batch to check")
+        return 0
+    numbers = fetch_sub_issues(spec)
+    if not numbers:
+        print(f"ticket graph: #{spec} has no sub-issues, so there is no batch to check")
+        return 0
+    entries = ticket_entries(numbers)
+    errors = validate_dag(entries)
+    if errors:
+        for error in errors:
+            print(error)
+        return 1
+    levels = compute_levels(entries)
+    by_level = defaultdict(list)
+    for ticket, level in levels.items():
+        by_level[level].append(ticket)
+    for level in sorted(by_level):
+        print(f"level {level}: " + ", ".join(f"#{t}" for t in sorted(by_level[level])))
+    return 0
+
+
 def run_lint(number: int) -> int:
     body = fetch_body(number)
     with tempfile.TemporaryDirectory(prefix="verify-ticket-") as tmp:
@@ -268,7 +756,8 @@ def run_lint(number: int) -> int:
             capture_output=True, text=True,
         )
     sys.stdout.write((result.stdout or "") + (result.stderr or ""))
-    return result.returncode
+    graph = lint_ticket_graph(number, body)
+    return result.returncode or graph
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -278,10 +767,27 @@ def main(argv: list[str] | None = None) -> int:
                         help="re-run every criterion, including the ones already ticked")
     parser.add_argument("--lint", action="store_true",
                         help="audit how the criteria are written; runs no CHECK, posts no comment")
+    parser.add_argument("--preflight", action="store_true",
+                        help="claim the ticket, or refuse and say why on the ticket")
+    parser.add_argument("--closeout", type=Path, metavar="DRAFT",
+                        help="check this closing comment, then post it and close the ticket")
+    parser.add_argument("--check-only", action="store_true",
+                        help="with --closeout: check the draft and change nothing")
     parser.add_argument("--timeout", type=int, help="per-CHECK timeout in seconds")
     args = parser.parse_args(argv)
-    if args.lint and args.reverify:
-        parser.error("--lint and --reverify are different jobs; pick one")
+    chosen = [name for name, on in
+              (("--lint", args.lint), ("--reverify", args.reverify),
+               ("--preflight", args.preflight), ("--closeout", args.closeout is not None)) if on]
+    if len(chosen) > 1:
+        parser.error(f"{' and '.join(chosen)} are different jobs; pick one")
+    if args.check_only and args.closeout is None:
+        parser.error("--check-only belongs to --closeout")
+    if args.preflight:
+        return run_preflight(args.ticket)
+    if args.closeout is not None:
+        if not args.closeout.is_file():
+            parser.error(f"no draft at {args.closeout}")
+        return run_closeout(args.ticket, args.closeout, args.check_only)
     if args.lint:
         return run_lint(args.ticket)
     return run_checks(args.ticket, args.reverify, args.timeout)
