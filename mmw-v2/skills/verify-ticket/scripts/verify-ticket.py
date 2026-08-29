@@ -828,6 +828,39 @@ def lint_expectations(body: str) -> list[str]:
     return findings
 
 
+def body_outside(body: str, heading: str) -> str:
+    """The whole ticket except one `## <heading>` section."""
+    lines = body.splitlines()
+    kept, skipping = [], False
+    for line in lines:
+        if line.startswith("## "):
+            skipping = line.strip() == f"## {heading}"
+        if not skipping:
+            kept.append(line)
+    return "\n".join(kept)
+
+
+def lint_edges(body: str) -> list[str]:
+    """Blocking edges that nothing else on the ticket accounts for.
+
+    A `## Blocked by` entry earns its place by being visible elsewhere: named in
+    `## What to build`, listed under `## Read first`, needed by a criterion, or holding a
+    file two tickets would otherwise both write. An edge that appears nowhere but the
+    `## Blocked by` section is one nobody can check — it is as likely to be a dependency
+    somebody forgot to explain as one that was never real. This narrows what to read; it
+    does not decide which.
+    """
+    findings = []
+    elsewhere = body_outside(body, "Blocked by")
+    for ticket in blocked_by(body):
+        if not re.search(rf"#{ticket}\b", elsewhere):
+            findings.append(
+                f"#{ticket} blocks this ticket, but nothing outside `## Blocked by` mentions "
+                f"it. Say where the dependency bites — the criterion that needs its output, "
+                f"or the file both tickets would write — or drop the edge.")
+    return findings
+
+
 def lint_check_effects(body: str) -> list[str]:
     """Which criteria leave the repository or the ticket somewhere new.
 
@@ -864,6 +897,8 @@ def run_lint(number: int) -> int:
         print("  ERROR " + finding + "  [dollar-without-m]")
     for finding in lint_check_effects(body):
         print("  WARN  " + finding + "  [shared-state]")
+    for finding in lint_edges(body):
+        print("  WARN  " + finding + "  [unexplained-edge]")
 
     graph = lint_ticket_graph(number, body)
     return result.returncode or graph or (1 if broken else 0)

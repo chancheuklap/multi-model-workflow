@@ -83,5 +83,46 @@ class TestCriteriaLines(unittest.TestCase):
                          [("AC1", "a", "/^x$/m"), ("AC2", "b", "/^y$/m")])
 
 
+
+class TestUnexplainedEdge(unittest.TestCase):
+    """An edge earns its place by being visible somewhere other than `## Blocked by`.
+
+    Three of the six edges this found on the #60 batch were real dependencies nobody had
+    written down (a directory another ticket creates, a file two tickets both write, a
+    skill a later ticket runs the changed version of); three were edges no criterion
+    needed. So this reports, and a reader decides.
+    """
+
+    @staticmethod
+    def ticket(blocked=("#62",), build="Add the thing.", read_first="- the spec"):
+        return (f"## What to build\n\n{build}\n\n"
+                f"## Read first\n\n{read_first}\n\n"
+                "## Acceptance criteria\n\n- [ ] AC1: it works\n  CHECK: pytest\n"
+                "  EXPECT: /^OK$/m\n  EVIDENCE: pending\n\n"
+                "## Blocked by\n\n" + "\n".join(f"- {b}" for b in blocked) + "\n")
+
+    def test_an_edge_nothing_else_mentions_is_reported(self):
+        findings = vt.lint_edges(self.ticket(blocked=("#69",)))
+        self.assertEqual(len(findings), 1)
+        self.assertIn("#69", findings[0])
+        self.assertIn("drop the edge", findings[0])
+
+    def test_an_edge_named_in_read_first_is_fine(self):
+        body = self.ticket(blocked=("#62",), read_first="- #62 产出的 verify-ticket.py")
+        self.assertEqual(vt.lint_edges(body), [])
+
+    def test_an_edge_named_in_what_to_build_is_fine(self):
+        body = self.ticket(blocked=("#62",), build="Extends what #62 built.")
+        self.assertEqual(vt.lint_edges(body), [])
+
+    def test_the_blocked_by_section_alone_does_not_count(self):
+        # The edge is written `- #62` in both places; only the one outside counts.
+        body = self.ticket(blocked=("#62", "#63"), read_first="- #63 的产出")
+        findings = vt.lint_edges(body)
+        self.assertEqual([f.split()[0] for f in findings], ["#62"])
+
+    def test_a_ticket_with_no_blockers_reports_nothing(self):
+        self.assertEqual(vt.lint_edges(self.ticket(blocked=("None (can start immediately)",))), [])
+
 if __name__ == "__main__":
     unittest.main()

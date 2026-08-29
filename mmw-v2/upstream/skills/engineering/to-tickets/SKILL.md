@@ -49,7 +49,7 @@ Write each acceptance criterion so a later check can pass or fail it:
 Present the proposed breakdown as a numbered list. For each ticket, show:
 
 - **Title**: short descriptive name
-- **Blocked by**: which other tickets (if any) must complete first
+- **Blocked by**: which other tickets (if any) must complete first, and for each, what makes it one — the criterion that needs its output, or the file both tickets would write. An edge you cannot account for that way is one to drop
 - **What it delivers**: the end-to-end behaviour this ticket makes work
 
 Ask the user:
@@ -78,6 +78,7 @@ After publishing, open each ticket again (on a real tracker, fetch it; locally, 
 - The title and **What to build** describe the same slice.
 - Every entry under **Blocked by** is an identifier that resolves to one of this batch's tickets, and the ticket it resolves to is the one meant.
 - On a tracker with native blocking links, the number of links equals the number of **Blocked by** entries.
+- Every entry under **Blocked by** is accounted for elsewhere on the ticket: named in **What to build**, listed under **Read first**, needed by a named criterion, or holding a file this ticket and that one would both write. An edge that appears nowhere but **Blocked by** is one nobody can check — write down where it bites, or drop it.
 - **Read first** and **Seam** are present and non-empty ("none" counts as present).
 
 Fix what fails before reporting the batch as published.

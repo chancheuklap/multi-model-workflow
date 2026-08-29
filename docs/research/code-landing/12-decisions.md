@@ -147,6 +147,21 @@
 - 与 A3 同类：A3 防的是「一条可能验错东西的检查」，A4 防的是「一条不可能过的检查」和「一条被前一条弄坏的检查」。三条都是出票时写坏、夜里才发作的。
 - 落点：`verify-ticket.py` 的 `lint_expectations` 与 `lint_check_effects`（提交 `b69d201f`）；#68 与 #60 第 3 节加 CHECK 自带前置那一条、改 Read back 的收敛判据；#62、#64、#65 的 16 条 EXPECT 已改；#63 的 AC3、AC9、AC15 已自带前置并还原。
 
+### A5 阻塞边要说得出依据，说不出就不是边
+
+- 触发：用户读交接文档时问「to-tickets 的阻塞关系是不是该放到最后再连，不然 acceptance criteria 总是容易打架，就像 #69 和 #64 一样」。查了三样：
+  - **边和标准是同一次操作落的**，不存在「边连早了」的时间差：#64 的 issue 创建于 `2026-08-28T16:59:22Z`，`blocked_by_added` 事件在 `16:59:25Z`，相隔 3 秒。`to-tickets/SKILL.md` 第 3 步里「Give each ticket its blocking edges」与「Write each acceptance criterion」是同一步的两句话。
+  - **第 4 步 Quiz the user 给用户看的清单是 Title / Blocked by / What it delivers 三项，没有验收标准**。用户批准边的那一刻，看不到那些标准会不会需要别的票。
+  - **第 6 步 Read every ticket back 核的是边的完整性**（每条能解析到本批的票、原生链接数等于 `Blocked by` 行数），没有一条核「这条边为什么存在」。
+- 实测规模：#60 那批 15 张票共 25 条边，其中 6 条只存在于 `Blocked by` 段、票的别处从不提及。逐条读完，3 条是**没有任何标准需要**的边——#64 → #69（hook.py 的 AC9、AC10 只要 `--closeout --check-only` 非零，一张没有 `VERDICT` 的票就非零，不需要 verifier 先落地）、#65 → #63（visual-parity.py 的 11 条标准没有一条碰 `--preflight` / `--closeout` / `--lint`）、#67 → #65（dispatch.sh 的 10 条标准全是 herdr / models.md / gh）；另外 3 条是**真依赖但正文没写**——#65 → #62（目录由 #62 建）、#74 → #62（两票都写 `mmw-v2/skills.txt`，正是 A2 与 H7 说的 Owns 相交才加边）、#75 → #68（AC2 跑的是改后的 `to-tickets`）。
+- 用户的提法（把连边挪到最后）**不采**：第 3 步的 vertical slice 划分本身就要按依赖来（`<vertical-slice-rules>` 的「Any prefactoring should be done first」），把连边挪到最后会让划分失去依据；而边与标准同时落，改写作顺序不产生任何核对。他指出的问题是真的，机制是「没有一步回头核对边与标准」，不是顺序。
+- 结论：**一条 `Blocked by` 要在票的别处说得出依据**——`What to build` 点名、`Read first` 列出、某条标准需要它的产出、或两票都写同一个文件（Owns 相交，A2 与 H7）。只出现在 `Blocked by` 段的边，要么补上那一句，要么删掉。落成三层：
+  - 第 4 步 Quiz 的 `Blocked by` 那一项连依据一起说——那是用户批准边的地方；
+  - 第 6 步 Read back 加一条核对；
+  - `verify-ticket.py --lint` 加静态检查 `unexplained-edge`（WARN，不改退出码）。它判不了对错——上面 6 条里一半是真依赖——它做的是把要人读的从 25 条缩到 6 条。这与 A4 的分法一致：判得准的报 ERROR，判不准的报 WARN。
+- 连带发现：票的 `## Parent` 写着 #60 的第几节，而边可以指向更晚的节。删掉 #64 → #69 之后还剩一条这样的边：#67（第 2 节）blocked by #66（第 4 节），那是真依赖（`dispatch.sh` 读 `docs/agents/models.md`，而那个文件由 #66 建）。#60 Implementation Decisions 前言定「不并行、不跳节」，与边冲突时以边为准——边是机器能核的，节序是人写的顺序。
+- 落点：`to-tickets/SKILL.md` 第 4、6 步与 `merge-notes/to-tickets.md` 两条；#60 第 3 节；#68 的 What to build 与新增 AC13；`verify-ticket.py` 的 `lint_edges`；#64、#65、#67 的三条边已删，#65、#74、#75 的三条已在 `Read first` 补上依据，全批复扫 0 条残留。
+
 ## 块 B · 收尾与复查
 
 ### B1 verifier 与 code-review 的区别、是否合并

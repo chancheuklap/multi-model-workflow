@@ -134,9 +134,6 @@ class TestBlockedBy(unittest.TestCase):
         self.assertEqual(vt.parent_spec(body(parent=60)), 60)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class TestBorrowedFromUpstream(unittest.TestCase):
     """The four functions are grok-bundled's, function for function.
@@ -221,3 +218,6 @@ class TestBorrowedFromUpstream(unittest.TestCase):
         self.assertIn('replace("pr-", "PR ", 1)', theirs)
         self.assertNotIn("pr-", ours)
         self.assertIn("#{entry['id']}", ours)
+
+if __name__ == "__main__":
+    unittest.main()
