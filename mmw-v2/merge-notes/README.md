@@ -26,7 +26,6 @@
 - [to-tickets](to-tickets.md) — `engineering/to-tickets`
 - [triage](triage.md) — `engineering/triage`
 - [wayfinder](wayfinder.md) — `engineering/wayfinder`
-- [handoff](handoff.md) — `productivity/handoff`
 - [teach](teach.md) — `productivity/teach`
 - [to-questionnaire](to-questionnaire.md) — `productivity/to-questionnaire`
 - [wait-what](wait-what.md) — `productivity/wait-what`
