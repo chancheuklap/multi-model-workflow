@@ -33,8 +33,6 @@ Break the work into **tracer bullet** tickets.
 
 </vertical-slice-rules>
 
-Give each ticket its **blocking edges**: the other tickets that must complete before it can start. A ticket with no blockers can start immediately.
-
 Write each acceptance criterion so a later check can pass or fail it:
 
 1. Observable external behaviour, from the spec's seam or a user-visible UI. Not internals.
@@ -44,12 +42,16 @@ Write each acceptance criterion so a later check can pass or fail it:
 
 **Wide refactors are the exception to vertical slicing.** A **wide refactor** is one mechanical change (rename a column, retype a shared symbol) whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket; green is promised only there.
 
-### 4. Quiz the user
+### 4. Give each ticket its blocking edges
+
+Give each ticket its **blocking edges**: the other tickets that must complete before it can start. A ticket with no blockers can start immediately.
+
+### 5. Quiz the user
 
 Present the proposed breakdown as a numbered list. For each ticket, show:
 
 - **Title**: short descriptive name
-- **Blocked by**: which other tickets (if any) must complete first, and for each, what makes it one — the criterion that needs its output, or the file both tickets would write. An edge you cannot account for that way is one to drop
+- **Blocked by**: which other tickets (if any) must complete first
 - **What it delivers**: the end-to-end behaviour this ticket makes work
 
 Ask the user:
@@ -60,7 +62,7 @@ Ask the user:
 
 Iterate until the user approves the breakdown.
 
-### 5. Publish the tickets to the configured tracker
+### 6. Publish the tickets to the configured tracker
 
 Publish the approved tickets. **How** depends on the tracker `/setup-matt-pocock-skills` configured; the tickets are the same either way, only the shape of the blocking edges changes:
 
@@ -71,14 +73,13 @@ Work the **frontier**: any ticket whose blockers are all done. For a purely line
 
 Do NOT close or modify any parent issue.
 
-### 6. Read every ticket back
+### 7. Read every ticket back
 
 After publishing, open each ticket again (on a real tracker, fetch it; locally, read the file) and check:
 
 - The title and **What to build** describe the same slice.
 - Every entry under **Blocked by** is an identifier that resolves to one of this batch's tickets, and the ticket it resolves to is the one meant.
 - On a tracker with native blocking links, the number of links equals the number of **Blocked by** entries.
-- Every entry under **Blocked by** is accounted for elsewhere on the ticket: named in **What to build**, listed under **Read first**, needed by a named criterion, or holding a file this ticket and that one would both write. An edge that appears nowhere but **Blocked by** is one nobody can check — write down where it bites, or drop it.
 - **Read first** and **Seam** are present and non-empty ("none" counts as present).
 
 Fix what fails before reporting the batch as published.
