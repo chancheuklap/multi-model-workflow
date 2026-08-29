@@ -57,9 +57,12 @@ is the verifier's own comment, written after this one, not something the engine 
 
 `--closeout` reads the draft against the ticket and the repository: the first line, the
 `ABANDON:` kinds, the recount behind `Counts:`, a sub-issue for every `MANUAL:` criterion
-still waiting on a person, the verifier's `VERDICT` commit still being in the history, and
-a clean tracked working tree. Whether the work is any good is what the `CHECK` commands,
-the verifier and `code-review` decide before you write the draft.
+still waiting on a person, and a clean tracked working tree. A draft whose first line is
+`ALL MET` is held to two more: the ticket carries the verifier's `VERDICT`, and the draft
+accounts for every commit since it. `HANDOFF REQUIRED` is held to neither — it claims
+nothing was finished, so it is the way out of anything you cannot fix yourself, including
+a verifier that never ran. Whether the work is any good is what the `CHECK` commands, the
+verifier and `code-review` decide before you write the draft.
 
 The comment ends with **Outside Owns**: files this branch changed since it left `main`
 that no `## Owns` glob covers. That list is something to explain in the closeout comment,

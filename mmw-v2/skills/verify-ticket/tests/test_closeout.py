@@ -182,16 +182,54 @@ class TestBody(unittest.TestCase):
         self.assertIn("first line says 2, `Counts:` says 1", err)
 
 
+HANDOFF = "HANDOFF REQUIRED: 1 abandoned (failed), 0 unmet, 0 met of 1"
+ABANDONED = "ABANDON: AC2 failed three self-run rounds did not fix it"
+NO_VERDICT = ("self-run\nUNMET: 1 (met: 0)",)
+
+
 class TestVerdict(unittest.TestCase):
-    def test_a_ticket_with_no_verdict_is_refused(self):
-        code, err, _ = check(draft(counts=counts_line()), comments=("self-run\nsomething",))
+    """A verdict is what a ticket needs to close as done — and only that.
+
+    Handing the ticket to a person is the way out of everything the gate refuses,
+    so nothing the worker cannot produce may stand between it and `HANDOFF REQUIRED`.
+    The verifier's comment is exactly such a thing: the worker does not write it.
+    """
+
+    def handoff(self, post_verdict="Post-verdict: None", **kwargs):
+        text = draft(first=HANDOFF, criteria=(UNMET,), abandons=(ABANDONED,),
+                     counts=counts_line(met=0, abandoned=1, total=1),
+                     post_verdict=post_verdict)
+        return check(text, **kwargs)
+
+    def test_all_met_with_no_verdict_is_still_refused(self):
+        code, err, _ = check(draft(counts=counts_line()), comments=NO_VERDICT)
         self.assertEqual(code, 1)
         self.assertIn("carries no `VERDICT", err)
 
-    def test_a_verdict_commit_no_longer_in_history_is_refused(self):
-        code, err, _ = check(draft(counts=counts_line()), verdict_reachable=False)
+    def test_handing_over_needs_no_verdict(self):
+        code, err, _ = self.handoff(comments=NO_VERDICT)
+        self.assertEqual(code, 0, err)
+
+    def test_the_refusal_points_at_the_way_out(self):
+        _, err, _ = check(draft(counts=counts_line()), comments=NO_VERDICT)
+        self.assertIn("HANDOFF REQUIRED", err)
+
+    def test_a_verdict_commit_no_longer_in_history_falls_through_to_post_verdict(self):
+        """A lost verdict commit is HEAD having moved on, told the same way as any other."""
+        code, err, _ = check(draft(counts=counts_line(), post_verdict=None),
+                             verdict_reachable=False)
         self.assertEqual(code, 1)
-        self.assertIn("a revert or a rebase threw away", err)
+        self.assertIn("add a `Post-verdict:` line", err)
+        self.assertNotIn("revert or a rebase", err)
+
+        code, err, _ = check(draft(counts=counts_line(),
+                                   post_verdict="Post-verdict: 9b1d40c7 (code-review found AC1)"),
+                             verdict_reachable=False)
+        self.assertEqual(code, 0, err)
+
+    def test_handing_over_needs_no_post_verdict_line(self):
+        code, err, _ = self.handoff(post_verdict=None)
+        self.assertEqual(code, 0, err)
 
     def test_an_ancestor_verdict_passes_when_post_verdict_is_there(self):
         code, err, _ = check(draft(counts=counts_line(),
@@ -212,6 +250,38 @@ class TestVerdict(unittest.TestCase):
                     f"VERDICT {VERIFIED} live-ui-verified by opus")
         code, err, _ = check(draft(counts=counts_line()), comments=comments, head=VERIFIED)
         self.assertEqual(code, 0, err)
+
+
+class TestEveryRefusalHasAWayOut(unittest.TestCase):
+    """A refusal that names a next step has to accept that step when the worker takes it.
+
+    `--closeout` is the one command a worker must get through to finish a ticket, and
+    the loop it sits in has no cap: refused, edit the draft, run it again. A refusal
+    whose advice the same gate then refuses is that loop with no exit at all.
+    """
+
+    def test_the_advice_in_a_refusal_is_a_draft_the_gate_accepts(self):
+        code, err, _ = check(draft(counts=counts_line()), comments=NO_VERDICT)
+        self.assertEqual(code, 1)
+        self.assertIn("HANDOFF REQUIRED", err)
+
+        # Now do exactly what it said, against the same ticket.
+        advised = draft(first=HANDOFF, criteria=(UNMET,), abandons=(ABANDONED,),
+                        counts=counts_line(met=0, abandoned=1, total=1))
+        code, err, _ = check(advised, comments=NO_VERDICT)
+        self.assertEqual(code, 0, err)
+
+    def test_no_refusal_asks_for_something_only_someone_else_can_write(self):
+        """The worker writes the draft and the commits. It does not write the verdict."""
+        for label, kwargs in (("no verdict", {"comments": NO_VERDICT}),
+                              ("verdict commit lost", {"verdict_reachable": False}),
+                              ("head moved on", {})):
+            with self.subTest(ticket=label):
+                code, err, _ = check(
+                    draft(first=HANDOFF, criteria=(UNMET,), abandons=(ABANDONED,),
+                          counts=counts_line(met=0, abandoned=1, total=1), post_verdict=None),
+                    **kwargs)
+                self.assertEqual(code, 0, err)
 
 
 class TestGit(unittest.TestCase):

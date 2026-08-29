@@ -433,19 +433,21 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
                 problems.append("the first line and the `Counts:` line disagree — "
                                 + "; ".join(off))
 
-    verdict = last_verdict(comments)
-    if verdict is None:
-        problems.append("the ticket carries no `VERDICT <commit> <level> …` line; "
-                        "dispatch the verifier before closing")
-    else:
-        head = git("rev-parse", "HEAD")
-        if not is_ancestor(verdict, "HEAD"):
-            problems.append(f"the verdict commit {verdict} is not in the current history, so a "
-                            f"revert or a rebase threw away the only independent check this "
-                            f"ticket has. The verifier is dispatched once and not again, so "
-                            f"this ticket can no longer close itself: write the closing comment "
-                            f"as HANDOFF REQUIRED and say the verified commit was lost")
-        elif not head.startswith(verdict) and draft_line(draft, "Post-verdict:") is None:
+    # The verifier's verdict is what a ticket needs to close as done, and only that.
+    # Handing the ticket to a person is the way out of everything else, including a
+    # verifier that never ran: `HANDOFF REQUIRED` claims nothing was finished, leaves
+    # the ticket open under `ready-for-human`, and puts it in front of someone in the
+    # morning. Demanding an independent check before a worker is allowed to say "I
+    # could not do this" would leave it with no way out at all.
+    if first == "ALL MET":
+        verdict = last_verdict(comments)
+        if verdict is None:
+            problems.append("the ticket carries no `VERDICT <commit> <level> …` line, so "
+                            "nothing but this ticket's own author says the work is done. "
+                            "Dispatch the verifier; if it cannot run, close out as "
+                            "`HANDOFF REQUIRED` instead and say so")
+        elif not git("rev-parse", "HEAD").startswith(verdict) \
+                and draft_line(draft, "Post-verdict:") is None:
             problems.append(f"the verdict is on {verdict} and HEAD has moved on; add a "
                             f"`Post-verdict:` line naming every commit since it and where "
                             f"it came from")
