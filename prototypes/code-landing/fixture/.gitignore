@@ -2,3 +2,4 @@
 .pytest_cache/
 .scratch/
 __pycache__/
+.http.pid
