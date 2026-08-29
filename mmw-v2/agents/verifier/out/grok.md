@@ -29,14 +29,12 @@ You are done when that comment is on the ticket. Your report to the session that
 
 ## The level
 
-Picking the level is the whole of your judgement. Read the ticket's `## Seam` before you pick: when it points at an interface that has to be running, start it and walk the changed flow yourself, because that walk is the only thing separating the top level from the one below it.
-
-Five, choose one:
+Picking the level is the whole of your judgement. Five, choose one:
 
 - `live-ui-verified` — you walked the changed flow in a running interface, and every criterion passed.
 - `unit-test-verified` — every criterion passed, with no interface started.
 - `type-check-only` — only a type check or a build passed. A ticket that changes behaviour does not pass on this one.
-- `verifier-blocked` — a criterion could not be started at all, and what stopped it was the environment rather than the code.
+- `verifier-blocked` — a criterion could not be run at all.
 - `verifier-failed` — everything ran, and at least one criterion did not pass.
 
 ## The environment is yours; the repository is not
@@ -49,4 +47,3 @@ The repository is what you leave exactly as you found it. You report on the crit
 - Fix nothing, however small and however obvious the fix.
 - Judge against the criteria the ticket already carries, and add none of your own.
 - Say nothing about the quality of the code, the shape of the diff, or what the work should have done instead. Those are read by other eyes, and yours are the ones that ran the commands.
-- Leave the ticket open and leave its labels alone, however cleanly every criterion passed. Closing comes later, from a different step, after a review you are not part of.

@@ -2,7 +2,7 @@
 """按 agent.json + body.md 装配每个宿主的 agent 文件，写进各 agent 目录下的 out/。
 
 一个 agent 一个目录：agents/<名>/ 里放 body.md（提示词正文，单一来源）和
-agent.json（name、description、要不要 shell、五宿主各自的模型与工具）。这里只做格式
+agent.json（name、description、sandbox、五宿主各自的模型与工具）。这里只做格式
 转换，五个宿主的文件格式是结构差异，属于代码，不属于配置：
 
   claude   -> out/claude.md       frontmatter: name/description/model/effort/tools
@@ -12,10 +12,9 @@ agent.json（name、description、要不要 shell、五宿主各自的模型与�
            -> out/grok.role.toml  description/default_capability_mode/reasoning_effort（装到 ~/.grok/roles/）
   pi       -> out/pi.md           frontmatter: name/description/model/thinking/tools
 
-agent.json 的 "shell"（默认 false）说这个 agent 要不要跑命令。Claude 与 pi 靠 tools
-列表放行，另外三家各有一个开关，名字和取值都不一样，由这里翻译。Codex 那一档给的是
-danger-full-access 而不是 workspace-write：跑得起验收命令的 agent 要装依赖、要写
-工作区外的临时目录，workspace-write 两头都不对——它拦住工作区外，又放开工作区内。
+agent.json 顶层可选键 sandbox 决定 Cursor、Codex、Grok 三家的沙箱档位，缺省
+read-only。写 workspace-write 的 agent 才跑得起会写文件的命令——只给职责就是执行的
+agent。Claude 与 pi 不看这个键，它们靠各自 hosts 里的 tools 列表放行。
 
 用法：
   assemble.py            装配（有变化才写）
@@ -38,7 +37,10 @@ def render(agent_dir: Path) -> dict[str, str]:
     spec = json.loads((agent_dir / "agent.json").read_text(encoding="utf-8"))
     body = (agent_dir / "body.md").read_text(encoding="utf-8").strip() + "\n"
     name, desc, hosts = spec["name"], spec["description"], spec["hosts"]
-    shell = spec.get("shell", False)
+    sandbox = spec.get("sandbox", "read-only")
+    if sandbox not in ("read-only", "workspace-write"):
+        raise ValueError(f"{agent_dir.name}: sandbox 只能是 read-only 或 workspace-write，得到 {sandbox!r}")
+    readonly = sandbox == "read-only"
 
     missing = {"claude", "cursor", "codex", "grok", "pi"} - hosts.keys()
     if missing:
@@ -70,7 +72,7 @@ def render(agent_dir: Path) -> dict[str, str]:
         "name": name,
         "description": q(desc),
         "model": f"{h['model']}[effort={h['effort']}]",
-        "readonly": "false" if shell else "true",
+        "readonly": "true" if readonly else "false",
     }) + body
 
     h = hosts["codex"]
@@ -79,7 +81,7 @@ def render(agent_dir: Path) -> dict[str, str]:
         f"description = {q(desc)}\n"
         f"model = {q(h['model'])}\n"
         f"model_reasoning_effort = {q(h['effort'])}\n"
-        f'sandbox_mode = "{"danger-full-access" if shell else "read-only"}"\n'
+        f'sandbox_mode = "{sandbox}"\n'
         f"developer_instructions = '''\n{body}'''\n"
     )
 
@@ -91,7 +93,7 @@ def render(agent_dir: Path) -> dict[str, str]:
     }) + body
     out["grok.role.toml"] = (
         f"description = {q(desc)}\n"
-        f'default_capability_mode = "{"execute" if shell else "read-only"}"\n'
+        f'default_capability_mode = "{"read-only" if readonly else "execute"}"\n'
         f"reasoning_effort = {q(h['effort'])}\n"
     )
 

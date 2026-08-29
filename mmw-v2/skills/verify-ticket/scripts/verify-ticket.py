@@ -31,7 +31,6 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 GATE_CHECK = HERE / "gate-check" / "gate-check.mjs"
 GATE_LINT = HERE / "gate-check" / "gate-lint.mjs"
-APPROVAL_DIR = Path.home() / ".mmw" / "verify-ticket-approvals"
 LEDGER_NAME = "AC.md"
 SUMMARY_RE = re.compile(r"^(ALL MET|UNMET:|HANDOFF REQUIRED:)")
 GATE_LINE_RE = re.compile(r"^- \[( |x|X)\] ([A-Za-z0-9][A-Za-z0-9._-]*):")
@@ -60,11 +59,16 @@ STATEFUL_COMMAND_RE = re.compile(
 
 # ----------------------------------------------------------------- ticket text
 
+# Grok Build hands its agents CLICOLOR_FORCE=1, and `gh` writes ANSI escapes into --json
+# output under it, which json.loads cannot read. Every gh call here runs without it.
+GH_ENV = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR_FORCE", "CLICOLOR")}
+
+
 def fetch_body(number: int) -> str:
     """The issue body, straight from the tracker. Patched out in tests."""
     out = subprocess.run(
         ["gh", "issue", "view", str(number), "--json", "body", "-q", ".body"],
-        capture_output=True, text=True, check=True,
+        capture_output=True, text=True, check=True, env=GH_ENV,
     )
     return out.stdout
 
@@ -73,7 +77,7 @@ def fetch_comments(number: int) -> list[str]:
     """Every comment body on the ticket, oldest first. Patched out in tests."""
     out = subprocess.run(
         ["gh", "issue", "view", str(number), "--json", "comments"],
-        capture_output=True, text=True, check=True,
+        capture_output=True, text=True, check=True, env=GH_ENV,
     )
     return [c.get("body", "") for c in json.loads(out.stdout).get("comments", [])]
 
@@ -84,7 +88,7 @@ def post_comment(number: int, body: str) -> None:
         fh.write(body)
         path = fh.name
     try:
-        subprocess.run(["gh", "issue", "comment", str(number), "--body-file", path], check=True)
+        subprocess.run(["gh", "issue", "comment", str(number), "--body-file", path], check=True, env=GH_ENV)
     finally:
         os.unlink(path)
 
@@ -93,26 +97,26 @@ def fetch_ticket(number: int) -> dict:
     """State, labels, assignees and blockers of the ticket. Patched out in tests."""
     out = subprocess.run(
         ["gh", "issue", "view", str(number), "--json", "state,labels,assignees,blockedBy"],
-        capture_output=True, text=True, check=True,
+        capture_output=True, text=True, check=True, env=GH_ENV,
     )
     return json.loads(out.stdout)
 
 
 def gh_login() -> str:
     """The account `gh` is signed in as. Patched out in tests."""
-    out = subprocess.run(["gh", "api", "user", "-q", ".login"],
+    out = subprocess.run(["gh", "api", "user", "-q", ".login"], env=GH_ENV,
                          capture_output=True, text=True, check=True)
     return out.stdout.strip()
 
 
 def assign_self(number: int) -> None:
     """Claim the ticket. Patched out in tests."""
-    subprocess.run(["gh", "issue", "edit", str(number), "--add-assignee", "@me"], check=True)
+    subprocess.run(["gh", "issue", "edit", str(number), "--add-assignee", "@me"], check=True, env=GH_ENV)
 
 
 def close_ticket(number: int) -> None:
     """Close the ticket as done. Patched out in tests."""
-    subprocess.run(["gh", "issue", "close", str(number), "--reason", "completed"], check=True)
+    subprocess.run(["gh", "issue", "close", str(number), "--reason", "completed"], check=True, env=GH_ENV)
 
 
 def hand_to_human(number: int) -> None:
@@ -120,7 +124,7 @@ def hand_to_human(number: int) -> None:
     subprocess.run(
         ["gh", "issue", "edit", str(number),
          "--remove-label", "ready-for-agent", "--add-label", "ready-for-human"],
-        check=True,
+        check=True, env=GH_ENV,
     )
 
 
@@ -129,7 +133,7 @@ def fetch_sub_issues(spec: int) -> list[int]:
     out = subprocess.run(
         ["gh", "api", f"repos/{{owner}}/{{repo}}/issues/{spec}/sub_issues",
          "-q", "[.[] | .number] | @json"],
-        capture_output=True, text=True, check=True,
+        capture_output=True, text=True, check=True, env=GH_ENV,
     )
     text = out.stdout.strip()
     return json.loads(text) if text else []
@@ -615,12 +619,20 @@ def report_phase(ticket: int, phase: str, extra: dict[str, str] | None = None,
 
 # ----------------------------------------------------------------- subcommands
 
-def approval_dir() -> Path:
-    """gate-check refuses an approval directory that is group- or world-readable."""
-    APPROVAL_DIR.mkdir(parents=True, exist_ok=True)
-    APPROVAL_DIR.parent.chmod(0o700)
-    APPROVAL_DIR.chmod(0o700)
-    return APPROVAL_DIR
+def approval_dir(tmp: Path) -> Path:
+    """Where gate-check records its consent to run each command, for this run only.
+
+    Upstream's approval store is durable because a person reads an inherited ledger once
+    and the record remembers that yes. Here the ledger is written fresh into `tmp` every
+    run, and gate-check keys an approval on the ledger's absolute path, so a stored record
+    can never be reused: it would be one dead file per run. What reviews these commands is
+    the ticket itself, before the ticket goes out. So the store lives beside the ledger and
+    goes away with it. gate-check only requires it to be a real, owner-private directory
+    outside the repository, which this is.
+    """
+    directory = tmp / "approvals"
+    directory.mkdir(mode=0o700)
+    return directory
 
 
 def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
@@ -637,7 +649,7 @@ def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
         if timeout:
             cmd += ["--timeout", str(timeout)]
         cmd.append(str(ledger))
-        env = {**os.environ, "UNLAZY_APPROVAL_DIR": str(approval_dir())}
+        env = {**os.environ, "UNLAZY_APPROVAL_DIR": str(approval_dir(Path(tmp)))}
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=root, env=env)
         printed = (result.stdout or "") + (result.stderr or "")
         sys.stdout.write(printed)
