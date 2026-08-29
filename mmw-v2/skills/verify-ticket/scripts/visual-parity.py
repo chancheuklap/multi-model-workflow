@@ -28,29 +28,6 @@ both with an empty console. `support.js` reaches the attribute through `collectP
 `parseDataProps` route — injecting props through the `data-props` attribute — is not
 needed and is not used here.
 
-Where this came from
---------------------
-`prototypes/code-landing/ui-gate/EXP/run.py` is the experiment that showed a
-downloaded Claude Design page can be a machine-checked baseline; its `README.md`
-records the round-2 numbers and, under "Reusable parts", names what a real tool
-should carry over. Taken from it function for function: `normalize_aria` and
-`hoist_nested_main` (the three normalisation rules), `aria_diff`, `diff_images`
-(`run.py:pixel_diff` — per-channel tolerance 16, percentage, bounding box, unequal
-sizes count as 100%), and `capture` (the `#dc-root` target and the injected
-`frame_css` that resizes the Claude Design frame to the viewport).
-
-Nothing here imports that file, and nothing should: it hard-codes one sample's paths,
-builds with `vite` before it runs, and always exits 0. It stays as the record of the
-experiment.
-
-Three things changed on the way over, and the experiment's numbers do not cover them:
-console messages of type `warning` are no longer collected, because
-`--console-errors` counts errors only; the differing-pixel picture is a washed-out
-baseline under the red rather than red on black, so it can be read against the page
-it came from; and the runtime's unpkg scripts are cached under a key derived from the
-URL rather than a fixed table of three file names, so a baseline that loads different
-ones still renders offline.
-
 Usage
 -----
     uv run visual-parity.py --baseline <dir> --impl <url> --scenes a,b --max-pct 1 \
