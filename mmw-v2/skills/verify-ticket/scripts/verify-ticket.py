@@ -46,6 +46,16 @@ HANDOFF_RE = re.compile(
     r"^HANDOFF REQUIRED:\s*(\d+)\s+abandoned\s*\(([^)]*)\),\s*(\d+)\s+unmet,\s*(\d+)\s+met of\s*(\d+)\s*$")
 VERDICT_RE = re.compile(r"^VERDICT\s+([0-9a-fA-F]{7,40})\b")
 ISSUE_REF_RE = re.compile(r"#(\d+)")
+EXPECT_LINE_RE = re.compile(r"^\s+EXPECT:\s*(.+?)\s*$")
+CHECK_LINE_RE = re.compile(r"^\s+CHECK:\s*(.+?)\s*$")
+REGEX_EXPECT_RE = re.compile(r"^/([\s\S]*)/([a-z]*)$")
+# A pattern author escapes a literal dollar or has none, so an unescaped one is
+# the anchor. Same reading gate-lint gives an unescaped slash.
+UNESCAPED_DOLLAR_RE = re.compile(r"(^|[^\\])\$")
+STATEFUL_COMMAND_RE = re.compile(
+    r"\bgit (checkout|switch|branch\s+-[Dd]|reset|stash|merge|rebase)\b"
+    r"|\bgh issue (close|reopen|edit|create|delete)\b"
+    r"|\bgh pr (create|close|merge)\b")
 
 
 # ----------------------------------------------------------------- ticket text
@@ -747,6 +757,70 @@ def lint_ticket_graph(number: int, body: str) -> int:
     return 0
 
 
+def criteria_lines(body: str) -> list[tuple[str, str, str]]:
+    """`(id, CHECK, EXPECT)` per criterion; a missing line reads as an empty string."""
+    out = []
+    for line in section(body, "Acceptance criteria"):
+        gate = GATE_LINE_RE.match(line)
+        if gate:
+            out.append([gate.group(2), "", ""])
+            continue
+        if not out:
+            continue
+        check = CHECK_LINE_RE.match(line)
+        if check:
+            out[-1][1] = check.group(1)
+        expect = EXPECT_LINE_RE.match(line)
+        if expect:
+            out[-1][2] = expect.group(1)
+    return [tuple(item) for item in out]
+
+
+def lint_expectations(body: str) -> list[str]:
+    """`$` in an EXPECT regex without the `m` flag is a criterion that can never pass.
+
+    gate-check hands the CHECK's whole output — stdout, then stderr — to the regex
+    (`gate-check.mjs:586`), and a command's output ends in a newline. JavaScript's `$`
+    does not match the position before that newline, so `/OK$/` never matches the `OK`
+    a passing test run prints.
+    """
+    findings = []
+    for gate_id, _, expect in criteria_lines(body):
+        m = REGEX_EXPECT_RE.match(expect)
+        if not m:
+            continue
+        source, flags = m.group(1), m.group(2)
+        if UNESCAPED_DOLLAR_RE.search(source) and "m" not in flags:
+            head = source if source.startswith("^") else "^" + source
+            anchored = "/" + head.rstrip("$") + "$/" + flags + "m"
+            findings.append(
+                f"{gate_id}: EXPECT {expect} ends at `$` without the `m` flag, and a "
+                f"CHECK's output ends in a newline, so `$` never matches. Write "
+                f"{anchored} to match that text as a whole line.")
+    return findings
+
+
+def lint_check_effects(body: str) -> list[str]:
+    """Which criteria leave the repository or the ticket somewhere new.
+
+    Every CHECK runs in its own shell, so a `cd` reaches nobody else, but the branch,
+    the ticket and the working tree are shared: gate-check runs the criteria one at a
+    time in ledger order (`--jobs` defaults to 1), and `--reverify` runs them all a
+    second time. A criterion that changes shared state has to set up what it needs and
+    put back what it changed, or the criteria after it — and its own second run — start
+    somewhere its author never saw.
+    """
+    findings = []
+    for gate_id, check, _ in criteria_lines(body):
+        m = STATEFUL_COMMAND_RE.search(check)
+        if m:
+            findings.append(
+                f"{gate_id}: CHECK runs `{m.group(0)}`, which the criteria after it and "
+                f"its own --reverify run all inherit. Set up what it needs and put back "
+                f"what it changes.")
+    return findings
+
+
 def run_lint(number: int) -> int:
     body = fetch_body(number)
     with tempfile.TemporaryDirectory(prefix="verify-ticket-") as tmp:
@@ -756,8 +830,15 @@ def run_lint(number: int) -> int:
             capture_output=True, text=True,
         )
     sys.stdout.write((result.stdout or "") + (result.stderr or ""))
+
+    broken = lint_expectations(body)
+    for finding in broken:
+        print("  ERROR " + finding + "  [dollar-without-m]")
+    for finding in lint_check_effects(body):
+        print("  WARN  " + finding + "  [shared-state]")
+
     graph = lint_ticket_graph(number, body)
-    return result.returncode or graph
+    return result.returncode or graph or (1 if broken else 0)
 
 
 def main(argv: list[str] | None = None) -> int:
