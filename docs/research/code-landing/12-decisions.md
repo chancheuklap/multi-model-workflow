@@ -276,9 +276,23 @@
 
 - 我第一版列「三样前提」：worktree 由 `herdr worktree create` 建、`gh` 已登录、权限放开；并跑 `--help` 核出参数：claude `--permission-mode {acceptEdits,auto,bypassPermissions,manual,dontAsk,plan}`、`-n`、`--model`；grok `--permission-mode {default,acceptEdits,auto,dontAsk,bypassPermissions,plan}`、`--always-approve`、`-m`、`--reasoning-effort`、`--worktree=<名>`；cursor-agent `--force`/`--yolo`、`--trust`、`--model 'x[effort=high]'`、`-w <名>`、`--worktree-base`；codex `-a never`、`-s`；pi `--name`、`--session-id`。
 - 用户纠正：「你没查清楚，cursor 和 grok 应该都可以从新 worktree 启动。gh 登录与否这个为啥要给，肯定是提前在电脑里登录好的呀」；三条裁决「1. 全部放行 2. 可以 3. 表可以单独放，关键是怎么去读它」；随后「我不会去读 docs/agents/models.md，我只会修改优化它里面的 agent 和模型安排」。
-- 结论：worktree 由宿主自己开（`cursor-agent -w issue-<n> --worktree-base main`、`grok --worktree=issue-<n>`），Herdr pane 开在仓库根，不用 `herdr worktree create`；权限全部放行（cursor `--force --trust`；grok/claude `--permission-mode bypassPermissions`）；Herdr 名 `issue-<n>`（正则不许数字开头），claude/pi 同时 `-n`，cursor/grok 只有 Herdr 一侧有名；`gh` 一次性登好不算前提；角色表 `docs/agents/models.md` 每行「角色 → 宿主 → 完整启动命令」，读者是主 agent（起 worker 时抄 worker 行）和 `implement`（起 reviewer 会话时抄 reviewer 行），读法是 `AGENTS.md` `## Agent skills` 段加「### Roles … See docs/agents/models.md」（与 issue-tracker 同机制），用户只改表里的安排、不读它。
+- 结论：worktree 由宿主自己开（`cursor-agent -w issue-<n> --worktree-base main`、`grok --worktree=issue-<n>`），Herdr pane 开在仓库根，不用 `herdr worktree create`；权限全部放行（cursor `--force --trust`；grok/claude `--permission-mode bypassPermissions`）；Herdr 名 `issue-<n>`（正则不许数字开头），claude/pi 同时 `-n`，cursor/grok 只有 Herdr 一侧有名；`gh` 一次性登好不算前提；角色表 `docs/agents/models.md` 每行「角色 → 宿主 → 完整启动命令」，读者是主 agent（起 worker 时抄 worker 行）和 `implement`（起 reviewer 会话时抄 reviewer 行），读法是 `AGENTS.md` `## Agent skills` 段加「### Roles … See docs/agents/models.md」（与 issue-tracker 同机制），用户只改表里的安排、不读它。**表的位置与形状后来被 E2 覆盖**（消费仓库里没有 `mmw-v2/`，启动命令与模型是这台机器的安排，不跟项目走）；本条其余部分沿用。
 - 补充（写落地 spec 时发现）：Herdr 名在活着的 agent 里必须唯一，同一票的 worker 已占 `issue-<n>`，worker 起的 reviewer 会话用 `issue-<n>-review`；cursor 的模型串是 `cursor-grok-4.6-high`（effort 烧在 slug 里，`cursor-agent models` 无裸 `cursor-grok-4.6`）；grok 要加 `--worktree-ref main`（缺省从当前 HEAD 开，A2 的起点算法要求从 main 开）。
-- 角色表数值（昨晚定、今天沿用）：初级 worker cursor `cursor-grok-4.6` effort high；高级 worker grok `grok-4.6` xhigh；reviewer 会话 claude opus；verifier 同宿主不同模型写在 `agents/verifier/agent.json`；编排者 claude opus medium（自动化阶段再用）。
+- 角色表数值（昨晚定、今天沿用）：初级 worker cursor `cursor-grok-4.6` effort high；高级 worker grok `grok-4.6` xhigh；reviewer 会话 claude opus；verifier 同宿主不同模型写在 `agents/verifier/agent.json`；编排者 claude opus medium（自动化阶段再用）。**verifier 那一格与「编排者进表」被 E2 覆盖**：四个 subagent 的模型进同一张表，编排者不进表。
+
+### E2 一张表管每一个被派出去的 agent；表随技能走（覆盖 E1 的表位置与形状）
+
+- 触发：用户读 #66 后问「为什么 verifier 不在 `docs/agents/models.md` 里，这张表应该要管新 mmw v2 里所有的 agent，除了 coordinator 因为他是我直接在 cli 里通过选择决定的」。
+- 现状的两处毛病：① E1 把 verifier 的模型放在 `mmw-v2/agents/verifier/agent.json`，用户改模型安排要开两处文件，而 `agent.json` 不在他会打开的路径上；② E1 把角色表放消费仓库 `docs/agents/`，可技能是软链装到 `~/.agents/skills` 与 `~/.claude/skills` 的，装出去以后 agent 在项目 X 里跑，读得到的只有项目 X 的 cwd 和顺着软链读到的技能目录——项目 X 里没有 `mmw-v2/`，那份表得有人手抄过去，而启动命令（`cursor-agent -w issue-<n> …`）没有一个字是跟项目走的。
+- 我摆的三个选项：① `models.md` 第二张表 + `assemble.py` 读它；② 第二张表只当索引，第三列写「见 `agent.json`」；③ 三列改四列混在一张表。用户选 ①、收四个 agent 全部（`verifier`、`advisor`、`claim-checker`、`ui-evaluator`）；随后指出「表一表二」的切法本身是错的——「这个技能有两个功能：教 agent 怎么调用其他 agent；定义所有 agent 的配置」。
+- 用户原话（配置这一半）：「能够通过修改 models.md 去改变整个 mmw v2 的 agent 配置。实现方法就是一个新 reference 用自然语言告诉 agent 修改前要去电脑里确认某个 agent harness 的 agent 文件存放位置以及正确的模型名写法。assemble.py 的作用只是给不同 agent harness 写好 agent 配置文档格式以及一套默认的配置。」「assemble.py && install.sh 是 agent 出场前在 mmw 仓库跑的，后续通过 dispatch 技能是直接修改运行时直接生效，不需要重新安装。」
+- 结论：
+  - `models.md` 一张表，一行一个 `(agent, 宿主)`，五列「agent | 宿主 | 模型 | 思考强度 | 启动命令」。会话角色（`junior-worker`、`senior-worker`、`reviewer`）各一行，启动命令用 `{model}` / `{effort}` / `{n}` 占位，由 `dispatch.sh` 替换——换模型只改「模型」列。四个 subagent 各按五个宿主一行，启动命令列写 `—`（不经 Herdr）。
+  - **`orchestrator` 不入表**：编排者就是用户在 CLI 里自己选模型起的那个会话。
+  - 表的家是 dispatch 技能目录 `mmw-v2/skills/dispatch/models.md`，跟着 `install.sh` 的软链走；`dispatch.sh` 用 `realpath` 找到自己旁边的它。
+  - 配一份 `references/before-editing.md`：改表之前去这台机器上确认两件事——该 harness 的 agent 文件存放位置、该 harness 正确的模型名与思考强度写法（去问它自己，不凭记忆）。`SKILL.md` 必须点名这份 reference，加载技能不会自动读它。
+  - `assemble.py` 退回「只管格式与出场前的默认配置」：知道五个宿主各自的配置文件格式，按 `models.md` 的 subagent 行把默认写进去；`agent.json` 保留 `model`/`effort` 作为出厂值，表里有行就用表里的。`assemble.py` 与 `install.sh` 是 agent 出场前在本仓跑一次的事，改表之后不重装。
+- 落点：`mmw-v2/skills/dispatch/models.md` 与 `references/before-editing.md`（#67）；`mmw-v2/agents/assemble.py` 与四个 `agent.json`（#69）；#66 缩成只做根 `CONTEXT.md`；#60 第 4 节。
 
 ## 块 F · 落地
 
@@ -313,11 +327,11 @@
 - 结论：`scripts/hook.py <stop|pretool> <host>`，只在 `HERDR_ENV=1` 且分支名匹配 `issue-<n>` 时动作（自定位，主 agent 与 reviewer 会话不命中），读 `gh` 不读文件，`gh` 失败放行。`stop`：票没关也没 `HANDOFF REQUIRED` 就 block；`pretool`：`gh issue close` / 换标签前跑 `--closeout --check-only`，非零 deny。`install.sh` 多装这一层（四份 JSON 合并 + pi 一个 `.ts`），`--check` 核对。
 - 落点：#60 第 2 节（hook.py、install.sh 段）、第 9 节第 6 步、Out of Scope「票不动而 agent 已 idle」一句。
 
-### G3 派发是固定操作：`dispatch.sh`
+### G3 派发是固定操作：`dispatch.sh`（**落点被 G9 取代**）
 
 - 现状：主 agent 每票重复「读 `models.md` 抄行 → `herdr pane split` → `agent start` → 等 idle → `agent prompt`」；worker 起 reviewer 会话是同一串；等评论出现靠模型自己轮询。
 - 结论：`scripts/dispatch.sh <n> <role>` 从 `models.md` 三列表按角色读第三列；`dispatch.sh wait <n> <首行前缀> [秒]` 轮询票评论。`models.md` 定为「角色 | 宿主 | 完整启动命令」三列，用户照旧只改表。
-- 落点：#60 第 2 节、第 4 节、第 9 节第 3 步。
+- 落点：#60 第 2 节、第 4 节、第 9 节第 3 步。**「放进 `verify-ticket` 技能」这一条被 G9 取代**：`dispatch.sh` 与 `models.md` 独立成 dispatch 技能；本条其余部分（派发是固定操作、`wait` 的调用形、用户只改表）沿用。
 
 ### G4 不采的
 
@@ -360,6 +374,17 @@ merge-note 与正文一致性 canary（「关键句」无法机械定义）；�
 - **Grok Build 给子进程带 `CLICOLOR_FORCE=1`**，`gh` 在这个变量下连 `--json` 都输出带 ANSI 转义的 JSON，`json.loads` 读不动。`verify-ticket.py` 九处 `gh` 调用统一走一个去掉这个变量的 `env`。复现不需要 grok：`CLICOLOR_FORCE=1 gh issue view 77 --json comments`。
 - **`06-independent-verifier.md` §9 的两条待核事实有答案了**：真派之后读会话记录，Codex 的子代理确实跑 `agent.json` 写的 `gpt-5.6-terra`，Grok Build 的确实跑 `grok-4.5`——两家都按定义文件切模型。另记一条：Codex 的父会话自己是 `workspace-write` 时连子代理都起不来（`failed to initialize in-process app-server client`），要 `danger-full-access`；真实流程里 worker 本来就是权限全放行起的（E1），对得上。
 - 落点：`mmw-v2/agents/assemble.py`、`mmw-v2/agents/verifier/agent.json`、`verify-ticket.py` 的 `GH_ENV`；`06-independent-verifier.md` §8.3、§9；#69 的 AC9。
+
+### G9 dispatch 独立成技能（取代 G3 的落点）
+
+- 现状：G3 把 `dispatch.sh` 的落点写成 #60 第 2 节，也就是塞进新技能 `verify-ticket`。当时的理由只是 `verify-ticket` 是唯一带自有脚本的技能，有现成的安装位置——是图省事，不是分工。这与 G0「每种机制只为一个目的而用」冲突：`verify-ticket` 是跑一张票的验收标准并把结果贴回票，dispatch 是派 agent。
+- 用户原话：「`dispatch.sh` 为什么要放在 `verify-ticket` 技能里」「这个新技能应该通过被其他技能在合适的步骤里引用去触发，新技能里只需要写清楚如何派发指定的 agent 就可以了」「subagent 调用不需要这个技能教，直接在其他技能相应地方写调用某个 subagent 以及要给 subagent 什么东西就可以了」。
+- 结论：新技能 `mmw-v2/skills/dispatch/`（`SKILL.md`、`models.md`、`references/before-editing.md`、`scripts/dispatch.sh`、`tests/test_dispatch.sh`），`skills.txt` 加 `self/dispatch`。它服务的是「一个 agent 起另一个 agent」这一步，由引用方在自己的步骤里触发（主 agent 派 worker；`implement` 收尾第 3 步派 reviewer）。
+  - `SKILL.md` 只教两条调用形的参数怎么填：`dispatch.sh <票号> <角色> [起点 commit]` 与 `dispatch.sh wait <票号> "<评论首行正则>" [秒]`，加三档退出码的含义，加一句指向 `references/before-editing.md`。
+  - Herdr 那一串固定操作（查票、`tab create`、`pane split`、`agent start`、等 idle、`agent prompt`、`pane rename`、写 `model` token、`agent wait` + 一次 `gh` 确认）全部包在 `dispatch.sh` 里，一条命令走完，调用方只给角色名与票号。编排规则（worker 开 tab / reviewer 同 tab 分屏、Herdr 名、pane 标签、派发词、120 秒 idle 上限）写死在脚本里，不进表——它们由流水线形状决定（H1），不是用户要调的东西。
+  - **subagent 的调用不归这个技能教**：由引用方在自己的正文里写「派哪个子代理、给它什么」（`implement` 收尾第 2 步写「派 verifier 子代理，提示词只有 `verify #<n>`」）。dispatch 技能只在 `models.md` 里持有它们的配置。
+  - 不采：`caffeinate -dims` 前缀防睡机（#67 Read first 里 swarm-forge `swarmforge.bb` L565-576 的「可顺带加」）；`agent start` 被挡时补一条 `agent rename`（`14` §3）——两条都由用户裁定不加。
+- 落点：#67 整张改写；#60 第 2 节删 `dispatch.sh` 段、新增一节写 dispatch 技能、第 9 节第 2–3 步措辞；#73 收尾第 2–3 步。
 
 ## 块 H · Herdr 与自动化（2026-08-29 下午）
 
