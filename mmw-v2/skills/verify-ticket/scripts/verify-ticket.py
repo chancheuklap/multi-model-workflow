@@ -435,8 +435,11 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
     else:
         head = git("rev-parse", "HEAD")
         if not is_ancestor(verdict, "HEAD"):
-            problems.append(f"the verdict commit {verdict} is not in the current history; "
-                            f"it was reverted or rewritten, so nothing here has been verified")
+            problems.append(f"the verdict commit {verdict} is not in the current history, so a "
+                            f"revert or a rebase threw away the only independent check this "
+                            f"ticket has. The verifier is dispatched once and not again, so "
+                            f"this ticket can no longer close itself: write the closing comment "
+                            f"as HANDOFF REQUIRED and say the verified commit was lost")
         elif not head.startswith(verdict) and draft_line(draft, "Post-verdict:") is None:
             problems.append(f"the verdict is on {verdict} and HEAD has moved on; add a "
                             f"`Post-verdict:` line naming every commit since it and where "
@@ -452,7 +455,9 @@ def git_problems(root: Path | None = None) -> list[str]:
         problems.append(f"{len(dirty)} tracked files have uncommitted changes; "
                         f"commit them so the closing comment names a real commit")
     if not is_ancestor("main", "HEAD", root):
-        problems.append("this branch does not contain main; rebase or merge main into it")
+        problems.append("this branch does not contain main; run `git merge main`. Do not "
+                        "rebase — the verdict on this ticket names one commit, and rewriting "
+                        "history throws it away")
         return problems
     base = git("merge-base", "main", "HEAD", cwd=root)
     if base and not git("diff", "--name-only", f"{base}..HEAD", cwd=root):
@@ -658,14 +663,25 @@ def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
 
 
 def refusals(number: int, ticket: dict, me: str, branch: str, dirty: list[str]) -> list[str]:
-    """Why this ticket is not ready to be worked on, in the order a worker would hit it."""
+    """Why this ticket is not ready to be worked on, in the order a worker would hit it.
+
+    Every one of these ends in `stop`. The four conditions are set up before a worker
+    exists — the host opens the worktree on `issue-<n>`, the dispatcher checks the state,
+    the labels and the blockers before it starts anyone — so a worker that sees one of
+    these has found a fault upstream of itself, not a task. Working around it (switching
+    branches, committing whatever is in the tree, taking someone else's ticket) does more
+    damage than stopping. The comment this posts on the ticket is what someone reads in
+    the morning.
+    """
     out = []
     if branch != f"issue-{number}":
-        out.append(f"NOT_READY: branch {branch or '(detached)'} is not issue-{number}; "
-                   f"work on this ticket in its own worktree on that branch")
+        out.append(f"NOT_READY: branch is {branch or '(detached)'}, not issue-{number}; "
+                   f"the host opens this worktree on issue-{number}, so it started you "
+                   f"somewhere else — stop, do not switch branches yourself")
     if dirty:
-        out.append(f"NOT_READY: {len(dirty)} tracked files have uncommitted changes; "
-                   f"commit or discard them before starting a ticket")
+        out.append(f"NOT_READY: {len(dirty)} tracked files already have uncommitted changes "
+                   f"before any work started; they are not yours to commit or discard — "
+                   f"stop and leave the tree as you found it")
     state = ticket.get("state", "")
     if state != "OPEN":
         out.append(f"NOT_READY: #{number} is {state or 'unreadable'}, not OPEN; "
@@ -678,8 +694,8 @@ def refusals(number: int, ticket: dict, me: str, branch: str, dirty: list[str]) 
                 if b.get("state") != "CLOSED"]
     if blockers:
         names = ", ".join(f"#{b['number']}" for b in blockers)
-        out.append(f"NOT_READY: #{number} is blocked by {names}; stop and come back once "
-                   f"those are closed")
+        out.append(f"NOT_READY: #{number} is blocked by {names}; stop — the dispatcher "
+                   f"starts this ticket again once those close, so do not wait or retry")
     holders = [a.get("login", "") for a in ticket.get("assignees", [])]
     others = [h for h in holders if h != me]
     if others:
@@ -717,8 +733,15 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
         problems.append(f"#{number} is not assigned to you ({me}); run --preflight first")
 
     if problems:
-        for problem in problems:
-            sys.stderr.write(problem + "\n")
+        # The pretool hook that stands between a worker and `gh issue close` relays only
+        # the first line of this, so the first line carries the count and the way to read
+        # the rest. Fixing them one per run is a loop nobody has a cap on.
+        rest = (f" Run `verify-ticket.py {number} --closeout {draft_path} --check-only` "
+                f"to see the other {len(problems) - 1}." if len(problems) > 1 else "")
+        sys.stderr.write(f"closeout rejected, {len(problems)} problem"
+                         f"{'s' if len(problems) > 1 else ''}: {problems[0]}{rest}\n")
+        for problem in problems[1:]:
+            sys.stderr.write("also: " + problem + "\n")
         report_phase(number, "closeout-rejected")
         return 1
     if check_only:
