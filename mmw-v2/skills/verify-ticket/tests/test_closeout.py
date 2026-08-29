@@ -191,7 +191,7 @@ class TestVerdict(unittest.TestCase):
     def test_a_verdict_commit_no_longer_in_history_is_refused(self):
         code, err, _ = check(draft(counts=counts_line()), verdict_reachable=False)
         self.assertEqual(code, 1)
-        self.assertIn("reverted or rewritten", err)
+        self.assertIn("a revert or a rebase threw away", err)
 
     def test_an_ancestor_verdict_passes_when_post_verdict_is_there(self):
         code, err, _ = check(draft(counts=counts_line(),
@@ -264,6 +264,37 @@ class TestManual(unittest.TestCase):
         text = draft(criteria=(MET, filled), counts=counts_line(met=2, total=2))
         code, err, _ = check(text)
         self.assertEqual(code, 0, err)
+
+
+class TestTheFirstLineCarriesTheWholeRefusal(unittest.TestCase):
+    """The pretool hook between a worker and `gh issue close` relays only stderr's first
+    line, so that line has to say how many problems there are and how to read the rest.
+    Otherwise a worker fixes one per run, and nothing caps that loop."""
+
+    def three_problems(self):
+        return draft(criteria=(MET,), counts=counts_line(met=9, total=9), post_verdict=None)
+
+    def test_the_first_line_counts_the_problems(self):
+        code, err, _ = check(self.three_problems())
+        first = err.strip().splitlines()[0]
+        self.assertTrue(first.startswith("closeout rejected, "), first)
+        self.assertRegex(first, r"closeout rejected, \d+ problems?: ")
+
+    def test_the_first_line_says_how_to_read_the_rest(self):
+        code, err, _ = check(self.three_problems())
+        self.assertIn("--check-only", err.strip().splitlines()[0])
+
+    def test_a_single_problem_does_not_point_at_a_second(self):
+        code, err, _ = check(draft(criteria=(MET,), counts=counts_line(met=4, total=4)))
+        first = err.strip().splitlines()[0]
+        self.assertIn("1 problem:", first)
+        self.assertNotIn("--check-only", first)
+
+    def test_the_later_problems_are_still_printed(self):
+        code, err, _ = check(self.three_problems())
+        lines = err.strip().splitlines()
+        self.assertGreater(len(lines), 1)
+        self.assertTrue(all(l.startswith("also: ") for l in lines[1:]), lines)
 
 
 class TestNoSideEffectOnFail(unittest.TestCase):

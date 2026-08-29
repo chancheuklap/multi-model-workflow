@@ -13,7 +13,7 @@ import unittest
 from contextlib import redirect_stdout
 from unittest import mock
 
-from tests._load import load
+from tests._load import SCRIPT, load
 
 vt = load()
 
@@ -136,3 +136,88 @@ class TestBlockedBy(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestBorrowedFromUpstream(unittest.TestCase):
+    """The four functions are grok-bundled's, function for function.
+
+    What may differ: the signature (type annotations), the docstring, and any line
+    carrying a message — those name issues rather than `pr-<n>` entries. What may not:
+    the control flow. Strip the docstrings and every line with a string literal in it,
+    and the two files have to read identically.
+    """
+
+    UPSTREAM = (SCRIPT.parents[4]
+                / "docs/research/code-landing-refs/grok-bundled/execute-plan/scripts/validate-plan.py")
+    # The three that carry no message at all: their lines have to match exactly.
+    PURE = ("_detect_cycles", "_trace_cycle", "compute_levels")
+    # `validate_dag` is where the shape of an entry shows: upstream spends four lines
+    # turning `pr-3` back into `PR 3` for its message, so it is checked by structure.
+    SHAPED = "validate_dag"
+
+    @staticmethod
+    def logic(path, name):
+        """A function's lines with the signature, docstring, comments and messages gone."""
+        lines = path.read_text(encoding="utf-8").splitlines()
+        start = next(i for i, l in enumerate(lines) if l.startswith(f"def {name}("))
+        body, in_doc = [], False
+        for line in lines[start + 1:]:
+            if line.startswith("def ") or line.startswith("# ---"):
+                break
+            stripped = line.strip()
+            if stripped.startswith('"""'):
+                in_doc = not (in_doc or stripped.count('"""') == 2)
+                continue
+            if in_doc or not stripped or stripped.startswith("#"):
+                continue
+            if '"' in stripped or "'" in stripped:
+                continue
+            body.append(stripped)
+        return body
+
+    def test_the_upstream_file_is_where_the_ticket_says(self):
+        self.assertTrue(self.UPSTREAM.is_file(), self.UPSTREAM)
+
+    def test_the_control_flow_is_identical_line_for_line(self):
+        for name in self.PURE:
+            with self.subTest(function=name):
+                theirs = self.logic(self.UPSTREAM, name)
+                ours = self.logic(SCRIPT, name)
+                self.assertTrue(theirs, f"{name} not found upstream")
+                self.assertEqual(theirs, ours)
+
+    def test_validate_dag_keeps_the_same_three_passes_in_the_same_order(self):
+        ours = self.source(SCRIPT, self.SHAPED)
+        theirs = self.source(self.UPSTREAM, self.SHAPED)
+        for step in ("seen = set()", "for entry in entries:", 'seen.add(entry["id"])',
+                     'for dep in entry["dependencies"]:', "if dep not in seen:",
+                     "if not errors:", "errors.extend(_detect_cycles(entries))",
+                     "return errors"):
+            with self.subTest(step=step):
+                self.assertIn(step, theirs, f"upstream lost {step}")
+                self.assertIn(step, ours, f"ours lost {step}")
+        # Cycles are looked for only once every reference resolves — Kahn's algorithm
+        # cannot tell a cycle from a dangling id, so the order of the two is the point.
+        for text in (theirs, ours):
+            self.assertLess(text.index("if dep not in seen:"), text.index("if not errors:"))
+
+    @staticmethod
+    def source(path, name):
+        """A function's own lines, verbatim."""
+        lines = path.read_text(encoding="utf-8").splitlines()
+        start = next(i for i, l in enumerate(lines) if l.startswith(f"def {name}("))
+        out = []
+        for line in lines[start:]:
+            if out and (line.startswith("def ") or line.startswith("# ---")):
+                break
+            out.append(line)
+        return "\n".join(out)
+
+    def test_what_differs_is_only_the_shape_of_an_entry(self):
+        # Upstream translates `pr-3` back into `PR 3` for its messages; an issue number
+        # needs no translation, and that is the whole of the eight-line difference.
+        theirs = self.source(self.UPSTREAM, "validate_dag")
+        ours = self.source(SCRIPT, "validate_dag")
+        self.assertIn('replace("pr-", "PR ", 1)', theirs)
+        self.assertNotIn("pr-", ours)
+        self.assertIn("#{entry['id']}", ours)

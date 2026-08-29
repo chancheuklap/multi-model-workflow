@@ -48,7 +48,7 @@ class TestBranch(unittest.TestCase):
     def test_the_refusal_is_posted_on_the_ticket(self):
         code, posted, err, _ = preflight(branch="main")
         self.assertEqual([n for n, _ in posted], [77])
-        self.assertTrue(posted[0][1].startswith("NOT_READY: branch main is not issue-77"))
+        self.assertTrue(posted[0][1].startswith("NOT_READY: branch is main, not issue-77"))
         self.assertEqual(posted[0][1], err.strip())
 
     def test_the_right_branch_passes(self):
@@ -61,7 +61,7 @@ class TestRefusals(unittest.TestCase):
     def test_uncommitted_changes_to_tracked_files_are_refused(self):
         code, posted, err, assign = preflight(dirty=[" M src/app.py", " M src/other.py"])
         self.assertEqual(code, 2)
-        self.assertIn("2 tracked files have uncommitted changes", err)
+        self.assertIn("2 tracked files already have uncommitted changes", err)
         assign.assert_not_called()
 
     def test_untracked_files_alone_do_not_refuse(self):
@@ -93,6 +93,45 @@ class TestRefusals(unittest.TestCase):
         code, _, err, _ = preflight(state="CLOSED")
         self.assertEqual(code, 2)
         self.assertIn("is CLOSED, not OPEN", err)
+
+
+class TestEveryRefusalSaysStop(unittest.TestCase):
+    """Each of the four conditions is set up before a worker exists — the host opens the
+    worktree on `issue-<n>`, the dispatcher checks state, labels and blockers — so every
+    refusal is a fault upstream of the worker, and the only correct next move is to stop.
+    A refusal that reads like a repair invites the worker to switch branches, commit
+    someone else's work, or take someone else's ticket."""
+
+    ALL_SIX = (
+        {"branch": "main"},
+        {"dirty": [" M src/app.py"]},
+        {"state": "CLOSED"},
+        {"labels": ("needs-triage",)},
+        {"blockers": [(64, "OPEN")]},
+        {"assignees": ("someone-else",)},
+    )
+
+    def test_every_refusal_tells_the_worker_to_stop(self):
+        for case in self.ALL_SIX:
+            with self.subTest(**case):
+                _, _, err, _ = preflight(**case)
+                self.assertIn("stop", err.lower(), f"no stop in: {err.strip()}")
+
+    def test_no_refusal_tells_the_worker_to_change_the_branch_or_the_tree(self):
+        for case in self.ALL_SIX:
+            with self.subTest(**case):
+                _, _, err, _ = preflight(**case)
+                for repair in ("git checkout", "switch to", "create the branch"):
+                    self.assertNotIn(repair, err.lower(), f"repair advice in: {err.strip()}")
+
+    def test_every_refusal_is_posted_on_the_ticket_before_exiting(self):
+        for case in self.ALL_SIX:
+            with self.subTest(**case):
+                code, posted, err, assign = preflight(**case)
+                self.assertEqual(code, 2)
+                self.assertEqual(len(posted), 1)
+                self.assertEqual(posted[0][1], err.strip())
+                assign.assert_not_called()
 
 
 class TestIdempotence(unittest.TestCase):
