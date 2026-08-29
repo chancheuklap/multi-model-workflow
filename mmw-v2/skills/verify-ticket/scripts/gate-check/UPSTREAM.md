@@ -5,7 +5,7 @@ Source: https://github.com/Leonxlnx/unlazy, commit `da0b00a3` (snapshot kept at
 
 ## Files taken as-is (byte-identical to the snapshot)
 
-`gate-lint.mjs`, `lib/gates.mjs`, `lib/check-supervisor.mjs`, `lib/process-tree.mjs`,
+`gate-lint.mjs`, `lib/check-supervisor.mjs`, `lib/process-tree.mjs`,
 `lib/regex-worker.mjs`, `lib/dispatch.mjs`.
 
 The pass/fail logic is upstream's and is not edited here: three states, the
@@ -18,6 +18,7 @@ set, which is always the case here.
 | File | Edit |
 | --- | --- |
 | `gate-check.mjs` | The approval store is removed: `--approve`, the `~/.unlazy/approved` directory and its ownership and no-follow checks, the per-oracle records and their locks, and the `APPROVAL REQUIRED` / `NOT RUN` path. A CHECK now runs as written. 894 lines upstream, 701 here. |
+| `lib/gates.mjs` | A non-blank line following an attribute is now a parse error instead of being dropped in silence. Upstream drops it, so a `CHECK:` written over several lines reaches the shell as half a command and fails on a syntax error its author never wrote. |
 | `tests/run-tests.mjs` | `GATE_CHECK` now resolves to `../gate-check.mjs` (upstream: `../scripts/gate-check.mjs`); the `STOP_HOOK` and `INSTALL` constants and the 13 `hook:` / `install:` cases that use them are removed, because `stop-hook.mjs` and `install-hooks.mjs` are not vendored; the harness no longer injects `--approve` and `UNLAZY_APPROVAL_DIR`. 19 of upstream's 32 cases remain. |
 | `tests/lint-tests.mjs` | `LINT` now resolves to `../gate-lint.mjs`; the `lint: shipped leaf and node templates satisfy the documented size policy` case is removed, because `templates/` is not vendored — a ledger here is derived from the ticket body, never written from a template. 18 of upstream's 19 cases remain. |
 

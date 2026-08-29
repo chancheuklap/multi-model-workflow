@@ -92,8 +92,11 @@ export function parseGates(text, options = {}) {
   let seenGate = false;
   let fence = null;
 
+  let lastAttr = null;
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index];
+    const previousAttr = lastAttr;
+    lastAttr = null;
     if (fence) {
       const close = line.match(/^( {0,3})(`+|~+)[ \t]*$/);
       if (close && close[2][0] === fence.character && close[2].length >= fence.length) fence = null;
@@ -169,6 +172,7 @@ export function parseGates(text, options = {}) {
           " for gate " + current.id);
       }
       attrs.get(current).add(key);
+      lastAttr = attrMatch[2];
       if (key === "evidence") {
         current.evidence = value;
         current.evidenceLine = index;
@@ -202,6 +206,14 @@ export function parseGates(text, options = {}) {
         if (normalized.error) errors.push("line " + (index + 1) + ": " + normalized.error);
         else owns.push(normalized.value);
       }
+      continue;
+    }
+    // An attribute is one line. A line continuing one used to be dropped in
+    // silence, which handed the shell half a CHECK and failed it on a syntax
+    // error its author never wrote.
+    if (previousAttr && line.trim()) {
+      errors.push("line " + (index + 1) + ": " + previousAttr +
+        " continues onto this line; each attribute must fit on one line");
       continue;
     }
     if (/^#|^- /.test(line)) current = null;

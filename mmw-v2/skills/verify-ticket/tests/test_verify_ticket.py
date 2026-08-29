@@ -29,6 +29,19 @@ class LedgerRun(unittest.TestCase):
         return code, (posted[0] if posted else ""), out.getvalue()
 
 
+class TestOneLinePerAttribute(LedgerRun):
+    def test_a_check_split_over_two_lines_stops_the_run(self):
+        code, _, printed = self.run_ticket(ticket(
+            "- [ ] AC1: the importer writes six rows",
+            "  CHECK: python3 -c \"",
+            "print('wrote 6 rows')\"",
+            "  EXPECT: wrote 6 rows",
+            "  EVIDENCE: pending",
+        ))
+        self.assertEqual(code, 2)
+        self.assertIn("each attribute must fit on one line", printed)
+
+
 class TestDoubleCondition(LedgerRun):
     def test_expected_text_does_not_pass_a_failed_process(self):
         code, comment, _ = self.run_ticket(ticket(
