@@ -13,7 +13,9 @@ agent.json（name、description、要不要 shell、五宿主各自的模型与�
   pi       -> out/pi.md           frontmatter: name/description/model/thinking/tools
 
 agent.json 的 "shell"（默认 false）说这个 agent 要不要跑命令。Claude 与 pi 靠 tools
-列表放行，另外三家各有一个开关，名字和取值都不一样，由这里翻译。
+列表放行，另外三家各有一个开关，名字和取值都不一样，由这里翻译。Codex 那一档给的是
+danger-full-access 而不是 workspace-write：跑得起验收命令的 agent 要装依赖、要写
+工作区外的临时目录，workspace-write 两头都不对——它拦住工作区外，又放开工作区内。
 
 用法：
   assemble.py            装配（有变化才写）
@@ -77,7 +79,7 @@ def render(agent_dir: Path) -> dict[str, str]:
         f"description = {q(desc)}\n"
         f"model = {q(h['model'])}\n"
         f"model_reasoning_effort = {q(h['effort'])}\n"
-        f'sandbox_mode = "{"workspace-write" if shell else "read-only"}"\n'
+        f'sandbox_mode = "{"danger-full-access" if shell else "read-only"}"\n'
         f"developer_instructions = '''\n{body}'''\n"
     )
 
