@@ -287,6 +287,203 @@ if [ -d "$AGENTS_SRC" ]; then
   done
 fi
 
+# ---------------- hook ----------------
+
+# 技能和 subagent 是宿主去读的，hook 是宿主来调的，所以它要在每个宿主的配置里各有一条。
+# 四家写 JSON，pi 写一个扩展文件；五处都指向通用位置 ~/.agents/skills 下的 hook.py——
+# 那已经是指回仓库的软链，所以改 hook.py 不用重装。
+#
+# 合并而不是覆盖：这五处 Herdr 也各装了自己的东西。只认 command 里带 hook.py 的那一条，
+# 认得出就换成新的，认不出就在后面添一条，别人的条目一个字不动。
+
+HOOK_SRC="$SELF_SRC/verify-ticket/scripts/hook.py"
+
+if [ -f "$HOOK_SRC" ]; then
+  MMW_MODE="$mode" \
+  MMW_HOOK="$NEUTRAL_DIR/verify-ticket/scripts/hook.py" \
+  MMW_HOME="$HOME_DIR" \
+  MMW_CODEX="${CODEX_HOME:-$HOME_DIR/.codex}" \
+  MMW_PI="${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME_DIR/.pi}/agent}" \
+  python3 - <<'PY' || rc=1
+import json
+import os
+import sys
+from pathlib import Path
+
+mode = os.environ["MMW_MODE"]
+hook = os.environ["MMW_HOOK"]
+home = Path(os.environ["MMW_HOME"])
+codex_home = Path(os.environ["MMW_CODEX"])
+pi_home = Path(os.environ["MMW_PI"])
+
+# 这道门只比对命令文本，不跑任何东西，所以给它宿主默认之下的一个短超时就够。
+TIMEOUT = 10
+
+PI_EXTENSION = """// installed by mmw-v2/install.sh
+// 这道门在 pi 这一侧的形状：pi 不读 JSON 配置，所以由这个扩展在 tool_call 上调
+// 同一个 hook.py，再把它的答案翻回 pi 的说法。
+// @ts-nocheck
+
+import { spawnSync } from "node:child_process";
+
+const HOOK = "%(hook)s";
+
+export default function (pi) {
+  // 没有派发脚本塞的这个标记就没有这道门，不必为每条命令付一个进程。
+  if (!process.env.MMW_TICKET) return;
+
+  pi.on("tool_call", async (event, ctx) => {
+    if (event.toolName !== "bash") return;
+    const run = spawnSync("python3", [HOOK, "pretool", "pi"], {
+      input: JSON.stringify({ tool_name: "bash", tool_input: event.input }),
+      encoding: "utf8",
+      timeout: %(timeout)d000,
+    });
+    const answer = (run.stdout || "").trim();
+    if (!answer) return;
+    try {
+      const parsed = JSON.parse(answer);
+      if (parsed.block) return { block: true, reason: parsed.reason };
+    } catch {}
+  });
+}
+""" % {"hook": hook, "timeout": TIMEOUT}
+
+COMMAND = f"python3 '{hook}' pretool "
+
+
+def load(path):
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def save(path, data):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    scratch = path.with_name(path.name + ".mmw-tmp")
+    scratch.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    scratch.replace(path)
+
+
+def ours(handler):
+    return isinstance(handler, dict) and "hook.py" in str(handler.get("command", ""))
+
+
+def grouped(path, host, event, matcher):
+    """Claude Code、Codex、Grok Build 都把处理器按 matcher 分组。"""
+
+    def install():
+        data = load(path)
+        hooks = data.setdefault("hooks", {})
+        handler = {"type": "command", "command": COMMAND + host, "timeout": TIMEOUT}
+        for group in hooks.setdefault(event, []):
+            inner = group.get("hooks") if isinstance(group, dict) else None
+            if not isinstance(inner, list):
+                continue
+            for index, existing in enumerate(inner):
+                if ours(existing):
+                    inner[index] = handler
+                    group["matcher"] = matcher
+                    save(path, data)
+                    return
+        hooks[event].append({"matcher": matcher, "hooks": [handler]})
+        save(path, data)
+
+    def installed():
+        hooks = load(path).get("hooks") or {}
+        for group in hooks.get(event) or []:
+            inner = group.get("hooks") if isinstance(group, dict) else None
+            for existing in inner or []:
+                if isinstance(existing, dict) and existing.get("command") == COMMAND + host:
+                    return True
+        return False
+
+    return install, installed
+
+
+def cursor(path, event):
+    """Cursor 把处理器直接列在事件下面。"""
+
+    def install():
+        data = load(path)
+        data.setdefault("version", 1)
+        entries = data.setdefault("hooks", {}).setdefault(event, [])
+        handler = {"command": COMMAND + "cursor", "timeout": TIMEOUT}
+        for index, existing in enumerate(entries):
+            if ours(existing):
+                entries[index] = handler
+                break
+        else:
+            entries.append(handler)
+        save(path, data)
+
+    def installed():
+        entries = (load(path).get("hooks") or {}).get(event) or []
+        return any(isinstance(e, dict) and e.get("command") == COMMAND + "cursor"
+                   for e in entries)
+
+    return install, installed
+
+
+def extension(path):
+    def install():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(PI_EXTENSION, encoding="utf-8")
+
+    def installed():
+        try:
+            return hook in path.read_text(encoding="utf-8")
+        except Exception:
+            return False
+
+    return install, installed
+
+
+# 一行一个安装点：宿主根、配置文件、事件名（给人看）、装与查两个动作。
+points = [
+    (home / ".claude", home / ".claude/settings.json", "PreToolUse",
+     grouped(home / ".claude/settings.json", "claude", "PreToolUse", "Bash")),
+    (home / ".grok", home / ".grok/hooks/mmw-verify-ticket.json", "PreToolUse",
+     grouped(home / ".grok/hooks/mmw-verify-ticket.json", "grok", "PreToolUse", "Bash")),
+    (codex_home, codex_home / "hooks.json", "PreToolUse",
+     grouped(codex_home / "hooks.json", "codex", "PreToolUse", "Bash")),
+    (home / ".cursor", home / ".cursor/hooks.json", "beforeShellExecution",
+     cursor(home / ".cursor/hooks.json", "beforeShellExecution")),
+    (pi_home, pi_home / "extensions/mmw-verify-ticket.ts", "tool_call",
+     extension(pi_home / "extensions/mmw-verify-ticket.ts")),
+]
+
+failed = False
+count = 0
+for host_home, path, event, (install, installed) in points:
+    if not host_home.is_dir():
+        print(f"跳过  {host_home}（宿主没装）")
+        continue
+    if mode == "check":
+        if installed():
+            print(f"hook  {path}  {event}")
+            count += 1
+        else:
+            sys.stderr.write(f"缺    {path}  {event}\n")
+            failed = True
+        continue
+    install()
+    count += 1
+
+if mode != "check":
+    print(f"已装  {count} 处 hook -> 五个宿主")
+    if codex_home.is_dir():
+        # 2026-08-29 实测：写进 hooks.json 还不够。Codex 开场先弹「N hooks need review」，
+        # 人按一次 t 之前这道门是 Installed 而 Active 为 0。按下去记的是这条 hook 的哈希
+        # （config.toml 的 [hooks.state]），所以 hook.py 的路径一变要再按一次。
+        print("注意  codex 里这道门要人按一次 t 才生效：下次开 codex 会看到"
+              "「hooks need review」，按 t 信任")
+sys.exit(1 if failed else 0)
+PY
+fi
+
 if [ "$mode" = check ]; then
   [ "$rc" -eq 0 ] && echo "齐了：${installed_dests} 处 × ${#wanted_names[@]} 个技能"
 else
