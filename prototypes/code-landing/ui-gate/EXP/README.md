@@ -74,4 +74,11 @@ Open: a scene other than the default is switched in Claude Design through props 
 - `run.py:route_cdn` (inside `main`) + `ensure_cdn` — offline rendering of a `.dc.html` by answering the runtime's unpkg requests from a cache.
 - `run.py:capture` — the `#dc-root` targeting and the injected `frame_css` that resizes the Claude Design frame to the viewport.
 - `run.py:pixel_diff` — per-channel tolerance 16, percentage, bounding box, red-mask image; unequal sizes count as 100%.
-- `run.py:write_evidence` — the comparison-grid evidence page per `prototype/evidence-page.md`.
+- `run.py:serve` + the `ports` map in `main` — serving each side from its own local port so both are same-origin static pages.
+
+`run.py:write_evidence` is not among them. The comparison-grid page of
+`prototype/evidence-page.md` is written for choosing between approaches, so it reports
+without a verdict and puts the approaches side by side. A parity gate has already given
+its verdict on stdout, and its reader is asking what to change — which the ARIA tree
+carries as text. The gate prints those lines under the failing scene and writes the
+screenshots to a directory; it builds no page.
