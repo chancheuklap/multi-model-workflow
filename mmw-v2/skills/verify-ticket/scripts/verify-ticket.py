@@ -212,7 +212,7 @@ def current_branch(root: Path | None = None) -> str:
 
 def dirty_tracked(root: Path | None = None) -> list[str]:
     """Uncommitted changes to tracked files. Untracked files do not count: a CHECK
-    command writes its own evidence pages and cache directories as it runs."""
+    command writes its own screenshots and cache directories as it runs."""
     out = git("status", "--porcelain", "--untracked-files=no", cwd=root)
     return [line for line in out.splitlines() if line.strip()]
 

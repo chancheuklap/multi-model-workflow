@@ -187,7 +187,7 @@ manual 标准超过一半时，按 lint #7 的精神，回 `/to-spec` 补测试�
 
 ### 6.2 写成 gate：命令、EXPECT、失败后转人工
 
-按 `gates.md:98` 的 success-only marker，工具必须改成：全部场景差异为 0（或 ≤ 阈值）且控制台 0 错误时打印一行标记并 exit 0；否则 exit 1，打印差异场景清单和证据页路径。这样它才是一条能失败的 runnable gate；`run.py:153` 恒 0 退出的形态不能直接当 CHECK。
+按 `gates.md:98` 的 success-only marker，工具必须改成：全部场景差异为 0（或 ≤ 阈值）且控制台 0 错误时打印一行标记并 exit 0；否则 exit 1，打印差异场景清单，每条差异下面附上 ARIA 树里变了的那几行。这样它才是一条能失败的 runnable gate；`run.py:153` 恒 0 退出的形态不能直接当 CHECK。
 
 gate 形态（票里）：
 
@@ -220,7 +220,7 @@ gate 形态（票里）：
 | 尺寸不等即失败 | `run.py:92-93` 按最小尺寸裁剪后比，`size_equal`（`:104`）算了但没用在判定上；一侧页面更高时差异被静默丢掉 |
 | `accepted-diffs.json` 支持 | §6.2 写法 C |
 | 去掉 `vite build`（`run.py:112`）；构建是被测方自己的事 | 通用工具不该知道被测方的构建 |
-| 证据页沿用 `run.py:156-200` 的三列格式，与 `prototype/evidence-page.md:14-18` 一致：header、legend、summary table、body、how it decided；`:16`「No verdict column: the page reports」——裁决在 stdout 标记和票评论里 | 已有格式，可直接搬 |
+| 不产证据页；`--out` 只落每场景每窗口的截图、ARIA 树与差异图。失败时把 ARIA 树变了的那几行印在该条 `DIFF` 底下（`baseline` / `impl` 各一行，原样抄文本） | `prototype/evidence-page.md:8` 的三列版式服务的是「几种做法里选一种」，读者要做的是选择，所以并排、无裁决列；这里是一道过不过的门，裁决已由 `PARITY OK` / `DIFF` 给出，读者问的是「改哪个字」。ARIA 树带着答案的文本，印出来即可；截图只在差异是间距、颜色、对齐这类 ARIA 树装不下的东西时才要人去看 |
 | 依赖用 PEP 723 内联元数据写在脚本头部，`uv run` 自动建环境：`numpy`、`Pillow`、`playwright`；首次需 `playwright install chromium` | `AGENTS.md` 首段：运行时只有 bash、python3 标准库和按需的 `uv`；不能依赖被测仓库的 `pyproject.toml` |
 
 不用 `playwright-cli` 做截图这一步的理由：`~/.claude/skills/claude-design-blocks/scripts/serve.sh:5`、`:10` 的做法是 `playwright-cli resize 1440 900` 后 `playwright-cli screenshot --filename=…`，`~/.claude/skills/playwright-cli/SKILL.md:98-102` 的 `screenshot` 段只给了 `--filename`、`--hires` 和元素目标，没有 `device_scale_factor`、`reduced_motion`、等待策略的控制，逐像素比对需要这些固定（`run.py:131`）。`playwright-cli` 留给 `claude-design-blocks/SKILL.md:36` 那种交互式走查（`open_page / sel / clk / q / errs / shot`），不做比对。
@@ -242,7 +242,7 @@ EVIDENCE: <commit 短 SHA>; cwd=<仓库相对目录>; exit=<码>; matched="<输�
 - `commit` 对应 pstack「A new head SHA voids the row」（`03` §2「不信自报的机制」列）：换了 SHA 证据作废。
 - `matched` 只抄一行，是 `gates.md:102`「smallest non-sensitive fact」的手写版；不贴完整输出。
 - 失败时 `exit≠0` 或 `matched=none`，后面接失败输出的最后两行（对应 `gate-check.mjs:752-757` 的裁剪），勾不打；措辞归 `08`。
-- UI 标准另加 `evidence=<证据页路径>`；有已接受差异时加 `accepted=<accepted-diffs.json 里的条目 id>`。
+- UI 标准另加 `shots=<截图目录>`；有已接受差异时加 `accepted=<accepted-diffs.json 里的条目 id>`。
 - manual 标准：`by=<人>; artifact=<看的是哪个文件/截图>; fact=<一句话>`。
 - 负控制（§3 规则）：`negative-control: <阳性样本> exit=<非零码>`，只在「不存在 / 为空」类标准写。
 

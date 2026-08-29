@@ -274,7 +274,7 @@ th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--mute
 
 <span class="cm">## Seam</span>
 tests/api/，先例 tests/api/projects.create.test.ts        <span class="cm">← 不变</span>
-视觉标准用 visual-parity 工具；diff 非零三图贴票供人参考   <span class="md">← 改：含 UI 验收标准的票加一句</span>
+视觉标准用 visual-parity 工具；差异的文本由它自己印出来       <span class="md">← 改：含 UI 验收标准的票加一句</span>
 
 <span class="cm">## Owns</span>                                                 <span class="cm">← 新节（04 §7.1）</span>
 - src/import/**
@@ -359,8 +359,8 @@ tests/api/，先例 tests/api/projects.create.test.ts        <span class="cm">�
     <header><span class="n">步 8</span><h3>worker 自跑全部 CHECK，填 EVIDENCE</h3><span class="tag mod">改</span><span class="tag new">新工具</span></header>
     <div class="io">
       <div><h4>输入</h4><ul><li>最终 commit；票上每条 CHECK</li></ul></div>
-      <div><h4>动作</h4><ul><li><code>verify-ticket.py &lt;n&gt;</code>（<span class="tag new">脚本</span>，五步都在脚本里）：<code>gh issue view</code> 取 AC 段 → 临时账本 → <code>gate-check.mjs --approve [--timeout N]</code>：exit 0 且 EXPECT 匹配才打勾并写 EVIDENCE → 算 <code>Outside Owns</code> → 更新后的账本贴回票评论，首行 <code>self-run</code></li><li>含 UI 验收标准的票：跑 visual-parity 工具（自带负控制；负控制不过则不信本次结果）；ARIA diff = 0 且像素 ≤ 1% → <code>PARITY OK n/n</code>；没过 = <code>failed</code>，worker 修，三图贴票供人参考，<b>不问人</b></li><li><code>MANUAL:</code> 条目不代填</li><li><b>新</b>：同一条标准最多修三轮，第三轮仍没过就停手写 <code>ABANDON: AC&lt;n&gt; failed &lt;三轮各做了什么&gt;</code>，继续其余标准——这是收尾里唯一会重复的一步，所以它要有上限</li></ul></div>
-      <div><h4>产出</h4><ul><li>每条 AC 的 EVIDENCE；UI 证据页（三列：baseline / impl / diff）</li></ul></div>
+      <div><h4>动作</h4><ul><li><code>verify-ticket.py &lt;n&gt;</code>（<span class="tag new">脚本</span>，五步都在脚本里）：<code>gh issue view</code> 取 AC 段 → 临时账本 → <code>gate-check.mjs --approve [--timeout N]</code>：exit 0 且 EXPECT 匹配才打勾并写 EVIDENCE → 算 <code>Outside Owns</code> → 更新后的账本贴回票评论，首行 <code>self-run</code></li><li>含 UI 验收标准的票：跑 visual-parity 工具（自带负控制；负控制不过则不信本次结果）；ARIA diff = 0 且像素 ≤ 1% → <code>PARITY OK n/n</code>；没过 = <code>failed</code>，worker 修，<b>不问人</b></li><li><code>MANUAL:</code> 条目不代填</li><li><b>新</b>：同一条标准最多修三轮，第三轮仍没过就停手写 <code>ABANDON: AC&lt;n&gt; failed &lt;三轮各做了什么&gt;</code>，继续其余标准——这是收尾里唯一会重复的一步，所以它要有上限</li></ul></div>
+      <div><h4>产出</h4><ul><li>每条 AC 的 EVIDENCE；UI 标准没过时，<code>DIFF</code> 行底下印出 ARIA 树变了的那几行，截图落在 <code>--out</code></li></ul></div>
     </div>
     <div class="changes"><ul>
       <li><span class="tag new">新</span> 工具 visual-parity：PEP 723 单文件、<code>uv run</code>；参数 <code>--baseline --impl --scenes --max-pct</code>；离线渲染 <code>.dc.html</code>（本地化 unpkg 三脚本）；截 <code>#dc-root</code>；ARIA 三条归一化；尺寸不等即失败；只在成功时打印标记。<span class="src">已验证：<code>prototypes/code-landing/ui-gate/EXP/README.md</code> Conclusion「What the real tool should do differently」+「Reusable parts」；规格：<code>05</code> §6.3。定案阈值：<code>00</code>「第三轮之后的定案」UI 验收阈值行。</span></li>
@@ -372,7 +372,7 @@ tests/api/，先例 tests/api/projects.create.test.ts        <span class="cm">�
   <div class="panel detail new" id="s9">
     <header><span class="n">步 9</span><h3>verifier 子代理，只审一次</h3><span class="tag new">新</span></header>
     <div class="io">
-      <div><h4>输入（brief）</h4><ul><li><b>只有票号</b>。它自己 <code>gh issue view</code> 读每条 AC 的 CHECK/EXPECT/MANUAL 与 Seam；与 worker 同一 worktree，<code>git rev-parse HEAD</code> 自取 commit</li><li>禁令（不改仓库文件不 commit 不修不加标准、首尾各一次 <code>git status --porcelain --untracked-files=no</code>——只比已跟踪文件，因为 CHECK 命令自己会产出证据页与缓存目录；<b>可以动环境</b>：装依赖、换端口、找配置）、五级定义、汇报格式全在 <code>agents/verifier/body.md</code>，不由 worker 转述</li></ul></div>
+      <div><h4>输入（brief）</h4><ul><li><b>只有票号</b>。它自己 <code>gh issue view</code> 读每条 AC 的 CHECK/EXPECT/MANUAL 与 Seam；与 worker 同一 worktree，<code>git rev-parse HEAD</code> 自取 commit</li><li>禁令（不改仓库文件不 commit 不修不加标准、首尾各一次 <code>git status --porcelain --untracked-files=no</code>——只比已跟踪文件，因为 CHECK 命令自己会产出截图与缓存目录；<b>可以动环境</b>：装依赖、换端口、找配置）、五级定义、汇报格式全在 <code>agents/verifier/body.md</code>，不由 worker 转述</li></ul></div>
       <div><h4>动作</h4><ul><li>在 code-review <b>之前</b>跑（定案 2026-08-28：先验后审，避免 verifier 返工后再复审）；由<b>worker 会话</b>派出；能选模型就选与自己不同的；不能派子代理 → 自己从干净 shell 重跑，标 <code>self-reported</code></li><li><code>verify-ticket.py &lt;n&gt; --reverify</code>（已勾的也重跑，逐条结果由脚本评论到票）；它只判 level，写 <code>VERDICT &lt;完整 40 位 commit&gt; &lt;level&gt; by &lt;model&gt; — 一句话</code>（步 12 的 <code>--closeout</code> 核这个 commit 是不是 HEAD 的祖先）；不评代码</li><li>只审一次；没过 → worker 修并自跑填证据；<b>不复审</b>。全过后才进步 10 code-review</li></ul></div>
       <div><h4>产出</h4><ul><li>verifier <b>自己</b> <code>gh issue comment</code> 到票上：一行 <code>VERDICT &lt;sha&gt; &lt;level&gt; by &lt;model|self-reported&gt; — 一句话</code> + 逐条结果；worker 之后读票。level ∈ <code>live-ui-verified / unit-test-verified / type-check-only / verifier-blocked / verifier-failed</code></li></ul></div>
     </div>
@@ -441,7 +441,7 @@ Branch: feat/42-magic-link  Commit: 9b1d40c7  PR: #57
 - [ ] AC4: /login 在 1440×900 与 1180×720 下与基线 ARIA diff 0、像素 ≤ 1%
   CHECK: uv run &lt;visual-parity&gt; …
   EXPECT: PARITY OK 4/4
-  EVIDENCE: exit 1; "DIFF login 1180x720 4.2% box=…"; 证据页 .scratch/42/parity/index.html
+  EVIDENCE: exit 1; "DIFF login 1180x720 4.2% box=…"; shots=.scratch/42/parity/media
 <span class="fk">ABANDON: AC4 blocked</span> chromium 未安装，playwright install 需网络；试过 …
 
 <span class="cm">VERDICT 3f9c2e1a unit-test-verified by opus — 2/4 CHECK 通过；AC3 verifier-failed；AC4 未起浏览器</span>   <span class="cm">← 绑 verifier 实际验的 commit；--closeout 核它是 HEAD 的祖先</span>

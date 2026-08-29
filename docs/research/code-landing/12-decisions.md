@@ -32,7 +32,7 @@
 | `CHECK:`/`EXPECT:`/`EVIDENCE:` | 加；写不出命令的标 `MANUAL:`，不过半 | 沿用；A1 定编号与写法；B8 定用 gate-check 跑 |
 | verifier 次数 | 只审一次。worker 自跑 → verifier 一次 → 没过的 worker 修并自跑填证据 → 关票；不复审 | 沿用；B2 定它在 code-review 之前 |
 | ponytail | 收：grep 每个调用方修共用处；写 helper 前先在仓库与 Read first 的 prototype 找现成；加文件/依赖/配置前说出已有的为何不够；安全与「票里明确要求的东西」不许简化；收尾 `skipped: [X], add when [Y]`。不收：原生控件替代自绘、先交懒版本再问、`demo()` 自检、`ponytail:` 注释、交互模式段。措辞写成动作 + 票字段；「逐字复制」改为保留骨架只换对象；用第一张真实的票跑一遍验证 | 沿用；C1 定不做对照实验 |
-| UI 验收 | 两档自动判定：ARIA 树（去 Claude Design 运行时包裹）diff 必须为零；同场景同窗口截图差异像素 ≤ 3%（默认，Testing Decisions 可改）。没过即 `failed`，worker 修；不产生 `decision`；三张图贴票供人参考。不用 `accepted-diffs.json` | 沿用；阈值**被 0.3 改为 1%** |
+| UI 验收 | 两档自动判定：ARIA 树（去 Claude Design 运行时包裹）diff 必须为零；同场景同窗口截图差异像素 ≤ 3%（默认，Testing Decisions 可改）。没过即 `failed`，worker 修；不产生 `decision`；工具把 ARIA 树变了的那几行印在 `DIFF` 底下，截图落在 `--out` 供人按需打开。不用 `accepted-diffs.json` | 沿用；阈值**被 0.3 改为 1%** |
 | 失败词汇 | `ALL MET` 关票；`HANDOFF REQUIRED` 不关票、`ready-for-agent → ready-for-human`；`ABANDON: AC<n> <failed|blocked|impossible|decision> <理由>`；sub-issue 带 `needs-triage`；开工 `--add-assignee @me` | 沿用；B6 定 decision 也贴 ready-for-human |
 
 ### 0.3 第三轮之后的定案
@@ -155,7 +155,7 @@
 - 与 H6 的关系：H6 定的是「没人填 EVIDENCE 的 `MANUAL:` 开成 sub-issue、票不停」，那是**已经确认读者是人**之后的走法；本条管的是上一步，防的是把本来该自己做的事切成 issue 丢给用户。与 H8 也不同：H8 管「人要读的制品必须在 GitHub 网页上打得开」，本条管「这件事该不该给人读」。
 - 静态判不准（「读起来像不像真票」与「这段话 agent 够不够用」在词面上没有区别），所以按 A4 的分路写成出票规则，不进 `--lint`。
 - `MANUAL:` 的第三种写法：`MANUAL: 主 agent <读什么>`。读者是 agent 但写不出命令时用它，主 agent 读完把结论写成一条票评论并自己填 `EVIDENCE:`，所以收尾时它不会落到 H6 的 sub-issue 里。三种写法的分工：能跑命令 → `CHECK:`；agent 读得了 → `MANUAL: 主 agent`；读者确实是人 → `MANUAL: 用户`。
-- 已按此扫过全批（2026-08-29）：十一张开着的票里 22 条 `MANUAL: 用户` 改成 `MANUAL: 主 agent`、1 条改成 `CHECK:`（#64 的 AC12，与 #63 AC13 同法，断言 `tests/test_hook.py` 里一个具名测试类）；开着的票上只剩 6 条 `MANUAL: 用户`，都是读者确实是人的——#65 AC11（证据页三图给人看，`0.2`）、#66 AC7（`models.md` 的安排是用户的）、#73 AC9 与 #75 AC6（早上的网页入口，H8）、#73 AC10 与 #75 AC7（收尾评论与「我自己拿的主意」那段给人读）。每张票的人工项都不过半。
+- 已按此扫过全批（2026-08-29）：十一张开着的票里 22 条 `MANUAL: 用户` 改成 `MANUAL: 主 agent`、1 条改成 `CHECK:`（#64 的 AC12，与 #63 AC13 同法，断言 `tests/test_hook.py` 里一个具名测试类）；开着的票上只剩 6 条 `MANUAL: 用户`，都是读者确实是人的——#65 AC11（工具印出差异的文本，`0.2`）、#66 AC7（`models.md` 的安排是用户的）、#73 AC9 与 #75 AC6（早上的网页入口，H8）、#73 AC10 与 #75 AC7（收尾评论与「我自己拿的主意」那段给人读）。每张票的人工项都不过半。
 - 已关的票不动：#61 的两条、#62 的两条留在原样，其中 #62 的 AC9（读 `SKILL.md`）按本条本该是 `MANUAL: 主 agent`，但票已关且已判过，不追改。
 - 落点：#68（`to-tickets` 第 3 步的验收标准规则）与 #60 第 3 节同一处；#64–#75 十一张票的 23 条已改；#69 的四条已由主 agent 自己验完，#80–#83 四张 sub-issue 各带结论关掉。
 
@@ -404,7 +404,7 @@ merge-note 与正文一致性 canary（「关键句」无法机械定义）；�
 逐条检查见 `16-stall-and-loop-risks.md`，编号 S1–S11。已定的九条：
 
 - **S1**：`--closeout` 的「最后一条 `VERDICT` 的 commit == HEAD」与 B2 结论末句「`VERDICT` 行照实绑 verifier 验过的那个 commit」直接矛盾，且会让任何一张 code-review 提出票内发现的票**永远关不掉**。改为 `git merge-base --is-ancestor <VERDICT commit> HEAD`，收尾评论加 `Post-verdict:` 行列出 VERDICT 之后的 commit 与来源。
-- **S4**：verifier 前后两次 `git status --porcelain`（B4）与 `--closeout` 的同一项，改成只查已跟踪文件（`--untracked-files=no`）——否则 `visual-parity.py --out` 的证据页、`.pytest_cache` 会让它必然报「动了东西」。
+- **S4**：verifier 前后两次 `git status --porcelain`（B4）与 `--closeout` 的同一项，改成只查已跟踪文件（`--untracked-files=no`）——否则 `visual-parity.py --out` 的截图目录、`.pytest_cache` 会让它必然报「动了东西」。
 - **S5**：`--closeout` 的「diff 非空」改为警告，容纳「不需要改代码」的票。
 - **S6**：`--preflight` 的 assignee 条件改成「为空**或就是我**」，让重派同一张票是幂等的。
 - **S7**：`--preflight` 失败时由脚本自己在票上评论 `NOT_READY: <原因>` 再让 worker 停——否则票上没有任何痕迹，早上看不出派过。

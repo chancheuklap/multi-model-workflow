@@ -40,7 +40,7 @@
 
 | 处 | 现在的规定 | 什么时候会触发 | 改法 |
 | --- | --- | --- | --- |
-| verifier 的两次 `git status --porcelain` | `12-decisions.md` B4：跑 CHECK 前后各一次，**两次都空**才算没动东西 | CHECK 命令自己会产出文件：`visual-parity.py --out <目录>` 的证据页与截图（#60 第 2 节）、`pytest` 的 `.pytest_cache`、覆盖率报告。第二次必然不空，verifier 会报告「动了东西」 | 两次比较的是**被跟踪文件**：改成 `git status --porcelain --untracked-files=no`；未跟踪的产出物另外要求 `to-tickets` 把证据目录写进仓库的 `.gitignore` 或放 `/tmp` |
+| verifier 的两次 `git status --porcelain` | `12-decisions.md` B4：跑 CHECK 前后各一次，**两次都空**才算没动东西 | CHECK 命令自己会产出文件：`visual-parity.py --out <目录>` 的截图与 ARIA 树（#60 第 2 节）、`pytest` 的 `.pytest_cache`、覆盖率报告。第二次必然不空，verifier 会报告「动了东西」 | 两次比较的是**被跟踪文件**：改成 `git status --porcelain --untracked-files=no`；未跟踪的产出物另外要求 `to-tickets` 把证据目录写进仓库的 `.gitignore` 或放 `/tmp` |
 | `--closeout` 的 `git status --porcelain` 空 | #60 第 9 节第 6 步 | 同上：证据目录、临时账本 | 同上，或明确只查已跟踪文件 |
 | `--closeout` 的 `git diff --name-only <merge-base>..HEAD` 非空 | 同上 | 一张票的结论是「不需要改代码」（验证型的票、或实现已在别处完成） | 允许一条例外：diff 为空但收尾评论首行是 `ALL MET` 且每条 AC 的 EVIDENCE 都指向已有代码时，改为警告而不是拒绝 |
 | `--preflight` 要求 `assignee 为空` | #60 第 7 节、第 2 节 | 同一张票第二次开工：夜里 worker 崩了早上重派、或换一个宿主重试。它已经被上一个会话认领 | 改成「assignee 为空**或就是我**」。这是幂等性，不是放松 |

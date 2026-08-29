@@ -137,77 +137,39 @@ class TestSizeMismatch(unittest.TestCase):
         self.assertEqual([r.kind for r in reasons], ["size"])
 
 
-class TestRegions(unittest.TestCase):
-    """A scene can differ in a hundred places; one box around all of them is the whole
-    page again, which is what the reader was already looking at."""
+class TestChangeLines(unittest.TestCase):
+    """What a failing scene prints under its `DIFF` line: the text that differs, so
+    the reader is told what to change rather than sent to compare two pictures."""
 
-    SIZE = (1440, 900)
+    def test_a_renamed_button_prints_both_names(self):
+        diff = vp.aria_diff(ROUND2_CARD, ROUND2_CARD.replace("2 张", "3 张", 1))["diff"]
+        self.assertEqual(vp.change_lines(diff), [
+            "  baseline  strong 2 张",
+            "  impl      strong 3 张",
+        ])
 
-    def test_places_far_apart_stay_apart(self):
-        far = [{"box": [100, 100, 110, 110], "count": 9},
-               {"box": [100, 700, 110, 710], "count": 4},
-               {"box": [1300, 100, 1310, 110], "count": 1}]
-        self.assertEqual(len(vp.merge_regions(far, self.SIZE)), 3)
+    def test_a_line_only_one_side_has_says_which_side(self):
+        shorter = "\n".join(ROUND2_CARD.splitlines()[:2]) + "\n"
+        diff = vp.aria_diff(ROUND2_CARD, shorter)["diff"]
+        self.assertEqual(vp.change_lines(diff), ["  only in baseline  strong 2 张"])
 
-    def test_places_that_would_show_the_same_picture_become_one(self):
-        near = [{"box": [100, 100, 110, 110], "count": 9, "parts": [[100, 100, 110, 110]]},
-                {"box": [130, 105, 140, 115], "count": 4, "parts": [[130, 105, 140, 115]]}]
-        merged = vp.merge_regions(near, self.SIZE)
-        self.assertEqual([(m["box"], m["count"]) for m in merged],
-                         [([100, 100, 140, 115], 13)])
+    def test_an_identical_tree_prints_nothing(self):
+        self.assertEqual(vp.change_lines(vp.aria_diff(ROUND2_CARD, ROUND2_CARD)["diff"]),
+                         [])
 
-    def test_a_merged_place_still_knows_its_separate_blocks(self):
-        """The picture is cropped around all of them together, but the ring is drawn
-        around each one: a rectangle enclosing two changes several rows apart would
-        circle rows that did not change."""
-        near = [{"box": [100, 100, 110, 110], "count": 9, "parts": [[100, 100, 110, 110]]},
-                {"box": [130, 105, 140, 115], "count": 4, "parts": [[130, 105, 140, 115]]}]
-        self.assertEqual(vp.merge_regions(near, self.SIZE)[0]["parts"],
-                         [[100, 100, 110, 110], [130, 105, 140, 115]])
-
-    def test_a_merge_that_brings_a_third_into_reach_keeps_going(self):
-        """The middle place is read last, so only after it has been folded into the
-        left one do the left and right ones reach each other. A single pass stops
-        one merge short."""
-        out_of_order = [{"box": [100, 100, 110, 110], "count": 1},
-                        {"box": [160, 100, 170, 110], "count": 4},
-                        {"box": [130, 100, 140, 110], "count": 2}]
-        merged = vp.merge_regions(out_of_order, self.SIZE)
-        self.assertEqual([(m["box"], m["count"]) for m in merged],
-                         [([100, 100, 170, 110], 7)])
-
-    def test_a_place_read_after_a_merge_is_not_dropped(self):
-        """The first two places merge; the third is nowhere near them and has to
-        survive. Restarting the scan on the merged list alone loses it, and the
-        scene silently reports fewer differing pixels than it has."""
-        places = [{"box": [10, 10, 20, 20], "count": 1},
-                  {"box": [40, 10, 50, 20], "count": 2},
-                  {"box": [1200, 800, 1210, 810], "count": 99}]
-        merged = vp.merge_regions(places, self.SIZE)
-        self.assertEqual(len(merged), 2)
-        self.assertEqual(sum(m["count"] for m in merged), 102)
-
-    def test_a_small_place_is_blown_up_and_a_whole_page_is_not(self):
-        self.assertGreater(vp.zoom_for(vp.pad_box([122, 129, 133, 140], self.SIZE)), 1)
-        self.assertEqual(vp.zoom_for((0, 0, 1440, 900)), 1)
-
-    def test_a_shown_area_never_leaves_the_image(self):
-        for box in ([0, 0, 2, 2], [1438, 898, 1439, 899], [700, 400, 701, 401]):
-            x0, y0, x1, y1 = vp.pad_box(box, self.SIZE)
-            self.assertTrue(0 <= x0 < x1 <= 1440 and 0 <= y0 < y1 <= 900, box)
-
-
-    def test_a_chain_of_near_places_stops_growing(self):
-        """Every change on a page can be within reach of the next. Without a stop,
-        the chain runs from the first to the last and the one place it leaves behind
-        is the whole page — exactly what the reader was already looking at."""
-        chain = [{"box": [x, 100, x + 10, 110], "count": 1}
-                 for x in range(20, 1400, 30)]
-        merged = vp.merge_regions(chain, self.SIZE)
-        self.assertGreater(len(merged), 1)
-        for m in merged:
-            self.assertLessEqual(m["box"][2] - m["box"][0], vp.MERGE_MAX[0])
-        self.assertEqual(sum(m["count"] for m in merged), len(chain))
+    def test_the_lines_ride_along_with_the_diff_line(self):
+        c = comparison(aria=vp.aria_diff(ROUND2_CARD,
+                                         ROUND2_CARD.replace("2 张", "3 张", 1)))
+        control = comparison(scene="__negative_control__",
+                             pixel={"size_equal": True, "pct": 23.4, "count": 9,
+                                    "total": 100, "box": [0, 0, 9, 9],
+                                    "size_a": (10, 10), "size_b": (10, 10)},
+                             aria={"changed": 28, "lines_a": 30, "lines_b": 2,
+                                   "diff": ""})
+        code, lines = vp.gate(control, [c], 1.0, 0)
+        self.assertEqual(code, 1)
+        self.assertTrue(lines[0].startswith("DIFF default 1440x900"))
+        self.assertEqual(lines[1:], ["  baseline  strong 2 张", "  impl      strong 3 张"])
 
 
 class TestNegativeControl(unittest.TestCase):
