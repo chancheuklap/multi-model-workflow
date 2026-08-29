@@ -198,7 +198,7 @@
 ### B8 验收标准怎么跑、怎么判：vendor unlazy `gate-check.mjs`
 
 - 起因：A2 时用户问为何不考虑 unlazy 的脚本。
-- 先读原件再实测（P3）。实测（副本放 scratchpad；`05` §10）：① 接受任意路径的账本文件，不要求 `.unlazy/` 或 `GATES.md`——账本可每次从 `gh issue view` 的 AC 段派生到临时文件，跑完贴回票评论，没有第二份要维护的文件（上次「两处漂移」不再存在）；② 我们的票格式原样能解析：`AC1:` 编号、缩进 CHECK/EXPECT/EVIDENCE、`MANUAL:` 行静默当人工项、其他标题忽略，报 `4 gates`；③ 双条件正确：`echo ok; exit 3` 判 FAIL；④ `--reverify` 把已过的也重跑，汇总 `previously met reverified`；⑤ 代价：Node ≥ 16、审批目录须 0700 且在仓库外、临时账本每次都要 `--approve`、6 个文件约 2000 行（MIT）、默认超时 120 秒。
+- 先读原件再实测（P3）。实测（副本放 scratchpad；`05` §10）：① 接受任意路径的账本文件，不要求 `.unlazy/` 或 `GATES.md`——账本可每次从 `gh issue view` 的 AC 段派生到临时文件，跑完贴回票评论，没有第二份要维护的文件（上次「两处漂移」不再存在）；② 我们的票格式原样能解析：`AC1:` 编号、缩进 CHECK/EXPECT/EVIDENCE、`MANUAL:` 行静默当人工项、其他标题忽略，报 `4 gates`；③ 双条件正确：`echo ok; exit 3` 判 FAIL；④ `--reverify` 把已过的也重跑，汇总 `previously met reverified`；⑤ 代价：Node ≥ 16、6 个文件约 2000 行（MIT）、默认超时 120 秒；另有一套批准机制，落地时去掉了（G5）。
 - 选项：A 手写约定（agent 自判）；B vendor `gate-check.mjs`，账本从票派生；C 自写 python 跑器。建议 B。
 - 用户裁决：「B」。
 - 结论：vendor；worker 步 8 与 verifier 步 9 都用（后来包进 `verify-ticket` 技能，D5）；`05` §7 手写 EVIDENCE 格式作废。
@@ -249,7 +249,7 @@
 
 - 我先提三条路（A 塞进技能目录 / B `mmw-v2/tools/` + 软链 `~/.agents/tools/` / C 复制进消费仓库），建议 B。用户：「应该放进相应的技能里，技能本身就可以放脚本啊。你先说清楚到底在哪几步哪些 agent 会使用这两样东西，思考有没有必要专门造新技能去使用这两样东西」。
 - 用途表：`gate-check.mjs`——步 8 worker、步 9 verifier；visual-parity——步 7 worker 迭代、步 8/9 作为某条 AC 的 CHECK 被 gate-check 调起。步 8 与步 9 流程完全一样（取票 → 跑 → 贴回），只差 `--reverify`，现在要在 `implement` 正文和 verifier 定义文件写两遍。
-- 结论：新自有技能 `mmw-v2/skills/verify-ticket/`：`scripts/gate-check/`（vendor 6 文件）+ `scripts/visual-parity.py`；正文一段「`gh issue view` 取 AC 段 → 临时账本 → `gate-check --approve [--reverify]` → 更新后的账本评论到票」；`implement` 步 8 写 `/verify-ticket #n`，verifier 定义文件写 `/verify-ticket #n --reverify`；UI 验收标准的 CHECK 写 `uv run ~/.agents/skills/verify-ticket/scripts/visual-parity.py …`（gate-check 用 `/bin/sh` 跑，`~` 展开；`install.sh` 已把技能软链到 `~/.agents/skills`）。不放 `implement/scripts/`（上游 subtree 拉更新要解冲突；verifier 也用）。
+- 结论：新自有技能 `mmw-v2/skills/verify-ticket/`：`scripts/gate-check/`（vendor 6 文件）+ `scripts/visual-parity.py`；正文一段「`gh issue view` 取 AC 段 → 临时账本 → `gate-check [--reverify]` → 更新后的账本评论到票」；`implement` 步 8 写 `/verify-ticket #n`，verifier 定义文件写 `/verify-ticket #n --reverify`；UI 验收标准的 CHECK 写 `uv run ~/.agents/skills/verify-ticket/scripts/visual-parity.py …`（gate-check 用 `/bin/sh` 跑，`~` 展开；`install.sh` 已把技能软链到 `~/.agents/skills`）。不放 `implement/scripts/`（上游 subtree 拉更新要解冲突；verifier 也用）。
 - 用户裁决：「那就先造一个新技能试试看」。
 
 ### D5 Claude Design 的两样产出进流程
@@ -310,6 +310,32 @@
 ### G4 不采的
 
 merge-note 与正文一致性 canary（「关键句」无法机械定义）；二次调用审计（0.3）；对照实验 harness（C1）；跨票记忆（消费端是提示词）。
+
+### G5 vendor 的批准机制去掉
+
+- 现状：`gate-check.mjs` 跑任何一条 `CHECK:` 之前要求这条命令先被批准过一次，批准记录是一堆文件，目录必须属主私有且在仓库外（`verify-ticket.py` 放在 `~/.mmw/verify-ticket-approvals`）。
+- 上游为什么有这套：`unlazy/SECURITY.md:3` 写明它的安全边界是「explicit review and approval, not command sandboxing」——那里的账本随着**别人写的仓库**一起到你机器上（`:11` 的 inherited ledger），人读一遍每条 `CHECK:`、`EXPECT:`、`CWD:` 再 `--approve`，记录替他记住这个「是」；记录放在仓库外，仓库才伪造不了自己的批准。
+- 我们这里那个「是」没有人给：`--approve` 每次都带。记录也一次都没被复用——批准以账本的绝对路径为键（`gate-check.mjs:367`），而账本每次写进一个新的临时目录，于是 `~/.mmw/verify-ticket-approvals` 攒了 261 个死文件。真正读这些命令的地方在出票那一步：主 agent 写 `CHECK:`、`--lint` 审写法、票给用户看。
+- 用户裁决：「我们的 check 跑的不是 issue 里的命令吗，issue 不是 agent 自己写的吗，check 的绝大多数都是测试啊，我没看出有任何必要需要人去审一遍」「你应该精简上游的设计，拿掉整套审核命令的东西，只保留他对我们来说最有参考价值的代码」。
+- 结论：`gate-check.mjs` 894 行减到 701 行——`--approve`、`~/.unlazy/approved` 及其属主与 no-follow 校验、逐条记录与它们的锁、`APPROVAL REQUIRED` / `NOT RUN` 那条路全部去掉。判定本身一个字没动：三态、exit 0 ∧ EXPECT 双条件、超时、输出上限、正则 worker、进程树清理、STALE 签名核对。
+- 连带：Codex 的沙箱不必为一个仓库外的目录放宽（G7）。
+- 落点：`mmw-v2/skills/verify-ticket/scripts/gate-check/gate-check.mjs` 与它的 `UPSTREAM.md`；`verify-ticket.py` 的 `run_checks`；`05-runnable-acceptance-gates.md` §2.6 与 §10；#60 第 2 节。
+
+### G6 一条 `CHECK:` 可以写好几行
+
+- 触发：#69 第一次自跑，9 条标准里 8 条 unmet，报的全是 `/bin/sh: -c: line 0: unexpected EOF while looking for matching `"'`。
+- 原因：账本一行一条属性（`gate-check/lib/gates.mjs:46` 的 `ATTR_RE`），上游对 `CHECK:` 底下那些行什么也不做，于是只有第一行进 shell，剩下的一声不响地消失，命令成了一个没闭合的引号。全批 35 条 `CHECK:` 是这么写的，分布在 #62、#64、#66、#68、#70、#71、#72、#73、#74。
+- 我先做成解析时报错。用户裁决：「不应该报错而是应该解析识别，如果做不到就改技能，报错算什么东西啊」。
+- 结论：**一条 `CHECK:` 底下、到下一条属性或下一条标准之间的行，都是这条命令的一部分。** `CHECK:` 是一条 shell 命令，shell 命令本来就可以是好几行。每条标准另记 `attrEnd`（最后一行属性的下一行），补 `EVIDENCE:` 时插在那里，不插进命令中间。`verify-ticket.py` 的 `criteria_lines` 把续行拼回 CHECK，`count_gates` 找 `EVIDENCE:` 时按下一条标准断句而不是按缩进（续行是顶格的）。
+- 那 35 条一条都不用改；不写成出票规则，也不进 `--lint`。
+- 落点：`gate-check/lib/gates.mjs`、`gate-check.mjs` 的 `insertOrUpdateEvidence`、`verify-ticket.py`；`gate-check/UPSTREAM.md`。
+
+### G7 落地 verifier 时三处宿主细节
+
+- **`agent.json` 顶层键 `sandbox`。** `assemble.py` 把 Cursor 的 `readonly`、Codex 的 `sandbox_mode`、Grok 的 `default_capability_mode` 三处写死成只读，而 verifier 要跑 `CHECK:`。加一个可选键 `sandbox`（`read-only` / `workspace-write`，缺省 `read-only`），verifier 写 `workspace-write`；Claude 与 pi 不看这个键，它们靠各自 `hosts` 里的 `tools` 列表放行。键名与上一次落地的 `94fc6d01` 相同。
+- **Grok Build 给子进程带 `CLICOLOR_FORCE=1`**，`gh` 在这个变量下连 `--json` 都输出带 ANSI 转义的 JSON，`json.loads` 读不动。`verify-ticket.py` 九处 `gh` 调用统一走一个去掉这个变量的 `env`。复现不需要 grok：`CLICOLOR_FORCE=1 gh issue view 77 --json comments`。
+- **`06-independent-verifier.md` §9 的两条待核事实有答案了**：真派之后读会话记录，Codex 的子代理确实跑 `agent.json` 写的 `gpt-5.6-terra`，Grok Build 的确实跑 `grok-4.5`——两家都按定义文件切模型。另记一条：Codex 的父会话自己是 `workspace-write` 时连子代理都起不来（`failed to initialize in-process app-server client`），要 `danger-full-access`；真实流程里 worker 本来就是权限全放行起的（E1），对得上。
+- 落点：`mmw-v2/agents/assemble.py`、`mmw-v2/agents/verifier/agent.json`、`verify-ticket.py` 的 `GH_ENV`；`06-independent-verifier.md` §8.3、§9；#69 的 AC9。
 
 ## 块 H · Herdr 与自动化（2026-08-29 下午）
 

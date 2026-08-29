@@ -67,9 +67,9 @@ manual gate 的 EVIDENCE 由人手写：`gates.md:102`「record the smallest non
 
 `unlazy/references/orchestration.md:35`：「`--status` alone is not re-verification」。这条区别是 `06`（独立 verifier）的输入：verifier 做的事等价于 `--reverify`。
 
-### 2.6 批准边界（只记一句）
+### 2.6 机器证明不了标题（只记一句）
 
-`gates.md:65`：「Approval confirms that a command may run; it does not prove that the command measures the English outcome」。unlazy 的 `--approve` 机制是它的脚本安全模型，不装脚本就不存在；但这句话是本文 §3 全部作者规则的前提：机器只能证明命令说的，证明不了标题说的。
+`gates.md:65`：「Approval confirms that a command may run; it does not prove that the command measures the English outcome」。这句话是本文 §3 全部作者规则的前提：机器只能证明命令说的，证明不了标题说的。它所属的那套批准机制我们没有用，落地时从 vendor 里去掉了（`12-decisions.md` G5）。
 
 ## 3. gate-lint 抓哪些「写得不可能失败」的模式
 
@@ -315,7 +315,7 @@ manual 标准的例子（`gates.md:25-26` 型）：
 | 双条件 | `AC2` 判 `FAIL … exit=3; EXPECT=matched`，输出含期望串但退出码非零不过 |
 | 回写 | 通过的条目打勾并写 `EVIDENCE: exit=0; shell=/bin/sh; cwd=…; path=<hash>/18 entries; EXPECT=matched; output-sha256=…; output-bytes=…`；未过保持 `pending` |
 | `--reverify` | 已勾的两条重跑，汇总 `UNMET: 2 (met: 2, reran: 3, previously met reverified: 2)`，退出码 1 |
-| 审批 | 无 `--approve` 时打印 oracle 并 `NOT RUN`，退出 1；审批目录必须 0700 且在仓库外（第一次因 0755 报 `must not grant group or other permissions`，退出 2）；审批绑定账本绝对路径，临时账本每次都要 `--approve`，审批文件按 gate 各生成一个 |
+| 审批 | 无 `--approve` 时打印 oracle 并 `NOT RUN`，退出 1；审批目录必须 0700 且在仓库外；审批绑定账本绝对路径，临时账本每次都要 `--approve`，审批文件按 gate 各生成一个。**这套机制落地时整个去掉了**（`12-decisions.md` G5）：账本每次是新的临时文件，批准以它的绝对路径为键，所以一条记录也不会被复用；读命令的地方在出票那一步，不在这里 |
 | 依赖 | `lib/dispatch.mjs` 被导入，无 scope 时 `dispatchStatus` 返回空（L182），不影响 |
 
 结论：账本可以每次从 `gh issue view` 的票正文 AC 段派生到临时文件，跑完把更新后的账本贴回票评论，没有第二份需要维护的文件；§6.2、§7 假设「不装脚本」的手写 EVIDENCE 约定由此作废。

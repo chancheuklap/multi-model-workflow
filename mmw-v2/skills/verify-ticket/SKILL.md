@@ -9,6 +9,9 @@ Each acceptance criterion on the ticket carries a `CHECK:` command and the `EXPE
 string a passing run prints. This skill runs them and comments the outcome on the ticket.
 Every run reads the ticket fresh; there is no state to carry between runs.
 
+A `CHECK:` is a shell command, and may run to several lines: the lines under it, up to
+the criterion's next attribute, are part of the same command.
+
 ## The engine
 
 `scripts/verify-ticket.py`, next to this file. Resolve its absolute path once. Every

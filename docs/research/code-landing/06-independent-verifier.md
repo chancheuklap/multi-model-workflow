@@ -147,7 +147,7 @@ pstack 的三个触发词是 expensive、judgment-laden、high-blast-radius。�
 
 > 收尾前，在最终 commit 上重验票的每条 `CHECK:`。如果你能派一个不能编辑文件的子代理，派它去做，能选模型就选一个和你自己不同的，把下面的 brief 原样给它；如果不能派子代理，自己从新的 shell 里逐条重跑，裁决行的 `by` 写 `self-reported`。
 
-「只读」的含义要说清：现有三个 agent 的只读靠两类机制——Claude 和 pi 是 `tools` 列表（`assemble.py:59`、`:98`），Cursor、Codex、Grok 是 `readonly` / `sandbox_mode` / `default_capability_mode` 开关（`:67`、`:76`、`:88`）。但 verifier 必须有 shell 才能跑 `CHECK:`，而 shell 能写文件，Codex 的 `sandbox_mode = "read-only"` 之外的宿主开关拦不拦 shell 写文件本仓没有核对。所以 verifier 的只读是两层：定义文件上不给编辑工具或开只读开关；body 里 `FORBIDDEN` 写明不改文件、不 commit、不修，并要求它在开始和结束各跑一次 `git status --porcelain` 贴进报告，两次都为空才算干净。
+「只读」的含义要说清：现有三个 agent 的只读靠两类机制——Claude 和 pi 是 `tools` 列表（`assemble.py:59`、`:98`），Cursor、Codex、Grok 是 `readonly` / `sandbox_mode` / `default_capability_mode` 开关（`:67`、`:76`、`:88`）。但 verifier 必须有 shell 才能跑 `CHECK:`，而 shell 能写文件，Codex 的 `sandbox_mode = "read-only"` 之外的宿主开关拦不拦 shell 写文件本仓没有核对。这三处后来由 `agent.json` 顶层键 `sandbox` 决定，缺省仍是只读（`12-decisions.md` G7）。所以 verifier 的只读是两层：定义文件上不给编辑工具或开只读开关；body 里 `FORBIDDEN` 写明不改文件、不 commit、不修，并要求它在开始和结束各跑一次 `git status --porcelain` 贴进报告，两次都为空才算干净。
 
 ## 7. 裁决写到哪、什么格式
 
@@ -214,11 +214,11 @@ REPORT      第一行 VERDICT <sha> <level> by <你的模型>；然后每条标�
 
 ### 8.3 落成一个 subagent
 
-按 `mmw-v2/agents/` 现有的样子加第四个目录 `verifier/`：`agent.json` 五个宿主的 `model` 各选一个和该宿主写码常用模型不同的；Claude 和 pi 的 `tools` 给 `Read, Grep, Glob, Bash` 与 `read, grep, find, ls, bash`（shell 是跑 `CHECK:` 必需的），Cursor、Codex、Grok 没有 `tools` 字段，只读由 `assemble.py:67`、`:76`、`:88` 写死的开关决定；`body.md` 写 §2.2 的动作、§2.3 的五个词定义、§6 末段的两次 `git status` 要求、§8.2 的 REPORT 格式。`implement/SKILL.md` 第 2 步只写「派 verifier subagent」和降级句，不重复 body 内容。这样宿主差异全部落在 `agent.json`，技能正文对所有宿主是同一份。
+按 `mmw-v2/agents/` 现有的样子加第四个目录 `verifier/`：`agent.json` 五个宿主的 `model` 各选一个和该宿主写码常用模型不同的；Claude 和 pi 的 `tools` 给 `Read, Grep, Glob, Bash` 与 `read, grep, find, ls, bash`（shell 是跑 `CHECK:` 必需的），Cursor、Codex、Grok 没有 `tools` 字段，它们的开关由 `agent.json` 顶层键 `sandbox` 决定（`12-decisions.md` G7）；`body.md` 写 §2.2 的动作、§2.3 的五个词定义、§6 末段的两次 `git status` 要求、§8.2 的 REPORT 格式。`implement/SKILL.md` 第 2 步只写「派 verifier subagent」和降级句，不重复 body 内容。这样宿主差异全部落在 `agent.json`，技能正文对所有宿主是同一份。
 
 ## 9. 未读或未确定
 
-- 未确定：Codex 与 Grok Build 的子代理是否真的按定义文件里的 `model` 字段切模型。本仓只有我们自己的输出格式（`assemble.py:70-90`）和 Grok 对照课一句「本机 `16-subagents.md` 另允许设 `model`」（`grok-build-vs-claude-code.html:730`），没有实测记录。
+- 已核实（2026-08-29，落地 #69 时各真派一次）：Codex 与 Grok Build 的子代理**都**按定义文件里的 `model` 字段切模型——Codex 的会话记录里 `turn_context.model` 是 `agent.json` 写的 `gpt-5.6-terra`，Grok 的子代理跑的是 `grok-4.5`。另记：Codex 的父会话自己在 `workspace-write` 下起不了子代理（`failed to initialize in-process app-server client`），要 `danger-full-access`。（`12-decisions.md` G7）
 - 未确定：Grok Build 的 `[model.my-model]` 自定义端点（`grok-build-vs-claude-code.html:1270-1274`）能否被子代理定义引用；能的话 Grok 也可以做到不同家族。
 - 未读：`pstack/skills/poteto-mode/playbooks/babysit.md`、`opening-a-pr.md` 全文；`pstack/skills/create-verification-skill/` 与 `maintain-verification-skill/` 全文——live lane 的具体驱动方法在那里。
 - 未读：`cursor-team-kit` 的 `control-ui` / `control-cli` 不在快照里（`03` §8 已列）；我们的 live 验证要靠 `playwright-cli` 技能，其能力仍未核对（`00-synthesis.md` §「先于一切要定的前提」第 3 条）。
