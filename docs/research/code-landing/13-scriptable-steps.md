@@ -37,10 +37,23 @@
 | Claude Code | `~/.claude/settings.json` `hooks` 段（本机已有 Herdr 的 `SessionStart` 等五段） | `PreToolUse` matcher `Bash`：stdout `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"…"}}` 或 exit 2 + stderr | `Stop`：stdout `{"decision":"block","reason":"…"}`，reason 回给模型；`stop_hook_active` 防死循环 | `cwd`、`tool_input.command` |
 | Grok Build | `~/.grok/hooks/*.json`（本机 `~/.grok/config.toml` L31、L39 把 `[compat.claude]`/`[compat.cursor]` 的 `hooks` 关了，所以不读 Claude/Cursor 的文件） | `PreToolUse` matcher `Bash`（自动别名到 `run_terminal_command`）：stdout `{"decision":"deny","reason":"…"}` 或 exit 2（`~/.grok/docs/user-guide/10-hooks.md` L92、L255、L265） | `Stop`：stdout `{"decision":"block","reason":"…"}`，一 turn 内最多 8 次续跑，600 秒默认超时（L96、L274、L281-283） | 驼峰：`cwd`、`toolInput.command`（L235-248） |
 | Codex | `~/.codex/hooks.json`（本机 `config.toml` L18 `hooks = true`，`[hooks.state]` L625、L634 记录用过 `pre_tool_use`、`stop`） | `PreToolUse`：同 Claude 的 `permissionDecision:"deny"` | `Stop`：`{"decision":"block","reason":"…"}`，带 `stop_hook_active` | `cwd`、`tool_input.command` |
-| Cursor CLI | `~/.cursor/hooks.json`（本机只有 `sessionStart`） | `beforeShellExecution`：stdout `{"permission":"deny","user_message":"…"}` 或 exit 2；`failClosed: true` 让 hook 失败也拒绝 | `stop` 不能硬阻止；stdout `{"followup_message":"…"}` 自动当下一条用户消息提交，`loop_limit` 默认 5。Claude 格式的 `{"decision":"block"}` 会被翻译成 `followup_message`。社区报告过 CLI 只发 shell 两个事件的 bug，上线前要实测 | `cwd`、`command` |
+| Cursor CLI | `~/.cursor/hooks.json`（本机只有 `sessionStart`） | `beforeShellExecution`：stdout `{"permission":"deny","user_message":"…"}` 或 exit 2；`failClosed: true` 让 hook 失败也拒绝 | `stop` 不能硬阻止；stdout `{"followup_message":"…"}` 自动当下一条用户消息提交，`loop_limit` 默认 5。Claude 格式的 `{"decision":"block"}` 会被翻译成 `followup_message`。两个事件都实测发出来了（2026-08-29，cursor-agent 2026.08.25） | `command`；`cwd` 是空串，仓库在 `workspace_roots` 数组里（见下） |
 | pi | TypeScript 扩展 `~/.pi/agent/extensions/*.ts`（本机已有 Herdr 的） | `tool_call` handler return `{ block: true, reason }` | 没有 stop 事件；`agent_end` 里 `pi.sendUserMessage(reason)` 可续一轮 | 进程内对象 `ctx.cwd`、`event.input.command` |
 
 结论：「worker 想结束时查票、票没关也没 HANDOFF 就顶回去」与「`gh issue close` 前跑校验、非零就拒绝」两件事五个宿主都做得到；Cursor 与 pi 是软阻止。Herdr 在五个宿主各装了一个 `SessionStart` hook（`09-herdr-dispatch-model.md` §1 表），安装方式可以照抄。上次尝试的 Grok hook 残留在 `~/.grok/hooks/mmw-discipline.json.bak-*`，已停用。
+
+### 真装上去之后才知道的四件（2026-08-29 实测，#64）
+
+上表是照文档整理的。#64 把 `PreToolUse` 那道门装进五个宿主、各起一次真会话跑了一遍，四件文档没写的事：
+
+| 事 | 实测 | 对写 hook 的人意味着什么 |
+| --- | --- | --- |
+| **Grok 把 reason 截断** | deny 的 `reason` 在 256 字符处截断，尾巴换成 `… [+N chars]`；它自己还先花掉 13 个字符写 `Hook denied: `。一句 350 字的拒绝语，到模型眼前只剩前 256——被截掉的正好是「做不完就写 `HANDOFF REQUIRED`」这条出路 | 拒绝语要短到 `len("Hook denied: ") + 正文 ≤ 256`，且要按最长的票号算。撞上门的 agent 必须在这个额度里同时看到「不许走这条」和「往哪走」 |
+| **Codex 把新 hook 挡在人工信任后面** | 写进 `~/.codex/hooks.json` 还不够：开场弹「N hooks need review」，人按一次 `t` 之前是 `Installed 1 / Active 0`，等于没装。信任按**这条 hook 定义的哈希**记进 `config.toml` 的 `[hooks.state]`，所以 hook 脚本的路径一变就要再按一次 | 安装脚本替不了这一下，只能装完打一行提示。路径要稳定（指向 `~/.agents/skills/…` 这个软链，而不是某个 checkout 的绝对路径），否则每换一次分支都要人重按 |
+| **Cursor 从自己的配置目录跑 hook** | hook 进程的工作目录是 `~/.cursor`，不是仓库；`beforeShellExecution` 送来的 `cwd` 是**空串**，仓库路径在 `workspace_roots` 这个**数组**里（一个 Cursor 会话可以同时挂多个仓库，所以它没有单数的「当前仓库」）。在 `~/.cursor` 里跑 `gh issue view` 会答 `not a git repository`，于是任何靠 `gh` 或 git 判断的 hook 在 Cursor 上会**静默失效**——它认不出票号，就一律放行 | hook 不该现场推断自己在哪。#64 的做法是让派发方用环境变量告知（`$MMW_TICKET`），hook 一次 git 都不跑。要读目录的话，`cwd` 为空时得回退到 `workspace_roots[0]`，而多仓库时取哪一个没有依据 |
+| **Cursor 自己的审批排在 hook 之前** | `cursor-agent` 默认开 Auto-review，`gh issue close` 在 `0ms` 就被它自己毙掉，hook 根本没被调用。用它自带的 `--force`（别名 `--yolo`）起会话才走得到 hook | 与 `12-decisions.md` E1「worker 权限全放行起」对得上：真实派发下 Cursor 本来就带 `--force`，这道门才在链路上 |
+
+另有一条只与「阻止会话结束」有关，#64 因此没做那道门（改由唤醒闭环承接，#87）：**pi 没有「一轮结束」这个事件**，只有 `agent_end`（一次模型运行结束）。在 `agent_end` 里 `sendUserMessage` 会起新一轮，结束又触发 `agent_end`——环是调用方自己造的，pi 不提供 `stop_hook_active` 一类的断环信息。实测这个环跑了 6 分钟没停。上表「pi / 阻止会话结束」那一格写的「`agent_end` 里 `pi.sendUserMessage(reason)` 可续一轮」成立，但它续的不是一轮，是无穷轮。
 
 ## 对 #60 的逐步检查
 
