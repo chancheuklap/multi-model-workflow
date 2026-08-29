@@ -165,7 +165,7 @@ th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--mute
     <div class="band morn">
       <h3>早上 · 人接手</h3>
       <ol>
-        <li><a class="stage new" href="#s13"><span class="n">13</span><span><span class="t">五条 <code>gh issue list</code> 查询</span><span class="d">要我定的 / 夜里关的 / 死掉的 / 新 sub-issue / 仍被卡的</span><span class="forks"><span class="tag new">新</span></span></span></a></li>
+        <li><a class="stage new" href="#s13"><span class="n">13</span><span><span class="t">早上在 GitHub 网页上看什么</span><span class="d">spec issue 的 sub-issue 面板 + 两个书签；命令留给程序</span><span class="forks"><span class="tag new">新</span></span></span></a></li>
         <li class="arrow">↓</li>
         <li><a class="stage keep" href="#s14"><span class="n">14</span><span><span class="t">人处理：答 decision、修 blocked、分诊 sub-issue</span><span class="d">改回 <code>ready-for-agent</code> 或关票，下游自动解锁</span><span class="forks"><span class="tag keep">不动</span></span></span></a></li>
       </ol>
@@ -466,13 +466,13 @@ Sub-issues opened: #58 (契约装不下：冷却时间), #59 (code-review 票外
 <section id="morning">
   <h2>5 早上：人接手</h2>
   <div class="panel detail new" id="s13">
-    <header><span class="n">步 13</span><h3>五条查询</h3><span class="tag new">新</span></header>
-    <pre>gh issue list --state open --label ready-for-human                          # 要你处理的：读最后一条评论的 ABANDON: 行
-gh issue list --state closed --search "closed:&gt;=&lt;昨天&gt;"                       # 夜里做完的
-gh issue list --state open --label ready-for-agent --assignee @me             # 认领了却没收尾评论 = 会话死了
-gh issue list --state open --label needs-triage --search "parent:&lt;spec 号&gt;"  # 夜里新开的 sub-issue
-gh issue list --state open --json number,title,blockedBy --jq '.[]|select(.blockedBy|length&gt;0)'  # 仍被卡的</pre>
-    <p class="src">出处：<code>08</code> §5.4。第三条依赖步 6 的 <code>--add-assignee @me</code>；「评论首行能否被 <code>--search</code> 稳定命中」未实测（<code>08</code> §8 末条）。</p>
+    <header><span class="n">步 13</span><h3>早上在 GitHub 网页上看什么</h3><span class="tag new">新</span></header>
+    <div class="io">
+      <div><h4>一页看完</h4><ul><li><b>打开 spec issue</b>（票都是它的原生 sub-issue）：sub-issue 面板列出每张票的开关状态与完成度——<b>夜里关了哪些</b>一眼可见；worker 夜里开的 sub-issue 用 <code>--parent &lt;spec&gt;</code> 建，<b>新开的</b>也出现在同一个面板里</li><li>面板里点进任一张票，页面上的原生 <b>Blocked by</b> 区块显示<b>它还卡在谁身上</b></li></ul></div>
+      <div><h4>两个书签补上标签维度</h4><ul><li><b>要你处理的</b>：<code>&lt;repo&gt;/issues?q=is:issue+state:open+label:ready-for-human</code>——点进去读最后一条评论的 <code>ABANDON:</code> 行</li><li><b>会话可能死了</b>：<code>&lt;repo&gt;/issues?q=is:issue+state:open+label:ready-for-agent+assignee:@me</code>——认领了却没有收尾评论的那些</li></ul></div>
+      <div><h4>命令给谁</h4><ul><li>等价的五条 <code>gh issue list</code> 查询留给程序跑（监控与唤醒那一侧的数据源），不写在这里给人抄</li></ul></div>
+    </div>
+    <p class="src">GitHub 原生能力 2026-08-29 实测：spec issue 的 <code>sub_issues_summary</code>（本仓 #60：15 张、完成 0）、票的 <code>parent</code> 与 <code>blockedBy</code>、<code>issue_dependencies_summary</code>（#63：blocked_by 1、blocking 3）。查询本身出处 <code>08</code> §5.4；「评论首行能否被 <code>--search</code> 稳定命中」未实测（<code>08</code> §8 末条），这也是它不该当人的入口的原因之一。</p>
   </div>
   <div class="panel detail keep" id="s14">
     <header><span class="n">步 14</span><h3>人处理</h3><span class="tag keep">不动</span></header>
@@ -517,7 +517,7 @@ gh issue list --state open --json number,title,blockedBy --jq '.[]|select(.block
     <tr><td>6</td><td><a href="https://github.com/chancheuklap/multi-model-workflow/issues/70">#70</a></td><td><code>code-review</code>：SKILL.md 路由 + <code>references/dispatch.md</code> / <code>standards-reviewer.md</code> / <code>spec-reviewer.md</code>；报告评论到票（merge-note）</td><td>分支上留一处 scope creep、一处漏做，跑一次，评论里两份报告与票内/票外分类正确</td><td>三个 reference 原文</td></tr>
     <tr><td>7</td><td><a href="https://github.com/chancheuklap/multi-model-workflow/issues/71">#71</a></td><td><code>implement</code> 开工段：<code>--preflight</code> 认领、Owns 核对、读法收窄、基线是契约（merge-note）</td><td>跑 <code>/implement</code> 到「说出 Seam」；摘掉 <code>ready-for-agent</code> 再跑看 <code>NOT_READY</code> 停下</td><td>这一段原文</td></tr>
     <tr><td>8</td><td><a href="https://github.com/chancheuklap/multi-model-workflow/issues/72">#72</a></td><td><code>implement</code> 写码纪律十行：契约装不下 → sub-issue；ponytail 五句；Owns 两档</td><td>被两处调用的函数修在共用处；范围外一行改动记进 <code>Outside Owns:</code></td><td>那十行原文</td></tr>
-    <tr><td>9</td><td><a href="https://github.com/chancheuklap/multi-model-workflow/issues/73">#73</a></td><td><code>implement</code> 收尾：<code>verify-ticket.py</code> → verifier → <code>dispatch.sh reviewer</code> + <code>wait</code> → 修一轮 → Audit → 草稿到文件 → PR → <code>--closeout</code> 关票或 HANDOFF（worker 不直接 close）</td><td>一次 ALL MET 由 <code>--closeout</code> 关票；一次 HANDOFF REQUIRED 换标签、票与 PR 开着；一次半途结束会话被 Stop hook 顶回</td><td>收尾评论样子；早上五条查询各捞到什么</td></tr>
+    <tr><td>9</td><td><a href="https://github.com/chancheuklap/multi-model-workflow/issues/73">#73</a></td><td><code>implement</code> 收尾：<code>verify-ticket.py</code> → verifier → <code>dispatch.sh reviewer</code> + <code>wait</code> → 修一轮 → Audit → 草稿到文件 → PR → <code>--closeout</code> 关票或 HANDOFF（worker 不直接 close）</td><td>一次 ALL MET 由 <code>--closeout</code> 关票；一次 HANDOFF REQUIRED 换标签、票与 PR 开着；一次半途结束会话被 Stop hook 顶回</td><td>收尾评论样子；早上打开 spec issue 那一页看到什么</td></tr>
     <tr><td>10</td><td><a href="https://github.com/chancheuklap/multi-model-workflow/issues/74">#74</a></td><td><code>claude-design-blocks</code> 收进 <code>mmw-v2/skills/</code>；按能力判断需要 claude-design MCP；第 1、2 步接受叶子目录组件；Finish 加交接包 README 与 DESIGN.md</td><td><code>install.sh --check</code>；改动处对照 12-decisions D1</td><td>改动处原文</td></tr>
     <tr><td>11</td><td><a href="https://github.com/chancheuklap/multi-model-workflow/issues/75">#75</a></td><td>真实的票（消费仓库与票由你定）从 <code>/to-tickets</code> 跑到关票或 HANDOFF；跑通才 <code>merge --no-ff</code> 进 main</td><td>全程无人中途替 agent 做决定；四种评论都在票上</td><td>合不合 main</td></tr>
   </table></div>

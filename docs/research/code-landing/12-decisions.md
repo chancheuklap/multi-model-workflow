@@ -364,3 +364,12 @@ merge-note 与正文一致性 canary（「关键句」无法机械定义）；�
 - 结论：**`Owns` 的粒度跟着实际分工走**——多张票分工同一个目录时写到文件级（`scripts/hook.py`、`tests/test_hook.py`），一张票独占一个目录时仍写目录 glob（`mmw-v2/agents/verifier/**`、`mmw-v2/upstream/skills/engineering/implement/**`）。判据不是「目录还是文件」，而是「同一 frontier 上两票的 `Owns` 不得相交」——这条是 A2 与 #60 第 3 节本来就有的，粒度只是满足它的手段。共用的单个文件（`skills.txt`、`install.sh`）无法再切，只能加阻塞边。
 - 已按此改：#63、#64 从整目录收窄到具体文件；#65、#67 的 `tests/**` 收窄到各自的测试文件；#65 加 `Blocked by #63`、#67 加 `#65`、#64 加 `#69`、#74 加 `#62`、#75 补 `#68`。改完重算票图：同 frontier 且 Owns 重叠的票对 0 个、无环、无悬空引用、启动层级六层。
 - 落点：#68（`to-tickets` 的 `## Owns` 规则加这一句）、#60 第 3 节同一处；`--lint` 的票图核对（#63）已经会查环与悬空，重叠仍靠出票时人眼比对（A2 原样）。
+
+### H8 「你检查」的制品必须在 GitHub 网页上读得到
+
+- 触发：用户看到蓝图页步 13 还挂着五条 `gh issue list` 命令，问「我几乎不会去用，那它们还有用吗」。按 H0 第一条盘点，发现只做了减法（删掉以 herdr 侧栏为读者的五处提议），没做加法——面向用户的入口仍然假设他会敲命令、会翻 Herdr pane 与会话记录。
+- 逐条查出来的：#60 的 User Story 15 主语写的就是「用户」而手段是五条命令；蓝图页步 13 与目录卡片；十五张票里九处 `MANUAL: 用户 …`（看五个宿主的会话记录、看三次启动的终端输出、看 Herdr 的 pane 与 `herdr agent list`、跑五条查询、看会话记录）。
+- 结论：**凡是「你检查」或 `MANUAL: 用户 …`，制品都必须是 GitHub 网页上打得开的东西**——票正文、票评论、spec issue 的 sub-issue 面板、票页面上的 Blocked by 区块。跑命令、开 Herdr、翻会话记录是我（主 agent）的事，做完把结果抄成一条票评论；用户读那条评论。
+- 早上的入口因此改成：**打开 spec issue 那一页**（原生 sub-issue 面板给出每张票的开关状态与完成度；worker 夜里用 `--parent <spec>` 开的 sub-issue 也在同一面板里；票页面的原生 Blocked by 给出还卡在谁身上）加**两个书签链接**（`issues?q=is:issue+state:open+label:ready-for-human` 要人处理的、加 `assignee:@me` 的 `ready-for-agent` 是认领了却没收尾的）。2026-08-29 实测：#60 的 `sub_issues_summary` 为 15 张、完成 0；#63 的 `issue_dependencies_summary` 为 blocked_by 1、blocking 3，`parent` 指向 #60——三样都是 GitHub 原生字段，页面直接显示。
+- 那五条 `gh issue list` 查询不作废，**读者从人换成程序**：写进 `15-monitor-tab-and-wakeup-loop.md` §4.2 的数据源一节，`board.py` 与将来的唤醒闭环跑它们。这是 G0 的应用：同一批查询，读者是人就该是链接，读者是程序就该在脚本里。
+- 落点：#60 的 US15 与第 9 节「我检查」；蓝图页步 13 与目录卡片、落地顺序表第 9 节；`15` §4.2；#64、#66、#67、#71、#72、#73、#75 共九处 `MANUAL: 用户 …`。

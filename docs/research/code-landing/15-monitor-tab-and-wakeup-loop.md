@@ -64,7 +64,19 @@ board.py             常驻，每次事件到来追加一行      开在 tab 里
 board.py --watch     同上，并按 §5 的规则动手        唤醒闭环本体
 ```
 
-三种形态读的是同一个数据源，没有第二份真相：`herdr api snapshot`（拿每个 pane 的 `agent_status` 与 `tokens.ticket/role/phase/ac`，`14` §4.2）加 `gh issue list`（拿票的开关状态、标签、最后一条评论首行）。**不持有自己的状态文件**——与 `12-decisions.md` B8 给 `verify-ticket.py` 定的同一条纪律，理由也一样（`10-previous-attempt-postmortem.md` §3.a.3：镜像文件会漂移）。
+三种形态读的是同一个数据源，没有第二份真相：`herdr api snapshot`（拿每个 pane 的 `agent_status` 与 `tokens.ticket/role/phase/ac`，`14` §4.2）加下面这五条 `gh` 查询。
+
+这五条原本写在蓝图页步 13、`#60` 的 User Story 15 里，读者写的是「用户」——而本仓的用户在 GitHub 网页上看票，不敲命令（H0 第一条）。人的入口因此改成「打开 spec issue 那一页（原生 sub-issue 面板给出每张票的开关状态与完成度，worker 夜里用 `--parent <spec>` 开的 sub-issue 也在同一个面板里；票页面上的原生 Blocked by 区块给出还卡在谁身上）加两个书签链接（`label:ready-for-human` 要人处理的、`label:ready-for-agent` 加 `assignee:@me` 可能死掉的会话）」。查询本身不作废，**读者换成这个程序**：
+
+```
+gh issue list --state open --label ready-for-human                       # 要人处理的
+gh issue list --state closed --search "closed:>=<昨天>"                  # 夜里做完的
+gh issue list --state open --label ready-for-agent --assignee @me        # 认领了却没收尾评论
+gh issue list --state open --label needs-triage --search "parent:<spec>" # 夜里新开的 sub-issue
+gh issue list --state open --json number,title,blockedBy --jq '.[]|select(.blockedBy|length>0)'
+```
+
+出处 `08-failure-vocabulary.md` §5.4；第三条依赖 worker 开工时的 `--add-assignee @me`；「评论首行能否被 `--search` 稳定命中」未实测（`08` §8 末条），这条不确定性正是它不适合当人的入口的原因之一——程序可以退回逐条读评论，人不会。**不持有自己的状态文件**——与 `12-decisions.md` B8 给 `verify-ticket.py` 定的同一条纪律，理由也一样（`10-previous-attempt-postmortem.md` §3.a.3：镜像文件会漂移）。
 
 常驻形态用追加输出而不是重绘，这一条同时解决三件事：人可以往回滚看历史；`herdr pane read --source recent-unwrapped` 读得到；不需要任何 TUI 库。
 
