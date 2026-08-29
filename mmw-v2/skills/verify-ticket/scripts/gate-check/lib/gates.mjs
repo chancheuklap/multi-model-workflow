@@ -125,6 +125,7 @@ export function parseGates(text, options = {}) {
         evidence: null,
         evidenceLine: -1,
         cwd: null,
+        attrEnd: index + 1,
       };
       gates.push(current);
       attrs.set(current, new Set());
@@ -172,7 +173,8 @@ export function parseGates(text, options = {}) {
           " for gate " + current.id);
       }
       attrs.get(current).add(key);
-      lastAttr = attrMatch[2];
+      lastAttr = key;
+      current.attrEnd = index + 1;
       if (key === "evidence") {
         current.evidence = value;
         current.evidenceLine = index;
@@ -208,12 +210,14 @@ export function parseGates(text, options = {}) {
       }
       continue;
     }
-    // An attribute is one line. A line continuing one used to be dropped in
-    // silence, which handed the shell half a CHECK and failed it on a syntax
-    // error its author never wrote.
-    if (previousAttr && line.trim()) {
-      errors.push("line " + (index + 1) + ": " + previousAttr +
-        " continues onto this line; each attribute must fit on one line");
+    // A CHECK is a shell command, and a shell command is allowed to be several
+    // lines long. Upstream reads one line per attribute and drops the rest in
+    // silence, which hands the shell half a command. Keep reading instead: the
+    // lines under a CHECK, up to the next attribute or gate, belong to it.
+    if (previousAttr === "check" && current && line.trim()) {
+      current.check += "\n" + line;
+      current.attrEnd = index + 1;
+      lastAttr = "check";
       continue;
     }
     if (/^#|^- /.test(line)) current = null;

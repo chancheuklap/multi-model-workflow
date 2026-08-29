@@ -29,17 +29,32 @@ class LedgerRun(unittest.TestCase):
         return code, (posted[0] if posted else ""), out.getvalue()
 
 
-class TestOneLinePerAttribute(LedgerRun):
-    def test_a_check_split_over_two_lines_stops_the_run(self):
-        code, _, printed = self.run_ticket(ticket(
+class TestACheckMaySpanLines(LedgerRun):
+    """A CHECK is a shell command, and a shell command may be several lines long."""
+
+    def test_the_lines_under_a_check_are_part_of_the_command(self):
+        code, comment, _ = self.run_ticket(ticket(
+            "- [ ] AC1: the importer writes six rows",
+            "  CHECK: python3 -c \"",
+            "rows = 6",
+            "print('wrote', rows, 'rows')\"",
+            "  EXPECT: wrote 6 rows",
+            "  EVIDENCE: pending",
+        ))
+        self.assertEqual(code, 0)
+        self.assertIn("- [x] AC1:", comment)
+
+    def test_the_evidence_lands_after_the_whole_command(self):
+        _, comment, _ = self.run_ticket(ticket(
             "- [ ] AC1: the importer writes six rows",
             "  CHECK: python3 -c \"",
             "print('wrote 6 rows')\"",
             "  EXPECT: wrote 6 rows",
-            "  EVIDENCE: pending",
         ))
-        self.assertEqual(code, 2)
-        self.assertIn("each attribute must fit on one line", printed)
+        body = comment.splitlines()
+        evidence = next(i for i, l in enumerate(body) if l.strip().startswith("EVIDENCE:"))
+        command = next(i for i, l in enumerate(body) if l.strip().startswith("print("))
+        self.assertGreater(evidence, command)
 
 
 class TestDoubleCondition(LedgerRun):

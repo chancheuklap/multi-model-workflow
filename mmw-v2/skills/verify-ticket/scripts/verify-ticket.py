@@ -47,9 +47,7 @@ VERDICT_RE = re.compile(r"^VERDICT\s+([0-9a-fA-F]{7,40})\b")
 ISSUE_REF_RE = re.compile(r"#(\d+)")
 EXPECT_LINE_RE = re.compile(r"^\s+EXPECT:\s*(.+?)\s*$")
 CHECK_LINE_RE = re.compile(r"^\s+CHECK:\s*(.+?)\s*$")
-# What legitimately follows a CHECK line: another attribute, the next criterion,
-# an ABANDON note, or the next section.
-CONTINUATION_STOP_RE = re.compile(r"^(\s*(EXPECT|EVIDENCE|CWD|ABANDON):|- \[|## |OWNS:)")
+ATTR_LINE_RE = re.compile(r"^\s+(CHECK|EXPECT|EVIDENCE|CWD|MANUAL):")
 REGEX_EXPECT_RE = re.compile(r"^/([\s\S]*)/([a-z]*)$")
 # A pattern author escapes a literal dollar or has none, so an unescaped one is
 # the anchor. Same reading gate-lint gives an unescaped slash.
@@ -290,7 +288,7 @@ def count_gates(ledger: Path) -> tuple[int, int]:
             continue
         evidence = ""
         for follow in lines[i + 1:]:
-            if not follow.startswith((" ", "\t")):
+            if GATE_LINE_RE.match(follow):
                 break
             if follow.strip().startswith("EVIDENCE:"):
                 evidence = follow.split("EVIDENCE:", 1)[1].strip()
@@ -786,19 +784,30 @@ def lint_ticket_graph(number: int, body: str) -> int:
 def criteria_lines(body: str) -> list[tuple[str, str, str]]:
     """`(id, CHECK, EXPECT)` per criterion; a missing line reads as an empty string."""
     out = []
+    in_check = False
     for line in section(body, "Acceptance criteria"):
         gate = GATE_LINE_RE.match(line)
         if gate:
             out.append([gate.group(2), "", ""])
+            in_check = False
             continue
         if not out:
             continue
         check = CHECK_LINE_RE.match(line)
         if check:
             out[-1][1] = check.group(1)
+            in_check = True
+            continue
         expect = EXPECT_LINE_RE.match(line)
         if expect:
             out[-1][2] = expect.group(1)
+            in_check = False
+            continue
+        if ATTR_LINE_RE.match(line):
+            in_check = False
+            continue
+        if in_check and line.strip():
+            out[-1][1] += "\n" + line
     return [tuple(item) for item in out]
 
 
@@ -880,35 +889,6 @@ def lint_check_effects(body: str) -> list[str]:
     return findings
 
 
-def lint_multiline_checks(body: str) -> list[str]:
-    """A CHECK written across several lines is a criterion that can never pass.
-
-    The ledger holds one attribute per line (`gate-check/lib/gates.mjs:46`), so only the
-    first line of a `CHECK:` reaches the shell and the rest is dropped without a word. A
-    `python3 -c "` broken over several lines arrives as an unterminated quote and dies on
-    a syntax error the criterion's author never wrote.
-    """
-    findings = []
-    lines = body.splitlines()
-    for i, line in enumerate(lines):
-        m = CHECK_LINE_RE.match(line)
-        if not m:
-            continue
-        nxt = lines[i + 1] if i + 1 < len(lines) else ""
-        if not nxt.strip() or CONTINUATION_STOP_RE.match(nxt):
-            continue
-        gate = "?"
-        for back in range(i - 1, -1, -1):
-            g = GATE_LINE_RE.match(lines[back])
-            if g:
-                gate = g.group(2)
-                break
-        findings.append(
-            f"{gate}: CHECK runs over more than one line, and only the first line is "
-            f"handed to the shell. Write the whole command on the CHECK line.")
-    return findings
-
-
 def run_lint(number: int) -> int:
     body = fetch_body(number)
     with tempfile.TemporaryDirectory(prefix="verify-ticket-") as tmp:
@@ -922,16 +902,13 @@ def run_lint(number: int) -> int:
     broken = lint_expectations(body)
     for finding in broken:
         print("  ERROR " + finding + "  [dollar-without-m]")
-    split = lint_multiline_checks(body)
-    for finding in split:
-        print("  ERROR " + finding + "  [multiline-check]")
     for finding in lint_check_effects(body):
         print("  WARN  " + finding + "  [shared-state]")
     for finding in lint_edges(body):
         print("  WARN  " + finding + "  [unexplained-edge]")
 
     graph = lint_ticket_graph(number, body)
-    return result.returncode or graph or (1 if broken or split else 0)
+    return result.returncode or graph or (1 if broken else 0)
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -587,9 +587,8 @@ function insertOrUpdateEvidence(doc, gate, value) {
     doc.lines[gate.evidenceLine] = indent + "EVIDENCE: " + value;
     return;
   }
-  let line = gate.line + 1;
-  while (line < doc.lines.length && /^\s+(CHECK|EXPECT|EVIDENCE|CWD):/.test(doc.lines[line])) line++;
-  doc.lines.splice(line, 0, "  EVIDENCE: " + value);
+  // attrEnd is past the gate's last attribute line, continuation lines included.
+  doc.lines.splice(gate.attrEnd, 0, "  EVIDENCE: " + value);
 }
 
 const resultKey = (file, id) => resolve(file) + "\0" + id;
