@@ -45,8 +45,6 @@ HANDOFF_RE = re.compile(
     r"^HANDOFF REQUIRED:\s*(\d+)\s+abandoned\s*\(([^)]*)\),\s*(\d+)\s+unmet,\s*(\d+)\s+met of\s*(\d+)\s*$")
 VERDICT_RE = re.compile(r"^VERDICT\s+([0-9a-fA-F]{7,40})\b")
 ISSUE_REF_RE = re.compile(r"#(\d+)")
-EXPECT_LINE_RE = re.compile(r"^\s+EXPECT:\s*(.+?)\s*$")
-CHECK_LINE_RE = re.compile(r"^\s+CHECK:\s*(.+?)\s*$")
 ATTR_LINE_RE = re.compile(r"^\s+(CHECK|EXPECT|EVIDENCE|CWD|MANUAL):")
 FENCE_OPEN_RE = re.compile(r"^( {0,3})(`{3,}|~{3,})(.*)$")
 FENCE_CLOSE_RE = re.compile(r"^ {0,3}(`+|~+)[ \t]*$")
@@ -310,6 +308,12 @@ def parse_criteria(text: str) -> list[dict]:
                 fence["body"].append(line)
             continue
         opened = FENCE_OPEN_RE.match(line)
+        # A ``` line whose info string carries another backtick is not a fence, and
+        # `gates.mjs` says so too. Two readers disagreeing about where a fence opens is
+        # the fault this format was meant to end: one of them would swallow the next
+        # criterion whole and the counts would stop matching.
+        if opened and opened.group(2)[0] == "`" and "`" in opened.group(3):
+            opened = None
         if opened:
             fence = {"char": opened.group(2)[0], "length": len(opened.group(2)),
                      "indent": opened.group(1), "body": [],

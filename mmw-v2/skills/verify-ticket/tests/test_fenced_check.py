@@ -96,6 +96,43 @@ class TestOtherFencesAreStillSkipped(unittest.TestCase):
         self.assertEqual(criteria[0]["check"], "echo real")
 
 
+class TestBothReadersOpenAFenceTheSameWay(unittest.TestCase):
+    """Two readers disagreeing about where a fence opens is the fault this format ends.
+
+    `gates.mjs` does not treat a ``` line as a fence when its info string carries
+    another backtick. A reader that did would open a fence there, swallow the criterion
+    after it, and report a different count than the engine that ran the checks.
+    """
+
+    LEDGER = """- [ ] AC1: the first one
+  CHECK: echo one
+  EXPECT: one
+  EVIDENCE: exit=0
+不是围栏，因为反引号后面还有反引号：```` `x` ````
+- [ ] AC2: the second one
+  CHECK: echo two
+  EXPECT: two
+  EVIDENCE: exit=0"""
+
+    def test_python_sees_both_criteria(self):
+        self.assertEqual([c["id"] for c in vt.parse_criteria(self.LEDGER)], ["AC1", "AC2"])
+
+    def test_the_engine_sees_both_criteria(self):
+        import json
+        import subprocess
+        with TemporaryDirectory() as tmp:
+            ledger = Path(tmp) / "AC.md"
+            ledger.write_text(self.LEDGER + "\n", encoding="utf-8")
+            probe = Path(tmp) / "probe.mjs"
+            probe.write_text(
+                f"import {{ parseGates }} from {json.dumps(str(vt.GATE_CHECK.parent / 'lib' / 'gates.mjs'))};\n"
+                "import fs from 'node:fs';\n"
+                f"const r = parseGates(fs.readFileSync({json.dumps(str(ledger))}, 'utf8'));\n"
+                "console.log(r.gates.map((g) => g.id).join(','));\n", encoding="utf-8")
+            out = subprocess.run(["node", str(probe)], capture_output=True, text=True)
+        self.assertEqual(out.stdout.strip(), "AC1,AC2", out.stderr)
+
+
 class TestUnfencedContinuationIsAnError(unittest.TestCase):
     """The implicit rule is gone, and its absence is said out loud."""
 
@@ -126,6 +163,31 @@ EOF
                                "  EVIDENCE: pending")
         self.assertNotIn("continues its CHECK", result.stdout + result.stderr)
         self.assertNotIn("fenced block", result.stdout + result.stderr)
+
+    def test_a_fenced_script_is_not_called_a_tautological_check(self):
+        """`echo` on line one does not make the whole script a command with fixed output."""
+        result = self.run_lint(
+            "- [ ] AC1: the install lands in five places\n"
+            "  CHECK:\n"
+            "  ```sh\n"
+            "  echo probing\n"
+            "  python3 -c \"import json; print('HOOKS-INSTALLED')\"\n"
+            "  ```\n"
+            "  EXPECT: HOOKS-INSTALLED\n"
+            "  EVIDENCE: pending")
+        self.assertNotIn("tautological-check", result.stdout + result.stderr)
+
+    def test_a_script_that_only_prints_is_still_called_one(self):
+        result = self.run_lint(
+            "- [ ] AC1: nothing is really checked\n"
+            "  CHECK:\n"
+            "  ```sh\n"
+            "  echo ok\n"
+            "  printf 'ok\\n'\n"
+            "  ```\n"
+            "  EXPECT: ok\n"
+            "  EVIDENCE: pending")
+        self.assertIn("tautological-check", result.stdout + result.stderr)
 
     def test_a_check_cannot_have_both_a_value_and_a_fence(self):
         result = self.run_lint("- [ ] AC1: rows\n  CHECK: echo six\n  ```sh\n  echo other\n  ```\n"

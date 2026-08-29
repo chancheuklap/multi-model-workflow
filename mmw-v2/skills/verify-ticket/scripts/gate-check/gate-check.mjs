@@ -587,7 +587,7 @@ function insertOrUpdateEvidence(doc, gate, value) {
     doc.lines[gate.evidenceLine] = indent + "EVIDENCE: " + value;
     return;
   }
-  // attrEnd is past the gate's last attribute line, continuation lines included.
+  // attrEnd is past the gate's last attribute line, and past a fenced CHECK's closer.
   doc.lines.splice(gate.attrEnd, 0, "  EVIDENCE: " + value);
 }
 
