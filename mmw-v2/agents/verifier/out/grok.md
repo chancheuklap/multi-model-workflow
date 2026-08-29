@@ -36,7 +36,7 @@ Five, choose one:
 - `live-ui-verified` — you walked the changed flow in a running interface, and every criterion passed.
 - `unit-test-verified` — every criterion passed, with no interface started.
 - `type-check-only` — only a type check or a build passed. A ticket that changes behaviour does not pass on this one.
-- `verifier-blocked` — a criterion could not be run at all.
+- `verifier-blocked` — a criterion could not be started at all, and what stopped it was the environment rather than the code.
 - `verifier-failed` — everything ran, and at least one criterion did not pass.
 
 ## The environment is yours; the repository is not
