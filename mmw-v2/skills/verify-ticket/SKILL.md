@@ -1,14 +1,13 @@
 ---
 name: verify-ticket
-description: Run a ticket's acceptance criteria, judge each one by exit code and expected output, and post the result back to the ticket as a comment. Use when finishing a ticket, when re-verifying someone else's finished ticket, or when auditing how a freshly written ticket's criteria are worded.
+description: Run a ticket's acceptance criteria and post the verdict back to the ticket. Use when finishing a ticket, when re-verifying someone else's finished ticket, or when auditing how a freshly written ticket's criteria are worded.
 ---
 
 # Verify ticket
 
-The ticket carries its own acceptance criteria — each one a `CHECK:` command and the
-`EXPECT:` string only a passing run prints. This skill runs them and writes the verdict
-back to the ticket. Nothing is judged by hand and nothing is cached: every run reads the
-ticket fresh and leaves one comment behind.
+Each acceptance criterion on the ticket carries a `CHECK:` command and the `EXPECT:`
+string a passing run prints. This skill runs them and writes the verdict back as one
+comment. Every run reads the ticket fresh; there is no state to carry between runs.
 
 ## The engine
 
@@ -24,8 +23,11 @@ python3 /absolute/path/to/scripts/verify-ticket.py <ticket>
 | Command | When | What lands |
 | --- | --- | --- |
 | `<engine> <n>` | You finished the work on ticket `<n>` | A comment whose first line is `self-run`: every criterion ticked or not, with the evidence the engine recorded |
-| `<engine> <n> --reverify` | You are re-verifying someone else's finished ticket | A comment whose first line is `reverify`. Criteria the last run ticked are run again, not trusted |
+| `<engine> <n> --reverify` | You are re-verifying a ticket someone else just finished | A comment whose first line is `reverify`. Criteria the last run ticked are run again, not trusted |
 | `<engine> <n> --lint` | You just wrote the ticket and want its criteria audited | Findings printed to your terminal. No `CHECK:` runs and no comment is posted |
+
+`--reverify` re-runs what the newest `self-run` comment ticked, so it belongs after one.
+On a ticket with no such comment it behaves like a plain run.
 
 `--timeout <seconds>` raises the per-`CHECK` limit when one of them is slow.
 
@@ -38,9 +40,9 @@ A criterion passes only when its `CHECK` exits 0 **and** its output matches `EXP
 Expected text in the output of a failed process is still a failure. A criterion written
 with `MANUAL:` instead of `CHECK:`/`EXPECT:` is never run and never ticked by the engine.
 
-The engine never edits the ticket body, never rewrites a `CHECK` command, and never
-decides what a criterion means. When a `CHECK` is wrong, say so on the ticket and fix the
-ticket — do not work around it by running something else.
+The engine reads the ticket and writes one comment. The ticket body, the `CHECK` commands
+and what a criterion means are yours. A wrong `CHECK` is fixed on the ticket: comment
+saying what is wrong with it, then edit the criterion and run again.
 
-The comment also lists **Outside Owns**: files this branch changed that no `## Owns` glob
-covers. An entry there is not a failure; it is something to explain in the closing comment.
+The comment ends with **Outside Owns**: files this branch changed that no `## Owns` glob
+covers. That list is something to explain in the closing comment, not a verdict.
