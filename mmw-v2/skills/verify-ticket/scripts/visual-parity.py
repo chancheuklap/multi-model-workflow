@@ -156,18 +156,20 @@ def diff_images(ia, ib, out: Path | None = None) -> dict:
     nb = np.asarray(ib, dtype=np.int16)
     mask = (np.abs(na - nb) > PIXEL_TOLERANCE).any(axis=2)
     count, total = int(mask.sum()), int(mask.size)
-    box, regions, extra = None, [], 0
+    box, found, regions, extra = None, [], [], 0
     if count:
         ys, xs = np.nonzero(mask)
         box = [int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())]
-        regions, extra = find_regions(mask, ia.size)
+        found = find_regions(mask, ia.size)
+        regions = found[:MAX_REGIONS]
+        extra = len(found) - len(regions)
     if out is not None:
         # A washed-out baseline under the red, so a difference can be located on the
         # page it belongs to rather than on a black field.
         vis = (na * 0.22 + 196).astype(np.uint8)
         vis[mask] = (230, 20, 60)
         image = Image.fromarray(vis)
-        _mark_regions(image, regions, ia.size)
+        _mark_regions(image, found if count else [], ia.size)
         image.save(out)
     return {"size_equal": True, "pct": round(100 * count / total, 3), "count": count,
             "total": total, "box": box, "regions": regions, "extra_regions": extra,
@@ -179,20 +181,24 @@ def diff_images(ia, ib, out: Path | None = None) -> dict:
 # around all of them is the whole page again — which is what a reader was already
 # looking at.
 CELL = 16           # differing pixels within this of each other belong to one place
+MERGE_GAP = 24      # and two places this close are the same change, e.g. one word
+MERGE_MAX = (560, 360)  # but no chain of near-enough places may grow past this
 CROP_PAD = 40       # how much of the surroundings a place is shown with
 CROP_MIN = (280, 180)
 MAX_REGIONS = 8     # places shown one by one; the rest are counted, not drawn
 ZOOM_TARGET = 1000   # how wide a place is written out, so it reads on screen
 ZOOM_TARGET_H = 760  # and how tall, so it still fits in front of a reader
 MAX_ZOOM = 6
+MIN_ZOOM = 2         # under this a close-up shows nothing the whole-scene picture did not
 
 
-def find_regions(mask, size: tuple[int, int]) -> tuple[list[dict], int]:
+def find_regions(mask, size: tuple[int, int]) -> list[dict]:
     """Group the differing pixels into the separate places they occur in.
 
     The mask is reduced to a grid of `CELL`-sized cells, cells that touch are one
-    group, and each group is measured back on the real pixels. The biggest
-    `MAX_REGIONS` are returned in order; the count of the rest comes back with them.
+    group, and each group is measured back on the real pixels. Every place is
+    returned, biggest first; capping the list is the page's business, because the
+    whole-scene picture marks the ones it has no room to blow up.
     """
     import numpy as np
 
@@ -232,15 +238,24 @@ def find_regions(mask, size: tuple[int, int]) -> tuple[list[dict], int]:
 
     boxes = merge_regions(boxes, size)
     boxes.sort(key=lambda b: b["count"], reverse=True)
-    return boxes[:MAX_REGIONS], max(0, len(boxes) - MAX_REGIONS)
+    return boxes
 
 
-def merge_regions(regions: list[dict], size: tuple[int, int]) -> list[dict]:
-    """Fold together places whose shown areas would overlap, so a reader is never
-    given the same picture twice under two numbers.
+def merge_regions(regions: list[dict], size: tuple[int, int] = MERGE_MAX,
+                  gap: int = MERGE_GAP) -> list[dict]:
+    """Fold together places near enough to each other to be one change.
 
-    Merging two places can bring a third into reach, so the pass repeats until one
-    pass changes nothing.
+    Nearness is measured between the differing pixels themselves, not between the
+    areas they are shown in. A place is shown with `CROP_PAD` of its surroundings and
+    never smaller than `CROP_MIN`, so measuring the shown areas makes a hundred
+    changes spread across a page all touch and collapse into one — which is the whole
+    page again, and tells a reader nothing he did not already see.
+
+    Merging two places can bring a third within reach, so the pass repeats until one
+    pass changes nothing — but a merged place stops growing at `MERGE_MAX`. Without
+    that stop, a page whose changes are each within `gap` of the next chains from the
+    first to the last and becomes one place spanning everything, which is the failure
+    this function exists to prevent.
     """
     current = [dict(r) for r in regions]
     changed = True
@@ -248,25 +263,38 @@ def merge_regions(regions: list[dict], size: tuple[int, int]) -> list[dict]:
         changed = False
         merged: list[dict] = []
         for region in current:
-            area = pad_box(region["box"], size)
+            area = _grow(region["box"], gap)
             for other in merged:
-                if _overlap(area, pad_box(other["box"], size)):
-                    other["box"] = [min(other["box"][0], region["box"][0]),
-                                    min(other["box"][1], region["box"][1]),
-                                    max(other["box"][2], region["box"][2]),
-                                    max(other["box"][3], region["box"][3])]
-                    other["count"] += region["count"]
-                    other["parts"] = other.get("parts", []) + region.get("parts", [])
-                    changed = True
-                    break
+                if not _overlap(area, _grow(other["box"], gap)):
+                    continue
+                union = [min(other["box"][0], region["box"][0]),
+                         min(other["box"][1], region["box"][1]),
+                         max(other["box"][2], region["box"][2]),
+                         max(other["box"][3], region["box"][3])]
+                cap = (min(MERGE_MAX[0], size[0]), min(MERGE_MAX[1], size[1]))
+                if union[2] - union[0] > cap[0] or union[3] - union[1] > cap[1]:
+                    continue
+                other["box"] = union
+                other["count"] += region["count"]
+                other["parts"] = other.get("parts", []) + region.get("parts", [])
+                changed = True
+                break
             else:
                 merged.append(dict(region))
         current = merged
     return current
 
 
+def _grow(box: list[int], by: int) -> tuple[int, int, int, int]:
+    return box[0] - by, box[1] - by, box[2] + by, box[3] + by
+
+
+def _clamp(box: tuple[int, int, int, int], size: tuple[int, int]) -> tuple:
+    return (max(0, box[0]), max(0, box[1]), min(size[0], box[2]), min(size[1], box[3]))
+
+
 def _overlap(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> bool:
-    return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+    return a[0] <= b[2] and b[0] <= a[2] and a[1] <= b[3] and b[1] <= a[3]
 
 
 def pad_box(box: list[int], size: tuple[int, int]) -> tuple[int, int, int, int]:
@@ -289,14 +317,22 @@ def zoom_for(area: tuple[int, int, int, int]) -> int:
 
 
 def _mark_regions(image, regions: list[dict], size: tuple[int, int]) -> None:
-    """Draw a numbered box around every place, so the whole-scene picture says where
-    the numbered close-ups below it came from."""
+    """Box every place, and number the ones the page blows up below.
+
+    A page can differ in more places than anyone wants to page through one by one, so
+    the ones past `MAX_REGIONS` are boxed without a number: still findable here, just
+    not given a close-up of their own.
+    """
     from PIL import ImageDraw
 
     draw = ImageDraw.Draw(image)
     for index, region in enumerate(regions, 1):
-        x0, y0, x1, y1 = pad_box(region["box"], size)
-        draw.rectangle([x0, y0, x1 - 1, y1 - 1], outline=(230, 20, 60), width=3)
+        x0, y0, x1, y1 = _clamp(_grow(region["box"], 6), size)
+        numbered = index <= MAX_REGIONS
+        draw.rectangle([x0, y0, x1 - 1, y1 - 1], outline=(230, 20, 60),
+                       width=3 if numbered else 1)
+        if not numbered:
+            continue
         label = str(index)
         draw.rectangle([x0, max(0, y0 - 18), x0 + 8 + 7 * len(label), y0],
                        fill=(230, 20, 60))
@@ -776,9 +812,11 @@ def headline(scenes: list[Comparison], args) -> str:
     names = sorted({c.scene for c in bad})
     places = max(len(c.pixel.get("regions") or []) + (c.pixel.get("extra_regions") or 0)
                  for c in bad)
+    shown = max(len(c.pixel.get("regions") or []) for c in bad)
     where = "、".join(f"「{n}」" for n in names)
-    return (f"{where} 场景对不上，最多的一档窗口里有 <b>{places}</b> 处不一样。"
-            "下面一处一处放大给你看。")
+    tail = ("下面一处一处放大给你看。" if places == shown else
+            f"整页图上每一处都有红框；差异最大的 {shown} 处逐处放大。")
+    return f"{where} 场景对不上，最多的一档窗口里有 <b>{places}</b> 处不一样。{tail}"
 
 
 # ---------------------------------------------------------------- evidence page
@@ -924,8 +962,8 @@ def _block(c: Comparison, media: Path, args, same: list[Comparison] = ()) -> str
                             for o in same) + '。</p>')
     out += ('<p class=note>' + "；".join(_esc(r.zh) for r in reasons) + '。'
             + (f'差异分在 {len(regions) + extra} 处'
-               + (f'，下面放大前 {len(regions)} 处，其余在整页图上有红框。'
-                  if extra else '，下面一处一处放大。') if regions else '')
+               + (f'，按差异像素多少排；其余 {extra} 处只在整页图上用细红框标出。'
+                  if extra else '。') if regions else '')
             + '</p>')
     changes = text_changes(c.aria["diff"])
     if changes:
@@ -945,7 +983,22 @@ def _block(c: Comparison, media: Path, args, same: list[Comparison] = ()) -> str
                 out += (f'<div><b>基线</b><code>{_esc(change["before"])}</code></div>'
                         f'<div><b>实现</b><code>{_esc(change["after"])}</code></div>')
         out += '</div>'
-    for index, region in enumerate(regions, 1):
+    out += ('<h3>差异在整页的哪里</h3>'
+            '<p class=note>红色是差异像素。粗红框带编号的，下面逐处放大；'
+            '细红框的没有单独放大，位置在这张图上。</p>'
+            '<div class=whole>'
+            f'<div><img src="media/{_esc(stem)}-baseline.png" alt=""><div class=cap>基线</div></div>'
+            f'<div><img src="media/{_esc(stem)}-impl.png" alt=""><div class=cap>实现</div></div>'
+            f'<div><img src="media/{_esc(stem)}-diff.png" alt=""><div class=cap>差异位置 · '
+            f'<a href="media/{_esc(stem)}.aria.diff">ARIA diff 全文</a></div></div>'
+            '</div>')
+    size = pixel["size_a"]
+    worth = [r for r in regions if zoom_for(pad_box(r["box"], size)) >= MIN_ZOOM]
+    if not worth:
+        out += ('<p class=note>这些差异都摊在大片区域上，把哪一处单独裁出来都不会比'
+                '上面那张整页图更清楚，所以下面不再逐处放大。逐处的位置看整页图上的红框。'
+                '</p>')
+    for index, region in enumerate(worth, 1):
         area = write_crops({"baseline": media / f"{stem}-baseline.png",
                             "impl": media / f"{stem}-impl.png",
                             "diff": media / f"{stem}-diff.png"},
@@ -962,13 +1015,6 @@ def _block(c: Comparison, media: Path, args, same: list[Comparison] = ()) -> str
                 f'<div><img src="media/{_esc(stem)}-r{index}-impl-crop.png" alt="">'
                 '<div class=cap>实现</div></div>'
                 '</div>')
-    out += ('<h3>在整页里的位置</h3>'
-            '<div class=whole>'
-            f'<div><img src="media/{_esc(stem)}-baseline.png" alt=""><div class=cap>基线</div></div>'
-            f'<div><img src="media/{_esc(stem)}-impl.png" alt=""><div class=cap>实现</div></div>'
-            f'<div><img src="media/{_esc(stem)}-diff.png" alt=""><div class=cap>红色是差异像素，红框与编号对应上面每一处 · '
-            f'<a href="media/{_esc(stem)}.aria.diff">ARIA diff 全文</a></div></div>'
-            '</div>')
     for other in same:
         other_stem = f"{other.scene}-{other.viewport}"
         out += (f'<p class=note>{other.viewport} 下的三张图：'
