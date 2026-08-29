@@ -37,5 +37,6 @@ self/verify-ticket
 self/ui-qa
 self/readable-docs
 self/manage-agents-md
+self/dispatch
 
 dd/diagram-design
