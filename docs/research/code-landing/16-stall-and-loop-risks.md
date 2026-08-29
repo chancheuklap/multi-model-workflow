@@ -53,13 +53,25 @@
 2. **`dispatch.sh wait` 超时之后**。#60 第 9 节第 3 步让 worker 等 reviewer 的评论出现，超时 exit 1，然后没写做什么。reviewer 会话崩了、被墙挡住、或 `code-review` 本身出错，worker 就悬在那里。**应当**：超时后在票上评论一行说明 code-review 没能完成，跳过这一轮，继续走第 4 步收尾——一个挂掉的 reviewer 不该让整张票交给人。
 3. **`visual-parity.py` 的负控制不过之后**。#60 第 2 节写「自带负控制（故意错的场景必须失败，否则本次结果不可信）」，没写不可信之后怎么办；#65 的 AC8 已经写了：exit 2 并打印 `NEGATIVE CONTROL FAILED`，不再输出 PARITY 结论。退出码非零，gate-check 照样判这条标准没过，而 2 与 1 的区别告诉 worker 要修的是工具或环境。缺的只是 #60 第 2 节没把这一句写上，补进去即可。
 
-## 4. 唯一没有上限的循环
+## 4. 没有上限的两个循环
 
-#60 第 9 节第 1 步：「`verify-ticket.py <n>`；没过的修，再跑，**直到全过或确认修不了**」。
+### 4.1 自跑修复（#60 第 9 节第 1 步）
 
-这是整条流水线上唯一没有轮次上限的地方。「确认修不了」是模型的主观判断，一个不肯放弃的 worker 可以在同一条 AC 上修到天亮。其余的循环都有上限：code-review 一轮不复审（B2）、verifier 一次（B2、B5）、`stop` hook 在 `stop_hook_active` 为真且票状态没变时放行（#60 第 2 节）、宿主自己的续跑上限（Grok 8 次、Cursor 5 次，`13-scriptable-steps.md`「五个宿主的 hook 能力」）。
+「`verify-ticket.py <n>`；没过的修，再跑，**直到全过或确认修不了**」。
+
+这是流水线上唯一**没有出口**的循环。「确认修不了」是模型的主观判断，一个不肯放弃的 worker 可以在同一条 AC 上修到天亮。其余的循环都有上限：code-review 一轮不复审（B2）、verifier 一次（B2、B5）、`stop` hook 在 `stop_hook_active` 为真且票状态没变时放行（#60 第 2 节）、宿主自己的续跑上限（Grok 8 次、Cursor 5 次，`13-scriptable-steps.md`「五个宿主的 hook 能力」）。
 
 **应当**给它一个上限，并且把停下来的方式写死：同一条 AC 连续三轮自跑仍未过 → 停止修这一条，写 `ABANDON: AC<n> failed <三次尝试各做了什么>`，继续处理其余标准。理由与用户定的原则一致：不轻易判失败，所以给三次；但不许无限，所以到三次就完整记录下来交给以后修。三这个数取自 `07-overbuild-discipline.md` 之外的现成先例——`rcosteira79/herdr-autocontinue` 的重试上限是五次，`unlazy/scripts/stop-hook.mjs` 的同状态放行阈值是六次（`13-scriptable-steps.md` 附录）；三是更紧的一档，因为每一轮包含一次完整的修改与重跑。
+
+### 4.2 `--closeout` 被拒后改草稿再跑（#60 第 9 节第 6 步）
+
+「核不过就按 stderr 的原因修草稿或修票再跑」也没写轮次上限，而脚本不持有状态文件（`12-decisions.md` G1），被拒时也不往票上贴评论——**被拒了几次这件事在系统里不存在**，没有任何地方数得出来。
+
+但它与 4.1 不同：**它有出口。**worker 改不动时会想结束会话，`stop` hook 顶回一次，`stop_hook_active` 为真且票状态没变时第二次放行（#60 第 2 节）。票于是留在「认领了、没有收尾评论」，正是 #60 US15 第二个书签查询（`label:ready-for-agent+assignee:@me`）要捞的那一类。早上看得到。
+
+真正会让这个循环变长的是转述的损耗：`pretool` hook 只把 stderr 第一行转回给 agent（#60 第 2 节），一次拒绝却可能有五六条原因，于是 agent 一轮只看得到一条、修一条再跑。`--closeout` 的第一行现在自带问题总数与看全部的命令（`verify-ticket.py <n> --closeout <草稿> --check-only`），一轮就能看全。
+
+不加计数上限：加了就要往票上留痕迹（评论或标签），而这个循环已经有出口，代价大于收益。
 
 ## 5. 不要动的：防转圈的设定
 
@@ -90,3 +102,4 @@
 | S9 | `dispatch.sh wait` 超时后：票上评论 + 跳过 code-review 继续收尾 | 补缺口 | #60 第 9 节第 3 步；#67、#73 |
 | S10 | `visual-parity.py` 负控制失败 exit 2 加 `NEGATIVE CONTROL FAILED`（#65 AC8 已有，#60 第 2 节补写） | 补缺口 | #60 第 2 节 |
 | S11 | 第 1 步自跑修复循环上限三轮，超出写 `ABANDON: AC<n> failed` 继续其余标准 | 补上限（防转圈） | #60 第 9 节第 1 步；#73 |
+| S12 | 每条 `NOT_READY:` 一律以「停」结尾、不给修理建议（四项核对的条件都由派发那一层摆好）；`--closeout` 拒绝的第一行带问题总数与看全部的命令（`pretool` 只转第一行）；「分支不含 main」只说 `git merge` 不说 rebase，`VERDICT` 的 commit 丢了则写 `HANDOFF REQUIRED` | 补出路（把每条拒绝当派发词读一遍导出，§4.2） | #63（已落，提交 `f1cb4182`）；#64 的 `pretool` reason |
