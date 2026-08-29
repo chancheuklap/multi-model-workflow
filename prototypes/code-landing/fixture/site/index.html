@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>fixture · 任务队列</title>
+    <link rel="stylesheet" href="./styles/tokens.css" />
+    <link rel="stylesheet" href="./styles/product-workbench.css" />
+    <style>
+      html, body { margin: 0; height: 100%; background: #e6e3df; }
+      .wb-queue { height: 100vh; display: grid; grid-template-columns: 292px minmax(0, 1fr); background: var(--canvas); }
+      .wb-queue-rest { background: var(--surface); }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script src="./tasks.js"></script>
+    <script>
+      // The implementation side of the fixture's UI acceptance criterion: same DOM and
+      // same stylesheets as the baseline component page, driven by ?scenario=.
+      var scenario = new URLSearchParams(location.search).get("scenario") || "default";
+      var tasks = scenario === "queue-empty" ? [] : window.FIXTURE_TASKS;
+
+      function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
+      var items = tasks.length
+        ? tasks.map(function (t) {
+            return '<button type="button" class="queue-item">' +
+              '<div class="product-thumb ' + esc(t.thumb) + '" aria-hidden="true"></div>' +
+              '<span class="item-copy">' +
+                '<span class="item-name">' + esc(t.name) + "</span>" +
+                '<span class="item-id">' + esc(t.meta) + "</span>" +
+                '<span class="item-state ' + esc(t.state) + '">' + esc(t.stateText) + "</span>" +
+              "</span></button>";
+          }).join("")
+        : '<div class="queue-empty">还没有生成任务</div>';
+
+      document.getElementById("app").outerHTML =
+        '<div class="wb-queue" data-screen-label="任务队列">' +
+          '<aside class="project-queue" aria-label="商品任务队列">' +
+            '<div class="panel-title"><h2 class="panel-title-h2">商品任务队列</h2>' +
+              '<span class="panel-title-span">' + tasks.length + " 个任务</span></div>" +
+            '<div class="queue-note">当前任务和历史任务都保存在这里。未使用参考图的已交付图片可以继续生成。</div>' +
+            '<button type="button" class="new-project"><span class="new-project-mark" aria-hidden="true">＋</span>' +
+              '<span><b class="new-project-b">新建生成任务</b>' +
+              '<small class="new-project-small">为各功能图片选择商品主体图</small></span></button>' +
+            '<div class="queue-list">' + items + "</div>" +
+            '<div class="queue-foot">任务按最新时间排列。选择任务，可以查看每张已交付图片。</div>' +
+          "</aside>" +
+          '<div class="wb-queue-rest"></div>' +
+        "</div>";
+    </script>
+  </body>
+</html>

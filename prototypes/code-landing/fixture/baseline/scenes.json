@@ -1,0 +1,14 @@
+[
+  {
+    "name": "default",
+    "page": "Component · 任务队列.dc.html",
+    "props": { "scenario": "default" },
+    "note": "五个任务的默认队列；侧栏标题印「5 个任务」"
+  },
+  {
+    "name": "queue-empty",
+    "page": "Component · 任务队列.dc.html",
+    "props": { "scenario": "queue-empty" },
+    "note": "空态；任务列表位置改印「还没有生成任务」，标题印「0 个任务」"
+  }
+]
