@@ -252,6 +252,44 @@ class TestVerdict(unittest.TestCase):
         self.assertEqual(code, 0, err)
 
 
+MULTILINE = """- [x] AC4: install.sh 装完五处配置
+  CHECK: T=$(mktemp -d) && MMW_V2_HOME="$T" bash mmw-v2/install.sh >/dev/null && python3 - <<'EOF'
+import json, os
+from pathlib import Path
+print("HOOKS-INSTALLED")
+EOF
+  rc=$?; rm -rf "$T"; exit $rc
+  EXPECT: HOOKS-INSTALLED
+  EVIDENCE: exit=0; EXPECT=matched; output-bytes=16"""
+
+
+class TestAMultilineCheck(unittest.TestCase):
+    """A `CHECK:` may run to several lines, and those lines are flush left.
+
+    Reading a criterion by indentation stops at the first of them and never reaches
+    the `EVIDENCE:` underneath, so the criterion looks ticked with nothing to show —
+    and the ticket can never close. Found 2026-08-30 while closing #64, whose AC6 is
+    a heredoc.
+    """
+
+    def test_the_evidence_below_a_multiline_check_is_found(self):
+        criteria = vt.parse_criteria(MULTILINE)
+        self.assertEqual(len(criteria), 1)
+        self.assertEqual(criteria[0]["id"], "AC4")
+        self.assertTrue(criteria[0]["ticked"])
+        self.assertIn("EXPECT=matched", criteria[0]["evidence"])
+
+    def test_a_draft_whose_criterion_has_a_multiline_check_can_close(self):
+        code, err, _ = check(draft(criteria=(MULTILINE,), counts=counts_line()))
+        self.assertEqual(code, 0, err)
+
+    def test_one_criterion_does_not_swallow_the_next(self):
+        both = MULTILINE + "\n" + UNMET
+        criteria = vt.parse_criteria(both)
+        self.assertEqual([c["id"] for c in criteria], ["AC4", "AC2"])
+        self.assertIn("1 passed, 1 failed", criteria[1]["evidence"])
+
+
 class TestEveryRefusalHasAWayOut(unittest.TestCase):
     """A refusal that names a next step has to accept that step when the worker takes it.
 

@@ -301,7 +301,15 @@ def count_gates(ledger: Path) -> tuple[int, int]:
 # ------------------------------------------------------------- closing comment
 
 def parse_criteria(text: str) -> list[dict]:
-    """One record per criterion: its id, its tick, its evidence, and whether it is manual."""
+    """One record per criterion: its id, its tick, its evidence, and whether it is manual.
+
+    A criterion ends where the next one begins, not where the indentation stops. A
+    `CHECK:` may run to several lines and those lines are flush left (`12-decisions.md`
+    G6), so reading a criterion by indentation stops at the first continuation line and
+    never reaches the `EVIDENCE:` below it — every such criterion then looks ticked with
+    nothing to show for it, and its ticket can never close. `count_gates` already breaks
+    on the next criterion; this is the same reading.
+    """
     out = []
     lines = text.splitlines()
     for i, line in enumerate(lines):
@@ -310,7 +318,7 @@ def parse_criteria(text: str) -> list[dict]:
             continue
         item = {"id": m.group(2), "ticked": m.group(1) != " ", "evidence": "", "manual": False}
         for follow in lines[i + 1:]:
-            if not follow.startswith((" ", "\t")):
+            if GATE_LINE_RE.match(follow):
                 break
             stripped = follow.strip()
             if stripped.startswith("EVIDENCE:"):
