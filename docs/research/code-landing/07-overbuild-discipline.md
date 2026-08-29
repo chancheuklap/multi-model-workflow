@@ -142,7 +142,7 @@ A 是唯一既在本仓可控、又不违反上述约束、又只影响写码的
 
 第 105–108 行的解读："Big wins are exactly where a native platform feature replaces a custom build… ponytail reaches for `<input type="date">`, `<input type="color">`, `<input type="file">`." 这是 rung 4 唯一的直接证据，且模型只有 Haiku（第 188–189 行 Limitations）。
 
-这条证据对我们有一个反向含义：这些票是 "one-line ticket"（第 79 行），结果文件没有提到任何设计稿。我们的票带 prototype 胜出物作为契约（`00-synthesis.md` 第 21、52 行）。当 mockup 画的是一个自绘 date picker 而 rung 4 说用 `<input type="date">`，ponytail 的字面会推向**换掉契约**；这是否在 Sonnet/Opus 上真的发生没有数据（第 9 节），第 8 节的 P2′ 就是为测它设计的。它的例外「anything explicitly requested」（`skills/ponytail/SKILL.md` 第 93–94 行）能否覆盖 mockup，取决于我们是否把 mockup 定义为「explicitly requested」——这要在 implement 正文里写明，见第 7 节。
+这条证据对我们有一个反向含义：这些票是 "one-line ticket"（第 79 行），结果文件没有提到任何设计稿。我们的票带 prototype 胜出物作为契约（`00-synthesis.md` 第 21、52 行）。当 mockup 画的是一个自绘 date picker 而 rung 4 说用 `<input type="date">`，ponytail 的字面会推向**换掉契约**；这是否在 Sonnet/Opus 上真的发生没有数据（第 9 节），第 8 节的 drawn-custom 探针就是为测它设计的。它的例外「anything explicitly requested」（`skills/ponytail/SKILL.md` 第 93–94 行）能否覆盖 mockup，取决于我们是否把 mockup 定义为「explicitly requested」——这要在 implement 正文里写明，见第 7 节。
 
 ## 5. 与我们现有纪律的重叠与冲突
 
@@ -171,7 +171,7 @@ A 是唯一既在本仓可控、又不违反上述约束、又只影响写码的
 1. **谁在听「Say so」**。ponytail 假设对话里有一个人会回答；票流程是无人看守的，写码者说完没人接。ponytail 的「问」在我们这里只能落成 sub-issue 或收尾评论。
 2. **「lazy version」的下限是什么**。ponytail 允许交付比要求少的东西再问；我们的票有 What to build、验收标准、prototype 契约，这些按 ponytail 自己的例外（第 93 行 "anything explicitly requested"）都不能被精简。所以「lazy version」的下限就是契约，ponytail 这条只能作用于**契约之外**的部分：契约外的东西不建，在收尾评论写 `skipped: [X], add when [Y]`。
 
-结论：不采纳第 62 行原句；把它折成收尾评论的一行格式（第 7 节 S5）。
+结论：不采纳第 62 行原句；把它折成收尾评论的一行格式（第 7 节 PT5）。
 
 ## 6. 「Lazy code without its check is unfinished」与 tdd / Seam
 
@@ -194,29 +194,29 @@ A 是唯一既在本仓可控、又不违反上述约束、又只影响写码的
 
 | # | ponytail 原句（出处 `skills/ponytail/SKILL.md`） | 证据 | 建议 | 改写后的操作性指令（对象换成票里的东西） |
 | --- | --- | --- | --- | --- |
-| S1 | 第 50–54 行 Bug fix 段 | **强**（`2026-06-22` 第 40–52 行） | 采纳，几乎逐字 | "Before editing a function, grep every caller of it in the repo; if the ticket names one path but the function serves others, fix it once in the shared function, not in the named path." |
-| S2 | rung 4 第 39 行 "Native platform feature covers it?" | **中**（`2026-06-18` 第 84–108 行，Haiku n=4，LOC 指标） | 采纳，但绑定契约 | "Where the chosen prototype artifact uses a native element or CSS for something, keep it native. Where it hand-builds what `<input type=…>`, `<dialog>`, `<details>` or CSS already covers, do not substitute silently: build it as drawn and open a sub-issue under the spec naming the native replacement." （后半句沿用 `00-synthesis.md` 第 54 行的通道） |
-| S3 | 第 92–95 行 "Never simplify away: input validation at trust boundaries, error handling that prevents data loss, security measures, accessibility basics, anything explicitly requested." | **弱**：没有 baseline 对照差异——`2026-06-18` 第 134–137 行 baseline 与 ponytail 都 20/20，唯一的 1 次滑点是 `yagni-oneliner` 臂的（`2026-06-17` 第 49–55 行同样 baseline 100%）。它证明的是「加了最小化指令之后这句能保住下限」，不是「这句让 agent 比不加更安全」 | 采纳的理由不是证据而是保险：我们要加 S4、S7 这类最小化指令，就需要这条下限。逐字，并把「explicitly requested」落实 | 原句 + "In this ticket, "explicitly requested" means: **What to build**, every acceptance criterion, the chosen prototype artifact, and the interface named under **Seam**." |
-| S4 | 第 58 行 "No unrequested abstractions: no interface with one implementation, no factory for one product, no config for a value that never changes." | **弱**（只有聚合 LOC；`2026-06-17` 第 120–142 行在手术式任务上 judge 全 0，说明现代模型在窄任务上本来不建这些） | 采纳，加 Seam 例外 | 原句 + "The interface under **Seam**, and a dependency passed in so that seam can be tested, are requested." |
-| S5 | 第 62 行 "Complex request? Ship the lazy version and question it…" 与第 75 行 "Pattern: `[code] → skipped: [X], add when [Y].`" | **中**（`2026-06-12` 第 29–41 行，n=1，指标是 prose token 不是行为） | 不采纳第 62 行；只取第 75 行格式进收尾评论 | 在 `implement/SKILL.md` 第 22 行第 1 步末尾加："and one line per thing you left out on purpose: `skipped: [X], add when [Y]`." |
-| S6 | rung 2 第 37 行 "Already in this codebase?… Look before you write" | **无**（`2026-06-22` 第 63–71 行未测出） | 可采纳但不能当作有证据；改成对着 Read first 找 | "Before writing a helper, grep the repo and the chosen prototype artifact under **Read first** for one that already does it; reuse it." |
-| S7 | rung 1、3、5、6、7 | **弱**（只有聚合 LOC） | 合并成一句 | "Before adding a file, a dependency, or a config value, name the existing thing that already covers it (a helper in the repo, the standard library, an installed dependency); add only when nothing does." |
-| S8 | 第 63 行 robust-variant | **中偏弱**（`2026-06-12-v4` 第 118–122 行 "softened but did not eliminate"；`2026-06-16-robustness-audit` 第 90–107 行八次改文本无效） | 不采纳 | — |
-| S9 | 第 64 行 `ponytail:` 天花板注释 | **中**（`2026-06-12-v4` 第 81–85 行只核对存在） | 不采纳 | 我们的记录通道是票评论和 sub-issue，不是源码注释；`ponytail-debt` 的 ledger 我们没有对应技能 |
-| S10 | 第 107–112 行 Check | 见第 6 节 | 不采纳原句 | — |
-| S11 | Persistence、Intensity、Boundaries、Output 前半（"Code first… at most three short lines"）、硬件段、第 97–101 行「Read fully, then be lazy」 | — | 不采纳 | 前四段是交互模式的东西，票流程没有对话；「Read fully」已由 `implement/SKILL.md` 第 10 行的读入段覆盖 |
+| PT1 | 第 50–54 行 Bug fix 段 | **强**（`2026-06-22` 第 40–52 行） | 采纳，几乎逐字 | "Before editing a function, grep every caller of it in the repo; if the ticket names one path but the function serves others, fix it once in the shared function, not in the named path." |
+| PT2 | rung 4 第 39 行 "Native platform feature covers it?" | **中**（`2026-06-18` 第 84–108 行，Haiku n=4，LOC 指标） | 采纳，但绑定契约 | "Where the chosen prototype artifact uses a native element or CSS for something, keep it native. Where it hand-builds what `<input type=…>`, `<dialog>`, `<details>` or CSS already covers, do not substitute silently: build it as drawn and open a sub-issue under the spec naming the native replacement." （后半句沿用 `00-synthesis.md` 第 54 行的通道） |
+| PT3 | 第 92–95 行 "Never simplify away: input validation at trust boundaries, error handling that prevents data loss, security measures, accessibility basics, anything explicitly requested." | **弱**：没有 baseline 对照差异——`2026-06-18` 第 134–137 行 baseline 与 ponytail 都 20/20，唯一的 1 次滑点是 `yagni-oneliner` 臂的（`2026-06-17` 第 49–55 行同样 baseline 100%）。它证明的是「加了最小化指令之后这句能保住下限」，不是「这句让 agent 比不加更安全」 | 采纳的理由不是证据而是保险：我们要加 PT4、PT7 这类最小化指令，就需要这条下限。逐字，并把「explicitly requested」落实 | 原句 + "In this ticket, "explicitly requested" means: **What to build**, every acceptance criterion, the chosen prototype artifact, and the interface named under **Seam**." |
+| PT4 | 第 58 行 "No unrequested abstractions: no interface with one implementation, no factory for one product, no config for a value that never changes." | **弱**（只有聚合 LOC；`2026-06-17` 第 120–142 行在手术式任务上 judge 全 0，说明现代模型在窄任务上本来不建这些） | 采纳，加 Seam 例外 | 原句 + "The interface under **Seam**, and a dependency passed in so that seam can be tested, are requested." |
+| PT5 | 第 62 行 "Complex request? Ship the lazy version and question it…" 与第 75 行 "Pattern: `[code] → skipped: [X], add when [Y].`" | **中**（`2026-06-12` 第 29–41 行，n=1，指标是 prose token 不是行为） | 不采纳第 62 行；只取第 75 行格式进收尾评论 | 在 `implement/SKILL.md` 第 22 行第 1 步末尾加："and one line per thing you left out on purpose: `skipped: [X], add when [Y]`." |
+| PT6 | rung 2 第 37 行 "Already in this codebase?… Look before you write" | **无**（`2026-06-22` 第 63–71 行未测出） | 可采纳但不能当作有证据；改成对着 Read first 找 | "Before writing a helper, grep the repo and the chosen prototype artifact under **Read first** for one that already does it; reuse it." |
+| PT7 | rung 1、3、5、6、7 | **弱**（只有聚合 LOC） | 合并成一句 | "Before adding a file, a dependency, or a config value, name the existing thing that already covers it (a helper in the repo, the standard library, an installed dependency); add only when nothing does." |
+| PT8 | 第 63 行 robust-variant | **中偏弱**（`2026-06-12-v4` 第 118–122 行 "softened but did not eliminate"；`2026-06-16-robustness-audit` 第 90–107 行八次改文本无效） | 不采纳 | — |
+| PT9 | 第 64 行 `ponytail:` 天花板注释 | **中**（`2026-06-12-v4` 第 81–85 行只核对存在） | 不采纳 | 我们的记录通道是票评论和 sub-issue，不是源码注释；`ponytail-debt` 的 ledger 我们没有对应技能 |
+| PT10 | 第 107–112 行 Check | 见第 6 节 | 不采纳原句 | — |
+| PT11 | Persistence、Intensity、Boundaries、Output 前半（"Code first… at most three short lines"）、硬件段、第 97–101 行「Read fully, then be lazy」 | — | 不采纳 | 前四段是交互模式的东西，票流程没有对话；「Read fully」已由 `implement/SKILL.md` 第 10 行的读入段覆盖 |
 
 ### 7.2 放在哪
 
-`mmw-v2/upstream/skills/engineering/implement/SKILL.md` 第 12 行（Seam 句）之后、第 14 行 `Use /tdd where possible` 之前，作为一段；S5 单独进第 22 行第 1 步。理由：S3、S4 都引用 **Seam**，要在 Seam 已经说出口之后；S2、S6 引用 **Read first** 的 prototype artifact，要在读入之后；tdd 循环从第 14 行开始，纪律要在循环之前生效（第 5.1 节）。
+`mmw-v2/upstream/skills/engineering/implement/SKILL.md` 第 12 行（Seam 句）之后、第 14 行 `Use /tdd where possible` 之前，作为一段；PT5 单独进第 22 行第 1 步。理由：PT3、PT4 都引用 **Seam**，要在 Seam 已经说出口之后；PT2、PT6 引用 **Read first** 的 prototype artifact，要在读入之后；tdd 循环从第 14 行开始，纪律要在循环之前生效（第 5.1 节）。
 
 改的是上游技能，按 `AGENTS.md` 第 22 行要写 merge-note。
 
 ### 7.3 措辞原则
 
 - 主语是动作、宾语是票里的字段：**Read first**、**Seam**、**What to build**、验收标准、chosen prototype artifact、sub-issue、收尾评论。`02-during-landing-anti-drift.md` 第 96 行已指出 "with the prototype as reference" 是被证明无效的那类措辞。
-- 想要的行为说成更小的 diff（`2026-06-22` 第 26–27 行的策略）：S1 保留 "one guard there is a smaller diff"。
-- 本仓记忆「抄写纪律：参考项目内容逐字复制，禁止改写」（`nmem` 记忆 `10392b1c`）的自述范围包括「纪律条目」并写明「适用于所有涉及参考项目移植的任务」，按字面它管到本文的句子；而同一批记忆里的「文本忠实≠效果达成」（`94c4ef9a`）与 `2026-06-22` 的控制实验都指向：逐字复制只保证字符串存在。两者调和的做法是：有证据的句子（S1、S3）保留 ponytail 原句骨架，只替换宾语，改动处可对照；没有证据的句子（S2、S6、S7）本来就要重写成我们的对象，不存在「忠实」问题。
+- 想要的行为说成更小的 diff（`2026-06-22` 第 26–27 行的策略）：PT1 保留 "one guard there is a smaller diff"。
+- 本仓记忆「抄写纪律：参考项目内容逐字复制，禁止改写」（`nmem` 记忆 `10392b1c`）的自述范围包括「纪律条目」并写明「适用于所有涉及参考项目移植的任务」，按字面它管到本文的句子；而同一批记忆里的「文本忠实≠效果达成」（`94c4ef9a`）与 `2026-06-22` 的控制实验都指向：逐字复制只保证字符串存在。两者调和的做法是：有证据的句子（PT1、PT3）保留 ponytail 原句骨架，只替换宾语，改动处可对照；没有证据的句子（PT2、PT6、PT7）本来就要重写成我们的对象，不存在「忠实」问题。
 - 总长度不超过十行。`2026-06-16-robustness-audit.md` 第 18–19 行："Counter-instructions make small models overthink and fail *more*"；`benchmarks/README.md` 第 107 行注明多轮会话里常驻规则 "can also raise tool calls and cost on completion-forced tasks"。
 
 ## 8. 怎么验证采纳后有效
@@ -229,13 +229,13 @@ A 是唯一既在本仓可控、又不违反上述约束、又只影响写码的
 
 | 探针 | 种子 | 测哪句 | `good` | `bad` | 打分 |
 | --- | --- | --- | --- | --- | --- |
-| P1 shared-caller | 仿 `2026-06-22` 第 31–36 行：`transfer()` 与 `withdraw()` 共用 `_debit()`，票只报 transfer | S1 | 改 `_debit()` | 只改 `transfer()` | 跑一个 withdraw 透支用例（票里没提） |
-| P2 native-vs-drawn | 票带 `prototypes/<task>/<issue>/UI/` 叶目录，胜出 variant 画的是 `<input type="date">` | S2 前半 | 实现用原生元素 | 引入 picker 依赖或自绘组件 | `package.json` 新依赖数；新文件数；diff 行数 |
-| P2′ drawn-custom | 同上，但 variant 自绘了一个日期选择器 | S2 后半 + S3「explicitly requested」 | 照画实现 + spec 下有一条 sub-issue 提到原生替代 | 自作主张换成 `<input type="date">`（ponytail 原版的行为） | 截图与基线比对走 `00-synthesis.md` 第 53 行的通道；`gh issue list` 查 sub-issue 存在与标题 |
-| P3 over-contract | 票只要一个 CSV 导出端点，Seam 指名一个 `export_items(items) -> str` | S4、S5、S7 | 一个函数 + 一个端点 + 收尾评论有 `skipped:` 行 | 加了格式注册表 / 配置项 / 第二个端点 | 新文件数、新配置键、收尾评论正则 `^skipped: .+, add when .+$` |
-| P4 trust-boundary | 仿 `benchmarks/agentic/README.md` 第 52 行 `safe_upload_path`，安全要求不写在票里 | S3 | 拦住 `../../etc/passwd` | happy path 正确、无遍历检查 | 对抗输入执行 |
+| shared-caller | 仿 `2026-06-22` 第 31–36 行：`transfer()` 与 `withdraw()` 共用 `_debit()`，票只报 transfer | PT1 | 改 `_debit()` | 只改 `transfer()` | 跑一个 withdraw 透支用例（票里没提） |
+| native-vs-drawn | 票带 `prototypes/<task>/<issue>/UI/` 叶目录，胜出 variant 画的是 `<input type="date">` | PT2 前半 | 实现用原生元素 | 引入 picker 依赖或自绘组件 | `package.json` 新依赖数；新文件数；diff 行数 |
+| drawn-custom | 同上，但 variant 自绘了一个日期选择器 | PT2 后半 + PT3「explicitly requested」 | 照画实现 + spec 下有一条 sub-issue 提到原生替代 | 自作主张换成 `<input type="date">`（ponytail 原版的行为） | 截图与基线比对走 `00-synthesis.md` 第 53 行的通道；`gh issue list` 查 sub-issue 存在与标题 |
+| over-contract | 票只要一个 CSV 导出端点，Seam 指名一个 `export_items(items) -> str` | PT4、PT5、PT7 | 一个函数 + 一个端点 + 收尾评论有 `skipped:` 行 | 加了格式注册表 / 配置项 / 第二个端点 | 新文件数、新配置键、收尾评论正则 `^skipped: .+, add when .+$` |
+| trust-boundary | 仿 `benchmarks/agentic/README.md` 第 52 行 `safe_upload_path`，安全要求不写在票里 | PT3 | 拦住 `../../etc/passwd` | happy path 正确、无遍历检查 | 对抗输入执行 |
 
-**判定**：一句只有在对应探针上两臂有差异才算「采纳生效」；无差异的句子按 `2026-06-16-robustness-audit.md` 第 17–20 行的做法不入正文——「adding skill text that doesn't move the number is exactly the cargo-cult Ponytail exists to avoid」。P2′ 是最重要的一个：它测的是 ponytail 原版会**破坏**契约的场景，加了 S2 后半与 S3 之后必须转为 good。
+**判定**：一句只有在对应探针上两臂有差异才算「采纳生效」；无差异的句子按 `2026-06-16-robustness-audit.md` 第 17–20 行的做法不入正文——「adding skill text that doesn't move the number is exactly the cargo-cult Ponytail exists to avoid」。drawn-custom 是最重要的一个：它测的是 ponytail 原版会**破坏**契约的场景，加了 PT2 后半与 PT3 之后必须转为 good。
 
 **回归**：改完跑一次不涉及过度构建的普通票（例如纯后端 CRUD，`2026-06-18` 第 94–101 行显示这类任务各 arm 收敛），确认收尾三步（`implement/SKILL.md` 第 22–24 行）行为不变。
 
@@ -244,16 +244,16 @@ A 是唯一既在本仓可控、又不违反上述约束、又只影响写码的
 **未读**
 
 - `benchmarks/agentic/tasks.py`（50 KB）、`judge.py`、`complete.py`，以及 `run.py` 除第 358 行以外的部分：探针的具体种子代码、judge 的 rubric 原文。第 8 节的探针设计只照 README 与结果文件。
-- `examples/*.md`（modal-dialog、email-validation、debounce、rate-limit、react-countdown）：ponytail 的 worked examples，可能有更适合 P2 的种子。
+- `examples/*.md`（modal-dialog、email-validation、debounce、rate-limit、react-countdown）：ponytail 的 worked examples，可能有更适合 native-vs-drawn 的种子。
 - `README.md` 全文（只 grep 了 Grok 与逐轮相关行）、`README.es.md`、`README.ko.md`。
 - `.opencode/plugins/ponytail.mjs`、`pi-extension/`、`__init__.py`（Hermes）、`tests/`：逐轮注入在这三家的实现细节；本文只引用 `docs/agent-portability.md` 的一句描述。
-- `mmw-v2/upstream/skills/engineering/tdd/tests.md`、`mocking.md`；`implement/agents/openai.yaml`、`tdd/agents/`：没核对它们是否已有与 S4 测试替身相关的条款。
-- `04`–`06`、`08` 四份还没写；本文 S2 后半依赖 `04` 写路径边界与 `00-synthesis.md` 第 54 行的 sub-issue 通道的最终形态。
+- `mmw-v2/upstream/skills/engineering/tdd/tests.md`、`mocking.md`；`implement/agents/openai.yaml`、`tdd/agents/`：没核对它们是否已有与 PT4 测试替身相关的条款。
+- `04`–`06`、`08` 四份还没写；本文 PT2 后半依赖 `04` 写路径边界与 `00-synthesis.md` 第 54 行的 sub-issue 通道的最终形态。
 
 **未确定**
 
-- S2 后半「build it as drawn and open a sub-issue」与 `00-synthesis.md` 第 53 行「差异非零不判失败，贴三张图给人看」的关系：自绘组件若被替换成原生元素，截图 diff 必然非零，人看时需要知道这是有意为之——sub-issue 的标题格式要与 `04` 或 `08` 统一。
+- PT2 后半「build it as drawn and open a sub-issue」与 `00-synthesis.md` 第 53 行「差异非零不判失败，贴三张图给人看」的关系：自绘组件若被替换成原生元素，截图 diff 必然非零，人看时需要知道这是有意为之——sub-issue 的标题格式要与 `04` 或 `08` 统一。
 - 技能正文在各宿主压缩后是否还在上下文里，没有实测；`AGENTS.md` 第 21 行只说调用时读。若压缩后掉，长票上第 7 节那段会失效，这是 `02` 第 118 行缺口 8，本文没有解。
 - 本仓记忆「抄写纪律」（`10392b1c`）的适用范围是否包括纪律句子的改写，需要用户确认；第 7.3 节给的是调和方案，不是裁决。
 - `self/manage-agents-md` 生成的目标仓库 `AGENTS.md` 是否应该带一份精简纪律（第 3.3 节 B 路）：那会让规则常驻但作用于所有任务；本文只把它列为落点，没有评估。
-- ponytail 的 UI 证据全部在 Haiku 上；Sonnet/Opus 在带 mockup 的票上是否还会自绘组件，没有数据。P2 跑之前无法知道 S2 前半在我们的模型上有没有可测的差异。
+- ponytail 的 UI 证据全部在 Haiku 上；Sonnet/Opus 在带 mockup 的票上是否还会自绘组件，没有数据。native-vs-drawn 跑之前无法知道 PT2 前半在我们的模型上有没有可测的差异。
