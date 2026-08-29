@@ -124,6 +124,8 @@ class TestWhatItStops(unittest.TestCase):
         f"gh issue edit {TICKET} --remove-label ready-for-agent",
         f"gh issue edit {TICKET} --add-label 'ready-for-human' --remove-label ready-for-agent",
         f"cd /repo && gh issue close {TICKET}",
+        f"MMW_TICKET={TICKET} gh issue close {TICKET}",
+        f"pytest -q; gh issue close {TICKET}",
     ]
     PASSED = [
         "ls",
@@ -136,6 +138,13 @@ class TestWhatItStops(unittest.TestCase):
         "gh issue close 640",
         "gh issue close 9 --reason completed",
         "gh pr close 12",
+        # A worker writing its closing comment says in it that it did not close the
+        # ticket by hand. 2026-08-30: the first worker to meet this gate unconstrained
+        # was refused for writing exactly that, and correctly called it a false positive.
+        f"cat > /tmp/closeout-{TICKET}.md <<'EOF'\nALL MET\n\n本票没有直接调用 gh issue close "
+        f"{TICKET}，走的是 --closeout。\nEOF",
+        f"echo 'do not run gh issue close {TICKET} by hand' >> notes.md",
+        f"git commit -m 'close #{TICKET} through gh issue close is refused by the gate'",
     ]
 
     def test_the_two_that_finish_the_ticket_are_recognised(self):

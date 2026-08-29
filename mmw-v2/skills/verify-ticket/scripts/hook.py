@@ -84,19 +84,45 @@ def governed_ticket() -> int | None:
     return int(value) if value.isdigit() else None
 
 
+SEPARATORS = re.compile(r"[;\n]|&&|\|\||\|")
+LEADING_ASSIGNMENTS = re.compile(r"^(?:\w+=\S*\s+)*")
+
+
+def runs(command: str) -> list[str]:
+    """The pieces of `command` that a shell would run as commands of their own.
+
+    Where the ticket number and the words `gh issue close` appear is not the same
+    question as whether this command closes anything. A worker writing its closing
+    comment says in it that it did not close the ticket by hand — and that sentence,
+    inside the `cat` that writes the draft, is not a `gh` call. Splitting on the shell's
+    own separators and keeping only the pieces that start with `gh` tells the two apart:
+    prose lands mid-line, a command starts one. (2026-08-30: a worker hit exactly this
+    on the first unconstrained run of the gate.)
+    """
+    out = []
+    for piece in SEPARATORS.split(command):
+        piece = LEADING_ASSIGNMENTS.sub("", piece.strip())
+        if re.match(r"gh\b", piece):
+            out.append(piece)
+    return out
+
+
 def leaves_the_agent_lane(command: str, number: int) -> bool:
     """True for the two commands that would finish ticket `number` without the closeout.
 
     Closing it, and swapping the label that says an agent is on it for the one that
     says a person is. Both are `--closeout`'s to make once the draft has passed.
     """
-    if not re.search(rf"(?<!\d){number}(?!\d)", command):
-        return False
-    if re.search(r"\bgh\s+issue\s+close\b", command):
-        return True
-    return bool(re.search(r"\bgh\s+issue\s+edit\b", command)
+    for run in runs(command):
+        if not re.search(rf"(?<!\d){number}(?!\d)", run):
+            continue
+        if re.match(r"gh\s+issue\s+close\b", run):
+            return True
+        if re.match(r"gh\s+issue\s+edit\b", run) \
                 and re.search(r"--add-label[=\s]+['\"]?ready-for-human"
-                              r"|--remove-label[=\s]+['\"]?ready-for-agent", command))
+                              r"|--remove-label[=\s]+['\"]?ready-for-agent", run):
+            return True
+    return False
 
 
 def refuse(host: str, reason: str) -> None:
