@@ -252,40 +252,50 @@ class TestVerdict(unittest.TestCase):
         self.assertEqual(code, 0, err)
 
 
-MULTILINE = """- [x] AC4: install.sh 装完五处配置
-  CHECK: T=$(mktemp -d) && MMW_V2_HOME="$T" bash mmw-v2/install.sh >/dev/null && python3 - <<'EOF'
-import json, os
-from pathlib import Path
+FENCED = """- [x] AC4: install.sh 装完五处配置
+  CHECK:
+  ```sh
+  T=$(mktemp -d) && MMW_V2_HOME="$T" bash mmw-v2/install.sh >/dev/null
+  python3 - <<'EOF'
+  print("HOOKS-INSTALLED")
+  EOF
+  ```
+  EXPECT: HOOKS-INSTALLED
+  EVIDENCE: exit=0; EXPECT=matched; output-bytes=16"""
+
+UNFENCED = """- [x] AC4: install.sh 装完五处配置
+  CHECK: python3 - <<'EOF'
 print("HOOKS-INSTALLED")
 EOF
-  rc=$?; rm -rf "$T"; exit $rc
   EXPECT: HOOKS-INSTALLED
   EVIDENCE: exit=0; EXPECT=matched; output-bytes=16"""
 
 
-class TestAMultilineCheck(unittest.TestCase):
-    """A `CHECK:` may run to several lines, and those lines are flush left.
+class TestACheckThatNeededAFence(unittest.TestCase):
+    """A draft carries its criteria verbatim, so it carries their fences too.
 
-    Reading a criterion by indentation stops at the first of them and never reaches
-    the `EVIDENCE:` underneath, so the criterion looks ticked with nothing to show —
-    and the ticket can never close. Found 2026-08-30 while closing #64, whose AC6 is
-    a heredoc.
+    Both readers of a ledger have to agree on where a command ends. `gates.mjs`
+    refuses a bare line under a `CHECK:`; if the closing gate read the same ledger as
+    fine, a ticket could close on criteria the engine would not even parse.
     """
 
-    def test_the_evidence_below_a_multiline_check_is_found(self):
-        criteria = vt.parse_criteria(MULTILINE)
+    def test_a_fenced_command_does_not_hide_its_evidence(self):
+        criteria = vt.parse_criteria(FENCED)
         self.assertEqual(len(criteria), 1)
-        self.assertEqual(criteria[0]["id"], "AC4")
-        self.assertTrue(criteria[0]["ticked"])
         self.assertIn("EXPECT=matched", criteria[0]["evidence"])
+        self.assertFalse(criteria[0]["stray"])
 
-    def test_a_draft_whose_criterion_has_a_multiline_check_can_close(self):
-        code, err, _ = check(draft(criteria=(MULTILINE,), counts=counts_line()))
+    def test_a_draft_whose_criterion_is_fenced_can_close(self):
+        code, err, _ = check(draft(criteria=(FENCED,), counts=counts_line()))
         self.assertEqual(code, 0, err)
 
+    def test_a_bare_line_under_a_check_is_refused_here_too(self):
+        code, err, _ = check(draft(criteria=(UNFENCED,), counts=counts_line()))
+        self.assertEqual(code, 1)
+        self.assertIn("fenced block", err)
+
     def test_one_criterion_does_not_swallow_the_next(self):
-        both = MULTILINE + "\n" + UNMET
-        criteria = vt.parse_criteria(both)
+        criteria = vt.parse_criteria(FENCED + "\n" + UNMET)
         self.assertEqual([c["id"] for c in criteria], ["AC4", "AC2"])
         self.assertIn("1 passed, 1 failed", criteria[1]["evidence"])
 

@@ -341,7 +341,7 @@ merge-note 与正文一致性 canary（「关键句」无法机械定义）；�
 - 结论：**一条 `CHECK:` 底下、到下一条属性或下一条标准之间的行，都是这条命令的一部分。** `CHECK:` 是一条 shell 命令，shell 命令本来就可以是好几行。每条标准另记 `attrEnd`（最后一行属性的下一行），补 `EVIDENCE:` 时插在那里，不插进命令中间。`verify-ticket.py` 的 `criteria_lines` 把续行拼回 CHECK，`count_gates` 找 `EVIDENCE:` 时按下一条标准断句而不是按缩进（续行是顶格的）。
 - 那 35 条一条都不用改；不写成出票规则，也不进 `--lint`。
 - 落点：`gate-check/lib/gates.mjs`、`gate-check.mjs` 的 `insertOrUpdateEvidence`、`verify-ticket.py` 的 `criteria_lines`、`count_gates` 与 `parse_criteria`；`gate-check/UPSTREAM.md`。
-- **「到下一条标准为止」这条读法，凡是逐条读标准的地方都要用。** `parse_criteria` 是 #63 为 `--closeout` 后来新写的，不在上面这张清单上，于是仍按缩进读——带多行 `CHECK:` 的标准一律显示为「打了勾但 EVIDENCE 还是 pending」，这样的票关不掉，而且改草稿没用，因为要改的不是草稿。2026-08-30 关 #64 时撞出来（它的 AC6 是一段 heredoc），修在 `019632c8`，记在 #84 的评论里。
+- **这条读法后来被 G8 取代，起因就记在这里。** `parse_criteria` 是 #63 为 `--closeout` 后来新写的，不在上面那张落点清单上，于是仍按缩进读——带多行 `CHECK:` 的标准一律显示为「打了勾但 EVIDENCE 还是 pending」，这样的票关不掉，而且改草稿没用，因为要改的不是草稿。2026-08-30 关 #64 时撞出来（它的 AC6 是一段 heredoc），先用一行止血（`019632c8`）。**第五个读者漏实现了这条看不见的规则，正是 G8 把它换成显式定界符的理由**；落点清单本身不再有效，以 G8 为准。
 
 ### G8 多行 `CHECK:` 写成代码块围栏，隐式续行退场（取代 G6）
 

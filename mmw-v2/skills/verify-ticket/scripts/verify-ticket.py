@@ -322,7 +322,8 @@ def parse_criteria(text: str) -> list[dict]:
         gate = GATE_LINE_RE.match(line)
         if gate:
             item = {"id": gate.group(2), "ticked": gate.group(1) != " ",
-                    "check": "", "expect": "", "evidence": "", "manual": False}
+                    "check": "", "expect": "", "evidence": "", "manual": False,
+                    "stray": False}
             out.append(item)
             continue
         if item is None:
@@ -336,6 +337,12 @@ def parse_criteria(text: str) -> list[dict]:
             elif key in ("check", "expect", "evidence"):
                 item[key] = value
             last_attr = key
+            continue
+        if previous_attr == "check" and line.strip():
+            # `gates.mjs` refuses this ledger outright. Reading it here as a criterion
+            # with a one-line command would put the two readers back where they were:
+            # one running nothing, the other counting it as fine.
+            item["stray"] = True
     return out
 
 
@@ -420,6 +427,9 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
                         f"close the ticket")
 
     for c in criteria:
+        if c.get("stray"):
+            problems.append(f"{c['id']} continues its CHECK onto another line; wrap the "
+                            f"command in a fenced block under `CHECK:` instead")
         if c["ticked"] and (not c["evidence"] or c["evidence"] == "pending"):
             problems.append(f"{c['id']} is ticked but its EVIDENCE is pending; "
                             f"either fill in what proved it or untick it")
