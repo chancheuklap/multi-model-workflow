@@ -142,6 +142,10 @@ _Avoid_: —
 
 ### Acceptance criteria
 
+**五问（the five questions）**:
+What a ticket writer asks of anything they want to say about the work, stopping at the first yes: is the rule a comparison against something a machine can reach (an acceptance criterion); is it a judgement against something a machine can reach (code review); is the property a person's reaction (`reaction`); could a machine decide it if it could reach the thing (`reach`); is it a choice rather than a check (a default plus a line in the closing comment, or a decision ticket asked earlier).
+_Avoid_: 三条出路, 读者是谁
+
 **`CHECK:`**:
 The runnable command of one criterion. When it does not fit on one line it is followed by a fenced code block.
 _Avoid_: —
@@ -350,12 +354,12 @@ _Avoid_: —
 What the closing gate prints when it hands the ticket back to be judged fresh.
 _Avoid_: —
 
-**`cycle` / `dangling` / `dollar-without-m` / `shared-state`**:
-The four problem tags the linter reports: a cycle in the ticket graph, a reference to a ticket that is not there, an `EXPECT:` regex anchor that can never match, and a `CHECK:` that changes shared state.
+**`cycle` / `dangling` / `dollar-without-m` / `manual-gate` / `shared-state`**:
+The problem tags the linter reports. Errors: a cycle in the ticket graph, a reference to a ticket that is not there, an `EXPECT:` regex anchor that can never match, and a criterion with no `CHECK:` — which is a criterion in the wrong place, since nobody but its own author would decide it. A warning: a `CHECK:` that changes shared state.
 _Avoid_: —
 
 **`ERROR` / `WARN`**:
-The linter's two levels. A ticket set converges when `ERROR` is at zero and every `WARN` has been looked at.
+The linter's two levels, and the only thing its exit code says is whether an `ERROR` is left. A ticket set converges when `ERROR` is at zero and every `WARN` has been looked at and either fixed or kept on purpose.
 _Avoid_: —
 
 **启动层级（start levels）**:
@@ -523,8 +527,16 @@ In the agent queue — waiting to be dispatched, or being worked right now; the 
 _Avoid_: —
 
 **`ready-for-human`**:
-In your queue: a person must settle or verify it by hand, and the ticket says in one line why it cannot be delegated. Applied when the ticket is written, or by triage once it has judged.
+In your queue: a ticket carrying one thing only a person can do, of kind `reaction` or `reach`, naming what to look at and what makes it right. Applied when the ticket is written, or by triage once it has judged.
 _Avoid_: —
+
+**`reaction`**:
+A kind of `ready-for-human` ticket: the property being asserted is a person's reaction, so the person is the measuring instrument and no agent can stand in. It cannot be engineered away.
+_Avoid_: 人工项
+
+**`reach`**:
+A kind of `ready-for-human` ticket: a machine would decide it correctly if it could get to the thing — a device, a credential, a real environment. The ticket carries one line naming what would retire it. A pile of these means the pipeline is missing a capability, not that the user owes work.
+_Avoid_: 只有人有的访问权
 
 **`wontfix`**:
 Will not be done.

@@ -233,15 +233,35 @@ class TestLint(unittest.TestCase):
                 code = vt.run_lint(1)
         return code, out.getvalue()
 
-    def test_a_weak_expectation_is_a_strict_finding(self):
+    def test_a_weak_expectation_is_reported_without_failing_the_run(self):
+        """A warning is for a person to weigh, so it must not decide the exit code."""
         code, printed = self.lint(ticket(
             "- [ ] AC1: the importer writes six rows",
             "  CHECK: node scripts/import.mjs fixtures/valid.json",
             "  EXPECT: ok",
             "  EVIDENCE: pending",
         ))
-        self.assertEqual(code, 1)
+        self.assertEqual(code, 0)
         self.assertIn("weak-expect", printed)
+
+    def test_a_ticket_with_no_criteria_section_is_not_a_finding(self):
+        """A `ready-for-human` ticket holds one thing to look at, and no criteria."""
+        body = "## Parent\n\n#76\n\n## Blocked by\n\n- #96\n"
+        with mock.patch.object(vt, "lint_ticket_graph", return_value=0):
+            code, printed = self.lint(body)
+        self.assertEqual(code, 0)
+        self.assertIn("carries no `## Acceptance criteria`", printed)
+        self.assertNotIn("zero live gates", printed)
+
+    def test_a_criterion_with_no_command_fails_the_run(self):
+        """Nobody but the ticket's own author decides it, which the section forbids."""
+        code, printed = self.lint(ticket(
+            "- [ ] AC1: the wording reads well",
+            "  EVIDENCE: pending",
+        ))
+        self.assertEqual(code, 1)
+        self.assertIn("manual-gate", printed)
+        self.assertIn("ERROR", printed)
 
     def test_lint_runs_no_check_and_posts_no_comment(self):
         posted: list[str] = []

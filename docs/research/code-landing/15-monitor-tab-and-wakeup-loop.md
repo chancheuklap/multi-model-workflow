@@ -126,7 +126,7 @@ mmw board · 02:14 · 5 张票在跑
 | `idle`/`done` 且 `phase` 是别的值 | **这就是「没到终点就停了」**：读票的最后一条评论与 `herdr agent read` 最近的输出，判断它停在哪一步，按 §3 的七条重新 prompt 它继续 |
 | `blocked` | 读它在问什么（`herdr agent read`）。§3 第 6 条：这时 prompt 无效。要么答，要么记成票上的一条评论交给人 |
 | `unknown` 或 pane 消失 | 会话没了。票没关也没 HANDOFF，则这张票要重派或交人 |
-| `agent_prompt_stalled` / 重试到上限 | 停手，在票上留一条评论说明，换 `ready-for-human` |
+| `agent_prompt_stalled` / 重试到上限 | 停手，在票上留一条评论说明，换 `needs-triage` |
 
 「诊断」这一步要读什么，本仓已经有答案，不需要新东西：票上最后一条评论（`verify-ticket.py` 每次自跑都会贴一条，含每条 AC 的结果，#60 第 2 节）就是它停在哪的直接证据；读屏只是补充，且不可靠（§4.1）。
 

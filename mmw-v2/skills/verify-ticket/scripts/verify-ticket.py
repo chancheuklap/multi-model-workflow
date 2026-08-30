@@ -955,10 +955,23 @@ def lint_check_effects(body: str) -> list[str]:
 
 def run_lint(number: int) -> int:
     body = fetch_body(number)
+
+    # A `ready-for-human` ticket carries no criteria at all: what it holds is one thing
+    # for a person to look at. The criteria linter has nothing to say about it, and
+    # saying "zero live gates" would report the ticket's correct shape as a fault. Its
+    # place in the batch is still worth checking, so the graph check runs.
+    if not section(body, "Acceptance criteria"):
+        print(f"#{number} carries no `## Acceptance criteria`, so only the ticket graph "
+              f"is checked here")
+        return lint_ticket_graph(number, body)
+
     with tempfile.TemporaryDirectory(prefix="verify-ticket-") as tmp:
         ledger = write_ledger(body, Path(tmp))
         result = subprocess.run(
-            ["node", str(GATE_LINT), "--strict", str(ledger)],
+            # No `--strict`: it fails the run on any warning, and a warning is the level
+            # for findings a person weighs and may keep. The exit code says one thing —
+            # there is an ERROR — which is what the read-back step converges on.
+            ["node", str(GATE_LINT), str(ledger)],
             capture_output=True, text=True,
         )
     sys.stdout.write((result.stdout or "") + (result.stderr or ""))

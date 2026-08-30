@@ -90,6 +90,14 @@ Scope: pricing section renders and behaves
 `;
 
 const SOUND = write("sound.md", SOUND_BODY);
+
+// Every gate commanded, one of them written weakly: findings, all of them warnings.
+const WARNING_ONLY = write("warning-only.md", SOUND_BODY + `
+- [ ] G6: banner prints
+  CHECK: node scripts/banner.mjs
+  EXPECT: ok
+  EVIDENCE: pending
+`);
 const MANUAL = write("manual.md", SOUND_BODY + `
 - [ ] G6: copy reads as written by the brand, not by a model
   EVIDENCE: pending
@@ -97,10 +105,17 @@ const MANUAL = write("manual.md", SOUND_BODY + `
 
 // ------------------------------------------------------------- tests
 
-test("lint: a fixed-output command is advisory by default", () => {
-  const { out, code } = lint(WEAK);
-  assert.match(out, /G1: CHECK looks like a fixed-output command/);
-  assert.equal(code, 0);
+test("lint: a fixed-output command is advisory", () => {
+  const { out } = lint(WEAK);
+  assert.match(out, /WARN\s+G1: CHECK looks like a fixed-output command/);
+});
+
+test("lint: a gate with no CHECK is an error, in either mode", () => {
+  for (const args of [[MANUAL], ["--strict", MANUAL]]) {
+    const { out, code } = lint(...args);
+    assert.match(out, /ERROR G6: no CHECK, so nobody but this ticket's own author decides it/);
+    assert.equal(code, 1);
+  }
 });
 
 test("lint: a chained verifier is not classified as a tautology", () => {
@@ -152,24 +167,27 @@ test("lint: a sound ledger is clean and exits 0", () => {
 });
 
 test("lint: default warnings and strict warnings have distinct gate markers and exits", () => {
-  const normal = lint(MANUAL);
-  assert.match(normal.out, /G6:.*judged by hand/);
+  const normal = lint(WARNING_ONLY);
+  assert.match(normal.out, /WARN\s+G6:/);
   assert.match(normal.out, /^LINT OK \(\d+ warning\(s\)\)$/m);
   assert.equal(normal.code, 0);
-  const strict = lint("--strict", MANUAL);
+  const strict = lint("--strict", WARNING_ONLY);
   assert.equal(strict.code, 1);
   assert.match(strict.out, /^LINT FINDINGS:/m);
   assert.doesNotMatch(strict.out, /^LINT OK/m);
 });
 
 test("lint: json reports counts and stays parseable", () => {
-  const data = JSON.parse(lint("--json", WEAK).out);
+  const data = JSON.parse(lint("--json", WARNING_ONLY).out);
   assert.equal(data.ok, true);
   assert.equal(data.errors, 0);
   assert.ok(data.warnings >= 1, "expected warnings, got " + data.warnings);
   assert.ok(data.findings.every((f) => f.rule && f.level));
-  const strict = JSON.parse(lint("--strict", "--json", WEAK).out);
+  const strict = JSON.parse(lint("--strict", "--json", WARNING_ONLY).out);
   assert.equal(strict.ok, false);
+  const commandless = JSON.parse(lint("--json", MANUAL).out);
+  assert.equal(commandless.ok, false);
+  assert.ok(commandless.errors >= 1, "expected errors, got " + commandless.errors);
 });
 
 test("lint: a ledger the shared parser rejects exits 2, not 1", () => {
