@@ -23,10 +23,11 @@ board = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(board)
 
 
-def agent(name, pane, status, **tokens):
+def agent(name, pane, status, host="claude", **tokens):
     """One entry of `herdr api snapshot`'s `agents`, with only the fields read."""
     return {
         "name": name,
+        "agent": host,
         "pane_id": pane,
         "agent_status": status,
         "focused": False,
@@ -271,16 +272,25 @@ class Table4(unittest.TestCase):
     """
 
     def setUp(self):
-        self.calls = {"herdr": [], "gh": [], "prompt": [], "dispatch": []}
+        self.calls = {"herdr": [], "gh": [], "prompt": [], "dispatch": [],
+                      "main": []}
         self.clock = Clock()
         self.saved = {name: getattr(board, name) for name in
-                      ("herdr", "gh", "herdr_run", "run_dispatch", "read_ticket",
-                       "collect", "time")}
+                      ("herdr", "gh", "herdr_run", "herdr_text", "run_dispatch",
+                       "read_ticket", "collect", "live_agents", "time")}
+        self.screen = ("Which colour do you prefer?\n"
+                       "1. red\n2. blue\nEnter to select · Esc to cancel")
+        self.main = [agent(board.MAIN, "w1:pMain", "idle")]
         self.tickets = {}
         self.rows = []
 
         def fake_herdr(args):
             self.calls["herdr"].append(list(args))
+            if args[:2] == ["agent", "send-keys"]:
+                # Dismissing the form is what takes the session out of `blocked`.
+                for a in self.agents:
+                    if a["pane_id"] == args[2]:
+                        a["agent_status"] = "idle"
             if args[:2] == ["agent", "get"]:
                 pane = args[2]
                 agent_ = next((a for a in self.agents if a["pane_id"] == pane), {})
@@ -293,16 +303,26 @@ class Table4(unittest.TestCase):
 
         def fake_prompt(args):
             if args[:2] == ["agent", "prompt"]:
-                self.calls["prompt"].append((args[2], args[3]))
+                where = "main" if args[2] == board.MAIN else "prompt"
+                self.calls[where].append((args[2], args[3]))
             return (0, "")
 
         def fake_dispatch(number, role):
             self.calls["dispatch"].append((number, role))
-            return (0, f"issue-{number} is working on #{number}", "")
+            return (self.dispatch_code, f"issue-{number} is working on #{number}",
+                    "the reason")
+
+        def fake_text(args):
+            self.calls["herdr"].append(list(args))
+            return self.screen
+
+        self.dispatch_code = 0
 
         board.herdr = fake_herdr
         board.gh = fake_gh
         board.herdr_run = fake_prompt
+        board.herdr_text = fake_text
+        board.live_agents = lambda: list(self.main)
         board.run_dispatch = fake_dispatch
         board.read_ticket = lambda n: self.tickets[n]
         board.collect = lambda spec: (self.rows, [])
@@ -470,7 +490,8 @@ class Table4(unittest.TestCase):
         self.clock.tick(4 * 3600 + 1)
         self.round(watch)
         comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
-        self.assertTrue(comment[-1].startswith("TIME LIMIT: 4 h at phase=verify"))
+        self.assertTrue(comment[-1].startswith(
+            "TIME LIMIT: 4 h since dispatch, still at phase=verify"))
         self.assertIn(["issue", "edit", "61", "--remove-label", "ready-for-agent",
                        "--add-label", "needs-triage"], self.calls["gh"])
         self.assertNotIn(["pane", "close", "w1:p1"], self.calls["herdr"])
@@ -509,6 +530,238 @@ class Table4(unittest.TestCase):
         self.world([], {61: ticket(61)})
         self.round(watch)
         self.assertEqual(self.calls["dispatch"], [])
+
+    # ------------------------------------------------------------- blocked
+
+    def blocked_world(self, host="grok", wake=0, comments=()):
+        self.world([agent("issue-61", "w1:p1", "blocked", host=host, ticket=61,
+                          role="worker", phase="verify", wake=wake)],
+                   {61: ticket(61, assignees=("me",), comments=list(comments))})
+
+    def test_the_form_goes_on_the_ticket_under_BLOCKED(self):
+        self.blocked_world()
+        self.round(self.watch())
+        comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
+        self.assertEqual(comment[2], "61")
+        self.assertEqual(comment[-1],
+                         "BLOCKED: Which colour do you prefer? 1. red 2. blue "
+                         "Enter to select · Esc to cancel")
+
+    def test_only_the_first_500_characters_of_the_form_are_quoted(self):
+        self.blocked_world()
+        self.screen = "x" * 900
+        self.round(self.watch())
+        comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
+        self.assertEqual(len(comment[-1]), len("BLOCKED: ") + board.FORM_CHARS)
+
+    def test_what_scrolled_above_the_form_is_not_quoted(self):
+        self.blocked_world()
+        self.screen = ("an earlier turn\n" * 40) + "Do you prefer red or blue?\n1. red"
+        self.round(self.watch())
+        comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
+        self.assertTrue(comment[-1].endswith("Do you prefer red or blue? 1. red"))
+        self.assertEqual(comment[-1].count("an earlier turn"), board.FORM_LINES - 2)
+
+    def test_each_host_gets_its_own_key(self):
+        for host, key in (("grok", "shift+x"), ("cursor", "esc"), ("claude", "esc")):
+            with self.subTest(host=host):
+                self.calls["herdr"].clear()
+                self.blocked_world(host=host)
+                self.round(self.watch())
+                self.assertIn(["agent", "send-keys", "w1:p1", key], self.calls["herdr"])
+
+    def test_the_form_is_never_answered_only_dismissed(self):
+        self.blocked_world()
+        self.round(self.watch())
+        for call in self.calls["herdr"]:
+            self.assertNotIn(call[0:2], (["pane", "send-text"], ["agent", "send-text"]))
+
+    def test_after_the_form_it_is_sent_its_dispatch_line_and_the_count_goes_up(self):
+        self.blocked_world()
+        self.round(self.watch())
+        self.assertEqual(self.calls["prompt"], [("w1:p1", "implement #61")])
+        self.assertIn(["pane", "report-metadata", "w1:p1", "--source", "mmw",
+                       "--token", "wake=1", "--ttl-ms", str(board.TOKEN_TTL_MS)],
+                      self.calls["herdr"])
+
+    def test_a_form_does_not_reach_the_main_agent(self):
+        self.blocked_world()
+        self.round(self.watch())
+        self.assertEqual(self.calls["main"], [])
+
+    def test_a_third_form_hands_the_ticket_back(self):
+        self.blocked_world(wake=board.WAKE_LIMIT)
+        self.round(self.watch())
+        self.assertEqual(self.calls["prompt"], [])
+        comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
+        self.assertTrue(comment[-1].startswith("WAKEUP LIMIT:"))
+
+    # ------------------------------------------------------------- the session is gone
+
+    def test_an_unknown_session_is_redispatched_once_and_says_so_on_the_ticket(self):
+        self.world([agent("issue-61", "w1:p1", "unknown", ticket=61, role="worker",
+                          phase="selfcheck")], {61: ticket(61, assignees=("me",))})
+        self.round(self.watch())
+        comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
+        self.assertEqual(
+            comment[-1],
+            "REDISPATCHED: session issue-61 ended at phase=selfcheck; started again "
+            "as junior-worker")
+        self.assertIn(["pane", "close", "w1:p1"], self.calls["herdr"])
+        self.assertEqual(self.calls["dispatch"], [(61, "junior-worker")])
+
+    def test_a_claimed_ticket_whose_pane_is_gone_is_redispatched_too(self):
+        self.world([], {61: ticket(61, assignees=("me",))})
+        self.round(self.watch())
+        self.assertEqual(self.calls["dispatch"], [(61, "junior-worker")])
+        comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
+        self.assertIn("ended at phase=unknown", comment[-1])
+
+    def test_a_ticket_nobody_claimed_is_dispatched_not_redispatched(self):
+        self.world([], {61: ticket(61)})
+        self.round(self.watch())
+        self.assertEqual([c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"]], [])
+        self.assertEqual(self.calls["dispatch"], [(61, "junior-worker")])
+
+    def test_a_ticket_with_a_closing_comment_is_left_alone(self):
+        for closing in ("ALL MET", "HANDOFF REQUIRED: 1 abandoned (failed)"):
+            with self.subTest(closing=closing):
+                self.calls["dispatch"].clear()
+                self.world([], {61: ticket(61, assignees=("me",), comments=[closing])})
+                self.round(self.watch())
+                self.assertEqual(self.calls["dispatch"], [])
+
+    def test_a_second_death_hands_the_ticket_back_instead(self):
+        self.world([agent("issue-61", "w1:p1", "unknown", ticket=61, role="worker",
+                          phase="verify")],
+                   {61: ticket(61, assignees=("me",),
+                               comments=["REDISPATCHED: session issue-61 ended at "
+                                         "phase=selfcheck; started again as "
+                                         "junior-worker"])})
+        self.round(self.watch())
+        self.assertEqual(self.calls["dispatch"], [])
+        comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
+        self.assertTrue(comment[-1].startswith("REDISPATCHED:"))
+        self.assertIn("Handed back to needs-triage", comment[-1])
+        self.assertIn(["issue", "edit", "61", "--remove-label", "ready-for-agent",
+                       "--add-label", "needs-triage"], self.calls["gh"])
+
+    # ------------------------------------------------------------- dispatch.sh's exits
+
+    def test_exit_1_still_takes_up_a_place(self):
+        self.dispatch_code = 1
+        self.world([], {70: ticket(70), 71: ticket(71), 72: ticket(72)})
+        self.round(self.watch(parallel=2))
+        self.assertEqual(self.calls["dispatch"],
+                         [(70, "junior-worker"), (71, "junior-worker")])
+
+    def test_exit_2_takes_up_no_place_and_is_not_retried_this_round(self):
+        self.dispatch_code = 2
+        self.world([], {70: ticket(70), 71: ticket(71), 72: ticket(72)})
+        self.round(self.watch(parallel=2))
+        self.assertEqual(self.calls["dispatch"],
+                         [(70, "junior-worker"), (71, "junior-worker"),
+                          (72, "junior-worker")])
+
+    def test_a_session_that_was_never_told_anything_gets_its_dispatch_line(self):
+        self.world([agent("issue-61", "w1:p1", "idle", ticket=61, role="worker")],
+                   {61: ticket(61)})
+        watch = self.watch()
+        self.round(watch)
+        self.clock.tick(board.COOLDOWN_SECONDS)
+        self.round(watch)
+        self.assertEqual(self.calls["prompt"], [("w1:p1", "implement #61")])
+
+    # ------------------------------------------------------------- the night's end
+
+    def test_nothing_open_and_nothing_alive_ends_the_night(self):
+        self.world([], {61: ticket(61, state="CLOSED", labels=())})
+        watch = self.watch()
+        self.round(watch)
+        comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
+        self.assertEqual(comment[2], "76")
+        self.assertTrue(comment[-1].startswith("NIGHT SUMMARY "))
+        self.assertTrue(watch.summary_written)
+
+    def test_an_open_agent_lane_keeps_the_night_going(self):
+        self.world([], {61: ticket(61)})
+        watch = self.watch()
+        self.round(watch)
+        self.assertFalse(watch.summary_written)
+
+    def test_the_summary_is_four_lines_of_numbers_and_first_lines(self):
+        watch = self.watch()
+        watch.opened = "2026-08-30T00:00:00+08:00"
+        tickets = {
+            61: ticket(61, state="CLOSED", labels=(), comments=["ALL MET\nBranch: x"]),
+            62: ticket(62, labels=("needs-triage",),
+                       comments=["WAKEUP LIMIT: re-prompted 3 times"]),
+            63: ticket(63, blockers=(62,)),
+            64: ticket(64, labels=("needs-triage",), comments=["fresh"]),
+        }
+        for number, when in ((61, "2026-08-29"), (62, "2026-08-29"),
+                             (63, "2026-08-29"), (64, "2026-08-31")):
+            tickets[number]["created"] = when + "T00:00:00+08:00"
+        tickets[61]["closed_at"] = "2026-08-31T02:00:00+08:00"
+        rows = board.build_rows(list(tickets), tickets, [])
+        body = watch.summary(rows).splitlines()
+        self.assertTrue(body[0].startswith("NIGHT SUMMARY "))
+        self.assertEqual(body[2], "Closed: #61 ALL MET")
+        self.assertEqual(body[3], "Handed back to needs-triage: "
+                                  "#62 WAKEUP LIMIT: re-prompted 3 times, #64 fresh")
+        self.assertEqual(body[4], "Not dispatched, a blocker stayed open: "
+                                  "#63 blocked by #62")
+        self.assertEqual(body[5], "Sub-issues opened tonight: #64 fresh")
+
+    # ------------------------------------------------------------- the main agent
+
+    def test_the_main_agent_hears_about_a_limit_and_about_the_end(self):
+        self.idle_world(wake=board.WAKE_LIMIT)
+        watch = self.watch()
+        self.round(watch)
+        self.clock.tick(max(board.WAKE_BACKOFF))
+        self.round(watch)
+        self.assertEqual(self.calls["main"],
+                         [(board.MAIN,
+                           "mmw board: WAKEUP LIMIT #61 — run board.py --once")])
+
+    def test_a_working_main_agent_is_left_for_the_next_round(self):
+        self.main[0]["agent_status"] = "working"
+        self.idle_world(wake=board.WAKE_LIMIT)
+        watch = self.watch()
+        self.round(watch)
+        self.clock.tick(max(board.WAKE_BACKOFF))
+        self.round(watch)
+        self.assertEqual(self.calls["main"], [])
+        self.main[0]["agent_status"] = "idle"
+        self.round(watch)
+        self.assertEqual(len(self.calls["main"]), 1)
+
+    def test_a_focused_main_agent_is_left_alone(self):
+        self.main[0]["focused"] = True
+        self.idle_world(wake=board.WAKE_LIMIT)
+        watch = self.watch()
+        self.round(watch)
+        self.clock.tick(max(board.WAKE_BACKOFF))
+        self.round(watch)
+        self.assertEqual(self.calls["main"], [])
+
+    def test_with_nobody_named_mmw_main_the_line_is_dropped(self):
+        self.main = []
+        self.idle_world(wake=board.WAKE_LIMIT)
+        watch = self.watch()
+        self.round(watch)
+        self.clock.tick(max(board.WAKE_BACKOFF))
+        self.round(watch)
+        self.assertEqual(self.calls["main"], [])
+        self.assertEqual(watch.for_main, [])
+
+    def test_the_end_of_the_night_reaches_the_main_agent(self):
+        self.world([], {61: ticket(61, state="CLOSED", labels=())})
+        watch = self.watch()
+        self.round(watch)
+        self.assertEqual(self.calls["main"],
+                         [(board.MAIN, "mmw board: night over #76 — run board.py --once")])
 
 
 class Constants(unittest.TestCase):

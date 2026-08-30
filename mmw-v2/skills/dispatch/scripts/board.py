@@ -102,6 +102,25 @@ def herdr_run(args: list[str]) -> tuple[int, str]:
         return 1, str(problem)
 
 
+def form_text(screen: str) -> str:
+    """The form out of a screen that also holds whatever scrolled above it.
+
+    A question or approval form is drawn at the foot of the viewport, so the last few
+    non-empty lines are the form and everything before them is the turn that led to it.
+    """
+    lines = [l.strip() for l in (screen or "").splitlines() if l.strip()]
+    return " ".join(lines[-FORM_LINES:])
+
+
+def herdr_text(args: list[str]) -> str:
+    """A Herdr call whose answer is a pane's own text rather than JSON."""
+    try:
+        run = subprocess.run(["herdr", *args], capture_output=True, text=True, timeout=30)
+        return run.stdout if run.returncode == 0 else ""
+    except Exception:
+        return ""
+
+
 def run_dispatch(number: int, role: str) -> tuple[int, str, str]:
     """`dispatch.sh <n> <role>`: its exit code is a row of the table all by itself."""
     run = subprocess.run(["bash", DISPATCH, str(number), role],
@@ -132,7 +151,8 @@ def sub_issues(spec: int) -> list[int]:
 
 def read_ticket(number: int) -> dict:
     """One ticket, in the shape the rest of this file expects."""
-    fields = "state,labels,assignees,blockedBy,comments,title"
+    fields = ("state,labels,assignees,blockedBy,comments,title,"
+              "createdAt,closedAt")
     raw = gh_json(["issue", "view", str(number), "--json", fields], {})
     return normalise_ticket(number, raw)
 
@@ -145,6 +165,8 @@ def normalise_ticket(number: int, raw: dict) -> dict:
         "number": number,
         "state": (raw.get("state") or "").upper(),
         "title": raw.get("title") or "",
+        "created": raw.get("createdAt") or "",
+        "closed_at": raw.get("closedAt") or "",
         "labels": labels,
         "assignees": [a.get("login") for a in raw.get("assignees") or [] if isinstance(a, dict)],
         "blockers": [int(n["number"]) for n in nodes
@@ -175,6 +197,24 @@ def newest_with_first_line(ticket: dict, *prefixes: str) -> str:
 
 
 UNMET_RE = re.compile(r"^UNMET:\s*(\d+)\s*\(met:\s*(\d+)\)")
+
+# The two first lines a worker's closing comment can carry.
+CLOSING_LINES = ("ALL MET", "HANDOFF REQUIRED")
+
+
+def has_closing_comment(ticket: dict) -> bool:
+    """Whether a worker ever left a closing comment on this ticket, of either kind."""
+    return any(first_line(c).startswith(CLOSING_LINES) for c in ticket.get("comments") or [])
+
+
+def redispatch_count(ticket: dict) -> int:
+    """How many times a session on this ticket has already been redispatched.
+
+    Counted off the ticket's own `REDISPATCHED:` comments, the way the three self-run
+    rounds are counted off its `self-run` comments, so nothing is stored between rounds.
+    """
+    return sum(1 for c in ticket.get("comments") or []
+               if first_line(c).startswith("REDISPATCHED:"))
 
 
 def counted_ac(ticket: dict) -> str:
@@ -228,6 +268,7 @@ def session_of(agent: dict) -> dict | None:
         "ac": tokens.get("ac") or "",
         "wake": int(tokens["wake"]) if str(tokens.get("wake", "")).isdigit() else 0,
         "model": tokens.get("model") or "",
+        "host": agent.get("agent") or "",
     }
 
 
@@ -269,6 +310,11 @@ def build_rows(numbers: list[int], tickets: dict[int, dict],
             "ac": (worker["ac"] if worker and worker["ac"] else counted_ac(ticket)) or "-",
             "wake": str(worker["wake"]) if worker else "-",
             "note": note_of(ticket, worker),
+            "head": last_first_line(ticket),
+            "closing_comment": has_closing_comment(ticket),
+            "redispatches": redispatch_count(ticket),
+            "created": ticket.get("created") or "",
+            "closed_at": ticket.get("closed_at") or "",
         })
     return rows
 
@@ -442,10 +488,27 @@ DISPATCH_LINE = "implement #{n}"
 
 # --------------------------------------------------------------------- acting
 
-WAKEUP_LIMIT = ("WAKEUP LIMIT: prompted {k} times and it stopped again at phase={phase}. "
-                "Handed back to needs-triage; the ticket stays open.")
-TIME_LIMIT = ("TIME LIMIT: {hours} h at phase={phase}. Handed back to needs-triage; the "
-              "session was left alone.")
+# Herdr is what recognises a question or approval form. This is only which key puts it
+# away, which every host spells its own way; anything else is sent `esc`.
+CLOSE_KEYS = {"grok": "shift+x", "cursor": "esc"}
+CLOSE_KEY_OTHERWISE = "esc"
+FORM_CHARS = 500                # enough of the form to read it in the morning
+FORM_LINES = 20                 # a form sits at the foot of the screen, above nothing
+
+MAIN = "mmw-main"
+MAIN_LINE = "mmw board: {case} #{n} — run board.py --once"
+
+BLOCKED = "BLOCKED: {form}"
+REDISPATCHED = ("REDISPATCHED: session issue-{n} ended at phase={phase}; started again "
+                "as {role}")
+REDISPATCH_SPENT = ("REDISPATCHED: session issue-{n} ended at phase={phase} and it had "
+                    "already been redispatched {k} time(s). Handed back to "
+                    "needs-triage; the ticket stays open.")
+WAKEUP_LIMIT = ("WAKEUP LIMIT: re-prompted {k} times and it went idle again at "
+                "phase={phase}. Handed back to needs-triage; the ticket stays open.")
+TIME_LIMIT = ("TIME LIMIT: {hours} h since dispatch, still at phase={phase}. Handed "
+              "back to needs-triage; the session was left alone.")
+NIGHT_SUMMARY = "NIGHT SUMMARY {date}"
 
 
 class Watch:
@@ -466,6 +529,9 @@ class Watch:
         self.held_since: dict[int, float] = {}
         self.wakes: dict[str, int] = {}
         self.handed_back: set[int] = set()
+        self.for_main: list[str] = []
+        self.opened = datetime.now().astimezone().isoformat()
+        self.summary_written = False
 
     # ------------------------------------------------------------- the round
 
@@ -479,14 +545,24 @@ class Watch:
                 self.round()
             except Exception as problem:
                 say("board", "error", str(problem)[:160])
+            if self.summary_written and not self.for_main:
+                return 0
             events.wait(SNAPSHOT_INTERVAL)
 
     def round(self) -> None:
+        if self.summary_written:
+            self.tell_main()
+            return
         rows, _ = collect(self.spec)
-        mine = [r for r in rows if r["worker"] and r["worker"]["dispatched"]]
-        for row in mine:
-            self.pick_up(row)
+        for row in rows:
+            if self.gone(row):
+                self.redispatch(row)
+            elif row["worker"] and row["worker"]["dispatched"]:
+                self.pick_up(row)
         self.dispatch_frontier(rows)
+        if self.nothing_left(rows):
+            self.write_summary(rows)
+        self.tell_main()
 
     def pick_up(self, row: dict) -> None:
         worker = row["worker"]
@@ -494,6 +570,9 @@ class Watch:
             # A reviewer that stops is the worker's own `dispatch.sh wait` to time out.
             return
         if self.over_time(row):
+            return
+        if worker["status"] == "blocked":
+            self.at_a_form(row)
             return
         if worker["status"] in IDLE_STATUSES:
             if worker["phase"] in CLOSED_OR_HANDOFF:
@@ -548,7 +627,8 @@ class Watch:
         if time.monotonic() - first_seen < wait:
             return
         if wake >= WAKE_LIMIT:
-            self.hand_back(row, WAKEUP_LIMIT.format(k=WAKE_LIMIT, phase=worker["phase"]))
+            self.hand_back(row, WAKEUP_LIMIT.format(k=WAKE_LIMIT, phase=worker["phase"]),
+                           case="WAKEUP LIMIT")
             return
         self.send(row, DISPATCH_LINE.format(n=row["ticket"]))
 
@@ -562,8 +642,77 @@ class Watch:
             return False
         self.hand_back(row, TIME_LIMIT.format(hours=self.max_hours,
                                               phase=row["worker"]["phase"] or "unknown"),
-                       close_pane=False)
+                       case="TIME LIMIT", close_pane=False)
         return True
+
+    def at_a_form(self, row: dict) -> None:
+        """`blocked`: a question or approval form is on screen and the discipline is
+        not to ask.
+
+        The form goes on the ticket so a person can read in the morning what the worker
+        wanted, then it is dismissed with the host's own key and the session is sent its
+        dispatch line again. Board never answers a form: sending text into one selects
+        an option rather than typing an answer.
+        """
+        worker = row["worker"]
+        pane = worker["pane_id"]
+        wake = self.prompts_so_far(worker)
+        last = self.settled_since.get(pane)
+        if last is not None and time.monotonic() - last < WAKE_BACKOFF[
+                min(wake, len(WAKE_BACKOFF) - 1)]:
+            return
+        if wake >= WAKE_LIMIT:
+            self.hand_back(row, WAKEUP_LIMIT.format(k=WAKE_LIMIT, phase=worker["phase"]),
+                           case="WAKEUP LIMIT")
+            return
+        form = form_text(herdr_text(
+            ["agent", "read", pane, "--source", "visible", "--lines", "60"]))
+        gh(["issue", "comment", str(row["ticket"]),
+            "--body", BLOCKED.format(form=form[:FORM_CHARS] or "(nothing on screen)")])
+        say(f"#{row['ticket']}", "comment", f"BLOCKED: {form[:80]}")
+        key = CLOSE_KEYS.get(worker["host"], CLOSE_KEY_OTHERWISE)
+        herdr(["agent", "send-keys", pane, key])
+        herdr(["agent", "wait", pane, "--until", "idle", "--until", "done",
+               "--timeout", "15000"])
+        say(f"#{row['ticket']}", key, "form dismissed")
+        self.settled_since[pane] = time.monotonic()
+        self.send(row, DISPATCH_LINE.format(n=row["ticket"]))
+
+    # ------------------------------------------------------------- the session is gone
+
+    def gone(self, row: dict) -> bool:
+        """`unknown`, or the pane is gone, while the ticket is still open and unclosed.
+
+        A ticket nobody ever claimed was never dispatched, so its missing pane is not a
+        session that died; the assignee the start-of-work guard sets is what tells the
+        two apart.
+        """
+        if row["state"] != "OPEN" or "ready-for-agent" not in row["labels"]:
+            return False
+        if row["closing_comment"] or row["ticket"] in self.handed_back:
+            return False
+        worker = row["worker"]
+        if worker and worker["dispatched"]:
+            return worker["status"] == "unknown"
+        return bool(row["assignees"])
+
+    def redispatch(self, row: dict) -> None:
+        number, worker = row["ticket"], row["worker"]
+        phase = (worker or {}).get("phase") or "unknown"
+        if row["redispatches"] >= REDISPATCH_LIMIT:
+            self.hand_back(row, REDISPATCH_SPENT.format(n=number, phase=phase,
+                                                        k=row["redispatches"]),
+                           case="REDISPATCHED")
+            return
+        gh(["issue", "comment", str(number),
+            "--body", REDISPATCHED.format(n=number, phase=phase, role=self.role)])
+        say(f"#{number}", "comment", f"REDISPATCHED: ended at phase={phase}")
+        if worker:
+            herdr(["pane", "close", worker["pane_id"]])
+            self.settled_since.pop(worker["pane_id"], None)
+            self.wakes.pop(worker["pane_id"], None)
+        self.held_since.pop(number, None)
+        self.start(number)
 
     # ------------------------------------------------------------- prompting
 
@@ -603,11 +752,13 @@ class Watch:
 
     # ------------------------------------------------------------- handing back
 
-    def hand_back(self, row: dict, body: str, close_pane: bool = True) -> None:
+    def hand_back(self, row: dict, body: str, case: str,
+                  close_pane: bool = True) -> None:
         number = row["ticket"]
         if number in self.handed_back:
             return
         self.handed_back.add(number)
+        self.for_main.append(MAIN_LINE.format(case=case, n=number))
         say(f"#{number}", "comment", first_line(body))
         gh(["issue", "comment", str(number), "--body", body])
         gh(["issue", "edit", str(number),
@@ -630,13 +781,85 @@ class Watch:
                 room -= 1
 
     def start(self, number: int) -> bool:
+        """Start one worker. Returns whether a session now occupies one of the places.
+
+        Exit 1 means a session is up in that pane but was never told anything: it
+        occupies a place, and the next round finds it `idle` with no `phase` and sends
+        it its dispatch line. Exit 2 means the ticket did not qualify, so it simply is
+        not on this round's frontier and the next round asks the tracker again.
+        """
         code, told, refused = run_dispatch(number, self.role)
         if code == 0:
             say(f"#{number}", "dispatch", told[:120])
             self.held_since[number] = time.monotonic()
             return True
-        say(f"#{number}", "not started", refused[:120])
+        if code == 1:
+            say(f"#{number}", "dispatch", f"up but not told: {refused[:100]}")
+            self.held_since[number] = time.monotonic()
+            return True
+        say(f"#{number}", "not dispatched", refused[:120])
         return False
+
+    # ------------------------------------------------------------- the night's end
+
+    def nothing_left(self, rows: list[dict]) -> bool:
+        """No open ticket in the agent lane, and no session of ours still alive."""
+        lane = [r for r in rows
+                if r["state"] == "OPEN" and "ready-for-agent" in r["labels"]]
+        return not lane and not held(rows)
+
+    def write_summary(self, rows: list[dict]) -> None:
+        body = self.summary(rows)
+        gh(["issue", "comment", str(self.spec), "--body", body])
+        say(f"#{self.spec}", "comment", first_line(body))
+        self.summary_written = True
+        self.for_main.append(MAIN_LINE.format(case="night over", n=self.spec))
+
+    def summary(self, rows: list[dict]) -> str:
+        """Ticket numbers and first lines. What each says is on the ticket itself."""
+        closed = [f"#{r['ticket']} {r['head'][:80]}".strip()
+                  for r in rows if r["state"] == "CLOSED" and r["closed_at"] > self.opened]
+        back = [f"#{r['ticket']} {r['head'][:80]}".strip()
+                for r in rows if r["state"] == "OPEN" and "needs-triage" in r["labels"]]
+        waiting = [f"#{r['ticket']} blocked by "
+                   + ", ".join(f"#{b}" for b in r["blockers"])
+                   for r in rows if r["state"] == "OPEN" and r["blockers"]]
+        fresh = [f"#{r['ticket']} {r['head'][:80]}".strip()
+                 for r in rows if r["created"] > self.opened]
+        return "\n".join([
+            NIGHT_SUMMARY.format(date=datetime.now().strftime("%Y-%m-%d")),
+            "",
+            "Closed: " + (", ".join(closed) or "None"),
+            "Handed back to needs-triage: " + (", ".join(back) or "None"),
+            "Not dispatched, a blocker stayed open: " + (", ".join(waiting) or "None"),
+            "Sub-issues opened tonight: " + (", ".join(fresh) or "None"),
+        ])
+
+    def tell_main(self) -> None:
+        """Re-prompt `mmw-main`, under the same conditions as any other re-prompt.
+
+        Only two cases ever reach it: a limit was reached, or the night ended. It is
+        told, never asked; it answers by running `board.py --once` and reading.
+        """
+        while self.for_main:
+            main = self.find_main()
+            if main is None:
+                say(MAIN, "absent", "nobody is named mmw-main; dropping the line")
+                self.for_main.clear()
+                return
+            if main["focused"] or main["agent_status"] not in IDLE_STATUSES:
+                return
+            line = self.for_main[0]
+            code, reason = herdr_run(["agent", "prompt", MAIN, line])
+            if code != 0:
+                say(MAIN, "refused", reason[:120])
+                return
+            say(MAIN, "prompt", line)
+            self.for_main.pop(0)
+
+    def find_main(self) -> dict | None:
+        return next((a for a in live_agents() if a.get("name") == MAIN), None)
+
 
 # --------------------------------------------------------------------- the forms
 
