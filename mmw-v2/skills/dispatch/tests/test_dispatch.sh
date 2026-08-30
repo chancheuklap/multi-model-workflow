@@ -180,7 +180,7 @@ if len(label) != 24:
 
   echo "--- the pane says who it is, to a person and to a machine"
   has "herdr :: pane :: rename :: w1:p9 :: #61 worker"
-  has "herdr :: pane :: report-metadata :: w1:p9 :: --source :: mmw :: --token :: model=cursor-grok-4.6-high :: --ttl-ms :: 86400000"
+  has "herdr :: pane :: report-metadata :: w1:p9 :: --source :: mmw :: --token :: ticket=61 :: --token :: role=worker :: --token :: model=cursor-grok-4.6-high :: --ttl-ms :: 86400000"
 }
 
 scenario_reviewer() {
@@ -201,7 +201,7 @@ scenario_reviewer() {
   has ":: --permission-mode :: bypassPermissions :: --model :: opus :: -n :: issue-61-review"
   has "herdr :: agent :: prompt :: issue-61-review :: code-review abc1234 #61"
   has "herdr :: pane :: rename :: w1:p10 :: #61 reviewer"
-  has "herdr :: pane :: report-metadata :: w1:p10 :: --source :: mmw :: --token :: model=opus"
+  has "herdr :: pane :: report-metadata :: w1:p10 :: --source :: mmw :: --token :: ticket=61 :: --token :: role=reviewer :: --token :: model=opus"
 
   echo "--- a narrow pane splits downwards"
   reset_log
@@ -408,7 +408,7 @@ open(path, "w", encoding="utf-8").writelines(out)
           bash "$copy/scripts/dispatch.sh" 61 senior-worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   has ":: -m :: grok-4.7-under-test"
-  has "herdr :: pane :: report-metadata :: w1:p9 :: --source :: mmw :: --token :: model=grok-4.7-under-test"
+  has "herdr :: pane :: report-metadata :: w1:p9 :: --source :: mmw :: --token :: ticket=61 :: --token :: role=worker :: --token :: model=grok-4.7-under-test"
   hasnt ":: -m :: grok-4.6 ::"
 }
 

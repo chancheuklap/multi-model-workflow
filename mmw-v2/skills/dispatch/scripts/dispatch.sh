@@ -219,10 +219,20 @@ dispatch() {
   herdr agent prompt "$name" "$prompt" >/dev/null \
     || give_up "$name is up in pane $pane but would not take the prompt"
 
-  local human
-  if [ "$reviewing" = 1 ]; then human="#$number reviewer"; else human="#$number worker"; fi
+  # The ticket and the role are written here rather than left to the first
+  # `verify-ticket.py` run, so that a pane which stops before that run is still
+  # readable as belonging to this ticket in this role.
+  local human token_role
+  if [ "$reviewing" = 1 ]; then
+    human="#$number reviewer"
+    token_role=reviewer
+  else
+    human="#$number worker"
+    token_role=worker
+  fi
   herdr pane rename "$pane" "$human" >/dev/null 2>&1
-  herdr pane report-metadata "$pane" --source mmw --token "model=$model" \
+  herdr pane report-metadata "$pane" --source mmw \
+    --token "ticket=$number" --token "role=$token_role" --token "model=$model" \
     --ttl-ms "$TOKEN_TTL_MS" >/dev/null 2>&1
 
   echo "$name is working on #$number in pane $pane on $model"
