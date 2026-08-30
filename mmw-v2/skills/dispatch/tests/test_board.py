@@ -85,7 +85,7 @@ class Identity(unittest.TestCase):
                                        ticket=61, role="worker", phase="implement"))
         self.assertEqual((found["ticket"], found["role"]), (61, "worker"))
 
-    def test_a_pane_that_stopped_before_its_first_run_is_still_read_off_its_name(self):
+    def test_a_pane_with_no_token_yet_is_still_read_off_its_name(self):
         found = board.session_of(agent("issue-62", "w1:p2", "idle"))
         self.assertEqual((found["ticket"], found["role"], found["phase"]), (62, "worker", ""))
 
@@ -138,14 +138,14 @@ class Rows(unittest.TestCase):
         self.assertEqual((row["agent"], row["status"], row["phase"], row["note"]),
                          ("issue-61", "working", "implement", ""))
 
-    def test_a_settled_session_short_of_the_end_is_stalled_and_counts_its_prompts(self):
+    def test_an_idle_session_short_of_closed_or_handoff_counts_its_re_prompts(self):
         row = self.row(62)
         self.assertEqual(row["ac"], "3/5")
         self.assertEqual(row["wake"], "1")
-        self.assertEqual(row["note"], "stalled, prompted 1 of 3")
+        self.assertEqual(row["note"], "re-prompted 1 of 3")
 
-    def test_a_blocked_session_says_the_question_is_on_the_ticket(self):
-        self.assertEqual(self.row(63)["note"], "QUESTION commented")
+    def test_a_blocked_session_says_the_form_is_on_the_ticket(self):
+        self.assertEqual(self.row(63)["note"], "BLOCKED: commented, form dismissed")
 
     def test_a_closed_ticket_keeps_its_counts_and_says_its_pane_is_gone(self):
         row = self.row(64)
@@ -155,7 +155,7 @@ class Rows(unittest.TestCase):
     def test_a_blocked_ticket_names_what_it_waits_on(self):
         self.assertEqual(self.row(65)["note"], "waiting on #62")
 
-    def test_the_frontier_leaves_out_what_is_held_claimed_blocked_or_done(self):
+    def test_the_frontier_leaves_out_what_is_held_claimed_or_blocked(self):
         self.assertEqual([r["ticket"] for r in board.frontier(self.rows())], [])
 
     def test_only_the_dispatchers_own_sessions_count_against_the_parallel_cap(self):
@@ -172,23 +172,24 @@ class Rows(unittest.TestCase):
         self.assertEqual([r["ticket"] for r in board.frontier(rows)], [70])
 
 
-class Stalled(unittest.TestCase):
-    """`idle`/`done` with a phase short of either exit is the one machine-made call."""
+class IdleAndNotClosedOrHandoff(unittest.TestCase):
+    """The one judgement board.py makes about a session, from two machine-read facts."""
 
-    def test_settled_short_of_the_end(self):
+    def test_idle_or_done_with_any_other_phase(self):
         for status in ("idle", "done"):
-            self.assertTrue(board.stalled(board.session_of(
-                agent("issue-62", "w1:p2", status, ticket=62, role="worker",
-                      phase="selfcheck"))))
+            for phase in ("", "implement", "selfcheck", "verify", "closeout-rejected"):
+                self.assertTrue(board.idle_and_not_closed_or_handoff(board.session_of(
+                    agent("issue-62", "w1:p2", status, ticket=62, role="worker",
+                          phase=phase))))
 
-    def test_settled_at_the_end_is_not_stalled(self):
+    def test_closed_or_handoff_is_not(self):
         for phase in ("closed", "handoff"):
-            self.assertFalse(board.stalled(board.session_of(
+            self.assertFalse(board.idle_and_not_closed_or_handoff(board.session_of(
                 agent("issue-62", "w1:p2", "idle", ticket=62, role="worker",
                       phase=phase))))
 
-    def test_working_is_never_stalled(self):
-        self.assertFalse(board.stalled(board.session_of(
+    def test_working_is_not(self):
+        self.assertFalse(board.idle_and_not_closed_or_handoff(board.session_of(
             agent("issue-62", "w1:p2", "working", ticket=62, role="worker",
                   phase="selfcheck"))))
 
@@ -203,96 +204,20 @@ class TicketReading(unittest.TestCase):
     def test_a_ticket_with_no_run_has_no_counts(self):
         self.assertEqual(board.counted_ac(ticket(62)), "-")
 
-    def test_the_unmet_criteria_are_read_in_ticket_order(self):
-        self.assertEqual(board.unmet_criteria(SELF_RUN_UNMET), ["AC3", "AC5"])
-        self.assertEqual(board.unmet_criteria(SELF_RUN_ALL_MET), [])
-
     def test_the_newest_comment_of_a_kind_wins(self):
         found = board.newest_with_first_line(
             ticket(62, comments=[SELF_RUN_UNMET, VERDICT, SELF_RUN_ALL_MET]),
             "self-run", "reverify")
         self.assertEqual(board.first_line(found), "self-run")
-        self.assertEqual(board.unmet_criteria(found), [])
+        self.assertEqual(board.counted_ac(ticket(62, comments=[SELF_RUN_UNMET, VERDICT,
+                                                              SELF_RUN_ALL_MET])), "5/5")
 
 
-REVERIFY_NO_VERDICT_COMMENT = "reverify\nUNMET: 0 (met: 5)\n\n- [x] AC1: one"
-REVIEW = "REVIEW abc1234..def5678\nNo findings inside the ticket."
-REVIEW_TIMEOUT = ("issue-61-review did not report back within 1800s. This round was "
-                  "skipped and the ticket carried on.")
+class ThePrompt(unittest.TestCase):
+    """The only thing board.py ever says to a worker."""
 
-
-class Sentences(unittest.TestCase):
-    """The whole of the table board.py speaks from. No model, no new instruction."""
-
-    def said(self, phase, comments, number=62):
-        return board.sentence(ticket(number, comments=comments), phase, cwd="")
-
-    def test_no_phase_and_no_run_yet(self):
-        for phase in ("", "implement"):
-            self.assertEqual(
-                self.said(phase, []),
-                "implement #62 — continue. The ticket has no self-run yet; the next "
-                "step is verify-ticket.py 62.")
-
-    def test_a_self_run_with_unmet_criteria_names_them_and_the_three_round_cap(self):
-        self.assertEqual(
-            self.said("selfcheck", [SELF_RUN_UNMET]),
-            "implement #62 — continue from step 1. The last self-run left 2 unmet: "
-            "AC3, AC5. Fix, then run verify-ticket.py 62 again. A criterion still "
-            "failing after three self-runs is ABANDON failed.")
-
-    def test_a_self_run_with_nothing_unmet_sends_it_to_the_verifier(self):
-        self.assertEqual(
-            self.said("selfcheck", [SELF_RUN_ALL_MET]),
-            "implement #62 — continue from step 2: dispatch the verifier with the "
-            "prompt verify #62.")
-
-    def test_a_verdict_is_quoted_by_its_level_and_points_at_the_review_round(self):
-        said = self.said("verify", [SELF_RUN_ALL_MET, VERDICT])
-        self.assertTrue(said.startswith(
-            "implement #62 — continue from step 3. The VERDICT on the ticket is "
-            "unit-test-verified. Next is one round of code review: dispatch.sh 62 "
-            "reviewer "))
-
-    def test_a_review_report_points_at_the_audit_and_the_closeout(self):
-        self.assertEqual(
-            self.said("verify", [VERDICT, REVIEW]),
-            "implement #62 — continue from step 4: audit, draft the closing comment, "
-            "push, then verify-ticket.py 62 --closeout <draft>.")
-
-    def test_a_reverify_that_left_no_verdict_is_sent_back_to_read_it(self):
-        self.assertEqual(
-            self.said("verify", [REVERIFY_NO_VERDICT_COMMENT]),
-            "implement #62 — continue from step 2. The verifier ran but left no "
-            "VERDICT; read its report and act on it.")
-
-    def test_a_refused_closeout_names_the_dry_run(self):
-        self.assertEqual(
-            self.said("closeout-rejected", [SELF_RUN_ALL_MET]),
-            "implement #62 — continue from step 7. --closeout was refused: run "
-            "verify-ticket.py 62 --closeout --check-only, fix what its first line "
-            "names, run --closeout again.")
-
-    def test_a_review_round_nobody_came_back_from_is_skipped_whatever_the_phase(self):
-        for phase in ("", "implement", "selfcheck", "verify", "closeout-rejected"):
-            self.assertEqual(self.said(phase, [SELF_RUN_UNMET, REVIEW_TIMEOUT]),
-                             "implement #62 — continue from step 4; the review round "
-                             "was skipped.")
-
-    def test_the_do_not_ask_sentence_carries_the_working_discipline_and_nothing_new(self):
-        self.assertEqual(
-            board.DO_NOT_ASK.format(n=62),
-            'implement #62 — continue. Do not ask: the ticket and the sections it '
-            'names are the whole brief. Pick a default, record it under "Decisions I '
-            'made on my own", and open a sub-issue if the contract does not fit.')
-
-    def test_every_sentence_is_the_dispatch_line_plus_facts_off_the_ticket(self):
-        for phase, comments in (("", []), ("selfcheck", [SELF_RUN_UNMET]),
-                                ("selfcheck", [SELF_RUN_ALL_MET]),
-                                ("verify", [VERDICT]), ("verify", [REVIEW]),
-                                ("verify", [REVERIFY_NO_VERDICT_COMMENT]),
-                                ("closeout-rejected", [])):
-            self.assertTrue(self.said(phase, comments).startswith("implement #62 — "))
+    def test_it_is_the_dispatch_line_and_nothing_else(self):
+        self.assertEqual(board.DISPATCH_LINE.format(n=62), "implement #62")
 
 
 class Table(unittest.TestCase):
@@ -307,15 +232,16 @@ class Table(unittest.TestCase):
 
     def test_the_first_line_names_the_time_the_spec_the_count_and_the_parallel_cap(self):
         self.assertEqual(self.table().splitlines()[0],
-                         "mmw board · 02:14 · spec #60 · 2 tickets · parallel 1/2")
+                         "mmw board · 02:14 · spec #60 · 2 tickets · PARALLEL 1/2")
 
     def test_without_a_spec_the_first_line_leaves_that_field_out(self):
         self.assertEqual(self.table(spec=None).splitlines()[0],
-                         "mmw board · 02:14 · 2 tickets · parallel 1/2")
+                         "mmw board · 02:14 · 2 tickets · PARALLEL 1/2")
 
     def test_the_columns_are_the_fixed_seven(self):
         self.assertEqual(self.table().splitlines()[2].split(),
-                         ["ticket", "agent", "status", "phase", "ac", "wake", "note"])
+                         ["ticket", "agent", "agent_status", "phase", "ac",
+                          "wake", "note"])
 
     def test_one_line_per_ticket_in_ticket_order(self):
         body = self.table().splitlines()[3:]
@@ -413,7 +339,7 @@ class Table4(unittest.TestCase):
 
     # ------------------------------------------------------------- at the end
 
-    def test_a_session_at_either_exit_has_its_pane_closed(self):
+    def test_a_session_whose_phase_is_closed_or_handoff_has_its_pane_closed(self):
         for phase in ("closed", "handoff"):
             with self.subTest(phase=phase):
                 self.calls["herdr"].clear()
@@ -425,37 +351,33 @@ class Table4(unittest.TestCase):
                 self.assertIn("#61", printed)
                 self.assertEqual(self.calls["prompt"], [])
 
-    # ------------------------------------------------------------- stopped short
+    # ------------------------------ idle, phase not closed and not handoff
 
-    def stalled_world(self, wake=0, phase="selfcheck", status="idle", **extra):
+    def idle_world(self, wake=0, phase="selfcheck", status="idle", **extra):
         self.world([agent("issue-61", "w1:p1", status, ticket=61, role="worker",
                           phase=phase, ac="1/2", wake=wake, **extra)],
                    {61: ticket(61, assignees=("me",), comments=[SELF_RUN_UNMET])})
 
-    def test_the_first_settled_round_only_starts_the_cooldown(self):
-        self.stalled_world()
+    def test_the_first_idle_round_only_starts_the_cooldown(self):
+        self.idle_world()
         watch = self.watch()
         printed = self.round(watch)
         self.assertEqual(self.calls["prompt"], [])
-        self.assertIn("cooldown 120s", printed)
+        self.assertIn("COOLDOWN 120s", printed)
 
-    def test_after_the_cooldown_it_is_told_the_sentence_for_its_phase(self):
-        self.stalled_world()
+    def test_after_the_cooldown_it_is_sent_its_own_dispatch_line(self):
+        self.idle_world()
         watch = self.watch()
         self.round(watch)
         self.clock.tick(board.COOLDOWN_SECONDS)
         self.round(watch)
-        self.assertEqual(len(self.calls["prompt"]), 1)
-        pane, text = self.calls["prompt"][0]
-        self.assertEqual(pane, "w1:p1")
-        self.assertTrue(text.startswith("implement #61 — continue from step 1."))
-        self.assertIn("AC3, AC5", text)
+        self.assertEqual(self.calls["prompt"], [("w1:p1", "implement #61")])
 
     def test_the_wait_before_each_prompt_grows(self):
         for wake, wait in enumerate(board.WAKE_BACKOFF):
             with self.subTest(wake=wake):
                 self.calls["prompt"].clear()
-                self.stalled_world(wake=wake)
+                self.idle_world(wake=wake)
                 watch = self.watch()
                 self.round(watch)
                 self.clock.tick(wait - 1)
@@ -466,7 +388,7 @@ class Table4(unittest.TestCase):
                 self.assertEqual(len(self.calls["prompt"]), 1)
 
     def test_the_count_of_prompts_is_written_on_the_pane(self):
-        self.stalled_world(wake=1)
+        self.idle_world(wake=1)
         watch = self.watch()
         self.round(watch)
         self.clock.tick(board.WAKE_BACKOFF[1])
@@ -476,7 +398,7 @@ class Table4(unittest.TestCase):
                       self.calls["herdr"])
 
     def test_at_the_third_prompt_the_ticket_goes_back_to_be_judged(self):
-        self.stalled_world(wake=board.WAKE_LIMIT)
+        self.idle_world(wake=board.WAKE_LIMIT)
         watch = self.watch()
         self.round(watch)
         self.clock.tick(max(board.WAKE_BACKOFF))
@@ -488,7 +410,7 @@ class Table4(unittest.TestCase):
                        "--add-label", "needs-triage"], self.calls["gh"])
 
     def test_a_token_that_has_not_come_round_yet_does_not_earn_a_second_prompt(self):
-        self.stalled_world()
+        self.idle_world()
         watch = self.watch()
         self.round(watch)
         self.clock.tick(board.COOLDOWN_SECONDS)
@@ -503,7 +425,7 @@ class Table4(unittest.TestCase):
         self.assertEqual(len(self.calls["prompt"]), 2)
 
     def test_a_focused_pane_is_never_prompted(self):
-        self.stalled_world()
+        self.idle_world()
         self.agents[0]["focused"] = True
         watch = self.watch()
         self.round(watch)
@@ -512,7 +434,7 @@ class Table4(unittest.TestCase):
         self.assertEqual(self.calls["prompt"], [])
 
     def test_a_pane_that_went_back_to_work_is_not_prompted(self):
-        self.stalled_world()
+        self.idle_world()
         watch = self.watch()
         self.round(watch)
         self.agents[0]["agent_status"] = "working"
@@ -521,7 +443,7 @@ class Table4(unittest.TestCase):
         self.assertEqual(self.calls["prompt"], [])
 
     def test_a_pane_holding_a_different_session_now_is_not_prompted(self):
-        self.stalled_world()
+        self.idle_world()
         watch = self.watch()
         self.round(watch)
         self.agents[0]["agent_session"] = {"value": "somebody-else"}
@@ -542,7 +464,7 @@ class Table4(unittest.TestCase):
     # ------------------------------------------------------------- the time limit
 
     def test_a_ticket_that_held_a_session_too_long_goes_back_and_keeps_its_session(self):
-        self.stalled_world(phase="verify")
+        self.idle_world(phase="verify")
         watch = self.watch()
         self.round(watch)
         self.clock.tick(4 * 3600 + 1)
@@ -553,7 +475,7 @@ class Table4(unittest.TestCase):
                        "--add-label", "needs-triage"], self.calls["gh"])
         self.assertNotIn(["pane", "close", "w1:p1"], self.calls["herdr"])
 
-    def test_a_session_that_reached_the_end_is_past_the_time_limit(self):
+    def test_a_session_whose_phase_is_closed_is_past_the_time_limit(self):
         self.world([agent("issue-61", "w1:p1", "idle", ticket=61, role="worker",
                           phase="closed")], {61: ticket(61, state="CLOSED", labels=())})
         watch = self.watch()
@@ -579,7 +501,7 @@ class Table4(unittest.TestCase):
         self.assertEqual(self.calls["dispatch"], [(70, "junior-worker")])
 
     def test_a_ticket_already_handed_back_is_not_started_again(self):
-        self.stalled_world(wake=board.WAKE_LIMIT)
+        self.idle_world(wake=board.WAKE_LIMIT)
         watch = self.watch()
         self.round(watch)
         self.clock.tick(max(board.WAKE_BACKOFF))

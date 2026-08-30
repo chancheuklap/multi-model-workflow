@@ -10,9 +10,10 @@ truth to reconcile. `--once` is what an agent runs when it wants the whole pictu
 one screen. The argument-less form is what a person leaves open in a tab: it appends,
 never redraws, and never enters the alternate screen, so its lines stay in the host's
 scrollback where `herdr pane read` can still reach them. `--watch` is the one form that
-does anything: it dispatches the frontier, picks up sessions that stopped short of
-either exit, and hands back the tickets that hit a limit. Nothing it does needs a
-model — every sentence it sends is in the table below.
+does anything: it dispatches the frontier, re-prompts a session that is `idle` with a
+`phase` other than `closed` or `handoff`, and hands back the tickets that reached a
+limit. Nothing it does needs a model, because the only thing it ever says to a worker
+is that worker's own dispatch line.
 
 The two sources are the tracker and Herdr, and nothing else. There is no state file:
 every round is a full re-read, so a dropped connection or a restart loses nothing.
@@ -43,11 +44,12 @@ SNAPSHOT_INTERVAL = 60          # seconds between full re-reads when no event ar
 
 # --------------------------------------------------------------------- vocabulary
 
-# The phases at which a worker has finished with its ticket, one way or the other.
-TERMINAL_PHASES = ("closed", "handoff")
+# The two `phase` values the closing gate writes. Every other value means the ticket
+# has not been through it.
+CLOSED_OR_HANDOFF = ("closed", "handoff")
 
-# Herdr's five lifecycle words. `idle` and `done` are the same underlying state.
-SETTLED_STATUSES = ("idle", "done")
+# `done` is the same underlying idle state, after unseen background work finished.
+IDLE_STATUSES = ("idle", "done")
 
 TOKEN_TTL_MS = 86400000         # a day, so a night's run never outlives its metadata
 
@@ -173,7 +175,6 @@ def newest_with_first_line(ticket: dict, *prefixes: str) -> str:
 
 
 UNMET_RE = re.compile(r"^UNMET:\s*(\d+)\s*\(met:\s*(\d+)\)")
-UNTICKED_RE = re.compile(r"^-\s\[\s\]\s+(AC\d+):")
 
 
 def counted_ac(ticket: dict) -> str:
@@ -186,11 +187,6 @@ def counted_ac(ticket: dict) -> str:
             return f"{met}/{met + unmet}"
     return "-"
 
-
-def unmet_criteria(body: str) -> list[str]:
-    """The criteria a self-run left unticked, in ticket order."""
-    return [m.group(1) for m in
-            (UNTICKED_RE.match(line.strip()) for line in body.splitlines()) if m]
 
 # --------------------------------------------------------------------- the sessions
 
@@ -285,11 +281,15 @@ def phase_of(ticket: dict, worker: dict | None) -> str:
     return "-"
 
 
-def stalled(worker: dict | None) -> bool:
-    """A settled session that has not reached either exit is a session that stopped."""
+def idle_and_not_closed_or_handoff(worker: dict | None) -> bool:
+    """`idle` or `done`, with a `phase` that is neither `closed` nor `handoff`.
+
+    Both halves are machine-read: the lifecycle state comes from Herdr, the phase from
+    the token the ticket script writes. Nothing on screen is consulted.
+    """
     return bool(worker
-                and worker["status"] in SETTLED_STATUSES
-                and worker["phase"] not in TERMINAL_PHASES)
+                and worker["status"] in IDLE_STATUSES
+                and worker["phase"] not in CLOSED_OR_HANDOFF)
 
 
 def note_of(ticket: dict, worker: dict | None) -> str:
@@ -297,15 +297,15 @@ def note_of(ticket: dict, worker: dict | None) -> str:
     head = last_first_line(ticket)
     if worker:
         if worker["status"] == "blocked":
-            return "QUESTION commented"
+            return "BLOCKED: commented, form dismissed"
         if worker["status"] == "unknown":
-            return "session gone"
-        if worker["status"] in SETTLED_STATUSES:
-            if worker["phase"] in TERMINAL_PHASES:
+            return "unknown"
+        if worker["status"] in IDLE_STATUSES:
+            if worker["phase"] in CLOSED_OR_HANDOFF:
                 return head[:60]
             if worker["wake"]:
-                return f"stalled, prompted {worker['wake']} of {WAKE_LIMIT}"
-            return "stalled"
+                return f"re-prompted {worker['wake']} of {WAKE_LIMIT}"
+            return ""
         return ""
     if ticket.get("state") == "CLOSED":
         return (head[:60] + ", pane closed").strip(", ")
@@ -335,7 +335,7 @@ def frontier(rows: list[dict]) -> list[dict]:
 
 # --------------------------------------------------------------------- output
 
-COLUMNS = (("ticket", 8), ("agent", 18), ("status", 9),
+COLUMNS = (("ticket", 8), ("agent", 18), ("agent_status", 14),
            ("phase", 19), ("ac", 7), ("wake", 6), ("note", 0))
 
 
@@ -354,14 +354,14 @@ def render_table(rows: list[dict], spec: int | None, now: datetime,
     if spec:
         head.append(f"spec #{spec}")
     head.append(f"{len(rows)} tickets")
-    head.append(f"parallel {live}/{parallel}")
+    head.append(f"PARALLEL {live}/{parallel}")
     lines = [" · ".join(head), ""]
     lines.append(render_row({name: name for name, _ in COLUMNS}))
     for row in rows:
         lines.append(render_row({
             "ticket": f"#{row['ticket']}",
             "agent": row["agent"],
-            "status": row["status"],
+            "agent_status": row["status"],
             "phase": row["phase"],
             "ac": row["ac"],
             "wake": row["wake"],
@@ -431,80 +431,14 @@ class Events:
                 self.woke.set()
         conn.close()
 
-# --------------------------------------------------------------------- the sentences
+# --------------------------------------------------------------------- the prompt
 
-# What a session that stopped short of its exit is told. Every one of these is
-# `implement #<n>` plus fields copied off the ticket; not one word of it is a new
-# instruction, because the worker already carries the whole method in its own skill.
-NO_SELF_RUN_YET = ("implement #{n} — continue. The ticket has no self-run yet; the next "
-                   "step is verify-ticket.py {n}.")
-SELF_RUN_UNMET = ("implement #{n} — continue from step 1. The last self-run left {m} "
-                  "unmet: {criteria}. Fix, then run verify-ticket.py {n} again. A "
-                  "criterion still failing after three self-runs is ABANDON failed.")
-SELF_RUN_ALL_MET = ("implement #{n} — continue from step 2: dispatch the verifier with "
-                    "the prompt verify #{n}.")
-AFTER_VERDICT = ("implement #{n} — continue from step 3. The VERDICT on the ticket is "
-                 "{level}. Next is one round of code review: dispatch.sh {n} reviewer "
-                 "{base}.")
-AFTER_REVIEW = ("implement #{n} — continue from step 4: audit, draft the closing "
-                "comment, push, then verify-ticket.py {n} --closeout <draft>.")
-REVERIFY_NO_VERDICT = ("implement #{n} — continue from step 2. The verifier ran but left "
-                       "no VERDICT; read its report and act on it.")
-CLOSEOUT_REJECTED = ("implement #{n} — continue from step 7. --closeout was refused: run "
-                     "verify-ticket.py {n} --closeout --check-only, fix what its first "
-                     "line names, run --closeout again.")
-REVIEW_SKIPPED = "implement #{n} — continue from step 4; the review round was skipped."
-DO_NOT_ASK = ("implement #{n} — continue. Do not ask: the ticket and the sections it "
-              "names are the whole brief. Pick a default, record it under \"Decisions I "
-              "made on my own\", and open a sub-issue if the contract does not fit.")
-
-REVIEW_TIMED_OUT = "did not report back within"
-
-
-def merge_base(cwd: str) -> str:
-    """Where a review of this session's work starts: the same commit `--closeout` uses."""
-    try:
-        run = subprocess.run(["git", "-C", cwd or ".", "merge-base", "main", "HEAD"],
-                             capture_output=True, text=True, timeout=20)
-        return run.stdout.strip() if run.returncode == 0 else "<base-commit>"
-    except Exception:
-        return "<base-commit>"
-
-
-def sentence(ticket: dict, phase: str, cwd: str = "") -> str:
-    """The one thing to say to a session on this ticket at this phase.
-
-    Read off the phase and the first line of the ticket's newest comment, in that
-    order, so that two boards looking at one ticket would say the same thing.
-    """
-    number = ticket["number"]
-    head = last_first_line(ticket)
-
-    if REVIEW_TIMED_OUT in head:
-        return REVIEW_SKIPPED.format(n=number)
-
-    if phase == "closeout-rejected":
-        return CLOSEOUT_REJECTED.format(n=number)
-
-    if phase == "selfcheck":
-        body = newest_with_first_line(ticket, "self-run", "reverify")
-        unmet = unmet_criteria(body)
-        if unmet:
-            return SELF_RUN_UNMET.format(n=number, m=len(unmet),
-                                         criteria=", ".join(unmet))
-        return SELF_RUN_ALL_MET.format(n=number)
-
-    if phase == "verify":
-        if head.startswith("VERDICT"):
-            fields = head.split()
-            level = fields[2] if len(fields) > 2 else "unreadable"
-            return AFTER_VERDICT.format(n=number, level=level, base=merge_base(cwd))
-        if head.startswith("REVIEW"):
-            return AFTER_REVIEW.format(n=number)
-        if head.startswith("reverify"):
-            return REVERIFY_NO_VERDICT.format(n=number)
-
-    return NO_SELF_RUN_YET.format(n=number)
+# What a session that is `idle` with a `phase` other than `closed` or `handoff` is sent:
+# its own dispatch line, and not one word more. Where it got to is on the ticket — the
+# `self-run`, `VERDICT` and `REVIEW` comments and the `phase` token say it — and the
+# ticket is the only place that is kept. The skill it is already running is what tells
+# it to carry on from the newest of those rather than start the closing steps again.
+DISPATCH_LINE = "implement #{n}"
 
 # --------------------------------------------------------------------- acting
 
@@ -561,21 +495,26 @@ class Watch:
             return
         if self.over_time(row):
             return
-        if worker["status"] in SETTLED_STATUSES:
-            if worker["phase"] in TERMINAL_PHASES:
-                self.at_the_end(row)
+        if worker["status"] in IDLE_STATUSES:
+            if worker["phase"] in CLOSED_OR_HANDOFF:
+                self.close_its_pane(row)
             else:
-                self.stopped_short(row)
+                self.re_prompt(row)
             return
         if worker["status"] == "working":
             self.settled_since.pop(worker["pane_id"], None)
 
     # ------------------------------------------------------------- the rows of §4
 
-    def at_the_end(self, row: dict) -> None:
-        """Closed or handed over. Close the pane: the reader is on the tracker."""
+    def close_its_pane(self, row: dict) -> None:
+        """`phase` is `closed` or `handoff`: the closing comment is already on the ticket.
+
+        The pane goes, and with it the tab and the `issue-<n>` name. The reader is on
+        GitHub, not in Herdr.
+        """
         worker = row["worker"]
-        say(f"#{row['ticket']}", "end", f"phase={worker['phase']}  {row['note']}")
+        say(f"#{row['ticket']}", worker["status"],
+            f"phase={worker['phase']}  {row['note']}")
         herdr(["pane", "close", worker["pane_id"]])
         self.settled_since.pop(worker["pane_id"], None)
         self.held_since.pop(row["ticket"], None)
@@ -590,8 +529,12 @@ class Watch:
         """
         return max(worker["wake"], self.wakes.get(worker["pane_id"], 0))
 
-    def stopped_short(self, row: dict) -> None:
-        """Settled with a phase short of either exit: wait a cooldown, then say one line."""
+    def re_prompt(self, row: dict) -> None:
+        """`idle` with a `phase` other than `closed` or `handoff`.
+
+        A host's idle can be nothing but a gap between turns, so wait
+        `COOLDOWN_SECONDS`, confirm it is still idle, and then send the dispatch line.
+        """
         worker = row["worker"]
         pane = worker["pane_id"]
         wake = self.prompts_so_far(worker)
@@ -600,24 +543,20 @@ class Watch:
         if first_seen is None:
             self.settled_since[pane] = time.monotonic()
             say(f"#{row['ticket']}", worker["status"],
-                f"phase={worker['phase']} ac={row['ac']}  cooldown {wait}s")
+                f"phase={worker['phase']} ac={row['ac']}  COOLDOWN {wait}s")
             return
         if time.monotonic() - first_seen < wait:
             return
         if wake >= WAKE_LIMIT:
             self.hand_back(row, WAKEUP_LIMIT.format(k=WAKE_LIMIT, phase=worker["phase"]))
             return
-        ticket = read_ticket(row["ticket"])
-        text = sentence(ticket, worker["phase"], worker["cwd"])
-        say(f"#{row['ticket']}", "read",
-            f"newest comment {last_first_line(ticket) or '(none)'}"[:120])
-        self.send(row, text)
+        self.send(row, DISPATCH_LINE.format(n=row["ticket"]))
 
     def over_time(self, row: dict) -> bool:
         """Held longer than a ticket may hold a session. Hand it back; leave it running."""
         number = row["ticket"]
         started = self.held_since.setdefault(number, time.monotonic())
-        if row["worker"]["phase"] in TERMINAL_PHASES:
+        if row["worker"]["phase"] in CLOSED_OR_HANDOFF:
             return False
         if time.monotonic() - started < self.max_hours * 3600:
             return False
@@ -644,12 +583,12 @@ class Watch:
         if fresh.get("focused"):
             say(f"#{row['ticket']}", "hold", "its pane is focused")
             return
-        if status not in SETTLED_STATUSES:
+        if status not in IDLE_STATUSES:
             say(f"#{row['ticket']}", "hold", f"it is {status} again")
             self.settled_since.pop(worker["pane_id"], None)
             return
         wake = self.prompts_so_far(worker) + 1
-        say(f"#{row['ticket']}", "prompt", f"{wake} of {WAKE_LIMIT}: {text}")
+        say(f"#{row['ticket']}", "prompt", f"{text} (wake={wake})")
         code, reason = herdr_run(["agent", "prompt", worker["pane_id"], text])
         if code != 0:
             say(f"#{row['ticket']}", "refused", reason[:120] or "the prompt was refused")
