@@ -266,6 +266,12 @@
 - 用户裁决：用真实的票跑一遍，「但是不要用这么奇怪的词汇」（P2）。
 - 结论：先写进正文，用第一张真实的票跑一遍；真票跑出具体问题再针对那一句做对照实验。`10` §5 第 2 条已改写。
 
+### C2 打补丁：reviewer 与 worker 都先问「同样效果能不能用更少」
+
+- 问题：reviewer 的 suggestion 天然是「加一个 guard」，worker 在收尾步 3 照加；worker 第一次写码也只有「grep 调用方」一种形状，没有「加分支前先删已有分支」。六个参考项目里只有 pstack 两侧都有机制（`interrogate/references/code-quality-review.md:21` reviewer 主动找 code judo；`playbooks/refactoring.md:10` worker 先删后加），grok 只给 worker `wontfix`，ponytail 只有 `ponytail-review` 删除清单，unlazy、swarm-forge、mattpocock 无。
+- 迭代：第一版加第四个轴 Shape，用户问「又要加一个 reviewer？」——理由（judgement call 进不了 in-ticket）不成立，分拣只看碰不碰 AC；并进 Standards。第二版带 `wontfix:`，用户问「为什么会要用到 wontfix」——`Decisions I made on my own` 已是落点，且没有 re-review、`wontfix` 与 triage 标签撞词；删。第三版再删标签、`net:` 行、reviewer 侧重抄四样禁删、`skipped:` 强制留痕。
+- 结论：`standards-reviewer.md` 第 1 句改成两个问题，§3 两条规则后加一段「每个 hunk 问一次能否更少、写得出更短形态才算」；`implement/SKILL.md` 五句第 1 句并入「加分支前点名并删掉它让其多余的」，步 3 加「under the same rules as the first write」；`CONTEXT.md` Standards 轴与五句第 1 句定义各补半句；`11` S7 图第 1 格同步；merge-note 两份。验证沿用 C1：第一张真实的票跑一遍。
+
 ## 块 D · UI 基线与工具
 
 ### D1 prototype 产物怎么进 Claude Design；`claude-design-blocks` 要改
@@ -448,7 +454,7 @@ merge-note 与正文一致性 canary（「关键句」无法机械定义）；�
 
 1. **一张票一个 tab**。`dispatch.sh <n> worker` 的第一步是 `herdr tab create --workspace "$HERDR_WORKSPACE_ID" --cwd <仓库根> --label "#<n> <标题前 20 字>" --env MMW_TICKET=<n> --no-focus`，用返回的 `.result.root_pane.pane_id` 直接 `agent start`；worker 在根 pane，收尾时的 reviewer 会话在同一个 tab 分屏，方向按 `herdr pane layout` 的 `area.width` 判（≥160 向右，否则向下）。不为夜里的票另开 workspace。（`14` §2.2–§2.5）
 2. **四个命名位各管一件事**：`agent name` = `issue-<n>` / `issue-<n>-review`（CLI 定位句柄，可预测，唤醒方不必查表）；`pane label` = `#<n> worker`（人眼）；`tab label` = 票号加标题（人眼）；token = 机读台账。`herdr agent rename` 让命名不必发生在 `agent start` 那一刻。（`14` §3）
-3. **phase token 由 `verify-ticket.py` 写**，取值 `implement|selfcheck|verify|closed|handoff|closeout-rejected`，连同 `ticket`/`role`/`ac`/`model` 一起，`--ttl-ms 86400000`；`HERDR_ENV` 不为 1 或 `HERDR_PANE_ID` 为空时整段跳过，socket 失败不影响退出码。它让「`agent_status` 是 idle 但 phase 不是 `closed`/`handoff`」= 半路停了，可机器判定。技能正文不改，worker 无感。（`14` §4.1–§4.2）
+3. **phase token 由 `verify-ticket.py` 写**，取值 `implement|selfcheck|verify|closed|handoff|closeout-rejected`，连同 `ticket`/`role`/`ac`/`model` 一起，`--ttl-ms 86400000`；`HERDR_ENV` 不为 1 或 `HERDR_PANE_ID` 为空时整段跳过，socket 失败不影响退出码。它让「`agent_status` 是 idle 但 phase 不是 `closed`/`handoff`」= `idle` 而 `phase` 未到 `closed`/`handoff`，可机器判定。技能正文不改，worker 无感。（`14` §4.1–§4.2）
 4. **`dispatch.sh wait` 内部用 `herdr agent wait` 加一次 `gh` 确认**，不再每 30 秒轮询；调用形不变。（`14` §4.3）
 5. **`hook.py` 的票号优先取 `$MMW_TICKET`**（由 `tab create --env` 注入，已实测能到达 pane 里的 agent 进程），取不到再按分支名 `issue-<n>` 匹配。（`14` §6）
 
@@ -573,3 +579,80 @@ merge-note 与正文一致性 canary（「关键句」无法机械定义）；�
 - 连带的三件事都不必再做：跑标准那一步不用改（不会再有没有命令的标准落进去）；`agents/verifier/body.md` 那句话重新变成真话，一个字不动；`ready-for-human` 的票也不是被回读豁免，而是核对它自己该有的东西（是哪一类、看什么、什么算对、边连得对不对）。
 - 代价（明记）：评价类的判断从「过不了就别关票」降到 code review 的「看一眼、修一轮」。若将来某类评价必须挡住关票，那是另一个决定——让 code review 的结果进关票门——不在本条范围。
 - 落点：`to-tickets/SKILL.md` 第 4 步与第 8 步、两份模板（八处）；`gate-lint.mjs` 的 `manual-gate` 由 warn 升为 error 并改写提示，记进 `scripts/gate-check/UPSTREAM.md`；`verify-ticket.py` 的 `run_lint` 去掉 `--strict`，退出码只由 ERROR 决定；`CONTEXT.md` 新增「五问」「`reaction`」「`reach`」三条、改 `ready-for-human` 与 linter 的两条；`mmw-v2/merge-notes/to-tickets.md`；#68 的 AC3、AC5、AC9、AC10。`05-runnable-acceptance-gates.md` §3.1 与 §8.2 是调查记录，原文保留。
+
+## 块 J · 夜间编排主循环（2026-08-31）
+
+起因：#87 把 #64 拿掉的「半途不许停」挪成唤醒闭环，留下四件待定；用户 2026-08-30 要求不止落地 #87，而是把 `to-tickets` 之后整条流水线无人值守跑到早上这一步设计完整。方案全文 `17-night-loop.md`（下称 `17`），蓝图页第二张 `17-night-loop.html`，总蓝图 `11-target-pipeline.html` 第 4b 节。先验实测见 `17` §10。用词取自根 `CONTEXT.md` Dispatch 节（J11）。
+
+### J1 唤醒闭环的查表（#87 第 1 件）
+
+- 现状：`15` §5 六行是提议；H1 第 3 条给出判据「`agent_status` 是 idle 但 phase 不是 `closed`/`handoff`」= `idle` 而 `phase` 未到 `closed`/`handoff`。
+- 裁决：**`15` §5 六行全部采用，另加四行**（`dispatch.sh` 退出 1、退出 2、`MAX_HOURS` 的 `TIME LIMIT:`、夜间结束写 `NIGHT SUMMARY`）；六行之内改三处——`closeout-rejected` 归入 `idle` 而 `phase` 未到 `closed`/`handoff`；`unknown` 或 pane 消失 → 重派一次、同角色、不升级（`10` §3.a.4）；`blocked` → `board.py` 评论 `BLOCKED:`、按宿主的关闭键关表单（grok `shift+x`、cursor `esc`，实测关掉后都续得上）、重新 prompt 派发词、`wake` 加一，不替答（实测 `send-text` + `enter` 让表单选了第一项）、不交人、不惊动主 agent。另加派发失败两行与 `TIME LIMIT:` 一行。`phase` 到 `closed`/`handoff` 即 `pane close`（读者在 GitHub 不在 Herdr，H0）。完整表 `17` §4。
+
+### J2 主 agent 怎么被重新 prompt（#87 第 2 件）
+
+- 裁决：`dispatch.sh run` 执行 `herdr agent rename $HERDR_PANE_ID mmw-main`（实测手工起的会话改名后能被 `agent prompt`）。`board.py` 只在两种情况发 `herdr agent prompt mmw-main "mmw board: <情况> #<n> — run board.py --once"`：任一上限到了、夜间结束；遵守 `15` §3 七条。主 agent 醒来 `board.py --once` 读一眼，不动手。与 P0 完全一致。
+
+### J3 常量（#87 第 3 件）
+
+- 裁决：`PARALLEL` 2；`COOLDOWN_SECONDS` 120；`WAKE_BACKOFF` 120→240→480；`WAKE_LIMIT` 3/会话；`REDISPATCH_LIMIT` 1/票；`MAX_HOURS` 4/票（只交回不杀）；`SNAPSHOT_INTERVAL` 60 秒。全是 `board.py` 顶部常量。计数不存文件：`wake` 在 pane token，重派次数数票上 `REDISPATCHED:` 评论；计时在进程内存里。
+
+### J4 重新 prompt 时说什么（#87 第 4 件）
+
+- 第一版：按「phase × 最后一条评论首行」查表，八句固定句，每句 `implement #<n>` 加从票上抄的字段。落地到第 3 步后核对词表，发现它与「派发词」词条（技能名 + 票号，nothing else；固定的东西一律在技能里）和 P1（票是唯一事实存放处，不转述）直接冲突：worker 停在哪一步，票上的 `self-run` / `VERDICT` / `REVIEW` 评论与 `phase` 已经写着。
+- 裁决：**重新 prompt 发的就是派发词 `implement #<n>`，一个字不多**；`implement` 收尾段加一句「票上已有 `self-run`、`VERDICT` 或 `REVIEW` 评论的，从最新那条之后的一步续」（`mmw-v2/merge-notes/implement.md`）。`blocked` 关表单后发的也是它。句表作废，第 3 步返工。
+
+### J5 `board.py` 与监控 tab
+
+- 裁决：`15` §4 照做：`board.py --once` / 无参 / `--watch <spec>` 三种形态，同一程序的输出面；落点 `mmw-v2/skills/dispatch/scripts/board.py`（G9；`15` §7 写的 `verify-ticket/scripts/` 早于 G9）。事件源订 `pane.updated` + `pane.closed`（`pane.agent_status_changed` 必须带 `pane_id`），加每 `SNAPSHOT_INTERVAL` 全量兜底；不持状态（B8）。`NIGHT SUMMARY` 写成 spec 上一条评论（H8）。插件形态以后。
+
+### J6 开跑前核对
+
+- 起因：2026-08-31 00:22 另一处 checkout 跑了 `install.sh`，软链与 hook 一并指没，此后每条 Bash 被 hook 拦。
+- 裁决：`dispatch.sh run` 第一步 `install.sh --check`，有「缺」就拒绝。
+
+### J7 `dispatch.sh` 派发时写 `ticket` / `role` token
+
+- 裁决：与 `model` 同一条 `report-metadata`。已落地 `e1db5a46`。
+
+### J8 #75 的措辞
+
+- 裁决：步 4「主 agent `dispatch.sh run <spec> --role junior-worker`；之后只在被重新 prompt 时 `board.py --once`」；步 5「`board.py` 派 worker、等收尾；主 agent 不敲 `dispatch.sh wait`」；AC3「发给 worker 的 prompt 只有 `implement #<n>`，发给 `mmw-main` 的只有 `mmw board: …`」。改票正文在落地第 5 步。
+
+### J9 明确不做
+
+升级链（junior → senior）、按票分型、杀会话、包成插件、给 Herdr 侧栏加行、让主 agent 自己转循环（G0）、`board.py` 替 worker 答表单、`board.py` 发派发词以外的话给 worker。
+
+### J10 cursor 提问表单的检测修在 Herdr，不在 `board.py`
+
+- 起因：实测 cursor（`--force --trust`）的 `AskQuestion` 表单在 Herdr 眼里是 `idle`，`agent prompt` 会把字打进表单、Enter 选中第一项。远端 manifest `cursor.toml` 没有提问表单的规则。
+- 用户原话：「最好就是修好 herdr 对 cursor 状态的错误判断，而不是为他又写一大堆兼容」。
+- 裁决：本地覆盖 `~/.config/herdr/agent-detection/cursor.toml`（远端原样 + `ask_question_blocked`；版本号必须纯数字点分）。离线 `agent explain --file` 与真机都验过。落地第 5 步进 dispatch 技能目录、`install.sh` 装并 reload、`--check` 核对；向 herdr 上游提 PR。
+
+### J11 词汇归一
+
+- 起因：用户 2026-08-31 指出图上「派 / 捡 / 记」是自造词，追问计划用词是否与 mmw 统一。核查发现 `17`、块 J、#87、两张蓝图里至少 12 个概念没有正名或有多个名字（`idle` 而 `phase` 未到 `closed`/`handoff` / 半途停下 / 没到终点；捡回 / 叫醒 / 唤醒；会话没了 / 会话死了；固定句；开夜；`QUESTION:` / `BLOCKED:` 两种；中文行文用 `main agent`），并与「派发词」词条冲突（J4）。
+- 用户原话：「不要随意去造奇奇怪怪的词语，用正统的有出处的词语统一概念」。
+- 裁决：一律取有出处的：夜间编排主循环（#60 Out of Scope）、监控 tab 与 `board.py`（`15` §4）、唤醒闭环（`15`、#87）、这个状态不起名：写它的判据本身「`idle` 而 `phase` 未到 `closed`/`handoff`」（H1 第 3 条给的就是这两个 token；「`idle` 而 `phase` 未到 `closed`/`handoff`」是我 2026-08-31 自造的，用户当场否掉）、重新 prompt（`15` §3、§5）、重派（`15` §5）、Herdr 自己的五个状态词（`working`/`idle`/`done`/`blocked`/`unknown`）代替「在提问」「会话没了」「会话死了」、`BLOCKED:` 代替 `QUESTION:`、中文行文用 主 agent（P6）。新字面串（`board.py`、`mmw-main`、`wake`、`REDISPATCHED:`、`WAKEUP LIMIT:`、`TIME LIMIT:`、`NIGHT SUMMARY`、`dispatch.sh run`、七个常量）与漏收的 `model` token 登记进 `CONTEXT.md` Dispatch 节；「开夜」「冷却」「固定句」「捡回」「叫醒」「终点」进 `_Avoid_`。图上的动词改为 派发 / 重新 prompt / 评论到票 / prompt 主 agent / `NIGHT SUMMARY`。
+- 落点：`CONTEXT.md`；`17` 全文；本块；#87 正文；`17-night-loop.html`；`11-target-pipeline.html` 4b 与相关处；`board.py` 第 3 步返工（`QUESTION` → `BLOCKED`、删句表）。
+
+### 蓝图页
+
+总蓝图 `11-target-pipeline.html`（线上同一网址）2026-08-31 融入本块：图 1 的 S5 与夜间注记、新节 4b（图 4b 泳道、图 4c 状态机、常量表）、S5 图注、图 16 早上、件表三行、图 17 与表加 J 一行、编号表加 4b、词表指针。
+
+### 落地时定下的实现细节（#87 最后一条评论「我自己拿的主意」十条，逐条对着 `board.py` 核过：九条成立，第 2 条「当轮补位」原本不成立，`df6e47dd` 修成成立）
+
+1. 会话是不是派发者起的按 agent name `issue-<n>` 判，不按 token；别的 pane 只显示、不计数、不动。
+2. 一轮里先处理 `closed`/`handoff` 再派发（`round()` 顺序如此。腾出的并行位当轮可用：`close_its_pane` 与 `hand_back` 关 pane 时清掉那一行的 worker，commit `df6e47dd`）。
+3. `wake` 在进程内存与 pane token 各记一份，取大者（token 要过一圈 snapshot 才读得回）。
+4. `BLOCKED:` 引屏底最后 `FORM_LINES`（20）个非空行，不是从头截 500 字。
+5. `unknown` / pane 消失是否算重派靠 assignee：没有 assignee = 从没派过，走派发。
+6. `dispatch.sh` 退出 1 占一个 `PARALLEL` 位，避免两个会话撞同一个 `issue-<n>`。
+7. `phase` 为空与 `phase=implement` 发的都是派发词，不再区分。
+8. `cursor.toml` 用拷贝不用软链；只在装到真家目录时 `reload-agent-manifests`。
+9. `board.py --once` 与无参形态的 spec 参数可选：不带只列活着的会话。
+10. 技能行为层测试时 `models.md` 的 `junior-worker` 行临时指向 haiku，测完还原。
+
+### 落地顺序
+
+`17` §11 五步，每一步由主 agent 手工做、手工测；第 5 步之后才轮到 #75 的真票。2026-08-31 由 Herdr 会话 `landing-87`（Claude Code opus）执行，主 agent 只检查。

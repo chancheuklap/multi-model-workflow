@@ -404,12 +404,76 @@ _Avoid_: —
 A Herdr pane token holding the stage a worker is at. Six values — `selfcheck`, `verify`, `implement`, `closed`, `handoff`, `closeout-rejected` — all written by the ticket script.
 _Avoid_: —
 
-**`ticket` / `role` / `ac`**:
-The other three Herdr pane tokens: the ticket number, the role, and `<met>/<total>`.
+**`ticket` / `role` / `ac` / `model` / `wake`**:
+The other Herdr pane tokens. `ticket`, `role` and `model` are written by `dispatch.sh` when it starts the session; `ac` is `<met>/<total>`, written by the ticket script; `wake` counts how many times `board.py` has re-prompted this session.
 _Avoid_: —
 
+**`working` / `idle` / `done` / `blocked` / `unknown`**:
+Herdr's five lifecycle states for the agent in a pane, read from `herdr agent get` or `herdr api snapshot`. `blocked` is an approval or question form on screen; `unknown` is an agent Herdr cannot classify, or none at all.
+_Avoid_: 在提问, 会话没了, 会话死了
+
+**`idle` ∧ `phase` ∉ {`closed`, `handoff`}**:
+A worker whose pane is `idle` or `done` while its `phase` is anything other than `closed` or `handoff`: it stopped before the closing gate. The judgement is the two tokens read together; nothing on screen is consulted.
+_Avoid_: 半路停了, 半途停下, 没到终点就停了, 停在半路, 到终点, 终点, stalled
+
+**re-prompt（重新 prompt）**:
+Sending a session that has settled a new prompt with `herdr agent prompt`. A worker is re-prompted with its dispatch line and nothing else; the main agent is re-prompted with one line beginning `mmw board:`. Delivered only while the target is `idle` or `done` and its pane is not focused.
+_Avoid_: 捡回, 叫醒, 唤醒 (the verb)
+
+**唤醒闭环（wakeup loop）**:
+The rule table `board.py --watch` applies after every pane event: leave `working` alone; on `idle` with `phase` other than `closed`/`handoff` wait `COOLDOWN_SECONDS` then re-prompt, up to `WAKE_LIMIT`; on `blocked` comment the form as `BLOCKED:`, dismiss it, then re-prompt; on `unknown` redispatch once; past any limit hand the ticket back to `needs-triage`.
+_Avoid_: 捡回闭环
+
+**夜间编排主循环（night orchestration loop）**:
+Everything between the last ticket published and the morning: `dispatch.sh run` starts it, `board.py --watch` dispatches the frontier, runs the 唤醒闭环, and writes `NIGHT SUMMARY` when nothing is left to run.
+_Avoid_: 夜间主循环, 夜里的循环
+
+**`board.py`**:
+The one resident program of the night, in the dispatch skill. `--once` prints one table and exits; with no argument it appends one line per event; `--watch <spec>` does the same and acts. It reads `herdr api snapshot` and `gh` each round and keeps no file.
+_Avoid_: board, 常驻进程, 看板
+
+**监控 tab（monitor tab）**:
+The Herdr tab `dispatch.sh run` opens with the label `mmw board`, where `board.py --watch` runs; its appended output is readable by `herdr pane read` and by a person.
+_Avoid_: board tab, mmw board tab
+
+**`dispatch.sh run <spec> [--role R] [--parallel N] [--max-hours H]`**:
+The one command the main agent types at night. It runs `install.sh --check` and refuses on any missing item, renames the main agent's pane `mmw-main`, opens the 监控 tab and starts `board.py --watch` in it.
+_Avoid_: 开夜
+
+**`mmw-main`**:
+The Herdr name `dispatch.sh run` gives the main agent's own pane, so `board.py` can re-prompt it.
+_Avoid_: —
+
+**`mmw board: <case> #<n> — run board.py --once`**:
+The one line `board.py` sends `mmw-main`, only when a limit was reached or the night ended. The main agent answers it by running `board.py --once` and reading; it takes no other action.
+_Avoid_: —
+
+**`BLOCKED:`**:
+First line of the comment `board.py` posts on a ticket whose worker is `blocked`, followed by the text of the form on screen.
+_Avoid_: QUESTION:
+
+**重派（redispatch）**:
+Starting a new worker session for a ticket whose previous session is `unknown` or whose pane is gone while the ticket is still open with no closing comment. Once per ticket; the count is the ticket's `REDISPATCHED:` comments.
+_Avoid_: —
+
+**`REDISPATCHED:`**:
+First line of the comment `board.py` posts before it redispatches, naming the phase the previous session ended at.
+_Avoid_: —
+
+**`WAKEUP LIMIT:` / `TIME LIMIT:`**:
+First lines of the comments `board.py` posts when it hands a ticket back to `needs-triage`: re-prompted `WAKE_LIMIT` times and it stopped again, or `MAX_HOURS` passed since dispatch.
+_Avoid_: —
+
+**`NIGHT SUMMARY <date>`（夜间总结）**:
+First line of the comment `board.py` posts on the spec when nothing is left to run: closed tickets, tickets handed back and their first lines, tickets not dispatched because a blocker stayed open, sub-issues opened during the night. Ticket numbers and first lines only.
+_Avoid_: 早上总结
+
+**`PARALLEL` / `COOLDOWN_SECONDS` / `WAKE_BACKOFF` / `WAKE_LIMIT` / `REDISPATCH_LIMIT` / `MAX_HOURS` / `SNAPSHOT_INTERVAL`**:
+The constants at the top of `board.py`: tickets in flight at once, the wait before the first re-prompt, the growing waits after it, re-prompts per session, redispatches per ticket, hours per ticket, and the full re-read interval.
+_Avoid_: 并行上限, 冷却期, 退避
+
 **dispatch line（派发词）**:
-The one sentence a dispatched session is given: the skill name plus the ticket number, and nothing else. Everything fixed lives in the skill or in the definition file, never in that sentence.
+The one sentence a dispatched session is given: the skill name plus the ticket number, and nothing else. Everything fixed lives in the skill or in the definition file, never in that sentence. A re-prompt sends the same sentence again.
 _Avoid_: —
 
 **`implement #<n>`**:
@@ -431,7 +495,7 @@ _Avoid_: —
 ### Code review
 
 **`Standards` axis**:
-One of the three axes: does the change follow this repository's documented coding standards.
+One of the three axes: does the change follow this repository's documented coding standards, and does the same outcome exist with less code.
 _Avoid_: —
 
 **`Spec` axis**:
@@ -585,7 +649,7 @@ For a file outside `## Owns` — change it and record it under `Outside Owns:` w
 _Avoid_: 为过 AC 不得不改, 顺手改动
 
 **ponytail 五句（the five sentences）**:
-The five things to do before writing code: grep every caller before changing a function; look for something existing before writing a helper; say why what exists is not enough before adding a file, a dependency or a configuration; never simplify away four named things; write `skipped: [X], add when [Y]` at the end.
+The five things to do before writing code: grep every caller before changing a function, and delete what a new branch makes unnecessary before adding it; look for something existing before writing a helper; say why what exists is not enough before adding a file, a dependency or a configuration; never simplify away four named things; write `skipped: [X], add when [Y]` at the end.
 _Avoid_: —
 
 **收尾七步（the seven closing steps）**:

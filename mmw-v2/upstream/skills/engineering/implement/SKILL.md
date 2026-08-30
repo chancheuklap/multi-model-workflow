@@ -16,7 +16,7 @@ Then say in one sentence which **seam** this ticket is tested at — copied from
 While writing code:
 
 - Every baseline in **Read first** is the contract. When the work does not fit it — a missing state, field, interaction or case — or two baselines conflict, keep going and open a sub-issue under the spec (`gh issue create --parent <spec> --label needs-triage`); never quietly change a baseline, never quietly add around one.
-- Before changing a function, grep every caller and fix the shared code once.
+- Before changing a function, grep every caller and fix the shared code once; before adding a branch or guard to an existing flow, name the branch or file it makes unnecessary and delete it in the same commit.
 - Before writing a helper, search the repository and **Read first** for one that already exists.
 - Before adding a file, a dependency or a configuration entry, say why the existing one is not enough.
 - Never simplify away: security, error handling that prevents data loss, accessibility, or anything the ticket explicitly asks for — **What to build**, every acceptance criterion, the baseline, the interface under **Seam**.
@@ -27,11 +27,11 @@ Use /tdd where possible, at pre-agreed seams.
 
 Run typechecking regularly, single test files regularly, and the full test suite once at the end.
 
-Once done, commit your work to the current branch and close out in seven steps. The tracker is closed by the gate at the end, never by hand.
+Once done, commit your work to the current branch and close out in seven steps. The tracker is closed by the gate at the end, never by hand. A ticket that already carries a `self-run`, `VERDICT` or `REVIEW` comment is work you were prompted back into: resume at the step after the newest of them instead of starting the closeout again.
 
 1. Run `verify-ticket.py <n>` — the engine at `~/.agents/skills/verify-ticket/scripts/`, with `python3`. Fix what failed and run again. One criterion gets at most three rounds: still failing on the third, stop fixing it, write `ABANDON: AC<n> failed <what each round tried>`, and carry on with the rest. This is the only step in the closeout that repeats, which is why it carries a cap.
 2. Dispatch the verifier subagent with the prompt `verify #<n>` and nothing else. Read the `VERDICT` line it comments on the ticket. If it reports failures, fix and rerun step 1; never dispatch the verifier a second time.
-3. One round of code review. `bash ~/.agents/skills/dispatch/scripts/dispatch.sh <n> reviewer <base-commit>` starts the reviewer session — the dispatch skill's SKILL.md says how to fill the arguments — then `bash ~/.agents/skills/dispatch/scripts/dispatch.sh wait <n> "^REVIEW " 1800` waits for the report; done means the comment is on the ticket, never a session's state. On timeout the script has already left a one-line comment: skip this round and go to step 4 — a dead reviewer is no reason to hand the ticket to a person. Fix the in-ticket findings once and rerun step 1; open a sub-issue for the rest (`gh issue create --parent <spec> --label needs-triage`). No re-review.
+3. One round of code review. `bash ~/.agents/skills/dispatch/scripts/dispatch.sh <n> reviewer <base-commit>` starts the reviewer session — the dispatch skill's SKILL.md says how to fill the arguments — then `bash ~/.agents/skills/dispatch/scripts/dispatch.sh wait <n> "^REVIEW " 1800` waits for the report; done means the comment is on the ticket, never a session's state. On timeout the script has already left a one-line comment: skip this round and go to step 4 — a dead reviewer is no reason to hand the ticket to a person. Fix the in-ticket findings once, under the same rules as the first write, and rerun step 1; open a sub-issue for the rest (`gh issue create --parent <spec> --label needs-triage`). No re-review.
 4. Audit: re-read the whole ticket and every item under **Read first**, trace every criterion to its latest `EVIDENCE:`, recount `Counts:`.
 5. Cut loose what only a person can settle, then write the closing comment to a draft file. A criterion that waits only on one sentence from a person: write `ABANDON: AC<n> decision <question, options, and the default if nobody answers>` **and** open a sub-issue under the spec (`gh issue create --parent <spec> --label needs-triage`), then keep working the rest — the ticket does not stop. The draft's fixed shape:
    - First line `ALL MET`, or `HANDOFF REQUIRED: <n> abandoned (<kinds>), <m> unmet, <k> met of <total>`
