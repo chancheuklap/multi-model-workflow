@@ -955,6 +955,16 @@ def lint_check_effects(body: str) -> list[str]:
 
 def run_lint(number: int) -> int:
     body = fetch_body(number)
+
+    # A `ready-for-human` ticket carries no criteria at all: what it holds is one thing
+    # for a person to look at. The criteria linter has nothing to say about it, and
+    # saying "zero live gates" would report the ticket's correct shape as a fault. Its
+    # place in the batch is still worth checking, so the graph check runs.
+    if not section(body, "Acceptance criteria"):
+        print(f"#{number} carries no `## Acceptance criteria`, so only the ticket graph "
+              f"is checked here")
+        return lint_ticket_graph(number, body)
+
     with tempfile.TemporaryDirectory(prefix="verify-ticket-") as tmp:
         ledger = write_ledger(body, Path(tmp))
         result = subprocess.run(

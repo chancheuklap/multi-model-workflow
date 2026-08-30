@@ -244,6 +244,15 @@ class TestLint(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("weak-expect", printed)
 
+    def test_a_ticket_with_no_criteria_section_is_not_a_finding(self):
+        """A `ready-for-human` ticket holds one thing to look at, and no criteria."""
+        body = "## Parent\n\n#76\n\n## Blocked by\n\n- #96\n"
+        with mock.patch.object(vt, "lint_ticket_graph", return_value=0):
+            code, printed = self.lint(body)
+        self.assertEqual(code, 0)
+        self.assertIn("carries no `## Acceptance criteria`", printed)
+        self.assertNotIn("zero live gates", printed)
+
     def test_a_criterion_with_no_command_fails_the_run(self):
         """Nobody but the ticket's own author decides it, which the section forbids."""
         code, printed = self.lint(ticket(
