@@ -44,9 +44,18 @@ Each one must be something a later check can pass or fail:
 1. Observable external behaviour, from the spec's seam or a user-visible UI. Not internals.
 2. Exact values (numbers, copy, state names, field names) copied from the spec or the chosen prototype artifact. No "appropriate", "correct", or "as expected".
 3. One behaviour per criterion, independently true or false. Split compounds.
-4. Ask who reads the criterion, then take one of three routes. **An agent, and you can write the command** — give it `CHECK:` and `EXPECT:`; the ticket script runs it, ticks it, and writes the evidence. Deciding whether code is correct, whether a passage tells an agent enough, or whether a report the agent can fetch says what it should — the reader is an agent in all three. **An agent, but no command exists** — leave `CHECK:` off; the worker judges it and, at closing time, ticks it and writes what it read and concluded. **A person** — that criterion does not belong on this ticket at all; see **Work only a person can judge** below. If no command exists because the spec never decided how this is verified, stop and return to `/to-spec`. Do not invent it.
 
-Every criterion carries a number you assign as you write it and never renumber. One with a command is four lines:
+**A criterion is decided by a command, or it is not a criterion.** Everything under `## Acceptance criteria` is run by machine and re-run by the verifier, and that is what makes "it passed" a fact rather than the opinion of whoever wrote the code. Most of what you want to say about the work does not belong there. Ask these five in order and stop at the first yes:
+
+1. **Is the rule a comparison — equal, matches, counts, over a threshold — against something a machine can reach?** It is a criterion. Write its `CHECK:` and `EXPECT:`.
+2. **Is the rule a judgement, against something a machine can reach?** Whether an interface is deep rather than a pass-through, whether a passage says enough, whether an error message tells the caller what to do next. Code review decides these — its `Standards` axis for how the code is written, its `Spec` axis for whether it matches what was asked — in a session other than the one that wrote the code. Leave it out of `## Acceptance criteria`: a judgement left there has only its own author to decide it, which is the one thing that section exists to prevent.
+3. **Is the property a person's reaction?** Whether a newcomer knows what to do, whether the wording lands, whether a morning page is legible at a glance. The person is the instrument, not a fallback judge: no agent can stand in, because the agent is not who is being measured. It becomes its own ticket — see **Work only a person can do** below.
+4. **Could a machine decide it, if only it could reach the thing?** A signed installer on a clean machine, a login against the real provider, a notification arriving on a phone. Its own ticket as well, carrying one line saying what would retire it: a test account, a spare device, a runner. Many of these mean the pipeline is missing a capability, not that the user owes work.
+5. **Is it a choice rather than a check?** No true or false, only a preference, and the answer decides what to build next rather than whether what was built is right. Pick a default, build on it, and record the choice in the closing comment. When nothing can proceed until someone chooses, that is a decision ticket, asked before this batch is written rather than scheduled after it.
+
+If no command exists because the spec never decided how this is verified, stop and return to `/to-spec`. Do not invent it.
+
+Every criterion is four lines, and carries a number you assign as you write it and never renumber. A criterion whose premise later disappears is taken out of the section rather than left there without a command; the number is not reused, and the closing comment says what became of it.
 
 ```
 - [ ] AC1: POST /projects with a name that already exists returns 409 and error name-duplicate
@@ -54,8 +63,6 @@ Every criterion carries a number you assign as you write it and never renumber. 
   EXPECT: /Tests\s+1 passed/
   EVIDENCE: pending
 ```
-
-A criterion on the second route keeps its number and `EVIDENCE: pending`, and says in place of `CHECK:` what the worker reads to decide it.
 
 Derive `CHECK:` and `EXPECT:` from the spec; do not invent either:
 
@@ -69,9 +76,17 @@ Derive `CHECK:` and `EXPECT:` from the spec; do not invent either:
 
 Write the command on the `CHECK:` line when it fits there. When it does not, leave that line empty after the colon and open a fenced code block on the next line: the fence holds the command, and nothing inside it is read as a criterion or an attribute, so it may contain blank lines, backtick fences and lines beginning `- [ ]`. A flush-left continuation with no fence is a parse error.
 
-**Work only a person can judge is its own ticket, not a criterion on someone else's**, and you split it off here, while writing the ticket, not when closing it. Behaviour watched in a live session, whether a screen looks right, whether a ticket reads like a real ticket, a call only the user can make — leaving those on an agent's ticket leaves it unable to finish. Write one ticket per such judgement, labelled `ready-for-human`, blocked by the ticket that produces the thing being judged. It is a shorter ticket than the template below, and holds five things only: **Parent**, one line on why it cannot be delegated (a judgement call, access only a person has, a design decision, or testing by hand), what the person looks at, what makes it right, and **Blocked by**.
+**Work only a person can do is its own ticket, not a criterion on someone else's**, and you split it off here, while writing the ticket, not when closing it. A criterion no agent can decide leaves its ticket unable to finish; so the ticket that produces the thing stays an agent's, and the looking becomes a second ticket blocked by it.
 
-This step is done when every criterion on every ticket carries a number, and either a `CHECK:` with its `EXPECT:` or a line naming what the worker reads to decide it.
+Write one such ticket per thing to be looked at, labelled `ready-for-human`. It is shorter than the template below and holds five things only:
+
+- **Parent**.
+- **Which kind**, in one word. *Reaction*, from question 3: the person is the instrument. *Reach*, from question 4: a machine could decide it but cannot get to the thing — and that one adds the line saying what would retire it. This is the only exit in the pipeline that owes no account to a machine, so it attracts whatever the writer did not want to think about; being unable to name the kind is the sign that the thing belongs at question 1, 2 or 5 instead.
+- **What to look at**: a link that opens, not a command to run. This is read in the morning, on a phone, by someone carrying none of your context.
+- **What makes it right**: the standard to judge against, so the answer can be something other than "I couldn't say".
+- **Blocked by**: the ticket that produces the thing. This is the edge that matters most in the batch — wrong, and the person is sent to look at something that does not exist yet.
+
+This step is done when every criterion on every ticket carries a number, a `CHECK:` and an `EXPECT:`.
 
 ### 5. Give each ticket its blocking edges
 
@@ -112,11 +127,16 @@ After publishing, open each ticket again (on a real tracker, fetch it; locally, 
 - Every entry under **Blocked by** is an identifier that resolves to one of this batch's tickets, and the ticket it resolves to is the one meant.
 - On a tracker with native blocking links, the number of links equals the number of **Blocked by** entries.
 
-Then, on the tickets an agent works — the `ready-for-human` ones have none of these sections and are skipped here:
+Then each kind of ticket, for the sections that kind must carry. On the ones an agent works:
 
 - **Read first** and **Seam** are present and non-empty ("none" counts as present). Where **Read first** points at a downloaded baseline directory, it says the directory is a contract.
 - **Owns** is present and non-empty, every entry is a repository-relative path or glob, and no two tickets on the same frontier overlap there.
-- `verify-ticket.py <n> --lint` has been run. Fix every ERROR it reports before you report the batch. Read every WARN once and either fix it or keep it on purpose — a criterion with no `CHECK:` always warns, and that is the shape you chose.
+- `verify-ticket.py <n> --lint` has been run, and every ERROR it reports is fixed before you report the batch. Read every WARN once and either fix it or keep it on purpose. A criterion it reports as having no command is a criterion in the wrong section: move it to code review, or to its own ticket.
+
+On the `ready-for-human` ones — nobody but the person will ever read them, and no agent can repair one:
+
+- The kind is named, *reaction* or *reach*, and a *reach* ticket says what would retire it.
+- **What to look at** is a link that opens, and **what makes it right** is there to judge against.
 
 Fix what fails before reporting the batch as published.
 
@@ -142,7 +162,9 @@ Fix what fails before reporting the batch as published.
   CHECK: <the command that decides it>
   EXPECT: <the line only a passing run prints>
   EVIDENCE: pending
-- [ ] AC2: <a criterion the agent working the ticket decides by reading, no command exists>
+- [ ] AC2: <the next thing that must be true>
+  CHECK: <the command that decides it>
+  EXPECT: <the line only a passing run prints>
   EVIDENCE: pending
 
 </local-ticket-template>
@@ -179,10 +201,12 @@ The repository-relative paths this ticket may write, one per line, the test dire
   CHECK: <the command that decides it>
   EXPECT: <the line only a passing run prints>
   EVIDENCE: pending
-- [ ] AC2: <a criterion the agent working the ticket decides by reading, no command exists>
+- [ ] AC2: <the next thing that must be true>
+  CHECK: <the command that decides it>
+  EXPECT: <the line only a passing run prints>
   EVIDENCE: pending
 
-Criteria only a person can judge do not go here. Each is its own ticket, labelled `ready-for-human` and blocked by this one.
+Every criterion here carries a command. A judgement goes to code review; a thing only a person can look at is its own `ready-for-human` ticket, blocked by this one.
 
 ## Blocked by
 

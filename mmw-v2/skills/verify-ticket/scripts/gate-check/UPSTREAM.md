@@ -5,8 +5,8 @@ Source: https://github.com/Leonxlnx/unlazy, commit `da0b00a3` (snapshot kept at
 
 ## Files taken as-is (byte-identical to the snapshot)
 
-`gate-lint.mjs`, `lib/check-supervisor.mjs`, `lib/process-tree.mjs`,
-`lib/regex-worker.mjs`, `lib/dispatch.mjs`.
+`lib/check-supervisor.mjs`, `lib/process-tree.mjs`, `lib/regex-worker.mjs`,
+`lib/dispatch.mjs`.
 
 The pass/fail logic is upstream's and is not edited here: three states, the
 exit-0-**and**-EXPECT double condition, timeouts, output caps, the regex worker.
@@ -20,8 +20,9 @@ set, which is always the case here.
 | `gate-check.mjs` | The approval store is removed: `--approve`, the `~/.unlazy/approved` directory and its ownership and no-follow checks, the per-oracle records and their locks, and the `APPROVAL REQUIRED` / `NOT RUN` path. A CHECK now runs as written. 894 lines upstream, 701 here. |
 | `lib/gates.mjs` | A fenced block directly under a `CHECK:` is that command; every other fence is skipped whole, as upstream skips all of them. Upstream reads one line per attribute and drops the rest in silence, so a command longer than a line reaches the shell in half. A bare line under a `CHECK:` is an error naming the fence, so no reader has to infer where a command ends. Each gate also records `attrEnd`, the line past its last attribute — for a fenced command, past the closing fence. |
 | `gate-check.mjs` (second edit) | A gate with no `EVIDENCE:` line gets one inserted at `attrEnd`, so it lands after the whole command rather than inside it. |
+| `gate-lint.mjs` | `manual-gate` is an error, not a warning, and says where the criterion belongs instead. Upstream allows a ledger of hand-judged gates and only warns once they pass half; here a criterion with no `CHECK:` has nobody but its own author to decide it, which is the one thing acceptance criteria exist to prevent. Judgements go to code review, which runs in another session; what only a person can look at gets its own ticket. |
 | `tests/run-tests.mjs` | `GATE_CHECK` now resolves to `../gate-check.mjs` (upstream: `../scripts/gate-check.mjs`); the `STOP_HOOK` and `INSTALL` constants and the 13 `hook:` / `install:` cases that use them are removed, because `stop-hook.mjs` and `install-hooks.mjs` are not vendored; the harness no longer injects `--approve` and `UNLAZY_APPROVAL_DIR`. 19 of upstream's 32 cases remain. |
-| `tests/lint-tests.mjs` | `LINT` now resolves to `../gate-lint.mjs`; the `lint: shipped leaf and node templates satisfy the documented size policy` case is removed, because `templates/` is not vendored — a ledger here is derived from the ticket body, never written from a template. 18 of upstream's 19 cases remain. |
+| `tests/lint-tests.mjs` | `LINT` now resolves to `../gate-lint.mjs`; the `lint: shipped leaf and node templates satisfy the documented size policy` case is removed, because `templates/` is not vendored — a ledger here is derived from the ticket body, never written from a template. Three cases used a command-less gate to demonstrate advisory behaviour and now assert it as an error; they run against a new warnings-only ledger, and a new case pins the error in both modes. 19 cases. |
 
 ### Why the approval store went
 

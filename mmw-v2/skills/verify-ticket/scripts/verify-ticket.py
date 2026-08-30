@@ -958,7 +958,10 @@ def run_lint(number: int) -> int:
     with tempfile.TemporaryDirectory(prefix="verify-ticket-") as tmp:
         ledger = write_ledger(body, Path(tmp))
         result = subprocess.run(
-            ["node", str(GATE_LINT), "--strict", str(ledger)],
+            # No `--strict`: it fails the run on any warning, and a warning is the level
+            # for findings a person weighs and may keep. The exit code says one thing —
+            # there is an ERROR — which is what the read-back step converges on.
+            ["node", str(GATE_LINT), str(ledger)],
             capture_output=True, text=True,
         )
     sys.stdout.write((result.stdout or "") + (result.stderr or ""))

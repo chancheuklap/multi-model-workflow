@@ -13,23 +13,25 @@ python3 -m http.server 8766 --directory baseline  # 基线页 http://127.0.0.1:8
 
 基线页不联网：`support.js` 原本从 unpkg 取的 React、ReactDOM、Babel 三个脚本已经放进 `baseline/vendor/`，`support.js` 里的三个地址改成了 `./vendor/…`（文件内容与 unpkg 上的一致，`support.js` 里的 SRI 哈希照原样保留，能校验通过）。
 
-## 两张虚构的 issue
+## 测试台的 issue
 
 | issue | 是什么 |
 | --- | --- |
 | [#76](https://github.com/chancheuklap/multi-model-workflow/issues/76) | `[fixture] spec: 任务队列侧栏的任务计数与空态`——按 `to-spec` 模板写的虚构 spec，两个编号小节 + Testing Decisions |
-| [#77](https://github.com/chancheuklap/multi-model-workflow/issues/77) | `[fixture] 任务队列侧栏：任务计数与空态`——虚构的票，Parent 指向 #76 |
+| [#77](https://github.com/chancheuklap/multi-model-workflow/issues/77) | `[fixture] 任务队列侧栏：任务计数与空态`——手写的 `[fixture]` 票，Parent 指向 #76 |
+| [#78](https://github.com/chancheuklap/multi-model-workflow/issues/78) | `[fixture] AC3 的空态文案要人对着基线读一遍`——`ready-for-human` 的票，`reaction` 类，Blocked by #77 |
 
-两张都不贴 `ready-for-agent`：它们不是活，不派给任何人。票做脏了（评论、勾选、标签被改）就照 #77 的正文重开一张同样内容的。
+都不贴状态标签：它们不是活，不派给任何人。票做脏了（评论、勾选、标签被改）就照原文重开一张同样内容的。
 
-#77 的四条验收标准各测一种情况：
+#77 的三条验收标准各测一种情况：
 
 | 标准 | 形态 | 现在跑会怎样 |
 | --- | --- | --- |
 | AC1 | `CHECK` 是 pytest 命令 | 过 |
 | AC2 | `EXPECT: count 6` 与实际输出 `count 5` 故意不符 | 不过 |
-| AC3 | 只有 `MANUAL:` 行，没有命令 | 不跑 |
-| AC4 | `CHECK` 调 `visual-parity.py` | 工具在 #60 第 2 节才做，做好后应当过（见下） |
+| AC4 | `CHECK` 调 `visual-parity.py` | 见下 |
+
+读者是人的那一条不在 #77 上，它是 #78：验收标准这一节只收判定由一条命令下的事。
 
 ## 目录里有什么
 

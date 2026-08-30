@@ -130,8 +130,9 @@ for (const file of files) {
     }
 
     if (!check) {
-      add(file, "warn", id, "manual-gate",
-        "no CHECK, so this outcome is judged by hand and its evidence is only as good as the reader");
+      add(file, "error", id, "manual-gate",
+        "no CHECK, so nobody but this ticket's own author decides it: move it to code review " +
+        "if an agent can judge it, or to its own ready-for-human ticket if only a person can");
       if (/\d/.test(title)) {
         add(file, "warn", id, "unmeasured-number",
           'title states a number that nothing measures: "' + title + '"');
