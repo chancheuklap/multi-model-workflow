@@ -3,6 +3,8 @@ date: 2026-08-26
 amends: [0003]
 ---
 
+> 正文里的数目写的是 2026-08-26 当时的值。现在装几个技能见 `mmw-v2/skills.txt`，安装器里还有几处按宿主名写死的表见 `mmw-v2/install.sh`。
+
 # 技能装进一个各家通用的位置，只为 Claude Code 单独再装一份
 
 技能原来按宿主各装一份，五个用户级目录各 30 条软链。现在改为装两处：`~/.agents/skills` 和 `~/.claude/skills`，两处都直接指向仓库源目录。理由是 `~/.agents/skills` 不属于任何一家，而 Codex、Cursor、Grok、Pi 四家都扫它，其中 Cursor 和 Grok 扫它不受任何兼容开关控制；只有 Claude Code 不扫，所以那一处单独再装一份同样的软链。subagent 不走这条，仍按宿主各装一份——各家的模型字段写法不同，同一份正文必须换壳。

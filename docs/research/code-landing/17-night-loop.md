@@ -14,7 +14,7 @@
 | 开工守卫与认领 | `verify-ticket.py <n> --preflight`，失败评论 `NOT_READY:` | #63，S6/S7 |
 | 自跑、复验、三轮上限 | `verify-ticket.py <n>` / `--reverify`，`ROUND LIMIT` | #62/#63，I5 |
 | 独立判定 | verifier 写 `VERDICT` | #69 |
-| 一轮 code review | `dispatch.sh <n> reviewer` + `dispatch.sh wait <n> "^REVIEW"`，超时跳过 | #67/#70，S9 |
+| 一轮 code review | `dispatch.sh <n> reviewer <base-commit>` + `dispatch.sh wait <n> "^REVIEW "`，超时跳过 | #67/#70，S9 |
 | 关票门 | `--closeout` 核十项；`hook.py pretool` 拦手工关票 | #63/#64 |
 | 两条出口 | `ALL MET` 关票；`HANDOFF REQUIRED` 交回 `needs-triage` | I3 |
 | 此刻在哪一步 | `phase` 六值，`verify-ticket.py` 写 | H1 第 3 条 |
@@ -46,9 +46,9 @@
       board.py --watch  每次 pane 事件或每 SNAPSHOT_INTERVAL 做一轮：
         │   1. 读：gh（spec 的 sub_issues、标签、assignee、blockedBy、最后一条评论首行）
         │        + herdr api snapshot（每个 pane 的 agent_status 与 tokens）
-        │   2. 唤醒闭环：每个 role=worker 的 pane 按 §4 查表                → herdr agent prompt issue-<n> "implement #<n>"
+        │   2. 唤醒闭环：每个 kind=worker 的 pane 按 §4 查表                → herdr agent prompt issue-<n> "implement #<n>"
         │        （先做这一步：到 closed/handoff 的关掉 pane，位子当轮腾出）
-        │   3. 派发：frontier 上的票，按启动层级，补到 PARALLEL              → dispatch.sh <n> <role>
+        │   3. 派发：frontier 上的票，按票号从小到大，补到 PARALLEL          → dispatch.sh <n> <role>
         │   4. 评论到票：交回 needs-triage 的贴评论换标签                  → gh issue comment / edit
         │   5. 只在上限到了、夜间结束时                                  → herdr agent prompt mmw-main "mmw board: …"
         │   6. 没有开着的 ready-for-agent 票、也没有活着的 worker → 在 spec 上写 NIGHT SUMMARY，退出
@@ -72,7 +72,7 @@
 | 要知道什么 | 从哪读 | 备注 |
 | --- | --- | --- |
 | 今晚的票是哪些 | `gh api repos/{owner}/{repo}/issues/<spec>/sub_issues` | A3：从锚点顺原生关系导出，不搜索。夜里 worker 开的 sub-issue 也在里面，按标签区分（`needs-triage` 的只登记不派） |
-| 每张票的状态 | `gh issue view <n> --json state,labels,assignees,blockedBy,comments` | frontier = open ∧ `ready-for-agent` ∧ blockedBy 全 CLOSED ∧ 无 assignee ∧ 没有活着的 pane（`docs/agents/issue-tracker.md` 的定义加最后一项） |
+| 每张票的状态 | `gh issue view <n> --json state,labels,assignees,blockedBy,comments` | frontier = open ∧ `ready-for-agent` ∧ blocker 全 CLOSED ∧ 无 assignee ∧ 无活会话，定义在 `mmw-v2/skills/dispatch/scripts/board.py` 的 `frontier()` |
 | 每个会话在哪一步 | `herdr api snapshot` 的 `agents[].tokens`：`ticket`、`role`、`phase`、`ac`、`model`、`wake` | `ticket`/`role`/`model` 由 `dispatch.sh` 派发时写（J7，已落地）；`phase`/`ac` 由 `verify-ticket.py` 写；`wake` 由 `board.py` 写 |
 
 **事件源**：socket `events.subscribe`，订 `pane.updated`（每次推完整 `PaneInfo`，含 `agent_status` 与 `tokens`，不要求 pane_id）与 `pane.closed`。`pane.agent_status_changed` 必须带 `pane_id`（2026-08-31 实测：不带则 `invalid_request: missing field pane_id`），看全局的进程不用它。断线重连不必单独设计：不持状态，每一轮全量重读，连接断了就重连，重连失败也每 `SNAPSHOT_INTERVAL` 跑一轮。插件形态（manifest `[[events]]` 每次事件 spawn 一个短命进程）本轮不采（H2）。
@@ -81,7 +81,7 @@
 
 ## 4. 唤醒闭环的查表（#87 第 1 件；J1）
 
-`15` §5 六行全部采用；`closeout-rejected` 并进第三行；另加四行：`dispatch.sh` 退出 1、退出 2、`MAX_HOURS`、夜间结束。只对 `tokens.role=worker` 的 pane 动作；`role=reviewer` 的 pane 只显示——reviewer 挂了由 worker 的 `dispatch.sh wait` 超时承接（S9）。
+`15` §5 六行全部采用；`closeout-rejected` 并进第三行；另加四行：`dispatch.sh` 退出 1、退出 2、`MAX_HOURS`、夜间结束。只对 `tokens.kind=worker` 的 pane 动作；`kind=reviewer` 的 pane 只显示——reviewer 挂了由 worker 的 `dispatch.sh wait` 超时承接（S9）。
 
 | 观察到（`agent_status` × `phase` × 票） | `board.py` 做什么 | 上限 | 重新 prompt `mmw-main` |
 | --- | --- | --- | --- |
@@ -100,7 +100,7 @@
 
 ## 5. 主 agent 夜里的两种情况（#87 第 2 件；J2）
 
-**机制**：`dispatch.sh run` 把主 agent 所在 pane 命名为 `mmw-main`（`herdr agent rename`；2026-08-31 实测手工起的会话改名后能被 `agent prompt`）。`board.py` 重新 prompt 它就是 `herdr agent prompt mmw-main "mmw board: <情况> #<n> — run board.py --once"`，遵守 `15` §3 全部七条；它在 `working` 就留到下一轮。
+**机制**：`dispatch.sh run` 把主 agent 所在 pane 命名为 `mmw-main`（`herdr agent rename`；2026-08-31 实测手工起的会话改名后能被 `agent prompt`）。`board.py` 重新 prompt 它就是 `herdr agent prompt mmw-main "mmw board: <case> #<n> — run ~/.agents/skills/dispatch/scripts/board.py --once <spec>"`，遵守 `15` §3 全部七条；它在 `working` 就留到下一轮。
 
 | 情况 | 主 agent 做什么 | 不许做什么 |
 | --- | --- | --- |
@@ -127,29 +127,37 @@ worker 的 `blocked` 不惊动它（§4）。这与 P0 完全一致——主 age
 | `board.py`（无参） | 人，在监控 tab 里 | 常驻，每次事件追加一行；不重绘、不进备用屏，所以 `herdr pane read --source recent-unwrapped` 也读得到 |
 | `board.py --watch <spec>` | 夜里唯一跑着的那个 | 同无参，并按 §4 查表动手 |
 
-`--once` 的表，一行一张票，列固定：
+`--once` 的表，一行一张票，列固定为 `board.py` 的 `COLUMNS` 七列（`ticket`、`agent`、`agent_status`、`phase`、`ac`、`wake`、`note`）：
 
 ```
-mmw board · 02:14 · spec #60 · 5 张票 · PARALLEL 2/2
+mmw board · 02:14 · spec #60 · 5 tickets · PARALLEL 2/2
 
- 票    agent          agent_status  phase       ac     wake  备注
- #61   issue-61       working       implement   -      0
- #62   issue-62       idle          selfcheck   3/5    1     idle 未到 closed/handoff，已重新 prompt 1 次
- #63   issue-63       blocked       verify      5/5    1     BLOCKED: 已评论，已关表单
- #64   -              -             closed      6/6    -     ALL MET，pane 已关
- #65   -              -             -           -      -     等 #62
+ ticket  agent             agent_status  phase              ac     wake  note
+ #61     issue-61          working       implement          -      0
+ #62     -                 -             closed             5/5    -     ALL MET, pane closed
+ #63     issue-63          blocked       verify             5/5    1     BLOCKED: commented, form dismissed
+ #64     -                 -             closed             6/6    -     ALL MET, pane closed
+ #65     -                 -             -                  -      -     waiting on #63
 ```
 
-常驻形态一行一件事，时间戳打头，动作词就是 §4 的动作：
+常驻形态一行一件事，时间戳打头，第二列是票号或 `board`，第三列是 `say()` 打的动作词：
 
 ```
-02:14:31  #62  idle       phase=selfcheck ac=3/5   COOLDOWN 120s
-02:16:33  #62  读票       最后一条评论 self-run：AC3、AC5 未过
-02:16:35  #62  prompt     implement #62（wake=1）
-02:16:38  #62  working
-02:31:02  #63  blocked    phase=verify
-02:31:03  #63  评论       BLOCKED: Which colour do you prefer? …
-02:31:04  #63  shift+x → idle → prompt implement #63（wake=1）
+01:58:04  board     watch      spec #60 role=junior-worker parallel=2 max-hours=4
+01:58:09  #61       dispatch   issue-61 is working on #61 in pane w1:p1 on cursor-grok-4.6-high
+01:58:12  #62       dispatch   issue-62 is working on #62 in pane w1:p2 on cursor-grok-4.6-high
+02:05:12  #62       idle       phase=selfcheck ac=3/5  COOLDOWN 120s
+02:07:14  #62       prompt     implement #62 (wake=1)
+02:11:40  #62       idle       phase=closed  ALL MET
+02:11:43  #63       dispatch   issue-63 is working on #63 in pane w1:p3 on cursor-grok-4.6-high
+02:13:58  #63       comment    BLOCKED: Do you prefer red or blue? 1. red 2. blue
+02:13:59  #63       esc        form dismissed
+02:14:01  #63       prompt     implement #63 (wake=1)
+03:14:02  #63       idle       phase=closed  ALL MET
+03:14:05  #65       dispatch   issue-65 is working on #65 in pane w1:p5 on cursor-grok-4.6-high
+03:22:10  #61       idle       phase=selfcheck ac=4/6  COOLDOWN 480s
+03:30:14  #61       comment    WAKEUP LIMIT: re-prompted 3 times and it went idle again at phase=selfcheck. Handed back to needs-triage; the ticket stays open.
+03:30:16  #61       label      needs-triage
 ```
 
 两种输出里的词全部沿用词表：`phase` 六值、Herdr 五个状态词、`ALL MET` / `HANDOFF REQUIRED`、`VERDICT` 五级、§4 的几个首行。开监控 tab 走 `15` §4.4 最短路：`herdr tab create --label "mmw board" --cwd <仓库根> --no-focus`，`herdr pane run <id> "python3 <dispatch 技能路径>/scripts/board.py --watch <spec> …"`。包成 Herdr 插件留到稳定之后（H2）。
@@ -200,13 +208,13 @@ mmw board · 02:14 · spec #60 · 5 张票 · PARALLEL 2/2
 
 按 F1「一次只改一处、改一处测一处」五步，每步一个 commit；每一步由主 agent 手工做、手工测，不经夜间编排主循环本身：
 
-| 步 | 改什么 | 用 `[fixture]` 票怎么测 | 状态 |
-| --- | --- | --- | --- |
-| 1 | `dispatch.sh <n> <role>` 派发时写 `ticket`/`role` token | 派一次，snapshot 里该 pane 的 tokens 有 `ticket=<n> role=worker` | 已落地 `e1db5a46` |
-| 2 | `board.py --once` 与无参形态：§3 数据源、§7b 两种输出 | 对着现有会话跑 `--once`，表里每行与 `herdr agent list` + `gh issue view` 对得上；无参形态在 tab 里跑十分钟，`pane read` 读得回追加的行 | 已落地 `46767599` |
-| 3 | `board.py --watch`：§4 的派发、`closed`/`handoff`、`idle` 而 `phase` 未到 `closed`/`handoff`、`TIME LIMIT:` 四行；重新 prompt 只发派发词 | `claude --model haiku` 假 worker，prompt 让它做到自跑就停：看 `board.py` 等 `COOLDOWN_SECONDS` 后重新 prompt、`wake` 加一、到 `WAKE_LIMIT` 后交回 `needs-triage` | 已落地 `b9f405cb`，**待返工**：删掉句表，只发派发词；评论首行改 `BLOCKED:` |
-| 4 | §4 其余行：`blocked`、`unknown` 重派、`dispatch.sh` 退出 1/2、`NIGHT SUMMARY`、重新 prompt `mmw-main` | 让假 worker 弹提问表单，看 `BLOCKED:` 评论与关表单后续上；`pane close` 假 worker，看 `REDISPATCHED:` 评论与重派；全部关完看 spec 上的 `NIGHT SUMMARY` | — |
-| 5 | `dispatch.sh run`、`dispatch/SKILL.md`、`cursor.toml` 随 `install.sh` 装、#75 措辞 | `install.sh --check` 有缺时 `run` 拒绝；正常时监控 tab 开着、`mmw-main` 在 `herdr agent list` 里 | — |
+| 步 | 改什么 | 用 `[fixture]` 票怎么测 |
+| --- | --- | --- |
+| 1 | `dispatch.sh <n> <role>` 派发时写 `ticket`/`kind` token | 派一次，snapshot 里该 pane 的 tokens 有 `ticket=<n> kind=worker` |
+| 2 | `board.py --once` 与无参形态：§3 数据源、§7b 两种输出 | 对着现有会话跑 `--once`，表里每行与 `herdr agent list` + `gh issue view` 对得上；无参形态在 tab 里跑十分钟，`pane read` 读得回追加的行 |
+| 3 | `board.py --watch`：§4 的派发、`closed`/`handoff`、`idle` 而 `phase` 未到 `closed`/`handoff`、`TIME LIMIT:` 四行；重新 prompt 只发派发词 | `claude --model haiku` 假 worker，prompt 让它做到自跑就停：看 `board.py` 等 `COOLDOWN_SECONDS` 后重新 prompt、`wake` 加一、到 `WAKE_LIMIT` 后交回 `needs-triage` |
+| 4 | §4 其余行：`blocked`、`unknown` 重派、`dispatch.sh` 退出 1/2、`NIGHT SUMMARY`、重新 prompt `mmw-main` | 让假 worker 弹提问表单，看 `BLOCKED:` 评论与关表单后续上；`pane close` 假 worker，看 `REDISPATCHED:` 评论与重派；全部关完看 spec 上的 `NIGHT SUMMARY` |
+| 5 | `dispatch.sh run`、`dispatch/SKILL.md`、`cursor.toml` 随 `install.sh` 装、#75 措辞 | `install.sh --check` 有缺时 `run` 拒绝；正常时监控 tab 开着、`mmw-main` 在 `herdr agent list` 里 |
 
 第 5 步之后才轮到 #75 的真票。
 
@@ -222,4 +230,4 @@ mmw board · 02:14 · spec #60 · 5 张票 · PARALLEL 2/2
 | --- | --- | --- |
 | 1 | 重派时 cursor `-w issue-<n>` / grok `--worktree=issue-<n>` 对已存在的同名 worktree 是复用还是报错——复用正是重派要的（半途 commit 在那条分支上，`--preflight` 也要分支名 `issue-<n>`） | 落地第 4 步各起两次看 |
 | 2 | `board.py` 进程本身的健壮性：未捕获异常、Herdr 重启、机器睡眠 | 实现规则：主循环 try/except；`dispatch.sh run` 起它时套 `until … ; do sleep 5; done`；不持状态所以重起无损 |
-| 3 | 只发派发词能不能让一个跑到一半的 `implement` 从正确的一步续上 | 落地第 3 步返工后用假 worker 验；`implement` 收尾段那一句是它的依据 |
+| 3 | 只发派发词能不能让一个跑到一半的 `implement` 从正确的一步续上 | 用假 worker 验；`implement` 收尾段那一句是它的依据 |

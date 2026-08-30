@@ -82,7 +82,8 @@ def with_command(host: str, command: str) -> dict:
 # ------------------------------------------------------------------------ AC1
 
 class TestSelfScope(unittest.TestCase):
-    """Without the dispatcher's marker there is no gate, and nothing is looked up."""
+    """Without the `MMW_TICKET` variable `dispatch.sh` sets there is no gate, and nothing
+    is looked up."""
 
     def test_no_marker_no_gate(self):
         with mock.patch.dict(os.environ, {}, clear=True):

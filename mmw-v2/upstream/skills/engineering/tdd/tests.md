@@ -1,5 +1,7 @@
 # Good and Bad Tests
 
+Another copy of these criteria lives in `~/.agents/skills/code-review/references/tests-reviewer.md`; change both together.
+
 ## Good Tests
 
 **Integration-style**: Test through real interfaces, not mocks of internal parts.

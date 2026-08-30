@@ -187,7 +187,7 @@ gh issue list --state open --label needs-triage --search "is:issue parent:<spec 
 gh issue list --state open --json number,title,blockedBy --jq '.[]|select(.blockedBy|length>0)'  # 还被卡着的
 ```
 
-第三条依赖 implement 开工时 `--add-assignee @me` 认领；现行 `implement/SKILL.md` 没有这一步，`docs/agents/issue-tracker.md:44` 只给 wayfinder 定了。见 §7。
+第三条依赖开工时把票认领给自己；认领由 `verify-ticket.py --preflight` 完成（`mmw-v2/skills/verify-ticket/scripts/verify-ticket.py:120` 的 `gh issue edit <n> --add-assignee @me`）。见 §7。
 
 ## 6. 夜间批量：一张票 HANDOFF，下游怎么办
 
@@ -205,6 +205,8 @@ grok 的 Cascade-Skip 唯一多出来的价值是 `skipped` 这个可查询的�
 ## 7. 建议
 
 ### 7.1 implement 收尾评论的固定格式
+
+现行的收尾评论格式在 `mmw-v2/upstream/skills/engineering/implement/SKILL.md:36` 第 5 步「The draft's fixed shape」，核它的是 `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py:35-53` 的 `SUMMARY_RE`、`GATE_LINE_RE`、`ABANDON_RE`、`COUNTS_RE`、`HANDOFF_RE`、`VERDICT_RE`、`ATTR_LINE_RE`。以下是当时的提案。
 
 ```
 <ALL MET | HANDOFF REQUIRED: n abandoned (kinds), m unmet, k met of total>

@@ -146,11 +146,7 @@ Write the smallest useful file. Use only sections that add non-obvious value.
 
 ## Pointers
 
-An External References row and the subdirectory sentence are context pointers: their wording decides whether an agent reaches the file.
-
-- **Front-load the leading word**: the pointer is where it does its triggering work.
-- **One trigger per branch.** Synonyms that rename a single branch are one branch written twice; collapse them and keep only genuinely distinct branches.
-- **Cut identity the body already carries.**
+An External References row and the subdirectory sentence are context pointers: their wording decides whether an agent reaches the file. The criteria live in `~/.agents/skills/writing-for-agents/SKILL.md` (Pointers / Pruning / Negation) — read them there.
 
 Done when every pair from step 1 exists, every line in every file traces to one survey-list entry, and the root is within 150 lines.
 

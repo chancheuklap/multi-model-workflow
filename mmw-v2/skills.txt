@@ -1,7 +1,7 @@
 # 装进各宿主的技能。一行一个。加减技能只改这里；install.sh 按它安装，也按上一次的记录清理。
 # `#` 开头和空行忽略。
 #
-# 两种来源：
+# 三种来源：
 #   <桶>/<名>        mattpocock 上游的，路径相对 mmw-v2/upstream/skills/
 #   self/<名>        我们自己写的，路径相对 mmw-v2/skills/
 #   dd/<名>          diagram-design 上游的，路径相对 mmw-v2/upstream-diagram-design/skills/

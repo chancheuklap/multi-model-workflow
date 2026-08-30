@@ -1,6 +1,6 @@
 ---
 name: to-tickets
-description: Break a plan, spec, or the current conversation into a set of tracer-bullet tickets, each declaring its blocking edges, published to the configured tracker (edges as text in one file per ticket locally, or native blocking links on a real tracker).
+description: Break a plan, spec, or the current conversation into a set of tracer-bullet tickets, each declaring its blocking edges, published to the project issue tracker as one issue per ticket with native blocking links.
 ---
 
 # To Tickets
@@ -110,10 +110,7 @@ Iterate until the user approves the breakdown.
 
 ### 7. Publish the tickets to the configured tracker
 
-Publish the approved tickets. **How** depends on the tracker `/setup-matt-pocock-skills` configured; the tickets are the same either way, only the shape of the blocking edges changes:
-
-- **Local files** → write one file per ticket under `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` in dependency order (blockers first). Each file's "Blocked by" lists the numbers/titles it depends on. Use the per-ticket file template below: one ticket per file, never a single combined file.
-- **A real issue tracker (GitHub, Linear, …)** → publish one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native blocking / sub-issue relationship where it has one; otherwise set each ticket's "Blocked by" to the blocking issues. Apply the `ready-for-agent` triage label to every ticket an agent works; the ones a person must judge carry `ready-for-human` instead.
+Publish the approved tickets to the issue tracker `/setup-matt-pocock-skills` configured (GitHub, Linear, …): one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native blocking / sub-issue relationship where it has one; otherwise set each ticket's "Blocked by" to the blocking issues. On GitHub, create each ticket as a sub-issue of the spec (`gh issue create --parent <spec>`, or attach it through the `sub_issues` API): the linter's ticket graph and the night board read only that relationship. Apply the `ready-for-agent` triage label to every ticket an agent works; the ones a person must judge carry `ready-for-human` instead.
 
 Work the **frontier**: any ticket whose blockers are all done. For a purely linear chain that means top to bottom.
 
@@ -121,53 +118,28 @@ Do NOT close or modify any parent issue.
 
 ### 8. Read every ticket back
 
-After publishing, open each ticket again (on a real tracker, fetch it; locally, read the file) and check every one:
+After publishing, fetch each ticket again and check every one:
 
 - The title and **What to build** describe the same slice.
 - Every entry under **Blocked by** is an identifier that resolves to one of this batch's tickets, and the ticket it resolves to is the one meant.
 - On a tracker with native blocking links, the number of links equals the number of **Blocked by** entries.
+- On GitHub, the spec's sub-issue count equals the number of tickets in this batch.
 
 Then each kind of ticket, for the sections that kind must carry. On the ones an agent works:
 
 - **Read first** and **Seam** are present and non-empty ("none" counts as present). Where **Read first** carries a baseline — anything that records a settled conclusion — its line marks it as one.
 - **Owns** is present and non-empty, every entry is a repository-relative path or glob, and no two tickets on the same frontier overlap there.
-- `verify-ticket.py <n> --lint` has been run, and every ERROR it reports is fixed before you report the batch. Read every WARN once and either fix it or keep it on purpose.
+- `python3 ~/.agents/skills/verify-ticket/scripts/verify-ticket.py <n> --lint` has been run on the ticket's issue number, and every ERROR it reports is fixed before you report the batch. Read every WARN once and either fix it or keep it on purpose.
 
-On the `ready-for-human` ones — no agent can repair one:
+On the `ready-for-human` ones — no agent can repair one, so all five things it holds are checked:
 
+- **Parent** is there.
 - The kind is named, *reaction* or *reach*.
-- **What to look at** is a link that opens, and **what makes it right** is there to judge against.
+- **What to look at** is a link that opens.
+- **What makes it right** is there to judge against.
+- **Blocked by** names the ticket that produces the thing.
 
-Fix what fails before reporting the batch as published.
-
-<local-ticket-template>
-
-# <NN>: <Ticket title>
-
-**Parent:** the spec, and the numbered Implementation Decisions sections this ticket implements.
-
-**What to build:** the end-to-end behaviour this ticket makes work, from the user's perspective, not a layer-by-layer implementation list.
-
-**Read first:** the source material behind this ticket's sections (decision tickets, ADRs, research files, prototype directories), copied from the sources those sections cite. "None" if the sections cite nothing.
-
-**Seam:** the test layer and directory where this ticket is verified, copied from the spec's Testing Decisions.
-
-**Owns:** the repository-relative paths this ticket may write, one per line, the test directory or file from **Seam** included; "(new)" on what this ticket creates.
-
-**Blocked by:** the numbers of the tickets that gate this one, or "None (can start immediately)".
-
-**Status:** ready-for-agent
-
-- [ ] AC1: <what must be true, in the spec's exact values>
-  CHECK: <the command that decides it>
-  EXPECT: <the line only a passing run prints>
-  EVIDENCE: pending
-- [ ] AC2: <the next thing that must be true>
-  CHECK: <the command that decides it>
-  EXPECT: <the line only a passing run prints>
-  EVIDENCE: pending
-
-</local-ticket-template>
+Fix what fails before reporting the batch as published. When the batch is a spec's night run, hand over with `dispatch.sh run <spec>`: the dispatch skill's SKILL.md has the command.
 
 <issue-template>
 
@@ -214,4 +186,4 @@ Every criterion here carries a command. A judgement goes to code review; a thing
 
 </issue-template>
 
-In either form, avoid implementation file paths or code snippets: they go stale fast; paths to source material stay, and so do the two kinds of path a ticket cannot do without — the test directory or test file under **Seam**, and the paths under **Owns**, which say where this ticket may write, not where its code lives. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts, not a working demo, just the important bits.
+Avoid implementation file paths or code snippets: they go stale fast; paths to source material stay, and so do the two kinds of path a ticket cannot do without — the test directory or test file under **Seam**, and the paths under **Owns**, which say where this ticket may write, not where its code lives. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts, not a working demo, just the important bits.

@@ -48,7 +48,7 @@ COUNTS_RE = re.compile(
     r"^Counts:\s*(\d+)\s+met,\s*(\d+)\s+unmet,\s*(\d+)\s+abandoned of\s*(\d+)\s*$")
 HANDOFF_RE = re.compile(
     r"^HANDOFF REQUIRED:\s*(\d+)\s+abandoned\s*\(([^)]*)\),\s*(\d+)\s+unmet,\s*(\d+)\s+met of\s*(\d+)\s*$")
-VERDICT_RE = re.compile(r"^VERDICT\s+([0-9a-fA-F]{7,40})\b")
+VERDICT_RE = re.compile(r"^VERDICT\s+([0-9a-fA-F]{40})\b")
 ISSUE_REF_RE = re.compile(r"#(\d+)")
 ATTR_LINE_RE = re.compile(r"^\s+(CHECK|EXPECT|EVIDENCE|CWD):")
 FENCE_OPEN_RE = re.compile(r"^( {0,3})(`{3,}|~{3,})(.*)$")
@@ -135,12 +135,27 @@ def hand_back_for_triage(number: int) -> None:
     A worker that could not finish has not established what the ticket needs next — a
     person, more information, another agent, or nothing at all. `needs-triage` is that
     state, and it is the one queue a skill picks up on its own.
+
+    A ticket still assigned to the worker that gave up is a ticket `board.py` will not
+    dispatch again — its frontier takes only unassigned tickets — so the assignee comes
+    off in the same edit as the label.
     """
     subprocess.run(
         ["gh", "issue", "edit", str(number),
-         "--remove-label", "ready-for-agent", "--add-label", "needs-triage"],
+         "--remove-label", "ready-for-agent", "--add-label", "needs-triage",
+         "--remove-assignee", "@me"],
         check=True, env=GH_ENV,
     )
+
+
+def fetch_blocked_by(number: int) -> list[int]:
+    """The tickets the tracker records as blocking `number`. Patched out in tests."""
+    out = subprocess.run(
+        ["gh", "issue", "view", str(number), "--json", "blockedBy"],
+        capture_output=True, text=True, check=True, env=GH_ENV,
+    )
+    data = json.loads(out.stdout) if out.stdout.strip() else {}
+    return [b["number"] for b in (data.get("blockedBy") or {}).get("nodes", [])]
 
 
 def fetch_sub_issues(spec: int) -> list[int]:
@@ -186,7 +201,11 @@ def parent_spec(body: str) -> int | None:
 
 
 def blocked_by(body: str) -> list[int]:
-    """The ticket numbers in `## Blocked by`. `None (can start immediately)` is empty."""
+    """The ticket numbers in `## Blocked by`. `None (can start immediately)` is empty.
+
+    This section is the copy a person reads. What the graph is checked against is the
+    tracker's own blocking links, `fetch_blocked_by`.
+    """
     out = []
     for line in section(body, "Blocked by"):
         for m in ISSUE_REF_RE.finditer(line):
@@ -419,12 +438,29 @@ def draft_line(text: str, prefix: str) -> str | None:
 
 
 def last_verdict(comments: list[str]) -> str | None:
-    """The commit on the newest `VERDICT <commit> <level> …` line the verifier left."""
+    """The commit on the newest `VERDICT <commit> by <model> — <one line>` line."""
     for comment in reversed(comments):
         for line in reversed(comment.splitlines()):
             m = VERDICT_RE.match(line.strip())
             if m:
                 return m.group(1)
+    return None
+
+
+def last_run_summary(comments: list[str]) -> str | None:
+    """The summary line of the newest `self-run` or `reverify` comment on the ticket.
+
+    A run comment opens with its own name and carries gate-check's summary on the line
+    under it, so that line is what the ticket currently reports about its criteria.
+    `None` when no run has been posted, or when the newest one printed no summary.
+    """
+    for comment in reversed(comments):
+        lines = comment.strip().splitlines()
+        first = lines[0].strip() if lines else ""
+        if first not in ("self-run", "reverify"):
+            continue
+        summary = lines[1].strip() if len(lines) > 1 else ""
+        return summary if SUMMARY_RE.match(summary) else None
     return None
 
 
@@ -508,10 +544,19 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
     # independent check before a worker is allowed to say "I could not do this" would
     # leave it with no way out at all.
     if first == "ALL MET":
+        # A draft is written by hand and the runs are not, so `ALL MET` in the draft is a
+        # claim and the newest run's summary is the measurement. Only the newest one is
+        # read: a criterion the verifier found unmet and the worker then fixed is met
+        # again on the self-run after the fix, and that run is the one this sees.
+        summary = last_run_summary(comments)
+        if summary and summary.startswith(("UNMET:", "HANDOFF REQUIRED:")):
+            problems.append("the newest run on the ticket still reports unmet or abandoned "
+                            "criteria — rerun until the summary line is `ALL MET (...)`, "
+                            "or close out as `HANDOFF REQUIRED`")
         verdict = last_verdict(comments)
         if verdict is None:
-            problems.append("the ticket carries no `VERDICT <commit> <level> …` line, so "
-                            "nothing but this ticket's own author says the work is done. "
+            problems.append("the ticket carries no `VERDICT <commit> by <model> — …` line, "
+                            "so nothing but this ticket's own author says the work is done. "
                             "Dispatch the verifier; if it cannot run, close out as "
                             "`HANDOFF REQUIRED` instead and say so")
         elif not git("rev-parse", "HEAD").startswith(verdict) \
@@ -544,7 +589,7 @@ def git_problems(root: Path | None = None) -> list[str]:
 # `validate_dag`, `_detect_cycles`, `_trace_cycle` and `compute_levels` are
 # grok-bundled's `execute-plan/scripts/validate-plan.py` L145-280, function for
 # function. Only the shape of an entry changed: an id is an issue number rather
-# than a `pr-<n>` string, and dependencies come from `## Blocked by`.
+# than a `pr-<n>` string, and dependencies come from the tracker's blocking links.
 
 def validate_dag(entries: list[dict]) -> list[str]:
     """Check unique ids, valid dependency references, and no cycles."""
@@ -553,14 +598,14 @@ def validate_dag(entries: list[dict]) -> list[str]:
     seen = set()
     for entry in entries:
         if entry["id"] in seen:
-            errors.append(f"duplicate ticket: #{entry['id']}")
+            errors.append(f"duplicate ticket: #{entry['id']}  [duplicate-ticket]")
         seen.add(entry["id"])
 
     for entry in entries:
         for dep in entry["dependencies"]:
             if dep not in seen:
                 errors.append(f"dangling dependency: #{entry['id']} is blocked by #{dep}, "
-                              f"which is not a ticket under this spec")
+                              f"which is not a ticket under this spec  [dangling]")
 
     if not errors:
         errors.extend(_detect_cycles(entries))
@@ -596,8 +641,9 @@ def _detect_cycles(entries: list[dict]) -> list[str]:
     unvisited = [e["id"] for e in entries if in_degree[e["id"]] > 0]
     cycle = _trace_cycle(dep_map, unvisited)
     if cycle:
-        return ["cycle detected: " + " -> ".join(f"#{i}" for i in cycle)]
-    return ["cycle detected involving: " + ", ".join(f"#{i}" for i in sorted(unvisited))]
+        return ["cycle detected: " + " -> ".join(f"#{i}" for i in cycle) + "  [cycle]"]
+    return ["cycle detected involving: "
+            + ", ".join(f"#{i}" for i in sorted(unvisited)) + "  [cycle]"]
 
 
 def _trace_cycle(dep_map: dict, unvisited_ids: list) -> list | None:
@@ -655,11 +701,46 @@ def compute_levels(entries: list[dict]) -> dict:
 
 
 def ticket_entries(numbers: list[int]) -> list[dict]:
-    """One entry per ticket, its dependencies read off its own `## Blocked by`.
+    """One entry per ticket: the tracker's blocking links, and the ticket's own copy.
+
+    `dependencies` is what the tracker records, and it is the graph every check below
+    runs on — the same edges `--preflight` refuses on and `board.py` dispatches from.
+    `stated` is the `## Blocked by` section of the ticket body, carried alongside so
+    `blocked_by_mismatch` can hold the two accounts of one edge against each other.
 
     A dependency on a ticket outside this batch is kept, so `validate_dag` reports it.
     """
-    return [{"id": n, "dependencies": blocked_by(fetch_body(n))} for n in numbers]
+    return [{"id": n, "dependencies": fetch_blocked_by(n), "stated": blocked_by(fetch_body(n))}
+            for n in numbers]
+
+
+def blocked_by_mismatch(entries: list[dict]) -> list[str]:
+    """Tickets whose `## Blocked by` section and blocking links do not name the same set.
+
+    A reader of the ticket sees the section; every command in this pipeline sees the
+    links. When the two differ, the ticket says one thing about what has to land first
+    and the tracker says another, and neither the reader nor the graph can tell which
+    the batch was planned around.
+    """
+    findings = []
+    for entry in entries:
+        native = set(entry["dependencies"])
+        stated = set(entry.get("stated", []))
+        if native == stated:
+            continue
+        sides = []
+        if stated - native:
+            sides.append("`## Blocked by` names "
+                         + ", ".join(f"#{n}" for n in sorted(stated - native))
+                         + ", which the tracker does not link")
+        if native - stated:
+            sides.append("the tracker links "
+                         + ", ".join(f"#{n}" for n in sorted(native - stated))
+                         + ", which `## Blocked by` does not name")
+        findings.append(f"#{entry['id']}: " + "; ".join(sides)
+                        + ". The graph is checked against the links, so fix whichever "
+                          "side is wrong until both name the same tickets.")
+    return findings
 
 
 # -------------------------------------------------------------------- herdr
@@ -674,7 +755,7 @@ def report_phase(ticket: int, phase: str, extra: dict[str, str] | None = None,
         return False
     cmd = [
         "herdr", "pane", "report-metadata", pane, "--source", "mmw",
-        "--token", f"ticket={ticket}", "--token", "role=worker",
+        "--token", f"ticket={ticket}", "--token", "kind=worker",
         "--token", f"phase={phase}", "--ttl-ms", TTL_MS,
     ]
     for key, value in (extra or {}).items():
@@ -749,8 +830,8 @@ def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
 def refusals(number: int, ticket: dict, me: str, branch: str, dirty: list[str]) -> list[str]:
     """Why this ticket is not ready to be worked on, in the order a worker would hit it.
 
-    Every one of these ends in `stop`. The four conditions are set up before a worker
-    exists — the host opens the worktree on `issue-<n>`, the dispatcher checks the state,
+    Every one of these ends in `stop`. The six conditions are set up before a worker
+    exists — the host opens the worktree on `issue-<n>`, `dispatch.sh` checks the state,
     the labels and the blockers before it starts anyone — so a worker that sees one of
     these has found a fault upstream of itself, not a task. Working around it (switching
     branches, committing whatever is in the tree, taking someone else's ticket) does more
@@ -778,7 +859,7 @@ def refusals(number: int, ticket: dict, me: str, branch: str, dirty: list[str]) 
                 if b.get("state") != "CLOSED"]
     if blockers:
         names = ", ".join(f"#{b['number']}" for b in blockers)
-        out.append(f"NOT_READY: #{number} is blocked by {names}; stop — the dispatcher "
+        out.append(f"NOT_READY: #{number} is blocked by {names}; stop — `dispatch.sh` "
                    f"starts this ticket again once those close, so do not wait or retry")
     holders = [a.get("login", "") for a in ticket.get("assignees", [])]
     others = [h for h in holders if h != me]
@@ -817,9 +898,10 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
         problems.append(f"#{number} is not assigned to you ({me}); run --preflight first")
 
     if problems:
-        # The pretool hook that stands between a worker and `gh issue close` relays only
-        # the first line of this, so the first line carries the count and the way to read
-        # the rest. Fixing them one per run is a loop nobody has a cap on.
+        # The first line carries the total and the command that prints the rest, so a
+        # worker sees the whole set at once. A refusal that named only the problem it hit
+        # first would put it in a loop nobody has a cap on: fix one, run again, meet the
+        # next.
         rest = (f" Run `verify-ticket.py {number} --closeout {draft_path} --check-only` "
                 f"to see the other {len(problems) - 1}." if len(problems) > 1 else "")
         sys.stderr.write(f"closeout rejected, {len(problems)} problem"
@@ -852,13 +934,18 @@ def lint_ticket_graph(number: int, body: str) -> int:
         return 0
     numbers = fetch_sub_issues(spec)
     if not numbers:
-        print(f"ticket graph: #{spec} has no sub-issues, so there is no batch to check")
-        return 0
+        print(f"  ERROR #{spec} has no sub-issues — publish tickets as sub-issues of the "
+              f"spec, or the graph cannot be checked  [no-sub-issues]")
+        return 1
     entries = ticket_entries(numbers)
+    # Printed before the errors, because an error returns here and a disagreement about
+    # an edge is often what the error is: a cycle or a dangling link the section denies.
+    for finding in blocked_by_mismatch(entries):
+        print("  WARN  " + finding + "  [blocked-by-mismatch]")
     errors = validate_dag(entries)
     if errors:
         for error in errors:
-            print(error)
+            print("  ERROR " + error)
         return 1
     levels = compute_levels(entries)
     by_level = defaultdict(list)

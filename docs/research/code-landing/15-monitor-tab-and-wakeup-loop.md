@@ -1,6 +1,6 @@
 # 监控 tab 与唤醒闭环：agent 之间怎么交换信息，上级怎么把停下的下级捡回来
 
-`14-herdr-utilization.md` 盘的是 Herdr 有哪些能力、一张票在里面怎么摆。本文回答另一个问题：这套东西自动跑起来时，**信息在 agent 之间怎么流动**，**下级没到终点就停下时上级做什么**，以及**这一切摆在哪个界面上给人和 agent 同时看**。本文只调查、只提议，不定案。
+`14-herdr-utilization.md` 盘的是 Herdr 有哪些能力、一张票在里面怎么摆。本文回答另一个问题：这套东西自动跑起来时，**信息在 agent 之间怎么流动**，**下级 `idle` 而 `phase` 未到 `closed`/`handoff` 时上级做什么**，以及**这一切摆在哪个界面上给人和 agent 同时看**。本文只调查、只提议，不定案。
 
 取证时间 2026-08-29。新增的取证来源：herdr 官方插件文档（`https://raw.githubusercontent.com/herdrdev/herdr/v0.8.2/docs/next/website/src/content/docs/plugins.mdx`）与市场文档（同目录 `marketplace.mdx`）、GitHub 上带 `herdr-plugin` 话题的仓库（`gh api search/repositories -f q='topic:herdr-plugin'`，2026-08-29 查得 882，这个数每天在涨）中六个同类项目的 README 与 manifest、本机 `herdr plugin` 命令组清单。
 
@@ -89,7 +89,7 @@ mmw board · 02:14 · 5 张票在跑
 
  票    agent            状态     phase       AC     停了多久  备注
  #61   issue-61         working  implement   -      -
- #62   issue-62         idle     selfcheck   3/5    6m        没到终点就停了
+ #62   issue-62         idle     selfcheck   3/5    6m        idle 而 phase 未到 closed/handoff
  #63   issue-63         blocked  verify      5/5    2m        verifier 在等审批
  #64   -                -        closed      6/6    -         ALL MET，已关票
  #65   -                -        -           -      -         等 #62
@@ -98,7 +98,7 @@ mmw board · 02:14 · 5 张票在跑
 常驻形态是一行一件事，时间戳打头：
 
 ```
-02:14:31  #62  idle       phase=selfcheck ac=3/5    没到终点，去读票
+02:14:31  #62  idle       phase=selfcheck ac=3/5    phase 未到 closed/handoff，去读票
 02:14:33  #62  诊断        最后一条评论：self-run，AC3 失败：pytest exit 1
 02:14:35  #62  prompt     第 1 次（上限 3）：继续修 AC3，修完跑 verify-ticket.py 62
 02:14:38  #62  working
@@ -117,20 +117,20 @@ mmw board · 02:14 · 5 张票在跑
 
 ## 5. 唤醒闭环的最小形态
 
-上级（coordinator 或 `board.py --watch`）在每次 `pane.agent_status_changed` 推送后做一次判断，输入只有两样：Herdr 的状态与 phase token（`14` §4.1 的合看表）、票的最后一条评论。
+上级（main agent 或 `board.py --watch`）在每次 `pane.agent_status_changed` 推送后做一次判断，输入只有两样：Herdr 的状态与 phase token（`14` §4.1 的合看表）、票的最后一条评论。
 
 | 观察到 | 上级做什么 |
 | --- | --- |
 | `working` | 不动 |
 | `idle`/`done` 且 `phase` 是 `closed` 或 `handoff` | 到终点了，登记，不动 |
-| `idle`/`done` 且 `phase` 是别的值 | **这就是「没到终点就停了」**：读票的最后一条评论与 `herdr agent read` 最近的输出，判断它停在哪一步，按 §3 的七条重新 prompt 它继续 |
+| `idle`/`done` 且 `phase` 是别的值 | **这就是 `idle` 而 `phase` 未到 `closed`/`handoff`**：读票的最后一条评论与 `herdr agent read` 最近的输出，判断它停在哪一步，按 §3 的七条重新 prompt 它继续 |
 | `blocked` | 读它在问什么（`herdr agent read`）。§3 第 6 条：这时 prompt 无效。要么答，要么记成票上的一条评论交给人 |
 | `unknown` 或 pane 消失 | 会话没了。票没关也没 HANDOFF，则这张票要重派或交人 |
 | `agent_prompt_stalled` / 重试到上限 | 停手，在票上留一条评论说明，换 `needs-triage` |
 
 「诊断」这一步要读什么，本仓已经有答案，不需要新东西：票上最后一条评论（`verify-ticket.py` 每次自跑都会贴一条，含每条 AC 的结果，#60 第 2 节）就是它停在哪的直接证据；读屏只是补充，且不可靠（§4.1）。
 
-这套判断本身不需要模型——它是一张查表。**只有「重新 prompt 时说什么」需要模型**，而多数情况下那句话是固定的（「继续：上一步 `verify-ticket.py <n>` 有 N 条 AC 未过，修完再跑一次」）。所以 `board.py --watch` 能独立完成大部分捡回动作，只在查表落到最后两行时才叫醒 coordinator。
+这套判断本身不需要模型——它是一张查表。**只有「重新 prompt 时说什么」需要模型**，而多数情况下那句话是固定的（「继续：上一步 `verify-ticket.py <n>` 有 N 条 AC 未过，修完再跑一次」）。所以 `board.py --watch` 能独立完成大部分捡回动作，只在查表落到最后两行时才叫醒 main agent。
 
 ## 6. 「需要人决策的地方应该小到能记进 issue」与现有定案的差距
 

@@ -1,6 +1,6 @@
 # merge-notes
 
-`mmw-v2/upstream/` 里被我们改过的技能，每个一份说明：改了哪几段、为什么改、上游再动这几段时怎么取舍。
+两个上游 subtree 里被我们改过的技能，每个一份说明：改了哪几段、为什么改、上游再动这几段时怎么取舍。
 给的是**意图**，不是 diff——diff 用 `git diff <上一个 Squashed 提交> -- <技能目录>` 看。
 
 ## 上游更新时怎么用
@@ -25,9 +25,11 @@
 - [research](research.md) — `engineering/research`
 - [to-spec](to-spec.md) — `engineering/to-spec`
 - [to-tickets](to-tickets.md) — `engineering/to-tickets`
+- [setup-matt-pocock-skills](setup-matt-pocock-skills.md) — `engineering/setup-matt-pocock-skills`
 - [triage](triage.md) — `engineering/triage`
 - [wayfinder](wayfinder.md) — `engineering/wayfinder`
 - [teach](teach.md) — `productivity/teach`
 - [to-questionnaire](to-questionnaire.md) — `productivity/to-questionnaire`
 - [wait-what](wait-what.md) — `productivity/wait-what`
+- [writing-for-agents](writing-for-agents.md) — `productivity/writing-for-agents`
 - [diagram-design](diagram-design.md) — `mmw-v2/upstream-diagram-design/`，另一个上游、另一个 subtree

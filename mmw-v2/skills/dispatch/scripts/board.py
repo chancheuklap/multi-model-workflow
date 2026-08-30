@@ -55,7 +55,7 @@ TOKEN_TTL_MS = 86400000         # a day, so a night's run never outlives its met
 
 SOCKET_PATH = os.path.expanduser("~/.config/herdr/herdr.sock")
 
-# The dispatcher is this script's neighbour, so the pair moves as one skill.
+# `dispatch.sh` is this script's neighbour, so the pair moves as one skill.
 DISPATCH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dispatch.sh")
 
 # --------------------------------------------------------------------- reading
@@ -145,7 +145,7 @@ def sub_issues(spec: int) -> list[int]:
     A sub-issue a worker opened during the night is in here too, told apart by its
     labels rather than by when it appeared.
     """
-    rows = gh_json(["api", f"repos/:owner/:repo/issues/{spec}/sub_issues"], [])
+    rows = gh_json(["api", f"repos/{{owner}}/{{repo}}/issues/{spec}/sub_issues"], [])
     return [int(r["number"]) for r in rows if isinstance(r, dict) and r.get("number")]
 
 
@@ -196,7 +196,14 @@ def newest_with_first_line(ticket: dict, *prefixes: str) -> str:
     return ""
 
 
-UNMET_RE = re.compile(r"^UNMET:\s*(\d+)\s*\(met:\s*(\d+)\)")
+# The three summary lines gate-check prints, one of which is the second line of every
+# `self-run` and `reverify` comment. Each stops at its own numbers rather than at the
+# closing bracket, because the bracket may also hold the reverify counts or a scope.
+ALL_MET_RE = re.compile(r"^ALL MET\s*\((\d+)\s+met\b")
+UNMET_RE = re.compile(r"^UNMET:\s*(\d+)\s*\(met:\s*(\d+)\b")
+HANDOFF_RE = re.compile(
+    r"^HANDOFF REQUIRED:\s*(\d+)\s+abandoned\s*\(met:\s*(\d+)"
+    r"(?:,\s*unmet:\s*(\d+))?")
 
 # The two first lines a worker's closing comment can carry.
 CLOSING_LINES = ("ALL MET", "HANDOFF REQUIRED")
@@ -218,10 +225,25 @@ def redispatch_count(ticket: dict) -> int:
 
 
 def counted_ac(ticket: dict) -> str:
-    """`<met>/<total>` off the newest self-run or reverify comment, or `-`."""
+    """`<met>/<total>` off the newest self-run or reverify comment, or `-`.
+
+    The total is every criterion the summary line accounts for: met, unmet, and, on a
+    `HANDOFF REQUIRED:` line, abandoned as well. `ALL MET` accounts for none but the
+    met ones, which is what makes it `ALL MET`.
+    """
     body = newest_with_first_line(ticket, "self-run", "reverify")
-    for line in body.splitlines():
-        found = UNMET_RE.match(line.strip())
+    for raw in body.splitlines():
+        line = raw.strip()
+        found = ALL_MET_RE.match(line)
+        if found:
+            met = int(found.group(1))
+            return f"{met}/{met}"
+        found = HANDOFF_RE.match(line)
+        if found:
+            abandoned, met = int(found.group(1)), int(found.group(2))
+            unmet = int(found.group(3) or 0)
+            return f"{met}/{met + unmet + abandoned}"
+        found = UNMET_RE.match(line)
         if found:
             unmet, met = int(found.group(1)), int(found.group(2))
             return f"{met}/{met + unmet}"
@@ -234,29 +256,33 @@ NAME_RE = re.compile(r"^issue-(\d+)(-review)?$")
 
 
 def session_of(agent: dict) -> dict | None:
-    """The ticket and role this live agent belongs to, or None if it is not ours.
+    """The ticket and kind this live agent belongs to, or None if it is not ours.
+
+    The `kind` token is `worker` or `reviewer`, and it is not the `<role>` a dispatch
+    names: three roles in `models.md` start a session, and the two kinds are what the
+    session then is.
 
     The tokens are written at dispatch, so they are there from the first moment. The
-    name is the fallback for a session that came up but was never told anything: the
-    dispatcher gives it `issue-<n>` before it prompts, and only the dispatcher uses
+    name is the fallback for a session that came up but was never told anything:
+    `dispatch.sh` gives it `issue-<n>` before it prompts, and only `dispatch.sh` uses
     that name, so it is as good an identity as the token.
 
-    `dispatched` is the narrower question of whether this is a session the dispatcher
+    `dispatched` is the narrower question of whether this is a session `dispatch.sh`
     started and still holds — the name is what answers it, because nothing else hands
     out `issue-<n>`. A pane carrying a token from a ticket it finished long ago is
     somebody's own session now, and only the dispatched ones are ever acted on.
     """
     tokens = agent.get("tokens") or {}
     named = NAME_RE.match(agent.get("name") or "")
-    number, role = tokens.get("ticket"), tokens.get("role")
+    number, kind = tokens.get("ticket"), tokens.get("kind")
     if not (number and str(number).isdigit()):
         if not named:
             return None
         number = named.group(1)
-        role = "reviewer" if named.group(2) else "worker"
+        kind = "reviewer" if named.group(2) else "worker"
     return {
         "ticket": int(number),
-        "role": role or "worker",
+        "kind": kind or "worker",
         "name": agent.get("name") or "",
         "dispatched": bool(named and int(named.group(1)) == int(number)),
         "pane_id": agent.get("pane_id") or "",
@@ -278,13 +304,13 @@ def sessions(agents: list[dict]) -> list[dict]:
 
 def worker_on(sessions_: list[dict], number: int) -> dict | None:
     for s in sessions_:
-        if s["ticket"] == number and s["role"] == "worker":
+        if s["ticket"] == number and s["kind"] == "worker":
             return s
     return None
 
 
 def held(rows: list[dict]) -> list[dict]:
-    """The rows whose worker is a session the dispatcher started and still holds."""
+    """The rows whose worker is a session `dispatch.sh` started and still holds."""
     return [r for r in rows if r["worker"] and r["worker"]["dispatched"]]
 
 # --------------------------------------------------------------------- the rows
@@ -496,7 +522,8 @@ FORM_CHARS = 500                # enough of the form to read it in the morning
 FORM_LINES = 20                 # a form sits at the foot of the screen, above nothing
 
 MAIN = "mmw-main"
-MAIN_LINE = "mmw board: {case} #{n} — run board.py --once"
+MAIN_LINE = ("mmw board: {case} #{n} — run "
+             "~/.agents/skills/dispatch/scripts/board.py --once {spec}")
 
 BLOCKED = "BLOCKED: {form}"
 REDISPATCHED = ("REDISPATCHED: session issue-{n} ended at phase={phase}; started again "
@@ -506,7 +533,10 @@ REDISPATCH_SPENT = ("REDISPATCHED: session issue-{n} ended at phase={phase} and 
                     "needs-triage; the ticket stays open.")
 WAKEUP_LIMIT = ("WAKEUP LIMIT: re-prompted {k} times and it went idle again at "
                 "phase={phase}. Handed back to needs-triage; the ticket stays open.")
-TIME_LIMIT = ("TIME LIMIT: {hours} h since dispatch, still at phase={phase}. Handed "
+WAKEUP_LIMIT_FORM = ("WAKEUP LIMIT: dismissed {k} forms and it asked again at "
+                     "phase={phase}. Handed back to needs-triage; the ticket stays "
+                     "open.")
+TIME_LIMIT = ("TIME LIMIT: {hours} h under this board, still at phase={phase}. Handed "
               "back to needs-triage; the session was left alone.")
 NIGHT_SUMMARY = "NIGHT SUMMARY {date}"
 
@@ -566,7 +596,7 @@ class Watch:
 
     def pick_up(self, row: dict) -> None:
         worker = row["worker"]
-        if worker["role"] != "worker":
+        if worker["kind"] != "worker":
             # A reviewer that stops is the worker's own `dispatch.sh wait` to time out.
             return
         if self.over_time(row):
@@ -666,7 +696,8 @@ class Watch:
                 min(wake, len(WAKE_BACKOFF) - 1)]:
             return
         if wake >= WAKE_LIMIT:
-            self.hand_back(row, WAKEUP_LIMIT.format(k=WAKE_LIMIT, phase=worker["phase"]),
+            self.hand_back(row, WAKEUP_LIMIT_FORM.format(k=WAKE_LIMIT,
+                                                         phase=worker["phase"]),
                            case="WAKEUP LIMIT")
             return
         form = form_text(herdr_text(
@@ -762,7 +793,7 @@ class Watch:
         if number in self.handed_back:
             return
         self.handed_back.add(number)
-        self.for_main.append(MAIN_LINE.format(case=case, n=number))
+        self.for_main.append(MAIN_LINE.format(case=case, n=number, spec=self.spec))
         say(f"#{number}", "comment", first_line(body))
         gh(["issue", "comment", str(number), "--body", body])
         gh(["issue", "edit", str(number),
@@ -820,7 +851,8 @@ class Watch:
         gh(["issue", "comment", str(self.spec), "--body", body])
         say(f"#{self.spec}", "comment", first_line(body))
         self.summary_written = True
-        self.for_main.append(MAIN_LINE.format(case="night over", n=self.spec))
+        self.for_main.append(MAIN_LINE.format(case="night over", n=self.spec,
+                                      spec=self.spec))
 
     def summary(self, rows: list[dict]) -> str:
         """Ticket numbers and first lines. What each says is on the ticket itself."""

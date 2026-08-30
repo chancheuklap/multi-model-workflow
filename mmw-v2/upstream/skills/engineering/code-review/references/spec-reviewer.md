@@ -43,6 +43,6 @@ Group by the three kinds. Under 400 words.
 
 ## What is not yours
 
-**The baseline directory is out of scope for you.** A ticket with UI acceptance criteria names a baseline directory in its `## Read first`, and whether the implementation matches it is decided by the `visual-parity` command a criterion runs — a pixel and ARIA comparison, not a reading. Do not open it, and do not report on how closely the UI follows it.
+**The handoff package is out of scope for you.** A ticket with UI acceptance criteria names a handoff package — `prototypes/<task>/<issue>/UI/` — in its `## Read first`, and whether the implementation matches it is decided by the `visual-parity` command a criterion runs — a pixel and ARIA comparison, not a reading. Do not open it, and do not report on how closely the UI follows it.
 
 How the code is written, and whether its tests are worth trusting, belong to two other reviewers running beside you. Leave their two questions alone.

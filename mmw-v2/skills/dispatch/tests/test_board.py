@@ -66,7 +66,7 @@ SELF_RUN_UNMET = "\n".join([
 
 SELF_RUN_ALL_MET = "\n".join([
     "self-run",
-    "UNMET: 0 (met: 5)",
+    "ALL MET (5 met)",
     "",
     "- [x] AC1: one",
     "  EVIDENCE: exit=0; EXPECT=matched",
@@ -74,38 +74,49 @@ SELF_RUN_ALL_MET = "\n".join([
     "Outside Owns: None",
 ])
 
-VERDICT = ("VERDICT 1111111111111111111111111111111111111111 unit-test-verified "
-           "by Sonnet 5 — every criterion passed.")
+SELF_RUN_HANDOFF = "\n".join([
+    "self-run",
+    "HANDOFF REQUIRED: 1 abandoned (met: 3, unmet: 1)",
+    "  AC4: no credential for the staging account on this machine",
+    "",
+    "- [x] AC1: one",
+    "  EVIDENCE: exit=0; EXPECT=matched",
+    "",
+    "Outside Owns: None",
+])
+
+VERDICT = ("VERDICT 1111111111111111111111111111111111111111 by Sonnet 5 — "
+           "commands only; all passed; nothing repaired.")
 
 
 class Identity(unittest.TestCase):
-    """Which ticket and role a live pane belongs to."""
+    """Which ticket and kind a live pane belongs to."""
 
-    def test_tokens_name_the_ticket_and_the_role(self):
+    def test_tokens_name_the_ticket_and_the_kind(self):
         found = board.session_of(agent("issue-61", "w1:p1", "working",
-                                       ticket=61, role="worker", phase="implement"))
-        self.assertEqual((found["ticket"], found["role"]), (61, "worker"))
+                                       ticket=61, kind="worker", phase="implement"))
+        self.assertEqual((found["ticket"], found["kind"]), (61, "worker"))
 
     def test_a_pane_with_no_token_yet_is_still_read_off_its_name(self):
         found = board.session_of(agent("issue-62", "w1:p2", "idle"))
-        self.assertEqual((found["ticket"], found["role"], found["phase"]), (62, "worker", ""))
+        self.assertEqual((found["ticket"], found["kind"], found["phase"]), (62, "worker", ""))
 
     def test_the_reviewer_is_told_apart_from_the_worker(self):
         found = board.session_of(agent("issue-61-review", "w1:p3", "working"))
-        self.assertEqual(found["role"], "reviewer")
+        self.assertEqual(found["kind"], "reviewer")
 
     def test_a_pane_of_someone_elses_is_not_ours(self):
         self.assertIsNone(board.session_of(agent("scratch", "w1:p9", "idle")))
 
     def test_a_stale_token_on_an_unnamed_pane_is_shown_but_not_held(self):
-        found = board.session_of(agent(None, "w1:p9", "idle", ticket=102, role="worker",
+        found = board.session_of(agent(None, "w1:p9", "idle", ticket=102, kind="worker",
                                        phase="handoff"))
         self.assertEqual(found["ticket"], 102)
         self.assertFalse(found["dispatched"])
 
     def test_the_dispatchers_own_name_is_what_makes_a_session_held(self):
         found = board.session_of(agent("issue-61", "w1:p1", "working",
-                                       ticket=61, role="worker"))
+                                       ticket=61, kind="worker"))
         self.assertTrue(found["dispatched"])
 
 
@@ -114,11 +125,11 @@ class Rows(unittest.TestCase):
 
     def rows(self):
         agents = [
-            agent("issue-61", "w1:p1", "working", ticket=61, role="worker",
+            agent("issue-61", "w1:p1", "working", ticket=61, kind="worker",
                   phase="implement"),
-            agent("issue-62", "w1:p2", "idle", ticket=62, role="worker",
+            agent("issue-62", "w1:p2", "idle", ticket=62, kind="worker",
                   phase="selfcheck", ac="3/5", wake=1),
-            agent("issue-63", "w1:p3", "blocked", ticket=63, role="worker",
+            agent("issue-63", "w1:p3", "blocked", ticket=63, kind="worker",
                   phase="verify", ac="5/5"),
         ]
         tickets = {
@@ -160,8 +171,8 @@ class Rows(unittest.TestCase):
         self.assertEqual([r["ticket"] for r in board.frontier(self.rows())], [])
 
     def test_only_the_dispatchers_own_sessions_count_against_the_parallel_cap(self):
-        agents = [agent("issue-61", "w1:p1", "working", ticket=61, role="worker"),
-                  agent(None, "w1:p9", "idle", ticket=63, role="worker", phase="handoff")]
+        agents = [agent("issue-61", "w1:p1", "working", ticket=61, kind="worker"),
+                  agent(None, "w1:p9", "idle", ticket=63, kind="worker", phase="handoff")]
         tickets = {61: ticket(61), 63: ticket(63)}
         rows = board.build_rows(list(tickets), tickets, board.sessions(agents))
         self.assertEqual([r["ticket"] for r in board.held(rows)], [61])
@@ -180,18 +191,18 @@ class IdleAndNotClosedOrHandoff(unittest.TestCase):
         for status in ("idle", "done"):
             for phase in ("", "implement", "selfcheck", "verify", "closeout-rejected"):
                 self.assertTrue(board.idle_and_not_closed_or_handoff(board.session_of(
-                    agent("issue-62", "w1:p2", status, ticket=62, role="worker",
+                    agent("issue-62", "w1:p2", status, ticket=62, kind="worker",
                           phase=phase))))
 
     def test_closed_or_handoff_is_not(self):
         for phase in ("closed", "handoff"):
             self.assertFalse(board.idle_and_not_closed_or_handoff(board.session_of(
-                agent("issue-62", "w1:p2", "idle", ticket=62, role="worker",
+                agent("issue-62", "w1:p2", "idle", ticket=62, kind="worker",
                       phase=phase))))
 
     def test_working_is_not(self):
         self.assertFalse(board.idle_and_not_closed_or_handoff(board.session_of(
-            agent("issue-62", "w1:p2", "working", ticket=62, role="worker",
+            agent("issue-62", "w1:p2", "working", ticket=62, kind="worker",
                   phase="selfcheck"))))
 
 
@@ -201,6 +212,19 @@ class TicketReading(unittest.TestCase):
     def test_the_counts_come_off_the_newest_self_run(self):
         self.assertEqual(board.counted_ac(ticket(62, comments=[SELF_RUN_UNMET])), "3/5")
         self.assertEqual(board.counted_ac(ticket(62, comments=[SELF_RUN_ALL_MET])), "5/5")
+
+    def test_a_handoff_summary_line_counts_the_abandoned_criteria_too(self):
+        self.assertEqual(board.counted_ac(ticket(62, comments=[SELF_RUN_HANDOFF])), "3/5")
+
+    def test_a_summary_line_carrying_a_reverify_count_or_a_scope_still_counts(self):
+        for line, counted in (
+                ("ALL MET (5 met, reran: 5, previously met reverified: 5) [scope api]",
+                 "5/5"),
+                ("UNMET: 2 (met: 3, abandoned: 0, reran: 5) [scope api]", "3/5"),
+                ("HANDOFF REQUIRED: 2 abandoned (met: 3, unmet: 1, reran: 6)", "3/6")):
+            with self.subTest(line=line):
+                self.assertEqual(
+                    board.counted_ac(ticket(62, comments=["self-run\n" + line])), counted)
 
     def test_a_ticket_with_no_run_has_no_counts(self):
         self.assertEqual(board.counted_ac(ticket(62)), "-")
@@ -225,7 +249,7 @@ class Table(unittest.TestCase):
     """The one screen `--once` prints."""
 
     def table(self, spec=60):
-        agents = [agent("issue-61", "w1:p1", "working", ticket=61, role="worker",
+        agents = [agent("issue-61", "w1:p1", "working", ticket=61, kind="worker",
                         phase="implement")]
         tickets = {61: ticket(61), 65: ticket(65, blockers=(61,))}
         rows = board.build_rows(list(tickets), tickets, board.sessions(agents))
@@ -350,7 +374,7 @@ class Table4(unittest.TestCase):
     # ------------------------------------------------------------- working
 
     def test_a_working_session_is_left_alone(self):
-        self.world([agent("issue-61", "w1:p1", "working", ticket=61, role="worker",
+        self.world([agent("issue-61", "w1:p1", "working", ticket=61, kind="worker",
                           phase="implement")], {61: ticket(61, assignees=("me",))})
         self.round(self.watch())
         self.assertEqual(self.calls["prompt"], [])
@@ -363,7 +387,7 @@ class Table4(unittest.TestCase):
         for phase in ("closed", "handoff"):
             with self.subTest(phase=phase):
                 self.calls["herdr"].clear()
-                self.world([agent("issue-61", "w1:p1", "idle", ticket=61, role="worker",
+                self.world([agent("issue-61", "w1:p1", "idle", ticket=61, kind="worker",
                                   phase=phase)],
                            {61: ticket(61, state="CLOSED", labels=())})
                 printed = self.round(self.watch())
@@ -374,7 +398,7 @@ class Table4(unittest.TestCase):
     # ------------------------------ idle, phase not closed and not handoff
 
     def idle_world(self, wake=0, phase="selfcheck", status="idle", **extra):
-        self.world([agent("issue-61", "w1:p1", status, ticket=61, role="worker",
+        self.world([agent("issue-61", "w1:p1", status, ticket=61, kind="worker",
                           phase=phase, ac="1/2", wake=wake, **extra)],
                    {61: ticket(61, assignees=("me",), comments=[SELF_RUN_UNMET])})
 
@@ -473,7 +497,7 @@ class Table4(unittest.TestCase):
 
     def test_a_reviewer_that_stops_is_left_to_its_workers_own_wait(self):
         self.world([agent("issue-61-review", "w1:p2", "idle", ticket=61,
-                          role="reviewer")], {61: ticket(61, assignees=("me",))})
+                          kind="reviewer")], {61: ticket(61, assignees=("me",))})
         watch = self.watch()
         self.round(watch)
         self.clock.tick(max(board.WAKE_BACKOFF))
@@ -491,13 +515,13 @@ class Table4(unittest.TestCase):
         self.round(watch)
         comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
         self.assertTrue(comment[-1].startswith(
-            "TIME LIMIT: 4 h since dispatch, still at phase=verify"))
+            "TIME LIMIT: 4 h under this board, still at phase=verify"))
         self.assertIn(["issue", "edit", "61", "--remove-label", "ready-for-agent",
                        "--add-label", "needs-triage"], self.calls["gh"])
         self.assertNotIn(["pane", "close", "w1:p1"], self.calls["herdr"])
 
     def test_a_session_whose_phase_is_closed_is_past_the_time_limit(self):
-        self.world([agent("issue-61", "w1:p1", "idle", ticket=61, role="worker",
+        self.world([agent("issue-61", "w1:p1", "idle", ticket=61, kind="worker",
                           phase="closed")], {61: ticket(61, state="CLOSED", labels=())})
         watch = self.watch()
         self.round(watch)
@@ -515,7 +539,7 @@ class Table4(unittest.TestCase):
                          [(70, "junior-worker"), (71, "junior-worker")])
 
     def test_a_live_session_takes_up_one_of_those_places(self):
-        self.world([agent("issue-61", "w1:p1", "working", ticket=61, role="worker",
+        self.world([agent("issue-61", "w1:p1", "working", ticket=61, kind="worker",
                           phase="implement")],
                    {61: ticket(61, assignees=("me",)), 70: ticket(70), 71: ticket(71)})
         self.round(self.watch(parallel=2))
@@ -532,7 +556,7 @@ class Table4(unittest.TestCase):
         self.assertEqual(self.calls["dispatch"], [])
 
     def test_a_ticket_reaching_closed_frees_its_place_in_the_same_round(self):
-        self.world([agent("issue-61", "w1:p1", "idle", ticket=61, role="worker",
+        self.world([agent("issue-61", "w1:p1", "idle", ticket=61, kind="worker",
                           phase="closed")],
                    {61: ticket(61, state="CLOSED", labels=()), 70: ticket(70)})
         self.round(self.watch(parallel=1))
@@ -564,7 +588,7 @@ class Table4(unittest.TestCase):
         self.assertEqual(self.calls["dispatch"], [])
 
     def test_the_last_session_reaching_closed_ends_the_night_in_the_same_round(self):
-        self.world([agent("issue-61", "w1:p1", "idle", ticket=61, role="worker",
+        self.world([agent("issue-61", "w1:p1", "idle", ticket=61, kind="worker",
                           phase="closed")], {61: ticket(61, state="CLOSED", labels=())})
         watch = self.watch()
         self.round(watch)
@@ -574,7 +598,7 @@ class Table4(unittest.TestCase):
 
     def blocked_world(self, host="grok", wake=0, comments=()):
         self.world([agent("issue-61", "w1:p1", "blocked", host=host, ticket=61,
-                          role="worker", phase="verify", wake=wake)],
+                          kind="worker", phase="verify", wake=wake)],
                    {61: ticket(61, assignees=("me",), comments=list(comments))})
 
     def test_the_form_goes_on_the_ticket_under_BLOCKED(self):
@@ -628,17 +652,19 @@ class Table4(unittest.TestCase):
         self.round(self.watch())
         self.assertEqual(self.calls["main"], [])
 
-    def test_a_third_form_hands_the_ticket_back(self):
+    def test_a_third_form_hands_the_ticket_back_saying_it_asked_again(self):
         self.blocked_world(wake=board.WAKE_LIMIT)
         self.round(self.watch())
         self.assertEqual(self.calls["prompt"], [])
         comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
-        self.assertTrue(comment[-1].startswith("WAKEUP LIMIT:"))
+        self.assertTrue(comment[-1].startswith(
+            "WAKEUP LIMIT: dismissed 3 forms and it asked again at phase=verify"))
+        self.assertNotIn("went idle again", comment[-1])
 
     # ------------------------------------------------------------- the session is gone
 
     def test_an_unknown_session_is_redispatched_once_and_says_so_on_the_ticket(self):
-        self.world([agent("issue-61", "w1:p1", "unknown", ticket=61, role="worker",
+        self.world([agent("issue-61", "w1:p1", "unknown", ticket=61, kind="worker",
                           phase="selfcheck")], {61: ticket(61, assignees=("me",))})
         self.round(self.watch())
         comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
@@ -671,7 +697,7 @@ class Table4(unittest.TestCase):
                 self.assertEqual(self.calls["dispatch"], [])
 
     def test_a_second_death_hands_the_ticket_back_instead(self):
-        self.world([agent("issue-61", "w1:p1", "unknown", ticket=61, role="worker",
+        self.world([agent("issue-61", "w1:p1", "unknown", ticket=61, kind="worker",
                           phase="verify")],
                    {61: ticket(61, assignees=("me",),
                                comments=["REDISPATCHED: session issue-61 ended at "
@@ -703,7 +729,7 @@ class Table4(unittest.TestCase):
                           (72, "junior-worker")])
 
     def test_a_session_that_was_never_told_anything_gets_its_dispatch_line(self):
-        self.world([agent("issue-61", "w1:p1", "idle", ticket=61, role="worker")],
+        self.world([agent("issue-61", "w1:p1", "idle", ticket=61, kind="worker")],
                    {61: ticket(61)})
         watch = self.watch()
         self.round(watch)
@@ -762,7 +788,8 @@ class Table4(unittest.TestCase):
         self.round(watch)
         self.assertEqual(self.calls["main"],
                          [(board.MAIN,
-                           "mmw board: WAKEUP LIMIT #61 — run board.py --once")])
+                           "mmw board: WAKEUP LIMIT #61 — run "
+                           "~/.agents/skills/dispatch/scripts/board.py --once 76")])
 
     def test_a_working_main_agent_is_left_for_the_next_round(self):
         self.main[0]["agent_status"] = "working"
@@ -800,7 +827,9 @@ class Table4(unittest.TestCase):
         watch = self.watch()
         self.round(watch)
         self.assertEqual(self.calls["main"],
-                         [(board.MAIN, "mmw board: night over #76 — run board.py --once")])
+                         [(board.MAIN, "mmw board: night over #76 — run "
+                                       "~/.agents/skills/dispatch/scripts/board.py "
+                                       "--once 76")])
 
 
 class Constants(unittest.TestCase):

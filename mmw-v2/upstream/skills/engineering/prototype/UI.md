@@ -99,7 +99,7 @@ Surface the URL (and the `?variant=` keys). The user will flip through whenever 
 
 ### 6. Capture the answer and take the scaffolding down
 
-Once a variant has won, record the answer — which variant and why — in the leaf `README.md`, the way the [SKILL](SKILL.md) describes. Fold the winner into the real code, rewritten to production standard, then remove the scaffolding:
+Once a variant has won, record the answer — which variant and why — in the leaf `README.md`, the way the [SKILL](SKILL.md) describes. If the winner is being ported to Claude Design, run the `claude-design-blocks` port first: it opens the real page at `?variant=<winner>` to take the CSS and the DOM, so the scaffolding has to be still wired when it runs. Fold the winner into the real code, rewritten to production standard, then remove the scaffolding:
 
 - **Sub-shape A**: the existing page renders the winner for real; delete the mount point, the switcher, and the import of the leaf directory.
 - **Sub-shape B**: promote the winning variant to a real route; delete the prototype route file and the switcher.

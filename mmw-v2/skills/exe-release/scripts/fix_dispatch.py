@@ -11,7 +11,7 @@
 
 ## 它现在怎么工作
 
-没有「派一个 agent 去修」这条路了，因为技能不再自带 worker。但**驱动这次出包的本来就是一个
+没有「派一个 agent 去修」这条路了，因为技能不再自带 worker.sh。但**驱动这次出包的本来就是一个
 会写代码的 agent**——`driving.md` 里 `PAUSED:needs-context` 那一节写的就是「你自己能处理的
 就自己处理」。所以这里不再试图召人，而是：
 
@@ -123,19 +123,19 @@ def _head_sha(repo_root: Path) -> str | None:
 
 
 def _unwind_worker_commits(repo_root: Path, start_sha: str) -> int:
-    """把外部 worker 自建的提交回退成工作树改动，交回引擎统一过路径闸再提交。
+    """把后端自建的提交回退成工作树改动，交回引擎统一过路径闸再提交。
 
     引擎（cmd_dispatch_direct）是唯一 committer：它在 fix 动作返回后收集工作树候选、过路径闸
-    才提交。但外部 worker 可能逐步自行提交；若把这些提交留在功能分支，引擎看到干净树会误判
+    才提交。但后端可能逐步自行提交；若把这些提交留在功能分支，引擎看到干净树会误判
     「无改动」，同时已提交（可能触碰计费 / 迁移等受保护路径）的改动绕过路径闸。
 
     所以 dispatch 返回后**无论退出码**都确定性地 reset --mixed 回 start_sha：保留全部改动、
-    清空暂存、不动 untracked。**失败路径尤其必须回退**——worker 修到一半失败时若已提交，
+    清空暂存、不动 untracked。**失败路径尤其必须回退**——后端修到一半失败时若已提交，
     这些未过路径闸的提交会留在 HEAD，人工 resume 时被误采纳为基线出货。
     """
     current = _head_sha(repo_root)
     if current is None:
-        return _die("cannot resolve HEAD after dispatch; cannot roll back the worker commits")
+        return _die("cannot resolve HEAD after dispatch; cannot roll back the backend's commits")
     if current == start_sha:
         return 0
     proc = subprocess.run(
@@ -145,7 +145,7 @@ def _unwind_worker_commits(repo_root: Path, start_sha: str) -> int:
     )
     sys.stderr.write(proc.stderr)
     if proc.returncode != 0:
-        return _die(f"cannot roll the worker commits back to {start_sha}; leaving the state for the engine")
+        return _die(f"cannot roll the backend's commits back to {start_sha}; leaving the state for the engine")
     return 0
 
 
@@ -176,8 +176,8 @@ def _run_backend(
 
     unwind_rc = _unwind_worker_commits(repo_root, start_sha)
     if unwind_rc != 0:
-        # 回退本身失败（无法 reset）比 worker 失败更严重：worker 提交仍卡 HEAD，
-        # 必须 fail-loud 交人，不能用 worker 退出码掩盖。
+        # 回退本身失败（无法 reset）比后端失败更严重：后端的提交仍卡 HEAD，
+        # 必须 fail-loud 交人，不能用后端退出码掩盖。
         return unwind_rc
     return proc.returncode
 

@@ -17,24 +17,28 @@ An independent session dispatched to do one ticket, running the whole path from 
 _Avoid_: 工人, 做票的 agent, 领票的 agent
 
 **junior-worker**:
-The junior grade of worker, running on cursor.
+The junior grade of worker. Its host, model and thinking effort are its row in `models.md`.
 _Avoid_: 初级工人, 初级 worker
 
 **senior-worker**:
-The senior grade of worker, running on grok.
+The senior grade of worker. Its host, model and thinking effort are its row in `models.md`.
 _Avoid_: 高级工人, 高级 worker
 
 **verifier**:
-The read-only subagent a worker dispatches to re-run every acceptance criterion and write one `VERDICT`. It changes no file in the repository.
+The subagent a worker dispatches to re-run every acceptance criterion and write one `VERDICT`. It may install, re-port and reconfigure its environment, and changes no file in the repository.
 _Avoid_: 复验者, verifier 子代理, subagent verifier
 
 **reviewer**:
-The Claude Code session a worker starts through Herdr to run one round of code review.
+The session a worker starts through Herdr to run one round of code review.
 _Avoid_: reviewer 会话, code-review 会话, 复核者
 
 **dispatcher（派发者）**:
-Inside code review, the role that starts the two reviewing subagents, collects both reports, and writes the comment. It neither judges nor fixes anything itself.
+Inside code review, the role that starts the three reviewing subagents, collects all three reports, and writes the comment. It neither judges nor fixes anything itself.
 _Avoid_: —
+
+**host（宿主）**:
+The command-line agent program a session runs on; the `host` column of `models.md`. Herdr calls it the agent kind.
+_Avoid_: harness
 
 **user（用户）**:
 The only reader of a ticket no agent may stand in for — one labelled `ready-for-human`.
@@ -59,7 +63,7 @@ Which layer this ticket is verified at, which directory the tests live in, and w
 _Avoid_: —
 
 **`## Owns`**:
-The path globs this ticket is allowed to change. Paths it creates are marked `(new)`.
+The path globs this ticket is allowed to change. Paths it creates are marked `(new)`. The rule the ticket writer publishes by: no two tickets that could be started at the same time may have overlapping `## Owns`.
 _Avoid_: —
 
 **`## Acceptance criteria`**:
@@ -67,7 +71,7 @@ The numbered list of criteria.
 _Avoid_: —
 
 **`## Blocked by`**:
-Which tickets must close before this one can start. When nothing blocks it, `None (can start immediately)`.
+Which tickets must close before this one can start, written for the reader. The tracker's native blocking links are the copy the scripts read; `--lint` warns when the two disagree. When nothing blocks it, `None (can start immediately)`.
 _Avoid_: —
 
 **`<issue-template>`**:
@@ -86,16 +90,8 @@ _Avoid_: —
 The form `## Owns` takes when one ticket has a directory to itself. When several tickets divide one directory, `## Owns` goes down to file level instead.
 _Avoid_: —
 
-**`[fixture]` ticket（`[fixture]` 票）**:
-Title prefix marking a ticket made to exercise the pipeline itself rather than to deliver anything.
-_Avoid_: 虚构票, fixture 票
-
-**落地 `<n>/15`**:
-Title prefix saying which of the fifteen steps this ticket is.
-_Avoid_: —
-
 **frontier**:
-The set of tickets that may be worked in parallel right now. The hard rule: no two tickets on one frontier may have overlapping `## Owns`.
+The set of tickets `board.py` may start right now, in ticket order: open, labelled `ready-for-agent`, every blocker closed, no assignee, and no live session already holding it.
 _Avoid_: 前沿
 
 **spec**:
@@ -109,11 +105,11 @@ One line each, `As <role>, I want …, so that …`.
 _Avoid_: —
 
 **`## Implementation Decisions`**:
-The landing order. One change, one commit, one check per section.
+The decisions that were made, grouped into numbered subsections (`### 1. …`, `### 2. …`) that tickets point at by number. Every decision names where it came from at the end of the sentence or table row that states it — a decision ticket number, an ADR id, a research or prototype path, a user-story number — or says "this spec's decision".
 _Avoid_: —
 
 **`## Testing Decisions`**:
-Test layer, then directory, then precedent, then the command to run before committing. `CHECK:` and `EXPECT:` are derived from here.
+The first sentence names the seam: what is real on each side of it, and which external seams may be stubbed. Then test layer, then directory, then precedent, then the command to run before committing. `CHECK:` and `EXPECT:` are derived from here.
 _Avoid_: —
 
 **`## Out of Scope`**:
@@ -121,15 +117,11 @@ What this round explicitly does not do, and why.
 _Avoid_: —
 
 **`## Sources`**:
-The map, decision tickets, ADRs and research files this spec rests on.
+The first-hand material this spec was built from, in nine kinds — wayfinder map, decision tickets, upstream specs, ADRs, research files, prototype branches or directories, domain docs, evidence, test rules — one line per kind, and `none` where a kind has none, so a reader can tell "nothing there" from "forgot to list".
 _Avoid_: —
 
 **`## Further Notes`**:
 Pace and anything outside scope that still has to be said.
-_Avoid_: —
-
-**我检查 / 你检查**:
-The two kinds of check that close each section of `## Implementation Decisions`. 我检查 is what the main agent runs itself; 你检查 is what it hands the user to look at.
 _Avoid_: —
 
 **先例**:
@@ -156,6 +148,10 @@ _Avoid_: 隐式续行, 顶格续行
 
 **`EXPECT:`**:
 The marker that appears in the output of `CHECK:` only on success. A string, or a regex written `/…/flags`.
+_Avoid_: —
+
+**`CWD:`**:
+The fourth attribute of a criterion: the working directory its `CHECK:` runs in. Changing it discards a result already recorded, the same way changing the command does.
 _Avoid_: —
 
 **success-only marker**:
@@ -190,8 +186,8 @@ _Avoid_: —
 What it means for a criterion to pass: exit code 0 **and** the `EXPECT:` marker matched.
 _Avoid_: —
 
-**撤销**:
-The end state of a criterion whose premise no longer holds, written in the criterion line in place of passed or failed.
+**`gate`**:
+What the judging engine calls a criterion, in the lines it prints and nowhere else. Prose says criterion.
 _Avoid_: —
 
 ### Running the criteria
@@ -201,15 +197,15 @@ The temporary file derived from the ticket body — or from the most recent `sel
 _Avoid_: 临时账本
 
 **`gate-check`**:
-The judging engine vendored from upstream. Walks the ledger, runs each `CHECK:`, applies 双条件, writes `EVIDENCE:`.
-_Avoid_: `gate-check.mjs`
+The judging engine vendored from unlazy (see `mmw-v2/skills/verify-ticket/scripts/gate-check/UPSTREAM.md`). Walks the ledger, runs each `CHECK:`, applies 双条件, writes `EVIDENCE:`.
+_Avoid_: naming this role by its file name; write `gate-check.mjs` only when the file itself is meant
 
 **`gate-lint`**:
-The ticket-face linter vendored from upstream. Reports problems in how criteria are written; runs no command.
-_Avoid_: `gate-lint.mjs`
+The ticket-face linter vendored from unlazy (see `mmw-v2/skills/verify-ticket/scripts/gate-check/UPSTREAM.md`). Reports problems in how criteria are written; runs no command.
+_Avoid_: naming this role by its file name; write `gate-lint.mjs` only when the file itself is meant
 
 **`STALE`**:
-What the gate checker reports when the signature of a `CHECK:` no longer matches the one it started with, so the result is discarded.
+What the gate checker reports when a criterion's `CHECK:`, `EXPECT:`, `CWD:` and shell signature no longer matches the one the run started with, so the result is discarded.
 _Avoid_: —
 
 **`self-run`（自跑）**:
@@ -224,12 +220,16 @@ _Avoid_: —
 The first line of the comment the verifier's run puts on the ticket, where criteria already ticked are run again.
 _Avoid_: 重验
 
-**`UNMET: <n> (met: <m>)`**:
-The second line of a `self-run` or `reverify` comment. A `reverify` adds `reran:` and `previously met reverified:`.
+**gate-check summary line（gate-check 汇总行）**:
+The last line the gate checker prints, copied into the second line of a `self-run` or `reverify` comment. Three shapes: `ALL MET (<n> met…)`, `UNMET: <n> (met: <m>)`, and `HANDOFF REQUIRED: <n> abandoned (met: …)`. A `reverify` adds `reran:` and `previously met reverified:` inside the parentheses. It is not the closing comment's first line: whether a comment is a closing comment is decided on that first line's own literal shape and nothing else.
 _Avoid_: —
 
-**`PASS AC:AC<n>`**:
-The compact per-criterion status printed after a re-run.
+**`UNMET: <n> (met: <m>)`**:
+One shape of the gate-check summary line: at least one criterion is not met.
+_Avoid_: —
+
+**`RUN` / `PASS` / `FAIL` / `STALE`**:
+The per-criterion status lines, one printed for every criterion the run touches, whether or not `--reverify` was passed. Whatever did not pass is counted into the `UNMET:` summary line.
 _Avoid_: —
 
 **`UPSTREAM.md`**:
@@ -239,39 +239,11 @@ _Avoid_: —
 ### The verdict
 
 **`VERDICT`**:
-The verifier's judgement comment, written `VERDICT <full 40-character commit> <level> by <model> — <one line>`.
+The verifier's judgement comment, written `VERDICT <full 40-character commit> by <model> — <one line>`. The one line says what was run (a walked interface, commands only, or nothing would start), the result, and any environment repair.
 _Avoid_: —
 
-**level**:
-The one field of `VERDICT` the verifier has to judge, chosen from five values.
-_Avoid_: 模型级别, 判定类型, 核验等级
-
-**`live-ui-verified`**:
-A level: the flow was walked in a running interface and all of it passed.
-_Avoid_: —
-
-**`unit-test-verified`**:
-A level: every command passed, no interface was started.
-_Avoid_: —
-
-**`type-check-only`**:
-A level: only a type check passed. A ticket that changes behaviour does not pass on this.
-_Avoid_: —
-
-**`verifier-blocked`**:
-A level: the commands still would not start after the verifier repaired its own environment.
-_Avoid_: —
-
-**`verifier-failed`**:
-A level: the commands ran and at least one did not pass.
-_Avoid_: —
-
-**`self-reported`**:
-What the `by` field of `VERDICT` degrades to when no subagent could be dispatched.
-_Avoid_: —
-
-**`The environment is yours; the repository is not.`**:
-The line in the verifier's definition file that draws its boundary — it may install, re-port and reconfigure, and may change no file in the repository.
+**`The environment is yours; the repository is not`**:
+The heading in `mmw-v2/agents/verifier/body.md` that draws the verifier's boundary — it may install, re-port and reconfigure, and may change no file in the repository.
 _Avoid_: —
 
 ### The closing comment
@@ -281,15 +253,15 @@ The comment a worker leaves on handing over. Written to a draft file first, then
 _Avoid_: 收尾评论草稿, 草稿
 
 **`ALL MET`**:
-One of the two possible first lines: every criterion passed and the ticket may close.
+One of the two possible first lines: every criterion passed and the ticket may close. The same string also opens the gate-check summary line, as `ALL MET (<n> met…)`, on the second line of a `self-run` comment.
 _Avoid_: —
 
 **`HANDOFF REQUIRED`**:
 The other first line, in full `HANDOFF REQUIRED: <n> abandoned (<kinds>), <m> unmet, <k> met of <total>`.
 _Avoid_: 交人
 
-**`Branch:` / `Commit:` / `PR:`**:
-The three lines under the first line. When there is no pull request, `none` plus the reason.
+**`Branch: … Commit: … PR: …`**:
+The one line under the first line. When there is no pull request, `PR: none — <reason>`.
 _Avoid_: —
 
 **`Post-verdict:`**:
@@ -305,7 +277,7 @@ What was deliberately not built, and the condition under which to build it.
 _Avoid_: —
 
 **`Sub-issues opened:`**:
-The sub-issues opened for `ABANDON: decision` criteria.
+Every sub-issue this ticket opened under the spec, from all four sources: 契约装不下, a change outside `## Owns` that was merely convenient, an out-of-ticket code review finding, and an `ABANDON: decision` criterion.
 _Avoid_: —
 
 **`Counts:`**:
@@ -323,11 +295,11 @@ One script carrying five jobs: linting a ticket, the worker's own run, the verif
 _Avoid_: —
 
 **`--preflight`（开工守卫）**:
-The start-of-work guard. Checks branch, working tree, ticket state, blockers and assignee; only then claims the ticket.
+The start-of-work guard. Checks six things — the branch, uncommitted tracked changes, the ticket's state, the `ready-for-agent` label, open blockers, and the assignee; only then claims the ticket.
 _Avoid_: 开工核对
 
 **`--closeout`（关票门）**:
-The closing gate. Reads the draft, checks ten things, and only then posts the comment and closes the ticket or swaps its label.
+The closing gate. Reads the draft and checks it against the ticket and the repository, and only then posts the comment and closes the ticket or swaps its label. Its checklist is in `mmw-v2/skills/verify-ticket/SKILL.md`.
 _Avoid_: —
 
 **`--lint`（票图核对）**:
@@ -354,8 +326,8 @@ _Avoid_: —
 What the closing gate prints when it hands the ticket back to be judged fresh.
 _Avoid_: —
 
-**`cycle` / `dangling` / `dollar-without-m` / `manual-gate` / `shared-state`**:
-The problem tags the linter reports. Errors: a cycle in the ticket graph, a reference to a ticket that is not there, an `EXPECT:` regex anchor that can never match, and a criterion with no `CHECK:` — which is a criterion in the wrong place, since nobody but its own author would decide it. A warning: a `CHECK:` that changes shared state.
+**problem tag（问题标签）**:
+What the linter labels each finding with, from three sources. The vendored `gate-lint`: `parse`, `tautological-check`, `weak-expect`, `path-read-as-regex`, `manual-gate`, `unmeasured-number`, `activity-not-outcome`, `mostly-manual`. `manual-gate` is a criterion with no `CHECK:` — a criterion in the wrong place, since nobody but its own author would decide it. This repository's `verify-ticket.py` adds three of its own: `dollar-without-m` (`ERROR`), `shared-state` and `unexplained-edge` (`WARN`). Its ticket-graph check reports `cycle`, `dangling` and `duplicate-ticket`, all `ERROR`.
 _Avoid_: —
 
 **`ERROR` / `WARN`**:
@@ -367,7 +339,7 @@ The order in which tickets may be started, printed by the linter once the graph 
 _Avoid_: —
 
 **`HOOKS-INSTALLED`**:
-The marker the installer prints after its own check of the hooks it just wrote.
+The marker `install.sh` prints once the hooks are written, or checked and found in place.
 _Avoid_: —
 
 **`MMW_V2_HOME`**:
@@ -375,7 +347,7 @@ The environment variable that moves the whole install location to a throwaway di
 _Avoid_: —
 
 **`hook.py pretool`**:
-The host-side enforcement of the closing gate: when a command tries to close a ticket or swap its label, it runs the dry run and refuses on a non-zero exit.
+The host-side enforcement of the closing gate: when a command tries to close a ticket or swap its label, it refuses outright and runs nothing — a worker typing `gh issue close` has by definition not been through `--closeout`.
 _Avoid_: 关票 gate
 
 **`rule-at-moment.py`**:
@@ -393,23 +365,23 @@ Blocks until the first line of the ticket's last comment matches. On timeout it 
 _Avoid_: —
 
 **`models.md`**:
-The one table defining, for every agent, its host, model, thinking effort and launch command.
+The one table defining, for every agent, its host, model, thinking effort and launch arguments.
 _Avoid_: 角色表
 
 **`issue-<n>` / `issue-<n>-review`**:
-The Herdr name and branch name of a worker and of its reviewer. Must be unique among live agents.
+`issue-<n>` is a worker's Herdr name and the branch name of its worktree. `issue-<n>-review` is only the reviewer's Herdr name, the name its session shows under; the reviewer cuts no branch and runs inside the worker's worktree. Both must be unique among live agents.
 _Avoid_: —
 
 **`MMW_TICKET`**:
-The ticket number injected into the session's environment at dispatch. The first place a hook looks for it.
+The ticket number injected into the session's environment when a worker is dispatched; a reviewer has none. It is the hook's only source for which ticket this session guards — no variable, no gate.
 _Avoid_: —
 
 **`phase`**:
 A Herdr pane token holding the stage a worker is at. Six values — `selfcheck`, `verify`, `implement`, `closed`, `handoff`, `closeout-rejected` — all written by the ticket script.
 _Avoid_: —
 
-**`ticket` / `role` / `ac` / `model` / `wake`**:
-The other Herdr pane tokens. `ticket`, `role` and `model` are written by `dispatch.sh` when it starts the session; `ac` is `<met>/<total>`, written by the ticket script; `wake` counts how many times `board.py` has re-prompted this session.
+**`ticket` / `kind` / `ac` / `model` / `wake`**:
+The other Herdr pane tokens. `ticket`, `kind` and `model` are written by `dispatch.sh` when it starts the session; `ac` is `<met>/<total>`, written by the ticket script; `wake` counts how many times `board.py` has re-prompted this session. The token `kind` takes two values only, `worker` and `reviewer`; `dispatch.sh`'s `<role>` argument is a different set — `junior-worker`, `senior-worker` or `reviewer`.
 _Avoid_: —
 
 **`working` / `idle` / `done` / `blocked` / `unknown`**:
@@ -434,7 +406,7 @@ _Avoid_: 夜间主循环, 夜里的循环
 
 **`board.py`**:
 The one resident program of the night, in the dispatch skill. `--once` prints one table and exits; with no argument it appends one line per event; `--watch <spec>` does the same and acts. It reads `herdr api snapshot` and `gh` each round and keeps no file.
-_Avoid_: board, 常驻进程, 看板
+_Avoid_: 常驻进程, 看板
 
 **监控 tab（monitor tab）**:
 The Herdr tab `dispatch.sh run` opens with the label `mmw board`, where `board.py --watch` runs; its appended output is readable by `herdr pane read` and by a person.
@@ -448,8 +420,8 @@ _Avoid_: 开夜
 The Herdr name `dispatch.sh run` gives the main agent's own pane, so `board.py` can re-prompt it.
 _Avoid_: —
 
-**`mmw board: <case> #<n> — run board.py --once`**:
-The one line `board.py` sends `mmw-main`, only when a limit was reached or the night ended. The main agent answers it by running `board.py --once` and reading; it takes no other action.
+**`mmw board: <case> #<n> — run ~/.agents/skills/dispatch/scripts/board.py --once <spec>`**:
+The one line `board.py` sends `mmw-main`, only when a limit was reached or the night ended. `<case>` is one of four literals: `WAKEUP LIMIT`, `REDISPATCHED`, `TIME LIMIT`, `night over`. The main agent answers it by running the command as written and reading the table; it takes no other action.
 _Avoid_: —
 
 **`BLOCKED:`**:
@@ -465,7 +437,7 @@ First line of the comment `board.py` posts before it redispatches, naming the ph
 _Avoid_: —
 
 **`WAKEUP LIMIT:` / `TIME LIMIT:`**:
-First lines of the comments `board.py` posts when it hands a ticket back to `needs-triage`: re-prompted `WAKE_LIMIT` times and it stopped again, or `MAX_HOURS` passed since dispatch.
+First lines of the comments `board.py` posts when it hands a ticket back to `needs-triage`: re-prompted `WAKE_LIMIT` times and it stopped again, or `MAX_HOURS` passed under this board's watch.
 _Avoid_: —
 
 **`NIGHT SUMMARY <date>`（夜间总结）**:
@@ -498,6 +470,10 @@ _Avoid_: —
 
 ### Code review
 
+**`Standards reviewer` / `Spec reviewer` / `Tests reviewer`**:
+The three read-only subagents of one code review, one per axis. Each name is the H1 of its file under `mmw-v2/upstream/skills/engineering/code-review/references/`. `reviewer` on its own always means the session a worker starts, never one of these three.
+_Avoid_: —
+
 **`Standards` axis**:
 One of the three axes: does the change follow this repository's documented coding standards, and does the same outcome exist with less code.
 _Avoid_: —
@@ -507,7 +483,7 @@ The second axis: does the change match what the ticket or the spec asked for. It
 _Avoid_: —
 
 **`Tests` axis**:
-The third axis: are the test cases the criteria name worth trusting. It reads only the test files named by a `CHECK:`, and reports neither coverage nor a test the criteria never asked for.
+The third axis: are the test cases the criteria name worth trusting. Its in-ticket scope is the test files and cases a `CHECK:` names; a test file in the diff that no `CHECK:` names still earns a finding, filed as out-of-ticket. It reports no coverage.
 _Avoid_: —
 
 **smell baseline**:
@@ -522,22 +498,26 @@ _Avoid_: —
 The two classes a review finding falls into, decided by whether it touches this ticket's criteria or a spec decision. In-ticket findings get one round of fixes; out-of-ticket findings become sub-issues.
 _Avoid_: 票内发现, 票外发现
 
-**`REVIEW <base-commit>..<HEAD commit>`**:
+**`REVIEW <base commit>..<HEAD commit>`**:
 The fixed first line of the review report comment.
 _Avoid_: —
 
 **base-commit（起点 commit）**:
-The first argument of the review dispatch line: where the diff starts.
+The first argument of the review dispatch line: where the diff starts. Computed as `git merge-base main HEAD` in the worker's worktree — the same starting point `Outside Owns:` is measured from.
 _Avoid_: —
 
 ### UI acceptance
 
 **叶子目录（leaf directory）**:
-`prototypes/<task>/<issue>/UI/`, where the handoff package and the scene list live.
+`prototypes/<task>/<issue>/<UI|LOGIC|EXP>/`, one directory per kind of prototype. The handoff package and its `scenes.json` live in the `UI/` one.
+_Avoid_: —
+
+**`?variant=<winner>`**:
+The query string of the prototype stage described in `mmw-v2/upstream/skills/engineering/prototype/UI.md`: it switches one real route between the variants under comparison, and comes down with the rest of the scaffolding once a winner is picked. A parity run puts a scene on the implementation page a different way — by turning that scene's `props` in `scenes.json` into the page's query string.
 _Avoid_: —
 
 **交接包（handoff package）**:
-What the Finish step of the design skill downloads: a README plus every component page. The source to copy exact wording, sizes and tokens from, and the directory `visual-parity.py --baseline` renders and screenshots.
+The five things step 7, **Finish**, of `mmw-v2/skills/claude-design-blocks/SKILL.md` downloads into the leaf directory: the component's `.dc.html`, `styles/`, `data/`, `support.js`, and `scenes.json`. The source to copy exact wording, sizes and tokens from, and the directory `visual-parity.py` renders and screenshots — on the command line it is written `--baseline`.
 _Avoid_: 开发交接包, 基线目录, UI 基线
 
 **`DESIGN.md`**:
@@ -545,7 +525,7 @@ The consuming repository's design-system document. When it is missing, it is gen
 _Avoid_: —
 
 **场景（scene）**:
-One state listed in the scene list. Each gets its own screenshot and its own accessibility tree.
+One entry of `scenes.json`, carrying a `name`, a `page` and its `props`. Each gets its own screenshot and its own accessibility tree.
 _Avoid_: 场景列表
 
 **`<dc-import name="…" scenario="…">`**:
@@ -553,11 +533,7 @@ The wrapper-page form that pins a scene and switches a design component into tha
 _Avoid_: scenario 属性
 
 **`#dc-root`**:
-The anchor selector for screenshots and for reading the accessibility tree.
-_Avoid_: —
-
-**`?variant=<winner>`**:
-The query string that switches a real page's mount point to the winning prototype variant.
+The anchor the baseline side is screenshotted and read from. The implementation side takes the whole viewport and reads the accessibility tree of `body`.
 _Avoid_: —
 
 **ARIA 树（accessibility tree）**:
@@ -565,19 +541,19 @@ The page's accessibility tree. Compared scene by scene and viewport by viewport 
 _Avoid_: —
 
 **归一化（normalisation）**:
-The three rules that standardise an accessibility tree: drop `generic` and `group`, drop landmark names, lift a nested `main` to the top.
+The three rules that standardise an accessibility tree: drop `generic` and `group`, drop landmark names, and drop a `main` nested inside another `main`, lifting its children one level.
 _Avoid_: —
 
 **负控制（negative control）**:
-Every run first compares one deliberately wrong scene, to prove the tool itself is not broken.
+One deliberately wrong scene, built once after every scene has run at the first viewport. It is judged before any of them: a run that did not catch it says nothing about the scenes it passed.
 _Avoid_: —
 
 **`PARITY OK <n>/<n>`**:
 The single line printed when every scene at every viewport passed. Exit code 0.
 _Avoid_: —
 
-**`DIFF <scene> <viewport> <pct>% box=…`**:
-The line printed for a scene and viewport that did not pass, followed by the `baseline` and `impl` lines of the accessibility tree that changed.
+**`DIFF <scene> <viewport> <pct>% box=… — <reasons>`**:
+The line printed for a scene and viewport that did not pass, ending in every reason it failed. Only an accessibility-tree difference brings lines out under it — `baseline` / `impl` for a changed node, `only in baseline` or `only in impl` for one on one side alone.
 _Avoid_: —
 
 **`NEGATIVE CONTROL FAILED`**:
@@ -587,19 +563,19 @@ _Avoid_: —
 ### Labels and standing
 
 **`needs-triage`**:
-Nobody has judged it yet: something arriving from outside, or a ticket an agent could not finish. The one queue a skill picks up on its own — `/triage` reads it and recommends one of the four outcomes.
+Nobody has judged it yet: something arriving from outside, or a ticket an agent could not finish. `/triage` reads this queue and recommends one of four outcomes — `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. Full definition in `docs/agents/triage-labels.md`.
 _Avoid_: —
 
 **`needs-info`**:
-Waiting on more information.
+Waiting on more information. Full definition in `docs/agents/triage-labels.md`.
 _Avoid_: —
 
 **`ready-for-agent`**:
-In the agent queue — waiting to be dispatched, or being worked right now; the assignee says which. Taken off at both exits, whether the ticket closes or is handed back.
+In the agent queue. Full definition in `docs/agents/triage-labels.md`.
 _Avoid_: —
 
 **`ready-for-human`**:
-In your queue: a ticket carrying one thing only a person can do, of kind `reaction` or `reach`, naming what to look at and what makes it right. Applied when the ticket is written, or by triage once it has judged.
+In your queue, carrying one thing only a person can do, of kind `reaction` or `reach`. Full definition in `docs/agents/triage-labels.md`.
 _Avoid_: —
 
 **`reaction`**:
@@ -611,11 +587,11 @@ A kind of `ready-for-human` ticket: a machine would decide it correctly if it co
 _Avoid_: 只有人有的访问权
 
 **`wontfix`**:
-Will not be done.
+Will not be done. Full definition in `docs/agents/triage-labels.md`.
 _Avoid_: —
 
-**早上五条查询（the five morning queries）**:
-The fixed set of issue-list queries used to survey the tickets from outside the pipeline: handed to a human, closed yesterday, claimed by me and still open, newly triaged under a spec, and blocked.
+**早上两条查询（the two morning queries）**:
+The two issue-list queries the morning starts from: `is:open label:needs-triage`, everything that fell over in the night, which `/triage` gets a pass at first, and `is:open label:ready-for-human`, what only a person can do. The commands themselves are in `docs/agents/issue-tracker.md`.
 _Avoid_: —
 
 ### Working discipline
@@ -633,7 +609,7 @@ A start-of-work step: every glob in `## Owns` either matches an existing path or
 _Avoid_: —
 
 **基线（baseline）**:
-Anything under `## Read first` that records a settled conclusion: the chosen artifact of a prototype — the winning UI variant until a handoff package supersedes it, the validated logic module, an experiment's Reusable parts with its Conclusion — a handoff package downloaded from Claude Design, the Decision of an ADR, the resolution of a decision ticket, and the spec sections `## Parent` names. Material recording process rather than conclusions — the body of a research file, a blueprint page — is reference, not baseline.
+Anything under `## Read first` that records a settled conclusion: the chosen artifact of a prototype — the winning UI variant until a handoff package supersedes it, the validated logic module, an experiment's Reusable parts with its Conclusion — a handoff package downloaded from Claude Design, the Decision of an ADR, the resolution of a decision ticket, and the spec sections `## Parent` names. Material recording process rather than conclusions — the body of a research file, a blueprint page — is working material, not baseline.
 _Avoid_: —
 
 **契约（contract）**:
@@ -652,8 +628,8 @@ _Avoid_: —
 For a file outside `## Owns` — change it and record it under `Outside Owns:` when a criterion cannot pass otherwise; leave it alone and open a sub-issue when the change is merely convenient.
 _Avoid_: 为过 AC 不得不改, 顺手改动
 
-**ponytail 五句（the five sentences）**:
-The five things to do before writing code: grep every caller before changing a function, and delete what a new branch makes unnecessary before adding it; look for something existing before writing a helper; say why what exists is not enough before adding a file, a dependency or a configuration; never simplify away four named things; write `skipped: [X], add when [Y]` at the end.
+**写码纪律七条（the seven working rules）**:
+The seven rules a worker writes code under: every baseline in `## Read first` is the contract, and 契约装不下 is answered with a sub-issue rather than a quiet change; before changing a function grep every caller and fix the shared code once, and before adding a branch or guard name the branch or file it makes unnecessary and delete it in the same commit; before writing a helper search the repository and `## Read first` for one that exists; before adding a file, a dependency or a configuration entry say why the existing one is not enough; never simplify away security, error handling that prevents data loss, accessibility, or anything the ticket names; at the end write `skipped: [X], add when [Y]`; and for a file outside `## Owns`, Owns 两档.
 _Avoid_: —
 
 **收尾七步（the seven closing steps）**:
@@ -672,10 +648,6 @@ _Avoid_: —
 The note written or updated whenever a skill inside the upstream subtree is changed.
 _Avoid_: —
 
-**先验（probe first）**:
-Settle one uncertain technical question before starting, and write the answer into the code comment and onto the ticket.
-_Avoid_: —
-
 **消费仓库（consuming repository）**:
 The outside repository where real tickets are run, as distinct from this toolbox repository.
 _Avoid_: consumer repo
@@ -683,11 +655,11 @@ _Avoid_: consumer repo
 ### Test layers
 
 **结构核对（structural check）**:
-Run the installer's own check and the subagent assembler's own check.
+Run `install.sh --check`, which already runs `assemble.py --check` inside it. Run `assemble.py --check` on its own only to check the assembled subagents and nothing else.
 _Avoid_: —
 
 **自写脚本层（own-script layer）**:
-Scripts written in this repository are tested with unittest against fixed samples; no real network calls.
+Scripts written in this repository are tested against fixed samples, with no real network calls: the Python ones with unittest, the bash ones as `tests/*.sh`. Each skill's entry point is its `tests/run.sh`.
 _Avoid_: 自写脚本
 
 **vendor 脚本层（vendored-script layer）**:
@@ -695,7 +667,7 @@ Run the tests that came with the vendored upstream scripts.
 _Avoid_: vendor 脚本
 
 **技能行为层（skill-behaviour layer）**:
-Run the skill for real against a `[fixture]` ticket inside a worktree and check what appears on the ticket.
+Run the skill for real against a throwaway ticket made for the test inside a worktree, and check what appears on the ticket.
 _Avoid_: 技能行为
 
 **真票（real ticket）**:

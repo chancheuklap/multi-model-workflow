@@ -30,13 +30,13 @@ pipeline and lives inside the script.
 | --- | --- |
 | `<ticket>` | The ticket number. Digits only, no `#` |
 | `<role>` | `junior-worker`, `senior-worker` or `reviewer`. You choose which of the two workers a ticket gets; the ticket itself says nothing about it |
-| `[base-commit]` | Only the `reviewer` takes one. It is the commit the code review starts from |
+| `[base-commit]` | Only the `reviewer` takes one. It is the commit the code review starts from: `git merge-base main HEAD`, run in the worker's worktree — the same base `verify-ticket.py` uses for `Outside Owns:` |
 
 | Exit code | What happened |
 | --- | --- |
 | `0` | The session is up and has been told what to work on |
-| `1` | The session is up but never became ready in time, so it was **not** told anything |
-| `2` | Nothing was started. The reason is on stderr: not inside Herdr, no such role, or the ticket is not ready to be worked on |
+| `1` | The session is up but was **not** told anything: it did not become ready in time, or it would not take the prompt |
+| `2` | Nothing was started. The reason is on stderr — read it verbatim |
 
 On exit 1 a session is sitting in that pane holding the ticket's name with nothing to do.
 Dispatching the same role again collides on that name: end that session first, or carry
@@ -50,7 +50,7 @@ on without it.
 
 | Argument | What to put there |
 | --- | --- |
-| `"<first-line-regex>"` | Matched against the **first line** of the newest comment on the ticket. A worker waiting on its reviewer uses `^REVIEW`; whoever dispatched a worker waits on `^(ALL MET\|HANDOFF REQUIRED)` |
+| `"<first-line-regex>"` | Matched against the **first line** of the newest comment on the ticket. A worker waiting on its reviewer uses `"^REVIEW "`, trailing space and all; whoever dispatched a worker waits on `^(ALL MET\|HANDOFF REQUIRED)` |
 | `[seconds]` | How long to wait. Defaults to 1800 |
 
 | Exit code | What happened |
@@ -98,12 +98,13 @@ line again, because the discipline is not to ask.
 ## When the board re-prompts you
 
 Two cases reach you, and both arrive as one line: `mmw board: <case> #<n> — run
-board.py --once`. Run that, read the table, and go back to being idle.
+~/.agents/skills/dispatch/scripts/board.py --once <spec>`. Run that command as it is
+written, read the table, and go back to being idle.
 
-| Case | What it means | What to do |
+| `<case>` | What it means | What to do |
 | --- | --- | --- |
-| A limit was reached — `WAKEUP LIMIT`, `REDISPATCHED`, `TIME LIMIT` | The board has already commented on that ticket and moved it to `needs-triage` | Read the table. Nothing else: do not dispatch it again, do not prompt its session |
-| The night ended | `NIGHT SUMMARY` is the newest comment on the spec | Read it. If the user asked to be told when the run finished, tell them now |
+| `WAKEUP LIMIT`, `REDISPATCHED`, `TIME LIMIT` | A limit was reached. The board has already commented on that ticket and moved it to `needs-triage` | Read the table. Nothing else: do not dispatch it again, do not prompt its session |
+| `night over` | The night ended: `NIGHT SUMMARY` is the newest comment on the spec | Read it. If the user asked to be told when the run finished, tell them now |
 
 A worker stopped at a question does not reach you. Its form is on its ticket for the
 morning, under `BLOCKED:`.

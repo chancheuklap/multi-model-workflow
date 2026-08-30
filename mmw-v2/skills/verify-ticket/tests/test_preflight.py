@@ -1,4 +1,4 @@
-"""The opening guard: four conditions, and what the ticket is told when one fails."""
+"""The opening guard: six conditions, and what the ticket is told when one fails."""
 
 import io
 import unittest
@@ -96,8 +96,8 @@ class TestRefusals(unittest.TestCase):
 
 
 class TestEveryRefusalSaysStop(unittest.TestCase):
-    """Each of the four conditions is set up before a worker exists — the host opens the
-    worktree on `issue-<n>`, the dispatcher checks state, labels and blockers — so every
+    """Each of the six conditions is set up before a worker exists — the host opens the
+    worktree on `issue-<n>`, `dispatch.sh` checks state, labels and blockers — so every
     refusal is a fault upstream of the worker, and the only correct next move is to stop.
     A refusal that reads like a repair invites the worker to switch branches, commit
     someone else's work, or take someone else's ticket."""

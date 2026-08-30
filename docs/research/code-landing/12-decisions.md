@@ -633,7 +633,7 @@ merge-note 与正文一致性 canary（「关键句」无法机械定义）；�
 
 - 起因：用户 2026-08-31 指出图上「派 / 捡 / 记」是自造词，追问计划用词是否与 mmw 统一。核查发现 `17`、块 J、#87、两张蓝图里至少 12 个概念没有正名或有多个名字（`idle` 而 `phase` 未到 `closed`/`handoff` / 半途停下 / 没到终点；捡回 / 叫醒 / 唤醒；会话没了 / 会话死了；固定句；开夜；`QUESTION:` / `BLOCKED:` 两种；中文行文用 `main agent`），并与「派发词」词条冲突（J4）。
 - 用户原话：「不要随意去造奇奇怪怪的词语，用正统的有出处的词语统一概念」。
-- 裁决：一律取有出处的：夜间编排主循环（#60 Out of Scope）、监控 tab 与 `board.py`（`15` §4）、唤醒闭环（`15`、#87）、这个状态不起名：写它的判据本身「`idle` 而 `phase` 未到 `closed`/`handoff`」（H1 第 3 条给的就是这两个 token；「`idle` 而 `phase` 未到 `closed`/`handoff`」是我 2026-08-31 自造的，用户当场否掉）、重新 prompt（`15` §3、§5）、重派（`15` §5）、Herdr 自己的五个状态词（`working`/`idle`/`done`/`blocked`/`unknown`）代替「在提问」「会话没了」「会话死了」、`BLOCKED:` 代替 `QUESTION:`、中文行文用 主 agent（P6）。新字面串（`board.py`、`mmw-main`、`wake`、`REDISPATCHED:`、`WAKEUP LIMIT:`、`TIME LIMIT:`、`NIGHT SUMMARY`、`dispatch.sh run`、七个常量）与漏收的 `model` token 登记进 `CONTEXT.md` Dispatch 节；「开夜」「冷却」「固定句」「捡回」「叫醒」「终点」进 `_Avoid_`。图上的动词改为 派发 / 重新 prompt / 评论到票 / prompt 主 agent / `NIGHT SUMMARY`。
+- 裁决：一律取有出处的：夜间编排主循环（#60 Out of Scope）、监控 tab 与 `board.py`（`15` §4）、唤醒闭环（`15`、#87）、这个状态不起名：写它的判据本身「`idle` 而 `phase` 未到 `closed`/`handoff`」（H1 第 3 条给的就是这两个 token；「半途停下」「没到终点就停了」「半路停了」这类给它起的名字是我 2026-08-31 自造的，用户当场否掉）、重新 prompt（`15` §3、§5）、重派（`15` §5）、Herdr 自己的五个状态词（`working`/`idle`/`done`/`blocked`/`unknown`）代替「在提问」「会话没了」「会话死了」、`BLOCKED:` 代替 `QUESTION:`、中文行文用 主 agent（P6）。新字面串（`board.py`、`mmw-main`、`wake`、`REDISPATCHED:`、`WAKEUP LIMIT:`、`TIME LIMIT:`、`NIGHT SUMMARY`、`dispatch.sh run`、七个常量）与漏收的 `model` token 登记进 `CONTEXT.md` Dispatch 节；「开夜」「冷却」「固定句」「捡回」「叫醒」「终点」进 `_Avoid_`。图上的动词改为 派发 / 重新 prompt / 评论到票 / prompt 主 agent / `NIGHT SUMMARY`。
 - 落点：`CONTEXT.md`；`17` 全文；本块；#87 正文；`17-night-loop.html`；`11-target-pipeline.html` 4b 与相关处；`board.py` 第 3 步返工（`QUESTION` → `BLOCKED`、删句表）。
 
 ### 蓝图页

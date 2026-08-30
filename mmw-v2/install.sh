@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
-# 把 skills.txt 列出的技能和 agents/ 下的 subagent 装到本机，让每个宿主都读得到。就这两件事。
+# 把四样东西装到本机，让每个宿主都读得到：
+#
+#   技能              skills.txt 列出的，软链进 ~/.agents/skills 与 ~/.claude/skills
+#   subagent          agents/<名>/out/ 的成品，软链进各宿主自己的 agent 目录
+#   hook              verify-ticket 的 pretool 门（五个宿主）与 Claude Code 的
+#                     rule-at-moment 提醒（四个事件），写进各宿主自己的配置
+#   Herdr agent 检测规则   dispatch 技能带的覆盖，拷进 ~/.config/herdr/agent-detection/
 #
 # 技能有三个来源：mattpocock 上游的在 upstream/skills/，我们自己写的在 skills/（名单里
 # 前缀 self/），diagram-design 上游的在 upstream-diagram-design/skills/（前缀 dd/）。三者
@@ -12,8 +18,7 @@
 #   install.sh            装
 #   install.sh --check    只看装没装，不动磁盘。齐了回 0，缺东西或有残留回 1
 #
-# 除技能、subagent、hook 之外还装一样：dispatch 技能带的 Herdr agent 检测规则覆盖，
-# 拷进 ~/.config/herdr/agent-detection/ 再让服务端重读。
+# 两种模式在 hook 都齐了的时候都打印 HOOKS-INSTALLED。
 #
 # 技能装两处，不按宿主分。~/.agents/skills 是各家通用的位置，Codex、Cursor、Grok、Pi
 # 都原生扫它；Claude Code 不扫，只认 ~/.claude/skills，所以那一处再装一份。两处装的是
@@ -91,6 +96,9 @@ dupes="$(printf '%s\n' "${wanted_names[@]}" | sort | uniq -d)"
 
 rc=0
 installed_dests=0
+# hook 两段各自的成败。两段都跑过且都齐了才打印 HOOKS-INSTALLED。
+hooks_ran=0
+hooks_rc=0
 
 for dest in "${HOST_DIRS[@]}"; do
   host_home="$(dirname "$dest")"
@@ -340,12 +348,13 @@ fi
 HOOK_SRC="$SELF_SRC/verify-ticket/scripts/hook.py"
 
 if [ -f "$HOOK_SRC" ]; then
+  hooks_ran=1
   MMW_MODE="$mode" \
   MMW_HOOK="$NEUTRAL_DIR/verify-ticket/scripts/hook.py" \
   MMW_HOME="$HOME_DIR" \
   MMW_CODEX="${CODEX_HOME:-$HOME_DIR/.codex}" \
   MMW_PI="${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME_DIR/.pi}/agent}" \
-  python3 - <<'PY' || rc=1
+  python3 - <<'PY' || { rc=1; hooks_rc=1; }
 import json
 import os
 import sys
@@ -511,10 +520,15 @@ for host_home, path, event, (install, installed) in points:
             failed = True
         continue
     install()
+    # 写完当场回读：认得出自己刚写的那一条，这个安装点才算数。
+    if not installed():
+        sys.stderr.write(f"缺    {path}  {event}\n")
+        failed = True
+        continue
     count += 1
 
 if mode != "check":
-    print(f"已装  {count} 处 hook -> 五个宿主")
+    print(f"已装  {count} 处 hook -> {count} 个宿主")
     if codex_home.is_dir():
         # 2026-08-29 实测：写进 hooks.json 还不够。Codex 开场先弹「N hooks need review」，
         # 人按一次 t 之前这道门是 Installed 而 Active 为 0。按下去记的是这条 hook 的哈希
@@ -536,16 +550,19 @@ RULES_HOOK_SRC="$ROOT/hooks/rule-at-moment.py"
 RULES_HOOK_LINK="$HOME_DIR/.claude/hooks/rule-at-moment.py"
 
 if [ -f "$RULES_HOOK_SRC" ] && [ -d "$HOME_DIR/.claude" ]; then
+  hooks_ran=1
   if [ "$mode" = check ]; then
     if [ ! -L "$RULES_HOOK_LINK" ] || [ "$(readlink "$RULES_HOOK_LINK")" != "$RULES_HOOK_SRC" ]; then
       echo "缺    $RULES_HOOK_LINK" >&2
       rc=1
+      hooks_rc=1
     fi
   else
     mkdir -p "$(dirname "$RULES_HOOK_LINK")"
     if [ -e "$RULES_HOOK_LINK" ] && [ ! -L "$RULES_HOOK_LINK" ]; then
       echo "冲突  $RULES_HOOK_LINK 已存在且不是软链，跳过" >&2
       rc=1
+      hooks_rc=1
     else
       ln -sfn "$RULES_HOOK_SRC" "$RULES_HOOK_LINK"
       echo "已装  $RULES_HOOK_LINK"
@@ -555,7 +572,7 @@ if [ -f "$RULES_HOOK_SRC" ] && [ -d "$HOME_DIR/.claude" ]; then
   MMW_MODE="$mode" \
   MMW_SETTINGS="$HOME_DIR/.claude/settings.json" \
   MMW_RULES_HOOK="$RULES_HOOK_LINK" \
-  python3 - <<'PY' || rc=1
+  python3 - <<'PY' || { rc=1; hooks_rc=1; }
 import json
 import os
 import sys
@@ -633,13 +650,29 @@ for event, matcher in wanted:
         hooks.setdefault(event, []).append(entry)
 if mode != "check":
     save(data)
-    print(f"已装  {len(wanted)} 条 rule-at-moment hook -> {path}")
+    # 写完当场回读：四条都在文件里认得出来，才算装上。
+    written = load().get("hooks") or {}
+    for event, matcher in wanted:
+        group, existing = find(written, event)
+        if existing is not None and existing.get("command") == command \
+                and (matcher is None or group.get("matcher") == matcher):
+            continue
+        sys.stderr.write(f"缺    {path}  {event}\n")
+        failed = True
+    if not failed:
+        print(f"已装  {len(wanted)} 条 rule-at-moment hook -> {path}")
 sys.exit(1 if failed else 0)
 PY
 fi
 
+if [ "$hooks_ran" -eq 1 ] && [ "$hooks_rc" -eq 0 ]; then
+  echo "HOOKS-INSTALLED"
+fi
+
 if [ "$mode" = check ]; then
-  [ "$rc" -eq 0 ] && echo "齐了：${installed_dests} 处 × ${#wanted_names[@]} 个技能"
+  if [ "$rc" -eq 0 ]; then
+    echo "齐了：技能 ${installed_dests} 处 × ${#wanted_names[@]} 个，subagent 与 hook 见上"
+  fi
 else
   echo
   echo "源目录：${SKILLS_SRC}（上游）、${SELF_SRC}（自研）、${DD_SRC}（diagram-design 上游）"

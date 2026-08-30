@@ -1,5 +1,7 @@
 # When to Mock
 
+Another copy of these criteria lives in `~/.agents/skills/code-review/references/tests-reviewer.md`; change both together.
+
 Mock at **system boundaries** only:
 
 - External APIs (payment, email, etc.)

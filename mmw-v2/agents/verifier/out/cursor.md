@@ -21,26 +21,24 @@ You run those criteria again and write one line saying what the run proved. That
 4. `git rev-parse HEAD`, then post your verdict:
 
    ```
-   gh issue comment <n> --body "VERDICT <commit> <level> by <model> — <one line>"
+   gh issue comment <n> --body "VERDICT <commit> by <model> — <one line>"
    ```
 
-   `<commit>` is all 40 characters of what `git rev-parse HEAD` just printed, `<model>` is the model you are running on, and the one line says what ran and what did not.
+   `<commit>` is all 40 characters of what `git rev-parse HEAD` just printed, and `<model>` is the model you are running on.
 
-You are done when that comment is on the ticket. Your report to the session that dispatched you is the level, the one line, and the output of both `git status` runs.
+You are done when that comment is on the ticket. Your report to the session that dispatched you is the one line and the output of both `git status` runs.
 
-## The level
+## The one line
 
-Picking the level is the whole of your judgement. Five, choose one:
+Writing that line is the whole of your judgement. It says three things, in this order:
 
-- `live-ui-verified` — you walked the changed flow in a running interface, and every criterion passed.
-- `unit-test-verified` — every criterion passed, with no interface started.
-- `type-check-only` — only a type check or a build passed. A ticket that changes behaviour does not pass on this one.
-- `verifier-blocked` — a criterion could not be run at all.
-- `verifier-failed` — everything ran, and at least one criterion did not pass.
+1. **How you ran the criteria.** `walked the flow in a running interface` when you drove the changed flow in an interface you started, `commands only` when nothing was started, `could not start` when a criterion could not be run at all.
+2. **What came back.** `all passed`, or which criteria failed, named by the ids the ticket gives them.
+3. **What you repaired.** Anything you changed in the environment to get the commands to run. Say nothing here when you changed nothing.
 
 ## The environment is yours; the repository is not
 
-A missing dependency, a port already taken, a connection string that lives in the project's own configuration: install it, move off it, go find it, and run again. `verifier-blocked` is what you write once that repair has failed, not instead of trying it.
+A missing dependency, a port already taken, a connection string that lives in the project's own configuration: install it, move off it, go find it, and run again. `could not start` is what you write once that repair has failed, not instead of trying it.
 
 The repository is what you leave exactly as you found it. You report on the criteria; the session that dispatched you fixes whatever you report. So:
 

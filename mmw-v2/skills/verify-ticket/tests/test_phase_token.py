@@ -12,6 +12,7 @@ from tests._load import load
 vt = load()
 
 LIVE = {"HERDR_ENV": "1", "HERDR_PANE_ID": "w1:p2"}
+COMMIT = "3f9c2e1adeadbeefcafe0123456789abcdef0123"
 
 
 class TestReportPhase(unittest.TestCase):
@@ -40,7 +41,7 @@ class TestReportPhase(unittest.TestCase):
         self.assertEqual(cmd[:5], ["herdr", "pane", "report-metadata", "w1:p2", "--source"])
         self.assertEqual(cmd[5], "mmw")
         self.assertIn("ticket=77", cmd)
-        self.assertIn("role=worker", cmd)
+        self.assertIn("kind=worker", cmd)
         self.assertIn("phase=selfcheck", cmd)
         self.assertEqual(cmd[cmd.index("--ttl-ms") + 1], "86400000")
 
@@ -137,7 +138,7 @@ class TestPreflightCloseout(unittest.TestCase):
         calls = []
         first, criterion, evidence, counts = self.DRAFTS[outcome]
         draft = "\n".join([
-            first, "", "Branch: issue-77  Commit: 3f9c2e1a  PR: none", "",
+            first, "", f"Branch: issue-77  Commit: {COMMIT}  PR: none", "",
             criterion, evidence,
             "", "Outside Owns: None", "", "Sub-issues opened: none", "", counts,
         ]) + "\n"
@@ -145,13 +146,13 @@ class TestPreflightCloseout(unittest.TestCase):
             path = Path(tmp) / "closeout.md"
             path.write_text(draft, encoding="utf-8")
             with mock.patch.object(vt, "fetch_comments",
-                                   return_value=["VERDICT 3f9c2e1a unit-test-verified by opus"]), \
+                                   return_value=[f"VERDICT {COMMIT} by opus — the importer writes six rows"]), \
                  mock.patch.object(vt, "fetch_ticket", return_value={
                      "state": "OPEN", "labels": [],
                      "assignees": [{"login": "chancheuklap"}], "blockedBy": {"nodes": []}}), \
                  mock.patch.object(vt, "gh_login", return_value="chancheuklap"), \
                  mock.patch.object(vt, "repo_root", return_value=None), \
-                 mock.patch.object(vt, "git", return_value="3f9c2e1a"), \
+                 mock.patch.object(vt, "git", return_value=COMMIT), \
                  mock.patch.object(vt, "is_ancestor", return_value=True), \
                  mock.patch.object(vt, "dirty_tracked", return_value=[]), \
                  mock.patch.object(vt, "post_comment"), \

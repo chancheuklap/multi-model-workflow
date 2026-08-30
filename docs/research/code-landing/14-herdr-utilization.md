@@ -1,10 +1,10 @@
-# Herdr 还能怎么用：pane 编排、命名、状态互知，以及 coordinator 之外的用法
+# Herdr 还能怎么用：pane 编排、命名、状态互知，以及 main agent 之外的用法
 
 `09-herdr-dispatch-model.md` 查的是「派发在机制上怎么成立」，用的是 `~/.claude/skills/herdr/SKILL.md` 写到的那部分 CLI。本文把 herdr 0.8.2 的九个命令组、socket API 的 91 个方法与 27 种订阅、以及本机已经在跑的三个 herdr 插件读了一遍，找出 `09` 没覆盖的能力，按 #60 的十一节与 #61–#75 给出落点。本文只调查、只提议，不定案。
 
 取证时间 2026-08-29，本机 herdr 0.8.2、socket protocol 20、schema_version 1。取证方式：`herdr --help`、九个命令组不带子命令打印的清单、`herdr api schema`（255 KB）、`herdr api snapshot`、`~/.config/herdr/config.toml`（144 行）、`~/.pi/packages/integrations/herdr/` 下三个插件的源码、`~/.claude/hooks/herdr-task-state.sh`，以及在本会话所在 pane（`w2K:pT`）上做的九项实测（下文标「实测」处）。实测新建的 pane 与 tab 全部关闭，写进本 pane 的 `title`、`state_labels`、token 全部清除。
 
-名词沿用 `09-herdr-dispatch-model.md`：**主 agent / coordinator**、**worker**、**verifier**、**reviewer 会话**。
+名词沿用 `09-herdr-dispatch-model.md`：**main agent（主 agent）**、**worker**、**verifier**、**reviewer 会话**。
 
 ## 1. `09` 之外的十项能力
 
@@ -62,7 +62,7 @@ worker 起 reviewer 时在**同一个 tab** 里分屏。方向由 `herdr pane la
 | reviewer 会话 | 开，同 tab 分屏 | 与 worker 生命周期重叠、同一分支，要能对照 |
 | verifier | 不开 | 子代理，跑在 worker 的进程里（`09` §1.1） |
 | `verify-ticket.py` / `visual-parity.py` / 测试 | 不开 | worker 自己的 Bash 调用，退出码就是结果 |
-| coordinator 自己 | 单独一个 tab | 全夜常驻，不属于任何票 |
+| main agent 自己 | 单独一个 tab | 全夜常驻，不属于任何票 |
 | 监控与唤醒（`15-monitor-tab-and-wakeup-loop.md`） | 开，单独一个 tab | 人要看它，它也要被 agent 读 |
 
 要单独细看某个 worker 时用 `herdr pane zoom <pane_id> --on`，不必调整布局。
@@ -76,14 +76,14 @@ worker 起 reviewer 时在**同一个 tab** 里分屏。方向由 `herdr pane la
 | agent name | `agent start <name>` / `agent rename <target> <name>` | `issue-<n>`、`issue-<n>-review` | **CLI 的定位句柄**。须匹配 `[a-z][a-z0-9_-]{0,31}` 且在活着的 agent 里唯一（`SKILL.md:56`），所以不能只写票号 |
 | pane label | `pane rename <pane_id> <label>` | `#<n> worker`、`#<n> reviewer` | 人眼。显示在 pane 边框（config.toml:10） |
 | tab label | `tab create --label` / `tab rename` | `#<n> <标题前 20 字>` | 人眼。tab 条与 `tab list` |
-| token（source `mmw`） | `pane report-metadata --token` | `ticket`、`role`、`phase`、`ac`、`verdict` | **机读**。coordinator 与监控端的台账 |
+| token（source `mmw`） | `pane report-metadata --token` | `ticket`、`kind`、`phase`、`ac`、`verdict` | **机读**。main agent 与监控端的台账 |
 
-命名方案的关键不在名字取得多好，而在**名字可预测**：coordinator 要对 #61 的 worker 做任何事，直接写 `herdr agent prompt issue-61 …`，不必先 `agent list` 找 pane id，也不必记住任何映射。这一条已经由 E1 满足，本文只补两点：
+命名方案的关键不在名字取得多好，而在**名字可预测**：main agent 要对 #61 的 worker 做任何事，直接写 `herdr agent prompt issue-61 …`，不必先 `agent list` 找 pane id，也不必记住任何映射。这一条已经由 E1 满足，本文只补两点：
 
 - **`agent rename` 让命名不再依赖启动那一刻**。`agent start` 在启动期被挡时返回 `agent_not_ready`（`SKILL.md:120`），名字仍保留；即使某个宿主的就绪检测失败导致没命名成功，`dispatch.sh` 也可以在确认 pane 里跑起来之后补一条 `agent rename`。
 - **模型写进 token，不写进 `display_agent`**。E1 记下「cursor / grok 只有 Herdr 一侧有名」。`pane report-metadata --display-agent` 能覆盖侧栏显示的 agent 种类字段，但它的读者只有侧栏；`--token model=grok-4.6-xhigh` 同样能让监控端说出这张票用的哪个模型，且是机读的。
 
-coordinator 要的不是记忆，是一张表。`herdr api snapshot` 的 `agents[]` 每行已含 `name`、`pane_id`、`tab_id`、`workspace_id`、`agent_status`、`tokens`、`cwd`——加上 §4 的 phase token，一条命令就是全局台账，无需逐个 `agent get`。
+main agent 要的不是记忆，是一张表。`herdr api snapshot` 的 `agents[]` 每行已含 `name`、`pane_id`、`tab_id`、`workspace_id`、`agent_status`、`tokens`、`cwd`——加上 §4 的 phase token，一条命令就是全局台账，无需逐个 `agent get`。
 
 ## 4. 状态互知与「真的做完了」
 
@@ -103,7 +103,7 @@ coordinator 要的不是记忆，是一张表。`herdr api snapshot` 的 `agents
 | --- | --- | --- |
 | `working` | 任意 | 在跑 |
 | `idle` / `done` | `closed` / `handoff` | 真做完了 |
-| `idle` / `done` | 其它值 | **半路停了**——正是 #60 Out of Scope 留下的那种情况 |
+| `idle` / `done` | 其它值 | **`idle` 而 `phase` 未到 `closed`/`handoff`**——正是 #60 Out of Scope 留下的那种情况 |
 | `blocked` | 任意 | 停在审批或提问界面 |
 | `unknown` | 任意 | 会话没了或无法分类（`SKILL.md:58`） |
 
@@ -113,7 +113,7 @@ coordinator 要的不是记忆，是一张表。`herdr api snapshot` 的 `agents
 
 | 子命令 | 写什么 |
 | --- | --- |
-| `--preflight` 成功后 | `ticket=<n> role=worker phase=implement` |
+| `--preflight` 成功后 | `ticket=<n> kind=worker phase=implement` |
 | 默认（自跑） | 开始 `phase=selfcheck`，结束 `ac=<met>/<total>` |
 | `--reverify` | `phase=verify` |
 | `--closeout` 成功 | `phase=closed` 或 `phase=handoff`，并 `--clear-token` 掉 `ac` |
@@ -123,7 +123,7 @@ coordinator 要的不是记忆，是一张表。`herdr api snapshot` 的 `agents
 
 ```
 herdr pane report-metadata "$HERDR_PANE_ID" --source mmw \
-  --token ticket=<n> --token role=worker --token phase=<阶段> --ttl-ms 86400000
+  --token ticket=<n> --token kind=worker --token phase=<阶段> --ttl-ms 86400000
 ```
 
 不写 `--state-label`：它的唯一读者是侧栏的 `state_text`（config.toml:35、58）。
@@ -132,7 +132,7 @@ herdr pane report-metadata "$HERDR_PANE_ID" --source mmw \
 
 ### 4.3 `dispatch.sh wait` 不必每 30 秒问一次 GitHub
 
-#60 第 2 节定的 `dispatch.sh wait <n> <首行前缀> [秒]` 是「每 30 秒 `gh issue view` 看最后一条评论首行」。worker 等 reviewer 用它、coordinator 等 worker 也用它。更短的路径是让 Herdr 先挡住等待，`gh` 只在状态变化后确认一次：
+#60 第 2 节定的 `dispatch.sh wait <n> <首行前缀> [秒]` 是「每 30 秒 `gh issue view` 看最后一条评论首行」。worker 等 reviewer 用它、main agent 等 worker 也用它。更短的路径是让 Herdr 先挡住等待，`gh` 只在状态变化后确认一次：
 
 ```
 herdr agent wait issue-<n>-review --timeout <ms>   # 阻塞到第一个 idle/done/blocked
@@ -149,9 +149,9 @@ gh issue view <n> --json comments                  # 确认评论到了；没到
 
 `pane.output_matched` 订阅与 `herdr pane wait-output --match` 能在输出里出现某行时触发，看上去可以让 worker 打印一行 `MMW-DONE #61` 当完成信号。不采：Claude Code 在备用屏（alternate screen）上跑是 `09` §7 的实测（`agent read --lines 40` 只看到提示框），grok 与 codex 默认在备用屏是 `09` §3.2 从两家 `--help` 都有 `--no-alt-screen` 推断的，未实测；无论哪一种，滚出去的行不进 scrollback，读屏都不可靠。token 走的是 socket，与渲染层无关。
 
-同样不采「worker 用 `agent prompt` 通知 coordinator」：`agent prompt` 会打断对方当前回合，且对方在 working 时可能返回 `agent_prompt_stalled`（`SKILL.md:130`）。反向通道用 token 加票评论。唯一值得保留 `agent prompt` 的反向用途是「必须让 coordinator 立刻做一件只有它能做的事」，而这属于 #60 Out of Scope 的夜间主循环。
+同样不采「worker 用 `agent prompt` 通知 main agent」：`agent prompt` 会打断对方当前回合，且对方在 working 时可能返回 `agent_prompt_stalled`（`SKILL.md:130`）。反向通道用 token 加票评论。唯一值得保留 `agent prompt` 的反向用途是「必须让 main agent 立刻做一件只有它能做的事」，而这属于 #60 Out of Scope 的夜间主循环。
 
-## 5. coordinator 之外的用法
+## 5. main agent 之外的用法
 
 ### 5.1 worker
 

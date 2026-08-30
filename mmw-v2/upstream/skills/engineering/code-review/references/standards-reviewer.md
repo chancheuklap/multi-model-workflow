@@ -15,6 +15,8 @@ git log <base-commit>..HEAD --oneline
 
 Anything in the repository that says how code here should be written: `CODING_STANDARDS.md`, `CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md`, a `docs/` page on conventions, a `CONTEXT.md` naming the domain vocabulary. Read what you find before you read the diff a second time.
 
+Read `~/.agents/skills/codebase-design/SKILL.md` as well. It is not a repository standard but the vocabulary this project designs modules in — module, interface, depth, seam, adapter — and the depth criterion below is written in its words.
+
 ## 3. Match the diff against the standards and the smell baseline
 
 The documented standards are the first source. On top of them you always carry the **smell baseline** below: a fixed set of Fowler code smells (_Refactoring_, ch. 3) that applies even to a repository that documents nothing.
@@ -25,6 +27,8 @@ Two rules bind it:
 - **Always a judgement call.** Each smell is a labelled heuristic ("possible Feature Envy"), never a hard violation. A documented-standard breach can be hard; a baseline smell never is.
 
 Alongside the smells, ask of every hunk whether the criteria still pass with less: the hunk deleted, folded into a branch that already exists, or replaced by a helper the repository already has. Report it only when you can write the shorter form; a shorter form you cannot write is a preference, not a finding.
+
+And run **the deletion test** on every module the diff adds or reshapes: imagine deleting the module. If complexity vanishes, it was a pass-through. If complexity reappears across N callers, it was earning its keep. A pass-through is a finding — name the module and the callers the complexity would reappear in. This is a judgement call like the smells, and the repo overrides it the same way.
 
 Skip anything tooling already enforces — a linter's job is not a reviewer's.
 
@@ -50,6 +54,7 @@ Per file and hunk where it helps:
 - Every place the diff breaks a documented standard: cite the standard by file and by the rule it states.
 - Every baseline smell you spot: name it and quote the hunk.
 - Every hunk that passes with less: quote the hunk and the shorter form.
+- Every module the deletion test calls a pass-through: name it and the callers that would carry the complexity back.
 
 Mark each finding as a hard violation or a judgement call. Under 400 words.
 

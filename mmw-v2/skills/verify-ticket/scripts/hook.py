@@ -17,7 +17,7 @@ one and let the command through when the guess passed would produce exactly the
 outcome it exists to prevent — the ticket closed with no closing comment on it.
 
 Whether this session is governed is not something this file works out. It is told:
-the dispatcher sets `MMW_TICKET` on the worker's pane. No variable, no gate. So there
+`dispatch.sh` sets `MMW_TICKET` on the worker's pane. No variable, no gate. So there
 is no git to run, no `gh` to ask, no file to read, and nothing to get wrong about
 which directory the host happened to start this process in.
 """

@@ -344,23 +344,23 @@ dl.kv dd{margin:0}
   <h2>一屏给 agent 读的表，一行一行给人看的日志</h2>
   <div class="grid" style="grid-template-columns:1.1fr 1fr">
     <div class="card"><p class="eyebrow">board.py --once · 主 agent 被重新 prompt 后第一件事</p>
-<pre style="margin:0;font-family:var(--f-mono);font-size:12px;line-height:1.5;overflow-x:auto;color:var(--ink)">mmw board · 02:14 · spec #60 · 5 张票 · 并行 2/2
+<pre style="margin:0;font-family:var(--f-mono);font-size:12px;line-height:1.5;overflow-x:auto;color:var(--ink)">mmw board · 02:14 · spec #60 · 5 tickets · PARALLEL 2/2
 
- 票    agent      agent_status  phase      ac    wake  备注
- #61   issue-61   working       implement  -     0
- #62   issue-62   idle          selfcheck  3/5   1     idle 未到 closed/handoff，已重新 prompt 1 次
- #63   issue-63   blocked       verify     5/5   1     BLOCKED: 已评论，已关表单
- #64   -          -             closed     6/6   -     ALL MET，pane 已关
- #65   -          -             -          -     -     等 #62</pre></div>
+ ticket  agent             agent_status  phase              ac     wake  note
+ #61     issue-61          working       implement          -      0
+ #62     -                 -             closed             5/5    -     ALL MET, pane closed
+ #63     issue-63          blocked       verify             5/5    1     BLOCKED: commented, form dismissed
+ #64     -                 -             closed             6/6    -     ALL MET, pane closed
+ #65     -                 -             -                  -      -     waiting on #63</pre></div>
     <div class="card"><p class="eyebrow">board.py 常驻 · mmw board tab · 追加行，不进备用屏</p>
-<pre style="margin:0;font-family:var(--f-mono);font-size:12px;line-height:1.5;overflow-x:auto;color:var(--ink)">02:14:31  #62  idle      phase=selfcheck ac=3/5  COOLDOWN 120s
-02:16:33  #62  读票      self-run：AC3、AC5 未过
-02:16:35  #62  prompt    implement #62（wake=1）
-02:16:38  #62  working
-02:31:02  #63  blocked   phase=verify
-02:31:03  #63  评论      BLOCKED: Which colour…
-02:31:04  #63  shift+x → idle → prompt implement #63
-  </div>
+<pre style="margin:0;font-family:var(--f-mono);font-size:12px;line-height:1.5;overflow-x:auto;color:var(--ink)">01:58:04  board     watch      spec #60 role=junior-worker parallel=2 max-hours=4
+01:58:09  #61       dispatch   issue-61 is working on #61 in pane w1:p1 on cursor-grok-4.6-high
+02:05:12  #62       idle       phase=selfcheck ac=3/5  COOLDOWN 120s
+02:07:14  #62       prompt     implement #62 (wake=1)
+02:13:58  #63       comment    BLOCKED: Do you prefer red or blue? 1. red 2. blue
+02:13:59  #63       esc        form dismissed
+02:14:01  #63       prompt     implement #63 (wake=1)
+03:30:16  #61       label      needs-triage</pre>
 </section>
 
 <!-- ============================ 卡片 ============================ -->

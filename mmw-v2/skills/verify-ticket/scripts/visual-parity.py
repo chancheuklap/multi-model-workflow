@@ -99,7 +99,8 @@ def normalize_aria(text: str) -> list[str]:
     1. blank lines and bare ``- generic`` / ``- group`` lines;
     2. the accessible name on landmark roles — a product page labels its ``<main>``,
        a component page does not, and the landmark itself is what matters;
-    3. one outer ``- main:`` whose only job is to wrap another ``main``.
+    3. one inner ``- main:`` nested inside another ``main``, whose children come up
+       one level.
     """
     lines = []
     for ln in text.splitlines():
@@ -239,9 +240,10 @@ def gate(control: Comparison, comparisons: list[Comparison], max_pct: float,
          console_limit: int) -> tuple[int, list[str]]:
     """Exit code and the lines to print, in order.
 
-    The negative control runs first and is the only thing reported when it fails: a
-    check that did not catch a scene known to be wrong says nothing about the scenes
-    it passed.
+    The negative control is constructed once, after every scene of the first viewport
+    has run, and its verdict is applied before any scene's: it is the only thing
+    reported when it fails, because a check that did not catch a scene known to be
+    wrong says nothing about the scenes it passed.
     """
     control_reasons = failures(control, max_pct, console_limit)
     if not control_reasons:

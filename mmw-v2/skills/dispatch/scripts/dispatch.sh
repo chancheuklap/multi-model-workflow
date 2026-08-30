@@ -9,8 +9,8 @@
 # The role and the ticket number are the whole input. Everything else — which Herdr
 # name the session gets, whether it opens a tab or splits a pane, what it is told to
 # work on — is decided by the shape of the pipeline, so it is written here rather than
-# in the table. The table holds only what a person changes: the agent, the harness, the
-# model, the thinking level, and the arguments the harness is started with.
+# in the table. The table holds only what a person changes: the agent, the host, the
+# model, the thinking level, and the arguments the host is started with.
 #
 # Exit codes are documented in SKILL.md next to this script.
 
@@ -228,20 +228,22 @@ dispatch() {
   herdr agent prompt "$name" "$prompt" >/dev/null \
     || give_up "$name is up in pane $pane but would not take the prompt"
 
-  # The ticket and the role are written here rather than left to the first
+  # The ticket and the kind are written here rather than left to the first
   # `verify-ticket.py` run, so that a pane which stops before that run is still
-  # readable as belonging to this ticket in this role.
-  local human token_role
+  # readable as belonging to this ticket as a worker or as a reviewer. `kind` is not
+  # the `<role>` this script takes: three roles start a session, and the two kinds are
+  # what the session then is.
+  local human token_kind
   if [ "$reviewing" = 1 ]; then
     human="#$number reviewer"
-    token_role=reviewer
+    token_kind=reviewer
   else
     human="#$number worker"
-    token_role=worker
+    token_kind=worker
   fi
   herdr pane rename "$pane" "$human" >/dev/null 2>&1
   herdr pane report-metadata "$pane" --source mmw \
-    --token "ticket=$number" --token "role=$token_role" --token "model=$model" \
+    --token "ticket=$number" --token "kind=$token_kind" --token "model=$model" \
     --ttl-ms "$TOKEN_TTL_MS" >/dev/null 2>&1
 
   echo "$name is working on #$number in pane $pane on $model"
@@ -346,7 +348,18 @@ run_night() {
   local caller="${HERDR_PANE_ID:-}"
   [ -n "$caller" ] || refuse "no calling pane, so the board would have nobody to report to"
   [ -f "$BOARD" ] || refuse "no board at $BOARD"
-  [ -n "$(row_for_role "$role")" ] || refuse "no role named $role in $MODELS"
+
+  # The same refusal every dispatch would make, brought forward to the one moment
+  # somebody is here: a subagent row starts no session, so a night on it never
+  # dispatches a ticket and never runs out of them either.
+  local night_row night_launch
+  night_row="$(row_for_role "$role")"
+  [ -n "$night_row" ] || refuse "no role named $role in $MODELS"
+  night_launch="$(printf '%s' "$night_row" | cut -f4)"
+  case "$night_launch" in
+    "" | "—" | "-")
+      refuse "$role is a subagent: it is started by the skill that needs it, so a night on it would start nothing" ;;
+  esac
 
   # A night nobody is watching cannot notice that the skills or the gate went missing
   # from this machine, so it is checked at the one moment somebody is here.

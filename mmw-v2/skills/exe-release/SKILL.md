@@ -92,4 +92,4 @@ On gather failure the engine prints WARN with the path left in the build directo
 
 Give the user: which products shipped, where each package is, which commit this set is.
 
-**Stop and wait for the user to install and try it.** The machine cannot judge install or use. Pass: report the packages, the commit, and the test result, then hand back to the user. Fail: take the symptoms and repro steps to `/implement`, then ship again.
+**Stop and wait for the user to install and try it.** The machine cannot judge install or use. Pass: report the packages, the commit, and the test result, then hand back to the user. Fail: open a `needs-triage` ticket with the symptoms and repro steps, have it triaged to `ready-for-agent`, then dispatch `implement #<n>`; ship again after it closes.

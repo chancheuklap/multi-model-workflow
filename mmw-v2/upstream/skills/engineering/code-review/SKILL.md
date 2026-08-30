@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: "Review the changes since a base commit along three axes: Standards (does the code follow this repo's documented coding standards, and does the same outcome exist with less code?), Spec (does the code match what the originating ticket or spec asked for?), and Tests (are the test cases the criteria name worth trusting?). Runs the three reviews in parallel sub-agents and reports them on the ticket. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\"."
+description: "Review one ticket's diff from a base commit along three axes — Standards, Spec, Tests — in parallel read-only sub-agents, and comment the reports on the ticket. Invoked as `code-review <base-commit> #<ticket>`."
 ---
 
 You are the dispatcher. You run three read-only sub-agents over one diff and write their reports onto one ticket. You review nothing yourself, and you are the only one of the four agents that writes anything.
@@ -15,7 +15,7 @@ git diff <base-commit>...HEAD --stat
 git log <base-commit>..HEAD --oneline
 ```
 
-Three dots, so the comparison runs against the merge-base. A ref that does not resolve or a diff with no files is a failure here, before three sub-agents spend a context each on nothing: say which one it was and stop.
+Three dots, so the comparison runs against the merge-base. A ref that does not resolve or an empty diff is a failure here, before three sub-agents spend a context each on nothing. Report it on the ticket anyway: `gh issue comment <ticket>`, first line `REVIEW <base commit>..<HEAD commit>` (the refs as you were given them, when one of them does not resolve), then one line saying which of the two failures it was. That is what returns the waiting worker at once. Then stop.
 
 Capture the resolved base commit and the resolved `HEAD` commit. Both go in the first line of the comment.
 
@@ -31,9 +31,9 @@ your instructions: <absolute path to that agent's reference file>
 
 | Sub-agent | Reference |
 | --- | --- |
-| Standards | [`references/standards-reviewer.md`](references/standards-reviewer.md) |
-| Spec | [`references/spec-reviewer.md`](references/spec-reviewer.md) |
-| Tests | [`references/tests-reviewer.md`](references/tests-reviewer.md) |
+| Standards | `~/.agents/skills/code-review/references/standards-reviewer.md` ([standards-reviewer.md](references/standards-reviewer.md)) |
+| Spec | `~/.agents/skills/code-review/references/spec-reviewer.md` ([spec-reviewer.md](references/spec-reviewer.md)) |
+| Tests | `~/.agents/skills/code-review/references/tests-reviewer.md` ([tests-reviewer.md](references/tests-reviewer.md)) |
 
 Nothing else. No summary of the change, no list of files, no restatement of what that axis looks for: the reference says all of it, and a sub-agent that reads it gets the current wording rather than your paraphrase of it. Everything fixed — what to look for, where to find the repo's standards, how to reach the spec, which test files are in scope — is already written there.
 

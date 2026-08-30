@@ -21,7 +21,7 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 
 Check with the user that these seams match their expectations.
 
-4. Write the spec using the template below — with the `readable-docs` skill, and run its claim check before publishing — then publish it to the project issue tracker. Leave it unlabelled: a spec is a container for the tickets underneath it, not a piece of work, and a triage label would put it in a queue somebody has to sort back out.
+4. Write the spec using the template below — with the `readable-docs` skill, and run its claim check before publishing — then publish it to the project issue tracker. Leave it unlabelled: a spec is a container for the tickets underneath it, not a piece of work, and a triage label would put it in a queue somebody has to sort back out. If the spec grew out of an issue carrying an agent brief, close that issue and attach it under the spec, so the brief stays reachable from the spec that replaced it.
 
 <spec-template>
 
@@ -68,7 +68,7 @@ Exception: if a prototype produced a snippet that encodes a decision more precis
 The first sentence names the **seam** confirmed in step 3: what is real on each side of it, and which external seams (third-party APIs, paid services) may be stubbed. Then:
 
 - A description of what makes a good test (only test external behavior, not implementation details)
-- The test layers this feature lands in, each with its directory and the prior art to copy (i.e. similar types of tests in the codebase); every ticket cut from this spec will name one of these layers as the place it is verified
+- The test layers this feature lands in, each with its directory and the precedent to copy (i.e. similar types of tests in the codebase); every ticket cut from this spec will name one of these layers as the place it is verified
 - The commands to run before committing
 
 ## Out of Scope

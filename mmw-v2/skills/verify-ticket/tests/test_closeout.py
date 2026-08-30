@@ -18,14 +18,14 @@ HEAD = "9b1d40c7feedface0011223344556677889900aa"
 MET = """- [x] AC1: the importer writes six rows
   CHECK: pytest -q tests/test_import.py
   EXPECT: /\\d+ passed/
-  EVIDENCE: 3f9c2e1a; cwd=.; exit=0; matched "6 passed"; 2026-08-29"""
+  EVIDENCE: exit=0; EXPECT=matched; output-bytes=9"""
 
 UNMET = """- [ ] AC2: the expiry page says the link is stale
   CHECK: pytest -q tests/test_expiry.py
   EXPECT: 2 passed
-  EVIDENCE: exit 1; "1 passed, 1 failed\""""
+  EVIDENCE: pending"""
 
-VERDICT_COMMENT = f"VERDICT {VERIFIED} unit-test-verified by opus"
+VERDICT_COMMENT = f"VERDICT {VERIFIED} by opus — the importer writes six rows"
 
 
 def self_runs(block, rounds):
@@ -154,8 +154,7 @@ class TestBody(unittest.TestCase):
 
     def test_a_tick_with_pending_evidence_is_refused(self):
         ticked_but_empty = MET.replace(
-            'EVIDENCE: 3f9c2e1a; cwd=.; exit=0; matched "6 passed"; 2026-08-29',
-            "EVIDENCE: pending")
+            "EVIDENCE: exit=0; EXPECT=matched; output-bytes=9", "EVIDENCE: pending")
         code, err, _ = check(draft(criteria=(ticked_but_empty,), counts=counts_line(met=0, unmet=1)))
         self.assertEqual(code, 1)
         self.assertIn("is ticked but its EVIDENCE is pending", err)
@@ -244,9 +243,57 @@ class TestVerdict(unittest.TestCase):
         self.assertEqual(code, 0, err)
 
     def test_the_newest_verdict_is_the_one_checked(self):
-        comments = ("VERDICT 0000000deadbeef unit-test-verified by opus",
-                    f"VERDICT {VERIFIED} live-ui-verified by opus")
+        comments = (f"VERDICT {'0' * 40} by opus — the importer writes six rows",
+                    f"VERDICT {VERIFIED} by opus — the expiry page reads right too")
         code, err, _ = check(draft(counts=counts_line()), comments=comments, head=VERIFIED)
+        self.assertEqual(code, 0, err)
+
+
+class TestTheNewestRunAgreesWithTheDraft(unittest.TestCase):
+    """`ALL MET` is written by hand; the summary of a run is not.
+
+    The newest `self-run` or `reverify` comment is the ticket's own last measurement of
+    its criteria, so a draft claiming everything passed while that summary still says
+    `UNMET:` is refused. Only the newest one is read: the worker fixes what the verifier
+    found, runs again, and the run after the fix is what the gate sees.
+    """
+
+    UNMET_RUN = "reverify\nUNMET: 1 (met: 0)\n\n" + UNMET
+    HANDOFF_RUN = ("self-run\nHANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 0 met of 1"
+                   "\n\n" + UNMET)
+    MET_RUN = "self-run\nALL MET (1)\n\n" + MET
+
+    def test_a_newest_reverify_reporting_unmet_refuses_all_met(self):
+        code, err, _ = check(draft(counts=counts_line()),
+                             comments=(VERDICT_COMMENT, self.UNMET_RUN))
+        self.assertEqual(code, 1)
+        self.assertIn("the newest run on the ticket still reports unmet", err)
+
+    def test_a_newest_run_summarising_as_handoff_refuses_all_met(self):
+        code, err, _ = check(draft(counts=counts_line()),
+                             comments=(VERDICT_COMMENT, self.HANDOFF_RUN))
+        self.assertEqual(code, 1)
+        self.assertIn("the newest run on the ticket still reports unmet", err)
+
+    def test_a_later_self_run_reporting_all_met_lets_the_draft_through(self):
+        code, err, _ = check(draft(counts=counts_line()),
+                             comments=(VERDICT_COMMENT, self.UNMET_RUN, self.MET_RUN))
+        self.assertEqual(code, 0, err)
+
+    def test_a_ticket_with_no_run_comment_is_not_held_to_this(self):
+        code, err, _ = check(draft(counts=counts_line()), comments=(VERDICT_COMMENT,))
+        self.assertEqual(code, 0, err)
+
+    def test_the_refusal_names_both_ways_out(self):
+        _, err, _ = check(draft(counts=counts_line()),
+                          comments=(VERDICT_COMMENT, self.UNMET_RUN))
+        self.assertIn("`ALL MET (...)`", err)
+        self.assertIn("HANDOFF REQUIRED", err)
+
+    def test_handing_over_is_not_held_to_the_newest_run(self):
+        text = draft(first=HANDOFF, criteria=(UNMET,), abandons=(ABANDONED,),
+                     counts=counts_line(met=0, abandoned=1, total=1))
+        code, err, _ = check(text, comments=(VERDICT_COMMENT, self.UNMET_RUN))
         self.assertEqual(code, 0, err)
 
 
@@ -295,7 +342,7 @@ class TestACheckThatNeededAFence(unittest.TestCase):
     def test_one_criterion_does_not_swallow_the_next(self):
         criteria = vt.parse_criteria(FENCED + "\n" + UNMET)
         self.assertEqual([c["id"] for c in criteria], ["AC4", "AC2"])
-        self.assertIn("1 passed, 1 failed", criteria[1]["evidence"])
+        self.assertEqual(criteria[1]["evidence"], "pending")
 
 
 class TestEveryRefusalHasAWayOut(unittest.TestCase):
@@ -386,8 +433,8 @@ class TestTheRoundLimit(unittest.TestCase):
     def test_a_self_run_that_met_the_criterion_does_not_count_as_a_round(self):
         met_run = "\n".join(["self-run", "ALL MET", "",
                              UNMET.replace("- [ ]", "- [x]").replace(
-                                 'EVIDENCE: exit 1; "1 passed, 1 failed"',
-                                 "EVIDENCE: exit 0; matched")])
+                                 "EVIDENCE: pending",
+                                 "EVIDENCE: exit=0; EXPECT=matched; output-bytes=9")])
         code, err, _ = check(self.failed_draft(),
                              comments=(VERDICT_COMMENT, *self_runs(UNMET, 2), met_run))
         self.assertEqual(code, 1)
@@ -399,9 +446,9 @@ class TestTheRoundLimit(unittest.TestCase):
 
 
 class TestTheFirstLineCarriesTheWholeRefusal(unittest.TestCase):
-    """The pretool hook between a worker and `gh issue close` relays only stderr's first
-    line, so that line has to say how many problems there are and how to read the rest.
-    Otherwise a worker fixes one per run, and nothing caps that loop."""
+    """The first line says how many problems there are and how to read the rest, so a
+    worker takes in the whole set at once. Naming only the first would have it fix one
+    per run, and nothing caps that loop."""
 
     def three_problems(self):
         return draft(criteria=(MET,), counts=counts_line(met=9, total=9), post_verdict=None)
@@ -427,6 +474,47 @@ class TestTheFirstLineCarriesTheWholeRefusal(unittest.TestCase):
         lines = err.strip().splitlines()
         self.assertGreater(len(lines), 1)
         self.assertTrue(all(l.startswith("also: ") for l in lines[1:]), lines)
+
+
+class TestTheVerdictCommitIsWrittenInFull(unittest.TestCase):
+    """`VERDICT <full 40-character commit> by <model> — <one line>`.
+
+    A ticket closes on that commit being the commit at HEAD, and an abbreviation cannot
+    carry that: two commits share a seven-character prefix often enough that a draft
+    could pass against a verdict on neither of them.
+    """
+
+    def test_a_shortened_commit_is_not_read_as_a_verdict(self):
+        code, err, _ = check(draft(counts=counts_line()),
+                             comments=(f"VERDICT {VERIFIED[:8]} by opus — six rows",))
+        self.assertEqual(code, 1)
+        self.assertIn("carries no `VERDICT", err)
+
+    def test_the_full_forty_characters_is_read_as_a_verdict(self):
+        self.assertEqual(vt.last_verdict([VERDICT_COMMENT]), VERIFIED)
+
+    def test_words_between_the_commit_and_by_do_not_hide_the_verdict(self):
+        """Only the commit is read off the line, so anything else on it is free text."""
+        code, err, _ = check(
+            draft(counts=counts_line()),
+            comments=(f"VERDICT {VERIFIED} unit-test-verified by opus",))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(
+            vt.last_verdict([f"VERDICT {VERIFIED} unit-test-verified by opus"]), VERIFIED)
+
+
+class TestHandingBackReleasesTheTicket(unittest.TestCase):
+    """`board.py` dispatches only unassigned tickets, so a ticket handed back still held
+    by the worker that gave up is one nothing picks up again."""
+
+    def test_the_label_swap_also_drops_the_assignee(self):
+        with mock.patch.object(vt.subprocess, "run") as run:
+            vt.hand_back_for_triage(77)
+        args = run.call_args.args[0]
+        self.assertEqual(args[:4], ["gh", "issue", "edit", "77"])
+        self.assertEqual(args[args.index("--remove-assignee") + 1], "@me")
+        self.assertEqual(args[args.index("--add-label") + 1], "needs-triage")
+        self.assertEqual(args[args.index("--remove-label") + 1], "ready-for-agent")
 
 
 class TestNoSideEffectOnFail(unittest.TestCase):

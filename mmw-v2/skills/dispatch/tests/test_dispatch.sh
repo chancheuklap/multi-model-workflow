@@ -2,7 +2,7 @@
 #
 # Tests for dispatch.sh. One scenario per run:
 #
-#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh worker|reviewer|badrole
+#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh worker|reviewer|badrole|runrole
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh idletimeout|notready|noherdr
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh wait|waittimeout|placeholder
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh all
@@ -180,7 +180,7 @@ if len(label) != 24:
 
   echo "--- the pane says who it is, to a person and to a machine"
   has "herdr :: pane :: rename :: w1:p9 :: #61 worker"
-  has "herdr :: pane :: report-metadata :: w1:p9 :: --source :: mmw :: --token :: ticket=61 :: --token :: role=worker :: --token :: model=cursor-grok-4.6-high :: --ttl-ms :: 86400000"
+  has "herdr :: pane :: report-metadata :: w1:p9 :: --source :: mmw :: --token :: ticket=61 :: --token :: kind=worker :: --token :: model=cursor-grok-4.6-high :: --ttl-ms :: 86400000"
 }
 
 scenario_reviewer() {
@@ -201,7 +201,7 @@ scenario_reviewer() {
   has ":: --permission-mode :: bypassPermissions :: --model :: opus :: -n :: issue-61-review"
   has "herdr :: agent :: prompt :: issue-61-review :: code-review abc1234 #61"
   has "herdr :: pane :: rename :: w1:p10 :: #61 reviewer"
-  has "herdr :: pane :: report-metadata :: w1:p10 :: --source :: mmw :: --token :: ticket=61 :: --token :: role=reviewer :: --token :: model=opus"
+  has "herdr :: pane :: report-metadata :: w1:p10 :: --source :: mmw :: --token :: ticket=61 :: --token :: kind=reviewer :: --token :: model=opus"
 
   echo "--- a narrow pane splits downwards"
   reset_log
@@ -230,6 +230,29 @@ scenario_badrole() {
   [ "$code" = 2 ] || fail "expected exit 2, got $code"
   one_line_reason
   grep -q 'verifier' "$TMP/err" || fail "the reason does not name the role: $(cat "$TMP/err")"
+  [ "$(count_of 'herdr ::')" = 0 ] || fail "herdr was called for a subagent role"
+}
+
+scenario_runrole() {
+  local code
+  echo "--- a night on a role that is not in the table"
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          bash "$DISPATCH" run 76 --role planner)"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code"
+  one_line_reason
+  grep -q 'planner' "$TMP/err" || fail "the reason does not name the role: $(cat "$TMP/err")"
+  [ "$(count_of 'herdr ::')" = 0 ] || fail "herdr was called for an unknown role"
+
+  echo "--- a night on a subagent row is refused while somebody is still here"
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          bash "$DISPATCH" run 76 --role verifier)"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code"
+  one_line_reason
+  grep -q 'verifier' "$TMP/err" || fail "the reason does not name the role: $(cat "$TMP/err")"
+  grep -q 'subagent' "$TMP/err" \
+    || fail "the reason does not say the row is a subagent: $(cat "$TMP/err")"
   [ "$(count_of 'herdr ::')" = 0 ] || fail "herdr was called for a subagent role"
 }
 
@@ -408,16 +431,16 @@ open(path, "w", encoding="utf-8").writelines(out)
           bash "$copy/scripts/dispatch.sh" 61 senior-worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   has ":: -m :: grok-4.7-under-test"
-  has "herdr :: pane :: report-metadata :: w1:p9 :: --source :: mmw :: --token :: ticket=61 :: --token :: role=worker :: --token :: model=grok-4.7-under-test"
+  has "herdr :: pane :: report-metadata :: w1:p9 :: --source :: mmw :: --token :: ticket=61 :: --token :: kind=worker :: --token :: model=grok-4.7-under-test"
   hasnt ":: -m :: grok-4.6 ::"
 }
 
 # ------------------------------------------------------------------ entry
 
-ALL="worker reviewer badrole idletimeout notready noherdr wait waittimeout placeholder"
+ALL="worker reviewer badrole runrole idletimeout notready noherdr wait waittimeout placeholder"
 
 case "${1:-}" in
-  worker|reviewer|badrole|idletimeout|notready|noherdr|wait|waittimeout|placeholder)
+  worker|reviewer|badrole|runrole|idletimeout|notready|noherdr|wait|waittimeout|placeholder)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -431,6 +454,7 @@ banner_for() {
     worker) echo DISPATCH-WORKER-OK ;;
     reviewer) echo DISPATCH-REVIEWER-OK ;;
     badrole) echo DISPATCH-BADROLE-OK ;;
+    runrole) echo DISPATCH-RUNROLE-OK ;;
     idletimeout) echo DISPATCH-IDLE-TIMEOUT-OK ;;
     notready) echo DISPATCH-NOTREADY-OK ;;
     noherdr) echo DISPATCH-NOHERDR-OK ;;

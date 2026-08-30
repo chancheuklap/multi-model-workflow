@@ -17,7 +17,7 @@ set, which is always the case here.
 
 | File | Edit |
 | --- | --- |
-| `gate-check.mjs` | The approval store is removed: `--approve`, the `~/.unlazy/approved` directory and its ownership and no-follow checks, the per-oracle records and their locks, and the `APPROVAL REQUIRED` / `NOT RUN` path. A CHECK now runs as written. 894 lines upstream, 701 here. |
+| `gate-check.mjs` | The approval store is removed: `--approve`, the `~/.unlazy/approved` directory and its ownership and no-follow checks, the per-oracle records and their locks, and the `APPROVAL REQUIRED` / `NOT RUN` path. A CHECK now runs as written. 894 lines upstream, 700 here. |
 | `lib/gates.mjs` | A fenced block directly under a `CHECK:` is that command; every other fence is skipped whole, as upstream skips all of them. Upstream reads one line per attribute and drops the rest in silence, so a command longer than a line reaches the shell in half. A bare line under a `CHECK:` is an error naming the fence, so no reader has to infer where a command ends. Each gate also records `attrEnd`, the line past its last attribute — for a fenced command, past the closing fence. |
 | `gate-check.mjs` (second edit) | A gate with no `EVIDENCE:` line gets one inserted at `attrEnd`, so it lands after the whole command rather than inside it. |
 | `gate-lint.mjs` | `manual-gate` is an error, not a warning, and says where the criterion belongs instead. Upstream allows a ledger of hand-judged gates and only warns once they pass half; here a criterion with no `CHECK:` has nobody but its own author to decide it, which is the one thing acceptance criteria exist to prevent. Judgements go to code review, which runs in another session; what only a person can look at gets its own ticket. |
