@@ -13,6 +13,7 @@
 | 第 1 步 pin the fixed point（三条 git 命令、三点 diff、空 diff 要在派子代理之前失败） | `SKILL.md` 第 1 节 | 原文的判断一条没改。上游改这三条命令 → 收上游 |
 | 第 2 步 identify the spec source（四级查找顺序：commit message 里的票号 → 用户给的路径 → `docs/` `specs/` `.scratch/` 下按分支名找 → 问用户） | `references/spec-reviewer.md` 第 2 节，且换掉了 | 这条流水线的票一定有 `## Parent`，四级查找的后三级是给没有票的场景用的。改成沿 `## Parent` 读 spec 指名的小节 + `## Testing Decisions` + `## Out of Scope`，读法与 `implement` 的读法收窄同一套。上游改这一步 → 不收，除非它也变成从票走 |
 | 第 3 步 identify the standards sources（仓库里哪些文件算编码规范）+ smell baseline 全文十二条 + 「repo overrides」与「always a judgement call」两条规则 | `references/standards-reviewer.md` 第 2、3 节 | 十二条逐条原文保留，措辞改成对子代理说的第二人称。上游增删坏味道 → 收上游，改这个文件 |
+| 无 | `references/standards-reviewer.md` 第 3 节两条规则之后的一段，与第 1 句的第二个问题 | 我们加的：每个 hunk 问一次「删掉、并进已有分支、换成仓库已有 helper，验收标准是否仍过」，写得出更短形态才算 finding。理由：reviewer 是唯一没写这段代码的读者，作者不会主动删自己加的东西；放在两条规则之后，「repo overrides」与「always a judgement call」一并约束它。上游若加同类判据 → 收上游措辞，「写不出更短形态不算」保留 |
 | 第 4 步 Standards sub-agent prompt 的 brief | `references/standards-reviewer.md` 第 4 节 | 要点全在。上游改 brief → 收上游 |
 | 第 4 步 Spec sub-agent prompt 的 brief（缺项、scope creep、实现得不对三类，每条引 spec 原文） | `references/spec-reviewer.md` 第 3 节 | 三类保留。加了一条我们自己的禁令：不读 `prototypes/` 下的基线目录——照不照基线由某条验收标准跑的 `visual-parity` 判，是像素与 ARIA 比对，不是读出来的。上游改 brief → 收上游，这条禁令保留 |
 | 第 4 步「把 baseline 全文粘进子代理 prompt」 | 退场 | 上游让派发者把 smell baseline 粘进 prompt。我们让子代理自己读 reference 文件：粘贴会产生第二份副本，与 reference 里的那份各自漂移。`SKILL.md` 第 2 节明写 prompt 只含起点 commit、票号、reference 路径三个值 |

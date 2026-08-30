@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: "Review the changes since a base commit along three axes: Standards (does the code follow this repo's documented coding standards?), Spec (does the code match what the originating ticket or spec asked for?), and Tests (are the test cases the criteria name worth trusting?). Runs the three reviews in parallel sub-agents and reports them on the ticket. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\"."
+description: "Review the changes since a base commit along three axes: Standards (does the code follow this repo's documented coding standards, and does the same outcome exist with less code?), Spec (does the code match what the originating ticket or spec asked for?), and Tests (are the test cases the criteria name worth trusting?). Runs the three reviews in parallel sub-agents and reports them on the ticket. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\"."
 ---
 
 You are the dispatcher. You run three read-only sub-agents over one diff and write their reports onto one ticket. You review nothing yourself, and you are the only one of the four agents that writes anything.
