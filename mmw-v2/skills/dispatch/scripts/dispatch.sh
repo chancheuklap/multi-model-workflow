@@ -117,8 +117,8 @@ except Exception:
 
 state = (ticket.get("state") or "unreadable").lower()
 labels = [label.get("name") for label in ticket.get("labels") or []]
-blockers = ["#" + str(b.get("number")) for b in ticket.get("blockedBy") or []
-            if b.get("state") == "OPEN"]
+nodes = (ticket.get("blockedBy") or {}).get("nodes") or []
+blockers = ["#" + str(b.get("number")) for b in nodes if b.get("state") != "CLOSED"]
 
 if state != "open":
     print("REFUSE ticket #" + number + " is " + state + ", not open")
@@ -167,6 +167,7 @@ dispatch() {
   title="$(read_ticket "$number")"
   case "$title" in
     "REFUSE "*) refuse "${title#REFUSE }" ;;
+    "") refuse "the tracker did not answer with a readable ticket #$number" ;;
   esac
 
   launch="${launch//\{model\}/$model}"

@@ -86,8 +86,8 @@ blockers = os.environ.get("FAKE_GH_BLOCKERS", "")
 print(json.dumps({
     "state": os.environ.get("FAKE_GH_STATE", "OPEN"),
     "labels": [{"name": n} for n in labels.split(",") if n],
-    "blockedBy": [{"number": int(b.split(":")[0]), "state": b.split(":")[1]}
-                  for b in blockers.split(",") if b],
+    "blockedBy": {"nodes": [{"number": int(b.split(":")[0]), "state": b.split(":")[1]}
+                            for b in blockers.split(",") if b]},
     "title": os.environ.get("FAKE_GH_TITLE",
                             "landing 7 of 15: a new skill called dispatch"),
 }))
