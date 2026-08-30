@@ -130,8 +130,6 @@ herdr pane report-metadata "$HERDR_PANE_ID" --source mmw \
 
 脚本里做三件保护：`HERDR_ENV` 不为 1 时整段跳过（脚本在 Herdr 外也要能跑）；`HERDR_PANE_ID` 为空时跳过；socket 调用失败不影响退出码（照抄 `~/.claude/hooks/herdr-task-state.sh` 的写法，它对每个前提都 `exit 0`）。
 
-`hook.py stop`（#64）被顶回时同样写一次 `phase=stalled`，于是「它想结束但被顶回了」也变成可见状态。
-
 ### 4.3 `dispatch.sh wait` 不必每 30 秒问一次 GitHub
 
 #60 第 2 节定的 `dispatch.sh wait <n> <首行前缀> [秒]` 是「每 30 秒 `gh issue view` 看最后一条评论首行」。worker 等 reviewer 用它、coordinator 等 worker 也用它。更短的路径是让 Herdr 先挡住等待，`gh` 只在状态变化后确认一次：
@@ -181,7 +179,6 @@ gh issue view <n> --json comments                  # 确认评论到了；没到
 | `models.md` 第三列里的 `<n>` 由 `dispatch.sh` 替换（现在没写明谁替换） | #66、#67 | #60 第 4 节 `models.md` 三列表的说明 |
 | `verify-ticket.py` 五个子命令首尾写 `ticket/role/phase/ac/model` token，`HERDR_ENV` 不为 1 时整段跳过 | #62、#63 | #60 第 2 节 `verify-ticket.py` 各子命令 |
 | `hook.py` 的票号优先取 `$MMW_TICKET`，取不到再按分支名 `issue-<n>` 匹配 | #64 | #60 第 2 节 `hook.py` 自定位一段 |
-| `hook.py stop` 顶回时写 `phase=stalled` | #64 | 同上 |
 
 不落地的：夜里另开 workspace（§2.4）、`--state-label` 与侧栏行（§4.2、§5.4）、`--display-agent`（§3）、`notification show`（§5.1）、动 `agent.view`（§5.3）——它们的读者都只有 Herdr 的侧栏，而这套流程的读者在 GitHub 网页与监控 tab 上。监控 tab 与唤醒闭环见 `15-monitor-tab-and-wakeup-loop.md`。
 

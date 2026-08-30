@@ -419,7 +419,7 @@ merge-note 与正文一致性 canary（「关键句」无法机械定义）；�
 
 1. **一张票一个 tab**。`dispatch.sh <n> worker` 的第一步是 `herdr tab create --workspace "$HERDR_WORKSPACE_ID" --cwd <仓库根> --label "#<n> <标题前 20 字>" --env MMW_TICKET=<n> --no-focus`，用返回的 `.result.root_pane.pane_id` 直接 `agent start`；worker 在根 pane，收尾时的 reviewer 会话在同一个 tab 分屏，方向按 `herdr pane layout` 的 `area.width` 判（≥160 向右，否则向下）。不为夜里的票另开 workspace。（`14` §2.2–§2.5）
 2. **四个命名位各管一件事**：`agent name` = `issue-<n>` / `issue-<n>-review`（CLI 定位句柄，可预测，唤醒方不必查表）；`pane label` = `#<n> worker`（人眼）；`tab label` = 票号加标题（人眼）；token = 机读台账。`herdr agent rename` 让命名不必发生在 `agent start` 那一刻。（`14` §3）
-3. **phase token 由 `verify-ticket.py` 写**，取值 `implement|selfcheck|verify|closed|handoff|stalled`，连同 `ticket`/`role`/`ac`/`model` 一起，`--ttl-ms 86400000`；`HERDR_ENV` 不为 1 或 `HERDR_PANE_ID` 为空时整段跳过，socket 失败不影响退出码。它让「`agent_status` 是 idle 但 phase 不是 `closed`/`handoff`」= 半路停了，可机器判定。技能正文不改，worker 无感。（`14` §4.1–§4.2）
+3. **phase token 由 `verify-ticket.py` 写**，取值 `implement|selfcheck|verify|closed|handoff|closeout-rejected`（P6：`stalled` 随 Stop gate 拿掉），连同 `ticket`/`role`/`ac`/`model` 一起，`--ttl-ms 86400000`；`HERDR_ENV` 不为 1 或 `HERDR_PANE_ID` 为空时整段跳过，socket 失败不影响退出码。它让「`agent_status` 是 idle 但 phase 不是 `closed`/`handoff`」= 半路停了，可机器判定。技能正文不改，worker 无感。（`14` §4.1–§4.2）
 4. **`dispatch.sh wait` 内部用 `herdr agent wait` 加一次 `gh` 确认**，不再每 30 秒轮询；调用形不变。（`14` §4.3）
 5. **`hook.py` 的票号优先取 `$MMW_TICKET`**（由 `tab create --env` 注入，已实测能到达 pane 里的 agent 进程），取不到再按分支名 `issue-<n>` 匹配。（`14` §6）
 
