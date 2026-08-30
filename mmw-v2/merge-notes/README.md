@@ -16,6 +16,7 @@
 ## 目前有说明的技能
 
 - [ask-matt](ask-matt.md) — `engineering/ask-matt`
+- [code-review](code-review.md) — `engineering/code-review`
 - [domain-modeling](domain-modeling.md) — `engineering/domain-modeling`
 - [grill-with-docs](grill-with-docs.md) — `engineering/grill-with-docs`
 - [implement](implement.md) — `engineering/implement`
