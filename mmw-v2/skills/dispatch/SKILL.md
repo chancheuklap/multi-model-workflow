@@ -60,6 +60,8 @@ never reported back is not a reason to hand the ticket to a person.
 
 ## Change which agent, model, or thinking level is used
 
-Edit `models.md`. **Read [references/before-editing.md](references/before-editing.md)
-first** — it names the two things you have to confirm on this machine before you touch a
-row. The next dispatch reads the table as you left it.
+Edit `models.md`. It holds every agent this pipeline sends out, one row each, and it is
+the only place any of their models are written down. **Read
+[references/before-editing.md](references/before-editing.md) first** — it names what you
+have to confirm on this machine before you touch a row. `models.md` itself says which
+rows are live on the next dispatch and which have to be built first.

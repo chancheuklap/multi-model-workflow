@@ -4,25 +4,12 @@
   "sandbox": "workspace-write",
   "hosts": {
     "claude": {
-      "model": "sonnet",
-      "effort": "medium",
       "tools": "Read, Grep, Glob, Bash"
     },
-    "cursor": {
-      "model": "gpt-5.6-sol-high",
-      "effort": "high"
-    },
-    "codex": {
-      "model": "gpt-5.6-terra",
-      "effort": "high"
-    },
-    "grok": {
-      "model": "grok-4.5",
-      "effort": "high"
-    },
+    "cursor": {},
+    "codex": {},
+    "grok": {},
     "pi": {
-      "model": "openai-codex/gpt-5.6-sol",
-      "effort": "high",
       "tools": "read, grep, find, ls, bash"
     }
   }

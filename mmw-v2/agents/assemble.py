@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""按 agent.json + body.md 装配每个宿主的 agent 文件，写进各 agent 目录下的 out/。
+"""按 models.md + agent.json + body.md 装配每个宿主的 agent 文件，写进 agents/<名>/out/。
 
 一个 agent 一个目录：agents/<名>/ 里放 body.md（提示词正文，单一来源）和
-agent.json（name、description、sandbox、五宿主各自的模型与工具）。这里只做格式
-转换，五个宿主的文件格式是结构差异，属于代码，不属于配置：
+agent.json（name、description、sandbox、五宿主各自的工具）。模型与思考强度不在这里，
+在 skills/dispatch/models.md 那张表里——每一个被派出去的 agent 的模型只有那一处，用户
+只开那一个文件。这里只做格式转换，五个宿主的文件格式是结构差异，属于代码，不属于配置：
 
   claude   -> out/claude.md       frontmatter: name/description/model/effort/tools
   cursor   -> out/cursor.md       frontmatter: name/description/model(带 [effort=…])/readonly
@@ -26,6 +27,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+MODELS = ROOT.parent / "skills" / "dispatch" / "models.md"
 
 
 def q(s: str) -> str:
@@ -33,7 +35,34 @@ def q(s: str) -> str:
     return json.dumps(s, ensure_ascii=False)
 
 
-def render(agent_dir: Path) -> dict[str, str]:
+def read_models() -> dict[tuple[str, str], tuple[str, str]]:
+    """models.md 那张表，取成 (agent 名, 宿主) -> (模型, 思考强度)。
+
+    表里一行一个 (agent, 宿主)，五列 agent | host | model | effort | launch arguments。
+    启动命令那一列非空的三行是经 Herdr 起的会话角色，它们的配置由 dispatch.sh 在派发
+    那一刻现读，与本脚本无关；这里只取启动参数为 — 的那些行，也就是 subagent。
+    """
+    if not MODELS.is_file():
+        raise ValueError(f"缺模型表：{MODELS}")
+    table: dict[tuple[str, str], tuple[str, str]] = {}
+    for line in MODELS.read_text(encoding="utf-8").splitlines():
+        if not line.lstrip().startswith("|"):
+            continue
+        cells = [c.strip().strip("`").strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) != 5:
+            continue
+        agent, host, model, effort, launch = cells
+        if agent == "agent" or set(agent) <= set("- "):
+            continue
+        if launch not in ("—", "-", ""):
+            continue
+        table[(agent, host)] = (model, effort)
+    if not table:
+        raise ValueError(f"{MODELS} 里一行 subagent 都没有")
+    return table
+
+
+def render(agent_dir: Path, table: dict[tuple[str, str], tuple[str, str]]) -> dict[str, str]:
     spec = json.loads((agent_dir / "agent.json").read_text(encoding="utf-8"))
     body = (agent_dir / "body.md").read_text(encoding="utf-8").strip() + "\n"
     name, desc, hosts = spec["name"], spec["description"], spec["hosts"]
@@ -45,6 +74,18 @@ def render(agent_dir: Path) -> dict[str, str]:
     missing = {"claude", "cursor", "codex", "grok", "pi"} - hosts.keys()
     if missing:
         raise ValueError(f"{agent_dir.name}: agent.json 缺宿主 {sorted(missing)}")
+
+    unlisted = [h for h in hosts if (name, h) not in table]
+    if unlisted:
+        raise ValueError(
+            f"{agent_dir.name}: {MODELS} 里没有 {name} 在 {sorted(unlisted)} 上的行，"
+            f"模型与思考强度只从那张表读")
+
+    def model(host: str) -> str:
+        return table[(name, host)][0]
+
+    def effort(host: str) -> str:
+        return table[(name, host)][1]
     if "'''" in body:
         raise ValueError(f"{agent_dir.name}: body.md 含 ''' ，会撑破 codex.toml 的多行字符串")
 
@@ -62,8 +103,8 @@ def render(agent_dir: Path) -> dict[str, str]:
     out["claude.md"] = fm({
         "name": name,
         "description": q(desc),
-        "model": h["model"],
-        "effort": h["effort"],
+        "model": model("claude"),
+        "effort": effort("claude"),
         "tools": h["tools"],
     }) + body
 
@@ -71,7 +112,7 @@ def render(agent_dir: Path) -> dict[str, str]:
     out["cursor.md"] = fm({
         "name": name,
         "description": q(desc),
-        "model": f"{h['model']}[effort={h['effort']}]",
+        "model": f"{model('cursor')}[effort={effort('cursor')}]",
         "readonly": "true" if readonly else "false",
     }) + body
 
@@ -79,30 +120,29 @@ def render(agent_dir: Path) -> dict[str, str]:
     out["codex.toml"] = (
         f"name = {q(name)}\n"
         f"description = {q(desc)}\n"
-        f"model = {q(h['model'])}\n"
-        f"model_reasoning_effort = {q(h['effort'])}\n"
+        f"model = {q(model('codex'))}\n"
+        f"model_reasoning_effort = {q(effort('codex'))}\n"
         f'sandbox_mode = "{sandbox}"\n'
         f"developer_instructions = '''\n{body}'''\n"
     )
 
-    h = hosts["grok"]
     out["grok.md"] = fm({
         "name": name,
         "description": q(desc),
-        "model": h["model"],
+        "model": model("grok"),
     }) + body
     out["grok.role.toml"] = (
         f"description = {q(desc)}\n"
         f'default_capability_mode = "{"read-only" if readonly else "execute"}"\n'
-        f"reasoning_effort = {q(h['effort'])}\n"
+        f"reasoning_effort = {q(effort('grok'))}\n"
     )
 
     h = hosts["pi"]
     out["pi.md"] = fm({
         "name": name,
         "description": q(desc),
-        "model": h["model"],
-        "thinking": h["effort"],
+        "model": model("pi"),
+        "thinking": effort("pi"),
         "tools": h["tools"],
     }) + body
 
@@ -116,9 +156,10 @@ def main() -> int:
         print("assemble: agents/ 下一个 agent 都没有", file=sys.stderr)
         return 1
 
+    table = read_models()
     rc = 0
     for agent_dir in agent_dirs:
-        rendered = render(agent_dir)
+        rendered = render(agent_dir, table)
         out_dir = agent_dir / "out"
         for fname, want in rendered.items():
             path = out_dir / fname

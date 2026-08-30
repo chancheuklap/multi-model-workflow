@@ -5,8 +5,8 @@ orchestrator, which is the session you started yourself from the CLI.
 
 Non-empty launch arguments mean the agent runs as its own session in a Herdr pane.
 `dispatch.sh` reads the row at the moment it dispatches, so an edit to one of these rows
-is in force on the very next dispatch, with nothing to rebuild and nothing to reinstall.
-The host column decides which harness the session is, and it has to be one of the agent
+is in force on the very next dispatch, with nothing to build and nothing to install. The
+host column decides which harness the session is, and it has to be one of the agent
 kinds Herdr recognises; the arguments are handed to that harness untouched. `{model}`,
 `{effort}` and `{n}` are replaced with the row's model, the row's effort, and the real
 ticket number, so moving an agent to a different model is an edit to the model column
@@ -14,12 +14,18 @@ alone. Moving it to a different harness is an edit to the whole row: every harne
 spells its models, its thinking levels and its arguments its own way.
 
 Launch arguments of `—` mean the agent is a subagent: it runs inside the session that
-dispatches it, never goes through Herdr, and `dispatch.sh` never reads its row. A
-subagent takes its model and thinking level from its own definition file inside each
-harness, and those files are built ahead of time by `mmw-v2/agents/assemble.py` out of
-`mmw-v2/agents/<name>/agent.json`. Editing one of these rows therefore reaches no
-subagent. They are here so that every agent this pipeline sends out can be read in one
-place.
+dispatches it and never goes through Herdr. A harness reads a subagent's model and
+thinking level out of its own agent definition file, so those rows have to be built into
+those files before they take effect. After editing one, run
+
+```bash
+python3 mmw-v2/agents/assemble.py
+```
+
+in the checkout the harnesses are installed from, and the change is live in the next
+session that dispatches it. Nothing else: the harnesses hold links to the built files,
+so the links do not move. `install.sh` is for adding a whole new agent, not for changing
+one.
 
 Read `references/before-editing.md` before you change anything here.
 
