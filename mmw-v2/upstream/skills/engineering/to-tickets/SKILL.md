@@ -39,7 +39,7 @@ Break the work into **tracer bullet** tickets.
 
 ### 4. Write each acceptance criterion
 
-Each one must be something a later check can pass or fail:
+Three rules bind how each one is worded:
 
 1. Observable external behaviour, from the spec's seam or a user-visible UI. Not internals.
 2. Exact values (numbers, copy, state names, field names) copied from the spec or the chosen prototype artifact. No "appropriate", "correct", or "as expected".
@@ -49,8 +49,8 @@ Each one must be something a later check can pass or fail:
 
 1. **Is the rule a comparison — equal, matches, counts, over a threshold — against something a machine can reach?** It is a criterion. Write its `CHECK:` and `EXPECT:`.
 2. **Is the rule a judgement, against something a machine can reach?** Whether an interface is deep rather than a pass-through, whether a passage says enough, whether an error message tells the caller what to do next. Code review decides these — its `Standards` axis for how the code is written, its `Spec` axis for whether it matches what was asked — in a session other than the one that wrote the code. Leave it out of `## Acceptance criteria`: a judgement left there has only its own author to decide it, which is the one thing that section exists to prevent.
-3. **Is the property a person's reaction?** Whether a newcomer knows what to do, whether the wording lands, whether a morning page is legible at a glance. The person is the instrument, not a fallback judge: no agent can stand in, because the agent is not who is being measured. It becomes its own ticket — see **Work only a person can do** below.
-4. **Could a machine decide it, if only it could reach the thing?** A signed installer on a clean machine, a login against the real provider, a notification arriving on a phone. Its own ticket as well, carrying one line saying what would retire it: a test account, a spare device, a runner. Many of these mean the pipeline is missing a capability, not that the user owes work.
+3. **Is the property a person's reaction?** Whether a newcomer knows what to do, whether the wording lands, whether a morning page is legible at a glance. The person is the instrument, not a fallback judge: no agent can stand in, because the agent is not who is being measured. It becomes its own ticket, of kind *reaction* — see **Work only a person can do** below.
+4. **Could a machine decide it, if only it could reach the thing?** A signed installer on a clean machine, a login against the real provider, a notification arriving on a phone. Its own ticket as well, of kind *reach*. Many of these mean the pipeline is missing a capability, not that the user owes work.
 5. **Is it a choice rather than a check?** No true or false, only a preference, and the answer decides what to build next rather than whether what was built is right. Pick a default, build on it, and record the choice in the closing comment. When nothing can proceed until someone chooses, that is a decision ticket, asked before this batch is written rather than scheduled after it.
 
 If no command exists because the spec never decided how this is verified, stop and return to `/to-spec`. Do not invent it.
@@ -81,12 +81,12 @@ Write the command on the `CHECK:` line when it fits there. When it does not, lea
 Write one such ticket per thing to be looked at, labelled `ready-for-human`. It is shorter than the template below and holds five things only:
 
 - **Parent**.
-- **Which kind**, in one word. *Reaction*, from question 3: the person is the instrument. *Reach*, from question 4: a machine could decide it but cannot get to the thing — and that one adds the line saying what would retire it. This is the only exit in the pipeline that owes no account to a machine, so it attracts whatever the writer did not want to think about; being unable to name the kind is the sign that the thing belongs at question 1, 2 or 5 instead.
+- **Which kind**: *reaction* or *reach*, in one word. A *reach* ticket adds one line naming what would retire it — a test account, a spare device, a runner. This is the only exit in the pipeline that owes no account to a machine, so it attracts whatever the writer did not want to think about; being unable to name the kind is the sign that the thing belongs at question 1, 2 or 5 instead.
 - **What to look at**: a link that opens, not a command to run. This is read in the morning, on a phone, by someone carrying none of your context.
 - **What makes it right**: the standard to judge against, so the answer can be something other than "I couldn't say".
 - **Blocked by**: the ticket that produces the thing. This is the edge that matters most in the batch — wrong, and the person is sent to look at something that does not exist yet.
 
-This step is done when every criterion on every ticket carries a number, a `CHECK:` and an `EXPECT:`.
+This step is done when every criterion on every ticket carries a number, a `CHECK:` and an `EXPECT:`, and everything that stopped at question 2, 3, 4 or 5 has landed where that question sends it.
 
 ### 5. Give each ticket its blocking edges
 
@@ -131,11 +131,11 @@ Then each kind of ticket, for the sections that kind must carry. On the ones an 
 
 - **Read first** and **Seam** are present and non-empty ("none" counts as present). Where **Read first** points at a downloaded baseline directory, it says the directory is a contract.
 - **Owns** is present and non-empty, every entry is a repository-relative path or glob, and no two tickets on the same frontier overlap there.
-- `verify-ticket.py <n> --lint` has been run, and every ERROR it reports is fixed before you report the batch. Read every WARN once and either fix it or keep it on purpose. A criterion it reports as having no command is a criterion in the wrong section: move it to code review, or to its own ticket.
+- `verify-ticket.py <n> --lint` has been run, and every ERROR it reports is fixed before you report the batch. Read every WARN once and either fix it or keep it on purpose.
 
-On the `ready-for-human` ones — nobody but the person will ever read them, and no agent can repair one:
+On the `ready-for-human` ones — no agent can repair one:
 
-- The kind is named, *reaction* or *reach*, and a *reach* ticket says what would retire it.
+- The kind is named, *reaction* or *reach*.
 - **What to look at** is a link that opens, and **what makes it right** is there to judge against.
 
 Fix what fails before reporting the batch as published.

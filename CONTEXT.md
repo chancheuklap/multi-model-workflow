@@ -532,10 +532,10 @@ _Avoid_: —
 
 **`reaction`**:
 A kind of `ready-for-human` ticket: the property being asserted is a person's reaction, so the person is the measuring instrument and no agent can stand in. It cannot be engineered away.
-_Avoid_: 判断, 人工项
+_Avoid_: 人工项
 
 **`reach`**:
-The other kind: a machine would decide it correctly if it could get to the thing — a device, a credential, a real environment. The ticket carries one line naming what would retire it. A pile of these means the pipeline is missing a capability, not that the user owes work.
+A kind of `ready-for-human` ticket: a machine would decide it correctly if it could get to the thing — a device, a credential, a real environment. The ticket carries one line naming what would retire it. A pile of these means the pipeline is missing a capability, not that the user owes work.
 _Avoid_: 只有人有的访问权
 
 **`wontfix`**:
