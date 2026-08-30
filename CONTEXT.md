@@ -431,15 +431,23 @@ _Avoid_: —
 ### Code review
 
 **`Standards` axis**:
-One of the two axes: does the change follow this repository's documented coding standards.
+One of the three axes: does the change follow this repository's documented coding standards.
 _Avoid_: —
 
 **`Spec` axis**:
-The other axis: does the change match what the ticket or the spec asked for. It does not look at the baseline directory.
+The second axis: does the change match what the ticket or the spec asked for. It does not look at the baseline directory.
+_Avoid_: —
+
+**`Tests` axis**:
+The third axis: are the test cases the criteria name worth trusting. It reads only the test files named by a `CHECK:`, and reports neither coverage nor a test the criteria never asked for.
 _Avoid_: —
 
 **smell baseline**:
 The list of code smells the `Standards` axis works from, carried in full inside its reference file.
+_Avoid_: —
+
+**test smell baseline**:
+The list of bad-test shapes the `Tests` axis works from, carried in full inside its reference file.
 _Avoid_: —
 
 **票内 / 票外（in-ticket / out-of-ticket）**:

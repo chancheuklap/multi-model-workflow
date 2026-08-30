@@ -6,7 +6,7 @@
 
 用户要求：讨论时重新说明上下文、用直白中文、不用自造词；每次定案立刻登记并提交。
 
-除了 B7 记的 code-review 方法论扩充（以后只改 `code-review` 技能，见 `#60` Out of Scope）与 F1 记的第一张真实的票（待用户定，`#75` AC1），全部议题已定；改动顺序是 `#60` 的十一节，已拆成 `#61`–`#75` 十五张票。
+除了 B7 与 B10 记的 code-review 方法论扩充里仍不做的三样（以后只改 `code-review` 技能，见 `#60` Out of Scope）与 F1 记的第一张真实的票（待用户定，`#75` AC1），全部议题已定；改动顺序是 `#60` 的十一节，已拆成 `#61`–`#75` 十五张票。
 
 ## 块 0 · 昨晚三轮调查后的定案（2026-08-27 夜 → 08-28 凌晨）
 
@@ -237,6 +237,15 @@
 - 选项：A 不给基线，照不照基线全交给 visual-parity 那条 AC；B Spec 轴 brief 加 Read first。
 - 用户裁决：「A。我想知道的是这个 visual parity 工具由谁去跑」。回答：它是某条 AC 的 `CHECK:`，worker 写码期间迭代跑、步 8 自跑、步 9 verifier 重跑，三次都不需要人。
 - 结论：A。
+
+### B10 code-review 加第三轴 Tests（覆盖 B7 的「方法论暂用现役两轴」）
+
+- 起因：落地 `#70` 之前复查 B7，问 code-review 的改造有没有参考 `docs/research/code-landing-refs/`。B7 当时把三样候选（pstack rubric 的 Verification 一栏、grok 的发现闭环 `Status: fixed/wontfix`、grok 的四种 reviewer 人格）全部留到以后，写进 `#60` Out of Scope。
+- 复查看到的缺口：票上每条 `CHECK:` 点名测试文件与用例名（`05-runnable-acceptance-gates.md` §5.2），用例里写什么由 worker 自己定；步 8 worker 自跑与步 9 verifier 重跑的是同一条命令，verifier 明令不评代码质量（B4）；code-review 的 Standards 轴带的 Fowler 十二条坏味道没有一条关于测试，Spec 轴只比 spec 文本。于是一个期望值按代码同样算法重算一遍的用例（`mmw-v2/upstream/skills/engineering/tdd/tests.md:64-79` 的 tautological）能一路绿到关票。另一处：`to-tickets/SKILL.md` 五问的第 2 问把「机器够得着的判断题」推给 code-review 的两轴，测试写得对不对正是这一类，两轴谁都不接。
+- 判据不从 grok 抄：grok 的 Tests specialist 是 prompt-only、没有人格文件（`grok-bundled/implement/SKILL.md:126`、`:130`、`:468-495`），它六条关注点里有四条本仓 `tdd/tests.md` 与 `tdd/mocking.md` 已经写过且写得更具体；grok 那份还有一个已知缺陷——它读实现者自己写的摘要而不是 diff（`03-post-landing-evidence-review.md` §4）。只取它的「边界与错误路径」一条。
+- 用户裁决：「加 test 轴」。
+- 结论：`code-review` 变三轴，多一个 `references/tests-reviewer.md`。判据抄 `tdd/tests.md` 与 `tdd/mocking.md` 的要点——implementation-detail 六条 red flags、tautological、绕过接口验证、mock 只在系统边界——再加边界与错误路径；输入是 `git diff <起点>...HEAD` 与票的验收标准，不是谁的摘要；审哪些测试文件从每条 `CHECK:` 点名的文件与用例名取，清单之外不看。两条明写不做：不报覆盖率（与 `tdd/SKILL.md:21` 的 seam 纪律相抵）、不事后追加测试标准（票上没写 `CHECK:` 说明那条标准不由测试判，记忆「Reviewer must not self-set pass criteria」）。发现归类：某条 AC 的 `CHECK:` 点名的那个用例本身有问题 → 票内；diff 里其余测试文件的问题 → 票外。每票都派，不按票的内容挑（同 B3）。
+- 落点：`#60` 第 6 节改成四个 reference、Out of Scope 去掉 Tests 人格（发现闭环、Verification 一栏、Security 人格仍不做）；蓝图页步 10；根 `CONTEXT.md`「Code review」节加 `Tests` axis；`#70`。
 
 ## 块 C · 写码纪律
 
