@@ -35,12 +35,16 @@ Break the work into **tracer bullet** tickets.
 
 </vertical-slice-rules>
 
-Write each acceptance criterion so a later check can pass or fail it:
+**Wide refactors are the exception to vertical slicing.** A **wide refactor** is one mechanical change (rename a column, retype a shared symbol) whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket; green is promised only there.
+
+### 4. Write each acceptance criterion
+
+Each one must be something a later check can pass or fail:
 
 1. Observable external behaviour, from the spec's seam or a user-visible UI. Not internals.
 2. Exact values (numbers, copy, state names, field names) copied from the spec or the chosen prototype artifact. No "appropriate", "correct", or "as expected".
 3. One behaviour per criterion, independently true or false. Split compounds.
-4. Ask who reads the criterion, then take one of three routes. **An agent, and you can write the command** — give it `CHECK:` and `EXPECT:`; the engine runs it, ticks it, and writes the evidence. Deciding whether code is correct, whether a passage tells an agent enough, or whether a report the agent can fetch says what it should — the reader is an agent in all three. **An agent, but no command exists** — leave `CHECK:` off; whoever works the ticket judges it and, at closing time, ticks it and writes what they read and concluded. `--lint` warns on every criterion with no `CHECK:`, so take that warning as one more chance to turn it into a command. **A person** — see the next paragraph. If no command exists because the spec never decided how this is verified, stop and return to `/to-spec`. Do not invent it.
+4. Ask who reads the criterion, then take one of three routes. **An agent, and you can write the command** — give it `CHECK:` and `EXPECT:`; the engine runs it, ticks it, and writes the evidence. Deciding whether code is correct, whether a passage tells an agent enough, or whether a report the agent can fetch says what it should — the reader is an agent in all three. **An agent, but no command exists** — leave `CHECK:` off; whoever works the ticket judges it and, at closing time, ticks it and writes what they read and concluded. **A person** — that criterion does not belong on this ticket at all; see **Work only a person can judge** below. If no command exists because the spec never decided how this is verified, stop and return to `/to-spec`. Do not invent it.
 
 Every criterion carries a number you assign as you write it and never renumber. One with a command is four lines:
 
@@ -61,21 +65,19 @@ Derive `CHECK:` and `EXPECT:` from the spec; do not invent either:
 
 `CHECK:` takes the object it checks from one of two places: this ticket itself — the number comes from `$MMW_TICKET`, or from the branch name `issue-<n>` — or something this ticket names by number. When the objects only exist at run time, walk the tracker's native relationships out from an anchor the ticket names: `gh api repos/{owner}/{repo}/issues/<n>/sub_issues`. A `CHECK:` must not search for its own object; searching and taking the first hit (`gh issue list --search … | head -1` and its kind) checks whatever the search happens to return, and often cannot fail at all.
 
-`CHECK:` brings the state it needs and puts back the shared state it changed. It must not rely on what the criterion before it left behind. Criteria run one at a time in ledger order, each in its own shell with cwd fixed at the repository root, so `cd` cannot reach another one — but the branch, the ticket and the working tree are shared, and `--reverify` runs every criterion a second time. Switch a branch and switch it back; reopen a ticket the next criterion needs open; stop a server you started.
+`CHECK:` brings the state it needs and puts back the shared state it changed. Criteria run one at a time in ledger order, each in its own shell with cwd fixed at the repository root, so `cd` cannot reach another one — but the branch, the ticket and the working tree are shared, and `--reverify` runs every criterion a second time. Switch a branch and switch it back; reopen a ticket the next criterion needs open; stop a server you started.
 
 Write the command on the `CHECK:` line when it fits on one line. When it does not, leave that line empty after the colon and open a fenced code block on the next line: the fence holds the command, and nothing inside it is read as a criterion or an attribute, so it may contain blank lines, backtick fences and lines beginning `- [ ]`. A flush-left continuation with no fence is a parse error.
 
 **Work only a person can judge is its own ticket, not a criterion on someone else's**, and you split it off here, while writing the ticket, not when closing it. Behaviour watched in a live session, whether a screen looks right, whether a ticket reads like a real ticket, a call only the user can make — leaving those on an agent's ticket leaves it unable to finish. Write one ticket per such judgement, labelled `ready-for-human`, blocked by the ticket that produces the thing being judged. It is a shorter ticket than the template below: **Parent**, one line on why it cannot be delegated (a judgement call, access only a person has, a design decision, or testing by hand), what the person looks at, what makes it right, and **Blocked by**. No **Seam**, no **Owns**, no acceptance criteria — nothing here runs.
 
-You are done drafting a ticket when every criterion on it carries a number, and either a `CHECK:` with its `EXPECT:` or a line naming what the worker reads to decide it.
+This step is done when every criterion on every ticket carries a number, and either a `CHECK:` with its `EXPECT:` or a line naming what the worker reads to decide it.
 
-**Wide refactors are the exception to vertical slicing.** A **wide refactor** is one mechanical change (rename a column, retype a shared symbol) whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket; green is promised only there.
-
-### 4. Give each ticket its blocking edges
+### 5. Give each ticket its blocking edges
 
 Give each ticket its **blocking edges**: the other tickets that must complete before it can start. A ticket with no blockers can start immediately.
 
-### 5. Quiz the user
+### 6. Quiz the user
 
 Present the proposed breakdown as a numbered list. For each ticket, show:
 
@@ -91,7 +93,7 @@ Ask the user:
 
 Iterate until the user approves the breakdown.
 
-### 6. Publish the tickets to the configured tracker
+### 7. Publish the tickets to the configured tracker
 
 Publish the approved tickets. **How** depends on the tracker `/setup-matt-pocock-skills` configured; the tickets are the same either way, only the shape of the blocking edges changes:
 
@@ -102,7 +104,7 @@ Work the **frontier**: any ticket whose blockers are all done. For a purely line
 
 Do NOT close or modify any parent issue.
 
-### 7. Read every ticket back
+### 8. Read every ticket back
 
 After publishing, open each ticket again (on a real tracker, fetch it; locally, read the file) and check every one:
 
@@ -134,7 +136,7 @@ Fix what fails before reporting the batch as published.
 
 **Blocked by:** the numbers of the tickets that gate this one, or "None (can start immediately)".
 
-**Status:** ready-for-agent, or ready-for-human with one line saying why it cannot be delegated
+**Status:** ready-for-agent
 
 - [ ] AC1: <what must be true, in the spec's exact values>
   CHECK: <the command that decides it>
@@ -153,7 +155,7 @@ A reference to the parent issue on the tracker, followed by the numbered Impleme
 
 ## What to build
 
-The end-to-end behaviour this ticket makes work, from the user's perspective, not layer-by-layer implementation. Write it as numbered points, one thing per point, each point complete with the test that decides it and the reason it is there. A person scans this section for the one point they came for; an agent works from it with none of your context. Neither gets through one long paragraph.
+The end-to-end behaviour this ticket makes work, from the user's perspective, not layer-by-layer implementation. Write it as numbered points, one thing per point, each point complete with the test that decides it and the reason it is there. A person scans it for the one point they came for, an agent works from it with none of your context, and neither gets through one long paragraph.
 
 ## Read first
 
@@ -161,7 +163,7 @@ The source material behind the sections named under **Parent**: decision tickets
 
 ## Seam
 
-Where this ticket is verified: the test layer and directory from the spec's Testing Decisions, and the prior art to copy. A ticket whose only verification is a human check names the device and the steps.
+Where this ticket is verified: the test layer and directory from the spec's Testing Decisions, and the precedent to copy.
 
 ## Owns
 
