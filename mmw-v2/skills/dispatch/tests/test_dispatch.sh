@@ -311,7 +311,7 @@ scenario_wait() {
           bash "$DISPATCH" wait 61 '^REVIEW' 120)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
 
-  echo "--- the session waited on is the reviewer, not the caller's own"
+  echo "--- a worker waits on its own reviewer"
   has "herdr :: agent :: list"
   has "herdr :: agent :: wait :: issue-61-review :: --timeout"
   hasnt "herdr :: agent :: wait :: issue-61 :: --timeout"
@@ -340,13 +340,22 @@ if rounds != ["wait", "ask"] * 3:
 
   echo "--- nothing is written on the ticket when the wait succeeds"
   hasnt "gh :: issue :: comment"
+
+  echo "--- whoever is not the worker waits on the worker instead"
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_PANE_ID=w1:p99 FAKE_GH_MATCH_ON=1 \
+          FAKE_HERDR_AGENTS='{"result":{"agents":[{"name":"issue-61-review","pane_id":"w1:p10"},{"name":"issue-61","pane_id":"w1:p1"}]}}' \
+          bash "$DISPATCH" wait 61 '^REVIEW' 120)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  has "herdr :: agent :: wait :: issue-61 :: --timeout"
+  hasnt "herdr :: agent :: wait :: issue-61-review :: --timeout"
 }
 
 scenario_waittimeout() {
   reset_log
   local code
   code="$(run_dispatch env HERDR_ENV=1 HERDR_PANE_ID=w1:p1 FAKE_GH_MATCH_ON=0 \
-          FAKE_HERDR_AGENTS='{"result":{"agents":[{"name":"issue-61-review","pane_id":"w1:p10"}]}}' \
+          FAKE_HERDR_AGENTS='{"result":{"agents":[{"name":"issue-61","pane_id":"w1:p1"},{"name":"issue-61-review","pane_id":"w1:p10"}]}}' \
           bash "$DISPATCH" wait 61 '^REVIEW' 1)"
   [ "$code" = 1 ] || fail "expected exit 1, got $code: $(cat "$TMP/err")"
 

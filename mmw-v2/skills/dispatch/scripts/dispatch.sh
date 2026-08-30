@@ -246,24 +246,28 @@ if comments:
 '
 }
 
-# The agent this ticket is waiting on: its reviewer when one is live and it is not the
-# caller itself, otherwise its worker. Prints nothing when neither is live.
+# The agent this ticket is waiting on. A worker can only be waiting on its own
+# reviewer, and anyone else can only be waiting on the worker, so which one it is
+# follows from who is calling. Prints nothing when that agent is not live, which
+# leaves the caller waiting on the tracker alone.
 awaited_agent() {
   herdr agent list 2>/dev/null | MMW_TICKET_NUMBER="$1" MMW_OWN_PANE="${HERDR_PANE_ID:-}" python3 -c '
 import json, os, sys
 
 number = os.environ["MMW_TICKET_NUMBER"]
-own = os.environ.get("MMW_OWN_PANE") or None
+own_pane = os.environ.get("MMW_OWN_PANE") or None
 try:
     payload = json.load(sys.stdin)
 except Exception:
     sys.exit(0)
 agents = (payload.get("result") or {}).get("agents") or payload.get("agents") or []
 live = dict((a.get("name"), a.get("pane_id")) for a in agents if a.get("name"))
-for name in ("issue-" + number + "-review", "issue-" + number):
-    if name in live and live[name] != own:
-        print(name)
-        break
+
+worker = "issue-" + number
+caller_is_the_worker = own_pane is not None and live.get(worker) == own_pane
+target = worker + "-review" if caller_is_the_worker else worker
+if target in live:
+    print(target)
 '
 }
 
