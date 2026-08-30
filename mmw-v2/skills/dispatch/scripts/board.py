@@ -590,6 +590,9 @@ class Watch:
 
         The pane goes, and with it the tab and the `issue-<n>` name. The reader is on
         GitHub, not in Herdr.
+
+        The row loses its worker at the same moment, so the place this session held is
+        free to the rest of this round rather than to the next one.
         """
         worker = row["worker"]
         say(f"#{row['ticket']}", worker["status"],
@@ -597,6 +600,7 @@ class Watch:
         herdr(["pane", "close", worker["pane_id"]])
         self.settled_since.pop(worker["pane_id"], None)
         self.held_since.pop(row["ticket"], None)
+        row["worker"] = None
 
     def prompts_so_far(self, worker: dict) -> int:
         """How many times this session has been prompted.
@@ -767,6 +771,9 @@ class Watch:
         if close_pane and row["worker"]:
             herdr(["pane", "close", row["worker"]["pane_id"]])
             self.settled_since.pop(row["worker"]["pane_id"], None)
+            self.held_since.pop(number, None)
+            # Same as at either exit: the place is free from here on, not next round.
+            row["worker"] = None
 
     # ------------------------------------------------------------- dispatching
 

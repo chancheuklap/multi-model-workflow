@@ -531,6 +531,45 @@ class Table4(unittest.TestCase):
         self.round(watch)
         self.assertEqual(self.calls["dispatch"], [])
 
+    def test_a_ticket_reaching_closed_frees_its_place_in_the_same_round(self):
+        self.world([agent("issue-61", "w1:p1", "idle", ticket=61, role="worker",
+                          phase="closed")],
+                   {61: ticket(61, state="CLOSED", labels=()), 70: ticket(70)})
+        self.round(self.watch(parallel=1))
+        self.assertIn(["pane", "close", "w1:p1"], self.calls["herdr"])
+        self.assertEqual(self.calls["dispatch"], [(70, "junior-worker")])
+
+    def test_a_ticket_handed_back_with_its_pane_closed_frees_its_place_too(self):
+        self.idle_world(wake=board.WAKE_LIMIT)
+        self.tickets[70] = ticket(70)
+        self.rows = board.build_rows(list(self.tickets), self.tickets,
+                                     board.sessions(self.agents))
+        watch = self.watch(parallel=1)
+        self.round(watch)
+        self.clock.tick(max(board.WAKE_BACKOFF))
+        self.round(watch)
+        self.assertIn(["pane", "close", "w1:p1"], self.calls["herdr"])
+        self.assertEqual(self.calls["dispatch"], [(70, "junior-worker")])
+
+    def test_a_ticket_over_its_time_limit_keeps_its_place_because_it_keeps_its_session(self):
+        self.idle_world(phase="verify")
+        self.tickets[70] = ticket(70)
+        self.rows = board.build_rows(list(self.tickets), self.tickets,
+                                     board.sessions(self.agents))
+        watch = self.watch(parallel=1)
+        self.round(watch)
+        self.clock.tick(4 * 3600 + 1)
+        self.round(watch)
+        self.assertNotIn(["pane", "close", "w1:p1"], self.calls["herdr"])
+        self.assertEqual(self.calls["dispatch"], [])
+
+    def test_the_last_session_reaching_closed_ends_the_night_in_the_same_round(self):
+        self.world([agent("issue-61", "w1:p1", "idle", ticket=61, role="worker",
+                          phase="closed")], {61: ticket(61, state="CLOSED", labels=())})
+        watch = self.watch()
+        self.round(watch)
+        self.assertTrue(watch.summary_written)
+
     # ------------------------------------------------------------- blocked
 
     def blocked_world(self, host="grok", wake=0, comments=()):
