@@ -8,6 +8,7 @@ def test_task_slug_prefixes_the_slugified_id():
 
 def test_scene_slug_matches_the_baseline_scene_names():
     assert scene_slug("Queue empty") == "queue-empty"
+    assert scene_slug("Queue v2.1 empty") == "queue-v2-1-empty"
 
 
 def test_queue_summary_counts_the_default_scene():
