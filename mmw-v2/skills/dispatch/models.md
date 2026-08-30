@@ -3,15 +3,23 @@
 One row per `(agent, host)`. Every agent this pipeline sends out is here except the
 orchestrator, which is the session you started yourself from the CLI.
 
-Non-empty launch arguments mean the agent runs as its own session in a Herdr pane, and
-`dispatch.sh` starts it there. The host column decides which harness that is; the
-arguments are handed to it untouched. `{model}`, `{effort}` and `{n}` are replaced with
-that row's model, that row's effort, and the real ticket number, so changing which model
-an agent runs on is an edit to the model column alone.
+Non-empty launch arguments mean the agent runs as its own session in a Herdr pane.
+`dispatch.sh` reads the row at the moment it dispatches, so an edit to one of these rows
+is in force on the very next dispatch, with nothing to rebuild and nothing to reinstall.
+The host column decides which harness the session is, and it has to be one of the agent
+kinds Herdr recognises; the arguments are handed to that harness untouched. `{model}`,
+`{effort}` and `{n}` are replaced with the row's model, the row's effort, and the real
+ticket number, so moving an agent to a different model is an edit to the model column
+alone. Moving it to a different harness is an edit to the whole row: every harness
+spells its models, its thinking levels and its arguments its own way.
 
-Launch arguments of `—` mean the agent is a subagent: it runs inside its caller's
-session, is dispatched by whichever skill needs it, and never goes through Herdr. These
-rows are the defaults `assemble.py` writes into each harness's agent definition file.
+Launch arguments of `—` mean the agent is a subagent: it runs inside the session that
+dispatches it, never goes through Herdr, and `dispatch.sh` never reads its row. A
+subagent takes its model and thinking level from its own definition file inside each
+harness, and those files are built ahead of time by `mmw-v2/agents/assemble.py` out of
+`mmw-v2/agents/<name>/agent.json`. Editing one of these rows therefore reaches no
+subagent. They are here so that every agent this pipeline sends out can be read in one
+place.
 
 Read `references/before-editing.md` before you change anything here.
 
