@@ -37,7 +37,7 @@ Inside code review, the role that starts the two reviewing subagents, collects b
 _Avoid_: —
 
 **user（用户）**:
-The only reader of a `MANUAL:` criterion that no agent may stand in for.
+The only reader of a ticket no agent may stand in for — one labelled `ready-for-human`.
 _Avoid_: 人, 你
 
 ### Anatomy of a ticket
@@ -166,28 +166,20 @@ _Avoid_: —
 The fixed shape the gate checker writes into `EVIDENCE:` — `exit=…; shell=…; cwd=…; path=…; EXPECT=matched; output-sha256=…; output-bytes=…`.
 _Avoid_: —
 
-**`MANUAL:`**:
-A criterion no command can settle, replacing `CHECK:` and `EXPECT:`. Written as who looks at which artifact.
-_Avoid_: 人工项
-
 **`ABANDON:`**:
 The mark that opens the line of a criterion given up on, written `ABANDON: AC<n> <kind> <reason>`.
 _Avoid_: —
 
 **`failed`**:
-An `ABANDON` kind: verified but unfixable — three rounds of self-run did not pass it, or it still failed after the one round of review fixes.
+An `ABANDON` kind: it ran and did not pass — three self-runs did not fix it, or it still failed after the one round of review fixes. The closing gate asks the ticket for those three self-run comments before it accepts this kind.
 _Avoid_: —
 
-**`blocked`**:
-An `ABANDON` kind: cannot be verified at all — the command will not start, a credential is missing, a physical device is needed. The reason must list the routes already tried.
-_Avoid_: —
-
-**`impossible`**:
-An `ABANDON` kind: out of reach within the scope. The reason points at the sub-issue that records it.
-_Avoid_: —
+**`stuck`**:
+An `ABANDON` kind: the command will not start, a credential is missing, a device is needed, or the work is out of reach within the scope. The reason must list the routes already tried, or point at the sub-issue that records it. No round count is asked of it — it may be given up on the first time.
+_Avoid_: blocked, impossible
 
 **`decision`**:
-An `ABANDON` kind: a person has to settle one sentence. A sub-issue is opened and the rest of the ticket continues; this kind alone does not force `HANDOFF REQUIRED`.
+An `ABANDON` kind: a person has to settle one sentence. A sub-issue is opened under `needs-triage` and the rest of the ticket continues; this kind alone does not force `HANDOFF REQUIRED`.
 _Avoid_: —
 
 **双条件（both conditions）**:
@@ -218,6 +210,10 @@ _Avoid_: —
 
 **`self-run`（自跑）**:
 The first line of the comment a worker's own run puts on the ticket.
+_Avoid_: —
+
+**`ROUND LIMIT`**:
+The line a self-run adds when a criterion has come back unmet for the third time. It names the criterion and says to abandon it as `failed` and carry on. The rounds are counted off the ticket's own `self-run` comments; nothing is stored between runs, and a fourth run that finally passes still passes.
 _Avoid_: —
 
 **`reverify`（复验）**:
@@ -270,10 +266,6 @@ _Avoid_: —
 What the `by` field of `VERDICT` degrades to when no subagent could be dispatched.
 _Avoid_: —
 
-**`manual, not run`**:
-What the verifier marks against a `MANUAL:` criterion: it neither runs nor judges it.
-_Avoid_: —
-
 **`The environment is yours; the repository is not.`**:
 The line in the verifier's definition file that draws its boundary — it may install, re-port and reconfigure, and may change no file in the repository.
 _Avoid_: —
@@ -309,11 +301,11 @@ What was deliberately not built, and the condition under which to build it.
 _Avoid_: —
 
 **`Sub-issues opened:`**:
-The sub-issues opened for `ABANDON: decision` criteria and for `MANUAL:` criteria nobody filled in.
+The sub-issues opened for `ABANDON: decision` criteria.
 _Avoid_: —
 
 **`Counts:`**:
-The recounted tally, `<k> met, <m> unmet, <n> abandoned, <j> manual of <total>`.
+The recounted tally, `<k> met, <m> unmet, <n> abandoned of <total>`.
 _Avoid_: —
 
 **`Decisions I made on my own`（本票我自己拿的主意）**:
@@ -354,8 +346,8 @@ _Avoid_: —
 What the dry run prints when everything passes.
 _Avoid_: —
 
-**`HANDED OFF: #<n> is now ready-for-human and stays open`**:
-What the closing gate prints when it hands the ticket to a person.
+**`HANDED BACK: #<n> is now needs-triage and stays open`**:
+What the closing gate prints when it hands the ticket back to be judged fresh.
 _Avoid_: —
 
 **`cycle` / `dangling` / `dollar-without-m` / `shared-state`**:
@@ -519,7 +511,7 @@ _Avoid_: —
 ### Labels and standing
 
 **`needs-triage`**:
-Not yet triaged.
+Nobody has judged it yet: something arriving from outside, or a ticket an agent could not finish. The one queue a skill picks up on its own — `/triage` reads it and recommends one of the four outcomes.
 _Avoid_: —
 
 **`needs-info`**:
@@ -527,11 +519,11 @@ Waiting on more information.
 _Avoid_: —
 
 **`ready-for-agent`**:
-Written clearly enough to dispatch an agent at directly.
+In the agent queue — waiting to be dispatched, or being worked right now; the assignee says which. Taken off at both exits, whether the ticket closes or is handed back.
 _Avoid_: —
 
 **`ready-for-human`**:
-Needs a person to settle something or to verify it by hand. Applied in place of `ready-for-agent` on `HANDOFF REQUIRED`.
+In your queue: a person must settle or verify it by hand, and the ticket says in one line why it cannot be delegated. Applied when the ticket is written, or by triage once it has judged.
 _Avoid_: —
 
 **`wontfix`**:

@@ -39,8 +39,3 @@ of row.
 | claim-checker | codex | `gpt-5.6-sol` | medium | — |
 | claim-checker | grok | `grok-4.6` | high | — |
 | claim-checker | pi | `openai-codex/gpt-5.6-sol` | medium | — |
-| ui-evaluator | claude | `opus` | medium | — |
-| ui-evaluator | cursor | `cursor-grok-4.6` | high | — |
-| ui-evaluator | codex | `gpt-5.6-sol` | medium | — |
-| ui-evaluator | grok | `grok-4.6` | high | — |
-| ui-evaluator | pi | `openai-codex/gpt-5.6-sol` | medium | — |
