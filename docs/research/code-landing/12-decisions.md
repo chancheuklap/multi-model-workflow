@@ -29,7 +29,7 @@
 | --- | --- | --- |
 | Worker 与 verifier 是谁 | Worker 是 Herdr 拉起的独立会话（可在任一宿主），每票一个 worktree，按阻塞关系决定启动顺序；verifier 是编排会话自己的只读子代理。「票即输入」= Herdr 启动 worker 时喂的提示词 | worker 部分沿用；verifier 父会话**被 0.3 覆盖**（运行 implement 的会话派） |
 | `Owns:` | 加；路径外改动记在收尾评论 `Outside Owns:` 行，不开 sub-issue | 沿用；A2 定起点与两档 |
-| `CHECK:`/`EXPECT:`/`EVIDENCE:` | 加；写不出命令的标 `MANUAL:`，不过半 | 沿用；A1 定编号与写法；B8 定用 gate-check 跑 |
+| `CHECK:`/`EXPECT:`/`EVIDENCE:` | 加；写不出命令的标 `MANUAL:`，不过半 | 判据沿用（A5）；`MANUAL:` 这个写法**被 I2 取代** |
 | verifier 次数 | 只审一次。worker 自跑 → verifier 一次 → 没过的 worker 修并自跑填证据 → 关票；不复审 | 沿用；B2 定它在 code-review 之前 |
 | ponytail | 收：grep 每个调用方修共用处；写 helper 前先在仓库与 Read first 的 prototype 找现成；加文件/依赖/配置前说出已有的为何不够；安全与「票里明确要求的东西」不许简化；收尾 `skipped: [X], add when [Y]`。不收：原生控件替代自绘、先交懒版本再问、`demo()` 自检、`ponytail:` 注释、交互模式段。措辞写成动作 + 票字段；「逐字复制」改为保留骨架只换对象；用第一张真实的票跑一遍验证 | 沿用；C1 定不做对照实验 |
 | UI 验收 | 两档自动判定：ARIA 树（去 Claude Design 运行时包裹）diff 必须为零；同场景同窗口截图差异像素 ≤ 3%（默认，Testing Decisions 可改）。没过即 `failed`，worker 修；不产生 `decision`；工具把 ARIA 树变了的那几行印在 `DIFF` 底下，截图落在 `--out` 供人按需打开。不用 `accepted-diffs.json` | 沿用；阈值**被 0.3 改为 1%** |
@@ -163,7 +163,7 @@
 - 与 A3 同类：A3 防的是「一条可能验错东西的检查」，A4 防的是「一条不可能过的检查」和「一条被前一条弄坏的检查」。三条都是出票时写坏、夜里才发作的。
 - 落点：`verify-ticket.py` 的 `lint_expectations` 与 `lint_check_effects`（提交 `b69d201f`）；#68 与 #60 第 3 节加 CHECK 自带前置那一条、改 Read back 的收敛判据；#62、#64、#65 的 16 条 EXPECT 已改；#63 的 AC3、AC9、AC15 已自带前置并还原。
 
-### A5 `MANUAL:` 的判据是「这条标准的读者是谁」
+### A5 `MANUAL:` 的判据是「这条标准的读者是谁」（**写法被 I2 覆盖，判据沿用**）
 
 - 触发：#63 原来的 AC12（对照上游读两个函数）与 AC13（读拒绝文案）都写着 `MANUAL: 用户`，但它们判的是**代码对不对**和 **agent 读到的话够不够用**——读者都是 agent。两条改成可跑的 CHECK 之后 #63 是 18/18 无人工项。#69 又犯了同一个错：AC4 判 `body.md` 里有没有出处引用、有没有要求 worker 转述（三项都能 grep），AC7、AC8 读的是主 agent 手上就有的子代理报告，AC9 的记录本来就是主 agent 写的——四条却都标了 `MANUAL: 用户`，收尾时按 H6 开成四张 sub-issue 交给用户。
 - 用户原话：「为什么要开那么多 issue 给我去做，明明你自己可以去验证的」。
@@ -209,7 +209,7 @@
 - `verifier-blocked`：我建议交人（HANDOFF blocked）。用户裁决：「缺依赖、端口被占、没凭据、要真机 我没看出这里面有哪一个问题是 verifier 自己解决不了的，根本就不需要问人也不需要问其他 agent。没凭据是什么意思」。「没凭据」= 验收命令要用的密钥或连接串没设。
 - 结论：verifier 不改仓库文件但可以动环境（装依赖、换端口、从项目配置找连接串）；先自修环境再跑；仍起不来才写 `verifier-blocked`，由 worker 修环境后自跑，与 failed 同路；不触发 HANDOFF。
 
-### B6 `decision` 类 HANDOFF 的标签
+### B6 `decision` 类 HANDOFF 的标签（**落点被 I3 覆盖**）
 
 - 现状：五个标签（`needs-triage`、`needs-info` 等报告者、`ready-for-agent`、`ready-for-human` 需人实现、`wontfix`）。四种 ABANDON kind 里 `failed / blocked / impossible` 贴 `ready-for-human` 语义吻合；`decision`（只等一句话）贴哪个。
 - 选项：A 也贴 `ready-for-human`；B 改 `needs-info` 含义；C 加第六个标签。
@@ -465,7 +465,7 @@ merge-note 与正文一致性 canary（「关键句」无法机械定义）；�
 - **结论：不采。verifier 仍然只派一次。** 剩余风险（code-review 之后的改动没有独立确认）由 S1 的两样东西承接：`--closeout` 核 `VERDICT` 的 commit 是 HEAD 的祖先，收尾评论的 `Post-verdict:` 行列出之后的每个 commit 与来源，早上一眼看得到「验的是 A，之后因 code-review 改了 B」。
 - 落点：`16-stall-and-loop-risks.md` §1.1 与 S2；B2、B5 不变。
 
-### H6（S3）带 `MANUAL:` 的票按 decision 同样处理
+### H6（S3）带 `MANUAL:` 的票按 decision 同样处理（**被 I2 取代**）
 
 - 现状：manual gate 算 met 的条件是「勾了且 `EVIDENCE:` 非 `pending`」（`08-failure-vocabulary.md` §2.1 标准层三态表，第 19 行），而 `05-runnable-acceptance-gates.md` §8.2 第 4 条定「worker 不代填、不代勾」，verifier 对 MANUAL 条目「标 manual, not run」（#60 第 5 节）。于是任何带一条 `MANUAL:` 的票夜里必然有一条 unmet、必然 `HANDOFF REQUIRED`，首行同时表示「出事了」和「一切正常只等你看一眼」。
 - 选项：甲——每条 MANUAL 项开成 spec 下的 sub-issue，其余标准全过就 `ALL MET` 关票；乙——维持整票 HANDOFF，首行计数把人工项单列；丙——出票禁止 MANUAL（与 #60 US3 冲突）。
@@ -489,3 +489,43 @@ merge-note 与正文一致性 canary（「关键句」无法机械定义）；�
 - 早上的入口因此改成：**打开 spec issue 那一页**（原生 sub-issue 面板给出每张票的开关状态与完成度；worker 夜里用 `--parent <spec>` 开的 sub-issue 也在同一面板里；票页面的原生 Blocked by 给出还卡在谁身上）加**两个书签链接**（`issues?q=is:issue+state:open+label:ready-for-human` 要人处理的、加 `assignee:@me` 的 `ready-for-agent` 是认领了却没收尾的）。2026-08-29 实测：#60 的 `sub_issues_summary` 为 15 张、完成 0；#63 的 `issue_dependencies_summary` 为 blocked_by 1、blocking 3，`parent` 指向 #60——三样都是 GitHub 原生字段，页面直接显示。
 - 那五条 `gh issue list` 查询不作废，**读者从人换成程序**：写进 `15-monitor-tab-and-wakeup-loop.md` §4.2 的数据源一节，`board.py` 与将来的唤醒闭环跑它们。这是 G0 的应用：同一批查询，读者是人就该是链接，读者是程序就该在脚本里。
 - 落点：#60 的 US15 与第 9 节「我检查」；蓝图页步 13 与目录卡片、落地顺序表第 9 节；`15` §4.2；#64、#66、#67、#71、#72、#73、#75 共九处 `MANUAL: 用户 …`；#75 的 AC6 标准正文与它的 `MANUAL:` 行同写网页入口（spec 页的 sub-issue 面板加两个书签链接）。
+
+## 块 I · 标签工作流与失败词汇收敛（2026-08-30）
+
+起因：用户翻十七张票，发现 121 条 `CHECK:` 之外还有 33 条 `MANUAL:`，占两成，其中 15 条点名「主 agent」——而主 agent 是 agent。追下去发现根子不在这 33 条：**落地计划这套词汇从来没有和现役 mmw-v2 已有的能力接过轨**。triage 技能的五个状态服务的是从外面来的东西，落地流水线自己造了 `MANUAL:` 和 `ready-for-human` 两条通往人的路，中间没人对齐过。
+
+调查取证 2026-08-30：仓库全文检索每个标签的写入者与读取者，加 `gh issue list` 计数。查出七处断裂，逐条见 https://claude.ai/code/artifact/e83b2342-8de8-40ad-b128-6da798b2328a 。
+
+### I1 标签只表达「在哪个队列」，不新增、删两个
+
+- 现状：20 个标签。`ready-for-agent` 52 张里只有 12 张还开着（关票不摘）；spec 和 ticket 共用它，于是 agent 队列里躺着一张 spec（#60），而 `--preflight` 的四项检查 spec 全都满足、拦不住；`worker:junior` / `worker:senior` 没有任何技能读写，而 0.4 明写「不打定级标签」，仍有两张票挂着。
+- 用户原话（P4，本轮复用）：「尽可能不要再增加标签了……甚至需要再清理一次留下真正合法的标签」。
+- 结论：一个新标签都不加，删掉 `worker:junior` / `worker:senior`（#56、#57 上的挂载一并摘）。每个标签只表达一件事：`ready-for-agent` = 在 agent 队列里（等派或正在做，由 assignee 区分），两条出口都摘掉它；`ready-for-human` = 在你的队列里，且票上写明为什么不能委派；`needs-triage` = 还没有人判过；`needs-info` 与 `wontfix` 只服务外来件。**spec 不打状态标签**——它是容器不是待办。category（`bug` / `enhancement`）只属于外来件，本仓规划出来的票不带。
+- 落点：`verify-ticket.py` 的 `close_ticket()`；`to-spec`（merge-note）；`docs/agents/triage-labels.md`；仓库标签设置；#60 的 US16。
+
+### I2 `MANUAL:` 退场，按「这条标准的读者是谁」分三条出路（取代 H6）
+
+- 现状：`MANUAL:` 是我们在 vendor 来的 `gate-check` 上自造的第五个属性（上游 `gates.mjs:46` 只认 `CHECK|EXPECT|EVIDENCE|CWD`），上游不认识它，于是它静默地不被计数——一条没人跑的标准。A5 已经把判据定对了（问读者是谁），但写法留了 `MANUAL: 主 agent …` 这条口子，于是 15 条本该由 agent 自己判的标准挂在了「等人」的形态上；H6 又让它们各开一张 `ready-for-human` 的 sub-issue，每晚往用户早上的清单里塞纸。
+- 结论：拿掉 `MANUAL:` 这个属性。写标准时按 A5 的判据分三条出路——读者是 agent 且写得出命令 → `CHECK:`/`EXPECT:`；读者是 agent 但写不出命令 → 仍是这张票的一条标准，不写 `CHECK:`，由做票的 agent 自己判、自己勾、`EVIDENCE:` 写读了什么与结论（`--lint` 报一条 warn 提醒再想一次）；**读者确实是人 → 不留在这张票上，出票时单开一张 `ready-for-human` 的票**，用阻塞边挂在产出被判之物的那张票后面，正文写明为什么不能委派（判断、只有人有的访问权、设计决定、手工测试——沿用 triage 技能对 `ready-for-human` 的定义）。判断从收尾挪到出票，`--lint` 看得见。
+- 连带：`Counts:` 去掉 `manual` 一格，回到 `<k> met, <m> unmet, <n> abandoned of <total>`；`--closeout` 不再数 sub-issue；verifier 的「manual, not run」分支去掉。
+- 落点：`verify-ticket.py` 六处、`agents/verifier/body.md`、`to-tickets`（merge-note）、#60 第 3 与第 9 节、#68、#73；现存 33 条按此重新分类（13 条留在票上由 agent 自判，6 条开成 #78、#91–#95，其余在已关的票上不追改）。
+
+### I3 `HANDOFF REQUIRED` 交回 `needs-triage`（覆盖 B6 的落点）
+
+- 现状：B6 定的是 `ready-for-human`。但 `ready-for-human` 有三个写入者、**零个自动读取者**——triage 技能只往里放，从不取出；它唯一的读者是用户打开书签的那一刻。而 triage 对 `ready-for-human` 的定义是「需要人来**实现**」，那是判完之后的结论，不该由一个卡住的 worker 直接下。
+- 用户原话：「所有 agent 经过工作流处理不了的事情，都应该直接打上 needs-triage 事后再去判断」。
+- 结论：`--closeout` 的 HANDOFF 分支改成 `--remove-label ready-for-agent --add-label needs-triage`。语义更准（worker 卡住的那一刻还没有人判定过它要人做、要补信息还是换个 agent），而且这是**唯一一道有技能主动去取的队列**——triage 整台机器就是为它写的：读全票、复现、给建议、落到四个出口之一。早上两条查询因此变成 `is:open label:needs-triage`（夜里倒下的，可以先让 agent 跑一遍 `/triage`）与 `is:open label:ready-for-human`（确实只有你做得了的）。
+- 计划自己此前不一致：H3 让 `decision` 的 sub-issue 落 `needs-triage`，H6 让 `MANUAL` 的 sub-issue 落 `ready-for-human`——同一件事两个落点。本条统一。
+- 落点：`verify-ticket.py` 的 `hand_back_for_triage()`、`hook.py` 认的命令、#60 第 2 与第 9 节、蓝图页图 3b 与图 4 与第 5 节。
+
+### I4 `ABANDON` 的 kind 四种收成三种
+
+- 现状：四个 kind 里机器只分得出 `decision`（不挡关票），`failed` / `blocked` / `impossible` 一视同仁。一个词要留下，得有人据它做不同的事。
+- 结论：三个——`decision`（要人拍一句话，开 sub-issue 后继续，不挡 `ALL MET`）、`failed`（跑了没过，`--closeout` 要求票上数得出三条该标准未过的 `self-run` 评论）、`stuck`（跑不起来或任务内做不到，不看轮次——它第一轮就该允许放弃，理由须含试过的路）。`blocked` 与 `impossible` 并成 `stuck`：三轮上限只对「跑了没过」有意义，逼另外两种凑三轮是浪费。
+- 落点：`verify-ticket.py` 的 `ABANDON_KINDS` / `HANDOFF_KINDS`、`08-failure-vocabulary.md` §5.3 的 kind 表、#60 第 2 与第 9 节、#73、蓝图页图 4 与词表。
+
+### I5 自跑三轮上限的实现：轮次由票自己数
+
+- 现状：S11（H4）定了「同一条 AC 连续三轮自跑仍未过就写 `ABANDON`」，但没写这个数从哪来；而 G1 定了 `verify-ticket.py` 不持有状态文件。
+- 结论：数票上的评论。每次自跑都留一条首行 `self-run` 的评论，里面是那一轮的账本，所以「AC3 连续几轮没过」就是数前面有几条这样的评论——脚本本来就把全部评论取下来了。第三轮那条标准的行改成 `ROUND LIMIT`，点名该写 `ABANDON: AC<n> failed`；真正的门在 `--closeout`：`failed` 只有数得出三条才被接受。**上限不是「不许再跑」**——第四轮照跑，修好了照样判过；它管的是什么时候允许放弃、什么时候必须放弃。
+- 落点：`verify-ticket.py` 的自跑与 `--closeout`、#60 第 9 节、#73、蓝图页 S8。

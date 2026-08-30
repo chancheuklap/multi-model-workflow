@@ -6,7 +6,7 @@
 
 ## 1. 一句话结论
 
-四家里只有 unlazy 把「一条验收标准的终态」和「一张票的终态」分成两层并各给了固定词（`gates.md:126-128`、`orchestration.md:7-15`），pstack 只给了「谁验、验到什么等级」的裁决词（`orchestrate.md:91`）和「要人定」的停车位（`orchestrate.md:107`），grok 只有「整个单元失败 → 下游全跳过」的批处理词（`execute-plan/SKILL.md:786-797`），swarm-forge 只有「问操作员」一条通道（`handoff-protocol.md:193-198`）。建议：标准层沿用 unlazy 的 `met / unmet / abandoned` 加 `ABANDON: <id> <kind> <reason>`，把 `<kind>` 固定为 `failed / blocked / impossible / decision` 四个词区分四种情况；票层沿用 unlazy 的评论首行 `ALL MET` / `HANDOFF REQUIRED`；GitHub 上只动两样东西：`ALL MET` 关票（`gh issue close --reason completed`），`HANDOFF REQUIRED` 不关票、把 `ready-for-agent` 换成 `ready-for-human`。下游被 block 的票什么都不做：本仓的 frontier 定义已经是「blocker 全关才解锁」（`docs/agents/issue-tracker.md:42`、`mmw-v2/upstream/skills/engineering/implement/SKILL.md:8`），这正是 unlazy「abandonment 不能提升父级」的语义，不需要 grok 的 Cascade-Skip 再标一遍。
+四家里只有 unlazy 把「一条验收标准的终态」和「一张票的终态」分成两层并各给了固定词（`gates.md:126-128`、`orchestration.md:7-15`），pstack 只给了「谁验、验到什么等级」的裁决词（`orchestrate.md:91`）和「要人定」的停车位（`orchestrate.md:107`），grok 只有「整个单元失败 → 下游全跳过」的批处理词（`execute-plan/SKILL.md:786-797`），swarm-forge 只有「问操作员」一条通道（`handoff-protocol.md:193-198`）。建议：标准层沿用 unlazy 的 `met / unmet / abandoned` 加 `ABANDON: <id> <kind> <reason>`，把 `<kind>` 固定为 `decision / failed / stuck` 三个词区分三种情况（`12-decisions.md` I4）；票层沿用 unlazy 的评论首行 `ALL MET` / `HANDOFF REQUIRED`；GitHub 上只动两样东西：`ALL MET` 摘掉 `ready-for-agent` 并关票（`gh issue close --reason completed`），`HANDOFF REQUIRED` 不关票、把 `ready-for-agent` 换成 `needs-triage`——卡住的那一刻还没有人判定过它要人做、要补信息还是换个 agent，而 `needs-triage` 是唯一一道有技能主动去取的队列（`12-decisions.md` I3）。下游被 block 的票什么都不做：本仓的 frontier 定义已经是「blocker 全关才解锁」（`docs/agents/issue-tracker.md:42`、`mmw-v2/upstream/skills/engineering/implement/SKILL.md:8`），这正是 unlazy「abandonment 不能提升父级」的语义，不需要 grok 的 Cascade-Skip 再标一遍。
 
 ## 2. 各家的终态词表与精确定义
 
@@ -165,18 +165,17 @@ implement 收尾要做的状态变化只有一种：`ready-for-agent → ready-f
 | unmet | `- [ ] AC<n>: <原文>` + `EVIDENCE:` 写失败事实；**没有** `ABANDON:` 行。只出现在会话被 timebox 或中断时（pstack 的「partial findings」）。 |
 | abandoned | `- [ ] AC<n>: <原文>` 保留原文 + 列首 `ABANDON: AC<n> <kind> <reason>` |
 
-`<kind>` 四选一，固定拼写：
+`<kind>` 三选一，固定拼写。三个词各对应一种机器行为——一个词要留下，得有人据它做不同的事（`12-decisions.md` I4）：
 
-| kind | 情况 | 准入 |
-| --- | --- | --- |
-| `failed` | 验失败且修不了 | code-review 两轮仍有票内发现；或 verifier 裁决 `verifier-failed` |
-| `blocked` | 验不了 | `CHECK:` 起不来、缺凭据、缺设备；或 verifier 裁决 `verifier-blocked`。理由必须含试过的路径（`maintain-verification-skill:33` 对 `verified-unreachable` 的要求） |
-| `impossible` | 任务内做不到 | unlazy `gates.md:128` 的原义；理由指向记录它的 sub-issue |
-| `decision` | 要人定 | 两个选项都合法、票和 spec 都没说；或 UI 截图 diff 非零要 `Seam` 指名的人看（`00-synthesis.md:53`）。理由写成「问题 + 选项 + 无人答复时的默认」（pstack `orchestrate.md:32`） |
+| kind | 情况 | 准入 | `--closeout` 据它做什么 |
+| --- | --- | --- | --- |
+| `decision` | 要人定 | 两个选项都合法、票和 spec 都没说。理由写成「问题 + 选项 + 无人答复时的默认」（pstack `orchestrate.md:32`）。UI 截图 diff 非零**不**走这里 | 不挡 `ALL MET`：它已开成一张 `needs-triage` 的 sub-issue，票继续做完其余标准（`12-decisions.md` H3） |
+| `failed` | 跑了，没过 | 同一条标准自跑修满三轮仍不过；或 code-review 票内发现修一轮后仍不过；或 verifier 裁决 `verifier-failed` | 挡 `ALL MET`；并要求票上数得出三条该标准未过的 `self-run` 评论（`12-decisions.md` I5） |
+| `stuck` | 跑不起来，或任务内做不到 | `CHECK:` 起不来、缺凭据、缺设备、verifier 裁决 `verifier-blocked` 修环境后仍起不来，或任务内做不到。理由必须含试过的路径（`maintain-verification-skill:33` 对 `verified-unreachable` 的要求）或指向记录它的 sub-issue | 挡 `ALL MET`；不看轮次——它第一轮就该允许放弃 |
 
 verifier 行（若采 `03` 候选 B）：`VERIFIER (<模型家族>, <sha>): <裁决> for AC…`，裁决词沿用 `live-ui-verified / unit-test-verified / type-check-only / verifier-blocked / verifier-failed`。
 
-末尾计数一行：`Counts: met <k> / unmet <m> / abandoned <n>`，与首行数字相同；两处都写是为了 `--search "HANDOFF REQUIRED"` 命中首行、人眼读末尾（`unlazy/SKILL.md:82`「remeasure every reported count」）。
+末尾计数一行：`Counts: <k> met, <m> unmet, <n> abandoned of <total>`，与首行数字相同；两处都写是为了 `--search "HANDOFF REQUIRED"` 命中首行、人眼读末尾（`unlazy/SKILL.md:82`「remeasure every reported count」）。
 
 ### 5.4 早上看什么
 
@@ -217,7 +216,7 @@ Branch: <branch>  Commit: <sha>  PR: #<n>
   EVIDENCE: exit <code>; matched "<...>"; <sha>
 - [ ] AC2: <验收标准原文>
   EVIDENCE: <失败事实：exit code、不匹配的输出片段，或 manual 时看的制品>
-ABANDON: AC2 <failed|blocked|impossible|decision> <理由；decision 时写 问题/选项/默认>
+ABANDON: AC2 <decision|failed|stuck> <理由；decision 时写 问题/选项/默认；failed 写三轮各做了什么；stuck 写试过哪些路>
 
 VERIFIER (<模型家族>, <sha>): <裁决> for AC…
 Sub-issues opened: #<n> (<一句话>), …
@@ -245,7 +244,7 @@ Counts: met k / unmet m / abandoned n
 | `ready-for-human → wontfix` | 人（走 triage） | 决定不做 |
 | 认领 | implement | 开工第一步 `--add-assignee @me`；收尾不摘，留给早上第三条查询 |
 
-`ABANDON:` 行由谁写：worker 写 `impossible` 和 `decision`（只有它知道做不到和拿不准）；`failed` 和 `blocked` 由收尾者根据 code-review 轮数或 verifier 裁决写——单会话里这仍是同一个 agent，但它抄的是 verifier 那一行，不是自己的判断。verifier 本身不改票的勾、不写 `ABANDON:`，只留 `VERIFIER` 行（pstack「a verifier overrides it on the same key」在票上的形态就是这一行盖过上面的勾）。
+`ABANDON:` 行由谁写：worker 写 `decision`（只有它知道拿不准）与 `stuck` 里「任务内做不到」那一半；`failed` 与 `stuck` 里「跑不起来」那一半由收尾者根据自跑轮数、code-review 轮数或 verifier 裁决写——单会话里这仍是同一个 agent，但它抄的是 verifier 那一行，不是自己的判断。verifier 本身不改票的勾、不写 `ABANDON:`，只留 `VERIFIER` 行（pstack「a verifier overrides it on the same key」在票上的形态就是这一行盖过上面的勾）。
 
 ### 7.4 完整示例
 
