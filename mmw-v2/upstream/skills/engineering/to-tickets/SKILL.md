@@ -65,7 +65,7 @@ Derive `CHECK:` and `EXPECT:` from the spec; do not invent either:
 
 Write the command on the `CHECK:` line when it fits on one line. When it does not, leave that line empty after the colon and open a fenced code block on the next line: the fence holds the command, and nothing inside it is read as a criterion or an attribute, so it may contain blank lines, backtick fences and lines beginning `- [ ]`. A flush-left continuation with no fence is a parse error.
 
-**Work only a person can judge is its own ticket, not a criterion on someone else's**, and you split it off here, while writing the ticket, not when closing it. Behaviour watched in a live session, whether a screen looks right, whether a ticket reads like a real ticket, a call only the user can make — leaving those on an agent's ticket leaves it unable to finish. Write one ticket per such judgement, labelled `ready-for-human`, blocked by the ticket that produces the thing being judged, and say in one line why it cannot be delegated: a judgement call, access only a person has, a design decision, or testing by hand.
+**Work only a person can judge is its own ticket, not a criterion on someone else's**, and you split it off here, while writing the ticket, not when closing it. Behaviour watched in a live session, whether a screen looks right, whether a ticket reads like a real ticket, a call only the user can make — leaving those on an agent's ticket leaves it unable to finish. Write one ticket per such judgement, labelled `ready-for-human`, blocked by the ticket that produces the thing being judged. It is a shorter ticket than the template below: **Parent**, one line on why it cannot be delegated (a judgement call, access only a person has, a design decision, or testing by hand), what the person looks at, what makes it right, and **Blocked by**. No **Seam**, no **Owns**, no acceptance criteria — nothing here runs.
 
 **Wide refactors are the exception to vertical slicing.** A **wide refactor** is one mechanical change (rename a column, retype a shared symbol) whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket; green is promised only there.
 
@@ -102,14 +102,17 @@ Do NOT close or modify any parent issue.
 
 ### 7. Read every ticket back
 
-After publishing, open each ticket again (on a real tracker, fetch it; locally, read the file) and check:
+After publishing, open each ticket again (on a real tracker, fetch it; locally, read the file) and check every one:
 
 - The title and **What to build** describe the same slice.
 - Every entry under **Blocked by** is an identifier that resolves to one of this batch's tickets, and the ticket it resolves to is the one meant.
 - On a tracker with native blocking links, the number of links equals the number of **Blocked by** entries.
+
+Then, on the tickets an agent works — the `ready-for-human` ones have none of these sections and are skipped here:
+
 - **Read first** and **Seam** are present and non-empty ("none" counts as present). Where **Read first** points at a downloaded baseline directory, it says the directory is a contract.
 - **Owns** is present and non-empty, every entry is a repository-relative path or glob, and no two tickets on the same frontier overlap there.
-- `verify-ticket.py <n> --lint` runs on every ticket. Fix every ERROR before you report the batch. Read every WARN once and either fix it or keep it on purpose.
+- `verify-ticket.py <n> --lint` has been run. Fix every ERROR it reports before you report the batch. Read every WARN once and either fix it or keep it on purpose — a criterion with no `CHECK:` always warns, and that is the shape you chose.
 
 Fix what fails before reporting the batch as published.
 
