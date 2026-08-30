@@ -12,6 +12,9 @@
 #   install.sh            装
 #   install.sh --check    只看装没装，不动磁盘。齐了回 0，缺东西或有残留回 1
 #
+# 除技能、subagent、hook 之外还装一样：dispatch 技能带的 Herdr agent 检测规则覆盖，
+# 拷进 ~/.config/herdr/agent-detection/ 再让服务端重读。
+#
 # 技能装两处，不按宿主分。~/.agents/skills 是各家通用的位置，Codex、Cursor、Grok、Pi
 # 都原生扫它；Claude Code 不扫，只认 ~/.claude/skills，所以那一处再装一份。两处装的是
 # 同一批软链，都直接指向仓库源目录，彼此不串。
@@ -285,6 +288,44 @@ if [ -d "$AGENTS_SRC" ]; then
     fi
     echo "已装  ${#linked[@]} 个 agent -> $dest"
   done
+fi
+
+# ---------------- Herdr 的 agent 检测规则 ----------------
+
+# Herdr 认一个 pane 里的 agent 在 idle 还是在等人回答，靠的是每家一份检测规则。
+# cursor 的远端那份没有提问表单的规则，于是它的 AskQuestion 表单在 Herdr 眼里是
+# idle：board.py 会把话打进表单、Enter 选中第一项。修在 Herdr 而不是在 board.py
+# 里为它写兼容——本地覆盖优先于远端，改完要让服务端重读一遍才生效。
+
+DETECT_SRC="$SELF_SRC/dispatch/herdr/agent-detection"
+DETECT_DEST="$HOME_DIR/.config/herdr/agent-detection"
+
+if [ -d "$DETECT_SRC" ]; then
+  for src in "$DETECT_SRC"/*.toml; do
+    [ -f "$src" ] || continue
+    name="$(basename "$src")"
+    dest="$DETECT_DEST/$name"
+
+    if [ "$mode" = check ]; then
+      if [ ! -f "$dest" ] || ! cmp -s "$src" "$dest"; then
+        echo "缺    ${dest}（与 ${src} 不一致）" >&2
+        rc=1
+      fi
+      continue
+    fi
+
+    # 这里是拷贝不是软链：Herdr 自己会往这个目录里写远端拉下来的那一份，
+    # 软链进去等于把仓库交给它写。
+    mkdir -p "$DETECT_DEST"
+    cp "$src" "$dest"
+    echo "已装  $dest"
+  done
+
+  if [ "$mode" != check ] && [ "$HOME_DIR" = "$HOME" ] && command -v herdr >/dev/null 2>&1; then
+    herdr server reload-agent-manifests >/dev/null 2>&1 \
+      && echo "已重读 Herdr 的 agent 检测规则" \
+      || echo "注意  Herdr 没在跑，检测规则下次起服务时才生效"
+  fi
 fi
 
 # ---------------- hook ----------------

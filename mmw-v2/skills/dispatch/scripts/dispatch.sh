@@ -4,6 +4,7 @@
 #
 #   dispatch.sh <ticket> <role> [base-commit]
 #   dispatch.sh wait <ticket> "<first-line-regex>" [seconds]
+#   dispatch.sh run <spec> [--role R] [--parallel N] [--max-hours H]
 #
 # The role and the ticket number are the whole input. Everything else — which Herdr
 # name the session gets, whether it opens a tab or splits a pane, what it is told to
@@ -27,6 +28,13 @@ WAIT_POLL_SECONDS=30         # outside Herdr there is no lifecycle to block on
 SELF="$(realpath "${BASH_SOURCE[0]}")"
 SKILL_ROOT="$(dirname "$(dirname "$SELF")")"
 MODELS="$SKILL_ROOT/models.md"
+BOARD="$SKILL_ROOT/scripts/board.py"
+# The skill lives under mmw-v2/skills/<name>, so the installer is two directories up.
+INSTALLER="$(dirname "$(dirname "$SKILL_ROOT")")/install.sh"
+
+BOARD_TAB_LABEL="mmw board"
+MAIN_AGENT_NAME=mmw-main
+BOARD_RESTART_SECONDS=5      # it holds no state, so restarting it loses nothing
 
 # Grok Build hands its agents CLICOLOR_FORCE=1, and `gh` writes ANSI escapes into
 # --json output under it, which no JSON reader can parse.
@@ -48,6 +56,7 @@ usage() {
   cat >&2 <<'USAGE'
 usage: dispatch.sh <ticket> <role> [base-commit]
        dispatch.sh wait <ticket> "<first-line-regex>" [seconds]
+       dispatch.sh run <spec> [--role R] [--parallel N] [--max-hours H]
 USAGE
   exit 2
 }
@@ -314,11 +323,70 @@ wait_for() {
   give_up "$who did not report back within ${seconds}s"
 }
 
+# ------------------------------------------------------------------ the night
+
+# Starts the night: checks the machine, names this pane so the board can reach it,
+# opens the monitor tab, and leaves board.py --watch running in it. Everything after
+# this is the board's; the caller goes back to reading tickets.
+run_night() {
+  local spec="$1"; shift
+  local role=junior-worker parallel="" max_hours=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --role) role="${2:-}"; shift 2 || usage ;;
+      --parallel) parallel="${2:-}"; shift 2 || usage ;;
+      --max-hours) max_hours="${2:-}"; shift 2 || usage ;;
+      *) usage ;;
+    esac
+  done
+  case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
+
+  [ "${HERDR_ENV:-}" = 1 ] \
+    || refuse "not running inside Herdr, so there is nowhere to open the monitor tab"
+  local caller="${HERDR_PANE_ID:-}"
+  [ -n "$caller" ] || refuse "no calling pane, so the board would have nobody to report to"
+  [ -f "$BOARD" ] || refuse "no board at $BOARD"
+  [ -n "$(row_for_role "$role")" ] || refuse "no role named $role in $MODELS"
+
+  # A night nobody is watching cannot notice that the skills or the gate went missing
+  # from this machine, so it is checked at the one moment somebody is here.
+  [ -f "$INSTALLER" ] || refuse "no installer at $INSTALLER"
+  bash "$INSTALLER" --check >/dev/null \
+    || refuse "install.sh --check found something missing; run install.sh before the night"
+
+  local root
+  root="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$root" ] || refuse "not inside a git repository"
+
+  herdr agent rename "$caller" "$MAIN_AGENT_NAME" >/dev/null 2>&1 \
+    || refuse "could not rename this pane $MAIN_AGENT_NAME, so the board could not reach it"
+
+  local pane
+  pane="$(herdr tab create --cwd "$root" --label "$BOARD_TAB_LABEL" --no-focus \
+          | json_at .result.root_pane.pane_id)"
+  [ -n "$pane" ] || refuse "could not open the $BOARD_TAB_LABEL tab"
+
+  local watch="python3 $BOARD --watch $spec --role $role"
+  [ -n "$parallel" ] && watch="$watch --parallel $parallel"
+  [ -n "$max_hours" ] && watch="$watch --max-hours $max_hours"
+  # It keeps no state, so a crash costs nothing but the wait; it exits 0 once the night
+  # is over, and that is what ends the loop.
+  herdr pane run "$pane" "until $watch; do sleep $BOARD_RESTART_SECONDS; done" >/dev/null \
+    || refuse "could not start the board in pane $pane"
+
+  echo "$MAIN_AGENT_NAME is this pane; the board is watching #$spec in pane $pane"
+}
+
 # ------------------------------------------------------------------ entry
 
 [ -f "$MODELS" ] || refuse "no table at $MODELS"
 
 case "${1:-}" in
+  run)
+    [ "$#" -ge 2 ] || usage
+    shift
+    run_night "$@"
+    ;;
   wait)
     [ "$#" -ge 3 ] && [ "$#" -le 4 ] || usage
     wait_for "$2" "$3" "${4:-}"

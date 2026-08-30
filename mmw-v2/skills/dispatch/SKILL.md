@@ -61,6 +61,53 @@ on without it.
 On exit 1, **skip that round and carry on with the rest of your own steps.** An agent that
 never reported back is not a reason to hand the ticket to a person.
 
+## Start the night
+
+```bash
+<dispatch> run <spec> [--role R] [--parallel N] [--max-hours H]
+```
+
+One command, typed once, after the last ticket of a spec is published. It checks this
+machine, renames your own pane `mmw-main` so the board can reach you, opens a tab
+labelled `mmw board`, and leaves `scripts/board.py --watch` running in it. From then on
+the board dispatches the frontier, re-prompts the sessions that go idle short of their
+closing gate, hands back the tickets that reach a limit, and writes `NIGHT SUMMARY` on
+the spec when nothing is left to run.
+
+| Argument | What to put there |
+| --- | --- |
+| `<spec>` | The spec issue whose sub-issues are tonight's tickets. Digits only |
+| `--role` | Which row of `models.md` tonight's workers are started from. Defaults to `junior-worker` |
+| `--parallel` | How many workers may be alive at once. Defaults to the board's own `PARALLEL` |
+| `--max-hours` | How long one ticket may hold a session before it goes back to be judged |
+
+| Exit code | What happened |
+| --- | --- |
+| `0` | The board is up. Its tab holds every line it will write |
+| `2` | Nothing was started. The reason is on stderr: not inside Herdr, no such role, or `install.sh --check` found something missing |
+
+Exit 2 on the check is not a formality. A night nobody is watching cannot notice that
+this machine's skills or its closing gate went missing, so that is checked at the one
+moment somebody is here to fix it: run `install.sh` and start the night again.
+
+**After this command you read tickets and nothing else.** You do not dispatch, you do
+not prompt a worker, and you do not answer a question a worker put on screen — the
+board comments the form on the ticket, dismisses it, and sends the worker its dispatch
+line again, because the discipline is not to ask.
+
+## When the board re-prompts you
+
+Two cases reach you, and both arrive as one line: `mmw board: <case> #<n> — run
+board.py --once`. Run that, read the table, and go back to being idle.
+
+| Case | What it means | What to do |
+| --- | --- | --- |
+| A limit was reached — `WAKEUP LIMIT`, `REDISPATCHED`, `TIME LIMIT` | The board has already commented on that ticket and moved it to `needs-triage` | Read the table. Nothing else: do not dispatch it again, do not prompt its session |
+| The night ended | `NIGHT SUMMARY` is the newest comment on the spec | Read it. If the user asked to be told when the run finished, tell them now |
+
+A worker stopped at a question does not reach you. Its form is on its ticket for the
+morning, under `BLOCKED:`.
+
 ## Change which agent, model, or thinking level is used
 
 Edit `models.md`, next to this file. **Read
