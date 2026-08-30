@@ -13,7 +13,3 @@ __pycache__/
 .scratch/
 .release/
 .playwright-cli/
-
-# 界面 QA 的运行时依赖，由技能自带的 install-deps.sh 按 deps.json 装。
-# 版本钉死在声明里，装出来的东西不进 git。
-mmw-v2/skills/ui-qa/scripts/deps/
