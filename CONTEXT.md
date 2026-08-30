@@ -435,7 +435,7 @@ One of the three axes: does the change follow this repository's documented codin
 _Avoid_: —
 
 **`Spec` axis**:
-The second axis: does the change match what the ticket or the spec asked for. It does not look at the baseline directory.
+The second axis: does the change match what the ticket or the spec asked for. It does not look at the handoff package.
 _Avoid_: —
 
 **`Tests` axis**:
@@ -464,17 +464,13 @@ _Avoid_: —
 
 ### UI acceptance
 
-**基线（baseline）**:
-The directory downloaded back into the leaf directory from Claude Design. For a ticket with UI acceptance criteria it is the contract, not a reference.
-_Avoid_: —
-
 **叶子目录（leaf directory）**:
-`prototypes/<task>/<issue>/UI/`, where the baseline and the scene list live.
+`prototypes/<task>/<issue>/UI/`, where the handoff package and the scene list live.
 _Avoid_: —
 
 **交接包（handoff package）**:
-What the Finish step of the design skill downloads: a README plus every component page. The source to copy exact wording, sizes and tokens from.
-_Avoid_: 开发交接包
+What the Finish step of the design skill downloads: a README plus every component page. The source to copy exact wording, sizes and tokens from, and the directory `visual-parity.py --baseline` renders and screenshots.
+_Avoid_: 开发交接包, 基线目录, UI 基线
 
 **`DESIGN.md`**:
 The consuming repository's design-system document. When it is missing, it is generated before any design work starts.
@@ -568,12 +564,20 @@ _Avoid_: —
 A start-of-work step: every glob in `## Owns` either matches an existing path or is marked `(new)`.
 _Avoid_: —
 
+**基线（baseline）**:
+Anything under `## Read first` that records a settled conclusion: the chosen artifact of a prototype — the winning UI variant until a handoff package supersedes it, the validated logic module, an experiment's Reusable parts with its Conclusion — a handoff package downloaded from Claude Design, the Decision of an ADR, the resolution of a decision ticket, and the spec sections `## Parent` names. Material recording process rather than conclusions — the body of a research file, a blueprint page — is reference, not baseline.
+_Avoid_: —
+
+**契约（contract）**:
+The bond between a worker and every baseline in `## Read first`, in three clauses: copy exact values, wording, states and interface shapes from the baseline instead of rewriting them from memory; never deviate quietly — when the work does not fit the baseline or two baselines conflict, keep going and open a sub-issue under the spec; never bend a baseline, a harness or a test to make a check pass.
+_Avoid_: —
+
 **基线是契约（the baseline is the contract）**:
-The baseline named in `## Read first` is a contract, not a reference. It is never quietly changed.
+Every baseline in `## Read first` is a contract, not a reference. It is never quietly changed or quietly deviated from.
 _Avoid_: —
 
 **契约装不下（the contract does not fit）**:
-When the baseline is missing a state, a field or an interaction: keep going, open a sub-issue under the spec, add nothing quietly.
+When a baseline is missing a state, a field, an interaction or a case the work needs, or two baselines conflict: keep going, open a sub-issue under the spec, add nothing quietly.
 _Avoid_: —
 
 **Owns 两档（the two grades of Owns）**:

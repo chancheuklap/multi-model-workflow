@@ -304,6 +304,18 @@
 - 建议：①随基线下载进叶子目录，票 `Read first` 指向它，`to-tickets` 写 AC 精确值与逐字文案从它抄（规则 2「copied from the chosen prototype artifact」）；②精修前用技能表里已有的 `create-design-md` 从消费仓库生成 DESIGN.md，上传建 design system；同一份放进消费仓库、`AGENTS.md` External References 指一行；每项目一次。
 - 用户裁决：「都进」。
 
+### D6 「基线」是泛称、「契约」是约束关系（纠正落地时的收窄）
+
+- 触发：落地 #71–#73 前用户复查，指出 spec 与票把「基线」限制为 Claude Design 下载回来的目录，范围过窄——「基线应该包括 prototype 里打磨过的脚本、Claude Design 下载回来的精修过的 UI mockup、wayfinder 里讨论确定过的答案等等一系列东西」「你用基线这么一个泛称去特指 UI 下载件本来就不对」。
+- 调查确认这是一次没有定案编号的收窄：`02-during-landing-anti-drift.md` §6 候选 A 的契约对象本来是「prototype 的获胜 artifact」（UI / LOGIC / EXP 三个分支都有获胜 artifact），0.1「写码中发现契约装不下」也不限 UI；写成「Claude Design 下载回来的」发生在 #60 US5、第 3 / 7 / 8 节与 #71、#72 抄写时。D5 只是给 UI 分支补交接包 README，不是收窄的决定。
+- 结论：
+  - **基线（baseline）**：一张票的基线 = worker 开工那一刻已经拍板定形、对这张票有裁决力的制品。三条判据全满足才算：先于开工定形（白天产出，夜里只读）；记录的是答案不是过程（背后有可指认的拍板动作）；有裁决力（实现与它不一致时默认错的是实现）。
+  - 成员：prototype 的获胜 artifact（UI 的获胜 variant——精修后被交接包取代、LOGIC 的 validated reducer / machine / function set、EXP 的 Reusable parts 与 Conclusion）、Claude Design 交接包（README 含）、ADR 的 Decision、decision ticket 的 resolution、spec 经 `Parent` 指名的小节（含 Testing Decisions、Out of Scope）。用户裁定不纳入：research 结论节、`DESIGN.md`、根 `CONTEXT.md` 词表——「他们的定义足够明显且唯一了」。记录过程而非结论的材料（research 调查正文、蓝图页、会话讨论、代码现状）是参考，不是基线。票本身也不是基线——票是任务书，基线是任务书引用的参照物；ponytail 句里 What to build、AC、基线、Seam 四者并列即维持此区分。
+  - **契约（contract）**：不是另一类东西，是基线对 worker 的约束关系，三条：照它做（精确值、逐字文案、状态、接口形状从基线抄，不凭印象重写）；不默默偏离（装不下或两件基线矛盾 → 继续做 + 在 spec 下开 sub-issue `needs-triage`）；不反向迁就（不许改基线、改比对工具、改测试来让检查通过）。「基线是契约不是参考」= 把这三条绑到 `Read first` 的每件基线上。用户裁定契约在 `CONTEXT.md` 单独立词条。
+  - UI 下载件的专名是**交接包（handoff package）**。visual-parity 比对的对象在散文里称交接包；`--baseline` 参数名与 `--out` 落的 `baseline`/`impl`/`diff` 三张 png 是固定字符串（P6），不改。B9「Spec 轴不看基线目录」的对象就是交接包，措辞随之改。
+  - 各成员的机器强制手段不变、各归各：交接包 → visual-parity 的 CHECK；prototype 逻辑产物 → Seam 测试与内联 snippet 的 AC；spec 决策与 decision ticket resolution → code-review `Spec` 轴。放宽的是「契约地位 + 装不下走 sub-issue」这一半，不是给每种基线都发明一个 diff。
+- 落点：根 `CONTEXT.md`（基线移入 Working discipline 并重定义、新增契约词条、基线是契约、契约装不下、交接包、叶子目录、`Spec` axis）；`to-tickets/SKILL.md` 三处与 `mmw-v2/merge-notes/to-tickets.md`；#60 US5 / US22 与第 3 / 6 / 7 / 8 节、#71、#72、#77 正文；`implement/SKILL.md` 由 #71、#72 按此措辞落地。
+
 ## 块 E · 派发
 
 ### E1 派发前提

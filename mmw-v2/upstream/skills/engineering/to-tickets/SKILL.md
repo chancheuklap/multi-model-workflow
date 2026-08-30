@@ -68,7 +68,7 @@ Derive `CHECK:` and `EXPECT:` from the spec; do not invent either:
 
 - `CHECK:` comes from Testing Decisions — its layer, that layer's directory, and the precedent it names. Open the precedent, copy its framework and its single-file invocation, then aim that at the file and case this ticket adds.
 - `EXPECT:` is a **success-only marker**: the line the precedent prints only when it passed. Run the precedent once and copy that line. `ok`, `passed` or `done` on their own also appear in failing output; take the whole counted line.
-- A criterion that compares an interface against a downloaded baseline gets `CHECK: uv run ~/.agents/skills/verify-ticket/scripts/visual-parity.py --baseline <baseline dir> --impl <url> --scenes <name,name> --max-pct 1` and `EXPECT: PARITY OK <n>/<n>`.
+- A criterion that compares an interface against a downloaded handoff package gets `CHECK: uv run ~/.agents/skills/verify-ticket/scripts/visual-parity.py --baseline <handoff package dir> --impl <url> --scenes <name,name> --max-pct 1` and `EXPECT: PARITY OK <n>/<n>`.
 
 `CHECK:` takes the object it checks from one of two places: this ticket itself — the number comes from `$MMW_TICKET`, or from the branch name `issue-<n>` — or something this ticket names by number. When the objects only exist at run time, walk the tracker's native relationships out from an anchor the ticket names: `gh api repos/{owner}/{repo}/issues/<n>/sub_issues`. A `CHECK:` must not search for its own object; searching and taking the first hit (`gh issue list --search … | head -1` and its kind) checks whatever the search happens to return, and often cannot fail at all.
 
@@ -129,7 +129,7 @@ After publishing, open each ticket again (on a real tracker, fetch it; locally, 
 
 Then each kind of ticket, for the sections that kind must carry. On the ones an agent works:
 
-- **Read first** and **Seam** are present and non-empty ("none" counts as present). Where **Read first** points at a downloaded baseline directory, it says the directory is a contract.
+- **Read first** and **Seam** are present and non-empty ("none" counts as present). Where **Read first** carries a baseline — anything that records a settled conclusion — its line marks it as one.
 - **Owns** is present and non-empty, every entry is a repository-relative path or glob, and no two tickets on the same frontier overlap there.
 - `verify-ticket.py <n> --lint` has been run, and every ERROR it reports is fixed before you report the batch. Read every WARN once and either fix it or keep it on purpose.
 
@@ -181,7 +181,7 @@ The end-to-end behaviour this ticket makes work, from the user's perspective, no
 
 ## Read first
 
-The source material behind the sections named under **Parent**: decision tickets, ADRs, research files, prototype directories, domain docs — copied from what those sections cite, one per line, each with a word on what it settles. The implementer reads these and nothing else from the spec's Sources. A baseline directory downloaded from Claude Design, its handoff README included, is a contract and not a reference: the exact values and the verbatim copy in the criteria come from that README. Write "None" if the sections cite nothing.
+The source material behind the sections named under **Parent**: decision tickets, ADRs, research files, prototype directories, domain docs — copied from what those sections cite, one per line, each with a word on what it settles. The implementer reads these and nothing else from the spec's Sources. Whatever here records a settled conclusion — the chosen artifact of a prototype, a handoff package downloaded from Claude Design, the Decision of an ADR, the resolution of a decision ticket — is a **baseline**: a contract, not a reference, marked as one on its line. The exact values and the verbatim copy in the criteria come from the handoff package README where there is one. Write "None" if the sections cite nothing.
 
 ## Seam
 
