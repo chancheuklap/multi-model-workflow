@@ -55,7 +55,7 @@ Every criterion carries a number you assign as you write it and never renumber. 
   EVIDENCE: pending
 ```
 
-A criterion on the second route keeps the `- [ ]` line, the number and `EVIDENCE: pending`, and says in place of `CHECK:` what the worker must read to decide it.
+A criterion on the second route keeps its number and `EVIDENCE: pending`, and says in place of `CHECK:` what the worker reads to decide it.
 
 Derive `CHECK:` and `EXPECT:` from the spec; do not invent either:
 
@@ -67,9 +67,9 @@ Derive `CHECK:` and `EXPECT:` from the spec; do not invent either:
 
 `CHECK:` brings the state it needs and puts back the shared state it changed. Criteria run one at a time in ledger order, each in its own shell with cwd fixed at the repository root, so `cd` cannot reach another one — but the branch, the ticket and the working tree are shared, and `--reverify` runs every criterion a second time. Switch a branch and switch it back; reopen a ticket the next criterion needs open; stop a server you started.
 
-Write the command on the `CHECK:` line when it fits on one line. When it does not, leave that line empty after the colon and open a fenced code block on the next line: the fence holds the command, and nothing inside it is read as a criterion or an attribute, so it may contain blank lines, backtick fences and lines beginning `- [ ]`. A flush-left continuation with no fence is a parse error.
+Write the command on the `CHECK:` line when it fits there. When it does not, leave that line empty after the colon and open a fenced code block on the next line: the fence holds the command, and nothing inside it is read as a criterion or an attribute, so it may contain blank lines, backtick fences and lines beginning `- [ ]`. A flush-left continuation with no fence is a parse error.
 
-**Work only a person can judge is its own ticket, not a criterion on someone else's**, and you split it off here, while writing the ticket, not when closing it. Behaviour watched in a live session, whether a screen looks right, whether a ticket reads like a real ticket, a call only the user can make — leaving those on an agent's ticket leaves it unable to finish. Write one ticket per such judgement, labelled `ready-for-human`, blocked by the ticket that produces the thing being judged. It is a shorter ticket than the template below: **Parent**, one line on why it cannot be delegated (a judgement call, access only a person has, a design decision, or testing by hand), what the person looks at, what makes it right, and **Blocked by**. No **Seam**, no **Owns**, no acceptance criteria — nothing here runs.
+**Work only a person can judge is its own ticket, not a criterion on someone else's**, and you split it off here, while writing the ticket, not when closing it. Behaviour watched in a live session, whether a screen looks right, whether a ticket reads like a real ticket, a call only the user can make — leaving those on an agent's ticket leaves it unable to finish. Write one ticket per such judgement, labelled `ready-for-human`, blocked by the ticket that produces the thing being judged. It is a shorter ticket than the template below, and holds five things only: **Parent**, one line on why it cannot be delegated (a judgement call, access only a person has, a design decision, or testing by hand), what the person looks at, what makes it right, and **Blocked by**.
 
 This step is done when every criterion on every ticket carries a number, and either a `CHECK:` with its `EXPECT:` or a line naming what the worker reads to decide it.
 
