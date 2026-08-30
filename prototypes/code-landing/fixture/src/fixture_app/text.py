@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import unicodedata
 
-_SEPARATORS = re.compile(r"[\s_/]+")
+_SEPARATORS = re.compile(r"[\s_/.]+")
 _DROP = re.compile(r"[^a-z0-9-]")
 _DASHES = re.compile(r"-{2,}")
 

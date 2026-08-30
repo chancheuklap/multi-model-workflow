@@ -3,6 +3,7 @@ from fixture_app.queue import TASKS, queue_summary, scene_slug, task_slug
 
 def test_task_slug_prefixes_the_slugified_id():
     assert task_slug("running-main") == "task-running-main"
+    assert task_slug("v1.2-main") == "task-v1-2-main"
 
 
 def test_scene_slug_matches_the_baseline_scene_names():
