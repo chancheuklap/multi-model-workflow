@@ -223,7 +223,7 @@ scenario_badrole() {
   grep -q 'planner' "$TMP/err" || fail "the reason does not name the role: $(cat "$TMP/err")"
   [ "$(count_of 'herdr ::')" = 0 ] || fail "herdr was called for an unknown role"
 
-  echo "--- a role whose launch command is a dash, meaning it is a subagent"
+  echo "--- a role whose launch arguments are a dash, meaning it is a subagent"
   reset_log
   code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
           bash "$DISPATCH" 61 verifier)"
@@ -385,7 +385,7 @@ scenario_placeholder() {
           bash "$copy/scripts/dispatch.sh" 61 senior-worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
 
-  echo "--- model, thinking level and ticket number all reach the launch command"
+  echo "--- model, thinking level and ticket number all reach the launch arguments"
   has "herdr :: agent :: start :: issue-61 :: --kind :: grok :: --"
   has ":: --worktree=issue-61 :: --worktree-ref :: main :: --permission-mode :: bypassPermissions :: -m :: grok-4.6 :: --reasoning-effort :: xhigh"
   hasnt "{model}"

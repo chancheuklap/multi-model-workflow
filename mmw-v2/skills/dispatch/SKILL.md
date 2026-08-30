@@ -30,7 +30,7 @@ fixed by the shape of the pipeline and lives inside the script.
 | Argument | What to put there |
 | --- | --- |
 | `<ticket>` | The ticket number. Digits only, no `#` |
-| `<role>` | The first column of a row in `models.md` whose launch command is not `—`: `junior-worker`, `senior-worker`, `reviewer`. Which of the two workers a ticket gets is decided by whoever dispatches it; it is not written on the ticket and not marked with a label |
+| `<role>` | The first column of a row in `models.md` whose launch arguments are not `—`: `junior-worker`, `senior-worker`, `reviewer`. Which of the two workers a ticket gets is decided by whoever dispatches it; it is not written on the ticket and not marked with a label |
 | `[base-commit]` | Only the `reviewer` takes one. It is the commit the code review starts from |
 
 | Exit code | What happened |

@@ -8,8 +8,8 @@
 # The role and the ticket number are the whole input. Everything else — which Herdr
 # name the session gets, whether it opens a tab or splits a pane, what it is told to
 # work on — is decided by the shape of the pipeline, so it is written here rather than
-# in the table. The table holds only what a person changes: the agent, the model, the
-# thinking level, and the command that starts the harness.
+# in the table. The table holds only what a person changes: the agent, the harness, the
+# model, the thinking level, and the arguments the harness is started with.
 #
 # Exit codes are documented in SKILL.md next to this script.
 
@@ -83,7 +83,7 @@ print(sys.stdin.read().rstrip("\n")[:int(os.environ["MMW_HEAD_CHARS"])])
 
 # ------------------------------------------------------------------ the table
 
-# Prints "host<TAB>model<TAB>effort<TAB>launch command" for the first row whose agent
+# Prints "host<TAB>model<TAB>effort<TAB>launch arguments" for the first row whose agent
 # column is the role asked for. Backticks are markdown, not part of any value.
 row_for_role() {
   awk -F'|' -v want="$1" '
@@ -139,15 +139,15 @@ dispatch() {
   [ "${HERDR_ENV:-}" = 1 ] \
     || refuse "not running inside Herdr, so there is nowhere to start a session"
 
-  local row host model effort command
+  local row host model effort launch
   row="$(row_for_role "$role")"
   [ -n "$row" ] || refuse "no role named $role in $MODELS"
-  IFS=$'\t' read -r host model effort command <<<"$row"
-  case "$command" in
+  IFS=$'\t' read -r host model effort launch <<<"$row"
+  case "$launch" in
     "" | "—" | "-")
       refuse "$role is a subagent: it is started by the skill that needs it, not from here" ;;
   esac
-  case "$command" in
+  case "$launch" in
     *'{effort}'*)
       case "$effort" in
         "" | "—" | "-")
@@ -169,15 +169,12 @@ dispatch() {
     "REFUSE "*) refuse "${title#REFUSE }" ;;
   esac
 
-  command="${command//\{model\}/$model}"
-  command="${command//\{effort\}/$effort}"
-  command="${command//\{n\}/$number}"
-  # The first word names the harness binary. `herdr agent start --kind` supplies that
-  # binary itself, so only the arguments after it are ours to pass.
-  local words args
-  read -r -a words <<<"$command"
-  args=("${words[@]:1}")
-  [ "${#args[@]}" -gt 0 ] || refuse "the $role row has no arguments after the harness binary"
+  launch="${launch//\{model\}/$model}"
+  launch="${launch//\{effort\}/$effort}"
+  launch="${launch//\{n\}/$number}"
+  local args
+  read -r -a args <<<"$launch"
+  [ "${#args[@]}" -gt 0 ] || refuse "the $role row has no launch arguments"
 
   local root
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
