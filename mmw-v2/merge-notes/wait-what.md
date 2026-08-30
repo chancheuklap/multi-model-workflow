@@ -8,11 +8,11 @@
 
 | 段落 | 我们的意图 |
 | --- | --- |
-| frontmatter 的 `argument-hint` | 我们加的，上游没有。给用户一个开关：不带参数走原来的文字重讲，带 `visual` 走 `VISUAL.md`。值是自动补全里显示的参数占位符，说明写在方括号内，跟 `self/ui-qa` 一致。上游自己加 `argument-hint` → 取上游的，把 `visual` 这一支并进去 |
+| frontmatter 的 `argument-hint` | 我们加的，上游没有。给用户一个开关：不带参数走原来的文字重讲，带 `visual` 走 `VISUAL.md`。值是自动补全里显示的参数占位符，说明写在方括号内。上游自己加 `argument-hint` → 取上游的，把 `visual` 这一支并进去 |
 | 正文末尾 `Tagged \`visual\`:` 那一句 | 我们加的整句，是 `VISUAL.md` 的唯一入口。上游改了它上面那句重讲指令的措辞 → 收上游，这一句原样接在后面。上游把重讲拆成多句 → 接在最后 |
 | 正文第一句（重讲指令） | 上游原文，没改，全取上游 |
 
-正文靠自然语言认这个标签，**不用 `$ARGUMENTS`**。`$ARGUMENTS` 是 Claude Code 的替换机制，别的宿主不替换就会把这七个字面字符留在正文里。不写它也不丢参数：Claude Code 会把 `ARGUMENTS: visual` 追加到技能末尾。`self/ui-qa` 同此。
+正文靠自然语言认这个标签，**不用 `$ARGUMENTS`**。`$ARGUMENTS` 是 Claude Code 的替换机制，别的宿主不替换就会把这七个字面字符留在正文里。不写它也不丢参数：Claude Code 会把 `ARGUMENTS: visual` 追加到技能末尾。
 
 ### VISUAL.md
 

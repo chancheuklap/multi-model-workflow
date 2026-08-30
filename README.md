@@ -24,12 +24,12 @@ subagent 仍按宿主各装一份——各家的模型字段写法不同。它�
 
 ## 里面有什么
 
-**技能**——28 个，名单在 [mmw-v2/skills.txt](mmw-v2/skills.txt)。两个来源：
+**技能**——30 个，名单在 [mmw-v2/skills.txt](mmw-v2/skills.txt)。两个来源：
 
 - 上游 [mattpocock/skills](https://github.com/mattpocock/skills) 的 Git subtree，在 `mmw-v2/upstream/`。它是可编辑的工作副本，不是只读的供应商目录；我们改过的技能在 [mmw-v2/merge-notes/](mmw-v2/merge-notes/README.md) 里记着改动意图，上游更新起冲突时按它取舍。
-- 自研的在 `mmw-v2/skills/`：`exe-release`（用当前分支代码给产品出正式安装包）、`ui-qa`（按约定标准检查界面）、`readable-docs`（写人看得懂的文档，写完派 agent 核对每个论断的出处）。
+- 自研的在 `mmw-v2/skills/`：`exe-release`（用当前分支代码给产品出正式安装包）、`verify-ticket`（跑一张票的验收标准，把结果写成票上的评论）、`readable-docs`（写人看得懂的文档，写完派 agent 核对每个论断的出处）、`manage-agents-md`（建、重写或增量更新一个仓库的 AGENTS.md 与 CLAUDE.md）。
 
-**subagent**——三个，在 `mmw-v2/agents/`：`advisor`（在关键决策、同一问题两次失败、有争议的解读被当成事实之前，向更强模型要一个 verdict）、`ui-evaluator`（以初见者身份判断界面）、`claim-checker`（冷读一份文档，逐条核对论断的出处）。都不改代码，只回结论。
+**subagent**——三个，在 `mmw-v2/agents/`：`advisor`（在关键决策、同一问题两次失败、有争议的解读被当成事实之前，向更强模型要一个 verdict）、`verifier`（重跑一张已完成的票的验收标准，在票上写一行 `VERDICT`）、`claim-checker`（冷读一份文档，逐条核对论断的出处）。都不改代码，只回结论。
 
 ## 改完不生效时先看这两条
 
