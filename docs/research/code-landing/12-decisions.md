@@ -303,12 +303,13 @@
 - 我摆的三个选项：① `models.md` 第二张表 + `assemble.py` 读它；② 第二张表只当索引，第三列写「见 `agent.json`」；③ 三列改四列混在一张表。用户选 ①、收四个 agent 全部（`verifier`、`advisor`、`claim-checker`、`ui-evaluator`）；随后指出「表一表二」的切法本身是错的——「这个技能有两个功能：教 agent 怎么调用其他 agent；定义所有 agent 的配置」。
 - 用户原话（配置这一半）：「能够通过修改 models.md 去改变整个 mmw v2 的 agent 配置。实现方法就是一个新 reference 用自然语言告诉 agent 修改前要去电脑里确认某个 agent harness 的 agent 文件存放位置以及正确的模型名写法。assemble.py 的作用只是给不同 agent harness 写好 agent 配置文档格式以及一套默认的配置。」「assemble.py && install.sh 是 agent 出场前在 mmw 仓库跑的，后续通过 dispatch 技能是直接修改运行时直接生效，不需要重新安装。」
 - 结论：
-  - `models.md` 一张表，一行一个 `(agent, 宿主)`，五列「agent | 宿主 | 模型 | 思考强度 | 启动命令」。会话角色（`junior-worker`、`senior-worker`、`reviewer`）各一行，启动命令用 `{model}` / `{effort}` / `{n}` 占位，由 `dispatch.sh` 替换——换模型只改「模型」列。四个 subagent 各按五个宿主一行，启动命令列写 `—`（不经 Herdr）。
+  - `models.md` 一张表，一行一个 `(agent, 宿主)`，五列「agent | 宿主 | 模型 | 思考强度 | 启动参数」。会话角色（`junior-worker`、`senior-worker`、`reviewer`）各一行，启动参数用 `{model}` / `{effort}` / `{n}` 占位，由 `dispatch.sh` 替换——换模型只改「模型」列。四个 subagent 各按五个宿主一行，启动参数列写 `—`（不经 Herdr）。第五列不写 harness 的程序名：`herdr agent start --kind` 按「宿主」列决定跑哪个程序，`--` 后面只收参数；写进去就是同一件事说两遍，改了宿主忘了改它，表就开始说假话而照常运行。
   - **`orchestrator` 不入表**：编排者就是用户在 CLI 里自己选模型起的那个会话。
   - 表的家是 dispatch 技能目录 `mmw-v2/skills/dispatch/models.md`，跟着 `install.sh` 的软链走；`dispatch.sh` 用 `realpath` 找到自己旁边的它。
-  - 配一份 `references/before-editing.md`：改表之前去这台机器上确认两件事——该 harness 的 agent 文件存放位置、该 harness 正确的模型名与思考强度写法（去问它自己，不凭记忆）。`SKILL.md` 必须点名这份 reference，加载技能不会自动读它。
-  - `assemble.py` 退回「只管格式与出场前的默认配置」：知道五个宿主各自的配置文件格式，按 `models.md` 的 subagent 行把默认写进去；`agent.json` 保留 `model`/`effort` 作为出厂值，表里有行就用表里的。`assemble.py` 与 `install.sh` 是 agent 出场前在本仓跑一次的事，改表之后不重装。
-- 落点：`mmw-v2/skills/dispatch/models.md` 与 `references/before-editing.md`（#67）；`mmw-v2/agents/assemble.py` 与四个 `agent.json`（#69）；#66 缩成只做根 `CONTEXT.md`；#60 第 4 节。
+  - 配一份 `references/editing-models.md`：改一行的全过程，四节——确认模型名与强度写法（去问 harness 自己，不凭记忆）、确认宿主（`host` 必须是 `herdr agent` 打印的 kind，参数按新 harness 的 `--help` 整行重写）、让改动生效、去哪核对。`SKILL.md` 必须点名这份 reference，加载技能不会自动读它。
+  - `assemble.py` 只管格式：知道五个宿主各自的配置文件格式，模型与思考强度按 `(agent 名, 宿主)` 从 `models.md` 的 subagent 行读；`agent.json` 里不留 `model`/`effort`，表里缺行就停下并点名，不回落——留第二处再加一条优先级规则，正是要消灭的那种漂移。
+  - **改完生效的路径两半不同**：启动参数非空的三行由 `dispatch.sh` 派发时现读，改完即生效；`—` 的二十行要在宿主软链所指的那个 checkout 里跑一次 `assemble.py`，跑完即生效，不用 `install.sh`（宿主里是软链，指着固定的成品文件名）。`install.sh` 只在加一个全新 agent 时才要跑。
+- 落点：`mmw-v2/skills/dispatch/models.md`、`references/editing-models.md`、`mmw-v2/agents/assemble.py` 与四个 `agent.json`（都在 #67）；#66 缩成只做根 `CONTEXT.md`；#60 第 4 节。
 
 ## 块 F · 落地
 
@@ -395,8 +396,8 @@ merge-note 与正文一致性 canary（「关键句」无法机械定义）；�
 
 - 现状：G3 把 `dispatch.sh` 的落点写成 #60 第 2 节，也就是塞进新技能 `verify-ticket`。当时的理由只是 `verify-ticket` 是唯一带自有脚本的技能，有现成的安装位置——是图省事，不是分工。这与 G0「每种机制只为一个目的而用」冲突：`verify-ticket` 是跑一张票的验收标准并把结果贴回票，dispatch 是派 agent。
 - 用户原话：「`dispatch.sh` 为什么要放在 `verify-ticket` 技能里」「这个新技能应该通过被其他技能在合适的步骤里引用去触发，新技能里只需要写清楚如何派发指定的 agent 就可以了」「subagent 调用不需要这个技能教，直接在其他技能相应地方写调用某个 subagent 以及要给 subagent 什么东西就可以了」。
-- 结论：新技能 `mmw-v2/skills/dispatch/`（`SKILL.md`、`models.md`、`references/before-editing.md`、`scripts/dispatch.sh`、`tests/test_dispatch.sh`），`skills.txt` 加 `self/dispatch`。它服务的是「一个 agent 起另一个 agent」这一步，由引用方在自己的步骤里触发（主 agent 派 worker；`implement` 收尾第 3 步派 reviewer）。
-  - `SKILL.md` 只教两条调用形的参数怎么填：`dispatch.sh <票号> <角色> [起点 commit]` 与 `dispatch.sh wait <票号> "<评论首行正则>" [秒]`，加三档退出码的含义，加一句指向 `references/before-editing.md`。
+- 结论：新技能 `mmw-v2/skills/dispatch/`（`SKILL.md`、`models.md`、`references/editing-models.md`、`scripts/dispatch.sh`、`tests/test_dispatch.sh`），`skills.txt` 加 `self/dispatch`。它服务的是「一个 agent 起另一个 agent」这一步，由引用方在自己的步骤里触发（主 agent 派 worker；`implement` 收尾第 3 步派 reviewer）。
+  - `SKILL.md` 只教两条调用形的参数怎么填：`dispatch.sh <票号> <角色> [起点 commit]` 与 `dispatch.sh wait <票号> "<评论首行正则>" [秒]`，加三档退出码的含义，加一句指向 `references/editing-models.md`。
   - Herdr 那一串固定操作（查票、`tab create`、`pane split`、`agent start`、等 idle、`agent prompt`、`pane rename`、写 `model` token、`agent wait` + 一次 `gh` 确认）全部包在 `dispatch.sh` 里，一条命令走完，调用方只给角色名与票号。编排规则（worker 开 tab / reviewer 同 tab 分屏、Herdr 名、pane 标签、派发词、120 秒 idle 上限）写死在脚本里，不进表——它们由流水线形状决定（H1），不是用户要调的东西。
   - **subagent 的调用不归这个技能教**：由引用方在自己的正文里写「派哪个子代理、给它什么」（`implement` 收尾第 2 步写「派 verifier 子代理，提示词只有 `verify #<n>`」）。dispatch 技能只在 `models.md` 里持有它们的配置。
   - 不采：`caffeinate -dims` 前缀防睡机（#67 Read first 里 swarm-forge `swarmforge.bb` L565-576 的「可顺带加」）；`agent start` 被挡时补一条 `agent rename`（`14` §3）——两条都由用户裁定不加。

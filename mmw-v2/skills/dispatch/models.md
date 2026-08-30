@@ -1,33 +1,23 @@
 # Models
 
 One row per `(agent, host)`. Every agent this pipeline sends out is here except the
-orchestrator, which is the session you started yourself from the CLI.
+orchestrator, which is the session you started yourself from the CLI. This is the only
+place any of their models are written down.
 
-Non-empty launch arguments mean the agent runs as its own session in a Herdr pane.
-`dispatch.sh` reads the row at the moment it dispatches, so an edit to one of these rows
-is in force on the very next dispatch, with nothing to build and nothing to install. The
-host column decides which harness the session is, and it has to be one of the agent
-kinds Herdr recognises; the arguments are handed to that harness untouched. `{model}`,
-`{effort}` and `{n}` are replaced with the row's model, the row's effort, and the real
-ticket number, so moving an agent to a different model is an edit to the model column
-alone. Moving it to a different harness is an edit to the whole row: every harness
-spells its models, its thinking levels and its arguments its own way.
+**Launch arguments** say how the agent is started, and which of the two kinds it is.
+Non-empty, and the agent runs as its own session in a Herdr pane: the host column says
+which harness that session is, and the arguments are handed to that harness untouched.
+`—`, and the agent is a subagent: it runs inside the session that dispatches it and
+never goes through Herdr.
 
-Launch arguments of `—` mean the agent is a subagent: it runs inside the session that
-dispatches it and never goes through Herdr. A harness reads a subagent's model and
-thinking level out of its own agent definition file, so those rows have to be built into
-those files before they take effect. After editing one, run
+`{model}`, `{effort}` and `{n}` in an argument are replaced with the row's model, the
+row's effort, and the real ticket number, so moving an agent to a different model is an
+edit to the model column alone. Moving it to a different harness is an edit to the whole
+row: every harness spells its models, its thinking levels and its arguments its own way.
 
-```bash
-python3 mmw-v2/agents/assemble.py
-```
-
-in the checkout the harnesses are installed from, and the change is live in the next
-session that dispatches it. Nothing else: the harnesses hold links to the built files,
-so the links do not move. `install.sh` is for adding a whole new agent, not for changing
-one.
-
-Read `references/before-editing.md` before you change anything here.
+Read [`references/editing-models.md`](references/editing-models.md) before you change
+anything here. It also says what to do afterwards, which is not the same for both kinds
+of row.
 
 | agent | host | model | effort | launch arguments |
 | --- | --- | --- | --- | --- |

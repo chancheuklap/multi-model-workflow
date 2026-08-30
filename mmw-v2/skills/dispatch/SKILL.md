@@ -1,12 +1,12 @@
 ---
 name: dispatch
-description: Start another agent on a ticket and wait for it to report back. Use at the step where one agent hands a ticket to a session running on a different model — dispatching a worker onto a ticket, or a reviewer onto the work just finished — and to change which agent, model, or thinking level any of them runs on.
+description: Dispatch a worker or a reviewer onto a ticket, wait for it to report back there, and change which agent, model or thinking level any agent in this pipeline runs on.
 ---
 
 # Dispatch
 
-One agent puts another to work on a ticket. Other skills reach this one at the step
-where that happens; nothing here runs on its own.
+Other skills reach this one at the step where one agent puts another to work; nothing
+here runs on its own.
 
 ## The script
 
@@ -17,9 +17,8 @@ below is written `<dispatch> …` and means:
 bash /absolute/path/to/scripts/dispatch.sh …
 ```
 
-It reads `models.md` next to it, checks the ticket, starts the session, and hands it the
-one line that puts it to work. You supply a role and a ticket number; everything else is
-fixed by the shape of the pipeline and lives inside the script.
+You supply a role and a ticket number. Everything else is fixed by the shape of the
+pipeline and lives inside the script.
 
 ## Dispatch an agent
 
@@ -30,7 +29,7 @@ fixed by the shape of the pipeline and lives inside the script.
 | Argument | What to put there |
 | --- | --- |
 | `<ticket>` | The ticket number. Digits only, no `#` |
-| `<role>` | The first column of a row in `models.md` whose launch arguments are not `—`: `junior-worker`, `senior-worker`, `reviewer`. Which of the two workers a ticket gets is decided by whoever dispatches it; it is not written on the ticket and not marked with a label |
+| `<role>` | `junior-worker`, `senior-worker` or `reviewer`. You choose which of the two workers a ticket gets; the ticket itself says nothing about it |
 | `[base-commit]` | Only the `reviewer` takes one. It is the commit the code review starts from |
 
 | Exit code | What happened |
@@ -38,6 +37,10 @@ fixed by the shape of the pipeline and lives inside the script.
 | `0` | The session is up and has been told what to work on |
 | `1` | The session is up but never became ready in time, so it was **not** told anything |
 | `2` | Nothing was started. The reason is on stderr: not inside Herdr, no such role, or the ticket is not ready to be worked on |
+
+On exit 1 a session is sitting in that pane holding the ticket's name with nothing to do.
+Dispatching the same role again collides on that name: end that session first, or carry
+on without it.
 
 ## Wait for the agent to report back
 
@@ -60,8 +63,7 @@ never reported back is not a reason to hand the ticket to a person.
 
 ## Change which agent, model, or thinking level is used
 
-Edit `models.md`. It holds every agent this pipeline sends out, one row each, and it is
-the only place any of their models are written down. **Read
-[references/before-editing.md](references/before-editing.md) first** — it names what you
-have to confirm on this machine before you touch a row. `models.md` itself says which
-rows are live on the next dispatch and which have to be built first.
+Edit `models.md`, next to this file. **Read
+[references/editing-models.md](references/editing-models.md) first** — a row is only
+correct on the machine it runs on, and that file carries the whole change: what to
+confirm before you touch a row, and what to do afterwards to make it take effect.
