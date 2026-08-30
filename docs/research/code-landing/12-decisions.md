@@ -247,6 +247,14 @@
 - 结论：`code-review` 变三轴，多一个 `references/tests-reviewer.md`。判据抄 `tdd/tests.md` 与 `tdd/mocking.md` 的要点——implementation-detail 六条 red flags、tautological、绕过接口验证、mock 只在系统边界——再加边界与错误路径；输入是 `git diff <起点>...HEAD` 与票的验收标准，不是谁的摘要；审哪些测试文件从每条 `CHECK:` 点名的文件与用例名取，清单之外不看。两条明写不做：不报覆盖率（与 `tdd/SKILL.md:21` 的 seam 纪律相抵）、不事后追加测试标准（票上没写 `CHECK:` 说明那条标准不由测试判，记忆「Reviewer must not self-set pass criteria」）。发现归类：某条 AC 的 `CHECK:` 点名的那个用例本身有问题 → 票内；diff 里其余测试文件的问题 → 票外。每票都派，不按票的内容挑（同 B3）。
 - 落点：`#60` 第 6 节改成四个 reference、Out of Scope 去掉 Tests 人格（发现闭环、Verification 一栏、Security 人格仍不做）；蓝图页步 10；根 `CONTEXT.md`「Code review」节加 `Tests` axis；`#70`。
 
+### B11 派发者的正文并回 `SKILL.md`（覆盖 B7 的四文件形态）
+
+- 起因：落地 `#70` 之后复看形态。`SKILL.md` 与 `references/dispatch.md` 的读者是同一个——派发者，而且它每次都要把后者从头读到尾，没有哪一次只读一半。
+- 判据：把正文推进 reference 文件，是为了让只有部分场景才走到的内容不占每次的篇幅。三个 reviewer 的 reference 各只被一个子代理读，符合这个条件；派发者那份不符合，它就是主线本身，拆出去只多一次跳转。
+- 用户裁决：「既然整个 skill.md 都是给 dispatcher 的，就不应该再有独立的 dispatch 文档」。
+- 结论：`code-review/` 是四个文件——`SKILL.md` 一份写全派发者要做的（取起点与 diff、派三个子代理、发现分票内 / 票外、把三份报告写成票上一条评论），`references/` 下三个 reviewer 各一份。`SKILL.md` 的行数上限从 40 放宽到 70，仍然不含 smell baseline 正文与任何 reviewer 的 brief 原文——那三样是子代理的判据，不是派发者的动作。
+- 落点：`#60` 第 6 节；蓝图页步 10；`#70`。
+
 ## 块 C · 写码纪律
 
 ### C1 ponytail 五句写进 `implement` 后怎么验证
