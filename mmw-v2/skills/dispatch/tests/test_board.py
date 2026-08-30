@@ -10,7 +10,10 @@ board decides is a function of those two, which is why none of it needs a termin
 from __future__ import annotations
 
 import importlib.util
+import io
+import os
 import unittest
+from contextlib import redirect_stdout
 from datetime import datetime
 from pathlib import Path
 
@@ -212,6 +215,86 @@ class TicketReading(unittest.TestCase):
         self.assertEqual(board.unmet_criteria(found), [])
 
 
+REVERIFY_NO_VERDICT_COMMENT = "reverify\nUNMET: 0 (met: 5)\n\n- [x] AC1: one"
+REVIEW = "REVIEW abc1234..def5678\nNo findings inside the ticket."
+REVIEW_TIMEOUT = ("issue-61-review did not report back within 1800s. This round was "
+                  "skipped and the ticket carried on.")
+
+
+class Sentences(unittest.TestCase):
+    """The whole of the table board.py speaks from. No model, no new instruction."""
+
+    def said(self, phase, comments, number=62):
+        return board.sentence(ticket(number, comments=comments), phase, cwd="")
+
+    def test_no_phase_and_no_run_yet(self):
+        for phase in ("", "implement"):
+            self.assertEqual(
+                self.said(phase, []),
+                "implement #62 — continue. The ticket has no self-run yet; the next "
+                "step is verify-ticket.py 62.")
+
+    def test_a_self_run_with_unmet_criteria_names_them_and_the_three_round_cap(self):
+        self.assertEqual(
+            self.said("selfcheck", [SELF_RUN_UNMET]),
+            "implement #62 — continue from step 1. The last self-run left 2 unmet: "
+            "AC3, AC5. Fix, then run verify-ticket.py 62 again. A criterion still "
+            "failing after three self-runs is ABANDON failed.")
+
+    def test_a_self_run_with_nothing_unmet_sends_it_to_the_verifier(self):
+        self.assertEqual(
+            self.said("selfcheck", [SELF_RUN_ALL_MET]),
+            "implement #62 — continue from step 2: dispatch the verifier with the "
+            "prompt verify #62.")
+
+    def test_a_verdict_is_quoted_by_its_level_and_points_at_the_review_round(self):
+        said = self.said("verify", [SELF_RUN_ALL_MET, VERDICT])
+        self.assertTrue(said.startswith(
+            "implement #62 — continue from step 3. The VERDICT on the ticket is "
+            "unit-test-verified. Next is one round of code review: dispatch.sh 62 "
+            "reviewer "))
+
+    def test_a_review_report_points_at_the_audit_and_the_closeout(self):
+        self.assertEqual(
+            self.said("verify", [VERDICT, REVIEW]),
+            "implement #62 — continue from step 4: audit, draft the closing comment, "
+            "push, then verify-ticket.py 62 --closeout <draft>.")
+
+    def test_a_reverify_that_left_no_verdict_is_sent_back_to_read_it(self):
+        self.assertEqual(
+            self.said("verify", [REVERIFY_NO_VERDICT_COMMENT]),
+            "implement #62 — continue from step 2. The verifier ran but left no "
+            "VERDICT; read its report and act on it.")
+
+    def test_a_refused_closeout_names_the_dry_run(self):
+        self.assertEqual(
+            self.said("closeout-rejected", [SELF_RUN_ALL_MET]),
+            "implement #62 — continue from step 7. --closeout was refused: run "
+            "verify-ticket.py 62 --closeout --check-only, fix what its first line "
+            "names, run --closeout again.")
+
+    def test_a_review_round_nobody_came_back_from_is_skipped_whatever_the_phase(self):
+        for phase in ("", "implement", "selfcheck", "verify", "closeout-rejected"):
+            self.assertEqual(self.said(phase, [SELF_RUN_UNMET, REVIEW_TIMEOUT]),
+                             "implement #62 — continue from step 4; the review round "
+                             "was skipped.")
+
+    def test_the_do_not_ask_sentence_carries_the_working_discipline_and_nothing_new(self):
+        self.assertEqual(
+            board.DO_NOT_ASK.format(n=62),
+            'implement #62 — continue. Do not ask: the ticket and the sections it '
+            'names are the whole brief. Pick a default, record it under "Decisions I '
+            'made on my own", and open a sub-issue if the contract does not fit.')
+
+    def test_every_sentence_is_the_dispatch_line_plus_facts_off_the_ticket(self):
+        for phase, comments in (("", []), ("selfcheck", [SELF_RUN_UNMET]),
+                                ("selfcheck", [SELF_RUN_ALL_MET]),
+                                ("verify", [VERDICT]), ("verify", [REVIEW]),
+                                ("verify", [REVERIFY_NO_VERDICT_COMMENT]),
+                                ("closeout-rejected", [])):
+            self.assertTrue(self.said(phase, comments).startswith("implement #62 — "))
+
+
 class Table(unittest.TestCase):
     """The one screen `--once` prints."""
 
@@ -239,6 +322,271 @@ class Table(unittest.TestCase):
         self.assertEqual([l.split()[0] for l in body], ["#61", "#65"])
         self.assertIn("issue-61", body[0])
         self.assertIn("waiting on #61", body[1])
+
+
+class Clock:
+    """A monotonic clock the test moves by hand, so cooldowns cost no wall time."""
+
+    def __init__(self):
+        self.now = 1000.0
+
+    def monotonic(self):
+        return self.now
+
+    def tick(self, seconds):
+        self.now += seconds
+
+
+class Table4(unittest.TestCase):
+    """The lookup table: what board.py does about each thing it can see.
+
+    Nothing here reaches Herdr or the tracker. Every call board.py would make to
+    either is replaced by a recorder, so the test reads the decisions themselves.
+    """
+
+    def setUp(self):
+        self.calls = {"herdr": [], "gh": [], "prompt": [], "dispatch": []}
+        self.clock = Clock()
+        self.saved = {name: getattr(board, name) for name in
+                      ("herdr", "gh", "herdr_run", "run_dispatch", "read_ticket",
+                       "collect", "time")}
+        self.tickets = {}
+        self.rows = []
+
+        def fake_herdr(args):
+            self.calls["herdr"].append(list(args))
+            if args[:2] == ["agent", "get"]:
+                pane = args[2]
+                agent_ = next((a for a in self.agents if a["pane_id"] == pane), {})
+                return {"result": {"agent": agent_}}
+            return {"result": {}}
+
+        def fake_gh(args):
+            self.calls["gh"].append(list(args))
+            return ""
+
+        def fake_prompt(args):
+            if args[:2] == ["agent", "prompt"]:
+                self.calls["prompt"].append((args[2], args[3]))
+            return (0, "")
+
+        def fake_dispatch(number, role):
+            self.calls["dispatch"].append((number, role))
+            return (0, f"issue-{number} is working on #{number}", "")
+
+        board.herdr = fake_herdr
+        board.gh = fake_gh
+        board.herdr_run = fake_prompt
+        board.run_dispatch = fake_dispatch
+        board.read_ticket = lambda n: self.tickets[n]
+        board.collect = lambda spec: (self.rows, [])
+        board.time = self.clock
+        os.environ.setdefault("HERDR_PANE_ID", "w1:pBoard")
+
+    def tearDown(self):
+        for name, value in self.saved.items():
+            setattr(board, name, value)
+
+    def world(self, agents, tickets):
+        """Set the two sources for the rounds that follow."""
+        self.agents = agents
+        self.tickets = tickets
+        self.rows = board.build_rows(list(tickets), tickets, board.sessions(agents))
+
+    def watch(self, parallel=2, max_hours=4):
+        return board.Watch(76, "junior-worker", parallel, max_hours)
+
+    def round(self, watch):
+        with redirect_stdout(io.StringIO()) as out:
+            watch.round()
+        return out.getvalue()
+
+    # ------------------------------------------------------------- working
+
+    def test_a_working_session_is_left_alone(self):
+        self.world([agent("issue-61", "w1:p1", "working", ticket=61, role="worker",
+                          phase="implement")], {61: ticket(61, assignees=("me",))})
+        self.round(self.watch())
+        self.assertEqual(self.calls["prompt"], [])
+        self.assertEqual(self.calls["gh"], [])
+        self.assertNotIn(["pane", "close", "w1:p1"], self.calls["herdr"])
+
+    # ------------------------------------------------------------- at the end
+
+    def test_a_session_at_either_exit_has_its_pane_closed(self):
+        for phase in ("closed", "handoff"):
+            with self.subTest(phase=phase):
+                self.calls["herdr"].clear()
+                self.world([agent("issue-61", "w1:p1", "idle", ticket=61, role="worker",
+                                  phase=phase)],
+                           {61: ticket(61, state="CLOSED", labels=())})
+                printed = self.round(self.watch())
+                self.assertIn(["pane", "close", "w1:p1"], self.calls["herdr"])
+                self.assertIn("#61", printed)
+                self.assertEqual(self.calls["prompt"], [])
+
+    # ------------------------------------------------------------- stopped short
+
+    def stalled_world(self, wake=0, phase="selfcheck", status="idle", **extra):
+        self.world([agent("issue-61", "w1:p1", status, ticket=61, role="worker",
+                          phase=phase, ac="1/2", wake=wake, **extra)],
+                   {61: ticket(61, assignees=("me",), comments=[SELF_RUN_UNMET])})
+
+    def test_the_first_settled_round_only_starts_the_cooldown(self):
+        self.stalled_world()
+        watch = self.watch()
+        printed = self.round(watch)
+        self.assertEqual(self.calls["prompt"], [])
+        self.assertIn("cooldown 120s", printed)
+
+    def test_after_the_cooldown_it_is_told_the_sentence_for_its_phase(self):
+        self.stalled_world()
+        watch = self.watch()
+        self.round(watch)
+        self.clock.tick(board.COOLDOWN_SECONDS)
+        self.round(watch)
+        self.assertEqual(len(self.calls["prompt"]), 1)
+        pane, text = self.calls["prompt"][0]
+        self.assertEqual(pane, "w1:p1")
+        self.assertTrue(text.startswith("implement #61 — continue from step 1."))
+        self.assertIn("AC3, AC5", text)
+
+    def test_the_wait_before_each_prompt_grows(self):
+        for wake, wait in enumerate(board.WAKE_BACKOFF):
+            with self.subTest(wake=wake):
+                self.calls["prompt"].clear()
+                self.stalled_world(wake=wake)
+                watch = self.watch()
+                self.round(watch)
+                self.clock.tick(wait - 1)
+                self.round(watch)
+                self.assertEqual(self.calls["prompt"], [])
+                self.clock.tick(1)
+                self.round(watch)
+                self.assertEqual(len(self.calls["prompt"]), 1)
+
+    def test_the_count_of_prompts_is_written_on_the_pane(self):
+        self.stalled_world(wake=1)
+        watch = self.watch()
+        self.round(watch)
+        self.clock.tick(board.WAKE_BACKOFF[1])
+        self.round(watch)
+        self.assertIn(["pane", "report-metadata", "w1:p1", "--source", "mmw",
+                       "--token", "wake=2", "--ttl-ms", "86400000"],
+                      self.calls["herdr"])
+
+    def test_at_the_third_prompt_the_ticket_goes_back_to_be_judged(self):
+        self.stalled_world(wake=board.WAKE_LIMIT)
+        watch = self.watch()
+        self.round(watch)
+        self.clock.tick(max(board.WAKE_BACKOFF))
+        self.round(watch)
+        self.assertEqual(self.calls["prompt"], [])
+        comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
+        self.assertTrue(comment[-1].startswith("WAKEUP LIMIT:"))
+        self.assertIn(["issue", "edit", "61", "--remove-label", "ready-for-agent",
+                       "--add-label", "needs-triage"], self.calls["gh"])
+
+    def test_a_token_that_has_not_come_round_yet_does_not_earn_a_second_prompt(self):
+        self.stalled_world()
+        watch = self.watch()
+        self.round(watch)
+        self.clock.tick(board.COOLDOWN_SECONDS)
+        self.round(watch)
+        self.assertEqual(len(self.calls["prompt"]), 1)
+        # The pane still reports wake=0: the write has not reached the snapshot.
+        self.clock.tick(board.WAKE_BACKOFF[0])
+        self.round(watch)
+        self.assertEqual(len(self.calls["prompt"]), 1)
+        self.clock.tick(board.WAKE_BACKOFF[1] - board.WAKE_BACKOFF[0])
+        self.round(watch)
+        self.assertEqual(len(self.calls["prompt"]), 2)
+
+    def test_a_focused_pane_is_never_prompted(self):
+        self.stalled_world()
+        self.agents[0]["focused"] = True
+        watch = self.watch()
+        self.round(watch)
+        self.clock.tick(board.COOLDOWN_SECONDS)
+        self.round(watch)
+        self.assertEqual(self.calls["prompt"], [])
+
+    def test_a_pane_that_went_back_to_work_is_not_prompted(self):
+        self.stalled_world()
+        watch = self.watch()
+        self.round(watch)
+        self.agents[0]["agent_status"] = "working"
+        self.clock.tick(board.COOLDOWN_SECONDS)
+        self.round(watch)
+        self.assertEqual(self.calls["prompt"], [])
+
+    def test_a_pane_holding_a_different_session_now_is_not_prompted(self):
+        self.stalled_world()
+        watch = self.watch()
+        self.round(watch)
+        self.agents[0]["agent_session"] = {"value": "somebody-else"}
+        self.clock.tick(board.COOLDOWN_SECONDS)
+        self.round(watch)
+        self.assertEqual(self.calls["prompt"], [])
+
+    def test_a_reviewer_that_stops_is_left_to_its_workers_own_wait(self):
+        self.world([agent("issue-61-review", "w1:p2", "idle", ticket=61,
+                          role="reviewer")], {61: ticket(61, assignees=("me",))})
+        watch = self.watch()
+        self.round(watch)
+        self.clock.tick(max(board.WAKE_BACKOFF))
+        self.round(watch)
+        self.assertEqual(self.calls["prompt"], [])
+        self.assertNotIn(["pane", "close", "w1:p2"], self.calls["herdr"])
+
+    # ------------------------------------------------------------- the time limit
+
+    def test_a_ticket_that_held_a_session_too_long_goes_back_and_keeps_its_session(self):
+        self.stalled_world(phase="verify")
+        watch = self.watch()
+        self.round(watch)
+        self.clock.tick(4 * 3600 + 1)
+        self.round(watch)
+        comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
+        self.assertTrue(comment[-1].startswith("TIME LIMIT: 4 h at phase=verify"))
+        self.assertIn(["issue", "edit", "61", "--remove-label", "ready-for-agent",
+                       "--add-label", "needs-triage"], self.calls["gh"])
+        self.assertNotIn(["pane", "close", "w1:p1"], self.calls["herdr"])
+
+    def test_a_session_that_reached_the_end_is_past_the_time_limit(self):
+        self.world([agent("issue-61", "w1:p1", "idle", ticket=61, role="worker",
+                          phase="closed")], {61: ticket(61, state="CLOSED", labels=())})
+        watch = self.watch()
+        self.round(watch)
+        self.calls["gh"].clear()
+        self.clock.tick(4 * 3600 + 1)
+        self.round(watch)
+        self.assertEqual([c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"]], [])
+
+    # ------------------------------------------------------------- dispatching
+
+    def test_the_frontier_is_dispatched_up_to_the_parallel_cap(self):
+        self.world([], {70: ticket(70), 71: ticket(71), 72: ticket(72)})
+        self.round(self.watch(parallel=2))
+        self.assertEqual(self.calls["dispatch"],
+                         [(70, "junior-worker"), (71, "junior-worker")])
+
+    def test_a_live_session_takes_up_one_of_those_places(self):
+        self.world([agent("issue-61", "w1:p1", "working", ticket=61, role="worker",
+                          phase="implement")],
+                   {61: ticket(61, assignees=("me",)), 70: ticket(70), 71: ticket(71)})
+        self.round(self.watch(parallel=2))
+        self.assertEqual(self.calls["dispatch"], [(70, "junior-worker")])
+
+    def test_a_ticket_already_handed_back_is_not_started_again(self):
+        self.stalled_world(wake=board.WAKE_LIMIT)
+        watch = self.watch()
+        self.round(watch)
+        self.clock.tick(max(board.WAKE_BACKOFF))
+        self.round(watch)
+        self.world([], {61: ticket(61)})
+        self.round(watch)
+        self.assertEqual(self.calls["dispatch"], [])
 
 
 class Constants(unittest.TestCase):

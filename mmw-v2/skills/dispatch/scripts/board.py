@@ -3,12 +3,16 @@
 
     board.py --once [<spec>]   print one table and exit
     board.py [<spec>]          stay up, append one line per event
+    board.py --watch <spec>    the same, and act on what it sees
 
 One program, several forms, reading the same two sources, so there is never a second
 truth to reconcile. `--once` is what an agent runs when it wants the whole picture in
 one screen. The argument-less form is what a person leaves open in a tab: it appends,
 never redraws, and never enters the alternate screen, so its lines stay in the host's
-scrollback where `herdr pane read` can still reach them.
+scrollback where `herdr pane read` can still reach them. `--watch` is the one form that
+does anything: it dispatches the frontier, picks up sessions that stopped short of
+either exit, and hands back the tickets that hit a limit. Nothing it does needs a
+model — every sentence it sends is in the table below.
 
 The two sources are the tracker and Herdr, and nothing else. There is no state file:
 every round is a full re-read, so a dropped connection or a restart loses nothing.
@@ -24,6 +28,7 @@ import socket
 import subprocess
 import sys
 import threading
+import time
 from datetime import datetime
 
 # --------------------------------------------------------------------- constants
@@ -44,7 +49,12 @@ TERMINAL_PHASES = ("closed", "handoff")
 # Herdr's five lifecycle words. `idle` and `done` are the same underlying state.
 SETTLED_STATUSES = ("idle", "done")
 
+TOKEN_TTL_MS = 86400000         # a day, so a night's run never outlives its metadata
+
 SOCKET_PATH = os.path.expanduser("~/.config/herdr/herdr.sock")
+
+# The dispatcher is this script's neighbour, so the pair moves as one skill.
+DISPATCH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dispatch.sh")
 
 # --------------------------------------------------------------------- reading
 
@@ -74,6 +84,27 @@ def herdr(args: list[str]) -> dict:
         return json.loads(run.stdout)
     except Exception:
         return {}
+
+
+def herdr_run(args: list[str]) -> tuple[int, str]:
+    """A Herdr call read for whether it worked, and for what it said when it did not.
+
+    `agent prompt` is the one call whose refusals matter: `agent_blocked` when the
+    session is at a question or an approval, `agent_prompt_stalled` when the pane no
+    longer takes input at all.
+    """
+    try:
+        run = subprocess.run(["herdr", *args], capture_output=True, text=True, timeout=60)
+        return run.returncode, (run.stderr or run.stdout or "").strip()
+    except Exception as problem:
+        return 1, str(problem)
+
+
+def run_dispatch(number: int, role: str) -> tuple[int, str, str]:
+    """`dispatch.sh <n> <role>`: its exit code is a row of the table all by itself."""
+    run = subprocess.run(["bash", DISPATCH, str(number), role],
+                         capture_output=True, text=True)
+    return run.returncode, (run.stdout or "").strip(), (run.stderr or "").strip()
 
 
 def unwrap(payload: dict) -> dict:
@@ -400,6 +431,274 @@ class Events:
                 self.woke.set()
         conn.close()
 
+# --------------------------------------------------------------------- the sentences
+
+# What a session that stopped short of its exit is told. Every one of these is
+# `implement #<n>` plus fields copied off the ticket; not one word of it is a new
+# instruction, because the worker already carries the whole method in its own skill.
+NO_SELF_RUN_YET = ("implement #{n} — continue. The ticket has no self-run yet; the next "
+                   "step is verify-ticket.py {n}.")
+SELF_RUN_UNMET = ("implement #{n} — continue from step 1. The last self-run left {m} "
+                  "unmet: {criteria}. Fix, then run verify-ticket.py {n} again. A "
+                  "criterion still failing after three self-runs is ABANDON failed.")
+SELF_RUN_ALL_MET = ("implement #{n} — continue from step 2: dispatch the verifier with "
+                    "the prompt verify #{n}.")
+AFTER_VERDICT = ("implement #{n} — continue from step 3. The VERDICT on the ticket is "
+                 "{level}. Next is one round of code review: dispatch.sh {n} reviewer "
+                 "{base}.")
+AFTER_REVIEW = ("implement #{n} — continue from step 4: audit, draft the closing "
+                "comment, push, then verify-ticket.py {n} --closeout <draft>.")
+REVERIFY_NO_VERDICT = ("implement #{n} — continue from step 2. The verifier ran but left "
+                       "no VERDICT; read its report and act on it.")
+CLOSEOUT_REJECTED = ("implement #{n} — continue from step 7. --closeout was refused: run "
+                     "verify-ticket.py {n} --closeout --check-only, fix what its first "
+                     "line names, run --closeout again.")
+REVIEW_SKIPPED = "implement #{n} — continue from step 4; the review round was skipped."
+DO_NOT_ASK = ("implement #{n} — continue. Do not ask: the ticket and the sections it "
+              "names are the whole brief. Pick a default, record it under \"Decisions I "
+              "made on my own\", and open a sub-issue if the contract does not fit.")
+
+REVIEW_TIMED_OUT = "did not report back within"
+
+
+def merge_base(cwd: str) -> str:
+    """Where a review of this session's work starts: the same commit `--closeout` uses."""
+    try:
+        run = subprocess.run(["git", "-C", cwd or ".", "merge-base", "main", "HEAD"],
+                             capture_output=True, text=True, timeout=20)
+        return run.stdout.strip() if run.returncode == 0 else "<base-commit>"
+    except Exception:
+        return "<base-commit>"
+
+
+def sentence(ticket: dict, phase: str, cwd: str = "") -> str:
+    """The one thing to say to a session on this ticket at this phase.
+
+    Read off the phase and the first line of the ticket's newest comment, in that
+    order, so that two boards looking at one ticket would say the same thing.
+    """
+    number = ticket["number"]
+    head = last_first_line(ticket)
+
+    if REVIEW_TIMED_OUT in head:
+        return REVIEW_SKIPPED.format(n=number)
+
+    if phase == "closeout-rejected":
+        return CLOSEOUT_REJECTED.format(n=number)
+
+    if phase == "selfcheck":
+        body = newest_with_first_line(ticket, "self-run", "reverify")
+        unmet = unmet_criteria(body)
+        if unmet:
+            return SELF_RUN_UNMET.format(n=number, m=len(unmet),
+                                         criteria=", ".join(unmet))
+        return SELF_RUN_ALL_MET.format(n=number)
+
+    if phase == "verify":
+        if head.startswith("VERDICT"):
+            fields = head.split()
+            level = fields[2] if len(fields) > 2 else "unreadable"
+            return AFTER_VERDICT.format(n=number, level=level, base=merge_base(cwd))
+        if head.startswith("REVIEW"):
+            return AFTER_REVIEW.format(n=number)
+        if head.startswith("reverify"):
+            return REVERIFY_NO_VERDICT.format(n=number)
+
+    return NO_SELF_RUN_YET.format(n=number)
+
+# --------------------------------------------------------------------- acting
+
+WAKEUP_LIMIT = ("WAKEUP LIMIT: prompted {k} times and it stopped again at phase={phase}. "
+                "Handed back to needs-triage; the ticket stays open.")
+TIME_LIMIT = ("TIME LIMIT: {hours} h at phase={phase}. Handed back to needs-triage; the "
+              "session was left alone.")
+
+
+class Watch:
+    """The night's one moving part: a full re-read, then the table of §4, then dispatch.
+
+    It holds no file. What it does keep between rounds is what only it can know — when
+    a session was first seen settled, and when it may next be prompted — and losing
+    that on a restart costs one cooldown, nothing more. Everything else it can be told
+    again by the tracker and by Herdr.
+    """
+
+    def __init__(self, spec: int, role: str, parallel: int, max_hours: int) -> None:
+        self.spec = spec
+        self.role = role
+        self.parallel = parallel
+        self.max_hours = max_hours
+        self.settled_since: dict[str, float] = {}
+        self.held_since: dict[int, float] = {}
+        self.wakes: dict[str, int] = {}
+        self.handed_back: set[int] = set()
+
+    # ------------------------------------------------------------- the round
+
+    def run(self) -> int:
+        events = Events()
+        events.start()
+        say("board", "watch", f"spec #{self.spec} role={self.role} "
+                              f"parallel={self.parallel} max-hours={self.max_hours}")
+        while True:
+            try:
+                self.round()
+            except Exception as problem:
+                say("board", "error", str(problem)[:160])
+            events.wait(SNAPSHOT_INTERVAL)
+
+    def round(self) -> None:
+        rows, _ = collect(self.spec)
+        mine = [r for r in rows if r["worker"] and r["worker"]["dispatched"]]
+        for row in mine:
+            self.pick_up(row)
+        self.dispatch_frontier(rows)
+
+    def pick_up(self, row: dict) -> None:
+        worker = row["worker"]
+        if worker["role"] != "worker":
+            # A reviewer that stops is the worker's own `dispatch.sh wait` to time out.
+            return
+        if self.over_time(row):
+            return
+        if worker["status"] in SETTLED_STATUSES:
+            if worker["phase"] in TERMINAL_PHASES:
+                self.at_the_end(row)
+            else:
+                self.stopped_short(row)
+            return
+        if worker["status"] == "working":
+            self.settled_since.pop(worker["pane_id"], None)
+
+    # ------------------------------------------------------------- the rows of §4
+
+    def at_the_end(self, row: dict) -> None:
+        """Closed or handed over. Close the pane: the reader is on the tracker."""
+        worker = row["worker"]
+        say(f"#{row['ticket']}", "end", f"phase={worker['phase']}  {row['note']}")
+        herdr(["pane", "close", worker["pane_id"]])
+        self.settled_since.pop(worker["pane_id"], None)
+        self.held_since.pop(row["ticket"], None)
+
+    def prompts_so_far(self, worker: dict) -> int:
+        """How many times this session has been prompted.
+
+        The count lives on the pane, which is where the session it counts lives. A
+        token takes a moment to come back round through the snapshot, so this round's
+        own prompt is remembered as well; without that a fast round would read a stale
+        zero and prompt again immediately.
+        """
+        return max(worker["wake"], self.wakes.get(worker["pane_id"], 0))
+
+    def stopped_short(self, row: dict) -> None:
+        """Settled with a phase short of either exit: wait a cooldown, then say one line."""
+        worker = row["worker"]
+        pane = worker["pane_id"]
+        wake = self.prompts_so_far(worker)
+        wait = WAKE_BACKOFF[min(wake, len(WAKE_BACKOFF) - 1)]
+        first_seen = self.settled_since.get(pane)
+        if first_seen is None:
+            self.settled_since[pane] = time.monotonic()
+            say(f"#{row['ticket']}", worker["status"],
+                f"phase={worker['phase']} ac={row['ac']}  cooldown {wait}s")
+            return
+        if time.monotonic() - first_seen < wait:
+            return
+        if wake >= WAKE_LIMIT:
+            self.hand_back(row, WAKEUP_LIMIT.format(k=WAKE_LIMIT, phase=worker["phase"]))
+            return
+        ticket = read_ticket(row["ticket"])
+        text = sentence(ticket, worker["phase"], worker["cwd"])
+        say(f"#{row['ticket']}", "read",
+            f"newest comment {last_first_line(ticket) or '(none)'}"[:120])
+        self.send(row, text)
+
+    def over_time(self, row: dict) -> bool:
+        """Held longer than a ticket may hold a session. Hand it back; leave it running."""
+        number = row["ticket"]
+        started = self.held_since.setdefault(number, time.monotonic())
+        if row["worker"]["phase"] in TERMINAL_PHASES:
+            return False
+        if time.monotonic() - started < self.max_hours * 3600:
+            return False
+        self.hand_back(row, TIME_LIMIT.format(hours=self.max_hours,
+                                              phase=row["worker"]["phase"] or "unknown"),
+                       close_pane=False)
+        return True
+
+    # ------------------------------------------------------------- prompting
+
+    def send(self, row: dict, text: str) -> None:
+        """Prompt one session, under the seven conditions such a prompt has to meet."""
+        worker = row["worker"]
+        if not os.environ.get("HERDR_PANE_ID"):
+            say("board", "refuse", "no pane of my own, so I may not prompt anyone")
+            return
+        fresh = unwrap(herdr(["agent", "get", worker["pane_id"]])).get("agent") or {}
+        status = fresh.get("agent_status") or "unknown"
+        session = (fresh.get("agent_session") or {}).get("value") or ""
+        if session and worker["session"] and session != worker["session"]:
+            say(f"#{row['ticket']}", "skip", "the pane holds a different session now")
+            self.settled_since.pop(worker["pane_id"], None)
+            return
+        if fresh.get("focused"):
+            say(f"#{row['ticket']}", "hold", "its pane is focused")
+            return
+        if status not in SETTLED_STATUSES:
+            say(f"#{row['ticket']}", "hold", f"it is {status} again")
+            self.settled_since.pop(worker["pane_id"], None)
+            return
+        wake = self.prompts_so_far(worker) + 1
+        say(f"#{row['ticket']}", "prompt", f"{wake} of {WAKE_LIMIT}: {text}")
+        code, reason = herdr_run(["agent", "prompt", worker["pane_id"], text])
+        if code != 0:
+            say(f"#{row['ticket']}", "refused", reason[:120] or "the prompt was refused")
+        self.bump(worker, wake)
+
+    def bump(self, worker: dict, wake: int) -> None:
+        """The count of prompts lives on the pane, where the session it counts lives."""
+        herdr(["pane", "report-metadata", worker["pane_id"], "--source", "mmw",
+               "--token", f"wake={wake}", "--ttl-ms", str(TOKEN_TTL_MS)])
+        self.wakes[worker["pane_id"]] = wake
+        self.settled_since[worker["pane_id"]] = time.monotonic()
+
+    # ------------------------------------------------------------- handing back
+
+    def hand_back(self, row: dict, body: str, close_pane: bool = True) -> None:
+        number = row["ticket"]
+        if number in self.handed_back:
+            return
+        self.handed_back.add(number)
+        say(f"#{number}", "comment", first_line(body))
+        gh(["issue", "comment", str(number), "--body", body])
+        gh(["issue", "edit", str(number),
+            "--remove-label", "ready-for-agent", "--add-label", "needs-triage"])
+        say(f"#{number}", "label", "needs-triage")
+        if close_pane and row["worker"]:
+            herdr(["pane", "close", row["worker"]["pane_id"]])
+            self.settled_since.pop(row["worker"]["pane_id"], None)
+
+    # ------------------------------------------------------------- dispatching
+
+    def dispatch_frontier(self, rows: list[dict]) -> None:
+        room = self.parallel - len(held(rows))
+        for row in frontier(rows):
+            if room <= 0:
+                return
+            if row["ticket"] in self.handed_back:
+                continue
+            if self.start(row["ticket"]):
+                room -= 1
+
+    def start(self, number: int) -> bool:
+        code, told, refused = run_dispatch(number, self.role)
+        if code == 0:
+            say(f"#{number}", "dispatch", told[:120])
+            self.held_since[number] = time.monotonic()
+            return True
+        say(f"#{number}", "not started", refused[:120])
+        return False
+
 # --------------------------------------------------------------------- the forms
 
 def collect(spec: int | None) -> tuple[list[dict], list[dict]]:
@@ -468,6 +767,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         description="The night board over one spec's tickets and their sessions.")
     parser.add_argument("--once", action="store_true",
                         help="print one table and exit")
+    parser.add_argument("--watch", action="store_true",
+                        help="stay up and act on what the table says")
+    parser.add_argument("--role", default="junior-worker",
+                        help="which row of models.md tonight's workers are started from")
+    parser.add_argument("--parallel", type=int, default=PARALLEL,
+                        help="how many workers may be alive at once")
+    parser.add_argument("--max-hours", type=int, default=MAX_HOURS,
+                        help="how long one ticket may hold a session")
     parser.add_argument("spec", nargs="?", type=int,
                         help="the spec issue whose sub-issues are tonight's tickets")
     return parser.parse_args(argv)
@@ -477,6 +784,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(list(sys.argv[1:] if argv is None else argv))
     if args.once:
         return once(args.spec)
+    if args.watch:
+        if not args.spec:
+            sys.stderr.write("board: --watch needs the spec whose tickets to work\n")
+            return 2
+        return Watch(args.spec, args.role, args.parallel, args.max_hours).run()
     return resident(args.spec)
 
 
