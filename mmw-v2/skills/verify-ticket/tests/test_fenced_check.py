@@ -25,8 +25,9 @@ FENCED = """- [ ] AC1: the queue page counts its tasks
   ```
   EXPECT: counted 6
   EVIDENCE: exit=0; matched "counted 6"
-- [ ] AC2: the empty state is judged by eye
-  MANUAL: the user reads the baseline scene
+- [ ] AC2: the empty state carries the placeholder line
+  CHECK: pytest -q tests/test_empty.py
+  EXPECT: 1 passed
   EVIDENCE: pending"""
 
 
@@ -57,7 +58,7 @@ class TestTheThreeReaders(unittest.TestCase):
         self.assertEqual(self.criteria[0]["expect"], "counted 6")
 
     def test_the_criterion_after_the_fence_is_read_whole(self):
-        self.assertTrue(self.criteria[1]["manual"])
+        self.assertEqual(self.criteria[1]["check"], "pytest -q tests/test_empty.py")
         self.assertEqual(self.criteria[1]["evidence"], "pending")
 
     def test_count_gates_reads_the_same_ledger(self):

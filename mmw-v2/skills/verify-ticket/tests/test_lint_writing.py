@@ -73,7 +73,7 @@ class TestSharedState(unittest.TestCase):
 
 class TestCriteriaLines(unittest.TestCase):
     def test_a_criterion_without_a_check_reads_as_empty(self):
-        body = ticket("- [ ] AC1: judged by eye\n  MANUAL: 用户 读基线\n  EVIDENCE: pending")
+        body = ticket("- [ ] AC1: the empty state carries the placeholder\n  EVIDENCE: pending")
         self.assertEqual(vt.criteria_lines(body), [("AC1", "", "")])
 
     def test_the_check_and_expect_are_read_off_their_own_criterion(self):

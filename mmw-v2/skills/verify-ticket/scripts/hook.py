@@ -110,8 +110,8 @@ def runs(command: str) -> list[str]:
 def leaves_the_agent_lane(command: str, number: int) -> bool:
     """True for the two commands that would finish ticket `number` without the closeout.
 
-    Closing it, and swapping the label that says an agent is on it for the one that
-    says a person is. Both are `--closeout`'s to make once the draft has passed.
+    Closing it, and taking off the label that says an agent is on it. Both are
+    `--closeout`'s to make once the draft has passed.
     """
     for run in runs(command):
         if not re.search(rf"(?<!\d){number}(?!\d)", run):
@@ -119,8 +119,8 @@ def leaves_the_agent_lane(command: str, number: int) -> bool:
         if re.match(r"gh\s+issue\s+close\b", run):
             return True
         if re.match(r"gh\s+issue\s+edit\b", run) \
-                and re.search(r"--add-label[=\s]+['\"]?ready-for-human"
-                              r"|--remove-label[=\s]+['\"]?ready-for-agent", run):
+                and re.search(r"--remove-label[=\s]+['\"]?ready-for-agent"
+                              r"|--add-label[=\s]+['\"]?(needs-triage|ready-for-human)", run):
             return True
     return False
 

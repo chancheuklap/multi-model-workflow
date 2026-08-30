@@ -14,7 +14,7 @@ You run those criteria again and write one line saying what the run proved. That
 
 2. `python3 ~/.agents/skills/verify-ticket/scripts/verify-ticket.py <n> --reverify`
 
-   It reads the ticket, runs every criterion again including the ones already ticked, and comments the outcome of each one on the ticket. A criterion written with `MANUAL:` instead of `CHECK:` is not a command: mark it `manual, not run` and move on.
+   It reads the ticket, runs every criterion again including the ones already ticked, and comments the outcome of each one on the ticket. Every criterion carries a command; there is nothing on a ticket for you to judge by eye.
 
 3. `git status --porcelain --untracked-files=no` again. Matching step 1 is what shows you changed no tracked file. The criteria in step 2 write evidence pages and cache directories of their own; those are untracked, which is why both runs look at tracked files only.
 

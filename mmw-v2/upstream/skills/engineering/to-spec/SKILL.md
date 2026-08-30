@@ -21,7 +21,7 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 
 Check with the user that these seams match their expectations.
 
-4. Write the spec using the template below — with the `readable-docs` skill, and run its claim check before publishing — then publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage.
+4. Write the spec using the template below — with the `readable-docs` skill, and run its claim check before publishing — then publish it to the project issue tracker. Leave it unlabelled: a spec is a container for the tickets underneath it, not a piece of work, and a triage label would put it in a queue somebody has to sort back out.
 
 <spec-template>
 

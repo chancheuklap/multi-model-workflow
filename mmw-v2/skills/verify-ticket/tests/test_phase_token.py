@@ -67,14 +67,16 @@ class TestPhasesOfARun(unittest.TestCase):
                 "  CHECK: echo 'wrote 6 rows'\n"
                 "  EXPECT: wrote 6 rows\n"
                 "  EVIDENCE: pending\n"
-                "- [ ] AC2: the empty state is judged by eye\n"
-                "  MANUAL: the user reads the baseline scene\n"
+                "- [ ] AC2: the empty state carries the placeholder line\n"
+                "  CHECK: echo 'placeholder shown'\n"
+                "  EXPECT: placeholder shown\n"
                 "  EVIDENCE: pending\n")
         calls = []
         with mock.patch.object(vt, "fetch_body", return_value=body), \
              mock.patch.object(vt, "previous_ledger", return_value=[]), \
              mock.patch.object(vt, "outside_owns", return_value=[]), \
              mock.patch.object(vt, "post_comment"), \
+             mock.patch.object(vt, "fetch_comments", return_value=[]), \
              mock.patch.object(vt, "report_phase",
                                side_effect=lambda n, p, extra=None: calls.append((n, p, extra)) or True):
             with redirect_stdout(io.StringIO()):
@@ -84,7 +86,7 @@ class TestPhasesOfARun(unittest.TestCase):
     def test_a_self_check_opens_and_closes_with_the_count(self):
         calls = self.run_ticket(False)
         self.assertEqual(calls[0], (77, "selfcheck", None))
-        self.assertEqual(calls[-1], (77, "selfcheck", {"ac": "1/2"}))
+        self.assertEqual(calls[-1], (77, "selfcheck", {"ac": "2/2"}))
 
     def test_a_reverification_reports_the_verify_phase(self):
         calls = self.run_ticket(True)
@@ -118,17 +120,17 @@ class TestPreflightCloseout(unittest.TestCase):
         "closed": ("ALL MET",
                    "- [x] AC1: the importer writes six rows",
                    '  EVIDENCE: exit=0; matched "6 passed"',
-                   "Counts: 1 met, 0 unmet, 0 abandoned, 0 manual of 1"),
-        "handoff": ("HANDOFF REQUIRED: 1 abandoned (failed), 0 unmet, 0 met of 1",
+                   "Counts: 1 met, 0 unmet, 0 abandoned of 1"),
+        "handoff": ("HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 0 met of 1",
                     "- [ ] AC1: the importer writes six rows\n"
                     "  EVIDENCE: exit 1; \"0 rows\"\n"
-                    "ABANDON: AC1 failed three self-run rounds did not fix it",
+                    "ABANDON: AC1 stuck the fixture database is not on this machine",
                     "",
-                    "Counts: 0 met, 0 unmet, 1 abandoned, 0 manual of 1"),
+                    "Counts: 0 met, 0 unmet, 1 abandoned of 1"),
         "rejected": ("ALL MET",
                      "- [x] AC1: the importer writes six rows",
                      "  EVIDENCE: pending",
-                     "Counts: 1 met, 0 unmet, 0 abandoned, 0 manual of 1"),
+                     "Counts: 1 met, 0 unmet, 0 abandoned of 1"),
     }
 
     def closeout(self, outcome: str):
@@ -154,7 +156,7 @@ class TestPreflightCloseout(unittest.TestCase):
                  mock.patch.object(vt, "dirty_tracked", return_value=[]), \
                  mock.patch.object(vt, "post_comment"), \
                  mock.patch.object(vt, "close_ticket"), \
-                 mock.patch.object(vt, "hand_to_human"), \
+                 mock.patch.object(vt, "hand_back_for_triage"), \
                  mock.patch.object(vt, "report_phase",
                                    side_effect=lambda n, p, extra=None, clear=None:
                                    calls.append((n, p, extra, clear)) or True):

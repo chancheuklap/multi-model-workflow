@@ -9,6 +9,7 @@
 | 段落 | 我们的意图 |
 | --- | --- |
 | frontmatter 的 `disable-model-invocation: true` | 删掉。本仓库要求全部技能模型可触发——不留上游的人工触发限制，免得漏输入指令时 agent 没法自己认出该用这个技能。上游改这一行 → 仍然删，跟 `agents/openai.yaml` 的 `policy` 块一起处理 |
+| 第 4 步「Apply the `ready-for-agent` triage label」 | 改成「不打标签」。spec 是它底下那批票的容器，不是一件待办；打上 `ready-for-agent` 之后 `is:open label:ready-for-agent` 这条队列里就混着 spec 和票，派发方会挑到一张 spec，而开工守卫的四项检查它全都满足、拦不住。上游改这句措辞 → 仍然不打标签 |
 | 开始写文档的那一句 | 追加一句：用 `readable-docs` 技能写，落盘/发布前跑它的 claim check。上游改这句的措辞或位置 → 收上游，把我们这一句接回新位置。上游把写文档这一步拆成多句 → 接在真正落笔的那一句后面。其余段落我们没改，全取上游 |
 | `## Process` 的第 1 步 | 我们加的整步，把上游原来的 1/2/3 顺延为 2/3/4：用户传了引用就先读全，是 wayfinder 地图时按 Decisions so far 逐张读 resolution comment、读到 prototype 与 research 的结论、Out of scope 原样进 spec；然后判一份还是几份 spec（同一个 seam 归一份，能不分就不分），几份时问用户确认并把划分写回地图的 `## Specs`，只写第一份，发布后回填链接再停。上游改了 `## Process` 的编号或在前面插步 → 收上游的顺序，我们这一步永远排第一（它决定这次到底写几份 spec）|
 | 开头「Do NOT interview the user」那一句 | 改成「Do NOT interview the user **for facts**」并指向第 1 步那个唯一交还给用户的判断，免得跟分卷确认自相矛盾。上游重写这句 → 收上游措辞，把这个例外重新挂上去 |

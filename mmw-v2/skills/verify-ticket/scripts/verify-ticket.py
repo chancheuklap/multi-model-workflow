@@ -36,16 +36,21 @@ SUMMARY_RE = re.compile(r"^(ALL MET|UNMET:|HANDOFF REQUIRED:)")
 GATE_LINE_RE = re.compile(r"^- \[( |x|X)\] ([A-Za-z0-9][A-Za-z0-9._-]*):")
 TTL_MS = "86400000"
 
-ABANDON_KINDS = ("failed", "blocked", "impossible", "decision")
-HANDOFF_KINDS = ("failed", "blocked", "impossible")
+# A criterion is abandoned for one of three reasons, and the three differ in what the
+# closeout demands of them. `failed` ran and did not pass, so the ticket has to show the
+# three self-runs that tried; `stuck` never ran or cannot be done, so there is nothing to
+# count; `decision` needs a person to choose, and is the only one that still closes.
+ABANDON_KINDS = ("decision", "failed", "stuck")
+HANDOFF_KINDS = ("failed", "stuck")
+ROUND_LIMIT = 3
 ABANDON_RE = re.compile(r"^ABANDON:\s+(\S+)\s+(\S+)\s*(.*)$")
 COUNTS_RE = re.compile(
-    r"^Counts:\s*(\d+)\s+met,\s*(\d+)\s+unmet,\s*(\d+)\s+abandoned,\s*(\d+)\s+manual of\s*(\d+)\s*$")
+    r"^Counts:\s*(\d+)\s+met,\s*(\d+)\s+unmet,\s*(\d+)\s+abandoned of\s*(\d+)\s*$")
 HANDOFF_RE = re.compile(
     r"^HANDOFF REQUIRED:\s*(\d+)\s+abandoned\s*\(([^)]*)\),\s*(\d+)\s+unmet,\s*(\d+)\s+met of\s*(\d+)\s*$")
 VERDICT_RE = re.compile(r"^VERDICT\s+([0-9a-fA-F]{7,40})\b")
 ISSUE_REF_RE = re.compile(r"#(\d+)")
-ATTR_LINE_RE = re.compile(r"^\s+(CHECK|EXPECT|EVIDENCE|CWD|MANUAL):")
+ATTR_LINE_RE = re.compile(r"^\s+(CHECK|EXPECT|EVIDENCE|CWD):")
 FENCE_OPEN_RE = re.compile(r"^( {0,3})(`{3,}|~{3,})(.*)$")
 FENCE_CLOSE_RE = re.compile(r"^ {0,3}(`+|~+)[ \t]*$")
 REGEX_EXPECT_RE = re.compile(r"^/([\s\S]*)/([a-z]*)$")
@@ -116,15 +121,24 @@ def assign_self(number: int) -> None:
 
 
 def close_ticket(number: int) -> None:
-    """Close the ticket as done. Patched out in tests."""
+    """Take the ticket out of the agent queue and close it. Patched out in tests."""
+    subprocess.run(
+        ["gh", "issue", "edit", str(number), "--remove-label", "ready-for-agent"],
+        check=True, env=GH_ENV,
+    )
     subprocess.run(["gh", "issue", "close", str(number), "--reason", "completed"], check=True, env=GH_ENV)
 
 
-def hand_to_human(number: int) -> None:
-    """Move the ticket out of the agent lane. Patched out in tests."""
+def hand_back_for_triage(number: int) -> None:
+    """Put the ticket back in the queue nobody has judged yet. Patched out in tests.
+
+    A worker that could not finish has not established what the ticket needs next — a
+    person, more information, another agent, or nothing at all. `needs-triage` is that
+    state, and it is the one queue a skill picks up on its own.
+    """
     subprocess.run(
         ["gh", "issue", "edit", str(number),
-         "--remove-label", "ready-for-agent", "--add-label", "ready-for-human"],
+         "--remove-label", "ready-for-agent", "--add-label", "needs-triage"],
         check=True, env=GH_ENV,
     )
 
@@ -322,8 +336,7 @@ def parse_criteria(text: str) -> list[dict]:
         gate = GATE_LINE_RE.match(line)
         if gate:
             item = {"id": gate.group(2), "ticked": gate.group(1) != " ",
-                    "check": "", "expect": "", "evidence": "", "manual": False,
-                    "stray": False}
+                    "check": "", "expect": "", "evidence": "", "stray": False}
             out.append(item)
             continue
         if item is None:
@@ -332,9 +345,7 @@ def parse_criteria(text: str) -> list[dict]:
         if attr:
             key = attr.group(1).lower()
             value = line.split(":", 1)[1].strip()
-            if key == "manual":
-                item["manual"] = True
-            elif key in ("check", "expect", "evidence"):
+            if key in ("check", "expect", "evidence"):
                 item[key] = value
             last_attr = key
             continue
@@ -365,21 +376,38 @@ def parse_abandons(text: str) -> list[dict]:
 
 
 def tally(criteria: list[dict], abandons: list[dict]) -> dict:
-    """Recount the draft. A tick with `EVIDENCE: pending` is unmet, not met; a manual
-    criterion nobody has filled in is neither (`12-decisions.md` H6)."""
+    """Recount the draft. A tick with `EVIDENCE: pending` is unmet, not met."""
     abandoned_ids = {a["ac"] for a in abandons}
-    counts = {"met": 0, "unmet": 0, "abandoned": 0, "manual": 0, "total": len(criteria)}
+    counts = {"met": 0, "unmet": 0, "abandoned": 0, "total": len(criteria)}
     for c in criteria:
         filled = c["evidence"] and c["evidence"] != "pending"
         if c["id"] in abandoned_ids:
             counts["abandoned"] += 1
         elif c["ticked"] and filled:
             counts["met"] += 1
-        elif c["manual"] and not filled:
-            counts["manual"] += 1
         else:
             counts["unmet"] += 1
     return counts
+
+
+def unmet_rounds(comments: list[str], criterion: str) -> int:
+    """How many self-runs so far have left `criterion` unmet.
+
+    The ticket is the only place this is written down: every self-run posts its ledger
+    as a comment, so the rounds spent on one criterion are there to be counted. Nothing
+    is stored between runs.
+    """
+    rounds = 0
+    for comment in comments:
+        head = comment.strip().splitlines()[:1]
+        if head != ["self-run"]:
+            continue
+        for c in parse_criteria(comment):
+            if c["id"] != criterion:
+                continue
+            if not (c["ticked"] and c["evidence"] and c["evidence"] != "pending"):
+                rounds += 1
+    return rounds
 
 
 def draft_line(text: str, prefix: str) -> str | None:
@@ -438,28 +466,32 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
     if first == "ALL MET" and counts["unmet"]:
         problems.append(f"first line is `ALL MET` but {counts['unmet']} criteria are unmet")
 
-    opened = set(ISSUE_REF_RE.findall(draft_line(draft, "Sub-issues opened:") or ""))
-    unfilled_manual = [c["id"] for c in criteria
-                       if c["manual"] and (not c["evidence"] or c["evidence"] == "pending")]
-    if len(opened) < len(unfilled_manual):
-        problems.append(f"{len(unfilled_manual)} MANUAL criteria "
-                        f"({', '.join(unfilled_manual)}) still need a person, but "
-                        f"`Sub-issues opened:` lists {len(opened)} sub-issues; open one per "
-                        f"criterion so the ticket itself can close")
+    # `failed` says the criterion was tried and would not pass, and the ticket has to
+    # show the trying: three self-runs that left it unmet. `stuck` never ran, so there
+    # is nothing to count, and demanding rounds of it would only burn them.
+    for a in abandons:
+        if a["kind"] != "failed":
+            continue
+        rounds = unmet_rounds(comments, a["ac"])
+        if rounds < ROUND_LIMIT:
+            problems.append(
+                f"ABANDON: {a['ac']} failed, but the ticket shows {rounds} self-run"
+                f"{'' if rounds == 1 else 's'} that left it unmet, not {ROUND_LIMIT}; "
+                f"run it again, or abandon it as `stuck` and say what stopped it")
 
     stated = draft_line(draft, "Counts:")
     m = COUNTS_RE.match("Counts: " + stated) if stated is not None else None
     if not m:
-        problems.append("no `Counts: <k> met, <m> unmet, <n> abandoned, <j> manual of <total>` line")
+        problems.append("no `Counts: <k> met, <m> unmet, <n> abandoned of <total>` line")
     else:
-        got = dict(zip(("met", "unmet", "abandoned", "manual", "total"),
+        got = dict(zip(("met", "unmet", "abandoned", "total"),
                        (int(g) for g in m.groups())))
         if got != counts:
             problems.append(
-                "Counts: says {met} met, {unmet} unmet, {abandoned} abandoned, {manual} manual "
+                "Counts: says {met} met, {unmet} unmet, {abandoned} abandoned "
                 "of {total}".format(**got) +
-                "; the draft reads {met} met, {unmet} unmet, {abandoned} abandoned, {manual} "
-                "manual of {total}".format(**counts))
+                "; the draft reads {met} met, {unmet} unmet, {abandoned} abandoned "
+                "of {total}".format(**counts))
         if handoff:
             said = {"abandoned": int(handoff.group(1)), "unmet": int(handoff.group(3)),
                     "met": int(handoff.group(4)), "total": int(handoff.group(5))}
@@ -470,11 +502,11 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
                                 + "; ".join(off))
 
     # The verifier's verdict is what a ticket needs to close as done, and only that.
-    # Handing the ticket to a person is the way out of everything else, including a
-    # verifier that never ran: `HANDOFF REQUIRED` claims nothing was finished, leaves
-    # the ticket open under `ready-for-human`, and puts it in front of someone in the
-    # morning. Demanding an independent check before a worker is allowed to say "I
-    # could not do this" would leave it with no way out at all.
+    # Handing the ticket back is the way out of everything else, including a verifier
+    # that never ran: `HANDOFF REQUIRED` claims nothing was finished and leaves the
+    # ticket open under `needs-triage`, where it is judged fresh. Demanding an
+    # independent check before a worker is allowed to say "I could not do this" would
+    # leave it with no way out at all.
     if first == "ALL MET":
         verdict = last_verdict(comments)
         if verdict is None:
@@ -682,10 +714,28 @@ def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
         updated = ledger.read_text(encoding="utf-8").rstrip("\n")
         met, total = count_gates(ledger)
 
+    # Three self-runs on one criterion is as far as fixing it goes. The count is the
+    # ticket's own history of self-run comments, so this run is the one being added to
+    # it; at the limit the criterion is named here and the closeout will accept it as
+    # `ABANDON: <id> failed`. Running it a fourth time is still allowed — a fix that
+    # lands late should still pass.
+    limits = []
+    if not reverify:
+        previous = fetch_comments(number)
+        for c in parse_criteria(updated):
+            if c["ticked"] and c["evidence"] and c["evidence"] != "pending":
+                continue
+            rounds = unmet_rounds(previous, c["id"]) + 1
+            if rounds >= ROUND_LIMIT:
+                limits.append(f"ROUND LIMIT: {c['id']} has been unmet for {rounds} self-runs; "
+                              f"stop fixing it, write `ABANDON: {c['id']} failed <what the "
+                              f"attempts did>`, and carry on with the rest")
+
     outside = outside_owns(owns_globs(body), root)
     comment = "\n".join([
         "reverify" if reverify else "self-run",
         *summary,
+        *limits,
         "",
         updated,
         "",
@@ -788,9 +838,9 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
         report_phase(number, "closed", clear=["ac"])
         print(f"CLOSED: #{number}")
     else:
-        hand_to_human(number)
+        hand_back_for_triage(number)
         report_phase(number, "handoff", clear=["ac"])
-        print(f"HANDED OFF: #{number} is now ready-for-human and stays open")
+        print(f"HANDED BACK: #{number} is now needs-triage and stays open")
     return 0
 
 

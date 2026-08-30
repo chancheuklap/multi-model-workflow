@@ -30,7 +30,7 @@ python3 /absolute/path/to/scripts/verify-ticket.py <ticket>
 | `<engine> <n> --preflight` | The **worker**, before touching anything on ticket `<n>` | The ticket assigned to you. If it is not yours to start, a `NOT_READY: <reason>` comment on the ticket instead, and exit 2 |
 | `<engine> <n>` | The **worker**, having finished the work on ticket `<n>`, before dispatching the verifier | A comment whose first line is `self-run`: each criterion ticked or not, each with the `EVIDENCE:` line the engine recorded |
 | `<engine> <n> --reverify` | The **verifier**, on the same commit, re-running what the worker's `self-run` ticked instead of trusting it | A comment whose first line is `reverify` |
-| `<engine> <n> --closeout <draft>` | The **worker**, having written the closing comment to a file | The draft posted and the ticket closed. A draft whose first line is `HANDOFF REQUIRED` posts and swaps `ready-for-agent` for `ready-for-human`, leaving the ticket open |
+| `<engine> <n> --closeout <draft>` | The **worker**, having written the closing comment to a file | The draft posted, `ready-for-agent` taken off, and the ticket closed. A draft whose first line is `HANDOFF REQUIRED` posts and swaps `ready-for-agent` for `needs-triage`, leaving the ticket open to be judged fresh |
 | `<engine> <n> --lint` | Whoever wrote the ticket, at the read-back step of `to-tickets`, before the ticket goes out | Findings printed to your terminal: how the criteria are written, and whether the batch under the same spec has a cycle or a dangling `Blocked by`. No `CHECK:` runs and no comment is posted |
 
 `--reverify` re-runs what the newest `self-run` comment ticked, so it belongs after one.
@@ -49,8 +49,14 @@ uses 1.
 ## What it decides, and what it leaves to you
 
 A criterion passes only when its `CHECK` exits 0 **and** its output matches `EXPECT`.
-Expected text in the output of a failed process is still a failure. A criterion written
-with `MANUAL:` instead of `CHECK:`/`EXPECT:` is never run and never ticked by the engine.
+Expected text in the output of a failed process is still a failure. Every criterion on a
+ticket has a `CHECK`; work that only a person can judge is its own ticket, not a
+criterion on this one.
+
+Three self-runs is as far as fixing one criterion goes. The third run names it in its
+comment, and the closeout will then accept `ABANDON: <id> failed`. The count is the
+ticket's own self-run comments — nothing is stored between runs, and a fourth run that
+finally passes still passes.
 
 The engine reads the ticket and writes one comment. The ticket body, the `CHECK` commands
 and what a criterion means are yours. A wrong `CHECK` is fixed on the ticket: comment
@@ -58,8 +64,8 @@ saying what is wrong with it, then edit the criterion and run again. The `VERDIC
 is the verifier's own comment, written after this one, not something the engine emits.
 
 `--closeout` reads the draft against the ticket and the repository: the first line, the
-`ABANDON:` kinds, the recount behind `Counts:`, a sub-issue for every `MANUAL:` criterion
-still waiting on a person, and a clean tracked working tree. A draft whose first line is
+`ABANDON:` kinds, the three self-runs behind every `failed`, the recount behind
+`Counts:`, and a clean tracked working tree. A draft whose first line is
 `ALL MET` is held to two more: the ticket carries the verifier's `VERDICT`, and the draft
 accounts for every commit since it. `HANDOFF REQUIRED` is held to neither — it claims
 nothing was finished, so it is the way out of anything you cannot fix yourself, including

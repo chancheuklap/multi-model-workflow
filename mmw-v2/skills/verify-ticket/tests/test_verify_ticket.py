@@ -17,9 +17,11 @@ def ticket(*criteria: str, owns: str = "- src/**") -> str:
 class LedgerRun(unittest.TestCase):
     """Runs the real gate-check against a fixed body and captures the comment."""
 
-    def run_ticket(self, body: str, reverify: bool = False, previous: list[str] | None = None):
+    def run_ticket(self, body: str, reverify: bool = False, previous: list[str] | None = None,
+                   comments: list[str] | None = None):
         posted: list[str] = []
         with mock.patch.object(vt, "fetch_body", return_value=body), \
+             mock.patch.object(vt, "fetch_comments", return_value=comments or []), \
              mock.patch.object(vt, "previous_ledger", return_value=previous or []), \
              mock.patch.object(vt, "outside_owns", return_value=[]), \
              mock.patch.object(vt, "report_phase", return_value=False), \
@@ -107,14 +109,13 @@ class TestDoubleCondition(LedgerRun):
         self.assertIn("- [x] AC1:", comment)
         self.assertIn("EVIDENCE: exit=0;", comment)
 
-    def test_a_manual_criterion_is_never_run(self):
+    def test_a_criterion_with_no_check_is_never_run_and_never_ticked(self):
         code, comment, printed = self.run_ticket(ticket(
             "- [ ] AC1: the importer writes six rows",
             "  CHECK: echo 'wrote 6 rows'",
             "  EXPECT: wrote 6 rows",
             "  EVIDENCE: pending",
             "- [ ] AC2: the empty-state copy matches the baseline word for word",
-            "  MANUAL: the user reads the baseline scene beside the page",
             "  EVIDENCE: pending",
         ))
         self.assertEqual(code, 1)
@@ -130,6 +131,45 @@ class TestDoubleCondition(LedgerRun):
         ))
         self.assertTrue(comment.startswith("self-run"))
         self.assertIn("Outside Owns: None", comment)
+
+
+class TestTheRoundLimit(LedgerRun):
+    """Three self-runs is as far as fixing one criterion goes. The rounds are counted
+    off the ticket's own self-run comments, so nothing is carried between runs."""
+
+    FAILING = ("- [ ] AC1: the importer writes six rows\n"
+               "  CHECK: echo 'wrote 4 rows'; exit 1\n"
+               "  EXPECT: wrote 6 rows\n"
+               "  EVIDENCE: pending")
+
+    def prior_runs(self, rounds: int) -> list[str]:
+        return ["\n".join(["self-run", "UNMET: 1", "", self.FAILING])] * rounds
+
+    def test_the_first_two_runs_say_nothing_about_a_limit(self):
+        for rounds in (0, 1):
+            with self.subTest(rounds=rounds):
+                _, comment, _ = self.run_ticket(ticket(self.FAILING),
+                                                comments=self.prior_runs(rounds))
+                self.assertNotIn("ROUND LIMIT", comment)
+
+    def test_the_third_run_names_the_criterion_and_the_way_out(self):
+        _, comment, _ = self.run_ticket(ticket(self.FAILING), comments=self.prior_runs(2))
+        self.assertIn("ROUND LIMIT: AC1", comment)
+        self.assertIn("unmet for 3 self-runs", comment)
+        self.assertIn("ABANDON: AC1 failed", comment)
+
+    def test_a_criterion_that_passes_is_never_named(self):
+        passing = ("- [ ] AC1: the importer writes six rows\n"
+                   "  CHECK: echo 'wrote 6 rows'\n"
+                   "  EXPECT: wrote 6 rows\n"
+                   "  EVIDENCE: pending")
+        _, comment, _ = self.run_ticket(ticket(passing), comments=self.prior_runs(5))
+        self.assertNotIn("ROUND LIMIT", comment)
+
+    def test_a_reverification_never_counts_a_round(self):
+        _, comment, _ = self.run_ticket(ticket(self.FAILING), reverify=True,
+                                        comments=self.prior_runs(5))
+        self.assertNotIn("ROUND LIMIT", comment)
 
 
 class TestReverify(LedgerRun):
@@ -163,7 +203,8 @@ class TestLedgerFromComment(unittest.TestCase):
             "  EXPECT: a\n"
             "  EVIDENCE: exit=0; shell=/bin/sh\n"
             "- [ ] AC2: b\n"
-            "  MANUAL: someone looks\n"
+            "  CHECK: false\n"
+            "  EXPECT: b\n"
             "  EVIDENCE: pending\n"
             "\n"
             "Outside Owns: None\n"
@@ -171,7 +212,7 @@ class TestLedgerFromComment(unittest.TestCase):
         self.assertEqual(vt.ledger_from_comment(comment), [
             "- [x] AC1: a", "  CHECK: true", "  EXPECT: a",
             "  EVIDENCE: exit=0; shell=/bin/sh",
-            "- [ ] AC2: b", "  MANUAL: someone looks", "  EVIDENCE: pending",
+            "- [ ] AC2: b", "  CHECK: false", "  EXPECT: b", "  EVIDENCE: pending",
         ])
 
     def test_a_comment_without_gate_lines_yields_nothing(self):

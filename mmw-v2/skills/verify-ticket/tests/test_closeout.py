@@ -25,13 +25,17 @@ UNMET = """- [ ] AC2: the expiry page says the link is stale
   EXPECT: 2 passed
   EVIDENCE: exit 1; "1 passed, 1 failed\""""
 
-MANUAL = """- [ ] AC3: the empty state reads 还没有生成任务
-  MANUAL: 用户 读本票上 visual-parity 的证据评论
-  EVIDENCE: pending"""
+VERDICT_COMMENT = f"VERDICT {VERIFIED} unit-test-verified by opus"
+
+
+def self_runs(block, rounds):
+    """`rounds` self-run comments, each leaving that criterion unmet."""
+    ledger = block if block.startswith("- [ ]") else block.replace("- [x]", "- [ ]")
+    return ["\n".join(["self-run", "UNMET: 1", "", ledger])] * rounds
 
 
 def draft(first="ALL MET", criteria=(MET,), abandons=(), counts=None,
-          post_verdict="Post-verdict: None", sub_issues="Sub-issues opened: none"):
+          post_verdict="Post-verdict: None"):
     """Assemble a closing comment in the shape #60 section 9 step 5 fixes."""
     body = [first, "", "Branch: issue-77  Commit: 9b1d40c7  PR: none", ""]
     if post_verdict is not None:
@@ -41,17 +45,17 @@ def draft(first="ALL MET", criteria=(MET,), abandons=(), counts=None,
         for line in abandons:
             if line.split()[1] == vt.parse_criteria(block)[0]["id"]:
                 body.append(line)
-    body += ["", "Outside Owns: None", "", sub_issues]
+    body += ["", "Outside Owns: None"]
     if counts is not None:
         body += ["", counts]
     return "\n".join(body) + "\n"
 
 
-def counts_line(met=1, unmet=0, abandoned=0, manual=0, total=1):
-    return f"Counts: {met} met, {unmet} unmet, {abandoned} abandoned, {manual} manual of {total}"
+def counts_line(met=1, unmet=0, abandoned=0, total=1):
+    return f"Counts: {met} met, {unmet} unmet, {abandoned} abandoned of {total}"
 
 
-def check(text, comments=(f"VERDICT {VERIFIED} unit-test-verified by opus",),
+def check(text, comments=(VERDICT_COMMENT,),
           verdict_reachable=True, head=HEAD, dirty=(), main_merged=True, diff="src/app.py",
           state="OPEN", assignees=(ME,), check_only=True):
     """Run --closeout against a made-up ticket; return (exit code, stderr, side effects)."""
@@ -88,7 +92,7 @@ def check(text, comments=(f"VERDICT {VERIFIED} unit-test-verified by opus",),
                                side_effect=lambda n, b: seen["posted"].append((n, b))), \
              mock.patch.object(vt, "close_ticket",
                                side_effect=lambda n: seen["closed"].append(n)), \
-             mock.patch.object(vt, "hand_to_human",
+             mock.patch.object(vt, "hand_back_for_triage",
                                side_effect=lambda n: seen["handed"].append(n)):
             with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
                 code = vt.run_closeout(77, path, check_only)
@@ -103,21 +107,15 @@ class TestFirstLine(unittest.TestCase):
 
     def test_all_met_over_a_failed_abandon_is_refused(self):
         text = draft(criteria=(MET, UNMET),
-                     abandons=("ABANDON: AC2 failed code-review found it, one fix round did not",),
+                     abandons=("ABANDON: AC2 stuck the endpoint it checks does not exist yet",),
                      counts=counts_line(met=1, abandoned=1, total=2))
         code, err, _ = check(text)
         self.assertEqual(code, 1)
         self.assertIn("only `decision` may be abandoned", err)
 
-    def test_all_met_over_a_blocked_abandon_is_refused(self):
+    def test_all_met_over_a_stuck_abandon_is_refused(self):
         text = draft(criteria=(MET, UNMET),
-                     abandons=("ABANDON: AC2 blocked chromium is not installed; tried …",),
-                     counts=counts_line(met=1, abandoned=1, total=2))
-        self.assertEqual(check(text)[0], 1)
-
-    def test_all_met_over_an_impossible_abandon_is_refused(self):
-        text = draft(criteria=(MET, UNMET),
-                     abandons=("ABANDON: AC2 impossible the API has no such field; see #58",),
+                     abandons=("ABANDON: AC2 stuck chromium is not installed; tried …",),
                      counts=counts_line(met=1, abandoned=1, total=2))
         self.assertEqual(check(text)[0], 1)
 
@@ -129,11 +127,11 @@ class TestFirstLine(unittest.TestCase):
         self.assertEqual(code, 0, err)
 
     def test_a_well_formed_handoff_first_line_passes(self):
-        text = draft(first="HANDOFF REQUIRED: 1 abandoned (failed), 0 unmet, 1 met of 2",
+        text = draft(first="HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 1 met of 2",
                      criteria=(MET, UNMET),
-                     abandons=("ABANDON: AC2 failed three self-run rounds did not fix it",),
+                     abandons=("ABANDON: AC2 stuck chromium will not start here; tried the bundled build too",),
                      counts=counts_line(met=1, abandoned=1, total=2))
-        code, err, _ = check(text)
+        code, err, _ = check(text, comments=(VERDICT_COMMENT, *self_runs(UNMET, 3)))
         self.assertEqual(code, 0, err)
 
 
@@ -144,12 +142,12 @@ class TestBody(unittest.TestCase):
                      counts=counts_line(met=1, abandoned=1, total=2))
         code, err, _ = check(text)
         self.assertEqual(code, 1)
-        self.assertIn("must be one of failed, blocked, impossible, decision", err)
+        self.assertIn("must be one of decision, failed, stuck", err)
 
     def test_an_abandon_pointing_at_no_criterion_is_refused(self):
-        text = draft(first="HANDOFF REQUIRED: 1 abandoned (failed), 0 unmet, 1 met of 1",
+        text = draft(first="HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 1 met of 1",
                      criteria=(MET,), counts=counts_line())
-        text += "ABANDON: AC9 failed there is no AC9 on this ticket\n"
+        text += "ABANDON: AC9 stuck there is no AC9 on this ticket\n"
         code, err, _ = check(text)
         self.assertEqual(code, 1)
         self.assertIn("points at a criterion the draft does not list", err)
@@ -173,17 +171,17 @@ class TestBody(unittest.TestCase):
         self.assertIn("no `Counts:", err)
 
     def test_a_first_line_that_disagrees_with_counts_is_refused(self):
-        text = draft(first="HANDOFF REQUIRED: 2 abandoned (failed), 0 unmet, 1 met of 2",
+        text = draft(first="HANDOFF REQUIRED: 2 abandoned (stuck), 0 unmet, 1 met of 2",
                      criteria=(MET, UNMET),
-                     abandons=("ABANDON: AC2 failed three rounds did not fix it",),
+                     abandons=("ABANDON: AC2 stuck the device this needs is not on this machine",),
                      counts=counts_line(met=1, abandoned=1, total=2))
         code, err, _ = check(text)
         self.assertEqual(code, 1)
         self.assertIn("first line says 2, `Counts:` says 1", err)
 
 
-HANDOFF = "HANDOFF REQUIRED: 1 abandoned (failed), 0 unmet, 0 met of 1"
-ABANDONED = "ABANDON: AC2 failed three self-run rounds did not fix it"
+HANDOFF = "HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 0 met of 1"
+ABANDONED = "ABANDON: AC2 stuck chromium will not start here; tried the bundled build too"
 NO_VERDICT = ("self-run\nUNMET: 1 (met: 0)",)
 
 
@@ -353,34 +351,50 @@ class TestGit(unittest.TestCase):
         self.assertEqual(code, 0, err)
 
 
-class TestManual(unittest.TestCase):
-    def test_an_unfilled_manual_criterion_is_neither_met_nor_unmet(self):
-        text = draft(criteria=(MET, MANUAL),
-                     sub_issues="Sub-issues opened: #78 (AC3 的空态文案要人看)",
-                     counts=counts_line(met=1, manual=1, total=2))
-        code, err, _ = check(text)
+class TestTheRoundLimit(unittest.TestCase):
+    """`failed` says the criterion was tried three times. The ticket's own self-run
+    comments are where that is counted; `stuck` never ran, so it is not held to it."""
+
+    HANDOFF = "HANDOFF REQUIRED: 1 abandoned (failed), 0 unmet, 1 met of 2"
+
+    def failed_draft(self, kind="failed"):
+        return draft(first=self.HANDOFF.replace("failed", kind),
+                     criteria=(MET, UNMET),
+                     abandons=(f"ABANDON: AC2 {kind} chromium kept crashing; tried …",),
+                     counts=counts_line(met=1, abandoned=1, total=2))
+
+    def test_failed_after_three_self_runs_passes(self):
+        code, err, _ = check(self.failed_draft(),
+                             comments=(VERDICT_COMMENT, *self_runs(UNMET, 3)))
         self.assertEqual(code, 0, err)
 
-    def test_a_manual_criterion_without_its_sub_issue_is_refused(self):
-        text = draft(criteria=(MET, MANUAL), sub_issues="Sub-issues opened: none",
-                     counts=counts_line(met=1, manual=1, total=2))
-        code, err, _ = check(text)
+    def test_failed_after_two_self_runs_is_refused(self):
+        code, err, _ = check(self.failed_draft(),
+                             comments=(VERDICT_COMMENT, *self_runs(UNMET, 2)))
         self.assertEqual(code, 1)
-        self.assertIn("open one per criterion", err)
+        self.assertIn("shows 2 self-runs that left it unmet, not 3", err)
 
-    def test_the_manual_count_must_match_the_body(self):
-        text = draft(criteria=(MET, MANUAL),
-                     sub_issues="Sub-issues opened: #78 (AC3 的空态文案要人看)",
-                     counts=counts_line(met=1, unmet=1, manual=0, total=2))
-        code, err, _ = check(text)
+    def test_failed_with_no_self_run_at_all_is_refused(self):
+        code, err, _ = check(self.failed_draft(), comments=(VERDICT_COMMENT,))
         self.assertEqual(code, 1)
-        self.assertIn("1 manual of 2", err)
+        self.assertIn("shows 0 self-runs that left it unmet", err)
 
-    def test_a_filled_manual_criterion_needs_no_sub_issue(self):
-        filled = MANUAL.replace("- [ ]", "- [x]").replace(
-            "EVIDENCE: pending", "EVIDENCE: 用户读过证据评论，认可; 2026-08-29")
-        text = draft(criteria=(MET, filled), counts=counts_line(met=2, total=2))
-        code, err, _ = check(text)
+    def test_the_refusal_names_the_other_way_out(self):
+        _, err, _ = check(self.failed_draft(), comments=(VERDICT_COMMENT,))
+        self.assertIn("`stuck`", err)
+
+    def test_a_self_run_that_met_the_criterion_does_not_count_as_a_round(self):
+        met_run = "\n".join(["self-run", "ALL MET", "",
+                             UNMET.replace("- [ ]", "- [x]").replace(
+                                 'EVIDENCE: exit 1; "1 passed, 1 failed"',
+                                 "EVIDENCE: exit 0; matched")])
+        code, err, _ = check(self.failed_draft(),
+                             comments=(VERDICT_COMMENT, *self_runs(UNMET, 2), met_run))
+        self.assertEqual(code, 1)
+        self.assertIn("shows 2 self-runs", err)
+
+    def test_stuck_is_not_held_to_any_round_count(self):
+        code, err, _ = check(self.failed_draft(kind="stuck"), comments=(VERDICT_COMMENT,))
         self.assertEqual(code, 0, err)
 
 
@@ -438,9 +452,9 @@ class TestNoSideEffectOnFail(unittest.TestCase):
         self.assertEqual(seen["handed"], [])
 
     def test_handoff_posts_the_draft_and_swaps_the_label(self):
-        text = draft(first="HANDOFF REQUIRED: 1 abandoned (failed), 0 unmet, 1 met of 2",
+        text = draft(first="HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 1 met of 2",
                      criteria=(MET, UNMET),
-                     abandons=("ABANDON: AC2 failed three self-run rounds did not fix it",),
+                     abandons=("ABANDON: AC2 stuck chromium will not start here; tried the bundled build too",),
                      counts=counts_line(met=1, abandoned=1, total=2))
         code, err, seen = check(text, check_only=False)
         self.assertEqual(code, 0, err)
