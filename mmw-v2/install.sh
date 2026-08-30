@@ -525,6 +525,119 @@ sys.exit(1 if failed else 0)
 PY
 fi
 
+# ---------------- Claude Code 的规则提醒 hook ----------------
+
+# hooks/rule-at-moment.py 只给 Claude Code 用：在每次读、写、派子代理、结果被宿主截断、
+# 回合结束这几个时刻，把 ~/.claude/CLAUDE.md 里对应的那一条原文送到模型眼前。
+# 软链放在 ~/.claude/hooks/（Herdr 的几个 hook 也在那），settings.json 里四条都指向它；
+# 改脚本不用重装。合并法与上面一样：只认 command 里带 rule-at-moment.py 的条目。
+
+RULES_HOOK_SRC="$ROOT/hooks/rule-at-moment.py"
+RULES_HOOK_LINK="$HOME_DIR/.claude/hooks/rule-at-moment.py"
+
+if [ -f "$RULES_HOOK_SRC" ] && [ -d "$HOME_DIR/.claude" ]; then
+  if [ "$mode" = check ]; then
+    if [ ! -L "$RULES_HOOK_LINK" ] || [ "$(readlink "$RULES_HOOK_LINK")" != "$RULES_HOOK_SRC" ]; then
+      echo "缺    $RULES_HOOK_LINK" >&2
+      rc=1
+    fi
+  else
+    mkdir -p "$(dirname "$RULES_HOOK_LINK")"
+    if [ -e "$RULES_HOOK_LINK" ] && [ ! -L "$RULES_HOOK_LINK" ]; then
+      echo "冲突  $RULES_HOOK_LINK 已存在且不是软链，跳过" >&2
+      rc=1
+    else
+      ln -sfn "$RULES_HOOK_SRC" "$RULES_HOOK_LINK"
+      echo "已装  $RULES_HOOK_LINK"
+    fi
+  fi
+
+  MMW_MODE="$mode" \
+  MMW_SETTINGS="$HOME_DIR/.claude/settings.json" \
+  MMW_RULES_HOOK="$RULES_HOOK_LINK" \
+  python3 - <<'PY' || rc=1
+import json
+import os
+import sys
+from pathlib import Path
+
+mode = os.environ["MMW_MODE"]
+path = Path(os.environ["MMW_SETTINGS"])
+command = f"python3 '{os.environ['MMW_RULES_HOOK']}'"
+MARK = "rule-at-moment.py"
+TIMEOUT = 10
+
+# 事件 → matcher。PreToolUse 一条 matcher 管八个工具；其余三个事件不带 matcher。
+wanted = [
+    ("PreToolUse", "Read|Grep|WebFetch|Bash|Write|Edit|NotebookEdit|Agent"),
+    ("PostToolUse", None),
+    ("PostToolUseFailure", None),
+    ("Stop", None),
+]
+
+
+def load():
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def save(data):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    scratch = path.with_name(path.name + ".mmw-tmp")
+    scratch.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    scratch.replace(path)
+
+
+def ours(handler):
+    return isinstance(handler, dict) and MARK in str(handler.get("command", ""))
+
+
+def find(hooks, event):
+    for group in hooks.get(event) or []:
+        inner = group.get("hooks") if isinstance(group, dict) else None
+        for existing in inner or []:
+            if ours(existing):
+                return group, existing
+    return None, None
+
+
+data = load()
+hooks = data.setdefault("hooks", {})
+failed = False
+for event, matcher in wanted:
+    group, existing = find(hooks, event)
+    if mode == "check":
+        ok = existing is not None and existing.get("command") == command \
+            and (matcher is None or group.get("matcher") == matcher)
+        if ok:
+            print(f"hook  {path}  {event}")
+        else:
+            sys.stderr.write(f"缺    {path}  {event}\n")
+            failed = True
+        continue
+    handler = {"type": "command", "command": command, "timeout": TIMEOUT}
+    if group is not None:
+        inner = group["hooks"]
+        inner[inner.index(existing)] = handler
+        if matcher is not None:
+            group["matcher"] = matcher
+        else:
+            group.pop("matcher", None)
+    else:
+        entry = {"hooks": [handler]}
+        if matcher is not None:
+            entry["matcher"] = matcher
+        hooks.setdefault(event, []).append(entry)
+if mode != "check":
+    save(data)
+    print(f"已装  {len(wanted)} 条 rule-at-moment hook -> {path}")
+sys.exit(1 if failed else 0)
+PY
+fi
+
 if [ "$mode" = check ]; then
   [ "$rc" -eq 0 ] && echo "齐了：${installed_dests} 处 × ${#wanted_names[@]} 个技能"
 else

@@ -378,6 +378,10 @@ _Avoid_: —
 The host-side enforcement of the closing gate: when a command tries to close a ticket or swap its label, it runs the dry run and refuses on a non-zero exit.
 _Avoid_: 关票 gate
 
+**`rule-at-moment.py`**:
+The Claude Code hook that puts the matching section of `~/.claude/CLAUDE.md` in front of the model at the moment it applies: the file's size before a `Read`, the next `offset` after the host truncates a result, rules 1, 3, 4 and 6 before a write, rule 5 after a failure, `## Before ending a turn` once per turn that used tools. It refuses one call only: an `Agent` call with no `model`.
+_Avoid_: 规则提醒 hook, 拦截 hook, 注入 hook
+
 ### Dispatch
 
 **`dispatch.sh <ticket> <role> [base-commit]`**:
