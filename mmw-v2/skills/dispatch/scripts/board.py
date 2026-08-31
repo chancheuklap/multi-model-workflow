@@ -546,12 +546,13 @@ class Events:
 
 # --------------------------------------------------------------------- the prompt
 
-# What a session that is `idle` with a `phase` other than `closed` or `handoff` is sent:
-# its own dispatch line, and not one word more. Where it got to is on the ticket — the
-# `self-run`, `VERDICT` and `REVIEW` comments and the `phase` token say it — and the
-# ticket is the only place that is kept. The skill it is already running is what tells
-# it to carry on from the newest of those rather than start the closing steps again.
-DISPATCH_LINE = "implement #{n}"
+# What a session that is `idle` with a `phase` other than `closed` or `handoff` is sent,
+# and what a session gets after its question form is dismissed. One word, because the
+# session is alive and still holds everything it has read and written this run: it
+# carries on from where it stopped. Naming the skill and the ticket again would send it
+# back in at the skill's first step, and that step is a gate written for a worker that
+# has not started — a tree with this run's own uncommitted work in it is refused there.
+CONTINUE_LINE = "continue"
 
 # --------------------------------------------------------------------- acting
 
@@ -725,7 +726,7 @@ class Watch:
             self.hand_back(row, WAKEUP_LIMIT.format(k=WAKE_LIMIT, phase=worker["phase"]),
                            case="WAKEUP LIMIT")
             return
-        self.send(row, DISPATCH_LINE.format(n=row["ticket"]))
+        self.send(row, CONTINUE_LINE)
 
     def over_time(self, row: dict) -> bool:
         """Held longer than a ticket may hold a session. Hand it back; leave it running."""
@@ -772,7 +773,7 @@ class Watch:
                "--timeout", "15000"])
         say(f"#{row['ticket']}", key, "form dismissed")
         self.settled_since[pane] = time.monotonic()
-        self.send(row, DISPATCH_LINE.format(n=row["ticket"]))
+        self.send(row, CONTINUE_LINE)
 
     # ------------------------------------------------------------- the session is gone
 

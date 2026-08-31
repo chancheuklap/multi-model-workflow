@@ -252,7 +252,7 @@ dispatch() {
   local pane name prompt
   if [ "$reviewing" = 1 ]; then
     name="$(herdr_name "issue-$number-review")"
-    prompt="code-review $base #$number"
+    prompt="Use the code-review skill to review ticket #$number from base commit $base"
     local caller="${HERDR_PANE_ID:-}"
     [ -n "$caller" ] || refuse "no calling pane to split, so the reviewer has nowhere to go"
     local width direction
@@ -264,7 +264,7 @@ dispatch() {
     [ -n "$pane" ] || refuse "could not split pane $caller"
   else
     name="$(herdr_name "issue-$number")"
-    prompt="implement #$number"
+    prompt="Use the implement skill to work ticket #$number"
     local worktree
     worktree="$(worktree_for "$number" "$root")" \
       || refuse "could not open a worktree for issue-$number under ${MMW_WORKTREES:-$HOME/.mmw/worktrees}"

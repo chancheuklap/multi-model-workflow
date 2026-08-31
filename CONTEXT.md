@@ -393,7 +393,7 @@ A worker whose pane is `idle` or `done` while its `phase` is anything other than
 _Avoid_: 半路停了, 半途停下, 没到终点就停了, 停在半路, 到终点, 终点, stalled
 
 **re-prompt（重新 prompt）**:
-Sending a session that has settled a new prompt with `herdr agent prompt`. A worker is re-prompted with its dispatch line and nothing else; the main agent is re-prompted with one line beginning `mmw board:`. Delivered only while the target is `idle` or `done` and its pane is not focused.
+Sending a session that has settled a new prompt with `herdr agent prompt`. A worker is re-prompted with `continue` and nothing else; the main agent is re-prompted with one line beginning `mmw board:`. Delivered only while the target is `idle` or `done` and its pane is not focused.
 _Avoid_: 捡回, 叫醒, 唤醒 (the verb)
 
 **唤醒闭环（wakeup loop）**:
@@ -453,15 +453,19 @@ The constants at the top of `board.py`: the wait before the first re-prompt, the
 _Avoid_: 并行上限, 冷却期, 退避
 
 **dispatch line（派发词）**:
-The one sentence a dispatched session is given: the skill name plus the ticket number, and nothing else. Everything fixed lives in the skill or in the definition file, never in that sentence. A re-prompt sends the same sentence again.
+The one sentence a session is given when it is dispatched: which skill to use, on which ticket, and nothing else. The host discovers its installed skills by itself, so the sentence names a skill rather than a path. Everything fixed lives in the skill or in the definition file, never in that sentence. A session already running is not sent this sentence again; it is sent `continue`.
 _Avoid_: —
 
-**`implement #<n>`**:
-The dispatch line for a worker: skill name plus ticket number.
+**`Use the implement skill to work ticket #<n>`**:
+The dispatch line for a worker.
 _Avoid_: —
 
-**`code-review <base-commit> #<n>`**:
+**`Use the code-review skill to review ticket #<n> from base commit <base-commit>`**:
 The dispatch line for a reviewer.
+_Avoid_: —
+
+**`continue`**:
+The whole of a re-prompt. The session it reaches is alive and still holds the skill it is running and the ticket it is on, so the word is the message: carry on from where you stopped.
 _Avoid_: —
 
 **`verify #<n>`**:

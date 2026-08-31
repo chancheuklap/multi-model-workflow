@@ -41,4 +41,8 @@ recorded base branch, which `advance` needs.
 
 ## Closeout: resume after a re-prompt
 
-One sentence added to the "Once done" paragraph: a ticket that already carries a `self-run`, `VERDICT` or `REVIEW` comment is resumed at the step after the newest of them. `board.py` re-prompts a stopped worker with the dispatch line only, so the skill has to know it may be entering the closeout mid-way. On the next upstream pull keep this sentence with the seven-step closeout.
+One sentence added to the "Once done" paragraph: a ticket that already carries a `self-run`, `VERDICT` or `REVIEW` comment is resumed at the step after the newest of them. `board.py` re-prompts a stopped worker with `continue` and nothing else, so the skill has to know it may be entering the closeout mid-way. On the next upstream pull keep this sentence with the six-step closeout.
+
+## Where a failing `visual-parity.py` criterion is read
+
+One sentence added to closeout step 1. That script prints a single `DIFF <scene> <viewport> <pct>% box=… — <reasons>` line; which reasons bring sub-lines out under them, and what `NEGATIVE CONTROL FAILED` means, are written only in the verify-ticket skill. Every other refusal in this closeout explains itself in its own stderr, so this is the one place the worker has to be sent elsewhere. Upstream rewrites step 1 → keep the pointer.

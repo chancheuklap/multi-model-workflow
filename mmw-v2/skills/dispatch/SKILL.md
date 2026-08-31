@@ -102,7 +102,7 @@ Exit 2 on the check is not a formality. A night nobody is watching cannot notice
 
 **Then run `advance` once.** The board's own line may not reach you while your pane is focused, and at the start of a night it usually is.
 
-After that you read tickets and run `advance` when told. You do not prompt a worker, and you do not answer a question a worker put on screen — the board comments the form on the ticket, dismisses it, and sends the worker its dispatch line again, because the discipline is not to ask.
+After that you read tickets and run `advance` when told. You do not prompt a worker, and you do not answer a question a worker put on screen — the board comments the form on the ticket, dismisses it, and tells the worker to continue, because the discipline is not to ask.
 
 ## When the board re-prompts you
 

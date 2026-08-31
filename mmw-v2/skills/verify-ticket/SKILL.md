@@ -1,6 +1,6 @@
 ---
 name: verify-ticket
-description: Run a ticket's acceptance criteria and comment the outcome on the ticket. Use when you have finished a ticket, when you are the verifier re-running what it ticked, or when auditing how a freshly written ticket's criteria are worded.
+description: Reference for the two scripts this pipeline runs on a ticket, the closing gate `verify-ticket.py` and the UI comparison `visual-parity.py`. Use when one of them refuses you, when a `DIFF` or `NOT_READY` line needs reading, when writing a criterion's `CHECK:` and `EXPECT:`, or when you need to know which of the five runs is yours.
 ---
 
 # Verify ticket

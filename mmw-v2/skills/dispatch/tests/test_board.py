@@ -259,10 +259,14 @@ class TicketReading(unittest.TestCase):
 
 
 class ThePrompt(unittest.TestCase):
-    """The only thing board.py ever says to a worker."""
+    """The only thing board.py ever says to a worker.
 
-    def test_it_is_the_dispatch_line_and_nothing_else(self):
-        self.assertEqual(board.DISPATCH_LINE.format(n=62), "implement #62")
+    One word, carrying no ticket number and naming no skill: every session it reaches
+    is alive and already holds both.
+    """
+
+    def test_it_is_one_word_and_nothing_else(self):
+        self.assertEqual(board.CONTINUE_LINE, "continue")
 
 
 class Table(unittest.TestCase):
@@ -435,7 +439,7 @@ class Table4(unittest.TestCase):
         self.round(watch)
         self.clock.tick(board.COOLDOWN_SECONDS)
         self.round(watch)
-        self.assertEqual(self.calls["prompt"], [("w1:p1", "implement #61")])
+        self.assertEqual(self.calls["prompt"], [("w1:p1", "continue")])
 
     def test_the_wait_before_each_prompt_grows(self):
         for wake, wait in enumerate(board.WAKE_BACKOFF):
@@ -661,10 +665,10 @@ class Table4(unittest.TestCase):
         for call in self.calls["herdr"]:
             self.assertNotIn(call[0:2], (["pane", "send-text"], ["agent", "send-text"]))
 
-    def test_after_the_form_it_is_sent_its_dispatch_line_and_the_count_goes_up(self):
+    def test_after_the_form_it_is_told_to_continue_and_the_count_goes_up(self):
         self.blocked_world()
         self.round(self.watch())
-        self.assertEqual(self.calls["prompt"], [("w1:p1", "implement #61")])
+        self.assertEqual(self.calls["prompt"], [("w1:p1", "continue")])
         self.assertIn(["pane", "report-metadata", "w1:p1", "--source", "mmw",
                        "--token", "wake=1", "--ttl-ms", str(board.TOKEN_TTL_MS)],
                       self.calls["herdr"])
@@ -752,7 +756,7 @@ class Table4(unittest.TestCase):
         self.round(watch)
         self.clock.tick(board.COOLDOWN_SECONDS)
         self.round(watch)
-        self.assertEqual(self.calls["prompt"], [("w1:p1", "implement #61")])
+        self.assertEqual(self.calls["prompt"], [("w1:p1", "continue")])
 
     # ------------------------------------------------------------- the night's end
 
