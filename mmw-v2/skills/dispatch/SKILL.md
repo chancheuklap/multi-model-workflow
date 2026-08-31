@@ -5,20 +5,17 @@ description: Dispatch a worker or a reviewer onto a ticket, wait for it to repor
 
 # Dispatch
 
-Other skills reach this one at the step where one agent puts another to work; nothing
-here runs on its own.
+Other skills reach this one at the step where one agent puts another to work; nothing here runs on its own.
 
 ## The script
 
-`scripts/dispatch.sh`, next to this file. Resolve its absolute path once. Every command
-below is written `<dispatch> …` and means:
+`scripts/dispatch.sh`, next to this file. Resolve its absolute path once. Every command below is written `<dispatch> …` and means:
 
 ```bash
 bash /absolute/path/to/scripts/dispatch.sh …
 ```
 
-You supply a role and a ticket number. Everything else is fixed by the shape of the
-pipeline and lives inside the script.
+You supply a role and a ticket number. Everything else is fixed by the shape of the pipeline and lives inside the script.
 
 ## Dispatch an agent
 
@@ -38,9 +35,7 @@ pipeline and lives inside the script.
 | `1` | The session is up but was **not** told anything: it did not become ready in time, or it would not take the prompt |
 | `2` | Nothing was started. The reason is on stderr — read it verbatim |
 
-On exit 1 a session is sitting in that pane holding the ticket's name with nothing to do.
-Dispatching the same role again collides on that name: end that session first, or carry
-on without it.
+On exit 1 a session is sitting in that pane holding the ticket's name with nothing to do. Dispatching the same role again collides on that name: end that session first, or carry on without it.
 
 ## Wait for the agent to report back
 
@@ -58,8 +53,7 @@ on without it.
 | `0` | It matched. The whole comment is on stdout |
 | `1` | It timed out. The script has already commented on the ticket saying who did not finish |
 
-On exit 1, **skip that round and carry on with the rest of your own steps.** An agent that
-never reported back is not a reason to hand the ticket to a person.
+On exit 1, **skip that round and carry on with the rest of your own steps.** An agent that never reported back is not a reason to hand the ticket to a person.
 
 ## Start the night
 
@@ -67,12 +61,7 @@ never reported back is not a reason to hand the ticket to a person.
 <dispatch> run <spec> [--role R] [--parallel N] [--max-hours H]
 ```
 
-One command, typed once, after the last ticket of a spec is published. It checks this
-machine, renames your own pane `mmw-main` so the board can reach you, opens a tab
-labelled `mmw board`, and leaves `scripts/board.py --watch` running in it. From then on
-the board dispatches the frontier, re-prompts the sessions that go idle short of their
-closing gate, hands back the tickets that reach a limit, and writes `NIGHT SUMMARY` on
-the spec when nothing is left to run.
+One command, typed once, after the last ticket of a spec is published. It checks this machine, renames your own pane `mmw-main` so the board can reach you, opens a tab labelled `mmw board`, and leaves `scripts/board.py --watch` running in it. From then on the board dispatches the frontier, re-prompts the sessions that go idle short of their closing gate, hands back the tickets that reach a limit, and writes `NIGHT SUMMARY` on the spec when nothing is left to run.
 
 | Argument | What to put there |
 | --- | --- |
@@ -86,32 +75,21 @@ the spec when nothing is left to run.
 | `0` | The board is up. Its tab holds every line it will write |
 | `2` | Nothing was started. The reason is on stderr: not inside Herdr, no such role, or `install.sh --check` found something missing |
 
-Exit 2 on the check is not a formality. A night nobody is watching cannot notice that
-this machine's skills or its closing gate went missing, so that is checked at the one
-moment somebody is here to fix it: run `install.sh` and start the night again.
+Exit 2 on the check is not a formality. A night nobody is watching cannot notice that this machine's skills or its closing gate went missing, so that is checked at the one moment somebody is here to fix it: run `install.sh` and start the night again.
 
-**After this command you read tickets and nothing else.** You do not dispatch, you do
-not prompt a worker, and you do not answer a question a worker put on screen — the
-board comments the form on the ticket, dismisses it, and sends the worker its dispatch
-line again, because the discipline is not to ask.
+**After this command you read tickets and nothing else.** You do not dispatch, you do not prompt a worker, and you do not answer a question a worker put on screen — the board comments the form on the ticket, dismisses it, and sends the worker its dispatch line again, because the discipline is not to ask.
 
 ## When the board re-prompts you
 
-Two cases reach you, and both arrive as one line: `mmw board: <case> #<n> — run
-~/.agents/skills/dispatch/scripts/board.py --once <spec>`. Run that command as it is
-written, read the table, and go back to being idle.
+Two cases reach you, and both arrive as one line: `mmw board: <case> #<n> — run ~/.agents/skills/dispatch/scripts/board.py --once <spec>`. Run that command as it is written, read the table, and go back to being idle.
 
 | `<case>` | What it means | What to do |
 | --- | --- | --- |
 | `WAKEUP LIMIT`, `REDISPATCHED`, `TIME LIMIT` | A limit was reached. The board has already commented on that ticket and moved it to `needs-triage` | Read the table. Nothing else: do not dispatch it again, do not prompt its session |
 | `night over` | The night ended: `NIGHT SUMMARY` is the newest comment on the spec | Read it. If the user asked to be told when the run finished, tell them now |
 
-A worker stopped at a question does not reach you. Its form is on its ticket for the
-morning, under `BLOCKED:`.
+A worker stopped at a question does not reach you. Its form is on its ticket for the morning, under `BLOCKED:`.
 
 ## Change which agent, model, or thinking level is used
 
-Edit `models.md`, next to this file. **Read
-[references/editing-models.md](references/editing-models.md) first** — a row is only
-correct on the machine it runs on, and that file carries the whole change: what to
-confirm before you touch a row, and what to do afterwards to make it take effect.
+Edit `models.md`, next to this file. **Read [references/editing-models.md](references/editing-models.md) first** — a row is only correct on the machine it runs on, and that file carries the whole change: what to confirm before you touch a row, and what to do afterwards to make it take effect.

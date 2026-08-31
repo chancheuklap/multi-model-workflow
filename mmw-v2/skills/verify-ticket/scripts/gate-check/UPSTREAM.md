@@ -1,17 +1,12 @@
 # Vendored from unlazy
 
-Source: https://github.com/Leonxlnx/unlazy, commit `da0b00a3` (snapshot kept at
-`docs/research/code-landing-refs/unlazy/`). Vendored 2026-08-29. Licence: MIT, see `LICENSE`.
+Source: https://github.com/Leonxlnx/unlazy, commit `da0b00a3` (snapshot kept at `docs/research/code-landing-refs/unlazy/`). Vendored 2026-08-29. Licence: MIT, see `LICENSE`.
 
 ## Files taken as-is (byte-identical to the snapshot)
 
-`lib/check-supervisor.mjs`, `lib/process-tree.mjs`, `lib/regex-worker.mjs`,
-`lib/dispatch.mjs`.
+`lib/check-supervisor.mjs`, `lib/process-tree.mjs`, `lib/regex-worker.mjs`, `lib/dispatch.mjs`.
 
-The pass/fail logic is upstream's and is not edited here: three states, the
-exit-0-**and**-EXPECT double condition, timeouts, output caps, the regex worker.
-`lib/dispatch.mjs` is imported by `gate-check.mjs` and returns empty when no scope is
-set, which is always the case here.
+The pass/fail logic is upstream's and is not edited here: three states, the exit-0-**and**-EXPECT double condition, timeouts, output caps, the regex worker. `lib/dispatch.mjs` is imported by `gate-check.mjs` and returns empty when no scope is set, which is always the case here.
 
 ## Files taken with edits
 
@@ -26,21 +21,11 @@ set, which is always the case here.
 
 ### Why the approval store went
 
-Upstream's safety boundary is a person reading an inherited ledger and approving it once
-(`SECURITY.md:3`), because there a ledger arrives inside a repository someone else wrote.
-Here the `CHECK:` lines are written by the main agent onto a ticket in this user's own
-tracker, `--lint` audits how they are written before the ticket goes out, and the ticket
-is the thing the user reads. Nothing is inherited, so nobody ever read those records:
-`--approve` was passed on every run. Nothing reused them either — a record is keyed on the
-ledger's absolute path, and the ledger is a fresh temp file each run. What was left was a
-directory outside the repository that every host's sandbox then had to be widened for.
+Upstream's safety boundary is a person reading an inherited ledger and approving it once (`SECURITY.md:3`), because there a ledger arrives inside a repository someone else wrote. Here the `CHECK:` lines are written by the main agent onto a ticket in this user's own tracker, `--lint` audits how they are written before the ticket goes out, and the ticket is the thing the user reads. Nothing is inherited, so nobody ever read those records: `--approve` was passed on every run. Nothing reused them either — a record is keyed on the ledger's absolute path, and the ledger is a fresh temp file each run. What was left was a directory outside the repository that every host's sandbox then had to be widened for.
 
 ## Not vendored
 
-`stop-hook.mjs`, `install-hooks.mjs`, `dispatch-check.mjs`, `templates/`, `references/`,
-`agents/`, and the remaining test files (`contract-tests.mjs`, `dispatch-tests.mjs`,
-`hardening-tests.mjs`) — all cover scope, leases, or the Stop hook, none of which this
-skill uses.
+`stop-hook.mjs`, `install-hooks.mjs`, `dispatch-check.mjs`, `templates/`, `references/`, `agents/`, and the remaining test files (`contract-tests.mjs`, `dispatch-tests.mjs`, `hardening-tests.mjs`) — all cover scope, leases, or the Stop hook, none of which this skill uses.
 
 ## Running the tests
 
