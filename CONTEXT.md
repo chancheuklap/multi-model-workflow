@@ -269,7 +269,7 @@ Every commit made after the last `VERDICT`, each with where it came from. `None`
 _Avoid_: —
 
 **`Outside Owns:`**:
-The files changed outside `## Owns`. Computed by the ticket script and copied into the draft; `None` when empty.
+The files this ticket's own commits changed outside `## Owns` — merges from other branches excluded. Computed by the ticket script and copied into the draft; `None` when empty.
 _Avoid_: —
 
 **`skipped: [X], add when [Y]`**:
@@ -503,7 +503,7 @@ The fixed first line of the review report comment.
 _Avoid_: —
 
 **base-commit（起点 commit）**:
-The first argument of the review dispatch line: where the diff starts. Computed as `git merge-base main HEAD` in the worker's worktree — the same starting point `Outside Owns:` is measured from.
+The first argument of the review dispatch line: where the diff starts. Read from `git config branch.issue-<n>.mmw-base` in the worker's worktree — the cut point dispatch recorded when it opened the worktree, the same starting point `Outside Owns:` is measured from.
 _Avoid_: —
 
 ### UI acceptance

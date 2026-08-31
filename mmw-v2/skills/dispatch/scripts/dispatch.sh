@@ -17,6 +17,7 @@
 set -uo pipefail
 
 IDLE_TIMEOUT_MS=120000       # a session that is not ready by now is not coming up
+PROMPT_TAKE_MS=15000         # a prompt that landed shows as working within this
 TOKEN_TTL_MS=86400000        # a day, so a night's run never outlives its own metadata
 WIDE_PANE_COLUMNS=160        # wider than this splits sideways, otherwise downwards
 LABEL_TITLE_CHARS=20         # how much of the ticket title fits on a tab
@@ -140,6 +141,45 @@ else:
 '
 }
 
+# ------------------------------------------------------------------ the worktree
+
+# Prints the path of ticket `number`'s worktree, creating it when it is not there yet.
+# The worktree is this script's to make: hosts differ in whether they can open one at
+# all, so the launch arguments carry no worktree flag and the session simply starts
+# inside it. Only the worker gets one — the reviewer runs inside the worker's worktree
+# and the verifier is a subagent of the worker's session, so neither comes through here.
+#
+# A branch named issue-<n> that already exists is reused as it stands: that is a
+# redispatch, and the new session resumes the work. Otherwise the branch is cut from
+# HEAD — whatever branch the dispatching session is on, because that is where the day's
+# discussion and spec work happened and the ticket builds on it — and the cut point is
+# recorded in `branch.issue-<n>.mmw-base`, where `verify-ticket.py` and the code review
+# read the base their diffs start from. Stale bookkeeping for a directory deleted by
+# hand is pruned first, and a failed add leaves git's own error on stderr for the
+# caller's refusal to carry.
+worktree_for() {
+  local number="$1" root="$2"
+  local base="${MMW_WORKTREES:-$HOME/.mmw/worktrees}/$(basename "$root")"
+  local path="$base/issue-$number"
+  git -C "$root" worktree prune 2>/dev/null
+  if [ -d "$path" ]; then
+    printf '%s\n' "$path"
+    return 0
+  fi
+  mkdir -p "$base" || return 1
+  if git -C "$root" rev-parse --verify --quiet "refs/heads/issue-$number" >/dev/null; then
+    git -C "$root" worktree add "$path" "issue-$number" >/dev/null || return 1
+  else
+    git -C "$root" worktree add -b "issue-$number" "$path" HEAD >/dev/null || return 1
+    git -C "$root" config "branch.issue-$number.mmw-base" "$(git -C "$root" rev-parse HEAD)"
+    # The branch name as well as the commit: the pull request the worker opens at the
+    # end needs a base branch, and the sha alone cannot name one.
+    git -C "$root" config "branch.issue-$number.mmw-base-branch" \
+      "$(git -C "$root" rev-parse --abbrev-ref HEAD)"
+  fi
+  printf '%s\n' "$path"
+}
+
 # ------------------------------------------------------------------ dispatching
 
 dispatch() {
@@ -207,13 +247,16 @@ dispatch() {
   else
     name="issue-$number"
     prompt="implement #$number"
+    local worktree
+    worktree="$(worktree_for "$number" "$root")" \
+      || refuse "could not open a worktree for issue-$number under ${MMW_WORKTREES:-$HOME/.mmw/worktrees}"
     local label tab_args
     label="$(printf '#%s %s' "$number" "$title" \
              | head_chars $(( LABEL_TITLE_CHARS + ${#number} + 2 )))"
     tab_args=()
     [ -n "${HERDR_WORKSPACE_ID:-}" ] && tab_args=(--workspace "$HERDR_WORKSPACE_ID")
     # MMW_TICKET is how the gates inside this pane know which ticket they guard.
-    pane="$(herdr tab create ${tab_args[@]+"${tab_args[@]}"} --cwd "$root" \
+    pane="$(herdr tab create ${tab_args[@]+"${tab_args[@]}"} --cwd "$worktree" \
               --label "$label" --env "MMW_TICKET=$number" --no-focus \
             | json_at .result.root_pane.pane_id)"
     [ -n "$pane" ] || refuse "could not open a tab for ticket #$number"
@@ -227,6 +270,18 @@ dispatch() {
 
   herdr agent prompt "$name" "$prompt" >/dev/null \
     || give_up "$name is up in pane $pane but would not take the prompt"
+
+  # The prompt call says the text was sent, not that the session heard it: a host still
+  # drawing its start screen swallows the first line without a trace. Turning working —
+  # or blocked, a session that heard and hit a form — within a few seconds is what says
+  # it landed; one resend covers the swallowed case.
+  if ! herdr agent wait "$name" --until working --until blocked \
+         --timeout "$PROMPT_TAKE_MS" >/dev/null 2>&1; then
+    herdr agent prompt "$name" "$prompt" >/dev/null 2>&1
+    herdr agent wait "$name" --until working --until blocked \
+        --timeout "$PROMPT_TAKE_MS" >/dev/null 2>&1 \
+      || give_up "$name is up in pane $pane but did not start on the prompt"
+  fi
 
   # The ticket and the kind are written here rather than left to the first
   # `verify-ticket.py` run, so that a pane which stops before that run is still

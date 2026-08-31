@@ -7,7 +7,7 @@ agent.json（name、description、sandbox、五宿主各自的工具）。模型
 只开那一个文件。这里只做格式转换，五个宿主的文件格式是结构差异，属于代码，不属于配置：
 
   claude   -> out/claude.md       frontmatter: name/description/model/effort/tools
-  cursor   -> out/cursor.md       frontmatter: name/description/model(带 [effort=…])/readonly
+  cursor   -> out/cursor.md       frontmatter: name/description/model/readonly
   codex    -> out/codex.toml      name/description/model/model_reasoning_effort/sandbox_mode/developer_instructions
   grok     -> out/grok.md         frontmatter: name/description/model；正文即提示词
            -> out/grok.role.toml  description/default_capability_mode/reasoning_effort（装到 ~/.grok/roles/）
@@ -108,11 +108,16 @@ def render(agent_dir: Path, table: dict[tuple[str, str], tuple[str, str]]) -> di
         "tools": h["tools"],
     }) + body
 
+    # Cursor 把思考强度烧进模型名（cursor-grok-4.6-high 是一个名字），effort 列为 —；
+    # 只有参数化模型才接受 [effort=…] 括号覆盖，那时 effort 列才有值。
+    cursor_model = model("cursor")
+    if effort("cursor") not in ("—", "-", ""):
+        cursor_model += f"[effort={effort('cursor')}]"
     h = hosts["cursor"]
     out["cursor.md"] = fm({
         "name": name,
         "description": q(desc),
-        "model": f"{model('cursor')}[effort={effort('cursor')}]",
+        "model": cursor_model,
         "readonly": "true" if readonly else "false",
     }) + body
 

@@ -15,6 +15,19 @@
 | 「Once done」之后的收尾七步 | 我们改的：自跑 `verify-ticket.py <n>`（同一条标准至多三轮，第三轮写 `ABANDON: AC<n> failed`）→ 派 verifier（prompt 只有 `verify #<n>`，不派第二次）→ `dispatch.sh <n> reviewer <起点>` 起 reviewer、`dispatch.sh wait <n> "^REVIEW " 1800` 等评论（一轮、修一轮、不复审；完成判据是评论在票上；超时跳过这一轮；修 finding 受写码纪律七条同样约束，reviewer 的 suggestion 是加东西时先找可删的）→ Audit（重读票与 Read first，每条 AC 追到 EVIDENCE，重数 Counts）→ 把只等人拍一句话的标准切成 decision 类 sub-issue、收尾评论写成草稿文件（固定格式：首行 ALL MET / HANDOFF REQUIRED、`Branch: … Commit: … PR: …` 一行且没有 PR 时写 `PR: none — <理由>`、Post-verdict:、每条 AC 四行、Outside Owns:、skipped:、Sub-issues opened: 收本票工作期间开的四类 sub-issue（基线装不下、Owns 之外的顺手改动、票外 review finding、`ABANDON: decision`）、Counts:、Decisions I made on my own）→ push 开 PR → `--closeout` 由脚本贴评论并关票或换标签，worker 不亲手关票换标签（hook 拦）。三个 ABANDON kind 各有准入：failed 要票上数得出三条 self-run、stuck 不看轮次、decision 开 sub-issue 不挡 ALL MET。理由：关票是一道门不是一个动作，上游三步（评论证据 → PR → 关票）被这七步吸收。这三个值写一行、没有 PR 时把理由接在 `PR: none` 后面，是为了早上读票的人和以后想解析它们的脚本只面对一种形状；`Sub-issues opened:` 四类逐条点名，是因为正文里要求开 sub-issue 的地方就是这四处，只说「上面两类」会漏掉另外两处。上游改收尾 → 收上游措辞，七步顺序、三轮上限、`--closeout` 关票门必须保留 |
 | frontmatter 的 `disable-model-invocation` 与 `agents/openai.yaml` 的 `policy.allow_implicit_invocation` | 我们删的：上游两处都设了只许人触发，我们要模型能自己派 implement，所以两处一起删。上游若再带回来 → 仍然删 |
 
+## Waiting on the reviewer carries no number
+
+`dispatch.sh wait <n> "^REVIEW "` passes no seconds: the timeout lives in the script
+(`WAIT_DEFAULT_SECONDS`), and a number in the skill text is a number a worker shrinks —
+one did, and skipped a review its reviewer was still writing. Upstream brings a number
+back → drop it again.
+
+## The pull request's base is the recorded base branch
+
+Step 6 reads `git config branch.issue-<n>.mmw-base-branch` (`main` when unset); the
+default base would show the planning branch's commits in the ticket's diff. Upstream
+rewrites step 6 → keep the base sentence.
+
 ## Closeout: resume after a re-prompt
 
 One sentence added to the "Once done" paragraph: a ticket that already carries a `self-run`, `VERDICT` or `REVIEW` comment is resumed at the step after the newest of them. `board.py` re-prompts a stopped worker with the dispatch line only, so the skill has to know it may be entering the closeout mid-way. On the next upstream pull keep this sentence with the seven-step closeout.

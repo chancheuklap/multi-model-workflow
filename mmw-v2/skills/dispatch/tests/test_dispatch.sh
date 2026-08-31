@@ -101,6 +101,12 @@ export PATH="$TMP/bin:$PATH"
 export MMW_TEST_LOG="$TMP/calls.log"
 export MMW_GH_COMMENT_CALLS="$TMP/comment-calls"
 
+# A fixture repository of its own, so the worktrees dispatch.sh opens land under $TMP
+# and never touch the repository these tests live in.
+export MMW_WORKTREES="$TMP/worktrees"
+git init -q -b main "$TMP/repo"
+git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m fixture
+
 # ------------------------------------------------------------------ log reading
 
 reset_log() { : > "$MMW_TEST_LOG"; : > "$MMW_GH_COMMENT_CALLS"; }
@@ -127,7 +133,7 @@ for line in open(os.environ["MMW_TEST_LOG"], encoding="utf-8"):
 '
 }
 
-run_dispatch() { "$@" > "$TMP/out" 2> "$TMP/err"; echo "$?"; }
+run_dispatch() { (cd "$TMP/repo" && "$@") > "$TMP/out" 2> "$TMP/err"; echo "$?"; }
 one_line_reason() {
   [ "$(wc -l < "$TMP/err" | tr -d ' ')" = 1 ] \
     || fail "the reason should be one line: $(cat "$TMP/err")"
@@ -150,13 +156,15 @@ scenario_worker() {
   { [ -n "$first_gh" ] && [ -n "$first_herdr" ] && [ "$first_gh" -lt "$first_herdr" ]; } \
     || fail "the tracker should be asked before the first herdr call"
 
-  echo "--- one tab per ticket, carrying the ticket number into the pane"
+  echo "--- one tab per ticket, opened inside the worktree dispatch itself made"
   has "herdr :: tab :: create"
   has ":: --workspace :: w1"
   has ":: --env :: MMW_TICKET=61"
   has ":: --no-focus"
-  [ "$(arg_after --cwd)" = "$(git rev-parse --show-toplevel)" ] \
-    || fail "--cwd should be the repository root, got $(arg_after --cwd)"
+  [ "$(arg_after --cwd)" = "$MMW_WORKTREES/repo/issue-61" ] \
+    || fail "--cwd should be the ticket's worktree, got $(arg_after --cwd)"
+  [ "$(git -C "$MMW_WORKTREES/repo/issue-61" rev-parse --abbrev-ref HEAD)" = "issue-61" ] \
+    || fail "the worktree is not on branch issue-61"
   MMW_LABEL="$(arg_after --label)" python3 -c '
 import os, sys
 
@@ -168,8 +176,8 @@ if len(label) != 24:
 ' || fail "the tab label is wrong"
 
   echo "--- the agent starts in the tab's own pane, and nothing is split"
-  has "herdr :: agent :: start :: issue-61 :: --kind :: cursor :: --pane :: w1:p9 :: --"
-  has ":: -w :: issue-61 :: --worktree-base :: main :: --force :: --trust :: --model :: cursor-grok-4.6-high"
+  has "herdr :: agent :: start :: issue-61 :: --kind :: codex :: --pane :: w1:p9 :: --"
+  has ":: --dangerously-bypass-approvals-and-sandbox :: -m :: gpt-5.6-terra :: -c :: model_reasoning_effort=high"
   hasnt "herdr :: pane :: split"
 
   echo "--- it is told what to work on only after it is ready"
@@ -178,9 +186,12 @@ if len(label) != 24:
   [ "$(line_of 'agent :: wait')" -lt "$(line_of 'agent :: prompt')" ] \
     || fail "prompted before waiting for readiness"
 
+  echo "--- and the prompt is confirmed to have landed, not just sent"
+  has "herdr :: agent :: wait :: issue-61 :: --until :: working :: --until :: blocked :: --timeout :: 15000"
+
   echo "--- the pane says who it is, to a person and to a machine"
   has "herdr :: pane :: rename :: w1:p9 :: #61 worker"
-  has "herdr :: pane :: report-metadata :: w1:p9 :: --source :: mmw :: --token :: ticket=61 :: --token :: kind=worker :: --token :: model=cursor-grok-4.6-high :: --ttl-ms :: 86400000"
+  has "herdr :: pane :: report-metadata :: w1:p9 :: --source :: mmw :: --token :: ticket=61 :: --token :: kind=worker :: --token :: model=gpt-5.6-terra :: --ttl-ms :: 86400000"
 }
 
 scenario_reviewer() {
@@ -410,7 +421,7 @@ scenario_placeholder() {
 
   echo "--- model, thinking level and ticket number all reach the launch arguments"
   has "herdr :: agent :: start :: issue-61 :: --kind :: grok :: --"
-  has ":: --worktree=issue-61 :: --worktree-ref :: main :: --permission-mode :: bypassPermissions :: -m :: grok-4.6 :: --reasoning-effort :: xhigh"
+  has ":: --permission-mode :: bypassPermissions :: -m :: grok-4.6 :: --reasoning-effort :: xhigh"
   hasnt "{model}"
   hasnt "{effort}"
   hasnt "{n}"

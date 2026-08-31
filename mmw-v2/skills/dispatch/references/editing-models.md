@@ -12,7 +12,7 @@ Ask the host itself.
 
 | Host | Ask it this |
 | --- | --- |
-| Cursor | `cursor-agent models` lists them. The effort is burned into the slug, so there is no bare `cursor-grok-4.6` — the high-effort build is its own name |
+| Cursor | `cursor-agent models` lists them. The effort is burned into the slug, so there is no bare `cursor-grok-4.6` — the high-effort build is its own name. A subagent row's model must also be enabled in the Cursor account's model settings, or the subagent is never registered |
 | pi | `pi --list-models` lists them. A name is `provider/id`, and the thinking level is the row's own column |
 | Claude Code | `claude --help`, under `--model`: an alias for the newest of a family (`fable`, `opus`, `sonnet`) or a full model name |
 | Grok Build | `grok --help`, under `-m` and `--reasoning-effort`. Neither enumerates its values; `grok inspect` prints the configuration Grok has right now |
@@ -25,12 +25,12 @@ right, and both come from the machine:
 
 1. **The host cell has to name an agent kind Herdr recognises.** Run `herdr agent` to
    see the list it accepts. A name that is not on it is refused and no session starts.
-2. **The arguments have to be that host's own.** A worker's arguments have to say four
-   things: enter the worktree for this ticket, run without stopping to ask for approval,
-   use this model, use this thinking level. Every host spells all four differently, and
-   not every host has all four — one opens a worktree with a flag, another with a
-   different flag, a third has no such flag at all. Read the new host's own `--help` and
-   write the row from that, not from the row you are replacing.
+2. **The arguments have to be that host's own.** A worker's arguments have to say three
+   things: run without stopping to ask for approval, use this model, use this thinking
+   level. The worktree is not one of them — `dispatch.sh` opens it and starts the
+   session inside it, so the row carries no worktree flag. Every host spells the three
+   differently. Read the new host's own `--help` and write the row from that, not from
+   the row you are replacing.
 
 ## 3. Make the edit take effect
 

@@ -30,7 +30,7 @@ pipeline and lives inside the script.
 | --- | --- |
 | `<ticket>` | The ticket number. Digits only, no `#` |
 | `<role>` | `junior-worker`, `senior-worker` or `reviewer`. You choose which of the two workers a ticket gets; the ticket itself says nothing about it |
-| `[base-commit]` | Only the `reviewer` takes one. It is the commit the code review starts from: `git merge-base main HEAD`, run in the worker's worktree — the same base `verify-ticket.py` uses for `Outside Owns:` |
+| `[base-commit]` | Only the `reviewer` takes one. It is the commit the code review starts from: `git config branch.issue-<n>.mmw-base`, read in the worker's worktree — the cut point dispatch recorded when it opened the worktree, the same base `verify-ticket.py` uses for `Outside Owns:` |
 
 | Exit code | What happened |
 | --- | --- |
