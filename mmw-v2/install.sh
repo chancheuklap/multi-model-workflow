@@ -5,7 +5,7 @@
 #   subagent          agents/<名>/out/ 的成品，软链进各宿主自己的 agent 目录
 #   hook              verify-ticket 的 pretool 门（五个宿主）与 Claude Code 的
 #                     rule-at-moment 提醒（四个事件），写进各宿主自己的配置
-#   Herdr agent 检测规则   dispatch 技能带的覆盖，拷进 ~/.config/herdr/agent-detection/
+#   Herdr agent 检测规则   dispatch 技能带的覆盖（有才装），拷进 ~/.config/herdr/agent-detection/
 #
 # 技能有三个来源：mattpocock 上游的在 upstream/skills/，我们自己写的在 skills/（名单里
 # 前缀 self/），diagram-design 上游的在 upstream-diagram-design/skills/（前缀 dd/）。三者
@@ -42,6 +42,23 @@ SELF_SRC="$ROOT/skills"
 DD_SRC="$ROOT/upstream-diagram-design/skills"
 LIST="$ROOT/skills.txt"
 MANIFEST_NAME=".mmw-skills"
+
+# 一条软链是不是本仓库装的：目标落在本仓库任一 checkout（主 checkout 或某个 worktree）
+# 的对应源目录里，按路径段认。ADR 0006 说的「指回本仓库」是仓库，不是某一个 checkout：
+# 从哪个 checkout 运行本脚本，哪个 checkout 的源目录就接管这批软链。
+ours_skill_target() {
+  case "$1" in
+    */mmw-v2/upstream/skills/* | */mmw-v2/skills/* | */mmw-v2/upstream-diagram-design/skills/*) return 0 ;;
+  esac
+  return 1
+}
+
+ours_agent_target() {
+  case "$1" in
+    */mmw-v2/agents/*) return 0 ;;
+  esac
+  return 1
+}
 
 # MMW_V2_HOME 只给测试用：把安装位置整体搬到一个一次性目录下，不碰真的家目录。
 HOME_DIR="${MMW_V2_HOME:-$HOME}"
@@ -132,9 +149,9 @@ for dest in "${HOST_DIRS[@]}"; do
       printf '%s\n' "${wanted_names[@]}" | grep -qx "$old" && continue
       stale="$dest/$old"
       [ -L "$stale" ] || continue
-      case "$(readlink "$stale")" in
-        "$SKILLS_SRC"/* | "$SELF_SRC"/* | "$DD_SRC"/*) rm "$stale"; echo "摘掉  $stale" ;;
-      esac
+      if ours_skill_target "$(readlink "$stale")"; then
+        rm "$stale"; echo "摘掉  $stale"
+      fi
     done < "$manifest"
   fi
 
@@ -146,8 +163,8 @@ for dest in "${HOST_DIRS[@]}"; do
     want="${wanted_dirs[$i]}"
 
     if [ -e "$link" ] || [ -L "$link" ]; then
-      # 已经是我们指向本仓库的软链，直接重指（升级路径时也走这条）。
-      if [ -L "$link" ] && { [[ "$(readlink "$link")" == "$SKILLS_SRC"/* ]] || [[ "$(readlink "$link")" == "$SELF_SRC"/* ]] || [[ "$(readlink "$link")" == "$DD_SRC"/* ]]; }; then
+      # 已经是我们指向本仓库的软链，直接重指（换 checkout 时也走这条）。
+      if [ -L "$link" ] && ours_skill_target "$(readlink "$link")"; then
         :
       else
         echo "冲突  $dest/$name 已存在且不是本仓库装的，跳过" >&2
@@ -186,9 +203,9 @@ for dest in "${RETIRED_DIRS[@]}"; do
     [ -n "$old" ] || continue
     stale="$dest/$old"
     [ -L "$stale" ] || continue
-    case "$(readlink "$stale")" in
-      "$SKILLS_SRC"/* | "$SELF_SRC"/* | "$DD_SRC"/*) stale_links+=("$stale") ;;
-    esac
+    if ours_skill_target "$(readlink "$stale")"; then
+      stale_links+=("$stale")
+    fi
   done < "$manifest"
 
   if [ "$mode" = check ]; then
@@ -266,9 +283,9 @@ if [ -d "$AGENTS_SRC" ]; then
         printf '%s\n' "${agent_names[@]/%/$suffix}" | grep -qx "$old" && continue
         stale="$dest/$old"
         [ -L "$stale" ] || continue
-        case "$(readlink "$stale")" in
-          "$AGENTS_SRC"/*) rm "$stale"; echo "摘掉  $stale" ;;
-        esac
+        if ours_agent_target "$(readlink "$stale")"; then
+          rm "$stale"; echo "摘掉  $stale"
+        fi
       done < "$manifest"
     fi
 
@@ -277,7 +294,7 @@ if [ -d "$AGENTS_SRC" ]; then
       link="$dest/$name$suffix"
       want="$AGENTS_SRC/$name/out/$src_name"
       if [ -e "$link" ] || [ -L "$link" ]; then
-        if [ -L "$link" ] && [[ "$(readlink "$link")" == "$AGENTS_SRC"/* ]]; then
+        if [ -L "$link" ] && ours_agent_target "$(readlink "$link")"; then
           :
         else
           echo "冲突  $link 已存在且不是本仓库装的，跳过" >&2
@@ -301,9 +318,8 @@ fi
 # ---------------- Herdr 的 agent 检测规则 ----------------
 
 # Herdr 认一个 pane 里的 agent 在 idle 还是在等人回答，靠的是每家一份检测规则。
-# cursor 的远端那份没有提问表单的规则，于是它的 AskQuestion 表单在 Herdr 眼里是
-# idle：board.py 会把话打进表单、Enter 选中第一项。修在 Herdr 而不是在 board.py
-# 里为它写兼容——本地覆盖优先于远端，改完要让服务端重读一遍才生效。
+# 某家规则不准时，修法是放一份本地覆盖进这个目录——本地覆盖优先于远端，改完要让
+# 服务端重读一遍才生效。dispatch 技能带了覆盖才有东西可装，目录不在就整段跳过。
 
 DETECT_SRC="$SELF_SRC/dispatch/herdr/agent-detection"
 DETECT_DEST="$HOME_DIR/.config/herdr/agent-detection"
