@@ -83,7 +83,7 @@ The report it prints on exit 3 is the first two steps of that skill already done
 <dispatch> run <spec> [--role R] [--max-hours H]
 ```
 
-One command, typed once, after the last ticket of a spec is published. It checks this machine, renames your own pane `mmw-main` so the board can reach you, opens a tab labelled `mmw board #<spec>` in this workspace, and leaves `scripts/board.py --watch` running in it. From then on the board re-prompts the sessions that go idle short of their closing gate, redispatches the ones whose session dies, hands back the tickets that reach a limit, and writes `NIGHT SUMMARY` on the spec when nothing is left to run.
+One command, typed once, after the last ticket of a spec is published. It checks this machine, renames your own pane `mmw-main` so the board can reach you, opens a tab labelled `mmw board #<spec>` in this workspace, and leaves `scripts/board.py --watch` running in it. From then on the board re-prompts the sessions that go idle short of their closing gate, dismisses the question forms they and their reviewers leave on screen, redispatches the ones whose session dies, hands back the tickets that reach a limit, and writes `NIGHT SUMMARY` on the spec when nothing is left to run.
 
 It does not dispatch. When the frontier grows it tells you, and you run `advance`.
 

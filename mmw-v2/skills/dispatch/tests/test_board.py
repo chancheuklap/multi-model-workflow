@@ -627,6 +627,49 @@ class Table4(unittest.TestCase):
                           kind="worker", phase="verify", wake=wake)],
                    {61: ticket(61, assignees=("me",), comments=list(comments))})
 
+    def reviewing_world(self, reviewer_status="blocked", wake=0):
+        """A worker waiting on its reviewer, with the reviewer at a form.
+
+        The worker is `working` throughout: it is sitting inside `dispatch.sh wait`,
+        which reads the ticket and presses nothing.
+        """
+        self.world([agent("issue-61", "w1:p1", "working", ticket=61, kind="worker",
+                          phase="review"),
+                    agent("issue-61-review", "w1:p2", reviewer_status, ticket=61,
+                          kind="reviewer", wake=wake)],
+                   {61: ticket(61, assignees=("me",))})
+
+    def test_a_reviewer_at_a_form_has_it_read_onto_the_ticket_and_dismissed(self):
+        self.reviewing_world()
+        self.round(self.watch())
+        comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
+        self.assertEqual(comment[2], "61")
+        self.assertTrue(comment[-1].startswith(
+            "BLOCKED: the reviewer on this ticket asked:"))
+        self.assertIn("Which colour do you prefer?", comment[-1])
+        self.assertIn(["agent", "send-keys", "w1:p2", "esc"], self.calls["herdr"])
+        self.assertEqual(self.calls["prompt"], [("w1:p2", "continue")])
+
+    def test_the_worker_waiting_on_it_is_not_touched(self):
+        self.reviewing_world()
+        self.round(self.watch())
+        self.assertNotIn(["pane", "close", "w1:p1"], self.calls["herdr"])
+        self.assertEqual([p for p in self.calls["prompt"] if p[0] == "w1:p1"], [])
+
+    def test_a_reviewer_out_of_dismissals_keeps_the_ticket(self):
+        """No hand-back over a reviewer: the worker's own wait already times out."""
+        self.reviewing_world(wake=board.WAKE_LIMIT)
+        printed = self.round(self.watch())
+        self.assertEqual(self.calls["gh"], [])
+        self.assertEqual(self.calls["prompt"], [])
+        self.assertIn("left for the worker's wait to time out", printed)
+
+    def test_a_reviewer_that_is_working_is_left_alone(self):
+        self.reviewing_world(reviewer_status="working")
+        self.round(self.watch())
+        self.assertEqual(self.calls["gh"], [])
+        self.assertEqual(self.calls["prompt"], [])
+
     def test_the_form_goes_on_the_ticket_under_BLOCKED(self):
         self.blocked_world()
         self.round(self.watch())

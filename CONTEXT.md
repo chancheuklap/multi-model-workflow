@@ -397,7 +397,7 @@ Sending a session that has settled a new prompt with `herdr agent prompt`. A wor
 _Avoid_: 捡回, 叫醒, 唤醒 (the verb)
 
 **唤醒闭环（wakeup loop）**:
-The rule table `board.py --watch` applies after every pane event: leave `working` alone; on `idle` with `phase` other than `closed`/`handoff` wait `COOLDOWN_SECONDS` then re-prompt, up to `WAKE_LIMIT`; on `blocked` comment the form as `BLOCKED:`, dismiss it, then re-prompt; on `unknown` redispatch once; past any limit hand the ticket back to `needs-triage`.
+The rule table `board.py --watch` applies after every pane event: leave `working` alone; on `idle` with `phase` other than `closed`/`handoff` wait `COOLDOWN_SECONDS` then re-prompt, up to `WAKE_LIMIT`; on `blocked` comment the form as `BLOCKED:`, dismiss it, then re-prompt; on `unknown` redispatch once; past any limit hand the ticket back to `needs-triage`. Only the `blocked` row reaches a reviewer as well as a worker, and past its limit a reviewer costs the ticket nothing: it is left for `dispatch.sh wait` to time out.
 _Avoid_: 捡回闭环
 
 **夜间编排主循环（night orchestration loop）**:
@@ -429,7 +429,7 @@ The one line `board.py` sends `mmw-main`. `<case>` is one of five literals. `ADV
 _Avoid_: —
 
 **`BLOCKED:`**:
-First line of the comment `board.py` posts on a ticket whose worker is `blocked`, followed by the text of the form on screen.
+First line of the comment `board.py` posts on a ticket one of whose sessions is `blocked`, followed by the text of the form on screen. A reviewer's form carries one more line naming it, because the two sessions on a ticket want different things.
 _Avoid_: QUESTION:
 
 **重派（redispatch）**:

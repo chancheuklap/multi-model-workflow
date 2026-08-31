@@ -352,6 +352,21 @@ def worker_on(sessions_: list[dict], number: int) -> dict | None:
     return None
 
 
+def reviewer_on(sessions_: list[dict], number: int) -> dict | None:
+    """The reviewer session on this ticket, held apart from its worker.
+
+    Almost nothing the board does reaches it: a reviewer that dies or runs long is the
+    worker's own `dispatch.sh wait` to time out, and the ticket is never handed back
+    over one. A form on its screen is the exception, because the worker waiting on it
+    only reads the ticket — it presses no key — so the round is lost to a timeout that
+    one keystroke would have prevented.
+    """
+    for s in sessions_:
+        if s["ticket"] == number and s["kind"] == "reviewer":
+            return s
+    return None
+
+
 def held(rows: list[dict]) -> list[dict]:
     """The rows whose worker is a session `dispatch.sh` started and still holds."""
     return [r for r in rows if r["worker"] and r["worker"]["dispatched"]]
@@ -369,6 +384,7 @@ def build_rows(numbers: list[int], tickets: dict[int, dict],
         rows.append({
             "ticket": number,
             "worker": worker,
+            "reviewer": reviewer_on(sessions_, number),
             "state": ticket["state"],
             "labels": ticket["labels"],
             "blockers": ticket["blockers"],
@@ -577,6 +593,10 @@ ADVANCE_LINE = ("mmw board: {case} #{spec} — run "
                 "~/.agents/skills/dispatch/scripts/dispatch.sh advance {spec}")
 
 BLOCKED = "BLOCKED: {form}"
+# Same first line, because everything that reads these comments keys on it, and a second
+# line naming who asked, because the morning reader is looking at one ticket and the two
+# sessions on it want different things.
+BLOCKED_REVIEWER = "BLOCKED: the reviewer on this ticket asked:\n\n{form}"
 REDISPATCHED = ("REDISPATCHED: session {name} ended at phase={phase}; started again "
                 "as {role}")
 REDISPATCH_SPENT = ("REDISPATCHED: session {name} ended at phase={phase} and it had "
@@ -609,6 +629,9 @@ class Watch:
         self.held_since: dict[int, float] = {}
         self.wakes: dict[str, int] = {}
         self.handed_back: set[int] = set()
+        # Panes of reviewers that used up their dismissals, so the line saying so is
+        # written once instead of every time the backoff elapses.
+        self.reviewers_spent: set[str] = set()
         # The frontier the main agent was last told about. It takes it tens of seconds
         # to read the board and run `advance`, and a round goes by faster than that, so
         # without this the same frontier would queue the same line several times over.
@@ -651,6 +674,10 @@ class Watch:
                 self.redispatch(row)
             elif row["worker"] and row["worker"]["dispatched"]:
                 self.pick_up(row)
+            # Independent of the worker's own row: the two sessions on a ticket can be
+            # at a form at the same time, and a reviewer at one has no other rescuer.
+            if row["reviewer"] and row["reviewer"]["status"] == "blocked":
+                self.at_a_form(row, row["reviewer"])
         self.tell_main_to_advance(rows)
         if self.nothing_left(rows):
             self.write_summary(rows)
@@ -658,13 +685,10 @@ class Watch:
 
     def pick_up(self, row: dict) -> None:
         worker = row["worker"]
-        if worker["kind"] != "worker":
-            # A reviewer that stops is the worker's own `dispatch.sh wait` to time out.
-            return
         if self.over_time(row):
             return
         if worker["status"] == "blocked":
-            self.at_a_form(row)
+            self.at_a_form(row, worker)
             return
         if worker["status"] in IDLE_STATUSES:
             if worker["phase"] in CLOSED_OR_HANDOFF:
@@ -726,7 +750,7 @@ class Watch:
             self.hand_back(row, WAKEUP_LIMIT.format(k=WAKE_LIMIT, phase=worker["phase"]),
                            case="WAKEUP LIMIT")
             return
-        self.send(row, CONTINUE_LINE)
+        self.send(row, row["worker"], CONTINUE_LINE)
 
     def over_time(self, row: dict) -> bool:
         """Held longer than a ticket may hold a session. Hand it back; leave it running."""
@@ -741,39 +765,55 @@ class Watch:
                        case="TIME LIMIT", close_pane=False)
         return True
 
-    def at_a_form(self, row: dict) -> None:
+    def at_a_form(self, row: dict, session: dict) -> None:
         """`blocked`: a question or approval form is on screen and the discipline is
         not to ask.
 
-        The form goes on the ticket so a person can read in the morning what the worker
-        wanted, then it is dismissed with the host's own key and the session is sent its
-        dispatch line again. Board never answers a form: sending text into one selects
-        an option rather than typing an answer.
+        The form goes on the ticket so a person can read in the morning what was wanted,
+        then it is dismissed with the host's own key and the session is told to continue.
+        Board never answers a form: sending text into one selects an option rather than
+        typing an answer.
+
+        A worker and a reviewer are repaired the same way and part company only at the
+        limit. A worker out of dismissals takes its ticket back to `needs-triage`,
+        because without a worker the ticket does not move. A reviewer out of dismissals
+        is left where it stands: `dispatch.sh wait` times out, `implement` skips that
+        round, and a dead reviewer is no reason to hand the ticket to a person.
         """
-        worker = row["worker"]
-        pane = worker["pane_id"]
-        wake = self.prompts_so_far(worker)
+        pane = session["pane_id"]
+        wake = self.prompts_so_far(session)
         last = self.settled_since.get(pane)
         if last is not None and time.monotonic() - last < WAKE_BACKOFF[
                 min(wake, len(WAKE_BACKOFF) - 1)]:
             return
         if wake >= WAKE_LIMIT:
+            if session["kind"] != "worker":
+                if pane not in self.reviewers_spent:
+                    self.reviewers_spent.add(pane)
+                    say(f"#{row['ticket']}", "reviewer",
+                        f"asked again after {WAKE_LIMIT} forms; left for the worker's "
+                        f"wait to time out")
+                return
             self.hand_back(row, WAKEUP_LIMIT_FORM.format(k=WAKE_LIMIT,
-                                                         phase=worker["phase"]),
+                                                         phase=session["phase"]),
                            case="WAKEUP LIMIT")
             return
         form = form_text(herdr_text(
             ["agent", "read", pane, "--source", "visible", "--lines", "60"]))
+        shape = BLOCKED if session["kind"] == "worker" else BLOCKED_REVIEWER
         gh(["issue", "comment", str(row["ticket"]),
-            "--body", BLOCKED.format(form=form[:FORM_CHARS] or "(nothing on screen)")])
+            "--body", shape.format(form=form[:FORM_CHARS] or "(nothing on screen)")])
         say(f"#{row['ticket']}", "comment", f"BLOCKED: {form[:80]}")
-        key = CLOSE_KEYS.get(worker["host"], CLOSE_KEY_OTHERWISE)
+        # grok answers to its own key; every other host takes the fallback, claude
+        # included — its question form reports `blocked` with no detection rule of its
+        # own, and `esc` puts it away, both driven on a real machine.
+        key = CLOSE_KEYS.get(session["host"], CLOSE_KEY_OTHERWISE)
         herdr(["agent", "send-keys", pane, key])
         herdr(["agent", "wait", pane, "--until", "idle", "--until", "done",
                "--timeout", "15000"])
         say(f"#{row['ticket']}", key, "form dismissed")
         self.settled_since[pane] = time.monotonic()
-        self.send(row, CONTINUE_LINE)
+        self.send(row, session, CONTINUE_LINE)
 
     # ------------------------------------------------------------- the session is gone
 
@@ -815,9 +855,9 @@ class Watch:
 
     # ------------------------------------------------------------- prompting
 
-    def send(self, row: dict, text: str) -> None:
+    def send(self, row: dict, session: dict, text: str) -> None:
         """Prompt one session, under the seven conditions such a prompt has to meet."""
-        worker = row["worker"]
+        worker = session
         if not os.environ.get("HERDR_PANE_ID"):
             say("board", "refuse", "no pane of my own, so I may not prompt anyone")
             return
