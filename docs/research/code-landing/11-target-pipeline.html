@@ -190,18 +190,18 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
   <p class="eyebrow">MMW v2 · landing pipeline · 2026-08-31</p>
   <h1>MMW v2 落地流水线蓝图</h1>
   <p class="lede">一张票从 spec 到关票要走 14 步。每一步在这页上都是一张图；图里出现的每样东西按它的<b>机制</b>画：技能、脚本、hook、subagent、会话、票、评论、标签、文档、外部系统——十种，各一种固定画法，下面十张小卡是全页的图例。每张图下面一条编号：<b>S<i>n</i></b> 本页步号，<b>§<i>n</i></b> 落地 spec <a href="https://github.com/chancheuklap/multi-model-workflow/issues/60">#60</a> 的 Implementation Decisions 节号，<b>#<i>nn</i></b> 落地票。</p>
-  <p class="src">词汇全部取自根 <code>CONTEXT.md</code>（146 条，英文正名加中文正名）；定案出处是 <code>docs/research/code-landing/12-decisions.md</code>，各图引用的字母加数字（如 I3、H4）是那份文件的记录号。图的画法用 diagram-design 默认样式（paper <code>#f5f5f5</code>、ink <code>#2d3142</code>、accent <code>#eb6c36</code>），未按品牌定制。</p>
+  <p class="src">词汇全部取自根 <code>CONTEXT.md</code>（十四节 160 条，英文正名加中文正名）；定案出处是 <code>docs/research/code-landing/12-decisions.md</code>，各图引用的字母加数字（如 I6、J4）是那份文件的记录号，<code>D<i>n</i></code> 与 <code>G<i>n</i></code> 是 <code>docs/research/code-landing/18-vocabulary-drift/README.md</code> 附三、附四的记录号。图的画法用 diagram-design 默认样式（paper <code>#f5f5f5</code>、ink <code>#2d3142</code>、accent <code>#eb6c36</code>），未按品牌定制。</p>
 
   <div class="kinds">
     <div class="kind"><svg viewBox="0 0 96 56" aria-hidden="true"><rect x="4" y="8" width="88" height="40" rx="6" class="sk"/><rect x="10" y="13" width="28" height="11" rx="2" class="tagr t-sk"/><text x="24" y="21" class="tg t-sk" text-anchor="middle">SKILL</text><text x="48" y="40" class="nm" text-anchor="middle">implement</text></svg><div><h4>技能 <span class="k k-sk">SKILL</span></h4><p>多个 agent 复用的做法。白底、实线、名字用正体。</p><p>软链进 <code>~/.agents/skills</code>；正文改完下一次调用即生效。</p></div></div>
     <div class="kind"><svg viewBox="0 0 96 56" aria-hidden="true"><rect x="4" y="8" width="88" height="40" rx="6" class="sc"/><rect x="10" y="13" width="32" height="11" rx="2" class="tagr t-sc"/><text x="26" y="21" class="tg t-sc" text-anchor="middle">SCRIPT</text><text x="48" y="40" class="sb" text-anchor="middle" style="fill:var(--ink);font-weight:600">--closeout</text></svg><div><h4>脚本与子命令 <span class="k k-sc">SCRIPT</span></h4><p>固定操作，模型不逐步照做。白底、实线、名字用等宽字。</p><p><code>verify-ticket.py</code> 五个子命令、<code>dispatch.sh</code>、<code>board.py</code>、<code>visual-parity.py</code>、<code>gate-check</code>。</p></div></div>
-    <div class="kind"><svg viewBox="0 0 96 56" aria-hidden="true"><rect x="4" y="8" width="88" height="40" rx="6" class="hk"/><rect x="10" y="13" width="28" height="11" rx="2" class="tagr t-hk"/><text x="24" y="21" class="tg t-hk" text-anchor="middle">HOOK</text><text x="48" y="40" class="sb" text-anchor="middle" style="fill:var(--ink);font-weight:600">hook.py pretool</text></svg><div><h4>hook <span class="k k-hook">HOOK</span></h4><p>宿主强制，模型绕不过。橙色虚线边界。</p><p>只有一个：<code>hook.py pretool</code>。idle 而 phase 未到 closed/handoff 的 worker 由 <code>board.py</code> 重新 prompt（4b，<a href="https://github.com/chancheuklap/multi-model-workflow/issues/87">#87</a>），不是 hook。</p></div></div>
+    <div class="kind"><svg viewBox="0 0 96 56" aria-hidden="true"><rect x="4" y="8" width="88" height="40" rx="6" class="hk"/><rect x="10" y="13" width="28" height="11" rx="2" class="tagr t-hk"/><text x="24" y="21" class="tg t-hk" text-anchor="middle">HOOK</text><text x="48" y="40" class="sb" text-anchor="middle" style="fill:var(--ink);font-weight:600">hook.py pretool</text></svg><div><h4>hook <span class="k k-hook">HOOK</span></h4><p>宿主强制，模型绕不过。橙色虚线边界。</p><p>两个：<code>hook.py pretool</code> 装五宿主、守关票门；<code>rule-at-moment.py</code> 只装 Claude Code、把 <code>~/.claude/CLAUDE.md</code> 的条目在动作那一刻送到模型眼前，不碰票。idle 而 phase 未到 closed/handoff 的 worker 由 <code>board.py</code> 重新 prompt（4b），不是 hook。</p></div></div>
     <div class="kind"><svg viewBox="0 0 96 56" aria-hidden="true"><rect x="4" y="8" width="88" height="40" rx="6" class="ss"/><rect x="10" y="13" width="36" height="11" rx="2" class="tagr t-ss"/><text x="28" y="21" class="tg t-ss" text-anchor="middle">SESSION</text><text x="48" y="40" class="nm" text-anchor="middle">worker</text></svg><div><h4>会话 <span class="k k-ss">SESSION</span></h4><p>经 Herdr 起在自己 pane 里的宿主进程。灰底、实线。</p><p>主 agent、worker（junior / senior）、reviewer。</p></div></div>
     <div class="kind"><svg viewBox="0 0 96 56" aria-hidden="true"><rect x="4" y="8" width="88" height="40" rx="6" class="ag"/><rect x="10" y="13" width="32" height="11" rx="2" class="tagr t-ag"/><text x="26" y="21" class="tg t-ag" text-anchor="middle">AGENT</text><text x="48" y="40" class="nm" text-anchor="middle">verifier</text></svg><div><h4>subagent <span class="k k-agent">AGENT</span></h4><p>在派它的会话里面跑，Herdr 看不见。灰底、虚线。</p><p>verifier、advisor、claim-checker；模型在 <code>models.md</code>，成品由 <code>assemble.py</code> 装配。</p></div></div>
     <div class="kind"><svg viewBox="0 0 96 56" aria-hidden="true"><rect x="4" y="8" width="88" height="40" rx="6" class="tk"/><rect x="10" y="13" width="36" height="11" rx="2" class="tagr t-tk"/><text x="28" y="21" class="tg t-tk" text-anchor="middle">TICKET</text><text x="48" y="40" class="nm" text-anchor="middle">#77</text></svg><div><h4>票与 spec <span class="k k-tk">TICKET</span></h4><p>GitHub issue，唯一的事实与状态存放处。淡灰底、灰实线。</p><p>spec 是票的容器，不打状态标签。</p></div></div>
     <div class="kind"><svg viewBox="0 0 96 56" aria-hidden="true"><rect x="4" y="12" width="88" height="32" rx="2" class="cm"/><text x="10" y="26" class="sb" style="fill:var(--ink);font-weight:600">self-run</text><text x="10" y="38" class="sb">UNMET: 1 (met: 3)</text></svg><div><h4>票评论 <span class="k k-cm">COMMENT</span></h4><p>脚本或 agent 落到票上的一条评论，以首行为名。方角、等宽首行。</p><p><code>NOT_READY:</code> <code>self-run</code> <code>reverify</code> <code>VERDICT</code> <code>REVIEW</code> <code>ALL MET</code> <code>HANDOFF REQUIRED</code>。</p></div></div>
     <div class="kind"><svg viewBox="0 0 96 56" aria-hidden="true"><rect x="8" y="20" width="80" height="16" rx="2" class="lb"/><text x="48" y="31" class="sb lbt" text-anchor="middle">ready-for-agent</text></svg><div><h4>标签 <span class="k k-lb">LABEL</span></h4><p>只表达票在哪个队列。小方片。</p><p>五个：<code>needs-triage</code> <code>needs-info</code> <code>ready-for-agent</code> <code>ready-for-human</code> <code>wontfix</code>。</p></div></div>
-    <div class="kind"><svg viewBox="0 0 96 56" aria-hidden="true"><path d="M8,8 H72 L88,24 V48 H8 Z" class="dc"/><path d="M72,8 V24 H88" class="dc"/><rect x="14" y="13" width="24" height="11" rx="2" class="tagr t-dc"/><text x="26" y="21" class="tg t-dc" text-anchor="middle">DOC</text><text x="48" y="40" class="sb" text-anchor="middle" style="fill:var(--ink);font-weight:600">models.md</text></svg><div><h4>文档 <span class="k k-dc">DOC</span></h4><p>事实，只给指针不抄写。折角页。</p><p><code>CONTEXT.md</code>、<code>models.md</code>、<code>AGENTS.md</code>、ADR、基线目录。</p></div></div>
+    <div class="kind"><svg viewBox="0 0 96 56" aria-hidden="true"><path d="M8,8 H72 L88,24 V48 H8 Z" class="dc"/><path d="M72,8 V24 H88" class="dc"/><rect x="14" y="13" width="24" height="11" rx="2" class="tagr t-dc"/><text x="26" y="21" class="tg t-dc" text-anchor="middle">DOC</text><text x="48" y="40" class="sb" text-anchor="middle" style="fill:var(--ink);font-weight:600">models.md</text></svg><div><h4>文档 <span class="k k-dc">DOC</span></h4><p>事实，只给指针不抄写。折角页。</p><p><code>CONTEXT.md</code>、<code>models.md</code>、<code>AGENTS.md</code>、ADR、交接包。</p></div></div>
     <div class="kind"><svg viewBox="0 0 96 56" aria-hidden="true"><rect x="4" y="8" width="88" height="40" rx="6" class="ex"/><rect x="10" y="13" width="24" height="11" rx="2" class="tagr t-ex"/><text x="22" y="21" class="tg t-ex" text-anchor="middle">EXT</text><text x="48" y="40" class="nm" text-anchor="middle">Herdr</text></svg><div><h4>外部系统 <span class="k k-ex">EXT</span></h4><p>流水线用而不改的东西。极淡底、淡边。</p><p>Herdr、GitHub 网页、Claude Design。</p></div></div>
   </div>
   <div class="legend">
@@ -246,14 +246,14 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <line x1="840" y1="316" x2="868" y2="316" class="fl" marker-end="url(#ov-a)"/>
       <line x1="344" y1="444" x2="372" y2="444" class="fl" marker-end="url(#ov-a)"/>
       <!-- day nodes -->
-      <g><rect x="128" y="52" width="216" height="64" rx="6" class="sk"/><rect x="136" y="58" width="28" height="12" rx="2" class="tagr t-sk"/><text x="150" y="67" class="tg t-sk" text-anchor="middle">SKILL</text><text x="172" y="67" class="sb">S1 · §4 · #66</text><text x="136" y="90" class="nm">domain-modeling</text><text x="136" y="106" class="cn">建根 CONTEXT.md，收全部固定词</text></g>
+      <g><rect x="128" y="52" width="216" height="64" rx="6" class="sk"/><rect x="136" y="58" width="28" height="12" rx="2" class="tagr t-sk"/><text x="150" y="67" class="tg t-sk" text-anchor="middle">SKILL</text><text x="172" y="67" class="sb">S1 · §4 · #66</text><text x="136" y="90" class="nm">domain-modeling</text><text x="136" y="106" class="cn">建根 CONTEXT.md，收全部固定词（160 条）</text></g>
       <g><rect x="376" y="52" width="216" height="64" rx="6" class="sk"/><rect x="384" y="58" width="28" height="12" rx="2" class="tagr t-sk"/><text x="398" y="67" class="tg t-sk" text-anchor="middle">SKILL</text><text x="420" y="67" class="sb">S2 · 不动</text><text x="384" y="90" class="nm">to-spec</text><text x="384" y="106" class="cn">spec issue：编号小节 + Testing Decisions</text></g>
       <g><rect x="624" y="52" width="216" height="64" rx="6" class="sk"/><rect x="632" y="58" width="28" height="12" rx="2" class="tagr t-sk"/><text x="646" y="67" class="tg t-sk" text-anchor="middle">SKILL</text><text x="668" y="67" class="sb">S3 · §10 · #74</text><text x="632" y="90" class="nm">prototype → claude-design-blocks</text><text x="632" y="106" class="cn">下载回叶子目录 = 基线（只 UI 标准）</text></g>
       <g><rect x="872" y="52" width="216" height="64" rx="6" class="sk"/><rect x="880" y="58" width="28" height="12" rx="2" class="tagr t-sk"/><text x="894" y="67" class="tg t-sk" text-anchor="middle">SKILL</text><text x="916" y="67" class="sb">S4 · §3 · #68</text><text x="880" y="90" class="nm">to-tickets</text><text x="880" y="106" class="cn">## Owns、AC 带 CHECK/EXPECT、跑 --lint</text></g>
       <!-- night row 1 -->
       <g><rect x="128" y="176" width="216" height="64" rx="6" class="sc"/><rect x="136" y="182" width="32" height="12" rx="2" class="tagr t-sc"/><text x="152" y="191" class="tg t-sc" text-anchor="middle">SCRIPT</text><text x="176" y="191" class="sb">S5 · §2 · #67 · J</text><text x="136" y="214" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">dispatch.sh run → board.py 派发 &lt;n&gt;</text><text x="136" y="230" class="cn">frontier 一张派一张；起会话 → 发派发词</text></g>
       <g><rect x="376" y="176" width="216" height="64" rx="6" class="sc"/><rect x="384" y="182" width="32" height="12" rx="2" class="tagr t-sc"/><text x="400" y="191" class="tg t-sc" text-anchor="middle">SCRIPT</text><text x="424" y="191" class="sb">S6 · §7 · #71 #63</text><text x="384" y="214" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">--preflight → 认领</text><text x="384" y="230" class="cn">implement 开工：核对 Owns、读法收窄</text></g>
-      <g><rect x="624" y="176" width="216" height="64" rx="6" class="sk"/><rect x="632" y="182" width="28" height="12" rx="2" class="tagr t-sk"/><text x="646" y="191" class="tg t-sk" text-anchor="middle">SKILL</text><text x="668" y="191" class="sb">S7 · §8 · #72</text><text x="632" y="214" class="nm">implement · 写码纪律</text><text x="632" y="230" class="cn">基线是契约 · ponytail 五句 · Owns 两档</text></g>
+      <g><rect x="624" y="176" width="216" height="64" rx="6" class="sk"/><rect x="632" y="182" width="28" height="12" rx="2" class="tagr t-sk"/><text x="646" y="191" class="tg t-sk" text-anchor="middle">SKILL</text><text x="668" y="191" class="sb">S7 · §8 · #72</text><text x="632" y="214" class="nm">implement · 写码纪律七条</text><text x="632" y="230" class="cn">契约 · 先删再加 · 不许简化的四样 · Owns 两档</text></g>
       <g><rect x="872" y="176" width="216" height="64" rx="6" class="sc"/><rect x="880" y="182" width="32" height="12" rx="2" class="tagr t-sc"/><text x="896" y="191" class="tg t-sc" text-anchor="middle">SCRIPT</text><text x="920" y="191" class="sb">S8 · §2 · #62 #65</text><text x="880" y="214" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">verify-ticket.py &lt;n&gt;</text><text x="880" y="230" class="cn">跑每条 CHECK、写 EVIDENCE、贴 self-run</text></g>
       <!-- night row 2 -->
       <g><rect x="128" y="284" width="216" height="64" rx="6" class="ag"/><rect x="136" y="290" width="32" height="12" rx="2" class="tagr t-ag"/><text x="152" y="299" class="tg t-ag" text-anchor="middle">AGENT</text><text x="176" y="299" class="sb">S9 · §5 · #69</text><text x="136" y="322" class="nm">verifier</text><text x="136" y="338" class="cn">--reverify 后只写一行 VERDICT；只派一次</text></g>
@@ -276,12 +276,12 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
 </section>
 <section id="day">
   <h2>2 白天：出票前（S1 → S4）</h2>
-  <p class="lede">主线走 <code>to-spec</code>；只有含 UI 验收标准的票才走下面那条支线，它的产出（下载回来的基线目录）和 spec 一起喂进 <code>to-tickets</code>。</p>
+  <p class="lede">主线走 <code>to-spec</code>；只有含 UI 验收标准的票才走下面那条支线，它的产出（下载回来的交接包）和 spec 一起喂进 <code>to-tickets</code>。</p>
   <figure>
     <div class="box">
     <svg viewBox="0 0 1120 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="day-title day-desc">
       <title id="day-title">白天四步：从词表到一张可派的票</title>
-      <desc id="day-desc">流程图：domain-modeling 建词表，to-spec 出 spec，to-tickets 出票；UI 支线从 prototype 到 Claude Design 再下载回基线目录，基线作为契约汇入 to-tickets。</desc>
+      <desc id="day-desc">流程图：domain-modeling 建词表，to-spec 出 spec，to-tickets 出票；UI 支线从 prototype 到 Claude Design 再下载回交接包，交接包作为契约汇入 to-tickets。</desc>
       <defs><marker id="day-a" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--muted)"/></marker>
       <marker id="day-aa" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--accent)"/></marker></defs>
       <rect width="100%" height="100%" fill="var(--paper)"/>
@@ -304,22 +304,22 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <rect x="876" y="168" width="104" height="12" rx="2" class="mask"/><text x="880" y="177" class="al acc">基线 = 契约，不是参考</text>
       <!-- nodes -->
       <g><rect x="16" y="64" width="224" height="72" rx="6" class="sk"/><rect x="24" y="70" width="28" height="12" rx="2" class="tagr t-sk"/><text x="38" y="79" class="tg t-sk" text-anchor="middle">SKILL</text><text x="60" y="79" class="sb">S1 · §4 · #66</text><text x="24" y="102" class="nm">domain-modeling</text><text x="24" y="120" class="cn">经 wayfinder / grill-with-docs；spec 阶段建词表</text></g>
-      <g><path d="M16,216 H224 L240,232 V288 H16 Z" class="dc"/><path d="M224,216 V232 H240" class="dc"/><rect x="24" y="222" width="24" height="12" rx="2" class="tagr t-dc"/><text x="36" y="231" class="tg t-dc" text-anchor="middle">DOC</text><text x="24" y="254" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">CONTEXT.md</text><text x="24" y="272" class="cn">146 条，英文正名 + 中文正名；agent 先读它</text></g>
+      <g><path d="M16,216 H224 L240,232 V288 H16 Z" class="dc"/><path d="M224,216 V232 H240" class="dc"/><rect x="24" y="222" width="24" height="12" rx="2" class="tagr t-dc"/><text x="36" y="231" class="tg t-dc" text-anchor="middle">DOC</text><text x="24" y="254" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">CONTEXT.md</text><text x="24" y="272" class="cn">160 条，英文正名 + 中文正名；agent 先读它</text></g>
       <g><rect x="288" y="64" width="200" height="72" rx="6" class="sk"/><rect x="296" y="70" width="28" height="12" rx="2" class="tagr t-sk"/><text x="310" y="79" class="tg t-sk" text-anchor="middle">SKILL</text><text x="332" y="79" class="sb">S2 · 不动</text><text x="296" y="102" class="nm">to-spec</text><text x="296" y="120" class="cn">spec 不打状态标签：它是票的容器</text></g>
-      <g><rect x="768" y="64" width="200" height="72" rx="6" class="sk"/><rect x="776" y="70" width="28" height="12" rx="2" class="tagr t-sk"/><text x="790" y="79" class="tg t-sk" text-anchor="middle">SKILL</text><text x="812" y="79" class="sb">S4 · §3 · #68</text><text x="776" y="102" class="nm">to-tickets</text><text x="776" y="120" class="cn">Owns · 每条 AC 带命令 · Read back 跑 --lint</text></g>
+      <g><rect x="768" y="64" width="200" height="72" rx="6" class="sk"/><rect x="776" y="70" width="28" height="12" rx="2" class="tagr t-sk"/><text x="790" y="79" class="tg t-sk" text-anchor="middle">SKILL</text><text x="812" y="79" class="sb">S4 · §3 · #68</text><text x="776" y="102" class="nm">to-tickets</text><text x="776" y="120" class="cn">Owns · 五问 · 每条 AC 带命令 · 挂原生 sub-issue</text></g>
       <g><rect x="1000" y="64" width="104" height="72" rx="6" class="tk"/><rect x="1008" y="70" width="36" height="12" rx="2" class="tagr t-tk"/><text x="1026" y="79" class="tg t-tk" text-anchor="middle">TICKET</text><text x="1008" y="102" class="nm">一张可派的票</text><rect x="1008" y="110" width="88" height="16" rx="2" class="lb"/><text x="1052" y="121" class="sb lbt" text-anchor="middle">ready-for-agent</text></g>
       <g><rect x="288" y="216" width="200" height="72" rx="6" class="sk"/><rect x="296" y="222" width="28" height="12" rx="2" class="tagr t-sk"/><text x="310" y="231" class="tg t-sk" text-anchor="middle">SKILL</text><text x="332" y="231" class="sb">S3① · 不动</text><text x="296" y="254" class="nm">prototype</text><text x="296" y="272" class="cn">?variant= 挂真实路由，选出满意的一版</text></g>
       <g><rect x="528" y="216" width="200" height="72" rx="6" class="ex"/><rect x="536" y="222" width="24" height="12" rx="2" class="tagr t-ex"/><text x="548" y="231" class="tg t-ex" text-anchor="middle">EXT</text><text x="568" y="231" class="sb">S3② · §10 · #74</text><text x="536" y="254" class="nm">Claude Design 精修</text><text x="536" y="272" class="cn">claude-design-blocks 读叶子目录的胜出版</text></g>
-      <g><path d="M768,216 H952 L968,232 V288 H768 Z" class="dc"/><path d="M952,216 V232 H968" class="dc"/><rect x="776" y="222" width="24" height="12" rx="2" class="tagr t-dc"/><text x="788" y="231" class="tg t-dc" text-anchor="middle">DOC</text><text x="808" y="231" class="sb">S3③ · §10 · #74</text><text x="776" y="254" class="nm">基线目录 …/&lt;issue&gt;/UI/</text><text x="776" y="272" class="cn">.dc.html · styles/ · data/ · support.js · README</text></g>
+      <g><path d="M768,216 H952 L968,232 V288 H768 Z" class="dc"/><path d="M952,216 V232 H968" class="dc"/><rect x="776" y="222" width="24" height="12" rx="2" class="tagr t-dc"/><text x="788" y="231" class="tg t-dc" text-anchor="middle">DOC</text><text x="808" y="231" class="sb">S3③ · §10 · #74</text><text x="776" y="254" class="nm">交接包 …/&lt;issue&gt;/UI/</text><text x="776" y="272" class="cn">.dc.html · styles/ · data/ · support.js · scenes.json</text></g>
     </svg>
     </div>
-    <figcaption>图 2 · 橙色那根箭头是本段唯一改变性质的东西：下载回来的整个目录从「参考」升格成<b>契约</b>，<code>to-tickets</code> 据它写 UI 验收标准的精确值与逐字文案。精修前若消费仓库没有 <code>DESIGN.md</code>，先由 <code>create-design-md</code> 生成并上传建 design system（每项目一次）。</figcaption>
+    <figcaption>图 2 · 橙色那根箭头是本段唯一改变性质的东西：下载回来的整个交接包从「参考」升格成<b>契约</b>，<code>to-tickets</code> 据它写 UI 验收标准的精确值与逐字文案。精修前若消费仓库没有 <code>DESIGN.md</code>，先由 <code>create-design-md</code> 生成并上传建 design system（每项目一次）；那个技能由 skills CLI 从 <code>ibelick/ui-skills@create-design-md</code> 装进 <code>~/.agents/skills/</code>，<code>install.sh</code> 不管它。</figcaption>
   </figure>
   <div class="xref">
     <span class="x s"><b>S1</b> 词表</span><span class="x">#60 <b>§4</b></span><span class="x"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/66">#66</a> AC1–AC2</span><span class="sep">|</span>
     <span class="x s"><b>S3</b> 基线</span><span class="x">#60 <b>§10</b></span><span class="x"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/74">#74</a> AC3–AC5</span><span class="sep">|</span>
     <span class="x s"><b>S4</b> 出票</span><span class="x">#60 <b>§3</b></span><span class="x"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/68">#68</a> AC1–AC5</span><span class="sep">|</span>
-    <span class="x">定案 12-decisions H7（Owns 粒度）· I2（三条出路）</span>
+    <span class="x">定案 12-decisions H7（Owns 粒度）· I6（验收标准只收机器判得了的事）</span>
   </div>
 </section>
 
@@ -347,11 +347,11 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <g>
         <line x1="376" y1="152" x2="1104" y2="152" class="rule"/><text x="32" y="140" class="nm2">## Parent</text><text x="32" y="152" class="cn">#spec, Implementation Decisions sections 5 and 7</text>
         <line x1="376" y1="192" x2="1104" y2="192" class="rule"/><text x="32" y="180" class="nm2">## What to build</text><text x="32" y="192" class="cn">用户视角的端到端行为，写成要点</text>
-        <line x1="376" y1="232" x2="1104" y2="232" class="rule"/><text x="32" y="220" class="nm2">## Read first</text><text x="32" y="232" class="cn">含 UI 标准时第一项是基线目录</text>
+        <line x1="376" y1="232" x2="1104" y2="232" class="rule"/><text x="32" y="220" class="nm2">## Read first</text><text x="32" y="232" class="cn">标为基线的行：S7 照它写码，S10 的 Spec 轴对着它审</text>
         <line x1="376" y1="272" x2="1104" y2="272" class="rule"/><text x="32" y="260" class="nm2">## Seam</text><text x="32" y="272" class="cn">测试层、目录、先例文件</text>
         <line x1="376" y1="312" x2="1104" y2="312" class="rule"/><text x="32" y="300" class="nm2">## Owns</text><text x="32" y="312" class="cn">可写的路径 glob；新建的标 (new)；同 frontier 不相交</text>
-        <line x1="376" y1="352" x2="1104" y2="352" class="rule"/><text x="32" y="340" class="nm2">## Acceptance criteria</text><text x="32" y="352" class="cn">AC&lt;n&gt;: 一句 + CHECK: / EXPECT: / EVIDENCE: pending</text>
-        <line x1="376" y1="392" x2="1104" y2="392" class="rule"/><text x="32" y="380" class="nm2">## Blocked by</text><text x="32" y="392" class="cn">上游票号；Owns 重叠时在这里多一条边</text>
+        <line x1="376" y1="352" x2="1104" y2="352" class="rule"/><text x="32" y="340" class="nm2">## Acceptance criteria</text><text x="32" y="352" class="cn">四行：AC&lt;n&gt;: 一句 · CHECK: · EXPECT: · EVIDENCE: pending（CWD: 可选第四属性）</text>
+        <line x1="376" y1="392" x2="1104" y2="392" class="rule"/><text x="32" y="380" class="nm2">## Blocked by</text><text x="32" y="392" class="cn">上游票号，是 tracker 原生阻塞边的人读副本；Owns 重叠时多一条边</text>
       </g>
       <!-- cells: text chips. row centre y = 132,172,212,252,292,332,372 -->
       <g class="cells">
@@ -376,13 +376,13 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
         <rect x="848" y="324" width="80" height="16" rx="3" class="cell c-sc"/><text x="888" y="335" class="al cellt acc" text-anchor="middle">原样跑 CHECK</text>
         <rect x="996" y="324" width="80" height="16" rx="3" class="cell c-sc"/><text x="1036" y="335" class="al cellt" text-anchor="middle">核 EVIDENCE</text>
         <!-- Blocked by -->
-        <rect x="412" y="364" width="64" height="16" rx="3" class="cell c-sc"/><text x="444" y="375" class="al cellt" text-anchor="middle">查环 · 悬空</text>
+        <rect x="412" y="364" width="72" height="16" rx="3" class="cell c-sc"/><text x="448" y="375" class="al cellt" text-anchor="middle">查环 · 悬空 · 双账</text>
         <rect x="560" y="364" width="64" height="16" rx="3" class="cell c-sk"/><text x="592" y="375" class="al cellt" text-anchor="middle">blocker 全关</text>
       </g>
       <text x="376" y="416" class="cn">空格 = 这一步不碰这一节。派发前 dispatch.sh 也查 Blocked by（S5）。</text>
     </svg>
     </div>
-    <figcaption>图 3 · 两处橙字是票上真正被「执行」的东西：基线目录在写码时是契约，<code>CHECK:</code> 在 S8、S9 被原样运行，不改命令。票上每条标准都带命令；要人判的事在出票时就已经是另一张 <code>ready-for-human</code> 的票（定案 I2）。</figcaption>
+    <figcaption>图 3 · 两处橙字是票上真正被「执行」的东西：<code>## Read first</code> 里标为基线的条目在写码时是契约（S7），并在 S10 由 Spec 轴对着 diff 审一遍；<code>CHECK:</code> 在 S8、S9 被原样运行，不改命令。票上每条标准都带命令：出票人对每一句想说的话顺次问<b>五问</b>，停在第一个 yes——机器够得着的比对写成标准，机器够得着的评价归 code review 的三个轴，被判的性质是一个人的反应就单开一张 <code>reaction</code> 票，机器判得了但够不着（设备、凭证、真实环境）就单开一张 <code>reach</code> 票，不是在验而是在取舍就取默认值往下走并写进收尾评论（定案 I6）。</figcaption>
   </figure>
   <div class="tablewrap"><table>
     <tr><th>票里的东西</th><th class="mono">在哪一步被用</th><th class="mono">改它的票 · AC</th></tr>
@@ -390,7 +390,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
     <tr><td><code>CHECK:</code> / <code>EXPECT:</code>（多行用代码块围栏）</td><td class="mono">S4 推导 · S8 跑 · S9 重跑</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/68">#68</a> · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/62">#62</a> · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/90">#90</a></td></tr>
     <tr><td><code>EVIDENCE:</code></td><td class="mono">S8 由 gate-check 写 · S12 核对</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/62">#62</a> · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/63">#63</a></td></tr>
     <tr><td>UI 标准的 <code>CHECK:</code></td><td class="mono">S8 调 visual-parity.py</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/65">#65</a></td></tr>
-    <tr><td><code>## Blocked by</code></td><td class="mono">S4 --lint 查环 · S5 board 算 frontier 并派发前查 · S6 --preflight 查 · S14 自动解锁</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/63">#63</a> · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/67">#67</a></td></tr>
+    <tr><td><code>## Blocked by</code>（tracker 原生边的人读副本）</td><td class="mono">S4 --lint 查环、悬空、两账不一致 · S5 board 算 frontier 并派发前查 · S6 --preflight 查 · S14 自动解锁</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/63">#63</a> · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/67">#67</a></td></tr>
   </table></div>
 </section>
 <section id="night">
@@ -442,7 +442,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <text x="400" y="70" class="cn">夜里由 board.py 代它派发：frontier 上每张票一条 dispatch.sh &lt;n&gt; &lt;role&gt;；主 agent 只在被重新 prompt 时 board.py --once 读一眼（4b）。</text>
       <!-- worker -->
       <g><rect x="256" y="124" width="120" height="52" rx="6" class="sk"/><text x="266" y="146" class="nm2">开工核对与读入</text><text x="266" y="162" class="sb">--preflight · Owns</text></g>
-      <g><rect x="388" y="124" width="112" height="52" rx="6" class="sk"/><text x="398" y="146" class="nm2">/tdd 写码</text><text x="398" y="162" class="sb">ponytail 五句</text></g>
+      <g><rect x="388" y="124" width="112" height="52" rx="6" class="sk"/><text x="398" y="146" class="nm2">/tdd 写码</text><text x="398" y="162" class="sb">写码纪律七条</text></g>
       <g><rect x="512" y="124" width="120" height="52" rx="6" class="sk"/><text x="522" y="146" class="nm2">自跑全部 CHECK</text><text x="522" y="162" class="sb">≤ 3 轮</text></g>
       <g><rect x="644" y="124" width="132" height="52" rx="6" class="sk"/><text x="654" y="146" class="nm2">派 verifier</text><text x="654" y="162" class="sb">verify #n · 一次</text></g>
       <g><rect x="788" y="124" width="128" height="52" rx="6" class="sk"/><text x="798" y="146" class="nm2">起 reviewer 会话</text><text x="798" y="162" class="sb">dispatch.sh + wait</text></g>
@@ -485,7 +485,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <line x1="364" y1="112" x2="288" y2="112" class="fl" marker-end="url(#cf-a)"/>
       <rect x="308" y="92" width="36" height="12" rx="2" class="mask"/><text x="326" y="101" class="al" text-anchor="middle">不过</text>
       <line x1="480" y1="152" x2="480" y2="176" class="fl" marker-end="url(#cf-a)"/>
-      <rect x="492" y="156" width="152" height="12" rx="2" class="mask"/><text x="496" y="165" class="al">五项都过 → --add-assignee @me</text>
+      <rect x="492" y="156" width="152" height="12" rx="2" class="mask"/><text x="496" y="165" class="al">六项都过 → --add-assignee @me</text>
       <line x1="480" y1="224" x2="480" y2="248" class="fl" marker-end="url(#cf-a)"/>
       <line x1="480" y1="296" x2="480" y2="316" class="fl" marker-end="url(#cf-a)"/>
       <path d="M580,356 H680 Q688,356 688,348 V284 Q688,276 680,276 H636" class="fl" marker-end="url(#cf-a)"/>
@@ -510,13 +510,13 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <!-- nodes -->
       <g><rect x="330" y="16" width="300" height="44" rx="20" class="ss"/><text x="480" y="42" class="nm" text-anchor="middle">worker 收到「implement #n」</text></g>
       <polygon points="480,72 596,112 480,152 364,112" class="dm"/>
-      <text x="480" y="108" class="sb" text-anchor="middle" style="fill:var(--ink);font-weight:600;font-size:11px">--preflight</text><text x="480" y="124" class="cn" text-anchor="middle">分支 · 工作区 · 票 · blocker · assignee</text>
+      <text x="480" y="108" class="sb" text-anchor="middle" style="fill:var(--ink);font-weight:600;font-size:11px">--preflight</text><text x="480" y="124" class="cn" text-anchor="middle">分支 · 工作区 · 票 state · 标签 · blocker · assignee</text>
       <g><rect x="48" y="88" width="240" height="48" rx="2" class="cm"/><text x="58" y="106" class="sb" style="fill:var(--ink);font-weight:600">NOT_READY: &lt;原因&gt;</text><text x="58" y="122" class="cn">脚本自己评论到票，退出 2，worker 停下</text></g>
-      <g><rect x="330" y="176" width="300" height="48" rx="6" class="sk"/><text x="480" y="196" class="nm" text-anchor="middle">S6 核对与读入 → S7 写码（/tdd）</text><text x="480" y="212" class="cn" text-anchor="middle">基线是契约 · ponytail 五句 · Owns 两档</text></g>
+      <g><rect x="330" y="176" width="300" height="48" rx="6" class="sk"/><text x="480" y="196" class="nm" text-anchor="middle">S6 核对与读入 → S7 写码（/tdd）</text><text x="480" y="212" class="cn" text-anchor="middle">写码纪律七条：契约 · 先删再加 · 不许简化的四样 · Owns 两档</text></g>
       <g><rect x="330" y="248" width="300" height="48" rx="6" class="sc"/><text x="480" y="268" class="sb" text-anchor="middle" style="fill:var(--ink);font-weight:600;font-size:11px">S8 verify-ticket.py &lt;n&gt;</text><text x="480" y="284" class="cn" text-anchor="middle">跑全部 CHECK，写 EVIDENCE，贴 self-run</text></g>
       <polygon points="480,316 580,356 480,396 380,356" class="dm"/><text x="480" y="360" class="nm2" text-anchor="middle">全过？</text>
       <g><rect x="696" y="332" width="232" height="56" rx="2" class="cm"/><text x="706" y="350" class="sb" style="fill:var(--ink);font-weight:600">ROUND LIMIT: AC&lt;n&gt; …</text><text x="706" y="366" class="cn">第 3 轮的 self-run 点名它；该写</text><text x="706" y="380" class="cn">ABANDON: AC&lt;n&gt; failed，继续其余标准</text></g>
-      <g><rect x="330" y="420" width="300" height="48" rx="6" class="ag"/><text x="480" y="440" class="nm" text-anchor="middle">S9 verifier · verify-ticket.py --reverify</text><text x="480" y="456" class="cn" text-anchor="middle">已勾的也重跑；它自己贴 VERDICT &lt;sha&gt; &lt;level&gt;</text></g>
+      <g><rect x="330" y="420" width="300" height="48" rx="6" class="ag"/><text x="480" y="440" class="nm" text-anchor="middle">S9 verifier · verify-ticket.py --reverify</text><text x="480" y="456" class="cn" text-anchor="middle">已勾的也重跑；它自己贴 VERDICT &lt;commit&gt; by &lt;model&gt; — &lt;一句话&gt;</text></g>
       <polygon points="480,484 580,524 480,564 380,524" class="dm"/><text x="480" y="528" class="nm2" text-anchor="middle">VERDICT 全过？</text>
       <g><rect x="330" y="588" width="300" height="48" rx="6" class="ss"/><text x="480" y="608" class="nm" text-anchor="middle">S10 dispatch.sh &lt;n&gt; reviewer + wait ^REVIEW</text><text x="480" y="624" class="cn" text-anchor="middle">Claude Code opus 会话，一轮，不复审</text></g>
       <g><rect x="672" y="588" width="256" height="48" rx="2" class="cm"/><text x="682" y="606" class="sb" style="fill:var(--ink);font-weight:600">wait 超时</text><text x="682" y="622" class="cn">脚本已留言到票，跳过这一轮直接往下</text></g>
@@ -586,7 +586,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <!-- nodes -->
       <g><rect x="1000" y="52" width="160" height="56" rx="6" class="ex"/><rect x="1008" y="58" width="24" height="12" rx="2" class="tagr t-ex"/><text x="1020" y="67" class="tg t-ex" text-anchor="middle">EXT</text><text x="1008" y="88" class="nm2">打开 spec 页</text><text x="1008" y="102" class="cn">sub-issue 面板 · 两个书签 · NIGHT SUMMARY</text></g>
       <g><rect x="160" y="152" width="160" height="56" rx="6" class="sk"/><rect x="168" y="158" width="28" height="12" rx="2" class="tagr t-sk"/><text x="182" y="167" class="tg t-sk" text-anchor="middle">SKILL</text><text x="204" y="167" class="sb">S4</text><text x="168" y="188" class="nm2">to-tickets 出票</text><text x="168" y="202" class="cn">--lint 零发现</text></g>
-      <g><rect x="360" y="152" width="160" height="56" rx="6" class="sc"/><rect x="368" y="158" width="32" height="12" rx="2" class="tagr t-sc"/><text x="384" y="167" class="tg t-sc" text-anchor="middle">SCRIPT</text><text x="408" y="167" class="sb">J5</text><text x="368" y="188" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">dispatch.sh run &lt;spec&gt;</text><text x="368" y="202" class="cn">先 install.sh --check；改名 mmw-main；开监控 tab</text></g>
+      <g><rect x="360" y="152" width="160" height="56" rx="6" class="sc"/><rect x="368" y="158" width="32" height="12" rx="2" class="tagr t-sc"/><text x="384" y="167" class="tg t-sc" text-anchor="middle">SCRIPT</text><text x="408" y="167" class="sb">J5</text><text x="368" y="188" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">dispatch.sh run &lt;spec&gt; [--role][--parallel][--max-hours]</text><text x="368" y="202" class="cn">先 install.sh --check；改名 mmw-main；开监控 tab</text></g>
       <g><rect x="760" y="152" width="160" height="56" rx="6" class="ss" style="stroke-dasharray:4 3"/><rect x="768" y="158" width="36" height="12" rx="2" class="tagr t-ss"/><text x="786" y="167" class="tg t-ss" text-anchor="middle">SESSION</text><text x="812" y="167" class="sb">J2</text><text x="768" y="188" class="nm2">被重新 prompt 时才动</text><text x="768" y="202" class="cn">board.py --once 读一眼 · 不动手</text></g>
       <g><rect x="360" y="264" width="160" height="56" rx="6" class="sc"/><rect x="368" y="270" width="32" height="12" rx="2" class="tagr t-sc"/><text x="384" y="279" class="tg t-sc" text-anchor="middle">SCRIPT</text><text x="368" y="300" class="nm2">派发</text><text x="368" y="314" class="cn">frontier → dispatch.sh &lt;n&gt; &lt;role&gt; · PARALLEL</text></g>
       <g><rect x="560" y="264" width="160" height="56" rx="6" class="fo sc"/><rect x="568" y="270" width="32" height="12" rx="2" class="tagr t-sc"/><text x="584" y="279" class="tg t-sc" text-anchor="middle">SCRIPT</text><text x="608" y="279" class="sb">J1 · J4</text><text x="568" y="300" class="nm2">唤醒闭环</text><text x="568" y="314" class="cn">查表（图 4c）→ agent prompt implement #n</text></g>
@@ -666,26 +666,26 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
     <tr><td class="mono">SNAPSHOT_INTERVAL</td><td class="mono">60 s</td><td>事件丢了一分钟内补上；不持状态所以重连无损</td></tr>
   </table></div>
   <div class="xref">
-    <span class="x s"><b>4b</b></span><span class="x"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/87">#87</a> 方案全文</span><span class="x">17-night-loop.md §2–§9</span><span class="x">定案 J1–J11</span><span class="x">CONTEXT.md Dispatch 节：「board.py」「监控 tab」「唤醒闭环」「idle · phase ≠ closed/handoff」「re-prompt」「重派」</span><span class="sep">|</span><span class="x">2026-08-31 实测：cursor / grok idle 可认 · blocked 可读表单 · rename 后可 prompt · 关表单后重新 prompt 续上</span>
+    <span class="x s"><b>4b</b></span><span class="x"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/87">#87</a> 方案全文，五步已落地</span><span class="x">靶票 <a href="https://github.com/chancheuklap/multi-model-workflow/issues/104">#104</a></span><span class="x">17-night-loop.md §2–§9</span><span class="x">定案 J1–J11</span><span class="x">CONTEXT.md Dispatch 节：「board.py」「监控 tab」「唤醒闭环」「idle · phase ≠ closed/handoff」「re-prompt」「重派」</span><span class="sep">|</span><span class="x">2026-08-31 实测：cursor / grok idle 可认 · blocked 可读表单 · rename 后可 prompt · 关表单后重新 prompt 续上</span>
   </div>
 </section>
 <section id="s5">
   <h2>S5 · 派发：<code>dispatch.sh &lt;n&gt; &lt;role&gt;</code></h2>
-  <p class="lede">调用方只给票号与角色（<code>junior-worker</code> / <code>senior-worker</code> / <code>reviewer</code>）。Herdr 那一串固定操作全在脚本里；每个 agent 的宿主、模型、思考强度、启动参数只在 <code>models.md</code> 一处。</p>
+  <p class="lede">调用方只给票号与角色（<code>junior-worker</code> / <code>senior-worker</code> / <code>reviewer</code>）；票上没有一个字说这张票该给哪一档 worker。开 worktree 与 Herdr 那一串固定操作全在脚本里；每个 agent 的宿主、模型、思考强度、启动参数只在 <code>models.md</code> 一处。</p>
   <figure>
     <div class="box">
-    <svg viewBox="0 0 1120 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="s5-title s5-desc">
+    <svg viewBox="0 0 1120 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="s5-title s5-desc">
       <title id="s5-title">S5 派发一个 worker 的时序</title>
-      <desc id="s5-desc">时序图：主 agent 调 dispatch.sh，脚本先查票是否可派，再读 models.md 取该角色的行，经 Herdr 开 tab、起会话、等 idle，最后发派发词 implement #n 给 worker，并把结果一行返回主 agent。</desc>
+      <desc id="s5-desc">时序图：主 agent 调 dispatch.sh，脚本先查票是否可派，再读 models.md 取该角色的行，开一个 issue-n 分支的 worktree 并记下切点，经 Herdr 在那个目录开 tab、起会话、等 idle，最后发派发词 implement #n 给 worker，并把结果一行返回主 agent。</desc>
       <defs><marker id="s5-a" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--muted)"/></marker>
       <marker id="s5-aa" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--accent)"/></marker>
       <marker id="s5-al" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--link)"/></marker></defs>
       <rect width="100%" height="100%" fill="var(--paper)"/>
       <!-- lifelines -->
-      <line x1="100" y1="72" x2="100" y2="420" class="life"/><line x1="320" y1="72" x2="320" y2="420" class="life"/><line x1="540" y1="72" x2="540" y2="420" class="life"/><line x1="760" y1="72" x2="760" y2="420" class="life"/><line x1="980" y1="72" x2="980" y2="420" class="life"/>
+      <line x1="100" y1="72" x2="100" y2="480" class="life"/><line x1="320" y1="72" x2="320" y2="480" class="life"/><line x1="540" y1="72" x2="540" y2="480" class="life"/><line x1="760" y1="72" x2="760" y2="480" class="life"/><line x1="980" y1="72" x2="980" y2="480" class="life"/>
       <!-- activations -->
-      <rect x="316" y="104" width="8" height="292" class="act"/>
-      <rect x="976" y="280" width="8" height="116" class="act"/>
+      <rect x="316" y="104" width="8" height="352" class="act"/>
+      <rect x="976" y="324" width="8" height="132" class="act"/>
       <!-- messages -->
       <line x1="104" y1="104" x2="312" y2="104" class="fl" marker-end="url(#s5-a)"/>
       <rect x="128" y="84" width="168" height="12" rx="2" class="mask"/><text x="212" y="93" class="al" text-anchor="middle">dispatch.sh 77 junior-worker</text>
@@ -695,24 +695,28 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <rect x="352" y="160" width="160" height="12" rx="2" class="mask"/><text x="432" y="169" class="al" text-anchor="middle">OPEN · ready-for-agent · blocker 全关</text>
       <path d="M324,184 H408" class="fl" marker-end="url(#s5-a)"/>
       <path d="M416,204 H328" class="fl d" marker-end="url(#s5-a)"/>
-      <line x1="324" y1="240" x2="756" y2="240" class="fl" marker-end="url(#s5-a)"/>
-      <rect x="440" y="220" width="200" height="12" rx="2" class="mask"/><text x="540" y="229" class="al" text-anchor="middle">herdr tab create --env MMW_TICKET=77 --no-focus</text>
-      <line x1="324" y1="264" x2="756" y2="264" class="fl" marker-end="url(#s5-a)"/>
-      <rect x="440" y="244" width="200" height="12" rx="2" class="mask"/><text x="540" y="253" class="al" text-anchor="middle">herdr agent start issue-77 --kind cursor -- &lt;args&gt;</text>
-      <line x1="764" y1="284" x2="976" y2="284" class="fl" marker-end="url(#s5-a)"/>
-      <rect x="800" y="264" width="140" height="12" rx="2" class="mask"/><text x="870" y="273" class="al" text-anchor="middle">起会话 · cwd = 仓库根</text>
-      <line x1="324" y1="304" x2="756" y2="304" class="fl" marker-end="url(#s5-a)"/>
-      <rect x="440" y="284" width="200" height="12" rx="2" class="mask"/><text x="540" y="293" class="al" text-anchor="middle">agent wait --until idle · 120 s</text>
-      <line x1="756" y1="332" x2="328" y2="332" class="fl d" marker-end="url(#s5-a)"/>
-      <rect x="500" y="312" width="80" height="12" rx="2" class="mask"/><text x="540" y="321" class="al" text-anchor="middle">idle</text>
+      <path d="M324,240 H408" class="fl a" marker-end="url(#s5-aa)"/>
+      <path d="M416,264 H328" class="fl d" marker-end="url(#s5-a)"/>
+      <line x1="324" y1="296" x2="756" y2="296" class="fl" marker-end="url(#s5-a)"/>
+      <rect x="392" y="276" width="296" height="12" rx="2" class="mask"/><text x="540" y="285" class="al" text-anchor="middle">herdr tab create --cwd &lt;worktree&gt; --env MMW_TICKET=77 --no-focus</text>
+      <line x1="324" y1="320" x2="756" y2="320" class="fl" marker-end="url(#s5-a)"/>
+      <rect x="408" y="300" width="264" height="12" rx="2" class="mask"/><text x="540" y="309" class="al" text-anchor="middle">herdr agent start issue-77 --kind codex -- &lt;launch arguments&gt;</text>
+      <line x1="764" y1="340" x2="976" y2="340" class="fl" marker-end="url(#s5-a)"/>
+      <rect x="796" y="320" width="148" height="12" rx="2" class="mask"/><text x="870" y="329" class="al" text-anchor="middle">起会话 · cwd = 这张票的 worktree</text>
       <line x1="324" y1="360" x2="756" y2="360" class="fl" marker-end="url(#s5-a)"/>
-      <rect x="440" y="340" width="200" height="12" rx="2" class="mask"/><text x="540" y="349" class="al" text-anchor="middle">agent prompt · pane rename · ticket/role/model token</text>
-      <line x1="764" y1="376" x2="976" y2="376" class="fl a" marker-end="url(#s5-aa)"/>
-      <rect x="820" y="356" width="100" height="12" rx="2" class="mask"/><text x="870" y="365" class="al acc" text-anchor="middle">implement #77</text>
-      <line x1="316" y1="396" x2="108" y2="396" class="fl d" marker-end="url(#s5-a)"/>
-      <rect x="120" y="400" width="180" height="12" rx="2" class="mask"/><text x="210" y="409" class="al" text-anchor="middle">exit 0 · issue-77 is working on #77 in pane …</text>
-      <!-- models.md doc on the self-call -->
+      <rect x="440" y="340" width="200" height="12" rx="2" class="mask"/><text x="540" y="349" class="al" text-anchor="middle">agent wait --until idle · 120 s</text>
+      <line x1="756" y1="388" x2="328" y2="388" class="fl d" marker-end="url(#s5-a)"/>
+      <rect x="500" y="368" width="80" height="12" rx="2" class="mask"/><text x="540" y="377" class="al" text-anchor="middle">idle</text>
+      <line x1="324" y1="416" x2="756" y2="416" class="fl" marker-end="url(#s5-a)"/>
+      <rect x="384" y="396" width="312" height="12" rx="2" class="mask"/><text x="540" y="405" class="al" text-anchor="middle">agent prompt（没转 working 就再发一次）· pane rename · ticket / kind / model token</text>
+      <line x1="764" y1="432" x2="976" y2="432" class="fl a" marker-end="url(#s5-aa)"/>
+      <rect x="820" y="412" width="100" height="12" rx="2" class="mask"/><text x="870" y="421" class="al acc" text-anchor="middle">implement #77</text>
+      <line x1="316" y1="456" x2="108" y2="456" class="fl d" marker-end="url(#s5-a)"/>
+      <rect x="92" y="460" width="248" height="12" rx="2" class="mask"/><text x="216" y="469" class="al" text-anchor="middle">exit 0 · issue-77 is working on #77 in pane … on gpt-5.6-terra</text>
+      <!-- models.md doc on the first self-call -->
       <g><path d="M408,176 H512 L528,192 V212 H408 Z" class="dc"/><path d="M512,176 V192 H528" class="dc"/><text x="416" y="192" class="sb" style="fill:var(--ink);font-weight:600">models.md · DOC</text><text x="416" y="206" class="cn">按角色取一行填参数</text></g>
+      <!-- the worktree on the second self-call -->
+      <g><rect x="408" y="228" width="248" height="40" rx="4" class="fo sc"/><text x="416" y="246" class="sb" style="fill:var(--ink);font-weight:600">git worktree add -b issue-77 &lt;path&gt; HEAD</text><text x="416" y="260" class="cn">~/.mmw/worktrees/&lt;仓库&gt;/issue-77；切点记进 branch.issue-77.mmw-base</text></g>
       <!-- actors -->
       <g><rect x="20" y="24" width="160" height="48" rx="6" class="ss"/><rect x="28" y="30" width="36" height="12" rx="2" class="tagr t-ss"/><text x="46" y="39" class="tg t-ss" text-anchor="middle">SESSION</text><text x="100" y="60" class="nm" text-anchor="middle">主 agent</text></g>
       <g><rect x="240" y="24" width="160" height="48" rx="6" class="sc"/><rect x="248" y="30" width="32" height="12" rx="2" class="tagr t-sc"/><text x="264" y="39" class="tg t-sc" text-anchor="middle">SCRIPT</text><text x="320" y="60" class="sb" text-anchor="middle" style="fill:var(--ink);font-weight:600;font-size:11px">dispatch.sh</text></g>
@@ -721,21 +725,21 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <g><rect x="900" y="24" width="160" height="48" rx="6" class="ss"/><rect x="908" y="30" width="36" height="12" rx="2" class="tagr t-ss"/><text x="926" y="39" class="tg t-ss" text-anchor="middle">SESSION</text><text x="980" y="60" class="nm" text-anchor="middle">worker · issue-77</text></g>
     </svg>
     </div>
-    <figcaption>图 6 · 一条命令走完；橙色那一句是 worker 收到的<b>全部</b>输入——派发词只有技能名加票号，票由技能自己去读。查票不过 → 退出 2，什么都不起；120 秒没 idle → 退出 1，会话起了但没被告知任何事。reviewer 的派发同一条脚本：多一个起点 commit，在调用方的 tab 里分屏，派发词是 <code>code-review &lt;base&gt; #&lt;n&gt;</code>。夜里这条命令由 <code>board.py</code> 调（4b）；主 agent 敲的是 <code>dispatch.sh run &lt;spec&gt;</code>。</figcaption>
+    <figcaption>图 6 · 一条命令走完；橙色那两处是本图的重心。<b>worktree 由脚本开</b>：宿主能不能自己开一个各不相同，所以 <code>models.md</code> 的启动参数里没有 worktree 这一项，会话直接起在里面；分支 <code>issue-&lt;n&gt;</code> 切自<b>派发那一刻的 HEAD</b>——白天的讨论与 spec 就在那条分支上——切点写进 <code>git config branch.issue-&lt;n&gt;.mmw-base</code>，收尾评论的 <code>Outside Owns:</code> 与 code review 的起点都从它算；分支名另记进 <code>mmw-base-branch</code>，供 PR 用。已存在的 <code>issue-&lt;n&gt;</code> 分支照原样接着用，那是重派。<b>派发词</b>只有技能名加票号，票由技能自己去读。查票不过 → 退出 2，什么都不起；120 秒没 idle → 退出 1，会话起了但没被告知任何事。reviewer 走同一条脚本：不开 worktree，在调用方的 pane 上按宽度左右或上下分屏，跑在 worker 的 worktree 里，多给一个起点 commit，派发词是 <code>code-review &lt;base&gt; #&lt;n&gt;</code>。夜里这条命令由 <code>board.py</code> 调（4b）；主 agent 敲的是 <code>dispatch.sh run &lt;spec&gt;</code>。</figcaption>
   </figure>
   <div class="xref">
-    <span class="x s"><b>S5</b></span><span class="x">#60 <b>§2</b></span><span class="x"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/67">#67</a> 已关</span><span class="x">mmw-v2/skills/dispatch/SKILL.md</span><span class="x">models.md 五列：agent · host · model · effort · launch arguments</span><span class="x">定案 E2、G9、H1</span>
+    <span class="x s"><b>S5</b></span><span class="x">#60 <b>§2</b></span><span class="x"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/67">#67</a> 已关</span><span class="x">mmw-v2/skills/dispatch/SKILL.md</span><span class="x">models.md 五列：agent · host · model · effort · launch arguments</span><span class="x">改表：references/editing-models.md</span><span class="x">定案 E2、G9、H1、J7</span>
   </div>
 </section>
 
 <section id="s6">
   <h2>S6 · 开工：<code>--preflight</code> 守卫，然后读入</h2>
-  <p class="lede">worker 在票上动任何东西之前先跑守卫；五项全过才认领。被拒时脚本自己把 <code>NOT_READY:</code> 评论到票上——否则早上看这张票和从没派过一样。</p>
+  <p class="lede">worker 在票上动任何东西之前先跑守卫；六项全过才认领。被拒时脚本自己把 <code>NOT_READY:</code> 评论到票上——否则早上看这张票和从没派过一样。</p>
   <figure>
     <div class="box">
     <svg viewBox="0 0 1120 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="s6-title s6-desc">
       <title id="s6-title">S6 开工守卫与读入</title>
-      <desc id="s6-desc">流程图：五项检查依次通过后认领票；任一项不过就把 NOT_READY 评论到票并停下；认领后核对 What to build 与 Owns，按读法收窄读 spec，最后说出 Seam。</desc>
+      <desc id="s6-desc">流程图：六项检查依次通过后认领票；任一项不过就把 NOT_READY 评论到票并停下；认领后核对 What to build 与 Owns，按读法收窄读 spec，最后说出 Seam。</desc>
       <defs><marker id="s6-a" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--muted)"/></marker>
       <marker id="s6-al" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--link)"/></marker></defs>
       <rect width="100%" height="100%" fill="var(--paper)"/>
@@ -752,44 +756,44 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <rect x="776" y="136" width="28" height="12" rx="2" class="mask"/><text x="790" y="145" class="al" text-anchor="middle">不过</text>
       <rect x="904" y="136" width="28" height="12" rx="2" class="mask"/><text x="918" y="145" class="al" text-anchor="middle">不过</text>
       <line x1="976" y1="116" x2="976" y2="172" class="fl" marker-end="url(#s6-a)"/>
-      <rect x="984" y="136" width="44" height="12" rx="2" class="mask"/><text x="1006" y="145" class="al" text-anchor="middle">五项都过</text>
+      <rect x="984" y="136" width="44" height="12" rx="2" class="mask"/><text x="1006" y="145" class="al" text-anchor="middle">六项都过</text>
       <path d="M944,228 V240 Q944,248 936,248 H144 Q136,248 136,256 V276" class="fl" marker-end="url(#s6-a)"/>
       <line x1="256" y1="308" x2="288" y2="308" class="fl" marker-end="url(#s6-a)"/><line x1="624" y1="308" x2="656" y2="308" class="fl" marker-end="url(#s6-a)"/><line x1="864" y1="308" x2="896" y2="308" class="fl" marker-end="url(#s6-a)"/>
       <!-- nodes -->
       <g><rect x="16" y="64" width="120" height="48" rx="20" class="ss"/><text x="76" y="86" class="nm2" text-anchor="middle">implement #n</text><text x="76" y="100" class="cn" text-anchor="middle">worker 的第一步</text></g>
       <g><rect x="160" y="60" width="160" height="56" rx="6" class="sc"/><text x="170" y="80" class="nm2">分支</text><text x="170" y="96" class="sb">== issue-&lt;n&gt;</text></g>
       <g><rect x="336" y="60" width="160" height="56" rx="6" class="sc"/><text x="346" y="80" class="nm2">工作区</text><text x="346" y="96" class="sb">已跟踪文件无改动</text></g>
-      <g><rect x="512" y="60" width="160" height="56" rx="6" class="sc"/><text x="522" y="80" class="nm2">票</text><text x="522" y="96" class="sb">OPEN ∧ ready-for-agent</text></g>
+      <g><rect x="512" y="60" width="160" height="56" rx="6" class="sc"/><text x="522" y="80" class="nm2">票的 state 与标签（两项）</text><text x="522" y="96" class="sb">OPEN ∧ ready-for-agent</text></g>
       <g><rect x="688" y="60" width="160" height="56" rx="6" class="sc"/><text x="698" y="80" class="nm2">Blocked by</text><text x="698" y="96" class="sb">blocker 全 CLOSED</text></g>
       <g><rect x="864" y="60" width="160" height="56" rx="6" class="sc"/><text x="874" y="80" class="nm2">assignee</text><text x="874" y="96" class="sb">空 或 就是我（幂等）</text></g>
       <g><rect x="160" y="172" width="680" height="40" rx="2" class="cm"/><text x="170" y="188" class="sb" style="fill:var(--ink);font-weight:600">NOT_READY: &lt;原因&gt;</text><text x="170" y="203" class="cn">脚本贴到票上，退出 2；worker 看见就停下——票上留痕，早上看得出派过</text></g>
       <g><rect x="864" y="172" width="160" height="56" rx="6" class="fo sc"/><text x="874" y="192" class="nm2">认领</text><text x="874" y="208" class="sb">--add-assignee @me</text><text x="874" y="221" class="sb">phase=implement</text></g>
       <g><rect x="16" y="276" width="240" height="64" rx="6" class="sk"/><text x="26" y="296" class="nm2">核对</text><text x="26" y="312" class="cn">标题与 What to build 同一片</text><text x="26" y="326" class="cn">每条 Owns glob 匹配现存路径或标 (new)</text></g>
-      <g><rect x="288" y="276" width="336" height="64" rx="6" class="sk"/><text x="298" y="296" class="nm2">读入（读法收窄）</text><text x="298" y="312" class="cn">票全文含评论 → Read first 每项读到结论 → 沿 Parent 只读</text><text x="298" y="326" class="cn">指名小节 + Testing Decisions + Out of Scope → CONTEXT.md</text></g>
+      <g><rect x="288" y="276" width="336" height="64" rx="6" class="sk"/><text x="298" y="296" class="nm2">读入（读法收窄）</text><text x="298" y="310" class="cn">票全文含评论 → Read first 每项读到结论（研究文件末节 · ADR 的</text><text x="298" y="322" class="cn">Decision · 交接包 · prototype 叶子 README 读到 verdict）→ 沿 Parent</text><text x="298" y="334" class="cn">只读指名小节 + Testing Decisions + Out of Scope → CONTEXT.md</text></g>
       <g><rect x="656" y="276" width="208" height="64" rx="6" class="sk"/><text x="666" y="296" class="nm2">说出 Seam</text><text x="666" y="312" class="cn">一句：在哪一层、哪个目录、抄哪个先例</text><text x="666" y="326" class="cn">票没有就推导并评论到票</text></g>
       <g><rect x="896" y="284" width="128" height="48" rx="20" class="sk"/><text x="960" y="312" class="nm2" text-anchor="middle">→ S7 写码</text></g>
     </svg>
     </div>
-    <figcaption>图 7 · 五项检查全在脚本里，模型不逐项照做；认领是守卫通过后的第一个写动作。旧票没有 <code>## Owns</code> 时 worker 自己推导并评论到票。</figcaption>
+    <figcaption>图 7 · 六项检查全在脚本里（第三格管两项：票的 state 与 <code>ready-for-agent</code> 标签），模型不逐项照做；认领是守卫通过后的第一个写动作。<code>implement</code> 的开工段把六项逐项点名，为的是 worker 撞上标签或 assignee 那两条时认得出这是守卫的正常拒绝，不是脚本坏了。旧票没有 <code>## Owns</code> 时 worker 自己推导并评论到票。</figcaption>
   </figure>
   <div class="xref">
-    <span class="x s"><b>S6</b></span><span class="x">#60 <b>§7</b> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/71">#71</a> 开着</span><span class="x">守卫本身 <b>§2</b> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/63">#63</a> 已关</span><span class="x">定案 0.1、H4 S6–S7</span><span class="x">CONTEXT.md「--preflight」「读法收窄」「说出 Seam」「Owns 核对」</span>
+    <span class="x s"><b>S6</b></span><span class="x">#60 <b>§7</b> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/71">#71</a> 已关</span><span class="x">守卫本身 <b>§2</b> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/63">#63</a> 已关</span><span class="x">定案 0.1、H4 S6–S7</span><span class="x">CONTEXT.md「--preflight」「读法收窄」「说出 Seam」「Owns 核对」</span>
   </div>
 </section>
 
 <section id="s7">
   <h2>S7 · 写码纪律：契约、五句、两档</h2>
-  <p class="lede">放在 <code>implement</code> 的「说出 Seam」之后、<code>Use /tdd</code> 之前，不超过十行。三件事各管一种自我发挥。</p>
+  <p class="lede">写码纪律七条，放在 <code>implement</code> 的「说出 Seam」之后、<code>Use /tdd</code> 之前。措辞全是动作加票上的字段，不写原则散文。三栏各管一种自我发挥。</p>
   <figure>
     <div class="box">
     <svg viewBox="0 0 1120 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="s7-title s7-desc">
       <title id="s7-title">S7 写码纪律的三块</title>
-      <desc id="s7-desc">三栏：基线是契约，装不下就继续做并在 spec 下开 sub-issue；ponytail 五句的顺序清单；改到 Owns 外的两档处理。</desc>
+      <desc id="s7-desc">三栏：第 1 条基线是契约，装不下就继续做并在 spec 下开 sub-issue；第 2 到 6 条的顺序清单；第 7 条改到 Owns 外的两档处理。</desc>
       <defs><marker id="s7-a" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--muted)"/></marker></defs>
       <rect width="100%" height="100%" fill="var(--paper)"/>
-      <rect x="16" y="24" width="336" height="336" rx="8" class="zone"/><rect x="24" y="28" width="96" height="12" rx="2" class="mask"/><text x="72" y="37" class="ey" text-anchor="middle">基线是契约</text>
-      <rect x="384" y="24" width="336" height="336" rx="8" class="zone"/><rect x="392" y="28" width="96" height="12" rx="2" class="mask"/><text x="440" y="37" class="ey" text-anchor="middle">ponytail 五句</text>
-      <rect x="752" y="24" width="352" height="336" rx="8" class="zone"/><rect x="760" y="28" width="96" height="12" rx="2" class="mask"/><text x="808" y="37" class="ey" text-anchor="middle">Owns 两档</text>
+      <rect x="16" y="24" width="336" height="336" rx="8" class="zone"/><rect x="24" y="28" width="112" height="12" rx="2" class="mask"/><text x="80" y="37" class="ey" text-anchor="middle">第 1 条 · 基线是契约</text>
+      <rect x="384" y="24" width="336" height="336" rx="8" class="zone"/><rect x="392" y="28" width="136" height="12" rx="2" class="mask"/><text x="460" y="37" class="ey" text-anchor="middle">第 2–6 条 · 先删再加，不许简化</text>
+      <rect x="752" y="24" width="352" height="336" rx="8" class="zone"/><rect x="760" y="28" width="112" height="12" rx="2" class="mask"/><text x="816" y="37" class="ey" text-anchor="middle">第 7 条 · Owns 两档</text>
       <!-- zone A arrows -->
       <line x1="184" y1="104" x2="184" y2="128" class="fl" marker-end="url(#s7-a)"/>
       <path d="M184,208 V224 Q184,232 176,232 H112 Q104,232 104,240 V256" class="fl" marker-end="url(#s7-a)"/>
@@ -804,23 +808,23 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <rect x="1016" y="180" width="72" height="12" rx="2" class="mask"/><text x="1052" y="189" class="al" text-anchor="middle">只是顺手</text>
       <rect x="1036" y="60" width="52" height="12" rx="2" class="mask"/><text x="1062" y="69" class="al" text-anchor="middle">在 Owns 内</text>
       <!-- zone A nodes -->
-      <g><path d="M48,56 H304 L320,72 V104 H48 Z" class="dc"/><path d="M304,56 V72 H320" class="dc"/><rect x="56" y="62" width="24" height="11" rx="2" class="tagr t-dc"/><text x="68" y="70" class="tg t-dc" text-anchor="middle">DOC</text><text x="88" y="70" class="sb">## Read first 第一项</text><text x="56" y="90" class="nm2">基线目录 = 契约，不是参考</text><text x="56" y="100" class="cn">逐字文案、尺寸、色值从交接包 README 抄；从不悄悄改它</text></g>
+      <g><path d="M48,56 H304 L320,72 V104 H48 Z" class="dc"/><path d="M304,56 V72 H320" class="dc"/><rect x="56" y="62" width="24" height="11" rx="2" class="tagr t-dc"/><text x="68" y="70" class="tg t-dc" text-anchor="middle">DOC</text><text x="88" y="70" class="sb">## Read first 里每件基线</text><text x="56" y="88" class="nm2">基线 = 契约，不是参考</text><text x="56" y="98" class="cn">值、文案、状态、接口形状从基线抄，不凭记忆重写；从不悄悄改它</text></g>
       <polygon points="184,128 284,168 184,208 84,168" class="dm"/><text x="184" y="164" class="nm2" text-anchor="middle">缺状态 / 字段 / 交互？</text><text x="184" y="180" class="cn" text-anchor="middle">契约装不下</text>
-      <g><rect x="32" y="256" width="144" height="80" rx="6" class="sk"/><text x="42" y="276" class="nm2">照基线做</text><text x="42" y="292" class="cn">/tdd 在 Seam 上红→绿</text><text x="42" y="306" class="cn">运行时报错：0 条</text></g>
+      <g><rect x="32" y="256" width="144" height="80" rx="6" class="sk"/><text x="42" y="274" class="nm2">照基线做</text><text x="42" y="288" class="cn">交接包逐字照抄</text><text x="42" y="300" class="cn">prototype 按正式标准重写，</text><text x="42" y="310" class="cn">保住 verdict 定下的形状</text><text x="42" y="324" class="cn">/tdd 在 Seam 上红→绿</text></g>
       <g><rect x="192" y="256" width="144" height="80" rx="6" class="sk"/><text x="202" y="276" class="nm2">继续做 + 开 sub-issue</text><text x="202" y="292" class="cn">--parent &lt;spec&gt;，不悄悄加</text><rect x="202" y="304" width="88" height="16" rx="2" class="lb"/><text x="246" y="315" class="sb lbt" text-anchor="middle">needs-triage</text></g>
       <!-- zone B checklist -->
       <g><rect x="400" y="56" width="304" height="280" rx="6" class="sk"/>
-        <rect x="408" y="62" width="28" height="12" rx="2" class="tagr t-sk"/><text x="422" y="71" class="tg t-sk" text-anchor="middle">SKILL</text><text x="444" y="71" class="sb">implement · ≤ 10 行 · 写码前</text>
+        <rect x="408" y="62" width="28" height="12" rx="2" class="tagr t-sk"/><text x="422" y="71" class="tg t-sk" text-anchor="middle">SKILL</text><text x="444" y="71" class="sb">implement · 说出 Seam 之后、/tdd 之前</text>
         <line x1="400" y1="84" x2="704" y2="84" class="rule"/>
-        <text x="412" y="106" class="sb">1</text><text x="432" y="106" class="nm2">改函数前 grep 每个调用方</text><text x="432" y="120" class="cn">修共用处；加分支前先删掉它让其多余的</text>
+        <text x="412" y="106" class="sb">2</text><text x="432" y="106" class="nm2">改函数前 grep 每个调用方</text><text x="432" y="120" class="cn">修共用处；加分支或 guard 前先点名并删掉它让其多余的</text>
         <line x1="400" y1="132" x2="704" y2="132" class="rule"/>
-        <text x="412" y="154" class="sb">2</text><text x="432" y="154" class="nm2">写 helper 前先找现成的</text><text x="432" y="168" class="cn">仓库里、Read first 里</text>
+        <text x="412" y="154" class="sb">3</text><text x="432" y="154" class="nm2">写 helper 前先找现成的</text><text x="432" y="168" class="cn">仓库里、Read first 里</text>
         <line x1="400" y1="180" x2="704" y2="180" class="rule"/>
-        <text x="412" y="202" class="sb">3</text><text x="432" y="202" class="nm2">加文件 / 依赖 / 配置前说出已有的为何不够</text>
+        <text x="412" y="202" class="sb">4</text><text x="432" y="202" class="nm2">加文件 / 依赖 / 配置前说出已有的为何不够</text>
         <line x1="400" y1="228" x2="704" y2="228" class="rule"/>
-        <text x="412" y="250" class="sb">4</text><text x="432" y="250" class="nm2">四样不许简化掉</text><text x="432" y="264" class="cn">What to build · 每条 AC · 基线 · Seam 接口</text>
-        <line x1="400" y1="276" x2="704" y2="276" class="rule"/>
-        <text x="412" y="298" class="sb">5</text><text x="432" y="298" class="nm2">收尾写 skipped: [X], add when [Y]</text><text x="432" y="312" class="cn">契约外故意没建的东西，与建它的条件</text>
+        <text x="412" y="250" class="sb">5</text><text x="432" y="250" class="nm2">这些不许简化掉</text><text x="432" y="262" class="cn">安全 · 防数据丢失 · 无障碍</text><text x="432" y="272" class="cn">What to build · 每条 AC · 基线 · Seam 接口</text>
+        <line x1="400" y1="284" x2="704" y2="284" class="rule"/>
+        <text x="412" y="304" class="sb">6</text><text x="432" y="304" class="nm2">收尾写 skipped: [X], add when [Y]</text><text x="432" y="318" class="cn">契约外故意没建的东西，与建它的条件</text>
       </g>
       <!-- zone C nodes -->
       <polygon points="928,72 1028,112 928,152 828,112" class="dm"/><text x="928" y="108" class="nm2" text-anchor="middle">改的文件在 ## Owns 外？</text><text x="928" y="124" class="cn" text-anchor="middle">每一处改动都问一次</text>
@@ -829,10 +833,10 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <g><rect x="768" y="296" width="320" height="48" rx="6" class="sk"/><text x="778" y="316" class="nm2">照常改</text><text x="778" y="332" class="cn">Owns 内的文件是这张票的；同一 frontier 上别的票碰不到它</text></g>
     </svg>
     </div>
-    <figcaption>图 8 · 三种自我发挥各有一道闸：<b>换掉契约</b>（走 sub-issue，不悄悄加）、<b>过度构建</b>（五句，其余 ponytail 句子不收：原生控件替代自绘、先交懒版本、<code>demo()</code> 自检、<code>ponytail:</code> 注释）、<b>越界改动</b>（两档）。偏离一律即时上报到票，不攒到收尾。</figcaption>
+    <figcaption>图 8 · 三种自我发挥各有一道闸：<b>换掉契约</b>（走 sub-issue，不悄悄加）、<b>过度构建</b>（第 2–6 条）、<b>越界改动</b>（第 7 条两档）。第 1 条是契约的三款：照抄基线的值与形状；装不下就开 sub-issue；<b>过不了的检查用改代码或 abandon 那条标准来答，不弯基线、不弯 harness、不弯测试</b>——最后这一款指向的 abandon 就是 S8 的三轮上限。偏离一律即时上报到票，不攒到收尾。第 2 条与 code review 的 <code>Standards</code> 轴问的是同一句话——加东西之前先找可删的——只是一个在写的时候问，一个在改完之后问（定案 C2）。</figcaption>
   </figure>
   <div class="xref">
-    <span class="x s"><b>S7</b></span><span class="x">#60 <b>§8</b> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/72">#72</a> 开着</span><span class="x">定案 0.1、A2、C1</span><span class="x">07-overbuild-discipline.md §7.1 PT1–PT7</span><span class="x">CONTEXT.md「ponytail 五句」「Owns 两档」「契约装不下」</span>
+    <span class="x s"><b>S7</b></span><span class="x">#60 <b>§8</b> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/72">#72</a> 已关</span><span class="x">定案 0.1、A2、C1、C2</span><span class="x">07-overbuild-discipline.md §7.1 PT1–PT7</span><span class="x">CONTEXT.md「写码纪律七条」「契约」「契约装不下」「Owns 两档」</span>
   </div>
 </section>
 
@@ -843,7 +847,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
     <div class="box">
     <svg viewBox="0 0 1120 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="s8-title s8-desc">
       <title id="s8-title">S8 自跑的数据流</title>
-      <desc id="s8-desc">数据流：票的标准段进脚本，写成临时账本交给 gate-check 逐条跑 CHECK，exit 0 且 EXPECT 匹配才写 EVIDENCE；UI 标准的 CHECK 调 visual-parity.py；结果贴回票一条 self-run 评论，并往 Herdr 写 phase token。</desc>
+      <desc id="s8-desc">数据流：票的标准段进脚本，写成临时账本交给 gate-check 逐条跑 CHECK，exit 0 且 EXPECT 匹配才写 EVIDENCE；UI 标准的 CHECK 调 visual-parity.py；结果贴回票一条 self-run 评论，评论第二行是 gate-check 汇总行，并往 Herdr 写 phase token。</desc>
       <defs><marker id="s8-a" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--muted)"/></marker>
       <marker id="s8-al" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--link)"/></marker></defs>
       <rect width="100%" height="100%" fill="var(--paper)"/>
@@ -867,31 +871,31 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <rect x="496" y="280" width="64" height="12" rx="2" class="mask"/><text x="528" y="289" class="al" text-anchor="middle">phase token</text>
       <!-- nodes -->
       <g><rect x="16" y="56" width="176" height="72" rx="6" class="tk"/><rect x="24" y="62" width="36" height="12" rx="2" class="tagr t-tk"/><text x="42" y="71" class="tg t-tk" text-anchor="middle">TICKET</text><text x="24" y="92" class="nm">票 #n</text><text x="24" y="108" class="cn">## Acceptance criteria · ## Owns</text><text x="24" y="120" class="cn">评论：数 self-run 条数</text></g>
-      <g><rect x="240" y="56" width="208" height="72" rx="6" class="fo sc"/><rect x="248" y="62" width="32" height="12" rx="2" class="tagr t-sc"/><text x="264" y="71" class="tg t-sc" text-anchor="middle">SCRIPT</text><text x="248" y="92" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">verify-ticket.py &lt;n&gt;</text><text x="248" y="108" class="cn">默认子命令；--timeout 可放宽</text><text x="248" y="120" class="cn">算 Outside Owns（diff 自 main）</text></g>
+      <g><rect x="240" y="56" width="208" height="72" rx="6" class="fo sc"/><rect x="248" y="62" width="32" height="12" rx="2" class="tagr t-sc"/><text x="264" y="71" class="tg t-sc" text-anchor="middle">SCRIPT</text><text x="248" y="92" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">verify-ticket.py &lt;n&gt;</text><text x="248" y="108" class="cn">默认子命令；--timeout 可放宽</text><text x="248" y="120" class="cn">算 Outside Owns（本票自己的提交，自 mmw-base）</text></g>
       <g><path d="M520,64 H664 L680,80 V120 H520 Z" class="dc"/><path d="M664,64 V80 H680" class="dc"/><rect x="528" y="70" width="24" height="11" rx="2" class="tagr t-dc"/><text x="540" y="78" class="tg t-dc" text-anchor="middle">DOC</text><text x="528" y="98" class="sb" style="fill:var(--ink);font-weight:600">账本 AC.md</text><text x="528" y="112" class="cn">临时目录，用完即删</text></g>
       <g><rect x="712" y="56" width="176" height="72" rx="6" class="sc"/><rect x="720" y="62" width="32" height="12" rx="2" class="tagr t-sc"/><text x="736" y="71" class="tg t-sc" text-anchor="middle">SCRIPT</text><text x="720" y="92" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">gate-check.mjs</text><text x="720" y="108" class="cn">vendor unlazy；批准机制已去</text><text x="720" y="120" class="cn">双条件 · STALE 签名 · 超时</text></g>
       <g><rect x="920" y="56" width="160" height="72" rx="6" class="ex"/><rect x="928" y="62" width="24" height="12" rx="2" class="tagr t-ex"/><text x="940" y="71" class="tg t-ex" text-anchor="middle">EXT</text><text x="928" y="92" class="nm">shell</text><text x="928" y="108" class="cn">原样跑每条 CHECK:</text><text x="928" y="120" class="cn">多行用代码块围栏</text></g>
       <g><rect x="712" y="160" width="176" height="80" rx="6" class="sc"/><rect x="720" y="166" width="32" height="12" rx="2" class="tagr t-sc"/><text x="736" y="175" class="tg t-sc" text-anchor="middle">SCRIPT</text><text x="720" y="196" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">visual-parity.py</text><text x="720" y="210" class="cn">基线离线渲染 · 每场景两视口</text><text x="720" y="222" class="cn">ARIA 归一化 diff 0 ∧ 像素 ≤ 1%</text><text x="720" y="234" class="cn">先跑负控制；PARITY OK n/n</text></g>
-      <g><rect x="240" y="296" width="208" height="64" rx="2" class="cm"/><text x="248" y="314" class="sb" style="fill:var(--ink);font-weight:600">self-run</text><text x="248" y="328" class="sb">UNMET: 1 (met: 3)</text><text x="248" y="342" class="cn">逐条勾 + EVIDENCE 结构行</text><text x="248" y="354" class="cn">第 3 次同一条未过 → ROUND LIMIT 行</text></g>
+      <g><rect x="240" y="296" width="208" height="64" rx="2" class="cm"/><text x="248" y="312" class="sb" style="fill:var(--ink);font-weight:600">self-run</text><text x="248" y="324" class="sb">UNMET: 1 (met: 3)</text><text x="248" y="336" class="cn">第二行是 gate-check 汇总行，三种形状之一</text><text x="248" y="346" class="cn">逐条勾 + EVIDENCE 结构行</text><text x="248" y="356" class="cn">第 3 次同一条未过 → ROUND LIMIT 行</text></g>
       <g><rect x="520" y="296" width="160" height="48" rx="6" class="ex"/><rect x="528" y="302" width="24" height="12" rx="2" class="tagr t-ex"/><text x="540" y="311" class="tg t-ex" text-anchor="middle">EXT</text><text x="528" y="330" class="sb">phase=selfcheck · ac=3/4</text><text x="528" y="340" class="cn">Herdr pane token，一天 TTL</text></g>
       <text x="464" y="388" class="aside">the ticket is the only state</text>
       <path d="M456,382 Q400,378 348,366" class="fl lead"/><circle cx="348" cy="364" r="2" class="dot"/>
     </svg>
     </div>
-    <figcaption>图 9 · 判定逻辑一个字没动（三态、exit 0 ∧ EXPECT、超时、STALE 签名）；上游的整套批准机制去掉，多行命令改成代码块围栏（定案 G5、G8）。<b>轮次由票自己数</b>：第三条 <code>self-run</code> 里同一标准仍未过，那一行改成 <code>ROUND LIMIT</code>，点名该写 <code>ABANDON: AC&lt;n&gt; failed</code>；第四轮照跑，修好了照样过。UI 失败不问人：<code>DIFF</code> 行直接给出变了的 ARIA 树文本，<code>--out</code> 目录留截图供人看。</figcaption>
+    <figcaption>图 9 · 判定逻辑一个字没动（三态、exit 0 ∧ EXPECT、超时、STALE 签名）；上游的整套批准机制去掉，多行命令改成代码块围栏（定案 G5、G8）。<b>轮次由票自己数</b>：第三条 <code>self-run</code> 里同一标准仍未过，那一行改成 <code>ROUND LIMIT</code>，点名该写 <code>ABANDON: AC&lt;n&gt; failed</code>；第四轮照跑，修好了照样过。UI 失败不问人：<code>DIFF</code> 行直接给出变了的 ARIA 树文本，<code>--out</code> 目录留截图供人看。<b><code>Outside Owns:</code> 只算本票自己的提交</b>：从 <code>branch.issue-&lt;n&gt;.mmw-base</code> 记下的切点起沿第一父链走，合并进来的别的票的提交不计。</figcaption>
   </figure>
   <div class="xref">
-    <span class="x s"><b>S8</b></span><span class="x">#60 <b>§2</b> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/62">#62</a> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/65">#65</a> 已关 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/90">#90</a> 围栏</span><span class="x">CONTEXT.md「账本」「双条件」「ROUND LIMIT」「负控制」</span><span class="x">定案 B8、G5、G8、I5</span>
+    <span class="x s"><b>S8</b></span><span class="x">#60 <b>§2</b> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/62">#62</a> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/65">#65</a> 已关 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/90">#90</a> 围栏</span><span class="x">CONTEXT.md「账本」「双条件」「gate-check summary line」「ROUND LIMIT」「负控制」</span><span class="x">定案 B8、G5、G8、I5、A2</span>
   </div>
 </section>
 <section id="s9">
   <h2>S9 · verifier：只收票号，只写一行</h2>
-  <p class="lede">在 code-review <b>之前</b>跑（先验后审）。由 worker 会话派出，提示词只有 <code>verify #&lt;n&gt;</code>；禁令、可动环境、五级定义都在 <code>agents/verifier/body.md</code>，不由 worker 转述。</p>
+  <p class="lede">在 code-review <b>之前</b>跑。由 worker 会话派出，提示词只有 <code>verify #&lt;n&gt;</code>；四步的顺序、可动环境的边界、那一行怎么写，全在 <code>mmw-v2/agents/verifier/body.md</code>，不由 worker 转述。</p>
   <figure>
     <div class="box">
     <svg viewBox="0 0 1120 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="s9-title s9-desc">
       <title id="s9-title">S9 verifier 的时序</title>
-      <desc id="s9-desc">时序图：worker 派 verifier，verifier 记第一次 git status，调 verify-ticket.py --reverify 让脚本把 reverify 评论贴到票上，再记第二次 git status，取 HEAD 后自己把 VERDICT 评论贴到票上，最后向 worker 汇报 level 与两次 git status。</desc>
+      <desc id="s9-desc">时序图：worker 派 verifier，verifier 记第一次 git status，调 verify-ticket.py --reverify 让脚本把 reverify 评论贴到票上，再记第二次 git status，取 HEAD 后自己把 VERDICT 评论贴到票上，最后向 worker 汇报那一行与两次 git status。</desc>
       <defs><marker id="s9-a" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--muted)"/></marker>
       <marker id="s9-aa" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--accent)"/></marker>
       <marker id="s9-al" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--link)"/></marker></defs>
@@ -913,30 +917,30 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <path d="M384,292 H432 Q440,292 440,300 V308 Q440,316 432,316 H388" class="fl" marker-end="url(#s9-a)"/>
       <rect x="448" y="296" width="120" height="12" rx="2" class="mask"/><text x="452" y="305" class="al">4 git rev-parse HEAD</text>
       <line x1="384" y1="340" x2="852" y2="340" class="fl a" marker-end="url(#s9-aa)"/>
-      <rect x="480" y="320" width="280" height="12" rx="2" class="mask"/><text x="620" y="329" class="al acc" text-anchor="middle">VERDICT &lt;40 位 commit&gt; &lt;level&gt; by &lt;model&gt; — 一句话</text>
+      <rect x="480" y="320" width="280" height="12" rx="2" class="mask"/><text x="620" y="329" class="al acc" text-anchor="middle">VERDICT &lt;40 位 commit&gt; by &lt;model&gt; — 一句话</text>
       <line x1="376" y1="368" x2="148" y2="368" class="fl d" marker-end="url(#s9-a)"/>
-      <rect x="160" y="372" width="200" height="12" rx="2" class="mask"/><text x="260" y="381" class="al" text-anchor="middle">level · 一句话 · 两次 git status 的输出</text>
+      <rect x="160" y="372" width="200" height="12" rx="2" class="mask"/><text x="260" y="381" class="al" text-anchor="middle">那一行 · 两次 git status 的输出</text>
       <!-- actors -->
       <g><rect x="60" y="24" width="160" height="48" rx="6" class="ss"/><rect x="68" y="30" width="36" height="12" rx="2" class="tagr t-ss"/><text x="86" y="39" class="tg t-ss" text-anchor="middle">SESSION</text><text x="140" y="60" class="nm" text-anchor="middle">worker</text></g>
       <g><rect x="300" y="24" width="160" height="48" rx="6" class="ag"/><rect x="308" y="30" width="32" height="12" rx="2" class="tagr t-ag"/><text x="324" y="39" class="tg t-ag" text-anchor="middle">AGENT</text><text x="380" y="60" class="nm" text-anchor="middle">verifier · 同 worktree</text></g>
       <g><rect x="540" y="24" width="160" height="48" rx="6" class="sc"/><rect x="548" y="30" width="32" height="12" rx="2" class="tagr t-sc"/><text x="564" y="39" class="tg t-sc" text-anchor="middle">SCRIPT</text><text x="620" y="60" class="sb" text-anchor="middle" style="fill:var(--ink);font-weight:600;font-size:11px">verify-ticket.py</text></g>
       <g><rect x="780" y="24" width="160" height="48" rx="6" class="tk"/><rect x="788" y="30" width="36" height="12" rx="2" class="tagr t-tk"/><text x="806" y="39" class="tg t-tk" text-anchor="middle">TICKET</text><text x="860" y="60" class="nm" text-anchor="middle">GitHub 票 #77</text></g>
-      <!-- level legend -->
+      <!-- 那一行说的三件事 -->
       <line x1="30" y1="400" x2="1090" y2="400" class="rule"/>
-      <text x="30" y="414" class="ey">LEVEL · 五选一</text>
-      <text x="150" y="414" class="sb">live-ui-verified</text><text x="300" y="414" class="sb">unit-test-verified</text><text x="460" y="414" class="sb">type-check-only</text><text x="600" y="414" class="sb">verifier-blocked</text><text x="740" y="414" class="sb">verifier-failed</text><text x="880" y="414" class="sb">by self-reported（派不出子代理时）</text>
+      <text x="30" y="414" class="ey">那一行 · 三件事</text>
+      <text x="150" y="414" class="sb">① 怎么跑的：walked the flow in a running interface / commands only / could not start</text><text x="700" y="414" class="sb">② 结果：all passed，或点名哪几条没过</text><text x="960" y="414" class="sb">③ 修了环境的什么</text>
     </svg>
     </div>
-    <figcaption>图 10 · verifier 的全部判断只有 <code>level</code>。它可以动环境（装依赖、换端口、找配置），不可以改仓库任何文件：两次 <code>git status</code> 相同就是证明（只比已跟踪文件，因为 CHECK 会留下截图与缓存目录）。只派一次；没过 → worker 修并自跑，不复审。模型按宿主在 <code>models.md</code> 里定，与 worker 不同（定案 B2、B4、H5、G7）。</figcaption>
+    <figcaption>图 10 · verifier 的全部判断就是那一行——没有分级，只有它把三件事说清楚。它可以动环境（装依赖、换端口、找配置），不可以改仓库任何文件：两次 <code>git status</code> 相同就是证明（只比已跟踪文件，因为 CHECK 会留下截图与缓存目录）。只派一次；没过 → worker 修并自跑，不复审。模型按宿主在 <code>models.md</code> 里定，与 worker 不同（定案 B2、B4、H5、G7；D13）。</figcaption>
   </figure>
   <div class="xref">
-    <span class="x s"><b>S9</b></span><span class="x">#60 <b>§5</b> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/69">#69</a> 已关</span><span class="x">人读过：<a href="https://github.com/chancheuklap/multi-model-workflow/issues/80">#80</a>–<a href="https://github.com/chancheuklap/multi-model-workflow/issues/83">#83</a></span><span class="x">mmw-v2/agents/verifier/body.md「The environment is yours; the repository is not.」</span><span class="x">CONTEXT.md「VERDICT」「level」</span>
+    <span class="x s"><b>S9</b></span><span class="x">#60 <b>§5</b> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/69">#69</a> 已关</span><span class="x">人读过：<a href="https://github.com/chancheuklap/multi-model-workflow/issues/80">#80</a>–<a href="https://github.com/chancheuklap/multi-model-workflow/issues/83">#83</a></span><span class="x">mmw-v2/agents/verifier/body.md「The environment is yours; the repository is not.」</span><span class="x">CONTEXT.md「VERDICT」「The environment is yours; the repository is not」</span>
   </div>
 </section>
 
 <section id="s10">
   <h2>S10 · code-review：一轮，不复审</h2>
-  <p class="lede">worker 用同一条 <code>dispatch.sh</code> 起 reviewer 会话；<code>code-review</code> 的 <code>SKILL.md</code> 是派发者那一份，它起三个子代理，把三份报告写成票上一条 <code>REVIEW</code> 评论。裁决不在这里：一轮上限与票内 / 票外的分类写在 <code>implement</code> 收尾段。</p>
+  <p class="lede">worker 用同一条 <code>dispatch.sh</code> 起 reviewer 会话；<code>code-review</code> 的 <code>SKILL.md</code> 是派发者那一份，它起三个子代理，把三份报告写成票上一条 <code>REVIEW</code> 评论。三个子代理跑在 reviewer 会话所在宿主的默认子代理模型上，<code>models.md</code> 里没有它们的行。<b>Spec 轴读票 <code>## Read first</code> 里标为基线的条目</b>，diff 偏离基线算它的 Built wrong 一类；交接包是唯一不打开的那件，由 <code>visual-parity</code> 判。裁决不在这里：一轮上限与修哪些写在 <code>implement</code> 收尾段。</p>
   <figure>
     <div class="box">
     <svg viewBox="0 0 1120 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="s10-title s10-desc">
@@ -968,19 +972,19 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <g><rect x="16" y="104" width="176" height="64" rx="6" class="ss"/><rect x="24" y="110" width="36" height="12" rx="2" class="tagr t-ss"/><text x="42" y="119" class="tg t-ss" text-anchor="middle">SESSION</text><text x="24" y="140" class="nm">worker</text><text x="24" y="156" class="cn">verifier 全过之后才到这一步</text></g>
       <g><rect x="208" y="104" width="176" height="64" rx="6" class="sc"/><rect x="216" y="110" width="32" height="12" rx="2" class="tagr t-sc"/><text x="232" y="119" class="tg t-sc" text-anchor="middle">SCRIPT</text><text x="216" y="140" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">dispatch.sh &lt;n&gt; reviewer</text><text x="216" y="156" class="cn">带起点 commit；同 tab 分屏</text></g>
       <g><rect x="488" y="104" width="176" height="64" rx="6" class="sk"/><rect x="496" y="110" width="28" height="12" rx="2" class="tagr t-sk"/><text x="510" y="119" class="tg t-sk" text-anchor="middle">SKILL</text><text x="532" y="119" class="sb">dispatcher</text><text x="496" y="140" class="nm">code-review · SKILL.md</text><text x="496" y="156" class="cn">派发者那一份；spec 沿 Parent 自读</text></g>
-      <g><rect x="712" y="58" width="176" height="52" rx="6" class="ag"/><rect x="720" y="64" width="32" height="12" rx="2" class="tagr t-ag"/><text x="736" y="73" class="tg t-ag" text-anchor="middle">AGENT</text><text x="720" y="90" class="nm2">Standards 轴</text><text x="720" y="103" class="sb">standards-reviewer.md</text></g>
-      <g><rect x="712" y="118" width="176" height="52" rx="6" class="ag"/><rect x="720" y="124" width="32" height="12" rx="2" class="tagr t-ag"/><text x="736" y="133" class="tg t-ag" text-anchor="middle">AGENT</text><text x="720" y="150" class="nm2">Tests 轴 · 不追覆盖率</text><text x="720" y="163" class="sb">tests-reviewer.md</text></g>
-      <g><rect x="712" y="178" width="176" height="52" rx="6" class="ag"/><rect x="720" y="184" width="32" height="12" rx="2" class="tagr t-ag"/><text x="736" y="193" class="tg t-ag" text-anchor="middle">AGENT</text><text x="720" y="210" class="nm2">Spec 轴 · 不看基线</text><text x="720" y="223" class="sb">spec-reviewer.md</text></g>
+      <g><rect x="712" y="58" width="176" height="52" rx="6" class="ag"/><rect x="720" y="64" width="32" height="12" rx="2" class="tagr t-ag"/><text x="736" y="73" class="tg t-ag" text-anchor="middle">AGENT</text><text x="720" y="88" class="nm2">Standards 轴 · 每个 hunk 问一次能不能更少</text><text x="720" y="100" class="cn">十二条坏味道 + deletion test</text><text x="720" y="110" class="sb">standards-reviewer.md</text></g>
+      <g><rect x="712" y="118" width="176" height="52" rx="6" class="ag"/><rect x="720" y="124" width="32" height="12" rx="2" class="tagr t-ag"/><text x="736" y="133" class="tg t-ag" text-anchor="middle">AGENT</text><text x="720" y="148" class="nm2">Tests 轴 · 不追覆盖率</text><text x="720" y="158" class="cn">判据与 tdd/tests.md、tdd/mocking.md 同批，三份互指</text><text x="720" y="170" class="sb">tests-reviewer.md</text></g>
+      <g><rect x="712" y="178" width="176" height="52" rx="6" class="ag"/><rect x="720" y="184" width="32" height="12" rx="2" class="tagr t-ag"/><text x="736" y="193" class="tg t-ag" text-anchor="middle">AGENT</text><text x="720" y="200" class="nm2">Spec 轴 · 读票指名的基线</text><text x="720" y="213" class="cn">交接包除外：那件由 visual-parity 判</text><text x="720" y="226" class="sb">spec-reviewer.md</text></g>
       <g><rect x="912" y="104" width="176" height="64" rx="2" class="cm"/><text x="920" y="122" class="sb" style="fill:var(--ink);font-weight:600">REVIEW &lt;base&gt;..&lt;HEAD&gt;</text><text x="920" y="138" class="cn">Standards / Tests / Spec 三份报告</text><text x="920" y="152" class="cn">每条发现标票内 / 票外</text></g>
       <g><rect x="232" y="296" width="216" height="56" rx="6" class="sc"/><text x="240" y="316" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">dispatch.sh wait &lt;n&gt; "^REVIEW"</text><text x="240" y="332" class="cn">worker 挡住等；默认 1800 s</text></g>
-      <g><rect x="488" y="296" width="400" height="56" rx="6" class="sk"/><text x="496" y="316" class="nm2">发现分两类（implement 收尾段裁决）</text><text x="496" y="332" class="cn">票内（碰本票 AC 或 spec 决策）→ 修一轮 → 再自跑；修不了 → ABANDON: AC&lt;n&gt; failed</text><text x="496" y="344" class="cn">票外 → sub-issue（needs-triage），不阻塞</text></g>
-      <g><rect x="912" y="296" width="176" height="56" rx="2" class="cm"/><text x="920" y="314" class="sb" style="fill:var(--ink);font-weight:600">did not report back …</text><text x="920" y="330" class="cn">wait 自己留言到票</text><text x="920" y="344" class="cn">跳过这一轮，直接进 S11</text></g>
+      <g><rect x="488" y="296" width="400" height="56" rx="6" class="sk"/><text x="496" y="316" class="nm2">发现分两类（implement 收尾段裁决）</text><text x="496" y="332" class="cn">票内（碰本票 AC、票指名的 spec 决策，或 Read first 的基线）→ 修一轮 → 再自跑；修不了 → ABANDON: AC&lt;n&gt; failed</text><text x="496" y="344" class="cn">票外 → sub-issue（needs-triage），不阻塞</text></g>
+      <g><rect x="912" y="296" width="176" height="56" rx="2" class="cm"/><text x="920" y="312" class="sb" style="fill:var(--ink);font-weight:600">did not report back …</text><text x="920" y="326" class="cn">wait 自己留言到票</text><text x="920" y="338" class="cn">跳过这一轮，直接进 S11</text><text x="920" y="350" class="cn">只在会话真没回来时发生</text></g>
     </svg>
     </div>
-    <figcaption>图 11 · 派发 prompt 只有起点 commit 与票号，spec 由 reviewer 沿 <code>## Parent</code> 自读。修完后 worker 在最终 commit 上再自跑；<code>VERDICT</code> 仍绑 verifier 验过的那个 commit，不再派第二次，收尾评论的 <code>Post-verdict:</code> 行列出这之后的每个 commit 与来源（定案 B7、B9、B10、B11、H4 S1、H5）。一个挂掉的 reviewer 不该让整张票交给人（H4 S9）。</figcaption>
+    <figcaption>图 11 · 派发 prompt 只有起点 commit 与票号，spec 由 reviewer 沿 <code>## Parent</code> 自读；起点 commit 读自 <code>git config branch.issue-&lt;n&gt;.mmw-base</code>。<b>无论如何都要有一条 <code>REVIEW</code> 评论</b>：起点解析不了、diff 为空，也照样写到票上、正文说是哪一种——reviewer 没有人可问，而 worker 只认首行 <code>^REVIEW </code>，不写票就是三十分钟静默。修完后 worker 在最终 commit 上再自跑；<code>VERDICT</code> 仍绑 verifier 验过的那个 commit，不再派第二次，收尾评论的 <code>Post-verdict:</code> 行列出这之后的每个 commit 与来源（定案 B7、B9、B10、B11、H4 S1、H5）。一个挂掉的 reviewer 不该让整张票交给人（H4 S9）。<b>基线偏离要落进本票的那一轮修复，两处得一起改</b>：<code>spec-reviewer.md</code> 第 2 节让 Spec 轴读基线，<code>SKILL.md</code> 第 3 节的票内定义把基线列进三个条件；只改前者，派发者按字面条件路由会把它判成票外，开一个不阻塞的 sub-issue，本票照样关掉。</figcaption>
   </figure>
   <div class="xref">
-    <span class="x s"><b>S10</b></span><span class="x">#60 <b>§6</b> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/70">#70</a> 开着</span><span class="x">派发 <b>§2</b> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/67">#67</a> 已关</span><span class="x">CONTEXT.md「Standards axis」「Spec axis」「Tests axis」「票内 / 票外」「REVIEW」「dispatcher」</span>
+    <span class="x s"><b>S10</b></span><span class="x">#60 <b>§6</b> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/70">#70</a> 已关</span><span class="x">空 diff 也回票 <a href="https://github.com/chancheuklap/multi-model-workflow/issues/103">#103</a></span><span class="x">派发 <b>§2</b> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/67">#67</a> 已关</span><span class="x">CONTEXT.md「Standards axis」「Spec axis」「Tests axis」「票内 / 票外」「REVIEW」「dispatcher」</span>
   </div>
 </section>
 
@@ -1014,7 +1018,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <text x="108" y="204" class="cn">从最新 self-run 评论抄，Audit 时逐条追到最新 EVIDENCE</text>
       <line x1="96" y1="216" x2="736" y2="216" class="rule"/>
       <!-- band 4 -->
-      <text x="108" y="236" class="ey">4 · 尾部行</text><text x="200" y="236" class="sb" style="fill:var(--ink)">VERDICT &lt;sha&gt; &lt;level&gt; by &lt;model&gt; — …（引用 verifier 的评论）</text>
+      <text x="108" y="236" class="ey">4 · 尾部行</text><text x="200" y="236" class="sb" style="fill:var(--ink)">VERDICT &lt;40 位 commit&gt; by &lt;model&gt; — …（引用 verifier 的评论）</text>
       <text x="200" y="252" class="sb" style="fill:var(--ink)">Outside Owns: &lt;path&gt;（脚本算出，抄进来；空写 None）　skipped: [X], add when [Y]</text>
       <text x="200" y="268" class="sb" style="fill:var(--ink)">Sub-issues opened: #58（契约装不下）, #59（code-review 票外）, #60（decision）</text>
       <line x1="96" y1="280" x2="736" y2="280" class="rule"/>
@@ -1025,27 +1029,30 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <!-- band 6 -->
       <text x="108" y="348" class="ey">6 · 主意</text><text x="200" y="348" class="sb" style="fill:var(--ink)">Decisions I made on my own（本票我自己拿的主意）</text>
       <text x="200" y="364" class="cn">票和 spec 都没说、由 worker 自己定的每一件；早上有人专门读它（#95）</text>
-      <text x="108" y="400" class="cn">草稿写完 → push 分支 → 开引用票的 PR → S12 --closeout &lt;draft&gt;</text>
+      <text x="108" y="400" class="cn">草稿写完 → push 分支 → 开引用票的 PR（base 取 branch.issue-&lt;n&gt;.mmw-base-branch）→ S12 --closeout &lt;draft&gt;</text>
       <!-- right notes: who checks -->
       <text x="768" y="44" class="ey">--CLOSEOUT 核什么</text>
       <text x="768" y="64" class="sb">1 · 格式合法；ABANDON 含 failed/stuck → 拒 ALL MET</text>
       <text x="768" y="80" class="sb">    HANDOFF 首行的四个数与 Counts 一致</text>
-      <text x="768" y="112" class="sb">2 · 仅 ALL MET：票上最后一条 VERDICT 的</text>
-      <text x="768" y="128" class="sb">    commit 是 HEAD 的祖先；≠ HEAD 必须有 Post-verdict</text>
+      <text x="768" y="108" class="sb">2 · 仅 ALL MET：票上最后一条 VERDICT 的</text>
+      <text x="768" y="122" class="sb">    commit 是 HEAD 的祖先；≠ HEAD 必须有 Post-verdict</text>
+      <text x="768" y="136" class="sb">    且票上最新一条 self-run / reverify 的汇总行</text>
+      <text x="768" y="148" class="sb">    不是 UNMET: 也不是 HANDOFF REQUIRED:</text>
       <text x="768" y="160" class="sb">3 · kind ∈ {decision, failed, stuck}，指向已知 AC</text>
       <text x="768" y="176" class="sb">    failed：票上数得出 3 条该 AC 未过的 self-run</text>
       <text x="768" y="192" class="sb">    勾了但 EVIDENCE 是 pending → 算 unmet</text>
       <text x="768" y="240" class="sb">4 · Outside Owns 是解释项，不是判据</text>
       <text x="768" y="300" class="sb">5 · 重算核对 Counts 格式与数目</text>
-      <text x="768" y="348" class="sb">另 · 已跟踪文件无改动；分支从 main 开</text>
-      <text x="768" y="364" class="sb">    （无 diff 只警告）；票 OPEN 且 assignee 是我</text>
+      <text x="768" y="348" class="sb">另 · 已跟踪文件无改动；分支含它的切点</text>
+      <text x="768" y="362" class="sb">    （branch.issue-&lt;n&gt;.mmw-base，没记录时 main）</text>
+      <text x="768" y="376" class="sb">    要合不要 rebase；票 OPEN 且 assignee 是我</text>
       <text x="768" y="400" class="cn">任一不过：不贴、不关、不改标签，stderr 一行原因</text>
     </svg>
     </div>
     <figcaption>图 12 · <b>Audit</b>（交接前自审）= 重读全票与 Read first 每项，把每条 AC 追到最新 <code>EVIDENCE</code>，重数 <code>Counts</code>。只等人拍一句话的标准写 <code>ABANDON: AC&lt;n&gt; decision</code> 并开 sub-issue（<code>needs-triage</code>），票继续做完（定案 H3）。收尾段本身 ≤ 45 行，七步顺序：自跑 → verifier → 一轮 review → 修一轮并自跑 → Audit → 草稿 → push / PR → 关票门。</figcaption>
   </figure>
   <div class="xref">
-    <span class="x s"><b>S11</b></span><span class="x">#60 <b>§9</b> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/73">#73</a> 开着</span><span class="x">人读评论：<a href="https://github.com/chancheuklap/multi-model-workflow/issues/93">#93</a> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/95">#95</a></span><span class="x">CONTEXT.md「closing comment」「Audit」「收尾七步」</span>
+    <span class="x s"><b>S11</b></span><span class="x">#60 <b>§9</b> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/73">#73</a> 已关</span><span class="x">人读评论：<a href="https://github.com/chancheuklap/multi-model-workflow/issues/93">#93</a> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/95">#95</a></span><span class="x">CONTEXT.md「closing comment」「Audit」「收尾七步」</span>
   </div>
 </section>
 
@@ -1080,10 +1087,11 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <g><path d="M224,88 H384 L400,104 V152 H224 Z" class="dc"/><path d="M384,88 V104 H400" class="dc"/><rect x="232" y="94" width="24" height="12" rx="2" class="tagr t-dc"/><text x="244" y="103" class="tg t-dc" text-anchor="middle">DOC</text><text x="232" y="124" class="nm2">收尾评论草稿</text><text x="232" y="140" class="cn">S11 写到文件</text></g>
       <g><rect x="432" y="48" width="272" height="232" rx="6" class="fo sc"/><rect x="440" y="54" width="32" height="12" rx="2" class="tagr t-sc"/><text x="456" y="63" class="tg t-sc" text-anchor="middle">SCRIPT</text><text x="480" y="63" class="sb">S12 · §2 · #63 #84</text>
         <text x="440" y="84" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">verify-ticket.py &lt;n&gt; --closeout &lt;draft&gt;</text>
-        <text x="440" y="104" class="cn">核十件事（图 12 右栏）：</text>
-        <text x="440" y="120" class="cn">首行 · kind · failed 的三条 self-run · 勾了必有 EVIDENCE</text>
-        <text x="440" y="134" class="cn">Counts 重算 · VERDICT 是 HEAD 祖先 · Post-verdict</text>
-        <text x="440" y="148" class="cn">已跟踪文件无改动 · 分支自 main · 票 OPEN 且 assignee 是我</text>
+        <text x="440" y="102" class="cn">核这些（图 12 右栏）：</text>
+        <text x="440" y="116" class="cn">首行 · kind · failed 的三条 self-run · 勾了必有 EVIDENCE</text>
+        <text x="440" y="128" class="cn">Counts 重算 · VERDICT 是 HEAD 祖先 · Post-verdict</text>
+        <text x="440" y="140" class="cn">最新 run 的汇总行不是 UNMET / HANDOFF</text>
+        <text x="440" y="152" class="cn">已跟踪文件无改动 · 分支含 mmw-base · 票 OPEN 且 assignee 是我</text>
         <line x1="440" y1="160" x2="696" y2="160" class="rule"/>
         <text x="440" y="180" class="cn">--check-only：只判不动，全过打印 CLOSEOUT OK</text>
         <text x="440" y="196" class="cn">退出码：0 关了或交回；1 被拒；2 读不到票</text>
@@ -1102,7 +1110,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <g><rect x="880" y="344" width="208" height="48" rx="20" class="sk"/><text x="984" y="364" class="nm2" text-anchor="middle">回到 --closeout</text><text x="984" y="380" class="cn" text-anchor="middle">Claude / Codex / Grok / Cursor / pi 同一句话</text></g>
     </svg>
     </div>
-    <figcaption>图 13 · hook 只拒不查：手敲 <code>gh issue close</code> 的 worker 按定义没经过 <code>--closeout</code>，没有草稿可核。它只看两样：<code>MMW_TICKET</code> 在环境里（<code>dispatch.sh</code> 开 tab 时注入）、命令点名了该票。主 agent 与普通会话没有这个变量，永远不被管。<code>install.sh</code> 把五宿主各写一条指向同一个 <code>hook.py</code> 的配置，<code>--check</code> 打印 <code>HOOKS-INSTALLED</code>。</figcaption>
+    <figcaption>图 13 · hook 只拒不查：手敲 <code>gh issue close</code> 的 worker 按定义没经过 <code>--closeout</code>，没有草稿可核。它只看两样：<code>MMW_TICKET</code> 在环境里（<code>dispatch.sh</code> 开 tab 时注入）、命令点名了该票。主 agent 与普通会话没有这个变量，永远不被管。<code>install.sh</code> 把五宿主各写一条指向同一个 <code>hook.py</code> 的配置，另给 Claude Code 一条指向 <code>mmw-v2/hooks/rule-at-moment.py</code>（四个事件；它管的是读写纪律，与票无关），两段都齐了才打印 <code>HOOKS-INSTALLED</code>。</figcaption>
   </figure>
   <div class="xref">
     <span class="x s"><b>S12</b></span><span class="x">#60 <b>§2</b> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/63">#63</a> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/64">#64</a> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/84">#84</a> 已关</span><span class="x">端到端：<a href="https://github.com/chancheuklap/multi-model-workflow/issues/86">#86</a> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/88">#88</a> 已关 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/85">#85</a> 开着</span><span class="x">CONTEXT.md「--closeout」「hook.py pretool」「HANDED BACK」</span>
@@ -1133,8 +1141,8 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <!-- top -->
       <g><rect x="280" y="24" width="560" height="48" rx="20" class="sk"/><text x="560" y="44" class="nm" text-anchor="middle">一条验收标准做不下去</text><text x="560" y="60" class="cn" text-anchor="middle">写在该标准列首：ABANDON: AC&lt;n&gt; &lt;kind&gt; &lt;理由&gt;；verifier 不写它，只留 VERDICT</text></g>
       <!-- three kinds -->
-      <g><rect x="40" y="112" width="272" height="80" rx="6" class="sk"/><text x="52" y="132" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">ABANDON: failed</text><text x="52" y="148" class="cn">跑了，没过</text><text x="52" y="162" class="cn">自跑三轮仍不过 / review 修一轮仍不过 / verifier-failed</text><text x="52" y="176" class="cn">--closeout 要票上数得出 3 条该 AC 未过的 self-run</text></g>
-      <g><rect x="424" y="112" width="272" height="80" rx="6" class="sk"/><text x="436" y="132" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">ABANDON: stuck</text><text x="436" y="148" class="cn">跑不起来，或任务内做不到</text><text x="436" y="162" class="cn">CHECK 起不来 / 缺凭据或设备 / verifier-blocked</text><text x="436" y="176" class="cn">不看轮次；理由写试过哪些路，或指向记录它的 sub-issue</text></g>
+      <g><rect x="40" y="112" width="272" height="80" rx="6" class="sk"/><text x="52" y="132" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">ABANDON: failed</text><text x="52" y="148" class="cn">跑了，没过</text><text x="52" y="162" class="cn">自跑三轮仍不过，或 review 修一轮之后仍不过</text><text x="52" y="176" class="cn">--closeout 要票上数得出 3 条该 AC 未过的 self-run</text></g>
+      <g><rect x="424" y="112" width="272" height="80" rx="6" class="sk"/><text x="436" y="132" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">ABANDON: stuck</text><text x="436" y="148" class="cn">跑不起来，或任务内做不到</text><text x="436" y="162" class="cn">CHECK 起不来 / 缺凭据或设备 / 本票范围内够不着</text><text x="436" y="176" class="cn">不看轮次；理由写试过哪些路，或指向记录它的 sub-issue</text></g>
       <g><rect x="808" y="112" width="272" height="80" rx="6" class="fo"/><text x="820" y="132" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">ABANDON: decision</text><text x="820" y="148" class="cn">两个选项都合法，要人拍一句话</text><text x="820" y="162" class="cn">票和 spec 都没说</text><text x="820" y="176" class="cn">写问题 + 选项 + 无人答复时的默认</text></g>
       <!-- outcomes -->
       <g><rect x="40" y="240" width="656" height="56" rx="2" class="cm"/><text x="52" y="258" class="sb" style="fill:var(--ink);font-weight:600">HANDOFF REQUIRED: &lt;n&gt; abandoned (&lt;kinds&gt;), &lt;m&gt; unmet, &lt;k&gt; met of &lt;total&gt;</text><text x="52" y="276" class="cn">收尾评论首行；--closeout 见到 failed 或 stuck 就不许 ALL MET</text><text x="52" y="290" class="cn">整张票停下；其余标准照常记结果</text></g>
@@ -1166,7 +1174,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <line x1="88" y1="152" x2="356" y2="152" class="fl" marker-end="url(#lb-a)"/>
       <rect x="140" y="132" width="168" height="12" rx="2" class="mask"/><text x="224" y="141" class="al" text-anchor="middle">to-tickets · 标准全带命令</text>
       <path d="M80,168 V468 Q80,476 88,476 H852 Q860,476 860,468 V368" class="fl" marker-end="url(#lb-a)"/>
-      <rect x="380" y="456" width="240" height="12" rx="2" class="mask"/><text x="500" y="465" class="al" text-anchor="middle">to-tickets · 读者是人 · 票上写明为什么不能委派</text>
+      <rect x="380" y="456" width="240" height="12" rx="2" class="mask"/><text x="500" y="465" class="al" text-anchor="middle">to-tickets · 五问停在第三或第四问 · reaction 或 reach</text>
       <line x1="560" y1="152" x2="1036" y2="152" class="fl" marker-end="url(#lb-a)"/>
       <rect x="620" y="132" width="216" height="12" rx="2" class="mask"/><text x="728" y="141" class="al" text-anchor="middle">--closeout · ALL MET · close --reason completed</text>
       <line x1="440" y1="184" x2="440" y2="296" class="fl a" marker-end="url(#lb-aa)"/>
@@ -1189,7 +1197,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <circle cx="80" cy="152" r="6" class="dot"/><text x="80" y="176" class="cn" text-anchor="middle">出票</text>
       <g><rect x="360" y="120" width="200" height="64" rx="8" class="sk"/><rect x="368" y="126" width="36" height="12" rx="2" class="tagr t-lb"/><text x="386" y="135" class="tg t-lb" text-anchor="middle">LABEL</text><text x="368" y="156" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">ready-for-agent</text><text x="368" y="172" class="cn">agent 队列：等派或正在做（看 assignee）</text></g>
       <g><rect x="360" y="300" width="200" height="64" rx="8" class="fo lbx"/><rect x="368" y="306" width="36" height="12" rx="2" class="tagr t-lb"/><text x="386" y="315" class="tg t-lb" text-anchor="middle">LABEL</text><text x="368" y="336" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">needs-triage</text><text x="368" y="352" class="cn">还没有人判过；唯一被技能主动取的队列</text></g>
-      <g><rect x="760" y="300" width="200" height="64" rx="8" class="sk"/><rect x="768" y="306" width="36" height="12" rx="2" class="tagr t-lb"/><text x="786" y="315" class="tg t-lb" text-anchor="middle">LABEL</text><text x="768" y="336" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">ready-for-human</text><text x="768" y="352" class="cn">你的队列；票上一行写为什么不能委派</text></g>
+      <g><rect x="760" y="300" width="200" height="64" rx="8" class="sk"/><rect x="768" y="306" width="36" height="12" rx="2" class="tagr t-lb"/><text x="786" y="315" class="tg t-lb" text-anchor="middle">LABEL</text><text x="768" y="334" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">ready-for-human</text><text x="768" y="346" class="cn">你的队列；票上点名是 reaction 还是 reach</text><text x="768" y="357" class="cn">另给：Parent · 看什么 · 什么算对 · Blocked by</text></g>
       <g><rect x="760" y="64" width="160" height="64" rx="8" class="sk"/><rect x="768" y="70" width="36" height="12" rx="2" class="tagr t-lb"/><text x="786" y="79" class="tg t-lb" text-anchor="middle">LABEL</text><text x="768" y="100" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">needs-info</text><text x="768" y="116" class="cn">只服务外来件</text></g>
       <g><rect x="1000" y="400" width="96" height="64" rx="8" class="sk"/><rect x="1008" y="406" width="36" height="12" rx="2" class="tagr t-lb"/><text x="1026" y="415" class="tg t-lb" text-anchor="middle">LABEL</text><text x="1008" y="436" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">wontfix</text><text x="1008" y="452" class="cn">只服务外来件</text></g>
       <circle cx="1052" cy="152" r="10" fill="none" stroke="var(--ink)" stroke-width="1"/><circle cx="1052" cy="152" r="6" class="dot"/><text x="1080" y="156" class="cn">closed</text>
@@ -1197,7 +1205,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <text x="600" y="220" class="aside">a spec carries no label</text>
     </svg>
     </div>
-    <figcaption>图 15 · <code>ready-for-agent</code> 在两条出口都被摘掉（关票或交回）；<code>ready-for-human</code> 有三个写入者、零个自动读取者，所以卡住的 worker 不许直接下「要人实现」的结论——那是 <code>/triage</code> 判完之后的事（定案 I1、I3）。</figcaption>
+    <figcaption>图 15 · <code>ready-for-agent</code> 在两条出口都被摘掉（关票或交回）；<code>ready-for-human</code> 有三个写入者、零个自动读取者，所以卡住的 worker 不许直接下「要人实现」的结论——那是 <code>/triage</code> 判完之后的事（定案 I1、I3）。这道队列里的票分两类：<code>reaction</code>（被判的性质就是一个人的反应，人是量具，消不掉）与 <code>reach</code>（机器判得了但够不着，补上一个测试账号、一台备用机、一个 runner 就能消掉，票上写明补什么）。一堆 <code>reach</code> 说明流水线缺一样能力，不是你欠了活（D5）。</figcaption>
   </figure>
   <div class="xref">
     <span class="x">docs/agents/triage-labels.md「What carries a label here」</span><span class="x">CONTEXT.md「Labels and standing」</span><span class="x">定案 I1–I3；P4</span>
@@ -1237,7 +1245,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <g><rect x="1000" y="80" width="64" height="56" rx="6" class="tk"/><rect x="1008" y="86" width="36" height="12" rx="2" class="tagr t-tk"/><text x="1026" y="95" class="tg t-tk" text-anchor="middle">TICKET</text><text x="1008" y="118" class="cn">下游票</text><text x="1008" y="130" class="cn">自动解锁</text></g>
       <text x="512" y="80" class="aside">whatever you have to look at, GitHub's web page can show</text>
       <text x="512" y="112" class="cn">夜里的重新 prompt、重派、交回都由 board.py 做完了（4b）；spec 页最后一条评论 NIGHT SUMMARY 列出：</text>
-      <text x="512" y="128" class="cn">关了哪些 · 交回 needs-triage 的 · 因上游未关没派的 · 夜里新开的 sub-issue。五条 gh 查询由它跑。</text>
+      <text x="512" y="128" class="cn">Closed · Handed back to needs-triage · Not dispatched, a blocker stayed open · Sub-issues opened tonight，共四行，只列票号与首行。</text>
     </svg>
     </div>
     <figcaption>图 16 · 左边三样都是链接。第一个书签里的东西不必你先看：<code>/triage</code> 读得到它——它第一次真正接上这条流水线。上游票一关或改回 <code>ready-for-agent</code>，下游自动解锁。</figcaption>
@@ -1252,23 +1260,24 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
   <p class="lede">机制各司其职（定案 G0）：技能 = 多个 agent 复用的做法；agent 配置文件 = 自定义模型 + 自动加载固定上下文；Herdr = 起搭载别的模型的会话；hook = 强制；脚本 = 固定操作；文档 = 事实，只给指针不抄写。</p>
   <div class="tablewrap"><table>
     <tr><th>件</th><th>种类</th><th>谁用、在哪一步</th><th class="mono">#60 节 · 票</th></tr>
-    <tr><td><code>to-tickets</code>（改）</td><td><span class="k k-sk">SKILL</span></td><td>主 agent 出票（S4）：<code>## Owns</code>、AC 带命令、三条出路、Read back 跑 <code>--lint</code></td><td class="mono">§3 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/68">#68</a></td></tr>
+    <tr class="done"><td><code>to-tickets</code>（改）</td><td><span class="k k-sk">SKILL</span></td><td>主 agent 出票（S4）：<code>## Owns</code>、五问、AC 四行带命令、每张票挂成 spec 的原生 sub-issue、Read back 跑 <code>--lint</code>，末尾把主 agent 交到 <code>dispatch.sh run &lt;spec&gt;</code></td><td class="mono">§3 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/68">#68</a></td></tr>
     <tr class="done"><td><code>verify-ticket/scripts/verify-ticket.py</code></td><td><span class="k k-sc">SCRIPT</span></td><td><code>--lint</code>（S4）· <code>--preflight</code>（S6）· 默认（S8）· <code>--reverify</code>（S9）· <code>--closeout</code>（S12）；每个子命令写 <code>phase</code> token；不持有状态</td><td class="mono">§2 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/62">#62</a> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/63">#63</a> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/84">#84</a></td></tr>
     <tr class="done"><td><code>verify-ticket/scripts/gate-check/</code>（vendor unlazy）</td><td><span class="k k-sc">SCRIPT</span></td><td>被 <code>verify-ticket.py</code> 调（S8、S9）：跑 CHECK、双条件、写 EVIDENCE；批准机制去掉；围栏读法</td><td class="mono">§2 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/62">#62</a> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/90">#90</a></td></tr>
     <tr class="done"><td><code>verify-ticket/scripts/visual-parity.py</code></td><td><span class="k k-sc">SCRIPT</span></td><td>含 UI 标准的票，它的 CHECK 直接调这个（S8）：离线渲染基线、ARIA 与像素比对、负控制、<code>--out</code> 留截图</td><td class="mono">§2 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/65">#65</a></td></tr>
     <tr class="done"><td><code>verify-ticket/scripts/hook.py pretool</code></td><td><span class="k k-hook">HOOK</span></td><td>worker 会话（S6 起到 S12 止）：点名本票的 <code>gh issue close</code> / 换标签一律拒；Claude / Codex / Grok / Cursor / pi 各一条配置</td><td class="mono">§2 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/64">#64</a></td></tr>
-    <tr class="done"><td><code>dispatch/scripts/dispatch.sh</code> + <code>dispatch/models.md</code></td><td><span class="k k-sc">SCRIPT</span> <span class="k k-dc">DOC</span></td><td>board 派 worker（S5）、worker 起 reviewer（S10）、<code>wait</code>（S10）；表定每个 agent 的宿主 / 模型 / 思考强度 / 启动参数，改表见 <code>references/editing-models.md</code>。待加：派发时写 <code>ticket</code>/<code>role</code> token；<code>run &lt;spec&gt;</code> 子命令</td><td class="mono">§4 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/67">#67</a> · J5 J7</td></tr>
-    <tr><td><code>dispatch/scripts/board.py</code>（new）</td><td><span class="k k-sc">SCRIPT</span></td><td>夜里唯一常驻的程序，跑在监控 tab 里（4b）：<code>--once</code> 给 agent 一屏表 · 无参追加行给人看 · <code>--watch &lt;spec&gt;</code> 派发、唤醒闭环、评论到票、<code>NIGHT SUMMARY</code>；不持状态</td><td class="mono">J · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/87">#87</a></td></tr>
-    <tr><td><code>dispatch/herdr/agent-detection/cursor.toml</code>（new）</td><td><span class="k k-dc">DOC</span></td><td>Herdr 检测规则的本地覆盖：cursor 提问表单 = <code>blocked</code>；<code>install.sh</code> 复制到 <code>~/.config/herdr/agent-detection/</code> 并 reload；回报 herdr 上游</td><td class="mono">J10 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/87">#87</a></td></tr>
+    <tr class="done"><td><code>mmw-v2/hooks/rule-at-moment.py</code></td><td><span class="k k-hook">HOOK</span></td><td>只装 Claude Code，四个事件各一条：<code>Read</code> 前报文件行数与该读几段、宿主截断后报下一个 <code>offset</code>、写文件前送到位的几条规则、失败后送重做那一条、一轮用过工具就在 Stop 时把收尾清单交回。它管的是读写纪律，不碰票；唯一会拒的是没写 <code>model</code> 的 <code>Agent</code> 调用</td><td class="mono">—</td></tr>
+    <tr class="done"><td><code>dispatch/scripts/dispatch.sh</code> + <code>dispatch/models.md</code></td><td><span class="k k-sc">SCRIPT</span> <span class="k k-dc">DOC</span></td><td>board 派 worker（S5）、worker 起 reviewer（S10）、<code>wait</code>（S10）、<code>run &lt;spec&gt;</code> 开夜（4b）；派 worker 时开 <code>issue-&lt;n&gt;</code> 的 worktree 并记下切点，写 <code>ticket</code> / <code>kind</code> / <code>model</code> 三个 pane token。表定每个 agent 的宿主 / 模型 / 思考强度 / 启动参数，改表见 <code>references/editing-models.md</code></td><td class="mono">§4 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/67">#67</a> · J5 J7</td></tr>
+    <tr class="done"><td><code>dispatch/scripts/board.py</code></td><td><span class="k k-sc">SCRIPT</span></td><td>夜里唯一常驻的程序，跑在监控 tab 里（4b）：<code>--once</code> 给 agent 一屏表 · 无参追加行给人看 · <code>--watch &lt;spec&gt;</code> 派发、唤醒闭环、评论到票、<code>NIGHT SUMMARY</code>；不持状态</td><td class="mono">J · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/87">#87</a></td></tr>
+    <tr class="done"><td><code>dispatch/herdr/agent-detection/cursor.toml</code></td><td><span class="k k-dc">DOC</span></td><td>Herdr 检测规则的本地覆盖：cursor 提问表单 = <code>blocked</code>；<code>install.sh</code> 复制到 <code>~/.config/herdr/agent-detection/</code> 并 reload；回报 herdr 上游</td><td class="mono">J10 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/87">#87</a></td></tr>
     <tr class="done"><td><code>agents/verifier/</code></td><td><span class="k k-agent">AGENT</span></td><td>worker 派出（S9）：只收票号；<code>agent.json</code> 顶层键 <code>sandbox: workspace-write</code>；<code>body.md</code> 写动作、五级、两次 git status</td><td class="mono">§5 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/69">#69</a></td></tr>
     <tr><td><code>agents/advisor/</code>、<code>agents/claim-checker/</code></td><td><span class="k k-agent">AGENT</span></td><td>不在这条路径上：advisor 在拍板前问一次，claim-checker 核 readable-docs 写出的文档；模型同样在 <code>models.md</code></td><td class="mono">—</td></tr>
-    <tr><td><code>code-review</code>（改）</td><td><span class="k k-sk">SKILL</span> + 3 reference</td><td>reviewer 会话（S10）：<code>SKILL.md</code> 是派发者那一份，<code>references/standards-reviewer.md</code> / <code>spec-reviewer.md</code> / <code>tests-reviewer.md</code> 三个 reviewer 各一份</td><td class="mono">§6 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/70">#70</a></td></tr>
-    <tr><td><code>implement</code>（改三段）</td><td><span class="k k-sk">SKILL</span></td><td>worker：开工（S6）、写码纪律（S7）、收尾七步（S8–S12）</td><td class="mono">§7–§9 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/71">#71</a> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/72">#72</a> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/73">#73</a></td></tr>
-    <tr><td><code>claude-design-blocks</code>（收进 mmw-v2）</td><td><span class="k k-sk">SKILL</span></td><td>做 UI 精修的会话（S3，按能力判断 claude-design MCP）：吃叶子目录组件；Finish 下载交接包与 DESIGN.md</td><td class="mono">§10 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/74">#74</a></td></tr>
-    <tr class="done"><td>根 <code>CONTEXT.md</code>、<code>AGENTS.md</code> Domain docs 一段</td><td><span class="k k-dc">DOC</span></td><td>每个读仓库的 agent 先读词表（S1 建；已落地 146 条，票 <a href="https://github.com/chancheuklap/multi-model-workflow/issues/66">#66</a> 待关）</td><td class="mono">§4 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/66">#66</a></td></tr>
+    <tr class="done"><td><code>code-review</code>（改）</td><td><span class="k k-sk">SKILL</span> + 3 reference</td><td>reviewer 会话（S10）：<code>SKILL.md</code> 是派发者那一份，<code>references/standards-reviewer.md</code> / <code>spec-reviewer.md</code> / <code>tests-reviewer.md</code> 三个 reviewer 各一份；Spec 轴第 2 节读票指名的基线，<code>SKILL.md</code> 第 3 节的票内定义含基线</td><td class="mono">§6 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/70">#70</a></td></tr>
+    <tr class="done"><td><code>implement</code>（改三段）</td><td><span class="k k-sk">SKILL</span></td><td>worker：开工（S6）、写码纪律七条（S7）、收尾七步（S8–S12）；票上已有 <code>self-run</code> / <code>VERDICT</code> / <code>REVIEW</code> 的，从最新那条之后续（4b 的重新 prompt 走这一句）；开工段那句读到结论里，prototype 指的是叶子 <code>README.md</code> 读到 verdict，且交接包逐字照抄、prototype 按正式标准重写</td><td class="mono">§7–§9 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/71">#71</a> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/72">#72</a> <a href="https://github.com/chancheuklap/multi-model-workflow/issues/73">#73</a></td></tr>
+    <tr class="done"><td><code>claude-design-blocks</code>（收进 mmw-v2）</td><td><span class="k k-sk">SKILL</span></td><td>做 UI 精修的会话（S3，按能力判断 claude-design MCP）：吃叶子目录组件；Finish 下载交接包与 DESIGN.md</td><td class="mono">§10 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/74">#74</a></td></tr>
+    <tr class="done"><td>根 <code>CONTEXT.md</code>、<code>AGENTS.md</code> Domain docs 一段</td><td><span class="k k-dc">DOC</span></td><td>每个读仓库的 agent 先读词表（S1 建；十四节 160 条）</td><td class="mono">§4 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/66">#66</a></td></tr>
     <tr class="done"><td><code>install.sh</code>（加 hook 安装）</td><td><span class="k k-sc">SCRIPT</span></td><td>五宿主各写一条指向 <code>hook.py</code> 的配置，合并不覆盖；<code>--check</code> 打印 <code>HOOKS-INSTALLED</code></td><td class="mono">§2 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/64">#64</a></td></tr>
-    <tr class="done"><td><code>prototypes/code-landing/fixture/</code> + <code>[fixture]</code> spec <a href="https://github.com/chancheuklap/multi-model-workflow/issues/76">#76</a> 与票 <a href="https://github.com/chancheuklap/multi-model-workflow/issues/77">#77</a></td><td><span class="k k-tk">TICKET</span></td><td>§1–§10 每改一处用它测一处；不在流水线上</td><td class="mono">§1 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/61">#61</a></td></tr>
-    <tr><td><code>mmw-v2/merge-notes/</code></td><td><span class="k k-dc">DOC</span></td><td>改到上游 subtree 的技能各一份：to-spec、to-tickets、implement、triage 等 15 份已有</td><td class="mono">§3 §6 §7–§9</td></tr>
+    <tr class="done"><td><code>prototypes/code-landing/fixture/</code> + spec <a href="https://github.com/chancheuklap/multi-model-workflow/issues/76">#76</a> 与它下面的票</td><td><span class="k k-tk">TICKET</span></td><td>每改一处技能就拿它跑一遍：<a href="https://github.com/chancheuklap/multi-model-workflow/issues/96">#96</a>（agent 票）、<a href="https://github.com/chancheuklap/multi-model-workflow/issues/97">#97</a>（<code>reaction</code> 票）、<a href="https://github.com/chancheuklap/multi-model-workflow/issues/104">#104</a>（夜间主循环的靶票）；不在流水线上</td><td class="mono">§1 · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/61">#61</a></td></tr>
+    <tr><td><code>mmw-v2/merge-notes/</code></td><td><span class="k k-dc">DOC</span></td><td>改到上游 subtree 的技能各一份：to-spec、to-tickets、implement、code-review、triage 等 18 份</td><td class="mono">§3 §6 §7–§9</td></tr>
     <tr><td><code>deprecated/ui-qa</code>、<code>deprecated/ui-evaluator</code></td><td><span class="k k-sk">SKILL</span> <span class="k k-agent">AGENT</span></td><td>在 <code>deprecated/</code>：不装、不跑、不当事实；它们的九种检查由 visual-parity 或用户自判承接，A2 无障碍无人承接</td><td class="mono">Out of Scope</td></tr>
   </table></div>
   <p class="src">灰行 = 已落地（票已关或文件已在仓库里）。技能软链指向源目录，改完下一次调用即生效；只有 frontmatter 的 <code>description</code> 是宿主启动时扫的，改它要重开会话（<code>AGENTS.md</code>「约定」）。</p>
@@ -1276,7 +1285,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
 
 <section id="landing">
   <h2>9 落地顺序：<a href="https://github.com/chancheuklap/multi-model-workflow/issues/60">#60</a> 的十一节与它们的票</h2>
-  <p class="lede">一节一处改动、一次提交、一次检查（我检查 → 你检查 → 修改）；上一节没过不进下一节。第 1–10 节都用第 1 节的 <code>[fixture]</code> 票测；夜间主循环（J）五步也用它和一个假 worker 测；第 11 节才用真实的票。票之间的原生阻塞边已全部解开，顺序只由节序表达。</p>
+  <p class="lede">一节一处改动、一次提交、一次检查（我检查 → 你检查 → 修改）；上一节没过不进下一节。第 1–10 节都用第 1 节 spec #76 底下那些只为测试而存在的票测；夜间主循环（J）五步也用它们和一个假 worker 测；第 11 节才用真实的票。票之间的原生阻塞边已全部解开，顺序只由节序表达。</p>
   <figure>
     <div class="box">
     <svg viewBox="0 0 1120 520" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="ld-title ld-desc">
@@ -1290,41 +1299,42 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <line x1="184" y1="320" x2="200" y2="320" class="fl" marker-end="url(#ld-a)"/><line x1="368" y1="320" x2="384" y2="320" class="fl" marker-end="url(#ld-a)"/><line x1="552" y1="320" x2="568" y2="320" class="fl" marker-end="url(#ld-a)"/><line x1="736" y1="320" x2="752" y2="320" class="fl" marker-end="url(#ld-a)"/><line x1="920" y1="320" x2="936" y2="320" class="fl" marker-end="url(#ld-a)"/>
       <!-- sections row 1 -->
       <g><rect x="32" y="56" width="152" height="128" rx="6" class="sk"/><text x="40" y="74" class="ey">§1 · 测试台</text><text x="40" y="92" class="nm2">[fixture] 票 + 小仓库</text>
-        <circle cx="46" cy="112" r="4" fill="var(--muted)"/><text x="56" y="116" class="sb">#61</text>
-        <circle cx="46" cy="132" r="4" fill="none" stroke="var(--muted)"/><text x="56" y="136" class="sb">#76 spec · #77 票</text>
-        <circle cx="46" cy="152" r="4" fill="var(--accent)"/><text x="56" y="156" class="sb">#78 #85 人工</text>
-        <text x="40" y="174" class="cn">#86 #88 已关</text></g>
+        <circle cx="46" cy="112" r="4" fill="var(--muted)"/><text x="56" y="116" class="sb">#61 · #77 · #86 #88 #102</text>
+        <circle cx="46" cy="132" r="4" fill="none" stroke="var(--muted)"/><text x="56" y="136" class="sb">#76 spec · #96 #104 票</text>
+        <circle cx="46" cy="152" r="4" fill="var(--accent)"/><text x="56" y="156" class="sb">#78 #85 #97 人工</text>
+        <text x="40" y="174" class="cn">测试台 fixture 已在仓库里</text></g>
       <g><rect x="200" y="56" width="168" height="128" rx="6" class="sk"/><text x="208" y="74" class="ey">§2 · verify-ticket</text><text x="208" y="92" class="nm2">脚本 · hook · 安装</text>
         <circle cx="214" cy="112" r="4" fill="var(--muted)"/><text x="224" y="116" class="sb">#62 #63 #64 #65</text>
         <circle cx="214" cy="132" r="4" fill="var(--muted)"/><text x="224" y="136" class="sb">#84 两条死路</text>
         <circle cx="214" cy="152" r="4" fill="none" stroke="var(--muted)"/><text x="224" y="156" class="sb">#90 围栏</text>
         <text x="208" y="166" class="cn">idle 而 phase 未到</text><text x="208" y="178" class="cn">closed/handoff：J（board.py）</text></g>
       <g><rect x="384" y="56" width="168" height="128" rx="6" class="sk"/><text x="392" y="74" class="ey">§3 · to-tickets</text><text x="392" y="92" class="nm2">票模板与 Read back</text>
-        <circle cx="398" cy="112" r="4" fill="none" stroke="var(--muted)"/><text x="408" y="116" class="sb">#68</text>
-        <text x="392" y="136" class="cn">Owns · AC 带命令 · 三条出路</text><text x="392" y="150" class="cn">--lint 零发现才算过</text></g>
+        <circle cx="398" cy="112" r="4" fill="var(--muted)"/><text x="408" y="116" class="sb">#68</text>
+        <text x="392" y="136" class="cn">Owns · 五问 · AC 四行带命令</text><text x="392" y="150" class="cn">挂原生 sub-issue · --lint 零 ERROR</text></g>
       <g><rect x="568" y="56" width="168" height="128" rx="6" class="sk"/><text x="576" y="74" class="ey">§4 · dispatch + CONTEXT.md</text><text x="576" y="92" class="nm2">派发技能与词表</text>
         <circle cx="582" cy="112" r="4" fill="var(--muted)"/><text x="592" y="116" class="sb">#67 dispatch</text>
-        <circle cx="582" cy="132" r="4" fill="none" stroke="var(--muted)"/><text x="592" y="136" class="sb">#66 词表（文件已在）</text>
+        <circle cx="582" cy="132" r="4" fill="var(--muted)"/><text x="592" y="136" class="sb">#66 词表 160 条</text>
         <circle cx="582" cy="152" r="4" fill="var(--accent)"/><text x="592" y="156" class="sb">#91 人工</text></g>
       <g><rect x="752" y="56" width="168" height="128" rx="6" class="sk"/><text x="760" y="74" class="ey">§5 · verifier</text><text x="760" y="92" class="nm2">新 subagent</text>
         <circle cx="766" cy="112" r="4" fill="var(--muted)"/><text x="776" y="116" class="sb">#69</text>
         <text x="760" y="136" class="cn">#80–#83 人读过，已关</text></g>
       <g><rect x="936" y="56" width="168" height="128" rx="6" class="sk"/><text x="944" y="74" class="ey">§6 · code-review</text><text x="944" y="92" class="nm2">派发者 + 三个 reviewer</text>
-        <circle cx="950" cy="112" r="4" fill="none" stroke="var(--muted)"/><text x="960" y="116" class="sb">#70</text></g>
+        <circle cx="950" cy="112" r="4" fill="var(--muted)"/><text x="960" y="116" class="sb">#70</text>
+        <circle cx="950" cy="132" r="4" fill="var(--muted)"/><text x="960" y="136" class="sb">#103 空 diff 也回票</text></g>
       <!-- row 2 -->
       <g><rect x="32" y="256" width="152" height="128" rx="6" class="sk"/><text x="40" y="274" class="ey">§7 · implement 开工</text><text x="40" y="292" class="nm2">--preflight · Owns · 读法</text>
-        <circle cx="46" cy="312" r="4" fill="none" stroke="var(--muted)"/><text x="56" y="316" class="sb">#71</text></g>
-      <g><rect x="200" y="256" width="168" height="128" rx="6" class="sk"/><text x="208" y="274" class="ey">§8 · implement 写码</text><text x="208" y="292" class="nm2">纪律十行</text>
-        <circle cx="214" cy="312" r="4" fill="none" stroke="var(--muted)"/><text x="224" y="316" class="sb">#72</text></g>
+        <circle cx="46" cy="312" r="4" fill="var(--muted)"/><text x="56" y="316" class="sb">#71</text></g>
+      <g><rect x="200" y="256" width="168" height="128" rx="6" class="sk"/><text x="208" y="274" class="ey">§8 · implement 写码</text><text x="208" y="292" class="nm2">写码纪律七条</text>
+        <circle cx="214" cy="312" r="4" fill="var(--muted)"/><text x="224" y="316" class="sb">#72</text></g>
       <g><rect x="384" y="256" width="168" height="128" rx="6" class="sk"/><text x="392" y="274" class="ey">§9 · implement 收尾</text><text x="392" y="292" class="nm2">七步</text>
-        <circle cx="398" cy="312" r="4" fill="none" stroke="var(--muted)"/><text x="408" y="316" class="sb">#73</text>
+        <circle cx="398" cy="312" r="4" fill="var(--muted)"/><text x="408" y="316" class="sb">#73</text>
         <circle cx="398" cy="332" r="4" fill="var(--accent)"/><text x="408" y="336" class="sb">#92 #93 人工</text></g>
       <g><rect x="568" y="256" width="168" height="128" rx="6" class="sk"/><text x="576" y="274" class="ey">§10 · claude-design-blocks</text><text x="576" y="292" class="nm2">收进 mmw-v2</text>
         <circle cx="582" cy="312" r="4" fill="none" stroke="var(--muted)"/><text x="592" y="316" class="sb">#74</text></g>
       <g><rect x="752" y="256" width="168" height="128" rx="6" class="sk"/><text x="760" y="274" class="ey">J · 夜间编排主循环</text><text x="760" y="292" class="nm2">board.py · run · token</text>
-        <circle cx="766" cy="312" r="4" fill="none" stroke="var(--muted)"/><text x="776" y="316" class="sb">#87 五步</text>
-        <text x="760" y="336" class="cn">token → --once → --watch</text><text x="760" y="350" class="cn">四行 → 其余行 → run</text>
-        <text x="760" y="366" class="cn">假 worker 测重新 prompt 与重派</text></g>
+        <circle cx="766" cy="312" r="4" fill="var(--muted)"/><text x="776" y="316" class="sb">#87 五步已落地</text>
+        <circle cx="766" cy="332" r="4" fill="none" stroke="var(--muted)"/><text x="776" y="336" class="sb">#104 靶票</text>
+        <text x="760" y="356" class="cn">票本身停在 needs-triage：</text><text x="760" y="368" class="cn">要拿 #104 跑一夜才判得了</text></g>
       <g><rect x="936" y="256" width="168" height="128" rx="6" class="fo sk"/><text x="944" y="274" class="ey">§11 · 真票全程</text><text x="944" y="292" class="nm2">从 dispatch.sh run 跑到早上</text>
         <circle cx="950" cy="312" r="4" fill="none" stroke="var(--muted)"/><text x="960" y="316" class="sb">#75 · 跑通才合 main</text>
         <circle cx="950" cy="332" r="4" fill="var(--accent)"/><text x="960" y="336" class="sb">#94 #95 人工</text>
@@ -1335,25 +1345,25 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <circle cx="140" cy="436" r="4" fill="var(--muted)"/><text x="150" y="440" class="sb">已关 · 已落地</text>
       <circle cx="300" cy="436" r="4" fill="none" stroke="var(--muted)"/><text x="310" y="440" class="sb">开着 · ready-for-agent</text>
       <circle cx="500" cy="436" r="4" fill="var(--accent)"/><text x="510" y="440" class="sb">开着 · ready-for-human（只有你做得了）</text>
-      <text x="30" y="472" class="cn">2026-08-31：CLOSED 10 张（#61–#65、#67、#69、#84、#86、#88）；ready-for-agent 开着 9 张（#66、#68、#70–#75、#90）；ready-for-human 8 张；#87 方案已定，落地五步在 §10 之后、§11 之前。</text>
-      <text x="30" y="488" class="cn">已落地的脚本层（§1、§2、§4 的 dispatch、§5）是流水线的骨架；还没落地的都是技能正文（§3、§6–§10）与真票（§11）。</text>
+      <text x="30" y="472" class="cn">2026-08-31：§1–§9 与 J 的落地票全部关掉（#61–#73、#84、#86、#88、#102、#103）；<b>还开着的三张 ready-for-agent 是 #74（§10）、#75（§11）、#90（围栏）</b>；#87 的五步已落地，票停在 needs-triage 等 #104 跑一夜。</text>
+      <text x="30" y="488" class="cn">脚本层与技能正文都已落地；剩下的是把 claude-design-blocks 的改动过一遍人眼（#74）、拿一张真票跑全程（#75），以及八张 ready-for-human（#78、#85、#91–#95、#97）。</text>
     </svg>
     </div>
-    <figcaption>图 17 · 节序与票号不同序（§3 是 #68，§4 是 #66 与 #67），<b>按节序做</b>；J 是 #60 之外的一块（定案块 J），排在 §10 之后，因为 §11 的真票要从 <code>dispatch.sh run</code> 跑到早上。§2 拆成五张已全部关掉；§4 的 <code>CONTEXT.md</code> 文件已提交（146 条），票 #66 还开着等人读（#91）。</figcaption>
+    <figcaption>图 17 · 节序与票号不同序（§3 是 #68，§4 是 #66 与 #67），<b>按节序做</b>；J 是 #60 之外的一块（定案块 J），排在 §10 之后，因为 §11 的真票要从 <code>dispatch.sh run</code> 跑到早上。§1–§9 与 J 的落地票都已关，脚本与技能正文都在仓库里；<b>剩下 §10 的 #74 与 §11 的 #75</b>，加上围栏那一张 #90。</figcaption>
   </figure>
   <div class="tablewrap"><table>
     <tr><th class="mono">节</th><th class="mono">票</th><th>改什么</th><th>我检查（主 agent 跑）</th><th>你检查（GitHub 网页上读）</th></tr>
-    <tr class="done"><td class="mono">1</td><td class="mono">#61</td><td>测试台 fixture + <code>[fixture]</code> spec 与票</td><td>pytest 过、静态页能起、基线可离线渲染</td><td>票读起来像真票；README 一眼能懂</td></tr>
+    <tr class="done"><td class="mono">1</td><td class="mono">#61</td><td>测试台 fixture + spec #76 与它下面的票</td><td>pytest 过、静态页能起、基线可离线渲染</td><td>票读起来像真票；README 一眼能懂</td></tr>
     <tr class="done"><td class="mono">2</td><td class="mono">#62 #63 #64 #65 #84</td><td><code>verify-ticket</code> 五个子命令、hook、visual-parity、install.sh</td><td>对 fixture 票跑五条路；五宿主各起一次看 close 被拒；负控制被抓</td><td>票上那条评论能否一眼看出过没过（#88 已关）</td></tr>
-    <tr><td class="mono">3</td><td class="mono">#68</td><td><code>to-tickets</code> 模板、三条出路、Read back 跑 <code>--lint</code></td><td>对 fixture spec 跑 <code>/to-tickets</code>，产出与手写票同形；<code>--lint</code> 零发现</td><td>模板原文；一张产出的票</td></tr>
-    <tr><td class="mono">4</td><td class="mono">#67 #66</td><td>dispatch 技能；根 <code>CONTEXT.md</code>；<code>AGENTS.md</code></td><td>三条启动命令各起一次；每个词有出处</td><td>#91 读一遍 CONTEXT.md</td></tr>
+    <tr class="done"><td class="mono">3</td><td class="mono">#68</td><td><code>to-tickets</code> 模板、五问、Read back 跑 <code>--lint</code></td><td>对 fixture spec 跑 <code>/to-tickets</code>，产出与手写票同形；<code>--lint</code> 零 ERROR</td><td>模板原文；一张产出的票</td></tr>
+    <tr class="done"><td class="mono">4</td><td class="mono">#67 #66</td><td>dispatch 技能；根 <code>CONTEXT.md</code>；<code>AGENTS.md</code></td><td>三条启动形各起一次；每个词有出处</td><td>#91 读一遍 CONTEXT.md</td></tr>
     <tr class="done"><td class="mono">5</td><td class="mono">#69</td><td><code>agents/verifier/</code></td><td>派一次，票上多一条 VERDICT；Codex 与 Grok 各派一次核模型</td><td>#80–#83 已读</td></tr>
-    <tr><td class="mono">6</td><td class="mono">#70</td><td><code>code-review</code> 派发者 + 三 reviewer</td><td>留一处 scope creep、一处漏做、一个重算期望值的测试，评论里分类正确</td><td>SKILL.md 与三个 reference 原文</td></tr>
-    <tr><td class="mono">7</td><td class="mono">#71</td><td><code>implement</code> 开工段</td><td>跑到「说出 Seam」；摘掉标签再跑看 NOT_READY</td><td>这一段原文</td></tr>
-    <tr><td class="mono">8</td><td class="mono">#72</td><td><code>implement</code> 写码纪律十行</td><td>共用函数修在共用处；范围外一行记进 Outside Owns</td><td>那十行原文</td></tr>
-    <tr><td class="mono">9</td><td class="mono">#73</td><td><code>implement</code> 收尾七步</td><td>一次 ALL MET 关票；一次 HANDOFF 交回 needs-triage</td><td>#92 网页入口；#93 两条收尾评论</td></tr>
+    <tr class="done"><td class="mono">6</td><td class="mono">#70</td><td><code>code-review</code> 派发者 + 三 reviewer</td><td>留一处 scope creep、一处漏做、一个重算期望值的测试，评论里分类正确</td><td>SKILL.md 与三个 reference 原文</td></tr>
+    <tr class="done"><td class="mono">7</td><td class="mono">#71</td><td><code>implement</code> 开工段</td><td>跑到「说出 Seam」；摘掉标签再跑看 NOT_READY</td><td>这一段原文</td></tr>
+    <tr class="done"><td class="mono">8</td><td class="mono">#72</td><td><code>implement</code> 写码纪律七条</td><td>共用函数修在共用处；范围外一行记进 Outside Owns</td><td>那七条原文</td></tr>
+    <tr class="done"><td class="mono">9</td><td class="mono">#73</td><td><code>implement</code> 收尾七步</td><td>一次 ALL MET 关票；一次 HANDOFF 交回 needs-triage</td><td>#92 网页入口；#93 两条收尾评论</td></tr>
     <tr><td class="mono">10</td><td class="mono">#74</td><td><code>claude-design-blocks</code> 收进 mmw-v2</td><td><code>install.sh --check</code>；改动处对照定案 D1</td><td>改动处原文</td></tr>
-    <tr><td class="mono">J</td><td class="mono">#87</td><td><code>board.py</code> 三形态、<code>dispatch.sh run</code>、派发写 token、cursor 检测覆盖、词表新词、#75 措辞（五步）</td><td>假 worker 做到自跑就停 → 被重新 prompt、三次后交回；关掉它 → 被重派；全关后 spec 上有 NIGHT SUMMARY；<code>install.sh --check</code> 有缺时 <code>run</code> 拒绝</td><td>监控 tab 的输出读不读得懂；NIGHT SUMMARY 一眼知不知道夜里发生了什么</td></tr>
+    <tr class="done"><td class="mono">J</td><td class="mono">#87</td><td><code>board.py</code> 三形态、<code>dispatch.sh run</code>、派发写 token 并开 worktree、cursor 检测覆盖、词表新词、#75 措辞（五步）</td><td>假 worker 做到自跑就停 → 被重新 prompt、三次后交回；关掉它 → 被重派；全关后 spec 上有 NIGHT SUMMARY；<code>install.sh --check</code> 有缺时 <code>run</code> 拒绝</td><td>监控 tab 的输出读不读得懂；NIGHT SUMMARY 一眼知不知道夜里发生了什么</td></tr>
     <tr><td class="mono">11</td><td class="mono">#75</td><td>真实的票从 <code>/to-tickets</code> 出，<code>dispatch.sh run</code> 跑到早上</td><td>主 agent 只敲 run；发给 worker 的 prompt 只有派发词；四种评论都在票上</td><td>#94 早上看网页；#95 读自己拿的主意；合不合 main</td></tr>
   </table></div>
 </section>
@@ -1363,45 +1373,45 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
   <p class="lede">三套编号不同序：<b>S</b> 是一张票跑过的先后，<b>§</b> 是改造的先后，<b>#</b> 按开票顺序。要改哪一步，从最后两列进去。</p>
   <div class="tablewrap"><table>
     <tr><th class="mono">步</th><th>这一步做什么</th><th>件的种类</th><th class="mono">#60 节</th><th class="mono">票</th></tr>
-    <tr><td class="mono">S1</td><td>wayfinder / grill-with-docs / domain-modeling → 建根 <code>CONTEXT.md</code></td><td><span class="k k-sk">SKILL</span> <span class="k k-dc">DOC</span></td><td class="mono">§4</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/66">#66</a></td></tr>
+    <tr class="done"><td class="mono">S1</td><td>wayfinder / grill-with-docs / domain-modeling → 建根 <code>CONTEXT.md</code></td><td><span class="k k-sk">SKILL</span> <span class="k k-dc">DOC</span></td><td class="mono">§4</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/66">#66</a></td></tr>
     <tr class="done"><td class="mono">S2</td><td><code>to-spec</code>（只改「spec 不打状态标签」一句）</td><td><span class="k k-sk">SKILL</span></td><td class="mono">—</td><td class="mono">—</td></tr>
-    <tr><td class="mono">S3</td><td><code>prototype</code> → Claude Design 精修 → 下载基线目录</td><td><span class="k k-sk">SKILL</span> <span class="k k-ex">EXT</span> <span class="k k-dc">DOC</span></td><td class="mono">§10</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/74">#74</a></td></tr>
-    <tr><td class="mono">S4</td><td><code>to-tickets</code>：Owns、AC 带命令、三条出路、Read back 跑 <code>--lint</code></td><td><span class="k k-sk">SKILL</span> <span class="k k-sc">SCRIPT</span></td><td class="mono">§3</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/68">#68</a></td></tr>
-    <tr class="done"><td class="mono">S5</td><td><code>dispatch.sh &lt;n&gt; &lt;role&gt;</code>：读 <code>models.md</code>、经 Herdr 起会话；夜里由 <code>board.py</code> 按 frontier 调它</td><td><span class="k k-sc">SCRIPT</span> <span class="k k-dc">DOC</span> <span class="k k-ex">EXT</span></td><td class="mono">§4 · J</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/67">#67</a> · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/87">#87</a></td></tr>
-    <tr><td class="mono">S6</td><td><code>--preflight</code> 认领；<code>implement</code> 开工核对与读入</td><td><span class="k k-sc">SCRIPT</span> <span class="k k-sk">SKILL</span></td><td class="mono">§2 · §7</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/63">#63</a> · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/71">#71</a></td></tr>
-    <tr><td class="mono">S7</td><td><code>implement</code> 写码纪律十行</td><td><span class="k k-sk">SKILL</span></td><td class="mono">§8</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/72">#72</a></td></tr>
+    <tr><td class="mono">S3</td><td><code>prototype</code> → Claude Design 精修 → 下载交接包</td><td><span class="k k-sk">SKILL</span> <span class="k k-ex">EXT</span> <span class="k k-dc">DOC</span></td><td class="mono">§10</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/74">#74</a></td></tr>
+    <tr class="done"><td class="mono">S4</td><td><code>to-tickets</code>：Owns、五问、AC 四行带命令、挂原生 sub-issue、Read back 跑 <code>--lint</code></td><td><span class="k k-sk">SKILL</span> <span class="k k-sc">SCRIPT</span></td><td class="mono">§3</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/68">#68</a></td></tr>
+    <tr class="done"><td class="mono">S5</td><td><code>dispatch.sh &lt;n&gt; &lt;role&gt;</code>：读 <code>models.md</code>、开 <code>issue-&lt;n&gt;</code> 的 worktree、经 Herdr 在里面起会话；夜里由 <code>board.py</code> 按 frontier 调它</td><td><span class="k k-sc">SCRIPT</span> <span class="k k-dc">DOC</span> <span class="k k-ex">EXT</span></td><td class="mono">§4 · J</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/67">#67</a> · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/87">#87</a></td></tr>
+    <tr class="done"><td class="mono">S6</td><td><code>--preflight</code> 认领；<code>implement</code> 开工核对与读入</td><td><span class="k k-sc">SCRIPT</span> <span class="k k-sk">SKILL</span></td><td class="mono">§2 · §7</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/63">#63</a> · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/71">#71</a></td></tr>
+    <tr class="done"><td class="mono">S7</td><td><code>implement</code> 写码纪律七条</td><td><span class="k k-sk">SKILL</span></td><td class="mono">§8</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/72">#72</a></td></tr>
     <tr class="done"><td class="mono">S8</td><td><code>verify-ticket.py &lt;n&gt;</code> 自跑全部 CHECK；UI 条调 visual-parity</td><td><span class="k k-sc">SCRIPT</span> <span class="k k-cm">COMMENT</span></td><td class="mono">§2</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/62">#62</a> · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/65">#65</a> · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/90">#90</a></td></tr>
-    <tr class="done"><td class="mono">S9</td><td>verifier 跑 <code>--reverify</code>，只写 <code>VERDICT</code> 行</td><td><span class="k k-agent">AGENT</span> <span class="k k-cm">COMMENT</span></td><td class="mono">§5</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/69">#69</a></td></tr>
-    <tr><td class="mono">S10</td><td><code>code-review</code> 一轮：worker 经 <code>dispatch.sh</code> 起 reviewer 会话</td><td><span class="k k-ss">SESSION</span> <span class="k k-sk">SKILL</span> <span class="k k-agent">AGENT</span></td><td class="mono">§6 · §4</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/70">#70</a> · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/67">#67</a></td></tr>
-    <tr><td class="mono">S11</td><td>Audit、切 sub-issue、写收尾评论草稿到文件</td><td><span class="k k-sk">SKILL</span> <span class="k k-dc">DOC</span></td><td class="mono">§9</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/73">#73</a></td></tr>
+    <tr class="done"><td class="mono">S9</td><td>verifier 跑 <code>--reverify</code>，只写一行 <code>VERDICT &lt;commit&gt; by &lt;model&gt; — …</code></td><td><span class="k k-agent">AGENT</span> <span class="k k-cm">COMMENT</span></td><td class="mono">§5</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/69">#69</a></td></tr>
+    <tr class="done"><td class="mono">S10</td><td><code>code-review</code> 一轮：worker 经 <code>dispatch.sh</code> 起 reviewer 会话</td><td><span class="k k-ss">SESSION</span> <span class="k k-sk">SKILL</span> <span class="k k-agent">AGENT</span></td><td class="mono">§6 · §4</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/70">#70</a> · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/67">#67</a></td></tr>
+    <tr class="done"><td class="mono">S11</td><td>Audit、切 sub-issue、写收尾评论草稿到文件</td><td><span class="k k-sk">SKILL</span> <span class="k k-dc">DOC</span></td><td class="mono">§9</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/73">#73</a></td></tr>
     <tr class="done"><td class="mono">S12</td><td>push / PR / <code>--closeout</code> 关票或交回；<code>hook.py pretool</code> 兜底</td><td><span class="k k-sc">SCRIPT</span> <span class="k k-hook">HOOK</span> <span class="k k-lb">LABEL</span></td><td class="mono">§2 · §9</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/63">#63</a> · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/64">#64</a> · <a href="https://github.com/chancheuklap/multi-model-workflow/issues/84">#84</a></td></tr>
-    <tr><td class="mono">S13</td><td>早上打开 spec issue 那一页；两个书签；最后一条评论 <code>NIGHT SUMMARY</code></td><td><span class="k k-ex">EXT</span> <span class="k k-lb">LABEL</span></td><td class="mono">§9</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/73">#73</a></td></tr>
+    <tr class="done"><td class="mono">S13</td><td>早上打开 spec issue 那一页；两个书签；最后一条评论 <code>NIGHT SUMMARY</code></td><td><span class="k k-ex">EXT</span> <span class="k k-lb">LABEL</span></td><td class="mono">§9</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/73">#73</a></td></tr>
     <tr class="done"><td class="mono">S14</td><td>人处理：<code>/triage</code> 四个出口、人做完关票</td><td><span class="k k-sk">SKILL</span> <span class="k k-lb">LABEL</span></td><td class="mono">—</td><td class="mono">—</td></tr>
-    <tr><td class="mono">—</td><td>测试台 <code>prototypes/code-landing/fixture/</code> 与 <code>[fixture]</code> 票</td><td><span class="k k-tk">TICKET</span></td><td class="mono">§1</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/61">#61</a></td></tr>
-    <tr><td class="mono">4b</td><td>夜间编排主循环：<code>dispatch.sh run</code> → <code>board.py --watch</code> 派发、唤醒闭环、评论到票、<code>NIGHT SUMMARY</code>；主 agent 改名 <code>mmw-main</code> 只被重新 prompt 两次</td><td><span class="k k-sc">SCRIPT</span> <span class="k k-ss">SESSION</span> <span class="k k-ex">EXT</span> <span class="k k-cm">COMMENT</span></td><td class="mono">J</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/87">#87</a></td></tr>
+    <tr class="done"><td class="mono">—</td><td>测试台 <code>prototypes/code-landing/fixture/</code> 与 spec #76 底下那些票</td><td><span class="k k-tk">TICKET</span></td><td class="mono">§1</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/61">#61</a></td></tr>
+    <tr class="done"><td class="mono">4b</td><td>夜间编排主循环：<code>dispatch.sh run</code> → <code>board.py --watch</code> 派发、唤醒闭环、评论到票、<code>NIGHT SUMMARY</code>；主 agent 改名 <code>mmw-main</code> 只被重新 prompt 两次</td><td><span class="k k-sc">SCRIPT</span> <span class="k k-ss">SESSION</span> <span class="k k-ex">EXT</span> <span class="k k-cm">COMMENT</span></td><td class="mono">J</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/87">#87</a></td></tr>
     <tr><td class="mono">—</td><td>用一张真实的票跑 S4 → S12，跑通才合 main</td><td><span class="k k-tk">TICKET</span></td><td class="mono">§11</td><td class="mono"><a href="https://github.com/chancheuklap/multi-model-workflow/issues/75">#75</a></td></tr>
   </table></div>
 </section>
 
 <section id="vocab">
   <h2>11 词表指针：这页用到的词在 <code>CONTEXT.md</code> 的哪一节</h2>
-  <p class="lede">定义不在这里抄；根 <code>CONTEXT.md</code> 十四节，每节对应流水线的一段。凡是文件里出现的字面串只有一个名字，就是那个串；角色与做法带英文正名与中文正名。</p>
+  <p class="lede">定义不在这里抄；根 <code>CONTEXT.md</code> 十四节 160 条，每节对应流水线的一段。凡是文件里出现的字面串只有一个名字，就是那个串；角色与做法带英文正名与中文正名。每个词条底下的 <code>_Avoid_</code> 一行列的是它的死词——写文档或写票时撞上其中一个，换成正名。</p>
   <div class="tablewrap"><table>
     <tr><th>CONTEXT.md 的节</th><th>收哪些词</th><th class="mono">出现在（步）</th></tr>
-    <tr><td>Roles</td><td>main agent（主 agent）· worker · junior-worker · senior-worker · verifier · reviewer · dispatcher · user</td><td class="mono">S5 S9 S10 S14</td></tr>
-    <tr><td>Anatomy of a ticket</td><td><code>## Parent</code> … <code>## Blocked by</code> 七节 · <code>&lt;issue-template&gt;</code> · <code>AC&lt;n&gt;:</code> · <code>(new)</code> · directory glob · <code>[fixture]</code> ticket · frontier · spec</td><td class="mono">S4 S6</td></tr>
-    <tr><td>Anatomy of a spec</td><td><code>## Implementation Decisions</code> · <code>## Testing Decisions</code> · <code>## Out of Scope</code> · 我检查 / 你检查 · 先例 · 纵切</td><td class="mono">S2 S4 S6</td></tr>
-    <tr><td>Acceptance criteria</td><td><code>CHECK:</code> · 代码块围栏 · <code>EXPECT:</code> · success-only marker · <code>EVIDENCE:</code> · <code>ABANDON:</code> · <code>failed</code> / <code>stuck</code> / <code>decision</code> · 双条件 · 撤销</td><td class="mono">S4 S8 S11 S12</td></tr>
-    <tr><td>Running the criteria</td><td>账本 · <code>gate-check</code> · <code>gate-lint</code> · <code>STALE</code> · <code>self-run</code> · <code>ROUND LIMIT</code> · <code>reverify</code> · <code>UNMET:</code> · <code>PASS AC:</code> · <code>UPSTREAM.md</code></td><td class="mono">S8 S9</td></tr>
-    <tr><td>The verdict</td><td><code>VERDICT</code> · level 五级 · <code>self-reported</code> · <code>The environment is yours; the repository is not.</code></td><td class="mono">S9 S12</td></tr>
-    <tr><td>The closing comment</td><td>closing comment · <code>ALL MET</code> · <code>HANDOFF REQUIRED</code> · <code>Post-verdict:</code> · <code>Outside Owns:</code> · <code>skipped: [X], add when [Y]</code> · <code>Sub-issues opened:</code> · <code>Counts:</code> · <code>Decisions I made on my own</code></td><td class="mono">S11 S12 S13</td></tr>
-    <tr><td>Script subcommands</td><td><code>verify-ticket.py</code> · <code>--preflight</code> · <code>--closeout</code> · <code>--lint</code> · <code>--reverify</code> · <code>--check-only</code> · <code>NOT_READY:</code> · <code>CLOSEOUT OK</code> · <code>HANDED BACK</code> · 四个 lint 标签 · 启动层级 · <code>HOOKS-INSTALLED</code> · <code>hook.py pretool</code></td><td class="mono">S4 S6 S8 S9 S12</td></tr>
-    <tr><td>Dispatch</td><td><code>dispatch.sh</code> 两条调用形 · <code>models.md</code> · <code>issue-&lt;n&gt;</code> / <code>issue-&lt;n&gt;-review</code> · <code>MMW_TICKET</code> · <code>phase</code> 六值 · 派发词 · <code>implement #&lt;n&gt;</code> · <code>code-review &lt;base-commit&gt; #&lt;n&gt;</code> · <code>verify #&lt;n&gt;</code> · 认领；<code>board.py</code> · 监控 tab · 唤醒闭环 · 夜间编排主循环 · idle ∧ phase ∉ {closed, handoff} · re-prompt · 重派 · <code>mmw-main</code> · <code>wake</code> · <code>BLOCKED:</code> · <code>REDISPATCHED:</code> · <code>WAKEUP LIMIT:</code> · <code>TIME LIMIT:</code> · <code>NIGHT SUMMARY</code></td><td class="mono">S5 S6 S9 S10 4b</td></tr>
-    <tr><td>Code review</td><td><code>Standards</code> axis · <code>Spec</code> axis · <code>Tests</code> axis · smell baseline · test smell baseline · 票内 / 票外 · <code>REVIEW</code> · base-commit</td><td class="mono">S10</td></tr>
-    <tr><td>UI acceptance</td><td>基线 · 叶子目录 · 交接包 · <code>DESIGN.md</code> · 场景 · <code>&lt;dc-import&gt;</code> · <code>#dc-root</code> · <code>?variant=</code> · ARIA 树 · 归一化 · 负控制 · <code>PARITY OK</code> · <code>DIFF</code> · <code>NEGATIVE CONTROL FAILED</code></td><td class="mono">S3 S7 S8</td></tr>
-    <tr><td>Labels and standing</td><td>五个标签 · 早上五条查询</td><td class="mono">S4 S12 S13 S14</td></tr>
-    <tr><td>Working discipline</td><td>读法收窄 · 说出 Seam · Owns 核对 · 基线是契约 · 契约装不下 · Owns 两档 · ponytail 五句 · 收尾七步 · <code>Audit</code> · 三轮上限 · merge-note · 先验 · 消费仓库</td><td class="mono">S6 S7 S11</td></tr>
-    <tr><td>Test layers</td><td>结构核对 · 自写脚本层 · vendor 脚本层 · 技能行为层 · 真票</td><td class="mono">§60 Testing Decisions</td></tr>
+    <tr><td>Roles（9）</td><td>main agent（主 agent）· worker · junior-worker · senior-worker · verifier · reviewer · dispatcher（派发者）· host（宿主）· user（用户）</td><td class="mono">S5 S9 S10 S14</td></tr>
+    <tr><td>Anatomy of a ticket（13）</td><td><code>## Parent</code> … <code>## Blocked by</code> 七节 · <code>&lt;issue-template&gt;</code> · <code>AC&lt;n&gt;:</code> · <code>(new)</code> · directory glob（目录 glob）· frontier · spec</td><td class="mono">S4 S5 S6</td></tr>
+    <tr><td>Anatomy of a spec（8）</td><td><code>## User Stories</code> · <code>## Implementation Decisions</code> · <code>## Testing Decisions</code> · <code>## Out of Scope</code> · <code>## Sources</code> · <code>## Further Notes</code> · 先例 · 纵切</td><td class="mono">S2 S4 S6</td></tr>
+    <tr><td>Acceptance criteria（14）</td><td>五问（the five questions）· <code>CHECK:</code> · 代码块围栏 · <code>EXPECT:</code> · <code>CWD:</code> · success-only marker · <code>EVIDENCE:</code> · EVIDENCE structured line · <code>ABANDON:</code> · <code>failed</code> / <code>stuck</code> / <code>decision</code> · 双条件 · <code>gate</code></td><td class="mono">S4 S8 S11 S12</td></tr>
+    <tr><td>Running the criteria（11）</td><td>账本 · <code>gate-check</code> · <code>gate-lint</code> · <code>STALE</code> · <code>self-run</code> · <code>ROUND LIMIT</code> · <code>reverify</code> · gate-check summary line · <code>UNMET: &lt;n&gt; (met: &lt;m&gt;)</code> · <code>RUN</code> / <code>PASS</code> / <code>FAIL</code> / <code>STALE</code> · <code>UPSTREAM.md</code></td><td class="mono">S8 S9</td></tr>
+    <tr><td>The verdict（2）</td><td><code>VERDICT &lt;40 位 commit&gt; by &lt;model&gt; — &lt;一句话&gt;</code> · <code>The environment is yours; the repository is not</code></td><td class="mono">S9 S12</td></tr>
+    <tr><td>The closing comment（10）</td><td>closing comment（收尾评论）· <code>ALL MET</code> · <code>HANDOFF REQUIRED</code> · <code>Branch: … Commit: … PR: …</code> · <code>Post-verdict:</code> · <code>Outside Owns:</code> · <code>skipped: [X], add when [Y]</code> · <code>Sub-issues opened:</code> · <code>Counts:</code> · <code>Decisions I made on my own</code></td><td class="mono">S11 S12 S13</td></tr>
+    <tr><td>Script subcommands（16）</td><td><code>verify-ticket.py</code> · <code>--preflight</code> · <code>--closeout</code> · <code>--lint</code> · <code>--reverify</code> · <code>--check-only</code> · <code>NOT_READY:</code> · <code>CLOSEOUT OK</code> · <code>HANDED BACK</code> · problem tag（问题标签，三来源）· <code>ERROR</code> / <code>WARN</code> · 启动层级 · <code>HOOKS-INSTALLED</code> · <code>MMW_V2_HOME</code> · <code>hook.py pretool</code> · <code>rule-at-moment.py</code></td><td class="mono">S4 S6 S8 S9 S12</td></tr>
+    <tr><td>Dispatch（28）</td><td><code>dispatch.sh &lt;ticket&gt; &lt;role&gt; [base-commit]</code> · <code>dispatch.sh wait</code> · <code>dispatch.sh run</code> · <code>models.md</code> · <code>issue-&lt;n&gt;</code> / <code>issue-&lt;n&gt;-review</code> · <code>MMW_TICKET</code> · <code>phase</code> 六值 · <code>ticket</code> / <code>kind</code> / <code>ac</code> / <code>model</code> / <code>wake</code> 五个 pane token · Herdr 五状态 <code>working</code> / <code>idle</code> / <code>done</code> / <code>blocked</code> / <code>unknown</code> · <code>idle</code> ∧ <code>phase</code> ∉ {closed, handoff} · re-prompt · 唤醒闭环 · 夜间编排主循环 · <code>board.py</code> · 监控 tab · <code>mmw-main</code> · 七个常量 · <code>BLOCKED:</code> · 重派 · <code>REDISPATCHED:</code> · <code>WAKEUP LIMIT:</code> / <code>TIME LIMIT:</code> · <code>NIGHT SUMMARY</code> · 派发词 · <code>implement #&lt;n&gt;</code> · <code>code-review &lt;base-commit&gt; #&lt;n&gt;</code> · <code>verify #&lt;n&gt;</code> · 认领</td><td class="mono">S5 S6 S9 S10 4b</td></tr>
+    <tr><td>Code review（9）</td><td><code>Standards reviewer</code> / <code>Spec reviewer</code> / <code>Tests reviewer</code> · <code>Standards</code> axis · <code>Spec</code> axis · <code>Tests</code> axis · smell baseline · test smell baseline · 票内 / 票外 · <code>REVIEW &lt;base commit&gt;..&lt;HEAD commit&gt;</code> · base-commit（起点 commit）</td><td class="mono">S10</td></tr>
+    <tr><td>UI acceptance（13）</td><td>叶子目录 · <code>?variant=&lt;winner&gt;</code> · 交接包（handoff package）· <code>DESIGN.md</code> · 场景 · <code>&lt;dc-import&gt;</code> · <code>#dc-root</code> · ARIA 树 · 归一化 · 负控制 · <code>PARITY OK</code> · <code>DIFF</code> · <code>NEGATIVE CONTROL FAILED</code></td><td class="mono">S3 S7 S8</td></tr>
+    <tr><td>Labels and standing（8）</td><td>五个标签 · <code>reaction</code> · <code>reach</code> · 早上两条查询</td><td class="mono">S4 S12 S13 S14</td></tr>
+    <tr><td>Working discipline（14）</td><td>读法收窄 · 说出 Seam · Owns 核对 · 基线 · 契约 · 基线是契约 · 契约装不下 · Owns 两档 · 写码纪律七条 · 收尾七步 · <code>Audit</code> · 三轮上限 · merge-note · 消费仓库</td><td class="mono">S6 S7 S11</td></tr>
+    <tr><td>Test layers（5）</td><td>结构核对 · 自写脚本层 · vendor 脚本层 · 技能行为层 · 真票</td><td class="mono">#60 Testing Decisions</td></tr>
   </table></div>
 </section>
 </main>

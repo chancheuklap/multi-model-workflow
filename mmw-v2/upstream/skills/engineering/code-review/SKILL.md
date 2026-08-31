@@ -39,7 +39,7 @@ Nothing else. No summary of the change, no list of files, no restatement of what
 
 ## 3. Sort every finding into in-ticket or out-of-ticket
 
-A finding is **in-ticket** when it touches one of this ticket's acceptance criteria or a decision in the spec section the ticket names. Everything else is **out-of-ticket**.
+A finding is **in-ticket** when it touches one of this ticket's acceptance criteria, a decision in the spec section the ticket names, or a baseline under the ticket's `## Read first`. Everything else is **out-of-ticket**.
 
 The split decides what happens next, which is why you make it rather than leaving it to the reader: in-ticket findings get one round of fixes on this ticket; out-of-ticket findings become their own sub-issues and block nothing.
 
