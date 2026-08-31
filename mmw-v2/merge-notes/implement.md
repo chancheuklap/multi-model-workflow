@@ -39,6 +39,18 @@ closing comment is written before the ticket closes, and the merge happens after
 Upstream brings the push or the pull request back → drop them again, and keep the
 recorded base branch, which `advance` needs.
 
+## No question on the screen
+
+One bullet added to the writing-code list. A worker that puts a question up gets no answer:
+`board.py` comments the form on the ticket as `BLOCKED:`, presses the host's close key, and
+sends `continue` — nobody answers, and asking again spends the wake budget until the ticket
+goes back to `needs-triage`. So the bullet says what to do instead: take the option the
+ticket, its baselines and the spec make most likely, record it under **Decisions I made on
+my own**, and carry on; a question whose answer would change what the ticket delivers gets a
+sub-issue. The recording place and the sub-issue route were already here — this bullet is
+the third part, the one that says not to ask. Upstream rewrites the writing-code list → keep
+the bullet.
+
 ## Closeout: resume after a re-prompt
 
 One sentence added to the "Once done" paragraph: a ticket that already carries a `self-run`, `VERDICT` or `REVIEW` comment is resumed at the step after the newest of them. `board.py` re-prompts a stopped worker with `continue` and nothing else, so the skill has to know it may be entering the closeout mid-way. On the next upstream pull keep this sentence with the six-step closeout.

@@ -1,11 +1,11 @@
 ---
 name: code-review
-description: "Review one ticket's diff from a base commit along three axes — Standards, Spec, Tests — in parallel read-only sub-agents, and comment the reports on the ticket. Invoked as `code-review <base-commit> #<ticket>`."
+description: "Review one ticket's diff from a base commit along three axes — Standards, Spec, Tests — in parallel read-only sub-agents, and comment the reports on the ticket. The caller gives two values: the commit the diff starts from, and the ticket number."
 ---
 
 You are the dispatcher. You run three read-only sub-agents over one diff and write their reports onto one ticket. You review nothing yourself, and you are the only one of the four agents that writes anything.
 
-Invoked as `code-review <base-commit> #<ticket>`. Both arguments come from the caller; when either is missing, ask for it.
+The caller gives you two values: the commit the diff starts from, and the ticket number. When either is missing, ask for it.
 
 ## 1. Pin the diff
 
@@ -31,9 +31,9 @@ your instructions: <absolute path to that agent's reference file>
 
 | Sub-agent | Reference |
 | --- | --- |
-| Standards | `~/.agents/skills/code-review/references/standards-reviewer.md` ([standards-reviewer.md](references/standards-reviewer.md)) |
-| Spec | `~/.agents/skills/code-review/references/spec-reviewer.md` ([spec-reviewer.md](references/spec-reviewer.md)) |
-| Tests | `~/.agents/skills/code-review/references/tests-reviewer.md` ([tests-reviewer.md](references/tests-reviewer.md)) |
+| Standards | [references/standards-reviewer.md](references/standards-reviewer.md) |
+| Spec | [references/spec-reviewer.md](references/spec-reviewer.md) |
+| Tests | [references/tests-reviewer.md](references/tests-reviewer.md) |
 
 Nothing else. No summary of the change, no list of files, no restatement of what that axis looks for: the reference says all of it, and a sub-agent that reads it gets the current wording rather than your paraphrase of it. Everything fixed — what to look for, where to find the repo's standards, how to reach the spec, which test files are in scope — is already written there.
 

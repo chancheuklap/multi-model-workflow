@@ -48,6 +48,19 @@
 4. `SKILL.md` 有硬上限：正文不超过 70 行非空行，且不含 smell baseline 正文与任何子代理 brief 原文。收上游时超了，就是有判据没搬进 reference。
 5. 四个 Markdown 文件一律英文，不写出处、不写落地记录。`references/` 下只放轴的判据，一个轴一份：派发者的正文没有第二个读者，不单独成文件。
 
+## What the caller gives, not what the call looks like
+
+`description` and the line under it name the two values this skill needs — the commit the
+diff starts from and the ticket number — rather than an argument order. `dispatch.sh` sends
+a sentence naming the skill, so any wording that carries both values is a correct call, and
+a fixed shape written here would describe something that does not happen. Upstream writes an
+`Invoked as …` line → replace it with the two values again.
+
+`references/` is reached by relative link, the way every other skill in this repository
+reaches its own files. The absolute path stays in one place only: the sub-agent prompt in
+§2, because a sub-agent's working directory is the repository, not the skill directory, so
+the dispatcher has to resolve the link before it hands it over.
+
 ### agents/openai.yaml
 
 | 字段 | 我们的意图 |

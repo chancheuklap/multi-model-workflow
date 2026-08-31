@@ -16,6 +16,7 @@ Then say in one sentence which **seam** this ticket is tested at — copied from
 While writing code:
 
 - Every baseline in **Read first** is the contract. Copy its values, wording, states and interface shapes from it rather than writing them again from memory. When the work does not fit it, a missing state, field, interaction or case, or two baselines conflict, keep going and open a sub-issue under the spec (`gh issue create --parent <spec> --label needs-triage`); never quietly change a baseline, never quietly add around one. A check that will not pass is answered by fixing the code or abandoning the criterion, never by bending the baseline, the harness or the test.
+- Put no question on the screen. Take the option the ticket, its baselines and the spec make most likely, write one line for it under **Decisions I made on my own**, and keep going. A question whose answer would change what the ticket delivers gets a sub-issue under the spec (`gh issue create --parent <spec> --label needs-triage`) instead, and the rest of the work carries on.
 - Before changing a function, grep every caller and fix the shared code once; before adding a branch or guard to an existing flow, name the branch or file it makes unnecessary and delete it in the same commit.
 - Before writing a helper, search the repository and **Read first** for one that already exists.
 - Before adding a file, a dependency or a configuration entry, say why the existing one is not enough.
