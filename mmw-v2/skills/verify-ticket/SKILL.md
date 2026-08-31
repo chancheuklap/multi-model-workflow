@@ -67,6 +67,8 @@ Whether an interface matches the design it was built from is the other script in
 
 The baseline directory is a Claude Design project downloaded as a handoff package, and holds five things: the component's `.dc.html`, its `styles/`, its `data/`, `support.js`, and a `scenes.json` naming every scene. A directory missing any of them cannot be rendered.
 
+An implementation that is not a page on a web server — a desktop application, say — is compared where it already runs: `--cdp <url>` names its debugging port, `--impl` still names the address to navigate to, and `--impl-title` picks the window when there is more than one. The application is left running afterwards. What is compared is what its renderer draws, so the size of its operating-system window is not: a window minimum is a person's to check, not this script's.
+
 Nobody types this command: `to-tickets` writes it onto the ticket as a criterion, in one shape.
 
 ```

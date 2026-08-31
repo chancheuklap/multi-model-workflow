@@ -4,7 +4,8 @@
 #
 #   dispatch.sh <ticket> <role> [base-commit]
 #   dispatch.sh wait <ticket> "<first-line-regex>" [seconds]
-#   dispatch.sh run <spec> [--role R] [--parallel N] [--max-hours H]
+#   dispatch.sh advance <spec> [--role R]
+#   dispatch.sh run <spec> [--role R] [--max-hours H]
 #
 # The role and the ticket number are the whole input. Everything else — which Herdr
 # name the session gets, whether it opens a tab or splits a pane, what it is told to
@@ -34,7 +35,23 @@ BOARD="$SKILL_ROOT/scripts/board.py"
 INSTALLER="$(dirname "$(dirname "$SKILL_ROOT")")/install.sh"
 
 BOARD_TAB_LABEL="mmw board"
-MAIN_AGENT_NAME=mmw-main
+MERGE_TRIES=3                # the board opens worktrees while advance merges
+
+# Herdr's agent names are unique among live agents across the whole server, not per
+# workspace, so two repositories each holding a ticket #100 would collide on `issue-100`
+# and the second `agent start` would simply fail — leaving that ticket unstartable for
+# the rest of the night. The workspace id is short, stable, and already the prefix of
+# every pane id in it. Outside Herdr the names are the bare ones. `board.py` builds the
+# same prefix the same way; the two have to agree or it stops recognising our sessions.
+herdr_name() {
+  local ws="${HERDR_WORKSPACE_ID:-}"
+  if [ -n "$ws" ]; then
+    printf '%s-%s\n' "$(printf '%s' "$ws" | tr '[:upper:]' '[:lower:]')" "$1"
+  else
+    printf '%s\n' "$1"
+  fi
+}
+MAIN_AGENT_NAME="$(herdr_name mmw-main)"
 BOARD_RESTART_SECONDS=5      # it holds no state, so restarting it loses nothing
 
 # Grok Build hands its agents CLICOLOR_FORCE=1, and `gh` writes ANSI escapes into
@@ -57,7 +74,8 @@ usage() {
   cat >&2 <<'USAGE'
 usage: dispatch.sh <ticket> <role> [base-commit]
        dispatch.sh wait <ticket> "<first-line-regex>" [seconds]
-       dispatch.sh run <spec> [--role R] [--parallel N] [--max-hours H]
+       dispatch.sh advance <spec> [--role R]
+       dispatch.sh run <spec> [--role R] [--max-hours H]
 USAGE
   exit 2
 }
@@ -172,8 +190,8 @@ worktree_for() {
   else
     git -C "$root" worktree add -b "issue-$number" "$path" HEAD >/dev/null || return 1
     git -C "$root" config "branch.issue-$number.mmw-base" "$(git -C "$root" rev-parse HEAD)"
-    # The branch name as well as the commit: the pull request the worker opens at the
-    # end needs a base branch, and the sha alone cannot name one.
+    # The branch name as well as the commit: `advance` merges this branch back into
+    # the one it was cut from once the ticket closes, and a sha cannot name a branch.
     git -C "$root" config "branch.issue-$number.mmw-base-branch" \
       "$(git -C "$root" rev-parse --abbrev-ref HEAD)"
   fi
@@ -233,7 +251,7 @@ dispatch() {
 
   local pane name prompt
   if [ "$reviewing" = 1 ]; then
-    name="issue-$number-review"
+    name="$(herdr_name "issue-$number-review")"
     prompt="code-review $base #$number"
     local caller="${HERDR_PANE_ID:-}"
     [ -n "$caller" ] || refuse "no calling pane to split, so the reviewer has nowhere to go"
@@ -245,7 +263,7 @@ dispatch() {
             | json_at .result.pane.pane_id)"
     [ -n "$pane" ] || refuse "could not split pane $caller"
   else
-    name="issue-$number"
+    name="$(herdr_name "issue-$number")"
     prompt="implement #$number"
     local worktree
     worktree="$(worktree_for "$number" "$root")" \
@@ -325,7 +343,9 @@ if comments:
 # follows from who is calling. Prints nothing when that agent is not live, which
 # leaves the caller waiting on the tracker alone.
 awaited_agent() {
-  herdr agent list 2>/dev/null | MMW_TICKET_NUMBER="$1" MMW_OWN_PANE="${HERDR_PANE_ID:-}" python3 -c '
+  herdr agent list 2>/dev/null \
+    | MMW_TICKET_NUMBER="$1" MMW_OWN_PANE="${HERDR_PANE_ID:-}" \
+      MMW_NAME_PREFIX="$(herdr_name "")" python3 -c '
 import json, os, sys
 
 number = os.environ["MMW_TICKET_NUMBER"]
@@ -337,7 +357,7 @@ except Exception:
 agents = (payload.get("result") or {}).get("agents") or payload.get("agents") or []
 live = dict((a.get("name"), a.get("pane_id")) for a in agents if a.get("name"))
 
-worker = "issue-" + number
+worker = os.environ.get("MMW_NAME_PREFIX", "") + "issue-" + number
 caller_is_the_worker = own_pane is not None and live.get(worker) == own_pane
 target = worker + "-review" if caller_is_the_worker else worker
 if target in live:
@@ -380,6 +400,162 @@ wait_for() {
   give_up "$who did not report back within ${seconds}s"
 }
 
+# ------------------------------------------------------------------ advancing
+
+# The branch `worktree_for` cuts for a ticket. Only it hands out these names, so reading
+# one back to a ticket number is exact.
+ticket_branch() { printf 'issue-%s\n' "$1"; }
+
+# A ticket's title, for the lines a person reads. Empty when the tracker cannot say.
+ticket_title() {
+  gh_ issue view "$1" --json title -q .title 2>/dev/null | head -n 1
+}
+
+# Everything needed to resolve the merge sitting in the tree, in the order the
+# `resolving-merge-conflicts` skill asks for it: the state of the merge first, then the
+# primary source behind each side. Both sides are tickets — the branch being merged is
+# one ticket's work, and the merge commits already on this branch name the others — so
+# they are printed rather than left to be hunted for.
+conflict_report() {
+  local root="$1" remaining="${2:-}"
+  local git_dir branch number title line
+  git_dir="$(git -C "$root" rev-parse --git-dir)"
+  branch="$(sed -n "s/^Merge branch '\([^']*\)'.*/\1/p" "$git_dir/MERGE_MSG" 2>/dev/null | head -n 1)"
+  [ -n "$branch" ] || branch="(unknown)"
+
+  echo "CONFLICT merging $branch into $(git -C "$root" rev-parse --abbrev-ref HEAD)"
+  echo
+
+  number="${branch#issue-}"
+  case "$number" in
+    *[!0-9]* | "") echo "  MERGE_HEAD  $branch" ;;
+    *) title="$(ticket_title "$number")"
+       echo "  MERGE_HEAD  $branch  ← $title (#$number)" ;;
+  esac
+
+  echo "  HEAD        already merged, most recent first:"
+  git -C "$root" log --merges --first-parent -3 --format='%s' 2>/dev/null \
+    | sed -n "s/^Merge branch '\([^']*\)'.*/\1/p" \
+    | while read -r line; do
+        number="${line#issue-}"
+        case "$number" in
+          *[!0-9]* | "") echo "                $line" ;;
+          *) echo "                $line  ← $(ticket_title "$number") (#$number)" ;;
+        esac
+      done
+
+  echo
+  echo "  conflicted files:"
+  git -C "$root" diff --name-only --diff-filter=U | sed 's/^/    /'
+
+  if [ -n "$remaining" ]; then
+    echo
+    printf '  not merged yet: %s\n' "$(printf '%s' "$remaining" | tr '\n' ' ')"
+  fi
+
+  echo
+  echo "  Resolve it with the resolving-merge-conflicts skill — never --abort — run this"
+  echo "  repository's own checks, commit the merge, then run:"
+  echo "    bash $SELF advance $MMW_ADVANCE_SPEC"
+}
+
+# 0 merged, 1 left in conflict, 2 could not run it at all.
+#
+# A retry is for the lock, not for the conflict: the board opens a worktree for a
+# redispatch while this runs, and the two collide on the repository's index for a
+# moment. A conflict leaves MERGE_HEAD behind and no number of retries changes it.
+merge_one() {
+  local root="$1" branch="$2" i
+  for ((i = 1; i <= MERGE_TRIES; i++)); do
+    if git -C "$root" merge --no-ff --no-edit "$branch" >/dev/null 2>&1; then
+      return 0
+    fi
+    if git -C "$root" rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
+      return 1
+    fi
+    sleep 2
+  done
+  return 2
+}
+
+# Merge what the batch has finished, then start what it can start. One command because
+# the order is the whole point: `worktree_for` cuts a branch from HEAD at the moment it
+# opens, so a branch merged after the next ticket is dispatched is a branch that ticket
+# cannot see.
+advance() {
+  local spec="$1"; shift
+  local role=junior-worker
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --role) role="${2:-}"; shift 2 || usage ;;
+      *) usage ;;
+    esac
+  done
+  case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
+
+  [ "${HERDR_ENV:-}" = 1 ] \
+    || refuse "not running inside Herdr, so there is nowhere to start a session"
+  [ -f "$BOARD" ] || refuse "no board at $BOARD"
+  [ -n "$(row_for_role "$role")" ] || refuse "no role named $role in $MODELS"
+
+  local root
+  root="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$root" ] || refuse "not inside a git repository, so there is nothing to merge into"
+
+  export MMW_ADVANCE_SPEC="$spec"
+
+  # A merge left half-resolved stops everything: the tree is between two tickets, and a
+  # worktree cut from it would hand the next worker neither one.
+  if git -C "$root" rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
+    conflict_report "$root"
+    exit 3
+  fi
+
+  local dirty
+  dirty="$(git -C "$root" status --porcelain --untracked-files=no)"
+  [ -z "$dirty" ] \
+    || refuse "$(printf '%s' "$dirty" | wc -l | tr -d ' ') tracked files have uncommitted changes; a merge would carry them in — commit them or set them aside first"
+
+  local plan
+  plan="$(python3 "$BOARD" --advance-plan "$spec")" \
+    || refuse "could not read the batch under #$spec"
+
+  local merged=0 skipped=0 number branch left rc
+  for number in $(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }'); do
+    branch="$(ticket_branch "$number")"
+    if ! git -C "$root" rev-parse --verify --quiet "refs/heads/$branch" >/dev/null; then
+      skipped=$((skipped + 1))
+      continue
+    fi
+    if git -C "$root" merge-base --is-ancestor "$branch" HEAD 2>/dev/null; then
+      skipped=$((skipped + 1))
+      continue
+    fi
+    merge_one "$root" "$branch"
+    rc=$?
+    if [ "$rc" -eq 1 ]; then
+      left="$(printf '%s\n' "$plan" | awk -v n="$number" '$1 == "MERGE" && seen { print "issue-" $2 } $2 == n { seen = 1 }')"
+      conflict_report "$root" "$left"
+      exit 3
+    fi
+    [ "$rc" -eq 0 ] || refuse "could not merge $branch after $MERGE_TRIES tries; git said nothing this script can act on"
+    echo "merged $branch"
+    merged=$((merged + 1))
+  done
+
+  local started=0 refused=0
+  for number in $(printf '%s\n' "$plan" | awk '$1 == "DISPATCH" { print $2 }'); do
+    # A subprocess, so one ticket that will not start does not take the rest with it.
+    if bash "$SELF" "$number" "$role"; then
+      started=$((started + 1))
+    else
+      refused=$((refused + 1))
+    fi
+  done
+
+  echo "advance #$spec: merged $merged, already in $skipped, started $started, refused $refused"
+}
+
 # ------------------------------------------------------------------ the night
 
 # Starts the night: checks the machine, names this pane so the board can reach it,
@@ -387,11 +563,10 @@ wait_for() {
 # this is the board's; the caller goes back to reading tickets.
 run_night() {
   local spec="$1"; shift
-  local role=junior-worker parallel="" max_hours=""
+  local role=junior-worker max_hours=""
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --role) role="${2:-}"; shift 2 || usage ;;
-      --parallel) parallel="${2:-}"; shift 2 || usage ;;
       --max-hours) max_hours="${2:-}"; shift 2 || usage ;;
       *) usage ;;
     esac
@@ -429,13 +604,19 @@ run_night() {
   herdr agent rename "$caller" "$MAIN_AGENT_NAME" >/dev/null 2>&1 \
     || refuse "could not rename this pane $MAIN_AGENT_NAME, so the board could not reach it"
 
-  local pane
-  pane="$(herdr tab create --cwd "$root" --label "$BOARD_TAB_LABEL" --no-focus \
+  # The same workspace the workers go to. Every board sees every pane on the server and
+  # tells its own apart by workspace, so a board started in somebody else's would filter
+  # by the wrong one — and the label carries the spec number because several of these
+  # tabs are open on a night when several projects run.
+  local pane tab_args
+  tab_args=()
+  [ -n "${HERDR_WORKSPACE_ID:-}" ] && tab_args=(--workspace "$HERDR_WORKSPACE_ID")
+  pane="$(herdr tab create ${tab_args[@]+"${tab_args[@]}"} --cwd "$root" \
+            --label "$BOARD_TAB_LABEL #$spec" --no-focus \
           | json_at .result.root_pane.pane_id)"
   [ -n "$pane" ] || refuse "could not open the $BOARD_TAB_LABEL tab"
 
   local watch="python3 $BOARD --watch $spec --role $role"
-  [ -n "$parallel" ] && watch="$watch --parallel $parallel"
   [ -n "$max_hours" ] && watch="$watch --max-hours $max_hours"
   # It keeps no state, so a crash costs nothing but the wait; it exits 0 once the night
   # is over, and that is what ends the loop.
@@ -454,6 +635,11 @@ case "${1:-}" in
     [ "$#" -ge 2 ] || usage
     shift
     run_night "$@"
+    ;;
+  advance)
+    [ "$#" -ge 2 ] || usage
+    shift
+    advance "$@"
     ;;
   wait)
     [ "$#" -ge 3 ] && [ "$#" -le 4 ] || usage

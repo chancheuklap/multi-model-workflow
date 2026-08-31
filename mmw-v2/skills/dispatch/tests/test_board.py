@@ -22,12 +22,32 @@ _spec = importlib.util.spec_from_file_location("board", BOARD_PATH)
 board = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(board)
 
+_OWN_WORKSPACE = object()
 
-def agent(name, pane, status, host="claude", **tokens):
+
+def setUpModule():
+    """Answer for no workspace unless a test says otherwise.
+
+    These tests run inside Herdr as often as not, and a board reads the workspace it
+    was started in out of the environment — to name its sessions and to tell them from
+    another board's. Left alone, the tests would be answering for whichever workspace
+    the run happened to start in.
+    """
+    global _OWN_WORKSPACE
+    _OWN_WORKSPACE = os.environ.pop("HERDR_WORKSPACE_ID", _OWN_WORKSPACE)
+
+
+def tearDownModule():
+    if _OWN_WORKSPACE is not None and not isinstance(_OWN_WORKSPACE, object.__class__):
+        os.environ["HERDR_WORKSPACE_ID"] = _OWN_WORKSPACE
+
+
+def agent(name, pane, status, host="claude", workspace="", **tokens):
     """One entry of `herdr api snapshot`'s `agents`, with only the fields read."""
     return {
         "name": name,
         "agent": host,
+        "workspace_id": workspace,
         "pane_id": pane,
         "agent_status": status,
         "focused": False,
@@ -170,7 +190,7 @@ class Rows(unittest.TestCase):
     def test_the_frontier_leaves_out_what_is_held_claimed_or_blocked(self):
         self.assertEqual([r["ticket"] for r in board.frontier(self.rows())], [])
 
-    def test_only_the_dispatchers_own_sessions_count_against_the_parallel_cap(self):
+    def test_only_the_dispatchers_own_sessions_count_as_held(self):
         agents = [agent("issue-61", "w1:p1", "working", ticket=61, kind="worker"),
                   agent(None, "w1:p9", "idle", ticket=63, kind="worker", phase="handoff")]
         tickets = {61: ticket(61), 63: ticket(63)}
@@ -255,13 +275,13 @@ class Table(unittest.TestCase):
         rows = board.build_rows(list(tickets), tickets, board.sessions(agents))
         return board.render_table(rows, spec, datetime(2026, 8, 31, 2, 14))
 
-    def test_the_first_line_names_the_time_the_spec_the_count_and_the_parallel_cap(self):
+    def test_the_first_line_names_the_time_the_spec_the_count_and_the_live_sessions(self):
         self.assertEqual(self.table().splitlines()[0],
-                         "mmw board · 02:14 · spec #60 · 2 tickets · PARALLEL 1/2")
+                         "mmw board · 02:14 · spec #60 · 2 tickets · 1 live")
 
     def test_without_a_spec_the_first_line_leaves_that_field_out(self):
         self.assertEqual(self.table(spec=None).splitlines()[0],
-                         "mmw board · 02:14 · 2 tickets · PARALLEL 1/2")
+                         "mmw board · 02:14 · 2 tickets · 1 live")
 
     def test_the_columns_are_the_fixed_seven(self):
         self.assertEqual(self.table().splitlines()[2].split(),
@@ -304,7 +324,7 @@ class Table4(unittest.TestCase):
                        "read_ticket", "collect", "live_agents", "time")}
         self.screen = ("Which colour do you prefer?\n"
                        "1. red\n2. blue\nEnter to select · Esc to cancel")
-        self.main = [agent(board.MAIN, "w1:pMain", "idle")]
+        self.main = [agent(board.main_name(), "w1:pMain", "idle")]
         self.tickets = {}
         self.rows = []
 
@@ -327,7 +347,7 @@ class Table4(unittest.TestCase):
 
         def fake_prompt(args):
             if args[:2] == ["agent", "prompt"]:
-                where = "main" if args[2] == board.MAIN else "prompt"
+                where = "main" if args[2] == board.main_name() else "prompt"
                 self.calls[where].append((args[2], args[3]))
             return (0, "")
 
@@ -363,8 +383,8 @@ class Table4(unittest.TestCase):
         self.tickets = tickets
         self.rows = board.build_rows(list(tickets), tickets, board.sessions(agents))
 
-    def watch(self, parallel=2, max_hours=4):
-        return board.Watch(76, "junior-worker", parallel, max_hours)
+    def watch(self, max_hours=4):
+        return board.Watch(76, "junior-worker", max_hours)
 
     def round(self, watch):
         with redirect_stdout(io.StringIO()) as out:
@@ -530,62 +550,64 @@ class Table4(unittest.TestCase):
         self.round(watch)
         self.assertEqual([c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"]], [])
 
-    # ------------------------------------------------------------- dispatching
+    # ------------------------------------------------------------- moving on
 
-    def test_the_frontier_is_dispatched_up_to_the_parallel_cap(self):
+    ADVANCE = ("mmw board: ADVANCE #76 — run "
+               "~/.agents/skills/dispatch/scripts/dispatch.sh advance 76")
+
+    def test_a_frontier_with_tickets_on_it_reaches_the_main_agent(self):
+        """The board says there is a step to take. Taking it is the main agent's."""
         self.world([], {70: ticket(70), 71: ticket(71), 72: ticket(72)})
-        self.round(self.watch(parallel=2))
-        self.assertEqual(self.calls["dispatch"],
-                         [(70, "junior-worker"), (71, "junior-worker")])
+        self.round(self.watch())
+        self.assertEqual(self.calls["dispatch"], [])
+        self.assertEqual(self.calls["main"], [(board.main_name(), self.ADVANCE)])
 
-    def test_a_live_session_takes_up_one_of_those_places(self):
+    def test_the_same_frontier_is_not_announced_twice(self):
+        self.world([], {70: ticket(70)})
+        watch = self.watch()
+        self.round(watch)
+        self.round(watch)
+        self.assertEqual(len(self.calls["main"]), 1)
+
+    def test_a_frontier_that_grows_is_announced_again(self):
+        self.world([], {70: ticket(70)})
+        watch = self.watch()
+        self.round(watch)
+        self.world([], {70: ticket(70), 71: ticket(71)})
+        self.round(watch)
+        self.assertEqual(len(self.calls["main"]), 2)
+
+    def test_an_empty_frontier_says_nothing(self):
         self.world([agent("issue-61", "w1:p1", "working", ticket=61, kind="worker",
-                          phase="implement")],
-                   {61: ticket(61, assignees=("me",)), 70: ticket(70), 71: ticket(71)})
-        self.round(self.watch(parallel=2))
-        self.assertEqual(self.calls["dispatch"], [(70, "junior-worker")])
+                          phase="implement")], {61: ticket(61, assignees=("me",))})
+        self.round(self.watch())
+        self.assertEqual(self.calls["main"], [])
 
-    def test_a_ticket_already_handed_back_is_not_started_again(self):
+    def test_a_ticket_already_handed_back_is_not_announced(self):
         self.idle_world(wake=board.WAKE_LIMIT)
         watch = self.watch()
         self.round(watch)
         self.clock.tick(max(board.WAKE_BACKOFF))
         self.round(watch)
+        before = len(self.calls["main"])
         self.world([], {61: ticket(61)})
         self.round(watch)
-        self.assertEqual(self.calls["dispatch"], [])
+        self.assertEqual(len(self.calls["main"]), before)
 
-    def test_a_ticket_reaching_closed_frees_its_place_in_the_same_round(self):
+    def test_a_ticket_reaching_closed_has_its_pane_closed_in_the_same_round(self):
         self.world([agent("issue-61", "w1:p1", "idle", ticket=61, kind="worker",
                           phase="closed")],
                    {61: ticket(61, state="CLOSED", labels=()), 70: ticket(70)})
-        self.round(self.watch(parallel=1))
+        self.round(self.watch())
         self.assertIn(["pane", "close", "w1:p1"], self.calls["herdr"])
-        self.assertEqual(self.calls["dispatch"], [(70, "junior-worker")])
 
-    def test_a_ticket_handed_back_with_its_pane_closed_frees_its_place_too(self):
-        self.idle_world(wake=board.WAKE_LIMIT)
-        self.tickets[70] = ticket(70)
-        self.rows = board.build_rows(list(self.tickets), self.tickets,
-                                     board.sessions(self.agents))
-        watch = self.watch(parallel=1)
-        self.round(watch)
-        self.clock.tick(max(board.WAKE_BACKOFF))
-        self.round(watch)
-        self.assertIn(["pane", "close", "w1:p1"], self.calls["herdr"])
-        self.assertEqual(self.calls["dispatch"], [(70, "junior-worker")])
-
-    def test_a_ticket_over_its_time_limit_keeps_its_place_because_it_keeps_its_session(self):
+    def test_a_ticket_over_its_time_limit_keeps_its_session(self):
         self.idle_world(phase="verify")
-        self.tickets[70] = ticket(70)
-        self.rows = board.build_rows(list(self.tickets), self.tickets,
-                                     board.sessions(self.agents))
-        watch = self.watch(parallel=1)
+        watch = self.watch()
         self.round(watch)
         self.clock.tick(4 * 3600 + 1)
         self.round(watch)
         self.assertNotIn(["pane", "close", "w1:p1"], self.calls["herdr"])
-        self.assertEqual(self.calls["dispatch"], [])
 
     def test_the_last_session_reaching_closed_ends_the_night_in_the_same_round(self):
         self.world([agent("issue-61", "w1:p1", "idle", ticket=61, kind="worker",
@@ -682,11 +704,13 @@ class Table4(unittest.TestCase):
         comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
         self.assertIn("ended at phase=unknown", comment[-1])
 
-    def test_a_ticket_nobody_claimed_is_dispatched_not_redispatched(self):
+    def test_a_ticket_nobody_claimed_is_not_a_session_that_died(self):
+        """No assignee means it was never started, so it goes to the frontier."""
         self.world([], {61: ticket(61)})
         self.round(self.watch())
         self.assertEqual([c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"]], [])
-        self.assertEqual(self.calls["dispatch"], [(61, "junior-worker")])
+        self.assertEqual(self.calls["dispatch"], [])
+        self.assertEqual(self.calls["main"], [(board.main_name(), self.ADVANCE)])
 
     def test_a_ticket_with_a_closing_comment_is_left_alone(self):
         for closing in ("ALL MET", "HANDOFF REQUIRED: 1 abandoned (failed)"):
@@ -713,20 +737,13 @@ class Table4(unittest.TestCase):
 
     # ------------------------------------------------------------- dispatch.sh's exits
 
-    def test_exit_1_still_takes_up_a_place(self):
-        self.dispatch_code = 1
-        self.world([], {70: ticket(70), 71: ticket(71), 72: ticket(72)})
-        self.round(self.watch(parallel=2))
-        self.assertEqual(self.calls["dispatch"],
-                         [(70, "junior-worker"), (71, "junior-worker")])
-
-    def test_exit_2_takes_up_no_place_and_is_not_retried_this_round(self):
+    def test_a_redispatch_that_will_not_start_is_left_for_the_next_round(self):
+        """Exit 2 says the ticket did not qualify; the next round asks the tracker again."""
         self.dispatch_code = 2
-        self.world([], {70: ticket(70), 71: ticket(71), 72: ticket(72)})
-        self.round(self.watch(parallel=2))
-        self.assertEqual(self.calls["dispatch"],
-                         [(70, "junior-worker"), (71, "junior-worker"),
-                          (72, "junior-worker")])
+        self.world([agent("issue-61", "w1:p1", "unknown", ticket=61, kind="worker",
+                          phase="selfcheck")], {61: ticket(61, assignees=("me",))})
+        self.round(self.watch())
+        self.assertEqual(self.calls["dispatch"], [(61, "junior-worker")])
 
     def test_a_session_that_was_never_told_anything_gets_its_dispatch_line(self):
         self.world([agent("issue-61", "w1:p1", "idle", ticket=61, kind="worker")],
@@ -790,7 +807,7 @@ class Table4(unittest.TestCase):
         self.clock.tick(max(board.WAKE_BACKOFF))
         self.round(watch)
         self.assertEqual(self.calls["main"],
-                         [(board.MAIN,
+                         [(board.main_name(),
                            "mmw board: WAKEUP LIMIT #61 — run "
                            "~/.agents/skills/dispatch/scripts/board.py --once 76")])
 
@@ -815,7 +832,7 @@ class Table4(unittest.TestCase):
         self.round(watch)
         self.assertEqual(self.calls["main"], [])
 
-    def test_with_nobody_named_mmw_main_the_line_is_dropped(self):
+    def test_with_nobody_named_mmw_main_the_line_waits(self):
         self.main = []
         self.idle_world(wake=board.WAKE_LIMIT)
         watch = self.watch()
@@ -823,16 +840,95 @@ class Table4(unittest.TestCase):
         self.clock.tick(max(board.WAKE_BACKOFF))
         self.round(watch)
         self.assertEqual(self.calls["main"], [])
+        self.assertEqual(len(watch.for_main), 1)
+
+    def test_a_waiting_line_is_delivered_once_mmw_main_is_there_again(self):
+        """The pane can come back, and the night goes on from the line it left behind.
+
+        A dropped line would end the night in silence: the frontier it belongs to is
+        already recorded as announced, so no later round would raise it a second time.
+        """
+        self.main = []
+        self.idle_world(wake=board.WAKE_LIMIT)
+        watch = self.watch()
+        self.round(watch)
+        self.clock.tick(max(board.WAKE_BACKOFF))
+        self.round(watch)
+        self.assertEqual(self.calls["main"], [])
+        self.main = [agent(board.main_name(), "w1:pMain", "idle")]
+        self.round(watch)
+        self.assertEqual(len(self.calls["main"]), 1)
         self.assertEqual(watch.for_main, [])
+
+    def test_an_absent_mmw_main_is_reported_once_and_not_every_round(self):
+        self.main = []
+        self.idle_world(wake=board.WAKE_LIMIT)
+        watch = self.watch()
+        self.round(watch)
+        self.clock.tick(max(board.WAKE_BACKOFF))
+        printed = self.round(watch) + self.round(watch) + self.round(watch)
+        self.assertEqual(printed.count("absent"), 1)
 
     def test_the_end_of_the_night_reaches_the_main_agent(self):
         self.world([], {61: ticket(61, state="CLOSED", labels=())})
         watch = self.watch()
         self.round(watch)
-        self.assertEqual(self.calls["main"],
-                         [(board.MAIN, "mmw board: night over #76 — run "
-                                       "~/.agents/skills/dispatch/scripts/board.py "
-                                       "--once 76")])
+        self.assertEqual(
+            self.calls["main"],
+            [(board.main_name(), "mmw board: night over #76 — run "
+                          "~/.agents/skills/dispatch/scripts/dispatch.sh advance 76")])
+
+
+class Workspace(unittest.TestCase):
+    """One board answers for one Herdr workspace, and names its sessions for it.
+
+    Several projects run at once on one server, each in its own workspace, and every
+    board sees every pane. Two things follow. A board acts only on the sessions of its
+    own workspace, or it would re-prompt and close another project's. And the names it
+    hands out carry the workspace, because Herdr's names are unique among live agents
+    across the whole server — two repositories each holding a ticket #100 would collide
+    on `issue-100`, and the second `agent start` would simply fail.
+    """
+
+    def setUp(self):
+        os.environ.pop("HERDR_WORKSPACE_ID", None)
+
+    def tearDown(self):
+        os.environ.pop("HERDR_WORKSPACE_ID", None)
+
+    def test_with_no_workspace_the_names_are_the_bare_ones(self):
+        self.assertEqual(board.name_prefix(), "")
+        self.assertEqual(board.main_name(), "mmw-main")
+        self.assertEqual(board.worker_name(61), "issue-61")
+
+    def test_a_workspace_is_carried_by_every_name(self):
+        os.environ["HERDR_WORKSPACE_ID"] = "w2Q"
+        self.assertEqual(board.name_prefix(), "w2q-")
+        self.assertEqual(board.main_name(), "w2q-mmw-main")
+        self.assertEqual(board.worker_name(61), "w2q-issue-61")
+        self.assertTrue(board.name_re().match("w2q-issue-61-review"))
+        self.assertIsNone(board.name_re().match("issue-61"))
+
+    def test_a_name_stays_within_what_herdr_accepts(self):
+        os.environ["HERDR_WORKSPACE_ID"] = "w2Q"
+        name = board.worker_name(555) + "-review"
+        self.assertRegex(name, r"^[a-z][a-z0-9_-]{0,31}$")
+
+    def test_another_workspaces_session_is_not_this_boards(self):
+        os.environ["HERDR_WORKSPACE_ID"] = "w2Q"
+        agents = [agent("w2q-issue-61", "w2Q:p1", "idle", workspace="w2Q",
+                        ticket=61, kind="worker"),
+                  agent("w2k-issue-61", "w2K:p1", "idle", workspace="w2K",
+                        ticket=61, kind="worker")]
+        found = board.sessions(agents)
+        self.assertEqual([s["pane_id"] for s in found], ["w2Q:p1"])
+
+    def test_without_a_workspace_every_session_is_read(self):
+        agents = [agent("issue-61", "w1:p1", "idle", workspace="w1",
+                        ticket=61, kind="worker"),
+                  agent("issue-62", "w2:p1", "idle", workspace="w2",
+                        ticket=62, kind="worker")]
+        self.assertEqual(len(board.sessions(agents)), 2)
 
 
 class Constants(unittest.TestCase):
@@ -840,10 +936,13 @@ class Constants(unittest.TestCase):
 
     def test_the_numbers_are_the_ones_the_plan_settled(self):
         self.assertEqual(
-            (board.PARALLEL, board.COOLDOWN_SECONDS, board.WAKE_BACKOFF,
-             board.WAKE_LIMIT, board.REDISPATCH_LIMIT, board.MAX_HOURS,
-             board.SNAPSHOT_INTERVAL),
-            (2, 120, (120, 240, 480), 3, 1, 4, 60))
+            (board.COOLDOWN_SECONDS, board.WAKE_BACKOFF, board.WAKE_LIMIT,
+             board.REDISPATCH_LIMIT, board.MAX_HOURS, board.SNAPSHOT_INTERVAL),
+            (120, (120, 240, 480), 3, 1, 4, 60))
+
+    def test_no_cap_on_how_many_tickets_run_at_once(self):
+        """Dispatching is the main agent's, and it is given no limit to spend."""
+        self.assertFalse(hasattr(board, "PARALLEL"))
 
 
 if __name__ == "__main__":
