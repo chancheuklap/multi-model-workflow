@@ -30,7 +30,7 @@ import subprocess
 import sys
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 # --------------------------------------------------------------------- constants
 
@@ -560,7 +560,9 @@ class Watch:
         self.wakes: dict[str, int] = {}
         self.handed_back: set[int] = set()
         self.for_main: list[str] = []
-        self.opened = datetime.now().astimezone().isoformat()
+        # The same shape GitHub writes into createdAt and closedAt — UTC, `Z` suffix —
+        # so the summary can compare the two as strings.
+        self.opened = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         self.summary_written = False
 
     # ------------------------------------------------------------- the round

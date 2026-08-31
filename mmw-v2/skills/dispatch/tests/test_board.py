@@ -756,7 +756,10 @@ class Table4(unittest.TestCase):
 
     def test_the_summary_is_four_lines_of_numbers_and_first_lines(self):
         watch = self.watch()
-        watch.opened = "2026-08-30T00:00:00+08:00"
+        # GitHub writes createdAt and closedAt in UTC with a `Z` suffix; the fixtures
+        # carry that exact shape, because the summary compares them to `opened` as
+        # strings.
+        watch.opened = "2026-08-30T00:00:00Z"
         tickets = {
             61: ticket(61, state="CLOSED", labels=(), comments=["ALL MET\nBranch: x"]),
             62: ticket(62, labels=("needs-triage",),
@@ -766,8 +769,8 @@ class Table4(unittest.TestCase):
         }
         for number, when in ((61, "2026-08-29"), (62, "2026-08-29"),
                              (63, "2026-08-29"), (64, "2026-08-31")):
-            tickets[number]["created"] = when + "T00:00:00+08:00"
-        tickets[61]["closed_at"] = "2026-08-31T02:00:00+08:00"
+            tickets[number]["created"] = when + "T00:00:00Z"
+        tickets[61]["closed_at"] = "2026-08-31T02:00:00Z"
         rows = board.build_rows(list(tickets), tickets, [])
         body = watch.summary(rows).splitlines()
         self.assertTrue(body[0].startswith("NIGHT SUMMARY "))
