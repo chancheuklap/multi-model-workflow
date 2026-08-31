@@ -41,7 +41,6 @@ SKILLS_SRC="$ROOT/upstream/skills"
 SELF_SRC="$ROOT/skills"
 DD_SRC="$ROOT/upstream-diagram-design/skills"
 LIST="$ROOT/skills.txt"
-MANIFEST_NAME=".mmw-skills"
 
 # 一条软链是不是本仓库装的：目标落在本仓库任一 checkout（主 checkout 或某个 worktree）
 # 的对应源目录里，按路径段认。ADR 0006 说的「指回本仓库」是仓库，不是某一个 checkout：
@@ -58,6 +57,34 @@ ours_agent_target() {
     */mmw-v2/agents/*) return 0 ;;
   esac
   return 1
+}
+
+# 一个安装目录里所有指回本仓库的软链。别人放在同一个目录里的东西不在其中。
+repo_links() {
+  local dest="$1" pred="$2" link
+  [ -d "$dest" ] || return 0
+  for link in "$dest"/*; do
+    [ -L "$link" ] || continue
+    if "$pred" "$(readlink "$link")"; then printf '%s\n' "$link"; fi
+  done
+  return 0
+}
+
+# 其中这次不该有的：指回本仓库，名字却不在这一批要装的里面。
+# 扫目录而不是读「上一次装了什么」的记录：记录会被下一次安装重写，被漏掉的那条
+# 就再也没人认领。ui-qa 退役后八处软链留了一整天，就是这么来的。
+stale_links() {
+  local dest="$1" pred="$2"; shift 2
+  local keep=("$@") link name
+  while IFS= read -r link; do
+    [ -n "$link" ] || continue
+    name="$(basename "$link")"
+    if [ "${#keep[@]}" -gt 0 ] && printf '%s\n' "${keep[@]}" | grep -qx "$name"; then
+      continue
+    fi
+    printf '%s\n' "$link"
+  done < <(repo_links "$dest" "$pred")
+  return 0
 }
 
 # MMW_V2_HOME 只给测试用：把安装位置整体搬到一个一次性目录下，不碰真的家目录。
@@ -125,8 +152,6 @@ for dest in "${HOST_DIRS[@]}"; do
   fi
   installed_dests=$((installed_dests + 1))
 
-  manifest="$dest/$MANIFEST_NAME"
-
   if [ "$mode" = check ]; then
     for i in "${!wanted_names[@]}"; do
       link="$dest/${wanted_names[$i]}"
@@ -136,26 +161,26 @@ for dest in "${HOST_DIRS[@]}"; do
         rc=1
       fi
     done
+    while IFS= read -r stale; do
+      [ -n "$stale" ] || continue
+      echo "残留  $stale 指回本仓库，名单里却没有它，跑一次 install.sh 摘掉" >&2
+      rc=1
+    done < <(stale_links "$dest" ours_skill_target "${wanted_names[@]}")
     continue
   fi
 
   mkdir -p "$dest"
 
-  # 先按上一次的记录清理：那时装了、这次名单里没有的，摘掉。
-  # 只摘我们自己装的软链——目标不指回本仓库的一律不碰，宁可留着也不误删。
-  if [ -f "$manifest" ]; then
-    while IFS= read -r old; do
-      [ -n "$old" ] || continue
-      printf '%s\n' "${wanted_names[@]}" | grep -qx "$old" && continue
-      stale="$dest/$old"
-      [ -L "$stale" ] || continue
-      if ours_skill_target "$(readlink "$stale")"; then
-        rm "$stale"; echo "摘掉  $stale"
-      fi
-    done < "$manifest"
-  fi
+  # 先清理：这个目录里指回本仓库、名单里却没有的软链，摘掉。
+  # 目标不指回本仓库的一律不碰，宁可留着也不误删。
+  while IFS= read -r stale; do
+    [ -n "$stale" ] || continue
+    rm "$stale"; echo "摘掉  $stale"
+  done < <(stale_links "$dest" ours_skill_target "${wanted_names[@]}")
 
-  # 清单只记真正装上的。装不上的写进去，下一轮清理就会去找一个我们没装过的东西。
+  # 上一代靠一份 .mmw-skills 记账，现在改成扫目录，那份记录没有读者了。
+  [ -f "$dest/.mmw-skills" ] && rm "$dest/.mmw-skills"
+
   linked=()
   for i in "${!wanted_names[@]}"; do
     name="${wanted_names[$i]}"
@@ -176,7 +201,6 @@ for dest in "${HOST_DIRS[@]}"; do
     linked+=("$name")
   done
 
-  printf '%s\n' "${linked[@]}" > "$manifest"
   echo "已装  ${#linked[@]} 个技能 -> $dest"
 done
 
@@ -194,41 +218,34 @@ RETIRED_DIRS=(
 )
 
 for dest in "${RETIRED_DIRS[@]}"; do
-  manifest="$dest/$MANIFEST_NAME"
-  [ -f "$manifest" ] || continue
+  [ -d "$dest" ] || continue
 
-  # 只摘指回本仓库的软链。别人放在同一个目录里的东西一律不碰。
-  stale_links=()
-  while IFS= read -r old; do
-    [ -n "$old" ] || continue
-    stale="$dest/$old"
-    [ -L "$stale" ] || continue
-    if ours_skill_target "$(readlink "$stale")"; then
-      stale_links+=("$stale")
-    fi
-  done < "$manifest"
+  # 这四处整个退役，所以指回本仓库的软链一条不留。别人放在同一个目录里的东西一律不碰。
+  retired=()
+  while IFS= read -r stale; do
+    [ -n "$stale" ] || continue
+    retired+=("$stale")
+  done < <(repo_links "$dest" ours_skill_target)
 
   if [ "$mode" = check ]; then
-    if [ "${#stale_links[@]}" -gt 0 ]; then
-      echo "残留  ${dest} 还有 ${#stale_links[@]} 条上一代的技能软链，跑一次 install.sh 摘掉" >&2
+    if [ "${#retired[@]}" -gt 0 ]; then
+      echo "残留  ${dest} 还有 ${#retired[@]} 条上一代的技能软链，跑一次 install.sh 摘掉" >&2
       rc=1
     fi
     continue
   fi
 
-  if [ "${#stale_links[@]}" -gt 0 ]; then
-    for stale in "${stale_links[@]}"; do
-      rm "$stale"
-    done
-  fi
-  rm "$manifest"
-  echo "退役  摘掉 ${#stale_links[@]} 个技能 <- ${dest}"
+  [ -f "$dest/.mmw-skills" ] && rm "$dest/.mmw-skills"
+  [ "${#retired[@]}" -gt 0 ] || continue
+  for stale in "${retired[@]}"; do
+    rm "$stale"
+  done
+  echo "退役  摘掉 ${#retired[@]} 个技能 <- ${dest}"
 done
 
 # ---------------- subagent ----------------
 
 AGENTS_SRC="$ROOT/agents"
-AGENT_MANIFEST_NAME=".mmw-agents"
 
 if [ -d "$AGENTS_SRC" ]; then
   # 成品必须与源一致：装的时候先装配，查的时候只验不写。
@@ -260,8 +277,6 @@ if [ -d "$AGENTS_SRC" ]; then
     IFS='|' read -r host_home dest src_name suffix <<<"$row"
     [ -d "$host_home" ] || continue
 
-    manifest="$dest/$AGENT_MANIFEST_NAME"
-
     if [ "$mode" = check ]; then
       for name in "${agent_names[@]}"; do
         link="$dest/$name$suffix"
@@ -271,23 +286,23 @@ if [ -d "$AGENTS_SRC" ]; then
           rc=1
         fi
       done
+      while IFS= read -r stale; do
+        [ -n "$stale" ] || continue
+        echo "残留  $stale 指回本仓库，agents/ 下却没有它，跑一次 install.sh 摘掉" >&2
+        rc=1
+      done < <(stale_links "$dest" ours_agent_target "${agent_names[@]/%/$suffix}")
       continue
     fi
 
     mkdir -p "$dest"
 
-    # 清理上次装了、这次没有的。只摘指回本仓库 agents/ 的软链。
-    if [ -f "$manifest" ]; then
-      while IFS= read -r old; do
-        [ -n "$old" ] || continue
-        printf '%s\n' "${agent_names[@]/%/$suffix}" | grep -qx "$old" && continue
-        stale="$dest/$old"
-        [ -L "$stale" ] || continue
-        if ours_agent_target "$(readlink "$stale")"; then
-          rm "$stale"; echo "摘掉  $stale"
-        fi
-      done < "$manifest"
-    fi
+    # 清理：这个目录里指回本仓库 agents/、这次却不装的软链，摘掉。
+    while IFS= read -r stale; do
+      [ -n "$stale" ] || continue
+      rm "$stale"; echo "摘掉  $stale"
+    done < <(stale_links "$dest" ours_agent_target "${agent_names[@]/%/$suffix}")
+
+    [ -f "$dest/.mmw-agents" ] && rm "$dest/.mmw-agents"
 
     linked=()
     for name in "${agent_names[@]}"; do
@@ -306,11 +321,6 @@ if [ -d "$AGENTS_SRC" ]; then
       linked+=("$name$suffix")
     done
 
-    if [ "${#linked[@]}" -gt 0 ]; then
-      printf '%s\n' "${linked[@]}" > "$manifest"
-    else
-      : > "$manifest"
-    fi
     echo "已装  ${#linked[@]} 个 agent -> $dest"
   done
 fi
