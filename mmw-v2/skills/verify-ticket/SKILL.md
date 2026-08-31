@@ -99,7 +99,9 @@ any of these:
   moved past the commit that line names, it also needs a `Post-verdict:` line naming every
   commit since and where it came from.
 - **The working tree and the branch.** No uncommitted changes to tracked files, and the
-  branch contains `main` — merge it, never rebase, because the verdict names one commit.
+  branch contains its base — the cut point dispatch recorded in
+  `git config branch.issue-<n>.mmw-base`, `main` when there is no record — merge it,
+  never rebase, because the verdict names one commit.
 - **The ticket.** Still `OPEN`, and assigned to you.
 
 `HANDOFF REQUIRED` is held to none of the `VERDICT` conditions — it claims nothing was
@@ -107,8 +109,10 @@ finished, so it is the way out of anything you cannot fix yourself, including a 
 that never ran. Whether the work is any good is what the `CHECK` commands, the verifier
 and `code-review` decide before you write the draft.
 
-The `self-run` and `reverify` comment ends with **Outside Owns**: files this branch
-changed since it left `main` that no `## Owns` glob covers. The closing comment carries
+The `self-run` and `reverify` comment ends with **Outside Owns**: files this ticket's
+own commits changed that no `## Owns` glob covers — the first-parent chain since the
+branch left `main`, merges excluded, so work merged in from another ticket's branch is
+not counted. The closing comment carries
 the same line, copied out of that comment into the draft, at the place `implement` puts
 it in the draft's fixed shape. That list is something to explain in the closeout comment,
 not a verdict on the work.

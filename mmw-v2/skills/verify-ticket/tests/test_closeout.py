@@ -386,7 +386,7 @@ class TestGit(unittest.TestCase):
     def test_a_branch_that_does_not_contain_main_is_refused(self):
         code, err, _ = check(draft(counts=counts_line()), main_merged=False)
         self.assertEqual(code, 1)
-        self.assertIn("does not contain main", err)
+        self.assertIn("does not contain its base main", err)
 
     def test_a_branch_that_changed_no_files_only_warns(self):
         code, err, _ = check(draft(counts=counts_line()), diff="")

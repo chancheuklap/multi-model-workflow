@@ -243,6 +243,17 @@ def current_branch(root: Path | None = None) -> str:
     return git("rev-parse", "--abbrev-ref", "HEAD", cwd=root)
 
 
+def base_ref(root: Path | None = None) -> str:
+    """The commit this ticket's branch was cut from.
+
+    `dispatch.sh` records it in `branch.issue-<n>.mmw-base` when it opens the worktree:
+    the HEAD of whatever branch the dispatching session was on. A branch with no record
+    falls back to `main`.
+    """
+    ref = git("config", f"branch.{current_branch(root)}.mmw-base", cwd=root)
+    return ref or "main"
+
+
 def dirty_tracked(root: Path | None = None) -> list[str]:
     """Uncommitted changes to tracked files. Untracked files do not count: a CHECK
     command writes its own screenshots and cache directories as it runs."""
@@ -259,14 +270,25 @@ def is_ancestor(commit: str, descendant: str, root: Path | None = None) -> bool:
 
 
 def outside_owns(globs: list[str], root: Path) -> list[str]:
-    """Files changed since the branch left main that no `## Owns` glob covers."""
-    base = git("merge-base", "main", "HEAD", cwd=root)
+    """Files this ticket's own commits changed that no `## Owns` glob covers.
+
+    Only the commits made on this branch itself count: the first-parent chain since it
+    left its base, merge commits excluded. A later ticket merges an earlier ticket's
+    branch to build on it, and the files that ride in with that merge are the earlier
+    ticket's work, not this one's.
+    """
+    base = git("merge-base", base_ref(root), "HEAD", cwd=root)
     if not base:
         return []
-    args = ["diff", "--name-only", f"{base}..HEAD", "--", "."]
+    args = ["log", "--first-parent", "--no-merges", "--name-only", "--format=",
+            f"{base}..HEAD", "--", "."]
     args += [f":(glob,exclude){g}" for g in globs]
     out = git(*args, cwd=root)
-    return [line for line in out.splitlines() if line.strip()]
+    seen: list[str] = []
+    for line in out.splitlines():
+        if line.strip() and line not in seen:
+            seen.append(line)
+    return seen
 
 
 # ------------------------------------------------------------------- ledger
@@ -574,12 +596,13 @@ def git_problems(root: Path | None = None) -> list[str]:
     if dirty:
         problems.append(f"{len(dirty)} tracked files have uncommitted changes; "
                         f"commit them so the closing comment names a real commit")
-    if not is_ancestor("main", "HEAD", root):
-        problems.append("this branch does not contain main; run `git merge main`. Do not "
-                        "rebase — the verdict on this ticket names one commit, and rewriting "
-                        "history throws it away")
+    ref = base_ref(root)
+    if not is_ancestor(ref, "HEAD", root):
+        problems.append(f"this branch does not contain its base {ref}; run `git merge {ref}`. "
+                        f"Do not rebase — the verdict on this ticket names one commit, and "
+                        f"rewriting history throws it away")
         return problems
-    base = git("merge-base", "main", "HEAD", cwd=root)
+    base = git("merge-base", ref, "HEAD", cwd=root)
     if base and not git("diff", "--name-only", f"{base}..HEAD", cwd=root):
         sys.stderr.write("warning: this branch changes no files since it left main\n")
     return problems
@@ -841,7 +864,7 @@ def refusals(number: int, ticket: dict, me: str, branch: str, dirty: list[str]) 
     out = []
     if branch != f"issue-{number}":
         out.append(f"NOT_READY: branch is {branch or '(detached)'}, not issue-{number}; "
-                   f"the host opens this worktree on issue-{number}, so it started you "
+                   f"dispatch opens this worktree on issue-{number}, so you were started "
                    f"somewhere else — stop, do not switch branches yourself")
     if dirty:
         out.append(f"NOT_READY: {len(dirty)} tracked files already have uncommitted changes "

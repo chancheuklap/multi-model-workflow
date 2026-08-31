@@ -289,3 +289,44 @@ class TestLint(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestOutsideOwns(unittest.TestCase):
+    """`outside_owns` counts this ticket's own commits, not what a merge rides in."""
+
+    def repo(self, tmp):
+        import subprocess
+
+        def sh(*args, **kw):
+            subprocess.run(args, cwd=tmp, check=True, capture_output=True, **kw)
+
+        sh("git", "init", "-q", "-b", "main")
+        sh("git", "config", "user.email", "t@t")
+        sh("git", "config", "user.name", "t")
+        (tmp / "base.txt").write_text("base\n")
+        sh("git", "add", "-A")
+        sh("git", "commit", "-qm", "base")
+        return sh
+
+    def test_a_merged_branch_does_not_count_as_this_tickets_work(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            sh = self.repo(tmp)
+            # The earlier ticket's branch commits its own file.
+            sh("git", "checkout", "-qb", "issue-2")
+            (tmp / "theirs.txt").write_text("theirs\n")
+            sh("git", "add", "-A")
+            sh("git", "commit", "-qm", "issue-2 work")
+            # This ticket's branch commits one file inside Owns, one outside...
+            sh("git", "checkout", "-q", "main")
+            sh("git", "checkout", "-qb", "issue-4")
+            (tmp / "mine.txt").write_text("mine\n")
+            (tmp / "stray.txt").write_text("stray\n")
+            sh("git", "add", "-A")
+            sh("git", "commit", "-qm", "issue-4 work")
+            # ...then merges the earlier ticket's branch to build on it.
+            sh("git", "merge", "-q", "--no-ff", "-m", "merge issue-2", "issue-2")
+            self.assertEqual(vt.outside_owns(["mine.txt"], tmp), ["stray.txt"])
