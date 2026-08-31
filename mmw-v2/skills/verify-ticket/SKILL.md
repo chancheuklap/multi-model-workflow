@@ -1,6 +1,6 @@
 ---
 name: verify-ticket
-description: Run a ticket's acceptance criteria and comment the outcome on the ticket. Use when you have finished a ticket, when you are the verifier re-running what it ticked, or when auditing how a freshly written ticket's criteria are worded.
+description: Reference for the two scripts this pipeline runs on a ticket, the closing gate `verify-ticket.py` and the UI comparison `visual-parity.py`. Use when one of them refuses you, when a `DIFF` or `NOT_READY` line needs reading, when writing a criterion's `CHECK:` and `EXPECT:`, or when you need to know which of the five runs is yours.
 ---
 
 # Verify ticket
@@ -66,6 +66,8 @@ The `self-run` and `reverify` comment ends with **Outside Owns**: files this tic
 Whether an interface matches the design it was built from is the other script in `scripts/`: `visual-parity.py`. It renders each named scene from a baseline directory offline, opens the same scene on the implementation, and compares the two by accessibility tree and by pixels at two viewports.
 
 The baseline directory is a Claude Design project downloaded as a handoff package, and holds five things: the component's `.dc.html`, its `styles/`, its `data/`, `support.js`, and a `scenes.json` naming every scene. A directory missing any of them cannot be rendered.
+
+An implementation that is not a page on a web server — a desktop application, say — is compared where it already runs: `--cdp <url>` names its debugging port, `--impl` still names the address to navigate to, and `--impl-title` picks the window when there is more than one. The application is left running afterwards. What is compared is what its renderer draws, so the size of its operating-system window is not: a window minimum is a person's to check, not this script's.
 
 Nobody types this command: `to-tickets` writes it onto the ticket as a criterion, in one shape.
 

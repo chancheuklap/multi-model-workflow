@@ -4,7 +4,7 @@
 #   技能              skills.txt 列出的，软链进 ~/.agents/skills 与 ~/.claude/skills
 #   subagent          agents/<名>/out/ 的成品，软链进各宿主自己的 agent 目录
 #   hook              verify-ticket 的 pretool 门（五个宿主）与 Claude Code 的
-#                     rule-at-moment 提醒（四个事件），写进各宿主自己的配置
+#                     rule-at-moment 提醒（三个事件），写进各宿主自己的配置
 #   Herdr agent 检测规则   dispatch 技能带的覆盖（有才装），拷进 ~/.config/herdr/agent-detection/
 #
 # 技能有三个来源：mattpocock 上游的在 upstream/skills/，我们自己写的在 skills/（名单里
@@ -567,9 +567,9 @@ fi
 
 # ---------------- Claude Code 的规则提醒 hook ----------------
 
-# hooks/rule-at-moment.py 只给 Claude Code 用：在每次读、写、派子代理、结果被宿主截断、
-# 回合结束这几个时刻，把 ~/.claude/CLAUDE.md 里对应的那一条原文送到模型眼前。
-# 软链放在 ~/.claude/hooks/（Herdr 的几个 hook 也在那），settings.json 里四条都指向它；
+# hooks/rule-at-moment.py 只给 Claude Code 用：在每次读、写、派子代理、结果被宿主截断
+# 这几个时刻，把 ~/.claude/CLAUDE.md 里对应的那一条原文送到模型眼前。
+# 软链放在 ~/.claude/hooks/（Herdr 的几个 hook 也在那），settings.json 里三条都指向它；
 # 改脚本不用重装。合并法与上面一样：只认 command 里带 rule-at-moment.py 的条目。
 
 RULES_HOOK_SRC="$ROOT/hooks/rule-at-moment.py"
@@ -610,12 +610,11 @@ command = f"python3 '{os.environ['MMW_RULES_HOOK']}'"
 MARK = "rule-at-moment.py"
 TIMEOUT = 10
 
-# 事件 → matcher。PreToolUse 一条 matcher 管八个工具；其余三个事件不带 matcher。
+# 事件 → matcher。PreToolUse 一条 matcher 管八个工具；其余两个事件不带 matcher。
 wanted = [
     ("PreToolUse", "Read|Grep|WebFetch|Bash|Write|Edit|NotebookEdit|Agent"),
     ("PostToolUse", None),
     ("PostToolUseFailure", None),
-    ("Stop", None),
 ]
 
 

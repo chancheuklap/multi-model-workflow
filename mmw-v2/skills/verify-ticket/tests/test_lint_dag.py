@@ -35,15 +35,20 @@ def body(parent=76, blockers=("None (can start immediately)",)):
     return "\n".join(lines) + "\n"
 
 
-def lint_graph(ticket=77, spec=76, batch=(), links=None, stated=None):
+def lint_graph(ticket=77, spec=76, batch=(), links=None, stated=None, outside=None):
     """Run the graph half of --lint over a made-up batch; return (exit code, output).
 
     `links` is `{ticket: [blockers]}`, the blocking links the tracker records. Each
     ticket's `## Blocked by` section is written from the same numbers unless `stated`
     names it, which is how the two accounts of an edge are made to disagree.
+
+    `outside` is `{blocker: (spec, state)}` for the blockers that are not in the batch:
+    a spec number and `OPEN` or `CLOSED` for a ticket under another spec, and left out
+    entirely for an issue that is no ticket at all.
     """
     links = dict(links or {})
     stated = dict(stated or {})
+    outside = {n: {"spec": sp, "state": st} for n, (sp, st) in (outside or {}).items()}
 
     def refs(numbers):
         return tuple(f"#{n}" for n in numbers) or ("None (can start immediately)",)
@@ -51,6 +56,9 @@ def lint_graph(ticket=77, spec=76, batch=(), links=None, stated=None):
     with mock.patch.object(vt, "fetch_sub_issues", return_value=list(batch)), \
          mock.patch.object(vt, "fetch_blocked_by",
                            side_effect=lambda n: list(links.get(n, []))), \
+         mock.patch.object(vt, "fetch_outsider",
+                           side_effect=lambda n: outside.get(
+                               n, {"spec": None, "state": "OPEN"})), \
          mock.patch.object(vt, "fetch_body",
                            side_effect=lambda n: body(
                                blockers=refs(stated.get(n, links.get(n, []))))):
@@ -117,12 +125,14 @@ class TestLintTicketGraph(unittest.TestCase):
         self.assertTrue(out.startswith("  ERROR "), out)
         self.assertIn("  [cycle]", out)
 
-    def test_a_dangling_reference_is_printed_and_exits_one(self):
+    def test_a_blocker_that_is_not_a_ticket_is_printed_and_exits_one(self):
+        """An issue with no `## Parent` is a blocker nothing in this pipeline closes."""
         code, out = lint_graph(batch=(61, 62), links={61: [], 62: [999]})
         self.assertEqual(code, 1)
-        self.assertIn("dangling", out)
-        self.assertTrue(out.startswith("  ERROR "), out)
-        self.assertIn("  [dangling]", out)
+        self.assertIn("#62 is blocked by #999", out)
+        self.assertIn("is not a ticket under any spec", out)
+        self.assertIn("  [blocker-not-a-ticket]", out)
+        self.assertNotIn("level ", out)
 
     def test_a_duplicate_ticket_is_printed_and_exits_one(self):
         code, out = lint_graph(batch=(61, 61), links={61: []})
@@ -164,6 +174,74 @@ class TestLintTicketGraph(unittest.TestCase):
         self.assertIn("#76 has no sub-issues", out)
         self.assertTrue(out.startswith("  ERROR "), out)
         self.assertIn("  [no-sub-issues]", out)
+
+
+class TestCrossBatch(unittest.TestCase):
+    """A ticket under another spec is a legitimate blocker of a layered delivery.
+
+    Every command that dispatches reads the tracker's links, so it is honoured there.
+    What the graph cannot do is order it: the other end has no entry in this batch. So
+    it is a WARN and not an ERROR, the batch's own start levels are still printed, and a
+    separate line says which tickets are waiting on a spec that is not in front of you.
+    """
+
+    def warnings(self, out):
+        return [line for line in out.splitlines() if "[cross-batch]" in line]
+
+    def test_a_blocker_under_another_spec_is_a_warning_not_an_error(self):
+        code, out = lint_graph(batch=(61, 62), links={61: [], 62: [999]},
+                               outside={999: (76, "OPEN")})
+        self.assertEqual(code, 0)
+        line = self.warnings(out)[0]
+        self.assertIn("#62 is blocked by #999, a ticket under spec #76 (OPEN)", line)
+        self.assertTrue(line.endswith("  [cross-batch]"), line)
+
+    def test_the_batch_still_prints_its_own_start_levels(self):
+        code, out = lint_graph(batch=(61, 62), links={61: [], 62: [61, 999]},
+                               outside={999: (76, "OPEN")})
+        self.assertEqual(code, 0)
+        self.assertIn("level 0: #61", out)
+        self.assertIn("level 1: #62", out)
+
+    def test_a_ticket_waiting_on_an_open_outsider_is_named(self):
+        code, out = lint_graph(batch=(61, 62), links={61: [], 62: [999]},
+                               outside={999: (76, "OPEN")})
+        self.assertIn("waiting on another spec: #62 ← #999 (OPEN, spec #76)", out)
+
+    def test_a_closed_outsider_is_waited_on_by_nobody(self):
+        code, out = lint_graph(batch=(61, 62), links={61: [], 62: [999]},
+                               outside={999: (76, "CLOSED")})
+        self.assertEqual(code, 0)
+        self.assertNotIn("waiting on another spec", out)
+        self.assertEqual(len(self.warnings(out)), 1)
+
+    def test_a_ticket_only_an_outsider_blocks_still_starts_at_level_zero(self):
+        """Its place in this batch is level 0; the waiting line is what says otherwise."""
+        code, out = lint_graph(batch=(61, 62), links={61: [], 62: [999]},
+                               outside={999: (76, "OPEN")})
+        self.assertIn("level 0: #61, #62", out)
+        self.assertIn("waiting on another spec: #62", out)
+
+    def test_one_lookup_per_blocker_not_one_per_edge(self):
+        """Several tickets of a batch commonly wait on the same one."""
+        with mock.patch.object(vt, "fetch_blocked_by", side_effect=lambda n: [999]), \
+             mock.patch.object(vt, "fetch_body", side_effect=lambda n: body()), \
+             mock.patch.object(vt, "fetch_outsider",
+                               return_value={"spec": 76, "state": "CLOSED"}) as look:
+            found = vt.ticket_entries([61, 62])
+        look.assert_called_once_with(999)
+        self.assertEqual(found[0]["outside"], {999: {"spec": 76, "state": "CLOSED"}})
+
+
+class TestInBatch(unittest.TestCase):
+    def test_a_dependency_outside_the_batch_is_dropped(self):
+        kept = vt.in_batch(entries(a61=[], a62=[61, 999]))
+        self.assertEqual([e["dependencies"] for e in kept], [[], [61]])
+
+    def test_the_entries_it_was_given_are_left_alone(self):
+        original = entries(a61=[], a62=[61, 999])
+        vt.in_batch(original)
+        self.assertEqual(original[1]["dependencies"], [61, 999])
 
 
 class TestBlockedByMismatch(unittest.TestCase):

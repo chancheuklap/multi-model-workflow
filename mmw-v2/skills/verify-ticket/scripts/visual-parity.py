@@ -33,6 +33,17 @@ Usage
     uv run visual-parity.py --baseline <dir> --impl <url> --scenes a,b --max-pct 1 \
         --out <dir>
 
+An implementation that is not a page on a web server — an Electron application, say —
+is compared where it already runs, by connecting to its debugging port:
+
+    uv run visual-parity.py --baseline <dir> --cdp http://127.0.0.1:9229 \
+        --impl http://127.0.0.1:5173/ --scenes a,b --max-pct 1
+
+`--cdp` says which browser; `--impl` still says where to navigate, because a scene is
+reached by its query string. The application is left running afterwards. Only what its
+renderer draws is compared: the size of its operating-system window is not, so a window
+minimum is checked by a person, not here.
+
 Exit 0 and one line `PARITY OK n/n` when every scene matches at every viewport.
 Exit 1 with one `DIFF` line per failing pair, each followed by the ARIA tree lines
 that differ — the name of the button or the line of copy, as text, which is what a
@@ -337,29 +348,94 @@ class Shot:
     console: list[str] = field(default_factory=list)
 
 
-def capture(page, url: str, selector: str | None, viewport: tuple[int, int], png: Path,
-            extra_css: str | None = None, extra_js: str | None = None) -> Shot:
-    console: list[str] = []
-    page.on("console", lambda m: console.append(f"{m.type}: {m.text}")
-            if m.type == "error" else None)
-    page.on("pageerror", lambda e: console.append(f"pageerror: {e}"))
-    page.set_viewport_size({"width": viewport[0], "height": viewport[1]})
-    page.goto(url, wait_until="networkidle")
-    if extra_css:
-        page.add_style_tag(content=extra_css)
-    page.wait_for_timeout(SETTLE_MS)
-    if extra_js:
-        page.evaluate(extra_js)
-        page.wait_for_timeout(200)
-    target = page.locator(selector or "body").first
-    target.wait_for(state="visible", timeout=15000)
-    if selector:
-        target.screenshot(path=str(png))
+def resize(page, viewport: tuple[int, int], over_cdp: bool) -> None:
+    """Put the page in a window of this size, however it was reached.
+
+    A context this program launched was given its viewport and its device pixel ratio
+    when it was created. A page reached over CDP belongs to the application, whose
+    context was created by somebody else and cannot be given either — so the size and
+    the ratio are pushed down as a device-metrics override instead. The ratio has to be
+    said out loud there: on a high-resolution screen the application renders at two
+    device pixels per CSS pixel, and a screenshot twice the size of the baseline's is a
+    failure before anything is compared.
+    """
+    if over_cdp:
+        page.context.new_cdp_session(page).send(
+            "Emulation.setDeviceMetricsOverride",
+            {"width": viewport[0], "height": viewport[1],
+             "deviceScaleFactor": 1, "mobile": False})
+        page.emulate_media(reduced_motion="reduce")
     else:
-        page.screenshot(path=str(png))
-    aria = target.aria_snapshot()
+        page.set_viewport_size({"width": viewport[0], "height": viewport[1]})
+
+
+def capture(page, url: str, selector: str | None, viewport: tuple[int, int], png: Path,
+            extra_css: str | None = None, extra_js: str | None = None,
+            over_cdp: bool = False) -> Shot:
+    console: list[str] = []
+
+    def on_console(message):
+        if message.type == "error":
+            console.append(f"{message.type}: {message.text}")
+
+    def on_pageerror(error):
+        console.append(f"pageerror: {error}")
+
+    # Removed again at the end: a page reached over CDP is the application's own and is
+    # used for every scene, so listeners left behind would go on appending to the list
+    # of a scene already recorded.
+    page.on("console", on_console)
+    page.on("pageerror", on_pageerror)
+    try:
+        resize(page, viewport, over_cdp)
+        page.goto(url, wait_until="networkidle")
+        if extra_css:
+            page.add_style_tag(content=extra_css)
+        page.wait_for_timeout(SETTLE_MS)
+        if extra_js:
+            page.evaluate(extra_js)
+            page.wait_for_timeout(200)
+        target = page.locator(selector or "body").first
+        target.wait_for(state="visible", timeout=15000)
+        shot_at = {"path": str(png), "scale": "css"}
+        if selector:
+            target.screenshot(**shot_at)
+        else:
+            page.screenshot(**shot_at)
+        aria = target.aria_snapshot()
+    finally:
+        page.remove_listener("console", on_console)
+        page.remove_listener("pageerror", on_pageerror)
     aria_path(png).write_text(aria, encoding="utf-8")
     return Shot(png, aria, console)
+
+
+def impl_page_over_cdp(browser, title_includes: str | None, timeout_seconds: int = 15):
+    """The application's own page, out of a browser this program connected to.
+
+    Picked by a substring of the window title rather than of the URL: a development
+    server takes whichever port is free at startup, so the URL is not the same twice.
+    With no substring given the first page is taken, which is what an application with
+    one window has.
+    """
+    deadline = time.monotonic() + timeout_seconds
+    seen: list[str] = []
+    while True:
+        seen = []
+        for context in browser.contexts:
+            for page in context.pages:
+                title = page.title() or ""
+                seen.append(f"{title!r} @ {page.url}")
+                if not title_includes or title_includes in title:
+                    return page
+        # Looked at once before the clock is read, so that however short the wait is,
+        # the refusal below can still say which windows were there.
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(0.5)
+    raise SystemExit(
+        f"no page whose title holds {title_includes!r} within {timeout_seconds}s. "
+        f"Pages found: {seen or 'none'}")
 
 
 def aria_path(png: Path) -> Path:
@@ -410,7 +486,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--baseline", required=True, metavar="DIR",
                    help="downloaded Claude Design leaf directory, holding scenes.json")
     p.add_argument("--impl", required=True, metavar="URL",
-                   help="the running implementation page")
+                   help="the address the implementation is opened at, scene by scene")
+    p.add_argument("--cdp", metavar="URL", default=None,
+                   help="a browser already running, to compare instead of a fresh one: "
+                        "an Electron application's debugging port, say. --impl still "
+                        "says where to navigate")
+    p.add_argument("--impl-title", metavar="TEXT", default=None,
+                   help="with --cdp, a substring of the window title to pick, when the "
+                        "application has more than one")
     p.add_argument("--scenes", required=True, metavar="NAMES",
                    help="comma-separated scene names, each one named in scenes.json")
     p.add_argument("--max-pct", type=float, default=1.0, metavar="PCT",
@@ -480,13 +563,20 @@ def run(args) -> int:
     try:
         with sync_playwright() as pw:
             browser = pw.chromium.launch()
+            # The baseline is always rendered here. The implementation is either opened
+            # here too, or it is an application already running that this connects to
+            # and leaves running: its window is the one the person will see.
+            impl_browser = (pw.chromium.connect_over_cdp(args.cdp, timeout=10000)
+                            if args.cdp else None)
+            impl_page = (impl_page_over_cdp(impl_browser, args.impl_title)
+                         if impl_browser else None)
             for vp in viewports:
                 tag_vp = f"{vp[0]}x{vp[1]}"
                 base_ctx = browser.new_context(
                     viewport={"width": vp[0], "height": vp[1]}, device_scale_factor=1,
                     reduced_motion="reduce", locale="zh-CN")
                 base_ctx.route("**/*", route_baseline)
-                impl_ctx = browser.new_context(
+                impl_ctx = None if impl_page else browser.new_context(
                     viewport={"width": vp[0], "height": vp[1]}, device_scale_factor=1,
                     reduced_motion="reduce", locale="zh-CN")
                 first_baseline: Shot | None = None
@@ -499,11 +589,13 @@ def run(args) -> int:
                     page.close()
                     if first_baseline is None:
                         first_baseline = base_shot
-                    page = impl_ctx.new_page()
+                    page = impl_page or impl_ctx.new_page()
                     impl_shot = capture(
                         page, impl_url(args.impl, scene.get("props") or {}), None, vp,
-                        media / f"{name}-{tag_vp}-impl.png")
-                    page.close()
+                        media / f"{name}-{tag_vp}-impl.png",
+                        over_cdp=impl_page is not None)
+                    if impl_page is None:
+                        page.close()
                     comparisons.append(Comparison(
                         name, tag_vp,
                         pixel_diff(base_shot.png, impl_shot.png,
@@ -531,8 +623,12 @@ def run(args) -> int:
                     aria_path(Path(f"{stem}-baseline.png")).write_text(
                         first_baseline.aria, encoding="utf-8")
                 base_ctx.close()
-                impl_ctx.close()
+                if impl_ctx is not None:
+                    impl_ctx.close()
             browser.close()
+            if impl_browser is not None:
+                # Disconnects; the application it belongs to goes on running.
+                impl_browser.close()
     finally:
         server.shutdown()
         server.server_close()

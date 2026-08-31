@@ -327,7 +327,7 @@ What the closing gate prints when it hands the ticket back to be judged fresh.
 _Avoid_: —
 
 **problem tag（问题标签）**:
-What the linter labels each finding with, from three sources. The vendored `gate-lint`: `parse`, `tautological-check`, `weak-expect`, `path-read-as-regex`, `manual-gate`, `unmeasured-number`, `activity-not-outcome`, `mostly-manual`. `manual-gate` is a criterion with no `CHECK:` — a criterion in the wrong place, since nobody but its own author would decide it. This repository's `verify-ticket.py` adds three of its own: `dollar-without-m` (`ERROR`), `shared-state` and `unexplained-edge` (`WARN`). Its ticket-graph check reports `cycle`, `dangling` and `duplicate-ticket`, all `ERROR`.
+What the linter labels each finding with, from three sources. The vendored `gate-lint`: `parse`, `tautological-check`, `weak-expect`, `path-read-as-regex`, `manual-gate`, `unmeasured-number`, `activity-not-outcome`, `mostly-manual`. `manual-gate` is a criterion with no `CHECK:` — a criterion in the wrong place, since nobody but its own author would decide it. This repository's `verify-ticket.py` adds four of its own: `dollar-without-m` (`ERROR`), `shared-state`, `unexplained-edge` and `cross-batch` (`WARN`). Its ticket-graph check reports `cycle`, `duplicate-ticket` and `blocker-not-a-ticket` as `ERROR`, and `cross-batch` — a blocker that is a ticket under another spec — as `WARN`, because a layered delivery is built on exactly those edges.
 _Avoid_: —
 
 **`ERROR` / `WARN`**:
@@ -369,7 +369,7 @@ The one table defining, for every agent, its host, model, thinking effort and la
 _Avoid_: 角色表
 
 **`issue-<n>` / `issue-<n>-review`**:
-`issue-<n>` is a worker's Herdr name and the branch name of its worktree. `issue-<n>-review` is only the reviewer's Herdr name, the name its session shows under; the reviewer cuts no branch and runs inside the worker's worktree. Both must be unique among live agents.
+`issue-<n>` is the branch name of a worker's worktree. Its Herdr name is that with the workspace id in front — `w2q-issue-<n>` — because Herdr's names are unique among live agents across the whole server, and two repositories each holding a ticket #100 would otherwise collide. `issue-<n>-review` is only the reviewer's Herdr name, prefixed the same way; the reviewer cuts no branch and runs inside the worker's worktree. Outside Herdr the names are the bare ones.
 _Avoid_: —
 
 **`MMW_TICKET`**:
@@ -393,7 +393,7 @@ A worker whose pane is `idle` or `done` while its `phase` is anything other than
 _Avoid_: 半路停了, 半途停下, 没到终点就停了, 停在半路, 到终点, 终点, stalled
 
 **re-prompt（重新 prompt）**:
-Sending a session that has settled a new prompt with `herdr agent prompt`. A worker is re-prompted with its dispatch line and nothing else; the main agent is re-prompted with one line beginning `mmw board:`. Delivered only while the target is `idle` or `done` and its pane is not focused.
+Sending a session that has settled a new prompt with `herdr agent prompt`. A worker is re-prompted with `continue` and nothing else; the main agent is re-prompted with one line beginning `mmw board:`. Delivered only while the target is `idle` or `done` and its pane is not focused.
 _Avoid_: 捡回, 叫醒, 唤醒 (the verb)
 
 **唤醒闭环（wakeup loop）**:
@@ -401,7 +401,7 @@ The rule table `board.py --watch` applies after every pane event: leave `working
 _Avoid_: 捡回闭环
 
 **夜间编排主循环（night orchestration loop）**:
-Everything between the last ticket published and the morning: `dispatch.sh run` starts it, `board.py --watch` dispatches the frontier, runs the 唤醒闭环, and writes `NIGHT SUMMARY` when nothing is left to run.
+Everything between the last ticket published and the morning: `dispatch.sh run` starts it, `board.py --watch` runs the 唤醒闭环 and writes `NIGHT SUMMARY` when nothing is left to run, and the main agent runs `dispatch.sh advance` whenever the board says the frontier has grown. Repair belongs to the board, the next step to the main agent.
 _Avoid_: 夜间主循环, 夜里的循环
 
 **`board.py`**:
@@ -409,19 +409,23 @@ The one resident program of the night, in the dispatch skill. `--once` prints on
 _Avoid_: 常驻进程, 看板
 
 **监控 tab（monitor tab）**:
-The Herdr tab `dispatch.sh run` opens with the label `mmw board`, where `board.py --watch` runs; its appended output is readable by `herdr pane read` and by a person.
+The Herdr tab `dispatch.sh run` opens in its own workspace with the label `mmw board #<spec>`, where `board.py --watch` runs; its appended output is readable by `herdr pane read` and by a person. One per workspace, so a night on several projects has several of them.
 _Avoid_: board tab, mmw board tab
 
-**`dispatch.sh run <spec> [--role R] [--parallel N] [--max-hours H]`**:
-The one command the main agent types at night. It runs `install.sh --check` and refuses on any missing item, renames the main agent's pane `mmw-main`, opens the 监控 tab and starts `board.py --watch` in it.
+**`dispatch.sh run <spec> [--role R] [--max-hours H]`**:
+The one command that opens a night. It runs `install.sh --check` and refuses on any missing item, renames the main agent's pane `mmw-main`, opens the 监控 tab in this workspace and starts `board.py --watch` in it. It dispatches nothing; the main agent runs `dispatch.sh advance` straight after it.
 _Avoid_: 开夜
+
+**`dispatch.sh advance <spec> [--role R]`**:
+The one command that moves a batch on: it merges the branch of every ticket that closed with `ALL MET`, oldest closing first and each keeping a merge commit, then dispatches every ticket on the frontier. The two are one command because a worktree is cut from `HEAD` when it opens, so a branch merged later is a branch the next ticket cannot see. Exit 3 leaves a conflict in the tree for the `resolving-merge-conflicts` skill and dispatches nothing; running it again after the resolution carries on from the next branch.
+_Avoid_: —
 
 **`mmw-main`**:
 The Herdr name `dispatch.sh run` gives the main agent's own pane, so `board.py` can re-prompt it.
 _Avoid_: —
 
-**`mmw board: <case> #<n> — run ~/.agents/skills/dispatch/scripts/board.py --once <spec>`**:
-The one line `board.py` sends `mmw-main`, only when a limit was reached or the night ended. `<case>` is one of four literals: `WAKEUP LIMIT`, `REDISPATCHED`, `TIME LIMIT`, `night over`. The main agent answers it by running the command as written and reading the table; it takes no other action.
+**`mmw board: <case> #<n> — run <command>`**:
+The one line `board.py` sends `mmw-main`. `<case>` is one of five literals. `ADVANCE` says the frontier has grown and `night over` says the night ended; both end in `dispatch.sh advance <spec>`, because both leave branches to merge. `WAKEUP LIMIT`, `REDISPATCHED` and `TIME LIMIT` say a limit was reached and the board has already commented and relabelled; they end in `board.py --once <spec>`, which the main agent reads and acts no further on. Either way it runs the command as written.
 _Avoid_: —
 
 **`BLOCKED:`**:
@@ -444,20 +448,24 @@ _Avoid_: —
 First line of the comment `board.py` posts on the spec when nothing is left to run: closed tickets, tickets handed back and their first lines, tickets not dispatched because a blocker stayed open, sub-issues opened during the night. Ticket numbers and first lines only.
 _Avoid_: 早上总结
 
-**`PARALLEL` / `COOLDOWN_SECONDS` / `WAKE_BACKOFF` / `WAKE_LIMIT` / `REDISPATCH_LIMIT` / `MAX_HOURS` / `SNAPSHOT_INTERVAL`**:
-The constants at the top of `board.py`: tickets in flight at once, the wait before the first re-prompt, the growing waits after it, re-prompts per session, redispatches per ticket, hours per ticket, and the full re-read interval.
+**`COOLDOWN_SECONDS` / `WAKE_BACKOFF` / `WAKE_LIMIT` / `REDISPATCH_LIMIT` / `MAX_HOURS` / `SNAPSHOT_INTERVAL`**:
+The constants at the top of `board.py`: the wait before the first re-prompt, the growing waits after it, re-prompts per session, redispatches per ticket, hours per ticket, and the full re-read interval. There is no limit on how many tickets run at once — dispatching is the main agent's, and it is given no budget to spend.
 _Avoid_: 并行上限, 冷却期, 退避
 
 **dispatch line（派发词）**:
-The one sentence a dispatched session is given: the skill name plus the ticket number, and nothing else. Everything fixed lives in the skill or in the definition file, never in that sentence. A re-prompt sends the same sentence again.
+The one sentence a session is given when it is dispatched: which skill to use, on which ticket, and nothing else. The host discovers its installed skills by itself, so the sentence names a skill rather than a path. Everything fixed lives in the skill or in the definition file, never in that sentence. A session already running is not sent this sentence again; it is sent `continue`.
 _Avoid_: —
 
-**`implement #<n>`**:
-The dispatch line for a worker: skill name plus ticket number.
+**`Use the implement skill to work ticket #<n>`**:
+The dispatch line for a worker.
 _Avoid_: —
 
-**`code-review <base-commit> #<n>`**:
+**`Use the code-review skill to review ticket #<n> from base commit <base-commit>`**:
 The dispatch line for a reviewer.
+_Avoid_: —
+
+**`continue`**:
+The whole of a re-prompt. The session it reaches is alive and still holds the skill it is running and the ticket it is on, so the word is the message: carry on from where you stopped.
 _Avoid_: —
 
 **`verify #<n>`**:

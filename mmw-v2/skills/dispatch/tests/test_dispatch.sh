@@ -5,6 +5,7 @@
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh worker|reviewer|badrole|runrole
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh idletimeout|notready|noherdr
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh wait|waittimeout|placeholder
+#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh advance|advanceconflict|advancedirty
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh all
 #
 # A fake `herdr` and a fake `gh` sit in front of the real ones on PATH and write every
@@ -92,6 +93,31 @@ print(json.dumps({
                             "landing 7 of 15: a new skill called dispatch"),
 }))
 ' ;;
+  *"/sub_issues"*)
+    python3 -c '
+import json, os
+path = os.environ.get("FAKE_GH_TICKETS_FILE")
+rows = json.load(open(path)) if path else []
+print(json.dumps([{"number": t["number"]} for t in rows]))
+' ;;
+  *"--json state,labels,assignees,blockedBy,comments"*)
+    MMW_WANT="$3" python3 -c '
+import json, os, sys
+path = os.environ.get("FAKE_GH_TICKETS_FILE")
+rows = json.load(open(path)) if path else []
+want = int(os.environ["MMW_WANT"])
+found = next((t for t in rows if t["number"] == want), {})
+print(json.dumps({
+    "state": found.get("state", "OPEN"),
+    "labels": [{"name": n} for n in found.get("labels", ["ready-for-agent"])],
+    "assignees": [{"login": n} for n in found.get("assignees", [])],
+    "blockedBy": {"nodes": found.get("blockedBy", [])},
+    "comments": [{"body": b} for b in found.get("comments", [])],
+    "title": found.get("title", "a ticket"),
+    "createdAt": found.get("createdAt", "2026-08-30T00:00:00Z"),
+    "closedAt": found.get("closedAt", ""),
+}))
+' ;;
   *) echo '{}' ;;
 esac
 FAKE
@@ -100,6 +126,11 @@ chmod +x "$TMP/bin/herdr" "$TMP/bin/gh"
 export PATH="$TMP/bin:$PATH"
 export MMW_TEST_LOG="$TMP/calls.log"
 export MMW_GH_COMMENT_CALLS="$TMP/comment-calls"
+
+# These tests run inside Herdr as often as not, and dispatch.sh reads the workspace it
+# was started in to build the names it hands out. Cleared here so the answer is the same
+# wherever the suite runs; the cases that want a workspace pass one of their own.
+unset HERDR_WORKSPACE_ID
 
 # A fixture repository of its own, so the worktrees dispatch.sh opens land under $TMP
 # and never touch the repository these tests live in.
@@ -176,18 +207,18 @@ if len(label) != 24:
 ' || fail "the tab label is wrong"
 
   echo "--- the agent starts in the tab's own pane, and nothing is split"
-  has "herdr :: agent :: start :: issue-61 :: --kind :: codex :: --pane :: w1:p9 :: --"
+  has "herdr :: agent :: start :: w1-issue-61 :: --kind :: codex :: --pane :: w1:p9 :: --"
   has ":: --dangerously-bypass-approvals-and-sandbox :: -m :: gpt-5.6-terra :: -c :: model_reasoning_effort=high"
   hasnt "herdr :: pane :: split"
 
   echo "--- it is told what to work on only after it is ready"
-  has "herdr :: agent :: wait :: issue-61 :: --until :: idle :: --until :: done :: --timeout :: 120000"
-  has "herdr :: agent :: prompt :: issue-61 :: implement #61"
+  has "herdr :: agent :: wait :: w1-issue-61 :: --until :: idle :: --until :: done :: --timeout :: 120000"
+  has "herdr :: agent :: prompt :: w1-issue-61 :: Use the implement skill to work ticket #61"
   [ "$(line_of 'agent :: wait')" -lt "$(line_of 'agent :: prompt')" ] \
     || fail "prompted before waiting for readiness"
 
   echo "--- and the prompt is confirmed to have landed, not just sent"
-  has "herdr :: agent :: wait :: issue-61 :: --until :: working :: --until :: blocked :: --timeout :: 15000"
+  has "herdr :: agent :: wait :: w1-issue-61 :: --until :: working :: --until :: blocked :: --timeout :: 15000"
 
   echo "--- the pane says who it is, to a person and to a machine"
   has "herdr :: pane :: rename :: w1:p9 :: #61 worker"
@@ -208,9 +239,11 @@ scenario_reviewer() {
     || fail "split without measuring the pane first"
 
   echo "--- the reviewer is a claude session named apart from the worker"
-  has "herdr :: agent :: start :: issue-61-review :: --kind :: claude :: --pane :: w1:p10 :: --"
+  has "herdr :: agent :: start :: w1-issue-61-review :: --kind :: claude :: --pane :: w1:p10 :: --"
+  # `-n` is Claude Code's own session name, out of `models.md`, not the Herdr name
+  # this script hands out: two namespaces, and only the Herdr one collides.
   has ":: --permission-mode :: bypassPermissions :: --model :: opus :: -n :: issue-61-review"
-  has "herdr :: agent :: prompt :: issue-61-review :: code-review abc1234 #61"
+  has "herdr :: agent :: prompt :: w1-issue-61-review :: Use the code-review skill to review ticket #61 from base commit abc1234"
   has "herdr :: pane :: rename :: w1:p10 :: #61 reviewer"
   has "herdr :: pane :: report-metadata :: w1:p10 :: --source :: mmw :: --token :: ticket=61 :: --token :: kind=reviewer :: --token :: model=opus"
 
@@ -274,7 +307,7 @@ scenario_idletimeout() {
           bash "$DISPATCH" 61 junior-worker)"
   [ "$code" = 1 ] || fail "expected exit 1, got $code: $(cat "$TMP/err")"
   echo "--- readiness is waited for at most 120 seconds"
-  has "herdr :: agent :: wait :: issue-61 :: --until :: idle :: --until :: done :: --timeout :: 120000"
+  has "herdr :: agent :: wait :: w1-issue-61 :: --until :: idle :: --until :: done :: --timeout :: 120000"
   echo "--- and nothing is said to an agent that never became ready"
   hasnt "herdr :: agent :: prompt"
   grep -q '120s' "$TMP/err" || fail "the reason does not say how long it waited: $(cat "$TMP/err")"
@@ -420,7 +453,7 @@ scenario_placeholder() {
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
 
   echo "--- model, thinking level and ticket number all reach the launch arguments"
-  has "herdr :: agent :: start :: issue-61 :: --kind :: grok :: --"
+  has "herdr :: agent :: start :: w1-issue-61 :: --kind :: grok :: --"
   has ":: --permission-mode :: bypassPermissions :: -m :: grok-4.6 :: --reasoning-effort :: xhigh"
   hasnt "{model}"
   hasnt "{effort}"
@@ -448,10 +481,163 @@ open(path, "w", encoding="utf-8").writelines(out)
 
 # ------------------------------------------------------------------ entry
 
-ALL="worker reviewer badrole runrole idletimeout notready noherdr wait waittimeout placeholder"
+# ------------------------------------------------------------------ advance
+
+# The scenarios before these ones dispatch tickets, and dispatching leaves branches and
+# worktrees behind. Each advance scenario starts from a repository nobody has touched.
+fresh_repo() {
+  rm -rf "$TMP/repo" "$MMW_WORKTREES"
+  git init -q -b main "$TMP/repo"
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m fixture
+}
+
+# A branch off main with one file on it, the shape `worktree_for` leaves behind.
+make_branch() {
+  local name="$1" file="$2" text="$3"
+  git -C "$TMP/repo" checkout -q -b "$name" main
+  printf '%s\n' "$text" > "$TMP/repo/$file"
+  git -C "$TMP/repo" add "$file"
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q -m "$name"
+  git -C "$TMP/repo" checkout -q main
+}
+
+# The batch `board.py --advance-plan` reads. Closing order is what the merge order has
+# to follow, so the two closed tickets close a minute apart.
+write_batch() {
+  cat > "$TMP/tickets.json" <<JSON
+[
+  {"number": 61, "state": "CLOSED", "labels": [], "closedAt": "2026-08-31T01:00:00Z",
+   "comments": ["self-run\\n3 met", "ALL MET\\nBranch: issue-61"]},
+  {"number": 62, "state": "CLOSED", "labels": [], "closedAt": "2026-08-31T02:00:00Z",
+   "comments": ["ALL MET\\nBranch: issue-62"]},
+  {"number": 63, "state": "OPEN", "labels": ["ready-for-agent"]}
+]
+JSON
+}
+
+merge_subjects() {
+  git -C "$TMP/repo" log --merges --first-parent --format='%s'
+}
+
+scenario_advance() {
+  reset_log
+  fresh_repo
+  write_batch
+  make_branch issue-61 one.txt "from 61"
+  make_branch issue-62 two.txt "from 62"
+  local code
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" advance 76)"
+
+  echo "--- both finished branches land on the main branch"
+  [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
+  [ -f "$TMP/repo/one.txt" ] || fail "issue-61 was not merged"
+  [ -f "$TMP/repo/two.txt" ] || fail "issue-62 was not merged"
+
+  echo "--- in the order the tickets closed, each keeping a merge commit of its own"
+  [ "$(merge_subjects)" = "Merge branch 'issue-62'
+Merge branch 'issue-61'" ] || fail "merge order is wrong: $(merge_subjects)"
+
+  echo "--- and the frontier is started afterwards, never before"
+  has "herdr :: agent :: start :: w1-issue-63"
+  local merged started
+  merged=$(git -C "$TMP/repo" rev-list --count HEAD)
+  [ "$merged" -ge 3 ] || fail "expected the merges to be commits, got $merged"
+  started="$(line_of 'agent :: start :: w1-issue-63')"
+  [ "$started" -gt 0 ] || fail "the frontier ticket was never started"
+
+  echo "--- a second run has nothing left to do and starts nothing new"
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" advance 76)"
+  [ "$code" = 0 ] || fail "exit $code on the second run: $(cat "$TMP/err")"
+  [ "$(merge_subjects | wc -l | tr -d ' ')" = 2 ] || fail "it merged something twice"
+  grep -q "merged 0" "$TMP/out" || fail "the second run should report nothing merged: $(cat "$TMP/out")"
+}
+
+scenario_advanceconflict() {
+  reset_log
+  fresh_repo
+  write_batch
+  # Both branches rewrite the same line, so the second merge cannot be automatic.
+  printf 'base\n' > "$TMP/repo/shared.txt"
+  git -C "$TMP/repo" add shared.txt
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q -m shared
+  make_branch issue-61 shared.txt "from 61"
+  make_branch issue-62 shared.txt "from 62"
+
+  local code
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" advance 76)"
+
+  echo "--- a conflict stops the run with its own exit code"
+  [ "$code" = 3 ] || fail "exit $code, not 3: $(cat "$TMP/err")"
+
+  echo "--- the merge is left in the tree, never aborted"
+  git -C "$TMP/repo" rev-parse -q --verify MERGE_HEAD >/dev/null \
+    || fail "MERGE_HEAD is gone, so the merge was aborted"
+
+  echo "--- and the report names both sides and the files"
+  grep -q "CONFLICT merging issue-62" "$TMP/out" || fail "no CONFLICT line: $(cat "$TMP/out")"
+  grep -q "MERGE_HEAD  issue-62" "$TMP/out" || fail "the incoming side is not named"
+  grep -q "issue-61" "$TMP/out" || fail "the side already merged is not named"
+  grep -q "shared.txt" "$TMP/out" || fail "the conflicted file is not named"
+
+  echo "--- nothing is dispatched while the tree is half-merged"
+  hasnt "agent :: start :: w1-issue-63"
+
+  echo "--- running it again changes nothing and says the same thing"
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" advance 76)"
+  [ "$code" = 3 ] || fail "exit $code on the second run, not 3"
+  grep -q "CONFLICT merging issue-62" "$TMP/out" || fail "the second run lost the report"
+  hasnt "agent :: start :: w1-issue-63"
+
+  echo "--- once it is resolved and committed, the run carries on from there"
+  printf 'resolved\n' > "$TMP/repo/shared.txt"
+  git -C "$TMP/repo" add shared.txt
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q --no-edit
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" advance 76)"
+  [ "$code" = 0 ] || fail "exit $code after the resolution: $(cat "$TMP/err")"
+  grep -q "merged 0" "$TMP/out" || fail "it merged something already in: $(cat "$TMP/out")"
+  has "herdr :: agent :: start :: w1-issue-63"
+}
+
+scenario_advancedirty() {
+  reset_log
+  fresh_repo
+  write_batch
+  make_branch issue-61 one.txt "from 61"
+  printf 'unfinished\n' > "$TMP/repo/shared.txt"
+  git -C "$TMP/repo" add shared.txt
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q -m shared
+  printf 'edited\n' > "$TMP/repo/shared.txt"
+
+  local code
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" advance 76)"
+
+  echo "--- a tree with uncommitted work is refused before anything is merged"
+  [ "$code" = 2 ] || fail "exit $code, not 2: $(cat "$TMP/err")"
+  one_line_reason
+  grep -q "uncommitted changes" "$TMP/err" || fail "the reason does not say why: $(cat "$TMP/err")"
+  [ ! -f "$TMP/repo/one.txt" ] || fail "it merged despite the dirty tree"
+  hasnt "agent :: start"
+}
+
+ALL="worker reviewer badrole runrole idletimeout notready noherdr wait waittimeout placeholder advance advanceconflict advancedirty"
 
 case "${1:-}" in
-  worker|reviewer|badrole|runrole|idletimeout|notready|noherdr|wait|waittimeout|placeholder)
+  worker|reviewer|badrole|runrole|idletimeout|notready|noherdr|wait|waittimeout|placeholder|advance|advanceconflict|advancedirty)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -472,6 +658,9 @@ banner_for() {
     wait) echo DISPATCH-WAIT-OK ;;
     waittimeout) echo DISPATCH-WAITTIMEOUT-OK ;;
     placeholder) echo DISPATCH-PLACEHOLDER-OK ;;
+    advance) echo DISPATCH-ADVANCE-OK ;;
+    advanceconflict) echo DISPATCH-ADVANCE-CONFLICT-OK ;;
+    advancedirty) echo DISPATCH-ADVANCE-DIRTY-OK ;;
   esac
 }
 

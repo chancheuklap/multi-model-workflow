@@ -212,12 +212,94 @@ class TestConsole(unittest.TestCase):
         self.assertEqual(args.console_errors, 0)
 
 
+class TestOverCdp(unittest.TestCase):
+    """An implementation that is already running is connected to, not opened.
+
+    The three things that differ from a browser this program launched are all here: the
+    size and the pixel ratio go down as a device-metrics override because the context
+    belongs to the application, the reduced-motion setting is put on the page for the
+    same reason, and the page is picked out of the application's own windows by title.
+    """
+
+    class Session:
+        def __init__(self):
+            self.sent = []
+
+        def send(self, method, params):
+            self.sent.append((method, params))
+
+    class Page:
+        def __init__(self, title="", url="http://127.0.0.1:5173/"):
+            self.session = TestOverCdp.Session()
+            self.context = type("Ctx", (), {
+                "new_cdp_session": lambda _self, page: page.session})()
+            self.sized = None
+            self.media = None
+            self._title = title
+            self.url = url
+
+        def set_viewport_size(self, size):
+            self.sized = size
+
+        def emulate_media(self, **kwargs):
+            self.media = kwargs
+
+        def title(self):
+            return self._title
+
+    def test_a_launched_page_is_given_its_viewport_directly(self):
+        page = self.Page()
+        vp.resize(page, (1440, 900), over_cdp=False)
+        self.assertEqual(page.sized, {"width": 1440, "height": 900})
+        self.assertEqual(page.session.sent, [])
+
+    def test_a_connected_page_is_sent_its_metrics_with_the_ratio_pinned(self):
+        page = self.Page()
+        vp.resize(page, (1180, 720), over_cdp=True)
+        self.assertIsNone(page.sized)
+        self.assertEqual(page.session.sent, [(
+            "Emulation.setDeviceMetricsOverride",
+            {"width": 1180, "height": 720, "deviceScaleFactor": 1, "mobile": False})])
+        self.assertEqual(page.media, {"reduced_motion": "reduce"})
+
+    def browser(self, *pages):
+        context = type("Ctx", (), {"pages": list(pages)})()
+        return type("Browser", (), {"contexts": [context]})()
+
+    def test_with_no_title_asked_for_the_first_page_is_taken(self):
+        first = self.Page(title="the app")
+        found = vp.impl_page_over_cdp(self.browser(first, self.Page(title="other")), None)
+        self.assertIs(found, first)
+
+    def test_a_title_substring_picks_the_window(self):
+        wanted = self.Page(title="商品工作台 — Chameleon")
+        found = vp.impl_page_over_cdp(
+            self.browser(self.Page(title="DevTools"), wanted), "Chameleon")
+        self.assertIs(found, wanted)
+
+    def test_no_such_window_says_what_was_there(self):
+        with self.assertRaises(SystemExit) as raised:
+            vp.impl_page_over_cdp(self.browser(self.Page(title="DevTools")),
+                                  "Chameleon", timeout_seconds=0)
+        self.assertIn("DevTools", str(raised.exception))
+
+
 class TestArguments(unittest.TestCase):
     def test_defaults(self):
         args = vp.build_parser().parse_args(
             ["--baseline", "b", "--impl", "http://x/", "--scenes", "a,b"])
         self.assertEqual(args.max_pct, 1.0)
         self.assertEqual(args.viewports, "1440x900,1180x720")
+        self.assertIsNone(args.cdp)
+        self.assertIsNone(args.impl_title)
+
+    def test_a_running_browser_is_named_alongside_the_address(self):
+        args = vp.build_parser().parse_args(
+            ["--baseline", "b", "--impl", "http://x/", "--scenes", "a",
+             "--cdp", "http://127.0.0.1:9229", "--impl-title", "Chameleon"])
+        self.assertEqual(args.cdp, "http://127.0.0.1:9229")
+        self.assertEqual(args.impl_title, "Chameleon")
+        self.assertEqual(args.impl, "http://x/")
 
     def test_viewports_are_read_as_pairs(self):
         self.assertEqual(vp.parse_viewports("1440x900,1180x720"),

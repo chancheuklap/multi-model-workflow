@@ -169,6 +169,28 @@ def fetch_sub_issues(spec: int) -> list[int]:
     return json.loads(text) if text else []
 
 
+def fetch_outsider(number: int) -> dict:
+    """Where a blocker outside this batch belongs, and whether it is closed.
+
+    A blocking link always points at an issue that exists, so the question is not
+    whether it is there but whether it is a ticket: an issue whose `## Parent` names a
+    spec. `spec` is that number, or `None` for an issue that is something else.
+    Patched out in tests.
+    """
+    out = subprocess.run(
+        ["gh", "issue", "view", str(number), "--json", "state,body"],
+        capture_output=True, text=True, env=GH_ENV,
+    )
+    if out.returncode != 0:
+        return {"spec": None, "state": ""}
+    try:
+        data = json.loads(out.stdout)
+    except json.JSONDecodeError:
+        return {"spec": None, "state": ""}
+    return {"spec": parent_spec(data.get("body") or ""),
+            "state": (data.get("state") or "").upper()}
+
+
 def section(body: str, heading: str) -> list[str]:
     """The lines under `## <heading>`, up to the next `## ` heading."""
     lines = body.splitlines()
@@ -296,11 +318,11 @@ def outside_owns(globs: list[str], root: Path) -> list[str]:
 def ledger_from_comment(comment: str) -> list[str]:
     """The ledger a previous run posted: from its first gate line to `Outside Owns:`."""
     lines = comment.splitlines()
-    start = next((i for i, l in enumerate(lines) if GATE_LINE_RE.match(l)), None)
+    start = next((i for i, line in enumerate(lines) if GATE_LINE_RE.match(line)), None)
     if start is None:
         return []
-    end = next((i for i, l in enumerate(lines[start:], start)
-                if l.startswith("Outside Owns:")), len(lines))
+    end = next((i for i, line in enumerate(lines[start:], start)
+                if line.startswith("Outside Owns:")), len(lines))
     out = lines[start:end]
     while out and not out[-1].strip():
         out.pop()
@@ -613,6 +635,12 @@ def git_problems(root: Path | None = None) -> list[str]:
 # grok-bundled's `execute-plan/scripts/validate-plan.py` L145-280, function for
 # function. Only the shape of an entry changed: an id is an issue number rather
 # than a `pr-<n>` string, and dependencies come from the tracker's blocking links.
+#
+# A plan's steps all lived in one plan; a ticket's blockers do not. A spec delivered in
+# layers blocks its tickets on tickets under the spec before it, and an issue that is no
+# ticket at all can be linked as a blocker too. Neither is an edge these four can order,
+# so `in_batch` takes them out before the graph is built, and `blockers_not_tickets`,
+# `cross_batch_findings` and `waiting_outside` say what was taken out and what it means.
 
 def validate_dag(entries: list[dict]) -> list[str]:
     """Check unique ids, valid dependency references, and no cycles."""
@@ -723,6 +751,79 @@ def compute_levels(entries: list[dict]) -> dict:
     return levels
 
 
+def in_batch(entries: list[dict]) -> list[dict]:
+    """The same entries with every dependency outside the batch dropped.
+
+    A blocking link to another spec's ticket is a real edge, and `--preflight`,
+    `dispatch.sh` and `board.py` all honour it — but it is not an edge this graph can
+    order, because the other end has no entry here. Left in, it would hold that ticket's
+    in-degree above zero forever, which Kahn's algorithm reads as a cycle and
+    `compute_levels` reads as a ticket with no level at all.
+    """
+    ids = {e["id"] for e in entries}
+    return [{**e, "dependencies": [d for d in e["dependencies"] if d in ids]}
+            for e in entries]
+
+
+def _outside(entry: dict, dep: int) -> dict:
+    """What `ticket_entries` found out about one blocker outside the batch."""
+    return ((entry.get("outside") or {}).get(dep)) or {}
+
+
+def blockers_not_tickets(entries: list[dict]) -> list[str]:
+    """Blocking links to issues that are not tickets under any spec.
+
+    A blocking link always points at an issue that exists, so what is asked here is
+    whether that issue is a ticket: one whose `## Parent` names a spec. An issue that
+    names none — a bug, a note, a discussion — is a blocker no part of this pipeline
+    will ever close, and the ticket waiting on it can never start.
+    """
+    ids = {e["id"] for e in entries}
+    errors = []
+    for entry in entries:
+        for dep in entry["dependencies"]:
+            if dep in ids or _outside(entry, dep).get("spec"):
+                continue
+            errors.append(f"#{entry['id']} is blocked by #{dep}, which is not a ticket "
+                          f"under any spec  [blocker-not-a-ticket]")
+    return errors
+
+
+def cross_batch_findings(entries: list[dict]) -> list[str]:
+    """Blocking links to tickets under another spec.
+
+    Not a fault to fix: it is the shape a layered delivery has, and `--preflight`,
+    `dispatch.sh` and `board.py` all refuse to start a ticket while one of these is
+    open. It is reported because the start levels are built without it, so a reader who
+    took them for the whole truth would miss that one of these tickets is waiting on a
+    spec that is not in front of them.
+    """
+    findings = []
+    for entry in entries:
+        for dep, where in sorted((entry.get("outside") or {}).items()):
+            if not where.get("spec"):
+                continue
+            findings.append(f"#{entry['id']} is blocked by #{dep}, a ticket under spec "
+                            f"#{where['spec']} ({where.get('state') or 'unknown'}); the "
+                            f"start levels below are this spec's own order only")
+    return findings
+
+
+def waiting_outside(entries: list[dict]) -> list[str]:
+    """Tickets that cannot start yet because a ticket under another spec is still open.
+
+    The start levels say where a ticket sits among its own batch. These lines say the
+    batch is not the whole of what it waits on.
+    """
+    lines = []
+    for entry in entries:
+        for dep, where in sorted((entry.get("outside") or {}).items()):
+            if where.get("spec") and where.get("state") != "CLOSED":
+                lines.append(f"waiting on another spec: #{entry['id']} ← #{dep} "
+                             f"({where.get('state') or 'unknown'}, spec #{where['spec']})")
+    return lines
+
+
 def ticket_entries(numbers: list[int]) -> list[dict]:
     """One entry per ticket: the tracker's blocking links, and the ticket's own copy.
 
@@ -731,10 +832,22 @@ def ticket_entries(numbers: list[int]) -> list[dict]:
     `stated` is the `## Blocked by` section of the ticket body, carried alongside so
     `blocked_by_mismatch` can hold the two accounts of one edge against each other.
 
-    A dependency on a ticket outside this batch is kept, so `validate_dag` reports it.
+    A dependency outside this batch is kept, and `outside` says what was found at the
+    other end of it: `{number: {"spec": …, "state": …}}`. One lookup per distinct
+    blocker rather than one per edge — several tickets of a batch commonly wait on the
+    same one.
     """
-    return [{"id": n, "dependencies": fetch_blocked_by(n), "stated": blocked_by(fetch_body(n))}
-            for n in numbers]
+    batch = set(numbers)
+    entries = [{"id": n, "dependencies": fetch_blocked_by(n), "stated": blocked_by(fetch_body(n))}
+               for n in numbers]
+    found: dict[int, dict] = {}
+    for entry in entries:
+        for dep in entry["dependencies"]:
+            if dep not in batch and dep not in found:
+                found[dep] = fetch_outsider(dep)
+    for entry in entries:
+        entry["outside"] = {d: found[d] for d in entry["dependencies"] if d in found}
+    return entries
 
 
 def blocked_by_mismatch(entries: list[dict]) -> list[str]:
@@ -814,7 +927,7 @@ def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
         if result.returncode == 2:
             report_phase(number, phase)
             return 2
-        summary = [l for l in printed.splitlines() if SUMMARY_RE.match(l)]
+        summary = [line for line in printed.splitlines() if SUMMARY_RE.match(line)]
         updated = ledger.read_text(encoding="utf-8").rstrip("\n")
         met, total = count_gates(ledger)
 
@@ -874,7 +987,7 @@ def refusals(number: int, ticket: dict, me: str, branch: str, dirty: list[str]) 
     if state != "OPEN":
         out.append(f"NOT_READY: #{number} is {state or 'unreadable'}, not OPEN; "
                    f"nothing for you to do here — stop, this comment is the record")
-    labels = [l.get("name", "") for l in ticket.get("labels", [])]
+    labels = [label.get("name", "") for label in ticket.get("labels", [])]
     if "ready-for-agent" not in labels:
         out.append(f"NOT_READY: #{number} has no ready-for-agent label, so it has not been "
                    f"cleared for an agent yet; stop and leave it to whoever triages it")
@@ -965,17 +1078,26 @@ def lint_ticket_graph(number: int, body: str) -> int:
     # an edge is often what the error is: a cycle or a dangling link the section denies.
     for finding in blocked_by_mismatch(entries):
         print("  WARN  " + finding + "  [blocked-by-mismatch]")
-    errors = validate_dag(entries)
+    for finding in cross_batch_findings(entries):
+        print("  WARN  " + finding + "  [cross-batch]")
+    inside = in_batch(entries)
+    errors = blockers_not_tickets(entries) + validate_dag(inside)
     if errors:
+        # The start levels stay unprinted on purpose. What reaches here is a cycle, a
+        # duplicate, or a blocker that is no ticket, and none of the three has levels to
+        # print: Kahn's algorithm drains none of them, so the table would come out
+        # missing exactly the tickets the error is about.
         for error in errors:
             print("  ERROR " + error)
         return 1
-    levels = compute_levels(entries)
+    levels = compute_levels(inside)
     by_level = defaultdict(list)
     for ticket, level in levels.items():
         by_level[level].append(ticket)
     for level in sorted(by_level):
         print(f"level {level}: " + ", ".join(f"#{t}" for t in sorted(by_level[level])))
+    for line in waiting_outside(entries):
+        print(line)
     return 0
 
 

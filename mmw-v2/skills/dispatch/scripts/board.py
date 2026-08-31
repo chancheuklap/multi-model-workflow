@@ -1,19 +1,29 @@
 #!/usr/bin/env python3
 """The night board: one view of every ticket under a spec and every session on one.
 
-    board.py --once [<spec>]   print one table and exit
-    board.py [<spec>]          stay up, append one line per event
-    board.py --watch <spec>    the same, and act on what it sees
+    board.py --once [<spec>]        print one table and exit
+    board.py [<spec>]               stay up, append one line per event
+    board.py --watch <spec>         the same, and act on what it sees
+    board.py --advance-plan <spec>  what `dispatch.sh advance` has to do, in order
 
 One program, several forms, reading the same two sources, so there is never a second
 truth to reconcile. `--once` is what an agent runs when it wants the whole picture in
 one screen. The argument-less form is what a person leaves open in a tab: it appends,
 never redraws, and never enters the alternate screen, so its lines stay in the host's
 scrollback where `herdr pane read` can still reach them. `--watch` is the one form that
-does anything: it dispatches the frontier, re-prompts a session that is `idle` with a
-`phase` other than `closed` or `handoff`, and hands back the tickets that reached a
-limit. Nothing it does needs a model, because the only thing it ever says to a worker
-is that worker's own dispatch line.
+does anything: it re-prompts a session that is `idle` with a `phase` other than `closed`
+or `handoff`, redispatches one whose session is gone, and hands back the tickets that
+reached a limit. Nothing it does needs a model, because the only thing it ever says to a
+worker is that worker's own dispatch line.
+
+What it does not do is dispatch. Moving the batch on is the main agent's: when the
+frontier grows, `--watch` tells `mmw-main` to run `dispatch.sh advance`, which merges
+the branches of the tickets that closed and then starts the ones that can start. Repair
+is the board's, the next step is the main agent's, and the line between them is that a
+repair puts a session that was already dispatched back on its feet.
+
+One board covers one Herdr workspace. Sessions in another workspace belong to another
+board and are not read, not counted and not touched.
 
 The two sources are the tracker and Herdr, and nothing else. There is no state file:
 every round is a full re-read, so a dropped connection or a restart loses nothing.
@@ -34,7 +44,6 @@ from datetime import datetime, timezone
 
 # --------------------------------------------------------------------- constants
 
-PARALLEL = 2                    # workers alive at once
 COOLDOWN_SECONDS = 120          # a first idle may be nothing but a gap between turns
 WAKE_BACKOFF = (120, 240, 480)  # seconds to wait before the 1st, 2nd, 3rd prompt
 WAKE_LIMIT = 3                  # prompts per session before the ticket goes back
@@ -252,7 +261,31 @@ def counted_ac(ticket: dict) -> str:
 
 # --------------------------------------------------------------------- the sessions
 
-NAME_RE = re.compile(r"^issue-(\d+)(-review)?$")
+def name_prefix() -> str:
+    """What every Herdr name this pipeline hands out starts with, in this workspace.
+
+    Herdr's agent names are unique among live agents across the whole server, not per
+    workspace, so two repositories each holding a ticket #100 would collide on
+    `issue-100` and the second `herdr agent start` would simply fail. The workspace id
+    is short, stable, and already the prefix of every pane id in it. Outside Herdr, or
+    on a server that reports no workspace, the names are the bare ones.
+    """
+    ws = (os.environ.get("HERDR_WORKSPACE_ID") or "").strip().lower()
+    return f"{ws}-" if ws else ""
+
+
+def worker_name(number: int) -> str:
+    """The Herdr name `dispatch.sh` gives this ticket's worker session."""
+    return f"{name_prefix()}issue-{number}"
+
+
+def name_re() -> re.Pattern:
+    """The shape of a name this pipeline hands out, in this workspace.
+
+    Read at the moment it is used rather than frozen at import, so that whichever
+    workspace this process was started in is the one it answers for.
+    """
+    return re.compile(rf"^{re.escape(name_prefix())}issue-(\d+)(-review)?$")
 
 
 def session_of(agent: dict) -> dict | None:
@@ -273,7 +306,7 @@ def session_of(agent: dict) -> dict | None:
     somebody's own session now, and only the dispatched ones are ever acted on.
     """
     tokens = agent.get("tokens") or {}
-    named = NAME_RE.match(agent.get("name") or "")
+    named = name_re().match(agent.get("name") or "")
     number, kind = tokens.get("ticket"), tokens.get("kind")
     if not (number and str(number).isdigit()):
         if not named:
@@ -295,11 +328,21 @@ def session_of(agent: dict) -> dict | None:
         "wake": int(tokens["wake"]) if str(tokens.get("wake", "")).isdigit() else 0,
         "model": tokens.get("model") or "",
         "host": agent.get("agent") or "",
+        "workspace": agent.get("workspace_id") or "",
     }
 
 
 def sessions(agents: list[dict]) -> list[dict]:
-    return [s for s in (session_of(a) for a in agents) if s]
+    """The sessions of this workspace, and no others.
+
+    Several boards run at once, one per workspace, and every one of them sees every
+    pane on the server. Without this a board would re-prompt, close and hand back the
+    sessions of a batch it knows nothing about. A server that reports no workspace for
+    this process leaves every session in, which is the one-board case.
+    """
+    own = (os.environ.get("HERDR_WORKSPACE_ID") or "").strip()
+    found = [s for s in (session_of(a) for a in agents) if s]
+    return [s for s in found if not own or s["workspace"] == own]
 
 
 def worker_on(sessions_: list[dict], number: int) -> dict | None:
@@ -419,14 +462,12 @@ def render_row(cells: dict) -> str:
     return (" " + "".join(out)).rstrip()
 
 
-def render_table(rows: list[dict], spec: int | None, now: datetime,
-                 parallel: int = PARALLEL) -> str:
-    live = len(held(rows))
+def render_table(rows: list[dict], spec: int | None, now: datetime) -> str:
     head = ["mmw board", now.strftime("%H:%M")]
     if spec:
         head.append(f"spec #{spec}")
     head.append(f"{len(rows)} tickets")
-    head.append(f"PARALLEL {live}/{parallel}")
+    head.append(f"{len(held(rows))} live")
     lines = [" · ".join(head), ""]
     lines.append(render_row({name: name for name, _ in COLUMNS}))
     for row in rows:
@@ -505,12 +546,13 @@ class Events:
 
 # --------------------------------------------------------------------- the prompt
 
-# What a session that is `idle` with a `phase` other than `closed` or `handoff` is sent:
-# its own dispatch line, and not one word more. Where it got to is on the ticket — the
-# `self-run`, `VERDICT` and `REVIEW` comments and the `phase` token say it — and the
-# ticket is the only place that is kept. The skill it is already running is what tells
-# it to carry on from the newest of those rather than start the closing steps again.
-DISPATCH_LINE = "implement #{n}"
+# What a session that is `idle` with a `phase` other than `closed` or `handoff` is sent,
+# and what a session gets after its question form is dismissed. One word, because the
+# session is alive and still holds everything it has read and written this run: it
+# carries on from where it stopped. Naming the skill and the ticket again would send it
+# back in at the skill's first step, and that step is a gate written for a worker that
+# has not started — a tree with this run's own uncommitted work in it is refused there.
+CONTINUE_LINE = "continue"
 
 # --------------------------------------------------------------------- acting
 
@@ -521,14 +563,23 @@ CLOSE_KEY_OTHERWISE = "esc"
 FORM_CHARS = 500                # enough of the form to read it in the morning
 FORM_LINES = 20                 # a form sits at the foot of the screen, above nothing
 
-MAIN = "mmw-main"
+def main_name() -> str:
+    """The Herdr name `dispatch.sh run` gives the main agent's own pane."""
+    return name_prefix() + "mmw-main"
+
+
+# Two lines, because the two say different things. A limit was reached and the board has
+# already commented and relabelled, so there is nothing to do but read. The frontier
+# grew, or the night is over with branches still unmerged, so there is a step to take.
 MAIN_LINE = ("mmw board: {case} #{n} — run "
              "~/.agents/skills/dispatch/scripts/board.py --once {spec}")
+ADVANCE_LINE = ("mmw board: {case} #{spec} — run "
+                "~/.agents/skills/dispatch/scripts/dispatch.sh advance {spec}")
 
 BLOCKED = "BLOCKED: {form}"
-REDISPATCHED = ("REDISPATCHED: session issue-{n} ended at phase={phase}; started again "
+REDISPATCHED = ("REDISPATCHED: session {name} ended at phase={phase}; started again "
                 "as {role}")
-REDISPATCH_SPENT = ("REDISPATCHED: session issue-{n} ended at phase={phase} and it had "
+REDISPATCH_SPENT = ("REDISPATCHED: session {name} ended at phase={phase} and it had "
                     "already been redispatched {k} time(s). Handed back to "
                     "needs-triage; the ticket stays open.")
 WAKEUP_LIMIT = ("WAKEUP LIMIT: re-prompted {k} times and it went idle again at "
@@ -550,16 +601,22 @@ class Watch:
     again by the tracker and by Herdr.
     """
 
-    def __init__(self, spec: int, role: str, parallel: int, max_hours: int) -> None:
+    def __init__(self, spec: int, role: str, max_hours: int) -> None:
         self.spec = spec
         self.role = role
-        self.parallel = parallel
         self.max_hours = max_hours
         self.settled_since: dict[str, float] = {}
         self.held_since: dict[int, float] = {}
         self.wakes: dict[str, int] = {}
         self.handed_back: set[int] = set()
+        # The frontier the main agent was last told about. It takes it tens of seconds
+        # to read the board and run `advance`, and a round goes by faster than that, so
+        # without this the same frontier would queue the same line several times over.
+        self.announced: set[int] = set()
         self.for_main: list[str] = []
+        # Whether the last look for `mmw-main` found nobody. Only so the line saying so
+        # is written once rather than every round for as long as it is gone.
+        self.main_absent = False
         # The same shape GitHub writes into createdAt and closedAt — UTC, `Z` suffix —
         # so the summary can compare the two as strings.
         self.opened = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -570,14 +627,17 @@ class Watch:
     def run(self) -> int:
         events = Events()
         events.start()
-        say("board", "watch", f"spec #{self.spec} role={self.role} "
-                              f"parallel={self.parallel} max-hours={self.max_hours}")
+        say("board", "watch",
+            f"spec #{self.spec} role={self.role} max-hours={self.max_hours}")
         while True:
             try:
                 self.round()
             except Exception as problem:
                 say("board", "error", str(problem)[:160])
-            if self.summary_written and not self.for_main:
+            # Nobody named `mmw-main` at the night's end is the one other way to be
+            # finished: the summary is on the spec, and a line nobody can take would
+            # otherwise keep this process alive all day.
+            if self.summary_written and (not self.for_main or self.main_absent):
                 return 0
             events.wait(SNAPSHOT_INTERVAL)
 
@@ -591,7 +651,7 @@ class Watch:
                 self.redispatch(row)
             elif row["worker"] and row["worker"]["dispatched"]:
                 self.pick_up(row)
-        self.dispatch_frontier(rows)
+        self.tell_main_to_advance(rows)
         if self.nothing_left(rows):
             self.write_summary(rows)
         self.tell_main()
@@ -666,7 +726,7 @@ class Watch:
             self.hand_back(row, WAKEUP_LIMIT.format(k=WAKE_LIMIT, phase=worker["phase"]),
                            case="WAKEUP LIMIT")
             return
-        self.send(row, DISPATCH_LINE.format(n=row["ticket"]))
+        self.send(row, CONTINUE_LINE)
 
     def over_time(self, row: dict) -> bool:
         """Held longer than a ticket may hold a session. Hand it back; leave it running."""
@@ -713,7 +773,7 @@ class Watch:
                "--timeout", "15000"])
         say(f"#{row['ticket']}", key, "form dismissed")
         self.settled_since[pane] = time.monotonic()
-        self.send(row, DISPATCH_LINE.format(n=row["ticket"]))
+        self.send(row, CONTINUE_LINE)
 
     # ------------------------------------------------------------- the session is gone
 
@@ -737,12 +797,14 @@ class Watch:
         number, worker = row["ticket"], row["worker"]
         phase = (worker or {}).get("phase") or "unknown"
         if row["redispatches"] >= REDISPATCH_LIMIT:
-            self.hand_back(row, REDISPATCH_SPENT.format(n=number, phase=phase,
+            self.hand_back(row, REDISPATCH_SPENT.format(name=worker_name(number),
+                                                        phase=phase,
                                                         k=row["redispatches"]),
                            case="REDISPATCHED")
             return
         gh(["issue", "comment", str(number),
-            "--body", REDISPATCHED.format(n=number, phase=phase, role=self.role)])
+            "--body", REDISPATCHED.format(name=worker_name(number), phase=phase,
+                                          role=self.role)])
         say(f"#{number}", "comment", f"REDISPATCHED: ended at phase={phase}")
         if worker:
             herdr(["pane", "close", worker["pane_id"]])
@@ -808,17 +870,26 @@ class Watch:
             # Same as at either exit: the place is free from here on, not next round.
             row["worker"] = None
 
-    # ------------------------------------------------------------- dispatching
+    # ------------------------------------------------------------- moving on
 
-    def dispatch_frontier(self, rows: list[dict]) -> None:
-        room = self.parallel - len(held(rows))
-        for row in frontier(rows):
-            if room <= 0:
-                return
-            if row["ticket"] in self.handed_back:
-                continue
-            if self.start(row["ticket"]):
-                room -= 1
+    def tell_main_to_advance(self, rows: list[dict]) -> None:
+        """Say that the frontier has tickets on it. The main agent is the one who acts.
+
+        Sent once per frontier rather than once per round, and again whenever the set
+        changes. A ticket that stays on the frontier after the main agent has been told
+        is one whose dispatch it already tried and reported on, so saying it again would
+        add nothing.
+        """
+        ready = {row["ticket"] for row in frontier(rows)
+                 if row["ticket"] not in self.handed_back}
+        if ready == self.announced:
+            return
+        self.announced = ready
+        if not ready:
+            return
+        say(f"#{self.spec}", "frontier",
+            ", ".join(f"#{t}" for t in sorted(ready)))
+        self.for_main.append(ADVANCE_LINE.format(case="ADVANCE", spec=self.spec))
 
     def start(self, number: int) -> bool:
         """Start one worker. Returns whether a session now occupies one of the places.
@@ -853,8 +924,10 @@ class Watch:
         gh(["issue", "comment", str(self.spec), "--body", body])
         say(f"#{self.spec}", "comment", first_line(body))
         self.summary_written = True
-        self.for_main.append(MAIN_LINE.format(case="night over", n=self.spec,
-                                      spec=self.spec))
+        # `advance` and not just a read: the tickets that closed last still have their
+        # branches sitting outside the main branch, and this is the last chance to merge
+        # them. With nothing left on the frontier it dispatches nothing.
+        self.for_main.append(ADVANCE_LINE.format(case="night over", spec=self.spec))
 
     def summary(self, rows: list[dict]) -> str:
         """Ticket numbers and first lines. What each says is on the ticket itself."""
@@ -881,25 +954,35 @@ class Watch:
 
         Only two cases ever reach it: a limit was reached, or the night ended. It is
         told, never asked; it answers by running `board.py --once` and reading.
+
+        A line nobody takes waits in the queue, and there being nobody named `mmw-main`
+        is that same case: the pane may be back next round. Losing the line would stop
+        the night for good, because `tell_main_to_advance` records a frontier before
+        queueing the line for it and so never announces that frontier a second time.
         """
         while self.for_main:
             main = self.find_main()
             if main is None:
-                say(MAIN, "absent", "nobody is named mmw-main; dropping the line")
-                self.for_main.clear()
+                if not self.main_absent:
+                    self.main_absent = True
+                    say(main_name(), "absent",
+                        f"nobody is named mmw-main; {len(self.for_main)} line(s) wait")
                 return
+            if self.main_absent:
+                self.main_absent = False
+                say(main_name(), "back", f"{len(self.for_main)} line(s) waiting")
             if main["focused"] or main["agent_status"] not in IDLE_STATUSES:
                 return
             line = self.for_main[0]
-            code, reason = herdr_run(["agent", "prompt", MAIN, line])
+            code, reason = herdr_run(["agent", "prompt", main_name(), line])
             if code != 0:
-                say(MAIN, "refused", reason[:120])
+                say(main_name(), "refused", reason[:120])
                 return
-            say(MAIN, "prompt", line)
+            say(main_name(), "prompt", line)
             self.for_main.pop(0)
 
     def find_main(self) -> dict | None:
-        return next((a for a in live_agents() if a.get("name") == MAIN), None)
+        return next((a for a in live_agents() if a.get("name") == main_name()), None)
 
 
 # --------------------------------------------------------------------- the forms
@@ -912,6 +995,35 @@ def collect(spec: int | None) -> tuple[list[dict], list[dict]]:
     numbers += [s["ticket"] for s in sessions_]
     tickets = {n: read_ticket(n) for n in sorted(set(numbers))}
     return build_rows(numbers, tickets, sessions_), sessions_
+
+
+def advance_plan(spec: int) -> int:
+    """What the main agent's next `dispatch.sh advance` has to do, in order.
+
+    Two kinds of line and nothing else on stdout, because a script reads this:
+
+        MERGE <ticket>      closed with `ALL MET`, the one that closed first at the top
+        DISPATCH <ticket>   on the frontier, in ticket order
+
+    The merge order is the order the tickets closed, which is already the order their
+    blockers imposed: the start-of-work guard refuses a ticket whose blocker is open, so
+    none of them can have closed before the ones it waited on.
+
+    Whether a branch exists and whether it is already in the main branch are git's
+    questions, and git is not one of this program's two sources. `dispatch.sh` asks
+    them, and skips what it finds already merged.
+    """
+    numbers = sub_issues(spec)
+    tickets = {n: read_ticket(n) for n in numbers}
+    done = [t for t in tickets.values()
+            if t["state"] == "CLOSED"
+            and first_line(newest_with_first_line(t, "ALL MET")).startswith("ALL MET")]
+    for ticket in sorted(done, key=lambda t: t["closed_at"]):
+        print(f"MERGE {ticket['number']}")
+    rows = build_rows(numbers, tickets, sessions(live_agents()))
+    for row in frontier(rows):
+        print(f"DISPATCH {row['ticket']}")
+    return 0
 
 
 def once(spec: int | None) -> int:
@@ -972,10 +1084,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                         help="print one table and exit")
     parser.add_argument("--watch", action="store_true",
                         help="stay up and act on what the table says")
+    parser.add_argument("--advance-plan", action="store_true",
+                        help="print what `dispatch.sh advance` has to do, in order")
     parser.add_argument("--role", default="junior-worker",
                         help="which row of models.md tonight's workers are started from")
-    parser.add_argument("--parallel", type=int, default=PARALLEL,
-                        help="how many workers may be alive at once")
     parser.add_argument("--max-hours", type=int, default=MAX_HOURS,
                         help="how long one ticket may hold a session")
     parser.add_argument("spec", nargs="?", type=int,
@@ -985,13 +1097,18 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(list(sys.argv[1:] if argv is None else argv))
+    if args.advance_plan:
+        if not args.spec:
+            sys.stderr.write("board: --advance-plan needs the spec whose batch to read\n")
+            return 2
+        return advance_plan(args.spec)
     if args.once:
         return once(args.spec)
     if args.watch:
         if not args.spec:
             sys.stderr.write("board: --watch needs the spec whose tickets to work\n")
             return 2
-        return Watch(args.spec, args.role, args.parallel, args.max_hours).run()
+        return Watch(args.spec, args.role, args.max_hours).run()
     return resident(args.spec)
 
 
