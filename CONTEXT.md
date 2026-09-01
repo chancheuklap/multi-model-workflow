@@ -424,8 +424,8 @@ _Avoid_: —
 The Herdr name `dispatch.sh run` gives the main agent's own pane, so `board.py` can re-prompt it.
 _Avoid_: —
 
-**`mmw board: <case> #<n> — run <command>`**:
-The one line `board.py` sends `mmw-main`. `<case>` is one of five literals. `ADVANCE` says the frontier has grown and `night over` says the night ended; both end in `dispatch.sh advance <spec>`, because both leave branches to merge. `WAKEUP LIMIT`, `REDISPATCHED` and `TIME LIMIT` say a limit was reached and the board has already commented and relabelled; they end in `board.py --once <spec>`, which the main agent reads and acts no further on. Either way it runs the command as written.
+**`mmw board: <case> #<n> — <what to do> with the dispatch skill`**:
+The one line `board.py` sends `mmw-main`. `<case>` is one of five literals. `ADVANCE` says the frontier has grown and `night over` says the night ended; both ask for an advance, because both leave branches to merge. `WAKEUP LIMIT`, `REDISPATCHED` and `TIME LIMIT` say a limit was reached and the board has already commented and relabelled; they ask for a read of the board and nothing further. The line names the skill rather than a path, because the row the main agent lands on carries the command, its exit codes and what each one asks of it, and none of that fits on a line sent to a pane.
 _Avoid_: —
 
 **`BLOCKED:`**:
