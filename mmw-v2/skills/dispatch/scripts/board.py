@@ -845,6 +845,16 @@ class Watch:
             "--body", REDISPATCHED.format(name=worker_name(number), phase=phase)])
         say(f"#{number}", "comment", f"REDISPATCHED: ended at phase={phase}")
         if worker:
+            # Closing the pane takes the only account of why that session ended:
+            # `phase=unknown` says one is gone, never what took it — an installer that
+            # updated itself and quit, a host that refused the model, a stack trace.
+            # The lines go here rather than on the ticket: they are terminal output,
+            # read by whoever is watching the night, and a ticket is read by the worker
+            # that picks it up next.
+            for line in [text for text in herdr_text(
+                    ["pane", "read", worker["pane_id"], "--lines", "40"]
+            ).splitlines() if text.strip()][-12:]:
+                say(f"#{number}", "last", line.strip()[:120])
             herdr(["pane", "close", worker["pane_id"]])
             self.settled_since.pop(worker["pane_id"], None)
             self.wakes.pop(worker["pane_id"], None)
