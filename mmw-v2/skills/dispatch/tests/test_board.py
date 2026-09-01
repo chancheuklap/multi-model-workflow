@@ -556,8 +556,7 @@ class Table4(unittest.TestCase):
 
     # ------------------------------------------------------------- moving on
 
-    ADVANCE = ("mmw board: ADVANCE #76 — run "
-               "~/.agents/skills/dispatch/scripts/dispatch.sh advance 76")
+    ADVANCE = "mmw board: ADVANCE #76 — advance spec #76 with the dispatch skill"
 
     def test_a_frontier_with_tickets_on_it_reaches_the_main_agent(self):
         """The board says there is a step to take. Taking it is the main agent's."""
@@ -855,8 +854,8 @@ class Table4(unittest.TestCase):
         self.round(watch)
         self.assertEqual(self.calls["main"],
                          [(board.main_name(),
-                           "mmw board: WAKEUP LIMIT #61 — run "
-                           "~/.agents/skills/dispatch/scripts/board.py --once 76")])
+                           "mmw board: WAKEUP LIMIT #61 — read spec #76 with "
+                           "the dispatch skill")])
 
     def test_a_working_main_agent_is_left_for_the_next_round(self):
         self.main[0]["agent_status"] = "working"
@@ -922,8 +921,8 @@ class Table4(unittest.TestCase):
         self.round(watch)
         self.assertEqual(
             self.calls["main"],
-            [(board.main_name(), "mmw board: night over #76 — run "
-                          "~/.agents/skills/dispatch/scripts/dispatch.sh advance 76")])
+            [(board.main_name(), "mmw board: night over #76 — advance spec #76 "
+                                 "with the dispatch skill")])
 
 
 class Workspace(unittest.TestCase):

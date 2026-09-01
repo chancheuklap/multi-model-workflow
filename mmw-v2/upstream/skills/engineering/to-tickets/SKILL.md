@@ -68,7 +68,7 @@ Derive `CHECK:` and `EXPECT:` from the spec; do not invent either:
 
 - `CHECK:` comes from Testing Decisions — its layer, that layer's directory, and the precedent it names. Open the precedent, copy its framework and its single-file invocation, then aim that at the file and case this ticket adds.
 - `EXPECT:` is a **success-only marker**: the line the precedent prints only when it passed. Run the precedent once and copy that line. `ok`, `passed` or `done` on their own also appear in failing output; take the whole counted line.
-- A criterion that compares an interface against a downloaded handoff package gets `CHECK: uv run ~/.agents/skills/verify-ticket/scripts/visual-parity.py --baseline <handoff package dir> --impl <url> --scenes <name,name> --max-pct 1` and `EXPECT: PARITY OK <n>/<n>`. Where the interface is a desktop application rather than a page on a web server, the same line takes `--cdp <debugging port url>` as well, and the application has to be running when the criterion runs.
+- A criterion that compares an interface against a downloaded handoff package is written in one fixed shape, path and all, by the `verify-ticket` skill. Copy it from there rather than composing it: that criterion is the one command in this pipeline handed to a shell with no agent in between, so the path in it is written out in full on purpose and every part of the line is load-bearing.
 
 `CHECK:` takes the object it checks from one of two places: this ticket itself — the number comes from `$MMW_TICKET`, or from the branch name `issue-<n>` — or something this ticket names by number. When the objects only exist at run time, walk the tracker's native relationships out from an anchor the ticket names: `gh api repos/{owner}/{repo}/issues/<n>/sub_issues`. A `CHECK:` must not search for its own object; searching and taking the first hit (`gh issue list --search … | head -1` and its kind) checks whatever the search happens to return, and often cannot fail at all.
 
@@ -129,7 +129,7 @@ Then each kind of ticket, for the sections that kind must carry. On the ones an 
 
 - **Read first** and **Seam** are present and non-empty ("none" counts as present). Where **Read first** carries a baseline — anything that records a settled conclusion — its line marks it as one.
 - **Owns** is present and non-empty, every entry is a repository-relative path or glob, and no two tickets on the same frontier overlap there.
-- `python3 ~/.agents/skills/verify-ticket/scripts/verify-ticket.py <n> --lint` has been run on the ticket's issue number, and every ERROR it reports is fixed before you report the batch. Read every WARN once and either fix it or keep it on purpose.
+- The `verify-ticket` skill's `--lint` has been run on the ticket's issue number, and every ERROR it reports is fixed before you report the batch. Read every WARN once and either fix it or keep it on purpose.
 
 On the `ready-for-human` ones — no agent can repair one, so all five things it holds are checked:
 
@@ -139,7 +139,7 @@ On the `ready-for-human` ones — no agent can repair one, so all five things it
 - **What makes it right** is there to judge against.
 - **Blocked by** names the ticket that produces the thing.
 
-Fix what fails before reporting the batch as published. When the batch is a spec's night run, hand over with `dispatch.sh run <spec>`: the dispatch skill's SKILL.md has the command.
+Fix what fails before reporting the batch as published. When the batch is a spec's night run, hand over to the `dispatch` skill: opening the night on this spec is one of its rows.
 
 <issue-template>
 

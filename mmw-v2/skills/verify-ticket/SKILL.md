@@ -1,81 +1,63 @@
 ---
 name: verify-ticket
-description: Reference for the two scripts this pipeline runs on a ticket, the closing gate `verify-ticket.py` and the UI comparison `visual-parity.py`. Use when one of them refuses you, when a `DIFF` or `NOT_READY` line needs reading, when writing a criterion's `CHECK:` and `EXPECT:`, or when you need to know which of the five runs is yours.
+description: Run one ticket's acceptance criteria, and close the ticket when they pass. Use to claim a ticket before starting work on it, to run its criteria after writing code, to re-run them as its verifier, to close it out from a written draft, to lint a batch of tickets before publishing them, or to write or read the criterion that compares an interface against its handoff package.
 ---
 
 # Verify ticket
 
-Each acceptance criterion on the ticket carries a `CHECK:` command and the `EXPECT:` string a passing run prints. This skill runs them and comments the outcome on the ticket. Every run reads the ticket fresh; there is no state to carry between runs.
+Each acceptance criterion on a ticket carries a `CHECK:` command and the `EXPECT:` string a passing run prints. This skill runs them and comments the outcome on the ticket.
 
-A `CHECK:` is a shell command. One that needs more than a line carries it in a fenced block directly under `CHECK:`, and nothing inside that block is read as ledger syntax: a `- [ ]` line in a heredoc is text the command prints, not the next criterion. A bare line under a `CHECK:` is refused, and the refusal says to use a fence.
+The ticket is the only state. Every run reads it fresh, writes at most one comment, and carries nothing to the next run.
 
-## The engine
+## Resolve the engine once
 
-`scripts/verify-ticket.py`, next to this file. Resolve its absolute path once. Every command written `<engine> <ticket>` here means:
+`scripts/verify-ticket.py`, next to this file. Every command below is written `<engine>` and means:
 
 ```bash
-python3 /absolute/path/to/scripts/verify-ticket.py <ticket>
+python3 <absolute path to that script>
 ```
 
-## The five runs
+Resolve it from this file's own location. The path differs by machine and by host, and the installer puts this skill wherever the host that gave it to you reads its skills from.
 
-| Command | Who runs it, and when | What lands |
+## Find your run
+
+| You are | Run | What lands on the ticket |
 | --- | --- | --- |
-| `<engine> <n> --preflight` | The **worker**, before touching anything on ticket `<n>` | The ticket assigned to you. If it is not yours to start, a `NOT_READY: <reason>` comment on the ticket instead, and exit 2 |
-| `<engine> <n>` | The **worker**, having finished the work on ticket `<n>`, before dispatching the verifier | A comment whose first line is `self-run`: each criterion ticked or not, each with the `EVIDENCE:` line the engine recorded |
-| `<engine> <n> --reverify` | The **verifier**, on the same commit, re-running every criterion — the ones the worker's `self-run` ticked included — instead of trusting it | A comment whose first line is `reverify` |
-| `<engine> <n> --closeout <draft>` | The **worker**, having written the closing comment to a file | The draft posted, `ready-for-agent` taken off, and the ticket closed. A draft whose first line is `HANDOFF REQUIRED` posts and swaps `ready-for-agent` for `needs-triage`, leaving the ticket open to be judged fresh |
-| `<engine> <n> --lint` | Whoever wrote the ticket, at the read-back step of `to-tickets`, before the ticket goes out | Findings printed to your terminal: how the criteria are written, and whether the batch under the same spec is a startable graph. No `CHECK:` runs and no comment is posted |
+| A **worker** about to touch ticket `<n>` | `<engine> <n> --preflight` | The ticket assigned to you. If it is not yours to start: a `NOT_READY: <reason>` comment instead, exit 2, and you stop — the reason is already on the ticket, so there is nothing to report twice |
+| A **worker** who has finished writing code | `<engine> <n>` | A comment whose first line is `self-run`: each criterion ticked or not, each with the `EVIDENCE:` line the engine recorded |
+| The **verifier** on ticket `<n>` | `<engine> <n> --reverify` | A comment whose first line is `reverify`: every criterion run again, the ones the worker's `self-run` ticked included, instead of trusted |
+| A **worker** whose closing comment is written to a file | `<engine> <n> --closeout <draft>` | The draft posted, `ready-for-agent` taken off, and the ticket closed. A draft whose first line is `HANDOFF REQUIRED` posts and swaps `ready-for-agent` for `needs-triage`, leaving the ticket open to be judged fresh |
+| The **agent publishing a batch**, at the read-back step | `<engine> <n> --lint` | Nothing. Findings print to your terminal; no `CHECK:` runs and no comment is posted |
 
-`--reverify` runs every criterion again, ticked or not. The ledger it starts from is the one in the ticket's newest `self-run` or `reverify` comment, so it belongs after one of those; on a ticket with neither it behaves like a plain run.
-
-`--lint` checks the batch as a graph: every ticket the spec lists as a sub-issue, the edges between them, and which of them nothing blocks. The graph comes from the tracker's native blocking links — the same edges `--preflight` refuses on and `board.py` dispatches from. The ticket's `## Blocked by` section is the human-readable copy of those links, and a mismatch between the two is a `WARN  … [blocked-by-mismatch]` naming the numbers each side has that the other does not.
-
-`--closeout <draft> --check-only` reports on the draft and changes nothing. A refused draft changes nothing either way, and the ticket is untouched. The refusal is written to stderr: the first line counts the problems, names the first, and gives the `--check-only` command that prints them all; every problem after the first is one more line opening `also:`. Fix the draft, or fix what it describes, and run it again.
+Exit code: `0` every criterion met, `1` something unmet or abandoned, `2` the ticket could not be read or the run could not start. `--preflight` uses `2` for a refusal; `--closeout` uses `1`.
 
 `--timeout <seconds>` raises the per-`CHECK` limit when one of them is slow.
 
-Exit code: 0 every criterion met, 1 something unmet or abandoned, 2 the ticket could not be read or the run could not start. `--preflight` uses 2 for a refusal; `--closeout` uses 1.
+## What the engine decides
 
-## What it decides, and what it leaves to you
+A criterion passes only when its `CHECK` exits `0` **and** its output matches `EXPECT`. Expected text in the output of a failed process is still a failure.
 
-A criterion passes only when its `CHECK` exits 0 **and** its output matches `EXPECT`. Expected text in the output of a failed process is still a failure. Every criterion on a ticket has a `CHECK`; work that only a person can judge is its own ticket, not a criterion on this one.
+The engine reads the ticket and writes one comment. The ticket body, the `CHECK` commands and what a criterion means are yours. A wrong `CHECK` is fixed on the ticket: comment saying what is wrong with it, edit the criterion, run again. The `VERDICT` line is the verifier's own comment, written after `--reverify`, not something the engine emits.
 
-Three self-runs is as far as fixing one criterion goes. The third run names it in its comment, and the closeout will then accept `ABANDON: <id> failed`. The count is the ticket's own self-run comments — nothing is stored between runs, and a fourth run that finally passes still passes.
+## Three rounds on one criterion
 
-The engine reads the ticket and writes one comment. The ticket body, the `CHECK` commands and what a criterion means are yours. A wrong `CHECK` is fixed on the ticket: comment saying what is wrong with it, then edit the criterion and run again. The `VERDICT` line is the verifier's own comment, written after this one, not something the engine emits.
+Three self-runs is as far as fixing one criterion goes. The third run names it in its comment, and the closeout will then accept `ABANDON: <id> failed`. The count is the ticket's own `self-run` comments — nothing is stored between runs, and a fourth run that finally passes still passes.
 
-`--closeout` reads the draft against the ticket and the repository, and refuses it over any of these:
+## `Outside Owns`
 
-- **The first line and what it commits to.** It is `ALL MET`, or `HANDOFF REQUIRED: <n> abandoned (<kinds>), <m> unmet, <k> met of <total>`, and nothing else. An `ALL MET` draft may leave no criterion unmet and may abandon none as `failed` or `stuck` — only `decision` is abandoned and still closes.
-- **The `ABANDON:` lines.** Each names one of `decision`, `failed`, `stuck`, and points at a criterion the draft itself lists.
-- **The ticks and their `EVIDENCE:`.** A ticked criterion whose evidence is missing or `pending` is refused, and so is a `CHECK:` continued on a bare line instead of in a fenced block.
-- **Three self-runs behind every `failed`.** Counted off the ticket's own `self-run` comments; `stuck` is held to no round count at all.
-- **`Counts: <k> met, <m> unmet, <n> abandoned of <total>`.** The line has to be there, it has to match the draft recounted criterion by criterion, and on a `HANDOFF REQUIRED` draft the first line's four numbers have to agree with it.
-- **The newest run's own summary.** An `ALL MET` draft is refused while the newest `self-run` or `reverify` comment on the ticket summarises as `UNMET:` or `HANDOFF REQUIRED:`. Fix what that run found and run `<engine> <n>` again — the newer summary is the one read — or close out as `HANDOFF REQUIRED`.
-- **`VERDICT` and `Post-verdict:`.** An `ALL MET` draft needs the verifier's `VERDICT <full 40-character commit> by <model> — <one line>` on the ticket; if HEAD has moved past the commit that line names, it also needs a `Post-verdict:` line naming every commit since and where it came from.
-- **The working tree and the branch.** No uncommitted changes to tracked files, and the branch contains its base — the cut point dispatch recorded in `git config branch.issue-<n>.mmw-base`, `main` when there is no record — merge it, never rebase, because the verdict names one commit.
-- **The ticket.** Still `OPEN`, and assigned to you.
+The `self-run` and `reverify` comment ends with the files this ticket's own commits changed that no `## Owns` glob covers: the first-parent chain since the branch left its base, merges excluded, so work merged in from another ticket's branch is not counted. Copy that line into the closing comment. It is something to explain there, not a verdict on the work.
 
-`HANDOFF REQUIRED` is held to none of the `VERDICT` conditions — it claims nothing was finished, so it is the way out of anything you cannot fix yourself, including a verifier that never ran. Whether the work is any good is what the `CHECK` commands, the verifier and `code-review` decide before you write the draft.
+## A multi-line `CHECK:`
 
-The `self-run` and `reverify` comment ends with **Outside Owns**: files this ticket's own commits changed that no `## Owns` glob covers — the first-parent chain since the branch left `main`, merges excluded, so work merged in from another ticket's branch is not counted. The closing comment carries the same line, copied out of that comment into the draft, at the place `implement` puts it in the draft's fixed shape. That list is something to explain in the closeout comment, not a verdict on the work.
+A `CHECK:` is a shell command. One that needs more than a line carries it in a fenced block directly under `CHECK:`, and nothing inside that block is read as ledger syntax: a `- [ ]` line in a heredoc is text the command prints, not the next criterion. A bare line under a `CHECK:` is refused, and the refusal says to use a fence.
 
-## UI acceptance
+## `--lint` on a batch
 
-Whether an interface matches the design it was built from is the other script in `scripts/`: `visual-parity.py`. It renders each named scene from a baseline directory offline, opens the same scene on the implementation, and compares the two by accessibility tree and by pixels at two viewports.
+Two things at once: how the criteria are written, and whether the batch under the same spec is a startable graph — every ticket the spec lists as a sub-issue, the edges between them, and which of them nothing blocks. The graph comes from the tracker's native blocking links, the same edges `--preflight` refuses on and `board.py` dispatches from. A ticket's `## Blocked by` section is the human-readable copy of those links, and a mismatch is a `WARN  … [blocked-by-mismatch]` naming the numbers each side has that the other does not.
 
-The baseline directory is a Claude Design project downloaded as a handoff package, and holds five things: the component's `.dc.html`, its `styles/`, its `data/`, `support.js`, and a `scenes.json` naming every scene. A directory missing any of them cannot be rendered.
+The batch converges when `ERROR` is at zero and every `WARN` has been looked at and either fixed or kept on purpose.
 
-An implementation that is not a page on a web server — a desktop application, say — is compared where it already runs: `--cdp <url>` names its debugging port, `--impl` still names the address to navigate to, and `--impl-title` picks the window when there is more than one. The application is left running afterwards. What is compared is what its renderer draws, so the size of its operating-system window is not: a window minimum is a person's to check, not this script's.
+## Reached from here
 
-Nobody types this command: `to-tickets` writes it onto the ticket as a criterion, in one shape.
-
-```
-CHECK: uv run <skills>/verify-ticket/scripts/visual-parity.py --baseline <handoff package dir> --impl <url> --scenes <name,name> --max-pct 1
-EXPECT: PARITY OK <n>/<n>
-```
-
-Three exit codes. **0** with one line `PARITY OK <n>/<n>`: every scene matched at every viewport. **1**: one `DIFF` line per failing scene and viewport. **2** with `NEGATIVE CONTROL FAILED`: the run's own control — a baseline render with an error inserted into it — was not caught, so nothing this run says about parity can be trusted, and no parity conclusion is printed at all.
-
-A failure line reads `DIFF <scene> <viewport> <pct>% box=… — <reasons>`, and the reasons after the dash are where the failure is named. Only a difference in the accessibility tree brings lines out under it: `baseline`, `impl`, `only in baseline`, `only in impl`. A size difference, a pixel difference or a console error prints the `DIFF` line alone.
+- **`--closeout` refused your draft** → [references/closeout.md](references/closeout.md), the conditions it reads the draft against. The refusal itself is on stderr: the first line counts the problems, names the first, and gives the `--check-only` command that prints them all; every problem after the first is one more line opening `also:`. Go to the reference when a line names a condition you cannot place. `--closeout <draft> --check-only` reports on a draft and changes nothing, at any time.
+- **You are writing the criterion that compares an interface against its handoff package, or reading the `DIFF` line one printed** → [references/ui-parity.md](references/ui-parity.md). It carries that criterion's one fixed shape, path and all, to copy onto the ticket, and the three exit codes and reasons a run prints. A `CHECK` that runs `visual-parity.py` prints one `DIFF` line and nothing that explains it; that reference is where the line is read.

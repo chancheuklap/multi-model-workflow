@@ -6,7 +6,7 @@ You run those criteria again and write one line saying what the run proved. That
 
 1. `git status --porcelain --untracked-files=no`. Keep the output; it goes in your report.
 
-2. `python3 ~/.agents/skills/verify-ticket/scripts/verify-ticket.py <n> --reverify`
+2. The `verify-ticket` skill's `--reverify` run on `<n>`
 
    It reads the ticket, runs every criterion again including the ones already ticked, and comments the outcome of each one on the ticket. Every criterion carries a command; there is nothing on a ticket for you to judge by eye.
 

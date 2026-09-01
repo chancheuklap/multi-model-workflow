@@ -624,6 +624,10 @@ run_night() {
     || refuse "could not start the board in pane $pane"
 
   echo "$MAIN_AGENT_NAME is this pane; the board is watching #$spec in pane $pane"
+  # The board announces a frontier by prompting this pane, and a focused pane takes no
+  # prompt — which is what a pane that just typed this command is. So the first batch is
+  # the caller's to start.
+  echo "Now advance #$spec yourself: the board cannot prompt a focused pane, so the first frontier is yours to start."
 }
 
 # ------------------------------------------------------------------ entry

@@ -587,10 +587,13 @@ def main_name() -> str:
 # Two lines, because the two say different things. A limit was reached and the board has
 # already commented and relabelled, so there is nothing to do but read. The frontier
 # grew, or the night is over with branches still unmerged, so there is a step to take.
-MAIN_LINE = ("mmw board: {case} #{n} — run "
-             "~/.agents/skills/dispatch/scripts/board.py --once {spec}")
-ADVANCE_LINE = ("mmw board: {case} #{spec} — run "
-                "~/.agents/skills/dispatch/scripts/dispatch.sh advance {spec}")
+#
+# Both name the skill rather than a script path. The main agent's host found that skill
+# wherever it installs skills, and the row it lands on carries the command, its exit
+# codes and what to do with each — none of which fits on a line sent to a pane.
+MAIN_LINE = ("mmw board: {case} #{n} — read spec #{spec} with the dispatch skill")
+ADVANCE_LINE = ("mmw board: {case} #{spec} — advance spec #{spec} with the "
+                "dispatch skill")
 
 BLOCKED = "BLOCKED: {form}"
 # Same first line, because everything that reads these comments keys on it, and a second
