@@ -130,9 +130,9 @@ def herdr_text(args: list[str]) -> str:
         return ""
 
 
-def run_dispatch(number: int, role: str) -> tuple[int, str, str]:
-    """`dispatch.sh <n> <role>`: its exit code is a row of the table all by itself."""
-    run = subprocess.run(["bash", DISPATCH, str(number), role],
+def run_dispatch(number: int, kind: str) -> tuple[int, str, str]:
+    """`dispatch.sh <n> <kind>`: its exit code is a row of the table all by itself."""
+    run = subprocess.run(["bash", DISPATCH, str(number), kind],
                          capture_output=True, text=True)
     return run.returncode, (run.stdout or "").strip(), (run.stderr or "").strip()
 
@@ -291,9 +291,8 @@ def name_re() -> re.Pattern:
 def session_of(agent: dict) -> dict | None:
     """The ticket and kind this live agent belongs to, or None if it is not ours.
 
-    The `kind` token is `worker` or `reviewer`, and it is not the `<role>` a dispatch
-    names: three roles in `models.md` start a session, and the two kinds are what the
-    session then is.
+    The `kind` token is `worker` or `reviewer`, the same two words a dispatch takes.
+    Which `models.md` row a worker started from is the `model` token beside it.
 
     The tokens are written at dispatch, so they are there from the first moment. The
     name is the fallback for a session that came up but was never told anything:
@@ -600,8 +599,7 @@ BLOCKED = "BLOCKED: {form}"
 # line naming who asked, because the morning reader is looking at one ticket and the two
 # sessions on it want different things.
 BLOCKED_REVIEWER = "BLOCKED: the reviewer on this ticket asked:\n\n{form}"
-REDISPATCHED = ("REDISPATCHED: session {name} ended at phase={phase}; started again "
-                "as {role}")
+REDISPATCHED = "REDISPATCHED: session {name} ended at phase={phase}; started again"
 REDISPATCH_SPENT = ("REDISPATCHED: session {name} ended at phase={phase} and it had "
                     "already been redispatched {k} time(s). Handed back to "
                     "needs-triage; the ticket stays open.")
@@ -624,9 +622,8 @@ class Watch:
     again by the tracker and by Herdr.
     """
 
-    def __init__(self, spec: int, role: str, max_hours: int) -> None:
+    def __init__(self, spec: int, max_hours: int) -> None:
         self.spec = spec
-        self.role = role
         self.max_hours = max_hours
         self.settled_since: dict[str, float] = {}
         self.held_since: dict[int, float] = {}
@@ -653,8 +650,7 @@ class Watch:
     def run(self) -> int:
         events = Events()
         events.start()
-        say("board", "watch",
-            f"spec #{self.spec} role={self.role} max-hours={self.max_hours}")
+        say("board", "watch", f"spec #{self.spec} max-hours={self.max_hours}")
         while True:
             try:
                 self.round()
@@ -846,8 +842,7 @@ class Watch:
                            case="REDISPATCHED")
             return
         gh(["issue", "comment", str(number),
-            "--body", REDISPATCHED.format(name=worker_name(number), phase=phase,
-                                          role=self.role)])
+            "--body", REDISPATCHED.format(name=worker_name(number), phase=phase)])
         say(f"#{number}", "comment", f"REDISPATCHED: ended at phase={phase}")
         if worker:
             herdr(["pane", "close", worker["pane_id"]])
@@ -942,7 +937,7 @@ class Watch:
         it its dispatch line. Exit 2 means the ticket did not qualify, so it simply is
         not on this round's frontier and the next round asks the tracker again.
         """
-        code, told, refused = run_dispatch(number, self.role)
+        code, told, refused = run_dispatch(number, "worker")
         if code == 0:
             say(f"#{number}", "dispatch", told[:120])
             self.held_since[number] = time.monotonic()
@@ -1129,8 +1124,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                         help="stay up and act on what the table says")
     parser.add_argument("--advance-plan", action="store_true",
                         help="print what `dispatch.sh advance` has to do, in order")
-    parser.add_argument("--role", default="junior-worker",
-                        help="which row of models.md tonight's workers are started from")
     parser.add_argument("--max-hours", type=int, default=MAX_HOURS,
                         help="how long one ticket may hold a session")
     parser.add_argument("spec", nargs="?", type=int,
@@ -1151,7 +1144,7 @@ def main(argv: list[str] | None = None) -> int:
         if not args.spec:
             sys.stderr.write("board: --watch needs the spec whose tickets to work\n")
             return 2
-        return Watch(args.spec, args.role, args.max_hours).run()
+        return Watch(args.spec, args.max_hours).run()
     return resident(args.spec)
 
 

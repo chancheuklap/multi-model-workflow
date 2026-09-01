@@ -2,16 +2,18 @@
 #
 # Start an agent on a ticket, or wait for one to report back on that ticket.
 #
-#   dispatch.sh <ticket> <role> [base-commit]
+#   dispatch.sh <ticket> worker|reviewer [base-commit]
 #   dispatch.sh wait <ticket> "<first-line-regex>" [seconds]
-#   dispatch.sh advance <spec> [--role R]
-#   dispatch.sh run <spec> [--role R] [--max-hours H]
+#   dispatch.sh advance <spec>
+#   dispatch.sh run <spec> [--max-hours H]
 #
-# The role and the ticket number are the whole input. Everything else — which Herdr
-# name the session gets, whether it opens a tab or splits a pane, what it is told to
-# work on — is decided by the shape of the pipeline, so it is written here rather than
-# in the table. The table holds only what a person changes: the agent, the host, the
-# model, the thinking level, and the arguments the host is started with.
+# The ticket number and the kind of agent are the whole input. Which of the worker rows
+# a worker session starts from is the ticket's own `*-worker` label, so one ticket keeps
+# the same worker every time it is started. Everything else — which Herdr name the
+# session gets, whether it opens a tab or splits a pane, what it is told to work on — is
+# decided by the shape of the pipeline, so it is written here rather than in the table.
+# The table holds only what a person changes: the agent, the host, the model, the
+# thinking level, and the arguments the host is started with.
 #
 # Exit codes are documented in SKILL.md next to this script.
 
@@ -33,6 +35,9 @@ MODELS="$SKILL_ROOT/models.md"
 BOARD="$SKILL_ROOT/scripts/board.py"
 # The skill lives under mmw-v2/skills/<name>, so the installer is two directories up.
 INSTALLER="$(dirname "$(dirname "$SKILL_ROOT")")/install.sh"
+
+# The row a ticket with no `*-worker` label starts from.
+DEFAULT_WORKER=junior-worker
 
 BOARD_TAB_LABEL="mmw board"
 MERGE_TRIES=3                # the board opens worktrees while advance merges
@@ -72,10 +77,10 @@ give_up() {
 
 usage() {
   cat >&2 <<'USAGE'
-usage: dispatch.sh <ticket> <role> [base-commit]
+usage: dispatch.sh <ticket> worker|reviewer [base-commit]
        dispatch.sh wait <ticket> "<first-line-regex>" [seconds]
-       dispatch.sh advance <spec> [--role R]
-       dispatch.sh run <spec> [--role R] [--max-hours H]
+       dispatch.sh advance <spec>
+       dispatch.sh run <spec> [--max-hours H]
 USAGE
   exit 2
 }
@@ -125,10 +130,24 @@ row_for_role() {
   ' "$MODELS"
 }
 
+# Prints every agent name in the table that a ticket may ask for by label, one per line.
+worker_roles() {
+  awk -F'|' '
+    function trim(s) { gsub(/^[ \t`]+/, "", s); gsub(/[ \t`]+$/, "", s); return s }
+    /^[ \t]*\|/ && NF == 7 {
+      name = trim($2)
+      if (name ~ /-worker$/ && !seen[name]++) print name
+    }
+  ' "$MODELS"
+}
+
 # ------------------------------------------------------------------ the ticket
 
-# Prints the ticket title when the ticket is ready to be worked on, and a one-line
-# reason prefixed with REFUSE when it is not.
+# Prints two lines when the ticket is ready to be worked on — its worker labels, then
+# its title — and one line prefixed with REFUSE when it is not. The worker labels are
+# the ticket's own labels ending in `-worker`, space separated, and the first line is
+# empty when it carries none. Whether the table still holds a row for one is decided by
+# the caller, so a label pointing at a row nobody kept is refused rather than dropped.
 read_ticket() {
   local number="$1" json
   json="$(gh_ issue view "$number" --json state,labels,blockedBy,title 2>/dev/null)" \
@@ -147,6 +166,7 @@ state = (ticket.get("state") or "unreadable").lower()
 labels = [label.get("name") for label in ticket.get("labels") or []]
 nodes = (ticket.get("blockedBy") or {}).get("nodes") or []
 blockers = ["#" + str(b.get("number")) for b in nodes if b.get("state") != "CLOSED"]
+seats = sorted(name for name in labels if name and name.endswith("-worker"))
 
 if state != "open":
     print("REFUSE ticket #" + number + " is " + state + ", not open")
@@ -155,6 +175,7 @@ elif "ready-for-agent" not in labels:
 elif blockers:
     print("REFUSE ticket #" + number + " is still blocked by " + ", ".join(blockers))
 else:
+    print(" ".join(seats))
     print(ticket.get("title") or "")
 '
 }
@@ -201,40 +222,60 @@ worktree_for() {
 # ------------------------------------------------------------------ dispatching
 
 dispatch() {
-  local number="$1" role="$2" base="${3:-}"
+  local number="$1" kind="$2" base="${3:-}"
 
   [ "${HERDR_ENV:-}" = 1 ] \
     || refuse "not running inside Herdr, so there is nowhere to start a session"
 
+  local reviewing=0
+  case "$kind" in
+    reviewer)
+      reviewing=1
+      [ -n "$base" ] || refuse "the reviewer needs the commit its review starts from" ;;
+    worker)
+      [ -z "$base" ] || refuse "only the reviewer takes a base commit" ;;
+    *)
+      refuse "the second argument is worker or reviewer, got $kind" ;;
+  esac
+
+  local answer seats title
+  answer="$(read_ticket "$number")"
+  case "$answer" in
+    "REFUSE "*) refuse "${answer#REFUSE }" ;;
+    "") refuse "the tracker did not answer with a readable ticket #$number" ;;
+  esac
+  { IFS= read -r seats; IFS= read -r title; } <<<"$answer"
+
+  # The row this session starts from. A worker's comes off the ticket, so a ticket
+  # started again — by hand, by `advance`, or by the board after a session ended — comes
+  # back on the row it was written for.
+  local seat
+  if [ "$reviewing" = 1 ]; then
+    seat=reviewer
+  else
+    local -a marked
+    read -r -a marked <<<"$seats"
+    case "${#marked[@]}" in
+      0) seat="$DEFAULT_WORKER" ;;
+      1) seat="${marked[0]}" ;;
+      *) refuse "#$number carries ${#marked[@]} worker labels (${marked[*]}), and it takes one" ;;
+    esac
+  fi
+
   local row host model effort launch
-  row="$(row_for_role "$role")"
-  [ -n "$row" ] || refuse "no role named $role in $MODELS"
+  row="$(row_for_role "$seat")"
+  [ -n "$row" ] || refuse "#$number needs the $seat row, and $MODELS has none"
   IFS=$'\t' read -r host model effort launch <<<"$row"
   case "$launch" in
     "" | "—" | "-")
-      refuse "$role is a subagent: it is started by the skill that needs it, not from here" ;;
+      refuse "$seat is a subagent: it is started by the skill that needs it, not from here" ;;
   esac
   case "$launch" in
     *'{effort}'*)
       case "$effort" in
         "" | "—" | "-")
-          refuse "the $role row asks for a thinking level but leaves its effort column empty" ;;
+          refuse "the $seat row asks for a thinking level but leaves its effort column empty" ;;
       esac ;;
-  esac
-
-  local reviewing=0
-  [ "$role" = reviewer ] && reviewing=1
-  if [ "$reviewing" = 1 ]; then
-    [ -n "$base" ] || refuse "the reviewer needs the commit its review starts from"
-  else
-    [ -z "$base" ] || refuse "only the reviewer takes a base commit"
-  fi
-
-  local title
-  title="$(read_ticket "$number")"
-  case "$title" in
-    "REFUSE "*) refuse "${title#REFUSE }" ;;
-    "") refuse "the tracker did not answer with a readable ticket #$number" ;;
   esac
 
   launch="${launch//\{model\}/$model}"
@@ -242,7 +283,7 @@ dispatch() {
   launch="${launch//\{n\}/$number}"
   local args
   read -r -a args <<<"$launch"
-  [ "${#args[@]}" -gt 0 ] || refuse "the $role row has no launch arguments"
+  [ "${#args[@]}" -gt 0 ] || refuse "the $seat row has no launch arguments"
 
   local root
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
@@ -303,9 +344,8 @@ dispatch() {
 
   # The ticket and the kind are written here rather than left to the first
   # `verify-ticket.py` run, so that a pane which stops before that run is still
-  # readable as belonging to this ticket as a worker or as a reviewer. `kind` is not
-  # the `<role>` this script takes: three roles start a session, and the two kinds are
-  # what the session then is.
+  # readable as belonging to this ticket as a worker or as a reviewer. `model` carries
+  # which row it started from, which is what a reader of the board sees.
   local human token_kind
   if [ "$reviewing" = 1 ]; then
     human="#$number reviewer"
@@ -484,19 +524,12 @@ merge_one() {
 # cannot see.
 advance() {
   local spec="$1"; shift
-  local role=junior-worker
-  while [ "$#" -gt 0 ]; do
-    case "$1" in
-      --role) role="${2:-}"; shift 2 || usage ;;
-      *) usage ;;
-    esac
-  done
+  [ "$#" -eq 0 ] || usage
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
 
   [ "${HERDR_ENV:-}" = 1 ] \
     || refuse "not running inside Herdr, so there is nowhere to start a session"
   [ -f "$BOARD" ] || refuse "no board at $BOARD"
-  [ -n "$(row_for_role "$role")" ] || refuse "no role named $role in $MODELS"
 
   local root
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
@@ -546,7 +579,7 @@ advance() {
   local started=0 refused=0
   for number in $(printf '%s\n' "$plan" | awk '$1 == "DISPATCH" { print $2 }'); do
     # A subprocess, so one ticket that will not start does not take the rest with it.
-    if bash "$SELF" "$number" "$role"; then
+    if bash "$SELF" "$number" worker; then
       started=$((started + 1))
     else
       refused=$((refused + 1))
@@ -563,10 +596,9 @@ advance() {
 # this is the board's; the caller goes back to reading tickets.
 run_night() {
   local spec="$1"; shift
-  local role=junior-worker max_hours=""
+  local max_hours=""
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      --role) role="${2:-}"; shift 2 || usage ;;
       --max-hours) max_hours="${2:-}"; shift 2 || usage ;;
       *) usage ;;
     esac
@@ -579,17 +611,19 @@ run_night() {
   [ -n "$caller" ] || refuse "no calling pane, so the board would have nobody to report to"
   [ -f "$BOARD" ] || refuse "no board at $BOARD"
 
-  # The same refusal every dispatch would make, brought forward to the one moment
-  # somebody is here: a subagent row starts no session, so a night on it never
-  # dispatches a ticket and never runs out of them either.
-  local night_row night_launch
-  night_row="$(row_for_role "$role")"
-  [ -n "$night_row" ] || refuse "no role named $role in $MODELS"
-  night_launch="$(printf '%s' "$night_row" | cut -f4)"
-  case "$night_launch" in
-    "" | "—" | "-")
-      refuse "$role is a subagent: it is started by the skill that needs it, so a night on it would start nothing" ;;
-  esac
+  # The same refusals a dispatch would make, brought forward to the one moment somebody
+  # is here: a row that starts no session leaves every ticket asking for it unworked, and
+  # the night finds that out with nobody watching.
+  local seat seat_row
+  for seat in $(worker_roles) "$DEFAULT_WORKER"; do
+    seat_row="$(row_for_role "$seat")"
+    [ -n "$seat_row" ] \
+      || refuse "$MODELS has no $seat row, so a ticket asking for it would get no worker"
+    case "$(printf '%s' "$seat_row" | cut -f4)" in
+      "" | "—" | "-")
+        refuse "the $seat row starts no session, so a ticket asking for it would get no worker" ;;
+    esac
+  done
 
   # A night nobody is watching cannot notice that the skills or the gate went missing
   # from this machine, so it is checked at the one moment somebody is here.
@@ -616,7 +650,7 @@ run_night() {
           | json_at .result.root_pane.pane_id)"
   [ -n "$pane" ] || refuse "could not open the $BOARD_TAB_LABEL tab"
 
-  local watch="python3 $BOARD --watch $spec --role $role"
+  local watch="python3 $BOARD --watch $spec"
   [ -n "$max_hours" ] && watch="$watch --max-hours $max_hours"
   # It keeps no state, so a crash costs nothing but the wait; it exits 0 once the night
   # is over, and that is what ends the loop.

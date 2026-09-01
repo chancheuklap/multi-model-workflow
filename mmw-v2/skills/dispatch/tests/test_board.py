@@ -355,8 +355,8 @@ class Table4(unittest.TestCase):
                 self.calls[where].append((args[2], args[3]))
             return (0, "")
 
-        def fake_dispatch(number, role):
-            self.calls["dispatch"].append((number, role))
+        def fake_dispatch(number, kind):
+            self.calls["dispatch"].append((number, kind))
             return (self.dispatch_code, f"issue-{number} is working on #{number}",
                     "the reason")
 
@@ -388,7 +388,7 @@ class Table4(unittest.TestCase):
         self.rows = board.build_rows(list(tickets), tickets, board.sessions(agents))
 
     def watch(self, max_hours=4):
-        return board.Watch(76, "junior-worker", max_hours)
+        return board.Watch(76, max_hours)
 
     def round(self, watch):
         with redirect_stdout(io.StringIO()) as out:
@@ -738,15 +738,14 @@ class Table4(unittest.TestCase):
         comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
         self.assertEqual(
             comment[-1],
-            "REDISPATCHED: session issue-61 ended at phase=selfcheck; started again "
-            "as junior-worker")
+            "REDISPATCHED: session issue-61 ended at phase=selfcheck; started again")
         self.assertIn(["pane", "close", "w1:p1"], self.calls["herdr"])
-        self.assertEqual(self.calls["dispatch"], [(61, "junior-worker")])
+        self.assertEqual(self.calls["dispatch"], [(61, "worker")])
 
     def test_a_claimed_ticket_whose_pane_is_gone_is_redispatched_too(self):
         self.world([], {61: ticket(61, assignees=("me",))})
         self.round(self.watch())
-        self.assertEqual(self.calls["dispatch"], [(61, "junior-worker")])
+        self.assertEqual(self.calls["dispatch"], [(61, "worker")])
         comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
         self.assertIn("ended at phase=unknown", comment[-1])
 
@@ -789,7 +788,7 @@ class Table4(unittest.TestCase):
         self.world([agent("issue-61", "w1:p1", "unknown", ticket=61, kind="worker",
                           phase="selfcheck")], {61: ticket(61, assignees=("me",))})
         self.round(self.watch())
-        self.assertEqual(self.calls["dispatch"], [(61, "junior-worker")])
+        self.assertEqual(self.calls["dispatch"], [(61, "worker")])
 
     def test_a_session_that_was_never_told_anything_gets_its_dispatch_line(self):
         self.world([agent("issue-61", "w1:p1", "idle", ticket=61, kind="worker")],

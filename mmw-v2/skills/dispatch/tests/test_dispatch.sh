@@ -2,7 +2,7 @@
 #
 # Tests for dispatch.sh. One scenario per run:
 #
-#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh worker|reviewer|badrole|runrole
+#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh worker|reviewer|seat|runtable
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh idletimeout|notready|noherdr
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh wait|waittimeout|placeholder
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh advance|advanceconflict|advancedirty
@@ -176,7 +176,7 @@ scenario_worker() {
   reset_log
   local code
   code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
-          bash "$DISPATCH" 61 junior-worker)"
+          bash "$DISPATCH" 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
 
   echo "--- the ticket is read before anything is started"
@@ -256,55 +256,89 @@ scenario_reviewer() {
   hasnt "herdr :: tab :: create"
 }
 
-scenario_badrole() {
+scenario_seat() {
   local code
-  echo "--- a role that is not in the table"
+  echo "--- a ticket with no worker label starts on the default row"
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_LABELS="ready-for-agent" bash "$DISPATCH" 61 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  has ":: -m :: gpt-5.6-terra"
+
+  echo "--- a senior-worker label starts that row instead"
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_LABELS="ready-for-agent,senior-worker" bash "$DISPATCH" 61 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  has ":: -m :: grok-4.6"
+  hasnt ":: -m :: gpt-5.6-terra"
+
+  echo "--- two worker labels are refused, and nothing is started"
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_LABELS="ready-for-agent,junior-worker,senior-worker" \
+          bash "$DISPATCH" 61 worker)"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code"
+  one_line_reason
+  [ "$(count_of 'herdr ::')" = 0 ] || fail "herdr was called for a ticket with two worker labels"
+
+  echo "--- a worker label the table has no row for is refused, never quietly swapped"
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_LABELS="ready-for-agent,principal-worker" bash "$DISPATCH" 61 worker)"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code"
+  one_line_reason
+  grep -q 'principal-worker' "$TMP/err" || fail "the reason does not name the label: $(cat "$TMP/err")"
+  [ "$(count_of 'herdr ::')" = 0 ] || fail "herdr was called for an unknown worker label"
+
+  echo "--- the second argument is worker or reviewer"
   reset_log
   code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
           bash "$DISPATCH" 61 planner)"
   [ "$code" = 2 ] || fail "expected exit 2, got $code"
   one_line_reason
-  grep -q 'planner' "$TMP/err" || fail "the reason does not name the role: $(cat "$TMP/err")"
-  [ "$(count_of 'herdr ::')" = 0 ] || fail "herdr was called for an unknown role"
-
-  echo "--- a role whose launch arguments are a dash, meaning it is a subagent"
-  reset_log
-  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
-          bash "$DISPATCH" 61 verifier)"
-  [ "$code" = 2 ] || fail "expected exit 2, got $code"
-  one_line_reason
-  grep -q 'verifier' "$TMP/err" || fail "the reason does not name the role: $(cat "$TMP/err")"
-  [ "$(count_of 'herdr ::')" = 0 ] || fail "herdr was called for a subagent role"
+  grep -q 'planner' "$TMP/err" || fail "the reason does not name the argument: $(cat "$TMP/err")"
+  [ "$(count_of 'herdr ::')" = 0 ] || fail "herdr was called for an unknown kind"
 }
 
-scenario_runrole() {
+scenario_runtable() {
   local code
-  echo "--- a night on a role that is not in the table"
+  echo "--- the night takes no role, because the tickets carry it"
   reset_log
   code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
-          bash "$DISPATCH" run 76 --role planner)"
+          bash "$DISPATCH" run 76 --role senior-worker)"
   [ "$code" = 2 ] || fail "expected exit 2, got $code"
-  one_line_reason
-  grep -q 'planner' "$TMP/err" || fail "the reason does not name the role: $(cat "$TMP/err")"
-  [ "$(count_of 'herdr ::')" = 0 ] || fail "herdr was called for an unknown role"
+  [ "$(count_of 'herdr ::')" = 0 ] || fail "herdr was called for an argument run does not take"
 
-  echo "--- a night on a subagent row is refused while somebody is still here"
+  echo "--- a worker row that starts no session is refused while somebody is still here"
+  local copy="$TMP/runtable"
+  rm -rf "$copy"
+  mkdir -p "$copy"
+  cp -R "$SKILL/models.md" "$SKILL/scripts" "$copy/"
+  MMW_TABLE="$copy/models.md" python3 -c '
+import os
+
+path = os.environ["MMW_TABLE"]
+lines = open(path, encoding="utf-8").read().splitlines(True)
+out = ["| senior-worker | grok | `grok-4.6` | xhigh | — |\n"
+       if line.startswith("| senior-worker ") else line
+       for line in lines]
+open(path, "w", encoding="utf-8").writelines(out)
+'
   reset_log
   code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
-          bash "$DISPATCH" run 76 --role verifier)"
+          bash "$copy/scripts/dispatch.sh" run 76)"
   [ "$code" = 2 ] || fail "expected exit 2, got $code"
   one_line_reason
-  grep -q 'verifier' "$TMP/err" || fail "the reason does not name the role: $(cat "$TMP/err")"
-  grep -q 'subagent' "$TMP/err" \
-    || fail "the reason does not say the row is a subagent: $(cat "$TMP/err")"
-  [ "$(count_of 'herdr ::')" = 0 ] || fail "herdr was called for a subagent role"
+  grep -q 'senior-worker' "$TMP/err" || fail "the reason does not name the row: $(cat "$TMP/err")"
+  [ "$(count_of 'herdr ::')" = 0 ] || fail "herdr was called for a row that starts nothing"
 }
 
 scenario_idletimeout() {
   reset_log
   local code
   code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 FAKE_HERDR_WAIT_FAIL=1 \
-          bash "$DISPATCH" 61 junior-worker)"
+          bash "$DISPATCH" 61 worker)"
   [ "$code" = 1 ] || fail "expected exit 1, got $code: $(cat "$TMP/err")"
   echo "--- readiness is waited for at most 120 seconds"
   has "herdr :: agent :: wait :: w1-issue-61 :: --until :: idle :: --until :: done :: --timeout :: 120000"
@@ -318,7 +352,7 @@ scenario_notready() {
   echo "--- a closed ticket"
   reset_log
   code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 FAKE_GH_STATE=CLOSED \
-          bash "$DISPATCH" 61 junior-worker)"
+          bash "$DISPATCH" 61 worker)"
   [ "$code" = 2 ] || fail "expected exit 2 for a closed ticket, got $code"
   one_line_reason
   grep -q 'closed' "$TMP/err" || fail "the reason does not say the ticket is closed: $(cat "$TMP/err")"
@@ -327,7 +361,7 @@ scenario_notready() {
   echo "--- a ticket that is not in the agent lane"
   reset_log
   code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 FAKE_GH_LABELS=needs-triage \
-          bash "$DISPATCH" 61 junior-worker)"
+          bash "$DISPATCH" 61 worker)"
   [ "$code" = 2 ] || fail "expected exit 2 for a ticket without the label, got $code"
   one_line_reason
   grep -q 'ready-for-agent' "$TMP/err" || fail "the reason does not name the missing label: $(cat "$TMP/err")"
@@ -336,7 +370,7 @@ scenario_notready() {
   echo "--- a ticket whose blocker is still open"
   reset_log
   code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 FAKE_GH_BLOCKERS=60:OPEN \
-          bash "$DISPATCH" 61 junior-worker)"
+          bash "$DISPATCH" 61 worker)"
   [ "$code" = 2 ] || fail "expected exit 2 for a blocked ticket, got $code"
   one_line_reason
   grep -q '#60' "$TMP/err" || fail "the reason does not name the blocker: $(cat "$TMP/err")"
@@ -345,7 +379,7 @@ scenario_notready() {
   echo "--- a blocker that is already closed is no obstacle"
   reset_log
   code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 FAKE_GH_BLOCKERS=60:CLOSED \
-          bash "$DISPATCH" 61 junior-worker)"
+          bash "$DISPATCH" 61 worker)"
   [ "$code" = 0 ] || fail "a closed blocker should not stop a dispatch, got $code: $(cat "$TMP/err")"
 }
 
@@ -354,7 +388,7 @@ scenario_noherdr() {
   echo "--- dispatching from outside Herdr refuses and starts nothing"
   reset_log
   code="$(run_dispatch env -u HERDR_ENV -u HERDR_PANE_ID -u HERDR_WORKSPACE_ID \
-          bash "$DISPATCH" 61 junior-worker)"
+          bash "$DISPATCH" 61 worker)"
   [ "$code" = 2 ] || fail "expected exit 2 outside Herdr, got $code"
   one_line_reason
   grep -qi 'herdr' "$TMP/err" || fail "the reason does not say why: $(cat "$TMP/err")"
@@ -449,7 +483,8 @@ scenario_placeholder() {
   reset_log
   local code
   code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
-          bash "$copy/scripts/dispatch.sh" 61 senior-worker)"
+          FAKE_GH_LABELS="ready-for-agent,senior-worker" \
+          bash "$copy/scripts/dispatch.sh" 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
 
   echo "--- model, thinking level and ticket number all reach the launch arguments"
@@ -472,7 +507,8 @@ open(path, "w", encoding="utf-8").writelines(out)
 '
   reset_log
   code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
-          bash "$copy/scripts/dispatch.sh" 61 senior-worker)"
+          FAKE_GH_LABELS="ready-for-agent,senior-worker" \
+          bash "$copy/scripts/dispatch.sh" 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   has ":: -m :: grok-4.7-under-test"
   has "herdr :: pane :: report-metadata :: w1:p9 :: --source :: mmw :: --token :: ticket=61 :: --token :: kind=worker :: --token :: model=grok-4.7-under-test"
@@ -634,10 +670,10 @@ scenario_advancedirty() {
   hasnt "agent :: start"
 }
 
-ALL="worker reviewer badrole runrole idletimeout notready noherdr wait waittimeout placeholder advance advanceconflict advancedirty"
+ALL="worker reviewer seat runtable idletimeout notready noherdr wait waittimeout placeholder advance advanceconflict advancedirty"
 
 case "${1:-}" in
-  worker|reviewer|badrole|runrole|idletimeout|notready|noherdr|wait|waittimeout|placeholder|advance|advanceconflict|advancedirty)
+  worker|reviewer|seat|runtable|idletimeout|notready|noherdr|wait|waittimeout|placeholder|advance|advanceconflict|advancedirty)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -650,8 +686,8 @@ banner_for() {
   case "$1" in
     worker) echo DISPATCH-WORKER-OK ;;
     reviewer) echo DISPATCH-REVIEWER-OK ;;
-    badrole) echo DISPATCH-BADROLE-OK ;;
-    runrole) echo DISPATCH-RUNROLE-OK ;;
+    seat) echo DISPATCH-SEAT-OK ;;
+    runtable) echo DISPATCH-RUNTABLE-OK ;;
     idletimeout) echo DISPATCH-IDLE-TIMEOUT-OK ;;
     notready) echo DISPATCH-NOTREADY-OK ;;
     noherdr) echo DISPATCH-NOHERDR-OK ;;
