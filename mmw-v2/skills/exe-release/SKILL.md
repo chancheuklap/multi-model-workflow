@@ -17,7 +17,7 @@ Ship an install package for every product this change touched, far enough that t
 bash /absolute/path/to/scripts/release-flow.sh <subcommand>
 ```
 
-The engine is the deterministic layer: the state machine, the three failure grades, path guards, same-cause circuit breakers, and budget breakers all live there. **You are the judgment layer:** name the products for this run, read the state and run the action it names, and diagnose the one class of pause the engine cannot judge. Grades, guards, and the executor stay with the engine — [driving.md](driving.md) holds that line at the point where it bites.
+The engine is the deterministic layer: the state machine, the three failure grades, path guards, same-cause circuit breakers, and budget breakers all live there. **You are the judgment layer:** name the products for this run, read the state and run the action it names, and diagnose the one class of pause the engine cannot judge. Grades, guards, and the executor stay with the engine — [driving.md](driving.md) states that boundary at the step where it applies.
 
 ## 1. Preconditions
 

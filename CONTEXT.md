@@ -88,7 +88,7 @@ _Avoid_: human (for this), maintainer (in this repository's text), reporter (in 
 _Home_: `docs/agents/triage-labels.md`
 
 **subagent**:
-An agent started inside a session rather than through Herdr. As a deliverable it is one of the two things the toolbox ships: one shared `body.md` wrapped in a per-host shell by `assemble.py` into `agents/<name>/out/` and symlinked once per host, a `models.md` row whose launch arguments are `—`. The verifier is a subagent of the worker's session; the three code-review axis subagents run inside the reviewer session on the host's default subagent model and have no `models.md` row.
+An agent started inside a session rather than through Herdr. As a deliverable it is one of the two things the toolbox ships: one shared `body.md` wrapped in a per-host shell by `assemble.py` into `agents/<name>/out/` and symlinked once per host, a `models.md` row whose launch arguments are `—`. The verifier is a subagent of the worker's session; the three code-review axis subagents are the `reviewer` subagent inside the reviewer session, built from the same `models.md` reviewer row that starts the session.
 _Avoid_: sub-agent, background agent, seat, 子代理 (as a term)
 _Home_: `mmw-v2/install.sh`
 
@@ -672,7 +672,7 @@ The dispatch skill's script, four forms: `<ticket> worker|reviewer [base-commit]
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **dispatch line**:
-The one sentence a session is given when dispatched — which skill to use, on which ticket, and nothing else: `Use the implement skill to work ticket #<n>` for a worker, `Use the code-review skill to review ticket #<n> from base commit <base-commit>` for a reviewer. Any wording that carries the two values is a correct call. A session already running gets `continue` instead.
+The two sentences a session is given when dispatched — which skill to use, on which ticket, and that nobody is watching: `Use the implement skill to work ticket #<n>.` for a worker, `Use the code-review skill to review ticket #<n> from base commit <base-commit>.` for a reviewer, each followed by `You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work.` Any wording that carries the two values and that sentence is a correct call. A session already running gets `continue` instead.
 _Avoid_: 派发 (as a term)词, prompt (bare)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 

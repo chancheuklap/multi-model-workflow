@@ -39,8 +39,8 @@ def read_models() -> dict[tuple[str, str], tuple[str, str]]:
     """models.md 那张表，取成 (agent 名, host) -> (model, effort)。
 
     表里一行一个 (agent, host)，五列 agent | host | model | effort | launch arguments。
-    launch arguments 非空的三行是经 Herdr 起的 session，它们的配置由 dispatch.sh 在
-    dispatch 那一刻现读，与本脚本无关；这里只取 launch arguments 为 — 的那些行，也就是 subagent。
+    launch arguments 列不看：一行 session 的 model 与 effort 也是同名 subagent 的
+    （reviewer 会话派出的三个轴 subagent 就是 reviewer 行），dispatch.sh 另读自己要的那列。
     """
     if not MODELS.is_file():
         raise ValueError(f"缺 models.md：{MODELS}")
@@ -54,11 +54,9 @@ def read_models() -> dict[tuple[str, str], tuple[str, str]]:
         agent, host, model, effort, launch = cells
         if agent == "agent" or set(agent) <= set("- "):
             continue
-        if launch not in ("—", "-", ""):
-            continue
         table[(agent, host)] = (model, effort)
     if not table:
-        raise ValueError(f"{MODELS} 里一行 subagent 都没有")
+        raise ValueError(f"{MODELS} 里一行 agent 都没有")
     return table
 
 

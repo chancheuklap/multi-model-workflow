@@ -116,17 +116,21 @@ print(sys.stdin.read().rstrip("\n")[:int(os.environ["MMW_HEAD_CHARS"])])
 
 # ------------------------------------------------------------------ models.md
 
-# Prints "host<TAB>model<TAB>effort<TAB>launch arguments" for the first row whose agent
-# column is the agent asked for. Backticks are markdown, not part of any value.
+# Prints "host<TAB>model<TAB>effort<TAB>launch arguments" for the agent asked for: the
+# first of its rows with launch arguments, since an agent that is both a session and a
+# subagent (the reviewer) has one row per host and only one of them starts a session;
+# when no row has any, the first row, so the caller's refusal can name it. Backticks are
+# markdown, not part of any value.
 row_for_role() {
   awk -F'|' -v want="$1" '
     function trim(s) { gsub(/^[ \t`]+/, "", s); gsub(/[ \t`]+$/, "", s); return s }
-    /^[ \t]*\|/ && NF == 7 {
-      if (trim($2) == want) {
-        print trim($3) "\t" trim($4) "\t" trim($5) "\t" trim($6)
-        exit
-      }
+    /^[ \t]*\|/ && NF == 7 && trim($2) == want {
+      row = trim($3) "\t" trim($4) "\t" trim($5) "\t" trim($6)
+      if (first == "") first = row
+      launch = trim($6)
+      if (launch != "" && launch != "—" && launch != "-") { print row; found = 1; exit }
     }
+    END { if (!found && first != "") print first }
   ' "$MODELS"
 }
 
@@ -293,7 +297,7 @@ dispatch() {
   local pane name prompt
   if [ "$reviewing" = 1 ]; then
     name="$(herdr_name "issue-$number-review")"
-    prompt="Use the code-review skill to review ticket #$number from base commit $base"
+    prompt="Use the code-review skill to review ticket #$number from base commit $base. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
     local caller="${HERDR_PANE_ID:-}"
     [ -n "$caller" ] || refuse "no calling pane to split, so the reviewer has nowhere to go"
     local width direction
@@ -305,7 +309,7 @@ dispatch() {
     [ -n "$pane" ] || refuse "could not split pane $caller"
   else
     name="$(herdr_name "issue-$number")"
-    prompt="Use the implement skill to work ticket #$number"
+    prompt="Use the implement skill to work ticket #$number. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
     local worktree
     worktree="$(worktree_for "$number" "$root")" \
       || refuse "could not open a worktree for issue-$number under ${MMW_WORKTREES:-$HOME/.mmw/worktrees}"

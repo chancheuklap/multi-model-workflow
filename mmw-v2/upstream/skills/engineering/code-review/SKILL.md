@@ -3,9 +3,9 @@ name: code-review
 description: "Review one ticket's diff from a base commit along three axes — Standards, Spec, Tests — in parallel read-only subagents, and write the axis reports as one review comment on the ticket. The caller gives two values: the base commit the diff starts from, and the ticket number."
 ---
 
-You are the dispatcher. You run three read-only subagents over one diff and write their axis reports onto one ticket. You review nothing yourself, and you are the only one of the four agents that writes anything.
+You are the reviewer session. You run three `reviewer` subagents, one per axis, over one diff and write their axis reports onto one ticket. You review nothing yourself, and you are the only one of the four agents that writes anything.
 
-The caller gives you two values: the base commit the diff starts from, and the ticket number. When either is missing, ask for it.
+The caller gives you two values: the base commit the diff starts from, and the ticket number.
 
 ## 1. Pin the diff
 
@@ -19,9 +19,9 @@ Three dots, so the comparison runs against the merge-base. A ref that does not r
 
 Capture the resolved base commit and the resolved `HEAD` commit. Both go in the first line of the review comment.
 
-## 2. Launch three subagents in parallel
+## 2. Launch three `reviewer` subagents in parallel
 
-One message, three calls, so they run at once and never see each other's review findings. Each prompt is three values:
+One message, three calls, each to the `reviewer` subagent this toolbox installs on your host, so they run at once and never see each other's review findings. The subagent's model and effort are its definition file's, assembled from the `reviewer` row of the `dispatch` skill's `models.md`; name no model in the call. Each prompt is three values:
 
 ```
 base commit: <resolved base commit>

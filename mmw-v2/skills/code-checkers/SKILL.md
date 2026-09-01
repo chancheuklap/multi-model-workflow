@@ -13,11 +13,11 @@ Give a repository the checkers its languages need, wired so a fresh clone or a n
 
 Everything else — the editor, the agent CLI, `ripgrep`, `docker` — belongs to the machine.
 
-Installing a checker globally (`uv tool install ruff`, `npm i -g eslint`, `brew install shellcheck`) is the failure this skill exists to prevent: a new worktree silently has no checker, a second machine has a different one, and the day the global tool upgrades, every branch turns red at once with no commit to blame.
+Installing a checker globally (`uv tool install ruff`, `npm i -g eslint`, `brew install shellcheck`) is the failure this skill exists to prevent: a new worktree silently has no checker, a second machine has a different one, and the day the global tool upgrades, every branch fails its checks at once with no commit to blame.
 
 ## What to install
 
-Count the files first — `find . -name '*.py' -not -path '*/.venv/*' | wc -l` and the same per extension. A language with a handful of files does not earn a checker.
+Count the files first — `find . -name '*.py' -not -path '*/.venv/*' | wc -l` and the same per extension. A language with a handful of files does not need a checker.
 
 | Language | Tool | Manifest | Reference |
 | --- | --- | --- | --- |
@@ -41,11 +41,11 @@ A formatter's output changes between patch releases. Two branches formatted by t
 
 Pin exactly, too, anything whose version is coupled to another tool's: `oxlint-tsgolint` version `7.0.2001` means TypeScript `7.0.2`, and a range would drift off the TypeScript the repo actually builds with.
 
-Upgrading is then one deliberate act — bump, run everything, absorb the changes in one commit — instead of an ambush on a morning you needed the branch green.
+Upgrading is then one deliberate act — bump, run everything, absorb the changes in one commit — instead of a failure on a day nobody planned for.
 
 ## Steps
 
-1. **Count the files per language.** Install only for languages that earn it.
+1. **Count the files per language.** Install only for languages that need it.
 2. **Add each tool to the project manifest** and install (`uv sync`, `pnpm install`). Never globally.
 3. **Configure** — per-language detail in the reference files. Configure before looking at the error count: most of a first run is misconfiguration, not debt.
 4. **Take the count down to signal.** Below.
@@ -61,7 +61,7 @@ A first run on an existing codebase reports thousands. Almost none of it is wort
 1. **Misconfiguration.** Import roots the checker cannot resolve, dependencies absent by design on this platform, framework idioms the rule was not written for. This is usually most of the count. Fix the config, not the code — and exempt precisely: a framework's specific calls, not the whole rule.
 2. **Machine-fixable.** Run the fixer. Import order, dead suppressions, obsolete syntax — the diff is large and needs no reading.
 3. **The formatter, once, as its own commit.** Add that commit's hash to `.git-blame-ignore-revs`.
-4. **What's left is the real backlog — and it must never block a commit.** A checker that reports a file's existing problems every time someone edits one line of it has one outcome: everybody starts passing `--no-verify`, and the whole thing is decoration. Two mechanisms, depending on what the tool offers:
+4. **What's left is the real backlog — and it must never block a commit.** A checker that reports a file's existing problems every time someone edits one line of it has one outcome: everybody starts passing `--no-verify`, and the checker no longer checks anything. Two mechanisms, depending on what the tool offers:
 
    - **A baseline file**, when the tool has one (type checkers usually do). Existing errors go in it and stay quiet; anything new is reported from day one. Commit the baseline — it belongs to the branch like the config does. Prefer this over the tool's bulk-suppress command, which writes an ignore comment at every site: thousands of lines of source noise to say nothing.
    - **Filter to the changed lines**, when it does not. Run the linter with JSON output, intersect its line numbers with `git diff --unified=0`, report only the overlap. Two traps: the linter reports absolute paths while git reports repo-relative ones, so normalise before comparing; and untracked files appear in no diff at all, so pull them in separately and treat every line as new.

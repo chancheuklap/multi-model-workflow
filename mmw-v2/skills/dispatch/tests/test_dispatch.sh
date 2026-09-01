@@ -213,7 +213,7 @@ if len(label) != 24:
 
   echo "--- it is told what to work on only after it is ready"
   has "herdr :: agent :: wait :: w1-issue-61 :: --until :: idle :: --until :: done :: --timeout :: 120000"
-  has "herdr :: agent :: prompt :: w1-issue-61 :: Use the implement skill to work ticket #61"
+  has "herdr :: agent :: prompt :: w1-issue-61 :: Use the implement skill to work ticket #61. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
   [ "$(line_of 'agent :: wait')" -lt "$(line_of 'agent :: prompt')" ] \
     || fail "prompted before waiting for readiness"
 
@@ -242,8 +242,8 @@ scenario_reviewer() {
   has "herdr :: agent :: start :: w1-issue-61-review :: --kind :: claude :: --pane :: w1:p10 :: --"
   # `-n` is Claude Code's own session name, out of `models.md`, not the Herdr name
   # this script hands out: two namespaces, and only the Herdr one collides.
-  has ":: --permission-mode :: bypassPermissions :: --model :: opus :: -n :: issue-61-review"
-  has "herdr :: agent :: prompt :: w1-issue-61-review :: Use the code-review skill to review ticket #61 from base commit abc1234"
+  has ":: --permission-mode :: bypassPermissions :: --model :: opus :: --effort :: high :: -n :: issue-61-review"
+  has "herdr :: agent :: prompt :: w1-issue-61-review :: Use the code-review skill to review ticket #61 from base commit abc1234. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
   has "herdr :: pane :: rename :: w1:p10 :: #61 reviewer"
   has "herdr :: pane :: report-metadata :: w1:p10 :: --source :: mmw :: --token :: ticket=61 :: --token :: kind=reviewer :: --token :: model=opus"
 

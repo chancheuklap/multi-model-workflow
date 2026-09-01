@@ -1,6 +1,6 @@
 # Running a night
 
-You are the main agent, and a spec's tickets are going to be worked while you are not watching them. Two agents share the night, and the line between them is that **repair is the board's, and the next step is yours**: a repair puts a session that was already dispatched back on its feet, while a dispatch decides which HEAD the next ticket's branch is cut from.
+You are the main agent, and a spec's tickets are going to be worked while you are not watching them. Two agents share the night, and the line between them is that **repair is the board's, and the next step is yours**: a repair gets a session that was already dispatched running again, while a dispatch decides which HEAD the next ticket's branch is cut from.
 
 ## `run` opens it, and dispatches nothing
 
@@ -8,7 +8,7 @@ You are the main agent, and a spec's tickets are going to be worked while you ar
 
 `--max-hours` is how long one ticket may hold a session before it is handed back to `needs-triage`. Which row of `models.md` a ticket's worker starts from is the ticket's own `junior-worker` or `senior-worker` label, so the night carries no answer of its own and a repair puts a ticket back on the `models.md` row it was written for.
 
-The `install.sh --check` it runs first is not a formality. A night nobody is watching cannot notice that this machine's skills or its `hook.py` went missing, so that is checked at the one moment somebody is here to fix it.
+The `install.sh --check` it runs first matters. A night nobody is watching cannot notice that this machine's skills or its `hook.py` went missing, so that is checked at the one moment somebody is here to fix it.
 
 **Then run `advance` once, yourself.** The board's `mmw board:` line may not reach you while your pane is focused, and at the start of a night it usually is.
 
@@ -16,7 +16,7 @@ The `install.sh --check` it runs first is not a formality. A night nobody is wat
 
 `<dispatch> advance <spec>` merges the branch of every ticket that closed with `ALL MET` into the base branch you are on, then dispatches every ticket on the frontier.
 
-The two halves are one command because their order is the whole point: a worktree is cut from `HEAD` at the moment it is opened, so a branch merged after the next ticket is dispatched is a branch that ticket cannot see.
+The two halves are one command because the order is the reason: a worktree is cut from `HEAD` at the moment it is opened, so a branch merged after the next ticket is dispatched is a branch that ticket cannot see.
 
 It merges a branch when four things hold at once — the ticket is `CLOSED`, its closing comment opens `ALL MET`, the ticket branch `issue-<n>` exists, and that branch is not already an ancestor of `HEAD`. The fourth is what makes the command safe to run at any time: a branch already merged is skipped, and an empty frontier starts nothing. A ticket handed back to `needs-triage` stays open, so the second condition excludes unfinished work without a rule of its own.
 

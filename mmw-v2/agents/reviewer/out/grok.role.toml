@@ -1,0 +1,3 @@
+description = "Reviews one axis of one ticket's diff — Standards, Spec or Tests — and returns that axis report. Dispatched three at a time by the code-review skill, each with a prompt of exactly three lines: the resolved base commit, the ticket number, and the absolute path of the reference file that holds this axis's instructions. It reads that file and the repository, runs read-only git commands, and changes nothing. Returns the axis report in the shape its reference file asks for, nothing else."
+default_capability_mode = "read-only"
+reasoning_effort = "high"
