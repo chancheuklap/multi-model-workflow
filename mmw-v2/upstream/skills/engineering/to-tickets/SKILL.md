@@ -112,7 +112,7 @@ Iterate until the user approves the breakdown.
 
 ### 7. Publish the tickets to the configured tracker
 
-Publish the approved tickets to the issue tracker `/setup-matt-pocock-skills` configured (GitHub, Linear, …): one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native blocking / sub-issue relationship where it has one; otherwise set each ticket's "Blocked by" to the blocking issues. On GitHub, create each ticket as a sub-issue of the spec (`gh issue create --parent <spec>`, or attach it through the `sub_issues` API): the linter's ticket graph and the night board read only that relationship. Apply the `ready-for-agent` triage label to every ticket an agent works; the ones a person must judge carry `ready-for-human` instead.
+Publish the approved tickets to the issue tracker `/setup-matt-pocock-skills` configured (GitHub, Linear, …): one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native blocking / sub-issue relationship where it has one; otherwise set each ticket's "Blocked by" to the blocking issues. On GitHub, create each ticket as a sub-issue of the spec (`gh issue create --parent <spec>`, or attach it through the `sub_issues` API): the linter's ticket graph and the night board read only that relationship. Apply the `ready-for-agent` triage label to every ticket an agent works, and beside it the `junior-worker` or `senior-worker` label its **Worker** section names; the ones a person must judge carry `ready-for-human` instead, and no worker.
 
 Work the **frontier**: any ticket whose blockers are all done. For a purely linear chain that means top to bottom.
 
@@ -149,6 +149,12 @@ Fix what fails before reporting the batch as published. When the batch is a spec
 ## Parent
 
 A reference to the parent issue on the tracker, followed by the numbered Implementation Decisions sections this ticket implements ("#535, Implementation Decisions sections 5 and 7"). Omit the section only when the source was not an existing issue.
+
+## Worker
+
+Which of the two workers this ticket gets, and one line saying why. `junior-worker` is the default, and the line is what buys the other one: a ticket goes to `senior-worker` when getting it wrong is wrong **silently** — money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default — because none of those fail on the day they are written. A ticket whose **Seam** already names a precedent to copy stays on `junior-worker`. Name the worker; the model behind each one lives in `models.md` in the `dispatch` skill, which is the only place a model is written down.
+
+senior-worker — one settlement per task, and a wrong one surfaces days later in the ledger rather than in a failing test.
 
 ## What to build
 

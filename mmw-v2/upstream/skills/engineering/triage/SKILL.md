@@ -84,7 +84,7 @@ Read that comment and the ticket's `self-run` / `VERDICT` / `REVIEW` trail inste
 
 5. **Apply the outcome:** the four outcomes are `needs-info`, `ready-for-agent`, `ready-for-human` and `wontfix`. Staying at `needs-triage` is not an outcome.
 
-   - `ready-for-agent`: judging an issue agent-ready does not brief it for work here. Route it into the ticket pipeline: write or extend a spec with `/to-spec`, citing this issue as a source, then cut tickets from that spec with `/to-tickets`, which labels them `ready-for-agent` there in the seven-section shape `verify-ticket.py` can read. The label goes on those tickets, not on this issue, and the spec's publish step closes this issue attached under the spec.
+   - `ready-for-agent`: judging an issue agent-ready does not brief it for work here. Route it into the ticket pipeline: write or extend a spec with `/to-spec`, citing this issue as a source, then cut tickets from that spec with `/to-tickets`, which labels them `ready-for-agent` there in the eight-section shape `verify-ticket.py` can read. The label goes on those tickets, not on this issue, and the spec's publish step closes this issue attached under the spec.
    - `ready-for-human`: written here rather than routed. Write what `to-tickets` writes for this label, five things only: **Parent**; **which kind**, *reaction* or *reach*, in one word (a *reach* ticket adds one line naming what would retire it — a test account, a spare device, a runner); **what to look at**, a link that opens, not a command to run; **what makes it right**, the standard to judge against; **Blocked by**, the ticket that produces the thing.
    - `needs-info`: post triage notes (template below).
    - For `wontfix`, close the issue, with the comment depending on *why*:

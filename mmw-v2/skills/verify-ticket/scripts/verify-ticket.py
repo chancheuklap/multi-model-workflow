@@ -50,6 +50,7 @@ HANDOFF_RE = re.compile(
     r"^HANDOFF REQUIRED:\s*(\d+)\s+abandoned\s*\(([^)]*)\),\s*(\d+)\s+unmet,\s*(\d+)\s+met of\s*(\d+)\s*$")
 VERDICT_RE = re.compile(r"^VERDICT\s+([0-9a-fA-F]{40})\b")
 ISSUE_REF_RE = re.compile(r"#(\d+)")
+WORKER_LABEL_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*-worker$")
 ATTR_LINE_RE = re.compile(r"^\s+(CHECK|EXPECT|EVIDENCE|CWD):")
 FENCE_OPEN_RE = re.compile(r"^( {0,3})(`{3,}|~{3,})(.*)$")
 FENCE_CLOSE_RE = re.compile(r"^ {0,3}(`+|~+)[ \t]*$")
@@ -1107,6 +1108,43 @@ def criteria_lines(body: str) -> list[tuple[str, str, str]]:
             for c in parse_criteria("\n".join(section(body, "Acceptance criteria")))]
 
 
+def stated_worker(body: str) -> str:
+    """The worker the `## Worker` section names, or "" when it names none."""
+    for line in section(body, "Worker"):
+        for word in re.findall(r"[a-z0-9-]+", line):
+            if WORKER_LABEL_RE.match(word):
+                return word
+    return ""
+
+
+def lint_worker(labels: list[str], body: str) -> tuple[list[str], list[str]]:
+    """Which worker this ticket gets, said on the tracker and again in the body.
+
+    `dispatch.sh` reads the label and nothing else, and a ticket carrying none is worked
+    by whichever worker the default is rather than the one it was written for. The
+    `## Worker` section is the reader's copy of the same answer; the two saying different
+    things leaves nobody able to tell which the ticket was planned around.
+
+    Returns `(errors, warnings)`. A ticket outside the agent lane gets neither: what it
+    holds is one thing for a person to look at, and no worker is started on it.
+    """
+    if "ready-for-agent" not in labels:
+        return [], []
+    marked = sorted(name for name in labels if WORKER_LABEL_RE.match(name or ""))
+    if len(marked) > 1:
+        return ([f"carries {len(marked)} worker labels ({', '.join(marked)}), and it "
+                 f"takes one"], [])
+    if not marked:
+        return (["carries no worker label: add `junior-worker` or `senior-worker`, so "
+                 "every start puts it on the row it was written for"], [])
+    stated = stated_worker(body)
+    if not stated:
+        return ([], [f"is labelled {marked[0]}, and no `## Worker` section says so"])
+    if stated != marked[0]:
+        return ([], [f"is labelled {marked[0]}, and `## Worker` says {stated}"])
+    return [], []
+
+
 def lint_expectations(body: str) -> list[str]:
     """`$` in an EXPECT regex without the `m` flag is a criterion that can never pass.
 
@@ -1187,6 +1225,14 @@ def lint_check_effects(body: str) -> list[str]:
 
 def run_lint(number: int) -> int:
     body = fetch_body(number)
+    labels = [label.get("name") or "" for label in fetch_ticket(number).get("labels") or []]
+    worker_errors, worker_warnings = lint_worker(labels, body)
+
+    def report_worker() -> None:
+        for finding in worker_errors:
+            print(f"  ERROR #{number} " + finding + "  [worker-label]")
+        for finding in worker_warnings:
+            print(f"  WARN  #{number} " + finding + "  [worker-mismatch]")
 
     # A `ready-for-human` ticket carries no criteria at all: what it holds is one thing
     # for a person to look at. The criteria linter has nothing to say about it, and
@@ -1195,7 +1241,8 @@ def run_lint(number: int) -> int:
     if not section(body, "Acceptance criteria"):
         print(f"#{number} carries no `## Acceptance criteria`, so only the ticket graph "
               f"is checked here")
-        return lint_ticket_graph(number, body)
+        report_worker()
+        return lint_ticket_graph(number, body) or (1 if worker_errors else 0)
 
     with tempfile.TemporaryDirectory(prefix="verify-ticket-") as tmp:
         ledger = write_ledger(body, Path(tmp))
@@ -1215,9 +1262,10 @@ def run_lint(number: int) -> int:
         print("  WARN  " + finding + "  [shared-state]")
     for finding in lint_edges(body):
         print("  WARN  " + finding + "  [unexplained-edge]")
+    report_worker()
 
     graph = lint_ticket_graph(number, body)
-    return result.returncode or graph or (1 if broken else 0)
+    return result.returncode or graph or (1 if broken or worker_errors else 0)
 
 
 def main(argv: list[str] | None = None) -> int:

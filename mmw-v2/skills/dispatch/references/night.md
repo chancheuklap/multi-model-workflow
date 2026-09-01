@@ -4,9 +4,9 @@ You are the main agent, and a spec's tickets are going to be worked while you ar
 
 ## `run` opens it, and dispatches nothing
 
-`<dispatch> run <spec> [--role R] [--max-hours H]` is typed once, after the last ticket of a spec is published. It checks this machine, renames your own pane `mmw-main` so the board can reach you, opens a tab labelled `mmw board #<spec>` in this workspace, and leaves `scripts/board.py --watch` running in it.
+`<dispatch> run <spec> [--max-hours H]` is typed once, after the last ticket of a spec is published. It checks this machine, renames your own pane `mmw-main` so the board can reach you, opens a tab labelled `mmw board #<spec>` in this workspace, and leaves `scripts/board.py --watch` running in it.
 
-`--role` is which row of `models.md` tonight's workers are started from; it defaults to `junior-worker`. `--max-hours` is how long one ticket may hold a session before it goes back to be judged.
+`--max-hours` is how long one ticket may hold a session before it goes back to be judged. Which row of `models.md` a ticket's worker starts from is the ticket's own `junior-worker` or `senior-worker` label, so the night carries no answer of its own and a repair puts a ticket back on the row it was written for.
 
 The `install.sh --check` it runs first is not a formality. A night nobody is watching cannot notice that this machine's skills or its closing gate went missing, so that is checked at the one moment somebody is here to fix it.
 
@@ -14,7 +14,7 @@ The `install.sh --check` it runs first is not a formality. A night nobody is wat
 
 ## `advance` merges, then dispatches, in that order
 
-`<dispatch> advance <spec> [--role R]` merges the branch of every ticket that closed with `ALL MET` into the branch you are on, then starts every ticket on the frontier.
+`<dispatch> advance <spec>` merges the branch of every ticket that closed with `ALL MET` into the branch you are on, then starts every ticket on the frontier.
 
 The two halves are one command because their order is the whole point: a worktree is cut from `HEAD` at the moment it is opened, so a branch merged after the next ticket is dispatched is a branch that ticket cannot see.
 
