@@ -38,5 +38,6 @@ self/verify-ticket
 self/readable-docs
 self/manage-agents-md
 self/dispatch
+self/code-checkers
 
 dd/diagram-design
