@@ -76,7 +76,7 @@ Do this after every product has shipped. A stage, a dispatch, or a self-heal can
 git rev-parse HEAD
 ```
 
-Delivery records live under `<release dir>/delivered/`. The release dir is `paths.release` from `.mmw.json` when the repo has that file, otherwise `.release`. Records live at the **main checkout root**, not in this task worktree.
+Delivery records live under `.release/delivered/`, at the **main checkout root**, not in this task worktree.
 
 That directory holds one record per product. A later run overwrites the earlier one. **Read only the products on the step 2 list.** Their `source_commit` values must all equal current HEAD.
 

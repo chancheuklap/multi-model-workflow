@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 # release-flow.sh fix-dispatch:功能分支提交、保护路径闸与 gate 回退。
 set -euo pipefail
-# 状态目录由目标仓库的 .mmw.json 的 paths.release 决定，不再是写死的常量。
-STATE_SUBDIR="${STATE_SUBDIR:-.release}"
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)"
 RF="$SCRIPT_DIR/../scripts/release-flow.sh"
 FIX="$SCRIPT_DIR/fixtures/release-flow"
@@ -18,7 +16,7 @@ run_release() {
 }
 
 state_file() {
-  printf '%s/%s/release-state.json\n' "$1" "$STATE_SUBDIR"
+  printf '%s/.release/release-state.json\n' "$1"
 }
 
 new_case() {
@@ -33,8 +31,6 @@ new_case() {
   # 而本机的提交前门禁是全局 core.hooksPath,会把 seed 提交拦下来。仓库级设置压过
   # 全局,指向一个不存在的目录就等于这个仓库没有钩子——跟 husky 仓库的做法一样。
   git -C "$repo" config core.hooksPath "$repo/.git/no-hooks"
-  printf '{"paths":{"release":"%s","scratch":".scratch","reviews":".reviews","worktrees":".worktrees"}}\n' \
-    "$STATE_SUBDIR" > "$repo/.mmw.json"
   printf 'seed\n' > "$repo/scripts/release/existing.txt"
   printf 'migration seed\n' > "$repo/migrations/0001.py"
   # 让 `migrations/*.ignored` 被 gitignore,用于验证「gitignored 的受保护文件也必须被 path-gate 拦」

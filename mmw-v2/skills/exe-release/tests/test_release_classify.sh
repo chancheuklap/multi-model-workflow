@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
 # release-flow.sh 分级层:stage fail 分 tier、P0->PAUSE、receipt 从 ledger 渲染、不可诊断 escalate、event_sink 落地。
 set -euo pipefail
-# 状态目录由目标仓库的 .mmw.json 的 paths.release 决定，不再是写死的常量。
-STATE_SUBDIR="${STATE_SUBDIR:-.release}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 RF="$SCRIPT_DIR/../scripts/release-flow.sh"
 RC="$SCRIPT_DIR/../scripts/release_contracts.py"
 FIX="$SCRIPT_DIR/fixtures/release-flow"
-SF="$STATE_SUBDIR/release-state.json"
+SF=".release/release-state.json"
 
 pass=0; fail=0
 ok() { echo "  PASS: $1"; pass=$((pass+1)); }
@@ -25,8 +23,6 @@ cd "$TMP"
 git init -q
 git config user.email t@t
 git config user.name t
-printf '{"paths":{"release":"%s","scratch":".scratch","reviews":".reviews","worktrees":".worktrees"}}\n' \
-  "$STATE_SUBDIR" > .mmw.json
 echo s > s
 git add -A
 git commit -qm s

@@ -13,19 +13,9 @@ set -euo pipefail
 SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 STATE_NAME="release-state.json"
 
-# 状态落点。仓库有 .mmw.json 且写了 paths.release 就用它，否则 .release。
-# 这两个目录都该在目标仓库的 .gitignore 里——出包是这台机器上的事实，不是仓库历史。
-release_subdir() {
-  local top value
-  top="$(git rev-parse --show-toplevel 2>/dev/null)" || return 1
-  if [ -f "$top/.mmw.json" ] &&
-     value="$(jq -er '.paths["release"]' "$top/.mmw.json" 2>/dev/null)" &&
-     [ -n "$value" ]; then
-    printf '%s\n' "$value"
-  else
-    printf '%s\n' ".release"
-  fi
-}
+# 状态落点。名字固定,目标仓库把 .release/ 写进 .gitignore 就够了——出包是这台机器上的
+# 事实,不是仓库历史。可配置会让这两件事对不上:改了名字而 .gitignore 没跟着改,状态就进了 git。
+RELEASE_SUBDIR=".release"
 
 # Git 共享根。在 linked worktree 里跑时指回创建这些 worktree 的主检出；交付记录落那里，
 # 因为它要比对跨任务、跨会话的几次出包，而任务 worktree 收尾就删。
@@ -60,10 +50,9 @@ EOF
 }
 
 state_file() {
-  local top sd
+  local top
   top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "not inside a git repository"
-  sd="$(release_subdir)"
-  echo "$top/$sd/$STATE_NAME"
+  echo "$top/$RELEASE_SUBDIR/$STATE_NAME"
 }
 
 need_state() {
@@ -742,16 +731,15 @@ cmd_init() {
   canon="$(uv run --quiet "$SCRIPT_DIR/release_contracts.py" validate-manifest "$manifest")" \
     || die "the manifest does not satisfy the contract; a person has to fix the key"
 
-  local f top sd mp source_commit
+  local f top mp source_commit
   top="$(git rev-parse --show-toplevel)"
   source_commit="$(git -C "$top" rev-parse HEAD)"
-  sd="$(release_subdir)"
-  f="$top/$sd/$STATE_NAME"
+  f="$top/$RELEASE_SUBDIR/$STATE_NAME"
   [ -f "$f" ] && die "a release loop is already open; close it or continue it"
   # 上一轮的 attempt 目录不能留:attempt 号从 a0 重新数,旧目录跟本轮同名对撞,于是
   # 「本轮的 a4-verify_key」读到的是上一个产品的结果,而没有任何一步报错。
-  rm -rf "$top/$sd/release-artifacts"
-  mkdir -p "$top/$sd"
+  rm -rf "$top/$RELEASE_SUBDIR/release-artifacts"
+  mkdir -p "$top/$RELEASE_SUBDIR"
   mp="$(cd "$(dirname "$manifest")" && pwd)/$(basename "$manifest")"
   local standard
   standard="$(_standard_stages "$mp")"
@@ -1525,10 +1513,9 @@ cmd_resume() {
 }
 
 cmd_close() {
-  local top sd f main product commit
+  local top f main product commit
   top="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "NO-GIT"; return 0; }
-  sd="$(release_subdir)"
-  f="$top/$sd/$STATE_NAME"
+  f="$top/$RELEASE_SUBDIR/$STATE_NAME"
   # 收束时留一份交付记录再删状态。一次改动影响多个产品时,后一个产品的自愈修复会
   # 产生新提交推进 HEAD,早前那个产品的包就已经不是最终代码了——把几个包混着发出去,
   # 客户装到的是两份不同的东西。这几份记录是发出去之前唯一能发现这件事的地方。
@@ -1542,9 +1529,9 @@ cmd_close() {
     commit="$(jq -r '.source_commit // empty' "$f" 2>/dev/null || true)"
     if [ -n "$product" ] && [ -n "$commit" ]; then
       main="$(main_root)"
-      mkdir -p "$main/$sd/delivered"
+      mkdir -p "$main/$RELEASE_SUBDIR/delivered"
       jq -n --arg p "$product" --arg c "$commit" --arg at "$(now)" \
-        '{product:$p, source_commit:$c, closed_at:$at}' > "$main/$sd/delivered/$product.json"
+        '{product:$p, source_commit:$c, closed_at:$at}' > "$main/$RELEASE_SUBDIR/delivered/$product.json"
     fi
     rm -f "$f"
   fi
@@ -1560,15 +1547,14 @@ cmd_close() {
 # 现场留着:release-artifacts/ 下的日志与 findings 是这一轮唯一的记录,活状态也另存一份,
 # 出了事还能翻。真正要清掉的只是「有一轮正在进行」这个事实。
 cmd_abort() {
-  local top sd f keep
+  local top f keep
   top="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "NO-GIT"; return 0; }
-  sd="$(release_subdir)"
-  f="$top/$sd/$STATE_NAME"
+  f="$top/$RELEASE_SUBDIR/$STATE_NAME"
   if [ ! -f "$f" ]; then
     echo "NO-LOOP"
     return 0
   fi
-  keep="$top/$sd/release-artifacts/aborted-$(jq -r '.product // "unknown"' "$f" 2>/dev/null || echo unknown)-$(date +%Y%m%d-%H%M%S).json"
+  keep="$top/$RELEASE_SUBDIR/release-artifacts/aborted-$(jq -r '.product // "unknown"' "$f" 2>/dev/null || echo unknown)-$(date +%Y%m%d-%H%M%S).json"
   mkdir -p "$(dirname "$keep")"
   mv "$f" "$keep"
   echo "ABORTED:no delivery record written; the state of this round is kept at $keep"

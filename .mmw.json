@@ -1,9 +1,0 @@
-{
-  "version": 1,
-  "paths": {
-    "scratch": ".scratch",
-    "reviews": ".reviews",
-    "release": ".release",
-    "worktrees": ".worktrees"
-  }
-}

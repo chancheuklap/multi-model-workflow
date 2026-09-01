@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 # release-flow.sh 引擎空跑:载入 fail-loud、状态机推进、exit-check、round cap、resume、原子写。
 set -euo pipefail
-# 状态目录由目标仓库的 .mmw.json 的 paths.release 决定，不再是写死的常量。
-STATE_SUBDIR="${STATE_SUBDIR:-.release}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 RF="$SCRIPT_DIR/../scripts/release-flow.sh"
 FIX="$SCRIPT_DIR/fixtures/release-flow"
-SF="$STATE_SUBDIR/release-state.json"
+SF=".release/release-state.json"
 
 pass=0; fail=0
 ok() { echo "  PASS: $1"; pass=$((pass+1)); }
@@ -19,8 +17,6 @@ cd "$TMP"
 git init -q
 git config user.email t@t
 git config user.name t
-printf '{"paths":{"release":"%s","scratch":".scratch","reviews":".reviews","worktrees":".worktrees"}}\n' \
-  "$STATE_SUBDIR" > .mmw.json
 echo s > s
 git add -A
 git commit -qm s
@@ -391,7 +387,7 @@ remote_reset
 init_for_remote_build
 PATH="$REMOTE_FIX:$PATH" RELEASE_REMOTE_BUILD_POLL_SECONDS=0 \
   bash "$RF" stage run --stage build >/dev/null 2>&1 || true
-if grep -rq 'ERROR: remote build has no RELEASE_REMOTE_HOST' "$STATE_SUBDIR" 2>/dev/null; then
+if grep -rq 'ERROR: remote build has no RELEASE_REMOTE_HOST' .release 2>/dev/null; then
   ok "两处都没有时报错文字不变(诊断的根因指纹靠它)"
 else
   no "缺构建机的报错文字变了"
@@ -487,22 +483,6 @@ case "$out" in
 esac
 
 bash "$RF" close >/dev/null
-
-# 没有 .mmw.json 的仓库也要能出包：状态落 .release。旧引擎在这里直接 die，
-# 而绝大多数仓库根本没有那个文件。
-NOCFG="$(mktemp -d)"
-(
-  cd "$NOCFG"
-  git init -q
-  git config user.email t@t
-  git config user.name t
-  echo s > s
-  git add -A
-  git commit -qm s
-  bash "$RF" init --manifest "$FIX/manifest.fake.json" >/dev/null
-)
-[ -f "$NOCFG/.release/release-state.json" ] && ok "无 .mmw.json 时状态落 .release" || no "无 .mmw.json 缺省落点"
-rm -rf "$NOCFG"
 
 # ── 放弃这一轮 ──────────────────────────────────────────────────────────────
 #
