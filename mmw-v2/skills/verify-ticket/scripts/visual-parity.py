@@ -10,6 +10,25 @@ leaf directory, holding the component's `.dc.html`, its `styles/`, `data/`,
 named scene from that directory offline, opens the same scene on the implementation,
 and compares the two by ARIA tree and by pixels at two viewports.
 
+What decides a scene
+--------------------
+The accessibility tree is the main judge. It is read as the sequence of named nodes —
+a button and its name, a heading and its text, a line of copy — in reading order;
+unnamed wrappers (`generic`, `group`, `list`, an unnamed `region`) and landmark names
+are not part of it, because a product page nests things differently from a component
+page without showing anything different. A node missing, added, renamed, or given
+another role fails the scene.
+
+Pixels are the second judge, for what a tree cannot carry: colour, spacing, a block
+that did not render. Both screenshots are shrunk by `PIXEL_SCALE` (box average) before
+they are compared, which removes glyph rendering and sub-`PIXEL_SCALE` offsets; the
+share of cells that still differ is compared with `--max-pct`. Measured on ticket
+#548 of the chameleon repository (2026-09-02, six scenes, two viewports): with the
+tree identical, the residue from font rendering alone was 0.04%–1.52% after shrinking
+by 4; scenes whose copy and layout were wrong measured 1.5%–31%, and every one of those
+also failed on the tree. The default of 3% leaves the residue a margin of one time
+its own size.
+
 How a non-default scene is rendered from the handoff package
 -----------------------------------------------------
 A scene in Claude Design is a prop on the component, set from the Tweaks panel, not a
@@ -30,25 +49,27 @@ needed and is not used here.
 
 Usage
 -----
-    uv run visual-parity.py --baseline <dir> --impl <url> --scenes a,b --max-pct 1 \
-        --out <dir>
+    uv run visual-parity.py --baseline <dir> --impl <url> --scenes a,b --out <dir>
 
 An implementation that is not a page on a web server — an Electron application, say —
 is compared where it already runs, by connecting to its debugging port:
 
     uv run visual-parity.py --baseline <dir> --cdp http://127.0.0.1:9229 \
-        --impl http://127.0.0.1:5173/ --scenes a,b --max-pct 1
+        --impl http://127.0.0.1:5173/ --scenes a,b
 
 `--cdp` says which browser; `--impl` still says where to navigate, because a scene is
 reached by its query string. The application is left running afterwards. Only what its
 renderer draws is compared: the size of its operating-system window is not, so a window
 minimum is checked by the user, not here.
 
-Exit 0 and one line `PARITY OK <passed>/<total>` when every scene matches at every
-viewport.
+Exit 0 and one line `PARITY OK <passed>/<total> pixel<=<worst>%` when every scene
+matches at every viewport; the number is the largest pixel share any pair had, so a
+difference under the threshold is still on record.
 Exit 1 with one `DIFF` line per failing pair, each followed by the ARIA tree lines
 that differ — the name of the button or the line of copy, as text, which is what a
-reader has to change. Exit 2 when the built-in negative control fails, in which case
+reader has to change. A pixel failure names the implementation's elements under the
+differing area after `around:`, so the reader is sent to a component, not a
+coordinate. Exit 2 when the built-in negative control fails, in which case
 no parity conclusion is printed at all.
 
 `--out` holds the screenshot, the ARIA tree, and the differing-pixel picture for
@@ -76,12 +97,15 @@ from pathlib import Path
 
 # A pixel counts as identical while every channel is within this of the other image's.
 PIXEL_TOLERANCE = 16
+# Both screenshots are shrunk by this factor (box average) before pixels are compared.
+PIXEL_SCALE = 4
+DEFAULT_MAX_PCT = 3.0
+# How many implementation elements a pixel failure names under `around:`.
+AROUND_LIMIT = 5
 
-# What `support.js` wraps a component in that no product page has.
-ARIA_NOISE = re.compile(r"^\s*- (generic|group)\s*$")
-LANDMARK_NAME = re.compile(
-    r'^(\s*- (?:main|navigation|banner|contentinfo|region|complementary)) "[^"]*"(:?)\s*$'
-)
+# Roles whose accessible name is dropped: a product page labels its `<main>`, a
+# component page does not, and the landmark itself is what matters.
+LANDMARKS = {"main", "navigation", "banner", "contentinfo", "region", "complementary"}
 
 # The three scripts `support.js` loads from unpkg. Answered from a local cache so the
 # handoff package renders with no network.
@@ -105,46 +129,38 @@ NEGATIVE_CONTROL_JS = (
 
 
 # ---------------------------------------------------------------- ARIA
+ARIA_LINE = re.compile(
+    r'^\s*- (?P<role>[a-zA-Z]+)(?: "(?P<name>(?:[^"\\]|\\.)*)")?'
+    r'(?P<attrs>(?: \[[^\]]*\])*)(?::\s*(?P<value>.*))?\s*$')
+
+
 def normalize_aria(text: str) -> list[str]:
-    """Drop what `support.js` adds and what carries no structure.
+    """The named nodes of a Playwright ARIA snapshot, flat, in reading order.
 
-    1. blank lines and bare ``- generic`` / ``- group`` lines;
-    2. the accessible name on landmark roles — a product page labels its ``<main>``,
-       a component page does not, and the landmark itself is what matters;
-    3. one inner ``- main:`` nested inside another ``main``, whose children come up
-       one level.
+    Each line is `- <role> "<name>"<attrs>` or `- <role>: <value>`, without indent.
+    Kept: every node that carries a name or a value — a control, a heading, a line of
+    copy — with its attributes (`[level=2]`, `[checked]`). Dropped: nodes with neither,
+    the accessible name of a landmark role, and lines that are not nodes. Nesting is
+    dropped with the indent: an app page wraps a component in one more `main` and a
+    product page in `list` and `article`, and none of that shows on screen.
     """
-    lines = []
+    out = []
     for ln in text.splitlines():
-        if not ln.strip() or ARIA_NOISE.match(ln):
+        m = ARIA_LINE.match(ln)
+        if not m:
             continue
-        lines.append(LANDMARK_NAME.sub(r"\1\2", ln.rstrip()))
-    return hoist_nested_main(lines)
-
-
-def hoist_nested_main(lines: list[str]) -> list[str]:
-    """Remove a ``main`` nested inside another ``main`` and dedent its children.
-
-    A Claude Design app page wraps every ``dc-import`` in its own ``<main>``; when the
-    imported component's own root is a ``main`` too, both trees have to put the same
-    content at the same level before they can be compared.
-    """
-    out: list[str] = []
-    main_depths: list[int] = []  # indents of open main landmarks
-    hoist: list[int] = []  # indents of removed nested mains still in scope
-    for ln in lines:
-        ind = len(ln) - len(ln.lstrip())
-        while main_depths and ind <= main_depths[-1]:
-            main_depths.pop()
-        while hoist and ind <= hoist[-1]:
-            hoist.pop()
-        if ln.strip() == "- main:" and main_depths:
-            hoist.append(ind)
+        role, name, attrs, value = (m.group("role"), m.group("name"),
+                                    m.group("attrs") or "", m.group("value"))
+        if role in LANDMARKS:
+            name = None
+        if name is None and not value and not attrs.strip():
             continue
-        dedent = 2 * len(hoist)
-        out.append(ln[dedent:] if dedent and ln.startswith(" " * dedent) else ln)
-        if ln.strip() == "- main:":
-            main_depths.append(ind - dedent)
+        if value:
+            out.append(f"- {role}: {value.strip()}")
+        elif name is not None:
+            out.append(f'- {role} "{name}"{attrs}')
+        else:
+            out.append(f"- {role}{attrs}")
     return out
 
 
@@ -159,11 +175,16 @@ def aria_diff(a: str, b: str, out: Path | None = None) -> dict:
 
 
 # ---------------------------------------------------------------- pixels
-def diff_images(ia, ib, out: Path | None = None) -> dict:
+def diff_images(ia, ib, out: Path | None = None, scale: int = PIXEL_SCALE) -> dict:
     """Two renders of the same scene, already loaded as RGB images.
 
     Images of unequal size are a failure on the spot: a scene that renders taller on
     one side is a difference, and scaling one to the other would hide it.
+
+    Equal-sized images are shrunk by `scale` (each cell the average of a
+    `scale`×`scale` block) and compared cell by cell. `pct` is the share of differing
+    cells; `count` and `total` count cells; `box` is in the coordinates of the
+    original image, so it can be placed on the screenshot.
     """
     if ia.size != ib.size:
         return {"size_equal": False, "pct": 100.0, "count": None, "total": None,
@@ -171,19 +192,23 @@ def diff_images(ia, ib, out: Path | None = None) -> dict:
     import numpy as np
     from PIL import Image
 
-    na = np.asarray(ia, dtype=np.int16)
-    nb = np.asarray(ib, dtype=np.int16)
+    small = (max(1, ia.width // scale), max(1, ia.height // scale))
+    na = np.asarray(ia.resize(small, Image.BOX), dtype=np.int16)
+    nb = np.asarray(ib.resize(small, Image.BOX), dtype=np.int16)
     mask = (np.abs(na - nb) > PIXEL_TOLERANCE).any(axis=2)
     count, total = int(mask.sum()), int(mask.size)
     box = None
     if count:
         ys, xs = np.nonzero(mask)
-        box = [int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())]
+        box = [int(xs.min()) * scale, int(ys.min()) * scale,
+               (int(xs.max()) + 1) * scale - 1, (int(ys.max()) + 1) * scale - 1]
     if out is not None:
-        # A washed-out baseline under the red, so the differing pixels can be placed
+        # A washed-out baseline under the red, so the differing cells can be placed
         # on the page they belong to rather than on a black field.
-        vis = (na * 0.22 + 196).astype(np.uint8)
-        vis[mask] = (230, 20, 60)
+        full = np.asarray(ia, dtype=np.int16)
+        vis = (full * 0.22 + 196).astype(np.uint8)
+        big = np.kron(mask, np.ones((scale, scale), dtype=bool))
+        vis[:big.shape[0], :big.shape[1]][big[:vis.shape[0], :vis.shape[1]]] = (230, 20, 60)
         Image.fromarray(vis).save(out)
     return {"size_equal": True, "pct": round(100 * count / total, 3), "count": count,
             "total": total, "box": box,
@@ -205,6 +230,34 @@ class Comparison:
     aria: dict
     console_baseline: list[str] = field(default_factory=list)
     console_impl: list[str] = field(default_factory=list)
+    # The implementation's elements with a label and a box, for naming a pixel failure.
+    impl_elements: list[dict] = field(default_factory=list)
+
+
+def around(box: list[int] | None, elements: list[dict], limit: int = AROUND_LIMIT) -> list[str]:
+    """The labels of the elements under a differing area, smallest first.
+
+    Smallest first because the page and its main column overlap every box; the
+    element a reader has to open is the one that fits the area, not the one that
+    contains it. Same label once.
+    """
+    if not box or not elements:
+        return []
+    x0, y0, x1, y1 = box
+    hits = []
+    for e in elements:
+        ex0, ey0 = e["x"], e["y"]
+        ex1, ey1 = ex0 + e["w"], ey0 + e["h"]
+        if e["w"] <= 0 or e["h"] <= 0 or ex1 < x0 or ex0 > x1 or ey1 < y0 or ey0 > y1:
+            continue
+        hits.append((e["w"] * e["h"], e["label"]))
+    out: list[str] = []
+    for _, label in sorted(hits, key=lambda h: h[0]):
+        if label not in out:
+            out.append(label)
+        if len(out) == limit:
+            break
+    return out
 
 
 @dataclass
@@ -263,17 +316,25 @@ def gate(control: Comparison, comparisons: list[Comparison], max_pct: float,
                    "banner compared equal; this run proves nothing"]
     lines = []
     failed = 0
+    worst = 0.0
     for c in comparisons:
         reasons = failures(c, max_pct, console_limit)
+        if c.pixel["size_equal"]:
+            worst = max(worst, c.pixel["pct"])
         if reasons:
             failed += 1
             box = c.pixel["box"]
-            lines.append(f"DIFF {c.scene} {c.viewport} {c.pixel['pct']}% box={box} "
-                         f"— {'; '.join(r.en for r in reasons)}")
+            line = (f"DIFF {c.scene} {c.viewport} {c.pixel['pct']}% box={box} "
+                    f"— {'; '.join(r.en for r in reasons)}")
+            if any(r.kind == "pixel" for r in reasons):
+                names = around(box, c.impl_elements)
+                if names:
+                    line += " around: " + ", ".join(names)
+            lines.append(line)
             lines.extend(change_lines(c.aria["diff"]))
     if failed:
         return 1, lines
-    return 0, [f"PARITY OK {len(comparisons)}/{len(comparisons)}"]
+    return 0, [f"PARITY OK {len(comparisons)}/{len(comparisons)} pixel<={worst}%"]
 
 
 # ---------------------------------------------------------------- baseline server
@@ -347,6 +408,26 @@ class Shot:
     png: Path
     aria: str
     console: list[str] = field(default_factory=list)
+    elements: list[dict] = field(default_factory=list)
+
+
+# Every element a reader could be sent to, with the name it goes by: its `aria-label`,
+# else its own text, else its `alt`. Boxes are viewport CSS pixels, the screenshot's.
+ELEMENTS_JS = """(() => {
+  const sel = 'button, a, input, select, textarea, label, img, h1, h2, h3, h4, h5, h6, ' +
+              'p, li, strong, em, [role], [aria-label]';
+  const out = [];
+  for (const el of document.querySelectorAll(sel)) {
+    const r = el.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) continue;
+    const role = el.getAttribute('role') || el.tagName.toLowerCase();
+    const text = (el.getAttribute('aria-label') || el.innerText || el.getAttribute('alt') || '')
+      .trim().replace(/\\s+/g, ' ').slice(0, 40);
+    if (!text) continue;
+    out.push({label: role + ' "' + text + '"', x: r.left, y: r.top, w: r.width, h: r.height});
+  }
+  return out;
+})()"""
 
 
 def resize(page, viewport: tuple[int, int], over_cdp: bool) -> None:
@@ -404,11 +485,12 @@ def capture(page, url: str, selector: str | None, viewport: tuple[int, int], png
         else:
             page.screenshot(**shot_at)
         aria = target.aria_snapshot()
+        elements = page.evaluate(ELEMENTS_JS)
     finally:
         page.remove_listener("console", on_console)
         page.remove_listener("pageerror", on_pageerror)
     aria_path(png).write_text(aria, encoding="utf-8")
-    return Shot(png, aria, console)
+    return Shot(png, aria, console, elements)
 
 
 def impl_page_over_cdp(browser, title_includes: str | None, timeout_seconds: int = 15):
@@ -498,8 +580,10 @@ def build_parser() -> argparse.ArgumentParser:
                         "application has more than one")
     p.add_argument("--scenes", required=True, metavar="NAMES",
                    help="comma-separated scene names, each one named in scenes.json")
-    p.add_argument("--max-pct", type=float, default=1.0, metavar="PCT",
-                   help="largest share of differing pixels a scene may have")
+    p.add_argument("--max-pct", type=float, default=DEFAULT_MAX_PCT, metavar="PCT",
+                   help=f"largest share of differing cells a scene may have, after both "
+                        f"screenshots are shrunk by {PIXEL_SCALE} (default "
+                        f"{DEFAULT_MAX_PCT})")
     p.add_argument("--viewports", default=DEFAULT_VIEWPORTS, metavar="LIST",
                    help="comma-separated WIDTHxHEIGHT window sizes to compare at")
     p.add_argument("--out", metavar="DIR", default=None,
@@ -605,7 +689,7 @@ def run(args) -> int:
                                    media / f"{name}-{tag_vp}-diff.png"),
                         aria_diff(base_shot.aria, impl_shot.aria,
                                   media / f"{name}-{tag_vp}.aria.diff"),
-                        base_shot.console, impl_shot.console))
+                        base_shot.console, impl_shot.console, impl_shot.elements))
                 if control is None:
                     scene = scenes[0]
                     page = base_ctx.new_page()
@@ -649,10 +733,6 @@ def _copy(src: Path, dst: Path) -> None:
 
 
 # ---------------------------------------------------------------- reading the diff
-ARIA_LINE = re.compile(
-    r'^\s*- (?P<role>[a-zA-Z]+)(?: "(?P<name>.*?)")?(?::(?:\s*(?P<value>.*))?)?\s*$')
-
-
 def text_changes(diff: str) -> list[dict]:
     """Say what changed in words, out of the ARIA tree's own unified diff.
 

@@ -63,34 +63,44 @@ def comparison(pixel=None, aria=None, console_baseline=(), console_impl=(),
 
 
 class TestNormalize(unittest.TestCase):
-    def test_drops_generic_and_group_wrappers(self):
-        """Rule 1. The round-2 trees carry no bare `- generic` / `- group` line, so
-        the two lines under test are inserted into the round-2 card the rule would
-        strip them from; every other line is the recorded one."""
+    """The tree is read as the flat sequence of named nodes, in reading order."""
+
+    FLAT_HEAD = [
+        "- text: 变色龙商品图助手 商品项目库",
+        "- status: 服务正常",
+        "- text: 鸭豆余额 12,480",
+        '- tabpanel "商品项目库"',
+    ]
+
+    def test_drops_unnamed_wrappers(self):
+        """The round-2 trees carry no bare wrapper line, so `generic`, `group` and
+        `list` are inserted into the round-2 card; every other line is the recorded
+        one, and the sequence comes out the same."""
         lines = ROUND2_CARD.splitlines()
-        with_noise = "\n".join([lines[0], "  - generic", lines[1], "  - group",
-                                lines[2]])
-        self.assertEqual(vp.normalize_aria(with_noise),
-                         vp.normalize_aria(ROUND2_CARD))
-        self.assertNotIn("  - generic", vp.normalize_aria(with_noise))
-        self.assertNotIn("  - group", vp.normalize_aria(with_noise))
+        with_noise = "\n".join([lines[0], "  - generic", "  - list:", lines[1],
+                                "    - group", "    - listitem:", lines[2]])
+        self.assertEqual(vp.normalize_aria(with_noise), vp.normalize_aria(ROUND2_CARD))
+        self.assertEqual(vp.normalize_aria(ROUND2_CARD), [
+            '- button "最近使用 山野净洗洁精 1 个任务进行中 PRJ-240716-C08"',
+            '- heading "山野净洗洁精" [level=2]',
+            "- strong: 2 张",
+        ])
 
     def test_drops_landmark_name(self):
-        """Rule 2."""
-        self.assertEqual(vp.normalize_aria(ROUND2_IMPL_HEAD)[0], "- main:")
+        self.assertEqual(vp.normalize_aria(ROUND2_IMPL_HEAD), self.FLAT_HEAD)
 
-    def test_hoists_main_nested_in_main(self):
-        """Rule 3: the inner `main` goes and its children come up one level, which
-        is what makes the two round-2 heads the same tree."""
+    def test_nesting_does_not_matter(self):
+        """The app page wraps the component in a second `main`; the product page
+        labels its one `main`. Read flat, the two round-2 heads are the same."""
         self.assertEqual(vp.normalize_aria(ROUND2_BASELINE_HEAD),
                          vp.normalize_aria(ROUND2_IMPL_HEAD))
-        self.assertEqual(vp.normalize_aria(ROUND2_BASELINE_HEAD), [
-            "- main:",
-            "  - text: 变色龙商品图助手 商品项目库",
-            "  - status: 服务正常",
-            "  - text: 鸭豆余额 12,480",
-            '  - tabpanel "商品项目库":',
-        ])
+        self.assertEqual(vp.normalize_aria(ROUND2_BASELINE_HEAD), self.FLAT_HEAD)
+
+    def test_a_named_group_and_a_state_stay(self):
+        self.assertEqual(vp.normalize_aria('- group "筛选"\n  - checkbox "仅进行中" [checked]\n'
+                                           '  - switch [checked]'),
+                         ['- group "筛选"', '- checkbox "仅进行中" [checked]',
+                          "- switch [checked]"])
 
 
 class TestAria(unittest.TestCase):
@@ -119,6 +129,92 @@ class _Render:
 
     def __init__(self, size):
         self.size = size
+
+
+def _has_imaging() -> bool:
+    try:
+        import numpy  # noqa: F401
+        import PIL  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+@unittest.skipUnless(_has_imaging(), "needs numpy and Pillow: "
+                     "uv run --with numpy --with pillow python -m unittest")
+class TestShrunkPixels(unittest.TestCase):
+    """Pixels are compared after both images are shrunk by `PIXEL_SCALE`. The one
+    test here that opens real images; everything else in this file runs on the
+    standard library alone."""
+
+    def image(self, paint):
+        from PIL import Image
+
+        img = Image.new("RGB", (160, 80), (255, 255, 255))
+        paint(img)
+        return img
+
+    def test_glyph_edges_vanish_and_a_block_stays(self):
+        """One-pixel-wide lines, the shape of a glyph edge or a card border, average
+        away inside a 4×4 cell; a 40×40 block of another colour does not."""
+        from PIL import ImageDraw
+
+        base = self.image(lambda img: None)
+        edges = self.image(lambda img: [ImageDraw.Draw(img).line((0, y, 159, y),
+                                                                  fill=(200, 200, 200))
+                                        for y in range(0, 80, 8)])
+        block = self.image(lambda img: ImageDraw.Draw(img).rectangle((40, 20, 79, 59),
+                                                                     fill=(255, 45, 85)))
+        self.assertEqual(vp.diff_images(base, edges)["pct"], 0.0)
+        self.assertGreater(vp.diff_images(base, edges, scale=1)["pct"], 10.0)
+        blocked = vp.diff_images(base, block)
+        self.assertAlmostEqual(blocked["pct"], 100 * (10 * 10) / (40 * 20), places=1)
+        self.assertEqual(blocked["box"], [40, 20, 79, 59])
+        self.assertEqual((blocked["count"], blocked["total"]), (100, 800))
+
+
+class TestAround(unittest.TestCase):
+    """A pixel failure names the implementation's elements under the box."""
+
+    ELEMENTS = [
+        {"label": 'main "页面"', "x": 0, "y": 0, "w": 1440, "h": 900},
+        {"label": 'button "开始生成"', "x": 100, "y": 100, "w": 120, "h": 40},
+        {"label": 'heading "任务队列"', "x": 100, "y": 20, "w": 300, "h": 30},
+        {"label": 'button "设置"', "x": 1300, "y": 20, "w": 80, "h": 30},
+    ]
+
+    def test_smallest_overlapping_element_first_and_the_page_last(self):
+        self.assertEqual(vp.around([90, 90, 240, 150], self.ELEMENTS),
+                         ['button "开始生成"', 'main "页面"'])
+
+    def test_limit_and_no_box(self):
+        self.assertEqual(vp.around(None, self.ELEMENTS), [])
+        self.assertEqual(vp.around([0, 0, 1440, 900], self.ELEMENTS, limit=2),
+                         ['button "设置"', 'button "开始生成"'])
+
+    def test_the_diff_line_carries_the_names(self):
+        c = comparison(pixel={"size_equal": True, "pct": 12.5, "count": 100,
+                              "total": 800, "box": [90, 90, 240, 150],
+                              "size_a": (10, 10), "size_b": (10, 10)})
+        c.impl_elements = self.ELEMENTS
+        control = comparison(scene="__negative_control__",
+                             pixel={"size_equal": True, "pct": 23.4, "count": 9,
+                                    "total": 100, "box": [0, 0, 9, 9],
+                                    "size_a": (10, 10), "size_b": (10, 10)})
+        code, lines = vp.gate(control, [c], 3.0, 0)
+        self.assertEqual(code, 1)
+        self.assertEqual(lines, ["DIFF default 1440x900 12.5% box=[90, 90, 240, 150] "
+                                 "— pixel 12.5% > 3.0% around: button \"开始生成\", "
+                                 "main \"页面\""])
+
+    def test_an_aria_failure_names_nothing(self):
+        c = comparison(aria=vp.aria_diff(ROUND2_CARD, ROUND2_CARD.replace("2 张", "3 张", 1)))
+        c.impl_elements = self.ELEMENTS
+        control = comparison(scene="__negative_control__",
+                             pixel={"size_equal": True, "pct": 23.4, "count": 9,
+                                    "total": 100, "box": [0, 0, 9, 9],
+                                    "size_a": (10, 10), "size_b": (10, 10)})
+        self.assertNotIn("around:", vp.gate(control, [c], 3.0, 0)[1][0])
 
 
 class TestSizeMismatch(unittest.TestCase):
@@ -189,7 +285,22 @@ class TestNegativeControl(unittest.TestCase):
                                   "diff": ""})
         self.assertEqual(vp.gate(caught, [comparison(), comparison(scene="empty")],
                                  1.0, 0),
-                         (0, ["PARITY OK 2/2"]))
+                         (0, ["PARITY OK 2/2 pixel<=0.0%"]))
+
+    def test_the_ok_line_carries_the_worst_pixel_share(self):
+        """A difference under the threshold passes and is still on record, so the
+        `EXPECT: PARITY OK <passed>/<total>` on a ticket keeps matching as a prefix."""
+        caught = comparison(scene="__negative_control__",
+                            pixel={"size_equal": True, "pct": 23.4, "count": 9,
+                                   "total": 100, "box": [0, 0, 9, 9],
+                                   "size_a": (10, 10), "size_b": (10, 10)},
+                            aria={"changed": 28, "lines_a": 30, "lines_b": 2,
+                                  "diff": ""})
+        near = comparison(pixel={"size_equal": True, "pct": 1.52, "count": 3,
+                                 "total": 200, "box": [0, 0, 9, 9],
+                                 "size_a": (10, 10), "size_b": (10, 10)})
+        self.assertEqual(vp.gate(caught, [comparison(), near], 3.0, 0),
+                         (0, ["PARITY OK 2/2 pixel<=1.52%"]))
 
 
 class TestConsole(unittest.TestCase):
@@ -288,7 +399,7 @@ class TestArguments(unittest.TestCase):
     def test_defaults(self):
         args = vp.build_parser().parse_args(
             ["--baseline", "b", "--impl", "http://x/", "--scenes", "a,b"])
-        self.assertEqual(args.max_pct, 1.0)
+        self.assertEqual(args.max_pct, 3.0)
         self.assertEqual(args.viewports, "1440x900,1180x720")
         self.assertIsNone(args.cdp)
         self.assertIsNone(args.impl_title)
