@@ -40,7 +40,7 @@ grep -rl '"product"' --include='*.release-adapter.json' .
 
 Decide which to ship: take the paths this change touched (`git diff --name-only $(git merge-base HEAD <parent>)..HEAD`; `<parent>` is the branch this task branch was created from — the repo default branch when you have nothing better). Match them against the paths each config names — its shell directory, its compile entrypoints and packaged data, its `asset_roots`. A hit means ship that product.
 
-If you cannot tell, ask the user. Do not omit a product. A product whose config names no path that could ever match is a config to fix, not a product to skip.
+If you cannot tell, include the product and write the reason in the table below, then continue. Do not omit a product. A product whose config names no path that could ever match is a config to fix, not a product to skip.
 
 **A product this change touched but no config names does not ship yet.** Bringing it in is one
 JSON file plus whatever the repo still lacks: [new-product.md](new-product.md) starts there and

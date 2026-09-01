@@ -29,13 +29,25 @@ Technical writing often prioritizes precision over clarity: jargon without conte
 Do not assume that general industry knowledge applies to the thing you are documenting. A skill, a script, a product can diverge from how such things are typically done. When adding commentary about how something behaves:
 
 1. **Verify against the source** — Cross-reference the code, the script, the test output, or the upstream document before stating how it works.
-2. **Cite your sources** — When introducing net new information (explanations, comparisons, implementation details), include a reference to the specific file, page, or authoritative source that supports the claim. Use inline links or footnotes.
+2. **Cite your sources** — When introducing net new information (explanations, comparisons, implementation details), include a reference to the specific file, page, or authoritative source that supports the claim. Use inline links or footnotes. When you carry a passage over from a source, either reword it in your own indirect speech or keep it verbatim inside quotation marks; never reproduce source wording unmarked. One correct shape:
+
+   <example>
+   <user>look up how the Riverton Ledger and the Coast Dispatch each covered the Harbor Bridge closure and compare their reporting</user>
+   <response>
+   [Read: Harbor Bridge closure — Riverton Ledger]
+   [Read: Harbor Bridge closure — Coast Dispatch]
+   Both outlets agree on the basics: the bridge closed on March 3 after inspectors found cracked welds, and the state expects repairs to take about eight months. Where they differ is emphasis. The Ledger treats it as a local-economy story. The Dispatch frames it as a funding failure; its editorial calls the closure "entirely foreseeable." Read together, the Ledger explains who is affected now and the Dispatch explains how it came to this — neither account alone gives the whole picture.
+   </response>
+   <rationale>CORRECT: The response is organized around where the two outlets agree and differ, not as a walk through either article. Each outlet's reporting is conveyed in one or two sentences of the assistant's own indirect speech. One short marked phrase from one source; every other claim is reworded. The response is still specific and complete.</rationale>
+   </example>
 3. **Flag uncertainty** — If you cannot verify a claim, explicitly mark it for the reader to confirm rather than presenting it as fact.
 4. **Verify terminology in context** — Established terms carry specific meaning. Verify not just that the term exists, but that it is used in the same context and with the same meaning as the source. A real term applied in the wrong context is as misleading as a fabricated one.
 
 **Language:** Write in the language the surrounding documents of the repository use. If they are mixed, use the language of the file the reader will open right before this one.
 
 **Tone:** Clear, direct, professional. Not condescending, not overly casual, not hyperbolic. Never use "simply," "just," "obviously," "clearly," "as everyone knows," or "it's easy to."
+
+Mannered prose substitutes metaphor and flourish for direct statement. Instead of "a parameter worth varying," the mannered writer produces "a dial worth turning." Instead of "this point still matters," they write "this point earns its keep." The phrases exist to display the writer, not to convey the idea, and readers can tell. That is why mannered prose irritates: it makes the reader work harder so the writer can perform. It is also imprecise. Metaphors drag in connotations the writer did not choose and cannot control. The fix is to say what you mean. When a literal phrase is available, use it.
 
 ## Enhancement constraints
 

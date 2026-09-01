@@ -908,7 +908,7 @@ _Avoid_: the pretool gate, pretool 门, 关票 gate, 拦截 hook
 _Home_: `mmw-v2/skills/verify-ticket/scripts/hook.py`
 
 **`rule-at-moment.py`**:
-`mmw-v2/hooks/rule-at-moment.py`, installed as `~/.claude/hooks/rule-at-moment.py`: at the moment a ground rule of `~/.claude/CLAUDE.md` applies, it puts that rule's own text in front of the model — the file size before a `Read`, the next `offset` after a truncated one, rules 1, 3, 4, 6 before a write, and a refusal of an `Agent` call that names no model.
+`mmw-v2/hooks/rule-at-moment.py`, installed as `~/.claude/hooks/rule-at-moment.py`: at the moment a ground rule of `~/.claude/CLAUDE.md` applies, it puts that rule's own text in front of the model — the file size before a `Read`, the next `offset` after a truncated one, rules 1, 3, 4, 6, 7 before a write, and rule 6 before an `Agent` call.
 _Avoid_: 规则提醒 hook, 注入 hook
 _Home_: `mmw-v2/hooks/rule-at-moment.py`
 

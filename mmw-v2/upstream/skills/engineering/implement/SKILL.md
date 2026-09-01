@@ -28,6 +28,8 @@ Use /tdd where possible, at pre-agreed seams.
 
 Run typechecking regularly, single test files regularly, and the full test suite once at the end.
 
+Verify your work however you like; scratch scripts and quick checks need not be kept. Commit tests only where the ticket asks for them or this repository already keeps tests for this kind of change, sized like the neighboring test files — roughly one focused test per stated behavior — and don't turn scratch checks into additional permanent test files. This is about extras only: implement every behavior the ticket asks for, completely.
+
 Once done, commit your work to the current branch and work through the closing steps below. The tracker is closed by the closeout, never by hand. A ticket that already carries a `self-run`, `VERDICT` or `REVIEW` comment is work you were prompted back into: resume at the step after the newest of them instead of starting the closing steps again.
 
 1. Run every criterion yourself, with the `verify-ticket` skill: its self-run, the run for a worker who has finished writing code. Fix what failed and run it again. A criterion whose `CHECK` is `visual-parity.py` prints one `DIFF` line and nothing that explains it; that skill is where the line is read. One criterion gets at most three rounds: still failing on the third, stop fixing it, write `ABANDON: AC<n> failed <what each round tried>`, and carry on with the rest. This is the only one of the closing steps that repeats, which is why it carries a cap.

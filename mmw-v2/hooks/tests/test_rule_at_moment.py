@@ -20,10 +20,7 @@ CLAUDE_MD = """Intro line.
 4. Rule four text.
 5. Rule five text.
 6. Rule six text.
-
-## Subagent model
-
-Do not give a subagent your own model.
+7. Rule seven text.
 """
 
 
@@ -62,34 +59,24 @@ class PreToolUse(unittest.TestCase):
                    "tool_input": {"command": "ls"}})
         self.assertEqual(out["hookSpecificOutput"]["additionalContext"], "Ground rule 2: Rule two text.")
 
-    def test_write_gets_rules_1_3_4_6(self):
+    def test_write_gets_rules_1_3_4_6_7(self):
         out = run({"hook_event_name": "PreToolUse", "tool_name": "Edit",
                    "tool_input": {"file_path": "/x/y.md"}})
         ctx = out["hookSpecificOutput"]["additionalContext"]
         self.assertIn("About to write `/x/y.md`.", ctx)
-        for n in (1, 3, 4, 6):
+        for n in (1, 3, 4, 6, 7):
             self.assertIn(f"Ground rule {n}:", ctx)
         for n in (2, 5):
             self.assertNotIn(f"Ground rule {n}:", ctx)
 
-    def test_agent_without_model_is_denied(self):
-        out = run({"hook_event_name": "PreToolUse", "tool_name": "Agent",
-                   "tool_input": {"prompt": "go", "subagent_type": "general-purpose"}})
-        o = out["hookSpecificOutput"]
-        self.assertEqual(o["permissionDecision"], "deny")
-        self.assertIn("Do not give a subagent your own model.", o["permissionDecisionReason"])
-
-    def test_agent_with_model_gets_rule_6(self):
-        out = run({"hook_event_name": "PreToolUse", "tool_name": "Agent",
-                   "tool_input": {"prompt": "go", "model": "opus"}})
-        o = out["hookSpecificOutput"]
-        self.assertNotIn("permissionDecision", o)
-        self.assertIn("Ground rule 6:", o["additionalContext"])
-
-    def test_named_subagent_type_without_model_is_allowed(self):
-        out = run({"hook_event_name": "PreToolUse", "tool_name": "Agent",
-                   "tool_input": {"prompt": "go", "subagent_type": "verifier"}})
-        self.assertNotIn("permissionDecision", out["hookSpecificOutput"])
+    def test_agent_gets_rule_6_only(self):
+        for inp in ({"prompt": "go", "subagent_type": "general-purpose"},
+                    {"prompt": "go", "subagent_type": "verifier"},
+                    {"prompt": "go"}):
+            out = run({"hook_event_name": "PreToolUse", "tool_name": "Agent", "tool_input": inp})
+            o = out["hookSpecificOutput"]
+            self.assertNotIn("permissionDecision", o)
+            self.assertEqual(o["additionalContext"], "Ground rule 6: Rule six text.")
 
     def test_other_tool_is_silent(self):
         self.assertIsNone(run({"hook_event_name": "PreToolUse", "tool_name": "Glob",
@@ -160,13 +147,11 @@ class PostToolUse(unittest.TestCase):
 
 
 class Robustness(unittest.TestCase):
-    def test_missing_heading_does_not_crash(self):
+    def test_missing_rule_number_does_not_crash(self):
         out = run({"hook_event_name": "PreToolUse", "tool_name": "Agent",
                    "tool_input": {"prompt": "go", "subagent_type": "general-purpose"}},
                   claude_md="## Ground rules\n\n1. only.\n")
-        o = out["hookSpecificOutput"]
-        self.assertEqual(o["permissionDecision"], "deny")
-        self.assertNotIn("Do not give a subagent", o["permissionDecisionReason"])
+        self.assertEqual(out["hookSpecificOutput"]["additionalContext"], "")
 
     def test_garbage_stdin_exits_zero(self):
         proc = subprocess.run([sys.executable, str(HOOK)], input="not json", capture_output=True, text=True)

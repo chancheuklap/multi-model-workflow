@@ -8,8 +8,7 @@ invocation handles one event; the event name comes in on stdin (`hook_event_name
 The text it injects is never written here. It is cut out of ~/.claude/CLAUDE.md
 (override with MMW_CLAUDE_MD) by heading and by item number:
 
-  "## Ground rules"          numbered items 1..6
-  "## Subagent model"        the reason when an Agent call carries no model
+  "## Ground rules"          numbered items 1..7
 
 What each event gets:
 
@@ -17,9 +16,8 @@ What each event gets:
                                          count and token estimate; with `offset`,
                                          how many lines remain
               Grep | WebFetch | Bash     rule 2
-              Write | Edit | NotebookEdit rules 1, 3, 4, 6
-              Agent                      rule 6; with no `model`, deny with the
-                                         Subagent model section as the reason
+              Write | Edit | NotebookEdit rules 1, 3, 4, 6, 7
+              Agent                      rule 6
   PostToolUse (any)                      when the result carries one of the host's
                                          own truncation markers and the file that
                                          marker names is real: rule 2 plus the next
@@ -81,26 +79,6 @@ def measure(path):
     return size, lines, int(size / BYTES_PER_TOKEN)
 
 
-def own_model_family(transcript_path):
-    """The family of the model writing this session, read from the transcript."""
-    try:
-        last = None
-        with open(transcript_path, encoding="utf-8") as fh:
-            for line in fh:
-                if '"model"' not in line:
-                    continue
-                try:
-                    d = json.loads(line)
-                except ValueError:
-                    continue
-                m = (d.get("message") or {}).get("model")
-                if m:
-                    last = m
-        return last
-    except Exception:
-        return None
-
-
 def pre_tool_use(data, sections, ground):
     tool = data.get("tool_name", "")
     inp = data.get("tool_input") or {}
@@ -126,22 +104,9 @@ def pre_tool_use(data, sections, ground):
     elif tool in ("Write", "Edit", "NotebookEdit"):
         target = inp.get("file_path") or inp.get("notebook_path") or ""
         head = f"About to write `{target}`." if target else "About to write."
-        out["additionalContext"] = head + "\n" + rules_text(ground, [1, 3, 4, 6])
+        out["additionalContext"] = head + "\n" + rules_text(ground, [1, 3, 4, 6, 7])
     elif tool == "Agent":
-        kind = inp.get("subagent_type") or "general-purpose"
-        model = inp.get("model")
-        if kind == "general-purpose" and not model:
-            out["permissionDecision"] = "deny"
-            out["permissionDecisionReason"] = (
-                "This Agent call carries no `model`, so it would run on the same model as you.\n"
-                + sections.get("Subagent model", "")
-            ).strip()
-        else:
-            note = [rules_text(ground, [6])]
-            own = own_model_family(data.get("transcript_path", ""))
-            if kind == "general-purpose" and model and own and model.lower() in own.lower():
-                note.append("This subagent would run on the same model as you.\n" + sections.get("Subagent model", ""))
-            out["additionalContext"] = "\n".join(note)
+        out["additionalContext"] = rules_text(ground, [6])
     else:
         return None
     return {"hookSpecificOutput": out}

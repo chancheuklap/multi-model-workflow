@@ -13,17 +13,17 @@ The agent names ending `-worker` are the two worker grades, and each is also the
 | junior-worker | codex | `gpt-5.6-terra` | high | `--dangerously-bypass-approvals-and-sandbox -m {model} -c model_reasoning_effort={effort}` |
 | senior-worker | grok | `grok-4.6` | xhigh | `--permission-mode bypassPermissions -m {model} --reasoning-effort {effort}` |
 | reviewer | claude | `opus` | — | `--permission-mode bypassPermissions --model {model} -n issue-{n}-review` |
-| verifier | claude | `sonnet` | medium | — |
+| verifier | claude | `sonnet` | high | — |
 | verifier | codex | `gpt-5.6-luna` | high | — |
 | verifier | cursor | `cursor-grok-4.6-high` | — | — |
-| verifier | grok | `grok-4.5` | high | — |
+| verifier | grok | `grok-4.6` | high | — |
 | verifier | pi | `openai-codex/gpt-5.6-sol` | high | — |
 | advisor | claude | `fable` | medium | — |
 | advisor | codex | `gpt-5.6-sol` | medium | — |
 | advisor | cursor | `claude-fable-5-thinking-medium` | — | — |
 | advisor | grok | `grok-4.6` | xhigh | — |
 | advisor | pi | `openai-codex/gpt-5.6-sol` | high | — |
-| claim-checker | claude | `opus` | medium | — |
+| claim-checker | claude | `fable` | low | — |
 | claim-checker | codex | `gpt-5.6-terra` | high | — |
 | claim-checker | cursor | `cursor-grok-4.6-high` | — | — |
 | claim-checker | grok | `grok-4.6` | high | — |
