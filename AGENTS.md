@@ -14,8 +14,7 @@ MMW 是用户跨 host、跨 repository、跨电脑共用的工作流 toolbox：�
 | `bash mmw-v2/install.sh --check` | 只查不写：齐了回 0，缺东西或有 stale link 回 1 |
 | `python3 mmw-v2/agents/assemble.py --check` | 校验 `mmw-v2/agents/<名>/out/` 的 assembled subagent file 与源一致。`install.sh --check` 已内含它；单跑用于只验这一样 |
 | `bash mmw-v2/skills/<名>/tests/run.sh` | 单个技能的测试 |
-| `bash mmw-v2/hooks/tests/run.sh` | 两个 Claude Code hook 的测试 |
-| `python3 mmw-v2/hooks/vocab-lint.py [路径…]` | 用 `CONTEXT.md` 的 `_Avoid_` 行查死词：不给路径查整仓；有命中回 1。装好后它也作为 Claude Code 的 PostToolUse hook 在每次 Write / Edit 后自动查刚写的文件 |
+| `bash mmw-v2/hooks/tests/run.sh` | `rule-at-moment.py` 的测试 |
 
 ## 约定
 

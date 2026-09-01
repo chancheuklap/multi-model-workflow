@@ -2,7 +2,7 @@
 
 A toolbox of skills and subagents shared across hosts, repositories, and machines. Its core is the landing pipeline: one unit of work travels from a written spec, through a ticket, through an agent that writes the code, to a closed ticket with evidence attached. This file fixes the name of everything the pipeline invents, so that a session starting with an empty context uses the same word the last one used.
 
-How to read an entry: the bold line is the term's only name; a term whose name is a literal string that appears in a file, a command, or a comment is named by that string exactly (case, colon, and all). The definition says what the thing is and what sets it apart from its neighbours. `_Admitted_` lists the one other wording that may appear in prose. `_Avoid_` lists dead words: a sentence in this repository that uses one is wrong, and `mmw-v2/hooks/vocab-lint.py` reports it; an item followed by a note in parentheses is guidance for the writer and not a lint pattern. `_Home_` is the file whose text or code the definition is taken from; when this file and that one disagree, that one is right and this file is rewritten.
+How to read an entry: the bold line is the term's only name; a term whose name is a literal string that appears in a file, a command, or a comment is named by that string exactly (case, colon, and all). The definition says what the thing is and what sets it apart from its neighbours. `_Admitted_` lists the one other wording that may appear in prose. `_Avoid_` lists dead words: a sentence in this repository that uses one is wrong; an item followed by a note in parentheses says in which sense the word is dead. `_Home_` is the file whose text or code the definition is taken from; when this file and that one disagree, that one is right and this file is rewritten.
 
 Vocabulary that belongs to one skill alone — `exe-release`'s release key, tiers, build machine and hooks; `claude-design-blocks`'s page kinds and helpers; `manage-agents-md`'s survey entries; the design vocabulary of upstream skills such as `codebase-design` — is defined in that skill's own files and is not repeated here.
 
@@ -911,10 +911,6 @@ _Home_: `mmw-v2/skills/verify-ticket/scripts/hook.py`
 `mmw-v2/hooks/rule-at-moment.py`, installed as `~/.claude/hooks/rule-at-moment.py`: at the moment a ground rule of `~/.claude/CLAUDE.md` applies, it puts that rule's own text in front of the model — the file size before a `Read`, the next `offset` after a truncated one, rules 1, 3, 4, 6 before a write, and a refusal of an `Agent` call that names no model.
 _Avoid_: 规则提醒 hook, 注入 hook
 _Home_: `mmw-v2/hooks/rule-at-moment.py`
-
-**`vocab-lint.py`**:
-`mmw-v2/hooks/vocab-lint.py`: reads the `_Avoid_` lines of this file and reports every dead word in the files it is given (`python3 mmw-v2/hooks/vocab-lint.py <path>…`, exit 1 on a hit) or, as a Claude Code `PostToolUse` hook on `Write` and `Edit`, in the file just written. It searches prose only — in a script, comments and docstrings — and skips `docs/adr/`, the reference and report directories under `docs/research/`, `archive/`, `deprecated/`, `prototypes/`, every `tests/`, the subtrees, `exe-release/`, and `scripts/gate-check/`.
-_Home_: `mmw-v2/hooks/vocab-lint.py`
 
 **`verify-ticket.py`**:
 `scripts/verify-ticket.py` of the verify-ticket skill — one script carrying five jobs: `--lint`, the worker's own run `<n>`, the verifier's `--reverify`, `--preflight`, and `--closeout <draft>` (with `--check-only` and `--timeout <seconds>` per `CHECK:`). It is the only route by which a ticket closes; it reads the eight-section ticket shape; it writes the `phase` token at four moments; `--jobs` stays 1 because the branch, the ticket, and the working tree are shared. Exit 0, or 1 when `--closeout` refuses, or 2 when `--preflight` refuses. The skill's own text calls it `<engine>`.

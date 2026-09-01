@@ -4,7 +4,7 @@
 #   技能              skills.txt 列出的，软链进 ~/.agents/skills 与 ~/.claude/skills
 #   subagent          agents/<名>/out/ 的 assembled subagent file，软链进各 host 的 agent 目录
 #   hook              verify-ticket 的 hook.py pretool（五个 host）与 Claude Code 的
-#                     rule-at-moment.py（三个事件）与 vocab-lint.py（Write|Edit 之后），写进各 host 自己的配置
+#                     rule-at-moment.py（三个事件），写进各 host 自己的配置
 #   agent detection rule   dispatch 技能带的覆盖（有才装），拷进 ~/.config/herdr/agent-detection/
 #
 # 技能有三个来源：mattpocock/skills 的在 upstream/skills/，我们自己写的在 skills/（skills.txt
@@ -564,13 +564,12 @@ sys.exit(1 if failed else 0)
 PY
 fi
 
-# ---------------- Claude Code 的两个 hook ----------------
+# ---------------- Claude Code 的 rule-at-moment.py ----------------
 
-# hooks/rule-at-moment.py 与 hooks/vocab-lint.py 只给 Claude Code 用。前者在每次读、写、
-# 派子代理、结果被 host 截断这几个时刻，把 ~/.claude/CLAUDE.md 里对应的那一条原文送到模型
-# 眼前；后者在每次 Write / Edit 之后，用最近的 CONTEXT.md 的 `_Avoid_` 行查刚写的文件，
-# 把死词报给模型。软链放在 ~/.claude/hooks/（Herdr 的几个 hook 也在那），settings.json
-# 里的条目都指向软链；改脚本不用重装。合并法与上面一样：只认 command 里带脚本名的条目。
+# hooks/rule-at-moment.py 只给 Claude Code 用：在每次读、写、派子代理、结果被 host 截断
+# 这几个时刻，把 ~/.claude/CLAUDE.md 里对应的那一条原文送到模型眼前。软链放在
+# ~/.claude/hooks/（Herdr 的几个 hook 也在那），settings.json 里三条都指向它；改脚本不用
+# 重装。合并法与上面一样：只认 command 里带脚本名的条目。
 #
 #   install_claude_hook <源脚本> <软链> '<事件与 matcher 的 JSON 列表>'
 
@@ -690,8 +689,6 @@ PY
 # PreToolUse 一条 matcher 管八个工具；其余两个事件不带 matcher。
 install_claude_hook "$ROOT/hooks/rule-at-moment.py" "$HOME_DIR/.claude/hooks/rule-at-moment.py" \
   '[["PreToolUse", "Read|Grep|WebFetch|Bash|Write|Edit|NotebookEdit|Agent"], ["PostToolUse", null], ["PostToolUseFailure", null]]'
-install_claude_hook "$ROOT/hooks/vocab-lint.py" "$HOME_DIR/.claude/hooks/vocab-lint.py" \
-  '[["PostToolUse", "Write|Edit"]]'
 
 if [ "$hooks_ran" -eq 1 ] && [ "$hooks_rc" -eq 0 ]; then
   echo "HOOKS-INSTALLED"

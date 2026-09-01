@@ -42,7 +42,7 @@ Multi-context repo (presence of `CONTEXT-MAP.md` at the root):
 
 When your output names a domain concept (in an issue title, a refactor proposal, a hypothesis, a test name), use the term as defined in `CONTEXT.md`. Don't drift to the synonyms listed on its `_Avoid_` lines.
 
-`python3 mmw-v2/hooks/vocab-lint.py <path>…` reports every `_Avoid_` word in a file; installed, it runs after every Write and Edit in Claude Code. A definition in `CONTEXT.md` that disagrees with the file its `_Home_` line names is wrong: fix `CONTEXT.md`.
+A definition in `CONTEXT.md` that disagrees with the file its `_Home_` line names is wrong: fix `CONTEXT.md`.
 
 If the concept you need isn't in `CONTEXT.md` yet, that's a signal — either you're inventing language the project doesn't use (reconsider) or there's a real gap (note it for the domain-modeling skill).
 
