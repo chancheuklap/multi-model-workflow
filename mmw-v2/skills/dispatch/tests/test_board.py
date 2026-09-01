@@ -58,15 +58,21 @@ def agent(name, pane, status, host="claude", workspace="", **tokens):
 
 
 def ticket(number, state="OPEN", labels=("ready-for-agent",), blockers=(),
-           assignees=(), comments=()):
-    """One `gh issue view --json …` answer, before board.py normalises it."""
+           assignees=(), comments=(), written=()):
+    """One `gh issue view --json …` answer, before board.py normalises it.
+
+    `written` gives the comments their `createdAt`, in GitHub's own shape, for the
+    counts that only take tonight's comments. Left out, they are all dated before
+    any board could have opened.
+    """
+    times = list(written) + ["2000-01-01T00:00:00Z"] * (len(comments) - len(written))
     return board.normalise_ticket(number, {
         "state": state,
         "title": f"ticket {number}",
         "labels": [{"name": l} for l in labels],
         "assignees": [{"login": a} for a in assignees],
         "blockedBy": {"nodes": [{"number": b, "state": "OPEN"} for b in blockers]},
-        "comments": [{"body": c} for c in comments],
+        "comments": [{"body": c, "createdAt": t} for c, t in zip(comments, times)],
     })
 
 
@@ -257,6 +263,18 @@ class TicketReading(unittest.TestCase):
         self.assertEqual(board.counted_ac(ticket(62, comments=[SELF_RUN_UNMET, VERDICT,
                                                               SELF_RUN_ALL_MET])), "5/5")
 
+    def test_every_redispatch_counts_when_no_start_time_is_given(self):
+        one = ticket(62, comments=["REDISPATCHED: session issue-62 ended"])
+        self.assertEqual(board.redispatch_count(one), 1)
+
+    def test_only_the_redispatches_of_this_board_count_against_its_allowance(self):
+        """A ticket redispatched last night starts tonight with its allowance back."""
+        both = ticket(62,
+                      comments=["REDISPATCHED: last night", "REDISPATCHED: tonight"],
+                      written=["2026-09-01T20:00:00Z", "2026-09-02T04:00:00Z"])
+        self.assertEqual(board.redispatch_count(both, "2026-09-02T03:00:00Z"), 1)
+        self.assertEqual(board.redispatch_count(both, "2026-09-02T05:00:00Z"), 0)
+
 
 class ThePrompt(unittest.TestCase):
     """The only thing board.py ever says to a worker.
@@ -331,6 +349,10 @@ class Table4(unittest.TestCase):
         self.main = [agent(board.main_name(), "w1:pMain", "idle")]
         self.tickets = {}
         self.rows = []
+        # pane id -> True (a process holds it), False (its own shell does), or absent
+        # (Herdr would not say). What `gone` asks the pane before calling a session
+        # dead, since a state Herdr cannot read is not a session that ended.
+        self.pane_holds = {}
 
         def fake_herdr(args):
             self.calls["herdr"].append(list(args))
@@ -343,6 +365,14 @@ class Table4(unittest.TestCase):
                 pane = args[2]
                 agent_ = next((a for a in self.agents if a["pane_id"] == pane), {})
                 return {"result": {"agent": agent_}}
+            if args[:2] == ["pane", "process-info"]:
+                holds = self.pane_holds.get(args[3])
+                if holds is None:
+                    return {"result": {}}
+                # An agent that exited leaves the shell as its own foreground group.
+                return {"result": {"process_info": {
+                    "shell_pid": 100,
+                    "foreground_process_group_id": 200 if holds else 100}}}
             return {"result": {}}
 
         def fake_gh(args):
@@ -373,7 +403,7 @@ class Table4(unittest.TestCase):
         board.live_agents = lambda: list(self.main)
         board.run_dispatch = fake_dispatch
         board.read_ticket = lambda n: self.tickets[n]
-        board.collect = lambda spec: (self.rows, [])
+        board.collect = lambda spec, since="": (self.rows, [])
         board.time = self.clock
         os.environ.setdefault("HERDR_PANE_ID", "w1:pBoard")
 
@@ -731,7 +761,8 @@ class Table4(unittest.TestCase):
 
     # ------------------------------------------------------------- the session is gone
 
-    def test_an_unknown_session_is_redispatched_once_and_says_so_on_the_ticket(self):
+    def test_a_pane_back_to_its_own_shell_is_redispatched_and_says_so_on_the_ticket(self):
+        self.pane_holds["w1:p1"] = False
         self.world([agent("issue-61", "w1:p1", "unknown", ticket=61, kind="worker",
                           phase="selfcheck")], {61: ticket(61, assignees=("me",))})
         self.round(self.watch())
@@ -742,9 +773,50 @@ class Table4(unittest.TestCase):
         self.assertIn(["pane", "close", "w1:p1"], self.calls["herdr"])
         self.assertEqual(self.calls["dispatch"], [(61, "worker")])
 
-    def test_a_claimed_ticket_whose_pane_is_gone_is_redispatched_too(self):
+    def test_a_pane_that_still_holds_a_process_is_a_session_that_is_running(self):
+        """`unknown` is a state Herdr has not read, not a session that ended."""
+        self.pane_holds["w1:p1"] = True
+        self.world([agent("issue-61", "w1:p1", "unknown", ticket=61, kind="worker",
+                          phase="selfcheck")], {61: ticket(61, assignees=("me",))})
+        watch = self.watch()
+        self.round(watch)
+        self.clock.tick(board.UNREADABLE_GRACE * 10)
+        self.round(watch)
+        self.assertEqual(self.calls["dispatch"], [])
+        self.assertEqual([c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"]], [])
+
+    def test_a_pane_nobody_can_read_is_given_the_grace_before_it_counts_as_ended(self):
+        self.world([agent("issue-61", "w1:p1", "unknown", ticket=61, kind="worker",
+                          phase="selfcheck")], {61: ticket(61, assignees=("me",))})
+        watch = self.watch()
+        self.round(watch)
+        self.assertEqual(self.calls["dispatch"], [])
+        self.clock.tick(board.UNREADABLE_GRACE)
+        self.round(watch)
+        self.assertEqual(self.calls["dispatch"], [(61, "worker")])
+
+    def test_a_session_that_comes_back_before_the_grace_is_out_keeps_its_ticket(self):
+        agents = [agent("issue-61", "w1:p1", "unknown", ticket=61, kind="worker",
+                        phase="selfcheck")]
+        self.world(agents, {61: ticket(61, assignees=("me",))})
+        watch = self.watch()
+        self.round(watch)
+        agents[0]["agent_status"] = "working"
+        self.world(agents, {61: ticket(61, assignees=("me",))})
+        self.round(watch)
+        self.clock.tick(board.UNREADABLE_GRACE * 10)
+        agents[0]["agent_status"] = "unknown"
+        self.world(agents, {61: ticket(61, assignees=("me",))})
+        self.round(watch)
+        self.assertEqual(self.calls["dispatch"], [])
+
+    def test_a_claimed_ticket_whose_pane_is_gone_is_redispatched_after_the_grace(self):
         self.world([], {61: ticket(61, assignees=("me",))})
-        self.round(self.watch())
+        watch = self.watch()
+        self.round(watch)
+        self.assertEqual(self.calls["dispatch"], [])
+        self.clock.tick(board.UNREADABLE_GRACE)
+        self.round(watch)
         self.assertEqual(self.calls["dispatch"], [(61, "worker")])
         comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
         self.assertIn("ended at phase=unknown", comment[-1])
@@ -766,6 +838,7 @@ class Table4(unittest.TestCase):
                 self.assertEqual(self.calls["dispatch"], [])
 
     def test_a_second_death_hands_the_ticket_back_instead(self):
+        self.pane_holds["w1:p1"] = False
         self.world([agent("issue-61", "w1:p1", "unknown", ticket=61, kind="worker",
                           phase="verify")],
                    {61: ticket(61, assignees=("me",),
@@ -783,12 +856,18 @@ class Table4(unittest.TestCase):
     # ------------------------------------------------------------- dispatch.sh's exits
 
     def test_a_redispatch_that_will_not_start_is_left_for_the_next_round(self):
-        """Exit 2 says the ticket did not qualify; the next round asks the tracker again."""
+        """Exit 2 says the ticket did not qualify; the next round asks the tracker again.
+
+        It also spends none of the ticket's allowance: the `REDISPATCHED:` comment the
+        next round counts is written only once a session is on the ticket.
+        """
         self.dispatch_code = 2
+        self.pane_holds["w1:p1"] = False
         self.world([agent("issue-61", "w1:p1", "unknown", ticket=61, kind="worker",
                           phase="selfcheck")], {61: ticket(61, assignees=("me",))})
         self.round(self.watch())
         self.assertEqual(self.calls["dispatch"], [(61, "worker")])
+        self.assertEqual([c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"]], [])
 
     def test_a_session_that_was_never_told_anything_gets_its_dispatch_line(self):
         self.world([agent("issue-61", "w1:p1", "idle", ticket=61, kind="worker")],
@@ -976,14 +1055,54 @@ class Workspace(unittest.TestCase):
         self.assertEqual(len(board.sessions(agents)), 2)
 
 
+class ReadingHerdr(unittest.TestCase):
+    """What the board makes of Herdr's two answers about a session."""
+
+    def setUp(self):
+        self.saved = board.herdr, board.herdr_strict
+
+    def tearDown(self):
+        board.herdr, board.herdr_strict = self.saved
+
+    def test_a_snapshot_herdr_would_not_answer_is_not_a_workspace_with_no_sessions(self):
+        """Every ticket would read as one whose session vanished, so the round stops."""
+        board.herdr_strict = lambda args: (_ for _ in ()).throw(RuntimeError("exit 1"))
+        with self.assertRaises(RuntimeError):
+            board.live_agents()
+
+    def test_a_snapshot_without_the_snapshot_field_is_refused_the_same_way(self):
+        board.herdr_strict = lambda args: {"result": {}}
+        with self.assertRaises(RuntimeError):
+            board.live_agents()
+
+    def test_an_empty_workspace_is_read_as_no_sessions(self):
+        board.herdr_strict = lambda args: {"result": {"snapshot": {"agents": []}}}
+        self.assertEqual(board.live_agents(), [])
+
+    def test_a_pane_whose_foreground_is_its_own_shell_holds_no_process(self):
+        board.herdr = lambda args: {"result": {"process_info": {
+            "shell_pid": 7, "foreground_process_group_id": 7}}}
+        self.assertIs(board.pane_holds_a_process("w1:p1"), False)
+
+    def test_a_pane_whose_foreground_is_something_else_holds_one(self):
+        board.herdr = lambda args: {"result": {"process_info": {
+            "shell_pid": 7, "foreground_process_group_id": 9}}}
+        self.assertIs(board.pane_holds_a_process("w1:p1"), True)
+
+    def test_a_pane_herdr_would_not_answer_for_is_no_evidence_either_way(self):
+        board.herdr = lambda args: {}
+        self.assertIsNone(board.pane_holds_a_process("w1:p1"))
+
+
 class Constants(unittest.TestCase):
     """Every number the night runs on is here, and nowhere else."""
 
     def test_the_numbers_are_the_ones_the_plan_settled(self):
         self.assertEqual(
             (board.COOLDOWN_SECONDS, board.WAKE_BACKOFF, board.WAKE_LIMIT,
-             board.REDISPATCH_LIMIT, board.MAX_HOURS, board.SNAPSHOT_INTERVAL),
-            (120, (120, 240, 480), 3, 1, 4, 60))
+             board.REDISPATCH_LIMIT, board.MAX_HOURS, board.SNAPSHOT_INTERVAL,
+             board.UNREADABLE_GRACE),
+            (120, (120, 240, 480), 3, 1, 4, 60, 120))
 
     def test_no_cap_on_how_many_tickets_run_at_once(self):
         """Dispatching is the main agent's, and it is given no limit to spend."""

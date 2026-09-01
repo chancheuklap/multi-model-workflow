@@ -28,6 +28,15 @@ board and are not read, not counted and not touched.
 The two sources are the tracker and Herdr, and nothing else. There is no state file:
 each of the board's rounds is a full re-read, so a dropped connection or a restart
 loses nothing.
+
+Herdr reads a session's state off its screen and its terminal titles, so `idle` and
+`unknown` both arrive while a session is running: `idle` while a host redraws between
+turns, `unknown` while Herdr has no reading yet. Every action the board takes on one of
+those has to survive being wrong about it, and the two costly ones do not act on a
+single reading — a session goes back on its dispatch line only after `COOLDOWN_SECONDS`
+of settled, and is called dead only once its pane says so or `UNREADABLE_GRACE` has
+passed. A snapshot Herdr will not answer is not a workspace with no sessions in it, so
+it ends the round instead of emptying it.
 """
 
 from __future__ import annotations
@@ -51,6 +60,7 @@ WAKE_LIMIT = 3                  # prompts per session before the ticket goes bac
 REDISPATCH_LIMIT = 1            # times one ticket is started again after a session dies
 MAX_HOURS = 4                   # hours one ticket may hold a session
 SNAPSHOT_INTERVAL = 60          # seconds between full re-reads when no event arrives
+UNREADABLE_GRACE = 120          # seconds a session may be unreadable before it is gone
 
 # --------------------------------------------------------------------- vocabulary
 
@@ -92,10 +102,25 @@ def gh_json(args: list[str], fallback):
 
 def herdr(args: list[str]) -> dict:
     try:
-        run = subprocess.run(["herdr", *args], capture_output=True, text=True, timeout=20)
-        return json.loads(run.stdout)
+        return herdr_strict(args)
     except Exception:
         return {}
+
+
+def herdr_strict(args: list[str]) -> dict:
+    """A Herdr call whose failure the caller has to face.
+
+    `herdr` answers `{}` for a refusal, a timeout and a broken pipe alike, which is
+    the right shape for a call whose answer only decorates a line of output. It is
+    the wrong shape for the two questions this board acts on — which sessions exist,
+    and whether one is still running — because an unanswered call and an empty
+    answer would then be the same thing, and the board would read a Herdr that is
+    restarting as a workspace with no sessions left in it.
+    """
+    run = subprocess.run(["herdr", *args], capture_output=True, text=True, timeout=20)
+    if run.returncode != 0:
+        raise RuntimeError(f"herdr {' '.join(args)}: exit {run.returncode}")
+    return json.loads(run.stdout)
 
 
 def herdr_run(args: list[str]) -> tuple[int, str]:
@@ -144,9 +169,38 @@ def unwrap(payload: dict) -> dict:
 
 
 def live_agents() -> list[dict]:
-    """Every agent Herdr can see, with its name, status and pane tokens."""
-    snapshot = unwrap(herdr(["api", "snapshot"])).get("snapshot") or {}
+    """Every agent Herdr can see, with its name, status and pane tokens.
+
+    Raises when Herdr could not be asked. A round that cannot see the sessions must
+    not act on them: every ticket would read as one whose session has vanished, and
+    a single slow snapshot would hand a whole night's batch back to `needs-triage`.
+    `Watch.run` catches it and skips the round.
+    """
+    snapshot = unwrap(herdr_strict(["api", "snapshot"])).get("snapshot")
+    if not isinstance(snapshot, dict):
+        raise RuntimeError("herdr api snapshot: no snapshot in the answer")
     return snapshot.get("agents") or []
+
+
+def pane_holds_a_process(pane_id: str) -> bool | None:
+    """Whether something other than the pane's own shell holds its foreground.
+
+    An agent that exited leaves the shell in the foreground of its own process
+    group, so `foreground_process_group_id` equals `shell_pid`. While the agent
+    runs — including while it waits on a model, and while a command it started
+    occupies the terminal — the two differ. This is what the pane can be asked
+    directly, rather than inferred from what its screen happens to be drawing.
+
+    None when Herdr could not say, which is not evidence either way.
+    """
+    process = unwrap(herdr(["pane", "process-info", "--pane", pane_id])).get("process_info")
+    if not isinstance(process, dict):
+        return None
+    foreground = process.get("foreground_process_group_id")
+    shell = process.get("shell_pid")
+    if not isinstance(foreground, int) or not isinstance(shell, int):
+        return None
+    return foreground != shell
 
 
 def sub_issues(spec: int) -> list[int]:
@@ -171,6 +225,8 @@ def normalise_ticket(number: int, raw: dict) -> dict:
     labels = [l.get("name") for l in raw.get("labels") or [] if isinstance(l, dict)]
     nodes = (raw.get("blockedBy") or {}).get("nodes") or []
     bodies = [c.get("body") or "" for c in raw.get("comments") or [] if isinstance(c, dict)]
+    written = [c.get("createdAt") or "" for c in raw.get("comments") or []
+               if isinstance(c, dict)]
     return {
         "number": number,
         "state": (raw.get("state") or "").upper(),
@@ -182,6 +238,7 @@ def normalise_ticket(number: int, raw: dict) -> dict:
         "blockers": [int(n["number"]) for n in nodes
                      if isinstance(n, dict) and n.get("state") != "CLOSED" and n.get("number")],
         "comments": bodies,
+        "comments_written": written,
     }
 
 # --------------------------------------------------------------------- the tickets
@@ -224,14 +281,20 @@ def has_closing_comment(ticket: dict) -> bool:
     return any(first_line(c).startswith(CLOSING_LINES) for c in ticket.get("comments") or [])
 
 
-def redispatch_count(ticket: dict) -> int:
-    """How many times a session on this ticket has already been redispatched.
+def redispatch_count(ticket: dict, since: str = "") -> int:
+    """How many times a session on this ticket has been redispatched since `since`.
 
     Counted off the ticket's own `REDISPATCHED:` comments, the way the three self-run
     rounds are counted off its `self-run` comments, so nothing is stored between rounds.
+    `since` is the board's own start time in GitHub's format, so that the allowance a
+    ticket carries is one board's allowance: a ticket redispatched last night starts
+    tonight with the same allowance as any other. Empty counts every comment.
     """
-    return sum(1 for c in ticket.get("comments") or []
-               if first_line(c).startswith("REDISPATCHED:"))
+    bodies = ticket.get("comments") or []
+    written = ticket.get("comments_written") or []
+    return sum(1 for i, c in enumerate(bodies)
+               if first_line(c).startswith("REDISPATCHED:")
+               and (not since or (written[i] if i < len(written) else "") > since))
 
 
 def counted_ac(ticket: dict) -> str:
@@ -374,7 +437,7 @@ def held(rows: list[dict]) -> list[dict]:
 # --------------------------------------------------------------------- the rows
 
 def build_rows(numbers: list[int], tickets: dict[int, dict],
-               sessions_: list[dict]) -> list[dict]:
+               sessions_: list[dict], since: str = "") -> list[dict]:
     """One row per ticket, joining what the tracker says to what Herdr sees."""
     rows = []
     for number in sorted(set(numbers)):
@@ -397,7 +460,7 @@ def build_rows(numbers: list[int], tickets: dict[int, dict],
             "note": note_of(ticket, worker),
             "head": last_first_line(ticket),
             "closing_comment": has_closing_comment(ticket),
-            "redispatches": redispatch_count(ticket),
+            "redispatches": redispatch_count(ticket, since),
             "created": ticket.get("created") or "",
             "closed_at": ticket.get("closed_at") or "",
         })
@@ -631,6 +694,12 @@ class Watch:
         self.held_since: dict[int, float] = {}
         self.wakes: dict[str, int] = {}
         self.handed_back: set[int] = set()
+        # When a ticket's session first became unreadable, and the pane it was last
+        # seen in. Herdr answers `unknown` while it has no reading yet, and leaves a
+        # session out of the snapshot for a moment after it starts, so neither is
+        # evidence on its own that the session died.
+        self.unreadable_since: dict[int, float] = {}
+        self.pane_of: dict[int, str] = {}
         # Panes of reviewers that used up their dismissals, so the line saying so is
         # written once instead of every time the backoff elapses.
         self.reviewers_spent: set[str] = set()
@@ -669,7 +738,7 @@ class Watch:
         if self.summary_written:
             self.tell_main()
             return
-        rows, _ = collect(self.spec)
+        rows, _ = collect(self.spec, self.opened)
         for row in rows:
             if self.gone(row):
                 self.redispatch(row)
@@ -717,6 +786,8 @@ class Watch:
         herdr(["pane", "close", worker["pane_id"]])
         self.settled_since.pop(worker["pane_id"], None)
         self.held_since.pop(row["ticket"], None)
+        self.unreadable_since.pop(row["ticket"], None)
+        self.pane_of.pop(row["ticket"], None)
         row["worker"] = None
 
     def prompts_so_far(self, worker: dict) -> int:
@@ -819,19 +890,55 @@ class Watch:
     # ------------------------------------------------------------- the session is gone
 
     def gone(self, row: dict) -> bool:
-        """`unknown`, or the pane is gone, while the ticket is still open and unclosed.
+        """The session on this ticket has ended, while the ticket is open and unclosed.
 
         A ticket nobody ever claimed was never dispatched, so its missing pane is not a
         session that died; the assignee `--preflight` sets is what tells the two apart.
+
+        Two things look identical from the tracker and cost the ticket its night if
+        confused: a session that ended, and a session Herdr cannot read. Herdr reads a
+        session's state off its screen and its terminal titles, and answers `unknown`
+        while it has no reading — measured on this pipeline's hosts, for the first few
+        seconds after a session starts, and again while one redraws between turns. So
+        the pane is asked directly, and a pane that still holds a process is a session
+        that is running whatever its screen says. Only when the pane cannot be asked
+        does this fall back to waiting `UNREADABLE_GRACE` for a reading to come back.
         """
         if row["state"] != "OPEN" or "ready-for-agent" not in row["labels"]:
             return False
         if row["closing_comment"] or row["ticket"] in self.handed_back:
             return False
         worker = row["worker"]
-        if worker and worker["dispatched"]:
-            return worker["status"] == "unknown"
-        return bool(row["assignees"])
+        ours = worker if worker and worker["dispatched"] else None
+        if ours:
+            self.pane_of[row["ticket"]] = ours["pane_id"]
+            if ours["status"] != "unknown":
+                self.unreadable_since.pop(row["ticket"], None)
+                return False
+        elif not row["assignees"]:
+            self.unreadable_since.pop(row["ticket"], None)
+            return False
+        return self.unreadable_long_enough(row)
+
+    def unreadable_long_enough(self, row: dict) -> bool:
+        """Whether a session nobody can read a state for has really ended."""
+        number = row["ticket"]
+        pane = self.pane_of.get(number)
+        holds = pane_holds_a_process(pane) if pane else None
+        if holds is True:
+            self.unreadable_since.pop(number, None)
+            return False
+        if holds is False:
+            self.unreadable_since.pop(number, None)
+            say(f"#{number}", "ended", f"pane {pane} is back to its own shell")
+            return True
+        first_seen = self.unreadable_since.get(number)
+        if first_seen is None:
+            self.unreadable_since[number] = time.monotonic()
+            say(f"#{number}", "unreadable",
+                f"no state from Herdr; waiting {UNREADABLE_GRACE}s")
+            return False
+        return time.monotonic() - first_seen >= UNREADABLE_GRACE
 
     def redispatch(self, row: dict) -> None:
         number, worker = row["ticket"], row["worker"]
@@ -842,9 +949,6 @@ class Watch:
                                                         k=row["redispatches"]),
                            case="REDISPATCHED")
             return
-        gh(["issue", "comment", str(number),
-            "--body", REDISPATCHED.format(name=worker_name(number), phase=phase)])
-        say(f"#{number}", "comment", f"REDISPATCHED: ended at phase={phase}")
         if worker:
             # Closing the pane takes the only account of why that session ended:
             # `phase=unknown` says one is gone, never what took it — an installer that
@@ -860,7 +964,15 @@ class Watch:
             self.settled_since.pop(worker["pane_id"], None)
             self.wakes.pop(worker["pane_id"], None)
         self.held_since.pop(number, None)
-        self.start(number)
+        self.unreadable_since.pop(number, None)
+        self.pane_of.pop(number, None)
+        # The comment is what the next round counts the allowance off, so it goes on
+        # the ticket only once a session is actually on it. A start that refused has
+        # spent nothing, and the next round is free to try again.
+        if self.start(number):
+            gh(["issue", "comment", str(number),
+                "--body", REDISPATCHED.format(name=worker_name(number), phase=phase)])
+            say(f"#{number}", "comment", f"REDISPATCHED: ended at phase={phase}")
 
     # ------------------------------------------------------------- prompting
 
@@ -912,6 +1024,8 @@ class Watch:
         gh(["issue", "edit", str(number),
             "--remove-label", "ready-for-agent", "--add-label", "needs-triage"])
         say(f"#{number}", "label", "needs-triage")
+        self.unreadable_since.pop(number, None)
+        self.pane_of.pop(number, None)
         if close_pane and row["worker"]:
             herdr(["pane", "close", row["worker"]["pane_id"]])
             self.settled_since.pop(row["worker"]["pane_id"], None)
@@ -1048,14 +1162,14 @@ class Watch:
 
 # --------------------------------------------------------------- the command forms
 
-def collect(spec: int | None) -> tuple[list[dict], list[dict]]:
+def collect(spec: int | None, since: str = "") -> tuple[list[dict], list[dict]]:
     """Everything one round needs: the rows, and the live sessions behind them."""
     agents = live_agents()
     sessions_ = sessions(agents)
     numbers = list(sub_issues(spec)) if spec else []
     numbers += [s["ticket"] for s in sessions_]
     tickets = {n: read_ticket(n) for n in sorted(set(numbers))}
-    return build_rows(numbers, tickets, sessions_), sessions_
+    return build_rows(numbers, tickets, sessions_, since), sessions_
 
 
 def advance_plan(spec: int) -> int:

@@ -45,6 +45,13 @@ case "$1 $2" in
     else
       echo '{"result":{"agents":[]}}'
     fi ;;
+  "api snapshot")
+    if [ -n "${FAKE_HERDR_AGENTS:-}" ]; then
+      printf '%s\n' "$FAKE_HERDR_AGENTS" \
+        | python3 -c 'import json,sys; print(json.dumps({"result":{"snapshot":{"agents":(json.load(sys.stdin).get("result") or {}).get("agents") or []}}}))'
+    else
+      echo '{"result":{"snapshot":{"agents":[]}}}'
+    fi ;;
   "agent wait")
     if [ "${FAKE_HERDR_WAIT_FAIL:-0}" = 1 ]; then
       echo '{"error":{"code":"timeout"}}' >&2
