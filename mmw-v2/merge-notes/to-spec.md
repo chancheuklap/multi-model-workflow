@@ -9,6 +9,7 @@
 | 段落 | 我们的意图 |
 | --- | --- |
 | frontmatter 的 `disable-model-invocation: true` | 删掉。本仓库要求这个技能模型可触发——不留上游的人工触发限制，免得漏输入指令时 agent 没法自己认出该用这个技能。上游改这一行 → 仍然删，跟 `agents/openai.yaml` 的 `policy` 块一起处理 |
+| 第 3 步的 seam 确认，与 Testing Decisions 模板里「How a test arrives at a state」那一项 | 我们加的整块。seam 只回答测试在哪**观察**；测试怎么**到达**要测的状态，上游从头到尾没问过。判据是「声明的 seam 的写入面够不着」：真数据库的 seam 里测试直接改行就到了，不用写；而经调试端口比对界面只读渲染结果、写不进应用状态，就必须在这里点名将来靠什么到达、以及那条通路存在于哪些构建。形态按消费仓库自己的可测试性规则给，规则没出口时是那个仓库要补、不是 spec 去裁定——mmw v2 不该知道某个仓库的测试规矩写了第几条。第 3 步同时改成把两半一起端给用户，因为到达与观察是同一件事的两半，分两次问会漏。上游自己给 Testing Decisions 加了要求 → 收上游措辞，这一项保留 |
 | 第 4 步「Apply the `ready-for-agent` triage label」 | 改成「不打标签」。spec 是它底下那批票的容器，不是一件待办。不打 `ready-for-agent` 的 spec 三道关全都过不去：进不了 `is:open label:ready-for-agent` 这条 agent 队列，过不了开工守卫 `--preflight` 的第四项（`NOT_READY: … has no ready-for-agent label`），也过不了 `dispatch.sh` 派活前的查票（`REFUSE ticket #… is not labelled ready-for-agent`）。上游改这句措辞 → 仍然不打标签 |
 | 第 4 步发布之后的一句 | 我们加的：spec 由带 agent brief 的 issue 长出来时，把那张 issue 关掉并挂到 spec 底下。理由：这是 `docs/adr/0001-tracker-repo-authority.md` 的一条 Consequence，而全流水线只有这一步在 spec 刚发布时手上同时有两个号；agent brief 只存在于 tracker 上，仓库里没有对应文件，取代它的 spec 要能一路走回去。上游改发布那一步 → 收上游措辞，这一句接在真正发布的那一句之后 |
 | 开始写文档的那一句 | 追加一句：用 `readable-docs` 技能写，落盘/发布前跑它的 claim check。上游改这句的措辞或位置 → 收上游，把我们这一句接回新位置。上游把写文档这一步拆成多句 → 接在真正落笔的那一句后面。其余段落我们没改，全取上游 |

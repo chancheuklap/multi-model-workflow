@@ -50,7 +50,9 @@ Three rules bind how each one is worded:
 1. **Is the rule a comparison — equal, matches, counts, over a threshold — against something a machine can reach?** It is a criterion. Write its `CHECK:` and `EXPECT:`.
 2. **Is the rule a judgement, against something a machine can reach?** Whether an interface is deep rather than a pass-through, whether a passage says enough, whether an error message tells the caller what to do next, whether the test behind a criterion could ever have failed. Code review decides these — its `Standards` axis for how the code is written, its `Spec` axis for whether it matches what was asked, its `Tests` axis for whether the cases a `CHECK:` names are worth trusting — in a session other than the one that wrote the code. Leave it out of `## Acceptance criteria`: a judgement left there has only its own author to decide it, which is the one thing that section exists to prevent.
 3. **Is the property a person's reaction?** Whether a newcomer knows what to do, whether the wording lands, whether a morning page is legible at a glance. The person is the instrument, not a fallback judge: no agent can stand in, because the agent is not who is being measured. It becomes its own ticket, of kind *reaction* — see **Work only a person can do** below.
-4. **Could a machine decide it, if only it could reach the thing?** A signed installer on a clean machine, a login against the real provider, a notification arriving on a phone. Its own ticket as well, of kind *reach*. Many of these mean the pipeline is missing a capability, not that the user owes work.
+4. **Could a machine decide it, if only it could reach the thing?** Two answers hide under one question, and they part on whether the reach is something you build.
+   - **It is.** The state lives inside software you are about to write, and something has to put the system there: a screen composed against fixtures instead of the live client, a seeded row, a stub scripted to answer in a set order. This stays a criterion. But the thing that reaches the state has to be named in the spec's Testing Decisions and owned under some ticket's **Owns**. Missing either, there is nothing to write yet: stop and return to `/to-spec`. Reaching a state is work, and work that nobody owns does not happen.
+   - **It is not.** A signed installer on a clean machine, a login against the real provider, a notification arriving on a phone. Its own ticket, of kind *reach* — see **Work only a person can do** below.
 5. **Is it a choice rather than a check?** No true or false, only a preference, and the answer decides what to build next rather than whether what was built is right. Pick a default, build on it, and record the choice in the closing comment. When nothing can proceed until someone chooses, that is a decision ticket, asked before this batch is written rather than scheduled after it.
 
 If no command exists because the spec never decided how this is verified, stop and return to `/to-spec`. Do not invent it.
@@ -72,7 +74,7 @@ Derive `CHECK:` and `EXPECT:` from the spec; do not invent either:
 
 `CHECK:` takes the object it checks from one of two places: this ticket itself — the number comes from `$MMW_TICKET`, or from the branch name `issue-<n>` — or something this ticket names by number. When the objects only exist at run time, walk the tracker's native relationships out from an anchor the ticket names: `gh api repos/{owner}/{repo}/issues/<n>/sub_issues`. A `CHECK:` must not search for its own object; searching and taking the first hit (`gh issue list --search … | head -1` and its kind) checks whatever the search happens to return, and often cannot fail at all.
 
-`CHECK:` brings the state it needs and puts back the shared state it changed. Criteria run one at a time in ledger order, each in its own shell with cwd fixed at the repository root, so `cd` cannot reach another one — but the branch, the ticket and the working tree are shared, and `--reverify` runs every criterion a second time. Switch a branch and switch it back; reopen a ticket the next criterion needs open; stop a server you started.
+`CHECK:` brings the state it needs and puts back the shared state it changed. Two kinds of state are in play. This pipeline's: criteria run one at a time in ledger order, each in its own shell with cwd fixed at the repository root, so `cd` cannot reach another one — but the branch, the ticket and the working tree are shared, and `--reverify` runs every criterion a second time. Switch a branch and switch it back; reopen a ticket the next criterion needs open; stop a server you started. And the system's: the row, the balance, the screen the criterion is about. Before writing the command, say what puts the system there. The spec's Testing Decisions answers that per layer; question 4 below is where an unanswered one goes.
 
 Write the command on the `CHECK:` line when it fits there. When it does not, leave that line empty after the colon and open a fenced code block on the next line: the fence holds the command, and nothing inside it is read as a criterion or an attribute, so it may contain blank lines, backtick fences and lines beginning `- [ ]`. A flush-left continuation with no fence is a parse error.
 
@@ -129,6 +131,7 @@ Then each kind of ticket, for the sections that kind must carry. On the ones an 
 
 - **Read first** and **Seam** are present and non-empty ("none" counts as present). Where **Read first** carries a baseline — anything that records a settled conclusion — its line marks it as one.
 - **Owns** is present and non-empty, every entry is a repository-relative path or glob, and no two tickets on the same frontier overlap there.
+- Every thing a criterion needs to reach its state — the ones the spec's Testing Decisions names — is under some ticket's **Owns**. No script checks this one, so it is yours to check: a criterion that assumes a mechanism nobody builds fails on the night it first runs, and by then the batch is out.
 - The `verify-ticket` skill's `--lint` has been run on the ticket's issue number, and every ERROR it reports is fixed before you report the batch. Read every WARN once and either fix it or keep it on purpose.
 
 On the `ready-for-human` ones — no agent can repair one, so all five things it holds are checked:
@@ -157,7 +160,7 @@ The source material behind the sections named under **Parent**: decision tickets
 
 ## Seam
 
-Where this ticket is verified: the test layer and directory from the spec's Testing Decisions, and the precedent to copy.
+Where this ticket is verified: the test layer and directory from the spec's Testing Decisions, and the precedent to copy. Then, from the same section, how a test arrives at the states the criteria below name — and, when this ticket is the one that builds that, say so here as well as under **Owns**.
 
 ## Owns
 

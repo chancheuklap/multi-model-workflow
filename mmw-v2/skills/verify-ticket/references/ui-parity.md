@@ -6,7 +6,11 @@ Two agents come here. The one **writing** the criterion needs the shape below. T
 
 ## The baseline directory
 
-A Claude Design project downloaded as a handoff package, holding five things: the component's `.dc.html`, its `styles/`, its `data/`, `support.js`, and a `scenes.json` naming every scene. A directory missing any of them cannot be rendered.
+A Claude Design project downloaded as a handoff package, holding five things: the component's `.dc.html`, its `styles/`, its `data/`, `support.js`, and a `scenes.json` naming every scene. A directory missing any of them cannot be rendered. No scene name contains `/`: each one is served from a page at `/__parity-<name>.dc.html` that loads `./support.js`, and a slash puts that page in a subdirectory where the runtime is not.
+
+## What it presumes of the implementation
+
+The baseline side is pinned by this script. The implementation side is not: the script opens `<impl url>?<scene props>` and expects to find the interface already in that scene. Something in the product has to answer those parameters. That is a capability someone builds, in some ticket, and the spec's Testing Decisions is where it is decided — what form it takes, and which builds carry it. A criterion written against a spec that never decided it names a state nothing can arrive at, and fails the first night it runs. When you reach that, do not compose a command anyway: stop, and take it back to `/to-spec`.
 
 ## The criterion, in one shape
 

@@ -19,7 +19,9 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 
 3. Sketch out the seams at which you're going to test the feature. Existing seams should be preferred to new ones. Use the highest seam possible. If new seams are needed, propose them at the highest point you can. The fewer seams across the codebase, the better - the ideal number is one.
 
-Check with the user that these seams match their expectations.
+A seam says where a test **observes**. Ask the other half in the same breath: for each state this feature's behaviour turns on, can a test put the system into that state through the seam you picked? An interface compared through a debugging port is read and not written, so a test cannot reach a state that only the running application can enter. Where the seam does not reach, say what would, and whether that thing ships.
+
+Check with the user that these seams match their expectations, and that they accept what has to exist for a test to arrive at each state.
 
 4. Write the spec using the template below — with the `readable-docs` skill, and run its claim check before publishing — then publish it to the project issue tracker. Leave it unlabelled: a spec is a container for the tickets underneath it, not a piece of work, and a triage label would put it in a queue somebody has to sort back out. If the spec grew out of an issue carrying an agent brief, close that issue and attach it under the spec, so the brief stays reachable from the spec that replaced it.
 
@@ -69,6 +71,7 @@ The first sentence names the **seam** confirmed in step 3: what is real on each 
 
 - A description of what makes a good test (only test external behavior, not implementation details)
 - The test layers this feature lands in, each with its directory and the precedent to copy (i.e. similar types of tests in the codebase); every ticket cut from this spec will name one of these layers as the place it is verified
+- **How a test arrives at a state.** Per layer: what a test writes to put the system into a state, and what it cannot write. A state this feature's behaviour turns on, that the seam's write surface does not reach, gets a line of its own here: the mechanism that will reach it, and which builds carry that mechanism. The mechanism takes the form the repository's own testability rules allow; where those rules have no exit for one, say so — closing that is the repository's to do, not this spec's. Whoever cuts the tickets reads this section to know whether a criterion can be written at all, and one of them will own building each mechanism named here
 - The commands to run before committing
 
 ## Out of Scope
