@@ -31,9 +31,11 @@ repos:
 
 For the third shape, `files:` still decides *whether* the hook fires — scope it to that package's sources so touching an unrelated file does not run it.
 
-## Only idempotent formatting may rewrite files
+## What may rewrite files, and on which files
 
-A formatter in the hook is right: its output is deterministic, it changes layout only, and the commit stops so the author re-stages. A fixer that rewrites semantics is not: it edits logic in a hook nobody is reading, at the moment attention is on the commit message. Report those and let the author look.
+A formatter in the hook is right in principle — its output is deterministic, it changes layout only, and the commit stops so the author re-stages. But on a repository with a formatting backlog, running it on an **existing** file reflows the whole file: a one-line edit turns into a hundred-line diff of somebody else's code. Scope it to files this commit **adds**; existing files are the backlog's problem, not this commit's.
+
+A fixer that rewrites semantics belongs in neither: it edits logic in a hook nobody is reading, at the moment attention is on the commit message. Report those and let the author look.
 
 ## The `core.hooksPath` trap
 
