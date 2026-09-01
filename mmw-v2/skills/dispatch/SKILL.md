@@ -49,7 +49,7 @@ The second argument is `worker` or `reviewer`. Which of the two worker rows a wo
 | Code | What happened |
 | --- | --- |
 | `0` | The session is up and has been told what to work on |
-| `1` | The session is up but was **not** told anything: it did not become ready in time, or it would not take the prompt. A session is now sitting in that pane holding the ticket's name with nothing to do. Dispatching the same kind again collides on that name: end that session first, or carry on without it |
+| `1` | The session is up but was **not** told anything: it did not become ready in time, or it would not take the prompt. A session is now sitting in that pane holding the ticket's name with nothing to do. Inside a night, leave it where it is: the board comments `REDISPATCHED` on that ticket, closes the pane and starts the ticket again, and a second hand on it puts two sessions on one ticket. Outside a night nothing is watching, so end that session yourself before dispatching the same kind again — the name collides |
 | `2` | Nothing was started. The reason is on stderr — read it verbatim |
 
 **Waiting** — `<dispatch> wait`:
