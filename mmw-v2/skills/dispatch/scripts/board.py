@@ -917,17 +917,28 @@ class Watch:
         changes. A ticket that stays on the frontier after the main agent has been told
         is one whose dispatch it already tried and reported on, so saying it again would
         add nothing.
+
+        The line waits in the queue until the main agent is idle enough to take it, and
+        what it says is true of the frontier at the moment it was read. A frontier this
+        board empties in the meantime — by repairing a session and starting that ticket
+        itself — withdraws the line it queued, together with `announced`, so the next
+        non-empty frontier queues one again. Only ever one line: `advance` starts every
+        ticket on the frontier, so a second copy behind the first runs the same command
+        against what the first one already took.
         """
+        line = ADVANCE_LINE.format(case="ADVANCE", spec=self.spec)
         ready = {row["ticket"] for row in frontier(rows)
                  if row["ticket"] not in self.handed_back}
         if ready == self.announced:
             return
         self.announced = ready
         if not ready:
+            self.for_main = [queued for queued in self.for_main if queued != line]
             return
         say(f"#{self.spec}", "frontier",
             ", ".join(f"#{t}" for t in sorted(ready)))
-        self.for_main.append(ADVANCE_LINE.format(case="ADVANCE", spec=self.spec))
+        if line not in self.for_main:
+            self.for_main.append(line)
 
     def start(self, number: int) -> bool:
         """Start one worker. Returns whether a session now occupies one of the places.
