@@ -1,10 +1,10 @@
 # Write
 
-Branches **create** and **rewrite**. You have `survey-list.md`, with the maintainer's answers appended. You now write the files, root first, one at a time, from that list alone. Each line you write comes from one entry; an idea with no entry is not written. Entries of type defect are never written; they go to the report that [verify.md](verify.md) writes at the end.
+Branches **create** and **rewrite**. You have `survey-list.md`, with the user's answers appended. You now write the files, root first, one at a time, from that list alone. Each line you write comes from one entry; an idea with no entry is not written. Entries of type defect are never written; they go to the report that [verify.md](verify.md) writes at the end.
 
 ## Language
 
-Write in the language the repository's existing instruction files use; on the create branch, the language the maintainer answered in. Translate the section headings of the templates; keep the subdirectory sentence in English as shown, because `scripts/check.sh` looks for it by its English words.
+Write in the language the repository's existing instruction files use; on the create branch, the language the user answered in. Translate the section headings of the templates; keep the subdirectory sentence in English as shown, because `scripts/check.sh` looks for it by its English words.
 
 ## Steps
 
@@ -64,7 +64,7 @@ A root file carries only the sections above: no directory map, no environment va
 ```markdown
 # <directory path>
 
-<purpose: one sentence — what this directory owns and what it does not own, from the maintainer's nested-purpose answer>
+<purpose: one sentence — what this directory owns and what it does not own, from the user's nested-purpose answer>
 
 ## Key Conventions
 

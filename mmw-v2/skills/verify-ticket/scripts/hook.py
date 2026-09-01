@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The one thing a worker may not do by hand: take its ticket out of the agent lane.
+"""The one thing a worker may not do by hand: take its ticket out of the agent queue.
 
 A ticket closes through `verify-ticket.py <n> --closeout <draft>`, which checks the
 closing comment, posts it, and only then closes the ticket. `gh issue close` skips all
@@ -12,12 +12,12 @@ this file before running a shell command, and this file refuses that one command
 answer; the decision and the sentence are the same for all five.
 
 It refuses rather than checks. A worker typing `gh issue close` has by definition not
-been through `--closeout`, so there is no draft of its to check; a gate that guessed
+been through `--closeout`, so there is no draft of its to check; a hook that guessed
 one and let the command through when the guess passed would produce exactly the
 outcome it exists to prevent — the ticket closed with no closing comment on it.
 
 Whether this session is governed is not something this file works out. It is told:
-`dispatch.sh` sets `MMW_TICKET` on the worker's pane. No variable, no gate. So there
+`dispatch.sh` sets `MMW_TICKET` on the worker's pane. No variable, no refusal. So there
 is no git to run, no `gh` to ask, no file to read, and nothing to get wrong about
 which directory the host happened to start this process in.
 """
@@ -97,7 +97,7 @@ def runs(command: str) -> list[str]:
     inside the `cat` that writes the draft, is not a `gh` call. Splitting on the shell's
     own separators and keeping only the pieces that start with `gh` tells the two apart:
     prose lands mid-line, a command starts one. (2026-08-30: a worker hit exactly this
-    on the first unconstrained run of the gate.)
+    on the first unconstrained run of this hook.)
     """
     out = []
     for piece in SEPARATORS.split(command):

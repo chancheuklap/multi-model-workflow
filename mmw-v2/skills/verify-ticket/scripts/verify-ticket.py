@@ -2,8 +2,8 @@
 """Run a ticket's acceptance criteria and post the result back to the ticket.
 
 The ticket is the only state. Every run reads the `## Acceptance criteria` and
-`## Owns` sections fresh from the issue, writes them to a throwaway ledger, hands
-that ledger to unlazy's `gate-check.mjs`, and posts the updated ledger back as one
+`## Owns` sections fresh from the issue, writes them to a ledger, hands
+that ledger to unlazy's `gate-check`, and posts the updated ledger back as one
 comment. Nothing is cached and no file is left behind.
 
     verify-ticket.py <n>              run the unmet criteria, comment `self-run`
@@ -226,7 +226,7 @@ def parent_spec(body: str) -> int | None:
 def blocked_by(body: str) -> list[int]:
     """The ticket numbers in `## Blocked by`. `None (can start immediately)` is empty.
 
-    This section is the copy a person reads. What the graph is checked against is the
+    This section is the copy the user reads. What the graph is checked against is the
     tracker's own blocking links, `fetch_blocked_by`.
     """
     out = []
@@ -582,7 +582,7 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
                 problems.append("the first line and the `Counts:` line disagree — "
                                 + "; ".join(off))
 
-    # The verifier's verdict is what a ticket needs to close as done, and only that.
+    # The verifier's `VERDICT` is what a ticket needs to close as done, and only that.
     # Handing the ticket back is the way out of everything else, including a verifier
     # that never ran: `HANDOFF REQUIRED` claims nothing was finished and leaves the
     # ticket open under `needs-triage`, where it is judged fresh. Demanding an
@@ -606,7 +606,7 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
                             "`HANDOFF REQUIRED` instead and say so")
         elif not git("rev-parse", "HEAD").startswith(verdict) \
                 and draft_line(draft, "Post-verdict:") is None:
-            problems.append(f"the verdict is on {verdict} and HEAD has moved on; add a "
+            problems.append(f"the `VERDICT` is on {verdict} and HEAD has moved on; add a "
                             f"`Post-verdict:` line naming every commit since it and where "
                             f"it came from")
     return problems
@@ -622,12 +622,12 @@ def git_problems(root: Path | None = None) -> list[str]:
     ref = base_ref(root)
     if not is_ancestor(ref, "HEAD", root):
         problems.append(f"this branch does not contain its base {ref}; run `git merge {ref}`. "
-                        f"Do not rebase — the verdict on this ticket names one commit, and "
+                        f"Do not rebase — the `VERDICT` on this ticket names one commit, and "
                         f"rewriting history throws it away")
         return problems
     base = git("merge-base", ref, "HEAD", cwd=root)
     if base and not git("diff", "--name-only", f"{base}..HEAD", cwd=root):
-        sys.stderr.write("warning: this branch changes no files since it left main\n")
+        sys.stderr.write("warning: this branch changes no files since it left its base branch\n")
     return problems
 
 
@@ -884,7 +884,7 @@ def blocked_by_mismatch(entries: list[dict]) -> list[str]:
 
 def report_phase(ticket: int, phase: str, extra: dict[str, str] | None = None,
                  clear: list[str] | None = None) -> bool:
-    """Publish where this ticket stands to the Herdr pane. Never fails a run."""
+    """Report where this ticket stands on the Herdr pane. Never fails a run."""
     if os.environ.get("HERDR_ENV") != "1":
         return False
     pane = os.environ.get("HERDR_PANE_ID")
@@ -968,11 +968,11 @@ def refusals(number: int, ticket: dict, me: str, branch: str, dirty: list[str]) 
     """Why this ticket is not ready to be worked on, in the order a worker would hit it.
 
     Every one of these ends in `stop`. The six conditions are set up before a worker
-    exists — the host opens the worktree on `issue-<n>`, `dispatch.sh` checks the state,
-    the labels and the blockers before it starts anyone — so a worker that sees one of
-    these has found a fault upstream of itself, not a task. Working around it (switching
+    exists — `dispatch.sh` opens the worktree on `issue-<n>` and checks the state, the
+    labels and the blockers before it starts anyone — so a worker that sees one of these
+    has found a fault upstream of itself, not a task. Working around it (switching
     branches, committing whatever is in the tree, taking someone else's ticket) does more
-    damage than stopping. The comment this posts on the ticket is what someone reads in
+    damage than stopping. The comment this posts on the ticket is what the user reads in
     the morning.
     """
     out = []
@@ -1125,8 +1125,8 @@ def lint_worker(labels: list[str], body: str) -> tuple[list[str], list[str]]:
     `## Worker` section is the reader's copy of the same answer; the two saying different
     things leaves nobody able to tell which the ticket was planned around.
 
-    Returns `(errors, warnings)`. A ticket outside the agent lane gets neither: what it
-    holds is one thing for a person to look at, and no worker is started on it.
+    Returns `(errors, warnings)`. A ticket outside the agent queue gets neither: what it
+    holds is one thing for the user to look at, and no worker is started on it.
     """
     if "ready-for-agent" not in labels:
         return [], []
@@ -1235,7 +1235,7 @@ def run_lint(number: int) -> int:
             print(f"  WARN  #{number} " + finding + "  [worker-mismatch]")
 
     # A `ready-for-human` ticket carries no criteria at all: what it holds is one thing
-    # for a person to look at. The criteria linter has nothing to say about it, and
+    # for the user to look at. gate-lint has nothing to say about it, and
     # saying "zero live gates" would report the ticket's correct shape as a fault. Its
     # place in the batch is still worth checking, so the graph check runs.
     if not section(body, "Acceptance criteria"):
@@ -1248,7 +1248,7 @@ def run_lint(number: int) -> int:
         ledger = write_ledger(body, Path(tmp))
         result = subprocess.run(
             # No `--strict`: it fails the run on any warning, and a warning is the level
-            # for findings a person weighs and may keep. The exit code says one thing —
+            # for findings the main agent weighs and may keep. The exit code says one thing —
             # there is an ERROR — which is what the read-back step converges on.
             ["node", str(GATE_LINT), str(ledger)],
             capture_output=True, text=True,

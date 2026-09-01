@@ -4,7 +4,7 @@
 
 ## 总原则
 
-上游把课件当**工作区里的一套文件**：组件放 `./assets/`，课件用相对路径链过去。这在磁盘上成立，但用户实际看课件的场景多数不是「用浏览器打开工作区里那个确切路径」——编辑器预览、渲染面板、把单个文件发给别人，相对路径全部落空，课件到手是一堆无样式的文字，而且用户没法判断 agent 到底有没有写样式。
+上游把课件当**一个目录里的一套文件**：组件放 `./assets/`，课件用相对路径链过去。这在磁盘上成立，但 user 实际看课件时多数不是「用浏览器打开那个目录里的确切路径」——编辑器预览、渲染面板、把单个文件发给别人，相对路径全部落空，课件到手是一堆无样式的文字，而且 user 没法判断 agent 到底有没有写样式。
 
 两条独立的病因，两个改法：
 
@@ -19,8 +19,8 @@
 
 | 段落 | 我们的意图 |
 | --- | --- |
-| frontmatter 的 `disable-model-invocation: true` | 删掉。本仓库要求这个技能模型可触发——不留上游的人工触发限制，免得漏输入指令时 agent 没法自己认出该用这个技能。上游改这一行 → 仍然删，跟 `agents/openai.yaml` 的 `policy` 块一起处理 |
-| Lessons：`If possible, open the lesson file…` | 改成「起本地 HTTP 服务、给 URL」。原句落到 `open <file>` 就是 `file://`，Safari 一类浏览器不允许 `file://` 页面碰自己目录之外的东西，跨目录的样式和超链接一起失效 |
+| frontmatter 的 `disable-model-invocation: true` | 删掉，这个 skill 在本仓是模型可触发的；`agents/openai.yaml` 的 `policy.allow_implicit_invocation` 一起删。上游改这一行 → 仍然删。规则见 [README.md](README.md#disable-model-invocation) |
+| Lessons：`If possible, open the lesson file…` | 改成「起本地 HTTP 服务、给 URL」。上游那句落到 `open <file>` 就是 `file://`，Safari 一类浏览器不允许 `file://` 页面碰自己目录之外的东西，跨目录的样式和超链接一起失效 |
 | Assets：`write it as a component in ./assets/ and link to it` | 删掉 `and link to it`。组件仍然只写在 `./assets/`，但课件不链它 |
 | Assets：`every lesson links it` | 删掉。理由同上 |
 | Assets：新增 `### Self-contained pages` | 我们加的整节：`<!--CSS-->` / `<!--JS-->` 标记块、`./assets/build.py` 回填 |
@@ -29,7 +29,7 @@
 
 | 字段 | 我们的意图 |
 | --- | --- |
-| `policy` 整块（`allow_implicit_invocation: false`） | 删掉。跟 `SKILL.md` 的 `disable-model-invocation` 同步去掉，两处必须同增同删 |
+| `policy` 整块（`allow_implicit_invocation: false`） | 删掉，跟 `SKILL.md` 的 `disable-model-invocation` 一起。规则见 [README.md](README.md#disable-model-invocation) |
 
 ## 上游再动这几段时
 

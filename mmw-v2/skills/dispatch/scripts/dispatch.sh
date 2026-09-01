@@ -11,9 +11,9 @@
 # a worker session starts from is the ticket's own `*-worker` label, so one ticket keeps
 # the same worker every time it is started. Everything else — which Herdr name the
 # session gets, whether it opens a tab or splits a pane, what it is told to work on — is
-# decided by the shape of the pipeline, so it is written here rather than in the table.
-# The table holds only what a person changes: the agent, the host, the model, the
-# thinking level, and the arguments the host is started with.
+# decided by the shape of the pipeline, so it is written here rather than in `models.md`.
+# `models.md` holds only what a person changes: the agent, the host, the model, the
+# effort, and the launch arguments.
 #
 # Exit codes are documented in SKILL.md next to this script.
 
@@ -27,13 +27,13 @@ LABEL_TITLE_CHARS=20         # how much of the ticket title fits on a tab
 
 WAIT_DEFAULT_SECONDS=1800
 WAIT_SETTLED_GAP_SECONDS=5   # an agent that has already settled would spin otherwise
-WAIT_POLL_SECONDS=30         # outside Herdr there is no lifecycle to block on
+WAIT_POLL_SECONDS=30         # outside Herdr there is no `agent_status` to block on
 
 SELF="$(realpath "${BASH_SOURCE[0]}")"
 SKILL_ROOT="$(dirname "$(dirname "$SELF")")"
 MODELS="$SKILL_ROOT/models.md"
 BOARD="$SKILL_ROOT/scripts/board.py"
-# The skill lives under mmw-v2/skills/<name>, so the installer is two directories up.
+# The skill lives under mmw-v2/skills/<name>, so `install.sh` is two directories up.
 INSTALLER="$(dirname "$(dirname "$SKILL_ROOT")")/install.sh"
 
 # The row a ticket with no `*-worker` label starts from.
@@ -114,10 +114,10 @@ print(sys.stdin.read().rstrip("\n")[:int(os.environ["MMW_HEAD_CHARS"])])
 '
 }
 
-# ------------------------------------------------------------------ the table
+# ------------------------------------------------------------------ models.md
 
 # Prints "host<TAB>model<TAB>effort<TAB>launch arguments" for the first row whose agent
-# column is the role asked for. Backticks are markdown, not part of any value.
+# column is the agent asked for. Backticks are markdown, not part of any value.
 row_for_role() {
   awk -F'|' -v want="$1" '
     function trim(s) { gsub(/^[ \t`]+/, "", s); gsub(/[ \t`]+$/, "", s); return s }
@@ -130,7 +130,7 @@ row_for_role() {
   ' "$MODELS"
 }
 
-# Prints every agent name in the table that a ticket may ask for by label, one per line.
+# Prints every agent name in `models.md` a ticket may ask for by label, one per line.
 worker_roles() {
   awk -F'|' '
     function trim(s) { gsub(/^[ \t`]+/, "", s); gsub(/[ \t`]+$/, "", s); return s }
@@ -146,8 +146,8 @@ worker_roles() {
 # Prints two lines when the ticket is ready to be worked on — its worker labels, then
 # its title — and one line prefixed with REFUSE when it is not. The worker labels are
 # the ticket's own labels ending in `-worker`, space separated, and the first line is
-# empty when it carries none. Whether the table still holds a row for one is decided by
-# the caller, so a label pointing at a row nobody kept is refused rather than dropped.
+# empty when it carries none. Whether `models.md` still holds a row for one is decided
+# by the caller, so a label pointing at a row nobody kept is refused rather than dropped.
 read_ticket() {
   local number="$1" json
   json="$(gh_ issue view "$number" --json state,labels,blockedBy,title 2>/dev/null)" \
@@ -191,7 +191,7 @@ else:
 # A branch named issue-<n> that already exists is reused as it stands: that is a
 # redispatch, and the new session resumes the work. Otherwise the branch is cut from
 # HEAD — whatever branch the dispatching session is on, because that is where the day's
-# discussion and spec work happened and the ticket builds on it — and the cut point is
+# discussion and spec work happened and the ticket builds on it — and the base commit is
 # recorded in `branch.issue-<n>.mmw-base`, where `verify-ticket.py` and the code review
 # read the base their diffs start from. Stale bookkeeping for a directory deleted by
 # hand is pruned first, and a failed add leaves git's own error on stderr for the
@@ -274,7 +274,7 @@ dispatch() {
     *'{effort}'*)
       case "$effort" in
         "" | "—" | "-")
-          refuse "the $seat row asks for a thinking level but leaves its effort column empty" ;;
+          refuse "the $seat row's launch arguments ask for an effort, and its effort column is empty" ;;
       esac ;;
   esac
 
@@ -314,7 +314,7 @@ dispatch() {
              | head_chars $(( LABEL_TITLE_CHARS + ${#number} + 2 )))"
     tab_args=()
     [ -n "${HERDR_WORKSPACE_ID:-}" ] && tab_args=(--workspace "$HERDR_WORKSPACE_ID")
-    # MMW_TICKET is how the gates inside this pane know which ticket they guard.
+    # MMW_TICKET is how `hook.py` inside this pane knows which ticket it guards.
     pane="$(herdr tab create ${tab_args[@]+"${tab_args[@]}"} --cwd "$worktree" \
               --label "$label" --env "MMW_TICKET=$number" --no-focus \
             | json_at .result.root_pane.pane_id)"
@@ -345,7 +345,7 @@ dispatch() {
   # The ticket and the kind are written here rather than left to the first
   # `verify-ticket.py` run, so that a pane which stops before that run is still
   # readable as belonging to this ticket as a worker or as a reviewer. `model` carries
-  # which row it started from, which is what a reader of the board sees.
+  # which row it started from, which is what `board.py` prints in its table.
   local human token_kind
   if [ "$reviewing" = 1 ]; then
     human="#$number reviewer"
@@ -416,7 +416,7 @@ wait_for() {
     local remaining=$(( deadline - $(date +%s) ))
     if [ -n "$target" ] && [ "$remaining" -gt 0 ]; then
       # Herdr holds the wait open until the agent settles, so the tracker is asked once
-      # per lifecycle change rather than once per interval.
+      # per `agent_status` change rather than once per interval.
       herdr agent wait "$target" --timeout $(( remaining * 1000 )) >/dev/null 2>&1
     fi
 
@@ -625,9 +625,9 @@ run_night() {
     esac
   done
 
-  # A night nobody is watching cannot notice that the skills or the gate went missing
+  # A night nobody is watching cannot notice that the skills or the hooks went missing
   # from this machine, so it is checked at the one moment somebody is here.
-  [ -f "$INSTALLER" ] || refuse "no installer at $INSTALLER"
+  [ -f "$INSTALLER" ] || refuse "no install.sh at $INSTALLER"
   bash "$INSTALLER" --check >/dev/null \
     || refuse "install.sh --check found something missing; run install.sh before the night"
 
@@ -666,7 +666,7 @@ run_night() {
 
 # ------------------------------------------------------------------ entry
 
-[ -f "$MODELS" ] || refuse "no table at $MODELS"
+[ -f "$MODELS" ] || refuse "no models.md at $MODELS"
 
 case "${1:-}" in
   run)

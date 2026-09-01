@@ -9,7 +9,7 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 
 ## Process
 
-1. If the user passed a reference — an issue number, a URL, a file path — read it in full before anything else. When the reference is a wayfinder **map**: read the map body; then walk **Decisions so far** and read each closed ticket's **resolution comment**; where a ticket links a prototype or a research artifact, read that through to its conclusion. The map's **Out of scope** carries into the spec's Out of Scope unchanged.
+1. If the user passed a reference — an issue number, a URL, a file path — read it in full before anything else. When the reference is a wayfinder **map**: read the map body; then walk **Decisions so far** and read each closed ticket's **resolution comment**; where a ticket links a prototype or a research file, read that through to its conclusion. The map's **Out of scope** carries into the spec's Out of Scope unchanged.
 
    Then judge whether what you have read is one spec or several. Decisions that share a **seam** belong in one spec. Split only where a part needs a different **seam** and lands and demos on its own — where it can stay one spec, keep it one spec. A part may depend on a part before it: a product delivered in layers (a server registration, then the client that logs into it, then the work the client does) has no reading under which the later layers depend on nothing, and forcing it into one spec produces one nobody can read. What the dependencies may not do is run backwards or in a circle: every one points at a part earlier in the order, and the `## Specs` section writes that order down.
 
@@ -23,7 +23,7 @@ A seam says where a test **observes**. Ask the other half in the same breath: fo
 
 Check with the user that these seams match their expectations, and that they accept what has to exist for a test to arrive at each state.
 
-4. Write the spec using the template below — with the `readable-docs` skill, and run its claim check before publishing — then publish it to the project issue tracker. Leave it unlabelled: a spec is a container for the tickets underneath it, not a piece of work, and a triage label would put it in a queue somebody has to sort back out. If the spec grew out of an issue carrying an agent brief, close that issue and attach it under the spec, so the brief stays reachable from the spec that replaced it.
+4. Write the spec using the template below — with the `readable-docs` skill, and run its claim-checker before publishing — then publish it to the project issue tracker. Leave it unlabelled: a spec is a container for the tickets underneath it, not a piece of work, and a triage label would put it in a queue somebody has to sort back out. If the spec grew out of an issue carrying an agent brief, close that issue and attach it under the spec, so the brief stays reachable from the spec that replaced it.
 
 <spec-template>
 
@@ -87,7 +87,7 @@ Links to the first-hand material this spec was built from, one line per kind. Wr
 - Upstream specs this one builds on
 - ADRs
 - Research files
-- Prototype branches or directories
+- Prototype directories
 - Domain docs
 - Evidence (measurements, cost runs, real-call records)
 - Test rules (the repo's TESTING.md or equivalent)

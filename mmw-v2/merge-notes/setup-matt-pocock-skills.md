@@ -10,7 +10,7 @@
 | `domain.md` | `docs/agents/domain.md` |
 | `triage-labels.md` | `docs/agents/triage-labels.md` |
 
-**重跑这个技能之前先备份 `docs/agents/triage-labels.md`。** 它的 `## What carries a label here` 一节是本仓自己加的（哪个标签代表哪个队列、spec 不带标签、本仓自建票不带 category），种子里没有这一节，重跑会把它盖掉。另外两份落地件与种子几乎逐字相同，只差几处标点。
+**重跑这个技能之前先备份 `docs/agents/triage-labels.md`。** 它的 `## What carries a label here` 一节是本仓自己加的（哪个 label 代表哪个 queue、spec 不带 label、本仓自建 ticket 不带 category），种子里没有这一节，重跑会把它盖掉。另外两份落地件与种子几乎逐字相同，只差几处标点。
 
 ## 逐段意图
 
@@ -26,4 +26,4 @@
 
 | 段落 | 我们的意图 |
 | --- | --- |
-| 表格下面那句举例「apply the AFK-ready triage label」 | 例子换成 `ready-for-agent`。这句教读者「技能提到角色名 → 来这张表取真实标签串」，而 `AFK-ready` 在表里没有对应行，全仓也没有一个技能这么写——`triage/SKILL.md` 从头到尾直接写 `ready-for-agent`。上游改这句 → 收上游措辞，例子必须用表里真有的标签串 |
+| 表格下面那句举例「apply the AFK-ready triage label」 | 例子换成 `ready-for-agent`。这句教读者「技能提到 triage role → 来这张表取本仓真实的 label」，而 `AFK-ready` 在表里没有对应行，全仓也没有一个技能这么写——`triage/SKILL.md` 从头到尾直接写 `ready-for-agent`。上游改这句 → 收上游措辞，例子必须用表里真有的 label |

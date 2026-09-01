@@ -1,37 +1,37 @@
 #!/usr/bin/env bash
-# 把四样东西装到本机，让每个宿主都读得到：
+# 把四样东西装到本机，让每个 host 都读得到：
 #
 #   技能              skills.txt 列出的，软链进 ~/.agents/skills 与 ~/.claude/skills
-#   subagent          agents/<名>/out/ 的成品，软链进各宿主自己的 agent 目录
-#   hook              verify-ticket 的 pretool 门（五个宿主）与 Claude Code 的
-#                     rule-at-moment 提醒（三个事件），写进各宿主自己的配置
-#   Herdr agent 检测规则   dispatch 技能带的覆盖（有才装），拷进 ~/.config/herdr/agent-detection/
+#   subagent          agents/<名>/out/ 的 assembled subagent file，软链进各 host 的 agent 目录
+#   hook              verify-ticket 的 hook.py pretool（五个 host）与 Claude Code 的
+#                     rule-at-moment.py（三个事件）与 vocab-lint.py（Write|Edit 之后），写进各 host 自己的配置
+#   agent detection rule   dispatch 技能带的覆盖（有才装），拷进 ~/.config/herdr/agent-detection/
 #
-# 技能有三个来源：mattpocock 上游的在 upstream/skills/，我们自己写的在 skills/（名单里
-# 前缀 self/），diagram-design 上游的在 upstream-diagram-design/skills/（前缀 dd/）。三者
+# 技能有三个来源：mattpocock/skills 的在 upstream/skills/，我们自己写的在 skills/（skills.txt
+# 里前缀 self/），cathrynlavery/diagram-design 的在 upstream-diagram-design/skills/（前缀 dd/）。三者
 # 装法完全一样。
 #
-# 软链不是拷贝：宿主读的就是仓库里那个文件。在用技能的当中直接改源目录下的 SKILL.md，
-# 下一次调用就是新的，不用重装。（只有 frontmatter 的 description 是宿主启动时扫的，
+# 软链不是拷贝：host 读的就是仓库里那个文件。在用技能的当中直接改 source directory 下的
+# SKILL.md，下一次调用就是新的，不用重装。（只有 frontmatter 的 description 是 host 启动时扫的，
 # 改它要重开会话。）
 #
 #   install.sh            装
-#   install.sh --check    只看装没装，不动磁盘。齐了回 0，缺东西或有残留回 1
+#   install.sh --check    只看装没装，不动磁盘。齐了回 0，缺东西或有 stale link 回 1
 #
 # 两种模式在 hook 都齐了的时候都打印 HOOKS-INSTALLED。
 #
-# 技能装两处，不按宿主分。~/.agents/skills 是各家通用的位置，Codex、Cursor、Grok、Pi
+# 技能装两处，不按 host 分。~/.agents/skills 不属于任何一个 host，Codex、Cursor、Grok、Pi
 # 都原生扫它；Claude Code 不扫，只认 ~/.claude/skills，所以那一处再装一份。两处装的是
-# 同一批软链，都直接指向仓库源目录，彼此不串。
+# 同一批软链，都直接指向 source directory，彼此不串。
 #
-# 宿主的用户触发开关都读 SKILL.md 的 disable-model-invocation，Codex 另读技能目录里的
-# agents/openai.yaml。两者都在技能目录内，软链一并带过去，所以技能安装没有任何按宿主
+# 每个 host 都读 SKILL.md 的 disable-model-invocation，Codex 另读技能目录里的
+# agents/openai.yaml。两者都在技能目录内，软链一并带过去，所以技能安装没有任何按 host
 # 分支的逻辑。
 #
-# subagent 跟技能不同：模型字段各家写法不一样，同一份正文必须按宿主换壳。壳由
-# agents/assemble.py 从 body.md + agent.json 装配到 agents/<名>/out/，这里只把成品
-# 软链到各宿主的 agent 目录。软链仍指回仓库：改了 body.md 跑一次装配（或本脚本），
-# 宿主下一次调用就是新的。
+# subagent 跟技能不同：model 字段各家写法不一样，同一份正文必须按 host 换 per-host shell。
+# per-host shell 由 agents/assemble.py 从 body.md + agent.json assemble 进 agents/<名>/out/，
+# 这里只把 assembled subagent file 软链到各 host 的 agent 目录。软链仍指回仓库：改了 body.md
+# 跑一次 assemble.py（或本脚本），host 下一次调用就是新的。
 #
 
 set -euo pipefail
@@ -43,8 +43,8 @@ DD_SRC="$ROOT/upstream-diagram-design/skills"
 LIST="$ROOT/skills.txt"
 
 # 一条软链是不是本仓库装的：目标落在本仓库任一 checkout（主 checkout 或某个 worktree）
-# 的对应源目录里，按路径段认。ADR 0006 说的「指回本仓库」是仓库，不是某一个 checkout：
-# 从哪个 checkout 运行本脚本，哪个 checkout 的源目录就接管这批软链。
+# 的对应 source directory 里，按路径段认。ADR 0006 说的「指回本仓库」是仓库，不是某一个
+# checkout：从哪个 checkout 运行本脚本，哪个 checkout 的 source directory 就接管这批软链。
 ours_skill_target() {
   case "$1" in
     */mmw-v2/upstream/skills/* | */mmw-v2/skills/* | */mmw-v2/upstream-diagram-design/skills/*) return 0 ;;
@@ -72,7 +72,7 @@ repo_links() {
 
 # 其中这次不该有的：指回本仓库，名字却不在这一批要装的里面。
 # 扫目录而不是读「上一次装了什么」的记录：记录会被下一次安装重写，被漏掉的那条
-# 就再也没人认领。ui-qa 退役后八处软链留了一整天，就是这么来的。
+# 就再也没人认领。ui-qa 从 skills.txt 拿掉之后八处软链留了一整天，就是这么来的。
 stale_links() {
   local dest="$1" pred="$2"; shift 2
   local keep=("$@") link name
@@ -90,9 +90,9 @@ stale_links() {
 # MMW_V2_HOME 只给测试用：把安装位置整体搬到一个一次性目录下，不碰真的家目录。
 HOME_DIR="${MMW_V2_HOME:-$HOME}"
 
-# 通用位置。不属于任何一个宿主，所以无条件建。
+# 不属于任何一个 host，所以无条件建。
 NEUTRAL_DIR="$HOME_DIR/.agents/skills"
-# Claude Code 专用。它不扫通用位置。宿主没装就跳过。
+# Claude Code 专用。它不扫 ~/.agents/skills。host 没装就跳过。
 CLAUDE_DIR="$HOME_DIR/.claude/skills"
 
 HOST_DIRS=(
@@ -112,10 +112,10 @@ case "${1:-}" in
   *) die "用法：install.sh [--check]" 2 ;;
 esac
 
-[ -f "$LIST" ] || die "缺技能名单：$LIST"
-[ -d "$SKILLS_SRC" ] || die "缺上游技能目录：$SKILLS_SRC"
+[ -f "$LIST" ] || die "缺 skills.txt：$LIST"
+[ -d "$SKILLS_SRC" ] || die "缺 upstream 技能目录：$SKILLS_SRC"
 
-# 读名单。顺便当场验证每个都真的存在——名单写错要在动宿主之前就停。
+# 读 skills.txt。顺便当场验证每个都真的存在——写错要在动 host 之前就停。
 wanted_dirs=()
 wanted_names=()
 while IFS= read -r line; do
@@ -127,16 +127,16 @@ while IFS= read -r line; do
     dd/*) dir="$DD_SRC/${line#dd/}" ;;
     *) dir="$SKILLS_SRC/$line" ;;
   esac
-  [ -f "$dir/SKILL.md" ] || die "名单里的技能不存在：$line"
+  [ -f "$dir/SKILL.md" ] || die "skills.txt 里的技能不存在：$line"
   wanted_dirs+=("$dir")
   wanted_names+=("$(basename "$line")")
 done < "$LIST"
 
-[ "${#wanted_names[@]}" -gt 0 ] || die "名单是空的：$LIST"
+[ "${#wanted_names[@]}" -gt 0 ] || die "skills.txt 是空的：$LIST"
 
 # 名字撞车要在装之前发现：两个技能软链成同一个名字，后装的会盖掉先装的。
 dupes="$(printf '%s\n' "${wanted_names[@]}" | sort | uniq -d)"
-[ -z "$dupes" ] || die "名单里有重名技能：$(echo "$dupes" | tr '\n' ' ')"
+[ -z "$dupes" ] || die "skills.txt 里有重名技能：$(echo "$dupes" | tr '\n' ' ')"
 
 rc=0
 installed_dests=0
@@ -147,7 +147,7 @@ hooks_rc=0
 for dest in "${HOST_DIRS[@]}"; do
   host_home="$(dirname "$dest")"
   if [ "$dest" != "$NEUTRAL_DIR" ] && [ ! -d "$host_home" ]; then
-    echo "跳过  ${dest}（宿主没装）"
+    echo "跳过  ${dest}（host 没装）"
     continue
   fi
   installed_dests=$((installed_dests + 1))
@@ -163,7 +163,7 @@ for dest in "${HOST_DIRS[@]}"; do
     done
     while IFS= read -r stale; do
       [ -n "$stale" ] || continue
-      echo "残留  $stale 指回本仓库，名单里却没有它，跑一次 install.sh 摘掉" >&2
+      echo "残留  $stale 指回本仓库，skills.txt 里却没有它，跑一次 install.sh 摘掉" >&2
       rc=1
     done < <(stale_links "$dest" ours_skill_target "${wanted_names[@]}")
     continue
@@ -171,14 +171,14 @@ for dest in "${HOST_DIRS[@]}"; do
 
   mkdir -p "$dest"
 
-  # 先清理：这个目录里指回本仓库、名单里却没有的软链，摘掉。
+  # 先清理：这个目录里指回本仓库、skills.txt 里却没有的软链，摘掉。
   # 目标不指回本仓库的一律不碰，宁可留着也不误删。
   while IFS= read -r stale; do
     [ -n "$stale" ] || continue
     rm "$stale"; echo "摘掉  $stale"
   done < <(stale_links "$dest" ours_skill_target "${wanted_names[@]}")
 
-  # 上一代靠一份 .mmw-skills 记账，现在改成扫目录，那份记录没有读者了。
+  # .mmw-skills 没有读者：装了什么由扫目录认，见到这份记账文件就删。
   [ -f "$dest/.mmw-skills" ] && rm "$dest/.mmw-skills"
 
   linked=()
@@ -204,12 +204,11 @@ for dest in "${HOST_DIRS[@]}"; do
   echo "已装  ${#linked[@]} 个技能 -> $dest"
 done
 
-# ---------------- 退役的技能位置 ----------------
+# ---------------- retired 的技能位置 ----------------
 
-# 技能以前按宿主各装一份。下面四处不再是安装目标，主循环也不会再走到它们，残留的软链
-# 就会一直留着——而各自的宿主仍在扫它们。残留是上一轮名单里的旧版本，跟通用位置的那份
-# 撞名；实测里 Grok 取 ~/.grok/skills 那份，把通用位置的盖住，不报错也不提示。
-# 所以每次安装都摘一遍。
+# 下面四处是 retired 的安装位置：主循环不装它们，各自的 host 却仍在扫。留在那里的软链是
+# 上一轮 skills.txt 的旧版本，跟 ~/.agents/skills 那份撞名；实测里 Grok 取 ~/.grok/skills
+# 那份，把 ~/.agents/skills 的盖住，不报错也不提示。所以每次安装都摘一遍。
 RETIRED_DIRS=(
   "${CODEX_HOME:-$HOME_DIR/.codex}/skills"
   "${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME_DIR/.pi}/agent}/skills"
@@ -220,7 +219,7 @@ RETIRED_DIRS=(
 for dest in "${RETIRED_DIRS[@]}"; do
   [ -d "$dest" ] || continue
 
-  # 这四处整个退役，所以指回本仓库的软链一条不留。别人放在同一个目录里的东西一律不碰。
+  # 这四处整个 retired，所以指回本仓库的软链一条不留。别人放在同一个目录里的东西一律不碰。
   retired=()
   while IFS= read -r stale; do
     [ -n "$stale" ] || continue
@@ -229,7 +228,7 @@ for dest in "${RETIRED_DIRS[@]}"; do
 
   if [ "$mode" = check ]; then
     if [ "${#retired[@]}" -gt 0 ]; then
-      echo "残留  ${dest} 还有 ${#retired[@]} 条上一代的技能软链，跑一次 install.sh 摘掉" >&2
+      echo "残留  ${dest} 是 retired 的位置，还有 ${#retired[@]} 条技能软链指回本仓库，跑一次 install.sh 摘掉" >&2
       rc=1
     fi
     continue
@@ -248,7 +247,7 @@ done
 AGENTS_SRC="$ROOT/agents"
 
 if [ -d "$AGENTS_SRC" ]; then
-  # 成品必须与源一致：装的时候先装配，查的时候只验不写。
+  # assembled subagent file 必须与源一致：装的时候先 assemble，查的时候只验不写。
   if [ "$mode" = check ]; then
     python3 "$AGENTS_SRC/assemble.py" --check || rc=1
   else
@@ -262,8 +261,8 @@ if [ -d "$AGENTS_SRC" ]; then
   done
   [ "${#agent_names[@]}" -gt 0 ] || die "agents/ 目录在，里面却一个 agent 都没有"
 
-  # 一行一个安装点：宿主根|目标目录|成品文件名|落地后缀。
-  # grok 一家两处：agents/ 放定义与模型，roles/ 放只读能力与推理力度。
+  # 一行一个安装点：host 根|目标目录|assembled subagent file 名|落地后缀。
+  # grok 一家两处：agents/ 放定义与 model，roles/ 放只读能力与 effort。
   agent_dests=(
     "$HOME_DIR/.claude|$HOME_DIR/.claude/agents|claude.md|.md"
     "${CODEX_HOME:-$HOME_DIR/.codex}|${CODEX_HOME:-$HOME_DIR/.codex}/agents|codex.toml|.toml"
@@ -325,9 +324,9 @@ if [ -d "$AGENTS_SRC" ]; then
   done
 fi
 
-# ---------------- Herdr 的 agent 检测规则 ----------------
+# ---------------- Herdr agent detection rule ----------------
 
-# Herdr 认一个 pane 里的 agent 在 idle 还是在等人回答，靠的是每家一份检测规则。
+# Herdr 认一个 pane 里的 agent 是 idle 还是 blocked，靠的是每家一份 agent detection rule。
 # 某家规则不准时，修法是放一份本地覆盖进这个目录——本地覆盖优先于远端，改完要让
 # 服务端重读一遍才生效。dispatch 技能带了覆盖才有东西可装，目录不在就整段跳过。
 
@@ -357,15 +356,15 @@ if [ -d "$DETECT_SRC" ]; then
 
   if [ "$mode" != check ] && [ "$HOME_DIR" = "$HOME" ] && command -v herdr >/dev/null 2>&1; then
     herdr server reload-agent-manifests >/dev/null 2>&1 \
-      && echo "已重读 Herdr 的 agent 检测规则" \
-      || echo "注意  Herdr 没在跑，检测规则下次起服务时才生效"
+      && echo "已重读 Herdr agent detection rule" \
+      || echo "注意  Herdr 没在跑，agent detection rule 下次起服务时才生效"
   fi
 fi
 
 # ---------------- hook ----------------
 
-# 技能和 subagent 是宿主去读的，hook 是宿主来调的，所以它要在每个宿主的配置里各有一条。
-# 四家写 JSON，pi 写一个扩展文件；五处都指向通用位置 ~/.agents/skills 下的 hook.py——
+# 技能和 subagent 是 host 去读的，hook 是 host 来调的，所以它要在每个 host 的配置里各有一条。
+# 四家写 JSON，pi 写一个扩展文件；五处都指向 ~/.agents/skills 下的 hook.py——
 # 那已经是指回仓库的软链，所以改 hook.py 不用重装。
 #
 # 合并而不是覆盖：这五处 Herdr 也各装了自己的东西。只认 command 里带 hook.py 的那一条，
@@ -392,11 +391,11 @@ home = Path(os.environ["MMW_HOME"])
 codex_home = Path(os.environ["MMW_CODEX"])
 pi_home = Path(os.environ["MMW_PI"])
 
-# 这道门只比对命令文本，不跑任何东西，所以给它宿主默认之下的一个短超时就够。
+# hook.py 只比对命令文本，不跑任何东西，所以给它 host 默认之下的一个短超时就够。
 TIMEOUT = 10
 
 PI_EXTENSION = """// installed by mmw-v2/install.sh
-// 这道门在 pi 这一侧的形状：pi 不读 JSON 配置，所以由这个扩展在 tool_call 上调
+// hook.py 在 pi 这一侧的形状：pi 不读 JSON 配置，所以由这个扩展在 tool_call 上调
 // 同一个 hook.py，再把它的答案翻回 pi 的说法。
 // @ts-nocheck
 
@@ -405,7 +404,7 @@ import { spawnSync } from "node:child_process";
 const HOOK = "%(hook)s";
 
 export default function (pi) {
-  // 没有派发脚本塞的这个标记就没有这道门，不必为每条命令付一个进程。
+  // 没有 dispatch.sh 塞的 MMW_TICKET 就不必调 hook.py，也就不必为每条命令付一个进程。
   if (!process.env.MMW_TICKET) return;
 
   pi.on("tool_call", async (event, ctx) => {
@@ -517,7 +516,7 @@ def extension(path):
     return install, installed
 
 
-# 一行一个安装点：宿主根、配置文件、事件名（给人看）、装与查两个动作。
+# 一行一个安装点：host 根、配置文件、事件名（只出现在输出里）、装与查两个动作。
 points = [
     (home / ".claude", home / ".claude/settings.json", "PreToolUse",
      grouped(home / ".claude/settings.json", "claude", "PreToolUse", "Bash")),
@@ -535,7 +534,7 @@ failed = False
 count = 0
 for host_home, path, event, (install, installed) in points:
     if not host_home.is_dir():
-        print(f"跳过  {host_home}（宿主没装）")
+        print(f"跳过  {host_home}（host 没装）")
         continue
     if mode == "check":
         if installed():
@@ -554,50 +553,53 @@ for host_home, path, event, (install, installed) in points:
     count += 1
 
 if mode != "check":
-    print(f"已装  {count} 处 hook -> {count} 个宿主")
+    print(f"已装  {count} 处 hook -> {count} 个 host")
     if codex_home.is_dir():
         # 2026-08-29 实测：写进 hooks.json 还不够。Codex 开场先弹「N hooks need review」，
-        # 人按一次 t 之前这道门是 Installed 而 Active 为 0。按下去记的是这条 hook 的哈希
+        # 按一次 t 之前这条 hook 是 Installed 而 Active 为 0。按下去记的是这条 hook 的哈希
         # （config.toml 的 [hooks.state]），所以 hook.py 的路径一变要再按一次。
-        print("注意  codex 里这道门要人按一次 t 才生效：下次开 codex 会看到"
+        print("注意  codex 里这条 hook 要按一次 t 才生效：下次开 codex 会看到"
               "「hooks need review」，按 t 信任")
 sys.exit(1 if failed else 0)
 PY
 fi
 
-# ---------------- Claude Code 的规则提醒 hook ----------------
+# ---------------- Claude Code 的两个 hook ----------------
 
-# hooks/rule-at-moment.py 只给 Claude Code 用：在每次读、写、派子代理、结果被宿主截断
-# 这几个时刻，把 ~/.claude/CLAUDE.md 里对应的那一条原文送到模型眼前。
-# 软链放在 ~/.claude/hooks/（Herdr 的几个 hook 也在那），settings.json 里三条都指向它；
-# 改脚本不用重装。合并法与上面一样：只认 command 里带 rule-at-moment.py 的条目。
+# hooks/rule-at-moment.py 与 hooks/vocab-lint.py 只给 Claude Code 用。前者在每次读、写、
+# 派子代理、结果被 host 截断这几个时刻，把 ~/.claude/CLAUDE.md 里对应的那一条原文送到模型
+# 眼前；后者在每次 Write / Edit 之后，用最近的 CONTEXT.md 的 `_Avoid_` 行查刚写的文件，
+# 把死词报给模型。软链放在 ~/.claude/hooks/（Herdr 的几个 hook 也在那），settings.json
+# 里的条目都指向软链；改脚本不用重装。合并法与上面一样：只认 command 里带脚本名的条目。
+#
+#   install_claude_hook <源脚本> <软链> '<事件与 matcher 的 JSON 列表>'
 
-RULES_HOOK_SRC="$ROOT/hooks/rule-at-moment.py"
-RULES_HOOK_LINK="$HOME_DIR/.claude/hooks/rule-at-moment.py"
-
-if [ -f "$RULES_HOOK_SRC" ] && [ -d "$HOME_DIR/.claude" ]; then
+install_claude_hook() {
+  local src="$1" link="$2" wanted="$3"
+  [ -f "$src" ] && [ -d "$HOME_DIR/.claude" ] || return 0
   hooks_ran=1
   if [ "$mode" = check ]; then
-    if [ ! -L "$RULES_HOOK_LINK" ] || [ "$(readlink "$RULES_HOOK_LINK")" != "$RULES_HOOK_SRC" ]; then
-      echo "缺    $RULES_HOOK_LINK" >&2
+    if [ ! -L "$link" ] || [ "$(readlink "$link")" != "$src" ]; then
+      echo "缺    $link" >&2
       rc=1
       hooks_rc=1
     fi
   else
-    mkdir -p "$(dirname "$RULES_HOOK_LINK")"
-    if [ -e "$RULES_HOOK_LINK" ] && [ ! -L "$RULES_HOOK_LINK" ]; then
-      echo "冲突  $RULES_HOOK_LINK 已存在且不是软链，跳过" >&2
+    mkdir -p "$(dirname "$link")"
+    if [ -e "$link" ] && [ ! -L "$link" ]; then
+      echo "冲突  $link 已存在且不是软链，跳过" >&2
       rc=1
       hooks_rc=1
     else
-      ln -sfn "$RULES_HOOK_SRC" "$RULES_HOOK_LINK"
-      echo "已装  $RULES_HOOK_LINK"
+      ln -sfn "$src" "$link"
+      echo "已装  $link"
     fi
   fi
 
   MMW_MODE="$mode" \
   MMW_SETTINGS="$HOME_DIR/.claude/settings.json" \
-  MMW_RULES_HOOK="$RULES_HOOK_LINK" \
+  MMW_HOOK_LINK="$link" \
+  MMW_WANTED="$wanted" \
   python3 - <<'PY' || { rc=1; hooks_rc=1; }
 import json
 import os
@@ -606,16 +608,11 @@ from pathlib import Path
 
 mode = os.environ["MMW_MODE"]
 path = Path(os.environ["MMW_SETTINGS"])
-command = f"python3 '{os.environ['MMW_RULES_HOOK']}'"
-MARK = "rule-at-moment.py"
+link = os.environ["MMW_HOOK_LINK"]
+command = f"python3 '{link}'"
+MARK = os.path.basename(link)
 TIMEOUT = 10
-
-# 事件 → matcher。PreToolUse 一条 matcher 管八个工具；其余两个事件不带 matcher。
-wanted = [
-    ("PreToolUse", "Read|Grep|WebFetch|Bash|Write|Edit|NotebookEdit|Agent"),
-    ("PostToolUse", None),
-    ("PostToolUseFailure", None),
-]
+wanted = [tuple(item) for item in json.loads(os.environ["MMW_WANTED"])]
 
 
 def load():
@@ -655,9 +652,9 @@ for event, matcher in wanted:
         ok = existing is not None and existing.get("command") == command \
             and (matcher is None or group.get("matcher") == matcher)
         if ok:
-            print(f"hook  {path}  {event}")
+            print(f"hook  {path}  {event}  {MARK}")
         else:
-            sys.stderr.write(f"缺    {path}  {event}\n")
+            sys.stderr.write(f"缺    {path}  {event}  {MARK}\n")
             failed = True
         continue
     handler = {"type": "command", "command": command, "timeout": TIMEOUT}
@@ -675,20 +672,26 @@ for event, matcher in wanted:
         hooks.setdefault(event, []).append(entry)
 if mode != "check":
     save(data)
-    # 写完当场回读：四条都在文件里认得出来，才算装上。
+    # 写完当场回读：每个事件都在文件里认得出来，才算装上。
     written = load().get("hooks") or {}
     for event, matcher in wanted:
         group, existing = find(written, event)
         if existing is not None and existing.get("command") == command \
                 and (matcher is None or group.get("matcher") == matcher):
             continue
-        sys.stderr.write(f"缺    {path}  {event}\n")
+        sys.stderr.write(f"缺    {path}  {event}  {MARK}\n")
         failed = True
     if not failed:
-        print(f"已装  {len(wanted)} 条 rule-at-moment hook -> {path}")
+        print(f"已装  {len(wanted)} 条 {MARK} hook -> {path}")
 sys.exit(1 if failed else 0)
 PY
-fi
+}
+
+# PreToolUse 一条 matcher 管八个工具；其余两个事件不带 matcher。
+install_claude_hook "$ROOT/hooks/rule-at-moment.py" "$HOME_DIR/.claude/hooks/rule-at-moment.py" \
+  '[["PreToolUse", "Read|Grep|WebFetch|Bash|Write|Edit|NotebookEdit|Agent"], ["PostToolUse", null], ["PostToolUseFailure", null]]'
+install_claude_hook "$ROOT/hooks/vocab-lint.py" "$HOME_DIR/.claude/hooks/vocab-lint.py" \
+  '[["PostToolUse", "Write|Edit"]]'
 
 if [ "$hooks_ran" -eq 1 ] && [ "$hooks_rc" -eq 0 ]; then
   echo "HOOKS-INSTALLED"
@@ -700,8 +703,8 @@ if [ "$mode" = check ]; then
   fi
 else
   echo
-  echo "源目录：${SKILLS_SRC}（上游）、${SELF_SRC}（自研）、${DD_SRC}（diagram-design 上游）"
-  echo "改技能直接改源目录里的文件，宿主下次调用就是新的。"
+  echo "source directory：${SKILLS_SRC}（mattpocock/skills）、${SELF_SRC}（自研）、${DD_SRC}（cathrynlavery/diagram-design）"
+  echo "改技能直接改 source directory 里的文件，host 下次调用就是新的。"
 fi
 
 exit "$rc"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The night board: one view of every ticket under a spec and every session on one.
+"""The board: one view of every ticket under a spec and every session on one.
 
     board.py --once [<spec>]        print one table and exit
     board.py [<spec>]               stay up, append one line per event
@@ -16,9 +16,9 @@ or `handoff`, redispatches one whose session is gone, and hands back the tickets
 reached a limit. Nothing it does needs a model, because the only thing it ever says to a
 worker is that worker's own dispatch line.
 
-What it does not do is dispatch. Moving the batch on is the main agent's: when the
-frontier grows, `--watch` tells `mmw-main` to run `dispatch.sh advance`, which merges
-the branches of the tickets that closed and then starts the ones that can start. Repair
+What it does not do is dispatch. `advance` is the main agent's: when the frontier
+grows, `--watch` tells `mmw-main` to run `dispatch.sh advance`, which merges the
+branches of the tickets that closed and then starts the ones that can start. Repair
 is the board's, the next step is the main agent's, and the line between them is that a
 repair puts a session that was already dispatched back on its feet.
 
@@ -26,7 +26,8 @@ One board covers one Herdr workspace. Sessions in another workspace belong to an
 board and are not read, not counted and not touched.
 
 The two sources are the tracker and Herdr, and nothing else. There is no state file:
-every round is a full re-read, so a dropped connection or a restart loses nothing.
+each of the board's rounds is a full re-read, so a dropped connection or a restart
+loses nothing.
 """
 
 from __future__ import annotations
@@ -53,8 +54,8 @@ SNAPSHOT_INTERVAL = 60          # seconds between full re-reads when no event ar
 
 # --------------------------------------------------------------------- vocabulary
 
-# The two `phase` values the closing gate writes. Every other value means the ticket
-# has not been through it.
+# The two `phase` values `verify-ticket.py --closeout` writes. Every other value means
+# the ticket has not been through it.
 CLOSED_OR_HANDOFF = ("closed", "handoff")
 
 # `done` is the same underlying idle state, after unseen background work finished.
@@ -131,7 +132,7 @@ def herdr_text(args: list[str]) -> str:
 
 
 def run_dispatch(number: int, kind: str) -> tuple[int, str, str]:
-    """`dispatch.sh <n> <kind>`: its exit code is a row of the table all by itself."""
+    """`dispatch.sh <n> <kind>`: its exit code alone says what happened."""
     run = subprocess.run(["bash", DISPATCH, str(number), kind],
                          capture_output=True, text=True)
     return run.returncode, (run.stdout or "").strip(), (run.stderr or "").strip()
@@ -191,7 +192,7 @@ def first_line(text: str) -> str:
 
 
 def last_first_line(ticket: dict) -> str:
-    """The first line of the ticket's newest comment: the pipeline's own status word."""
+    """The first line of the ticket's newest comment: the pipeline's protocol slot."""
     comments = ticket.get("comments") or []
     return first_line(comments[-1]) if comments else ""
 
@@ -414,8 +415,8 @@ def phase_of(ticket: dict, worker: dict | None) -> str:
 def idle_and_not_closed_or_handoff(worker: dict | None) -> bool:
     """`idle` or `done`, with a `phase` that is neither `closed` nor `handoff`.
 
-    Both halves are machine-read: the lifecycle state comes from Herdr, the phase from
-    the token the ticket script writes. Nothing on screen is consulted.
+    Both halves are machine-read: the `agent_status` comes from Herdr, the phase from
+    the token `verify-ticket.py` writes. Nothing on screen is consulted.
     """
     return bool(worker
                 and worker["status"] in IDLE_STATUSES
@@ -452,7 +453,7 @@ def note_of(ticket: dict, worker: dict | None) -> str:
 def frontier(rows: list[dict]) -> list[dict]:
     """The tickets that may be started right now, in ticket order.
 
-    Open, in the agent lane, every blocker closed, nobody has claimed it, and no live
+    Open, in the agent queue, every blocker closed, nobody has claimed it, and no live
     session already holds it. The last of those is what keeps a second round from
     starting a second worker on a ticket the first one is still doing.
     """
@@ -565,14 +566,15 @@ class Events:
 # and what a session gets after its question form is dismissed. One word, because the
 # session is alive and still holds everything it has read and written this run: it
 # carries on from where it stopped. Naming the skill and the ticket again would send it
-# back in at the skill's first step, and that step is a gate written for a worker that
-# has not started — a tree with this run's own uncommitted work in it is refused there.
+# back in at the skill's first step, and that step is `--preflight`, written for a worker
+# that has not started — a tree with this run's own uncommitted work in it is refused
+# there.
 CONTINUE_LINE = "continue"
 
 # --------------------------------------------------------------------- acting
 
 # Herdr is what recognises a question or approval form. This is only which key puts it
-# away, which every host spells its own way; anything else is sent `esc`.
+# away: grok has its own, and every other host takes `esc`.
 CLOSE_KEYS = {"grok": "shift+x", "cursor": "esc"}
 CLOSE_KEY_OTHERWISE = "esc"
 FORM_CHARS = 500                # enough of the form to read it in the morning
@@ -614,7 +616,7 @@ NIGHT_SUMMARY = "NIGHT SUMMARY {date}"
 
 
 class Watch:
-    """The night's one moving part: a full re-read, then the table of §4, then dispatch.
+    """The night's one moving part: a full re-read, then the wakeup loop, then dispatch.
 
     It holds no file. What it does keep between rounds is what only it can know — when
     a session was first seen settled, and when it may next be prompted — and losing
@@ -645,7 +647,7 @@ class Watch:
         self.opened = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         self.summary_written = False
 
-    # ------------------------------------------------------------- the round
+    # ------------------------------------------------------------- the board's round
 
     def run(self) -> int:
         events = Events()
@@ -698,7 +700,7 @@ class Watch:
         if worker["status"] == "working":
             self.settled_since.pop(worker["pane_id"], None)
 
-    # ------------------------------------------------------------- the rows of §4
+    # ------------------------------------------------------------- the wakeup loop
 
     def close_its_pane(self, row: dict) -> None:
         """`phase` is `closed` or `handoff`: the closing comment is already on the ticket.
@@ -706,8 +708,8 @@ class Watch:
         The pane goes, and with it the tab and the `issue-<n>` name. The reader is on
         GitHub, not in Herdr.
 
-        The row loses its worker at the same moment, so the place this session held is
-        free to the rest of this round rather than to the next one.
+        The row loses its worker at the same moment, so the rest of this round already
+        reads the ticket as having none, rather than the next round.
         """
         worker = row["worker"]
         say(f"#{row['ticket']}", worker["status"],
@@ -820,8 +822,7 @@ class Watch:
         """`unknown`, or the pane is gone, while the ticket is still open and unclosed.
 
         A ticket nobody ever claimed was never dispatched, so its missing pane is not a
-        session that died; the assignee the start-of-work guard sets is what tells the
-        two apart.
+        session that died; the assignee `--preflight` sets is what tells the two apart.
         """
         if row["state"] != "OPEN" or "ready-for-agent" not in row["labels"]:
             return False
@@ -864,7 +865,7 @@ class Watch:
     # ------------------------------------------------------------- prompting
 
     def send(self, row: dict, session: dict, text: str) -> None:
-        """Prompt one session, under the seven conditions such a prompt has to meet."""
+        """Prompt one session, under the conditions such a prompt has to meet."""
         worker = session
         if not os.environ.get("HERDR_PANE_ID"):
             say("board", "refuse", "no pane of my own, so I may not prompt anyone")
@@ -915,7 +916,8 @@ class Watch:
             herdr(["pane", "close", row["worker"]["pane_id"]])
             self.settled_since.pop(row["worker"]["pane_id"], None)
             self.held_since.pop(number, None)
-            # Same as at either exit: the place is free from here on, not next round.
+            # Same as at either exit: the row holds no worker from here on, not next
+            # round.
             row["worker"] = None
 
     # ------------------------------------------------------------- moving on
@@ -951,12 +953,12 @@ class Watch:
             self.for_main.append(line)
 
     def start(self, number: int) -> bool:
-        """Start one worker. Returns whether a session now occupies one of the places.
+        """Start one worker. Returns whether a session is now on this ticket.
 
-        Exit 1 means a session is up in that pane but was never told anything: it
-        occupies a place, and the next round finds it `idle` with no `phase` and sends
-        it its dispatch line. Exit 2 means the ticket did not qualify, so it simply is
-        not on this round's frontier and the next round asks the tracker again.
+        Exit 1 means a session is up in that pane but was never told anything: it holds
+        the ticket, and the next round finds it `idle` with no `phase` and sends it its
+        dispatch line. Exit 2 means the ticket did not qualify, so it simply is not on
+        this round's frontier and the next round asks the tracker again.
         """
         code, told, refused = run_dispatch(number, "worker")
         if code == 0:
@@ -973,7 +975,7 @@ class Watch:
     # ------------------------------------------------------------- the night's end
 
     def nothing_left(self, rows: list[dict]) -> bool:
-        """No open ticket in the agent lane, and no session of ours still alive."""
+        """No open ticket in the agent queue, and no session of ours still alive."""
         lane = [r for r in rows
                 if r["state"] == "OPEN" and "ready-for-agent" in r["labels"]]
         return not lane and not held(rows)
@@ -984,7 +986,7 @@ class Watch:
         say(f"#{self.spec}", "comment", first_line(body))
         self.summary_written = True
         # `advance` and not just a read: the tickets that closed last still have their
-        # branches sitting outside the main branch, and this is the last chance to merge
+        # branches sitting outside the base branch, and this is the last chance to merge
         # them. With nothing left on the frontier it dispatches nothing.
         self.for_main.append(ADVANCE_LINE.format(case="night over", spec=self.spec))
 
@@ -1044,7 +1046,7 @@ class Watch:
         return next((a for a in live_agents() if a.get("name") == main_name()), None)
 
 
-# --------------------------------------------------------------------- the forms
+# --------------------------------------------------------------- the command forms
 
 def collect(spec: int | None) -> tuple[list[dict], list[dict]]:
     """Everything one round needs: the rows, and the live sessions behind them."""
@@ -1065,10 +1067,10 @@ def advance_plan(spec: int) -> int:
         DISPATCH <ticket>   on the frontier, in ticket order
 
     The merge order is the order the tickets closed, which is already the order their
-    blockers imposed: the start-of-work guard refuses a ticket whose blocker is open, so
-    none of them can have closed before the ones it waited on.
+    blockers imposed: `--preflight` refuses a ticket whose blocker is open, so none of
+    them can have closed before the ones it waited on.
 
-    Whether a branch exists and whether it is already in the main branch are git's
+    Whether a branch exists and whether it is already in the base branch are git's
     questions, and git is not one of this program's two sources. `dispatch.sh` asks
     them, and skips what it finds already merged.
     """
@@ -1138,11 +1140,11 @@ def resident(spec: int | None) -> int:
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="board.py",
-        description="The night board over one spec's tickets and their sessions.")
+        description="The board over one spec's tickets and their sessions.")
     parser.add_argument("--once", action="store_true",
                         help="print one table and exit")
     parser.add_argument("--watch", action="store_true",
-                        help="stay up and act on what the table says")
+                        help="stay up and act on what it sees")
     parser.add_argument("--advance-plan", action="store_true",
                         help="print what `dispatch.sh advance` has to do, in order")
     parser.add_argument("--max-hours", type=int, default=MAX_HOURS,

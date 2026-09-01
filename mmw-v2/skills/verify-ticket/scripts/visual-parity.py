@@ -2,22 +2,22 @@
 # requires-python = ">=3.11"
 # dependencies = ["numpy>=2", "Pillow>=10", "playwright>=1.58"]
 # ///
-"""Compare a UI implementation against a Claude Design baseline, scene by scene.
+"""Compare an interface against the handoff package it was built from, scene by scene.
 
-The baseline is the Claude Design project downloaded into a leaf directory: the
-component's `.dc.html`, its `styles/`, `data/`, `support.js`, and a `scenes.json`
-listing every scene by name. This tool renders each named scene from that directory
-offline, opens the same scene on the implementation, and compares the two by ARIA tree
-and by pixels at two viewports.
+`--baseline` names the handoff package: the Claude Design project downloaded into a
+leaf directory, holding the component's `.dc.html`, its `styles/`, `data/`,
+`support.js`, and a `scenes.json` listing every scene by name. This tool renders each
+named scene from that directory offline, opens the same scene on the implementation,
+and compares the two by ARIA tree and by pixels at two viewports.
 
-How a non-default scene is rendered from the baseline
+How a non-default scene is rendered from the handoff package
 -----------------------------------------------------
 A scene in Claude Design is a prop on the component, set from the Tweaks panel, not a
 URL parameter. This tool writes one wrapper page per scene holding a single
-`<dc-import name="<component>" scenario="<scene>">`, and serves it from the baseline
-directory's own URL space (the runtime resolves a sibling component as
+`<dc-import name="<component>" scenario="<scene>">`, and serves it from the handoff
+package's own URL space (`support.js` resolves a sibling component as
 `./<name>.dc.html`). The wrapper pages exist only in the server's memory; no file in
-the baseline directory is read as anything but bytes to send.
+the handoff package is read as anything but bytes to send.
 
 Measured on 2026-08-30 against `prototypes/code-landing/fixture/baseline`: a hardcoded
 `scenario` attribute on `<dc-import>` does switch the component. Rendering
@@ -42,9 +42,10 @@ is compared where it already runs, by connecting to its debugging port:
 `--cdp` says which browser; `--impl` still says where to navigate, because a scene is
 reached by its query string. The application is left running afterwards. Only what its
 renderer draws is compared: the size of its operating-system window is not, so a window
-minimum is checked by a person, not here.
+minimum is checked by the user, not here.
 
-Exit 0 and one line `PARITY OK n/n` when every scene matches at every viewport.
+Exit 0 and one line `PARITY OK <passed>/<total>` when every scene matches at every
+viewport.
 Exit 1 with one `DIFF` line per failing pair, each followed by the ARIA tree lines
 that differ — the name of the button or the line of copy, as text, which is what a
 reader has to change. Exit 2 when the built-in negative control fails, in which case
@@ -52,7 +53,7 @@ no parity conclusion is printed at all.
 
 `--out` holds the screenshot, the ARIA tree, and the differing-pixel picture for
 every scene and viewport, for the differences an ARIA tree cannot carry: spacing,
-colour, alignment. Nothing reads them but a person, and only when the printed lines
+colour, alignment. Nothing reads them but the user, and only when the printed lines
 are not enough.
 """
 
@@ -76,18 +77,18 @@ from pathlib import Path
 # A pixel counts as identical while every channel is within this of the other image's.
 PIXEL_TOLERANCE = 16
 
-# What the Claude Design runtime wraps a component in that no product page has.
+# What `support.js` wraps a component in that no product page has.
 ARIA_NOISE = re.compile(r"^\s*- (generic|group)\s*$")
 LANDMARK_NAME = re.compile(
     r'^(\s*- (?:main|navigation|banner|contentinfo|region|complementary)) "[^"]*"(:?)\s*$'
 )
 
-# The three scripts the Claude Design runtime loads from unpkg. Answered from a local
-# cache so the baseline renders with no network.
+# The three scripts `support.js` loads from unpkg. Answered from a local cache so the
+# handoff package renders with no network.
 CDN_PREFIX = "https://unpkg.com/"
 
 DEFAULT_VIEWPORTS = "1440x900,1180x720"
-SETTLE_MS = 1000  # after networkidle, for the runtime's own readiness poll
+SETTLE_MS = 1000  # after networkidle, for `support.js`'s own readiness poll
 
 NEGATIVE_CONTROL_SCENE = "__negative_control__"
 NEGATIVE_CONTROL_CSS = (
@@ -105,7 +106,7 @@ NEGATIVE_CONTROL_JS = (
 
 # ---------------------------------------------------------------- ARIA
 def normalize_aria(text: str) -> list[str]:
-    """Drop what the runtime adds and what carries no structure.
+    """Drop what `support.js` adds and what carries no structure.
 
     1. blank lines and bare ``- generic`` / ``- group`` lines;
     2. the accessible name on landmark roles — a product page labels its ``<main>``,
@@ -252,8 +253,8 @@ def gate(control: Comparison, comparisons: list[Comparison], max_pct: float,
     """Exit code and the lines to print, in order.
 
     The negative control is constructed once, after every scene of the first viewport
-    has run, and its verdict is applied before any scene's: it is the only thing
-    reported when it fails, because a check that did not catch a scene known to be
+    has run, and its result is applied before any scene's: it is the only thing
+    reported when it fails, because a comparison that did not catch a scene known to be
     wrong says nothing about the scenes it passed.
     """
     control_reasons = failures(control, max_pct, console_limit)
@@ -479,12 +480,13 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="visual-parity.py",
         usage="visual-parity.py [options]",
-        description="Compare an implementation with a Claude Design baseline, "
+        description="Compare an interface with the handoff package it was built from, "
                     "scene by scene, by ARIA tree and by pixels.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument("--baseline", required=True, metavar="DIR",
-                   help="downloaded Claude Design leaf directory, holding scenes.json")
+                   help="the handoff package: a downloaded Claude Design leaf directory "
+                        "holding scenes.json")
     p.add_argument("--impl", required=True, metavar="URL",
                    help="the address the implementation is opened at, scene by scene")
     p.add_argument("--cdp", metavar="URL", default=None,
@@ -505,7 +507,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--console-errors", type=int, default=0, metavar="N",
                    help="how many console errors a page may log")
     p.add_argument("--cdn", metavar="DIR", default=None,
-                   help="cache for the runtime scripts, so a render needs no network")
+                   help="cache for the scripts `support.js` loads, so a render needs no "
+                        "network")
     return p
 
 
@@ -565,7 +568,7 @@ def run(args) -> int:
             browser = pw.chromium.launch()
             # The baseline is always rendered here. The implementation is either opened
             # here too, or it is an application already running that this connects to
-            # and leaves running: its window is the one the person will see.
+            # and leaves running: its window is the one the user will see.
             impl_browser = (pw.chromium.connect_over_cdp(args.cdp, timeout=10000)
                             if args.cdp else None)
             impl_page = (impl_page_over_cdp(impl_browser, args.impl_title)

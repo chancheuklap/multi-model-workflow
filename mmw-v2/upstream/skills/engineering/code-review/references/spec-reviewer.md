@@ -30,13 +30,13 @@ When the ticket has no `## Parent`, the ticket itself is the whole spec. When it
 
 ## 3. What you are looking for
 
-Three kinds of finding, each quoting the line of the ticket, the spec, or a baseline it comes from:
+Three kinds of review finding, each quoting the line of the ticket, the spec, or a baseline it comes from:
 
-- **Missing or partial**: something the ticket, the named spec section, or a baseline asked for that the diff does not do.
-- **Scope creep**: behaviour in the diff that neither asked for. `## Out of Scope` is the sharpest source here — something listed there and built anyway is the clearest form of this finding.
+- **Missing**: something the ticket, the named spec section, or a baseline asked for that the diff does not do, or does only in part.
+- **Scope creep**: behaviour in the diff that neither asked for. `## Out of Scope` is the sharpest source here — something listed there and built anyway is the clearest form of this review finding.
 - **Built wrong**: something that looks implemented but does not match what was asked — the wrong value, the wrong state name, the wrong order, the wrong error.
 
-Quote the requirement for each finding. A finding with no quoted line is your opinion about the design, which is not what this axis decides.
+Quote the requirement for each review finding. A review finding with no quoted line is your opinion about the design, which is not what this axis decides.
 
 ## 4. Report
 
@@ -44,6 +44,6 @@ Group by the three kinds. Under 400 words.
 
 ## What is not yours
 
-**The handoff package is the one baseline you do not open.** A ticket with UI acceptance criteria names a handoff package (`prototypes/<task>/<issue>/UI/`) in its `## Read first`, and whether the implementation matches it is decided by the `visual-parity` command a criterion runs: a pixel and ARIA comparison, not a reading. Do not open it, and do not report on how closely the UI follows it.
+**The handoff package is the one baseline you do not open.** A ticket with UI acceptance criteria names a handoff package (`prototypes/<task>/<issue>/UI/`) in its `## Read first`, and whether the implementation matches it is decided by the `visual-parity.py` command a criterion runs: a pixel and accessibility-tree comparison, not a reading. Do not open it, and do not report on how closely the UI follows it.
 
 How the code is written, and whether its tests are worth trusting, belong to two other reviewers running beside you. Leave their two questions alone.

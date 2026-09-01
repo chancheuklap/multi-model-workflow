@@ -1,10 +1,10 @@
 # Incremental update
 
-Branch: **incremental**. A scheduled run; the maintainer is not present. When you are done, a branch holds one commit that brings every `AGENTS.md` with code changes under it back in line with the code, and a report says what changed and what waits for the maintainer.
+Branch: **incremental**. A scheduled run; the user is not present. When you are done, a branch holds one commit that brings every `AGENTS.md` with code changes under it back in line with the code, and a report says what changed and what waits for the user.
 
 ## What stays untouched on this branch
 
-Some lines exist only because the maintainer said so: the identity lines at the top of the root file, the purpose line at the top of each nested file, and any convention or gotcha whose evidence in today's survey list is `maintainer` or absent. Those are **maintainer-owned**. On this branch you read them and leave them; when one looks stale, it goes into the report under **Pending maintainer decisions** with the evidence, and the line stays as it is.
+Some lines exist only because the user said so: the identity lines at the top of the root file, the purpose line at the top of each nested file, and any convention or gotcha whose evidence in today's survey list is `user` or absent. Those are **user-owned**. On this branch you read them and leave them; when one looks stale, it goes into the report under **Pending user decisions** with the evidence, and the line stays as it is.
 
 ## Set up
 

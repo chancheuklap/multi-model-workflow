@@ -1,10 +1,10 @@
 # Migrate
 
-Branch: **rewrite**. You have `inventory.md` (the old files, read in full), `inputs.md` (their commands and imports), and `survey-list.md`. Now every old line gets a destination: a section of the new format, the maintainer's questions, or the "what was removed" list. No line is lost without a reason written down.
+Branch: **rewrite**. You have `inventory.md` (the old files, read in full), `inputs.md` (their commands and imports), and `survey-list.md`. Now every old line gets a destination: a section of the new format, the user's questions, or the "what was removed" list. No line is lost without a reason written down.
 
 ## How to apply
 
-1. **Identify the project identity** — extract what the old files say about what this is. It becomes the recommended answer in [ask.md](ask.md), where the maintainer confirms or replaces it.
+1. **Identify the project identity** — extract what the old files say about what this is. It becomes the recommended answer in [ask.md](ask.md), where the user confirms or replaces it.
 2. **Extract the package manager and runtime** — condense to one or two lines.
 3. **Extract commands** — every command in the old file passes through the command rule in [write.md](write.md): one whose meaning the manifest's scripts or `--help` already give stays in `inputs.md`; every other one is kept.
 4. **Break apart rules** — split any list of rules into individual `<important if>` blocks with specific conditions. You can group rules, but never group unrelated rules under one broad condition. A rule every task needs stays bare, as a convention or a gotcha.
@@ -33,7 +33,7 @@ A nested file survives only on entries whose place is that directory.
 Keep two lists at the end of `destinations.md` as you go; the final report prints them:
 
 - **What was removed and why** — one line per removed rule or section with its reason, in the words of the list in [prune.md](prune.md); a linter-territory line carries the hook suggestion.
-- **What was NOT removed** — every kept command, and every rule that will stay only if the maintainer confirms it.
+- **What was NOT removed** — every kept command, and every rule that will stay only if the user confirms it.
 
 Done when, for every file in `inventory.md`, `wc -l` of the old file equals the number of `destinations.md` lines that start with its path, and every line with a section destination is an entry in `survey-list.md`.
 

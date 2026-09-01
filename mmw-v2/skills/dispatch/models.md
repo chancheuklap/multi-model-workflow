@@ -1,12 +1,12 @@
 # Models
 
-One row per `(agent, host)`. Every agent this pipeline sends out is here except the main agent — the session you started yourself. This is the only place any of their models are written down. The three code-review sub-agents (`Standards` / `Spec` / `Tests`) run inside the reviewer session on its host's default subagent model and are not rows here.
+One row per `(agent, host)`. Every agent this pipeline sends out is here except the main agent — the session you started yourself. This is the only place any of their models are written down. The three code-review subagents (`Standards` / `Spec` / `Tests`) run inside the reviewer session on its host's default subagent model and are not rows here.
 
-The agent names ending `-worker` are also the label a ticket carries to say which of them it gets, so renaming one of those rows renames a label on every ticket already asking for it. A ticket carrying no such label starts on `junior-worker`.
+The agent names ending `-worker` are the two worker grades, and each is also the label a ticket carries to say which of them it gets, so renaming one of those rows renames a label on every ticket already asking for it. A ticket carrying no such label starts on `junior-worker`.
 
-**Launch arguments** non-empty: the agent runs as its own Herdr session on the host column's host, and `{model}`, `{effort}` and `{n}` in the arguments are replaced with the row's model, the row's effort and the ticket number. `—`: the agent is a subagent, started inside the session that dispatches it; its per-host shell is built from this table by `mmw-v2/agents/assemble.py`. A host that burns the thinking level into the model name has `—` in the effort column.
+**Launch arguments** non-empty: the agent runs as its own Herdr session on the host column's host, and `{model}`, `{effort}` and `{n}` in the arguments are replaced with the row's model, the row's effort and the ticket number. `—`: the agent is a subagent, started inside the session that dispatches it; its per-host shell is assembled from these rows by `mmw-v2/agents/assemble.py`. A host that burns the `effort` into the model name has `—` in the effort column.
 
-**Before editing any row, read [`references/editing-models.md`](references/editing-models.md)**: how to confirm a model, a level or a host on this machine, and what to run afterwards so the change takes effect.
+**Before editing any row, read [`references/editing-models.md`](references/editing-models.md)**: how to confirm a model, an `effort` or a host on this machine, and what to run afterwards so the change takes effect.
 
 | agent | host | model | effort | launch arguments |
 | --- | --- | --- | --- | --- |

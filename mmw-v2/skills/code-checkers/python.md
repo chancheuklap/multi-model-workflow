@@ -54,7 +54,7 @@ search-path = ["src", "."]
 baseline = "pyrefly-baseline.json"
 ```
 
-**`search-path` is where most of a first run comes from.** pyrefly infers one import root from the project layout — typically `src`. Scripts that import each other by repo-relative path (`scripts.dev.common`) resolve against the repo root instead, and every one of those imports fails until the root is on the path. Fix this before reading a single error.
+**`search-path` is where most of a first run comes from.** pyrefly infers one import root from the project layout — typically `src`. Scripts that import each other by repo-relative path (`scripts.dev.common`) resolve against the repository root instead, and every one of those imports fails until the root is on the path. Fix this before reading a single error.
 
 **Dependencies absent by design.** A package behind an optional extra, or behind a `sys_platform` marker, is unresolvable on this machine and always will be. Say so, rather than leaving the errors:
 

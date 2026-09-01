@@ -4,7 +4,7 @@ All branches. The files are written. Now read each one you wrote or edited line 
 
 Only add information that will genuinely help future sessions. The context window is precious - every line must earn its place.
 
-On the **incremental** branch the maintainer-owned lines named in [incremental.md](incremental.md) are exempt: read them, leave them, and put a doubt about one into the report.
+On the **incremental** branch the user-owned lines named in [incremental.md](incremental.md) are exempt: read them, leave them, and put a doubt about one into the report.
 
 ## What NOT to Add
 

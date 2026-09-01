@@ -7,7 +7,7 @@ description: "Write documents that people can understand — context before deta
 
 Dense, esoteric technical concepts should be accessible to everyone — developers, IT admins, marketers, students, and hobbyists. A document an agent writes is read by a person first: if they cannot understand it, they cannot tell whether it is right.
 
-Apply this while writing, not afterwards. Then hand the finished document to the `claim-checker` agent before calling the work done.
+Apply this while writing, not afterwards. Then hand the finished document to the `claim-checker` subagent before calling the work done.
 
 ## Philosophy
 
@@ -119,7 +119,7 @@ When simplifying, do not merge two separate concepts into one sentence in a way 
 
 ## Quality checklist
 
-Before handing the document to the checker, verify:
+Before handing the document to `claim-checker`, verify:
 
 - [ ] Technical accuracy maintained
 - [ ] Jargon identified and explained
@@ -139,12 +139,12 @@ Before handing the document to the checker, verify:
 
 Once the document is written, launch the `claim-checker` subagent. Do not review the document yourself in the current session — the point is to eliminate confirmation bias by having a separate agent, with no access to your reasoning, evaluate the output cold. Do not skip this step.
 
-Give the checker:
+Give `claim-checker`:
 
 - the path of the document
 - the sources the document was built from — file paths, URLs, command output — so it can verify claims against them; anything you do not list, it searches the repository for
 - which parts are net new: explanations, analogies, "why" and "when" framing you added that the sources do not state
 
-The checker returns a claim table with each claim marked ✅ sourced, ❌ unsourced, or ⚠️ misleading, each with a severity. Do not present the table to the user. Fix every ❌ and ⚠️ in the document — remove the claim, add a source, or adjust the wording. If any of the findings you fixed was **critical** or **high**, show those rows to the user.
+`claim-checker` returns a claim table with each claim marked ✅ sourced, ❌ unsourced, or ⚠️ misleading, each with a severity. Do not present the table to the user. Fix every ❌ and ⚠️ in the document — remove the claim, add a source, or adjust the wording. If any of the findings you fixed was **critical** or **high**, show those rows to the user.
 
-The document is finished after the checker's findings are fixed.
+The document is finished after `claim-checker`'s findings are fixed.

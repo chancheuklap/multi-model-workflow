@@ -2,7 +2,7 @@
 
 An agent brief is the structured comment `/triage` posts on a GitHub issue or PR at the evaluation stage: what reproducing the claim produced, the root-cause leads the codebase turned up, what would have to be true for the request to be satisfied, and the outcome being recommended. It is the record of the investigation, kept on the issue so it outlives the session that did the work.
 
-Nothing is dispatched from a brief. An issue judged `ready-for-agent` goes into the ticket pipeline, where `/to-spec` reads the brief as one of the spec's sources and `/to-tickets` cuts the tickets an agent works from.
+Nothing is dispatched from an agent brief. An issue judged `ready-for-agent` goes into the ticket pipeline, where `/to-spec` reads the agent brief as one of the spec's sources and `/to-tickets` cuts the tickets an agent works from.
 
 A brief covers both surfaces: for an issue, the finding is about behaviour that is missing or broken; for a PR, it is about the state of the existing diff: what it already does, what is missing, what review raised. Same principles either way; the PR example below shows the difference.
 
@@ -36,7 +36,7 @@ A finding nobody can check is an opinion. Every brief states, concretely and tes
 
 ### Explicit scope boundaries
 
-State what is out of scope. It keeps the spec written from this brief on the request that was actually made, rather than the adjacent features it suggests.
+State what is out of scope. It keeps the spec written from this agent brief on the request that was actually made, rather than the adjacent features it suggests.
 
 ## Template
 

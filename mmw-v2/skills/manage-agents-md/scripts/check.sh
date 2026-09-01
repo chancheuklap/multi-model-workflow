@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Mechanical checks on a repository's AGENTS.md / CLAUDE.md files. Judges only what a
-# machine can: line count, bridge files, path references, tag balance, the
-# subdirectory sentence, leftover AGENTS.override.md. Content quality is the skill's job.
+# machine can: line count, the CLAUDE.md beside each AGENTS.md, path references,
+# tag balance, the subdirectory sentence, leftover AGENTS.override.md. Content
+# quality is the skill's job.
 #
 #   bash scripts/check.sh [repo-root]     # default: current directory
 #
@@ -49,7 +50,7 @@ while IFS= read -r agents; do
       || fail "$r: subdirectory sentence missing (tell agents to read a subdirectory's AGENTS.md before working there)"
   fi
 
-  # 2. Bridge: CLAUDE.md beside it, only @imports, one of them @AGENTS.md.
+  # 2. The CLAUDE.md beside it: only @imports, one of them @AGENTS.md.
   bridge="$dir/CLAUDE.md"
   br="$(rel "$bridge")"
   if [ ! -f "$bridge" ]; then

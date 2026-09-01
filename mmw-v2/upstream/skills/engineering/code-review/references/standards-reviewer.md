@@ -11,11 +11,11 @@ git diff <base-commit>...HEAD
 git log <base-commit>..HEAD --oneline
 ```
 
-## 2. Find the repo's documented standards
+## 2. Find the repository's documented standards
 
 Anything in the repository that says how code here should be written: `CODING_STANDARDS.md`, `CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md`, a `docs/` page on conventions, a `CONTEXT.md` naming the domain vocabulary. Read what you find before you read the diff a second time.
 
-Read `~/.agents/skills/codebase-design/SKILL.md` as well. It is not a repository standard but the vocabulary this project designs modules in — module, interface, depth, seam, adapter — and the depth criterion below is written in its words.
+Read `~/.agents/skills/codebase-design/SKILL.md` as well. It is not a repository standard but the vocabulary this repository designs modules in — module, interface, depth, seam, adapter — and the deletion test below is written in its words.
 
 ## 3. Match the diff against the standards and the smell baseline
 
@@ -23,14 +23,14 @@ The documented standards are the first source. On top of them you always carry t
 
 Two rules bind it:
 
-- **The repo overrides.** A documented standard always wins. Where it endorses something the baseline would flag, the baseline is silent.
-- **Always a judgement call.** Each smell is a labelled heuristic ("possible Feature Envy"), never a hard violation. A documented-standard breach can be hard; a baseline smell never is.
+- **The repository overrides.** A documented standard always wins. Where it endorses something the smell baseline would flag, the smell baseline is silent.
+- **Always a judgement call.** Each smell is a labelled heuristic ("possible Feature Envy"), never a hard violation. A documented-standard breach can be a hard violation; a smell from the smell baseline never is.
 
-Alongside the smells, ask of every hunk whether the criteria still pass with less: the hunk deleted, folded into a branch that already exists, or replaced by a helper the repository already has. Report it only when you can write the shorter form; a shorter form you cannot write is a preference, not a finding.
+Alongside the smells, ask of every hunk whether the acceptance criteria still pass with less: the hunk deleted, folded into a branch that already exists, or replaced by a helper the repository already has. Report it only when you can write the shorter form; a shorter form you cannot write is a preference, not a review finding.
 
-And run **the deletion test** on every module the diff adds or reshapes: imagine deleting the module. If complexity vanishes, it was a pass-through. If complexity reappears across N callers, it was earning its keep. A pass-through is a finding — name the module and the callers the complexity would reappear in. This is a judgement call like the smells, and the repo overrides it the same way.
+And run **the deletion test** on every module the diff adds or reshapes: imagine deleting the module. If complexity vanishes, it was a pass-through. If complexity reappears across N callers, it was earning its keep. A pass-through is a review finding — name the module and the callers the complexity would reappear in. This is a judgement call like the smells, and the repository overrides it the same way.
 
-Skip anything tooling already enforces — a linter's job is not a reviewer's.
+Skip anything tooling already enforces — a linter's job is not yours.
 
 Each smell reads *what it is* → *how to fix*:
 
@@ -52,11 +52,11 @@ Each smell reads *what it is* → *how to fix*:
 Per file and hunk where it helps:
 
 - Every place the diff breaks a documented standard: cite the standard by file and by the rule it states.
-- Every baseline smell you spot: name it and quote the hunk.
+- Every smell from the smell baseline you spot: name it and quote the hunk.
 - Every hunk that passes with less: quote the hunk and the shorter form.
 - Every module the deletion test calls a pass-through: name it and the callers that would carry the complexity back.
 
-Mark each finding as a hard violation or a judgement call. Under 400 words.
+Mark each review finding as a hard violation or a judgement call. Under 400 words.
 
 ## What is not yours
 

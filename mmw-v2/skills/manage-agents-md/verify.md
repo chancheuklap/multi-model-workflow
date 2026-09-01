@@ -18,7 +18,7 @@ Verify exact paths and commands exist. The script covers paths. Commands you ver
 
 The report goes into the conversation (or the scheduled run's output), never into a file in the repository.
 
-**create** — the files written with their line counts, and the maintainer answers that became lines. Then **Defects found**: every survey entry of type defect, one line each with its evidence.
+**create** — the files written with their line counts, and the user's answers that became lines. Then **Defects found**: every survey entry of type defect, one line each with its evidence.
 
 **rewrite** — the two lists from the end of `destinations.md`, then **Defects found** as above:
 
@@ -28,7 +28,7 @@ What was removed and why:
 
 What was NOT removed:
 - All commands kept (<count>)
-- <rule kept on the maintainer's confirmation>
+- <rule kept on the user's confirmation>
 ```
 
 **incremental** — first commit every edited file on the branch with the message `agents-md: incremental update <YYYY-MM-DD>`. Then one block per changed file, from `changes.md`:
@@ -44,6 +44,6 @@ What was NOT removed:
 ```
 ```
 
-followed by **Pending maintainer decisions**: one line per maintainer-owned line that looks stale, per empty pair, and per new pair awaiting its purpose line — each with the file, the line, and the code evidence. The maintainer merges the branch after reading.
+followed by **Pending user decisions**: one line per user-owned line that looks stale, per empty pair, and per new pair awaiting its purpose line — each with the file, the line, and the code evidence. The user merges the branch after reading.
 
 Done when `check.sh` prints `ok`, every command in every file you wrote or edited has been verified, and the report is written. On the incremental branch, done also requires the one commit on the branch.

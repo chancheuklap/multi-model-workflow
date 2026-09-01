@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""按 models.md + agent.json + body.md 装配每个宿主的 agent 文件，写进 agents/<名>/out/。
+"""按 models.md + agent.json + body.md 为每个 host assemble 出 agent 文件，写进 agents/<名>/out/。
 
 一个 agent 一个目录：agents/<名>/ 里放 body.md（提示词正文，单一来源）和
-agent.json（name、description、sandbox、五宿主各自的工具）。模型与思考强度不在这里，
-在 skills/dispatch/models.md 那张表里——每一个被派出去的 agent 的模型只有那一处，用户
-只开那一个文件。这里只做格式转换，五个宿主的文件格式是结构差异，属于代码，不属于配置：
+agent.json（name、description、sandbox、五个 host 各自的工具）。model 与 effort 不在这里，
+在 skills/dispatch/models.md 里——每一个被派出去的 agent 的 model 只有那一处，user
+只开那一个文件。这里只做格式转换，五个 host 的文件格式是结构差异，属于代码，不属于配置：
 
   claude   -> out/claude.md       frontmatter: name/description/model/effort/tools
   cursor   -> out/cursor.md       frontmatter: name/description/model/readonly
@@ -18,7 +18,7 @@ read-only。写 workspace-write 的 agent 才跑得起会写文件的命令—�
 agent。Claude 与 pi 不看这个键，它们靠各自 hosts 里的 tools 列表放行。
 
 用法：
-  assemble.py            装配（有变化才写）
+  assemble.py            assemble（有变化才写）
   assemble.py --check    只比对 out/ 是否与源一致。齐了回 0，不齐回 1
 """
 
@@ -36,14 +36,14 @@ def q(s: str) -> str:
 
 
 def read_models() -> dict[tuple[str, str], tuple[str, str]]:
-    """models.md 那张表，取成 (agent 名, 宿主) -> (模型, 思考强度)。
+    """models.md 那张表，取成 (agent 名, host) -> (model, effort)。
 
-    表里一行一个 (agent, 宿主)，五列 agent | host | model | effort | launch arguments。
-    启动命令那一列非空的三行是经 Herdr 起的会话角色，它们的配置由 dispatch.sh 在派发
-    那一刻现读，与本脚本无关；这里只取启动参数为 — 的那些行，也就是 subagent。
+    表里一行一个 (agent, host)，五列 agent | host | model | effort | launch arguments。
+    launch arguments 非空的三行是经 Herdr 起的 session，它们的配置由 dispatch.sh 在
+    dispatch 那一刻现读，与本脚本无关；这里只取 launch arguments 为 — 的那些行，也就是 subagent。
     """
     if not MODELS.is_file():
-        raise ValueError(f"缺模型表：{MODELS}")
+        raise ValueError(f"缺 models.md：{MODELS}")
     table: dict[tuple[str, str], tuple[str, str]] = {}
     for line in MODELS.read_text(encoding="utf-8").splitlines():
         if not line.lstrip().startswith("|"):
@@ -73,13 +73,13 @@ def render(agent_dir: Path, table: dict[tuple[str, str], tuple[str, str]]) -> di
 
     missing = {"claude", "cursor", "codex", "grok", "pi"} - hosts.keys()
     if missing:
-        raise ValueError(f"{agent_dir.name}: agent.json 缺宿主 {sorted(missing)}")
+        raise ValueError(f"{agent_dir.name}: agent.json 缺 host {sorted(missing)}")
 
     unlisted = [h for h in hosts if (name, h) not in table]
     if unlisted:
         raise ValueError(
             f"{agent_dir.name}: {MODELS} 里没有 {name} 在 {sorted(unlisted)} 上的行，"
-            f"模型与思考强度只从那张表读")
+            f"model 与 effort 只从 models.md 读")
 
     def model(host: str) -> str:
         return table[(name, host)][0]
@@ -108,7 +108,7 @@ def render(agent_dir: Path, table: dict[tuple[str, str], tuple[str, str]]) -> di
         "tools": h["tools"],
     }) + body
 
-    # Cursor 把思考强度烧进模型名（cursor-grok-4.6-high 是一个名字），effort 列为 —；
+    # Cursor 把 effort 烧进模型名（cursor-grok-4.6-high 是一个名字），effort 列为 —；
     # 只有参数化模型才接受 [effort=…] 括号覆盖，那时 effort 列才有值。
     cursor_model = model("cursor")
     if effort("cursor") not in ("—", "-", ""):
@@ -172,13 +172,13 @@ def main() -> int:
             if have == want:
                 continue
             if check:
-                print(f"过期  {path}（改了源之后没重新装配）", file=sys.stderr)
+                print(f"过期  {path}（改了源之后没重新跑 assemble.py）", file=sys.stderr)
                 rc = 1
             else:
                 out_dir.mkdir(exist_ok=True)
                 path.write_text(want, encoding="utf-8")
                 print(f"装配  {path}")
-        # out/ 里多出来的孤儿也要报：宿主软链可能还指着它。
+        # out/ 里多出来的孤儿也要报：host 那边的软链可能还指着它。
         if out_dir.is_dir():
             for stray in sorted(out_dir.iterdir()):
                 if stray.name not in rendered:
