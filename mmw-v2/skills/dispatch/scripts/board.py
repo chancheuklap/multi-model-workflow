@@ -29,14 +29,18 @@ The two sources are the tracker and Herdr, and nothing else. There is no state f
 each of the board's rounds is a full re-read, so a dropped connection or a restart
 loses nothing.
 
-Herdr reads a session's state off its screen and its terminal titles, so `idle` and
-`unknown` both arrive while a session is running: `idle` while a host redraws between
-turns, `unknown` while Herdr has no reading yet. Every action the board takes on one of
-those has to survive being wrong about it, and the two costly ones do not act on a
-single reading — a session goes back on its dispatch line only after `COOLDOWN_SECONDS`
-of settled, and is called dead only once its pane says so or `UNREADABLE_GRACE` has
-passed. A snapshot Herdr will not answer is not a workspace with no sessions in it, so
-it ends the round instead of emptying it.
+Herdr reads a session's state off its screen and its terminal titles, so `idle`, `done`
+and `unknown` all arrive while a session is running — a host between turns stops drawing
+the chrome those readings come from. They are the same thing to this board: a worker
+that stopped, most often on a network error partway through a turn, and what gets it
+going again is `continue`. It waits `COOLDOWN_SECONDS` for the state to hold before
+sending one, so a gap between turns costs nothing.
+
+What the board never reads into any of them is a session that ended. The hosts in
+`models.md` do not exit partway through a ticket, so a session Herdr lists is a session
+to prompt, and only a ticket whose session Herdr stops listing for `ABSENT_GRACE` is
+started again. A snapshot Herdr will not answer is not a workspace with no sessions in
+it either, so it ends the round instead of emptying it.
 """
 
 from __future__ import annotations
@@ -60,7 +64,7 @@ WAKE_LIMIT = 3                  # prompts per session before the ticket goes bac
 REDISPATCH_LIMIT = 1            # times one ticket is started again after a session dies
 MAX_HOURS = 4                   # hours one ticket may hold a session
 SNAPSHOT_INTERVAL = 60          # seconds between full re-reads when no event arrives
-UNREADABLE_GRACE = 120          # seconds a session may be unreadable before it is gone
+ABSENT_GRACE = 120              # seconds a ticket's session may be missing before it is gone
 
 # --------------------------------------------------------------------- vocabulary
 
@@ -70,6 +74,14 @@ CLOSED_OR_HANDOFF = ("closed", "handoff")
 
 # `done` is the same underlying idle state, after unseen background work finished.
 IDLE_STATUSES = ("idle", "done")
+
+# What a session that is not observably working looks like from Herdr. `unknown` is in
+# here because it is a reading Herdr does not have, not a session that ended: hosts stop
+# drawing the chrome Herdr reads while they are between turns and for the first seconds
+# after they start. A worker in any of these is one that stopped — most often on a
+# network error partway through a turn — and what it takes to carry on is its own
+# dispatch line, so all three lead to the same wait and the same `continue`.
+STOPPED_STATUSES = IDLE_STATUSES + ("unknown",)
 
 TOKEN_TTL_MS = 86400000         # a day, so a night's run never outlives its metadata
 
@@ -180,27 +192,6 @@ def live_agents() -> list[dict]:
     if not isinstance(snapshot, dict):
         raise RuntimeError("herdr api snapshot: no snapshot in the answer")
     return snapshot.get("agents") or []
-
-
-def pane_holds_a_process(pane_id: str) -> bool | None:
-    """Whether something other than the pane's own shell holds its foreground.
-
-    An agent that exited leaves the shell in the foreground of its own process
-    group, so `foreground_process_group_id` equals `shell_pid`. While the agent
-    runs — including while it waits on a model, and while a command it started
-    occupies the terminal — the two differ. This is what the pane can be asked
-    directly, rather than inferred from what its screen happens to be drawing.
-
-    None when Herdr could not say, which is not evidence either way.
-    """
-    process = unwrap(herdr(["pane", "process-info", "--pane", pane_id])).get("process_info")
-    if not isinstance(process, dict):
-        return None
-    foreground = process.get("foreground_process_group_id")
-    shell = process.get("shell_pid")
-    if not isinstance(foreground, int) or not isinstance(shell, int):
-        return None
-    return foreground != shell
 
 
 def sub_issues(spec: int) -> list[int]:
@@ -482,7 +473,7 @@ def idle_and_not_closed_or_handoff(worker: dict | None) -> bool:
     the token `verify-ticket.py` writes. Nothing on screen is consulted.
     """
     return bool(worker
-                and worker["status"] in IDLE_STATUSES
+                and worker["status"] in STOPPED_STATUSES
                 and worker["phase"] not in CLOSED_OR_HANDOFF)
 
 
@@ -492,9 +483,7 @@ def note_of(ticket: dict, worker: dict | None) -> str:
     if worker:
         if worker["status"] == "blocked":
             return "BLOCKED: commented, form dismissed"
-        if worker["status"] == "unknown":
-            return "unknown"
-        if worker["status"] in IDLE_STATUSES:
+        if worker["status"] in STOPPED_STATUSES:
             if worker["phase"] in CLOSED_OR_HANDOFF:
                 return head[:60]
             if worker["wake"]:
@@ -694,12 +683,10 @@ class Watch:
         self.held_since: dict[int, float] = {}
         self.wakes: dict[str, int] = {}
         self.handed_back: set[int] = set()
-        # When a ticket's session first became unreadable, and the pane it was last
-        # seen in. Herdr answers `unknown` while it has no reading yet, and leaves a
-        # session out of the snapshot for a moment after it starts, so neither is
-        # evidence on its own that the session died.
-        self.unreadable_since: dict[int, float] = {}
-        self.pane_of: dict[int, str] = {}
+        # When a ticket was first seen without a session of ours. Herdr lists a session
+        # a second or so after `agent start`, so one round without it is not evidence
+        # that it ended.
+        self.absent_since: dict[int, float] = {}
         # Panes of reviewers that used up their dismissals, so the line saying so is
         # written once instead of every time the backoff elapses.
         self.reviewers_spent: set[str] = set()
@@ -760,7 +747,7 @@ class Watch:
         if worker["status"] == "blocked":
             self.at_a_form(row, worker)
             return
-        if worker["status"] in IDLE_STATUSES:
+        if worker["status"] in STOPPED_STATUSES:
             if worker["phase"] in CLOSED_OR_HANDOFF:
                 self.close_its_pane(row)
             else:
@@ -786,8 +773,7 @@ class Watch:
         herdr(["pane", "close", worker["pane_id"]])
         self.settled_since.pop(worker["pane_id"], None)
         self.held_since.pop(row["ticket"], None)
-        self.unreadable_since.pop(row["ticket"], None)
-        self.pane_of.pop(row["ticket"], None)
+        self.absent_since.pop(row["ticket"], None)
         row["worker"] = None
 
     def prompts_so_far(self, worker: dict) -> int:
@@ -890,55 +876,39 @@ class Watch:
     # ------------------------------------------------------------- the session is gone
 
     def gone(self, row: dict) -> bool:
-        """The session on this ticket has ended, while the ticket is open and unclosed.
+        """Herdr lists no session of ours on this ticket, while the ticket is open.
 
-        A ticket nobody ever claimed was never dispatched, so its missing pane is not a
-        session that died; the assignee `--preflight` sets is what tells the two apart.
+        A ticket nobody ever claimed was never dispatched, so its missing session is
+        not one that died; the assignee `--preflight` sets is what tells the two apart.
 
-        Two things look identical from the tracker and cost the ticket its night if
-        confused: a session that ended, and a session Herdr cannot read. Herdr reads a
-        session's state off its screen and its terminal titles, and answers `unknown`
-        while it has no reading — measured on this pipeline's hosts, for the first few
-        seconds after a session starts, and again while one redraws between turns. So
-        the pane is asked directly, and a pane that still holds a process is a session
-        that is running whatever its screen says. Only when the pane cannot be asked
-        does this fall back to waiting `UNREADABLE_GRACE` for a reading to come back.
+        A session Herdr does list is never gone, whatever state it is in. The hosts in
+        `models.md` do not exit partway through a ticket: they stop, on a network error
+        or between turns, and a stopped session is the `re_prompt` path's — a new
+        session is neither needed nor wanted, and `REDISPATCH_LIMIT` is one, so calling
+        a stopped session dead spends the ticket's whole allowance on nothing.
+
+        A session missing from one snapshot is not gone either: Herdr lists a session a
+        second or so after `agent start`, and the round in between sees none. So a
+        ticket has to be missing its session for `ABSENT_GRACE` before it counts.
         """
         if row["state"] != "OPEN" or "ready-for-agent" not in row["labels"]:
             return False
         if row["closing_comment"] or row["ticket"] in self.handed_back:
             return False
         worker = row["worker"]
-        ours = worker if worker and worker["dispatched"] else None
-        if ours:
-            self.pane_of[row["ticket"]] = ours["pane_id"]
-            if ours["status"] != "unknown":
-                self.unreadable_since.pop(row["ticket"], None)
-                return False
-        elif not row["assignees"]:
-            self.unreadable_since.pop(row["ticket"], None)
+        if (worker and worker["dispatched"]) or not row["assignees"]:
+            self.absent_since.pop(row["ticket"], None)
             return False
-        return self.unreadable_long_enough(row)
+        return self.absent_long_enough(row["ticket"])
 
-    def unreadable_long_enough(self, row: dict) -> bool:
-        """Whether a session nobody can read a state for has really ended."""
-        number = row["ticket"]
-        pane = self.pane_of.get(number)
-        holds = pane_holds_a_process(pane) if pane else None
-        if holds is True:
-            self.unreadable_since.pop(number, None)
-            return False
-        if holds is False:
-            self.unreadable_since.pop(number, None)
-            say(f"#{number}", "ended", f"pane {pane} is back to its own shell")
-            return True
-        first_seen = self.unreadable_since.get(number)
+    def absent_long_enough(self, number: int) -> bool:
+        """Whether a ticket has been without a session of ours for long enough."""
+        first_seen = self.absent_since.get(number)
         if first_seen is None:
-            self.unreadable_since[number] = time.monotonic()
-            say(f"#{number}", "unreadable",
-                f"no state from Herdr; waiting {UNREADABLE_GRACE}s")
+            self.absent_since[number] = time.monotonic()
+            say(f"#{number}", "absent", f"no session of ours; waiting {ABSENT_GRACE}s")
             return False
-        return time.monotonic() - first_seen >= UNREADABLE_GRACE
+        return time.monotonic() - first_seen >= ABSENT_GRACE
 
     def redispatch(self, row: dict) -> None:
         number, worker = row["ticket"], row["worker"]
@@ -964,8 +934,7 @@ class Watch:
             self.settled_since.pop(worker["pane_id"], None)
             self.wakes.pop(worker["pane_id"], None)
         self.held_since.pop(number, None)
-        self.unreadable_since.pop(number, None)
-        self.pane_of.pop(number, None)
+        self.absent_since.pop(number, None)
         # The comment is what the next round counts the allowance off, so it goes on
         # the ticket only once a session is actually on it. A start that refused has
         # spent nothing, and the next round is free to try again.
@@ -992,7 +961,7 @@ class Watch:
         if fresh.get("focused"):
             say(f"#{row['ticket']}", "hold", "its pane is focused")
             return
-        if status not in IDLE_STATUSES:
+        if status not in STOPPED_STATUSES:
             say(f"#{row['ticket']}", "hold", f"it is {status} again")
             self.settled_since.pop(worker["pane_id"], None)
             return
@@ -1024,8 +993,7 @@ class Watch:
         gh(["issue", "edit", str(number),
             "--remove-label", "ready-for-agent", "--add-label", "needs-triage"])
         say(f"#{number}", "label", "needs-triage")
-        self.unreadable_since.pop(number, None)
-        self.pane_of.pop(number, None)
+        self.absent_since.pop(number, None)
         if close_pane and row["worker"]:
             herdr(["pane", "close", row["worker"]["pane_id"]])
             self.settled_since.pop(row["worker"]["pane_id"], None)

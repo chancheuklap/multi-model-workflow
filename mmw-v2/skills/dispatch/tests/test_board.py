@@ -349,10 +349,6 @@ class Table4(unittest.TestCase):
         self.main = [agent(board.main_name(), "w1:pMain", "idle")]
         self.tickets = {}
         self.rows = []
-        # pane id -> True (a process holds it), False (its own shell does), or absent
-        # (Herdr would not say). What `gone` asks the pane before calling a session
-        # dead, since a state Herdr cannot read is not a session that ended.
-        self.pane_holds = {}
 
         def fake_herdr(args):
             self.calls["herdr"].append(list(args))
@@ -365,14 +361,6 @@ class Table4(unittest.TestCase):
                 pane = args[2]
                 agent_ = next((a for a in self.agents if a["pane_id"] == pane), {})
                 return {"result": {"agent": agent_}}
-            if args[:2] == ["pane", "process-info"]:
-                holds = self.pane_holds.get(args[3])
-                if holds is None:
-                    return {"result": {}}
-                # An agent that exited leaves the shell as its own foreground group.
-                return {"result": {"process_info": {
-                    "shell_pid": 100,
-                    "foreground_process_group_id": 200 if holds else 100}}}
             return {"result": {}}
 
         def fake_gh(args):
@@ -761,41 +749,19 @@ class Table4(unittest.TestCase):
 
     # ------------------------------------------------------------- the session is gone
 
-    def test_a_pane_back_to_its_own_shell_is_redispatched_and_says_so_on_the_ticket(self):
-        self.pane_holds["w1:p1"] = False
-        self.world([agent("issue-61", "w1:p1", "unknown", ticket=61, kind="worker",
-                          phase="selfcheck")], {61: ticket(61, assignees=("me",))})
-        self.round(self.watch())
-        comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
-        self.assertEqual(
-            comment[-1],
-            "REDISPATCHED: session issue-61 ended at phase=selfcheck; started again")
-        self.assertIn(["pane", "close", "w1:p1"], self.calls["herdr"])
-        self.assertEqual(self.calls["dispatch"], [(61, "worker")])
-
-    def test_a_pane_that_still_holds_a_process_is_a_session_that_is_running(self):
-        """`unknown` is a state Herdr has not read, not a session that ended."""
-        self.pane_holds["w1:p1"] = True
+    def test_a_session_herdr_has_no_reading_for_is_told_to_continue_not_replaced(self):
+        """`unknown` is a worker that stopped, and what it takes is its dispatch line."""
         self.world([agent("issue-61", "w1:p1", "unknown", ticket=61, kind="worker",
                           phase="selfcheck")], {61: ticket(61, assignees=("me",))})
         watch = self.watch()
         self.round(watch)
-        self.clock.tick(board.UNREADABLE_GRACE * 10)
+        self.clock.tick(board.COOLDOWN_SECONDS)
         self.round(watch)
+        self.assertEqual(self.calls["prompt"], [("w1:p1", "continue")])
         self.assertEqual(self.calls["dispatch"], [])
         self.assertEqual([c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"]], [])
 
-    def test_a_pane_nobody_can_read_is_given_the_grace_before_it_counts_as_ended(self):
-        self.world([agent("issue-61", "w1:p1", "unknown", ticket=61, kind="worker",
-                          phase="selfcheck")], {61: ticket(61, assignees=("me",))})
-        watch = self.watch()
-        self.round(watch)
-        self.assertEqual(self.calls["dispatch"], [])
-        self.clock.tick(board.UNREADABLE_GRACE)
-        self.round(watch)
-        self.assertEqual(self.calls["dispatch"], [(61, "worker")])
-
-    def test_a_session_that_comes_back_before_the_grace_is_out_keeps_its_ticket(self):
+    def test_a_session_that_comes_back_inside_the_cooldown_is_left_alone(self):
         agents = [agent("issue-61", "w1:p1", "unknown", ticket=61, kind="worker",
                         phase="selfcheck")]
         self.world(agents, {61: ticket(61, assignees=("me",))})
@@ -804,22 +770,34 @@ class Table4(unittest.TestCase):
         agents[0]["agent_status"] = "working"
         self.world(agents, {61: ticket(61, assignees=("me",))})
         self.round(watch)
-        self.clock.tick(board.UNREADABLE_GRACE * 10)
-        agents[0]["agent_status"] = "unknown"
-        self.world(agents, {61: ticket(61, assignees=("me",))})
-        self.round(watch)
+        self.clock.tick(board.COOLDOWN_SECONDS * 10)
+        self.assertEqual(self.calls["prompt"], [])
         self.assertEqual(self.calls["dispatch"], [])
 
-    def test_a_claimed_ticket_whose_pane_is_gone_is_redispatched_after_the_grace(self):
+    def test_a_claimed_ticket_with_no_session_at_all_is_redispatched_after_the_grace(self):
         self.world([], {61: ticket(61, assignees=("me",))})
         watch = self.watch()
         self.round(watch)
         self.assertEqual(self.calls["dispatch"], [])
-        self.clock.tick(board.UNREADABLE_GRACE)
+        self.clock.tick(board.ABSENT_GRACE)
         self.round(watch)
         self.assertEqual(self.calls["dispatch"], [(61, "worker")])
         comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
         self.assertIn("ended at phase=unknown", comment[-1])
+
+    def test_a_session_listed_again_inside_the_grace_keeps_its_ticket(self):
+        """Herdr lists a session a moment after `agent start`; the round in between
+        sees none, and that is not a session that ended."""
+        watch = self.watch()
+        self.world([], {61: ticket(61, assignees=("me",))})
+        self.round(watch)
+        self.world([agent("issue-61", "w1:p1", "working", ticket=61, kind="worker")],
+                   {61: ticket(61, assignees=("me",))})
+        self.round(watch)
+        self.clock.tick(board.ABSENT_GRACE * 10)
+        self.world([], {61: ticket(61, assignees=("me",))})
+        self.round(watch)
+        self.assertEqual(self.calls["dispatch"], [])
 
     def test_a_ticket_nobody_claimed_is_not_a_session_that_died(self):
         """No assignee means it was never started, so it goes to the frontier."""
@@ -838,14 +816,14 @@ class Table4(unittest.TestCase):
                 self.assertEqual(self.calls["dispatch"], [])
 
     def test_a_second_death_hands_the_ticket_back_instead(self):
-        self.pane_holds["w1:p1"] = False
-        self.world([agent("issue-61", "w1:p1", "unknown", ticket=61, kind="worker",
-                          phase="verify")],
-                   {61: ticket(61, assignees=("me",),
-                               comments=["REDISPATCHED: session issue-61 ended at "
-                                         "phase=selfcheck; started again as "
-                                         "junior-worker"])})
-        self.round(self.watch())
+        self.world([], {61: ticket(61, assignees=("me",),
+                                   comments=["REDISPATCHED: session issue-61 ended at "
+                                             "phase=selfcheck; started again as "
+                                             "junior-worker"])})
+        watch = self.watch()
+        self.round(watch)
+        self.clock.tick(board.ABSENT_GRACE)
+        self.round(watch)
         self.assertEqual(self.calls["dispatch"], [])
         comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
         self.assertTrue(comment[-1].startswith("REDISPATCHED:"))
@@ -862,10 +840,11 @@ class Table4(unittest.TestCase):
         next round counts is written only once a session is on the ticket.
         """
         self.dispatch_code = 2
-        self.pane_holds["w1:p1"] = False
-        self.world([agent("issue-61", "w1:p1", "unknown", ticket=61, kind="worker",
-                          phase="selfcheck")], {61: ticket(61, assignees=("me",))})
-        self.round(self.watch())
+        self.world([], {61: ticket(61, assignees=("me",))})
+        watch = self.watch()
+        self.round(watch)
+        self.clock.tick(board.ABSENT_GRACE)
+        self.round(watch)
         self.assertEqual(self.calls["dispatch"], [(61, "worker")])
         self.assertEqual([c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"]], [])
 
@@ -1079,20 +1058,6 @@ class ReadingHerdr(unittest.TestCase):
         board.herdr_strict = lambda args: {"result": {"snapshot": {"agents": []}}}
         self.assertEqual(board.live_agents(), [])
 
-    def test_a_pane_whose_foreground_is_its_own_shell_holds_no_process(self):
-        board.herdr = lambda args: {"result": {"process_info": {
-            "shell_pid": 7, "foreground_process_group_id": 7}}}
-        self.assertIs(board.pane_holds_a_process("w1:p1"), False)
-
-    def test_a_pane_whose_foreground_is_something_else_holds_one(self):
-        board.herdr = lambda args: {"result": {"process_info": {
-            "shell_pid": 7, "foreground_process_group_id": 9}}}
-        self.assertIs(board.pane_holds_a_process("w1:p1"), True)
-
-    def test_a_pane_herdr_would_not_answer_for_is_no_evidence_either_way(self):
-        board.herdr = lambda args: {}
-        self.assertIsNone(board.pane_holds_a_process("w1:p1"))
-
 
 class Constants(unittest.TestCase):
     """Every number the night runs on is here, and nowhere else."""
@@ -1101,7 +1066,7 @@ class Constants(unittest.TestCase):
         self.assertEqual(
             (board.COOLDOWN_SECONDS, board.WAKE_BACKOFF, board.WAKE_LIMIT,
              board.REDISPATCH_LIMIT, board.MAX_HOURS, board.SNAPSHOT_INTERVAL,
-             board.UNREADABLE_GRACE),
+             board.ABSENT_GRACE),
             (120, (120, 240, 480), 3, 1, 4, 60, 120))
 
     def test_no_cap_on_how_many_tickets_run_at_once(self):
