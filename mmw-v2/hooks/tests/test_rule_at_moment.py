@@ -24,11 +24,14 @@ CLAUDE_MD = """Intro line.
 ## Subagent model
 
 Do not give a subagent your own model.
-
-## Before ending a turn
-
-Check everything, then reply.
 """
+
+
+def temp_file(lines=1):
+    tmp = tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8")
+    tmp.write("x\n" * lines)
+    tmp.close()
+    return tmp.name
 
 
 def run(payload, claude_md=CLAUDE_MD):
@@ -40,14 +43,6 @@ def run(payload, claude_md=CLAUDE_MD):
                               capture_output=True, text=True, env=env)
     assert proc.returncode == 0, proc.stderr
     return json.loads(proc.stdout) if proc.stdout.strip() else None
-
-
-def transcript(entries):
-    tmp = tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False, encoding="utf-8")
-    for e in entries:
-        tmp.write(json.dumps(e) + "\n")
-    tmp.close()
-    return tmp.name
 
 
 class PreToolUse(unittest.TestCase):
@@ -103,17 +98,47 @@ class PreToolUse(unittest.TestCase):
 
 class PostToolUse(unittest.TestCase):
     def test_partial_view_names_next_offset(self):
-        text = "...[Truncated: PARTIAL view — /f.txt: showing lines 1-344 of 1533 total (94698 tokens, cap 25000)...]"
+        path = temp_file(1533)
+        text = f"...[Truncated: PARTIAL view — {path}: showing lines 1-344 of 1533 total (94698 tokens, cap 25000)...]"
         out = run({"hook_event_name": "PostToolUse", "tool_name": "Read", "tool_response": text})
         ctx = out["hookSpecificOutput"]["additionalContext"]
         self.assertIn("offset=345 limit=344", ctx)
         self.assertIn("1189 lines remain", ctx)
         self.assertIn("Ground rule 2:", ctx)
 
+    def test_partial_view_over_an_absent_file_is_silent(self):
+        text = "...[Truncated: PARTIAL view — /no/such/f.txt: showing lines 1-344 of 1533 total...]"
+        self.assertIsNone(run({"hook_event_name": "PostToolUse", "tool_name": "Read", "tool_response": text}))
+
+    def test_partial_view_over_the_wrong_line_count_is_silent(self):
+        path = temp_file(10)
+        text = f"...[Truncated: PARTIAL view — {path}: showing lines 1-344 of 1533 total...]"
+        self.assertIsNone(run({"hook_event_name": "PostToolUse", "tool_name": "Read", "tool_response": text}))
+
     def test_output_saved_names_file(self):
-        text = "Output too large (200KB). Full output saved to: /tmp/x/abc.txt\n\nPreview"
+        path = temp_file()
+        text = f"Output too large (200KB). Full output saved to: {path}\n\nPreview"
         out = run({"hook_event_name": "PostToolUse", "tool_name": "Bash", "tool_response": {"stdout": text}})
-        self.assertIn("`/tmp/x/abc.txt`", out["hookSpecificOutput"]["additionalContext"])
+        self.assertIn(f"`{path}`", out["hookSpecificOutput"]["additionalContext"])
+
+    def test_output_saved_over_an_absent_path_is_silent(self):
+        text = "Output too large (200KB). Full output saved to: /no/such/abc.txt\n\nPreview"
+        self.assertIsNone(run({"hook_event_name": "PostToolUse", "tool_name": "Bash",
+                               "tool_response": {"stdout": text}}))
+
+    def test_the_hook_source_is_not_read_as_a_marker(self):
+        self.assertIsNone(run({"hook_event_name": "PostToolUse", "tool_name": "Bash",
+                               "tool_response": {"stdout": HOOK.read_text(encoding="utf-8")}}))
+
+    def test_this_test_file_is_not_read_as_a_marker(self):
+        own = Path(__file__).resolve().read_text(encoding="utf-8")
+        self.assertIsNone(run({"hook_event_name": "PostToolUse", "tool_name": "Bash",
+                               "tool_response": {"stdout": own}}))
+
+    def test_token_cap_text_in_a_successful_result_is_silent(self):
+        text = "File content (25582 tokens) exceeds maximum allowed tokens (25000)."
+        self.assertIsNone(run({"hook_event_name": "PostToolUse", "tool_name": "Bash",
+                               "tool_response": {"stdout": text}}))
 
     def test_clean_result_is_silent(self):
         self.assertIsNone(run({"hook_event_name": "PostToolUse", "tool_name": "Bash",
@@ -134,36 +159,14 @@ class PostToolUse(unittest.TestCase):
         self.assertIn("Ground rule 5:", ctx)
 
 
-class Stop(unittest.TestCase):
-    def test_turn_with_tools_is_blocked_once(self):
-        path = transcript([
-            {"type": "user", "message": {"content": "do it"}},
-            {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Bash"}]}},
-            {"type": "user", "message": {"content": [{"type": "tool_result"}]}},
-            {"type": "assistant", "message": {"content": [{"type": "text", "text": "done"}]}},
-        ])
-        out = run({"hook_event_name": "Stop", "stop_hook_active": False, "transcript_path": path})
-        self.assertEqual(out, {"decision": "block", "reason": "Check everything, then reply."})
-        again = run({"hook_event_name": "Stop", "stop_hook_active": True, "transcript_path": path})
-        self.assertIsNone(again)
-
-    def test_chat_only_turn_is_not_blocked(self):
-        path = transcript([
-            {"type": "user", "message": {"content": [{"type": "tool_result"}]}},
-            {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Bash"}]}},
-            {"type": "user", "message": {"content": "thanks"}},
-            {"type": "assistant", "message": {"content": [{"type": "text", "text": "np"}]}},
-        ])
-        self.assertIsNone(run({"hook_event_name": "Stop", "stop_hook_active": False, "transcript_path": path}))
-
-
 class Robustness(unittest.TestCase):
-    def test_missing_heading_is_silent(self):
-        out = run({"hook_event_name": "Stop", "stop_hook_active": False,
-                   "transcript_path": transcript([{"type": "user", "message": {"content": "x"}},
-                                                  {"type": "assistant", "message": {"content": [{"type": "tool_use"}]}}])},
+    def test_missing_heading_does_not_crash(self):
+        out = run({"hook_event_name": "PreToolUse", "tool_name": "Agent",
+                   "tool_input": {"prompt": "go", "subagent_type": "general-purpose"}},
                   claude_md="## Ground rules\n\n1. only.\n")
-        self.assertIsNone(out)
+        o = out["hookSpecificOutput"]
+        self.assertEqual(o["permissionDecision"], "deny")
+        self.assertNotIn("Do not give a subagent", o["permissionDecisionReason"])
 
     def test_garbage_stdin_exits_zero(self):
         proc = subprocess.run([sys.executable, str(HOOK)], input="not json", capture_output=True, text=True)

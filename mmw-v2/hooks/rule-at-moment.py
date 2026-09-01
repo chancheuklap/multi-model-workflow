@@ -2,7 +2,7 @@
 """Claude Code hook: put the ground rule that applies right now in front of the model.
 
 Installed by mmw-v2/install.sh as ~/.claude/hooks/rule-at-moment.py and registered in
-~/.claude/settings.json for PreToolUse, PostToolUse, PostToolUseFailure and Stop. One
+~/.claude/settings.json for PreToolUse, PostToolUse and PostToolUseFailure. One
 invocation handles one event; the event name comes in on stdin (`hook_event_name`).
 
 The text it injects is never written here. It is cut out of ~/.claude/CLAUDE.md
@@ -10,7 +10,6 @@ The text it injects is never written here. It is cut out of ~/.claude/CLAUDE.md
 
   "## Ground rules"          numbered items 1..6
   "## Subagent model"        the reason when an Agent call carries no model
-  "## Before ending a turn"  the checklist a Stop block hands back
 
 What each event gets:
 
@@ -22,12 +21,11 @@ What each event gets:
               Agent                      rule 6; with no `model`, deny with the
                                          Subagent model section as the reason
   PostToolUse (any)                      when the result carries one of the host's
-                                         own truncation markers: rule 2 plus the
-                                         next Read call to make
-  PostToolUseFailure (any)               rule 5 (plus the truncation check)
-  Stop                                   when the turn used tools and this is the
-                                         first block of the turn: block, reason =
-                                         "Before ending a turn"
+                                         own truncation markers and the file that
+                                         marker names is real: rule 2 plus the next
+                                         Read call to make
+  PostToolUseFailure (any)               rule 5, plus the truncation check and the
+                                         token-cap refusal
 
 Anything unexpected — no CLAUDE.md, a heading missing, unreadable stdin — ends
 in a silent exit 0: this hook only ever adds a note, it never breaks a call.
@@ -43,6 +41,7 @@ HOST_READ_TOKEN_CAP = 25000
 BYTES_PER_TOKEN = 3.5
 
 TRUNCATED_VIEW = re.compile(r"showing lines (\d+)-(\d+) of (\d+) total")
+TRUNCATED_PATH = re.compile(r"view\s+—\s+(\S+?):\s+showing lines")
 OUTPUT_SAVED = re.compile(r"Output too large.*?saved to: ([^\s\"\\]+)", re.S)
 TOKENS_EXCEEDED = re.compile(r"File content \((\d+) tokens\) exceeds maximum allowed tokens")
 
@@ -148,10 +147,27 @@ def pre_tool_use(data, sections, ground):
     return {"hookSpecificOutput": out}
 
 
-def truncation_note(response_text):
+def real_file(path, lines=None):
+    """True when path is a file on disk with, where lines is given, that many lines."""
+    p = Path(path)
+    if not p.is_file():
+        return False
+    if lines is None:
+        return True
+    try:
+        with p.open("rb") as fh:
+            return sum(1 for _ in fh) == lines
+    except OSError:
+        return False
+
+
+def truncation_note(response_text, failed):
     m = TRUNCATED_VIEW.search(response_text)
     if m:
         start, end, total = (int(x) for x in m.groups())
+        named = TRUNCATED_PATH.search(response_text)
+        if named and not real_file(named.group(1), total):
+            return None
         if end < total:
             chunk = end - start + 1
             return (f"The host cut this Read at line {end} of {total}; {total - end} lines remain. "
@@ -159,9 +175,11 @@ def truncation_note(response_text):
         return None
     m = OUTPUT_SAVED.search(response_text)
     if m:
+        if not real_file(m.group(1)):
+            return None
         return (f"The host cut this output and saved the whole of it to `{m.group(1)}`. "
                 "Read that file to its last line (consecutive chunks if the size needs it) before using any of it.")
-    m = TOKENS_EXCEEDED.search(response_text)
+    m = TOKENS_EXCEEDED.search(response_text) if failed else None
     if m:
         return (f"The host refused this Read: the file is about {m.group(1)} tokens, over the cap of {HOST_READ_TOKEN_CAP}. "
                 "Read it in consecutive chunks: offset=1 with a limit that fits, then the next offset the reminder names.")
@@ -178,7 +196,7 @@ def response_text(data):
 
 def post_tool_use(data, sections, ground, failed):
     notes = []
-    cut = truncation_note(response_text(data))
+    cut = truncation_note(response_text(data), failed)
     if cut:
         notes.append(cut)
         notes.append(rules_text(ground, [2]))
@@ -189,42 +207,6 @@ def post_tool_use(data, sections, ground, failed):
     return {"hookSpecificOutput": {
         "hookEventName": "PostToolUseFailure" if failed else "PostToolUse",
         "additionalContext": "\n".join(notes)}}
-
-
-def turn_used_tools(transcript_path):
-    """True when the assistant called a tool since the last human prompt."""
-    try:
-        with open(transcript_path, encoding="utf-8") as fh:
-            lines = fh.readlines()
-    except OSError:
-        return False
-    for line in reversed(lines):
-        try:
-            d = json.loads(line)
-        except ValueError:
-            continue
-        content = (d.get("message") or {}).get("content")
-        if d.get("type") == "user":
-            if isinstance(content, str):
-                return False
-            if isinstance(content, list) and not any(
-                    isinstance(b, dict) and b.get("type") == "tool_result" for b in content):
-                return False
-        elif d.get("type") == "assistant" and isinstance(content, list):
-            if any(isinstance(b, dict) and b.get("type") == "tool_use" for b in content):
-                return True
-    return False
-
-
-def stop(data, sections):
-    if data.get("stop_hook_active"):
-        return None
-    if not turn_used_tools(data.get("transcript_path", "")):
-        return None
-    checklist = sections.get("Before ending a turn")
-    if not checklist:
-        return None
-    return {"decision": "block", "reason": checklist}
 
 
 def main():
@@ -238,8 +220,6 @@ def main():
             out = post_tool_use(data, sections, ground, failed=False)
         elif event == "PostToolUseFailure":
             out = post_tool_use(data, sections, ground, failed=True)
-        elif event == "Stop":
-            out = stop(data, sections)
         else:
             out = None
         if out:
