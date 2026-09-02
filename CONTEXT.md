@@ -383,11 +383,11 @@ The fourth line: `pending` until the criterion has run, then the one line of fac
 _Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/gate-check.mjs`
 
 **`CWD:`**:
-The optional fifth line: the working directory `CHECK:` runs in. It is part of the `STALE` signature. gate-check calls these indented lines the criterion's **attributes**.
+The optional fifth line: the working directory `CHECK:` runs in. gate-check calls these indented lines the criterion's **attributes**.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/lib/gates.mjs`
 
 **`TIMEOUT:`**:
-The optional attribute line `TIMEOUT: <seconds>` under a criterion: how long its `CHECK:` may run. `verify-ticket.py` reads every `TIMEOUT:` off the ticket body on every run, worker's and verifier's alike, and hands gate-check the largest of `DEFAULT_TIMEOUT` (600), those lines, and `--timeout`; it raises the limit and never lowers it, is not in the `STALE` signature, and is kept out of the ledger. `--lint` reports one that is not a positive whole number as `ERROR … [bad-timeout]`.
+The optional attribute line `TIMEOUT: <seconds>` under a criterion: how long its `CHECK:` may run. `verify-ticket.py` reads every `TIMEOUT:` off the ticket body on every run, worker's and verifier's alike, and hands gate-check the largest of `DEFAULT_TIMEOUT` (600), those lines, and `--timeout`; it raises the limit and never lowers it, and is kept out of the ledger. `--lint` reports one that is not a positive whole number as `ERROR … [bad-timeout]`.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **fenced block**:
@@ -577,13 +577,9 @@ _Avoid_: 账本, 临时账本, AC.md (as a name), throwaway ledger
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **gate-check**:
-The judging program copied from unlazy: it walks the ledger, runs each `CHECK:` one at a time in its own shell, applies both conditions, writes `EVIDENCE:`, prints one **status line** per criterion (`RUN`, `PASS`, `FAIL`, `STALE`) and one **gate-check summary line** at the end — `ALL MET (<n> met…)`, `UNMET: <n> (met: <m>)`, or `HANDOFF REQUIRED: <n> abandoned (met: …)` — which is copied into the second line of every `self-run` and `reverify` comment. `gate-check.mjs` names the file. Its `--claim`, `--release`, `--scope` and `GATES.md` are unlazy features this pipeline does not use.
+The judging program copied from unlazy: it walks the ledger, runs each `CHECK:` one at a time in its own shell, applies both conditions, writes `EVIDENCE:`, prints one **status line** per criterion (`RUN`, `PASS`, `FAIL`) and one **gate-check summary line** at the end — `ALL MET (<n> met…)`, `UNMET: <n> (met: <m>)`, or `HANDOFF REQUIRED: <n> abandoned (met: …)` — which is copied into the second line of every `self-run` and `reverify` comment. `gate-check.mjs` names the file. Its `--claim`, `--release`, `--scope` and `GATES.md` are unlazy features this pipeline does not use.
 _Avoid_: the judging engine, gate checker, the checker (for this), 汇总行
 _Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/UPSTREAM.md`
-
-**`STALE`**:
-What gate-check reports when a criterion's **signature** — the sha256 of `CHECK:`, `EXPECT:`, `CWD:`, and the shell — no longer matches the one recorded when the run started: the result is not written and the criterion counts as unmet. `--reverify` demotes stale failures.
-_Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/gate-check.mjs`
 
 **gate-lint**:
 The criterion linter copied from unlazy: it reports problems in how criteria are written and runs no command; `manual-gate` is an error here. It prints `LINT OK` or `LINT FINDINGS`. `--lint` runs it.
@@ -951,7 +947,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | `ABANDON:` kind | `failed` · `stuck` · `decision` |
 | `ready-for-human` kind | `reaction` · `reach` |
 | criterion state | `met` · `unmet` · `abandoned` |
-| gate-check status line | `RUN` · `PASS` · `FAIL` · `STALE` |
+| gate-check status line | `RUN` · `PASS` · `FAIL` |
 | lint level | `ERROR` · `WARN` |
 | `turn` | `ready` · `working` · `ended` · `failed:<error>` · `cancelled:<reason>` |
 | `mmw board:` case | `ADVANCE` · `night over` · `STOPPED` · `TIME LIMIT` |
