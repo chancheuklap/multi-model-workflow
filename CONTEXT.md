@@ -275,7 +275,7 @@ The spec section of decisions made, in numbered subsections `### 1.` … that ti
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **`## Testing Decisions`**:
-The spec section whose first sentence names the seam and which external seams may be stubbed; then, per test layer, its directory and the precedent to copy; then **How a test arrives at a state** — the mechanism that puts the system into each state the behaviour turns on, which must be named here and owned by some ticket's `## Owns`, else the work returns to `to-spec`; last, the commands to run before committing. `CHECK:`, `EXPECT:`, and the ticket's `## Seam` are derived from it.
+The spec section whose first sentence names the seam and which external seams may be stubbed; then, per test layer, its directory and the precedent to copy; then **How a test arrives at a state** — the mechanism that puts the system into each state the behaviour turns on, which must be named here and owned by some ticket's `## Owns`, else `to-tickets` cuts a `reach` ticket for it; last, the commands to run before committing. `CHECK:`, `EXPECT:`, and the ticket's `## Seam` are derived from it.
 _Avoid_: 测试怎么到达状态
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
@@ -478,7 +478,7 @@ The `ready-for-human` kind where the property asserted is a person's reaction: t
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`reach`**:
-The `ready-for-human` kind where a machine would decide it if it could get to the thing — a device, a credential, a real environment; the ticket adds one line naming what would retire it. A pile of `reach` tickets says the pipeline lacks a capability.
+The `ready-for-human` kind where a machine would decide it if it could get to the thing — a device, a credential, a real environment, a mechanism under **How a test arrives at a state** that has no name or no owner in `## Owns`, or a consuming repository's testability rule that gives a test no exit; the ticket adds one line naming what would retire it. A pile of `reach` tickets says the pipeline lacks a capability.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`wontfix`**:
