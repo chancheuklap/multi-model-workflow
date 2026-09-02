@@ -9,11 +9,13 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 
 ## Process
 
-1. If the user passed a reference — an issue number, a URL, a file path — read it in full before anything else. When the reference is a wayfinder **map**: read the map body; then walk **Decisions so far** and read each closed ticket's **resolution comment**; where a ticket links a prototype or a research file, read that through to its conclusion. The map's **Out of scope** carries into the spec's Out of Scope unchanged.
+1. If the user passed a reference — an issue number, a URL, a file path — read it in full before anything else. When the reference is a spec already published on the tracker and the user wants one of its sections changed, skip to step 5. When the reference is a wayfinder **map**: read the map body; then walk **Decisions so far** and read each closed ticket's **resolution comment**; where a ticket links a prototype or a research file, read that through to its conclusion. The map's **Out of scope** carries into the spec's Out of Scope unchanged.
 
    Then judge whether what you have read is one spec or several. Decisions that share a **seam** belong in one spec. Split only where a part needs a different **seam** and lands and demos on its own — where it can stay one spec, keep it one spec. A part may depend on a part before it: a product delivered in layers (a server registration, then the client that logs into it, then the work the client does) has no reading under which the later layers depend on nothing, and forcing it into one spec produces one nobody can read. What the dependencies may not do is run backwards or in a circle: every one points at a part earlier in the order, and the `## Specs` section writes that order down.
 
    One spec: write it. Several: this is the one judgement in this skill you hand to the user — list each spec's name, the decisions it covers by ticket name, the order they go in, and why the line falls there. Once the user confirms, write the division back to the map as a `## Specs` section, one line per spec: name, the decision tickets it covers, its position in the order, and its spec link once published. Then write the first spec only; publish it, fill its link into that line, and stop — tell the user to run this skill against the map again for the next one. When the map already carries a `## Specs` section, skip the judgement and write the first spec on it that has no link yet.
+
+   When the reference is not a map — an issue, a URL, a file, or the conversation itself — there is no map to write the division back to. Write it into the first spec's `## Further Notes` instead: one line per spec, saying what it is called, what it covers, its position in the order, and its link once published. Publish that first spec and stop; tell the user to run this skill against the same reference again for the next one. On that later run, read the `## Further Notes` of the spec that carries the division, write the first spec on it that has no link yet, and fill the link into its line — through step 5, since that spec is already published. When every line has a link, tell the user the division is fully written and stop.
 
 2. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout the spec, and respect any ADRs in the area you're touching.
 
@@ -21,9 +23,11 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 
 A seam says where a test **observes**. Ask the other half in the same breath: for each state this feature's behaviour turns on, can a test put the system into that state through the seam you picked? An interface compared through a debugging port is read and not written, so a test cannot reach a state that only the running application can enter. Where the seam does not reach, say what would, and whether that thing ships.
 
-Check with the user that these seams match their expectations, and that they accept what has to exist for a test to arrive at each state.
+The seam is yours to decide, not the user's: they are not asked to confirm it. What they see of it is the plain-words opening sentence of Testing Decisions, which says where a test looks at the result.
 
 4. Write the spec using the template below, then publish it to the project issue tracker. Leave it unlabelled: a spec is a container for the tickets underneath it, not a piece of work, and a triage label would put it in a queue somebody has to sort back out. If the spec grew out of an issue carrying an agent brief, close that issue and attach it under the spec, so the brief stays reachable from the spec that replaced it.
+
+5. Revising a published spec. When a section of a spec already on the tracker has to change — a mechanism added under **How a test arrives at a state**, a decision under `## Implementation Decisions` altered, a judgement written into one of its subsections — edit that spec, never publish a new one: a new issue gets a new number, and every ticket's **Parent** points at the old one. Read the issue body in full, rewrite the section so it reads as if written that way from the start, and write the body back (`gh issue edit <n> --body-file <file>`). The body carries no trace of the change: no strikethrough, no "updated", no dated note, no history. What changed and why goes in one comment on the spec, so the body stays the clean current version and the reasons stay findable. Tickets already cut from the section are checked against the new text and corrected where they no longer match.
 
 <spec-template>
 
@@ -67,11 +71,11 @@ Exception: if a prototype produced a snippet that encodes a decision more precis
 
 ## Testing Decisions
 
-The first sentence names the **seam** confirmed in step 3: what is real on each side of it, and which external seams (third-party APIs, paid services) may be stubbed. Then:
+The first sentence says, in plain words a reader with no testing vocabulary understands, where a test looks at the result: a browser page, an HTTP endpoint, or a function call ("Tests look at the result on the browser page."). The next sentence names the **seam** chosen in step 3: what is real on each side of it, and which external seams (third-party APIs, paid services) may be stubbed. Then:
 
 - A description of what makes a good test (only test external behavior, not implementation details)
 - The test layers this feature lands in, each with its directory and the precedent to copy (i.e. similar types of tests in the codebase); every ticket cut from this spec will name one of these layers as the place it is verified
-- **How a test arrives at a state.** Per layer: what a test writes to put the system into a state, and what it cannot write. A state this feature's behaviour turns on, that the seam's write surface does not reach, gets a line of its own here: the mechanism that will reach it, and which builds carry that mechanism. The mechanism takes the form the repository's own testability rules allow; where those rules have no exit for one, say so — closing that is the repository's to do, not this spec's. Whoever cuts the tickets reads this section to know whether a criterion can be written at all, and one of them will own building each mechanism named here
+- **How a test arrives at a state.** Per layer: what a test writes to put the system into a state, and what it cannot write. A state this feature's behaviour turns on, that the seam's write surface does not reach, gets a line of its own here: the mechanism that will reach it, and which builds carry that mechanism. The mechanism takes the form the repository's own testability rules allow; where those rules have no exit for one, say so — closing that is the repository's to do, not this spec's, and `to-tickets` cuts a *reach* ticket for it. Whoever cuts the tickets reads this section to know whether a criterion can be written at all, and one of them will own building each mechanism named here
 - The commands to run before committing
 
 ## Out of Scope
@@ -94,6 +98,6 @@ Links to the first-hand material this spec was built from, one line per kind. Wr
 
 ## Further Notes
 
-Any further notes about the feature.
+Any further notes about the feature. When step 1 divided the work into several specs and the reference was not a map, the division lives here in the first spec: one line per spec, with its name, what it covers, its position in the order, and its link once published. A later spec in that division says here which spec carries it.
 
 </spec-template>

@@ -31,7 +31,7 @@ _Avoid_: 工人, 做票的 agent, 领票的 agent
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **worker grade**:
-Which of the two workers a ticket goes to. Each grade is at once a ticket label, a row of `models.md`, and the answer in the ticket's `## Worker` section; the label is read afresh every time the ticket is started.
+Which of the two workers a ticket goes to. Each grade is at once a ticket label, a row of `models.md`, and the answer in the ticket's `## Worker` section; the user sees it once, as the `Worker:` line of the `to-tickets` quiz, and the label is read afresh every time the ticket is started.
 _Avoid_: grade of worker, seat, lane (for this)
 _Home_: `mmw-v2/skills/dispatch/models.md`
 
@@ -265,7 +265,7 @@ A GitHub issue, the issue tracker's unit. In this pipeline it is a spec, a ticke
 _Home_: `docs/agents/issue-tracker.md`
 
 **spec**:
-A top-level issue that holds a batch of tickets. It is a container, not work, so it carries no label. `to-spec` writes it from the conversation, a cleared map, or an agent brief, in the `<spec-template>` shape: `## Problem Statement`, `## Solution`, `## User Stories`, `## Implementation Decisions`, `## Testing Decisions`, `## Out of Scope`, `## Sources`, `## Further Notes`. Decisions that share one seam belong in one spec. A worker reads only the subsections its ticket's `## Parent` names, plus `## Testing Decisions` and `## Out of Scope`. The night runs on it: `run <spec>`, `advance <spec>`.
+A top-level issue that holds a batch of tickets. It is a container, not work, so it carries no label. `to-spec` writes it from the conversation, a cleared map, or an agent brief, in the `<spec-template>` shape: `## Problem Statement`, `## Solution`, `## User Stories`, `## Implementation Decisions`, `## Testing Decisions`, `## Out of Scope`, `## Sources`, `## Further Notes`. Decisions that share one seam belong in one spec. A worker reads only the subsections its ticket's `## Parent` names, plus `## Testing Decisions` and `## Out of Scope`. A section of a published spec is changed in place by `to-spec`'s step for revising a published spec — the body stays the clean current version, what changed and why goes in one comment — so the number and every ticket's `## Parent` stay valid. The night runs on it: `run <spec>`, `advance <spec>`.
 _Admitted_: spec issue
 _Avoid_: 父票, spec 票, 规格
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
@@ -275,7 +275,7 @@ The spec section of decisions made, in numbered subsections `### 1.` … that ti
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **`## Testing Decisions`**:
-The spec section whose first sentence names the seam and which external seams may be stubbed; then, per test layer, its directory and the precedent to copy; then **How a test arrives at a state** — the mechanism that puts the system into each state the behaviour turns on, which must be named here and owned by some ticket's `## Owns`, else the work returns to `to-spec`; last, the commands to run before committing. `CHECK:`, `EXPECT:`, and the ticket's `## Seam` are derived from it; a review finding that touches it is in-ticket.
+The spec section whose first sentence says in plain words where a test looks at the result (a browser page, an HTTP endpoint, or a function call) and whose second names the seam and which external seams may be stubbed; then, per test layer, its directory and the precedent to copy; then **How a test arrives at a state** — the mechanism that puts the system into each state the behaviour turns on, which must be named here and owned by some ticket's `## Owns`, else `to-tickets` cuts a `reach` ticket for it; last, the commands to run before committing. `CHECK:`, `EXPECT:`, and the ticket's `## Seam` are derived from it; a review finding that touches it is in-ticket.
 _Avoid_: 测试怎么到达状态
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
@@ -288,7 +288,7 @@ The spec section of links to the first-hand material it was built from, one line
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **seam**:
-The place a test observes: the public boundary you test at. It is the subject of `## Testing Decisions`'s first sentence and of a ticket's `## Seam`. **External seams** are the third-party ones that may be stubbed.
+The place a test observes: the public boundary you test at. `to-spec` chooses it without asking the user; it is the subject of `## Testing Decisions`'s second sentence and of a ticket's `## Seam`. **External seams** are the third-party ones that may be stubbed.
 _Avoid_: boundary (for a seam)
 _Home_: `mmw-v2/upstream/skills/engineering/tdd/SKILL.md`
 
@@ -329,7 +329,7 @@ Which of the two worker grades the ticket goes to and one line why; `senior-work
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`## What to build`**:
-The end-to-end behaviour this ticket makes work, from the user's point of view, in numbered points each with the test that decides it and the reason it is there. It describes the same slice as the title (checked at read-back and after claiming) and is never simplified away.
+The end-to-end behaviour this ticket makes work, from the user's point of view, in numbered points each with the test that decides it and the reason it is there; a choice the user settled in the `to-tickets` quiz is a point of its own. It describes the same slice as the title (checked at read-back and after claiming) and is never simplified away.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`## Read first`**:
@@ -396,7 +396,7 @@ _Avoid_: fenced check, fenced code block, 代码块围栏, 围栏
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **the five questions**:
-What the ticket writer asks, in order, of anything there is to say about the work, stopping at the first yes: is it an acceptance criterion (decided by a command)? a code-review judgement? a person's `reaction`? a `reach`? or a choice — take the default and record it in the closing comment, and only when the work cannot go on, a decision ticket.
+What the ticket writer asks, in order, of anything there is to say about the work, stopping at the first yes: is it an acceptance criterion (decided by a command)? a code-review judgement (written into the spec's `## Implementation Decisions` subsection the ticket names, where the Spec axis reads it as in-ticket)? a person's `reaction`? a `reach`? or a choice — asked of the user in the quiz, the answer written into the ticket's `## What to build`.
 _Avoid_: 五问, 五问判定树
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
@@ -478,7 +478,7 @@ The `ready-for-human` kind where the property asserted is a person's reaction: t
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`reach`**:
-The `ready-for-human` kind where a machine would decide it if it could get to the thing — a device, a credential, a real environment; the ticket adds one line naming what would retire it. A pile of `reach` tickets says the pipeline lacks a capability.
+The `ready-for-human` kind where a machine would decide it if it could get to the thing — a device, a credential, a real environment, a mechanism under **How a test arrives at a state** that has no name or no owner in `## Owns`, or a consuming repository's testability rule that gives a test no exit; the ticket adds one line naming what would retire it. A pile of `reach` tickets says the pipeline lacks a capability.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`wontfix`**:
@@ -490,7 +490,7 @@ The two category roles, exactly one on every triaged issue from outside; never o
 _Home_: `docs/agents/triage-labels.md`
 
 **decision ticket**:
-A child issue of a `wayfinder:map` holding one question whose **resolution** is a decision: a resolution comment, the issue closed, a context pointer (gist plus link) appended to the map's Decisions so far. Its resolution comment is a baseline source. It carries a state role and no category role; `AFK` and `HITL` say whether the agent works it alone. Its type label is `wayfinder:<type>` — research, prototype, grilling, task. In `to-tickets`, a choice that would block the batch becomes one, asked before the batch.
+A child issue of a `wayfinder:map` holding one question whose **resolution** is a decision: a resolution comment, the issue closed, a context pointer (gist plus link) appended to the map's Decisions so far. Its resolution comment is a baseline source. It carries a state role and no category role; `AFK` and `HITL` say whether the agent works it alone. Its type label is `wayfinder:<type>` — research, prototype, grilling, task.
 _Avoid_: wayfinder ticket
 _Home_: `mmw-v2/upstream/skills/engineering/wayfinder/SKILL.md`
 
