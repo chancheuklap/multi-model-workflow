@@ -17,7 +17,7 @@ git log <base-commit>..HEAD --oneline
 gh issue view <ticket>
 ```
 
-Read the whole ticket, comments included. Then read what it points you at, and nothing else:
+Read the whole ticket, comments included. The newest comment whose first line is `DECISIONS` is the worker's own list of what it settled that neither the ticket nor the spec decides, and of the files it changed outside `## Owns` with the reason for each; section 3 asks you to judge every line of it. Then read what the ticket points you at, and nothing else:
 
 - The spec sections the ticket's `## Parent` line names, and only those.
 - The spec's `## Testing Decisions`.
@@ -30,7 +30,7 @@ When the ticket has no `## Parent`, the ticket itself is the whole spec. When it
 
 ## 3. What you are looking for
 
-Three kinds of review finding, each quoting the line of the ticket, the spec, or a baseline it comes from:
+Three kinds of review finding, each quoting the line of the ticket, the spec, or a baseline it comes from, and one judgement per line of the `DECISIONS` comment:
 
 - **Missing**: something the ticket, the named spec section, or a baseline asked for that the diff does not do, or does only in part.
 - **Scope creep**: behaviour in the diff that neither asked for. `## Out of Scope` is the sharpest source here — something listed there and built anyway is the clearest form of this review finding.
@@ -38,9 +38,11 @@ Three kinds of review finding, each quoting the line of the ticket, the spec, or
 
 Quote the requirement for each review finding. A review finding with no quoted line is your opinion about the design, which is not what this axis decides.
 
+- **Decisions**: for every line under `Decisions I made on my own` and every file under `Outside Owns` in the `DECISIONS` comment, one sentence: `reasonable` — the ticket or the spec left a gap and this is the repair those sections make most likely — or `should not` — it goes against a line of the ticket, the named spec sections, `## Out of Scope`, or a baseline, quoted. A `should not` is a review finding of one of the three kinds above; a `reasonable` is not a finding. A ticket with no `DECISIONS` comment gets the line `DECISIONS: none on the ticket`.
+
 ## 4. Report
 
-Group by the three kinds. Under 400 words.
+Group by the three kinds, then `Decisions`. Under 400 words.
 
 ## What is not yours
 
