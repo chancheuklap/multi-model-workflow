@@ -120,18 +120,37 @@ class TestFirstLine(unittest.TestCase):
         self.assertEqual(check(text)[0], 1)
 
     def test_all_met_over_a_decision_abandon_passes(self):
+        """The self-run is generated from the ticket body, which carries no `ABANDON:`
+        line, so the run still reports the decision criterion as unmet."""
         text = draft(criteria=(MET, UNMET),
                      abandons=("ABANDON: AC2 decision both wordings are legal; opened #58",),
                      counts=counts_line(met=1, abandoned=1, total=2))
-        code, err, _ = check(text)
+        newest_run = "\n".join(["self-run", "UNMET: 1 (met: 1)", "", MET, UNMET])
+        code, err, _ = check(text, comments=(VERDICT_COMMENT, newest_run))
         self.assertEqual(code, 0, err)
+
+    def test_all_met_with_a_real_unmet_beside_the_decision_is_refused(self):
+        """The draft ticks AC3 as met; the newest run says it is not. Only the run's
+        own summary refuses this — the draft is well formed on its face."""
+        unmet3 = UNMET.replace("AC2: the expiry page says the link is stale",
+                               "AC3: the expiry page links back home")
+        met3 = MET.replace("AC1: the importer writes six rows",
+                           "AC3: the expiry page links back home")
+        text = draft(criteria=(MET, UNMET, met3),
+                     abandons=("ABANDON: AC2 decision both wordings are legal; opened #58",),
+                     counts=counts_line(met=2, abandoned=1, total=3))
+        newest_run = "\n".join(["self-run", "UNMET: 2 (met: 1)", "", MET, UNMET, unmet3])
+        code, err, _ = check(text, comments=(VERDICT_COMMENT, newest_run))
+        self.assertEqual(code, 1)
+        self.assertIn("the newest run on the ticket still reports unmet", err)
+        self.assertNotIn("first line is `ALL MET` but", err)
 
     def test_a_well_formed_handoff_first_line_passes(self):
         text = draft(first="HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 1 met of 2",
                      criteria=(MET, UNMET),
                      abandons=("ABANDON: AC2 stuck chromium will not start here; tried the bundled build too",),
                      counts=counts_line(met=1, abandoned=1, total=2))
-        code, err, _ = check(text, comments=(VERDICT_COMMENT, *self_runs(UNMET, 3)))
+        code, err, _ = check(text, comments=(VERDICT_COMMENT, *self_runs(UNMET, 1)))
         self.assertEqual(code, 0, err)
 
 
@@ -398,9 +417,11 @@ class TestGit(unittest.TestCase):
         self.assertEqual(code, 0, err)
 
 
-class TestTheRoundLimit(unittest.TestCase):
-    """`failed` says the criterion was tried three times. The ticket's own self-run
-    comments are where that is counted; `stuck` never ran, so it is not held to it."""
+class TestFailedNeedsNoRoundCount(unittest.TestCase):
+    """`failed` and `stuck` are told apart for whoever reads the ticket in the morning —
+    it ran and did not pass, or it would not run — and the closeout holds neither to a
+    number of self-runs: how many rounds a criterion gets is the worker's judgement,
+    said on the `ABANDON:` line."""
 
     HANDOFF = "HANDOFF REQUIRED: 1 abandoned (failed), 0 unmet, 1 met of 2"
 
@@ -410,37 +431,16 @@ class TestTheRoundLimit(unittest.TestCase):
                      abandons=(f"ABANDON: AC2 {kind} chromium kept crashing; tried …",),
                      counts=counts_line(met=1, abandoned=1, total=2))
 
-    def test_failed_after_three_self_runs_passes(self):
-        code, err, _ = check(self.failed_draft(),
-                             comments=(VERDICT_COMMENT, *self_runs(UNMET, 3)))
+    def test_failed_with_no_self_run_at_all_passes(self):
+        code, err, _ = check(self.failed_draft(), comments=(VERDICT_COMMENT,))
         self.assertEqual(code, 0, err)
 
-    def test_failed_after_two_self_runs_is_refused(self):
+    def test_failed_after_one_self_run_passes(self):
         code, err, _ = check(self.failed_draft(),
-                             comments=(VERDICT_COMMENT, *self_runs(UNMET, 2)))
-        self.assertEqual(code, 1)
-        self.assertIn("shows 2 self-runs that left it unmet, not 3", err)
+                             comments=(VERDICT_COMMENT, *self_runs(UNMET, 1)))
+        self.assertEqual(code, 0, err)
 
-    def test_failed_with_no_self_run_at_all_is_refused(self):
-        code, err, _ = check(self.failed_draft(), comments=(VERDICT_COMMENT,))
-        self.assertEqual(code, 1)
-        self.assertIn("shows 0 self-runs that left it unmet", err)
-
-    def test_the_refusal_names_the_other_way_out(self):
-        _, err, _ = check(self.failed_draft(), comments=(VERDICT_COMMENT,))
-        self.assertIn("`stuck`", err)
-
-    def test_a_self_run_that_met_the_criterion_does_not_count_as_a_round(self):
-        met_run = "\n".join(["self-run", "ALL MET", "",
-                             UNMET.replace("- [ ]", "- [x]").replace(
-                                 "EVIDENCE: pending",
-                                 "EVIDENCE: exit=0; EXPECT=matched; output-bytes=9")])
-        code, err, _ = check(self.failed_draft(),
-                             comments=(VERDICT_COMMENT, *self_runs(UNMET, 2), met_run))
-        self.assertEqual(code, 1)
-        self.assertIn("shows 2 self-runs", err)
-
-    def test_stuck_is_not_held_to_any_round_count(self):
+    def test_stuck_passes_the_same_way(self):
         code, err, _ = check(self.failed_draft(kind="stuck"), comments=(VERDICT_COMMENT,))
         self.assertEqual(code, 0, err)
 

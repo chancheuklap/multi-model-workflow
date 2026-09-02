@@ -498,7 +498,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
     <div class="box">
     <svg viewBox="0 0 960 960" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="cf-title cf-desc">
       <title id="cf-title">夜间控制流：三个关卡与三个循环</title>
-      <desc id="cf-desc">流程图：preflight 关卡不过就把 NOT_READY 评论到票并停下；self-run 关卡没过就修，同一标准最多三轮；verifier 关卡没过回到 self-run，不复审；code-review 一轮，等待超时就跳过；closeout 关卡不过回去改草稿，过了按 first line 关票或 hand back 到 needs-triage。</desc>
+      <desc id="cf-desc">流程图：preflight 关卡不过就把 NOT_READY 评论到票并停下；self-run 关卡没过就修，试几轮由 worker 自己判断；verifier 关卡没过回到 self-run，不复审；code-review 一轮，派不出或超时就用本宿主的 subagent 跑，不跳过；closeout 关卡不过回去改草稿，过了按 first line 关票或 hand back 到 needs-triage。</desc>
       <defs><marker id="cf-a" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--muted)"/></marker>
       <marker id="cf-aa" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--accent)"/></marker></defs>
       <rect width="100%" height="100%" fill="var(--paper)"/>
@@ -537,7 +537,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <g><rect x="330" y="176" width="300" height="48" rx="6" class="sk"/><text x="480" y="196" class="nm" text-anchor="middle">S6 核对与读入 → S7 写码（/tdd）</text><text x="480" y="212" class="cn" text-anchor="middle">writing rules：contract · 不问 · 先删再加 · 不许简化的四样 · Owns two grades</text></g>
       <g><rect x="330" y="248" width="300" height="48" rx="6" class="sc"/><text x="480" y="268" class="sb" text-anchor="middle" style="fill:var(--ink);font-weight:600;font-size:11px">S8 verify-ticket 技能 · 写完码那一条 run</text><text x="480" y="284" class="cn" text-anchor="middle">跑全部 CHECK，写 EVIDENCE，贴 self-run</text></g>
       <polygon points="480,316 580,356 480,396 380,356" class="dm"/><text x="480" y="360" class="nm2" text-anchor="middle">全过？</text>
-      <g><rect x="696" y="332" width="232" height="56" rx="2" class="cm"/><text x="706" y="350" class="sb" style="fill:var(--ink);font-weight:600">ROUND LIMIT: AC&lt;n&gt; …</text><text x="706" y="366" class="cn">第 3 轮的 self-run 点名它；该写</text><text x="706" y="380" class="cn">ABANDON: AC&lt;n&gt; failed，继续其余标准</text></g>
+      <g><rect x="696" y="332" width="232" height="56" rx="2" class="cm"/><text x="706" y="350" class="sb" style="fill:var(--ink);font-weight:600">ABANDON: AC&lt;n&gt; failed …</text><text x="706" y="366" class="cn">修不好的标准由 worker 自己决定何时放弃；</text><text x="706" y="380" class="cn">ABANDON 行写清试了什么，继续其余标准</text></g>
       <g><rect x="330" y="420" width="300" height="48" rx="6" class="ag"/><text x="480" y="440" class="nm" text-anchor="middle">S9 verifier · verify-ticket 技能的 --reverify</text><text x="480" y="456" class="cn" text-anchor="middle">已勾的也重跑；它自己贴 VERDICT &lt;commit&gt; by &lt;model&gt; — &lt;一句话&gt;</text></g>
       <polygon points="480,484 580,524 480,564 380,524" class="dm"/><text x="480" y="528" class="nm2" text-anchor="middle">VERDICT 全过？</text>
       <g><rect x="330" y="588" width="300" height="48" rx="6" class="ss"/><text x="480" y="608" class="nm" text-anchor="middle">S10 dispatch 技能：起 reviewer，再 wait ^REVIEW</text><text x="480" y="624" class="cn" text-anchor="middle">Claude Code opus 会话，一轮，不复审</text></g>
@@ -551,7 +551,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <g><rect x="560" y="908" width="320" height="44" rx="20" class="fo lbx"/><text x="720" y="926" class="nm2" text-anchor="middle">贴评论，ready-for-agent → needs-triage，票与 PR 开着</text><text x="720" y="942" class="cn" text-anchor="middle">phase=handoff · HANDED BACK</text></g>
     </svg>
     </div>
-    <figcaption>图 5 · 三个关卡（<code>--preflight</code> / verifier / <code>--closeout</code>）与三个循环（self-run 修 ≤ 3 轮、verifier 没过回 self-run、<code>--closeout</code> 被拒回改草稿）。<b>只有 self-run 那个循环有次数上限</b>——轮次由票上的 <code>self-run</code> 评论数出来，脚本不存状态（CONTEXT.md「<code>ROUND LIMIT</code>」）。verifier 和 code-review 都只跑一次，从设计上就不会转圈。橙色出口是「hand back 到还没人判过的那道 queue」（CONTEXT.md「<code>needs-triage</code>」）。</figcaption>
+    <figcaption>图 5 · 三个关卡（<code>--preflight</code> / verifier / <code>--closeout</code>）与三个循环（self-run 修 ≤ 3 轮、verifier 没过回 self-run、<code>--closeout</code> 被拒回改草稿）。<b>self-run 那个循环没有次数上限也没有下限</b>——试几轮由 worker 自己判断，脚本不数轮次、不存状态。verifier 和 code-review 都只跑一次，从设计上就不会转圈。橙色出口是「hand back 到还没人判过的那道 queue」（CONTEXT.md「<code>needs-triage</code>」）。</figcaption>
   </figure>
 </section>
 <section id="loop">
@@ -653,7 +653,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <text x="300" y="164" class="cn">关票之后<tspan style="font-weight:600;fill:var(--ink)">分支留在原地</tspan>：不推、不开 pull request；worktree 目录也留着，board.py 关掉的只是 pane。</text>
       <text x="300" y="180" class="cn">并回来之后<tspan style="font-weight:600;fill:var(--ink)">分支与 worktree 目录仍然都在</tspan>——这条 landing pipeline 目前没有任何一环回收它们。</text>
       <text x="160" y="292" class="cn">base commit 写进 git config branch.issue-61.mmw-base（Outside Owns 与 code review 的 base commit）</text>
-      <text x="160" y="306" class="cn">分支名写进 branch.issue-61.mmw-base-branch（advance 要并回哪条分支）</text>
+      <text x="160" y="306" class="cn">分支名写进 branch.issue-61.mmw-base-branch（只记录；advance 并进主 agent 当时所在、也就是开夜的那条分支）</text>
       <!-- 下方两栏 -->
       <rect x="60" y="324" width="530" height="100" rx="8" class="zone"/><rect x="68" y="328" width="208" height="12" rx="2" class="mask"/><text x="172" y="337" class="ey" text-anchor="middle">ADVANCE 挑哪些分支 · 四条都成立才并</text>
       <text x="76" y="360" class="cn">1 票已 CLOSED　2 closing comment 的 first line 是 ALL MET（hand back 到 needs-triage 的票还 OPEN，天然排除）</text>
@@ -795,7 +795,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <g><rect x="900" y="24" width="160" height="48" rx="6" class="ss"/><rect x="908" y="30" width="36" height="12" rx="2" class="tagr t-ss"/><text x="926" y="39" class="tg t-ss" text-anchor="middle">SESSION</text><text x="980" y="60" class="nm" text-anchor="middle">worker · w2q-issue-77</text></g>
     </svg>
     </div>
-    <figcaption>图 6 · 一条命令走完；橙色那两处是本图的重心。<b>worktree 由脚本开</b>：host 能不能自己开一个各不相同，所以 <code>models.md</code> 的 launch arguments 里没有 worktree 这一项，会话直接起在里面；分支 <code>issue-&lt;n&gt;</code> 切自<b>派发那一刻的 HEAD</b>——白天的讨论与 spec 就在那条分支上，上一批 <code>advance</code> 并回来的票也在——base commit 写进 <code>git config branch.issue-&lt;n&gt;.mmw-base</code>，closing comment 的 <code>Outside Owns:</code> 与 code review 的 base commit 都从它算；分支名另记进 <code>mmw-base-branch</code>，是 <code>advance</code> 关票后要把这条分支并回哪里的记录。已存在的 <code>issue-&lt;n&gt;</code> 分支照原样接着用，那是 redispatch。caller 点的是 <code>dispatch</code> 技能，脚本的绝对路径由那份技能从自己所在的位置解析（图 0b），caller 一个字都不写。<b>dispatch line 是一整句</b>：<code>Use the implement skill to work ticket #&lt;n&gt;</code>——它点技能名而不写路径，因为 host 自己会发现装好的技能；票由技能自己去读。查票不过 → 退出 2，什么都不起；120 秒没 idle → 退出 1，会话起了但没被告知任何事。reviewer 走同一条脚本：不开 worktree，在 caller 的 pane 上按宽度左右或上下分屏，跑在 worker 的 worktree 里，多给一个 base commit，dispatch line 是 <code>Use the code-review skill to review ticket #&lt;n&gt; from base commit &lt;base-commit&gt;</code>。三种 Herdr 名字都带 workspace id 前缀（<code>w2q-</code>），tab 也开在 caller 的 workspace 里，几个项目才能同一夜各跑各的。</figcaption>
+    <figcaption>图 6 · 一条命令走完；橙色那两处是本图的重心。<b>worktree 由脚本开</b>：host 能不能自己开一个各不相同，所以 <code>models.md</code> 的 launch arguments 里没有 worktree 这一项，会话直接起在里面；分支 <code>issue-&lt;n&gt;</code> 切自<b>派发那一刻的 HEAD</b>——白天的讨论与 spec 就在那条分支上，上一批 <code>advance</code> 并回来的票也在——base commit 写进 <code>git config branch.issue-&lt;n&gt;.mmw-base</code>，closing comment 的 <code>Outside Owns:</code> 与 code review 的 base commit 都从它算；分支名另记进 <code>mmw-base-branch</code>，只作记录；<code>advance</code> 并进主 agent 跑它时所在、也就是开夜的那条分支。已存在的 <code>issue-&lt;n&gt;</code> 分支照原样接着用，那是 redispatch。caller 点的是 <code>dispatch</code> 技能，脚本的绝对路径由那份技能从自己所在的位置解析（图 0b），caller 一个字都不写。<b>dispatch line 是一整句</b>：<code>Use the implement skill to work ticket #&lt;n&gt;</code>——它点技能名而不写路径，因为 host 自己会发现装好的技能；票由技能自己去读。查票不过 → 退出 2，什么都不起；120 秒没 idle → 退出 1，会话起了但没被告知任何事。reviewer 走同一条脚本：不开 worktree，在 caller 的 pane 上按宽度左右或上下分屏，跑在 worker 的 worktree 里，多给一个 base commit，dispatch line 是 <code>Use the code-review skill to review ticket #&lt;n&gt; from base commit &lt;base-commit&gt;</code>。三种 Herdr 名字都带 workspace id 前缀（<code>w2q-</code>），tab 也开在 caller 的 workspace 里，几个项目才能同一夜各跑各的。</figcaption>
   </figure>
 </section>
 
@@ -936,16 +936,16 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <g><rect x="16" y="56" width="176" height="72" rx="6" class="tk"/><rect x="24" y="62" width="36" height="12" rx="2" class="tagr t-tk"/><text x="42" y="71" class="tg t-tk" text-anchor="middle">TICKET</text><text x="24" y="92" class="nm">票 #n</text><text x="24" y="108" class="cn">## Acceptance criteria · ## Owns</text><text x="24" y="120" class="cn">评论：数 self-run 条数</text></g>
       <g><rect x="240" y="56" width="208" height="72" rx="6" class="fo sc"/><rect x="248" y="62" width="32" height="12" rx="2" class="tagr t-sc"/><text x="264" y="71" class="tg t-sc" text-anchor="middle">SCRIPT</text><text x="248" y="92" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">verify-ticket 技能 · 写完码那一条 run</text><text x="248" y="108" class="cn">--timeout 可放宽</text><text x="248" y="120" class="cn">算 Outside Owns（本票自己的提交，自 mmw-base）</text></g>
       <g><path d="M520,64 H664 L680,80 V120 H520 Z" class="dc"/><path d="M664,64 V80 H680" class="dc"/><rect x="528" y="70" width="24" height="11" rx="2" class="tagr t-dc"/><text x="540" y="78" class="tg t-dc" text-anchor="middle">DOC</text><text x="528" y="98" class="sb" style="fill:var(--ink);font-weight:600">ledger AC.md</text><text x="528" y="112" class="cn">临时目录，用完即删</text></g>
-      <g><rect x="712" y="56" width="176" height="72" rx="6" class="sc"/><rect x="720" y="62" width="32" height="12" rx="2" class="tagr t-sc"/><text x="736" y="71" class="tg t-sc" text-anchor="middle">SCRIPT</text><text x="720" y="92" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">gate-check.mjs</text><text x="720" y="108" class="cn">vendor unlazy；批准机制已去</text><text x="720" y="120" class="cn">both conditions · STALE 签名 · 超时</text></g>
+      <g><rect x="712" y="56" width="176" height="72" rx="6" class="sc"/><rect x="720" y="62" width="32" height="12" rx="2" class="tagr t-sc"/><text x="736" y="71" class="tg t-sc" text-anchor="middle">SCRIPT</text><text x="720" y="92" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">gate-check.mjs</text><text x="720" y="108" class="cn">vendor unlazy；批准机制已去</text><text x="720" y="120" class="cn">both conditions · 超时</text></g>
       <g><rect x="920" y="56" width="160" height="72" rx="6" class="ex"/><rect x="928" y="62" width="24" height="12" rx="2" class="tagr t-ex"/><text x="940" y="71" class="tg t-ex" text-anchor="middle">EXT</text><text x="928" y="92" class="nm">shell</text><text x="928" y="108" class="cn">原样跑每条 CHECK:</text><text x="928" y="120" class="cn">多行用 fenced block</text></g>
       <g><rect x="712" y="160" width="176" height="80" rx="6" class="sc"/><rect x="720" y="166" width="32" height="12" rx="2" class="tagr t-sc"/><text x="736" y="175" class="tg t-sc" text-anchor="middle">SCRIPT</text><text x="720" y="196" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">visual-parity.py</text><text x="720" y="208" class="cn">baseline 离线渲染 · 每 scene 两 viewport</text><text x="720" y="219" class="cn">normalisation 后 diff 0 ∧ 像素 ≤ 1%</text><text x="720" y="230" class="cn">先跑 negative control；PARITY OK &lt;passed&gt;/&lt;total&gt;</text><text x="720" y="241" class="cn">--cdp 连本机跑着的 Electron</text></g>
-      <g><rect x="240" y="296" width="208" height="64" rx="2" class="cm"/><text x="248" y="312" class="sb" style="fill:var(--ink);font-weight:600">self-run</text><text x="248" y="324" class="sb">UNMET: 1 (met: 3)</text><text x="248" y="336" class="cn">第二行是 gate-check summary line，三种形状之一</text><text x="248" y="346" class="cn">逐条勾 + EVIDENCE 结构行</text><text x="248" y="356" class="cn">第 3 次同一条未过 → ROUND LIMIT 行</text></g>
+      <g><rect x="240" y="296" width="208" height="64" rx="2" class="cm"/><text x="248" y="312" class="sb" style="fill:var(--ink);font-weight:600">self-run</text><text x="248" y="324" class="sb">UNMET: 1 (met: 3)</text><text x="248" y="336" class="cn">第二行是 gate-check summary line，三种形状之一</text><text x="248" y="346" class="cn">逐条勾 + EVIDENCE 结构行</text><text x="248" y="356" class="cn">未过的照跑，轮次由 worker 自己判断</text></g>
       <g><rect x="520" y="296" width="160" height="48" rx="6" class="ex"/><rect x="528" y="302" width="24" height="12" rx="2" class="tagr t-ex"/><text x="540" y="311" class="tg t-ex" text-anchor="middle">EXT</text><text x="528" y="330" class="sb">phase=selfcheck · ac=3/4</text><text x="528" y="340" class="cn">pane token，一天 TTL</text></g>
       <text x="464" y="388" class="aside">the ticket is the only state</text>
       <path d="M456,382 Q400,378 348,366" class="fl lead"/><circle cx="348" cy="364" r="2" class="dot"/>
     </svg>
     </div>
-    <figcaption>图 9 · 判定逻辑一个字没动（三态、exit 0 ∧ EXPECT、超时、STALE 签名）；上游的整套批准机制去掉，多行命令改成 fenced block。<b>轮次由票自己数</b>：第三条 <code>self-run</code> 里同一标准仍未过，那一行改成 <code>ROUND LIMIT</code>，点名该写 <code>ABANDON: AC&lt;n&gt; failed</code>；第四轮照跑，修好了照样过。UI 失败不问人：<code>DIFF</code> 行直接给出变了的 accessibility tree 文本，<code>--out</code> 目录留截图供人看；不是网页的实现（Electron 桌面程序）用 <code>--cdp &lt;url&gt;</code> 指它已经开着的调试端口，<code>--impl</code> 仍是要导航到的地址，<code>--impl-title</code> 在有多个窗口时挑一个，跑完不关掉它。<b><code>Outside Owns:</code> 只算本票自己的提交</b>：从 <code>branch.issue-&lt;n&gt;.mmw-base</code> 记下的 base commit 起沿第一父链走，合并进来的别的票的提交不计——<code>dispatch.sh advance</code> 每晚都会把别的票合进来（4b），这条排除是它的直接后果。</figcaption>
+    <figcaption>图 9 · 判定逻辑一个字没动（三态、exit 0 ∧ EXPECT、超时）；上游的整套批准机制去掉，多行命令改成 fenced block。<b>轮次不数</b>：同一标准试几轮由 worker 自己判断，放弃时写 <code>ABANDON: AC&lt;n&gt; failed</code> 并说明试了什么。UI 失败不问人：<code>DIFF</code> 行直接给出变了的 accessibility tree 文本，<code>--out</code> 目录留截图供人看；不是网页的实现（Electron 桌面程序）用 <code>--cdp &lt;url&gt;</code> 指它已经开着的调试端口，<code>--impl</code> 仍是要导航到的地址，<code>--impl-title</code> 在有多个窗口时挑一个，跑完不关掉它。<b><code>Outside Owns:</code> 只算本票自己的提交</b>：从 <code>branch.issue-&lt;n&gt;.mmw-base</code> 记下的 base commit 起沿第一父链走，合并进来的别的票的提交不计——<code>dispatch.sh advance</code> 每晚都会把别的票合进来（4b），这条排除是它的直接后果。</figcaption>
   </figure>
 </section>
 <section id="s9">
@@ -1068,7 +1068,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <!-- band 3 -->
       <text x="108" y="156" class="ey">3 · 标准逐条</text><text x="200" y="156" class="sb" style="fill:var(--ink)">- [x] AC1: … CHECK: / EXPECT: / EVIDENCE: exit=0; shell=…; EXPECT=matched; output-sha256=…</text>
       <text x="200" y="172" class="sb" style="fill:var(--ink)">- [ ] AC3: 未过的保留原文不改，EVIDENCE 写实际输出</text>
-      <text x="200" y="188" class="sb" style="fill:var(--ink)">ABANDON: AC3 failed &lt;三轮各做了什么&gt; · AC4 stuck &lt;试过的路&gt; · AC5 decision &lt;问题 + 选项 + 默认&gt;</text>
+      <text x="200" y="188" class="sb" style="fill:var(--ink)">ABANDON: AC3 failed &lt;各轮做了什么&gt; · AC4 stuck &lt;试过的路&gt; · AC5 decision &lt;问题 + 选项 + 默认&gt;</text>
       <text x="108" y="204" class="cn">从最新 self-run 评论抄，Audit 时逐条追到最新 EVIDENCE</text>
       <line x1="96" y1="216" x2="736" y2="216" class="rule"/>
       <!-- band 4 -->
@@ -1083,7 +1083,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <!-- band 6 -->
       <text x="108" y="348" class="ey">6 · 主意</text><text x="200" y="348" class="sb" style="fill:var(--ink)">Decisions I made on my own（<code>Decisions I made on my own</code>）</text>
       <text x="200" y="364" class="cn">票和 spec 都没说、由 worker 自己定的每一件；早上专门读这一段</text>
-      <text x="108" y="400" class="cn">草稿写完 → S12 --closeout &lt;draft&gt;。分支不推、不开 PR：票关掉之后由 dispatch.sh advance 在本机并进 branch.issue-&lt;n&gt;.mmw-base-branch（4b）</text>
+      <text x="108" y="400" class="cn">草稿写完 → S12 --closeout &lt;draft&gt;。分支不推、不开 PR：票关掉之后由 dispatch.sh advance 在本机并进主 agent 当时所在的分支，也就是开夜的那条（4b）</text>
       <!-- right notes: who checks -->
       <text x="768" y="44" class="ey">--CLOSEOUT 核什么</text>
       <text x="768" y="64" class="sb">1 · 格式合法；ABANDON 含 failed/stuck → 拒 ALL MET</text>
@@ -1093,7 +1093,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <text x="768" y="136" class="sb">    且票上最新一条 self-run / reverify 的 gate-check summary line</text>
       <text x="768" y="148" class="sb">    不是 UNMET: 也不是 HANDOFF REQUIRED:</text>
       <text x="768" y="160" class="sb">3 · kind ∈ {decision, failed, stuck}，指向已知 AC</text>
-      <text x="768" y="176" class="sb">    failed：票上数得出 3 条该 AC 未过的 self-run</text>
+      <text x="768" y="176" class="sb">    failed 与 stuck：不数轮次，ABANDON 行写清试了什么</text>
       <text x="768" y="192" class="sb">    勾了但 EVIDENCE 是 pending → 算 unmet</text>
       <text x="768" y="240" class="sb">4 · Outside Owns 是解释项，不是判据</text>
       <text x="768" y="300" class="sb">5 · 重算核对 Counts 格式与数目</text>
@@ -1139,7 +1139,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <g><rect x="432" y="48" width="272" height="232" rx="6" class="fo sc"/><rect x="440" y="54" width="32" height="12" rx="2" class="tagr t-sc"/><text x="456" y="63" class="tg t-sc" text-anchor="middle">SCRIPT</text><text x="480" y="63" class="sb">S12</text>
         <text x="440" y="80" class="cn">worker 用 verify-ticket 技能</text><text x="440" y="94" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">--closeout &lt;draft&gt;</text>
         <text x="440" y="102" class="cn">核这些（图 12 右栏）：</text>
-        <text x="440" y="116" class="cn">first line · kind · failed 的三条 self-run · 勾了必有 EVIDENCE</text>
+        <text x="440" y="116" class="cn">first line · kind · 勾了必有 EVIDENCE</text>
         <text x="440" y="128" class="cn">Counts 重算 · VERDICT 是 HEAD 祖先 · Post-verdict</text>
         <text x="440" y="140" class="cn">最新一次 run 的 gate-check summary line 不是 UNMET / HANDOFF</text>
         <text x="440" y="152" class="cn">已跟踪文件无改动 · 分支含 mmw-base · 票 OPEN 且 assignee 是我</text>
@@ -1153,7 +1153,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       </g>
       <g><rect x="752" y="48" width="336" height="56" rx="6" class="sc"/><text x="760" y="68" class="nm2">被拒：什么都不改</text><text x="760" y="84" class="cn">stderr 一行原因；worker 修草稿或修票，再跑</text><text x="760" y="96" class="cn">退出 1</text></g>
       <g><rect x="752" y="128" width="336" height="64" rx="6" class="sk"/><text x="760" y="148" class="nm2">贴评论 → 摘 ready-for-agent → 关票（--reason completed）</text><text x="760" y="164" class="cn">phase=closed；下游票的 Blocked by 自动解锁</text><rect x="760" y="172" width="88" height="14" rx="2" class="lb"/><text x="804" y="182" class="sb lbt" text-anchor="middle" style="font-size:8px">ready-for-agent ✕</text></g>
-      <text x="752" y="206" class="cn">分支留在原地不推 → 下一次 dispatch.sh advance 并回 mmw-base-branch（图 4c）</text>
+      <text x="752" y="206" class="cn">分支留在原地不推 → 下一次 dispatch.sh advance 并进开夜的那条分支（图 4c）</text>
       <g><rect x="752" y="216" width="336" height="64" rx="6" class="sk"/><text x="760" y="236" class="nm2">贴评论 → ready-for-agent 换 needs-triage → 票开着</text><text x="760" y="252" class="cn">phase=handoff；打印 HANDED BACK: #n is now needs-triage …</text><rect x="760" y="260" width="80" height="14" rx="2" class="lb"/><text x="800" y="270" class="sb lbt" text-anchor="middle" style="font-size:8px">needs-triage</text></g>
       <!-- hook lane -->
       <g><rect x="32" y="336" width="216" height="64" rx="6" class="ss"/><rect x="40" y="342" width="36" height="12" rx="2" class="tagr t-ss"/><text x="58" y="351" class="tg t-ss" text-anchor="middle">SESSION</text><text x="40" y="372" class="nm2">worker 手敲</text><text x="40" y="388" class="sb">gh issue close 77 · gh issue edit …</text></g>
@@ -1167,7 +1167,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
 </section>
 <section id="abandon">
   <h2>5 三种「做不下去」：只有两种让票停下</h2>
-  <p class="lede">标准层三个 kind，每一个机器都据它做不同的事：<code>failed</code> 要票上有三轮 self-run 的记录，<code>stuck</code> 不看轮次，<code>decision</code> 不挡关票。</p>
+  <p class="lede">标准层三个 kind，每一个机器都据它做不同的事：<code>failed</code> 是跑了没过，<code>stuck</code> 是跑不起来，两者都不看轮次；<code>decision</code> 不挡关票。</p>
   <figure>
     <div class="box">
     <svg viewBox="0 0 1120 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="ab-title ab-desc">
@@ -1190,7 +1190,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
       <!-- top -->
       <g><rect x="280" y="24" width="560" height="48" rx="20" class="sk"/><text x="560" y="44" class="nm" text-anchor="middle">一条 acceptance criterion 做不下去</text><text x="560" y="60" class="cn" text-anchor="middle">写在该标准列首：ABANDON: AC&lt;n&gt; &lt;kind&gt; &lt;理由&gt;；verifier 不写它，只留 VERDICT</text></g>
       <!-- three kinds -->
-      <g><rect x="40" y="112" width="272" height="80" rx="6" class="sk"/><text x="52" y="132" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">ABANDON: failed</text><text x="52" y="148" class="cn">跑了，没过</text><text x="52" y="162" class="cn">self-run 三轮仍不过，或 review 修一轮之后仍不过</text><text x="52" y="176" class="cn">--closeout 要票上数得出 3 条该 AC 未过的 self-run</text></g>
+      <g><rect x="40" y="112" width="272" height="80" rx="6" class="sk"/><text x="52" y="132" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">ABANDON: failed</text><text x="52" y="148" class="cn">跑了，没过</text><text x="52" y="162" class="cn">修了几轮仍不过，或 review 修一轮之后仍不过</text><text x="52" y="176" class="cn">ABANDON 行写清每轮试了什么；--closeout 不数轮次</text></g>
       <g><rect x="424" y="112" width="272" height="80" rx="6" class="sk"/><text x="436" y="132" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">ABANDON: stuck</text><text x="436" y="148" class="cn">跑不起来，或任务内做不到</text><text x="436" y="162" class="cn">CHECK 起不来 / 缺凭据或设备 / 本票范围内够不着</text><text x="436" y="176" class="cn">不看轮次；理由写试过哪些路，或指向记录它的 sub-issue</text></g>
       <g><rect x="808" y="112" width="272" height="80" rx="6" class="fo"/><text x="820" y="132" class="sb" style="fill:var(--ink);font-weight:600;font-size:11px">ABANDON: decision</text><text x="820" y="148" class="cn">两个选项都合法，要人拍一句话</text><text x="820" y="162" class="cn">票和 spec 都没说</text><text x="820" y="176" class="cn">写问题 + 选项 + 无人答复时的默认</text></g>
       <!-- outcomes -->
@@ -1302,7 +1302,7 @@ svg .fl.lead{stroke:var(--ink-40);stroke-width:1;stroke-dasharray:4 3}
     <tr><td>Anatomy of a ticket</td><td><code>## Parent</code> … <code>## Blocked by</code> 八节 · <code>&lt;issue-template&gt;</code> · <code>AC&lt;n&gt;:</code> · <code>(new)</code> · directory glob · frontier · spec</td><td class="mono">S4 S5 S6</td></tr>
     <tr><td>Anatomy of a spec</td><td><code>## User Stories</code> · <code>## Implementation Decisions</code> · <code>## Testing Decisions</code> · <code>## Out of Scope</code> · <code>## Sources</code> · <code>## Further Notes</code> · precedent · vertical slice</td><td class="mono">S2 S4 S6</td></tr>
     <tr><td>Acceptance criteria</td><td>the five questions · <code>CHECK:</code> · fenced block · <code>EXPECT:</code> · <code>CWD:</code> · success-only marker · <code>EVIDENCE:</code> · EVIDENCE structured line · <code>ABANDON:</code> · <code>failed</code> / <code>stuck</code> / <code>decision</code> · both conditions</td><td class="mono">S4 S8 S11 S12</td></tr>
-    <tr><td>Running the criteria</td><td>ledger · <code>gate-check</code> · <code>gate-lint</code> · <code>STALE</code> · <code>self-run</code> · <code>ROUND LIMIT</code> · <code>reverify</code> · gate-check summary line · <code>UNMET: &lt;n&gt; (met: &lt;m&gt;)</code> · <code>RUN</code> / <code>PASS</code> / <code>FAIL</code> / <code>STALE</code> · <code>UPSTREAM.md</code></td><td class="mono">S8 S9</td></tr>
+    <tr><td>Running the criteria</td><td>ledger · <code>gate-check</code> · <code>gate-lint</code> · <code>self-run</code> · <code>reverify</code> · gate-check summary line · <code>UNMET: &lt;n&gt; (met: &lt;m&gt;)</code> · <code>RUN</code> / <code>PASS</code> / <code>FAIL</code> · <code>UPSTREAM.md</code></td><td class="mono">S8 S9</td></tr>
     <tr><td>The verdict</td><td><code>VERDICT &lt;40 位 commit&gt; by &lt;model&gt; — &lt;一句话&gt;</code> · <code>The environment is yours; the repository is not</code></td><td class="mono">S9 S12</td></tr>
     <tr><td>The closing comment</td><td>closing comment · <code>ALL MET</code> · <code>HANDOFF REQUIRED</code> · <code>Branch: … Commit: … PR: …</code> · <code>Post-verdict:</code> · <code>Outside Owns:</code> · <code>skipped: [X], add when [Y]</code> · <code>Sub-issues opened:</code> · <code>Counts:</code> · <code>Decisions I made on my own</code></td><td class="mono">S11 S12 S13</td></tr>
     <tr><td>Script subcommands</td><td><code>verify-ticket.py</code> · <code>--preflight</code> · <code>--closeout</code> · <code>--lint</code> · <code>--reverify</code> · <code>--check-only</code> · <code>NOT_READY:</code> · <code>CLOSEOUT OK</code> · <code>HANDED BACK</code> · problem tag（三个来源，含 <code>cross-batch</code>）· <code>ERROR</code> / <code>WARN</code> · start levels · <code>HOOKS-INSTALLED</code> · <code>MMW_V2_HOME</code> · <code>hook.py pretool</code> · <code>rule-at-moment.py</code></td><td class="mono">S4 S6 S8 S9 S12</td></tr>

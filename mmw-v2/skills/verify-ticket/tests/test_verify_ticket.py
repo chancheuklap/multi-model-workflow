@@ -154,10 +154,6 @@ class TestNoRoundCap(LedgerRun):
                 self.assertNotIn("ROUND LIMIT", comment)
                 self.assertNotIn("ABANDON", comment)
 
-    def test_the_closeout_floor_is_still_three(self):
-        """`ABANDON: failed` still has to show three self-runs; that is the closeout's."""
-        self.assertEqual(vt.ROUND_LIMIT, 3)
-
 
 class TestCheckTimeout(LedgerRun):
     """One number per ticket, read off the ticket body, never lowered."""

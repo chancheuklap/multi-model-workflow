@@ -40,7 +40,7 @@ INSTALLER="$(dirname "$(dirname "$SKILL_ROOT")")/install.sh"
 DEFAULT_WORKER=junior-worker
 
 BOARD_TAB_LABEL="mmw board"
-MERGE_TRIES=3                # the board opens worktrees while advance merges
+MERGE_TRIES=3                # a worker's commit in its worktree can hold the .git lock while advance merges
 
 # Herdr's agent names are unique among live agents across the whole server, not per
 # workspace, so two repositories each holding a ticket #100 would collide on `issue-100`
@@ -184,6 +184,37 @@ else:
 '
 }
 
+# ------------------------------------------------------------------ live sessions
+
+# Prints "live" when Herdr already has an agent by this name, and nothing otherwise —
+# including when Herdr could not be asked or did not answer in JSON, in which case a
+# taken name still fails at `agent start` with Herdr's own error. Without this it would
+# fail there after a tab or a pane had already been opened for it, so it is asked here,
+# before anything is opened, and exit 2 keeps meaning that nothing was touched.
+session_named() {
+  local listing
+  listing="$(herdr agent list 2>/dev/null)" || return 0
+  printf '%s' "$listing" | MMW_WANTED="$1" python3 -c '
+import json, os, sys
+
+try:
+    payload = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+agents = (payload.get("result") or {}).get("agents") or payload.get("agents") or []
+if any(a.get("name") == os.environ["MMW_WANTED"] for a in agents):
+    print("live")
+'
+}
+
+# Prints the agent kinds `herdr agent start --kind` accepts, space separated, read off
+# the `[possible values: …]` line of its own help; nothing when that line is not there.
+herdr_agent_kinds() {
+  herdr agent start --help 2>&1 \
+    | sed -n 's/.*\[possible values: \([^]]*\)\].*/\1/p' \
+    | head -n 1 | tr ',' ' ' | tr -s ' ' | sed 's/^ //; s/ $//'
+}
+
 # ------------------------------------------------------------------ the worktree
 
 # Prints the path of ticket `number`'s worktree, creating it when it is not there yet.
@@ -195,32 +226,51 @@ else:
 # A branch named issue-<n> that already exists is reused as it stands: the ticket is
 # being started again, and the new session resumes the work. Otherwise the branch is cut from
 # HEAD — whatever branch the dispatching session is on, because that is where the day's
-# discussion and spec work happened and the ticket builds on it — and the base commit is
-# recorded in `branch.issue-<n>.mmw-base`, where `verify-ticket.py` and the code review
-# read the base their diffs start from. Stale bookkeeping for a directory deleted by
-# hand is pruned first, and a failed add leaves git's own error on stderr for the
-# caller's refusal to carry.
+# discussion and spec work happened and the ticket builds on it. Either way the base
+# commit ends up in `branch.issue-<n>.mmw-base`, where `verify-ticket.py` and the code
+# review read the base their diffs start from: for a branch cut here it is HEAD, and
+# for a branch that was there already — made by hand, or left by an earlier night —
+# and has no record yet, it is that branch's merge base with HEAD. Stale bookkeeping
+# for a directory deleted by hand is pruned first, and a failed add leaves git's own
+# error on stderr for the caller's refusal to carry.
 worktree_for() {
   local number="$1" root="$2"
   local base="${MMW_WORKTREES:-$HOME/.mmw/worktrees}/$(basename "$root")"
   local path="$base/issue-$number"
   git -C "$root" worktree prune 2>/dev/null
-  if [ -d "$path" ]; then
-    printf '%s\n' "$path"
-    return 0
-  fi
-  mkdir -p "$base" || return 1
   if git -C "$root" rev-parse --verify --quiet "refs/heads/issue-$number" >/dev/null; then
+    if [ -d "$path" ]; then
+      record_base_if_missing "$number" "$root"
+      printf '%s\n' "$path"
+      return 0
+    fi
+    mkdir -p "$base" || return 1
     git -C "$root" worktree add "$path" "issue-$number" >/dev/null || return 1
+    record_base_if_missing "$number" "$root"
   else
+    mkdir -p "$base" || return 1
     git -C "$root" worktree add -b "issue-$number" "$path" HEAD >/dev/null || return 1
     git -C "$root" config "branch.issue-$number.mmw-base" "$(git -C "$root" rev-parse HEAD)"
-    # The branch name as well as the commit: `advance` merges this branch back into
-    # the one it was cut from once the ticket closes, and a sha cannot name a branch.
     git -C "$root" config "branch.issue-$number.mmw-base-branch" \
       "$(git -C "$root" rev-parse --abbrev-ref HEAD)"
   fi
   printf '%s\n' "$path"
+}
+
+# Fills `branch.issue-<n>.mmw-base` for a branch that exists without one, with the
+# merge base of HEAD and that branch; `mmw-base-branch` likewise, with the branch HEAD
+# is on. A value already there is left alone: it was recorded when the branch was cut
+# and is the better answer.
+record_base_if_missing() {
+  local number="$1" root="$2" found
+  if [ -z "$(git -C "$root" config --get "branch.issue-$number.mmw-base")" ]; then
+    found="$(git -C "$root" merge-base HEAD "issue-$number" 2>/dev/null)"
+    [ -n "$found" ] && git -C "$root" config "branch.issue-$number.mmw-base" "$found"
+  fi
+  if [ -z "$(git -C "$root" config --get "branch.issue-$number.mmw-base-branch")" ]; then
+    git -C "$root" config "branch.issue-$number.mmw-base-branch" \
+      "$(git -C "$root" rev-parse --abbrev-ref HEAD)"
+  fi
 }
 
 # ------------------------------------------------------------------ dispatching
@@ -297,6 +347,13 @@ dispatch() {
   local pane name prompt
   if [ "$reviewing" = 1 ]; then
     name="$(herdr_name "issue-$number-review")"
+  else
+    name="$(herdr_name "issue-$number")"
+  fi
+  [ "$(session_named "$name")" != live ] \
+    || refuse "#$number already has a live session $name"
+
+  if [ "$reviewing" = 1 ]; then
     prompt="Use the code-review skill to review ticket #$number from base commit $base. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
     local caller="${HERDR_PANE_ID:-}"
     [ -n "$caller" ] || refuse "no calling pane to split, so the reviewer has nowhere to go"
@@ -310,7 +367,6 @@ dispatch() {
             | json_at .result.pane.pane_id)"
     [ -n "$pane" ] || refuse "could not split pane $caller"
   else
-    name="$(herdr_name "issue-$number")"
     prompt="Use the implement skill to work ticket #$number. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
     local worktree
     worktree="$(worktree_for "$number" "$root")" \
@@ -372,17 +428,28 @@ dispatch() {
 
 # ------------------------------------------------------------------ waiting
 
-# The newest comment on the ticket, or nothing when it has none.
-newest_comment() {
-  gh_ issue view "$1" --json comments 2>/dev/null | python3 -c '
-import json, sys
+# One read of the ticket's comments for `wait`. Prints the comment count on the first
+# line, then the body of the first comment whose first line matches the pattern —
+# among the comments after the first `since` ones, or, when `since` is empty, the
+# newest comment alone. Prints only the count when nothing matches.
+matching_comment() {
+  gh_ issue view "$1" --json comments 2>/dev/null \
+    | MMW_PATTERN="$2" MMW_SINCE="${3:-}" python3 -c '
+import json, os, re, sys
 
 try:
     comments = json.load(sys.stdin).get("comments") or []
 except Exception:
     comments = []
-if comments:
-    sys.stdout.write(comments[-1].get("body") or "")
+print(len(comments))
+since = os.environ["MMW_SINCE"]
+candidates = comments[int(since):] if since else comments[-1:]
+pattern = re.compile(os.environ["MMW_PATTERN"])
+for comment in candidates:
+    body = comment.get("body") or ""
+    if body and pattern.search(body.split("\n", 1)[0]):
+        sys.stdout.write(body)
+        break
 '
 }
 
@@ -417,7 +484,7 @@ wait_for() {
   local number="$1" pattern="$2" seconds="${3:-}"
   [ -n "$seconds" ] || seconds="$WAIT_DEFAULT_SECONDS"
   local deadline=$(( $(date +%s) + seconds ))
-  local target=""
+  local target="" since=""
   [ "${HERDR_ENV:-}" = 1 ] && target="$(awaited_agent "$number")"
 
   while :; do
@@ -428,10 +495,15 @@ wait_for() {
       herdr agent wait "$target" --timeout $(( remaining * 1000 )) >/dev/null 2>&1
     fi
 
-    local comment first
-    comment="$(newest_comment "$number")"
-    first="$(printf '%s' "$comment" | head -n 1)"
-    if [ -n "$comment" ] && printf '%s' "$first" | grep -Eq "$pattern"; then
+    # The first read judges the newest comment, as the caller found the ticket; every
+    # later read judges all the comments added since that first read, so a comment
+    # landing after the awaited one — a `TOUCHED BY` from another ticket, say — does not
+    # hide it.
+    local answer comment
+    answer="$(matching_comment "$number" "$pattern" "$since")"
+    since="$(printf '%s\n' "$answer" | head -n 1)"
+    comment="$(printf '%s\n' "$answer" | tail -n +2)"
+    if [ -n "$comment" ]; then
       printf '%s\n' "$comment"
       return 0
     fi
@@ -443,7 +515,7 @@ wait_for() {
 
   local who="${target:-the agent on #$number}"
   gh_ issue comment "$number" \
-    --body "$who did not report back within ${seconds}s. This round was skipped and the ticket carried on." \
+    --body "$who did not report back within ${seconds}s." \
     >/dev/null 2>&1
   give_up "$who did not report back within ${seconds}s"
 }
@@ -509,9 +581,10 @@ conflict_report() {
 
 # 0 merged, 1 left in conflict, 2 could not run it at all.
 #
-# A retry is for the lock, not for the conflict: the board opens a worktree for a
-# redispatch while this runs, and the two collide on the repository's index for a
-# moment. A conflict leaves MERGE_HEAD behind and no number of retries changes it.
+# A retry is for the lock, not for the conflict: every worktree shares one `.git`, so
+# a worker committing in its own worktree while this runs holds the lock this merge
+# needs for a moment. A conflict leaves MERGE_HEAD behind and no number of retries
+# changes it.
 merge_one() {
   local root="$1" branch="$2" i
   for ((i = 1; i <= MERGE_TRIES; i++)); do
@@ -642,6 +715,44 @@ run_night() {
   local root
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] || refuse "not inside a git repository"
+
+  # The tickets' own worker grades, read the way a dispatch will read them: a label
+  # naming a row this table lacks, or two grade labels on one ticket, would refuse that
+  # ticket at every `advance` all night, with the reason only ever on advance's stderr.
+  local grades line number
+  grades="$(python3 "$BOARD" --worker-grades "$spec")" \
+    || refuse "could not read the batch under #$spec"
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    local -a fields marked
+    read -r -a fields <<<"$line"
+    number="${fields[1]}"
+    marked=("${fields[@]:2}")
+    case "${#marked[@]}" in
+      0) ;;
+      1) [ -n "$(row_for_role "${marked[0]}")" ] \
+           || refuse "#$number asks for ${marked[0]}, and $MODELS has no such row" ;;
+      *) refuse "#$number carries ${#marked[@]} worker labels (${marked[*]}), and it takes one" ;;
+    esac
+  done <<<"$grades"
+
+  # Every host a session will be started on has to be a kind `herdr agent start`
+  # accepts, or that session never comes up and the ticket is refused at every advance.
+  # A help text with no kind list on it is not a reason to stop the night: the check is
+  # skipped, said so on stderr, and `agent start` reports a bad kind itself.
+  local kinds host
+  kinds="$(herdr_agent_kinds)"
+  if [ -n "$kinds" ]; then
+    for seat in $(worker_roles) reviewer; do
+      host="$(row_for_role "$seat" | cut -f1)"
+      case " $kinds " in
+        *" $host "*) ;;
+        *) refuse "the $seat row's host is $host, which herdr agent start does not accept (it accepts: $kinds)" ;;
+      esac
+    done
+  else
+    echo "dispatch: 'herdr agent start --help' lists no agent kinds, so the hosts in $MODELS were not checked" >&2
+  fi
 
   herdr agent rename "$caller" "$MAIN_AGENT_NAME" >/dev/null 2>&1 \
     || refuse "could not rename this pane $MAIN_AGENT_NAME, so the board could not reach it"

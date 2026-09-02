@@ -22,7 +22,7 @@ Resolve them from this file's own location. The path differs by machine and by h
 
 | You want to | Run |
 | --- | --- |
-| Start the reviewer on your ticket and wait for its report | `<dispatch> <n> reviewer <base-commit>`, then `<dispatch> wait <n> "^REVIEW "` |
+| Start the reviewer on your ticket and wait for its report | `<dispatch> <n> reviewer <base-commit>`, then `<dispatch> wait <n> "^REVIEW "`. A start that exits 1 or 2, or a wait that times out, does not end the round: read the reviewer's screen with `herdr agent read <name>`; still running, wait again; never started or stopped, run the `code-review` skill in your host's general-purpose subagent with the same base commit and ticket number, and its report lands on the ticket with the same `REVIEW` first line |
 | Open the night on a spec | `<dispatch> run <spec>`, then `<dispatch> advance <spec>` straight after |
 | Act on `mmw board: ADVANCE` | `<dispatch> advance <spec>` |
 | Act on `mmw board: night over` | `<dispatch> advance <spec>`, then re-run the closed tickets' criteria on the base branch — [references/night.md](references/night.md) |
@@ -41,7 +41,7 @@ The second argument is `worker` or `reviewer`. Which of the two worker rows in `
 
 `<base-commit>` is the reviewer's only extra argument: the commit the code review starts from. Read it in the worker's worktree with `git config branch.issue-<n>.mmw-base` — the base commit `dispatch.sh` recorded when it opened the worktree, and the commit `verify-ticket.py` measures `Outside Owns:` from.
 
-`wait` takes a first-line regular expression, matched against the newest comment on the ticket. A worker waiting on its reviewer uses `"^REVIEW "`, trailing space and all; whoever dispatched a worker waits on `"^(ALL MET|HANDOFF REQUIRED)"`. A trailing `[seconds]` overrides `dispatch.sh`'s own `WAIT_DEFAULT_SECONDS`; leave it off.
+`wait` takes a first-line regular expression, matched against the newest comment on the ticket when the wait starts and against every comment added after that. A worker waiting on its reviewer uses `"^REVIEW "`, trailing space and all; whoever dispatched a worker waits on `"^(ALL MET|HANDOFF REQUIRED)"`. A trailing `[seconds]` overrides `dispatch.sh`'s own `WAIT_DEFAULT_SECONDS`; leave it off.
 
 ## Exit codes
 
@@ -51,21 +51,21 @@ The second argument is `worker` or `reviewer`. Which of the two worker rows in `
 | --- | --- |
 | `0` | The session is up and has been told what to work on |
 | `1` | The session is up but was **not** told anything: its hooks did not report it ready in time, or it did not report the prompt as taken. A session is now sitting in that pane holding the ticket's name with nothing to do. Read its screen with `herdr agent read <name>`, then either prompt it yourself with the dispatch line or end that session before dispatching the ticket again with the same second argument — the Herdr name collides |
-| `2` | Nothing was started. The reason is on stderr — read it verbatim |
+| `2` | Nothing was started — no worktree, tab or pane was opened. The reason is on stderr — read it verbatim. One of them is `already has a live session <name>`: Herdr already holds a session by the name this dispatch would use, so end that session or wait for it before dispatching the ticket again with the same second argument |
 
 **Waiting** — `<dispatch> wait`:
 
 | Code | What happened |
 | --- | --- |
 | `0` | It matched. The whole comment is on stdout |
-| `1` | It timed out, and `dispatch.sh` has already commented on the ticket saying who did not finish. **Skip what you were waiting for and carry on with the rest of your own steps.** An agent that never reported back is not a reason to hand the ticket to a person |
+| `1` | It timed out, and `dispatch.sh` has already commented on the ticket saying who did not finish. Waiting on a worker: **skip what you were waiting for and carry on with the rest of your own steps** — an agent that never reported back is not a reason to hand the ticket to a person. Waiting on your reviewer: the round is not skipped; the first row of `Find your command` says what comes next |
 
 **Moving the batch on** — `<dispatch> advance <spec>`:
 
 | Code | What happened |
 | --- | --- |
 | `0` | Done. The advance summary line counts what was merged, what was already in, and what was started |
-| `2` | Nothing was touched. The reason is on stderr: not inside Herdr, not a git repository, or the working tree has uncommitted changes |
+| `2` | Nothing was touched. The reason is on stderr: not inside Herdr, not a git repository, the working tree has uncommitted changes, or a merge could not take the `.git` lock in `MERGE_TRIES` tries — a worker committing in its own worktree at the same moment; run `advance` again |
 | `3` | A merge is in conflict. Everything before it is merged and committed; nothing was dispatched. **The conflict is still in the tree and it stays there.** Resolve it with the `resolving-merge-conflicts` skill, run this repository's own checks, commit the merge, then run `advance` again — it picks up from the branch after the one you resolved. The conflict report on stderr is the first two steps of that skill already done for you: the branch being merged and the ticket it belongs to, the tickets already merged on this side, and the conflicted files |
 
 **Opening the night** — `<dispatch> run <spec>`:
@@ -73,4 +73,4 @@ The second argument is `worker` or `reviewer`. Which of the two worker rows in `
 | Code | What happened |
 | --- | --- |
 | `0` | The board is up. Its monitor tab holds every line it will write |
-| `2` | Nothing was started. The reason is on stderr: not inside Herdr, a worker row in `models.md` that starts no session, or `install.sh --check` found something missing. Run `install.sh`, then `<dispatch> run <spec>` again |
+| `2` | Nothing was started. The reason is on stderr: not inside Herdr; a worker row in `models.md` that starts no session; `install.sh --check` found something missing; a ticket in the batch whose worker-grade label names a row `models.md` has no row for, or which carries two grade labels — the reason names the ticket; or a worker row's or the reviewer row's host is not a kind `herdr agent start` accepts. Fix what the reason names — run `install.sh`, relabel the ticket, or edit `models.md` — then `<dispatch> run <spec>` again |

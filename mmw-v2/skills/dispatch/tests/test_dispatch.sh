@@ -2,8 +2,8 @@
 #
 # Tests for dispatch.sh. One scenario per run:
 #
-#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh worker|reviewer|seat|runtable
-#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh idletimeout|notready|noherdr
+#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh worker|basecommit|reviewer|seat|runtable|runchecks
+#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh idletimeout|notready|livesession|noherdr
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh wait|waittimeout|placeholder
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh advance|advanceconflict|advancedirty
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh all
@@ -32,6 +32,13 @@ cat > "$TMP/bin/herdr" <<'FAKE'
 line=herdr
 for a in "$@"; do line="$line :: $a"; done
 echo "$line" >> "$MMW_TEST_LOG"
+if [ "$1 $2 ${3:-}" = "agent start --help" ]; then
+  echo "      --kind <KIND>"
+  echo "          Supported agent kind and canonical executable"
+  echo
+  echo "          [possible values: ${FAKE_HERDR_KINDS:-pi, claude, codex, gemini, cursor, grok}]"
+  exit 0
+fi
 case "$1 $2" in
   "tab create")
     echo '{"result":{"tab":{"tab_id":"w1:t9"},"root_pane":{"pane_id":"w1:p9"}}}' ;;
@@ -79,11 +86,12 @@ import json, os
 
 seen = int(os.environ["MMW_SEEN"])
 match_on = int(os.environ.get("FAKE_GH_MATCH_ON", "1"))
+bodies = ["self-run\n3 met, 1 unmet"]
 if match_on and seen >= match_on:
-    body = "REVIEW clean\nNo findings inside the ticket."
-else:
-    body = "self-run\n3 met, 1 unmet"
-print(json.dumps({"comments": [{"body": body}]}))
+    bodies.append("REVIEW clean\nNo findings inside the ticket.")
+    # Comments that land after the awaited one, newest last.
+    bodies += [b for b in os.environ.get("FAKE_GH_COMMENTS_AFTER", "").split("|") if b]
+print(json.dumps({"comments": [{"body": b} for b in bodies]}))
 ' ;;
   *"--json state,labels,blockedBy,title"*)
     python3 -c '
@@ -240,6 +248,57 @@ if len(label) != 24:
   has "herdr :: pane :: report-metadata :: w1:p9 :: --source :: mmw :: --token :: ticket=61 :: --token :: kind=worker :: --token :: model=$JUNIOR_MODEL :: --ttl-ms :: 86400000"
 }
 
+scenario_basecommit() {
+  local code
+  echo "--- a branch cut by dispatch records HEAD as its base commit"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          bash "$DISPATCH" 61 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/repo" config --get branch.issue-61.mmw-base)" = "$(git -C "$TMP/repo" rev-parse main)" ] \
+    || fail "mmw-base should be the HEAD the branch was cut from"
+  [ "$(git -C "$TMP/repo" config --get branch.issue-61.mmw-base-branch)" = main ] \
+    || fail "mmw-base-branch should be main"
+
+  echo "--- a branch that already existed with no record gets its merge base with HEAD"
+  reset_log
+  fresh_repo
+  make_branch issue-62 two.txt "made by hand"
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m "main moved on"
+  local expected
+  expected="$(git -C "$TMP/repo" merge-base main issue-62)"
+  [ "$expected" != "$(git -C "$TMP/repo" rev-parse main)" ] || fail "the fixture should put HEAD past the merge base"
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          bash "$DISPATCH" 62 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/repo" config --get branch.issue-62.mmw-base)" = "$expected" ] \
+    || fail "mmw-base should be the merge base, got $(git -C "$TMP/repo" config --get branch.issue-62.mmw-base)"
+  [ "$(git -C "$TMP/repo" config --get branch.issue-62.mmw-base-branch)" = main ] \
+    || fail "mmw-base-branch should be main"
+
+  echo "--- a record that is already there is not overwritten on a second dispatch"
+  git -C "$TMP/repo" config branch.issue-62.mmw-base 0123456789012345678901234567890123456789
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          bash "$DISPATCH" 62 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/repo" config --get branch.issue-62.mmw-base)" = 0123456789012345678901234567890123456789 ] \
+    || fail "an existing mmw-base was overwritten"
+
+  echo "--- a worktree that is already there for a branch with no record is filled in too"
+  reset_log
+  fresh_repo
+  make_branch issue-63 three.txt "made by hand"
+  mkdir -p "$MMW_WORKTREES/repo"
+  git -C "$TMP/repo" worktree add "$MMW_WORKTREES/repo/issue-63" issue-63 >/dev/null 2>&1
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          bash "$DISPATCH" 63 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/repo" config --get branch.issue-63.mmw-base)" = "$(git -C "$TMP/repo" merge-base main issue-63)" ] \
+    || fail "mmw-base should be filled in for a worktree that already existed"
+}
+
 scenario_reviewer() {
   local code
   echo "--- a wide pane splits sideways"
@@ -350,6 +409,107 @@ open(path, "w", encoding="utf-8").writelines(out)
   [ "$(count_of 'herdr ::')" = 0 ] || fail "herdr was called for a row that starts nothing"
 }
 
+# A copy of the skill two directories under a fake install.sh, so `run` gets past the
+# `install.sh --check` it insists on without asking about this machine's real install.
+skill_copy_for_run() {
+  local copy="$TMP/fake/skills/$1"
+  rm -rf "$TMP/fake"
+  mkdir -p "$copy"
+  cp -R "$SKILL/models.md" "$SKILL/scripts" "$copy/"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP/fake/install.sh"
+  chmod +x "$TMP/fake/install.sh"
+  printf '%s\n' "$copy"
+}
+
+scenario_runchecks() {
+  local code copy
+  copy="$(skill_copy_for_run runchecks)"
+  fresh_repo
+
+  echo "--- a ticket whose worker label names no row stops the night, and names the ticket"
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent", "junior-worker"]},
+  {"number": 62, "state": "OPEN", "labels": ["ready-for-agent", "principal-worker"],
+   "blockedBy": [{"number": 61, "state": "OPEN"}]},
+  {"number": 63, "state": "OPEN", "labels": ["needs-triage", "principal-worker"]},
+  {"number": 64, "state": "CLOSED", "labels": ["principal-worker"]}
+]
+JSON
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$copy/scripts/dispatch.sh" run 76)"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  one_line_reason
+  grep -q '#62' "$TMP/err" || fail "the reason does not name the ticket: $(cat "$TMP/err")"
+  grep -q 'principal-worker' "$TMP/err" || fail "the reason does not name the label: $(cat "$TMP/err")"
+  hasnt "herdr :: agent :: rename"
+  hasnt "herdr :: tab :: create"
+
+  echo "--- a ticket with two worker labels stops the night the same way"
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent", "junior-worker", "senior-worker"]}
+]
+JSON
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$copy/scripts/dispatch.sh" run 76)"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  one_line_reason
+  grep -q '#61' "$TMP/err" || fail "the reason does not name the ticket: $(cat "$TMP/err")"
+  hasnt "herdr :: agent :: rename"
+  hasnt "herdr :: tab :: create"
+
+  echo "--- a row whose host herdr does not know stops the night"
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent", "senior-worker"]}
+]
+JSON
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_HERDR_KINDS="pi, claude, codex" \
+          bash "$copy/scripts/dispatch.sh" run 76)"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  one_line_reason
+  grep -q "$JUNIOR_HOST" "$TMP/err" || fail "the reason does not name the host: $(cat "$TMP/err")"
+  has "herdr :: agent :: start :: --help"
+  hasnt "herdr :: agent :: rename"
+  hasnt "herdr :: tab :: create"
+
+  echo "--- and when the help carries no kind list, the host check is skipped and the night opens"
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_HERDR_KINDS=" " \
+          bash "$copy/scripts/dispatch.sh" run 76)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  has "herdr :: agent :: rename :: w1:p1 :: w1-mmw-main"
+  has "herdr :: pane :: run :: w1:p9"
+  grep -q 'not checked' "$TMP/err" || fail "stderr should say the hosts were not checked: $(cat "$TMP/err")"
+
+  echo "--- a batch whose labels and hosts all resolve opens the night"
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent", "junior-worker"]},
+  {"number": 62, "state": "OPEN", "labels": ["ready-for-agent", "senior-worker"],
+   "blockedBy": [{"number": 61, "state": "OPEN"}]},
+  {"number": 63, "state": "OPEN", "labels": ["ready-for-agent"]}
+]
+JSON
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$copy/scripts/dispatch.sh" run 76)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  has "herdr :: agent :: rename :: w1:p1 :: w1-mmw-main"
+  has "herdr :: tab :: create :: --workspace :: w1"
+  has "herdr :: pane :: run :: w1:p9"
+  hasnt "herdr :: agent :: start :: w1-issue"
+}
+
 scenario_idletimeout() {
   reset_log
   local code
@@ -397,6 +557,59 @@ scenario_notready() {
   code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 FAKE_GH_BLOCKERS=60:CLOSED \
           bash "$DISPATCH" 61 worker)"
   [ "$code" = 0 ] || fail "a closed blocker should not stop a dispatch, got $code: $(cat "$TMP/err")"
+}
+
+scenario_livesession() {
+  local code
+  echo "--- a worker whose Herdr name is already live is refused before anything opens"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_HERDR_AGENTS='{"result":{"agents":[{"name":"w1-issue-61","pane_id":"w1:p5"}]}}' \
+          bash "$DISPATCH" 61 worker)"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  one_line_reason
+  grep -q 'w1-issue-61' "$TMP/err" || fail "the reason does not name the session: $(cat "$TMP/err")"
+  has "herdr :: agent :: list"
+  hasnt "herdr :: tab :: create"
+  hasnt "herdr :: pane :: split"
+  hasnt "herdr :: agent :: start"
+  [ ! -d "$MMW_WORKTREES/repo/issue-61" ] || fail "a worktree was opened for a ticket already live"
+
+  echo "--- a reviewer whose name is already live is refused the same way"
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_HERDR_AGENTS='{"result":{"agents":[{"name":"w1-issue-61-review","pane_id":"w1:p5"}]}}' \
+          bash "$DISPATCH" 61 reviewer abc1234)"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  one_line_reason
+  grep -q 'w1-issue-61-review' "$TMP/err" || fail "the reason does not name the session: $(cat "$TMP/err")"
+  hasnt "herdr :: pane :: layout"
+  hasnt "herdr :: pane :: split"
+  hasnt "herdr :: agent :: start"
+
+  echo "--- the worker's name being live does not stop its reviewer, and the other way round"
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_HERDR_AGENTS='{"result":{"agents":[{"name":"w1-issue-61","pane_id":"w1:p1"}]}}' \
+          bash "$DISPATCH" 61 reviewer abc1234)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  has "herdr :: agent :: start :: w1-issue-61-review"
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_HERDR_AGENTS='{"result":{"agents":[{"name":"w1-issue-61-review","pane_id":"w1:p10"},{"name":"w2-issue-61","pane_id":"w2:p1"}]}}' \
+          bash "$DISPATCH" 61 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  has "herdr :: agent :: start :: w1-issue-61"
+
+  echo "--- a listing Herdr cannot give is no reason to stop: agent start answers for collisions"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_HERDR_AGENTS='not json at all' \
+          bash "$DISPATCH" 61 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  has "herdr :: agent :: start :: w1-issue-61"
 }
 
 scenario_noherdr() {
@@ -456,6 +669,17 @@ if rounds != ["wait", "ask"] * 3:
   grep -q 'No findings inside the ticket' "$TMP/out" || fail "only the first line was printed"
 
   echo "--- nothing is written on the ticket when the wait succeeds"
+  hasnt "gh :: issue :: comment"
+
+  echo "--- a comment landing after the awaited one does not hide it"
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_PANE_ID=w1:p1 FAKE_GH_MATCH_ON=2 \
+          FAKE_GH_COMMENTS_AFTER='TOUCHED BY #62\nlib/shared.py: renamed the helper' \
+          FAKE_HERDR_AGENTS='{"result":{"agents":[{"name":"issue-61-review","pane_id":"w1:p10"},{"name":"issue-61","pane_id":"w1:p1"}]}}' \
+          bash "$DISPATCH" wait 61 '^REVIEW ' 120)"
+  [ "$code" = 0 ] || fail "expected exit 0 with a TOUCHED BY after the REVIEW, got $code: $(cat "$TMP/err")"
+  grep -q '^REVIEW clean' "$TMP/out" || fail "the REVIEW comment was not printed: $(cat "$TMP/out")"
+  grep -q 'TOUCHED BY' "$TMP/out" && fail "the later comment was printed instead of the REVIEW"
   hasnt "gh :: issue :: comment"
 
   echo "--- whoever is not the worker waits on the worker instead"
@@ -686,10 +910,10 @@ scenario_advancedirty() {
   hasnt "agent :: start"
 }
 
-ALL="worker reviewer seat runtable idletimeout notready noherdr wait waittimeout placeholder advance advanceconflict advancedirty"
+ALL="worker basecommit reviewer seat runtable runchecks idletimeout notready livesession noherdr wait waittimeout placeholder advance advanceconflict advancedirty"
 
 case "${1:-}" in
-  worker|reviewer|seat|runtable|idletimeout|notready|noherdr|wait|waittimeout|placeholder|advance|advanceconflict|advancedirty)
+  worker|basecommit|reviewer|seat|runtable|runchecks|idletimeout|notready|livesession|noherdr|wait|waittimeout|placeholder|advance|advanceconflict|advancedirty)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -701,11 +925,14 @@ esac
 banner_for() {
   case "$1" in
     worker) echo DISPATCH-WORKER-OK ;;
+    basecommit) echo DISPATCH-BASECOMMIT-OK ;;
     reviewer) echo DISPATCH-REVIEWER-OK ;;
     seat) echo DISPATCH-SEAT-OK ;;
     runtable) echo DISPATCH-RUNTABLE-OK ;;
+    runchecks) echo DISPATCH-RUNCHECKS-OK ;;
     idletimeout) echo DISPATCH-IDLE-TIMEOUT-OK ;;
     notready) echo DISPATCH-NOTREADY-OK ;;
+    livesession) echo DISPATCH-LIVESESSION-OK ;;
     noherdr) echo DISPATCH-NOHERDR-OK ;;
     wait) echo DISPATCH-WAIT-OK ;;
     waittimeout) echo DISPATCH-WAITTIMEOUT-OK ;;

@@ -31,7 +31,7 @@ _Avoid_: 工人, 做票的 agent, 领票的 agent
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **worker grade**:
-Which of the two workers a ticket goes to. Each grade is at once a ticket label, a row of `models.md`, and the answer in the ticket's `## Worker` section; the label is read afresh every time the ticket is started.
+Which of the two workers a ticket goes to. Each grade is at once a ticket label, a row of `models.md`, and the answer in the ticket's `## Worker` section; the user sees it once, as the `Worker:` line of the `to-tickets` quiz, and the label is read afresh every time the ticket is started.
 _Avoid_: grade of worker, seat, lane (for this)
 _Home_: `mmw-v2/skills/dispatch/models.md`
 
@@ -46,13 +46,13 @@ _Avoid_: 高级工人, 高级 worker
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **reviewer**:
-The session a worker starts through the dispatch skill to run one round of code review. Its Herdr name is `issue-<n>-review`; it runs inside the worker's worktree, cuts no branch, carries `MMW_AUTONOMOUS` but no `MMW_TICKET`; the board never touches it; the worker closes its pane at the end of the closing steps. On its own, `reviewer` always means this session, never one of the three axis subagents.
+The session a worker starts through the dispatch skill to run one round of code review. Its Herdr name is `issue-<n>-review`; it runs inside the worker's worktree, cuts no branch, carries `MMW_AUTONOMOUS` but no `MMW_TICKET`; the board never touches it; the worker closes its pane right before the closeout, because after the closeout the board closes the worker's own pane at once. On its own, `reviewer` always means this session, never one of the three axis subagents.
 _Admitted_: reviewer session
 _Avoid_: reviewer 会话, code-review 会话, 审稿人
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **dispatcher**:
-The role the reviewer session takes once it holds the `code-review` skill: it starts the three read-only axis subagents, sorts every review finding into in-ticket or out-of-ticket by the three conditions in that skill's section 3, and writes the one review comment. It reviews nothing and fixes nothing itself, and it is the only reader of `code-review/SKILL.md`.
+The role the reviewer session takes once it holds the `code-review` skill: it starts the three read-only axis subagents, sorts every review finding into in-ticket or out-of-ticket by the five conditions in that skill's section 3, and writes the one review comment. It reviews nothing and fixes nothing itself, and it is the only reader of `code-review/SKILL.md`.
 _Avoid_: 派发 (as a term)者
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
@@ -201,12 +201,12 @@ _Avoid_: branch (bare), 分支名 (as a term)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **base commit**:
-The commit recorded in `git config branch.issue-<n>.mmw-base` when the worktree was opened. It is the first value of the review dispatch line, where code review's diff starts (`git diff <base-commit>...HEAD`, three dots), and where the first-parent chain behind `Outside Owns:` begins. With no record, `main`. Written `<base-commit>` as a placeholder.
+The commit recorded in `git config branch.issue-<n>.mmw-base` when the worktree was opened: the HEAD a branch was cut from, or — for a ticket branch that already existed with no record — its merge base with HEAD at that dispatch. It is the first value of the review dispatch line, where code review's diff starts (`git diff <base-commit>...HEAD`, three dots), and where the first-parent chain behind `Outside Owns:` begins. With no record, `main`. Written `<base-commit>` as a placeholder.
 _Avoid_: base-commit (in prose), 起点 commit, cut point, 切点
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **base branch**:
-`git config branch.issue-<n>.mmw-base-branch`: the branch `advance` merges a ticket branch into. The closing comment's `PR:` line reads `none — will be merged into <base branch> by dispatch.sh advance`.
+The branch the main agent is on when it opens the night and runs `advance`: `advance` merges every ticket branch into the branch HEAD is on at that moment, so the main agent stays on the branch it opened the night on until the last `advance`. `git config branch.issue-<n>.mmw-base-branch` records it at dispatch; `advance` does not read it. The closing comment's `PR:` line reads `none — will be merged into <base branch> by dispatch.sh advance`.
 _Avoid_: main branch, 基线分支, main (as a name)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
@@ -265,7 +265,7 @@ A GitHub issue, the issue tracker's unit. In this pipeline it is a spec, a ticke
 _Home_: `docs/agents/issue-tracker.md`
 
 **spec**:
-A top-level issue that holds a batch of tickets. It is a container, not work, so it carries no label. `to-spec` writes it from the conversation, a cleared map, or an agent brief, in the `<spec-template>` shape: `## Problem Statement`, `## Solution`, `## User Stories`, `## Implementation Decisions`, `## Testing Decisions`, `## Out of Scope`, `## Sources`, `## Further Notes`. Decisions that share one seam belong in one spec. A worker reads only the subsections its ticket's `## Parent` names, plus `## Testing Decisions` and `## Out of Scope`. The night runs on it: `run <spec>`, `advance <spec>`.
+A top-level issue that holds a batch of tickets. It is a container, not work, so it carries no label. `to-spec` writes it from the conversation, a cleared map, or an agent brief, in the `<spec-template>` shape: `## Problem Statement`, `## Solution`, `## User Stories`, `## Implementation Decisions`, `## Testing Decisions`, `## Out of Scope`, `## Sources`, `## Further Notes`. Decisions that share one seam belong in one spec. A worker reads only the subsections its ticket's `## Parent` names, plus `## Testing Decisions` and `## Out of Scope`. A section of a published spec is changed in place by `to-spec`'s step for revising a published spec — the body stays the clean current version, what changed and why goes in one comment — so the number and every ticket's `## Parent` stay valid. The night runs on it: `run <spec>`, `advance <spec>`.
 _Admitted_: spec issue
 _Avoid_: 父票, spec 票, 规格
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
@@ -275,12 +275,12 @@ The spec section of decisions made, in numbered subsections `### 1.` … that ti
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **`## Testing Decisions`**:
-The spec section whose first sentence names the seam and which external seams may be stubbed; then, per test layer, its directory and the precedent to copy; then **How a test arrives at a state** — the mechanism that puts the system into each state the behaviour turns on, which must be named here and owned by some ticket's `## Owns`, else the work returns to `to-spec`; last, the commands to run before committing. `CHECK:`, `EXPECT:`, and the ticket's `## Seam` are derived from it.
+The spec section whose first sentence says in plain words where a test looks at the result (a browser page, an HTTP endpoint, or a function call) and whose second names the seam and which external seams may be stubbed; then, per test layer, its directory and the precedent to copy; then **How a test arrives at a state** — the mechanism that puts the system into each state the behaviour turns on, which must be named here and owned by some ticket's `## Owns`, else `to-tickets` cuts a `reach` ticket for it; last, the commands to run before committing. `CHECK:`, `EXPECT:`, and the ticket's `## Seam` are derived from it; a review finding that touches it is in-ticket.
 _Avoid_: 测试怎么到达状态
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **`## Out of Scope`**:
-The spec section of what is not being done; read by the worker and the Spec axis along `## Parent`, and the sharpest source of a `Scope creep` finding. (A wayfinder map's **Out of scope** section is a different literal, carried into the spec unchanged.)
+The spec section of what is not being done; read by the worker and the Spec axis along `## Parent`, and the sharpest source of a `Scope creep` finding, which is in-ticket. (A wayfinder map's **Out of scope** section is a different literal, carried into the spec unchanged.)
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **`## Sources`**:
@@ -288,7 +288,7 @@ The spec section of links to the first-hand material it was built from, one line
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **seam**:
-The place a test observes: the public boundary you test at. It is the subject of `## Testing Decisions`'s first sentence and of a ticket's `## Seam`. **External seams** are the third-party ones that may be stubbed.
+The place a test observes: the public boundary you test at. `to-spec` chooses it without asking the user; it is the subject of `## Testing Decisions`'s second sentence and of a ticket's `## Seam`. **External seams** are the third-party ones that may be stubbed.
 _Avoid_: boundary (for a seam)
 _Home_: `mmw-v2/upstream/skills/engineering/tdd/SKILL.md`
 
@@ -304,7 +304,7 @@ _Avoid_: 测试层, 结构核对, 自写脚本层, vendor 脚本层, 技能行�
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **ticket**:
-A GitHub issue created as a native sub-issue of its spec (`gh issue create --parent <spec>`, or attached through the `sub_issues` API), in the `<issue-template>` shape of eight sections. It is a tracer-bullet vertical slice with its blocking links; the only place fact and state are kept; the worker's only input, read at five moments; it must have an issue number. At publication it takes one of two shapes: an agent ticket (labelled `ready-for-agent` plus a worker grade) or the separate `ready-for-human` ticket. A ticket this repository plans for itself carries a state role only. Its **ticket body** is the sections, never edited after publication; its **ticket number** is `<n>` — digits only, also `{n}` in launch arguments and `$MMW_TICKET` in a `CHECK:`. A **batch** is the tickets under one spec, published together and worked in one night.
+A GitHub issue created as a native sub-issue of its spec (`gh issue create --parent <spec>`, or attached through the `sub_issues` API), in the `<issue-template>` shape of eight sections. It is a tracer-bullet vertical slice with its blocking links; the only place fact and state are kept; the worker's only input, read at five moments; it must have an issue number. At publication it takes one of two shapes: an agent ticket (labelled `ready-for-agent` plus a worker grade) or the separate `ready-for-human` ticket. A ticket this repository plans for itself carries a state role only. Its **ticket body** is the sections, not edited once the batch has been reported to the user as published — the read-back step, which fixes tickets and runs `--lint` again, comes before that report; its **ticket number** is `<n>` — digits only, also `{n}` in launch arguments and `$MMW_TICKET` in a `CHECK:`. A **batch** is the tickets under one spec, published together and worked in one night.
 _Admitted_: issue (when naming the GitHub object)
 _Avoid_: 票 (as a term), child ticket, slice (as a name), 本批, 票号, body (bare)
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
@@ -329,7 +329,7 @@ Which of the two worker grades the ticket goes to and one line why; `senior-work
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`## What to build`**:
-The end-to-end behaviour this ticket makes work, from the user's point of view, in numbered points each with the test that decides it and the reason it is there. It describes the same slice as the title (checked at read-back and after claiming) and is never simplified away.
+The end-to-end behaviour this ticket makes work, from the user's point of view, in numbered points each with the test that decides it and the reason it is there; a choice the user settled in the `to-tickets` quiz is a point of its own. It describes the same slice as the title (checked at read-back and after claiming) and is never simplified away.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`## Read first`**:
@@ -383,11 +383,11 @@ The fourth line: `pending` until the criterion has run, then the one line of fac
 _Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/gate-check.mjs`
 
 **`CWD:`**:
-The optional fifth line: the working directory `CHECK:` runs in. It is part of the `STALE` signature. gate-check calls these indented lines the criterion's **attributes**.
+The optional fifth line: the working directory `CHECK:` runs in. gate-check calls these indented lines the criterion's **attributes**.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/lib/gates.mjs`
 
 **`TIMEOUT:`**:
-The optional attribute line `TIMEOUT: <seconds>` under a criterion: how long its `CHECK:` may run. `verify-ticket.py` reads every `TIMEOUT:` off the ticket body on every run, worker's and verifier's alike, and hands gate-check the largest of `DEFAULT_TIMEOUT` (600), those lines, and `--timeout`; it raises the limit and never lowers it, is not in the `STALE` signature, and is kept out of the ledger. `--lint` reports one that is not a positive whole number as `ERROR … [bad-timeout]`.
+The optional attribute line `TIMEOUT: <seconds>` under a criterion: how long its `CHECK:` may run. `verify-ticket.py` reads every `TIMEOUT:` off the ticket body on every run, worker's and verifier's alike, and hands gate-check the largest of `DEFAULT_TIMEOUT` (600), those lines, and `--timeout`; it raises the limit and never lowers it, and is kept out of the ledger. `--lint` reports one that is not a positive whole number as `ERROR … [bad-timeout]`.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **fenced block**:
@@ -396,7 +396,7 @@ _Avoid_: fenced check, fenced code block, 代码块围栏, 围栏
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **the five questions**:
-What the ticket writer asks, in order, of anything there is to say about the work, stopping at the first yes: is it an acceptance criterion (decided by a command)? a code-review judgement? a person's `reaction`? a `reach`? or a choice — take the default and record it in the closing comment, and only when the work cannot go on, a decision ticket.
+What the ticket writer asks, in order, of anything there is to say about the work, stopping at the first yes: is it an acceptance criterion (decided by a command)? a code-review judgement (written into the spec's `## Implementation Decisions` subsection the ticket names, where the Spec axis reads it as in-ticket)? a person's `reaction`? a `reach`? or a choice — asked of the user in the quiz, the answer written into the ticket's `## What to build`.
 _Avoid_: 五问, 五问判定树
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
@@ -411,12 +411,12 @@ _Avoid_: 勾 (as a term)
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **round**:
-One fix-and-rerun pass on one criterion. How many a criterion gets is the worker's judgement; what `--closeout` asks of `ABANDON: AC<n> failed` is three `self-run` comments on the ticket showing that criterion unmet (`ROUND_LIMIT`), a floor on the trying rather than a cap. `stuck` has no round count. One round of code review and the board's round of re-reading are always written in full.
+One fix-and-rerun pass on one criterion. How many a criterion gets is the worker's judgement, and `--closeout` counts none: the reason on the `ABANDON:` line says what was tried. One round of code review and the board's round of re-reading are always written in full.
 _Avoid_: 轮 (as a term), 三轮上限
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **`ABANDON:`**:
-The line `ABANDON: AC<n> <kind> <reason>` a worker — never the verifier — writes under a criterion it gives up on. The kinds: **`failed`** — it ran and did not pass (three self-runs, or still failing after the review fix or the verifier's report); **`stuck`** — it will not start or cannot be done within the ticket (a `CHECK:` that will not run, a missing credential or device, out of reach within the scope), held to no round count, its reason listing the routes tried or pointing at the sub-issue; **`decision`** — a person has to settle one sentence, a sub-issue is opened under `needs-triage`, and it is the only kind that still lets the ticket close `ALL MET`. `failed` and `stuck` force `HANDOFF REQUIRED`.
+The line `ABANDON: AC<n> <kind> <reason>` a worker — never the verifier — writes under a criterion it gives up on. The kinds: **`failed`** — it ran and did not pass (after the rounds the worker judged worth spending, or still failing after the review fix or the verifier's report), its reason saying what each round tried; **`stuck`** — it will not start or cannot be done within the ticket (a `CHECK:` that will not run, a missing credential or device, out of reach within the scope), its reason listing the routes tried or pointing at the sub-issue; neither is held to a round count, and the two are told apart for whoever reads the ticket in the morning; **`decision`** — a person has to settle one sentence, a sub-issue is opened under `needs-triage`, and it is the only kind that still lets the ticket close `ALL MET`. `failed` and `stuck` force `HANDOFF REQUIRED`.
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **blocking link**:
@@ -457,7 +457,7 @@ _Avoid_: 角色 (bare)
 _Home_: `docs/agents/triage-labels.md`
 
 **`needs-triage`**:
-Nobody has judged it yet: an issue from outside, or a ticket its worker closed out as `HANDOFF REQUIRED`. `triage` reads this queue and recommends one of the four outcomes. A sub-issue a worker opens carries it.
+Nobody has judged it yet: an issue from outside, a ticket its worker closed out as `HANDOFF REQUIRED`, or a closed ticket reopened after the night because a criterion failed on the base branch (label added, assignee removed, the failing `AC<n>` and the base-branch commit in a comment). `triage` reads this queue and recommends one of the four outcomes. A sub-issue a worker opens carries it.
 _Home_: `docs/agents/triage-labels.md`
 
 **`needs-info`**:
@@ -478,7 +478,7 @@ The `ready-for-human` kind where the property asserted is a person's reaction: t
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`reach`**:
-The `ready-for-human` kind where a machine would decide it if it could get to the thing — a device, a credential, a real environment; the ticket adds one line naming what would retire it. A pile of `reach` tickets says the pipeline lacks a capability.
+The `ready-for-human` kind where a machine would decide it if it could get to the thing — a device, a credential, a real environment, a mechanism under **How a test arrives at a state** that has no name or no owner in `## Owns`, or a consuming repository's testability rule that gives a test no exit; the ticket adds one line naming what would retire it. A pile of `reach` tickets says the pipeline lacks a capability.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`wontfix`**:
@@ -490,7 +490,7 @@ The two category roles, exactly one on every triaged issue from outside; never o
 _Home_: `docs/agents/triage-labels.md`
 
 **decision ticket**:
-A child issue of a `wayfinder:map` holding one question whose **resolution** is a decision: a resolution comment, the issue closed, a context pointer (gist plus link) appended to the map's Decisions so far. Its resolution comment is a baseline source. It carries a state role and no category role; `AFK` and `HITL` say whether the agent works it alone. Its type label is `wayfinder:<type>` — research, prototype, grilling, task. In `to-tickets`, a choice that would block the batch becomes one, asked before the batch.
+A child issue of a `wayfinder:map` holding one question whose **resolution** is a decision: a resolution comment, the issue closed, a context pointer (gist plus link) appended to the map's Decisions so far. Its resolution comment is a baseline source. It carries a state role and no category role; `AFK` and `HITL` say whether the agent works it alone. Its type label is `wayfinder:<type>` — research, prototype, grilling, task.
 _Avoid_: wayfinder ticket
 _Home_: `mmw-v2/upstream/skills/engineering/wayfinder/SKILL.md`
 
@@ -513,13 +513,13 @@ _Avoid_: 票评论, COMMENT (as a kind label)
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **first line**:
-The first line of a ticket comment: the pipeline's protocol slot, by which `dispatch.sh wait`, `--closeout`, `advance`, `triage`, and the board recognise a comment — `NOT_READY:`, `self-run`, `reverify`, `VERDICT …`, `REVIEW <base commit>..<HEAD commit>`, `ALL MET`, `HANDOFF REQUIRED: …`, `NIGHT SUMMARY <date>`. A disclaimer therefore goes last. `NIGHT SUMMARY` lists tickets by number and first line.
+The first line of a ticket comment: the pipeline's protocol slot, by which `dispatch.sh wait`, `--closeout`, `advance`, `triage`, and the board recognise a comment — `NOT_READY:`, `self-run`, `reverify`, `VERDICT …`, `DECISIONS`, `REVIEW <base commit>..<HEAD commit>`, `TOUCHED BY #<n>`, `ALL MET`, `HANDOFF REQUIRED: …`, `NIGHT SUMMARY <date>`. A disclaimer therefore goes last. `NIGHT SUMMARY` lists tickets by number and first line.
 _Admitted_: protocol slot
 _Avoid_: 首行, 协议位, status word
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
 
 **`self-run`**:
-The comment a worker's own run of `verify-ticket.py <n>` leaves: first line `self-run`, second line the gate-check summary line, then the ledger with each criterion ticked or not and its `EVIDENCE:`, ending with `Outside Owns:`. Rounds are counted off these comments; the newest `self-run` or `reverify` is where the ledger is read back from and what the board's `ac=<met>/<total>` and `--closeout` read. The run writes `phase=selfcheck`.
+The comment a worker's own run of `verify-ticket.py <n>` leaves: first line `self-run`, second line the gate-check summary line, then the ledger with each criterion ticked or not and its `EVIDENCE:`, ending with `Outside Owns:`. The newest `self-run` or `reverify` is where the ledger is read back from and what the board's `ac=<met>/<total>` and `--closeout` read. The run writes `phase=selfcheck`.
 _Avoid_: 自跑
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
@@ -529,17 +529,22 @@ _Avoid_: 复验
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **`VERDICT`**:
-The verifier's judgement, posted with `gh issue comment` after its `--reverify` run: `VERDICT <full 40-character commit> by <model> — <one line>`. The one line says, in order, how it ran (`walked the flow in a running interface`, `commands only`, or `could not start`), what came back, and what it repaired. It is bound to one commit, so the branch is merged and never rebased; an `ALL MET` draft needs it on the ticket, and `Post-verdict:` when HEAD has moved past it; `HANDOFF REQUIRED` is held to none of its conditions. The verifier's whole report is this line plus the two `git status --porcelain --untracked-files=no` outputs.
+The verifier's judgement, posted with `gh issue comment` after its `--reverify` run: `VERDICT <full 40-character commit> by <model> — <one line>`. The one line says, in order, how it ran (`walked the flow in a running interface`, `commands only`, or `could not start`), what came back, and what it repaired. It is bound to one commit, so the branch is merged and never rebased; it covers that commit and no later one — a commit after it is listed under `Post-verdict:` and is re-run only by the base-branch `--reverify` after the night; an `ALL MET` draft needs it on the ticket, and `Post-verdict:` when HEAD has moved past it; `HANDOFF REQUIRED` is held to none of its conditions. The verifier's whole report is this line plus the two `git status --porcelain --untracked-files=no` outputs.
 _Avoid_: the verdict line, verdict comment, 判决
 _Home_: `mmw-v2/agents/verifier/body.md`
 
+**`DECISIONS`**:
+The comment a worker leaves on the ticket once, after the `VERDICT` and before starting the reviewer: first line `DECISIONS`, then `Decisions I made on my own` — every line so far, in the closing comment's shape — and `Outside Owns` — the `Outside Owns:` line of the newest `self-run` with one sentence per file saying why. The Spec axis reads it and judges every line; the fix round after the review adds no second one, and the closing comment carries the final version. `--closeout` does not check it.
+_Avoid_: decisions comment, 临时决策评论
+_Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
+
 **review comment**:
-The reviewer's report on the ticket: first line `REVIEW <base commit>..<HEAD commit>` (the refs as given, even when one does not resolve or the diff is empty), then `## In-ticket` and `## Out-of-ticket`, then the three axis reports under `## Standards`, `## Spec`, `## Tests`, never merged or reordered across axes. The worker waits for it with `dispatch.sh wait <n> "^REVIEW "`.
+The reviewer's report on the ticket: first line `REVIEW <base commit>..<HEAD commit>` (the refs as given, even when one does not resolve or the diff is empty), then the three axis reports under `## Standards`, `## Spec`, `## Tests`, never merged or reordered across axes, then `## In-ticket` and `## Out-of-ticket`, then one summary line per axis. The worker waits for it with `dispatch.sh wait <n> "^REVIEW "`.
 _Avoid_: review report comment, REVIEW 评论, report (bare)
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
 **closing comment**:
-The comment a worker leaves on handing over, written first as a **draft** file that `--closeout <draft>` checks and posts. Its fixed parts: the first line `ALL MET` or `HANDOFF REQUIRED: <abandoned> abandoned (<kinds>), <unmet> unmet, <met> met of <total>`; `Branch: … Commit: … PR: none — will be merged into <base branch> by dispatch.sh advance`; `Post-verdict:` (every commit after the last `VERDICT` with where it came from, `None` when the verdict is on HEAD); four lines per criterion, with `ABANDON:` where given; `Outside Owns:`; `skipped: [X], add when [Y]` (what was deliberately not built and the condition to build it); `Sub-issues opened:`; `Counts: <met> met, <unmet> unmet, <abandoned> abandoned of <total>` (recounted at the Audit, agreeing with the first line); `Decisions I made on my own` (one line per thing the worker settled that neither ticket nor spec decides). Its first line decides whether `advance` merges the branch and whether `phase` goes to `closed` or `handoff`. The draft is written by hand, so its `ALL MET` is not evidence.
+The comment a worker leaves on handing over, written first as a **draft** file that `--closeout <draft>` checks and posts. Its fixed parts: the first line `ALL MET` or `HANDOFF REQUIRED: <abandoned> abandoned (<kinds>), <unmet> unmet, <met> met of <total>`; `Branch: … Commit: … PR: none — will be merged into <base branch> by dispatch.sh advance`; `Post-verdict:` (every commit after the last `VERDICT` with where it came from, `None` when the verdict is on HEAD); four lines per criterion, with `ABANDON:` where given; `Outside Owns:` (each file followed by the Spec axis's judgement, `reasonable` or `should not`); `skipped: [X], add when [Y]` (what was deliberately not built and the condition to build it); `Sub-issues opened:`; `Counts: <met> met, <unmet> unmet, <abandoned> abandoned of <total>` (recounted at the Audit, agreeing with the first line); `Decisions I made on my own` (one line per thing the worker settled that neither ticket nor spec decides). Its first line decides whether `advance` merges the branch and whether `phase` goes to `closed` or `handoff`. The draft is written by hand, so its `ALL MET` is not evidence.
 _Avoid_: 收尾评论, handoff comment, 收尾评论草稿, 草稿 (as a term), 本票我自己拿的主意
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
@@ -552,7 +557,7 @@ The closing comment's other first line, `HANDOFF REQUIRED: <abandoned> abandoned
 _Home_: `mmw-v2/skills/verify-ticket/references/closeout.md`
 
 **`Outside Owns:`**:
-The last line of a `self-run` or `reverify` comment and a fixed line of the closing comment: the files this ticket's own commits changed that no `## Owns` glob covers, along the first-parent chain since the base commit, merges excluded; computed by `verify-ticket.py`, copied into the draft, explained there; `None` when empty. The question is asked of this ticket's own commits, so a run on any branch but `issue-<n>` writes `Outside Owns: not checked on <branch>, which carries more than this ticket` instead. It is an explanation, not a criterion.
+The last line of a `self-run` or `reverify` comment and a fixed line of the closing comment: the files this ticket's own commits changed that no `## Owns` glob covers, along the first-parent chain since the base commit, merges excluded; computed by `verify-ticket.py`, copied into the draft, explained there with the Spec axis's judgement of each file (`reasonable` or `should not`); `None` when empty. The `DECISIONS` comment carries the same line with one sentence per file, the Spec axis judges each, and before the draft is written the worker leaves a comment opening `TOUCHED BY #<n>` on every open ticket under the same spec whose `## Owns` covers that file, saying what changed, why, and the judgement. No script finds those tickets and `--closeout` checks none of this. The question is asked of this ticket's own commits, so a run on any branch but `issue-<n>` writes `Outside Owns: not checked on <branch>, which carries more than this ticket` instead. It is an explanation, not a criterion.
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **`NOT_READY:`**:
@@ -577,13 +582,9 @@ _Avoid_: 账本, 临时账本, AC.md (as a name), throwaway ledger
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **gate-check**:
-The judging program copied from unlazy: it walks the ledger, runs each `CHECK:` one at a time in its own shell, applies both conditions, writes `EVIDENCE:`, prints one **status line** per criterion (`RUN`, `PASS`, `FAIL`, `STALE`) and one **gate-check summary line** at the end — `ALL MET (<n> met…)`, `UNMET: <n> (met: <m>)`, or `HANDOFF REQUIRED: <n> abandoned (met: …)` — which is copied into the second line of every `self-run` and `reverify` comment. `gate-check.mjs` names the file. Its `--claim`, `--release`, `--scope` and `GATES.md` are unlazy features this pipeline does not use.
+The judging program copied from unlazy: it walks the ledger, runs each `CHECK:` one at a time in its own shell, applies both conditions, writes `EVIDENCE:`, prints one **status line** per criterion (`RUN`, `PASS`, `FAIL`) and one **gate-check summary line** at the end — `ALL MET (<n> met…)`, `UNMET: <n> (met: <m>)`, or `HANDOFF REQUIRED: <n> abandoned (met: …)` — which is copied into the second line of every `self-run` and `reverify` comment. `gate-check.mjs` names the file. Its `--claim`, `--release`, `--scope` and `GATES.md` are unlazy features this pipeline does not use.
 _Avoid_: the judging engine, gate checker, the checker (for this), 汇总行
 _Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/UPSTREAM.md`
-
-**`STALE`**:
-What gate-check reports when a criterion's **signature** — the sha256 of `CHECK:`, `EXPECT:`, `CWD:`, and the shell — no longer matches the one recorded when the run started: the result is not written and the criterion counts as unmet. `--reverify` demotes stale failures.
-_Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/gate-check.mjs`
 
 **gate-lint**:
 The criterion linter copied from unlazy: it reports problems in how criteria are written and runs no command; `manual-gate` is an error here. It prints `LINT OK` or `LINT FINDINGS`. `--lint` runs it.
@@ -607,17 +608,17 @@ _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 ### Code review
 
 **code review**:
-One round: the worker starts the reviewer session through the dispatch skill; the dispatcher starts three read-only axis subagents, each given three values — the base commit, the ticket number, and its reference file's path — each reading `git diff <base-commit>...HEAD`; one review comment results. The worker waits with `dispatch.sh wait <n> "^REVIEW "` (the script's own timeout; on timeout the round is skipped). An in-ticket finding gets one round of fixes and a self-run, never a re-review; an out-of-ticket finding becomes a sub-issue. Fixing a finding is bound by the writing rules.
+One round: the worker starts the reviewer session through the dispatch skill; the dispatcher starts three read-only axis subagents, each given three values — the base commit, the ticket number, and its reference file's path — each reading `git diff <base-commit>...HEAD`; one review comment results. The worker waits with `dispatch.sh wait <n> "^REVIEW "` (the script's own timeout) and the round ends only with the review comment: on a start that exits 1 or 2 or a wait that times out, the worker reads the reviewer's screen, waits again while it is running, and otherwise runs the `code-review` skill in its host's general-purpose subagent, whose report lands with the same `REVIEW` first line. An in-ticket finding gets one round of fixes and a self-run, never a re-review; an out-of-ticket finding becomes a sub-issue. Fixing a finding is bound by the writing rules.
 _Avoid_: the review stage
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
 **axis**:
-One of the three dimensions of a code review, each a read-only subagent with its own reference file whose H1 is the subagent's name. **Standards axis** (`Standards reviewer`): does the change follow this repository's documented coding standards, and does the same outcome exist with less code — from the documented standards, the **smell baseline** (the twelve Fowler smells, carried in full inside the reference file and never pasted into a prompt), and `codebase-design/SKILL.md`; it asks of every hunk whether it could be less, and marks a finding `judgement call` or `hard violation`. **Spec axis** (`Spec reviewer`): does the change match what the ticket or the spec asked for, reading the baselines under `## Read first` and never the handoff package; findings are `Missing`, `Scope creep`, or `Built wrong`. **Tests axis** (`Tests reviewer`): are the test cases the criteria name worth trusting — its in-ticket scope is the test files and cases a `CHECK:` names, any other test file in the diff is out-of-ticket, from the **test smell baseline** copied from `tdd/tests.md` and `tdd/mocking.md`; it reports no coverage and adds no criteria the ticket lacks.
+One of the three dimensions of a code review, each a read-only subagent with its own reference file whose H1 is the subagent's name. **Standards axis** (`Standards reviewer`): does the change follow this repository's documented coding standards, and does the same outcome exist with less code — from the documented standards, the **smell baseline** (the twelve Fowler smells, carried in full inside the reference file and never pasted into a prompt), and `codebase-design/SKILL.md`; it asks of every hunk whether it could be less, and marks a finding `judgement call` or `hard violation`. **Spec axis** (`Spec reviewer`): does the change match what the ticket or the spec asked for, reading the baselines under `## Read first` and never the handoff package; findings are `Missing`, `Scope creep`, or `Built wrong`; it also judges every line of the ticket's `DECISIONS` comment `reasonable` or `should not`, and a `should not` is an in-ticket finding. **Tests axis** (`Tests reviewer`): are the test cases the criteria name worth trusting — its in-ticket scope is the test files and cases a `CHECK:` names, any other test file in the diff is out-of-ticket, from the **test smell baseline** copied from `tdd/tests.md` and `tdd/mocking.md`; it reports no coverage and adds no criteria the ticket lacks.
 _Avoid_: 轴 (for this), Standards 轴, Spec 轴, Tests 轴, 缺项, 实现得不对, baseline smell, smell list
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
 **review finding**:
-One item an axis subagent reports, quoting the requirement line it fails. It is **in-ticket** when it touches this ticket's acceptance criteria, a decision in the spec section the ticket names, or a baseline under `## Read first` — then it gets one round of fixes, and `ABANDON: AC<n> failed` if the fix cannot be made; otherwise it is **out-of-ticket** and becomes a non-blocking sub-issue under `needs-triage` while the ticket still closes. The dispatcher sorts them.
+One item an axis subagent reports, quoting the requirement line it fails. It is **in-ticket** when it touches this ticket's acceptance criteria, a decision in the spec section the ticket names, a baseline under `## Read first`, the spec's `## Out of Scope`, or the spec's `## Testing Decisions` — then it gets one round of fixes, and `ABANDON: AC<n> failed` if the fix cannot be made; otherwise it is **out-of-ticket** and becomes a non-blocking sub-issue under `needs-triage` while the ticket still closes. The dispatcher sorts them.
 _Avoid_: finding (bare), 票内, 票外, 票内发现, 票外发现
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
@@ -717,20 +718,20 @@ _Avoid_: 认领 (as a term), assign to oneself
 _Home_: `docs/agents/issue-tracker.md`
 
 **wait**:
-`dispatch.sh wait <ticket> "<first-line-regex>" [seconds]`: blocks until the first line of the ticket's newest comment matches; on timeout it comments on the ticket first, then exits non-zero, and the caller skips that round. It takes only a ticket number. A worker waits for its reviewer with `"^REVIEW "`; whoever dispatched a worker waits with `"^(ALL MET|HANDOFF REQUIRED)"`. The default is `WAIT_DEFAULT_SECONDS` in the script, not in skill text.
+`dispatch.sh wait <ticket> "<first-line-regex>" [seconds]`: blocks until the first line of a comment matches — the newest one when the wait starts, then any comment added since, so a comment landing after the awaited one does not hide it; on timeout it comments on the ticket first, then exits non-zero; whoever waited on a worker skips that round, and a worker that waited on its reviewer reads the reviewer's screen and waits again or reviews in its own subagent. It takes only a ticket number. A worker waits for its reviewer with `"^REVIEW "`; whoever dispatched a worker waits with `"^(ALL MET|HANDOFF REQUIRED)"`. The default is `WAIT_DEFAULT_SECONDS` in the script, not in skill text.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **run**:
-`dispatch.sh run <spec> [--max-hours H]`, the one command that opens a night: it runs `install.sh --check` and refuses on any missing item, renames the main agent's pane `mmw-main`, opens the monitor tab in this workspace, and starts `board.py --watch`. It dispatches nothing.
+`dispatch.sh run <spec> [--max-hours H]`, the one command that opens a night: it runs `install.sh --check` and refuses on any missing item, reads every queued ticket's worker-grade label through `board.py --worker-grades` and refuses when one names a row `models.md` lacks or a ticket carries two, refuses when a worker row's or the reviewer row's host is not a kind `herdr agent start` accepts, then renames the main agent's pane `mmw-main`, opens the monitor tab in this workspace, and starts `board.py --watch`. Every refusal is exit 2 with nothing opened. It dispatches nothing.
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **advance**:
-`dispatch.sh advance <spec>`: first merge the branches of the tickets that closed, by closing time from earliest to latest, into the base branch — a ticket is merged when it is `CLOSED`, its closing comment's first line is `ALL MET`, its branch exists, and it is not already an ancestor; one merge commit each; `MERGE_TRIES` retries against the board opening worktrees — then dispatch the frontier as `board.py --advance-plan` lists it (`MERGE <n>` and `DISPATCH <n>` lines, the **advance plan**). A conflict is left in place with exit 3 and a **conflict report** on stderr (`CONFLICT` and `MERGE_HEAD` lines naming the two tickets and files); the main agent resolves it with `resolving-merge-conflicts` — never `--abort` — runs this repository's checks, commits the merge, and runs `advance` again. Uncommitted changes in the working tree give exit 2. It ends with the **advance summary line** `advance #<spec>: merged <m>, already in <s>, started <n>, refused <r>`, and may be run repeatedly. It is the main agent's answer to `mmw board: ADVANCE` and `night over`.
+`dispatch.sh advance <spec>`: first merge the branches of the tickets that closed, by closing time from earliest to latest, into the base branch — a ticket is merged when it is `CLOSED`, its closing comment's first line is `ALL MET`, its branch exists, and it is not already an ancestor; one merge commit each; `MERGE_TRIES` retries against a worker's commit in its own worktree holding the shared `.git` lock, and exit 2 when every try fails — then dispatch the frontier as `board.py --advance-plan` lists it (`MERGE <n>` and `DISPATCH <n>` lines, the **advance plan**). A conflict is left in place with exit 3 and a **conflict report** on stderr (`CONFLICT` and `MERGE_HEAD` lines naming the two tickets and files); the main agent resolves it with `resolving-merge-conflicts` — never `--abort` — runs this repository's checks, commits the merge, and runs `advance` again. Uncommitted changes in the working tree give exit 2. It ends with the **advance summary line** `advance #<spec>: merged <m>, already in <s>, started <n>, refused <r>`, and may be run repeatedly. It is the main agent's answer to `mmw board: ADVANCE` and `night over`.
 _Avoid_: 并回来 (as a term)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **night**:
-Everything between the last ticket published and the morning: `run` opens it, `board.py --watch` reads the sessions, `NIGHT SUMMARY` ends it. Two agents share it — the board watches and reports, the main agent decides — and one workspace holds one night. A ticket leaves the night only by its worker's closing comment. **`night over`** is the `mmw board:` case saying the summary is the spec's newest comment: run `advance` one last time.
+Everything between the last ticket published and the morning: `run` opens it, `board.py --watch` reads the sessions, `NIGHT SUMMARY` ends it. Two agents share it — the board watches and reports, the main agent decides — and one workspace holds one night. A ticket leaves the night in one of two ways: by its worker's closing comment, or by staying in the agent queue behind an open blocker all night, which the `Not dispatched, a blocker stayed open:` line of `NIGHT SUMMARY` lists. The night ends when the frontier is empty and no dispatched session is alive. **`night over`** is the `mmw board:` case saying the summary is the spec's newest comment: run `advance` one last time.
 _Avoid_: 夜间编排主循环, night orchestration loop, 夜里 (as a term), 夜间 (as a term)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
@@ -750,7 +751,7 @@ _Avoid_: 重新 prompt, wake up, wakeup (as a verb), 唤醒, 扶起来
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
 
 **`continue`**:
-The whole of the board's re-prompt to a worker (`CONTINUE_LINE`): the session is alive and holds everything it read and wrote, so it resumes at the closing step after the newest of `self-run`, `VERDICT`, `REVIEW`.
+The whole of the board's re-prompt to a worker (`CONTINUE_LINE`): the session is alive and holds everything it read and wrote, so it resumes at the closing step after the newest of `self-run`, `VERDICT`, `DECISIONS`, `REVIEW`.
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
 
 **hand back**:
@@ -798,7 +799,7 @@ _Avoid_: 写码纪律, 写码纪律七条, the seven working rules, 不问 (as a
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **closing steps**:
-What `implement` does once the code is written: self-run (at most three rounds per criterion); dispatch the verifier with `verify #<n>`, once; start the reviewer and wait for the review comment, fix in-ticket findings for one round, no re-review; `Audit`; cut the criteria that only wait for a person's one sentence into `decision` sub-issues and write the closing comment draft; `--closeout`; close the reviewer's pane. A re-prompted worker resumes at the step after the newest of `self-run`, `VERDICT`, `REVIEW`. No branch is pushed and no pull request is opened: work reaches the base branch through `advance`.
+What `implement` does once the code is written: self-run (as many rounds per criterion as the worker judges worth spending); dispatch the verifier with `verify #<n>`, once; comment `DECISIONS` once; start the reviewer and wait for the review comment, fix in-ticket findings for one round, no re-review; `Audit`; comment `TOUCHED BY #<n>` on every open ticket of the spec whose `## Owns` covers a file on `Outside Owns:`; cut the criteria that only wait for a person's one sentence into `decision` sub-issues and write the closing comment draft; close the reviewer's pane; `--closeout`. A re-prompted worker resumes at the step after the newest of `self-run`, `VERDICT`, `DECISIONS`, `REVIEW`. No branch is pushed and no pull request is opened: work reaches the base branch through `advance`.
 _Avoid_: 收尾七步, 收尾六步, the seven closing steps, the closeout (for the sequence)
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
@@ -808,7 +809,7 @@ _Avoid_: 交接前自审
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **closeout**:
-`verify-ticket.py <n> --closeout <draft>`, the closing gate — the only place in the pipeline that closes a ticket or changes a label. It checks the draft against the ticket and the repository (first line, kinds, three `self-run` comments behind every `failed`, evidence behind every tick, `Counts:` agreeing with the first line, `VERDICT` on the ticket, `Post-verdict:` when HEAD moved, no uncommitted tracked changes and the branch containing its base commit, `Outside Owns:`). A refusal changes nothing, names the condition on stderr, and exits 1; the worker fixes the draft or the ticket and runs again. On `ALL MET` it posts the comment, removes `ready-for-agent`, and closes the ticket (`gh issue close --reason completed`, `CLOSED: #<n>`, `phase=closed`); on `HANDOFF REQUIRED` it posts the comment, hands the ticket back, and leaves it open (`phase=handoff`). `--check-only` is the dry run, printing `CLOSEOUT OK: #<n> draft passes every check`. A command that would bypass it is refused by `hook.py`.
+`verify-ticket.py <n> --closeout <draft>`, the closing gate — the only place in the pipeline that closes a ticket or changes a label. It checks the draft against the ticket and the repository (first line, kinds, evidence behind every tick, `Counts:` agreeing with the first line, `VERDICT` on the ticket, `Post-verdict:` when HEAD moved, no uncommitted tracked changes and the branch containing its base commit). A refusal changes nothing, names the condition on stderr, and exits 1; the worker fixes the draft or the ticket and runs again. On `ALL MET` it posts the comment, removes `ready-for-agent`, and closes the ticket (`gh issue close --reason completed`, `CLOSED: #<n>`, `phase=closed`); on `HANDOFF REQUIRED` it posts the comment, hands the ticket back, and leaves it open (`phase=handoff`). `--check-only` is the dry run, printing `CLOSEOUT OK: #<n> draft passes every check`. A command that would bypass it is refused by `hook.py`.
 _Admitted_: closing gate
 _Avoid_: 关票门, the gate at the end, 关票 (as a term)
 _Home_: `mmw-v2/skills/verify-ticket/references/closeout.md`
@@ -905,7 +906,7 @@ _Avoid_: the installer, 安装器, 安装入口 (as a term), 只看不动 (as a 
 _Home_: `mmw-v2/install.sh`
 
 **hook**:
-A program a host runs at an event. This repository installs three: `hook.py` (`pretool` on every host, `question` on the session hosts), `turn.py` on the session hosts' lifecycle events, and `rule-at-moment.py` on Claude Code only, each registered in the host's configuration, with a **matcher** (the tool pattern, or the notification type) where the event takes one.
+A program a host runs at an event. This repository installs two: `hook.py` (`pretool` on every host, `question` on the session hosts) and `turn.py` on the session hosts' lifecycle events, each registered in the host's configuration, with a **matcher** (the tool pattern, or the notification type) where the event takes one.
 _Avoid_: 钩子 (for this sense)
 _Home_: `mmw-v2/install.sh`
 
@@ -916,7 +917,7 @@ _Avoid_: the pretool gate, pretool 门, 关票 gate, 拦截 hook
 _Home_: `mmw-v2/skills/verify-ticket/scripts/hook.py`
 
 **`rule-at-moment.py`**:
-`mmw-v2/hooks/rule-at-moment.py`, installed as `~/.claude/hooks/rule-at-moment.py`: at the moment a ground rule of `~/.claude/CLAUDE.md` applies, it puts that rule's own text in front of the model — the file size before a `Read`, the next `offset` after a truncated one, rules 1, 3, 4, 6, 7 before a write, and rule 6 before an `Agent` call.
+`mmw-v2/hooks/rule-at-moment.py`, a Claude Code hook kept in the repository but not installed by `install.sh` (registered by hand as `~/.claude/hooks/rule-at-moment.py` if wanted): at the moment a ground rule of `~/.claude/CLAUDE.md` applies, it puts that rule's own text in front of the model — the file size before a `Read`, the next `offset` after a truncated one, rules 1, 3, 4, 6, 7 before a write, and rule 6 before an `Agent` call.
 _Avoid_: 规则提醒 hook, 注入 hook
 _Home_: `mmw-v2/hooks/rule-at-moment.py`
 
@@ -926,7 +927,7 @@ _Avoid_: the engine, the ticket script, the script (for this)
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **`board.py`**:
-`scripts/board.py` of the dispatch skill, the board's program: `--once [<spec>]` prints one table and exits; `[<spec>]` likewise; `--watch <spec>` is the one form that acts; `--advance-plan <spec>` prints the advance plan. It keeps no state file, re-reads the tracker and Herdr on every pane event or every `SNAPSHOT_INTERVAL`, holds one row per ticket, and appends one feed line per action through `say()` — never redrawing, and into the board log as well. Its constants: `MAX_HOURS = 4` (`--max-hours` overrides), `SNAPSHOT_INTERVAL = 60`, `FAILED_LIMIT = 3`, `FALLBACK_SECONDS = 600`, `TOKEN_TTL_MS = 86400000`. The skill's own text calls it `<board>`.
+`scripts/board.py` of the dispatch skill, the board's program: `--once [<spec>]` prints one table and exits; `[<spec>]` likewise; `--watch <spec>` is the one form that acts; `--advance-plan <spec>` prints the advance plan; `--worker-grades <spec>` prints one `GRADE <n> [<label> …]` line per `OPEN` ticket labelled `ready-for-agent`, blocked or not, for `run` to check before the night. It keeps no state file, re-reads the tracker and Herdr on every pane event or every `SNAPSHOT_INTERVAL`, holds one row per ticket, and appends one feed line per action through `say()` — never redrawing, and into the board log as well. Its constants: `MAX_HOURS = 4` (`--max-hours` overrides), `SNAPSHOT_INTERVAL = 60`, `FAILED_LIMIT = 3`, `FALLBACK_SECONDS = 600`, `TOKEN_TTL_MS = 86400000`. The skill's own text calls it `<board>`.
 _Avoid_: wake budget
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
 
@@ -951,7 +952,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | `ABANDON:` kind | `failed` · `stuck` · `decision` |
 | `ready-for-human` kind | `reaction` · `reach` |
 | criterion state | `met` · `unmet` · `abandoned` |
-| gate-check status line | `RUN` · `PASS` · `FAIL` · `STALE` |
+| gate-check status line | `RUN` · `PASS` · `FAIL` |
 | lint level | `ERROR` · `WARN` |
 | `turn` | `ready` · `working` · `ended` · `failed:<error>` · `cancelled:<reason>` |
 | `mmw board:` case | `ADVANCE` · `night over` · `STOPPED` · `TIME LIMIT` |
@@ -959,4 +960,4 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | state role | `needs-triage` · `needs-info` · `ready-for-agent` · `ready-for-human` · `wontfix` |
 | category role | `bug` · `enhancement` |
 | `dispatch.sh` constants | `TOKEN_TTL_MS` · `PROMPT_TAKE_MS` · `WAIT_DEFAULT_SECONDS = 1800` · `MERGE_TRIES = 3` · `LABEL_TITLE_CHARS` · `BOARD_TAB_LABEL` · `MAIN_AGENT_NAME` · `DEFAULT_WORKER` |
-| exit codes | `dispatch.sh` 0 / 1 (not reported ready in 120 s) / 2 (ticket refused) / 3 (`advance` conflict) · `verify-ticket.py` 0 / 1 (`--closeout` refused) / 2 (`--preflight` refused) · `visual-parity.py` 0 / 1 (`DIFF`) / 2 (`NEGATIVE CONTROL FAILED`) · `install.sh --check` 0 / 1 · `--lint` 0 unless an `ERROR` remains |
+| exit codes | `dispatch.sh` 0 / 1 (not reported ready in 120 s) / 2 (refused, nothing touched: the ticket's checks, a live session by the same name, `run`'s checks, or `advance` without the `.git` lock in `MERGE_TRIES` tries) / 3 (`advance` conflict) · `verify-ticket.py` 0 / 1 (`--closeout` refused) / 2 (`--preflight` refused) · `visual-parity.py` 0 / 1 (`DIFF`) / 2 (`NEGATIVE CONTROL FAILED`) · `install.sh --check` 0 / 1 · `--lint` 0 unless an `ERROR` remains |

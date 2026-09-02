@@ -5,6 +5,7 @@
     board.py [<spec>]               stay up, append one line per event
     board.py --watch <spec>         the same, and act on what it sees
     board.py --advance-plan <spec>  what `dispatch.sh advance` has to do, in order
+    board.py --worker-grades <spec> the worker-grade labels of every ticket in the queue
 
 One program, several forms, reading the same two sources, so there is never a second
 truth to reconcile. `--once` is what an agent runs when it wants the whole picture in
@@ -19,8 +20,9 @@ is reported to `mmw-main`, which reads its screen and decides; a worker at `clos
 What it does not do is dispatch. `advance` is the main agent's: when the frontier
 grows, `--watch` tells `mmw-main` to run `dispatch.sh advance`, which merges the
 branches of the tickets that closed and then starts the ones that can start. The board
-never takes a ticket out of the agent queue either: a ticket leaves the night only by
-the closing comment its worker writes.
+never takes a ticket out of the agent queue either: a ticket leaves the night by the
+closing comment its worker writes, or by staying behind an open blocker all night — the
+`NIGHT SUMMARY` lists it, and it keeps its label.
 
 One board covers one Herdr workspace. Sessions in another workspace belong to another
 board and are not read, not counted and not touched.
@@ -838,10 +840,13 @@ class Watch:
     # ------------------------------------------------------------- the night's end
 
     def nothing_left(self, rows: list[dict]) -> bool:
-        """No open ticket in the agent queue, and no session of ours still alive."""
-        lane = [r for r in rows
-                if r["state"] == "OPEN" and "ready-for-agent" in r["labels"]]
-        return not lane and not held(rows)
+        """Nothing to start and nothing running: an empty frontier, no session of ours.
+
+        A ticket still in the agent queue behind a blocker that was handed back does
+        not keep the night open — nothing will start it before the morning. It keeps
+        its label, and the summary's `Not dispatched` line names it.
+        """
+        return not frontier(rows) and not held(rows)
 
     def write_summary(self, rows: list[dict]) -> None:
         body = self.summary(rows)
@@ -950,6 +955,28 @@ def advance_plan(spec: int) -> int:
     return 0
 
 
+def worker_grades(spec: int) -> int:
+    """The worker-grade labels of every ticket the night could dispatch.
+
+    One line per ticket that is `OPEN` and labelled `ready-for-agent`, blocked or not:
+
+        GRADE <ticket> [<label> ...]
+
+    The labels are the ticket's own ending in `-worker`, in name order, and a ticket
+    carrying none prints the number alone. `dispatch.sh run` reads this before the
+    night opens, and refuses the night when a label names a row `models.md` lacks or a
+    ticket carries two — the same refusals a dispatch would make, brought to the one
+    moment somebody is here to fix them.
+    """
+    for number in sub_issues(spec):
+        ticket = read_ticket(number)
+        if ticket["state"] != "OPEN" or "ready-for-agent" not in ticket["labels"]:
+            continue
+        grades = sorted(l for l in ticket["labels"] if l and l.endswith("-worker"))
+        print(" ".join(["GRADE", str(number), *grades]))
+    return 0
+
+
 def once(spec: int | None) -> int:
     rows, _ = collect(spec)
     print(render_table(rows, spec, datetime.now()))
@@ -1010,6 +1037,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                         help="stay up and act on what it sees")
     parser.add_argument("--advance-plan", action="store_true",
                         help="print what `dispatch.sh advance` has to do, in order")
+    parser.add_argument("--worker-grades", action="store_true",
+                        help="print the worker-grade labels of every ticket in the agent queue")
     parser.add_argument("--max-hours", type=int, default=MAX_HOURS,
                         help="how long one ticket may hold a session before mmw-main is told")
     parser.add_argument("spec", nargs="?", type=int,
@@ -1024,6 +1053,11 @@ def main(argv: list[str] | None = None) -> int:
             sys.stderr.write("board: --advance-plan needs the spec whose batch to read\n")
             return 2
         return advance_plan(args.spec)
+    if args.worker_grades:
+        if not args.spec:
+            sys.stderr.write("board: --worker-grades needs the spec whose batch to read\n")
+            return 2
+        return worker_grades(args.spec)
     if args.once:
         return once(args.spec)
     if args.watch:
