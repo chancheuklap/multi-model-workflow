@@ -513,7 +513,7 @@ _Avoid_: 票评论, COMMENT (as a kind label)
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **first line**:
-The first line of a ticket comment: the pipeline's protocol slot, by which `dispatch.sh wait`, `--closeout`, `advance`, `triage`, and the board recognise a comment — `NOT_READY:`, `self-run`, `reverify`, `VERDICT …`, `REVIEW <base commit>..<HEAD commit>`, `ALL MET`, `HANDOFF REQUIRED: …`, `NIGHT SUMMARY <date>`. A disclaimer therefore goes last. `NIGHT SUMMARY` lists tickets by number and first line.
+The first line of a ticket comment: the pipeline's protocol slot, by which `dispatch.sh wait`, `--closeout`, `advance`, `triage`, and the board recognise a comment — `NOT_READY:`, `self-run`, `reverify`, `VERDICT …`, `DECISIONS`, `REVIEW <base commit>..<HEAD commit>`, `ALL MET`, `HANDOFF REQUIRED: …`, `NIGHT SUMMARY <date>`. A disclaimer therefore goes last. `NIGHT SUMMARY` lists tickets by number and first line.
 _Admitted_: protocol slot
 _Avoid_: 首行, 协议位, status word
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
@@ -532,6 +532,11 @@ _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 The verifier's judgement, posted with `gh issue comment` after its `--reverify` run: `VERDICT <full 40-character commit> by <model> — <one line>`. The one line says, in order, how it ran (`walked the flow in a running interface`, `commands only`, or `could not start`), what came back, and what it repaired. It is bound to one commit, so the branch is merged and never rebased; an `ALL MET` draft needs it on the ticket, and `Post-verdict:` when HEAD has moved past it; `HANDOFF REQUIRED` is held to none of its conditions. The verifier's whole report is this line plus the two `git status --porcelain --untracked-files=no` outputs.
 _Avoid_: the verdict line, verdict comment, 判决
 _Home_: `mmw-v2/agents/verifier/body.md`
+
+**`DECISIONS`**:
+The comment a worker leaves on the ticket once, after the `VERDICT` and before starting the reviewer: first line `DECISIONS`, then `Decisions I made on my own` — every line so far, in the closing comment's shape — and `Outside Owns` — the `Outside Owns:` line of the newest `self-run` with one sentence per file saying why. The Spec axis reads it and judges every line; the fix round after the review adds no second one, and the closing comment carries the final version. `--closeout` does not check it.
+_Avoid_: decisions comment, 临时决策评论
+_Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **review comment**:
 The reviewer's report on the ticket: first line `REVIEW <base commit>..<HEAD commit>` (the refs as given, even when one does not resolve or the diff is empty), then `## In-ticket` and `## Out-of-ticket`, then the three axis reports under `## Standards`, `## Spec`, `## Tests`, never merged or reordered across axes. The worker waits for it with `dispatch.sh wait <n> "^REVIEW "`.
@@ -750,7 +755,7 @@ _Avoid_: 重新 prompt, wake up, wakeup (as a verb), 唤醒, 扶起来
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
 
 **`continue`**:
-The whole of the board's re-prompt to a worker (`CONTINUE_LINE`): the session is alive and holds everything it read and wrote, so it resumes at the closing step after the newest of `self-run`, `VERDICT`, `REVIEW`.
+The whole of the board's re-prompt to a worker (`CONTINUE_LINE`): the session is alive and holds everything it read and wrote, so it resumes at the closing step after the newest of `self-run`, `VERDICT`, `DECISIONS`, `REVIEW`.
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
 
 **hand back**:
@@ -798,7 +803,7 @@ _Avoid_: 写码纪律, 写码纪律七条, the seven working rules, 不问 (as a
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **closing steps**:
-What `implement` does once the code is written: self-run (at most three rounds per criterion); dispatch the verifier with `verify #<n>`, once; start the reviewer and wait for the review comment, fix in-ticket findings for one round, no re-review; `Audit`; cut the criteria that only wait for a person's one sentence into `decision` sub-issues and write the closing comment draft; `--closeout`; close the reviewer's pane. A re-prompted worker resumes at the step after the newest of `self-run`, `VERDICT`, `REVIEW`. No branch is pushed and no pull request is opened: work reaches the base branch through `advance`.
+What `implement` does once the code is written: self-run (at most three rounds per criterion); dispatch the verifier with `verify #<n>`, once; comment `DECISIONS` once; start the reviewer and wait for the review comment, fix in-ticket findings for one round, no re-review; `Audit`; cut the criteria that only wait for a person's one sentence into `decision` sub-issues and write the closing comment draft; `--closeout`; close the reviewer's pane. A re-prompted worker resumes at the step after the newest of `self-run`, `VERDICT`, `DECISIONS`, `REVIEW`. No branch is pushed and no pull request is opened: work reaches the base branch through `advance`.
 _Avoid_: 收尾七步, 收尾六步, the seven closing steps, the closeout (for the sequence)
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
