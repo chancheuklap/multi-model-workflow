@@ -46,7 +46,7 @@ _Avoid_: 高级工人, 高级 worker
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **reviewer**:
-The session a worker starts through the dispatch skill to run one round of code review. Its Herdr name is `issue-<n>-review`; it runs inside the worker's worktree, cuts no branch, carries `MMW_AUTONOMOUS` but no `MMW_TICKET`; the board never touches it; the worker closes its pane at the end of the closing steps. On its own, `reviewer` always means this session, never one of the three axis subagents.
+The session a worker starts through the dispatch skill to run one round of code review. Its Herdr name is `issue-<n>-review`; it runs inside the worker's worktree, cuts no branch, carries `MMW_AUTONOMOUS` but no `MMW_TICKET`; the board never touches it; the worker closes its pane right before the closeout, because after the closeout the board closes the worker's own pane at once. On its own, `reviewer` always means this session, never one of the three axis subagents.
 _Admitted_: reviewer session
 _Avoid_: reviewer 会话, code-review 会话, 审稿人
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
@@ -803,7 +803,7 @@ _Avoid_: 写码纪律, 写码纪律七条, the seven working rules, 不问 (as a
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **closing steps**:
-What `implement` does once the code is written: self-run (at most three rounds per criterion); dispatch the verifier with `verify #<n>`, once; comment `DECISIONS` once; start the reviewer and wait for the review comment, fix in-ticket findings for one round, no re-review; `Audit`; comment `TOUCHED BY #<n>` on every open ticket of the spec whose `## Owns` covers a file on `Outside Owns:`; cut the criteria that only wait for a person's one sentence into `decision` sub-issues and write the closing comment draft; `--closeout`; close the reviewer's pane. A re-prompted worker resumes at the step after the newest of `self-run`, `VERDICT`, `DECISIONS`, `REVIEW`. No branch is pushed and no pull request is opened: work reaches the base branch through `advance`.
+What `implement` does once the code is written: self-run (at most three rounds per criterion); dispatch the verifier with `verify #<n>`, once; comment `DECISIONS` once; start the reviewer and wait for the review comment, fix in-ticket findings for one round, no re-review; `Audit`; comment `TOUCHED BY #<n>` on every open ticket of the spec whose `## Owns` covers a file on `Outside Owns:`; cut the criteria that only wait for a person's one sentence into `decision` sub-issues and write the closing comment draft; close the reviewer's pane; `--closeout`. A re-prompted worker resumes at the step after the newest of `self-run`, `VERDICT`, `DECISIONS`, `REVIEW`. No branch is pushed and no pull request is opened: work reaches the base branch through `advance`.
 _Avoid_: 收尾七步, 收尾六步, the seven closing steps, the closeout (for the sequence)
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
