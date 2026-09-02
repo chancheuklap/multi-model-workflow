@@ -722,16 +722,21 @@ run_night() {
 
   # Every host a session will be started on has to be a kind `herdr agent start`
   # accepts, or that session never comes up and the ticket is refused at every advance.
+  # A help text with no kind list on it is not a reason to stop the night: the check is
+  # skipped, said so on stderr, and `agent start` reports a bad kind itself.
   local kinds host
   kinds="$(herdr_agent_kinds)"
-  [ -n "$kinds" ] || refuse "could not read the agent kinds herdr accepts from 'herdr agent start --help'"
-  for seat in $(worker_roles) reviewer; do
-    host="$(row_for_role "$seat" | cut -f1)"
-    case " $kinds " in
-      *" $host "*) ;;
-      *) refuse "the $seat row's host is $host, which herdr agent start does not accept (it accepts: $kinds)" ;;
-    esac
-  done
+  if [ -n "$kinds" ]; then
+    for seat in $(worker_roles) reviewer; do
+      host="$(row_for_role "$seat" | cut -f1)"
+      case " $kinds " in
+        *" $host "*) ;;
+        *) refuse "the $seat row's host is $host, which herdr agent start does not accept (it accepts: $kinds)" ;;
+      esac
+    done
+  else
+    echo "dispatch: 'herdr agent start --help' lists no agent kinds, so the hosts in $MODELS were not checked" >&2
+  fi
 
   herdr agent rename "$caller" "$MAIN_AGENT_NAME" >/dev/null 2>&1 \
     || refuse "could not rename this pane $MAIN_AGENT_NAME, so the board could not reach it"

@@ -479,13 +479,15 @@ JSON
   hasnt "herdr :: agent :: rename"
   hasnt "herdr :: tab :: create"
 
-  echo "--- and when the help carries no kind list, the night is refused rather than guessed"
+  echo "--- and when the help carries no kind list, the host check is skipped and the night opens"
   reset_log
   code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
           FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_HERDR_KINDS=" " \
           bash "$copy/scripts/dispatch.sh" run 76)"
-  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
-  hasnt "herdr :: agent :: rename"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  has "herdr :: agent :: rename :: w1:p1 :: w1-mmw-main"
+  has "herdr :: pane :: run :: w1:p9"
+  grep -q 'not checked' "$TMP/err" || fail "stderr should say the hosts were not checked: $(cat "$TMP/err")"
 
   echo "--- a batch whose labels and hosts all resolve opens the night"
   cat > "$TMP/tickets.json" <<'JSON'
