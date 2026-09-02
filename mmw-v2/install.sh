@@ -3,8 +3,7 @@
 #
 #   技能              skills.txt 列出的，软链进 ~/.agents/skills 与 ~/.claude/skills
 #   subagent          agents/<名>/out/ 的 assembled subagent file，软链进各 host 的 agent 目录
-#   hook              verify-ticket 的 hook.py pretool（五个 host）与 Claude Code 的
-#                     rule-at-moment.py（三个事件），写进各 host 自己的配置
+#   hook              verify-ticket 的 hook.py 与 dispatch 的 turn.py，写进各 host 自己的配置
 #   agent detection rule   dispatch 技能带的覆盖（有才装），拷进 ~/.config/herdr/agent-detection/
 #
 # 技能有三个来源：mattpocock/skills 的在 upstream/skills/，我们自己写的在 skills/（skills.txt
@@ -140,7 +139,7 @@ dupes="$(printf '%s\n' "${wanted_names[@]}" | sort | uniq -d)"
 
 rc=0
 installed_dests=0
-# hook 两段各自的成败。两段都跑过且都齐了才打印 HOOKS-INSTALLED。
+# hook 一段的成败。跑过且齐了才打印 HOOKS-INSTALLED。
 hooks_ran=0
 hooks_rc=0
 
@@ -617,132 +616,6 @@ if mode != "check":
 sys.exit(1 if failed else 0)
 PY
 fi
-
-# ---------------- Claude Code 的 rule-at-moment.py ----------------
-
-# hooks/rule-at-moment.py 只给 Claude Code 用：在每次读、写、派子代理、结果被 host 截断
-# 这几个时刻，把 ~/.claude/CLAUDE.md 里对应的那一条原文送到模型眼前。软链放在
-# ~/.claude/hooks/（Herdr 的几个 hook 也在那），settings.json 里三条都指向它；改脚本不用
-# 重装。合并法与上面一样：只认 command 里带脚本名的条目。
-#
-#   install_claude_hook <源脚本> <软链> '<事件与 matcher 的 JSON 列表>'
-
-install_claude_hook() {
-  local src="$1" link="$2" wanted="$3"
-  [ -f "$src" ] && [ -d "$HOME_DIR/.claude" ] || return 0
-  hooks_ran=1
-  if [ "$mode" = check ]; then
-    if [ ! -L "$link" ] || [ "$(readlink "$link")" != "$src" ]; then
-      echo "缺    $link" >&2
-      rc=1
-      hooks_rc=1
-    fi
-  else
-    mkdir -p "$(dirname "$link")"
-    if [ -e "$link" ] && [ ! -L "$link" ]; then
-      echo "冲突  $link 已存在且不是软链，跳过" >&2
-      rc=1
-      hooks_rc=1
-    else
-      ln -sfn "$src" "$link"
-      echo "已装  $link"
-    fi
-  fi
-
-  MMW_MODE="$mode" \
-  MMW_SETTINGS="$HOME_DIR/.claude/settings.json" \
-  MMW_HOOK_LINK="$link" \
-  MMW_WANTED="$wanted" \
-  python3 - <<'PY' || { rc=1; hooks_rc=1; }
-import json
-import os
-import sys
-from pathlib import Path
-
-mode = os.environ["MMW_MODE"]
-path = Path(os.environ["MMW_SETTINGS"])
-link = os.environ["MMW_HOOK_LINK"]
-command = f"python3 '{link}'"
-MARK = os.path.basename(link)
-TIMEOUT = 10
-wanted = [tuple(item) for item in json.loads(os.environ["MMW_WANTED"])]
-
-
-def load():
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-    return value if isinstance(value, dict) else {}
-
-
-def save(data):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    scratch = path.with_name(path.name + ".mmw-tmp")
-    scratch.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    scratch.replace(path)
-
-
-def ours(handler):
-    return isinstance(handler, dict) and MARK in str(handler.get("command", ""))
-
-
-def find(hooks, event):
-    for group in hooks.get(event) or []:
-        inner = group.get("hooks") if isinstance(group, dict) else None
-        for existing in inner or []:
-            if ours(existing):
-                return group, existing
-    return None, None
-
-
-data = load()
-hooks = data.setdefault("hooks", {})
-failed = False
-for event, matcher in wanted:
-    group, existing = find(hooks, event)
-    if mode == "check":
-        ok = existing is not None and existing.get("command") == command \
-            and (matcher is None or group.get("matcher") == matcher)
-        if ok:
-            print(f"hook  {path}  {event}  {MARK}")
-        else:
-            sys.stderr.write(f"缺    {path}  {event}  {MARK}\n")
-            failed = True
-        continue
-    handler = {"type": "command", "command": command, "timeout": TIMEOUT}
-    if group is not None:
-        inner = group["hooks"]
-        inner[inner.index(existing)] = handler
-        if matcher is not None:
-            group["matcher"] = matcher
-        else:
-            group.pop("matcher", None)
-    else:
-        entry = {"hooks": [handler]}
-        if matcher is not None:
-            entry["matcher"] = matcher
-        hooks.setdefault(event, []).append(entry)
-if mode != "check":
-    save(data)
-    # 写完当场回读：每个事件都在文件里认得出来，才算装上。
-    written = load().get("hooks") or {}
-    for event, matcher in wanted:
-        group, existing = find(written, event)
-        if existing is not None and existing.get("command") == command \
-                and (matcher is None or group.get("matcher") == matcher):
-            continue
-        sys.stderr.write(f"缺    {path}  {event}  {MARK}\n")
-        failed = True
-    if not failed:
-        print(f"已装  {len(wanted)} 条 {MARK} hook -> {path}")
-sys.exit(1 if failed else 0)
-PY
-}
-
-# PreToolUse 一条 matcher 管八个工具；其余两个事件不带 matcher。
-install_claude_hook "$ROOT/hooks/rule-at-moment.py" "$HOME_DIR/.claude/hooks/rule-at-moment.py" \
-  '[["PreToolUse", "Read|Grep|WebFetch|Bash|Write|Edit|NotebookEdit|Agent"], ["PostToolUse", null], ["PostToolUseFailure", null]]'
 
 if [ "$hooks_ran" -eq 1 ] && [ "$hooks_rc" -eq 0 ]; then
   echo "HOOKS-INSTALLED"

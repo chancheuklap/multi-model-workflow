@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Claude Code hook: put the ground rule that applies right now in front of the model.
 
-Installed by mmw-v2/install.sh as ~/.claude/hooks/rule-at-moment.py and registered in
-~/.claude/settings.json for PreToolUse, PostToolUse and PostToolUseFailure. One
-invocation handles one event; the event name comes in on stdin (`hook_event_name`).
+Not installed by mmw-v2/install.sh. To use it, symlink it to ~/.claude/hooks/rule-at-moment.py
+by hand and register `python3 '~/.claude/hooks/rule-at-moment.py'` in ~/.claude/settings.json
+for PreToolUse (matcher `Read|Grep|WebFetch|Bash|Write|Edit|NotebookEdit|Agent`), PostToolUse
+and PostToolUseFailure. One invocation handles one event; the event name comes in on stdin
+(`hook_event_name`).
 
 The text it injects is never written here. It is cut out of ~/.claude/CLAUDE.md
 (override with MMW_CLAUDE_MD) by heading and by item number:
