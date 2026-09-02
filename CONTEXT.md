@@ -396,7 +396,7 @@ _Avoid_: fenced check, fenced code block, 代码块围栏, 围栏
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **the five questions**:
-What the ticket writer asks, in order, of anything there is to say about the work, stopping at the first yes: is it an acceptance criterion (decided by a command)? a code-review judgement? a person's `reaction`? a `reach`? or a choice — take the default and record it in the closing comment, and only when the work cannot go on, a decision ticket.
+What the ticket writer asks, in order, of anything there is to say about the work, stopping at the first yes: is it an acceptance criterion (decided by a command)? a code-review judgement (written into the spec's `## Implementation Decisions` subsection the ticket names, where the Spec axis reads it as in-ticket)? a person's `reaction`? a `reach`? or a choice — take the default and record it in the closing comment, and only when the work cannot go on, a decision ticket.
 _Avoid_: 五问, 五问判定树
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
