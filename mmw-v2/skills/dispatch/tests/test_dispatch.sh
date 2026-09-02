@@ -598,6 +598,15 @@ scenario_livesession() {
           bash "$DISPATCH" 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   has "herdr :: agent :: start :: w1-issue-61"
+
+  echo "--- a listing Herdr cannot give is no reason to stop: agent start answers for collisions"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_HERDR_AGENTS='not json at all' \
+          bash "$DISPATCH" 61 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  has "herdr :: agent :: start :: w1-issue-61"
 }
 
 scenario_noherdr() {

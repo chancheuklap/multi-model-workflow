@@ -186,20 +186,20 @@ else:
 
 # ------------------------------------------------------------------ live sessions
 
-# Prints "live" when Herdr already has an agent by this name, nothing when it does not,
-# and "unreadable" when Herdr could not be asked. A name that is taken would fail at
-# `agent start`, after a tab or a pane had already been opened for it — so it is asked
-# here, before anything is opened, and exit 2 keeps meaning that nothing was touched.
+# Prints "live" when Herdr already has an agent by this name, and nothing otherwise —
+# including when Herdr could not be asked or did not answer in JSON, in which case a
+# taken name still fails at `agent start` with Herdr's own error. Without this it would
+# fail there after a tab or a pane had already been opened for it, so it is asked here,
+# before anything is opened, and exit 2 keeps meaning that nothing was touched.
 session_named() {
   local listing
-  listing="$(herdr agent list 2>/dev/null)" || { echo unreadable; return; }
+  listing="$(herdr agent list 2>/dev/null)" || return 0
   printf '%s' "$listing" | MMW_WANTED="$1" python3 -c '
 import json, os, sys
 
 try:
     payload = json.load(sys.stdin)
 except Exception:
-    print("unreadable")
     sys.exit(0)
 agents = (payload.get("result") or {}).get("agents") or payload.get("agents") or []
 if any(a.get("name") == os.environ["MMW_WANTED"] for a in agents):
@@ -350,10 +350,8 @@ dispatch() {
   else
     name="$(herdr_name "issue-$number")"
   fi
-  case "$(session_named "$name")" in
-    live) refuse "#$number already has a live session $name" ;;
-    unreadable) refuse "could not list Herdr's agents, so whether $name is already live is unknown" ;;
-  esac
+  [ "$(session_named "$name")" != live ] \
+    || refuse "#$number already has a live session $name"
 
   if [ "$reviewing" = 1 ]; then
     prompt="Use the code-review skill to review ticket #$number from base commit $base. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
