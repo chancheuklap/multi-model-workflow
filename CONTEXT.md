@@ -457,7 +457,7 @@ _Avoid_: 角色 (bare)
 _Home_: `docs/agents/triage-labels.md`
 
 **`needs-triage`**:
-Nobody has judged it yet: an issue from outside, or a ticket its worker closed out as `HANDOFF REQUIRED`. `triage` reads this queue and recommends one of the four outcomes. A sub-issue a worker opens carries it.
+Nobody has judged it yet: an issue from outside, a ticket its worker closed out as `HANDOFF REQUIRED`, or a closed ticket reopened after the night because a criterion failed on the base branch (label added, assignee removed, the failing `AC<n>` and the base-branch commit in a comment). `triage` reads this queue and recommends one of the four outcomes. A sub-issue a worker opens carries it.
 _Home_: `docs/agents/triage-labels.md`
 
 **`needs-info`**:
