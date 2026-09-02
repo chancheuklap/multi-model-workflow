@@ -529,7 +529,7 @@ _Avoid_: 复验
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **`VERDICT`**:
-The verifier's judgement, posted with `gh issue comment` after its `--reverify` run: `VERDICT <full 40-character commit> by <model> — <one line>`. The one line says, in order, how it ran (`walked the flow in a running interface`, `commands only`, or `could not start`), what came back, and what it repaired. It is bound to one commit, so the branch is merged and never rebased; an `ALL MET` draft needs it on the ticket, and `Post-verdict:` when HEAD has moved past it; `HANDOFF REQUIRED` is held to none of its conditions. The verifier's whole report is this line plus the two `git status --porcelain --untracked-files=no` outputs.
+The verifier's judgement, posted with `gh issue comment` after its `--reverify` run: `VERDICT <full 40-character commit> by <model> — <one line>`. The one line says, in order, how it ran (`walked the flow in a running interface`, `commands only`, or `could not start`), what came back, and what it repaired. It is bound to one commit, so the branch is merged and never rebased; it covers that commit and no later one — a commit after it is listed under `Post-verdict:` and is re-run only by the base-branch `--reverify` after the night; an `ALL MET` draft needs it on the ticket, and `Post-verdict:` when HEAD has moved past it; `HANDOFF REQUIRED` is held to none of its conditions. The verifier's whole report is this line plus the two `git status --porcelain --untracked-files=no` outputs.
 _Avoid_: the verdict line, verdict comment, 判决
 _Home_: `mmw-v2/agents/verifier/body.md`
 
