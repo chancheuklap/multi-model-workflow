@@ -19,8 +19,8 @@
 
 set -uo pipefail
 
-IDLE_TIMEOUT_MS=120000       # a session that is not ready by now is not coming up
-PROMPT_TAKE_MS=15000         # a prompt that landed shows as working within this
+IDLE_TIMEOUT_MS=120000       # a session whose hooks have not reported it ready by now is not coming up
+PROMPT_TAKE_MS=15000         # a prompt that landed is reported working within this
 TOKEN_TTL_MS=86400000        # a day, so a night's run never outlives its own metadata
 WIDE_PANE_COLUMNS=160        # wider than this splits sideways, otherwise downwards
 LABEL_TITLE_CHARS=20         # how much of the ticket title fits on a tab
@@ -192,8 +192,8 @@ else:
 # inside it. Only the worker gets one — the reviewer runs inside the worker's worktree
 # and the verifier is a subagent of the worker's session, so neither comes through here.
 #
-# A branch named issue-<n> that already exists is reused as it stands: that is a
-# redispatch, and the new session resumes the work. Otherwise the branch is cut from
+# A branch named issue-<n> that already exists is reused as it stands: the ticket is
+# being started again, and the new session resumes the work. Otherwise the branch is cut from
 # HEAD — whatever branch the dispatching session is on, because that is where the day's
 # discussion and spec work happened and the ticket builds on it — and the base commit is
 # recorded in `branch.issue-<n>.mmw-base`, where `verify-ticket.py` and the code review
@@ -304,7 +304,9 @@ dispatch() {
     width="$(herdr pane layout --pane "$caller" | json_at .result.layout.area.width)"
     [ -n "$width" ] || refuse "could not measure pane $caller"
     if [ "$width" -ge "$WIDE_PANE_COLUMNS" ]; then direction=right; else direction=down; fi
-    pane="$(herdr pane split --pane "$caller" --direction "$direction" --cwd "$root" --no-focus \
+    # MMW_AUTONOMOUS is how `hook.py` inside this pane knows nobody is at the screen.
+    pane="$(herdr pane split --pane "$caller" --direction "$direction" --cwd "$root" \
+              --env "MMW_AUTONOMOUS=1" --no-focus \
             | json_at .result.pane.pane_id)"
     [ -n "$pane" ] || refuse "could not split pane $caller"
   else
@@ -318,9 +320,11 @@ dispatch() {
              | head_chars $(( LABEL_TITLE_CHARS + ${#number} + 2 )))"
     tab_args=()
     [ -n "${HERDR_WORKSPACE_ID:-}" ] && tab_args=(--workspace "$HERDR_WORKSPACE_ID")
-    # MMW_TICKET is how `hook.py` inside this pane knows which ticket it guards.
+    # MMW_TICKET is how `hook.py` inside this pane knows which ticket it guards, and
+    # MMW_AUTONOMOUS that nobody is at the screen.
     pane="$(herdr tab create ${tab_args[@]+"${tab_args[@]}"} --cwd "$worktree" \
-              --label "$label" --env "MMW_TICKET=$number" --no-focus \
+              --label "$label" --env "MMW_TICKET=$number" --env "MMW_AUTONOMOUS=1" \
+              --no-focus \
             | json_at .result.root_pane.pane_id)"
     [ -n "$pane" ] || refuse "could not open a tab for ticket #$number"
   fi
@@ -335,9 +339,9 @@ dispatch() {
     || give_up "$name is up in pane $pane but would not take the prompt"
 
   # The prompt call says the text was sent, not that the session heard it: a host still
-  # drawing its start screen swallows the first line without a trace. Turning working —
-  # or blocked, a session that heard and hit a form — within a few seconds is what says
-  # it landed; one resend covers the swallowed case.
+  # drawing its start screen swallows the first line without a trace. The session's own
+  # `UserPromptSubmit` hook reporting it working within a few seconds is what says it
+  # landed; one resend covers the swallowed case.
   if ! herdr agent wait "$name" --until working --until blocked \
          --timeout "$PROMPT_TAKE_MS" >/dev/null 2>&1; then
     herdr agent prompt "$name" "$prompt" >/dev/null 2>&1

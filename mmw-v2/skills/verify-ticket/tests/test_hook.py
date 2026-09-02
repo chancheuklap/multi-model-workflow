@@ -267,6 +267,64 @@ class TestTheWordingSaysWhatToDoNext(unittest.TestCase):
                 self.assertLessEqual(whole, hk.REASON_LIMIT)
 
 
+# ------------------------------------------------------------------------ AC6
+
+class TestTheQuestionGate(unittest.TestCase):
+    """A dispatched session may not put a question on the screen."""
+
+    AUTONOMOUS = {"MMW_AUTONOMOUS": "1"}
+    ASKS = {
+        "claude": {"hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion",
+                   "tool_input": {"questions": []}},
+        "codex": {"hook_event_name": "PreToolUse", "tool_name": "request_user_input",
+                  "tool_input": {}},
+        "grok": {"hookEventName": "pre_tool_use", "toolName": "ask_user_question",
+                 "toolInput": {"questions": []}},
+    }
+
+    def ask(self, host: str, env: dict) -> tuple[int, dict | None]:
+        out = io.StringIO()
+        with mock.patch.dict(os.environ, env, clear=True), \
+             mock.patch.object(hk.sys, "stdin", io.StringIO(json.dumps(self.ASKS[host]))), \
+             redirect_stdout(out), redirect_stderr(io.StringIO()):
+            code = hk.main(["question", host])
+        printed = out.getvalue().strip()
+        return code, json.loads(printed) if printed else None
+
+    def test_an_autonomous_session_is_refused_on_every_session_host(self):
+        for host in self.ASKS:
+            with self.subTest(host=host):
+                code, answer = self.ask(host, self.AUTONOMOUS)
+                self.assertEqual(code, 0)
+                self.assertIsNotNone(answer)
+
+    def test_a_session_nobody_dispatched_may_ask(self):
+        for host in self.ASKS:
+            with self.subTest(host=host):
+                self.assertEqual(self.ask(host, {}), (0, None))
+                self.assertEqual(self.ask(host, {"MMW_TICKET": "64"}), (0, None))
+
+    def test_another_tool_under_the_same_gate_goes_through(self):
+        event = {"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                 "tool_input": {"command": "ls"}}
+        out = io.StringIO()
+        with mock.patch.dict(os.environ, self.AUTONOMOUS, clear=True), \
+             mock.patch.object(hk.sys, "stdin", io.StringIO(json.dumps(event))), \
+             redirect_stdout(out):
+            hk.main(["question", "claude"])
+        self.assertEqual(out.getvalue().strip(), "")
+
+    def test_the_reason_says_where_the_question_goes(self):
+        _, answer = self.ask("grok", self.AUTONOMOUS)
+        reason = reason_of(answer)
+        self.assertIn("Decisions I made on my own", reason)
+        self.assertIn("ABANDON: AC<n> decision", reason)
+        self.assertIn("needs-triage", reason)
+
+    def test_it_arrives_whole_on_the_host_that_clips_it(self):
+        self.assertLessEqual(hk.HOST_PREFIX + len(hk.NO_QUESTION), hk.REASON_LIMIT)
+
+
 class TestNothingBlocksOnBadInput(unittest.TestCase):
     """A gate that cannot read its input has learned nothing, so it refuses nothing."""
 
@@ -289,6 +347,13 @@ class TestNothingBlocksOnBadInput(unittest.TestCase):
 
     def test_a_gate_it_does_not_know(self):
         self.assertEqual(self.quiet(["stop", "claude"]), (0, ""))
+
+    def test_the_question_gate_reads_nothing_it_cannot(self):
+        with mock.patch.dict(os.environ, {"MMW_AUTONOMOUS": "1"}, clear=True), \
+             mock.patch.object(hk.sys, "stdin", io.StringIO("not json")), \
+             redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(hk.main(["question", "grok"]), 0)
+        self.assertEqual(out.getvalue(), "")
 
     def test_no_arguments_at_all(self):
         self.assertEqual(self.quiet([]), (0, ""))

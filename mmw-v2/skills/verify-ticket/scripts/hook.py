@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
-"""The one thing a worker may not do by hand: take its ticket out of the agent queue.
+"""Two things a dispatched session may not do: take its ticket out of the agent queue
+by hand, and put a question on the screen.
 
 A ticket closes through `verify-ticket.py <n> --closeout <draft>`, which checks the
 closing comment, posts it, and only then closes the ticket. `gh issue close` skips all
 of that and leaves a closed ticket nobody can read in the morning. So every host asks
 this file before running a shell command, and this file refuses that one command.
 
-    hook.py pretool <host>   the host is about to run a shell command
+A question on the screen has nobody to answer it: nothing in this pipeline reads a
+form. So every host asks this file before calling its question tool, and this file
+refuses the call and says where the question goes instead — the default taken and
+recorded, or `ABANDON: AC<n> decision` with a sub-issue.
+
+    hook.py pretool <host>    the host is about to run a shell command
+    hook.py question <host>   the host is about to ask the user a question
 
 `<host>` is one of claude, codex, grok, cursor, pi. It decides only the shape of the
 answer; the decision and the sentence are the same for all five.
@@ -17,9 +24,10 @@ one and let the command through when the guess passed would produce exactly the
 outcome it exists to prevent — the ticket closed with no closing comment on it.
 
 Whether this session is governed is not something this file works out. It is told:
-`dispatch.sh` sets `MMW_TICKET` on the worker's pane. No variable, no refusal. So there
-is no git to run, no `gh` to ask, no file to read, and nothing to get wrong about
-which directory the host happened to start this process in.
+`dispatch.sh` sets `MMW_TICKET` on the worker's pane and `MMW_AUTONOMOUS=1` on the
+worker's and the reviewer's. No variable, no refusal. So there is no git to run, no
+`gh` to ask, no file to read, and nothing to get wrong about which directory the host
+happened to start this process in.
 """
 
 from __future__ import annotations
@@ -30,7 +38,7 @@ import os
 import sys
 
 HOSTS = ("claude", "codex", "grok", "cursor", "pi")
-GATES = ("pretool",)
+GATES = ("pretool", "question")
 
 # Grok Build clips a deny reason at 256 characters and marks the rest `… [+N chars]`,
 # and it spends 13 of those on a `Hook denied: ` of its own (2026-08-29, measured: a
@@ -45,6 +53,23 @@ REFUSAL = (
     "closing comment, posts it, then closes the ticket. Write it to a file and run that. "
     "Unfinished work leaves the same way, first line `HANDOFF REQUIRED`."
 )
+
+# The same length rule. Nobody is at the screen; the two ways out are the ones the
+# `implement` skill already gives.
+NO_QUESTION = (
+    "Nobody is at the screen. Take the likeliest option and note it under `Decisions I "
+    "made on my own`; if the answer changes what the ticket delivers, write `ABANDON: "
+    "AC<n> decision <question, options, default>` and open a needs-triage sub-issue."
+)
+
+# The tool each host calls to put a question on the screen.
+QUESTION_TOOLS = {
+    "claude": ("AskUserQuestion",),
+    "codex": ("request_user_input",),
+    "grok": ("ask_user_question",),
+    "cursor": ("AskQuestion",),
+    "pi": ("ask_user_question",),
+}
 
 
 def read_event() -> dict:
@@ -70,6 +95,20 @@ def command_of(event: dict) -> str | None:
         if isinstance(value, str) and value:
             return value
     return None
+
+
+def autonomous() -> bool:
+    """Whether `dispatch.sh` marked this session as one nobody watches."""
+    return os.environ.get("MMW_AUTONOMOUS", "").strip() == "1"
+
+
+def tool_of(event: dict) -> str:
+    """The tool this event is about, in whichever way its host spelled it."""
+    for name in ("tool_name", "toolName"):
+        value = event.get(name)
+        if isinstance(value, str) and value:
+            return value
+    return ""
 
 
 def governed_ticket() -> int | None:
@@ -153,11 +192,22 @@ def run_pretool(host: str, event: dict) -> int:
     return 0
 
 
+def run_question(host: str, event: dict) -> int:
+    if not autonomous():
+        return 0
+    if tool_of(event) not in QUESTION_TOOLS.get(host, ()):
+        return 0
+    refuse(host, NO_QUESTION)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if len(argv) != 2 or argv[0] not in GATES or argv[1] not in HOSTS:
         sys.stderr.write(f"usage: hook.py <{'|'.join(GATES)}> <{'|'.join(HOSTS)}>\n")
         return 0
+    if argv[0] == "question":
+        return run_question(argv[1], read_event())
     return run_pretool(argv[1], read_event())
 
 

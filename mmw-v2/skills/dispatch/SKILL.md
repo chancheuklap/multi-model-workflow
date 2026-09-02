@@ -25,7 +25,7 @@ Resolve them from this file's own location. The path differs by machine and by h
 | Start the reviewer on your ticket and wait for its report | `<dispatch> <n> reviewer <base-commit>`, then `<dispatch> wait <n> "^REVIEW "` |
 | Open the night on a spec | `<dispatch> run <spec>`, then `<dispatch> advance <spec>` straight after |
 | Act on `mmw board: ADVANCE` or `mmw board: night over` | `<dispatch> advance <spec>` |
-| Act on `mmw board: WAKEUP LIMIT`, `REDISPATCHED` or `TIME LIMIT` | `<board> --once <spec>`. Read the board's table and act no further: the board has already commented on that ticket and handed it back to `needs-triage` |
+| Act on `mmw board: STOPPED #<n>` or `mmw board: TIME LIMIT #<n>` | `herdr agent read <name> --source recent --lines 80`, with the Herdr name the line carries. Read why that worker stopped, fix what stopped it yourself — a file it could not find, a command it needs, a baseline it read wrong — and tell it to carry on with `herdr agent prompt <name> "<what you settled, then: continue>"`. A question only a person can settle goes into a sub-issue under the spec (`gh issue create --parent <spec> --label needs-triage`), and the worker is told to take the default meanwhile. Change no label: the ticket stays in the agent queue until its worker closes it out |
 | Start a worker on one ticket, outside a night | `<dispatch> <n> worker` |
 | Change one ticket's worker grade | Swap its `junior-worker` / `senior-worker` label on the tracker; the next dispatch reads it |
 | Change which host, model or `effort` an agent runs on | Edit `models.md`, next to this file — but read [references/editing-models.md](references/editing-models.md) first |
@@ -49,7 +49,7 @@ The second argument is `worker` or `reviewer`. Which of the two worker rows in `
 | Code | What happened |
 | --- | --- |
 | `0` | The session is up and has been told what to work on |
-| `1` | The session is up but was **not** told anything: it did not become ready in time, or it would not take the prompt. A session is now sitting in that pane holding the ticket's name with nothing to do. Inside a night, leave it where it is: the board comments `REDISPATCHED` on that ticket, closes the pane and redispatches it, and a second hand on it puts two sessions on one ticket. Outside a night nothing is watching, so end that session yourself before dispatching that ticket again with the same second argument — the Herdr name collides |
+| `1` | The session is up but was **not** told anything: its hooks did not report it ready in time, or it did not report the prompt as taken. A session is now sitting in that pane holding the ticket's name with nothing to do. Read its screen with `herdr agent read <name>`, then either prompt it yourself with the dispatch line or end that session before dispatching the ticket again with the same second argument — the Herdr name collides |
 | `2` | Nothing was started. The reason is on stderr — read it verbatim |
 
 **Waiting** — `<dispatch> wait`:

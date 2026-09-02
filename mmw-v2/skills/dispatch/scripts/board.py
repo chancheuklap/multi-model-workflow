@@ -11,16 +11,16 @@ truth to reconcile. `--once` is what an agent runs when it wants the whole pictu
 one screen. The argument-less form is what a person leaves open in a tab: it appends,
 never redraws, and never enters the alternate screen, so its lines stay in the host's
 scrollback where `herdr pane read` can still reach them. `--watch` is the one form that
-does anything: it re-prompts a session that is `idle` with a `phase` other than `closed`
-or `handoff`, redispatches one whose session is gone, and hands back the tickets that
-reached a limit. Nothing it does needs a model, because the only thing it ever says to a
-worker is that worker's own dispatch line.
+does anything, and it does three things: a worker whose turn failed on the network is
+sent `continue`; a worker that ended a turn on its own short of `closed` or `handoff`
+is reported to `mmw-main`, which reads its screen and decides; a worker at `closed` or
+`handoff` has its pane closed. Nothing it does needs a model.
 
 What it does not do is dispatch. `advance` is the main agent's: when the frontier
 grows, `--watch` tells `mmw-main` to run `dispatch.sh advance`, which merges the
-branches of the tickets that closed and then starts the ones that can start. Repair
-is the board's, the next step is the main agent's, and the line between them is that a
-repair puts a session that was already dispatched back on its feet.
+branches of the tickets that closed and then starts the ones that can start. The board
+never takes a ticket out of the agent queue either: a ticket leaves the night only by
+the closing comment its worker writes.
 
 One board covers one Herdr workspace. Sessions in another workspace belong to another
 board and are not read, not counted and not touched.
@@ -29,18 +29,13 @@ The two sources are the tracker and Herdr, and nothing else. There is no state f
 each of the board's rounds is a full re-read, so a dropped connection or a restart
 loses nothing.
 
-Herdr reads a session's state off its screen and its terminal titles, so `idle`, `done`
-and `unknown` all arrive while a session is running — a host between turns stops drawing
-the chrome those readings come from. They are the same thing to this board: a worker
-that stopped, most often on a network error partway through a turn, and what gets it
-going again is `continue`. It waits `COOLDOWN_SECONDS` for the state to hold before
-sending one, so a gap between turns costs nothing.
-
-What the board never reads into any of them is a session that ended. The hosts in
-`models.md` do not exit partway through a ticket, so a session Herdr lists is a session
-to prompt, and only a ticket whose session Herdr stops listing for `ABSENT_GRACE` is
-started again. A snapshot Herdr will not answer is not a workspace with no sessions in
-it either, so it ends the round instead of emptying it.
+How a session is doing comes from the session itself: `turn.py`, next to this file,
+runs on the host's own lifecycle hooks and writes the `turn` pane token — `ready`,
+`working`, `ended`, `failed:<error>`, `cancelled:<reason>` — beside the
+`agent_status` it reports to Herdr. The board reads the token and never the screen.
+A session with no token, because its hooks are not installed or Herdr restarted, is
+left alone until it has been `idle` for `FALLBACK_SECONDS` with nothing new on the
+ticket, and then reported to `mmw-main` the same way as one that stopped on purpose.
 """
 
 from __future__ import annotations
@@ -55,16 +50,14 @@ import sys
 import threading
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 # --------------------------------------------------------------------- constants
 
-COOLDOWN_SECONDS = 120          # a first idle may be nothing but a gap between turns
-WAKE_BACKOFF = (120, 240, 480)  # seconds to wait before the 1st, 2nd, 3rd prompt
-WAKE_LIMIT = 3                  # prompts per session before the ticket goes back
-REDISPATCH_LIMIT = 1            # times one ticket is started again after a session dies
-MAX_HOURS = 4                   # hours one ticket may hold a session
+MAX_HOURS = 4                   # hours one ticket may hold a session before mmw-main is told
 SNAPSHOT_INTERVAL = 60          # seconds between full re-reads when no event arrives
-ABSENT_GRACE = 120              # seconds a ticket's session may be missing before it is gone
+FAILED_LIMIT = 3                # `continue`s per phase before mmw-main is told instead
+FALLBACK_SECONDS = 600          # idle with no `turn` token and nothing new on the ticket
 
 # --------------------------------------------------------------------- vocabulary
 
@@ -75,17 +68,10 @@ CLOSED_OR_HANDOFF = ("closed", "handoff")
 # `done` is the same underlying idle state, after unseen background work finished.
 IDLE_STATUSES = ("idle", "done")
 
-# What a session that is not observably working looks like from Herdr. `unknown` is in
-# here because it is a reading Herdr does not have, not a session that ended: hosts stop
-# drawing the chrome Herdr reads while they are between turns and for the first seconds
-# after they start. A worker in any of these is one that stopped — most often on a
-# network error partway through a turn — and what it takes to carry on is its own
-# dispatch line, so all three lead to the same wait and the same `continue`.
-STOPPED_STATUSES = IDLE_STATUSES + ("unknown",)
-
 TOKEN_TTL_MS = 86400000         # a day, so a night's run never outlives its metadata
 
 SOCKET_PATH = os.path.expanduser("~/.config/herdr/herdr.sock")
+LOG_DIR = Path(os.path.expanduser("~/.mmw/logs"))
 
 # `dispatch.sh` is this script's neighbour, so the pair moves as one skill.
 DISPATCH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dispatch.sh")
@@ -124,10 +110,10 @@ def herdr_strict(args: list[str]) -> dict:
 
     `herdr` answers `{}` for a refusal, a timeout and a broken pipe alike, which is
     the right shape for a call whose answer only decorates a line of output. It is
-    the wrong shape for the two questions this board acts on — which sessions exist,
-    and whether one is still running — because an unanswered call and an empty
-    answer would then be the same thing, and the board would read a Herdr that is
-    restarting as a workspace with no sessions left in it.
+    the wrong shape for the question this board acts on — which sessions exist —
+    because an unanswered call and an empty answer would then be the same thing, and
+    the board would read a Herdr that is restarting as a workspace with no sessions
+    left in it.
     """
     run = subprocess.run(["herdr", *args], capture_output=True, text=True, timeout=20)
     if run.returncode != 0:
@@ -149,32 +135,6 @@ def herdr_run(args: list[str]) -> tuple[int, str]:
         return 1, str(problem)
 
 
-def form_text(screen: str) -> str:
-    """The form out of a screen that also holds whatever scrolled above it.
-
-    A question or approval form is drawn at the foot of the viewport, so the last few
-    non-empty lines are the form and everything before them is the turn that led to it.
-    """
-    lines = [l.strip() for l in (screen or "").splitlines() if l.strip()]
-    return " ".join(lines[-FORM_LINES:])
-
-
-def herdr_text(args: list[str]) -> str:
-    """A Herdr call whose answer is a pane's own text rather than JSON."""
-    try:
-        run = subprocess.run(["herdr", *args], capture_output=True, text=True, timeout=30)
-        return run.stdout if run.returncode == 0 else ""
-    except Exception:
-        return ""
-
-
-def run_dispatch(number: int, kind: str) -> tuple[int, str, str]:
-    """`dispatch.sh <n> <kind>`: its exit code alone says what happened."""
-    run = subprocess.run(["bash", DISPATCH, str(number), kind],
-                         capture_output=True, text=True)
-    return run.returncode, (run.stdout or "").strip(), (run.stderr or "").strip()
-
-
 def unwrap(payload: dict) -> dict:
     """Herdr answers `{"id":…, "result":{…}}`; some calls are read for their result."""
     return payload.get("result", payload) if isinstance(payload, dict) else {}
@@ -184,9 +144,7 @@ def live_agents() -> list[dict]:
     """Every agent Herdr can see, with its name, status and pane tokens.
 
     Raises when Herdr could not be asked. A round that cannot see the sessions must
-    not act on them: every ticket would read as one whose session has vanished, and
-    a single slow snapshot would hand a whole night's batch back to `needs-triage`.
-    `Watch.run` catches it and skips the round.
+    not act on them. `Watch.run` catches it and skips the round.
     """
     snapshot = unwrap(herdr_strict(["api", "snapshot"])).get("snapshot")
     if not isinstance(snapshot, dict):
@@ -216,8 +174,6 @@ def normalise_ticket(number: int, raw: dict) -> dict:
     labels = [l.get("name") for l in raw.get("labels") or [] if isinstance(l, dict)]
     nodes = (raw.get("blockedBy") or {}).get("nodes") or []
     bodies = [c.get("body") or "" for c in raw.get("comments") or [] if isinstance(c, dict)]
-    written = [c.get("createdAt") or "" for c in raw.get("comments") or []
-               if isinstance(c, dict)]
     return {
         "number": number,
         "state": (raw.get("state") or "").upper(),
@@ -229,7 +185,6 @@ def normalise_ticket(number: int, raw: dict) -> dict:
         "blockers": [int(n["number"]) for n in nodes
                      if isinstance(n, dict) and n.get("state") != "CLOSED" and n.get("number")],
         "comments": bodies,
-        "comments_written": written,
     }
 
 # --------------------------------------------------------------------- the tickets
@@ -262,30 +217,6 @@ UNMET_RE = re.compile(r"^UNMET:\s*(\d+)\s*\(met:\s*(\d+)\b")
 HANDOFF_RE = re.compile(
     r"^HANDOFF REQUIRED:\s*(\d+)\s+abandoned\s*\(met:\s*(\d+)"
     r"(?:,\s*unmet:\s*(\d+))?")
-
-# The two first lines a worker's closing comment can carry.
-CLOSING_LINES = ("ALL MET", "HANDOFF REQUIRED")
-
-
-def has_closing_comment(ticket: dict) -> bool:
-    """Whether a worker ever left a closing comment on this ticket, of either kind."""
-    return any(first_line(c).startswith(CLOSING_LINES) for c in ticket.get("comments") or [])
-
-
-def redispatch_count(ticket: dict, since: str = "") -> int:
-    """How many times a session on this ticket has been redispatched since `since`.
-
-    Counted off the ticket's own `REDISPATCHED:` comments, the way the three self-run
-    rounds are counted off its `self-run` comments, so nothing is stored between rounds.
-    `since` is the board's own start time in GitHub's format, so that the allowance a
-    ticket carries is one board's allowance: a ticket redispatched last night starts
-    tonight with the same allowance as any other. Empty counts every comment.
-    """
-    bodies = ticket.get("comments") or []
-    written = ticket.get("comments_written") or []
-    return sum(1 for i, c in enumerate(bodies)
-               if first_line(c).startswith("REDISPATCHED:")
-               and (not since or (written[i] if i < len(written) else "") > since))
 
 
 def counted_ac(ticket: dict) -> str:
@@ -379,7 +310,8 @@ def session_of(agent: dict) -> dict | None:
         "cwd": agent.get("cwd") or "",
         "phase": tokens.get("phase") or "",
         "ac": tokens.get("ac") or "",
-        "wake": int(tokens["wake"]) if str(tokens.get("wake", "")).isdigit() else 0,
+        "turn": tokens.get("turn") or "",
+        "turn_id": tokens.get("turn_id") or "",
         "model": tokens.get("model") or "",
         "host": agent.get("agent") or "",
         "workspace": agent.get("workspace_id") or "",
@@ -390,9 +322,9 @@ def sessions(agents: list[dict]) -> list[dict]:
     """The sessions of this workspace, and no others.
 
     Several boards run at once, one per workspace, and every one of them sees every
-    pane on the server. Without this a board would re-prompt, close and hand back the
-    sessions of a batch it knows nothing about. A server that reports no workspace for
-    this process leaves every session in, which is the one-board case.
+    pane on the server. Without this a board would re-prompt and close the sessions
+    of a batch it knows nothing about. A server that reports no workspace for this
+    process leaves every session in, which is the one-board case.
     """
     own = (os.environ.get("HERDR_WORKSPACE_ID") or "").strip()
     found = [s for s in (session_of(a) for a in agents) if s]
@@ -409,11 +341,9 @@ def worker_on(sessions_: list[dict], number: int) -> dict | None:
 def reviewer_on(sessions_: list[dict], number: int) -> dict | None:
     """The reviewer session on this ticket, held apart from its worker.
 
-    Almost nothing the board does reaches it: a reviewer that dies or runs long is the
+    Nothing the board does reaches it: a reviewer that stops or runs long is the
     worker's own `dispatch.sh wait` to time out, and the ticket is never handed back
-    over one. A form on its screen is the exception, because the worker waiting on it
-    only reads the ticket — it presses no key — so the round is lost to a timeout that
-    one keystroke would have prevented.
+    over one.
     """
     for s in sessions_:
         if s["ticket"] == number and s["kind"] == "reviewer":
@@ -428,7 +358,7 @@ def held(rows: list[dict]) -> list[dict]:
 # --------------------------------------------------------------------- the rows
 
 def build_rows(numbers: list[int], tickets: dict[int, dict],
-               sessions_: list[dict], since: str = "") -> list[dict]:
+               sessions_: list[dict]) -> list[dict]:
     """One row per ticket, joining what the tracker says to what Herdr sees."""
     rows = []
     for number in sorted(set(numbers)):
@@ -447,11 +377,10 @@ def build_rows(numbers: list[int], tickets: dict[int, dict],
             "status": worker["status"] if worker else "-",
             "phase": phase_of(ticket, worker),
             "ac": (worker["ac"] if worker and worker["ac"] else counted_ac(ticket)) or "-",
-            "wake": str(worker["wake"]) if worker else "-",
+            "turn": worker["turn"] if worker and worker["turn"] else "-",
             "note": note_of(ticket, worker),
             "head": last_first_line(ticket),
-            "closing_comment": has_closing_comment(ticket),
-            "redispatches": redispatch_count(ticket, since),
+            "comment_count": len(ticket.get("comments") or []),
             "created": ticket.get("created") or "",
             "closed_at": ticket.get("closed_at") or "",
         })
@@ -466,29 +395,32 @@ def phase_of(ticket: dict, worker: dict | None) -> str:
     return "-"
 
 
-def idle_and_not_closed_or_handoff(worker: dict | None) -> bool:
-    """`idle` or `done`, with a `phase` that is neither `closed` nor `handoff`.
+def turn_kind(turn: str) -> str:
+    """`failed`, `stopped`, `running`, or `` for a session with no `turn` token.
 
-    Both halves are machine-read: the `agent_status` comes from Herdr, the phase from
-    the token `verify-ticket.py` writes. Nothing on screen is consulted.
+    `stopped` is a turn the session ended itself, whether it completed or was cut
+    short: neither is a network error, and what both need is somebody to look.
     """
-    return bool(worker
-                and worker["status"] in STOPPED_STATUSES
-                and worker["phase"] not in CLOSED_OR_HANDOFF)
+    if turn.startswith("failed:"):
+        return "failed"
+    if turn == "ended" or turn.startswith("cancelled:"):
+        return "stopped"
+    if turn in ("working", "ready"):
+        return "running"
+    return ""
 
 
 def note_of(ticket: dict, worker: dict | None) -> str:
     """One short phrase saying where this ticket stands, in the pipeline's own words."""
     head = last_first_line(ticket)
     if worker:
-        if worker["status"] == "blocked":
-            return "BLOCKED: commented, form dismissed"
-        if worker["status"] in STOPPED_STATUSES:
-            if worker["phase"] in CLOSED_OR_HANDOFF:
-                return head[:60]
-            if worker["wake"]:
-                return f"re-prompted {worker['wake']} of {WAKE_LIMIT}"
-            return ""
+        if worker["phase"] in CLOSED_OR_HANDOFF:
+            return head[:60]
+        kind = turn_kind(worker["turn"])
+        if kind == "failed":
+            return "turn failed; continue"
+        if kind == "stopped":
+            return "stopped; mmw-main told"
         return ""
     if ticket.get("state") == "CLOSED":
         return (head[:60] + ", pane closed").strip(", ")
@@ -519,7 +451,7 @@ def frontier(rows: list[dict]) -> list[dict]:
 # --------------------------------------------------------------------- output
 
 COLUMNS = (("ticket", 8), ("agent", 18), ("agent_status", 14),
-           ("phase", 19), ("ac", 7), ("wake", 6), ("note", 0))
+           ("phase", 19), ("ac", 7), ("turn", 22), ("note", 0))
 
 
 def render_row(cells: dict) -> str:
@@ -545,10 +477,16 @@ def render_table(rows: list[dict], spec: int | None, now: datetime) -> str:
             "agent_status": row["status"],
             "phase": row["phase"],
             "ac": row["ac"],
-            "wake": row["wake"],
+            "turn": row["turn"],
             "note": row["note"],
         }))
     return "\n".join(lines)
+
+
+# The file every `say()` line is also appended to, once `--watch` names it. The pane
+# the board runs in is closed in the morning, and with it the only other record of
+# what the board did.
+LOG_FILE: Path | None = None
 
 
 def say(who: str, action: str, detail: str = "", when: datetime | None = None) -> None:
@@ -556,6 +494,13 @@ def say(who: str, action: str, detail: str = "", when: datetime | None = None) -
     when = when or datetime.now()
     line = f"{when.strftime('%H:%M:%S')}  {who.ljust(10)}{action.ljust(11)}{detail}".rstrip()
     print(line, flush=True)
+    if LOG_FILE is not None:
+        try:
+            LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+            with LOG_FILE.open("a", encoding="utf-8") as out:
+                out.write(when.strftime("%Y-%m-%d ") + line + "\n")
+        except Exception:
+            pass
 
 # --------------------------------------------------------------------- events
 
@@ -614,82 +559,58 @@ class Events:
 
 # --------------------------------------------------------------------- the prompt
 
-# What a session that is `idle` with a `phase` other than `closed` or `handoff` is sent,
-# and what a session gets after its question form is dismissed. One word, because the
-# session is alive and still holds everything it has read and written this run: it
-# carries on from where it stopped. Naming the skill and the ticket again would send it
-# back in at the skill's first step, and that step is `--preflight`, written for a worker
-# that has not started — a tree with this run's own uncommitted work in it is refused
-# there.
+# What a worker whose turn failed is sent. One word, because the session is alive and
+# still holds everything it has read and written this run: it carries on from where
+# it stopped. Naming the skill and the ticket again would send it back in at the
+# skill's first step, and that step is `--preflight`, written for a worker that has
+# not started — a tree with this run's own uncommitted work in it is refused there.
 CONTINUE_LINE = "continue"
 
 # --------------------------------------------------------------------- acting
-
-# Herdr is what recognises a question or approval form. This is only which key puts it
-# away: grok has its own, and every other host takes `esc`.
-CLOSE_KEYS = {"grok": "shift+x", "cursor": "esc"}
-CLOSE_KEY_OTHERWISE = "esc"
-FORM_CHARS = 500                # enough of the form to read it in the morning
-FORM_LINES = 20                 # a form sits at the foot of the screen, above nothing
 
 def main_name() -> str:
     """The Herdr name `dispatch.sh run` gives the main agent's own pane."""
     return name_prefix() + "mmw-main"
 
 
-# Two lines, because the two say different things. A limit was reached and the board has
-# already commented and relabelled, so there is nothing to do but read. The frontier
-# grew, or the night is over with branches still unmerged, so there is a step to take.
-#
-# Both name the skill rather than a script path. The main agent's host found that skill
-# wherever it installs skills, and the row it lands on carries the command, its exit
-# codes and what to do with each — none of which fits on a line sent to a pane.
-MAIN_LINE = ("mmw board: {case} #{n} — read spec #{spec} with the dispatch skill")
+# The lines `mmw-main` is sent. Each names the case and the ticket, and what the case
+# asks for is the `Find your command` table of this skill's `SKILL.md`. `STOPPED` and
+# `TIME LIMIT` name the session too, because the first thing to do with either is to
+# read that session's screen. None of them names a script path: the main agent's host
+# found the skill wherever it installs skills.
 ADVANCE_LINE = ("mmw board: {case} #{spec} — advance spec #{spec} with the "
                 "dispatch skill")
-
-BLOCKED = "BLOCKED: {form}"
-# Same first line, because everything that reads these comments keys on it, and a second
-# line naming who asked, because the morning reader is looking at one ticket and the two
-# sessions on it want different things.
-BLOCKED_REVIEWER = "BLOCKED: the reviewer on this ticket asked:\n\n{form}"
-REDISPATCHED = "REDISPATCHED: session {name} ended at phase={phase}; started again"
-REDISPATCH_SPENT = ("REDISPATCHED: session {name} ended at phase={phase} and it had "
-                    "already been redispatched {k} time(s). Handed back to "
-                    "needs-triage; the ticket stays open.")
-WAKEUP_LIMIT = ("WAKEUP LIMIT: re-prompted {k} times and it went idle again at "
-                "phase={phase}. Handed back to needs-triage; the ticket stays open.")
-WAKEUP_LIMIT_FORM = ("WAKEUP LIMIT: dismissed {k} forms and it asked again at "
-                     "phase={phase}. Handed back to needs-triage; the ticket stays "
-                     "open.")
-TIME_LIMIT = ("TIME LIMIT: {hours} h under this board, still at phase={phase}. Handed "
-              "back to needs-triage; the session was left alone.")
+STOPPED_LINE = ("mmw board: STOPPED #{n} at phase={phase} — read {name} with herdr, "
+                "then move it on with the dispatch skill")
+TIME_LIMIT_LINE = ("mmw board: TIME LIMIT #{n} — {hours} h at phase={phase}; read "
+                   "{name} with herdr and decide with the dispatch skill")
 NIGHT_SUMMARY = "NIGHT SUMMARY {date}"
 
 
 class Watch:
-    """The night's one moving part: a full re-read, then the wakeup loop, then dispatch.
+    """The night's one moving part: a full re-read, then one decision per session.
 
-    It holds no file. What it does keep between rounds is what only it can know — when
-    a session was first seen settled, and when it may next be prompted — and losing
-    that on a restart costs one cooldown, nothing more. Everything else it can be told
-    again by the tracker and by Herdr.
+    It holds no file. What it does keep between rounds is what only it can know — which
+    turns it already acted on, when a ticket was first seen held, when a session was
+    first seen idle without a `turn` token — and losing that on a restart costs at most
+    one repeated line to `mmw-main`. Everything else it can be told again by the
+    tracker and by Herdr.
     """
 
     def __init__(self, spec: int, max_hours: int) -> None:
         self.spec = spec
         self.max_hours = max_hours
-        self.settled_since: dict[str, float] = {}
         self.held_since: dict[int, float] = {}
-        self.wakes: dict[str, int] = {}
-        self.handed_back: set[int] = set()
-        # When a ticket was first seen without a session of ours. Herdr lists a session
-        # a second or so after `agent start`, so one round without it is not evidence
-        # that it ended.
-        self.absent_since: dict[int, float] = {}
-        # Panes of reviewers that used up their dismissals, so the line saying so is
-        # written once instead of every time the backoff elapses.
-        self.reviewers_spent: set[str] = set()
+        # (pane, turn) pairs already answered with a `continue`, so a token that has not
+        # come back round through the snapshot does not earn a second one.
+        self.continued: set[tuple[str, str]] = set()
+        # `continue`s sent per pane at its current phase: (phase, count).
+        self.failures: dict[str, tuple[str, int]] = {}
+        # (ticket, turn) pairs already reported to mmw-main as STOPPED.
+        self.told: set[tuple[int, str]] = set()
+        self.timed_out: set[int] = set()
+        # Sessions seen idle with no `turn` token: pane -> (since, comment count, phase).
+        self.idle_since: dict[str, tuple[float, int, str]] = {}
         # The frontier the main agent was last told about. It takes it tens of seconds
         # to read the board and run `advance`, and a round goes by faster than that, so
         # without this the same frontier would queue the same line several times over.
@@ -706,9 +627,12 @@ class Watch:
     # ------------------------------------------------------------- the board's round
 
     def run(self) -> int:
+        global LOG_FILE
+        ws = (os.environ.get("HERDR_WORKSPACE_ID") or "").strip().lower() or "none"
+        LOG_FILE = LOG_DIR / f"board-{ws}-{self.spec}.log"
         events = Events()
         events.start()
-        say("board", "watch", f"spec #{self.spec} max-hours={self.max_hours}")
+        say("board", "watch", f"spec #{self.spec} max-hours={self.max_hours} log={LOG_FILE}")
         while True:
             try:
                 self.round()
@@ -725,16 +649,10 @@ class Watch:
         if self.summary_written:
             self.tell_main()
             return
-        rows, _ = collect(self.spec, self.opened)
+        rows, _ = collect(self.spec)
         for row in rows:
-            if self.gone(row):
-                self.redispatch(row)
-            elif row["worker"] and row["worker"]["dispatched"]:
+            if row["worker"] and row["worker"]["dispatched"]:
                 self.pick_up(row)
-            # Independent of the worker's own row: the two sessions on a ticket can be
-            # at a form at the same time, and a reviewer at one has no other rescuer.
-            if row["reviewer"] and row["reviewer"]["status"] == "blocked":
-                self.at_a_form(row, row["reviewer"])
         self.tell_main_to_advance(rows)
         if self.nothing_left(rows):
             self.write_summary(rows)
@@ -742,21 +660,23 @@ class Watch:
 
     def pick_up(self, row: dict) -> None:
         worker = row["worker"]
-        if self.over_time(row):
+        if worker["phase"] in CLOSED_OR_HANDOFF:
+            self.close_its_pane(row)
             return
-        if worker["status"] == "blocked":
-            self.at_a_form(row, worker)
-            return
-        if worker["status"] in STOPPED_STATUSES:
-            if worker["phase"] in CLOSED_OR_HANDOFF:
-                self.close_its_pane(row)
-            else:
-                self.re_prompt(row)
-            return
-        if worker["status"] == "working":
-            self.settled_since.pop(worker["pane_id"], None)
+        self.over_time(row)
+        kind = turn_kind(worker["turn"])
+        if kind == "failed":
+            self.idle_since.pop(worker["pane_id"], None)
+            self.turn_failed(row)
+        elif kind == "stopped":
+            self.idle_since.pop(worker["pane_id"], None)
+            self.stopped(row, worker["turn"])
+        elif kind == "running":
+            self.idle_since.pop(worker["pane_id"], None)
+        else:
+            self.no_report(row)
 
-    # ------------------------------------------------------------- the wakeup loop
+    # ------------------------------------------------------------- the three actions
 
     def close_its_pane(self, row: dict) -> None:
         """`phase` is `closed` or `handoff`: the closing comment is already on the ticket.
@@ -771,183 +691,100 @@ class Watch:
         say(f"#{row['ticket']}", worker["status"],
             f"phase={worker['phase']}  {row['note']}")
         herdr(["pane", "close", worker["pane_id"]])
-        self.settled_since.pop(worker["pane_id"], None)
         self.held_since.pop(row["ticket"], None)
-        self.absent_since.pop(row["ticket"], None)
+        self.idle_since.pop(worker["pane_id"], None)
+        self.failures.pop(worker["pane_id"], None)
         row["worker"] = None
 
-    def prompts_so_far(self, worker: dict) -> int:
-        """How many times this session has been prompted.
+    def turn_failed(self, row: dict) -> None:
+        """`turn=failed:<error>`: the host gave up on the turn after its own retries.
 
-        The count lives on the pane, which is where the session it counts lives. A
-        token takes a moment to come back round through the snapshot, so this round's
-        own prompt is remembered as well; without that a fast round would read a stale
-        zero and prompt again immediately.
-        """
-        return max(worker["wake"], self.wakes.get(worker["pane_id"], 0))
-
-    def re_prompt(self, row: dict) -> None:
-        """`idle` with a `phase` other than `closed` or `handoff`.
-
-        A host's idle can be nothing but a gap between turns, so wait
-        `COOLDOWN_SECONDS`, confirm it is still idle, and then send the dispatch line.
+        The session is alive and holds everything it read and wrote, so `continue` is
+        the whole repair. Once per turn, and `FAILED_LIMIT` times per phase: a fourth
+        failure at the same phase is something to look at, not to retry.
         """
         worker = row["worker"]
         pane = worker["pane_id"]
-        wake = self.prompts_so_far(worker)
-        wait = WAKE_BACKOFF[min(wake, len(WAKE_BACKOFF) - 1)]
-        first_seen = self.settled_since.get(pane)
-        if first_seen is None:
-            self.settled_since[pane] = time.monotonic()
-            say(f"#{row['ticket']}", worker["status"],
-                f"phase={worker['phase']} ac={row['ac']}  COOLDOWN {wait}s")
+        key = (pane, worker["turn_id"] or worker["turn"])
+        if key in self.continued:
             return
-        if time.monotonic() - first_seen < wait:
+        self.continued.add(key)
+        phase, count = self.failures.get(pane, ("", 0))
+        if phase != worker["phase"]:
+            count = 0
+        count += 1
+        self.failures[pane] = (worker["phase"], count)
+        say(f"#{row['ticket']}", worker["status"],
+            f"phase={worker['phase']} {worker['turn']} ({count} of {FAILED_LIMIT})")
+        if count > FAILED_LIMIT:
+            self.stopped(row, worker["turn"])
             return
-        if wake >= WAKE_LIMIT:
-            self.hand_back(row, WAKEUP_LIMIT.format(k=WAKE_LIMIT, phase=worker["phase"]),
-                           case="WAKEUP LIMIT")
-            return
-        self.send(row, row["worker"], CONTINUE_LINE)
+        self.send(row, worker, CONTINUE_LINE)
 
-    def over_time(self, row: dict) -> bool:
-        """Held longer than a ticket may hold a session. Hand it back; leave it running."""
+    def stopped(self, row: dict, turn: str) -> None:
+        """A turn the session ended itself, short of `closed` or `handoff`.
+
+        Not the board's to answer: it queues one line for `mmw-main`, which reads the
+        session's screen and decides. Once per turn.
+        """
+        worker = row["worker"]
+        key = (row["ticket"], worker["turn_id"] or turn)
+        if key in self.told:
+            return
+        self.told.add(key)
+        line = STOPPED_LINE.format(n=row["ticket"], phase=worker["phase"] or "-",
+                                   name=worker["name"])
+        say(f"#{row['ticket']}", worker["status"],
+            f"phase={worker['phase']} {turn}; telling mmw-main")
+        if line not in self.for_main:
+            self.for_main.append(line)
+
+    def no_report(self, row: dict) -> None:
+        """No `turn` token: the hooks are not installed, or Herdr restarted and lost it.
+
+        The only reading left is Herdr's own `agent_status`, which is a guess, so it is
+        held to `FALLBACK_SECONDS` of idle with nothing new on the ticket before it
+        counts — and then it is reported, never answered with `continue`, because a
+        session that stopped on purpose would have its reason written over.
+        """
+        worker = row["worker"]
+        pane = worker["pane_id"]
+        if worker["status"] not in IDLE_STATUSES:
+            self.idle_since.pop(pane, None)
+            return
+        seen = self.idle_since.get(pane)
+        now = time.monotonic()
+        if seen is None or seen[1] != row["comment_count"] or seen[2] != worker["phase"]:
+            self.idle_since[pane] = (now, row["comment_count"], worker["phase"])
+            return
+        if now - seen[0] < FALLBACK_SECONDS:
+            return
+        self.stopped(row, f"idle {FALLBACK_SECONDS}s with no turn report")
+        self.idle_since[pane] = (now, row["comment_count"], worker["phase"])
+
+    def over_time(self, row: dict) -> None:
+        """Held longer than a ticket may hold a session: tell mmw-main, once.
+
+        The ticket keeps its label, the pane stays open, the session is not touched.
+        """
         number = row["ticket"]
         started = self.held_since.setdefault(number, time.monotonic())
-        if row["worker"]["phase"] in CLOSED_OR_HANDOFF:
-            return False
+        if number in self.timed_out:
+            return
         if time.monotonic() - started < self.max_hours * 3600:
-            return False
-        self.hand_back(row, TIME_LIMIT.format(hours=self.max_hours,
-                                              phase=row["worker"]["phase"] or "unknown"),
-                       case="TIME LIMIT", close_pane=False)
-        return True
-
-    def at_a_form(self, row: dict, session: dict) -> None:
-        """`blocked`: a question or approval form is on screen and the discipline is
-        not to ask.
-
-        The form goes on the ticket so a person can read in the morning what was wanted,
-        then it is dismissed with the host's own key and the session is told to continue.
-        Board never answers a form: sending text into one selects an option rather than
-        typing an answer.
-
-        A worker and a reviewer are repaired the same way and part company only at the
-        limit. A worker out of dismissals takes its ticket back to `needs-triage`,
-        because without a worker the ticket does not move. A reviewer out of dismissals
-        is left where it stands: `dispatch.sh wait` times out, `implement` skips that
-        round, and a dead reviewer is no reason to hand the ticket to a person.
-        """
-        pane = session["pane_id"]
-        wake = self.prompts_so_far(session)
-        last = self.settled_since.get(pane)
-        if last is not None and time.monotonic() - last < WAKE_BACKOFF[
-                min(wake, len(WAKE_BACKOFF) - 1)]:
             return
-        if wake >= WAKE_LIMIT:
-            if session["kind"] != "worker":
-                if pane not in self.reviewers_spent:
-                    self.reviewers_spent.add(pane)
-                    say(f"#{row['ticket']}", "reviewer",
-                        f"asked again after {WAKE_LIMIT} forms; left for the worker's "
-                        f"wait to time out")
-                return
-            self.hand_back(row, WAKEUP_LIMIT_FORM.format(k=WAKE_LIMIT,
-                                                         phase=session["phase"]),
-                           case="WAKEUP LIMIT")
-            return
-        form = form_text(herdr_text(
-            ["agent", "read", pane, "--source", "visible", "--lines", "60"]))
-        shape = BLOCKED if session["kind"] == "worker" else BLOCKED_REVIEWER
-        gh(["issue", "comment", str(row["ticket"]),
-            "--body", shape.format(form=form[:FORM_CHARS] or "(nothing on screen)")])
-        say(f"#{row['ticket']}", "comment", f"BLOCKED: {form[:80]}")
-        # grok answers to its own key; every other host takes the fallback, claude
-        # included — its question form reports `blocked` with no detection rule of its
-        # own, and `esc` puts it away, both driven on a real machine.
-        key = CLOSE_KEYS.get(session["host"], CLOSE_KEY_OTHERWISE)
-        herdr(["agent", "send-keys", pane, key])
-        herdr(["agent", "wait", pane, "--until", "idle", "--until", "done",
-               "--timeout", "15000"])
-        say(f"#{row['ticket']}", key, "form dismissed")
-        self.settled_since[pane] = time.monotonic()
-        self.send(row, session, CONTINUE_LINE)
-
-    # ------------------------------------------------------------- the session is gone
-
-    def gone(self, row: dict) -> bool:
-        """Herdr lists no session of ours on this ticket, while the ticket is open.
-
-        A ticket nobody ever claimed was never dispatched, so its missing session is
-        not one that died; the assignee `--preflight` sets is what tells the two apart.
-
-        A session Herdr does list is never gone, whatever state it is in. The hosts in
-        `models.md` do not exit partway through a ticket: they stop, on a network error
-        or between turns, and a stopped session is the `re_prompt` path's — a new
-        session is neither needed nor wanted, and `REDISPATCH_LIMIT` is one, so calling
-        a stopped session dead spends the ticket's whole allowance on nothing.
-
-        A session missing from one snapshot is not gone either: Herdr lists a session a
-        second or so after `agent start`, and the round in between sees none. So a
-        ticket has to be missing its session for `ABSENT_GRACE` before it counts.
-        """
-        if row["state"] != "OPEN" or "ready-for-agent" not in row["labels"]:
-            return False
-        if row["closing_comment"] or row["ticket"] in self.handed_back:
-            return False
+        self.timed_out.add(number)
         worker = row["worker"]
-        if (worker and worker["dispatched"]) or not row["assignees"]:
-            self.absent_since.pop(row["ticket"], None)
-            return False
-        return self.absent_long_enough(row["ticket"])
-
-    def absent_long_enough(self, number: int) -> bool:
-        """Whether a ticket has been without a session of ours for long enough."""
-        first_seen = self.absent_since.get(number)
-        if first_seen is None:
-            self.absent_since[number] = time.monotonic()
-            say(f"#{number}", "absent", f"no session of ours; waiting {ABSENT_GRACE}s")
-            return False
-        return time.monotonic() - first_seen >= ABSENT_GRACE
-
-    def redispatch(self, row: dict) -> None:
-        number, worker = row["ticket"], row["worker"]
-        phase = (worker or {}).get("phase") or "unknown"
-        if row["redispatches"] >= REDISPATCH_LIMIT:
-            self.hand_back(row, REDISPATCH_SPENT.format(name=worker_name(number),
-                                                        phase=phase,
-                                                        k=row["redispatches"]),
-                           case="REDISPATCHED")
-            return
-        if worker:
-            # Closing the pane takes the only account of why that session ended:
-            # `phase=unknown` says one is gone, never what took it — an installer that
-            # updated itself and quit, a host that refused the model, a stack trace.
-            # The lines go here rather than on the ticket: they are terminal output,
-            # read by whoever is watching the night, and a ticket is read by the worker
-            # that picks it up next.
-            for line in [text for text in herdr_text(
-                    ["pane", "read", worker["pane_id"], "--lines", "40"]
-            ).splitlines() if text.strip()][-12:]:
-                say(f"#{number}", "last", line.strip()[:120])
-            herdr(["pane", "close", worker["pane_id"]])
-            self.settled_since.pop(worker["pane_id"], None)
-            self.wakes.pop(worker["pane_id"], None)
-        self.held_since.pop(number, None)
-        self.absent_since.pop(number, None)
-        # The comment is what the next round counts the allowance off, so it goes on
-        # the ticket only once a session is actually on it. A start that refused has
-        # spent nothing, and the next round is free to try again.
-        if self.start(number):
-            gh(["issue", "comment", str(number),
-                "--body", REDISPATCHED.format(name=worker_name(number), phase=phase)])
-            say(f"#{number}", "comment", f"REDISPATCHED: ended at phase={phase}")
+        line = TIME_LIMIT_LINE.format(n=number, hours=self.max_hours,
+                                      phase=worker["phase"] or "-", name=worker["name"])
+        say(f"#{number}", "time limit", f"{self.max_hours} h at phase={worker['phase']}")
+        if line not in self.for_main:
+            self.for_main.append(line)
 
     # ------------------------------------------------------------- prompting
 
-    def send(self, row: dict, session: dict, text: str) -> None:
+    def send(self, row: dict, worker: dict, text: str) -> None:
         """Prompt one session, under the conditions such a prompt has to meet."""
-        worker = session
         if not os.environ.get("HERDR_PANE_ID"):
             say("board", "refuse", "no pane of my own, so I may not prompt anyone")
             return
@@ -956,51 +793,17 @@ class Watch:
         session = (fresh.get("agent_session") or {}).get("value") or ""
         if session and worker["session"] and session != worker["session"]:
             say(f"#{row['ticket']}", "skip", "the pane holds a different session now")
-            self.settled_since.pop(worker["pane_id"], None)
             return
         if fresh.get("focused"):
             say(f"#{row['ticket']}", "hold", "its pane is focused")
             return
-        if status not in STOPPED_STATUSES:
-            say(f"#{row['ticket']}", "hold", f"it is {status} again")
-            self.settled_since.pop(worker["pane_id"], None)
+        if status == "working":
+            say(f"#{row['ticket']}", "hold", "it is working again")
             return
-        wake = self.prompts_so_far(worker) + 1
-        say(f"#{row['ticket']}", "prompt", f"{text} (wake={wake})")
+        say(f"#{row['ticket']}", "prompt", text)
         code, reason = herdr_run(["agent", "prompt", worker["pane_id"], text])
         if code != 0:
             say(f"#{row['ticket']}", "refused", reason[:120] or "the prompt was refused")
-        self.bump(worker, wake)
-
-    def bump(self, worker: dict, wake: int) -> None:
-        """The count of prompts lives on the pane, where the session it counts lives."""
-        herdr(["pane", "report-metadata", worker["pane_id"], "--source", "mmw",
-               "--token", f"wake={wake}", "--ttl-ms", str(TOKEN_TTL_MS)])
-        self.wakes[worker["pane_id"]] = wake
-        self.settled_since[worker["pane_id"]] = time.monotonic()
-
-    # ------------------------------------------------------------- handing back
-
-    def hand_back(self, row: dict, body: str, case: str,
-                  close_pane: bool = True) -> None:
-        number = row["ticket"]
-        if number in self.handed_back:
-            return
-        self.handed_back.add(number)
-        self.for_main.append(MAIN_LINE.format(case=case, n=number, spec=self.spec))
-        say(f"#{number}", "comment", first_line(body))
-        gh(["issue", "comment", str(number), "--body", body])
-        gh(["issue", "edit", str(number),
-            "--remove-label", "ready-for-agent", "--add-label", "needs-triage"])
-        say(f"#{number}", "label", "needs-triage")
-        self.absent_since.pop(number, None)
-        if close_pane and row["worker"]:
-            herdr(["pane", "close", row["worker"]["pane_id"]])
-            self.settled_since.pop(row["worker"]["pane_id"], None)
-            self.held_since.pop(number, None)
-            # Same as at either exit: the row holds no worker from here on, not next
-            # round.
-            row["worker"] = None
 
     # ------------------------------------------------------------- moving on
 
@@ -1013,16 +816,14 @@ class Watch:
         add nothing.
 
         The line waits in the queue until the main agent is idle enough to take it, and
-        what it says is true of the frontier at the moment it was read. A frontier this
-        board empties in the meantime — by repairing a session and starting that ticket
-        itself — withdraws the line it queued, together with `announced`, so the next
-        non-empty frontier queues one again. Only ever one line: `advance` starts every
-        ticket on the frontier, so a second copy behind the first runs the same command
-        against what the first one already took.
+        what it says is true of the frontier at the moment it was read. A frontier that
+        empties in the meantime withdraws the line it queued, together with
+        `announced`, so the next non-empty frontier queues one again. Only ever one
+        line: `advance` starts every ticket on the frontier, so a second copy behind the
+        first runs the same command against what the first one already took.
         """
         line = ADVANCE_LINE.format(case="ADVANCE", spec=self.spec)
-        ready = {row["ticket"] for row in frontier(rows)
-                 if row["ticket"] not in self.handed_back}
+        ready = {row["ticket"] for row in frontier(rows)}
         if ready == self.announced:
             return
         self.announced = ready
@@ -1033,26 +834,6 @@ class Watch:
             ", ".join(f"#{t}" for t in sorted(ready)))
         if line not in self.for_main:
             self.for_main.append(line)
-
-    def start(self, number: int) -> bool:
-        """Start one worker. Returns whether a session is now on this ticket.
-
-        Exit 1 means a session is up in that pane but was never told anything: it holds
-        the ticket, and the next round finds it `idle` with no `phase` and sends it its
-        dispatch line. Exit 2 means the ticket did not qualify, so it simply is not on
-        this round's frontier and the next round asks the tracker again.
-        """
-        code, told, refused = run_dispatch(number, "worker")
-        if code == 0:
-            say(f"#{number}", "dispatch", told[:120])
-            self.held_since[number] = time.monotonic()
-            return True
-        if code == 1:
-            say(f"#{number}", "dispatch", f"up but not told: {refused[:100]}")
-            self.held_since[number] = time.monotonic()
-            return True
-        say(f"#{number}", "not dispatched", refused[:120])
-        return False
 
     # ------------------------------------------------------------- the night's end
 
@@ -1095,8 +876,8 @@ class Watch:
     def tell_main(self) -> None:
         """Re-prompt `mmw-main`, under the same conditions as any other re-prompt.
 
-        Only two cases ever reach it: a limit was reached, or the night ended. It is
-        told, never asked; it answers by running `board.py --once` and reading.
+        It is told, never asked; what each line asks of it is the `Find your command`
+        table of `SKILL.md`.
 
         A line nobody takes waits in the queue, and there being nobody named `mmw-main`
         is that same case: the pane may be back next round. Losing the line would stop
@@ -1130,14 +911,14 @@ class Watch:
 
 # --------------------------------------------------------------- the command forms
 
-def collect(spec: int | None, since: str = "") -> tuple[list[dict], list[dict]]:
+def collect(spec: int | None) -> tuple[list[dict], list[dict]]:
     """Everything one round needs: the rows, and the live sessions behind them."""
     agents = live_agents()
     sessions_ = sessions(agents)
     numbers = list(sub_issues(spec)) if spec else []
     numbers += [s["ticket"] for s in sessions_]
     tickets = {n: read_ticket(n) for n in sorted(set(numbers))}
-    return build_rows(numbers, tickets, sessions_, since), sessions_
+    return build_rows(numbers, tickets, sessions_), sessions_
 
 
 def advance_plan(spec: int) -> int:
@@ -1176,7 +957,7 @@ def once(spec: int | None) -> int:
 
 
 def watched_fields(row: dict) -> tuple:
-    return (row["status"], row["phase"], row["ac"], row["wake"])
+    return (row["status"], row["phase"], row["ac"], row["turn"])
 
 
 def report_changes(rows: list[dict], seen: dict[int, tuple]) -> None:
@@ -1189,7 +970,7 @@ def report_changes(rows: list[dict], seen: dict[int, tuple]) -> None:
         seen[row["ticket"]] = now
         if was is None:
             continue
-        detail = f"phase={row['phase']} ac={row['ac']}"
+        detail = f"phase={row['phase']} ac={row['ac']} turn={row['turn']}"
         if row["note"]:
             detail += f"  {row['note']}"
         say(f"#{row['ticket']}", row["status"], detail)
@@ -1230,7 +1011,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--advance-plan", action="store_true",
                         help="print what `dispatch.sh advance` has to do, in order")
     parser.add_argument("--max-hours", type=int, default=MAX_HOURS,
-                        help="how long one ticket may hold a session")
+                        help="how long one ticket may hold a session before mmw-main is told")
     parser.add_argument("spec", nargs="?", type=int,
                         help="the spec issue whose sub-issues are tonight's tickets")
     return parser.parse_args(argv)

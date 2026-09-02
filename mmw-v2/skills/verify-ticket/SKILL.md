@@ -31,7 +31,7 @@ Resolve it from this file's own location. The path differs by machine and by hos
 
 Exit code: `0` every criterion met, `1` something unmet or abandoned, `2` the ticket could not be read or the run could not start. `--preflight` uses `2` for a refusal; `--closeout` uses `1`.
 
-`--timeout <seconds>` raises the per-`CHECK` limit when one of them is slow.
+A `CHECK:` may run ten minutes. A criterion that needs longer says so on the ticket, on a `TIMEOUT: <seconds>` line under its `EVIDENCE:`; every run reads those lines off the ticket body, so the worker's own run and the verifier's `--reverify` are held to the same number. `--timeout <seconds>` raises it for one run. Neither lowers it.
 
 ## What `verify-ticket.py` decides
 
@@ -39,9 +39,9 @@ A criterion passes only when its `CHECK` exits `0` **and** its output matches `E
 
 `verify-ticket.py` reads the ticket and writes one comment. The ticket body, the `CHECK` commands and what a criterion means are yours. A wrong `CHECK` is fixed on the ticket: comment saying what is wrong with it, edit the criterion, run again. The `VERDICT` line is the verifier's own comment, written after `--reverify`, not something `verify-ticket.py` emits.
 
-## Three rounds on one criterion
+## Three self-runs behind a `failed`
 
-Three self-runs is as far as fixing one criterion goes. The third run names it in its comment, and `--closeout` will then accept `ABANDON: AC<n> failed`. The count is the ticket's own `self-run` comments — nothing is stored between runs, and a fourth run that finally passes still passes.
+How many rounds a criterion gets is the worker's own judgement; no run names a limit. What `--closeout` asks of `ABANDON: AC<n> failed` is evidence of the trying: three `self-run` comments on the ticket that show that criterion unmet. The count is the ticket's own comments — nothing is stored between runs.
 
 ## `Outside Owns`
 

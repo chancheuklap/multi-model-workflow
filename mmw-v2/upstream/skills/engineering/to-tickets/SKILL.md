@@ -186,8 +186,9 @@ The repository-relative paths this ticket may write, one per line, the test dire
   CHECK: <the command that decides it>
   EXPECT: <the line only a passing run prints>
   EVIDENCE: pending
+  TIMEOUT: 1800
 
-Every criterion here carries a command. A judgement goes to code review; a thing only a person can look at is its own `ready-for-human` ticket, blocked by this one.
+Every criterion here carries a command. A judgement goes to code review; a thing only a person can look at is its own `ready-for-human` ticket, blocked by this one. `TIMEOUT:` is optional: seconds this `CHECK:` may run, written when the precedent takes longer than ten minutes — a full build, a suite that starts a browser — and read by the worker's own run and the verifier's alike. It raises the limit and never lowers it.
 
 ## Blocked by
 

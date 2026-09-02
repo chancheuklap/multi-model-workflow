@@ -46,7 +46,7 @@ _Avoid_: 高级工人, 高级 worker
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **reviewer**:
-The session a worker starts through the dispatch skill to run one round of code review. Its Herdr name is `issue-<n>-review`; it runs inside the worker's worktree, cuts no branch, carries no `MMW_TICKET`; the board reaches it only through the `blocked` row of the wakeup loop; the worker closes its pane at the end of the closing steps. On its own, `reviewer` always means this session, never one of the three axis subagents.
+The session a worker starts through the dispatch skill to run one round of code review. Its Herdr name is `issue-<n>-review`; it runs inside the worker's worktree, cuts no branch, carries `MMW_AUTONOMOUS` but no `MMW_TICKET`; the board never touches it; the worker closes its pane at the end of the closing steps. On its own, `reviewer` always means this session, never one of the three axis subagents.
 _Admitted_: reviewer session
 _Avoid_: reviewer 会话, code-review 会话, 审稿人
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
@@ -71,7 +71,7 @@ _Avoid_: the checker (for this), claim checker
 _Home_: `mmw-v2/agents/claim-checker/body.md`
 
 **board**:
-The agent resident in one Herdr workspace for the night. It applies the wakeup loop, does the repairs (re-prompt, dismiss a form, redispatch, hand back), announces the frontier with the `mmw board:` line, and writes the `NIGHT SUMMARY`. It keeps no state file: its two sources are the issue tracker and Herdr. Repair is the board's; the next step is the main agent's.
+The agent resident in one Herdr workspace for the night. It reads each worker's `turn` pane token and does one of three things — sends `continue` to a worker whose turn failed, tells `mmw-main` about a worker that stopped on its own (`STOPPED`) or held a ticket past `MAX_HOURS` (`TIME LIMIT`), closes the pane of one at `phase=closed` or `phase=handoff` — announces the frontier with the `mmw board:` line, and writes the `NIGHT SUMMARY`. It keeps no state file: its two sources are the issue tracker and Herdr. It changes no label, starts no session, and reads no screen; every decision is the main agent's.
 _Admitted_: night board
 _Avoid_: the night's agent
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
@@ -172,7 +172,7 @@ _Avoid_: 工作区 (for the git sense, that is a worktree)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **pane**:
-Where a session runs. It carries the pane tokens, the `agent_status`, and `MMW_TICKET`. At `phase=closed` or `phase=handoff` the board closes only the pane — worktree and branch stay. A focused pane takes no prompt. The reviewer's pane is split from the caller's. A **tab** is what `herdr tab create` opens for a dispatched session; its label is the first `LABEL_TITLE_CHARS` characters of the ticket title.
+Where a session runs. It carries the pane tokens, the `agent_status`, `MMW_TICKET` and `MMW_AUTONOMOUS`. At `phase=closed` or `phase=handoff` the board closes only the pane — worktree and branch stay. A focused pane takes no prompt. The reviewer's pane is split from the caller's. A **tab** is what `herdr tab create` opens for a dispatched session; its label is the first `LABEL_TITLE_CHARS` characters of the ticket title.
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
 
 **monitor tab**:
@@ -181,11 +181,11 @@ _Avoid_: 监控 tab, board tab, mmw board tab
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`mmw-main`**:
-The Herdr name `dispatch.sh run` gives the main agent's own pane (workspace id prefix plus `mmw-main`), so the board can re-prompt it with `mmw board:` lines. When nobody is named `mmw-main` the line waits.
+The Herdr name `dispatch.sh run` gives the main agent's own pane (workspace id prefix plus `mmw-main`), so the board can re-prompt it with `mmw board:` lines. When nobody is named `mmw-main` the line waits. Its own `turn.py` hooks, installed for Claude Code, are what tell the board when it is idle enough to take one.
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
 
 **agent detection rule**:
-The per-host rule the dispatch skill carries so Herdr can classify a session's `agent_status`; `install.sh` copies it (not links it) into `~/.config/herdr/agent-detection/`.
+The per-host rule Herdr classifies a session's screen with when no lifecycle authority is reporting for the pane; the dispatch skill carries an override for Cursor, and `install.sh` copies it (not links it) into `~/.config/herdr/agent-detection/`. For a session this pipeline started, `turn.py` is the authority and the rule is not consulted.
 _Avoid_: Herdr agent 检测规则, agent 检测规则
 _Home_: `mmw-v2/install.sh`
 
@@ -195,7 +195,7 @@ _Avoid_: 工作区, checkout (when this is meant)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **ticket branch**:
-The branch `issue-<n>`. A redispatch reuses it as it stands; `--preflight` refuses when the session is not on it; `advance` merges it into the base branch when the ticket is `CLOSED`, its closing comment's first line is `ALL MET`, the branch exists, and it is not already an ancestor.
+The branch `issue-<n>`. A ticket started again reuses it as it stands; `--preflight` refuses when the session is not on it; `advance` merges it into the base branch when the ticket is `CLOSED`, its closing comment's first line is `ALL MET`, the branch exists, and it is not already an ancestor.
 _Admitted_: `issue-<n>`
 _Avoid_: branch (bare), 分支名 (as a term)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
@@ -386,6 +386,10 @@ _Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/gate-check.mjs`
 The optional fifth line: the working directory `CHECK:` runs in. It is part of the `STALE` signature. gate-check calls these indented lines the criterion's **attributes**.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/lib/gates.mjs`
 
+**`TIMEOUT:`**:
+The optional attribute line `TIMEOUT: <seconds>` under a criterion: how long its `CHECK:` may run. `verify-ticket.py` reads every `TIMEOUT:` off the ticket body on every run, worker's and verifier's alike, and hands gate-check the largest of `DEFAULT_TIMEOUT` (600), those lines, and `--timeout`; it raises the limit and never lowers it, is not in the `STALE` signature, and is kept out of the ledger. `--lint` reports one that is not a positive whole number as `ERROR … [bad-timeout]`.
+_Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
+
 **fenced block**:
 The only way to write a multi-line `CHECK:`: a code fence directly under it is the command; every other fence in the ticket is skipped; a flush-left continuation line with no fence is a parse error.
 _Avoid_: fenced check, fenced code block, 代码块围栏, 围栏
@@ -407,7 +411,7 @@ _Avoid_: 勾 (as a term)
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **round**:
-One fix-and-rerun pass on one criterion. The **three-round cap**: a criterion gets at most three rounds, counted off the ticket's own `self-run` comments; still failing on the third, the worker writes `ABANDON: AC<n> failed` and moves on. The comment line `ROUND LIMIT` marks it. `stuck` has no round count. One round of code review and the board's round of re-reading are always written in full.
+One fix-and-rerun pass on one criterion. How many a criterion gets is the worker's judgement; what `--closeout` asks of `ABANDON: AC<n> failed` is three `self-run` comments on the ticket showing that criterion unmet (`ROUND_LIMIT`), a floor on the trying rather than a cap. `stuck` has no round count. One round of code review and the board's round of re-reading are always written in full.
 _Avoid_: 轮 (as a term), 三轮上限
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
@@ -426,7 +430,7 @@ The tickets the board may start right now, in ticket order: `OPEN`, labelled `re
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
 
 **assignee**:
-The ticket field `claim` sets. It is one of `--preflight`'s six checks; a frontier ticket has none; hand back removes it; a session that died shows as an assignee with no live session.
+The ticket field `claim` sets. It is one of `--preflight`'s six checks; a frontier ticket has none; hand back removes it.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **sub-issue**:
@@ -438,12 +442,12 @@ _Home_: `mmw-v2/merge-notes/to-tickets.md`
 ### Labels and queues
 
 **label**:
-A GitHub label on a ticket saying only which queue it is in: the five triage labels, the two worker-grade labels, and `wayfinder:*`. A spec carries none. No new label is added; `bug` and `enhancement` belong only to issues from outside. Only `--closeout` and the board's hand back change one; the hook refuses any other command that would.
+A GitHub label on a ticket saying only which queue it is in: the five triage labels, the two worker-grade labels, and `wayfinder:*`. A spec carries none. No new label is added; `bug` and `enhancement` belong only to issues from outside. Only `--closeout` changes one; the hook refuses any other command that would.
 _Avoid_: 标签 (as a term), label string (as a term)
 _Home_: `docs/agents/triage-labels.md`
 
 **queue**:
-What a label expresses and nothing more. `ready-for-agent` is the **agent queue** (waiting to be dispatched or being worked; the assignee says which); `needs-triage` is the queue of what nobody has judged, the only one a skill fetches from on its own; `ready-for-human` is the user's queue, its tickets naming `reaction` or `reach`. A queue holds one shape of ticket.
+What a label expresses and nothing more. `ready-for-agent` is the **agent queue** (waiting to be dispatched or being worked; the assignee says which); `needs-triage` is the queue of what nobody has judged, the only one a skill fetches from on its own; `ready-for-human` is the user's queue, its tickets naming `reaction` or `reach`. A queue holds one shape of ticket. Only `--closeout` moves a ticket out of the agent queue.
 _Avoid_: 队列, agent lane
 _Home_: `docs/agents/triage-labels.md`
 
@@ -453,7 +457,7 @@ _Avoid_: 角色 (bare)
 _Home_: `docs/agents/triage-labels.md`
 
 **`needs-triage`**:
-Nobody has judged it yet: an issue from outside, or a ticket an agent could not finish and handed back. `triage` reads this queue and recommends one of the four outcomes. A sub-issue a worker opens carries it.
+Nobody has judged it yet: an issue from outside, or a ticket its worker closed out as `HANDOFF REQUIRED`. `triage` reads this queue and recommends one of the four outcomes. A sub-issue a worker opens carries it.
 _Home_: `docs/agents/triage-labels.md`
 
 **`needs-info`**:
@@ -509,7 +513,7 @@ _Avoid_: 票评论, COMMENT (as a kind label)
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **first line**:
-The first line of a ticket comment: the pipeline's protocol slot, by which `dispatch.sh wait`, `--closeout`, `advance`, `triage`, and the board recognise a comment — `NOT_READY:`, `self-run`, `reverify`, `VERDICT …`, `REVIEW <base commit>..<HEAD commit>`, `ALL MET`, `HANDOFF REQUIRED: …`, `BLOCKED:`, `REDISPATCHED:`, `WAKEUP LIMIT:`, `TIME LIMIT:`, `NIGHT SUMMARY <date>`. A disclaimer therefore goes last. `NIGHT SUMMARY` lists tickets by number and first line.
+The first line of a ticket comment: the pipeline's protocol slot, by which `dispatch.sh wait`, `--closeout`, `advance`, `triage`, and the board recognise a comment — `NOT_READY:`, `self-run`, `reverify`, `VERDICT …`, `REVIEW <base commit>..<HEAD commit>`, `ALL MET`, `HANDOFF REQUIRED: …`, `NIGHT SUMMARY <date>`. A disclaimer therefore goes last. `NIGHT SUMMARY` lists tickets by number and first line.
 _Admitted_: protocol slot
 _Avoid_: 首行, 协议位, status word
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
@@ -555,20 +559,10 @@ _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 `NOT_READY: <reason>`, what `--preflight` posts on the ticket and prints when it refuses; exit 2; the worker stops.
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
-**`BLOCKED:`**:
-The first line of the comment the board posts with the text of a form it found on a session's screen.
-_Avoid_: QUESTION:
-_Home_: `mmw-v2/skills/dispatch/scripts/board.py`
-
-**form**:
-The question or approval form a session draws at the foot of its screen; Herdr reports the session as `blocked`. The board copies the form to the ticket under `BLOCKED:`, dismisses it with the host's close key (`CLOSE_KEYS`, otherwise `esc`), sends `continue`, and never answers it.
-_Avoid_: 提问表单
-_Home_: `mmw-v2/skills/dispatch/references/night.md`
-
-**`REDISPATCHED:`, `WAKEUP LIMIT:`, `TIME LIMIT:`**:
-The three comments the board posts on a ticket: `REDISPATCHED: session <name> ended at phase=<phase>; started again`; `WAKEUP LIMIT:` when a session was re-prompted `WAKE_LIMIT` times and went idle again, or dismissed `WAKE_LIMIT` forms; `TIME LIMIT: <hours> h under this board, still at phase=<phase>. Handed back…` when the ticket has been under the board longer than `MAX_HOURS`. The last two are followed by a hand back to `needs-triage`. Each is also a `<case>` of the `mmw board:` line.
-_Avoid_: 限额行
-_Home_: `mmw-v2/skills/dispatch/scripts/board.py`
+**question gate**:
+`hook.py question <host>`: the refusal of the host's question tool (`AskUserQuestion` on Claude Code, `ask_user_question` on Grok, `request_user_input` on Codex) in any session carrying `MMW_AUTONOMOUS=1`. Its reason names the two ways out — take the likeliest option and record it under `Decisions I made on my own`, or `ABANDON: AC<n> decision` with a sub-issue — so no question ever reaches a screen nobody watches.
+_Avoid_: form, 提问表单, BLOCKED:
+_Home_: `mmw-v2/skills/verify-ticket/scripts/hook.py`
 
 **`NIGHT SUMMARY`**:
 The comment `NIGHT SUMMARY <date>` the board posts on the spec when nothing is left to run: four lines, `Closed:`, `Handed back to needs-triage:`, `Not dispatched, a blocker stayed open:`, `Sub-issues opened tonight:`, ticket numbers and first lines only.
@@ -668,7 +662,7 @@ _Avoid_: 派发 (as a term)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`dispatch.sh`**:
-The dispatch skill's script, four forms: `<ticket> worker|reviewer [base-commit]`, `wait <ticket> "<first-line-regex>" [seconds]`, `advance <spec>`, `run <spec> [--max-hours H]`. It writes the pane tokens `ticket`, `kind`, `model`; injects `MMW_TICKET`; records `branch.issue-<n>.mmw-base`; reads the worker-grade label and nothing else to pick the row. Exit codes: 2 when the ticket fails its checks (`REFUSE …` on stderr), 1 when the session did not reach idle within 120 seconds, 3 when `advance` hits a conflict. The skill's own text calls it `<dispatch>`.
+The dispatch skill's script, four forms: `<ticket> worker|reviewer [base-commit]`, `wait <ticket> "<first-line-regex>" [seconds]`, `advance <spec>`, `run <spec> [--max-hours H]`. It writes the pane tokens `ticket`, `kind`, `model`; injects `MMW_TICKET` and `MMW_AUTONOMOUS`; records `branch.issue-<n>.mmw-base`; reads the worker-grade label and nothing else to pick the row. Exit codes: 2 when the ticket fails its checks (`REFUSE …` on stderr), 1 when the session was not reported ready within 120 seconds or did not report the prompt taken, 3 when `advance` hits a conflict. The skill's own text calls it `<dispatch>`.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **dispatch line**:
@@ -680,8 +674,12 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 The ticket number `dispatch.sh` injects into the worker's tab environment: the hook's only source for which ticket the session guards — no variable, no gate. A reviewer, the main agent, and an ordinary session have none. A `CHECK:` may read `$MMW_TICKET` for the ticket number.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/hook.py`
 
+**`MMW_AUTONOMOUS`**:
+The variable `dispatch.sh` sets to `1` on the worker's tab and the reviewer's pane: the mark of a session nobody watches, and the question gate's only source for whether to refuse. The main agent and an ordinary session have none.
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
 **pane token**:
-A named value on a Herdr pane, written with `herdr pane report-metadata <pane> --source mmw --token k=v --ttl-ms TOKEN_TTL_MS` (one day): `ticket`, `kind` (`worker` or `reviewer`), `model` by `dispatch.sh` at dispatch; `phase` and `ac=<met>/<total>` by `verify-ticket.py` (which can also `--clear-token`); `wake` by the board. The board reads them through `herdr api snapshot`; nothing on screen is consulted.
+A named value on a Herdr pane, written with `herdr pane report-metadata <pane> --source mmw --token k=v --ttl-ms TOKEN_TTL_MS` (one day): `ticket`, `kind` (`worker` or `reviewer`), `model` by `dispatch.sh` at dispatch; `phase` and `ac=<met>/<total>` by `verify-ticket.py` (which can also `--clear-token`); `turn` and `turn_id` by `turn.py` on the host's lifecycle hooks. The board reads them through `herdr api snapshot`; nothing on screen is consulted.
 _Avoid_: Herdr pane token, token (bare)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
@@ -691,9 +689,17 @@ _Avoid_: stage (for this)
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`agent_status`**:
-Herdr's lifecycle state of a session, one of `working`, `idle`, `done`, `blocked`, `unknown` (the board's default when Herdr reports none). `working` is what a session shows within `PROMPT_TAKE_MS` once a prompt lands; `idle` and `done` are the settled states; `blocked` means a form is on screen; `unknown` means Herdr cannot classify the session or it is gone.
+Herdr's lifecycle state of a session, one of `working`, `idle`, `done`, `blocked`, `unknown` (the board's default when Herdr reports none). For a session this pipeline started it is what `turn.py` reported through `herdr pane report-agent`, which makes that script the pane's lifecycle authority and stops Herdr reading the state off the screen; `idle` and `done` are the settled states. Without a reporting authority Herdr classifies the screen with its agent detection rule, a guess the board acts on only through `FALLBACK_SECONDS`.
 _Avoid_: status (bare)
-_Home_: `mmw-v2/skills/dispatch/scripts/board.py`
+_Home_: `mmw-v2/skills/dispatch/scripts/turn.py`
+
+**`turn`**:
+The pane token saying how a session's newest turn stands, written by `turn.py`: `ready` (`SessionStart`), `working` (`UserPromptSubmit`), `ended` (`Stop`), `failed:<error>` (`StopFailure`, `<error>` the host's error class), `cancelled:<reason>` (`StopCancelled`). `turn_id` beside it is the turn's `promptId`, so a late report for an older turn is dropped. The board reads `turn` and nothing else to choose between `continue` and `STOPPED`.
+_Home_: `mmw-v2/skills/dispatch/scripts/turn.py`
+
+**`turn.py`**:
+`scripts/turn.py` of the dispatch skill, `turn.py <host>`: registered by `install.sh` on each session host's lifecycle hooks (`SessionStart`, `UserPromptSubmit`, `Stop`, `StopFailure`, `StopCancelled`, `Notification` `idle_prompt`, `SessionEnd`, as far as the host fires them). On each it reports `working` or `idle` to Herdr under the source `mmw:<host>` and writes the `turn` token; on `SessionEnd` it releases the authority. It does nothing outside Herdr and nothing for a subagent's events. Grok fires `SessionStart` with the first prompt rather than at process start, so a `SessionStart` arriving over a `turn` already on the pane is dropped.
+_Home_: `mmw-v2/skills/dispatch/scripts/turn.py`
 
 **`pane event`**:
 A Herdr `pane.updated` or `pane.closed` push the board acts on; between pushes it re-reads everything every `SNAPSHOT_INTERVAL`.
@@ -724,7 +730,7 @@ _Avoid_: 并回来 (as a term)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **night**:
-Everything between the last ticket published and the morning: `run` opens it, `board.py --watch` applies the wakeup loop, `NIGHT SUMMARY` ends it. Two agents share it — the board repairs, the main agent takes the next step — and one workspace holds one night. **`night over`** is the `mmw board:` case saying the summary is the spec's newest comment: run `advance` one last time.
+Everything between the last ticket published and the morning: `run` opens it, `board.py --watch` reads the sessions, `NIGHT SUMMARY` ends it. Two agents share it — the board watches and reports, the main agent decides — and one workspace holds one night. A ticket leaves the night only by its worker's closing comment. **`night over`** is the `mmw board:` case saying the summary is the spec's newest comment: run `advance` one last time.
 _Avoid_: 夜间编排主循环, night orchestration loop, 夜里 (as a term), 夜间 (as a term)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
@@ -734,36 +740,38 @@ _Avoid_: 早上 (as a term), 早上两条查询, the two morning queries
 _Home_: `docs/agents/issue-tracker.md`
 
 **wakeup loop**:
-The rule table `board.py --watch` applies after every pane event or every `SNAPSHOT_INTERVAL`, for each session in its workspace: `working` — leave it; `idle` or `done` with `phase` not `closed` or `handoff` — after `COOLDOWN_SECONDS`, re-prompt, backing off by `WAKE_BACKOFF`, at most `WAKE_LIMIT` times; `blocked` — post the form as `BLOCKED:`, dismiss it, send `continue`; `unknown`, or the pane gone while the ticket is still open with no closing comment — redispatch once; `closed` or `handoff` — close the pane; past any limit — hand back to `needs-triage`, except a reviewer, which is left for `wait` to time out. The limit lines ask the main agent only for `board.py --once`.
+The rule table `board.py --watch` applies after every pane event or every `SNAPSHOT_INTERVAL`, for each worker session in its workspace, read off the `turn` token: `failed:<error>` with `phase` not `closed` or `handoff` — send `continue`, once per turn and at most `FAILED_LIMIT` times at one phase, then `STOPPED` instead; `ended` or `cancelled:<reason>` with `phase` not `closed` or `handoff` — queue `STOPPED` for `mmw-main`, once per turn; `closed` or `handoff` — close the pane; `working` or `ready` — nothing; no token — nothing until `agent_status` has been `idle` or `done` for `FALLBACK_SECONDS` with the ticket's comments and `phase` unchanged, then `STOPPED`. A reviewer is never touched. Nothing in the table changes a label or starts a session.
 _Avoid_: 唤醒闭环, the board's state machine
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
 
 **re-prompt**:
-The board sending a settled session a new prompt with `herdr agent prompt`: a worker gets `continue` and nothing else, so it resumes at the closing step after the newest of `self-run`, `VERDICT`, `REVIEW`; the main agent gets one `mmw board:` line. Only while the target is `idle` or `done`, its `phase` not `closed` or `handoff`, and its pane not focused. The count is the `wake` pane token; `WAKE_BACKOFF` spaces the attempts and `WAKE_LIMIT` caps them, after which the board posts `WAKEUP LIMIT:`.
+Sending a settled session a new prompt with `herdr agent prompt`. The board does it in one case, a worker whose turn failed, and sends `continue`; the main agent does it after reading a `STOPPED` or `TIME LIMIT` session's screen, with what it settled and `continue`; the main agent itself gets one `mmw board:` line. Only while the target's pane is not focused and it is not `working`.
 _Avoid_: 重新 prompt, wake up, wakeup (as a verb), 唤醒, 扶起来
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
 
 **`continue`**:
-The whole of a re-prompt to a worker (`CONTINUE_LINE`), also sent after a form is dismissed.
+The whole of the board's re-prompt to a worker (`CONTINUE_LINE`): the session is alive and holds everything it read and wrote, so it resumes at the closing step after the newest of `self-run`, `VERDICT`, `REVIEW`.
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
-
-**redispatch**:
-Starting a new worker session for a ticket whose previous session is `unknown` or whose pane is gone while the ticket is still open with no closing comment. Once per ticket (`REDISPATCH_LIMIT`), counted off the ticket's own `REDISPATCHED:` comments, which the board posts first; the existing `issue-<n>` branch is reused; when the count is spent (`REDISPATCH_SPENT`) the ticket is handed back.
-_Avoid_: 重派
-_Home_: `mmw-v2/skills/dispatch/scripts/board.py`
-
-**repair**:
-The board's half of the night: putting a session that was already dispatched back on its feet — re-prompt, dismiss a form, redispatch, hand back. A repair puts a ticket back on the `models.md` row it was written for; worker and reviewer are repaired the same way.
-_Avoid_: 修 (as a term)
-_Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **hand back**:
-Swapping `ready-for-agent` for `needs-triage` and leaving the ticket open: `--closeout` does it on `HANDOFF REQUIRED` (printing `HANDED BACK: #<n> is now needs-triage and stays open`), the board does it at `WAKEUP LIMIT:`, `TIME LIMIT:`, and `REDISPATCH_SPENT`. `triage` reads such a ticket from its comment trail instead of reproducing it.
+Swapping `ready-for-agent` for `needs-triage` and leaving the ticket open: `--closeout` does it on `HANDOFF REQUIRED` (printing `HANDED BACK: #<n> is now needs-triage and stays open`), and nothing else in the pipeline does. `triage` reads such a ticket from its comment trail instead of reproducing it.
 _Avoid_: 交回, handed back (as a name)
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
+**`STOPPED`**:
+The `mmw board:` case for a worker that ended a turn on its own short of `closed` or `handoff`, failed more than `FAILED_LIMIT` turns at one phase, or sat `idle` for `FALLBACK_SECONDS` with no `turn` token: `mmw board: STOPPED #<n> at phase=<phase> — read <name> with herdr, then move it on with the dispatch skill`. The main agent reads that session's screen with `herdr agent read`, settles what stopped it, and re-prompts it; the ticket keeps its label.
+_Home_: `mmw-v2/skills/dispatch/scripts/board.py`
+
+**`TIME LIMIT`**:
+The `mmw board:` case for a ticket that has held its session for `MAX_HOURS` (`--max-hours`): `mmw board: TIME LIMIT #<n> — <hours> h at phase=<phase>; read <name> with herdr and decide with the dispatch skill`, sent once. Nothing else changes: label, pane and session stay.
+_Home_: `mmw-v2/skills/dispatch/scripts/board.py`
+
 **`mmw board:` line**:
-The one line the board sends `mmw-main`: `mmw board: <case> #<n> — <what to do> with the dispatch skill`, `<case>` one of `ADVANCE`, `night over`, `WAKEUP LIMIT`, `REDISPATCHED`, `TIME LIMIT`. The main agent answers the first two with `advance` and the other three with `board.py --once`.
+The one line the board sends `mmw-main`: `mmw board: <case> #<n> — <what to do> with the dispatch skill`, `<case>` one of `ADVANCE`, `night over`, `STOPPED`, `TIME LIMIT`. The main agent answers the first two with `advance` and the other two by reading that session's screen.
+_Home_: `mmw-v2/skills/dispatch/scripts/board.py`
+
+**board log**:
+`~/.mmw/logs/board-<workspace id>-<spec>.log`, where `board.py --watch` appends every line it prints, dated; the record of the night once the monitor tab is closed.
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
 
 **triage**:
@@ -848,7 +856,7 @@ The unit the toolbox ships, one directory with a `SKILL.md`. This repository's o
 _Home_: `mmw-v2/skills.txt`
 
 **`SKILL.md`**:
-A skill's entry file: the host loads the skill from it, and its location resolves the skill's `scripts/` and `references/`. It is symlinked from the source directory, so an edit takes effect on the next invocation; only its frontmatter **`description`** — the one thing a host scans at start — needs a new session. The frontmatter switch **`disable-model-invocation`** makes a skill user-invoked only; it is set or removed together with `policy.allow_implicit_invocation: false` in `agents/openai.yaml`, and this repository keeps it only on `setup-matt-pocock-skills`, `grill-me`, `handoff`, `wait-what`. A step in a skill closes with **`Done when`**, its completion test.
+A skill's entry file: the host loads the skill from it, and its location resolves the skill's `scripts/` and `references/`. It is symlinked from the source directory, so an edit takes effect on the next invocation; only its frontmatter **`description`** — the one thing a host scans at start — needs a new session. The frontmatter switch **`disable-model-invocation`** makes a skill user-invoked only; it is set or removed together with `policy.allow_implicit_invocation: false` in `agents/openai.yaml`, and this repository keeps it only on `readable-docs`, `setup-matt-pocock-skills`, `grill-me`, `handoff`, `wait-what`. A step in a skill closes with **`Done when`**, its completion test.
 _Avoid_: 技能正文 (as a term), 用户触发开关, user-invoked (as a name), completion criterion
 _Home_: `AGENTS.md`
 
@@ -897,12 +905,12 @@ _Avoid_: the installer, 安装器, 安装入口 (as a term), 只看不动 (as a 
 _Home_: `mmw-v2/install.sh`
 
 **hook**:
-A program a host runs at an event. This repository installs two: `hook.py pretool <host>` on every host, and `rule-at-moment.py` on Claude Code only, registered in each host's configuration with a **matcher** (the tool pattern) for the event names `PreToolUse`, `PostToolUse`, `PostToolUseFailure`.
+A program a host runs at an event. This repository installs three: `hook.py` (`pretool` on every host, `question` on the session hosts), `turn.py` on the session hosts' lifecycle events, and `rule-at-moment.py` on Claude Code only, each registered in the host's configuration, with a **matcher** (the tool pattern, or the notification type) where the event takes one.
 _Avoid_: 钩子 (for this sense)
 _Home_: `mmw-v2/install.sh`
 
 **`hook.py`**:
-`scripts/hook.py` of the verify-ticket skill, the host-side enforcement of closeout: when the host is about to run a shell command (**`pretool`**, the only member of its `GATES`), it refuses `gh issue close` and label changes on the ticket named by `MMW_TICKET`, checks nothing, and points at `--closeout`. No `MMW_TICKET`, no gate. Its answer takes each host's shape (`permissionDecision: deny` on Claude Code and Codex, `decision: deny` on Grok, which clips the reason at 256 characters, `permission: deny` on Cursor); the verb in prose is **refuse**. It is symlinked, so editing it needs no reinstall.
+`scripts/hook.py` of the verify-ticket skill, the host-side enforcement of two rules, one per member of its `GATES`: **`pretool`** — when the host is about to run a shell command, it refuses `gh issue close` and label changes on the ticket named by `MMW_TICKET`, checks nothing, and points at `--closeout`; **`question`** — when the host is about to call its question tool in a session carrying `MMW_AUTONOMOUS=1`, it refuses and names the two ways out. No `MMW_TICKET`, no `pretool` gate; no `MMW_AUTONOMOUS`, no `question` gate. Its answer takes each host's shape (`permissionDecision: deny` on Claude Code and Codex, `decision: deny` on Grok, which clips the reason at 256 characters, `permission: deny` on Cursor); the verb in prose is **refuse**. It is symlinked, so editing it needs no reinstall.
 _Admitted_: hook.py pretool
 _Avoid_: the pretool gate, pretool 门, 关票 gate, 拦截 hook
 _Home_: `mmw-v2/skills/verify-ticket/scripts/hook.py`
@@ -913,12 +921,12 @@ _Avoid_: 规则提醒 hook, 注入 hook
 _Home_: `mmw-v2/hooks/rule-at-moment.py`
 
 **`verify-ticket.py`**:
-`scripts/verify-ticket.py` of the verify-ticket skill — one script carrying five jobs: `--lint`, the worker's own run `<n>`, the verifier's `--reverify`, `--preflight`, and `--closeout <draft>` (with `--check-only` and `--timeout <seconds>` per `CHECK:`). It is the only route by which a ticket closes; it reads the eight-section ticket shape; it writes the `phase` token at four moments; `--jobs` stays 1 because the branch, the ticket, and the working tree are shared. Exit 0, or 1 when `--closeout` refuses, or 2 when `--preflight` refuses. The skill's own text calls it `<engine>`.
+`scripts/verify-ticket.py` of the verify-ticket skill — one script carrying five jobs: `--lint`, the worker's own run `<n>`, the verifier's `--reverify`, `--preflight`, and `--closeout <draft>` (with `--check-only`; `--timeout <seconds>` raises the per-`CHECK:` limit for one run, and `TIMEOUT:` lines on the ticket raise it for every run). It is the only route by which a ticket closes; it reads the eight-section ticket shape; it writes the `phase` token at four moments; `--jobs` stays 1 because the branch, the ticket, and the working tree are shared. Exit 0, or 1 when `--closeout` refuses, or 2 when `--preflight` refuses. The skill's own text calls it `<engine>`.
 _Avoid_: the engine, the ticket script, the script (for this)
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **`board.py`**:
-`scripts/board.py` of the dispatch skill, the board's program: `--once [<spec>]` prints one table and exits; `[<spec>]` likewise; `--watch <spec>` is the one form that acts; `--advance-plan <spec>` prints the advance plan. It keeps no state file, re-reads the tracker and Herdr on every pane event or every `SNAPSHOT_INTERVAL`, holds one row per ticket, and appends one feed line per action through `say()` — never redrawing. Its constants: `COOLDOWN_SECONDS`, `WAKE_BACKOFF = (120, 240, 480)`, `WAKE_LIMIT = 3`, `REDISPATCH_LIMIT = 1`, `MAX_HOURS = 4` (`--max-hours` overrides), `SNAPSHOT_INTERVAL = 60`, `TOKEN_TTL_MS = 86400000`, `CLOSE_KEYS = {"grok": "shift+x", "cursor": "esc"}` with `CLOSE_KEY_OTHERWISE = "esc"`. The skill's own text calls it `<board>`.
+`scripts/board.py` of the dispatch skill, the board's program: `--once [<spec>]` prints one table and exits; `[<spec>]` likewise; `--watch <spec>` is the one form that acts; `--advance-plan <spec>` prints the advance plan. It keeps no state file, re-reads the tracker and Herdr on every pane event or every `SNAPSHOT_INTERVAL`, holds one row per ticket, and appends one feed line per action through `say()` — never redrawing, and into the board log as well. Its constants: `MAX_HOURS = 4` (`--max-hours` overrides), `SNAPSHOT_INTERVAL = 60`, `FAILED_LIMIT = 3`, `FALLBACK_SECONDS = 600`, `TOKEN_TTL_MS = 86400000`. The skill's own text calls it `<board>`.
 _Avoid_: wake budget
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
 
@@ -936,7 +944,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | --- | --- |
 | `phase` | `selfcheck` · `verify` · `implement` · `closed` · `handoff` · `closeout-rejected` |
 | `agent_status` | `working` · `idle` · `done` · `blocked` · `unknown` |
-| pane token | `ticket` · `kind` · `model` · `phase` · `ac` · `wake` |
+| pane token | `ticket` · `kind` · `model` · `phase` · `ac` · `turn` · `turn_id` |
 | `kind` token | `worker` · `reviewer` |
 | host | `claude` · `codex` · `grok` · `cursor` · `pi` |
 | worker grade | `junior-worker` · `senior-worker` |
@@ -945,8 +953,10 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | criterion state | `met` · `unmet` · `abandoned` |
 | gate-check status line | `RUN` · `PASS` · `FAIL` · `STALE` |
 | lint level | `ERROR` · `WARN` |
-| `mmw board:` case | `ADVANCE` · `night over` · `WAKEUP LIMIT` · `REDISPATCHED` · `TIME LIMIT` |
+| `turn` | `ready` · `working` · `ended` · `failed:<error>` · `cancelled:<reason>` |
+| `mmw board:` case | `ADVANCE` · `night over` · `STOPPED` · `TIME LIMIT` |
+| `hook.py` gate | `pretool` · `question` |
 | state role | `needs-triage` · `needs-info` · `ready-for-agent` · `ready-for-human` · `wontfix` |
 | category role | `bug` · `enhancement` |
 | `dispatch.sh` constants | `TOKEN_TTL_MS` · `PROMPT_TAKE_MS` · `WAIT_DEFAULT_SECONDS = 1800` · `MERGE_TRIES = 3` · `LABEL_TITLE_CHARS` · `BOARD_TAB_LABEL` · `MAIN_AGENT_NAME` · `DEFAULT_WORKER` |
-| exit codes | `dispatch.sh` 0 / 1 (no idle in 120 s) / 2 (ticket refused) / 3 (`advance` conflict) · `verify-ticket.py` 0 / 1 (`--closeout` refused) / 2 (`--preflight` refused) · `visual-parity.py` 0 / 1 (`DIFF`) / 2 (`NEGATIVE CONTROL FAILED`) · `install.sh --check` 0 / 1 · `--lint` 0 unless an `ERROR` remains |
+| exit codes | `dispatch.sh` 0 / 1 (not reported ready in 120 s) / 2 (ticket refused) / 3 (`advance` conflict) · `verify-ticket.py` 0 / 1 (`--closeout` refused) / 2 (`--preflight` refused) · `visual-parity.py` 0 / 1 (`DIFF`) / 2 (`NEGATIVE CONTROL FAILED`) · `install.sh --check` 0 / 1 · `--lint` 0 unless an `ERROR` remains |

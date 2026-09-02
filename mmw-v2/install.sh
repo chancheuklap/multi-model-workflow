@@ -364,18 +364,22 @@ fi
 # ---------------- hook ----------------
 
 # 技能和 subagent 是 host 去读的，hook 是 host 来调的，所以它要在每个 host 的配置里各有一条。
-# 四家写 JSON，pi 写一个扩展文件；五处都指向 ~/.agents/skills 下的 hook.py——
-# 那已经是指回仓库的软链，所以改 hook.py 不用重装。
+# 三样东西：verify-ticket 的 hook.py 的 pretool gate（五个 host）与 question gate（起 session
+# 的三个 host），dispatch 的 turn.py（同样三个 host，各按自家 hook 系统有的事件注册）。四家写
+# JSON，pi 写一个扩展文件；每一处都指向 ~/.agents/skills 下的脚本——那已经是指回仓库的软链，
+# 所以改脚本不用重装。
 #
-# 合并而不是覆盖：这五处 Herdr 也各装了自己的东西。只认 command 里带 hook.py 的那一条，
-# 认得出就换成新的，认不出就在后面添一条，别人的条目一个字不动。
+# 合并而不是覆盖：这几处 Herdr 也各装了自己的东西。只认 command 里带本脚本名与 gate 名的
+# 那一条，认得出就换成新的，认不出就在后面添一条，别人的条目一个字不动。
 
 HOOK_SRC="$SELF_SRC/verify-ticket/scripts/hook.py"
+TURN_SRC="$SELF_SRC/dispatch/scripts/turn.py"
 
 if [ -f "$HOOK_SRC" ]; then
   hooks_ran=1
   MMW_MODE="$mode" \
   MMW_HOOK="$NEUTRAL_DIR/verify-ticket/scripts/hook.py" \
+  MMW_TURN="$NEUTRAL_DIR/dispatch/scripts/turn.py" \
   MMW_HOME="$HOME_DIR" \
   MMW_CODEX="${CODEX_HOME:-$HOME_DIR/.codex}" \
   MMW_PI="${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME_DIR/.pi}/agent}" \
@@ -387,6 +391,7 @@ from pathlib import Path
 
 mode = os.environ["MMW_MODE"]
 hook = os.environ["MMW_HOOK"]
+turn = os.environ["MMW_TURN"]
 home = Path(os.environ["MMW_HOME"])
 codex_home = Path(os.environ["MMW_CODEX"])
 pi_home = Path(os.environ["MMW_PI"])
@@ -425,6 +430,26 @@ export default function (pi) {
 """ % {"hook": hook, "timeout": TIMEOUT}
 
 COMMAND = f"python3 '{hook}' pretool "
+QUESTION = f"python3 '{hook}' question "
+TURN = f"python3 '{turn}' "
+
+# The tool each host calls to put a question on the screen: the matcher of its
+# question gate. Only the hosts `models.md` starts sessions on carry one.
+QUESTION_TOOLS = {"claude": "AskUserQuestion", "grok": "ask_user_question",
+                  "codex": "request_user_input"}
+
+# The lifecycle events each host's hook system fires, and which of them carry a matcher.
+# grok: `~/.grok/docs/user-guide/10-hooks.md`, `Hook Events`. claude: Claude Code's hooks
+# reference. codex: the event names its 0.152.0 binary carries (no StopFailure).
+TURN_EVENTS = {
+    "grok": [("SessionStart", None), ("UserPromptSubmit", None), ("Stop", None),
+             ("StopFailure", None), ("StopCancelled", None),
+             ("Notification", "idle_prompt"), ("SessionEnd", None)],
+    "claude": [("SessionStart", None), ("UserPromptSubmit", None), ("Stop", None),
+               ("Notification", "idle_prompt"), ("SessionEnd", None)],
+    "codex": [("SessionStart", None), ("UserPromptSubmit", None), ("Stop", None),
+              ("SessionEnd", None)],
+}
 
 
 def load(path):
@@ -442,28 +467,44 @@ def save(path, data):
     scratch.replace(path)
 
 
-def ours(handler):
-    return isinstance(handler, dict) and "hook.py" in str(handler.get("command", ""))
+def marker_of(command):
+    """What identifies one of ours across paths: the script's basename and its gate."""
+    head, _, tail = command.rpartition("' ")
+    return os.path.basename(head.split("'")[-1]) + "' " + tail
 
 
-def grouped(path, host, event, matcher):
-    """Claude Code、Codex、Grok Build 都把处理器按 matcher 分组。"""
+def ours(handler, command):
+    return isinstance(handler, dict) and marker_of(command) in str(handler.get("command", ""))
+
+
+def grouped(path, event, matcher, command):
+    """Claude Code、Codex、Grok Build 都把处理器按 matcher 分组。
+
+    `command` 是完整的一条：脚本路径、gate 与 host。同一个文件里的同一个事件可以带两条我们
+    的处理器（pretool 与 question），靠脚本名加 gate 名认出各自的那条。
+    """
 
     def install():
         data = load(path)
         hooks = data.setdefault("hooks", {})
-        handler = {"type": "command", "command": COMMAND + host, "timeout": TIMEOUT}
+        handler = {"type": "command", "command": command, "timeout": TIMEOUT}
         for group in hooks.setdefault(event, []):
             inner = group.get("hooks") if isinstance(group, dict) else None
             if not isinstance(inner, list):
                 continue
             for index, existing in enumerate(inner):
-                if ours(existing):
+                if ours(existing, command):
                     inner[index] = handler
-                    group["matcher"] = matcher
+                    if matcher is None:
+                        group.pop("matcher", None)
+                    else:
+                        group["matcher"] = matcher
                     save(path, data)
                     return
-        hooks[event].append({"matcher": matcher, "hooks": [handler]})
+        entry = {"hooks": [handler]}
+        if matcher is not None:
+            entry["matcher"] = matcher
+        hooks[event].append(entry)
         save(path, data)
 
     def installed():
@@ -471,7 +512,8 @@ def grouped(path, host, event, matcher):
         for group in hooks.get(event) or []:
             inner = group.get("hooks") if isinstance(group, dict) else None
             for existing in inner or []:
-                if isinstance(existing, dict) and existing.get("command") == COMMAND + host:
+                if isinstance(existing, dict) and existing.get("command") == command \
+                        and (matcher is None or group.get("matcher") == matcher):
                     return True
         return False
 
@@ -487,7 +529,7 @@ def cursor(path, event):
         entries = data.setdefault("hooks", {}).setdefault(event, [])
         handler = {"command": COMMAND + "cursor", "timeout": TIMEOUT}
         for index, existing in enumerate(entries):
-            if ours(existing):
+            if ours(existing, COMMAND + "cursor"):
                 entries[index] = handler
                 break
         else:
@@ -517,13 +559,25 @@ def extension(path):
 
 
 # 一行一个安装点：host 根、配置文件、事件名（只出现在输出里）、装与查两个动作。
-points = [
-    (home / ".claude", home / ".claude/settings.json", "PreToolUse",
-     grouped(home / ".claude/settings.json", "claude", "PreToolUse", "Bash")),
-    (home / ".grok", home / ".grok/hooks/mmw-verify-ticket.json", "PreToolUse",
-     grouped(home / ".grok/hooks/mmw-verify-ticket.json", "grok", "PreToolUse", "Bash")),
-    (codex_home, codex_home / "hooks.json", "PreToolUse",
-     grouped(codex_home / "hooks.json", "codex", "PreToolUse", "Bash")),
+# grok 把 hooks/*.json 全部合并读入，所以两个脚本各占一个文件；claude 与 codex 只有一份
+# 配置，几条都写进去。
+grouped_hosts = [
+    ("claude", home / ".claude", home / ".claude/settings.json"),
+    ("grok", home / ".grok", home / ".grok/hooks/mmw-verify-ticket.json"),
+    ("codex", codex_home, codex_home / "hooks.json"),
+]
+points = []
+for host, host_home, path in grouped_hosts:
+    points.append((host_home, path, "PreToolUse Bash",
+                   grouped(path, "PreToolUse", "Bash", COMMAND + host)))
+    points.append((host_home, path, "PreToolUse " + QUESTION_TOOLS[host],
+                   grouped(path, "PreToolUse", QUESTION_TOOLS[host], QUESTION + host)))
+    turn_path = home / ".grok/hooks/mmw-turn.json" if host == "grok" else path
+    for event, matcher in TURN_EVENTS[host]:
+        label = event + (" " + matcher if matcher else "")
+        points.append((host_home, turn_path, label,
+                       grouped(turn_path, event, matcher, TURN + host)))
+points += [
     (home / ".cursor", home / ".cursor/hooks.json", "beforeShellExecution",
      cursor(home / ".cursor/hooks.json", "beforeShellExecution")),
     (pi_home, pi_home / "extensions/mmw-verify-ticket.ts", "tool_call",
@@ -553,7 +607,7 @@ for host_home, path, event, (install, installed) in points:
     count += 1
 
 if mode != "check":
-    print(f"已装  {count} 处 hook -> {count} 个 host")
+    print(f"已装  {count} 条 hook")
     if codex_home.is_dir():
         # 2026-08-29 实测：写进 hooks.json 还不够。Codex 开场先弹「N hooks need review」，
         # 按一次 t 之前这条 hook 是 Installed 而 Active 为 0。按下去记的是这条 hook 的哈希

@@ -42,7 +42,14 @@ TTL_MS = "86400000"
 # count; `decision` needs a person to choose, and is the only one that still closes.
 ABANDON_KINDS = ("decision", "failed", "stuck")
 HANDOFF_KINDS = ("failed", "stuck")
+# The self-runs a `failed` criterion has to show before the closeout accepts it: a
+# floor on the trying, not a cap on it. How many rounds a criterion gets is the
+# worker's own judgement.
 ROUND_LIMIT = 3
+# Seconds one `CHECK:` may run. A ticket raises it per criterion with `TIMEOUT:`; the
+# worker's own run and the verifier's `--reverify` read the same lines, so the two
+# never disagree about it.
+DEFAULT_TIMEOUT = 600
 ABANDON_RE = re.compile(r"^ABANDON:\s+(\S+)\s+(\S+)\s*(.*)$")
 COUNTS_RE = re.compile(
     r"^Counts:\s*(\d+)\s+met,\s*(\d+)\s+unmet,\s*(\d+)\s+abandoned of\s*(\d+)\s*$")
@@ -51,7 +58,9 @@ HANDOFF_RE = re.compile(
 VERDICT_RE = re.compile(r"^VERDICT\s+([0-9a-fA-F]{40})\b")
 ISSUE_REF_RE = re.compile(r"#(\d+)")
 WORKER_LABEL_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*-worker$")
-ATTR_LINE_RE = re.compile(r"^\s+(CHECK|EXPECT|EVIDENCE|CWD):")
+ATTR_LINE_RE = re.compile(r"^\s+(CHECK|EXPECT|EVIDENCE|CWD|TIMEOUT):")
+# The one attribute gate-check does not know: it is read here and kept out of the ledger.
+TIMEOUT_LINE_RE = re.compile(r"^\s+TIMEOUT:")
 FENCE_OPEN_RE = re.compile(r"^( {0,3})(`{3,}|~{3,})(.*)$")
 FENCE_CLOSE_RE = re.compile(r"^ {0,3}(`+|~+)[ \t]*$")
 REGEX_EXPECT_RE = re.compile(r"^/([\s\S]*)/([a-z]*)$")
@@ -346,11 +355,33 @@ def previous_ledger(number: int) -> list[str]:
 
 
 def write_ledger(body: str, directory: Path, lines: list[str] | None = None) -> Path:
-    """The `## Acceptance criteria` section, verbatim, as a ledger file."""
+    """The `## Acceptance criteria` section as a ledger file.
+
+    Verbatim but for `TIMEOUT:` lines, which gate-check does not read: they are this
+    script's, taken off the ticket body by `check_timeout`.
+    """
     criteria = lines if lines is not None else section(body, "Acceptance criteria")
     path = directory / LEDGER_NAME
-    path.write_text("\n".join(criteria) + "\n", encoding="utf-8")
+    kept = [line for line in criteria if not TIMEOUT_LINE_RE.match(line)]
+    path.write_text("\n".join(kept) + "\n", encoding="utf-8")
     return path
+
+
+def check_timeout(body: str, asked: int | None) -> int:
+    """Seconds gate-check gets per `CHECK:` on this ticket.
+
+    The largest of `DEFAULT_TIMEOUT`, every `TIMEOUT:` in `## Acceptance criteria`, and
+    `--timeout` when given: a ticket can raise the limit and never lower it, and it is
+    read off the ticket body whichever run this is, so the verifier's `--reverify` runs
+    under the same number as the worker's own run.
+    """
+    values = [DEFAULT_TIMEOUT]
+    for criterion in parse_criteria("\n".join(section(body, "Acceptance criteria"))):
+        if criterion["timeout"].isdigit() and int(criterion["timeout"]) > 0:
+            values.append(int(criterion["timeout"]))
+    if asked:
+        values.append(asked)
+    return max(values)
 
 
 # ------------------------------------------------------------- closing comment
@@ -400,7 +431,8 @@ def parse_criteria(text: str) -> list[dict]:
         gate = GATE_LINE_RE.match(line)
         if gate:
             item = {"id": gate.group(2), "ticked": gate.group(1) != " ",
-                    "check": "", "expect": "", "evidence": "", "stray": False}
+                    "check": "", "expect": "", "evidence": "", "timeout": "",
+                    "stray": False}
             out.append(item)
             continue
         if item is None:
@@ -409,7 +441,7 @@ def parse_criteria(text: str) -> list[dict]:
         if attr:
             key = attr.group(1).lower()
             value = line.split(":", 1)[1].strip()
-            if key in ("check", "expect", "evidence"):
+            if key in ("check", "expect", "evidence", "timeout"):
                 item[key] = value
             last_attr = key
             continue
@@ -919,8 +951,7 @@ def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
         cmd = ["node", str(GATE_CHECK), "--cwd", str(root)]
         if reverify:
             cmd.append("--reverify")
-        if timeout:
-            cmd += ["--timeout", str(timeout)]
+        cmd += ["--timeout", str(check_timeout(body, timeout))]
         cmd.append(str(ledger))
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=root)
         printed = (result.stdout or "") + (result.stderr or "")
@@ -932,28 +963,10 @@ def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
         updated = ledger.read_text(encoding="utf-8").rstrip("\n")
         met, total = count_gates(ledger)
 
-    # Three self-runs on one criterion is as far as fixing it goes. The count is the
-    # ticket's own history of self-run comments, so this run is the one being added to
-    # it; at the limit the criterion is named here and the closeout will accept it as
-    # `ABANDON: <id> failed`. Running it a fourth time is still allowed — a fix that
-    # lands late should still pass.
-    limits = []
-    if not reverify:
-        previous = fetch_comments(number)
-        for c in parse_criteria(updated):
-            if c["ticked"] and c["evidence"] and c["evidence"] != "pending":
-                continue
-            rounds = unmet_rounds(previous, c["id"]) + 1
-            if rounds >= ROUND_LIMIT:
-                limits.append(f"ROUND LIMIT: {c['id']} has been unmet for {rounds} self-runs; "
-                              f"stop fixing it, write `ABANDON: {c['id']} failed <what the "
-                              f"attempts did>`, and carry on with the rest")
-
     outside = outside_owns(owns_globs(body), root)
     comment = "\n".join([
         "reverify" if reverify else "self-run",
         *summary,
-        *limits,
         "",
         updated,
         "",
@@ -1169,6 +1182,18 @@ def lint_expectations(body: str) -> list[str]:
     return findings
 
 
+def lint_timeouts(body: str) -> list[str]:
+    """A `TIMEOUT:` that is not a positive whole number of seconds is a criterion whose
+    limit nobody can read."""
+    findings = []
+    for criterion in parse_criteria("\n".join(section(body, "Acceptance criteria"))):
+        value = criterion["timeout"]
+        if value and not (value.isdigit() and int(value) > 0):
+            findings.append(f"{criterion['id']}: TIMEOUT is `{value}`; write a whole "
+                            f"number of seconds greater than zero, such as `TIMEOUT: 1200`")
+    return findings
+
+
 def body_outside(body: str, heading: str) -> str:
     """The whole ticket except one `## <heading>` section."""
     lines = body.splitlines()
@@ -1258,6 +1283,10 @@ def run_lint(number: int) -> int:
     broken = lint_expectations(body)
     for finding in broken:
         print("  ERROR " + finding + "  [dollar-without-m]")
+    bad_timeouts = lint_timeouts(body)
+    for finding in bad_timeouts:
+        print("  ERROR " + finding + "  [bad-timeout]")
+    broken = broken + bad_timeouts
     for finding in lint_check_effects(body):
         print("  WARN  " + finding + "  [shared-state]")
     for finding in lint_edges(body):

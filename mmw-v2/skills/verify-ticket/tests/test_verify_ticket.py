@@ -133,9 +133,9 @@ class TestDoubleCondition(LedgerRun):
         self.assertIn("Outside Owns: None", comment)
 
 
-class TestTheRoundLimit(LedgerRun):
-    """Three self-runs is as far as fixing one criterion goes. The rounds are counted
-    off the ticket's own self-run comments, so nothing is carried between runs."""
+class TestNoRoundCap(LedgerRun):
+    """How many rounds a criterion gets is the worker's own judgement: no run names a
+    limit, however many self-runs the ticket already carries."""
 
     FAILING = ("- [ ] AC1: the importer writes six rows\n"
                "  CHECK: echo 'wrote 4 rows'; exit 1\n"
@@ -145,31 +145,91 @@ class TestTheRoundLimit(LedgerRun):
     def prior_runs(self, rounds: int) -> list[str]:
         return ["\n".join(["self-run", "UNMET: 1", "", self.FAILING])] * rounds
 
-    def test_the_first_two_runs_say_nothing_about_a_limit(self):
-        for rounds in (0, 1):
+    def test_no_run_names_a_limit(self):
+        for rounds in (0, 2, 5):
             with self.subTest(rounds=rounds):
                 _, comment, _ = self.run_ticket(ticket(self.FAILING),
                                                 comments=self.prior_runs(rounds))
                 self.assertNotIn("ROUND LIMIT", comment)
+                self.assertNotIn("ABANDON", comment)
 
-    def test_the_third_run_names_the_criterion_and_the_way_out(self):
-        _, comment, _ = self.run_ticket(ticket(self.FAILING), comments=self.prior_runs(2))
-        self.assertIn("ROUND LIMIT: AC1", comment)
-        self.assertIn("unmet for 3 self-runs", comment)
-        self.assertIn("ABANDON: AC1 failed", comment)
+    def test_the_closeout_floor_is_still_three(self):
+        """`ABANDON: failed` still has to show three self-runs; that is the closeout's."""
+        self.assertEqual(vt.ROUND_LIMIT, 3)
 
-    def test_a_criterion_that_passes_is_never_named(self):
-        passing = ("- [ ] AC1: the importer writes six rows\n"
-                   "  CHECK: echo 'wrote 6 rows'\n"
-                   "  EXPECT: wrote 6 rows\n"
-                   "  EVIDENCE: pending")
-        _, comment, _ = self.run_ticket(ticket(passing), comments=self.prior_runs(5))
-        self.assertNotIn("ROUND LIMIT", comment)
 
-    def test_a_reverification_never_counts_a_round(self):
-        _, comment, _ = self.run_ticket(ticket(self.FAILING), reverify=True,
-                                        comments=self.prior_runs(5))
-        self.assertNotIn("ROUND LIMIT", comment)
+class TestCheckTimeout(LedgerRun):
+    """One number per ticket, read off the ticket body, never lowered."""
+
+    def body(self, *timeouts: str) -> str:
+        lines = []
+        for i, t in enumerate(timeouts, 1):
+            lines += [f"- [ ] AC{i}: thing {i}", f"  CHECK: echo ok{i}", f"  EXPECT: ok{i}",
+                      "  EVIDENCE: pending"]
+            if t:
+                lines.append(f"  TIMEOUT: {t}")
+        return ticket(*lines)
+
+    def test_the_default_is_ten_minutes(self):
+        self.assertEqual(vt.check_timeout(self.body(""), None), 600)
+
+    def test_a_ticket_raises_it_with_the_largest_timeout_line(self):
+        self.assertEqual(vt.check_timeout(self.body("900", "", "1500"), None), 1500)
+
+    def test_a_ticket_cannot_lower_it(self):
+        self.assertEqual(vt.check_timeout(self.body("30"), None), 600)
+
+    def test_the_command_line_raises_it_too(self):
+        self.assertEqual(vt.check_timeout(self.body("900"), 2000), 2000)
+        self.assertEqual(vt.check_timeout(self.body("900"), 100), 900)
+
+    def test_the_ledger_handed_to_gate_check_carries_no_timeout_line(self):
+        import tempfile
+        from pathlib import Path as P
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = vt.write_ledger(self.body("900"), P(tmp))
+            text = ledger.read_text(encoding="utf-8")
+        self.assertNotIn("TIMEOUT", text)
+        self.assertIn("CHECK: echo ok1", text)
+
+    def test_gate_check_is_always_given_the_number(self):
+        seen: list[list[str]] = []
+        real = vt.subprocess.run
+
+        def spy(cmd, *a, **kw):
+            seen.append(list(cmd))
+            return real(cmd, *a, **kw)
+
+        with mock.patch.object(vt.subprocess, "run", side_effect=spy):
+            code, comment, _ = self.run_ticket(self.body("1200"))
+        gate = next(c for c in seen if any(str(x).endswith("gate-check.mjs") for x in c))
+        self.assertIn("--timeout", gate)
+        self.assertEqual(gate[gate.index("--timeout") + 1], "1200")
+        self.assertEqual(code, 0)
+        self.assertIn("[x] AC1", comment)
+
+    def test_a_reverify_reads_the_same_number_off_the_body(self):
+        seen: list[list[str]] = []
+        real = vt.subprocess.run
+
+        def spy(cmd, *a, **kw):
+            seen.append(list(cmd))
+            return real(cmd, *a, **kw)
+
+        previous = ["- [x] AC1: thing 1", "  CHECK: echo ok1", "  EXPECT: ok1",
+                    "  EVIDENCE: exit=0; EXPECT=matched"]
+        with mock.patch.object(vt.subprocess, "run", side_effect=spy):
+            self.run_ticket(self.body("1200"), reverify=True, previous=previous)
+        gate = next(c for c in seen if any(str(x).endswith("gate-check.mjs") for x in c))
+        self.assertEqual(gate[gate.index("--timeout") + 1], "1200")
+
+    def test_lint_refuses_a_timeout_that_is_not_seconds(self):
+        for bad in ("0", "-5", "ten", "1.5"):
+            with self.subTest(value=bad):
+                findings = vt.lint_timeouts(self.body(bad))
+                self.assertEqual(len(findings), 1)
+                self.assertIn("AC1", findings[0])
+        self.assertEqual(vt.lint_timeouts(self.body("120")), [])
 
 
 class TestReverify(LedgerRun):

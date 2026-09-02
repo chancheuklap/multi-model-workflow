@@ -172,6 +172,13 @@ for line in open(os.environ["MMW_TEST_LOG"], encoding="utf-8"):
 }
 
 run_dispatch() { (cd "$TMP/repo" && "$@") > "$TMP/out" 2> "$TMP/err"; echo "$?"; }
+
+# The host and model of a `models.md` row, so the scenarios below assert what the table
+# says today rather than what it said when they were written.
+row_host() { awk -F'|' -v want="$1" 'function t(s){gsub(/^[ \t`]+|[ \t`]+$/,"",s);return s} /^[ \t]*\|/ && NF==7 && t($2)==want {print t($3); exit}' "$SKILL/models.md"; }
+row_model() { awk -F'|' -v want="$1" 'function t(s){gsub(/^[ \t`]+|[ \t`]+$/,"",s);return s} /^[ \t]*\|/ && NF==7 && t($2)==want {print t($4); exit}' "$SKILL/models.md"; }
+JUNIOR_HOST="$(row_host junior-worker)"; JUNIOR_MODEL="$(row_model junior-worker)"
+SENIOR_MODEL="$(row_model senior-worker)"
 one_line_reason() {
   [ "$(wc -l < "$TMP/err" | tr -d ' ')" = 1 ] \
     || fail "the reason should be one line: $(cat "$TMP/err")"
@@ -198,6 +205,7 @@ scenario_worker() {
   has "herdr :: tab :: create"
   has ":: --workspace :: w1"
   has ":: --env :: MMW_TICKET=61"
+  has ":: --env :: MMW_AUTONOMOUS=1"
   has ":: --no-focus"
   [ "$(arg_after --cwd)" = "$MMW_WORKTREES/repo/issue-61" ] \
     || fail "--cwd should be the ticket's worktree, got $(arg_after --cwd)"
@@ -214,8 +222,8 @@ if len(label) != 24:
 ' || fail "the tab label is wrong"
 
   echo "--- the agent starts in the tab's own pane, and nothing is split"
-  has "herdr :: agent :: start :: w1-issue-61 :: --kind :: codex :: --pane :: w1:p9 :: --"
-  has ":: --dangerously-bypass-approvals-and-sandbox :: -m :: gpt-5.6-terra :: -c :: model_reasoning_effort=high"
+  has "herdr :: agent :: start :: w1-issue-61 :: --kind :: $JUNIOR_HOST :: --pane :: w1:p9 :: --"
+  has ":: -m :: $JUNIOR_MODEL"
   hasnt "herdr :: pane :: split"
 
   echo "--- it is told what to work on only after it is ready"
@@ -229,7 +237,7 @@ if len(label) != 24:
 
   echo "--- the pane says who it is, to a person and to a machine"
   has "herdr :: pane :: rename :: w1:p9 :: #61 worker"
-  has "herdr :: pane :: report-metadata :: w1:p9 :: --source :: mmw :: --token :: ticket=61 :: --token :: kind=worker :: --token :: model=gpt-5.6-terra :: --ttl-ms :: 86400000"
+  has "herdr :: pane :: report-metadata :: w1:p9 :: --source :: mmw :: --token :: ticket=61 :: --token :: kind=worker :: --token :: model=$JUNIOR_MODEL :: --ttl-ms :: 86400000"
 }
 
 scenario_reviewer() {
@@ -241,6 +249,7 @@ scenario_reviewer() {
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   has "herdr :: pane :: layout :: --pane :: w1:p1"
   has "herdr :: pane :: split :: --pane :: w1:p1 :: --direction :: right"
+  has ":: --env :: MMW_AUTONOMOUS=1 :: --no-focus"
   hasnt "herdr :: tab :: create"
   [ "$(line_of 'pane :: layout')" -lt "$(line_of 'pane :: split')" ] \
     || fail "split without measuring the pane first"
@@ -270,15 +279,15 @@ scenario_seat() {
   code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
           FAKE_GH_LABELS="ready-for-agent" bash "$DISPATCH" 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  has ":: -m :: gpt-5.6-terra"
+  has ":: --token :: model=$JUNIOR_MODEL"
 
   echo "--- a senior-worker label starts that row instead"
   reset_log
   code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
           FAKE_GH_LABELS="ready-for-agent,senior-worker" bash "$DISPATCH" 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  has ":: -m :: grok-4.6"
-  hasnt ":: -m :: gpt-5.6-terra"
+  has ":: --token :: model=$SENIOR_MODEL"
+  has ":: --reasoning-effort :: xhigh"
 
   echo "--- two worker labels are refused, and nothing is started"
   reset_log
