@@ -10,7 +10,7 @@ The agent names ending `-worker` are the two worker grades, and each is also the
 
 | agent | host | model | effort | launch arguments |
 | --- | --- | --- | --- | --- |
-| junior-worker | codex | `gpt-5.6-terra` | high | `--dangerously-bypass-approvals-and-sandbox -m {model} -c model_reasoning_effort={effort}` |
+| junior-worker | grok | `grok-4.6` | high | `--permission-mode bypassPermissions -m {model} --reasoning-effort {effort}` |
 | senior-worker | grok | `grok-4.6` | xhigh | `--permission-mode bypassPermissions -m {model} --reasoning-effort {effort}` |
 | reviewer | claude | `opus` | high | `--permission-mode bypassPermissions --model {model} --effort {effort} -n issue-{n}-review` |
 | reviewer | codex | `gpt-5.6-terra` | high | — |
