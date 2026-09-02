@@ -201,7 +201,7 @@ _Avoid_: branch (bare), 分支名 (as a term)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **base commit**:
-The commit recorded in `git config branch.issue-<n>.mmw-base` when the worktree was opened. It is the first value of the review dispatch line, where code review's diff starts (`git diff <base-commit>...HEAD`, three dots), and where the first-parent chain behind `Outside Owns:` begins. With no record, `main`. Written `<base-commit>` as a placeholder.
+The commit recorded in `git config branch.issue-<n>.mmw-base` when the worktree was opened: the HEAD a branch was cut from, or — for a ticket branch that already existed with no record — its merge base with HEAD at that dispatch. It is the first value of the review dispatch line, where code review's diff starts (`git diff <base-commit>...HEAD`, three dots), and where the first-parent chain behind `Outside Owns:` begins. With no record, `main`. Written `<base-commit>` as a placeholder.
 _Avoid_: base-commit (in prose), 起点 commit, cut point, 切点
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 

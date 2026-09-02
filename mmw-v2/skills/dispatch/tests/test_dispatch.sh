@@ -2,7 +2,7 @@
 #
 # Tests for dispatch.sh. One scenario per run:
 #
-#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh worker|reviewer|seat|runtable|runchecks
+#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh worker|basecommit|reviewer|seat|runtable|runchecks
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh idletimeout|notready|livesession|noherdr
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh wait|waittimeout|placeholder
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh advance|advanceconflict|advancedirty
@@ -245,6 +245,57 @@ if len(label) != 24:
   echo "--- the pane says who it is, to a person and to a machine"
   has "herdr :: pane :: rename :: w1:p9 :: #61 worker"
   has "herdr :: pane :: report-metadata :: w1:p9 :: --source :: mmw :: --token :: ticket=61 :: --token :: kind=worker :: --token :: model=$JUNIOR_MODEL :: --ttl-ms :: 86400000"
+}
+
+scenario_basecommit() {
+  local code
+  echo "--- a branch cut by dispatch records HEAD as its base commit"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          bash "$DISPATCH" 61 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/repo" config --get branch.issue-61.mmw-base)" = "$(git -C "$TMP/repo" rev-parse main)" ] \
+    || fail "mmw-base should be the HEAD the branch was cut from"
+  [ "$(git -C "$TMP/repo" config --get branch.issue-61.mmw-base-branch)" = main ] \
+    || fail "mmw-base-branch should be main"
+
+  echo "--- a branch that already existed with no record gets its merge base with HEAD"
+  reset_log
+  fresh_repo
+  make_branch issue-62 two.txt "made by hand"
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m "main moved on"
+  local expected
+  expected="$(git -C "$TMP/repo" merge-base main issue-62)"
+  [ "$expected" != "$(git -C "$TMP/repo" rev-parse main)" ] || fail "the fixture should put HEAD past the merge base"
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          bash "$DISPATCH" 62 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/repo" config --get branch.issue-62.mmw-base)" = "$expected" ] \
+    || fail "mmw-base should be the merge base, got $(git -C "$TMP/repo" config --get branch.issue-62.mmw-base)"
+  [ "$(git -C "$TMP/repo" config --get branch.issue-62.mmw-base-branch)" = main ] \
+    || fail "mmw-base-branch should be main"
+
+  echo "--- a record that is already there is not overwritten on a second dispatch"
+  git -C "$TMP/repo" config branch.issue-62.mmw-base 0123456789012345678901234567890123456789
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          bash "$DISPATCH" 62 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/repo" config --get branch.issue-62.mmw-base)" = 0123456789012345678901234567890123456789 ] \
+    || fail "an existing mmw-base was overwritten"
+
+  echo "--- a worktree that is already there for a branch with no record is filled in too"
+  reset_log
+  fresh_repo
+  make_branch issue-63 three.txt "made by hand"
+  mkdir -p "$MMW_WORKTREES/repo"
+  git -C "$TMP/repo" worktree add "$MMW_WORKTREES/repo/issue-63" issue-63 >/dev/null 2>&1
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          bash "$DISPATCH" 63 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/repo" config --get branch.issue-63.mmw-base)" = "$(git -C "$TMP/repo" merge-base main issue-63)" ] \
+    || fail "mmw-base should be filled in for a worktree that already existed"
 }
 
 scenario_reviewer() {
@@ -836,10 +887,10 @@ scenario_advancedirty() {
   hasnt "agent :: start"
 }
 
-ALL="worker reviewer seat runtable runchecks idletimeout notready livesession noherdr wait waittimeout placeholder advance advanceconflict advancedirty"
+ALL="worker basecommit reviewer seat runtable runchecks idletimeout notready livesession noherdr wait waittimeout placeholder advance advanceconflict advancedirty"
 
 case "${1:-}" in
-  worker|reviewer|seat|runtable|runchecks|idletimeout|notready|livesession|noherdr|wait|waittimeout|placeholder|advance|advanceconflict|advancedirty)
+  worker|basecommit|reviewer|seat|runtable|runchecks|idletimeout|notready|livesession|noherdr|wait|waittimeout|placeholder|advance|advanceconflict|advancedirty)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -851,6 +902,7 @@ esac
 banner_for() {
   case "$1" in
     worker) echo DISPATCH-WORKER-OK ;;
+    basecommit) echo DISPATCH-BASECOMMIT-OK ;;
     reviewer) echo DISPATCH-REVIEWER-OK ;;
     seat) echo DISPATCH-SEAT-OK ;;
     runtable) echo DISPATCH-RUNTABLE-OK ;;

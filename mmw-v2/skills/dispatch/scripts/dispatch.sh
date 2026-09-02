@@ -226,32 +226,51 @@ herdr_agent_kinds() {
 # A branch named issue-<n> that already exists is reused as it stands: the ticket is
 # being started again, and the new session resumes the work. Otherwise the branch is cut from
 # HEAD — whatever branch the dispatching session is on, because that is where the day's
-# discussion and spec work happened and the ticket builds on it — and the base commit is
-# recorded in `branch.issue-<n>.mmw-base`, where `verify-ticket.py` and the code review
-# read the base their diffs start from. Stale bookkeeping for a directory deleted by
-# hand is pruned first, and a failed add leaves git's own error on stderr for the
-# caller's refusal to carry.
+# discussion and spec work happened and the ticket builds on it. Either way the base
+# commit ends up in `branch.issue-<n>.mmw-base`, where `verify-ticket.py` and the code
+# review read the base their diffs start from: for a branch cut here it is HEAD, and
+# for a branch that was there already — made by hand, or left by an earlier night —
+# and has no record yet, it is that branch's merge base with HEAD. Stale bookkeeping
+# for a directory deleted by hand is pruned first, and a failed add leaves git's own
+# error on stderr for the caller's refusal to carry.
 worktree_for() {
   local number="$1" root="$2"
   local base="${MMW_WORKTREES:-$HOME/.mmw/worktrees}/$(basename "$root")"
   local path="$base/issue-$number"
   git -C "$root" worktree prune 2>/dev/null
-  if [ -d "$path" ]; then
-    printf '%s\n' "$path"
-    return 0
-  fi
-  mkdir -p "$base" || return 1
   if git -C "$root" rev-parse --verify --quiet "refs/heads/issue-$number" >/dev/null; then
+    if [ -d "$path" ]; then
+      record_base_if_missing "$number" "$root"
+      printf '%s\n' "$path"
+      return 0
+    fi
+    mkdir -p "$base" || return 1
     git -C "$root" worktree add "$path" "issue-$number" >/dev/null || return 1
+    record_base_if_missing "$number" "$root"
   else
+    mkdir -p "$base" || return 1
     git -C "$root" worktree add -b "issue-$number" "$path" HEAD >/dev/null || return 1
     git -C "$root" config "branch.issue-$number.mmw-base" "$(git -C "$root" rev-parse HEAD)"
-    # The branch name as well as the commit: `advance` merges this branch back into
-    # the one it was cut from once the ticket closes, and a sha cannot name a branch.
     git -C "$root" config "branch.issue-$number.mmw-base-branch" \
       "$(git -C "$root" rev-parse --abbrev-ref HEAD)"
   fi
   printf '%s\n' "$path"
+}
+
+# Fills `branch.issue-<n>.mmw-base` for a branch that exists without one, with the
+# merge base of HEAD and that branch; `mmw-base-branch` likewise, with the branch HEAD
+# is on. A value already there is left alone: it was recorded when the branch was cut
+# and is the better answer.
+record_base_if_missing() {
+  local number="$1" root="$2" found
+  if [ -z "$(git -C "$root" config --get "branch.issue-$number.mmw-base")" ]; then
+    found="$(git -C "$root" merge-base HEAD "issue-$number" 2>/dev/null)"
+    [ -n "$found" ] && git -C "$root" config "branch.issue-$number.mmw-base" "$found"
+  fi
+  if [ -z "$(git -C "$root" config --get "branch.issue-$number.mmw-base-branch")" ]; then
+    git -C "$root" config "branch.issue-$number.mmw-base-branch" \
+      "$(git -C "$root" rev-parse --abbrev-ref HEAD)"
+  fi
 }
 
 # ------------------------------------------------------------------ dispatching
