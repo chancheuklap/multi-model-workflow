@@ -53,7 +53,7 @@ Three rules bind how each one is worded:
 4. **Could a machine decide it, if only it could reach the thing?** Two answers hide under one question, and they part on whether the reach is something you build.
    - **It is.** The state lives inside software you are about to write, and something has to put the system there: a screen composed against fixtures instead of the live client, a seeded row, a stub scripted to answer in a set order. This stays a criterion. But the thing that reaches the state has to be named in the spec's Testing Decisions, under **How a test arrives at a state**, and owned under some ticket's **Owns**. Missing either, the state is out of reach for this batch, and the criterion becomes its own ticket of kind *reach* — see **Work only a person can do** below — whose retiring line names the mechanism that has no name yet, or the ticket that would own it. Reaching a state is work, and work that nobody owns does not happen; a *reach* ticket is where it waits for an owner.
    - **It is not.** A signed installer on a clean machine, a login against the real provider, a notification arriving on a phone. Its own ticket, of kind *reach* — see **Work only a person can do** below.
-5. **Is it a choice rather than a check?** No true or false, only a preference, and the answer decides what to build next rather than whether what was built is right. Pick a default, build on it, and record the choice in the closing comment. When nothing can proceed until someone chooses, that is a decision ticket, asked before this batch is written rather than scheduled after it.
+5. **Is it a choice rather than a check?** No true or false, only a preference, and the answer decides what to build next rather than whether what was built is right. The user is here now, so ask them: carry the choice into the quiz of step 6, with the options and the one you would take, and write the answer into the ticket's **What to build** as a numbered point of its own. The worker then reads it as the ticket's decision and not as one it made on its own; nothing the ticket writer chose is left for the night.
 
 If no command exists because the spec never decided how this is verified, stop and return to `/to-spec`. Do not invent it.
 
@@ -101,14 +101,16 @@ Present the proposed breakdown as a numbered list. For each ticket, show:
 - **Title**: short descriptive name
 - **Blocked by**: which other tickets (if any) must complete first
 - **What it delivers**: the end-to-end behaviour this ticket makes work
+- **Choices**: every choice question 5 sent here, one line each — the options, and the one you would take. Omit the line when there are none.
 
 Ask the user:
 
 - Does the granularity feel right? (too coarse / too fine)
 - Are the blocking edges correct: does each ticket only depend on tickets that genuinely gate it?
 - Should any tickets be merged or split further?
+- For each choice listed: which option?
 
-Iterate until the user approves the breakdown.
+Iterate until the user approves the breakdown. Write each answered choice into that ticket's **What to build** before publishing.
 
 ### 7. Publish the tickets to the configured tracker
 
@@ -158,7 +160,7 @@ senior-worker — one settlement per task, and a wrong one surfaces days later i
 
 ## What to build
 
-The end-to-end behaviour this ticket makes work, from the user's perspective, not layer-by-layer implementation. Write it as numbered points, one thing per point, each point complete with the test that decides it and the reason it is there. A person scans it for the one point they came for, an agent works from it with none of your context, and neither gets through one long paragraph.
+The end-to-end behaviour this ticket makes work, from the user's perspective, not layer-by-layer implementation. Write it as numbered points, one thing per point, each point complete with the test that decides it and the reason it is there. A choice the user settled in the quiz of step 6 is a point of its own here, stated as the ticket's decision. A person scans it for the one point they came for, an agent works from it with none of your context, and neither gets through one long paragraph.
 
 ## Read first
 

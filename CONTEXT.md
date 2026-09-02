@@ -329,7 +329,7 @@ Which of the two worker grades the ticket goes to and one line why; `senior-work
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`## What to build`**:
-The end-to-end behaviour this ticket makes work, from the user's point of view, in numbered points each with the test that decides it and the reason it is there. It describes the same slice as the title (checked at read-back and after claiming) and is never simplified away.
+The end-to-end behaviour this ticket makes work, from the user's point of view, in numbered points each with the test that decides it and the reason it is there; a choice the user settled in the `to-tickets` quiz is a point of its own. It describes the same slice as the title (checked at read-back and after claiming) and is never simplified away.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`## Read first`**:
@@ -396,7 +396,7 @@ _Avoid_: fenced check, fenced code block, 代码块围栏, 围栏
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **the five questions**:
-What the ticket writer asks, in order, of anything there is to say about the work, stopping at the first yes: is it an acceptance criterion (decided by a command)? a code-review judgement (written into the spec's `## Implementation Decisions` subsection the ticket names, where the Spec axis reads it as in-ticket)? a person's `reaction`? a `reach`? or a choice — take the default and record it in the closing comment, and only when the work cannot go on, a decision ticket.
+What the ticket writer asks, in order, of anything there is to say about the work, stopping at the first yes: is it an acceptance criterion (decided by a command)? a code-review judgement (written into the spec's `## Implementation Decisions` subsection the ticket names, where the Spec axis reads it as in-ticket)? a person's `reaction`? a `reach`? or a choice — asked of the user in the quiz, the answer written into the ticket's `## What to build`.
 _Avoid_: 五问, 五问判定树
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
@@ -490,7 +490,7 @@ The two category roles, exactly one on every triaged issue from outside; never o
 _Home_: `docs/agents/triage-labels.md`
 
 **decision ticket**:
-A child issue of a `wayfinder:map` holding one question whose **resolution** is a decision: a resolution comment, the issue closed, a context pointer (gist plus link) appended to the map's Decisions so far. Its resolution comment is a baseline source. It carries a state role and no category role; `AFK` and `HITL` say whether the agent works it alone. Its type label is `wayfinder:<type>` — research, prototype, grilling, task. In `to-tickets`, a choice that would block the batch becomes one, asked before the batch.
+A child issue of a `wayfinder:map` holding one question whose **resolution** is a decision: a resolution comment, the issue closed, a context pointer (gist plus link) appended to the map's Decisions so far. Its resolution comment is a baseline source. It carries a state role and no category role; `AFK` and `HITL` say whether the agent works it alone. Its type label is `wayfinder:<type>` — research, prototype, grilling, task.
 _Avoid_: wayfinder ticket
 _Home_: `mmw-v2/upstream/skills/engineering/wayfinder/SKILL.md`
 
