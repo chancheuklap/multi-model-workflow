@@ -36,16 +36,13 @@ SUMMARY_RE = re.compile(r"^(ALL MET|UNMET:|HANDOFF REQUIRED:)")
 GATE_LINE_RE = re.compile(r"^- \[( |x|X)\] ([A-Za-z0-9][A-Za-z0-9._-]*):")
 TTL_MS = "86400000"
 
-# A criterion is abandoned for one of three reasons, and the three differ in what the
-# closeout demands of them. `failed` ran and did not pass, so the ticket has to show the
-# three self-runs that tried; `stuck` never ran or cannot be done, so there is nothing to
-# count; `decision` needs a person to choose, and is the only one that still closes.
+# A criterion is abandoned for one of three reasons. `failed` ran and did not pass;
+# `stuck` never ran or cannot be done; the two are told apart for whoever reads the
+# ticket in the morning, and both hand the ticket back. `decision` needs a person to
+# choose, and is the only one that still closes. How many rounds a criterion gets is
+# the worker's own judgement, said on the `ABANDON:` line.
 ABANDON_KINDS = ("decision", "failed", "stuck")
 HANDOFF_KINDS = ("failed", "stuck")
-# The self-runs a `failed` criterion has to show before the closeout accepts it: a
-# floor on the trying, not a cap on it. How many rounds a criterion gets is the
-# worker's own judgement.
-ROUND_LIMIT = 3
 # Seconds one `CHECK:` may run. A ticket raises it per criterion with `TIMEOUT:`; the
 # worker's own run and the verifier's `--reverify` read the same lines, so the two
 # never disagree about it.
@@ -533,26 +530,6 @@ def tally(criteria: list[dict], abandons: list[dict]) -> dict:
     return counts
 
 
-def unmet_rounds(comments: list[str], criterion: str) -> int:
-    """How many self-runs so far have left `criterion` unmet.
-
-    The ticket is the only place this is written down: every self-run posts its ledger
-    as a comment, so the rounds spent on one criterion are there to be counted. Nothing
-    is stored between runs.
-    """
-    rounds = 0
-    for comment in comments:
-        head = comment.strip().splitlines()[:1]
-        if head != ["self-run"]:
-            continue
-        for c in parse_criteria(comment):
-            if c["id"] != criterion:
-                continue
-            if not (c["ticked"] and c["evidence"] and c["evidence"] != "pending"):
-                rounds += 1
-    return rounds
-
-
 def draft_line(text: str, prefix: str) -> str | None:
     """The first line starting with `prefix`, without it."""
     for line in text.splitlines():
@@ -641,19 +618,6 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
     counts = tally(criteria, abandons)
     if first == "ALL MET" and counts["unmet"]:
         problems.append(f"first line is `ALL MET` but {counts['unmet']} criteria are unmet")
-
-    # `failed` says the criterion was tried and would not pass, and the ticket has to
-    # show the trying: three self-runs that left it unmet. `stuck` never ran, so there
-    # is nothing to count, and demanding rounds of it would only burn them.
-    for a in abandons:
-        if a["kind"] != "failed":
-            continue
-        rounds = unmet_rounds(comments, a["ac"])
-        if rounds < ROUND_LIMIT:
-            problems.append(
-                f"ABANDON: {a['ac']} failed, but the ticket shows {rounds} self-run"
-                f"{'' if rounds == 1 else 's'} that left it unmet, not {ROUND_LIMIT}; "
-                f"run it again, or abandon it as `stuck` and say what stopped it")
 
     stated = draft_line(draft, "Counts:")
     m = COUNTS_RE.match("Counts: " + stated) if stated is not None else None

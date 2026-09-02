@@ -39,9 +39,9 @@ A criterion passes only when its `CHECK` exits `0` **and** its output matches `E
 
 `verify-ticket.py` reads the ticket and writes one comment. The ticket body, the `CHECK` commands and what a criterion means are yours. A wrong `CHECK` is fixed on the ticket: comment saying what is wrong with it, edit the criterion, run again. The `VERDICT` line is the verifier's own comment, written after `--reverify`, not something `verify-ticket.py` emits.
 
-## Three self-runs behind a `failed`
+## How many rounds a criterion gets
 
-How many rounds a criterion gets is the worker's own judgement; no run names a limit. What `--closeout` asks of `ABANDON: AC<n> failed` is evidence of the trying: three `self-run` comments on the ticket that show that criterion unmet. The count is the ticket's own comments — nothing is stored between runs.
+The worker's own judgement; no run names a limit and `--closeout` counts none. `ABANDON: AC<n> failed` says it ran and did not pass, `ABANDON: AC<n> stuck` says it would not run or cannot be done here, and the reason on that line says what was tried — that is the whole record of the trying, written for whoever reads the ticket in the morning.
 
 ## `Outside Owns`
 
