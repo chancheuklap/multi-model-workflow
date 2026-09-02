@@ -130,15 +130,20 @@ class TestFirstLine(unittest.TestCase):
         self.assertEqual(code, 0, err)
 
     def test_all_met_with_a_real_unmet_beside_the_decision_is_refused(self):
+        """The draft ticks AC3 as met; the newest run says it is not. Only the run's
+        own summary refuses this — the draft is well formed on its face."""
         unmet3 = UNMET.replace("AC2: the expiry page says the link is stale",
                                "AC3: the expiry page links back home")
-        text = draft(criteria=(MET, UNMET, unmet3),
+        met3 = MET.replace("AC1: the importer writes six rows",
+                           "AC3: the expiry page links back home")
+        text = draft(criteria=(MET, UNMET, met3),
                      abandons=("ABANDON: AC2 decision both wordings are legal; opened #58",),
-                     counts=counts_line(met=1, unmet=1, abandoned=1, total=3))
+                     counts=counts_line(met=2, abandoned=1, total=3))
         newest_run = "\n".join(["self-run", "UNMET: 2 (met: 1)", "", MET, UNMET, unmet3])
         code, err, _ = check(text, comments=(VERDICT_COMMENT, newest_run))
         self.assertEqual(code, 1)
         self.assertIn("the newest run on the ticket still reports unmet", err)
+        self.assertNotIn("first line is `ALL MET` but", err)
 
     def test_a_well_formed_handoff_first_line_passes(self):
         text = draft(first="HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 1 met of 2",

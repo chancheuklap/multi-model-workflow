@@ -41,7 +41,7 @@ A criterion passes only when its `CHECK` exits `0` **and** its output matches `E
 
 ## How many rounds a criterion gets
 
-The worker's own judgement; no run names a limit and `--closeout` counts none. `ABANDON: AC<n> failed` says it ran and did not pass, `ABANDON: AC<n> stuck` says it would not run or cannot be done here, and the reason on that line says what was tried — that is the whole record of the trying, written for whoever reads the ticket in the morning.
+The worker's own judgement; no run names a limit and `--closeout` counts none. `ABANDON: AC<n> failed` says it ran and did not pass, `ABANDON: AC<n> stuck` says it would not run or cannot be done here, and the reason on that line says what was tried.
 
 ## `Outside Owns`
 
