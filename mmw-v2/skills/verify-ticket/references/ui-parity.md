@@ -37,6 +37,8 @@ The pixel threshold is not on the line: it is the script's default, so that loos
 
 An implementation that is not a page on a web server — a desktop application, say — is compared where it already runs: `--cdp <debugging port url>` names its debugging port, `--impl` still names the address to navigate to, and `--impl-title` picks the window when there is more than one. The application has to be running when the criterion runs, and is left running afterwards. What is compared is what its renderer draws, so the size of its operating-system window is not: a window minimum is the user's to check, not this script's.
 
+A run borrows that window, because Electron exposes one page over its debugging port and refuses to open another (`Target.createTarget: Not supported`). So while a run is going, the window on screen switches between the viewports being compared and shows the page smaller than itself at the smaller one; when the run ends the window is given back at its own size, on `--impl`. A window that stays small after a run means the run did not reach its end.
+
 ## Reading what it printed
 
 Three exit codes.
