@@ -41,9 +41,15 @@ Four cases reach you, each as one line beginning `mmw board:`. The line names th
 | Case | What it means |
 | --- | --- |
 | `ADVANCE` | The frontier has tickets on it |
-| `night over` | The night ended: `NIGHT SUMMARY` is the newest comment on the spec. Advance one last time — the tickets that closed last still have their branches outside your base branch, and this is the last chance to merge them — then read the summary, and tell the user if they asked to hear when the night finished |
+| `night over` | The night ended: `NIGHT SUMMARY` is the newest comment on the spec. Advance one last time — the tickets that closed last still have their branches outside your base branch, and this is the last chance to merge them — then re-run the closed tickets' criteria as below, read the summary, and tell the user if they asked to hear when the night finished |
 | `STOPPED` | A worker ended a turn on its own, short of `closed` or `handoff`, or its turn failed more than `FAILED_LIMIT` times at one phase. The line names its Herdr name: read its screen, work out why, and move it on |
 | `TIME LIMIT` | A ticket has held its session for `--max-hours`. Nothing was changed: read the session's screen and decide whether it goes on |
+
+## Re-running the closed tickets
+
+A ticket's criteria run in its own worktree, against the code that was there while it ran. A ticket merged after it can break one of them, and until the base branch is checked nothing looks: every ticket is green alone and the branch is red.
+
+So after the last advance, on the base branch, for every ticket this spec closed, in ticket order: `verify-ticket.py <n> --reverify`. Comment the base-branch commit each one was re-run at, and reopen whatever fails. A criterion that needs an application running starts it once and reuses it for the whole pass.
 
 No question reaches the screen: `hook.py` refuses the host's question tool in every dispatched session and tells the worker where the question goes instead — the default taken and recorded under `Decisions I made on my own`, or `ABANDON: AC<n> decision` with a sub-issue.
 

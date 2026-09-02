@@ -24,7 +24,8 @@ Resolve them from this file's own location. The path differs by machine and by h
 | --- | --- |
 | Start the reviewer on your ticket and wait for its report | `<dispatch> <n> reviewer <base-commit>`, then `<dispatch> wait <n> "^REVIEW "` |
 | Open the night on a spec | `<dispatch> run <spec>`, then `<dispatch> advance <spec>` straight after |
-| Act on `mmw board: ADVANCE` or `mmw board: night over` | `<dispatch> advance <spec>` |
+| Act on `mmw board: ADVANCE` | `<dispatch> advance <spec>` |
+| Act on `mmw board: night over` | `<dispatch> advance <spec>`, then re-run the closed tickets' criteria on the base branch — [references/night.md](references/night.md) |
 | Act on `mmw board: STOPPED #<n>` or `mmw board: TIME LIMIT #<n>` | `herdr agent read <name> --source recent --lines 80`, with the Herdr name the line carries. Read why that worker stopped, fix what stopped it yourself — a file it could not find, a command it needs, a baseline it read wrong — and tell it to carry on with `herdr agent prompt <name> "<what you settled, then: continue>"`. A question only a person can settle goes into a sub-issue under the spec (`gh issue create --parent <spec> --label needs-triage`), and the worker is told to take the default meanwhile. Change no label: the ticket stays in the agent queue until its worker closes it out |
 | Start a worker on one ticket, outside a night | `<dispatch> <n> worker` |
 | Change one ticket's worker grade | Swap its `junior-worker` / `senior-worker` label on the tracker; the next dispatch reads it |

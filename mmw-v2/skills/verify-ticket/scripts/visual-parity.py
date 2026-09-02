@@ -59,9 +59,11 @@ is compared where it already runs, by connecting to its debugging port:
 
 `--cdp` says which browser; `--impl` still says where to navigate, because a scene is
 reached by its query string: `scene=<name>` plus the scene's props from `scenes.json`.
-The application is left running afterwards. Only what its renderer draws is compared:
-the size of its operating-system window is not, so a window minimum is checked by the
-user, not here.
+That browser renders the handoff package too, so both sides come out of one engine with
+one set of fonts: two browsers measure a line of text a fraction of a pixel apart, which
+is enough to break a line on one side and move everything below it. The application is
+left running afterwards. Only what its renderer draws is compared: the size of its
+operating-system window is not, so a window minimum is checked by the user, not here.
 
 Exit 0 and one line `PARITY OK <passed>/<total> pixel<=<worst>%` when every scene
 matches at every viewport; the number is the largest pixel share any pair had, so a
@@ -93,6 +95,7 @@ import threading
 import time
 import urllib.parse
 import urllib.request
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -485,7 +488,8 @@ def capture(page, url: str, selector: str | None, viewport: tuple[int, int], png
             target.screenshot(**shot_at)
         else:
             page.screenshot(**shot_at)
-        aria = target.aria_snapshot()
+        aria = name_options_from_dom(target.aria_snapshot(),
+                                     target.evaluate(OPTION_TEXT_JS))
         elements = page.evaluate(ELEMENTS_JS)
     finally:
         page.remove_listener("console", on_console)
@@ -525,6 +529,36 @@ def impl_page_over_cdp(browser, title_includes: str | None, timeout_seconds: int
 def aria_path(png: Path) -> Path:
     """The ARIA snapshot saved beside a screenshot, under the same name."""
     return png.with_name(png.name.removesuffix(".png") + ".aria.yml")
+
+
+# An `<option>`'s accessible name is computed from its own child text nodes alone. The
+# Claude Design runtime wraps every `{{ }}` hole in a `span.sc-interp`, which takes the
+# text out of those nodes, so a handoff package reports its options unnamed while any
+# implementation that writes the same text plainly reports them named. Both sides read
+# the name off the DOM instead, and the comparison is of the copy the reader sees.
+OPTION_TEXT_JS = """(root) => [...root.querySelectorAll('option')]
+  .map(o => (o.textContent || '').trim().replace(/\\s+/g, ' '))"""
+
+OPTION_LINE = re.compile(r'^(\s*- option)(?: "(?:[^"\\]|\\.)*")?(.*)$')
+
+
+def name_options_from_dom(aria: str, texts: list[str]) -> str:
+    """The ARIA snapshot with every `option` line renamed from the DOM, in tree order.
+
+    Both listings are in document order — the snapshot's nodes and
+    `querySelectorAll('option')` — so the nth line takes the nth text.
+    """
+    remaining = list(texts)
+    out = []
+    for line in aria.splitlines():
+        m = OPTION_LINE.match(line)
+        if not m or not remaining:
+            out.append(line)
+            continue
+        text = remaining.pop(0)
+        head, attrs = m.group(1), m.group(2)
+        out.append(f'{head} "{text}"{attrs}' if text else f"{head}{attrs}")
+    return "\n".join(out)
 
 
 def frame_css(viewport: tuple[int, int]) -> str:
@@ -659,31 +693,56 @@ def run(args) -> int:
     control: Comparison | None = None
     try:
         with sync_playwright() as pw:
-            browser = pw.chromium.launch()
-            # The baseline is always rendered here. The implementation is either opened
-            # here too, or it is an application already running that this connects to
-            # and leaves running: its window is the one the user will see.
+            # One browser renders both sides. With `--cdp` that is the application's own,
+            # so the two screenshots come out of the same engine, the same fonts and the
+            # same device pixel ratio, and the only difference left between them is
+            # whether the implementation followed the design. Two browsers differ by
+            # fractions of a pixel in how they measure a line of text, which is enough to
+            # break a line one side and not the other and move everything below it.
             impl_browser = (pw.chromium.connect_over_cdp(args.cdp, timeout=10000)
                             if args.cdp else None)
             impl_page = (impl_page_over_cdp(impl_browser, args.impl_title)
                          if impl_browser else None)
+            browser = pw.chromium.launch() if impl_page is None else None
+
+            @contextmanager
+            def baseline_page():
+                """A page for the handoff package side, with only its own origin and the
+                CDN cache reachable. The application's page is routed for the render and
+                unrouted after, so the implementation side still reaches its own server.
+                """
+                if impl_page is None:
+                    page = base_ctx.new_page()
+                    try:
+                        yield page, False
+                    finally:
+                        page.close()
+                else:
+                    impl_page.route("**/*", route_baseline)
+                    try:
+                        yield impl_page, True
+                    finally:
+                        impl_page.unroute("**/*", route_baseline)
+
             for vp in viewports:
                 tag_vp = f"{vp[0]}x{vp[1]}"
-                base_ctx = browser.new_context(
-                    viewport={"width": vp[0], "height": vp[1]}, device_scale_factor=1,
-                    reduced_motion="reduce", locale="zh-CN")
-                base_ctx.route("**/*", route_baseline)
-                impl_ctx = None if impl_page else browser.new_context(
-                    viewport={"width": vp[0], "height": vp[1]}, device_scale_factor=1,
-                    reduced_motion="reduce", locale="zh-CN")
+                base_ctx = impl_ctx = None
+                if impl_page is None:
+                    base_ctx = browser.new_context(
+                        viewport={"width": vp[0], "height": vp[1]},
+                        device_scale_factor=1, reduced_motion="reduce", locale="zh-CN")
+                    base_ctx.route("**/*", route_baseline)
+                    impl_ctx = browser.new_context(
+                        viewport={"width": vp[0], "height": vp[1]},
+                        device_scale_factor=1, reduced_motion="reduce", locale="zh-CN")
                 first_baseline: Shot | None = None
                 for scene in scenes:
                     name = scene["name"]
-                    page = base_ctx.new_page()
-                    base_shot = capture(
-                        page, f"{origin}/__parity-{name}.dc.html", "#dc-root", vp,
-                        media / f"{name}-{tag_vp}-baseline.png", frame_css(vp))
-                    page.close()
+                    with baseline_page() as (page, over_cdp):
+                        base_shot = capture(
+                            page, f"{origin}/__parity-{name}.dc.html", "#dc-root", vp,
+                            media / f"{name}-{tag_vp}-baseline.png", frame_css(vp),
+                            over_cdp=over_cdp)
                     if first_baseline is None:
                         first_baseline = base_shot
                     page = impl_page or impl_ctx.new_page()
@@ -702,12 +761,12 @@ def run(args) -> int:
                         base_shot.console, impl_shot.console, impl_shot.elements))
                 if control is None:
                     scene = scenes[0]
-                    page = base_ctx.new_page()
-                    wrong = capture(
-                        page, f"{origin}/__parity-{scene['name']}.dc.html", "#dc-root",
-                        vp, media / f"{NEGATIVE_CONTROL_SCENE}-{tag_vp}-impl.png",
-                        frame_css(vp) + NEGATIVE_CONTROL_CSS, NEGATIVE_CONTROL_JS)
-                    page.close()
+                    with baseline_page() as (page, over_cdp):
+                        wrong = capture(
+                            page, f"{origin}/__parity-{scene['name']}.dc.html", "#dc-root",
+                            vp, media / f"{NEGATIVE_CONTROL_SCENE}-{tag_vp}-impl.png",
+                            frame_css(vp) + NEGATIVE_CONTROL_CSS, NEGATIVE_CONTROL_JS,
+                            over_cdp=over_cdp)
                     stem = media / f"{NEGATIVE_CONTROL_SCENE}-{tag_vp}"
                     control = Comparison(
                         NEGATIVE_CONTROL_SCENE, tag_vp,
@@ -719,10 +778,12 @@ def run(args) -> int:
                     _copy(first_baseline.png, Path(f"{stem}-baseline.png"))
                     aria_path(Path(f"{stem}-baseline.png")).write_text(
                         first_baseline.aria, encoding="utf-8")
-                base_ctx.close()
+                if base_ctx is not None:
+                    base_ctx.close()
                 if impl_ctx is not None:
                     impl_ctx.close()
-            browser.close()
+            if browser is not None:
+                browser.close()
             if impl_browser is not None:
                 # Disconnects; the application it belongs to goes on running.
                 impl_browser.close()

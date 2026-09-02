@@ -8,6 +8,10 @@ The accessibility tree is the main judge. It is read flat, as the sequence of na
 
 Pixels are the second judge, for what a tree cannot carry: colour, spacing, a block that did not render. Both screenshots are shrunk by 4 (each cell the average of a 4×4 block) before they are compared, which removes glyph rendering and offsets under 4 pixels; the share of cells that still differ is held to `--max-pct`, 3% by default. Measured on a six-scene ticket with the tree identical, font rendering alone left 0.04%–1.52%; a page whose copy or layout was wrong measured 1.5%–31%. What 3% lets through is a small thing the tree cannot see — one badge's colour, a panel offset by a few pixels. Those are for the code review's Spec axis and for the user looking at the screenshots under `--out`, not for another round of fixing.
 
+Both sides render in one browser. With `--cdp` that is the application's own, so the two screenshots come out of the same engine with the same fonts: two browsers measure a line of text a fraction of a pixel apart, and a line that fits on one side and breaks on the other moves everything below it, which reads as a large pixel difference where nothing is wrong. One `option` normalisation rides on the same reasoning: an `<option>`'s accessible name comes from its own child text nodes, and the Claude Design runtime wraps interpolated text in a `span.sc-interp`, so both sides take that name from the DOM instead.
+
+The default viewports, `1440x900,1180x720`, are one application's window size and its declared minimum. A design that declares other sizes — its handoff package `README.md` is where it says so — names them on the criterion with `--viewports`; a run at a size the design was never drawn at compares two untested reflows and passes while verifying nothing.
+
 Two agents come here. The one **writing** the criterion needs the shape below. The one **reading** a `DIFF` line needs the last section.
 
 ## The handoff package directory
