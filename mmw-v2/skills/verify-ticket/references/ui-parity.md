@@ -16,7 +16,7 @@ A Claude Design project downloaded as a handoff package, holding five things: th
 
 ## What it presumes of the implementation
 
-The handoff package side is pinned by this script. The implementation side is not: the script opens `<impl url>?<scene props>` and expects to find the interface already in that scene. Something in the product has to answer those parameters. That is a capability someone builds, in some ticket, and the spec's `## Testing Decisions` is where it is decided — what form it takes, and which builds carry it. A criterion written against a spec that never decided it names a state nothing can arrive at, and fails the first night it runs. When you reach that, do not compose a command anyway: stop, and take it back to the `to-spec` skill.
+The handoff package side is pinned by this script. The implementation side is not: the script opens `<impl url>?scene=<scene name>&<scene props>` — the scene's name from `scenes.json` first, then each prop as its own parameter — and expects to find the interface already in that scene. Something in the product has to answer those parameters. That is a capability someone builds, in some ticket, and the spec's `## Testing Decisions` is where it is decided — what form it takes, and which builds carry it. A criterion written against a spec that never decided it names a state nothing can arrive at, and fails the first night it runs. When you reach that, do not compose a command anyway: stop, and take it back to the `to-spec` skill.
 
 ## The criterion, in one shape
 

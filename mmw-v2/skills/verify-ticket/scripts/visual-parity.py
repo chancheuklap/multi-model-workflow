@@ -58,9 +58,10 @@ is compared where it already runs, by connecting to its debugging port:
         --impl http://127.0.0.1:5173/ --scenes a,b
 
 `--cdp` says which browser; `--impl` still says where to navigate, because a scene is
-reached by its query string. The application is left running afterwards. Only what its
-renderer draws is compared: the size of its operating-system window is not, so a window
-minimum is checked by the user, not here.
+reached by its query string: `scene=<name>` plus the scene's props from `scenes.json`.
+The application is left running afterwards. Only what its renderer draws is compared:
+the size of its operating-system window is not, so a window minimum is checked by the
+user, not here.
 
 Exit 0 and one line `PARITY OK <passed>/<total> pixel<=<worst>%` when every scene
 matches at every viewport; the number is the largest pixel share any pair had, so a
@@ -533,9 +534,18 @@ def frame_css(viewport: tuple[int, int]) -> str:
             f"height:{viewport[1]}px !important;margin:0 !important}}")
 
 
-def impl_url(base: str, props: dict) -> str:
+def impl_url(base: str, scene: str, props: dict) -> str:
+    """The implementation's address for one scene.
+
+    The query carries `scene=<name>` — the scene's name from `scenes.json`, which is
+    unique — and every scene prop as its own parameter. Several scenes of one handoff
+    package can share the same props (a shell header and a library page both in
+    `scenario=ready`), so an implementation that keys on `scene` reaches exactly one;
+    one that only knows the props still works.
+    """
     parts = urllib.parse.urlsplit(base)
     query = urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
+    query.append(("scene", scene))
     query += [(k, v if isinstance(v, str) else json.dumps(v)) for k, v in props.items()]
     return urllib.parse.urlunsplit(
         (parts.scheme, parts.netloc, parts.path, urllib.parse.urlencode(query),
@@ -678,7 +688,7 @@ def run(args) -> int:
                         first_baseline = base_shot
                     page = impl_page or impl_ctx.new_page()
                     impl_shot = capture(
-                        page, impl_url(args.impl, scene.get("props") or {}), None, vp,
+                        page, impl_url(args.impl, name, scene.get("props") or {}), None, vp,
                         media / f"{name}-{tag_vp}-impl.png",
                         over_cdp=impl_page is not None)
                     if impl_page is None:

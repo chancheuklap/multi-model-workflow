@@ -225,7 +225,7 @@ _Avoid_: 交接包, 开发交接包, 基线目录, UI 基线
 _Home_: `mmw-v2/skills/verify-ticket/references/ui-parity.md`
 
 **scene**:
-One entry of `scenes.json`: `name`, `page` (the `.dc.html` it pins), and `props` (the query parameters that put the real page into that state, `<impl url>?<scene props>`). Each scene gets its own screenshot and accessibility tree per viewport. The name may not contain `/`, because its wrapper page is `/__parity-<name>.dc.html`. In Claude Design a scene is a prop set from the Tweaks panel.
+One entry of `scenes.json`: `name`, `page` (the `.dc.html` it pins), and `props` (the query parameters that put the real page into that state, opened as `<impl url>?scene=<name>&<scene props>` — the name first, because two scenes can share one prop set). Each scene gets its own screenshot and accessibility tree per viewport. The name may not contain `/`, because its wrapper page is `/__parity-<name>.dc.html`. In Claude Design a scene is a prop set from the Tweaks panel.
 _Avoid_: 场景 (when a scene is meant), 场景列表, scenario (for a scene)
 _Home_: `mmw-v2/skills/claude-design-blocks/SKILL.md`
 

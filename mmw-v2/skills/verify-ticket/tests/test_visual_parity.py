@@ -419,9 +419,12 @@ class TestArguments(unittest.TestCase):
             vp.parse_viewports("1440*900")
 
     def test_scene_props_reach_both_sides(self):
-        self.assertEqual(vp.impl_url("http://127.0.0.1:8765/index.html",
+        """The implementation gets the scene's name first, then its props: two scenes
+        can share one prop set, and the name is what tells them apart."""
+        self.assertEqual(vp.impl_url("http://127.0.0.1:8765/index.html", "queue-empty",
                                      {"scenario": "queue-empty"}),
-                         "http://127.0.0.1:8765/index.html?scenario=queue-empty")
+                         "http://127.0.0.1:8765/index.html?scene=queue-empty"
+                         "&scenario=queue-empty")
         self.assertIn('scenario="queue-empty"',
                       vp.wrapper_page("Component · 任务队列",
                                       {"scenario": "queue-empty"}))
