@@ -19,8 +19,9 @@ is reported to `mmw-main`, which reads its screen and decides; a worker at `clos
 What it does not do is dispatch. `advance` is the main agent's: when the frontier
 grows, `--watch` tells `mmw-main` to run `dispatch.sh advance`, which merges the
 branches of the tickets that closed and then starts the ones that can start. The board
-never takes a ticket out of the agent queue either: a ticket leaves the night only by
-the closing comment its worker writes.
+never takes a ticket out of the agent queue either: a ticket leaves the night by the
+closing comment its worker writes, or by staying behind an open blocker all night — the
+`NIGHT SUMMARY` lists it, and it keeps its label.
 
 One board covers one Herdr workspace. Sessions in another workspace belong to another
 board and are not read, not counted and not touched.
@@ -838,10 +839,13 @@ class Watch:
     # ------------------------------------------------------------- the night's end
 
     def nothing_left(self, rows: list[dict]) -> bool:
-        """No open ticket in the agent queue, and no session of ours still alive."""
-        lane = [r for r in rows
-                if r["state"] == "OPEN" and "ready-for-agent" in r["labels"]]
-        return not lane and not held(rows)
+        """Nothing to start and nothing running: an empty frontier, no session of ours.
+
+        A ticket still in the agent queue behind a blocker that was handed back does
+        not keep the night open — nothing will start it before the morning. It keeps
+        its label, and the summary's `Not dispatched` line names it.
+        """
+        return not frontier(rows) and not held(rows)
 
     def write_summary(self, rows: list[dict]) -> None:
         body = self.summary(rows)

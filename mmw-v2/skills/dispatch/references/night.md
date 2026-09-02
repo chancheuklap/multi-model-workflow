@@ -41,7 +41,7 @@ Four cases reach you, each as one line beginning `mmw board:`. The line names th
 | Case | What it means |
 | --- | --- |
 | `ADVANCE` | The frontier has tickets on it |
-| `night over` | The night ended: `NIGHT SUMMARY` is the newest comment on the spec. Advance one last time — the tickets that closed last still have their branches outside your base branch, and this is the last chance to merge them — then re-run the closed tickets' criteria as below, read the summary, and tell the user if they asked to hear when the night finished |
+| `night over` | The night ended: the frontier is empty and no session of ours is alive. A ticket left waiting on a blocker that was handed back keeps its label and is on the `Not dispatched, a blocker stayed open:` line of `NIGHT SUMMARY`, the newest comment on the spec. Advance one last time — the tickets that closed last still have their branches outside your base branch, and this is the last chance to merge them — then re-run the closed tickets' criteria as below, read the summary, and tell the user if they asked to hear when the night finished |
 | `STOPPED` | A worker ended a turn on its own, short of `closed` or `handoff`, or its turn failed more than `FAILED_LIMIT` times at one phase. The line names its Herdr name: read its screen, work out why, and move it on |
 | `TIME LIMIT` | A ticket has held its session for `--max-hours`. Nothing was changed: read the session's screen and decide whether it goes on |
 

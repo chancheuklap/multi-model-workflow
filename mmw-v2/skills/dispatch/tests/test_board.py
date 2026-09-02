@@ -626,8 +626,9 @@ class Actions(unittest.TestCase):
         self.round(watch)
         self.clock.tick(5 * 3600)
         self.round(watch)
-        self.assertEqual(self.calls["gh"], [])
-        self.assertEqual(self.calls["main"], [])
+        self.assertEqual(self.labels(), [])
+        self.assertEqual([c for c in self.comments() if c[2] == "61"], [])
+        self.assertEqual([c for c in self.calls["herdr"] if c[:2] == ["agent", "start"]], [])
 
     # ------------------------------------------------------------- moving on
 
@@ -687,6 +688,38 @@ class Actions(unittest.TestCase):
 
     def test_an_open_agent_lane_keeps_the_night_going(self):
         self.world([], {61: ticket(61)})
+        watch = self.watch()
+        self.round(watch)
+        self.assertFalse(watch.summary_written)
+
+    def test_a_live_session_keeps_the_night_going_with_nothing_on_the_frontier(self):
+        self.worker_world("working", status="working", phase="implement")
+        watch = self.watch()
+        self.round(watch)
+        self.assertFalse(watch.summary_written)
+
+    def test_a_ticket_behind_a_handed_back_blocker_does_not_keep_the_night_open(self):
+        """#62 went back to needs-triage and #63 waits on it: nothing can start, nothing runs."""
+        self.world([], {62: ticket(62, labels=("needs-triage",),
+                                   comments=["HANDOFF REQUIRED: 1 abandoned (failed), "
+                                             "0 unmet, 4 met of 5"]),
+                        63: ticket(63, blockers=(62,))})
+        watch = self.watch()
+        self.round(watch)
+        self.assertTrue(watch.summary_written)
+        comment = next(c for c in self.calls["gh"] if c[0:2] == ["issue", "comment"])
+        self.assertIn("Not dispatched, a blocker stayed open: #63 blocked by #62",
+                      comment[-1])
+        self.assertEqual(self.labels(), [])
+        self.assertEqual(
+            self.calls["main"],
+            [(board.main_name(), "mmw board: night over #76 — advance spec #76 "
+                                 "with the dispatch skill")])
+
+    def test_a_ticket_behind_a_blocker_still_being_worked_keeps_the_night_open(self):
+        self.world([agent("issue-62", "w1:p2", "working", ticket=62, kind="worker",
+                          phase="implement", turn="working")],
+                   {62: ticket(62, assignees=("me",)), 63: ticket(63, blockers=(62,))})
         watch = self.watch()
         self.round(watch)
         self.assertFalse(watch.summary_written)

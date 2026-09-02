@@ -730,7 +730,7 @@ _Avoid_: 并回来 (as a term)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **night**:
-Everything between the last ticket published and the morning: `run` opens it, `board.py --watch` reads the sessions, `NIGHT SUMMARY` ends it. Two agents share it — the board watches and reports, the main agent decides — and one workspace holds one night. A ticket leaves the night only by its worker's closing comment. **`night over`** is the `mmw board:` case saying the summary is the spec's newest comment: run `advance` one last time.
+Everything between the last ticket published and the morning: `run` opens it, `board.py --watch` reads the sessions, `NIGHT SUMMARY` ends it. Two agents share it — the board watches and reports, the main agent decides — and one workspace holds one night. A ticket leaves the night in one of two ways: by its worker's closing comment, or by staying in the agent queue behind an open blocker all night, which the `Not dispatched, a blocker stayed open:` line of `NIGHT SUMMARY` lists. The night ends when the frontier is empty and no dispatched session is alive. **`night over`** is the `mmw board:` case saying the summary is the spec's newest comment: run `advance` one last time.
 _Avoid_: 夜间编排主循环, night orchestration loop, 夜里 (as a term), 夜间 (as a term)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
