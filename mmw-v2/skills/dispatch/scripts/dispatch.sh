@@ -372,17 +372,28 @@ dispatch() {
 
 # ------------------------------------------------------------------ waiting
 
-# The newest comment on the ticket, or nothing when it has none.
-newest_comment() {
-  gh_ issue view "$1" --json comments 2>/dev/null | python3 -c '
-import json, sys
+# One read of the ticket's comments for `wait`. Prints the comment count on the first
+# line, then the body of the first comment whose first line matches the pattern —
+# among the comments after the first `since` ones, or, when `since` is empty, the
+# newest comment alone. Prints only the count when nothing matches.
+matching_comment() {
+  gh_ issue view "$1" --json comments 2>/dev/null \
+    | MMW_PATTERN="$2" MMW_SINCE="${3:-}" python3 -c '
+import json, os, re, sys
 
 try:
     comments = json.load(sys.stdin).get("comments") or []
 except Exception:
     comments = []
-if comments:
-    sys.stdout.write(comments[-1].get("body") or "")
+print(len(comments))
+since = os.environ["MMW_SINCE"]
+candidates = comments[int(since):] if since else comments[-1:]
+pattern = re.compile(os.environ["MMW_PATTERN"])
+for comment in candidates:
+    body = comment.get("body") or ""
+    if body and pattern.search(body.split("\n", 1)[0]):
+        sys.stdout.write(body)
+        break
 '
 }
 
@@ -417,7 +428,7 @@ wait_for() {
   local number="$1" pattern="$2" seconds="${3:-}"
   [ -n "$seconds" ] || seconds="$WAIT_DEFAULT_SECONDS"
   local deadline=$(( $(date +%s) + seconds ))
-  local target=""
+  local target="" since=""
   [ "${HERDR_ENV:-}" = 1 ] && target="$(awaited_agent "$number")"
 
   while :; do
@@ -428,10 +439,15 @@ wait_for() {
       herdr agent wait "$target" --timeout $(( remaining * 1000 )) >/dev/null 2>&1
     fi
 
-    local comment first
-    comment="$(newest_comment "$number")"
-    first="$(printf '%s' "$comment" | head -n 1)"
-    if [ -n "$comment" ] && printf '%s' "$first" | grep -Eq "$pattern"; then
+    # The first read judges the newest comment, as the caller found the ticket; every
+    # later read judges all the comments added since that first read, so a comment
+    # landing after the awaited one — a `TOUCHED BY` from another ticket, say — does not
+    # hide it.
+    local answer comment
+    answer="$(matching_comment "$number" "$pattern" "$since")"
+    since="$(printf '%s\n' "$answer" | head -n 1)"
+    comment="$(printf '%s\n' "$answer" | tail -n +2)"
+    if [ -n "$comment" ]; then
       printf '%s\n' "$comment"
       return 0
     fi
@@ -443,7 +459,7 @@ wait_for() {
 
   local who="${target:-the agent on #$number}"
   gh_ issue comment "$number" \
-    --body "$who did not report back within ${seconds}s. This round was skipped and the ticket carried on." \
+    --body "$who did not report back within ${seconds}s." \
     >/dev/null 2>&1
   give_up "$who did not report back within ${seconds}s"
 }

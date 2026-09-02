@@ -49,7 +49,7 @@ Four cases reach you, each as one line beginning `mmw board:`. The line names th
 
 A ticket's criteria run in its own worktree, against the code that was there while it ran. A ticket merged after it can break one of them, and until the base branch is checked nothing looks: every ticket is green alone and the branch is red.
 
-So after the last advance, on the base branch, for every ticket this spec closed, in ticket order: `verify-ticket.py <n> --reverify`. Comment the base-branch commit each one was re-run at, and reopen whatever fails. A criterion that needs an application running starts it once and reuses it for the whole pass.
+So after the last advance, on the base branch, for every ticket this spec closed, in ticket order: `verify-ticket.py <n> --reverify`. Comment the base-branch commit each one was re-run at. A ticket with a failing criterion is reopened into the morning's triage queue: `gh issue reopen <n>`, `gh issue edit <n> --add-label needs-triage --remove-assignee <its assignee>`, and one comment naming the base-branch commit (`git rev-parse HEAD`) and each criterion that failed by its `AC<n>` id — the closeout took `ready-for-agent` off and left the assignee, so without the label the ticket sits in no queue and the morning query never lists it. A criterion that needs an application running starts it once and reuses it for the whole pass.
 
 No question reaches the screen: `hook.py` refuses the host's question tool in every dispatched session and tells the worker where the question goes instead — the default taken and recorded under `Decisions I made on my own`, or `ABANDON: AC<n> decision` with a sub-issue.
 
