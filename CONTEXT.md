@@ -265,7 +265,7 @@ A GitHub issue, the issue tracker's unit. In this pipeline it is a spec, a ticke
 _Home_: `docs/agents/issue-tracker.md`
 
 **spec**:
-A top-level issue that holds a batch of tickets. It is a container, not work, so it carries no label. `to-spec` writes it from the conversation, a cleared map, or an agent brief, in the `<spec-template>` shape: `## Problem Statement`, `## Solution`, `## User Stories`, `## Implementation Decisions`, `## Testing Decisions`, `## Out of Scope`, `## Sources`, `## Further Notes`. Decisions that share one seam belong in one spec. A worker reads only the subsections its ticket's `## Parent` names, plus `## Testing Decisions` and `## Out of Scope`. The night runs on it: `run <spec>`, `advance <spec>`.
+A top-level issue that holds a batch of tickets. It is a container, not work, so it carries no label. `to-spec` writes it from the conversation, a cleared map, or an agent brief, in the `<spec-template>` shape: `## Problem Statement`, `## Solution`, `## User Stories`, `## Implementation Decisions`, `## Testing Decisions`, `## Out of Scope`, `## Sources`, `## Further Notes`. Decisions that share one seam belong in one spec. A worker reads only the subsections its ticket's `## Parent` names, plus `## Testing Decisions` and `## Out of Scope`. A section of a published spec is changed in place by `to-spec`'s step for revising a published spec — the body stays the clean current version, what changed and why goes in one comment — so the number and every ticket's `## Parent` stay valid. The night runs on it: `run <spec>`, `advance <spec>`.
 _Admitted_: spec issue
 _Avoid_: 父票, spec 票, 规格
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
