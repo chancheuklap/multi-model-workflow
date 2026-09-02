@@ -271,6 +271,22 @@ def repo_root() -> Path:
     return Path(top) if top else Path.cwd()
 
 
+def outside_owns_line(number: int, globs: list[str], root: Path) -> str:
+    """The comment's `Outside Owns:` line.
+
+    The question it answers — did this ticket write outside what it owns — is asked of
+    this ticket's own commits, so it can only be answered on this ticket's own branch.
+    A re-run on the branch the tickets were merged into is walking every ticket's
+    commits, which answers nothing and runs past the 65536 characters a comment holds.
+    """
+    branch = current_branch(root)
+    if branch != f"issue-{number}":
+        return (f"Outside Owns: not checked on {branch or '(detached)'}, which carries "
+                f"more than this ticket")
+    outside = outside_owns(globs, root)
+    return "Outside Owns: " + (", ".join(outside) if outside else "None")
+
+
 def current_branch(root: Path | None = None) -> str:
     return git("rev-parse", "--abbrev-ref", "HEAD", cwd=root)
 
@@ -339,11 +355,42 @@ def ledger_from_comment(comment: str) -> list[str]:
     return out
 
 
+EVIDENCE_LINE_RE = re.compile(r"^\s+EVIDENCE:")
+
+
+def criteria_shape(lines: list[str]) -> list[str]:
+    """A ledger's criteria as identity alone: each criterion's text and its command,
+    with neither the tick nor the evidence any one run wrote."""
+    out = []
+    for line in lines:
+        if EVIDENCE_LINE_RE.match(line) or TIMEOUT_LINE_RE.match(line):
+            continue
+        m = GATE_LINE_RE.match(line)
+        out.append(f"- [ ] {line[6:]}" if m else line.rstrip())
+    return out
+
+
+def carried_ledger(number: int, body: str) -> list[str]:
+    """The previous run's ledger, when it still describes the body's criteria.
+
+    A criterion the ticket has since rewritten — a decision changed what this ticket
+    must do, and the ticket says so — lives on the body and not in that comment, so a
+    ledger that no longer matches is dropped and the criteria are read fresh. What is
+    lost with it is the evidence of a run of the criteria as they used to be.
+    """
+    carried = previous_ledger(number)
+    if not carried:
+        return []
+    if criteria_shape(carried) != criteria_shape(section(body, "Acceptance criteria")):
+        return []
+    return carried
+
+
 def previous_ledger(number: int) -> list[str]:
     """The ledger from the newest `self-run` / `reverify` comment, if there is one.
 
-    A re-verification re-runs what the last run ticked, and the ticket body is never
-    edited, so the previous run's comment is where that state lives.
+    A re-verification re-runs what the last run ticked, so the previous run's comment is
+    where that state lives.
     """
     for comment in reversed(fetch_comments(number)):
         first = comment.strip().splitlines()[0].strip() if comment.strip() else ""
@@ -945,7 +992,7 @@ def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
     report_phase(number, phase)
     body = fetch_body(number)
     root = repo_root()
-    carried = previous_ledger(number) if reverify else []
+    carried = carried_ledger(number, body) if reverify else []
     with tempfile.TemporaryDirectory(prefix="verify-ticket-") as tmp:
         ledger = write_ledger(body, Path(tmp), carried or None)
         cmd = ["node", str(GATE_CHECK), "--cwd", str(root)]
@@ -963,14 +1010,13 @@ def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
         updated = ledger.read_text(encoding="utf-8").rstrip("\n")
         met, total = count_gates(ledger)
 
-    outside = outside_owns(owns_globs(body), root)
     comment = "\n".join([
         "reverify" if reverify else "self-run",
         *summary,
         "",
         updated,
         "",
-        "Outside Owns: " + (", ".join(outside) if outside else "None"),
+        outside_owns_line(number, owns_globs(body), root),
     ])
     post_comment(number, comment)
     report_phase(number, phase, {"ac": f"{met}/{total}"})

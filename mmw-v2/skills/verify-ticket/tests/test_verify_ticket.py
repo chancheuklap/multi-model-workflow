@@ -24,6 +24,7 @@ class LedgerRun(unittest.TestCase):
              mock.patch.object(vt, "fetch_comments", return_value=comments or []), \
              mock.patch.object(vt, "previous_ledger", return_value=previous or []), \
              mock.patch.object(vt, "outside_owns", return_value=[]), \
+             mock.patch.object(vt, "current_branch", return_value="issue-1"), \
              mock.patch.object(vt, "report_phase", return_value=False), \
              mock.patch.object(vt, "post_comment", side_effect=lambda n, b: posted.append(b)):
             with redirect_stdout(io.StringIO()) as out:
@@ -351,6 +352,36 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class TestCarriedLedger(unittest.TestCase):
+    """`--reverify` carries the last run's ledger, unless the ticket has been rewritten."""
+
+    BODY = ("## Acceptance criteria\n\n"
+            "- [ ] AC1: the importer writes six rows\n"
+            "  CHECK: pytest test_importer_v5.py\n"
+            "  EXPECT: /^\\d+ passed/m\n"
+            "  EVIDENCE: pending\n\n"
+            "## Blocked by\n")
+
+    def carried(self, previous):
+        with mock.patch.object(vt, "previous_ledger", return_value=previous):
+            return vt.carried_ledger(1, self.BODY)
+
+    def test_a_ledger_of_the_same_criteria_is_carried(self):
+        same = ["- [x] AC1: the importer writes six rows",
+                "  CHECK: pytest test_importer_v5.py",
+                "  EXPECT: /^\\d+ passed/m",
+                "  EVIDENCE: exit=0; EXPECT=matched"]
+        self.assertEqual(self.carried(same), same)
+
+    def test_a_ledger_whose_command_the_ticket_has_rewritten_is_dropped(self):
+        """The old command names a file a later decision renamed: the body wins."""
+        stale = ["- [x] AC1: the importer writes six rows",
+                 "  CHECK: pytest test_importer_v4.py",
+                 "  EXPECT: /^\\d+ passed/m",
+                 "  EVIDENCE: exit=0; EXPECT=matched"]
+        self.assertEqual(self.carried(stale), [])
+
+
 class TestOutsideOwns(unittest.TestCase):
     """`outside_owns` counts this ticket's own commits, not what a merge rides in."""
 
@@ -390,3 +421,34 @@ class TestOutsideOwns(unittest.TestCase):
             # ...then merges the earlier ticket's branch to build on it.
             sh("git", "merge", "-q", "--no-ff", "-m", "merge issue-2", "issue-2")
             self.assertEqual(vt.outside_owns(["mine.txt"], tmp), ["stray.txt"])
+
+    def test_the_line_is_answered_on_the_tickets_own_branch(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            sh = self.repo(tmp)
+            sh("git", "checkout", "-qb", "issue-4")
+            (tmp / "stray.txt").write_text("stray\n")
+            sh("git", "add", "-A")
+            sh("git", "commit", "-qm", "issue-4 work")
+            self.assertEqual(vt.outside_owns_line(4, ["mine.txt"], tmp),
+                             "Outside Owns: stray.txt")
+
+    def test_the_line_is_left_unanswered_on_the_branch_tickets_merge_into(self):
+        """A re-run there is walking every ticket's commits, which answers nothing."""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            sh = self.repo(tmp)
+            sh("git", "checkout", "-qb", "spec-branch")
+            (tmp / "stray.txt").write_text("stray\n")
+            sh("git", "add", "-A")
+            sh("git", "commit", "-qm", "somebody else's work")
+            self.assertEqual(
+                vt.outside_owns_line(4, ["mine.txt"], tmp),
+                "Outside Owns: not checked on spec-branch, which carries more than "
+                "this ticket")
