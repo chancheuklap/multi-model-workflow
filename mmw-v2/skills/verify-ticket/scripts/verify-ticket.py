@@ -571,6 +571,15 @@ def last_verdict(comments: list[str]) -> str | None:
     return None
 
 
+def last_run(comments: list[str]) -> str | None:
+    """The newest `self-run` or `reverify` comment on the ticket, `None` when none."""
+    for comment in reversed(comments):
+        lines = comment.strip().splitlines()
+        if lines and lines[0].strip() in ("self-run", "reverify"):
+            return comment
+    return None
+
+
 def last_run_summary(comments: list[str]) -> str | None:
     """The summary line of the newest `self-run` or `reverify` comment on the ticket.
 
@@ -578,14 +587,21 @@ def last_run_summary(comments: list[str]) -> str | None:
     under it, so that line is what the ticket currently reports about its criteria.
     `None` when no run has been posted, or when the newest one printed no summary.
     """
-    for comment in reversed(comments):
-        lines = comment.strip().splitlines()
-        first = lines[0].strip() if lines else ""
-        if first not in ("self-run", "reverify"):
-            continue
-        summary = lines[1].strip() if len(lines) > 1 else ""
-        return summary if SUMMARY_RE.match(summary) else None
-    return None
+    run = last_run(comments)
+    if run is None:
+        return None
+    lines = run.strip().splitlines()
+    summary = lines[1].strip() if len(lines) > 1 else ""
+    return summary if SUMMARY_RE.match(summary) else None
+
+
+def last_run_unmet(comments: list[str]) -> list[str]:
+    """The criteria the newest run's ledger left unmet, by id."""
+    run = last_run(comments)
+    if run is None:
+        return []
+    return [c["id"] for c in parse_criteria(run)
+            if not (c["ticked"] and c["evidence"] and c["evidence"] != "pending")]
 
 
 def draft_problems(draft: str, comments: list[str]) -> list[str]:
@@ -672,8 +688,17 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
         # claim and the newest run's summary is the measurement. Only the newest one is
         # read: a criterion the verifier found unmet and the worker then fixed is met
         # again on the self-run after the fix, and that run is the one this sees.
+        # A run is generated from the ticket body, which carries no `ABANDON:` line, so a
+        # criterion the draft abandons as `decision` still runs and still reports unmet.
+        # That unmet is the one this draft is allowed to carry: the sub-issue is open and
+        # the ticket closes on it. Any other unmet in that run is a claim the draft
+        # cannot make.
+        decided = {a["ac"] for a in abandons if a["kind"] == "decision"}
         summary = last_run_summary(comments)
-        if summary and summary.startswith(("UNMET:", "HANDOFF REQUIRED:")):
+        unmet = last_run_unmet(comments)
+        covered = (summary is not None and summary.startswith("UNMET:")
+                   and unmet and set(unmet) <= decided)
+        if summary and summary.startswith(("UNMET:", "HANDOFF REQUIRED:")) and not covered:
             problems.append("the newest run on the ticket still reports unmet or abandoned "
                             "criteria — rerun until the summary line is `ALL MET (...)`, "
                             "or close out as `HANDOFF REQUIRED`")

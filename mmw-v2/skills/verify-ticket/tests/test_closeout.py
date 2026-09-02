@@ -120,11 +120,25 @@ class TestFirstLine(unittest.TestCase):
         self.assertEqual(check(text)[0], 1)
 
     def test_all_met_over_a_decision_abandon_passes(self):
+        """The self-run is generated from the ticket body, which carries no `ABANDON:`
+        line, so the run still reports the decision criterion as unmet."""
         text = draft(criteria=(MET, UNMET),
                      abandons=("ABANDON: AC2 decision both wordings are legal; opened #58",),
                      counts=counts_line(met=1, abandoned=1, total=2))
-        code, err, _ = check(text)
+        newest_run = "\n".join(["self-run", "UNMET: 1 (met: 1)", "", MET, UNMET])
+        code, err, _ = check(text, comments=(VERDICT_COMMENT, newest_run))
         self.assertEqual(code, 0, err)
+
+    def test_all_met_with_a_real_unmet_beside_the_decision_is_refused(self):
+        unmet3 = UNMET.replace("AC2: the expiry page says the link is stale",
+                               "AC3: the expiry page links back home")
+        text = draft(criteria=(MET, UNMET, unmet3),
+                     abandons=("ABANDON: AC2 decision both wordings are legal; opened #58",),
+                     counts=counts_line(met=1, unmet=1, abandoned=1, total=3))
+        newest_run = "\n".join(["self-run", "UNMET: 2 (met: 1)", "", MET, UNMET, unmet3])
+        code, err, _ = check(text, comments=(VERDICT_COMMENT, newest_run))
+        self.assertEqual(code, 1)
+        self.assertIn("the newest run on the ticket still reports unmet", err)
 
     def test_a_well_formed_handoff_first_line_passes(self):
         text = draft(first="HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 1 met of 2",
