@@ -19,7 +19,7 @@
 ## Reaching the two scripts
 
 The closeout and the preflight name the `verify-ticket` skill and the run they
-want; step 3 names the `dispatch` skill. None of them writes a script path. The script
+want; step 4 names the `dispatch` skill. None of them writes a script path. The script
 lives inside the skill, so the skill is what resolves it, from its own `SKILL.md`'s
 location: that is right on all five hosts, and it keeps installing the skill and having
 the script the same event. Naming the skill also puts the exit codes and the refusal
