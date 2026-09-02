@@ -807,6 +807,35 @@ class Actions(unittest.TestCase):
                                  "with the dispatch skill")])
 
 
+class WorkerGrades(unittest.TestCase):
+    """The lines `--worker-grades` prints for `dispatch.sh run` to check before a night."""
+
+    def setUp(self):
+        self.saved = board.sub_issues, board.read_ticket
+        self.tickets = {
+            61: ticket(61, labels=("ready-for-agent", "junior-worker")),
+            62: ticket(62, labels=("ready-for-agent", "senior-worker", "junior-worker"),
+                       blockers=(61,)),
+            63: ticket(63, labels=("ready-for-agent",)),
+            64: ticket(64, labels=("needs-triage", "principal-worker")),
+            65: ticket(65, state="CLOSED", labels=("principal-worker",)),
+        }
+        board.sub_issues = lambda spec: list(self.tickets)
+        board.read_ticket = lambda n: self.tickets[n]
+
+    def tearDown(self):
+        board.sub_issues, board.read_ticket = self.saved
+
+    def test_one_line_per_open_ticket_in_the_agent_queue_blocked_or_not(self):
+        with redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(board.worker_grades(76), 0)
+        self.assertEqual(out.getvalue().splitlines(), [
+            "GRADE 61 junior-worker",
+            "GRADE 62 junior-worker senior-worker",
+            "GRADE 63",
+        ])
+
+
 class TheLog(unittest.TestCase):
     """Every line `say()` prints is also appended to the night's log file."""
 

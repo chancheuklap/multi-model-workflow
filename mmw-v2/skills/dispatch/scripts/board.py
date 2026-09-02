@@ -5,6 +5,7 @@
     board.py [<spec>]               stay up, append one line per event
     board.py --watch <spec>         the same, and act on what it sees
     board.py --advance-plan <spec>  what `dispatch.sh advance` has to do, in order
+    board.py --worker-grades <spec> the worker-grade labels of every ticket in the queue
 
 One program, several forms, reading the same two sources, so there is never a second
 truth to reconcile. `--once` is what an agent runs when it wants the whole picture in
@@ -954,6 +955,28 @@ def advance_plan(spec: int) -> int:
     return 0
 
 
+def worker_grades(spec: int) -> int:
+    """The worker-grade labels of every ticket the night could dispatch.
+
+    One line per ticket that is `OPEN` and labelled `ready-for-agent`, blocked or not:
+
+        GRADE <ticket> [<label> ...]
+
+    The labels are the ticket's own ending in `-worker`, in name order, and a ticket
+    carrying none prints the number alone. `dispatch.sh run` reads this before the
+    night opens, and refuses the night when a label names a row `models.md` lacks or a
+    ticket carries two — the same refusals a dispatch would make, brought to the one
+    moment somebody is here to fix them.
+    """
+    for number in sub_issues(spec):
+        ticket = read_ticket(number)
+        if ticket["state"] != "OPEN" or "ready-for-agent" not in ticket["labels"]:
+            continue
+        grades = sorted(l for l in ticket["labels"] if l and l.endswith("-worker"))
+        print(" ".join(["GRADE", str(number), *grades]))
+    return 0
+
+
 def once(spec: int | None) -> int:
     rows, _ = collect(spec)
     print(render_table(rows, spec, datetime.now()))
@@ -1014,6 +1037,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                         help="stay up and act on what it sees")
     parser.add_argument("--advance-plan", action="store_true",
                         help="print what `dispatch.sh advance` has to do, in order")
+    parser.add_argument("--worker-grades", action="store_true",
+                        help="print the worker-grade labels of every ticket in the agent queue")
     parser.add_argument("--max-hours", type=int, default=MAX_HOURS,
                         help="how long one ticket may hold a session before mmw-main is told")
     parser.add_argument("spec", nargs="?", type=int,
@@ -1028,6 +1053,11 @@ def main(argv: list[str] | None = None) -> int:
             sys.stderr.write("board: --advance-plan needs the spec whose batch to read\n")
             return 2
         return advance_plan(args.spec)
+    if args.worker_grades:
+        if not args.spec:
+            sys.stderr.write("board: --worker-grades needs the spec whose batch to read\n")
+            return 2
+        return worker_grades(args.spec)
     if args.once:
         return once(args.spec)
     if args.watch:

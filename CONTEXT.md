@@ -721,7 +721,7 @@ _Home_: `docs/agents/issue-tracker.md`
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **run**:
-`dispatch.sh run <spec> [--max-hours H]`, the one command that opens a night: it runs `install.sh --check` and refuses on any missing item, renames the main agent's pane `mmw-main`, opens the monitor tab in this workspace, and starts `board.py --watch`. It dispatches nothing.
+`dispatch.sh run <spec> [--max-hours H]`, the one command that opens a night: it runs `install.sh --check` and refuses on any missing item, reads every queued ticket's worker-grade label through `board.py --worker-grades` and refuses when one names a row `models.md` lacks or a ticket carries two, refuses when a worker row's or the reviewer row's host is not a kind `herdr agent start` accepts, then renames the main agent's pane `mmw-main`, opens the monitor tab in this workspace, and starts `board.py --watch`. Every refusal is exit 2 with nothing opened. It dispatches nothing.
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **advance**:
@@ -926,7 +926,7 @@ _Avoid_: the engine, the ticket script, the script (for this)
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **`board.py`**:
-`scripts/board.py` of the dispatch skill, the board's program: `--once [<spec>]` prints one table and exits; `[<spec>]` likewise; `--watch <spec>` is the one form that acts; `--advance-plan <spec>` prints the advance plan. It keeps no state file, re-reads the tracker and Herdr on every pane event or every `SNAPSHOT_INTERVAL`, holds one row per ticket, and appends one feed line per action through `say()` — never redrawing, and into the board log as well. Its constants: `MAX_HOURS = 4` (`--max-hours` overrides), `SNAPSHOT_INTERVAL = 60`, `FAILED_LIMIT = 3`, `FALLBACK_SECONDS = 600`, `TOKEN_TTL_MS = 86400000`. The skill's own text calls it `<board>`.
+`scripts/board.py` of the dispatch skill, the board's program: `--once [<spec>]` prints one table and exits; `[<spec>]` likewise; `--watch <spec>` is the one form that acts; `--advance-plan <spec>` prints the advance plan; `--worker-grades <spec>` prints one `GRADE <n> [<label> …]` line per `OPEN` ticket labelled `ready-for-agent`, blocked or not, for `run` to check before the night. It keeps no state file, re-reads the tracker and Herdr on every pane event or every `SNAPSHOT_INTERVAL`, holds one row per ticket, and appends one feed line per action through `say()` — never redrawing, and into the board log as well. Its constants: `MAX_HOURS = 4` (`--max-hours` overrides), `SNAPSHOT_INTERVAL = 60`, `FAILED_LIMIT = 3`, `FALLBACK_SECONDS = 600`, `TOKEN_TTL_MS = 86400000`. The skill's own text calls it `<board>`.
 _Avoid_: wake budget
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
 

@@ -73,4 +73,4 @@ The second argument is `worker` or `reviewer`. Which of the two worker rows in `
 | Code | What happened |
 | --- | --- |
 | `0` | The board is up. Its monitor tab holds every line it will write |
-| `2` | Nothing was started. The reason is on stderr: not inside Herdr, a worker row in `models.md` that starts no session, or `install.sh --check` found something missing. Run `install.sh`, then `<dispatch> run <spec>` again |
+| `2` | Nothing was started. The reason is on stderr: not inside Herdr; a worker row in `models.md` that starts no session; `install.sh --check` found something missing; a ticket in the batch whose worker-grade label names a row `models.md` has no row for, or which carries two grade labels — the reason names the ticket; or a worker row's or the reviewer row's host is not a kind `herdr agent start` accepts. Fix what the reason names — run `install.sh`, relabel the ticket, or edit `models.md` — then `<dispatch> run <spec>` again |

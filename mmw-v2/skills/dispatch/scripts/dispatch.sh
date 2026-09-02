@@ -207,6 +207,14 @@ if any(a.get("name") == os.environ["MMW_WANTED"] for a in agents):
 '
 }
 
+# Prints the agent kinds `herdr agent start --kind` accepts, space separated, read off
+# the `[possible values: …]` line of its own help; nothing when that line is not there.
+herdr_agent_kinds() {
+  herdr agent start --help 2>&1 \
+    | sed -n 's/.*\[possible values: \([^]]*\)\].*/\1/p' \
+    | head -n 1 | tr ',' ' ' | tr -s ' ' | sed 's/^ //; s/ $//'
+}
+
 # ------------------------------------------------------------------ the worktree
 
 # Prints the path of ticket `number`'s worktree, creating it when it is not there yet.
@@ -673,6 +681,39 @@ run_night() {
   local root
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] || refuse "not inside a git repository"
+
+  # The tickets' own worker grades, read the way a dispatch will read them: a label
+  # naming a row this table lacks, or two grade labels on one ticket, would refuse that
+  # ticket at every `advance` all night, with the reason only ever on advance's stderr.
+  local grades line number
+  grades="$(python3 "$BOARD" --worker-grades "$spec")" \
+    || refuse "could not read the batch under #$spec"
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    local -a fields marked
+    read -r -a fields <<<"$line"
+    number="${fields[1]}"
+    marked=("${fields[@]:2}")
+    case "${#marked[@]}" in
+      0) ;;
+      1) [ -n "$(row_for_role "${marked[0]}")" ] \
+           || refuse "#$number asks for ${marked[0]}, and $MODELS has no such row" ;;
+      *) refuse "#$number carries ${#marked[@]} worker labels (${marked[*]}), and it takes one" ;;
+    esac
+  done <<<"$grades"
+
+  # Every host a session will be started on has to be a kind `herdr agent start`
+  # accepts, or that session never comes up and the ticket is refused at every advance.
+  local kinds host
+  kinds="$(herdr_agent_kinds)"
+  [ -n "$kinds" ] || refuse "could not read the agent kinds herdr accepts from 'herdr agent start --help'"
+  for seat in $(worker_roles) reviewer; do
+    host="$(row_for_role "$seat" | cut -f1)"
+    case " $kinds " in
+      *" $host "*) ;;
+      *) refuse "the $seat row's host is $host, which herdr agent start does not accept (it accepts: $kinds)" ;;
+    esac
+  done
 
   herdr agent rename "$caller" "$MAIN_AGENT_NAME" >/dev/null 2>&1 \
     || refuse "could not rename this pane $MAIN_AGENT_NAME, so the board could not reach it"

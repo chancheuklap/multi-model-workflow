@@ -8,7 +8,7 @@ You are the main agent, and a spec's tickets are going to be worked while you ar
 
 `--max-hours` is how long one ticket may hold a session before the board tells you so; the ticket keeps its label and its session. Which row of `models.md` a ticket's worker starts from is the ticket's own `junior-worker` or `senior-worker` label, so the night carries no answer of its own.
 
-The `install.sh --check` it runs first matters. A night nobody is watching cannot notice that this machine's skills or its `hook.py` went missing, so that is checked at the one moment somebody is here to fix it.
+The checks it runs first matter. A night nobody is watching cannot notice that this machine's skills or its `hook.py` went missing, that a ticket's worker-grade label names a row `models.md` no longer has, or that a row's host is not a kind Herdr can start — each of those would refuse a ticket at every `advance`, with the reason only on `advance`'s stderr. So `install.sh --check`, every queued ticket's grade label, and every worker row's and the reviewer row's host are checked at the one moment somebody is here to fix them, and `run` exits 2 with nothing opened.
 
 **Then run `advance` once, yourself.** The board's `mmw board:` line may not reach you while your pane is focused, and at the start of a night it usually is.
 
