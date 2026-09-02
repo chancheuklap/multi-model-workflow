@@ -304,7 +304,7 @@ _Avoid_: 测试层, 结构核对, 自写脚本层, vendor 脚本层, 技能行�
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **ticket**:
-A GitHub issue created as a native sub-issue of its spec (`gh issue create --parent <spec>`, or attached through the `sub_issues` API), in the `<issue-template>` shape of eight sections. It is a tracer-bullet vertical slice with its blocking links; the only place fact and state are kept; the worker's only input, read at five moments; it must have an issue number. At publication it takes one of two shapes: an agent ticket (labelled `ready-for-agent` plus a worker grade) or the separate `ready-for-human` ticket. A ticket this repository plans for itself carries a state role only. Its **ticket body** is the sections, never edited after publication; its **ticket number** is `<n>` — digits only, also `{n}` in launch arguments and `$MMW_TICKET` in a `CHECK:`. A **batch** is the tickets under one spec, published together and worked in one night.
+A GitHub issue created as a native sub-issue of its spec (`gh issue create --parent <spec>`, or attached through the `sub_issues` API), in the `<issue-template>` shape of eight sections. It is a tracer-bullet vertical slice with its blocking links; the only place fact and state are kept; the worker's only input, read at five moments; it must have an issue number. At publication it takes one of two shapes: an agent ticket (labelled `ready-for-agent` plus a worker grade) or the separate `ready-for-human` ticket. A ticket this repository plans for itself carries a state role only. Its **ticket body** is the sections, not edited once the batch has been reported to the user as published — the read-back step, which fixes tickets and runs `--lint` again, comes before that report; its **ticket number** is `<n>` — digits only, also `{n}` in launch arguments and `$MMW_TICKET` in a `CHECK:`. A **batch** is the tickets under one spec, published together and worked in one night.
 _Admitted_: issue (when naming the GitHub object)
 _Avoid_: 票 (as a term), child ticket, slice (as a name), 本批, 票号, body (bare)
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
@@ -383,11 +383,11 @@ The fourth line: `pending` until the criterion has run, then the one line of fac
 _Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/gate-check.mjs`
 
 **`CWD:`**:
-The optional fifth line: the working directory `CHECK:` runs in. It is part of the `STALE` signature. gate-check calls these indented lines the criterion's **attributes**.
+The optional fifth line: the working directory `CHECK:` runs in. gate-check calls these indented lines the criterion's **attributes**.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/lib/gates.mjs`
 
 **`TIMEOUT:`**:
-The optional attribute line `TIMEOUT: <seconds>` under a criterion: how long its `CHECK:` may run. `verify-ticket.py` reads every `TIMEOUT:` off the ticket body on every run, worker's and verifier's alike, and hands gate-check the largest of `DEFAULT_TIMEOUT` (600), those lines, and `--timeout`; it raises the limit and never lowers it, is not in the `STALE` signature, and is kept out of the ledger. `--lint` reports one that is not a positive whole number as `ERROR … [bad-timeout]`.
+The optional attribute line `TIMEOUT: <seconds>` under a criterion: how long its `CHECK:` may run. `verify-ticket.py` reads every `TIMEOUT:` off the ticket body on every run, worker's and verifier's alike, and hands gate-check the largest of `DEFAULT_TIMEOUT` (600), those lines, and `--timeout`; it raises the limit and never lowers it, and is kept out of the ledger. `--lint` reports one that is not a positive whole number as `ERROR … [bad-timeout]`.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **fenced block**:
@@ -411,12 +411,12 @@ _Avoid_: 勾 (as a term)
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **round**:
-One fix-and-rerun pass on one criterion. How many a criterion gets is the worker's judgement; what `--closeout` asks of `ABANDON: AC<n> failed` is three `self-run` comments on the ticket showing that criterion unmet (`ROUND_LIMIT`), a floor on the trying rather than a cap. `stuck` has no round count. One round of code review and the board's round of re-reading are always written in full.
+One fix-and-rerun pass on one criterion. How many a criterion gets is the worker's judgement, and `--closeout` counts none: the reason on the `ABANDON:` line says what was tried. One round of code review and the board's round of re-reading are always written in full.
 _Avoid_: 轮 (as a term), 三轮上限
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **`ABANDON:`**:
-The line `ABANDON: AC<n> <kind> <reason>` a worker — never the verifier — writes under a criterion it gives up on. The kinds: **`failed`** — it ran and did not pass (three self-runs, or still failing after the review fix or the verifier's report); **`stuck`** — it will not start or cannot be done within the ticket (a `CHECK:` that will not run, a missing credential or device, out of reach within the scope), held to no round count, its reason listing the routes tried or pointing at the sub-issue; **`decision`** — a person has to settle one sentence, a sub-issue is opened under `needs-triage`, and it is the only kind that still lets the ticket close `ALL MET`. `failed` and `stuck` force `HANDOFF REQUIRED`.
+The line `ABANDON: AC<n> <kind> <reason>` a worker — never the verifier — writes under a criterion it gives up on. The kinds: **`failed`** — it ran and did not pass (after the rounds the worker judged worth spending, or still failing after the review fix or the verifier's report), its reason saying what each round tried; **`stuck`** — it will not start or cannot be done within the ticket (a `CHECK:` that will not run, a missing credential or device, out of reach within the scope), its reason listing the routes tried or pointing at the sub-issue; neither is held to a round count, and the two are told apart for whoever reads the ticket in the morning; **`decision`** — a person has to settle one sentence, a sub-issue is opened under `needs-triage`, and it is the only kind that still lets the ticket close `ALL MET`. `failed` and `stuck` force `HANDOFF REQUIRED`.
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **blocking link**:
@@ -519,7 +519,7 @@ _Avoid_: 首行, 协议位, status word
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
 
 **`self-run`**:
-The comment a worker's own run of `verify-ticket.py <n>` leaves: first line `self-run`, second line the gate-check summary line, then the ledger with each criterion ticked or not and its `EVIDENCE:`, ending with `Outside Owns:`. Rounds are counted off these comments; the newest `self-run` or `reverify` is where the ledger is read back from and what the board's `ac=<met>/<total>` and `--closeout` read. The run writes `phase=selfcheck`.
+The comment a worker's own run of `verify-ticket.py <n>` leaves: first line `self-run`, second line the gate-check summary line, then the ledger with each criterion ticked or not and its `EVIDENCE:`, ending with `Outside Owns:`. The newest `self-run` or `reverify` is where the ledger is read back from and what the board's `ac=<met>/<total>` and `--closeout` read. The run writes `phase=selfcheck`.
 _Avoid_: 自跑
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
@@ -577,13 +577,9 @@ _Avoid_: 账本, 临时账本, AC.md (as a name), throwaway ledger
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **gate-check**:
-The judging program copied from unlazy: it walks the ledger, runs each `CHECK:` one at a time in its own shell, applies both conditions, writes `EVIDENCE:`, prints one **status line** per criterion (`RUN`, `PASS`, `FAIL`, `STALE`) and one **gate-check summary line** at the end — `ALL MET (<n> met…)`, `UNMET: <n> (met: <m>)`, or `HANDOFF REQUIRED: <n> abandoned (met: …)` — which is copied into the second line of every `self-run` and `reverify` comment. `gate-check.mjs` names the file. Its `--claim`, `--release`, `--scope` and `GATES.md` are unlazy features this pipeline does not use.
+The judging program copied from unlazy: it walks the ledger, runs each `CHECK:` one at a time in its own shell, applies both conditions, writes `EVIDENCE:`, prints one **status line** per criterion (`RUN`, `PASS`, `FAIL`) and one **gate-check summary line** at the end — `ALL MET (<n> met…)`, `UNMET: <n> (met: <m>)`, or `HANDOFF REQUIRED: <n> abandoned (met: …)` — which is copied into the second line of every `self-run` and `reverify` comment. `gate-check.mjs` names the file. Its `--claim`, `--release`, `--scope` and `GATES.md` are unlazy features this pipeline does not use.
 _Avoid_: the judging engine, gate checker, the checker (for this), 汇总行
 _Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/UPSTREAM.md`
-
-**`STALE`**:
-What gate-check reports when a criterion's **signature** — the sha256 of `CHECK:`, `EXPECT:`, `CWD:`, and the shell — no longer matches the one recorded when the run started: the result is not written and the criterion counts as unmet. `--reverify` demotes stale failures.
-_Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/gate-check.mjs`
 
 **gate-lint**:
 The criterion linter copied from unlazy: it reports problems in how criteria are written and runs no command; `manual-gate` is an error here. It prints `LINT OK` or `LINT FINDINGS`. `--lint` runs it.
@@ -798,7 +794,7 @@ _Avoid_: 写码纪律, 写码纪律七条, the seven working rules, 不问 (as a
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **closing steps**:
-What `implement` does once the code is written: self-run (at most three rounds per criterion); dispatch the verifier with `verify #<n>`, once; start the reviewer and wait for the review comment, fix in-ticket findings for one round, no re-review; `Audit`; cut the criteria that only wait for a person's one sentence into `decision` sub-issues and write the closing comment draft; `--closeout`; close the reviewer's pane. A re-prompted worker resumes at the step after the newest of `self-run`, `VERDICT`, `REVIEW`. No branch is pushed and no pull request is opened: work reaches the base branch through `advance`.
+What `implement` does once the code is written: self-run (as many rounds per criterion as the worker judges worth spending); dispatch the verifier with `verify #<n>`, once; start the reviewer and wait for the review comment, fix in-ticket findings for one round, no re-review; `Audit`; cut the criteria that only wait for a person's one sentence into `decision` sub-issues and write the closing comment draft; `--closeout`; close the reviewer's pane. A re-prompted worker resumes at the step after the newest of `self-run`, `VERDICT`, `REVIEW`. No branch is pushed and no pull request is opened: work reaches the base branch through `advance`.
 _Avoid_: 收尾七步, 收尾六步, the seven closing steps, the closeout (for the sequence)
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
@@ -808,7 +804,7 @@ _Avoid_: 交接前自审
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **closeout**:
-`verify-ticket.py <n> --closeout <draft>`, the closing gate — the only place in the pipeline that closes a ticket or changes a label. It checks the draft against the ticket and the repository (first line, kinds, three `self-run` comments behind every `failed`, evidence behind every tick, `Counts:` agreeing with the first line, `VERDICT` on the ticket, `Post-verdict:` when HEAD moved, no uncommitted tracked changes and the branch containing its base commit, `Outside Owns:`). A refusal changes nothing, names the condition on stderr, and exits 1; the worker fixes the draft or the ticket and runs again. On `ALL MET` it posts the comment, removes `ready-for-agent`, and closes the ticket (`gh issue close --reason completed`, `CLOSED: #<n>`, `phase=closed`); on `HANDOFF REQUIRED` it posts the comment, hands the ticket back, and leaves it open (`phase=handoff`). `--check-only` is the dry run, printing `CLOSEOUT OK: #<n> draft passes every check`. A command that would bypass it is refused by `hook.py`.
+`verify-ticket.py <n> --closeout <draft>`, the closing gate — the only place in the pipeline that closes a ticket or changes a label. It checks the draft against the ticket and the repository (first line, kinds, evidence behind every tick, `Counts:` agreeing with the first line, `VERDICT` on the ticket, `Post-verdict:` when HEAD moved, no uncommitted tracked changes and the branch containing its base commit). A refusal changes nothing, names the condition on stderr, and exits 1; the worker fixes the draft or the ticket and runs again. On `ALL MET` it posts the comment, removes `ready-for-agent`, and closes the ticket (`gh issue close --reason completed`, `CLOSED: #<n>`, `phase=closed`); on `HANDOFF REQUIRED` it posts the comment, hands the ticket back, and leaves it open (`phase=handoff`). `--check-only` is the dry run, printing `CLOSEOUT OK: #<n> draft passes every check`. A command that would bypass it is refused by `hook.py`.
 _Admitted_: closing gate
 _Avoid_: 关票门, the gate at the end, 关票 (as a term)
 _Home_: `mmw-v2/skills/verify-ticket/references/closeout.md`
@@ -951,7 +947,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | `ABANDON:` kind | `failed` · `stuck` · `decision` |
 | `ready-for-human` kind | `reaction` · `reach` |
 | criterion state | `met` · `unmet` · `abandoned` |
-| gate-check status line | `RUN` · `PASS` · `FAIL` · `STALE` |
+| gate-check status line | `RUN` · `PASS` · `FAIL` |
 | lint level | `ERROR` · `WARN` |
 | `turn` | `ready` · `working` · `ended` · `failed:<error>` · `cancelled:<reason>` |
 | `mmw board:` case | `ADVANCE` · `night over` · `STOPPED` · `TIME LIMIT` |
