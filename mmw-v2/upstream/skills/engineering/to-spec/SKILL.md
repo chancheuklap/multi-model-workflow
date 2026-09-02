@@ -15,6 +15,8 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 
    One spec: write it. Several: this is the one judgement in this skill you hand to the user — list each spec's name, the decisions it covers by ticket name, the order they go in, and why the line falls there. Once the user confirms, write the division back to the map as a `## Specs` section, one line per spec: name, the decision tickets it covers, its position in the order, and its spec link once published. Then write the first spec only; publish it, fill its link into that line, and stop — tell the user to run this skill against the map again for the next one. When the map already carries a `## Specs` section, skip the judgement and write the first spec on it that has no link yet.
 
+   When the reference is not a map — an issue, a URL, a file, or the conversation itself — there is no map to write the division back to. Write it into the first spec's `## Further Notes` instead: one line per spec, saying what it is called, what it covers, its position in the order, and its link once published. Publish that first spec and stop; tell the user to run this skill against the same reference again for the next one. On that later run, read the `## Further Notes` of the spec that carries the division, write the first spec on it that has no link yet, and fill the link into its line — through step 5, since that spec is already published. When every line has a link, tell the user the division is fully written and stop.
+
 2. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout the spec, and respect any ADRs in the area you're touching.
 
 3. Sketch out the seams at which you're going to test the feature. Existing seams should be preferred to new ones. Use the highest seam possible. If new seams are needed, propose them at the highest point you can. The fewer seams across the codebase, the better - the ideal number is one.
@@ -96,6 +98,6 @@ Links to the first-hand material this spec was built from, one line per kind. Wr
 
 ## Further Notes
 
-Any further notes about the feature.
+Any further notes about the feature. When step 1 divided the work into several specs and the reference was not a map, the division lives here in the first spec: one line per spec, with its name, what it covers, its position in the order, and its link once published. A later spec in that division says here which spec carries it.
 
 </spec-template>
