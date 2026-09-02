@@ -52,7 +52,7 @@ _Avoid_: reviewer 会话, code-review 会话, 审稿人
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **dispatcher**:
-The role the reviewer session takes once it holds the `code-review` skill: it starts the three read-only axis subagents, sorts every review finding into in-ticket or out-of-ticket by the three conditions in that skill's section 3, and writes the one review comment. It reviews nothing and fixes nothing itself, and it is the only reader of `code-review/SKILL.md`.
+The role the reviewer session takes once it holds the `code-review` skill: it starts the three read-only axis subagents, sorts every review finding into in-ticket or out-of-ticket by the five conditions in that skill's section 3, and writes the one review comment. It reviews nothing and fixes nothing itself, and it is the only reader of `code-review/SKILL.md`.
 _Avoid_: 派发 (as a term)者
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
@@ -275,12 +275,12 @@ The spec section of decisions made, in numbered subsections `### 1.` … that ti
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **`## Testing Decisions`**:
-The spec section whose first sentence names the seam and which external seams may be stubbed; then, per test layer, its directory and the precedent to copy; then **How a test arrives at a state** — the mechanism that puts the system into each state the behaviour turns on, which must be named here and owned by some ticket's `## Owns`, else the work returns to `to-spec`; last, the commands to run before committing. `CHECK:`, `EXPECT:`, and the ticket's `## Seam` are derived from it.
+The spec section whose first sentence names the seam and which external seams may be stubbed; then, per test layer, its directory and the precedent to copy; then **How a test arrives at a state** — the mechanism that puts the system into each state the behaviour turns on, which must be named here and owned by some ticket's `## Owns`, else the work returns to `to-spec`; last, the commands to run before committing. `CHECK:`, `EXPECT:`, and the ticket's `## Seam` are derived from it; a review finding that touches it is in-ticket.
 _Avoid_: 测试怎么到达状态
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **`## Out of Scope`**:
-The spec section of what is not being done; read by the worker and the Spec axis along `## Parent`, and the sharpest source of a `Scope creep` finding. (A wayfinder map's **Out of scope** section is a different literal, carried into the spec unchanged.)
+The spec section of what is not being done; read by the worker and the Spec axis along `## Parent`, and the sharpest source of a `Scope creep` finding, which is in-ticket. (A wayfinder map's **Out of scope** section is a different literal, carried into the spec unchanged.)
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **`## Sources`**:
@@ -539,7 +539,7 @@ _Avoid_: decisions comment, 临时决策评论
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **review comment**:
-The reviewer's report on the ticket: first line `REVIEW <base commit>..<HEAD commit>` (the refs as given, even when one does not resolve or the diff is empty), then `## In-ticket` and `## Out-of-ticket`, then the three axis reports under `## Standards`, `## Spec`, `## Tests`, never merged or reordered across axes. The worker waits for it with `dispatch.sh wait <n> "^REVIEW "`.
+The reviewer's report on the ticket: first line `REVIEW <base commit>..<HEAD commit>` (the refs as given, even when one does not resolve or the diff is empty), then the three axis reports under `## Standards`, `## Spec`, `## Tests`, never merged or reordered across axes, then `## In-ticket` and `## Out-of-ticket`, then one summary line per axis. The worker waits for it with `dispatch.sh wait <n> "^REVIEW "`.
 _Avoid_: review report comment, REVIEW 评论, report (bare)
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
@@ -622,7 +622,7 @@ _Avoid_: 轴 (for this), Standards 轴, Spec 轴, Tests 轴, 缺项, 实现得�
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
 **review finding**:
-One item an axis subagent reports, quoting the requirement line it fails. It is **in-ticket** when it touches this ticket's acceptance criteria, a decision in the spec section the ticket names, or a baseline under `## Read first` — then it gets one round of fixes, and `ABANDON: AC<n> failed` if the fix cannot be made; otherwise it is **out-of-ticket** and becomes a non-blocking sub-issue under `needs-triage` while the ticket still closes. The dispatcher sorts them.
+One item an axis subagent reports, quoting the requirement line it fails. It is **in-ticket** when it touches this ticket's acceptance criteria, a decision in the spec section the ticket names, a baseline under `## Read first`, the spec's `## Out of Scope`, or the spec's `## Testing Decisions` — then it gets one round of fixes, and `ABANDON: AC<n> failed` if the fix cannot be made; otherwise it is **out-of-ticket** and becomes a non-blocking sub-issue under `needs-triage` while the ticket still closes. The dispatcher sorts them.
 _Avoid_: finding (bare), 票内, 票外, 票内发现, 票外发现
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
