@@ -2,8 +2,6 @@
 
 All branches. The files are written. Now read each one you wrote or edited line by line: first against the list of what must not be there, then with the four tests under Pruning, then through the self-check.
 
-Only add information that will genuinely help future sessions. The context window is precious - every line must earn its place.
-
 On the **incremental** branch the user-owned lines named in [incremental.md](incremental.md) are exempt: read them, leave them, and put a doubt about one into the report.
 
 ## What NOT to Add
@@ -28,7 +26,7 @@ Each rule, then what it catches.
 
 ## Pruning
 
-The criteria live in `~/.agents/skills/writing-for-agents/SKILL.md` (Pointers / Pruning / Negation) — read them there. Its Pruning section holds the four tests: single source of truth, environment and cache, relevance, no-ops. Its Negation section is why a rule that survives is phrased as the behaviour to perform.
+The criteria are the `writing-for-agents` skill's Context pointers, Pruning and Negation sections — read them there. Its Pruning section holds the four tests: single source of truth, environment and cache, relevance, no-ops. Its Negation section is why a rule that survives is phrased as the behaviour to perform.
 
 ## Self-check
 

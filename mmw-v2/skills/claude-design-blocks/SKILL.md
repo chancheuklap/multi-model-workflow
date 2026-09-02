@@ -1,6 +1,6 @@
 ---
 name: claude-design-blocks
-description: Move an interface between a repository and Claude Design. Porting takes an HTML mockup (static or with JavaScript) or a UI prototype's winning variant into Design Components (.dc.html pages) that are clickable, switch states from the Tweaks panel, and compose into app pages — use whenever the user wants a mockup, prototype, or static screen "moved to Claude Design", "made clickable", "every state visible", or "uploaded to a project", even if they never say .dc.html. Handoff brings a finished project back as the package an implementation is copied from and later compared against — use whenever the user wants a design "downloaded", a "handoff package", or a baseline for interface parity.
+description: Move an interface between a repository and Claude Design. Porting takes an HTML mockup (static or with JavaScript) or a UI prototype's winning variant into Design Components (.dc.html pages) that are clickable, switch states from the Tweaks panel, and compose into app pages — use whenever the user wants a mockup, prototype, or static screen put into Claude Design, made interactive, or shown in every state, even if they never say .dc.html. Handoff brings a finished project back as the package an implementation is copied from and later compared against — use whenever the user wants a design brought back into the repository or a baseline for interface parity.
 ---
 
 # claude-design-blocks — an interface between a repository and Claude Design
@@ -23,7 +23,3 @@ Every page name carries its page kind as a prefix, so the project's file list te
 | overview | `Overview` | pan and zoom over every page at 50% |
 
 The prefix is part of the `NAME` in `src/<name>.py`, the `dc-import` name, and the file name — one string everywhere.
-
-## Worked instance
-
-Chameleon, a complete working directory in the agentflow repository: `docs/prototypes/2026-07-07-douyin-banner-regenerate/claude-design/`; project "Chameleon" `638b3e81-bc4c-4ee4-a1fd-0c2f702103d3`, `DC_FX=CHAMELEON`.

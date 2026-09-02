@@ -1,6 +1,6 @@
 # Good and Bad Tests
 
-Another copy of these criteria lives in `~/.agents/skills/code-review/references/tests-reviewer.md`; change both together.
+Another copy of these criteria lives in the `code-review` skill's `references/tests-reviewer.md`; change both together.
 
 ## Good Tests
 

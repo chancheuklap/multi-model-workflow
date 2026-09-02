@@ -41,7 +41,7 @@ Quote the requirement for each review finding. A review finding with no quoted l
 
 ## 4. Report
 
-Group by the three kinds, then `Decisions`. Under 400 words.
+Group by the three kinds, then `Decisions`. One entry per review finding, each carrying its quoted line; nothing that is not a finding.
 
 ## What is not yours
 

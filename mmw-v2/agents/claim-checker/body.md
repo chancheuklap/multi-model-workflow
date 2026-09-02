@@ -25,9 +25,9 @@ These are the highest-risk categories when documentation has been written for re
 
 1. **Simplified mechanism descriptions** — Any "how it works" explanation that is not in the sources. These carry the highest risk: a plausible-sounding explanation that describes the wrong mechanism is worse than jargon. Verify the actual mechanism against the source.
 
-2. **Misleading nuance** — Statements that are not outright wrong but flatten important nuance, creating a wrong mental model. Example: "a `robots.txt` file instructs crawlers to stay away from your content" is misleading — `robots.txt` is a per-path allow/disallow mechanism, not a blanket block. The sentence omits that it specifies *where* crawlers may and may not go. Flag any statement where the simplification loses a meaningful distinction.
+2. **Misleading nuance** — Statements that are not outright wrong but flatten important nuance, creating a wrong mental model. Example: "`install.sh` installs the skills" is misleading when the script symlinks the skill directories into the hosts' skill folders — a reader who believes files were copied will edit the wrong place. Flag any statement where the simplification loses a meaningful distinction.
 
-3. **Net-new claims** — Any explanation, context, or framing added during writing that is not present in the sources. Every piece of new information requires a citation. If the source said "zones pair with resolver policies" and the document adds "based on source IP, user identity, or domain," verify that all three of those selectors are actually supported.
+3. **Net-new claims** — Any explanation, context, or framing added during writing that is not present in the sources. Every piece of new information requires a citation. If the source said "the hook runs on Write and Edit" and the document adds "and on Read, Grep and Bash," verify that each of those tools is actually in the hook's dispatch.
 
 4. **Behavior of things in this repository** — Do not assume industry-standard behavior applies. A skill or a script in this repository frequently diverges from how such things are typically done. What a skill or script actually does is settled by its code, its tests, and its recorded output — not by common knowledge about tools of its kind. Verify every such claim against the files themselves.
 
@@ -52,10 +52,10 @@ These are the highest-risk categories when documentation has been written for re
 
 | # | Claim (exact text) | Source | Status |
 |---|---|---|---|
-| 1 | "the key can be at most 512 bytes" | `docs/api/write-key-value-pairs.md` | ✅ sourced |
+| 1 | "`install.sh --check` returns 1 when a link is stale" | `mmw-v2/install.sh` | ✅ sourced |
 | 2 | "Latency is under 50 ms globally" | — | ❌ unsourced (high) |
-| 3 | "instructs crawlers to stay away from your content" | `docs/robots-txt.md` — source says per-path allow/disallow, not blanket block | ⚠️ misleading (critical) |
-| 4 | "zones pair with resolver policies" | present in source — `path/to/file.md:34` | ✅ sourced (source) |
+| 3 | "copies the skills into each host" | `mmw-v2/install.sh` — source symlinks the source directories, it does not copy | ⚠️ misleading (critical) |
+| 4 | "the hook runs on Write and Edit" | present in source — `path/to/file.md:34` | ✅ sourced (source) |
 
 ## Rules
 

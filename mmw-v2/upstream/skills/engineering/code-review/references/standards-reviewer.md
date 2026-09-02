@@ -15,7 +15,7 @@ git log <base-commit>..HEAD --oneline
 
 Anything in the repository that says how code here should be written: `CODING_STANDARDS.md`, `CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md`, a `docs/` page on conventions, a `CONTEXT.md` naming the domain vocabulary. Read what you find before you read the diff a second time.
 
-Read `~/.agents/skills/codebase-design/SKILL.md` as well. It is not a repository standard but the vocabulary this repository designs modules in — module, interface, depth, seam, adapter — and the deletion test below is written in its words.
+Read the `codebase-design` skill's `SKILL.md` as well, from wherever your host installed that skill. It is not a repository standard but the vocabulary this repository designs modules in — module, interface, depth, seam, adapter — and the deletion test below is written in its words.
 
 ## 3. Match the diff against the standards and the smell baseline
 
@@ -56,7 +56,7 @@ Per file and hunk where it helps:
 - Every hunk that passes with less: quote the hunk and the shorter form.
 - Every module the deletion test calls a pass-through: name it and the callers that would carry the complexity back.
 
-Mark each review finding as a hard violation or a judgement call. Under 400 words.
+Mark each review finding as a hard violation or a judgement call. One entry per review finding; nothing that is not a finding.
 
 ## What is not yours
 

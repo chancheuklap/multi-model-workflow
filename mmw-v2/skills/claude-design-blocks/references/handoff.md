@@ -15,7 +15,7 @@ Beside them, write `scenes.json`: one entry per scene, with `name`, `page` (the 
 A scene name comes from the `scenario` values in each page's `data-props`, under three rules:
 
 - **A name carries no `/`.** `visual-parity.py` serves each scene from a page at `/__parity-<name>.dc.html` that loads `./support.js`; a slash puts that page in a subdirectory that has no `support.js`, and the root never appears.
-- **A `scenario` value that more than one page uses becomes `<page>.<scenario>`**, so every name pins one page. The Chameleon instance has 8 of these among 102 scenes.
+- **A `scenario` value that more than one page uses becomes `<page>.<scenario>`**, so every name pins one page.
 - **The overview page is not a scene.** Canvas mode gives its root `height: auto` inside absolutely positioned frames, so the root has no height and its screenshot is empty. The product has no such page either.
 
 Done when: every scene in `scenes.json` has been rendered once and produced a non-empty root.

@@ -19,7 +19,7 @@ target-version = "py311"
 extend-exclude = ["archive"]   # whatever the test runner already ignores
 ```
 
-`ruff` 0.16 enables 413 rules by default (up from 59 in 0.15). Leave them on — most of the count is machine-fixable, and the families that remain tend to be the ones that matter. Two calibrations:
+Recent `ruff` releases enable most rules by default. Leave them on — most of the count is machine-fixable, and the families that remain tend to be the ones that matter. Two calibrations:
 
 **Line length.** Measure before choosing. Widening past the default usually *increases* the diff, because the formatter rejoins calls the old width had split. Compare before committing:
 
@@ -41,7 +41,7 @@ extend-immutable-calls = [
 ]
 ```
 
-**ruff has no baseline and no diff-aware mode** — upstream has declined it as too hard to get right, and the third-party wrapper `darker` broke against ruff 0.12.9. Write the filter yourself: `ruff check --output-format json` gives `filename` and `location.row`; intersect those with `git diff --unified=0`. Around 100 lines, no new dependency. Watch the two traps in `SKILL.md`: ruff's paths are absolute, and untracked files are in no diff.
+**ruff has no baseline and no diff-aware mode** — upstream has declined it, and third-party wrappers track ruff's output format and break on its releases. Write the filter yourself: `ruff check --output-format json` gives `filename` and `location.row`; intersect those with `git diff --unified=0`. Around 100 lines, no new dependency. Watch the two traps in `SKILL.md`: ruff's paths are absolute, and untracked files are in no diff.
 
 Rules worth reading rather than fixing in bulk, because each one names a place the code can lose an error or a fact: `BLE001` blind `except Exception`, `S110`/`S112` `except: pass` and `except: continue`, `B023` a closure capturing a loop variable, `DTZ` a naive `datetime` in a system that spans machines or handles money.
 

@@ -30,8 +30,8 @@ Count the files first — `find . -name '*.py' -not -path '*/.venv/*' | wc -l` a
 
 Choices worth not relitigating, and the fact that decides each:
 
-- **`pyrefly`, not `pyright`** — pyright needs Node and takes tens of seconds where pyrefly takes under one. **Not `ty`** — Astral's is still `0.0.x` and around 76% on the typing conformance suite; fine as an editor server, not as a gate.
-- **`oxlint`, not `eslint`** — TypeScript 7 ships no stable programmatic API, so `typescript-eslint` cannot run on it at all. `oxlint-tsgolint` embeds the TS 7 engine itself.
+- **`pyrefly`, not `pyright`** — pyright needs Node and is an order of magnitude slower on a full check. **Not `ty`** — it has not reached a stable release and fails part of the typing conformance suite; fine as an editor server, not as a gate. Re-check both facts against the tools' own release pages before repeating them to a user.
+- **`oxlint`, not `eslint`** — TypeScript 7 ships no stable programmatic API, so `typescript-eslint` cannot run on it. `oxlint-tsgolint` embeds the TS 7 engine itself.
 - **No separate `tsc --noEmit`** — `oxlint --type-aware --type-check` shares one TypeScript program between the lint pass and the type pass.
 - **`ruff` replaces black, isort, flake8, pyupgrade, bandit** — one binary, and the format and lint passes agree with each other by construction.
 

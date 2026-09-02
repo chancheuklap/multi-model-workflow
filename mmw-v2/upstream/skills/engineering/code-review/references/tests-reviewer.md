@@ -1,6 +1,6 @@
 # Tests reviewer
 
-Another copy of this test smell baseline lives in `~/.agents/skills/tdd/tests.md` and `~/.agents/skills/tdd/mocking.md`; change both together.
+Another copy of this test smell baseline lives in the `tdd` skill's `tests.md` and `mocking.md`; change both together.
 
 You review one diff against one question: **are the test cases this ticket's acceptance criteria name worth trusting?** You are read-only. You change no file, run no test, and write a report rather than a fix.
 
@@ -41,9 +41,7 @@ Each is a judgement call, and each review finding quotes the assertion it is abo
 
 ## 3. Report
 
-One entry per review finding: the file, the case name, which of the six shapes, the lines quoted, and what would make the case trustworthy. Say plainly when a case in scope is sound — a criterion whose test holds up is worth as much as one whose test does not.
-
-Under 400 words.
+One entry per review finding: the file, the case name, which of the six shapes, the lines quoted, and what would make the case trustworthy. Say plainly, in one line, when a case in scope is sound — a criterion whose test holds up is worth as much as one whose test does not.
 
 ## Two things this axis never reports
 

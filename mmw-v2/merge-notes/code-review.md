@@ -26,9 +26,10 @@
 | frontmatter 的 `description` | `SKILL.md` 第 3 行，改写了 | 收窄成 dispatcher 形态：一张 ticket、一个 base commit、三个 axis、axis report 作一条 review comment 写到 ticket 上；末句给的是这个技能要的两个值（base commit 与 ticket number），不写调用形状（理由见末节）。上游那句招揽「review a branch / a PR / review since X」的用法在正文里没有落点——第 8 行就要 ticket number，第 4 节只往 `gh issue comment <ticket>` 写。上游改这一行 → 收上游对三个 axis 的措辞，dispatcher 形态与 ticket number 保留 |
 | 第 1 步「say which one it was and stop」 | `SKILL.md` 第 1 节，改写了 | base commit 解析不了或 diff 为空时，也要 `gh issue comment` 到 ticket 上，first line 仍是 `REVIEW <base commit>..<HEAD commit>`，正文一行说是哪一种失败。理由是同一份文件末尾自己写的原则（只存在于 session 里的 report 谁也读不到），而 worker 的 `dispatch.sh wait` 只认 first line `^REVIEW `，不写 ticket 就是 30 分钟静默超时。上游改这一步 → 收上游的判断，写到 ticket 上这条保留 |
 | 第 2 步 subagent 表里的 reference 路径 | `SKILL.md` 第 2 节 | 表两列 `Axis` 与 `Reference file`，路径写相对链接；绝对路径只出现在同一节 prompt 的第三个值里（理由见末节）。上游改这张表 → 收上游的行，两列与路径写法按我们的 |
-| 第 3 步 identify the standards sources 的来源清单 | `references/standards-reviewer.md` 第 2 节，加了一条 | 加 `~/.agents/skills/codebase-design/SKILL.md`：`to-tickets` 把「接口是不是 pass-through」这类判断路由到 Standards axis，路由的终点得存在，而 depth / seam / adapter 这套 vocabulary 只在那个技能里。上游把这套 vocabulary 接进来 → 收上游措辞 |
+| 第 3 步 identify the standards sources 的来源清单 | `references/standards-reviewer.md` 第 2 节，加了一条 | 加 `codebase-design` 技能的 `SKILL.md`（按技能名点名，不写安装路径，subagent 从自己 host 装技能的位置解析）：`to-tickets` 把「接口是不是 pass-through」这类判断路由到 Standards axis，路由的终点得存在，而 depth / seam / adapter 这套 vocabulary 只在那个技能里。上游把这套 vocabulary 接进来 → 收上游措辞 |
 | 无 | `references/standards-reviewer.md` 第 3 节末尾的 deletion test，与第 4 节的对应一行 | 我们加的：判 depth 的那一条，措辞照抄 `codebase-design/SKILL.md` 的 deletion test（删掉这个模块，复杂度是消失还是在 N 个调用方那里重新出现）。与 code smell 同级，是 judgement call，「The repository overrides」同样管它 |
-| 无 | `references/tests-reviewer.md` 顶部一行，`tdd/tests.md` 与 `tdd/mocking.md` 顶部各一行 | 我们加的互指行：三份文件互相点名对方路径、要求同改。这份重复本身是有意的（subagent 只读自己那一份 reference file，跳转会失效），对齐义务写在三份文件顶部而不是只写在这份 merge-note 里，因为没人读 merge-note 去改 `tdd/`。上游给 `tdd/` 那两份加内容 → 收上游，同时对着 `references/tests-reviewer.md` 第 2 节改一遍 |
+| 每个 axis brief 末尾的字数上限 | 三份 reference file 各自的 report 段 | 我们改的：report 的长度由 finding 数决定——每条 finding 一项、带引用行，不是 finding 的不写；不设字数上限。上游改 report 格式 → 收上游格式，字数上限不收 |
+| 无 | `references/tests-reviewer.md` 顶部一行，`tdd/tests.md` 与 `tdd/mocking.md` 顶部各一行 | 我们加的互指行：三份文件互相点名对方（技能名加文件名，不写安装路径）、要求同改。这份重复本身是有意的（subagent 只读自己那一份 reference file，跳转会失效），对齐义务写在三份文件顶部而不是只写在这份 merge-note 里，因为没人读 merge-note 去改 `tdd/`。上游给 `tdd/` 那两份加内容 → 收上游，同时对着 `references/tests-reviewer.md` 第 2 节改一遍 |
 
 ## 第三个 axis：Tests
 

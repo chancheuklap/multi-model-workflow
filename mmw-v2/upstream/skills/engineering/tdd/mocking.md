@@ -1,6 +1,6 @@
 # When to Mock
 
-Another copy of these criteria lives in `~/.agents/skills/code-review/references/tests-reviewer.md`; change both together.
+Another copy of these criteria lives in the `code-review` skill's `references/tests-reviewer.md`; change both together.
 
 Mock at **system boundaries** only:
 

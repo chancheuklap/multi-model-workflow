@@ -45,10 +45,7 @@ Assignment: <ASSIGNMENT>
 
 Read everything in your assignment. Then report every fact that an agent working in this repository would need and could not learn by reading the obvious file (a manifest, a config, a README). Leave out what those files already say plainly.
 
-Cross-reference with actual codebase:
-- Run documented commands (mentally or actually)
-- Check if referenced files exist
-- Verify architecture descriptions
+Cross-reference with the actual codebase: run the documented commands, check that referenced files exist, and verify architecture descriptions against the code.
 
 Report format, one entry per fact, nothing else:
 

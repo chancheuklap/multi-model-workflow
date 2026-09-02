@@ -130,11 +130,6 @@ Good — each rule has its own narrow trigger:
 
 Write the smallest useful file. Use only sections that add non-obvious value.
 
-- **Concise**: Dense, human-readable content; one line per concept when possible
-- **Actionable**: Commands should be copy-paste ready
-- **Project-specific**: Document patterns unique to this project, not generic advice
-- **Current**: All info should reflect actual codebase state
-
 - Use headings, bullets, and tables; avoid paragraphs outside the identity lines.
 - Use repo-relative paths; avoid vague references like "see docs". A path that stands for a whole class of files carries a `<name>` placeholder for the varying segment (`mmw-v2/skills/<name>/tests/run.sh`); `scripts/check.sh` skips a backticked token with `<…>` and checks every other slashed token against the disk.
 - List exact external files for setup, architecture, API specs, security, release, and policy docs when they exist.
@@ -146,7 +141,7 @@ Write the smallest useful file. Use only sections that add non-obvious value.
 
 ## Pointers
 
-An External References row and the subdirectory sentence are context pointers: their wording decides whether an agent reaches the file. The criteria live in `~/.agents/skills/writing-for-agents/SKILL.md` (Pointers / Pruning / Negation) — read them there.
+An External References row and the subdirectory sentence are context pointers: their wording decides whether an agent reaches the file. The criteria are the `writing-for-agents` skill's Context pointers, Pruning and Negation sections — read them there.
 
 Done when every pair from step 1 exists, every line in every file traces to one survey-list entry, and the root is within 150 lines.
 
