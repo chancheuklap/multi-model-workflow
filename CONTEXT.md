@@ -212,26 +212,26 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **Claude Design**:
 The design tool whose downloaded project is the handoff package and the baseline side of a parity run. Its page format is Design Components (`<x-dc>`, helmet, `sc-if` / `sc-for`, `data-props`, `dc-import`); its runtime is `support.js`.
-_Home_: `mmw-v2/skills/claude-design-blocks/SKILL.md`
+_Home_: `mmw-v2/skills/claude-design-blocks/references/porting.md`
 
 **component**:
 A root-level `<name>.dc.html` page in a Claude Design project that exposes a `scenario` prop. A handoff package carries one. Its helmet pins the page root `#dc-root`, which is where the baseline side is screenshotted from. A wrapper page imports it with `<dc-import name="…" scenario="…">`, whose `scenario` attribute pins one scene.
 _Avoid_: design component, scenario 属性
-_Home_: `mmw-v2/skills/claude-design-blocks/SKILL.md`
+_Home_: `mmw-v2/skills/claude-design-blocks/references/porting.md`
 
 **handoff package**:
-A Claude Design project downloaded into the prototype leaf directory `prototypes/<task>/<issue>/UI/`: five files — the component's `.dc.html`, `styles/`, `data/`, `support.js`, `scenes.json`. `visual-parity.py --baseline` renders it; the Spec axis does not open it; it supersedes the winning variant under `## Read first`; once downloaded it is a contract, copied verbatim, not a reference.
+A Claude Design project downloaded into the prototype leaf directory `prototypes/<task>/<issue>/UI/`: the five things `visual-parity.py --baseline` renders — the component's `.dc.html`, `styles/`, `data/`, `support.js`, `scenes.json` — plus the `README.md` a spec and its tickets take exact values and verbatim copy from. `visual-parity.py --baseline` renders it; the Spec axis does not open it; it supersedes the winning variant under `## Read first`; once downloaded it is a contract, copied verbatim, not a reference.
 _Avoid_: 交接包, 开发交接包, 基线目录, UI 基线
 _Home_: `mmw-v2/skills/verify-ticket/references/ui-parity.md`
 
 **scene**:
 One entry of `scenes.json`: `name`, `page` (the `.dc.html` it pins), and `props` (the query parameters that put the real page into that state, opened as `<impl url>?scene=<name>&<scene props>` — the name first, because two scenes can share one prop set). Each scene gets its own screenshot and accessibility tree per viewport. The name may not contain `/`, because its wrapper page is `/__parity-<name>.dc.html`. In Claude Design a scene is a prop set from the Tweaks panel.
 _Avoid_: 场景 (when a scene is meant), 场景列表, scenario (for a scene)
-_Home_: `mmw-v2/skills/claude-design-blocks/SKILL.md`
+_Home_: `mmw-v2/skills/claude-design-blocks/references/handoff.md`
 
 **`DESIGN.md`**:
 The consuming repository's design-system file. When it is missing, the `create-design-md` skill (`ibelick/ui-skills@create-design-md`, installed with the skills CLI) writes one; it is uploaded once per project as the Claude Design design system.
-_Home_: `mmw-v2/skills/claude-design-blocks/SKILL.md`
+_Home_: `mmw-v2/skills/claude-design-blocks/references/porting.md`
 
 **prototype**:
 Code that answers one design question, kept in the repository under `prototypes/<task>/<issue>/<UI|LOGIC|EXP>/` and iterated as the answer sharpens; the real implementation is written with it as reference. Its question and verdict live in the leaf `README.md`; it has no tests. A UI prototype is several structurally different **variants** (default three, at most five) on one real route, switched by `?variant=`; the user picks the winner, `?variant=<winner>`. The mount point, symlink, and switch that let variants render inside the real app are **scaffolding**, taken down in step 6 of `prototype/UI.md`; a **prototype route** is one created for the variants and deleted when the winner is promoted. A prototype's chosen artifact — the winning variant, the validated logic module, an experiment's Reusable parts with its Conclusion — is a baseline source.
