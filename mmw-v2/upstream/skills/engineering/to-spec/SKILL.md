@@ -21,7 +21,7 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 
 A seam says where a test **observes**. Ask the other half in the same breath: for each state this feature's behaviour turns on, can a test put the system into that state through the seam you picked? An interface compared through a debugging port is read and not written, so a test cannot reach a state that only the running application can enter. Where the seam does not reach, say what would, and whether that thing ships.
 
-Check with the user that these seams match their expectations, and that they accept what has to exist for a test to arrive at each state.
+The seam is yours to decide, not the user's: they are not asked to confirm it. What they see of it is the plain-words opening sentence of Testing Decisions, which says where a test looks at the result.
 
 4. Write the spec using the template below, then publish it to the project issue tracker. Leave it unlabelled: a spec is a container for the tickets underneath it, not a piece of work, and a triage label would put it in a queue somebody has to sort back out. If the spec grew out of an issue carrying an agent brief, close that issue and attach it under the spec, so the brief stays reachable from the spec that replaced it.
 
@@ -69,7 +69,7 @@ Exception: if a prototype produced a snippet that encodes a decision more precis
 
 ## Testing Decisions
 
-The first sentence names the **seam** confirmed in step 3: what is real on each side of it, and which external seams (third-party APIs, paid services) may be stubbed. Then:
+The first sentence says, in plain words a reader with no testing vocabulary understands, where a test looks at the result: a browser page, an HTTP endpoint, or a function call ("Tests look at the result on the browser page."). The next sentence names the **seam** chosen in step 3: what is real on each side of it, and which external seams (third-party APIs, paid services) may be stubbed. Then:
 
 - A description of what makes a good test (only test external behavior, not implementation details)
 - The test layers this feature lands in, each with its directory and the precedent to copy (i.e. similar types of tests in the codebase); every ticket cut from this spec will name one of these layers as the place it is verified

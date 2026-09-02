@@ -275,7 +275,7 @@ The spec section of decisions made, in numbered subsections `### 1.` … that ti
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **`## Testing Decisions`**:
-The spec section whose first sentence names the seam and which external seams may be stubbed; then, per test layer, its directory and the precedent to copy; then **How a test arrives at a state** — the mechanism that puts the system into each state the behaviour turns on, which must be named here and owned by some ticket's `## Owns`, else `to-tickets` cuts a `reach` ticket for it; last, the commands to run before committing. `CHECK:`, `EXPECT:`, and the ticket's `## Seam` are derived from it.
+The spec section whose first sentence says in plain words where a test looks at the result (a browser page, an HTTP endpoint, or a function call) and whose second names the seam and which external seams may be stubbed; then, per test layer, its directory and the precedent to copy; then **How a test arrives at a state** — the mechanism that puts the system into each state the behaviour turns on, which must be named here and owned by some ticket's `## Owns`, else `to-tickets` cuts a `reach` ticket for it; last, the commands to run before committing. `CHECK:`, `EXPECT:`, and the ticket's `## Seam` are derived from it.
 _Avoid_: 测试怎么到达状态
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
@@ -288,7 +288,7 @@ The spec section of links to the first-hand material it was built from, one line
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **seam**:
-The place a test observes: the public boundary you test at. It is the subject of `## Testing Decisions`'s first sentence and of a ticket's `## Seam`. **External seams** are the third-party ones that may be stubbed.
+The place a test observes: the public boundary you test at. `to-spec` chooses it without asking the user; it is the subject of `## Testing Decisions`'s second sentence and of a ticket's `## Seam`. **External seams** are the third-party ones that may be stubbed.
 _Avoid_: boundary (for a seam)
 _Home_: `mmw-v2/upstream/skills/engineering/tdd/SKILL.md`
 
