@@ -552,7 +552,7 @@ The closing comment's other first line, `HANDOFF REQUIRED: <abandoned> abandoned
 _Home_: `mmw-v2/skills/verify-ticket/references/closeout.md`
 
 **`Outside Owns:`**:
-The last line of a `self-run` or `reverify` comment and a fixed line of the closing comment: the files this ticket's own commits changed that no `## Owns` glob covers, along the first-parent chain since the base commit, merges excluded; computed by `verify-ticket.py`, copied into the draft, explained there; `None` when empty. It is an explanation, not a criterion.
+The last line of a `self-run` or `reverify` comment and a fixed line of the closing comment: the files this ticket's own commits changed that no `## Owns` glob covers, along the first-parent chain since the base commit, merges excluded; computed by `verify-ticket.py`, copied into the draft, explained there; `None` when empty. The question is asked of this ticket's own commits, so a run on any branch but `issue-<n>` writes `Outside Owns: not checked on <branch>, which carries more than this ticket` instead. It is an explanation, not a criterion.
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **`NOT_READY:`**:

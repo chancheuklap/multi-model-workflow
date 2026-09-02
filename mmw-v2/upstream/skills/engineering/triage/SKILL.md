@@ -68,7 +68,7 @@ Show counts and a one-line summary per item. Let the maintainer pick.
 
 ## A ticket handed back by this repo's own pipeline
 
-A `needs-triage` ticket whose newest comment starts with `HANDOFF REQUIRED`, `WAKEUP LIMIT:`, `TIME LIMIT:`, `REDISPATCHED:` or `BLOCKED:` did not arrive from outside. It came back from this repo's own pipeline, and everything established about it is already on the ticket.
+A `needs-triage` ticket whose newest comment starts with `HANDOFF REQUIRED` did not arrive from outside. It came back from this repo's own pipeline, and everything established about it is already on the ticket.
 
 Read that comment and the ticket's `self-run` / `VERDICT` / `REVIEW` trail instead of reproducing from a reporter's steps, and skip `.out-of-scope/`: nobody rejected this request, an agent could not finish it. Then recommend one of the four outcomes from what the worker already established.
 

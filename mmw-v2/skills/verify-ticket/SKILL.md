@@ -45,7 +45,7 @@ How many rounds a criterion gets is the worker's own judgement; no run names a l
 
 ## `Outside Owns`
 
-The `self-run` and `reverify` comment ends with the files this ticket's own commits changed that no `## Owns` glob covers: the first-parent chain since the ticket branch left its base commit, merges excluded, so work merged in from another ticket's branch is not counted. Copy that line into the closing comment. It is something to explain there, not a verdict on the work.
+The `self-run` and `reverify` comment ends with the files this ticket's own commits changed that no `## Owns` glob covers: the first-parent chain since the ticket branch left its base commit, merges excluded, so work merged in from another ticket's branch is not counted. A run on any branch but `issue-<n>` — the base branch after `advance`, say — cannot answer that question, and writes `Outside Owns: not checked on <branch>, which carries more than this ticket` instead. Copy that line into the closing comment. It is something to explain there, not a verdict on the work.
 
 ## A multi-line `CHECK:`
 
