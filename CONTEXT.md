@@ -612,7 +612,7 @@ _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 ### Code review
 
 **code review**:
-One round: the worker starts the reviewer session through the dispatch skill; the dispatcher starts three read-only axis subagents, each given three values — the base commit, the ticket number, and its reference file's path — each reading `git diff <base-commit>...HEAD`; one review comment results. The worker waits with `dispatch.sh wait <n> "^REVIEW "` (the script's own timeout; on timeout the round is skipped). An in-ticket finding gets one round of fixes and a self-run, never a re-review; an out-of-ticket finding becomes a sub-issue. Fixing a finding is bound by the writing rules.
+One round: the worker starts the reviewer session through the dispatch skill; the dispatcher starts three read-only axis subagents, each given three values — the base commit, the ticket number, and its reference file's path — each reading `git diff <base-commit>...HEAD`; one review comment results. The worker waits with `dispatch.sh wait <n> "^REVIEW "` (the script's own timeout) and the round ends only with the review comment: on a start that exits 1 or 2 or a wait that times out, the worker reads the reviewer's screen, waits again while it is running, and otherwise runs the `code-review` skill in its host's general-purpose subagent, whose report lands with the same `REVIEW` first line. An in-ticket finding gets one round of fixes and a self-run, never a re-review; an out-of-ticket finding becomes a sub-issue. Fixing a finding is bound by the writing rules.
 _Avoid_: the review stage
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
@@ -722,7 +722,7 @@ _Avoid_: 认领 (as a term), assign to oneself
 _Home_: `docs/agents/issue-tracker.md`
 
 **wait**:
-`dispatch.sh wait <ticket> "<first-line-regex>" [seconds]`: blocks until the first line of the ticket's newest comment matches; on timeout it comments on the ticket first, then exits non-zero, and the caller skips that round. It takes only a ticket number. A worker waits for its reviewer with `"^REVIEW "`; whoever dispatched a worker waits with `"^(ALL MET|HANDOFF REQUIRED)"`. The default is `WAIT_DEFAULT_SECONDS` in the script, not in skill text.
+`dispatch.sh wait <ticket> "<first-line-regex>" [seconds]`: blocks until the first line of the ticket's newest comment matches; on timeout it comments on the ticket first, then exits non-zero; whoever waited on a worker skips that round, and a worker that waited on its reviewer reads the reviewer's screen and waits again or reviews in its own subagent. It takes only a ticket number. A worker waits for its reviewer with `"^REVIEW "`; whoever dispatched a worker waits with `"^(ALL MET|HANDOFF REQUIRED)"`. The default is `WAIT_DEFAULT_SECONDS` in the script, not in skill text.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **run**:

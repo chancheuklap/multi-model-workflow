@@ -443,7 +443,7 @@ wait_for() {
 
   local who="${target:-the agent on #$number}"
   gh_ issue comment "$number" \
-    --body "$who did not report back within ${seconds}s. This round was skipped and the ticket carried on." \
+    --body "$who did not report back within ${seconds}s." \
     >/dev/null 2>&1
   give_up "$who did not report back within ${seconds}s"
 }
