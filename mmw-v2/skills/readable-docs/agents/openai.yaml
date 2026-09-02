@@ -1,0 +1,6 @@
+interface:
+  display_name: "Readable docs"
+  short_description: "Write a document a person can understand"
+
+policy:
+  allow_implicit_invocation: false

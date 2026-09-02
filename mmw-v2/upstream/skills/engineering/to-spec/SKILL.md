@@ -23,7 +23,7 @@ A seam says where a test **observes**. Ask the other half in the same breath: fo
 
 Check with the user that these seams match their expectations, and that they accept what has to exist for a test to arrive at each state.
 
-4. Write the spec using the template below — with the `readable-docs` skill, and run its claim-checker before publishing — then publish it to the project issue tracker. Leave it unlabelled: a spec is a container for the tickets underneath it, not a piece of work, and a triage label would put it in a queue somebody has to sort back out. If the spec grew out of an issue carrying an agent brief, close that issue and attach it under the spec, so the brief stays reachable from the spec that replaced it.
+4. Write the spec using the template below, then publish it to the project issue tracker. Leave it unlabelled: a spec is a container for the tickets underneath it, not a piece of work, and a triage label would put it in a queue somebody has to sort back out. If the spec grew out of an issue carrying an agent brief, close that issue and attach it under the spec, so the brief stays reachable from the spec that replaced it.
 
 <spec-template>
 

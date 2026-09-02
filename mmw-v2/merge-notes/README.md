@@ -17,7 +17,7 @@
 
 `SKILL.md` frontmatter 的 `disable-model-invocation: true`（Claude Code 读）与 `agents/openai.yaml` 的 `policy.allow_implicit_invocation: false`（Codex 读）说的是同一件事：这个 skill 只有 user 点名才触发。两处同增同删——只动一处，同一个 skill 在一半 host 上是 user 触发、在另一半是模型可触发。
 
-本仓装进来的 skill 默认让模型可触发：user 漏说技能名时，agent 自己认得出该用它。两行都留着的只有 `setup-matt-pocock-skills`、`grill-me`、`handoff`、`wait-what`。上游改这两行 → 本仓的取舍不变，两处一起跟。
+两个 subtree 装进来的 skill 默认让模型可触发：user 漏说技能名时，agent 自己认得出该用它。本仓自研的技能不归这里管，取舍登记在根 `CONTEXT.md` 的 `SKILL.md` 条目。两行都留着的只有 `setup-matt-pocock-skills`、`grill-me`、`handoff`、`wait-what`。上游改这两行 → 本仓的取舍不变，两处一起跟。
 
 下面每份说明只写它那个 skill 站在哪一边，不复述这条规则。
 
@@ -30,7 +30,6 @@
 - [implement](implement.md) — `engineering/implement`
 - [improve-codebase-architecture](improve-codebase-architecture.md) — `engineering/improve-codebase-architecture`
 - [prototype](prototype.md) — `engineering/prototype`
-- [research](research.md) — `engineering/research`
 - [to-spec](to-spec.md) — `engineering/to-spec`
 - [to-tickets](to-tickets.md) — `engineering/to-tickets`
 - [setup-matt-pocock-skills](setup-matt-pocock-skills.md) — `engineering/setup-matt-pocock-skills`
