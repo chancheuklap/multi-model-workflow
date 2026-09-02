@@ -3,7 +3,7 @@
 # Tests for dispatch.sh. One scenario per run:
 #
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh worker|reviewer|seat|runtable
-#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh idletimeout|notready|noherdr
+#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh idletimeout|notready|livesession|noherdr
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh wait|waittimeout|placeholder
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh advance|advanceconflict|advancedirty
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh all
@@ -399,6 +399,50 @@ scenario_notready() {
   [ "$code" = 0 ] || fail "a closed blocker should not stop a dispatch, got $code: $(cat "$TMP/err")"
 }
 
+scenario_livesession() {
+  local code
+  echo "--- a worker whose Herdr name is already live is refused before anything opens"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_HERDR_AGENTS='{"result":{"agents":[{"name":"w1-issue-61","pane_id":"w1:p5"}]}}' \
+          bash "$DISPATCH" 61 worker)"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  one_line_reason
+  grep -q 'w1-issue-61' "$TMP/err" || fail "the reason does not name the session: $(cat "$TMP/err")"
+  has "herdr :: agent :: list"
+  hasnt "herdr :: tab :: create"
+  hasnt "herdr :: pane :: split"
+  hasnt "herdr :: agent :: start"
+  [ ! -d "$MMW_WORKTREES/repo/issue-61" ] || fail "a worktree was opened for a ticket already live"
+
+  echo "--- a reviewer whose name is already live is refused the same way"
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_HERDR_AGENTS='{"result":{"agents":[{"name":"w1-issue-61-review","pane_id":"w1:p5"}]}}' \
+          bash "$DISPATCH" 61 reviewer abc1234)"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  one_line_reason
+  grep -q 'w1-issue-61-review' "$TMP/err" || fail "the reason does not name the session: $(cat "$TMP/err")"
+  hasnt "herdr :: pane :: layout"
+  hasnt "herdr :: pane :: split"
+  hasnt "herdr :: agent :: start"
+
+  echo "--- the worker's name being live does not stop its reviewer, and the other way round"
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_HERDR_AGENTS='{"result":{"agents":[{"name":"w1-issue-61","pane_id":"w1:p1"}]}}' \
+          bash "$DISPATCH" 61 reviewer abc1234)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  has "herdr :: agent :: start :: w1-issue-61-review"
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_HERDR_AGENTS='{"result":{"agents":[{"name":"w1-issue-61-review","pane_id":"w1:p10"},{"name":"w2-issue-61","pane_id":"w2:p1"}]}}' \
+          bash "$DISPATCH" 61 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  has "herdr :: agent :: start :: w1-issue-61"
+}
+
 scenario_noherdr() {
   local code
   echo "--- dispatching from outside Herdr refuses and starts nothing"
@@ -686,10 +730,10 @@ scenario_advancedirty() {
   hasnt "agent :: start"
 }
 
-ALL="worker reviewer seat runtable idletimeout notready noherdr wait waittimeout placeholder advance advanceconflict advancedirty"
+ALL="worker reviewer seat runtable idletimeout notready livesession noherdr wait waittimeout placeholder advance advanceconflict advancedirty"
 
 case "${1:-}" in
-  worker|reviewer|seat|runtable|idletimeout|notready|noherdr|wait|waittimeout|placeholder|advance|advanceconflict|advancedirty)
+  worker|reviewer|seat|runtable|idletimeout|notready|livesession|noherdr|wait|waittimeout|placeholder|advance|advanceconflict|advancedirty)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -706,6 +750,7 @@ banner_for() {
     runtable) echo DISPATCH-RUNTABLE-OK ;;
     idletimeout) echo DISPATCH-IDLE-TIMEOUT-OK ;;
     notready) echo DISPATCH-NOTREADY-OK ;;
+    livesession) echo DISPATCH-LIVESESSION-OK ;;
     noherdr) echo DISPATCH-NOHERDR-OK ;;
     wait) echo DISPATCH-WAIT-OK ;;
     waittimeout) echo DISPATCH-WAITTIMEOUT-OK ;;

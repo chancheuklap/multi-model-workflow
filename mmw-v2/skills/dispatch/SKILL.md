@@ -51,7 +51,7 @@ The second argument is `worker` or `reviewer`. Which of the two worker rows in `
 | --- | --- |
 | `0` | The session is up and has been told what to work on |
 | `1` | The session is up but was **not** told anything: its hooks did not report it ready in time, or it did not report the prompt as taken. A session is now sitting in that pane holding the ticket's name with nothing to do. Read its screen with `herdr agent read <name>`, then either prompt it yourself with the dispatch line or end that session before dispatching the ticket again with the same second argument — the Herdr name collides |
-| `2` | Nothing was started. The reason is on stderr — read it verbatim |
+| `2` | Nothing was started — no worktree, tab or pane was opened. The reason is on stderr — read it verbatim. One of them is `already has a live session <name>`: Herdr already holds a session by the name this dispatch would use, so end that session or wait for it before dispatching the ticket again with the same second argument |
 
 **Waiting** — `<dispatch> wait`:
 

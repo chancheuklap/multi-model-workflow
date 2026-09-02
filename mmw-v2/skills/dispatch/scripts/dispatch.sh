@@ -184,6 +184,29 @@ else:
 '
 }
 
+# ------------------------------------------------------------------ live sessions
+
+# Prints "live" when Herdr already has an agent by this name, nothing when it does not,
+# and "unreadable" when Herdr could not be asked. A name that is taken would fail at
+# `agent start`, after a tab or a pane had already been opened for it — so it is asked
+# here, before anything is opened, and exit 2 keeps meaning that nothing was touched.
+session_named() {
+  local listing
+  listing="$(herdr agent list 2>/dev/null)" || { echo unreadable; return; }
+  printf '%s' "$listing" | MMW_WANTED="$1" python3 -c '
+import json, os, sys
+
+try:
+    payload = json.load(sys.stdin)
+except Exception:
+    print("unreadable")
+    sys.exit(0)
+agents = (payload.get("result") or {}).get("agents") or payload.get("agents") or []
+if any(a.get("name") == os.environ["MMW_WANTED"] for a in agents):
+    print("live")
+'
+}
+
 # ------------------------------------------------------------------ the worktree
 
 # Prints the path of ticket `number`'s worktree, creating it when it is not there yet.
@@ -297,6 +320,15 @@ dispatch() {
   local pane name prompt
   if [ "$reviewing" = 1 ]; then
     name="$(herdr_name "issue-$number-review")"
+  else
+    name="$(herdr_name "issue-$number")"
+  fi
+  case "$(session_named "$name")" in
+    live) refuse "#$number already has a live session $name" ;;
+    unreadable) refuse "could not list Herdr's agents, so whether $name is already live is unknown" ;;
+  esac
+
+  if [ "$reviewing" = 1 ]; then
     prompt="Use the code-review skill to review ticket #$number from base commit $base. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
     local caller="${HERDR_PANE_ID:-}"
     [ -n "$caller" ] || refuse "no calling pane to split, so the reviewer has nowhere to go"
@@ -310,7 +342,6 @@ dispatch() {
             | json_at .result.pane.pane_id)"
     [ -n "$pane" ] || refuse "could not split pane $caller"
   else
-    name="$(herdr_name "issue-$number")"
     prompt="Use the implement skill to work ticket #$number. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
     local worktree
     worktree="$(worktree_for "$number" "$root")" \
