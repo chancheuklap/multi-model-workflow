@@ -722,7 +722,7 @@ _Avoid_: 认领 (as a term), assign to oneself
 _Home_: `docs/agents/issue-tracker.md`
 
 **wait**:
-`dispatch.sh wait <ticket> "<first-line-regex>" [seconds]`: blocks until the first line of the ticket's newest comment matches; on timeout it comments on the ticket first, then exits non-zero; whoever waited on a worker skips that round, and a worker that waited on its reviewer reads the reviewer's screen and waits again or reviews in its own subagent. It takes only a ticket number. A worker waits for its reviewer with `"^REVIEW "`; whoever dispatched a worker waits with `"^(ALL MET|HANDOFF REQUIRED)"`. The default is `WAIT_DEFAULT_SECONDS` in the script, not in skill text.
+`dispatch.sh wait <ticket> "<first-line-regex>" [seconds]`: blocks until the first line of a comment matches — the newest one when the wait starts, then any comment added since, so a comment landing after the awaited one does not hide it; on timeout it comments on the ticket first, then exits non-zero; whoever waited on a worker skips that round, and a worker that waited on its reviewer reads the reviewer's screen and waits again or reviews in its own subagent. It takes only a ticket number. A worker waits for its reviewer with `"^REVIEW "`; whoever dispatched a worker waits with `"^(ALL MET|HANDOFF REQUIRED)"`. The default is `WAIT_DEFAULT_SECONDS` in the script, not in skill text.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **run**:

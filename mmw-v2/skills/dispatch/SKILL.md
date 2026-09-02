@@ -41,7 +41,7 @@ The second argument is `worker` or `reviewer`. Which of the two worker rows in `
 
 `<base-commit>` is the reviewer's only extra argument: the commit the code review starts from. Read it in the worker's worktree with `git config branch.issue-<n>.mmw-base` — the base commit `dispatch.sh` recorded when it opened the worktree, and the commit `verify-ticket.py` measures `Outside Owns:` from.
 
-`wait` takes a first-line regular expression, matched against the newest comment on the ticket. A worker waiting on its reviewer uses `"^REVIEW "`, trailing space and all; whoever dispatched a worker waits on `"^(ALL MET|HANDOFF REQUIRED)"`. A trailing `[seconds]` overrides `dispatch.sh`'s own `WAIT_DEFAULT_SECONDS`; leave it off.
+`wait` takes a first-line regular expression, matched against the newest comment on the ticket when the wait starts and against every comment added after that. A worker waiting on its reviewer uses `"^REVIEW "`, trailing space and all; whoever dispatched a worker waits on `"^(ALL MET|HANDOFF REQUIRED)"`. A trailing `[seconds]` overrides `dispatch.sh`'s own `WAIT_DEFAULT_SECONDS`; leave it off.
 
 ## Exit codes
 

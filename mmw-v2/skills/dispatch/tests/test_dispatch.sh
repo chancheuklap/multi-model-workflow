@@ -79,11 +79,12 @@ import json, os
 
 seen = int(os.environ["MMW_SEEN"])
 match_on = int(os.environ.get("FAKE_GH_MATCH_ON", "1"))
+bodies = ["self-run\n3 met, 1 unmet"]
 if match_on and seen >= match_on:
-    body = "REVIEW clean\nNo findings inside the ticket."
-else:
-    body = "self-run\n3 met, 1 unmet"
-print(json.dumps({"comments": [{"body": body}]}))
+    bodies.append("REVIEW clean\nNo findings inside the ticket.")
+    # Comments that land after the awaited one, newest last.
+    bodies += [b for b in os.environ.get("FAKE_GH_COMMENTS_AFTER", "").split("|") if b]
+print(json.dumps({"comments": [{"body": b} for b in bodies]}))
 ' ;;
   *"--json state,labels,blockedBy,title"*)
     python3 -c '
@@ -456,6 +457,17 @@ if rounds != ["wait", "ask"] * 3:
   grep -q 'No findings inside the ticket' "$TMP/out" || fail "only the first line was printed"
 
   echo "--- nothing is written on the ticket when the wait succeeds"
+  hasnt "gh :: issue :: comment"
+
+  echo "--- a comment landing after the awaited one does not hide it"
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_PANE_ID=w1:p1 FAKE_GH_MATCH_ON=2 \
+          FAKE_GH_COMMENTS_AFTER='TOUCHED BY #62\nlib/shared.py: renamed the helper' \
+          FAKE_HERDR_AGENTS='{"result":{"agents":[{"name":"issue-61-review","pane_id":"w1:p10"},{"name":"issue-61","pane_id":"w1:p1"}]}}' \
+          bash "$DISPATCH" wait 61 '^REVIEW ' 120)"
+  [ "$code" = 0 ] || fail "expected exit 0 with a TOUCHED BY after the REVIEW, got $code: $(cat "$TMP/err")"
+  grep -q '^REVIEW clean' "$TMP/out" || fail "the REVIEW comment was not printed: $(cat "$TMP/out")"
+  grep -q 'TOUCHED BY' "$TMP/out" && fail "the later comment was printed instead of the REVIEW"
   hasnt "gh :: issue :: comment"
 
   echo "--- whoever is not the worker waits on the worker instead"
