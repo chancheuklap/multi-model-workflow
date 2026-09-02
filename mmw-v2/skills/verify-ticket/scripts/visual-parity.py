@@ -446,13 +446,46 @@ def resize(page, viewport: tuple[int, int], over_cdp: bool) -> None:
     failure before anything is compared.
     """
     if over_cdp:
-        page.context.new_cdp_session(page).send(
+        cdp_session(page).send(
             "Emulation.setDeviceMetricsOverride",
             {"width": viewport[0], "height": viewport[1],
              "deviceScaleFactor": 1, "mobile": False})
         page.emulate_media(reduced_motion="reduce")
     else:
         page.set_viewport_size({"width": viewport[0], "height": viewport[1]})
+
+
+# One session per page for the whole run. An emulation override belongs to the session
+# that set it, so a second session cannot clear it and a first session left attached
+# goes on applying it.
+_CDP_SESSIONS: dict[int, object] = {}
+
+
+def cdp_session(page):
+    session = _CDP_SESSIONS.get(id(page))
+    if session is None:
+        session = page.context.new_cdp_session(page)
+        _CDP_SESSIONS[id(page)] = session
+    return session
+
+
+def restore(page, home: str) -> None:
+    """Give the application's window back to the user: its own size, and its own page.
+
+    The override `resize` pushes down holds until the session that set it clears it, so
+    a run that walked away would leave the window drawing at the last viewport compared
+    — the page in one corner, the rest of the window empty, at one device pixel per CSS
+    pixel on a screen that has two — and parked on the last scene it was sent to.
+    """
+    session = _CDP_SESSIONS.pop(id(page), None)
+    try:
+        if session is not None:
+            session.send("Emulation.clearDeviceMetricsOverride")
+            page.emulate_media(reduced_motion="no-preference")
+            session.detach()
+        page.goto(home, wait_until="domcontentloaded")
+    except Exception:
+        pass
 
 
 def capture(page, url: str, selector: str | None, viewport: tuple[int, int], png: Path,
@@ -784,6 +817,8 @@ def run(args) -> int:
                     impl_ctx.close()
             if browser is not None:
                 browser.close()
+            if impl_page is not None:
+                restore(impl_page, args.impl)
             if impl_browser is not None:
                 # Disconnects; the application it belongs to goes on running.
                 impl_browser.close()
