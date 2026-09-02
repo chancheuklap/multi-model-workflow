@@ -31,7 +31,7 @@ _Avoid_: 工人, 做票的 agent, 领票的 agent
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **worker grade**:
-Which of the two workers a ticket goes to. Each grade is at once a ticket label, a row of `models.md`, and the answer in the ticket's `## Worker` section; the label is read afresh every time the ticket is started.
+Which of the two workers a ticket goes to. Each grade is at once a ticket label, a row of `models.md`, and the answer in the ticket's `## Worker` section; the user sees it once, as the `Worker:` line of the `to-tickets` quiz, and the label is read afresh every time the ticket is started.
 _Avoid_: grade of worker, seat, lane (for this)
 _Home_: `mmw-v2/skills/dispatch/models.md`
 

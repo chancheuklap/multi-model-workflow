@@ -96,18 +96,22 @@ Give each ticket its **blocking edges**: the other tickets that must complete be
 
 ### 6. Quiz the user
 
-Present the proposed breakdown as a numbered list. For each ticket, show:
+Present the proposed breakdown as a numbered list. For each ticket an agent works, show:
 
 - **Title**: short descriptive name
 - **Blocked by**: which other tickets (if any) must complete first
 - **What it delivers**: the end-to-end behaviour this ticket makes work
+- **Worker**: `junior` or `senior`, then ` — ` and the one-line reason from its **Worker** section. This line is the only time the grade passes a person's eye: `--lint` checks that the label and the section agree, not that the grade is right.
 - **Choices**: every choice question 5 sent here, one line each — the options, and the one you would take. Omit the line when there are none.
+
+Then the `ready-for-human` tickets, in the same list, each with its **Title**, **Blocked by**, its kind (*reaction* or *reach*) and what is to be looked at.
 
 Ask the user:
 
 - Does the granularity feel right? (too coarse / too fine)
 - Are the blocking edges correct: does each ticket only depend on tickets that genuinely gate it?
 - Should any tickets be merged or split further?
+- Is each worker grade right for what going wrong on that ticket would cost?
 - For each choice listed: which option?
 
 Iterate until the user approves the breakdown. Write each answered choice into that ticket's **What to build** before publishing.
