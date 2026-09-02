@@ -14,7 +14,7 @@ The checks it runs first matter. A night nobody is watching cannot notice that t
 
 ## `advance` merges, then dispatches, in that order
 
-`<dispatch> advance <spec>` merges the branch of every ticket that closed with `ALL MET` into the base branch you are on, then dispatches every ticket on the frontier.
+`<dispatch> advance <spec>` merges the branch of every ticket that closed with `ALL MET` into the branch you are on at that moment, then dispatches every ticket on the frontier. The branch you open the night on is the base branch, so stay on it all night: every `advance` merges into whatever HEAD is on, and `git config branch.issue-<n>.mmw-base-branch` is a record for readers, not something `advance` consults.
 
 The two halves are one command because the order is the reason: a worktree is cut from `HEAD` at the moment it is opened, so a branch merged after the next ticket is dispatched is a branch that ticket cannot see.
 

@@ -65,7 +65,7 @@ The second argument is `worker` or `reviewer`. Which of the two worker rows in `
 | Code | What happened |
 | --- | --- |
 | `0` | Done. The advance summary line counts what was merged, what was already in, and what was started |
-| `2` | Nothing was touched. The reason is on stderr: not inside Herdr, not a git repository, or the working tree has uncommitted changes |
+| `2` | Nothing was touched. The reason is on stderr: not inside Herdr, not a git repository, the working tree has uncommitted changes, or a merge could not take the `.git` lock in `MERGE_TRIES` tries — a worker committing in its own worktree at the same moment; run `advance` again |
 | `3` | A merge is in conflict. Everything before it is merged and committed; nothing was dispatched. **The conflict is still in the tree and it stays there.** Resolve it with the `resolving-merge-conflicts` skill, run this repository's own checks, commit the merge, then run `advance` again — it picks up from the branch after the one you resolved. The conflict report on stderr is the first two steps of that skill already done for you: the branch being merged and the ticket it belongs to, the tickets already merged on this side, and the conflicted files |
 
 **Opening the night** — `<dispatch> run <spec>`:

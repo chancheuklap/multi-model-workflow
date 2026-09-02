@@ -40,7 +40,7 @@ INSTALLER="$(dirname "$(dirname "$SKILL_ROOT")")/install.sh"
 DEFAULT_WORKER=junior-worker
 
 BOARD_TAB_LABEL="mmw board"
-MERGE_TRIES=3                # the board opens worktrees while advance merges
+MERGE_TRIES=3                # a worker's commit in its worktree can hold the .git lock while advance merges
 
 # Herdr's agent names are unique among live agents across the whole server, not per
 # workspace, so two repositories each holding a ticket #100 would collide on `issue-100`
@@ -567,9 +567,10 @@ conflict_report() {
 
 # 0 merged, 1 left in conflict, 2 could not run it at all.
 #
-# A retry is for the lock, not for the conflict: the board opens a worktree for a
-# redispatch while this runs, and the two collide on the repository's index for a
-# moment. A conflict leaves MERGE_HEAD behind and no number of retries changes it.
+# A retry is for the lock, not for the conflict: every worktree shares one `.git`, so
+# a worker committing in its own worktree while this runs holds the lock this merge
+# needs for a moment. A conflict leaves MERGE_HEAD behind and no number of retries
+# changes it.
 merge_one() {
   local root="$1" branch="$2" i
   for ((i = 1; i <= MERGE_TRIES; i++)); do

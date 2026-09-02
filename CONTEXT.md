@@ -206,7 +206,7 @@ _Avoid_: base-commit (in prose), 起点 commit, cut point, 切点
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **base branch**:
-`git config branch.issue-<n>.mmw-base-branch`: the branch `advance` merges a ticket branch into. The closing comment's `PR:` line reads `none — will be merged into <base branch> by dispatch.sh advance`.
+The branch the main agent is on when it opens the night and runs `advance`: `advance` merges every ticket branch into the branch HEAD is on at that moment, so the main agent stays on the branch it opened the night on until the last `advance`. `git config branch.issue-<n>.mmw-base-branch` records it at dispatch; `advance` does not read it. The closing comment's `PR:` line reads `none — will be merged into <base branch> by dispatch.sh advance`.
 _Avoid_: main branch, 基线分支, main (as a name)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
@@ -725,7 +725,7 @@ _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **advance**:
-`dispatch.sh advance <spec>`: first merge the branches of the tickets that closed, by closing time from earliest to latest, into the base branch — a ticket is merged when it is `CLOSED`, its closing comment's first line is `ALL MET`, its branch exists, and it is not already an ancestor; one merge commit each; `MERGE_TRIES` retries against the board opening worktrees — then dispatch the frontier as `board.py --advance-plan` lists it (`MERGE <n>` and `DISPATCH <n>` lines, the **advance plan**). A conflict is left in place with exit 3 and a **conflict report** on stderr (`CONFLICT` and `MERGE_HEAD` lines naming the two tickets and files); the main agent resolves it with `resolving-merge-conflicts` — never `--abort` — runs this repository's checks, commits the merge, and runs `advance` again. Uncommitted changes in the working tree give exit 2. It ends with the **advance summary line** `advance #<spec>: merged <m>, already in <s>, started <n>, refused <r>`, and may be run repeatedly. It is the main agent's answer to `mmw board: ADVANCE` and `night over`.
+`dispatch.sh advance <spec>`: first merge the branches of the tickets that closed, by closing time from earliest to latest, into the base branch — a ticket is merged when it is `CLOSED`, its closing comment's first line is `ALL MET`, its branch exists, and it is not already an ancestor; one merge commit each; `MERGE_TRIES` retries against a worker's commit in its own worktree holding the shared `.git` lock, and exit 2 when every try fails — then dispatch the frontier as `board.py --advance-plan` lists it (`MERGE <n>` and `DISPATCH <n>` lines, the **advance plan**). A conflict is left in place with exit 3 and a **conflict report** on stderr (`CONFLICT` and `MERGE_HEAD` lines naming the two tickets and files); the main agent resolves it with `resolving-merge-conflicts` — never `--abort` — runs this repository's checks, commits the merge, and runs `advance` again. Uncommitted changes in the working tree give exit 2. It ends with the **advance summary line** `advance #<spec>: merged <m>, already in <s>, started <n>, refused <r>`, and may be run repeatedly. It is the main agent's answer to `mmw board: ADVANCE` and `night over`.
 _Avoid_: 并回来 (as a term)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
@@ -959,4 +959,4 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | state role | `needs-triage` · `needs-info` · `ready-for-agent` · `ready-for-human` · `wontfix` |
 | category role | `bug` · `enhancement` |
 | `dispatch.sh` constants | `TOKEN_TTL_MS` · `PROMPT_TAKE_MS` · `WAIT_DEFAULT_SECONDS = 1800` · `MERGE_TRIES = 3` · `LABEL_TITLE_CHARS` · `BOARD_TAB_LABEL` · `MAIN_AGENT_NAME` · `DEFAULT_WORKER` |
-| exit codes | `dispatch.sh` 0 / 1 (not reported ready in 120 s) / 2 (ticket refused) / 3 (`advance` conflict) · `verify-ticket.py` 0 / 1 (`--closeout` refused) / 2 (`--preflight` refused) · `visual-parity.py` 0 / 1 (`DIFF`) / 2 (`NEGATIVE CONTROL FAILED`) · `install.sh --check` 0 / 1 · `--lint` 0 unless an `ERROR` remains |
+| exit codes | `dispatch.sh` 0 / 1 (not reported ready in 120 s) / 2 (refused, nothing touched: the ticket's checks, a live session by the same name, `run`'s checks, or `advance` without the `.git` lock in `MERGE_TRIES` tries) / 3 (`advance` conflict) · `verify-ticket.py` 0 / 1 (`--closeout` refused) / 2 (`--preflight` refused) · `visual-parity.py` 0 / 1 (`DIFF`) / 2 (`NEGATIVE CONTROL FAILED`) · `install.sh --check` 0 / 1 · `--lint` 0 unless an `ERROR` remains |
