@@ -557,7 +557,7 @@ The closing comment's other first line, `HANDOFF REQUIRED: <abandoned> abandoned
 _Home_: `mmw-v2/skills/verify-ticket/references/closeout.md`
 
 **`Outside Owns:`**:
-The last line of a `self-run` or `reverify` comment and a fixed line of the closing comment: the files this ticket's own commits changed that no `## Owns` glob covers, along the first-parent chain since the base commit, merges excluded; computed by `verify-ticket.py`, copied into the draft, explained there; `None` when empty. The question is asked of this ticket's own commits, so a run on any branch but `issue-<n>` writes `Outside Owns: not checked on <branch>, which carries more than this ticket` instead. It is an explanation, not a criterion.
+The last line of a `self-run` or `reverify` comment and a fixed line of the closing comment: the files this ticket's own commits changed that no `## Owns` glob covers, along the first-parent chain since the base commit, merges excluded; computed by `verify-ticket.py`, copied into the draft, explained there with the Spec axis's judgement of each file (`reasonable`, `should not`, `no review`); `None` when empty. The `DECISIONS` comment carries the same line with one sentence per file, the Spec axis judges each, and before the draft is written the worker leaves a comment opening `TOUCHED BY #<n>` on every open ticket under the same spec whose `## Owns` covers that file, saying what changed, why, and the judgement. No script finds those tickets and `--closeout` checks none of this. The question is asked of this ticket's own commits, so a run on any branch but `issue-<n>` writes `Outside Owns: not checked on <branch>, which carries more than this ticket` instead. It is an explanation, not a criterion.
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **`NOT_READY:`**:
@@ -803,7 +803,7 @@ _Avoid_: 写码纪律, 写码纪律七条, the seven working rules, 不问 (as a
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **closing steps**:
-What `implement` does once the code is written: self-run (at most three rounds per criterion); dispatch the verifier with `verify #<n>`, once; comment `DECISIONS` once; start the reviewer and wait for the review comment, fix in-ticket findings for one round, no re-review; `Audit`; cut the criteria that only wait for a person's one sentence into `decision` sub-issues and write the closing comment draft; `--closeout`; close the reviewer's pane. A re-prompted worker resumes at the step after the newest of `self-run`, `VERDICT`, `DECISIONS`, `REVIEW`. No branch is pushed and no pull request is opened: work reaches the base branch through `advance`.
+What `implement` does once the code is written: self-run (at most three rounds per criterion); dispatch the verifier with `verify #<n>`, once; comment `DECISIONS` once; start the reviewer and wait for the review comment, fix in-ticket findings for one round, no re-review; `Audit`; comment `TOUCHED BY #<n>` on every open ticket of the spec whose `## Owns` covers a file on `Outside Owns:`; cut the criteria that only wait for a person's one sentence into `decision` sub-issues and write the closing comment draft; `--closeout`; close the reviewer's pane. A re-prompted worker resumes at the step after the newest of `self-run`, `VERDICT`, `DECISIONS`, `REVIEW`. No branch is pushed and no pull request is opened: work reaches the base branch through `advance`.
 _Avoid_: 收尾七步, 收尾六步, the seven closing steps, the closeout (for the sequence)
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
