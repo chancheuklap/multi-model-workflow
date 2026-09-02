@@ -201,12 +201,12 @@ _Avoid_: branch (bare), 分支名 (as a term)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **base commit**:
-The commit recorded in `git config branch.issue-<n>.mmw-base` when the worktree was opened. It is the first value of the review dispatch line, where code review's diff starts (`git diff <base-commit>...HEAD`, three dots), and where the first-parent chain behind `Outside Owns:` begins. With no record, `main`. Written `<base-commit>` as a placeholder.
+The commit recorded in `git config branch.issue-<n>.mmw-base` when the worktree was opened: the HEAD a branch was cut from, or — for a ticket branch that already existed with no record — its merge base with HEAD at that dispatch. It is the first value of the review dispatch line, where code review's diff starts (`git diff <base-commit>...HEAD`, three dots), and where the first-parent chain behind `Outside Owns:` begins. With no record, `main`. Written `<base-commit>` as a placeholder.
 _Avoid_: base-commit (in prose), 起点 commit, cut point, 切点
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **base branch**:
-`git config branch.issue-<n>.mmw-base-branch`: the branch `advance` merges a ticket branch into. The closing comment's `PR:` line reads `none — will be merged into <base branch> by dispatch.sh advance`.
+The branch the main agent is on when it opens the night and runs `advance`: `advance` merges every ticket branch into the branch HEAD is on at that moment, so the main agent stays on the branch it opened the night on until the last `advance`. `git config branch.issue-<n>.mmw-base-branch` records it at dispatch; `advance` does not read it. The closing comment's `PR:` line reads `none — will be merged into <base branch> by dispatch.sh advance`.
 _Avoid_: main branch, 基线分支, main (as a name)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
@@ -722,16 +722,16 @@ _Home_: `docs/agents/issue-tracker.md`
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **run**:
-`dispatch.sh run <spec> [--max-hours H]`, the one command that opens a night: it runs `install.sh --check` and refuses on any missing item, renames the main agent's pane `mmw-main`, opens the monitor tab in this workspace, and starts `board.py --watch`. It dispatches nothing.
+`dispatch.sh run <spec> [--max-hours H]`, the one command that opens a night: it runs `install.sh --check` and refuses on any missing item, reads every queued ticket's worker-grade label through `board.py --worker-grades` and refuses when one names a row `models.md` lacks or a ticket carries two, refuses when a worker row's or the reviewer row's host is not a kind `herdr agent start` accepts, then renames the main agent's pane `mmw-main`, opens the monitor tab in this workspace, and starts `board.py --watch`. Every refusal is exit 2 with nothing opened. It dispatches nothing.
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **advance**:
-`dispatch.sh advance <spec>`: first merge the branches of the tickets that closed, by closing time from earliest to latest, into the base branch — a ticket is merged when it is `CLOSED`, its closing comment's first line is `ALL MET`, its branch exists, and it is not already an ancestor; one merge commit each; `MERGE_TRIES` retries against the board opening worktrees — then dispatch the frontier as `board.py --advance-plan` lists it (`MERGE <n>` and `DISPATCH <n>` lines, the **advance plan**). A conflict is left in place with exit 3 and a **conflict report** on stderr (`CONFLICT` and `MERGE_HEAD` lines naming the two tickets and files); the main agent resolves it with `resolving-merge-conflicts` — never `--abort` — runs this repository's checks, commits the merge, and runs `advance` again. Uncommitted changes in the working tree give exit 2. It ends with the **advance summary line** `advance #<spec>: merged <m>, already in <s>, started <n>, refused <r>`, and may be run repeatedly. It is the main agent's answer to `mmw board: ADVANCE` and `night over`.
+`dispatch.sh advance <spec>`: first merge the branches of the tickets that closed, by closing time from earliest to latest, into the base branch — a ticket is merged when it is `CLOSED`, its closing comment's first line is `ALL MET`, its branch exists, and it is not already an ancestor; one merge commit each; `MERGE_TRIES` retries against a worker's commit in its own worktree holding the shared `.git` lock, and exit 2 when every try fails — then dispatch the frontier as `board.py --advance-plan` lists it (`MERGE <n>` and `DISPATCH <n>` lines, the **advance plan**). A conflict is left in place with exit 3 and a **conflict report** on stderr (`CONFLICT` and `MERGE_HEAD` lines naming the two tickets and files); the main agent resolves it with `resolving-merge-conflicts` — never `--abort` — runs this repository's checks, commits the merge, and runs `advance` again. Uncommitted changes in the working tree give exit 2. It ends with the **advance summary line** `advance #<spec>: merged <m>, already in <s>, started <n>, refused <r>`, and may be run repeatedly. It is the main agent's answer to `mmw board: ADVANCE` and `night over`.
 _Avoid_: 并回来 (as a term)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **night**:
-Everything between the last ticket published and the morning: `run` opens it, `board.py --watch` reads the sessions, `NIGHT SUMMARY` ends it. Two agents share it — the board watches and reports, the main agent decides — and one workspace holds one night. A ticket leaves the night only by its worker's closing comment. **`night over`** is the `mmw board:` case saying the summary is the spec's newest comment: run `advance` one last time.
+Everything between the last ticket published and the morning: `run` opens it, `board.py --watch` reads the sessions, `NIGHT SUMMARY` ends it. Two agents share it — the board watches and reports, the main agent decides — and one workspace holds one night. A ticket leaves the night in one of two ways: by its worker's closing comment, or by staying in the agent queue behind an open blocker all night, which the `Not dispatched, a blocker stayed open:` line of `NIGHT SUMMARY` lists. The night ends when the frontier is empty and no dispatched session is alive. **`night over`** is the `mmw board:` case saying the summary is the spec's newest comment: run `advance` one last time.
 _Avoid_: 夜间编排主循环, night orchestration loop, 夜里 (as a term), 夜间 (as a term)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
@@ -927,7 +927,7 @@ _Avoid_: the engine, the ticket script, the script (for this)
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **`board.py`**:
-`scripts/board.py` of the dispatch skill, the board's program: `--once [<spec>]` prints one table and exits; `[<spec>]` likewise; `--watch <spec>` is the one form that acts; `--advance-plan <spec>` prints the advance plan. It keeps no state file, re-reads the tracker and Herdr on every pane event or every `SNAPSHOT_INTERVAL`, holds one row per ticket, and appends one feed line per action through `say()` — never redrawing, and into the board log as well. Its constants: `MAX_HOURS = 4` (`--max-hours` overrides), `SNAPSHOT_INTERVAL = 60`, `FAILED_LIMIT = 3`, `FALLBACK_SECONDS = 600`, `TOKEN_TTL_MS = 86400000`. The skill's own text calls it `<board>`.
+`scripts/board.py` of the dispatch skill, the board's program: `--once [<spec>]` prints one table and exits; `[<spec>]` likewise; `--watch <spec>` is the one form that acts; `--advance-plan <spec>` prints the advance plan; `--worker-grades <spec>` prints one `GRADE <n> [<label> …]` line per `OPEN` ticket labelled `ready-for-agent`, blocked or not, for `run` to check before the night. It keeps no state file, re-reads the tracker and Herdr on every pane event or every `SNAPSHOT_INTERVAL`, holds one row per ticket, and appends one feed line per action through `say()` — never redrawing, and into the board log as well. Its constants: `MAX_HOURS = 4` (`--max-hours` overrides), `SNAPSHOT_INTERVAL = 60`, `FAILED_LIMIT = 3`, `FALLBACK_SECONDS = 600`, `TOKEN_TTL_MS = 86400000`. The skill's own text calls it `<board>`.
 _Avoid_: wake budget
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
 
@@ -960,4 +960,4 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | state role | `needs-triage` · `needs-info` · `ready-for-agent` · `ready-for-human` · `wontfix` |
 | category role | `bug` · `enhancement` |
 | `dispatch.sh` constants | `TOKEN_TTL_MS` · `PROMPT_TAKE_MS` · `WAIT_DEFAULT_SECONDS = 1800` · `MERGE_TRIES = 3` · `LABEL_TITLE_CHARS` · `BOARD_TAB_LABEL` · `MAIN_AGENT_NAME` · `DEFAULT_WORKER` |
-| exit codes | `dispatch.sh` 0 / 1 (not reported ready in 120 s) / 2 (ticket refused) / 3 (`advance` conflict) · `verify-ticket.py` 0 / 1 (`--closeout` refused) / 2 (`--preflight` refused) · `visual-parity.py` 0 / 1 (`DIFF`) / 2 (`NEGATIVE CONTROL FAILED`) · `install.sh --check` 0 / 1 · `--lint` 0 unless an `ERROR` remains |
+| exit codes | `dispatch.sh` 0 / 1 (not reported ready in 120 s) / 2 (refused, nothing touched: the ticket's checks, a live session by the same name, `run`'s checks, or `advance` without the `.git` lock in `MERGE_TRIES` tries) / 3 (`advance` conflict) · `verify-ticket.py` 0 / 1 (`--closeout` refused) / 2 (`--preflight` refused) · `visual-parity.py` 0 / 1 (`DIFF`) / 2 (`NEGATIVE CONTROL FAILED`) · `install.sh --check` 0 / 1 · `--lint` 0 unless an `ERROR` remains |

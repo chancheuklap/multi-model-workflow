@@ -51,7 +51,7 @@ The second argument is `worker` or `reviewer`. Which of the two worker rows in `
 | --- | --- |
 | `0` | The session is up and has been told what to work on |
 | `1` | The session is up but was **not** told anything: its hooks did not report it ready in time, or it did not report the prompt as taken. A session is now sitting in that pane holding the ticket's name with nothing to do. Read its screen with `herdr agent read <name>`, then either prompt it yourself with the dispatch line or end that session before dispatching the ticket again with the same second argument — the Herdr name collides |
-| `2` | Nothing was started. The reason is on stderr — read it verbatim |
+| `2` | Nothing was started — no worktree, tab or pane was opened. The reason is on stderr — read it verbatim. One of them is `already has a live session <name>`: Herdr already holds a session by the name this dispatch would use, so end that session or wait for it before dispatching the ticket again with the same second argument |
 
 **Waiting** — `<dispatch> wait`:
 
@@ -65,7 +65,7 @@ The second argument is `worker` or `reviewer`. Which of the two worker rows in `
 | Code | What happened |
 | --- | --- |
 | `0` | Done. The advance summary line counts what was merged, what was already in, and what was started |
-| `2` | Nothing was touched. The reason is on stderr: not inside Herdr, not a git repository, or the working tree has uncommitted changes |
+| `2` | Nothing was touched. The reason is on stderr: not inside Herdr, not a git repository, the working tree has uncommitted changes, or a merge could not take the `.git` lock in `MERGE_TRIES` tries — a worker committing in its own worktree at the same moment; run `advance` again |
 | `3` | A merge is in conflict. Everything before it is merged and committed; nothing was dispatched. **The conflict is still in the tree and it stays there.** Resolve it with the `resolving-merge-conflicts` skill, run this repository's own checks, commit the merge, then run `advance` again — it picks up from the branch after the one you resolved. The conflict report on stderr is the first two steps of that skill already done for you: the branch being merged and the ticket it belongs to, the tickets already merged on this side, and the conflicted files |
 
 **Opening the night** — `<dispatch> run <spec>`:
@@ -73,4 +73,4 @@ The second argument is `worker` or `reviewer`. Which of the two worker rows in `
 | Code | What happened |
 | --- | --- |
 | `0` | The board is up. Its monitor tab holds every line it will write |
-| `2` | Nothing was started. The reason is on stderr: not inside Herdr, a worker row in `models.md` that starts no session, or `install.sh --check` found something missing. Run `install.sh`, then `<dispatch> run <spec>` again |
+| `2` | Nothing was started. The reason is on stderr: not inside Herdr; a worker row in `models.md` that starts no session; `install.sh --check` found something missing; a ticket in the batch whose worker-grade label names a row `models.md` has no row for, or which carries two grade labels — the reason names the ticket; or a worker row's or the reviewer row's host is not a kind `herdr agent start` accepts. Fix what the reason names — run `install.sh`, relabel the ticket, or edit `models.md` — then `<dispatch> run <spec>` again |

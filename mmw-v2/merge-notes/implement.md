@@ -38,17 +38,19 @@ number back → drop it again.
 Upstream's step 6 pushed the branch and opened a pull request. This pipeline opens
 none, and the step is gone: nothing here reads a pull request — `code-review` takes its
 diff from git, the verifier reads the ticket and the worktree, and the closeout
-reads neither. What does read a branch is `dispatch.sh advance`, which merges it into
-`git config branch.issue-<n>.mmw-base-branch` once the ticket closes, on this machine,
-with no `gh` call at all. A pull request would only be a second place to remember to
-merge and pull back from.
+reads neither. What does read a branch is `dispatch.sh advance`, which merges it once the ticket
+closes, on this machine, with no `gh` call at all, into the branch the main agent is on
+when it runs `advance` — the branch it opened the night on, recorded at dispatch in
+`git config branch.issue-<n>.mmw-base-branch`. `advance` does not read that record;
+the skill text names it so the worker can write the `PR:` line. A pull request would
+only be a second place to remember to merge and pull back from.
 
 The `Branch: … Commit: … PR: …` line stays, with `PR: none — will be merged into <base
 branch> by dispatch.sh advance`. It is written in the future tense on purpose: the
 closing comment is written before the ticket closes, and the merge happens after.
 
 Upstream brings the push or the pull request back → drop them again, and keep the
-recorded base branch, which `advance` needs.
+sentence saying which branch `advance` merges into and where that name is recorded.
 
 ## Put no question on the screen
 

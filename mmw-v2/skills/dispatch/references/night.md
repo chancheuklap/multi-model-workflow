@@ -8,13 +8,13 @@ You are the main agent, and a spec's tickets are going to be worked while you ar
 
 `--max-hours` is how long one ticket may hold a session before the board tells you so; the ticket keeps its label and its session. Which row of `models.md` a ticket's worker starts from is the ticket's own `junior-worker` or `senior-worker` label, so the night carries no answer of its own.
 
-The `install.sh --check` it runs first matters. A night nobody is watching cannot notice that this machine's skills or its `hook.py` went missing, so that is checked at the one moment somebody is here to fix it.
+The checks it runs first matter. A night nobody is watching cannot notice that this machine's skills or its `hook.py` went missing, that a ticket's worker-grade label names a row `models.md` no longer has, or that a row's host is not a kind Herdr can start — each of those would refuse a ticket at every `advance`, with the reason only on `advance`'s stderr. So `install.sh --check`, every queued ticket's grade label, and every worker row's and the reviewer row's host are checked at the one moment somebody is here to fix them, and `run` exits 2 with nothing opened.
 
 **Then run `advance` once, yourself.** The board's `mmw board:` line may not reach you while your pane is focused, and at the start of a night it usually is.
 
 ## `advance` merges, then dispatches, in that order
 
-`<dispatch> advance <spec>` merges the branch of every ticket that closed with `ALL MET` into the base branch you are on, then dispatches every ticket on the frontier.
+`<dispatch> advance <spec>` merges the branch of every ticket that closed with `ALL MET` into the branch you are on at that moment, then dispatches every ticket on the frontier. The branch you open the night on is the base branch, so stay on it all night: every `advance` merges into whatever HEAD is on, and `git config branch.issue-<n>.mmw-base-branch` is a record for readers, not something `advance` consults.
 
 The two halves are one command because the order is the reason: a worktree is cut from `HEAD` at the moment it is opened, so a branch merged after the next ticket is dispatched is a branch that ticket cannot see.
 
@@ -41,7 +41,7 @@ Four cases reach you, each as one line beginning `mmw board:`. The line names th
 | Case | What it means |
 | --- | --- |
 | `ADVANCE` | The frontier has tickets on it |
-| `night over` | The night ended: `NIGHT SUMMARY` is the newest comment on the spec. Advance one last time — the tickets that closed last still have their branches outside your base branch, and this is the last chance to merge them — then re-run the closed tickets' criteria as below, read the summary, and tell the user if they asked to hear when the night finished |
+| `night over` | The night ended: the frontier is empty and no session of ours is alive. A ticket left waiting on a blocker that was handed back keeps its label and is on the `Not dispatched, a blocker stayed open:` line of `NIGHT SUMMARY`, the newest comment on the spec. Advance one last time — the tickets that closed last still have their branches outside your base branch, and this is the last chance to merge them — then re-run the closed tickets' criteria as below, read the summary, and tell the user if they asked to hear when the night finished |
 | `STOPPED` | A worker ended a turn on its own, short of `closed` or `handoff`, or its turn failed more than `FAILED_LIMIT` times at one phase. The line names its Herdr name: read its screen, work out why, and move it on |
 | `TIME LIMIT` | A ticket has held its session for `--max-hours`. Nothing was changed: read the session's screen and decide whether it goes on |
 
