@@ -80,3 +80,24 @@ class TestReviewProblems(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestContractPathInBackticks(unittest.TestCase):
+    """A Read first line usually wraps the path in backticks; the contract is still read,
+    so a row whose calls are [none] asks for no wiring criterion."""
+
+    def test_backticked_path_is_opened_and_none_rows_need_no_wiring(self):
+        import os
+        import tempfile
+        try:
+            import yaml  # noqa: F401
+        except ImportError:
+            self.skipTest("pyyaml not importable; the lint then falls back to every row")
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "screen-contract.yaml")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write("rows:\n- id: a.view\n  calls: [none]\n- id: a.save\n  calls: ['POST /x']\n")
+            read_first = f"- `{path} rows: a.view, a.save`（基线）"
+            wiring = WIRING.replace("create-project.add-material", "a.save")
+            findings = vt.lint_screen_contract(ticket(read_first, gate("AC1", PARITY), gate("AC2", wiring)))
+        self.assertEqual(findings, [])

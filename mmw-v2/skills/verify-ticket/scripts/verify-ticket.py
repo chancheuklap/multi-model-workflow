@@ -1341,7 +1341,7 @@ def lint_screen_contract(body: str) -> list[str]:
                                 f"wiring criterion reads the backend instead")
         return findings
     row_ids = ROW_ID_RE.findall(m.group(1))
-    contract_path = re.search(r"(\S*screen-contract\.yaml)", read_first)
+    contract_path = re.search(r"([\w./-]*screen-contract\.yaml)", read_first)
     rows_with_calls = set(row_ids)
     if contract_path:
         try:
