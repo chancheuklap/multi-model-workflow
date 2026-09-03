@@ -21,6 +21,7 @@
 | --- | --- |
 | frontmatter 的 `disable-model-invocation: true` | 删掉，这个 skill 在本仓是模型可触发的；`agents/openai.yaml` 的 `policy.allow_implicit_invocation` 一起删。上游改这一行 → 仍然删。规则见 [README.md](README.md#disable-model-invocation) |
 | Lessons：`If possible, open the lesson file…` | 改成「起本地 HTTP 服务、给 URL」。上游那句落到 `open <file>` 就是 `file://`，Safari 一类浏览器不允许 `file://` 页面碰自己目录之外的东西，跨目录的样式和超链接一起失效 |
+| Lessons：`zone of proximal development` 那段之后新增段（`The reader knows nothing about this topic.` 起） | 我们加的整段。上游只说课件要短、要美；这段定读者（对主题一无所知）和图、字的分工：图管是什么与怎么连，字只做图做不到的三件事（图答的是哪个问题、重点在哪、由此得出什么），字重复图就删字，图要一段话才看得懂就重画。四个用 HTML 做解释的技能放的是同一段。上游改前后段落 → 收上游，这一段原样保留 |
 | Assets：`write it as a component in ./assets/ and link to it` | 删掉 `and link to it`。组件仍然只写在 `./assets/`，但课件不链它 |
 | Assets：`every lesson links it` | 删掉。理由同上 |
 | Assets：新增 `### Self-contained pages` | 我们加的整节：`<!--CSS-->` / `<!--JS-->` 标记块、`./assets/build.py` 回填 |

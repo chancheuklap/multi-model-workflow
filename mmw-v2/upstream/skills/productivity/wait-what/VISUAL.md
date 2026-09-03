@@ -15,6 +15,8 @@ Show the page in the richest surface this session has:
 
 Skip the preamble and keep prose brief. Pick the smallest view that makes the key point clear. Every view below goes on the page.
 
+The reader knows nothing about this topic. Pictures show what things are and how they connect. Words do only what a picture cannot: say which question the picture answers, point at the part that matters, and state what follows from it. A sentence that repeats what the picture shows is deleted; a picture that needs a paragraph to be read is redrawn.
+
 - Show logic or an algorithm as pseudocode:
 
 ```text

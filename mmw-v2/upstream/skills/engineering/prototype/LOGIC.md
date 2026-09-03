@@ -40,6 +40,8 @@ Write the file into the leaf directory. If the host can publish a file as a live
 
 Write it for a non-developer. Every label is in **domain language**, not code: buttons and state read like the business, not the reducer. Explain in plain words what's happening.
 
+The reader knows nothing about this topic. Pictures show what things are and how they connect. Words do only what a picture cannot: say which question the picture answers, point at the part that matters, and state what follows from it. A sentence that repeats what the picture shows is deleted; a picture that needs a paragraph to be read is redrawn.
+
 Lay it out with a clean hierarchy, top to bottom:
 
 1. **Title and one-line explanation** of what this demo lets you explore (the question from step 1).

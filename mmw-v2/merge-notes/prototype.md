@@ -38,6 +38,7 @@
 | 第 1 步 | 问题同时写进 leaf `README.md` |
 | 第 3 步第二段（新增）、第 4 步首句 | 文件写进 leaf directory 是源头；host 能把文件发布成在线交互页就发布交链接，否则交文件。按能力措辞，不写 host 名 |
 | 第 2 步「The page around it is …」 | 页面是壳，纯模块是正式代码的来源；不用 throwaway 措辞 |
+| 第 3 步「Write it for a non-developer」之后新增段（`The reader knows nothing about this topic.` 起） | 我们加的整段。上游只说用 domain language、用平白的话解释，没定图和字的分工；这段定：图管是什么与怎么连，字只做图做不到的三件事（图答的是哪个问题、重点在哪、由此得出什么），字重复图就删字，图要一段话才看得懂就重画。四个用 HTML 做解释的技能放的是同一段。上游改「Write it for a non-developer」那段 → 收上游，这一段原样接在后面 |
 | 第 5 步 | 纯模块是正式模块的写作来源；HTML 壳留在 leaf directory，下一轮还能跑 |
 | 第 2–4 步其余内容、反模式 | 上游的，照收 |
 
