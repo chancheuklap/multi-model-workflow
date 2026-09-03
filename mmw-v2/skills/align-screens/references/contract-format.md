@@ -9,13 +9,15 @@ effort: chameleon-s3                      # the wayfinder map's title, as in doc
 baselines:
   look: docs/prototypes/<task>/claude-design   # the handoff package directory, unchanged
   precedence: "look & verbatim copy -> handoff package; calls, shows, next, on_failure, timing -> this file"
-mechanisms:                               # the spec's mechanism registry, copied here so reach can be linted
-  - seed:project-empty
-  - stub:gateway-hold-429
+mechanisms:                               # the spec's mechanism registry, copied here so reach can be linted;
+  - seed:project-empty                    # before the first spec these are proposals — say so in a comment here
+  - stub:gateway-hold-429                 # and put one entry on the gap list
   - dev:upgrade-required
-readme_dispositions:                      # every README sentence that states a behaviour
+readme_dispositions:                      # every README sentence that states a behaviour, for the pages in scope
   - text: "create 下一步 → analysis →（自动 1800ms）→ confirm"
     disposition: overridden by create-project.next (#420)
+  - text: "标题栏上下文文案随视图变化"
+    disposition: out of scope (Component · 壳头)
 backend_without_ui:                       # decisions or operations with no control; one line each
   - "POST /api/recovery/finalize — runs at startup, no control"
 retired_ids: []
@@ -47,12 +49,12 @@ rows: [...]
 | `component` | A path or name the implementation owns the control under. | — |
 | `trigger` | `role` and `name` copied from the skeleton. Hint text that the tree folds into the name stays in. | (role, name) exists in the skeleton; every skeleton control has ≥1 row |
 | `precondition` | Key/value state that selects this row among rows with the same trigger. | rows sharing a trigger have distinct preconditions |
-| `scenes` | Names from `scenes.json`. | each exists in the skeleton for this trigger |
+| `scenes` | Names from `scenes.json`. `[]` when the handoff shows no scene for this precondition — allowed, and reported. | each exists in the skeleton for this trigger; `[]` is a warning |
 | `calls` | `METHOD /path` exactly as in `openapi.json`; `ipc <channel>`; or `none`. Order is the order of effect. | HTTP entries exist in `openapi.json`; without an `openapi.json`, reported as `unverified` |
-| `shows` | Displayed name → `field@OPERATION`, `key@RuntimePolicy`, or an expression over those. No literal numbers or strings. | value contains `@`; no bare digits |
-| `next` | Where the user is after the call succeeds. | a row id, a scene name, or a state named in the domain doc |
+| `shows` | Displayed name → `field@METHOD /path`, `field@ipc <channel>`, `key@RuntimePolicy`, or an expression over those. No literal numbers or strings — a status code is a number too. | value contains `@`; no digits outside `{…}` |
+| `next` | Where the user is after the call succeeds; for `calls: [none]`, where the user is after the click. `stay` when nothing about the page changes (a disabled control, a cancelled dialog). | a row id, a scene name, a state named in the domain doc, or `stay` |
 | `on_failure` | Failure kind → what the user sees. Every non-`none` call has at least one. | present when `calls` is not `[none]` |
-| `source` | Decision ticket numbers, ADR ids, story numbers, README sections. At least one that is not the README, or `gap` is not `aligned`. | non-empty |
+| `source` | Decision ticket numbers, ADR ids, story numbers, domain-doc terms, README sections; `code:<path>` as a last resort. At least one that is neither README nor `code:`, or `gap` is not `aligned`. | non-empty |
 | `reach` | One `mechanisms` entry. | resolves |
 | `gap` | `aligned` when design and backend agree; `design-only` when the control has no backend behaviour to call; `backend-only` when a decision has no control. | `to-spec` refuses a file with any non-`aligned` row |
 

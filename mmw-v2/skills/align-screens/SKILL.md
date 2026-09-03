@@ -13,8 +13,12 @@ The file's shape is in [references/contract-format.md](references/contract-forma
 
 - The handoff package directory: `README.md`, the `.dc.html` pages, `styles/`, `data/fixtures.js`, `support.js`, `scenes.json`. It is a **baseline for look and copy**; you never edit it.
 - The wayfinder map issue: its **Decisions so far** and, through each link, the closed tickets' resolution comments. Where a resolution names an ADR, a research file, a logic prototype's contract file or the domain doc, read that too.
-- The backend contract as it exists today: `openapi.json` when the repository exports one (its `scripts/contracts/` or equivalent says how), otherwise the route and model files. A new project has none yet; the lint then marks calls `unverified` instead of failing them.
+- The backend contract as it exists today: `openapi.json`. When the repository's own exporter writes one, use that; when it does not cover this product, dump it yourself — `uv run python <this skill>/scripts/dump_openapi.py <module>:<factory> <scratch>/openapi.json` calls the app factory and writes its OpenAPI document. A new project has no routes yet; the lint then marks calls `unverified` instead of failing them.
+- The spec's mechanism registry, when a spec exists. Before the first spec there is none: propose the mechanisms the rows need under `mechanisms`, put one entry on the gap list saying they are proposals, and say so in a comment at the top of the file.
 - The effort name: the wayfinder map's title, which is also the `docs/specs/<effort>/` directory.
+- The scope. A full run covers every page in `scenes.json`. A scoped run names the pages it covers; the reverse sweep and the README dispositions then stay inside those pages, and the lint reports the other pages as warnings.
+
+Write every path in a command out in full. Some hosts refuse `uv run … $VAR`.
 
 ## Steps
 
@@ -28,28 +32,36 @@ It renders every scene in `scenes.json` offline, reads each accessibility tree, 
 
 ### 2. Name components and split preconditions
 
-For each page in the skeleton, name the component the implementation will own it under: the repository's existing feature directory when there is one, otherwise the page name. A control whose behaviour differs by state gets one row per state — `precondition` is the column that tells them apart (`material: none` and `material: added` are two rows for the same button).
+For each page in the skeleton, name the component the implementation will own it under: the repository's existing feature directory when there is one, otherwise the page name. A control whose behaviour differs by state gets one row per state — `precondition` is the column that tells them apart (`material: none` and `material: added` are two rows for the same button). Three cases that come up on every page:
+
+- **A disabled state is a row.** The user sees the control; the row says `calls: [none]` and `next` is the scene the user stays in.
+- **A control whose accessible name embeds a shown value** (`商品素材_洗洁精.jpg 已添加 …`) appears in the skeleton once per value. Keep the name as the skeleton reports it — the trigger is on the look side of the split — and put the value's field in `shows`. One row per state, as above.
+- **A state the handoff never shows** (the form complete, ready to submit) is still a row when the backend decisions reach it. Its `scenes` is `[]`; the lint reports it as a warning so the handoff gap is on record.
+
+A name the accessibility tree gets from a placeholder or a hint is copied all the same, and reported as an accessibility defect of the handoff in the run's notes.
 
 ### 3. Fill the behaviour columns from the backend sources
 
 For every row: `calls`, `shows`, `next`, `on_failure`, `source`, `reach`, `gap`. The rules that decide each column are in the format reference; the ones people get wrong:
 
-- `shows` names fields, never values. `balance@GET /api/wallet` — not `12480`. The literals in `data/fixtures.js` are seed data for tests, not copy.
-- `calls` names what the control does to the system: an HTTP operation as it appears in `openapi.json`, an IPC channel, or `none`. A control that only changes local view state is `none` and still a row.
-- `source` quotes where the behaviour was decided: a decision ticket, an ADR, a user story, a README section. A row whose only source is the handoff README is a `design-only` candidate — check the decisions again before marking it.
-- `reach` is a reference into the spec's mechanism registry (`seed:<state>`, `stub:<seam>-<script>`, `dev:<capability>`), never free text. A mechanism nobody has declared yet goes on the gap list.
+- `shows` names fields, never values: `balance@GET /api/wallet`, `path@ipc chameleon:image:select`, `unit_price@RuntimePolicy` — not `12480`, and not a status code either. The literals in `data/fixtures.js` are seed data for tests, not copy.
+- `calls` names what the control does to the system: an HTTP operation as it appears in `openapi.json`, an IPC channel, or `none`. A control that only changes local view state is `none` and still a row; its `next` is the row or scene the user is in afterwards.
+- `source` quotes where the behaviour was decided: a decision ticket, an ADR, a user story, a domain-doc term, a README section. Existing code counts only as a last resort, written `code:<path>`, and a row whose sources are all `code:` and README is a `design-only` candidate — check the decisions again before marking it.
+- `reach` is a reference into the mechanism registry (`seed:<state>`, `stub:<seam>-<script>`, `dev:<capability>`), never free text. A mechanism nobody has declared yet goes on the gap list.
 
-While filling, read the handoff `README.md` once, end to end. Every sentence there that states a transition, a timer, a data fetch or a value gets a line under `readme_dispositions`: `adopted by <row>` or `overridden by <row> (<source>)`. This is what stops the README and the spec from saying two things about the same behaviour later.
+While filling, read the handoff `README.md` once, end to end. Every sentence there that states a transition, a timer, a data fetch or a value, about a page in scope, gets a line under `readme_dispositions`: `adopted by <row>`, `overridden by <row> (<source>)`, or `out of scope (<page>)` when the statement is about a control on a page this run does not cover. This is what stops the README and the spec from saying two things about the same behaviour later.
 
 ### 4. Reverse sweep
 
-Walk the map's decisions and the backend contract the other way: every decision line that a user can observe, and every operation in `openapi.json`, lands in at least one row's `source` or `calls`. One that does not is a `backend-only` row (the interface has no place for it) or is marked `no-ui` in `backend_without_ui` with one line saying why.
+Walk the map's decisions and the backend contract the other way: every decision line that a user can observe, and every operation in `openapi.json`, lands in at least one row's `source` or `calls`. One that does not is a `backend-only` row (the interface has no place for it) or is marked `no-ui` in `backend_without_ui` with one line saying why. In a scoped run, judge only the decisions and operations that belong to the pages in scope; the rest is not listed — a list of "out of scope" lines carries no judgement and hides the ones that do.
 
 ### 5. Write the gap list and stop for the person
 
 Collect every row whose `gap` is `design-only` or `backend-only`, and every `reach` with no mechanism. Write them to `<scratch>/gap-list.md`: one entry each, with the row id, what the design shows, what the backend decides, the options, and the one you would take. Then hand the list to the person — this is the one judgement in this skill that is theirs, and it is a grilling, not a form. Expect a handful of entries, not dozens; dozens means a decision ticket was skipped upstream, and that goes back to the wayfinder map.
 
-When the person is not reachable in this run (a batch, a test run), write the gap list and stop: the contract is published only with every gap resolved.
+When the person is not reachable in this run (a batch, a test run), write the gap list and stop. The contract stays in the run's scratch directory with its `gap` values as they are; the lint reports each unresolved gap as an error, and that is the intended state. Nothing is written under `docs/specs/` until every gap is `aligned`.
+
+Two things a gap list does not carry: an implementation that today does less than the decisions say (that is a finding for the ticket owning the code, note it in the run's notes), and an accessible name that the shipped product will render differently from the handoff (that is for `verify-ticket`'s parity run to catch, not for this file to predict).
 
 ### 6. Publish and lint
 

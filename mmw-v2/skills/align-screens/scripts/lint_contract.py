@@ -44,6 +44,8 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
         if key not in triggers:
             errors.append(f"{rid}: trigger {key[0]} {key[1]!r} not in handoff skeleton")
         else:
+            if not (row.get("scenes") or []):
+                warnings.append(f"{rid}: scenes is [] — the handoff shows no scene for this precondition")
             for sc in row.get("scenes") or []:
                 if sc not in triggers[key]:
                     errors.append(f"{rid}: scene {sc!r} does not show this trigger in the skeleton")
@@ -68,8 +70,9 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
                 errors.append(f"{rid}: shows.{shown} carries a literal number: {expr!r}")
         if not row.get("source"):
             errors.append(f"{rid}: source is empty")
-        elif row.get("gap") == "aligned" and all("README" in str(s) for s in row["source"]):
-            errors.append(f"{rid}: aligned but every source is the README")
+        elif row.get("gap") == "aligned" and all(
+                "README" in str(s) or str(s).startswith("code:") for s in row["source"]):
+            errors.append(f"{rid}: aligned but every source is the README or code:")
         reach = str(row.get("reach", ""))
         if not REACH.match(reach):
             errors.append(f"{rid}: reach {reach!r} is not seed:/stub:/dev: plus a name")
