@@ -19,6 +19,8 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 
 2. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout the spec, and respect any ADRs in the area you're touching.
 
+   An effort with an interface has a **screen contract** — `docs/specs/<effort>/screen-contract.yaml`, written by the `align-screens` skill from the alignment ticket — and two baselines with separate jurisdictions: the handoff package for look and verbatim copy, the screen contract for what each control calls, which field feeds each shown value, what state follows and how a test reaches it. Read the contract in full. A row whose `gap` is not `aligned` is a decision nobody has made: stop and send the effort back to its alignment ticket rather than write a spec around it.
+
 3. Sketch out the seams at which you're going to test the feature. Existing seams should be preferred to new ones. Use the highest seam possible. If new seams are needed, propose them at the highest point you can. The fewer seams across the codebase, the better - the ideal number is one.
 
 A seam says where a test **observes**. Ask the other half in the same breath: for each state this feature's behaviour turns on, can a test put the system into that state through the seam you picked? An interface compared through a debugging port is read and not written, so a test cannot reach a state that only the running application can enter. Where the seam does not reach, say what would, and whether that thing ships.
@@ -63,7 +65,9 @@ The implementation decisions that were made, grouped into numbered subsections (
 - API contracts
 - Specific interactions
 
-**Every decision names where it came from**, at the end of the sentence or table row that states it: a decision ticket number, an ADR id, a research or prototype path, a user-story number. A decision with no source is written as "this spec's decision" (and, where the user confirmed it, say so).
+**Every decision names where it came from**, at the end of the sentence or table row that states it: a decision ticket number, an ADR id, a research or prototype path, a user-story number, a screen-contract row id. A decision with no source is written as "this spec's decision" (and, where the user confirmed it, say so).
+
+An effort with a screen contract has one fixed subsection here, **API contract**: one entry per distinct operation in the contract's `calls` column — its request fields, its response fields, its failure cases — derived from the rows' `shows` and `on_failure`, each entry citing the row ids that use it. This is where a new project's OpenAPI document starts; the first ticket cut from the spec turns it into models and route signatures.
 
 Do NOT include implementation file paths (the module you will edit, the function you will add) or code snippets. They may end up being outdated very quickly. Paths to source material — ADRs, research files, prototype directories, domain docs, test directories, shared contract locations — are what the tickets and the implementer read from: write them.
 
@@ -75,7 +79,7 @@ The first sentence says, in plain words a reader with no testing vocabulary unde
 
 - A description of what makes a good test (only test external behavior, not implementation details)
 - The test layers this feature lands in, each with its directory and the precedent to copy (i.e. similar types of tests in the codebase); every ticket cut from this spec will name one of these layers as the place it is verified
-- **How a test arrives at a state.** Per layer: what a test writes to put the system into a state, and what it cannot write. A state this feature's behaviour turns on, that the seam's write surface does not reach, gets a line of its own here: the mechanism that will reach it, and which builds carry that mechanism. The mechanism takes the form the repository's own testability rules allow; where those rules have no exit for one, say so — closing that is the repository's to do, not this spec's, and `to-tickets` cuts a *reach* ticket for it. Whoever cuts the tickets reads this section to know whether a criterion can be written at all, and one of them will own building each mechanism named here
+- **How a test arrives at a state.** Per layer: what a test writes to put the system into a state, and what it cannot write. A state this feature's behaviour turns on, that the seam's write surface does not reach, gets a line of its own here: the mechanism that will reach it, and which builds carry that mechanism. The mechanism takes the form the repository's own testability rules allow; where those rules have no exit for one, say so — closing that is the repository's to do, not this spec's, and `to-tickets` cuts a *reach* ticket for it. Whoever cuts the tickets reads this section to know whether a criterion can be written at all, and one of them will own building each mechanism named here. With a screen contract, this section is its **mechanism registry**: every mechanism has a name of the form `seed:<state>` (the real backend put into a state through its own write surface, values taken from the handoff package's `data/fixtures.js`), `stub:<seam>-<script>` (an external seam answering by script) or `dev:<capability>` (a registered dev-only capability, outside the renderer), the contract's `reach` column names only entries from here, and the names the alignment ticket proposed are adopted or renamed here in one pass
 - The commands to run before committing
 
 ## Out of Scope
@@ -92,6 +96,8 @@ Links to the first-hand material this spec was built from, one line per kind. Wr
 - ADRs
 - Research files
 - Prototype directories
+- Handoff package (the look-and-copy baseline; `none` when the effort has no interface)
+- Screen contract (the behaviour baseline, `docs/specs/<effort>/screen-contract.yaml`; `none` likewise)
 - Domain docs
 - Evidence (measurements, cost runs, real-call records)
 - Test rules (the repo's TESTING.md or equivalent)

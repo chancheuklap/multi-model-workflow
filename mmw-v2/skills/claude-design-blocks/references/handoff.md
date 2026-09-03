@@ -20,8 +20,8 @@ A scene name comes from the `scenario` values in each page's `data-props`, under
 
 Done when: every scene in `scenes.json` has been rendered once and produced a non-empty root.
 
-## IMPLEMENTATION-CONTRACT.md
+## What comes next
 
-Write this beside the package. Those `props` are query parameters aimed at the implementation, which means the implementation has to answer them and put itself into the scene named — a capability the product has to grow, and one interface parity does not bring with it. Say that in a paragraph, and say that where the capability lives and which builds carry it belong in the consuming repository's spec, under `## Testing Decisions`.
+The package is one of two baselines. It binds look and verbatim copy; what each control calls, which field feeds each shown value, and what state follows are bound by the **screen contract** that the `align-screens` skill writes from this package and the wayfinder map's decisions, on the map's alignment ticket. How the implementation is put into each scene — a seed of the real backend, a scripted external stub, a registered dev-only capability — is decided there, in the contract's `reach` column, and lands in the consuming repository's spec under `## Testing Decisions`.
 
-Whoever writes that spec and the agent who cuts its tickets both open this directory; neither of them opens this skill. The `DESIGN.md` uploaded as the design system stays in the consuming repository as well.
+Whoever runs `align-screens`, writes that spec and cuts its tickets all open this directory; none of them opens this skill. The `DESIGN.md` uploaded as the design system stays in the consuming repository as well.

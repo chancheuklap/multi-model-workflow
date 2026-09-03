@@ -1070,10 +1070,40 @@ def run_preflight(number: int) -> int:
     return 0
 
 
+ROW_ID_RE = re.compile(r"\b[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+\b")
+
+
+def review_problems(draft: str, body: str, comments: list[str]) -> list[str]:
+    """A `Missing` the Spec axis raised against a screen-contract row the ticket owns is
+    settled by a commit or a sub-issue the draft names; a draft silent on it is refused.
+    The row id is the handle: the reviewer writes it first, the draft repeats it."""
+    m = SCREEN_CONTRACT_ROWS_RE.search("\n".join(section(body, "Read first")))
+    if not m:
+        return []
+    rows = set(ROW_ID_RE.findall(m.group(1)))
+    reviews = [c for c in comments if c.strip().startswith("REVIEW ")]
+    if not reviews:
+        return []
+    spec_axis = re.split(r"^## Tests", reviews[-1], maxsplit=1, flags=re.M)[0]
+    spec_axis = re.split(r"^## Spec", spec_axis, maxsplit=1, flags=re.M)[-1]
+    problems = []
+    for line in spec_axis.splitlines():
+        if not re.search(r"Missing|缺失", line) and not re.search(r"^\s*\d+\.\s", line):
+            continue
+        for rid in ROW_ID_RE.findall(line):
+            if rid in rows and rid not in draft:
+                problems.append(f"the review's Spec axis reports a `Missing` against "
+                                f"screen-contract row {rid} and the draft names no commit "
+                                f"or sub-issue for it")
+    return problems
+
+
 def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     """Check the closing comment against the ticket and the repository, then post it."""
     draft = draft_path.read_text(encoding="utf-8")
-    problems = draft_problems(draft, fetch_comments(number))
+    comments = fetch_comments(number)
+    problems = draft_problems(draft, comments)
+    problems += review_problems(draft, fetch_body(number), comments)
     problems += git_problems(repo_root())
     ticket = fetch_ticket(number)
     if ticket.get("state") != "OPEN":
@@ -1283,6 +1313,56 @@ def lint_check_effects(body: str) -> list[str]:
     return findings
 
 
+SCREEN_CONTRACT_ROWS_RE = re.compile(r"screen-contract\.yaml\s+rows?:\s*([^\n]+)")
+FETCH_STUB_RE = re.compile(r"stubGlobal\(\s*['\"]fetch['\"]|msw|nock\(|fetch-mock", re.IGNORECASE)
+
+
+def lint_screen_contract(body: str) -> list[str]:
+    """The interface rules of `to-tickets`, made mechanical.
+
+    An interface ticket names its screen-contract rows under `## Read first`; a row with
+    calls needs a wiring criterion (a `CHECK:` running `wiring-check.py` that names the
+    row id); and no `CHECK:` may stub the application's own network. Which rows have
+    calls is read from the contract file when it is in the working tree; when it is
+    not, every named row is held to the wiring rule.
+    """
+    findings: list[str] = []
+    read_first = "\n".join(section(body, "Read first"))
+    m = SCREEN_CONTRACT_ROWS_RE.search(read_first)
+    checks = criteria_lines(body)
+    interface_ticket = any("visual-parity.py" in check for _, check, _ in checks)
+    if not m:
+        if interface_ticket:
+            findings.append("interface ticket (a criterion runs visual-parity.py) names no "
+                            "`screen-contract.yaml rows: <id, id>` line under `## Read first`")
+        for gate_id, check, _ in checks:
+            if FETCH_STUB_RE.search(check):
+                findings.append(f"{gate_id}: CHECK stubs the application's own network; a "
+                                f"wiring criterion reads the backend instead")
+        return findings
+    row_ids = ROW_ID_RE.findall(m.group(1))
+    contract_path = re.search(r"(\S*screen-contract\.yaml)", read_first)
+    rows_with_calls = set(row_ids)
+    if contract_path:
+        try:
+            import yaml  # noqa: PLC0415
+            with open(contract_path.group(1), encoding="utf-8") as f:
+                doc = yaml.safe_load(f)
+            rows_with_calls = {r["id"] for r in doc.get("rows") or []
+                               if r["id"] in row_ids and (r.get("calls") or []) != ["none"]}
+        except (OSError, ImportError, KeyError, TypeError):
+            pass
+    wiring_checks = [check for _, check, _ in checks if "wiring-check.py" in check]
+    for rid in sorted(rows_with_calls):
+        if not any(rid in check for check in wiring_checks):
+            findings.append(f"row {rid} has calls but no criterion runs wiring-check.py naming it")
+    for gate_id, check, _ in checks:
+        if FETCH_STUB_RE.search(check):
+            findings.append(f"{gate_id}: CHECK stubs the application's own network; a wiring "
+                            f"criterion reads the backend instead")
+    return findings
+
+
 def run_lint(number: int) -> int:
     body = fetch_body(number)
     labels = [label.get("name") or "" for label in fetch_ticket(number).get("labels") or []]
@@ -1322,6 +1402,10 @@ def run_lint(number: int) -> int:
     for finding in bad_timeouts:
         print("  ERROR " + finding + "  [bad-timeout]")
     broken = broken + bad_timeouts
+    contract_findings = lint_screen_contract(body)
+    for finding in contract_findings:
+        print("  ERROR " + finding + "  [screen-contract]")
+    broken = broken + contract_findings
     for finding in lint_check_effects(body):
         print("  WARN  " + finding + "  [shared-state]")
     for finding in lint_edges(body):

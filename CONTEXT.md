@@ -644,6 +644,38 @@ How an accessibility tree is read before comparison: as the flat sequence of its
 _Avoid_: 归一化, ARIA 归一化, ARIA 树, 视口
 _Home_: `mmw-v2/skills/verify-ticket/references/ui-parity.md`
 
+### Screen contract
+
+**screen contract**:
+`docs/specs/<effort>/screen-contract.yaml`: one row per user-visible behaviour of an interface — the control (`trigger`, by role and accessible name), its `precondition`, the `scenes` it is visible in, what it `calls`, which field feeds each value it `shows`, what state is `next`, what `on_failure` shows, where the behaviour was decided (`source`), how a test reaches the state (`reach`), and whether design and backend agree (`gap`). Written by `align-screens` on the alignment ticket; read by `to-spec`, `to-tickets`, `implement`, the Spec axis and `verify-ticket --lint`. It is the behaviour baseline of an interface, beside the handoff package as its look-and-copy baseline; the two never bind the same thing.
+_Avoid_: UI contract, interaction table, 界面合同表, 对齐表
+_Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
+
+**alignment ticket**:
+The last ticket of a wayfinder map whose destination has an interface: a `grilling` ticket, blocked by every decision ticket and by the ticket that produces the handoff package, resolved by running `align-screens` and closed when every row's `gap` is `aligned`.
+_Home_: `mmw-v2/upstream/skills/engineering/wayfinder/SKILL.md`
+
+**gap list**:
+The rows of a screen contract whose `gap` is `design-only` or `backend-only`, plus every `reach` with no mechanism, written by `align-screens` for the person to settle — the one judgement in that skill that is theirs.
+_Avoid_: 差集
+_Home_: `mmw-v2/skills/align-screens/SKILL.md`
+
+**mechanism registry**:
+What `## Testing Decisions`'s **How a test arrives at a state** becomes when the spec has a screen contract: named entries of three kinds — `seed:<state>` (the real backend put into a state through its own write surface, values from `data/fixtures.js`), `stub:<seam>-<script>` (an external seam answering by script), `dev:<capability>` (a registered dev-only capability outside the renderer) — that the contract's `reach` column references.
+_Avoid_: reach registry, 机制登记表
+_Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
+
+**contract ticket**:
+The first ticket cut from a spec with an **API contract** subsection: models, route signatures answering `501`, the OpenAPI export and generated client types, the seed script and external stubs the registry names, and the renderer's single-code-path guard. Every other ticket of the batch is blocked by it.
+_Avoid_: 合同票, prefactor ticket (for this one)
+_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
+
+**wiring criterion**:
+An acceptance criterion in the fixed shape of `references/wiring-check.md`, running `scripts/wiring-check.py`: seed the backend into the row's `reach` state, open the row's `route` over the application's debugging port, trigger the control, read the row's `observe` operations on the backend. Prints `WIRING OK <passed>/<total>` or `MISS <row id> — <reason>`. A criterion that stubs the application's own network is not one.
+_Admitted_: wiring check (for the run)
+_Avoid_: 接线测试, integration criterion
+_Home_: `mmw-v2/skills/verify-ticket/references/wiring-check.md`
+
 ### Dispatch and the night
 
 **landing pipeline**:

@@ -64,6 +64,10 @@ files. The absolute path stays in one place only: the subagent prompt in §2, be
 subagent's working directory is the repository, not the skill directory, so the dispatcher
 has to resolve the link before it hands it over.
 
+## The Spec axis opens the screen contract
+
+`references/spec-reviewer.md`, under "What is not yours": one paragraph added after the handoff-package rule. The handoff package stays closed to this axis; the screen contract (`screen-contract.yaml`, row ids named in the ticket's `## Read first`) is opened, and each row is read as a requirement — `calls`, `shows`, `next`, `on_failure`. A `Missing` against a row's `calls` is worded row id first, because `verify-ticket --closeout` refuses a draft that does not answer it. Reason: on Chameleon's #549 this axis reported "the desktop never talks to the backend" and the ticket closed `ALL MET` anyway; the row id is what lets a script hold the two together. If upstream rewrites that section, keep the handoff rule as upstream words it and put this paragraph back after it.
+
 ### agents/openai.yaml
 
 | 字段 | 我们的意图 |
