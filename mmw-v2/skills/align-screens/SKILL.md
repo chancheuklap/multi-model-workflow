@@ -78,7 +78,7 @@ Zero errors, or fix the file. Then write the **API contract** draft — one entr
 
 - The handoff package was re-downloaded: run steps 1 and 6 only. Triggers whose accessible name changed appear as lint errors on both sides; rebind them by hand, keep the row ids.
 - A spec decision changed: edit the rows that cite it, rerun step 6, and put the changed rows through step 5 again.
-- Row ids are never renumbered or reused. A retired behaviour loses its row; the id goes in `retired_ids` with one line saying when.
+- Row ids are never renumbered or reused. A retired behaviour loses its row; the id goes in `retired_ids` with one line saying when, and with its trigger when the handoff still shows the control — the lint then stops asking for a row and the visual-parity run excludes it.
 
 ## Done when
 

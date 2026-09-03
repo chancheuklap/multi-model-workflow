@@ -23,7 +23,12 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
     warnings: list[str] = []
     rows = doc.get("rows") or []
     mechanisms = set(doc.get("mechanisms") or [])
-    retired = set(doc.get("retired_ids") or [])
+    # retired_ids entries are either a bare id or {id, note, trigger?}; a retired entry that names
+    # its trigger says the handoff still shows a control the product no longer has.
+    retired_entries = [e if isinstance(e, dict) else {"id": e} for e in doc.get("retired_ids") or []]
+    retired = {str(e.get("id")) for e in retired_entries}
+    retired_triggers = {(e["trigger"].get("role"), e["trigger"].get("name"))
+                        for e in retired_entries if isinstance(e.get("trigger"), dict)}
     # A control shared by several pages is one key; its scenes are the union over those pages.
     triggers: dict[tuple[str, str], set[str]] = {}
     for r in skeleton["table"]:
@@ -129,6 +134,8 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
     covered_pages = {page for page, role, name in controls if (role, name) in seen_triggers}
     untouched = sorted({r["page"] for r in skeleton["table"]} - covered_pages)
     for page, role, name in sorted(controls):
+        if (role, name) in retired_triggers:
+            continue
         if page in covered_pages and (role, name) not in seen_triggers:
             errors.append(f"skeleton control without a row: {page} / {role} {name!r}")
     for page in untouched:

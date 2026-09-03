@@ -22,8 +22,11 @@ backend_without_ui:                       # decisions or operations with no cont
   - "POST /api/recovery/finalize — runs at startup, no control"
 proposed_operations:                      # operations the rows need and openapi.json lacks yet; each is
   - "POST /api/projects/{project_id}/draft/{task_id}/copy/redraft"   # described in api-contract.md
-retired_ids: []
-rows: [...]
+retired_ids:                              # ids that once had a row; never reused
+  - id: debt-gate.demo-trigger
+    note: "retired 2026-09-03 — #635 verdict 5: prototype harness control, never shipped"
+    trigger: { role: button, name: "开始新生成（触发欠费门禁）" }   # present when the handoff still shows the control:
+rows: [...]                               # the lint then stops asking for a row, and visual parity excludes it
 ```
 
 ## A row
