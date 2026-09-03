@@ -24,9 +24,22 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
     rows = doc.get("rows") or []
     mechanisms = set(doc.get("mechanisms") or [])
     retired = set(doc.get("retired_ids") or [])
-    triggers = {(r["role"], r["name"]): set(r["scenes"]) for r in skeleton["table"]}
+    # A control shared by several pages is one key; its scenes are the union over those pages.
+    triggers: dict[tuple[str, str], set[str]] = {}
+    for r in skeleton["table"]:
+        triggers.setdefault((r["role"], r["name"]), set()).update(r["scenes"])
     ops = ({(m.upper(), p) for p, methods in openapi["paths"].items() for m in methods}
            if openapi else None)
+    proposed = {tuple(str(o).split(" ", 1)) for o in doc.get("proposed_operations") or []}
+    proposed = {(m.upper(), p) for m, p in proposed}
+
+    def op_known(method: str, path: str) -> str:
+        """'yes' when openapi has it, 'proposed' when proposed_operations lists it, else 'no'."""
+        if ops is not None and (method.upper(), path) in ops:
+            return "yes"
+        if (method.upper(), path) in proposed:
+            return "proposed"
+        return "no"
 
     seen_ids: set[str] = set()
     seen_triggers: dict[tuple[str, str], list[dict]] = {}
@@ -57,9 +70,12 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
             if call == "none" or str(call).startswith("ipc "):
                 continue
             method, _, path = str(call).partition(" ")
-            if ops is None:
+            known = op_known(method, path)
+            if known == "proposed":
+                warnings.append(f"{rid}: call is a proposed operation, not in openapi yet: {call}")
+            elif ops is None:
                 warnings.append(f"{rid}: call unverified (no openapi.json): {call}")
-            elif (method.upper(), path) not in ops:
+            elif known == "no":
                 errors.append(f"{rid}: call not in openapi: {call}")
         if calls != ["none"] and not (row.get("on_failure") or {}):
             errors.append(f"{rid}: on_failure missing for a row with calls")
@@ -67,15 +83,22 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
             if not row.get("route"):
                 errors.append(f"{rid}: route missing for a row with calls")
             observe = row.get("observe") or []
-            if not observe:
+            ipc_only = all(str(c).startswith("ipc ") for c in calls)
+            if not observe and ipc_only:
+                warnings.append(f"{rid}: observe is empty on an ipc-only row; the wiring check reads nothing")
+            elif not observe:
                 errors.append(f"{rid}: observe missing for a row with calls; a wiring check has nothing to read")
             for line in observe:
                 op, arrow, _ = str(line).partition("->")
                 method, _, path = op.strip().partition(" ")
                 if not arrow:
                     errors.append(f"{rid}: observe line has no '->' expression: {line}")
-                elif ops is not None and (method.upper(), path) not in ops:
-                    errors.append(f"{rid}: observe operation not in openapi: {op.strip()}")
+                else:
+                    known = op_known(method, path)
+                    if known == "proposed":
+                        warnings.append(f"{rid}: observe reads a proposed operation: {op.strip()}")
+                    elif ops is not None and known == "no":
+                        errors.append(f"{rid}: observe operation not in openapi: {op.strip()}")
         for shown, expr in (row.get("shows") or {}).items():
             if "@" not in str(expr):
                 errors.append(f"{rid}: shows.{shown} names no field@operation: {expr!r}")
@@ -102,12 +125,12 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
             errors.append(f"trigger {key[0]} {key[1]!r}: rows share a precondition")
     # Completeness is judged per page: every control of a page the contract covers needs a
     # row. Pages the contract does not touch at all are reported once, as a warning.
-    page_of = {(r["role"], r["name"]): r["page"] for r in skeleton["table"]}
-    covered_pages = {page_of[k] for k in seen_triggers if k in page_of}
+    controls = {(r["page"], r["role"], r["name"]) for r in skeleton["table"]}
+    covered_pages = {page for page, role, name in controls if (role, name) in seen_triggers}
     untouched = sorted({r["page"] for r in skeleton["table"]} - covered_pages)
-    for key, page in page_of.items():
-        if page in covered_pages and key not in seen_triggers:
-            errors.append(f"skeleton control without a row: {page} / {key[0]} {key[1]!r}")
+    for page, role, name in sorted(controls):
+        if page in covered_pages and (role, name) not in seen_triggers:
+            errors.append(f"skeleton control without a row: {page} / {role} {name!r}")
     for page in untouched:
         warnings.append(f"page has no rows yet: {page}")
     return errors, warnings

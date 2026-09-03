@@ -20,6 +20,8 @@ readme_dispositions:                      # every README sentence that states a 
     disposition: out of scope (Component · 壳头)
 backend_without_ui:                       # decisions or operations with no control; one line each
   - "POST /api/recovery/finalize — runs at startup, no control"
+proposed_operations:                      # operations the rows need and openapi.json lacks yet; each is
+  - "POST /api/projects/{project_id}/draft/{task_id}/copy/redraft"   # described in api-contract.md
 retired_ids: []
 rows: [...]
 ```
@@ -51,12 +53,12 @@ rows: [...]
 | `component` | A path or name the implementation owns the control under. | — |
 | `trigger` | `role` and `name` copied from the skeleton. Hint text that the tree folds into the name stays in. | (role, name) exists in the skeleton; every skeleton control has ≥1 row |
 | `precondition` | Key/value state that selects this row among rows with the same trigger. | rows sharing a trigger have distinct preconditions |
-| `scenes` | Names from `scenes.json`. `[]` when the handoff shows no scene for this precondition — allowed, and reported. | each exists in the skeleton for this trigger; `[]` is a warning |
-| `calls` | `METHOD /path` exactly as in `openapi.json`; `ipc <channel>`; or `none`. Order is the order of effect. | HTTP entries exist in `openapi.json`; without an `openapi.json`, reported as `unverified` |
+| `scenes` | Names from `scenes.json`. `[]` when the handoff shows no scene for this precondition — allowed, and reported. A control that several pages share is one trigger; its scenes are the union over those pages, and a row that must tell the pages apart puts `screen: <page>` in `precondition`. | each exists in the skeleton for this trigger; `[]` is a warning |
+| `calls` | `METHOD /path` exactly as in `openapi.json`; `ipc <channel>`; or `none`. Order is the order of effect. An operation the backend does not have yet is listed under `proposed_operations` and described in `api-contract.md`. | HTTP entries exist in `openapi.json` or in `proposed_operations` (a warning); without an `openapi.json`, reported as `unverified` |
 | `shows` | Displayed name → `field@METHOD /path`, `field@ipc <channel>`, `key@RuntimePolicy`, or an expression over those. No literal numbers or strings — a status code is a number too. | value contains `@`; no digits outside `{…}` |
 | `next` | Where the user is after the call succeeds; for `calls: [none]`, where the user is after the click. `stay` when nothing about the page changes (a disabled control, a cancelled dialog). | a row id, a scene name, a state named in the domain doc, or `stay` |
 | `route` | The implementation's address for the screen this control is on (`#/new-project`). One per component; a row may override it. | present on every row with calls, directly or through its component |
-| `observe` | The backend read surface that proves `next` happened: `METHOD /path -> <jq-style expression>` per line. This is what the wiring check asserts on; nothing in the renderer is. | present when `calls` is not `[none]`; each operation exists in `openapi.json` |
+| `observe` | The backend read surface that proves `next` happened: `METHOD /path -> <jq-style expression>` per line. This is what the wiring check asserts on; nothing in the renderer is. A row whose calls are all `ipc` writes nothing the backend can read; it may leave `observe` empty, and the wiring check then only performs the trigger. | present when `calls` names an HTTP operation; each operation exists in `openapi.json` or `proposed_operations` |
 | `on_failure` | Failure kind → what the user sees. Every non-`none` call has at least one. | present when `calls` is not `[none]` |
 | `source` | Decision ticket numbers, ADR ids, story numbers, domain-doc terms, README sections; `code:<path>` as a last resort. At least one that is neither README nor `code:`, or `gap` is not `aligned`. | non-empty |
 | `reach` | One `mechanisms` entry. | resolves |
