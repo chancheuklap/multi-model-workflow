@@ -43,3 +43,5 @@ self/dispatch
 self/code-checkers
 
 dd/diagram-design
+
+self/align-screens
