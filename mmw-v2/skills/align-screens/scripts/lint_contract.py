@@ -63,6 +63,19 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
                 errors.append(f"{rid}: call not in openapi: {call}")
         if calls != ["none"] and not (row.get("on_failure") or {}):
             errors.append(f"{rid}: on_failure missing for a row with calls")
+        if calls != ["none"]:
+            if not row.get("route"):
+                errors.append(f"{rid}: route missing for a row with calls")
+            observe = row.get("observe") or []
+            if not observe:
+                errors.append(f"{rid}: observe missing for a row with calls; a wiring check has nothing to read")
+            for line in observe:
+                op, arrow, _ = str(line).partition("->")
+                method, _, path = op.strip().partition(" ")
+                if not arrow:
+                    errors.append(f"{rid}: observe line has no '->' expression: {line}")
+                elif ops is not None and (method.upper(), path) not in ops:
+                    errors.append(f"{rid}: observe operation not in openapi: {op.strip()}")
         for shown, expr in (row.get("shows") or {}).items():
             if "@" not in str(expr):
                 errors.append(f"{rid}: shows.{shown} names no field@operation: {expr!r}")

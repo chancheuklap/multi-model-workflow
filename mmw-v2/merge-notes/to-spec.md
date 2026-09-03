@@ -19,6 +19,8 @@
 | 模板里 `## Testing Decisions` 的说明 | 我们改的：首句是一句大白话，写测试从浏览器页面、HTTP 接口还是函数调用看结果——这是 user 唯一看得懂的那一层，seam 由 agent 定之后 user 只从这句知道定的是什么；第二句写第 3 步定下的 seam 与允许打桩的 external seams；之后按 test layer 列目录与 precedent，那个要抄的东西叫 `the precedent to copy`；末尾列提交前要跑的命令。理由：ticket 的 `## Seam` 从这里抄，而 `to-tickets` 第 4 步写的是 `the precedent it names`、`CONTEXT.md` 登记的正名是 `precedent`——同一样东西不给两个名字，否则写 ticket 的一方在 spec 里搜 `precedent` 搜不到。上游改这一节 → 收上游，大白话首句、seam 那一句、分层落点、`precedent` 一词四条保留 |
 | 模板里 `## Further Notes` 之前的 `## Sources` 节 | 我们加的：一手来源固定九类（wayfinder `map`、decision ticket、上游 spec、ADR、research file、prototype 目录、Domain docs、实测证据、测试规则），每类无则填 `none`。`implement` 技能靠这个节名往回读，改名要同步改 `implement`；`to-tickets` 的 `## Read first` 从这里按 ticket 挑。上游自己加了同类的来源节 → 用上游的名字，同步改 `implement` 与 `to-tickets`，九类保留 |
 
+| 第 2 步的第二段（screen contract）、`## Implementation Decisions` 说明里的 **API contract** 小节、`## Testing Decisions` 里 **How a test arrives at a state** 末尾的 **mechanism registry** 一句、`## Sources` 的 Handoff package 与 Screen contract 两类 | 我们加的：有界面的效果有两个各管一域的基线——交接包管外观与逐字文案，`docs/specs/<effort>/screen-contract.yaml`（`align-screens` 技能从 alignment ticket 写出）管调用、显示值、流转、失败与计时。spec 读全合同；有 `gap` 未 `aligned` 就退回 alignment ticket，不出 spec。`calls`/`shows` 两列生成 **API contract** 小节，新项目的 OpenAPI 从这里起；机制登记项统一 `seed:`/`stub:`/`dev:` 三种前缀，`reach` 只引用这里。理由：交接包和后端决定各自完整、无处汇合，变色龙的界面因此接了空。上游改这几节 → 收上游措辞，这四处接回去；Sources 若改名同步改 `implement`、`to-tickets`、`align-screens` |
+
 ### agents/openai.yaml
 
 | 字段 | 我们的意图 |

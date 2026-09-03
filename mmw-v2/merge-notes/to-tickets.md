@@ -31,6 +31,8 @@
 | 第 4 步里 interface parity 那条 acceptance criterion | 我们改的：正文不抄那条 `CHECK:` 的全文，只指去 `verify-ticket` 技能照抄，并说明它为什么整行照抄——那是这条 landing pipeline 里唯一一条交给 shell、中间没有 agent 的命令，所以脚本路径在 ticket 里写全。抄成两份必漂：改一处，另一处跟不上。上游给 acceptance criterion 加同类模板 → 收上游，指去技能这条保留 |
 | `<vertical-slice-rules>` | 删掉 `Each slice is sized to fit in a single fresh context window` 这一条。我们的 spec 通常很大，这条把 vertical slice 推得过细；粒度由 `### 6. Quiz the user` 那一步问 user 来定。上游改这条措辞 → 仍然删。上游把它换成别的尺寸规则 → 也删，保持 vertical slice 尺寸不设机械上限。其余段落我们没改，全取上游 |
 
+| 第 3 步 `<vertical-slice-rules>` 之后的 **contract ticket** 段、第 4 步 `CHECK:` 来源列表里的 **wiring criterion** 条、`<issue-template>` `## Read first` 说明里界面票两条基线那几句、第 8 步 `--lint` 那条末尾的 `[screen-contract]` 一句 | 我们加的：spec 有 API contract 小节时第一张固定是 contract ticket（模型、路由签名答 501、OpenAPI 导出与生成类型、seed 脚本与外部桩），其余票全被它阻塞；界面票 Read first 写交接包与 screen contract 行号两行；每个带 calls 的行出一条 wiring criterion，固定写法在 `verify-ticket/references/wiring-check.md`，stub 应用自身 fetch 的 CHECK 不算；`--lint` 的 `[screen-contract]` 三条 ERROR 是这些规则的机器版。理由同 to-spec 那条。上游改这几处 → 收上游措辞，四处接回去 |
+
 ### agents/openai.yaml
 
 | 字段 | 我们的意图 |

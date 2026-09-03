@@ -35,6 +35,8 @@ rows: [...]
   calls: ["ipc chameleon:image:select", "POST /api/projects/{project_id}/draft"]   # or [none]
   shows: { material_name: "basename(unconfirmed_material_path@GET /api/projects/{project_id}/draft)" }
   next: create-project.material-pending   # a row id, a scene name, or a state name from the domain doc
+  route: "#/new-project"                  # where the implementation shows this control; the wiring check navigates here
+  observe: ["GET /api/projects/{project_id}/draft -> .has_draft == true"]   # the backend read surface that proves `next`
   on_failure: { dialog_cancelled: no-change, draft_4xx: toast:NEXT_FAILED_TITLE }
   source: ["#537 story 2", "#420", "README §5.3 (transition overridden)"]
   reach: seed:project-empty               # a mechanisms entry
@@ -53,6 +55,8 @@ rows: [...]
 | `calls` | `METHOD /path` exactly as in `openapi.json`; `ipc <channel>`; or `none`. Order is the order of effect. | HTTP entries exist in `openapi.json`; without an `openapi.json`, reported as `unverified` |
 | `shows` | Displayed name → `field@METHOD /path`, `field@ipc <channel>`, `key@RuntimePolicy`, or an expression over those. No literal numbers or strings — a status code is a number too. | value contains `@`; no digits outside `{…}` |
 | `next` | Where the user is after the call succeeds; for `calls: [none]`, where the user is after the click. `stay` when nothing about the page changes (a disabled control, a cancelled dialog). | a row id, a scene name, a state named in the domain doc, or `stay` |
+| `route` | The implementation's address for the screen this control is on (`#/new-project`). One per component; a row may override it. | present on every row with calls, directly or through its component |
+| `observe` | The backend read surface that proves `next` happened: `METHOD /path -> <jq-style expression>` per line. This is what the wiring check asserts on; nothing in the renderer is. | present when `calls` is not `[none]`; each operation exists in `openapi.json` |
 | `on_failure` | Failure kind → what the user sees. Every non-`none` call has at least one. | present when `calls` is not `[none]` |
 | `source` | Decision ticket numbers, ADR ids, story numbers, domain-doc terms, README sections; `code:<path>` as a last resort. At least one that is neither README nor `code:`, or `gap` is not `aligned`. | non-empty |
 | `reach` | One `mechanisms` entry. | resolves |
