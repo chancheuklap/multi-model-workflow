@@ -438,7 +438,7 @@ def run(args) -> int:
             return render_only(plan, viewports, media, origin, route_baseline, hide_js)
         adapter = sd.adapter_for(doc, root)
         if args.addressing:
-            return addressing(adapter, plan, viewports[0])
+            return addressing(adapter, plan, viewports[0], rows)
         if args.shows_perturbation:
             return shows_perturbation(adapter, plan, viewports[0], rows, media)
         return parity(adapter, plan, viewports, rows, media, origin, pages, route_baseline,
@@ -469,11 +469,13 @@ def render_only(plan, viewports, media, origin, route_baseline, hide_js) -> int:
     return 0
 
 
-def addressing(adapter, plan, vp) -> int:
+def addressing(adapter, plan, vp, rows) -> int:
     """The contract ticket's check that needs no interface: the whole addressing model
-    — the state can be put, the placeholders fill, the route is reachable, the mount is
-    where the contract says — proved against an empty surface. Prints `ADDRESSING OK
-    <n>/<n>` or one `UNREACHABLE <scene> — <why>` per scene that failed."""
+    — the state can be put, the placeholders fill, the route is reachable, the `open`
+    chain's controls exist, the mount is where the contract says — proved against an
+    empty surface. Prints `ADDRESSING OK
+    <n>/<n>`, or one `UNREACHABLE <scene> — <why>` per scene that failed and then
+    `ADDRESSING <reached>/<n> — <k> unreachable`."""
     from playwright.sync_api import sync_playwright
 
     failed = []
@@ -493,6 +495,7 @@ def addressing(adapter, plan, vp) -> int:
                         page = adapter.attach(pw, values)
                     sd.resize(page, vp, adapter.over_cdp)
                     sd.navigate(page, adapter.address(scene.route, values), reload=True)
+                    sd.perform(page, scene.open, rows, values)
                     sd.wait_for_mount(page, sd.mount_selector(scene.mount))
                 except SystemExit as exc:
                     failed.append(f"UNREACHABLE {scene.name} — {exc}")
@@ -501,6 +504,7 @@ def addressing(adapter, plan, vp) -> int:
     for line in failed:
         print(line)
     if failed:
+        print(f"ADDRESSING {len(plan) - len(failed)}/{len(plan)} — {len(failed)} unreachable")
         return 1
     print(f"ADDRESSING OK {len(plan)}/{len(plan)}")
     return 0
@@ -533,8 +537,8 @@ def shows_perturbation(adapter, plan, vp, rows, media) -> int:
                     sd.resize(page, vp, adapter.over_cdp)
                     sd.navigate(page, adapter.address(scene.route, values), reload=True)
                     sel = sd.mount_selector(scene.mount)
-                    sd.wait_for_mount(page, sel)
                     sd.perform(page, scene.open, rows, values)
+                    sd.wait_for_mount(page, sel)
                     if scene.clock:
                         sd.run_clock(page, scene.clock)
                     shot = sd.capture(page, media / f"{scene.name}-{'perturbed' if perturb else 'seeded'}.png",
@@ -599,8 +603,8 @@ def parity(adapter, plan, viewports, rows, media, origin, pages, route_baseline,
                 sel = sd.mount_selector(scene.mount)
                 sd.resize(page, vp, adapter.over_cdp)
                 sd.navigate(page, adapter.address(scene.route, values), reload=True)
-                sd.wait_for_mount(page, sel)
                 sd.perform(page, scene.open, rows, values)
+                sd.wait_for_mount(page, sel)
                 if scene.clock:
                     sd.run_clock(page, scene.clock)
                 box = sd.visible_box(page, sel, vp)

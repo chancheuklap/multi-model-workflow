@@ -8,6 +8,7 @@ import json
 import os
 import sys
 import tempfile
+import shutil
 import unittest
 from pathlib import Path
 
@@ -173,10 +174,10 @@ class FakePage:
             def first(self_inner):
                 return self_inner
 
-            def click(self_inner):
+            def click(self_inner, timeout=None):
                 page.actions.append(("click", role, name))
 
-            def fill(self_inner, value):
+            def fill(self_inner, value, timeout=None):
                 page.actions.append(("fill", role, name, value))
 
         return Locator()
@@ -194,12 +195,22 @@ class TestOpenChain(unittest.TestCase):
                                         ("fill", "textbox", "商品名称", "山野净洗洁精")])
         self.assertEqual(page.ran, 2 * sd.SETTLE_VIRTUAL_MS)
 
+    def test_what_a_step_types_becomes_a_value(self):
+        page = FakePage({("textbox", "商品名称"): 1})
+        values = {"existing_project_name": "山野净洗洁精"}
+        sd.perform(page, [{"row": "create-project.name", "value": "{existing_project_name}"}],
+                   self.ROWS, values)
+        self.assertEqual(values["typed"], "山野净洗洁精")
+        self.assertEqual(values["typed_name"], "山野净洗洁精")
+
     def test_a_missing_control_stops_the_run_and_names_it(self):
         page = FakePage({})
         with self.assertRaises(SystemExit) as raised:
             sd.perform(page, [{"row": "workbench-shell.delete.preview.allowed", "value": None}],
                        self.ROWS, {})
         self.assertIn('button "删除商品项目"', str(raised.exception))
+        # the control is waited for in clock steps up to the budget before giving up
+        self.assertEqual(page.ran, sd.SETTLE_BUDGET_MS)
 
     def test_an_unknown_row_stops_the_run(self):
         with self.assertRaises(SystemExit):
@@ -233,21 +244,14 @@ class TestBoxes(unittest.TestCase):
     """The pixel judge sees the mount's layout box intersected with the viewport."""
 
     class Page:
+        """`mount_rect` is one page evaluation; the fake answers it with a fixed box."""
+
         def __init__(self, rect):
             self.rect = rect
 
-        def locator(self, selector):
-            page = self
-
-            class L:
-                @property
-                def first(self_inner):
-                    return self_inner
-
-                def bounding_box(self_inner):
-                    return page.rect
-
-            return L()
+        def evaluate(self, js, selector=None):
+            assert js is sd.MOUNT_RECT_JS
+            return self.rect
 
     def test_a_component_below_a_header_keeps_its_own_box(self):
         page = self.Page({"x": 0, "y": 46, "width": 1440, "height": 854})
@@ -260,6 +264,10 @@ class TestBoxes(unittest.TestCase):
     def test_an_element_partly_off_screen(self):
         page = self.Page({"x": -20, "y": 0, "width": 1500, "height": 900})
         self.assertEqual(sd.visible_box(page, "[data-screen=x]", (1440, 900)), (0, 0, 1440, 900))
+
+    def test_a_mount_without_a_box_is_not_on_screen(self):
+        with self.assertRaises(SystemExit):
+            sd.visible_box(self.Page(None), "[data-screen=x]", (1440, 900))
 
     def test_frame_box_pins_the_design_to_the_measured_size(self):
         self.assertIn("width:1440px !important;height:854px !important", sd.frame_box((1440, 854)))
@@ -286,8 +294,28 @@ class TestTree(unittest.TestCase):
         self.assertEqual(sd.evaluate('.a.b[0].c == "x"', body), (True, "x"))
         self.assertEqual(sd.evaluate(".n != 1", body), (False, 1))
         self.assertEqual(sd.evaluate('.s contains "ell"', body), (True, "hello"))
+
+    @unittest.skipIf(shutil.which("jq") is None, "jq not on PATH")
+    def test_a_jq_program_runs_with_values_bound_as_variables(self):
+        body = {"projects": [{"name": "a", "id": "P1"}, {"name": "b", "id": "P2"}], "n": 2}
+        ok, got = sd.evaluate("([.projects[] | select(.id == $project_id)] | length) == 1",
+                              body, {"project_id": "P1"})
+        self.assertEqual((ok, got), (True, True))
+        ok, got = sd.evaluate(".n == $before", body, {"before": "3"})
+        self.assertEqual((ok, got), (False, False))
+        ok, _ = sd.evaluate("any(.projects[]; .name == $typed_name)", body, {"typed_name": "b"})
+        self.assertTrue(ok)
+
+    def test_an_unbound_variable_names_itself(self):
+        with self.assertRaises(SystemExit) as raised:
+            sd.evaluate(".n == $requested_count", {"n": 1}, {})
+        self.assertIn("$requested_count", str(raised.exception))
+
+    def test_exists_and_truthiness_and_a_trailing_note(self):
+        body = {"a": {"b": [{"c": "x"}]}, "n": 1, "s": "hello"}
         self.assertEqual(sd.evaluate(".zz exists", body), (False, None))
         self.assertEqual(sd.evaluate(".a", body)[0], True)
+        self.assertEqual(sd.evaluate(".n == 1  # the seed lays one", body), (True, 1))
 
 
 class TestClassSets(unittest.TestCase):

@@ -36,6 +36,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import sys
+import time
 from pathlib import Path
 
 
@@ -65,6 +66,21 @@ def build_parser() -> argparse.ArgumentParser:
                    help="break the state transport and require every row to MISS on an "
                         "observe assertion")
     return p
+
+
+OBSERVE_BUDGET_S = 10.0
+OBSERVE_STEP_S = 0.25
+
+
+def observe_settled(adapter, line: str, values: dict[str, str]) -> tuple[bool, object, str]:
+    """One observe line, re-read every `OBSERVE_STEP_S` until it holds, for at most
+    `OBSERVE_BUDGET_S` of wall time. The last reading is what a miss reports."""
+    deadline = time.monotonic() + OBSERVE_BUDGET_S
+    while True:
+        ok, got, why = adapter.observe(line, values)
+        if ok or time.monotonic() >= deadline:
+            return ok, got, why
+        time.sleep(OBSERVE_STEP_S)
 
 
 def run_rows(adapter, pw, wanted: list[str], by_id: dict[str, dict],
@@ -97,20 +113,20 @@ def run_rows(adapter, pw, wanted: list[str], by_id: dict[str, dict],
             sd.resize(page, viewport, adapter.over_cdp)
             sd.navigate(page, adapter.address(route, values), reload=True)
             if scene:
-                sd.wait_for_mount(page, sd.mount_selector(scene.mount))
                 sd.perform(page, scene.open, by_id, values)
-            trig = row["trigger"]
-            control = page.get_by_role(trig["role"], name=trig["name"], exact=True)
-            if control.count() == 0:
-                misses.append(f'MISS {rid} — no control {trig["role"]} "{trig["name"]}"')
+                sd.wait_for_mount(page, sd.mount_selector(scene.mount))
+            try:
+                sd.perform(page, [{"row": rid, "value": row.get("value")}], by_id, values)
+            except SystemExit as exc:
+                misses.append(f"MISS {rid} — {exc}")
                 continue
-            control.first.click()
-            sd.run_clock(page, sd.SETTLE_VIRTUAL_MS)
-            # The action's own request has to leave the page before the read is fresh.
-            page.wait_for_load_state("networkidle")
+            # The action's own request has to complete before the read is fresh, and the
+            # page's clock says nothing about that: the read surface is polled on the wall
+            # clock until the line holds or the budget is spent (the negative control
+            # spends it in full, which is what keeps a slow write from passing as none).
             observed.append(rid)
             for line in row["observe"]:
-                ok, got, why = adapter.observe(str(line), values)
+                ok, got, why = observe_settled(adapter, str(line), values)
                 if not ok:
                     misses.append(f"MISS {rid} — {why}")
                     break

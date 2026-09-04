@@ -69,6 +69,9 @@ SETTLE_VIRTUAL_MS = 200
 # seen so far, so a scene is never captured one step past itself.
 SETTLE_BUDGET_MS = 1400
 SETTLE_STEP_MS = 100
+# Wall-clock bound on one click or fill. The page's clock is paused, so an element that
+# is not enabled now stays so; the bound only keeps a wrong step from hanging the run.
+ACTION_TIMEOUT_MS = 2000
 # Every scene starts the fake clock here and moves it forward only; `pause_at` refuses
 # to go back, and a page reached over CDP keeps one clock for the whole run.
 CLOCK_EPOCH_MS = 1_700_000_000_000
@@ -303,11 +306,20 @@ def http_call(base: str, method: str, path: str, headers: dict | None = None):
         return 0, None
 
 
-def evaluate(expr: str, body: object) -> tuple[bool, object]:
-    """`.a.b[0] == "x"`, `.a != 1`, `.a contains "x"`, `.a exists`, or a bare `.a` (truthy)."""
-    m = re.match(r"^\s*(\.[\w.\[\]]*)\s*(?:(==|!=|contains|exists)\s*(.*))?$", expr)
-    if not m:
-        raise ValueError(f"cannot read expression {expr!r}")
+SIMPLE_EXPR = re.compile(r"^\s*(\.[\w.\[\]]*)\s*(?:(==|!=|contains|exists)\s*(.*))?$")
+JQ_VAR = re.compile(r"\$([A-Za-z_]\w*)")
+
+
+def evaluate(expr: str, body: object, values: dict[str, str] | None = None) -> tuple[bool, object]:
+    """An observe expression against a JSON body. The built-in grammar covers
+    `.a.b[0] == "x"`, `.a != 1`, `.a contains "x"`, `.a exists`, and a bare `.a` (truthy);
+    anything else is a jq program, run by the `jq` on PATH with every value the reach
+    script printed or an `open` step typed bound as a `$variable`. A `$variable` nothing
+    supplies is a contract defect and stops the run by name."""
+    expr = re.sub(r"\s+#.*$", "", expr.strip())  # a trailing `# note` is for the reader
+    m = SIMPLE_EXPR.match(expr)
+    if not m or "$" in expr:
+        return evaluate_jq(expr, body, values or {})
     value: object = body
     for part in re.findall(r"\.(\w+)|\[(\d+)\]", m.group(1)):
         key, idx = part
@@ -327,6 +339,45 @@ def evaluate(expr: str, body: object) -> tuple[bool, object]:
     if op == "!=":
         return value != want, value
     return (want in value) if isinstance(value, (str, list)) else False, value
+
+
+def evaluate_jq(expr: str, body: object, values: dict[str, str]) -> tuple[bool, object]:
+    """`jq -e <expr>` over the body: exit 0 is true, 1 is false or null; the last output
+    line is what was seen. Values bind as `--argjson` when they read as JSON scalars
+    (numbers, booleans, null) and as `--arg` strings otherwise."""
+    unbound = sorted({v for v in JQ_VAR.findall(expr) if v not in values})
+    if unbound:
+        raise SystemExit(f"observe expression uses ${', $'.join(unbound)}, which neither the "
+                         f"reach script's KEY=VALUE lines nor a typed open step supplies: {expr}")
+    args = ["jq", "-e", "-c"]
+    for key, value in values.items():
+        if f"${key}" not in expr:
+            continue
+        try:
+            parsed = json.loads(value)
+        except (ValueError, TypeError):
+            parsed = None
+        if isinstance(parsed, (int, float, bool)) or parsed is None and value == "null":
+            args += ["--argjson", key, value]
+        else:
+            args += ["--arg", key, value]
+    args.append(expr)
+    try:
+        run = subprocess.run(args, input=json.dumps(body, ensure_ascii=False), capture_output=True,
+                             text=True, timeout=30)
+    except FileNotFoundError as exc:
+        raise SystemExit("observe expression needs jq on PATH: " + expr) from exc
+    if run.returncode not in (0, 1):
+        raise SystemExit(f"jq could not run the observe expression {expr!r}: "
+                         f"{run.stderr.strip() or run.returncode}")
+    lines = [line for line in run.stdout.splitlines() if line.strip()]
+    got: object = None
+    if lines:
+        try:
+            got = json.loads(lines[-1])
+        except ValueError:
+            got = lines[-1]
+    return run.returncode == 0, got
 
 
 NODE_EXPR = re.compile(r'^\s*node\s+(?P<role>[a-zA-Z]+)(?:\s+"(?P<name>(?:[^"\\]|\\.)*)")?'
@@ -710,7 +761,7 @@ def navigate(page, url: str, reload: bool = False) -> None:
 def wait_for_mount(page, selector: str) -> None:
     """Run the clock in steps until the mount element is on screen, within the budget."""
     spent = 0
-    while not page.locator(selector).first.is_visible():
+    while mount_rect(page, selector) is None:
         if spent >= SETTLE_BUDGET_MS:
             raise SystemExit(f"no visible element matches {selector} after "
                              f"{SETTLE_VIRTUAL_MS + spent} ms of controlled time")
@@ -720,21 +771,64 @@ def wait_for_mount(page, selector: str) -> None:
 
 def perform(page, steps: list[dict], rows: dict[str, dict], values: dict[str, str]) -> None:
     """Walk a scene's `open` chain: each step names a contract row, whose trigger is
-    clicked — or filled, for an input role, with the step's value."""
+    clicked — or filled, for an input role, with the step's value. A control the
+    previous step is still bringing on screen is waited for in clock steps, within the
+    same budget the mount gets; the mount itself is waited for after the chain."""
+    PlaywrightError = _playwright_error()
     for step in steps:
         row = rows.get(step["row"])
         if row is None:
             raise SystemExit(f"open step names no contract row: {step['row']}")
         trig = row["trigger"]
         control = page.get_by_role(trig["role"], name=trig["name"], exact=True)
-        if control.count() == 0:
-            raise SystemExit(f'open step {step["row"]}: no control {trig["role"]} '
-                             f'"{trig["name"]}" on the page')
-        if trig["role"] in INPUT_ROLES:
-            control.first.fill(fill(str(step.get("value") or ""), values))
-        else:
-            control.first.click()
+        spent = 0
+        while control.count() == 0:
+            if spent >= SETTLE_BUDGET_MS:
+                raise SystemExit(f'open step {step["row"]}: no control {trig["role"]} '
+                                 f'"{trig["name"]}" on the page after '
+                                 f"{SETTLE_VIRTUAL_MS + spent} ms of controlled time")
+            run_clock(page, SETTLE_STEP_MS)
+            spent += SETTLE_STEP_MS
+        try:
+            if trig["role"] in INPUT_ROLES:
+                typed = fill(str(step.get("value") or ""), values)
+                control.first.fill(typed, timeout=ACTION_TIMEOUT_MS)
+                # What was typed is a value from here on: `$typed` is the latest, and
+                # `$typed_<field>` keeps each row's, named by the row id's last segment.
+                values["typed"] = typed
+                values["typed_" + step["row"].rsplit(".", 1)[-1].replace("-", "_")] = typed
+            else:
+                control.first.click(timeout=ACTION_TIMEOUT_MS)
+        except PlaywrightError as exc:
+            # Under a paused clock nothing changes with wall time: a control that is not
+            # enabled or visible now will not become so by waiting.
+            reason = str(exc).splitlines()[0] if str(exc) else exc.__class__.__name__
+            state = _control_state(control.first)
+            raise SystemExit(f'open step {step["row"]}: {trig["role"]} "{trig["name"]}" '
+                             f"could not be acted on ({state}): {reason}") from exc
         run_clock(page, SETTLE_VIRTUAL_MS)
+
+
+def _playwright_error() -> type[Exception]:
+    """Playwright's error class, imported when first needed: the driver's own tests run
+    a fake page without the package installed."""
+    try:
+        from playwright.sync_api import Error
+    except ImportError:
+        return Exception
+    return Error
+
+
+def _control_state(locator) -> str:
+    PlaywrightError = _playwright_error()
+    try:
+        if not locator.is_visible():
+            return "not visible"
+        if not locator.is_enabled():
+            return "disabled"
+        return "visible and enabled"
+    except PlaywrightError:
+        return "state unknown"
 
 
 def capture(page, png: Path, *, selector: str, clip: tuple[int, int, int, int] | None = None,
@@ -766,8 +860,9 @@ def capture(page, png: Path, *, selector: str, clip: tuple[int, int, int, int] |
         if extra_css or extra_js:
             run_clock(page, SETTLE_VIRTUAL_MS)
         target = page.locator(selector).first
-        target.wait_for(state="visible", timeout=15000)
-        rect = target.bounding_box()
+        rect = mount_rect(page, selector)
+        if rect is None:
+            raise SystemExit(f"{selector} is not on screen at capture time")
         if clip is None:
             clip = (int(round(rect["x"])), int(round(rect["y"])),
                     int(round(rect["width"])), int(round(rect["height"])))
@@ -793,7 +888,7 @@ def visible_box(page, selector: str, viewport: tuple[int, int]) -> tuple[int, in
     pixels. `getBoundingClientRect()` gives the layout box — a 3000 px table is 3000 px
     tall, not "what is visible" — and the intersection is what the pixel judge compares;
     the rest is the tree's."""
-    rect = page.locator(selector).first.bounding_box()
+    rect = mount_rect(page, selector)
     if rect is None:
         raise SystemExit(f"{selector} has no box")
     x0, y0 = max(0.0, rect["x"]), max(0.0, rect["y"])
@@ -805,6 +900,41 @@ def visible_box(page, selector: str, viewport: tuple[int, int]) -> tuple[int, in
 
 def mount_selector(mount: str) -> str:
     return f'[{DATA_SCREEN}="{mount}"]'
+
+
+MOUNT_RECT_JS = """
+(selector) => {
+  const el = document.querySelector(selector);
+  if (!el) return null;
+  const shown = (e) => {
+    const cs = getComputedStyle(e);
+    return cs.display !== 'none' && cs.visibility !== 'hidden' && cs.opacity !== '0';
+  };
+  const own = el.getBoundingClientRect();
+  if (shown(el) && own.width > 0 && own.height > 0) {
+    return {x: own.x, y: own.y, width: own.width, height: own.height};
+  }
+  // A mount that is a box-less wrapper — a dialog layer whose children are positioned
+  // out of flow — takes the union of its shown descendants' boxes.
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, any = false;
+  for (const d of el.querySelectorAll('*')) {
+    if (!shown(d)) continue;
+    const r = d.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) continue;
+    any = true;
+    x0 = Math.min(x0, r.x); y0 = Math.min(y0, r.y);
+    x1 = Math.max(x1, r.right); y1 = Math.max(y1, r.bottom);
+  }
+  return any ? {x: x0, y: y0, width: x1 - x0, height: y1 - y0} : null;
+}
+"""
+
+
+def mount_rect(page, selector: str) -> dict | None:
+    """The mount element's layout box, or `None` while it is not on screen. An element
+    with a box of its own gives that box; a wrapper without one (a dialog layer whose
+    children are positioned out of flow) gives the union of its shown descendants."""
+    return page.evaluate(MOUNT_RECT_JS, selector)
 
 
 def aria_path(png: Path) -> Path:
@@ -957,7 +1087,7 @@ class ElectronAdapter(Adapter):
                                  fill(path.strip(), values))
         if status >= 300 or status == 0:
             return False, status, f"{op.strip()} answered {status}"
-        ok, got = evaluate(expr.strip(), body)
+        ok, got = evaluate(expr.strip(), body, values)
         return ok, got, "" if ok else f"{expr.strip()} was {json.dumps(got, ensure_ascii=False)}"
 
 
@@ -1050,7 +1180,7 @@ class WebAdapter(Adapter):
             body = json.loads(raw) if raw else None
         if status >= 300 or status == 0:
             return False, status, f"{op.strip()} answered {status}"
-        ok, got = evaluate(expr.strip(), body)
+        ok, got = evaluate(expr.strip(), body, values)
         return ok, got, "" if ok else f"{expr.strip()} was {json.dumps(got, ensure_ascii=False)}"
 
 
