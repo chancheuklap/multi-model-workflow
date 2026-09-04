@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# 把四样东西装到本机，让每个 host 都读得到：
+# 把五样东西装到本机，让每个 host 都读得到：
 #
 #   技能              skills.txt 列出的，软链进 ~/.agents/skills 与 ~/.claude/skills
 #   subagent          agents/<名>/out/ 的 assembled subagent file，软链进各 host 的 agent 目录
 #   hook              verify-ticket 的 hook.py 与 dispatch 的 turn.py，写进各 host 自己的配置
 #   agent detection rule   dispatch 技能带的覆盖（有才装），拷进 ~/.config/herdr/agent-detection/
+#   提示词            prompt/shared.md 与 prompt/hosts/<host>.md：Claude Code 读软链，Codex、Pi、Grok
+#                     读 prompt/render.py 拼出的 AGENTS.md；一个 launchd 任务盯着源文件，改了就重拼
 #
 # 技能有三个来源：mattpocock/skills 的在 upstream/skills/，我们自己写的在 skills/（skills.txt
 # 里前缀 self/），cathrynlavery/diagram-design 的在 upstream-diagram-design/skills/（前缀 dd/）。三者
@@ -619,6 +621,107 @@ fi
 
 if [ "$hooks_ran" -eq 1 ] && [ "$hooks_rc" -eq 0 ]; then
   echo "HOOKS-INSTALLED"
+fi
+
+# ---------------- 提示词 ----------------
+
+# 源在 prompt/：shared.md 四家共用，hosts/<host>.md 只给那一家。Claude Code 认软链，所以
+# ~/.claude/CLAUDE.md 直接指 shared.md，~/.claude/rules/mmw-claude.md 指 hosts/claude.md，改源即生效。
+# Codex、Pi、Grok 没有引入语法，只能由 render.py 把两份拼成各自的 AGENTS.md；生成物带哈希，
+# 被人直接改过 render.py 就拒绝覆盖。launchd 任务监视五个源文件，改动即重拼——Claude Code 那两条
+# 软链不需要它。MMW_V2_HOME 之下（测试）不装 launchd。
+
+PROMPT_SRC="$ROOT/prompt"
+
+# 一条软链该指哪里就指哪里；原位是内容相同的普通文件就换成软链（首次迁移），内容不同就是冲突。
+link_prompt() {
+  local link="$1" want="$2"
+  if [ -L "$link" ]; then
+    if [ "$(readlink "$link")" = "$want" ]; then return 0; fi
+    case "$(readlink "$link")" in
+      */mmw-v2/prompt/*) [ "$mode" = check ] || ln -sfn "$want" "$link"; return 0 ;;
+      *) echo "冲突  $link 是软链但不指回本仓库，跳过" >&2; return 1 ;;
+    esac
+  fi
+  if [ -e "$link" ]; then
+    if cmp -s "$link" "$want"; then
+      if [ "$mode" = check ]; then echo "缺    $link 还是普通文件，跑一次 install.sh 换成软链" >&2; return 1; fi
+      ln -sfn "$want" "$link"; return 0
+    fi
+    echo "冲突  $link 已存在且内容与 $want 不同；把差异搬进源里再跑" >&2
+    return 1
+  fi
+  if [ "$mode" = check ]; then echo "缺    $link" >&2; return 1; fi
+  mkdir -p "$(dirname "$link")"
+  ln -sfn "$want" "$link"
+}
+
+if [ -f "$PROMPT_SRC/shared.md" ]; then
+  prompt_rc=0
+  if [ -d "$HOME_DIR/.claude" ]; then
+    link_prompt "$HOME_DIR/.claude/CLAUDE.md" "$PROMPT_SRC/shared.md" || prompt_rc=1
+    link_prompt "$HOME_DIR/.claude/rules/mmw-claude.md" "$PROMPT_SRC/hosts/claude.md" || prompt_rc=1
+  fi
+
+  if [ "$mode" = check ]; then
+    MMW_V2_HOME="$HOME_DIR" python3 "$PROMPT_SRC/render.py" --check || prompt_rc=1
+  else
+    MMW_V2_HOME="$HOME_DIR" python3 "$PROMPT_SRC/render.py" || {
+      prompt_rc=1
+      echo "注意  首次装或生成物被改过时，跑：python3 $PROMPT_SRC/render.py --adopt" >&2
+    }
+  fi
+
+  # launchd：只在真家目录装。WatchPaths 里的路径是本 checkout 的源文件，换 checkout 跑一次本脚本就重写。
+  if [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ]; then
+    PLIST="$HOME/Library/LaunchAgents/com.mmw.prompt-sync.plist"
+    want_plist="$(cat <<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.mmw.prompt-sync</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$(command -v python3)</string>
+    <string>$PROMPT_SRC/render.py</string>
+  </array>
+  <key>WatchPaths</key>
+  <array>
+    <string>$PROMPT_SRC/shared.md</string>
+    <string>$PROMPT_SRC/hosts/claude.md</string>
+    <string>$PROMPT_SRC/hosts/codex.md</string>
+    <string>$PROMPT_SRC/hosts/pi.md</string>
+    <string>$PROMPT_SRC/hosts/grok.md</string>
+  </array>
+  <key>StandardOutPath</key><string>$HOME/Library/Logs/mmw-prompt-sync.log</string>
+  <key>StandardErrorPath</key><string>$HOME/Library/Logs/mmw-prompt-sync.log</string>
+</dict>
+</plist>
+XML
+)"
+    if [ "$mode" = check ]; then
+      if [ ! -f "$PLIST" ] || [ "$(cat "$PLIST")" != "$want_plist" ]; then
+        echo "缺    $PLIST 不存在或指向别的 checkout，跑一次 install.sh" >&2
+        prompt_rc=1
+      elif ! launchctl print "gui/$(id -u)/com.mmw.prompt-sync" >/dev/null 2>&1; then
+        echo "缺    launchd 任务 com.mmw.prompt-sync 没在跑，跑一次 install.sh" >&2
+        prompt_rc=1
+      fi
+    else
+      if [ ! -f "$PLIST" ] || [ "$(cat "$PLIST")" != "$want_plist" ]; then
+        mkdir -p "$HOME/Library/LaunchAgents"
+        launchctl bootout "gui/$(id -u)/com.mmw.prompt-sync" >/dev/null 2>&1 || true
+        printf '%s\n' "$want_plist" > "$PLIST"
+      fi
+      if ! launchctl print "gui/$(id -u)/com.mmw.prompt-sync" >/dev/null 2>&1; then
+        launchctl bootstrap "gui/$(id -u)" "$PLIST" || { echo "缺    launchd 任务装不上：$PLIST" >&2; prompt_rc=1; }
+      fi
+      echo "已装  launchd 任务 com.mmw.prompt-sync 盯着 $PROMPT_SRC"
+    fi
+  fi
+  [ "$mode" = check ] || echo "已装  提示词：~/.claude 两条软链，Codex、Pi、Grok 各一份生成的 AGENTS.md"
+  [ "$prompt_rc" -eq 0 ] || rc=1
 fi
 
 if [ "$mode" = check ]; then
