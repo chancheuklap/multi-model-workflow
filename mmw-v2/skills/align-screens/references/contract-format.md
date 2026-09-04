@@ -104,6 +104,12 @@ A `retired_ids` entry with a `trigger` names the `page` the control is on; the j
   next: create-note.attachment-pending    # a row id, a scene name, or a state name from the domain doc
   route: "#/new-note"                     # where the implementation shows this control; the wiring check navigates here
   observe: ["GET /api/notes/{note_id}/draft -> .has_draft == true"]   # the read surface that proves `next`
+  drive:                                  # only when no scene shows the control actionable (a form the design never shows complete)
+    scene: empty                          # the scene the wiring check drives this row on; default: the first of `scenes`
+    reach: [dev:file-select-path]         # mechanisms run after the scene's own
+    open:                                 # steps after the scene's chain, before the trigger
+      - { row: create-note.name, value: "{note_new_name}" }
+      - create-note.add-attachment
   on_failure: { dialog_cancelled: no-change, draft_4xx: toast:NEXT_FAILED_TITLE }
   source: ["#537 Implementation Decisions 2", "#420", "README §5.3 (transition overridden)"]
   reach: seed:project-empty               # a mechanisms entry
@@ -123,6 +129,7 @@ A `retired_ids` entry with a `trigger` names the `page` the control is on; the j
 | `shows` | Displayed name → `field@METHOD /path`, `field@ipc <channel>`, `key@RuntimePolicy`, or an expression over those. No literal numbers or strings — a status code is a number too. The perturbation run of `visual-parity.py` reseeds with other values and requires each scene whose rows declare `shows` to read differently. | value contains `@`; no digits outside `{…}` |
 | `next` | Where the user is after the call succeeds; for `calls: [none]`, where the user is after the click. `stay` when nothing about the page changes (a disabled control, a cancelled dialog). | a row id, a scene name, a state named in the domain doc, or `stay`; an `open` chain ends on a row whose `next` is the scene |
 | `route` | The implementation's address for the screen this control is on (`#/new-project`). One per page; a row may override it. | present on every row with calls, directly or through its page |
+| `drive` | Where and how the wiring check drives the row: `scene` (default: the first of `scenes`), `reach` (mechanisms after the scene's), `open` (steps after the scene's chain). Needed exactly when the trigger is disabled or absent on every scene the design shows — a form the design never shows complete — or when the first scene contradicts the row's precondition. | the trigger is present and not `[disabled]` in the driving scene's target tree, or `drive.open` is given; `drive.scene` is in `scenes` |
 | `observe` | A fresh read of persistent state, on a path the acting view did not produce, issued after the action completed: `METHOD /path -> <jq-style expression>` on a target with a JSON read surface, `GET /path -> node <role> "<name>" exists` on a server-rendered page without one (see `verify-ticket/references/targets/`). This is what the wiring check asserts on; nothing in the renderer is. A row whose calls are all non-HTTP writes nothing the surface can read; it may leave `observe` empty, and the wiring check then only performs the trigger. | present when `calls` names an HTTP operation; each operation exists in `openapi.json` or `proposed_operations` |
 | `on_failure` | Failure kind → what the user sees. Every non-`none` call has at least one. No judge reads this column yet. | present when `calls` is not `[none]` |
 | `source` | Where the behaviour was decided, in one of these shapes: `#<n>` (a decision ticket), `#<n> Implementation Decisions <k>` or `#<n> Testing Decisions` (a spec section), `ADR-<nnnn>`, `docs/<path> …` (a domain document), `README §…`, or `code:<path>` as a last resort. A story (`#<n> story <k>`) is an audit trail no worker ever reads: `to-spec` folds a story's conclusion into the Implementation Decisions subsection that implements it, and the row cites that. At least one source that is neither README nor `code:`, or `gap` is not `aligned`. | non-empty; a story or an unrecognised shape is a warning |

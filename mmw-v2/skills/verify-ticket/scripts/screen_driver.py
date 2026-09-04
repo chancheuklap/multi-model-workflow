@@ -223,13 +223,33 @@ def scene_plan(doc: dict, catalogue: dict[str, dict], mounts: list[str],
 
 
 def scene_for_row(row: dict, scenes: dict[str, Scene]) -> Scene | None:
-    """The scene the wiring check drives a row on: the first of the row's `scenes` the
-    contract declares. Its `reach` and `open` put the control on screen; a row whose
-    control sits in a dialog is reached the way the scene is."""
+    """The scene the wiring check drives a row on: the row's `drive.scene` when it names
+    one, else the first of the row's `scenes` the contract declares. Its `reach` and
+    `open` put the control on screen; a row whose control sits in a dialog is reached
+    the way the scene is."""
+    drive = row.get("drive") or {}
+    chosen = drive.get("scene")
+    if chosen:
+        if chosen not in scenes:
+            raise SystemExit(f"row {row.get('id')}: drive.scene {chosen!r} is not a declared scene")
+        return scenes[chosen]
     for name in row.get("scenes") or []:
         if name in scenes:
             return scenes[name]
     return None
+
+
+def drive_of(row: dict) -> tuple[list[str], list[dict]]:
+    """A row's own way to a state its scenes never show actionable: extra `reach`
+    mechanisms run after the scene's, and `open` steps performed after the scene's
+    chain and before the trigger (typing a name, picking a file)."""
+    drive = row.get("drive") or {}
+    reach = [str(m) for m in drive.get("reach") or []]
+    steps = []
+    for step in drive.get("open") or []:
+        steps.append({"row": step, "value": None} if isinstance(step, str)
+                     else {"row": str(step.get("row")), "value": step.get("value")})
+    return reach, steps
 
 
 def fill(text: str, values: dict[str, str]) -> str:

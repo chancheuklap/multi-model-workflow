@@ -213,6 +213,34 @@ class TestScreenAxis(unittest.TestCase):
         errors, _ = self.lint(doc)
         self.assertTrue(any("does not land this scene" in e for e in errors))
 
+    def test_an_observed_row_must_be_actionable_on_its_driving_scene(self):
+        skeleton = dict(SKELETON)
+        skeleton["trees"] = {"empty": ['- button "添加商品素材" [disabled]', '- textbox "商品名称"'],
+                             "material-added": ['- button "添加商品素材"', "- textbox: 晨雾保温杯"]}
+        doc = contract()
+        doc["rows"][0]["observe"] = ["GET /api/x -> .ok == true"]
+        errors, warnings = lc.lint_screen_axis(doc, skeleton, self.repo.baseline, self.repo.spec_dir)
+        self.assertTrue(any("[disabled] on its driving scene empty" in e for e in errors), errors)
+        # a drive.open makes it actionable
+        doc["rows"][0]["drive"] = {"open": [{"row": "create-project.name", "value": "x"}]}
+        errors, _ = lc.lint_screen_axis(doc, skeleton, self.repo.baseline, self.repo.spec_dir)
+        self.assertFalse(any("driving scene" in e for e in errors), errors)
+        # or another driving scene where the design shows it enabled
+        doc["rows"][0]["drive"] = {"scene": "material-added"}
+        doc["rows"][0]["scenes"] = ["empty", "material-added"]
+        errors, _ = lc.lint_screen_axis(doc, skeleton, self.repo.baseline, self.repo.spec_dir)
+        self.assertFalse(any("driving scene" in e for e in errors), errors)
+        doc["rows"][0]["drive"] = {"scene": "shell-header.ready"}
+        errors, _ = lc.lint_screen_axis(doc, skeleton, self.repo.baseline, self.repo.spec_dir)
+        self.assertTrue(any("not one of the row's scenes" in e for e in errors))
+
+    def test_a_typed_value_the_design_shows_needs_an_open_step(self):
+        skeleton = dict(SKELETON)
+        skeleton["trees"] = {"empty": ["- textbox: 晨雾保温杯"], "material-added": ["- textbox: 晨雾保温杯"]}
+        _, warnings = lc.lint_screen_axis(contract(), skeleton, self.repo.baseline, self.repo.spec_dir)
+        self.assertTrue(any("scene empty:" in w and "types anything" in w for w in warnings), warnings)
+        self.assertFalse(any("scene material-added:" in w for w in warnings), warnings)
+
     def test_open_may_land_through_a_failure_or_the_same_page(self):
         doc = contract()
         doc["rows"][0]["next"] = "material-added"

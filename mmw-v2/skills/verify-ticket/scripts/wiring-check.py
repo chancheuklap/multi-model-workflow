@@ -104,6 +104,8 @@ def run_rows(adapter, pw, wanted: list[str], by_id: dict[str, dict],
             # and route.
             scene = sd.scene_for_row(row, scenes)
             reach = list(scene.reach) if scene else ([str(row["reach"])] if row.get("reach") else [])
+            drive_reach, drive_open = sd.drive_of(row)
+            reach += [m for m in drive_reach if m not in reach]
             route = (scene.route if scene else None) or row.get("route") or ""
             values = adapter.transport(reach, {})
             if page is None or adapter.reach_before_attach:
@@ -116,6 +118,7 @@ def run_rows(adapter, pw, wanted: list[str], by_id: dict[str, dict],
                 sd.perform(page, scene.open, by_id, values)
                 sd.wait_for_mount(page, sd.mount_selector(scene.mount))
             try:
+                sd.perform(page, drive_open, by_id, values)
                 sd.perform(page, [{"row": rid, "value": row.get("value")}], by_id, values)
             except SystemExit as exc:
                 misses.append(f"MISS {rid} — {exc}")

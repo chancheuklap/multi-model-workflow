@@ -255,6 +255,55 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
             errors.append(f"mechanisms: {mname} built_by {built_by!r} is not a ticket number")
         if via == "storage" and not PROVEN.match(str(m.get("proven_by") or "")):
             errors.append(f"mechanisms: {mname} via storage needs proven_by '#<n> AC<k>'")
+    # -- drivability: the wiring check acts on the trigger of every observed row on one
+    # scene; the design's tree of that scene has to show the trigger, and enabled,
+    # unless the row brings its own `drive.open` (a form the design never shows complete)
+    trees = skeleton.get("trees") or {}
+    scene_decls = doc.get("scenes") or {}
+    for rid, row in rows.items():
+        if not row.get("observe"):
+            continue
+        drive = row.get("drive") or {}
+        if not isinstance(drive, dict):
+            errors.append(f"{rid}: drive must be a mapping (scene, reach, open)")
+            continue
+        chosen = drive.get("scene")
+        row_scenes = [scene_name_of(x) for x in row.get("scenes") or []]
+        if chosen and chosen not in row_scenes:
+            errors.append(f"{rid}: drive.scene {chosen!r} is not one of the row's scenes")
+        driving = chosen or (row_scenes[0] if row_scenes else None)
+        if driving is None:
+            if not drive.get("scene"):
+                errors.append(f"{rid}: has observe lines but no scene to drive on; give it "
+                              f"`drive: {{scene, open}}`")
+            continue
+        if driving not in scene_decls:
+            continue  # reported by the scene rules
+        trig = row.get("trigger") or {}
+        head = f'- {trig.get("role")} "{trig.get("name")}"'
+        lines = [ln for ln in trees.get(driving, []) if ln.startswith(head)]
+        if not lines:
+            if not drive.get("open"):
+                errors.append(f"{rid}: trigger {trig.get('role')} {trig.get('name')!r} is not in the "
+                              f"design's tree of its driving scene {driving}; name a scene that "
+                              f"shows it in drive.scene or add drive.open")
+            continue
+        if all("[disabled]" in ln for ln in lines) and not drive.get("open"):
+            errors.append(f"{rid}: trigger is [disabled] on its driving scene {driving}; the "
+                          f"wiring check cannot act on it — add drive.open with the steps "
+                          f"that make it actionable, or pick another drive.scene")
+    # -- typed values: a textbox the design shows with a value was typed by someone
+    for sname, decl in scene_decls.items():
+        decl = decl or {}
+        typed = any(isinstance(st, dict) and st.get("value") is not None
+                    for st in decl.get("open") or [])
+        for ln in trees.get(sname, []):
+            m = re.match(r'^- (textbox|searchbox|combobox|spinbutton)(?: "[^"]*")?: (.+?)(?: <|$)', ln)
+            if m and not typed:
+                warnings.append(f"scene {sname}: the design shows {m.group(1)} with value "
+                                f"{m.group(2)!r} but no open step types anything; the product "
+                                f"will show an empty field")
+                break
     # -- target trees
     if contract_dir is not None and baseline is not None and handoff_pages:
         targets = contract_dir / "targets"
