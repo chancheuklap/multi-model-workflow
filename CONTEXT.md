@@ -220,12 +220,12 @@ _Avoid_: design component, scenario 属性
 _Home_: `mmw-v2/skills/claude-design-blocks/references/porting.md`
 
 **handoff package**:
-A Claude Design project downloaded into the prototype leaf directory `prototypes/<task>/<issue>/UI/`: the five things `visual-parity.py --baseline` renders — the component's `.dc.html`, `styles/`, `data/`, `support.js`, `scenes.json` — plus the `README.md` a spec and its tickets take exact values and verbatim copy from. `visual-parity.py --baseline` renders it; the Spec axis does not open it; it supersedes the winning variant under `## Read first`; once downloaded it is a contract, copied verbatim, not a reference.
+A Claude Design project downloaded into the prototype leaf directory `prototypes/<task>/<issue>/UI/`: the six things the driver renders — the component's `.dc.html`, `styles/`, `data/`, `support.js`, `scenes.json`, and `vendor/` holding the three scripts `support.js` loads — plus the `README.md` a spec and its tickets take exact values, verbatim copy and `viewports` from. The screen contract's `baselines.look` names it; `visual-parity.py` and `extract_skeleton.py` render it; the Spec axis does not open it; it supersedes the winning variant under `## Read first`; once downloaded it is a contract, copied verbatim, not a reference. The target trees are its derived view.
 _Avoid_: 交接包, 开发交接包, 基线目录, UI 基线
 _Home_: `mmw-v2/skills/verify-ticket/references/ui-parity.md`
 
 **scene**:
-One entry of `scenes.json`: `name`, `page` (the `.dc.html` it pins), and `props` (the query parameters that put the real page into that state, opened as `<impl url>?scene=<name>&<scene props>` — the name first, because two scenes can share one prop set). Each scene gets its own screenshot and accessibility tree per viewport. The name may not contain `/`, because its wrapper page is `/__parity-<name>.dc.html`. In Claude Design a scene is a prop set from the Tweaks panel.
+One entry of `scenes.json`: `name`, `page` (the `.dc.html` it pins), and `props` (the prop set that puts the design page into that state). The screen contract declares every scene once under `scenes`, with its page, its `reach` and its `open`, and the product is put into it through those — never through a query parameter the view answers from fixtures. Each scene gets its own screenshot, tree and class set per viewport. The name may not contain `/`, because its wrapper page is `/__parity-<name>.dc.html`. In Claude Design a scene is a prop set from the Tweaks panel.
 _Avoid_: 场景 (when a scene is meant), 场景列表, scenario (for a scene)
 _Home_: `mmw-v2/skills/claude-design-blocks/references/handoff.md`
 
@@ -337,7 +337,7 @@ The sources the ticket's spec subsections cite, `None` when there are none. Each
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **baseline**:
-An item under `## Read first` that records a settled conclusion: a decision ticket's resolution, an ADR's Decision, a research file's conclusion, a handoff package, a prototype's chosen artifact. To the worker it is a contract, not a reference; a handoff package is copied verbatim, a prototype is rewritten to production standard. The Spec axis reads the baselines against the diff, and a deviation is `Built wrong`. `visual-parity.py`'s `--baseline` flag names the handoff package directory and nothing else.
+An item under `## Read first` that records a settled conclusion: a decision ticket's resolution, an ADR's Decision, a research file's conclusion, a handoff package, a prototype's chosen artifact. To the worker it is a contract, not a reference; a handoff package is copied verbatim, a prototype is rewritten to production standard. The Spec axis reads the baselines against the diff, and a deviation is `Built wrong`. The screen contract's `baselines.look` names the handoff package directory, and `visual-parity.py`'s output word for that side is `baseline`.
 _Avoid_: 基线 (as a term), reference (when this is meant)
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
@@ -630,24 +630,24 @@ _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 ### UI acceptance
 
 **`visual-parity.py`**:
-`scripts/visual-parity.py` beside the verify-ticket `SKILL.md`: it decides whether an interface matches the design it was built from (**interface parity**). It renders each named scene from the handoff package offline (`--baseline <dir>` — that flag's word for the handoff package side, kept in its output as `baseline`), opens the same scene on the implementation (`--impl <url>`, or `--cdp <debugging port url>` for a running application, a read-only comparison), and compares by accessibility tree after normalisation and by pixels at two viewports (`--viewports`, `--max-pct`, the pixel share after both screenshots are shrunk by 4, default 3%). It prints `PARITY OK <passed>/<total> pixel<=<worst>%` (exit 0), or one `DIFF <scene> <viewport> <pct>% box=… — <reasons>` line per failing scene and viewport (exit 1, with `baseline` / `impl` / `only in baseline` / `only in impl` sub-lines for tree differences and `around: <elements>` on a pixel failure), or `NEGATIVE CONTROL FAILED` (exit 2, no parity conclusion). `--out <dir>` keeps the screenshots, trees, and differing-pixel pictures for the user to look at; the cache is `~/.cache/mmw/visual-parity`. It is the one script a ticket's `CHECK:` names by full installed path, `uv run ~/.agents/skills/verify-ticket/scripts/visual-parity.py …`, because a shell runs it with no agent between. One execution is a **parity run**.
+`scripts/visual-parity.py` beside the verify-ticket `SKILL.md`: it decides whether an interface matches the design it was built from (**interface parity**). Given `--contract` and `--mount <id,id>` (and `--scenes` to narrow), it takes the scenes under those mounts, puts the product into each through the driver (`reach`, `route`, `open`), measures the mount element's box, renders the design page offline pinned to that box, and compares the three judges at every contract viewport: the tree after normalisation, the class set, and pixels over the box's intersection with the viewport (`--max-pct`, the pixel share after both screenshots are shrunk by 4, default 3%). Its output word for the design side is `baseline`. It prints `PARITY OK <passed>/<total> pixel<=<worst>%` (exit 0), or one `DIFF <scene> <viewport> <pct>% box=… — <reasons>` line per failing scene and viewport (exit 1, with `baseline` / `impl` / `only in baseline` / `only in impl` sub-lines for tree differences, `class only in …` lines for class differences, and `around: <elements>` on a pixel failure), or `NEGATIVE CONTROL FAILED` (exit 2, no parity conclusion; also exit 2 when the product is not ready). `--out <dir>` keeps the screenshots, trees, and differing-pixel pictures for the user to look at; `--render-only` renders the design side alone; `--shows-perturbation` is the perturbation run. No address is on its line. It is the one script a ticket's `CHECK:` names by full installed path, `uv run ~/.agents/skills/verify-ticket/scripts/visual-parity.py …`, because a shell runs it with no agent between. One execution is a **parity run**.
 _Avoid_: visual parity, UI parity, 视觉对等, UI acceptance (when the script is meant)
 _Home_: `mmw-v2/skills/verify-ticket/references/ui-parity.md`
 
 **negative control**:
-One deliberately wrong scene `visual-parity.py` builds after every scene has run at the first viewport and judges before any of them; when it is not caught, the run stops with `NEGATIVE CONTROL FAILED`.
+The pair each judge builds to prove it can fail, judged before any real result. Interface parity's: after the first scene at the first viewport, the baseline server serves that scene's own address with an error banner in the served bytes, the product is captured again, and the two must differ — equal means the product capture read the design's server, and the run stops with `NEGATIVE CONTROL FAILED`. The wiring check's: `--negative` breaks the state transport and requires every row to `MISS` on an `observe` assertion, printing `WIRING NEGATIVE OK <n>/<n>` or `GREEN WITHOUT TRANSPORT <row>`.
 _Avoid_: 负控制
 _Home_: `mmw-v2/skills/verify-ticket/scripts/visual-parity.py`
 
 **normalisation**:
-How an accessibility tree is read before comparison: as the flat sequence of its named nodes in reading order — role, name or text, and state attributes — with unnamed wrappers, landmark names and nesting dropped. The **accessibility tree** is compared per scene and viewport; the baseline side is screenshotted from `#dc-root`, the implementation side takes the whole **viewport**.
+How an accessibility tree is read before comparison: as the sequence of its named nodes in reading order — role, name or text, and state attributes — each followed by ` < ` and its nearest named ancestor, with unnamed wrappers and landmark names dropped. One normaliser, in `screen_driver.py`, serves interface parity, the wiring check's tree observe, and the target trees. The **accessibility tree** and the **class set** are read over the whole subtree under the mount; the pixel judge sees only the mount's box intersected with the viewport, on both sides.
 _Avoid_: 归一化, ARIA 归一化, ARIA 树, 视口
 _Home_: `mmw-v2/skills/verify-ticket/references/ui-parity.md`
 
 ### Screen contract
 
 **screen contract**:
-`docs/specs/<effort>/screen-contract.yaml`: one row per user-visible behaviour of an interface — the control (`trigger`, by role and accessible name), its `precondition`, the `scenes` it is visible in, what it `calls`, which field feeds each value it `shows`, what state is `next`, what `on_failure` shows, where the behaviour was decided (`source`), how a test reaches the state (`reach`), and whether design and backend agree (`gap`). Written by `align-screens` on the alignment ticket; read by `to-spec`, `to-tickets`, `implement`, the Spec axis and `verify-ticket --lint`. It is the behaviour baseline of an interface, beside the handoff package as its look-and-copy baseline; the two never bind the same thing.
+`docs/specs/<effort>/screen-contract.yaml`, two axes. The **control axis**, `rows`: one row per user-visible behaviour of an interface — the control (`trigger`, by role and accessible name), its `precondition`, the `scenes` it is visible in, what it `calls`, which field feeds each value it `shows`, what state is `next`, what `on_failure` shows, where the behaviour was decided (`source`), how a test reaches the state (`reach`), and whether design and backend agree (`gap`). The **screen axis**: `target` (`kind`, `adapter`), `viewports`, `pages` (one per design page: `mount`, `route`, and a `Component · ` page's `component`) and `scenes` (one per scene: `page`, `reach`, `open`, overrides), plus the mechanism table with `via` and `built_by`. It carries no address. Written by `align-screens` on the alignment ticket; read by `to-spec`, `to-tickets`, `implement`, the Spec axis, both judges and `verify-ticket --lint`. It is the behaviour baseline of an interface, beside the handoff package as its look-and-copy baseline; the two never bind the same thing.
 _Avoid_: UI contract, interaction table, 界面合同表, 对齐表
 _Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
 
@@ -661,20 +661,70 @@ _Avoid_: 差集
 _Home_: `mmw-v2/skills/align-screens/SKILL.md`
 
 **mechanism registry**:
-What `## Testing Decisions`'s **How a test arrives at a state** becomes when the spec has a screen contract: named entries of three kinds — `seed:<state>` (the real backend put into a state through its own write surface, values from `data/fixtures.js`), `stub:<seam>-<script>` (an external seam answering by script), `dev:<capability>` (a registered dev-only capability outside the renderer) — that the contract's `reach` column references.
+What `## Testing Decisions`'s **How a test arrives at a state** becomes when the spec has a screen contract: named entries of three kinds — `seed:<state>` (the product put into a state through its own write surface, `via: api`; `via: storage` is the declared exception and names its `proven_by` criterion; values and counts from `data/fixtures.js`), `stub:<seam>-<script>` (an external seam answering by script), `dev:<capability>` (a registered dev-only capability outside the view layer) — each with the ticket that builds it (`built_by`), referenced by the contract's `reach` column and its `scenes`, and run through the repository's reach script named in `.mmw/target.json`.
 _Avoid_: reach registry, 机制登记表
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **contract ticket**:
-The first ticket cut from a spec with an **API contract** subsection: models, route signatures answering `501`, the OpenAPI export and generated client types, the seed script and external stubs the registry names, and the renderer's single-code-path guard. Every other ticket of the batch is blocked by it.
+The first ticket cut from a spec with a screen contract: the empty shell behind every declared `route`, each landing on an element carrying its `data-screen` mount; `ready`; the reach script with every mechanism; one passing minimal test per test layer (the precedent for the tickets behind it); `.mmw/target.json`; the single-code-path guard; and what the target's reference file adds (on electron the models, `501` route signatures, OpenAPI export and generated client types). It carries the **addressing self-check**: for every scene, `reach`, fill the route, navigate, assert `data-screen="<mount>"` — the whole addressing model against an empty surface. Every other ticket of the batch is blocked by it.
 _Avoid_: 合同票, prefactor ticket (for this one)
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **wiring criterion**:
-An acceptance criterion in the fixed shape of `references/wiring-check.md`, running `scripts/wiring-check.py`: seed the backend into the row's `reach` state, open the row's `route` over the application's debugging port, trigger the control, read the row's `observe` operations on the backend. Prints `WIRING OK <passed>/<total>` or `MISS <row id> — <reason>`. A criterion that stubs the application's own network is not one.
+An acceptance criterion in the fixed shape of `references/wiring-check.md`, running `scripts/wiring-check.py --contract … --rows …`: for each row, put the product into its `reach` state through the reach script, open its `route` through the target's adapter, trigger the control, read its `observe` lines through the target's read surface. Prints `WIRING OK <passed>/<total>` or `MISS <row id> — <reason>`; with `--negative`, `WIRING NEGATIVE OK <n>/<n>`. No address is on its line. A criterion that stubs the application's own network is not one.
 _Admitted_: wiring check (for the run)
 _Avoid_: 接线测试, integration criterion
 _Home_: `mmw-v2/skills/verify-ticket/references/wiring-check.md`
+
+**`screen_driver.py`**:
+`scripts/screen_driver.py` beside the verify-ticket `SKILL.md`: the one driver both judges and `extract_skeleton.py` import — the contract's screen axis, `.mmw/target.json`, the adapters, the baseline server and its CDN answering (`vendor/`, cache, network), the controlled clock, `capture`, the normaliser and the class set. Nothing in it judges.
+_Avoid_: the driver module, 共用驱动
+_Home_: `mmw-v2/skills/verify-ticket/scripts/screen_driver.py`
+
+**target**:
+What kind of product the judges drive, named in the contract as `target.kind` — `electron`, `web-spa`, `web-server-rendered`, `chrome-extension` — with `target.adapter` pointing at the kind's reference file under `verify-ticket/references/targets/`. The **adapter** is the class in `screen_driver.py` that answers the kind's **platform capabilities**: `attach`, `ready`, `address`, `release`, `transport` (the write half) and `observe` (the read half), plus how to break the transport. `targets/README.md` is the extension point: the seven questions a new kind answers.
+_Avoid_: platform (bare), 目标 (as a term), 适配器
+_Home_: `mmw-v2/skills/verify-ticket/references/targets/README.md`
+
+**`.mmw/target.json`**:
+The consuming repository's machine facts, read by the driver and never written in a contract or a criterion: `discover` (a command printing one JSON object of addresses), `reach` (the reach script the mechanism names are appended to), `transport_off` and `transport_on`. Addresses change per machine and per worktree; this file is where they are answered afresh.
+_Avoid_: target config, 地址文件
+_Home_: `mmw-v2/skills/verify-ticket/references/targets/README.md`
+
+**reach script**:
+The consuming repository's own script that `transport` runs with mechanism names appended (`seed:library-ready dev:image-select-path`, and `--perturb` for the perturbation run), idempotent, printing `KEY=VALUE` lines that fill `{placeholders}` in routes, `open` values and `observe` paths, and `cookie=` for a web target's session.
+_Avoid_: seed command, `--seed`
+_Home_: `mmw-v2/skills/verify-ticket/references/targets/README.md`
+
+**mount**:
+A design page's `mount` in the contract's `pages`: the value of the `data-screen` attribute on the one product element that page *is*. Its subtree is what the tree and the class set read; its box, measured after the viewport override, is what the pixel judge compares and what the design's `#dc-root` is pinned to (`frame_box`). Declared by the person writing the contract, never derived from rows; unique in one render; a scene may override it to the page root's id for a top-level dialog. Scenes belong to tickets by mount, and a parity criterion names the ticket's mounts with `--mount`.
+_Avoid_: mount point (for this), 挂载点, data-screen-label, test hook (for this)
+_Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
+
+**two-level model**:
+`App · ` scenes compare the whole surface — which components are on it and what box each gets; `Component · ` scenes compare the block the product gives that one component. It rests on the page-kind prefix the `claude-design-blocks` skill enforces, not on the product; a package of whole pages makes every scene whole-surface.
+_Avoid_: 两级模型
+_Home_: `mmw-v2/skills/verify-ticket/references/ui-parity.md`
+
+**target trees**:
+`docs/specs/<effort>/targets/<page>.aria` and `<page>.classes`, one pair per design page, written by `extract_skeleton.py --targets` with the judges' own normaliser: every scene's normalised tree and class set, headed by the sha256 of `scenes.json` and of the page. The handoff package's behavioural counterpart and a derived view of it — the package is the baseline, the tree the view, the hashes what keeps them from disagreeing (the contract lint fails when they do). An interface ticket lists its pages' pair under `## Read first`, found from its row ids through `component` to the page; the worker writes toward them.
+_Avoid_: 目标树, target elements, expected tree
+_Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
+
+**class set**:
+The third judge of interface parity: the set of class names in the subtree under the mount, runtime prefixes (`sc-`, `dc-`) removed, compared as a set; a class one side lacks fails the scene and names the first element wearing it. Its reason to exist: the stylesheets are copied byte for byte, so a wrong colour or gap on the right element is a wrong class, which the tree cannot see and a pixel share cannot name.
+_Avoid_: 类名集合, class list
+_Home_: `mmw-v2/skills/verify-ticket/references/ui-parity.md`
+
+**perturbation run**:
+`visual-parity.py --shows-perturbation`: every scene seeded twice, from `data/fixtures.js` and then with other values (`--perturb` to the reach script), and every scene whose rows declare `shows` must read differently — `SHOWS OK <n>/<n>`, or `SHOWS-STATIC <scene>` for a value that is hard coded or fed from the wrong field.
+_Avoid_: 扰动运行
+_Home_: `mmw-v2/skills/verify-ticket/references/ui-parity.md`
+
+**addressing self-check**:
+The contract ticket's criterion that needs no interface: for every scene declaration, run `reach`, fill the `route`, navigate, and assert an element with `data-screen="<mount>"` — the whole addressing model proved against an empty surface, and nothing about look or copy.
+_Avoid_: 寻址自检
+_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 ### Dispatch and the night
 
@@ -980,6 +1030,8 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | pane token | `ticket` · `kind` · `model` · `phase` · `ac` · `turn` · `turn_id` |
 | `kind` token | `worker` · `reviewer` |
 | host | `claude` · `codex` · `grok` · `cursor` · `pi` |
+| `target.kind` | `electron` · `web-spa` · `web-server-rendered` · `chrome-extension` |
+| mechanism `via` | `api` · `storage` |
 | worker grade | `junior-worker` · `senior-worker` |
 | `ABANDON:` kind | `failed` · `stuck` · `decision` |
 | `ready-for-human` kind | `reaction` · `reach` |
@@ -992,4 +1044,4 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | state role | `needs-triage` · `needs-info` · `ready-for-agent` · `ready-for-human` · `wontfix` |
 | category role | `bug` · `enhancement` |
 | `dispatch.sh` constants | `TOKEN_TTL_MS` · `PROMPT_TAKE_MS` · `WAIT_DEFAULT_SECONDS = 1800` · `MERGE_TRIES = 3` · `LABEL_TITLE_CHARS` · `BOARD_TAB_LABEL` · `MAIN_AGENT_NAME` · `DEFAULT_WORKER` |
-| exit codes | `dispatch.sh` 0 / 1 (not reported ready in 120 s) / 2 (refused, nothing touched: the ticket's checks, a live session by the same name, `run`'s checks, or `advance` without the `.git` lock in `MERGE_TRIES` tries) / 3 (`advance` conflict) · `verify-ticket.py` 0 / 1 (`--closeout` refused) / 2 (`--preflight` refused) · `visual-parity.py` 0 / 1 (`DIFF`) / 2 (`NEGATIVE CONTROL FAILED`) · `install.sh --check` 0 / 1 · `--lint` 0 unless an `ERROR` remains |
+| exit codes | `dispatch.sh` 0 / 1 (not reported ready in 120 s) / 2 (refused, nothing touched: the ticket's checks, a live session by the same name, `run`'s checks, or `advance` without the `.git` lock in `MERGE_TRIES` tries) / 3 (`advance` conflict) · `verify-ticket.py` 0 / 1 (`--closeout` refused) / 2 (`--preflight` refused) · `visual-parity.py` 0 / 1 (`DIFF`, `SHOWS-STATIC`) / 2 (`NEGATIVE CONTROL FAILED`, not ready, unreachable scene) · `wiring-check.py` 0 / 1 (`MISS`, `GREEN WITHOUT TRANSPORT`) / 2 (could not start, or `--negative` evaluated no observe) · `install.sh --check` 0 / 1 · `--lint` 0 unless an `ERROR` remains |

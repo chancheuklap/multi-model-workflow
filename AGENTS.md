@@ -13,7 +13,7 @@ MMW 是用户跨 host、跨 repository、跨电脑共用的工作流 toolbox：�
 | `bash mmw-v2/install.sh` | MMW 的全部安装都经这里，装四样：技能 symlink 进 `~/.agents/skills` 和 `~/.claude/skills`，assembled subagent file symlink 进各 host，hook 写进各 host 自己的配置，agent detection rule 拷进 `~/.config/herdr/agent-detection/` |
 | `bash mmw-v2/install.sh --check` | 只查不写：齐了回 0，缺东西或有 stale link 回 1 |
 | `python3 mmw-v2/agents/assemble.py --check` | 校验 `mmw-v2/agents/<名>/out/` 的 assembled subagent file 与源一致。`install.sh --check` 已内含它；单跑用于只验这一样 |
-| `bash mmw-v2/skills/<名>/tests/run.sh` | 单个技能的测试 |
+| `bash mmw-v2/skills/<名>/tests/run.sh` | 单个技能的测试（`verify-ticket`、`align-screens`、`dispatch`、`exe-release`、`manage-agents-md` 各有一份） |
 | `bash mmw-v2/hooks/tests/run.sh` | `rule-at-moment.py` 的测试 |
 
 ## 约定

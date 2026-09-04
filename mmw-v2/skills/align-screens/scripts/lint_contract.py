@@ -2,10 +2,17 @@
 
 Usage: uv run python lint_contract.py <screen-contract.yaml> <skeleton.json> [<openapi.json>]
 Exit 0 with no errors; 1 with errors listed one per line; warnings never fail.
-Rules are the table in ../references/contract-format.md.
+Rules are the tables in ../references/contract-format.md: the control axis (rows), the
+screen axis (`target`, `viewports`, `pages`, `scenes`), the mechanism table, and the
+target trees under `<contract dir>/targets/`.
+
+Printed on every run, before the findings: each `retired_ids` entry with its note —
+the one kind of exclusion the judges honour, kept in sight so it is never a silent
+allowance.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sys
@@ -16,20 +23,238 @@ import yaml
 GAPS = {"aligned", "design-only", "backend-only"}
 REACH = re.compile(r"^(seed|stub|dev):[a-z0-9][a-z0-9-]*$")
 ID = re.compile(r"^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*)+$")
+MOUNT = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+VIEWPORT = re.compile(r"^(\d+)x(\d+)$")
+TICKET = re.compile(r"^#\d+$")
+PROVEN = re.compile(r"^#\d+ AC\d+$")
+TARGET_KINDS = {"electron", "web-spa", "web-server-rendered", "chrome-extension"}
+VIA = {"api", "storage"}
+INPUT_ROLES = {"textbox", "combobox", "spinbutton", "searchbox"}
+BREAKPOINT = re.compile(r"@media[^{]*\((?:max|min)-width:\s*(\d+)px\)")
+# The shapes a `source` may take. A story is legal for the audit trail and warned on:
+# no worker ever reads a story, so a behaviour decided only there reaches nobody.
+SOURCE_SHAPES = (
+    ("story", re.compile(r"^#\d+ story \d+")),
+    ("spec-section", re.compile(r"^#\d+ (Implementation Decisions|Testing Decisions)\b")),
+    ("ticket", re.compile(r"^#\d+(\s|$)")),
+    ("adr", re.compile(r"^ADR-\d{4}\b")),
+    ("doc", re.compile(r"^docs/")),
+    ("readme", re.compile(r"^README\b")),
+    ("code", re.compile(r"^code:")),
+)
+
+
+def source_shape(src: str) -> str:
+    for shape, rx in SOURCE_SHAPES:
+        if rx.match(src):
+            return shape
+    return "unknown"
+
+
+def skills_root() -> Path:
+    """The directory the installed skills sit in, from this file's own location."""
+    return Path(__file__).resolve().parents[2]
+
+
+def repo_root(contract: Path) -> Path:
+    for parent in [contract.resolve()] + list(contract.resolve().parents):
+        if (parent / ".git").exists():
+            return parent
+    return Path.cwd()
+
+
+def stylesheet_breakpoints(baseline: Path) -> set[int]:
+    widths: set[int] = set()
+    for css in sorted((baseline / "styles").glob("*.css")) if (baseline / "styles").exists() else []:
+        widths.update(int(w) for w in BREAKPOINT.findall(css.read_text(encoding="utf-8")))
+    return widths
+
+
+def mechanisms_of(doc: dict) -> tuple[dict[str, dict], bool]:
+    raw = doc.get("mechanisms") or {}
+    if isinstance(raw, list):
+        return {str(m): {} for m in raw}, True
+    return {str(k): (v or {}) for k, v in raw.items()}, False
+
+
+def target_hashes(path: Path) -> dict[str, str]:
+    out = {}
+    if not path.exists():
+        return out
+    for line in path.read_text(encoding="utf-8").splitlines()[:6]:
+        m = re.match(r"^# (scenes\.json|page) sha256=([0-9a-f]{64})$", line)
+        if m:
+            out[m.group(1)] = m.group(2)
+    return out
+
+
+def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
+                     contract_dir: Path | None) -> tuple[list[str], list[str]]:
+    """The screen axis: target, viewports, pages, scenes, the mechanism table, the
+    target trees. Every finding names the key it is about."""
+    errors: list[str] = []
+    warnings: list[str] = []
+    rows = {str(r.get("id")): r for r in doc.get("rows") or []}
+    # -- target
+    target = doc.get("target") or {}
+    kind = str(target.get("kind") or "")
+    if kind not in TARGET_KINDS:
+        errors.append(f"target.kind {kind!r} is not one of {sorted(TARGET_KINDS)}")
+    adapter = str(target.get("adapter") or "")
+    if not adapter:
+        errors.append("target.adapter missing (verify-ticket/references/targets/<kind>.md)")
+    elif not (skills_root() / adapter).exists():
+        errors.append(f"target.adapter {adapter!r} does not exist under {skills_root()}")
+    # -- viewports
+    raw_vps = doc.get("viewports")
+    widths: list[int] = []
+    if not raw_vps:
+        errors.append("viewports missing (copy them from the handoff package README)")
+    else:
+        for vp in (raw_vps if isinstance(raw_vps, list) else [raw_vps]):
+            m = VIEWPORT.match(str(vp).strip())
+            if not m:
+                errors.append(f"viewports entry {vp!r} is not WIDTHxHEIGHT")
+            else:
+                widths.append(int(m.group(1)))
+    if baseline is not None and widths:
+        for w in widths:
+            if w in stylesheet_breakpoints(baseline):
+                errors.append(f"viewports: width {w} is a breakpoint of the handoff "
+                              f"stylesheets; a render there compares two reflows")
+    # -- pages
+    pages = doc.get("pages") or {}
+    scene_pages: dict[str, str] = skeleton.get("scene_pages") or {}
+    if not scene_pages:
+        scene_pages = {sc: r["page"] for r in skeleton.get("table") or [] for sc in r["scenes"]}
+    handoff_pages = set(scene_pages.values())
+    component_values = {str(r.get("component")) for r in rows.values() if r.get("component")}
+    declared_mounts: dict[str, str] = {}
+    component_pages: dict[str, str] = {}
+    for page in sorted(handoff_pages):
+        if page not in pages:
+            errors.append(f"pages: no declaration for {page!r} (mount and route)")
+    for page, decl in pages.items():
+        decl = decl or {}
+        if page not in handoff_pages:
+            errors.append(f"pages: {page!r} is not a page of scenes.json")
+        mount = str(decl.get("mount") or "")
+        if not MOUNT.match(mount):
+            errors.append(f"pages: {page!r} mount {mount!r} must be a short lowercase id")
+        elif mount in declared_mounts:
+            errors.append(f"pages: mount {mount!r} declared by both {declared_mounts[mount]!r} "
+                          f"and {page!r}")
+        else:
+            declared_mounts[mount] = page
+        if not decl.get("route"):
+            errors.append(f"pages: {page!r} has no route")
+        if page.startswith("Component · "):
+            comp = str(decl.get("component") or "")
+            if not comp:
+                errors.append(f"pages: {page!r} names no `component` (a value of the rows' "
+                              f"component column)")
+            elif comp not in component_values:
+                errors.append(f"pages: {page!r} component {comp!r} is no row's component")
+            elif comp in component_pages:
+                errors.append(f"pages: component {comp!r} claimed by both "
+                              f"{component_pages[comp]!r} and {page!r}")
+            else:
+                component_pages[comp] = page
+    for comp in sorted(component_values - set(component_pages)):
+        errors.append(f"pages: rows' component {comp!r} belongs to no Component page")
+    # -- scenes
+    scenes = doc.get("scenes") or {}
+    for name in sorted(scene_pages):
+        if name not in scenes:
+            errors.append(f"scenes: no declaration for {name!r}")
+    mechanisms, as_list = mechanisms_of(doc)
+    for name, decl in scenes.items():
+        decl = decl or {}
+        if name not in scene_pages:
+            errors.append(f"scenes: {name!r} is not in scenes.json")
+            continue
+        page = str(decl.get("page") or "")
+        if page != scene_pages[name]:
+            errors.append(f"scenes: {name!r} page {page!r} but scenes.json has "
+                          f"{scene_pages[name]!r}")
+        page_decl = pages.get(page) or {}
+        mount = str(decl.get("mount") or page_decl.get("mount") or "")
+        if not mount:
+            errors.append(f"scenes: {name!r} has no mount, on the scene or its page")
+        elif mount not in declared_mounts:
+            errors.append(f"scenes: {name!r} mount {mount!r} is declared by no page")
+        if not (decl.get("route") or page_decl.get("route")):
+            errors.append(f"scenes: {name!r} has no route, on the scene or its page")
+        for r in decl.get("reach") or []:
+            if not REACH.match(str(r)):
+                errors.append(f"scenes: {name!r} reach {r!r} is not seed:/stub:/dev: plus a name")
+            elif str(r) not in mechanisms:
+                errors.append(f"scenes: {name!r} reach {r!r} not in mechanisms")
+        steps = decl.get("open") or []
+        for i, step in enumerate(steps):
+            rid = step if isinstance(step, str) else str((step or {}).get("row"))
+            value = None if isinstance(step, str) else (step or {}).get("value")
+            row = rows.get(rid)
+            if row is None:
+                errors.append(f"scenes: {name!r} open step {i + 1} names no row: {rid!r}")
+                continue
+            role = str((row.get("trigger") or {}).get("role"))
+            if role in INPUT_ROLES and value in (None, ""):
+                errors.append(f"scenes: {name!r} open step {i + 1} ({rid}) is a {role} and "
+                              f"carries no value")
+            if i == len(steps) - 1 and str(row.get("next")) != name:
+                errors.append(f"scenes: {name!r} open ends on {rid}, whose next is "
+                              f"{row.get('next')!r}, not this scene")
+    # -- mechanisms
+    if as_list and mechanisms:
+        errors.append("mechanisms is a list; each entry needs `via` and `built_by` "
+                      "(mechanisms: {seed:x: {via: api, built_by: '#n'}})")
+    for mname, m in mechanisms.items():
+        if not REACH.match(mname):
+            errors.append(f"mechanisms: {mname!r} is not seed:/stub:/dev: plus a name")
+        if as_list:
+            continue
+        via = str(m.get("via") or "api")
+        if via not in VIA:
+            errors.append(f"mechanisms: {mname} via {via!r} is not api or storage")
+        built_by = str(m.get("built_by") or "")
+        if not TICKET.match(built_by):
+            errors.append(f"mechanisms: {mname} built_by {built_by!r} is not a ticket number")
+        if via == "storage" and not PROVEN.match(str(m.get("proven_by") or "")):
+            errors.append(f"mechanisms: {mname} via storage needs proven_by '#<n> AC<k>'")
+    # -- target trees
+    if contract_dir is not None and baseline is not None and handoff_pages:
+        targets = contract_dir / "targets"
+        scenes_hash = (hashlib.sha256((baseline / "scenes.json").read_bytes()).hexdigest()
+                       if (baseline / "scenes.json").exists() else "")
+        for page in sorted(handoff_pages):
+            stem = re.sub(r"\.dc\.html$", "", page)
+            for suffix in (".aria", ".classes"):
+                f = targets / f"{stem}{suffix}"
+                if not f.exists():
+                    errors.append(f"targets: {f.name} missing; run extract_skeleton.py "
+                                  f"--targets {targets}")
+                    continue
+                hashes = target_hashes(f)
+                page_file = baseline / page
+                page_hash = (hashlib.sha256(page_file.read_bytes()).hexdigest()
+                             if page_file.exists() else "")
+                if hashes.get("scenes.json") != scenes_hash or hashes.get("page") != page_hash:
+                    errors.append(f"targets: {f.name} is stale — its hashes no longer match "
+                                  f"scenes.json or {page}; regenerate with extract_skeleton.py")
+    return errors, warnings
 
 
 def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], list[str]]:
+    """The control axis: one row per behaviour, as ../references/contract-format.md says."""
     errors: list[str] = []
     warnings: list[str] = []
     rows = doc.get("rows") or []
-    mechanisms = set(doc.get("mechanisms") or [])
-    # retired_ids entries are either a bare id or {id, note, trigger?}; a retired entry that names
-    # its trigger says the handoff still shows a control the product no longer has.
+    mechanisms, _ = mechanisms_of(doc)
     retired_entries = [e if isinstance(e, dict) else {"id": e} for e in doc.get("retired_ids") or []]
     retired = {str(e.get("id")) for e in retired_entries}
     retired_triggers = {(e["trigger"].get("role"), e["trigger"].get("name"))
                         for e in retired_entries if isinstance(e.get("trigger"), dict)}
-    # A control shared by several pages is one key; its scenes are the union over those pages.
     triggers: dict[tuple[str, str], set[str]] = {}
     for r in skeleton["table"]:
         triggers.setdefault((r["role"], r["name"]), set()).update(r["scenes"])
@@ -39,7 +264,6 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
     proposed = {(m.upper(), p) for m, p in proposed}
 
     def op_known(method: str, path: str) -> str:
-        """'yes' when openapi has it, 'proposed' when proposed_operations lists it, else 'no'."""
         if ops is not None and (method.upper(), path) in ops:
             return "yes"
         if (method.upper(), path) in proposed:
@@ -109,11 +333,22 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
                 errors.append(f"{rid}: shows.{shown} names no field@operation: {expr!r}")
             if re.search(r"(?<![\w{])\d+(?![\w}])", str(expr)):
                 errors.append(f"{rid}: shows.{shown} carries a literal number: {expr!r}")
-        if not row.get("source"):
+        sources = row.get("source") or []
+        if not sources:
             errors.append(f"{rid}: source is empty")
         elif row.get("gap") == "aligned" and all(
-                "README" in str(s) or str(s).startswith("code:") for s in row["source"]):
+                "README" in str(s) or str(s).startswith("code:") for s in sources):
             errors.append(f"{rid}: aligned but every source is the README or code:")
+        for s in sources:
+            shape = source_shape(str(s))
+            if shape == "story":
+                warnings.append(f"{rid}: source {s!r} is a story; no worker reads a story — "
+                                f"fold its conclusion into an Implementation Decisions "
+                                f"subsection and cite that")
+            elif shape == "unknown":
+                warnings.append(f"{rid}: source {s!r} has no recognised shape (#n, "
+                                f"#n Implementation Decisions k, ADR-nnnn, docs/…, README §, "
+                                f"code:…)")
         reach = str(row.get("reach", ""))
         if not REACH.match(reach):
             errors.append(f"{rid}: reach {reach!r} is not seed:/stub:/dev: plus a name")
@@ -128,8 +363,6 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
     for key, pres in seen_triggers.items():
         if len(pres) > 1 and len({json.dumps(p, sort_keys=True, ensure_ascii=False) for p in pres}) < len(pres):
             errors.append(f"trigger {key[0]} {key[1]!r}: rows share a precondition")
-    # Completeness is judged per page: every control of a page the contract covers needs a
-    # row. Pages the contract does not touch at all are reported once, as a warning.
     controls = {(r["page"], r["role"], r["name"]) for r in skeleton["table"]}
     covered_pages = {page for page, role, name in controls if (role, name) in seen_triggers}
     untouched = sorted({r["page"] for r in skeleton["table"]} - covered_pages)
@@ -143,14 +376,34 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
     return errors, warnings
 
 
+def retired_lines(doc: dict) -> list[str]:
+    out = []
+    for e in doc.get("retired_ids") or []:
+        if isinstance(e, dict):
+            out.append(f"RETIRED {e.get('id')}: {e.get('note') or '(no note)'}")
+        else:
+            out.append(f"RETIRED {e}: (no note)")
+    return out
+
+
 def main(argv: list[str]) -> int:
     if len(argv) not in (3, 4):
         print(__doc__)
         return 2
-    doc = yaml.safe_load(Path(argv[1]).read_text(encoding="utf-8"))
+    contract = Path(argv[1])
+    doc = yaml.safe_load(contract.read_text(encoding="utf-8"))
     skeleton = json.loads(Path(argv[2]).read_text(encoding="utf-8"))
     openapi = json.loads(Path(argv[3]).read_text(encoding="utf-8")) if len(argv) == 4 else None
+    look = (doc.get("baselines") or {}).get("look")
+    baseline = (repo_root(contract) / look) if look else None
+    if baseline is not None and not baseline.exists():
+        baseline = None
+    for line in retired_lines(doc):
+        print(line)
     errors, warnings = lint(doc, skeleton, openapi)
+    e2, w2 = lint_screen_axis(doc, skeleton, baseline, contract.resolve().parent)
+    errors += e2
+    warnings += w2
     for w in warnings:
         print("WARN ", w)
     for e in errors:

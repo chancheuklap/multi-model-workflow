@@ -1,91 +1,118 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["playwright>=1.48", "pyyaml>=6"]
+# dependencies = ["playwright>=1.58", "pyyaml>=6"]
 # ///
 """Check that controls on a running interface do what their screen-contract rows say.
 
-  wiring-check.py --contract <screen-contract.yaml> --rows <id,id> --cdp <url> --impl <url>
-                  --backend <url> [--seed "<command>"] [--impl-title <text>]
+    wiring-check.py --contract <screen-contract.yaml> --rows <id,id> [--negative]
 
-For each row: reload, open the row's route, trigger the control by role and accessible
-name, then read every `observe` line against the backend. Prints `WIRING OK <n>/<n>`
-(exit 0) or one `MISS <row> — <reason>` per failing row (exit 1); exit 2 when the run
-could not start. The reference beside this script, references/wiring-check.md, is where
-the lines are read.
+For each row: put the product into the row's `reach` state through the repository's
+own reach script, open the row's `route`, reload, trigger the control by role and
+accessible name, then read every `observe` line through the target's read surface.
+Prints `WIRING OK <n>/<n>` (exit 0) or one `MISS <row> — <reason>` per failing row
+(exit 1); exit 2 when the run could not start. Addresses, the reach script and the way
+to reach the product come from `.mmw/target.json` through `screen_driver.py` beside
+this script; nothing about the machine is on the command line.
+
+An `observe` line reads a persistent surface freshly, on a path the acting view did not
+produce, after the action completed. On a target with a JSON read surface it is
+`METHOD /path -> <jq-style expression>`. On a server-rendered target without one it is
+`GET /path -> node <role> "<name>" exists`, read from a second tab in the same session
+and normalised the way interface parity normalises a tree. The reference beside this
+script, references/wiring-check.md, is where the lines are read.
+
+`--negative` is the wiring check's own control: the repository's `transport_off`
+command breaks the state transport, every row is run once more, and every one of them
+must fail on an `observe` assertion — a specific `MISS <row> — … was …`, not a run that
+could not attach. It proves the thing that matters: an `observe` line cannot go green
+without something having been persisted. Prints `WIRING NEGATIVE OK <n>/<n>`; a row that
+still passed, or a run that failed before any `observe` was evaluated, is exit 1 or 2.
 """
 from __future__ import annotations
 
 import argparse
-import json
-import re
-import shlex
-import subprocess
+import importlib.util
 import sys
-import urllib.error
-import urllib.request
-
-import yaml
-
-PLACEHOLDER = re.compile(r"\{(\w+)\}")
+from pathlib import Path
 
 
-def api(base: str, method: str, path: str) -> tuple[int, object]:
-    req = urllib.request.Request(base.rstrip("/") + path, method=method)
+def _load_driver():
+    here = Path(__file__).resolve().parent / "screen_driver.py"
+    spec = importlib.util.spec_from_file_location("screen_driver", here)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["screen_driver"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+sd = _load_driver()
+
+# Re-exported for the tests.
+evaluate = sd.evaluate
+evaluate_tree = sd.evaluate_tree
+fill = sd.fill
+
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(prog="wiring-check.py", description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--contract", required=True, metavar="FILE")
+    p.add_argument("--rows", required=True, metavar="IDS")
+    p.add_argument("--negative", action="store_true",
+                   help="break the state transport and require every row to MISS on an "
+                        "observe assertion")
+    return p
+
+
+def run_rows(adapter, pw, wanted: list[str], by_id: dict[str, dict],
+             viewport: tuple[int, int]) -> tuple[list[str], list[str]]:
+    """`(misses, observed)`: the `MISS` lines, and the ids of rows whose observe lines
+    were evaluated at all (so a negative run can tell a miss from a run that never got
+    that far)."""
+    misses: list[str] = []
+    observed: list[str] = []
+    page = None
     try:
-        with urllib.request.urlopen(req, timeout=15) as r:
-            raw = r.read()
-            return r.status, (json.loads(raw) if raw else None)
-    except urllib.error.HTTPError as e:
-        return e.code, None
-
-
-def evaluate(expr: str, body: object) -> tuple[bool, object]:
-    """`.a.b[0] == "x"`, `.a != 1`, `.a contains "x"`, `.a exists`, or a bare `.a` (truthy)."""
-    m = re.match(r"^\s*(\.[\w.\[\]]*)\s*(?:(==|!=|contains|exists)\s*(.*))?$", expr)
-    if not m:
-        raise ValueError(f"cannot read expression {expr!r}")
-    value: object = body
-    for part in re.findall(r"\.(\w+)|\[(\d+)\]", m.group(1)):
-        key, idx = part
-        try:
-            value = value[key] if key else value[int(idx)]
-        except (KeyError, IndexError, TypeError):
-            value = None
-            break
-    op, rhs = m.group(2), (m.group(3) or "").strip()
-    if op is None:
-        return bool(value), value
-    if op == "exists":
-        return value is not None, value
-    want = json.loads(rhs) if rhs else None
-    if op == "==":
-        return value == want, value
-    if op == "!=":
-        return value != want, value
-    return (want in value) if isinstance(value, (str, list)) else False, value
-
-
-def fill(text: str, values: dict[str, str]) -> str:
-    def sub(m: re.Match) -> str:
-        return values.get(m.group(1), m.group(0))
-    return PLACEHOLDER.sub(sub, text)
+        for rid in wanted:
+            row = by_id[rid]
+            ok, why = adapter.ready()
+            if not ok:
+                misses.append(f"MISS {rid} — not ready: {why}")
+                continue
+            reach = [str(row["reach"])] if row.get("reach") else []
+            values = adapter.transport(reach, {})
+            if page is None or adapter.reach_before_attach:
+                if page is not None:
+                    adapter.release()
+                page = adapter.attach(pw, values)
+            sd.resize(page, viewport, adapter.over_cdp)
+            sd.navigate(page, adapter.address(row.get("route") or "", values), reload=True)
+            trig = row["trigger"]
+            control = page.get_by_role(trig["role"], name=trig["name"], exact=True)
+            if control.count() == 0:
+                misses.append(f'MISS {rid} — no control {trig["role"]} "{trig["name"]}"')
+                continue
+            control.first.click()
+            sd.run_clock(page, sd.SETTLE_VIRTUAL_MS)
+            # The action's own request has to leave the page before the read is fresh.
+            page.wait_for_load_state("networkidle")
+            observed.append(rid)
+            for line in row["observe"]:
+                ok, got, why = adapter.observe(str(line), values)
+                if not ok:
+                    misses.append(f"MISS {rid} — {why}")
+                    break
+    finally:
+        adapter.release()
+    return misses, observed
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--contract", required=True)
-    p.add_argument("--rows", required=True)
-    p.add_argument("--cdp", required=True)
-    p.add_argument("--impl", required=True)
-    p.add_argument("--backend", required=True)
-    p.add_argument("--seed", default=None)
-    p.add_argument("--impl-title", default=None)
-    args = p.parse_args(argv)
-
-    with open(args.contract, encoding="utf-8") as f:
-        doc = yaml.safe_load(f)
-    by_id = {r["id"]: r for r in doc.get("rows") or []}
+    args = build_parser().parse_args(argv)
+    root = sd.repo_root()
+    doc = sd.load_contract(Path(args.contract))
+    by_id = sd.rows_by_id(doc)
     wanted = [s.strip() for s in args.rows.split(",") if s.strip()]
     missing = [w for w in wanted if w not in by_id]
     if missing:
@@ -95,72 +122,43 @@ def main(argv: list[str] | None = None) -> int:
         if not by_id[w].get("observe"):
             print(f"row {w} has no observe lines; nothing a machine can check", file=sys.stderr)
             return 2
-
-    values: dict[str, str] = {}
-    if args.seed:
-        run = subprocess.run(shlex.split(args.seed), capture_output=True, text=True)
-        if run.returncode != 0:
-            print(f"seed exited {run.returncode}: {run.stderr.strip()}", file=sys.stderr)
-            return 2
-        for line in run.stdout.splitlines():
-            k, _, v = line.partition("=")
-            if k.strip() and _:
-                values[k.strip()] = v.strip()
-
-    status, _ = api(args.backend, "GET", "/health")
-    if status >= 400:
-        print(f"no backend answering {args.backend}/health ({status})", file=sys.stderr)
-        return 2
+    adapter = sd.adapter_for(doc, root)
+    viewport = sd.parse_viewports(doc["viewports"])[0]
 
     from playwright.sync_api import sync_playwright
-    misses: list[str] = []
+
     with sync_playwright() as pw:
+        if not args.negative:
+            misses, _ = run_rows(adapter, pw, wanted, by_id, viewport)
+            for m in misses:
+                print(m)
+            if misses:
+                return 1
+            print(f"WIRING OK {len(wanted)}/{len(wanted)}")
+            return 0
+        adapter.transport_off()
         try:
-            browser = pw.chromium.connect_over_cdp(args.cdp, timeout=10000)
-        except Exception as exc:  # noqa: BLE001
-            print(f"no application on {args.cdp}: {exc}", file=sys.stderr)
-            return 2
-        pages = [pg for c in browser.contexts for pg in c.pages]
-        if args.impl_title:
-            pages = [pg for pg in pages if args.impl_title in pg.title()]
-        if not pages:
-            print("no page to drive over CDP", file=sys.stderr)
-            return 2
-        page = pages[0]
-        home = page.url
-        try:
-            for rid in wanted:
-                row = by_id[rid]
-                route = row.get("route") or ""
-                page.goto(args.impl.rstrip("/") + "/" + route.lstrip("/"), wait_until="networkidle")
-                page.reload(wait_until="networkidle")
-                page.wait_for_timeout(500)
-                trig = row["trigger"]
-                control = page.get_by_role(trig["role"], name=trig["name"], exact=True)
-                if control.count() == 0:
-                    misses.append(f'MISS {rid} — no control {trig["role"]} "{trig["name"]}"')
-                    continue
-                control.first.click()
-                page.wait_for_timeout(1000)
-                for line in row["observe"]:
-                    op, _, expr = line.partition("->")
-                    method, _, path = op.strip().partition(" ")
-                    status, body = api(args.backend, method.upper(), fill(path.strip(), values))
-                    if status >= 300:
-                        misses.append(f"MISS {rid} — {op.strip()} answered {status}")
-                        break
-                    ok, got = evaluate(expr.strip(), body)
-                    if not ok:
-                        misses.append(f"MISS {rid} — {expr.strip()} was {json.dumps(got, ensure_ascii=False)}")
-                        break
+            misses, observed = run_rows(adapter, pw, wanted, by_id, viewport)
         finally:
-            page.goto(home, wait_until="networkidle")
+            adapter.transport_on()
+    missed = {m.split(" ", 2)[1] for m in misses}
+    not_observed = [w for w in wanted if w not in observed]
+    if not_observed:
+        print(f"negative control proved nothing: no observe line was evaluated for "
+              f"{', '.join(not_observed)} (the run failed before it read anything)",
+              file=sys.stderr)
+        for m in misses:
+            print(m, file=sys.stderr)
+        return 2
+    still_green = [w for w in wanted if w not in missed]
+    if still_green:
+        for w in still_green:
+            print(f"GREEN WITHOUT TRANSPORT {w} — its observe lines held with the state "
+                  f"transport broken; the read surface is not fed from persisted state")
+        return 1
     for m in misses:
         print(m)
-    passed = len(wanted) - len(misses)
-    if misses:
-        return 1
-    print(f"WIRING OK {passed}/{len(wanted)}")
+    print(f"WIRING NEGATIVE OK {len(wanted)}/{len(wanted)}")
     return 0
 
 

@@ -8,7 +8,7 @@ description: Move an interface between a repository and Claude Design. Porting t
 Two directions. Read the one this run is going in; each names the MCP tools it needs and the shape of its own work.
 
 - **[Porting](references/porting.md)** — a mockup or a prototype's winning variant becomes components, app pages and an overview inside a Claude Design project.
-- **[Handoff](references/handoff.md)** — a finished project comes down into the consuming repository as the package the implementation is copied from and `visual-parity.py --baseline` later renders it against.
+- **[Handoff](references/handoff.md)** — a finished project comes down into the consuming repository as the package the implementation is copied from and `visual-parity.py` later renders it against, through the screen contract's `baselines.look`.
 
 This skill drives a Claude Design project through MCP tools, and there is no path through either direction without them.
 

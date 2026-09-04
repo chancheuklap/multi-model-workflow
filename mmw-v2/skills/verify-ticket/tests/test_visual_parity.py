@@ -82,8 +82,8 @@ class TestNormalize(unittest.TestCase):
         self.assertEqual(vp.normalize_aria(with_noise), vp.normalize_aria(ROUND2_CARD))
         self.assertEqual(vp.normalize_aria(ROUND2_CARD), [
             '- button "最近使用 山野净洗洁精 1 个任务进行中 PRJ-240716-C08"',
-            '- heading "山野净洗洁精" [level=2]',
-            "- strong: 2 张",
+            '- heading "山野净洗洁精" [level=2] < button "最近使用 山野净洗洁精 1 个任务进行中 PRJ-240716-C08"',
+            '- strong: 2 张 < button "最近使用 山野净洗洁精 1 个任务进行中 PRJ-240716-C08"',
         ])
 
     def test_drops_landmark_name(self):
@@ -99,8 +99,21 @@ class TestNormalize(unittest.TestCase):
     def test_a_named_group_and_a_state_stay(self):
         self.assertEqual(vp.normalize_aria('- group "筛选"\n  - checkbox "仅进行中" [checked]\n'
                                            '  - switch [checked]'),
-                         ['- group "筛选"', '- checkbox "仅进行中" [checked]',
-                          "- switch [checked]"])
+                         ['- group "筛选"', '- checkbox "仅进行中" [checked] < group "筛选"',
+                          '- switch [checked] < group "筛选"'])
+
+    def test_the_nearest_named_ancestor_rides_along(self):
+        """A button that moved out of its dialog shows on screen, so the tree says
+        where each node sits: its closest ancestor that carries a name. Unnamed
+        wrappers and landmarks are not ancestors."""
+        inside = '- main "页面":\n  - generic:\n    - dialog "确认删除":\n      - list:\n        - button "删除"'
+        outside = '- main "页面":\n  - dialog "确认删除":\n    - text: 真的删？\n  - button "删除"'
+        self.assertEqual(vp.normalize_aria(inside),
+                         ['- dialog "确认删除"', '- button "删除" < dialog "确认删除"'])
+        self.assertEqual(vp.normalize_aria(outside),
+                         ['- dialog "确认删除"', '- text: 真的删？ < dialog "确认删除"',
+                          '- button "删除"'])
+        self.assertNotEqual(vp.normalize_aria(inside)[-1], vp.normalize_aria(outside)[-1])
 
 
 class TestAria(unittest.TestCase):
@@ -108,7 +121,8 @@ class TestAria(unittest.TestCase):
         renamed = ROUND2_CARD.replace("山野净洗洁精 1 个任务进行中",
                                       "山野净洗洁精 2 个任务进行中", 1)
         self.assertEqual(vp.aria_diff(ROUND2_CARD, ROUND2_CARD)["changed"], 0)
-        self.assertEqual(vp.aria_diff(ROUND2_CARD, renamed)["changed"], 2)
+        # The button's own line and the two lines that name it as their ancestor.
+        self.assertEqual(vp.aria_diff(ROUND2_CARD, renamed)["changed"], 6)
 
     def test_renamed_button_fails_even_with_identical_pixels(self):
         """A name a screen reader reads out is not a pixel; the two checks are not
@@ -240,14 +254,15 @@ class TestChangeLines(unittest.TestCase):
     def test_a_renamed_button_prints_both_names(self):
         diff = vp.aria_diff(ROUND2_CARD, ROUND2_CARD.replace("2 张", "3 张", 1))["diff"]
         self.assertEqual(vp.change_lines(diff), [
-            "  baseline  strong 2 张",
-            "  impl      strong 3 张",
+            "  baseline  strong 2 张 (in button \"最近使用 山野净洗洁精 1 个任务进行中 PRJ-240716-C08\")",
+            "  impl      strong 3 张 (in button \"最近使用 山野净洗洁精 1 个任务进行中 PRJ-240716-C08\")",
         ])
 
     def test_a_line_only_one_side_has_says_which_side(self):
         shorter = "\n".join(ROUND2_CARD.splitlines()[:2]) + "\n"
         diff = vp.aria_diff(ROUND2_CARD, shorter)["diff"]
-        self.assertEqual(vp.change_lines(diff), ["  only in baseline  strong 2 张"])
+        self.assertEqual(vp.change_lines(diff), [
+            "  only in baseline  strong 2 张 (in button \"最近使用 山野净洗洁精 1 个任务进行中 PRJ-240716-C08\")"])
 
     def test_an_identical_tree_prints_nothing(self):
         self.assertEqual(vp.change_lines(vp.aria_diff(ROUND2_CARD, ROUND2_CARD)["diff"]),
@@ -265,7 +280,9 @@ class TestChangeLines(unittest.TestCase):
         code, lines = vp.gate(control, [c], 1.0, 0)
         self.assertEqual(code, 1)
         self.assertTrue(lines[0].startswith("DIFF default 1440x900"))
-        self.assertEqual(lines[1:], ["  baseline  strong 2 张", "  impl      strong 3 张"])
+        self.assertEqual(lines[1:], [
+            "  baseline  strong 2 张 (in button \"最近使用 山野净洗洁精 1 个任务进行中 PRJ-240716-C08\")",
+            "  impl      strong 3 张 (in button \"最近使用 山野净洗洁精 1 个任务进行中 PRJ-240716-C08\")"])
 
 
 class TestNegativeControl(unittest.TestCase):
@@ -318,8 +335,7 @@ class TestConsole(unittest.TestCase):
         self.assertEqual(len(vp.failures(c, max_pct=1.0, console_limit=0)), 1)
 
     def test_zero_is_the_default(self):
-        args = vp.build_parser().parse_args(
-            ["--baseline", "b", "--impl", "u", "--scenes", "default"])
+        args = vp.build_parser().parse_args(["--contract", "c.yaml", "--mount", "m"])
         self.assertEqual(args.console_errors, 0)
 
 
@@ -396,38 +412,67 @@ class TestOverCdp(unittest.TestCase):
 
 
 class TestArguments(unittest.TestCase):
-    def test_defaults(self):
-        args = vp.build_parser().parse_args(
-            ["--baseline", "b", "--impl", "http://x/", "--scenes", "a,b"])
-        self.assertEqual(args.max_pct, 3.0)
-        self.assertEqual(args.viewports, "1440x900,1180x720")
-        self.assertIsNone(args.cdp)
-        self.assertIsNone(args.impl_title)
+    """No address on the line: the contract and `.mmw/target.json` carry them all."""
 
-    def test_a_running_browser_is_named_alongside_the_address(self):
-        args = vp.build_parser().parse_args(
-            ["--baseline", "b", "--impl", "http://x/", "--scenes", "a",
-             "--cdp", "http://127.0.0.1:9229", "--impl-title", "Chameleon"])
-        self.assertEqual(args.cdp, "http://127.0.0.1:9229")
-        self.assertEqual(args.impl_title, "Chameleon")
-        self.assertEqual(args.impl, "http://x/")
+    def test_defaults(self):
+        args = vp.build_parser().parse_args(["--contract", "c.yaml", "--mount", "a,b"])
+        self.assertEqual(args.max_pct, 3.0)
+        self.assertIsNone(args.scenes)
+        self.assertFalse(args.render_only)
+        self.assertFalse(args.shows_perturbation)
+
+    def test_no_address_flag_is_accepted(self):
+        for retired in ("--impl", "--cdp", "--baseline", "--backend", "--viewports"):
+            with self.assertRaises(SystemExit):
+                vp.build_parser().parse_args(
+                    ["--contract", "c.yaml", "--mount", "a", retired, "x"])
 
     def test_viewports_are_read_as_pairs(self):
+        self.assertEqual(vp.parse_viewports(["1440x900", "1180x720"]),
+                         [(1440, 900), (1180, 720)])
         self.assertEqual(vp.parse_viewports("1440x900,1180x720"),
                          [(1440, 900), (1180, 720)])
         with self.assertRaises(ValueError):
             vp.parse_viewports("1440*900")
 
-    def test_scene_props_reach_both_sides(self):
-        """The implementation gets the scene's name first, then its props: two scenes
-        can share one prop set, and the name is what tells them apart."""
-        self.assertEqual(vp.impl_url("http://127.0.0.1:8765/index.html", "queue-empty",
-                                     {"scenario": "queue-empty"}),
-                         "http://127.0.0.1:8765/index.html?scene=queue-empty"
-                         "&scenario=queue-empty")
+    def test_the_wrapper_pins_the_scene(self):
         self.assertIn('scenario="queue-empty"',
-                      vp.wrapper_page("Component · 任务队列",
-                                      {"scenario": "queue-empty"}))
+                      vp.wrapper_page("Component · 任务队列", {"scenario": "queue-empty"}))
+
+    def test_the_negative_control_error_is_in_the_served_bytes(self):
+        """The control's banner rides inside the page the server sends, so an
+        implementation chain that reads the baseline server gets the banner too."""
+        page = vp.wrapper_page("Component · 任务队列", {}, vp.NEGATIVE_CONTROL_HEAD)
+        self.assertIn("NEGATIVE CONTROL", page)
+        self.assertNotIn("NEGATIVE CONTROL", vp.wrapper_page("Component · 任务队列", {}))
+
+
+class TestClasses(unittest.TestCase):
+    """The third judge: the class set of the subtree, compared as a set."""
+
+    def test_a_missing_class_fails_the_scene_and_names_the_element(self):
+        c = comparison()
+        c.classes = vp.sd.class_diff({"btn": 'button "开始生成"', "btn-primary": 'button "开始生成"'},
+                                     {"btn": 'button "开始生成"'})
+        reasons = vp.failures(c, max_pct=3.0, console_limit=0)
+        self.assertEqual([r.kind for r in reasons], ["classes"])
+        self.assertEqual(vp.class_lines(c.classes),
+                         ['  class only in baseline  btn-primary  (on button "开始生成")'])
+
+    def test_equal_sets_are_no_reason(self):
+        c = comparison()
+        c.classes = vp.sd.class_diff({"a": "x"}, {"a": "y"})
+        self.assertEqual(vp.failures(c, max_pct=3.0, console_limit=0), [])
+
+
+class TestFrameBox(unittest.TestCase):
+    """The design is pinned to the box the product measured, never to a declared size."""
+
+    def test_frame_box_pins_dc_root_to_the_measured_size(self):
+        css = vp.frame_box((1440, 854))
+        self.assertIn("width:1440px !important", css)
+        self.assertIn("height:854px !important", css)
+        self.assertNotIn("900", css)
 
 
 if __name__ == "__main__":

@@ -1315,52 +1315,359 @@ def lint_check_effects(body: str) -> list[str]:
 
 SCREEN_CONTRACT_ROWS_RE = re.compile(r"screen-contract\.yaml\s+rows?:\s*([^\n]+)")
 FETCH_STUB_RE = re.compile(r"stubGlobal\(\s*['\"]fetch['\"]|msw|nock\(|fetch-mock", re.IGNORECASE)
+FLAG_RE = re.compile(r"(?<!\S)(--[a-z][a-z0-9-]*)")
+# The two scripts of this pipeline a criterion may run, and what each must be given.
+# Their addresses come from the repository's `.mmw/target.json`, never from the line.
+PIPELINE_SCRIPTS = {
+    "visual-parity.py": {"required": ("--contract", "--mount"),
+                         "retired": ("--baseline", "--impl", "--cdp", "--backend", "--seed",
+                                     "--impl-title", "--viewports")},
+    "wiring-check.py": {"required": ("--contract", "--rows"),
+                        "retired": ("--cdp", "--impl", "--backend", "--seed", "--impl-title")},
+}
+SPEC_SECTION_SOURCE_RE = re.compile(r"^#(\d+) (Implementation Decisions|Testing Decisions)\s*(\d+)?")
+ADR_SOURCE_RE = re.compile(r"^ADR-(\d{4})")
+TICKET_SOURCE_RE = re.compile(r"^#(\d+)(?:\s|$)")
+DOC_SOURCE_RE = re.compile(r"^(docs/\S+)")
+STORY_SOURCE_RE = re.compile(r"^#\d+ story \d+")
+_HELP_FLAGS: dict[str, set[str]] = {}
 
 
-def lint_screen_contract(body: str) -> list[str]:
+def script_segment(check: str, script: str) -> str:
+    """The part of a CHECK from the script's name to the end of that command."""
+    i = check.find(script)
+    if i < 0:
+        return ""
+    rest = check[i + len(script):]
+    return re.split(r"\s(?:&&|\|\||;|\|)\s", rest, 1)[0]
+
+
+def help_flags(script: str) -> set[str]:
+    """The flags the installed script actually accepts, read from its `--help` once.
+    This is the one place a criterion's reference to a capability that does not exist
+    yet is caught at the moment it is written."""
+    if script not in _HELP_FLAGS:
+        path = HERE / script
+        try:
+            out = subprocess.run([sys.executable, str(path), "--help"], capture_output=True,
+                                 text=True, timeout=60)
+            text = (out.stdout or "") + (out.stderr or "")
+        except (OSError, subprocess.TimeoutExpired):
+            text = ""
+        _HELP_FLAGS[script] = set(FLAG_RE.findall(text))
+    return _HELP_FLAGS[script]
+
+
+def lint_pipeline_flags(gate_id: str, check: str) -> list[str]:
+    findings = []
+    for script, rules in PIPELINE_SCRIPTS.items():
+        if script not in check:
+            continue
+        segment = script_segment(check, script)
+        flags = set(FLAG_RE.findall(segment))
+        for flag in rules["required"]:
+            if flag not in flags:
+                findings.append(f"{gate_id}: {script} without {flag}")
+        for flag in rules["retired"]:
+            if flag in flags:
+                findings.append(f"{gate_id}: {script} names {flag}; addresses and the seed "
+                                f"come from .mmw/target.json and the contract, not the line")
+        known = help_flags(script)
+        if known:
+            for flag in sorted(flags - known - set(rules["retired"])):
+                findings.append(f"{gate_id}: {script} does not accept {flag} (its --help "
+                                f"does not list it)")
+    return findings
+
+
+def parent_sections(parent_text: str) -> dict[int, dict]:
+    """Per spec named in `## Parent`: the Implementation Decisions section numbers and
+    whether Testing Decisions is named, in either the English or the Chinese shape."""
+    out: dict[int, dict] = {}
+    for m in re.finditer(r"#(\d+)(.*?)(?=#\d+|$)", parent_text, re.S):
+        spec, seg = int(m.group(1)), m.group(2)
+        entry = out.setdefault(spec, {"sections": set(), "testing": False})
+        idm = re.search(r"Implementation Decisions[^\d#]{0,12}((?:\d+[^\d#]{0,6})+)", seg)
+        if idm:
+            entry["sections"].update(int(n) for n in re.findall(r"\d+", idm.group(1)))
+        if "Testing Decisions" in seg:
+            entry["testing"] = True
+    return out
+
+
+def load_yaml_file(path: str) -> dict | None:
+    """The file as a mapping. `pyyaml` when this interpreter has it; else through `uv`,
+    which every `CHECK:` of this pipeline already relies on; else `None`, and the caller
+    says so rather than passing a rule it could not run."""
+    try:
+        import yaml  # noqa: PLC0415
+        with open(path, encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    except ImportError:
+        pass
+    except OSError:
+        return None
+    try:
+        out = subprocess.run(
+            ["uv", "run", "--with", "pyyaml", "python", "-c",
+             "import json,sys,yaml; print(json.dumps(yaml.safe_load(open(sys.argv[1], "
+             "encoding='utf-8')) or {}))", path],
+            capture_output=True, text=True, timeout=120, env=GH_ENV)
+        if out.returncode == 0:
+            return json.loads(out.stdout)
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
+        pass
+    return None
+
+
+def load_contract_doc(read_first: str) -> tuple[dict | None, str | None]:
+    m = re.search(r"([\w./-]*screen-contract\.yaml)", read_first)
+    if not m:
+        return None, None
+    return load_yaml_file(m.group(1)), m.group(1)
+
+
+def source_findings(row_ids: list[str], doc: dict, read_first: str, parent_text: str) -> list[str]:
+    """Every baseline-class source of an owned row must be in `## Read first`; every
+    spec-section source must be named by `## Parent`. A story reaches no worker and is
+    reported as such."""
+    findings = []
+    rows = {str(r.get("id")): r for r in doc.get("rows") or []}
+    parents = parent_sections(parent_text)
+    seen: set[str] = set()
+    for rid in row_ids:
+        row = rows.get(rid)
+        if row is None:
+            continue
+        for src in row.get("source") or []:
+            src = str(src).strip()
+            key = src
+            m = SPEC_SECTION_SOURCE_RE.match(src)
+            if m:
+                spec, kind, num = int(m.group(1)), m.group(2), m.group(3)
+                key = f"{spec} {kind} {num}"
+                if key in seen:
+                    continue
+                seen.add(key)
+                entry = parents.get(spec)
+                if kind == "Testing Decisions":
+                    if not (entry and entry["testing"]):
+                        findings.append(f"row {rid} source `{src}`: `## Parent` does not name "
+                                        f"#{spec} Testing Decisions")
+                elif num and not (entry and int(num) in entry["sections"]):
+                    findings.append(f"row {rid} source `{src}`: `## Parent` does not name "
+                                    f"#{spec} Implementation Decisions section {num}")
+                continue
+            if STORY_SOURCE_RE.match(src):
+                continue
+            m = ADR_SOURCE_RE.match(src)
+            if m:
+                num = m.group(1)
+                key = f"ADR-{num}"
+                if key in seen:
+                    continue
+                seen.add(key)
+                if f"ADR-{num}" not in read_first and f"/{num}-" not in read_first:
+                    findings.append(f"row {rid} source `{src}`: ADR-{num} is not under "
+                                    f"`## Read first`")
+                continue
+            m = TICKET_SOURCE_RE.match(src)
+            if m:
+                key = f"#{m.group(1)}"
+                if key in seen:
+                    continue
+                seen.add(key)
+                if not re.search(rf"#{m.group(1)}(?!\d)", read_first):
+                    findings.append(f"row {rid} source `{src}`: {key} is not under "
+                                    f"`## Read first`")
+                continue
+            m = DOC_SOURCE_RE.match(src)
+            if m:
+                path = m.group(1).rstrip("),;:")
+                if path in seen:
+                    continue
+                seen.add(path)
+                if path not in read_first:
+                    findings.append(f"row {rid} source `{src}`: {path} is not under "
+                                    f"`## Read first`")
+    return findings
+
+
+def mechanism_findings(number: int | None, body: str, doc: dict, row_ids: list[str],
+                       mounts: list[str]) -> list[str]:
+    """A ticket that uses mechanism M is blocked by M's `built_by`, unless it is that
+    ticket. Uses: the `reach` of the rows it owns and of the scenes under its mounts."""
+    raw = doc.get("mechanisms") or {}
+    if isinstance(raw, list):
+        return []
+    mechanisms = {str(k): (v or {}) for k, v in raw.items()}
+    rows = {str(r.get("id")): r for r in doc.get("rows") or []}
+    used: set[str] = set()
+    for rid in row_ids:
+        r = rows.get(rid) or {}
+        if r.get("reach"):
+            used.add(str(r["reach"]))
+    pages = doc.get("pages") or {}
+    for name, decl in (doc.get("scenes") or {}).items():
+        decl = decl or {}
+        mount = decl.get("mount") or (pages.get(decl.get("page")) or {}).get("mount")
+        if mount in mounts:
+            used.update(str(x) for x in decl.get("reach") or [])
+    blockers = set(blocked_by(body))
+    findings = []
+    for mech in sorted(used):
+        built = str((mechanisms.get(mech) or {}).get("built_by") or "")
+        m = re.match(r"^#(\d+)$", built)
+        if not m:
+            continue
+        builder = int(m.group(1))
+        if builder != number and builder not in blockers:
+            findings.append(f"mechanism {mech} is built by #{builder}, which `## Blocked by` "
+                            f"does not name")
+    return findings
+
+
+def scenes_by_mount(doc: dict) -> dict[str, list[str]]:
+    pages = doc.get("pages") or {}
+    out: dict[str, list[str]] = {}
+    for name, decl in (doc.get("scenes") or {}).items():
+        decl = decl or {}
+        mount = str(decl.get("mount") or (pages.get(decl.get("page")) or {}).get("mount") or "")
+        out.setdefault(mount, []).append(name)
+    return out
+
+
+def parity_calls(body: str) -> list[tuple[str, list[str], list[str] | None]]:
+    """`(gate_id, mounts, explicit scenes or None)` per criterion running visual-parity.py."""
+    out = []
+    for gate_id, check, _ in criteria_lines(body):
+        if "visual-parity.py" not in check:
+            continue
+        segment = script_segment(check, "visual-parity.py")
+        m = re.search(r"--mount\s+(\S+)", segment)
+        mounts = [x for x in (m.group(1).split(",") if m else []) if x]
+        s = re.search(r"--scenes\s+(\S+)", segment)
+        explicit = [x for x in s.group(1).split(",") if x] if s else None
+        out.append((gate_id, mounts, explicit))
+    return out
+
+
+def scene_findings(body: str, doc: dict) -> list[str]:
+    """An explicit `--scenes` list is a subset of what its `--mount` derives."""
+    findings = []
+    by_mount = scenes_by_mount(doc)
+    for gate_id, mounts, explicit in parity_calls(body):
+        derived = {s for m in mounts for s in by_mount.get(m, [])}
+        for m in mounts:
+            if m not in by_mount:
+                findings.append(f"{gate_id}: --mount {m} is declared by no page of the contract")
+        if explicit:
+            outside = [s for s in explicit if s not in derived]
+            if outside:
+                findings.append(f"{gate_id}: --scenes names scenes outside its mounts: "
+                                f"{', '.join(outside)}")
+    return findings
+
+
+def lint_scene_partition(bodies: dict[int, str], doc: dict) -> list[str]:
+    """Across a batch, the scenes the parity criteria cover — by mount, narrowed by an
+    explicit `--scenes` — are the contract's scenes, each exactly once, and every page's
+    mount is owned by some ticket."""
+    by_mount = scenes_by_mount(doc)
+    all_scenes = {s for scenes in by_mount.values() for s in scenes}
+    covered: dict[str, list[int]] = {}
+    owned_mounts: set[str] = set()
+    for number, body in bodies.items():
+        for _, mounts, explicit in parity_calls(body):
+            owned_mounts.update(mounts)
+            scenes = explicit if explicit else [s for m in mounts for s in by_mount.get(m, [])]
+            for s in scenes:
+                covered.setdefault(s, []).append(number)
+    if not covered:
+        return []
+    findings = []
+    for s in sorted(all_scenes - set(covered)):
+        findings.append(f"scene {s} is covered by no ticket's parity criterion")
+    for s, tickets in sorted(covered.items()):
+        if len(tickets) > 1:
+            findings.append(f"scene {s} is covered by more than one ticket: "
+                            + ", ".join(f"#{t}" for t in tickets))
+    for mount in sorted(set(by_mount) - owned_mounts):
+        if mount:
+            findings.append(f"mount {mount} is owned by no ticket in the batch")
+    return findings
+
+
+def lint_screen_contract(body: str, number: int | None = None) -> list[str]:
     """The interface rules of `to-tickets`, made mechanical.
 
     An interface ticket names its screen-contract rows under `## Read first`; a row with
     calls needs a wiring criterion (a `CHECK:` running `wiring-check.py` that names the
-    row id); and no `CHECK:` may stub the application's own network. Which rows have
-    calls is read from the contract file when it is in the working tree; when it is
-    not, every named row is held to the wiring rule.
+    row id); no `CHECK:` may stub the application's own network; the two pipeline scripts
+    are given what they need and nothing they retired; every mechanism the ticket uses
+    is built by a ticket it is blocked by; every baseline-class source of an owned row is
+    under `## Read first` and every spec-section source is named by `## Parent`; an
+    explicit `--scenes` list stays inside its `--mount`.
     """
     findings: list[str] = []
     read_first = "\n".join(section(body, "Read first"))
-    m = SCREEN_CONTRACT_ROWS_RE.search(read_first)
+    parent_text = "\n".join(section(body, "Parent"))
     checks = criteria_lines(body)
+    for gate_id, check, _ in checks:
+        findings.extend(lint_pipeline_flags(gate_id, check))
+        if FETCH_STUB_RE.search(check):
+            findings.append(f"{gate_id}: CHECK stubs the application's own network; a "
+                            f"wiring criterion reads the backend instead")
+    m = SCREEN_CONTRACT_ROWS_RE.search(read_first)
     interface_ticket = any("visual-parity.py" in check for _, check, _ in checks)
     if not m:
         if interface_ticket:
             findings.append("interface ticket (a criterion runs visual-parity.py) names no "
                             "`screen-contract.yaml rows: <id, id>` line under `## Read first`")
-        for gate_id, check, _ in checks:
-            if FETCH_STUB_RE.search(check):
-                findings.append(f"{gate_id}: CHECK stubs the application's own network; a "
-                                f"wiring criterion reads the backend instead")
         return findings
     row_ids = ROW_ID_RE.findall(m.group(1))
-    contract_path = re.search(r"([\w./-]*screen-contract\.yaml)", read_first)
+    doc, contract_path = load_contract_doc(read_first)
+    if doc is None and contract_path:
+        findings.append(f"the contract {contract_path} could not be read from here (not in "
+                        f"the working tree, or neither pyyaml nor uv is available); the "
+                        f"source, mechanism and scene rules did not run")
     rows_with_calls = set(row_ids)
-    if contract_path:
+    if doc is not None:
         try:
-            import yaml  # noqa: PLC0415
-            with open(contract_path.group(1), encoding="utf-8") as f:
-                doc = yaml.safe_load(f)
             rows_with_calls = {r["id"] for r in doc.get("rows") or []
                                if r["id"] in row_ids and (r.get("calls") or []) != ["none"]}
-        except (OSError, ImportError, KeyError, TypeError):
+        except (KeyError, TypeError):
             pass
     wiring_checks = [check for _, check, _ in checks if "wiring-check.py" in check]
     for rid in sorted(rows_with_calls):
         if not any(rid in check for check in wiring_checks):
             findings.append(f"row {rid} has calls but no criterion runs wiring-check.py naming it")
-    for gate_id, check, _ in checks:
-        if FETCH_STUB_RE.search(check):
-            findings.append(f"{gate_id}: CHECK stubs the application's own network; a wiring "
-                            f"criterion reads the backend instead")
+    if doc is not None:
+        mounts = [m for _, ms, _ in parity_calls(body) for m in ms]
+        findings.extend(source_findings(row_ids, doc, read_first, parent_text))
+        findings.extend(mechanism_findings(number, body, doc, row_ids, mounts))
+        findings.extend(scene_findings(body, doc))
     return findings
+
+
+def lint_batch_scenes(number: int, body: str) -> list[str]:
+    """The scene partition across the batch, read when this ticket runs visual-parity.py."""
+    if not parity_calls(body):
+        return []
+    doc, _ = load_contract_doc("\n".join(section(body, "Read first")))
+    if doc is None:
+        return []
+    spec = parent_spec(body)
+    if spec is None:
+        return []
+    bodies = {number: body}
+    for n in fetch_sub_issues(spec):
+        if n != number:
+            try:
+                bodies[n] = fetch_body(n)
+            except Exception:  # noqa: BLE001
+                continue
+    return lint_scene_partition(bodies, doc)
 
 
 def run_lint(number: int) -> int:
@@ -1402,10 +1709,13 @@ def run_lint(number: int) -> int:
     for finding in bad_timeouts:
         print("  ERROR " + finding + "  [bad-timeout]")
     broken = broken + bad_timeouts
-    contract_findings = lint_screen_contract(body)
+    contract_findings = lint_screen_contract(body, number)
     for finding in contract_findings:
         print("  ERROR " + finding + "  [screen-contract]")
     broken = broken + contract_findings
+    for finding in lint_batch_scenes(number, body):
+        print("  ERROR " + finding + "  [screen-contract]")
+        broken.append(finding)
     for finding in lint_check_effects(body):
         print("  WARN  " + finding + "  [shared-state]")
     for finding in lint_edges(body):
