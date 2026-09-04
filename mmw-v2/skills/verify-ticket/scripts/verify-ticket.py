@@ -1339,7 +1339,7 @@ def script_segment(check: str, script: str) -> str:
     if i < 0:
         return ""
     rest = check[i + len(script):]
-    return re.split(r"\s(?:&&|\|\||;|\|)\s", rest, 1)[0]
+    return re.split(r"\s*(?:&&|\|\||;|\|)(?:\s|$)", rest, maxsplit=1)[0]
 
 
 def help_flags(script: str) -> set[str]:
@@ -1537,13 +1537,20 @@ def scenes_by_mount(doc: dict) -> dict[str, list[str]]:
     return out
 
 
+NON_COMPARING_MODES = ("--addressing", "--render-only", "--shows-perturbation")
+
+
 def parity_calls(body: str) -> list[tuple[str, list[str], list[str] | None]]:
-    """`(gate_id, mounts, explicit scenes or None)` per criterion running visual-parity.py."""
+    """`(gate_id, mounts, explicit scenes or None)` per criterion that compares with
+    visual-parity.py. Its other modes (`--addressing`, `--render-only`,
+    `--shows-perturbation`) cover no scene for the partition and are left out."""
     out = []
     for gate_id, check, _ in criteria_lines(body):
         if "visual-parity.py" not in check:
             continue
         segment = script_segment(check, "visual-parity.py")
+        if any(mode in segment.split() for mode in NON_COMPARING_MODES):
+            continue
         m = re.search(r"--mount\s+(\S+)", segment)
         mounts = [x for x in (m.group(1).split(",") if m else []) if x]
         s = re.search(r"--scenes\s+(\S+)", segment)
@@ -1557,6 +1564,8 @@ def scene_findings(body: str, doc: dict) -> list[str]:
     findings = []
     by_mount = scenes_by_mount(doc)
     for gate_id, mounts, explicit in parity_calls(body):
+        if mounts == ["all"]:
+            mounts = [m for m in by_mount if m]
         derived = {s for m in mounts for s in by_mount.get(m, [])}
         for m in mounts:
             if m not in by_mount:
@@ -1579,6 +1588,8 @@ def lint_scene_partition(bodies: dict[int, str], doc: dict) -> list[str]:
     owned_mounts: set[str] = set()
     for number, body in bodies.items():
         for _, mounts, explicit in parity_calls(body):
+            if mounts == ["all"]:
+                mounts = [m for m in by_mount if m]
             owned_mounts.update(mounts)
             scenes = explicit if explicit else [s for m in mounts for s in by_mount.get(m, [])]
             for s in scenes:
@@ -1662,11 +1673,14 @@ def lint_batch_scenes(number: int, body: str) -> list[str]:
         return []
     bodies = {number: body}
     for n in fetch_sub_issues(spec):
-        if n != number:
-            try:
-                bodies[n] = fetch_body(n)
-            except Exception:  # noqa: BLE001
-                continue
+        if n == number:
+            continue
+        try:
+            if fetch_outsider(n).get("state") == "CLOSED":
+                continue  # a closed ticket's criteria cover nothing any more
+            bodies[n] = fetch_body(n)
+        except Exception:  # noqa: BLE001
+            continue
     return lint_scene_partition(bodies, doc)
 
 

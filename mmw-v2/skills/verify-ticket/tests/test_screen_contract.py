@@ -313,3 +313,16 @@ class TestContractPathInBackticks(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPartitionEdges(unittest.TestCase):
+    def test_addressing_and_all_do_not_partition(self):
+        body = ("## Acceptance criteria\n\n- [ ] AC1: x\n  CHECK: uv run visual-parity.py "
+                "--contract c.yaml --mount all --addressing; true\n  EXPECT: /ADDRESSING/\n")
+        self.assertEqual(vt.parity_calls(body), [])
+
+    def test_a_trailing_semicolon_is_not_part_of_the_last_flag(self):
+        body = ("## Acceptance criteria\n\n- [ ] AC1: x\n  CHECK: uv run visual-parity.py "
+                "--contract c.yaml --mount m --scenes a.b; true\n  EXPECT: x\n")
+        self.assertEqual(vt.parity_calls(body), [("AC1", ["m"], ["a.b"])])
+
