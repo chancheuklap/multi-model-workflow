@@ -269,8 +269,12 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
             continue
         chosen = drive.get("scene")
         row_scenes = [scene_name_of(x) for x in row.get("scenes") or []]
-        if chosen and chosen not in row_scenes:
-            errors.append(f"{rid}: drive.scene {chosen!r} is not one of the row's scenes")
+        if chosen and chosen not in scene_decls:
+            errors.append(f"{rid}: drive.scene {chosen!r} is not a declared scene")
+            continue
+        if chosen and chosen not in row_scenes and not drive.get("open"):
+            errors.append(f"{rid}: drive.scene {chosen!r} is not one of the row's scenes, and "
+                          f"no drive.open brings the control on screen there")
         driving = chosen or (row_scenes[0] if row_scenes else None)
         if driving is None:
             if not drive.get("scene"):

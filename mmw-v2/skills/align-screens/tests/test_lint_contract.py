@@ -233,6 +233,9 @@ class TestScreenAxis(unittest.TestCase):
         doc["rows"][0]["drive"] = {"scene": "shell-header.ready"}
         errors, _ = lc.lint_screen_axis(doc, skeleton, self.repo.baseline, self.repo.spec_dir)
         self.assertTrue(any("not one of the row's scenes" in e for e in errors))
+        doc["rows"][0]["drive"] = {"scene": "no-such-scene", "open": ["create-project.name"]}
+        errors, _ = lc.lint_screen_axis(doc, skeleton, self.repo.baseline, self.repo.spec_dir)
+        self.assertTrue(any("not a declared scene" in e for e in errors))
 
     def test_a_typed_value_the_design_shows_needs_an_open_step(self):
         skeleton = dict(SKELETON)
