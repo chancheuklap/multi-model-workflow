@@ -36,6 +36,6 @@ Cursor 不在此列，它的用户级提示词只能在 app 里手动粘贴。
 - 生成物被人直接改过时 `render.py` 退出 2 不覆盖，改动要搬回 `hosts/<host>.md` 或 `shared.md` 再 `--adopt`。
 - launchd 的 WatchPaths 记的是本 checkout 的绝对路径；换 checkout 跑一次 `install.sh` 就重写。编辑器用「写新文件再改名」保存时 WatchPaths 是否每次触发未实测，`install.sh` 与手跑兜底。
 - `~/.claude/CLAUDE.md` 是软链后，Claude Code 桌面版的 Cowork 会话会跳过它（官方文档写明）；终端与 IDE 不受影响。
-- `~/AGENTS.md` 不在本决定范围内，Pi 与 Grok 照旧读它。
+- 家目录根下原有的 `~/AGENTS.md`（一句「Subagent 运行期间，安静等待」，Pi 与 Grok 沿 cwd 向上读到）已并入 `hosts/codex.md` 后删除：这句只给 Codex。
 
 来源：2026-09-05 与用户的设计对话，及上述各家文档与实测。
