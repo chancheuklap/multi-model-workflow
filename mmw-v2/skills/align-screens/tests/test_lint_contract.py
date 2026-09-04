@@ -318,5 +318,42 @@ class TestRetiredPrinted(unittest.TestCase):
                          ["RETIRED a.b: retired 2026-09-03 — verdict 2", "RETIRED c.d: (no note)"])
 
 
+class TestVolatileValues(unittest.TestCase):
+    """`volatile_values` is printed on every run, like `retired_ids`. An entry whose
+    trigger is not in that page's target tree is a WARN — it cannot be what the
+    judges will replace."""
+
+    ENTRY = {
+        "page": PAGE_A,
+        "trigger": {"role": "text", "name": "鸭豆余额 12,480"},
+        "reason": "wallet balance is an external account; seed does not write it",
+    }
+
+    def test_volatile_values_are_printed_every_run(self):
+        doc = {"volatile_values": [self.ENTRY]}
+        self.assertEqual(
+            lc.volatile_lines(doc),
+            ['VOLATILE Component · 新建商品项目.dc.html text "鸭豆余额 12,480": '
+             "wallet balance is an external account; seed does not write it"])
+
+    def test_a_volatile_value_missing_from_the_target_tree_is_a_warning(self):
+        repo = Repo()
+        self.addCleanup(repo.cleanup)
+        repo.write_targets()
+        aria = repo.spec_dir / "targets" / (PAGE_A[:-len(".dc.html")] + ".aria")
+        aria.write_text(aria.read_text(encoding="utf-8") + '- button "添加商品素材"\n',
+                        encoding="utf-8")
+        doc = contract()
+        doc["volatile_values"] = [self.ENTRY]
+        _, warnings = lc.lint_screen_axis(doc, SKELETON, repo.baseline, repo.spec_dir)
+        self.assertTrue(any("volatile_values" in w and "鸭豆余额 12,480" in w
+                            and "not in the target tree" in w for w in warnings), warnings)
+
+        aria.write_text(aria.read_text(encoding="utf-8") + '- text: 鸭豆余额 12,480\n',
+                        encoding="utf-8")
+        _, warnings = lc.lint_screen_axis(doc, SKELETON, repo.baseline, repo.spec_dir)
+        self.assertFalse(any("volatile_values" in w for w in warnings), warnings)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -470,10 +470,13 @@ def normalize_aria(text: str) -> list[str]:
     return out
 
 
-def aria_diff(a: str, b: str, out: Path | None = None) -> dict:
+def aria_diff(a: str, b: str, out: Path | None = None,
+              volatile: list[tuple[str, str]] | None = None) -> dict:
     import difflib
 
     la, lb = normalize_aria(a), normalize_aria(b)
+    if volatile:
+        la, lb = mask_volatile(la, volatile), mask_volatile(lb, volatile)
     diff = list(difflib.unified_diff(la, lb, "baseline", "impl", lineterm="", n=1))
     if out is not None:
         out.write_text("\n".join(diff) + ("\n" if diff else ""), encoding="utf-8")
@@ -671,6 +674,108 @@ def hide_retired_js(triggers: list[tuple[str, str]]) -> str:
 })()""" % wanted
 
 
+# A display value the seed must not write (a wallet balance belonging to an external
+# account). Both judges replace it with one token before they compare, so the two
+# sides may show different numbers and still match. The trigger is the handoff's
+# role and accessible name; a product node matches when its role is the same and the
+# non-digit stem of the name is the same.
+VOLATILE_TOKEN = "<volatile>"
+VOLATILE_FILL = "#00E5FF"
+VOLATILE_DIGITS = re.compile(r"[\d,]+")
+
+
+def volatile_stem(name: str) -> str:
+    return VOLATILE_DIGITS.sub("", name).strip()
+
+
+def matches_volatile(role: str, name: str, triggers: list[tuple[str, str]]) -> bool:
+    for wanted_role, wanted_name in triggers:
+        if role != wanted_role:
+            continue
+        if name == wanted_name:
+            return True
+        stem = volatile_stem(wanted_name)
+        if stem and volatile_stem(name) == stem:
+            return True
+    return False
+
+
+def _mask_own(own: str, triggers: list[tuple[str, str]]) -> str:
+    m = ARIA_LINE.match(own)
+    if not m:
+        return own
+    role, name, attrs, value = (m.group("role"), m.group("name"),
+                                m.group("attrs") or "", m.group("value"))
+    label = value.strip() if value else (name or "")
+    if not matches_volatile(role, label, triggers):
+        return own
+    if value:
+        return f"- {role}: {VOLATILE_TOKEN}"
+    if name is not None:
+        return f'- {role} "{VOLATILE_TOKEN}"{attrs}'
+    return own
+
+
+def mask_volatile(lines: list[str], triggers: list[tuple[str, str]]) -> list[str]:
+    """Replace matching nodes' names (and the same names on ancestor suffixes) with
+    `VOLATILE_TOKEN`, so two trees that differ only in those values compare equal."""
+    out = []
+    for line in lines:
+        own, sep, ancestor = line.partition(" < ")
+        own = _mask_own(own, triggers)
+        if sep:
+            out.append(f"{own} < {_mask_own('- ' + ancestor, triggers)[2:]}")
+        else:
+            out.append(own)
+    return out
+
+
+def volatile_paint_js(triggers: list[tuple[str, str]]) -> str:
+    """Paint every matching node's box the same solid colour on both sides, so a
+    different number does not move pixels. Applied to the product and the design."""
+    wanted = json.dumps([{"role": r, "name": n} for r, n in triggers], ensure_ascii=False)
+    fill = json.dumps(VOLATILE_FILL)
+    return """(() => {
+  const wanted = %s;
+  const fill = %s;
+  const stem = s => s.replace(/[\\d,]+/g, '').trim();
+  const nameOf = el => (el.getAttribute('aria-label') || el.textContent || '')
+    .trim().replace(/\\s+/g, ' ');
+  const roleOf = el => el.getAttribute('role') || ({
+    BUTTON: 'button', A: 'link', P: 'text', SPAN: 'text', DIV: 'text',
+    STATUS: 'status', STRONG: 'strong', EM: 'em', LABEL: 'label', LI: 'listitem',
+    H1: 'heading', H2: 'heading', H3: 'heading', H4: 'heading', H5: 'heading', H6: 'heading'
+  }[el.tagName] || '');
+  const hit = (role, nm, w) => {
+    if (role !== w.role) return false;
+    if (nm === w.name) return true;
+    const st = stem(w.name);
+    return Boolean(st) && stem(nm) === st;
+  };
+  const paint = el => {
+    el.style.backgroundColor = fill;
+    el.style.color = fill;
+    el.style.borderColor = fill;
+    el.style.caretColor = fill;
+    el.style.boxShadow = 'none';
+    el.style.outline = 'none';
+    for (const child of el.querySelectorAll('*')) {
+      child.style.backgroundColor = fill;
+      child.style.color = fill;
+      child.style.borderColor = fill;
+    }
+  };
+  for (const el of document.querySelectorAll('*')) {
+    const nm = nameOf(el);
+    if (!nm) continue;
+    const role = roleOf(el);
+    for (const w of wanted) {
+      if (hit(role, nm, w)) { paint(el); break; }
+    }
+  }
+})()""" % (wanted, fill)
+
+
 # ---------------------------------------------------------------- capture
 @dataclass
 class Shot:
@@ -865,7 +970,8 @@ def capture(page, png: Path, *, selector: str, clip: tuple[int, int, int, int] |
     The pixel judge sees `clip` — the mount element's box intersected with the
     viewport, in viewport coordinates; the tree and the class set walk the whole
     subtree, below the fold included. Both sides accept `extra_css` and `extra_js`: the
-    baseline side takes its frame and the retired controls' hiding through them.
+    baseline side takes its frame and the retired controls' hiding through them; both
+    sides take the `volatile_values` paint through `extra_js`.
     """
     console: list[str] = []
 
@@ -1328,6 +1434,27 @@ def retired_triggers(doc: dict, page: str | None = None) -> list[tuple[str, str]
 def hide_js_for(doc: dict, page: str) -> str | None:
     triggers = retired_triggers(doc, page)
     return hide_retired_js(triggers) if triggers else None
+
+
+def volatile_triggers(doc: dict, page: str | None = None) -> list[tuple[str, str]]:
+    """The display values not compared, for one design page when `page` is given.
+    Same scoping as `retired_triggers`: an entry that names its `page` applies there
+    only, because a role and name are not unique across pages."""
+    out = []
+    for entry in doc.get("volatile_values") or []:
+        if not (isinstance(entry, dict) and isinstance(entry.get("trigger"), dict)):
+            continue
+        scope = entry.get("page")
+        if page is not None and scope and scope != page:
+            continue
+        t = entry["trigger"]
+        out.append((str(t.get("role")), str(t.get("name"))))
+    return out
+
+
+def volatile_js_for(doc: dict, page: str) -> str | None:
+    triggers = volatile_triggers(doc, page)
+    return volatile_paint_js(triggers) if triggers else None
 
 
 def rows_by_id(doc: dict) -> dict[str, dict]:

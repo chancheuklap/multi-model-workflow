@@ -60,8 +60,12 @@ retired_ids:                              # ids that once had a row; never reuse
   - id: debt-gate.demo-trigger
     note: "retired 2026-09-03 — #635 verdict 5: prototype harness control, never shipped"
     page: "Component · 欠费门禁.dc.html"    # the design page the control is on; the judges hide it there only
-    trigger: { role: button, name: "开始新生成（触发欠费门禁）" }   # present when the handoff still shows the control:
-rows: [...]                               # the lint then stops asking for a row, and the judges hide it on the design side
+    trigger: { role: button, name: "开始新生成（触发欠费门禁）" }   # present when the handoff still shows the control
+volatile_values:                          # display values the seed must not write; printed by the lint on every run
+  - page: "App · 商品项目库.dc.html"
+    trigger: { role: text, name: "鸭豆余额 12,480" }   # handoff role and accessible name; same shape as retired_ids
+    reason: "wallet balance is an external account; seed does not write it"
+rows: [...]                               # the lint then stops asking for a retired id's row; the judges hide that control on the design side
 ```
 
 ## The screen axis
@@ -86,6 +90,8 @@ rows: [...]                               # the lint then stops asking for a row
 Everything on this axis is filled at design time, with no running product: `page` from `scenes.json`, `mount` and `route` as declarations (the same pattern as `proposed_operations`), `reach` from the mechanism table, `open` from the offline render plus the control axis, `value` from `data/fixtures.js`. Verification needs the product; filling does not.
 
 A `retired_ids` entry with a `trigger` names the `page` the control is on; the judges hide it on that page's scenes only. A role and name are not unique across pages, and an entry without a `page` whose name also lives on another page is hidden everywhere — the lint warns.
+
+A `volatile_values` entry is a display value the seed must not write — a wallet balance belonging to an external account, not a difference to hide. Same trigger shape as `retired_ids` (`page`, role, accessible name) plus one line of `reason`. Before either judge compares, both sides replace that node's text with one token: the tree name becomes `<volatile>`, and the pixel judge paints the node's box the same solid colour, so different numbers compare equal. A product node matches when its role equals the trigger's and the non-digit stem of the accessible name is the same as the handoff's. The lint prints every entry on every run and warns when the trigger is not in that page's target tree.
 
 ## Target trees
 

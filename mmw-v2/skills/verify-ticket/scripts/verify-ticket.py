@@ -1098,6 +1098,63 @@ def review_problems(draft: str, body: str, comments: list[str]) -> list[str]:
     return problems
 
 
+CHECKS_TAIL = 20
+
+
+def target_json_checks(root: Path | None) -> list[str] | None:
+    """The `checks` list from `.mmw/target.json`, or None when that key is absent —
+    the closeout then behaves as it did before the key existed. `--reverify` and
+    `--lint` never read this."""
+    if root is None:
+        return None
+    path = Path(root) / ".mmw" / "target.json"
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(data, dict) or "checks" not in data:
+        return None
+    raw = data["checks"]
+    if not isinstance(raw, list):
+        return None
+    return [str(c) for c in raw]
+
+
+def run_target_json_checks(root: Path | None) -> tuple[bool, str]:
+    """Run each `checks` command at the repository root, in order.
+
+    Returns `(True, "")` when the key is absent; `(True, "CHECKS OK n/n\\n")` when
+    every command exited 0; `(False, body)` when any did not — `body` starts with
+    `CHECKS FAILED` and, for each failed command, the command and its last
+    `CHECKS_TAIL` lines of output.
+    """
+    commands = target_json_checks(root)
+    if commands is None:
+        return True, ""
+    failed: list[tuple[str, str]] = []
+    for command in commands:
+        try:
+            proc = subprocess.run(command, shell=True, cwd=root, capture_output=True,
+                                  text=True)
+        except OSError as exc:
+            failed.append((command, str(exc)))
+            continue
+        if proc.returncode != 0:
+            combined = (proc.stdout or "") + (proc.stderr or "")
+            tail = "\n".join(combined.splitlines()[-CHECKS_TAIL:])
+            failed.append((command, tail))
+    if failed:
+        lines = ["CHECKS FAILED"]
+        for command, tail in failed:
+            lines.append(command)
+            if tail:
+                lines.append(tail)
+        return False, "\n".join(lines) + "\n"
+    return True, f"CHECKS OK {len(commands)}/{len(commands)}\n"
+
+
 def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     """Check the closing comment against the ticket and the repository, then post it."""
     draft = draft_path.read_text(encoding="utf-8")
@@ -1128,6 +1185,17 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     if check_only:
         print(f"CLOSEOUT OK: #{number} draft passes every check")
         return 0
+
+    first = draft.strip().splitlines()[0].strip()
+    if first == "ALL MET":
+        ok, extra = run_target_json_checks(repo_root())
+        if not ok:
+            post_comment(number, extra)
+            report_phase(number, "closeout-rejected")
+            sys.stderr.write(extra.splitlines()[0] + "\n")
+            return 1
+        if extra:
+            draft = draft.rstrip("\n") + "\n" + extra
 
     post_comment(number, draft)
     if draft.strip().splitlines()[0].strip() == "ALL MET":

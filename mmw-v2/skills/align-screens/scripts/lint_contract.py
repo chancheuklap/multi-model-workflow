@@ -6,9 +6,9 @@ Rules are the tables in ../references/contract-format.md: the control axis (rows
 screen axis (`target`, `viewports`, `pages`, `scenes`), the mechanism table, and the
 target trees under `<contract dir>/targets/`.
 
-Printed on every run, before the findings: each `retired_ids` entry with its note —
-the one kind of exclusion the judges honour, kept in sight so it is never a silent
-allowance.
+Printed on every run, before the findings: each `retired_ids` entry with its note,
+and each `volatile_values` entry with its reason — the two kinds of exclusion the
+judges honour, kept in sight so they are never a silent allowance.
 """
 from __future__ import annotations
 
@@ -328,6 +328,24 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
                 if hashes.get("scenes.json") != scenes_hash or hashes.get("page") != page_hash:
                     errors.append(f"targets: {f.name} is stale — its hashes no longer match "
                                   f"scenes.json or {page}; regenerate with extract_skeleton.py")
+    for entry in doc.get("volatile_values") or []:
+        if not isinstance(entry, dict):
+            continue
+        trigger = entry.get("trigger") or {}
+        page = str(entry.get("page") or "")
+        role, name = str(trigger.get("role") or ""), str(trigger.get("name") or "")
+        if not page or not role or not name:
+            warnings.append("volatile_values: an entry is missing page or trigger "
+                            "(role and name); the judges cannot replace it")
+            continue
+        if contract_dir is None:
+            continue
+        stem = re.sub(r"\.dc\.html$", "", page)
+        aria = contract_dir / "targets" / f"{stem}.aria"
+        tree = aria.read_text(encoding="utf-8") if aria.exists() else ""
+        if not volatile_in_tree(tree, role, name):
+            warnings.append(f"volatile_values: {role} {name!r} on {page} is not in the "
+                            f"target tree")
     return errors, warnings
 
 
@@ -481,6 +499,27 @@ def retired_lines(doc: dict) -> list[str]:
     return out
 
 
+def volatile_lines(doc: dict) -> list[str]:
+    out = []
+    for e in doc.get("volatile_values") or []:
+        if not isinstance(e, dict):
+            out.append(f"VOLATILE {e}: (no reason)")
+            continue
+        trigger = e.get("trigger") or {}
+        page = e.get("page") or "(no page)"
+        role = trigger.get("role") or "?"
+        name = trigger.get("name") or ""
+        reason = e.get("reason") or "(no reason)"
+        out.append(f'VOLATILE {page} {role} "{name}": {reason}')
+    return out
+
+
+def volatile_in_tree(text: str, role: str, name: str) -> bool:
+    """Whether the handoff target tree names this trigger — quoted accessible name
+    or the `: value` form of a static text node."""
+    return f'- {role} "{name}"' in text or f'- {role}: {name}' in text
+
+
 def main(argv: list[str]) -> int:
     if len(argv) not in (3, 4):
         print(__doc__)
@@ -494,6 +533,8 @@ def main(argv: list[str]) -> int:
     if baseline is not None and not baseline.exists():
         baseline = None
     for line in retired_lines(doc):
+        print(line)
+    for line in volatile_lines(doc):
         print(line)
     errors, warnings = lint(doc, skeleton, openapi)
     e2, w2 = lint_screen_axis(doc, skeleton, baseline, contract.resolve().parent)

@@ -1,6 +1,7 @@
 """The closing gate: what a closing comment must say before the ticket may close."""
 
 import io
+import json
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -57,7 +58,7 @@ def counts_line(met=1, unmet=0, abandoned=0, total=1):
 
 def check(text, comments=(VERDICT_COMMENT,),
           verdict_reachable=True, head=HEAD, dirty=(), main_merged=True, diff="src/app.py",
-          state="OPEN", assignees=(ME,), check_only=True):
+          state="OPEN", assignees=(ME,), check_only=True, repo=None):
     """Run --closeout against a made-up ticket; return (exit code, stderr, side effects)."""
     seen = {"posted": [], "closed": [], "handed": []}
 
@@ -83,7 +84,7 @@ def check(text, comments=(VERDICT_COMMENT,),
         with mock.patch.object(vt, "fetch_comments", return_value=list(comments)), \
              mock.patch.object(vt, "fetch_ticket", return_value=ticket), \
              mock.patch.object(vt, "gh_login", return_value=ME), \
-             mock.patch.object(vt, "repo_root", return_value=None), \
+             mock.patch.object(vt, "repo_root", return_value=repo), \
              mock.patch.object(vt, "report_phase", return_value=False), \
              mock.patch.object(vt, "git", side_effect=fake_git), \
              mock.patch.object(vt, "is_ancestor", side_effect=fake_is_ancestor), \
@@ -561,6 +562,106 @@ class TestNoSideEffectOnFail(unittest.TestCase):
         code, err, _ = check(draft(counts=counts_line()), state="CLOSED", check_only=False)
         self.assertEqual(code, 1)
         self.assertIn("already CLOSED", err)
+
+
+def write_checks(root: Path, commands):
+    """A consuming repository's `.mmw/target.json` with only the `checks` key."""
+    (root / ".mmw").mkdir(parents=True, exist_ok=True)
+    (root / ".mmw" / "target.json").write_text(
+        json.dumps({"checks": commands}), encoding="utf-8")
+
+
+class TestTargetJsonChecks(unittest.TestCase):
+    """After the draft is accepted and before the ticket closes, `checks` in
+    `.mmw/target.json` run at the repository root. They are the consuming repository's
+    own 'run the tests' rule, made a gate; `--reverify` and `--lint` never run them."""
+
+    def test_failing_checks_do_not_close_and_the_comment_starts_checks_failed(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_checks(root, [
+                "python3 -c \"import sys; [print(i) for i in range(1, 26)]; sys.exit(1)\"",
+                "true",
+            ])
+            text = draft(counts=counts_line())
+            code, err, seen = check(text, check_only=False, repo=root)
+        self.assertEqual(code, 1, err)
+        self.assertEqual(seen["closed"], [])
+        self.assertEqual(seen["handed"], [])
+        self.assertEqual(len(seen["posted"]), 1)
+        body = seen["posted"][0][1]
+        self.assertEqual(body.splitlines()[0], "CHECKS FAILED")
+        self.assertIn("python3 -c", body)
+        self.assertNotIn("\n1\n", "\n" + body)
+        self.assertIn("\n6\n", "\n" + body)
+        self.assertIn("\n25\n", "\n" + body)
+        self.assertNotIn(text.strip(), body)
+
+    def test_passing_checks_close_with_checks_ok_on_the_closing_comment(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_checks(root, ["true", "true"])
+            text = draft(counts=counts_line())
+            code, err, seen = check(text, check_only=False, repo=root)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(seen["closed"], [77])
+        posted = seen["posted"][0][1]
+        self.assertTrue(posted.startswith(text.rstrip("\n")))
+        self.assertIn("CHECKS OK 2/2", posted.splitlines())
+        self.assertEqual(posted.splitlines()[0], "ALL MET")
+
+    def test_no_checks_key_leaves_closeout_unchanged(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".mmw").mkdir()
+            (root / ".mmw" / "target.json").write_text(
+                json.dumps({"reach": "echo"}), encoding="utf-8")
+            text = draft(counts=counts_line())
+            code, err, seen = check(text, check_only=False, repo=root)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(seen["posted"], [(77, text)])
+        self.assertEqual(seen["closed"], [77])
+        self.assertNotIn("CHECKS OK", seen["posted"][0][1])
+
+    def test_reverify_and_lint_do_not_run_the_target_json_checks(self):
+        def boom(*_a, **_k):
+            raise AssertionError("target.json checks ran")
+
+        body = ("## Worker\n\njunior-worker\n\n## Acceptance criteria\n\n"
+                "- [ ] AC1: something a stranger could judge\n"
+                "  CHECK: python3 -c \"print('ok')\"\n"
+                "  EXPECT: ok\n  EVIDENCE: pending\n")
+        with mock.patch.object(vt, "run_target_json_checks", side_effect=boom), \
+             mock.patch.object(vt, "fetch_body", return_value=body), \
+             mock.patch.object(vt, "fetch_ticket",
+                               return_value={"labels": [{"name": "ready-for-agent"},
+                                                        {"name": "junior-worker"}],
+                                             "state": "OPEN"}), \
+             mock.patch.object(vt, "fetch_comments", return_value=[]), \
+             mock.patch.object(vt, "parent_spec", return_value=None), \
+             mock.patch.object(vt, "post_comment"), \
+             mock.patch.object(vt, "report_phase", return_value=False), \
+             mock.patch.object(vt, "outside_owns_line", return_value="Outside Owns: None"):
+            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                lint_code = vt.run_lint(77)
+                check_code = vt.run_checks(77, True, None)
+        self.assertIn(lint_code, (0, 1))
+        self.assertIn(check_code, (0, 1, 2))
+
+    def test_handoff_does_not_run_checks(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_checks(root, ["false"])
+            text = draft(first="HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 1 met of 2",
+                         criteria=(MET, UNMET),
+                         abandons=("ABANDON: AC2 stuck chromium will not start here; tried the bundled build too",),
+                         counts=counts_line(met=1, abandoned=1, total=2))
+            code, err, seen = check(text, check_only=False, repo=root)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(seen["closed"], [])
+        self.assertEqual(seen["handed"], [77])
+        self.assertEqual(seen["posted"][0][1], text)
+        self.assertNotIn("CHECKS FAILED", seen["posted"][0][1])
 
 
 if __name__ == "__main__":

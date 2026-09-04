@@ -430,6 +430,8 @@ def run(args) -> int:
     origin = f"http://127.0.0.1:{port}"
     route_baseline = sd.baseline_router(origin, baseline, cache)
     hide_js = {s.name: sd.hide_js_for(doc, s.page) for s in plan}
+    paint_js = {s.name: sd.volatile_js_for(doc, s.page) for s in plan}
+    volatile = {s.name: sd.volatile_triggers(doc, s.page) for s in plan}
 
     from playwright.sync_api import sync_playwright
 
@@ -442,7 +444,7 @@ def run(args) -> int:
         if args.shows_perturbation:
             return shows_perturbation(adapter, plan, viewports[0], rows, media)
         return parity(adapter, plan, viewports, rows, media, origin, pages, route_baseline,
-                      hide_js, args)
+                      hide_js, paint_js, volatile, args)
     finally:
         server.shutdown()
         server.server_close()
@@ -560,8 +562,13 @@ def shows_perturbation(adapter, plan, vp, rows, media) -> int:
     return 0
 
 
+def _join_js(*parts: str | None) -> str | None:
+    bits = [p for p in parts if p]
+    return "\n".join(bits) if bits else None
+
+
 def parity(adapter, plan, viewports, rows, media, origin, pages, route_baseline, hide_js,
-           args) -> int:
+           paint_js, volatile, args) -> int:
     from playwright.sync_api import sync_playwright
 
     comparisons: list[Comparison] = []
@@ -597,7 +604,9 @@ def parity(adapter, plan, viewports, rows, media, origin, pages, route_baseline,
                     sd.navigate(bp, f"{origin}{sd.wrapper_path(scene.name)}")
                     sd.wait_for_mount(bp, "#dc-root")
                     return sd.capture(bp, png, selector="#dc-root", clip=(0, 0, w, h),
-                                      extra_css=sd.frame_box((w, h)), extra_js=hide_js[scene.name])
+                                      extra_css=sd.frame_box((w, h)),
+                                      extra_js=_join_js(hide_js[scene.name],
+                                                        paint_js[scene.name]))
 
             def capture_impl(scene, vp, png):
                 sel = sd.mount_selector(scene.mount)
@@ -608,7 +617,8 @@ def parity(adapter, plan, viewports, rows, media, origin, pages, route_baseline,
                 if scene.clock:
                     sd.run_clock(page, scene.clock)
                 box = sd.visible_box(page, sel, vp)
-                return sd.capture(page, png, selector=sel, clip=box)
+                return sd.capture(page, png, selector=sel, clip=box,
+                                  extra_js=paint_js[scene.name])
 
             for scene in plan:
                 ok, why = adapter.ready()
@@ -630,7 +640,8 @@ def parity(adapter, plan, viewports, rows, media, origin, pages, route_baseline,
                         pixel_diff(base_shot.png, impl_shot.png,
                                    media / f"{scene.name}-{tag_vp}-diff.png"),
                         sd.aria_diff(base_shot.aria, impl_shot.aria,
-                                     media / f"{scene.name}-{tag_vp}.aria.diff"),
+                                     media / f"{scene.name}-{tag_vp}.aria.diff",
+                                     volatile=volatile[scene.name] or None),
                         base_shot.console, impl_shot.console, impl_shot.elements,
                         sd.class_diff(base_shot.classes, impl_shot.classes)))
                     if control is None:

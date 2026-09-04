@@ -452,6 +452,36 @@ class TestBaselineServing(unittest.TestCase):
         self.assertIn('"查看账务状态"', js)
         self.assertIn("display = 'none'", js)
 
+    def test_volatile_values_replace_the_name_with_the_same_token_on_both_sides(self):
+        """A wallet balance is an external account; the seed does not write it. The
+        two judges replace the node's text with one token so 12,480 and 20 compare
+        equal. The trigger is the handoff's role and accessible name; a product
+        node matches when its role is the same and the non-digit stem of the name
+        is the same."""
+        triggers = [("text", "鸭豆余额 12,480")]
+        design = '- main:\n  - text: 鸭豆余额 12,480\n  - button "新建商品项目"\n'
+        product = '- main:\n  - text: 鸭豆余额 20\n  - button "新建商品项目"\n'
+        masked_d = sd.mask_volatile(sd.normalize_aria(design), triggers)
+        masked_p = sd.mask_volatile(sd.normalize_aria(product), triggers)
+        self.assertEqual(masked_d, masked_p)
+        self.assertTrue(any("<volatile>" in line for line in masked_d))
+        self.assertFalse(any("12,480" in line or " 20" in line for line in masked_d))
+        self.assertEqual(sd.aria_diff(design, product, volatile=triggers)["changed"], 0)
+        self.assertGreater(sd.aria_diff(design, product)["changed"], 0)
+
+    def test_volatile_paint_js_fills_the_matching_box_on_both_sides(self):
+        js = sd.volatile_paint_js([("text", "鸭豆余额 12,480")])
+        self.assertIn(sd.VOLATILE_FILL, js)
+        self.assertIn("鸭豆余额 12,480", js)
+        self.assertIn("backgroundColor", js)
+        scoped = {"volatile_values": [
+            {"page": "App · 商品项目库.dc.html",
+             "trigger": {"role": "text", "name": "鸭豆余额 12,480"},
+             "reason": "wallet balance is an external account; seed does not write it"}]}
+        self.assertEqual(sd.volatile_triggers(scoped, "App · 商品项目库.dc.html"),
+                         [("text", "鸭豆余额 12,480")])
+        self.assertEqual(sd.volatile_triggers(scoped, "Component · 工作台壳.dc.html"), [])
+
     def test_wrapper_page_carries_inline_head_and_scene(self):
         page = sd.wrapper_page("Component · 壳头", {"scenario": "ready", "standalone": False},
                                "<style>x</style>")

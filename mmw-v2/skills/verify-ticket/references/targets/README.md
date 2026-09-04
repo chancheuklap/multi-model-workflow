@@ -74,7 +74,8 @@ on every machine:
   "discover": "uv run python scripts/testing/target.py discover",
   "reach": "uv run python scripts/testing/reach.py",
   "transport_off": "uv run python scripts/testing/target.py transport off",
-  "transport_on": "uv run python scripts/testing/target.py transport on"
+  "transport_on": "uv run python scripts/testing/target.py transport on",
+  "checks": ["uv run pytest -q", "uv run ruff check ."]
 }
 ```
 
@@ -96,6 +97,15 @@ on every machine:
   is filled from them. It is **idempotent**: it runs once per scene and once per row,
   and a state already there is left there.
 - `transport_off` / `transport_on` answer question 7.
+- `checks` is optional: a list of shell commands, run in order at the repository
+  root by `verify-ticket.py --closeout` after the draft is accepted and before the
+  ticket closes. Any non-zero exit leaves the ticket open and posts a comment whose
+  first line is `CHECKS FAILED`, then each failed command and its last 20 lines of
+  output; every command exiting 0 appends `CHECKS OK <n>/<n>` to the closing
+  comment. `--reverify` and `--lint` do not run them. A repository without the key
+  is unchanged. This is the consuming repository's `AGENTS.md` rule that the worker
+  run the tests themselves, made a gate so a ticket cannot close on green
+  criteria while the rest of the suite is red.
 
 ## Two things no lint can check, so every new target answers them here
 

@@ -513,7 +513,7 @@ _Avoid_: 票评论, COMMENT (as a kind label)
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **first line**:
-The first line of a ticket comment: the pipeline's protocol slot, by which `dispatch.sh wait`, `--closeout`, `advance`, `triage`, and the board recognise a comment — `NOT_READY:`, `self-run`, `reverify`, `VERDICT …`, `DECISIONS`, `REVIEW <base commit>..<HEAD commit>`, `TOUCHED BY #<n>`, `ALL MET`, `HANDOFF REQUIRED: …`, `NIGHT SUMMARY <date>`. A disclaimer therefore goes last. `NIGHT SUMMARY` lists tickets by number and first line.
+The first line of a ticket comment: the pipeline's protocol slot, by which `dispatch.sh wait`, `--closeout`, `advance`, `triage`, and the board recognise a comment — `NOT_READY:`, `self-run`, `reverify`, `VERDICT …`, `DECISIONS`, `REVIEW <base commit>..<HEAD commit>`, `TOUCHED BY #<n>`, `ALL MET`, `HANDOFF REQUIRED: …`, `CHECKS FAILED`, `NIGHT SUMMARY <date>`. A disclaimer therefore goes last. `NIGHT SUMMARY` lists tickets by number and first line.
 _Admitted_: protocol slot
 _Avoid_: 首行, 协议位, status word
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
@@ -555,6 +555,14 @@ _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 **`HANDOFF REQUIRED`**:
 The closing comment's other first line, `HANDOFF REQUIRED: <abandoned> abandoned (<kinds>), <unmet> unmet, <met> met of <total>` — the way out of anything the worker cannot fix itself, held to none of the `VERDICT` conditions. `--closeout` posts it, swaps `ready-for-agent` for `needs-triage`, and leaves the ticket open. gate-check's summary line has a same-prefixed shape, `HANDOFF REQUIRED: <n> abandoned (met: …)`.
 _Home_: `mmw-v2/skills/verify-ticket/references/closeout.md`
+
+**`CHECKS FAILED`**:
+The comment `--closeout` posts instead of the draft when `.mmw/target.json`'s `checks` had a non-zero exit: first line `CHECKS FAILED`, then each failed command and its last 20 lines of output. The ticket stays open, still assigned, still `ready-for-agent`.
+_Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
+
+**`CHECKS OK`**:
+The line `--closeout` appends to an `ALL MET` closing comment when every `checks` command exited 0: `CHECKS OK <n>/<n>`. Absent when the key is absent.
+_Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`Outside Owns:`**:
 The last line of a `self-run` or `reverify` comment and a fixed line of the closing comment: the files this ticket's own commits changed that no `## Owns` glob covers, along the first-parent chain since the base commit, merges excluded; computed by `verify-ticket.py`, copied into the draft, explained there with the Spec axis's judgement of each file (`reasonable` or `should not`); `None` when empty. The `DECISIONS` comment carries the same line with one sentence per file, the Spec axis judges each, and before the draft is written the worker leaves a comment opening `TOUCHED BY #<n>` on every open ticket under the same spec whose `## Owns` covers that file, saying what changed, why, and the judgement. No script finds those tickets and `--closeout` checks none of this. The question is asked of this ticket's own commits, so a run on any branch but `issue-<n>` writes `Outside Owns: not checked on <branch>, which carries more than this ticket` instead. It is an explanation, not a criterion.
@@ -687,8 +695,12 @@ _Avoid_: platform (bare), 目标 (as a term), 适配器
 _Home_: `mmw-v2/skills/verify-ticket/references/targets/README.md`
 
 **`.mmw/target.json`**:
-The consuming repository's machine facts, read by the driver and never written in a contract or a criterion: `start` (a command that brings the product up, choosing inside itself everything the product needs, and returns once it answers — the driver runs it when `ready` finds nothing answering, so no agent starts the product by hand), `discover` (a command printing one JSON object of addresses), `reach` (the reach script the mechanism names are appended to), `transport_off` and `transport_on`. Addresses change per machine and per worktree; this file is where they are answered afresh.
+The consuming repository's machine facts, read by the driver and never written in a contract or a criterion: `start` (a command that brings the product up, choosing inside itself everything the product needs, and returns once it answers — the driver runs it when `ready` finds nothing answering, so no agent starts the product by hand), `discover` (a command printing one JSON object of addresses), `reach` (the reach script the mechanism names are appended to), `transport_off` and `transport_on`, and optional `checks` (shell commands `--closeout` runs at the repository root after an `ALL MET` draft is accepted and before the ticket closes — the consuming repository's rule that the worker run the tests themselves, made a gate). Addresses change per machine and per worktree; this file is where they are answered afresh.
 _Avoid_: target config, 地址文件
+_Home_: `mmw-v2/skills/verify-ticket/references/targets/README.md`
+
+**`checks`**:
+The optional key of `.mmw/target.json`: a list of shell commands run in order at the repository root by `--closeout` only, after the draft is accepted and before an `ALL MET` ticket closes. Any non-zero exit posts `CHECKS FAILED` and does not close; every command exiting 0 appends `CHECKS OK <n>/<n>` to the closing comment. `--reverify`, `--lint`, `--check-only`, and a `HANDOFF REQUIRED` draft do not run them. A repository without the key is unchanged.
 _Home_: `mmw-v2/skills/verify-ticket/references/targets/README.md`
 
 **reach script**:
@@ -715,6 +727,10 @@ _Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
 The third judge of interface parity: the set of class names in the subtree under the mount, runtime prefixes (`sc-`, `dc-`) removed, compared as a set; a class one side lacks fails the scene and names the first element wearing it. Its reason to exist: the stylesheets are copied byte for byte, so a wrong colour or gap on the right element is a wrong class, which the tree cannot see and a pixel share cannot name.
 _Avoid_: 类名集合, class list
 _Home_: `mmw-v2/skills/verify-ticket/references/ui-parity.md`
+
+**`volatile_values`**:
+A top-level list on the screen contract of display values the seed must not write — a wallet balance belonging to an external account, not a difference to hide. Each entry is a `page`, a `trigger` (role and accessible name, the same shape as `retired_ids`), and one line of `reason`. Before either judge of interface parity compares, both sides replace that node's text with one token: the tree name becomes `<volatile>`, and the pixel judge paints the node's box the same solid colour. A product node matches when its role equals the trigger's and the non-digit stem of the accessible name is the same as the handoff's. The lint prints every entry on every run and warns when the trigger is not in that page's target tree.
+_Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
 
 **perturbation run**:
 `visual-parity.py --shows-perturbation`: every scene seeded twice, from `data/fixtures.js` and then with other values (`--perturb` to the reach script), and every scene whose rows declare `shows` must read differently — `SHOWS OK <n>/<n>`, or `SHOWS-STATIC <scene>` for a value that is hard coded or fed from the wrong field.
@@ -891,7 +907,7 @@ _Avoid_: 交接前自审
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **closeout**:
-`verify-ticket.py <n> --closeout <draft>`, the closing gate — the only place in the pipeline that closes a ticket or changes a label. It checks the draft against the ticket and the repository (first line, kinds, evidence behind every tick, `Counts:` agreeing with the first line, `VERDICT` on the ticket, `Post-verdict:` when HEAD moved, no uncommitted tracked changes and the branch containing its base commit). A refusal changes nothing, names the condition on stderr, and exits 1; the worker fixes the draft or the ticket and runs again. On `ALL MET` it posts the comment, removes `ready-for-agent`, and closes the ticket (`gh issue close --reason completed`, `CLOSED: #<n>`, `phase=closed`); on `HANDOFF REQUIRED` it posts the comment, hands the ticket back, and leaves it open (`phase=handoff`). `--check-only` is the dry run, printing `CLOSEOUT OK: #<n> draft passes every check`. A command that would bypass it is refused by `hook.py`.
+`verify-ticket.py <n> --closeout <draft>`, the closing gate — the only place in the pipeline that closes a ticket or changes a label. It checks the draft against the ticket and the repository (first line, kinds, evidence behind every tick, `Counts:` agreeing with the first line, `VERDICT` on the ticket, `Post-verdict:` when HEAD moved, no uncommitted tracked changes and the branch containing its base commit). A refusal changes nothing, names the condition on stderr, and exits 1; the worker fixes the draft or the ticket and runs again. On `ALL MET` it then runs `.mmw/target.json`'s optional `checks`; a failure posts `CHECKS FAILED` and does not close. On success it posts the comment (with `CHECKS OK <n>/<n>` when `checks` ran), removes `ready-for-agent`, and closes the ticket (`gh issue close --reason completed`, `CLOSED: #<n>`, `phase=closed`); on `HANDOFF REQUIRED` it posts the comment, hands the ticket back, and leaves it open (`phase=handoff`). `--check-only` is the dry run, printing `CLOSEOUT OK: #<n> draft passes every check`, and does not run `checks`. A command that would bypass it is refused by `hook.py`.
 _Admitted_: closing gate
 _Avoid_: 关票门, the gate at the end, 关票 (as a term)
 _Home_: `mmw-v2/skills/verify-ticket/references/closeout.md`

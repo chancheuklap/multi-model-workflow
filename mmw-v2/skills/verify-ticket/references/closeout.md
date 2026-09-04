@@ -15,3 +15,5 @@ Fix the draft, or fix what the draft describes, and run it again.
 - **The ticket.** Still `OPEN`, and assigned to you.
 
 `HANDOFF REQUIRED` is held to none of the `VERDICT` conditions. It claims nothing was finished, so it is the way out of anything you cannot fix yourself, including a verifier that never ran. Whether the work is any good is what the `CHECK` commands, the verifier and `code-review` decide before you write the draft.
+
+After the draft is accepted and before an `ALL MET` ticket closes, `--closeout` runs `.mmw/target.json`'s optional `checks` at the repository root ([targets/README.md](targets/README.md)). A failure posts `CHECKS FAILED` and does not close; a pass appends `CHECKS OK <n>/<n>` to the closing comment. `--check-only`, `--reverify` and `--lint` do not run them. A `HANDOFF REQUIRED` draft does not either.
