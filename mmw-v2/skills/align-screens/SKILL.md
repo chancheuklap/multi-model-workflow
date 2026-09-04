@@ -40,7 +40,7 @@ Then, for each page in `scenes.json`, one `pages` entry: its **`mount`** — the
 Then a control whose behaviour differs by state gets one row per state — `precondition` is the column that tells them apart (`material: none` and `material: added` are two rows for the same button). Three cases that come up on every page:
 
 - **A disabled state is a row.** The user sees the control; the row says `calls: [none]` and `next` is the scene the user stays in.
-- **A control whose accessible name embeds a shown value** (`商品素材_洗洁精.jpg 已添加 …`) appears in the skeleton once per value. Keep the name as the skeleton reports it — the trigger is on the look side of the split — and put the value's field in `shows`. One row per state, as above.
+- **A control whose accessible name embeds a shown value** (`附件_报告.pdf 已添加 …`) appears in the skeleton once per value. Keep the name as the skeleton reports it — the trigger is on the look side of the split — and put the value's field in `shows`. One row per state, as above.
 - **A state the handoff never shows** (the form complete, ready to submit) is still a row when the backend decisions reach it. Its `scenes` is `[]`; the lint reports it as a warning so the handoff gap is on record.
 
 A name the accessibility tree gets from a placeholder or a hint is copied all the same, and reported as an accessibility defect of the handoff in the run's notes.
@@ -49,7 +49,7 @@ A name the accessibility tree gets from a placeholder or a hint is copied all th
 
 For every row: `calls`, `shows`, `next`, `on_failure`, `source`, `reach`, `gap`. The rules that decide each column are in the format reference; the ones people get wrong:
 
-- `shows` names fields, never values: `balance@GET /api/wallet`, `path@ipc chameleon:image:select`, `unit_price@RuntimePolicy` — not `12480`, and not a status code either. The literals in `data/fixtures.js` are seed data for tests, not copy — and so are their **counts**: a seed makes as many rows as the fixtures draw.
+- `shows` names fields, never values: `balance@GET /api/wallet`, `path@ipc app:file:select`, `unit_price@RuntimePolicy` — not `1234`, and not a status code either. The literals in `data/fixtures.js` are seed data for tests, not copy — and so are their **counts**: a seed makes as many rows as the fixtures draw.
 - `calls` names what the control does to the system: an HTTP operation as it appears in `openapi.json`, the target's non-HTTP form, or `none`. A control that only changes local view state is `none` and still a row; its `next` is the row or scene the user is in afterwards. An operation the decisions require and `openapi.json` lacks goes in the row as it will be named, and once more under `proposed_operations`; the API contract draft in step 6 describes it.
 - `source` quotes where the behaviour was decided, in the shapes the format reference lists: a decision ticket, a spec section, an ADR, a domain-doc term, a README section. A story is an audit trail no worker reads; cite the Implementation Decisions subsection that carries its conclusion. Existing code counts only as a last resort, written `code:<path>`, and a row whose sources are all `code:` and README is a `design-only` candidate — check the decisions again before marking it.
 - `reach` is a reference into the mechanism registry (`seed:<state>`, `stub:<seam>-<script>`, `dev:<capability>`), never free text. A mechanism nobody has declared yet goes on the gap list.

@@ -215,8 +215,8 @@ The design tool whose downloaded project is the handoff package and the baseline
 _Home_: `mmw-v2/skills/claude-design-blocks/references/porting.md`
 
 **component**:
-A root-level `<name>.dc.html` page in a Claude Design project that exposes a `scenario` prop. A handoff package carries one. Its helmet pins the page root `#dc-root`, which is where the baseline side is screenshotted from. A wrapper page imports it with `<dc-import name="…" scenario="…">`, whose `scenario` attribute pins one scene.
-_Avoid_: design component, scenario 属性
+A root-level `<name>.dc.html` page in a Claude Design project that exposes a `scene` prop, one value per state. A handoff package carries one. Its helmet pins the page root `#dc-root`, which is where the baseline side is screenshotted from. A wrapper page imports it with `<dc-import name="…" scene="…">`, whose `scene` attribute pins one scene.
+_Avoid_: design component, scenario, scenario 属性, 状态开关
 _Home_: `mmw-v2/skills/claude-design-blocks/references/porting.md`
 
 **handoff package**:
@@ -225,8 +225,8 @@ _Avoid_: 交接包, 开发交接包, 基线目录, UI 基线
 _Home_: `mmw-v2/skills/verify-ticket/references/ui-parity.md`
 
 **scene**:
-One entry of `scenes.json`: `name`, `page` (the `.dc.html` it pins), and `props` (the prop set that puts the design page into that state). The screen contract declares every scene once under `scenes`, with its page, its `reach` and its `open`, and the product is put into it through those — never through a query parameter the view answers from fixtures. Each scene gets its own screenshot, tree and class set per viewport. The name may not contain `/`, because its wrapper page is `/__parity-<name>.dc.html`. In Claude Design a scene is a prop set from the Tweaks panel.
-_Avoid_: 场景 (when a scene is meant), 场景列表, scenario (for a scene)
+One entry of `scenes.json`: `name`, `page` (the `.dc.html` it pins), and `props` (the prop set that puts the design page into that state). The screen contract declares every scene once under `scenes`, with its page, its `reach` and its `open`, and the product is put into it through those — never through a query parameter the view answers from fixtures. Each scene gets its own screenshot, tree and class set per viewport. The name may not contain `/`, because its wrapper page is `/__parity-<name>.dc.html`. In Claude Design a scene is one value of a component's `scene` prop, switched from the Tweaks panel; the word is the same on both sides, and there is no second word for it.
+_Avoid_: 场景 (when a scene is meant), 场景列表, scenario, 状态
 _Home_: `mmw-v2/skills/claude-design-blocks/references/handoff.md`
 
 **`DESIGN.md`**:
@@ -687,7 +687,7 @@ _Avoid_: platform (bare), 目标 (as a term), 适配器
 _Home_: `mmw-v2/skills/verify-ticket/references/targets/README.md`
 
 **`.mmw/target.json`**:
-The consuming repository's machine facts, read by the driver and never written in a contract or a criterion: `discover` (a command printing one JSON object of addresses), `reach` (the reach script the mechanism names are appended to), `transport_off` and `transport_on`. Addresses change per machine and per worktree; this file is where they are answered afresh.
+The consuming repository's machine facts, read by the driver and never written in a contract or a criterion: `start` (a command that brings the product up, choosing inside itself everything the product needs, and returns once it answers — the driver runs it when `ready` finds nothing answering, so no agent starts the product by hand), `discover` (a command printing one JSON object of addresses), `reach` (the reach script the mechanism names are appended to), `transport_off` and `transport_on`. Addresses change per machine and per worktree; this file is where they are answered afresh.
 _Avoid_: target config, 地址文件
 _Home_: `mmw-v2/skills/verify-ticket/references/targets/README.md`
 

@@ -70,13 +70,24 @@ on every machine:
 
 ```json
 {
-  "discover": "bash scripts/dev/agentflow-dev.sh local-prod status --json",
-  "reach": "uv run python scripts/testing/chameleon_reach.py",
-  "transport_off": "bash scripts/dev/agentflow-dev.sh local-prod transport off",
-  "transport_on": "bash scripts/dev/agentflow-dev.sh local-prod transport on"
+  "start": "uv run python scripts/testing/target.py start",
+  "discover": "uv run python scripts/testing/target.py discover",
+  "reach": "uv run python scripts/testing/reach.py",
+  "transport_off": "uv run python scripts/testing/target.py transport off",
+  "transport_on": "uv run python scripts/testing/target.py transport on"
 }
 ```
 
+- `start` brings the product up and returns once it answers. **Nobody starts the
+  product by hand for a run**: when `ready` says the product is not answering, the
+  driver runs `start` once, then `discover` and `ready` again; a repository without
+  `start` gets a run that stops on the first scene naming what to declare. Everything
+  the product needs in order to run — which backing service to point at, which data
+  directory to use, which log to write — is found or chosen *inside* this command, by
+  the repository's own rules, and never typed into a session: an agent told those
+  facts in a message works once; the next agent is not told. `start` is idempotent (a
+  product already answering is left alone), refuses rather than kills when something
+  else holds its ports (naming what it found), and prints to stderr what it chose.
 - `discover` prints one JSON object of addresses; each kind's file says which keys.
 - `reach` is a command prefix; the driver appends the mechanism names of a scene or a
   row (`seed:library-ready dev:image-select-path`) and, for the perturbation run,

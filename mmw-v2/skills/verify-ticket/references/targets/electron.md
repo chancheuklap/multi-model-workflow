@@ -7,8 +7,8 @@ verify-ticket/references/targets/electron.md`. Adapter class: `ElectronAdapter`.
 ## `discover` prints
 
 ```json
-{"cdp": "http://127.0.0.1:9229", "impl": "http://127.0.0.1:5173/",
- "backend": "http://127.0.0.1:8794", "title": "Chameleon"}
+{"cdp": "http://127.0.0.1:9222", "impl": "http://127.0.0.1:4173/",
+ "backend": "http://127.0.0.1:8000", "title": "Notes"}
 ```
 
 `cdp` is the renderer's debugging port, `impl` the address the renderer is served at,
@@ -28,7 +28,7 @@ here is ever written down anywhere else.
 2. **ready** — `GET <backend>/health` answers under 400, and the attached page is not
    closed. Asked again before every scene and every row.
 3. **address** — `<impl>/` + the route with its leading `/` stripped: `#/project/{id}`
-   becomes `http://127.0.0.1:5173/#/project/p1`. After `goto`, the driver reloads: a
+   becomes `http://127.0.0.1:4173/#/project/p1`. After `goto`, the driver reloads: a
    hash-routed application returns from `networkidle` on a same-document fragment jump
    before the view re-rendered.
 4. **release** — the device-metrics override is cleared, the controlled clock resumed,
@@ -53,13 +53,17 @@ here is ever written down anywhere else.
 
 ## What the repository provides
 
+- `start` in `.mmw/target.json`: launches the application's development mode with the
+  backing service and data directory it chose, waits for `backend` and `cdp` to answer,
+  and returns; it is what makes a run possible on a machine where nobody opened the
+  application first.
 - Every declared `route` opens and lands on an element carrying `data-screen="<mount>"`;
   the value is unique in one render; a top-level dialog is inside the screenshotted
   subtree, or its scene overrides `mount` to the page root's id.
 - The reach script with every mechanism of the table; `dev:` capabilities registered
   in the repository's own port table.
 - A static guard: no module reachable from the renderer entry imports fixtures or a
-  `dev/` directory; no component takes a scenario-like prop; the stylesheets copied from
+  `dev/` directory; no component takes a scene-like prop; the stylesheets copied from
   the handoff package compare byte for byte (`cmp`).
 - The seeded counts follow `data/fixtures.js` (fixed-height panels hide this; state it
   in the reach script anyway).

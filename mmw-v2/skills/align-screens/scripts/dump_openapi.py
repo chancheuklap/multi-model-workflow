@@ -2,7 +2,7 @@
 exporter does not cover the product.
 
 Usage: uv run python dump_openapi.py <module>:<factory> <out.json>
-       e.g. dump_openapi.py chameleon.runtime:create_app scratch/openapi.json
+       e.g. dump_openapi.py myapp.runtime:create_app scratch/openapi.json
 Run it from the repository root so the module imports.
 """
 import importlib

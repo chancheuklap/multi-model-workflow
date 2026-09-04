@@ -55,7 +55,7 @@ html = f'''<!DOCTYPE html>
         }}
         componentWillUnmount() {{ clearTimeout(this._w); clearTimeout(this._t); this.cleanup && this.cleanup(); }}
         componentDidUpdate(prev) {{
-          if (prev.scenario !== this.props.scenario) this.setState(this.init(this.props), () => this.onReady && this.onReady());
+          if (prev.scene !== this.props.scene) this.setState(this.init(this.props), () => this.onReady && this.onReady());
           this.afterUpdate && this.afterUpdate(prev);
         }}
         toast(msg) {{

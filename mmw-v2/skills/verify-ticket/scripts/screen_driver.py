@@ -23,9 +23,14 @@ contract; the reference file each `targets/<kind>.md` names is the human account
 Machine facts — addresses, the reach script, how to break the transport — are never in
 the contract. They come from `.mmw/target.json` at the repository root:
 
-    {"discover": "<command printing one JSON object of addresses>",
+    {"start": "<command that brings the product up and returns when it answers>",
+     "discover": "<command printing one JSON object of addresses>",
      "reach": "<command prefix; mechanism names are appended>",
      "transport_off": "<command>", "transport_on": "<command>"}
+
+Nobody starts the product by hand for a run: when `ready` says it is not answering, the
+driver runs `start` once and asks again. A repository that declares no `start` gets a
+run that stops on the first scene with the words to add it.
 
 `discover` prints, per kind: electron `cdp`, `impl`, `backend`, optional `title`;
 web-server-rendered / web-spa `origin`, optional `ready` (a path answering 2xx when up,
@@ -44,6 +49,7 @@ import re
 import shlex
 import socketserver
 import subprocess
+import sys
 import threading
 import urllib.error
 import urllib.parse
@@ -1232,13 +1238,48 @@ ADAPTERS = {a.kind: a for a in (ElectronAdapter, WebAdapter, WebSpaAdapter,
                                 ChromeExtensionAdapter)}
 
 
+START_TIMEOUT_S = 600
+
+
 def adapter_for(doc: dict, root: Path) -> Adapter:
     kind = str((doc.get("target") or {}).get("kind") or "")
     cls = ADAPTERS.get(kind)
     if cls is None:
         raise SystemExit(f"target.kind {kind!r} has no adapter; one of {sorted(ADAPTERS)}")
     cfg = target_config(root)
-    return cls(cfg, discover(cfg, root), root)
+    adapter = cls(cfg, discover(cfg, root), root)
+    bring_up(adapter)
+    return adapter
+
+
+def bring_up(adapter: Adapter) -> None:
+    """The product answering before the first scene. `ready` is asked; when it says no,
+    `.mmw/target.json`'s `start` is run once — the repository's own way of bringing its
+    product up, with whatever it needs found or chosen inside that command — and
+    `discover` and `ready` are asked again. Nothing here is told how the product
+    starts, and nobody is expected to have started it by hand."""
+    ok, why = adapter.ready()
+    if ok:
+        return
+    start = adapter.cfg.get("start")
+    if not start:
+        raise SystemExit(f"{why}; .mmw/target.json declares no `start`, so the run cannot "
+                         f"bring the product up itself. Declare `start` (a command that "
+                         f"brings it up and returns once it answers; see "
+                         f"verify-ticket/references/targets/README.md)")
+    print(f"target not answering ({why}); running start: {start}", file=sys.stderr)
+    try:
+        proc = subprocess.run(shlex.split(start), cwd=adapter.root, capture_output=True,
+                              text=True, timeout=START_TIMEOUT_S)
+    except subprocess.TimeoutExpired as exc:
+        raise SystemExit(f"`{start}` did not return within {START_TIMEOUT_S}s") from exc
+    if proc.returncode != 0:
+        raise SystemExit(f"`{start}` exited {proc.returncode}: "
+                         f"{proc.stderr.strip() or proc.stdout.strip()}")
+    adapter.addresses = discover(adapter.cfg, adapter.root)
+    ok, why = adapter.ready()
+    if not ok:
+        raise SystemExit(f"`{start}` returned 0 but the product is still not answering: {why}")
 
 
 def skill_root() -> Path:

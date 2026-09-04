@@ -464,3 +464,40 @@ class TestBaselineServing(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestBringUp(unittest.TestCase):
+    class Stub:
+        def __init__(self, answers, cfg, root):
+            self.answers, self.cfg, self.root, self.addresses = list(answers), cfg, root, {}
+
+        def ready(self):
+            return self.answers.pop(0)
+
+    def test_an_answering_product_is_left_alone(self):
+        a = self.Stub([(True, "")], {}, Path("."))
+        sd.bring_up(a)
+
+    def test_no_start_declared_names_what_to_declare(self):
+        a = self.Stub([(False, "no backend")], {"discover": "x"}, Path("."))
+        with self.assertRaises(SystemExit) as raised:
+            sd.bring_up(a)
+        self.assertIn("`start`", str(raised.exception))
+
+    def test_start_is_run_once_then_discover_and_ready_again(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cfg = {"start": "true",
+                   "discover": "printf %s '{\"cdp\": \"http://127.0.0.1:1\"}'"}
+            a = self.Stub([(False, "down"), (True, "")], cfg, root)
+            sd.bring_up(a)
+            self.assertEqual(a.addresses, {"cdp": "http://127.0.0.1:1"})
+            self.assertEqual(a.answers, [])
+
+    def test_a_start_that_returns_but_leaves_it_down_is_reported(self):
+        cfg = {"start": "true", "discover": "printf %s '{}'"}
+        a = self.Stub([(False, "down"), (False, "still down")], cfg, Path("."))
+        with self.assertRaises(SystemExit) as raised:
+            sd.bring_up(a)
+        self.assertIn("still down", str(raised.exception))
+

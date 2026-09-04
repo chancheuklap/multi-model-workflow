@@ -7,7 +7,7 @@ Two axes. The **control axis** is `rows`: one row per user-visible behaviour, ke
 ## Top level
 
 ```yaml
-effort: chameleon-s3                      # the wayfinder map's title, as in docs/specs/<effort>/
+effort: notes-v2                          # the wayfinder map's title, as in docs/specs/<effort>/
 baselines:
   look: docs/prototypes/<task>/claude-design   # the handoff package directory, unchanged
   precedence: "look & verbatim copy -> handoff package; calls, shows, next, on_failure, timing -> this file"
@@ -16,38 +16,38 @@ target:
   adapter: verify-ticket/references/targets/electron.md   # relative to the skills install root; read by the scripts
 viewports: [1440x900, 1180x720]           # copied from the handoff package README; never a breakpoint of its stylesheets
 mechanisms:                               # the spec's mechanism registry, with who builds each and how it writes
-  seed:project-with-subjects:
+  seed:note-with-attachments:
     via: api                              # api (default: the product's own write surface) | storage (declared exception)
-    built_by: "#639"                      # the ticket that makes it executable
-  seed:project-unresolved-billing:
+    built_by: "#12"                       # the ticket that makes it executable
+  seed:note-locked-by-sync:
     via: storage
-    built_by: "#637"
-    proven_by: "#639 AC2"                 # a storage mechanism names the criterion proving the product reaches the state itself
+    built_by: "#10"
+    proven_by: "#12 AC2"                 # a storage mechanism names the criterion proving the product reaches the state itself
 pages:                                    # one per .dc.html page of scenes.json
-  "App · 商品项目库.dc.html":
-    mount: library-app                    # the data-screen value of the product element this page is
+  "App · 笔记列表.dc.html":
+    mount: notes-app                    # the data-screen value of the product element this page is
     route: "#/"
-  "Component · 工作台壳.dc.html":
-    mount: workbench-shell
-    route: "#/project/{project_id}"       # {placeholders} are filled from the reach script's KEY=VALUE output
-    component: features/project-setup/WorkbenchShell   # the rows' component value this page owns (Component pages only)
+  "Component · 笔记壳.dc.html":
+    mount: note-shell
+    route: "#/note/{note_id}"       # {placeholders} are filled from the reach script's KEY=VALUE output
+    component: features/note/NoteShell   # the rows' component value this page owns (Component pages only)
 scenes:                                   # one per entry of scenes.json
-  library-delete-confirm:
-    page: "Component · 工作台壳.dc.html"
-    reach: [seed:project-with-subjects]
-    open: [workbench-shell.delete.preview.allowed]   # row ids to perform, in order; the last row's next is this scene
-  library-name-duplicate:
-    page: "Component · 新建商品项目.dc.html"
-    route: "#/new-project"                # overrides the page's route
-    mount: create-project                 # overrides the page's mount (a top-level dialog scene overrides to the page root's id)
-    reach: [seed:library-ready]
+  note-delete-confirm:
+    page: "Component · 笔记壳.dc.html"
+    reach: [seed:note-with-attachments]
+    open: [note-shell.delete.preview.allowed]   # row ids to perform, in order; the last row's next is this scene
+  notes-name-duplicate:
+    page: "Component · 新建笔记.dc.html"
+    route: "#/new-note"                   # overrides the page's route
+    mount: create-note                 # overrides the page's mount (a top-level dialog scene overrides to the page root's id)
+    reach: [seed:notes-ready]
     open:
-      - row: create-project.name
-        value: "{existing_project_name}"  # an input role carries a value; from data/fixtures.js or a reach KEY
-  task-wait:
-    page: "Component · 任务详情.dc.html"
-    reach: [seed:copy-ready]
-    open: [copy-confirm.submit, gate-two.submit]
+      - row: create-note.name
+        value: "{existing_note_name}"  # an input role carries a value; from data/fixtures.js or a reach KEY
+  share-wait:
+    page: "Component · 分享详情.dc.html"
+    reach: [seed:note-ready]
+    open: [note-shell.share, share-confirm.submit]
     clock: 3000                           # virtual ms run after open, for a state the design defines by elapsed time
 readme_dispositions:                      # every README sentence that states a behaviour, for the pages in scope
   - text: "create 下一步 → analysis →（自动 1800ms）→ confirm"
@@ -94,16 +94,16 @@ A `retired_ids` entry with a `trigger` names the `page` the control is on; the j
 ## A row
 
 ```yaml
-- id: create-project.add-material         # <component>.<behaviour>; stable once published
-  component: features/project-setup/CreateProjectView   # where the implementation owns it
-  trigger: { role: button, name: "添加商品素材 拖入图片，或从本机选择" }   # exactly as the accessibility tree says
-  precondition: { material: none }        # what must already be true; {} when nothing
-  scenes: [empty, library-material-required, add-material]   # scenes.json names where the control is visible
-  calls: ["ipc chameleon:image:select", "POST /api/projects/{project_id}/draft"]   # or [none]
-  shows: { material_name: "basename(unconfirmed_material_path@GET /api/projects/{project_id}/draft)" }
-  next: create-project.material-pending   # a row id, a scene name, or a state name from the domain doc
-  route: "#/new-project"                  # where the implementation shows this control; the wiring check navigates here
-  observe: ["GET /api/projects/{project_id}/draft -> .has_draft == true"]   # the read surface that proves `next`
+- id: create-note.add-attachment          # <component>.<behaviour>; stable once published
+  component: features/note/CreateNoteView   # where the implementation owns it
+  trigger: { role: button, name: "添加附件 拖入文件，或从本机选择" }   # exactly as the accessibility tree says
+  precondition: { attachment: none }      # what must already be true; {} when nothing
+  scenes: [empty, notes-attachment-required, add-attachment]   # scenes.json names where the control is visible
+  calls: ["ipc app:file:select", "POST /api/notes/{note_id}/draft"]   # or [none]
+  shows: { attachment_name: "basename(attachment_path@GET /api/notes/{note_id}/draft)" }
+  next: create-note.attachment-pending    # a row id, a scene name, or a state name from the domain doc
+  route: "#/new-note"                     # where the implementation shows this control; the wiring check navigates here
+  observe: ["GET /api/notes/{note_id}/draft -> .has_draft == true"]   # the read surface that proves `next`
   on_failure: { dialog_cancelled: no-change, draft_4xx: toast:NEXT_FAILED_TITLE }
   source: ["#537 Implementation Decisions 2", "#420", "README §5.3 (transition overridden)"]
   reach: seed:project-empty               # a mechanisms entry

@@ -51,8 +51,8 @@ wrong class, which the tree cannot see and a pixel share cannot name.
 
 Pixels: both screenshots are shrunk by `PIXEL_SCALE` (box average) before they are
 compared, which removes glyph rendering and sub-`PIXEL_SCALE` offsets; the share of cells
-that still differ is compared with `--max-pct`. Measured on ticket #548 of the chameleon
-repository (2026-09-02, six scenes, two viewports): with the tree identical, the residue
+that still differ is compared with `--max-pct`. Measured on the first repository this
+ran against (2026-09-02, six scenes, two viewports): with the tree identical, the residue
 from font rendering alone was 0.04%–1.52% after shrinking by 4; scenes whose copy and
 layout were wrong measured 1.5%–31%, and every one of those also failed on the tree.
 
