@@ -88,6 +88,35 @@ def target_hashes(path: Path) -> dict[str, str]:
     return out
 
 
+def scene_name_of(value) -> str:
+    """The scene a `next` or `on_failure` value names: its first token, before any
+    explanation in parentheses or a `|` alternative."""
+    return re.split(r"[\s(|]", str(value or "").strip(), maxsplit=1)[0]
+
+
+def open_lands(row: dict, scene: str, page: str, scene_pages: dict[str, str], decl: dict) -> bool:
+    """Whether performing `row` last lands `scene`. Four ways it can: the row's `next`
+    is the scene; its `next` is a scene on the same design page (the action lands the
+    page, the `reach` decides which state); one of its `on_failure` values is the scene
+    (a failure the scene's stub scripts); or the scene is an `App · ` whole-surface page
+    that contains the block the action lands. A scene that lists the row among its
+    visible controls and stays on screen after the action (a queue row selected while
+    the task opens beside it) counts too."""
+    nxt = scene_name_of(row.get("next"))
+    if nxt == scene:
+        return True
+    if nxt in scene_pages and scene_pages[nxt] == page:
+        return True
+    for value in (row.get("on_failure") or {}).values():
+        if scene_name_of(value) == scene:
+            return True
+    if page.startswith("App · "):
+        return True
+    if scene in (row.get("scenes") or []):
+        return True
+    return False
+
+
 def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
                      contract_dir: Path | None) -> tuple[list[str], list[str]]:
     """The screen axis: target, viewports, pages, scenes, the mechanism table, the
@@ -202,9 +231,13 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
             if role in INPUT_ROLES and value in (None, ""):
                 errors.append(f"scenes: {name!r} open step {i + 1} ({rid}) is a {role} and "
                               f"carries no value")
-            if i == len(steps) - 1 and str(row.get("next")) != name:
+            if i == len(steps) - 1 and not open_lands(row, name, page, scene_pages, decl):
                 errors.append(f"scenes: {name!r} open ends on {rid}, whose next is "
-                              f"{row.get('next')!r}, not this scene")
+                              f"{row.get('next')!r} and whose on_failure names no "
+                              f"{name!r}; the action does not land this scene")
+        clock = decl.get("clock")
+        if clock is not None and (not isinstance(clock, int) or clock < 0):
+            errors.append(f"scenes: {name!r} clock {clock!r} is not a whole number of milliseconds")
     # -- mechanisms
     if as_list and mechanisms:
         errors.append("mechanisms is a list; each entry needs `via` and `built_by` "
@@ -255,6 +288,15 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
     retired = {str(e.get("id")) for e in retired_entries}
     retired_triggers = {(e["trigger"].get("role"), e["trigger"].get("name"))
                         for e in retired_entries if isinstance(e.get("trigger"), dict)}
+    for e in retired_entries:
+        t = e.get("trigger")
+        if isinstance(t, dict) and not e.get("page"):
+            pages_with = {r["page"] for r in skeleton["table"]
+                          if (r["role"], r["name"]) == (t.get("role"), t.get("name"))}
+            if len(pages_with) > 1:
+                warnings.append(f"retired {e.get('id')}: trigger {t.get('role')} {t.get('name')!r} "
+                                f"exists on {len(pages_with)} pages and the entry names no `page`; "
+                                f"the judges would hide it everywhere")
     triggers: dict[tuple[str, str], set[str]] = {}
     for r in skeleton["table"]:
         triggers.setdefault((r["role"], r["name"]), set()).update(r["scenes"])

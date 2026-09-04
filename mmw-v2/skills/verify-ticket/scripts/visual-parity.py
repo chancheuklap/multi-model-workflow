@@ -394,6 +394,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--cdn", metavar="DIR", default=None,
                    help="cache for the scripts `support.js` loads, when the handoff package "
                         "carries no vendor/ copy")
+    p.add_argument("--addressing", action="store_true",
+                   help="the addressing self-check: for every selected scene, run its reach, "
+                        "fill its route, navigate, and assert the mount element is there; no "
+                        "open, no baseline, no comparison")
     p.add_argument("--render-only", action="store_true",
                    help="render the baseline side of the selected scenes into --out and "
                         "stop; no product is needed")
@@ -415,7 +419,6 @@ def run(args) -> int:
     explicit = [s.strip() for s in args.scenes.split(",") if s.strip()] if args.scenes else None
     plan = sd.scene_plan(doc, catalogue, mounts, explicit)
     rows = sd.rows_by_id(doc)
-    retired = sd.retired_triggers(doc)
     out = Path(args.out).resolve() if args.out else Path("./parity-shots").resolve()
     media = out / "media"
     media.mkdir(parents=True, exist_ok=True)
@@ -426,7 +429,7 @@ def run(args) -> int:
     server, port = sd.serve_baseline(baseline, pages)
     origin = f"http://127.0.0.1:{port}"
     route_baseline = sd.baseline_router(origin, baseline, cache)
-    hide_js = sd.hide_retired_js(retired) if retired else None
+    hide_js = {s.name: sd.hide_js_for(doc, s.page) for s in plan}
 
     from playwright.sync_api import sync_playwright
 
@@ -434,6 +437,8 @@ def run(args) -> int:
         if args.render_only:
             return render_only(plan, viewports, media, origin, route_baseline, hide_js)
         adapter = sd.adapter_for(doc, root)
+        if args.addressing:
+            return addressing(adapter, plan, viewports[0])
         if args.shows_perturbation:
             return shows_perturbation(adapter, plan, viewports[0], rows, media)
         return parity(adapter, plan, viewports, rows, media, origin, pages, route_baseline,
@@ -458,9 +463,46 @@ def render_only(plan, viewports, media, origin, route_baseline, hide_js) -> int:
             sd.navigate(page, f"{origin}{sd.wrapper_path(scene.name)}")
             sd.wait_for_mount(page, "#dc-root")
             sd.capture(page, media / f"{scene.name}-baseline.png", selector="#dc-root",
-                       extra_js=hide_js)
+                       extra_js=hide_js[scene.name])
             print(f"rendered {scene.name} -> {media / (scene.name + '-baseline.png')}")
         browser.close()
+    return 0
+
+
+def addressing(adapter, plan, vp) -> int:
+    """The contract ticket's check that needs no interface: the whole addressing model
+    — the state can be put, the placeholders fill, the route is reachable, the mount is
+    where the contract says — proved against an empty surface. Prints `ADDRESSING OK
+    <n>/<n>` or one `UNREACHABLE <scene> — <why>` per scene that failed."""
+    from playwright.sync_api import sync_playwright
+
+    failed = []
+    with sync_playwright() as pw:
+        page = None
+        try:
+            for scene in plan:
+                ok, why = adapter.ready()
+                if not ok:
+                    print(why, file=sys.stderr)
+                    return 2
+                try:
+                    values = adapter.transport(scene.reach, {})
+                    if page is None or adapter.reach_before_attach:
+                        if page is not None:
+                            adapter.release()
+                        page = adapter.attach(pw, values)
+                    sd.resize(page, vp, adapter.over_cdp)
+                    sd.navigate(page, adapter.address(scene.route, values), reload=True)
+                    sd.wait_for_mount(page, sd.mount_selector(scene.mount))
+                except SystemExit as exc:
+                    failed.append(f"UNREACHABLE {scene.name} — {exc}")
+        finally:
+            adapter.release()
+    for line in failed:
+        print(line)
+    if failed:
+        return 1
+    print(f"ADDRESSING OK {len(plan)}/{len(plan)}")
     return 0
 
 
@@ -493,6 +535,8 @@ def shows_perturbation(adapter, plan, vp, rows, media) -> int:
                     sel = sd.mount_selector(scene.mount)
                     sd.wait_for_mount(page, sel)
                     sd.perform(page, scene.open, rows, values)
+                    if scene.clock:
+                        sd.run_clock(page, scene.clock)
                     shot = sd.capture(page, media / f"{scene.name}-{'perturbed' if perturb else 'seeded'}.png",
                                       selector=sel)
                     trees.append(sd.normalize_aria(shot.aria))
@@ -549,7 +593,7 @@ def parity(adapter, plan, viewports, rows, media, origin, pages, route_baseline,
                     sd.navigate(bp, f"{origin}{sd.wrapper_path(scene.name)}")
                     sd.wait_for_mount(bp, "#dc-root")
                     return sd.capture(bp, png, selector="#dc-root", clip=(0, 0, w, h),
-                                      extra_css=sd.frame_box((w, h)), extra_js=hide_js)
+                                      extra_css=sd.frame_box((w, h)), extra_js=hide_js[scene.name])
 
             def capture_impl(scene, vp, png):
                 sel = sd.mount_selector(scene.mount)
@@ -557,6 +601,8 @@ def parity(adapter, plan, viewports, rows, media, origin, pages, route_baseline,
                 sd.navigate(page, adapter.address(scene.route, values), reload=True)
                 sd.wait_for_mount(page, sel)
                 sd.perform(page, scene.open, rows, values)
+                if scene.clock:
+                    sd.run_clock(page, scene.clock)
                 box = sd.visible_box(page, sel, vp)
                 return sd.capture(page, png, selector=sel, clip=box)
 

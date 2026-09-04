@@ -209,9 +209,31 @@ class TestScreenAxis(unittest.TestCase):
         doc["scenes"]["material-added"]["open"] = ["create-project.name"]
         self.assertTrue(any("carries no value" in e for e in self.lint(doc)[0]))
         doc = contract()
-        doc["scenes"]["empty"]["open"] = ["create-project.add-material"]
+        doc["scenes"]["empty"]["open"] = ["shell.sign-in"]   # lands another page, not visible here
         errors, _ = self.lint(doc)
-        self.assertTrue(any("whose next is 'material-added', not this scene" in e for e in errors))
+        self.assertTrue(any("does not land this scene" in e for e in errors))
+
+    def test_open_may_land_through_a_failure_or_the_same_page(self):
+        doc = contract()
+        doc["rows"][0]["next"] = "material-added"
+        doc["rows"][0]["on_failure"] = {"dup": "empty (form kept)"}
+        doc["scenes"]["empty"]["open"] = ["create-project.add-material"]   # on_failure names it
+        self.assertEqual(self.lint(doc)[0], [])
+        doc["rows"][0]["on_failure"] = {"dup": "other"}
+        self.assertEqual(self.lint(doc)[0], [])   # next is a scene on the same page
+        doc["scenes"]["shell-header.ready"]["open"] = ["create-project.add-material"]
+        errors, _ = self.lint(doc)
+        self.assertTrue(any("shell-header.ready" in e and "does not land this scene" in e for e in errors))
+        del doc["scenes"]["shell-header.ready"]["open"]
+        doc["scenes"]["library.ready"]["open"] = ["create-project.add-material"]
+        self.assertFalse(any("library.ready" in e and "land" in e for e in self.lint(doc)[0]))  # App page
+
+    def test_clock_is_whole_milliseconds(self):
+        doc = contract()
+        doc["scenes"]["empty"]["clock"] = 3000
+        self.assertEqual(self.lint(doc)[0], [])
+        doc["scenes"]["empty"]["clock"] = "later"
+        self.assertTrue(any("clock" in e for e in self.lint(doc)[0]))
 
     def test_mechanisms_carry_via_and_built_by(self):
         doc = contract()

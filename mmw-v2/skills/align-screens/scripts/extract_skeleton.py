@@ -128,12 +128,10 @@ def main(handoff: Path, out: Path, targets: Path | None, contract: Path | None) 
     server, port = sd.serve_baseline(handoff, pages)
     origin = f"http://127.0.0.1:{port}"
     route = sd.baseline_router(origin, handoff, sd.DEFAULT_CACHE)
-    hide_js = None
+    doc = None
     if contract is not None:
         import yaml
         doc = yaml.safe_load(contract.read_text(encoding="utf-8")) or {}
-        retired = sd.retired_triggers(doc)
-        hide_js = sd.hide_retired_js(retired) if retired else None
 
     from playwright.sync_api import sync_playwright
     rows: dict[tuple[str, str, str], dict] = {}
@@ -151,7 +149,7 @@ def main(handoff: Path, out: Path, targets: Path | None, contract: Path | None) 
             sd.navigate(page, f"{origin}{sd.wrapper_path(s['name'])}")
             sd.wait_for_mount(page, "#dc-root")
             shot = sd.capture(page, tmp / f"{s['name']}.png", selector="#dc-root",
-                              extra_js=hide_js)
+                              extra_js=sd.hide_js_for(doc, s["page"]) if doc else None)
             found = controls(shot.aria)
             per_scene[s["name"]] = len(found)
             trees[s["name"]] = sd.normalize_aria(shot.aria)

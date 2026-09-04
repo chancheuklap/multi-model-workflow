@@ -7,9 +7,11 @@
 
     wiring-check.py --contract <screen-contract.yaml> --rows <id,id> [--negative]
 
-For each row: put the product into the row's `reach` state through the repository's
-own reach script, open the row's `route`, reload, trigger the control by role and
-accessible name, then read every `observe` line through the target's read surface.
+For each row: take the first scene of the contract the row is visible in, put the
+product into that scene (its `reach` through the repository's own reach script, its
+`route`, a reload, its `open` chain), trigger the control by role and accessible name,
+then read every `observe` line through the target's read surface. A row on no declared
+scene is driven on its own `reach` and `route`.
 Prints `WIRING OK <n>/<n>` (exit 0) or one `MISS <row> — <reason>` per failing row
 (exit 1); exit 2 when the run could not start. Addresses, the reach script and the way
 to reach the product come from `.mmw/target.json` through `screen_driver.py` beside
@@ -66,7 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def run_rows(adapter, pw, wanted: list[str], by_id: dict[str, dict],
-             viewport: tuple[int, int]) -> tuple[list[str], list[str]]:
+             viewport: tuple[int, int], scenes: dict) -> tuple[list[str], list[str]]:
     """`(misses, observed)`: the `MISS` lines, and the ids of rows whose observe lines
     were evaluated at all (so a negative run can tell a miss from a run that never got
     that far)."""
@@ -80,14 +82,23 @@ def run_rows(adapter, pw, wanted: list[str], by_id: dict[str, dict],
             if not ok:
                 misses.append(f"MISS {rid} — not ready: {why}")
                 continue
-            reach = [str(row["reach"])] if row.get("reach") else []
+            # The row is driven on the first scene it is visible in: that scene's reach
+            # and open put the control on screen (a control inside a dialog is reached the
+            # way its scene is). A row on no declared scene falls back to its own reach
+            # and route.
+            scene = sd.scene_for_row(row, scenes)
+            reach = list(scene.reach) if scene else ([str(row["reach"])] if row.get("reach") else [])
+            route = (scene.route if scene else None) or row.get("route") or ""
             values = adapter.transport(reach, {})
             if page is None or adapter.reach_before_attach:
                 if page is not None:
                     adapter.release()
                 page = adapter.attach(pw, values)
             sd.resize(page, viewport, adapter.over_cdp)
-            sd.navigate(page, adapter.address(row.get("route") or "", values), reload=True)
+            sd.navigate(page, adapter.address(route, values), reload=True)
+            if scene:
+                sd.wait_for_mount(page, sd.mount_selector(scene.mount))
+                sd.perform(page, scene.open, by_id, values)
             trig = row["trigger"]
             control = page.get_by_role(trig["role"], name=trig["name"], exact=True)
             if control.count() == 0:
@@ -124,12 +135,14 @@ def main(argv: list[str] | None = None) -> int:
             return 2
     adapter = sd.adapter_for(doc, root)
     viewport = sd.parse_viewports(doc["viewports"])[0]
+    baseline = (root / doc["baselines"]["look"]).resolve()
+    scenes = sd.scenes_of(doc, sd.load_catalogue(baseline))
 
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as pw:
         if not args.negative:
-            misses, _ = run_rows(adapter, pw, wanted, by_id, viewport)
+            misses, _ = run_rows(adapter, pw, wanted, by_id, viewport, scenes)
             for m in misses:
                 print(m)
             if misses:
@@ -138,7 +151,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         adapter.transport_off()
         try:
-            misses, observed = run_rows(adapter, pw, wanted, by_id, viewport)
+            misses, observed = run_rows(adapter, pw, wanted, by_id, viewport, scenes)
         finally:
             adapter.transport_on()
     missed = {m.split(" ", 2)[1] for m in misses}

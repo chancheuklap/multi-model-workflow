@@ -98,6 +98,10 @@ class Scene:
     reach: list[str]
     open: list[dict]
     props: dict
+    # Virtual milliseconds the controlled clock is run after `open`, before capture:
+    # the one place elapsed time enters, for a state the design itself defines by time
+    # (a notice that dismisses after its toast timer).
+    clock: int = 0
 
 
 def load_yaml(path: Path) -> dict:
@@ -175,7 +179,8 @@ def scenes_of(doc: dict, catalogue: dict[str, dict]) -> dict[str, Scene]:
             route=str(decl.get("route") or page_decl.get("route") or ""),
             reach=[str(r) for r in (decl.get("reach") or [])],
             open=open_steps(decl.get("open")),
-            props=catalogue.get(name, {}).get("props") or {})
+            props=catalogue.get(name, {}).get("props") or {},
+            clock=int(decl.get("clock") or 0))
     return out
 
 
@@ -190,8 +195,11 @@ def scene_plan(doc: dict, catalogue: dict[str, dict], mounts: list[str],
                explicit: list[str] | None) -> list[Scene]:
     """The scenes a run covers: every scene whose `mount` is one of `mounts`, narrowed to
     `explicit` when given — which must be a subset, because a page's scenes are split
-    between two tickets only this way and a scene outside the mount is another ticket's."""
+    between two tickets only this way and a scene outside the mount is another ticket's.
+    `["all"]` means every mount the contract declares (the addressing self-check)."""
     scenes = scenes_of(doc, catalogue)
+    if mounts == ["all"]:
+        mounts = sorted({s.mount for s in scenes.values()})
     derived = [s for s in scenes.values() if s.mount in mounts]
     if not derived:
         raise SystemExit(f"no scene declares mount {', '.join(mounts)}")
@@ -203,6 +211,16 @@ def scene_plan(doc: dict, catalogue: dict[str, dict], mounts: list[str],
         raise SystemExit(f"--scenes names scenes outside mount {', '.join(mounts)}: "
                          f"{', '.join(outside)}")
     return [by_name[n] for n in explicit]
+
+
+def scene_for_row(row: dict, scenes: dict[str, Scene]) -> Scene | None:
+    """The scene the wiring check drives a row on: the first of the row's `scenes` the
+    contract declares. Its `reach` and `open` put the control on screen; a row whose
+    control sits in a dialog is reached the way the scene is."""
+    for name in row.get("scenes") or []:
+        if name in scenes:
+            return scenes[name]
+    return None
 
 
 def fill(text: str, values: dict[str, str]) -> str:
@@ -1099,13 +1117,26 @@ def skill_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def retired_triggers(doc: dict) -> list[tuple[str, str]]:
+def retired_triggers(doc: dict, page: str | None = None) -> list[tuple[str, str]]:
+    """The retired controls to hide on the design side — for one design page when
+    `page` is given. A retired entry that names its `page` is hidden there only: a
+    control's role and name are not unique across pages (a retired 查看 on one page, a
+    live 查看 on another), and hiding by name alone would blind the judge to the live one."""
     out = []
     for entry in doc.get("retired_ids") or []:
-        if isinstance(entry, dict) and isinstance(entry.get("trigger"), dict):
-            t = entry["trigger"]
-            out.append((str(t.get("role")), str(t.get("name"))))
+        if not (isinstance(entry, dict) and isinstance(entry.get("trigger"), dict)):
+            continue
+        scope = entry.get("page")
+        if page is not None and scope and scope != page:
+            continue
+        t = entry["trigger"]
+        out.append((str(t.get("role")), str(t.get("name"))))
     return out
+
+
+def hide_js_for(doc: dict, page: str) -> str | None:
+    triggers = retired_triggers(doc, page)
+    return hide_retired_js(triggers) if triggers else None
 
 
 def rows_by_id(doc: dict) -> dict[str, dict]:

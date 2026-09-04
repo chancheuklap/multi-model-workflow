@@ -1,6 +1,6 @@
 # Wiring check
 
-Whether a control on the running interface does what its screen-contract row says is `scripts/wiring-check.py`, next to this skill's `SKILL.md`. For each row it puts the product into the row's `reach` state through the repository's reach script, opens the row's `route`, reloads, triggers the control by role and accessible name, and reads the row's `observe` lines through the target's read surface. The renderer is never asked anything.
+Whether a control on the running interface does what its screen-contract row says is `scripts/wiring-check.py`, next to this skill's `SKILL.md`. For each row it takes the first scene of the contract the row is visible in, puts the product into that scene — its `reach` through the repository's reach script, its `route`, a reload, its `open` chain — triggers the control by role and accessible name, and reads the row's `observe` lines through the target's read surface. A control inside a dialog is reached the way its scene is; a row on no declared scene is driven on its own `reach` and `route`. The renderer is never asked anything.
 
 Interface parity ([ui-parity.md](ui-parity.md)) is the other half: it judges what the screen shows. The two run over one driver against the same product, and a ticket that owns screen-contract rows carries both.
 

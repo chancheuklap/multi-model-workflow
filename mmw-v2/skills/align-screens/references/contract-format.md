@@ -44,6 +44,11 @@ scenes:                                   # one per entry of scenes.json
     open:
       - row: create-project.name
         value: "{existing_project_name}"  # an input role carries a value; from data/fixtures.js or a reach KEY
+  task-wait:
+    page: "Component · 任务详情.dc.html"
+    reach: [seed:copy-ready]
+    open: [copy-confirm.submit, gate-two.submit]
+    clock: 3000                           # virtual ms run after open, for a state the design defines by elapsed time
 readme_dispositions:                      # every README sentence that states a behaviour, for the pages in scope
   - text: "create 下一步 → analysis →（自动 1800ms）→ confirm"
     disposition: overridden by create-project.next (#420)
@@ -54,6 +59,7 @@ proposed_operations:                      # operations the rows need and openapi
 retired_ids:                              # ids that once had a row; never reused; printed by the lint on every run
   - id: debt-gate.demo-trigger
     note: "retired 2026-09-03 — #635 verdict 5: prototype harness control, never shipped"
+    page: "Component · 欠费门禁.dc.html"    # the design page the control is on; the judges hide it there only
     trigger: { role: button, name: "开始新生成（触发欠费门禁）" }   # present when the handoff still shows the control:
 rows: [...]                               # the lint then stops asking for a row, and the judges hide it on the design side
 ```
@@ -70,13 +76,16 @@ rows: [...]                               # the lint then stops asking for a row
 | `pages.<page>.component` | For a `Component · ` page: the rows' `component` value this page owns. `App · ` pages are whole-surface roots and carry none. | Component pages ↔ distinct `component` values one to one |
 | `scenes.<name>.page` | The `.dc.html` from `scenes.json`. | equals scenes.json; every scene of scenes.json has one entry and nothing else does |
 | `scenes.<name>.reach` | Mechanism names, run through the repository's reach script before the scene, in order; idempotent, run once per scene. | each in `mechanisms` |
-| `scenes.<name>.open` | Row ids performed after navigation to reach the scene: each step clicks its row's trigger (or fills it, for `textbox`, `combobox`, `spinbutton`, `searchbox`, with `value`). Written as row ids, never as role and name: one name often belongs to several rows. Writes are allowed; `reach` being idempotent per scene is what keeps them safe. | each row exists; the last row's `next` is this scene; an input role carries `value` |
+| `scenes.<name>.open` | Row ids performed after navigation to reach the scene: each step clicks its row's trigger (or fills it, for `textbox`, `combobox`, `spinbutton`, `searchbox`, with `value`). Written as row ids, never as role and name: one name often belongs to several rows. Writes are allowed; `reach` being idempotent per scene is what keeps them safe. The last row must land the scene, in one of four ways: its `next` is the scene; its `next` is a scene on the same design page (the action lands the page, `reach` decides the state); one of its `on_failure` values is the scene (a failure the scene's stub scripts); the scene is an `App · ` whole-surface page containing the block the action lands. A scene that keeps the row on screen after the action (a queue row selected while the task opens beside it) lists the row under its `scenes`, which counts too. | each row exists; the last row lands the scene; an input role carries `value` |
+| `scenes.<name>.clock` | Virtual milliseconds the controlled clock is run after `open` and before capture. The one place elapsed time enters: for a state the design itself defines by time (a notice gone after its toast timer). Absent means none. | a whole number |
 | `scenes.<name>.mount`, `.route` | Overrides. A scene whose content is a top-level dialog outside the page's subtree overrides `mount` to the page root's id. | a declared mount |
 | `mechanisms.<name>.via` | `api` — through the product's own write surface, self-proving; `storage` — the declared exception, which is not. | `api` or `storage` |
 | `mechanisms.<name>.built_by` | The ticket that makes the mechanism executable. A ticket that uses a mechanism is blocked by its builder, unless it is the builder; `verify-ticket --lint` checks that against the ticket's blocking links. | `#<n>` |
 | `mechanisms.<name>.proven_by` | For `via: storage`: `#<n> AC<k>`, the criterion proving the product reaches that state through its own path. | present when `via: storage` |
 
 Everything on this axis is filled at design time, with no running product: `page` from `scenes.json`, `mount` and `route` as declarations (the same pattern as `proposed_operations`), `reach` from the mechanism table, `open` from the offline render plus the control axis, `value` from `data/fixtures.js`. Verification needs the product; filling does not.
+
+A `retired_ids` entry with a `trigger` names the `page` the control is on; the judges hide it on that page's scenes only. A role and name are not unique across pages, and an entry without a `page` whose name also lives on another page is hidden everywhere — the lint warns.
 
 ## Target trees
 

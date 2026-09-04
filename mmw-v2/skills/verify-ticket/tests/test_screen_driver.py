@@ -121,6 +121,11 @@ class TestScreenAxis(unittest.TestCase):
 
     def test_retired_triggers_and_placeholders(self):
         self.assertEqual(sd.retired_triggers(CONTRACT), [("button", "查看账务状态")])
+        scoped = {"retired_ids": [{"id": "a", "page": "Component · 自由模式.dc.html",
+                                   "trigger": {"role": "button", "name": "查看"}}]}
+        self.assertEqual(sd.retired_triggers(scoped, "Component · 自由模式.dc.html"), [("button", "查看")])
+        self.assertEqual(sd.retired_triggers(scoped, "Component · 任务详情.dc.html"), [])
+        self.assertIsNone(sd.hide_js_for(scoped, "Component · 任务详情.dc.html"))
         self.assertEqual(sd.fill("#/project/{project_id}", {"project_id": "p1"}), "#/project/p1")
         self.assertEqual(sd.fill("#/x/{missing}", {}), "#/x/{missing}")
 
