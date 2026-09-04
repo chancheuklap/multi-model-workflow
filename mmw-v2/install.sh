@@ -720,7 +720,9 @@ XML
       echo "已装  launchd 任务 com.mmw.prompt-sync 盯着 $PROMPT_SRC"
     fi
   fi
-  [ "$mode" = check ] || echo "已装  提示词：~/.claude 两条软链，Codex、Pi、Grok 各一份生成的 AGENTS.md"
+  if [ "$mode" != check ] && [ "$prompt_rc" -eq 0 ]; then
+    echo "已装  提示词：~/.claude 两条软链，Codex、Pi、Grok 各一份生成的 AGENTS.md"
+  fi
   [ "$prompt_rc" -eq 0 ] || rc=1
 fi
 
