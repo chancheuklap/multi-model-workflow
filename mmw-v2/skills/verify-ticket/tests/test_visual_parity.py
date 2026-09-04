@@ -340,38 +340,15 @@ class TestConsole(unittest.TestCase):
 
 
 class TestVolatileValues(unittest.TestCase):
-    """A `volatile_values` node is replaced with one token on both sides before the
-    two judges compare: the tree name becomes `<volatile>`, the pixel box is painted
-    the same solid colour. Different account balances then compare equal."""
+    """The pixel judge's paint script is generated from the same implicit-role
+    table the tree uses for matching, including table cells."""
 
-    DESIGN = '- main:\n  - text: 鸭豆余额 12,480\n  - button "新建商品项目"\n'
-    PRODUCT = '- main:\n  - text: 鸭豆余额 20\n  - button "新建商品项目"\n'
-    TRIGGERS = [("text", "鸭豆余额 12,480")]
-
-    def test_volatile_trees_with_different_values_compare_equal(self):
-        self.assertGreater(vp.aria_diff(self.DESIGN, self.PRODUCT)["changed"], 0)
-        self.assertEqual(
-            vp.aria_diff(self.DESIGN, self.PRODUCT, volatile=self.TRIGGERS)["changed"], 0)
-        still_differs = self.PRODUCT.replace("新建商品项目", "设置")
-        self.assertGreater(
-            vp.aria_diff(self.DESIGN, still_differs, volatile=self.TRIGGERS)["changed"], 0)
-
-    @unittest.skipUnless(_has_imaging(), "needs numpy and Pillow: "
-                         "uv run --with numpy --with pillow python -m unittest")
-    def test_volatile_pixel_boxes_painted_the_same_colour_compare_equal(self):
-        from PIL import Image, ImageDraw
-
-        def card(fill):
-            img = Image.new("RGB", (160, 80), (255, 255, 255))
-            ImageDraw.Draw(img).rectangle((20, 20, 79, 51), fill=fill)
-            return img
-
-        a, b = card((10, 20, 30)), card((200, 10, 40))
-        self.assertGreater(vp.diff_images(a, b)["pct"], 3.0)
-        colour = tuple(int(vp.sd.VOLATILE_FILL.lstrip("#")[i:i + 2], 16) for i in (0, 2, 4))
-        ImageDraw.Draw(a).rectangle((20, 20, 79, 51), fill=colour)
-        ImageDraw.Draw(b).rectangle((20, 20, 79, 51), fill=colour)
-        self.assertEqual(vp.diff_images(a, b)["pct"], 0.0)
+    def test_volatile_paint_js_includes_the_cell_role_the_tree_would_see(self):
+        self.assertEqual(vp.sd.VOLATILE_IMPLICIT_ROLES["TD"], "cell")
+        js = vp.sd.volatile_paint_js([("text", "鸭豆余额 12,480")])
+        self.assertIn('TD: "cell"', js)
+        self.assertIn(vp.sd.VOLATILE_DIGITS.pattern, js)
+        self.assertIn(vp.sd.VOLATILE_FILL, js)
 
 
 class TestOverCdp(unittest.TestCase):

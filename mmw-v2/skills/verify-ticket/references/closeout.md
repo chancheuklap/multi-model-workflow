@@ -1,6 +1,6 @@
 # What `--closeout` reads the draft against
 
-You are the worker who wrote the closing comment to a file and had it refused. Every condition below is one `--closeout` checks before it posts anything; the stderr line names the first, and `--check-only` prints them all. A refused draft leaves the ticket exactly as it was — same comments, same state, same labels.
+You are the worker who wrote the closing comment to a file and had it refused. Every condition below is one `--closeout` checks against the draft before it posts the draft; the stderr line names the first, and `--check-only` prints them all. A refused draft leaves the ticket exactly as it was — same comments, same state, same labels. After an `ALL MET` draft is accepted, `.mmw/target.json`'s `checks` are a later gate: a failure posts `CHECKS FAILED` and does not close.
 
 Fix the draft, or fix what the draft describes, and run it again.
 

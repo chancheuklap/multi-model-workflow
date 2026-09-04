@@ -1101,10 +1101,16 @@ def review_problems(draft: str, body: str, comments: list[str]) -> list[str]:
 CHECKS_TAIL = 20
 
 
+class TargetJsonChecksError(Exception):
+    """`.mmw/target.json` is present and names `checks`, but the file cannot be read
+    as the list of commands the gate expects."""
+
+
 def target_json_checks(root: Path | None) -> list[str] | None:
     """The `checks` list from `.mmw/target.json`, or None when that key is absent —
     the closeout then behaves as it did before the key existed. `--reverify` and
-    `--lint` never read this."""
+    `--lint` never read this. A file that names `checks` but is not a JSON object
+    with a list raises `TargetJsonChecksError` rather than looking like absence."""
     if root is None:
         return None
     path = Path(root) / ".mmw" / "target.json"
@@ -1112,13 +1118,15 @@ def target_json_checks(root: Path | None) -> list[str] | None:
         return None
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
-    if not isinstance(data, dict) or "checks" not in data:
+    except (OSError, json.JSONDecodeError) as exc:
+        raise TargetJsonChecksError(f"{path} is not JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise TargetJsonChecksError(f"{path} is not an object")
+    if "checks" not in data:
         return None
     raw = data["checks"]
     if not isinstance(raw, list):
-        return None
+        raise TargetJsonChecksError(f"{path} `checks` is not a list")
     return [str(c) for c in raw]
 
 
@@ -1128,16 +1136,28 @@ def run_target_json_checks(root: Path | None) -> tuple[bool, str]:
     Returns `(True, "")` when the key is absent; `(True, "CHECKS OK n/n\\n")` when
     every command exited 0; `(False, body)` when any did not — `body` starts with
     `CHECKS FAILED` and, for each failed command, the command and its last
-    `CHECKS_TAIL` lines of output.
+    `CHECKS_TAIL` lines of output. A malformed file is a failure, not absence.
+    Each command is held to `DEFAULT_TIMEOUT`, the same bound as a `CHECK:`.
     """
-    commands = target_json_checks(root)
+    try:
+        commands = target_json_checks(root)
+    except TargetJsonChecksError as exc:
+        return False, f"CHECKS FAILED\n{exc}\n"
     if commands is None:
         return True, ""
     failed: list[tuple[str, str]] = []
     for command in commands:
         try:
             proc = subprocess.run(command, shell=True, cwd=root, capture_output=True,
-                                  text=True)
+                                  text=True, timeout=DEFAULT_TIMEOUT)
+        except subprocess.TimeoutExpired as exc:
+            combined = (exc.stdout or "") + (exc.stderr or "")
+            if isinstance(combined, bytes):
+                combined = combined.decode("utf-8", "replace")
+            tail = "\n".join(str(combined).splitlines()[-CHECKS_TAIL:])
+            note = f"timed out after {DEFAULT_TIMEOUT}s"
+            failed.append((command, f"{note}\n{tail}".strip() if tail else note))
+            continue
         except OSError as exc:
             failed.append((command, str(exc)))
             continue

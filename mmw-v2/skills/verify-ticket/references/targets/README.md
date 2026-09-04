@@ -102,9 +102,11 @@ on every machine:
   ticket closes. Any non-zero exit leaves the ticket open and posts a comment whose
   first line is `CHECKS FAILED`, then each failed command and its last 20 lines of
   output; every command exiting 0 appends `CHECKS OK <n>/<n>` to the closing
-  comment. `--reverify` and `--lint` do not run them. A repository without the key
-  is unchanged. This is the consuming repository's `AGENTS.md` rule that the worker
-  run the tests themselves, made a gate so a ticket cannot close on green
+  comment. Each command is held to the same timeout as a `CHECK:` (`DEFAULT_TIMEOUT`).
+  A `checks` key that is not a list, or a file that is not JSON, is `CHECKS FAILED`,
+  not absence. `--reverify` and `--lint` do not run them. A repository without the
+  key is unchanged. This is the consuming repository's `AGENTS.md` rule that the
+  worker run the tests themselves, made a gate so a ticket cannot close on green
   criteria while the rest of the suite is red.
 
 ## Two things no lint can check, so every new target answers them here

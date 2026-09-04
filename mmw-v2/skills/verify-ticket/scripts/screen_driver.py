@@ -682,6 +682,23 @@ def hide_retired_js(triggers: list[tuple[str, str]]) -> str:
 VOLATILE_TOKEN = "<volatile>"
 VOLATILE_FILL = "#00E5FF"
 VOLATILE_DIGITS = re.compile(r"[\d,]+")
+# HTML implicit roles the pixel paint uses when the element has no `role`
+# attribute. `TD`/`TH` are `cell` so a balance in a table cell is painted;
+# static-text tags (`P`, `SPAN`, `DIV`, `SMALL`, `B`, `CODE`) are `text`.
+VOLATILE_IMPLICIT_ROLES = {
+    "BUTTON": "button", "A": "link", "P": "text", "SPAN": "text", "DIV": "text",
+    "STATUS": "status", "STRONG": "strong", "EM": "em", "LABEL": "label",
+    "LI": "listitem", "H1": "heading", "H2": "heading", "H3": "heading",
+    "H4": "heading", "H5": "heading", "H6": "heading",
+    "TD": "cell", "TH": "cell", "TIME": "time", "SMALL": "text", "B": "text",
+    "CODE": "text", "CAPTION": "caption", "DD": "definition", "DT": "term",
+}
+# A `text` trigger also paints these computed roles: a `<td>` snapshots as
+# `cell` in the tree, and the paint has to find the same node in the DOM.
+VOLATILE_TEXT_LIKE = (
+    "text", "generic", "cell", "columnheader", "rowheader", "definition",
+    "term", "caption", "time", "code", "",
+)
 
 
 def volatile_stem(name: str) -> str:
@@ -735,22 +752,23 @@ def volatile_paint_js(triggers: list[tuple[str, str]]) -> str:
     different number does not move pixels. Applied to the product and the design."""
     wanted = json.dumps([{"role": r, "name": n} for r, n in triggers], ensure_ascii=False)
     fill = json.dumps(VOLATILE_FILL)
+    implicit = ", ".join(f"{tag}: {json.dumps(role)}"
+                         for tag, role in VOLATILE_IMPLICIT_ROLES.items())
+    text_like = json.dumps(list(VOLATILE_TEXT_LIKE))
     return """(() => {
   const wanted = %s;
   const fill = %s;
+  const implicit = {%s};
+  const textLike = new Set(%s);
   const stem = s => s.replace(/[\\d,]+/g, '').trim();
   const nameOf = el => (el.getAttribute('aria-label') || el.textContent || '')
     .trim().replace(/\\s+/g, ' ');
-  const roleOf = el => el.getAttribute('role') || ({
-    BUTTON: 'button', A: 'link', P: 'text', SPAN: 'text', DIV: 'text',
-    STATUS: 'status', STRONG: 'strong', EM: 'em', LABEL: 'label', LI: 'listitem',
-    H1: 'heading', H2: 'heading', H3: 'heading', H4: 'heading', H5: 'heading', H6: 'heading'
-  }[el.tagName] || '');
+  const roleOf = el => el.getAttribute('role') || implicit[el.tagName] || el.tagName.toLowerCase();
   const hit = (role, nm, w) => {
-    if (role !== w.role) return false;
-    if (nm === w.name) return true;
-    const st = stem(w.name);
-    return Boolean(st) && stem(nm) === st;
+    const nameOk = nm === w.name || (Boolean(stem(w.name)) && stem(nm) === stem(w.name));
+    if (!nameOk) return false;
+    if (role === w.role) return true;
+    return w.role === 'text' && textLike.has(role);
   };
   const paint = el => {
     el.style.backgroundColor = fill;
@@ -773,7 +791,7 @@ def volatile_paint_js(triggers: list[tuple[str, str]]) -> str:
       if (hit(role, nm, w)) { paint(el); break; }
     }
   }
-})()""" % (wanted, fill)
+})()""" % (wanted, fill, implicit, text_like)
 
 
 # ---------------------------------------------------------------- capture
@@ -989,7 +1007,11 @@ def capture(page, png: Path, *, selector: str, clip: tuple[int, int, int, int] |
             page.add_style_tag(content=extra_css)
         if extra_js:
             page.evaluate(extra_js)
-        if extra_css or extra_js:
+        # Pinning the design frame (and hiding retired controls, which rides with
+        # that extra_css) needs a clock step so the layout settles. Painting a
+        # volatile box is an inline style and must not move the page's clock past
+        # `scenes.<name>.clock` — that field is the one place elapsed time enters.
+        if extra_css:
             run_clock(page, SETTLE_VIRTUAL_MS)
         target = page.locator(selector).first
         rect = mount_rect(page, selector)

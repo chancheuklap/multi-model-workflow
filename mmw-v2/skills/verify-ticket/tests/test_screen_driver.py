@@ -469,11 +469,24 @@ class TestBaselineServing(unittest.TestCase):
         self.assertEqual(sd.aria_diff(design, product, volatile=triggers)["changed"], 0)
         self.assertGreater(sd.aria_diff(design, product)["changed"], 0)
 
-    def test_volatile_paint_js_fills_the_matching_box_on_both_sides(self):
+    def test_volatile_values_replace_the_name_on_ancestor_suffixes_too(self):
+        triggers = [("status", "鸭豆余额 12,480")]
+        design = '- status "鸭豆余额 12,480"\n  - text: 可用\n'
+        product = '- status "鸭豆余额 20"\n  - text: 可用\n'
+        masked = sd.mask_volatile(sd.normalize_aria(design), triggers)
+        self.assertEqual(masked, sd.mask_volatile(sd.normalize_aria(product), triggers))
+        self.assertTrue(any("<volatile>" in line for line in masked))
+        self.assertFalse(any("12,480" in line for line in masked))
+        self.assertFalse(any("鸭豆余额 20" in line for line in masked))
+        self.assertTrue(any("可用" in line and "<volatile>" in line for line in masked))
+
+    def test_volatile_paint_js_maps_a_table_cell_for_a_text_trigger(self):
+        self.assertEqual(sd.VOLATILE_IMPLICIT_ROLES["TD"], "cell")
+        self.assertIn("cell", sd.VOLATILE_TEXT_LIKE)
         js = sd.volatile_paint_js([("text", "鸭豆余额 12,480")])
         self.assertIn(sd.VOLATILE_FILL, js)
-        self.assertIn("鸭豆余额 12,480", js)
-        self.assertIn("backgroundColor", js)
+        self.assertIn(sd.VOLATILE_DIGITS.pattern, js)
+        self.assertIn('TD: "cell"', js)
         scoped = {"volatile_values": [
             {"page": "App · 商品项目库.dc.html",
              "trigger": {"role": "text", "name": "鸭豆余额 12,480"},

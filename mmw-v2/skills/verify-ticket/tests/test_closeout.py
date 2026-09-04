@@ -581,7 +581,7 @@ class TestTargetJsonChecks(unittest.TestCase):
             root = Path(tmp)
             write_checks(root, [
                 "python3 -c \"import sys; [print(i) for i in range(1, 26)]; sys.exit(1)\"",
-                "true",
+                "python3 -c \"raise SystemExit(2)\"",
             ])
             text = draft(counts=counts_line())
             code, err, seen = check(text, check_only=False, repo=root)
@@ -591,7 +591,8 @@ class TestTargetJsonChecks(unittest.TestCase):
         self.assertEqual(len(seen["posted"]), 1)
         body = seen["posted"][0][1]
         self.assertEqual(body.splitlines()[0], "CHECKS FAILED")
-        self.assertIn("python3 -c", body)
+        self.assertEqual(body.count("python3 -c"), 2)
+        self.assertIn("raise SystemExit(2)", body)
         self.assertNotIn("\n1\n", "\n" + body)
         self.assertIn("\n6\n", "\n" + body)
         self.assertIn("\n25\n", "\n" + body)
@@ -624,29 +625,44 @@ class TestTargetJsonChecks(unittest.TestCase):
         self.assertNotIn("CHECKS OK", seen["posted"][0][1])
 
     def test_reverify_and_lint_do_not_run_the_target_json_checks(self):
-        def boom(*_a, **_k):
-            raise AssertionError("target.json checks ran")
-
         body = ("## Worker\n\njunior-worker\n\n## Acceptance criteria\n\n"
                 "- [ ] AC1: something a stranger could judge\n"
                 "  CHECK: python3 -c \"print('ok')\"\n"
                 "  EXPECT: ok\n  EVIDENCE: pending\n")
-        with mock.patch.object(vt, "run_target_json_checks", side_effect=boom), \
-             mock.patch.object(vt, "fetch_body", return_value=body), \
-             mock.patch.object(vt, "fetch_ticket",
-                               return_value={"labels": [{"name": "ready-for-agent"},
-                                                        {"name": "junior-worker"}],
-                                             "state": "OPEN"}), \
-             mock.patch.object(vt, "fetch_comments", return_value=[]), \
-             mock.patch.object(vt, "parent_spec", return_value=None), \
-             mock.patch.object(vt, "post_comment"), \
-             mock.patch.object(vt, "report_phase", return_value=False), \
-             mock.patch.object(vt, "outside_owns_line", return_value="Outside Owns: None"):
-            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-                lint_code = vt.run_lint(77)
-                check_code = vt.run_checks(77, True, None)
-        self.assertIn(lint_code, (0, 1))
-        self.assertIn(check_code, (0, 1, 2))
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            marker = root / "ran.marker"
+            write_checks(root, [f"touch '{marker}'"])
+            with mock.patch.object(vt, "repo_root", return_value=root), \
+                 mock.patch.object(vt, "fetch_body", return_value=body), \
+                 mock.patch.object(vt, "fetch_ticket",
+                                   return_value={"labels": [{"name": "ready-for-agent"},
+                                                            {"name": "junior-worker"}],
+                                                 "state": "OPEN"}), \
+                 mock.patch.object(vt, "fetch_comments", return_value=[]), \
+                 mock.patch.object(vt, "parent_spec", return_value=None), \
+                 mock.patch.object(vt, "post_comment"), \
+                 mock.patch.object(vt, "report_phase", return_value=False), \
+                 mock.patch.object(vt, "outside_owns_line",
+                                   return_value="Outside Owns: None"):
+                with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                    vt.run_lint(77)
+                    vt.run_checks(77, True, None)
+            self.assertFalse(marker.exists())
+
+    def test_malformed_checks_do_not_close(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".mmw").mkdir()
+            (root / ".mmw" / "target.json").write_text(
+                json.dumps({"checks": "pytest -q"}), encoding="utf-8")
+            text = draft(counts=counts_line())
+            code, err, seen = check(text, check_only=False, repo=root)
+        self.assertEqual(code, 1, err)
+        self.assertEqual(seen["closed"], [])
+        body = seen["posted"][0][1]
+        self.assertEqual(body.splitlines()[0], "CHECKS FAILED")
+        self.assertIn("not a list", body)
 
     def test_handoff_does_not_run_checks(self):
         with TemporaryDirectory() as tmp:
