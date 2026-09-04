@@ -166,14 +166,16 @@ def fetch_blocked_by(number: int) -> list[int]:
 
 
 def fetch_sub_issues(spec: int) -> list[int]:
-    """The tickets GitHub records under `spec`, in its own order. Patched out in tests."""
+    """The tickets GitHub records under `spec`, in its own order, every page of them
+    (GitHub pages the list at 30, and a spec past its thirtieth ticket would otherwise
+    lose its newest children to every batch check). Patched out in tests."""
     out = subprocess.run(
-        ["gh", "api", f"repos/{{owner}}/{{repo}}/issues/{spec}/sub_issues",
-         "-q", "[.[] | .number] | @json"],
+        ["gh", "api", "--paginate",
+         f"repos/{{owner}}/{{repo}}/issues/{spec}/sub_issues?per_page=100",
+         "-q", ".[] | .number"],
         capture_output=True, text=True, check=True, env=GH_ENV,
     )
-    text = out.stdout.strip()
-    return json.loads(text) if text else []
+    return [int(line) for line in out.stdout.split() if line.strip()]
 
 
 def fetch_outsider(number: int) -> dict:
@@ -1686,7 +1688,9 @@ def scene_findings(body: str, doc: dict) -> list[str]:
 def lint_scene_partition(bodies: dict[int, str], doc: dict) -> list[str]:
     """Across a batch, the scenes the parity criteria cover — by mount, narrowed by an
     explicit `--scenes` — are the contract's scenes, each exactly once, and every page's
-    mount is owned by some ticket."""
+    mount is owned by some ticket. Two tickets ordered by `## Blocked by` are not a
+    split: the later one re-runs the earlier one's scenes after changing something they
+    rest on, so their overlap is a re-verification, not a double claim."""
     by_mount = scenes_by_mount(doc)
     all_scenes = {s for scenes in by_mount.values() for s in scenes}
     covered: dict[str, list[int]] = {}
@@ -1704,8 +1708,13 @@ def lint_scene_partition(bodies: dict[int, str], doc: dict) -> list[str]:
     findings = []
     for s in sorted(all_scenes - set(covered)):
         findings.append(f"scene {s} is covered by no ticket's parity criterion")
+    blocks = {n: set(blocked_by(b)) for n, b in bodies.items()}
+
+    def unordered(a: int, b: int) -> bool:
+        return a not in blocks[b] and b not in blocks[a]
+
     for s, tickets in sorted(covered.items()):
-        if len(tickets) > 1:
+        if any(unordered(a, b) for i, a in enumerate(tickets) for b in tickets[i + 1:]):
             findings.append(f"scene {s} is covered by more than one ticket: "
                             + ", ".join(f"#{t}" for t in tickets))
     for mount in sorted(set(by_mount) - owned_mounts):

@@ -271,6 +271,26 @@ REVIEW = ("REVIEW abc..def\n\n## Standards\n\nnone\n\n## Spec\n\n### Missing\n\n
 BODY = ticket(ROWS, gate("AC1", WIRING))
 
 
+class TestScenePartitionReruns(TestScenePartition):
+    """A ticket blocked by another may re-run that ticket's scenes: the overlap is a
+    re-verification after a change both rest on, not two tickets claiming one page."""
+
+    def rerun(self, mounts, blocked_by):
+        check = PARITY.replace("--mount create-project", f"--mount {mounts}")
+        return ticket(ROWS, gate("AC1", check), blocked_by=blocked_by)
+
+    def test_a_blocked_rerun_of_the_same_mount_is_not_a_double_claim(self):
+        bodies = {1: self.body("create-project"), 2: self.rerun("create-project", "- #1"),
+                  3: self.body("shell-header")}
+        self.assertEqual(vt.lint_scene_partition(bodies, self.doc), [])
+
+    def test_two_unordered_tickets_on_one_mount_still_collide(self):
+        bodies = {1: self.body("create-project"), 2: self.body("create-project"),
+                  3: self.body("shell-header")}
+        findings = vt.lint_scene_partition(bodies, self.doc)
+        self.assertTrue(any("covered by more than one ticket" in f for f in findings))
+
+
 class TestReviewProblems(unittest.TestCase):
     def test_a_missing_against_an_owned_row_the_draft_ignores_is_refused(self):
         problems = vt.review_problems("ALL MET\nBranch: x\n", BODY, [REVIEW])

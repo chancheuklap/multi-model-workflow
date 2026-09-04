@@ -160,8 +160,11 @@ def sub_issues(spec: int) -> list[int]:
     A sub-issue a worker opened during the night is in here too, told apart by its
     labels rather than by when it appeared.
     """
-    rows = gh_json(["api", f"repos/{{owner}}/{{repo}}/issues/{spec}/sub_issues"], [])
-    return [int(r["number"]) for r in rows if isinstance(r, dict) and r.get("number")]
+    rows = gh_json(["api", "--paginate", "--slurp",
+                    f"repos/{{owner}}/{{repo}}/issues/{spec}/sub_issues?per_page=100"], [])
+    # `--slurp` answers with one array per page; a single page answered flat is read too.
+    flat = [r for page in rows for r in (page if isinstance(page, list) else [page])]
+    return [int(r["number"]) for r in flat if isinstance(r, dict) and r.get("number")]
 
 
 def read_ticket(number: int) -> dict:
