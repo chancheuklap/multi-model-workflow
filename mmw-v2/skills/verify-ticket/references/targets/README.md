@@ -75,7 +75,7 @@ on every machine:
   "reach": "uv run python scripts/testing/reach.py",
   "transport_off": "uv run python scripts/testing/target.py transport off",
   "transport_on": "uv run python scripts/testing/target.py transport on",
-  "checks": ["uv run pytest -q", "uv run ruff check ."]
+  "checks": ["uv run ruff check .", {"run": "uv run pytest -q", "timeout": 1800}]
 }
 ```
 
@@ -97,17 +97,17 @@ on every machine:
   is filled from them. It is **idempotent**: it runs once per scene and once per row,
   and a state already there is left there.
 - `transport_off` / `transport_on` answer question 7.
-- `checks` is optional: a list of shell commands, run in order at the repository
-  root by `verify-ticket.py --closeout` after the draft is accepted and before the
-  ticket closes. Any non-zero exit leaves the ticket open and posts a comment whose
-  first line is `CHECKS FAILED`, then each failed command and its last 20 lines of
-  output; every command exiting 0 appends `CHECKS OK <n>/<n>` to the closing
-  comment. Each command is held to the same timeout as a `CHECK:` (`DEFAULT_TIMEOUT`).
-  A `checks` key that is not a list, or a file that is not JSON, is `CHECKS FAILED`,
-  not absence. `--reverify` and `--lint` do not run them. A repository without the
-  key is unchanged. This is the consuming repository's `AGENTS.md` rule that the
-  worker run the tests themselves, made a gate so a ticket cannot close on green
-  criteria while the rest of the suite is red.
+- `checks` is optional: the consuming repository's own "run the tests yourself" rule,
+  made a gate. `verify-ticket.py --closeout` runs the entries in order at the
+  repository root after an `ALL MET` draft is accepted and before the ticket closes;
+  any non-zero exit leaves the ticket open and posts `CHECKS FAILED` with each failed
+  command and its last 20 lines; every exit 0 appends `CHECKS OK <n>/<n>` to the
+  closing comment. An entry is a command string, held to the same bound as a `CHECK:`
+  (`DEFAULT_TIMEOUT`, 600 s), or `{"run": "<command>", "timeout": <seconds>}` for a
+  suite that needs longer. A key that is not a list, an entry of another shape, or a
+  file that is not JSON is `CHECKS FAILED`, not absence. `--reverify`, `--lint`,
+  `--check-only` and a `HANDOFF REQUIRED` draft do not run them. A repository without
+  the key is unchanged.
 
 ## Two things no lint can check, so every new target answers them here
 

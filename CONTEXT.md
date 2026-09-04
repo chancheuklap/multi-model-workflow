@@ -700,7 +700,7 @@ _Avoid_: target config, 地址文件
 _Home_: `mmw-v2/skills/verify-ticket/references/targets/README.md`
 
 **`checks`**:
-The optional key of `.mmw/target.json`: a list of shell commands run in order at the repository root by `--closeout` only, after the draft is accepted and before an `ALL MET` ticket closes. Any non-zero exit posts `CHECKS FAILED` and does not close; every command exiting 0 appends `CHECKS OK <n>/<n>` to the closing comment. Each command is held to `DEFAULT_TIMEOUT`. A `checks` value that is not a list, or a file that is not JSON, is `CHECKS FAILED`, not absence. `--reverify`, `--lint`, `--check-only`, and a `HANDOFF REQUIRED` draft do not run them. A repository without the key is unchanged.
+The optional key of `.mmw/target.json`: a list run in order at the repository root by `--closeout` only, after the draft is accepted and before an `ALL MET` ticket closes. An entry is a command string, held to `DEFAULT_TIMEOUT`, or `{"run": …, "timeout": …}` held to its own bound. Any non-zero exit posts `CHECKS FAILED` and does not close; every command exiting 0 appends `CHECKS OK <n>/<n>` to the closing comment. A `checks` value that is not a list, an entry of another shape, or a file that is not JSON, is `CHECKS FAILED`, not absence. `--reverify`, `--lint`, `--check-only`, and a `HANDOFF REQUIRED` draft do not run them. A repository without the key is unchanged.
 _Home_: `mmw-v2/skills/verify-ticket/references/targets/README.md`
 
 **reach script**:
@@ -729,7 +729,7 @@ _Avoid_: 类名集合, class list
 _Home_: `mmw-v2/skills/verify-ticket/references/ui-parity.md`
 
 **`volatile_values`**:
-A top-level list on the screen contract of display values the seed must not write — a wallet balance belonging to an external account, not a difference to hide. Each entry is a `page`, a `trigger` (role and accessible name, the same shape as `retired_ids`), and one line of `reason`. Before the accessibility tree and the pixel judge compare, both sides replace that node's text with one token: the tree name becomes `<volatile>`, and the pixel judge paints the node's box the same solid colour. The class set is not masked — the paint is an inline style, not a class name. A product node matches when its role equals the trigger's and the non-digit stem of the accessible name is the same as the handoff's. The lint prints every entry on every run and warns when the trigger is not in that page's target tree.
+A top-level list on the screen contract of display values the seed must not write — a wallet balance belonging to an external account, not a difference to hide. Each entry is a `page`, a `trigger` (role and accessible name, the same shape as `retired_ids`), and one line of `reason`. Before the accessibility tree and the pixel judge compare, both sides replace that node's text with one token: the tree name becomes `<volatile>`, and the pixel judge paints the node's box the same solid colour. The class set is not masked — the paint is an inline style, not a class name. A product node matches when its role equals the trigger's and the accessible names agree once digits and thousands separators are removed. The lint prints every entry on every run and warns when the trigger is not in that page's target tree.
 _Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
 
 **perturbation run**:

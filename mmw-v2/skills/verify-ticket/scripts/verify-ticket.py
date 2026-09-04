@@ -1106,8 +1106,10 @@ class TargetJsonChecksError(Exception):
     as the list of commands the gate expects."""
 
 
-def target_json_checks(root: Path | None) -> list[str] | None:
-    """The `checks` list from `.mmw/target.json`, or None when that key is absent —
+def target_json_checks(root: Path | None) -> list[tuple[str, int]] | None:
+    """The `checks` of `.mmw/target.json` as `(command, timeout)` pairs — an entry is a
+    string, held to `DEFAULT_TIMEOUT`, or `{"run": …, "timeout": …}` naming its own
+    bound in seconds — or None when the key is absent —
     the closeout then behaves as it did before the key existed. `--reverify` and
     `--lint` never read this. A file that names `checks` but is not a JSON object
     with a list raises `TargetJsonChecksError` rather than looking like absence."""
@@ -1127,7 +1129,21 @@ def target_json_checks(root: Path | None) -> list[str] | None:
     raw = data["checks"]
     if not isinstance(raw, list):
         raise TargetJsonChecksError(f"{path} `checks` is not a list")
-    return [str(c) for c in raw]
+    commands: list[tuple[str, int]] = []
+    for entry in raw:
+        if isinstance(entry, str):
+            commands.append((entry, DEFAULT_TIMEOUT))
+            continue
+        if isinstance(entry, dict) and isinstance(entry.get("run"), str):
+            timeout = entry.get("timeout", DEFAULT_TIMEOUT)
+            if not isinstance(timeout, int) or timeout <= 0:
+                raise TargetJsonChecksError(
+                    f"{path} `checks` entry {entry['run']!r}: `timeout` must be a positive integer")
+            commands.append((entry["run"], timeout))
+            continue
+        raise TargetJsonChecksError(
+            f"{path} `checks` entry {entry!r} is neither a string nor {{\"run\": …, \"timeout\": …}}")
+    return commands
 
 
 def run_target_json_checks(root: Path | None) -> tuple[bool, str]:
@@ -1137,7 +1153,8 @@ def run_target_json_checks(root: Path | None) -> tuple[bool, str]:
     every command exited 0; `(False, body)` when any did not — `body` starts with
     `CHECKS FAILED` and, for each failed command, the command and its last
     `CHECKS_TAIL` lines of output. A malformed file is a failure, not absence.
-    Each command is held to `DEFAULT_TIMEOUT`, the same bound as a `CHECK:`.
+    A string entry is held to `DEFAULT_TIMEOUT`, the same bound as a `CHECK:`; an
+    entry written as `{"run": …, "timeout": …}` is held to its own.
     """
     try:
         commands = target_json_checks(root)
@@ -1146,16 +1163,16 @@ def run_target_json_checks(root: Path | None) -> tuple[bool, str]:
     if commands is None:
         return True, ""
     failed: list[tuple[str, str]] = []
-    for command in commands:
+    for command, bound in commands:
         try:
             proc = subprocess.run(command, shell=True, cwd=root, capture_output=True,
-                                  text=True, timeout=DEFAULT_TIMEOUT)
+                                  text=True, timeout=bound)
         except subprocess.TimeoutExpired as exc:
             combined = (exc.stdout or "") + (exc.stderr or "")
             if isinstance(combined, bytes):
                 combined = combined.decode("utf-8", "replace")
             tail = "\n".join(str(combined).splitlines()[-CHECKS_TAIL:])
-            note = f"timed out after {DEFAULT_TIMEOUT}s"
+            note = f"timed out after {bound}s"
             failed.append((command, f"{note}\n{tail}".strip() if tail else note))
             continue
         except OSError as exc:

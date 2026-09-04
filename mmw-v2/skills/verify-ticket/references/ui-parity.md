@@ -24,7 +24,7 @@ The **accessibility tree** is the main judge: the sequence of named nodes in rea
 
 The **class set** of the subtree is the second judge. The stylesheets are copied from the handoff package byte for byte, so with the tree equal a wrong colour or gap on the right element can only be the wrong class name — which the tree cannot see and a pixel share cannot name. A class one side lacks fails the scene and names the element wearing it.
 
-A display value the seed must not write is declared as `volatile_values` on the contract. Before the accessibility tree and the pixel judge compare, both sides replace that node's text with one token (`<volatile>` in the tree; the node's box painted one solid colour for pixels). The class set is not masked: the paint is an inline style, not a class name.
+A display value the seed must not write — a wallet balance that belongs to an external account — is declared under the contract's `volatile_values` (`align-screens/references/contract-format.md`); the tree and the pixel judge replace that node with one token before comparing, the class set is untouched. It is for values the product cannot own, never for a difference to hide.
 
 **Pixels** are the third, for a block that did not render or came out the wrong size. They see only the mount element's box **intersected with the viewport**, the baseline pinned to that same intersection; below the fold is the tree's alone. Both screenshots are shrunk by 4 (each cell the average of a 4×4 block) before they are compared, which removes glyph rendering and offsets under 4 pixels; the share of cells that still differ is held to `--max-pct`, 3% by default. What 3% lets through is for the class set and for the user looking at `--out`, not for another round of fixing.
 

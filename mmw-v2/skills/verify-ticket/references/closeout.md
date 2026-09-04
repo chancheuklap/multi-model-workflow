@@ -1,6 +1,6 @@
 # What `--closeout` reads the draft against
 
-You are the worker who wrote the closing comment to a file and had it refused. Every condition below is one `--closeout` checks against the draft before it posts the draft; the stderr line names the first, and `--check-only` prints them all. A refused draft leaves the ticket exactly as it was — same comments, same state, same labels. After an `ALL MET` draft is accepted, `.mmw/target.json`'s `checks` are a later gate: a failure posts `CHECKS FAILED` and does not close.
+You are the worker who wrote the closing comment to a file and had it refused. Every condition below is one `--closeout` checks against the draft before it posts the draft; the stderr line names the first, and `--check-only` prints them all. A refused draft leaves the ticket exactly as it was — same comments, same state, same labels.
 
 Fix the draft, or fix what the draft describes, and run it again.
 
@@ -16,4 +16,4 @@ Fix the draft, or fix what the draft describes, and run it again.
 
 `HANDOFF REQUIRED` is held to none of the `VERDICT` conditions. It claims nothing was finished, so it is the way out of anything you cannot fix yourself, including a verifier that never ran. Whether the work is any good is what the `CHECK` commands, the verifier and `code-review` decide before you write the draft.
 
-After the draft is accepted and before an `ALL MET` ticket closes, `--closeout` runs `.mmw/target.json`'s optional `checks` at the repository root ([targets/README.md](targets/README.md)). A failure posts `CHECKS FAILED` and does not close; a pass appends `CHECKS OK <n>/<n>` to the closing comment. `--check-only`, `--reverify` and `--lint` do not run them. A `HANDOFF REQUIRED` draft does not either.
+One gate comes after the draft: an accepted `ALL MET` draft still has to pass the repository's own `checks` in `.mmw/target.json` ([targets/README.md](targets/README.md)) before the ticket closes. `CHECKS FAILED` on the ticket means the draft was fine and the suite was not; fix the code, run the suite yourself, and run `--closeout` again.

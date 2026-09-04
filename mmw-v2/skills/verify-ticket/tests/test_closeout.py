@@ -611,6 +611,31 @@ class TestTargetJsonChecks(unittest.TestCase):
         self.assertIn("CHECKS OK 2/2", posted.splitlines())
         self.assertEqual(posted.splitlines()[0], "ALL MET")
 
+    def test_an_entry_with_its_own_timeout_is_held_to_it(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_checks(root, [
+                {"run": "python3 -c \"import time; time.sleep(5)\"", "timeout": 1},
+                "true",
+            ])
+            text = draft(counts=counts_line())
+            code, err, seen = check(text, check_only=False, repo=root)
+        self.assertEqual(code, 1, err)
+        self.assertEqual(seen["closed"], [])
+        body = seen["posted"][0][1]
+        self.assertEqual(body.splitlines()[0], "CHECKS FAILED")
+        self.assertIn("timed out after 1s", body)
+
+    def test_an_entry_that_is_neither_string_nor_run_object_does_not_close(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_checks(root, [{"cmd": "true"}])
+            text = draft(counts=counts_line())
+            code, err, seen = check(text, check_only=False, repo=root)
+        self.assertEqual(code, 1, err)
+        self.assertEqual(seen["closed"], [])
+        self.assertEqual(seen["posted"][0][1].splitlines()[0], "CHECKS FAILED")
+
     def test_no_checks_key_leaves_closeout_unchanged(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
