@@ -6,7 +6,7 @@
 #   dispatch.sh wait <ticket> "<first-line-regex>" [seconds]
 #   dispatch.sh advance <spec>
 #   dispatch.sh run <spec> [--max-hours H]
-#   dispatch.sh abandon <spec>
+#   dispatch.sh suspend <spec>
 #
 # The ticket number and the kind of agent are the whole input. Which of the worker rows
 # a worker session starts from is the ticket's own `*-worker` label, so one ticket keeps
@@ -85,9 +85,9 @@ usage: dispatch.sh <ticket> worker|reviewer [base-commit]
        dispatch.sh wait <ticket> "<first-line-regex>" [seconds]
        dispatch.sh advance <spec>
        dispatch.sh run <spec> [--max-hours H]
-       dispatch.sh abandon <spec>
+       dispatch.sh suspend <spec>
 
-abandon ends the night on <spec>: it closes the board's tab, which is what stops the
+suspend ends the night on <spec>: it closes the board's tab, which is what stops the
 board and the loop that restarts it together, comments on every ticket still in the
 agent queue, and gives back every slot the batch holds on this machine. It ends nothing
 else. A worker still running is left running, and every worktree, branch and agent
@@ -433,7 +433,7 @@ dispatch() {
             | json_at .result.pane.pane_id)"
     [ -n "$pane" ] || refuse "could not split pane $caller"
   else
-    prompt="Use the implement skill to work ticket #$number. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work. This machine runs several tickets at once: before you run the product, read 'Four rules while the product is running' in the verify-ticket skill — you never choose a port, never start a backing service, never end a process you did not start, and a product you cannot reach means you report the ticket blocked and stop. A fault in the pipeline itself — the acceptance driver, the instance lease, the verify-ticket scripts, a machine fact in .mmw/target.json — is not yours to work around and not a reason to keep trying: comment on the ticket with exactly what you ran and what you saw, then stop. Stopping is what brings it to the main agent, who fixes the cause. A workaround you build instead hides the fault from every ticket after yours."
+    prompt="Use the implement skill to work ticket #$number. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work. This machine runs several tickets at once: before you run the product, read 'Five rules while the product is running' in the verify-ticket skill."
     local worktree
     worktree="$(worktree_for "$number" "$root")" \
       || refuse "could not open a worktree for issue-$number under ${MMW_WORKTREES:-$HOME/.mmw/worktrees}"
@@ -971,14 +971,14 @@ for page in rows if isinstance(rows, list) else []:
 '
 }
 
-# The comment every ticket of an abandoned batch carries. Its reader is a person opening
+# The comment every ticket of a suspended batch carries. Its reader is a person opening
 # the ticket the next morning, who would otherwise find a batch of tickets with no
 # verdict on any of them and no way to tell that from work in progress.
-abandon_comment() {
+suspend_comment() {
   local spec="$1" when="$2" name="$3"
   printf '%s\n%s\n' \
-    "NIGHT ABANDONED #$spec" \
-    "The night on spec #$spec was given up at $when, so this ticket has no verdict: nothing here says whether its work is finished."
+    "NIGHT SUSPENDED #$spec" \
+    "The night on spec #$spec was suspended at $when, so this ticket has no verdict: nothing here says whether its work is finished."
   if [ -n "$name" ]; then
     printf '%s\n' "Its worker $name was left running, and its worktree, its branch and its session are untouched. Read the session with \`herdr agent read $name\` to see where it got to; the batch is taken up again where it stands."
   else
@@ -986,12 +986,12 @@ abandon_comment() {
   fi
 }
 
-# End the night without ending its work.
+# Suspend the night without ending its work.
 #
 # Two things happen and nothing else does: the board stops, and every ticket of the
-# batch that is still open is told the night was given up. No session is ended, no
+# batch that is still open is told the night was suspended. No session is ended, no
 # worktree and no branch is removed. That is the whole point of the verb — a night is
-# given up when the pipeline itself turns out to be at fault, and the same worktrees and
+# suspended when the pipeline itself turns out to be at fault, and the same worktrees and
 # the same sessions are what the fix is carried on with; a batch dispatched again from
 # scratch would throw away the night's work along with the night.
 #
@@ -999,7 +999,7 @@ abandon_comment() {
 # rather than sessions and the next night would otherwise read it as full. `lease.py`
 # refuses a slot something still listens on, and that refusal is reported rather than
 # forced: taking a slot off a live process is the same act as ending it.
-abandon_night() {
+suspend_night() {
   local spec="$1"; shift
   [ "$#" -eq 0 ] || usage
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
@@ -1051,10 +1051,10 @@ abandon_night() {
   for number in $queued; do
     name="$(printf '%s\n' "$live" | awk -v n="$number" '$1 == n { print $2; exit }')"
     [ -n "$name" ] && running=$((running + 1))
-    if gh_ issue comment "$number" --body "$(abandon_comment "$spec" "$when" "$name")" >/dev/null 2>&1; then
+    if gh_ issue comment "$number" --body "$(suspend_comment "$spec" "$when" "$name")" >/dev/null 2>&1; then
       commented=$((commented + 1))
     else
-      echo "dispatch: could not comment on #$number, so nothing on it says the night was given up" >&2
+      echo "dispatch: could not comment on #$number, so nothing on it says the night was suspended" >&2
       left=$((left + 1))
     fi
   done
@@ -1077,7 +1077,7 @@ abandon_night() {
 
   local board_state="stopped"
   [ "$stopped" -gt 0 ] || board_state="not found"
-  echo "abandon #$spec: board $board_state, commented $commented, left running $running, slots given back $back"
+  echo "suspend #$spec: board $board_state, commented $commented, left running $running, slots given back $back"
   [ "$left" -eq 0 ] || exit 1
 }
 
@@ -1096,10 +1096,10 @@ case "${1:-}" in
     shift
     advance "$@"
     ;;
-  abandon)
+  suspend)
     [ "$#" -ge 2 ] || usage
     shift
-    abandon_night "$@"
+    suspend_night "$@"
     ;;
   wait)
     [ "$#" -ge 3 ] && [ "$#" -le 4 ] || usage
