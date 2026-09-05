@@ -30,7 +30,7 @@ A worktree is cut from `HEAD` at the moment `advance` creates it, so a branch me
 
 ## 3. Each finish notification
 
-The notification's first sentence is `Agent <id> (<title>) finished.` or `errored.` or `was closed.` or `needs permission.` Title is `#<n> worker`, `#<n> reviewer` or `#<n> verifier`.
+The notification's first sentence is `Agent <id> (<title>) finished.` or `errored.` or `was closed.` or `needs permission.` Title is `#<n> worker`, `#<n> reviewer` or `#<n> verifier`. One `create_agent` yields one terminal notification; a notification is not the ticket being done.
 
 1. If it is `needs permission`: `list_pending_permissions` then `respond_to_permission` (CLI: `paseo permit`). Then go to 2. This is not a stop.
 2. Run `<dispatch> status <spec>`. The table's `note` column is `needs permission`, `ready`, `waiting on #<m>`, the newest comment, or empty while a worker is live.
@@ -40,8 +40,8 @@ The notification's first sentence is `Agent <id> (<title>) finished.` or `errore
 | --- | --- |
 | A ticket just closed `ALL MET`, or the frontier has `ready` rows and no live worker on them | `<dispatch> advance <spec> --json`, then `create_agent` on each new line |
 | The worker is live and the work should continue | `<dispatch> resume <n> "<what you settled, then: continue>"` |
-| The notification is `finished`, `status` shows the ticket still `OPEN`, the worker `idle`, and it has a live child (`mmw.kind=reviewer` or `mmw.kind=verifier`) | Not a stop. In the background run `paseo wait <child agent id> && paseo wait <worker id>`; when that returns, run `status` again (Claude Code: Monitor or background Bash; any other host: its own background task tool). No live child and no closing comment: take the `errored` / `was closed` row |
-| The worker has stopped and the ticket has a new child whose first line is `SUB-ISSUE pipeline` | Read that sub-issue. Fix the cause it names. Then `<dispatch> resume <n> "… continue"` |
+| The worker has stopped and the ticket has a new child whose first line is `SUB-ISSUE pipeline` | Read that sub-issue (`gh api repos/{owner}/{repo}/issues/<n>/sub_issues`). Fix the cause it names. Then `<dispatch> resume <n> "… continue"` |
+| The notification is `finished`, `status` shows the ticket still `OPEN`, the worker `idle`, and `paseo ls --label mmw.ticket=<n>` shows a live child labelled `mmw.kind=reviewer` or `mmw.kind=verifier` | Not a stop. In the background run `paseo wait <child agent id> && paseo wait <worker id>` (full ids from `paseo ls --json --label mmw.ticket=<n>`); when that returns, run `status` again in your host's background task tool. No live child and no closing comment: take the next matching row |
 | The worker `errored` or `was closed` short of a closing comment | `paseo logs <id>`. Fix what stopped it — a file it could not find, a command it needs, a baseline it read wrong — then `resume` with that plus `continue`. A question only a person can settle: `resume` telling the worker to open it with `verify-ticket.py <n> --sub-issue decision <file>`, take the default meanwhile, and record it under `Decisions I made on my own`. Change no label |
 | The worker is live and nothing is wrong | Do not `resume`. Wait for the next notification |
 | `status` shows an empty frontier and no live agent of this spec | Go to step 4 |
