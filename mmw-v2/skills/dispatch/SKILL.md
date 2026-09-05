@@ -16,27 +16,26 @@ bash <absolute path to scripts/dispatch.sh> …
 python3 <absolute path to scripts/status.py> …
 ```
 
-Resolve them from this file's own location. The path differs by machine and by host, and `install.sh` puts this skill wherever the host that gave it to you reads its skills from.
+Resolve them from this file's own location. The path differs by machine and by host, and `install.sh` puts this skill wherever the host that gave it to you reads its skills from. `<engine>` is `scripts/verify-ticket.py` of the `verify-ticket` skill; resolve it from that skill's SKILL.md.
 
-## Two paths: `--json` or `--run`
+## One path: create_agent
 
-`start` and `advance` take exactly one of `--json` or `--run`. If you pass neither, or both, the script exits 2, prints `pass --json … or --run …` on stderr, and calls nothing.
+`start` and `advance` print one JSON object per ticket, one line, whose fields are the arguments of `create_agent` (`workspaceId`, `title`, `provider`, `settings`, `labels`, `initialPrompt`). You call `create_agent` on each line yourself, with `notifyOnFinish: true`. The script prints the object; the finish notification only fires for a `create_agent` that you issued. A session with no `create_agent` tool cannot dispatch: say so and stop.
 
-- **`--json`**: stdout is one JSON object per ticket, one line, whose fields are the arguments of `create_agent` (`workspaceId`, `title`, `provider`, `settings`, `labels`, `initialPrompt`). You call `create_agent` on each line yourself, with `notifyOnFinish: true`. The script does not call `create_agent`; the finish notification only fires for a `create_agent` that you issued.
-- **`--run`**: the script calls `paseo run -d …` and prints the agent id. There is no finish notification. Wait with `paseo wait <id>`, then read the ticket.
+Only this path exists: everything one agent does to another — finish notifications, parent–child (`paseo.parent-agent-id`, archive cascade and the app tree), permission hand-off, readable labels — is complete only on the MCP side; the CLI is the side scripts read facts on and people use; future agent features land on the MCP side too.
 
-Which path you take is a fact about this session, not about the environment: **if you have a `create_agent` tool, pass `--json`; otherwise pass `--run`.** Do not look at `PASEO_AGENT_ID` to choose — a Grok session can have the Paseo tools and still be running its shell inside the daemon, where that variable is unset, so a test of the variable would pick `--run` every time and you would never be notified.
+Then: the main agent waits for the finish notification. A worker blocks with `paseo wait <id>` — ending a turn spends the main agent's only finish notification for this worker.
 
 ## Find your command
 
 | You want to | Run |
 | --- | --- |
-| Start the reviewer on your ticket and wait for its report | `<dispatch> start <n> reviewer --json`. Stdout is one JSON object. Call `create_agent` with those fields and `notifyOnFinish: true`. When a finish notification arrives for title `#<n> reviewer`, read the ticket: the report is the newest comment whose first line is `REVIEW `. **`--run` instead:** stdout is the agent id; `paseo wait <id>`, then read that `REVIEW ` comment. **Start exits 2:** stderr is the reason; nothing was started — it is a pipeline fault: `<engine> <n> --sub-issue pipeline <file>` (resolve `<engine>` from the `verify-ticket` skill); the file's body is the command you ran and the output you saw; then stop. **Notification is `errored` or `was closed`, and there is no `REVIEW ` comment:** `paseo logs <id>`, then run the `code-review` skill in this host's general-purpose subagent with ticket `<n>` and base commit `$(git config branch.issue-<n>.mmw-base)`; its report lands with the same `REVIEW ` first line. Do not start a second reviewer. |
-| Start the verifier on your ticket | `<dispatch> start <n> verifier --json`. Call `create_agent` on the printed object with `notifyOnFinish: true`. When the finish notification arrives, read the newest comment whose first line is `VERDICT`. **`--run` instead:** stdout is the agent id; `paseo wait <id>`, then read that `VERDICT`. Start it once. **Start exits 2:** stderr is the reason; nothing was started — it is a pipeline fault: `<engine> <n> --sub-issue pipeline <file>` (resolve `<engine>` from the `verify-ticket` skill); the file's body is the command you ran and the output you saw; then stop. |
-| Open the night on a spec | [references/night.md](references/night.md): `<dispatch> check <spec>`, then `<dispatch> advance <spec> --json`, then `create_agent` on each printed line |
+| Start the reviewer on your ticket and wait for its report | `<dispatch> start <n> reviewer`, then the one path above; the report is the newest comment whose first line is `REVIEW `. **Start exits 2:** stderr is the reason; nothing was started — it is a pipeline fault: `<engine> <n> --sub-issue pipeline <file>`; the file's body is the command you ran and the output you saw; then stop. **Notification is `errored` or `was closed`, and there is no `REVIEW ` comment:** `paseo logs <id>`, then run the `code-review` skill in this host's general-purpose subagent with ticket `<n>` and base commit `$(git config branch.issue-<n>.mmw-base)`; its report lands with the same `REVIEW ` first line. Do not start a second reviewer. |
+| Start the verifier on your ticket | `<dispatch> start <n> verifier`, then the one path above; the report is the newest comment whose first line is `VERDICT`. Start it once. **Start exits 2:** stderr is the reason; nothing was started — it is a pipeline fault: `<engine> <n> --sub-issue pipeline <file>`; the file's body is the command you ran and the output you saw; then stop. |
+| Open the night on a spec | [references/night.md](references/night.md): `<dispatch> check <spec>`, then `<dispatch> advance <spec>`, then the one path above |
 | A finish notification arrived (`finished` / `errored` / `was closed` / `needs permission`) | `<dispatch> status <spec>`, then the decision table in [references/night.md](references/night.md) |
 | Tell a live worker to continue | `<dispatch> resume <n> "<text>"`. Exit 0: the text was sent. Exit 2: no worker labelled `mmw.ticket=<n>` — read `status`, do not send again |
-| Start a worker on one ticket, outside a night | `<dispatch> start <n> worker --json` (then `create_agent`) or `--run` (prints the agent id; then `paseo wait <id>` before you read the ticket) |
+| Start a worker on one ticket, outside a night | `<dispatch> start <n> worker`, then the one path above |
 | Re-run every closed `ALL MET` ticket on the branch you are on | `<dispatch> reverify <spec>` |
 | Post the night summary on the spec | `<dispatch> summary <spec>` |
 | Change one ticket's worker grade | Swap its `junior-worker` / `senior-worker` label on the tracker; the next `start` reads it |
@@ -54,24 +53,22 @@ A notification is a `<paseo-system>` block whose first sentence is `Agent <id> (
 
 `start`'s third argument is `worker`, `reviewer` or `verifier`. Which of the two worker rows in `models.md` a worker starts from is the ticket's own `junior-worker` or `senior-worker` label, read fresh on every start. A ticket carrying neither label starts on `junior-worker`; one carrying both, or one naming a grade `models.md` has no row for, is refused (exit 2, stderr names the ticket). The reviewer reads `git config branch.issue-<n>.mmw-base` itself; you do not pass a base commit.
 
-`--json` / `--run` are required on `start` and `advance` and invalid as a substitute for each other.
-
 ## Exit codes
 
-**`start <n> worker\|reviewer\|verifier --json\|--run`:**
+**`start <n> worker\|reviewer\|verifier`:**
 
 | Code | What happened |
 | --- | --- |
-| `0` | `--json`: one JSON object is on stdout. `--run`: the agent id is on stdout |
-| `2` | Nothing was started. The reason is on stderr — read it verbatim. Typical causes: the ticket is not `OPEN` / not `ready-for-agent` / still blocked; two worker-grade labels; no `bypass` row in `models.md` for that agent; no `## Parent` spec number; no recorded base commit (reviewer); no Paseo project whose `path` is this checkout |
+| `0` | One JSON object is on stdout |
+| `2` | Nothing was started. The reason is on stderr — read it verbatim. Typical causes: the ticket is not `OPEN` / not `ready-for-agent` / still blocked; two worker-grade labels; no `bypass` row in `models.md` for that agent; no `## Parent` spec number; no recorded base commit (reviewer); no Paseo project whose `path` is this checkout; an argument this form does not take |
 
-**`advance <spec> --json\|--run`:**
+**`advance <spec>`:**
 
 | Code | What happened |
 | --- | --- |
-| `0` | Done. `--json`: one JSON object per dispatched ticket on stdout; the line `advance #<spec>: merged <m>, already in <s>, started <k>, refused <r>` is on stderr. `--run`: that summary line is on stdout |
+| `0` | Done. One JSON object per dispatched ticket on stdout; the line `advance #<spec>: merged <m>, already in <s>, started <k>, refused <r>` is on stderr |
 | `2` | Nothing was touched. Stderr: not a git repository, uncommitted tracked changes, or the `.git` lock was held for `MERGE_TRIES` tries — run `advance` again |
-| `3` | A merge is in conflict. Everything before it is merged and committed; nothing was archived, no workspace was created, nothing was dispatched. **The conflict is still in the tree and it stays there.** Resolve it with the `resolving-merge-conflicts` skill, run this repository's own checks, commit the merge, then run `advance` again with the same `--json` or `--run`. The conflict report (stderr) already names the two sides and the conflicted files |
+| `3` | A merge is in conflict. Everything before it is merged and committed; nothing was archived, no workspace was created, nothing was dispatched. **The conflict is still in the tree and it stays there.** Resolve it with the `resolving-merge-conflicts` skill, run this repository's own checks, commit the merge, then run `advance` again. The conflict report (stderr) already names the two sides and the conflicted files |
 
 **`check <spec>`:**
 
