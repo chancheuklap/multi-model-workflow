@@ -61,7 +61,7 @@ class TestCreatesForEachKind(unittest.TestCase):
         self.assertEqual(code, 0, err)
         create = next(c for c in recorded if c[:3] == ["gh", "issue", "create"])
         self.assertEqual(create[create.index("--parent") + 1], "77")
-        self.assertNotIn("118", create)
+        self.assertEqual(create.count("--parent"), 1)
 
     def test_the_body_opens_with_the_sub_issue_marker(self):
         code, _, err, recorded, bodies = run_sub_issue(
