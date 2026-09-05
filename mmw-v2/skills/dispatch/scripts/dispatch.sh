@@ -66,24 +66,6 @@ USAGE
 
 # ------------------------------------------------------------------ small helpers
 
-# Reads one value out of a JSON document on stdin, by dotted path.
-json_at() {
-  MMW_JSON_PATH="$1" python3 -c '
-import json, os, sys
-
-try:
-    node = json.load(sys.stdin)
-except Exception:
-    sys.exit(0)
-for key in os.environ["MMW_JSON_PATH"].strip(".").split("."):
-    if not isinstance(node, dict) or key not in node:
-        sys.exit(0)
-    node = node[key]
-if node is not None:
-    print(node)
-'
-}
-
 # Truncates stdin to a number of characters, not bytes: ticket titles are not ASCII.
 head_chars() {
   MMW_HEAD_CHARS="$1" python3 -c '
@@ -265,7 +247,13 @@ ensure_workspace() {
   json="$(paseo workspace create --isolation worktree --path "$root" --project "$project" \
             --worktree-slug "issue-$number" --title "$ws_title" --json "${extra[@]}")" \
     || { echo "dispatch: could not create a workspace for issue-$number" >&2; return 1; }
-  ident="$(printf '%s' "$json" | json_at workspaceId)"
+  ident="$(printf '%s' "$json" | python3 -c '
+import json, sys
+try:
+    print(json.load(sys.stdin).get("workspaceId") or "")
+except Exception:
+    pass
+')"
   [ -n "$ident" ] || { echo "dispatch: workspace create printed no workspaceId" >&2; return 1; }
 
   if git -C "$root" rev-parse --verify --quiet "refs/heads/issue-$number" >/dev/null; then
@@ -284,23 +272,19 @@ archive_workspace() {
 
 # ------------------------------------------------------------------ dispatch payload
 
-# permissions → create_agent settings. One mapping.
-host_permission_settings() {
-  case "$1" in
-    claude) printf '%s\n' '{"modeId":"bypassPermissions"}' ;;
-    codex)  printf '%s\n' '{"modeId":"full-access"}' ;;
-    *)      printf '%s\n' '{"features":{"auto_accept":true}}' ;;
-  esac
-}
-
 emit_create_json() {
-  MMW_PERM_SETTINGS="$(host_permission_settings "$MMW_HOST")" python3 -c '
+  python3 -c '
 import json, os
 
 host = os.environ["MMW_HOST"]
 model = os.environ["MMW_MODEL"]
 effort = os.environ["MMW_EFFORT"]
-settings = json.loads(os.environ["MMW_PERM_SETTINGS"])
+if host == "claude":
+    settings = {"modeId": "bypassPermissions"}
+elif host == "codex":
+    settings = {"modeId": "full-access"}
+else:
+    settings = {"features": {"auto_accept": True}}
 if effort and effort not in ("—", "-", ""):
     settings["thinkingOptionId"] = effort
 payload = {
@@ -723,16 +707,13 @@ summary_spec() {
 
 [ -f "$MODELS" ] || refuse "no models.md at $MODELS"
 
-POSITIONAL=()
 for arg in "$@"; do
   if [ "$arg" != "${arg#--}" ]; then
     case "${arg#--}" in
       json|run) refuse "$arg is no longer a flag" ;;
     esac
   fi
-  POSITIONAL+=("$arg")
 done
-set -- "${POSITIONAL[@]+"${POSITIONAL[@]}"}"
 
 case "${1:-}" in
   check)

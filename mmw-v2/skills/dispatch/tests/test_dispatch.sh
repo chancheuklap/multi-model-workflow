@@ -146,34 +146,6 @@ if args[:2] == ["workspace", "archive"]:
     print(json.dumps({"workspaceId": ident, "archived": True}))
     sys.exit(0)
 
-if args[:1] == ["run"]:
-    title = opt("--title") or "agent"
-    ident = "agt_" + title.replace("#", "").replace(" ", "_")
-    labs = {}
-    for item in labels_from_args():
-        if "=" in item:
-            k, v = item.split("=", 1)
-            labs[k] = v
-    prompt = args[-1] if args else ""
-    rows = load("agents.json")
-    rows.append({
-        "id": ident,
-        "name": title,
-        "status": "running",
-        "cwd": str(state / ("issue-" + labs.get("mmw.ticket", "0"))),
-        "labels": labs,
-        "prompt": prompt,
-    })
-    save("agents.json", rows)
-    print(json.dumps({
-        "agentId": ident,
-        "status": "running",
-        "provider": opt("--provider"),
-        "cwd": str(state),
-        "title": title,
-    }))
-    sys.exit(0)
-
 if args[:1] == ["ls"]:
     wanted = {}
     for item in labels_from_args():
@@ -331,6 +303,40 @@ for line in open(os.environ["MMW_TEST_LOG"], encoding="utf-8"):
 run_dispatch() { (cd "$TMP/repo" && "$@") > "$TMP/out" 2> "$TMP/err"; echo "$?"; }
 
 never_ran() { hasnt "paseo :: run"; }
+nothing_printed() { [ ! -s "$TMP/out" ] || fail "stdout should be empty: $(cat "$TMP/out")"; }
+
+# One field of the single JSON line dispatch printed. Nested keys use one
+# dot: `labels.mmw.ticket` is labels["mmw.ticket"], not three hops.
+out_json() {
+  MMW_JSON_PATH="$1" python3 -c '
+import json, os, sys
+from pathlib import Path
+lines = [l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()]
+assert len(lines) == 1, lines
+node = json.loads(lines[0])
+path = os.environ["MMW_JSON_PATH"]
+if "." in path:
+    top, rest = path.split(".", 1)
+    node = node[top][rest]
+else:
+    node = node[path]
+print(node)
+' "$TMP/out"
+}
+
+assert_create_shape() {
+  python3 -c '
+import json, sys
+from pathlib import Path
+raw = Path(sys.argv[1]).read_text()
+lines = [l for l in raw.splitlines() if l.strip()]
+assert len(lines) == 1, raw
+obj = json.loads(lines[0])
+for key in ("workspaceId", "title", "provider", "settings", "labels", "initialPrompt"):
+    assert key in obj, key
+assert "notifyOnFinish" not in obj
+' "$TMP/out"
+}
 
 row_host() { awk -F'|' -v want="$1" 'function t(s){gsub(/^[ \t`]+|[ \t`]+$/,"",s);return s} /^[ \t]*\|/ && NF==7 && t($2)==want {print t($3); exit}' "$SKILL/models.md"; }
 row_model() { awk -F'|' -v want="$1" 'function t(s){gsub(/^[ \t`]+|[ \t`]+$/,"",s);return s} /^[ \t]*\|/ && NF==7 && t($2)==want {print t($4); exit}' "$SKILL/models.md"; }
@@ -498,18 +504,11 @@ Merge branch 'issue-61'" ] || fail "merge order is wrong"
   [ "$archived" -gt 0 ] && [ "$created" -gt 0 ] && [ "$archived" -lt "$created" ] \
     || fail "archive should precede workspace create"
   never_ran
-  python3 -c '
-import json, sys
-from pathlib import Path
-raw = Path(sys.argv[1]).read_text()
-lines = [l for l in raw.splitlines() if l.strip()]
-assert len(lines) == 1, raw
-obj = json.loads(lines[0])
-assert obj["title"] == "#63 worker", obj["title"]
-assert obj["labels"]["mmw.ticket"] == "63"
-assert obj["labels"]["mmw.kind"] == "worker"
-assert obj["workspaceId"]
-' "$TMP/out" || fail "the dispatched JSON is wrong: $(cat "$TMP/out")"
+  assert_create_shape || fail "the dispatched JSON is wrong: $(cat "$TMP/out")"
+  [ "$(out_json title)" = "#63 worker" ] || fail "title: $(out_json title)"
+  [ "$(out_json labels.mmw.ticket)" = 63 ] || fail "ticket: $(out_json labels.mmw.ticket)"
+  [ "$(out_json labels.mmw.kind)" = worker ] || fail "kind: $(out_json labels.mmw.kind)"
+  [ -n "$(out_json workspaceId)" ] || fail "workspaceId missing"
   grep -q "advance #76:" "$TMP/err" || fail "the summary line should be on stderr: $(cat "$TMP/err")"
   [ "$(git -C "$TMP/repo" config --get branch.issue-63.mmw-base)" = "$(git -C "$TMP/repo" rev-parse HEAD)" ] \
     || fail "mmw-base should be HEAD for a branch-off"
@@ -524,6 +523,8 @@ assert obj["workspaceId"]
           bash "$DISPATCH" advance 76)"
   [ "$code" = 0 ] || fail "exit $code on the second run: $(cat "$TMP/err")"
   grep -q "merged 0" "$TMP/err" || fail "the second run should report nothing merged: $(cat "$TMP/err")"
+  grep -q "started 0" "$TMP/err" || fail "the second run should start nothing: $(cat "$TMP/err")"
+  nothing_printed
   never_ran
 
   echo "--- a retired flag on advance exits 2 and calls nothing"
@@ -566,6 +567,7 @@ scenario_advanceconflict() {
   echo "--- nothing is archived, created or started while the tree is half-merged"
   hasnt "workspace :: archive"
   hasnt "workspace :: create"
+  nothing_printed
   never_ran
 }
 
@@ -590,6 +592,7 @@ scenario_advancedirty() {
   [ ! -f "$TMP/repo/one.txt" ] || fail "it merged despite the dirty tree"
   hasnt "workspace :: archive"
   hasnt "workspace :: create"
+  nothing_printed
   never_ran
 }
 
@@ -601,27 +604,23 @@ scenario_start_worker() {
   code="$(run_dispatch bash "$DISPATCH" start 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   never_ran
-  python3 -c '
-import json, sys
-from pathlib import Path
-raw = Path(sys.argv[1]).read_text()
-lines = [l for l in raw.splitlines() if l.strip()]
-assert len(lines) == 1, raw
-obj = json.loads(lines[0])
-for key in ("workspaceId", "title", "provider", "settings", "labels", "initialPrompt"):
-    assert key in obj, key
-assert obj["title"] == "#61 worker"
-assert obj["provider"] == sys.argv[2] + "/" + sys.argv[3]
-assert obj["labels"]["mmw.ticket"] == "61"
-assert obj["labels"]["mmw.kind"] == "worker"
-assert obj["labels"]["mmw.spec"] == "76"
-assert obj["labels"]["mmw.profile"] == "junior-worker"
-assert obj["labels"]["mmw.autonomous"] == "1"
-assert obj["initialPrompt"].startswith("Use the implement skill to work ticket #61.")
-assert "You are operating autonomously" in obj["initialPrompt"]
-assert "notifyOnFinish" not in obj
-' "$TMP/out" "$JUNIOR_HOST" "$JUNIOR_MODEL" \
-    || fail "the JSON line is wrong: $(cat "$TMP/out")"
+  assert_create_shape || fail "the JSON line is wrong: $(cat "$TMP/out")"
+  [ "$(out_json title)" = "#61 worker" ] || fail "title: $(out_json title)"
+  [ "$(out_json provider)" = "$JUNIOR_HOST/$JUNIOR_MODEL" ] || fail "provider: $(out_json provider)"
+  [ "$(out_json labels.mmw.ticket)" = 61 ] || fail "ticket label"
+  [ "$(out_json labels.mmw.kind)" = worker ] || fail "kind label"
+  [ "$(out_json labels.mmw.spec)" = 76 ] || fail "spec label"
+  [ "$(out_json labels.mmw.profile)" = junior-worker ] || fail "profile label"
+  [ "$(out_json labels.mmw.autonomous)" = 1 ] || fail "autonomous label"
+  [ "$(out_json settings.thinkingOptionId)" = high ] || fail "effort: $(out_json settings.thinkingOptionId)"
+  case "$(out_json initialPrompt)" in
+    "Use the implement skill to work ticket #61."*) ;;
+    *) fail "the worker dispatch line is missing: $(out_json initialPrompt)" ;;
+  esac
+  case "$(out_json initialPrompt)" in
+    *"You are operating autonomously"*) ;;
+    *) fail "the autonomous sentence is missing from the worker prompt" ;;
+  esac
   has ":: --mode :: branch-off"
   has ":: --new-branch :: issue-61"
 
@@ -643,14 +642,9 @@ assert "notifyOnFinish" not in obj
           bash "$DISPATCH" start 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   never_ran
-  python3 -c '
-import json, sys
-from pathlib import Path
-obj = json.loads(Path(sys.argv[1]).read_text())
-assert obj["provider"] == "grok/" + sys.argv[2], obj["provider"]
-assert obj["settings"].get("thinkingOptionId") == "xhigh", obj["settings"]
-assert obj["labels"]["mmw.profile"] == "senior-worker"
-' "$TMP/out" "$SENIOR_MODEL" || fail "senior-worker JSON is wrong: $(cat "$TMP/out")"
+  [ "$(out_json provider)" = "grok/$SENIOR_MODEL" ] || fail "provider: $(out_json provider)"
+  [ "$(out_json settings.thinkingOptionId)" = xhigh ] || fail "effort: $(out_json settings.thinkingOptionId)"
+  [ "$(out_json labels.mmw.profile)" = senior-worker ] || fail "profile: $(out_json labels.mmw.profile)"
 
   echo "--- two worker labels are refused, and nothing is started"
   reset_log
@@ -658,6 +652,7 @@ assert obj["labels"]["mmw.profile"] == "senior-worker"
           bash "$DISPATCH" start 61 worker)"
   [ "$code" = 2 ] || fail "expected exit 2, got $code"
   grep -q '2 worker labels' "$TMP/err" || fail "the reason does not name the labels: $(cat "$TMP/err")"
+  nothing_printed
   never_ran
   hasnt "workspace :: create"
 
@@ -683,17 +678,17 @@ scenario_start_reviewer() {
   code="$(run_dispatch bash "$DISPATCH" start 61 reviewer)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   never_ran
-  python3 -c '
-import json, sys
-from pathlib import Path
-obj = json.loads(Path(sys.argv[1]).read_text())
-assert obj["title"] == "#61 reviewer", obj["title"]
-assert obj["labels"]["mmw.kind"] == "reviewer"
-assert obj["labels"]["mmw.profile"] == "reviewer"
-prompt = obj["initialPrompt"]
-assert prompt.startswith("Use the code-review skill to review ticket #61 from base commit abcdef0123456789abcdef0123456789abcdef01.")
-assert "You are operating autonomously" in prompt
-' "$TMP/out" || fail "the reviewer JSON is wrong: $(cat "$TMP/out")"
+  [ "$(out_json title)" = "#61 reviewer" ] || fail "title: $(out_json title)"
+  [ "$(out_json labels.mmw.kind)" = reviewer ] || fail "kind label"
+  [ "$(out_json labels.mmw.profile)" = reviewer ] || fail "profile label"
+  case "$(out_json initialPrompt)" in
+    "Use the code-review skill to review ticket #61 from base commit abcdef0123456789abcdef0123456789abcdef01."*) ;;
+    *) fail "the reviewer dispatch line did not carry the recorded base commit: $(out_json initialPrompt)" ;;
+  esac
+  case "$(out_json initialPrompt)" in
+    *"You are operating autonomously"*) ;;
+    *) fail "the autonomous sentence is missing from the reviewer prompt" ;;
+  esac
 }
 
 scenario_start_verifier() {
@@ -705,18 +700,14 @@ scenario_start_verifier() {
   code="$(run_dispatch bash "$DISPATCH" start 61 verifier)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   never_ran
-  python3 -c '
-import json, sys
-from pathlib import Path
-obj = json.loads(Path(sys.argv[1]).read_text())
-path = sys.argv[2]
-assert obj["title"] == "#61 verifier", obj["title"]
-assert obj["labels"]["mmw.kind"] == "verifier"
-assert obj["labels"]["mmw.profile"] == "verifier"
-prompt = obj["initialPrompt"]
-assert prompt == "verify #61 按 " + path + " 行事", prompt
-assert "You are operating autonomously" not in prompt
-' "$TMP/out" "$path" || fail "the verifier JSON is wrong: $(cat "$TMP/out")"
+  [ "$(out_json title)" = "#61 verifier" ] || fail "title: $(out_json title)"
+  [ "$(out_json labels.mmw.kind)" = verifier ] || fail "kind label"
+  [ "$(out_json labels.mmw.profile)" = verifier ] || fail "profile label"
+  [ "$(out_json initialPrompt)" = "verify #61 按 $path 行事" ] \
+    || fail "the verifier prompt is missing the path: $(out_json initialPrompt)"
+  case "$(out_json initialPrompt)" in
+    *"You are operating autonomously"*) fail "the verifier prompt should not carry the autonomous sentence" ;;
+  esac
 }
 
 scenario_resume() {
