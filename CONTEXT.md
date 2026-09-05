@@ -82,7 +82,7 @@ _Avoid_: human (for this), maintainer (in this repository's text), reporter (in 
 _Home_: `docs/agents/triage-labels.md`
 
 **subagent**:
-As a deliverable it is one of the two things the toolbox ships: one shared `body.md` wrapped in a per-host shell by `assemble.py` into `agents/<name>/out/` and symlinked once per host, a `models.md` row whose `permissions` are `—`. Results that must be written back to the ticket, read by another role, and openable by a person, run as a Paseo subagent (写回票); work that is only an internal split of the current step runs as a native subagent. The three code-review axis subagents are the `reviewer` subagent inside the reviewer session; the reviewer and the verifier themselves are Paseo subagents of the worker.
+As a deliverable it is one of the two things the toolbox ships: one shared `body.md` wrapped in a per-host shell by `assemble.py` into `agents/<name>/out/` and symlinked once per host, a `models.md` row whose `permissions` are `—`. Results that must be written back to the ticket, read by another role, and openable by a person, run as a Paseo subagent; work that is only an internal split of the current step runs as a native subagent. The three code-review axis subagents are the `reviewer` subagent inside the reviewer session; the reviewer and the verifier themselves are Paseo subagents of the worker.
 _Avoid_: sub-agent, background agent, seat, 子代理 (as a term)
 _Home_: `mmw-v2/install.sh`
 

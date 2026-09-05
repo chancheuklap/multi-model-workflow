@@ -10,7 +10,7 @@ MMW 是用户跨 host、跨 repository、跨电脑共用的工作流 toolbox：�
 
 | 命令 | 干什么 |
 | --- | --- |
-| `bash mmw-v2/install.sh` | MMW 的全部安装都经这里，装六样：技能 symlink 进 `~/.agents/skills` 和 `~/.claude/skills`，assembled subagent file symlink 进各 host，hook 写进各 host 自己的配置，用户级提示词（`~/.claude/CLAUDE.md` 软链到 `mmw-v2/prompt/shared.md`，Codex、Pi、Grok 各一份由 `mmw-v2/prompt/render.py` 拼出的 AGENTS.md），一个盯着源的 launchd 任务，Paseo 侧配置（`~/.local/bin/paseo` 软链、`~/.paseo/config.json` 里 grok/cursor 两条 provider 与 `models.md` 每个 `bypass` 行一条 Agent profile、`worktrees.root`） |
+| `bash mmw-v2/install.sh` | MMW 的全部安装都经这里，装六样：技能 symlink 进 `~/.agents/skills` 和 `~/.claude/skills`，assembled subagent file symlink 进各 host，hook 写进各 host 自己的配置，用户级提示词（`~/.claude/CLAUDE.md` 软链到 `mmw-v2/prompt/shared.md`，Codex、Pi、Grok 各一份由 `mmw-v2/prompt/render.py` 拼出的 AGENTS.md），一个盯着源的 launchd 任务，Paseo 侧配置（`~/.local/bin/paseo` 软链、`~/.paseo/config.json` 里 grok/cursor 两条 provider 与 `models.md` 每个 `bypass` 或 `read-only` 行一条 Agent profile、`worktrees.root`） |
 | `bash mmw-v2/install.sh --check` | 只查不写：齐了回 0，缺东西或有 stale link 回 1 |
 | `python3 mmw-v2/agents/assemble.py --check` | 校验 `mmw-v2/agents/<名>/out/` 的 assembled subagent file 与源一致。`install.sh --check` 已内含它；单跑用于只验这一样 |
 | `python3 mmw-v2/prompt/render.py --adopt` | 每台机器首次装提示词时跑一次：目标位置原有的 AGENTS.md 不是生成物，`render.py` 默认拒绝覆盖 |
