@@ -9,6 +9,7 @@
 #   dispatch.sh status <spec>
 #   dispatch.sh reverify <spec>
 #   dispatch.sh summary <spec>
+#   dispatch.sh suspend <spec>
 #
 # The ticket number and the kind of agent are the whole input for `start`. Which
 # of the worker rows a worker session starts from is the ticket's own `*-worker`
@@ -29,9 +30,10 @@ MODELS="$SKILL_ROOT/models.md"
 STATUS="$SKILL_ROOT/scripts/status.py"
 VERIFIER_MD="$(realpath "$SKILL_ROOT/references/verifier.md" 2>/dev/null || true)"
 # The skill lives under mmw-v2/skills/<name>, so `install.sh` is two directories up
-# and `verify-ticket.py` is the sibling skill.
+# and `verify-ticket.py` / `lease.py` are the sibling skill.
 INSTALLER="$(dirname "$(dirname "$SKILL_ROOT")")/install.sh"
 VERIFY="$(dirname "$SKILL_ROOT")/verify-ticket/scripts/verify-ticket.py"
+LEASE="$(dirname "$SKILL_ROOT")/verify-ticket/scripts/lease.py"
 
 # The row a ticket with no `*-worker` label starts from.
 DEFAULT_WORKER=junior-worker
@@ -39,6 +41,7 @@ DEFAULT_WORKER=junior-worker
 MERGE_TRIES=3                # a worker's commit in its worktree can hold the .git lock while advance merges
 
 AUTONOMOUS="You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
+PIPELINE_FAULT="A fault in the pipeline itself is not yours to work around: comment on the ticket with exactly what you ran and what you saw, then verify-ticket.py <n> --sub-issue pipeline <file> — the file body is the command you ran and the output you saw — and stop."
 
 # Grok Build hands its agents CLICOLOR_FORCE=1, and `gh` writes ANSI escapes into
 # --json output under it, which no JSON reader can parse.
@@ -60,6 +63,7 @@ usage: dispatch.sh check <spec>
        dispatch.sh status <spec>
        dispatch.sh reverify <spec>
        dispatch.sh summary <spec>
+       dispatch.sh suspend <spec>
 USAGE
   exit 2
 }
@@ -199,6 +203,16 @@ import json, os, subprocess, sys
 from pathlib import Path
 
 want = os.environ["MMW_SLUG"]
+own = set()
+try:
+    root = os.path.realpath(subprocess.check_output(
+        ["git", "rev-parse", "--show-toplevel"], text=True).strip())
+    for prow in json.loads(subprocess.check_output(
+            ["paseo", "project", "ls", "--json"], text=True)):
+        if isinstance(prow, dict) and os.path.realpath(prow.get("path") or "") == root:
+            own.update(x for x in (prow.get("projectId"), prow.get("name")) if x)
+except Exception:
+    pass
 raw = subprocess.check_output(["paseo", "workspace", "ls", "--json"], text=True)
 try:
     rows = json.loads(raw)
@@ -209,12 +223,161 @@ if not isinstance(rows, list):
 for row in rows:
     if not isinstance(row, dict):
         continue
+    theirs = row.get("project") or ""
+    if own and theirs and theirs not in own:
+        continue
     if Path(row.get("cwd") or "").name == want:
         ident = row.get("workspaceId") or ""
         if ident:
             print(ident)
         break
 ' 2>/dev/null
+}
+
+workspace_cwd_for() {
+  local number="$1"
+  MMW_SLUG="issue-$number" python3 -c '
+import json, os, subprocess, sys
+from pathlib import Path
+
+want = os.environ["MMW_SLUG"]
+own = set()
+try:
+    root = os.path.realpath(subprocess.check_output(
+        ["git", "rev-parse", "--show-toplevel"], text=True).strip())
+    for prow in json.loads(subprocess.check_output(
+            ["paseo", "project", "ls", "--json"], text=True)):
+        if isinstance(prow, dict) and os.path.realpath(prow.get("path") or "") == root:
+            own.update(x for x in (prow.get("projectId"), prow.get("name")) if x)
+except Exception:
+    pass
+raw = subprocess.check_output(["paseo", "workspace", "ls", "--json"], text=True)
+try:
+    rows = json.loads(raw)
+except Exception:
+    sys.exit(0)
+if not isinstance(rows, list):
+    sys.exit(0)
+for row in rows:
+    if not isinstance(row, dict):
+        continue
+    theirs = row.get("project") or ""
+    if own and theirs and theirs not in own:
+        continue
+    cwd = row.get("cwd") or ""
+    if Path(cwd).name == want:
+        if cwd:
+            print(cwd)
+        break
+' 2>/dev/null
+}
+
+# The directory that contains this checkout's `issue-*` workspaces. `lease.py count`
+# compares resolved paths, so the gate has to hand it a prefix the registry's
+# worktree paths actually sit under — Paseo worktrees are not inside the git repo.
+worktrees_root() {
+  local root="$1"
+  MMW_ROOT="$root" python3 -c '
+import json, os, subprocess, sys
+from pathlib import Path
+
+own = set()
+try:
+    git_root = os.path.realpath(os.environ["MMW_ROOT"])
+    for prow in json.loads(subprocess.check_output(
+            ["paseo", "project", "ls", "--json"], text=True)):
+        if isinstance(prow, dict) and os.path.realpath(prow.get("path") or "") == git_root:
+            own.update(x for x in (prow.get("projectId"), prow.get("name")) if x)
+except Exception:
+    pass
+try:
+    rows = json.loads(subprocess.check_output(["paseo", "workspace", "ls", "--json"], text=True))
+except Exception:
+    sys.exit(0)
+if not isinstance(rows, list):
+    sys.exit(0)
+seen = []
+for row in rows:
+    if not isinstance(row, dict):
+        continue
+    theirs = row.get("project") or ""
+    if own and theirs and theirs not in own:
+        continue
+    cwd = Path(row.get("cwd") or "")
+    if not cwd.name.startswith("issue-"):
+        continue
+    parent = str(cwd.parent.resolve()) if cwd.parent else ""
+    if parent and parent not in seen:
+        seen.append(parent)
+if seen:
+    print(seen[0])
+' 2>/dev/null
+}
+
+# The registered worktree for ticket `number`, even after its workspace has been
+# archived: `lease.py` still holds the path. Used when `workspace_cwd_for` is empty.
+lease_worktree_for() {
+  local number="$1"
+  MMW_LEASE_PY="$LEASE" MMW_SLUG="issue-$number" python3 -c '
+import importlib.util, os, sys
+from pathlib import Path
+
+path = os.environ["MMW_LEASE_PY"]
+spec = importlib.util.spec_from_file_location("mmw_lease", path)
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+want = os.environ["MMW_SLUG"]
+for rec in mod.claimed():
+    if Path(rec.get("worktree") or "").name == want:
+        print(rec["worktree"])
+        break
+' 2>/dev/null
+}
+
+# ------------------------------------------------------------------ the instance gate
+#
+# Several runs share one machine. `lease.py` hands each worktree a block of ports and a
+# directory nothing else uses; this is the half that decides how many runs may be up at
+# once, because only the dispatcher knows it is starting more than one.
+#
+# A repository that can isolate its product says nothing and gets the machine's limit. A
+# repository that cannot — ports written into a container file, a callback registered at
+# a fixed port, an installed product that hardcodes them — says so in `.mmw/target.json`:
+#
+#     "instance": {"max": 1, "why": "<what stops a second one>"}
+#
+# and its tickets are serialised. That is the honest fallback. The alternative is what
+# 2026-09-05 did: five workers dispatched onto three fixed ports, one of them working.
+
+target_max_instances() {
+  python3 - "$1" <<'PY'
+import json, sys
+from pathlib import Path
+try:
+    data = json.loads((Path(sys.argv[1]) / ".mmw" / "target.json").read_text(encoding="utf-8"))
+    value = data.get("instance", {}).get("max")
+    print(value if isinstance(value, int) and value > 0 else "")
+except Exception:
+    print("")
+PY
+}
+
+live_instances() {
+  python3 "$LEASE" count "$1" 2>/dev/null || echo 0
+}
+
+# Give a finished ticket's slot back. Returns 0 released, 1 refused (something still
+# listens), 3 no lease was registered for that path.
+release_lease() {
+  local out
+  if ! out="$(python3 "$LEASE" release "$1" 2>&1)"; then
+    printf 'dispatch: lease not released for %s: %s\n' "$1" "$out" >&2
+    return 1
+  fi
+  case "$out" in
+    "no lease for"*) return 3 ;;
+  esac
+  return 0
 }
 
 ensure_workspace() {
@@ -263,7 +426,11 @@ except Exception:
 }
 
 archive_workspace() {
-  local number="$1" ident
+  local number="$1" ident cwd
+  cwd="$(workspace_cwd_for "$number")"
+  if [ -n "$cwd" ] && [ -f "$LEASE" ]; then
+    release_lease "$cwd" || true
+  fi
   ident="$(workspace_id_for "$number")"
   [ -n "$ident" ] || return 0
   paseo workspace archive "$ident" >/dev/null \
@@ -357,7 +524,7 @@ start_one() {
   local prompt
   case "$kind" in
     worker)
-      prompt="Use the implement skill to work ticket #$number. $AUTONOMOUS" ;;
+      prompt="Use the implement skill to work ticket #$number. $AUTONOMOUS $PIPELINE_FAULT" ;;
     reviewer)
       local base
       base="$(git -C "$root" config --get "branch.issue-$number.mmw-base")"
@@ -373,6 +540,17 @@ start_one() {
   local workspace
   workspace="$(ensure_workspace "$number" "$root" "$title")" \
     || refuse "could not open a workspace for issue-$number"
+
+  if [ "$kind" = worker ]; then
+    local cwd
+    [ -f "$LEASE" ] \
+      || refuse "no lease.py at $LEASE: the verify-ticket skill is not installed beside this one, so no run can be given its own share of this machine. Run \`bash mmw-v2/install.sh\`, then dispatch again"
+    cwd="$(workspace_cwd_for "$number")"
+    [ -n "$cwd" ] \
+      || refuse "could not read the workspace cwd for issue-$number, so no lease can be claimed"
+    python3 "$LEASE" claim "$cwd" >/dev/null \
+      || refuse "no instance slot left on this machine for issue-$number; it keeps its label and starts at the next advance"
+  fi
 
   local agent_title="#$number $kind"
   MMW_WORKSPACE="$workspace" MMW_TITLE="$agent_title" \
@@ -607,8 +785,42 @@ advance() {
     archive_workspace "$archived"
   done
 
-  local started=0 refused=0
+  # A claim whose worker is gone keeps its ticket off the frontier for good: only the
+  # closeout and the hand back to triage ever give a claim back, and the frontier takes
+  # unassigned tickets alone. `--remove-assignee @me` is the whole write, so a ticket a
+  # person took for themselves is left exactly as it is. Every release says so, because
+  # `paseo ls` answers for this machine and no other: a worker of the same account on a
+  # second machine would read here as a claim whose owner is gone, and this line is
+  # where that shows.
+  local released=0
+  for number in $(printf '%s\n' "$plan" | awk '$1 == "RELEASE" { print $2 }'); do
+    if gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1; then
+      released=$((released + 1))
+      echo "released the claim on #$number: it is open in the agent queue with no worker of ours on it and no workspace still standing, so the worker that claimed it is gone" >&2
+    else
+      echo "dispatch: could not release the claim on #$number, so it stays off the frontier" >&2
+    fi
+  done
+
+  local started=0 refused=0 held=0 live max_inst trees
+  max_inst="$(target_max_instances "$root")"
   for number in $(printf '%s\n' "$plan" | awk '$1 == "DISPATCH" { print $2 }'); do
+    if [ -n "$max_inst" ]; then
+      trees="$(worktrees_root "$root")"
+      if [ -n "$trees" ]; then
+        live="$(live_instances "$trees")"
+      else
+        live=0
+      fi
+      if [ "$live" -ge "$max_inst" ]; then
+        # Not a refusal: the ticket keeps its label and its place on the frontier, and
+        # the next advance starts it. Dispatching past what the machine holds is how a
+        # night ends up with one worker working and four waiting on a port that will
+        # never free (2026-09-05).
+        held=$((held + 1))
+        continue
+      fi
+    fi
     if bash "$SELF" start "$number" worker; then
       started=$((started + 1))
     else
@@ -616,7 +828,168 @@ advance() {
     fi
   done
 
-  echo "advance #$spec: merged $merged, already in $skipped, started $started, refused $refused" >&2
+  echo "advance #$spec: merged $merged, already in $skipped, released $released, started $started, refused $refused, held $held" >&2
+  if [ "$held" -gt 0 ]; then
+    echo "  $held ticket(s) held back: this product declares max $max_inst concurrent run(s); they start at the next advance" >&2
+  fi
+}
+
+# ------------------------------------------------------------------ suspend
+
+batch_tickets() {
+  gh_ api --paginate "repos/{owner}/{repo}/issues/$1/sub_issues?per_page=100" 2>/dev/null | python3 -c '
+import json, sys
+
+raw = sys.stdin.read()
+try:
+    rows = json.loads(raw)
+except Exception:
+    rows = []
+if isinstance(rows, dict):
+    rows = [rows]
+flat = []
+for page in rows if isinstance(rows, list) else []:
+    if isinstance(page, list):
+        flat.extend(page)
+    elif isinstance(page, dict):
+        flat.append(page)
+for row in flat:
+    if isinstance(row, dict) and row.get("number"):
+        print(row["number"])
+'
+}
+
+# ticket<TAB>id for every live worker labelled mmw.spec=<spec>.
+live_workers() {
+  MMW_SPEC_N="$1" python3 -c '
+import json, os, re, subprocess, sys
+from pathlib import Path
+
+spec = os.environ["MMW_SPEC_N"]
+raw = subprocess.check_output(
+    ["paseo", "ls", "-g", "--json",
+     "--label", "mmw.spec=" + spec,
+     "--label", "mmw.kind=worker"],
+    text=True)
+try:
+    rows = json.loads(raw)
+except Exception:
+    rows = []
+if not isinstance(rows, list):
+    rows = []
+issue = re.compile(r"^issue-(\d+)$")
+for row in rows:
+    if not isinstance(row, dict) or not row.get("id"):
+        continue
+    found = issue.match(Path(row.get("cwd") or "").name)
+    if not found:
+        continue
+    print(found.group(1) + "\t" + row["id"])
+' 2>/dev/null
+}
+
+suspend_comment() {
+  local spec="$1" when="$2" ident="$3"
+  printf '%s\n%s\n' \
+    "NIGHT SUSPENDED #$spec" \
+    "The night on spec #$spec was suspended at $when, so this ticket has no verdict: nothing here says whether its work is finished."
+  if [ -n "$ident" ]; then
+    printf '%s\n' "Its worker $ident was interrupted (\`paseo stop\`); its workspace and its branch are untouched. The batch is taken up again where it stands with advance."
+  else
+    printf '%s\n' "No session of ours was working on it at that moment. Its workspace and its branch, if it has them, are untouched, and it keeps its label, so the next advance of #$spec starts it."
+  fi
+}
+
+# Suspend the night without throwing its work away.
+#
+# Four things happen: every live worker of the batch is interrupted (`paseo stop`,
+# workspace and branch stay), every ticket still in the agent queue is told the night
+# was suspended, every lease slot the batch holds is given back, and the main agent's
+# heartbeat is deleted. A batch dispatched again from scratch would throw the night's
+# work away along with the night; `advance` after this takes the same workspaces up
+# where they stand.
+#
+# `lease.py` refuses a slot something still listens on, and that refusal is reported
+# rather than forced: taking a slot off a live process is the same act as ending it.
+suspend_night() {
+  local spec="$1"
+  [ "$#" -eq 1 ] || usage
+  case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
+
+  local root git_dir
+  root="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$root" ] || refuse "not inside a git repository, so this night's workspaces have no name"
+  git_dir="$(git -C "$root" rev-parse --absolute-git-dir 2>/dev/null)"
+  [ -n "$git_dir" ] || refuse "not inside a git repository, so this night's workspaces have no name"
+
+  local grades queued held
+  grades="$(python3 "$STATUS" --worker-grades "$spec")" \
+    || refuse "could not read the batch under #$spec"
+  queued="$(printf '%s\n' "$grades" | awk '$1 == "GRADE" { print $2 }')"
+  held="$(batch_tickets "$spec")"
+
+  local left=0
+
+  local live number ident stopped=0
+  live="$(live_workers "$spec")"
+  while IFS=$'\t' read -r number ident; do
+    [ -n "$ident" ] || continue
+    if paseo stop "$ident" >/dev/null 2>&1; then
+      stopped=$((stopped + 1))
+    else
+      echo "dispatch: could not stop $ident on #$number" >&2
+      left=$((left + 1))
+    fi
+  done <<<"$live"
+
+  local when commented=0 running=0
+  when="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  for number in $queued; do
+    ident="$(printf '%s\n' "$live" | awk -F '\t' -v n="$number" '$1 == n { print $2; exit }')"
+    [ -n "$ident" ] && running=$((running + 1))
+    if gh_ issue comment "$number" --body "$(suspend_comment "$spec" "$when" "$ident")" >/dev/null 2>&1; then
+      commented=$((commented + 1))
+    else
+      echo "dispatch: could not comment on #$number, so nothing on it says the night was suspended" >&2
+      left=$((left + 1))
+    fi
+  done
+
+  local cwd back=0 rc
+  if [ -f "$LEASE" ]; then
+    for number in $held; do
+      cwd="$(workspace_cwd_for "$number")"
+      [ -n "$cwd" ] || cwd="$(lease_worktree_for "$number")"
+      [ -n "$cwd" ] || continue
+      release_lease "$cwd"
+      rc=$?
+      case "$rc" in
+        0) back=$((back + 1)) ;;
+        1) left=$((left + 1)) ;;
+      esac
+    done
+  else
+    echo "dispatch: no lease.py at $LEASE, so this night's slots were not given back and the next night will read this machine as fuller than it is" >&2
+    left=$((left + 1))
+  fi
+
+  local hb
+  hb="$git_dir/mmw-heartbeat-$spec"
+  if [ -f "$hb" ]; then
+    ident="$(tr -d '[:space:]' < "$hb")"
+    if [ -n "$ident" ] && paseo heartbeat delete "$ident" >/dev/null 2>&1; then
+      rm -f "$hb"
+    else
+      echo "dispatch: could not delete heartbeat $ident for #$spec" >&2
+      left=$((left + 1))
+    fi
+  else
+    echo "dispatch: no heartbeat id at $hb; the night's wakeup, if it is still there, was not deleted" >&2
+    left=$((left + 1))
+  fi
+
+  echo "suspend #$spec: stopped $stopped, commented $commented, slots given back $back"
+  [ "$left" -eq 0 ] || exit 1
 }
 
 # ------------------------------------------------------------------ reverify / summary
@@ -747,6 +1120,10 @@ case "${1:-}" in
   summary)
     [ "$#" -eq 2 ] || usage
     summary_spec "$2"
+    ;;
+  suspend)
+    [ "$#" -eq 2 ] || usage
+    suspend_night "$2"
     ;;
   "" | -h | --help)
     usage

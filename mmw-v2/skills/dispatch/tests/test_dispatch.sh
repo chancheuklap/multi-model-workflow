@@ -5,6 +5,8 @@
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh check|advance|advanceconflict|advancedirty
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh start-worker|start-reviewer|start-verifier
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh resume|reverify|summary
+#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh release|releaseother|releaselive|frontierwhy
+#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh instancegate|suspend|suspendbusy
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh all
 #
 # A fake `paseo` and a fake `gh` sit in front of the real ones on PATH and write every
@@ -169,6 +171,17 @@ if args[:1] == ["inspect"]:
     print(json.dumps({"LastUsage": None, "PendingPermissions": []}))
     sys.exit(0)
 
+if args[:1] == ["stop"]:
+    ident = args[1] if len(args) > 1 else ""
+    rows = [a for a in load("agents.json") if a.get("id") != ident]
+    save("agents.json", rows)
+    print(json.dumps({"id": ident, "stopped": True}))
+    sys.exit(0)
+
+if args[:2] == ["heartbeat", "delete"]:
+    print(json.dumps({"ok": True}))
+    sys.exit(0)
+
 print("{}", file=sys.stderr)
 sys.exit(2)
 FAKE
@@ -257,6 +270,8 @@ print(json.dumps({
 ' ;;
   *"--json title"*)
     echo '{"title":"a ticket"}' ;;
+  *"api user"*)
+    printf '%s\n' "${FAKE_GH_LOGIN:-mmw-bot}" ;;
   *) echo '{}' ;;
 esac
 FAKE
@@ -266,6 +281,10 @@ export PATH="$TMP/bin:$PATH"
 export MMW_TEST_LOG="$TMP/calls.log"
 export MMW_FAKE_PASEO_STATE="$TMP/paseo-state"
 export MMW_GH_LAST_BODY="$TMP/gh-last-body"
+export MMW_HOME="$TMP/mmw-home"
+export MMW_LEASE_PORT_BASE=23100
+export MMW_LEASE_PORT_STRIDE=20
+mkdir -p "$MMW_HOME"
 : > "$MMW_GH_LAST_BODY"
 
 git init -q -b main "$TMP/repo"
@@ -279,6 +298,7 @@ reset_log() {
   mkdir -p "$MMW_FAKE_PASEO_STATE"
   echo '[]' > "$MMW_FAKE_PASEO_STATE/workspaces.json"
   echo '[]' > "$MMW_FAKE_PASEO_STATE/agents.json"
+  rm -rf "$MMW_HOME/leases"
 }
 has() { grep -qF -- "$1" "$MMW_TEST_LOG" || fail "no call matching: $1"; }
 hasnt() { grep -qF -- "$1" "$MMW_TEST_LOG" && fail "should not have called: $1"; return 0; }
@@ -423,8 +443,11 @@ path.write_text(json.dumps(rows))
 skill_copy_for() {
   local copy="$TMP/fake/skills/$1"
   rm -rf "$TMP/fake"
-  mkdir -p "$copy"
+  mkdir -p "$copy" "$TMP/fake/skills/verify-ticket/scripts"
   cp -R "$SKILL/models.md" "$SKILL/scripts" "$SKILL/references" "$copy/"
+  cp "$(dirname "$SKILL")/verify-ticket/scripts/lease.py" \
+     "$(dirname "$SKILL")/verify-ticket/scripts/refusal.py" \
+     "$TMP/fake/skills/verify-ticket/scripts/"
   printf '#!/usr/bin/env bash\nexit %s\n' "${2:-0}" > "$TMP/fake/install.sh"
   chmod +x "$TMP/fake/install.sh"
   printf '%s\n' "$copy"
@@ -620,6 +643,10 @@ scenario_start_worker() {
   case "$(out_json initialPrompt)" in
     *"You are operating autonomously"*) ;;
     *) fail "the autonomous sentence is missing from the worker prompt" ;;
+  esac
+  case "$(out_json initialPrompt)" in
+    *"--sub-issue pipeline"*) ;;
+    *) fail "the pipeline-fault sentence is missing from the worker prompt" ;;
   esac
   has ":: --mode :: branch-off"
   has ":: --new-branch :: issue-61"
@@ -834,12 +861,353 @@ JSON
     || fail "missing Reverify line matching that reverify: $(cat "$MMW_GH_LAST_BODY")"
 }
 
+# ------------------------------------------------------------------ orphaned claims
+
+write_claimed_batch() {
+  cat > "$TMP/tickets.json" <<JSON
+[
+  {"number": 63, "state": "OPEN", "labels": ["ready-for-agent"], "assignees": ["$1"],
+   "body": "## Parent\\n\\n#76\\n", "title": "claimed ticket"}
+]
+JSON
+}
+
+scenario_release() {
+  reset_log
+  fresh_repo
+  write_claimed_batch mmw-bot
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
+          bash "$DISPATCH" advance 76)"
+
+  echo "--- a claim with no worker and no workspace behind it is given back"
+  [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
+  has "gh :: issue :: edit :: 63 :: --remove-assignee :: @me"
+  grep -q "released 1" "$TMP/err" || fail "the summary does not count it: $(cat "$TMP/err")"
+
+  echo "--- and never silently: the line names the ticket and says why"
+  grep -q "released the claim on #63" "$TMP/err" \
+    || fail "the release was silent: $(cat "$TMP/err")"
+  grep -q "the worker that claimed it is gone" "$TMP/err" \
+    || fail "the line does not say why: $(cat "$TMP/err")"
+
+  echo "--- the ticket it frees is dispatched by the same advance, not the next one"
+  has "paseo :: workspace :: create"
+  grep -q "started 1" "$TMP/err" || fail "it was freed and then left: $(cat "$TMP/err")"
+
+  echo "--- in that order: released first, started after"
+  local rel disp
+  rel="$(line_of 'issue :: edit :: 63 :: --remove-assignee')"
+  disp="$(line_of 'workspace :: create')"
+  [ "$rel" -gt 0 ] || fail "the claim was never released"
+  [ "$disp" -gt "$rel" ] || fail "dispatch at line $disp came before the release at line $rel"
+
+  echo "--- a standing workspace keeps the claim even with no live worker"
+  reset_log
+  write_claimed_batch mmw-bot
+  seed_workspace 63
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
+          bash "$DISPATCH" advance 76)"
+  [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
+  hasnt "gh :: issue :: edit :: 63 :: --remove-assignee"
+  grep -q "released 0" "$TMP/err" \
+    || fail "the claim was given back over a standing workspace: $(cat "$TMP/err")"
+  grep -q "started 0" "$TMP/err" || fail "a second worker was started: $(cat "$TMP/err")"
+  grep -q "#63 keeps its claim" "$TMP/err" \
+    || fail "nothing on stderr says the claim was kept: $(cat "$TMP/err")"
+}
+
+scenario_releaseother() {
+  reset_log
+  fresh_repo
+  write_claimed_batch alice
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
+          bash "$DISPATCH" advance 76)"
+
+  echo "--- a ticket somebody else took is left exactly as it is"
+  [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
+  hasnt "gh :: issue :: edit :: 63 :: --remove-assignee"
+  grep -q "released 0" "$TMP/err" || fail "somebody else's claim was taken: $(cat "$TMP/err")"
+
+  echo "--- so it stays off the frontier, and is not started"
+  hasnt "workspace :: create"
+  grep -q "started 0" "$TMP/err" || fail "it was dispatched anyway: $(cat "$TMP/err")"
+
+  echo "--- and stderr says which condition holds it there"
+  grep -q "#63 claimed by alice" "$TMP/err" || fail "the reason is not on stderr: $(cat "$TMP/err")"
+}
+
+scenario_releaselive() {
+  reset_log
+  fresh_repo
+  write_claimed_batch mmw-bot
+  seed_agent 63 worker
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
+          bash "$DISPATCH" advance 76)"
+
+  echo "--- a claim whose worker is still alive is the owner's, and is not touched"
+  [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
+  hasnt "gh :: issue :: edit :: 63 :: --remove-assignee"
+  grep -q "released 0" "$TMP/err" || fail "a live worker's claim was taken: $(cat "$TMP/err")"
+  ! grep -q "released the claim on #63" "$TMP/err" \
+    || fail "it printed a release line for a claim it did not release: $(cat "$TMP/err")"
+
+  echo "--- and the ticket reads as held by that worker, not as an orphaned claim"
+  grep -q "#63 claimed by mmw-bot; held by the live worker #63 worker" "$TMP/err" \
+    || fail "stderr does not name the worker holding it: $(cat "$TMP/err")"
+  grep -q "started 0" "$TMP/err" || fail "a second worker was started on it: $(cat "$TMP/err")"
+}
+
+write_stuck_batch() {
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "assignees": ["alice"]},
+  {"number": 62, "state": "OPEN", "labels": ["ready-for-agent"],
+   "blockedBy": [{"number": 61, "state": "OPEN"}]},
+  {"number": 63, "state": "OPEN", "labels": ["ready-for-agent"]},
+  {"number": 64, "state": "OPEN", "labels": ["needs-triage"]}
+]
+JSON
+}
+
+scenario_frontierwhy() {
+  reset_log
+  fresh_repo
+  write_stuck_batch
+  seed_agent 63 worker
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
+          bash "$DISPATCH" advance 76)"
+
+  echo "--- an empty frontier is an explanation, not a failure"
+  [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
+  grep -q "started 0" "$TMP/err" || fail "something started: $(cat "$TMP/err")"
+
+  echo "--- every queued ticket names the condition holding it, and only queued ones do"
+  grep -q "3 open ticket(s) are still in the agent queue" "$TMP/err" \
+    || fail "the count is wrong or missing: $(cat "$TMP/err")"
+  grep -q "#61 claimed by alice" "$TMP/err" || fail "#61: $(cat "$TMP/err")"
+  grep -q "#62 blocked by #61" "$TMP/err" || fail "#62: $(cat "$TMP/err")"
+  grep -q "#63 held by the live worker #63 worker" "$TMP/err" || fail "#63: $(cat "$TMP/err")"
+  ! grep -q "#64" "$TMP/err" || fail "a ticket out of the agent queue was reported: $(cat "$TMP/err")"
+
+  echo "--- and a batch with nothing left in the queue says nothing at all"
+  reset_log
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 61, "state": "CLOSED", "labels": [], "closedAt": "2026-08-31T01:00:00Z"}
+]
+JSON
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
+          bash "$DISPATCH" advance 76)"
+  [ "$code" = 0 ] || fail "exit $code on the finished batch: $(cat "$TMP/err")"
+  grep -q "advance #76:" "$TMP/err" || fail "the summary line is missing: $(cat "$TMP/err")"
+  ! grep -q "agent queue" "$TMP/err" \
+    || fail "a finished batch should not explain the frontier: $(cat "$TMP/err")"
+}
+
+# ------------------------------------------------------------------ instance gate / suspend
+
+LEASE_PY="$(dirname "$SKILL")/verify-ticket/scripts/lease.py"
+
+scenario_instancegate() {
+  echo "--- a product that declares it cannot be isolated is serialised, not piled onto"
+  reset_log
+  fresh_repo
+  write_batch
+  make_branch issue-61 one.txt "from 61"
+  make_branch issue-62 two.txt "from 62"
+  mkdir -p "$TMP/repo/.mmw"
+  printf '%s\n' '{"start":"true","discover":"true","reach":"true","instance":{"max":1,"why":"fixed host ports"}}' \
+    > "$TMP/repo/.mmw/target.json"
+  seed_workspace 61
+  seed_workspace 62
+  seed_workspace 99
+  python3 "$LEASE_PY" claim "$MMW_FAKE_PASEO_STATE/issue-99" >/dev/null
+  python3 "$LEASE_PY" claim "$MMW_FAKE_PASEO_STATE/issue-62" >/dev/null
+  [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 2 ] \
+    || fail "setup should hold two slots, it holds $(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")"
+
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" advance 76)"
+  [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
+
+  echo "--- the merges still happen: the gate is about starting, not about landing work"
+  [ -f "$TMP/repo/one.txt" ] || fail "issue-61 was not merged"
+  [ -f "$TMP/repo/two.txt" ] || fail "issue-62 was not merged"
+
+  echo "--- a merged ticket's lease is released before its workspace is archived"
+  [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 1 ] \
+    || fail "issue-62's lease should be gone after archive, count is $(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")"
+  has "paseo :: workspace :: archive :: wks_issue-62"
+
+  echo "--- the frontier ticket is held back rather than sent onto a busy machine"
+  grep -q "held 1" "$TMP/err" || fail "nothing was held back: $(cat "$TMP/err")"
+  grep -q "held back" "$TMP/err" || fail "the reason was not reported: $(cat "$TMP/err")"
+  hasnt "workspace :: create"
+
+  echo "--- it kept its label, so the next advance starts it once a slot is free"
+  : > "$MMW_TEST_LOG"
+  : > "$MMW_GH_LAST_BODY"
+  python3 "$LEASE_PY" release "$MMW_FAKE_PASEO_STATE/issue-99" >/dev/null
+  [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 0 ] \
+    || fail "issue-99 should be free before the second advance"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" advance 76)"
+  [ "$code" = 0 ] || fail "exit $code on the second run: $(cat "$TMP/err")"
+  has "paseo :: workspace :: create"
+  has ":: --new-branch :: issue-63"
+
+  rm -f "$TMP/repo/.mmw/target.json"
+}
+
+write_open_batch() {
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"],
+   "body": "## Parent\\n\\n#76\\n"},
+  {"number": 63, "state": "OPEN", "labels": ["ready-for-agent"],
+   "body": "## Parent\\n\\n#76\\n"},
+  {"number": 65, "state": "OPEN", "labels": ["needs-triage"],
+   "comments": ["HANDOFF REQUIRED\\nAC2 needs a person"]}
+]
+JSON
+}
+
+open_a_night() {
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
+          bash "$DISPATCH" advance 76)"
+  [ "$code" = 0 ] || fail "advance exited $code: $(cat "$TMP/err")"
+}
+
+write_heartbeat() {
+  printf 'hb_76\n' > "$(git -C "$TMP/repo" rev-parse --absolute-git-dir)/mmw-heartbeat-76"
+}
+
+scenario_suspend() {
+  local code
+  fresh_repo
+  reset_log
+  write_open_batch
+  open_a_night
+
+  [ -d "$MMW_FAKE_PASEO_STATE/issue-61" ] || fail "the night did not open a workspace for #61"
+  [ -d "$MMW_FAKE_PASEO_STATE/issue-63" ] || fail "the night did not open a workspace for #63"
+  seed_workspace 65
+  python3 "$LEASE_PY" claim "$MMW_FAKE_PASEO_STATE/issue-65" >/dev/null
+  [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 3 ] \
+    || fail "the night should hold three slots, it holds $(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")"
+  # The workspace is archived; the lease is not. suspend still has to give that slot back.
+  (cd "$TMP/repo" && paseo workspace archive wks_issue-65 >/dev/null)
+
+  seed_agent 61 worker
+  write_heartbeat
+
+  echo "--- suspend interrupts the live worker, comments, gives the slots back, deletes the heartbeat"
+  : > "$MMW_TEST_LOG"
+  : > "$MMW_GH_LAST_BODY"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
+          bash "$DISPATCH" suspend 76)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+
+  has "paseo :: stop :: agt_61_worker"
+  hasnt "workspace :: archive"
+  [ -d "$MMW_FAKE_PASEO_STATE/issue-61" ] || fail "the workspace for #61 was removed"
+  [ -d "$MMW_FAKE_PASEO_STATE/issue-63" ] || fail "the workspace for #63 was removed"
+  git -C "$TMP/repo" rev-parse --verify --quiet refs/heads/issue-61 >/dev/null \
+    || fail "branch issue-61 was removed"
+  git -C "$TMP/repo" rev-parse --verify --quiet refs/heads/issue-63 >/dev/null \
+    || fail "branch issue-63 was removed"
+
+  echo "--- every ticket still in the agent queue carries one comment saying the night was suspended"
+  has "gh :: issue :: comment :: 61 :: --body"
+  has "gh :: issue :: comment :: 63 :: --body"
+  [ "$(grep -cF 'NIGHT SUSPENDED #76' "$MMW_TEST_LOG")" = 2 ] \
+    || fail "expected two suspend comments, got $(grep -cF 'NIGHT SUSPENDED #76' "$MMW_TEST_LOG")"
+  grep -qF 'Its worker agt_61_worker was interrupted' "$MMW_TEST_LOG" \
+    || fail "the comment on #61 does not say its worker was interrupted"
+  grep -qF 'No session of ours was working on it' "$MMW_TEST_LOG" \
+    || fail "the comment on #63 does not say it had no session"
+  hasnt "gh :: issue :: comment :: 65"
+
+  echo "--- the slots the night held are back, and the heartbeat is gone"
+  [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 0 ] \
+    || fail "slots are still held: $(python3 "$LEASE_PY" list)"
+  has "paseo :: heartbeat :: delete :: hb_76"
+  [ ! -f "$(git -C "$TMP/repo" rev-parse --absolute-git-dir)/mmw-heartbeat-76" ] \
+    || fail "the heartbeat id file is still there"
+  grep -q 'suspend #76: stopped 1, commented 2, slots given back 3' "$TMP/out" \
+    || fail "the summary line is wrong: $(cat "$TMP/out")"
+}
+
+scenario_suspendbusy() {
+  local code port hold
+  fresh_repo
+  reset_log
+  write_open_batch
+  open_a_night
+  seed_workspace 65
+  python3 "$LEASE_PY" claim "$MMW_FAKE_PASEO_STATE/issue-65" >/dev/null
+  seed_agent 61 worker
+  write_heartbeat
+
+  echo "--- something is still listening on #61's slot"
+  port="$(python3 "$LEASE_PY" claim "$MMW_FAKE_PASEO_STATE/issue-61" \
+          | python3 -c 'import json,sys; print(json.load(sys.stdin)["port_base"])')"
+  hold="$TMP/listener.fifo"
+  rm -f "$hold"; mkfifo "$hold"
+  python3 -c '
+import socket, sys
+held = socket.socket()
+held.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+held.bind(("127.0.0.1", int(sys.argv[1])))
+held.listen(1)
+print("up", flush=True)
+sys.stdin.read()
+' "$port" < "$hold" > "$TMP/listener.out" &
+  local listener=$!
+  exec 9>"$hold"
+  local waited=0
+  until grep -q up "$TMP/listener.out" 2>/dev/null; do
+    sleep 0.2
+    waited=$((waited + 1))
+    [ "$waited" -lt 50 ] || { fail "the listener never came up"; break; }
+  done
+
+  : > "$MMW_TEST_LOG"
+  : > "$MMW_GH_LAST_BODY"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
+          bash "$DISPATCH" suspend 76)"
+
+  echo "--- the refusal is reported, never swallowed and never forced"
+  [ "$code" = 1 ] || fail "expected exit 1, got $code: $(cat "$TMP/err")"
+  grep -q 'lease not released' "$TMP/err" || fail "the refusal is not on stderr: $(cat "$TMP/err")"
+  grep -q "port $port" "$TMP/err" || fail "the reason does not name the port: $(cat "$TMP/err")"
+  [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 1 ] \
+    || fail "a slot with a live listener was taken anyway: $(python3 "$LEASE_PY" list)"
+
+  echo "--- and the rest of the night is still suspended: workers stopped, tickets told"
+  has "paseo :: stop :: agt_61_worker"
+  [ "$(grep -cF 'NIGHT SUSPENDED #76' "$MMW_TEST_LOG")" = 2 ] \
+    || fail "expected two suspend comments, got $(grep -cF 'NIGHT SUSPENDED #76' "$MMW_TEST_LOG")"
+  grep -q 'suspend #76: stopped 1, commented 2, slots given back' "$TMP/out" \
+    || fail "the summary line is wrong: $(cat "$TMP/out")"
+
+  exec 9>&-
+  wait "$listener" 2>/dev/null
+  rm -f "$hold"
+}
+
 # ------------------------------------------------------------------ entry
 
-ALL="check advance advanceconflict advancedirty start-worker start-reviewer start-verifier resume reverify summary"
+ALL="check advance advanceconflict advancedirty start-worker start-reviewer start-verifier resume reverify summary release releaseother releaselive frontierwhy instancegate suspend suspendbusy"
 
 case "${1:-}" in
-  check|advance|advanceconflict|advancedirty|start-worker|start-reviewer|start-verifier|resume|reverify|summary)
+  check|advance|advanceconflict|advancedirty|start-worker|start-reviewer|start-verifier|resume|reverify|summary|release|releaseother|releaselive|frontierwhy|instancegate|suspend|suspendbusy)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -860,6 +1228,13 @@ banner_for() {
     resume) echo DISPATCH-RESUME-OK ;;
     reverify) echo DISPATCH-REVERIFY-OK ;;
     summary) echo DISPATCH-SUMMARY-OK ;;
+    release) echo DISPATCH-RELEASE-OK ;;
+    releaseother) echo DISPATCH-RELEASE-OTHER-OK ;;
+    releaselive) echo RELEASE-LIVE-OK ;;
+    frontierwhy) echo DISPATCH-FRONTIER-WHY-OK ;;
+    instancegate) echo DISPATCH-INSTANCE-GATE-OK ;;
+    suspend) echo SUSPEND-OK ;;
+    suspendbusy) echo SUSPEND-BUSY-OK ;;
   esac
 }
 
@@ -874,7 +1249,12 @@ fn_for() {
 
 for name in $wanted; do
   echo "=== $name"
+  declare -F "$(fn_for "$name")" >/dev/null \
+    || { echo "$name failed: this file has no $(fn_for "$name")" >&2; exit 1; }
   "$(fn_for "$name")"
+  code=$?
+  [ "$code" -eq 0 ] \
+    || { echo "$name failed: $(fn_for "$name") exited $code without reporting" >&2; exit 1; }
   if [ "$rc" -eq 0 ]; then
     banner_for "$name"
   else

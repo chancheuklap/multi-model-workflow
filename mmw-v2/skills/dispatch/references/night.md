@@ -12,7 +12,7 @@ Run, in this checkout, on the branch the night merges into:
 <dispatch> check <spec>
 ```
 
-**Exit 0:** create a heartbeat (`create_heartbeat`; CLI `paseo heartbeat create --cron '*/10 * * * *'`) with the fixed prompt `run status <spec>, act per step 3`. It only wakes; it never judges. A fire while you are busy is reported failed and simply fires next time. Then go to step 2. **Exit 2:** stderr is one line per failure (`install.sh --check`, a provider whose `status` is not `available`, a queued ticket with two worker-grade labels or a label `models.md` has no row for). Fix what the lines name, or tell the user if only they can, then run `check` again. Do not `advance` on 2.
+**Exit 0:** create a heartbeat (`create_heartbeat`; CLI `paseo heartbeat create --cron '*/10 * * * *'`) with the fixed prompt `run status <spec>, act per step 3`. Write the heartbeat's id to `.git/mmw-heartbeat-<spec>` in this checkout — `suspend` deletes by that id. It only wakes; it never judges. A fire while you are busy is reported failed and simply fires next time. Then go to step 2. **Exit 2:** stderr is one line per failure (`install.sh --check`, a provider whose `status` is not `available`, a queued ticket with two worker-grade labels or a label `models.md` has no row for). Fix what the lines name, or tell the user if only they can, then run `check` again. Do not `advance` on 2.
 
 ## 2. First `advance`
 
@@ -24,7 +24,27 @@ Stay on this branch all night. Every `advance` merges into whatever `HEAD` is on
 
 **Exit 0:** stdout is zero or more JSON lines, one per ticket on the frontier. For each line, call `create_agent` with that object and `notifyOnFinish: true`. Then wait. **Exit 2:** nothing was touched; read stderr; if it is uncommitted changes, commit or set them aside and run `advance` again; if it is the `.git` lock, run `advance` again. **Exit 3:** a merge is in conflict, still in the tree. Resolve it with the `resolving-merge-conflicts` skill — never `--abort` — run this repository's own checks, commit the merge, then `advance` again.
 
-A worktree is cut from `HEAD` at the moment `advance` creates it, so a branch merged after the next ticket is dispatched is a branch that ticket cannot see. That is why merge, archive, create, and dispatch are one command, in that order. Archive uses `git worktree remove --force` and does not inspect uncommitted work in that worktree, so `advance` archives a ticket's workspace only after that ticket's branch is already in `HEAD`.
+What `advance` does inside that one command — merge, give claims back, archive, then dispatch — is the next section.
+
+## `advance` merges, releases, then dispatches
+
+`<dispatch> advance <spec>` merges the branch of every ticket that closed with `ALL MET` into the branch you are on at that moment, gives back the claims whose workers are gone, archives each merged ticket's workspace, then dispatches every ticket on the frontier. The branch you open the night on is the base branch, so stay on it all night: every `advance` merges into whatever `HEAD` is on, and `git config branch.issue-<n>.mmw-base-branch` is a record for readers, not something `advance` consults.
+
+The four are one command because the order is the reason. A worktree is cut from `HEAD` at the moment it is opened, so a branch merged after the next ticket is dispatched is a branch that ticket cannot see; the frontier is read after the claims come off, so a ticket freed by this run starts in this run rather than the next one; and `advance` archives a ticket's workspace only after that ticket's branch is already in `HEAD`, releasing its lease first.
+
+It merges a branch when four things hold at once — the ticket is `CLOSED`, its closing comment opens `ALL MET`, the ticket branch `issue-<n>` exists, and that branch is not already an ancestor of `HEAD`. The fourth is what makes the command safe to run at any time: a branch already merged is skipped, and an empty frontier starts nothing. A ticket handed back to `needs-triage` stays open, so the second condition excludes unfinished work without a rule of its own.
+
+Branches are merged in the order their tickets **closed**, not in ticket order. That is already the order their blockers imposed: `verify-ticket.py --preflight` refuses a ticket whose blocker is open, so none of them can have closed before the ones it waited on. Each merge keeps a commit of its own, so a ticket can be found and undone in the morning, and so the other side of a conflict can be read back to the tickets it came from.
+
+A ticket is claimed by being assigned to the account this pipeline is signed in as — `verify-ticket.py --preflight` does it — and the frontier takes only unassigned tickets, which is what keeps a second worker off a ticket somebody is already working. Two paths give a claim back: the closeout, and the hand back to triage. A session that ends any other way — a crash, a machine restart, a workspace archived from outside this pipeline — leaves the claim standing, and from then on the ticket is off every frontier for good, with an empty frontier as the only sign of it.
+
+So `advance` gives a claim back when five things hold at once: the ticket is open, it is in the agent queue, this pipeline's own account is on it, no live worker holds it, and no workspace of this checkout is still standing with cwd `issue-<n>`. The write is `gh issue edit <n> --remove-assignee @me`, so a ticket a person took for themselves is untouched and stays off the frontier, which is the right answer — somebody has it. Each release prints one line naming the ticket and saying why, and that line is not decoration: `paseo ls` answers for this machine and no other, so a worker of the same account running on a second machine reads from here as a claim whose owner is gone.
+
+The fifth condition is the fourth one asked a second way, because `paseo ls` listing no worker is not proof that the run is gone — the workspace is the working directory, and it remains until `advance` archives it. A claim kept for that reason prints its own line.
+
+When nothing can start and the batch still holds open tickets in the agent queue, `advance` names each of those tickets on stderr with the condition holding it — claimed by somebody, blocked by a ticket still open, or already held by a live worker. An empty frontier and a finished batch print the same nothing otherwise, and the difference between them is not visible from outside the frontier's five conditions. The exit code is unchanged: this is an explanation, not a failure.
+
+A product that cannot move its ports says so in `.mmw/target.json` as `"instance": {"max": <n>}`. `advance` then starts at most `max` minus the leases already counted under this checkout's workspaces, and holds the rest on the frontier for the next advance. Held is not a refusal and not a claim: the ticket keeps its label, stderr says how many and why.
 
 ## 3. Each finish notification
 
@@ -59,6 +79,18 @@ The frontier is empty and `status` shows no live agent. Then, still on this bran
 
 `summary` posts a comment on the spec whose first line is `NIGHT SUMMARY <date>`, with the four lines `Closed:`, `Handed back to needs-triage:`, `Not dispatched, a blocker stayed open:`, `Sub-issues opened tonight:`. If `reverify` ran in this checkout, a `Reverify: <green>/<red>` line is appended.
 
-Delete the heartbeat from step 1 (`paseo heartbeat delete <id>`).
+Delete the heartbeat from step 1 (`paseo heartbeat delete <id>`), and remove `.git/mmw-heartbeat-<spec>`.
 
 Tell the user the night finished, and point them at that comment.
+
+## Suspending the night
+
+A night is worth suspending when the fault is in the pipeline rather than in a ticket: workers left running against it spend their time producing failures that say nothing about the work. `<dispatch> suspend <spec>` is that decision carried out.
+
+It interrupts every live worker of the batch with `paseo stop <id>` — the session ends, the workspace and the branch stay. Then every ticket still in the agent queue gets one comment opening `NIGHT SUSPENDED #<spec>`, with the time and whether a worker was interrupted on it. Without it the morning reader finds a row of tickets with no verdict and no way to tell them from work in progress. A ticket a worker handed back to triage during the night already carries its own verdict, so it is left alone.
+
+Workspaces and branches stay, and the same batch is taken up again with `<dispatch> advance <spec>` once whatever stopped the night is fixed. That is the reason to suspend a night rather than let it run: the fix is carried on with the same worktrees, and a batch dispatched again from scratch would throw the night's work away along with the night.
+
+The slots are given back for every ticket of the batch, handed back ones included, because the gate in `advance` counts claims rather than sessions and the next night would otherwise read the machine as fuller than it is. `lease.py` refuses a slot something still listens on and names the port and the pid; `suspend` reports that and exits 1 rather than forcing it, because taking a slot off a live process is the same act as ending it.
+
+It then deletes the main agent's heartbeat (`paseo heartbeat delete`), reading the id `check`'s follow-up wrote to `.git/mmw-heartbeat-<spec>`. After that, `advance` can run again.
