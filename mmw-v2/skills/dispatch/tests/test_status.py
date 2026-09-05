@@ -14,7 +14,7 @@ from __future__ import annotations
 import importlib.util
 import io
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -59,6 +59,15 @@ def agent(ticket, status_="running", *, kind="worker", parent=None,
         "LastUsage": last_usage,
         "PendingPermissions": pending or [],
         "ParentAgentId": parent,
+    }
+
+
+def workspace(ticket, archived=False, cwd=None):
+    """One `paseo workspace ls --json` row, with only the fields status.py reads."""
+    return {
+        "workspaceId": f"wks_issue-{ticket}",
+        "cwd": cwd if cwd is not None else f"/repo/issue-{ticket}",
+        "archived": archived,
     }
 
 
@@ -375,10 +384,13 @@ class WorkerGrades(unittest.TestCase):
 
 
 class AdvancePlan(unittest.TestCase):
-    """`--advance-plan` prints MERGE then DISPATCH, and nothing else."""
+    """The three kinds of line `--advance-plan` prints, and what it says when it prints none."""
+
+    LOGIN = "mmw-bot"
 
     def setUp(self):
-        self.saved = status.sub_issues, status.read_ticket, status.live_agents
+        self.saved = (status.sub_issues, status.read_ticket, status.live_agents,
+                      status.own_login, status.live_workspaces)
         self.tickets = {
             61: ticket(61, state="CLOSED", labels=(),
                        comments=["ALL MET\nBranch: issue-61"]),
@@ -392,30 +404,118 @@ class AdvancePlan(unittest.TestCase):
         self.tickets[61]["closed_at"] = "2026-08-31T01:00:00Z"
         self.tickets[62]["closed_at"] = "2026-08-31T02:00:00Z"
         self.tickets[63]["closed_at"] = "2026-08-31T03:00:00Z"
+        self.agents = []
+        self.workspaces = []
         status.sub_issues = lambda spec: list(self.tickets)
         status.read_ticket = lambda n: self.tickets[n]
-        status.live_agents = lambda spec: []
+        status.live_agents = lambda spec: self.agents
+        status.own_login = lambda: ""
+        status.live_workspaces = lambda: self.workspaces
 
     def tearDown(self):
-        status.sub_issues, status.read_ticket, status.live_agents = self.saved
+        (status.sub_issues, status.read_ticket, status.live_agents,
+         status.own_login, status.live_workspaces) = self.saved
+
+    def plan(self, spec=76):
+        """The plan's stdout lines and its stderr lines, the two channels held apart."""
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            self.assertEqual(status.advance_plan(spec), 0)
+        return out.getvalue().splitlines(), err.getvalue().splitlines()
 
     def test_merges_closed_all_met_in_closing_order_then_dispatches_the_frontier(self):
-        with redirect_stdout(io.StringIO()) as out:
-            self.assertEqual(status.advance_plan(76), 0)
-        self.assertEqual(out.getvalue().splitlines(), [
+        self.assertEqual(self.plan()[0], [
             "MERGE 61",
             "MERGE 62",
             "DISPATCH 70",
         ])
 
     def test_a_live_worker_keeps_its_ticket_off_the_frontier(self):
-        status.live_agents = lambda spec: [agent(70)]
-        with redirect_stdout(io.StringIO()) as out:
-            status.advance_plan(76)
-        self.assertEqual(out.getvalue().splitlines(), [
+        self.agents = [agent(70)]
+        self.assertEqual(self.plan()[0], [
             "MERGE 61",
             "MERGE 62",
         ])
+
+    def test_a_claim_with_no_session_behind_it_is_released_and_then_dispatched(self):
+        status.own_login = lambda: self.LOGIN
+        self.tickets = {61: ticket(61, assignees=(self.LOGIN,))}
+        self.assertEqual(self.plan()[0], ["RELEASE 61", "DISPATCH 61"])
+
+    def test_a_claim_this_pipeline_did_not_make_is_left_alone(self):
+        status.own_login = lambda: self.LOGIN
+        self.tickets = {61: ticket(61, assignees=("alice",))}
+        out, err = self.plan()
+        self.assertEqual(out, [])
+        self.assertIn("#61 claimed by alice", err[1])
+
+    def test_a_claim_with_a_live_worker_on_it_is_its_owners(self):
+        status.own_login = lambda: self.LOGIN
+        self.tickets = {61: ticket(61, assignees=(self.LOGIN,))}
+        self.agents = [agent(61)]
+        out, err = self.plan()
+        self.assertEqual(out, [])
+        self.assertIn("held by the live worker #61 worker", err[1])
+
+    def test_a_claim_whose_workspace_still_stands_is_not_released(self):
+        status.own_login = lambda: self.LOGIN
+        self.tickets = {61: ticket(61, assignees=(self.LOGIN,)),
+                        62: ticket(62, assignees=(self.LOGIN,))}
+        self.workspaces = [workspace(61), workspace(62)]
+        out, err = self.plan()
+        self.assertEqual(out, [])
+        self.assertIn("#61 keeps its claim", err[0])
+        self.assertIn("#62 keeps its claim", err[1])
+
+    def test_a_claim_with_neither_a_worker_nor_a_workspace_is_still_released(self):
+        status.own_login = lambda: self.LOGIN
+        self.tickets = {61: ticket(61, assignees=(self.LOGIN,))}
+        self.workspaces = [workspace(99), workspace(61, archived=True)]
+        self.assertEqual(self.plan()[0], ["RELEASE 61", "DISPATCH 61"])
+
+    def test_with_no_login_to_compare_against_nothing_is_released(self):
+        self.tickets = {61: ticket(61, assignees=(self.LOGIN,))}
+        self.assertEqual(self.plan()[0], [])
+
+    def test_the_merges_come_first_and_in_closing_order(self):
+        status.own_login = lambda: self.LOGIN
+        self.tickets = {
+            61: ticket(61, state="CLOSED", labels=(),
+                       comments=["ALL MET\nBranch: issue-61"]),
+            62: ticket(62, state="CLOSED", labels=(),
+                       comments=["ALL MET\nBranch: issue-62"]),
+            63: ticket(63, assignees=(self.LOGIN,)),
+        }
+        self.tickets[61]["closed_at"] = "2026-08-31T02:00:00Z"
+        self.tickets[62]["closed_at"] = "2026-08-31T01:00:00Z"
+        self.assertEqual(self.plan()[0],
+                         ["MERGE 62", "MERGE 61", "RELEASE 63", "DISPATCH 63"])
+
+    def test_an_empty_frontier_names_every_queued_ticket_and_its_condition(self):
+        self.tickets = {
+            61: ticket(61, assignees=("alice",)),
+            62: ticket(62, blockers=(61,)),
+            63: ticket(63),
+            64: ticket(64, labels=("needs-triage",)),
+        }
+        self.agents = [agent(63)]
+        out, err = self.plan()
+        self.assertEqual(out, [])
+        self.assertEqual(err, [
+            "dispatch: nothing on #76's frontier, and 3 open ticket(s) are still in "
+            "the agent queue:",
+            "  #61 claimed by alice",
+            "  #62 blocked by #61",
+            "  #63 held by the live worker #63 worker",
+        ])
+
+    def test_a_batch_with_nothing_left_in_the_queue_says_nothing(self):
+        self.tickets = {61: ticket(61, state="CLOSED", labels=())}
+        self.assertEqual(self.plan(), ([], []))
+
+    def test_a_frontier_with_something_on_it_needs_no_explanation(self):
+        self.tickets = {61: ticket(61), 62: ticket(62, blockers=(61,))}
+        self.assertEqual(self.plan(), (["DISPATCH 61"], []))
 
 
 class Summary(unittest.TestCase):

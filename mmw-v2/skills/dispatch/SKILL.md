@@ -1,6 +1,6 @@
 ---
 name: dispatch
-description: Put another agent to work on a ticket, and move a night's batch of tickets forward. Use to start a worker, reviewer or verifier, to resume a worker, to check the machine before a night, to advance a spec, to read status after a finish notification, to reverify closed tickets, to post the night summary, or to change which host, model or thinking level an agent in this pipeline runs on.
+description: Put another agent to work on a ticket, and move a night's batch of tickets forward. Use to start a worker, reviewer or verifier, to resume a worker, to check the machine before a night, to advance a spec, to suspend a night, to read status after a finish notification, to reverify closed tickets, to post the night summary, or to change which host, model or thinking level an agent in this pipeline runs on.
 ---
 
 # Dispatch
@@ -38,6 +38,7 @@ Then: the main agent waits for the finish notification. A worker blocks with `pa
 | Start a worker on one ticket, outside a night | `<dispatch> start <n> worker`, then the one path above |
 | Re-run every closed `ALL MET` ticket on the branch you are on | `<dispatch> reverify <spec>` |
 | Post the night summary on the spec | `<dispatch> summary <spec>` |
+| `suspend <spec>` | [references/night.md](references/night.md) says what it stops and what it leaves standing |
 | Change one ticket's worker grade | Swap its `junior-worker` / `senior-worker` label on the tracker; the next `start` reads it |
 | Change which host, model or `effort` an agent runs on | Edit `models.md`, next to this file — but read [references/editing-models.md](references/editing-models.md) first |
 
@@ -66,7 +67,7 @@ A notification is a `<paseo-system>` block whose first sentence is `Agent <id> (
 
 | Code | What happened |
 | --- | --- |
-| `0` | Done. One JSON object per dispatched ticket on stdout; the line `advance #<spec>: merged <m>, already in <s>, started <k>, refused <r>` is on stderr |
+| `0` | Done. One JSON object per dispatched ticket on stdout; the line `advance #<spec>: merged <m>, already in <s>, released <g>, started <k>, refused <r>, held <h>` is on stderr. Each claim given back prints a line of its own naming the ticket and why; when nothing could start and tickets are still in the agent queue, stderr names every one of them and the condition holding it |
 | `2` | Nothing was touched. Stderr: not a git repository, uncommitted tracked changes, or the `.git` lock was held for `MERGE_TRIES` tries — run `advance` again |
 | `3` | A merge is in conflict. Everything before it is merged and committed; nothing was archived, no workspace was created, nothing was dispatched. **The conflict is still in the tree and it stays there.** Resolve it with the `resolving-merge-conflicts` skill, run this repository's own checks, commit the merge, then run `advance` again. The conflict report (stderr) already names the two sides and the conflicted files |
 
@@ -84,3 +85,11 @@ A notification is a `<paseo-system>` block whose first sentence is `Agent <id> (
 **`reverify <spec>`:** `0` every closed `ALL MET` ticket was green; `1` at least one was red — that ticket is reopened, labelled `needs-triage`, its assignee removed, and the failing `AC<n>` commented. Stdout names each ticket.
 
 **`summary <spec>`:** `0`. The spec has a new comment whose first line is `NIGHT SUMMARY <date>`. If `reverify` ran in this checkout, the comment also has a `Reverify: <green>/<red>` line.
+
+**`suspend <spec>`:**
+
+| Code | What happened |
+| --- | --- |
+| `0` | Live workers of the batch were interrupted, every ticket still in the agent queue carries a `NIGHT SUSPENDED` comment, every slot the batch held is back, and the heartbeat is deleted |
+| `1` | The night is stopped as far as this command could take it, and what is left is on stderr, one line each. A slot with a listener on it: `lease.py` names the port and the pid, so stop that process where it was started and run `python3 <lease.py> release <its worktree>`. A ticket that could not be commented on is the one a morning reader will find without a verdict. A heartbeat this call could not delete is still waking the main agent |
+| `2` | Nothing was touched. The reason is on stderr: not a git repository, the spec number is not digits only, or the tracker could not answer for the batch |
