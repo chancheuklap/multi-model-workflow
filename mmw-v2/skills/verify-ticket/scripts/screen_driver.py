@@ -748,13 +748,14 @@ def mask_volatile(lines: list[str], triggers: list[tuple[str, str]]) -> list[str
 
 
 def volatile_paint_js(triggers: list[tuple[str, str]]) -> str:
-    """Give every matching leaf node the design's own text, then paint its box one
-    solid colour, on both sides. The text comes first because a box is as wide as
+    """Put the trigger's digits into every matching node, then paint its box one
+    solid colour, on both sides. The digits come first because a box is as wide as
     the string in it: `0 鸭豆` painted over is narrower than `3,220 鸭豆` painted
-    over, and everything after it on the line moves. With the design's string on
-    both sides the two boxes are the same size by construction, and the paint hides
-    the digits. A node with element children keeps its text (its leaves are matched
-    on their own) and only takes the paint."""
+    over, and everything after it on the line moves; a scene where the design itself
+    shows another number (`鸭豆余额 20` on the debt scene, `12,480` elsewhere) has the
+    same problem on its own side. With the trigger's digits in the first digit-bearing
+    text node on both sides the two boxes are one width by construction, and the
+    paint hides them. A node named by aria-label keeps its text."""
     wanted = json.dumps([{"role": r, "name": n} for r, n in triggers], ensure_ascii=False)
     fill = json.dumps(VOLATILE_FILL)
     implicit = ", ".join(f"{tag}: {json.dumps(role)}"
@@ -775,8 +776,22 @@ def volatile_paint_js(triggers: list[tuple[str, str]]) -> str:
     if (role === w.role) return true;
     return w.role === 'text' && textLike.has(role);
   };
+  const digitsOf = s => (s.match(/[\d,]+/) || [null])[0];
+  const retext = (el, w) => {
+    // The design's digits go into the first text node that carries digits, on both
+    // sides, so the box is one width whatever number each side showed.
+    const target = digitsOf(w.name);
+    if (!target || el.getAttribute('aria-label')) return;
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (/[\d,]+/.test(node.nodeValue)) {
+        node.nodeValue = node.nodeValue.replace(/[\d,]+/, target);
+        return;
+      }
+    }
+  };
   const paint = (el, w) => {
-    if (el.children.length === 0 && !el.getAttribute('aria-label')) el.textContent = w.name;
+    retext(el, w);
     el.style.backgroundColor = fill;
     el.style.color = fill;
     el.style.borderColor = fill;

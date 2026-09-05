@@ -480,16 +480,17 @@ class TestBaselineServing(unittest.TestCase):
         self.assertFalse(any("鸭豆余额 20" in line for line in masked))
         self.assertTrue(any("可用" in line and "<volatile>" in line for line in masked))
 
-    def test_volatile_paint_gives_a_leaf_the_designs_text_before_painting(self):
+    def test_volatile_paint_puts_the_triggers_digits_in_the_node_before_painting(self):
         """A painted box is as wide as the string in it, so `0 鸭豆` and `3,220 鸭豆`
-        painted over still move what follows them. The leaf takes the design's own
-        string first; a node with element children keeps its text and only takes
-        the paint, and one named by aria-label is left as it is."""
+        painted over still move what follows them — and the design side shows its own
+        other number on some scenes. Both sides take the trigger's digits into the
+        first digit-bearing text node, then the paint; a node named by aria-label is
+        left as it is."""
         js = sd.volatile_paint_js([("strong", "3,220 鸭豆")])
-        self.assertIn("el.children.length === 0", js)
-        self.assertIn("el.textContent = w.name", js)
-        self.assertIn("!el.getAttribute('aria-label')", js)
-        self.assertLess(js.index("el.textContent = w.name"), js.index("el.style.backgroundColor"))
+        self.assertIn("createTreeWalker(el, NodeFilter.SHOW_TEXT)", js)
+        self.assertIn("node.nodeValue.replace(/[\\d,]+/, target)", js)
+        self.assertIn("el.getAttribute('aria-label')) return", js)
+        self.assertLess(js.index("retext(el, w)"), js.index("el.style.backgroundColor"))
 
     def test_volatile_paint_js_maps_a_table_cell_for_a_text_trigger(self):
         self.assertEqual(sd.VOLATILE_IMPLICIT_ROLES["TD"], "cell")
