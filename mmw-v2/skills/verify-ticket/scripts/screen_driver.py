@@ -748,8 +748,13 @@ def mask_volatile(lines: list[str], triggers: list[tuple[str, str]]) -> list[str
 
 
 def volatile_paint_js(triggers: list[tuple[str, str]]) -> str:
-    """Paint every matching node's box the same solid colour on both sides, so a
-    different number does not move pixels. Applied to the product and the design."""
+    """Give every matching leaf node the design's own text, then paint its box one
+    solid colour, on both sides. The text comes first because a box is as wide as
+    the string in it: `0 鸭豆` painted over is narrower than `3,220 鸭豆` painted
+    over, and everything after it on the line moves. With the design's string on
+    both sides the two boxes are the same size by construction, and the paint hides
+    the digits. A node with element children keeps its text (its leaves are matched
+    on their own) and only takes the paint."""
     wanted = json.dumps([{"role": r, "name": n} for r, n in triggers], ensure_ascii=False)
     fill = json.dumps(VOLATILE_FILL)
     implicit = ", ".join(f"{tag}: {json.dumps(role)}"
@@ -770,7 +775,8 @@ def volatile_paint_js(triggers: list[tuple[str, str]]) -> str:
     if (role === w.role) return true;
     return w.role === 'text' && textLike.has(role);
   };
-  const paint = el => {
+  const paint = (el, w) => {
+    if (el.children.length === 0 && !el.getAttribute('aria-label')) el.textContent = w.name;
     el.style.backgroundColor = fill;
     el.style.color = fill;
     el.style.borderColor = fill;
@@ -788,7 +794,7 @@ def volatile_paint_js(triggers: list[tuple[str, str]]) -> str:
     if (!nm) continue;
     const role = roleOf(el);
     for (const w of wanted) {
-      if (hit(role, nm, w)) { paint(el); break; }
+      if (hit(role, nm, w)) { paint(el, w); break; }
     }
   }
 })()""" % (wanted, fill, implicit, text_like)
