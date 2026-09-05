@@ -85,7 +85,6 @@ def check(text, comments=(VERDICT_COMMENT,),
              mock.patch.object(vt, "fetch_ticket", return_value=ticket), \
              mock.patch.object(vt, "gh_login", return_value=ME), \
              mock.patch.object(vt, "repo_root", return_value=repo), \
-             mock.patch.object(vt, "report_phase", return_value=False), \
              mock.patch.object(vt, "git", side_effect=fake_git), \
              mock.patch.object(vt, "is_ancestor", side_effect=fake_is_ancestor), \
              mock.patch.object(vt, "dirty_tracked", side_effect=lambda root=None: list(dirty)), \
@@ -667,7 +666,6 @@ class TestTargetJsonChecks(unittest.TestCase):
                  mock.patch.object(vt, "fetch_comments", return_value=[]), \
                  mock.patch.object(vt, "parent_spec", return_value=None), \
                  mock.patch.object(vt, "post_comment"), \
-                 mock.patch.object(vt, "report_phase", return_value=False), \
                  mock.patch.object(vt, "outside_owns_line",
                                    return_value="Outside Owns: None"):
                 with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):

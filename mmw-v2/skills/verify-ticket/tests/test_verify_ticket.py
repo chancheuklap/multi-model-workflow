@@ -1,5 +1,7 @@
 """Ledger behaviour, run against fixed ticket bodies. Never calls the tracker."""
 
+from __future__ import annotations
+
 import io
 import unittest
 from contextlib import redirect_stdout
@@ -25,7 +27,6 @@ class LedgerRun(unittest.TestCase):
              mock.patch.object(vt, "previous_ledger", return_value=previous or []), \
              mock.patch.object(vt, "outside_owns", return_value=[]), \
              mock.patch.object(vt, "current_branch", return_value="issue-1"), \
-             mock.patch.object(vt, "report_phase", return_value=False), \
              mock.patch.object(vt, "post_comment", side_effect=lambda n, b: posted.append(b)):
             with redirect_stdout(io.StringIO()) as out:
                 code = vt.run_checks(1, reverify, None)
