@@ -1,7 +1,7 @@
 """The closing gate: who it governs, what it stops, and what it says.
 
 Every test drives `hook.py` the way a host does — one event as JSON on stdin, one
-answer as JSON on stdout. The pretool gate reads the working directory's basename;
+answer as JSON on stdout. `pretool` reads the working directory's basename;
 the question gate asks a `paseo` on PATH. Tests name a temporary directory
 `issue-<n>` and put a fake `paseo` on PATH.
 """
@@ -12,7 +12,6 @@ import importlib.util
 import io
 import json
 import os
-import shutil
 import tempfile
 import unittest
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
@@ -54,17 +53,16 @@ EVENTS = {
 
 @contextmanager
 def named_cwd(basename: str):
-    """A temporary directory whose basename is the only fact the pretool gate reads."""
-    root = tempfile.mkdtemp()
-    path = os.path.join(root, basename)
-    os.mkdir(path)
-    previous = os.getcwd()
-    os.chdir(path)
-    try:
-        yield path
-    finally:
-        os.chdir(previous)
-        shutil.rmtree(root)
+    """A temporary directory whose basename is the only fact `pretool` reads."""
+    with tempfile.TemporaryDirectory() as root:
+        path = os.path.join(root, basename)
+        os.mkdir(path)
+        previous = os.getcwd()
+        os.chdir(path)
+        try:
+            yield path
+        finally:
+            os.chdir(previous)
 
 
 @contextmanager
@@ -75,26 +73,23 @@ def fake_paseo_env(*, agent_id: str | None = None, listed_ids: tuple[str, ...] =
     The JSON list it prints is `MMW_FAKE_PASEO_JSON`: include the process's
     `PASEO_AGENT_ID` or not, as the caller asks.
     """
-    root = tempfile.mkdtemp()
-    env: dict[str, str] = {}
-    if agent_id is not None:
-        env["PASEO_AGENT_ID"] = agent_id
-    if no_paseo:
-        env["PATH"] = root
-    else:
-        script = os.path.join(root, "paseo")
-        with open(script, "w", encoding="utf-8") as fh:
-            fh.write("#!/bin/bash\n")
-            fh.write('if [ "$1" != "ls" ]; then exit 1; fi\n')
-            fh.write('printf "%s\\n" "$MMW_FAKE_PASEO_JSON"\n')
-        os.chmod(script, 0o755)
-        env["PATH"] = root
-        env["MMW_FAKE_PASEO_JSON"] = json.dumps(
-            [{"id": i} for i in listed_ids], ensure_ascii=False)
-    try:
+    with tempfile.TemporaryDirectory() as root:
+        env: dict[str, str] = {}
+        if agent_id is not None:
+            env["PASEO_AGENT_ID"] = agent_id
+        if no_paseo:
+            env["PATH"] = root
+        else:
+            script = os.path.join(root, "paseo")
+            with open(script, "w", encoding="utf-8") as fh:
+                fh.write("#!/bin/bash\n")
+                fh.write('if [ "$1" != "ls" ]; then exit 1; fi\n')
+                fh.write('printf "%s\\n" "$MMW_FAKE_PASEO_JSON"\n')
+            os.chmod(script, 0o755)
+            env["PATH"] = root
+            env["MMW_FAKE_PASEO_JSON"] = json.dumps(
+                [{"id": i} for i in listed_ids], ensure_ascii=False)
         yield env
-    finally:
-        shutil.rmtree(root)
 
 
 def call(host: str, event: dict, env: dict | None = None,
@@ -136,7 +131,7 @@ def with_command(host: str, command: str) -> dict:
 # ------------------------------------------------------------------------ cwd names the ticket
 
 class TestCwdNamesTheTicket(unittest.TestCase):
-    """The pretool gate reads the working directory's basename, not an environment
+    """`pretool` reads the working directory's basename, not an environment
     variable."""
 
     def test_pretool_guards_the_ticket_named_by_cwd(self):
@@ -154,8 +149,8 @@ class TestCwdNamesTheTicket(unittest.TestCase):
 
 
 class TestSelfScope(unittest.TestCase):
-    """A basename that is not `issue-<n>` is not a ticket worktree. The pretool
-    gate looks at nothing else."""
+    """A basename that is not `issue-<n>` is not a ticket worktree. `pretool`
+    looks at nothing else."""
 
     def test_no_marker_no_gate(self):
         self.assertEqual(
@@ -182,7 +177,7 @@ class TestSelfScope(unittest.TestCase):
         popen.assert_not_called()
         opened.assert_not_called()
 
-    def test_the_source_imports_no_way_to_reach_the_network_or_the_disk(self):
+    def test_the_source_imports_no_socket_urllib_tempfile_shutil_or_pathlib(self):
         source = SCRIPT.read_text(encoding="utf-8")
         for name in ("socket", "urllib", "tempfile", "shutil", "pathlib"):
             self.assertNotIn(f"import {name}", source)

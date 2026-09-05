@@ -172,13 +172,15 @@ def fetch_blocked_by(number: int) -> list[int]:
     return [b["number"] for b in (data.get("blockedBy") or {}).get("nodes", [])]
 
 
-def fetch_sub_issues(spec: int) -> list[int]:
-    """The tickets GitHub records under `spec`, in its own order, every page of them
-    (GitHub pages the list at 30, and a spec past its thirtieth ticket would otherwise
-    lose its newest children to every batch check). Patched out in tests."""
+def fetch_sub_issues(number: int) -> list[int]:
+    """The tickets GitHub records as children of any issue, in its own order, every
+    page of them (GitHub pages the list at 30, and an issue past its thirtieth child
+    would otherwise lose its newest children to every batch check). Called with a
+    spec, that is the batch; called with a ticket, that is what the ticket opened.
+    Patched out in tests."""
     out = subprocess.run(
         ["gh", "api", "--paginate",
-         f"repos/{{owner}}/{{repo}}/issues/{spec}/sub_issues?per_page=100",
+         f"repos/{{owner}}/{{repo}}/issues/{number}/sub_issues?per_page=100",
          "-q", ".[] | .number"],
         capture_output=True, text=True, check=True, env=GH_ENV,
     )
@@ -558,11 +560,17 @@ def last_verdict(comments: list[str]) -> str | None:
     return None
 
 
-def last_run(comments: list[str]) -> str | None:
-    """The newest `self-run` or `reverify` comment on the ticket, `None` when none."""
+def last_run(comments: list[str], *prefixes: str) -> str | None:
+    """The newest comment whose first line is one of `prefixes`, `None` when none.
+
+    With no prefixes the walker looks for `self-run` and `reverify`. A first line
+    matches a prefix when it equals it or starts with that prefix plus a space.
+    """
+    if not prefixes:
+        prefixes = ("self-run", "reverify")
     for comment in reversed(comments):
-        lines = comment.strip().splitlines()
-        if lines and lines[0].strip() in ("self-run", "reverify"):
+        first = comment.strip().splitlines()[0].strip() if comment.strip() else ""
+        if any(first == prefix or first.startswith(prefix + " ") for prefix in prefixes):
             return comment
     return None
 
@@ -969,20 +977,6 @@ def refuse(message: str) -> int:
     return 2
 
 
-def last_comment_opening(comments: list[str], prefix: str) -> str | None:
-    """The newest comment whose first line is `prefix` or starts `prefix `."""
-    for comment in reversed(comments):
-        first = comment.strip().splitlines()[0].strip() if comment.strip() else ""
-        if first == prefix or first.startswith(prefix + " "):
-            return comment
-    return None
-
-
-def last_self_run(comments: list[str]) -> str | None:
-    """The newest comment whose first line is `self-run`, `None` when none."""
-    return last_comment_opening(comments, "self-run")
-
-
 def outside_owns_from(text: str) -> str | None:
     """The `Outside Owns:` line in `text`, stripped, or `None` when absent."""
     for line in text.splitlines():
@@ -1076,7 +1070,7 @@ def criterion_block(item: dict) -> str:
 def run_decisions(number: int, path: Path) -> int:
     """Post the two-section file as a `DECISIONS` comment, or refuse."""
     comments = fetch_comments(number)
-    if last_comment_opening(comments, "DECISIONS") is not None:
+    if last_run(comments, "DECISIONS") is not None:
         return refuse(f"#{number} already carries a DECISIONS comment")
     text = path.read_text(encoding="utf-8") if path.is_file() else ""
     headings = markdown_h2(text)
@@ -1089,7 +1083,7 @@ def run_decisions(number: int, path: Path) -> int:
                           + " and ".join(f"`{h}`" for h in missing))
         return refuse("the file must have exactly two sections, "
                       "`Decisions I made on my own` then `Outside Owns`")
-    run = last_self_run(comments)
+    run = last_run(comments, "self-run")
     if run is None:
         return refuse(f"#{number} carries no self-run comment to check Outside Owns against")
     want = outside_owns_from(run)
@@ -1104,22 +1098,34 @@ def run_decisions(number: int, path: Path) -> int:
     return 0
 
 
+def open_children_owns(number: int) -> list[tuple[int, list[str]]]:
+    """OPEN children of `number` and each child's `## Owns` globs, loaded once."""
+    found = []
+    for child in fetch_sub_issues(number):
+        ticket = fetch_ticket(child)
+        if (ticket.get("state") or "").upper() != "OPEN":
+            continue
+        found.append((child, owns_globs(fetch_body(child))))
+    return found
+
+
 def run_touched(number: int) -> int:
     """Comment `TOUCHED BY #<n>` on open siblings whose `## Owns` covers a file."""
     comments = fetch_comments(number)
-    review = last_comment_opening(comments, "REVIEW")
+    review = last_run(comments, "REVIEW")
     if review is None:
         return refuse(f"#{number} carries no REVIEW comment")
-    run = last_self_run(comments)
+    run = last_run(comments, "self-run")
     if run is None:
         return refuse(f"#{number} carries no self-run comment")
     files = outside_owns_files(outside_owns_from(run))
     if not files:
         return 0
-    decisions = last_comment_opening(comments, "DECISIONS")
+    decisions = last_run(comments, "DECISIONS")
     spec = parent_spec(fetch_body(number))
     if spec is None:
         return refuse(f"#{number} has no spec in `## Parent`")
+    siblings = open_children_owns(spec)
     posted_to: list[int] = []
     for path in files:
         sentence = decisions_line_for(decisions, path)
@@ -1138,11 +1144,7 @@ def run_touched(number: int) -> int:
         if judgement:
             lines.append(judgement)
         comment = "\n".join(lines) + "\n"
-        for child in fetch_sub_issues(spec):
-            ticket = fetch_ticket(child)
-            if (ticket.get("state") or "").upper() != "OPEN":
-                continue
-            globs = owns_globs(fetch_body(child))
+        for child, globs in siblings:
             if not any(glob_covers(g, path) for g in globs):
                 continue
             post_comment(child, comment)
@@ -1156,7 +1158,7 @@ def run_draft(number: int, out_file: Path) -> int:
     """Write the closing-comment skeleton to `out_file`."""
     body = fetch_body(number)
     comments = fetch_comments(number)
-    run = last_self_run(comments)
+    run = last_run(comments, "self-run")
     criteria = overlay_run_evidence(body, run)
     abandons = parse_abandons(run or "")
     counts = tally(criteria, abandons)
@@ -1176,7 +1178,7 @@ def run_draft(number: int, out_file: Path) -> int:
     if verdict and head and not head.startswith(verdict):
         chain = git("log", "--first-parent", "--format=%H", f"{verdict}..HEAD")
     post = "Post-verdict: " + (", ".join(chain.split()) if chain else "None")
-    review = last_comment_opening(comments, "REVIEW") or ""
+    review = last_run(comments, "REVIEW") or ""
     files = outside_owns_files(outside_owns_from(run or ""))
     if files:
         judged = []

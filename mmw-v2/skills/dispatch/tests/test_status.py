@@ -103,6 +103,8 @@ REVIEW = "REVIEW abcdef0..1234567\n\nStandards: pass"
 
 WORKER_61 = "11111111-1111-4111-8111-111111111111"
 REVIEWER_61 = "22222222-2222-4222-8222-222222222222"
+VERIFIER_61 = "33333333-3333-4333-8333-333333333333"
+ADVISOR_61 = "44444444-4444-4444-8444-444444444444"
 
 
 class Identity(unittest.TestCase):
@@ -117,9 +119,34 @@ class Identity(unittest.TestCase):
         self.assertEqual(found["ticket"], 62)
 
     def test_kind_comes_from_the_mmw_kind_filter_not_from_parent(self):
-        worker = agent(61, agent_id=WORKER_61)
-        child = agent(61, kind="reviewer", parent=WORKER_61, agent_id=REVIEWER_61)
-        found = {s["kind"]: s for s in status.sessions([worker, child])}
+        worker = {
+            "id": WORKER_61, "shortId": WORKER_61[:7], "name": "#61 worker",
+            "status": "running", "cwd": "/repo/issue-61", "created": "2 minutes ago",
+        }
+        reviewer = {
+            "id": REVIEWER_61, "shortId": REVIEWER_61[:7], "name": "#61 reviewer",
+            "status": "running", "cwd": "/repo/issue-61", "created": "2 minutes ago",
+            "ParentAgentId": WORKER_61,
+        }
+
+        def fake(args):
+            if args[:3] == ["ls", "-g", "--json"]:
+                labels = [args[i + 1] for i, a in enumerate(args) if a == "--label"]
+                if "mmw.kind=worker" in labels:
+                    return [worker]
+                if "mmw.kind=reviewer" in labels:
+                    return [reviewer]
+                return []
+            if args[:1] == ["inspect"]:
+                return {}
+            raise AssertionError(args)
+
+        saved = status.paseo_json
+        try:
+            status.paseo_json = fake
+            found = {s["kind"]: s for s in status.sessions(status.live_agents(76))}
+        finally:
+            status.paseo_json = saved
         self.assertEqual(found["worker"]["id"], WORKER_61)
         self.assertEqual(found["reviewer"]["id"], REVIEWER_61)
 
@@ -133,11 +160,20 @@ class Identity(unittest.TestCase):
 
     def test_a_reviewer_alone_does_not_count_as_the_worker_being_held(self):
         child = agent(61, kind="reviewer", parent=WORKER_61, agent_id=REVIEWER_61)
-        worker = agent(61, agent_id=WORKER_61)
         rows = status.build_rows(
-            [61], {61: ticket(61)}, status.sessions([worker, child]))
-        self.assertEqual(rows[0]["worker"]["id"], WORKER_61)
-        self.assertNotIn("reviewer", rows[0])
+            [61], {61: ticket(61)}, status.sessions([child]))
+        self.assertIsNone(rows[0]["worker"])
+        self.assertEqual(status.held(rows), [])
+
+    def test_unknown_kind_is_not_a_worker(self):
+        advisor = agent(61, kind="advisor", agent_id=ADVISOR_61)
+        found = status.sessions([advisor])
+        self.assertEqual(found, [])
+        rows = status.build_rows([61], {61: ticket(61)}, found)
+        self.assertEqual(rows[0]["agent"], "-")
+        table = status.render_table(rows, 76, datetime(2000, 1, 1, 2, 14))
+        self.assertNotIn("advisor", table)
+        self.assertNotIn(ADVISOR_61[:7], table)
 
 
 class Rows(unittest.TestCase):
@@ -546,24 +582,40 @@ class ReadingPaseo(unittest.TestCase):
         self.assertNotIn("ParentAgentId", found[0])
 
     def test_ls_is_asked_with_the_spec_label_and_each_kind_label(self):
-        seen = []
+        by_kind = {
+            "worker": {
+                "id": WORKER_61, "shortId": WORKER_61[:7], "name": "#61 worker",
+                "status": "running", "cwd": "/repo/issue-61", "created": "2 minutes ago",
+            },
+            "reviewer": {
+                "id": REVIEWER_61, "shortId": REVIEWER_61[:7], "name": "#61 reviewer",
+                "status": "running", "cwd": "/repo/issue-61", "created": "2 minutes ago",
+            },
+            "verifier": {
+                "id": VERIFIER_61, "shortId": VERIFIER_61[:7], "name": "#61 verifier",
+                "status": "running", "cwd": "/repo/issue-61", "created": "2 minutes ago",
+            },
+        }
 
         def fake(args):
-            seen.append(list(args))
             if args[:3] == ["ls", "-g", "--json"]:
+                labels = [args[i + 1] for i, a in enumerate(args) if a == "--label"]
+                self.assertIn("mmw.spec=76", labels)
+                for kind, row in by_kind.items():
+                    if f"mmw.kind={kind}" in labels:
+                        return [row]
                 return []
+            if args[:1] == ["inspect"]:
+                return {}
             raise AssertionError(args)
 
         status.paseo_json = fake
-        status.live_agents(76)
-        self.assertEqual(seen, [
-            ["ls", "-g", "--json", "--label", "mmw.spec=76",
-             "--label", "mmw.kind=worker"],
-            ["ls", "-g", "--json", "--label", "mmw.spec=76",
-             "--label", "mmw.kind=reviewer"],
-            ["ls", "-g", "--json", "--label", "mmw.spec=76",
-             "--label", "mmw.kind=verifier"],
-        ])
+        found = {a["kind"]: a["id"] for a in status.live_agents(76)}
+        self.assertEqual(found, {
+            "worker": WORKER_61,
+            "reviewer": REVIEWER_61,
+            "verifier": VERIFIER_61,
+        })
 
 
 if __name__ == "__main__":
