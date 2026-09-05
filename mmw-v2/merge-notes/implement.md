@@ -75,3 +75,34 @@ Two sentences added to step 1 of the closing steps. That script prints a single 
 ## Two baselines with separate jurisdictions, and one code path
 
 Two things added under "While writing code". The baseline bullet gains the split for an interface ticket: the handoff package binds look and verbatim copy, the screen contract (`docs/specs/<effort>/screen-contract.yaml`, from the `align-screens` skill) binds calls, shown values, transitions, failure and timing; a conflict on the contract's domain opens its sub-issue naming the alignment ticket. A new bullet says an interface has one code path — data through the generated client, no prop that poses a component for a scene, fixtures only in the seed script. Reason: Chameleon's renderer carried a `scenario` path fed from fixtures beside a `live` path fed from the backend, and every worker satisfied the acceptance criteria on the first. If upstream rewrites that section, take its wording and put these two back.
+
+## Closing steps: eight, on Paseo
+
+The nine-step closeout in the table above is superseded. The steps are now eight:
+
+1. self-run — still `<engine> <n>`; what lands is the `self-run` comment. Unchanged in role.
+2. `<dispatch> start <n> verifier --json` (or `--run`). `--json` is one `create_agent` with `notifyOnFinish: true`; `--run` is `paseo wait <id>`. Pass the printed `initialPrompt` through (`verify #<n> 按 <path> 行事`). What lands is `VERDICT`. Start once. Start exits 2: comment the command and the output, and stop.
+3. `<engine> <n> --decisions <file>`. What lands is `DECISIONS`. Exit 2 if the ticket already has one or the file is missing a section.
+4. `<dispatch> start <n> reviewer --json` (or `--run`). What lands is `REVIEW `. Start exits 2, or the notification is `errored` / `was closed` with no `REVIEW ` comment: `paseo logs <id>`, then the `code-review` skill in this host's general-purpose subagent. In-ticket findings: fix once and rerun step 1. Out-of-ticket: `<engine> <n> --sub-issue review <file>`.
+5. Audit — unchanged.
+6. `<engine> <n> --touched`. What lands is `TOUCHED BY #<n>` on open siblings. Exit 2 if there is no `REVIEW` comment.
+7. `<engine> <n> --sub-issue decision <file>` for a criterion that waits only on one sentence from a person, then `<engine> <n> --draft <out-file>` and fill the two `<fill>`s (`skipped:` and `Decisions I made on my own`).
+8. `<engine> <n> --closeout <draft>`. It does not archive any agent; archiving is `advance` after the merge, workspace included.
+
+The previous text of this block (our nine-step closeout): step 2 was "Dispatch the verifier with the prompt `verify #<n>`" with no `start` and no `--json` / `--run`. Step 3 was `gh issue comment <n>` with first line `DECISIONS`. Step 4 named the `dispatch` skill's first `Find your command` row and pointed at it for start-or-wait failure, without `start <n> reviewer` or the two paths on the line. Step 6 was `gh api` plus `gh issue comment` for `TOUCHED BY`. Step 7 opened a sub-issue with `gh issue create --parent <spec> --label needs-triage` and had the worker write the whole draft shape by hand. Step 8 closed the reviewer pane. Step 9 was closeout. Upstream (mattpocock) has none of these steps.
+
+Why: spec #118 §12. The four subcommands (`--decisions`, `--touched`, `--draft`, `--sub-issue`) landed in #124; `start <n> verifier|reviewer` with `--json` / `--run` landed in #127. Spec #118 §7: idle sessions do not cost, so the pane-close step has no remaining job, and `--closeout` archives nothing — `advance` archives the workspace (and its agents) after the merge.
+
+Upstream rewrites the closing steps → take its wording; keep the eight-step order, the four subcommands, `start <n> verifier` and `start <n> reviewer` with both `--json` and `--run`, closeout not archiving, and no pane-close step.
+
+## Writing rules open sub-issues through `--sub-issue`
+
+Three `gh issue create --parent <spec> --label needs-triage` in the writing rules are now `<engine> <n> --sub-issue … <file>`: `baseline` when the contract does not fit, `outside-owns` when a change outside **Owns** is merely convenient, `decision` when a question would change what the ticket delivers. The closing steps use `review` and `decision` the same way. `Put no question on the screen` is still the leading sentence of that bullet. Upstream rewrites the writing rules → keep the bullet and these four kinds.
+
+## Finish notification shape
+
+One sentence sits between closing steps 2 and 4: a `<paseo-system>` block whose first sentence is `Agent <id> (<title>) finished|errored|was closed|needs permission.`, and it carries an `<agent-response>`, arriving in the current turn when busy or as a new turn when idle. Upstream has no such sentence. Spec #118 §5 / ticket #129 What to build item 3. Keep it on the next pull.
+
+## Waiting is a finish notification or `paseo wait`
+
+The section "Waiting on the reviewer carries no number" above named `dispatch.sh wait`. That command is gone. The worker waits on a finish notification (`--json`) or `paseo wait <id>` (`--run`); `paseo logs <id>` when the notification is `errored` or `was closed`; the fallback is still the `code-review` skill in this host's general-purpose subagent. Upstream brings a wait command or a timeout number back → drop them, keep the two paths and the fallback.
