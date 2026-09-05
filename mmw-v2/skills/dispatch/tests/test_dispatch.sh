@@ -233,11 +233,18 @@ print(json.dumps({
 }))
 ' ;;
   *"/sub_issues"*)
-    python3 -c '
-import json, os
+    MMW_SUB_ISSUES_URL="$*" python3 -c '
+import json, os, re
 path = os.environ.get("FAKE_GH_TICKETS_FILE")
 rows = json.load(open(path)) if path else []
-print(json.dumps([{"number": t["number"]} for t in rows]))
+url = os.environ.get("MMW_SUB_ISSUES_URL") or ""
+found = re.search(r"/issues/(\d+)/sub_issues", url)
+want = int(found.group(1)) if found else None
+owned = {t["number"] for t in rows if "number" in t}
+if want is None or want in owned:
+    print("[]")
+else:
+    print(json.dumps([{"number": t["number"]} for t in rows]))
 ' ;;
   *"--json state,labels,assignees,blockedBy,comments"*)
     MMW_WANT="$3" python3 -c '
@@ -397,13 +404,14 @@ JSON
 }
 
 seed_agent() {
-  local n="$1" kind="${2:-worker}"
-  MMW_N="$n" MMW_KIND="$kind" python3 -c '
+  local n="$1" kind="${2:-worker}" spec="${3:-76}"
+  MMW_N="$n" MMW_KIND="$kind" MMW_SPEC_N="$spec" python3 -c '
 import json, os
 from pathlib import Path
 state = Path(os.environ["MMW_FAKE_PASEO_STATE"])
 n = os.environ["MMW_N"]
 kind = os.environ["MMW_KIND"]
+spec = os.environ["MMW_SPEC_N"]
 path = state / "agents.json"
 rows = json.loads(path.read_text()) if path.is_file() else []
 rows.append({
@@ -411,7 +419,7 @@ rows.append({
     "name": "#" + n + " " + kind,
     "status": "running",
     "cwd": str(state / ("issue-" + n)),
-    "labels": {"mmw.ticket": n, "mmw.kind": kind, "mmw.spec": "76"},
+    "labels": {"mmw.ticket": n, "mmw.kind": kind, "mmw.spec": spec},
 })
 path.write_text(json.dumps(rows))
 '
@@ -435,6 +443,28 @@ rows.append({
     "name": "#" + n,
     "isolation": "worktree",
     "cwd": cwd,
+})
+path.write_text(json.dumps(rows))
+'
+}
+
+# Prepend a workspace that matches the slug of ticket 61 but belongs to another
+# project, so a filter that fails open would pick it first.
+seed_foreign_workspace() {
+  python3 -c '
+import json, os
+from pathlib import Path
+state = Path(os.environ["MMW_FAKE_PASEO_STATE"])
+foreign = state / "other" / "issue-61"
+foreign.mkdir(parents=True, exist_ok=True)
+path = state / "workspaces.json"
+rows = json.loads(path.read_text()) if path.is_file() else []
+rows.insert(0, {
+    "workspaceId": "wks_foreign_61",
+    "project": "other",
+    "name": "#61 other",
+    "isolation": "worktree",
+    "cwd": str(foreign),
 })
 path.write_text(json.dumps(rows))
 '
@@ -500,6 +530,7 @@ scenario_advance() {
   make_branch issue-62 two.txt "from 62"
   seed_workspace 61
   seed_workspace 62
+  seed_foreign_workspace
   local code
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" advance 76)"
@@ -516,6 +547,9 @@ Merge branch 'issue-61'" ] || fail "merge order is wrong"
   echo "--- a workspace is archived only after its branch is merged, then the frontier is created"
   has "paseo :: workspace :: archive :: wks_issue-61"
   has "paseo :: workspace :: archive :: wks_issue-62"
+  hasnt "wks_foreign_61"
+  [ "$(count_of "paseo :: workspace :: ls")" = 4 ] \
+    || fail "expected one list read for the advance plan, one per archive, and one for the frontier create, got $(count_of "paseo :: workspace :: ls")"
   has "paseo :: workspace :: create"
   has ":: --mode :: branch-off"
   has ":: --new-branch :: issue-63"
@@ -1105,6 +1139,8 @@ scenario_suspend() {
   (cd "$TMP/repo" && paseo workspace archive wks_issue-65 >/dev/null)
 
   seed_agent 61 worker
+  seed_agent 99 worker 99
+  seed_foreign_workspace
   write_heartbeat
 
   echo "--- suspend interrupts the live worker, comments, gives the slots back, deletes the heartbeat"
@@ -1115,6 +1151,9 @@ scenario_suspend() {
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
 
   has "paseo :: stop :: agt_61_worker"
+  hasnt "paseo :: stop :: agt_99_worker"
+  has "paseo :: ls :: -g :: --json :: --label :: mmw.spec=76 :: --label :: mmw.kind=worker"
+  hasnt "wks_foreign_61"
   hasnt "workspace :: archive"
   [ -d "$MMW_FAKE_PASEO_STATE/issue-61" ] || fail "the workspace for #61 was removed"
   [ -d "$MMW_FAKE_PASEO_STATE/issue-63" ] || fail "the workspace for #63 was removed"
