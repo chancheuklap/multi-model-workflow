@@ -519,7 +519,7 @@ _Avoid_: 首行, 协议位, status word, wait, slot (bare — see **slot**)
 _Home_: `mmw-v2/skills/dispatch/scripts/status.py`
 
 **`NIGHT SUSPENDED #<spec>`**:
-The first line of the comment `dispatch.sh suspend <spec>` leaves on every ticket of the batch that is still open and still in the agent queue. Under it: the time the night was suspended, that the ticket has no verdict, and either the Herdr name of the worker left running on it or that no session of ours was on it. Its reader is whoever opens the ticket the next morning and would otherwise find a batch with no verdict on any of it and no way to tell that from work in progress. A ticket handed back to triage during the night carries its own verdict and gets none.
+The first line of the comment `dispatch.sh suspend <spec>` leaves on every ticket of the batch that is still open and still in the agent queue. Under it: the time the night was suspended, that the ticket has no verdict, and either that its worker was interrupted (`paseo stop`) or that no session of ours was on it. Its reader is whoever opens the ticket the next morning and would otherwise find a batch with no verdict on any of it and no way to tell that from work in progress. A ticket handed back to triage during the night carries its own verdict and gets none.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`self-run`**:
