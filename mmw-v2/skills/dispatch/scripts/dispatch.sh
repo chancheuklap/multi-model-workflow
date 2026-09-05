@@ -41,7 +41,7 @@ DEFAULT_WORKER=junior-worker
 MERGE_TRIES=3                # a worker's commit in its worktree can hold the .git lock while advance merges
 
 AUTONOMOUS="You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
-PIPELINE_FAULT="A fault in the pipeline itself is not yours to work around: comment on the ticket with exactly what you ran and what you saw, then --sub-issue pipeline and stop."
+PIPELINE_FAULT="A fault in the pipeline itself is not yours to work around: comment on the ticket with exactly what you ran and what you saw, then verify-ticket.py <n> --sub-issue pipeline <file> — the file body is the command you ran and the output you saw — and stop."
 
 # Grok Build hands its agents CLICOLOR_FORCE=1, and `gh` writes ANSI escapes into
 # --json output under it, which no JSON reader can parse.
@@ -203,6 +203,16 @@ import json, os, subprocess, sys
 from pathlib import Path
 
 want = os.environ["MMW_SLUG"]
+own = set()
+try:
+    root = os.path.realpath(subprocess.check_output(
+        ["git", "rev-parse", "--show-toplevel"], text=True).strip())
+    for prow in json.loads(subprocess.check_output(
+            ["paseo", "project", "ls", "--json"], text=True)):
+        if isinstance(prow, dict) and os.path.realpath(prow.get("path") or "") == root:
+            own.update(x for x in (prow.get("projectId"), prow.get("name")) if x)
+except Exception:
+    pass
 raw = subprocess.check_output(["paseo", "workspace", "ls", "--json"], text=True)
 try:
     rows = json.loads(raw)
@@ -213,9 +223,10 @@ if not isinstance(rows, list):
 for row in rows:
     if not isinstance(row, dict):
         continue
+    theirs = row.get("project") or ""
+    if own and theirs and theirs not in own:
+        continue
     if Path(row.get("cwd") or "").name == want:
-        if row.get("archived"):
-            continue
         ident = row.get("workspaceId") or ""
         if ident:
             print(ident)
@@ -230,6 +241,16 @@ import json, os, subprocess, sys
 from pathlib import Path
 
 want = os.environ["MMW_SLUG"]
+own = set()
+try:
+    root = os.path.realpath(subprocess.check_output(
+        ["git", "rev-parse", "--show-toplevel"], text=True).strip())
+    for prow in json.loads(subprocess.check_output(
+            ["paseo", "project", "ls", "--json"], text=True)):
+        if isinstance(prow, dict) and os.path.realpath(prow.get("path") or "") == root:
+            own.update(x for x in (prow.get("projectId"), prow.get("name")) if x)
+except Exception:
+    pass
 raw = subprocess.check_output(["paseo", "workspace", "ls", "--json"], text=True)
 try:
     rows = json.loads(raw)
@@ -240,10 +261,11 @@ if not isinstance(rows, list):
 for row in rows:
     if not isinstance(row, dict):
         continue
+    theirs = row.get("project") or ""
+    if own and theirs and theirs not in own:
+        continue
     cwd = row.get("cwd") or ""
     if Path(cwd).name == want:
-        if row.get("archived"):
-            continue
         if cwd:
             print(cwd)
         break
@@ -254,10 +276,20 @@ for row in rows:
 # compares resolved paths, so the gate has to hand it a prefix the registry's
 # worktree paths actually sit under — Paseo worktrees are not inside the git repo.
 worktrees_root() {
-  python3 -c '
-import json, subprocess, sys
+  local root="$1"
+  MMW_ROOT="$root" python3 -c '
+import json, os, subprocess, sys
 from pathlib import Path
 
+own = set()
+try:
+    git_root = os.path.realpath(os.environ["MMW_ROOT"])
+    for prow in json.loads(subprocess.check_output(
+            ["paseo", "project", "ls", "--json"], text=True)):
+        if isinstance(prow, dict) and os.path.realpath(prow.get("path") or "") == git_root:
+            own.update(x for x in (prow.get("projectId"), prow.get("name")) if x)
+except Exception:
+    pass
 try:
     rows = json.loads(subprocess.check_output(["paseo", "workspace", "ls", "--json"], text=True))
 except Exception:
@@ -266,7 +298,10 @@ if not isinstance(rows, list):
     sys.exit(0)
 seen = []
 for row in rows:
-    if not isinstance(row, dict) or row.get("archived"):
+    if not isinstance(row, dict):
+        continue
+    theirs = row.get("project") or ""
+    if own and theirs and theirs not in own:
         continue
     cwd = Path(row.get("cwd") or "")
     if not cwd.name.startswith("issue-"):
@@ -276,6 +311,26 @@ for row in rows:
         seen.append(parent)
 if seen:
     print(seen[0])
+' 2>/dev/null
+}
+
+# The registered worktree for ticket `number`, even after its workspace has been
+# archived: `lease.py` still holds the path. Used when `workspace_cwd_for` is empty.
+lease_worktree_for() {
+  local number="$1"
+  MMW_LEASE_PY="$LEASE" MMW_SLUG="issue-$number" python3 -c '
+import importlib.util, os, sys
+from pathlib import Path
+
+path = os.environ["MMW_LEASE_PY"]
+spec = importlib.util.spec_from_file_location("mmw_lease", path)
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+want = os.environ["MMW_SLUG"]
+for rec in mod.claimed():
+    if Path(rec.get("worktree") or "").name == want:
+        print(rec["worktree"])
+        break
 ' 2>/dev/null
 }
 
@@ -751,7 +806,7 @@ advance() {
   max_inst="$(target_max_instances "$root")"
   for number in $(printf '%s\n' "$plan" | awk '$1 == "DISPATCH" { print $2 }'); do
     if [ -n "$max_inst" ]; then
-      trees="$(worktrees_root)"
+      trees="$(worktrees_root "$root")"
       if [ -n "$trees" ]; then
         live="$(live_instances "$trees")"
       else
@@ -904,6 +959,7 @@ suspend_night() {
   if [ -f "$LEASE" ]; then
     for number in $held; do
       cwd="$(workspace_cwd_for "$number")"
+      [ -n "$cwd" ] || cwd="$(lease_worktree_for "$number")"
       [ -n "$cwd" ] || continue
       release_lease "$cwd"
       rc=$?

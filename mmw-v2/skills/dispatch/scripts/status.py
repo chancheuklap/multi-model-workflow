@@ -11,9 +11,10 @@ truth to reconcile. `--table` is what an agent runs when it wants the whole pict
 in one screen. Nothing this program does needs a model, and nothing it does writes
 to the tracker or to Paseo.
 
-The two sources are the tracker (`gh`) and Paseo (`paseo ls` / `paseo inspect` /
-`paseo workspace ls`), and nothing else. There is no state file: each invocation is
-a full re-read.
+The two sources are the tracker (`gh`) and Paseo (`paseo ls` / `paseo inspect`),
+and nothing else — except `--advance-plan`, which also reads `paseo workspace ls`
+for the standing-workspace half of a claim give-back. There is no state file: each
+invocation is a full re-read.
 
 Which ticket an agent belongs to is the basename of its `cwd`: `issue-<n>`. Kind is
 the `--label mmw.kind=` filter that returned the row — CLI `paseo ls --json` does
@@ -294,24 +295,53 @@ def worker_on(sessions_: list[dict], number: int) -> dict | None:
 
 
 def live_workspaces() -> list[dict]:
-    """Every Paseo workspace, live or archived. Raises when `ls` itself could not be asked."""
+    """Every active Paseo workspace. Raises when `ls` itself could not be asked.
+
+    `paseo workspace ls --json` lists active workspaces only; an archived workspace
+    is absent from the list, not flagged on the row.
+    """
     rows = paseo_json(["workspace", "ls", "--json"])
     if not isinstance(rows, list):
         raise RuntimeError("paseo workspace ls: expected a list")
     return rows
 
 
-def workspaces_holding(workspaces: list[dict]) -> set[int]:
-    """Tickets whose workspace still stands and is not archived.
+def own_project() -> dict:
+    """`projectId` and `name` of the Paseo project whose path is this checkout, or {}."""
+    try:
+        root = os.path.realpath(subprocess.check_output(
+            ["git", "rev-parse", "--show-toplevel"], text=True).strip())
+        rows = paseo_json(["project", "ls", "--json"])
+    except Exception:
+        return {}
+    if not isinstance(rows, list):
+        return {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if os.path.realpath(row.get("path") or "") == root:
+            return {"id": row.get("projectId") or "", "name": row.get("name") or ""}
+    return {}
+
+
+def workspaces_holding(workspaces: list[dict], project: dict | None = None) -> set[int]:
+    """Tickets of this checkout whose workspace still stands.
 
     `paseo ls` listing no worker is not proof that the run is gone: the workspace is
     the working directory, and it remains until `advance` archives it. A claim is
     kept while that directory is still there; when the machine really lost the run,
-    the workspace is gone or archived with it.
+    the workspace is gone from `workspace ls` with it. Rows whose `project` is
+    another checkout's are ignored, so a second repository's `issue-<n>` does not
+    keep this batch's #<n> claimed.
     """
+    project = project or {}
+    own = {v for v in (project.get("id"), project.get("name")) if v}
     held: set[int] = set()
     for row in workspaces:
-        if not isinstance(row, dict) or row.get("archived"):
+        if not isinstance(row, dict):
+            continue
+        theirs = row.get("project") or ""
+        if own and theirs and theirs not in own:
             continue
         number = ticket_of_cwd(row.get("cwd") or "")
         if number is not None:
@@ -373,6 +403,22 @@ def note_of(ticket: dict, worker: dict | None) -> str:
 
 # --------------------------------------------------------------------- the frontier
 
+def off_frontier_reasons(row: dict) -> list[str]:
+    """Which of `frontier`'s last three conditions this ticket fails, in that order.
+
+    Read for a ticket already known to be open and in the agent queue, so the first
+    two conditions are behind it.
+    """
+    reasons = []
+    if row["blockers"]:
+        reasons.append("blocked by " + ", ".join(f"#{b}" for b in row["blockers"]))
+    if row["assignees"]:
+        reasons.append("claimed by " + ", ".join(row["assignees"]))
+    if row["worker"] is not None:
+        reasons.append(f"held by the live worker {row['worker']['name']}")
+    return reasons
+
+
 def frontier(rows: list[dict]) -> list[dict]:
     """The tickets that may be started right now, in ticket order.
 
@@ -383,9 +429,7 @@ def frontier(rows: list[dict]) -> list[dict]:
     return [r for r in rows
             if r["state"] == "OPEN"
             and "ready-for-agent" in r["labels"]
-            and not r["blockers"]
-            and not r["assignees"]
-            and r["worker"] is None]
+            and not off_frontier_reasons(r)]
 
 
 def orphan_claims(rows: list[dict], login: str) -> list[dict]:
@@ -429,14 +473,8 @@ def why_not_on_frontier(row: dict) -> str:
     first two conditions are behind it and the three left are the ones a person cannot
     see from outside this program.
     """
-    reasons = []
-    if row["blockers"]:
-        reasons.append("blocked by " + ", ".join(f"#{b}" for b in row["blockers"]))
-    if row["assignees"]:
-        reasons.append("claimed by " + ", ".join(row["assignees"]))
-    if row["worker"] is not None:
-        reasons.append(f"held by the live worker {row['worker']['name']}")
-    return "; ".join(reasons) or "open, unclaimed, unblocked and unheld: it should have started"
+    return ("; ".join(off_frontier_reasons(row))
+            or "open, unclaimed, unblocked and unheld: it should have started")
 
 
 def explain_empty_frontier(rows: list[dict], spec: int) -> None:
@@ -581,8 +619,17 @@ def advance_plan(spec: int) -> int:
         print(f"MERGE {ticket['number']}")
     rows = build_rows(numbers, tickets, sessions(live_agents(spec)))
     login = own_login()
-    standing = workspaces_holding(live_workspaces())
-    for row in orphan_claims(rows, login):
+    standing = workspaces_holding(live_workspaces(), own_project())
+    for row in rows:
+        if row["state"] != "OPEN" or "ready-for-agent" not in row["labels"]:
+            continue
+        if not login or login not in row["assignees"]:
+            continue
+        if row["worker"] is not None:
+            print(f"#{row['ticket']} keeps its claim: a live worker "
+                  f"{row['worker']['name']} still holds it",
+                  file=sys.stderr)
+            continue
         if row["ticket"] in standing:
             print(f"#{row['ticket']} keeps its claim: Paseo lists no worker on it, but a "
                   f"workspace whose cwd is issue-{row['ticket']} is still standing",

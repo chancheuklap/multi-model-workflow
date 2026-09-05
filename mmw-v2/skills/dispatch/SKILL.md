@@ -38,7 +38,7 @@ Then: the main agent waits for the finish notification. A worker blocks with `pa
 | Start a worker on one ticket, outside a night | `<dispatch> start <n> worker`, then the one path above |
 | Re-run every closed `ALL MET` ticket on the branch you are on | `<dispatch> reverify <spec>` |
 | Post the night summary on the spec | `<dispatch> summary <spec>` |
-| `suspend <spec>` | [references/night.md](references/night.md) says what it stops and what it leaves standing |
+| Give the night up before it is over | `<dispatch> suspend <spec>` — [references/night.md](references/night.md) says what it stops and what it leaves standing |
 | Change one ticket's worker grade | Swap its `junior-worker` / `senior-worker` label on the tracker; the next `start` reads it |
 | Change which host, model or `effort` an agent runs on | Edit `models.md`, next to this file — but read [references/editing-models.md](references/editing-models.md) first |
 

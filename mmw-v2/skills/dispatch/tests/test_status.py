@@ -62,13 +62,15 @@ def agent(ticket, status_="running", *, kind="worker", parent=None,
     }
 
 
-def workspace(ticket, archived=False, cwd=None):
+def workspace(ticket, cwd=None, project=None):
     """One `paseo workspace ls --json` row, with only the fields status.py reads."""
-    return {
+    row = {
         "workspaceId": f"wks_issue-{ticket}",
         "cwd": cwd if cwd is not None else f"/repo/issue-{ticket}",
-        "archived": archived,
     }
+    if project is not None:
+        row["project"] = project
+    return row
 
 
 def ticket(number, state="OPEN", labels=("ready-for-agent",), blockers=(),
@@ -390,7 +392,7 @@ class AdvancePlan(unittest.TestCase):
 
     def setUp(self):
         self.saved = (status.sub_issues, status.read_ticket, status.live_agents,
-                      status.own_login, status.live_workspaces)
+                      status.own_login, status.live_workspaces, status.own_project)
         self.tickets = {
             61: ticket(61, state="CLOSED", labels=(),
                        comments=["ALL MET\nBranch: issue-61"]),
@@ -411,10 +413,11 @@ class AdvancePlan(unittest.TestCase):
         status.live_agents = lambda spec: self.agents
         status.own_login = lambda: ""
         status.live_workspaces = lambda: self.workspaces
+        status.own_project = lambda: {}
 
     def tearDown(self):
         (status.sub_issues, status.read_ticket, status.live_agents,
-         status.own_login, status.live_workspaces) = self.saved
+         status.own_login, status.live_workspaces, status.own_project) = self.saved
 
     def plan(self, spec=76):
         """The plan's stdout lines and its stderr lines, the two channels held apart."""
@@ -455,7 +458,9 @@ class AdvancePlan(unittest.TestCase):
         self.agents = [agent(61)]
         out, err = self.plan()
         self.assertEqual(out, [])
-        self.assertIn("held by the live worker #61 worker", err[1])
+        joined = "\n".join(err)
+        self.assertIn("#61 keeps its claim", joined)
+        self.assertIn("live worker #61 worker", joined)
 
     def test_a_claim_whose_workspace_still_stands_is_not_released(self):
         status.own_login = lambda: self.LOGIN
@@ -470,7 +475,14 @@ class AdvancePlan(unittest.TestCase):
     def test_a_claim_with_neither_a_worker_nor_a_workspace_is_still_released(self):
         status.own_login = lambda: self.LOGIN
         self.tickets = {61: ticket(61, assignees=(self.LOGIN,))}
-        self.workspaces = [workspace(99), workspace(61, archived=True)]
+        self.workspaces = [workspace(99)]
+        self.assertEqual(self.plan()[0], ["RELEASE 61", "DISPATCH 61"])
+
+    def test_another_checkout_workspace_does_not_keep_this_claim(self):
+        status.own_login = lambda: self.LOGIN
+        status.own_project = lambda: {"id": "prj_here", "name": "here"}
+        self.tickets = {61: ticket(61, assignees=(self.LOGIN,))}
+        self.workspaces = [workspace(61, project="elsewhere")]
         self.assertEqual(self.plan()[0], ["RELEASE 61", "DISPATCH 61"])
 
     def test_with_no_login_to_compare_against_nothing_is_released(self):

@@ -1026,6 +1026,9 @@ scenario_instancegate() {
   seed_workspace 62
   seed_workspace 99
   python3 "$LEASE_PY" claim "$MMW_FAKE_PASEO_STATE/issue-99" >/dev/null
+  python3 "$LEASE_PY" claim "$MMW_FAKE_PASEO_STATE/issue-62" >/dev/null
+  [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 2 ] \
+    || fail "setup should hold two slots, it holds $(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")"
 
   local code
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
@@ -1036,14 +1039,22 @@ scenario_instancegate() {
   [ -f "$TMP/repo/one.txt" ] || fail "issue-61 was not merged"
   [ -f "$TMP/repo/two.txt" ] || fail "issue-62 was not merged"
 
+  echo "--- a merged ticket's lease is released before its workspace is archived"
+  [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 1 ] \
+    || fail "issue-62's lease should be gone after archive, count is $(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")"
+  has "paseo :: workspace :: archive :: wks_issue-62"
+
   echo "--- the frontier ticket is held back rather than sent onto a busy machine"
   grep -q "held 1" "$TMP/err" || fail "nothing was held back: $(cat "$TMP/err")"
   grep -q "held back" "$TMP/err" || fail "the reason was not reported: $(cat "$TMP/err")"
   hasnt "workspace :: create"
 
   echo "--- it kept its label, so the next advance starts it once a slot is free"
-  reset_log
+  : > "$MMW_TEST_LOG"
+  : > "$MMW_GH_LAST_BODY"
   python3 "$LEASE_PY" release "$MMW_FAKE_PASEO_STATE/issue-99" >/dev/null
+  [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 0 ] \
+    || fail "issue-99 should be free before the second advance"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" advance 76)"
   [ "$code" = 0 ] || fail "exit $code on the second run: $(cat "$TMP/err")"
@@ -1090,6 +1101,8 @@ scenario_suspend() {
   python3 "$LEASE_PY" claim "$MMW_FAKE_PASEO_STATE/issue-65" >/dev/null
   [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 3 ] \
     || fail "the night should hold three slots, it holds $(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")"
+  # The workspace is archived; the lease is not. suspend still has to give that slot back.
+  (cd "$TMP/repo" && paseo workspace archive wks_issue-65 >/dev/null)
 
   seed_agent 61 worker
   write_heartbeat
