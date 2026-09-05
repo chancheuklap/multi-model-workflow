@@ -8,7 +8,7 @@
 #                     读 prompt/render.py 拼出的 AGENTS.md
 #   launchd 任务      盯着源文件，改了就重拼 Codex、Pi、Grok 的 AGENTS.md
 #   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里 grok/cursor 两条 provider、
-#                     models.md 每个 bypass 行一条 Agent profile、worktrees.root
+#                     models.md 每个 bypass / read-only 行一条 Agent profile、worktrees.root
 #
 # 技能有三个来源：mattpocock/skills 的在 upstream/skills/，我们自己写的在 skills/（skills.txt
 # 里前缀 self/），cathrynlavery/diagram-design 的在 upstream-diagram-design/skills/（前缀 dd/）。三者
@@ -679,16 +679,15 @@ fi
 
 # ---------------- Paseo 侧配置 ----------------
 #
-# 源在仓库（models.md 的 bypass 行、下面两条 provider 的字面量），host 侧只放生成物：
+# 源在仓库（models.md 的 bypass / read-only 行、下面两条 provider 的字面量），host 侧只放生成物：
 # CLI 软链、~/.paseo/config.json 里的 provider 与 Agent profile、worktrees.root。
-# 合并写入：只增改 id 与 models.md bypass 行同名的 profile，其余条目一字不动。
+# 合并写入：只增改 id 与 models.md bypass / read-only 行同名的 profile，其余条目一字不动。
 # MMW_V2_HOME 之下不跑 paseo reload（与 launchd 同构）。
 
 PASEO_BIN_SRC="/Applications/Paseo.app/Contents/Resources/bin/paseo"
 PASEO_BIN_LINK="$HOME_DIR/.local/bin/paseo"
 PASEO_CONFIG="$HOME_DIR/.paseo/config.json"
 PASEO_WORKTREES_ROOT="$HOME_DIR/paseo-worktrees"
-MODELS_MD="$SELF_SRC/dispatch/models.md"
 
 if [ "$mode" = check ]; then
   if [ ! -L "$PASEO_BIN_LINK" ] || [ "$(readlink "$PASEO_BIN_LINK")" != "$PASEO_BIN_SRC" ]; then
@@ -707,9 +706,10 @@ fi
 
 MMW_MODE="$mode" \
 MMW_PASEO_CONFIG="$PASEO_CONFIG" \
-MMW_MODELS="$MODELS_MD" \
+MMW_ASSEMBLE="$AGENTS_SRC/assemble.py" \
 MMW_PASEO_WORKTREES="$PASEO_WORKTREES_ROOT" \
 python3 - <<'PY' || rc=1
+import importlib.util
 import json
 import os
 import shutil
@@ -719,8 +719,13 @@ from pathlib import Path
 
 mode = os.environ["MMW_MODE"]
 config_path = Path(os.environ["MMW_PASEO_CONFIG"])
-models_path = Path(os.environ["MMW_MODELS"])
+assemble_path = Path(os.environ["MMW_ASSEMBLE"])
 worktrees_root = os.environ["MMW_PASEO_WORKTREES"]
+
+_spec = importlib.util.spec_from_file_location("mmw_assemble", assemble_path)
+assemble = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(assemble)
+models_path = assemble.MODELS
 
 GROK_PROVIDER = {
     "extends": "acp",
@@ -764,58 +769,32 @@ def save(path, data):
     scratch.replace(path)
 
 
-def read_bypass_rows():
-    if not models_path.is_file():
-        die(f"models.md：{models_path}")
-    rows = []
-    for line in models_path.read_text(encoding="utf-8").splitlines():
-        if not line.lstrip().startswith("|"):
-            continue
-        cells = [c.strip().strip("`").strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) != 5:
-            continue
-        agent, host, model, effort, permissions = cells
-        if agent == "agent" or set(agent) <= set("- "):
-            continue
-        if permissions != "bypass":
-            continue
-        rows.append((agent, host, model, effort))
-    return rows
+def notes_for(agent, host, permissions):
+    if permissions == "read-only":
+        spec_path = assemble_path.parent / agent / "agent.json"
+        body_path = spec_path.with_name("body.md")
+        if not spec_path.is_file():
+            die(f"read-only 行 {agent} 没有 {spec_path}")
+        desc = json.loads(spec_path.read_text(encoding="utf-8"))["description"].rstrip()
+        return (
+            f"{desc} A caller that has this profile uses `create_agent`; "
+            f"initialPrompt is 'Follow {body_path.resolve()}' plus the question packet."
+        )
+    return (
+        f"{agent} from models.md {agent}/{host}; "
+        f"{PURPOSES.get(agent, 'dispatched by this pipeline')}."
+    )
 
 
-def apply_permissions(profile, host):
-    if host == "claude":
-        profile["modeId"] = "bypassPermissions"
-        profile.pop("featureValues", None)
-    elif host == "codex":
-        profile["modeId"] = "full-access"
-        profile.pop("featureValues", None)
-    else:
-        profile["featureValues"] = {"auto_accept": True}
-        profile.pop("modeId", None)
-
-
-def permissions_ok(profile, host):
-    if host == "claude":
-        return profile.get("modeId") == "bypassPermissions"
-    if host == "codex":
-        return profile.get("modeId") == "full-access"
-    fv = profile.get("featureValues") or {}
-    return fv.get("auto_accept") is True
-
-
-def make_profile(agent, host, model, effort, existing=None):
+def make_profile(agent, host, model, effort, permissions, existing=None):
     profile = dict(existing) if isinstance(existing, dict) else {}
     profile["id"] = agent
     profile["name"] = agent
     profile["provider"] = host
     profile["model"] = model
     profile["thinkingOptionId"] = effort
-    profile["notes"] = (
-        f"{agent} from models.md {agent}/{host}; "
-        f"{PURPOSES.get(agent, 'dispatched by this pipeline')}."
-    )
-    apply_permissions(profile, host)
+    profile["notes"] = notes_for(agent, host, permissions)
+    assemble.apply_permissions(profile, host, permissions)
     return profile
 
 
@@ -827,7 +806,8 @@ def merge(data, rows):
 
     daemon = data.setdefault("daemon", {})
     existing = list(daemon.get("agentProfiles") or [])
-    managed = {agent: (host, model, effort) for agent, host, model, effort in rows}
+    managed = {agent: (host, model, effort, permissions)
+               for agent, host, model, effort, permissions in rows}
     new_profiles = []
     seen = set()
     for profile in existing:
@@ -848,9 +828,12 @@ def merge(data, rows):
     return data
 
 
-rows = read_bypass_rows()
+try:
+    rows = assemble.profile_rows()
+except ValueError as exc:
+    die(str(exc))
 if not rows:
-    die(f"{models_path} 里一行 bypass 都没有")
+    die(f"{models_path} 里一行 bypass 或 read-only 都没有")
 
 if mode == "check":
     failed = False
@@ -865,23 +848,28 @@ if mode == "check":
     for profile in ((data.get("daemon") or {}).get("agentProfiles") or []):
         if isinstance(profile, dict) and profile.get("id"):
             by_id[profile["id"]] = profile
-    for agent, host, model, effort in rows:
+    for agent, host, model, effort, permissions in rows:
         profile = by_id.get(agent)
         if profile is None:
             sys.stderr.write(f"缺    profile {agent} 不在 {config_path}\n")
             failed = True
             continue
-        if profile.get("model") != model:
+        want = make_profile(agent, host, model, effort, permissions, existing=profile)
+        if profile.get("model") != want["model"]:
             sys.stderr.write(f"缺    profile {agent} model 与 models.md 不一致\n")
             failed = True
-        if profile.get("thinkingOptionId") != effort:
+        if profile.get("thinkingOptionId") != want["thinkingOptionId"]:
             sys.stderr.write(f"缺    profile {agent} thinkingOptionId 与 models.md 不一致\n")
             failed = True
-        if not permissions_ok(profile, host):
+        if profile.get("provider") != want["provider"]:
+            sys.stderr.write(f"缺    profile {agent} provider 与 models.md 不一致\n")
+            failed = True
+        if profile.get("modeId") != want.get("modeId") or \
+                (profile.get("featureValues") or {}) != (want.get("featureValues") or {}):
             sys.stderr.write(f"缺    profile {agent} permissions 与 models.md 不一致\n")
             failed = True
-        if profile.get("provider") != host:
-            sys.stderr.write(f"缺    profile {agent} provider 与 models.md 不一致\n")
+        if profile.get("notes") != want["notes"]:
+            sys.stderr.write(f"缺    profile {agent} notes 与 models.md 不一致\n")
             failed = True
     have_root = ((data.get("worktrees") or {}).get("root"))
     if have_root != worktrees_root:
