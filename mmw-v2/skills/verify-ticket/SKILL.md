@@ -27,9 +27,13 @@ Resolve it from this file's own location. The path differs by machine and by hos
 | A **worker** who has finished writing code | `<engine> <n>` | A comment whose first line is `self-run`: each criterion ticked or not, each with the `EVIDENCE:` line gate-check recorded |
 | The **verifier** on ticket `<n>` | `<engine> <n> --reverify` | A comment whose first line is `reverify`: every criterion run again, the ones the worker's `self-run` ticked included, instead of trusted |
 | A **worker** whose closing comment is written to a file | `<engine> <n> --closeout <draft>` | The draft posted, `ready-for-agent` taken off, and the ticket closed. A draft whose first line is `HANDOFF REQUIRED` posts and swaps `ready-for-agent` for `needs-triage`, leaving the ticket open to be judged fresh |
+| A **worker** posting the decisions comment | `<engine> <n> --decisions <file>` | A comment whose first line is `DECISIONS`. If the ticket already has one, or the file is missing a section: exit 2, the reason on stderr, nothing posted |
+| A **worker** telling the tickets whose files moved | `<engine> <n> --touched` | A `TOUCHED BY #<n>` comment on each open sibling whose `## Owns` covers a file on the newest `self-run`'s `Outside Owns:` line. If there is no `REVIEW` comment: exit 2. If that line is `None`: nothing posted, exit 0 |
+| A **worker** assembling the closing-comment skeleton | `<engine> <n> --draft <out-file>` | Nothing on the ticket. The skeleton is written to `<out-file>`, with `skipped:` and `Decisions I made on my own` left as `<fill>`. `--closeout` refuses it until those are filled |
+| A **worker** opening a sub-issue under the spec | `<engine> <n> --sub-issue <kind> <file>` | A new issue labelled `needs-triage`, parented to the spec, first line `SUB-ISSUE <kind> from #<n>`. `kind` is `baseline`, `outside-owns`, `review`, or `decision`. Empty file or unknown kind: exit 2 |
 | The **agent publishing a batch**, at the read-back step | `<engine> <n> --lint` | Nothing. Findings print to your terminal; no `CHECK:` runs and no comment is posted |
 
-Exit code: `0` every criterion met, `1` something unmet or abandoned, `2` the ticket could not be read or the run could not start. `--preflight` uses `2` for a refusal; `--closeout` uses `1`.
+Exit code: `0` every criterion met, `1` something unmet or abandoned, `2` the ticket could not be read or the run could not start. `--preflight`, `--decisions`, `--touched` and `--sub-issue` use `2` for a refusal; `--closeout` uses `1`.
 
 A `CHECK:` may run ten minutes. A criterion that needs longer says so on the ticket, on a `TIMEOUT: <seconds>` line under its `EVIDENCE:`; every run reads those lines off the ticket body, so the worker's own run and the verifier's `--reverify` are held to the same number. `--timeout <seconds>` raises it for one run. Neither lowers it.
 

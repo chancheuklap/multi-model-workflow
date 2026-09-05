@@ -11,14 +11,20 @@ comment. Nothing is cached and no file is left behind.
     verify-ticket.py <n> --lint       audit how the criteria are written; print only
     verify-ticket.py <n> --preflight  claim the ticket, or refuse and say why
     verify-ticket.py <n> --closeout <draft>  check the closing comment, then post it
+    verify-ticket.py <n> --decisions <file>  post the two-section file as `DECISIONS`
+    verify-ticket.py <n> --touched    comment `TOUCHED BY` on open siblings that own a file
+    verify-ticket.py <n> --draft <out-file>  write the closing-comment skeleton
+    verify-ticket.py <n> --sub-issue <kind> <file>  open a needs-triage child of the spec
 
 Exit code follows gate-check: 0 all met, 1 unmet or abandoned, 2 usage or
 infrastructure. `--preflight` exits 2 when it refuses; `--closeout` exits 1.
+`--decisions`, `--touched` and `--sub-issue` exit 2 when they refuse.
 """
 
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import os
 import re
@@ -34,7 +40,8 @@ GATE_LINT = HERE / "gate-check" / "gate-lint.mjs"
 LEDGER_NAME = "AC.md"
 SUMMARY_RE = re.compile(r"^(ALL MET|UNMET:|HANDOFF REQUIRED:)")
 GATE_LINE_RE = re.compile(r"^- \[( |x|X)\] ([A-Za-z0-9][A-Za-z0-9._-]*):")
-TTL_MS = "86400000"
+SUB_ISSUE_KINDS = ("baseline", "outside-owns", "review", "decision")
+FILL = "<fill>"
 
 # A criterion is abandoned for one of three reasons. `failed` ran and did not pass;
 # `stuck` never ran or cannot be done; the two are told apart for whoever reads the
@@ -477,6 +484,7 @@ def parse_criteria(text: str) -> list[dict]:
         gate = GATE_LINE_RE.match(line)
         if gate:
             item = {"id": gate.group(2), "ticked": gate.group(1) != " ",
+                    "title": line[gate.end():].strip(),
                     "check": "", "expect": "", "evidence": "", "timeout": "",
                     "stray": False}
             out.append(item)
@@ -592,6 +600,9 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
     if first != "ALL MET" and not handoff:
         return ["first line is neither `ALL MET` nor `HANDOFF REQUIRED: <n> abandoned "
                 "(<kinds>), <m> unmet, <k> met of <total>`: " + (first or "(empty draft)")]
+    if FILL in draft:
+        problems.append("the draft still contains `<fill>`; replace the placeholders "
+                        "in `skipped:` and `Decisions I made on my own`")
 
     criteria = parse_criteria(draft)
     ids = [c["id"] for c in criteria]
@@ -950,37 +961,306 @@ def blocked_by_mismatch(entries: list[dict]) -> list[str]:
     return findings
 
 
-# -------------------------------------------------------------------- herdr
+# ---------------------------------------------------------- worker mechanical
 
-def report_phase(ticket: int, phase: str, extra: dict[str, str] | None = None,
-                 clear: list[str] | None = None) -> bool:
-    """Report where this ticket stands on the Herdr pane. Never fails a run."""
-    if os.environ.get("HERDR_ENV") != "1":
-        return False
-    pane = os.environ.get("HERDR_PANE_ID")
-    if not pane:
-        return False
-    cmd = [
-        "herdr", "pane", "report-metadata", pane, "--source", "mmw",
-        "--token", f"ticket={ticket}", "--token", "kind=worker",
-        "--token", f"phase={phase}", "--ttl-ms", TTL_MS,
+def refuse(message: str) -> int:
+    """Exit 2 with the reason on stderr. Nothing is posted."""
+    sys.stderr.write(message.rstrip() + "\n")
+    return 2
+
+
+def last_comment_opening(comments: list[str], prefix: str) -> str | None:
+    """The newest comment whose first line is `prefix` or starts `prefix `."""
+    for comment in reversed(comments):
+        first = comment.strip().splitlines()[0].strip() if comment.strip() else ""
+        if first == prefix or first.startswith(prefix + " "):
+            return comment
+    return None
+
+
+def last_self_run(comments: list[str]) -> str | None:
+    """The newest comment whose first line is `self-run`, `None` when none."""
+    return last_comment_opening(comments, "self-run")
+
+
+def outside_owns_from(text: str) -> str | None:
+    """The `Outside Owns:` line in `text`, stripped, or `None` when absent."""
+    for line in text.splitlines():
+        if line.startswith("Outside Owns:"):
+            return line.strip()
+    return None
+
+
+def markdown_h2(text: str) -> list[str]:
+    """The `## ` heading titles in document order."""
+    return [line[3:].strip() for line in text.splitlines() if line.startswith("## ")]
+
+
+def glob_covers(pattern: str, path: str) -> bool:
+    """Whether an `## Owns` glob covers `path`."""
+    pattern = pattern.rstrip("/")
+    if pattern.endswith("/**"):
+        root = pattern[:-3]
+        return path == root or path.startswith(root + "/")
+    return fnmatch.fnmatch(path, pattern) or path == pattern
+
+
+def spec_judgement(review: str, path: str) -> str | None:
+    """`reasonable` or `should not` for `path` from the Spec axis of a `REVIEW` comment.
+
+    `None` when that axis names no line for the file — the run does not invent a
+    judgement the reviewer did not write.
+    """
+    spec_axis = re.split(r"^## Tests", review, maxsplit=1, flags=re.M)[0]
+    spec_axis = re.split(r"^## Spec", spec_axis, maxsplit=1, flags=re.M)[-1]
+    for line in spec_axis.splitlines():
+        if path in line:
+            if "should not" in line:
+                return "should not"
+            if "reasonable" in line:
+                return "reasonable"
+    return None
+
+
+def decisions_line_for(decisions: str | None, path: str) -> str:
+    """The sentence in the `DECISIONS` comment that names `path`."""
+    if not decisions:
+        return path
+    for line in decisions.splitlines():
+        stripped = line.strip()
+        if path in stripped and not stripped.startswith("Outside Owns:"):
+            return stripped.lstrip("- ").strip()
+    return path
+
+
+def outside_owns_files(line: str | None) -> list[str]:
+    """The paths on an `Outside Owns:` line; empty when `None` or not checked."""
+    if not line:
+        return []
+    rest = line[len("Outside Owns:"):].strip()
+    if rest == "None" or rest.startswith("not checked"):
+        return []
+    return [p.strip() for p in rest.split(",") if p.strip()]
+
+
+def overlay_run_evidence(body: str, run: str | None) -> list[dict]:
+    """Criteria from the ticket body, ticks and evidence from the newest `self-run`."""
+    base = parse_criteria("\n".join(section(body, "Acceptance criteria")))
+    ran = {c["id"]: c for c in parse_criteria(run or "")}
+    for item in base:
+        if item["id"] in ran:
+            item["ticked"] = ran[item["id"]]["ticked"]
+            if ran[item["id"]]["evidence"]:
+                item["evidence"] = ran[item["id"]]["evidence"]
+    return base
+
+
+def criterion_block(item: dict) -> str:
+    """The four ledger lines of one criterion."""
+    tick = "x" if item["ticked"] else " "
+    lines = [f"- [{tick}] {item['id']}: {item['title']}"]
+    check = item["check"]
+    if "\n" in check:
+        lines.append("  CHECK:")
+        lines.append("  ```")
+        lines.extend(("  " + row) if row else "" for row in check.splitlines())
+        lines.append("  ```")
+    else:
+        lines.append(f"  CHECK: {check}")
+    lines.append(f"  EXPECT: {item['expect']}")
+    evidence = item["evidence"] or "pending"
+    lines.append(f"  EVIDENCE: {evidence}")
+    return "\n".join(lines)
+
+
+def run_decisions(number: int, path: Path) -> int:
+    """Post the two-section file as a `DECISIONS` comment, or refuse."""
+    comments = fetch_comments(number)
+    if last_comment_opening(comments, "DECISIONS") is not None:
+        return refuse(f"#{number} already carries a DECISIONS comment")
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    headings = markdown_h2(text)
+    expected_headings = ["Decisions I made on my own", "Outside Owns"]
+    if headings != expected_headings:
+        missing = [h for h in expected_headings if h not in headings]
+        if missing:
+            return refuse("the file is missing section"
+                          + ("s " if len(missing) > 1 else " ")
+                          + " and ".join(f"`{h}`" for h in missing))
+        return refuse("the file must have exactly two sections, "
+                      "`Decisions I made on my own` then `Outside Owns`")
+    run = last_self_run(comments)
+    if run is None:
+        return refuse(f"#{number} carries no self-run comment to check Outside Owns against")
+    want = outside_owns_from(run)
+    got = outside_owns_from("\n".join(section(text, "Outside Owns")))
+    if want != got:
+        return refuse("the file's `Outside Owns` line does not match the newest self-run")
+    posted = "DECISIONS\n\n" + text.lstrip("\n")
+    if not posted.endswith("\n"):
+        posted += "\n"
+    post_comment(number, posted)
+    print(f"DECISIONS: posted on #{number}")
+    return 0
+
+
+def run_touched(number: int) -> int:
+    """Comment `TOUCHED BY #<n>` on open siblings whose `## Owns` covers a file."""
+    comments = fetch_comments(number)
+    review = last_comment_opening(comments, "REVIEW")
+    if review is None:
+        return refuse(f"#{number} carries no REVIEW comment")
+    run = last_self_run(comments)
+    if run is None:
+        return refuse(f"#{number} carries no self-run comment")
+    files = outside_owns_files(outside_owns_from(run))
+    if not files:
+        return 0
+    decisions = last_comment_opening(comments, "DECISIONS")
+    spec = parent_spec(fetch_body(number))
+    if spec is None:
+        return refuse(f"#{number} has no spec in `## Parent`")
+    posted_to: list[int] = []
+    for path in files:
+        sentence = decisions_line_for(decisions, path)
+        judgement = spec_judgement(review, path)
+        ac = ""
+        found = re.search(r"\bAC\d+\b", sentence)
+        if found:
+            ac = found.group(0)
+        lines = [
+            f"TOUCHED BY #{number}",
+            "",
+            path,
+            sentence,
+            ac,
+        ]
+        if judgement:
+            lines.append(judgement)
+        comment = "\n".join(lines) + "\n"
+        for child in fetch_sub_issues(spec):
+            ticket = fetch_ticket(child)
+            if (ticket.get("state") or "").upper() != "OPEN":
+                continue
+            globs = owns_globs(fetch_body(child))
+            if not any(glob_covers(g, path) for g in globs):
+                continue
+            post_comment(child, comment)
+            posted_to.append(child)
+    if posted_to:
+        print("TOUCHED: " + ", ".join(f"#{n}" for n in posted_to))
+    return 0
+
+
+def run_draft(number: int, out_file: Path) -> int:
+    """Write the closing-comment skeleton to `out_file`."""
+    body = fetch_body(number)
+    comments = fetch_comments(number)
+    run = last_self_run(comments)
+    criteria = overlay_run_evidence(body, run)
+    abandons = parse_abandons(run or "")
+    counts = tally(criteria, abandons)
+    blocking = [a for a in abandons if a["kind"] in HANDOFF_KINDS]
+    if blocking:
+        kinds = ", ".join(k for k in HANDOFF_KINDS if any(a["kind"] == k for a in blocking))
+        first = (f"HANDOFF REQUIRED: {counts['abandoned']} abandoned ({kinds}), "
+                 f"{counts['unmet']} unmet, {counts['met']} met of {counts['total']}")
+    else:
+        first = "ALL MET"
+    head = git("rev-parse", "HEAD")
+    base_branch = git("config", f"branch.issue-{number}.mmw-base-branch") or "main"
+    branch_line = (f"Branch: issue-{number} Commit: {head} PR: none — will be merged into "
+                   f"{base_branch} by dispatch.sh advance")
+    verdict = last_verdict(comments)
+    chain = ""
+    if verdict and head and not head.startswith(verdict):
+        chain = git("log", "--first-parent", "--format=%H", f"{verdict}..HEAD")
+    post = "Post-verdict: " + (", ".join(chain.split()) if chain else "None")
+    review = last_comment_opening(comments, "REVIEW") or ""
+    files = outside_owns_files(outside_owns_from(run or ""))
+    if files:
+        judged = []
+        for path in files:
+            judgement = spec_judgement(review, path)
+            judged.append(f"{path} ({judgement})" if judgement else path)
+        outside = "Outside Owns: " + ", ".join(judged)
+    else:
+        outside = "Outside Owns: None"
+    spec = parent_spec(body)
+    opened: list[str] = []
+    if spec is not None:
+        marker = re.compile(rf"^SUB-ISSUE \S+ from #{number}$")
+        for child in fetch_sub_issues(spec):
+            child_body = fetch_body(child)
+            first_line = child_body.strip().splitlines()[0] if child_body.strip() else ""
+            if marker.match(first_line):
+                opened.append(f"#{child}")
+    sub = "Sub-issues opened: " + (", ".join(opened) if opened else "none")
+    counts_line = (f"Counts: {counts['met']} met, {counts['unmet']} unmet, "
+                   f"{counts['abandoned']} abandoned of {counts['total']}")
+    parts = [first, "", branch_line, "", post, ""]
+    for item in criteria:
+        parts.append(criterion_block(item))
+        for abandon in abandons:
+            if abandon["ac"] == item["id"]:
+                reason = abandon["reason"]
+                parts.append(f"ABANDON: {abandon['ac']} {abandon['kind']}"
+                             + (f" {reason}" if reason else ""))
+        parts.append("")
+    parts += [
+        outside, "",
+        f"skipped: {FILL}", "",
+        sub, "",
+        counts_line, "",
+        "Decisions I made on my own", "",
+        FILL, "",
     ]
-    for key, value in (extra or {}).items():
-        cmd += ["--token", f"{key}={value}"]
-    for key in (clear or []):
-        cmd += ["--clear-token", key]
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    out_file.write_text("\n".join(parts) + "\n", encoding="utf-8")
+    print(f"DRAFT: wrote {out_file}")
+    return 0
+
+
+def run_sub_issue(number: int, kind: str, path: Path) -> int:
+    """Open a `needs-triage` sub-issue under the spec named in `## Parent`."""
+    if kind not in SUB_ISSUE_KINDS:
+        return refuse(f"kind `{kind}` is not one of {', '.join(SUB_ISSUE_KINDS)}")
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    if not text.strip():
+        return refuse(f"{path} is empty")
+    spec = parent_spec(fetch_body(number))
+    if spec is None:
+        return refuse(f"#{number} has no spec in `## Parent`")
+    title = text.strip().splitlines()[0].strip()
+    posted = f"SUB-ISSUE {kind} from #{number}\n" + text
+    if not posted.endswith("\n"):
+        posted += "\n"
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as fh:
+        fh.write(posted)
+        body_path = fh.name
     try:
-        subprocess.run(cmd, capture_output=True, timeout=10, check=False)
-    except Exception:
-        return False
-    return True
+        result = subprocess.run(
+            ["gh", "issue", "create",
+             "--parent", str(spec),
+             "--label", "needs-triage",
+             "--title", title,
+             "--body-file", body_path],
+            capture_output=True, text=True, check=False, env=GH_ENV,
+        )
+    finally:
+        os.unlink(body_path)
+    if result.returncode != 0:
+        sys.stderr.write((result.stderr or result.stdout or "gh issue create failed").rstrip() + "\n")
+        return 2
+    printed = (result.stdout or "").strip()
+    found = re.search(r"/issues/(\d+)", printed)
+    print(found.group(1) if found else printed)
+    return 0
 
 
 # ----------------------------------------------------------------- subcommands
 
 def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
-    phase = "verify" if reverify else "selfcheck"
-    report_phase(number, phase)
     body = fetch_body(number)
     root = repo_root()
     carried = carried_ledger(number, body) if reverify else []
@@ -991,15 +1271,15 @@ def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
             cmd.append("--reverify")
         cmd += ["--timeout", str(check_timeout(body, timeout))]
         cmd.append(str(ledger))
-        result = subprocess.run(cmd, capture_output=True, text=True, cwd=root)
+        env = os.environ.copy()
+        env["MMW_TICKET"] = str(number)
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=root, env=env)
         printed = (result.stdout or "") + (result.stderr or "")
         sys.stdout.write(printed)
         if result.returncode == 2:
-            report_phase(number, phase)
             return 2
         summary = [line for line in printed.splitlines() if SUMMARY_RE.match(line)]
         updated = ledger.read_text(encoding="utf-8").rstrip("\n")
-        met, total = count_gates(ledger)
 
     comment = "\n".join([
         "reverify" if reverify else "self-run",
@@ -1010,7 +1290,6 @@ def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
         outside_owns_line(number, owns_globs(body), root),
     ])
     post_comment(number, comment)
-    report_phase(number, phase, {"ac": f"{met}/{total}"})
     return result.returncode
 
 
@@ -1067,7 +1346,6 @@ def run_preflight(number: int) -> int:
         sys.stderr.write(reason + "\n")
         return 2
     assign_self(number)
-    report_phase(number, "implement")
     print(f"READY: #{number} claimed on issue-{number}")
     return 0
 
@@ -1219,7 +1497,6 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
                          f"{'s' if len(problems) > 1 else ''}: {problems[0]}{rest}\n")
         for problem in problems[1:]:
             sys.stderr.write("also: " + problem + "\n")
-        report_phase(number, "closeout-rejected")
         return 1
     if check_only:
         print(f"CLOSEOUT OK: #{number} draft passes every check")
@@ -1230,7 +1507,6 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
         ok, extra = run_target_json_checks(repo_root())
         if not ok:
             post_comment(number, extra)
-            report_phase(number, "closeout-rejected")
             sys.stderr.write(extra.splitlines()[0] + "\n")
             return 1
         if extra:
@@ -1239,11 +1515,9 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     post_comment(number, draft)
     if draft.strip().splitlines()[0].strip() == "ALL MET":
         close_ticket(number)
-        report_phase(number, "closed", clear=["ac"])
         print(f"CLOSED: #{number}")
     else:
         hand_back_for_triage(number)
-        report_phase(number, "handoff", clear=["ac"])
         print(f"HANDED BACK: #{number} is now needs-triage and stays open")
     return 0
 
@@ -1868,10 +2142,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--check-only", action="store_true",
                         help="with --closeout: check the draft and change nothing")
     parser.add_argument("--timeout", type=int, help="per-CHECK timeout in seconds")
+    parser.add_argument("--decisions", type=Path, metavar="FILE",
+                        help="post the two-section file as a DECISIONS comment")
+    parser.add_argument("--touched", action="store_true",
+                        help="comment TOUCHED BY on open siblings whose Owns covers a file")
+    parser.add_argument("--draft", type=Path, metavar="OUT",
+                        help="write the closing-comment skeleton to this file")
+    parser.add_argument("--sub-issue", nargs=2, metavar=("KIND", "FILE"),
+                        help="open a needs-triage sub-issue under the spec")
     args = parser.parse_args(argv)
     chosen = [name for name, on in
               (("--lint", args.lint), ("--reverify", args.reverify),
-               ("--preflight", args.preflight), ("--closeout", args.closeout is not None)) if on]
+               ("--preflight", args.preflight), ("--closeout", args.closeout is not None),
+               ("--decisions", args.decisions is not None), ("--touched", args.touched),
+               ("--draft", args.draft is not None),
+               ("--sub-issue", args.sub_issue is not None)) if on]
     if len(chosen) > 1:
         parser.error(f"{' and '.join(chosen)} are different jobs; pick one")
     if args.check_only and args.closeout is None:
@@ -1882,6 +2167,17 @@ def main(argv: list[str] | None = None) -> int:
         if not args.closeout.is_file():
             parser.error(f"no draft at {args.closeout}")
         return run_closeout(args.ticket, args.closeout, args.check_only)
+    if args.decisions is not None:
+        if not args.decisions.is_file():
+            parser.error(f"no file at {args.decisions}")
+        return run_decisions(args.ticket, args.decisions)
+    if args.touched:
+        return run_touched(args.ticket)
+    if args.draft is not None:
+        return run_draft(args.ticket, args.draft)
+    if args.sub_issue is not None:
+        kind, file = args.sub_issue
+        return run_sub_issue(args.ticket, kind, Path(file))
     if args.lint:
         return run_lint(args.ticket)
     return run_checks(args.ticket, args.reverify, args.timeout)

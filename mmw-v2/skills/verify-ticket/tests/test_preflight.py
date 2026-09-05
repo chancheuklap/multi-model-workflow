@@ -30,7 +30,6 @@ def preflight(number=77, branch="issue-77", dirty=(), **kwargs):
          mock.patch.object(vt, "current_branch", return_value=branch), \
          mock.patch.object(vt, "dirty_tracked", return_value=list(dirty)), \
          mock.patch.object(vt, "repo_root", return_value=None), \
-         mock.patch.object(vt, "report_phase", return_value=False), \
          mock.patch.object(vt, "assign_self") as assign, \
          mock.patch.object(vt, "post_comment", side_effect=lambda n, b: posted.append((n, b))):
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
