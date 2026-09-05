@@ -4,7 +4,7 @@
 #
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh check|advance|advanceconflict|advancedirty
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh start-worker|start-reviewer|start-verifier
-#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh resume|reverify|summary|start-json|start-norun
+#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh resume|reverify|summary
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh all
 #
 # A fake `paseo` and a fake `gh` sit in front of the real ones on PATH and write every
@@ -330,6 +330,8 @@ for line in open(os.environ["MMW_TEST_LOG"], encoding="utf-8"):
 
 run_dispatch() { (cd "$TMP/repo" && "$@") > "$TMP/out" 2> "$TMP/err"; echo "$?"; }
 
+never_ran() { hasnt "paseo :: run"; }
+
 row_host() { awk -F'|' -v want="$1" 'function t(s){gsub(/^[ \t`]+|[ \t`]+$/,"",s);return s} /^[ \t]*\|/ && NF==7 && t($2)==want {print t($3); exit}' "$SKILL/models.md"; }
 row_model() { awk -F'|' -v want="$1" 'function t(s){gsub(/^[ \t`]+|[ \t`]+$/,"",s);return s} /^[ \t]*\|/ && NF==7 && t($2)==want {print t($4); exit}' "$SKILL/models.md"; }
 JUNIOR_HOST="$(row_host junior-worker)"; JUNIOR_MODEL="$(row_model junior-worker)"
@@ -471,7 +473,7 @@ scenario_advance() {
   seed_workspace 62
   local code
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" advance 76 --run)"
+          bash "$DISPATCH" advance 76)"
 
   echo "--- both finished branches land on the main branch"
   [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
@@ -490,15 +492,25 @@ Merge branch 'issue-61'" ] || fail "merge order is wrong"
   has ":: --new-branch :: issue-63"
   has ":: --base :: main"
   has ":: --worktree-slug :: issue-63"
-  local archived created started
+  local archived created
   archived="$(line_of 'workspace :: archive :: wks_issue-62')"
   created="$(line_of 'workspace :: create')"
-  started="$(line_of 'paseo :: run')"
   [ "$archived" -gt 0 ] && [ "$created" -gt 0 ] && [ "$archived" -lt "$created" ] \
     || fail "archive should precede workspace create"
-  [ "$started" -gt "$created" ] || fail "the frontier should be started after its workspace exists"
-  has "paseo :: run"
-  has ":: --title :: #63 worker"
+  never_ran
+  python3 -c '
+import json, sys
+from pathlib import Path
+raw = Path(sys.argv[1]).read_text()
+lines = [l for l in raw.splitlines() if l.strip()]
+assert len(lines) == 1, raw
+obj = json.loads(lines[0])
+assert obj["title"] == "#63 worker", obj["title"]
+assert obj["labels"]["mmw.ticket"] == "63"
+assert obj["labels"]["mmw.kind"] == "worker"
+assert obj["workspaceId"]
+' "$TMP/out" || fail "the dispatched JSON is wrong: $(cat "$TMP/out")"
+  grep -q "advance #76:" "$TMP/err" || fail "the summary line should be on stderr: $(cat "$TMP/err")"
   [ "$(git -C "$TMP/repo" config --get branch.issue-63.mmw-base)" = "$(git -C "$TMP/repo" rev-parse HEAD)" ] \
     || fail "mmw-base should be HEAD for a branch-off"
   [ "$(git -C "$TMP/repo" config --get branch.issue-63.mmw-base-branch)" = main ] \
@@ -509,10 +521,17 @@ Merge branch 'issue-61'" ] || fail "merge order is wrong"
   seed_workspace 63
   seed_agent 63 worker
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" advance 76 --run)"
+          bash "$DISPATCH" advance 76)"
   [ "$code" = 0 ] || fail "exit $code on the second run: $(cat "$TMP/err")"
-  grep -q "merged 0" "$TMP/out" || fail "the second run should report nothing merged: $(cat "$TMP/out")"
-  hasnt "paseo :: run"
+  grep -q "merged 0" "$TMP/err" || fail "the second run should report nothing merged: $(cat "$TMP/err")"
+  never_ran
+
+  echo "--- a retired flag on advance exits 2 and calls nothing"
+  reset_log
+  code="$(run_dispatch bash "$DISPATCH" advance 76 --json)"
+  [ "$code" = 2 ] || fail "expected exit 2 for --json, got $code: $(cat "$TMP/err")"
+  grep -q "no longer a flag" "$TMP/err" || fail "the reason should say no longer a flag: $(cat "$TMP/err")"
+  [ "$(count_of 'paseo ::')" = 0 ] || fail "paseo was called for advance --json"
 }
 
 scenario_advanceconflict() {
@@ -529,7 +548,7 @@ scenario_advanceconflict() {
 
   local code
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" advance 76 --run)"
+          bash "$DISPATCH" advance 76)"
 
   echo "--- a conflict stops the run with its own exit code"
   [ "$code" = 3 ] || fail "exit $code, not 3: $(cat "$TMP/err")"
@@ -547,7 +566,7 @@ scenario_advanceconflict() {
   echo "--- nothing is archived, created or started while the tree is half-merged"
   hasnt "workspace :: archive"
   hasnt "workspace :: create"
-  hasnt "paseo :: run"
+  never_ran
 }
 
 scenario_advancedirty() {
@@ -562,7 +581,7 @@ scenario_advancedirty() {
 
   local code
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" advance 76 --run)"
+          bash "$DISPATCH" advance 76)"
 
   echo "--- a tree with uncommitted work is refused before anything is merged"
   [ "$code" = 2 ] || fail "exit $code, not 2: $(cat "$TMP/err")"
@@ -571,28 +590,38 @@ scenario_advancedirty() {
   [ ! -f "$TMP/repo/one.txt" ] || fail "it merged despite the dirty tree"
   hasnt "workspace :: archive"
   hasnt "workspace :: create"
-  hasnt "paseo :: run"
+  never_ran
 }
 
 scenario_start_worker() {
   local code
-  echo "--- a ticket with no worker label starts on the default row"
+  echo "--- a ticket with no worker label prints one create_agent object on the default row"
   reset_log
   fresh_repo
-  code="$(run_dispatch bash "$DISPATCH" start 61 worker --run)"
+  code="$(run_dispatch bash "$DISPATCH" start 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  has "paseo :: run"
-  has ":: --provider :: $JUNIOR_HOST/$JUNIOR_MODEL"
-  has ":: --title :: #61 worker"
-  has ":: --label :: mmw.ticket=61"
-  has ":: --label :: mmw.kind=worker"
-  has ":: --label :: mmw.spec=76"
-  has ":: --label :: mmw.profile=junior-worker"
-  has ":: --label :: mmw.autonomous=1"
-  grep -q "Use the implement skill to work ticket #61." "$MMW_TEST_LOG" \
-    || fail "the worker dispatch line is missing"
-  grep -q "You are operating autonomously" "$MMW_TEST_LOG" \
-    || fail "the autonomous sentence is missing from the worker prompt"
+  never_ran
+  python3 -c '
+import json, sys
+from pathlib import Path
+raw = Path(sys.argv[1]).read_text()
+lines = [l for l in raw.splitlines() if l.strip()]
+assert len(lines) == 1, raw
+obj = json.loads(lines[0])
+for key in ("workspaceId", "title", "provider", "settings", "labels", "initialPrompt"):
+    assert key in obj, key
+assert obj["title"] == "#61 worker"
+assert obj["provider"] == sys.argv[2] + "/" + sys.argv[3]
+assert obj["labels"]["mmw.ticket"] == "61"
+assert obj["labels"]["mmw.kind"] == "worker"
+assert obj["labels"]["mmw.spec"] == "76"
+assert obj["labels"]["mmw.profile"] == "junior-worker"
+assert obj["labels"]["mmw.autonomous"] == "1"
+assert obj["initialPrompt"].startswith("Use the implement skill to work ticket #61.")
+assert "You are operating autonomously" in obj["initialPrompt"]
+assert "notifyOnFinish" not in obj
+' "$TMP/out" "$JUNIOR_HOST" "$JUNIOR_MODEL" \
+    || fail "the JSON line is wrong: $(cat "$TMP/out")"
   has ":: --mode :: branch-off"
   has ":: --new-branch :: issue-61"
 
@@ -600,8 +629,9 @@ scenario_start_worker() {
   reset_log
   fresh_repo
   make_branch issue-61 one.txt "already there"
-  code="$(run_dispatch bash "$DISPATCH" start 61 worker --run)"
+  code="$(run_dispatch bash "$DISPATCH" start 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  never_ran
   has ":: --mode :: checkout-branch"
   has ":: --branch :: issue-61"
   hasnt ":: --mode :: branch-off"
@@ -610,20 +640,38 @@ scenario_start_worker() {
   reset_log
   fresh_repo
   code="$(run_dispatch env FAKE_GH_LABELS="ready-for-agent,senior-worker" \
-          bash "$DISPATCH" start 61 worker --run)"
+          bash "$DISPATCH" start 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  has ":: --provider :: grok/$SENIOR_MODEL"
-  has ":: --thinking :: xhigh"
-  has ":: --label :: mmw.profile=senior-worker"
+  never_ran
+  python3 -c '
+import json, sys
+from pathlib import Path
+obj = json.loads(Path(sys.argv[1]).read_text())
+assert obj["provider"] == "grok/" + sys.argv[2], obj["provider"]
+assert obj["settings"].get("thinkingOptionId") == "xhigh", obj["settings"]
+assert obj["labels"]["mmw.profile"] == "senior-worker"
+' "$TMP/out" "$SENIOR_MODEL" || fail "senior-worker JSON is wrong: $(cat "$TMP/out")"
 
   echo "--- two worker labels are refused, and nothing is started"
   reset_log
   code="$(run_dispatch env FAKE_GH_LABELS="ready-for-agent,junior-worker,senior-worker" \
-          bash "$DISPATCH" start 61 worker --run)"
+          bash "$DISPATCH" start 61 worker)"
   [ "$code" = 2 ] || fail "expected exit 2, got $code"
   grep -q '2 worker labels' "$TMP/err" || fail "the reason does not name the labels: $(cat "$TMP/err")"
-  hasnt "paseo :: run"
+  never_ran
   hasnt "workspace :: create"
+
+  echo "--- a retired flag on start exits 2 and calls nothing"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch bash "$DISPATCH" start 61 worker --json)"
+  [ "$code" = 2 ] || fail "expected exit 2 for --json, got $code: $(cat "$TMP/err")"
+  grep -q "no longer a flag" "$TMP/err" || fail "the reason should say no longer a flag: $(cat "$TMP/err")"
+  [ "$(count_of 'paseo ::')" = 0 ] || fail "paseo was called for start --json"
+  [ "$(count_of 'gh ::')" = 0 ] || fail "gh was called for start --json"
+  code="$(run_dispatch bash "$DISPATCH" start 61 worker --run)"
+  [ "$code" = 2 ] || fail "expected exit 2 for the retired flag, got $code: $(cat "$TMP/err")"
+  grep -q "no longer a flag" "$TMP/err" || fail "the reason should say no longer a flag: $(cat "$TMP/err")"
 }
 
 scenario_start_reviewer() {
@@ -632,16 +680,20 @@ scenario_start_reviewer() {
   fresh_repo
   git -C "$TMP/repo" config branch.issue-61.mmw-base abcdef0123456789abcdef0123456789abcdef01
   seed_workspace 61
-  code="$(run_dispatch bash "$DISPATCH" start 61 reviewer --run)"
+  code="$(run_dispatch bash "$DISPATCH" start 61 reviewer)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  has "paseo :: run"
-  has ":: --title :: #61 reviewer"
-  has ":: --label :: mmw.kind=reviewer"
-  has ":: --label :: mmw.profile=reviewer"
-  grep -q "Use the code-review skill to review ticket #61 from base commit abcdef0123456789abcdef0123456789abcdef01." "$MMW_TEST_LOG" \
-    || fail "the reviewer dispatch line did not carry the recorded base commit: $(cat "$MMW_TEST_LOG")"
-  grep -q "You are operating autonomously" "$MMW_TEST_LOG" \
-    || fail "the autonomous sentence is missing from the reviewer prompt"
+  never_ran
+  python3 -c '
+import json, sys
+from pathlib import Path
+obj = json.loads(Path(sys.argv[1]).read_text())
+assert obj["title"] == "#61 reviewer", obj["title"]
+assert obj["labels"]["mmw.kind"] == "reviewer"
+assert obj["labels"]["mmw.profile"] == "reviewer"
+prompt = obj["initialPrompt"]
+assert prompt.startswith("Use the code-review skill to review ticket #61 from base commit abcdef0123456789abcdef0123456789abcdef01.")
+assert "You are operating autonomously" in prompt
+' "$TMP/out" || fail "the reviewer JSON is wrong: $(cat "$TMP/out")"
 }
 
 scenario_start_verifier() {
@@ -650,15 +702,21 @@ scenario_start_verifier() {
   reset_log
   fresh_repo
   seed_workspace 61
-  code="$(run_dispatch bash "$DISPATCH" start 61 verifier --run)"
+  code="$(run_dispatch bash "$DISPATCH" start 61 verifier)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  has ":: --title :: #61 verifier"
-  has ":: --label :: mmw.kind=verifier"
-  has ":: --label :: mmw.profile=verifier"
-  grep -q "verify #61 按 $path 行事" "$MMW_TEST_LOG" \
-    || fail "the verifier prompt is missing the path: $(cat "$MMW_TEST_LOG")"
-  grep -q "You are operating autonomously" "$MMW_TEST_LOG" \
-    && fail "the verifier prompt should not carry the autonomous sentence"
+  never_ran
+  python3 -c '
+import json, sys
+from pathlib import Path
+obj = json.loads(Path(sys.argv[1]).read_text())
+path = sys.argv[2]
+assert obj["title"] == "#61 verifier", obj["title"]
+assert obj["labels"]["mmw.kind"] == "verifier"
+assert obj["labels"]["mmw.profile"] == "verifier"
+prompt = obj["initialPrompt"]
+assert prompt == "verify #61 按 " + path + " 行事", prompt
+assert "You are operating autonomously" not in prompt
+' "$TMP/out" "$path" || fail "the verifier JSON is wrong: $(cat "$TMP/out")"
 }
 
 scenario_resume() {
@@ -785,59 +843,12 @@ JSON
     || fail "missing Reverify line matching that reverify: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-scenario_start_json() {
-  local code
-  reset_log
-  fresh_repo
-  code="$(run_dispatch bash "$DISPATCH" start 61 worker --json)"
-  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  hasnt "paseo :: run"
-  python3 -c '
-import json, sys
-from pathlib import Path
-raw = Path(sys.argv[1]).read_text()
-lines = [l for l in raw.splitlines() if l.strip()]
-assert len(lines) == 1, raw
-obj = json.loads(lines[0])
-for key in ("workspaceId", "title", "provider", "settings", "labels", "initialPrompt"):
-    assert key in obj, key
-assert obj["title"] == "#61 worker"
-assert "grok" in obj["provider"]
-assert obj["labels"]["mmw.ticket"] == "61"
-assert obj["labels"]["mmw.kind"] == "worker"
-assert obj["labels"]["mmw.spec"] == "76"
-assert obj["labels"]["mmw.profile"] == "junior-worker"
-assert obj["labels"]["mmw.autonomous"] == "1"
-assert obj["initialPrompt"].startswith("Use the implement skill to work ticket #61.")
-assert "notifyOnFinish" not in obj
-' "$TMP/out" || fail "the JSON line is wrong: $(cat "$TMP/out")"
-}
-
-scenario_start_norun() {
-  local code
-  echo "--- start without a path flag exits 2 and calls nothing"
-  reset_log
-  fresh_repo
-  code="$(run_dispatch bash "$DISPATCH" start 61 worker)"
-  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
-  grep -q -- '--json' "$TMP/err" || fail "the reason should name --json: $(cat "$TMP/err")"
-  [ "$(count_of 'paseo ::')" = 0 ] || fail "paseo was called with no path flag"
-  [ "$(count_of 'gh ::')" = 0 ] || fail "gh was called with no path flag"
-
-  echo "--- advance without a path flag exits 2 and calls nothing"
-  reset_log
-  code="$(run_dispatch bash "$DISPATCH" advance 76)"
-  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
-  [ "$(count_of 'paseo ::')" = 0 ] || fail "paseo was called for advance with no path flag"
-  [ "$(count_of 'gh ::')" = 0 ] || fail "gh was called for advance with no path flag"
-}
-
 # ------------------------------------------------------------------ entry
 
-ALL="check advance advanceconflict advancedirty start-worker start-reviewer start-verifier resume reverify summary start-json start-norun"
+ALL="check advance advanceconflict advancedirty start-worker start-reviewer start-verifier resume reverify summary"
 
 case "${1:-}" in
-  check|advance|advanceconflict|advancedirty|start-worker|start-reviewer|start-verifier|resume|reverify|summary|start-json|start-norun)
+  check|advance|advanceconflict|advancedirty|start-worker|start-reviewer|start-verifier|resume|reverify|summary)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -858,8 +869,6 @@ banner_for() {
     resume) echo DISPATCH-RESUME-OK ;;
     reverify) echo DISPATCH-REVERIFY-OK ;;
     summary) echo DISPATCH-SUMMARY-OK ;;
-    start-json) echo DISPATCH-START-JSON-OK ;;
-    start-norun) echo DISPATCH-START-NORUN-OK ;;
   esac
 }
 
@@ -868,8 +877,6 @@ fn_for() {
     start-worker) echo scenario_start_worker ;;
     start-reviewer) echo scenario_start_reviewer ;;
     start-verifier) echo scenario_start_verifier ;;
-    start-json) echo scenario_start_json ;;
-    start-norun) echo scenario_start_norun ;;
     *) echo "scenario_$1" ;;
   esac
 }

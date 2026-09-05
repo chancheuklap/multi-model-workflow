@@ -3,8 +3,8 @@
 # Start an agent on a ticket, move a spec's batch forward, or report on one.
 #
 #   dispatch.sh check <spec>
-#   dispatch.sh advance <spec> --json|--run
-#   dispatch.sh start <n> worker|reviewer|verifier --json|--run
+#   dispatch.sh advance <spec>
+#   dispatch.sh start <n> worker|reviewer|verifier
 #   dispatch.sh resume <n> "<text>"
 #   dispatch.sh status <spec>
 #   dispatch.sh reverify <spec>
@@ -14,7 +14,8 @@
 # of the worker rows a worker session starts from is the ticket's own `*-worker`
 # label, so one ticket keeps the same worker every time it is started. Which
 # host, model, thinking level and permissions the session gets come from that
-# row of `models.md`, expanded into the fields `create_agent` accepts.
+# row of `models.md`, expanded into the fields `create_agent` accepts. `start`
+# and `advance` always print one `create_agent` object per ticket.
 #
 # Exit codes are documented in SKILL.md next to this script.
 
@@ -53,8 +54,8 @@ refuse() {
 usage() {
   cat >&2 <<'USAGE'
 usage: dispatch.sh check <spec>
-       dispatch.sh advance <spec> --json|--run
-       dispatch.sh start <n> worker|reviewer|verifier --json|--run
+       dispatch.sh advance <spec>
+       dispatch.sh start <n> worker|reviewer|verifier
        dispatch.sh resume <n> "<text>"
        dispatch.sh status <spec>
        dispatch.sh reverify <spec>
@@ -283,7 +284,7 @@ archive_workspace() {
 
 # ------------------------------------------------------------------ dispatch payload
 
-# permissions → create_agent settings / `paseo run` flags. One mapping.
+# permissions → create_agent settings. One mapping.
 host_permission_settings() {
   case "$1" in
     claude) printf '%s\n' '{"modeId":"bypassPermissions"}' ;;
@@ -318,33 +319,6 @@ payload = {
 }
 print(json.dumps(payload, ensure_ascii=False))
 '
-}
-
-run_agent() {
-  local host="$1" model="$2" effort="$3" workspace="$4" title="$5"
-  local ticket="$6" kind="$7" spec="$8" profile="$9" prompt="${10}"
-  local -a cmd
-  cmd=(paseo run -d --json
-       --provider "$host/$model"
-       --workspace "$workspace"
-       --title "$title"
-       --label "mmw.ticket=$ticket"
-       --label "mmw.kind=$kind"
-       --label "mmw.spec=$spec"
-       --label "mmw.profile=$profile"
-       --label "mmw.autonomous=1")
-  if [ -n "$effort" ] && [ "$effort" != "—" ] && [ "$effort" != "-" ]; then
-    cmd+=(--thinking "$effort")
-  fi
-  local mode
-  mode="$(host_permission_settings "$host" | json_at modeId)"
-  [ -n "$mode" ] && cmd+=(--mode "$mode")
-  cmd+=("$prompt")
-  local json ident
-  json="$("${cmd[@]}")" || return 1
-  ident="$(printf '%s' "$json" | json_at agentId)"
-  [ -n "$ident" ] || ident="$(printf '%s' "$json" | json_at id)"
-  printf '%s\n' "$ident"
 }
 
 # ------------------------------------------------------------------ start
@@ -417,20 +391,11 @@ start_one() {
     || refuse "could not open a workspace for issue-$number"
 
   local agent_title="#$number $kind"
-  if [ "$MMW_PATH_MODE" = json ]; then
-    MMW_WORKSPACE="$workspace" MMW_TITLE="$agent_title" \
-      MMW_HOST="$host" MMW_MODEL="$model" MMW_EFFORT="$effort" \
-      MMW_TICKET="$number" MMW_KIND="$kind" MMW_SPEC="$spec" \
-      MMW_PROFILE="$profile" MMW_PROMPT="$prompt" \
-      emit_create_json
-    return 0
-  fi
-
-  local ident
-  ident="$(run_agent "$host" "$model" "$effort" "$workspace" "$agent_title" \
-             "$number" "$kind" "$spec" "$profile" "$prompt")" \
-    || refuse "could not start #$number $kind"
-  printf '%s\n' "$ident"
+  MMW_WORKSPACE="$workspace" MMW_TITLE="$agent_title" \
+    MMW_HOST="$host" MMW_MODEL="$model" MMW_EFFORT="$effort" \
+    MMW_TICKET="$number" MMW_KIND="$kind" MMW_SPEC="$spec" \
+    MMW_PROFILE="$profile" MMW_PROMPT="$prompt" \
+    emit_create_json
 }
 
 # ------------------------------------------------------------------ resume
@@ -579,7 +544,7 @@ conflict_report() {
   echo
   echo "  Resolve it with the resolving-merge-conflicts skill — never --abort — run this"
   echo "  repository's own checks, commit the merge, then run:"
-  echo "    bash $SELF advance $MMW_ADVANCE_SPEC --$MMW_PATH_MODE"
+  echo "    bash $SELF advance $MMW_ADVANCE_SPEC"
 }
 
 # 0 merged, 1 left in conflict, 2 could not run it at all.
@@ -648,11 +613,7 @@ advance() {
       exit 3
     fi
     [ "$rc" -eq 0 ] || refuse "could not merge $branch after $MERGE_TRIES tries; git said nothing this script can act on"
-    if [ "$MMW_PATH_MODE" = json ]; then
-      echo "merged $branch" >&2
-    else
-      echo "merged $branch"
-    fi
+    echo "merged $branch" >&2
     merged=$((merged + 1))
     just_merged+=("$number")
   done
@@ -664,19 +625,14 @@ advance() {
 
   local started=0 refused=0
   for number in $(printf '%s\n' "$plan" | awk '$1 == "DISPATCH" { print $2 }'); do
-    if bash "$SELF" start "$number" worker "--$MMW_PATH_MODE"; then
+    if bash "$SELF" start "$number" worker; then
       started=$((started + 1))
     else
       refused=$((refused + 1))
     fi
   done
 
-  local summary="advance #$spec: merged $merged, already in $skipped, started $started, refused $refused"
-  if [ "$MMW_PATH_MODE" = json ]; then
-    echo "$summary" >&2
-  else
-    echo "$summary"
-  fi
+  echo "advance #$spec: merged $merged, already in $skipped, started $started, refused $refused" >&2
 }
 
 # ------------------------------------------------------------------ reverify / summary
@@ -767,25 +723,16 @@ summary_spec() {
 
 [ -f "$MODELS" ] || refuse "no models.md at $MODELS"
 
-MMW_PATH_MODE=""
 POSITIONAL=()
 for arg in "$@"; do
-  case "$arg" in
-    --json)
-      [ -z "$MMW_PATH_MODE" ] || refuse "pass only one of --json and --run"
-      MMW_PATH_MODE=json ;;
-    --run)
-      [ -z "$MMW_PATH_MODE" ] || refuse "pass only one of --json and --run"
-      MMW_PATH_MODE=run ;;
-    *) POSITIONAL+=("$arg") ;;
-  esac
+  if [ "$arg" != "${arg#--}" ]; then
+    case "${arg#--}" in
+      json|run) refuse "$arg is no longer a flag" ;;
+    esac
+  fi
+  POSITIONAL+=("$arg")
 done
 set -- "${POSITIONAL[@]+"${POSITIONAL[@]}"}"
-
-need_path() {
-  [ -n "$MMW_PATH_MODE" ] \
-    || refuse "pass --json (print one create_agent object per ticket) or --run (paseo run); do not guess"
-}
 
 case "${1:-}" in
   check)
@@ -795,13 +742,11 @@ case "${1:-}" in
     ;;
   advance)
     [ "$#" -eq 2 ] || usage
-    need_path
     advance "$2"
     ;;
   start)
     [ "$#" -eq 3 ] || usage
     case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
-    need_path
     start_one "$2" "$3"
     ;;
   resume)
