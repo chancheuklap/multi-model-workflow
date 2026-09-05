@@ -74,7 +74,7 @@ Read that comment and the ticket's `self-run` / `VERDICT` / `REVIEW` trail inste
 
 ## Triage a specific issue or PR
 
-1. **Gather context.** Read the full issue or PR (body, comments, labels, author, dates; for a PR, the diff too). Parse any prior triage notes so you don't re-ask resolved questions. Explore the codebase using the project's domain glossary, respecting ADRs in the area. Run two checks against the codebase: (a) **redundancy**: search for an existing implementation of the requested behavior by domain concept (not just the request's wording), and report where you looked. If found, it's an already-implemented `wontfix` (step 5). (b) **prior rejection**: read `.out-of-scope/*.md` and surface any that resembles this request.
+1. **Gather context.** The issue being triaged is written `<m>`. First read the parent issue (`gh api repos/{owner}/{repo}/issues/<m>`'s `parent` field, or the parent link on `gh issue view`). When the parent is a ticket, read that ticket's `self-run` / `VERDICT` / `REVIEW` trail instead of reproducing. Then read the full issue or PR (body, comments, labels, author, dates; for a PR, the diff too). Parse any prior triage notes so you don't re-ask resolved questions. Explore the codebase using the project's domain glossary, respecting ADRs in the area. Run two checks against the codebase: (a) **redundancy**: search for an existing implementation of the requested behavior by domain concept (not just the request's wording), and report where you looked. If found, it's an already-implemented `wontfix` (step 5). (b) **prior rejection**: read `.out-of-scope/*.md` and surface any that resembles this request.
 
 2. **Recommend.** Tell the maintainer your category and state recommendation with reasoning, plus a brief codebase summary relevant to the request (including whether it's already implemented). Wait for direction.
 
@@ -82,9 +82,17 @@ Read that comment and the ticket's `self-run` / `VERDICT` / `REVIEW` trail inste
 
 4. **Grill (if needed).** If the request needs fleshing out, call the Skill tool twice, for "grilling" and "domain-modeling", and grill it into shape a round of questions at a time, sharpening domain terms and updating `CONTEXT.md`/ADRs inline as decisions land.
 
-5. **Apply the outcome:** the four outcomes are `needs-info`, `ready-for-agent`, `ready-for-human` and `wontfix`. Staying at `needs-triage` is not an outcome.
+5. **Apply the outcome:** the four outcomes are `needs-info`, `ready-for-agent`, `ready-for-human` and `wontfix`. Staying at `needs-triage` is not an outcome. `needs-info`, `ready-for-human`, and `wontfix` change the label only; the parent stays.
 
-   - `ready-for-agent`: judging an issue agent-ready does not brief it for work here. Route it into the ticket pipeline: write a spec with `/to-spec`, or extend a published one through that skill's step for revising a published spec, citing this issue as a source, then cut tickets from that spec with `/to-tickets`, which labels them `ready-for-agent` there in the eight-section shape `verify-ticket.py` can read. The label goes on those tickets, not on this issue, and the spec's publish step closes this issue attached under the spec.
+   - `ready-for-agent`: judging an issue agent-ready also answers where the work is done. When the parent is a ticket, pick one destination:
+
+     | Judgement | Command |
+     | --- | --- |
+     | Work that belongs to another ticket in this batch | `gh issue edit <m> --parent <ticket>` |
+     | New work in this batch, belonging to no existing ticket | `gh issue edit <m> --parent <spec>`; fill the eight sections of `<issue-template>` (in `to-tickets`); the `verify-ticket` skill's `--lint <m>` passes; from then it is a ticket |
+     | A toolbox problem found in a consuming repository | `gh issue transfer <m> chancheuklap/multi-model-workflow`; the parent–child link breaks on transfer; origin remains the body's first line |
+
+     When the issue is work from outside, judging it agent-ready does not brief it for work here. Route it into the ticket pipeline: write a spec with `/to-spec`, or extend a published one through that skill's step for revising a published spec, citing this issue as a source, then cut tickets from that spec with `/to-tickets`, which labels them `ready-for-agent` there in the eight-section shape `verify-ticket.py` can read. The label goes on those tickets, not on this issue, and the spec's publish step closes this issue attached under the spec.
    - `ready-for-human`: written here rather than routed. Write what `to-tickets` writes for this label — **the five things** in the `to-tickets` skill's `references/person-ticket.md`, nothing more.
    - `needs-info`: post triage notes (template below).
    - For `wontfix`, close the issue, with the comment depending on *why*:
