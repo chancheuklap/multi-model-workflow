@@ -1,16 +1,21 @@
 """The closing gate: who it governs, what it stops, and what it says.
 
 Every test drives `hook.py` the way a host does — one event as JSON on stdin, one
-answer as JSON on stdout. The gate runs no command and reads no file, so there is
-nothing here to stub out.
+answer as JSON on stdout. The pretool gate reads the working directory's basename;
+the question gate asks a `paseo` on PATH. Tests name a temporary directory
+`issue-<n>` and put a fake `paseo` on PATH.
 """
+
+from __future__ import annotations
 
 import importlib.util
 import io
 import json
 import os
+import shutil
+import tempfile
 import unittest
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
@@ -27,8 +32,8 @@ def load():
 hk = load()
 
 TICKET = 64
-WORKER = {"MMW_TICKET": str(TICKET)}
 CLOSE = f"gh issue close {TICKET} --reason completed"
+AGENT_ID = "11111111-2222-4333-8444-555555555555"
 
 # One event per host, in the shape that host actually sends. Cursor's is the payload
 # captured 2026-08-29 from cursor-agent 2026.08.25: the command at the top level, and
@@ -47,10 +52,59 @@ EVENTS = {
 }
 
 
-def call(host: str, event: dict, env: dict | None = None) -> tuple[int, dict | None]:
+@contextmanager
+def named_cwd(basename: str):
+    """A temporary directory whose basename is the only fact the pretool gate reads."""
+    root = tempfile.mkdtemp()
+    path = os.path.join(root, basename)
+    os.mkdir(path)
+    previous = os.getcwd()
+    os.chdir(path)
+    try:
+        yield path
+    finally:
+        os.chdir(previous)
+        shutil.rmtree(root)
+
+
+@contextmanager
+def fake_paseo_env(*, agent_id: str | None = None, listed_ids: tuple[str, ...] = (),
+                   no_paseo: bool = False):
+    """PATH holds a `paseo` that only answers `ls`, or an empty directory.
+
+    The JSON list it prints is `MMW_FAKE_PASEO_JSON`: include the process's
+    `PASEO_AGENT_ID` or not, as the caller asks.
+    """
+    root = tempfile.mkdtemp()
+    env: dict[str, str] = {}
+    if agent_id is not None:
+        env["PASEO_AGENT_ID"] = agent_id
+    if no_paseo:
+        env["PATH"] = root
+    else:
+        script = os.path.join(root, "paseo")
+        with open(script, "w", encoding="utf-8") as fh:
+            fh.write("#!/bin/bash\n")
+            fh.write('if [ "$1" != "ls" ]; then exit 1; fi\n')
+            fh.write('printf "%s\\n" "$MMW_FAKE_PASEO_JSON"\n')
+        os.chmod(script, 0o755)
+        env["PATH"] = root
+        env["MMW_FAKE_PASEO_JSON"] = json.dumps(
+            [{"id": i} for i in listed_ids], ensure_ascii=False)
+    try:
+        yield env
+    finally:
+        shutil.rmtree(root)
+
+
+def call(host: str, event: dict, env: dict | None = None,
+         *, cwd_basename: str | None = None) -> tuple[int, dict | None]:
     """Run the gate as its host would, and read back the answer it printed."""
+    if cwd_basename is None:
+        cwd_basename = f"issue-{TICKET}"
     out = io.StringIO()
-    with mock.patch.dict(os.environ, env if env is not None else WORKER, clear=False), \
+    with named_cwd(cwd_basename), \
+         mock.patch.dict(os.environ, env if env is not None else {}, clear=False), \
          mock.patch.object(hk.sys, "stdin", io.StringIO(json.dumps(event))), \
          redirect_stdout(out), redirect_stderr(io.StringIO()):
         code = hk.main(["pretool", host])
@@ -79,24 +133,46 @@ def with_command(host: str, command: str) -> dict:
     return event
 
 
-# ------------------------------------------------------------------------ AC1
+# ------------------------------------------------------------------------ cwd names the ticket
+
+class TestCwdNamesTheTicket(unittest.TestCase):
+    """The pretool gate reads the working directory's basename, not an environment
+    variable."""
+
+    def test_pretool_guards_the_ticket_named_by_cwd(self):
+        event = with_command("claude", "gh issue close 12")
+        code, answer = call("claude", event, env={}, cwd_basename="issue-12")
+        self.assertEqual(code, 0)
+        self.assertIsNotNone(answer)
+
+    def test_pretool_ignores_a_cwd_that_is_not_a_ticket(self):
+        event = with_command("claude", "gh issue close 12")
+        self.assertEqual(
+            call("claude", event, {"MMW_TICKET": "12"}, cwd_basename="workspace"),
+            (0, None),
+        )
+
 
 class TestSelfScope(unittest.TestCase):
-    """Without the `MMW_TICKET` variable `dispatch.sh` sets there is no gate, and nothing
-    is looked up."""
+    """A basename that is not `issue-<n>` is not a ticket worktree. The pretool
+    gate looks at nothing else."""
 
     def test_no_marker_no_gate(self):
-        with mock.patch.dict(os.environ, {}, clear=True):
-            self.assertEqual(call("claude", EVENTS["claude"], env={}), (0, None))
+        self.assertEqual(
+            call("claude", EVENTS["claude"], env={}, cwd_basename="workspace"),
+            (0, None),
+        )
 
     def test_a_marker_that_is_not_a_ticket_number_is_no_marker(self):
-        for value in ("", "  ", "issue-64", "64x", "-64"):
-            with self.subTest(marker=value):
-                self.assertEqual(call("claude", EVENTS["claude"], {"MMW_TICKET": value}),
-                                 (0, None))
+        for name in ("issue", "issue-", "issue-64x", "64", "Issue-64"):
+            with self.subTest(cwd=name):
+                self.assertEqual(
+                    call("claude", EVENTS["claude"], cwd_basename=name),
+                    (0, None),
+                )
 
     def test_the_gate_runs_nothing_and_opens_nothing(self):
-        """It is told which ticket it governs, so it never has to go and find out."""
+        """The basename is the ticket number, so pretool never has to go and find out."""
         with mock.patch("subprocess.run") as run, mock.patch("subprocess.Popen") as popen, \
              mock.patch("builtins.open") as opened:
             code, answer = call("claude", EVENTS["claude"])
@@ -108,7 +184,7 @@ class TestSelfScope(unittest.TestCase):
 
     def test_the_source_imports_no_way_to_reach_the_network_or_the_disk(self):
         source = SCRIPT.read_text(encoding="utf-8")
-        for name in ("subprocess", "socket", "urllib", "tempfile", "shutil", "pathlib"):
+        for name in ("socket", "urllib", "tempfile", "shutil", "pathlib"):
             self.assertNotIn(f"import {name}", source)
 
 
@@ -270,9 +346,9 @@ class TestTheWordingSaysWhatToDoNext(unittest.TestCase):
 # ------------------------------------------------------------------------ AC6
 
 class TestTheQuestionGate(unittest.TestCase):
-    """A dispatched session may not put a question on the screen."""
+    """A session whose PASEO_AGENT_ID is labelled mmw.autonomous=1 may not put a
+    question on the screen."""
 
-    AUTONOMOUS = {"MMW_AUTONOMOUS": "1"}
     ASKS = {
         "claude": {"hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion",
                    "tool_input": {"questions": []}},
@@ -291,31 +367,40 @@ class TestTheQuestionGate(unittest.TestCase):
         printed = out.getvalue().strip()
         return code, json.loads(printed) if printed else None
 
-    def test_an_autonomous_session_is_refused_on_every_session_host(self):
-        for host in self.ASKS:
-            with self.subTest(host=host):
-                code, answer = self.ask(host, self.AUTONOMOUS)
-                self.assertEqual(code, 0)
-                self.assertIsNotNone(answer)
+    def test_question_refuses_when_paseo_lists_this_agent(self):
+        with fake_paseo_env(agent_id=AGENT_ID, listed_ids=(AGENT_ID,)) as env:
+            for host in self.ASKS:
+                with self.subTest(host=host):
+                    code, answer = self.ask(host, env)
+                    self.assertEqual(code, 0)
+                    self.assertIsNotNone(answer)
 
-    def test_a_session_nobody_dispatched_may_ask(self):
-        for host in self.ASKS:
-            with self.subTest(host=host):
-                self.assertEqual(self.ask(host, {}), (0, None))
-                self.assertEqual(self.ask(host, {"MMW_TICKET": "64"}), (0, None))
+    def test_question_passes_when_paseo_does_not_list_this_agent(self):
+        with fake_paseo_env(agent_id=AGENT_ID, listed_ids=("other-agent",)) as env:
+            for host in self.ASKS:
+                with self.subTest(host=host):
+                    self.assertEqual(self.ask(host, env), (0, None))
+
+    def test_question_passes_without_paseo_or_without_an_agent_id(self):
+        with fake_paseo_env(agent_id=AGENT_ID, no_paseo=True) as env:
+            self.assertEqual(self.ask("grok", env), (0, None))
+        with fake_paseo_env(listed_ids=(AGENT_ID,)) as env:
+            self.assertEqual(self.ask("grok", env), (0, None))
 
     def test_another_tool_under_the_same_gate_goes_through(self):
         event = {"hook_event_name": "PreToolUse", "tool_name": "Bash",
                  "tool_input": {"command": "ls"}}
-        out = io.StringIO()
-        with mock.patch.dict(os.environ, self.AUTONOMOUS, clear=True), \
-             mock.patch.object(hk.sys, "stdin", io.StringIO(json.dumps(event))), \
-             redirect_stdout(out):
-            hk.main(["question", "claude"])
+        with fake_paseo_env(agent_id=AGENT_ID, listed_ids=(AGENT_ID,)) as env:
+            out = io.StringIO()
+            with mock.patch.dict(os.environ, env, clear=True), \
+                 mock.patch.object(hk.sys, "stdin", io.StringIO(json.dumps(event))), \
+                 redirect_stdout(out):
+                hk.main(["question", "claude"])
         self.assertEqual(out.getvalue().strip(), "")
 
     def test_the_reason_says_where_the_question_goes(self):
-        _, answer = self.ask("grok", self.AUTONOMOUS)
+        with fake_paseo_env(agent_id=AGENT_ID, listed_ids=(AGENT_ID,)) as env:
+            _, answer = self.ask("grok", env)
         reason = reason_of(answer)
         self.assertIn("Decisions I made on my own", reason)
         self.assertIn("ABANDON: AC<n> decision", reason)
@@ -330,7 +415,7 @@ class TestNothingBlocksOnBadInput(unittest.TestCase):
 
     def quiet(self, argv, stdin="{}"):
         out, err = io.StringIO(), io.StringIO()
-        with mock.patch.dict(os.environ, WORKER, clear=False), \
+        with named_cwd(f"issue-{TICKET}"), \
              mock.patch.object(hk.sys, "stdin", io.StringIO(stdin)), \
              redirect_stdout(out), redirect_stderr(err):
             code = hk.main(argv)
@@ -349,7 +434,8 @@ class TestNothingBlocksOnBadInput(unittest.TestCase):
         self.assertEqual(self.quiet(["stop", "claude"]), (0, ""))
 
     def test_the_question_gate_reads_nothing_it_cannot(self):
-        with mock.patch.dict(os.environ, {"MMW_AUTONOMOUS": "1"}, clear=True), \
+        with fake_paseo_env(agent_id=AGENT_ID, listed_ids=(AGENT_ID,)) as env, \
+             mock.patch.dict(os.environ, env, clear=True), \
              mock.patch.object(hk.sys, "stdin", io.StringIO("not json")), \
              redirect_stdout(io.StringIO()) as out:
             self.assertEqual(hk.main(["question", "grok"]), 0)
