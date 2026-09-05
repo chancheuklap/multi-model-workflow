@@ -38,6 +38,7 @@ def agent(ticket, status_="running", *, kind="worker", parent=None,
         "status": status_,
         "cwd": cwd if cwd is not None else f"/repo/issue-{ticket}",
         "created": created,
+        "kind": kind,
         "LastUsage": last_usage,
         "PendingPermissions": pending or [],
         "ParentAgentId": parent,
@@ -110,13 +111,12 @@ class Identity(unittest.TestCase):
     def test_cwd_basename_names_the_ticket_and_a_root_agent_is_the_worker(self):
         found = status.sessions([agent(61, agent_id=WORKER_61)])[0]
         self.assertEqual((found["ticket"], found["kind"]), (61, "worker"))
-        self.assertTrue(found["dispatched"])
 
     def test_a_tilde_cwd_still_reads_the_basename(self):
         found = status.sessions([agent(62, cwd="~/.paseo/worktrees/hash/issue-62")])[0]
         self.assertEqual(found["ticket"], 62)
 
-    def test_a_child_agent_in_the_same_directory_is_the_reviewer(self):
+    def test_kind_comes_from_the_mmw_kind_filter_not_from_parent(self):
         worker = agent(61, agent_id=WORKER_61)
         child = agent(61, kind="reviewer", parent=WORKER_61, agent_id=REVIEWER_61)
         found = {s["kind"]: s for s in status.sessions([worker, child])}
@@ -126,24 +126,18 @@ class Identity(unittest.TestCase):
     def test_a_cwd_that_is_not_an_issue_directory_is_not_ours(self):
         self.assertEqual(status.sessions([agent(61, cwd="/repo/scratch")]), [])
 
-    def test_an_agent_with_no_parent_in_the_list_is_held(self):
+    def test_a_live_worker_is_held(self):
         rows = status.build_rows([61], {61: ticket(61)},
                                  status.sessions([agent(61, agent_id=WORKER_61)]))
         self.assertEqual([r["ticket"] for r in status.held(rows)], [61])
 
     def test_a_reviewer_alone_does_not_count_as_the_worker_being_held(self):
-        """The worker is the parent; a child whose parent is still listed is not it.
-
-        When the parent has already left the live list, the child has nothing to
-        point at and would read as a worker — Paseo archives children with the
-        parent, so that case does not arise on a live spec.
-        """
         child = agent(61, kind="reviewer", parent=WORKER_61, agent_id=REVIEWER_61)
         worker = agent(61, agent_id=WORKER_61)
         rows = status.build_rows(
             [61], {61: ticket(61)}, status.sessions([worker, child]))
         self.assertEqual(rows[0]["worker"]["id"], WORKER_61)
-        self.assertEqual(rows[0]["reviewer"]["id"], REVIEWER_61)
+        self.assertNotIn("reviewer", rows[0])
 
 
 class Rows(unittest.TestCase):
@@ -175,7 +169,7 @@ class Rows(unittest.TestCase):
         self.assertEqual(row["agent_id"], WORKER_61[:7])
         self.assertEqual(row["age"], "2 minutes ago")
         self.assertEqual(row["phase"], "self-run")
-        self.assertEqual(row["turn"], "-")
+        self.assertNotIn("turn", row)
         self.assertEqual(row["note"], "")
 
     def test_ac_comes_off_the_newest_self_run(self):
@@ -292,10 +286,10 @@ class Table(unittest.TestCase):
         self.assertEqual(self.table(spec=None).splitlines()[0],
                          "mmw status · 02:14 · 2 tickets · 1 live")
 
-    def test_the_columns_include_id_and_age_beside_the_original_seven(self):
+    def test_the_columns_include_id_and_age_and_drop_turn(self):
         self.assertEqual(self.table().splitlines()[2].split(),
                          ["ticket", "agent", "id", "agent_status", "age",
-                          "phase", "ac", "turn", "note"])
+                          "phase", "ac", "note"])
 
     def test_one_line_per_ticket_in_ticket_order_with_id_and_age(self):
         body = self.table().splitlines()[3:]
@@ -455,6 +449,9 @@ class ReadingPaseo(unittest.TestCase):
 
         def fake(args):
             if args[:3] == ["ls", "-g", "--json"]:
+                labels = [args[i + 1] for i, a in enumerate(args) if a == "--label"]
+                if any(l.startswith("mmw.kind=") and l != "mmw.kind=worker" for l in labels):
+                    return []
                 return list(self.ls)
             if args[:1] == ["inspect"]:
                 return dict(self.inspect.get(args[1], {}))
@@ -506,10 +503,10 @@ class ReadingPaseo(unittest.TestCase):
         self.assertEqual(found[0]["created"], "2 minutes ago")
         self.assertEqual(found[0]["LastUsage"]["InputTokens"], 1)
         self.assertEqual(found[0]["PendingPermissions"], [])
-        self.assertEqual(found[0]["ParentAgentId"],
-                         "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
+        self.assertEqual(found[0]["kind"], "worker")
+        self.assertNotIn("ParentAgentId", found[0])
 
-    def test_ls_is_asked_with_the_spec_label_and_not_for_labels_in_the_body(self):
+    def test_ls_is_asked_with_the_spec_label_and_each_kind_label(self):
         seen = []
 
         def fake(args):
@@ -520,7 +517,14 @@ class ReadingPaseo(unittest.TestCase):
 
         status.paseo_json = fake
         status.live_agents(76)
-        self.assertEqual(seen, [["ls", "-g", "--json", "--label", "mmw.spec=76"]])
+        self.assertEqual(seen, [
+            ["ls", "-g", "--json", "--label", "mmw.spec=76",
+             "--label", "mmw.kind=worker"],
+            ["ls", "-g", "--json", "--label", "mmw.spec=76",
+             "--label", "mmw.kind=reviewer"],
+            ["ls", "-g", "--json", "--label", "mmw.spec=76",
+             "--label", "mmw.kind=verifier"],
+        ])
 
 
 if __name__ == "__main__":

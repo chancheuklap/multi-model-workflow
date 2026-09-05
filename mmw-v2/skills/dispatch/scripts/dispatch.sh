@@ -1,63 +1,43 @@
 #!/usr/bin/env bash
 #
-# Start an agent on a ticket, or wait for one to report back on that ticket.
+# Start an agent on a ticket, move a spec's batch forward, or report on one.
 #
-#   dispatch.sh <ticket> worker|reviewer [base-commit]
-#   dispatch.sh wait <ticket> "<first-line-regex>" [seconds]
-#   dispatch.sh advance <spec>
-#   dispatch.sh run <spec> [--max-hours H]
+#   dispatch.sh check <spec>
+#   dispatch.sh advance <spec> --json|--run
+#   dispatch.sh start <n> worker|reviewer|verifier --json|--run
+#   dispatch.sh resume <n> "<text>"
+#   dispatch.sh status <spec>
+#   dispatch.sh reverify <spec>
+#   dispatch.sh summary <spec>
 #
-# The ticket number and the kind of agent are the whole input. Which of the worker rows
-# a worker session starts from is the ticket's own `*-worker` label, so one ticket keeps
-# the same worker every time it is started. Everything else — which Herdr name the
-# session gets, whether it opens a tab or splits a pane, what it is told to work on — is
-# decided by the shape of the pipeline, so it is written here rather than in `models.md`.
-# `models.md` holds only what a person changes: the agent, the host, the model, the
-# effort, and the launch arguments.
+# The ticket number and the kind of agent are the whole input for `start`. Which
+# of the worker rows a worker session starts from is the ticket's own `*-worker`
+# label, so one ticket keeps the same worker every time it is started. Which
+# host, model, thinking level and permissions the session gets come from that
+# row of `models.md`, expanded into the fields `create_agent` accepts.
 #
 # Exit codes are documented in SKILL.md next to this script.
 
 set -uo pipefail
 
-IDLE_TIMEOUT_MS=120000       # a session whose hooks have not reported it ready by now is not coming up
-PROMPT_TAKE_MS=15000         # a prompt that landed is reported working within this
-TOKEN_TTL_MS=86400000        # a day, so a night's run never outlives its own metadata
-WIDE_PANE_COLUMNS=160        # wider than this splits sideways, otherwise downwards
-LABEL_TITLE_CHARS=20         # how much of the ticket title fits on a tab
-
-WAIT_DEFAULT_SECONDS=1800
-WAIT_SETTLED_GAP_SECONDS=5   # an agent that has already settled would spin otherwise
-WAIT_POLL_SECONDS=30         # outside Herdr there is no `agent_status` to block on
+LABEL_TITLE_CHARS=20         # how much of the ticket title fits on a workspace title
 
 SELF="$(realpath "${BASH_SOURCE[0]}")"
 SKILL_ROOT="$(dirname "$(dirname "$SELF")")"
 MODELS="$SKILL_ROOT/models.md"
-BOARD="$SKILL_ROOT/scripts/board.py"
-# The skill lives under mmw-v2/skills/<name>, so `install.sh` is two directories up.
+STATUS="$SKILL_ROOT/scripts/status.py"
+VERIFIER_MD="$(realpath "$SKILL_ROOT/references/verifier.md" 2>/dev/null || true)"
+# The skill lives under mmw-v2/skills/<name>, so `install.sh` is two directories up
+# and `verify-ticket.py` is the sibling skill.
 INSTALLER="$(dirname "$(dirname "$SKILL_ROOT")")/install.sh"
+VERIFY="$(dirname "$SKILL_ROOT")/verify-ticket/scripts/verify-ticket.py"
 
 # The row a ticket with no `*-worker` label starts from.
 DEFAULT_WORKER=junior-worker
 
-BOARD_TAB_LABEL="mmw board"
 MERGE_TRIES=3                # a worker's commit in its worktree can hold the .git lock while advance merges
 
-# Herdr's agent names are unique among live agents across the whole server, not per
-# workspace, so two repositories each holding a ticket #100 would collide on `issue-100`
-# and the second `agent start` would simply fail — leaving that ticket unstartable for
-# the rest of the night. The workspace id is short, stable, and already the prefix of
-# every pane id in it. Outside Herdr the names are the bare ones. `board.py` builds the
-# same prefix the same way; the two have to agree or it stops recognising our sessions.
-herdr_name() {
-  local ws="${HERDR_WORKSPACE_ID:-}"
-  if [ -n "$ws" ]; then
-    printf '%s-%s\n' "$(printf '%s' "$ws" | tr '[:upper:]' '[:lower:]')" "$1"
-  else
-    printf '%s\n' "$1"
-  fi
-}
-MAIN_AGENT_NAME="$(herdr_name mmw-main)"
-BOARD_RESTART_SECONDS=5      # it holds no state, so restarting it loses nothing
+AUTONOMOUS="You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
 
 # Grok Build hands its agents CLICOLOR_FORCE=1, and `gh` writes ANSI escapes into
 # --json output under it, which no JSON reader can parse.
@@ -70,17 +50,15 @@ refuse() {
   exit 2
 }
 
-give_up() {
-  echo "dispatch: $1" >&2
-  exit 1
-}
-
 usage() {
   cat >&2 <<'USAGE'
-usage: dispatch.sh <ticket> worker|reviewer [base-commit]
-       dispatch.sh wait <ticket> "<first-line-regex>" [seconds]
-       dispatch.sh advance <spec>
-       dispatch.sh run <spec> [--max-hours H]
+usage: dispatch.sh check <spec>
+       dispatch.sh advance <spec> --json|--run
+       dispatch.sh start <n> worker|reviewer|verifier --json|--run
+       dispatch.sh resume <n> "<text>"
+       dispatch.sh status <spec>
+       dispatch.sh reverify <spec>
+       dispatch.sh summary <spec>
 USAGE
   exit 2
 }
@@ -116,19 +94,19 @@ print(sys.stdin.read().rstrip("\n")[:int(os.environ["MMW_HEAD_CHARS"])])
 
 # ------------------------------------------------------------------ models.md
 
-# Prints "host<TAB>model<TAB>effort<TAB>launch arguments" for the agent asked for: the
-# first of its rows with launch arguments, since an agent that is both a session and a
-# subagent (the reviewer) has one row per host and only one of them starts a session;
-# when no row has any, the first row, so the caller's refusal can name it. Backticks are
-# markdown, not part of any value.
+# Prints "host<TAB>model<TAB>effort<TAB>permissions" for the agent asked for: the
+# first of its rows with `bypass`, since an agent that is both a session and a
+# subagent (the reviewer) has one row per host and only one of them starts a
+# session; when no row has any, the first row, so the caller's refusal can name it.
+# Backticks are markdown, not part of any value.
 row_for_role() {
   awk -F'|' -v want="$1" '
     function trim(s) { gsub(/^[ \t`]+/, "", s); gsub(/[ \t`]+$/, "", s); return s }
     /^[ \t]*\|/ && NF == 7 && trim($2) == want {
       row = trim($3) "\t" trim($4) "\t" trim($5) "\t" trim($6)
       if (first == "") first = row
-      launch = trim($6)
-      if (launch != "" && launch != "—" && launch != "-") { print row; found = 1; exit }
+      perm = trim($6)
+      if (perm == "bypass") { print row; found = 1; exit }
     }
     END { if (!found && first != "") print first }
   ' "$MODELS"
@@ -147,17 +125,16 @@ worker_roles() {
 
 # ------------------------------------------------------------------ the ticket
 
-# Prints two lines when the ticket is ready to be worked on — its worker labels, then
-# its title — and one line prefixed with REFUSE when it is not. The worker labels are
-# the ticket's own labels ending in `-worker`, space separated, and the first line is
-# empty when it carries none. Whether `models.md` still holds a row for one is decided
-# by the caller, so a label pointing at a row nobody kept is refused rather than dropped.
+# Prints three lines when the ticket is ready to be worked on — its worker labels,
+# its title, then the spec number from `## Parent` — and one line prefixed with
+# REFUSE when it is not. The worker labels are the ticket's own labels ending in
+# `-worker`, space separated, and the first line is empty when it carries none.
 read_ticket() {
   local number="$1" json
-  json="$(gh_ issue view "$number" --json state,labels,blockedBy,title 2>/dev/null)" \
+  json="$(gh_ issue view "$number" --json state,labels,blockedBy,title,body 2>/dev/null)" \
     || { echo "REFUSE could not read ticket #$number from the tracker"; return; }
   printf '%s' "$json" | MMW_TICKET_NUMBER="$number" python3 -c '
-import json, os, sys
+import json, os, re, sys
 
 number = os.environ["MMW_TICKET_NUMBER"]
 try:
@@ -171,6 +148,9 @@ labels = [label.get("name") for label in ticket.get("labels") or []]
 nodes = (ticket.get("blockedBy") or {}).get("nodes") or []
 blockers = ["#" + str(b.get("number")) for b in nodes if b.get("state") != "CLOSED"]
 seats = sorted(name for name in labels if name and name.endswith("-worker"))
+body = ticket.get("body") or ""
+found = re.search(r"(?ms)^## Parent\s*\n+.*?\#(\d+)", body)
+spec = found.group(1) if found else ""
 
 if state != "open":
     print("REFUSE ticket #" + number + " is " + state + ", not open")
@@ -181,80 +161,8 @@ elif blockers:
 else:
     print(" ".join(seats))
     print(ticket.get("title") or "")
+    print(spec)
 '
-}
-
-# ------------------------------------------------------------------ live sessions
-
-# Prints "live" when Herdr already has an agent by this name, and nothing otherwise —
-# including when Herdr could not be asked or did not answer in JSON, in which case a
-# taken name still fails at `agent start` with Herdr's own error. Without this it would
-# fail there after a tab or a pane had already been opened for it, so it is asked here,
-# before anything is opened, and exit 2 keeps meaning that nothing was touched.
-session_named() {
-  local listing
-  listing="$(herdr agent list 2>/dev/null)" || return 0
-  printf '%s' "$listing" | MMW_WANTED="$1" python3 -c '
-import json, os, sys
-
-try:
-    payload = json.load(sys.stdin)
-except Exception:
-    sys.exit(0)
-agents = (payload.get("result") or {}).get("agents") or payload.get("agents") or []
-if any(a.get("name") == os.environ["MMW_WANTED"] for a in agents):
-    print("live")
-'
-}
-
-# Prints the agent kinds `herdr agent start --kind` accepts, space separated, read off
-# the `[possible values: …]` line of its own help; nothing when that line is not there.
-herdr_agent_kinds() {
-  herdr agent start --help 2>&1 \
-    | sed -n 's/.*\[possible values: \([^]]*\)\].*/\1/p' \
-    | head -n 1 | tr ',' ' ' | tr -s ' ' | sed 's/^ //; s/ $//'
-}
-
-# ------------------------------------------------------------------ the worktree
-
-# Prints the path of ticket `number`'s worktree, creating it when it is not there yet.
-# The worktree is this script's to make: hosts differ in whether they can open one at
-# all, so the launch arguments carry no worktree flag and the session simply starts
-# inside it. Only the worker gets one — the reviewer runs inside the worker's worktree
-# and the verifier is a subagent of the worker's session, so neither comes through here.
-#
-# A branch named issue-<n> that already exists is reused as it stands: the ticket is
-# being started again, and the new session resumes the work. Otherwise the branch is cut from
-# HEAD — whatever branch the dispatching session is on, because that is where the day's
-# discussion and spec work happened and the ticket builds on it. Either way the base
-# commit ends up in `branch.issue-<n>.mmw-base`, where `verify-ticket.py` and the code
-# review read the base their diffs start from: for a branch cut here it is HEAD, and
-# for a branch that was there already — made by hand, or left by an earlier night —
-# and has no record yet, it is that branch's merge base with HEAD. Stale bookkeeping
-# for a directory deleted by hand is pruned first, and a failed add leaves git's own
-# error on stderr for the caller's refusal to carry.
-worktree_for() {
-  local number="$1" root="$2"
-  local base="${MMW_WORKTREES:-$HOME/.mmw/worktrees}/$(basename "$root")"
-  local path="$base/issue-$number"
-  git -C "$root" worktree prune 2>/dev/null
-  if git -C "$root" rev-parse --verify --quiet "refs/heads/issue-$number" >/dev/null; then
-    if [ -d "$path" ]; then
-      record_base_if_missing "$number" "$root"
-      printf '%s\n' "$path"
-      return 0
-    fi
-    mkdir -p "$base" || return 1
-    git -C "$root" worktree add "$path" "issue-$number" >/dev/null || return 1
-    record_base_if_missing "$number" "$root"
-  else
-    mkdir -p "$base" || return 1
-    git -C "$root" worktree add -b "issue-$number" "$path" HEAD >/dev/null || return 1
-    git -C "$root" config "branch.issue-$number.mmw-base" "$(git -C "$root" rev-parse HEAD)"
-    git -C "$root" config "branch.issue-$number.mmw-base-branch" \
-      "$(git -C "$root" rev-parse --abbrev-ref HEAD)"
-  fi
-  printf '%s\n' "$path"
 }
 
 # Fills `branch.issue-<n>.mmw-base` for a branch that exists without one, with the
@@ -273,260 +181,366 @@ record_base_if_missing() {
   fi
 }
 
-# ------------------------------------------------------------------ dispatching
+record_base_for_new_branch() {
+  local number="$1" root="$2"
+  if [ -z "$(git -C "$root" config --get "branch.issue-$number.mmw-base")" ]; then
+    git -C "$root" config "branch.issue-$number.mmw-base" "$(git -C "$root" rev-parse HEAD)"
+  fi
+  if [ -z "$(git -C "$root" config --get "branch.issue-$number.mmw-base-branch")" ]; then
+    git -C "$root" config "branch.issue-$number.mmw-base-branch" \
+      "$(git -C "$root" rev-parse --abbrev-ref HEAD)"
+  fi
+}
 
-dispatch() {
-  local number="$1" kind="$2" base="${3:-}"
+# ------------------------------------------------------------------ Paseo
 
-  [ "${HERDR_ENV:-}" = 1 ] \
-    || refuse "not running inside Herdr, so there is nowhere to start a session"
+project_id_for() {
+  local root="$1"
+  MMW_ROOT="$root" python3 -c '
+import json, os, subprocess, sys
 
-  local reviewing=0
+root = os.path.realpath(os.environ["MMW_ROOT"])
+raw = subprocess.check_output(["paseo", "project", "ls", "--json"], text=True)
+try:
+    rows = json.loads(raw)
+except Exception:
+    sys.exit(0)
+if not isinstance(rows, list):
+    sys.exit(0)
+for row in rows:
+    if not isinstance(row, dict):
+        continue
+    path = os.path.realpath(row.get("path") or "")
+    if path == root:
+        ident = row.get("projectId") or ""
+        if ident:
+            print(ident)
+        break
+' 2>/dev/null
+}
+
+workspace_id_for() {
+  local number="$1"
+  MMW_SLUG="issue-$number" python3 -c '
+import json, os, subprocess, sys
+from pathlib import Path
+
+want = os.environ["MMW_SLUG"]
+raw = subprocess.check_output(["paseo", "workspace", "ls", "--json"], text=True)
+try:
+    rows = json.loads(raw)
+except Exception:
+    sys.exit(0)
+if not isinstance(rows, list):
+    sys.exit(0)
+for row in rows:
+    if not isinstance(row, dict):
+        continue
+    if Path(row.get("cwd") or "").name == want:
+        ident = row.get("workspaceId") or ""
+        if ident:
+            print(ident)
+        break
+' 2>/dev/null
+}
+
+ensure_workspace() {
+  local number="$1" root="$2" title="$3" existing project base json ident
+  existing="$(workspace_id_for "$number")"
+  if [ -n "$existing" ]; then
+    if git -C "$root" rev-parse --verify --quiet "refs/heads/issue-$number" >/dev/null; then
+      record_base_if_missing "$number" "$root"
+    fi
+    printf '%s\n' "$existing"
+    return 0
+  fi
+  project="$(project_id_for "$root")"
+  [ -n "$project" ] \
+    || { echo "dispatch: no Paseo project whose path is $root" >&2; return 1; }
+
+  local ws_title
+  ws_title="$(printf '#%s %s' "$number" "$(printf '%s' "$title" | head_chars "$LABEL_TITLE_CHARS")")"
+
+  local -a extra
+  if git -C "$root" rev-parse --verify --quiet "refs/heads/issue-$number" >/dev/null; then
+    extra=(--mode checkout-branch --branch "issue-$number")
+  else
+    base="$(git -C "$root" rev-parse --abbrev-ref HEAD)"
+    [ -n "$base" ] && [ "$base" != HEAD ] \
+      || { echo "dispatch: not on a named branch, so --base would be rejected" >&2; return 1; }
+    extra=(--mode branch-off --new-branch "issue-$number" --base "$base")
+  fi
+
+  json="$(paseo workspace create --isolation worktree --path "$root" --project "$project" \
+            --worktree-slug "issue-$number" --title "$ws_title" --json "${extra[@]}")" \
+    || { echo "dispatch: could not create a workspace for issue-$number" >&2; return 1; }
+  ident="$(printf '%s' "$json" | json_at workspaceId)"
+  [ -n "$ident" ] || { echo "dispatch: workspace create printed no workspaceId" >&2; return 1; }
+
+  if git -C "$root" rev-parse --verify --quiet "refs/heads/issue-$number" >/dev/null; then
+    case " ${extra[*]} " in
+      *" branch-off "*) record_base_for_new_branch "$number" "$root" ;;
+      *) record_base_if_missing "$number" "$root" ;;
+    esac
+  fi
+  printf '%s\n' "$ident"
+}
+
+archive_workspace() {
+  local number="$1" ident
+  ident="$(workspace_id_for "$number")"
+  [ -n "$ident" ] || return 0
+  paseo workspace archive "$ident" >/dev/null \
+    || echo "dispatch: could not archive the workspace for #$number" >&2
+}
+
+# ------------------------------------------------------------------ dispatch payload
+
+emit_create_json() {
+  python3 -c '
+import json, os
+
+host = os.environ["MMW_HOST"]
+model = os.environ["MMW_MODEL"]
+effort = os.environ["MMW_EFFORT"]
+settings = {}
+if effort and effort not in ("—", "-", ""):
+    settings["thinkingOptionId"] = effort
+if host == "claude":
+    settings["modeId"] = "bypassPermissions"
+elif host == "codex":
+    settings["modeId"] = "full-access"
+else:
+    settings["features"] = {"auto_accept": True}
+payload = {
+    "workspaceId": os.environ["MMW_WORKSPACE"],
+    "title": os.environ["MMW_TITLE"],
+    "provider": host + "/" + model,
+    "settings": settings,
+    "labels": {
+        "mmw.ticket": os.environ["MMW_TICKET"],
+        "mmw.kind": os.environ["MMW_KIND"],
+        "mmw.spec": os.environ["MMW_SPEC"],
+        "mmw.profile": os.environ["MMW_PROFILE"],
+        "mmw.autonomous": "1",
+    },
+    "initialPrompt": os.environ["MMW_PROMPT"],
+}
+print(json.dumps(payload, ensure_ascii=False))
+'
+}
+
+run_agent() {
+  local host="$1" model="$2" effort="$3" workspace="$4" title="$5"
+  local ticket="$6" kind="$7" spec="$8" profile="$9" prompt="${10}"
+  local -a cmd
+  cmd=(paseo run -d --json
+       --provider "$host/$model"
+       --workspace "$workspace"
+       --title "$title"
+       --label "mmw.ticket=$ticket"
+       --label "mmw.kind=$kind"
+       --label "mmw.spec=$spec"
+       --label "mmw.profile=$profile"
+       --label "mmw.autonomous=1")
+  if [ -n "$effort" ] && [ "$effort" != "—" ] && [ "$effort" != "-" ]; then
+    cmd+=(--thinking "$effort")
+  fi
+  case "$host" in
+    claude) cmd+=(--mode bypassPermissions) ;;
+    codex) cmd+=(--mode full-access) ;;
+  esac
+  cmd+=("$prompt")
+  local json ident
+  json="$("${cmd[@]}")" || return 1
+  ident="$(printf '%s' "$json" | json_at agentId)"
+  [ -n "$ident" ] || ident="$(printf '%s' "$json" | json_at id)"
+  printf '%s\n' "$ident"
+}
+
+# ------------------------------------------------------------------ start
+
+start_one() {
+  local number="$1" kind="$2"
   case "$kind" in
-    reviewer)
-      reviewing=1
-      [ -n "$base" ] || refuse "the reviewer needs the commit its review starts from" ;;
-    worker)
-      [ -z "$base" ] || refuse "only the reviewer takes a base commit" ;;
-    *)
-      refuse "the second argument is worker or reviewer, got $kind" ;;
+    worker|reviewer|verifier) ;;
+    *) refuse "the second argument is worker, reviewer or verifier, got $kind" ;;
   esac
 
-  local answer seats title
+  local answer seats title spec
   answer="$(read_ticket "$number")"
   case "$answer" in
     "REFUSE "*) refuse "${answer#REFUSE }" ;;
     "") refuse "the tracker did not answer with a readable ticket #$number" ;;
   esac
-  { IFS= read -r seats; IFS= read -r title; } <<<"$answer"
-
-  # The row this session starts from. A worker's comes off the ticket, so a ticket
-  # started again — by hand, by `advance`, or by the board after a session ended — comes
-  # back on the row it was written for.
-  local seat
-  if [ "$reviewing" = 1 ]; then
-    seat=reviewer
-  else
-    local -a marked
-    read -r -a marked <<<"$seats"
-    case "${#marked[@]}" in
-      0) seat="$DEFAULT_WORKER" ;;
-      1) seat="${marked[0]}" ;;
-      *) refuse "#$number carries ${#marked[@]} worker labels (${marked[*]}), and it takes one" ;;
-    esac
+  { IFS= read -r seats; IFS= read -r title; IFS= read -r spec; } <<<"$answer"
+  if [ -n "${MMW_SPEC:-}" ]; then
+    spec="$MMW_SPEC"
   fi
+  [ -n "$spec" ] || refuse "ticket #$number has no spec number in ## Parent"
 
-  local row host model effort launch
-  row="$(row_for_role "$seat")"
-  [ -n "$row" ] || refuse "#$number needs the $seat row, and $MODELS has none"
-  IFS=$'\t' read -r host model effort launch <<<"$row"
-  case "$launch" in
-    "" | "—" | "-")
-      refuse "$seat is a subagent: it is started by the skill that needs it, not from here" ;;
-  esac
-  case "$launch" in
-    *'{effort}'*)
-      case "$effort" in
-        "" | "—" | "-")
-          refuse "the $seat row's launch arguments ask for an effort, and its effort column is empty" ;;
+  local seat
+  case "$kind" in
+    reviewer) seat=reviewer ;;
+    verifier) seat=verifier ;;
+    worker)
+      local -a marked
+      read -r -a marked <<<"$seats"
+      case "${#marked[@]}" in
+        0) seat="$DEFAULT_WORKER" ;;
+        1) seat="${marked[0]}" ;;
+        *) refuse "#$number carries ${#marked[@]} worker labels (${marked[*]}), and it takes one" ;;
       esac ;;
   esac
 
-  launch="${launch//\{model\}/$model}"
-  launch="${launch//\{effort\}/$effort}"
-  launch="${launch//\{n\}/$number}"
-  local args
-  read -r -a args <<<"$launch"
-  [ "${#args[@]}" -gt 0 ] || refuse "the $seat row has no launch arguments"
+  local row host model effort perm
+  row="$(row_for_role "$seat")"
+  [ -n "$row" ] || refuse "#$number needs the $seat row, and $MODELS has none"
+  IFS=$'\t' read -r host model effort perm <<<"$row"
+  case "$perm" in
+    bypass) ;;
+    *) refuse "$seat is a subagent: it is started by the skill that needs it, not from here" ;;
+  esac
 
   local root
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] \
     || refuse "not inside a git repository, so there is no working directory to give the session"
 
-  local pane name prompt
-  if [ "$reviewing" = 1 ]; then
-    name="$(herdr_name "issue-$number-review")"
-  else
-    name="$(herdr_name "issue-$number")"
-  fi
-  [ "$(session_named "$name")" != live ] \
-    || refuse "#$number already has a live session $name"
+  local prompt
+  case "$kind" in
+    worker)
+      prompt="Use the implement skill to work ticket #$number. $AUTONOMOUS" ;;
+    reviewer)
+      local base
+      base="$(git -C "$root" config --get "branch.issue-$number.mmw-base")"
+      [ -n "$base" ] \
+        || refuse "no branch.issue-$number.mmw-base, so the reviewer has no commit to start from"
+      prompt="Use the code-review skill to review ticket #$number from base commit $base. $AUTONOMOUS" ;;
+    verifier)
+      [ -n "$VERIFIER_MD" ] && [ -f "$VERIFIER_MD" ] \
+        || refuse "no verifier prompt at $SKILL_ROOT/references/verifier.md"
+      prompt="verify #$number 按 $VERIFIER_MD 行事" ;;
+  esac
 
-  if [ "$reviewing" = 1 ]; then
-    prompt="Use the code-review skill to review ticket #$number from base commit $base. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
-    local caller="${HERDR_PANE_ID:-}"
-    [ -n "$caller" ] || refuse "no calling pane to split, so the reviewer has nowhere to go"
-    local width direction
-    width="$(herdr pane layout --pane "$caller" | json_at .result.layout.area.width)"
-    [ -n "$width" ] || refuse "could not measure pane $caller"
-    if [ "$width" -ge "$WIDE_PANE_COLUMNS" ]; then direction=right; else direction=down; fi
-    # MMW_AUTONOMOUS is how `hook.py` inside this pane knows nobody is at the screen.
-    pane="$(herdr pane split --pane "$caller" --direction "$direction" --cwd "$root" \
-              --env "MMW_AUTONOMOUS=1" --no-focus \
-            | json_at .result.pane.pane_id)"
-    [ -n "$pane" ] || refuse "could not split pane $caller"
-  else
-    prompt="Use the implement skill to work ticket #$number. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
-    local worktree
-    worktree="$(worktree_for "$number" "$root")" \
-      || refuse "could not open a worktree for issue-$number under ${MMW_WORKTREES:-$HOME/.mmw/worktrees}"
-    local label tab_args
-    label="$(printf '#%s %s' "$number" "$title" \
-             | head_chars $(( LABEL_TITLE_CHARS + ${#number} + 2 )))"
-    tab_args=()
-    [ -n "${HERDR_WORKSPACE_ID:-}" ] && tab_args=(--workspace "$HERDR_WORKSPACE_ID")
-    # MMW_TICKET is how `hook.py` inside this pane knows which ticket it guards, and
-    # MMW_AUTONOMOUS that nobody is at the screen.
-    pane="$(herdr tab create ${tab_args[@]+"${tab_args[@]}"} --cwd "$worktree" \
-              --label "$label" --env "MMW_TICKET=$number" --env "MMW_AUTONOMOUS=1" \
-              --no-focus \
-            | json_at .result.root_pane.pane_id)"
-    [ -n "$pane" ] || refuse "could not open a tab for ticket #$number"
+  local workspace
+  workspace="$(ensure_workspace "$number" "$root" "$title")" \
+    || refuse "could not open a workspace for issue-$number"
+
+  local agent_title="#$number $kind"
+  if [ "$MMW_PATH_MODE" = json ]; then
+    MMW_WORKSPACE="$workspace" MMW_TITLE="$agent_title" \
+      MMW_HOST="$host" MMW_MODEL="$model" MMW_EFFORT="$effort" \
+      MMW_TICKET="$number" MMW_KIND="$kind" MMW_SPEC="$spec" \
+      MMW_PROFILE="$seat" MMW_PROMPT="$prompt" \
+      emit_create_json
+    return 0
   fi
 
-  herdr agent start "$name" --kind "$host" --pane "$pane" -- "${args[@]}" >/dev/null \
-    || refuse "could not start $name in pane $pane"
-
-  herdr agent wait "$name" --until idle --until done --timeout "$IDLE_TIMEOUT_MS" >/dev/null 2>&1 \
-    || give_up "$name is up in pane $pane but was not ready within $(( IDLE_TIMEOUT_MS / 1000 ))s; it has not been told anything"
-
-  herdr agent prompt "$name" "$prompt" >/dev/null \
-    || give_up "$name is up in pane $pane but would not take the prompt"
-
-  # The prompt call says the text was sent, not that the session heard it: a host still
-  # drawing its start screen swallows the first line without a trace. The session's own
-  # `UserPromptSubmit` hook reporting it working within a few seconds is what says it
-  # landed; one resend covers the swallowed case.
-  if ! herdr agent wait "$name" --until working --until blocked \
-         --timeout "$PROMPT_TAKE_MS" >/dev/null 2>&1; then
-    herdr agent prompt "$name" "$prompt" >/dev/null 2>&1
-    herdr agent wait "$name" --until working --until blocked \
-        --timeout "$PROMPT_TAKE_MS" >/dev/null 2>&1 \
-      || give_up "$name is up in pane $pane but did not start on the prompt"
-  fi
-
-  # The ticket and the kind are written here rather than left to the first
-  # `verify-ticket.py` run, so that a pane which stops before that run is still
-  # readable as belonging to this ticket as a worker or as a reviewer. `model` carries
-  # which row it started from, which is what `board.py` prints in its table.
-  local human token_kind
-  if [ "$reviewing" = 1 ]; then
-    human="#$number reviewer"
-    token_kind=reviewer
-  else
-    human="#$number worker"
-    token_kind=worker
-  fi
-  herdr pane rename "$pane" "$human" >/dev/null 2>&1
-  herdr pane report-metadata "$pane" --source mmw \
-    --token "ticket=$number" --token "kind=$token_kind" --token "model=$model" \
-    --ttl-ms "$TOKEN_TTL_MS" >/dev/null 2>&1
-
-  echo "$name is working on #$number in pane $pane on $model"
+  local ident
+  ident="$(run_agent "$host" "$model" "$effort" "$workspace" "$agent_title" \
+             "$number" "$kind" "$spec" "$seat" "$prompt")" \
+    || refuse "could not start #$number $kind"
+  printf '%s\n' "$ident"
 }
 
-# ------------------------------------------------------------------ waiting
+# ------------------------------------------------------------------ resume
 
-# One read of the ticket's comments for `wait`. Prints the comment count on the first
-# line, then the body of the first comment whose first line matches the pattern —
-# among the comments after the first `since` ones, or, when `since` is empty, the
-# newest comment alone. Prints only the count when nothing matches.
-matching_comment() {
-  gh_ issue view "$1" --json comments 2>/dev/null \
-    | MMW_PATTERN="$2" MMW_SINCE="${3:-}" python3 -c '
-import json, os, re, sys
-
-try:
-    comments = json.load(sys.stdin).get("comments") or []
-except Exception:
-    comments = []
-print(len(comments))
-since = os.environ["MMW_SINCE"]
-candidates = comments[int(since):] if since else comments[-1:]
-pattern = re.compile(os.environ["MMW_PATTERN"])
-for comment in candidates:
-    body = comment.get("body") or ""
-    if body and pattern.search(body.split("\n", 1)[0]):
-        sys.stdout.write(body)
-        break
-'
-}
-
-# The agent this ticket is waiting on. A worker can only be waiting on its own
-# reviewer, and anyone else can only be waiting on the worker, so which one it is
-# follows from who is calling. Prints nothing when that agent is not live, which
-# leaves the caller waiting on the tracker alone.
-awaited_agent() {
-  herdr agent list 2>/dev/null \
-    | MMW_TICKET_NUMBER="$1" MMW_OWN_PANE="${HERDR_PANE_ID:-}" \
-      MMW_NAME_PREFIX="$(herdr_name "")" python3 -c '
-import json, os, sys
+resume_one() {
+  local number="$1" text="$2" ident
+  [ -n "$text" ] || refuse "resume needs the text to send"
+  ident="$(
+    MMW_TICKET_NUMBER="$number" python3 -c '
+import json, os, subprocess, sys
 
 number = os.environ["MMW_TICKET_NUMBER"]
-own_pane = os.environ.get("MMW_OWN_PANE") or None
+raw = subprocess.check_output(
+    ["paseo", "ls", "-g", "--json",
+     "--label", "mmw.ticket=" + number,
+     "--label", "mmw.kind=worker"],
+    text=True)
 try:
-    payload = json.load(sys.stdin)
+    rows = json.loads(raw)
 except Exception:
     sys.exit(0)
-agents = (payload.get("result") or {}).get("agents") or payload.get("agents") or []
-live = dict((a.get("name"), a.get("pane_id")) for a in agents if a.get("name"))
-
-worker = os.environ.get("MMW_NAME_PREFIX", "") + "issue-" + number
-caller_is_the_worker = own_pane is not None and live.get(worker) == own_pane
-target = worker + "-review" if caller_is_the_worker else worker
-if target in live:
-    print(target)
-'
+if not isinstance(rows, list):
+    sys.exit(0)
+for row in rows:
+    if isinstance(row, dict) and row.get("id"):
+        print(row["id"])
+        break
+' 2>/dev/null
+  )"
+  [ -n "$ident" ] || refuse "no worker agent labelled mmw.ticket=$number"
+  paseo send --no-wait "$ident" "$text" >/dev/null \
+    || refuse "could not send to $ident"
 }
 
-wait_for() {
-  local number="$1" pattern="$2" seconds="${3:-}"
-  [ -n "$seconds" ] || seconds="$WAIT_DEFAULT_SECONDS"
-  local deadline=$(( $(date +%s) + seconds ))
-  local target="" since=""
-  [ "${HERDR_ENV:-}" = 1 ] && target="$(awaited_agent "$number")"
+# ------------------------------------------------------------------ check
 
-  while :; do
-    local remaining=$(( deadline - $(date +%s) ))
-    if [ -n "$target" ] && [ "$remaining" -gt 0 ]; then
-      # Herdr holds the wait open until the agent settles, so the tracker is asked once
-      # per `agent_status` change rather than once per interval.
-      herdr agent wait "$target" --timeout $(( remaining * 1000 )) >/dev/null 2>&1
-    fi
+check_machine() {
+  local spec="$1"
+  local failed=0
 
-    # The first read judges the newest comment, as the caller found the ticket; every
-    # later read judges all the comments added since that first read, so a comment
-    # landing after the awaited one — a `TOUCHED BY` from another ticket, say — does not
-    # hide it.
-    local answer comment
-    answer="$(matching_comment "$number" "$pattern" "$since")"
-    since="$(printf '%s\n' "$answer" | head -n 1)"
-    comment="$(printf '%s\n' "$answer" | tail -n +2)"
-    if [ -n "$comment" ]; then
-      printf '%s\n' "$comment"
-      return 0
-    fi
+  if [ ! -f "$INSTALLER" ]; then
+    echo "dispatch: no install.sh at $INSTALLER" >&2
+    failed=1
+  elif ! bash "$INSTALLER" --check; then
+    echo "dispatch: install.sh --check found something missing" >&2
+    failed=1
+  fi
 
-    [ "$(date +%s)" -lt "$deadline" ] || break
-    if [ -n "$target" ]; then sleep "$WAIT_SETTLED_GAP_SECONDS"; else sleep "$WAIT_POLL_SECONDS"; fi
-    [ "$(date +%s)" -lt "$deadline" ] || break
+  local providers
+  providers="$(paseo provider ls --json 2>/dev/null)" || providers=""
+  local seat host
+  for seat in $(worker_roles) reviewer verifier; do
+    host="$(row_for_role "$seat" | cut -f1)"
+    [ -n "$host" ] || continue
+    MMW_HOST="$host" MMW_PROVIDERS="$providers" python3 -c '
+import json, os, sys
+
+host = os.environ["MMW_HOST"]
+raw = os.environ.get("MMW_PROVIDERS") or ""
+try:
+    rows = json.loads(raw) if raw else []
+except Exception:
+    rows = []
+ok = False
+if isinstance(rows, list):
+    for row in rows:
+        if isinstance(row, dict) and row.get("provider") == host:
+            ok = (row.get("status") == "available")
+            break
+if not ok:
+    sys.exit(1)
+' || { echo "dispatch: provider $host is not available" >&2; failed=1; }
   done
 
-  local who="${target:-the agent on #$number}"
-  gh_ issue comment "$number" \
-    --body "$who did not report back within ${seconds}s." \
-    >/dev/null 2>&1
-  give_up "$who did not report back within ${seconds}s"
+  local grades line number
+  grades="$(python3 "$STATUS" --worker-grades "$spec")" \
+    || { echo "dispatch: could not read the batch under #$spec" >&2; failed=1; grades=""; }
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    local -a fields marked
+    read -r -a fields <<<"$line"
+    number="${fields[1]}"
+    marked=("${fields[@]:2}")
+    case "${#marked[@]}" in
+      0) ;;
+      1) [ -n "$(row_for_role "${marked[0]}")" ] \
+           || { echo "dispatch: #$number asks for ${marked[0]}, and $MODELS has no such row" >&2; failed=1; } ;;
+      *) echo "dispatch: #$number carries ${#marked[@]} worker labels (${marked[*]}), and it takes one" >&2
+         failed=1 ;;
+    esac
+  done <<<"$grades"
+
+  [ "$failed" -eq 0 ] || exit 2
 }
 
 # ------------------------------------------------------------------ advancing
 
-# The branch `worktree_for` cuts for a ticket. Only it hands out these names, so reading
-# one back to a ticket number is exact.
 ticket_branch() { printf 'issue-%s\n' "$1"; }
 
-# A ticket's title, for the lines a person reads. Empty when the tracker cannot say.
 ticket_title() {
   gh_ issue view "$1" --json title -q .title 2>/dev/null | head -n 1
 }
@@ -576,7 +590,7 @@ conflict_report() {
   echo
   echo "  Resolve it with the resolving-merge-conflicts skill — never --abort — run this"
   echo "  repository's own checks, commit the merge, then run:"
-  echo "    bash $SELF advance $MMW_ADVANCE_SPEC"
+  echo "    bash $SELF advance $MMW_ADVANCE_SPEC --$MMW_PATH_MODE"
 }
 
 # 0 merged, 1 left in conflict, 2 could not run it at all.
@@ -599,29 +613,19 @@ merge_one() {
   return 2
 }
 
-# Merge what the batch has finished, then start what it can start. One command because
-# the order is the whole point: `worktree_for` cuts a branch from HEAD at the moment it
-# opens, so a branch merged after the next ticket is dispatched is a branch that ticket
-# cannot see.
 advance() {
-  local spec="$1"; shift
-  [ "$#" -eq 0 ] || usage
+  local spec="$1"
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
-
-  [ "${HERDR_ENV:-}" = 1 ] \
-    || refuse "not running inside Herdr, so there is nowhere to start a session"
-  [ -f "$BOARD" ] || refuse "no board at $BOARD"
 
   local root
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] || refuse "not inside a git repository, so there is nothing to merge into"
 
   export MMW_ADVANCE_SPEC="$spec"
+  export MMW_SPEC="$spec"
 
-  # A merge left half-resolved stops everything: the tree is between two tickets, and a
-  # worktree cut from it would hand the next worker neither one.
   if git -C "$root" rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
-    conflict_report "$root"
+    conflict_report "$root" >&2
     exit 3
   fi
 
@@ -631,10 +635,11 @@ advance() {
     || refuse "$(printf '%s' "$dirty" | wc -l | tr -d ' ') tracked files have uncommitted changes; a merge would carry them in — commit them or set them aside first"
 
   local plan
-  plan="$(python3 "$BOARD" --advance-plan "$spec")" \
+  plan="$(python3 "$STATUS" --advance-plan "$spec")" \
     || refuse "could not read the batch under #$spec"
 
   local merged=0 skipped=0 number branch left rc
+  local -a just_merged=()
   for number in $(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }'); do
     branch="$(ticket_branch "$number")"
     if ! git -C "$root" rev-parse --verify --quiet "refs/heads/$branch" >/dev/null; then
@@ -643,173 +648,195 @@ advance() {
     fi
     if git -C "$root" merge-base --is-ancestor "$branch" HEAD 2>/dev/null; then
       skipped=$((skipped + 1))
+      just_merged+=("$number")
       continue
     fi
     merge_one "$root" "$branch"
     rc=$?
     if [ "$rc" -eq 1 ]; then
       left="$(printf '%s\n' "$plan" | awk -v n="$number" '$1 == "MERGE" && seen { print "issue-" $2 } $2 == n { seen = 1 }')"
-      conflict_report "$root" "$left"
+      conflict_report "$root" "$left" >&2
       exit 3
     fi
     [ "$rc" -eq 0 ] || refuse "could not merge $branch after $MERGE_TRIES tries; git said nothing this script can act on"
-    echo "merged $branch"
+    if [ "$MMW_PATH_MODE" = json ]; then
+      echo "merged $branch" >&2
+    else
+      echo "merged $branch"
+    fi
     merged=$((merged + 1))
+    just_merged+=("$number")
+  done
+
+  local archived
+  for archived in "${just_merged[@]+"${just_merged[@]}"}"; do
+    archive_workspace "$archived"
   done
 
   local started=0 refused=0
   for number in $(printf '%s\n' "$plan" | awk '$1 == "DISPATCH" { print $2 }'); do
-    # A subprocess, so one ticket that will not start does not take the rest with it.
-    if bash "$SELF" "$number" worker; then
+    if bash "$SELF" start "$number" worker "--$MMW_PATH_MODE"; then
       started=$((started + 1))
     else
       refused=$((refused + 1))
     fi
   done
 
-  echo "advance #$spec: merged $merged, already in $skipped, started $started, refused $refused"
+  local summary="advance #$spec: merged $merged, already in $skipped, started $started, refused $refused"
+  if [ "$MMW_PATH_MODE" = json ]; then
+    echo "$summary" >&2
+  else
+    echo "$summary"
+  fi
 }
 
-# ------------------------------------------------------------------ the night
+# ------------------------------------------------------------------ reverify / summary
 
-# Starts the night: checks the machine, names this pane so the board can reach it,
-# opens the monitor tab, and leaves board.py --watch running in it. Everything after
-# this is the board's; the caller goes back to reading tickets.
-run_night() {
-  local spec="$1"; shift
-  local max_hours=""
-  while [ "$#" -gt 0 ]; do
-    case "$1" in
-      --max-hours) max_hours="${2:-}"; shift 2 || usage ;;
-      *) usage ;;
-    esac
-  done
+failing_ac_ids() {
+  python3 -c '
+import re, sys
+
+text = sys.stdin.read()
+ids = []
+for line in text.splitlines():
+    found = re.match(r"^- \[ \] ([A-Za-z0-9][A-Za-z0-9._-]*):", line.strip())
+    if found:
+        ids.append(found.group(1))
+print("\n".join(ids))
+'
+}
+
+reverify_spec() {
+  local spec="$1"
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
+  [ -f "$VERIFY" ] || refuse "no verify-ticket.py at $VERIFY"
 
-  [ "${HERDR_ENV:-}" = 1 ] \
-    || refuse "not running inside Herdr, so there is nowhere to open the monitor tab"
-  local caller="${HERDR_PANE_ID:-}"
-  [ -n "$caller" ] || refuse "no calling pane, so the board would have nobody to report to"
-  [ -f "$BOARD" ] || refuse "no board at $BOARD"
-
-  # The same refusals a dispatch would make, brought forward to the one moment somebody
-  # is here: a row that starts no session leaves every ticket asking for it unworked, and
-  # the night finds that out with nobody watching.
-  local seat seat_row
-  for seat in $(worker_roles) "$DEFAULT_WORKER"; do
-    seat_row="$(row_for_role "$seat")"
-    [ -n "$seat_row" ] \
-      || refuse "$MODELS has no $seat row, so a ticket asking for it would get no worker"
-    case "$(printf '%s' "$seat_row" | cut -f4)" in
-      "" | "—" | "-")
-        refuse "the $seat row starts no session, so a ticket asking for it would get no worker" ;;
-    esac
-  done
-
-  # A night nobody is watching cannot notice that the skills or the hooks went missing
-  # from this machine, so it is checked at the one moment somebody is here.
-  [ -f "$INSTALLER" ] || refuse "no install.sh at $INSTALLER"
-  bash "$INSTALLER" --check >/dev/null \
-    || refuse "install.sh --check found something missing; run install.sh before the night"
-
-  local root
+  local root git_dir commit plan number rc printed ids login
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] || refuse "not inside a git repository"
+  git_dir="$(git -C "$root" rev-parse --git-dir)"
+  commit="$(git -C "$root" rev-parse HEAD)"
 
-  # The tickets' own worker grades, read the way a dispatch will read them: a label
-  # naming a row this table lacks, or two grade labels on one ticket, would refuse that
-  # ticket at every `advance` all night, with the reason only ever on advance's stderr.
-  local grades line number
-  grades="$(python3 "$BOARD" --worker-grades "$spec")" \
+  plan="$(python3 "$STATUS" --advance-plan "$spec")" \
     || refuse "could not read the batch under #$spec"
-  while IFS= read -r line; do
-    [ -n "$line" ] || continue
-    local -a fields marked
-    read -r -a fields <<<"$line"
-    number="${fields[1]}"
-    marked=("${fields[@]:2}")
-    case "${#marked[@]}" in
-      0) ;;
-      1) [ -n "$(row_for_role "${marked[0]}")" ] \
-           || refuse "#$number asks for ${marked[0]}, and $MODELS has no such row" ;;
-      *) refuse "#$number carries ${#marked[@]} worker labels (${marked[*]}), and it takes one" ;;
-    esac
-  done <<<"$grades"
 
-  # Every host a session will be started on has to be a kind `herdr agent start`
-  # accepts, or that session never comes up and the ticket is refused at every advance.
-  # A help text with no kind list on it is not a reason to stop the night: the check is
-  # skipped, said so on stderr, and `agent start` reports a bad kind itself.
-  local kinds host
-  kinds="$(herdr_agent_kinds)"
-  if [ -n "$kinds" ]; then
-    for seat in $(worker_roles) reviewer; do
-      host="$(row_for_role "$seat" | cut -f1)"
-      case " $kinds " in
-        *" $host "*) ;;
-        *) refuse "the $seat row's host is $host, which herdr agent start does not accept (it accepts: $kinds)" ;;
-      esac
-    done
-  else
-    echo "dispatch: 'herdr agent start --help' lists no agent kinds, so the hosts in $MODELS were not checked" >&2
+  local green=0 red=0
+  for number in $(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }'); do
+    printed="$(python3 "$VERIFY" "$number" --reverify 2>&1)"
+    rc=$?
+    printf '%s\n' "$printed"
+    if [ "$rc" -eq 0 ]; then
+      gh_ issue comment "$number" --body "$commit" >/dev/null
+      green=$((green + 1))
+    else
+      red=$((red + 1))
+      echo "dispatch: #$number reverify failed" >&2
+      gh_ issue reopen "$number" >/dev/null 2>&1
+      login="$(gh_ issue view "$number" --json assignees 2>/dev/null | python3 -c '
+import json, sys
+try:
+    rows = json.load(sys.stdin).get("assignees") or []
+except Exception:
+    rows = []
+print((rows[0].get("login") or "") if rows else "")
+')"
+      if [ -n "$login" ]; then
+        gh_ issue edit "$number" --add-label needs-triage --remove-assignee "$login" >/dev/null
+      else
+        gh_ issue edit "$number" --add-label needs-triage >/dev/null
+      fi
+      ids="$(printf '%s\n' "$printed" | failing_ac_ids)"
+      gh_ issue comment "$number" --body "$(printf '%s\n%s\n' "$commit" "$ids")" >/dev/null
+    fi
+  done
+
+  printf '%s %s\n' "$green" "$red" > "$git_dir/mmw-reverify-$spec"
+  echo "reverify #$spec: $green green, $red red"
+  [ "$red" -eq 0 ] || exit 1
+}
+
+summary_spec() {
+  local spec="$1"
+  case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
+
+  local body extra git_dir
+  body="$(python3 "$STATUS" --summary "$spec")"
+  git_dir="$(git rev-parse --git-dir 2>/dev/null || true)"
+  extra=""
+  if [ -n "$git_dir" ] && [ -f "$git_dir/mmw-reverify-$spec" ]; then
+    extra="$(awk '{ printf "Reverify: %s/%s\n", $1, $2 }' "$git_dir/mmw-reverify-$spec")"
   fi
-
-  herdr agent rename "$caller" "$MAIN_AGENT_NAME" >/dev/null 2>&1 \
-    || refuse "could not rename this pane $MAIN_AGENT_NAME, so the board could not reach it"
-
-  # The same workspace the workers go to. Every board sees every pane on the server and
-  # tells its own apart by workspace, so a board started in somebody else's would filter
-  # by the wrong one — and the label carries the spec number because several of these
-  # tabs are open on a night when several projects run.
-  local pane tab_args
-  tab_args=()
-  [ -n "${HERDR_WORKSPACE_ID:-}" ] && tab_args=(--workspace "$HERDR_WORKSPACE_ID")
-  pane="$(herdr tab create ${tab_args[@]+"${tab_args[@]}"} --cwd "$root" \
-            --label "$BOARD_TAB_LABEL #$spec" --no-focus \
-          | json_at .result.root_pane.pane_id)"
-  [ -n "$pane" ] || refuse "could not open the $BOARD_TAB_LABEL tab"
-
-  local watch="python3 $BOARD --watch $spec"
-  [ -n "$max_hours" ] && watch="$watch --max-hours $max_hours"
-  # It keeps no state, so a crash costs nothing but the wait; it exits 0 once the night
-  # is over, and that is what ends the loop.
-  herdr pane run "$pane" "until $watch; do sleep $BOARD_RESTART_SECONDS; done" >/dev/null \
-    || refuse "could not start the board in pane $pane"
-
-  echo "$MAIN_AGENT_NAME is this pane; the board is watching #$spec in pane $pane"
-  # The board announces a frontier by prompting this pane, and a focused pane takes no
-  # prompt — which is what a pane that just typed this command is. So the first batch is
-  # the caller's to start.
-  echo "Now advance #$spec yourself: the board cannot prompt a focused pane, so the first frontier is yours to start."
+  if [ -n "$extra" ]; then
+    body="$(printf '%s\n%s\n' "$body" "$extra")"
+  fi
+  gh_ issue comment "$spec" --body "$body" >/dev/null \
+    || refuse "could not post the night summary on #$spec"
+  printf '%s\n' "$body"
 }
 
 # ------------------------------------------------------------------ entry
 
 [ -f "$MODELS" ] || refuse "no models.md at $MODELS"
 
+MMW_PATH_MODE=""
+POSITIONAL=()
+for arg in "$@"; do
+  case "$arg" in
+    --json)
+      [ -z "$MMW_PATH_MODE" ] || refuse "pass only one of --json and --run"
+      MMW_PATH_MODE=json ;;
+    --run)
+      [ -z "$MMW_PATH_MODE" ] || refuse "pass only one of --json and --run"
+      MMW_PATH_MODE=run ;;
+    *) POSITIONAL+=("$arg") ;;
+  esac
+done
+set -- "${POSITIONAL[@]+"${POSITIONAL[@]}"}"
+
+need_path() {
+  [ -n "$MMW_PATH_MODE" ] \
+    || refuse "pass --json (print one create_agent object per ticket) or --run (paseo run); do not guess"
+}
+
 case "${1:-}" in
-  run)
-    [ "$#" -ge 2 ] || usage
-    shift
-    run_night "$@"
+  check)
+    [ "$#" -eq 2 ] || usage
+    case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac
+    check_machine "$2"
     ;;
   advance)
-    [ "$#" -ge 2 ] || usage
-    shift
-    advance "$@"
+    [ "$#" -eq 2 ] || usage
+    need_path
+    advance "$2"
     ;;
-  wait)
-    [ "$#" -ge 3 ] && [ "$#" -le 4 ] || usage
-    wait_for "$2" "$3" "${4:-}"
+  start)
+    [ "$#" -eq 3 ] || usage
+    case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
+    need_path
+    start_one "$2" "$3"
+    ;;
+  resume)
+    [ "$#" -eq 3 ] || usage
+    case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
+    resume_one "$2" "$3"
+    ;;
+  status)
+    [ "$#" -eq 2 ] || usage
+    case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac
+    python3 "$STATUS" --table "$2"
+    ;;
+  reverify)
+    [ "$#" -eq 2 ] || usage
+    reverify_spec "$2"
+    ;;
+  summary)
+    [ "$#" -eq 2 ] || usage
+    summary_spec "$2"
     ;;
   "" | -h | --help)
     usage
     ;;
   *)
-    [ "$#" -ge 2 ] && [ "$#" -le 3 ] || usage
-    case "$1" in
-      *[!0-9]* | "") refuse "ticket number must be digits only, got $1" ;;
-    esac
-    dispatch "$1" "$2" "${3:-}"
+    usage
     ;;
 esac

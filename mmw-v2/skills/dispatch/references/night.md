@@ -1,62 +1,64 @@
 # Running a night
 
-You are the main agent, and a spec's tickets are going to be worked while you are not watching them. Two agents share the night, and the line between them is that **the board watches, and every decision is yours**: the board sends `continue` to a worker whose turn failed on the network, tells you about a worker that stopped on its own, and merges nothing, dispatches nothing, and takes no ticket out of the agent queue. A dispatch decides which HEAD the next ticket's branch is cut from, and that is yours.
+You are the main agent. A spec's tickets will be worked while you are not watching each one. The scripts merge, archive, create workspaces, and print the arguments for `create_agent`. Every decision is yours: whether a worker continues, whether a failure is yours to fix, whether a question becomes a sub-issue, whether to `advance` again.
 
-## `run` opens it, and dispatches nothing
+This file is the order of the night. The commands, their exit codes, and the shape of a finish notification are in `SKILL.md` next to this file. Resolve `<dispatch>` the same way that file does.
 
-`<dispatch> run <spec> [--max-hours H]` is typed once, after the last ticket of a spec is published. It checks this machine, renames your own pane `mmw-main` so the board can reach you, opens the monitor tab, labelled `mmw board #<spec>`, in this workspace, and leaves `<board> --watch` running in it.
+## 1. The user says the night starts
 
-`--max-hours` is how long one ticket may hold a session before the board tells you so; the ticket keeps its label and its session. Which row of `models.md` a ticket's worker starts from is the ticket's own `junior-worker` or `senior-worker` label, so the night carries no answer of its own.
+Run, in this checkout, on the branch the night merges into:
 
-The checks it runs first matter. A night nobody is watching cannot notice that this machine's skills or its `hook.py` went missing, that a ticket's worker-grade label names a row `models.md` no longer has, or that a row's host is not a kind Herdr can start — each of those would refuse a ticket at every `advance`, with the reason only on `advance`'s stderr. So `install.sh --check`, every queued ticket's grade label, and every worker row's and the reviewer row's host are checked at the one moment somebody is here to fix them, and `run` exits 2 with nothing opened.
+```bash
+<dispatch> check <spec>
+```
 
-**Then run `advance` once, yourself.** The board's `mmw board:` line may not reach you while your pane is focused, and at the start of a night it usually is.
+**Exit 0:** go to step 2. **Exit 2:** stderr is one line per failure (`install.sh --check`, a provider whose `status` is not `available`, a queued ticket with two worker-grade labels or a label `models.md` has no row for). Fix what the lines name, or tell the user if only they can, then run `check` again. Do not `advance` on 2.
 
-## `advance` merges, then dispatches, in that order
+## 2. First `advance`
 
-`<dispatch> advance <spec>` merges the branch of every ticket that closed with `ALL MET` into the branch you are on at that moment, then dispatches every ticket on the frontier. The branch you open the night on is the base branch, so stay on it all night: every `advance` merges into whatever HEAD is on, and `git config branch.issue-<n>.mmw-base-branch` is a record for readers, not something `advance` consults.
+Stay on this branch all night. Every `advance` merges into whatever `HEAD` is on.
 
-The two halves are one command because the order is the reason: a worktree is cut from `HEAD` at the moment it is opened, so a branch merged after the next ticket is dispatched is a branch that ticket cannot see.
+```bash
+<dispatch> advance <spec> --json
+```
 
-It merges a branch when four things hold at once — the ticket is `CLOSED`, its closing comment opens `ALL MET`, the ticket branch `issue-<n>` exists, and that branch is not already an ancestor of `HEAD`. The fourth is what makes the command safe to run at any time: a branch already merged is skipped, and an empty frontier starts nothing. A ticket handed back to `needs-triage` stays open, so the second condition excludes unfinished work without a rule of its own.
+**Exit 0:** stdout is zero or more JSON lines, one per ticket on the frontier. For each line, call `create_agent` with that object and `notifyOnFinish: true`. Then wait. **Exit 2:** nothing was touched; read stderr; if it is uncommitted changes, commit or set them aside and run `advance` again; if it is the `.git` lock, run `advance` again. **Exit 3:** a merge is in conflict, still in the tree. Resolve it with the `resolving-merge-conflicts` skill — never `--abort` — run this repository's own checks, commit the merge, then `advance` again with `--json`.
 
-Branches are merged in the order their tickets **closed**, not in ticket order. That is already the order their blockers imposed: `verify-ticket.py --preflight` refuses a ticket whose blocker is open, so none of them can have closed before the ones it waited on. Each merge keeps a commit of its own, so a ticket can be found and undone in the morning, and so the other side of a conflict can be read back to the tickets it came from.
+`--json` is required because the finish notification only fires for `create_agent` you issued. `--run` is the same merge and workspace work without notifications; use it only when you have no `create_agent` tool.
 
-## What the board reads, and what it does
+A worktree is cut from `HEAD` at the moment `advance` creates it, so a branch merged after the next ticket is dispatched is a branch that ticket cannot see. That is why merge, archive, create, and dispatch are one command, in that order. Archive uses `git worktree remove --force` and does not inspect uncommitted work in that worktree, so `advance` archives a ticket's workspace only after that ticket's branch is already in `HEAD`.
 
-Every session this pipeline starts reports its own turn state: `turn.py`, installed on the host's lifecycle hooks, writes the `turn` pane token — `ready`, `working`, `ended`, `failed:<error>`, `cancelled:<reason>` — and reports `working` / `idle` to Herdr as that pane's lifecycle authority, so Herdr stops guessing the state off the screen. The board reads the token and does one of three things:
+## 3. Each finish notification
 
-| `turn` | What the board does |
+The notification's first sentence is `Agent <id> (<title>) finished.` or `errored.` or `was closed.` or `needs permission.` Title is `#<n> worker`, `#<n> reviewer` or `#<n> verifier`.
+
+1. If it is `needs permission`: `list_pending_permissions` then `respond_to_permission` (CLI: `paseo permit`). Then go to 2. This is not a stop.
+2. Run `<dispatch> status <spec>`. The table's `note` column is `needs permission`, `ready`, `waiting on #<m>`, the newest comment, or empty while a worker is live.
+3. Decide, using the table and the notification:
+
+| What you see | What you do |
 | --- | --- |
-| `failed:<error>` | The host gave up on the turn after its own retries, most often on the network. The board sends `continue`, once per turn, and at most `FAILED_LIMIT` times at one `phase`; after that it tells you instead |
-| `ended`, `cancelled:<reason>` | The worker ended a turn short of `closed` or `handoff`. The board tells you, once per turn, and touches nothing |
-| `phase` is `closed` or `handoff` | The closing comment is on the ticket. The board closes the pane |
+| A ticket just closed `ALL MET`, or the frontier has `ready` rows and no live worker on them | `<dispatch> advance <spec> --json`, then `create_agent` on each new line |
+| The worker is live and the work should continue | `<dispatch> resume <n> "<what you settled, then: continue>"` |
+| The worker `errored` or `was closed` short of a closing comment | `paseo logs <id>`. Fix what stopped it — a file it could not find, a command it needs, a baseline it read wrong — then `resume` with that plus `continue`. A question only a person can settle: `gh issue create --parent <spec> --label needs-triage` and `resume` telling the worker to take the default and record it under `Decisions I made on my own`. Change no label |
+| The worker is live and nothing is wrong | Do not `resume`. Wait for the next notification |
+| `status` shows an empty frontier and no live agent of this spec | Go to step 4 |
 
-A session with no `turn` token — hooks not installed, or Herdr restarted — is left alone until Herdr has read it `idle` for `FALLBACK_SECONDS` with nothing new on the ticket, and then reported to you the same way as one that stopped on purpose.
+Then wait for the next notification. Most notifications that close a ticket are followed by another `advance`.
 
-## When the board re-prompts you
+You may create a heartbeat that prompts you to run `status` if you have been idle too long. There is no required interval and no required text; a heartbeat that fires while you already have a turn in flight is reported as a failure by Paseo, not queued.
 
-Four cases reach you, each as one line beginning `mmw board:`. The line names the case and the ticket or spec; what each case asks of you is the `Find your command` table in this skill's `SKILL.md`.
+## 4. The night is over
 
-| Case | What it means |
-| --- | --- |
-| `ADVANCE` | The frontier has tickets on it |
-| `night over` | The night ended: the frontier is empty and no session of ours is alive. A ticket left waiting on a blocker that was handed back keeps its label and is on the `Not dispatched, a blocker stayed open:` line of `NIGHT SUMMARY`, the newest comment on the spec. Advance one last time, since the tickets that closed last still have their branches outside your base branch; then the section below, and tell the user if they asked to hear when the night finished |
-| `STOPPED` | A worker ended a turn on its own, short of `closed` or `handoff`, or its turn failed more than `FAILED_LIMIT` times at one phase. The line names its Herdr name: read its screen, work out why, and move it on |
-| `TIME LIMIT` | A ticket has held its session for `--max-hours`. Nothing was changed: read the session's screen and decide whether it goes on |
+The frontier is empty and `status` shows no live agent. Then, still on this branch:
 
-## Re-running the closed tickets
+```bash
+<dispatch> reverify <spec>
+<dispatch> summary <spec>
+```
 
-A ticket's criteria run in its own worktree, against the code that was there while it ran. A ticket merged after it can break one of them, and until the base branch is checked nothing looks: every ticket is green alone and the branch is red.
+`reverify` re-runs every closed `ALL MET` ticket's criteria against this `HEAD`. Exit 0: all green. Exit 1: each red ticket is already reopened, labelled `needs-triage`, unassigned, and commented with the failing `AC<n>` — that is the morning's triage queue; do not close those tickets.
 
-So after the last advance, on the base branch, for every ticket this spec closed, in ticket order: `verify-ticket.py <n> --reverify`. Comment the base-branch commit each one was re-run at. A ticket with a failing criterion is reopened into the morning's triage queue: `gh issue reopen <n>`, `gh issue edit <n> --add-label needs-triage --remove-assignee <its assignee>`, and one comment naming the base-branch commit (`git rev-parse HEAD`) and each criterion that failed by its `AC<n>` id — the closeout took `ready-for-agent` off and left the assignee, so without the label the ticket sits in no queue and the morning query never lists it. A criterion that needs an application running starts it once and reuses it for the whole pass.
+`summary` posts a comment on the spec whose first line is `NIGHT SUMMARY <date>`, with the four lines `Closed:`, `Handed back to needs-triage:`, `Not dispatched, a blocker stayed open:`, `Sub-issues opened tonight:`. If `reverify` ran in this checkout, a `Reverify: <green>/<red>` line is appended.
 
-No question reaches the screen: `hook.py` refuses the host's question tool in every dispatched session and tells the worker where the question goes instead — the default taken and recorded under `Decisions I made on my own`, or `ABANDON: AC<n> decision` with a sub-issue.
-
-Everything the board prints is also appended to `~/.mmw/logs/board-<workspace id>-<spec>.log`, which is where to look in the morning once the monitor tab is gone.
-
-## One board, one workspace
-
-A board answers for the Herdr workspace it was started in: it acts on the sessions in that workspace and leaves every other one alone, and the Herdr names it hands out carry the workspace id — `w2q-issue-61` rather than `issue-61`. Herdr's names are unique among live agents across the whole server, so without that two repositories each holding a ticket #100 would collide and the second one would not start.
-
-Nothing about this needs setting up: `run` opens the board in the workspace you type it in, and several projects can be running their own nights at the same time. The ticket branch is still `issue-61` — the prefix is a Herdr name, not a branch name.
+Tell the user the night finished, and point them at that comment.

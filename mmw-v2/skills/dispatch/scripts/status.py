@@ -15,10 +15,9 @@ The two sources are the tracker (`gh`) and Paseo (`paseo ls` / `paseo inspect`),
 nothing else. There is no state file: each invocation is a full re-read.
 
 Which ticket an agent belongs to is the basename of its `cwd`: `issue-<n>`. Kind is
-not read off labels — `paseo ls --json` does not carry them — so a live agent is a
-worker unless `paseo inspect` reports a `ParentAgentId` that is itself in this spec's
-live list, in which case it is a reviewer. `phase` and the criteria count come off
-the ticket's comments.
+the `--label mmw.kind=` filter that returned the row — CLI `paseo ls --json` does
+not carry labels in the body, so the script asks once per kind. `phase` and the
+criteria count come off the ticket's comments.
 """
 
 from __future__ import annotations
@@ -73,32 +72,45 @@ def paseo_json(args: list[str]):
     return json.loads(text)
 
 
+AGENT_KINDS = ("worker", "reviewer", "verifier")
+
+
 def live_agents(spec: int) -> list[dict]:
     """Every live agent labelled `mmw.spec=<spec>`, with inspect fields merged in.
 
-    `paseo ls --json` has no labels in the body, so the filter is the `--label` on
-    the call. Each agent is then inspected once for `LastUsage`, `PendingPermissions`
-    and `ParentAgentId`. Raises when `ls` itself could not be asked: an unanswered
-    call is not an empty list.
+    `paseo ls --json` has no labels in the body, so both filters are `--label` on
+    the call: one `ls` per `mmw.kind`. Each agent is then inspected once for
+    `LastUsage` and `PendingPermissions`. Raises when `ls` itself could not be
+    asked: an unanswered call is not an empty list.
     """
-    rows = paseo_json(["ls", "-g", "--json", "--label", f"mmw.spec={spec}"])
-    if not isinstance(rows, list):
-        raise RuntimeError("paseo ls: expected a list")
     out = []
-    for row in rows:
-        if not isinstance(row, dict) or not row.get("id"):
-            continue
-        try:
-            detail = paseo_json(["inspect", row["id"], "--json"])
-        except Exception:
-            detail = {}
-        if not isinstance(detail, dict):
-            detail = {}
-        merged = dict(row)
-        merged["LastUsage"] = detail.get("LastUsage")
-        merged["PendingPermissions"] = detail.get("PendingPermissions") or []
-        merged["ParentAgentId"] = detail.get("ParentAgentId")
-        out.append(merged)
+    seen: set[str] = set()
+    for kind in AGENT_KINDS:
+        rows = paseo_json([
+            "ls", "-g", "--json",
+            "--label", f"mmw.spec={spec}",
+            "--label", f"mmw.kind={kind}",
+        ])
+        if not isinstance(rows, list):
+            raise RuntimeError("paseo ls: expected a list")
+        for row in rows:
+            if not isinstance(row, dict) or not row.get("id"):
+                continue
+            agent_id = row["id"]
+            if agent_id in seen:
+                continue
+            seen.add(agent_id)
+            try:
+                detail = paseo_json(["inspect", agent_id, "--json"])
+            except Exception:
+                detail = {}
+            if not isinstance(detail, dict):
+                detail = {}
+            merged = dict(row)
+            merged["kind"] = kind
+            merged["LastUsage"] = detail.get("LastUsage")
+            merged["PendingPermissions"] = detail.get("PendingPermissions") or []
+            out.append(merged)
     return out
 
 
@@ -236,30 +248,28 @@ def ticket_of_cwd(cwd: str) -> int | None:
 def sessions(agents: list[dict]) -> list[dict]:
     """The spec's live agents, each named as a ticket and a kind.
 
-    A live agent whose `cwd` basename is not `issue-<n>` is not ours. Among those
-    that are, a `ParentAgentId` that is itself in this list is a reviewer (or a
-    verifier: both sit in the worker's worktree); otherwise it is the worker.
+    A live agent whose `cwd` basename is not `issue-<n>` is not ours. Kind is
+    whatever `live_agents` set from the `mmw.kind` filter; a missing kind is a
+    worker, which is what a test fixture that only names the ticket produces.
     """
-    ids = {a.get("id") for a in agents if a.get("id")}
     found = []
     for agent in agents:
         number = ticket_of_cwd(agent.get("cwd") or "")
         if number is None:
             continue
-        parent = agent.get("ParentAgentId") or ""
-        kind = "reviewer" if parent in ids else "worker"
+        kind = agent.get("kind") or "worker"
+        if kind not in AGENT_KINDS:
+            kind = "worker"
         found.append({
             "ticket": number,
             "kind": kind,
             "name": agent.get("name") or "",
-            "dispatched": True,
             "id": agent.get("id") or "",
             "status": agent.get("status") or "-",
             "cwd": agent.get("cwd") or "",
             "created": agent.get("created") or "",
             "LastUsage": agent.get("LastUsage"),
             "PendingPermissions": agent.get("PendingPermissions") or [],
-            "ParentAgentId": parent,
         })
     return found
 
@@ -271,17 +281,9 @@ def worker_on(sessions_: list[dict], number: int) -> dict | None:
     return None
 
 
-def reviewer_on(sessions_: list[dict], number: int) -> dict | None:
-    """The reviewer (or verifier) on this ticket, held apart from its worker."""
-    for s in sessions_:
-        if s["ticket"] == number and s["kind"] == "reviewer":
-            return s
-    return None
-
-
 def held(rows: list[dict]) -> list[dict]:
     """The rows whose worker is a live Paseo agent of this spec."""
-    return [r for r in rows if r["worker"] and r["worker"]["dispatched"]]
+    return [r for r in rows if r["worker"]]
 
 # --------------------------------------------------------------------- the rows
 
@@ -296,7 +298,6 @@ def build_rows(numbers: list[int], tickets: dict[int, dict],
         rows.append({
             "ticket": number,
             "worker": worker,
-            "reviewer": reviewer_on(sessions_, number),
             "state": ticket["state"],
             "labels": ticket["labels"],
             "blockers": ticket["blockers"],
@@ -307,10 +308,8 @@ def build_rows(numbers: list[int], tickets: dict[int, dict],
             "age": worker["created"] if worker and worker["created"] else "-",
             "phase": phase_of(ticket),
             "ac": counted_ac(ticket) or "-",
-            "turn": "-",
             "note": note_of(ticket, worker),
             "head": last_first_line(ticket),
-            "comment_count": len(ticket.get("comments") or []),
             "created": ticket.get("created") or "",
             "closed_at": ticket.get("closed_at") or "",
         })
@@ -353,7 +352,7 @@ def frontier(rows: list[dict]) -> list[dict]:
 # --------------------------------------------------------------------- output
 
 COLUMNS = (("ticket", 8), ("agent", 18), ("id", 8), ("agent_status", 14),
-           ("age", 16), ("phase", 19), ("ac", 7), ("turn", 8), ("note", 0))
+           ("age", 16), ("phase", 19), ("ac", 7), ("note", 0))
 
 
 def render_row(cells: dict) -> str:
@@ -381,7 +380,6 @@ def render_table(rows: list[dict], spec: int | None, now: datetime) -> str:
             "age": row["age"],
             "phase": row["phase"],
             "ac": row["ac"],
-            "turn": row["turn"],
             "note": row["note"],
         }))
     return "\n".join(lines)

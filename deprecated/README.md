@@ -26,6 +26,10 @@ mmw-v2 里退役的技能与 subagent。**不装、不跑、不当事实**：`mm
 
 **A2 是唯一没有承接对象的一种。** `visual-parity.py` 里没有 axe-core，一处都没有；它比的是 ARIA 树一不一样，不是判无障碍对不对。而 `aria-label`、`tabindex` 这些是写代码时才产生的属性，Claude Design 的基线里根本不存在，所以这一种不可能靠比对基线查出来。要拿回来的话，拿的是 `scripts/deps.json` 里 `accessibility` 那一条能力，落点是 `mmw-v2/skills/verify-ticket/scripts/` 下一个新脚本、票上一条 `CHECK:`，不是这整个技能。
 
+## `agents/verifier`（2026-09-05 退役）
+
+按票重跑验收标准、在票上留一行 `VERDICT` 的原生 subagent。提示词正文现在是 `mmw-v2/skills/dispatch/references/verifier.md`，随 dispatch 技能一起装，由 `dispatch.sh start <n> verifier` 写进 initialPrompt。这里留下退役当天的 `agent.json` 和 `out/claude.md`，此后不再装配。
+
 ## `ui-evaluator`（2026-08-30 退役）
 
 以初见者身份判断界面的 subagent，只被 `ui-qa` 的 B2、B3、B4 派。那三种归用户自己判之后，它没有调用方了。
