@@ -342,7 +342,7 @@ _Avoid_: 基线 (as a term), reference (when this is meant)
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **contract**:
-The bond between a worker and every baseline in `## Read first`, in three clauses: copy exact values, wording, states, and interface shapes; never deviate quietly; never bend a baseline, a harness, or a test. **The baseline is the contract** is the first of the writing rules. **The contract does not fit** is the case where a baseline lacks a state, a field, an interaction, or a case the work needs, or two baselines conflict: keep going, open a sub-issue under the spec, add nothing quietly.
+The bond between a worker and every baseline in `## Read first`, in three clauses: copy exact values, wording, states, and interface shapes; never deviate quietly; never bend a baseline, a harness, or a test. **The baseline is the contract** is the first of the writing rules. **The contract does not fit** is the case where a baseline lacks a state, a field, an interaction, or a case the work needs, or two baselines conflict: keep going, open a sub-issue under the ticket, add nothing quietly.
 _Avoid_: 契约 (as a term), 安装契约, 接口契约, 基线是契约, 契约装不下, 基线装不下
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
@@ -416,7 +416,7 @@ _Avoid_: 轮 (as a term), 三轮上限
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **`ABANDON:`**:
-The line `ABANDON: AC<n> <kind> <reason>` a worker — never the verifier — writes under a criterion it gives up on. The kinds: **`failed`** — it ran and did not pass (after the rounds the worker judged worth spending, or still failing after the review fix or the verifier's report), its reason saying what each round tried; **`stuck`** — it will not start or cannot be done within the ticket (a `CHECK:` that will not run, a missing credential or device, out of reach within the scope), its reason listing the routes tried or pointing at the sub-issue; neither is held to a round count, and the two are told apart for whoever reads the ticket in the morning; **`decision`** — a person has to settle one sentence, a sub-issue is opened under `needs-triage`, and it is the only kind that still lets the ticket close `ALL MET`. `failed` and `stuck` force `HANDOFF REQUIRED`.
+The line `ABANDON: AC<n> <kind> <reason>` a worker — never the verifier — writes under a criterion it gives up on. The kinds: **`failed`** — it ran and did not pass (after the rounds the worker judged worth spending, or still failing after the review fix or the verifier's report), its reason saying what each round tried; **`stuck`** — it will not start or cannot be done within the ticket (a `CHECK:` that will not run, a missing credential or device, out of reach within the scope), its reason listing the routes tried or pointing at the sub-issue; neither is held to a round count, and the two are told apart for whoever reads the ticket in the morning; **`decision`** — a person has to settle one sentence, a sub-issue is opened under the ticket with `needs-triage`, and it is the only kind that still lets the ticket close `ALL MET`. `failed` and `stuck` force `HANDOFF REQUIRED`.
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **blocking link**:
@@ -434,7 +434,7 @@ The ticket field `claim` sets. It is one of `--preflight`'s six checks; a fronti
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **sub-issue**:
-The tracker's native parent–child relation: every ticket is created under its spec, and `--lint`'s ticket graph, the night's frontier, and the spec page's panel all read `repos/{owner}/{repo}/issues/<spec>/sub_issues`; a spec with none is the lint `ERROR` `[no-sub-issues]`. Also an issue a worker opens under the spec with `--label needs-triage`, from one of four sources: the contract does not fit, a merely convenient change outside `## Owns`, an out-of-ticket review finding, an `ABANDON: decision`; listed on the closing comment's `Sub-issues opened:` line. A wayfinder map's child tickets are its sub-issues too.
+The tracker's native parent–child relation, in two levels. A spec's direct children are the batch: every ticket is created under its spec, and `--lint`'s ticket graph, the night's frontier, and the spec page's panel all read `repos/{owner}/{repo}/issues/<spec>/sub_issues`; a spec with none is the lint `ERROR` `[no-sub-issues]`. A ticket's direct children are the pending items it produced: an issue a worker opens under the ticket with `--label needs-triage`, from one of five sources: the contract does not fit, a merely convenient change outside `## Owns`, an out-of-ticket review finding, an `ABANDON: decision`, a pipeline fault; listed on the closing comment's `Sub-issues opened:` line. Only a spec's direct children are dispatched by `advance` or drawn into `--lint`'s ticket graph. A wayfinder map's child tickets are its sub-issues too.
 _Admitted_: child (in the wayfinder map's context)
 _Avoid_: sub_issues (in prose), child ticket
 _Home_: `mmw-v2/merge-notes/to-tickets.md`
@@ -457,7 +457,7 @@ _Avoid_: 角色 (bare)
 _Home_: `docs/agents/triage-labels.md`
 
 **`needs-triage`**:
-Nobody has judged it yet: an issue from outside, a ticket its worker closed out as `HANDOFF REQUIRED`, or a closed ticket reopened after the night because a criterion failed on the base branch (label added, assignee removed, the failing `AC<n>` and the base-branch commit in a comment). `triage` reads this queue and recommends one of the four outcomes. A sub-issue a worker opens carries it.
+Nobody has judged it yet: an issue from outside, a ticket its worker closed out as `HANDOFF REQUIRED`, or a closed ticket reopened after the night because a criterion failed on the base branch (label added, assignee removed, the failing `AC<n>` and the base-branch commit in a comment). `triage` reads this queue and recommends one of the four outcomes. A sub-issue a worker opens carries it and is always under the ticket.
 _Home_: `docs/agents/triage-labels.md`
 
 **`needs-info`**:
@@ -544,7 +544,7 @@ _Avoid_: review report comment, REVIEW 评论, report (bare)
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
 **closing comment**:
-The comment a worker leaves on handing over, written first as a **draft** file that `--closeout <draft>` checks and posts. Its fixed parts: the first line `ALL MET` or `HANDOFF REQUIRED: <abandoned> abandoned (<kinds>), <unmet> unmet, <met> met of <total>`; `Branch: … Commit: … PR: none — will be merged into <base branch> by dispatch.sh advance`; `Post-verdict:` (every commit after the last `VERDICT` with where it came from, `None` when the verdict is on HEAD); four lines per criterion, with `ABANDON:` where given; `Outside Owns:` (each file followed by the Spec axis's judgement, `reasonable` or `should not`); `skipped: [X], add when [Y]` (what was deliberately not built and the condition to build it); `Sub-issues opened:`; `Counts: <met> met, <unmet> unmet, <abandoned> abandoned of <total>` (recounted at the Audit, agreeing with the first line); `Decisions I made on my own` (one line per thing the worker settled that neither ticket nor spec decides). Its first line decides whether `advance` merges the branch. The draft is written by `verify-ticket.py <n> --draft`, so its `ALL MET` is not evidence until `--closeout` accepts it.
+The comment a worker leaves on handing over, written first as a **draft** file that `--closeout <draft>` checks and posts. Its fixed parts: the first line `ALL MET` or `HANDOFF REQUIRED: <abandoned> abandoned (<kinds>), <unmet> unmet, <met> met of <total>`; `Branch: … Commit: … PR: none — will be merged into <base branch> by dispatch.sh advance`; `Post-verdict:` (every commit after the last `VERDICT` with where it came from, `None` when the verdict is on HEAD); four lines per criterion, with `ABANDON:` where given; `Outside Owns:` (each file followed by the Spec axis's judgement, `reasonable` or `should not`); `skipped: [X], add when [Y]` (what was deliberately not built and the condition to build it); `Sub-issues opened:` (this ticket's sub-issues); `Counts: <met> met, <unmet> unmet, <abandoned> abandoned of <total>` (recounted at the Audit, agreeing with the first line); `Decisions I made on my own` (one line per thing the worker settled that neither ticket nor spec decides). Its first line decides whether `advance` merges the branch. The draft is written by `verify-ticket.py <n> --draft`, so its `ALL MET` is not evidence until `--closeout` accepts it.
 _Avoid_: 收尾评论, handoff comment, 收尾评论草稿, 草稿 (as a term), 本票我自己拿的主意
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
@@ -573,12 +573,12 @@ _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **question gate**:
-`hook.py question <host>`: the refusal of the host's question tool (`AskUserQuestion` on Claude Code, `ask_user_question` on Grok, `request_user_input` on Codex) in any Paseo agent labelled `mmw.autonomous=1`. The gate reads `PASEO_AGENT_ID` and asks `paseo ls -g --json --label mmw.autonomous=1`. Its reason names the two ways out — take the likeliest option and record it under `Decisions I made on my own`, or `ABANDON: AC<n> decision` with `--sub-issue decision` — so no question ever reaches a screen nobody watches.
+`hook.py question <host>`: the refusal of the host's question tool (`AskUserQuestion` on Claude Code, `ask_user_question` on Grok, `request_user_input` on Codex) in any Paseo agent labelled `mmw.autonomous=1`. The gate reads `PASEO_AGENT_ID` and asks `paseo ls -g --json --label mmw.autonomous=1`. Its reason names the two ways out — take the likeliest option and record it under `Decisions I made on my own`, or `ABANDON: AC<n> decision` with `--sub-issue decision` under the ticket — so no question ever reaches a screen nobody watches.
 _Avoid_: form, 提问表单, BLOCKED:, MMW_AUTONOMOUS
 _Home_: `mmw-v2/skills/verify-ticket/scripts/hook.py`
 
 **`NIGHT SUMMARY`**:
-The comment `NIGHT SUMMARY <date>` that `dispatch.sh summary <spec>` posts on the spec when the night is over: four lines, `Closed:`, `Handed back to needs-triage:`, `Not dispatched, a blocker stayed open:`, `Sub-issues opened tonight:`, ticket numbers and first lines only. If `reverify` ran in this checkout, a `Reverify: <green>/<red>` line is appended.
+The comment `NIGHT SUMMARY <date>` that `dispatch.sh summary <spec>` posts on the spec when the night is over: four lines, `Closed:`, `Handed back to needs-triage:`, `Not dispatched, a blocker stayed open:`, `Sub-issues opened tonight:` (each ticket's children opened in the night window), ticket numbers and first lines only. If `reverify` ran in this checkout, a `Reverify: <green>/<red>` line is appended.
 _Avoid_: 夜间总结, the night summary
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
@@ -626,7 +626,7 @@ _Avoid_: 轴 (for this), Standards 轴, Spec 轴, Tests 轴, 缺项, 实现得�
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
 **review finding**:
-One item an axis subagent reports, quoting the requirement line it fails. It is **in-ticket** when it touches this ticket's acceptance criteria, a decision in the spec section the ticket names, a baseline under `## Read first`, the spec's `## Out of Scope`, or the spec's `## Testing Decisions` — then it gets one round of fixes, and `ABANDON: AC<n> failed` if the fix cannot be made; otherwise it is **out-of-ticket** and becomes a non-blocking sub-issue under `needs-triage` while the ticket still closes. The dispatcher sorts them.
+One item an axis subagent reports, quoting the requirement line it fails. It is **in-ticket** when it touches this ticket's acceptance criteria, a decision in the spec section the ticket names, a baseline under `## Read first`, the spec's `## Out of Scope`, or the spec's `## Testing Decisions` — then it gets one round of fixes, and `ABANDON: AC<n> failed` if the fix cannot be made; otherwise it is **out-of-ticket** and becomes a non-blocking sub-issue under the ticket, labelled `needs-triage`, while the ticket still closes. The dispatcher sorts them.
 _Avoid_: finding (bare), 票内, 票外, 票内发现, 票外发现
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
@@ -1003,11 +1003,11 @@ _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **--sub-issue**:
-`verify-ticket.py <n> --sub-issue <kind> <file>`: opens a new issue labelled `needs-triage`, parented to the spec, first line `SUB-ISSUE <kind> from #<n>`. `kind` is `baseline`, `outside-owns`, `review`, or `decision`. Empty file or unknown kind: exit 2.
+`verify-ticket.py <n> --sub-issue <kind> <file>`: opens a new issue labelled `needs-triage`, parented to this ticket, first line `SUB-ISSUE <kind> from #<n>`. `kind` is `baseline`, `outside-owns`, `review`, `decision`, or `pipeline`. Empty file or unknown kind: exit 2.
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **SUB-ISSUE**:
-The first line of a sub-issue a worker opens under the spec: `SUB-ISSUE <kind> from #<n>`. `--draft` lists every open child of the spec whose first line matches that shape.
+The first line of a sub-issue a worker opens under the ticket: `SUB-ISSUE <kind> from #<n>`. `--draft` lists this ticket's children.
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **ADR**:
@@ -1030,7 +1030,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | finish notification | `finished` · `errored` · `was closed` · `needs permission` |
 | `permissions` | `bypass` · `read-only` · `—` |
 | `--json` / `--run` | exactly one, on `start` and `advance` |
-| `--sub-issue` kind | `baseline` · `outside-owns` · `review` · `decision` |
+| `--sub-issue` kind | `baseline` · `outside-owns` · `review` · `decision` · `pipeline` |
 | host | `claude` · `codex` · `grok` · `cursor` · `pi` |
 | `target.kind` | `electron` · `web-spa` · `web-server-rendered` · `chrome-extension` |
 | mechanism `via` | `api` · `storage` |
