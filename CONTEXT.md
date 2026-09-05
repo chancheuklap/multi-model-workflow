@@ -435,9 +435,9 @@ _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **sub-issue**:
 The tracker's native parent–child relation, in two levels. A spec's direct children are the batch: every ticket is created under its spec, and `--lint`'s ticket graph, the night's frontier, and the spec page's panel all read `repos/{owner}/{repo}/issues/<spec>/sub_issues`; a spec with none is the lint `ERROR` `[no-sub-issues]`. A ticket's direct children are the pending items it produced: an issue a worker opens under the ticket with `--label needs-triage`, from one of five sources: the contract does not fit, a merely convenient change outside `## Owns`, an out-of-ticket review finding, an `ABANDON: decision`, a pipeline fault; listed on the closing comment's `Sub-issues opened:` line. Only a spec's direct children are dispatched by `advance` or drawn into `--lint`'s ticket graph. A wayfinder map's child tickets are its sub-issues too.
-_Admitted_: child (in the wayfinder map's context)
+_Admitted_: child (in the wayfinder map's context); children, direct children (the two-level invariant)
 _Avoid_: sub_issues (in prose), child ticket
-_Home_: `mmw-v2/merge-notes/to-tickets.md`
+_Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 ### Labels and queues
 
@@ -616,7 +616,7 @@ _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 ### Code review
 
 **code review**:
-One round: the worker starts the reviewer with `dispatch.sh start <n> reviewer --json|--run`; the dispatcher starts three read-only axis subagents, each given three values — the base commit, the ticket number, and its reference file's path — each reading `git diff <base-commit>...HEAD`; one review comment results. The round ends only with that comment: after the finish notification (or `paseo wait <id>`), the worker reads the newest comment whose first line is `REVIEW `. Start exits 2, or the notification is `errored` or `was closed` with no `REVIEW ` comment: `paseo logs <id>`, then the `code-review` skill in this host's general-purpose subagent, whose report lands with the same first line. An in-ticket finding gets one round of fixes and a self-run, never a re-review; an out-of-ticket finding is `--sub-issue review`. Fixing a finding is bound by the writing rules.
+One round: the worker starts the reviewer with `dispatch.sh start <n> reviewer --json|--run`; the dispatcher starts three read-only axis subagents, each given three values — the base commit, the ticket number, and its reference file's path — each reading `git diff <base-commit>...HEAD`; one review comment results. The round ends only with that comment: after the finish notification (or `paseo wait <id>`), the worker reads the newest comment whose first line is `REVIEW `. Start exits 2: nothing was started — it is a pipeline fault: `<engine> <n> --sub-issue pipeline <file>`, then stop. The notification is `errored` or `was closed` with no `REVIEW ` comment: `paseo logs <id>`, then the `code-review` skill in this host's general-purpose subagent, whose report lands with the same first line. An in-ticket finding gets one round of fixes and a self-run, never a re-review; an out-of-ticket finding is `--sub-issue review`. Fixing a finding is bound by the writing rules.
 _Avoid_: the review stage
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
