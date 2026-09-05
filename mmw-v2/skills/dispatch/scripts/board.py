@@ -100,6 +100,16 @@ def gh_json(args: list[str], fallback):
         return fallback
 
 
+def own_login() -> str:
+    """The account `gh` is signed in as, or empty when it cannot be read.
+
+    Empty is the safe answer. The one judgement that turns on it — whether a claim on
+    a ticket was made by this pipeline rather than by a person — then decides that it
+    was not, and no claim is given back.
+    """
+    return gh(["api", "user", "-q", ".login"]).strip()
+
+
 def herdr(args: list[str]) -> dict:
     try:
         return herdr_strict(args)
@@ -452,6 +462,71 @@ def frontier(rows: list[dict]) -> list[dict]:
             and not r["blockers"]
             and not r["assignees"]
             and r["worker"] is None]
+
+
+def orphan_claims(rows: list[dict], login: str) -> list[dict]:
+    """The rows whose claim outlived the session that made it, in ticket order.
+
+    `verify-ticket.py --preflight` claims a ticket by assigning it to the account it
+    runs as, and exactly two paths give that claim back: the closeout, and the hand
+    back to triage. A session that ends any other way — a crash, a machine restart, a
+    tab somebody closed — leaves the claim standing, and since `frontier` takes only
+    unassigned tickets, that ticket is never dispatched again.
+
+    Four things together say the owner of the claim is gone: the ticket is open, it is
+    in the agent queue rather than taken out of it by a person, this pipeline's own
+    account is on it, and no live session of ours holds it. A claim by anyone else is
+    not this pipeline's to give back, and a ticket carrying one stays off the frontier,
+    which is the right answer: somebody took it.
+
+    One risk stays here, unsolved on purpose: `live_agents` sees the Herdr on this
+    machine and no other. A worker of the same account running on a second machine
+    reads from here as a claim whose owner is gone. `dispatch.sh` printing a line for
+    every release is what makes that case visible instead of silent.
+    """
+    if not login:
+        return []
+    return [r for r in rows
+            if r["state"] == "OPEN"
+            and "ready-for-agent" in r["labels"]
+            and login in r["assignees"]
+            and r["worker"] is None]
+
+
+def why_not_on_frontier(row: dict) -> str:
+    """Which of `frontier`'s conditions this ticket fails, in that function's order.
+
+    Read only for a ticket already known to be open and in the agent queue, so the
+    first two conditions are behind it and the three left are the ones a person cannot
+    see from outside this program.
+    """
+    reasons = []
+    if row["blockers"]:
+        reasons.append("blocked by " + ", ".join(f"#{b}" for b in row["blockers"]))
+    if row["assignees"]:
+        reasons.append("claimed by " + ", ".join(row["assignees"]))
+    if row["worker"] is not None:
+        reasons.append(f"held by the live session {row['worker']['name']}")
+    return "; ".join(reasons) or "open, unclaimed, unblocked and unheld: it should have started"
+
+
+def explain_empty_frontier(rows: list[dict], spec: int) -> None:
+    """Say on stderr why nothing can start, one line per ticket still in the queue.
+
+    A frontier that is empty because the batch is finished and a frontier that is empty
+    because every ticket is stuck print the same thing — nothing — and what separates
+    them is five conditions no reader can see from outside `frontier`. So whenever the
+    batch still holds open tickets in the agent queue and none of them can start, each
+    of those tickets names the condition holding it.
+    """
+    queued = [r for r in rows
+              if r["state"] == "OPEN" and "ready-for-agent" in r["labels"]]
+    if not queued:
+        return
+    sys.stderr.write(f"board: nothing on #{spec}'s frontier, and {len(queued)} open "
+                     "ticket(s) are still in the agent queue:\n")
+    for row in queued:
+        sys.stderr.write(f"  #{row['ticket']} {why_not_on_frontier(row)}\n")
 
 # --------------------------------------------------------------------- output
 
@@ -932,10 +1007,18 @@ def collect(spec: int | None) -> tuple[list[dict], list[dict]]:
 def advance_plan(spec: int) -> int:
     """What the main agent's next `dispatch.sh advance` has to do, in order.
 
-    Two kinds of line and nothing else on stdout, because a script reads this:
+    Three kinds of line and nothing else on stdout, because a script reads this, in the
+    order `dispatch.sh` acts on them:
 
         MERGE <ticket>      closed with `ALL MET`, the one that closed first at the top
+        RELEASE <ticket>    in the agent queue and claimed, with no live session behind
+                            the claim: the worker that claimed it is gone
         DISPATCH <ticket>   on the frontier, in ticket order
+
+    A ticket usually carries a `RELEASE` line and a `DISPATCH` line of the same plan:
+    the claim is what kept it off the frontier, and the frontier is read here as it
+    stands once `dispatch.sh` has done the releases printed above it, so a ticket freed
+    by this plan starts in the same advance rather than the next one.
 
     The merge order is the order the tickets closed, which is already the order their
     blockers imposed: `--preflight` refuses a ticket whose blocker is open, so none of
@@ -944,6 +1027,10 @@ def advance_plan(spec: int) -> int:
     Whether a branch exists and whether it is already in the base branch are git's
     questions, and git is not one of this program's two sources. `dispatch.sh` asks
     them, and skips what it finds already merged.
+
+    What no line accounts for goes to stderr: an empty frontier with tickets still in
+    the agent queue names every one of them and the condition holding it, because
+    otherwise it reads exactly like a batch with nothing left to do.
     """
     numbers = sub_issues(spec)
     tickets = {n: read_ticket(n) for n in numbers}
@@ -953,8 +1040,15 @@ def advance_plan(spec: int) -> int:
     for ticket in sorted(done, key=lambda t: t["closed_at"]):
         print(f"MERGE {ticket['number']}")
     rows = build_rows(numbers, tickets, sessions(live_agents()))
-    for row in frontier(rows):
+    login = own_login()
+    for row in orphan_claims(rows, login):
+        print(f"RELEASE {row['ticket']}")
+        row["assignees"] = [a for a in row["assignees"] if a != login]
+    ready = frontier(rows)
+    for row in ready:
         print(f"DISPATCH {row['ticket']}")
+    if not ready:
+        explain_empty_frontier(rows, spec)
     return 0
 
 

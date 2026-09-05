@@ -13,7 +13,7 @@ import importlib.util
 import io
 import os
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime
 from pathlib import Path
 
@@ -805,6 +805,93 @@ class Actions(unittest.TestCase):
             self.calls["main"],
             [(board.main_name(), "mmw board: night over #76 — advance spec #76 "
                                  "with the dispatch skill")])
+
+
+class AdvancePlan(unittest.TestCase):
+    """The three kinds of line `--advance-plan` prints, and what it says when it prints none."""
+
+    LOGIN = "mmw-bot"
+
+    def setUp(self):
+        self.saved = board.sub_issues, board.read_ticket, board.own_login, board.live_agents
+        self.tickets = {}
+        self.agents = []
+        board.sub_issues = lambda spec: list(self.tickets)
+        board.read_ticket = lambda n: self.tickets[n]
+        board.own_login = lambda: self.LOGIN
+        board.live_agents = lambda: self.agents
+
+    def tearDown(self):
+        (board.sub_issues, board.read_ticket,
+         board.own_login, board.live_agents) = self.saved
+
+    def plan(self, spec=76):
+        """The plan's stdout lines and its stderr lines, the two channels held apart."""
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            self.assertEqual(board.advance_plan(spec), 0)
+        return out.getvalue().splitlines(), err.getvalue().splitlines()
+
+    def test_a_claim_with_no_session_behind_it_is_released_and_then_dispatched(self):
+        self.tickets = {61: ticket(61, assignees=(self.LOGIN,))}
+        self.assertEqual(self.plan()[0], ["RELEASE 61", "DISPATCH 61"])
+
+    def test_a_claim_this_pipeline_did_not_make_is_left_alone(self):
+        self.tickets = {61: ticket(61, assignees=("alice",))}
+        out, err = self.plan()
+        self.assertEqual(out, [])
+        self.assertIn("#61 claimed by alice", err[1])
+
+    def test_a_claim_with_a_live_session_on_it_is_its_owners(self):
+        self.tickets = {61: ticket(61, assignees=(self.LOGIN,))}
+        self.agents = [agent("issue-61", "w1:p1", "working", ticket=61, kind="worker")]
+        out, err = self.plan()
+        self.assertEqual(out, [])
+        self.assertIn("held by the live session issue-61", err[1])
+
+    def test_with_no_login_to_compare_against_nothing_is_released(self):
+        board.own_login = lambda: ""
+        self.tickets = {61: ticket(61, assignees=(self.LOGIN,))}
+        self.assertEqual(self.plan()[0], [])
+
+    def test_the_merges_come_first_and_in_closing_order(self):
+        self.tickets = {
+            61: ticket(61, state="CLOSED", labels=(),
+                       comments=["ALL MET\nBranch: issue-61"]),
+            62: ticket(62, state="CLOSED", labels=(),
+                       comments=["ALL MET\nBranch: issue-62"]),
+            63: ticket(63, assignees=(self.LOGIN,)),
+        }
+        self.tickets[61]["closed_at"] = "2026-08-31T02:00:00Z"
+        self.tickets[62]["closed_at"] = "2026-08-31T01:00:00Z"
+        self.assertEqual(self.plan()[0],
+                         ["MERGE 62", "MERGE 61", "RELEASE 63", "DISPATCH 63"])
+
+    def test_an_empty_frontier_names_every_queued_ticket_and_its_condition(self):
+        self.tickets = {
+            61: ticket(61, assignees=("alice",)),
+            62: ticket(62, blockers=(61,)),
+            63: ticket(63),
+            64: ticket(64, labels=("needs-triage",)),
+        }
+        self.agents = [agent("issue-63", "w1:p3", "working", ticket=63, kind="worker")]
+        out, err = self.plan()
+        self.assertEqual(out, [])
+        self.assertEqual(err, [
+            "board: nothing on #76's frontier, and 3 open ticket(s) are still in "
+            "the agent queue:",
+            "  #61 claimed by alice",
+            "  #62 blocked by #61",
+            "  #63 held by the live session issue-63",
+        ])
+
+    def test_a_batch_with_nothing_left_in_the_queue_says_nothing(self):
+        self.tickets = {61: ticket(61, state="CLOSED", labels=())}
+        self.assertEqual(self.plan(), ([], []))
+
+    def test_a_frontier_with_something_on_it_needs_no_explanation(self):
+        self.tickets = {61: ticket(61), 62: ticket(62, blockers=(61,))}
+        self.assertEqual(self.plan(), (["DISPATCH 61"], []))
 
 
 class WorkerGrades(unittest.TestCase):

@@ -673,10 +673,14 @@ merge_one() {
   return 2
 }
 
-# Merge what the batch has finished, then start what it can start. One command because
-# the order is the whole point: `worktree_for` cuts a branch from HEAD at the moment it
-# opens, so a branch merged after the next ticket is dispatched is a branch that ticket
-# cannot see.
+# Merge what the batch has finished, give back the claims whose workers are gone, then
+# start what it can start. One command because the order is the whole point:
+# `worktree_for` cuts a branch from HEAD at the moment it opens, so a branch merged
+# after the next ticket is dispatched is a branch that ticket cannot see; and a claim
+# released after the frontier is read is a ticket that waits for the next advance.
+#
+# `board.py --advance-plan` decides all three and writes nothing itself. The writes —
+# the merges, the claims given back, the sessions started — are here.
 advance() {
   local spec="$1"; shift
   [ "$#" -eq 0 ] || usage
@@ -739,6 +743,23 @@ advance() {
     release_lease "$worktree_base/issue-$number"
   done
 
+  # A claim whose session is gone keeps its ticket off the frontier for good: only the
+  # closeout and the hand back to triage ever give a claim back, and the frontier takes
+  # unassigned tickets alone. `--remove-assignee @me` is the whole write, so a ticket a
+  # person took for themselves is left exactly as it is. Every release says so on
+  # stdout, because the board can see the Herdr on this machine and no other: a worker
+  # of the same account on a second machine would read there as a claim whose owner is
+  # gone, and this line is where that shows.
+  local released=0
+  for number in $(printf '%s\n' "$plan" | awk '$1 == "RELEASE" { print $2 }'); do
+    if gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1; then
+      released=$((released + 1))
+      echo "released the claim on #$number: it is open in the agent queue with no session of ours on it, so the worker that claimed it is gone"
+    else
+      echo "dispatch: could not release the claim on #$number, so it stays off the frontier" >&2
+    fi
+  done
+
   local started=0 refused=0 held=0 live max_inst
   max_inst="$(target_max_instances "$root")"
   for number in $(printf '%s\n' "$plan" | awk '$1 == "DISPATCH" { print $2 }'); do
@@ -761,7 +782,7 @@ advance() {
     fi
   done
 
-  echo "advance #$spec: merged $merged, already in $skipped, started $started, refused $refused, held $held"
+  echo "advance #$spec: merged $merged, already in $skipped, released $released, started $started, refused $refused, held $held"
   if [ "$held" -gt 0 ]; then
     echo "  $held ticket(s) held back: this product declares max $max_inst concurrent run(s); they start at the next advance" >&2
   fi

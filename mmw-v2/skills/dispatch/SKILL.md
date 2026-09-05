@@ -65,7 +65,7 @@ The second argument is `worker` or `reviewer`. Which of the two worker rows in `
 
 | Code | What happened |
 | --- | --- |
-| `0` | Done. The advance summary line counts what was merged, what was already in, and what was started |
+| `0` | Done. The advance summary line counts what was merged, what was already in, how many claims were given back, and what was started, refused and held. A claim is given back when a ticket is open in the agent queue and claimed with no live session behind the claim — the worker that claimed it is gone, and until the claim comes off, the frontier will never take that ticket again; each one prints a line of its own naming the ticket and saying why. When nothing could start and tickets are still in the agent queue, stderr names every one of them and the condition holding it: claimed by somebody, blocked by a ticket still open, or already held by a live session |
 | `2` | Nothing was touched. The reason is on stderr: not inside Herdr, not a git repository, the working tree has uncommitted changes, or a merge could not take the `.git` lock in `MERGE_TRIES` tries — a worker committing in its own worktree at the same moment; run `advance` again |
 | `3` | A merge is in conflict. Everything before it is merged and committed; nothing was dispatched. **The conflict is still in the tree and it stays there.** Resolve it with the `resolving-merge-conflicts` skill, run this repository's own checks, commit the merge, then run `advance` again — it picks up from the branch after the one you resolved. The conflict report on stderr is the first two steps of that skill already done for you: the branch being merged and the ticket it belongs to, the tickets already merged on this side, and the conflicted files |
 

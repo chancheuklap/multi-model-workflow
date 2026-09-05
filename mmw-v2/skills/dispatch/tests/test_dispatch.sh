@@ -6,6 +6,7 @@
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh idletimeout|notready|livesession|noherdr
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh wait|waittimeout|placeholder
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh advance|advanceconflict|advancedirty
+#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh release|releaseother|releaselive|frontierwhy
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh abandon|abandonbusy
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh all
 #
@@ -181,6 +182,10 @@ print(json.dumps({
     "closedAt": found.get("closedAt", ""),
 }))
 ' ;;
+  "api user"*)
+    # The account `gh` is signed in as. `board.py` reads it to tell a claim this
+    # pipeline made from a claim a person made.
+    printf '%s\n' "${FAKE_GH_LOGIN:-mmw-bot}" ;;
   *) echo '{}' ;;
 esac
 FAKE
@@ -1025,6 +1030,150 @@ scenario_advancedirty() {
   hasnt "agent :: start"
 }
 
+# ------------------------------------------------------------------ orphaned claims
+
+# One ticket, open and in the agent queue, claimed by `$1` and nothing else.
+write_claimed_batch() {
+  cat > "$TMP/tickets.json" <<JSON
+[
+  {"number": 63, "state": "OPEN", "labels": ["ready-for-agent"], "assignees": ["$1"]}
+]
+JSON
+}
+
+# The Herdr snapshot with one live worker on #63, in the workspace the scenarios use.
+LIVE_ON_63='{"result":{"agents":[{"name":"w1-issue-63","pane_id":"w1:p10","workspace_id":"w1","agent_status":"working","agent_session":{"value":"s1"},"tokens":{"ticket":"63","kind":"worker","phase":"implement","turn":"working"}}]}}'
+
+scenario_release() {
+  reset_log
+  fresh_repo
+  rm -rf "$MMW_HOME/leases"
+  write_claimed_batch mmw-bot
+  local code
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
+          bash "$DISPATCH" advance 76)"
+
+  echo "--- a claim with no session behind it is given back"
+  [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
+  has "gh :: issue :: edit :: 63 :: --remove-assignee :: @me"
+  grep -q "released 1" "$TMP/out" || fail "the summary does not count it: $(cat "$TMP/out")"
+
+  echo "--- and never silently: the line names the ticket and says why"
+  grep -q "released the claim on #63" "$TMP/out" \
+    || fail "the release was silent: $(cat "$TMP/out")"
+  grep -q "the worker that claimed it is gone" "$TMP/out" \
+    || fail "the line does not say why: $(cat "$TMP/out")"
+
+  echo "--- the ticket it frees is dispatched by the same advance, not the next one"
+  has "herdr :: agent :: start :: w1-issue-63"
+  grep -q "started 1" "$TMP/out" || fail "it was freed and then left: $(cat "$TMP/out")"
+
+  echo "--- in that order: released first, started after"
+  local rel disp
+  rel="$(line_of 'issue :: edit :: 63 :: --remove-assignee')"
+  disp="$(line_of 'agent :: start :: w1-issue-63')"
+  [ "$rel" -gt 0 ] || fail "the claim was never released"
+  [ "$disp" -gt "$rel" ] || fail "dispatch at line $disp came before the release at line $rel"
+}
+
+scenario_releaseother() {
+  reset_log
+  fresh_repo
+  rm -rf "$MMW_HOME/leases"
+  write_claimed_batch alice
+  local code
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
+          bash "$DISPATCH" advance 76)"
+
+  echo "--- a ticket somebody else took is left exactly as it is"
+  [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
+  hasnt "gh :: issue :: edit :: 63 :: --remove-assignee"
+  grep -q "released 0" "$TMP/out" || fail "somebody else's claim was taken: $(cat "$TMP/out")"
+
+  echo "--- so it stays off the frontier, and is not started"
+  hasnt "herdr :: agent :: start :: w1-issue-63"
+  grep -q "started 0" "$TMP/out" || fail "it was dispatched anyway: $(cat "$TMP/out")"
+
+  echo "--- and stderr says which condition holds it there"
+  grep -q "#63 claimed by alice" "$TMP/err" || fail "the reason is not on stderr: $(cat "$TMP/err")"
+}
+
+scenario_releaselive() {
+  reset_log
+  fresh_repo
+  rm -rf "$MMW_HOME/leases"
+  write_claimed_batch mmw-bot
+  local code
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
+          FAKE_HERDR_AGENTS="$LIVE_ON_63" \
+          bash "$DISPATCH" advance 76)"
+
+  echo "--- a claim whose worker is still alive is the owner's, and is not touched"
+  [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
+  hasnt "gh :: issue :: edit :: 63 :: --remove-assignee"
+  grep -q "released 0" "$TMP/out" || fail "a live worker's claim was taken: $(cat "$TMP/out")"
+  ! grep -q "released the claim on #63" "$TMP/out" \
+    || fail "it printed a release line for a claim it did not release: $(cat "$TMP/out")"
+
+  echo "--- and the ticket reads as held by that session, not as abandoned"
+  grep -q "#63 claimed by mmw-bot; held by the live session w1-issue-63" "$TMP/err" \
+    || fail "stderr does not name the session holding it: $(cat "$TMP/err")"
+  grep -q "started 0" "$TMP/out" || fail "a second worker was started on it: $(cat "$TMP/out")"
+}
+
+# An empty frontier with every one of its three causes on it at once.
+write_stuck_batch() {
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "assignees": ["alice"]},
+  {"number": 62, "state": "OPEN", "labels": ["ready-for-agent"],
+   "blockedBy": [{"number": 61, "state": "OPEN"}]},
+  {"number": 63, "state": "OPEN", "labels": ["ready-for-agent"]},
+  {"number": 64, "state": "OPEN", "labels": ["needs-triage"]}
+]
+JSON
+}
+
+scenario_frontierwhy() {
+  reset_log
+  fresh_repo
+  rm -rf "$MMW_HOME/leases"
+  write_stuck_batch
+  local code
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
+          FAKE_HERDR_AGENTS="$LIVE_ON_63" \
+          bash "$DISPATCH" advance 76)"
+
+  echo "--- an empty frontier is an explanation, not a failure"
+  [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
+  grep -q "started 0" "$TMP/out" || fail "something started: $(cat "$TMP/out")"
+
+  echo "--- every queued ticket names the condition holding it, and only queued ones do"
+  grep -q "3 open ticket(s) are still in the agent queue" "$TMP/err" \
+    || fail "the count is wrong or missing: $(cat "$TMP/err")"
+  grep -q "#61 claimed by alice" "$TMP/err" || fail "#61: $(cat "$TMP/err")"
+  grep -q "#62 blocked by #61" "$TMP/err" || fail "#62: $(cat "$TMP/err")"
+  grep -q "#63 held by the live session w1-issue-63" "$TMP/err" || fail "#63: $(cat "$TMP/err")"
+  ! grep -q "#64" "$TMP/err" || fail "a ticket out of the agent queue was reported: $(cat "$TMP/err")"
+
+  echo "--- and a batch with nothing left in the queue says nothing at all"
+  reset_log
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 61, "state": "CLOSED", "labels": [], "closedAt": "2026-08-31T01:00:00Z"}
+]
+JSON
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
+          bash "$DISPATCH" advance 76)"
+  [ "$code" = 0 ] || fail "exit $code on the finished batch: $(cat "$TMP/err")"
+  [ ! -s "$TMP/err" ] || fail "a finished batch should say nothing: $(cat "$TMP/err")"
+}
+
 # ------------------------------------------------------------------ abandon
 
 LEASE_PY="$(dirname "$SKILL")/verify-ticket/scripts/lease.py"
@@ -1205,10 +1354,10 @@ sys.stdin.read()
   rm -f "$hold"
 }
 
-ALL="worker basecommit reviewer seat runtable runchecks idletimeout notready livesession noherdr wait waittimeout placeholder advance instancegate advanceconflict advancedirty abandon abandonbusy"
+ALL="worker basecommit reviewer seat runtable runchecks idletimeout notready livesession noherdr wait waittimeout placeholder advance instancegate advanceconflict advancedirty release releaseother releaselive frontierwhy abandon abandonbusy"
 
 case "${1:-}" in
-  worker|basecommit|reviewer|seat|runtable|runchecks|idletimeout|notready|livesession|noherdr|wait|waittimeout|placeholder|advance|instancegate|advanceconflict|advancedirty|abandon|abandonbusy)
+  worker|basecommit|reviewer|seat|runtable|runchecks|idletimeout|notready|livesession|noherdr|wait|waittimeout|placeholder|advance|instancegate|advanceconflict|advancedirty|release|releaseother|releaselive|frontierwhy|abandon|abandonbusy)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -1236,6 +1385,10 @@ banner_for() {
     instancegate) echo DISPATCH-INSTANCE-GATE-OK ;;
     advanceconflict) echo DISPATCH-ADVANCE-CONFLICT-OK ;;
     advancedirty) echo DISPATCH-ADVANCE-DIRTY-OK ;;
+    release) echo DISPATCH-RELEASE-OK ;;
+    releaseother) echo DISPATCH-RELEASE-OTHER-OK ;;
+    releaselive) echo DISPATCH-RELEASE-LIVE-OK ;;
+    frontierwhy) echo DISPATCH-FRONTIER-WHY-OK ;;
     abandon) echo DISPATCH-ABANDON-OK ;;
     abandonbusy) echo DISPATCH-ABANDON-BUSY-OK ;;
   esac
