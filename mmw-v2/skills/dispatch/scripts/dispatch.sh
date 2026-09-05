@@ -196,18 +196,13 @@ for row in rows:
 ' 2>/dev/null
 }
 
-# One read of this checkout's workspaces, already limited to its Paseo project.
-# `id` / `cwd` print that field for `issue-<n>`; `root` prints the parent of
-# this checkout's `issue-*` workspaces (`lease.py count` compares resolved
-# paths, and those worktrees are not inside the git repo).
-workspace_query() {
-  local want="$1" number="${2:-}" root="${3:-}" slug=""
-  [ -n "$root" ] || root="$(git rev-parse --show-toplevel 2>/dev/null)" || true
-  [ -n "$number" ] && slug="issue-$number"
+# This checkout's workspaces as a JSON list. One read of the workspace list.
+workspace_rows() {
+  local root
+  root="$(git rev-parse --show-toplevel 2>/dev/null)" || true
   { paseo workspace ls --json 2>/dev/null || true; } | \
-  MMW_ROOT="$root" MMW_WANT="$want" MMW_SLUG="$slug" python3 -c '
+  MMW_ROOT="$root" python3 -c '
 import json, os, subprocess, sys
-from pathlib import Path
 
 own = set()
 git_root = os.path.realpath(os.environ.get("MMW_ROOT") or "")
@@ -222,52 +217,102 @@ if git_root:
 try:
     rows = json.load(sys.stdin)
 except Exception:
+    print("[]")
     sys.exit(0)
 if not isinstance(rows, list):
+    print("[]")
     sys.exit(0)
-
-want = os.environ.get("MMW_WANT") or ""
-slug = os.environ.get("MMW_SLUG") or ""
-seen = []
+out = []
 for row in rows:
     if not isinstance(row, dict):
         continue
     theirs = row.get("project") or ""
     if own and theirs and theirs not in own:
         continue
-    cwd = row.get("cwd") or ""
-    name = Path(cwd).name
-    if want in ("id", "cwd"):
-        if name != slug:
-            continue
-        if want == "id":
-            ident = row.get("workspaceId") or ""
-            if ident:
-                print(ident)
-        elif cwd:
-            print(cwd)
-        break
-    if want == "root":
-        if not name.startswith("issue-"):
-            continue
-        parent = str(Path(cwd).parent.resolve()) if Path(cwd).parent else ""
-        if parent and parent not in seen:
-            seen.append(parent)
-if want == "root" and seen:
-    print(seen[0])
+    out.append(row)
+print(json.dumps(out))
 ' 2>/dev/null
 }
 
+# workspaceId<TAB>cwd for issue-<n>, one read of the list.
+workspace_row_for() {
+  workspace_rows | MMW_SLUG="issue-$1" python3 -c '
+import json, os, sys
+from pathlib import Path
+
+want = os.environ["MMW_SLUG"]
+try:
+    rows = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+if not isinstance(rows, list):
+    sys.exit(0)
+for row in rows:
+    if not isinstance(row, dict):
+        continue
+    if Path(row.get("cwd") or "").name != want:
+        continue
+    print((row.get("workspaceId") or "") + "\t" + (row.get("cwd") or ""))
+    break
+'
+}
+
 workspace_id_for() {
-  workspace_query id "$1"
+  workspace_row_for "$1" | cut -f1
 }
 
 workspace_cwd_for() {
-  workspace_query cwd "$1"
+  workspace_row_for "$1" | cut -f2
 }
 
+# Parent of this checkout's issue-* workspaces. lease.py count compares resolved
+# paths, and those worktrees are not inside the git repo.
 worktrees_root() {
-  workspace_query root "" "$1"
+  workspace_rows | python3 -c '
+import json, sys
+from pathlib import Path
+
+try:
+    rows = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+if not isinstance(rows, list):
+    sys.exit(0)
+for row in rows:
+    if not isinstance(row, dict):
+        continue
+    cwd = Path(row.get("cwd") or "")
+    if not cwd.name.startswith("issue-"):
+        continue
+    parent = str(cwd.parent.resolve()) if cwd.name else ""
+    if parent:
+        print(parent)
+        break
+'
+}
+
+# ticket<TAB>id for every live worker. Extra `--label` arguments go first
+# (ticket, spec); `mmw.kind=worker` is always last. Ticket is the issue-N
+# cwd basename, empty when the cwd is not one.
+agents_by_label() {
+  { paseo ls -g --json "$@" --label mmw.kind=worker 2>/dev/null || true; } | python3 -c '
+import json, re, sys
+from pathlib import Path
+
+try:
+    rows = json.load(sys.stdin)
+except Exception:
+    rows = []
+if not isinstance(rows, list):
+    rows = []
+issue = re.compile(r"^issue-(\d+)$")
+for row in rows:
+    if not isinstance(row, dict) or not row.get("id"):
+        continue
+    found = issue.match(Path(row.get("cwd") or "").name)
+    ticket = found.group(1) if found else ""
+    print(ticket + "\t" + row["id"])
+'
 }
 
 # The registered worktree for ticket `number`, even after its workspace has been
@@ -336,14 +381,16 @@ release_lease() {
   return 0
 }
 
+# Prints workspaceId<TAB>cwd so start_one can claim a lease without a second list read.
 ensure_workspace() {
-  local number="$1" root="$2" title="$3" existing project base json ident
-  existing="$(workspace_id_for "$number")"
+  local number="$1" root="$2" title="$3" row existing project base json ident cwd
+  row="$(workspace_row_for "$number")"
+  existing="$(printf '%s\n' "$row" | cut -f1)"
   if [ -n "$existing" ]; then
     if git -C "$root" rev-parse --verify --quiet "refs/heads/issue-$number" >/dev/null; then
       record_base_if_missing "$number" "$root"
     fi
-    printf '%s\n' "$existing"
+    printf '%s\n' "$row"
     return 0
   fi
   project="$(project_id_for "$root")"
@@ -369,25 +416,29 @@ ensure_workspace() {
   ident="$(printf '%s' "$json" | python3 -c '
 import json, sys
 try:
-    print(json.load(sys.stdin).get("workspaceId") or "")
+    row = json.load(sys.stdin)
 except Exception:
-    pass
+    sys.exit(0)
+print((row.get("workspaceId") or "") + "\t" + (row.get("cwd") or ""))
 ')"
+  cwd="$(printf '%s\n' "$ident" | cut -f2)"
+  ident="$(printf '%s\n' "$ident" | cut -f1)"
   [ -n "$ident" ] || { echo "dispatch: workspace create printed no workspaceId" >&2; return 1; }
 
   if git -C "$root" rev-parse --verify --quiet "refs/heads/issue-$number" >/dev/null; then
     record_base_if_missing "$number" "$root"
   fi
-  printf '%s\n' "$ident"
+  printf '%s\t%s\n' "$ident" "$cwd"
 }
 
 archive_workspace() {
-  local number="$1" ident cwd
-  cwd="$(workspace_cwd_for "$number")"
+  local number="$1" ident cwd row
+  row="$(workspace_row_for "$number")"
+  cwd="$(printf '%s\n' "$row" | cut -f2)"
+  ident="$(printf '%s\n' "$row" | cut -f1)"
   if [ -n "$cwd" ] && [ -f "$LEASE" ]; then
     release_lease "$cwd" || true
   fi
-  ident="$(workspace_id_for "$number")"
   [ -n "$ident" ] || return 0
   paseo workspace archive "$ident" >/dev/null \
     || echo "dispatch: could not archive the workspace for #$number" >&2
@@ -493,15 +544,15 @@ start_one() {
       prompt="verify #$number 按 $VERIFIER_MD 行事" ;;
   esac
 
-  local workspace
-  workspace="$(ensure_workspace "$number" "$root" "$title")" \
+  local workspace cwd row
+  row="$(ensure_workspace "$number" "$root" "$title")" \
     || refuse "could not open a workspace for issue-$number"
+  workspace="$(printf '%s\n' "$row" | cut -f1)"
+  cwd="$(printf '%s\n' "$row" | cut -f2)"
 
   if [ "$kind" = worker ]; then
-    local cwd
     [ -f "$LEASE" ] \
       || refuse "no lease.py at $LEASE: the verify-ticket skill is not installed beside this one, so no run can be given its own share of this machine. Run \`bash \"$INSTALLER\"\`, then dispatch again"
-    cwd="$(workspace_cwd_for "$number")"
     [ -n "$cwd" ] \
       || refuse "could not read the workspace cwd for issue-$number, so no lease can be claimed"
     python3 "$LEASE" claim "$cwd" >/dev/null \
@@ -518,30 +569,10 @@ start_one() {
 
 # ------------------------------------------------------------------ resume
 
-# Every live worker. Extra `--label` arguments go first and narrow the list
-# (ticket, spec); `mmw.kind=worker` is always last.
-workers_json() {
-  paseo ls -g --json "$@" --label mmw.kind=worker
-}
-
 resume_one() {
   local number="$1" text="$2" ident
   [ -n "$text" ] || refuse "resume needs the text to send"
-  ident="$(
-    workers_json --label "mmw.ticket=$number" 2>/dev/null | python3 -c '
-import json, sys
-try:
-    rows = json.load(sys.stdin)
-except Exception:
-    sys.exit(0)
-if not isinstance(rows, list):
-    sys.exit(0)
-for row in rows:
-    if isinstance(row, dict) and row.get("id"):
-        print(row["id"])
-        break
-'
-  )"
+  ident="$(agents_by_label --label "mmw.ticket=$number" | head -n 1 | cut -f2)"
   [ -n "$ident" ] || refuse "no worker agent labelled mmw.ticket=$number"
   paseo send --no-wait "$ident" "$text" >/dev/null \
     || refuse "could not send to $ident"
@@ -761,7 +792,7 @@ advance() {
   max_inst="$(target_max_instances "$root")"
   for number in $(printf '%s\n' "$plan" | awk '$1 == "DISPATCH" { print $2 }'); do
     if [ -n "$max_inst" ]; then
-      trees="$(worktrees_root "$root")"
+      trees="$(worktrees_root)"
       if [ -n "$trees" ]; then
         live="$(live_instances "$trees")"
       else
@@ -791,41 +822,25 @@ advance() {
 
 # ------------------------------------------------------------------ suspend
 
-# The spec's children, via status.py — the single read of the batch.
+# The spec's children, via status.py — the one place the batch's child list is parsed.
 sub_issues() {
   MMW_STATUS="$STATUS" MMW_SPEC_N="$1" python3 -c '
-import importlib.util, os
+import importlib.util, os, sys
 
 path = os.environ["MMW_STATUS"]
 spec = importlib.util.spec_from_file_location("mmw_status", path)
+if spec is None or spec.loader is None:
+    sys.exit(1)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 for n in mod.sub_issues(int(os.environ["MMW_SPEC_N"])):
     print(n)
-' 2>/dev/null
+'
 }
 
 # ticket<TAB>id for every live worker labelled mmw.spec=<spec>.
 live_workers() {
-  workers_json --label "mmw.spec=$1" 2>/dev/null | python3 -c '
-import json, re, sys
-from pathlib import Path
-
-try:
-    rows = json.load(sys.stdin)
-except Exception:
-    rows = []
-if not isinstance(rows, list):
-    rows = []
-issue = re.compile(r"^issue-(\d+)$")
-for row in rows:
-    if not isinstance(row, dict) or not row.get("id"):
-        continue
-    found = issue.match(Path(row.get("cwd") or "").name)
-    if not found:
-        continue
-    print(found.group(1) + "\t" + row["id"])
-'
+  agents_by_label --label "mmw.spec=$1" | awk -F '\t' '$1 != ""'
 }
 
 suspend_comment() {
@@ -861,13 +876,15 @@ suspend_night() {
   git_dir="$(git -C "$root" rev-parse --absolute-git-dir 2>/dev/null)"
   [ -n "$git_dir" ] || refuse "not inside a git repository, so this night's workspaces have no name"
 
-  local grades queued tickets
+  local grades queued batch left=0
   grades="$(python3 "$STATUS" --worker-grades "$spec")" \
     || refuse "could not read the batch under #$spec"
   queued="$(printf '%s\n' "$grades" | awk '$1 == "GRADE" { print $2 }')"
-  tickets="$(sub_issues "$spec")"
-
-  local left=0
+  if ! batch="$(sub_issues "$spec")"; then
+    echo "dispatch: could not read the batch under #$spec from status.py" >&2
+    left=$((left + 1))
+    batch=""
+  fi
 
   local live number ident stopped=0
   live="$(live_workers "$spec")"
@@ -895,7 +912,7 @@ suspend_night() {
 
   local cwd back=0 rc
   if [ -f "$LEASE" ]; then
-    for number in $tickets; do
+    for number in $batch; do
       cwd="$(workspace_cwd_for "$number")"
       [ -n "$cwd" ] || cwd="$(lease_worktree_for "$number")"
       [ -n "$cwd" ] || continue
