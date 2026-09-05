@@ -194,10 +194,11 @@ class Rows(unittest.TestCase):
 
     def test_only_the_worker_counts_as_held(self):
         worker = agent(61, agent_id=WORKER_61)
-        child = agent(61, kind="reviewer", parent=WORKER_61, agent_id=REVIEWER_61)
+        child = agent(63, kind="reviewer", parent=WORKER_61, agent_id=REVIEWER_61)
         tickets = {61: ticket(61), 63: ticket(63)}
         rows = status.build_rows(list(tickets), tickets, status.sessions([worker, child]))
         self.assertEqual([r["ticket"] for r in status.held(rows)], [61])
+        self.assertIsNone(next(r for r in rows if r["ticket"] == 63)["worker"])
 
     def test_the_frontier_takes_a_ready_ticket_with_no_session_and_no_blocker(self):
         tickets = {70: ticket(70), 71: ticket(71, assignees=("someone",)),
@@ -300,7 +301,9 @@ class Table(unittest.TestCase):
         body = self.table().splitlines()[3:]
         self.assertEqual([l.split()[0] for l in body], ["#61", "#65"])
         self.assertIn("#61 worker", body[0])
-        self.assertIn(WORKER_61[:7], body[0])
+        id_at = 1 + 8 + 18
+        self.assertEqual(body[0][id_at:id_at + 8].strip(), "1111111")
+        self.assertNotIn(WORKER_61, body[0])
         self.assertIn("2 minutes ago", body[0])
         self.assertIn("self-run", body[0])
         self.assertIn("waiting on #61", body[1])
@@ -417,19 +420,29 @@ class Summary(unittest.TestCase):
         }
         tickets[61]["closed_at"] = "2026-08-31T02:00:00Z"
         tickets[61]["created"] = "2026-08-29T00:00:00Z"
-        calls = []
-        saved = status.collect, status.gh, status.night_opened
+        gh_calls = []
+        saved = (status.gh, status.sub_issues, status.read_ticket,
+                 status.paseo_json, status.night_opened)
         try:
-            status.collect = lambda spec: (
-                status.build_rows(list(tickets), tickets, []), [])
-            status.gh = lambda args: calls.append(list(args)) or ""
+            status.gh = lambda args: gh_calls.append(list(args)) or ""
+            status.sub_issues = lambda spec: [61]
+            status.read_ticket = lambda n: tickets[n]
+            status.paseo_json = (
+                lambda args: [] if args[:3] == ["ls", "-g", "--json"] else {})
             status.night_opened = lambda now=None: "2026-08-30T00:00:00Z"
             with redirect_stdout(io.StringIO()) as out:
                 self.assertEqual(status.main(["--summary", "76"]), 0)
-            self.assertTrue(out.getvalue().startswith("NIGHT SUMMARY "))
-            self.assertEqual(calls, [])
+            lines = out.getvalue().splitlines()
+            self.assertTrue(lines[0].startswith("NIGHT SUMMARY "))
+            self.assertEqual(lines[2], "Closed: #61 ALL MET")
+            self.assertEqual(lines[3], "Handed back to needs-triage: None")
+            self.assertEqual(lines[4], "Not dispatched, a blocker stayed open: None")
+            self.assertEqual(lines[5], "Sub-issues opened tonight: None")
+            self.assertEqual(
+                [c for c in gh_calls if c[:2] == ["issue", "comment"]], [])
         finally:
-            status.collect, status.gh, status.night_opened = saved
+            (status.gh, status.sub_issues, status.read_ticket,
+             status.paseo_json, status.night_opened) = saved
 
 
 class ReadingPaseo(unittest.TestCase):
