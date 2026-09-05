@@ -81,7 +81,7 @@ Two things added under "While writing code". The baseline bullet gains the split
 The nine-step closeout in the table above is superseded. The steps are now eight:
 
 1. self-run — still `<engine> <n>`; what lands is the `self-run` comment. Unchanged in role.
-2. `<dispatch> start <n> verifier --json` (or `--run`). `--json` is one `create_agent` with `notifyOnFinish: true`; `--run` is `paseo wait <id>`. What lands is `VERDICT`. Start once. Start exits 2: comment the command and the output, and stop.
+2. `<dispatch> start <n> verifier --json` (or `--run`). `--json` is one `create_agent` with `notifyOnFinish: true`; `--run` is `paseo wait <id>`. Pass the printed `initialPrompt` through (`verify #<n> 按 <path> 行事`). What lands is `VERDICT`. Start once. Start exits 2: comment the command and the output, and stop.
 3. `<engine> <n> --decisions <file>`. What lands is `DECISIONS`. Exit 2 if the ticket already has one or the file is missing a section.
 4. `<dispatch> start <n> reviewer --json` (or `--run`). What lands is `REVIEW `. Start exits 2, or the notification is `errored` / `was closed` with no `REVIEW ` comment: `paseo logs <id>`, then the `code-review` skill in this host's general-purpose subagent. In-ticket findings: fix once and rerun step 1. Out-of-ticket: `<engine> <n> --sub-issue review <file>`.
 5. Audit — unchanged.
@@ -101,7 +101,7 @@ Three `gh issue create --parent <spec> --label needs-triage` in the writing rule
 
 ## Finish notification shape
 
-One sentence sits between closing steps 2 and 4: a `<paseo-system>` block whose first sentence is `Agent <id> (<title>) finished.` or `errored.` or `was closed.` or `needs permission.`, which may carry an `<agent-response>`, arriving in the current turn when busy or as a new turn when idle. Upstream has no such sentence. Spec #118 §5. Keep it on the next pull.
+One sentence sits between closing steps 2 and 4: a `<paseo-system>` block whose first sentence is `Agent <id> (<title>) finished|errored|was closed|needs permission.`, and it carries an `<agent-response>`, arriving in the current turn when busy or as a new turn when idle. Upstream has no such sentence. Spec #118 §5 / ticket #129 What to build item 3. Keep it on the next pull.
 
 ## Waiting is a finish notification or `paseo wait`
 
