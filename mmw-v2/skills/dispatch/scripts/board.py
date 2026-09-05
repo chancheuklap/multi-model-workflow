@@ -152,16 +152,31 @@ def unwrap(payload: dict) -> dict:
     return payload.get("result", payload) if isinstance(payload, dict) else {}
 
 
-def live_agents() -> list[dict]:
-    """Every agent Herdr can see, with its name, status and pane tokens.
+def snapshot() -> dict:
+    """Everything Herdr can see right now.
 
-    Raises when Herdr could not be asked. A round that cannot see the sessions must
-    not act on them. `Watch.run` catches it and skips the round.
+    Raises when Herdr could not be asked. A round that cannot see the workspace must
+    not act on it. `Watch.run` catches it and skips the round.
     """
-    snapshot = unwrap(herdr_strict(["api", "snapshot"])).get("snapshot")
-    if not isinstance(snapshot, dict):
+    payload = unwrap(herdr_strict(["api", "snapshot"])).get("snapshot")
+    if not isinstance(payload, dict):
         raise RuntimeError("herdr api snapshot: no snapshot in the answer")
-    return snapshot.get("agents") or []
+    return payload
+
+
+def live_agents() -> list[dict]:
+    """Every agent Herdr can see, with its name, status and pane tokens."""
+    return snapshot().get("agents") or []
+
+
+def live_panes() -> list[dict]:
+    """Every terminal Herdr can see, whether or not an agent has been detected in it.
+
+    A pane is there as soon as its terminal is, while an agent appears only once Herdr
+    has worked out that a session is running in it. The two are read apart for that
+    reason: `terminals_holding` needs the half that does not wait on detection.
+    """
+    return snapshot().get("panes") or []
 
 
 def sub_issues(spec: int) -> list[int]:
@@ -464,7 +479,33 @@ def frontier(rows: list[dict]) -> list[dict]:
             and r["worker"] is None]
 
 
-def orphan_claims(rows: list[dict], login: str) -> list[dict]:
+# The worktree `dispatch.sh` opens for a ticket, by its directory name.
+WORKTREE_RE = re.compile(r"^issue-(\d+)$")
+
+
+def terminals_holding(panes: list[dict]) -> set[int]:
+    """The tickets of this workspace that still have a terminal standing in them.
+
+    Two readings, either of which counts. The `ticket` token is what `dispatch.sh`
+    wrote on the pane; the pane's working directory is the `issue-<n>` worktree the
+    tab was opened in, which is the shell's own state and survives anything Herdr
+    forgets about the session inside it.
+    """
+    own = (os.environ.get("HERDR_WORKSPACE_ID") or "").strip()
+    held: set[int] = set()
+    for pane in panes:
+        if own and (pane.get("workspace_id") or "") != own:
+            continue
+        number = ((pane.get("tokens") or {}).get("ticket") or "")
+        if not str(number).isdigit():
+            named = WORKTREE_RE.match(os.path.basename((pane.get("cwd") or "").rstrip("/")))
+            number = named.group(1) if named else ""
+        if str(number).isdigit():
+            held.add(int(number))
+    return held
+
+
+def orphan_claims(rows: list[dict], login: str, held: set[int] | None = None) -> list[dict]:
     """The rows whose claim outlived the session that made it, in ticket order.
 
     `verify-ticket.py --preflight` claims a ticket by assigning it to the account it
@@ -479,18 +520,30 @@ def orphan_claims(rows: list[dict], login: str) -> list[dict]:
     not this pipeline's to give back, and a ticket carrying one stays off the frontier,
     which is the right answer: somebody took it.
 
-    One risk stays here, unsolved on purpose: `live_agents` sees the Herdr on this
-    machine and no other. A worker of the same account running on a second machine
-    reads from here as a claim whose owner is gone. `dispatch.sh` printing a line for
-    every release is what makes that case visible instead of silent.
+    `held` is the fourth condition read a second way, and it is what keeps a Herdr
+    that has not finished coming up from emptying a whole night's claims. An answered
+    snapshot listing no agents is not proof that no worker is running: agent detection
+    lags the terminals it runs in, so a restarted Herdr reports panes before it reports
+    the sessions inside them, and without this every claim of the batch would be given
+    back and every ticket dispatched a second time over the workers still holding them.
+    A ticket whose terminal is still standing keeps its claim; when the machine really
+    did lose the run, its panes are gone with it and the release goes ahead. Passing no
+    `held` at all reads every claim on its session alone.
+
+    One risk stays here, unsolved on purpose: Herdr answers for this machine and no
+    other. A worker of the same account running on a second machine reads from here as
+    a claim whose owner is gone. `dispatch.sh` printing a line for every release is
+    what makes that case visible instead of silent.
     """
     if not login:
         return []
+    held = held or set()
     return [r for r in rows
             if r["state"] == "OPEN"
             and "ready-for-agent" in r["labels"]
             and login in r["assignees"]
-            and r["worker"] is None]
+            and r["worker"] is None
+            and r["ticket"] not in held]
 
 
 def why_not_on_frontier(row: dict) -> str:
@@ -1011,8 +1064,8 @@ def advance_plan(spec: int) -> int:
     order `dispatch.sh` acts on them:
 
         MERGE <ticket>      closed with `ALL MET`, the one that closed first at the top
-        RELEASE <ticket>    in the agent queue and claimed, with no live session behind
-                            the claim: the worker that claimed it is gone
+        RELEASE <ticket>    in the agent queue and claimed, with neither a live session
+                            nor a standing terminal behind the claim: its worker is gone
         DISPATCH <ticket>   on the frontier, in ticket order
 
     A ticket usually carries a `RELEASE` line and a `DISPATCH` line of the same plan:
@@ -1041,7 +1094,13 @@ def advance_plan(spec: int) -> int:
         print(f"MERGE {ticket['number']}")
     rows = build_rows(numbers, tickets, sessions(live_agents()))
     login = own_login()
+    held = terminals_holding(live_panes())
     for row in orphan_claims(rows, login):
+        if row["ticket"] in held:
+            print(f"#{row['ticket']} keeps its claim: Herdr lists no session on it, but a "
+                  f"terminal of this workspace is still standing in issue-{row['ticket']}",
+                  file=sys.stderr)
+            continue
         print(f"RELEASE {row['ticket']}")
         row["assignees"] = [a for a in row["assignees"] if a != login]
     ready = frontier(rows)

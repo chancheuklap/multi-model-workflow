@@ -7,7 +7,7 @@
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh wait|waittimeout|placeholder
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh advance|advanceconflict|advancedirty
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh release|releaseother|releaselive|frontierwhy
-#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh abandon|abandonbusy
+#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh suspend|suspendbusy
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh all
 #
 # A fake `herdr` and a fake `gh` sit in front of the real ones on PATH and write every
@@ -102,12 +102,20 @@ json.dump([t for t in tabs if t.get("tab_id") != os.environ["MMW_TAB"]], open(pa
       echo '{"result":{"agents":[]}}'
     fi ;;
   "api snapshot")
-    if [ -n "${FAKE_HERDR_AGENTS:-}" ]; then
-      printf '%s\n' "$FAKE_HERDR_AGENTS" \
-        | python3 -c 'import json,sys; print(json.dumps({"result":{"snapshot":{"agents":(json.load(sys.stdin).get("result") or {}).get("agents") or []}}}))'
-    else
-      echo '{"result":{"snapshot":{"agents":[]}}}'
-    fi ;;
+    MMW_FAKE_PANES="${FAKE_HERDR_PANES:-[]}" python3 -c '
+import json, os, sys
+
+raw = sys.stdin.read().strip()
+try:
+    agents = (json.loads(raw).get("result") or {}).get("agents") or []
+except Exception:
+    agents = []
+try:
+    panes = json.loads(os.environ["MMW_FAKE_PANES"])
+except Exception:
+    panes = []
+print(json.dumps({"result": {"snapshot": {"agents": agents, "panes": panes}}}))
+' <<<"${FAKE_HERDR_AGENTS:-}" ;;
   "agent wait")
     if [ "${FAKE_HERDR_WAIT_FAIL:-0}" = 1 ]; then
       echo '{"error":{"code":"timeout"}}' >&2
@@ -1118,10 +1126,52 @@ scenario_releaselive() {
   ! grep -q "released the claim on #63" "$TMP/out" \
     || fail "it printed a release line for a claim it did not release: $(cat "$TMP/out")"
 
-  echo "--- and the ticket reads as held by that session, not as abandoned"
+  echo "--- and the ticket reads as held by that session, not as an orphaned claim"
   grep -q "#63 claimed by mmw-bot; held by the live session w1-issue-63" "$TMP/err" \
     || fail "stderr does not name the session holding it: $(cat "$TMP/err")"
   grep -q "started 0" "$TMP/out" || fail "a second worker was started on it: $(cat "$TMP/out")"
+}
+
+# The pane `dispatch.sh` opened for #63, still standing after Herdr lost the session
+# inside it. Its cwd is the worktree, which is the shell's own state; the `ticket` token
+# is Herdr's, and either one on its own is enough.
+PANE_ON_63_BY_CWD="[{\"pane_id\":\"w1:p10\",\"workspace_id\":\"w1\",\"cwd\":\"$MMW_WORKTREES/repo/issue-63\",\"tokens\":null}]"
+
+scenario_orphanpane() {
+  reset_log
+  fresh_repo
+  rm -rf "$MMW_HOME/leases"
+  write_claimed_batch mmw-bot
+  local code
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
+          FAKE_HERDR_PANES="$PANE_ON_63_BY_CWD" \
+          bash "$DISPATCH" advance 76)"
+
+  echo "--- Herdr lists no session, but the terminal for #63 is still standing"
+  [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
+
+  echo "--- so the claim is kept: a Herdr that has just come back does not empty the batch"
+  hasnt "gh :: issue :: edit :: 63 :: --remove-assignee"
+  grep -q "released 0" "$TMP/out" \
+    || fail "the claim was given back over a standing terminal: $(cat "$TMP/out")"
+
+  echo "--- and no second worker is started onto the one that is still working"
+  grep -q "started 0" "$TMP/out" || fail "a second worker was started: $(cat "$TMP/out")"
+
+  echo "--- the kept claim is never silent: stderr names the ticket and says why"
+  grep -q "#63 keeps its claim" "$TMP/err" \
+    || fail "nothing on stderr says the claim was kept: $(cat "$TMP/err")"
+
+  echo "--- with the terminal gone too, the claim is given back as before"
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
+          bash "$DISPATCH" advance 76)"
+  [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
+  has "gh :: issue :: edit :: 63 :: --remove-assignee"
+  grep -q "released 1" "$TMP/out" \
+    || fail "a claim with no session and no terminal was not given back: $(cat "$TMP/out")"
 }
 
 # An empty frontier with every one of its three causes on it at once.
@@ -1174,11 +1224,11 @@ JSON
   [ ! -s "$TMP/err" ] || fail "a finished batch should say nothing: $(cat "$TMP/err")"
 }
 
-# ------------------------------------------------------------------ abandon
+# ------------------------------------------------------------------ suspend
 
 LEASE_PY="$(dirname "$SKILL")/verify-ticket/scripts/lease.py"
 
-# The batch an abandoned night is given up in the middle of: two tickets in the agent
+# The batch a suspended night is stopped in the middle of: two tickets in the agent
 # queue, neither finished, and one its worker handed back to triage earlier in the
 # night — that one carries its own verdict already, and still holds a slot.
 write_open_batch() {
@@ -1192,7 +1242,7 @@ write_open_batch() {
 JSON
 }
 
-# A night opened and its frontier dispatched, which is the state a night is given up in:
+# A night opened and its frontier dispatched, which is the state a night is suspended in:
 # two worktrees, two slots claimed, and a board watching in its own tab.
 open_a_night() {
   local copy="$1" code
@@ -1206,9 +1256,9 @@ open_a_night() {
   [ "$code" = 0 ] || fail "advance exited $code: $(cat "$TMP/err")"
 }
 
-scenario_abandon() {
+scenario_suspend() {
   local code copy
-  copy="$(skill_copy_for_run abandon)"
+  copy="$(skill_copy_for_run suspend)"
   fresh_repo
   rm -rf "$MMW_HOME/leases"
   reset_log
@@ -1229,7 +1279,7 @@ scenario_abandon() {
   code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
           FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           FAKE_HERDR_AGENTS='{"result":{"agents":[{"name":"w1-issue-61","pane_id":"w1:p10"},{"name":"w2-issue-63","pane_id":"w2:p3"}]}}' \
-          bash "$copy/scripts/dispatch.sh" abandon 76)"
+          bash "$copy/scripts/dispatch.sh" suspend 76)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
 
   echo "--- the board's tab is closed, which is what takes its restart loop with it"
@@ -1266,11 +1316,11 @@ if closed != loop_pane.replace(":p", ":t"):
   git -C "$TMP/repo" rev-parse --verify --quiet refs/heads/issue-63 >/dev/null \
     || fail "branch issue-63 was removed"
 
-  echo "--- every ticket still open carries one comment saying the night was given up"
+  echo "--- every ticket still open carries one comment saying the night was suspended"
   has "gh :: issue :: comment :: 61 :: --body"
   has "gh :: issue :: comment :: 63 :: --body"
-  [ "$(grep -cF 'NIGHT ABANDONED #76' "$MMW_TEST_LOG")" = 2 ] \
-    || fail "expected two abandon comments, got $(grep -cF 'NIGHT ABANDONED #76' "$MMW_TEST_LOG")"
+  [ "$(grep -cF 'NIGHT SUSPENDED #76' "$MMW_TEST_LOG")" = 2 ] \
+    || fail "expected two suspend comments, got $(grep -cF 'NIGHT SUSPENDED #76' "$MMW_TEST_LOG")"
   grep -qF 'Its worker w1-issue-61 was left running' "$MMW_TEST_LOG" \
     || fail "the comment on #61 does not say its worker was left running"
   grep -qF 'No session of ours was working on it' "$MMW_TEST_LOG" \
@@ -1281,23 +1331,23 @@ if closed != loop_pane.replace(":p", ":t"):
   echo "--- the slots the night held are back, so the next night reads the machine as free"
   [ "$(python3 "$LEASE_PY" count "$MMW_WORKTREES/repo")" = 0 ] \
     || fail "slots are still held: $(python3 "$LEASE_PY" list)"
-  grep -q 'abandon #76: board stopped, commented 2, left running 1, slots given back 3' "$TMP/out" \
+  grep -q 'suspend #76: board stopped, commented 2, left running 1, slots given back 3' "$TMP/out" \
     || fail "the summary line is wrong: $(cat "$TMP/out")"
 
   echo "--- with the board already gone, it says so rather than reporting a night it did not stop"
   reset_log
   code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
           FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" abandon 76)"
+          bash "$copy/scripts/dispatch.sh" suspend 76)"
   [ "$code" = 1 ] || fail "expected exit 1 with no board tab, got $code: $(cat "$TMP/err")"
   grep -q "mmw board #76" "$TMP/err" || fail "the reason does not name the tab: $(cat "$TMP/err")"
   grep -q 'board not found' "$TMP/out" || fail "the summary claims a board was stopped: $(cat "$TMP/out")"
   hasnt "herdr :: tab :: close"
 }
 
-scenario_abandonbusy() {
+scenario_suspendbusy() {
   local code copy port hold
-  copy="$(skill_copy_for_run abandonbusy)"
+  copy="$(skill_copy_for_run suspendbusy)"
   fresh_repo
   rm -rf "$MMW_HOME/leases"
   reset_log
@@ -1332,7 +1382,7 @@ sys.stdin.read()
   code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
           FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           FAKE_HERDR_AGENTS='{"result":{"agents":[{"name":"w1-issue-61","pane_id":"w1:p10"}]}}' \
-          bash "$copy/scripts/dispatch.sh" abandon 76)"
+          bash "$copy/scripts/dispatch.sh" suspend 76)"
 
   echo "--- the refusal is reported, never swallowed and never forced"
   [ "$code" = 1 ] || fail "expected exit 1, got $code: $(cat "$TMP/err")"
@@ -1344,9 +1394,9 @@ sys.stdin.read()
 
   echo "--- and the rest of the night is still given up: the board is stopped and the tickets are told"
   has "herdr :: tab :: close"
-  [ "$(grep -cF 'NIGHT ABANDONED #76' "$MMW_TEST_LOG")" = 2 ] \
-    || fail "expected two abandon comments, got $(grep -cF 'NIGHT ABANDONED #76' "$MMW_TEST_LOG")"
-  grep -q 'abandon #76: board stopped, commented 2, left running 1, slots given back 1' "$TMP/out" \
+  [ "$(grep -cF 'NIGHT SUSPENDED #76' "$MMW_TEST_LOG")" = 2 ] \
+    || fail "expected two suspend comments, got $(grep -cF 'NIGHT SUSPENDED #76' "$MMW_TEST_LOG")"
+  grep -q 'suspend #76: board stopped, commented 2, left running 1, slots given back 1' "$TMP/out" \
     || fail "the summary line is wrong: $(cat "$TMP/out")"
 
   exec 9>&-
@@ -1354,10 +1404,10 @@ sys.stdin.read()
   rm -f "$hold"
 }
 
-ALL="worker basecommit reviewer seat runtable runchecks idletimeout notready livesession noherdr wait waittimeout placeholder advance instancegate advanceconflict advancedirty release releaseother releaselive frontierwhy abandon abandonbusy"
+ALL="worker basecommit reviewer seat runtable runchecks idletimeout notready livesession noherdr wait waittimeout placeholder advance instancegate advanceconflict advancedirty release releaseother releaselive frontierwhy suspend suspendbusy orphanpane"
 
 case "${1:-}" in
-  worker|basecommit|reviewer|seat|runtable|runchecks|idletimeout|notready|livesession|noherdr|wait|waittimeout|placeholder|advance|instancegate|advanceconflict|advancedirty|release|releaseother|releaselive|frontierwhy|abandon|abandonbusy)
+  worker|basecommit|reviewer|seat|runtable|runchecks|idletimeout|notready|livesession|noherdr|wait|waittimeout|placeholder|advance|instancegate|advanceconflict|advancedirty|release|releaseother|releaselive|frontierwhy|suspend|suspendbusy|orphanpane)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -1389,14 +1439,20 @@ banner_for() {
     releaseother) echo DISPATCH-RELEASE-OTHER-OK ;;
     releaselive) echo DISPATCH-RELEASE-LIVE-OK ;;
     frontierwhy) echo DISPATCH-FRONTIER-WHY-OK ;;
-    abandon) echo DISPATCH-ABANDON-OK ;;
-    abandonbusy) echo DISPATCH-ABANDON-BUSY-OK ;;
+    suspend) echo DISPATCH-SUSPEND-OK ;;
+    suspendbusy) echo DISPATCH-SUSPEND-BUSY-OK ;;
+    orphanpane) echo DISPATCH-ORPHAN-PANE-OK ;;
   esac
 }
 
 for name in $wanted; do
   echo "=== $name"
+  declare -F "scenario_$name" >/dev/null \
+    || { echo "$name failed: this file has no scenario_$name" >&2; exit 1; }
   "scenario_$name"
+  code=$?
+  [ "$code" -eq 0 ] \
+    || { echo "$name failed: scenario_$name exited $code without reporting" >&2; exit 1; }
   if [ "$rc" -eq 0 ]; then
     banner_for "$name"
   else

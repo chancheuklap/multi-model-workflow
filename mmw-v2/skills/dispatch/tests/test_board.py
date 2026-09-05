@@ -57,6 +57,20 @@ def agent(name, pane, status, host="claude", workspace="", **tokens):
     }
 
 
+def pane(pane_id, workspace="", cwd="/repo", **tokens):
+    """One entry of `herdr api snapshot`'s `panes`, with only the fields read.
+
+    A pane carries no agent: it is the terminal, listed whether or not Herdr has yet
+    worked out what is running in it.
+    """
+    return {
+        "pane_id": pane_id,
+        "workspace_id": workspace,
+        "cwd": cwd,
+        "tokens": {k: str(v) for k, v in tokens.items()} or None,
+    }
+
+
 def ticket(number, state="OPEN", labels=("ready-for-agent",), blockers=(),
            assignees=(), comments=()):
     """One `gh issue view --json …` answer, before board.py normalises it."""
@@ -813,17 +827,20 @@ class AdvancePlan(unittest.TestCase):
     LOGIN = "mmw-bot"
 
     def setUp(self):
-        self.saved = board.sub_issues, board.read_ticket, board.own_login, board.live_agents
+        self.saved = (board.sub_issues, board.read_ticket, board.own_login,
+                      board.live_agents, board.live_panes)
         self.tickets = {}
         self.agents = []
+        self.panes = []
         board.sub_issues = lambda spec: list(self.tickets)
         board.read_ticket = lambda n: self.tickets[n]
         board.own_login = lambda: self.LOGIN
         board.live_agents = lambda: self.agents
+        board.live_panes = lambda: self.panes
 
     def tearDown(self):
-        (board.sub_issues, board.read_ticket,
-         board.own_login, board.live_agents) = self.saved
+        (board.sub_issues, board.read_ticket, board.own_login,
+         board.live_agents, board.live_panes) = self.saved
 
     def plan(self, spec=76):
         """The plan's stdout lines and its stderr lines, the two channels held apart."""
@@ -848,6 +865,48 @@ class AdvancePlan(unittest.TestCase):
         out, err = self.plan()
         self.assertEqual(out, [])
         self.assertIn("held by the live session issue-61", err[1])
+
+    def test_a_claim_whose_terminal_still_stands_is_not_released(self):
+        """Herdr answering with no agents is not the same as no worker running.
+
+        Agent detection lags the terminals it runs in, so a Herdr that has just come
+        back reports the panes before the sessions inside them. Releasing on the agent
+        list alone would hand every claim of the batch back at once and dispatch a
+        second worker onto every ticket a first one is still working.
+        """
+        self.tickets = {61: ticket(61, assignees=(self.LOGIN,)),
+                        62: ticket(62, assignees=(self.LOGIN,))}
+        self.agents = []
+        self.panes = [pane("w1:p1", ticket=61),
+                      pane("w1:p2", cwd="/home/u/.mmw/worktrees/repo/issue-62")]
+        out, err = self.plan()
+        self.assertEqual(out, [])
+        self.assertIn("#61 keeps its claim", err[0])
+        self.assertIn("#62 keeps its claim", err[1])
+
+    def test_a_claim_with_neither_a_session_nor_a_terminal_is_still_released(self):
+        """The machine that really lost its runs lost their panes with them.
+
+        This is the case the release exists for — a crash, a restart, a tab somebody
+        closed — and the terminal check must not turn it into a ticket nothing ever
+        starts again.
+        """
+        self.tickets = {61: ticket(61, assignees=(self.LOGIN,))}
+        self.agents = []
+        self.panes = [pane("w1:p9", ticket=99), pane("w1:p8", cwd="/repo")]
+        self.assertEqual(self.plan()[0], ["RELEASE 61", "DISPATCH 61"])
+
+    def test_a_terminal_in_another_workspace_holds_nothing_here(self):
+        """One board answers for one workspace, and panes are read the same way.
+
+        Another project's night running its own ticket #61 must not keep this batch's
+        #61 claimed.
+        """
+        os.environ["HERDR_WORKSPACE_ID"] = "w1"
+        self.addCleanup(os.environ.pop, "HERDR_WORKSPACE_ID", None)
+        self.tickets = {61: ticket(61, assignees=(self.LOGIN,))}
+        self.panes = [pane("w2:p1", workspace="w2", ticket=61)]
+        self.assertEqual(self.plan()[0], ["RELEASE 61", "DISPATCH 61"])
 
     def test_with_no_login_to_compare_against_nothing_is_released(self):
         board.own_login = lambda: ""
