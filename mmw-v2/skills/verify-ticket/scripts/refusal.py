@@ -14,6 +14,10 @@ So a refusal is three parts, in this order:
 3. what to do next — one command that can be pasted, or the sentence that says to report
    the ticket blocked and stop.
 
+This file is the shape of one refusal message. Whether a gate should refuse at all,
+and how to tell a gate that checked from a gate that said nothing, is
+`docs/adr/0008-silence-is-never-a-pass.md` in the multi-model-workflow repository.
+
 `REASON_LIMIT` is measured, not chosen: Grok Build clips a deny reason at 256 characters
 and spends 13 of them on a prefix of its own (2026-08-29). Part 3 is the part that must
 survive, so `refusal()` trims part 1 rather than part 3.
