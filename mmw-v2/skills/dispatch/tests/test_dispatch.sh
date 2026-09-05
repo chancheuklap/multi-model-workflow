@@ -206,6 +206,14 @@ cat > "$TMP/bin/gh" <<'FAKE'
 line=gh
 for a in "$@"; do line="$line :: $a"; done
 echo "$line" >> "$MMW_TEST_LOG"
+body_next=0
+for a in "$@"; do
+  if [ "$body_next" = 1 ]; then
+    printf '%s\n' "$a" > "$MMW_GH_LAST_BODY"
+    break
+  fi
+  [ "$a" = "--body" ] && body_next=1
+done
 case "$*" in
   *"--json state,labels,blockedBy,title,body"*|*"--json state,labels,blockedBy,title"*)
     MMW_WANT="$3" python3 -c '
@@ -285,6 +293,8 @@ chmod +x "$TMP/bin/paseo" "$TMP/bin/gh"
 export PATH="$TMP/bin:$PATH"
 export MMW_TEST_LOG="$TMP/calls.log"
 export MMW_FAKE_PASEO_STATE="$TMP/paseo-state"
+export MMW_GH_LAST_BODY="$TMP/gh-last-body"
+: > "$MMW_GH_LAST_BODY"
 
 git init -q -b main "$TMP/repo"
 git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m fixture
@@ -293,6 +303,7 @@ git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m f
 
 reset_log() {
   : > "$MMW_TEST_LOG"
+  : > "$MMW_GH_LAST_BODY"
   mkdir -p "$MMW_FAKE_PASEO_STATE"
   echo '[]' > "$MMW_FAKE_PASEO_STATE/workspaces.json"
   echo '[]' > "$MMW_FAKE_PASEO_STATE/agents.json"
@@ -528,10 +539,10 @@ scenario_advanceconflict() {
     || fail "MERGE_HEAD is gone, so the merge was aborted"
 
   echo "--- and the report names both sides and the files"
-  grep -q "CONFLICT merging issue-62" "$TMP/out" || fail "no CONFLICT line: $(cat "$TMP/out")"
-  grep -q "MERGE_HEAD  issue-62" "$TMP/out" || fail "the incoming side is not named"
-  grep -q "issue-61" "$TMP/out" || fail "the side already merged is not named"
-  grep -q "shared.txt" "$TMP/out" || fail "the conflicted file is not named"
+  grep -q "CONFLICT merging issue-62" "$TMP/err" || fail "no CONFLICT line: $(cat "$TMP/err")"
+  grep -q "MERGE_HEAD  issue-62" "$TMP/err" || fail "the incoming side is not named"
+  grep -q "issue-61" "$TMP/err" || fail "the side already merged is not named"
+  grep -q "shared.txt" "$TMP/err" || fail "the conflicted file is not named"
 
   echo "--- nothing is archived, created or started while the tree is half-merged"
   hasnt "workspace :: archive"
@@ -723,7 +734,20 @@ PY
 }
 
 scenario_summary() {
-  local when code
+  local when code copy
+  copy="$(skill_copy_for summary)"
+  mkdir -p "$TMP/fake/skills/verify-ticket/scripts"
+  cat > "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py" <<'PY'
+#!/usr/bin/env python3
+import os, sys
+log = os.environ["MMW_TEST_LOG"]
+with open(log, "a", encoding="utf-8") as fh:
+    fh.write("verify-ticket" + "".join(" :: " + a for a in sys.argv[1:]) + "\n")
+print("ALL MET (5 met)")
+sys.exit(0)
+PY
+  chmod +x "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py"
+
   when="$(python3 -c 'from datetime import datetime, timezone, timedelta; print((datetime.now(timezone.utc)-timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ"))')"
   cat > "$TMP/tickets.json" <<JSON
 [
@@ -734,23 +758,31 @@ scenario_summary() {
 JSON
   reset_log
   fresh_repo
-  echo "--- without a reverify this session, the four lines are posted as NIGHT SUMMARY"
+  echo "--- without a reverify this session, the posted comment opens NIGHT SUMMARY and has no Reverify"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" summary 76)"
+          bash "$copy/scripts/dispatch.sh" summary 76)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  grep -q "^NIGHT SUMMARY " "$TMP/out" || fail "stdout should open NIGHT SUMMARY: $(cat "$TMP/out")"
-  grep -q "Reverify:" "$TMP/out" && fail "Reverify should be absent unless reverify ran"
   has "gh :: issue :: comment :: 76 :: --body"
+  grep -q "^NIGHT SUMMARY " "$MMW_GH_LAST_BODY" \
+    || fail "the posted comment should open NIGHT SUMMARY: $(cat "$MMW_GH_LAST_BODY")"
+  grep -q "Reverify:" "$MMW_GH_LAST_BODY" \
+    && fail "Reverify should be absent unless reverify ran: $(cat "$MMW_GH_LAST_BODY")"
 
-  echo "--- after reverify, one extra Reverify line is posted"
-  printf '2 1\n' > "$TMP/repo/.git/mmw-reverify-76"
+  echo "--- after reverify, the posted comment has a Reverify line matching that run"
   reset_log
-  echo '[]' > "$MMW_FAKE_PASEO_STATE/workspaces.json"
-  echo '[]' > "$MMW_FAKE_PASEO_STATE/agents.json"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" summary 76)"
+          bash "$copy/scripts/dispatch.sh" reverify 76)"
+  [ "$code" = 0 ] || fail "reverify expected exit 0, got $code: $(cat "$TMP/err")"
+  grep -q "reverify #76: 1 green, 0 red" "$TMP/out" \
+    || fail "reverify should report 1 green: $(cat "$TMP/out")"
+  reset_log
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$copy/scripts/dispatch.sh" summary 76)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  grep -q "Reverify: 2/1" "$TMP/out" || fail "missing Reverify line: $(cat "$TMP/out")"
+  grep -q "^NIGHT SUMMARY " "$MMW_GH_LAST_BODY" \
+    || fail "the posted comment should open NIGHT SUMMARY: $(cat "$MMW_GH_LAST_BODY")"
+  grep -q "Reverify: 1/0" "$MMW_GH_LAST_BODY" \
+    || fail "missing Reverify line matching that reverify: $(cat "$MMW_GH_LAST_BODY")"
 }
 
 scenario_start_json() {

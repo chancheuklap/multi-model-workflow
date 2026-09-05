@@ -23,7 +23,7 @@ Resolve them from this file's own location. The path differs by machine and by h
 `start` and `advance` take exactly one of `--json` or `--run`. If you pass neither, or both, the script exits 2, prints `pass --json … or --run …` on stderr, and calls nothing.
 
 - **`--json`**: stdout is one JSON object per ticket, one line, whose fields are the arguments of `create_agent` (`workspaceId`, `title`, `provider`, `settings`, `labels`, `initialPrompt`). You call `create_agent` on each line yourself, with `notifyOnFinish: true`. The script does not call `create_agent`; the finish notification only fires for a `create_agent` that you issued.
-- **`--run`**: the script calls `paseo run -d …` and prints the agent id. There is no finish notification.
+- **`--run`**: the script calls `paseo run -d …` and prints the agent id. There is no finish notification. Wait with `paseo wait <id>`, then read the ticket.
 
 Which path you take is a fact about this session, not about the environment: **if you have a `create_agent` tool, pass `--json`; otherwise pass `--run`.** Do not look at `PASEO_AGENT_ID` to choose — a Grok session can have the Paseo tools and still be running its shell inside the daemon, where that variable is unset, so a test of the variable would pick `--run` every time and you would never be notified.
 
@@ -31,12 +31,12 @@ Which path you take is a fact about this session, not about the environment: **i
 
 | You want to | Run |
 | --- | --- |
-| Start the reviewer on your ticket and wait for its report | `<dispatch> start <n> reviewer --json`. Stdout is one JSON object. Call `create_agent` with those fields and `notifyOnFinish: true`. When a finish notification arrives for title `#<n> reviewer`, read the ticket: the report is the newest comment whose first line is `REVIEW `. **Start exits 2:** stderr is the reason; nothing was started — run the `code-review` skill in this host's general-purpose subagent with ticket `<n>` and base commit `$(git config branch.issue-<n>.mmw-base)`; its report lands with the same `REVIEW ` first line. **Notification is `errored` or `was closed`, and there is no `REVIEW ` comment:** `paseo logs <id>`, then the same general-purpose fallback. Do not start a second reviewer. |
-| Start the verifier on your ticket | `<dispatch> start <n> verifier --json`. Call `create_agent` on the printed object with `notifyOnFinish: true`. When the finish notification arrives, read the newest comment whose first line is `VERDICT`. Start it once. **Start exits 2:** stderr is the reason; comment on the ticket with the command you ran and the output, and stop. |
+| Start the reviewer on your ticket and wait for its report | `<dispatch> start <n> reviewer --json`. Stdout is one JSON object. Call `create_agent` with those fields and `notifyOnFinish: true`. When a finish notification arrives for title `#<n> reviewer`, read the ticket: the report is the newest comment whose first line is `REVIEW `. **`--run` instead:** stdout is the agent id; `paseo wait <id>`, then read that `REVIEW ` comment. **Start exits 2:** stderr is the reason; nothing was started — run the `code-review` skill in this host's general-purpose subagent with ticket `<n>` and base commit `$(git config branch.issue-<n>.mmw-base)`; its report lands with the same `REVIEW ` first line. **Notification is `errored` or `was closed`, and there is no `REVIEW ` comment:** `paseo logs <id>`, then the same general-purpose fallback. Do not start a second reviewer. |
+| Start the verifier on your ticket | `<dispatch> start <n> verifier --json`. Call `create_agent` on the printed object with `notifyOnFinish: true`. When the finish notification arrives, read the newest comment whose first line is `VERDICT`. **`--run` instead:** stdout is the agent id; `paseo wait <id>`, then read that `VERDICT`. Start it once. **Start exits 2:** stderr is the reason; comment on the ticket with the command you ran and the output, and stop. |
 | Open the night on a spec | [references/night.md](references/night.md): `<dispatch> check <spec>`, then `<dispatch> advance <spec> --json`, then `create_agent` on each printed line |
 | A finish notification arrived (`finished` / `errored` / `was closed` / `needs permission`) | `<dispatch> status <spec>`, then the decision table in [references/night.md](references/night.md) |
 | Tell a live worker to continue | `<dispatch> resume <n> "<text>"`. Exit 0: the text was sent. Exit 2: no worker labelled `mmw.ticket=<n>` — read `status`, do not send again |
-| Start a worker on one ticket, outside a night | `<dispatch> start <n> worker --json` (then `create_agent`) or `--run` (prints the agent id) |
+| Start a worker on one ticket, outside a night | `<dispatch> start <n> worker --json` (then `create_agent`) or `--run` (prints the agent id; then `paseo wait <id>` before you read the ticket) |
 | Re-run every closed `ALL MET` ticket on the branch you are on | `<dispatch> reverify <spec>` |
 | Post the night summary on the spec | `<dispatch> summary <spec>` |
 | Change one ticket's worker grade | Swap its `junior-worker` / `senior-worker` label on the tracker; the next `start` reads it |
@@ -71,7 +71,7 @@ A notification is a `<paseo-system>` block whose first sentence is `Agent <id> (
 | --- | --- |
 | `0` | Done. `--json`: one JSON object per dispatched ticket on stdout; the line `advance #<spec>: merged <m>, already in <s>, started <k>, refused <r>` is on stderr. `--run`: that summary line is on stdout |
 | `2` | Nothing was touched. Stderr: not a git repository, uncommitted tracked changes, or the `.git` lock was held for `MERGE_TRIES` tries — run `advance` again |
-| `3` | A merge is in conflict. Everything before it is merged and committed; nothing was archived, no workspace was created, nothing was dispatched. **The conflict is still in the tree and it stays there.** Resolve it with the `resolving-merge-conflicts` skill, run this repository's own checks, commit the merge, then run `advance` again with the same `--json` or `--run`. The conflict report (stdout) already names the two sides and the conflicted files |
+| `3` | A merge is in conflict. Everything before it is merged and committed; nothing was archived, no workspace was created, nothing was dispatched. **The conflict is still in the tree and it stays there.** Resolve it with the `resolving-merge-conflicts` skill, run this repository's own checks, commit the merge, then run `advance` again with the same `--json` or `--run`. The conflict report (stderr) already names the two sides and the conflicted files |
 
 **`check <spec>`:**
 

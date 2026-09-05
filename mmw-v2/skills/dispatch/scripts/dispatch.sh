@@ -625,7 +625,7 @@ advance() {
   export MMW_SPEC="$spec"
 
   if git -C "$root" rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
-    conflict_report "$root"
+    conflict_report "$root" >&2
     exit 3
   fi
 
@@ -655,7 +655,7 @@ advance() {
     rc=$?
     if [ "$rc" -eq 1 ]; then
       left="$(printf '%s\n' "$plan" | awk -v n="$number" '$1 == "MERGE" && seen { print "issue-" $2 } $2 == n { seen = 1 }')"
-      conflict_report "$root" "$left"
+      conflict_report "$root" "$left" >&2
       exit 3
     fi
     [ "$rc" -eq 0 ] || refuse "could not merge $branch after $MERGE_TRIES tries; git said nothing this script can act on"
