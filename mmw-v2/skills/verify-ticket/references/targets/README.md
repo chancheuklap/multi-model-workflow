@@ -108,6 +108,7 @@ on every machine:
 ```json
 {
   "start": "uv run python scripts/testing/target.py start",
+  "stop": "uv run python scripts/testing/target.py stop",
   "discover": "uv run python scripts/testing/target.py discover",
   "reach": "uv run python scripts/testing/reach.py",
   "transport_off": "uv run python scripts/testing/target.py transport off",
@@ -137,6 +138,14 @@ on every machine:
   one. Falling back to a default port instead would keep two allocation schemes alive,
   and the collisions come back with them — a worker running `start` in its own terminal
   is how they came back on 2026-09-05.
+- `stop` ends what `start` started, and nothing else. It is the only way a run may end a
+  process: the pre-tool gate refuses `kill`, `pkill`, `killall` and `xargs kill`, and its
+  refusal sends the reader here. So a repository that declares `start` declares `stop`
+  too — without it the refusal points at a command that does not exist, and whoever hits
+  it has no way forward. `stop` ends only what this run recorded as its own (a pid file
+  it wrote, a process whose working directory is this worktree), leaves a neighbour's
+  product alone, and exits 0 when there is nothing of its own to end. It does not release
+  the lease; the driver does that.
 - `discover` prints one JSON object of addresses; each kind's file says which keys. Two
   more are the same for every kind: `instance`, a readable name for this run, and
   `instance_check`, one `observe` line whose truth means the product at these addresses
