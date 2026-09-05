@@ -63,7 +63,7 @@ A notification is a `<paseo-system>` block whose first sentence is `Agent <id> (
 | Code | What happened |
 | --- | --- |
 | `0` | `--json`: one JSON object is on stdout. `--run`: the agent id is on stdout |
-| `2` | Nothing was started. The reason is on stderr — read it verbatim. Typical causes: the ticket is not `OPEN` / not `ready-for-agent` / still blocked; two worker-grade labels; no `bypass` row for the seat; no `## Parent` spec number; no recorded base commit (reviewer); no Paseo project whose `path` is this checkout |
+| `2` | Nothing was started. The reason is on stderr — read it verbatim. Typical causes: the ticket is not `OPEN` / not `ready-for-agent` / still blocked; two worker-grade labels; no `bypass` row in `models.md` for that agent; no `## Parent` spec number; no recorded base commit (reviewer); no Paseo project whose `path` is this checkout |
 
 **`advance <spec> --json\|--run`:**
 
