@@ -64,7 +64,7 @@ _Home_: `mmw-v2/skills/dispatch/references/verifier.md`
 
 **advisor**:
 The second-opinion agent on a stronger model; read-only, it implements nothing. It has two doors: a Paseo session from the `read-only` row of `models.md` when `list_profiles` lists `advisor`, otherwise a native subagent from the `—` rows.
-_Home_: `mmw-v2/agents/advisor/body.md`
+_Home_: `mmw-v2/agents/advisor/agent.json`
 
 **claim-checker**:
 The subagent that fact-checks a finished document and returns a claim table — every claim marked ✅ sourced, ❌ unsourced, or ⚠️ misleading, with a severity. The `readable-docs` skill runs it before a document is saved or published.
@@ -82,7 +82,7 @@ _Avoid_: human (for this), maintainer (in this repository's text), reporter (in 
 _Home_: `docs/agents/triage-labels.md`
 
 **subagent**:
-An agent started inside another agent's session rather than as a session of its own. Results that must be written back to the ticket, read by another role, and openable by a person, run as a Paseo subagent (写回票); work that is only an internal split of the current step runs as a native subagent. As a deliverable it is one of the two things the toolbox ships: one shared `body.md` wrapped in a per-host shell by `assemble.py` into `agents/<name>/out/` and symlinked once per host, a `models.md` row whose `permissions` are `—`. The three code-review axis subagents are the `reviewer` subagent inside the reviewer session; the reviewer and the verifier themselves are Paseo subagents of the worker.
+As a deliverable it is one of the two things the toolbox ships: one shared `body.md` wrapped in a per-host shell by `assemble.py` into `agents/<name>/out/` and symlinked once per host, a `models.md` row whose `permissions` are `—`. Results that must be written back to the ticket, read by another role, and openable by a person, run as a Paseo subagent (写回票); work that is only an internal split of the current step runs as a native subagent. The three code-review axis subagents are the `reviewer` subagent inside the reviewer session; the reviewer and the verifier themselves are Paseo subagents of the worker.
 _Avoid_: sub-agent, background agent, seat, 子代理 (as a term)
 _Home_: `mmw-v2/install.sh`
 
@@ -201,7 +201,7 @@ _Avoid_: branch (bare), 分支名 (as a term)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **base commit**:
-The commit recorded in `git config branch.issue-<n>.mmw-base` when the workspace was created: HEAD at a new `branch-off`, or — for a ticket branch that already existed with no record — its merge base with HEAD at that dispatch. The reviewer reads it itself; it is where code review's diff starts (`git diff <base-commit>...HEAD`, three dots), and where the first-parent chain behind `Outside Owns:` begins. Written `<base-commit>` as a placeholder.
+The commit recorded in `git config branch.issue-<n>.mmw-base` when the workspace was created: HEAD at a new `branch-off`, or — for a ticket branch that already existed with no record — its merge base with HEAD at that dispatch. `start` reads it and writes it into the review dispatch line; it is where code review's diff starts (`git diff <base-commit>...HEAD`, three dots), and where the first-parent chain behind `Outside Owns:` begins. Written `<base-commit>` as a placeholder.
 _Avoid_: base-commit (in prose), 起点 commit, cut point, 切点
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
