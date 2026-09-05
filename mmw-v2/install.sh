@@ -375,12 +375,13 @@ PI_EXTENSION = """// installed by mmw-v2/install.sh
 // @ts-nocheck
 
 import { spawnSync } from "node:child_process";
+import { basename } from "node:path";
 
 const HOOK = "%(hook)s";
 
 export default function (pi) {
-  // 没有 dispatch.sh 塞的 MMW_TICKET 就不必调 hook.py，也就不必为每条命令付一个进程。
-  if (!process.env.MMW_TICKET) return;
+  // cwd 的 basename 是 issue-<n> 才调 hook.py；main agent 不在这样的目录里。
+  if (!/^issue-\\d+$/.test(basename(process.cwd()))) return;
 
   pi.on("tool_call", async (event, ctx) => {
     if (event.toolName !== "bash") return;
@@ -803,15 +804,17 @@ def permissions_ok(profile, host):
     return fv.get("auto_accept") is True
 
 
-def make_profile(agent, host, model, effort):
-    profile = {
-        "id": agent,
-        "name": agent,
-        "provider": host,
-        "model": model,
-        "thinkingOptionId": effort,
-        "notes": f"{agent} from models.md {agent}/{host}; {PURPOSES.get(agent, 'dispatched by this pipeline')}.",
-    }
+def make_profile(agent, host, model, effort, existing=None):
+    profile = dict(existing) if isinstance(existing, dict) else {}
+    profile["id"] = agent
+    profile["name"] = agent
+    profile["provider"] = host
+    profile["model"] = model
+    profile["thinkingOptionId"] = effort
+    profile["notes"] = (
+        f"{agent} from models.md {agent}/{host}; "
+        f"{PURPOSES.get(agent, 'dispatched by this pipeline')}."
+    )
     apply_permissions(profile, host)
     return profile
 
@@ -830,7 +833,7 @@ def merge(data, rows):
     for profile in existing:
         pid = profile.get("id") if isinstance(profile, dict) else None
         if pid in managed:
-            new_profiles.append(make_profile(pid, *managed[pid]))
+            new_profiles.append(make_profile(pid, *managed[pid], existing=profile))
             seen.add(pid)
         else:
             new_profiles.append(profile)
