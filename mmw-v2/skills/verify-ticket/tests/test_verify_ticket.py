@@ -135,6 +135,20 @@ class TestDoubleCondition(LedgerRun):
         self.assertIn("Outside Owns: None", comment)
 
 
+class TestMmwTicketInCheckEnv(LedgerRun):
+    """The CHECK shell sees the ticket number, not an empty leftover from the host."""
+
+    def test_mmw_ticket_in_check_env(self):
+        code, comment, _ = self.run_ticket(ticket(
+            "- [ ] AC1: the check shell sees the ticket number",
+            "  CHECK: echo T=$MMW_TICKET",
+            "  EXPECT: T=1",
+            "  EVIDENCE: pending",
+        ))
+        self.assertEqual(code, 0, comment)
+        self.assertIn("- [x] AC1:", comment)
+
+
 class TestNoRoundCap(LedgerRun):
     """How many rounds a criterion gets is the worker's own judgement: no run names a
     limit, however many self-runs the ticket already carries."""

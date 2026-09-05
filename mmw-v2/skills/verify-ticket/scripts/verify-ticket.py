@@ -1271,7 +1271,9 @@ def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
             cmd.append("--reverify")
         cmd += ["--timeout", str(check_timeout(body, timeout))]
         cmd.append(str(ledger))
-        result = subprocess.run(cmd, capture_output=True, text=True, cwd=root)
+        env = os.environ.copy()
+        env["MMW_TICKET"] = str(number)
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=root, env=env)
         printed = (result.stdout or "") + (result.stderr or "")
         sys.stdout.write(printed)
         if result.returncode == 2:
