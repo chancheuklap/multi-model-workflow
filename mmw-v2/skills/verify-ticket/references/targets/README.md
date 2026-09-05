@@ -118,8 +118,13 @@ on every machine:
 ```
 
 - `start` brings the product up and returns once it answers. **Nobody starts the
-  product by hand for a run**: when `ready` says the product is not answering, the
-  driver runs `start` once, then `discover` and `ready` again; a repository without
+  product by hand for a run**: the driver runs `start` once before the first scene —
+  every time, not only when `ready` says nothing answers — then `discover` and `ready`
+  again. Every time, because only `start` knows whether the product that answers is the
+  one this worktree's code builds; skip it while something answers and a product left
+  over from before a merge is measured instead, with nothing to say so (2026-09-05,
+  twice). That is also why `start` has to be idempotent and cheap on a product that is
+  already up and current. A repository without
   `start` gets a run that stops on the first scene naming what to declare. Everything
   the product needs in order to run — which backing service to point at, which data
   directory to use, which log to write — is found or chosen *inside* this command, by

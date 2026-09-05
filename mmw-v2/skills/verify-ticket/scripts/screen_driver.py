@@ -1494,15 +1494,18 @@ def bring_up(adapter: Adapter) -> None:
     `discover` and `ready` are asked again. Nothing here is told how the product
     starts, and nobody is expected to have started it by hand."""
     ok, why = adapter.ready()
-    if ok:
-        return
     start = adapter.cfg.get("start")
+    if ok and not start:
+        return
     if not start:
         raise SystemExit(f"{why}; .mmw/target.json declares no `start`, so the run cannot "
                          f"bring the product up itself. Declare `start` (a command that "
                          f"brings it up and returns once it answers; see "
                          f"verify-ticket/references/targets/README.md)")
-    print(f"target not answering ({why}); running start: {start}", file=sys.stderr)
+    # 每次都跑，不只在没人应答的时候。`start` 按契约是幂等的，对已在应答的产品原样保留
+    # ——但只有它知道那个产品是不是本工作树此刻的代码。跳过它，一个仍在应答的旧产品就
+    # 永远不会被换掉，判据在旧代码上得出的结论没人会发现（2026-09-05 实测两次）。
+    print(f"running start ({'answering' if ok else why}): {start}", file=sys.stderr)
     try:
         proc = subprocess.run(shlex.split(start), cwd=adapter.root, capture_output=True,
                               text=True, timeout=START_TIMEOUT_S,
