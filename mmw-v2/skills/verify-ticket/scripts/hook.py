@@ -13,11 +13,11 @@ refuses the call and says where the question goes instead — the default taken 
 recorded, or `ABANDON: AC<n> decision` with a sub-issue.
 
 Ending a process is never this session's to do. Several runs share one machine, and
-another run's application is indistinguishable from a stuck one: on 2026-09-05 a worker
-ended another worktree's application to take its ports, one second before its own took
-them. A run stops its own product through the `stop` command its repository declares;
-everything else is somebody else's, and a run that cannot reach its product reports the
-ticket blocked rather than clearing the way to it.
+another run's application is indistinguishable from a stuck one, so a session that is
+free to end what looks stuck is free to end a neighbour's work one second before it
+finished. A run stops its own product through the `stop` command its repository
+declares; everything else is somebody else's, and a run that cannot reach its product
+reports the ticket blocked rather than clearing the way to it.
 
     hook.py pretool <host>    the host is about to run a shell command
     hook.py question <host>   the host is about to ask the user a question

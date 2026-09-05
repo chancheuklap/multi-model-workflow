@@ -59,7 +59,7 @@ The worker reads the same way. `dispatch.sh` starts a ticket on the `models.md` 
 
 The batch converges when `ERROR` is at zero and every `WARN` has been looked at and either fixed or kept on purpose.
 
-## Four rules while the product is running
+## Five rules while the product is running
 
 Several runs share one machine, and each gets its own ports and directories from a lease
 (`references/targets/README.md`, question 8). You never choose a port, start a backing
@@ -80,40 +80,16 @@ which the driver runs for you — brings up everything your criteria need.
    no person in it.
 4. **When the product cannot be reached, report the ticket blocked and stop.** Do not
    wait, do not build a retry loop, do not change the environment, do not touch another
-   run. On 2026-09-05 three workers each met one correct error message and each invented
-   a different answer to it: one waited, one retried seventy-eight times over twelve
-   minutes, one ended another run's application. All three were reasonable guesses. This
-   rule exists so that nobody has to guess.
+   run.
+5. **A fault in the pipeline itself is reported blocked the same way.** The acceptance
+   driver, the instance lease, the `verify-ticket` scripts, a machine fact in
+   `.mmw/target.json` — a fault in one of those is not yours to route around and not a
+   reason to keep trying. A workaround built instead hides it from every ticket after
+   yours.
 
-## Silence is never a pass
-
-Every fault this pipeline has had in one night had the same shape, and it is not the
-shape people expect. Nothing lied. Each gate was in a state where it neither did its job
-nor said so, and a gate that says nothing reads exactly like a gate that passed:
-
-- a batch check read the wrong batch, so the check that stops two tickets claiming one
-  screen ran against a set neither of them was in, and printed nothing;
-- `advance` dispatched nothing, five tickets sat unstartable, and the summary line was
-  the same one it prints when there is nothing to do;
-- a type gate went red and stayed red for three days while every worker went around it;
-- a test suite wrote into the machine's real lease registry and no run noticed until one
-  was locked out of its own ports;
-- an application that had stopped answering held its own addresses, and the only two
-  commands that could speak both refused, each correctly.
-
-So, of anything in this pipeline that can refuse:
-
-1. **It names the fact it checked.** A pid, a path, a count, a ticket number — something
-   the reader can go and look at. A refusal with no fact cannot be told from a guess.
-2. **It says the one way out.** Not a list of options: an agent given options invents a
-   sixth. A refusal with no exit is a deadlock wearing a correct sentence, and two of
-   them facing each other is how a night stops.
-3. **It never passes by doing nothing.** When it could not run — no data, no answer, no
-   network — it says that, loudly, and fails. "Could not check" and "checked, fine" are
-   different answers and only one of them is silence.
-
-When you add a gate, or change one, the question to ask it is not "does it catch the bad
-case". It is: *if this ran and did nothing at all, would anyone find out?*
+Reporting blocked is one comment on the ticket saying exactly what you ran and what you
+saw, and then stopping. Stopping is what brings it to the main agent, who fixes the
+cause.
 
 ## Reached from here
 

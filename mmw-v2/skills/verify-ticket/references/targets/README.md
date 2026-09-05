@@ -28,12 +28,11 @@ adapter class in the driver. Both answer the same nine questions, in this order.
 
    Answering is the cheap half and on its own it is a trap. A product whose own
    dependencies are unusable answers a health check and then refuses every control it
-   shows: on 2026-09-05 a local gateway had no provider secrets, so the application sat
-   in its service-unavailable state with every button disabled, and each criterion failed
-   twenty minutes later in a place that said nothing about the cause. So the answer names
-   the surface that says the product is *usable*, not only alive, and `start` fails on it
-   at once, quoting what the product said was missing. A run that cannot be driven is a
-   refusal at the start, never a slow row of red.
+   shows: it sits in its service-unavailable state with every button disabled, and each
+   criterion fails much later in a place that says nothing about the cause. So the answer
+   names the surface that says the product is *usable*, not only alive, and `start` fails
+   on it at once, quoting what the product said was missing. A run that cannot be driven
+   is a refusal at the start, never a slow row of red.
 3. **address** — how does the contract's `route` become something `goto()` accepts?
 4. **release** — how is the product given back? A window the user owns is restored to
    its own size, clock and page; a browser the driver launched is closed.
@@ -66,17 +65,15 @@ adapter class in the driver. Both answer the same nine questions, in this order.
    narrowing: an `observe` line that goes green with nothing persisted is caught here
    and nowhere else. The commands are machine facts and live in `.mmw/target.json`.
 8. **instance** — how many runs of this product can one machine hold at once, and how
-   does a run take one of them? Questions 1–7 are all in the singular, and for a long
-   time so was the pipeline's picture of a machine. It was never true: `dispatch` sends
-   every startable ticket of a spec out together, each in its own worktree. A worktree
-   isolates files. Ports, the running application, the service behind it and the account
-   inside that service are the machine's, and nobody was asked to divide them — so on
-   2026-09-05 five workers shared three fixed ports, one of them worked, and one ended
-   another's application to take its ports.
+   does a run take one of them? `dispatch` sends every startable ticket of a spec out
+   together, each in its own worktree, and a worktree isolates files and nothing else:
+   ports, the running application, the service behind it and the account inside that
+   service are the machine's, so each of them has to be divided here.
 
    The driver claims a **lease** for the worktree before it runs any command declared
-   here and puts it in that command's environment: `MMW_INSTANCE`, `MMW_PORT_BASE`,
-   `MMW_PORT_COUNT`, `MMW_DATA_DIR`, and `MMW_AUTOMATION=1`. The repository takes its
+   here and puts it in that command's environment: `MMW_INSTANCE`, `MMW_SLOT`,
+   `MMW_PORT_BASE`, `MMW_PORT_COUNT`, `MMW_DATA_DIR`, and `MMW_AUTOMATION=1`. The
+   repository takes its
    ports and directories from those and from nothing else — **at the moment it starts a
    process, never into the session or the test environment**: a suite that asserts its
    product's registered port number is right to, and a derived port leaking into it
@@ -98,10 +95,10 @@ adapter class in the driver. Both answer the same nine questions, in this order.
    signal; recording what would have been done, in the run's own `MMW_DATA_DIR`, is
    usually both the neutral act and a stronger assertion than the one it replaces — a
    criterion that reads back the URL a button would have opened says more than one that
-   reads that the application entered a waiting state. Until this question was asked,
-   repositories invented their own answer under their own name and no criterion could
-   rely on it (2026-09-05: an acceptance run opened the production wallet page on the
-   user's own Mac, and a person completing an authorization by hand went unnoticed).
+   reads that the application entered a waiting state. A repository that answers this
+   question under a name of its own gives no criterion anything to rely on: a run that
+   reached a live service, or waited for a person to finish something by hand, then
+   looks exactly like one that did neither.
 
 ## What is the contract's and what is the repository's
 
@@ -123,47 +120,42 @@ on every machine:
   "transport_off": "uv run python scripts/testing/target.py transport off",
   "transport_on": "uv run python scripts/testing/target.py transport on",
   "checks": ["uv run ruff check .", {"run": "uv run pytest -q", "timeout": 1800}],
-  "instance": {"max": 1, "why": "pgbouncer and redis publish fixed host ports"}
+  "instance": {"max": 1, "why": "<what stops a second one>"}
 }
 ```
 
 - `start` brings the product up and returns once it answers. **Nobody starts the
-  product by hand for a run**: the driver runs `start` once before the first scene —
-  every time, not only when `ready` says nothing answers — then `discover` and `ready`
-  again. Every time, because only `start` knows whether the product that answers is the
-  one this worktree's code builds; skip it while something answers and a product left
-  over from before a merge is measured instead, with nothing to say so (2026-09-05,
-  twice). That is also why `start` has to be idempotent and cheap on a product that is
-  already up and current. A repository without
-  `start` gets a run that stops on the first scene naming what to declare. Everything
-  the product needs in order to run — which backing service to point at, which data
-  directory to use, which log to write — is found or chosen *inside* this command, by
-  the repository's own rules, and never typed into a session: an agent told those
-  facts in a message works once; the next agent is not told. `start` is idempotent (a
-  product already answering is left alone), refuses rather than kills when something else
-  holds its ports (naming what it found), and prints to stderr what it chose.
+  product by hand for a run**: the driver runs `start` before the first scene, every
+  time, then `discover` and `ready` again. Every time, because only `start` knows
+  whether the product that answers is the one this worktree's code builds; a product
+  left over from before a merge answers just as well, and nothing on the run would say
+  so. That is why `start` has to be cheap on a product that is already up and current. A
+  repository without `start` gets a run that stops on the first scene naming what to
+  declare. Everything the product needs in order to run — which backing service to point
+  at, which data directory to use, which log to write — is found or chosen *inside* this
+  command, by the repository's own rules, and never typed into a session: an agent told
+  those facts in a message works once; the next agent is not told. `start` prints to
+  stderr what it chose.
 
-  **Whose a port is cannot be read off the port**, and a `start` that tries to work it out
-  is guessing about the machine rather than answering for its product. Asked who holds the
-  published port of a container, this Mac names one ssh multiplexer that holds the
-  published port of *every* container, working in a directory that belongs to a worktree
-  unrelated to any of them (2026-09-06). A rule written from a working directory would
-  refuse a run its own addresses, or end the networking of every stack on the machine.
-  The only thing that knows what a run started is the command that started it, and that
-  is why the way out is `start`'s own and cannot be lifted into the driver: **a `start`
-  that will not come up because a previous run of this same worktree left something
-  behind is not idempotent, and idempotent is what this line asks of it.** It reaches for
-  its own `stop`, on its own record of what it started — a pid file it wrote, a container
-  project it named — and comes up again. Reading "never end a process you did not start"
-  as covering a run's own leftovers is a deadlock with no exit, and it happened: on
-  2026-09-05 an application that had stopped answering still held its ports, `ready` said
-  the product was not this run's, `start` refused because the ports were taken, and
-  nothing on this machine could have unstuck it.
+  **`start` is idempotent**, and idempotent covers both halves of what it may find. Its
+  own current product, already answering, is left alone. Its own stale leftovers — this
+  same worktree's earlier run, still holding the ports, no longer answering — it clears
+  first, by reaching for its own `stop` on its own record of what it started (a pid file
+  it wrote, a container project it named), and comes up again. Anything else holding its
+  ports it refuses over, naming what it found.
+
+  That exit is `start`'s own and cannot be lifted into the driver, because **whose a port
+  is cannot be read off the port**: on a machine where a multiplexer or a container
+  runtime holds the published port of every stack at once, a rule written from the
+  holder's working directory would refuse a run its own addresses, or end the networking
+  of every stack there. The only thing that knows what a run started is the command that
+  started it — so a run's own leftovers are `start`'s to clear, and nothing else on the
+  machine may clear them.
+
   It takes every port and directory from the lease in its environment (question 8), and
   **refuses to start at all when there is no lease**, printing the command that gives it
   one. Falling back to a default port instead would keep two allocation schemes alive,
-  and the collisions come back with them — a worker running `start` in its own terminal
-  is how they came back on 2026-09-05.
+  and the collisions come back with them.
 - `stop` ends what `start` started, and nothing else. It is the only way a run may end a
   process: the pre-tool gate refuses `kill`, `pkill`, `killall` and `xargs kill`, and its
   refusal sends the reader here. So a repository that declares `start` declares `stop`
@@ -184,12 +176,9 @@ on every machine:
   is filled from them. It **establishes** the state: it runs once per scene and once per
   row, and it may skip only what it established itself in this same run. A state it
   merely finds is not evidence that the product can reach it, and accepting one hides the
-  case that matters. This line used to say "a state already there is left there", and a
-  repository implemented exactly that — its sign-in step returned early whenever it found
-  the application signed in. A person completed one authorization by hand, every seed
-  after it skipped the automatic sign-in, and a broken sign-in would have gone unseen
-  (2026-09-05). Idempotent means running it twice gives the same result, not that what is
-  already there can be trusted.
+  case that matters: a sign-in step that returns early whenever it finds the application
+  signed in reports success over a sign-in that no longer works. Idempotent means running
+  it twice gives the same result, not that what is already there can be trusted.
 - `transport_off` / `transport_on` answer question 7.
 - `checks` is optional: the consuming repository's own "run the tests yourself" rule,
   made a gate. `verify-ticket.py --closeout` runs the entries in order at the
