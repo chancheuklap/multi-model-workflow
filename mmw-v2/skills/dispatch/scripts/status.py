@@ -118,8 +118,7 @@ def sub_issues(number: int) -> list[int]:
     """The issue's own children, followed through the tracker's native relation.
 
     Called with a spec, that is the batch. Called with a ticket, that is what
-    the ticket opened. A sub-issue a worker opened during the night is in the
-    ticket's list, told apart by when it appeared.
+    the ticket opened.
     """
     rows = gh_json(["api", "--paginate", "--slurp",
                     f"repos/{{owner}}/{{repo}}/issues/{number}/sub_issues?per_page=100"], [])
@@ -252,6 +251,7 @@ def sessions(agents: list[dict]) -> list[dict]:
     A live agent whose `cwd` basename is not `issue-<n>` is not ours. Kind is
     whatever `live_agents` set from the `mmw.kind` filter; a missing kind is a
     worker, which is what a test fixture that only names the ticket produces.
+    An agent whose kind is not `worker`, `reviewer` or `verifier` is not ours.
     """
     found = []
     for agent in agents:
@@ -260,7 +260,7 @@ def sessions(agents: list[dict]) -> list[dict]:
             continue
         kind = agent.get("kind") or "worker"
         if kind not in AGENT_KINDS:
-            kind = "worker"
+            continue
         found.append({
             "ticket": number,
             "kind": kind,
@@ -494,18 +494,12 @@ def table(spec: int) -> int:
     return 0
 
 
-def children_of(numbers: list[int]) -> list[dict]:
-    """Each ticket's sub-issues, in ticket order, as `read_ticket` returns them."""
-    found = []
-    for number in numbers:
-        for child in sub_issues(number):
-            found.append(read_ticket(child))
-    return found
-
-
 def print_summary(spec: int) -> int:
     rows, _ = collect(spec)
-    children = children_of([r["ticket"] for r in rows])
+    children = []
+    for number in (r["ticket"] for r in rows):
+        for child in sub_issues(number):
+            children.append(read_ticket(child))
     print(summary(rows, night_opened(), children=children))
     return 0
 

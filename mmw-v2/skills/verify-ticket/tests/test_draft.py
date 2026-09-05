@@ -92,7 +92,7 @@ def fake_git(*args, cwd=None):
     return ""
 
 
-def run_draft(comments, body=BODY, children=(), child_bodies=None, check_closeout=False,
+def run_draft(comments, body=BODY, child_bodies=None, check_closeout=False,
               sub_issues_by_parent=None):
     """Write a skeleton for ticket 77; return (exit, stderr, text, closeout-exit)."""
     child_bodies = child_bodies or {}
@@ -112,7 +112,7 @@ def run_draft(comments, body=BODY, children=(), child_bodies=None, check_closeou
         def fake_sub_issues(n):
             if sub_issues_by_parent is not None:
                 return list(sub_issues_by_parent.get(n, ()))
-            return list(children)
+            return []
 
         with mock.patch.object(vt, "fetch_body", side_effect=fake_body), \
              mock.patch.object(vt, "fetch_comments", return_value=list(comments)), \

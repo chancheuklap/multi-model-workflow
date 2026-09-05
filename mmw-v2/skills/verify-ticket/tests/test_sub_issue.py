@@ -11,12 +11,10 @@ from tests._load import load
 
 vt = load()
 
-BODY = "## Parent\n\n#118, Implementation Decisions section 11\n"
-
 KINDS = ("baseline", "outside-owns", "review", "decision", "pipeline")
 
 
-def run_sub_issue(kind, text, body=BODY):
+def run_sub_issue(kind, text):
     """Run --sub-issue; return (exit, stdout, stderr, gh argv list, posted bodies)."""
     recorded = []
     posted_bodies = []
@@ -35,8 +33,7 @@ def run_sub_issue(kind, text, body=BODY):
     with TemporaryDirectory() as tmp:
         path = Path(tmp) / "body.md"
         path.write_text(text, encoding="utf-8")
-        with mock.patch.object(vt.subprocess, "run", side_effect=fake_run), \
-             mock.patch.object(vt, "fetch_body", return_value=body):
+        with mock.patch.object(vt.subprocess, "run", side_effect=fake_run):
             with redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()) as err:
                 code = vt.run_sub_issue(77, kind, path)
     return code, out.getvalue(), err.getvalue(), recorded, posted_bodies
@@ -58,18 +55,13 @@ class TestCreatesForEachKind(unittest.TestCase):
                 self.assertIn("99", out.strip().splitlines()[-1])
 
     def test_parent_is_the_ticket(self):
-        """`--parent` is this ticket even when `## Parent` names a spec, or is missing."""
-        for label, body in (
-                ("names a spec", BODY),
-                ("missing", "## Worker\n\njunior-worker\n")):
-            with self.subTest(label=label):
-                code, _, err, recorded, _ = run_sub_issue(
-                    "baseline", "The handoff and the spec disagree\n\ndetail\n",
-                    body=body)
-                self.assertEqual(code, 0, err)
-                create = next(c for c in recorded if c[:3] == ["gh", "issue", "create"])
-                self.assertEqual(create[create.index("--parent") + 1], "77")
-                self.assertNotIn("118", create)
+        """`--parent` is this ticket; the ticket body is not consulted."""
+        code, _, err, recorded, _ = run_sub_issue(
+            "baseline", "The handoff and the spec disagree\n\ndetail\n")
+        self.assertEqual(code, 0, err)
+        create = next(c for c in recorded if c[:3] == ["gh", "issue", "create"])
+        self.assertEqual(create[create.index("--parent") + 1], "77")
+        self.assertNotIn("118", create)
 
     def test_the_body_opens_with_the_sub_issue_marker(self):
         code, _, err, recorded, bodies = run_sub_issue(

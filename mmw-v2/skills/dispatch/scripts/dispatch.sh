@@ -147,7 +147,7 @@ state = (ticket.get("state") or "unreadable").lower()
 labels = [label.get("name") for label in ticket.get("labels") or []]
 nodes = (ticket.get("blockedBy") or {}).get("nodes") or []
 blockers = ["#" + str(b.get("number")) for b in nodes if b.get("state") != "CLOSED"]
-seats = sorted(name for name in labels if name and name.endswith("-worker"))
+grades = sorted(name for name in labels if name and name.endswith("-worker"))
 body = ticket.get("body") or ""
 found = re.search(r"(?ms)^## Parent\s*\n+.*?\#(\d+)", body)
 spec = found.group(1) if found else ""
@@ -159,7 +159,7 @@ elif "ready-for-agent" not in labels:
 elif blockers:
     print("REFUSE ticket #" + number + " is still blocked by " + ", ".join(blockers))
 else:
-    print(" ".join(seats))
+    print(" ".join(grades))
     print(ticket.get("title") or "")
     print(spec)
 '
@@ -173,18 +173,8 @@ record_base_if_missing() {
   local number="$1" root="$2" found
   if [ -z "$(git -C "$root" config --get "branch.issue-$number.mmw-base")" ]; then
     found="$(git -C "$root" merge-base HEAD "issue-$number" 2>/dev/null)"
+    [ -z "$found" ] && found="$(git -C "$root" rev-parse HEAD 2>/dev/null)"
     [ -n "$found" ] && git -C "$root" config "branch.issue-$number.mmw-base" "$found"
-  fi
-  if [ -z "$(git -C "$root" config --get "branch.issue-$number.mmw-base-branch")" ]; then
-    git -C "$root" config "branch.issue-$number.mmw-base-branch" \
-      "$(git -C "$root" rev-parse --abbrev-ref HEAD)"
-  fi
-}
-
-record_base_for_new_branch() {
-  local number="$1" root="$2"
-  if [ -z "$(git -C "$root" config --get "branch.issue-$number.mmw-base")" ]; then
-    git -C "$root" config "branch.issue-$number.mmw-base" "$(git -C "$root" rev-parse HEAD)"
   fi
   if [ -z "$(git -C "$root" config --get "branch.issue-$number.mmw-base-branch")" ]; then
     git -C "$root" config "branch.issue-$number.mmw-base-branch" \
@@ -278,10 +268,7 @@ ensure_workspace() {
   [ -n "$ident" ] || { echo "dispatch: workspace create printed no workspaceId" >&2; return 1; }
 
   if git -C "$root" rev-parse --verify --quiet "refs/heads/issue-$number" >/dev/null; then
-    case " ${extra[*]} " in
-      *" branch-off "*) record_base_for_new_branch "$number" "$root" ;;
-      *) record_base_if_missing "$number" "$root" ;;
-    esac
+    record_base_if_missing "$number" "$root"
   fi
   printf '%s\n' "$ident"
 }
@@ -296,22 +283,25 @@ archive_workspace() {
 
 # ------------------------------------------------------------------ dispatch payload
 
+# permissions → create_agent settings / `paseo run` flags. One mapping.
+host_permission_settings() {
+  case "$1" in
+    claude) printf '%s\n' '{"modeId":"bypassPermissions"}' ;;
+    codex)  printf '%s\n' '{"modeId":"full-access"}' ;;
+    *)      printf '%s\n' '{"features":{"auto_accept":true}}' ;;
+  esac
+}
+
 emit_create_json() {
-  python3 -c '
+  MMW_PERM_SETTINGS="$(host_permission_settings "$MMW_HOST")" python3 -c '
 import json, os
 
 host = os.environ["MMW_HOST"]
 model = os.environ["MMW_MODEL"]
 effort = os.environ["MMW_EFFORT"]
-settings = {}
+settings = json.loads(os.environ["MMW_PERM_SETTINGS"])
 if effort and effort not in ("—", "-", ""):
     settings["thinkingOptionId"] = effort
-if host == "claude":
-    settings["modeId"] = "bypassPermissions"
-elif host == "codex":
-    settings["modeId"] = "full-access"
-else:
-    settings["features"] = {"auto_accept": True}
 payload = {
     "workspaceId": os.environ["MMW_WORKSPACE"],
     "title": os.environ["MMW_TITLE"],
@@ -346,10 +336,9 @@ run_agent() {
   if [ -n "$effort" ] && [ "$effort" != "—" ] && [ "$effort" != "-" ]; then
     cmd+=(--thinking "$effort")
   fi
-  case "$host" in
-    claude) cmd+=(--mode bypassPermissions) ;;
-    codex) cmd+=(--mode full-access) ;;
-  esac
+  local mode
+  mode="$(host_permission_settings "$host" | json_at modeId)"
+  [ -n "$mode" ] && cmd+=(--mode "$mode")
   cmd+=("$prompt")
   local json ident
   json="$("${cmd[@]}")" || return 1
@@ -367,39 +356,39 @@ start_one() {
     *) refuse "the second argument is worker, reviewer or verifier, got $kind" ;;
   esac
 
-  local answer seats title spec
+  local answer grades title spec
   answer="$(read_ticket "$number")"
   case "$answer" in
     "REFUSE "*) refuse "${answer#REFUSE }" ;;
     "") refuse "the tracker did not answer with a readable ticket #$number" ;;
   esac
-  { IFS= read -r seats; IFS= read -r title; IFS= read -r spec; } <<<"$answer"
+  { IFS= read -r grades; IFS= read -r title; IFS= read -r spec; } <<<"$answer"
   if [ -n "${MMW_SPEC:-}" ]; then
     spec="$MMW_SPEC"
   fi
   [ -n "$spec" ] || refuse "ticket #$number has no spec number in ## Parent"
 
-  local seat
+  local profile
   case "$kind" in
-    reviewer) seat=reviewer ;;
-    verifier) seat=verifier ;;
+    reviewer) profile=reviewer ;;
+    verifier) profile=verifier ;;
     worker)
       local -a marked
-      read -r -a marked <<<"$seats"
+      read -r -a marked <<<"$grades"
       case "${#marked[@]}" in
-        0) seat="$DEFAULT_WORKER" ;;
-        1) seat="${marked[0]}" ;;
+        0) profile="$DEFAULT_WORKER" ;;
+        1) profile="${marked[0]}" ;;
         *) refuse "#$number carries ${#marked[@]} worker labels (${marked[*]}), and it takes one" ;;
       esac ;;
   esac
 
   local row host model effort perm
-  row="$(row_for_role "$seat")"
-  [ -n "$row" ] || refuse "#$number needs the $seat row, and $MODELS has none"
+  row="$(row_for_role "$profile")"
+  [ -n "$row" ] || refuse "#$number needs the $profile row, and $MODELS has none"
   IFS=$'\t' read -r host model effort perm <<<"$row"
   case "$perm" in
     bypass) ;;
-    *) refuse "$seat is a subagent: it is started by the skill that needs it, not from here" ;;
+    *) refuse "$profile is a subagent: it is started by the skill that needs it, not from here" ;;
   esac
 
   local root
@@ -432,14 +421,14 @@ start_one() {
     MMW_WORKSPACE="$workspace" MMW_TITLE="$agent_title" \
       MMW_HOST="$host" MMW_MODEL="$model" MMW_EFFORT="$effort" \
       MMW_TICKET="$number" MMW_KIND="$kind" MMW_SPEC="$spec" \
-      MMW_PROFILE="$seat" MMW_PROMPT="$prompt" \
+      MMW_PROFILE="$profile" MMW_PROMPT="$prompt" \
       emit_create_json
     return 0
   fi
 
   local ident
   ident="$(run_agent "$host" "$model" "$effort" "$workspace" "$agent_title" \
-             "$number" "$kind" "$spec" "$seat" "$prompt")" \
+             "$number" "$kind" "$spec" "$profile" "$prompt")" \
     || refuse "could not start #$number $kind"
   printf '%s\n' "$ident"
 }
@@ -492,9 +481,9 @@ check_machine() {
 
   local providers
   providers="$(paseo provider ls --json 2>/dev/null)" || providers=""
-  local seat host
-  for seat in $(worker_roles) reviewer verifier; do
-    host="$(row_for_role "$seat" | cut -f1)"
+  local role host
+  for role in $(worker_roles) reviewer verifier; do
+    host="$(row_for_role "$role" | cut -f1)"
     [ -n "$host" ] || continue
     MMW_HOST="$host" MMW_PROVIDERS="$providers" python3 -c '
 import json, os, sys
