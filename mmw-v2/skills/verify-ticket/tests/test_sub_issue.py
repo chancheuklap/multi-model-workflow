@@ -59,13 +59,17 @@ class TestCreatesForEachKind(unittest.TestCase):
 
     def test_parent_is_the_ticket(self):
         """`--parent` is this ticket even when `## Parent` names a spec, or is missing."""
-        code, _, err, recorded, _ = run_sub_issue(
-            "baseline", "The handoff and the spec disagree\n\ndetail\n",
-            body="## Worker\n\njunior-worker\n")
-        self.assertEqual(code, 0, err)
-        create = next(c for c in recorded if c[:3] == ["gh", "issue", "create"])
-        self.assertEqual(create[create.index("--parent") + 1], "77")
-        self.assertNotIn("118", create)
+        for label, body in (
+                ("names a spec", BODY),
+                ("missing", "## Worker\n\njunior-worker\n")):
+            with self.subTest(label=label):
+                code, _, err, recorded, _ = run_sub_issue(
+                    "baseline", "The handoff and the spec disagree\n\ndetail\n",
+                    body=body)
+                self.assertEqual(code, 0, err)
+                create = next(c for c in recorded if c[:3] == ["gh", "issue", "create"])
+                self.assertEqual(create[create.index("--parent") + 1], "77")
+                self.assertNotIn("118", create)
 
     def test_the_body_opens_with_the_sub_issue_marker(self):
         code, _, err, recorded, bodies = run_sub_issue(
