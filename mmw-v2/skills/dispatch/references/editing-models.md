@@ -2,7 +2,7 @@
 
 A `models.md` row is only correct on the machine it runs on, and none of what makes it correct can be answered from memory. Confirm what you are about to touch, write the row, then make it take effect.
 
-## 1. Confirm a model or an `effort`
+## 1. Confirm a model, an `effort`, or a `read-only` spelling
 
 Paseo is the first place to ask: `paseo provider models <provider> --json` lists that provider's models and its `thinkingOptionIds`. The names it prints are the host's own. Write the `model` and `effort` cells from that list.
 
