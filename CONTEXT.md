@@ -513,10 +513,14 @@ _Avoid_: 票评论, COMMENT (as a kind label)
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **first line**:
-The first line of a ticket comment: the pipeline's protocol slot, by which `dispatch.sh wait`, `--closeout`, `advance`, `triage`, and the board recognise a comment — `NOT_READY:`, `self-run`, `reverify`, `VERDICT …`, `DECISIONS`, `REVIEW <base commit>..<HEAD commit>`, `TOUCHED BY #<n>`, `ALL MET`, `HANDOFF REQUIRED: …`, `CHECKS FAILED`, `NIGHT SUMMARY <date>`. A disclaimer therefore goes last. `NIGHT SUMMARY` lists tickets by number and first line.
+The first line of a ticket comment: the pipeline's protocol slot, by which `dispatch.sh wait`, `--closeout`, `advance`, `triage`, and the board recognise a comment — `NOT_READY:`, `self-run`, `reverify`, `VERDICT …`, `DECISIONS`, `REVIEW <base commit>..<HEAD commit>`, `TOUCHED BY #<n>`, `ALL MET`, `HANDOFF REQUIRED: …`, `CHECKS FAILED`, `NIGHT SUSPENDED #<spec>`, `NIGHT SUMMARY <date>`. A disclaimer therefore goes last. `NIGHT SUMMARY` lists tickets by number and first line.
 _Admitted_: protocol slot
-_Avoid_: 首行, 协议位, status word
+_Avoid_: 首行, 协议位, status word, slot (bare — see **slot**)
 _Home_: `mmw-v2/skills/dispatch/scripts/board.py`
+
+**`NIGHT SUSPENDED #<spec>`**:
+The first line of the comment `dispatch.sh suspend <spec>` leaves on every ticket of the batch that is still open and still in the agent queue. Under it: the time the night was suspended, that the ticket has no verdict, and either the Herdr name of the worker left running on it or that no session of ours was on it. Its reader is whoever opens the ticket the next morning and would otherwise find a batch with no verdict on any of it and no way to tell that from work in progress. A ticket handed back to triage during the night carries its own verdict and gets none.
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`self-run`**:
 The comment a worker's own run of `verify-ticket.py <n>` leaves: first line `self-run`, second line the gate-check summary line, then the ledger with each criterion ticked or not and its `EVIDENCE:`, ending with `Outside Owns:`. The newest `self-run` or `reverify` is where the ledger is read back from and what the board's `ac=<met>/<total>` and `--closeout` read. The run writes `phase=selfcheck`.
@@ -690,17 +694,41 @@ _Avoid_: the driver module, 共用驱动
 _Home_: `mmw-v2/skills/verify-ticket/scripts/screen_driver.py`
 
 **target**:
-What kind of product the judges drive, named in the contract as `target.kind` — `electron`, `web-spa`, `web-server-rendered`, `chrome-extension` — with `target.adapter` pointing at the kind's reference file under `verify-ticket/references/targets/`. The **adapter** is the class in `screen_driver.py` that answers the kind's **platform capabilities**: `attach`, `ready`, `address`, `release`, `transport` (the write half) and `observe` (the read half), plus how to break the transport. `targets/README.md` is the extension point: the seven questions a new kind answers.
+What kind of product the judges drive, named in the contract as `target.kind` — `electron`, `web-spa`, `web-server-rendered`, `chrome-extension` — with `target.adapter` pointing at the kind's reference file under `verify-ticket/references/targets/`. The **adapter** is the class in `screen_driver.py` that answers the kind's **platform capabilities**: `attach`, `ready`, `address`, `release` (giving the product back — a user's window restored to its own size, clock and page, a browser the driver launched closed; not `lease.py release` and not the `RELEASE` line), `transport` (the write half) and `observe` (the read half), plus how to break the transport. `targets/README.md` is the extension point: the nine questions a new kind answers. The three kind files written so far answer the first seven; `instance` and `what leaves this machine` came later and are answered per repository in `.mmw/target.json`.
 _Avoid_: platform (bare), 目标 (as a term), 适配器
 _Home_: `mmw-v2/skills/verify-ticket/references/targets/README.md`
 
 **`.mmw/target.json`**:
-The consuming repository's machine facts, read by the driver and never written in a contract or a criterion: `start` (a command that brings the product up, choosing inside itself everything the product needs, and returns once it answers — the driver runs it when `ready` finds nothing answering, so no agent starts the product by hand), `discover` (a command printing one JSON object of addresses), `reach` (the reach script the mechanism names are appended to), `transport_off` and `transport_on`, and optional `checks` (shell commands `--closeout` runs at the repository root after an `ALL MET` draft is accepted and before the ticket closes — the consuming repository's rule that the worker run the tests themselves, made a gate). Addresses change per machine and per worktree; this file is where they are answered afresh.
+The consuming repository's machine facts, read by the driver and never written in a contract or a criterion: `start` (a command that brings the product up, choosing inside itself everything the product needs, and returns once it answers — the driver runs it before the first scene, every time, because only `start` knows whether the product answering is the one this worktree's code builds), `stop`, `discover` (a command printing one JSON object of addresses), `reach` (the reach script the mechanism names are appended to), `transport_off` and `transport_on`, `instance`, and optional `checks` (shell commands `--closeout` runs at the repository root after an `ALL MET` draft is accepted and before the ticket closes — the consuming repository's rule that the worker run the tests themselves, made a gate). Addresses change per machine and per worktree; this file is where they are answered afresh.
 _Avoid_: target config, 地址文件
 _Home_: `mmw-v2/skills/verify-ticket/references/targets/README.md`
 
 **`checks`**:
 The optional key of `.mmw/target.json`: a list run in order at the repository root by `--closeout` only, after the draft is accepted and before an `ALL MET` ticket closes. An entry is a command string, held to `DEFAULT_TIMEOUT`, or `{"run": …, "timeout": …}` held to its own bound. Any non-zero exit posts `CHECKS FAILED` and does not close; every command exiting 0 appends `CHECKS OK <n>/<n>` to the closing comment. A `checks` value that is not a list, an entry of another shape, or a file that is not JSON, is `CHECKS FAILED`, not absence. `--reverify`, `--lint`, `--check-only`, and a `HANDOFF REQUIRED` draft do not run them. A repository without the key is unchanged.
+_Home_: `mmw-v2/skills/verify-ticket/references/targets/README.md`
+
+**lease**:
+One run's share of this machine: a registration of `worktree path -> slot` in `~/.mmw/leases`, claimed once per worktree and living as long as the worktree does, since a worktree runs its criteria many times in a night against the same application. `lease.py claim | env | run | release | list | count` is the whole surface. A claim is atomic (`O_CREAT | O_EXCL`), there is no fallback to a second slot, and **nothing in it ever ends a process**: `release` refuses while anything still listens on the slot and names the pid and the directory. The driver claims the lease before it runs any command `.mmw/target.json` declares and releases it at the end; `dispatch.sh` claims one at dispatch, so the gate on how many runs a machine holds is exact before a worker runs anything.
+_Avoid_: 租约 (as a term), seat, reservation
+_Home_: `mmw-v2/skills/verify-ticket/scripts/lease.py`
+
+**slot**:
+What a lease hands out: a block of ports and a data directory that no other slot overlaps, numbered from 0. `MMW_LEASE_SLOTS` (8) is how many this machine holds, `MMW_LEASE_PORT_BASE` (21000) and `MMW_LEASE_PORT_STRIDE` (20) where the blocks start and how wide they are. Bare `slot` is always this one; the comment protocol's is written in full as **protocol slot**.
+_Avoid_: 槽位, port range (for this), seat
+_Home_: `mmw-v2/skills/verify-ticket/scripts/lease.py`
+
+**instance**:
+One run of a product on this machine, and the eighth question a target answers: how many of them one machine holds at once, and how a run takes one. `.mmw/target.json`'s `"instance": {"max": <n>, "why": "<what stops a second one>"}` is where a repository whose product cannot move says so, and its tickets are serialised instead. `discover` prints `instance`, a readable name for messages, and `instance_check`, one `observe` line whose truth means the product answering is the one this run started — which is what makes question 2 mean *answering and mine*.
+_Avoid_: 实例 (as a term)
+_Home_: `mmw-v2/skills/verify-ticket/references/targets/README.md`
+
+**`MMW_INSTANCE`, `MMW_SLOT`, `MMW_PORT_BASE`, `MMW_PORT_COUNT`, `MMW_DATA_DIR`, `MMW_AUTOMATION`**:
+The six variables a lease puts into the environment of every command `.mmw/target.json` declares: a readable machine-unique name for this run, the slot number, the first port of its block, how many ports the block holds, a directory it owns, and `1` as the signal that what would leave this machine is to be neutralised and recorded instead. A repository reads them **at the moment it starts a process, never into the session or the test environment**: a suite that asserts its product's registered port number is right to, and a derived port leaking into it turns a correct suite red.
+_Home_: `mmw-v2/skills/verify-ticket/scripts/lease.py`
+
+**`stop`**:
+The key of `.mmw/target.json` that ends what `start` started and nothing else — the only way a run may end a process, since `hook.py pretool` refuses `kill`, `pkill`, `killall` and `xargs kill` and sends the reader to it. It ends only what this run recorded as its own, leaves a neighbour's product alone, and exits 0 with nothing of its own to end. It does not release the lease; the driver does. A repository that declares `start` declares `stop`, or the refusal points at a command that does not exist.
+_Avoid_: 停止命令, teardown
 _Home_: `mmw-v2/skills/verify-ticket/references/targets/README.md`
 
 **reach script**:
@@ -811,9 +839,14 @@ _Avoid_: 开工守卫, 开工核对, the guard (for this)
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **claim**:
-Setting the ticket's assignee to oneself, `gh issue edit <n> --add-assignee @me`: the first write action after preflight's checks pass, and the session's first write. A claim exists only on the tracker.
-_Avoid_: 认领 (as a term), assign to oneself
+Setting the ticket's assignee to oneself, `gh issue edit <n> --add-assignee @me`: the first write action after preflight's checks pass, and the session's first write. A claim exists only on the tracker, and the frontier takes unassigned tickets only, which is what keeps a second worker off a ticket somebody is already working. Three paths take a claim off: the closeout, the hand back to triage, and `advance`'s **give a claim back** (the `RELEASE` line) for a claim whose worker is gone. A session that ends any other way — a crash, a machine restart, a tab somebody closed — would otherwise leave the ticket off every frontier for good, with an empty frontier as the only sign of it.
+_Admitted_: give a claim back (for the third path)
+_Avoid_: 认领 (as a term), assign to oneself, release (for taking a claim off)
 _Home_: `docs/agents/issue-tracker.md`
+
+**`RELEASE`**:
+The line `board.py --advance-plan` prints for a ticket whose claim is to be given back, between the `MERGE` lines and the `DISPATCH` lines, and which `dispatch.sh advance` carries out as `gh issue edit <n> --remove-assignee @me`. Five conditions together: the ticket is open, it is in the agent queue, this pipeline's own account is on it, no live session holds it, and no terminal of this workspace stands in its worktree. A ticket usually carries a `RELEASE` and a `DISPATCH` of the same plan, since the claim is what kept it off the frontier and the frontier is read after the releases above it. Each one prints a line of its own; so does each claim kept because its terminal still stands. It is not `lease.py release`, and not `.mmw/target.json`'s `release` capability.
+_Home_: `mmw-v2/skills/dispatch/scripts/board.py`
 
 **wait**:
 `dispatch.sh wait <ticket> "<first-line-regex>" [seconds]`: blocks until the first line of a comment matches — the newest one when the wait starts, then any comment added since, so a comment landing after the awaited one does not hide it; on timeout it comments on the ticket first, then exits non-zero; whoever waited on a worker skips that round, and a worker that waited on its reviewer reads the reviewer's screen and waits again or reviews in its own subagent. It takes only a ticket number. A worker waits for its reviewer with `"^REVIEW "`; whoever dispatched a worker waits with `"^(ALL MET|HANDOFF REQUIRED)"`. The default is `WAIT_DEFAULT_SECONDS` in the script, not in skill text.
@@ -824,8 +857,13 @@ _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **advance**:
-`dispatch.sh advance <spec>`: first merge the branches of the tickets that closed, by closing time from earliest to latest, into the base branch — a ticket is merged when it is `CLOSED`, its closing comment's first line is `ALL MET`, its branch exists, and it is not already an ancestor; one merge commit each; `MERGE_TRIES` retries against a worker's commit in its own worktree holding the shared `.git` lock, and exit 2 when every try fails — then dispatch the frontier as `board.py --advance-plan` lists it (`MERGE <n>` and `DISPATCH <n>` lines, the **advance plan**). A conflict is left in place with exit 3 and a **conflict report** on stderr (`CONFLICT` and `MERGE_HEAD` lines naming the two tickets and files); the main agent resolves it with `resolving-merge-conflicts` — never `--abort` — runs this repository's checks, commits the merge, and runs `advance` again. Uncommitted changes in the working tree give exit 2. It ends with the **advance summary line** `advance #<spec>: merged <m>, already in <s>, started <n>, refused <r>`, and may be run repeatedly. It is the main agent's answer to `mmw board: ADVANCE` and `night over`.
+`dispatch.sh advance <spec>`: first merge the branches of the tickets that closed, by closing time from earliest to latest, into the base branch — a ticket is merged when it is `CLOSED`, its closing comment's first line is `ALL MET`, its branch exists, and it is not already an ancestor; one merge commit each; `MERGE_TRIES` retries against a worker's commit in its own worktree holding the shared `.git` lock, and exit 2 when every try fails — then give back the claims whose workers are gone, then dispatch the frontier, all as `board.py --advance-plan` lists it (`MERGE <n>`, `RELEASE <n>` and `DISPATCH <n>` lines, in that order — the **advance plan**). The order is the reason the three are one command: a worktree is cut from `HEAD` when it is opened, so a branch merged after a dispatch is one that ticket cannot see, and the frontier is read after the releases so a ticket freed by this run starts in this run. A conflict is left in place with exit 3 and a **conflict report** on stderr (`CONFLICT` and `MERGE_HEAD` lines naming the two tickets and files); the main agent resolves it with `resolving-merge-conflicts` — never `--abort` — runs this repository's checks, commits the merge, and runs `advance` again. Uncommitted changes in the working tree give exit 2. It ends with the **advance summary line** `advance #<spec>: merged <m>, already in <s>, released <r>, started <n>, refused <f>, held <h>` and may be run repeatedly. **held** counts the tickets on the frontier this advance did not dispatch because the machine already holds the `instance.max` runs the product declares: they keep their label and their place, stderr says how many and why, and the next advance starts them. It is not a refusal and not a claim. It is the main agent's answer to `mmw board: ADVANCE` and `night over`.
 _Avoid_: 并回来 (as a term)
+_Home_: `mmw-v2/skills/dispatch/references/night.md`
+
+**suspend**:
+`dispatch.sh suspend <spec>`, the decision to give a night up before it is over, taken when the fault is in the pipeline rather than in a ticket. It closes the tab `run` opened — the only act that takes the board, its pane's `until <board>; do sleep; done` loop and the tab together — comments `NIGHT SUSPENDED #<spec>` on every ticket still in the agent queue, and gives back every lease slot the batch holds. **Nothing else is ended**: every worker still running is left running, every worktree, branch and session stays, and the same batch is taken up again with `advance` once the fault is fixed. `lease.py` refuses a slot something still listens on, and `suspend` reports that on stderr and exits 1 rather than forcing it. Exit 0 when nothing was left over, 2 when nothing was touched. `ABANDON:` on a criterion is unrelated: it says one criterion was given up, and this says a night was.
+_Avoid_: abandon (as the name of this), 收夜, give the night up (as a name)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **night**:
@@ -920,6 +958,11 @@ _Home_: `AGENTS.md`
 **skills called by name**:
 A skill's scripts are resolved by the agent holding that skill, from its own `SKILL.md`, as `scripts/…`; a caller names the skill and what it wants done, never an install path. Installing a skill is receiving its scripts, so the two cannot drift and the path is right on every host. The one exception is the `CHECK:` written into a ticket, which a shell runs with no agent in between, so its path is written in full.
 _Home_: `AGENTS.md`
+
+**silence is never a pass**:
+The question a gate is judged by when it is added or changed: *if this ran and did nothing at all, would anyone find out?* A gate that neither does its job nor says so reads exactly like one that passed, so everything here that can refuse names the fact it checked, gives the one way out, and fails loudly when it could not run at all. The three-part shape of a refusal message itself is `refusal.py`.
+_Avoid_: 沉默不算通过, fail-safe (for this)
+_Home_: `docs/adr/0008-silence-is-never-a-pass.md`
 
 **the ticket is the only state**:
 Every run reads the ticket afresh, writes at most one comment, and carries nothing to the next run; the ledger is thrown away; the ticket body is never edited — run state lives in the comments. The board keeps no state file for the same reason.
@@ -1056,8 +1099,12 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | lint level | `ERROR` · `WARN` |
 | `turn` | `ready` · `working` · `ended` · `failed:<error>` · `cancelled:<reason>` |
 | `mmw board:` case | `ADVANCE` · `night over` · `STOPPED` · `TIME LIMIT` |
+| advance plan line | `MERGE <n>` · `RELEASE <n>` · `DISPATCH <n>` |
+| lease environment | `MMW_INSTANCE` · `MMW_SLOT` · `MMW_PORT_BASE` · `MMW_PORT_COUNT` · `MMW_DATA_DIR` · `MMW_AUTOMATION` |
+| `.mmw/target.json` key | `start` · `stop` · `discover` · `reach` · `transport_off` · `transport_on` · `instance` · `checks` |
 | `hook.py` gate | `pretool` · `question` |
 | state role | `needs-triage` · `needs-info` · `ready-for-agent` · `ready-for-human` · `wontfix` |
 | category role | `bug` · `enhancement` |
 | `dispatch.sh` constants | `TOKEN_TTL_MS` · `PROMPT_TAKE_MS` · `WAIT_DEFAULT_SECONDS = 1800` · `MERGE_TRIES = 3` · `LABEL_TITLE_CHARS` · `BOARD_TAB_LABEL` · `MAIN_AGENT_NAME` · `DEFAULT_WORKER` |
+| `lease.py` constants | `MMW_LEASE_SLOTS = 8` · `MMW_LEASE_PORT_BASE = 21000` · `MMW_LEASE_PORT_STRIDE = 20` |
 | exit codes | `dispatch.sh` 0 / 1 (not reported ready in 120 s) / 2 (refused, nothing touched: the ticket's checks, a live session by the same name, `run`'s checks, or `advance` without the `.git` lock in `MERGE_TRIES` tries) / 3 (`advance` conflict) · `verify-ticket.py` 0 / 1 (`--closeout` refused) / 2 (`--preflight` refused) · `visual-parity.py` 0 / 1 (`DIFF`, `SHOWS-STATIC`) / 2 (`NEGATIVE CONTROL FAILED`, not ready, unreachable scene) · `wiring-check.py` 0 / 1 (`MISS`, `GREEN WITHOUT TRANSPORT`) / 2 (could not start, or `--negative` evaluated no observe) · `install.sh --check` 0 / 1 · `--lint` 0 unless an `ERROR` remains |
