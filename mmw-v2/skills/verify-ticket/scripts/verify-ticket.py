@@ -14,7 +14,7 @@ comment. Nothing is cached and no file is left behind.
     verify-ticket.py <n> --decisions <file>  post the two-section file as `DECISIONS`
     verify-ticket.py <n> --touched    comment `TOUCHED BY` on open siblings that own a file
     verify-ticket.py <n> --draft <out-file>  write the closing-comment skeleton
-    verify-ticket.py <n> --sub-issue <kind> <file>  open a needs-triage child of the spec
+    verify-ticket.py <n> --sub-issue <kind> <file>  open a needs-triage child of this ticket
 
 Exit code follows gate-check: 0 all met, 1 unmet or abandoned, 2 usage or
 infrastructure. `--preflight` exits 2 when it refuses; `--closeout` exits 1.
@@ -40,7 +40,7 @@ GATE_LINT = HERE / "gate-check" / "gate-lint.mjs"
 LEDGER_NAME = "AC.md"
 SUMMARY_RE = re.compile(r"^(ALL MET|UNMET:|HANDOFF REQUIRED:)")
 GATE_LINE_RE = re.compile(r"^- \[( |x|X)\] ([A-Za-z0-9][A-Za-z0-9._-]*):")
-SUB_ISSUE_KINDS = ("baseline", "outside-owns", "review", "decision")
+SUB_ISSUE_KINDS = ("baseline", "outside-owns", "review", "decision", "pipeline")
 FILL = "<fill>"
 
 # A criterion is abandoned for one of three reasons. `failed` ran and did not pass;
@@ -1186,15 +1186,7 @@ def run_draft(number: int, out_file: Path) -> int:
         outside = "Outside Owns: " + ", ".join(judged)
     else:
         outside = "Outside Owns: None"
-    spec = parent_spec(body)
-    opened: list[str] = []
-    if spec is not None:
-        marker = re.compile(rf"^SUB-ISSUE \S+ from #{number}$")
-        for child in fetch_sub_issues(spec):
-            child_body = fetch_body(child)
-            first_line = child_body.strip().splitlines()[0] if child_body.strip() else ""
-            if marker.match(first_line):
-                opened.append(f"#{child}")
+    opened = [f"#{child}" for child in fetch_sub_issues(number)]
     sub = "Sub-issues opened: " + (", ".join(opened) if opened else "none")
     counts_line = (f"Counts: {counts['met']} met, {counts['unmet']} unmet, "
                    f"{counts['abandoned']} abandoned of {counts['total']}")
@@ -1222,15 +1214,12 @@ def run_draft(number: int, out_file: Path) -> int:
 
 
 def run_sub_issue(number: int, kind: str, path: Path) -> int:
-    """Open a `needs-triage` sub-issue under the spec named in `## Parent`."""
+    """Open a `needs-triage` sub-issue under this ticket."""
     if kind not in SUB_ISSUE_KINDS:
         return refuse(f"kind `{kind}` is not one of {', '.join(SUB_ISSUE_KINDS)}")
     text = path.read_text(encoding="utf-8") if path.is_file() else ""
     if not text.strip():
         return refuse(f"{path} is empty")
-    spec = parent_spec(fetch_body(number))
-    if spec is None:
-        return refuse(f"#{number} has no spec in `## Parent`")
     title = text.strip().splitlines()[0].strip()
     posted = f"SUB-ISSUE {kind} from #{number}\n" + text
     if not posted.endswith("\n"):
@@ -1241,7 +1230,7 @@ def run_sub_issue(number: int, kind: str, path: Path) -> int:
     try:
         result = subprocess.run(
             ["gh", "issue", "create",
-             "--parent", str(spec),
+             "--parent", str(number),
              "--label", "needs-triage",
              "--title", title,
              "--body-file", body_path],
@@ -2149,7 +2138,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--draft", type=Path, metavar="OUT",
                         help="write the closing-comment skeleton to this file")
     parser.add_argument("--sub-issue", nargs=2, metavar=("KIND", "FILE"),
-                        help="open a needs-triage sub-issue under the spec")
+                        help="open a needs-triage sub-issue under this ticket")
     args = parser.parse_args(argv)
     chosen = [name for name, on in
               (("--lint", args.lint), ("--reverify", args.reverify),
