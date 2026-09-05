@@ -1260,9 +1260,9 @@ class Adapter:
             return True, ""
         return False, refusal(
             f"The product on these addresses is not the one {name} started ({why or line}).",
-            "Another run holds them, so anything measured here is that run's code.",
-            "Bring your own up with the `start` command in .mmw/target.json; if the "
-            "addresses stay held, report the ticket blocked and stop.",
+            "Whose it is this cannot say: another run's, or this worktree's own.",
+            "Run `start` from .mmw/target.json and read it; if it cannot take the "
+            "addresses, report the ticket blocked and stop.",
         )
 
     def address(self, route: str, values: dict[str, str]) -> str:
