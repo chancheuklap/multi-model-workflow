@@ -1,4 +1,4 @@
-"""`--sub-issue`: open one needs-triage child of the spec, or refuse."""
+"""`--sub-issue`: open one needs-triage child of this ticket, or refuse."""
 
 import io
 import unittest
@@ -13,7 +13,7 @@ vt = load()
 
 BODY = "## Parent\n\n#118, Implementation Decisions section 11\n"
 
-KINDS = ("baseline", "outside-owns", "review", "decision")
+KINDS = ("baseline", "outside-owns", "review", "decision", "pipeline")
 
 
 def run_sub_issue(kind, text, body=BODY):
@@ -51,11 +51,21 @@ class TestCreatesForEachKind(unittest.TestCase):
                 self.assertEqual(code, 0, err)
                 create = next(c for c in recorded if c[:3] == ["gh", "issue", "create"])
                 self.assertIn("--parent", create)
-                self.assertEqual(create[create.index("--parent") + 1], "118")
+                self.assertEqual(create[create.index("--parent") + 1], "77")
                 self.assertIn("--label", create)
                 self.assertEqual(create[create.index("--label") + 1], "needs-triage")
                 self.assertEqual(create[create.index("--title") + 1], f"The {kind} case")
                 self.assertIn("99", out.strip().splitlines()[-1])
+
+    def test_parent_is_the_ticket(self):
+        """`--parent` is this ticket even when `## Parent` names a spec, or is missing."""
+        code, _, err, recorded, _ = run_sub_issue(
+            "baseline", "The handoff and the spec disagree\n\ndetail\n",
+            body="## Worker\n\njunior-worker\n")
+        self.assertEqual(code, 0, err)
+        create = next(c for c in recorded if c[:3] == ["gh", "issue", "create"])
+        self.assertEqual(create[create.index("--parent") + 1], "77")
+        self.assertNotIn("118", create)
 
     def test_the_body_opens_with_the_sub_issue_marker(self):
         code, _, err, recorded, bodies = run_sub_issue(
@@ -85,6 +95,16 @@ class TestRefusesEmptyOrUnknown(unittest.TestCase):
             "other", "A title\n\nbody\n")
         self.assertEqual(code, 2)
         self.assertIn("kind", err.lower())
+        self.assertFalse(any(c[:3] == ["gh", "issue", "create"] for c in recorded))
+
+    def test_pipeline_kind_is_accepted_and_a_sixth_name_exits_2(self):
+        code, _, err, recorded, _ = run_sub_issue(
+            "pipeline", "The driver would not start\n\nran the start; saw the lease refused\n")
+        self.assertEqual(code, 0, err)
+        self.assertTrue(any(c[:3] == ["gh", "issue", "create"] for c in recorded))
+        code, _, err, recorded, _ = run_sub_issue(
+            "toolbox", "A title\n\nbody\n")
+        self.assertEqual(code, 2)
         self.assertFalse(any(c[:3] == ["gh", "issue", "create"] for c in recorded))
 
 

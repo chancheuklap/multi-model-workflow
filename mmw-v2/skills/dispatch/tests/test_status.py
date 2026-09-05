@@ -401,7 +401,46 @@ class Summary(unittest.TestCase):
                                   "4 met of 5, #64 fresh")
         self.assertEqual(body[4], "Not dispatched, a blocker stayed open: "
                                   "#63 blocked by #62")
-        self.assertEqual(body[5], "Sub-issues opened tonight: #64 fresh")
+        self.assertEqual(body[5], "Sub-issues opened tonight: None")
+
+    def test_summary_walks_the_tickets_children(self):
+        """The fourth line is each ticket's children in the window, not the spec's tickets."""
+        tickets = {
+            61: ticket(61, state="CLOSED", labels=(), comments=["ALL MET\nBranch: x"]),
+            64: ticket(64, labels=("needs-triage",), comments=["fresh"]),
+            90: ticket(90, labels=("needs-triage",),
+                       comments=["SUB-ISSUE baseline from #61"]),
+            91: ticket(91, labels=("needs-triage",),
+                       comments=["SUB-ISSUE pipeline from #61"]),
+        }
+        tickets[61]["created"] = "2026-08-29T00:00:00Z"
+        tickets[61]["closed_at"] = "2026-08-31T02:00:00Z"
+        tickets[64]["created"] = "2026-08-31T00:00:00Z"
+        tickets[90]["created"] = "2026-08-31T01:00:00Z"
+        tickets[91]["created"] = "2026-08-29T00:00:00Z"
+        children = {76: [61, 64], 61: [90, 91], 64: []}
+        asked = []
+        saved = (status.gh, status.sub_issues, status.read_ticket,
+                 status.paseo_json, status.night_opened)
+        try:
+            status.gh = lambda args: []
+            status.sub_issues = (lambda n: asked.append(n) or list(children.get(n, [])))
+            status.read_ticket = lambda n: tickets[n]
+            status.paseo_json = (
+                lambda args: [] if args[:3] == ["ls", "-g", "--json"] else {})
+            status.night_opened = lambda now=None: "2026-08-30T00:00:00Z"
+            with redirect_stdout(io.StringIO()) as out:
+                self.assertEqual(status.main(["--summary", "76"]), 0)
+            lines = out.getvalue().splitlines()
+            self.assertEqual(
+                lines[5], "Sub-issues opened tonight: #90 SUB-ISSUE baseline from #61")
+            self.assertNotIn("#64", lines[5])
+            self.assertNotIn("#91", lines[5])
+            self.assertIn(61, asked)
+            self.assertIn(64, asked)
+        finally:
+            (status.gh, status.sub_issues, status.read_ticket,
+             status.paseo_json, status.night_opened) = saved
 
     def test_the_cli_window_is_sixteen_hours_back(self):
         self.assertEqual(

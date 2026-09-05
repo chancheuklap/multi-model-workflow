@@ -114,14 +114,15 @@ def live_agents(spec: int) -> list[dict]:
     return out
 
 
-def sub_issues(spec: int) -> list[int]:
-    """The spec's own children, followed through the tracker's native relation.
+def sub_issues(number: int) -> list[int]:
+    """The issue's own children, followed through the tracker's native relation.
 
-    A sub-issue a worker opened during the night is in here too, told apart by its
-    labels rather than by when it appeared.
+    Called with a spec, that is the batch. Called with a ticket, that is what
+    the ticket opened. A sub-issue a worker opened during the night is in the
+    ticket's list, told apart by when it appeared.
     """
     rows = gh_json(["api", "--paginate", "--slurp",
-                    f"repos/{{owner}}/{{repo}}/issues/{spec}/sub_issues?per_page=100"], [])
+                    f"repos/{{owner}}/{{repo}}/issues/{number}/sub_issues?per_page=100"], [])
     # `--slurp` answers with one array per page; a single page answered flat is read too.
     flat = [r for page in rows for r in (page if isinstance(page, list) else [page])]
     return [int(r["number"]) for r in flat if isinstance(r, dict) and r.get("number")]
@@ -402,7 +403,8 @@ def night_opened(now: datetime | None = None) -> str:
         "%Y-%m-%dT%H:%M:%SZ")
 
 
-def summary(rows: list[dict], opened: str, now: datetime | None = None) -> str:
+def summary(rows: list[dict], opened: str, now: datetime | None = None,
+            children: list[dict] | None = None) -> str:
     """Ticket numbers and first lines. What each says is on the ticket itself."""
     now = now or datetime.now()
     closed = [f"#{r['ticket']} {r['head'][:80]}".strip()
@@ -412,8 +414,8 @@ def summary(rows: list[dict], opened: str, now: datetime | None = None) -> str:
     waiting = [f"#{r['ticket']} blocked by "
                + ", ".join(f"#{b}" for b in r["blockers"])
                for r in rows if r["state"] == "OPEN" and r["blockers"]]
-    fresh = [f"#{r['ticket']} {r['head'][:80]}".strip()
-             for r in rows if r["created"] > opened]
+    fresh = [f"#{c['number']} {last_first_line(c)[:80]}".strip()
+             for c in (children or ()) if (c.get("created") or "") > opened]
     return "\n".join([
         NIGHT_SUMMARY.format(date=now.strftime("%Y-%m-%d")),
         "",
@@ -492,9 +494,19 @@ def table(spec: int) -> int:
     return 0
 
 
+def children_of(numbers: list[int]) -> list[dict]:
+    """Each ticket's sub-issues, in ticket order, as `read_ticket` returns them."""
+    found = []
+    for number in numbers:
+        for child in sub_issues(number):
+            found.append(read_ticket(child))
+    return found
+
+
 def print_summary(spec: int) -> int:
     rows, _ = collect(spec)
-    print(summary(rows, night_opened()))
+    children = children_of([r["ticket"] for r in rows])
+    print(summary(rows, night_opened(), children=children))
     return 0
 
 # --------------------------------------------------------------------- entry

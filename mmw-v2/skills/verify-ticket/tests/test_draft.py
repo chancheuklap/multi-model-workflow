@@ -92,7 +92,8 @@ def fake_git(*args, cwd=None):
     return ""
 
 
-def run_draft(comments, body=BODY, children=(), child_bodies=None, check_closeout=False):
+def run_draft(comments, body=BODY, children=(), child_bodies=None, check_closeout=False,
+              sub_issues_by_parent=None):
     """Write a skeleton for ticket 77; return (exit, stderr, text, closeout-exit)."""
     child_bodies = child_bodies or {}
     closeout_code = None
@@ -108,9 +109,14 @@ def run_draft(comments, body=BODY, children=(), child_bodies=None, check_closeou
             return {"state": "OPEN", "labels": [],
                     "assignees": [{"login": ME}]}
 
+        def fake_sub_issues(n):
+            if sub_issues_by_parent is not None:
+                return list(sub_issues_by_parent.get(n, ()))
+            return list(children)
+
         with mock.patch.object(vt, "fetch_body", side_effect=fake_body), \
              mock.patch.object(vt, "fetch_comments", return_value=list(comments)), \
-             mock.patch.object(vt, "fetch_sub_issues", return_value=list(children)), \
+             mock.patch.object(vt, "fetch_sub_issues", side_effect=fake_sub_issues), \
              mock.patch.object(vt, "fetch_ticket", side_effect=fake_ticket), \
              mock.patch.object(vt, "gh_login", return_value=ME), \
              mock.patch.object(vt, "repo_root", return_value=None), \
@@ -199,17 +205,21 @@ None
         self.assertNotIn("(reasonable)", text)
         self.assertNotIn("(should not)", text)
 
-    def test_sub_issues_opened_lists_children_that_open_with_the_marker(self):
-        child = "SUB-ISSUE baseline from #77\n\nthe handoff and the spec disagree\n"
-        other = "something else entirely\n"
+    def test_sub_issues_from_the_ticket(self):
+        """The line lists every child of this ticket, and none of the spec's other children."""
+        ours = "SUB-ISSUE baseline from #77\n\nthe handoff and the spec disagree\n"
+        unmarked = "something else entirely\n"
+        spec_other = "SUB-ISSUE review from #80\n\nnot this ticket's\n"
         code, err, text, _ = run_draft(
             (MET_RUN, VERDICT),
-            children=(90, 91),
-            child_bodies={90: child, 91: other},
+            child_bodies={90: ours, 91: unmarked, 92: spec_other},
+            sub_issues_by_parent={77: (90, 91), 118: (77, 92)},
         )
         self.assertEqual(code, 0, err)
-        self.assertIn("Sub-issues opened: #90", text)
-        self.assertNotIn("#91", text.split("Sub-issues opened:")[1].splitlines()[0])
+        line = next(l for l in text.splitlines() if l.startswith("Sub-issues opened:"))
+        self.assertEqual(line, "Sub-issues opened: #90, #91")
+        self.assertNotIn("#92", line)
+        self.assertNotIn("#77", line)
 
     def test_counts_agrees_with_the_body(self):
         code, err, text, _ = run_draft((MET_RUN, VERDICT))
