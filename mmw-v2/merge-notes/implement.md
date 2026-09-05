@@ -107,3 +107,5 @@ back on steps 2 and 4.
 (`issues/<n>/sub_issues`), not the spec's children filtered by first line. The worker
 also reads those open children at start of work, as a supplement to **What to build**.
 Upstream puts `Sub-issues opened:` back under the spec → point it at the ticket.
+
+| 收尾第 2、4 步的 `paseo wait` 括注 | host 的 shell 工具会取消跑得久的命令（Grok 实测），取消的是等待不是轮次；写明再等一次而不是改回结束轮去等通知。上游没有这一步。 |
