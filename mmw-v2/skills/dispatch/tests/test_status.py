@@ -24,6 +24,23 @@ status = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(status)
 
 
+def paseo_json_by_kind(by_kind, spec=76):
+    """A `paseo_json` stand-in: `ls` returns the row for that kind under `mmw.spec`."""
+    def fake(args):
+        if args[:3] == ["ls", "-g", "--json"]:
+            labels = [args[i + 1] for i, a in enumerate(args) if a == "--label"]
+            if f"mmw.spec={spec}" not in labels:
+                return []
+            for kind, row in by_kind.items():
+                if f"mmw.kind={kind}" in labels:
+                    return [row]
+            return []
+        if args[:1] == ["inspect"]:
+            return {}
+        raise AssertionError(args)
+    return fake
+
+
 def agent(ticket, status_="running", *, kind="worker", parent=None,
           created="2 minutes ago", agent_id=None, pending=None, name=None, cwd=None,
           last_usage=None):
@@ -119,31 +136,20 @@ class Identity(unittest.TestCase):
         self.assertEqual(found["ticket"], 62)
 
     def test_kind_comes_from_the_mmw_kind_filter_not_from_parent(self):
-        worker = {
-            "id": WORKER_61, "shortId": WORKER_61[:7], "name": "#61 worker",
-            "status": "running", "cwd": "/repo/issue-61", "created": "2 minutes ago",
+        by_kind = {
+            "worker": {
+                "id": WORKER_61, "shortId": WORKER_61[:7], "name": "#61 worker",
+                "status": "running", "cwd": "/repo/issue-61", "created": "2 minutes ago",
+            },
+            "reviewer": {
+                "id": REVIEWER_61, "shortId": REVIEWER_61[:7], "name": "#61 reviewer",
+                "status": "running", "cwd": "/repo/issue-61", "created": "2 minutes ago",
+                "ParentAgentId": WORKER_61,
+            },
         }
-        reviewer = {
-            "id": REVIEWER_61, "shortId": REVIEWER_61[:7], "name": "#61 reviewer",
-            "status": "running", "cwd": "/repo/issue-61", "created": "2 minutes ago",
-            "ParentAgentId": WORKER_61,
-        }
-
-        def fake(args):
-            if args[:3] == ["ls", "-g", "--json"]:
-                labels = [args[i + 1] for i, a in enumerate(args) if a == "--label"]
-                if "mmw.kind=worker" in labels:
-                    return [worker]
-                if "mmw.kind=reviewer" in labels:
-                    return [reviewer]
-                return []
-            if args[:1] == ["inspect"]:
-                return {}
-            raise AssertionError(args)
-
         saved = status.paseo_json
         try:
-            status.paseo_json = fake
+            status.paseo_json = paseo_json_by_kind(by_kind)
             found = {s["kind"]: s for s in status.sessions(status.live_agents(76))}
         finally:
             status.paseo_json = saved
@@ -581,7 +587,7 @@ class ReadingPaseo(unittest.TestCase):
         self.assertEqual(found[0]["kind"], "worker")
         self.assertNotIn("ParentAgentId", found[0])
 
-    def test_ls_is_asked_with_the_spec_label_and_each_kind_label(self):
+    def test_live_agents_returns_one_row_per_kind_for_the_spec(self):
         by_kind = {
             "worker": {
                 "id": WORKER_61, "shortId": WORKER_61[:7], "name": "#61 worker",
@@ -596,20 +602,7 @@ class ReadingPaseo(unittest.TestCase):
                 "status": "running", "cwd": "/repo/issue-61", "created": "2 minutes ago",
             },
         }
-
-        def fake(args):
-            if args[:3] == ["ls", "-g", "--json"]:
-                labels = [args[i + 1] for i, a in enumerate(args) if a == "--label"]
-                self.assertIn("mmw.spec=76", labels)
-                for kind, row in by_kind.items():
-                    if f"mmw.kind={kind}" in labels:
-                        return [row]
-                return []
-            if args[:1] == ["inspect"]:
-                return {}
-            raise AssertionError(args)
-
-        status.paseo_json = fake
+        status.paseo_json = paseo_json_by_kind(by_kind)
         found = {a["kind"]: a["id"] for a in status.live_agents(76)}
         self.assertEqual(found, {
             "worker": WORKER_61,

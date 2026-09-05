@@ -285,16 +285,11 @@ archive_workspace() {
 
 # permissions → create_agent settings / `paseo run` flags. One mapping.
 host_permission_settings() {
-  MMW_HOST="$1" python3 -c '
-import json, os
-host = os.environ["MMW_HOST"]
-if host == "claude":
-    print(json.dumps({"modeId": "bypassPermissions"}))
-elif host == "codex":
-    print(json.dumps({"modeId": "full-access"}))
-else:
-    print(json.dumps({"features": {"auto_accept": True}}))
-'
+  case "$1" in
+    claude) printf '%s\n' '{"modeId":"bypassPermissions"}' ;;
+    codex)  printf '%s\n' '{"modeId":"full-access"}' ;;
+    *)      printf '%s\n' '{"features":{"auto_accept":true}}' ;;
+  esac
 }
 
 emit_create_json() {
@@ -342,7 +337,7 @@ run_agent() {
     cmd+=(--thinking "$effort")
   fi
   local mode
-  mode="$(printf '%s' "$(host_permission_settings "$host")" | json_at modeId)"
+  mode="$(host_permission_settings "$host" | json_at modeId)"
   [ -n "$mode" ] && cmd+=(--mode "$mode")
   cmd+=("$prompt")
   local json ident
@@ -373,27 +368,27 @@ start_one() {
   fi
   [ -n "$spec" ] || refuse "ticket #$number has no spec number in ## Parent"
 
-  local grade
+  local profile
   case "$kind" in
-    reviewer) grade=reviewer ;;
-    verifier) grade=verifier ;;
+    reviewer) profile=reviewer ;;
+    verifier) profile=verifier ;;
     worker)
       local -a marked
       read -r -a marked <<<"$grades"
       case "${#marked[@]}" in
-        0) grade="$DEFAULT_WORKER" ;;
-        1) grade="${marked[0]}" ;;
+        0) profile="$DEFAULT_WORKER" ;;
+        1) profile="${marked[0]}" ;;
         *) refuse "#$number carries ${#marked[@]} worker labels (${marked[*]}), and it takes one" ;;
       esac ;;
   esac
 
   local row host model effort perm
-  row="$(row_for_role "$grade")"
-  [ -n "$row" ] || refuse "#$number needs the $grade row, and $MODELS has none"
+  row="$(row_for_role "$profile")"
+  [ -n "$row" ] || refuse "#$number needs the $profile row, and $MODELS has none"
   IFS=$'\t' read -r host model effort perm <<<"$row"
   case "$perm" in
     bypass) ;;
-    *) refuse "$grade is a subagent: it is started by the skill that needs it, not from here" ;;
+    *) refuse "$profile is a subagent: it is started by the skill that needs it, not from here" ;;
   esac
 
   local root
@@ -426,14 +421,14 @@ start_one() {
     MMW_WORKSPACE="$workspace" MMW_TITLE="$agent_title" \
       MMW_HOST="$host" MMW_MODEL="$model" MMW_EFFORT="$effort" \
       MMW_TICKET="$number" MMW_KIND="$kind" MMW_SPEC="$spec" \
-      MMW_PROFILE="$grade" MMW_PROMPT="$prompt" \
+      MMW_PROFILE="$profile" MMW_PROMPT="$prompt" \
       emit_create_json
     return 0
   fi
 
   local ident
   ident="$(run_agent "$host" "$model" "$effort" "$workspace" "$agent_title" \
-             "$number" "$kind" "$spec" "$grade" "$prompt")" \
+             "$number" "$kind" "$spec" "$profile" "$prompt")" \
     || refuse "could not start #$number $kind"
   printf '%s\n' "$ident"
 }
@@ -486,9 +481,9 @@ check_machine() {
 
   local providers
   providers="$(paseo provider ls --json 2>/dev/null)" || providers=""
-  local grade host
-  for grade in $(worker_roles) reviewer verifier; do
-    host="$(row_for_role "$grade" | cut -f1)"
+  local role host
+  for role in $(worker_roles) reviewer verifier; do
+    host="$(row_for_role "$role" | cut -f1)"
     [ -n "$host" ] || continue
     MMW_HOST="$host" MMW_PROVIDERS="$providers" python3 -c '
 import json, os, sys

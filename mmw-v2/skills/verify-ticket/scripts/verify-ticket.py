@@ -560,19 +560,22 @@ def last_verdict(comments: list[str]) -> str | None:
     return None
 
 
-def last_run(comments: list[str], *prefixes: str) -> str | None:
+def newest_with_first_line(comments: list[str], *prefixes: str) -> str | None:
     """The newest comment whose first line is one of `prefixes`, `None` when none.
 
-    With no prefixes the walker looks for `self-run` and `reverify`. A first line
-    matches a prefix when it equals it or starts with that prefix plus a space.
+    A first line matches a prefix when it equals it or starts with that prefix
+    plus a space.
     """
-    if not prefixes:
-        prefixes = ("self-run", "reverify")
     for comment in reversed(comments):
         first = comment.strip().splitlines()[0].strip() if comment.strip() else ""
         if any(first == prefix or first.startswith(prefix + " ") for prefix in prefixes):
             return comment
     return None
+
+
+def last_run(comments: list[str]) -> str | None:
+    """The newest `self-run` or `reverify` comment on the ticket, `None` when none."""
+    return newest_with_first_line(comments, "self-run", "reverify")
 
 
 def last_run_summary(comments: list[str]) -> str | None:
@@ -1070,7 +1073,7 @@ def criterion_block(item: dict) -> str:
 def run_decisions(number: int, path: Path) -> int:
     """Post the two-section file as a `DECISIONS` comment, or refuse."""
     comments = fetch_comments(number)
-    if last_run(comments, "DECISIONS") is not None:
+    if newest_with_first_line(comments, "DECISIONS") is not None:
         return refuse(f"#{number} already carries a DECISIONS comment")
     text = path.read_text(encoding="utf-8") if path.is_file() else ""
     headings = markdown_h2(text)
@@ -1083,7 +1086,7 @@ def run_decisions(number: int, path: Path) -> int:
                           + " and ".join(f"`{h}`" for h in missing))
         return refuse("the file must have exactly two sections, "
                       "`Decisions I made on my own` then `Outside Owns`")
-    run = last_run(comments, "self-run")
+    run = newest_with_first_line(comments, "self-run")
     if run is None:
         return refuse(f"#{number} carries no self-run comment to check Outside Owns against")
     want = outside_owns_from(run)
@@ -1112,16 +1115,16 @@ def open_children_owns(number: int) -> list[tuple[int, list[str]]]:
 def run_touched(number: int) -> int:
     """Comment `TOUCHED BY #<n>` on open siblings whose `## Owns` covers a file."""
     comments = fetch_comments(number)
-    review = last_run(comments, "REVIEW")
+    review = newest_with_first_line(comments, "REVIEW")
     if review is None:
         return refuse(f"#{number} carries no REVIEW comment")
-    run = last_run(comments, "self-run")
+    run = newest_with_first_line(comments, "self-run")
     if run is None:
         return refuse(f"#{number} carries no self-run comment")
     files = outside_owns_files(outside_owns_from(run))
     if not files:
         return 0
-    decisions = last_run(comments, "DECISIONS")
+    decisions = newest_with_first_line(comments, "DECISIONS")
     spec = parent_spec(fetch_body(number))
     if spec is None:
         return refuse(f"#{number} has no spec in `## Parent`")
@@ -1158,7 +1161,7 @@ def run_draft(number: int, out_file: Path) -> int:
     """Write the closing-comment skeleton to `out_file`."""
     body = fetch_body(number)
     comments = fetch_comments(number)
-    run = last_run(comments, "self-run")
+    run = newest_with_first_line(comments, "self-run")
     criteria = overlay_run_evidence(body, run)
     abandons = parse_abandons(run or "")
     counts = tally(criteria, abandons)
@@ -1178,7 +1181,7 @@ def run_draft(number: int, out_file: Path) -> int:
     if verdict and head and not head.startswith(verdict):
         chain = git("log", "--first-parent", "--format=%H", f"{verdict}..HEAD")
     post = "Post-verdict: " + (", ".join(chain.split()) if chain else "None")
-    review = last_run(comments, "REVIEW") or ""
+    review = newest_with_first_line(comments, "REVIEW") or ""
     files = outside_owns_files(outside_owns_from(run or ""))
     if files:
         judged = []
