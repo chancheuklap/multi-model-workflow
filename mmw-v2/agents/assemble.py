@@ -35,29 +35,77 @@ def q(s: str) -> str:
     return json.dumps(s, ensure_ascii=False)
 
 
-def read_models() -> dict[tuple[str, str], tuple[str, str]]:
-    """models.md 那张表，取成 (agent 名, host) -> (model, effort)。
+def parse_model_rows() -> list[tuple[str, str, str, str, str]]:
+    """models.md 表的每一行：(agent, host, model, effort, permissions)。
 
-    表里一行一个 (agent, host)，五列 agent | host | model | effort | permissions。
-    permissions 列不看：一行 bypass 的 model 与 effort 也是同名 subagent 的
-    （reviewer 会话派出的三个轴 subagent 就是 reviewer 行）。
+    install.sh 与本文件共用这一份解析。表头、分隔行、非五列的行丢掉。
     """
     if not MODELS.is_file():
         raise ValueError(f"缺 models.md：{MODELS}")
-    table: dict[tuple[str, str], tuple[str, str]] = {}
+    rows: list[tuple[str, str, str, str, str]] = []
     for line in MODELS.read_text(encoding="utf-8").splitlines():
         if not line.lstrip().startswith("|"):
             continue
         cells = [c.strip().strip("`").strip() for c in line.strip().strip("|").split("|")]
         if len(cells) != 5:
             continue
-        agent, host, model, effort, _permissions = cells
+        agent, host, model, effort, permissions = cells
         if agent == "agent" or set(agent) <= set("- "):
             continue
-        table[(agent, host)] = (model, effort)
-    if not table:
+        rows.append((agent, host, model, effort, permissions))
+    if not rows:
         raise ValueError(f"{MODELS} 里一行 agent 都没有")
+    return rows
+
+
+def read_models() -> dict[tuple[str, str], tuple[str, str]]:
+    """(agent, host) -> (model, effort)，跳过 read-only 行。
+
+    read-only 是 Paseo 会话行，同名 agent 另有 — 行给原生 subagent（advisor）。
+    bypass 行不跳：reviewer 会话行的 model 与 effort 也是三轴 subagent 的。
+    """
+    table: dict[tuple[str, str], tuple[str, str]] = {}
+    for agent, host, model, effort, permissions in parse_model_rows():
+        if permissions == "read-only":
+            continue
+        table[(agent, host)] = (model, effort)
     return table
+
+
+def profile_rows() -> list[tuple[str, str, str, str, str]]:
+    """生成 Agent profile 的行：bypass 与 read-only。"""
+    return [row for row in parse_model_rows() if row[4] in ("bypass", "read-only")]
+
+
+def apply_permissions(profile: dict, host: str, permissions: str) -> dict:
+    """按 host 把 permissions 单元格写成 profile 的 modeId / featureValues。
+
+    一份，install 与 --check 共用。claude / codex / 其它 三路。
+    """
+    if permissions == "bypass":
+        if host == "claude":
+            profile["modeId"] = "bypassPermissions"
+            profile.pop("featureValues", None)
+        elif host == "codex":
+            profile["modeId"] = "full-access"
+            profile.pop("featureValues", None)
+        else:
+            profile["featureValues"] = {"auto_accept": True}
+            profile.pop("modeId", None)
+    elif permissions == "read-only":
+        if host == "claude":
+            profile["modeId"] = "plan"
+            profile.pop("featureValues", None)
+        elif host == "codex":
+            # Codex 没有 read-only 模式（auto / auto-review / full-access）；auto 权限最低，仍可改文件。
+            profile["modeId"] = "auto"
+            profile.pop("featureValues", None)
+        else:
+            profile["featureValues"] = {"auto_accept": False}
+            profile.pop("modeId", None)
+    else:
+        raise ValueError(f"permissions 只能是 bypass 或 read-only，得到 {permissions!r}")
+    return profile
 
 
 def render(agent_dir: Path, table: dict[tuple[str, str], tuple[str, str]]) -> dict[str, str]:

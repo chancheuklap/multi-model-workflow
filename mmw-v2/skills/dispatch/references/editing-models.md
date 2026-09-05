@@ -2,11 +2,13 @@
 
 A `models.md` row is only correct on the machine it runs on, and none of what makes it correct can be answered from memory. Confirm what you are about to touch, write the row, then make it take effect.
 
-## 1. Confirm a model or an `effort`
+## 1. Confirm a model, an `effort`, or a `read-only` spelling
 
 Paseo is the first place to ask: `paseo provider models <provider> --json` lists that provider's models and its `thinkingOptionIds`. The names it prints are the host's own. Write the `model` and `effort` cells from that list.
 
 When you need to see how a host spells a name outside Paseo, ask the host itself. This table is the fallback, not the path that makes a row take effect.
+
+A `read-only` cell is a Paseo session that is not all-permissions. Confirm the host's mode id with `paseo provider ls --json` (that listing prints labels; `inspect_provider` / `list_providers` print the ids `install.sh` writes). Confirmed spelling: claude → `modeId: plan`; grok / cursor → `featureValues: {"auto_accept": false}`; codex has no read-only mode (`auto`, `auto-review`, `full-access`) so a Codex `read-only` row uses `modeId: auto`.
 
 | Host | Ask it this |
 | --- | --- |
@@ -28,11 +30,11 @@ Run `install.sh` from this repository:
 bash mmw-v2/install.sh
 ```
 
-That command is the whole of it. It rewrites every Agent profile whose `permissions` cell is `bypass`, reassembles every native subagent (`—`) into `agents/<name>/out/`, and points the host-side links at those files. The next session that starts that agent uses what you wrote.
+That command is the whole of it. It rewrites every Agent profile whose `permissions` cell is `bypass` or `read-only`, reassembles every native subagent (`—`) into `agents/<name>/out/`, and points the host-side links at those files. The next session that starts that agent uses what you wrote.
 
 ## 4. Check that a row landed
 
-**A `bypass` row** is an Agent profile in `~/.paseo/config.json`, under `daemon.agentProfiles`: one entry whose `id` and `name` are both the agent cell, carrying the row's `model` and `thinkingOptionId`. Read that file, or run `bash mmw-v2/install.sh --check`, which compares each profile to the current row and exits 1 on drift, naming the agent.
+**A `bypass` or `read-only` row** is an Agent profile in `~/.paseo/config.json`, under `daemon.agentProfiles`: one entry whose `id` and `name` are both the agent cell, carrying the row's `model` and `thinkingOptionId`. Read that file, or run `bash mmw-v2/install.sh --check`, which compares each profile to the current row and exits 1 on drift, naming the agent.
 
 **A `—` row** is a native subagent. Read the definition file for the agent you changed and confirm the new model is in it.
 
