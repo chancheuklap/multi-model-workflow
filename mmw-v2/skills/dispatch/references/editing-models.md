@@ -32,7 +32,7 @@ That command is the whole of it. It rewrites every Agent profile whose `permissi
 
 ## 4. Check that a row landed
 
-**A `bypass` row** is an Agent profile. After `install.sh`, `paseo` lists it under that agent name (`id` and `name` both the agent cell), with the row's `model` and `thinkingOptionId`. `bash mmw-v2/install.sh --check` compares each profile to the current row and exits 1 on drift.
+**A `bypass` row** is an Agent profile in `~/.paseo/config.json`, under `daemon.agentProfiles`: one entry whose `id` and `name` are both the agent cell, carrying the row's `model` and `thinkingOptionId`. Read that file, or run `bash mmw-v2/install.sh --check`, which compares each profile to the current row and exits 1 on drift, naming the agent.
 
 **A `—` row** is a native subagent. Read the definition file for the agent you changed and confirm the new model is in it.
 
