@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# 把五样东西装到本机，让每个 host 都读得到：
+# 把六样东西装到本机，让每个 host 都读得到：
 #
 #   技能              skills.txt 列出的，软链进 ~/.agents/skills 与 ~/.claude/skills
 #   subagent          agents/<名>/out/ 的 assembled subagent file，软链进各 host 的 agent 目录
-#   hook              verify-ticket 的 hook.py 与 dispatch 的 turn.py，写进各 host 自己的配置
-#   agent detection rule   dispatch 技能带的覆盖（有才装），拷进 ~/.config/herdr/agent-detection/
+#   hook              verify-ticket 的 hook.py，写进各 host 自己的配置
 #   提示词            prompt/shared.md 与 prompt/hosts/<host>.md：Claude Code 读软链，Codex、Pi、Grok
-#                     读 prompt/render.py 拼出的 AGENTS.md；一个 launchd 任务盯着源文件，改了就重拼
+#                     读 prompt/render.py 拼出的 AGENTS.md
+#   launchd 任务      盯着源文件，改了就重拼 Codex、Pi、Grok 的 AGENTS.md
+#   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里 grok/cursor 两条 provider、
+#                     models.md 每个 bypass 行一条 Agent profile、worktrees.root
 #
 # 技能有三个来源：mattpocock/skills 的在 upstream/skills/，我们自己写的在 skills/（skills.txt
 # 里前缀 self/），cathrynlavery/diagram-design 的在 upstream-diagram-design/skills/（前缀 dd/）。三者
@@ -277,10 +279,17 @@ if [ -d "$AGENTS_SRC" ]; then
     IFS='|' read -r host_home dest src_name suffix <<<"$row"
     [ -d "$host_home" ] || continue
 
+    keep=()
+    for name in "${agent_names[@]}"; do
+      [ -f "$AGENTS_SRC/$name/out/$src_name" ] || continue
+      keep+=("$name$suffix")
+    done
+
     if [ "$mode" = check ]; then
       for name in "${agent_names[@]}"; do
-        link="$dest/$name$suffix"
         want="$AGENTS_SRC/$name/out/$src_name"
+        [ -f "$want" ] || continue
+        link="$dest/$name$suffix"
         if [ ! -L "$link" ] || [ "$(readlink "$link")" != "$want" ]; then
           echo "缺    $link" >&2
           rc=1
@@ -290,7 +299,7 @@ if [ -d "$AGENTS_SRC" ]; then
         [ -n "$stale" ] || continue
         echo "残留  $stale 指回本仓库，agents/ 下却没有它，跑一次 install.sh 摘掉" >&2
         rc=1
-      done < <(stale_links "$dest" ours_agent_target "${agent_names[@]/%/$suffix}")
+      done < <(stale_links "$dest" ours_agent_target "${keep[@]}")
       continue
     fi
 
@@ -300,14 +309,15 @@ if [ -d "$AGENTS_SRC" ]; then
     while IFS= read -r stale; do
       [ -n "$stale" ] || continue
       rm "$stale"; echo "摘掉  $stale"
-    done < <(stale_links "$dest" ours_agent_target "${agent_names[@]/%/$suffix}")
+    done < <(stale_links "$dest" ours_agent_target "${keep[@]}")
 
     [ -f "$dest/.mmw-agents" ] && rm "$dest/.mmw-agents"
 
     linked=()
     for name in "${agent_names[@]}"; do
-      link="$dest/$name$suffix"
       want="$AGENTS_SRC/$name/out/$src_name"
+      [ -f "$want" ] || continue
+      link="$dest/$name$suffix"
       if [ -e "$link" ] || [ -L "$link" ]; then
         if [ -L "$link" ] && ours_agent_target "$(readlink "$link")"; then
           :
@@ -325,62 +335,22 @@ if [ -d "$AGENTS_SRC" ]; then
   done
 fi
 
-# ---------------- Herdr agent detection rule ----------------
-
-# Herdr 认一个 pane 里的 agent 是 idle 还是 blocked，靠的是每家一份 agent detection rule。
-# 某家规则不准时，修法是放一份本地覆盖进这个目录——本地覆盖优先于远端，改完要让
-# 服务端重读一遍才生效。dispatch 技能带了覆盖才有东西可装，目录不在就整段跳过。
-
-DETECT_SRC="$SELF_SRC/dispatch/herdr/agent-detection"
-DETECT_DEST="$HOME_DIR/.config/herdr/agent-detection"
-
-if [ -d "$DETECT_SRC" ]; then
-  for src in "$DETECT_SRC"/*.toml; do
-    [ -f "$src" ] || continue
-    name="$(basename "$src")"
-    dest="$DETECT_DEST/$name"
-
-    if [ "$mode" = check ]; then
-      if [ ! -f "$dest" ] || ! cmp -s "$src" "$dest"; then
-        echo "缺    ${dest}（与 ${src} 不一致）" >&2
-        rc=1
-      fi
-      continue
-    fi
-
-    # 这里是拷贝不是软链：Herdr 自己会往这个目录里写远端拉下来的那一份，
-    # 软链进去等于把仓库交给它写。
-    mkdir -p "$DETECT_DEST"
-    cp "$src" "$dest"
-    echo "已装  $dest"
-  done
-
-  if [ "$mode" != check ] && [ "$HOME_DIR" = "$HOME" ] && command -v herdr >/dev/null 2>&1; then
-    herdr server reload-agent-manifests >/dev/null 2>&1 \
-      && echo "已重读 Herdr agent detection rule" \
-      || echo "注意  Herdr 没在跑，agent detection rule 下次起服务时才生效"
-  fi
-fi
-
 # ---------------- hook ----------------
 
 # 技能和 subagent 是 host 去读的，hook 是 host 来调的，所以它要在每个 host 的配置里各有一条。
-# 三样东西：verify-ticket 的 hook.py 的 pretool gate（五个 host）与 question gate（起 session
-# 的三个 host），dispatch 的 turn.py（同样三个 host，各按自家 hook 系统有的事件注册）。四家写
-# JSON，pi 写一个扩展文件；每一处都指向 ~/.agents/skills 下的脚本——那已经是指回仓库的软链，
-# 所以改脚本不用重装。
+# 两样东西：verify-ticket 的 hook.py 的 pretool gate（五个 host）与 question gate（起 session
+# 的三个 host）。四家写 JSON，pi 写一个扩展文件；每一处都指向 ~/.agents/skills 下的脚本——
+# 那已经是指回仓库的软链，所以改脚本不用重装。
 #
-# 合并而不是覆盖：这几处 Herdr 也各装了自己的东西。只认 command 里带本脚本名与 gate 名的
+# 合并而不是覆盖：这几处别人也各装了自己的东西。只认 command 里带本脚本名与 gate 名的
 # 那一条，认得出就换成新的，认不出就在后面添一条，别人的条目一个字不动。
 
 HOOK_SRC="$SELF_SRC/verify-ticket/scripts/hook.py"
-TURN_SRC="$SELF_SRC/dispatch/scripts/turn.py"
 
 if [ -f "$HOOK_SRC" ]; then
   hooks_ran=1
   MMW_MODE="$mode" \
   MMW_HOOK="$NEUTRAL_DIR/verify-ticket/scripts/hook.py" \
-  MMW_TURN="$NEUTRAL_DIR/dispatch/scripts/turn.py" \
   MMW_HOME="$HOME_DIR" \
   MMW_CODEX="${CODEX_HOME:-$HOME_DIR/.codex}" \
   MMW_PI="${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME_DIR/.pi}/agent}" \
@@ -392,7 +362,6 @@ from pathlib import Path
 
 mode = os.environ["MMW_MODE"]
 hook = os.environ["MMW_HOOK"]
-turn = os.environ["MMW_TURN"]
 home = Path(os.environ["MMW_HOME"])
 codex_home = Path(os.environ["MMW_CODEX"])
 pi_home = Path(os.environ["MMW_PI"])
@@ -406,12 +375,13 @@ PI_EXTENSION = """// installed by mmw-v2/install.sh
 // @ts-nocheck
 
 import { spawnSync } from "node:child_process";
+import { basename } from "node:path";
 
 const HOOK = "%(hook)s";
 
 export default function (pi) {
-  // 没有 dispatch.sh 塞的 MMW_TICKET 就不必调 hook.py，也就不必为每条命令付一个进程。
-  if (!process.env.MMW_TICKET) return;
+  // cwd 的 basename 是 issue-<n> 才调 hook.py；main agent 不在这样的目录里。
+  if (!/^issue-\\d+$/.test(basename(process.cwd()))) return;
 
   pi.on("tool_call", async (event, ctx) => {
     if (event.toolName !== "bash") return;
@@ -432,25 +402,11 @@ export default function (pi) {
 
 COMMAND = f"python3 '{hook}' pretool "
 QUESTION = f"python3 '{hook}' question "
-TURN = f"python3 '{turn}' "
 
 # The tool each host calls to put a question on the screen: the matcher of its
 # question gate. Only the hosts `models.md` starts sessions on carry one.
 QUESTION_TOOLS = {"claude": "AskUserQuestion", "grok": "ask_user_question",
                   "codex": "request_user_input"}
-
-# The lifecycle events each host's hook system fires, and which of them carry a matcher.
-# grok: `~/.grok/docs/user-guide/10-hooks.md`, `Hook Events`. claude: Claude Code's hooks
-# reference. codex: the event names its 0.152.0 binary carries (no StopFailure).
-TURN_EVENTS = {
-    "grok": [("SessionStart", None), ("UserPromptSubmit", None), ("Stop", None),
-             ("StopFailure", None), ("StopCancelled", None),
-             ("Notification", "idle_prompt"), ("SessionEnd", None)],
-    "claude": [("SessionStart", None), ("UserPromptSubmit", None), ("Stop", None),
-               ("Notification", "idle_prompt"), ("SessionEnd", None)],
-    "codex": [("SessionStart", None), ("UserPromptSubmit", None), ("Stop", None),
-              ("SessionEnd", None)],
-}
 
 
 def load(path):
@@ -560,7 +516,7 @@ def extension(path):
 
 
 # 一行一个安装点：host 根、配置文件、事件名（只出现在输出里）、装与查两个动作。
-# grok 把 hooks/*.json 全部合并读入，所以两个脚本各占一个文件；claude 与 codex 只有一份
+# grok 把 hooks/*.json 全部合并读入，所以 hook.py 独占一个文件；claude 与 codex 只有一份
 # 配置，几条都写进去。
 grouped_hosts = [
     ("claude", home / ".claude", home / ".claude/settings.json"),
@@ -573,11 +529,6 @@ for host, host_home, path in grouped_hosts:
                    grouped(path, "PreToolUse", "Bash", COMMAND + host)))
     points.append((host_home, path, "PreToolUse " + QUESTION_TOOLS[host],
                    grouped(path, "PreToolUse", QUESTION_TOOLS[host], QUESTION + host)))
-    turn_path = home / ".grok/hooks/mmw-turn.json" if host == "grok" else path
-    for event, matcher in TURN_EVENTS[host]:
-        label = event + (" " + matcher if matcher else "")
-        points.append((host_home, turn_path, label,
-                       grouped(turn_path, event, matcher, TURN + host)))
 points += [
     (home / ".cursor", home / ".cursor/hooks.json", "beforeShellExecution",
      cursor(home / ".cursor/hooks.json", "beforeShellExecution")),
@@ -724,6 +675,236 @@ XML
     echo "已装  提示词：~/.claude 两条软链，Codex、Pi、Grok 各一份生成的 AGENTS.md"
   fi
   [ "$prompt_rc" -eq 0 ] || rc=1
+fi
+
+# ---------------- Paseo 侧配置 ----------------
+#
+# 源在仓库（models.md 的 bypass 行、下面两条 provider 的字面量），host 侧只放生成物：
+# CLI 软链、~/.paseo/config.json 里的 provider 与 Agent profile、worktrees.root。
+# 合并写入：只增改 id 与 models.md bypass 行同名的 profile，其余条目一字不动。
+# MMW_V2_HOME 之下不跑 paseo reload（与 launchd 同构）。
+
+PASEO_BIN_SRC="/Applications/Paseo.app/Contents/Resources/bin/paseo"
+PASEO_BIN_LINK="$HOME_DIR/.local/bin/paseo"
+PASEO_CONFIG="$HOME_DIR/.paseo/config.json"
+PASEO_WORKTREES_ROOT="$HOME_DIR/paseo-worktrees"
+MODELS_MD="$SELF_SRC/dispatch/models.md"
+
+if [ "$mode" = check ]; then
+  if [ ! -L "$PASEO_BIN_LINK" ] || [ "$(readlink "$PASEO_BIN_LINK")" != "$PASEO_BIN_SRC" ]; then
+    echo "缺    $PASEO_BIN_LINK" >&2
+    rc=1
+  fi
+  if ! PATH="$HOME_DIR/.local/bin:$PATH" command -v paseo >/dev/null 2>&1; then
+    echo "缺    command -v paseo" >&2
+    rc=1
+  fi
+else
+  mkdir -p "$HOME_DIR/.local/bin"
+  ln -sfn "$PASEO_BIN_SRC" "$PASEO_BIN_LINK"
+  echo "已装  $PASEO_BIN_LINK"
+fi
+
+MMW_MODE="$mode" \
+MMW_PASEO_CONFIG="$PASEO_CONFIG" \
+MMW_MODELS="$MODELS_MD" \
+MMW_PASEO_WORKTREES="$PASEO_WORKTREES_ROOT" \
+python3 - <<'PY' || rc=1
+import json
+import os
+import shutil
+import sys
+from datetime import datetime
+from pathlib import Path
+
+mode = os.environ["MMW_MODE"]
+config_path = Path(os.environ["MMW_PASEO_CONFIG"])
+models_path = Path(os.environ["MMW_MODELS"])
+worktrees_root = os.environ["MMW_PASEO_WORKTREES"]
+
+GROK_PROVIDER = {
+    "extends": "acp",
+    "label": "Grok",
+    "command": ["grok", "agent", "stdio"],
+    "params": {"clientCapabilities": {"terminal": False}},
+}
+CURSOR_PROVIDER = {
+    "extends": "acp",
+    "label": "Cursor",
+    "command": ["cursor-agent", "acp"],
+}
+
+PURPOSES = {
+    "junior-worker": "the default worker grade, for tickets labelled junior-worker or carrying no worker-grade label",
+    "senior-worker": "the worker grade for tickets where getting it wrong would be wrong silently",
+    "reviewer": "runs one round of code review on a ticket from a base commit",
+    "verifier": "re-runs every acceptance criterion and posts one VERDICT",
+}
+
+
+def die(msg):
+    sys.stderr.write(f"缺    {msg}\n")
+    sys.exit(1)
+
+
+def load(path):
+    if not path.is_file():
+        return {}
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        die(f"{path} 不是合法 JSON：{exc}")
+    return value if isinstance(value, dict) else {}
+
+
+def save(path, data):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    scratch = path.with_name(path.name + ".mmw-tmp")
+    scratch.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    scratch.replace(path)
+
+
+def read_bypass_rows():
+    if not models_path.is_file():
+        die(f"models.md：{models_path}")
+    rows = []
+    for line in models_path.read_text(encoding="utf-8").splitlines():
+        if not line.lstrip().startswith("|"):
+            continue
+        cells = [c.strip().strip("`").strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) != 5:
+            continue
+        agent, host, model, effort, permissions = cells
+        if agent == "agent" or set(agent) <= set("- "):
+            continue
+        if permissions != "bypass":
+            continue
+        rows.append((agent, host, model, effort))
+    return rows
+
+
+def apply_permissions(profile, host):
+    if host == "claude":
+        profile["modeId"] = "bypassPermissions"
+        profile.pop("featureValues", None)
+    elif host == "codex":
+        profile["modeId"] = "full-access"
+        profile.pop("featureValues", None)
+    else:
+        profile["featureValues"] = {"auto_accept": True}
+        profile.pop("modeId", None)
+
+
+def permissions_ok(profile, host):
+    if host == "claude":
+        return profile.get("modeId") == "bypassPermissions"
+    if host == "codex":
+        return profile.get("modeId") == "full-access"
+    fv = profile.get("featureValues") or {}
+    return fv.get("auto_accept") is True
+
+
+def make_profile(agent, host, model, effort, existing=None):
+    profile = dict(existing) if isinstance(existing, dict) else {}
+    profile["id"] = agent
+    profile["name"] = agent
+    profile["provider"] = host
+    profile["model"] = model
+    profile["thinkingOptionId"] = effort
+    profile["notes"] = (
+        f"{agent} from models.md {agent}/{host}; "
+        f"{PURPOSES.get(agent, 'dispatched by this pipeline')}."
+    )
+    apply_permissions(profile, host)
+    return profile
+
+
+def merge(data, rows):
+    agents = data.setdefault("agents", {})
+    providers = agents.setdefault("providers", {})
+    providers["grok"] = dict(GROK_PROVIDER)
+    providers["cursor"] = dict(CURSOR_PROVIDER)
+
+    daemon = data.setdefault("daemon", {})
+    existing = list(daemon.get("agentProfiles") or [])
+    managed = {agent: (host, model, effort) for agent, host, model, effort in rows}
+    new_profiles = []
+    seen = set()
+    for profile in existing:
+        pid = profile.get("id") if isinstance(profile, dict) else None
+        if pid in managed:
+            new_profiles.append(make_profile(pid, *managed[pid], existing=profile))
+            seen.add(pid)
+        else:
+            new_profiles.append(profile)
+    for agent, spec in managed.items():
+        if agent not in seen:
+            new_profiles.append(make_profile(agent, *spec))
+    daemon["agentProfiles"] = new_profiles
+
+    worktrees = data.setdefault("worktrees", {})
+    worktrees["root"] = worktrees_root
+    data.setdefault("version", 1)
+    return data
+
+
+rows = read_bypass_rows()
+if not rows:
+    die(f"{models_path} 里一行 bypass 都没有")
+
+if mode == "check":
+    failed = False
+    data = load(config_path)
+    providers = ((data.get("agents") or {}).get("providers") or {})
+    for name, want in (("grok", GROK_PROVIDER), ("cursor", CURSOR_PROVIDER)):
+        have = providers.get(name)
+        if have != want:
+            sys.stderr.write(f"缺    agents.providers.{name} 与 install.sh 不一致\n")
+            failed = True
+    by_id = {}
+    for profile in ((data.get("daemon") or {}).get("agentProfiles") or []):
+        if isinstance(profile, dict) and profile.get("id"):
+            by_id[profile["id"]] = profile
+    for agent, host, model, effort in rows:
+        profile = by_id.get(agent)
+        if profile is None:
+            sys.stderr.write(f"缺    profile {agent} 不在 {config_path}\n")
+            failed = True
+            continue
+        if profile.get("model") != model:
+            sys.stderr.write(f"缺    profile {agent} model 与 models.md 不一致\n")
+            failed = True
+        if profile.get("thinkingOptionId") != effort:
+            sys.stderr.write(f"缺    profile {agent} thinkingOptionId 与 models.md 不一致\n")
+            failed = True
+        if not permissions_ok(profile, host):
+            sys.stderr.write(f"缺    profile {agent} permissions 与 models.md 不一致\n")
+            failed = True
+        if profile.get("provider") != host:
+            sys.stderr.write(f"缺    profile {agent} provider 与 models.md 不一致\n")
+            failed = True
+    have_root = ((data.get("worktrees") or {}).get("root"))
+    if have_root != worktrees_root:
+        sys.stderr.write(f"缺    worktrees.root 应为 {worktrees_root} 实为 {have_root}\n")
+        failed = True
+    sys.exit(1 if failed else 0)
+
+data = load(config_path)
+if config_path.is_file():
+    stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    shutil.copy2(config_path, config_path.with_name(config_path.name + ".bak-" + stamp))
+save(config_path, merge(data, rows))
+print(f"已装  {config_path}")
+PY
+
+if [ "$mode" != check ] && [ "$HOME_DIR" = "$HOME" ]; then
+  if reload_out="$(PATH="$HOME_DIR/.local/bin:$PATH" paseo reload 2>&1)"; then
+    if printf '%s\n' "$reload_out" | grep -qi 'restart-required'; then
+      echo "注意  paseo reload 报 restart-required，daemon 未重启"
+    fi
+  else
+    echo "注意  paseo reload 没跑成：${reload_out:-exit $?}"
+  fi
 fi
 
 if [ "$mode" = check ]; then

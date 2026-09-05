@@ -4,7 +4,9 @@ A `models.md` row is only correct on the machine it runs on, and none of what ma
 
 ## 1. Confirm a model or an `effort`
 
-Model names are not shared between hosts, and neither are the names of the efforts — the thinking level the model runs at. One host's `high` is another's `xhigh`, and some have no separate `effort` at all. Ask the host itself.
+Paseo is the first place to ask: `paseo provider models <provider> --json` lists that provider's models and its `thinkingOptionIds`. The names it prints are the host's own. Write the `model` and `effort` cells from that list.
+
+When you need to see how a host spells a name outside Paseo, ask the host itself. This table is the fallback, not the path that makes a row take effect.
 
 | Host | Ask it this |
 | --- | --- |
@@ -16,28 +18,23 @@ Model names are not shared between hosts, and neither are the names of the effor
 
 ## 2. Confirm a host
 
-Only the rows with launch arguments can move to another host. Two things have to be right, and both come from the machine:
-
-1. **The host cell has to name an agent kind Herdr recognises.** Run `herdr agent` to see the list it accepts. A name that is not on it is refused and no session starts.
-2. **The arguments have to be that host's own.** A worker's arguments have to say three things: run without stopping to ask for approval, use this model, use this `effort`. The worktree is not one of them — `dispatch.sh` opens it and starts the session inside it, so the row carries no worktree flag. Every host spells the three differently. Read the new host's own `--help` and write the row from that, not from the row you are replacing.
+The host cell has to name a provider Paseo will start. Run `paseo provider ls` and take a row whose status is `available`. A name that is not on that list is refused and no session starts.
 
 ## 3. Make the edit take effect
 
-Which half of `models.md` you edited decides this.
-
-**A row with launch arguments** runs as its own Herdr session, and `dispatch.sh` reads the row at the moment it dispatches. You are already done: the next dispatch uses what you wrote.
-
-**A row with `—`** is a subagent, and a host reads a subagent's model out of its own agent definition file, not out of `models.md`. Build `models.md` into those files:
+Run `install.sh` from this repository:
 
 ```bash
-python3 mmw-v2/agents/assemble.py
+bash mmw-v2/install.sh
 ```
 
-Run it in the checkout the hosts are installed from — section 4 says how to tell which one that is. Then the change is live in the next session that dispatches that subagent. That command is the whole of it: the hosts hold symlinks to the assembled subagent files, and the symlinks do not move. `install.sh` is for adding a whole new agent, not for changing one.
+That command is the whole of it. It rewrites every Agent profile whose `permissions` cell is `bypass`, reassembles every native subagent (`—`) into `agents/<name>/out/`, and points the host-side links at those files. The next session that starts that agent uses what you wrote.
 
-## 4. Check that a subagent row landed
+## 4. Check that a row landed
 
-Read the definition file for the agent you changed and confirm the new model is in it.
+**A `bypass` row** is an Agent profile. After `install.sh`, `paseo` lists it under that agent name (`id` and `name` both the agent cell), with the row's `model` and `thinkingOptionId`. `bash mmw-v2/install.sh --check` compares each profile to the current row and exits 1 on drift.
+
+**A `—` row** is a native subagent. Read the definition file for the agent you changed and confirm the new model is in it.
 
 | Host | Where its agent definitions live |
 | --- | --- |
@@ -47,4 +44,4 @@ Read the definition file for the agent you changed and confirm the new model is 
 | Grok Build | `~/.grok/agents/` for the definition and the model, `~/.grok/roles/` for read-only tools and the `effort` |
 | pi | `~/.pi/agent/agents/` |
 
-Each of those is a link into the checkout the hosts were installed from, so following one also tells you which checkout that is. A file still showing the old model means `assemble.py` ran somewhere else.
+Each of those is a link into the checkout the hosts were installed from, so following one also tells you which checkout that is. A file still showing the old model means `install.sh` ran somewhere else.
