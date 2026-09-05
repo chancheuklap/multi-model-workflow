@@ -1,6 +1,6 @@
 ---
 name: dispatch
-description: Put another agent to work on a ticket, and move a night's batch of tickets forward. Use to start a reviewer on your ticket and wait for its report, to open a night on a spec, to merge the branches of the tickets that closed and dispatch the ones that can start, to act on a line beginning `mmw board:`, or to change which host, model or thinking level an agent in this pipeline runs on.
+description: Put another agent to work on a ticket, and move a night's batch of tickets forward. Use to start a worker, reviewer or verifier, to resume a worker, to check the machine before a night, to advance a spec, to read status after a finish notification, to reverify closed tickets, to post the night summary, or to change which host, model or thinking level an agent in this pipeline runs on.
 ---
 
 # Dispatch
@@ -9,68 +9,81 @@ Nothing here runs on its own. You arrive at one row of the `Find your command` t
 
 ## Resolve the scripts once
 
-`scripts/dispatch.sh` and `scripts/board.py`, next to this file. Commands below are written `<dispatch>` and `<board>` and mean:
+`scripts/dispatch.sh` and `scripts/status.py`, next to this file. Commands below are written `<dispatch>` and `<status>` and mean:
 
 ```bash
 bash <absolute path to scripts/dispatch.sh> …
-python3 <absolute path to scripts/board.py> …
+python3 <absolute path to scripts/status.py> …
 ```
 
 Resolve them from this file's own location. The path differs by machine and by host, and `install.sh` puts this skill wherever the host that gave it to you reads its skills from.
+
+## Two paths: `--json` or `--run`
+
+`start` and `advance` take exactly one of `--json` or `--run`. If you pass neither, or both, the script exits 2, prints `pass --json … or --run …` on stderr, and calls nothing.
+
+- **`--json`**: stdout is one JSON object per ticket, one line, whose fields are the arguments of `create_agent` (`workspaceId`, `title`, `provider`, `settings`, `labels`, `initialPrompt`). You call `create_agent` on each line yourself, with `notifyOnFinish: true`. The script does not call `create_agent`; the finish notification only fires for a `create_agent` that you issued.
+- **`--run`**: the script calls `paseo run -d …` and prints the agent id. There is no finish notification.
+
+Which path you take is a fact about this session, not about the environment: **if you have a `create_agent` tool, pass `--json`; otherwise pass `--run`.** Do not look at `PASEO_AGENT_ID` to choose — a Grok session can have the Paseo tools and still be running its shell inside the daemon, where that variable is unset, so a test of the variable would pick `--run` every time and you would never be notified.
 
 ## Find your command
 
 | You want to | Run |
 | --- | --- |
-| Start the reviewer on your ticket and wait for its report | `<dispatch> <n> reviewer <base-commit>`, then `<dispatch> wait <n> "^REVIEW "`. A start that exits 1 or 2, or a wait that times out, does not end the round: read the reviewer's screen with `herdr agent read <name>`; still running, wait again; never started or stopped, run the `code-review` skill in your host's general-purpose subagent with the same base commit and ticket number, and its report lands on the ticket with the same `REVIEW` first line |
-| Open the night on a spec | `<dispatch> run <spec>`, then `<dispatch> advance <spec>` straight after |
-| Act on `mmw board: ADVANCE` | `<dispatch> advance <spec>` |
-| Act on `mmw board: night over` | `<dispatch> advance <spec>`, then re-run the closed tickets' criteria on the base branch — [references/night.md](references/night.md) |
-| Act on `mmw board: STOPPED #<n>` or `mmw board: TIME LIMIT #<n>` | `herdr agent read <name> --source recent --lines 80`, with the Herdr name the line carries. Read why that worker stopped, fix what stopped it yourself — a file it could not find, a command it needs, a baseline it read wrong — and tell it to carry on with `herdr agent prompt <name> "<what you settled, then: continue>"`. A question only a person can settle goes into a sub-issue under the spec (`gh issue create --parent <spec> --label needs-triage`), and the worker is told to take the default meanwhile. Change no label: the ticket stays in the agent queue until its worker closes it out |
-| Start a worker on one ticket, outside a night | `<dispatch> <n> worker` |
-| Change one ticket's worker grade | Swap its `junior-worker` / `senior-worker` label on the tracker; the next dispatch reads it |
+| Start the reviewer on your ticket and wait for its report | `<dispatch> start <n> reviewer --json`. Stdout is one JSON object. Call `create_agent` with those fields and `notifyOnFinish: true`. When a finish notification arrives for title `#<n> reviewer`, read the ticket: the report is the newest comment whose first line is `REVIEW `. **Start exits 2:** stderr is the reason; nothing was started — run the `code-review` skill in this host's general-purpose subagent with ticket `<n>` and base commit `$(git config branch.issue-<n>.mmw-base)`; its report lands with the same `REVIEW ` first line. **Notification is `errored` or `was closed`, and there is no `REVIEW ` comment:** `paseo logs <id>`, then the same general-purpose fallback. Do not start a second reviewer. |
+| Start the verifier on your ticket | `<dispatch> start <n> verifier --json`. Call `create_agent` on the printed object with `notifyOnFinish: true`. When the finish notification arrives, read the newest comment whose first line is `VERDICT`. Start it once. **Start exits 2:** stderr is the reason; comment on the ticket with the command you ran and the output, and stop. |
+| Open the night on a spec | [references/night.md](references/night.md): `<dispatch> check <spec>`, then `<dispatch> advance <spec> --json`, then `create_agent` on each printed line |
+| A finish notification arrived (`finished` / `errored` / `was closed` / `needs permission`) | `<dispatch> status <spec>`, then the decision table in [references/night.md](references/night.md) |
+| Tell a live worker to continue | `<dispatch> resume <n> "<text>"`. Exit 0: the text was sent. Exit 2: no worker labelled `mmw.ticket=<n>` — read `status`, do not send again |
+| Start a worker on one ticket, outside a night | `<dispatch> start <n> worker --json` (then `create_agent`) or `--run` (prints the agent id) |
+| Re-run every closed `ALL MET` ticket on the branch you are on | `<dispatch> reverify <spec>` |
+| Post the night summary on the spec | `<dispatch> summary <spec>` |
+| Change one ticket's worker grade | Swap its `junior-worker` / `senior-worker` label on the tracker; the next `start` reads it |
 | Change which host, model or `effort` an agent runs on | Edit `models.md`, next to this file — but read [references/editing-models.md](references/editing-models.md) first |
 
-The night itself — what `run` sets up, why `advance` merges before it dispatches, and what the board does between your commands — is [references/night.md](references/night.md).
+The night itself — `check`, then `advance`, then what to do on each notification until the frontier is empty — is [references/night.md](references/night.md).
+
+## Finish notification
+
+A notification is a `<paseo-system>` block whose first sentence is `Agent <id> (<title>) finished.` or `errored.` or `was closed.` or `needs permission.`, and which may carry an `<agent-response>` of the agent's last reply. It arrives in the current turn when you are busy, or as a new turn when you are idle. Match `<title>` to `#<n> worker`, `#<n> reviewer` or `#<n> verifier`. `needs permission` is not a stop: run `list_pending_permissions` / `respond_to_permission` (CLI: `paseo permit`) first, then `status`. You may create a heartbeat as insurance that you will be woken if a notification is missed; there is no rule for one.
 
 ## The arguments you supply
 
-`<n>` is a ticket number, digits only, no `#`.
+`<n>` and `<spec>` are digits only, no `#`.
 
-The second argument is `worker` or `reviewer`. Which of the two worker rows in `models.md` a worker starts from is the ticket's own `junior-worker` or `senior-worker` label, read fresh on every dispatch — so a ticket the board redispatches at three in the morning comes back on the row it was written for. A ticket carrying neither label starts on `junior-worker`; one carrying both, or one naming a worker grade `models.md` has no row for, is refused.
+`start`'s third argument is `worker`, `reviewer` or `verifier`. Which of the two worker rows in `models.md` a worker starts from is the ticket's own `junior-worker` or `senior-worker` label, read fresh on every start. A ticket carrying neither label starts on `junior-worker`; one carrying both, or one naming a grade `models.md` has no row for, is refused (exit 2, stderr names the ticket). The reviewer reads `git config branch.issue-<n>.mmw-base` itself; you do not pass a base commit.
 
-`<base-commit>` is the reviewer's only extra argument: the commit the code review starts from. Read it in the worker's worktree with `git config branch.issue-<n>.mmw-base` — the base commit `dispatch.sh` recorded when it opened the worktree, and the commit `verify-ticket.py` measures `Outside Owns:` from.
-
-`wait` takes a first-line regular expression, matched against the newest comment on the ticket when the wait starts and against every comment added after that. A worker waiting on its reviewer uses `"^REVIEW "`, trailing space and all; whoever dispatched a worker waits on `"^(ALL MET|HANDOFF REQUIRED)"`. A trailing `[seconds]` overrides `dispatch.sh`'s own `WAIT_DEFAULT_SECONDS`; leave it off.
+`--json` / `--run` are required on `start` and `advance` and invalid as a substitute for each other.
 
 ## Exit codes
 
-**Dispatching an agent** — `<dispatch> <n> worker|reviewer [base-commit]`:
+**`start <n> worker\|reviewer\|verifier --json\|--run`:**
 
 | Code | What happened |
 | --- | --- |
-| `0` | The session is up and has been told what to work on |
-| `1` | The session is up but was **not** told anything: its hooks did not report it ready in time, or it did not report the prompt as taken. A session is now sitting in that pane holding the ticket's name with nothing to do. Read its screen with `herdr agent read <name>`, then either prompt it yourself with the dispatch line or end that session before dispatching the ticket again with the same second argument — the Herdr name collides |
-| `2` | Nothing was started — no worktree, tab or pane was opened. The reason is on stderr — read it verbatim. One of them is `already has a live session <name>`: Herdr already holds a session by the name this dispatch would use, so end that session or wait for it before dispatching the ticket again with the same second argument |
+| `0` | `--json`: one JSON object is on stdout. `--run`: the agent id is on stdout |
+| `2` | Nothing was started. The reason is on stderr — read it verbatim. Typical causes: the ticket is not `OPEN` / not `ready-for-agent` / still blocked; two worker-grade labels; no `bypass` row for the seat; no `## Parent` spec number; no recorded base commit (reviewer); no Paseo project whose `path` is this checkout |
 
-**Waiting** — `<dispatch> wait`:
-
-| Code | What happened |
-| --- | --- |
-| `0` | It matched. The whole comment is on stdout |
-| `1` | It timed out, and `dispatch.sh` has already commented on the ticket saying who did not finish. Waiting on a worker: **skip what you were waiting for and carry on with the rest of your own steps** — an agent that never reported back is not a reason to hand the ticket to a person. Waiting on your reviewer: the round is not skipped; the first row of `Find your command` says what comes next |
-
-**Moving the batch on** — `<dispatch> advance <spec>`:
+**`advance <spec> --json\|--run`:**
 
 | Code | What happened |
 | --- | --- |
-| `0` | Done. The advance summary line counts what was merged, what was already in, and what was started |
-| `2` | Nothing was touched. The reason is on stderr: not inside Herdr, not a git repository, the working tree has uncommitted changes, or a merge could not take the `.git` lock in `MERGE_TRIES` tries — a worker committing in its own worktree at the same moment; run `advance` again |
-| `3` | A merge is in conflict. Everything before it is merged and committed; nothing was dispatched. **The conflict is still in the tree and it stays there.** Resolve it with the `resolving-merge-conflicts` skill, run this repository's own checks, commit the merge, then run `advance` again — it picks up from the branch after the one you resolved. The conflict report on stderr is the first two steps of that skill already done for you: the branch being merged and the ticket it belongs to, the tickets already merged on this side, and the conflicted files |
+| `0` | Done. `--json`: one JSON object per dispatched ticket on stdout; the line `advance #<spec>: merged <m>, already in <s>, started <k>, refused <r>` is on stderr. `--run`: that summary line is on stdout |
+| `2` | Nothing was touched. Stderr: not a git repository, uncommitted tracked changes, or the `.git` lock was held for `MERGE_TRIES` tries — run `advance` again |
+| `3` | A merge is in conflict. Everything before it is merged and committed; nothing was archived, no workspace was created, nothing was dispatched. **The conflict is still in the tree and it stays there.** Resolve it with the `resolving-merge-conflicts` skill, run this repository's own checks, commit the merge, then run `advance` again with the same `--json` or `--run`. The conflict report (stdout) already names the two sides and the conflicted files |
 
-**Opening the night** — `<dispatch> run <spec>`:
+**`check <spec>`:**
 
 | Code | What happened |
 | --- | --- |
-| `0` | The board is up. Its monitor tab holds every line it will write |
-| `2` | Nothing was started. The reason is on stderr: not inside Herdr; a worker row in `models.md` that starts no session; `install.sh --check` found something missing; a ticket in the batch whose worker-grade label names a row `models.md` has no row for, or which carries two grade labels — the reason names the ticket; or a worker row's or the reviewer row's host is not a kind `herdr agent start` accepts. Fix what the reason names — run `install.sh`, relabel the ticket, or edit `models.md` — then `<dispatch> run <spec>` again |
+| `0` | `install.sh --check` passed, every `bypass` row's host is `available` in `paseo provider ls --json`, and every queued ticket has at most one worker-grade label that `models.md` has a row for |
+| `2` | One or more of those failed. Stderr has one `dispatch: …` line per failure. Fix what the lines name — run `install.sh`, relabel the ticket, or wait until the host is `available` — then `check` again. Do not `advance` on 2 |
+
+**`resume <n> "<text>"`:** `0` the text was sent; `2` no worker with those labels, nothing sent.
+
+**`status <spec>`:** `0`. Stdout is the table (`ticket`, `agent`, `id`, `agent_status`, `age`, `phase`, `ac`, `note`). A `note` of `needs permission` is the `needs permission` notification in table form.
+
+**`reverify <spec>`:** `0` every closed `ALL MET` ticket was green; `1` at least one was red — that ticket is reopened, labelled `needs-triage`, its assignee removed, and the failing `AC<n>` commented. Stdout names each ticket.
+
+**`summary <spec>`:** `0`. The spec has a new comment whose first line is `NIGHT SUMMARY <date>`. If `reverify` ran in this checkout, the comment also has a `Reverify: <green>/<red>` line.
