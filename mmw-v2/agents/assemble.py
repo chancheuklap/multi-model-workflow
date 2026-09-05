@@ -38,9 +38,9 @@ def q(s: str) -> str:
 def read_models() -> dict[tuple[str, str], tuple[str, str]]:
     """models.md 那张表，取成 (agent 名, host) -> (model, effort)。
 
-    表里一行一个 (agent, host)，五列 agent | host | model | effort | launch arguments。
-    launch arguments 列不看：一行 session 的 model 与 effort 也是同名 subagent 的
-    （reviewer 会话派出的三个轴 subagent 就是 reviewer 行），dispatch.sh 另读自己要的那列。
+    表里一行一个 (agent, host)，五列 agent | host | model | effort | permissions。
+    permissions 列不看：一行 bypass 的 model 与 effort 也是同名 subagent 的
+    （reviewer 会话派出的三个轴 subagent 就是 reviewer 行）。
     """
     if not MODELS.is_file():
         raise ValueError(f"缺 models.md：{MODELS}")
@@ -51,7 +51,7 @@ def read_models() -> dict[tuple[str, str], tuple[str, str]]:
         cells = [c.strip().strip("`").strip() for c in line.strip().strip("|").split("|")]
         if len(cells) != 5:
             continue
-        agent, host, model, effort, launch = cells
+        agent, host, model, effort, _permissions = cells
         if agent == "agent" or set(agent) <= set("- "):
             continue
         table[(agent, host)] = (model, effort)
@@ -73,10 +73,16 @@ def render(agent_dir: Path, table: dict[tuple[str, str], tuple[str, str]]) -> di
     if missing:
         raise ValueError(f"{agent_dir.name}: agent.json 缺 host {sorted(missing)}")
 
-    unlisted = [h for h in hosts if (name, h) not in table]
-    if unlisted:
+    listed = {h for h in hosts if (name, h) in table}
+    unlisted = sorted(h for h in hosts if (name, h) not in table)
+    # verifier 在 models.md 里可以只有部分 host 的行；缺的 host 不装配。
+    if unlisted and name != "verifier":
         raise ValueError(
-            f"{agent_dir.name}: {MODELS} 里没有 {name} 在 {sorted(unlisted)} 上的行，"
+            f"{agent_dir.name}: {MODELS} 里没有 {name} 在 {unlisted} 上的行，"
+            f"model 与 effort 只从 models.md 读")
+    if not listed:
+        raise ValueError(
+            f"{agent_dir.name}: {MODELS} 里没有 {name} 的行，"
             f"model 与 effort 只从 models.md 读")
 
     def model(host: str) -> str:
@@ -97,57 +103,62 @@ def render(agent_dir: Path, table: dict[tuple[str, str], tuple[str, str]]) -> di
 
     out: dict[str, str] = {}
 
-    h = hosts["claude"]
-    out["claude.md"] = fm({
-        "name": name,
-        "description": q(desc),
-        "model": model("claude"),
-        "effort": effort("claude"),
-        "tools": h["tools"],
-    }) + body
+    if "claude" in listed:
+        h = hosts["claude"]
+        out["claude.md"] = fm({
+            "name": name,
+            "description": q(desc),
+            "model": model("claude"),
+            "effort": effort("claude"),
+            "tools": h["tools"],
+        }) + body
 
     # Cursor 把 effort 烧进模型名（cursor-grok-4.6-high 是一个名字），effort 列为 —；
     # 只有参数化模型才接受 [effort=…] 括号覆盖，那时 effort 列才有值。
-    cursor_model = model("cursor")
-    if effort("cursor") not in ("—", "-", ""):
-        cursor_model += f"[effort={effort('cursor')}]"
-    h = hosts["cursor"]
-    out["cursor.md"] = fm({
-        "name": name,
-        "description": q(desc),
-        "model": cursor_model,
-        "readonly": "true" if readonly else "false",
-    }) + body
+    if "cursor" in listed:
+        cursor_model = model("cursor")
+        if effort("cursor") not in ("—", "-", ""):
+            cursor_model += f"[effort={effort('cursor')}]"
+        h = hosts["cursor"]
+        out["cursor.md"] = fm({
+            "name": name,
+            "description": q(desc),
+            "model": cursor_model,
+            "readonly": "true" if readonly else "false",
+        }) + body
 
-    h = hosts["codex"]
-    out["codex.toml"] = (
-        f"name = {q(name)}\n"
-        f"description = {q(desc)}\n"
-        f"model = {q(model('codex'))}\n"
-        f"model_reasoning_effort = {q(effort('codex'))}\n"
-        f'sandbox_mode = "{sandbox}"\n'
-        f"developer_instructions = '''\n{body}'''\n"
-    )
+    if "codex" in listed:
+        h = hosts["codex"]
+        out["codex.toml"] = (
+            f"name = {q(name)}\n"
+            f"description = {q(desc)}\n"
+            f"model = {q(model('codex'))}\n"
+            f"model_reasoning_effort = {q(effort('codex'))}\n"
+            f'sandbox_mode = "{sandbox}"\n'
+            f"developer_instructions = '''\n{body}'''\n"
+        )
 
-    out["grok.md"] = fm({
-        "name": name,
-        "description": q(desc),
-        "model": model("grok"),
-    }) + body
-    out["grok.role.toml"] = (
-        f"description = {q(desc)}\n"
-        f'default_capability_mode = "{"read-only" if readonly else "execute"}"\n'
-        f"reasoning_effort = {q(effort('grok'))}\n"
-    )
+    if "grok" in listed:
+        out["grok.md"] = fm({
+            "name": name,
+            "description": q(desc),
+            "model": model("grok"),
+        }) + body
+        out["grok.role.toml"] = (
+            f"description = {q(desc)}\n"
+            f'default_capability_mode = "{"read-only" if readonly else "execute"}"\n'
+            f"reasoning_effort = {q(effort('grok'))}\n"
+        )
 
-    h = hosts["pi"]
-    out["pi.md"] = fm({
-        "name": name,
-        "description": q(desc),
-        "model": model("pi"),
-        "thinking": effort("pi"),
-        "tools": h["tools"],
-    }) + body
+    if "pi" in listed:
+        h = hosts["pi"]
+        out["pi.md"] = fm({
+            "name": name,
+            "description": q(desc),
+            "model": model("pi"),
+            "thinking": effort("pi"),
+            "tools": h["tools"],
+        }) + body
 
     return out
 
