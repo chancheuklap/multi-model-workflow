@@ -23,22 +23,28 @@ been through `--closeout`, so there is no draft of its to check; a hook that gue
 one and let the command through when the guess passed would produce exactly the
 outcome it exists to prevent — the ticket closed with no closing comment on it.
 
-Whether this session is governed is not something this file works out. It is told:
-`dispatch.sh` sets `MMW_TICKET` on the worker's pane and `MMW_AUTONOMOUS=1` on the
-worker's and the reviewer's. No variable, no refusal. So there is no git to run, no
-`gh` to ask, no file to read, and nothing to get wrong about which directory the host
-happened to start this process in.
+Whether this session is governed is read off the process:
+
+- pretool: the working directory's basename. `issue-<n>` (digits only) is ticket
+  `<n>`; any other basename is not a ticket worktree and is not refused. No
+  `paseo` call.
+- question: `PASEO_AGENT_ID`. The gate asks
+  `paseo ls -g --json --label mmw.autonomous=1` and refuses only when that id is
+  in the returned list. No id, no `paseo` on PATH, a failed call, or an id that
+  is not in the list: no refusal.
 """
 
 from __future__ import annotations
 
 import json
-import re
 import os
+import re
+import subprocess
 import sys
 
 HOSTS = ("claude", "codex", "grok", "cursor", "pi")
 GATES = ("pretool", "question")
+TICKET_DIR = re.compile(r"^issue-(\d+)$")
 
 # Grok Build clips a deny reason at 256 characters and marks the rest `… [+N chars]`,
 # and it spends 13 of those on a `Hook denied: ` of its own (2026-08-29, measured: a
@@ -98,8 +104,44 @@ def command_of(event: dict) -> str | None:
 
 
 def autonomous() -> bool:
-    """Whether `dispatch.sh` marked this session as one nobody watches."""
-    return os.environ.get("MMW_AUTONOMOUS", "").strip() == "1"
+    """Whether this process is a Paseo agent labelled `mmw.autonomous=1`."""
+    agent_id = os.environ.get("PASEO_AGENT_ID", "").strip()
+    if not agent_id:
+        return False
+    return agent_id in autonomous_agent_ids()
+
+
+def autonomous_agent_ids() -> set[str]:
+    """Ids from `paseo ls -g --json --label mmw.autonomous=1`.
+
+    An unanswered or unreadable call is an empty set: the question gate then
+    does not refuse, the same as a session with no `PASEO_AGENT_ID`.
+    """
+    env = dict(os.environ)
+    env.pop("CLICOLOR_FORCE", None)
+    env.pop("CLICOLOR", None)
+    try:
+        run = subprocess.run(
+            ["paseo", "ls", "-g", "--json", "--label", "mmw.autonomous=1"],
+            capture_output=True, text=True, env=env, timeout=5,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return set()
+    if run.returncode != 0:
+        return set()
+    try:
+        rows = json.loads(run.stdout)
+    except Exception:
+        return set()
+    if not isinstance(rows, list):
+        return set()
+    ids: set[str] = set()
+    for row in rows:
+        if isinstance(row, dict):
+            value = row.get("id")
+            if isinstance(value, str) and value:
+                ids.add(value)
+    return ids
 
 
 def tool_of(event: dict) -> str:
@@ -112,15 +154,13 @@ def tool_of(event: dict) -> str:
 
 
 def governed_ticket() -> int | None:
-    """The ticket this session was dispatched to work, if it was dispatched at all.
+    """The ticket this working directory belongs to, if it is a ticket worktree.
 
-    `dispatch.sh` injects this when it opens the worker's tab. The main agent's
-    session and an ordinary session of yours carry no such variable and are never
-    governed. A reviewer session that inherited one is no exception worth making: it
-    has no business closing the ticket either.
+    The slug is `issue-<n>`. Reviewer, verifier and worker share that directory
+    and are all governed. A session whose cwd is not that shape is not.
     """
-    value = os.environ.get("MMW_TICKET", "").strip()
-    return int(value) if value.isdigit() else None
+    match = TICKET_DIR.fullmatch(os.path.basename(os.getcwd()))
+    return int(match.group(1)) if match else None
 
 
 SEPARATORS = re.compile(r"[;\n]|&&|\|\||\|")
