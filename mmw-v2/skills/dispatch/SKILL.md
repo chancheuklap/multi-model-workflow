@@ -26,6 +26,7 @@ Resolve them from this file's own location. The path differs by machine and by h
 | Open the night on a spec | `<dispatch> run <spec>`, then `<dispatch> advance <spec>` straight after |
 | Act on `mmw board: ADVANCE` | `<dispatch> advance <spec>` |
 | Act on `mmw board: night over` | `<dispatch> advance <spec>`, then re-run the closed tickets' criteria on the base branch — [references/night.md](references/night.md) |
+| Give the night up before it is over | `<dispatch> abandon <spec>`. It closes the board's tab, which is what stops the board and the loop that restarts it together, comments `NIGHT ABANDONED` on every ticket still in the agent queue, and gives back every slot this night's tickets hold on this machine. It ends nothing else: a worker still running is left running, and every worktree, branch and agent session is kept, so the same batch is taken up again with `<dispatch> advance <spec>` once whatever stopped the night is fixed |
 | Act on `mmw board: STOPPED #<n>` or `mmw board: TIME LIMIT #<n>` | `herdr agent read <name> --source recent --lines 80`, with the Herdr name the line carries. Read why that worker stopped, fix what stopped it yourself — a file it could not find, a command it needs, a baseline it read wrong — and tell it to carry on with `herdr agent prompt <name> "<what you settled, then: continue>"`. A question only a person can settle goes into a sub-issue under the spec (`gh issue create --parent <spec> --label needs-triage`), and the worker is told to take the default meanwhile. Change no label: the ticket stays in the agent queue until its worker closes it out |
 | Start a worker on one ticket, outside a night | `<dispatch> <n> worker` |
 | Change one ticket's worker grade | Swap its `junior-worker` / `senior-worker` label on the tracker; the next dispatch reads it |
@@ -67,6 +68,14 @@ The second argument is `worker` or `reviewer`. Which of the two worker rows in `
 | `0` | Done. The advance summary line counts what was merged, what was already in, and what was started |
 | `2` | Nothing was touched. The reason is on stderr: not inside Herdr, not a git repository, the working tree has uncommitted changes, or a merge could not take the `.git` lock in `MERGE_TRIES` tries — a worker committing in its own worktree at the same moment; run `advance` again |
 | `3` | A merge is in conflict. Everything before it is merged and committed; nothing was dispatched. **The conflict is still in the tree and it stays there.** Resolve it with the `resolving-merge-conflicts` skill, run this repository's own checks, commit the merge, then run `advance` again — it picks up from the branch after the one you resolved. The conflict report on stderr is the first two steps of that skill already done for you: the branch being merged and the ticket it belongs to, the tickets already merged on this side, and the conflicted files |
+
+**Giving the night up** — `<dispatch> abandon <spec>`:
+
+| Code | What happened |
+| --- | --- |
+| `0` | The night is over. The board's tab is closed, every ticket still in the agent queue carries a `NIGHT ABANDONED` comment naming the time and saying whether a worker was left running on it, and every slot the batch held is back. A ticket already handed back to triage carries its own verdict and is left alone. Nothing was ended: the sessions, the worktrees and the branches are all still there |
+| `1` | The night is stopped as far as this command could take it, and what is left is on stderr, one line each. A slot with a listener on it: `lease.py` names the port and the pid, and taking that slot back is the same act as ending that process, so stop it where it was started and run `python3 <lease.py> release <its worktree>`. A ticket that could not be commented on: it is the one a morning reader will find without a verdict. No tab by the board's label: either that board has already finished, or it is running where this call cannot see it and is still watching the spec |
+| `2` | Nothing was touched. The reason is on stderr: not inside Herdr, not a git repository, the spec number is not digits only, or the tracker could not answer for the batch |
 
 **Opening the night** — `<dispatch> run <spec>`:
 

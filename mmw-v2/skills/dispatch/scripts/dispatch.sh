@@ -6,6 +6,7 @@
 #   dispatch.sh wait <ticket> "<first-line-regex>" [seconds]
 #   dispatch.sh advance <spec>
 #   dispatch.sh run <spec> [--max-hours H]
+#   dispatch.sh abandon <spec>
 #
 # The ticket number and the kind of agent are the whole input. Which of the worker rows
 # a worker session starts from is the ticket's own `*-worker` label, so one ticket keeps
@@ -84,6 +85,14 @@ usage: dispatch.sh <ticket> worker|reviewer [base-commit]
        dispatch.sh wait <ticket> "<first-line-regex>" [seconds]
        dispatch.sh advance <spec>
        dispatch.sh run <spec> [--max-hours H]
+       dispatch.sh abandon <spec>
+
+abandon ends the night on <spec>: it closes the board's tab, which is what stops the
+board and the loop that restarts it together, comments on every ticket still in the
+agent queue, and gives back every slot the batch holds on this machine. It ends nothing
+else. A worker still running is left running, and every worktree, branch and agent
+session is kept, so the same batch is taken up again where it stands once whatever
+stopped the night is fixed.
 USAGE
   exit 2
 }
@@ -256,14 +265,19 @@ live_instances() {
   python3 "$LEASE" count "$1" 2>/dev/null || echo 0
 }
 
-# Give a finished ticket's slot back. Never fatal: a refusal means something still
-# listens there, which is a thing to read, not a thing to force.
+# Give a run's slot back. Three answers, because two of the callers count them: 0 the
+# slot came back, 1 `lease.py` refused it and the one-line reason is on stderr, 3 there
+# was no slot to give back. Never fatal: a refusal means something still listens there,
+# which is a thing to read, not a thing to force.
 release_lease() {
   local out
   if ! out="$(python3 "$LEASE" release "$1" 2>&1)"; then
-    printf 'lease not released for %s: %s\n' "$1" "$out" >&2
-    return 0
+    printf 'dispatch: lease not released for %s: %s\n' "$1" "$out" >&2
+    return 1
   fi
+  case "$out" in
+    "no lease for"*) return 3 ;;
+  esac
   return 0
 }
 
@@ -866,6 +880,186 @@ run_night() {
   echo "Now advance #$spec yourself: the board cannot prompt a focused pane, so the first frontier is yours to start."
 }
 
+# ------------------------------------------------------------------ giving the night up
+
+# The tab ids of the monitor tabs this spec's board is running in, one per line.
+#
+# The board process is not the thing to look for. `run_night` leaves
+# `until <board>; do sleep; done` running in that tab's pane, so a board that is ended
+# comes back seconds later: the loop belongs to the pane's shell rather than to the
+# board, and the only thing that holds the pane is the tab. The tab is found by the
+# label `run_night` gave it, which carries the spec number, so a machine running
+# several nights at once loses only the one asked for.
+board_tabs() {
+  local spec="$1"
+  local -a scope=()
+  [ -n "${HERDR_WORKSPACE_ID:-}" ] && scope=(--workspace "$HERDR_WORKSPACE_ID")
+  herdr tab list ${scope[@]+"${scope[@]}"} 2>/dev/null \
+    | MMW_LABEL="$BOARD_TAB_LABEL #$spec" python3 -c '
+import json, os, sys
+
+try:
+    payload = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+tabs = (payload.get("result") or payload).get("tabs") or []
+for tab in tabs:
+    if tab.get("label") == os.environ["MMW_LABEL"] and tab.get("tab_id"):
+        print(tab["tab_id"])
+'
+}
+
+# "<ticket> <herdr name>" for every live worker session of this workspace, one per line.
+# Only the names this script hands out are read: nothing else calls a session
+# `issue-<n>`, and `issue-<n>-review` is a reviewer, not a worker.
+live_workers() {
+  herdr agent list 2>/dev/null | MMW_NAME_PREFIX="$(herdr_name "")" python3 -c '
+import json, os, re, sys
+
+try:
+    payload = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+agents = (payload.get("result") or {}).get("agents") or payload.get("agents") or []
+shape = re.compile(r"^" + re.escape(os.environ.get("MMW_NAME_PREFIX", "")) + r"issue-(\d+)$")
+for agent in agents:
+    found = shape.match(agent.get("name") or "")
+    if found:
+        print(found.group(1), agent["name"])
+'
+}
+
+# Every ticket of this spec's batch, one number per line, whatever state it is in. The
+# night's worktrees are named after these and no others, so this is the set whose slots
+# on this machine have to be given back — wider than the set that gets a comment, which
+# is only the tickets left without a verdict.
+batch_tickets() {
+  gh_ api --paginate --slurp "repos/{owner}/{repo}/issues/$1/sub_issues?per_page=100" 2>/dev/null \
+    | python3 -c '
+import json, sys
+
+try:
+    rows = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+# `--slurp` answers with one array per page; a single page answered flat is read too.
+for page in rows if isinstance(rows, list) else []:
+    for row in (page if isinstance(page, list) else [page]):
+        if isinstance(row, dict) and row.get("number"):
+            print(int(row["number"]))
+'
+}
+
+# The comment every ticket of an abandoned batch carries. Its reader is a person opening
+# the ticket the next morning, who would otherwise find a batch of tickets with no
+# verdict on any of them and no way to tell that from work in progress.
+abandon_comment() {
+  local spec="$1" when="$2" name="$3"
+  printf '%s\n%s\n' \
+    "NIGHT ABANDONED #$spec" \
+    "The night on spec #$spec was given up at $when, so this ticket has no verdict: nothing here says whether its work is finished."
+  if [ -n "$name" ]; then
+    printf '%s\n' "Its worker $name was left running, and its worktree, its branch and its session are untouched. Read the session with \`herdr agent read $name\` to see where it got to; the batch is taken up again where it stands."
+  else
+    printf '%s\n' "No session of ours was working on it at that moment. Its worktree and its branch, if it has them, are untouched, and it keeps its label, so the next advance of #$spec starts it."
+  fi
+}
+
+# End the night without ending its work.
+#
+# Two things happen and nothing else does: the board stops, and every ticket of the
+# batch that is still open is told the night was given up. No session is ended, no
+# worktree and no branch is removed. That is the whole point of the verb — a night is
+# given up when the pipeline itself turns out to be at fault, and the same worktrees and
+# the same sessions are what the fix is carried on with; a batch dispatched again from
+# scratch would throw away the night's work along with the night.
+#
+# The slots this night held are given back, because the machine's gate counts claims
+# rather than sessions and the next night would otherwise read it as full. `lease.py`
+# refuses a slot something still listens on, and that refusal is reported rather than
+# forced: taking a slot off a live process is the same act as ending it.
+abandon_night() {
+  local spec="$1"; shift
+  [ "$#" -eq 0 ] || usage
+  case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
+
+  [ "${HERDR_ENV:-}" = 1 ] \
+    || refuse "not running inside Herdr, so there is no board tab to close"
+  [ -f "$BOARD" ] || refuse "no board at $BOARD"
+
+  local root
+  root="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$root" ] || refuse "not inside a git repository, so this night's worktrees have no name"
+
+  # The batch is read before anything is closed, so a spec the tracker cannot answer for
+  # leaves the night running rather than half stopped. `queued` is the tickets a comment
+  # is owed to: open and still in the agent queue, so nothing on them says how they
+  # ended. A ticket handed back to triage already carries its own verdict and is left
+  # alone. `held` is every ticket of the batch, because every one of them may have a
+  # worktree holding a slot.
+  local grades queued held
+  grades="$(python3 "$BOARD" --worker-grades "$spec")" \
+    || refuse "could not read the batch under #$spec"
+  queued="$(printf '%s\n' "$grades" | awk '$1 == "GRADE" { print $2 }')"
+  held="$(batch_tickets "$spec")"
+
+  # Everything this command could not finish, counted here and named on stderr as it
+  # happens. It is the difference between exit 0 and exit 1: nothing is left silent.
+  local left=0
+
+  local tabs tab stopped=0
+  tabs="$(board_tabs "$spec")"
+  if [ -z "$tabs" ]; then
+    echo "dispatch: no tab labelled '$BOARD_TAB_LABEL #$spec' in this workspace: either its board has already finished, or it is running where this call cannot see it and is still watching #$spec" >&2
+    left=$((left + 1))
+  else
+    while IFS= read -r tab; do
+      [ -n "$tab" ] || continue
+      if herdr tab close "$tab" >/dev/null 2>&1; then
+        stopped=$((stopped + 1))
+      else
+        echo "dispatch: could not close tab $tab, so the board in it is still watching #$spec" >&2
+        left=$((left + 1))
+      fi
+    done <<<"$tabs"
+  fi
+
+  local live when number name commented=0 running=0
+  live="$(live_workers)"
+  when="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  for number in $queued; do
+    name="$(printf '%s\n' "$live" | awk -v n="$number" '$1 == n { print $2; exit }')"
+    [ -n "$name" ] && running=$((running + 1))
+    if gh_ issue comment "$number" --body "$(abandon_comment "$spec" "$when" "$name")" >/dev/null 2>&1; then
+      commented=$((commented + 1))
+    else
+      echo "dispatch: could not comment on #$number, so nothing on it says the night was given up" >&2
+      left=$((left + 1))
+    fi
+  done
+
+  local worktree_base back=0 rc
+  worktree_base="${MMW_WORKTREES:-$HOME/.mmw/worktrees}/$(basename "$root")"
+  if [ -f "$LEASE" ]; then
+    for number in $held; do
+      release_lease "$worktree_base/issue-$number"
+      rc=$?
+      case "$rc" in
+        0) back=$((back + 1)) ;;
+        1) left=$((left + 1)) ;;
+      esac
+    done
+  else
+    echo "dispatch: no lease.py at $LEASE, so this night's slots were not given back and the next night will read this machine as fuller than it is" >&2
+    left=$((left + 1))
+  fi
+
+  local board_state="stopped"
+  [ "$stopped" -gt 0 ] || board_state="not found"
+  echo "abandon #$spec: board $board_state, commented $commented, left running $running, slots given back $back"
+  [ "$left" -eq 0 ] || exit 1
+}
+
 # ------------------------------------------------------------------ entry
 
 [ -f "$MODELS" ] || refuse "no models.md at $MODELS"
@@ -880,6 +1074,11 @@ case "${1:-}" in
     [ "$#" -ge 2 ] || usage
     shift
     advance "$@"
+    ;;
+  abandon)
+    [ "$#" -ge 2 ] || usage
+    shift
+    abandon_night "$@"
     ;;
   wait)
     [ "$#" -ge 3 ] && [ "$#" -le 4 ] || usage

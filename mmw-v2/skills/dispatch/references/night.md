@@ -45,6 +45,18 @@ Four cases reach you, each as one line beginning `mmw board:`. The line names th
 | `STOPPED` | A worker ended a turn on its own, short of `closed` or `handoff`, or its turn failed more than `FAILED_LIMIT` times at one phase. The line names its Herdr name: read its screen, work out why, and move it on |
 | `TIME LIMIT` | A ticket has held its session for `--max-hours`. Nothing was changed: read the session's screen and decide whether it goes on |
 
+## Giving the night up
+
+A night is worth giving up when the fault is in the pipeline rather than in a ticket: workers left running against it spend their time producing failures that say nothing about the work. `<dispatch> abandon <spec>` is that decision carried out.
+
+It stops the board by closing the tab `run` opened, labelled `mmw board #<spec>`. The board process is not what has to be ended — `run` leaves `until <board>; do sleep; done` running in that tab's pane, so a board that is ended comes back seconds later. The loop belongs to the pane's shell, the pane belongs to the tab, and closing the tab is the only thing that takes all three.
+
+Then every ticket still in the agent queue gets one comment opening `NIGHT ABANDONED #<spec>`, with the time and whether a worker was still running on it. Without it the morning reader finds a row of tickets with no verdict and no way to tell them from work in progress. A ticket a worker handed back to triage during the night already carries its own verdict, so it is left alone.
+
+**Nothing is ended but the board.** Every worker still running is left running, every worktree and branch stays, every agent session stays. That is the reason to give a night up rather than let it run: the fix is carried on with the same worktrees and the same sessions, and a batch dispatched again from scratch would throw the night's work away along with the night. A worker left running is nobody's to watch until you read it — `herdr agent read <name>`, the name in its ticket's comment.
+
+The slots are given back for every ticket of the batch, handed back ones included, because the gate in `advance` counts claims rather than sessions and the next night would otherwise read the machine as fuller than it is. `lease.py` refuses a slot something still listens on and names the port and the pid; `abandon` reports that and exits 1 rather than forcing it, because taking a slot off a live process is the same act as ending it.
+
 ## Re-running the closed tickets
 
 A ticket's criteria run in its own worktree, against the code that was there while it ran. A ticket merged after it can break one of them, and until the base branch is checked nothing looks: every ticket is green alone and the branch is red.

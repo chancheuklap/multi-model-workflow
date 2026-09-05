@@ -6,6 +6,7 @@
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh idletimeout|notready|livesession|noherdr
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh wait|waittimeout|placeholder
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh advance|advanceconflict|advancedirty
+#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh abandon|abandonbusy
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh all
 #
 # A fake `herdr` and a fake `gh` sit in front of the real ones on PATH and write every
@@ -41,7 +42,54 @@ if [ "$1 $2 ${3:-}" = "agent start --help" ]; then
 fi
 case "$1 $2" in
   "tab create")
-    echo '{"result":{"tab":{"tab_id":"w1:t9"},"root_pane":{"pane_id":"w1:p9"}}}' ;;
+    # Ids count up from 9 within one scenario, so a scenario that opens the board's tab
+    # and then a worker's can tell the two apart; `reset_log` starts the count again.
+    n=$(cat "$MMW_TEST_TABS.next" 2>/dev/null || echo 9)
+    echo $(( n + 1 )) > "$MMW_TEST_TABS.next"
+    label=""; ws=""
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --label) label="${2:-}"; shift ;;
+        --workspace) ws="${2:-}"; shift ;;
+      esac
+      shift
+    done
+    MMW_TAB="w1:t$n" MMW_TAB_LABEL="$label" MMW_TAB_WS="$ws" python3 -c '
+import json, os
+path = os.environ["MMW_TEST_TABS"]
+try:
+    tabs = json.load(open(path))
+except Exception:
+    tabs = []
+tabs.append({"tab_id": os.environ["MMW_TAB"], "label": os.environ["MMW_TAB_LABEL"],
+             "workspace_id": os.environ["MMW_TAB_WS"]})
+json.dump(tabs, open(path, "w"))
+'
+    echo "{\"result\":{\"tab\":{\"tab_id\":\"w1:t$n\"},\"root_pane\":{\"pane_id\":\"w1:p$n\"}}}" ;;
+  "tab list")
+    MMW_TAB_WS="${3:-}" python3 -c '
+import json, os, sys
+try:
+    tabs = json.load(open(os.environ["MMW_TEST_TABS"]))
+except Exception:
+    tabs = []
+want = os.environ.get("MMW_TAB_WS")
+if want == "--workspace":
+    want = sys.argv[1] if len(sys.argv) > 1 else ""
+    tabs = [t for t in tabs if t.get("workspace_id") == want]
+print(json.dumps({"result": {"tabs": tabs, "type": "tab_list"}}))
+' "${4:-}" ;;
+  "tab close")
+    MMW_TAB="$3" python3 -c '
+import json, os
+path = os.environ["MMW_TEST_TABS"]
+try:
+    tabs = json.load(open(path))
+except Exception:
+    tabs = []
+json.dump([t for t in tabs if t.get("tab_id") != os.environ["MMW_TAB"]], open(path, "w"))
+'
+    echo '{"result":{}}' ;;
   "pane layout")
     echo "{\"result\":{\"layout\":{\"area\":{\"width\":${FAKE_HERDR_WIDTH:-210},\"height\":48}}}}" ;;
   "pane split")
@@ -141,6 +189,7 @@ chmod +x "$TMP/bin/herdr" "$TMP/bin/gh"
 export PATH="$TMP/bin:$PATH"
 export MMW_TEST_LOG="$TMP/calls.log"
 export MMW_GH_COMMENT_CALLS="$TMP/comment-calls"
+export MMW_TEST_TABS="$TMP/tabs.json"
 
 # These tests run inside Herdr as often as not, and dispatch.sh reads the workspace it
 # was started in to build the names it hands out. Cleared here so the answer is the same
@@ -162,7 +211,11 @@ git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m f
 
 # ------------------------------------------------------------------ log reading
 
-reset_log() { : > "$MMW_TEST_LOG"; : > "$MMW_GH_COMMENT_CALLS"; }
+reset_log() {
+  : > "$MMW_TEST_LOG"
+  : > "$MMW_GH_COMMENT_CALLS"
+  rm -f "$MMW_TEST_TABS" "$MMW_TEST_TABS.next"
+}
 has() { grep -qF -- "$1" "$MMW_TEST_LOG" || fail "no call matching: $1"; }
 hasnt() { grep -qF -- "$1" "$MMW_TEST_LOG" && fail "should not have called: $1"; return 0; }
 count_of() { grep -cF -- "$1" "$MMW_TEST_LOG" | tr -d ' '; }
@@ -418,11 +471,16 @@ open(path, "w", encoding="utf-8").writelines(out)
 
 # A copy of the skill two directories under a fake install.sh, so `run` gets past the
 # `install.sh --check` it insists on without asking about this machine's real install.
+# `install.sh` puts the skills side by side and `dispatch.sh` reaches its sibling's
+# `lease.py` that way, so the copy carries that sibling too.
 skill_copy_for_run() {
   local copy="$TMP/fake/skills/$1"
   rm -rf "$TMP/fake"
-  mkdir -p "$copy"
+  mkdir -p "$copy" "$TMP/fake/skills/verify-ticket/scripts"
   cp -R "$SKILL/models.md" "$SKILL/scripts" "$copy/"
+  cp "$(dirname "$SKILL")/verify-ticket/scripts/lease.py" \
+     "$(dirname "$SKILL")/verify-ticket/scripts/refusal.py" \
+     "$TMP/fake/skills/verify-ticket/scripts/"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP/fake/install.sh"
   chmod +x "$TMP/fake/install.sh"
   printf '%s\n' "$copy"
@@ -967,10 +1025,190 @@ scenario_advancedirty() {
   hasnt "agent :: start"
 }
 
-ALL="worker basecommit reviewer seat runtable runchecks idletimeout notready livesession noherdr wait waittimeout placeholder advance instancegate advanceconflict advancedirty"
+# ------------------------------------------------------------------ abandon
+
+LEASE_PY="$(dirname "$SKILL")/verify-ticket/scripts/lease.py"
+
+# The batch an abandoned night is given up in the middle of: two tickets in the agent
+# queue, neither finished, and one its worker handed back to triage earlier in the
+# night — that one carries its own verdict already, and still holds a slot.
+write_open_batch() {
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"]},
+  {"number": 63, "state": "OPEN", "labels": ["ready-for-agent"]},
+  {"number": 65, "state": "OPEN", "labels": ["needs-triage"],
+   "comments": ["HANDOFF REQUIRED\\nAC2 needs a person"]}
+]
+JSON
+}
+
+# A night opened and its frontier dispatched, which is the state a night is given up in:
+# two worktrees, two slots claimed, and a board watching in its own tab.
+open_a_night() {
+  local copy="$1" code
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$copy/scripts/dispatch.sh" run 76)"
+  [ "$code" = 0 ] || fail "run exited $code: $(cat "$TMP/err")"
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$copy/scripts/dispatch.sh" advance 76)"
+  [ "$code" = 0 ] || fail "advance exited $code: $(cat "$TMP/err")"
+}
+
+scenario_abandon() {
+  local code copy
+  copy="$(skill_copy_for_run abandon)"
+  fresh_repo
+  rm -rf "$MMW_HOME/leases"
+  reset_log
+  write_open_batch
+  open_a_night "$copy"
+
+  [ -d "$MMW_WORKTREES/repo/issue-61" ] || fail "the night did not open a worktree for #61"
+  [ -d "$MMW_WORKTREES/repo/issue-63" ] || fail "the night did not open a worktree for #63"
+  # #65 was dispatched earlier in the night and handed back to triage, so it is out of
+  # the queue and still holds the slot its dispatch claimed.
+  git -C "$TMP/repo" worktree add -b issue-65 "$MMW_WORKTREES/repo/issue-65" main >/dev/null 2>&1
+  python3 "$LEASE_PY" claim "$MMW_WORKTREES/repo/issue-65" >/dev/null
+  [ "$(python3 "$LEASE_PY" count "$MMW_WORKTREES/repo")" = 3 ] \
+    || fail "the night should hold three slots, it holds $(python3 "$LEASE_PY" count "$MMW_WORKTREES/repo")"
+
+  # #61 still has a worker; #63 has none. `w2-issue-63` belongs to another workspace's
+  # night, and reading it as ours would comment on this batch as if it were running.
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          FAKE_HERDR_AGENTS='{"result":{"agents":[{"name":"w1-issue-61","pane_id":"w1:p10"},{"name":"w2-issue-63","pane_id":"w2:p3"}]}}' \
+          bash "$copy/scripts/dispatch.sh" abandon 76)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+
+  echo "--- the board's tab is closed, which is what takes its restart loop with it"
+  [ "$(count_of 'tab :: close')" = 1 ] || fail "expected one tab to be closed, got $(count_of 'tab :: close')"
+  # In the fake, a tab created as `w1:t<n>` has `w1:p<n>` for its root pane, so the pane
+  # the restart loop was started in names the tab that had to be closed to end it.
+  python3 -c '
+import os, sys
+
+loop_pane = closed = command = None
+for line in open(os.environ["MMW_TEST_LOG"], encoding="utf-8"):
+    fields = line.rstrip("\n").split(" :: ")
+    if fields[:3] == ["herdr", "pane", "run"] and len(fields) > 4:
+        loop_pane, command = fields[3], fields[4]
+    if fields[:3] == ["herdr", "tab", "close"]:
+        closed = fields[3]
+if command is None:
+    sys.exit("nothing was ever run in a pane, so no board was opened")
+if not command.startswith("until ") or "--watch 76" not in command:
+    sys.exit("the board was not started in a restart loop: " + command)
+if closed is None:
+    sys.exit("no tab was closed, so the restart loop is still there")
+if closed != loop_pane.replace(":p", ":t"):
+    sys.exit("closed %s, which is not the tab holding the loop in %s" % (closed, loop_pane))
+' || fail "the tab closed is not the one holding the board and its restart loop"
+
+  echo "--- and nothing else is ended: no session, no pane, no worktree, no branch"
+  hasnt "herdr :: pane :: close"
+  hasnt "herdr :: agent :: stop"
+  [ -d "$MMW_WORKTREES/repo/issue-61" ] || fail "the worktree for #61 was removed"
+  [ -d "$MMW_WORKTREES/repo/issue-63" ] || fail "the worktree for #63 was removed"
+  git -C "$TMP/repo" rev-parse --verify --quiet refs/heads/issue-61 >/dev/null \
+    || fail "branch issue-61 was removed"
+  git -C "$TMP/repo" rev-parse --verify --quiet refs/heads/issue-63 >/dev/null \
+    || fail "branch issue-63 was removed"
+
+  echo "--- every ticket still open carries one comment saying the night was given up"
+  has "gh :: issue :: comment :: 61 :: --body"
+  has "gh :: issue :: comment :: 63 :: --body"
+  [ "$(grep -cF 'NIGHT ABANDONED #76' "$MMW_TEST_LOG")" = 2 ] \
+    || fail "expected two abandon comments, got $(grep -cF 'NIGHT ABANDONED #76' "$MMW_TEST_LOG")"
+  grep -qF 'Its worker w1-issue-61 was left running' "$MMW_TEST_LOG" \
+    || fail "the comment on #61 does not say its worker was left running"
+  grep -qF 'No session of ours was working on it' "$MMW_TEST_LOG" \
+    || fail "the comment on #63 does not say it had no session"
+  hasnt "gh :: issue :: comment :: 65"
+
+
+  echo "--- the slots the night held are back, so the next night reads the machine as free"
+  [ "$(python3 "$LEASE_PY" count "$MMW_WORKTREES/repo")" = 0 ] \
+    || fail "slots are still held: $(python3 "$LEASE_PY" list)"
+  grep -q 'abandon #76: board stopped, commented 2, left running 1, slots given back 3' "$TMP/out" \
+    || fail "the summary line is wrong: $(cat "$TMP/out")"
+
+  echo "--- with the board already gone, it says so rather than reporting a night it did not stop"
+  reset_log
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$copy/scripts/dispatch.sh" abandon 76)"
+  [ "$code" = 1 ] || fail "expected exit 1 with no board tab, got $code: $(cat "$TMP/err")"
+  grep -q "mmw board #76" "$TMP/err" || fail "the reason does not name the tab: $(cat "$TMP/err")"
+  grep -q 'board not found' "$TMP/out" || fail "the summary claims a board was stopped: $(cat "$TMP/out")"
+  hasnt "herdr :: tab :: close"
+}
+
+scenario_abandonbusy() {
+  local code copy port hold
+  copy="$(skill_copy_for_run abandonbusy)"
+  fresh_repo
+  rm -rf "$MMW_HOME/leases"
+  reset_log
+  write_open_batch
+  open_a_night "$copy"
+
+  echo "--- something is still listening on #61's slot"
+  port="$(python3 "$LEASE_PY" claim "$MMW_WORKTREES/repo/issue-61" \
+          | python3 -c 'import json,sys; print(json.load(sys.stdin)["port_base"])')"
+  # A listener this scenario can end without ending a process: it reads stdin from a
+  # fifo, and closing the write end is what tells it to go.
+  hold="$TMP/listener.fifo"
+  rm -f "$hold"; mkfifo "$hold"
+  python3 -c '
+import socket, sys
+held = socket.socket()
+held.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+held.bind(("127.0.0.1", int(sys.argv[1])))
+held.listen(1)
+print("up", flush=True)
+sys.stdin.read()
+' "$port" < "$hold" > "$TMP/listener.out" &
+  local listener=$!
+  exec 9>"$hold"
+  local waited=0
+  until grep -q up "$TMP/listener.out" 2>/dev/null; do
+    sleep 0.2
+    waited=$((waited + 1))
+    [ "$waited" -lt 50 ] || { fail "the listener never came up"; break; }
+  done
+
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          FAKE_HERDR_AGENTS='{"result":{"agents":[{"name":"w1-issue-61","pane_id":"w1:p10"}]}}' \
+          bash "$copy/scripts/dispatch.sh" abandon 76)"
+
+  echo "--- the refusal is reported, never swallowed and never forced"
+  [ "$code" = 1 ] || fail "expected exit 1, got $code: $(cat "$TMP/err")"
+  grep -q 'lease not released' "$TMP/err" || fail "the refusal is not on stderr: $(cat "$TMP/err")"
+  grep -q "port $port" "$TMP/err" || fail "the reason does not name the port: $(cat "$TMP/err")"
+  grep -q "issue-61" "$TMP/err" || fail "the reason does not name the run: $(cat "$TMP/err")"
+  [ "$(python3 "$LEASE_PY" count "$MMW_WORKTREES/repo")" = 1 ] \
+    || fail "a slot with a live listener was taken anyway: $(python3 "$LEASE_PY" list)"
+
+  echo "--- and the rest of the night is still given up: the board is stopped and the tickets are told"
+  has "herdr :: tab :: close"
+  [ "$(grep -cF 'NIGHT ABANDONED #76' "$MMW_TEST_LOG")" = 2 ] \
+    || fail "expected two abandon comments, got $(grep -cF 'NIGHT ABANDONED #76' "$MMW_TEST_LOG")"
+  grep -q 'abandon #76: board stopped, commented 2, left running 1, slots given back 1' "$TMP/out" \
+    || fail "the summary line is wrong: $(cat "$TMP/out")"
+
+  exec 9>&-
+  wait "$listener" 2>/dev/null
+  rm -f "$hold"
+}
+
+ALL="worker basecommit reviewer seat runtable runchecks idletimeout notready livesession noherdr wait waittimeout placeholder advance instancegate advanceconflict advancedirty abandon abandonbusy"
 
 case "${1:-}" in
-  worker|basecommit|reviewer|seat|runtable|runchecks|idletimeout|notready|livesession|noherdr|wait|waittimeout|placeholder|advance|instancegate|advanceconflict|advancedirty)
+  worker|basecommit|reviewer|seat|runtable|runchecks|idletimeout|notready|livesession|noherdr|wait|waittimeout|placeholder|advance|instancegate|advanceconflict|advancedirty|abandon|abandonbusy)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -998,6 +1236,8 @@ banner_for() {
     instancegate) echo DISPATCH-INSTANCE-GATE-OK ;;
     advanceconflict) echo DISPATCH-ADVANCE-CONFLICT-OK ;;
     advancedirty) echo DISPATCH-ADVANCE-DIRTY-OK ;;
+    abandon) echo DISPATCH-ABANDON-OK ;;
+    abandonbusy) echo DISPATCH-ABANDON-BUSY-OK ;;
   esac
 }
 
