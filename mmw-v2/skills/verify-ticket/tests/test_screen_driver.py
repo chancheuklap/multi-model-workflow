@@ -11,19 +11,32 @@ import tempfile
 import shutil
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "screen_driver.py"
+# Every command the driver declares runs with this run's lease in its environment, and
+# claiming one writes to a registry `lease.py` fixes at import from `MMW_HOME`. Without a
+# registry of its own here, the suite claims real slots and overwrites the record of a
+# run that is live — after which `release` refuses, because the ports are still listened
+# on, and that slot is lost for good.
+HOME = tempfile.mkdtemp(prefix="mmw-screen-driver-home-")
 
 
 def load():
-    spec = importlib.util.spec_from_file_location("screen_driver", SCRIPT)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["screen_driver"] = module
-    spec.loader.exec_module(module)
+    """A fresh `screen_driver`, and with it a `lease` bound to `HOME`."""
+    with mock.patch.dict(os.environ, {"MMW_HOME": HOME}, clear=False):
+        spec = importlib.util.spec_from_file_location("screen_driver", SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["screen_driver"] = module
+        spec.loader.exec_module(module)
     return module
 
 
 sd = load()
+
+
+def tearDownModule():
+    shutil.rmtree(HOME, ignore_errors=True)
 
 CONTRACT = {
     "target": {"kind": "electron", "adapter": "verify-ticket/references/targets/electron.md"},

@@ -7,7 +7,9 @@ built on are the two a fake would get wrong.
 
 import importlib.util
 import os
+import re
 import socket
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -185,6 +187,75 @@ class Counting(Base):
 
     def test_a_directory_with_nothing_under_it_counts_zero(self):
         self.assertEqual(self.lease.count_under(self.trees / "nothing-here"), 0)
+
+
+class RegistryIsolation(unittest.TestCase):
+    """No test of this suite may write to the machine's own lease registry.
+
+    A slot claim is the only thing keeping two runs off one range of ports. A claim made
+    by a test overwrites the record of whatever run holds that slot, and the overwritten
+    record names the wrong worktree: `release` then refuses, because the ports are still
+    listened on, and the slot is lost until someone edits the registry by hand. Two of
+    four slots were lost that way on 2026-09-05, to a suite that had no registry of its
+    own.
+
+    `lease.py` reads `MMW_HOME` once, at import, so whichever module pulls it in decides
+    then and there which registry it writes to. The two checks below are the two ways a
+    module can get that wrong: importing it with the ambient environment, and running a
+    script that imports it in a subprocess.
+    """
+
+    TESTS = Path(__file__).resolve().parent
+    SCRIPTS = SCRIPT.parent
+    REAL = Path.home() / ".mmw" / "leases"
+
+    def test_no_lease_module_this_suite_loaded_points_at_the_real_registry(self):
+        """`unittest discover` imports every module before it runs anything, so under a
+        full run this sees every copy of `lease.py` the suite pulled in."""
+        for name, module in list(sys.modules.items()):
+            if not str(getattr(module, "__file__", "")).endswith("lease.py"):
+                continue
+            registry = getattr(module, "REGISTRY", None)
+            if registry is None:
+                continue
+            with self.subTest(module=name):
+                self.assertNotEqual(
+                    Path(registry).expanduser(), self.REAL,
+                    f"`{name}` writes leases to the machine's own registry; set "
+                    f"MMW_HOME to a directory of the test's own before importing it")
+
+    def lease_bound_scripts(self) -> set[str]:
+        """Every script under `scripts/` that reaches `lease.py`, directly or through
+        another script."""
+        texts = {p.name: p.read_text(encoding="utf-8") for p in self.SCRIPTS.glob("*.py")}
+        bound = {"lease.py"}
+        while True:
+            more = {
+                name for name, text in texts.items() if name not in bound
+                and any(re.search(rf"(?m)^\s*(?:from|import)\s+{re.escape(m[:-3])}\b", text)
+                        for m in bound)
+            }
+            if not more:
+                return bound
+            bound |= more
+
+    def test_every_test_that_names_a_lease_bound_script_sets_its_own_home(self):
+        """The static half of the same rule. It also covers a claim made in a subprocess,
+        which leaves no module in this process for the check above to find."""
+        bound = self.lease_bound_scripts()
+        named = []
+        for path in sorted(self.TESTS.glob("test_*.py")):
+            text = path.read_text(encoding="utf-8")
+            if not any(script in text for script in bound):
+                continue
+            named.append(path.name)
+            with self.subTest(test_file=path.name):
+                self.assertIn(
+                    "MMW_HOME", text,
+                    f"{path.name} loads a script that claims a lease and never says "
+                    f"which registry it writes to")
+        self.assertTrue(named, "no test file names a lease-bound script; this check "
+                               "found nothing to check")
 
 
 if __name__ == "__main__":
