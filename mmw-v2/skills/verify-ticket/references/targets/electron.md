@@ -25,8 +25,13 @@ here is ever written down anywhere else.
    refuses to open another (`Target.createTarget: Not supported`), so the baseline side
    is rendered on the same page, routed to the baseline server for the render and
    unrouted after — one engine, one set of fonts, one device pixel ratio for both sides.
-2. **ready** — `GET <backend>/health` answers under 400, and the attached page is not
-   closed. Asked again before every scene and every row.
+2. **ready** — `GET <backend>/health` answers under 400, the attached page is not
+   closed, and the backend's own configuration surface says the product can be driven
+   rather than only that it is alive. Asked again before every scene and every row.
+   `/health` alone is what an Electron application looks like when the service behind it
+   cannot serve it: every window renders, every control is disabled, and the run finds out
+   one failed criterion at a time. `start` reads that surface itself and fails on it,
+   quoting what the backend said was missing.
 3. **address** — `<impl>/` + the route with its leading `/` stripped: `#/project/{id}`
    becomes `http://127.0.0.1:4173/#/project/p1`. After `goto`, the driver reloads: a
    hash-routed application returns from `networkidle` on a same-document fragment jump

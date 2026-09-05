@@ -85,9 +85,39 @@ which the driver runs for you — brings up everything your criteria need.
    minutes, one ended another run's application. All three were reasonable guesses. This
    rule exists so that nobody has to guess.
 
+## Silence is never a pass
+
+Every fault this pipeline has had in one night had the same shape, and it is not the
+shape people expect. Nothing lied. Each gate was in a state where it neither did its job
+nor said so, and a gate that says nothing reads exactly like a gate that passed:
+
+- a batch check read the wrong batch, so the check that stops two tickets claiming one
+  screen ran against a set neither of them was in, and printed nothing;
+- `advance` dispatched nothing, five tickets sat unstartable, and the summary line was
+  the same one it prints when there is nothing to do;
+- a type gate went red and stayed red for three days while every worker went around it;
+- a test suite wrote into the machine's real lease registry and no run noticed until one
+  was locked out of its own ports;
+- an application that had stopped answering held its own addresses, and the only two
+  commands that could speak both refused, each correctly.
+
+So, of anything in this pipeline that can refuse:
+
+1. **It names the fact it checked.** A pid, a path, a count, a ticket number — something
+   the reader can go and look at. A refusal with no fact cannot be told from a guess.
+2. **It says the one way out.** Not a list of options: an agent given options invents a
+   sixth. A refusal with no exit is a deadlock wearing a correct sentence, and two of
+   them facing each other is how a night stops.
+3. **It never passes by doing nothing.** When it could not run — no data, no answer, no
+   network — it says that, loudly, and fails. "Could not check" and "checked, fine" are
+   different answers and only one of them is silence.
+
+When you add a gate, or change one, the question to ask it is not "does it catch the bad
+case". It is: *if this ran and did nothing at all, would anyone find out?*
+
 ## Reached from here
 
 - **`--closeout` refused your draft** → [references/closeout.md](references/closeout.md), the conditions it reads the draft against. The refusal itself is on stderr: the first line counts the problems, names the first, and gives the `--check-only` command that prints them all; every problem after the first is one more line opening `also:`. Go to the reference file when a line names a condition you cannot place. `--closeout <draft> --check-only` reports on a draft and changes nothing, at any time.
 - **You are writing the criterion that checks a control is wired to the backend as its screen-contract row says, or reading the `MISS` line one printed** → [references/wiring-check.md](references/wiring-check.md). Its one fixed shape names the contract and the rows and nothing about the machine; the row's `observe` lines are what it asserts, through the target's read surface, and `--negative` is how it proves it can fail.
 - **You are writing the criterion that compares an interface against its handoff package, or reading the `DIFF` line one printed** → [references/ui-parity.md](references/ui-parity.md). It carries that criterion's one fixed shape, path and all, to copy onto the ticket — the contract and the `data-screen` values the ticket owns — and the three exit codes and reasons a parity run prints. A `CHECK` that runs `visual-parity.py` prints one `DIFF` line and nothing that explains it; that reference file is where the line is read.
-- **The product is of a kind the two judges have not driven before, or the repository has to say how its product is reached (`.mmw/target.json`)** → [references/targets/README.md](references/targets/README.md): the seven questions every target answers, and the three kinds answered so far.
+- **The product is of a kind the two judges have not driven before, or the repository has to say how its product is reached (`.mmw/target.json`)** → [references/targets/README.md](references/targets/README.md): the nine questions every target answers, and the three kinds answered so far.

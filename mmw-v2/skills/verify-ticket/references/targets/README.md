@@ -21,10 +21,19 @@ adapter class in the driver. Both answer the same nine questions, in this order.
    before anyone can be that user) or after (an application that is already running
    takes its state while attached)? The driver never assumes an order; the adapter's
    `reach_before_attach` says it.
-2. **ready** — how does the driver know the product is answering? This is a condition
-   re-checked between scenes, not a start-up gate: an application can crash mid-run and
-   every `DIFF` after that is noise; a service worker is recycled after thirty idle
-   seconds.
+2. **ready** — how does the driver know the product is answering, *and can be driven*?
+   This is a condition re-checked between scenes, not a start-up gate: an application can
+   crash mid-run and every `DIFF` after that is noise; a service worker is recycled after
+   thirty idle seconds.
+
+   Answering is the cheap half and on its own it is a trap. A product whose own
+   dependencies are unusable answers a health check and then refuses every control it
+   shows: on 2026-09-05 a local gateway had no provider secrets, so the application sat
+   in its service-unavailable state with every button disabled, and each criterion failed
+   twenty minutes later in a place that said nothing about the cause. So the answer names
+   the surface that says the product is *usable*, not only alive, and `start` fails on it
+   at once, quoting what the product said was missing. A run that cannot be driven is a
+   refusal at the start, never a slow row of red.
 3. **address** — how does the contract's `route` become something `goto()` accepts?
 4. **release** — how is the product given back? A window the user owns is restored to
    its own size, clock and page; a browser the driver launched is closed.
@@ -131,8 +140,25 @@ on every machine:
   directory to use, which log to write — is found or chosen *inside* this command, by
   the repository's own rules, and never typed into a session: an agent told those
   facts in a message works once; the next agent is not told. `start` is idempotent (a
-  product already answering is left alone), refuses rather than kills when something
-  else holds its ports (naming what it found), and prints to stderr what it chose.
+  product already answering is left alone), refuses rather than kills when something else
+  holds its ports (naming what it found), and prints to stderr what it chose.
+
+  **Whose a port is cannot be read off the port**, and a `start` that tries to work it out
+  is guessing about the machine rather than answering for its product. Asked who holds the
+  published port of a container, this Mac names one ssh multiplexer that holds the
+  published port of *every* container, working in a directory that belongs to a worktree
+  unrelated to any of them (2026-09-06). A rule written from a working directory would
+  refuse a run its own addresses, or end the networking of every stack on the machine.
+  The only thing that knows what a run started is the command that started it, and that
+  is why the way out is `start`'s own and cannot be lifted into the driver: **a `start`
+  that will not come up because a previous run of this same worktree left something
+  behind is not idempotent, and idempotent is what this line asks of it.** It reaches for
+  its own `stop`, on its own record of what it started — a pid file it wrote, a container
+  project it named — and comes up again. Reading "never end a process you did not start"
+  as covering a run's own leftovers is a deadlock with no exit, and it happened: on
+  2026-09-05 an application that had stopped answering still held its ports, `ready` said
+  the product was not this run's, `start` refused because the ports were taken, and
+  nothing on this machine could have unstuck it.
   It takes every port and directory from the lease in its environment (question 8), and
   **refuses to start at all when there is no lease**, printing the command that gives it
   one. Falling back to a default port instead would keep two allocation schemes alive,
