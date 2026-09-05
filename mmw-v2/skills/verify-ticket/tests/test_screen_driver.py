@@ -11,19 +11,32 @@ import tempfile
 import shutil
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "screen_driver.py"
+# Every command the driver declares runs with this run's lease in its environment, and
+# claiming one writes to a registry `lease.py` fixes at import from `MMW_HOME`. Without a
+# registry of its own here, the suite claims real slots and overwrites the record of a
+# run that is live — after which `release` refuses, because the ports are still listened
+# on, and that slot is lost for good.
+HOME = tempfile.mkdtemp(prefix="mmw-screen-driver-home-")
 
 
 def load():
-    spec = importlib.util.spec_from_file_location("screen_driver", SCRIPT)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["screen_driver"] = module
-    spec.loader.exec_module(module)
+    """A fresh `screen_driver`, and with it a `lease` bound to `HOME`."""
+    with mock.patch.dict(os.environ, {"MMW_HOME": HOME}, clear=False):
+        spec = importlib.util.spec_from_file_location("screen_driver", SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["screen_driver"] = module
+        spec.loader.exec_module(module)
     return module
 
 
 sd = load()
+
+
+def tearDownModule():
+    shutil.rmtree(HOME, ignore_errors=True)
 
 CONTRACT = {
     "target": {"kind": "electron", "adapter": "verify-ticket/references/targets/electron.md"},
@@ -480,6 +493,18 @@ class TestBaselineServing(unittest.TestCase):
         self.assertFalse(any("鸭豆余额 20" in line for line in masked))
         self.assertTrue(any("可用" in line and "<volatile>" in line for line in masked))
 
+    def test_volatile_paint_puts_the_triggers_digits_in_the_node_before_painting(self):
+        """A painted box is as wide as the string in it, so `0 鸭豆` and `3,220 鸭豆`
+        painted over still move what follows them — and the design side shows its own
+        other number on some scenes. Both sides take the trigger's digits into the
+        first digit-bearing text node, then the paint; a node named by aria-label is
+        left as it is."""
+        js = sd.volatile_paint_js([("strong", "3,220 鸭豆")])
+        self.assertIn("createTreeWalker(el, NodeFilter.SHOW_TEXT)", js)
+        self.assertIn("node.nodeValue.replace(/[\\d,]+/, target)", js)
+        self.assertIn("el.getAttribute('aria-label')) return", js)
+        self.assertLess(js.index("retext(el, w)"), js.index("el.style.backgroundColor"))
+
     def test_volatile_paint_js_maps_a_table_cell_for_a_text_trigger(self):
         self.assertEqual(sd.VOLATILE_IMPLICIT_ROLES["TD"], "cell")
         self.assertIn("cell", sd.VOLATILE_TEXT_LIKE)
@@ -544,3 +569,57 @@ class TestBringUp(unittest.TestCase):
             sd.bring_up(a)
         self.assertIn("still down", str(raised.exception))
 
+
+
+class TestInstanceIdentity(unittest.TestCase):
+    """`ready` means answering **and** mine.
+
+    Liveness is not identity, and on a machine running several worktrees the difference
+    is the whole of the risk: a driver that accepts any answer measures another run's
+    code and reports the verdict as this ticket's. It also skips `start`, so the
+    repository's own "another checkout holds these ports" guard never runs.
+    """
+
+    def adapter(self, addresses, answer):
+        a = FakeAdapter()
+        a.addresses = addresses
+        a.observe = lambda line, values: answer
+        return a
+
+    def test_a_target_that_declares_no_check_is_unchanged(self):
+        a = self.adapter({}, (False, None, "never asked"))
+        self.assertEqual(a.instance_ok(), (True, ""))
+
+    def test_the_declared_check_passing_is_the_whole_of_it(self):
+        a = self.adapter({"instance_check": "GET /health -> .token == \"abc\"",
+                          "instance": "issue-640"}, (True, "abc", ""))
+        self.assertEqual(a.instance_ok(), (True, ""))
+
+    def test_another_run_holding_the_addresses_is_caught(self):
+        a = self.adapter({"instance_check": "GET /health -> .token == \"abc\"",
+                          "instance": "issue-640"}, (False, "zzz", ".token was \"zzz\""))
+        ok, why = a.instance_ok()
+        self.assertFalse(ok)
+        self.assertIn("issue-640", why, "the refusal names no fact")
+        self.assertIn("blocked", why, "the refusal names no next step")
+        self.assertLessEqual(len(why), 256)
+
+    def test_a_check_that_cannot_be_read_is_a_refusal_not_a_pass(self):
+        a = FakeAdapter()
+        a.addresses = {"instance_check": "GET /health -> .token", "instance": "issue-640"}
+
+        def boom(line, values):
+            raise RuntimeError("connection refused")
+
+        a.observe = boom
+        ok, why = a.instance_ok()
+        self.assertFalse(ok, "an unreadable check must not read as a pass")
+        self.assertIn("blocked", why)
+        self.assertLessEqual(len(why), 256)
+
+    def test_every_adapter_asks_it(self):
+        """The hole was in the capability, not in one kind of product."""
+        import inspect
+        for cls in (sd.ElectronAdapter, sd.WebAdapter):
+            with self.subTest(adapter=cls.__name__):
+                self.assertIn("instance_ok", inspect.getsource(cls.ready))

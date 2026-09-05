@@ -5,6 +5,7 @@ closeout refusal when the Spec axis reported a `Missing` against a row the draft
 import os
 import tempfile
 import unittest
+from unittest import mock
 
 from tests._load import load
 
@@ -263,6 +264,61 @@ class TestScenePartition(unittest.TestCase):
         self.assertTrue(any("shell-header.ready is covered by no ticket" in f for f in findings))
         self.assertTrue(any("empty is covered by more than one ticket" in f for f in findings))
         self.assertTrue(any("mount shell-header is owned by no ticket" in f for f in findings))
+
+
+class TestBatchScenes(unittest.TestCase):
+    """Which batch the partition is read over: the tracker's parent link, always.
+
+    The double-claim check is the only thing that stops two tickets owning one page, and
+    reading the wrong batch makes it check a set this ticket is not in — which looks
+    exactly like a pass.
+    """
+
+    TWO_SPECS = "[Spec（#536）](u)，Implementation Decisions 第 13 节\n[Spec（#537）](u)，第 2 节"
+
+    def batch(self, mounts, parent=537, sub_issues=(1, 2), other=None, unreadable=False):
+        """`lint_batch_scenes` for ticket #1 over a batch the tracker hands back."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "screen-contract.yaml")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(CONTRACT)
+            rows = ROWS.replace("docs/specs/x/screen-contract.yaml", path)
+            check = PARITY.replace("docs/specs/x/screen-contract.yaml", path)
+            mine = ticket(rows, gate("AC1", check.replace("--mount create-project",
+                                                          f"--mount {mounts}")),
+                          parent=self.TWO_SPECS)
+            theirs = ticket(rows, gate("AC1", check.replace("--mount create-project",
+                                                            f"--mount {other or mounts}")),
+                            parent=self.TWO_SPECS)
+            parent_patch = (
+                mock.patch.object(vt, "fetch_parent",
+                                  side_effect=vt.ParentUnreadable("gh: connection refused"))
+                if unreadable else
+                mock.patch.object(vt, "fetch_parent", return_value=parent))
+            with parent_patch, \
+                 mock.patch.object(vt, "fetch_sub_issues",
+                                   return_value=list(sub_issues)) as fetch, \
+                 mock.patch.object(vt, "fetch_outsider",
+                                   return_value={"spec": parent, "state": "OPEN"}), \
+                 mock.patch.object(vt, "fetch_body", return_value=theirs):
+                return vt.lint_batch_scenes(1, mine), fetch
+
+    def test_the_batch_read_is_the_linked_spec_not_the_first_in_the_section(self):
+        findings, fetch = self.batch("create-project", other="shell-header")
+        fetch.assert_called_once_with(537)
+        self.assertEqual(findings, [])
+
+    def test_the_other_ticket_of_the_linked_batch_is_seen_claiming_the_same_mount(self):
+        findings, _ = self.batch("create-project", other="create-project")
+        self.assertTrue(any("covered by more than one ticket" in f for f in findings),
+                        findings)
+
+    def test_an_unreadable_parent_is_a_finding_not_a_silent_pass(self):
+        findings, fetch = self.batch("create-project", unreadable=True)
+        self.assertEqual(len(findings), 1)
+        self.assertIn("could not say which spec #1 sits under", findings[0])
+        self.assertIn("gh: connection refused", findings[0])
+        fetch.assert_not_called()
 
 
 REVIEW = ("REVIEW abc..def\n\n## Standards\n\nnone\n\n## Spec\n\n### Missing\n\n"

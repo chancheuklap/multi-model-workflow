@@ -300,7 +300,8 @@ class TestOwns(unittest.TestCase):
 
 class TestLint(unittest.TestCase):
     def lint(self, body: str):
-        with mock.patch.object(vt, "fetch_body", return_value=body):
+        with mock.patch.object(vt, "fetch_body", return_value=body), \
+             mock.patch.object(vt, "fetch_parent", return_value=None):
             with redirect_stdout(io.StringIO()) as out:
                 code = vt.run_lint(1)
         return code, out.getvalue()

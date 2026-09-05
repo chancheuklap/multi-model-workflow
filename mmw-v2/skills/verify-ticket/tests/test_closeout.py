@@ -664,7 +664,7 @@ class TestTargetJsonChecks(unittest.TestCase):
                                                             {"name": "junior-worker"}],
                                                  "state": "OPEN"}), \
                  mock.patch.object(vt, "fetch_comments", return_value=[]), \
-                 mock.patch.object(vt, "parent_spec", return_value=None), \
+                 mock.patch.object(vt, "fetch_parent", return_value=None), \
                  mock.patch.object(vt, "post_comment"), \
                  mock.patch.object(vt, "outside_owns_line",
                                    return_value="Outside Owns: None"):

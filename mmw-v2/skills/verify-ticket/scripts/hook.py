@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Two things a dispatched session may not do: take its ticket out of the agent queue
-by hand, and put a question on the screen.
+"""Three things a dispatched session may not do: take its ticket out of the agent queue
+by hand, put a question on the screen, and end a process.
 
 A ticket closes through `verify-ticket.py <n> --closeout <draft>`, which checks the
 closing comment, posts it, and only then closes the ticket. `gh issue close` skips all
@@ -11,6 +11,13 @@ A question on the screen has nobody to answer it: nothing in this pipeline reads
 form. So every host asks this file before calling its question tool, and this file
 refuses the call and says where the question goes instead — the default taken and
 recorded, or `ABANDON: AC<n> decision` with a sub-issue.
+
+Ending a process is never this session's to do. Several runs share one machine, and
+another run's application is indistinguishable from a stuck one, so a session that is
+free to end what looks stuck is free to end a neighbour's work one second before it
+finished. A run stops its own product through the `stop` command its repository
+declares; everything else is somebody else's, and a run that cannot reach its product
+reports the ticket blocked rather than clearing the way to it.
 
     hook.py pretool <host>    the host is about to run a shell command
     hook.py question <host>   the host is about to ask the user a question
@@ -41,6 +48,13 @@ import os
 import re
 import subprocess
 import sys
+from pathlib import Path
+
+_HERE = Path(__file__).resolve().parent
+if str(_HERE) not in sys.path:
+    sys.path.insert(0, str(_HERE))
+
+from refusal import REPORT_BLOCKED, refusal  # noqa: E402
 
 HOSTS = ("claude", "codex", "grok", "cursor", "pi")
 GATES = ("pretool", "question")
@@ -167,6 +181,28 @@ SEPARATORS = re.compile(r"[;\n]|&&|\|\||\|")
 LEADING_ASSIGNMENTS = re.compile(r"^(?:\w+=\S*\s+)*")
 
 
+def pieces(command: str) -> list[str]:
+    """Every piece of `command` a shell would run as a command of its own, leading
+    variable assignments stripped."""
+    return [LEADING_ASSIGNMENTS.sub("", piece.strip())
+            for piece in SEPARATORS.split(command) if piece.strip()]
+
+
+# `kill`, its two relatives, and the shape that reaches them through a pipe
+# (`lsof -ti:5173 | xargs kill -9`). First word only: prose that mentions killing lands
+# mid-line, a command starts one — the same test the `gh` gate below relies on.
+ENDS_A_PROCESS = re.compile(r"^(kill|pkill|killall|killall5)\b")
+XARGS_KILL = re.compile(r"^xargs\b.*\bkill\b")
+
+
+def ends_a_process(command: str) -> str | None:
+    """The piece of `command` that would end a process, or `None`."""
+    for piece in pieces(command):
+        if ENDS_A_PROCESS.match(piece) or XARGS_KILL.match(piece):
+            return piece
+    return None
+
+
 def runs(command: str) -> list[str]:
     """The pieces of `command` that a shell would run as commands of their own.
 
@@ -178,12 +214,7 @@ def runs(command: str) -> list[str]:
     prose lands mid-line, a command starts one. (2026-08-30: a worker hit exactly this
     on the first unconstrained run of this hook.)
     """
-    out = []
-    for piece in SEPARATORS.split(command):
-        piece = LEADING_ASSIGNMENTS.sub("", piece.strip())
-        if re.match(r"gh\b", piece):
-            out.append(piece)
-    return out
+    return [piece for piece in pieces(command) if re.match(r"gh\b", piece)]
 
 
 def leaves_the_agent_lane(command: str, number: int) -> bool:
@@ -221,12 +252,33 @@ def refuse(host: str, reason: str) -> None:
     print(json.dumps(answer, ensure_ascii=False))
 
 
+def no_kill(piece: str) -> str:
+    """Why this command is refused and what the session does instead.
+
+    The way out comes last and is never trimmed: a refusal that only diagnoses invites an
+    autonomous agent to improvise, and on 2026-09-05 three of them improvised three
+    different wrong answers to one correct error message.
+    """
+    return refusal(
+        f"Refused `{piece}`.",
+        "A run never ends a process it did not start.",
+        "Stop your own product with the `stop` command in .mmw/target.json; if it is "
+        "unreachable, report the ticket blocked and stop.",
+    )
+
+
 def run_pretool(host: str, event: dict) -> int:
     number = governed_ticket()
     if number is None:
         return 0
     command = command_of(event)
-    if command is None or not leaves_the_agent_lane(command, number):
+    if command is None:
+        return 0
+    piece = ends_a_process(command)
+    if piece is not None:
+        refuse(host, no_kill(piece))
+        return 0
+    if not leaves_the_agent_lane(command, number):
         return 0
     refuse(host, REFUSAL.format(n=number))
     return 0

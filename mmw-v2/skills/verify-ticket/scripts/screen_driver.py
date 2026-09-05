@@ -45,6 +45,7 @@ from __future__ import annotations
 import hashlib
 import http.server
 import json
+import os
 import re
 import shlex
 import socketserver
@@ -56,6 +57,13 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
+
+_HERE = Path(__file__).resolve().parent
+if str(_HERE) not in sys.path:
+    sys.path.insert(0, str(_HERE))
+
+from lease import leased_environment  # noqa: E402
+from refusal import refusal  # noqa: E402
 
 # ---------------------------------------------------------------- constants
 # The three scripts `support.js` loads from unpkg. Answered from the handoff package's
@@ -278,9 +286,28 @@ def target_config(root: Path) -> dict:
     return cfg
 
 
+def command_env(cwd: Path) -> dict[str, str]:
+    """This process's environment plus this run's lease.
+
+    Every command `.mmw/target.json` declares is run through here, so a repository is
+    told which run it is in rather than having to work it out — and never has to invent
+    an allocation of its own. Inventing one is how a machine ended up with five worktrees
+    sharing three fixed ports (2026-09-05): the contract's seven questions were all in
+    the singular, so nobody was ever asked.
+
+    The variables reach the declared command and stop there. A repository translates
+    them at the moment it starts a process, never into the session or the test
+    environment: a suite that asserts its product's registered port number is right to,
+    and a derived port leaking into it turns a correct suite red.
+    """
+    env = dict(os.environ)
+    env.update(leased_environment(Path(cwd)))
+    return env
+
+
 def run_command(command: str, cwd: Path, extra: list[str] | None = None) -> str:
     proc = subprocess.run(shlex.split(command) + (extra or []), cwd=cwd,
-                          capture_output=True, text=True)
+                          capture_output=True, text=True, env=command_env(cwd))
     if proc.returncode != 0:
         raise SystemExit(f"`{command}{' ' + ' '.join(extra) if extra else ''}` exited "
                          f"{proc.returncode}: {proc.stderr.strip() or proc.stdout.strip()}")
@@ -748,8 +775,14 @@ def mask_volatile(lines: list[str], triggers: list[tuple[str, str]]) -> list[str
 
 
 def volatile_paint_js(triggers: list[tuple[str, str]]) -> str:
-    """Paint every matching node's box the same solid colour on both sides, so a
-    different number does not move pixels. Applied to the product and the design."""
+    """Put the trigger's digits into every matching node, then paint its box one
+    solid colour, on both sides. The digits come first because a box is as wide as
+    the string in it: `0 鸭豆` painted over is narrower than `3,220 鸭豆` painted
+    over, and everything after it on the line moves; a scene where the design itself
+    shows another number (`鸭豆余额 20` on the debt scene, `12,480` elsewhere) has the
+    same problem on its own side. With the trigger's digits in the first digit-bearing
+    text node on both sides the two boxes are one width by construction, and the
+    paint hides them. A node named by aria-label keeps its text."""
     wanted = json.dumps([{"role": r, "name": n} for r, n in triggers], ensure_ascii=False)
     fill = json.dumps(VOLATILE_FILL)
     implicit = ", ".join(f"{tag}: {json.dumps(role)}"
@@ -770,7 +803,22 @@ def volatile_paint_js(triggers: list[tuple[str, str]]) -> str:
     if (role === w.role) return true;
     return w.role === 'text' && textLike.has(role);
   };
-  const paint = el => {
+  const digitsOf = s => (s.match(/[\d,]+/) || [null])[0];
+  const retext = (el, w) => {
+    // The design's digits go into the first text node that carries digits, on both
+    // sides, so the box is one width whatever number each side showed.
+    const target = digitsOf(w.name);
+    if (!target || el.getAttribute('aria-label')) return;
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (/[\d,]+/.test(node.nodeValue)) {
+        node.nodeValue = node.nodeValue.replace(/[\d,]+/, target);
+        return;
+      }
+    }
+  };
+  const paint = (el, w) => {
+    retext(el, w);
     el.style.backgroundColor = fill;
     el.style.color = fill;
     el.style.borderColor = fill;
@@ -788,7 +836,7 @@ def volatile_paint_js(triggers: list[tuple[str, str]]) -> str:
     if (!nm) continue;
     const role = roleOf(el);
     for (const w of wanted) {
-      if (hit(role, nm, w)) { paint(el); break; }
+      if (hit(role, nm, w)) { paint(el, w); break; }
     }
   }
 })()""" % (wanted, fill, implicit, text_like)
@@ -1178,6 +1226,45 @@ class Adapter:
     def ready(self) -> tuple[bool, str]:
         raise NotImplementedError
 
+    def instance_ok(self) -> tuple[bool, str]:
+        """Whether the product answering these addresses is the one this run brought up.
+
+        Liveness is not identity. `ready` used to ask only whether *a* product answered,
+        and on a machine running several worktrees that difference is the whole of the
+        risk: a driver that accepts any answer judges another run's code and reports the
+        verdict as this ticket's. Worse, the answer also skips `start`, so a repository's
+        own "another checkout holds these ports" guard never runs.
+
+        `discover` names the check as one `observe` line in this target's own read
+        surface, so every adapter gets it without new machinery, and it is asked again
+        between scenes rather than once at start-up — an application replaced mid-run is
+        exactly what a start-up gate cannot see (2026-09-05: one worktree's application
+        was ended from outside and another's took its ports one second later).
+
+        A target that declares no check is unchanged.
+        """
+        line = self.addresses.get("instance_check")
+        if not line:
+            return True, ""
+        name = self.addresses.get("instance") or "this run"
+        try:
+            ok, _got, why = self.observe(line, {})
+        except Exception as exc:  # noqa: BLE001 - any failure here means "cannot tell"
+            return False, refusal(
+                f"The instance check `{line}` could not be read: {exc}.",
+                "Without it there is no telling whose product is answering.",
+                "Bring your own up with the `start` command in .mmw/target.json; if it "
+                "will not come up, report the ticket blocked and stop.",
+            )
+        if ok:
+            return True, ""
+        return False, refusal(
+            f"The product on these addresses is not the one {name} started ({why or line}).",
+            "Whose it is this cannot say: another run's, or this worktree's own.",
+            "Run `start` from .mmw/target.json and read it; if it cannot take the "
+            "addresses, report the ticket blocked and stop.",
+        )
+
     def address(self, route: str, values: dict[str, str]) -> str:
         raise NotImplementedError
 
@@ -1220,7 +1307,7 @@ class ElectronAdapter(Adapter):
             return False, f"no backend answering {self.addresses['backend']}/health ({status})"
         if self.page is not None and self.page.is_closed():
             return False, "the application's page is gone"
-        return True, ""
+        return self.instance_ok()
 
     def address(self, route, values):
         return self.need("impl").rstrip("/") + "/" + fill(route, values).lstrip("/")
@@ -1288,7 +1375,7 @@ class WebAdapter(Adapter):
         status, _, _ = http_get(self.need("origin").rstrip("/") + path)
         if status == 0 or status >= 400:
             return False, f"{self.addresses['origin']}{path} answered {status}"
-        return True, ""
+        return self.instance_ok()
 
     def address(self, route, values):
         return self.need("origin").rstrip("/") + "/" + fill(route, values).lstrip("/")
@@ -1367,7 +1454,7 @@ class ChromeExtensionAdapter(WebAdapter):
         # A service worker is recycled after about thirty seconds idle; whether it is
         # there is asked again before every scene, which is the point of `ready`.
         workers = [w for w in self.context.service_workers]
-        return (True, "") if workers else (False, "no service worker is alive")
+        return self.instance_ok() if workers else (False, "no service worker is alive")
 
     def address(self, route, values):
         ext_id = self.need("extension_id")
@@ -1407,18 +1494,22 @@ def bring_up(adapter: Adapter) -> None:
     `discover` and `ready` are asked again. Nothing here is told how the product
     starts, and nobody is expected to have started it by hand."""
     ok, why = adapter.ready()
-    if ok:
-        return
     start = adapter.cfg.get("start")
+    if ok and not start:
+        return
     if not start:
         raise SystemExit(f"{why}; .mmw/target.json declares no `start`, so the run cannot "
                          f"bring the product up itself. Declare `start` (a command that "
                          f"brings it up and returns once it answers; see "
                          f"verify-ticket/references/targets/README.md)")
-    print(f"target not answering ({why}); running start: {start}", file=sys.stderr)
+    # 每次都跑，不只在没人应答的时候。`start` 按契约是幂等的，对已在应答的产品原样保留
+    # ——但只有它知道那个产品是不是本工作树此刻的代码。跳过它，一个仍在应答的旧产品就
+    # 永远不会被换掉，判据在旧代码上得出的结论没人会发现（2026-09-05 实测两次）。
+    print(f"running start ({'answering' if ok else why}): {start}", file=sys.stderr)
     try:
         proc = subprocess.run(shlex.split(start), cwd=adapter.root, capture_output=True,
-                              text=True, timeout=START_TIMEOUT_S)
+                              text=True, timeout=START_TIMEOUT_S,
+                              env=command_env(adapter.root))
     except subprocess.TimeoutExpired as exc:
         raise SystemExit(f"`{start}` did not return within {START_TIMEOUT_S}s") from exc
     if proc.returncode != 0:

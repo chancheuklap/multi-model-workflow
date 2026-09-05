@@ -187,6 +187,37 @@ def fetch_sub_issues(number: int) -> list[int]:
     return [int(line) for line in out.stdout.split() if line.strip()]
 
 
+class ParentUnreadable(RuntimeError):
+    """The tracker could not say which spec a ticket sits under.
+
+    Distinct from a ticket the tracker records no parent for: that one is ordinary and
+    means there is no batch, this one means the question went unanswered.
+    """
+
+
+def fetch_parent(number: int) -> int | None:
+    """The spec GitHub records `number` under, or `None` when it records none.
+
+    This is the sub-issue link `fetch_sub_issues` reads from the other end, so a ticket
+    and its batch always name each other. Raises `ParentUnreadable` when the tracker
+    could not be asked. Patched out in tests.
+    """
+    out = subprocess.run(
+        ["gh", "issue", "view", str(number), "--json", "parent"],
+        capture_output=True, text=True, env=GH_ENV,
+    )
+    if out.returncode != 0:
+        detail = (out.stderr or out.stdout).strip().splitlines()
+        raise ParentUnreadable(detail[-1] if detail else f"gh exited {out.returncode}")
+    try:
+        parent = json.loads(out.stdout).get("parent")
+        return int(parent["number"]) if parent else None
+    except (AttributeError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+        raise ParentUnreadable(
+            f"`gh issue view {number} --json parent` answered with nothing this can "
+            f"read") from None
+
+
 def fetch_outsider(number: int) -> dict:
     """Where a blocker outside this batch belongs, and whether it is closed.
 
@@ -232,7 +263,12 @@ def section(body: str, heading: str) -> list[str]:
 
 
 def parent_spec(body: str) -> int | None:
-    """The spec number in `## Parent`, e.g. `#76, Implementation Decisions section 1`."""
+    """The first spec number in `## Parent`, e.g. `#76, Implementation Decisions section 1`.
+
+    This section is the copy the user reads, and one ticket may be written against
+    sections of more than one spec, in whatever order suits the reader. Which batch the
+    ticket belongs to is the tracker's own sub-issue link, `fetch_parent`.
+    """
     for line in section(body, "Parent"):
         m = ISSUE_REF_RE.search(line)
         if m:
@@ -1518,9 +1554,15 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
 
 def lint_ticket_graph(number: int, body: str) -> int:
     """Read the batch this ticket belongs to and check it is a startable graph."""
-    spec = parent_spec(body)
+    try:
+        spec = fetch_parent(number)
+    except ParentUnreadable as exc:
+        print(f"  ERROR the tracker could not say which spec #{number} sits under "
+              f"({exc}), so the batch graph was not checked  [parent-unreadable]")
+        return 1
     if spec is None:
-        print("ticket graph: no `## Parent` section, so there is no batch to check")
+        print("ticket graph: the tracker records no parent for this ticket, so there is "
+              "no batch to check")
         return 0
     numbers = fetch_sub_issues(spec)
     if not numbers:
@@ -2050,7 +2092,11 @@ def lint_batch_scenes(number: int, body: str) -> list[str]:
     doc, _ = load_contract_doc("\n".join(section(body, "Read first")))
     if doc is None:
         return []
-    spec = parent_spec(body)
+    try:
+        spec = fetch_parent(number)
+    except ParentUnreadable as exc:
+        return [f"the tracker could not say which spec #{number} sits under ({exc}), so "
+                f"the scene partition across the batch was not checked"]
     if spec is None:
         return []
     bodies = {number: body}

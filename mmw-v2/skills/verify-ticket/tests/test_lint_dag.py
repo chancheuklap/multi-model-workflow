@@ -14,6 +14,7 @@ to make them disagree.
 """
 
 import io
+import subprocess
 import unittest
 from contextlib import redirect_stdout
 from unittest import mock
@@ -45,6 +46,9 @@ def lint_graph(ticket=77, spec=76, batch=(), links=None, stated=None, outside=No
     `outside` is `{blocker: (spec, state)}` for the blockers that are not in the batch:
     a spec number and `OPEN` or `CLOSED` for a ticket under another spec, and left out
     entirely for an issue that is no ticket at all.
+
+    `spec` is what the tracker links this ticket to, and the `## Parent` section of the
+    body is written from the same number unless a test writes it otherwise.
     """
     links = dict(links or {})
     stated = dict(stated or {})
@@ -54,6 +58,7 @@ def lint_graph(ticket=77, spec=76, batch=(), links=None, stated=None, outside=No
         return tuple(f"#{n}" for n in numbers) or ("None (can start immediately)",)
 
     with mock.patch.object(vt, "fetch_sub_issues", return_value=list(batch)), \
+         mock.patch.object(vt, "fetch_parent", return_value=spec), \
          mock.patch.object(vt, "fetch_blocked_by",
                            side_effect=lambda n: list(links.get(n, []))), \
          mock.patch.object(vt, "fetch_outsider",
@@ -158,12 +163,45 @@ class TestLintTicketGraph(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("level 0: #61, #62", out)
 
-    def test_a_ticket_with_no_parent_section_checks_nothing(self):
-        with mock.patch.object(vt, "fetch_sub_issues") as fetch:
+    def test_a_ticket_the_tracker_gives_no_parent_checks_nothing(self):
+        """No parent link is no batch, which is a shape a ticket is allowed to have."""
+        with mock.patch.object(vt, "fetch_parent", return_value=None), \
+             mock.patch.object(vt, "fetch_sub_issues") as fetch:
             with redirect_stdout(io.StringIO()) as out:
-                code = vt.lint_ticket_graph(77, "## What to build\n\nsomething\n")
+                code = vt.lint_ticket_graph(77, body(parent=76))
         self.assertEqual(code, 0)
-        self.assertIn("no `## Parent` section", out.getvalue())
+        self.assertIn("the tracker records no parent", out.getvalue())
+        fetch.assert_not_called()
+
+    def test_the_batch_is_the_linked_spec_not_the_first_one_the_section_names(self):
+        """A ticket written against sections of two specs names both in `## Parent`, in
+        whatever order reads best. The batch it belongs to is the link, not the order."""
+        two = ("## Parent\n\n#536, Implementation Decisions section 13\n"
+               "#537, Implementation Decisions section 2\n\n"
+               "## Blocked by\n\n- None (can start immediately)\n")
+        with mock.patch.object(vt, "fetch_parent", return_value=537), \
+             mock.patch.object(vt, "fetch_sub_issues", return_value=[77]) as fetch, \
+             mock.patch.object(vt, "fetch_blocked_by", return_value=[]), \
+             mock.patch.object(vt, "fetch_body", return_value=two):
+            with redirect_stdout(io.StringIO()) as out:
+                code = vt.lint_ticket_graph(77, two)
+        self.assertEqual(code, 0)
+        fetch.assert_called_once_with(537)
+        self.assertIn("level 0: #77", out.getvalue())
+
+    def test_a_parent_the_tracker_could_not_answer_for_is_an_error(self):
+        """Reading the batch failed, so nothing below it ran. Silence here would read
+        exactly like a batch that passed."""
+        with mock.patch.object(vt, "fetch_parent",
+                               side_effect=vt.ParentUnreadable("gh: connection refused")), \
+             mock.patch.object(vt, "fetch_sub_issues") as fetch:
+            with redirect_stdout(io.StringIO()) as out:
+                code = vt.lint_ticket_graph(77, body(parent=76))
+        printed = out.getvalue()
+        self.assertEqual(code, 1)
+        self.assertIn("could not say which spec #77 sits under", printed)
+        self.assertIn("gh: connection refused", printed)
+        self.assertIn("  [parent-unreadable]", printed)
         fetch.assert_not_called()
 
     def test_a_spec_with_no_sub_issues_is_an_error(self):
@@ -303,6 +341,36 @@ class TestBlockedBy(unittest.TestCase):
 
     def test_the_parent_spec_is_read_off_the_parent_section(self):
         self.assertEqual(vt.parent_spec(body(parent=60)), 60)
+
+
+class TestFetchParent(unittest.TestCase):
+    """`gh issue view <n> --json parent` is the tracker's own answer to which spec a
+    ticket sits under. A ticket with no parent and a tracker that did not answer are
+    different facts, and the second one is loud."""
+
+    def fetch(self, returncode=0, stdout="", stderr=""):
+        """`fetch_parent(77)` over one canned `gh` result; returns `(answer, the mock)`."""
+        result = subprocess.CompletedProcess([], returncode, stdout, stderr)
+        with mock.patch.object(vt.subprocess, "run", return_value=result) as run:
+            return vt.fetch_parent(77), run
+
+    def test_the_linked_spec_is_returned(self):
+        spec, run = self.fetch(stdout='{"parent":{"number":537,"state":"OPEN"}}')
+        self.assertEqual(spec, 537)
+        self.assertEqual(run.call_args.args[0],
+                         ["gh", "issue", "view", "77", "--json", "parent"])
+
+    def test_no_parent_link_reads_as_none(self):
+        self.assertIsNone(self.fetch(stdout='{"parent":null}')[0])
+
+    def test_a_failed_call_raises_with_what_gh_said(self):
+        with self.assertRaises(vt.ParentUnreadable) as caught:
+            self.fetch(returncode=1, stderr="gh: Could not resolve to a Repository\n")
+        self.assertIn("Could not resolve", str(caught.exception))
+
+    def test_output_that_is_not_json_raises(self):
+        with self.assertRaises(vt.ParentUnreadable):
+            self.fetch(stdout="not json at all")
 
 
 
