@@ -556,3 +556,57 @@ class TestBringUp(unittest.TestCase):
             sd.bring_up(a)
         self.assertIn("still down", str(raised.exception))
 
+
+
+class TestInstanceIdentity(unittest.TestCase):
+    """`ready` means answering **and** mine.
+
+    Liveness is not identity, and on a machine running several worktrees the difference
+    is the whole of the risk: a driver that accepts any answer measures another run's
+    code and reports the verdict as this ticket's. It also skips `start`, so the
+    repository's own "another checkout holds these ports" guard never runs.
+    """
+
+    def adapter(self, addresses, answer):
+        a = FakeAdapter()
+        a.addresses = addresses
+        a.observe = lambda line, values: answer
+        return a
+
+    def test_a_target_that_declares_no_check_is_unchanged(self):
+        a = self.adapter({}, (False, None, "never asked"))
+        self.assertEqual(a.instance_ok(), (True, ""))
+
+    def test_the_declared_check_passing_is_the_whole_of_it(self):
+        a = self.adapter({"instance_check": "GET /health -> .token == \"abc\"",
+                          "instance": "issue-640"}, (True, "abc", ""))
+        self.assertEqual(a.instance_ok(), (True, ""))
+
+    def test_another_run_holding_the_addresses_is_caught(self):
+        a = self.adapter({"instance_check": "GET /health -> .token == \"abc\"",
+                          "instance": "issue-640"}, (False, "zzz", ".token was \"zzz\""))
+        ok, why = a.instance_ok()
+        self.assertFalse(ok)
+        self.assertIn("issue-640", why, "the refusal names no fact")
+        self.assertIn("blocked", why, "the refusal names no next step")
+        self.assertLessEqual(len(why), 256)
+
+    def test_a_check_that_cannot_be_read_is_a_refusal_not_a_pass(self):
+        a = FakeAdapter()
+        a.addresses = {"instance_check": "GET /health -> .token", "instance": "issue-640"}
+
+        def boom(line, values):
+            raise RuntimeError("connection refused")
+
+        a.observe = boom
+        ok, why = a.instance_ok()
+        self.assertFalse(ok, "an unreadable check must not read as a pass")
+        self.assertIn("blocked", why)
+        self.assertLessEqual(len(why), 256)
+
+    def test_every_adapter_asks_it(self):
+        """The hole was in the capability, not in one kind of product."""
+        import inspect
+        for cls in (sd.ElectronAdapter, sd.WebAdapter):
+            with self.subTest(adapter=cls.__name__):
+                self.assertIn("instance_ok", inspect.getsource(cls.ready))

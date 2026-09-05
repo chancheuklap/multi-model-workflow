@@ -150,6 +150,9 @@ unset HERDR_WORKSPACE_ID
 # A fixture repository of its own, so the worktrees dispatch.sh opens land under $TMP
 # and never touch the repository these tests live in.
 export MMW_WORKTREES="$TMP/worktrees"
+# And a lease registry of its own. Dispatching claims this machine's slots; a suite that
+# claimed the real ones would fill the machine up and refuse the next night's tickets.
+export MMW_HOME="$TMP/mmw-home"
 git init -q -b main "$TMP/repo"
 git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m fixture
 
@@ -715,10 +718,16 @@ scenario_waittimeout() {
 
 scenario_placeholder() {
   echo "--- a copy of the skill, so the table can be edited without touching the source"
-  local copy="$TMP/skill"
-  rm -rf "$copy"
+  local copy="$TMP/skills/dispatch"
+  rm -rf "$TMP/skills"
   mkdir -p "$copy"
   cp -R "$SKILL/models.md" "$SKILL/scripts" "$copy/"
+  # `install.sh` puts the skills side by side and `dispatch.sh` reaches its sibling's
+  # `lease.py` that way, so a copy that stands alone is not a shape any machine has.
+  mkdir -p "$TMP/skills/verify-ticket/scripts"
+  cp "$(dirname "$SKILL")/verify-ticket/scripts/lease.py" \
+     "$(dirname "$SKILL")/verify-ticket/scripts/refusal.py" \
+     "$TMP/skills/verify-ticket/scripts/"
 
   reset_log
   local code
@@ -833,6 +842,50 @@ Merge branch 'issue-61'" ] || fail "merge order is wrong: $(merge_subjects)"
   grep -q "merged 0" "$TMP/out" || fail "the second run should report nothing merged: $(cat "$TMP/out")"
 }
 
+scenario_instancegate() {
+  echo "--- a product that declares it cannot be isolated is serialised, not piled onto"
+  reset_log
+  fresh_repo
+  write_batch
+  make_branch issue-61 one.txt "from 61"
+  make_branch issue-62 two.txt "from 62"
+  mkdir -p "$TMP/repo/.mmw"
+  printf '%s\n' '{"start":"true","discover":"true","reach":"true","instance":{"max":1,"why":"fixed host ports"}}' \
+    > "$TMP/repo/.mmw/target.json"
+  rm -rf "$MMW_HOME/leases"
+
+  # One run of this repository is already up, which is all this product can hold.
+  mkdir -p "$MMW_WORKTREES/repo/issue-99"
+  python3 "$SKILL/../verify-ticket/scripts/lease.py" claim "$MMW_WORKTREES/repo/issue-99" >/dev/null
+
+  local code
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" advance 76)"
+  [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
+
+  echo "--- the merges still happen: the gate is about starting, not about landing work"
+  [ -f "$TMP/repo/one.txt" ] || fail "issue-61 was not merged"
+  [ -f "$TMP/repo/two.txt" ] || fail "issue-62 was not merged"
+
+  echo "--- the frontier ticket is held back rather than sent onto a busy machine"
+  grep -q "held 1" "$TMP/out" || fail "nothing was held back: $(cat "$TMP/out")"
+  grep -q "held back" "$TMP/err" || fail "the reason was not reported: $(cat "$TMP/err")"
+  hasnt "herdr :: agent :: start :: w1-issue-63"
+
+  echo "--- it kept its label, so the next advance starts it once a slot is free"
+  reset_log
+  rm -rf "$MMW_WORKTREES/repo/issue-99"
+  python3 "$SKILL/../verify-ticket/scripts/lease.py" release "$MMW_WORKTREES/repo/issue-99" >/dev/null
+  code="$(run_dispatch env HERDR_ENV=1 HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" advance 76)"
+  [ "$code" = 0 ] || fail "exit $code on the second run: $(cat "$TMP/err")"
+  has "herdr :: agent :: start :: w1-issue-63"
+
+  rm -f "$TMP/repo/.mmw/target.json"
+}
+
 scenario_advanceconflict() {
   reset_log
   fresh_repo
@@ -910,10 +963,10 @@ scenario_advancedirty() {
   hasnt "agent :: start"
 }
 
-ALL="worker basecommit reviewer seat runtable runchecks idletimeout notready livesession noherdr wait waittimeout placeholder advance advanceconflict advancedirty"
+ALL="worker basecommit reviewer seat runtable runchecks idletimeout notready livesession noherdr wait waittimeout placeholder advance instancegate advanceconflict advancedirty"
 
 case "${1:-}" in
-  worker|basecommit|reviewer|seat|runtable|runchecks|idletimeout|notready|livesession|noherdr|wait|waittimeout|placeholder|advance|advanceconflict|advancedirty)
+  worker|basecommit|reviewer|seat|runtable|runchecks|idletimeout|notready|livesession|noherdr|wait|waittimeout|placeholder|advance|instancegate|advanceconflict|advancedirty)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -938,6 +991,7 @@ banner_for() {
     waittimeout) echo DISPATCH-WAITTIMEOUT-OK ;;
     placeholder) echo DISPATCH-PLACEHOLDER-OK ;;
     advance) echo DISPATCH-ADVANCE-OK ;;
+    instancegate) echo DISPATCH-INSTANCE-GATE-OK ;;
     advanceconflict) echo DISPATCH-ADVANCE-CONFLICT-OK ;;
     advancedirty) echo DISPATCH-ADVANCE-DIRTY-OK ;;
   esac

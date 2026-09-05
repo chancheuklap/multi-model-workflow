@@ -33,6 +33,9 @@ SELF="$(realpath "${BASH_SOURCE[0]}")"
 SKILL_ROOT="$(dirname "$(dirname "$SELF")")"
 MODELS="$SKILL_ROOT/models.md"
 BOARD="$SKILL_ROOT/scripts/board.py"
+# The skills are installed side by side, in the source tree and on every host, so a
+# sibling skill's script is reachable without knowing where either of them was put.
+LEASE="$(dirname "$SKILL_ROOT")/verify-ticket/scripts/lease.py"
 # The skill lives under mmw-v2/skills/<name>, so `install.sh` is two directories up.
 INSTALLER="$(dirname "$(dirname "$SKILL_ROOT")")/install.sh"
 
@@ -215,6 +218,55 @@ herdr_agent_kinds() {
     | head -n 1 | tr ',' ' ' | tr -s ' ' | sed 's/^ //; s/ $//'
 }
 
+# ------------------------------------------------------------------ the instance gate
+#
+# Several runs share one machine. `lease.py` hands each worktree a block of ports and a
+# directory nothing else uses; this is the half that decides how many runs may be up at
+# once, because only the dispatcher knows it is starting more than one.
+#
+# A repository that can isolate its product says nothing and gets the machine's limit. A
+# repository that cannot — ports written into a container file, a callback registered at
+# a fixed port, an installed product that hardcodes them — says so in `.mmw/target.json`:
+#
+#     "instance": {"max": 1, "why": "<what stops a second one>"}
+#
+# and its tickets are serialised. That is the honest fallback. The alternative is what
+# 2026-09-05 did: five workers dispatched onto three fixed ports, one of them working.
+
+# The number of runs this product supports at once, or empty for "the machine decides".
+target_max_instances() {
+  python3 - "$1" <<'PY'
+import json, sys
+from pathlib import Path
+try:
+    data = json.loads((Path(sys.argv[1]) / ".mmw" / "target.json").read_text(encoding="utf-8"))
+    value = data.get("instance", {}).get("max")
+    print(value if isinstance(value, int) and value > 0 else "")
+except Exception:
+    print("")
+PY
+}
+
+# How many of this repository's worktrees hold a lease right now. The counting is
+# `lease.py`'s because the comparison is a path comparison: a registry holds resolved
+# paths, this script holds whatever the environment gave it, and on macOS `/var` and
+# `/private/var` are the same directory under two names. Comparing them as text answers
+# "none", which in a gate means the gate is open and says nothing.
+live_instances() {
+  python3 "$LEASE" count "$1" 2>/dev/null || echo 0
+}
+
+# Give a finished ticket's slot back. Never fatal: a refusal means something still
+# listens there, which is a thing to read, not a thing to force.
+release_lease() {
+  local out
+  if ! out="$(python3 "$LEASE" release "$1" 2>&1)"; then
+    printf 'lease not released for %s: %s\n' "$1" "$out" >&2
+    return 0
+  fi
+  return 0
+}
+
 # ------------------------------------------------------------------ the worktree
 
 # Prints the path of ticket `number`'s worktree, creating it when it is not there yet.
@@ -367,10 +419,18 @@ dispatch() {
             | json_at .result.pane.pane_id)"
     [ -n "$pane" ] || refuse "could not split pane $caller"
   else
-    prompt="Use the implement skill to work ticket #$number. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
+    prompt="Use the implement skill to work ticket #$number. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work. This machine runs several tickets at once: before you run the product, read 'Four rules while the product is running' in the verify-ticket skill — you never choose a port, never start a backing service, never end a process you did not start, and a product you cannot reach means you report the ticket blocked and stop."
     local worktree
     worktree="$(worktree_for "$number" "$root")" \
       || refuse "could not open a worktree for issue-$number under ${MMW_WORKTREES:-$HOME/.mmw/worktrees}"
+    # Claim this run's share of the machine now rather than when the worker first runs a
+    # declared command. Claiming here is what makes the gate in `advance` exact: a ticket
+    # that has just been dispatched is already counted, so the next one in the same loop
+    # sees it. A machine with no slot left refuses here, and the ticket keeps its label.
+    [ -f "$LEASE" ] \
+      || refuse "no lease.py at $LEASE: the verify-ticket skill is not installed beside this one, so no run can be given its own share of this machine. Run \`bash mmw-v2/install.sh\`, then dispatch again"
+    python3 "$LEASE" claim "$worktree" >/dev/null \
+      || refuse "no instance slot left on this machine for issue-$number; it keeps its label and starts at the next advance"
     local label tab_args
     label="$(printf '#%s %s' "$number" "$title" \
              | head_chars $(( LABEL_TITLE_CHARS + ${#number} + 2 )))"
@@ -634,6 +694,9 @@ advance() {
   plan="$(python3 "$BOARD" --advance-plan "$spec")" \
     || refuse "could not read the batch under #$spec"
 
+  local worktree_base
+  worktree_base="${MMW_WORKTREES:-$HOME/.mmw/worktrees}/$(basename "$root")"
+
   local merged=0 skipped=0 number branch left rc
   for number in $(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }'); do
     branch="$(ticket_branch "$number")"
@@ -655,10 +718,27 @@ advance() {
     [ "$rc" -eq 0 ] || refuse "could not merge $branch after $MERGE_TRIES tries; git said nothing this script can act on"
     echo "merged $branch"
     merged=$((merged + 1))
+    # The ticket is closed and its work is in: its slot on this machine can come back.
+    # Release refuses while anything still listens on that slot and says which pid holds
+    # it — reclaiming a slot from a live process is the same act as ending it — so a
+    # refusal here is reported and the night carries on with one slot fewer.
+    release_lease "$worktree_base/issue-$number"
   done
 
-  local started=0 refused=0
+  local started=0 refused=0 held=0 live max_inst
+  max_inst="$(target_max_instances "$root")"
   for number in $(printf '%s\n' "$plan" | awk '$1 == "DISPATCH" { print $2 }'); do
+    if [ -n "$max_inst" ]; then
+      live="$(live_instances "$worktree_base")"
+      if [ "$live" -ge "$max_inst" ]; then
+        # Not a refusal: the ticket keeps its label and its place on the frontier, and
+        # the next advance starts it. Dispatching past what the machine holds is how a
+        # night ends up with one worker working and four waiting on a port that will
+        # never free (2026-09-05).
+        held=$((held + 1))
+        continue
+      fi
+    fi
     # A subprocess, so one ticket that will not start does not take the rest with it.
     if bash "$SELF" "$number" worker; then
       started=$((started + 1))
@@ -667,7 +747,10 @@ advance() {
     fi
   done
 
-  echo "advance #$spec: merged $merged, already in $skipped, started $started, refused $refused"
+  echo "advance #$spec: merged $merged, already in $skipped, started $started, refused $refused, held $held"
+  if [ "$held" -gt 0 ]; then
+    echo "  $held ticket(s) held back: this product declares max $max_inst concurrent run(s); they start at the next advance" >&2
+  fi
 }
 
 # ------------------------------------------------------------------ the night

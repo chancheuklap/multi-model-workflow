@@ -9,10 +9,10 @@ reference file here: [electron.md](electron.md), [web.md](web.md),
 file (`target.kind`, `target.adapter`); the driver picks the adapter by kind; the file is
 the human account of what that adapter does and what the repository has to provide.
 
-## The seven questions a new target answers
+## The nine questions a new target answers
 
 A product kind that is not one of the three files above needs a new file here and a new
-adapter class in the driver. Both answer the same seven questions, in this order.
+adapter class in the driver. Both answer the same nine questions, in this order.
 
 1. **attach** — how does the driver get a page that drives the product, *as the identity
    the seeded state belongs to*? Authentication lives here, because attach is the only
@@ -56,6 +56,43 @@ adapter class in the driver. Both answer the same seven questions, in this order
    not a run that could not attach. That is the check that cannot be satisfied by
    narrowing: an `observe` line that goes green with nothing persisted is caught here
    and nowhere else. The commands are machine facts and live in `.mmw/target.json`.
+8. **instance** — how many runs of this product can one machine hold at once, and how
+   does a run take one of them? Questions 1–7 are all in the singular, and for a long
+   time so was the pipeline's picture of a machine. It was never true: `dispatch` sends
+   every startable ticket of a spec out together, each in its own worktree. A worktree
+   isolates files. Ports, the running application, the service behind it and the account
+   inside that service are the machine's, and nobody was asked to divide them — so on
+   2026-09-05 five workers shared three fixed ports, one of them worked, and one ended
+   another's application to take its ports.
+
+   The driver claims a **lease** for the worktree before it runs any command declared
+   here and puts it in that command's environment: `MMW_INSTANCE`, `MMW_PORT_BASE`,
+   `MMW_PORT_COUNT`, `MMW_DATA_DIR`, and `MMW_AUTOMATION=1`. The repository takes its
+   ports and directories from those and from nothing else — **at the moment it starts a
+   process, never into the session or the test environment**: a suite that asserts its
+   product's registered port number is right to, and a derived port leaking into it
+   turns a correct suite red. A repository whose product cannot move — ports written
+   into a container file, a callback registered at a fixed port, an installed product
+   that hardcodes them — says so, and its tickets are serialised rather than left to
+   interfere with each other:
+
+   ```json
+   "instance": {"max": 1, "why": "<what stops a second one>"}
+   ```
+
+   `discover` prints `instance` (a readable name for messages) and `instance_check` (one
+   `observe` line in this target's own read surface whose truth means "the product
+   answering is the one this run started"). Question 2 then means *answering and mine*.
+9. **what leaves this machine** — what does this product do in a run that reaches past
+   the machine it runs on, and how does a run neutralise it? Opening the system browser,
+   calling a paid service, writing a machine-global location. `MMW_AUTOMATION=1` is the
+   signal; recording what would have been done, in the run's own `MMW_DATA_DIR`, is
+   usually both the neutral act and a stronger assertion than the one it replaces — a
+   criterion that reads back the URL a button would have opened says more than one that
+   reads that the application entered a waiting state. Until this question was asked,
+   repositories invented their own answer under their own name and no criterion could
+   rely on it (2026-09-05: an acceptance run opened the production wallet page on the
+   user's own Mac, and a person completing an authorization by hand went unnoticed).
 
 ## What is the contract's and what is the repository's
 
@@ -75,7 +112,8 @@ on every machine:
   "reach": "uv run python scripts/testing/reach.py",
   "transport_off": "uv run python scripts/testing/target.py transport off",
   "transport_on": "uv run python scripts/testing/target.py transport on",
-  "checks": ["uv run ruff check .", {"run": "uv run pytest -q", "timeout": 1800}]
+  "checks": ["uv run ruff check .", {"run": "uv run pytest -q", "timeout": 1800}],
+  "instance": {"max": 1, "why": "pgbouncer and redis publish fixed host ports"}
 }
 ```
 
@@ -89,13 +127,29 @@ on every machine:
   facts in a message works once; the next agent is not told. `start` is idempotent (a
   product already answering is left alone), refuses rather than kills when something
   else holds its ports (naming what it found), and prints to stderr what it chose.
-- `discover` prints one JSON object of addresses; each kind's file says which keys.
+  It takes every port and directory from the lease in its environment (question 8), and
+  **refuses to start at all when there is no lease**, printing the command that gives it
+  one. Falling back to a default port instead would keep two allocation schemes alive,
+  and the collisions come back with them — a worker running `start` in its own terminal
+  is how they came back on 2026-09-05.
+- `discover` prints one JSON object of addresses; each kind's file says which keys. Two
+  more are the same for every kind: `instance`, a readable name for this run, and
+  `instance_check`, one `observe` line whose truth means the product at these addresses
+  is the one this run started. Omit them and `ready` falls back to asking only whether
+  something answers, which on a shared machine is a different question.
 - `reach` is a command prefix; the driver appends the mechanism names of a scene or a
   row (`seed:library-ready dev:image-select-path`) and, for the perturbation run,
   `--perturb`. The script prints `KEY=VALUE` lines (`project_id=…`, and for a web target
   `cookie=name=value`); every `{key}` in a route, an `open` value, or an `observe` path
-  is filled from them. It is **idempotent**: it runs once per scene and once per row,
-  and a state already there is left there.
+  is filled from them. It **establishes** the state: it runs once per scene and once per
+  row, and it may skip only what it established itself in this same run. A state it
+  merely finds is not evidence that the product can reach it, and accepting one hides the
+  case that matters. This line used to say "a state already there is left there", and a
+  repository implemented exactly that — its sign-in step returned early whenever it found
+  the application signed in. A person completed one authorization by hand, every seed
+  after it skipped the automatic sign-in, and a broken sign-in would have gone unseen
+  (2026-09-05). Idempotent means running it twice gives the same result, not that what is
+  already there can be trusted.
 - `transport_off` / `transport_on` answer question 7.
 - `checks` is optional: the consuming repository's own "run the tests yourself" rule,
   made a gate. `verify-ticket.py --closeout` runs the entries in order at the

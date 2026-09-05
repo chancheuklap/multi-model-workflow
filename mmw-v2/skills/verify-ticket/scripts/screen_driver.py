@@ -45,6 +45,7 @@ from __future__ import annotations
 import hashlib
 import http.server
 import json
+import os
 import re
 import shlex
 import socketserver
@@ -56,6 +57,13 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
+
+_HERE = Path(__file__).resolve().parent
+if str(_HERE) not in sys.path:
+    sys.path.insert(0, str(_HERE))
+
+from lease import leased_environment  # noqa: E402
+from refusal import refusal  # noqa: E402
 
 # ---------------------------------------------------------------- constants
 # The three scripts `support.js` loads from unpkg. Answered from the handoff package's
@@ -278,9 +286,28 @@ def target_config(root: Path) -> dict:
     return cfg
 
 
+def command_env(cwd: Path) -> dict[str, str]:
+    """This process's environment plus this run's lease.
+
+    Every command `.mmw/target.json` declares is run through here, so a repository is
+    told which run it is in rather than having to work it out — and never has to invent
+    an allocation of its own. Inventing one is how a machine ended up with five worktrees
+    sharing three fixed ports (2026-09-05): the contract's seven questions were all in
+    the singular, so nobody was ever asked.
+
+    The variables reach the declared command and stop there. A repository translates
+    them at the moment it starts a process, never into the session or the test
+    environment: a suite that asserts its product's registered port number is right to,
+    and a derived port leaking into it turns a correct suite red.
+    """
+    env = dict(os.environ)
+    env.update(leased_environment(Path(cwd)))
+    return env
+
+
 def run_command(command: str, cwd: Path, extra: list[str] | None = None) -> str:
     proc = subprocess.run(shlex.split(command) + (extra or []), cwd=cwd,
-                          capture_output=True, text=True)
+                          capture_output=True, text=True, env=command_env(cwd))
     if proc.returncode != 0:
         raise SystemExit(f"`{command}{' ' + ' '.join(extra) if extra else ''}` exited "
                          f"{proc.returncode}: {proc.stderr.strip() or proc.stdout.strip()}")
@@ -1199,6 +1226,45 @@ class Adapter:
     def ready(self) -> tuple[bool, str]:
         raise NotImplementedError
 
+    def instance_ok(self) -> tuple[bool, str]:
+        """Whether the product answering these addresses is the one this run brought up.
+
+        Liveness is not identity. `ready` used to ask only whether *a* product answered,
+        and on a machine running several worktrees that difference is the whole of the
+        risk: a driver that accepts any answer judges another run's code and reports the
+        verdict as this ticket's. Worse, the answer also skips `start`, so a repository's
+        own "another checkout holds these ports" guard never runs.
+
+        `discover` names the check as one `observe` line in this target's own read
+        surface, so every adapter gets it without new machinery, and it is asked again
+        between scenes rather than once at start-up — an application replaced mid-run is
+        exactly what a start-up gate cannot see (2026-09-05: one worktree's application
+        was ended from outside and another's took its ports one second later).
+
+        A target that declares no check is unchanged.
+        """
+        line = self.addresses.get("instance_check")
+        if not line:
+            return True, ""
+        name = self.addresses.get("instance") or "this run"
+        try:
+            ok, _got, why = self.observe(line, {})
+        except Exception as exc:  # noqa: BLE001 - any failure here means "cannot tell"
+            return False, refusal(
+                f"The instance check `{line}` could not be read: {exc}.",
+                "Without it there is no telling whose product is answering.",
+                "Bring your own up with the `start` command in .mmw/target.json; if it "
+                "will not come up, report the ticket blocked and stop.",
+            )
+        if ok:
+            return True, ""
+        return False, refusal(
+            f"The product on these addresses is not the one {name} started ({why or line}).",
+            "Another run holds them, so anything measured here is that run's code.",
+            "Bring your own up with the `start` command in .mmw/target.json; if the "
+            "addresses stay held, report the ticket blocked and stop.",
+        )
+
     def address(self, route: str, values: dict[str, str]) -> str:
         raise NotImplementedError
 
@@ -1241,7 +1307,7 @@ class ElectronAdapter(Adapter):
             return False, f"no backend answering {self.addresses['backend']}/health ({status})"
         if self.page is not None and self.page.is_closed():
             return False, "the application's page is gone"
-        return True, ""
+        return self.instance_ok()
 
     def address(self, route, values):
         return self.need("impl").rstrip("/") + "/" + fill(route, values).lstrip("/")
@@ -1309,7 +1375,7 @@ class WebAdapter(Adapter):
         status, _, _ = http_get(self.need("origin").rstrip("/") + path)
         if status == 0 or status >= 400:
             return False, f"{self.addresses['origin']}{path} answered {status}"
-        return True, ""
+        return self.instance_ok()
 
     def address(self, route, values):
         return self.need("origin").rstrip("/") + "/" + fill(route, values).lstrip("/")
@@ -1388,7 +1454,7 @@ class ChromeExtensionAdapter(WebAdapter):
         # A service worker is recycled after about thirty seconds idle; whether it is
         # there is asked again before every scene, which is the point of `ready`.
         workers = [w for w in self.context.service_workers]
-        return (True, "") if workers else (False, "no service worker is alive")
+        return self.instance_ok() if workers else (False, "no service worker is alive")
 
     def address(self, route, values):
         ext_id = self.need("extension_id")
@@ -1439,7 +1505,8 @@ def bring_up(adapter: Adapter) -> None:
     print(f"target not answering ({why}); running start: {start}", file=sys.stderr)
     try:
         proc = subprocess.run(shlex.split(start), cwd=adapter.root, capture_output=True,
-                              text=True, timeout=START_TIMEOUT_S)
+                              text=True, timeout=START_TIMEOUT_S,
+                              env=command_env(adapter.root))
     except subprocess.TimeoutExpired as exc:
         raise SystemExit(f"`{start}` did not return within {START_TIMEOUT_S}s") from exc
     if proc.returncode != 0:

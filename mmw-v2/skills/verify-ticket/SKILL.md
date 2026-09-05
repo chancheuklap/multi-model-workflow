@@ -59,6 +59,32 @@ The worker reads the same way. `dispatch.sh` starts a ticket on the `models.md` 
 
 The batch converges when `ERROR` is at zero and every `WARN` has been looked at and either fixed or kept on purpose.
 
+## Four rules while the product is running
+
+Several runs share one machine, and each gets its own ports and directories from a lease
+(`references/targets/README.md`, question 8). You never choose a port, start a backing
+service, or work out who holds what: one command — the `start` in `.mmw/target.json`,
+which the driver runs for you — brings up everything your criteria need.
+
+1. **Never end a process you did not start.** Stop your own product with the `stop`
+   command its repository declares. Everything else on this machine belongs to another
+   run, and another run's product looks exactly like a stuck one. Your shell refuses
+   `kill`, `pkill`, `killall` and `xargs kill` for this reason.
+2. **Never start the product outside the lease.** Running the repository's start script
+   yourself, in your own terminal, is how a run ends up on the ports another run is
+   already using. The script refuses without a lease and prints the command that gives
+   it one.
+3. **Never complete a human step by hand.** If a run cannot get past something without a
+   person — an authorization in a browser, a click — that is a defect in the automation.
+   Report it. Satisfying it makes a broken automation look healthy, and the next run has
+   no person in it.
+4. **When the product cannot be reached, report the ticket blocked and stop.** Do not
+   wait, do not build a retry loop, do not change the environment, do not touch another
+   run. On 2026-09-05 three workers each met one correct error message and each invented
+   a different answer to it: one waited, one retried seventy-eight times over twelve
+   minutes, one ended another run's application. All three were reasonable guesses. This
+   rule exists so that nobody has to guess.
+
 ## Reached from here
 
 - **`--closeout` refused your draft** → [references/closeout.md](references/closeout.md), the conditions it reads the draft against. The refusal itself is on stderr: the first line counts the problems, names the first, and gives the `--check-only` command that prints them all; every problem after the first is one more line opening `also:`. Go to the reference file when a line names a condition you cannot place. `--closeout <draft> --check-only` reports on a draft and changes nothing, at any time.

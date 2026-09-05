@@ -17,6 +17,13 @@ HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 SKILL="$(dirname -- "$HERE")"
 GATE_TESTS="$SKILL/scripts/gate-check/tests"
 
+# A lease registry of its own. The driver claims this machine's instance slots before it
+# runs any command a repository declares, so a suite that exercises that path would
+# otherwise fill the real registry with directories that stop existing when it ends.
+MMW_HOME="$(mktemp -d)"
+export MMW_HOME
+trap 'rm -rf "$MMW_HOME"' EXIT
+
 rc=0
 
 echo "### unittest"

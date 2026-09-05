@@ -361,3 +361,62 @@ class TestNothingBlocksOnBadInput(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EndingAProcess(unittest.TestCase):
+    """The third refusal: a run never ends a process it did not start.
+
+    Several tickets are worked on one machine at once. Another run's application is
+    indistinguishable from a stuck one, and on 2026-09-05 a worker ended one to take its
+    ports. The gate refuses the whole family rather than trying to work out whose process
+    it is — the same "refuses rather than checks" the closing gate above is built on,
+    for the same reason: guessing wrong is the outcome the gate exists to prevent.
+    """
+
+    def test_the_kill_family_is_refused(self):
+        for command in ("kill 123", "kill -9 4321", "pkill -f Electron",
+                        "killall Electron", "lsof -ti:5173 | xargs kill -9",
+                        "lsof -tnP -iTCP:8794 | xargs -r kill"):
+            with self.subTest(command=command):
+                code, answer = call("claude", with_command("claude", command))
+                self.assertEqual(code, 0)
+                self.assertIsNotNone(answer, f"{command} was allowed through")
+
+    def test_every_host_is_told_in_its_own_vocabulary(self):
+        for host in EVENTS:
+            with self.subTest(host=host):
+                _code, answer = call(host, with_command(host, "kill 123"))
+                self.assertIsNotNone(answer)
+                self.assertIn("never ends a process", reason_of(answer))
+
+    def test_the_refusal_says_what_to_do_instead(self):
+        """A refusal that only diagnoses is where the improvising starts."""
+        _code, answer = call("claude", with_command("claude", "kill 123"))
+        reason = reason_of(answer)
+        self.assertIn("stop", reason.lower())
+        self.assertIn(".mmw/target.json", reason)
+        self.assertIn("blocked", reason)
+
+    def test_the_refusal_fits_what_a_host_will_show(self):
+        """Grok Build clips at 256; the way out is the part that must survive."""
+        for command in ("kill 123", "pkill -f " + "x" * 300):
+            with self.subTest(command=command):
+                _code, answer = call("claude", with_command("claude", command))
+                reason = reason_of(answer)
+                self.assertLessEqual(len(reason), hk.REASON_LIMIT)
+                self.assertIn("blocked", reason, "the way out was trimmed away")
+
+    def test_prose_and_ordinary_commands_pass(self):
+        """Splitting on the shell's own separators tells a command from a mention."""
+        for command in ("uv run pytest", "grep -rn kill src/",
+                        "cat <<'EOF'\nI did not kill anything\nEOF",
+                        "git log --oneline | head -5"):
+            with self.subTest(command=command):
+                code, answer = call("claude", with_command("claude", command))
+                self.assertEqual(code, 0)
+                self.assertIsNone(answer, f"{command} was refused")
+
+    def test_a_session_nobody_dispatched_is_not_governed(self):
+        code, answer = call("claude", with_command("claude", "kill 123"), env={})
+        self.assertEqual(code, 0)
+        self.assertIsNone(answer)
