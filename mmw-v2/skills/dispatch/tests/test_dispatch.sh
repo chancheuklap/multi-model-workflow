@@ -153,6 +153,10 @@ export MMW_WORKTREES="$TMP/worktrees"
 # And a lease registry of its own. Dispatching claims this machine's slots; a suite that
 # claimed the real ones would fill the machine up and refuse the next night's tickets.
 export MMW_HOME="$TMP/mmw-home"
+# A port range of its own too. A registry of its own is not enough: releasing a slot
+# refuses while anything listens on that slot's ports, and with the default base the
+# fixture's slot 0 is the same 21000-21019 a real run on this machine may be using.
+export MMW_LEASE_PORT_BASE=39000
 git init -q -b main "$TMP/repo"
 git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m fixture
 
