@@ -1005,8 +1005,12 @@ def glob_covers(pattern: str, path: str) -> bool:
     return fnmatch.fnmatch(path, pattern) or path == pattern
 
 
-def spec_judgement(review: str, path: str) -> str:
-    """`reasonable` or `should not` for `path` from the Spec axis of a `REVIEW` comment."""
+def spec_judgement(review: str, path: str) -> str | None:
+    """`reasonable` or `should not` for `path` from the Spec axis of a `REVIEW` comment.
+
+    `None` when that axis names no line for the file — the run does not invent a
+    judgement the reviewer did not write.
+    """
     spec_axis = re.split(r"^## Tests", review, maxsplit=1, flags=re.M)[0]
     spec_axis = re.split(r"^## Spec", spec_axis, maxsplit=1, flags=re.M)[-1]
     for line in spec_axis.splitlines():
@@ -1015,7 +1019,7 @@ def spec_judgement(review: str, path: str) -> str:
                 return "should not"
             if "reasonable" in line:
                 return "reasonable"
-    return "reasonable"
+    return None
 
 
 def decisions_line_for(decisions: str | None, path: str) -> str:
@@ -1124,14 +1128,16 @@ def run_touched(number: int) -> int:
         found = re.search(r"\bAC\d+\b", sentence)
         if found:
             ac = found.group(0)
-        comment = "\n".join([
+        lines = [
             f"TOUCHED BY #{number}",
             "",
             path,
             sentence,
             ac,
-            judgement,
-        ]) + "\n"
+        ]
+        if judgement:
+            lines.append(judgement)
+        comment = "\n".join(lines) + "\n"
         for child in fetch_sub_issues(spec):
             ticket = fetch_ticket(child)
             if (ticket.get("state") or "").upper() != "OPEN":
@@ -1173,7 +1179,10 @@ def run_draft(number: int, out_file: Path) -> int:
     review = last_comment_opening(comments, "REVIEW") or ""
     files = outside_owns_files(outside_owns_from(run or ""))
     if files:
-        judged = [f"{path} ({spec_judgement(review, path)})" for path in files]
+        judged = []
+        for path in files:
+            judgement = spec_judgement(review, path)
+            judged.append(f"{path} ({judgement})" if judgement else path)
         outside = "Outside Owns: " + ", ".join(judged)
     else:
         outside = "Outside Owns: None"

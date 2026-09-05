@@ -175,6 +175,30 @@ class TestFixedLines(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertIn("Outside Owns: src/helper.py (reasonable)", text)
 
+    def test_a_should_not_judgement_is_copied(self):
+        review = REVIEW.replace("reasonable", "should not")
+        code, err, text, _ = run_draft((FILES_RUN, VERDICT, review, DECISIONS))
+        self.assertEqual(code, 0, err)
+        self.assertIn("Outside Owns: src/helper.py (should not)", text)
+        self.assertNotIn("(reasonable)", text)
+
+    def test_a_review_that_names_no_line_for_the_file_invents_no_judgement(self):
+        silent = """REVIEW abcdef0..1234567
+
+## Spec
+
+None
+
+## Tests
+
+None
+"""
+        code, err, text, _ = run_draft((FILES_RUN, VERDICT, silent, DECISIONS))
+        self.assertEqual(code, 0, err)
+        self.assertIn("Outside Owns: src/helper.py", text)
+        self.assertNotIn("(reasonable)", text)
+        self.assertNotIn("(should not)", text)
+
     def test_sub_issues_opened_lists_children_that_open_with_the_marker(self):
         child = "SUB-ISSUE baseline from #77\n\nthe handoff and the spec disagree\n"
         other = "something else entirely\n"

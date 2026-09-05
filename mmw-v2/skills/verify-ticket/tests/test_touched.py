@@ -54,6 +54,32 @@ None
 None
 """
 
+REVIEW_SHOULD_NOT = """REVIEW abcdef0..1234567
+
+## Spec
+
+### Decisions
+
+- `src/helper.py`: should not — it goes against this ticket's ## Owns
+
+## Tests
+
+None
+"""
+
+REVIEW_SILENT = """REVIEW abcdef0..1234567
+
+## Spec
+
+### Decisions
+
+- picked the existing helper: reasonable — the spec names no helper
+
+## Tests
+
+None
+"""
+
 SIBLING_COVERS = "## Owns\n\n- src/**\n"
 SIBLING_OTHER = "## Owns\n\n- lib/**\n"
 SIBLING_EXACT = "## Owns\n\n- src/helper.py\n"
@@ -98,6 +124,26 @@ class TestPostsOnlyOnCoveringOpenTickets(unittest.TestCase):
         self.assertIn("src/helper.py was required for AC1", posted[0][1])
         self.assertIn("reasonable", posted[0][1])
         self.assertIn("80", printed)
+
+    def test_a_should_not_judgement_is_copied(self):
+        code, err, posted, _ = run_touched(
+            (SELF_RUN, DECISIONS, REVIEW_SHOULD_NOT),
+            {80: SIBLING_COVERS},
+        )
+        self.assertEqual(code, 0, err)
+        self.assertEqual([n for n, _ in posted], [80])
+        self.assertIn("should not", posted[0][1])
+        self.assertNotIn("reasonable", posted[0][1])
+
+    def test_a_review_that_names_no_line_for_the_file_invents_no_judgement(self):
+        code, err, posted, _ = run_touched(
+            (SELF_RUN, DECISIONS, REVIEW_SILENT),
+            {80: SIBLING_COVERS},
+        )
+        self.assertEqual(code, 0, err)
+        self.assertEqual([n for n, _ in posted], [80])
+        self.assertNotIn("reasonable", posted[0][1])
+        self.assertNotIn("should not", posted[0][1])
 
     def test_an_exact_owns_path_is_a_cover(self):
         code, err, posted, _ = run_touched(
