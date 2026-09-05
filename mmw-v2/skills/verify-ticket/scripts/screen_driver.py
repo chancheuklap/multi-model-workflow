@@ -52,6 +52,7 @@ import socketserver
 import subprocess
 import sys
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -83,6 +84,13 @@ SETTLE_VIRTUAL_MS = 200
 # seen so far, so a scene is never captured one step past itself.
 SETTLE_BUDGET_MS = 1400
 SETTLE_STEP_MS = 100
+# Virtual time and wall time are not interchangeable, and a view that appears only when
+# a response arrives needs the second kind. Running the clock fires the page's timers and
+# returns at once, so a budget counted only in virtual milliseconds gives a real request
+# no time at all. Wall time is safe to spend: every timer on the page is under the
+# controlled clock, so the handoff package's auto-advance cannot fire while it passes.
+WAIT_REAL_BUDGET_S = 8.0
+WAIT_REAL_STEP_S = 0.1
 # Wall-clock bound on one click or fill. The page's clock is paused, so an element that
 # is not enabled now stays so; the bound only keeps a wrong step from hanging the run.
 ACTION_TIMEOUT_MS = 2000
@@ -955,15 +963,34 @@ def navigate(page, url: str, reload: bool = False) -> None:
     run_clock(page, SETTLE_VIRTUAL_MS)
 
 
+def wait_until(page, ready, what: str) -> None:
+    """Wait for `ready()` on both clocks, and say which budget ran out.
+
+    The virtual budget is spent first, in steps, which is what lets the page's own
+    render and poll timers run; it stops at `SETTLE_BUDGET_MS` because past that the
+    handoff package's shortest auto-advance would fire and the scene would be captured
+    one step beyond itself. Wall time is then spent without touching the clock, for the
+    responses the view is waiting on — no timer can fire while it passes, so the bound
+    the virtual budget protects still holds.
+    """
+    virtual = 0
+    deadline = time.monotonic() + WAIT_REAL_BUDGET_S
+    while not ready():
+        if virtual < SETTLE_BUDGET_MS:
+            run_clock(page, SETTLE_STEP_MS)
+            virtual += SETTLE_STEP_MS
+            continue
+        if time.monotonic() >= deadline:
+            raise SystemExit(
+                f"{what} after {SETTLE_VIRTUAL_MS + virtual} ms of controlled time and "
+                f"{WAIT_REAL_BUDGET_S:g}s of wall time")
+        time.sleep(WAIT_REAL_STEP_S)
+
+
 def wait_for_mount(page, selector: str) -> None:
-    """Run the clock in steps until the mount element is on screen, within the budget."""
-    spent = 0
-    while mount_rect(page, selector) is None:
-        if spent >= SETTLE_BUDGET_MS:
-            raise SystemExit(f"no visible element matches {selector} after "
-                             f"{SETTLE_VIRTUAL_MS + spent} ms of controlled time")
-        run_clock(page, SETTLE_STEP_MS)
-        spent += SETTLE_STEP_MS
+    """Wait for the mount element to be on screen."""
+    wait_until(page, lambda: mount_rect(page, selector) is not None,
+               f"no visible element matches {selector}")
 
 
 def perform(page, steps: list[dict], rows: dict[str, dict], values: dict[str, str]) -> None:
@@ -978,14 +1005,9 @@ def perform(page, steps: list[dict], rows: dict[str, dict], values: dict[str, st
             raise SystemExit(f"open step names no contract row: {step['row']}")
         trig = row["trigger"]
         control = page.get_by_role(trig["role"], name=trig["name"], exact=True)
-        spent = 0
-        while control.count() == 0:
-            if spent >= SETTLE_BUDGET_MS:
-                raise SystemExit(f'open step {step["row"]}: no control {trig["role"]} '
-                                 f'"{trig["name"]}" on the page after '
-                                 f"{SETTLE_VIRTUAL_MS + spent} ms of controlled time")
-            run_clock(page, SETTLE_STEP_MS)
-            spent += SETTLE_STEP_MS
+        wait_until(page, lambda: control.count() > 0,
+                   f'open step {step["row"]}: no control {trig["role"]} '
+                   f'"{trig["name"]}" on the page')
         try:
             if trig["role"] in INPUT_ROLES:
                 typed = fill(str(step.get("value") or ""), values)
