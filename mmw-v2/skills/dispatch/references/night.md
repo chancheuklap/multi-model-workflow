@@ -12,7 +12,7 @@ Run, in this checkout, on the branch the night merges into:
 <dispatch> check <spec>
 ```
 
-**Exit 0:** go to step 2. **Exit 2:** stderr is one line per failure (`install.sh --check`, a provider whose `status` is not `available`, a queued ticket with two worker-grade labels or a label `models.md` has no row for). Fix what the lines name, or tell the user if only they can, then run `check` again. Do not `advance` on 2.
+**Exit 0:** create a heartbeat (`create_heartbeat`; CLI `paseo heartbeat create --cron '*/10 * * * *'`) with the fixed prompt `run status <spec>, act per step 3`. It only wakes; it never judges. A fire while you are busy is reported failed and simply fires next time. Then go to step 2. **Exit 2:** stderr is one line per failure (`install.sh --check`, a provider whose `status` is not `available`, a queued ticket with two worker-grade labels or a label `models.md` has no row for). Fix what the lines name, or tell the user if only they can, then run `check` again. Do not `advance` on 2.
 
 ## 2. First `advance`
 
@@ -46,9 +46,7 @@ The notification's first sentence is `Agent <id> (<title>) finished.` or `errore
 | The worker is live and nothing is wrong | Do not `resume`. Wait for the next notification |
 | `status` shows an empty frontier and no live agent of this spec | Go to step 4 |
 
-Then wait for the next notification. Most notifications that close a ticket are followed by another `advance`.
-
-You may create a heartbeat that prompts you to run `status` if you have been idle too long. There is no required interval and no required text; a heartbeat that fires while you already have a turn in flight is reported as a failure by Paseo, not queued.
+Then wait for the next notification. Most notifications that close a ticket are followed by another `advance`. The heartbeat from step 1 only wakes; it does not judge.
 
 ## 4. The night is over
 
@@ -62,5 +60,7 @@ The frontier is empty and `status` shows no live agent. Then, still on this bran
 `reverify` re-runs every closed `ALL MET` ticket's criteria against this `HEAD`. Exit 0: all green. Exit 1: each red ticket is already reopened, labelled `needs-triage`, unassigned, and commented with the failing `AC<n>` — that is the morning's triage queue; do not close those tickets.
 
 `summary` posts a comment on the spec whose first line is `NIGHT SUMMARY <date>`, with the four lines `Closed:`, `Handed back to needs-triage:`, `Not dispatched, a blocker stayed open:`, `Sub-issues opened tonight:`. If `reverify` ran in this checkout, a `Reverify: <green>/<red>` line is appended.
+
+Delete the heartbeat from step 1 (`paseo heartbeat delete <id>`).
 
 Tell the user the night finished, and point them at that comment.

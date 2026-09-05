@@ -14,7 +14,7 @@
 | `state the seam` 与 `/tdd` 之间的 writing rules 段 | 我们加的：一串动作——`## Read first` 里每条 baseline 是 contract（`the baseline is the contract`），值、文案、状态与接口形状从 baseline 抄而不是凭记忆重写，`the contract does not fit`（缺状态、字段、交互或用例，或两条 baseline 矛盾）就对本票跑 `<engine> <n> --sub-issue baseline <file>`，不默默改 baseline、不默默绕过；过不了的检查用改代码或 abandon 那条 acceptance criterion 来答，不弯 baseline、不弯 the harness、不弯测试——这一款给的是正面动作接一句底线，而不是并排的第三个 never，且它指向的 abandon 就是同一份文件 closing steps 第 1 步的 `ABANDON: AC<n> failed`；改函数前 grep 每个调用方、修共用处，加分支或 guard 前先点名并删掉它让其多余的分支或文件；写 helper 前先在仓库与 `## Read first` 找现成；加文件、依赖、配置前说出已有的为何不够；安全、防数据丢失、无障碍与票里明确要的（`## What to build`、每条 acceptance criterion、baseline、`## Seam` 的接口）不许简化；收尾写 `skipped: [X], add when [Y]`；`Owns two grades`——为过 acceptance criterion 不得不改的 `## Owns` 外文件照改、由 closing comment 的 `Outside Owns:` 记录，顺手想改的不改、对本票跑 `--sub-issue outside-owns`。同段还有 `Put no question on the screen`，见下方同名一节。措辞全部是动作 + 票字段，不写原则散文——散文措辞在对照实验里无效。上游加了写码期间的纪律段 → 收上游措辞，这些条并进去 |
 | 读 `## Read first` 那一段末尾加「目标树」一段（照 `targets/<page>.aria` 与 `.classes` 写，再跑判据；`--render-only` 看设计侧）；writing rules 里「一条代码路径」改成目标无关的表述（任何请求路径不得按数据源在不在、按查询参数、按构建开关选投影），并加「每个表面组件的根带 `data-screen="<mount>"`，谁建谁带」一条 | 我们改的，来自 mmw #115。原句是 Electron/SPA 形状的特例；老板控制台的服务端在 `hasattr(db_pool)` 分支下渲染预览投影，同一条纪律要能抓住它，而且在服务端渲染目标上它是让 `observe` 有意义的前提。目标树前置一次，判据从「审判」变成「规格」。上游改这两处 → 收上游措辞，这两条保留 |
 | `Run typechecking regularly` 之后、「Once done」之前的测试范围段 | 我们加的：验证手段随意、scratch 脚本不必保留；只在票要求或仓库本来就为这类改动留测试时提交测试，规模比照相邻测试文件（每条声明的行为约一个测试），不把临时检查变成永久测试文件；这段只管多出来的东西，票要的每个行为仍要完整实现。来源是 Anthropic 的 `Prompting Claude Fable 5.1` 指南 `Keep changes and tests to what the task asks for` 一节：`Owns two grades` 管改动范围，这段补上测试文件数量。上游若加了同类约束 → 收上游措辞 |
-| 「Once done」之后的 closing steps | 我们改的：八步。`self-run`（`<engine> <n>`，写完码那一条 run；一条 acceptance criterion 试几轮由 worker 自己判断，closeout 不数轮次，`ABANDON: AC<n> failed` 那一行写清每轮试了什么）→ `<dispatch> start <n> verifier --json`（或 `--run`），读首行 `VERDICT`，把打印出的 `initialPrompt` 原样传（`verify #<n> 按 <path> 行事`），只 start 一次；start 退出 2 是流水线故障，`<engine> <n> --sub-issue pipeline <file>` 然后停 → `<engine> <n> --decisions <file>` 留一条 `DECISIONS`（一张票只留一条，review 后的修一轮不再发）→ `<dispatch> start <n> reviewer --json`（或 `--run`），读首行 `REVIEW `；start 退出 2 或通知 `errored` / `was closed` 且没有 `REVIEW `：`paseo logs <id>`，再在本 host 的 general-purpose subagent 里跑 `code-review`；in-ticket finding 修一轮并重跑第 1 步，out-of-ticket 的 `<engine> <n> --sub-issue review <file>`，不复审 → `Audit`（重读票与 `## Read first`，每条 acceptance criterion 追到 `EVIDENCE:`，重数 `Counts:`）→ `<engine> <n> --touched` → 只等人一句话的 criterion 写 `ABANDON: AC<n> decision` 并 `<engine> <n> --sub-issue decision <file>`，再 `<engine> <n> --draft <out-file>` 填两个 `<fill>`；`Sub-issues opened:` 是本票的 sub-issue → `<engine> <n> --closeout <draft>`，不 archive 任何 agent（archiving 是 merge 之后的 `advance`，workspace 一起）。`--json` / `--run` 的走法只在 `dispatch/SKILL.md` 的 `## Two paths`，第 2、4 步只写命令和要读的首行。三个 `ABANDON` kind：`failed` 与 `stuck` 都不看轮次、都把票交回；`decision` 开 sub-issue 不挡 `ALL MET`。理由：关票是一道门不是一个动作；idle sessions 不花钱，所以没有关 pane 那一步；pull request 整步退场，见下方 `No pull request, and no push`。轮次既不设上限也不设下限。「第三轮就放弃」把还能修好的 criterion 变成 `HANDOFF REQUIRED`；「至少三轮」只让第一轮就确认修不了的 worker 再全量跑两轮。`Branch: … Commit: … PR: …` 三个值写一行、没有 pull request 时把理由接在 `PR: none` 后面。上游改收尾 → 收上游措辞，八步顺序、四个子命令、`start <n> verifier` 与 `start <n> reviewer`、`--sub-issue pipeline`、`failed` 与 `stuck` 都不看轮次、`--closeout`、`No pull request, and no push` 必须保留 |
+| 「Once done」之后的 closing steps | 我们改的：八步。`self-run`（`<engine> <n>`，写完码那一条 run；一条 acceptance criterion 试几轮由 worker 自己判断，closeout 不数轮次，`ABANDON: AC<n> failed` 那一行写清每轮试了什么）→ `<dispatch> start <n> verifier --json`（或 `--run`），`create_agent` 之后在 shell 里 `paseo wait <id>` 再读首行 `VERDICT`，把打印出的 `initialPrompt` 原样传（`verify #<n> 按 <path> 行事`），只 start 一次；start 退出 2 是流水线故障，`<engine> <n> --sub-issue pipeline <file>` 然后停 → `<engine> <n> --decisions <file>` 留一条 `DECISIONS`（一张票只留一条，review 后的修一轮不再发）→ `<dispatch> start <n> reviewer --json`（或 `--run`），`create_agent` 之后在 shell 里 `paseo wait <id>` 再读首行 `REVIEW `；start 退出 2 或通知 `errored` / `was closed` 且没有 `REVIEW `：`paseo logs <id>`，再在本 host 的 general-purpose subagent 里跑 `code-review`；in-ticket finding 修一轮并重跑第 1 步，out-of-ticket 的 `<engine> <n> --sub-issue review <file>`，不复审 → `Audit`（重读票与 `## Read first`，每条 acceptance criterion 追到 `EVIDENCE:`，重数 `Counts:`）→ `<engine> <n> --touched` → 只等人一句话的 criterion 写 `ABANDON: AC<n> decision` 并 `<engine> <n> --sub-issue decision <file>`，再 `<engine> <n> --draft <out-file>` 填两个 `<fill>`；`Sub-issues opened:` 是本票的 sub-issue → `<engine> <n> --closeout <draft>`，不 archive 任何 agent（archiving 是 merge 之后的 `advance`，workspace 一起）。`--json` / `--run` 的走法只在 `dispatch/SKILL.md` 的 `## Two paths`，第 2、4 步只写命令和要读的首行。三个 `ABANDON` kind：`failed` 与 `stuck` 都不看轮次、都把票交回；`decision` 开 sub-issue 不挡 `ALL MET`。理由：关票是一道门不是一个动作；idle sessions 不花钱，所以没有关 pane 那一步；pull request 整步退场，见下方 `No pull request, and no push`。轮次既不设上限也不设下限。「第三轮就放弃」把还能修好的 criterion 变成 `HANDOFF REQUIRED`；「至少三轮」只让第一轮就确认修不了的 worker 再全量跑两轮。`Branch: … Commit: … PR: …` 三个值写一行、没有 pull request 时把理由接在 `PR: none` 后面。上游改收尾 → 收上游措辞，八步顺序、四个子命令、`start <n> verifier` 与 `start <n> reviewer`、`--sub-issue pipeline`、`failed` 与 `stuck` 都不看轮次、`--closeout`、`No pull request, and no push` 必须保留 |
 | frontmatter 的 `disable-model-invocation` 与 `agents/openai.yaml` 的 `policy.allow_implicit_invocation` | 我们删的：上游两处都设了只许人触发，我们要模型自己就能调用 implement，所以两处一起删。上游若再带回来 → 仍然删 |
 
 ## Reaching the two scripts
@@ -85,7 +85,7 @@ so there is no pane-close step, and `--closeout` archives nothing — `advance` 
 the workspace (and its agents) after the merge. Upstream (mattpocock) has none of these
 steps. Upstream rewrites the closing steps → take its wording; keep the eight-step
 order, the four subcommands, `start <n> verifier` and `start <n> reviewer` with both
-`--json` and `--run`, `--sub-issue pipeline` on a pipeline fault, closeout not
+`--json` and `--run`, `paseo wait <id>` after `create_agent`, `--sub-issue pipeline` on a pipeline fault, closeout not
 archiving, and no pane-close step.
 
 ## Writing rules open sub-issues through `--sub-issue`
@@ -106,9 +106,19 @@ One sentence sits between closing steps 2 and 4: a `<paseo-system>` block whose 
 
 ## `--json` / `--run` walk lives once
 
-Closing steps 2 and 4 name the `start` command and the first line to read (`VERDICT`,
-`REVIEW `). The `--json` / `--run` walk is `dispatch/SKILL.md` `## Two paths`, not
-restated on each step. Upstream writes the walk onto both steps → collapse it again.
+Closing steps 2 and 4 name the `start` command, `paseo wait <id>`, and the first line
+to read (`VERDICT`, `REVIEW `). The `--json` / `--run` walk is `dispatch/SKILL.md`
+`## Two paths`, not restated on each step. Upstream writes the walk onto both steps →
+collapse it again.
+
+## Block on `paseo wait <id>`
+
+After `create_agent` (or `--run`'s printed id), the worker blocks in this shell with
+`paseo wait <id>` until the child finishes, then reads the ticket. Ending a turn to
+wait for a notification spends the main agent's only finish notification for this
+worker. A notification that arrives anyway is an extra turn; read the ticket.
+Upstream writes "wait for the finish notification" as the wait → put `paseo wait <id>`
+back on steps 2 and 4.
 
 ## This ticket's sub-issues
 
