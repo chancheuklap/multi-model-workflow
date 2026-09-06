@@ -60,7 +60,7 @@ def check(text, comments=(VERDICT_COMMENT,),
           verdict_reachable=True, head=HEAD, dirty=(), main_merged=True, diff="src/app.py",
           state="OPEN", assignees=(ME,), check_only=True, repo=None):
     """Run --closeout against a made-up ticket; return (exit code, stderr, side effects)."""
-    seen = {"posted": [], "closed": [], "handed": []}
+    seen = {"posted": [], "closed": [], "handed": [], "told": []}
 
     def fake_git(*args, cwd=None):
         if args[:2] == ("rev-parse", "HEAD"):
@@ -93,7 +93,9 @@ def check(text, comments=(VERDICT_COMMENT,),
              mock.patch.object(vt, "close_ticket",
                                side_effect=lambda n: seen["closed"].append(n)), \
              mock.patch.object(vt, "hand_back_for_triage",
-                               side_effect=lambda n: seen["handed"].append(n)):
+                               side_effect=lambda n: seen["handed"].append(n)), \
+             mock.patch.object(vt, "notify_parent",
+                               side_effect=lambda t: seen["told"].append(t)):
             with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
                 code = vt.run_closeout(77, path, check_only)
     return code, err.getvalue(), seen
@@ -524,12 +526,12 @@ class TestNoSideEffectOnFail(unittest.TestCase):
         text = draft(criteria=(MET,), counts=counts_line(met=9, total=9))
         code, _, seen = check(text, check_only=False)
         self.assertEqual(code, 1)
-        self.assertEqual(seen, {"posted": [], "closed": [], "handed": []})
+        self.assertEqual(seen, {"posted": [], "closed": [], "handed": [], "told": []})
 
     def test_check_only_passes_without_touching_the_ticket(self):
         code, err, seen = check(draft(counts=counts_line()), check_only=True)
         self.assertEqual(code, 0, err)
-        self.assertEqual(seen, {"posted": [], "closed": [], "handed": []})
+        self.assertEqual(seen, {"posted": [], "closed": [], "handed": [], "told": []})
 
     def test_all_met_posts_the_draft_and_closes(self):
         text = draft(counts=counts_line())
@@ -538,6 +540,7 @@ class TestNoSideEffectOnFail(unittest.TestCase):
         self.assertEqual(seen["posted"], [(77, text)])
         self.assertEqual(seen["closed"], [77])
         self.assertEqual(seen["handed"], [])
+        self.assertEqual(seen["told"], ["#77 ALL MET"])
 
     def test_handoff_posts_the_draft_and_swaps_the_label(self):
         text = draft(first="HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 1 met of 2",
@@ -549,6 +552,7 @@ class TestNoSideEffectOnFail(unittest.TestCase):
         self.assertEqual(seen["posted"], [(77, text)])
         self.assertEqual(seen["closed"], [])
         self.assertEqual(seen["handed"], [77])
+        self.assertEqual(seen["told"], ["#77 HANDOFF REQUIRED"])
 
     def test_a_ticket_someone_else_holds_is_refused(self):
         code, err, seen = check(draft(counts=counts_line()), assignees=("someone-else",),

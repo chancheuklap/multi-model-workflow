@@ -37,6 +37,8 @@ Every run that executes a `CHECK:` — `<n>`, `--reverify` — and `--lint` take
 
 Exit code: `0` every criterion met, `1` something unmet or abandoned, `2` the ticket could not be read or the run could not start. `--preflight`, `--decisions`, `--touched` and `--sub-issue` use `2` for a refusal; `--closeout` uses `1`.
 
+Four of these runs leave the ticket at rest with nothing more for its worker to do — `--closeout` either way, a `--preflight` that refuses, and `--sub-issue pipeline` — and each one sends the session that started this worker a message whose first line is `#<n>` plus that result. That message is how the main agent learns the ticket landed, so the run that posts the comment is the run that reports it, and a worker cannot do the first and forget the second. Outside a Paseo session nothing is sent.
+
 A `CHECK:` may run ten minutes. A criterion that needs longer says so on the ticket, on a `TIMEOUT: <seconds>` line under its `EVIDENCE:`; every run reads those lines off the ticket body, so the worker's own run and the verifier's `--reverify` are held to the same number. `--timeout <seconds>` raises it for one run. Neither lowers it.
 
 ## What `verify-ticket.py` decides

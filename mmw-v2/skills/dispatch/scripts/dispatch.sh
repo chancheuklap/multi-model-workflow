@@ -496,11 +496,18 @@ settings = mod.create_agent_settings(host, os.environ["MMW_PERM"])
 effort = os.environ["MMW_EFFORT"]
 if effort and effort not in ("—", "-", ""):
     settings["thinkingOptionId"] = effort
+# Paseo gives one terminal notification per created agent, spent the first time that
+# agent ends a turn. A verifier and a reviewer end one turn each, on the work being
+# done, so the notification lands where it means something and the worker sleeps on
+# it. A worker ends several — one for every agent it starts — so its first would
+# report a middle state and the main agent would never hear the ticket land. It is
+# told by `verify-ticket.py` instead, when the ticket comes to rest.
 payload = {
     "workspaceId": os.environ["MMW_WORKSPACE"],
     "title": os.environ["MMW_TITLE"],
     "provider": host + "/" + os.environ["MMW_MODEL"],
     "settings": settings,
+    "notifyOnFinish": os.environ["MMW_KIND"] != "worker",
     "labels": {
         "mmw.ticket": os.environ["MMW_TICKET"],
         "mmw.kind": os.environ["MMW_KIND"],
@@ -672,11 +679,19 @@ wait_no_result() {
   exit 1
 }
 
-# Block until the agent labelled mmw.ticket=<n> mmw.kind=<kind> is idle, then print
-# the first line of its result comment. A result already on the ticket is printed
-# without waiting. Writes nothing: no ticket comment, no agent command other than
-# `paseo wait`. MMW_WAIT_S (default 90) is the bound of each call; a host that
-# cancels a long command is survived by running wait again.
+# Print the first line of the result comment left by the agent labelled
+# mmw.ticket=<n> mmw.kind=<kind>. The ticket is read first, so an agent that has
+# already written its result returns at once — which is the whole of it on the
+# ordinary path, since what wakes a caller is that agent finishing.
+#
+# When the comment is not there yet it blocks on `paseo wait` for MMW_WAIT_S seconds
+# (default 90) and exits 3, and running it again is how a host that stops waiting on
+# a long command is survived. No host kills such a command: all of them move it to
+# the background and hand back no exit code, and the bound has to stay under the
+# shortest of those — 30 seconds on Cursor, 120 on Grok Build and Claude Code
+# (measured 2026-09-06). Set MMW_WAIT_S below the host's own bound when it is
+# shorter than this default. Writes nothing: no ticket comment, no agent command
+# other than `paseo wait`.
 wait_one() {
   local number="$1" kind="$2"
   case "$kind" in
@@ -799,6 +814,11 @@ delete_heartbeat() {
 # (PASEO_AGENT_ID) and write its id to the heartbeat file. A file that already
 # names a heartbeat is left alone. Outside a Paseo session, one stderr line and
 # exit 0 — there is no current agent to attach a heartbeat to.
+#
+# Hourly, because nothing in a working night needs it: every agent this pipeline
+# starts says so when it is done — a verifier and a reviewer through Paseo's own
+# notification, a worker through `verify-ticket.py`. What is left for a clock is a
+# session that stopped without either, and an hour is soon enough for that.
 ensure_night_heartbeat() {
   local spec="$1" root hb existing prompt json ident dir
   if [ -z "${PASEO_AGENT_ID:-}" ]; then
@@ -822,7 +842,7 @@ ensure_night_heartbeat() {
     prompt="$prompt --tools $dir"
   done
   prompt="$prompt status $spec (from $root), then act per night.md step 3."
-  if ! json="$(paseo heartbeat create --cron '*/10 * * * *' --name "mmw-night-$spec" --json "$prompt")"; then
+  if ! json="$(paseo heartbeat create --cron '7 * * * *' --name "mmw-night-$spec" --json "$prompt")"; then
     echo "dispatch: could not create heartbeat mmw-night-$spec" >&2
     exit 2
   fi

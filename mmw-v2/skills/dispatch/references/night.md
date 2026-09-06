@@ -2,7 +2,9 @@
 
 You are the main agent. A spec's tickets will be worked while you are not watching each one. The scripts merge, archive, create workspaces, and print the arguments for `create_agent`. Every decision is yours: whether a worker continues, whether a failure is yours to fix, whether a question becomes a sub-issue, whether to `advance` again.
 
-This file is the order of the night. The commands, their exit codes, and the shape of a finish notification are in `SKILL.md` next to this file. Resolve `<dispatch>` the same way that file does, and add its two `--tools` flags to every command here.
+This file is the order of the night. The commands, their exit codes, and the two shapes that wake you are in `SKILL.md` next to this file. Resolve `<dispatch>` the same way that file does, and add its two `--tools` flags to every command here.
+
+You sleep between the steps below. Every agent this pipeline starts says when it is done — a reviewer and a verifier wake the worker that started them, a worker wakes you — so there is nothing to poll and no reason to hold a turn open.
 
 ## 1. The user says the night starts
 
@@ -12,7 +14,7 @@ Run, in this checkout, on the branch the night merges into:
 <dispatch> check <spec>
 ```
 
-**Exit 0:** the machine is ready, and `check` has created the night's heartbeat — `mmw-night-<spec>`, every ten minutes, prompt `run status <spec>, act per step 3`, id in `.git/mmw-heartbeat-<spec>`; `summary` and `suspend` delete it by that id. It only wakes; it never judges. A fire while you are busy is reported failed and simply fires next time. Then go to step 2. **Exit 2:** stderr is one line per failure (`install.sh --check`, a provider whose `status` is not `available`, a queued ticket with two worker-grade labels or a label `models.md` has no row for). Fix what the lines name, or tell the user if only they can, then run `check` again. Do not `advance` on 2.
+**Exit 0:** the machine is ready, and `check` has created the night's heartbeat — `mmw-night-<spec>`, hourly, prompt `run status <spec>, act per step 3`, id in `.git/mmw-heartbeat-<spec>`; `summary` and `suspend` delete it by that id. It only wakes; it never judges. A fire while you are busy is reported failed and simply fires next time. A working night never needs it: what it covers is a session that stopped without saying so. Then go to step 2. **Exit 2:** stderr is one line per failure (`install.sh --check`, a provider whose `status` is not `available`, a queued ticket with two worker-grade labels or a label `models.md` has no row for). Fix what the lines name, or tell the user if only they can, then run `check` again. Do not `advance` on 2.
 
 ## 2. First `advance`
 
@@ -22,7 +24,7 @@ Stay on this branch all night. Every `advance` merges into whatever `HEAD` is on
 <dispatch> advance <spec>
 ```
 
-**Exit 0:** stdout is zero or more JSON lines, one per ticket on the frontier. For each line, call `create_agent` with that object and `notifyOnFinish: true`. Then wait. **Exit 2:** nothing was touched; read stderr; if it is uncommitted changes, commit or set them aside and run `advance` again; if it is the `.git` lock, run `advance` again. **Exit 3:** a merge is in conflict, still in the tree. Resolve it with the `resolving-merge-conflicts` skill — never `--abort` — run this repository's own checks, commit the merge, then `advance` again.
+**Exit 0:** stdout is zero or more JSON lines, one per ticket on the frontier. For each line, call `create_agent` with that object as printed. Then end your turn. **Exit 2:** nothing was touched; read stderr; if it is uncommitted changes, commit or set them aside and run `advance` again; if it is the `.git` lock, run `advance` again. **Exit 3:** a merge is in conflict, still in the tree. Resolve it with the `resolving-merge-conflicts` skill — never `--abort` — run this repository's own checks, commit the merge, then `advance` again.
 
 What `advance` does inside that one command — merge, archive, give claims back, then dispatch — is the next section.
 
@@ -46,26 +48,28 @@ When nothing can start and the batch still holds open tickets in the agent queue
 
 A product that cannot move its ports says so in `.mmw/target.json` as `"instance": {"max": <n>}`. `advance` then starts at most `max` minus the leases already counted under this checkout's workspaces, and holds the rest on the frontier for the next advance. Held is not a refusal and not a claim: the ticket keeps its label, stderr says how many and why.
 
-## 3. Each finish notification
+## 3. Each time something wakes you
 
-The notification's first sentence is `Agent <id> (<title>) finished.` or `errored.` or `was closed.` or `needs permission.` Title is `#<n> worker`, `#<n> reviewer` or `#<n> verifier`. One `create_agent` yields one terminal notification; a notification is not the ticket being done.
+Two things wake you, and both end here: a **ticket message** whose first line is `#<n> ALL MET`, `#<n> HANDOFF REQUIRED`, `#<n> NOT_READY` or `#<n> SUB-ISSUE pipeline`, sent by `verify-ticket.py` the moment that ticket came to rest; or a **heartbeat fire**, which says nothing at all. No finish notification reaches you: the only agent you start is the worker, and it is started with `notifyOnFinish: false` so that its middle states — asleep on a verifier, asleep on a reviewer — do not reach you as news.
 
-1. If it is `needs permission`: `list_pending_permissions` then `respond_to_permission` (CLI: `paseo permit`). Then go to 2. This is not a stop.
+1. Were you running a command when it arrived? A ticket message interrupts, and the command reports being interrupted rather than finishing. Run that command again before anything else — `advance` in particular is written to be run again at any time, and picks up whatever the interrupted run left behind.
 2. Run `<dispatch> status <spec>`. The table's `note` column is `needs permission`, `ready`, `waiting on #<m>`, `closed: archive it` (Paseo still lists the agent but it is not running), the newest comment, or empty while a worker is live.
-3. Decide, using the table and the notification. A heartbeat fire is the same step with no notification: run `status`, take the matching row.
+3. Any row noting `needs permission`: `list_pending_permissions` then `respond_to_permission` (CLI: `paseo permit`). This is not a stop, and the table is the only place it shows — a worker started with `notifyOnFinish: false` does not announce it, so the heartbeat is what brings this row to your eye when nothing else does.
+4. Take every row the table matches, not only the ticket you were woken about. What woke you says one thing happened; the table says what is true, and two tickets landing seconds apart wake you once.
 
 | What you see | What you do |
 | --- | --- |
 | A ticket just closed `ALL MET`, or the frontier has `ready` rows and no live worker on them | `<dispatch> advance <spec>`, then `create_agent` on each new line |
 | The worker is live and the work should continue | `<dispatch> resume <n> "<what you settled, then: continue>"` |
 | The worker has stopped and the ticket has a new child whose first line is `SUB-ISSUE pipeline` | Read that sub-issue (`gh api repos/{owner}/{repo}/issues/<n>/sub_issues`). Fix the cause it names. Then `<dispatch> resume <n> "… continue"` |
-| The notification is `finished`, `status` shows the ticket still `OPEN`, and `paseo ls --label mmw.ticket=<n>` shows a live child labelled `mmw.kind=reviewer` or `mmw.kind=verifier` | Not a stop: the worker is blocking in `wait` for that child and will carry on when it returns. Its one finish notification is spent; the heartbeat from step 1 runs `status` again within ten minutes. Do nothing. No live child and no closing comment: take the next matching row |
-| The worker `was closed`, or `errored` and `paseo logs <id>` shows only the prompt with no output (an agent created before the daemon restarted answers this way) | `paseo archive <id>`, then `<dispatch> advance <spec>`: with no agent on the ticket and its claim given back, the ticket is on the frontier again and `start` reuses its standing workspace and branch |
-| The worker `errored` short of a closing comment and `paseo logs <id>` shows what stopped it | Fix that — a file it could not find, a command it needs, a baseline it read wrong — then `resume` with that plus `continue`. A question only a person can settle: `resume` telling the worker to open it with `verify-ticket.py <n> --sub-issue decision <file>`, take the default meanwhile, and record it under `Decisions I made on my own`. Change no label |
-| The worker is live and nothing is wrong | Do not `resume`. Wait for the next notification |
+| `status` shows the ticket still `OPEN`, and `paseo ls --label mmw.ticket=<n>` shows a live child labelled `mmw.kind=reviewer` or `mmw.kind=verifier` | Not a stop: the worker is asleep on that child and wakes when it finishes. Do nothing |
+| The message reads `#<n> NOT_READY` | The ticket refused to be claimed and `--preflight` said why in a comment on it. Fix what that comment names, then `<dispatch> advance <spec>` |
+| `status` notes `closed: archive it`, or `paseo logs <id>` shows only the prompt with no output (an agent created before the daemon restarted answers this way) | `paseo archive <id>`, then `<dispatch> advance <spec>`: with no agent on the ticket and its claim given back, the ticket is on the frontier again and `start` reuses its standing workspace and branch |
+| The ticket has no closing comment, the worker is not running, and `paseo logs <id>` shows what stopped it | Fix that — a file it could not find, a command it needs, a baseline it read wrong — then `resume` with that plus `continue`. A question only a person can settle: `resume` telling the worker to open it with `verify-ticket.py <n> --sub-issue decision <file>`, take the default meanwhile, and record it under `Decisions I made on my own`. Change no label |
+| The worker is live and nothing is wrong | Do not `resume`. End your turn |
 | `status` shows an empty frontier and no live agent of this spec | Go to step 4 |
 
-Then wait for the next notification. Most notifications that close a ticket are followed by another `advance`. The heartbeat from step 1 only wakes; it does not judge.
+Then end your turn. Most tickets that land are followed by another `advance`. The heartbeat from step 1 only wakes; it does not judge.
 
 ## 4. The night is over
 

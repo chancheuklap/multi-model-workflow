@@ -1,6 +1,6 @@
 ---
 name: dispatch
-description: Put another agent to work on a ticket, and move a night's batch of tickets forward. Use to start a worker, reviewer or verifier, to resume a worker, to check the machine before a night, to advance a spec, to suspend a night, to read status after a finish notification, to reverify closed tickets, to post the night summary, or to change which host, model or thinking level an agent in this pipeline runs on.
+description: Put another agent to work on a ticket, and move a night's batch of tickets forward. Use to start a worker, reviewer or verifier, to resume a worker, to check the machine before a night, to advance a spec, to suspend a night, to read status after being woken by an agent you started, to reverify closed tickets, to post the night summary, or to change which host, model or thinking level an agent in this pipeline runs on.
 ---
 
 # Dispatch
@@ -28,21 +28,21 @@ Resolve both `scripts/` directories from those skills' own `SKILL.md`. Every com
 
 ## One path: create_agent
 
-`start` and `advance` print one JSON object per ticket, one line, whose fields are the arguments of `create_agent` (`workspaceId`, `title`, `provider`, `settings`, `labels`, `initialPrompt`). You call `create_agent` on each line yourself, with `notifyOnFinish: true`. The script prints the object; the finish notification only fires for a `create_agent` that you issued. A session with no `create_agent` tool cannot dispatch: say so and stop.
+`start` and `advance` print one JSON object per ticket, one line, whose fields are the arguments of `create_agent` (`workspaceId`, `title`, `provider`, `settings`, `notifyOnFinish`, `labels`, `initialPrompt`). Call `create_agent` on each line yourself with the object as it is printed — every field is already decided, `notifyOnFinish` included. A session with no `create_agent` tool cannot dispatch: say so and stop.
 
 Only this path exists: everything one agent does to another — finish notifications, parent–child (`paseo.parent-agent-id`, archive cascade and the app tree), permission hand-off, readable labels — is complete only on the MCP side; the CLI is the side scripts read facts on and people use; future agent features land on the MCP side too.
 
-Then: the main agent waits for the finish notification. A worker runs `<dispatch> wait <n> verifier|reviewer` until it exits 0 — ending a turn spends the main agent's only finish notification for this worker.
+Then end your turn. What wakes you is the agent you just started coming to rest, and until then there is nothing to do: a verifier and a reviewer wake the worker through Paseo's own notification, and a worker wakes the main agent through `verify-ticket.py`, which sends a message the moment the ticket lands. Never sit in a loop asking another Paseo session whether it is done yet.
 
 ## Find your command
 
 | You want to | Run |
 | --- | --- |
-| Start the reviewer on your ticket and wait for its report | `<dispatch> start <n> reviewer`, then the one path above, then `<dispatch> wait <n> reviewer` until it exits 0; it prints the first line of the `REVIEW ` comment. **Start exits 2:** stderr is the reason; nothing was started — it is a pipeline fault: `<engine> <n> --sub-issue pipeline <file>`; the file's body is the command you ran and the output you saw; then stop. **`wait` exits 1 (the reviewer stopped and there is no `REVIEW ` comment):** `paseo logs <id>`, then run the `code-review` skill in this host's general-purpose subagent with ticket `<n>` and base commit `$(git config branch.issue-<n>.mmw-base)`; its report lands with the same `REVIEW ` first line. Do not start a second reviewer. |
-| Start the verifier on your ticket | `<dispatch> start <n> verifier`, then the one path above, then `<dispatch> wait <n> verifier` until it exits 0; it prints the first line of the `VERDICT` comment. Start it once. **Start exits 2:** stderr is the reason; nothing was started — it is a pipeline fault: `<engine> <n> --sub-issue pipeline <file>`; the file's body is the command you ran and the output you saw; then stop. |
+| Start the reviewer on your ticket | `<dispatch> start <n> reviewer`, then the one path above, then end your turn. The reviewer finishing wakes you; then read the ticket for the comment whose first line is `REVIEW `. **Start exits 2:** stderr is the reason; nothing was started — it is a pipeline fault: `<engine> <n> --sub-issue pipeline <file>`; the file's body is the command you ran and the output you saw; then stop. **`wait` exits 1 (the reviewer stopped and there is no `REVIEW ` comment):** `paseo logs <id>`, then run the `code-review` skill in this host's general-purpose subagent with ticket `<n>` and base commit `$(git config branch.issue-<n>.mmw-base)`; its report lands with the same `REVIEW ` first line. Do not start a second reviewer. |
+| Start the verifier on your ticket | `<dispatch> start <n> verifier`, then the one path above, then end your turn. The verifier finishing wakes you; then read the ticket for the comment whose first line is `VERDICT`. Start it once. **Start exits 2:** stderr is the reason; nothing was started — it is a pipeline fault: `<engine> <n> --sub-issue pipeline <file>`; the file's body is the command you ran and the output you saw; then stop. |
 | Open the night on a spec | [references/night.md](references/night.md): `<dispatch> check <spec>` (it also creates the night's heartbeat), then `<dispatch> advance <spec>`, then the one path above |
-| Wait for an agent you started, and read its result | `<dispatch> wait <n> worker\|reviewer\|verifier`: blocks until that agent is idle, then prints the first line of its result comment (`ALL MET` / `HANDOFF REQUIRED`, `REVIEW …`, `VERDICT …`). Exit 3: still working, run it again. Exit 1: it stopped without a result; stderr names the next step. Exit 2: no such agent |
-| A finish notification arrived (`finished` / `errored` / `was closed` / `needs permission`) | `<dispatch> status <spec>`, then the decision table in [references/night.md](references/night.md) |
+| You were woken for an agent you started and its result is not on the ticket | `<dispatch> wait <n> worker\|reviewer\|verifier`: prints the first line of its result comment (`ALL MET` / `HANDOFF REQUIRED`, `REVIEW …`, `VERDICT …`), reading the ticket before it waits at all. Exit 3: still working, run it again. Exit 1: it stopped without a result; stderr names the next step. Exit 2: no such agent |
+| Something woke you — a finish notification, or a message whose first line is `#<n> …` | `<dispatch> status <spec>`, then the decision table in [references/night.md](references/night.md) |
 | Tell a live worker to continue | `<dispatch> resume <n> "<text>"`. Exit 0: the text was sent. Exit 2: no worker labelled `mmw.ticket=<n>` — read `status`, do not send again |
 | Start a worker on one ticket, outside a night | `<dispatch> start <n> worker`, then the one path above |
 | Re-run every closed `ALL MET` ticket on the branch you are on | `<dispatch> reverify <spec>` |
@@ -53,9 +53,15 @@ Then: the main agent waits for the finish notification. A worker runs `<dispatch
 
 The night itself — `check`, then `advance`, then what to do on each notification until the frontier is empty — is [references/night.md](references/night.md).
 
-## Finish notification
+## What wakes you
 
-A notification is a `<paseo-system>` block whose first sentence is `Agent <id> (<title>) finished.` or `errored.` or `was closed.` or `needs permission.`, and which may carry an `<agent-response>` of the agent's last reply. It arrives in the current turn when you are busy, or as a new turn when you are idle. Match `<title>` to `#<n> worker`, `#<n> reviewer` or `#<n> verifier`. One `create_agent` yields one terminal notification; a notification is not the ticket being done. `needs permission` is not a stop: run `list_pending_permissions` / `respond_to_permission` (CLI: `paseo permit`) first, then `status`. The night's heartbeat is created in [references/night.md](references/night.md) step 1.
+Two things wake a session here, and they arrive differently.
+
+A **finish notification** is a `<paseo-system>` block whose first sentence is `Agent <id> (<title>) finished.` or `errored.` or `was closed.` or `needs permission.`, and which may carry an `<agent-response>` of the agent's last reply. It arrives in the current turn when you are busy, or as a new turn when you are idle, and it never interrupts a command you are running. Match `<title>` to `#<n> reviewer` or `#<n> verifier`. One `create_agent` yields one terminal notification, spent the first time that agent ends a turn — which is why a worker is started with `notifyOnFinish: false` and says it is done another way. `needs permission` is not a stop: run `list_pending_permissions` / `respond_to_permission` (CLI: `paseo permit`) first, then `status`. A worker never sends one, being started with `notifyOnFinish: false`, so a worker waiting on a permission shows only as the `needs permission` note in `status`.
+
+A **ticket message** is a plain message whose first line is `#<n> ALL MET`, `#<n> HANDOFF REQUIRED`, `#<n> NOT_READY` or `#<n> SUB-ISSUE pipeline`. `verify-ticket.py` sends it to the session that started the worker, at the moment the ticket comes to rest. Unlike a notification it does interrupt: a command running when it arrives is cut short and reports being interrupted, so run that command again before acting on the message. The first line says which ticket, and `status` says the rest — read it rather than trusting the line.
+
+The night's heartbeat is created in [references/night.md](references/night.md) step 1.
 
 ## The arguments you supply
 
@@ -95,7 +101,9 @@ A notification is a `<paseo-system>` block whose first sentence is `Agent <id> (
 
 **`summary <spec>`:** `0`. The spec has a new comment whose first line is `NIGHT SUMMARY <date>`, and the heartbeat named in `.git/mmw-heartbeat-<spec>` is deleted with the file. If `reverify` ran in this checkout, the comment also has a `Reverify: <green>/<red>` line. `1`: the comment is posted but the heartbeat could not be deleted; stderr names it.
 
-**`wait <n> worker\|reviewer\|verifier`:** `0` the result comment is on the ticket and its first line is on stdout; `1` the agent is idle or closed and no result comment exists — stderr names the next step; `2` no agent labelled `mmw.ticket=<n>` of that kind; `3` still working after `MMW_WAIT_S` seconds (default 90, under the shell time limit of every host) — run it again. It writes nothing.
+**`wait <n> worker\|reviewer\|verifier`:** `0` the result comment is on the ticket and its first line is on stdout; `1` the agent is idle or closed and no result comment exists — stderr names the next step; `2` no agent labelled `mmw.ticket=<n>` of that kind; `3` still working after `MMW_WAIT_S` seconds (default 90) — run it again. It reads the ticket before it waits at all, so a result already there returns at once. It writes nothing.
+
+No host kills a command that outlasts its shell tool: all of them move it to the background and hand back no exit code, which reads as neither `0` nor `3`. When that happens, run `wait` again — and if this host stops waiting sooner than 90 seconds, set `MMW_WAIT_S` below that bound.
 
 **`suspend <spec>`:**
 

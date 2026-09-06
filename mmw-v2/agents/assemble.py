@@ -59,58 +59,53 @@ def parse_model_rows() -> list[tuple[str, str, str, str, str]]:
 
 
 def read_models() -> dict[tuple[str, str], tuple[str, str]]:
-    """(agent, host) -> (model, effort)，跳过 read-only 行。
+    """(agent, host) -> (model, effort)。
 
-    read-only 是 Paseo 会话行，同名 agent 另有 — 行给原生 subagent（advisor）。
-    bypass 行不跳：reviewer 会话行的 model 与 effort 也是三轴 subagent 的。
+    bypass 行也在里面：reviewer 会话行的 model 与 effort 同时是三轴 subagent 的。
     """
-    table: dict[tuple[str, str], tuple[str, str]] = {}
-    for agent, host, model, effort, permissions in parse_model_rows():
-        if permissions == "read-only":
-            continue
-        table[(agent, host)] = (model, effort)
-    return table
+    return {(agent, host): (model, effort)
+            for agent, host, model, effort, _ in parse_model_rows()}
 
 
 def profile_rows() -> list[tuple[str, str, str, str, str]]:
-    """生成 Agent profile 的行：bypass 与 read-only。"""
-    return [row for row in parse_model_rows() if row[4] in ("bypass", "read-only")]
+    """生成 Agent profile 的行：permissions 是 bypass 的那些。"""
+    return [row for row in parse_model_rows() if row[4] == "bypass"]
 
 
 def create_agent_settings(host: str, permissions: str) -> dict:
-    """permissions 单元格写成 create_agent 的 settings：`modeId` 或 `features`。
+    """permissions 单元格写成 create_agent 的 settings。
 
-    claude / codex / 其它 三路。install 的 profile 与 dispatch 的 create_agent JSON
-    都从这里取，所以一种 host 只有一种拼法。
+    install 的 profile 与 dispatch 的 create_agent JSON 都从这里取，所以一种 host 只有
+    一种拼法。两个键管两件事，一个 host 可以两个都要：`modeId` 是 host 自己的权限档，
+    `features.auto_accept` 是自动批准 ACP 的权限提示——无人值守的夜里没人去点。
+
+    档位是 host 自己的东西，Paseo 只负责把名字传过去。有档位的 host 必须显式收到一个：
+    Paseo 不让新会话从起它的那个会话继承档位（`cannot inherit mode … Pass an explicit
+    mode`），所以缺了这个键的 host 起不来会话。grok 与 pi 没有档位，只有开关。
     """
-    if permissions == "bypass":
-        if host == "claude":
-            return {"modeId": "bypassPermissions"}
-        if host == "codex":
-            return {"modeId": "full-access"}
-        return {"features": {"auto_accept": True}}
-    if permissions == "read-only":
-        if host == "claude":
-            return {"modeId": "plan"}
-        if host == "codex":
-            # Codex 没有 read-only 模式（auto / auto-review / full-access）；auto 权限最低，仍可改文件。
-            return {"modeId": "auto"}
-        return {"features": {"auto_accept": False}}
-    raise ValueError(f"permissions 只能是 bypass 或 read-only，得到 {permissions!r}")
+    if permissions != "bypass":
+        raise ValueError(f"permissions 只能是 bypass，得到 {permissions!r}")
+    if host == "claude":
+        return {"modeId": "bypassPermissions"}
+    if host == "codex":
+        return {"modeId": "full-access"}
+    if host == "cursor":
+        return {"modeId": "agent", "features": {"auto_accept": True}}
+    return {"features": {"auto_accept": True}}
 
 
 def apply_permissions(profile: dict, host: str, permissions: str) -> dict:
     """按 host 把 permissions 单元格写成 profile 的 modeId / featureValues。
 
     一份，install 与 --check 共用。settings 的 `features` 在 profile 里叫 featureValues。
+    两个键各自写入或摘除，因为一个 host 可以两个都要。
     """
     settings = create_agent_settings(host, permissions)
-    if "features" in settings:
-        profile["featureValues"] = settings["features"]
-        profile.pop("modeId", None)
-    else:
-        profile["modeId"] = settings["modeId"]
-        profile.pop("featureValues", None)
+    for key, name in (("features", "featureValues"), ("modeId", "modeId")):
+        if key in settings:
+            profile[name] = settings[key]
+        else:
+            profile.pop(name, None)
     return profile
 
 

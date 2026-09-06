@@ -19,6 +19,11 @@ comment. Nothing is cached and no file is left behind.
 Exit code follows gate-check: 0 all met, 1 unmet or abandoned, 2 usage or
 infrastructure. `--preflight` exits 2 when it refuses; `--closeout` exits 1.
 `--decisions`, `--touched` and `--sub-issue` exit 2 when they refuse.
+
+Four of those runs leave the ticket at rest and nothing more for its worker to do:
+`--closeout` either way, a `--preflight` that refuses, and `--sub-issue pipeline`.
+Each tells the session that started this one, so the ticket landing is what wakes it
+rather than a clock. See `notify_parent`.
 """
 
 from __future__ import annotations
@@ -82,6 +87,44 @@ STATEFUL_COMMAND_RE = re.compile(
 # Grok Build hands its agents CLICOLOR_FORCE=1, and `gh` writes ANSI escapes into --json
 # output under it, which json.loads cannot read. Every gh call here runs without it.
 GH_ENV = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR_FORCE", "CLICOLOR")}
+
+
+def notify_parent(text: str) -> None:
+    """Tell the session that started this one that the ticket came to rest.
+
+    Paseo gives a session one terminal notification, spent the first time it ends a
+    turn. A worker ends several — one for every agent it starts and sleeps on — so
+    that notification is spent on a middle state and the main agent never hears the
+    ticket land. This message is what it hears instead.
+
+    The call lives here rather than in the worker's own steps so that the write and
+    the telling are one act: the comment lands, the message goes out, and no worker
+    can do the first and forget the second.
+
+    Outside a Paseo session, or with no parent, nobody is listening. A send that
+    fails says so on stderr and changes no exit code — the ticket is already where it
+    belongs, and an undelivered message does not undo that.
+    """
+    agent = os.environ.get("PASEO_AGENT_ID", "").strip()
+    if not agent:
+        return
+    try:
+        found = subprocess.run(["paseo", "inspect", agent, "--json"],
+                               capture_output=True, text=True, timeout=15, env=GH_ENV)
+        parent = json.loads(found.stdout).get("ParentAgentId") if found.returncode == 0 else None
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError, AttributeError):
+        parent = None
+    if not isinstance(parent, str) or not parent:
+        return
+    try:
+        sent = subprocess.run(["paseo", "send", "--no-wait", parent, text],
+                              capture_output=True, text=True, timeout=30, env=GH_ENV)
+    except (OSError, subprocess.SubprocessError) as exc:
+        sys.stderr.write(f"could not tell {parent}: {exc}\n")
+        return
+    if sent.returncode != 0:
+        sys.stderr.write(f"could not tell {parent}: "
+                         + (sent.stderr or sent.stdout or "paseo send failed").rstrip() + "\n")
 
 
 def fetch_body(number: int) -> str:
@@ -1306,6 +1349,10 @@ def run_sub_issue(number: int, kind: str, path: Path) -> int:
         return 2
     printed = (result.stdout or "").strip()
     found = re.search(r"/issues/(\d+)", printed)
+    # `pipeline` is the kind the worker stops on, so the ticket comes to rest here and
+    # the parent is told. Every other kind is opened mid-work and the worker carries on.
+    if kind == "pipeline":
+        notify_parent(f"#{number} SUB-ISSUE pipeline")
     print(found.group(1) if found else printed)
     return 0
 
@@ -1397,6 +1444,7 @@ def run_preflight(number: int) -> int:
     if problems:
         reason = problems[0]
         post_comment(number, reason)
+        notify_parent(f"#{number} NOT_READY")
         sys.stderr.write(reason + "\n")
         return 2
     assign_self(number)
@@ -1569,9 +1617,11 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     post_comment(number, draft)
     if first == "ALL MET":
         close_ticket(number)
+        notify_parent(f"#{number} ALL MET")
         print(f"CLOSED: #{number}")
     else:
         hand_back_for_triage(number)
+        notify_parent(f"#{number} HANDOFF REQUIRED")
         print(f"HANDED BACK: #{number} is now needs-triage and stays open")
     return 0
 

@@ -136,8 +136,11 @@ def with_command(host: str, command: str) -> dict:
 # ------------------------------------------------------------------------ cwd names the ticket
 
 class TestCwdNamesTheTicket(unittest.TestCase):
-    """`pretool` reads the working directory's basename, not an environment
-    variable."""
+    """`pretool` reads a directory basename, never a ticket number handed to it.
+
+    Two directories can name the ticket and either is enough: the process's own, and
+    the one Paseo opened the session in.
+    """
 
     def test_pretool_guards_the_ticket_named_by_cwd(self):
         event = with_command("claude", "gh issue close 12")
@@ -152,10 +155,28 @@ class TestCwdNamesTheTicket(unittest.TestCase):
             (0, None),
         )
 
+    def test_a_host_that_runs_hooks_elsewhere_is_governed_by_the_session_directory(self):
+        """Cursor runs this file from `~/.cursor` and sends an empty `cwd`, so the
+        process directory names no ticket however deep in the worktree the command is.
+        Paseo says where the session was opened, and that is what governs."""
+        code, answer = call("cursor", EVENTS["cursor"],
+                            env={"PASEO_AGENT_CWD": f"/w/issue-{TICKET}"},
+                            cwd_basename="dot-cursor")
+        self.assertEqual(code, 0)
+        self.assertEqual(answer["permission"], "deny")
+
+    def test_neither_directory_naming_a_ticket_governs_nothing(self):
+        self.assertEqual(
+            call("cursor", EVENTS["cursor"],
+                 env={"PASEO_AGENT_CWD": "/w/multi-model-workflow"},
+                 cwd_basename="dot-cursor"),
+            (0, None),
+        )
+
 
 class TestSelfScope(unittest.TestCase):
-    """A basename that is not `issue-<n>` is not a ticket worktree. `pretool`
-    looks at nothing else."""
+    """A basename that is not `issue-<n>` is not a ticket worktree. `pretool` reads the
+    two directories of `governed_ticket` and nothing else."""
 
     def test_no_marker_no_gate(self):
         self.assertEqual(

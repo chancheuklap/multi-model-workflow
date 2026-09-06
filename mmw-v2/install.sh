@@ -8,7 +8,7 @@
 #                     读 prompt/render.py 拼出的 AGENTS.md
 #   launchd 任务      盯着源文件，改了就重拼 Codex、Pi、Grok 的 AGENTS.md
 #   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里 grok/cursor 两条 provider、
-#                     models.md 每个 bypass / read-only 行一条 Agent profile、worktrees.root
+#                     models.md 每个 bypass 行一条 Agent profile、worktrees.root
 #
 # 本仓库上一代装过、这次不装的东西（技能软链、hook 登记、Agent profile），install 摘掉，--check 报残留。
 #
@@ -803,9 +803,9 @@ fi
 
 # ---------------- Paseo 侧配置 ----------------
 #
-# 源在仓库（models.md 的 bypass / read-only 行、下面两条 provider 的字面量），host 侧只放生成物：
+# 源在仓库（models.md 的 bypass 行、下面两条 provider 的字面量），host 侧只放生成物：
 # CLI 软链、~/.paseo/config.json 里的 provider 与 Agent profile、worktrees.root。
-# 合并写入：只增改 id 与 models.md bypass / read-only 行同名的 profile，其余条目一字不动。
+# 合并写入：只增改 id 与 models.md bypass 行同名的 profile，其余条目一字不动。
 # MMW_V2_HOME 之下不跑 paseo reload（与 launchd 同构）。
 
 PASEO_BIN_SRC="/Applications/Paseo.app/Contents/Resources/bin/paseo"
@@ -908,16 +908,6 @@ def is_generated(profile):
 
 
 def notes_for(agent, host, permissions):
-    if permissions == "read-only":
-        spec_path = assemble_path.parent / agent / "agent.json"
-        if not spec_path.is_file():
-            die(f"read-only 行 {agent} 没有 {spec_path}")
-        desc = json.loads(spec_path.read_text(encoding="utf-8"))["description"].rstrip()
-        advisor_md = home_dir / ".claude" / "agents" / "advisor.md"
-        return (
-            f"{desc} Profile from models.md row {agent}/{host}. A caller that has this profile uses `create_agent`; "
-            f"initialPrompt is 'Follow {advisor_md}' plus the question packet."
-        )
     return (
         f"{agent} from models.md {agent}/{host}; "
         f"{PURPOSES.get(agent, 'dispatched by this pipeline')}."
@@ -974,7 +964,7 @@ try:
 except ValueError as exc:
     die(str(exc))
 if not rows:
-    die(f"{models_path} 里一行 bypass 或 read-only 都没有")
+    die(f"{models_path} 里一行 bypass 都没有")
 
 if mode == "check":
     failed = False

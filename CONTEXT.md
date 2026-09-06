@@ -63,7 +63,7 @@ _Avoid_: 复验者, verifier 子代理, subagent verifier
 _Home_: `mmw-v2/skills/dispatch/references/verifier.md`
 
 **advisor**:
-The second-opinion agent on a stronger model; read-only, it implements nothing. It has two doors: a Paseo session from the `read-only` row of `models.md` when `list_profiles` lists `advisor`, otherwise a native subagent from the `—` rows.
+The second-opinion agent on a stronger model; it implements nothing. It is a native subagent, started inside the session that consults it, and its `—` rows in `models.md` are the only ones it has: the tools list in its definition file is what keeps it to reading, which a Paseo session has no equivalent of.
 _Home_: `mmw-v2/agents/advisor/agent.json`
 
 **claim-checker**:
@@ -158,7 +158,7 @@ The CLI every issue-tracker operation goes through. `CLICOLOR` and `CLICOLOR_FOR
 _Home_: `docs/agents/issue-tracker.md`
 
 **Paseo**:
-The process manager that hosts every Paseo agent this pipeline starts: workspaces, Agent profiles, agent labels, and finish notifications. Its CLI is `paseo`; its MCP tools include `create_agent`, `list_pending_permissions`, `respond_to_permission`. `install.sh` writes the CLI symlink, two providers, every `bypass` / `read-only` Agent profile, and `worktrees.root`.
+The process manager that hosts every Paseo agent this pipeline starts: workspaces, Agent profiles, agent labels, and finish notifications. Its CLI is `paseo`; its MCP tools include `create_agent`, `list_pending_permissions`, `respond_to_permission`. `install.sh` writes the CLI symlink, two providers, every `bypass` Agent profile, and `worktrees.root`.
 _Avoid_: Herdr, terminal multiplexer
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
@@ -176,7 +176,7 @@ _Avoid_: 工作区 (for the git sense, that is a worktree), pane, monitor tab, H
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **Agent profile**:
-One entry `install.sh` writes into `~/.paseo/config.json` under `daemon.agentProfiles` from a `models.md` row whose `permissions` are `bypass` or `read-only`. Its `id` and `name` are both the agent cell. A caller that has the profile uses `create_agent`; a `—` row is a native subagent and gets no profile.
+One entry `install.sh` writes into `~/.paseo/config.json` under `daemon.agentProfiles` from a `models.md` row whose `permissions` are `bypass`. Its `id` and `name` are both the agent cell. A caller that has the profile uses `create_agent`; a `—` row is a native subagent and gets no profile.
 _Home_: `mmw-v2/install.sh`
 
 **agent label**:
@@ -185,9 +185,14 @@ _Avoid_: pane token, MMW_TICKET (session identity), MMW_AUTONOMOUS, launch argum
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **finish notification**:
-A `<paseo-system>` block whose first sentence is `Agent <id> (<title>) finished.` or `errored.` or `was closed.` or `needs permission.`, and which may carry an `<agent-response>` of the agent's last reply. It arrives in the current turn when you are busy, or as a new turn when you are idle. Match `<title>` to `#<n> worker`, `#<n> reviewer` or `#<n> verifier`. It fires only for a `create_agent` issued with `notifyOnFinish: true`. `needs permission` is not a stop: run `list_pending_permissions` / `respond_to_permission` (CLI: `paseo permit`) first, then `status`.
+A `<paseo-system>` block whose first sentence is `Agent <id> (<title>) finished.` or `errored.` or `was closed.` or `needs permission.`, and which may carry an `<agent-response>` of the agent's last reply. It arrives in the current turn when the session is busy, or as a new turn when it is idle, and it never interrupts a command that session is running. Match `<title>` to `#<n> reviewer` or `#<n> verifier`. It fires only for a `create_agent` issued with `notifyOnFinish: true`, once, the first time that agent ends a turn — which is why a worker is started with `false` and reports through the **ticket message** instead. `needs permission` is not a stop: run `list_pending_permissions` / `respond_to_permission` (CLI: `paseo permit`) first, then `status`.
 _Avoid_: wakeup loop, re-prompt, STOPPED, TIME LIMIT, `mmw board:` line, pane event, turn, turn.py, board log
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
+
+**ticket message**:
+The message `verify-ticket.py` sends to the session that started this worker at the moment the ticket comes to rest, first line `#<n> ALL MET`, `#<n> HANDOFF REQUIRED`, `#<n> NOT_READY` or `#<n> SUB-ISSUE pipeline`. It is what a **worker** reports with, since Paseo's one **finish notification** per agent is spent on the first turn the worker ends and no worker ends its last turn first. The send is `paseo send --no-wait` to the `ParentAgentId` of `PASEO_AGENT_ID`, and it is made by the same call that posts the comment, so a ticket cannot land unannounced. Unlike a notification it interrupts: a command the receiving session was running is cut short and reports being interrupted, so that command is run again before the message is acted on. Outside a Paseo session, or with no parent, nothing is sent; a send that fails writes one stderr line and changes no exit code.
+_Avoid_: closeout notification, 通知 (as a term)
+_Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **worktree**:
 The per-ticket git worktree of a workspace, directory basename `issue-<n>`, on the branch `issue-<n>`, cut from HEAD at the moment `advance` (or `start`) creates the workspace — recorded in `branch.issue-<n>.mmw-base`. It lives under `worktrees.root` as `<hash>/issue-<n>`. The reviewer and the verifier run inside it. `advance` archives the workspace only after that ticket's branch is already in HEAD; archive uses `git worktree remove --force` and does not inspect uncommitted work.
@@ -620,7 +625,7 @@ _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 ### Code review
 
 **code review**:
-One round: the worker starts the reviewer with `dispatch.sh start <n> reviewer `; the dispatcher starts three read-only axis subagents, each given three values — the base commit, the ticket number, and its reference file's path — each reading `git diff <base-commit>...HEAD`; one review comment results. The round ends only with that comment: after `dispatch.sh wait <n> reviewer` exits 0, the worker reads the `REVIEW ` line it printed. Start exits 2: nothing was started — it is a pipeline fault: `<engine> <n> --sub-issue pipeline <file>`, then stop. The notification is `errored` or `was closed` with no `REVIEW ` comment: `paseo logs <id>`, then the `code-review` skill in this host's general-purpose subagent, whose report lands with the same first line. An in-ticket finding gets one round of fixes and a self-run, never a re-review; an out-of-ticket finding is `--sub-issue review`. Fixing a finding is bound by the writing rules.
+One round: the worker starts the reviewer with `dispatch.sh start <n> reviewer `; the dispatcher starts three read-only axis subagents, each given three values — the base commit, the ticket number, and its reference file's path — each reading `git diff <base-commit>...HEAD`; one review comment results. The round ends only with that comment: the worker ends its turn after `create_agent`, is woken when the reviewer finishes, and reads the `REVIEW ` line off the ticket. Start exits 2: nothing was started — it is a pipeline fault: `<engine> <n> --sub-issue pipeline <file>`, then stop. The reviewer stopped with no `REVIEW ` comment: `paseo logs <id>`, then the `code-review` skill in this host's general-purpose subagent, whose report lands with the same first line. An in-ticket finding gets one round of fixes and a self-run, never a re-review; an out-of-ticket finding is `--sub-issue review`. Fixing a finding is bound by the writing rules.
 _Avoid_: the review stage
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
@@ -804,15 +809,15 @@ _Avoid_: 派发 (as a term)词, prompt (bare)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **check**:
-`dispatch.sh check <spec>`: runs `install.sh --check`, confirms every `bypass` row's host is `available` in `paseo provider ls --json`, and confirms every queued ticket has at most one worker-grade label that `models.md` has a row for; then, in a Paseo session, creates the night's **heartbeat** `mmw-night-<spec>` (every ten minutes, prompt `run status <spec>, act per step 3`) and writes its id to `.git/mmw-heartbeat-<spec>`. Exit 0 all passed; exit 2 one or more failed or the heartbeat could not be made, stderr one `dispatch: …` line per failure. Do not `advance` on 2.
+`dispatch.sh check <spec>`: runs `install.sh --check`, confirms every `bypass` row's host is `available` in `paseo provider ls --json`, and confirms every queued ticket has at most one worker-grade label that `models.md` has a row for; then, in a Paseo session, creates the night's **heartbeat** `mmw-night-<spec>` (hourly, prompt `run status <spec>, act per step 3`) and writes its id to `.git/mmw-heartbeat-<spec>`. Exit 0 all passed; exit 2 one or more failed or the heartbeat could not be made, stderr one `dispatch: …` line per failure. Do not `advance` on 2.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **start**:
-`dispatch.sh start <n> worker|reviewer|verifier`: one ticket, one agent. It prints one JSON object whose fields are the arguments of `create_agent`; the caller issues `create_agent` with `notifyOnFinish: true` — a worker then blocks with `dispatch.sh wait <n> <kind>`, the main agent waits for the finish notification. The worker row of `models.md` is chosen by the ticket's `junior-worker` / `senior-worker` label; the reviewer's base commit is read from `git config branch.issue-<n>.mmw-base` by the script; the verifier's `initialPrompt` is `verify #<n>` plus the path of `references/verifier.md`. Exit 0 printed; exit 2 refused (`REFUSE`, reason on stderr), nothing started.
+`dispatch.sh start <n> worker|reviewer|verifier`: one ticket, one agent. It prints one JSON object whose fields are the arguments of `create_agent`, `notifyOnFinish` among them: `true` for a reviewer and a verifier, whose one turn ends on the work being done, and `false` for a worker, which ends several and says it is done through the **ticket message** instead. The caller issues `create_agent` with the object as printed, then ends its turn. The worker row of `models.md` is chosen by the ticket's `junior-worker` / `senior-worker` label; the reviewer's base commit is read from `git config branch.issue-<n>.mmw-base` by the script; the verifier's `initialPrompt` is `verify #<n>` plus the path of `references/verifier.md`. Exit 0 printed; exit 2 refused (`REFUSE`, reason on stderr), nothing started.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **wait**:
-`dispatch.sh wait <n> worker|reviewer|verifier`: the one way an agent waits for an agent it started. It finds the agent by `mmw.ticket` and `mmw.kind`, blocks with `paseo wait` until it is idle, and prints the first line of its result comment — `ALL MET` or `HANDOFF REQUIRED` for a worker, `REVIEW …` for a reviewer, `VERDICT …` for a verifier — reading the ticket first, so a result already there returns at once. Exit 0 result printed; 1 the agent stopped without one (stderr names the next step); 2 no such agent; 3 still working after `MMW_WAIT_S` seconds (default 90, under the shell time limit of every host) — run it again, which is how a host that cancels a long command is survived. It writes nothing. The main agent does not use it for its workers: it is woken by finish notifications and the heartbeat.
+`dispatch.sh wait <n> worker|reviewer|verifier`: reads the first line of the result comment left by an agent one started — `ALL MET` or `HANDOFF REQUIRED` for a worker, `REVIEW …` for a reviewer, `VERDICT …` for a verifier. It reads the ticket before it waits at all, so a result already there returns at once, which is the ordinary case: an agent is woken by the agent it started finishing, and this command is the fallback for a wake whose comment has not landed yet. Otherwise it finds the agent by `mmw.ticket` and `mmw.kind` and blocks with `paseo wait`. Exit 0 result printed; 1 the agent stopped without one (stderr names the next step); 2 no such agent; 3 still working after `MMW_WAIT_S` seconds (default 90) — run it again. No host kills a command that outlasts its shell tool: they background it and hand back no exit code, so the bound stays under the shortest of those and running it again survives one that does. It writes nothing.
 _Avoid_: paseo wait (in skill text, for this), 等待 (as a term)
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
@@ -998,7 +1003,7 @@ The note written whenever upstream scripts are copied in without a subtree: sour
 _Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/UPSTREAM.md`
 
 **`models.md`**:
-The one table, one row per `(agent, host)` except `advisor`, which has two rows on `claude`: a `read-only` session row and a `—` native row. Five columns `agent | host | model | effort | permissions`, for every agent the pipeline sends out except the main agent — the only place a dispatched agent's model is written. It travels with the dispatch skill, one per machine, never into a consuming repository. `install.sh` writes an Agent profile from every `bypass` or `read-only` row; `assemble.py` reads the non-`read-only` rows whose `permissions` are `—`, and the reviewer `bypass` row a second time for the axis subagent. The three code-review axis subagents have no row of their own. Editing rules are in `references/editing-models.md`.
+The one table, one row per `(agent, host)`. Five columns `agent | host | model | effort | permissions`, for every agent the pipeline sends out except the main agent — the only place a dispatched agent's model is written. It travels with the dispatch skill, one per machine, never into a consuming repository. `install.sh` writes an Agent profile from every `bypass` row; `assemble.py` reads the `—` rows, and the reviewer `bypass` row a second time for the axis subagent. The three code-review axis subagents have no row of their own. Editing rules are in `references/editing-models.md`.
 _Avoid_: the table (for this), 模型表, 角色表, launch arguments
 _Home_: `mmw-v2/skills/dispatch/models.md`
 
@@ -1009,17 +1014,17 @@ _Avoid_: thinking effort, reasoning effort (in prose), 思考强度
 _Home_: `mmw-v2/skills/dispatch/models.md`
 
 **permissions**:
-The fifth column of `models.md`. `bypass`: the agent runs as its own Paseo session on the host column's host, with all permissions granted. `read-only`: the same, but read-only — host spelling is in `references/editing-models.md` section 1. `—`: the agent is a native subagent, started inside the session that dispatches it.
+The fifth column of `models.md`, and it takes two values. `bypass`: the agent runs as its own Paseo session on the host column's host, with all permissions granted. `—`: the agent is a native subagent, started inside the session that dispatches it. There is no read-only value: no host has a mode that both keeps a session to reading and lets it finish a turn on its own, and an agent that must not write is a native subagent, where the definition file's tools list decides.
 _Avoid_: launch arguments
 _Home_: `mmw-v2/skills/dispatch/models.md`
 
 **`assemble.py`**:
-`mmw-v2/agents/assemble.py`: builds each host's subagent file from `body.md` (the prompt text, single source), `agent.json` (`name`, `description`, the optional `sandbox`: `read-only` by default or `workspace-write`, honoured by Cursor, Codex, Grok), and `models.md`, into `agents/<name>/out/` — the **assembled subagent file**, one **per-host shell** around one body, because each host spells the model field differently. It skips `read-only` rows and uses the `—` rows for the native subagent. It writes only when something changed; `--check` verifies without writing; `install.sh` assembles first and then symlinks.
+`mmw-v2/agents/assemble.py`: builds each host's subagent file from `body.md` (the prompt text, single source), `agent.json` (`name`, `description`, the optional `sandbox`: `read-only` by default or `workspace-write`, honoured by Cursor, Codex, Grok), and `models.md`, into `agents/<name>/out/` — the **assembled subagent file**, one **per-host shell** around one body, because each host spells the model field differently. It writes only when something changed; `--check` verifies without writing; `install.sh` assembles first and then symlinks.
 _Avoid_: 装配 (as a term), 成品, out/ file, 壳 (as a term)
 _Home_: `mmw-v2/agents/assemble.py`
 
 **`install.sh`**:
-`mmw-v2/install.sh`, the only install entry. It installs six things: skill symlinks into `~/.agents/skills` and `~/.claude/skills`; assembled subagent files into each host's agent directory; hooks into each host's own configuration; user-level prompts (`~/.claude/CLAUDE.md` a symlink to `prompt/shared.md`, Codex, Pi and Grok each a file `prompt/render.py` writes); a launchd task that re-renders those three when the source changes; Paseo configuration (`~/.local/bin/paseo`, two providers in `~/.paseo/config.json`, one Agent profile per `bypass` / `read-only` row, `worktrees.root`). It reads `skills.txt`, clears the retired locations, and prints one line per item with the prefixes `已装`, `装配`, `残留`, `退役`, `冲突`, ending with markers such as `HOOKS-INSTALLED`. **`install.sh --check`** looks and changes nothing: exit 0 when complete, 1 when something is missing or a stale link remains; it includes `assemble.py --check`, and `dispatch.sh check` runs it before a night. `MMW_V2_HOME` moves the install location for tests.
+`mmw-v2/install.sh`, the only install entry. It installs six things: skill symlinks into `~/.agents/skills` and `~/.claude/skills`; assembled subagent files into each host's agent directory; hooks into each host's own configuration; user-level prompts (`~/.claude/CLAUDE.md` a symlink to `prompt/shared.md`, Codex, Pi and Grok each a file `prompt/render.py` writes); a launchd task that re-renders those three when the source changes; Paseo configuration (`~/.local/bin/paseo`, two providers in `~/.paseo/config.json`, one Agent profile per `bypass` row, `worktrees.root`). It reads `skills.txt`, clears the retired locations, and prints one line per item with the prefixes `已装`, `装配`, `残留`, `退役`, `冲突`, ending with markers such as `HOOKS-INSTALLED`. **`install.sh --check`** looks and changes nothing: exit 0 when complete, 1 when something is missing or a stale link remains; it includes `assemble.py --check`, and `dispatch.sh check` runs it before a night. `MMW_V2_HOME` moves the install location for tests.
 _Avoid_: the installer, 安装器, 安装入口 (as a term), 只看不动 (as a term)
 _Home_: `mmw-v2/install.sh`
 
@@ -1087,7 +1092,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | agent label | `mmw.ticket` · `mmw.kind` · `mmw.spec` · `mmw.profile` · `mmw.autonomous` |
 | `mmw.kind` | `worker` · `reviewer` · `verifier` |
 | finish notification | `finished` · `errored` · `was closed` · `needs permission` |
-| `permissions` | `bypass` · `read-only` · `—` |
+| `permissions` | `bypass` · `—` |
 | `--sub-issue` kind | `baseline` · `outside-owns` · `review` · `decision` · `pipeline` |
 | host | `claude` · `codex` · `grok` · `cursor` · `pi` |
 | `target.kind` | `electron` · `web-spa` · `web-server-rendered` · `chrome-extension` |

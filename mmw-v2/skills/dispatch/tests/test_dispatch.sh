@@ -85,6 +85,7 @@ if args[:2] == ["provider", "ls"]:
         {"provider": "grok", "status": grok, "label": "Grok"},
         {"provider": "claude", "status": "available", "label": "Claude"},
         {"provider": "codex", "status": "available", "label": "Codex"},
+        {"provider": "cursor", "status": "available", "label": "Cursor"},
     ]))
     sys.exit(0)
 
@@ -477,9 +478,13 @@ raw = Path(sys.argv[1]).read_text()
 lines = [l for l in raw.splitlines() if l.strip()]
 assert len(lines) == 1, raw
 obj = json.loads(lines[0])
-for key in ("workspaceId", "title", "provider", "settings", "labels", "initialPrompt"):
+for key in ("workspaceId", "title", "provider", "settings", "labels", "initialPrompt",
+            "notifyOnFinish"):
     assert key in obj, key
-assert "notifyOnFinish" not in obj
+# A worker is told to be done by verify-ticket.py, so the one notification Paseo gives
+# is not spent on the middle state it would otherwise report; every other kind ends one
+# turn, on the work being done, and that notification wakes whoever started it.
+assert obj["notifyOnFinish"] is (obj["labels"]["mmw.kind"] != "worker"), obj["notifyOnFinish"]
 ' "$TMP/out"
 }
 
@@ -676,7 +681,7 @@ JSON
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" PASEO_AGENT_ID=agt_main \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
   [ "$code" = 0 ] || fail "expected exit 0 with PASEO_AGENT_ID, got $code: $(cat "$TMP/err")"
-  has "paseo :: heartbeat :: create :: --cron :: */10 * * * * :: --name :: mmw-night-76 :: --json"
+  has "paseo :: heartbeat :: create :: --cron :: 7 * * * * :: --name :: mmw-night-76 :: --json"
   grep -q "status 76 (from " "$MMW_TEST_LOG" \
     || fail "the heartbeat prompt should name status and the git root: $(cat "$MMW_TEST_LOG")"
   grep -q "night.md step 3" "$MMW_TEST_LOG" \

@@ -160,13 +160,26 @@ def tool_of(event: dict) -> str:
 
 
 def governed_ticket() -> int | None:
-    """The ticket this working directory belongs to, if it is a ticket worktree.
+    """The ticket this session belongs to, if it is a ticket worktree.
 
     The slug is `issue-<n>`. Reviewer, verifier and worker share that directory
-    and are all governed. A session whose cwd is not that shape is not.
+    and are all governed. A session in no such directory is not.
+
+    Two places say where the session is, and either one naming a ticket is enough.
+    Most hosts run this file from the directory the command runs in, so `getcwd` is
+    the answer. Cursor does not: it runs hooks from `~/.cursor` and sends an empty
+    `cwd` in the event, so on that host `getcwd` names no ticket however deep in the
+    worktree the command is, and the gate stayed open on every command it was
+    installed to refuse (measured 2026-09-06, cursor-agent 2026.08.25). `PASEO_AGENT_CWD`
+    is the directory Paseo opened the session in, and every host inherits it.
     """
-    match = TICKET_DIR.fullmatch(os.path.basename(os.getcwd()))
-    return int(match.group(1)) if match else None
+    for root in (os.getcwd(), os.environ.get("PASEO_AGENT_CWD", "").strip()):
+        if not root:
+            continue
+        match = TICKET_DIR.fullmatch(os.path.basename(os.path.normpath(root)))
+        if match:
+            return int(match.group(1))
+    return None
 
 
 SEPARATORS = re.compile(r"[;\n]|&&|\|\||\|")

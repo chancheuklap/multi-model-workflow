@@ -15,7 +15,7 @@ git diff <base-commit>...HEAD --stat
 git log <base-commit>..HEAD --oneline
 ```
 
-Three dots, so the comparison runs against the merge-base. A ref that does not resolve or an empty diff is a failure here, before three subagents spend a context each on nothing. Report it on the ticket anyway: `gh issue comment <ticket>`, first line `REVIEW <base commit>..<HEAD commit>` (the refs as you were given them, when one of them does not resolve), then one line saying which of the two failures it was. That is what returns the waiting worker at once. Then stop.
+Three dots, so the comparison runs against the merge-base. A ref that does not resolve or an empty diff is a failure here, before three subagents spend a context each on nothing. Report it on the ticket anyway: `gh issue comment <ticket>`, first line `REVIEW <base commit>..<HEAD commit>` (the refs as you were given them, when one of them does not resolve), then one line saying which of the two failures it was. That comment is what the worker was woken for, so write it even when there is nothing to review. Then stop.
 
 Capture the resolved base commit and the resolved `HEAD` commit. Both go in the first line of the review comment.
 
