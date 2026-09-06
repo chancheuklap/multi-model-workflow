@@ -579,7 +579,7 @@ def normalize_aria(text: str) -> list[str]:
 
 
 def aria_diff(a: str, b: str, out: Path | None = None,
-              volatile: list[tuple[str, str]] | None = None) -> dict:
+              volatile: list | None = None) -> dict:
     import difflib
 
     la, lb = normalize_aria(a), normalize_aria(b)
@@ -786,7 +786,8 @@ def hide_retired_js(triggers: list[tuple[str, str]]) -> str:
 # account). Both judges replace it with one token before they compare, so the two
 # sides may show different numbers and still match. The trigger is the handoff's
 # role and accessible name; a product node matches when its role is the same and the
-# non-digit stem of the name is the same.
+# non-digit stem of the name is the same. An optional `after` (the previous named
+# node) splits siblings that share that stem.
 VOLATILE_TOKEN = "<volatile>"
 VOLATILE_FILL = "#00E5FF"
 VOLATILE_DIGITS = re.compile(r"[\d,]+")
@@ -813,27 +814,57 @@ def volatile_stem(name: str) -> str:
     return VOLATILE_DIGITS.sub("", name).strip()
 
 
-def matches_volatile(role: str, name: str, triggers: list[tuple[str, str]]) -> bool:
-    for wanted_role, wanted_name in triggers:
-        if role != wanted_role:
+def volatile_trigger_parts(trigger) -> tuple[str, str, tuple[str, str] | None]:
+    """`(role, name, after)` from a 2-tuple or a 3-tuple. `after` is the previous
+    named node, or None when the stem is unique on the scene."""
+    role, name = str(trigger[0]), str(trigger[1])
+    after = None
+    if len(trigger) > 2 and trigger[2]:
+        after = (str(trigger[2][0]), str(trigger[2][1]))
+    return role, name, after
+
+
+def volatile_name_matches(role: str, name: str, wanted_role: str, wanted_name: str) -> bool:
+    """Role and non-digit stem. A `text` trigger also matches the computed roles
+    a static string snapshots as (`cell`, `generic`, …), the same set the pixel
+    paint already used, so lint and the two judges name one node."""
+    if role != wanted_role and not (wanted_role == "text" and role in VOLATILE_TEXT_LIKE):
+        return False
+    if name == wanted_name:
+        return True
+    stem = volatile_stem(wanted_name)
+    return bool(stem) and volatile_stem(name) == stem
+
+
+def matches_volatile(role: str, name: str, triggers: list,
+                     previous: tuple[str, str] | None = None) -> bool:
+    for trigger in triggers:
+        wanted_role, wanted_name, after = volatile_trigger_parts(trigger)
+        if not volatile_name_matches(role, name, wanted_role, wanted_name):
             continue
-        if name == wanted_name:
+        if after is None:
             return True
-        stem = volatile_stem(wanted_name)
-        if stem and volatile_stem(name) == stem:
+        if previous is not None and volatile_name_matches(
+                previous[0], previous[1], after[0], after[1]):
             return True
     return False
 
 
-def _mask_own(own: str, triggers: list[tuple[str, str]]) -> str:
+def _own_role_name(own: str) -> tuple[str, str] | None:
+    m = ARIA_LINE.match(own)
+    if not m:
+        return None
+    value = m.group("value")
+    label = value.strip() if value else (m.group("name") or "")
+    return m.group("role"), label
+
+
+def _mask_label(own: str) -> str:
     m = ARIA_LINE.match(own)
     if not m:
         return own
     role, name, attrs, value = (m.group("role"), m.group("name"),
                                 m.group("attrs") or "", m.group("value"))
-    label = value.strip() if value else (name or "")
-    if not matches_volatile(role, label, triggers):
-        return own
     if value:
         return f"- {role}: {VOLATILE_TOKEN}"
     if name is not None:
@@ -841,21 +872,63 @@ def _mask_own(own: str, triggers: list[tuple[str, str]]) -> str:
     return own
 
 
-def mask_volatile(lines: list[str], triggers: list[tuple[str, str]]) -> list[str]:
+def _advance_previous(parsed: tuple[str, str] | None,
+                      previous: tuple[str, str] | None) -> tuple[str, str] | None:
+    if parsed and parsed[1]:
+        return parsed
+    return previous
+
+
+def mask_volatile(lines: list[str], triggers: list) -> list[str]:
     """Replace matching nodes' names (and the same names on ancestor suffixes) with
     `VOLATILE_TOKEN`, so two trees that differ only in those values compare equal."""
     out = []
+    previous: tuple[str, str] | None = None
+    masked_suffixes: set[str] = set()
     for line in lines:
         own, sep, ancestor = line.partition(" < ")
-        own = _mask_own(own, triggers)
+        parsed = _own_role_name(own)
+        if parsed and matches_volatile(parsed[0], parsed[1], triggers, previous):
+            if own.startswith("- "):
+                masked_suffixes.add(own[2:])
+            own = _mask_label(own)
         if sep:
-            out.append(f"{own} < {_mask_own('- ' + ancestor, triggers)[2:]}")
+            if ancestor in masked_suffixes:
+                masked_anc = _mask_label("- " + ancestor)
+                ancestor = masked_anc[2:] if masked_anc.startswith("- ") else masked_anc
+            out.append(f"{own} < {ancestor}")
         else:
             out.append(own)
+        previous = _advance_previous(parsed, previous)
     return out
 
 
-def volatile_paint_js(triggers: list[tuple[str, str]]) -> str:
+def count_volatile_hits(lines: list[str], triggers: list) -> int:
+    """Most named nodes that match `triggers` in any one scene. A `## scene` line
+    starts a new scene; a file with none is one scene. The matcher is
+    `matches_volatile`, walked in reading order so `after` sees the previous
+    named node."""
+    best = 0
+    current = 0
+    previous: tuple[str, str] | None = None
+    for raw in lines:
+        line = raw.rstrip("\n")
+        if line.startswith("## scene "):
+            best = max(best, current)
+            current = 0
+            previous = None
+            continue
+        own, _, _ = line.partition(" < ")
+        parsed = _own_role_name(own)
+        if parsed is None:
+            continue
+        if matches_volatile(parsed[0], parsed[1], triggers, previous):
+            current += 1
+        previous = _advance_previous(parsed, previous)
+    return max(best, current)
+
+
+def volatile_paint_js(triggers: list) -> str:
     """Put the trigger's digits into every matching node, then paint its box one
     solid colour, on both sides. The digits come first because a box is as wide as
     the string in it: `0 鸭豆` painted over is narrower than `3,220 鸭豆` painted
@@ -863,8 +936,18 @@ def volatile_paint_js(triggers: list[tuple[str, str]]) -> str:
     shows another number (`鸭豆余额 20` on the debt scene, `12,480` elsewhere) has the
     same problem on its own side. With the trigger's digits in the first digit-bearing
     text node on both sides the two boxes are one width by construction, and the
-    paint hides them. A node named by aria-label keeps its text."""
-    wanted = json.dumps([{"role": r, "name": n} for r, n in triggers], ensure_ascii=False)
+    paint hides them. A node named by aria-label keeps its text.
+
+    Matching is the same as `matches_volatile`: role and non-digit stem, plus
+    `after` as the previous named node from a document-order walk of `nameOf`."""
+    wanted_list = []
+    for t in triggers:
+        role, name, after = volatile_trigger_parts(t)
+        item: dict = {"role": role, "name": name, "after": None}
+        if after:
+            item["after"] = {"role": after[0], "name": after[1]}
+        wanted_list.append(item)
+    wanted = json.dumps(wanted_list, ensure_ascii=False)
     fill = json.dumps(VOLATILE_FILL)
     implicit = ", ".join(f"{tag}: {json.dumps(role)}"
                          for tag, role in VOLATILE_IMPLICIT_ROLES.items())
@@ -878,11 +961,13 @@ def volatile_paint_js(triggers: list[tuple[str, str]]) -> str:
   const nameOf = el => (el.getAttribute('aria-label') || el.textContent || '')
     .trim().replace(/\\s+/g, ' ');
   const roleOf = el => el.getAttribute('role') || implicit[el.tagName] || el.tagName.toLowerCase();
-  const hit = (role, nm, w) => {
-    const nameOk = nm === w.name || (Boolean(stem(w.name)) && stem(nm) === stem(w.name));
-    if (!nameOk) return false;
-    if (role === w.role) return true;
-    return w.role === 'text' && textLike.has(role);
+  const nameOk = (nm, wanted) => nm === wanted || (Boolean(stem(wanted)) && stem(nm) === stem(wanted));
+  const roleOk = (role, wanted) => role === wanted || (wanted === 'text' && textLike.has(role));
+  const hit = (role, nm, w, prev) => {
+    if (!nameOk(nm, w.name) || !roleOk(role, w.role)) return false;
+    if (!w.after) return true;
+    if (!prev) return false;
+    return nameOk(prev.nm, w.after.name) && roleOk(prev.role, w.after.role);
   };
   const digitsOf = s => (s.match(/[\\d,]+/) || [null])[0];
   const retext = (el, w) => {
@@ -912,13 +997,15 @@ def volatile_paint_js(triggers: list[tuple[str, str]]) -> str:
       child.style.borderColor = fill;
     }
   };
+  let prev = null;
   for (const el of document.querySelectorAll('*')) {
     const nm = nameOf(el);
     if (!nm) continue;
     const role = roleOf(el);
     for (const w of wanted) {
-      if (hit(role, nm, w)) { paint(el, w); break; }
+      if (hit(role, nm, w, prev)) { paint(el, w); break; }
     }
+    prev = {role, nm};
   }
 })()""" % (wanted, fill, implicit, text_like)
 
@@ -1676,9 +1763,25 @@ def hide_js_for(doc: dict, page: str) -> str | None:
     return hide_retired_js(triggers) if triggers else None
 
 
-def volatile_triggers(doc: dict, page: str | None = None) -> list[tuple[str, str]]:
-    """The display values not compared, for one design page when `page` is given."""
-    return _triggers(doc, "volatile_values", page)
+def volatile_triggers(doc: dict, page: str | None = None
+                      ) -> list[tuple[str, str, tuple[str, str] | None]]:
+    """The display values not compared, for one design page when `page` is given.
+    Each item is `(role, name, after)`; `after` is the previous named node, or
+    None."""
+    out: list[tuple[str, str, tuple[str, str] | None]] = []
+    for entry in doc.get("volatile_values") or []:
+        if not (isinstance(entry, dict) and isinstance(entry.get("trigger"), dict)):
+            continue
+        scope = entry.get("page")
+        if page is not None and scope and scope != page:
+            continue
+        t = entry["trigger"]
+        after = None
+        raw = entry.get("after")
+        if isinstance(raw, dict) and raw.get("role") and raw.get("name"):
+            after = (str(raw.get("role")), str(raw.get("name")))
+        out.append((str(t.get("role")), str(t.get("name")), after))
+    return out
 
 
 def rows_by_id(doc: dict) -> dict[str, dict]:

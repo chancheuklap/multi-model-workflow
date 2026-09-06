@@ -350,13 +350,35 @@ class TestRetiredPrinted(unittest.TestCase):
 class TestVolatileValues(unittest.TestCase):
     """`volatile_values` is printed on every run, like `retired_ids`. An entry whose
     trigger is not in that page's target tree is a WARN — it cannot be what the
-    judges will replace."""
+    judges will replace. An entry that matches more than one node on its page is
+    an ERROR — the judges would mask every sibling that shares the stem."""
 
     ENTRY = {
         "page": PAGE_A,
         "trigger": {"role": "text", "name": "鸭豆余额 12,480"},
         "reason": "wallet balance is an external account; seed does not write it",
     }
+    SIBLINGS = (
+        "- text: 每张费用\n"
+        "- strong: 20 鸭豆\n"
+        "- text: 最大预扣\n"
+        "- strong: 40 鸭豆\n"
+        "- text: 当前余额\n"
+        "- strong: 12,480 鸭豆\n"
+    )
+    AMBIGUOUS = {
+        "page": PAGE_A,
+        "trigger": {"role": "strong", "name": "12,480 鸭豆"},
+        "reason": "wallet balance is an external account; seed does not write it",
+    }
+
+    def setUp(self):
+        lc.TOOLS[:] = [Path(__file__).resolve().parents[2] / "drive-target" / "scripts"]
+        self.repo = Repo()
+        self.repo.write_targets()
+
+    def tearDown(self):
+        self.repo.cleanup()
 
     def test_volatile_values_are_printed_every_run(self):
         doc = {"volatile_values": [self.ENTRY]}
@@ -366,21 +388,43 @@ class TestVolatileValues(unittest.TestCase):
              "wallet balance is an external account; seed does not write it"])
 
     def test_a_volatile_value_missing_from_the_target_tree_is_a_warning(self):
-        repo = Repo()
-        self.addCleanup(repo.cleanup)
-        repo.write_targets()
-        aria = repo.spec_dir / "targets" / (PAGE_A[:-len(".dc.html")] + ".aria")
+        aria = self.repo.spec_dir / "targets" / (PAGE_A[:-len(".dc.html")] + ".aria")
         aria.write_text(aria.read_text(encoding="utf-8") + '- button "添加商品素材"\n',
                         encoding="utf-8")
         doc = contract()
         doc["volatile_values"] = [self.ENTRY]
-        _, warnings = lc.lint_screen_axis(doc, SKELETON, repo.baseline, repo.spec_dir)
+        _, warnings = lc.lint_screen_axis(doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
         self.assertTrue(any("volatile_values" in w and "鸭豆余额 12,480" in w
                             and "not in the target tree" in w for w in warnings), warnings)
 
         aria.write_text(aria.read_text(encoding="utf-8") + '- text: 鸭豆余额 12,480\n',
                         encoding="utf-8")
-        _, warnings = lc.lint_screen_axis(doc, SKELETON, repo.baseline, repo.spec_dir)
+        _, warnings = lc.lint_screen_axis(doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
+        self.assertFalse(any("volatile_values" in w for w in warnings), warnings)
+
+    def test_an_entry_that_matches_several_nodes_is_an_error(self):
+        """Same three strongs as the driver test. Without `after` the entry
+        matches all three and the lint errors; with `after` it matches one
+        and does not."""
+        aria = self.repo.spec_dir / "targets" / (PAGE_A[:-len(".dc.html")] + ".aria")
+        unique = "- text: 当前余额\n- strong: 12,480 鸭豆\n"
+        aria.write_text(
+            aria.read_text(encoding="utf-8")
+            + "## scene free-gate\n" + self.SIBLINGS
+            + "## scene free-hold-unknown\n" + unique,
+            encoding="utf-8")
+        doc = contract()
+        doc["volatile_values"] = [dict(self.AMBIGUOUS)]
+        errors, warnings = lc.lint_screen_axis(
+            doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
+        self.assertTrue(any("volatile_values" in e and "12,480 鸭豆" in e
+                            and "matches 3 nodes" in e for e in errors), errors)
+        self.assertFalse(any("volatile_values" in w for w in warnings), warnings)
+
+        doc["volatile_values"][0]["after"] = {"role": "text", "name": "当前余额"}
+        errors, warnings = lc.lint_screen_axis(
+            doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
+        self.assertFalse(any("volatile_values" in e for e in errors), errors)
         self.assertFalse(any("volatile_values" in w for w in warnings), warnings)
 
 

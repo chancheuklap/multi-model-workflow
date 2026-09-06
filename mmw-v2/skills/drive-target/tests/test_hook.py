@@ -102,20 +102,27 @@ def call(host: str, event: dict, env: dict | None = None,
          *, cwd_basename: str | None = None) -> tuple[int, dict | None]:
     """Run the gate as its host would, and read back the answer it printed.
 
-    An inherited `PASEO_AGENT_CWD` is dropped unless `env` names one, so a
-    dispatched session does not govern a test that names no ticket.
+    The session directory is the temp cwd this helper just created. A parent
+    `PASEO_AGENT_CWD` (the worktree of the agent running the suite) must not
+    leak into `governed_ticket`, or a dispatched session governs a test that
+    names no ticket; tests that want a different session directory pass
+    `PASEO_AGENT_CWD` in `env`.
     """
     if cwd_basename is None:
         cwd_basename = f"issue-{TICKET}"
     out = io.StringIO()
-    mapped = dict(env or {})
-    with named_cwd(cwd_basename), \
-         mock.patch.dict(os.environ, mapped, clear=False), \
-         mock.patch.object(hk.sys, "stdin", io.StringIO(json.dumps(event))), \
-         redirect_stdout(out), redirect_stderr(io.StringIO()):
-        if "PASEO_AGENT_CWD" not in mapped:
-            os.environ.pop("PASEO_AGENT_CWD", None)
-        code = hk.main(["pretool", host])
+    with named_cwd(cwd_basename) as path:
+        merged = dict(os.environ)
+        if env:
+            merged.update(env)
+        if not env or "PASEO_AGENT_CWD" not in env:
+            merged["PASEO_AGENT_CWD"] = path
+        if not env or "PASEO_AGENT_ID" not in env:
+            merged.pop("PASEO_AGENT_ID", None)
+        with mock.patch.dict(os.environ, merged, clear=True), \
+             mock.patch.object(hk.sys, "stdin", io.StringIO(json.dumps(event))), \
+             redirect_stdout(out), redirect_stderr(io.StringIO()):
+            code = hk.main(["pretool", host])
     printed = out.getvalue().strip()
     return code, json.loads(printed) if printed else None
 

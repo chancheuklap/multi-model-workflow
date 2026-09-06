@@ -65,6 +65,10 @@ volatile_values:                          # display values the seed must not wri
   - page: "App · 商品项目库.dc.html"
     trigger: { role: text, name: "鸭豆余额 12,480" }   # handoff role and accessible name; same shape as retired_ids
     reason: "wallet balance is an external account; seed does not write it"
+  - page: "Component · 自由模式.dc.html"
+    trigger: { role: strong, name: "12,480 鸭豆" }
+    after: { role: text, name: "当前余额" }   # previous named node; required when the stem is not unique on the scene
+    reason: "wallet balance is an external account; seed does not write it"
 rows: [...]
 ```
 
@@ -90,7 +94,7 @@ Everything on this axis is filled at design time, with no running product: `page
 
 A `retired_ids` entry with a `trigger` names the `page` the control is on; the judges hide it on that page's scenes only. A role and name are not unique across pages, and an entry without a `page` whose name also lives on another page is hidden everywhere — the lint warns.
 
-A `volatile_values` entry is a display value the seed must not write — a wallet balance belonging to an external account, not a difference to hide. Same trigger shape as `retired_ids` (`page`, role, accessible name) plus one line of `reason`. Before the accessibility tree and the pixel judge compare, both sides replace that node's text with one token: the tree name becomes `<volatile>`, and the pixel judge first puts the trigger's digits into the node on both sides (so the two boxes are one width and nothing after them moves, whatever number each side showed) and then paints that box the same solid colour, so different numbers compare equal. The class set is not masked — the paint is an inline style, not a class name. A product node matches when its role equals the trigger's and the accessible names agree once digits and thousands separators are removed (`鸭豆余额 12,480` matches `鸭豆余额 1,000,000`; a currency sign or a unit stays and must agree). The lint prints every entry on every run and warns when the trigger is not in that page's target tree.
+A `volatile_values` entry is a display value the seed must not write — a wallet balance belonging to an external account, not a difference to hide. Same trigger shape as `retired_ids` (`page`, role, accessible name) plus one line of `reason`. When several nodes on one scene share that role and stem — three sibling `strong` whose names are `20 鸭豆`, `40 鸭豆`, `12,480 鸭豆` — the entry also names `after`: the previous named node (`text: 当前余额`). Matching uses the same function on both judges and on this lint: role equal (a `text` trigger also matches the roles a static string snapshots as in the tree — `cell`, `generic`, and the rest of that set), accessible names equal once digits and thousands separators are removed (`鸭豆余额 12,480` matches `鸭豆余额 1,000,000`; a currency sign or a unit stays and must agree), and when `after` is set, the previous named node in reading order matches that pair the same way. The tree takes that previous node from the line above; the pixel judge takes it from a document-order walk of the same `nameOf`. Before the accessibility tree and the pixel judge compare, both sides replace that node's text with one token: the tree name becomes `<volatile>`, and the pixel judge first puts the trigger's digits into the node on both sides (so the two boxes are one width and nothing after them moves, whatever number each side showed) and then paints that box the same solid colour, so different numbers compare equal. The class set is not masked — the paint is an inline style, not a class name. The lint prints every entry on every run, warns when the trigger is not in that page's target tree, and errors when an entry matches more than one node on any scene of that page.
 
 ## Target trees
 
