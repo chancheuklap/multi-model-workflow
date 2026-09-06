@@ -52,7 +52,9 @@ here is ever written down anywhere else.
    repository decides how: an environment variable read at request time, or pointing
    the backend at an empty database); `transport_on` reverses it. With it off, every
    `observe` must `MISS` on its expression while `GET /health` still answers — a backend
-   that stops answering altogether makes the negative run exit 2, which proves nothing.
+   that stops answering altogether leaves its rows unevaluated rather than missed, and a
+   run with any unevaluated row is exit 2. Attach and each row's `reach` run with the
+   transport on, so bringing the product up is not affected by this command.
 
 ## What the repository provides
 

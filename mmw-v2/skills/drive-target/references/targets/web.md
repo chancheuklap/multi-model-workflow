@@ -47,11 +47,11 @@ belongs to a seeded user, and comes out of the reach script.
      written. **A target that has a JSON read surface must use it and not the tree.**
 7. **break the transport** — `transport_off` takes the database away from the server
    (an environment variable the request path reads, or a connection string pointing at
-   an empty schema) while the server keeps serving; `transport_on` puts it back. Note the
-   trap this target sets: if `attach` itself needs the database (a session lookup),
-   breaking it makes attach fail and no `observe` is evaluated — the negative run exits 2
-   and proves nothing. The command has to break persistence of the observed rows, not
-   the session store.
+   an empty schema) while the server keeps serving; `transport_on` puts it back. Attach
+   and each row's `reach` run with the transport on, so a session lookup that needs the
+   write path is not the problem it once was. What the command must still leave standing
+   is the read surface each row's `observe` asks: a server that stops answering makes the
+   row unevaluated rather than a `MISS`, and a run with any unevaluated row is exit 2.
 
 ## What the repository provides
 

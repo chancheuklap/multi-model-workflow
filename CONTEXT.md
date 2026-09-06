@@ -654,7 +654,7 @@ _Home_: `mmw-v2/skills/drive-target/references/ui-parity.md`
 **negative control**:
 The pair each judge builds to prove it can fail, judged before any real result. Interface parity's: after the first scene at the first viewport, the baseline server serves that scene's own address with an error banner in the served bytes, the product is captured again, and the two must differ — equal means the product capture read the design's server, and the run stops with `NEGATIVE CONTROL FAILED`. The wiring check's: `--negative` breaks the state transport for each row's own trigger and `observe`, after `reach` and `open` have put the control on screen, and requires every row to `MISS` on an `observe` assertion, printing `WIRING NEGATIVE OK <n>/<n>` or `GREEN WITHOUT TRANSPORT <row>`.
 _Avoid_: 负控制
-_Home_: `mmw-v2/skills/drive-target/scripts/visual-parity.py`
+_Home_: `mmw-v2/skills/drive-target/scripts/visual-parity.py`, `mmw-v2/skills/drive-target/scripts/wiring-check.py`
 
 **normalisation**:
 How an accessibility tree is read before comparison: as the sequence of its named nodes in reading order — role, name or text, and state attributes — each followed by ` < ` and its nearest named ancestor, with unnamed wrappers and landmark names dropped. One normaliser, in `screen_driver.py`, serves interface parity, the wiring check's tree observe, and the target trees. The **accessibility tree** and the **class set** are read over the whole subtree under the mount; the pixel judge sees only the mount's box intersected with the viewport, on both sides.
