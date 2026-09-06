@@ -279,13 +279,34 @@ class TestScenePartition(unittest.TestCase):
     def test_closed_coverage_compares_expect_to_scenes_times_viewports(self):
         doc = dict(self.doc)
         doc["viewports"] = ["1440x900", "375x812"]
-        bodies = {1: self.body("shell-header")}
+        open_bodies = {1: self.body("shell-header")}
         closed = {2: self.body("create-project", expect="PARITY OK 4/4")}
-        self.assertEqual(vt.lint_scene_partition(bodies, doc, closed), [])
+        self.assertEqual(vt.lint_scene_partition(open_bodies, doc, closed), [])
         findings = vt.lint_scene_partition(
-            bodies, doc, {2: self.body("create-project", expect="PARITY OK 2/2")})
-        self.assertTrue(any("closed ticket #2" in f and "2" in f and "4" in f
-                            for f in findings), findings)
+            open_bodies, doc, {2: self.body("create-project", expect="PARITY OK 2/2")})
+        self.assertIn(
+            "closed ticket #2 mount create-project covered 2 scenes then, 4 now",
+            findings)
+
+    def test_a_closed_ticket_that_split_a_page_still_covers_its_scenes(self):
+        open_bodies = {1: self.body("shell-header")}
+        closed = {2: self.body("create-project", "empty", expect="PARITY OK 1/1"),
+                  3: self.body("create-project", "material-added", expect="PARITY OK 1/1")}
+        self.assertEqual(vt.lint_scene_partition(open_bodies, self.doc, closed), [])
+
+    def test_a_closed_split_does_not_compare_against_the_whole_mount(self):
+        open_bodies = {1: self.body("shell-header")}
+        findings = vt.lint_scene_partition(
+            open_bodies, self.doc,
+            {2: self.body("create-project", "empty", expect="PARITY OK 1/1")})
+        self.assertIn("scene material-added is covered by no ticket's parity criterion",
+                      findings)
+        self.assertFalse(any("scenes then" in f for f in findings), findings)
+
+    def test_escaped_parity_ok_in_expect_still_covers(self):
+        open_bodies = {1: self.body("shell-header")}
+        closed = {2: self.body("create-project", expect=r"/PARITY OK 2\/2/")}
+        self.assertEqual(vt.lint_scene_partition(open_bodies, self.doc, closed), [])
 
 
 class TestBatchScenes(unittest.TestCase):
@@ -352,8 +373,21 @@ class TestBatchScenes(unittest.TestCase):
     def test_a_closed_ticket_whose_expect_no_longer_matches_the_contract_is_an_error(self):
         findings, _ = self.batch("shell-header", other="create-project",
                                  other_state="CLOSED", other_expect="PARITY OK 1/1")
-        self.assertTrue(any("closed ticket #2" in f and "create-project" in f
-                            and "1" in f and "2" in f for f in findings), findings)
+        self.assertIn(
+            "closed ticket #2 mount create-project covered 1 scenes then, 2 now",
+            findings)
+
+    def test_a_closed_ticket_with_no_parity_ok_in_expect_is_an_error(self):
+        findings, _ = self.batch("shell-header", other="create-project",
+                                 other_state="CLOSED", other_expect="/^OK$/m")
+        self.assertIn(
+            "closed ticket #2 mount create-project has no PARITY OK n/n in EXPECT, 2 now",
+            findings)
+
+    def test_a_closed_ticket_on_mount_all_covers_every_scene_when_the_count_matches(self):
+        findings, _ = self.batch("shell-header", other="all",
+                                 other_state="CLOSED", other_expect="PARITY OK 3/3")
+        self.assertEqual(findings, [])
 
     def test_a_closed_ticket_does_not_collide_with_an_open_ticket_on_the_same_mount(self):
         findings, _ = self.batch("create-project", other="create-project",
