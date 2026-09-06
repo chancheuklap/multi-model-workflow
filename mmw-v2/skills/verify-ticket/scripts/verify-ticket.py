@@ -2043,6 +2043,11 @@ def scenes_by_mount(doc: dict) -> dict[str, list[str]]:
     return out
 
 
+def expand_mounts(mounts: list[str], by_mount: dict[str, list[str]]) -> list[str]:
+    """`--mount all` is every mount the contract declares."""
+    return [m for m in by_mount if m] if mounts == ["all"] else mounts
+
+
 NON_COMPARING_MODES = ("--addressing", "--render-only", "--shows-perturbation")
 
 
@@ -2070,8 +2075,7 @@ def scene_findings(body: str, doc: dict) -> list[str]:
     findings = []
     by_mount = scenes_by_mount(doc)
     for gate_id, mounts, explicit in parity_calls(body):
-        if mounts == ["all"]:
-            mounts = [m for m in by_mount if m]
+        mounts = expand_mounts(mounts, by_mount)
         derived = {s for m in mounts for s in by_mount.get(m, [])}
         for m in mounts:
             if m not in by_mount:
@@ -2084,30 +2088,69 @@ def scene_findings(body: str, doc: dict) -> list[str]:
     return findings
 
 
-def lint_scene_partition(bodies: dict[int, str], doc: dict) -> list[str]:
+PARITY_OK_RE = re.compile(r"PARITY OK (\d+)\\?/(\d+)")
+
+
+def parity_ok_count(expect: str) -> int | None:
+    """The `<n>` in `PARITY OK <n>/<n>`, including the regex form `PARITY OK n\\/n`."""
+    m = PARITY_OK_RE.search(expect or "")
+    if not m:
+        return None
+    return int(m.group(2))
+
+
+def viewport_count(doc: dict) -> int:
+    raw = doc.get("viewports") or []
+    return len(raw) if raw else 1
+
+
+def lint_scene_partition(open_bodies: dict[int, str], doc: dict,
+                         closed_bodies: dict[int, str] | None = None) -> list[str]:
     """Across a batch, the scenes the parity criteria cover — by mount, narrowed by an
     explicit `--scenes` — are the contract's scenes, each exactly once, and every page's
     mount is owned by some ticket. Two tickets ordered by `## Blocked by` are not a
     split: the later one re-runs the earlier one's scenes after changing something they
-    rest on, so their overlap is a re-verification, not a double claim."""
+    rest on, so their overlap is a re-verification, not a double claim. A closed ticket
+    still covers the same mount-and-`--scenes` set an open ticket would, when its
+    `PARITY OK <n>/<n>` matches that set times the viewport count; it does not take
+    part in the overlap check."""
     by_mount = scenes_by_mount(doc)
     all_scenes = {s for scenes in by_mount.values() for s in scenes}
     covered: dict[str, list[int]] = {}
     owned_mounts: set[str] = set()
-    for number, body in bodies.items():
+    closed_scenes: set[str] = set()
+    findings: list[str] = []
+    n_vp = viewport_count(doc)
+    for number, body in (closed_bodies or {}).items():
+        expects = {gid: exp for gid, _, exp in criteria_lines(body)}
+        for gate_id, mounts, explicit in parity_calls(body):
+            mounts = expand_mounts(mounts, by_mount)
+            scenes = explicit if explicit else [s for m in mounts for s in by_mount.get(m, [])]
+            now = len(scenes) * n_vp
+            then = parity_ok_count(expects.get(gate_id, ""))
+            if then == now:
+                owned_mounts.update(mounts)
+                closed_scenes.update(scenes)
+            elif then is None:
+                findings.append(
+                    f"closed ticket #{number} mount {','.join(mounts)} "
+                    f"has no PARITY OK n/n in EXPECT, {now} now")
+            else:
+                findings.append(
+                    f"closed ticket #{number} mount {','.join(mounts)} "
+                    f"covered {then} scenes then, {now} now")
+    for number, body in open_bodies.items():
         for _, mounts, explicit in parity_calls(body):
-            if mounts == ["all"]:
-                mounts = [m for m in by_mount if m]
+            mounts = expand_mounts(mounts, by_mount)
             owned_mounts.update(mounts)
             scenes = explicit if explicit else [s for m in mounts for s in by_mount.get(m, [])]
             for s in scenes:
                 covered.setdefault(s, []).append(number)
-    if not covered:
+    if not covered and not closed_scenes and not findings:
         return []
-    findings = []
-    for s in sorted(all_scenes - set(covered)):
+    for s in sorted(all_scenes - set(covered) - closed_scenes):
         findings.append(f"scene {s} is covered by no ticket's parity criterion")
-    blocks = {n: set(blocked_by(b)) for n, b in bodies.items()}
+    blocks = {n: set(blocked_by(b)) for n, b in open_bodies.items()}
 
     def unordered(a: int, b: int) -> bool:
         return a not in blocks[b] and b not in blocks[a]
@@ -2175,7 +2218,12 @@ def lint_screen_contract(body: str, number: int | None = None) -> list[str]:
 
 
 def lint_batch_scenes(number: int, body: str) -> list[str]:
-    """The scene partition across the batch, read when this ticket runs visual-parity.py."""
+    """The scene partition across the batch, read when this ticket runs visual-parity.py.
+
+    Closed siblings are passed separately: they still cover the same
+    mount-and-`--scenes` set an open ticket would when their `PARITY OK <n>/<n>`
+    matches, and they do not take part in overlap.
+    """
     if not parity_calls(body):
         return []
     doc, _ = load_contract_doc("\n".join(section(body, "Read first")))
@@ -2188,17 +2236,19 @@ def lint_batch_scenes(number: int, body: str) -> list[str]:
                 f"the scene partition across the batch was not checked"]
     if spec is None:
         return []
-    bodies = {number: body}
+    open_bodies = {number: body}
+    closed_bodies: dict[int, str] = {}
     for n in fetch_sub_issues(spec):
         if n == number:
             continue
         try:
             if fetch_outsider(n).get("state") == "CLOSED":
-                continue  # a closed ticket's criteria cover nothing any more
-            bodies[n] = fetch_body(n)
+                closed_bodies[n] = fetch_body(n)
+            else:
+                open_bodies[n] = fetch_body(n)
         except Exception:  # noqa: BLE001
             continue
-    return lint_scene_partition(bodies, doc)
+    return lint_scene_partition(open_bodies, doc, closed_bodies)
 
 
 def run_lint(number: int) -> int:
