@@ -1,3 +1,4 @@
+#!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
 # dependencies = ["numpy>=2", "Pillow>=10", "playwright>=1.58", "pyyaml>=6"]
