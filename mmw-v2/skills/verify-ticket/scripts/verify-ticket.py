@@ -65,9 +65,8 @@ COUNTS_RE = re.compile(
 HANDOFF_RE = re.compile(
     r"^HANDOFF REQUIRED:\s*(\d+)\s+abandoned\s*\(([^)]*)\),\s*(\d+)\s+unmet,\s*(\d+)\s+met of\s*(\d+)\s*$")
 VERDICT_RE = re.compile(r"^VERDICT\s+([0-9a-fA-F]{40})\b")
-ISSUE_REF_RE = re.compile(r"#(\d+)")
 # `owner/repo#n` and `repo#n` are another repository's issue, not this batch's spec.
-THIS_REPO_ISSUE_RE = re.compile(r"(?<![A-Za-z0-9_/])#(\d+)")
+ISSUE_REF_RE = re.compile(r"(?<![A-Za-z0-9_/])#(\d+)")
 WORKER_LABEL_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*-worker$")
 ATTR_LINE_RE = re.compile(r"^\s+(CHECK|EXPECT|EVIDENCE|CWD|TIMEOUT):")
 # The one attribute gate-check does not know: it is read here and kept out of the ledger.
@@ -328,7 +327,7 @@ def parent_spec(body: str) -> int | None:
     `repo#n` and `owner/repo#n` are another repository's issue and are not a spec here.
     """
     for line in section(body, "Parent"):
-        m = THIS_REPO_ISSUE_RE.search(line)
+        m = ISSUE_REF_RE.search(line)
         if m:
             return int(m.group(1))
     return None
@@ -370,8 +369,7 @@ def owns_globs(body: str) -> list[str]:
         if not m:
             continue
         value = m.group(1)
-        if len(value) >= 2 and value.startswith("`") and value.endswith("`"):
-            value = value[1:-1]
+        value = value.strip("`")
         if value.lower().startswith("none"):
             continue
         globs.append(value)
@@ -1316,9 +1314,9 @@ def run_draft(number: int, out_file: Path) -> int:
         outside = "Outside Owns: None"
     try:
         opened = [f"#{child}" for child in fetch_sub_issues(number)]
-    except SubIssuesUnreadable as exc:
-        return refuse(f"#{number}: the tracker could not list this ticket's sub-issues ({exc})")
-    sub = "Sub-issues opened: " + (", ".join(opened) if opened else "none")
+        sub = "Sub-issues opened: " + (", ".join(opened) if opened else "none")
+    except SubIssuesUnreadable:
+        sub = "Sub-issues opened: unknown (the tracker could not be asked)"
     counts_line = (f"Counts: {counts['met']} met, {counts['unmet']} unmet, "
                    f"{counts['abandoned']} abandoned of {counts['total']}")
     parts = [first, "", branch_line, "", post, ""]
@@ -2145,7 +2143,7 @@ def lint_scene_partition(open_bodies: dict[int, str], doc: dict,
     owned_mounts: set[str] = set()
     closed_scenes: set[str] = set()
     findings: list[str] = []
-    n_vp = len(doc.get("viewports") or [])
+    n_vp = len(doc.get("viewports") or []) or 1
     for number, body in (closed_bodies or {}).items():
         expects = {gid: exp for gid, _, exp in criteria_lines(body)}
         for gate_id, mounts, explicit in parity_calls(body):

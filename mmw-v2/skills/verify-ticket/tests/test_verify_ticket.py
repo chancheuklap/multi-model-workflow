@@ -297,7 +297,7 @@ class TestOwns(unittest.TestCase):
         self.assertEqual(vt.owns_globs(body), ["src/import/**", "src/import/ui/**"])
         self.assertEqual(vt.owns_globs("## Owns\n\n- None\n\n## Blocked by\n"), [])
 
-    def test_globs_drop_the_backticks_the_template_wraps_paths_in(self):
+    def test_globs_drop_wrapping_backticks(self):
         body = ("## Owns\n\n- `src/import/**`\n- `src/import/ui/**` (new)\n\n"
                 "## Acceptance criteria\n")
         self.assertEqual(vt.owns_globs(body), ["src/import/**", "src/import/ui/**"])

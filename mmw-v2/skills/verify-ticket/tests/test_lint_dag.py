@@ -342,6 +342,10 @@ class TestBlockedBy(unittest.TestCase):
     def test_each_referenced_ticket_is_a_blocker(self):
         self.assertEqual(vt.blocked_by(body(blockers=("#61", "#62"))), [61, 62])
 
+    def test_a_cross_repo_ref_in_blocked_by_is_not_this_repos_ticket(self):
+        self.assertEqual(
+            vt.blocked_by("## Blocked by\n\n- agentflow#655\n- #61\n"), [61])
+
     def test_the_parent_spec_is_read_off_the_parent_section(self):
         self.assertEqual(vt.parent_spec(body(parent=60)), 60)
 
