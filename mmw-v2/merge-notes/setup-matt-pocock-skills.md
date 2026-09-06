@@ -22,6 +22,14 @@
 | 第 3 步 Confirm and edit 的第一条草稿项 | 从「whichever of `CLAUDE.md` / `AGENTS.md` is being edited」改成固定的 `AGENTS.md`，跟第 4 步同步 |
 | 第 4 步 Pick the file to edit（`CLAUDE.md` 在就改它、两个都没有就问用户、绝不在另一个已存在时新建） | 改成：`## Agent skills` 块永远写进 `AGENTS.md`，没有就建；`CLAUDE.md` 只放 `@AGENTS.md` 一行加它原有的其他 `@` 行，别的内容搬进 `AGENTS.md`。理由是本仓另一个技能 `manage-agents-md` 就是这个形态（`mmw-v2/skills/manage-agents-md/write.md:13`「the line `@AGENTS.md` … Nothing else.」），它的 `scripts/check.sh` 会把 `CLAUDE.md` 里每一行非 `@import` 判成错——照上游的规则跑完 setup，再跑 `manage-agents-md` 就是两个技能互相拆台。本仓已经按这个形态落地（`docs/adr/0005-docs-layer-adopted-by-v2.md`：`## Agent skills` 块在根 `AGENTS.md`）。上游改这一步 → 不收，除非它自己也变成只写 `AGENTS.md` |
 
+### issue-tracker-github.md（种子）
+
+| 段落 | 我们的意图 |
+| --- | --- |
+| Conventions 开头新增的 **Every list read is a whole list** | 本仓加的，种子里没有。`gh issue list` 不带 `-L` 停在 30 条，`gh api` 的列表端点不带 `--paginate` 只回第一页，两者都不在输出里留任何标记，所以读了一半的集合看起来和完整的一模一样。agent 照这份文件写命令，看不见的票它当作不存在。上游若自己加了同义的一条 → 收上游措辞；上游改这一段 → 保留本仓这条，它是行为要求不是文风 |
+| **List issues**、**Frontier query**、两条 Morning queries 的命令 | 一律补 `--limit 500`。上游改这几条命令 → 收上游的其余部分，`--limit` 必须留着 |
+| **Child ticket** 里读子票的命令 | 从 `gh api` on the sub-issues endpoint 写成完整的 `gh api --paginate repos/<owner>/<repo>/issues/<map>/sub_issues?per_page=100`。理由同上：2026-09-06 在 agentflow 上，spec #537 有 37 个子票，不分页只看得到 30 个，7 张票在读的人眼里不存在 |
+
 ### triage-labels.md（种子）
 
 | 段落 | 我们的意图 |

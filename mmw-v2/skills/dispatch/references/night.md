@@ -61,7 +61,7 @@ Two things wake you, and both end here: a **ticket message** whose first line is
 | --- | --- |
 | A ticket just closed `ALL MET`, or the frontier has `ready` rows and no live worker on them | `<dispatch> advance <spec>`, then `create_agent` on each new line |
 | The worker is live and the work should continue | `<dispatch> resume <n> "<what you settled, then: continue>"` |
-| The worker has stopped and the ticket has a new child whose first line is `SUB-ISSUE pipeline` | Read that sub-issue (`gh api repos/{owner}/{repo}/issues/<n>/sub_issues`). Fix the cause it names. Then `<dispatch> resume <n> "… continue"` |
+| The worker has stopped and the ticket has a new child whose first line is `SUB-ISSUE pipeline` | Read that sub-issue (`gh api --paginate repos/{owner}/{repo}/issues/<n>/sub_issues?per_page=100`). Fix the cause it names. Then `<dispatch> resume <n> "… continue"` |
 | `status` shows the ticket still `OPEN`, and `paseo ls --label mmw.ticket=<n>` shows a live child labelled `mmw.kind=reviewer` or `mmw.kind=verifier` | Not a stop: the worker is asleep on that child and wakes when it finishes. Do nothing |
 | The message reads `#<n> NOT_READY` | The ticket refused to be claimed and `--preflight` said why in a comment on it. Fix what that comment names, then `<dispatch> advance <spec>` |
 | `status` notes `closed: archive it`, or `paseo logs <id>` shows only the prompt with no output (an agent created before the daemon restarted answers this way) | `paseo archive <id>`, then `<dispatch> advance <spec>`: with no agent on the ticket and its claim given back, the ticket is on the frontier again and `start` reuses its standing workspace and branch |
