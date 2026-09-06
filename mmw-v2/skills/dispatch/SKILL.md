@@ -42,9 +42,11 @@ Then end your turn. What wakes you is the agent you just started coming to rest,
 | Start the verifier on your ticket | `<dispatch> start <n> verifier`, then the one path above, then end your turn. The verifier finishing wakes you; then read the ticket for the comment whose first line is `VERDICT`. Start it once. **Start exits 2:** stderr is the reason; nothing was started — it is a pipeline fault: `<engine> <n> --sub-issue pipeline <file>`; the file's body is the command you ran and the output you saw; then stop. |
 | Open the night on a spec | [references/night.md](references/night.md): `<dispatch> check <spec>` (it also creates the night's heartbeat), then `<dispatch> advance <spec>`, then the one path above |
 | You were woken for an agent you started and its result is not on the ticket | `<dispatch> wait <n> worker\|reviewer\|verifier`: prints the first line of its result comment (`ALL MET` / `HANDOFF REQUIRED`, `REVIEW …`, `VERDICT …`), reading the ticket before it waits at all. Exit 3: still working, run it again. Exit 1: it stopped without a result; stderr names the next step. Exit 2: no such agent |
-| Something woke you — a finish notification, or a message whose first line is `#<n> …` | `<dispatch> status <spec>`, then the decision table in [references/night.md](references/night.md) |
+| Something woke you — a finish notification, or a message whose first line is `#<n> …` | `<dispatch> land <n>` for the ticket the message names, then `<dispatch> status <spec>` and the decision table in [references/night.md](references/night.md). The message carries the ticket number, which is all `land` needs; a ticket outside any batch has no `<spec>` and stops after `land` |
+| Land a ticket that has come to rest | `<dispatch> land <n>`: merge its branch, archive its workspace (agents inside it included), give its slot and its claim back. Takes a ticket number, never a spec, so it is the whole ending for a ticket dispatched outside a night. Exit 1: at least one closed ticket was left unmerged and stderr names it |
+| Land everything on this checkout that is finished | `<dispatch> land --sweep`. Run it when a night has been quiet longer than it should be, or after any interruption: it needs no wake-up message to have arrived, and no spec |
 | Tell a live worker to continue | `<dispatch> resume <n> "<text>"`. Exit 0: the text was sent. Exit 2: no worker labelled `mmw.ticket=<n>` — read `status`, do not send again |
-| Start a worker on one ticket, outside a night | `<dispatch> start <n> worker`, then the one path above |
+| Start a worker on one ticket, outside a night | `<dispatch> start <n> worker`, then the one path above. When that ticket comes to rest, `<dispatch> land <n>` is what ends it: no `advance` will, because a ticket outside a night belongs to no spec |
 | Re-run every closed `ALL MET` ticket on the branch you are on | `<dispatch> reverify <spec>` |
 | Post the night summary on the spec | `<dispatch> summary <spec>` |
 | Give the night up before it is over | `<dispatch> suspend <spec>` — [references/night.md](references/night.md) says what it stops and what it leaves standing |
@@ -85,6 +87,15 @@ The night's heartbeat is created in [references/night.md](references/night.md) s
 | `0` | Done. One JSON object per dispatched ticket on stdout; the line `advance #<spec>: merged <m>, already in <s>, released <g>, started <k>, refused <r>, held <h>` is on stderr. Each claim given back prints a line of its own naming the ticket and why; when nothing could start and tickets are still in the agent queue, stderr names every one of them and the condition holding it |
 | `2` | Nothing was touched. Stderr: not a git repository, uncommitted tracked changes, or the `.git` lock was held for `MERGE_TRIES` tries — run `advance` again |
 | `3` | A merge is in conflict. Everything before it is merged and committed; nothing was archived, no workspace was created, nothing was dispatched. **The conflict is still in the tree and it stays there.** Resolve it with the `resolving-merge-conflicts` skill, run this repository's own checks, commit the merge, then run `advance` again. The conflict report (stderr) already names the two sides and the conflicted files |
+
+**`land <n>` / `land --sweep`:**
+
+| Code | What happened |
+| --- | --- |
+| `0` | Done. Stderr carries one line per merge and the tally `land: merged <m>, archived <a>, released <r>, still working <w>, left unmerged <u>`. A ticket still being worked is named on stderr and nothing is done to it |
+| `1` | Everything else was landed, and at least one closed ticket was left standing because its branch is not in `HEAD`. Stderr names each. Archiving deletes the worktree, so this one waits for you: merge that branch, or decide the work is abandoned and archive it yourself |
+| `2` | Nothing was touched: not a git repository, uncommitted tracked changes, or a ticket number that is not digits |
+| `3` | A merge is in conflict and is still in the tree. Same as `advance`: resolve it with the `resolving-merge-conflicts` skill, run this repository's checks, commit the merge, then run `land` again |
 
 **`check <spec>`:**
 

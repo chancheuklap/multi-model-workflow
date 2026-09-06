@@ -691,6 +691,8 @@ JSON
     || fail "the heartbeat prompt should name night.md step 3: $(cat "$MMW_TEST_LOG")"
   grep -q "$copy/scripts/dispatch.sh" "$MMW_TEST_LOG" \
     || fail "the heartbeat prompt should name dispatch.sh: $(cat "$MMW_TEST_LOG")"
+  grep -q "land --sweep" "$MMW_TEST_LOG" \
+    || fail "the heartbeat should sweep before it reads status, since a landing message can be lost: $(cat "$MMW_TEST_LOG")"
   local hb
   hb="$(git -C "$TMP/repo" rev-parse --absolute-git-dir)/mmw-heartbeat-76"
   [ -f "$hb" ] || fail "the heartbeat id file was not written"

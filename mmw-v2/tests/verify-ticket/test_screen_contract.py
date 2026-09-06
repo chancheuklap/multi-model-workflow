@@ -454,7 +454,8 @@ class TestReviewProblems(unittest.TestCase):
         self.assertIn("create-project.add-material", problems[0])
 
     def test_naming_the_row_in_the_draft_answers_it(self):
-        draft = "ALL MET\nPost-verdict: 1234567 — create-project.add-material wired (review finding)\n"
+        draft = ("ALL MET\nBranch: x\n\n"
+                 "Sub-issues opened: #91 (create-project.add-material wired, review finding)\n")
         self.assertEqual(vt.review_problems(draft, BODY, [REVIEW]), [])
 
     def test_no_review_no_problem(self):

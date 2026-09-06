@@ -854,11 +854,16 @@ ensure_night_heartbeat() {
       return 0
     fi
   fi
-  prompt="Run: bash $SELF"
+  # The sweep goes first, and it is why this heartbeat is worth more than a reminder.
+  # A ticket tells the main agent it has landed through `notify_parent`, which fails
+  # silently three ways: no `PASEO_AGENT_ID`, a parent already archived, a `paseo send`
+  # that errors. Each writes one line to a stderr nobody reads. The sweep needs none of
+  # that to have worked: it asks Paseo what is here and the tracker what is finished.
+  local runner="bash $SELF"
   for dir in ${TOOLS[@]+"${TOOLS[@]}"}; do
-    prompt="$prompt --tools $dir"
+    runner="$runner --tools $dir"
   done
-  prompt="$prompt status $spec (from $root), then act per night.md step 3."
+  prompt="Run: $runner land --sweep (it lands whatever came to rest unheard), then $runner status $spec (from $root), then act per night.md step 3."
   if ! json="$(paseo heartbeat create --cron '7 * * * *' --name "mmw-night-$spec" --json "$prompt")"; then
     echo "dispatch: could not create heartbeat mmw-night-$spec" >&2
     exit 2
