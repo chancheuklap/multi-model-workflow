@@ -5,7 +5,8 @@ Exit 0 with no errors; 1 with errors listed one per line; warnings never fail.
 `--tools` is the `scripts/` directory of the drive-target skill. Three things
 come from that driver, and this file holds no copy of any: the target kinds
 (its `ADAPTERS`), the `.mmw/target.json` check (the function `target
---validate` runs), and matching (`volatile_triggers` / `count_volatile_hits`).
+--validate` runs), and matching (`volatile_triggers` / `row_trigger` /
+`count_volatile_hits` / `count_trigger_hits`).
 All three are loaded in-process through `extract_skeleton.py`'s `load_driver()`.
 Rules are the tables in ../references/contract-format.md: the control axis (rows), the
 screen axis (`target`, `viewports`, `pages`, `scenes`), the mechanism table, and the
@@ -57,8 +58,9 @@ def extract_skeleton_mod():
 def screen_driver_mod():
     """The drive-target driver from `--tools`, loaded the same way
     `extract_skeleton.py` loads it. Cached after the first load.
-    Matching (`volatile_triggers` / `count_volatile_hits`) and the target
-    kinds / `.mmw/target.json` check all come from this module."""
+    Matching (`volatile_triggers` / `row_trigger` / `count_volatile_hits` /
+    `count_trigger_hits`) and the target kinds / `.mmw/target.json` check all
+    come from this module."""
     global _SD
     if _SD is not None:
         return _SD
@@ -187,7 +189,8 @@ def open_lands(row: dict, scene: str, page: str, scene_pages: dict[str, str], de
 def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
                      contract_dir: Path | None) -> tuple[list[str], list[str]]:
     """The screen axis: target, viewports, pages, scenes, the mechanism table, the
-    target trees, volatile_values. Every finding names the key it is about."""
+    target trees, volatile_values, and a row trigger that is not unique on its
+    scene. Every finding names the key it is about."""
     errors: list[str] = []
     warnings: list[str] = []
     rows = {str(r.get("id")): r for r in doc.get("rows") or []}
@@ -401,6 +404,15 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
                     errors.append(f"targets: {f.name} is stale — its hashes no longer match "
                                   f"scenes.json or {page}; regenerate with extract_skeleton.py")
     # -- volatile_values
+    def tree_of(page: str) -> list[str]:
+        """The page's target tree, as lines. `aria_of` holds the pages the target
+        directory declared; a page it does not name is looked for where
+        `extract_skeleton.py --targets` would have written it."""
+        aria = aria_of.get(page)
+        if aria is None:
+            aria = contract_dir / "targets" / f"{page_stem(page)}.aria"
+        return aria.read_text(encoding="utf-8").splitlines() if aria.exists() else []
+
     for entry in doc.get("volatile_values") or []:
         if not isinstance(entry, dict):
             continue
@@ -413,12 +425,8 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
             continue
         if contract_dir is None:
             continue
-        aria = aria_of.get(page)
-        if aria is None:
-            aria = contract_dir / "targets" / f"{page_stem(page)}.aria"
-        tree = aria.read_text(encoding="utf-8") if aria.exists() else ""
         hits = screen_driver_mod().count_volatile_hits(
-            tree.splitlines(),
+            tree_of(page),
             screen_driver_mod().volatile_triggers({"volatile_values": [entry]}))
         if hits == 0:
             warnings.append(f"volatile_values: {role} {name!r} on {page} is not in the "
@@ -426,6 +434,27 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
         elif hits > 1:
             errors.append(f"volatile_values: {role} {name!r} on {page} matches {hits} "
                           f"nodes; name the previous named node as after")
+    # -- row trigger uniqueness: exact (role, name), same `after` pin
+    sd = screen_driver_mod()
+    for rid, row in rows.items():
+        wanted = sd.row_trigger(row)
+        if not wanted.role or not wanted.name:
+            continue
+        row_scenes = [scene_name_of(s) for s in (row.get("scenes") or [])]
+        if not row_scenes or contract_dir is None:
+            continue
+        pages_for: dict[str, set[str]] = {}
+        for sc in row_scenes:
+            page = scene_pages.get(sc)
+            if page:
+                pages_for.setdefault(page, set()).add(sc)
+        for page, scs in pages_for.items():
+            hits = sd.count_trigger_hits(
+                sd.scene_lines(tree_of(page), scs), wanted)
+            if hits > 1:
+                errors.append(
+                    f"{rid}: trigger {wanted.role} {wanted.name!r} on {page} "
+                    f"matches {hits} nodes; name the previous named node as after")
     return errors, warnings
 
 

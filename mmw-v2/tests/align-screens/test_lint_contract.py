@@ -16,6 +16,9 @@ lc = importlib.util.module_from_spec(spec)
 sys.modules["lint_contract"] = lc
 spec.loader.exec_module(lc)
 
+# The drive-target scripts the lint asks for its matching and its target kinds.
+TOOLS_DIR = Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts"
+
 PAGE_A = "Component · 新建商品项目.dc.html"
 PAGE_B = "Component · 壳头.dc.html"
 PAGE_APP = "App · 商品项目库.dc.html"
@@ -127,7 +130,7 @@ class TestScreenAxis(unittest.TestCase):
     def setUp(self):
         # The target kinds and the .mmw/target.json check are the drive-target skill's;
         # the lint reaches them through --tools, the way the agent passes them.
-        lc.TOOLS[:] = [Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts"]
+        lc.TOOLS[:] = [TOOLS_DIR]
         self.repo = Repo()
         self.repo.write_targets()
 
@@ -429,7 +432,7 @@ class TestVolatileValues(unittest.TestCase):
     }
 
     def setUp(self):
-        lc.TOOLS[:] = [Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts"]
+        lc.TOOLS[:] = [TOOLS_DIR]
         self.repo = Repo()
         self.repo.write_targets()
 
@@ -482,6 +485,100 @@ class TestVolatileValues(unittest.TestCase):
             doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
         self.assertFalse(any("volatile_values" in e for e in errors), errors)
         self.assertFalse(any("volatile_values" in w for w in warnings), warnings)
+
+
+class TestTriggerAfter(unittest.TestCase):
+    """A row whose trigger hits more than one named node on a scene, with no
+    `after`, is an ERROR — the same rule as `volatile_values`. With `after` it
+    matches one and does not."""
+
+    TREE = (
+        '- button "放弃这次任务"\n'
+        '- heading "要放弃这次任务吗"\n'
+        '- button "放弃这次任务"\n'
+    )
+    ROW = {
+        "id": "create-project.abandon.confirm",
+        "component": "features/project-setup/CreateProjectView",
+        "trigger": {"role": "button", "name": "放弃这次任务"},
+        "precondition": {},
+        "scenes": ["empty"],
+        "calls": ["none"],
+        "shows": {},
+        "next": "stay",
+        "source": ["#537 Implementation Decisions 2"],
+        "reach": "seed:library-ready",
+        "gap": "aligned",
+    }
+
+    def setUp(self):
+        lc.TOOLS[:] = [TOOLS_DIR]
+        self.repo = Repo()
+        self.repo.write_targets()
+
+    def tearDown(self):
+        self.repo.cleanup()
+
+    def test_a_trigger_that_matches_several_nodes_is_an_error(self):
+        aria = self.repo.spec_dir / "targets" / (PAGE_A[:-len(".dc.html")] + ".aria")
+        aria.write_text(
+            aria.read_text(encoding="utf-8") + "## scene empty\n" + self.TREE,
+            encoding="utf-8")
+        doc = contract()
+        doc["rows"] = [*doc["rows"], dict(self.ROW)]
+        errors, warnings = lc.lint_screen_axis(
+            doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
+        self.assertTrue(any("create-project.abandon.confirm" in e
+                            and "放弃这次任务" in e
+                            and "matches 2 nodes" in e
+                            and "after" in e for e in errors), errors)
+        self.assertFalse(any("create-project.abandon.confirm" in w for w in warnings),
+                         warnings)
+
+        doc["rows"][-1]["after"] = {"role": "heading", "name": "要放弃这次任务吗"}
+        errors, warnings = lc.lint_screen_axis(
+            doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
+        self.assertFalse(any("create-project.abandon.confirm" in e for e in errors),
+                         errors)
+        self.assertFalse(any("create-project.abandon.confirm" in w for w in warnings),
+                         warnings)
+
+    def test_a_same_stem_sibling_is_not_a_second_hit(self):
+        """A row trigger is exact. `确认` next to `确认 2` is one hit, so the
+        lint does not demand `after`."""
+        aria = self.repo.spec_dir / "targets" / (PAGE_A[:-len(".dc.html")] + ".aria")
+        aria.write_text(
+            aria.read_text(encoding="utf-8")
+            + "## scene empty\n"
+            + '- button "确认 2"\n'
+            + '- heading "标题"\n'
+            + '- button "确认"\n',
+            encoding="utf-8")
+        doc = contract()
+        row = dict(self.ROW)
+        row["trigger"] = {"role": "button", "name": "确认"}
+        doc["rows"] = [*doc["rows"], row]
+        errors, _ = lc.lint_screen_axis(
+            doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
+        self.assertFalse(any("create-project.abandon.confirm" in e for e in errors),
+                         errors)
+
+    def test_after_on_a_missing_trigger_is_not_this_rule(self):
+        """`after` present and zero hits is not the uniqueness ERROR: the
+        ticket only errors when the trigger matches more than one node and
+        the row has no coordinate."""
+        aria = self.repo.spec_dir / "targets" / (PAGE_A[:-len(".dc.html")] + ".aria")
+        aria.write_text(
+            aria.read_text(encoding="utf-8") + "## scene empty\n- heading \"其他\"\n",
+            encoding="utf-8")
+        doc = contract()
+        row = dict(self.ROW)
+        row["after"] = {"role": "heading", "name": "要放弃这次任务吗"}
+        doc["rows"] = [*doc["rows"], row]
+        errors, _ = lc.lint_screen_axis(
+            doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
+        self.assertFalse(any("create-project.abandon.confirm" in e
+                             and "matches 0 nodes" in e for e in errors), errors)
 
 
 if __name__ == "__main__":
