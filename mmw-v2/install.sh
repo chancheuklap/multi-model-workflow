@@ -351,6 +351,7 @@ if [ -f "$HOOK_SRC" ]; then
   hooks_ran=1
   MMW_MODE="$mode" \
   MMW_HOOK="$NEUTRAL_DIR/verify-ticket/scripts/hook.py" \
+  MMW_NEUTRAL="$NEUTRAL_DIR" \
   MMW_HOME="$HOME_DIR" \
   MMW_CODEX="${CODEX_HOME:-$HOME_DIR/.codex}" \
   MMW_PI="${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME_DIR/.pi}/agent}" \
@@ -362,6 +363,7 @@ from pathlib import Path
 
 mode = os.environ["MMW_MODE"]
 hook = os.environ["MMW_HOOK"]
+neutral = os.environ["MMW_NEUTRAL"]
 home = Path(os.environ["MMW_HOME"])
 codex_home = Path(os.environ["MMW_CODEX"])
 pi_home = Path(os.environ["MMW_PI"])
@@ -515,6 +517,80 @@ def extension(path):
     return install, installed
 
 
+# ---- 上一代自己装的 hook ----
+#
+# 技能软链那一段靠扫目录认领上一代的残留（stale_links）；hook 这一侧要有同一个机制。
+# 没有它，脚本一改名或一 retire，上一代的注册就留在配置里指着一个不存在的文件，host
+# 每次触发那个事件都调用失败——2026-09-06 就是这么把 Claude Code 的 UserPromptSubmit
+# 堵死的：这一支把 dispatch 的 turn.py 重组掉了，安装器只认得出「这次要装的那一条」，
+# 认不出也扫不到上一支写下的四条。
+#
+# 认领判据与软链那边同构：命令里的脚本落在 ~/.agents/skills 下，就是本仓库装的。别人
+# （Herdr、Paseo、Nowledge Mem）的处理器指向自己的目录，一条都不碰。
+#
+# 扫哪几个文件是下面这份显式清单，跟 RETIRED_DIRS 一个道理：「这次装什么」认不出上一代
+# 写在哪个文件里，只有人手记着。retire 掉一处 hook 的时候，把它的文件留在清单里。
+MARK = f"'{neutral}/"
+
+# 一行一处：文件、它的格式、整个文件是不是只有本仓库写。
+# 只有本仓库写的那种，条目清空之后连文件一起删——grok 把 hooks/*.json 全部合并读入，
+# 空壳留着不报错也不提示。mmw-turn.json 是 turn.py 那一代的文件，这一支一条都不往里写。
+SWEPT = [
+    (home / ".claude/settings.json", "grouped", False),
+    (codex_home / "hooks.json", "grouped", False),
+    (home / ".cursor/hooks.json", "cursor", False),
+    (home / ".grok/hooks/mmw-verify-ticket.json", "grouped", True),
+    (home / ".grok/hooks/mmw-turn.json", "grouped", True),
+    (home / ".grok/hooks/mmw-discipline.json", "grouped", True),
+]
+
+# pi 那一侧是整文件写入，不存在半条残留；改过名的扩展文件列在这里，每次安装删一遍。
+RETIRED_PI = []
+
+
+def sweep(path, fmt, keep):
+    """这个文件里本仓库装的、keep 之外的处理器。返回 (摘掉了什么, 摘完的 data)。"""
+    data = load(path)
+    hooks = data.get("hooks")
+    if not isinstance(hooks, dict):
+        return [], data
+    dropped = []
+
+    def survivors(handlers, event):
+        left = []
+        for handler in handlers:
+            command = str(handler.get("command", "")) if isinstance(handler, dict) else ""
+            if MARK in command and command not in keep:
+                dropped.append((event, command))
+            else:
+                left.append(handler)
+        return left
+
+    for event in list(hooks):
+        entries = hooks.get(event)
+        if not isinstance(entries, list):
+            continue
+        if fmt == "cursor":
+            left = survivors(entries, event)
+        else:
+            left = []
+            for group in entries:
+                inner = group.get("hooks") if isinstance(group, dict) else None
+                if not isinstance(inner, list):
+                    left.append(group)
+                    continue
+                kept = survivors(inner, event)
+                # 组里本来就有别人的处理器就留着；清空了的组连壳一起去掉。
+                if kept:
+                    group["hooks"] = kept
+                    left.append(group)
+        if left:
+            hooks[event] = left
+        else:
+            del hooks[event]
+    return dropped, data
+
+
 # 一行一个安装点：host 根、配置文件、事件名（只出现在输出里）、装与查两个动作。
 # grok 把 hooks/*.json 全部合并读入，所以 hook.py 独占一个文件；claude 与 codex 只有一份
 # 配置，几条都写进去。
@@ -524,17 +600,25 @@ grouped_hosts = [
     ("codex", codex_home, codex_home / "hooks.json"),
 ]
 points = []
+# 这次装的每一条完整命令，按文件收着：sweep 摘的就是这个集合之外的。
+keep = {}
+
+
+def point(host_home, path, label, actions, command=None):
+    points.append((host_home, path, label, actions))
+    if command is not None:
+        keep.setdefault(path, set()).add(command)
+
+
 for host, host_home, path in grouped_hosts:
-    points.append((host_home, path, "PreToolUse Bash",
-                   grouped(path, "PreToolUse", "Bash", COMMAND + host)))
-    points.append((host_home, path, "PreToolUse " + QUESTION_TOOLS[host],
-                   grouped(path, "PreToolUse", QUESTION_TOOLS[host], QUESTION + host)))
-points += [
-    (home / ".cursor", home / ".cursor/hooks.json", "beforeShellExecution",
-     cursor(home / ".cursor/hooks.json", "beforeShellExecution")),
-    (pi_home, pi_home / "extensions/mmw-verify-ticket.ts", "tool_call",
-     extension(pi_home / "extensions/mmw-verify-ticket.ts")),
-]
+    point(host_home, path, "PreToolUse Bash",
+          grouped(path, "PreToolUse", "Bash", COMMAND + host), COMMAND + host)
+    point(host_home, path, "PreToolUse " + QUESTION_TOOLS[host],
+          grouped(path, "PreToolUse", QUESTION_TOOLS[host], QUESTION + host), QUESTION + host)
+point(home / ".cursor", home / ".cursor/hooks.json", "beforeShellExecution",
+      cursor(home / ".cursor/hooks.json", "beforeShellExecution"), COMMAND + "cursor")
+point(pi_home, pi_home / "extensions/mmw-verify-ticket.ts", "tool_call",
+      extension(pi_home / "extensions/mmw-verify-ticket.ts"))
 
 failed = False
 count = 0
@@ -557,6 +641,38 @@ for host_home, path, event, (install, installed) in points:
         failed = True
         continue
     count += 1
+
+# 装完再扫：一条只是换了路径的注册，上面已经原地更新过，它的新命令就在 keep 里；
+# 剩下认领得出、却没人再装的，才是上一代的残留。
+for path, fmt, mmw_owned in SWEPT:
+    if not path.exists():
+        continue
+    dropped, data = sweep(path, fmt, keep.get(path, set()))
+    if not dropped:
+        continue
+    if mode == "check":
+        for event, command in dropped:
+            sys.stderr.write(f"残留  {path}  {event}  {command}"
+                             f" 指向 ~/.agents/skills，这次却不装它，跑一次 install.sh 摘掉\n")
+        failed = True
+        continue
+    if mmw_owned and not (data.get("hooks") or {}):
+        path.unlink()
+        print(f"摘掉  {path}（本仓库写的最后一条 hook 也不装了）")
+    else:
+        save(path, data)
+        for event, command in dropped:
+            print(f"摘掉  {path}  {event}  {command}")
+
+for path in RETIRED_PI:
+    if not path.exists():
+        continue
+    if mode == "check":
+        sys.stderr.write(f"残留  {path} 是 retired 的扩展，跑一次 install.sh 摘掉\n")
+        failed = True
+    else:
+        path.unlink()
+        print(f"摘掉  {path}")
 
 if mode != "check":
     print(f"已装  {count} 条 hook")
