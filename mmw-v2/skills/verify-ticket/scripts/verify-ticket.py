@@ -65,7 +65,8 @@ COUNTS_RE = re.compile(
 HANDOFF_RE = re.compile(
     r"^HANDOFF REQUIRED:\s*(\d+)\s+abandoned\s*\(([^)]*)\),\s*(\d+)\s+unmet,\s*(\d+)\s+met of\s*(\d+)\s*$")
 VERDICT_RE = re.compile(r"^VERDICT\s+([0-9a-fA-F]{40})\b")
-ISSUE_REF_RE = re.compile(r"#(\d+)")
+# `owner/repo#n` and `repo#n` are another repository's issue, not this batch's spec.
+ISSUE_REF_RE = re.compile(r"(?<![A-Za-z0-9_/])#(\d+)")
 WORKER_LABEL_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*-worker$")
 ATTR_LINE_RE = re.compile(r"^\s+(CHECK|EXPECT|EVIDENCE|CWD|TIMEOUT):")
 # The one attribute gate-check does not know: it is read here and kept out of the ledger.
@@ -220,14 +221,26 @@ def fetch_sub_issues(number: int) -> list[int]:
     page of them (GitHub pages the list at 30, and an issue past its thirtieth child
     would otherwise lose its newest children to every batch check). Called with a
     spec, that is the batch; called with a ticket, that is what the ticket opened.
-    Patched out in tests."""
+    Raises `SubIssuesUnreadable` when the tracker could not be asked. Patched out in
+    tests."""
     out = subprocess.run(
         ["gh", "api", "--paginate",
          f"repos/{{owner}}/{{repo}}/issues/{number}/sub_issues?per_page=100",
          "-q", ".[] | .number"],
-        capture_output=True, text=True, check=True, env=GH_ENV,
+        capture_output=True, text=True, env=GH_ENV,
     )
+    if out.returncode != 0:
+        detail = (out.stderr or out.stdout).strip().splitlines()
+        raise SubIssuesUnreadable(detail[-1] if detail else f"gh exited {out.returncode}")
     return [int(line) for line in out.stdout.split() if line.strip()]
+
+
+class SubIssuesUnreadable(RuntimeError):
+    """The tracker could not list the children of an issue.
+
+    Distinct from an issue that has no children: that one is an empty list, this one
+    means the question went unanswered.
+    """
 
 
 class ParentUnreadable(RuntimeError):
@@ -311,6 +324,7 @@ def parent_spec(body: str) -> int | None:
     This section is the copy the user reads, and one ticket may be written against
     sections of more than one spec, in whatever order suits the reader. Which batch the
     ticket belongs to is `spec_of`: the tracker's parent link, falling back to this.
+    `repo#n` and `owner/repo#n` are another repository's issue and are not a spec here.
     """
     for line in section(body, "Parent"):
         m = ISSUE_REF_RE.search(line)
@@ -346,13 +360,16 @@ def blocked_by(body: str) -> list[int]:
 
 
 def owns_globs(body: str) -> list[str]:
-    """The paths this ticket is allowed to write, from `## Owns`. `(new)` is a note."""
+    """The paths this ticket is allowed to write, from `## Owns`. `(new)` is a note.
+    Wrapping backticks are stripped so a `:(glob,exclude)` pathspec matches the path.
+    """
     globs = []
     for line in section(body, "Owns"):
         m = re.match(r"^\s*-\s+(\S+)", line)
         if not m:
             continue
         value = m.group(1)
+        value = value.strip("`")
         if value.lower().startswith("none"):
             continue
         globs.append(value)
@@ -1228,7 +1245,10 @@ def run_touched(number: int) -> int:
         return refuse(f"#{number}: the tracker could not say which spec it sits under ({exc})")
     if spec is None:
         return refuse(f"#{number} has no parent link and no spec in `## Parent`")
-    siblings = open_children_owns(spec)
+    try:
+        siblings = open_children_owns(spec)
+    except SubIssuesUnreadable as exc:
+        return refuse(f"#{number}: the tracker could not list the children of #{spec} ({exc})")
     posted_to: list[int] = []
     for path in files:
         sentence = decisions_line_for(decisions, path, number)
@@ -1292,8 +1312,11 @@ def run_draft(number: int, out_file: Path) -> int:
         outside = "Outside Owns: " + ", ".join(judged)
     else:
         outside = "Outside Owns: None"
-    opened = [f"#{child}" for child in fetch_sub_issues(number)]
-    sub = "Sub-issues opened: " + (", ".join(opened) if opened else "none")
+    try:
+        opened = [f"#{child}" for child in fetch_sub_issues(number)]
+        sub = "Sub-issues opened: " + (", ".join(opened) if opened else "none")
+    except SubIssuesUnreadable:
+        sub = "Sub-issues opened: unknown (the tracker could not be asked)"
     counts_line = (f"Counts: {counts['met']} met, {counts['unmet']} unmet, "
                    f"{counts['abandoned']} abandoned of {counts['total']}")
     parts = [first, "", branch_line, "", post, ""]
@@ -1638,7 +1661,12 @@ def lint_ticket_graph(number: int, body: str) -> int:
         print("ticket graph: no parent link and no spec in `## Parent`, so there is "
               "no batch to check")
         return 0
-    numbers = fetch_sub_issues(spec)
+    try:
+        numbers = fetch_sub_issues(spec)
+    except SubIssuesUnreadable as exc:
+        print(f"  ERROR the tracker could not list the children of #{spec} "
+              f"({exc}), so the batch graph was not checked  [sub-issues-unreadable]")
+        return 1
     if not numbers:
         print(f"  ERROR #{spec} has no sub-issues — publish tickets as sub-issues of the "
               f"spec, or the graph cannot be checked  [no-sub-issues]")
@@ -2088,20 +2116,15 @@ def scene_findings(body: str, doc: dict) -> list[str]:
     return findings
 
 
-PARITY_OK_RE = re.compile(r"PARITY OK (\d+)\\?/(\d+)")
+PARITY_OK_RE = re.compile(r"PARITY OK \d+\\?/(\d+)")
 
 
 def parity_ok_count(expect: str) -> int | None:
-    """The `<n>` in `PARITY OK <n>/<n>`, including the regex form `PARITY OK n\\/n`."""
+    """The trailing `<n>` in `PARITY OK <n>/<n>`, including the regex form `PARITY OK n\\/n`."""
     m = PARITY_OK_RE.search(expect or "")
     if not m:
         return None
-    return int(m.group(2))
-
-
-def viewport_count(doc: dict) -> int:
-    raw = doc.get("viewports") or []
-    return len(raw) if raw else 1
+    return int(m.group(1))
 
 
 def lint_scene_partition(open_bodies: dict[int, str], doc: dict,
@@ -2120,7 +2143,7 @@ def lint_scene_partition(open_bodies: dict[int, str], doc: dict,
     owned_mounts: set[str] = set()
     closed_scenes: set[str] = set()
     findings: list[str] = []
-    n_vp = viewport_count(doc)
+    n_vp = len(doc.get("viewports") or []) or 1
     for number, body in (closed_bodies or {}).items():
         expects = {gid: exp for gid, _, exp in criteria_lines(body)}
         for gate_id, mounts, explicit in parity_calls(body):
@@ -2169,7 +2192,7 @@ def lint_screen_contract(body: str, number: int | None = None) -> list[str]:
     """The interface rules of `to-tickets`, made mechanical.
 
     An interface ticket names its screen-contract rows under `## Read first`; a row with
-    calls needs a wiring criterion (a `CHECK:` running `wiring-check.py` that names the
+    observe needs a wiring criterion (a `CHECK:` running `wiring-check.py` that names the
     row id); no `CHECK:` may stub the application's own network; the two pipeline scripts
     are given what they need and nothing they retired; every mechanism the ticket uses
     is built by a ticket it is blocked by; every baseline-class source of an owned row is
@@ -2198,17 +2221,17 @@ def lint_screen_contract(body: str, number: int | None = None) -> list[str]:
         findings.append(f"the contract {contract_path} could not be read from here (not in "
                         f"the working tree, or neither pyyaml nor uv is available); the "
                         f"source, mechanism and scene rules did not run")
-    rows_with_calls = set(row_ids)
+    rows_with_observe = set(row_ids)
     if doc is not None:
         try:
-            rows_with_calls = {r["id"] for r in doc.get("rows") or []
-                               if r["id"] in row_ids and (r.get("calls") or []) != ["none"]}
+            rows_with_observe = {r["id"] for r in doc.get("rows") or []
+                                 if r["id"] in row_ids and r.get("observe")}
         except (KeyError, TypeError):
             pass
     wiring_checks = [check for _, check, _ in checks if "wiring-check.py" in check]
-    for rid in sorted(rows_with_calls):
+    for rid in sorted(rows_with_observe):
         if not any(rid in check for check in wiring_checks):
-            findings.append(f"row {rid} has calls but no criterion runs wiring-check.py naming it")
+            findings.append(f"row {rid} has observe but no criterion runs wiring-check.py naming it")
     if doc is not None:
         mounts = [m for _, ms, _ in parity_calls(body) for m in ms]
         findings.extend(source_findings(row_ids, doc, read_first, parent_text))
@@ -2236,9 +2259,14 @@ def lint_batch_scenes(number: int, body: str) -> list[str]:
                 f"the scene partition across the batch was not checked"]
     if spec is None:
         return []
+    try:
+        children = fetch_sub_issues(spec)
+    except SubIssuesUnreadable as exc:
+        return [f"the tracker could not list the children of #{spec} ({exc}), so "
+                f"the scene partition across the batch was not checked"]
     open_bodies = {number: body}
     closed_bodies: dict[int, str] = {}
-    for n in fetch_sub_issues(spec):
+    for n in children:
         if n == number:
             continue
         try:
