@@ -871,7 +871,13 @@ PURPOSES = {
     "senior-worker": "the worker grade for tickets where getting it wrong would be wrong silently",
     "reviewer": "runs one round of code review on a ticket from a base commit",
     "verifier": "re-runs every acceptance criterion and posts one VERDICT",
+    "advisor": "a second opinion on a stronger model, consulted at most once per decision",
 }
+
+# advisor 的 profile 多一句：它跟别的不同，不是流水线自己派的，是某个 agent 撞上一个
+# 决定时临时问的，所以 notes 要说清 initialPrompt 怎么写——问题包的内容在那份定义文件里。
+ADVISOR_PROMPT = ("A caller uses `create_agent`; initialPrompt is 'Follow {path}' "
+                  "plus the question packet that file describes.")
 
 
 def die(msg):
@@ -908,10 +914,12 @@ def is_generated(profile):
 
 
 def notes_for(agent, host, permissions):
-    return (
-        f"{agent} from models.md {agent}/{host}; "
-        f"{PURPOSES.get(agent, 'dispatched by this pipeline')}."
-    )
+    note = (f"{agent} from models.md {agent}/{host}; "
+            f"{PURPOSES.get(agent, 'dispatched by this pipeline')}.")
+    if agent == "advisor":
+        note += " " + ADVISOR_PROMPT.format(
+            path=home_dir / ".claude" / "agents" / "advisor.md")
+    return note
 
 
 def make_profile(agent, host, model, effort, permissions, existing=None):

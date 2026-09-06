@@ -63,7 +63,7 @@ _Avoid_: 复验者, verifier 子代理, subagent verifier
 _Home_: `mmw-v2/skills/dispatch/references/verifier.md`
 
 **advisor**:
-The second-opinion agent on a stronger model; it implements nothing. It is a native subagent, started inside the session that consults it, and its `—` rows in `models.md` are the only ones it has: the tools list in its definition file is what keeps it to reading, which a Paseo session has no equivalent of.
+The second-opinion agent on a stronger model; it implements nothing. Two doors: a Paseo session from the `bypass` row of `models.md` when `list_profiles` lists `advisor`, otherwise a native subagent from the `—` rows. Only the second is held to reading by anything but its own instructions — the tools list in its definition file has no Edit or Write, where a Paseo session on any host can write through a shell.
 _Home_: `mmw-v2/agents/advisor/agent.json`
 
 **claim-checker**:
