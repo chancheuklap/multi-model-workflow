@@ -80,10 +80,10 @@ Write `docs/specs/<effort>/screen-contract.yaml`, then render once more with the
 
 ```
 uv run python <drive-target scripts>/extract_skeleton.py <handoff dir> <scratch>/skeleton.json --targets docs/specs/<effort>/targets --contract docs/specs/<effort>/screen-contract.yaml
-uv run python <this skill>/scripts/lint_contract.py docs/specs/<effort>/screen-contract.yaml <scratch>/skeleton.json [<openapi.json>]
+uv run python <this skill>/scripts/lint_contract.py --tools <drive-target scripts> docs/specs/<effort>/screen-contract.yaml <scratch>/skeleton.json [<openapi.json>]
 ```
 
-The target trees — one `.aria` and one `.classes` file per design page under `docs/specs/<effort>/targets/` — are what a worker writes toward and what the judges compare against, produced by the judges' own normaliser. They are a derived view of the handoff package and carry its hashes; the lint fails when they go stale. Zero errors, or fix the file. Then write the **API contract** draft — one entry per distinct operation in `calls`, with the request and response fields the rows' `shows` and `on_failure` imply — to `<scratch>/api-contract.md`, for the `to-spec` skill to fold into the spec's Implementation Decisions.
+The lint asks the drive-target skill's driver for the target kinds and for the state of the repository's `.mmw/target.json` (a warning while the contract ticket has not landed it), which is why it takes `--tools`. The target trees — one `.aria` and one `.classes` file per design page under `docs/specs/<effort>/targets/` — are what a worker writes toward and what the judges compare against, produced by the judges' own normaliser. They are a derived view of the handoff package and carry its hashes; the lint fails when they go stale. Zero errors, or fix the file. Then write the **API contract** draft — one entry per distinct operation in `calls`, with the request and response fields the rows' `shows` and `on_failure` imply — to `<scratch>/api-contract.md`, for the `to-spec` skill to fold into the spec's Implementation Decisions.
 
 ## Re-runs
 

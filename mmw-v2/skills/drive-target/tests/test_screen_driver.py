@@ -40,7 +40,7 @@ def tearDownModule():
     shutil.rmtree(HOME, ignore_errors=True)
 
 CONTRACT = {
-    "target": {"kind": "electron", "adapter": "verify-ticket/references/targets/electron.md"},
+    "target": {"kind": "electron"},
     "viewports": ["1440x900", "1180x720"],
     "baselines": {"look": "handoff"},
     "pages": {
@@ -661,3 +661,93 @@ class TestInstanceIdentity(unittest.TestCase):
         for cls in (sd.ElectronAdapter, sd.WebAdapter):
             with self.subTest(adapter=cls.__name__):
                 self.assertIn("instance_ok", inspect.getsource(cls.ready))
+
+
+class TestTargetCheck(unittest.TestCase):
+    """`screen_driver.py target --check` is the setup-time bar for one repository: it
+    names every field of `.mmw/target.json` still to answer, and passes once the file
+    is complete. The runtime reader `target_config` keeps its smaller bar."""
+
+    COMPLETE = {"start": "s", "stop": "t", "discover": "d", "reach": "r",
+                "transport_off": "off", "transport_on": "on", "leaves_machine": []}
+
+    def run_target(self, *argv):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = sd.target_main(list(argv))
+        return code, out.getvalue(), err.getvalue()
+
+    def test_kinds_are_the_adapters(self):
+        code, out, _ = self.run_target("--kinds")
+        self.assertEqual(code, 0)
+        self.assertEqual(out.split(), sorted(sd.ADAPTERS))
+
+    def test_a_repository_without_the_file_is_told_every_required_field(self):
+        with tempfile.TemporaryDirectory() as d:
+            code, out, _ = self.run_target("--check", "--repo", d, "--kind", "electron")
+        self.assertEqual(code, 1)
+        for f in sd.FIELDS:
+            self.assertIn(("  missing  " if f.required else "  absent   ") + f.key, out)
+        self.assertIn("ElectronAdapter", out)
+        self.assertIn("cdp", out)
+        self.assertIn("e.g.", out)
+
+    def test_a_complete_file_passes_and_optional_keys_stay_optional(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / ".mmw").mkdir()
+            (Path(d) / ".mmw" / "target.json").write_text(json.dumps(self.COMPLETE))
+            code, out, _ = self.run_target("--check", "--repo", d, "--kind", "web-spa")
+            self.assertEqual(code, 0, out)
+            self.assertIn("complete", out)
+            code, out, _ = self.run_target("--validate", "--repo", d, "--kind", "web-spa")
+            self.assertEqual(code, 0, out)
+
+    def test_validate_names_the_first_problem_and_counts_the_rest(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / ".mmw").mkdir()
+            cfg = dict(self.COMPLETE)
+            cfg["start"] = ""
+            cfg["leaves_machine"] = "browser"
+            (Path(d) / ".mmw" / "target.json").write_text(json.dumps(cfg))
+            code, out, _ = self.run_target("--validate", "--repo", d, "--kind", "electron")
+        self.assertEqual(code, 1)
+        self.assertIn("start must be a non-empty command", out)
+        self.assertIn("(+1 more)", out)
+
+    def test_a_wrong_instance_shape_is_named(self):
+        cfg = dict(self.COMPLETE)
+        cfg["instance"] = {"max": 0}
+        problems = sd.target_problems("electron", cfg)
+        self.assertEqual([k for k, _ in problems], ["instance"])
+
+    def test_a_file_that_is_not_json_is_a_fault_not_absence(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / ".mmw").mkdir()
+            (Path(d) / ".mmw" / "target.json").write_text("{bad")
+            code, _, err = self.run_target("--check", "--repo", d, "--kind", "electron")
+        self.assertEqual(code, 2)
+        self.assertIn("cannot be read as JSON", err)
+
+    def test_an_unknown_kind_is_refused_first(self):
+        with tempfile.TemporaryDirectory() as d:
+            code, out, _ = self.run_target("--validate", "--repo", d, "--kind", "vt100")
+        self.assertEqual(code, 1)
+        self.assertIn("target.kind", out)
+
+    def test_the_kind_is_read_from_the_one_contract(self):
+        with tempfile.TemporaryDirectory() as d:
+            spec = Path(d) / "docs" / "specs" / "x"
+            spec.mkdir(parents=True)
+            (spec / "screen-contract.yaml").write_text("target:\n  kind: web-server-rendered\n")
+            code, out, _ = self.run_target("--check", "--repo", d)
+        self.assertEqual(code, 1)
+        self.assertIn("target.kind: web-server-rendered", out)
+
+    def test_the_runtime_refusal_names_the_check_command(self):
+        with tempfile.TemporaryDirectory() as d:
+            with self.assertRaises(SystemExit) as raised:
+                sd.target_config(Path(d))
+        self.assertIn("target --check", str(raised.exception))
+

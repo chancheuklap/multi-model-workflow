@@ -1,7 +1,10 @@
 """Lint a screen contract against the handoff skeleton and, when given, openapi.json.
 
-Usage: uv run python lint_contract.py <screen-contract.yaml> <skeleton.json> [<openapi.json>]
+Usage: uv run python lint_contract.py --tools <drive-target scripts> <screen-contract.yaml> <skeleton.json> [<openapi.json>]
 Exit 0 with no errors; 1 with errors listed one per line; warnings never fail.
+`--tools` is the `scripts/` directory of the drive-target skill: the target kinds and
+the check of `.mmw/target.json` are that driver's, asked through `screen_driver.py
+target`, so this file holds no copy of either.
 Rules are the tables in ../references/contract-format.md: the control axis (rows), the
 screen axis (`target`, `viewports`, `pages`, `scenes`), the mechanism table, and the
 target trees under `<contract dir>/targets/`.
@@ -15,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -27,7 +31,40 @@ MOUNT = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 VIEWPORT = re.compile(r"^(\d+)x(\d+)$")
 TICKET = re.compile(r"^#\d+$")
 PROVEN = re.compile(r"^#\d+ AC\d+$")
-TARGET_KINDS = {"electron", "web-spa", "web-server-rendered", "chrome-extension"}
+# The directories `--tools` named. The driver of the drive-target skill is found there
+# and nowhere else; `target_kinds()` and `target_file_problem()` ask it.
+TOOLS: list[Path] = []
+
+
+def driver() -> Path:
+    for directory in TOOLS:
+        candidate = directory / "screen_driver.py"
+        if candidate.is_file():
+            return candidate
+    raise SystemExit("no screen_driver.py in any --tools directory; pass --tools <the "
+                     "drive-target skill's scripts directory>")
+
+
+def target_kinds() -> set[str]:
+    out = subprocess.run([sys.executable, str(driver()), "target", "--kinds"],
+                         capture_output=True, text=True)
+    if out.returncode != 0:
+        raise SystemExit(f"screen_driver.py target --kinds failed: {out.stderr.strip()}")
+    return set(out.stdout.split())
+
+
+def target_file_problem(repo: Path, kind: str) -> tuple[str, str] | None:
+    """`("error", line)` or `("warning", line)` about the repository's `.mmw/target.json`,
+    from the driver's own validation; `None` when the file is complete."""
+    if not (repo / ".mmw" / "target.json").exists():
+        return ("warning", "no .mmw/target.json yet; the contract ticket lands it — run "
+                           "`screen_driver.py target --check` (the drive-target skill) there")
+    out = subprocess.run([sys.executable, str(driver()), "target", "--validate",
+                          "--repo", str(repo), "--kind", kind],
+                         capture_output=True, text=True)
+    if out.returncode == 0:
+        return None
+    return ("error", (out.stdout or out.stderr).strip())
 VIA = {"api", "storage"}
 INPUT_ROLES = {"textbox", "combobox", "spinbutton", "searchbox"}
 BREAKPOINT = re.compile(r"@media[^{]*\((?:max|min)-width:\s*(\d+)px\)")
@@ -122,11 +159,16 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
     # -- target
     target = doc.get("target") or {}
     kind = str(target.get("kind") or "")
-    if kind not in TARGET_KINDS:
-        errors.append(f"target.kind {kind!r} is not one of {sorted(TARGET_KINDS)}")
+    kinds = target_kinds()
+    if kind not in kinds:
+        errors.append(f"target.kind {kind!r} is not one of {sorted(kinds)}")
     if "adapter" in target:
         warnings.append("target.adapter is not read by anything; the drive-target skill picks "
                         "the adapter by target.kind — drop the key")
+    if kind in kinds and contract_dir is not None:
+        problem = target_file_problem(repo_root(Path(contract_dir)), kind)
+        if problem is not None:
+            (errors if problem[0] == "error" else warnings).append(problem[1])
     # -- viewports
     raw_vps = doc.get("viewports")
     widths: list[int] = []
@@ -514,7 +556,21 @@ def volatile_in_tree(text: str, role: str, name: str) -> bool:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) not in (3, 4):
+    rest: list[str] = []
+    TOOLS[:] = []
+    i = 1
+    while i < len(argv):
+        if argv[i] == "--tools" and i + 1 < len(argv):
+            TOOLS.append(Path(argv[i + 1]).resolve())
+            i += 2
+        elif argv[i].startswith("--tools="):
+            TOOLS.append(Path(argv[i][len("--tools="):]).resolve())
+            i += 1
+        else:
+            rest.append(argv[i])
+            i += 1
+    argv = [argv[0], *rest]
+    if len(argv) not in (3, 4) or not TOOLS:
         print(__doc__)
         return 2
     contract = Path(argv[1])

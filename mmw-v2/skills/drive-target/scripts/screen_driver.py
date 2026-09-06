@@ -21,16 +21,19 @@ contract; the reference file each `targets/<kind>.md` names is the human account
                produce (the read half)
 
 Machine facts — addresses, the reach script, how to break the transport — are never in
-the contract. They come from `.mmw/target.json` at the repository root:
+the contract. They come from `.mmw/target.json` at the repository root. Which keys a
+repository answers is declared here, once, in `FIELDS` and each adapter's
+`discover_keys`, and printed for the person filling the file by
 
-    {"start": "<command that brings the product up and returns when it answers>",
-     "discover": "<command printing one JSON object of addresses>",
-     "reach": "<command prefix; mechanism names are appended>",
-     "transport_off": "<command>", "transport_on": "<command>"}
+    screen_driver.py target --check [--repo <dir>] [--kind <kind> | --contract <yaml>]
+
+which names every field still missing, with one sentence and one example each, and
+exits 0 once the file is complete. `target --validate` prints the first problem only
+(for a lint); `target --kinds` lists the kinds this driver has.
 
 Nobody starts the product by hand for a run: when `ready` says it is not answering, the
 driver runs `start` once and asks again. A repository that declares no `start` gets a
-run that stops on the first scene with the words to add it.
+run that stops on the first scene naming `target --check`.
 
 `discover` prints, per kind: electron `cdp`, `impl`, `backend`, optional `title`;
 web-server-rendered / web-spa `origin`, optional `ready` (a path answering 2xx when up,
@@ -273,6 +276,71 @@ def fill(text: str, values: dict[str, str]) -> str:
 
 
 # ---------------------------------------------------------------- repository config
+@dataclass(frozen=True)
+class Field:
+    """One key a repository answers in `.mmw/target.json`: its name, the shape the
+    value takes, what it does in one sentence, and one example."""
+
+    key: str
+    shape: str
+    what: str
+    example: str
+    required: bool = True
+
+
+# The keys every repository answers, whatever kind of product it has. What each kind's
+# `discover` must print is the adapter's `discover_keys`. `checks` is read by
+# `verify-ticket.py --closeout`, not by this driver, and is listed so the file has one
+# account.
+FIELDS: tuple[Field, ...] = (
+    Field("start", "command",
+          "brings the product up with everything it needs — backing service, data "
+          "directory, log — chosen inside the command from the lease in its environment, "
+          "and returns once the product answers and can be driven; idempotent: leaves its "
+          "own current product alone, clears its own stale one, refuses over anyone else's",
+          '"uv run python scripts/testing/target.py start"'),
+    Field("stop", "command",
+          "ends what start started and nothing else, and exits 0 with nothing of its own "
+          "to end; the only way a run may end a process",
+          '"uv run python scripts/testing/target.py stop"'),
+    Field("discover", "command",
+          "prints one JSON object of this kind's addresses (see `discover prints` above), "
+          "plus `instance`, a readable name for this run, and `instance_check`, one "
+          "observe line whose truth means the product answering is the one this run started",
+          '"uv run python scripts/testing/target.py discover"'),
+    Field("reach", "command prefix",
+          "the mechanism names of a scene or a row are appended (`seed:… dev:…`, and "
+          "`--perturb` for the perturbation run); establishes the state, idempotent, and "
+          "prints KEY=VALUE lines that fill every {placeholder}",
+          '"uv run python scripts/testing/reach.py"'),
+    Field("transport_off", "command",
+          "takes the persistence of the observed rows away while the product keeps "
+          "answering, for the wiring check's negative control",
+          '"uv run python scripts/testing/target.py transport off"'),
+    Field("transport_on", "command", "puts the persistence back",
+          '"uv run python scripts/testing/target.py transport on"'),
+    Field("leaves_machine", "list of strings",
+          "each thing this product does in a run that reaches past this machine — opening "
+          "the system browser, calling a paid service, writing a machine-global location — "
+          "and how the run neutralises and records it under MMW_AUTOMATION=1; [] when "
+          "nothing leaves",
+          '["opens the system browser -> under MMW_AUTOMATION=1 the URL is written to '
+          '$MMW_DATA_DIR/opened-urls instead"]'),
+    Field("instance", "object {max, why}",
+          "only when the product cannot move its ports (ports in a container file, a "
+          "callback at a fixed port): how many runs one machine holds and what stops a "
+          "second; absent means the product is isolable and the machine's own limit applies",
+          '{"max": 1, "why": "the callback URL is registered at port 8000"}',
+          required=False),
+    Field("checks", "list",
+          "the repository's own checks, run by `verify-ticket.py --closeout` before an "
+          "ALL MET ticket closes; the verify-ticket skill's references/closeout.md says the "
+          "shape",
+          '["uv run ruff check .", {"run": "uv run pytest -q", "timeout": 1800}]',
+          required=False),
+)
+
+
 def repo_root(start: Path | None = None) -> Path:
     try:
         out = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=start or Path.cwd(),
@@ -286,11 +354,13 @@ def target_config(root: Path) -> dict:
     path = root / ".mmw" / "target.json"
     if not path.exists():
         raise SystemExit(f"no {path}: the repository has not said how its product is "
-                         f"reached (see the drive-target skill's references/targets/README.md)")
+                         f"reached. Run `screen_driver.py target --check --repo {root}` "
+                         f"(the drive-target skill) and answer what it names")
     cfg = json.loads(path.read_text(encoding="utf-8"))
     for key in ("discover", "reach"):
         if not cfg.get(key):
-            raise SystemExit(f"{path} has no `{key}` command")
+            raise SystemExit(f"{path} has no `{key}` command; run `screen_driver.py target "
+                             f"--check --repo {root}` and answer what it names")
     return cfg
 
 
@@ -811,7 +881,7 @@ def volatile_paint_js(triggers: list[tuple[str, str]]) -> str:
     if (role === w.role) return true;
     return w.role === 'text' && textLike.has(role);
   };
-  const digitsOf = s => (s.match(/[\d,]+/) || [null])[0];
+  const digitsOf = s => (s.match(/[\\d,]+/) || [null])[0];
   const retext = (el, w) => {
     // The design's digits go into the first text node that carries digits, on both
     // sides, so the box is one width whatever number each side showed.
@@ -819,8 +889,8 @@ def volatile_paint_js(triggers: list[tuple[str, str]]) -> str:
     if (!target || el.getAttribute('aria-label')) return;
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      if (/[\d,]+/.test(node.nodeValue)) {
-        node.nodeValue = node.nodeValue.replace(/[\d,]+/, target);
+      if (/[\\d,]+/.test(node.nodeValue)) {
+        node.nodeValue = node.nodeValue.replace(/[\\d,]+/, target);
         return;
       }
     }
@@ -1202,6 +1272,8 @@ class Adapter:
     kind = ""
     over_cdp = False
     reach_before_attach = False
+    # What this kind's `discover` prints: (key, what it is, required).
+    discover_keys: tuple[tuple[str, str, bool], ...] = ()
     # Which read surface `observe` lines are held to: `json` (a JSON read surface plus a
     # jq-style expression) or `tree` (an HTML page read in a second tab, `node … exists`).
     read_surface = "json"
@@ -1312,6 +1384,12 @@ class ElectronAdapter(Adapter):
     over_cdp = True
     reach_before_attach = False
     read_surface = "json"
+    discover_keys = (
+        ("cdp", "the renderer's debugging port, e.g. http://127.0.0.1:9222", True),
+        ("impl", "the address the renderer is served at", True),
+        ("backend", "the local backend", True),
+        ("title", "a substring of the window title, when the application has several", False),
+    )
 
     def attach(self, pw, values):
         self.pw = pw
@@ -1363,6 +1441,10 @@ class WebAdapter(Adapter):
     over_cdp = False
     reach_before_attach = True
     read_surface = "tree"
+    discover_keys = (
+        ("origin", "where the pages are served, e.g. http://127.0.0.1:8000", True),
+        ("ready", "a path answering under 400 when the server is up; default /health", False),
+    )
 
     def __init__(self, cfg, addresses, root):
         super().__init__(cfg, addresses, root)
@@ -1460,6 +1542,11 @@ class ChromeExtensionAdapter(WebAdapter):
 
     kind = "chrome-extension"
     read_surface = "json"
+    discover_keys = (
+        ("extension_dir", "the built extension directory to load", True),
+        ("extension_id", "the id the browser derives at load time", True),
+        ("popup", "the entry page; default popup.html", False),
+    )
 
     def attach(self, pw, values):
         self.pw = pw
@@ -1521,9 +1608,8 @@ def bring_up(adapter: Adapter) -> None:
         return
     if not start:
         raise SystemExit(f"{why}; .mmw/target.json declares no `start`, so the run cannot "
-                         f"bring the product up itself. Declare `start` (a command that "
-                         f"brings it up and returns once it answers; see "
-                         f"the drive-target skill's references/targets/README.md)")
+                         f"bring the product up itself. Run `screen_driver.py target --check "
+                         f"--repo {adapter.root}` and declare what it names")
     # 每次都跑，不只在没人应答的时候。`start` 按契约是幂等的，对已在应答的产品原样保留
     # ——但只有它知道那个产品是不是本工作树此刻的代码。跳过它，一个仍在应答的旧产品就
     # 永远不会被换掉，判据在旧代码上得出的结论没人会发现（2026-09-05 实测两次）。
@@ -1541,12 +1627,6 @@ def bring_up(adapter: Adapter) -> None:
     ok, why = adapter.ready()
     if not ok:
         raise SystemExit(f"`{start}` returned 0 but the product is still not answering: {why}")
-
-
-def skill_root() -> Path:
-    """The directory `verify-ticket/` and the other skills are installed under, resolved
-    from this file's own location so it is right on every host and every checkout."""
-    return Path(__file__).resolve().parents[2]
 
 
 def retired_triggers(doc: dict, page: str | None = None) -> list[tuple[str, str]]:
@@ -1594,3 +1674,140 @@ def volatile_js_for(doc: dict, page: str) -> str | None:
 
 def rows_by_id(doc: dict) -> dict[str, dict]:
     return {str(r["id"]): r for r in doc.get("rows") or []}
+
+
+
+# ---------------------------------------------------------------- target --check
+
+def contract_kind(repo: Path, contract: Path | None) -> str:
+    """The `target.kind` of the repository's screen contract: the one given, else the
+    single `docs/specs/*/screen-contract.yaml` under the repository."""
+    if contract is None:
+        found = sorted((repo / "docs" / "specs").glob("*/screen-contract.yaml"))
+        if len(found) != 1:
+            raise SystemExit(f"{len(found)} screen contracts under {repo / 'docs' / 'specs'}; "
+                             f"name one with --contract or the kind with --kind")
+        contract = found[0]
+    return str((load_yaml(contract).get("target") or {}).get("kind") or "")
+
+
+def target_problems(kind: str, cfg: dict) -> list[tuple[str, str]]:
+    """What `.mmw/target.json` still has to answer for this kind: `(key, problem)` pairs,
+    in the order `FIELDS` lists them. Empty when the file is complete."""
+    problems: list[tuple[str, str]] = []
+    for f in FIELDS:
+        if f.key not in cfg:
+            if f.required:
+                problems.append((f.key, f"is missing — {f.what} — e.g. {f.example}"))
+            continue
+        value = cfg[f.key]
+        if f.shape in ("command", "command prefix"):
+            if not isinstance(value, str) or not value.strip():
+                problems.append((f.key, f"must be a non-empty command string — e.g. {f.example}"))
+        elif f.key == "leaves_machine":
+            if not isinstance(value, list) or not all(isinstance(x, str) for x in value):
+                problems.append((f.key, f"must be a list of strings ([] when nothing leaves) "
+                                        f"— e.g. {f.example}"))
+        elif f.key == "instance":
+            ok = (isinstance(value, dict) and isinstance(value.get("max"), int)
+                  and value["max"] > 0 and isinstance(value.get("why"), str))
+            if not ok:
+                problems.append((f.key, f"must be {{\"max\": <n>, \"why\": \"<text>\"}} "
+                                        f"— e.g. {f.example}"))
+    if kind and kind not in ADAPTERS:
+        problems.insert(0, ("target.kind", f"{kind!r} has no adapter; one of {sorted(ADAPTERS)}"))
+    return problems
+
+
+def target_main(argv: list[str]) -> int:
+    """`screen_driver.py target …`: the setup-time bar for one repository.
+
+    `--check` prints the adapter's own account and every field of `.mmw/target.json`
+    as `ok` or `missing`, so a person filling the file reads one screen and nothing
+    else; exit 0 complete, 1 something missing, 2 the repository or the contract cannot
+    be read. `--validate` prints the first problem only. `--kinds` prints the kinds.
+    """
+    import argparse
+    parser = argparse.ArgumentParser(prog="screen_driver.py target")
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--check", action="store_true", help="print every field, ok or missing")
+    mode.add_argument("--validate", action="store_true", help="print the first problem only")
+    mode.add_argument("--kinds", action="store_true", help="list the target kinds this driver has")
+    parser.add_argument("--repo", type=Path, default=None,
+                        help="the repository (default: the one the working directory is in)")
+    parser.add_argument("--kind", default=None, help="the target kind, instead of reading the contract")
+    parser.add_argument("--contract", type=Path, default=None,
+                        help="the screen contract to read the kind from")
+    args = parser.parse_args(argv)
+    if args.kinds:
+        for kind in sorted(ADAPTERS):
+            print(kind)
+        return 0
+    repo = (args.repo or repo_root()).resolve()
+    if not repo.is_dir():
+        print(f"no such directory: {repo}", file=sys.stderr)
+        return 2
+    try:
+        kind = args.kind or contract_kind(repo, args.contract)
+    except SystemExit as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    path = repo / ".mmw" / "target.json"
+    cfg: dict = {}
+    if path.exists():
+        try:
+            cfg = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            print(f"{path} cannot be read as JSON: {exc}", file=sys.stderr)
+            return 2
+        if not isinstance(cfg, dict):
+            print(f"{path} must hold one JSON object", file=sys.stderr)
+            return 2
+    problems = target_problems(kind, cfg)
+    if args.validate:
+        if problems:
+            key, why = problems[0]
+            print(f"{path}: {key} {why}" + (f" (+{len(problems) - 1} more)" if len(problems) > 1 else ""))
+            return 1
+        print(f"{path}: complete for target.kind {kind}")
+        return 0
+    cls = ADAPTERS.get(kind)
+    print(f"target.kind: {kind or '(none)'}" + (f" — {cls.__name__}" if cls else ""))
+    if cls is not None:
+        doc = (cls.__doc__ or "").strip().split("\n\n")[0].replace("\n", " ")
+        print("  " + " ".join(doc.split()))
+        print(f"  state is put {'before' if cls.reach_before_attach else 'after'} attach; "
+              f"observe reads a {cls.read_surface} surface")
+        print("  discover prints:")
+        for key, what, required in cls.discover_keys:
+            print(f"    {key}{'' if required else ' (optional)'} — {what}")
+        print("    instance, instance_check — a name for this run, and one observe line that "
+              "proves the product answering is this run's")
+    print(f"{path}: {'not there yet' if not path.exists() else 'read'}")
+    named = {key for key, _ in problems}
+    for f in FIELDS:
+        if f.key in named:
+            why = next(w for k, w in problems if k == f.key)
+            if why.startswith("is missing"):
+                print(f"  missing  {f.key} ({f.shape}) — {f.what} — e.g. {f.example}")
+            else:
+                print(f"  wrong    {f.key} ({f.shape}) {why}")
+        elif f.key in cfg:
+            print(f"  ok       {f.key}")
+        else:
+            print(f"  absent   {f.key} ({f.shape}, optional) — {f.what}")
+    if kind and kind not in ADAPTERS:
+        print(f"  target.kind {kind!r} has no adapter; one of {sorted(ADAPTERS)}")
+    if problems:
+        print(f"{len(problems)} to answer; run this again when the file is filled")
+        return 1
+    print("complete: the judges can drive this repository")
+    return 0
+
+
+if __name__ == "__main__":
+    if len(sys.argv) >= 2 and sys.argv[1] == "target":
+        sys.exit(target_main(sys.argv[2:]))
+    print("usage: screen_driver.py target --check|--validate|--kinds [--repo DIR] "
+          "[--kind KIND | --contract YAML]", file=sys.stderr)
+    sys.exit(2)

@@ -18,7 +18,8 @@ A **target** is what kind of product the judges drive. The driver here reaches i
 | Writing the criterion that checks a control is wired to the backend as its screen-contract row says, or reading the `MISS` line one printed | [references/wiring-check.md](references/wiring-check.md) |
 | Writing the criterion that compares an interface against its handoff package, or reading the `DIFF` line one printed | [references/ui-parity.md](references/ui-parity.md) |
 | Rendering a handoff package for its row inventory and target trees (the `align-screens` skill sends you here) | `uv run python <scripts>/extract_skeleton.py <handoff dir> <out.json> [--targets <dir> --contract <yaml>]` |
-| Making a repository drivable, or its product is a kind the judges have not driven | [references/targets/README.md](references/targets/README.md): what the repository answers in `.mmw/target.json`, and what each kind of product answers in its adapter |
+| Making a repository drivable (it has no `.mmw/target.json`, or a run refused for want of one) | `python3 <scripts>/screen_driver.py target --check` in that repository. It prints every field still to answer, one sentence and one example each; fill them and run it again until it exits 0. The reasons behind the fields are [references/targets/README.md](references/targets/README.md) |
+| The product is a kind the judges have not driven | [references/targets/README.md](references/targets/README.md), **Adding a kind** |
 | Giving a run its own ports and directories, or reading what `lease.py` refused | `python3 <scripts>/lease.py claim | env | run | release | list | count` — the driver claims one before it runs any command `.mmw/target.json` declares; `dispatch.sh` claims one per worktree it starts |
 
 ## Five rules while the product is running

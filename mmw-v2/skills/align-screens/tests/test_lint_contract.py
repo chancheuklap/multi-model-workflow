@@ -119,6 +119,9 @@ class Repo:
 
 class TestScreenAxis(unittest.TestCase):
     def setUp(self):
+        # The target kinds and the .mmw/target.json check are the drive-target skill's;
+        # the lint reaches them through --tools, the way the agent passes them.
+        lc.TOOLS[:] = [Path(__file__).resolve().parents[2] / "drive-target" / "scripts"]
         self.repo = Repo()
         self.repo.write_targets()
 
