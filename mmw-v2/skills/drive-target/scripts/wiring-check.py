@@ -24,12 +24,14 @@ produce, after the action completed. On a target with a JSON read surface it is
 and normalised the way interface parity normalises a tree. The reference beside this
 script, references/wiring-check.md, is where the lines are read.
 
-`--negative` is the wiring check's own control: the repository's `transport_off`
-command breaks the state transport, every row is run once more, and every one of them
-must fail on an `observe` assertion — a specific `MISS <row> — … was …`, not a run that
-could not attach. It proves the thing that matters: an `observe` line cannot go green
-without something having been persisted. Prints `WIRING NEGATIVE OK <n>/<n>`; a row that
-still passed, or a run that failed before any `observe` was evaluated, is exit 1 or 2.
+`--negative` is the wiring check's own control: after the scene's `reach` and `open`
+chain and the row's `drive.open` have put the control on screen, the repository's
+`transport_off` command breaks the state transport for that row's own trigger and
+`observe`, then `transport_on` puts it back before the next row. Every row must fail on
+an `observe` assertion — a specific `MISS <row> — … was …`, not a run that could not
+attach. It proves the thing that matters: an `observe` line cannot go green without
+something having been persisted. Prints `WIRING NEGATIVE OK <n>/<n>`; a row that still
+passed, or a row that failed before any `observe` was evaluated, is exit 1 or 2.
 """
 from __future__ import annotations
 
@@ -63,8 +65,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--contract", required=True, metavar="FILE")
     p.add_argument("--rows", required=True, metavar="IDS")
     p.add_argument("--negative", action="store_true",
-                   help="break the state transport and require every row to MISS on an "
-                        "observe assertion")
+                   help="per row, after reach and open, break the state transport and "
+                        "require a MISS on an observe assertion")
     return p
 
 
@@ -83,11 +85,37 @@ def observe_settled(adapter, line: str, values: dict[str, str]) -> tuple[bool, o
         time.sleep(OBSERVE_STEP_S)
 
 
+def assertion_miss(why: str) -> bool:
+    """The miss is `<expression> was <value>`, not a surface that did not answer."""
+    return " was " in why
+
+
+def miss_line(rid: str, reason: object) -> str:
+    """One `MISS` line. A reach-script refusal's 'report blocked' clause is dropped:
+    the negative run continues to the next row, so that instruction would be a lie."""
+    text = str(reason).strip()
+    blocked = getattr(sd, "REPORT_BLOCKED", "")
+    if blocked and blocked in text:
+        text = text.split(blocked, 1)[0].rstrip(" .")
+    return f"MISS {rid} — {text}"
+
+
+def green_without_transport(rid: str) -> str:
+    return (f"GREEN WITHOUT TRANSPORT {rid} — its observe lines held with the state "
+            f"transport broken; the read surface is not fed from persisted state")
+
+
 def run_rows(adapter, pw, wanted: list[str], by_id: dict[str, dict],
-             viewport: tuple[int, int], scenes: dict) -> tuple[list[str], list[str]]:
+             viewport: tuple[int, int], scenes: dict, *,
+             negative: bool = False) -> tuple[list[str], list[str]]:
     """`(misses, observed)`: the `MISS` lines, and the ids of rows whose observe lines
     were evaluated at all (so a negative run can tell a miss from a run that never got
-    that far)."""
+    that far).
+
+    `--negative` breaks the transport after this row's `reach` / `open` / `drive.open`,
+    and puts it back before the next row's `reach`. A row that cannot be put on screen
+    is recorded and the rest still run; a positive run still stops on that SystemExit.
+    """
     misses: list[str] = []
     observed: list[str] = []
     page = None
@@ -96,7 +124,7 @@ def run_rows(adapter, pw, wanted: list[str], by_id: dict[str, dict],
             row = by_id[rid]
             ok, why = adapter.ready()
             if not ok:
-                misses.append(f"MISS {rid} — not ready: {why}")
+                misses.append(miss_line(rid, f"not ready: {why}"))
                 continue
             # The row is driven on the first scene it is visible in: that scene's reach
             # and open put the control on screen (a control inside a dialog is reached the
@@ -107,32 +135,59 @@ def run_rows(adapter, pw, wanted: list[str], by_id: dict[str, dict],
             drive_reach, drive_open = sd.drive_of(row)
             reach += [m for m in drive_reach if m not in reach]
             route = (scene.route if scene else None) or row.get("route") or ""
-            values = adapter.transport(reach, {})
-            if page is None or adapter.reach_before_attach:
-                if page is not None:
-                    adapter.release()
-                page = adapter.attach(pw, values)
-            sd.resize(page, viewport, adapter.over_cdp)
-            sd.navigate(page, adapter.address(route, values), reload=True)
-            if scene:
-                sd.perform(page, scene.open, by_id, values)
-                sd.wait_for_mount(page, sd.mount_selector(scene.mount))
+            try:
+                values = adapter.transport(reach, {})
+                if page is None or adapter.reach_before_attach:
+                    if page is not None:
+                        adapter.release()
+                    page = adapter.attach(pw, values)
+                sd.resize(page, viewport, adapter.over_cdp)
+                sd.navigate(page, adapter.address(route, values), reload=True)
+                if scene:
+                    sd.perform(page, scene.open, by_id, values)
+                    sd.wait_for_mount(page, sd.mount_selector(scene.mount))
+            except SystemExit as exc:
+                if not negative:
+                    raise
+                misses.append(miss_line(rid, exc))
+                continue
             try:
                 sd.perform(page, drive_open, by_id, values)
-                sd.perform(page, [{"row": rid, "value": row.get("value")}], by_id, values)
             except SystemExit as exc:
-                misses.append(f"MISS {rid} — {exc}")
+                misses.append(miss_line(rid, exc))
                 continue
-            # The action's own request has to complete before the read is fresh, and the
-            # page's clock says nothing about that: the read surface is polled on the wall
-            # clock until the line holds or the budget is spent (the negative control
-            # spends it in full, which is what keeps a slow write from passing as none).
-            observed.append(rid)
-            for line in row["observe"]:
-                ok, got, why = observe_settled(adapter, str(line), values)
-                if not ok:
-                    misses.append(f"MISS {rid} — {why}")
+            try:
+                if negative:
+                    adapter.transport_off()
+                try:
+                    sd.perform(page, [{"row": rid, "value": row.get("value")}], by_id, values)
+                except SystemExit as exc:
+                    misses.append(miss_line(rid, exc))
+                    continue
+                # The action's own request has to complete before the read is fresh, and the
+                # page's clock says nothing about that: the read surface is polled on the wall
+                # clock until the line holds or the budget is spent (the negative control
+                # spends it in full, which is what keeps a slow write from passing as none).
+                # A surface that did not answer (`answered 503`) is not an observe
+                # assertion: the row was not evaluated.
+                saw_assertion = False
+                surface_error = False
+                for line in row["observe"]:
+                    ok, got, why = observe_settled(adapter, str(line), values)
+                    if ok:
+                        saw_assertion = True
+                        continue
+                    misses.append(miss_line(rid, why))
+                    if assertion_miss(why):
+                        saw_assertion = True
+                    else:
+                        surface_error = True
                     break
+                if saw_assertion and not surface_error:
+                    observed.append(rid)
+            finally:
+                if negative:
+                    adapter.transport_on()
     finally:
         adapter.release()
     return misses, observed
@@ -168,25 +223,23 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             print(f"WIRING OK {len(wanted)}/{len(wanted)}")
             return 0
-        adapter.transport_off()
-        try:
-            misses, observed = run_rows(adapter, pw, wanted, by_id, viewport, scenes)
-        finally:
-            adapter.transport_on()
+        misses, observed = run_rows(adapter, pw, wanted, by_id, viewport, scenes,
+                                    negative=True)
     missed = {m.split(" ", 2)[1] for m in misses}
     not_observed = [w for w in wanted if w not in observed]
+    still_green = [w for w in wanted if w not in missed]
     if not_observed:
         print(f"negative control proved nothing: no observe line was evaluated for "
-              f"{', '.join(not_observed)} (the run failed before it read anything)",
+              f"{', '.join(not_observed)} (those rows failed before they read anything)",
               file=sys.stderr)
         for m in misses:
             print(m, file=sys.stderr)
+        for w in still_green:
+            print(green_without_transport(w), file=sys.stderr)
         return 2
-    still_green = [w for w in wanted if w not in missed]
     if still_green:
         for w in still_green:
-            print(f"GREEN WITHOUT TRANSPORT {w} — its observe lines held with the state "
-                  f"transport broken; the read surface is not fed from persisted state")
+            print(green_without_transport(w))
         return 1
     for m in misses:
         print(m)
