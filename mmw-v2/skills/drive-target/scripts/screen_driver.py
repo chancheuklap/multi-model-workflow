@@ -821,20 +821,6 @@ class VolatileTrigger(NamedTuple):
     name: str
     after: tuple[str, str] | None = None
 
-    @classmethod
-    def coerce(cls, trigger: VolatileTrigger | tuple) -> VolatileTrigger:
-        """Accept a NamedTuple or the 2-tuple / 3-tuple older tests still pass."""
-        if isinstance(trigger, cls):
-            return trigger
-        role, name, *rest = trigger
-        extra = rest[0] if rest else None
-        after = (str(extra[0]), str(extra[1])) if extra else None
-        return cls(str(role), str(name), after)
-
-
-def _volatile_list(triggers: list | None) -> list[VolatileTrigger]:
-    return [VolatileTrigger.coerce(t) for t in (triggers or [])]
-
 
 def volatile_name_matches(role: str, name: str, wanted_role: str, wanted_name: str) -> bool:
     """Role and non-digit stem. A `text` trigger also matches the computed roles
@@ -886,7 +872,6 @@ def _mask_label(own: str) -> str:
 def mask_volatile(lines: list[str], triggers: list[VolatileTrigger]) -> list[str]:
     """Replace matching nodes' names (and the same names on ancestor suffixes) with
     `VOLATILE_TOKEN`, so two trees that differ only in those values compare equal."""
-    triggers = _volatile_list(triggers)
     out = []
     previous: tuple[str, str] | None = None
     masked: dict[str, str] = {}
@@ -913,7 +898,6 @@ def count_volatile_hits(lines: list[str], triggers: list[VolatileTrigger]) -> in
     starts a new scene; a file with none is one scene. The matcher is
     `matches_volatile`, walked in reading order so `after` sees the previous
     named node."""
-    triggers = _volatile_list(triggers)
     best = 0
     current = 0
     previous: tuple[str, str] | None = None
@@ -948,7 +932,7 @@ def volatile_paint_js(triggers: list[VolatileTrigger]) -> str:
     Matching is the same as `matches_volatile`: role and non-digit stem, plus
     `after` as the previous named node from a document-order walk of `nameOf`."""
     wanted_list = []
-    for t in _volatile_list(triggers):
+    for t in triggers:
         item: dict = {"role": t.role, "name": t.name, "after": None}
         if t.after:
             item["after"] = {"role": t.after[0], "name": t.after[1]}

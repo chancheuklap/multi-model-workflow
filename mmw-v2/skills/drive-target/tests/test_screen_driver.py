@@ -514,7 +514,7 @@ class TestBaselineServing(unittest.TestCase):
         equal. The trigger is the handoff's role and accessible name; a product
         node matches when its role is the same and the non-digit stem of the name
         is the same."""
-        triggers = [("text", "鸭豆余额 12,480")]
+        triggers = [sd.VolatileTrigger("text", "鸭豆余额 12,480")]
         design = '- main:\n  - text: 鸭豆余额 12,480\n  - button "新建商品项目"\n'
         product = '- main:\n  - text: 鸭豆余额 20\n  - button "新建商品项目"\n'
         masked_d = sd.mask_volatile(sd.normalize_aria(design), triggers)
@@ -526,7 +526,7 @@ class TestBaselineServing(unittest.TestCase):
         self.assertGreater(sd.aria_diff(design, product)["changed"], 0)
 
     def test_volatile_values_replace_the_name_on_ancestor_suffixes_too(self):
-        triggers = [("status", "鸭豆余额 12,480")]
+        triggers = [sd.VolatileTrigger("status", "鸭豆余额 12,480")]
         design = '- status "鸭豆余额 12,480"\n  - text: 可用\n'
         product = '- status "鸭豆余额 20"\n  - text: 可用\n'
         masked = sd.mask_volatile(sd.normalize_aria(design), triggers)
@@ -542,7 +542,7 @@ class TestBaselineServing(unittest.TestCase):
         other number on some scenes. Both sides take the trigger's digits into the
         first digit-bearing text node, then the paint; a node named by aria-label is
         left as it is."""
-        js = sd.volatile_paint_js([("strong", "3,220 鸭豆")])
+        js = sd.volatile_paint_js([sd.VolatileTrigger("strong", "3,220 鸭豆")])
         self.assertIn("createTreeWalker(el, NodeFilter.SHOW_TEXT)", js)
         self.assertIn("node.nodeValue.replace(/[\\d,]+/, target)", js)
         self.assertIn("el.getAttribute('aria-label')) return", js)
@@ -551,12 +551,12 @@ class TestBaselineServing(unittest.TestCase):
     def test_volatile_paint_js_maps_a_table_cell_for_a_text_trigger(self):
         self.assertEqual(sd.VOLATILE_IMPLICIT_ROLES["TD"], "cell")
         self.assertIn("cell", sd.VOLATILE_TEXT_LIKE)
-        js = sd.volatile_paint_js([("text", "鸭豆余额 12,480")])
+        js = sd.volatile_paint_js([sd.VolatileTrigger("text", "鸭豆余额 12,480")])
         self.assertIn(sd.VOLATILE_FILL, js)
         self.assertIn(sd.VOLATILE_DIGITS.pattern, js)
         self.assertIn('TD: "cell"', js)
         cell_lines = sd.normalize_aria("- cell: 鸭豆余额 12,480\n")
-        self.assertEqual(sd.count_volatile_hits(cell_lines, [("text", "鸭豆余额 12,480")]), 1)
+        self.assertEqual(sd.count_volatile_hits(cell_lines, [sd.VolatileTrigger("text", "鸭豆余额 12,480")]), 1)
         scoped = {"volatile_values": [
             {"page": "App · 商品项目库.dc.html",
              "trigger": {"role": "text", "name": "鸭豆余额 12,480"},
@@ -578,8 +578,8 @@ class TestBaselineServing(unittest.TestCase):
             "- strong: 12,480 鸭豆\n"
         )
         lines = sd.normalize_aria(tree)
-        bare = [("strong", "12,480 鸭豆")]
-        pinned = [("strong", "12,480 鸭豆", ("text", "当前余额"))]
+        bare = [sd.VolatileTrigger("strong", "12,480 鸭豆")]
+        pinned = [sd.VolatileTrigger("strong", "12,480 鸭豆", ("text", "当前余额"))]
         self.assertEqual(sd.count_volatile_hits(lines, bare), 3)
         self.assertEqual(sd.count_volatile_hits(lines, pinned), 1)
         unique = sd.normalize_aria("- text: 当前余额\n- strong: 12,480 鸭豆\n")
@@ -616,10 +616,8 @@ class TestBaselineServing(unittest.TestCase):
         got = sd.volatile_triggers(scoped, "Component · 自由模式.dc.html")
         self.assertEqual(got, [("strong", "12,480 鸭豆", ("text", "当前余额"))])
         self.assertEqual(got[0].after, ("text", "当前余额"))
-
-    def test_advance_previous_does_not_reappear(self):
-        """The previous-named-node update is two lines at each of its two callers."""
-        self.assertFalse(hasattr(sd, "_advance_previous"))
+        self.assertEqual(sd.mask_volatile(lines, got), masked_pinned)
+        self.assertEqual(sd.volatile_paint_js(got), js)
 
     def test_wrapper_page_carries_inline_head_and_scene(self):
         page = sd.wrapper_page("Component · 壳头", {"scenario": "ready", "standalone": False},

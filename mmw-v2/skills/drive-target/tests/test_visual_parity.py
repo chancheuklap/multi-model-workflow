@@ -345,7 +345,7 @@ class TestVolatileValues(unittest.TestCase):
 
     def test_volatile_paint_js_includes_the_cell_role_the_tree_would_see(self):
         self.assertEqual(vp.sd.VOLATILE_IMPLICIT_ROLES["TD"], "cell")
-        js = vp.sd.volatile_paint_js([("text", "鸭豆余额 12,480")])
+        js = vp.sd.volatile_paint_js([vp.sd.VolatileTrigger("text", "鸭豆余额 12,480")])
         self.assertIn('TD: "cell"', js)
         self.assertIn(vp.sd.VOLATILE_DIGITS.pattern, js)
         self.assertIn(vp.sd.VOLATILE_FILL, js)
