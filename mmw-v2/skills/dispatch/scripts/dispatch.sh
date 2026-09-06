@@ -675,7 +675,7 @@ wait_no_result() {
 # Block until the agent labelled mmw.ticket=<n> mmw.kind=<kind> is idle, then print
 # the first line of its result comment. A result already on the ticket is printed
 # without waiting. Writes nothing: no ticket comment, no agent command other than
-# `paseo wait`. MMW_WAIT_S (default 300) is the bound of each call; a host that
+# `paseo wait`. MMW_WAIT_S (default 90) is the bound of each call; a host that
 # cancels a long command is survived by running wait again.
 wait_one() {
   local number="$1" kind="$2"
@@ -694,7 +694,7 @@ wait_one() {
   ident="$(agents_by_label --label "mmw.ticket=$number" --label "mmw.kind=$kind" | head -n 1 | cut -f2)"
   [ -n "$ident" ] || refuse "no $kind agent labelled mmw.ticket=$number"
 
-  paseo wait "$ident" --timeout "${MMW_WAIT_S:-300}" >/dev/null 2>&1 || true
+  paseo wait "$ident" --timeout "${MMW_WAIT_S:-90}" >/dev/null 2>&1 || true
 
   head="$(result_first_line "$number" "$kind")"
   if [ -n "$head" ]; then

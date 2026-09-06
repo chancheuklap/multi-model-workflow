@@ -95,7 +95,7 @@ A notification is a `<paseo-system>` block whose first sentence is `Agent <id> (
 
 **`summary <spec>`:** `0`. The spec has a new comment whose first line is `NIGHT SUMMARY <date>`, and the heartbeat named in `.git/mmw-heartbeat-<spec>` is deleted with the file. If `reverify` ran in this checkout, the comment also has a `Reverify: <green>/<red>` line. `1`: the comment is posted but the heartbeat could not be deleted; stderr names it.
 
-**`wait <n> worker\|reviewer\|verifier`:** `0` the result comment is on the ticket and its first line is on stdout; `1` the agent is idle or closed and no result comment exists — stderr names the next step; `2` no agent labelled `mmw.ticket=<n>` of that kind; `3` still working after `MMW_WAIT_S` seconds (default 300) — run it again. It writes nothing.
+**`wait <n> worker\|reviewer\|verifier`:** `0` the result comment is on the ticket and its first line is on stdout; `1` the agent is idle or closed and no result comment exists — stderr names the next step; `2` no agent labelled `mmw.ticket=<n>` of that kind; `3` still working after `MMW_WAIT_S` seconds (default 90, under the shell time limit of every host) — run it again. It writes nothing.
 
 **`suspend <spec>`:**
 

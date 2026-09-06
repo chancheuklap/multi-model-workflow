@@ -1101,7 +1101,7 @@ JSON
   [ "$code" = 0 ] || fail "expected exit 0 after wait, got $code: $(cat "$TMP/err")"
   [ "$(cat "$TMP/out")" = "ALL MET" ] \
     || fail "stdout should be ALL MET: $(cat "$TMP/out")"
-  has "paseo :: wait :: agt_61_worker :: --timeout :: 300"
+  has "paseo :: wait :: agt_61_worker :: --timeout :: 90"
   has "gh :: issue :: view :: 61 :: --json :: comments"
   hasnt "gh :: issue :: comment"
   hasnt "paseo :: archive"
@@ -1117,7 +1117,7 @@ JSON
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" wait 61 verifier)"
   [ "$code" = 1 ] || fail "expected exit 1 with no result, got $code: $(cat "$TMP/err")"
-  has "paseo :: wait :: agt_61_verifier :: --timeout :: 300"
+  has "paseo :: wait :: agt_61_verifier :: --timeout :: 90"
   grep -q "paseo logs agt_61_verifier" "$TMP/err" \
     || fail "stderr should name paseo logs: $(cat "$TMP/err")"
   grep -q "VERDICT" "$TMP/err" \
@@ -1138,7 +1138,7 @@ JSON
           MMW_FAKE_PASEO_SCENARIO=wait-timeout \
           bash "$DISPATCH" "${TOOLS[@]}" wait 61 worker)"
   [ "$code" = 3 ] || fail "expected exit 3 on timeout, got $code: $(cat "$TMP/err")"
-  has "paseo :: wait :: agt_61_worker :: --timeout :: 300"
+  has "paseo :: wait :: agt_61_worker :: --timeout :: 90"
   [ "$(cat "$TMP/err")" = "still working: run wait again" ] \
     || fail "stderr should say run wait again: $(cat "$TMP/err")"
   [ ! -s "$TMP/out" ] || fail "stdout should be empty on timeout: $(cat "$TMP/out")"
