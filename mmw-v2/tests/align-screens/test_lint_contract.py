@@ -340,7 +340,63 @@ class TestSources(unittest.TestCase):
         self.assertEqual(lc.source_shape("#537 story 2"), "story")
 
 
+class TestObserve(unittest.TestCase):
+    """A row whose calls are all non-HTTP may leave observe empty (a warning).
+    A row that names an HTTP operation still errors without one."""
+
+    def test_missing_observe_on_chrome_runtime_sendMessage_is_a_warning(self):
+        doc = contract()
+        doc["rows"][0]["calls"] = ["chrome.runtime.sendMessage x"]
+        openapi = {"paths": {"/api/notes": {"post": {}}}}
+        errors, warnings = lc.lint(doc, SKELETON, openapi)
+        self.assertFalse(any("create-project.add-material" in e and "observe" in e
+                            for e in errors), errors)
+        self.assertFalse(any("create-project.add-material" in e and "call not in openapi" in e
+                            for e in errors), errors)
+        self.assertTrue(any("create-project.add-material" in w and "observe is empty" in w
+                            and "non-HTTP" in w for w in warnings), warnings)
+
+    def test_missing_observe_on_an_http_call_is_an_error(self):
+        doc = contract()
+        doc["rows"][0]["calls"] = ["POST /api/notes"]
+        openapi = {"paths": {"/api/notes": {"post": {}}}}
+        errors, warnings = lc.lint(doc, SKELETON, openapi)
+        self.assertTrue(any("create-project.add-material" in e and "observe missing" in e
+                            for e in errors), errors)
+        self.assertFalse(any("create-project.add-material" in w and "observe is empty" in w
+                             for w in warnings), warnings)
+
+    def test_missing_observe_on_an_ipc_call_stays_a_warning(self):
+        errors, warnings = lc.lint(contract(), SKELETON, None)
+        self.assertFalse(any("observe" in e for e in errors), errors)
+        self.assertTrue(any("observe is empty" in w and "non-HTTP" in w for w in warnings),
+                        warnings)
+
+    def test_a_mixed_row_missing_observe_is_an_error(self):
+        doc = contract()
+        doc["rows"][0]["calls"] = ["ipc x", "POST /api/notes"]
+        openapi = {"paths": {"/api/notes": {"post": {}}}}
+        errors, warnings = lc.lint(doc, SKELETON, openapi)
+        self.assertTrue(any("create-project.add-material" in e and "observe missing" in e
+                            for e in errors), errors)
+        self.assertFalse(any("create-project.add-material" in w and "observe is empty" in w
+                             for w in warnings), warnings)
+
+    def test_a_malformed_http_call_missing_observe_is_an_error(self):
+        doc = contract()
+        doc["rows"][0]["calls"] = ["POST api/notes"]
+        openapi = {"paths": {"/api/notes": {"post": {}}}}
+        errors, warnings = lc.lint(doc, SKELETON, openapi)
+        self.assertTrue(any("create-project.add-material" in e and "observe missing" in e
+                            for e in errors), errors)
+        self.assertTrue(any("create-project.add-material" in e and "call not in openapi" in e
+                            for e in errors), errors)
+        self.assertFalse(any("create-project.add-material" in w and "observe is empty" in w
+                             for w in warnings), warnings)
+
+
 class TestRetiredPrinted(unittest.TestCase):
+
     def test_every_retired_entry_is_a_line(self):
         doc = {"retired_ids": [{"id": "a.b", "note": "retired 2026-09-03 — verdict 2"}, "c.d"]}
         self.assertEqual(lc.retired_lines(doc),

@@ -116,6 +116,9 @@ RUNTIME_CLASS_PREFIXES = ("sc-", "dc-")
 DATA_SCREEN = "data-screen"
 PLACEHOLDER = re.compile(r"\{(\w+)\}")
 VIEWPORT_RE = re.compile(r"^(\d+)x(\d+)$")
+# Scene marker `extract_skeleton.py` writes into target trees; `count_volatile_hits`
+# splits on the same string.
+SCENE_HEADER = "## scene "
 
 
 # ---------------------------------------------------------------- the contract
@@ -903,7 +906,7 @@ def count_volatile_hits(lines: list[str], triggers: list[VolatileTrigger]) -> in
     previous: tuple[str, str] | None = None
     for raw in lines:
         line = raw.rstrip("\n")
-        if line.startswith("## scene "):
+        if line.startswith(SCENE_HEADER):
             best = max(best, current)
             current = 0
             previous = None

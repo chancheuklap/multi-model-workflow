@@ -75,7 +75,7 @@ def target_files(targets: Path, page: str) -> tuple[Path, Path]:
 
 
 def write_targets(targets: Path, handoff: Path, scenes: list[dict], trees: dict[str, list[str]],
-                  classes: dict[str, list[str]]) -> list[Path]:
+                  classes: dict[str, list[str]], scene_header: str) -> list[Path]:
     targets.mkdir(parents=True, exist_ok=True)
     scenes_hash = sha256_of(handoff / "scenes.json")
     written = []
@@ -88,13 +88,13 @@ def write_targets(targets: Path, handoff: Path, scenes: list[dict], trees: dict[
         head = [f"# scenes.json sha256={scenes_hash}", f"# page sha256={page_hash}"]
         lines = [TARGET_HEADER + page, DERIVED_LINE, *head, ""]
         for s in entries:
-            lines.append(f"## scene {s['name']}")
+            lines.append(scene_header + s["name"])
             lines.extend(trees[s["name"]])
             lines.append("")
         aria_file.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
         lines = [CLASSES_HEADER + page, DERIVED_LINE, *head, ""]
         for s in entries:
-            lines.append(f"## scene {s['name']}")
+            lines.append(scene_header + s["name"])
             lines.extend(classes[s["name"]])
             lines.append("")
         classes_file.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
@@ -167,7 +167,7 @@ def main(handoff: Path, out: Path, targets: Path | None, contract: Path | None) 
     print(f"scenes={result['scenes']} scene_x_control={result['scene_x_control']} "
           f"rows={result['rows']} -> {out}")
     if targets is not None:
-        written = write_targets(targets, handoff, scenes, trees, classes)
+        written = write_targets(targets, handoff, scenes, trees, classes, sd.SCENE_HEADER)
         print(f"targets: {len(written)} files under {targets}")
 
 
