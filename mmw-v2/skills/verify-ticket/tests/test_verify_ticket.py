@@ -297,6 +297,11 @@ class TestOwns(unittest.TestCase):
         self.assertEqual(vt.owns_globs(body), ["src/import/**", "src/import/ui/**"])
         self.assertEqual(vt.owns_globs("## Owns\n\n- None\n\n## Blocked by\n"), [])
 
+    def test_globs_drop_the_backticks_the_template_wraps_paths_in(self):
+        body = ("## Owns\n\n- `src/import/**`\n- `src/import/ui/**` (new)\n\n"
+                "## Acceptance criteria\n")
+        self.assertEqual(vt.owns_globs(body), ["src/import/**", "src/import/ui/**"])
+
 
 class TestLint(unittest.TestCase):
     def lint(self, body: str):
@@ -433,6 +438,22 @@ class TestOutsideOwns(unittest.TestCase):
             # ...then merges the earlier ticket's branch to build on it.
             sh("git", "merge", "-q", "--no-ff", "-m", "merge issue-2", "issue-2")
             self.assertEqual(vt.outside_owns(["mine.txt"], tmp), ["stray.txt"])
+
+    def test_backticked_owns_that_cover_the_commit_report_none(self):
+        """A `## Owns` bullet written `` `path` `` still excludes that path."""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            sh = self.repo(tmp)
+            sh("git", "checkout", "-qb", "issue-4")
+            (tmp / "mine.txt").write_text("mine\n")
+            sh("git", "add", "-A")
+            sh("git", "commit", "-qm", "issue-4 work")
+            globs = vt.owns_globs("## Owns\n\n- `mine.txt`\n")
+            self.assertEqual(globs, ["mine.txt"])
+            self.assertEqual(vt.outside_owns_line(4, globs, tmp), "Outside Owns: None")
 
     def test_the_line_is_answered_on_the_tickets_own_branch(self):
         import tempfile

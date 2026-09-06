@@ -290,5 +290,48 @@ class TestNonePostsNothing(unittest.TestCase):
         self.assertFalse(any(c[:3] == ["gh", "issue", "comment"] for c in recorded))
 
 
+FOREIGN_PARENT = (
+    "## Parent\n\n无 spec；本仓自建票。"
+    "[agentflow#655](https://github.com/agentflow-hq/agentflow/issues/655)\n"
+)
+
+
+class TestRefusesAForeignOrUnreadableSpec(unittest.TestCase):
+    def test_a_cross_repo_parent_ref_is_refused_not_fetched(self):
+        code, err, posted, _, recorded = run_touched(
+            (SELF_RUN, DECISIONS, REVIEW),
+            {80: SIBLING_COVERS},
+            parent=None,
+            body=FOREIGN_PARENT,
+        )
+        self.assertEqual(code, 2)
+        self.assertIn("no spec", err)
+        self.assertEqual(posted, [])
+        self.assertIsNone(sub_issues_target(recorded))
+
+    def test_a_spec_the_tracker_cannot_list_children_of_is_refused(self):
+        fake = FakeGh(
+            (SELF_RUN, DECISIONS, REVIEW), {80: SIBLING_COVERS}, parent=SPEC)
+
+        def run(cmd, **kwargs):
+            result = fake.run(cmd, **kwargs)
+            if cmd[:2] == ["gh", "api"]:
+                result.returncode = 1
+                result.stderr = "Not Found"
+                result.stdout = ""
+            return result
+
+        printed = io.StringIO()
+        err = io.StringIO()
+        with mock.patch.object(vt.subprocess, "run", side_effect=run):
+            with redirect_stdout(printed), redirect_stderr(err):
+                code = vt.run_touched(TICKET)
+        self.assertEqual(code, 2)
+        self.assertNotIn("Traceback", err.getvalue())
+        self.assertNotIn("Traceback", printed.getvalue())
+        self.assertIn(str(SPEC), err.getvalue())
+        self.assertEqual(fake.posted, [])
+
+
 if __name__ == "__main__":
     unittest.main()

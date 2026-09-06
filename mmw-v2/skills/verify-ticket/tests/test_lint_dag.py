@@ -345,6 +345,15 @@ class TestBlockedBy(unittest.TestCase):
     def test_the_parent_spec_is_read_off_the_parent_section(self):
         self.assertEqual(vt.parent_spec(body(parent=60)), 60)
 
+    def test_a_cross_repo_issue_ref_is_not_this_repos_spec(self):
+        foreign = ("## Parent\n\n无 spec；本仓自建票。"
+                   "[agentflow#655](https://github.com/agentflow-hq/agentflow/issues/655)\n")
+        self.assertIsNone(vt.parent_spec(foreign))
+
+    def test_owner_slash_repo_hash_is_not_this_repos_spec(self):
+        foreign = "## Parent\n\nagentflow-hq/agentflow#655 is the source.\n"
+        self.assertIsNone(vt.parent_spec(foreign))
+
 
 class TestFetchParent(unittest.TestCase):
     """`gh issue view <n> --json parent` is the tracker's own answer to which spec a
@@ -375,6 +384,23 @@ class TestFetchParent(unittest.TestCase):
         with self.assertRaises(vt.ParentUnreadable):
             self.fetch(stdout="not json at all")
 
+
+class TestFetchSubIssues(unittest.TestCase):
+    """A spec this repository does not have is a refusal, not a stack trace."""
+
+    def fetch(self, returncode=0, stdout="", stderr=""):
+        result = subprocess.CompletedProcess([], returncode, stdout, stderr)
+        with mock.patch.object(vt.subprocess, "run", return_value=result) as run:
+            return vt.fetch_sub_issues(655), run
+
+    def test_numbers_are_returned(self):
+        numbers, _ = self.fetch(stdout="161\n166\n")
+        self.assertEqual(numbers, [161, 166])
+
+    def test_a_failed_call_raises_a_typed_error_not_called_process_error(self):
+        with self.assertRaises(vt.SubIssuesUnreadable) as caught:
+            self.fetch(returncode=1, stderr="gh: Not Found\n")
+        self.assertIn("Not Found", str(caught.exception))
 
 
 class TestBorrowedFromUpstream(unittest.TestCase):

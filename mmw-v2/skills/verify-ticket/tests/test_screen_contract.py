@@ -15,9 +15,10 @@ WIRING = ("wiring-check.py --contract "
           "docs/specs/x/screen-contract.yaml --rows create-project.add-material")
 PARITY = ("visual-parity.py --contract "
           "docs/specs/x/screen-contract.yaml --mount create-project")
+OK_EXPECT = "/^OK$/m"
 
 
-def gate(gate_id, check, expect="/^OK$/m"):
+def gate(gate_id, check, expect=OK_EXPECT):
     return (f"- [ ] {gate_id}: something a stranger could judge\n"
             f"  CHECK: {check}\n  EXPECT: {expect}\n  EVIDENCE: pending")
 
@@ -52,6 +53,7 @@ rows:
 - id: create-project.add-material
   component: cp
   calls: ['POST /x']
+  observe: ['GET /x -> .ok == true']
   reach: seed:library-ready
   source: ['#537 story 2', '#537 Implementation Decisions 2', 'ADR-0021', '#420', 'docs/context/chameleon-product.md 新建商品项目', 'README §4.1']
 - id: create-project.name
@@ -91,11 +93,34 @@ class TestLintScreenContract(unittest.TestCase):
         self.assertEqual(len(findings), 1)
         self.assertIn("names no", findings[0])
 
-    def test_a_row_with_calls_needs_a_wiring_criterion(self):
+    def test_a_row_with_observe_needs_a_wiring_criterion(self):
         findings = self.lint(gate("AC1", self.parity))
         self.assertEqual(len(findings), 1)
         self.assertIn("create-project.add-material", findings[0])
         self.assertIn("wiring-check.py", findings[0])
+        self.assertIn("observe", findings[0])
+
+    def test_a_row_with_calls_and_no_observe_needs_no_wiring_criterion(self):
+        """`calls` that are not `[none]` used to demand a wiring criterion; only
+        `observe` does. An all-non-HTTP row with no read surface must not."""
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "screen-contract.yaml")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(
+                    "pages:\n  'Component · A.dc.html': {mount: create-project, route: '#/'}\n"
+                    "scenes:\n  s: {page: 'Component · A.dc.html'}\n"
+                    "rows:\n- id: a.quit\n  calls: ['ipc app:quit']\n"
+                    "- id: a.save\n  calls: ['POST /x']\n"
+                    "  observe: ['GET /x -> .ok']\n")
+            read_first = f"- `{path} rows: a.quit, a.save`（基线）"
+            wiring = WIRING.replace("create-project.add-material", "a.save")
+            with_wiring = vt.lint_screen_contract(
+                ticket(read_first, gate("AC1", PARITY), gate("AC2", wiring)))
+            without = vt.lint_screen_contract(ticket(read_first, gate("AC1", PARITY)))
+        self.assertEqual(with_wiring, [])
+        self.assertEqual(len(without), 1)
+        self.assertIn("a.save", without[0])
+        self.assertNotIn("a.quit", without[0])
 
     def test_a_wiring_criterion_naming_the_row_satisfies_it(self):
         self.assertEqual(self.lint(gate("AC1", self.parity), gate("AC2", self.wiring)), [])
@@ -253,7 +278,7 @@ class TestScenePartition(unittest.TestCase):
         self.doc = vt.load_yaml_file(f.name)
         os.unlink(f.name)
 
-    def body(self, mounts, scenes=None, expect="/^OK$/m"):
+    def body(self, mounts, scenes=None, expect=OK_EXPECT):
         check = PARITY.replace("--mount create-project", f"--mount {mounts}")
         if scenes:
             check += f" --scenes {scenes}"
@@ -320,7 +345,7 @@ class TestBatchScenes(unittest.TestCase):
     TWO_SPECS = "[Spec（#536）](u)，Implementation Decisions 第 13 节\n[Spec（#537）](u)，第 2 节"
 
     def batch(self, mounts, parent=537, sub_issues=(1, 2), other=None, unreadable=False,
-              other_state="OPEN", other_expect="/^OK$/m"):
+              other_state="OPEN", other_expect=OK_EXPECT):
         """`lint_batch_scenes` for ticket #1 over a batch the tracker hands back."""
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "screen-contract.yaml")
@@ -379,7 +404,7 @@ class TestBatchScenes(unittest.TestCase):
 
     def test_a_closed_ticket_with_no_parity_ok_in_expect_is_an_error(self):
         findings, _ = self.batch("shell-header", other="create-project",
-                                 other_state="CLOSED", other_expect="/^OK$/m")
+                                 other_state="CLOSED", other_expect=OK_EXPECT)
         self.assertIn(
             "closed ticket #2 mount create-project has no PARITY OK n/n in EXPECT, 2 now",
             findings)
@@ -442,7 +467,7 @@ class TestReviewProblems(unittest.TestCase):
 
 class TestContractPathInBackticks(unittest.TestCase):
     """A Read first line usually wraps the path in backticks; the contract is still read,
-    so a row whose calls are [none] asks for no wiring criterion."""
+    so a row without `observe` asks for no wiring criterion."""
 
     def test_an_unreadable_contract_is_a_finding_not_a_pass(self):
         read_first = "- `/nowhere/screen-contract.yaml rows: a.view`（基线）"
@@ -455,11 +480,26 @@ class TestContractPathInBackticks(unittest.TestCase):
             with open(path, "w", encoding="utf-8") as f:
                 f.write("pages:\n  'Component · A.dc.html': {mount: create-project, route: '#/'}\n"
                         "scenes:\n  s: {page: 'Component · A.dc.html'}\n"
-                        "rows:\n- id: a.view\n  calls: [none]\n- id: a.save\n  calls: ['POST /x']\n")
+                        "rows:\n- id: a.view\n  calls: [none]\n- id: a.save\n  "
+                        "calls: ['POST /x']\n  observe: ['GET /x -> .ok']\n")
             read_first = f"- `{path} rows: a.view, a.save`（基线）"
             wiring = WIRING.replace("create-project.add-material", "a.save")
             findings = vt.lint_screen_contract(ticket(read_first, gate("AC1", PARITY), gate("AC2", wiring)))
         self.assertEqual(findings, [])
+
+    def test_an_observed_row_still_needs_wiring_when_the_path_is_backticked(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "screen-contract.yaml")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write("pages:\n  'Component · A.dc.html': {mount: create-project, route: '#/'}\n"
+                        "scenes:\n  s: {page: 'Component · A.dc.html'}\n"
+                        "rows:\n- id: a.view\n  calls: [none]\n- id: a.save\n  "
+                        "calls: ['POST /x']\n  observe: ['GET /x -> .ok']\n")
+            read_first = f"- `{path} rows: a.view, a.save`（基线）"
+            findings = vt.lint_screen_contract(ticket(read_first, gate("AC1", PARITY)))
+        self.assertTrue(any("a.save" in f and "wiring-check.py" in f for f in findings),
+                        findings)
+        self.assertFalse(any("a.view" in f for f in findings), findings)
 
 
 if __name__ == "__main__":
