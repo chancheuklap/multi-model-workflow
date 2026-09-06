@@ -1164,7 +1164,7 @@ def perform(page, steps: list[dict], rows: dict[str, dict], values: dict[str, st
         try:
             if trig["role"] in INPUT_ROLES:
                 typed = fill(str(step.get("value") or ""), values)
-                control.first.fill(typed, timeout=ACTION_TIMEOUT_MS)
+                _enter_value(control.first, typed)
                 # What was typed is a value from here on: `$typed` is the latest, and
                 # `$typed_<field>` keeps each row's, named by the row id's last segment.
                 values["typed"] = typed
@@ -1179,6 +1179,28 @@ def perform(page, steps: list[dict], rows: dict[str, dict], values: dict[str, st
             raise SystemExit(f'open step {step["row"]}: {trig["role"]} "{trig["name"]}" '
                              f"could not be acted on ({state}): {reason}") from exc
         run_clock(page, SETTLE_VIRTUAL_MS)
+
+
+def _enter_value(locator, typed: str) -> None:
+    """Put `typed` into a control, the way that control takes a value.
+
+    `combobox` is one accessible role over two different elements. A native
+    `<select>` takes a value only through `select_option`; Playwright's `fill`
+    raises on it. An `<input list=…>` or an ARIA combobox takes `fill` and has no
+    options to select. Asking the element which it is costs one round trip and is
+    the only way to tell them apart from the accessibility tree, where both are
+    `combobox`.
+    """
+    tag = ""
+    try:
+        tag = str(locator.evaluate("el => el.tagName") or "").lower()
+    except (AttributeError, TypeError):
+        # A page double without `evaluate`; the driver's own tests run one.
+        tag = ""
+    if tag == "select":
+        locator.select_option(label=typed, timeout=ACTION_TIMEOUT_MS)
+        return
+    locator.fill(typed, timeout=ACTION_TIMEOUT_MS)
 
 
 def _playwright_error() -> type[Exception]:

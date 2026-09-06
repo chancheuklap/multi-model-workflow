@@ -69,6 +69,8 @@ CONTRACT = {
          "trigger": {"role": "button", "name": "删除商品项目"}, "next": "library-delete-confirm"},
         {"id": "create-project.name", "trigger": {"role": "textbox", "name": "商品名称"},
          "next": "library-name-duplicate"},
+        {"id": "create-project.subject", "trigger": {"role": "combobox", "name": "商品主体图"},
+         "next": "create-project-subject-chosen"},
     ],
 }
 CATALOGUE = {
@@ -179,6 +181,9 @@ class FakePage:
     def get_by_role(self, role, name=None, exact=False):
         page = self
         count = self.controls.get((role, name), 0)
+        # `tags` names the elements that are not what their role suggests: a
+        # `combobox` that is a native `<select>` takes select_option, not fill.
+        tag = getattr(self, "tags", {}).get((role, name), "")
 
         class Locator:
             def count(self_inner):
@@ -194,11 +199,34 @@ class FakePage:
             def fill(self_inner, value, timeout=None):
                 page.actions.append(("fill", role, name, value))
 
+            def select_option(self_inner, label=None, timeout=None):
+                page.actions.append(("select_option", role, name, label))
+
+            def evaluate(self_inner, js):
+                if not tag:
+                    raise AttributeError("no evaluate on this double")
+                return tag
+
         return Locator()
 
 
 class TestOpenChain(unittest.TestCase):
     ROWS = sd.rows_by_id(CONTRACT)
+
+    def test_a_native_select_takes_select_option_not_fill(self):
+        page = FakePage({("combobox", "商品主体图"): 1})
+        page.tags = {("combobox", "商品主体图"): "SELECT"}
+        sd.perform(page, [{"row": "create-project.subject", "value": "商品主体图 1"}],
+                   self.ROWS, {})
+        self.assertEqual(page.actions,
+                         [("select_option", "combobox", "商品主体图", "商品主体图 1")])
+
+    def test_a_combobox_that_is_not_a_select_still_takes_fill(self):
+        page = FakePage({("combobox", "商品主体图"): 1})
+        sd.perform(page, [{"row": "create-project.subject", "value": "商品主体图 1"}],
+                   self.ROWS, {})
+        self.assertEqual(page.actions,
+                         [("fill", "combobox", "商品主体图", "商品主体图 1")])
 
     def test_a_click_step_and_a_fill_step(self):
         page = FakePage({("button", "删除商品项目"): 1, ("textbox", "商品名称"): 1})
