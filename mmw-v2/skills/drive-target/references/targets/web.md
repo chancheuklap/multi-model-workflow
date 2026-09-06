@@ -23,7 +23,7 @@ belongs to a seeded user, and comes out of the reach script.
    for that user's session. Then a browser is launched, a context created with that
    cookie on `origin`'s host, and a page opened. Every scene re-attaches after its own
    transport, so a scene seeded as another user is driven as that user.
-2. **ready** — `GET <origin><ready>` answers under 400. Asked before every scene and row.
+2. **ready** — `GET <origin><ready>` answers under 400 and `discover`'s `instance_check` line holds, so the origin answering is this run's. Asked before every scene and row.
 3. **address** — `<origin>/` + the route: `/org/members` becomes
    `http://127.0.0.1:8000/org/members`. The driver reloads after `goto` all the same.
 4. **release** — the launched browser is closed. There is no window to give back.

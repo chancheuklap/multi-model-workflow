@@ -53,18 +53,24 @@ def target_kinds() -> set[str]:
     return set(out.stdout.split())
 
 
-def target_file_problem(repo: Path, kind: str) -> str | None:
-    """The error line about the repository's `.mmw/target.json`, from the driver's own
-    validation; `None` when the file is complete."""
+def target_file_problem(repo: Path, kind: str) -> tuple[str, str] | None:
+    """`("error", line)` or `("warning", line)` about the repository's `.mmw/target.json`,
+    from the driver's own validation; `None` when the file is complete.
+
+    The file is missing until the contract ticket lands it, so that case is a warning
+    and names `screen_driver.py target --check`. A file that is there and fails
+    `--validate` is an error.
+    """
     if not (repo / ".mmw" / "target.json").exists():
-        return ("no .mmw/target.json yet; the contract ticket lands it — run "
-                "`screen_driver.py target --check` (the drive-target skill) there")
+        return ("warning", "no .mmw/target.json yet; the contract ticket lands it — run "
+                           "`screen_driver.py target --check` (the drive-target skill) there")
     out = subprocess.run([sys.executable, str(driver()), "target", "--validate",
                           "--repo", str(repo), "--kind", kind],
                          capture_output=True, text=True)
     if out.returncode == 0:
         return None
-    return (out.stdout or out.stderr).strip() or f"target --validate exited {out.returncode}"
+    return ("error",
+            (out.stdout or out.stderr).strip() or f"target --validate exited {out.returncode}")
 
 
 def page_stem(page: str) -> str:
@@ -174,7 +180,7 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
     if kind in kinds and contract_dir is not None:
         problem = target_file_problem(repo_root(Path(contract_dir)), kind)
         if problem is not None:
-            errors.append(problem)
+            (errors if problem[0] == "error" else warnings).append(problem[1])
     # -- viewports
     raw_vps = doc.get("viewports")
     widths: list[int] = []

@@ -5,8 +5,8 @@
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh check|advance|advanceconflict|advancedirty
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh start-worker|start-reviewer|start-verifier
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh resume|reverify|summary
-#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh release|releaseother|releaselive|frontierwhy
-#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh instancegate|suspend|suspendbusy|suspendnohb|status
+#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
+#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh instancegate|countfail|suspend|suspendbusy|suspendnohb|status
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh all
 #
 # A fake `paseo` and a fake `gh` sit in front of the real ones on PATH and write every
@@ -560,6 +560,8 @@ skill_copy_for() {
   cp "$(dirname "$SKILL")/drive-target/scripts/lease.py" \
      "$(dirname "$SKILL")/drive-target/scripts/refusal.py" \
      "$TMP/fake/skills/drive-target/scripts/"
+  mkdir -p "$TMP/fake/agents"
+  cp "$(dirname "$(dirname "$SKILL")")/agents/assemble.py" "$TMP/fake/agents/"
   printf '#!/usr/bin/env bash\nexit %s\n' "${2:-0}" > "$TMP/fake/install.sh"
   chmod +x "$TMP/fake/install.sh"
   printf '%s\n' "$copy"
@@ -644,8 +646,8 @@ Merge branch 'issue-61'" ] || fail "merge order is wrong"
   has "paseo :: workspace :: archive :: wks_issue-61"
   has "paseo :: workspace :: archive :: wks_issue-62"
   hasnt "wks_foreign_61"
-  [ "$(count_of "paseo :: workspace :: ls")" = 4 ] \
-    || fail "expected one list read for the advance plan, one per archive, and one for the frontier create, got $(count_of "paseo :: workspace :: ls")"
+  [ "$(count_of "paseo :: workspace :: ls")" = 3 ] \
+    || fail "expected one list read per archive and one for the frontier create, got $(count_of "paseo :: workspace :: ls")"
   has "paseo :: workspace :: create"
   has ":: --mode :: branch-off"
   has ":: --new-branch :: issue-63"
@@ -879,6 +881,21 @@ assert obj["settings"].get("features") == {"auto_accept": True}, obj["settings"]
   hasnt "workspace :: create"
   hasnt "workspace :: archive"
   grep -q 'issue-61:' "$TMP/err" || fail "the refusal should name the ticket: $(cat "$TMP/err")"
+
+  echo "--- a copied skill still finds assemble.py"
+  local copy
+  copy="$(skill_copy_for start)"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "copied start expected exit 0, got $code: $(cat "$TMP/err")"
+  python3 -c '
+import json, sys
+from pathlib import Path
+obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
+assert obj["settings"].get("thinkingOptionId") == "high"
+assert obj["settings"].get("features") == {"auto_accept": True}, obj["settings"]
+' "$TMP/out" || fail "copied start settings are wrong: $(cat "$TMP/out")"
 }
 
 scenario_start_reviewer() {
@@ -1097,19 +1114,20 @@ scenario_release() {
   [ "$rel" -gt 0 ] || fail "the claim was never released"
   [ "$disp" -gt "$rel" ] || fail "dispatch at line $disp came before the release at line $rel"
 
-  echo "--- a standing workspace keeps the claim even with no live worker"
+  echo "--- a standing workspace does not keep the claim: the worker is gone, so it is released into that workspace"
   reset_log
   write_claimed_batch mmw-bot
   seed_workspace 63
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
-  hasnt "gh :: issue :: edit :: 63 :: --remove-assignee"
-  grep -q "released 0" "$TMP/err" \
-    || fail "the claim was given back over a standing workspace: $(cat "$TMP/err")"
-  grep -q "started 0" "$TMP/err" || fail "a second worker was started: $(cat "$TMP/err")"
-  grep -q "#63 keeps its claim" "$TMP/err" \
-    || fail "nothing on stderr says the claim was kept: $(cat "$TMP/err")"
+  has "gh :: issue :: edit :: 63 :: --remove-assignee :: @me"
+  grep -q "released 1" "$TMP/err" \
+    || fail "the claim should have been given back: $(cat "$TMP/err")"
+  grep -q "started 1" "$TMP/err" || fail "it was freed and then left: $(cat "$TMP/err")"
+  hasnt "workspace :: create"
+  grep -q '"title": "#63 worker"' "$TMP/out" \
+    || fail "it should re-dispatch into the standing workspace: $(cat "$TMP/out")"
 }
 
 scenario_releaseother() {
@@ -1150,9 +1168,30 @@ scenario_releaselive() {
     || fail "it printed a release line for a claim it did not release: $(cat "$TMP/err")"
 
   echo "--- and the ticket reads as held by that worker, not as an orphaned claim"
-  grep -q "#63 claimed by mmw-bot; held by the live worker #63 worker" "$TMP/err" \
+  grep -q "#63 claimed by mmw-bot; held by the worker #63 worker (running)" "$TMP/err" \
     || fail "stderr does not name the worker holding it: $(cat "$TMP/err")"
   grep -q "started 0" "$TMP/err" || fail "a second worker was started on it: $(cat "$TMP/err")"
+}
+
+scenario_releasestanding() {
+  local code
+  reset_log
+  fresh_repo
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "assignees": ["mmw-bot"],
+   "body": "## Parent\\n\\n#76\\n", "title": "claimed ticket"}
+]
+JSON
+  seed_workspace 61
+  echo "--- assigned, no live worker, workspace still standing: RELEASE then DISPATCH into that workspace"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
+  grep -q '"title": "#61 worker"' "$TMP/out" \
+    || fail "advance should dispatch #61: $(cat "$TMP/out")"
+  hasnt "workspace :: create"
+  has "gh :: issue :: edit :: 61 :: --remove-assignee :: @me"
 }
 
 write_stuck_batch() {
@@ -1185,7 +1224,7 @@ scenario_frontierwhy() {
     || fail "the count is wrong or missing: $(cat "$TMP/err")"
   grep -q "#61 claimed by alice" "$TMP/err" || fail "#61: $(cat "$TMP/err")"
   grep -q "#62 blocked by #61" "$TMP/err" || fail "#62: $(cat "$TMP/err")"
-  grep -q "#63 held by the live worker #63 worker" "$TMP/err" || fail "#63: $(cat "$TMP/err")"
+  grep -q "#63 held by the worker #63 worker (running)" "$TMP/err" || fail "#63: $(cat "$TMP/err")"
   ! grep -q "#64" "$TMP/err" || fail "a ticket out of the agent queue was reported: $(cat "$TMP/err")"
 
   echo "--- and a batch with nothing left in the queue says nothing at all"
@@ -1259,6 +1298,31 @@ scenario_instancegate() {
   rm -f "$TMP/repo/.mmw/target.json"
 }
 
+scenario_countfail() {
+  local code
+  echo "--- lease.py count failing is a refusal, not a silent open gate"
+  reset_log
+  fresh_repo
+  write_batch
+  mkdir -p "$TMP/repo/.mmw" "$TMP/fake-lease"
+  printf '%s\n' '{"start":"true","discover":"true","reach":"true","instance":{"max":1,"why":"fixed host ports"}}' \
+    > "$TMP/repo/.mmw/target.json"
+  cat > "$TMP/fake-lease/lease.py" <<'PY'
+#!/usr/bin/env python3
+import sys
+print("lease count failed", file=sys.stderr)
+sys.exit(1)
+PY
+  chmod +x "$TMP/fake-lease/lease.py"
+  seed_workspace 61
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" --tools "$TMP/fake-lease" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 2 ] || fail "expected exit 2 when count fails, got $code: $(cat "$TMP/err")"
+  grep -q "could not count live instances" "$TMP/err" \
+    || fail "the reason should say count failed: $(cat "$TMP/err")"
+  hasnt "workspace :: create"
+}
+
 write_open_batch() {
   cat > "$TMP/tickets.json" <<'JSON'
 [
@@ -1316,6 +1380,8 @@ scenario_suspend() {
   seed_agent 61 worker
   seed_agent 99 worker 99
   seed_foreign_workspace
+  mkdir -p "$TMP/other-repo/issue-61"
+  python3 "$LEASE_PY" claim "$TMP/other-repo/issue-61" >/dev/null
   write_heartbeat
   claim_tickets 61 63
 
@@ -1358,6 +1424,8 @@ scenario_suspend() {
   echo "--- the slots the night held are back, and the heartbeat is gone"
   [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 0 ] \
     || fail "slots are still held: $(python3 "$LEASE_PY" list)"
+  [ "$(python3 "$LEASE_PY" count "$TMP/other-repo")" = 1 ] \
+    || fail "a lease from another checkout was released: $(python3 "$LEASE_PY" list)"
   has "paseo :: heartbeat :: delete :: hb_76"
   [ ! -f "$(git -C "$TMP/repo" rev-parse --absolute-git-dir)/mmw-heartbeat-76" ] \
     || fail "the heartbeat id file is still there"
@@ -1483,10 +1551,10 @@ scenario_status() {
 
 # ------------------------------------------------------------------ entry
 
-ALL="check advance advanceconflict advancedirty start-worker start-reviewer start-verifier resume reverify summary release releaseother releaselive frontierwhy instancegate suspend suspendbusy suspendnohb status"
+ALL="check advance advanceconflict advancedirty start-worker start-reviewer start-verifier resume reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail suspend suspendbusy suspendnohb status"
 
 case "${1:-}" in
-  check|advance|advanceconflict|advancedirty|start-worker|start-reviewer|start-verifier|resume|reverify|summary|release|releaseother|releaselive|frontierwhy|instancegate|suspend|suspendbusy|suspendnohb|status)
+  check|advance|advanceconflict|advancedirty|start-worker|start-reviewer|start-verifier|resume|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|suspend|suspendbusy|suspendnohb|status)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -1510,8 +1578,10 @@ banner_for() {
     release) echo DISPATCH-RELEASE-OK ;;
     releaseother) echo DISPATCH-RELEASE-OTHER-OK ;;
     releaselive) echo RELEASE-LIVE-OK ;;
+    releasestanding) echo RELEASE-STANDING-OK ;;
     frontierwhy) echo DISPATCH-FRONTIER-WHY-OK ;;
     instancegate) echo DISPATCH-INSTANCE-GATE-OK ;;
+    countfail) echo DISPATCH-COUNT-FAIL-OK ;;
     suspend) echo SUSPEND-OK ;;
     suspendbusy) echo SUSPEND-BUSY-OK ;;
     suspendnohb) echo SUSPEND-NOHB-OK ;;

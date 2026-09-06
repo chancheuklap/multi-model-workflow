@@ -785,7 +785,11 @@ def git_problems(root: Path | None = None) -> list[str]:
 # `cross_batch_findings` and `waiting_outside` say what was taken out and what it means.
 
 def validate_dag(entries: list[dict]) -> list[str]:
-    """Check unique ids, valid dependency references, and no cycles."""
+    """Check unique ids and no cycles. Dependencies are already this batch's.
+
+    A blocker outside the batch is not a dangling reference here: `in_batch` has taken
+    it out, and `blockers_not_tickets` / `cross_batch_findings` say what it is.
+    """
     errors = []
 
     seen = set()
@@ -793,12 +797,6 @@ def validate_dag(entries: list[dict]) -> list[str]:
         if entry["id"] in seen:
             errors.append(f"duplicate ticket: #{entry['id']}  [duplicate-ticket]")
         seen.add(entry["id"])
-
-    for entry in entries:
-        for dep in entry["dependencies"]:
-            if dep not in seen:
-                errors.append(f"dangling dependency: #{entry['id']} is blocked by #{dep}, "
-                              f"which is not a ticket under this spec  [dangling]")
 
     if not errors:
         errors.extend(_detect_cycles(entries))
@@ -1133,6 +1131,13 @@ def run_decisions(number: int, path: Path) -> int:
             return refuse("the file is missing section"
                           + ("s " if len(missing) > 1 else " ")
                           + " and ".join(f"`{h}`" for h in missing))
+        extra = [h for h in headings if h not in expected_headings]
+        if extra:
+            return refuse("the file has extra section"
+                          + ("s " if len(extra) > 1 else " ")
+                          + " and ".join(f"`{h}`" for h in extra)
+                          + "; it must have exactly two sections, "
+                          "`Decisions I made on my own` then `Outside Owns`")
         return refuse("the file must have exactly two sections, "
                       "`Decisions I made on my own` then `Outside Owns`")
     run = newest_with_first_line(comments, "self-run")
@@ -1590,7 +1595,7 @@ def lint_ticket_graph(number: int, body: str) -> int:
         return 1
     entries = ticket_entries(numbers)
     # Printed before the errors, because an error returns here and a disagreement about
-    # an edge is often what the error is: a cycle or a dangling link the section denies.
+    # an edge is often what the error is: a cycle, or a blocker that is no ticket.
     for finding in blocked_by_mismatch(entries):
         print("  WARN  " + finding + "  [blocked-by-mismatch]")
     for finding in cross_batch_findings(entries):

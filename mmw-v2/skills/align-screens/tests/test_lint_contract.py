@@ -150,10 +150,18 @@ class TestScreenAxis(unittest.TestCase):
         self.assertTrue(any("target.adapter" in e for e in errors))
         self.assertFalse(any("target.adapter" in w for w in warnings))
 
-    def test_missing_target_json_is_an_error(self):
+    def test_missing_target_json_is_a_warning(self):
         (self.repo.root / ".mmw" / "target.json").unlink()
+        errors, warnings = self.lint(contract())
+        self.assertFalse(any("target.json" in e for e in errors), errors)
+        self.assertTrue(any("no .mmw/target.json" in w and "target --check" in w
+                            for w in warnings), warnings)
+
+    def test_an_incomplete_target_json_is_an_error(self):
+        (self.repo.root / ".mmw" / "target.json").write_text('{"start": "s"}')
         errors, _ = self.lint(contract())
-        self.assertTrue(any("no .mmw/target.json" in e for e in errors), errors)
+        self.assertTrue(any("start" in e or "missing" in e or "target.json" in e
+                            for e in errors), errors)
 
     def test_target_validate_exit_2_is_an_error(self):
         (self.repo.root / ".mmw" / "target.json").write_text("{bad")

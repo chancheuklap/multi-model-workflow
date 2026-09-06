@@ -38,9 +38,9 @@ Branches are merged in the order their tickets **closed**, not in ticket order. 
 
 A ticket is claimed by being assigned to the account this pipeline is signed in as — `verify-ticket.py --preflight` does it — and the frontier takes only unassigned tickets, which is what keeps a second worker off a ticket somebody is already working. Two paths give a claim back: the closeout, and the hand back to triage. A session that ends any other way — a crash, a machine restart, a workspace archived from outside this pipeline — leaves the claim standing, and from then on the ticket is off every frontier for good, with an empty frontier as the only sign of it.
 
-So `advance` gives a claim back when five things hold at once: the ticket is open, it is in the agent queue, this pipeline's own account is on it, no live worker holds it, and no workspace of this checkout is still standing with cwd `issue-<n>`. The write is `gh issue edit <n> --remove-assignee @me`, so a ticket a person took for themselves is untouched and stays off the frontier, which is the right answer — somebody has it. Each release prints one line naming the ticket and saying why, and that line is not decoration: `paseo ls` answers for this machine and no other, so a worker of the same account running on a second machine reads from here as a claim whose owner is gone.
+So `advance` gives a claim back when four things hold at once: the ticket is open, it is in the agent queue, this pipeline's own account is on it, and no live worker holds it — no Paseo agent listed for the ticket whose `status` is other than `closed`. The write is `gh issue edit <n> --remove-assignee @me`, so a ticket a person took for themselves is untouched and stays off the frontier, which is the right answer — somebody has it. Each release prints one line naming the ticket and saying why, and that line is not decoration: `paseo ls` answers for this machine and no other, so a worker of the same account running on a second machine reads from here as a claim whose owner is gone.
 
-The fifth condition is the fourth one asked a second way, because `paseo ls` listing no worker is not proof that the run is gone — the workspace is the working directory, and it remains until `advance` archives it. A claim kept for that reason prints its own line.
+A standing workspace is not a run. Paseo owns every run this pipeline starts, so an agent it no longer lists, or lists as `closed`, is not working, whatever directory is still on disk; the workspace stays for `start` to reuse, and the next worker picks the branch up where the last one left it.
 
 When nothing can start and the batch still holds open tickets in the agent queue, `advance` names each of those tickets on stderr with the condition holding it — claimed by somebody, blocked by a ticket still open, or already held by a live worker. An empty frontier and a finished batch print the same nothing otherwise, and the difference between them is not visible from outside the frontier's five conditions. The exit code is unchanged: this is an explanation, not a failure.
 
@@ -51,7 +51,7 @@ A product that cannot move its ports says so in `.mmw/target.json` as `"instance
 The notification's first sentence is `Agent <id> (<title>) finished.` or `errored.` or `was closed.` or `needs permission.` Title is `#<n> worker`, `#<n> reviewer` or `#<n> verifier`. One `create_agent` yields one terminal notification; a notification is not the ticket being done.
 
 1. If it is `needs permission`: `list_pending_permissions` then `respond_to_permission` (CLI: `paseo permit`). Then go to 2. This is not a stop.
-2. Run `<dispatch> status <spec>`. The table's `note` column is `needs permission`, `ready`, `waiting on #<m>`, the newest comment, or empty while a worker is live.
+2. Run `<dispatch> status <spec>`. The table's `note` column is `needs permission`, `ready`, `waiting on #<m>`, `closed: archive it` (Paseo still lists the agent but it is not running), the newest comment, or empty while a worker is live.
 3. Decide, using the table and the notification:
 
 | What you see | What you do |

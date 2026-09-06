@@ -38,8 +38,8 @@ ported component fills its container (`#dc-root > * { height:100% }`). On a resp
 target the measured width may land in a media query other than the design's default,
 and that is correct: the design is rendered at the width the product actually gives.
 
-Two judges, two ranges — a written decision, not a default
-----------------------------------------------------------
+Three judges, two ranges — a written decision, not a default
+------------------------------------------------------------
 The accessibility tree is the main judge: the sequence of named nodes in reading order,
 each with its nearest named ancestor, over the whole subtree under the mount, below the
 fold included. Pixels are the second judge — colour, spacing, a block that did not
@@ -513,6 +513,12 @@ def addressing(adapter, plan, vp, rows) -> int:
     return 0
 
 
+def shows_row_ids(scene, rows) -> list[str]:
+    """Row ids that declare `shows` on this scene: the ones `--shows-perturbation` runs."""
+    return [rid for rid, r in rows.items()
+            if scene.name in (r.get("scenes") or []) and r.get("shows")]
+
+
 def shows_perturbation(adapter, plan, vp, rows, media) -> int:
     """Every scene twice: seeded from `data/fixtures.js`, then with other values. A
     scene whose rows declare `shows` must read differently, or a shown value is hard
@@ -520,6 +526,7 @@ def shows_perturbation(adapter, plan, vp, rows, media) -> int:
     from playwright.sync_api import sync_playwright
 
     failed = []
+    checked = 0
     with sync_playwright() as pw:
         page = None
         try:
@@ -528,14 +535,16 @@ def shows_perturbation(adapter, plan, vp, rows, media) -> int:
                 if not ok:
                     print(why, file=sys.stderr)
                     return 2
-                shows_rows = [rid for rid, r in rows.items()
-                              if scene.name in (r.get("scenes") or []) and r.get("shows")]
+                shows_rows = shows_row_ids(scene, rows)
                 if not shows_rows:
                     continue
+                checked += 1
                 trees = []
                 for perturb in (False, True):
                     values = adapter.transport(scene.reach, {}, perturb=perturb)
                     if page is None or adapter.reach_before_attach:
+                        if page is not None:
+                            adapter.release()
                         page = adapter.attach(pw, values)
                     sd.resize(page, vp, adapter.over_cdp)
                     sd.navigate(page, adapter.address(scene.route, values), reload=True)
@@ -559,7 +568,7 @@ def shows_perturbation(adapter, plan, vp, rows, media) -> int:
         print(line)
     if failed:
         return 1
-    print(f"SHOWS OK {len(plan)}/{len(plan)}")
+    print(f"SHOWS OK {checked}/{checked}")
     return 0
 
 

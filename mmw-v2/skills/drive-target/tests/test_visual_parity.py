@@ -423,6 +423,26 @@ class TestOverCdp(unittest.TestCase):
         self.assertIn("DevTools", str(raised.exception))
 
 
+class TestShowsCount(unittest.TestCase):
+    """`--shows-perturbation` evaluates only scenes whose rows declare `shows`."""
+
+    def scene(self, name):
+        return vp.sd.Scene(name, "p.dc.html", "m", "/", [], [], {})
+
+    def test_only_scenes_with_shows_rows_are_counted(self):
+        plan = [self.scene("plain"), self.scene("shown"), self.scene("other")]
+        rows = {
+            "a": {"scenes": ["plain"]},
+            "b": {"scenes": ["shown"], "shows": {"f": "x"}},
+            "c": {"scenes": ["elsewhere"], "shows": {"f": "y"}},
+        }
+        evaluated = [s.name for s in plan if vp.shows_row_ids(s, rows)]
+        self.assertEqual(evaluated, ["shown"])
+        n = len(evaluated)
+        self.assertEqual(f"SHOWS OK {n}/{n}", "SHOWS OK 1/1")
+        self.assertNotEqual(f"SHOWS OK {len(plan)}/{len(plan)}", "SHOWS OK 1/1")
+
+
 class TestArguments(unittest.TestCase):
     """No address on the line: the contract and `.mmw/target.json` carry them all."""
 

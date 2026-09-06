@@ -139,6 +139,7 @@ class TestRefusesAFileMissingASection(unittest.TestCase):
         text = TWO_SECTIONS + "\n## Extra\n\nno\n"
         code, err, posted, _ = run_decisions(text)
         self.assertEqual(code, 2)
+        self.assertIn("Extra", err)
         self.assertEqual(posted, [])
 
 
@@ -176,7 +177,8 @@ class TestOutsideOwnsMustMatchTheSelfRun(unittest.TestCase):
     def test_a_mismatching_line_is_refused(self):
         code, err, posted, recorded = run_decisions(TWO_SECTIONS_FILES, comments=(SELF_RUN,))
         self.assertEqual(code, 2)
-        self.assertIn("Outside Owns", err)
+        self.assertIn("does not match the newest self-run", err)
+        self.assertNotIn("missing section", err)
         self.assertEqual(posted, [])
         self.assertFalse(any(c[:3] == ["gh", "issue", "comment"] for c in recorded))
 

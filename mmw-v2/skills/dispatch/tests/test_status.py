@@ -62,17 +62,6 @@ def agent(ticket, status_="running", *, kind="worker", parent=None,
     }
 
 
-def workspace(ticket, cwd=None, project=None):
-    """One `paseo workspace ls --json` row, with only the fields status.py reads."""
-    row = {
-        "workspaceId": f"wks_issue-{ticket}",
-        "cwd": cwd if cwd is not None else f"/repo/issue-{ticket}",
-    }
-    if project is not None:
-        row["project"] = project
-    return row
-
-
 def ticket(number, state="OPEN", labels=("ready-for-agent",), blockers=(),
            assignees=(), comments=()):
     """One `gh issue view --json …` answer, before status.py normalises it."""
@@ -258,6 +247,20 @@ class Rows(unittest.TestCase):
         rows = status.build_rows([61], {61: ticket(61)}, status.sessions(agents))
         self.assertEqual(rows[0]["note"], "needs permission")
 
+    def test_a_closed_worker_is_listed_but_does_not_hold_the_ticket(self):
+        agents = [agent(61, "closed", agent_id=WORKER_61)]
+        tickets = {61: ticket(61, assignees=("mmw-bot",))}
+        rows = status.build_rows([61], tickets, status.sessions(agents))
+        self.assertEqual(rows[0]["agent"], "#61 worker")
+        self.assertEqual(rows[0]["status"], "closed")
+        self.assertEqual(rows[0]["note"], "closed: archive it")
+        self.assertIsNone(rows[0]["worker"])
+        self.assertEqual(status.held(rows), [])
+        table = status.render_table(rows, 76, datetime(2000, 1, 1, 2, 14))
+        self.assertIn("#61 worker", table)
+        self.assertIn("closed", table)
+        self.assertIn("0 live", table.splitlines()[0])
+
 
 class TicketReading(unittest.TestCase):
     """The few fields read out of a ticket's comments."""
@@ -407,7 +410,7 @@ class AdvancePlan(unittest.TestCase):
 
     def setUp(self):
         self.saved = (status.sub_issues, status.read_ticket, status.live_agents,
-                      status.own_login, status.live_workspaces, status.own_project)
+                      status.own_login)
         self.tickets = {
             61: ticket(61, state="CLOSED", labels=(),
                        comments=["ALL MET\nBranch: issue-61"]),
@@ -422,17 +425,14 @@ class AdvancePlan(unittest.TestCase):
         self.tickets[62]["closed_at"] = "2026-08-31T02:00:00Z"
         self.tickets[63]["closed_at"] = "2026-08-31T03:00:00Z"
         self.agents = []
-        self.workspaces = []
         status.sub_issues = lambda spec: list(self.tickets)
         status.read_ticket = lambda n: self.tickets[n]
         status.live_agents = lambda spec: self.agents
         status.own_login = lambda: ""
-        status.live_workspaces = lambda: self.workspaces
-        status.own_project = lambda: {}
 
     def tearDown(self):
         (status.sub_issues, status.read_ticket, status.live_agents,
-         status.own_login, status.live_workspaces, status.own_project) = self.saved
+         status.own_login) = self.saved
 
     def plan(self, spec=76):
         """The plan's stdout lines and its stderr lines, the two channels held apart."""
@@ -477,27 +477,15 @@ class AdvancePlan(unittest.TestCase):
         self.assertIn("#61 keeps its claim", joined)
         self.assertIn("live worker #61 worker", joined)
 
-    def test_a_claim_whose_workspace_still_stands_is_not_released(self):
-        status.own_login = lambda: self.LOGIN
-        self.tickets = {61: ticket(61, assignees=(self.LOGIN,)),
-                        62: ticket(62, assignees=(self.LOGIN,))}
-        self.workspaces = [workspace(61), workspace(62)]
-        out, err = self.plan()
-        self.assertEqual(out, [])
-        self.assertIn("#61 keeps its claim", err[0])
-        self.assertIn("#62 keeps its claim", err[1])
-
     def test_a_claim_with_neither_a_worker_nor_a_workspace_is_still_released(self):
         status.own_login = lambda: self.LOGIN
         self.tickets = {61: ticket(61, assignees=(self.LOGIN,))}
-        self.workspaces = [workspace(99)]
         self.assertEqual(self.plan()[0], ["RELEASE 61", "DISPATCH 61"])
 
-    def test_another_checkout_workspace_does_not_keep_this_claim(self):
+    def test_a_closed_worker_does_not_keep_the_claim(self):
         status.own_login = lambda: self.LOGIN
-        status.own_project = lambda: {"id": "prj_here", "name": "here"}
         self.tickets = {61: ticket(61, assignees=(self.LOGIN,))}
-        self.workspaces = [workspace(61, project="elsewhere")]
+        self.agents = [agent(61, "closed")]
         self.assertEqual(self.plan()[0], ["RELEASE 61", "DISPATCH 61"])
 
     def test_with_no_login_to_compare_against_nothing_is_released(self):
@@ -533,7 +521,7 @@ class AdvancePlan(unittest.TestCase):
             "the agent queue:",
             "  #61 claimed by alice",
             "  #62 blocked by #61",
-            "  #63 held by the live worker #63 worker",
+            "  #63 held by the worker #63 worker (running)",
         ])
 
     def test_a_batch_with_nothing_left_in_the_queue_says_nothing(self):
@@ -654,6 +642,7 @@ class ReadingPaseo(unittest.TestCase):
         self.saved = status.paseo_json
         self.ls = []
         self.inspect = {}
+        self.inspect_ids = []
 
         def fake(args):
             if args[:3] == ["ls", "-g", "--json"]:
@@ -662,6 +651,7 @@ class ReadingPaseo(unittest.TestCase):
                     return []
                 return list(self.ls)
             if args[:1] == ["inspect"]:
+                self.inspect_ids.append(args[1])
                 return dict(self.inspect.get(args[1], {}))
             raise AssertionError(args)
 
@@ -704,6 +694,7 @@ class ReadingPaseo(unittest.TestCase):
             "ParentAgentId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         }
         found = status.live_agents(76)
+        self.assertEqual(self.inspect_ids, [WORKER_61])
         self.assertEqual(len(found), 1)
         self.assertEqual(found[0]["id"], WORKER_61)
         self.assertEqual(found[0]["status"], "running")

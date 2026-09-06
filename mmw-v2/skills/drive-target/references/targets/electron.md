@@ -26,7 +26,7 @@ here is ever written down anywhere else.
    unrouted after — one engine, one set of fonts, one device pixel ratio for both sides.
 2. **ready** — `GET <backend>/health` answers under 400, the attached page is not
    closed, and the backend's own configuration surface says the product can be driven
-   rather than only that it is alive. Asked again before every scene and every row.
+   rather than only that it is alive, and `discover`'s `instance_check` line holds — the product answering is the one this run started, not a neighbour's on the same port. Asked again before every scene and every row.
    `/health` alone passes while every window renders and every control is disabled, so
    `start` reads that configuration surface itself and fails on it, quoting what the
    backend said was missing.

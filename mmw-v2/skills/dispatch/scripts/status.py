@@ -287,70 +287,23 @@ def sessions(agents: list[dict]) -> list[dict]:
     return found
 
 
-def worker_on(sessions_: list[dict], number: int) -> dict | None:
-    for s in sessions_:
-        if s["ticket"] == number and s["kind"] == "worker":
-            return s
-    return None
+def worker_on(sessions_: list[dict], number: int, *, holding: bool = True) -> dict | None:
+    """The worker session on `number`.
 
-
-def live_workspaces() -> list[dict]:
-    """Every active Paseo workspace. Raises when `ls` itself could not be asked.
-
-    `paseo workspace ls --json` lists active workspaces only; an archived workspace
-    is absent from the list, not flagged on the row.
+    `paseo ls` still lists an agent whose status is `closed` (it only drops archived
+    ones). That agent is not running. When `holding` is true — frontier, RELEASE,
+    the table's live count — a closed worker is ignored. When `holding` is false,
+    the table can still name it.
     """
-    rows = paseo_json(["workspace", "ls", "--json"])
-    if not isinstance(rows, list):
-        raise RuntimeError("paseo workspace ls: expected a list")
-    return rows
-
-
-def own_project() -> dict:
-    """`projectId` and `name` of the Paseo project whose path is this checkout, or {}."""
-    try:
-        root = os.path.realpath(subprocess.check_output(
-            ["git", "rev-parse", "--show-toplevel"], text=True).strip())
-        rows = paseo_json(["project", "ls", "--json"])
-    except Exception:
-        return {}
-    if not isinstance(rows, list):
-        return {}
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        if os.path.realpath(row.get("path") or "") == root:
-            return {"id": row.get("projectId") or "", "name": row.get("name") or ""}
-    return {}
-
-
-def workspaces_holding(workspaces: list[dict], project: dict | None = None) -> set[int]:
-    """Tickets of this checkout whose workspace still stands.
-
-    `paseo ls` listing no worker is not proof that the run is gone: the workspace is
-    the working directory, and it remains until `advance` archives it. A claim is
-    kept while that directory is still there; when the machine really lost the run,
-    the workspace is gone from `workspace ls` with it. Rows whose `project` is
-    another checkout's are ignored, so a second repository's `issue-<n>` does not
-    keep this batch's #<n> claimed.
-    """
-    project = project or {}
-    own = {v for v in (project.get("id"), project.get("name")) if v}
-    held: set[int] = set()
-    for row in workspaces:
-        if not isinstance(row, dict):
-            continue
-        theirs = row.get("project") or ""
-        if own and theirs and theirs not in own:
-            continue
-        number = ticket_of_cwd(row.get("cwd") or "")
-        if number is not None:
-            held.add(number)
-    return held
+    workers = [s for s in sessions_
+               if s["ticket"] == number and s["kind"] == "worker"]
+    if holding:
+        workers = [s for s in workers if s.get("status") != "closed"]
+    return workers[0] if workers else None
 
 
 def held(rows: list[dict]) -> list[dict]:
-    """The rows whose worker is a live Paseo agent of this spec."""
+    """The rows whose worker is a running Paseo agent of this spec."""
     return [r for r in rows if r["worker"]]
 
 # --------------------------------------------------------------------- the rows
@@ -362,21 +315,22 @@ def build_rows(numbers: list[int], tickets: dict[int, dict],
     for number in sorted(set(numbers)):
         ticket = tickets.get(number) or {"number": number, "state": "", "labels": [],
                                          "assignees": [], "blockers": [], "comments": []}
-        worker = worker_on(sessions_, number)
+        display = worker_on(sessions_, number, holding=False)
+        holder = worker_on(sessions_, number, holding=True)
         rows.append({
             "ticket": number,
-            "worker": worker,
+            "worker": holder,
             "state": ticket["state"],
             "labels": ticket["labels"],
             "blockers": ticket["blockers"],
             "assignees": ticket["assignees"],
-            "agent": worker["name"] if worker else "-",
-            "status": worker["status"] if worker else "-",
-            "agent_id": (worker["id"][:7] if worker and worker["id"] else "-"),
-            "age": worker["created"] if worker and worker["created"] else "-",
+            "agent": display["name"] if display else "-",
+            "status": display["status"] if display else "-",
+            "agent_id": (display["id"][:7] if display and display["id"] else "-"),
+            "age": display["created"] if display and display["created"] else "-",
             "phase": phase_of(ticket),
             "ac": counted_ac(ticket) or "-",
-            "note": note_of(ticket, worker),
+            "note": note_of(ticket, display),
             "head": last_first_line(ticket),
             "created": ticket.get("created") or "",
             "closed_at": ticket.get("closed_at") or "",
@@ -388,6 +342,8 @@ def note_of(ticket: dict, worker: dict | None) -> str:
     """One short phrase saying where this ticket stands, in the pipeline's own words."""
     head = last_first_line(ticket)
     if worker:
+        if worker.get("status") == "closed":
+            return "closed: archive it"
         if worker.get("PendingPermissions"):
             return "needs permission"
         return ""
@@ -415,7 +371,8 @@ def off_frontier_reasons(row: dict) -> list[str]:
     if row["assignees"]:
         reasons.append("claimed by " + ", ".join(row["assignees"]))
     if row["worker"] is not None:
-        reasons.append(f"held by the live worker {row['worker']['name']}")
+        worker = row["worker"]
+        reasons.append(f"held by the worker {worker['name']} ({worker['status']})")
     return reasons
 
 
@@ -555,8 +512,10 @@ def advance_plan(spec: int) -> int:
     order `dispatch.sh` acts on them:
 
         MERGE <ticket>      closed with `ALL MET`, the one that closed first at the top
-        RELEASE <ticket>    in the agent queue and claimed, with neither a live worker
-                            nor a standing workspace behind the claim: its worker is gone
+        RELEASE <ticket>    in the agent queue and claimed, with no running worker
+                            behind the claim: its worker is gone. A standing workspace
+                            is not a reason to keep the claim; that directory is what
+                            the next dispatch reuses.
         DISPATCH <ticket>   on the frontier, in ticket order
 
     A ticket usually carries a `RELEASE` line and a `DISPATCH` line of the same plan:
@@ -585,7 +544,6 @@ def advance_plan(spec: int) -> int:
         print(f"MERGE {ticket['number']}")
     rows = build_rows(numbers, tickets, sessions(live_agents(spec)))
     login = own_login()
-    standing = workspaces_holding(live_workspaces(), own_project())
     for row in rows:
         if row["state"] != "OPEN" or "ready-for-agent" not in row["labels"]:
             continue
@@ -594,11 +552,6 @@ def advance_plan(spec: int) -> int:
         if row["worker"] is not None:
             print(f"#{row['ticket']} keeps its claim: a live worker "
                   f"{row['worker']['name']} still holds it",
-                  file=sys.stderr)
-            continue
-        if row["ticket"] in standing:
-            print(f"#{row['ticket']} keeps its claim: Paseo lists no worker on it, but a "
-                  f"workspace whose cwd is issue-{row['ticket']} is still standing",
                   file=sys.stderr)
             continue
         print(f"RELEASE {row['ticket']}")

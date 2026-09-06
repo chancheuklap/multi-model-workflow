@@ -6,7 +6,7 @@ are two judgements over one drive and cannot drift apart. `extract_skeleton.py` 
 `align-screens` skill imports the same module for its offline render of a handoff
 package, so the trees it commits are produced by the code path the judges read.
 
-Six platform capabilities, one adapter per target kind (`target.kind` in the screen
+Seven platform capabilities, one adapter per target kind (`target.kind` in the screen
 contract; the reference file each `targets/<kind>.md` names is the human account):
 
     attach     hand back a page that drives the product, as the identity the seeded state
@@ -15,10 +15,12 @@ contract; the reference file each `targets/<kind>.md` names is the human account
     address    turn a contract `route` into what `goto()` accepts
     release    give the product back
     transport  run the contract's `reach` mechanisms through the repository's own script
-               (the write half); `transport_off` / `transport_on` break and mend it for
-               the wiring check's negative control
+               (the write half)
     observe    read a persistent surface freshly, on a path the acting view did not
                produce (the read half)
+    break the transport
+               `transport_off` / `transport_on` take persistence away and put it back
+               for the wiring check's negative control, while the product keeps answering
 
 Machine facts — addresses, the reach script, how to break the transport — are never in
 the contract. They come from `.mmw/target.json` at the repository root. Which keys a
@@ -1267,7 +1269,7 @@ def page_by_title(browser, title_includes: str | None, timeout_seconds: int = 15
 
 # ---------------------------------------------------------------- adapters
 class Adapter:
-    """The six capabilities for one target kind. Subclasses fill the blanks; the order
+    """The seven capabilities for one target kind. Subclasses fill the blanks; the order
     of `transport` and `attach` is theirs too (`reach_before_attach`)."""
 
     kind = ""

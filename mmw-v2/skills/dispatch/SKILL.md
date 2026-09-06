@@ -88,7 +88,7 @@ A notification is a `<paseo-system>` block whose first sentence is `Agent <id> (
 
 **`resume <n> "<text>"`:** `0` the text was sent; `2` no worker with those labels, nothing sent.
 
-**`status <spec>`:** `0`, stdout is the table (`ticket`, `agent`, `id`, `agent_status`, `age`, `phase`, `ac`, `note`); a `note` of `needs permission` is the `needs permission` notification in table form. `2`: the tracker or `paseo` could not be asked — one `dispatch: …` line on stderr, no table; run it again once the daemon answers.
+**`status <spec>`:** `0`, stdout is the table (`ticket`, `agent`, `id`, `agent_status`, `age`, `phase`, `ac`, `note`); a `note` of `needs permission` is the `needs permission` notification in table form, and `closed: archive it` names an agent Paseo still lists but which is not running — it holds nothing, and `advance` gives its claim back. `2`: the tracker or `paseo` could not be asked — one `dispatch: …` line on stderr, no table; run it again once the daemon answers.
 
 **`reverify <spec>`:** `0` every closed `ALL MET` ticket was green; `1` at least one was red — that ticket is reopened, labelled `needs-triage`, its assignee removed, and the failing `AC<n>` commented. Stdout names each ticket.
 

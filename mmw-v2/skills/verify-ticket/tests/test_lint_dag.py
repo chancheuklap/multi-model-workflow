@@ -1,4 +1,4 @@
-"""The ticket graph: cycles, dangling references, and which tickets start first.
+"""The ticket graph: cycles, blockers that are not tickets, and which tickets start first.
 
 `validate_dag` and `compute_levels` are grok-bundled's
 `execute-plan/scripts/validate-plan.py` L145-280 with one change of shape: an id is
@@ -87,17 +87,6 @@ class TestValidateDag(unittest.TestCase):
         errors = vt.validate_dag(entries(a61=[63], a62=[61], a63=[62]))
         self.assertEqual(len(errors), 1)
         self.assertRegex(errors[0], r"cycle detected: (#\d+ -> ){2,}#\d+")
-
-    def test_a_dependency_outside_the_batch_is_dangling(self):
-        errors = vt.validate_dag(entries(a61=[], a62=[999]))
-        self.assertEqual(len(errors), 1)
-        self.assertIn("dangling", errors[0])
-        self.assertIn("#999", errors[0])
-
-    def test_a_dangling_reference_is_reported_instead_of_a_cycle(self):
-        # Kahn's algorithm cannot tell the two apart, so references are checked first.
-        errors = vt.validate_dag(entries(a61=[999], a62=[61]))
-        self.assertTrue(all("cycle" not in e for e in errors))
 
     def test_the_same_ticket_twice_is_a_duplicate(self):
         errors = vt.validate_dag([{"id": 61, "dependencies": []},
@@ -436,20 +425,18 @@ class TestBorrowedFromUpstream(unittest.TestCase):
                 self.assertTrue(theirs, f"{name} not found upstream")
                 self.assertEqual(theirs, ours)
 
-    def test_validate_dag_keeps_the_same_three_passes_in_the_same_order(self):
+    def test_validate_dag_checks_duplicates_then_cycles(self):
+        """A blocker outside the batch is not this function's to name: `in_batch`
+        dropped it, and `blockers_not_tickets` / `cross_batch_findings` say what it is."""
         ours = self.source(SCRIPT, self.SHAPED)
-        theirs = self.source(self.UPSTREAM, self.SHAPED)
-        for step in ("seen = set()", "for entry in entries:", 'seen.add(entry["id"])',
-                     'for dep in entry["dependencies"]:', "if dep not in seen:",
-                     "if not errors:", "errors.extend(_detect_cycles(entries))",
-                     "return errors"):
-            with self.subTest(step=step):
-                self.assertIn(step, theirs, f"upstream lost {step}")
-                self.assertIn(step, ours, f"ours lost {step}")
-        # Cycles are looked for only once every reference resolves — Kahn's algorithm
-        # cannot tell a cycle from a dangling id, so the order of the two is the point.
-        for text in (theirs, ours):
-            self.assertLess(text.index("if dep not in seen:"), text.index("if not errors:"))
+        self.assertIn("seen = set()", ours)
+        self.assertIn('seen.add(entry["id"])', ours)
+        self.assertIn("if not errors:", ours)
+        self.assertIn("errors.extend(_detect_cycles(entries))", ours)
+        self.assertNotIn("if dep not in seen:", ours)
+        self.assertNotIn("[dangling]", ours)
+        self.assertLess(ours.index('seen.add(entry["id"])'),
+                        ours.index("errors.extend(_detect_cycles(entries))"))
 
     @staticmethod
     def source(path, name):

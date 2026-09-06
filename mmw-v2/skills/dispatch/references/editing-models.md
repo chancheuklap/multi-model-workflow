@@ -34,6 +34,10 @@ That command is the whole of it. It rewrites every Agent profile whose `permissi
 
 ## 4. Check that a row landed
 
+A profile whose `notes` contain `from models.md` is one `install.sh` wrote: it is rewritten on every install and removed once its row is gone. A profile made by hand in the app keeps any other `notes` and is never touched.
+
+## 5. What a row landed as
+
 **A `bypass` or `read-only` row** is an Agent profile in `~/.paseo/config.json`, under `daemon.agentProfiles`: one entry whose `id` and `name` are both the agent cell, carrying the row's `model` and `thinkingOptionId`. Read that file, or run `bash mmw-v2/install.sh --check`, which compares each profile to the current row and exits 1 on drift, naming the agent.
 
 **A `—` row** is a native subagent. Read the definition file for the agent you changed and confirm the new model is in it.

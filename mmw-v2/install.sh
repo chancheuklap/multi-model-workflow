@@ -10,6 +10,8 @@
 #   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里 grok/cursor 两条 provider、
 #                     models.md 每个 bypass / read-only 行一条 Agent profile、worktrees.root
 #
+# 本仓库上一代装过、这次不装的东西（技能软链、hook 登记、Agent profile），install 摘掉，--check 报残留。
+#
 # 技能有三个来源：mattpocock/skills 的在 upstream/skills/，我们自己写的在 skills/（skills.txt
 # 里前缀 self/），cathrynlavery/diagram-design 的在 upstream-diagram-design/skills/（前缀 dd/）。三者
 # 装法完全一样。
@@ -905,6 +907,28 @@ def is_generated(profile):
     return isinstance(notes, str) and GENERATED_MARK in notes
 
 
+def follow_path(notes):
+    """The assembled subagent file a read-only profile's notes tell `create_agent` to Follow."""
+    key = "Follow "
+    text = notes or ""
+    i = text.find(key)
+    if i < 0:
+        return None
+    rest = text[i + len(key):]
+    end = rest.find("'")
+    if end <= 0:
+        return None
+    return Path(rest[:end])
+
+
+def missing_follow(agent, notes):
+    pointed = follow_path(notes)
+    if pointed is None or pointed.is_file():
+        return None
+    return (f"profile {agent} 指向的 {pointed} 不存在"
+            f"（这台机器没装 Claude Code 的 agent 目录）")
+
+
 def notes_for(agent, host, permissions):
     if permissions == "read-only":
         spec_path = assemble_path.parent / agent / "agent.json"
@@ -1010,6 +1034,11 @@ if mode == "check":
         if profile.get("notes") != want["notes"]:
             sys.stderr.write(f"缺    profile {agent} notes 与 models.md 不一致\n")
             failed = True
+        if permissions == "read-only":
+            missing = missing_follow(agent, profile.get("notes") or "")
+            if missing:
+                sys.stderr.write(f"缺    {missing}\n")
+                failed = True
     managed_ids = {agent for agent, *_ in rows}
     for profile in ((data.get("daemon") or {}).get("agentProfiles") or []):
         if not is_generated(profile):
@@ -1029,6 +1058,12 @@ for pid in dropped:
     print(f"摘掉  profile {pid}")
 save(config_path, data)
 print(f"已装  {config_path}")
+for agent, host, model, effort, permissions in rows:
+    if permissions != "read-only":
+        continue
+    missing = missing_follow(agent, notes_for(agent, host, permissions))
+    if missing:
+        print(f"注意  {missing}")
 PY
 
 if [ "$mode" != check ] && [ "$HOME_DIR" = "$HOME" ]; then

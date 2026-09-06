@@ -1,5 +1,5 @@
 """The shared driver behind both judges, without a browser: the contract's screen
-axis, the six capabilities against a fake adapter, the box arithmetic, the `open`
+axis, the seven capabilities against a fake adapter, the box arithmetic, the `open`
 chain, the tree's ancestor line, and the two read grammars.
 """
 
@@ -381,7 +381,7 @@ class TestClassSets(unittest.TestCase):
 
 
 class FakeAdapter(sd.Adapter):
-    """The six capabilities as a record of calls: the judges are tested against this
+    """The seven capabilities as a record of calls: the judges are tested against this
     shape, so a change to what they ask of an adapter shows here first."""
 
     kind = "fake"
@@ -411,12 +411,15 @@ class FakeAdapter(sd.Adapter):
     def release(self):
         self.calls.append(("release",))
 
+    def transport_off(self):
+        self.calls.append(("transport_off",))
+
     def observe(self, line, values):
         self.calls.append(("observe", line))
         return True, None, ""
 
 
-class TestSixCapabilities(unittest.TestCase):
+class TestSevenCapabilities(unittest.TestCase):
     def test_each_capability_is_one_call(self):
         a = FakeAdapter()
         values = a.transport(["seed:x"], {}, perturb=True)
@@ -424,10 +427,12 @@ class TestSixCapabilities(unittest.TestCase):
         self.assertTrue(a.ready()[0])
         self.assertEqual(a.address("#/project/{project_id}", values), "app://#/project/p1")
         self.assertTrue(a.observe("GET /x -> .a", values)[0])
+        a.transport_off()
         a.release()
         self.assertIsInstance(page, FakePage)
         self.assertEqual([c[0] for c in a.calls],
-                         ["transport", "attach", "ready", "address", "observe", "release"])
+                         ["transport", "attach", "ready", "address", "observe",
+                          "transport_off", "release"])
         self.assertEqual(a.calls[0], ("transport", ("seed:x",), True))
 
     def test_the_base_transport_runs_the_reach_command_and_reads_key_values(self):

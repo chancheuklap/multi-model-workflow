@@ -26,7 +26,8 @@ contract; `discover` loads or reads it. `popup` is the entry page (default `popu
    remote service, after when it lives in `chrome.storage`.
 2. **ready** — a service worker is alive in the context. MV3 recycles it after about
    thirty idle seconds, so this is the clearest case of `ready` being a condition
-   re-checked between scenes.
+   re-checked between scenes; `discover`'s `instance_check` line proves the worker
+   answering is this run's extension build.
 3. **address** — `chrome-extension://<extension_id>/<popup><route>`.
 4. **release** — the persistent context is closed.
 5. **transport** — the reach script writes `chrome.storage` through the extension's own

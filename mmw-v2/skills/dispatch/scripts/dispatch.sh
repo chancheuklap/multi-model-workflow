@@ -13,8 +13,9 @@
 #
 # Every form takes `--tools <directory>`, repeatable: where the scripts of other skills
 # are — `lease.py` of the drive-target skill, `verify-ticket.py` of the verify-ticket
-# skill. This script finds nothing outside its own skill directory by itself; the agent
-# resolves those skills by name and passes their `scripts/` directories.
+# skill. Other skills' scripts are found only in those directories. Two files belong
+# to the toolbox itself, not to any skill, and are taken from the toolbox root (this
+# skill directory two levels up): `install.sh` and `agents/assemble.py`.
 #
 # The ticket number and the kind of agent are the whole input for `start`. Which
 # of the worker rows a worker session starts from is the ticket's own `*-worker`
@@ -38,6 +39,8 @@ VERIFIER_MD="$(realpath "$SKILL_ROOT/references/verifier.md" 2>/dev/null || true
 # is two directories up. `verify-ticket.py` and `lease.py` belong to other skills and
 # are found only in the directories `--tools` names (see the entry at the bottom).
 INSTALLER="$(dirname "$(dirname "$SKILL_ROOT")")/install.sh"
+# assemble.py sits next to install.sh under agents/: both belong to the toolbox, not
+# to a skill, so they are not passed in with `--tools`.
 ASSEMBLE="$(dirname "$INSTALLER")/agents/assemble.py"
 VERIFY=""
 LEASE=""
@@ -325,9 +328,13 @@ for row in rows:
 
 # The registered worktree for ticket `number`, even after its workspace has been
 # archived: `lease.py` still holds the path. Used when `workspace_cwd_for` is empty.
+# Matched under this checkout's worktrees_root, not by basename: two repositories
+# can both have issue-<n>.
 lease_worktree_for() {
-  local number="$1"
-  MMW_LEASE_PY="$LEASE" MMW_SLUG="issue-$number" python3 -c '
+  local number="$1" root
+  root="$(worktrees_root)"
+  [ -n "$root" ] || return 0
+  MMW_LEASE_PY="$LEASE" MMW_SLUG="issue-$number" MMW_TREES="$root" python3 -c '
 import importlib.util, os, sys
 from pathlib import Path
 
@@ -336,8 +343,16 @@ spec = importlib.util.spec_from_file_location("mmw_lease", path)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 want = os.environ["MMW_SLUG"]
+root = Path(os.environ["MMW_TREES"]).resolve()
 for rec in mod.claimed():
-    if Path(rec.get("worktree") or "").name == want:
+    tree = Path(rec.get("worktree") or "")
+    if tree.name != want:
+        continue
+    try:
+        resolved = tree.resolve()
+    except OSError:
+        resolved = tree
+    if resolved == root / want or root in resolved.parents:
         print(rec["worktree"])
         break
 ' 2>/dev/null
@@ -380,7 +395,7 @@ PY
 }
 
 live_instances() {
-  python3 "$LEASE" count "$1" 2>/dev/null || echo 0
+  python3 "$LEASE" count "$1"
 }
 
 # Give a finished ticket's slot back. Returns 0 released, 1 refused (something still
@@ -808,7 +823,7 @@ advance() {
   for number in $(printf '%s\n' "$plan" | awk '$1 == "RELEASE" { print $2 }'); do
     if gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1; then
       released=$((released + 1))
-      echo "released the claim on #$number: it is open in the agent queue with no worker of ours on it and no workspace still standing, so the worker that claimed it is gone" >&2
+      echo "released the claim on #$number: it is open in the agent queue with no running worker of ours on it, so the worker that claimed it is gone" >&2
     else
       echo "dispatch: could not release the claim on #$number, so it stays off the frontier" >&2
     fi
@@ -820,7 +835,8 @@ advance() {
     if [ -n "$max_inst" ]; then
       trees="$(worktrees_root)"
       if [ -n "$trees" ]; then
-        live="$(live_instances "$trees")"
+        live="$(live_instances "$trees")" \
+          || refuse "could not count live instances under $trees"
       else
         live=0
       fi
