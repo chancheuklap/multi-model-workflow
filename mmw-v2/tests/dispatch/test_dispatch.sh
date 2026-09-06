@@ -727,7 +727,9 @@ write_landable() {
   {"number": 67, "state": "CLOSED", "labels": [], "closedAt": "2026-09-07T02:00:00Z",
    "parent": null, "comments": ["ALL MET\\nBranch: issue-67"]},
   {"number": 68, "state": "CLOSED", "labels": [], "closedAt": "2026-09-07T03:00:00Z",
-   "parent": null, "comments": ["voided: superseded by the spec"]}
+   "parent": null, "comments": ["voided: superseded by the spec"]},
+  {"number": 69, "state": "OPEN", "labels": ["needs-triage"], "parent": null,
+   "assignees": [], "comments": ["HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 0 met of 1"]}
 ]
 JSON
 }
@@ -781,6 +783,21 @@ scenario_land() {
           bash "$DISPATCH" "${TOOLS[@]}" land 67)"
   [ -f "$TMP/repo/seven.txt" ] || fail "issue-67 should have been merged first"
   has "paseo :: workspace :: archive :: wks_issue-67"
+
+  echo "--- a ticket that needs nothing says so, rather than exiting 0 in silence"
+  reset_log
+  fresh_repo
+  write_landable
+  seed_workspace 69
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 69)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  hasnt "paseo :: workspace :: archive"
+  hasnt "gh :: issue :: edit :: 69"
+  grep -q "#69 needs nothing" "$TMP/err" \
+    || fail "a ticket needing nothing must be named, or it reads like one the plan forgot: $(cat "$TMP/err")"
+  grep -q "already landed 1" "$TMP/err" \
+    || fail "the tally should count it: $(cat "$TMP/err")"
 
   echo "--- a voided ticket is never merged, and so is never archived either"
   reset_log
