@@ -1188,7 +1188,16 @@ land_tickets() {
     kept=$((kept + 1))
   done < <(printf '%s\n' "$plan" | sed -n 's/^HOLD \(.*\)$/#\1/p')
 
-  echo "land: merged $merged, archived $archived, released $released, still working $kept, left unmerged $unmerged" >&2
+  # A ticket that needs nothing is named too. Landing one and landing none print the
+  # same tally otherwise, and the difference is the whole question the caller asked.
+  local nothing=0
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    echo "  $line" >&2
+    nothing=$((nothing + 1))
+  done < <(printf '%s\n' "$plan" | sed -n 's/^NOTHING \([0-9]*\) \(.*\)$/#\1 needs nothing: \2/p')
+
+  echo "land: merged $merged, archived $archived, released $released, still working $kept, already landed $nothing, left unmerged $unmerged" >&2
   [ "$unmerged" -eq 0 ] || return 1
 }
 

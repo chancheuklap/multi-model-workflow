@@ -610,7 +610,12 @@ def land_plan(numbers: list[int]) -> int:
         MERGE <ticket>        closed with `ALL MET`: its branch belongs in the base branch
         RELEASE <ticket>      this pipeline still holds the claim, and the work is over
         ARCHIVE <ticket>      its workspace, the agents inside it and its slot may all go
-        HOLD <ticket> <why>   nothing may be done to it yet
+        HOLD <ticket> <why>   still being worked: nothing may be done to it yet
+        NOTHING <ticket> <why>  over, and already landed: there is nothing left to do
+
+    Every ticket gets at least one line. A ticket that needs nothing is the case that
+    reads exactly like a ticket the plan forgot, and a sweep that says nothing about it
+    reads exactly like a sweep that worked — so it says so.
 
     Which of them a ticket gets is `in_flight`, plus one distinction that function does
     not make. A ticket handed back to triage is over as a piece of work, but its
@@ -636,12 +641,19 @@ def land_plan(numbers: list[int]) -> int:
                   + (f" (newest comment: {head[:50]})" if head else ""))
             continue
         closed = ticket["state"] == "CLOSED"
+        asked = False
         if closed and first_line(newest_with_first_line(ticket, "ALL MET")).startswith("ALL MET"):
             print(f"MERGE {number}")
+            asked = True
         if login and login in ticket["assignees"]:
             print(f"RELEASE {number}")
+            asked = True
         if closed:
             print(f"ARCHIVE {number}")
+            asked = True
+        if not asked:
+            print(f"NOTHING {number} handed back to triage, unclaimed, and its workspace "
+                  f"is kept for the next start")
     return 0
 
 
