@@ -35,8 +35,10 @@ contract; `discover` loads or reads it. `popup` is the entry page (default `popu
    storage area directly.
 6. **observe** — the surface must be where the behaviour's effect really lands: an
    effect on the remote service is read from the remote API; reading `chrome.storage`
-   proves only that the client wrote itself. A row whose effect never leaves the client
-   leaves `observe` empty, as `contract-format.md` already allows.
+   proves only that the client wrote itself. A row whose `calls` are all non-HTTP and
+   write nothing the surface can read does not enter any wiring criterion — it stays
+   in the contract for the screen axis and documentation (agentflow's `shell.quit`
+   is the instance).
 7. **break the transport** — clear `chrome.storage` and stub the remote API to refuse
    writes, then restore.
 

@@ -45,9 +45,10 @@ here is ever written down anywhere else.
    outside the renderer.
 6. **observe** — the backend's JSON read surface: `METHOD /path -> <jq-style
    expression>` (`.field`, `.list[0].field`, `==`, `!=`, `contains`, `exists`). A `node …
-   exists` line is refused on this target: it has a JSON surface and must use it. Rows
-   whose calls are all `ipc` may leave `observe` empty; the check then only performs the
-   trigger.
+   exists` line is refused on this target: it has a JSON surface and must use it. A row
+   whose calls are all `ipc` and write nothing the surface can read does not enter any
+   wiring criterion — it stays in the contract for the screen axis and documentation
+   (agentflow's `shell.quit` is the instance).
 7. **break the transport** — `transport_off` stops the local backend's persistence (the
    repository decides how: an environment variable read at request time, or pointing
    the backend at an empty database); `transport_on` reverses it. With it off, every
