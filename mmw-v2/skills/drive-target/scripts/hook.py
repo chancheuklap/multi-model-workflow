@@ -54,19 +54,11 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from refusal import REPORT_BLOCKED, refusal  # noqa: E402
+from refusal import refusal  # noqa: E402
 
 HOSTS = ("claude", "codex", "grok", "cursor", "pi")
 GATES = ("pretool", "question")
 TICKET_DIR = re.compile(r"^issue-(\d+)$")
-
-# Grok Build clips a deny reason at 256 characters and marks the rest `… [+N chars]`,
-# and it spends 13 of those on a `Hook denied: ` of its own (2026-08-29, measured: a
-# 350-character reason reached the model as its first 256). Everything a refused worker
-# needs — the ticket, the command, the way out when the work is not finished — has to fit
-# in what is left, for every ticket number this tracker will reach.
-REASON_LIMIT = 256
-HOST_PREFIX = len("Hook denied: ")
 
 REFUSAL = (
     "Close #{n} with `verify-ticket.py {n} --closeout <draft>`, not by hand: it checks the "

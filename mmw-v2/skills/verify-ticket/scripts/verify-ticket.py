@@ -150,9 +150,9 @@ def hand_back_for_triage(number: int) -> None:
     person, more information, another agent, or nothing at all. `needs-triage` is that
     state, and it is the one queue a skill picks up on its own.
 
-    A ticket still assigned to the worker that gave up is a ticket `board.py` will not
-    dispatch again — its frontier takes only unassigned tickets — so the assignee comes
-    off in the same edit as the label.
+    A ticket still assigned to the worker that gave up is a ticket `status.py`'s
+    frontier will not dispatch again — it takes only unassigned tickets — so the
+    assignee comes off in the same edit as the label.
     """
     subprocess.run(
         ["gh", "issue", "edit", str(number),
@@ -267,13 +267,26 @@ def parent_spec(body: str) -> int | None:
 
     This section is the copy the user reads, and one ticket may be written against
     sections of more than one spec, in whatever order suits the reader. Which batch the
-    ticket belongs to is the tracker's own sub-issue link, `fetch_parent`.
+    ticket belongs to is `spec_of`: the tracker's parent link, falling back to this.
     """
     for line in section(body, "Parent"):
         m = ISSUE_REF_RE.search(line)
         if m:
             return int(m.group(1))
     return None
+
+
+def spec_of(number: int) -> int | None:
+    """The spec this ticket sits under: the tracker's parent link, else `## Parent`.
+
+    A ticket written against sections of more than one spec names them all in `## Parent`,
+    in reader order. The batch is the sub-issue link `fetch_parent` reads; only when the
+    tracker records none does this fall back to `parent_spec`.
+    """
+    parent = fetch_parent(number)
+    if parent is not None:
+        return parent
+    return parent_spec(fetch_body(number))
 
 
 def blocked_by(body: str) -> list[int]:
@@ -884,7 +897,7 @@ def in_batch(entries: list[dict]) -> list[dict]:
     """The same entries with every dependency outside the batch dropped.
 
     A blocking link to another spec's ticket is a real edge, and `--preflight`,
-    `dispatch.sh` and `board.py` all honour it — but it is not an edge this graph can
+    `dispatch.sh advance` and `status.py` all honour it — but it is not an edge this graph can
     order, because the other end has no entry here. Left in, it would hold that ticket's
     in-degree above zero forever, which Kahn's algorithm reads as a cycle and
     `compute_levels` reads as a ticket with no level at all.
@@ -922,7 +935,7 @@ def cross_batch_findings(entries: list[dict]) -> list[str]:
     """Blocking links to tickets under another spec.
 
     Not a fault to fix: it is the shape a layered delivery has, and `--preflight`,
-    `dispatch.sh` and `board.py` all refuse to start a ticket while one of these is
+    `dispatch.sh advance` and `status.py` all refuse to start a ticket while one of these is
     open. It is reported because the start levels are built without it, so a reader who
     took them for the whole truth would miss that one of these tickets is waiting on a
     spec that is not in front of them.
@@ -957,7 +970,7 @@ def ticket_entries(numbers: list[int]) -> list[dict]:
     """One entry per ticket: the tracker's blocking links, and the ticket's own copy.
 
     `dependencies` is what the tracker records, and it is the graph every check below
-    runs on — the same edges `--preflight` refuses on and `board.py` dispatches from.
+    runs on — the same edges `--preflight` refuses on and `dispatch.sh advance` dispatches from.
     `stated` is the `## Blocked by` section of the ticket body, carried alongside so
     `blocked_by_mismatch` can hold the two accounts of one edge against each other.
 
@@ -1055,10 +1068,10 @@ def spec_judgement(review: str, path: str) -> str | None:
     return None
 
 
-def decisions_line_for(decisions: str | None, path: str) -> str:
+def decisions_line_for(decisions: str | None, path: str, number: int) -> str:
     """The sentence in the `DECISIONS` comment that names `path`."""
     if not decisions:
-        return path
+        return f"no DECISIONS comment on #{number} yet"
     for line in decisions.splitlines():
         stripped = line.strip()
         if path in stripped and not stripped.startswith("Outside Owns:"):
@@ -1161,13 +1174,16 @@ def run_touched(number: int) -> int:
     if not files:
         return 0
     decisions = newest_with_first_line(comments, "DECISIONS")
-    spec = parent_spec(fetch_body(number))
+    try:
+        spec = spec_of(number)
+    except ParentUnreadable as exc:
+        return refuse(f"#{number}: the tracker could not say which spec it sits under ({exc})")
     if spec is None:
-        return refuse(f"#{number} has no spec in `## Parent`")
+        return refuse(f"#{number} has no parent link and no spec in `## Parent`")
     siblings = open_children_owns(spec)
     posted_to: list[int] = []
     for path in files:
-        sentence = decisions_line_for(decisions, path)
+        sentence = decisions_line_for(decisions, path, number)
         judgement = spec_judgement(review, path)
         ac = ""
         found = re.search(r"\bAC\d+\b", sentence)
@@ -1178,8 +1194,9 @@ def run_touched(number: int) -> int:
             "",
             path,
             sentence,
-            ac,
         ]
+        if ac:
+            lines.append(ac)
         if judgement:
             lines.append(judgement)
         comment = "\n".join(lines) + "\n"
@@ -1545,7 +1562,7 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
             draft = draft.rstrip("\n") + "\n" + extra
 
     post_comment(number, draft)
-    if draft.strip().splitlines()[0].strip() == "ALL MET":
+    if first == "ALL MET":
         close_ticket(number)
         print(f"CLOSED: #{number}")
     else:
@@ -1557,13 +1574,13 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
 def lint_ticket_graph(number: int, body: str) -> int:
     """Read the batch this ticket belongs to and check it is a startable graph."""
     try:
-        spec = fetch_parent(number)
+        spec = spec_of(number)
     except ParentUnreadable as exc:
         print(f"  ERROR the tracker could not say which spec #{number} sits under "
               f"({exc}), so the batch graph was not checked  [parent-unreadable]")
         return 1
     if spec is None:
-        print("ticket graph: the tracker records no parent for this ticket, so there is "
+        print("ticket graph: no parent link and no spec in `## Parent`, so there is "
               "no batch to check")
         return 0
     numbers = fetch_sub_issues(spec)
@@ -2110,7 +2127,7 @@ def lint_batch_scenes(number: int, body: str) -> list[str]:
     if doc is None:
         return []
     try:
-        spec = fetch_parent(number)
+        spec = spec_of(number)
     except ParentUnreadable as exc:
         return [f"the tracker could not say which spec #{number} sits under ({exc}), so "
                 f"the scene partition across the batch was not checked"]

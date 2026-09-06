@@ -163,14 +163,28 @@ class TestLintTicketGraph(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("level 0: #61, #62", out)
 
-    def test_a_ticket_the_tracker_gives_no_parent_checks_nothing(self):
-        """No parent link is no batch, which is a shape a ticket is allowed to have."""
+    def test_a_ticket_the_tracker_gives_no_parent_falls_back_to_the_section(self):
+        """No parent link still has a batch when `## Parent` names a spec."""
         with mock.patch.object(vt, "fetch_parent", return_value=None), \
-             mock.patch.object(vt, "fetch_sub_issues") as fetch:
+             mock.patch.object(vt, "fetch_sub_issues", return_value=[77]) as fetch, \
+             mock.patch.object(vt, "fetch_blocked_by", return_value=[]), \
+             mock.patch.object(vt, "fetch_body", return_value=body(parent=76)):
             with redirect_stdout(io.StringIO()) as out:
                 code = vt.lint_ticket_graph(77, body(parent=76))
         self.assertEqual(code, 0)
-        self.assertIn("the tracker records no parent", out.getvalue())
+        fetch.assert_called_once_with(76)
+        self.assertIn("level 0: #77", out.getvalue())
+
+    def test_no_parent_link_and_no_parent_section_checks_nothing(self):
+        """Neither account of the spec is a shape a ticket is allowed to have."""
+        empty = "## Blocked by\n\n- None (can start immediately)\n"
+        with mock.patch.object(vt, "fetch_parent", return_value=None), \
+             mock.patch.object(vt, "fetch_sub_issues") as fetch, \
+             mock.patch.object(vt, "fetch_body", return_value=empty):
+            with redirect_stdout(io.StringIO()) as out:
+                code = vt.lint_ticket_graph(77, empty)
+        self.assertEqual(code, 0)
+        self.assertIn("no parent link and no spec in `## Parent`", out.getvalue())
         fetch.assert_not_called()
 
     def test_the_batch_is_the_linked_spec_not_the_first_one_the_section_names(self):

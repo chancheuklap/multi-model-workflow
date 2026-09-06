@@ -53,18 +53,24 @@ def target_kinds() -> set[str]:
     return set(out.stdout.split())
 
 
-def target_file_problem(repo: Path, kind: str) -> tuple[str, str] | None:
-    """`("error", line)` or `("warning", line)` about the repository's `.mmw/target.json`,
-    from the driver's own validation; `None` when the file is complete."""
+def target_file_problem(repo: Path, kind: str) -> str | None:
+    """The error line about the repository's `.mmw/target.json`, from the driver's own
+    validation; `None` when the file is complete."""
     if not (repo / ".mmw" / "target.json").exists():
-        return ("warning", "no .mmw/target.json yet; the contract ticket lands it — run "
-                           "`screen_driver.py target --check` (the drive-target skill) there")
+        return ("no .mmw/target.json yet; the contract ticket lands it — run "
+                "`screen_driver.py target --check` (the drive-target skill) there")
     out = subprocess.run([sys.executable, str(driver()), "target", "--validate",
                           "--repo", str(repo), "--kind", kind],
                          capture_output=True, text=True)
     if out.returncode == 0:
         return None
-    return ("error", (out.stdout or out.stderr).strip())
+    return (out.stdout or out.stderr).strip() or f"target --validate exited {out.returncode}"
+
+
+def page_stem(page: str) -> str:
+    return re.sub(r"\.dc\.html$", "", page)
+
+
 VIA = {"api", "storage"}
 INPUT_ROLES = {"textbox", "combobox", "spinbutton", "searchbox"}
 BREAKPOINT = re.compile(r"@media[^{]*\((?:max|min)-width:\s*(\d+)px\)")
@@ -152,7 +158,7 @@ def open_lands(row: dict, scene: str, page: str, scene_pages: dict[str, str], de
 def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
                      contract_dir: Path | None) -> tuple[list[str], list[str]]:
     """The screen axis: target, viewports, pages, scenes, the mechanism table, the
-    target trees. Every finding names the key it is about."""
+    target trees, volatile_values. Every finding names the key it is about."""
     errors: list[str] = []
     warnings: list[str] = []
     rows = {str(r.get("id")): r for r in doc.get("rows") or []}
@@ -163,12 +169,12 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
     if kind not in kinds:
         errors.append(f"target.kind {kind!r} is not one of {sorted(kinds)}")
     if "adapter" in target:
-        warnings.append("target.adapter is not read by anything; the drive-target skill picks "
-                        "the adapter by target.kind — drop the key")
+        errors.append("target.adapter is not read by anything; the drive-target skill picks "
+                      "the adapter by target.kind — drop the key")
     if kind in kinds and contract_dir is not None:
         problem = target_file_problem(repo_root(Path(contract_dir)), kind)
         if problem is not None:
-            (errors if problem[0] == "error" else warnings).append(problem[1])
+            errors.append(problem)
     # -- viewports
     raw_vps = doc.get("viewports")
     widths: list[int] = []
@@ -344,12 +350,14 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
                                 f"will show an empty field")
                 break
     # -- target trees
+    aria_of: dict[str, Path] = {}
     if contract_dir is not None and baseline is not None and handoff_pages:
         targets = contract_dir / "targets"
         scenes_hash = (hashlib.sha256((baseline / "scenes.json").read_bytes()).hexdigest()
                        if (baseline / "scenes.json").exists() else "")
         for page in sorted(handoff_pages):
-            stem = re.sub(r"\.dc\.html$", "", page)
+            stem = page_stem(page)
+            aria_of[page] = targets / f"{stem}.aria"
             for suffix in (".aria", ".classes"):
                 f = targets / f"{stem}{suffix}"
                 if not f.exists():
@@ -363,6 +371,7 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
                 if hashes.get("scenes.json") != scenes_hash or hashes.get("page") != page_hash:
                     errors.append(f"targets: {f.name} is stale — its hashes no longer match "
                                   f"scenes.json or {page}; regenerate with extract_skeleton.py")
+    # -- volatile_values
     for entry in doc.get("volatile_values") or []:
         if not isinstance(entry, dict):
             continue
@@ -375,8 +384,9 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
             continue
         if contract_dir is None:
             continue
-        stem = re.sub(r"\.dc\.html$", "", page)
-        aria = contract_dir / "targets" / f"{stem}.aria"
+        aria = aria_of.get(page)
+        if aria is None:
+            aria = contract_dir / "targets" / f"{page_stem(page)}.aria"
         tree = aria.read_text(encoding="utf-8") if aria.exists() else ""
         if not volatile_in_tree(tree, role, name):
             warnings.append(f"volatile_values: {role} {name!r} on {page} is not in the "

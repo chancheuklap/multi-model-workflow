@@ -22,7 +22,7 @@ contract; the reference file each `targets/<kind>.md` names is the human account
 
 Machine facts — addresses, the reach script, how to break the transport — are never in
 the contract. They come from `.mmw/target.json` at the repository root. Which keys a
-repository answers is declared here, once, in `FIELDS` and each adapter's
+repository answers is declared here, once, on each adapter's `fields` and
 `discover_keys`, and printed for the person filling the file by
 
     screen_driver.py target --check [--repo <dir>] [--kind <kind> | --contract <yaml>]
@@ -66,8 +66,8 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from lease import leased_environment  # noqa: E402
-from refusal import refusal  # noqa: E402
+from lease import leased_environment, worktree_of  # noqa: E402
+from refusal import REPORT_BLOCKED, refusal  # noqa: E402
 
 # ---------------------------------------------------------------- constants
 # The three scripts `support.js` loads from unpkg. Answered from the handoff package's
@@ -342,12 +342,7 @@ FIELDS: tuple[Field, ...] = (
 
 
 def repo_root(start: Path | None = None) -> Path:
-    try:
-        out = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=start or Path.cwd(),
-                             capture_output=True, text=True, check=True).stdout.strip()
-        return Path(out)
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return (start or Path.cwd()).resolve()
+    return worktree_of(start)
 
 
 def target_config(root: Path) -> dict:
@@ -387,8 +382,14 @@ def run_command(command: str, cwd: Path, extra: list[str] | None = None) -> str:
     proc = subprocess.run(shlex.split(command) + (extra or []), cwd=cwd,
                           capture_output=True, text=True, env=command_env(cwd))
     if proc.returncode != 0:
-        raise SystemExit(f"`{command}{' ' + ' '.join(extra) if extra else ''}` exited "
-                         f"{proc.returncode}: {proc.stderr.strip() or proc.stdout.strip()}")
+        shown = f"{command}{' ' + ' '.join(extra) if extra else ''}"
+        detail = (proc.stderr.strip() or proc.stdout.strip()).splitlines()
+        first = detail[0] if detail else "(no output)"
+        raise SystemExit(refusal(
+            f"`{shown}` exited {proc.returncode}: {first}",
+            "The repository's declared command did not succeed.",
+            REPORT_BLOCKED,
+        ))
     return proc.stdout
 
 
@@ -1274,6 +1275,8 @@ class Adapter:
     reach_before_attach = False
     # What this kind's `discover` prints: (key, what it is, required).
     discover_keys: tuple[tuple[str, str, bool], ...] = ()
+    # Keys this kind needs in `.mmw/target.json`: the shared set, plus any of its own.
+    fields: tuple[Field, ...] = FIELDS
     # Which read surface `observe` lines are held to: `json` (a JSON read surface plus a
     # jq-style expression) or `tree` (an HTML page read in a second tab, `node … exists`).
     read_surface = "json"
@@ -1384,6 +1387,7 @@ class ElectronAdapter(Adapter):
     over_cdp = True
     reach_before_attach = False
     read_surface = "json"
+    fields = Adapter.fields + ()
     discover_keys = (
         ("cdp", "the renderer's debugging port, e.g. http://127.0.0.1:9222", True),
         ("impl", "the address the renderer is served at", True),
@@ -1441,6 +1445,7 @@ class WebAdapter(Adapter):
     over_cdp = False
     reach_before_attach = True
     read_surface = "tree"
+    fields = Adapter.fields + ()
     discover_keys = (
         ("origin", "where the pages are served, e.g. http://127.0.0.1:8000", True),
         ("ready", "a path answering under 400 when the server is up; default /health", False),
@@ -1532,6 +1537,7 @@ class WebAdapter(Adapter):
 class WebSpaAdapter(WebAdapter):
     kind = "web-spa"
     read_surface = "json"
+    fields = Adapter.fields + ()
 
 
 class ChromeExtensionAdapter(WebAdapter):
@@ -1542,6 +1548,7 @@ class ChromeExtensionAdapter(WebAdapter):
 
     kind = "chrome-extension"
     read_surface = "json"
+    fields = Adapter.fields + ()
     discover_keys = (
         ("extension_dir", "the built extension directory to load", True),
         ("extension_id", "the id the browser derives at load time", True),
@@ -1621,21 +1628,31 @@ def bring_up(adapter: Adapter) -> None:
     except subprocess.TimeoutExpired as exc:
         raise SystemExit(f"`{start}` did not return within {START_TIMEOUT_S}s") from exc
     if proc.returncode != 0:
-        raise SystemExit(f"`{start}` exited {proc.returncode}: "
-                         f"{proc.stderr.strip() or proc.stdout.strip()}")
+        detail = (proc.stderr.strip() or proc.stdout.strip()).splitlines()
+        first = detail[0] if detail else "(no output)"
+        raise SystemExit(refusal(
+            f"`{start}` exited {proc.returncode}: {first}",
+            "The repository's `start` command did not succeed.",
+            REPORT_BLOCKED,
+        ))
     adapter.addresses = discover(adapter.cfg, adapter.root)
     ok, why = adapter.ready()
     if not ok:
-        raise SystemExit(f"`{start}` returned 0 but the product is still not answering: {why}")
+        raise SystemExit(refusal(
+            f"`{start}` returned 0.",
+            f"The product is still not answering ({why}).",
+            REPORT_BLOCKED,
+        ))
 
 
-def retired_triggers(doc: dict, page: str | None = None) -> list[tuple[str, str]]:
-    """The retired controls to hide on the design side — for one design page when
-    `page` is given. A retired entry that names its `page` is hidden there only: a
-    control's role and name are not unique across pages (a retired 查看 on one page, a
-    live 查看 on another), and hiding by name alone would blind the judge to the live one."""
+def _triggers(doc: dict, key: str, page: str | None = None) -> list[tuple[str, str]]:
+    """`(role, name)` pairs from `doc[key]`, scoped to `page` when an entry names one.
+
+    A control's role and name are not unique across pages (a retired 查看 on one page,
+    a live 查看 on another). An entry that names its `page` applies there only.
+    """
     out = []
-    for entry in doc.get("retired_ids") or []:
+    for entry in doc.get(key) or []:
         if not (isinstance(entry, dict) and isinstance(entry.get("trigger"), dict)):
             continue
         scope = entry.get("page")
@@ -1644,6 +1661,12 @@ def retired_triggers(doc: dict, page: str | None = None) -> list[tuple[str, str]
         t = entry["trigger"]
         out.append((str(t.get("role")), str(t.get("name"))))
     return out
+
+
+def retired_triggers(doc: dict, page: str | None = None) -> list[tuple[str, str]]:
+    """The retired controls to hide on the design side — for one design page when
+    `page` is given."""
+    return _triggers(doc, "retired_ids", page)
 
 
 def hide_js_for(doc: dict, page: str) -> str | None:
@@ -1652,24 +1675,8 @@ def hide_js_for(doc: dict, page: str) -> str | None:
 
 
 def volatile_triggers(doc: dict, page: str | None = None) -> list[tuple[str, str]]:
-    """The display values not compared, for one design page when `page` is given.
-    Same scoping as `retired_triggers`: an entry that names its `page` applies there
-    only, because a role and name are not unique across pages."""
-    out = []
-    for entry in doc.get("volatile_values") or []:
-        if not (isinstance(entry, dict) and isinstance(entry.get("trigger"), dict)):
-            continue
-        scope = entry.get("page")
-        if page is not None and scope and scope != page:
-            continue
-        t = entry["trigger"]
-        out.append((str(t.get("role")), str(t.get("name"))))
-    return out
-
-
-def volatile_js_for(doc: dict, page: str) -> str | None:
-    triggers = volatile_triggers(doc, page)
-    return volatile_paint_js(triggers) if triggers else None
+    """The display values not compared, for one design page when `page` is given."""
+    return _triggers(doc, "volatile_values", page)
 
 
 def rows_by_id(doc: dict) -> dict[str, dict]:
@@ -1691,11 +1698,18 @@ def contract_kind(repo: Path, contract: Path | None) -> str:
     return str((load_yaml(contract).get("target") or {}).get("kind") or "")
 
 
+def fields_of(kind: str) -> tuple[Field, ...]:
+    """The `.mmw/target.json` keys this kind's adapter declares, or the shared set
+    when `kind` has no adapter."""
+    cls = ADAPTERS.get(kind)
+    return cls.fields if cls is not None else FIELDS
+
+
 def target_problems(kind: str, cfg: dict) -> list[tuple[str, str]]:
     """What `.mmw/target.json` still has to answer for this kind: `(key, problem)` pairs,
-    in the order `FIELDS` lists them. Empty when the file is complete."""
+    in the order the adapter's `fields` lists them. Empty when the file is complete."""
     problems: list[tuple[str, str]] = []
-    for f in FIELDS:
+    for f in fields_of(kind):
         if f.key not in cfg:
             if f.required:
                 problems.append((f.key, f"is missing — {f.what} — e.g. {f.example}"))
@@ -1785,7 +1799,7 @@ def target_main(argv: list[str]) -> int:
               "proves the product answering is this run's")
     print(f"{path}: {'not there yet' if not path.exists() else 'read'}")
     named = {key for key, _ in problems}
-    for f in FIELDS:
+    for f in fields_of(kind):
         if f.key in named:
             why = next(w for k, w in problems if k == f.key)
             if why.startswith("is missing"):

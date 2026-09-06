@@ -358,7 +358,9 @@ if [ -f "$HOOK_SRC" ]; then
   python3 - <<'PY' || { rc=1; hooks_rc=1; }
 import json
 import os
+import shutil
 import sys
+from datetime import datetime
 from pathlib import Path
 
 mode = os.environ["MMW_MODE"]
@@ -421,8 +423,14 @@ def load(path):
 
 def save(path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
+    text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+    if path.is_file():
+        old = path.read_text(encoding="utf-8")
+        if old != text:
+            stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            shutil.copy2(path, path.with_name(path.name + ".bak-" + stamp))
     scratch = path.with_name(path.name + ".mmw-tmp")
-    scratch.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    scratch.write_text(text, encoding="utf-8")
     scratch.replace(path)
 
 
@@ -517,24 +525,22 @@ def extension(path):
     return install, installed
 
 
-# ---- 上一代自己装的 hook ----
+# ---- 本仓库装过、这次不再装的 hook ----
 #
-# 技能软链那一段靠扫目录认领上一代的残留（stale_links）；hook 这一侧要有同一个机制。
-# 没有它，脚本一改名或一 retire，上一代的注册就留在配置里指着一个不存在的文件，host
-# 每次触发那个事件都调用失败——2026-09-06 就是这么把 Claude Code 的 UserPromptSubmit
-# 堵死的：这一支把 dispatch 的 turn.py 重组掉了，安装器只认得出「这次要装的那一条」，
-# 认不出也扫不到上一支写下的四条。
+# 技能软链那一段靠扫目录认领本仓库的残留（stale_links）；hook 这一侧是同一个机制。
+# 一条登记指着一个不再存在的脚本，host 每次触发那个事件都会调用失败，有的 host 因此
+# 挡住每一次输入；所以本仓库写进 host 配置的处理器，这次不装的就摘掉，--check 报残留。
 #
 # 认领判据与软链那边同构：命令里的脚本落在 ~/.agents/skills 下，就是本仓库装的。别人
 # （Herdr、Paseo、Nowledge Mem）的处理器指向自己的目录，一条都不碰。
 #
-# 扫哪几个文件是下面这份显式清单，跟 RETIRED_DIRS 一个道理：「这次装什么」认不出上一代
-# 写在哪个文件里，只有人手记着。retire 掉一处 hook 的时候，把它的文件留在清单里。
+# 扫哪几个文件是下面这份显式清单，跟 RETIRED_DIRS 一个道理：「这次装什么」认不出本仓库
+# 曾写在哪个文件里，只有人手记着。不再往某个文件写的时候，把它留在清单里。
 MARK = f"'{neutral}/"
 
 # 一行一处：文件、它的格式、整个文件是不是只有本仓库写。
 # 只有本仓库写的那种，条目清空之后连文件一起删——grok 把 hooks/*.json 全部合并读入，
-# 空壳留着不报错也不提示。mmw-turn.json 是 turn.py 那一代的文件，这一支一条都不往里写。
+# 空壳留着不报错也不提示。mmw-turn.json 是本仓库曾经独占的文件，这次一条都不往里写。
 SWEPT = [
     (home / ".claude/settings.json", "grouped", False),
     (codex_home / "hooks.json", "grouped", False),
@@ -824,6 +830,7 @@ MMW_MODE="$mode" \
 MMW_PASEO_CONFIG="$PASEO_CONFIG" \
 MMW_ASSEMBLE="$AGENTS_SRC/assemble.py" \
 MMW_PASEO_WORKTREES="$PASEO_WORKTREES_ROOT" \
+MMW_HOME_DIR="$HOME_DIR" \
 python3 - <<'PY' || rc=1
 import importlib.util
 import json
@@ -837,6 +844,8 @@ mode = os.environ["MMW_MODE"]
 config_path = Path(os.environ["MMW_PASEO_CONFIG"])
 assemble_path = Path(os.environ["MMW_ASSEMBLE"])
 worktrees_root = os.environ["MMW_PASEO_WORKTREES"]
+home_dir = Path(os.environ["MMW_HOME_DIR"])
+GENERATED_MARK = "from models.md"
 
 _spec = importlib.util.spec_from_file_location("mmw_assemble", assemble_path)
 assemble = importlib.util.module_from_spec(_spec)
@@ -880,21 +889,32 @@ def load(path):
 
 def save(path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
+    text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+    if path.is_file():
+        old = path.read_text(encoding="utf-8")
+        if old != text:
+            stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            shutil.copy2(path, path.with_name(path.name + ".bak-" + stamp))
     scratch = path.with_name(path.name + ".mmw-tmp")
-    scratch.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    scratch.write_text(text, encoding="utf-8")
     scratch.replace(path)
+
+
+def is_generated(profile):
+    notes = profile.get("notes") if isinstance(profile, dict) else None
+    return isinstance(notes, str) and GENERATED_MARK in notes
 
 
 def notes_for(agent, host, permissions):
     if permissions == "read-only":
         spec_path = assemble_path.parent / agent / "agent.json"
-        body_path = spec_path.with_name("body.md")
         if not spec_path.is_file():
             die(f"read-only 行 {agent} 没有 {spec_path}")
         desc = json.loads(spec_path.read_text(encoding="utf-8"))["description"].rstrip()
+        advisor_md = home_dir / ".claude" / "agents" / "advisor.md"
         return (
-            f"{desc} A caller that has this profile uses `create_agent`; "
-            f"initialPrompt is 'Follow {body_path.resolve()}' plus the question packet."
+            f"{desc} Profile from models.md row {agent}/{host}. A caller that has this profile uses `create_agent`; "
+            f"initialPrompt is 'Follow {advisor_md}' plus the question packet."
         )
     return (
         f"{agent} from models.md {agent}/{host}; "
@@ -926,11 +946,14 @@ def merge(data, rows):
                for agent, host, model, effort, permissions in rows}
     new_profiles = []
     seen = set()
+    dropped = []
     for profile in existing:
         pid = profile.get("id") if isinstance(profile, dict) else None
         if pid in managed:
             new_profiles.append(make_profile(pid, *managed[pid], existing=profile))
             seen.add(pid)
+        elif is_generated(profile):
+            dropped.append(pid)
         else:
             new_profiles.append(profile)
     for agent, spec in managed.items():
@@ -941,7 +964,7 @@ def merge(data, rows):
     worktrees = data.setdefault("worktrees", {})
     worktrees["root"] = worktrees_root
     data.setdefault("version", 1)
-    return data
+    return data, dropped
 
 
 try:
@@ -987,17 +1010,24 @@ if mode == "check":
         if profile.get("notes") != want["notes"]:
             sys.stderr.write(f"缺    profile {agent} notes 与 models.md 不一致\n")
             failed = True
+    managed_ids = {agent for agent, *_ in rows}
+    for profile in ((data.get("daemon") or {}).get("agentProfiles") or []):
+        if not is_generated(profile):
+            continue
+        pid = profile.get("id")
+        if pid not in managed_ids:
+            sys.stderr.write(f"残留  profile {pid}\n")
+            failed = True
     have_root = ((data.get("worktrees") or {}).get("root"))
     if have_root != worktrees_root:
         sys.stderr.write(f"缺    worktrees.root 应为 {worktrees_root} 实为 {have_root}\n")
         failed = True
     sys.exit(1 if failed else 0)
 
-data = load(config_path)
-if config_path.is_file():
-    stamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    shutil.copy2(config_path, config_path.with_name(config_path.name + ".bak-" + stamp))
-save(config_path, merge(data, rows))
+data, dropped = merge(load(config_path), rows)
+for pid in dropped:
+    print(f"摘掉  profile {pid}")
+save(config_path, data)
 print(f"已装  {config_path}")
 PY
 

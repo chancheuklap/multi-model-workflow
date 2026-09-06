@@ -39,7 +39,7 @@ cannot fit in a sentence — the reasons a field is shaped as it is — is below
   Everything the product needs — which backing service, which data directory, which
   log — is found or chosen *inside* this command, from the lease in its environment
   (`MMW_INSTANCE`, `MMW_SLOT`, `MMW_PORT_BASE`, `MMW_PORT_COUNT`, `MMW_DATA_DIR`,
-  `MMW_AUTOMATION`), never typed into a session, and it refuses to start with no lease.
+  `MMW_AUTOMATION`), never typed into a session, and it refuses to start with no lease, printing the one command that supplies one: `lease.py run -- <the start command>` (`lease.py` in this skill's `scripts/`).
   `start` returns only once the product is *usable*, not merely alive: a product whose
   own dependencies are missing answers a health check and then disables every control,
   so `start` reads the surface that says so and fails on it, quoting what was missing.

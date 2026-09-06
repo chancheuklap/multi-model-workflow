@@ -1,6 +1,8 @@
 """`--draft`: write the closing-comment skeleton, with two `<fill>` placeholders."""
 
 import io
+import json
+import re
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -50,6 +52,30 @@ ABANDON: AC1 failed chromium kept crashing; tried the bundled build too
 Outside Owns: None
 """
 
+STUCK_RUN = """self-run
+UNMET: 1 (met: 0)
+
+- [ ] AC1: the importer writes six rows
+  CHECK: pytest -q tests/test_import.py
+  EXPECT: 1 passed
+  EVIDENCE: pending
+ABANDON: AC1 stuck the endpoint it checks does not exist yet
+
+Outside Owns: None
+"""
+
+DECISION_RUN = """self-run
+UNMET: 1 (met: 0)
+
+- [ ] AC1: the importer writes six rows
+  CHECK: pytest -q tests/test_import.py
+  EXPECT: 1 passed
+  EVIDENCE: pending
+ABANDON: AC1 decision which helper to keep
+
+Outside Owns: None
+"""
+
 FILES_RUN = MET_RUN.replace("Outside Owns: None", "Outside Owns: src/helper.py")
 
 VERDICT = f"VERDICT {VERIFIED} by opus — the importer writes six rows"
@@ -80,56 +106,75 @@ src/helper.py was required for AC1
 """
 
 
-def fake_git(*args, cwd=None):
-    if args[:2] == ("rev-parse", "HEAD"):
-        return HEAD
-    if args[:1] == ("config",) and args[1].endswith(".mmw-base-branch"):
-        return "herdr-to-paseo"
-    if args[0] == "log":
-        return HEAD
-    if args[:2] == ("rev-parse", "--abbrev-ref"):
-        return "issue-77"
-    return ""
+class FakeGh:
+    """`gh` by argv, plus the `git` calls `--draft` and `draft_problems` make."""
+
+    def __init__(self, comments, body=BODY, sub_issues=()):
+        self.comments = list(comments)
+        self.body = body
+        self.sub_issues = list(sub_issues)
+        self.recorded = []
+
+    def git(self, args):
+        if args[:2] == ["rev-parse", "HEAD"]:
+            return HEAD
+        if args[:1] == ["config"] and args[1].endswith(".mmw-base-branch"):
+            return "herdr-to-paseo"
+        if args[:1] == ["log"]:
+            return HEAD
+        if args[:2] == ["rev-parse", "--abbrev-ref"]:
+            return "issue-77"
+        if args[:2] == ["rev-parse", "--show-toplevel"]:
+            return ""
+        return ""
+
+    def run(self, cmd, **kwargs):
+        self.recorded.append(list(cmd))
+        result = mock.Mock()
+        result.returncode = 0
+        result.stdout = ""
+        result.stderr = ""
+        if cmd[:1] == ["git"]:
+            result.stdout = self.git(cmd[1:])
+            return result
+        if cmd[:3] == ["gh", "issue", "view"]:
+            fields = cmd[cmd.index("--json") + 1] if "--json" in cmd else ""
+            if fields == "comments":
+                result.stdout = json.dumps(
+                    {"comments": [{"body": b} for b in self.comments]})
+            elif fields == "body":
+                result.stdout = self.body
+            else:
+                result.stdout = json.dumps({
+                    "state": "OPEN", "labels": [],
+                    "assignees": [{"login": ME}],
+                    "blockedBy": {"nodes": []},
+                })
+            return result
+        if cmd[:2] == ["gh", "api"] and any("sub_issues" in a for a in cmd):
+            found = re.search(r"issues/(\d+)/sub_issues", " ".join(cmd))
+            number = int(found.group(1)) if found else 0
+            kids = self.sub_issues if number == 77 else []
+            result.stdout = "\n".join(str(n) for n in kids) + ("\n" if kids else "")
+            return result
+        if cmd[:3] == ["gh", "api", "user"]:
+            result.stdout = ME + "\n"
+            return result
+        result.returncode = 1
+        result.stderr = "unexpected command: " + " ".join(cmd)
+        return result
 
 
-def run_draft(comments, body=BODY, child_bodies=None, check_closeout=False,
-              sub_issues_by_parent=None):
-    """Write a skeleton for ticket 77; return (exit, stderr, text, closeout-exit)."""
-    child_bodies = child_bodies or {}
-    closeout_code = None
+def run_draft(comments, body=BODY, sub_issues=()):
+    """Write a skeleton for ticket 77; return (exit, stderr, text, fake)."""
+    fake = FakeGh(comments, body=body, sub_issues=sub_issues)
     with TemporaryDirectory() as tmp:
         path = Path(tmp) / "draft.md"
-
-        def fake_body(n):
-            if n == 77:
-                return body
-            return child_bodies.get(n, "")
-
-        def fake_ticket(n):
-            return {"state": "OPEN", "labels": [],
-                    "assignees": [{"login": ME}]}
-
-        def fake_sub_issues(n):
-            if sub_issues_by_parent is not None:
-                return list(sub_issues_by_parent.get(n, ()))
-            return []
-
-        with mock.patch.object(vt, "fetch_body", side_effect=fake_body), \
-             mock.patch.object(vt, "fetch_comments", return_value=list(comments)), \
-             mock.patch.object(vt, "fetch_sub_issues", side_effect=fake_sub_issues), \
-             mock.patch.object(vt, "fetch_ticket", side_effect=fake_ticket), \
-             mock.patch.object(vt, "gh_login", return_value=ME), \
-             mock.patch.object(vt, "repo_root", return_value=None), \
-             mock.patch.object(vt, "git", side_effect=fake_git), \
-             mock.patch.object(vt, "is_ancestor", return_value=True), \
-             mock.patch.object(vt, "dirty_tracked", return_value=[]):
+        with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
             with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
                 code = vt.run_draft(77, path)
             text = path.read_text(encoding="utf-8") if path.is_file() else ""
-            if check_closeout and path.is_file():
-                with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-                    closeout_code = vt.run_closeout(77, path, True)
-    return code, err.getvalue(), text, closeout_code
+            return code, err.getvalue(), text, fake
 
 
 class TestFirstLine(unittest.TestCase):
@@ -146,6 +191,19 @@ class TestFirstLine(unittest.TestCase):
         self.assertIn("abandoned (failed)", first)
         self.assertIn("0 unmet", first)
         self.assertIn("0 met of 1", first)
+
+    def test_handoff_when_the_self_run_abandons_as_stuck(self):
+        code, err, text, _ = run_draft((STUCK_RUN, VERDICT))
+        self.assertEqual(code, 0, err)
+        first = text.splitlines()[0]
+        self.assertTrue(first.startswith("HANDOFF REQUIRED:"), first)
+        self.assertIn("abandoned (stuck)", first)
+
+    def test_all_met_when_the_self_run_abandons_as_decision(self):
+        code, err, text, _ = run_draft((DECISION_RUN, VERDICT))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(text.splitlines()[0], "ALL MET")
+        self.assertIn("ABANDON: AC1 decision", text)
 
 
 class TestFixedLines(unittest.TestCase):
@@ -206,20 +264,20 @@ None
         self.assertNotIn("(should not)", text)
 
     def test_sub_issues_from_the_ticket(self):
-        """The line lists every child of this ticket, and none of the spec's other children."""
-        ours = "SUB-ISSUE baseline from #77\n\nthe handoff and the spec disagree\n"
-        unmarked = "something else entirely\n"
-        spec_other = "SUB-ISSUE review from #80\n\nnot this ticket's\n"
-        code, err, text, _ = run_draft(
+        """The line lists every child of this ticket, queried on this ticket's number."""
+        code, err, text, fake = run_draft(
             (MET_RUN, VERDICT),
-            child_bodies={90: ours, 91: unmarked, 92: spec_other},
-            sub_issues_by_parent={77: (90, 91), 118: (77, 92)},
+            sub_issues=(90, 91),
         )
         self.assertEqual(code, 0, err)
+        target = None
+        for cmd in fake.recorded:
+            if cmd[:2] == ["gh", "api"] and any("sub_issues" in a for a in cmd):
+                found = re.search(r"issues/(\d+)/sub_issues", " ".join(cmd))
+                target = int(found.group(1)) if found else None
+        self.assertEqual(target, 77)
         line = next(l for l in text.splitlines() if l.startswith("Sub-issues opened:"))
         self.assertEqual(line, "Sub-issues opened: #90, #91")
-        self.assertNotIn("#92", line)
-        self.assertNotIn("#77", line)
 
     def test_counts_agrees_with_the_body(self):
         code, err, text, _ = run_draft((MET_RUN, VERDICT))
@@ -234,12 +292,37 @@ None
         self.assertIn("<fill>", text)
 
 
+class TestFilledDraftPassesCloseoutChecks(unittest.TestCase):
+    def test_filling_both_placeholders_leaves_draft_problems_empty(self):
+        comments = (MET_RUN, VERDICT)
+        code, err, text, fake = run_draft(comments)
+        self.assertEqual(code, 0, err)
+        filled = text.replace(vt.FILL, "none")
+        self.assertNotIn(vt.FILL, filled)
+        with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
+            self.assertEqual(vt.draft_problems(filled, list(comments)), [])
+
+    def test_no_verdict_is_named_by_draft_problems_on_an_all_met_draft(self):
+        comments = (MET_RUN,)
+        code, err, text, fake = run_draft(comments)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(text.splitlines()[0], "ALL MET")
+        self.assertIn("Post-verdict: None", text)
+        filled = text.replace(vt.FILL, "none")
+        with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
+            problems = vt.draft_problems(filled, list(comments))
+        self.assertTrue(any("carries no `VERDICT" in p for p in problems), problems)
+
+
 class TestCloseoutRefusesTheUnfilledSkeleton(unittest.TestCase):
     def test_closeout_refuses_a_draft_that_still_has_fill(self):
-        code, err, text, closeout = run_draft((MET_RUN, VERDICT), check_closeout=True)
+        comments = (MET_RUN, VERDICT)
+        code, err, text, fake = run_draft(comments)
         self.assertEqual(code, 0, err)
         self.assertIn("<fill>", text)
-        self.assertEqual(closeout, 1)
+        with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
+            problems = vt.draft_problems(text, list(comments))
+        self.assertTrue(any("<fill>" in p for p in problems), problems)
 
 
 if __name__ == "__main__":

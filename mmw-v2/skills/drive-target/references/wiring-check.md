@@ -14,7 +14,7 @@ On a target with a JSON read surface the line is `METHOD /path -> <expression>`:
 
 Every line true is the row passed. A line is re-read every 250 ms of wall time until it holds, for at most 10 s: the action's own request finishes on the wall clock, not the page's, and the read has to come after it. The negative control spends the same 10 s before it reports the miss, so a write that is merely slow cannot pass as one that did not happen. A trigger it cannot find by role and name fails the row with `no control`, and so does an `observe` operation the surface answers with a non-2xx status or the wrong content type.
 
-Before every row the product is asked whether it is ready and the page is reloaded, so state a person left in the window is gone; every row runs its own `reach` (idempotent, so a state already there is left there). When the run ends the product is given back.
+Before every row the product is asked whether it is ready and the page is reloaded, so state a person left in the window is gone; every row runs its own `reach`, which establishes the row's state and skips only what it established itself in this run. When the run ends the product is given back.
 
 ## The criterion, in one shape
 

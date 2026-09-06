@@ -18,17 +18,19 @@ from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "hook.py"
+SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 
 
-def load():
-    spec = importlib.util.spec_from_file_location("mmw_hook", SCRIPT)
+def load(name: str):
+    spec = importlib.util.spec_from_file_location(f"mmw_{name}", SCRIPTS / f"{name}.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-hk = load()
+hk = load("hook")
+rf = load("refusal")
+HOST_PREFIX = len("Hook denied: ")
 
 TICKET = 64
 CLOSE = f"gh issue close {TICKET} --reason completed"
@@ -83,7 +85,10 @@ def fake_paseo_env(*, agent_id: str | None = None, listed_ids: tuple[str, ...] =
             script = os.path.join(root, "paseo")
             with open(script, "w", encoding="utf-8") as fh:
                 fh.write("#!/bin/bash\n")
-                fh.write('if [ "$1" != "ls" ]; then exit 1; fi\n')
+                fh.write('if [ "$*" != "ls -g --json --label mmw.autonomous=1" ]; then\n')
+                fh.write("  echo '[]'\n")
+                fh.write("  exit 2\n")
+                fh.write("fi\n")
                 fh.write('printf "%s\\n" "$MMW_FAKE_PASEO_JSON"\n')
             os.chmod(script, 0o755)
             env["PATH"] = root
@@ -178,7 +183,7 @@ class TestSelfScope(unittest.TestCase):
         opened.assert_not_called()
 
     def test_the_source_imports_no_socket_urllib_tempfile_shutil_or_pathlib(self):
-        source = SCRIPT.read_text(encoding="utf-8")
+        source = (SCRIPTS / "hook.py").read_text(encoding="utf-8")
         for name in ("socket", "urllib", "tempfile", "shutil", "pathlib"):
             self.assertNotIn(f"import {name}", source)
 
@@ -334,8 +339,8 @@ class TestTheWordingSaysWhatToDoNext(unittest.TestCase):
         """
         for number in (7, 86, 640, 6400, 99999):
             with self.subTest(ticket=number):
-                whole = hk.HOST_PREFIX + len(hk.REFUSAL.format(n=number))
-                self.assertLessEqual(whole, hk.REASON_LIMIT)
+                whole = HOST_PREFIX + len(hk.REFUSAL.format(n=number))
+                self.assertLessEqual(whole, rf.REASON_LIMIT)
 
 
 # ------------------------------------------------------------------------ AC6
@@ -402,7 +407,7 @@ class TestTheQuestionGate(unittest.TestCase):
         self.assertIn("needs-triage", reason)
 
     def test_it_arrives_whole_on_the_host_that_clips_it(self):
-        self.assertLessEqual(hk.HOST_PREFIX + len(hk.NO_QUESTION), hk.REASON_LIMIT)
+        self.assertLessEqual(HOST_PREFIX + len(hk.NO_QUESTION), rf.REASON_LIMIT)
 
 
 class TestNothingBlocksOnBadInput(unittest.TestCase):
@@ -438,10 +443,6 @@ class TestNothingBlocksOnBadInput(unittest.TestCase):
 
     def test_no_arguments_at_all(self):
         self.assertEqual(self.quiet([]), (0, ""))
-
-
-if __name__ == "__main__":
-    unittest.main()
 
 
 class EndingAProcess(unittest.TestCase):
@@ -484,7 +485,7 @@ class EndingAProcess(unittest.TestCase):
             with self.subTest(command=command):
                 _code, answer = call("claude", with_command("claude", command))
                 reason = reason_of(answer)
-                self.assertLessEqual(len(reason), hk.REASON_LIMIT)
+                self.assertLessEqual(len(reason), rf.REASON_LIMIT)
                 self.assertIn("blocked", reason, "the way out was trimmed away")
 
     def test_prose_and_ordinary_commands_pass(self):
@@ -502,3 +503,7 @@ class EndingAProcess(unittest.TestCase):
                             cwd_basename="workspace")
         self.assertEqual(code, 0)
         self.assertIsNone(answer)
+
+
+if __name__ == "__main__":
+    unittest.main()

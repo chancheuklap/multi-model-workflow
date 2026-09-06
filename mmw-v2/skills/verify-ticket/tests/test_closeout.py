@@ -504,7 +504,7 @@ class TestTheVerdictCommitIsWrittenInFull(unittest.TestCase):
 
 
 class TestHandingBackReleasesTheTicket(unittest.TestCase):
-    """`board.py` dispatches only unassigned tickets, so a ticket handed back still held
+    """`status.py`'s frontier takes only unassigned tickets, so a ticket handed back still held
     by the worker that gave up is one nothing picks up again."""
 
     def test_the_label_swap_also_drops_the_assignee(self):

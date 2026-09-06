@@ -59,7 +59,7 @@ A `CHECK:` is a shell command. One that needs more than a line carries it in a f
 
 ## `--lint` on a batch
 
-Three things at once: how the criteria are written, which worker the ticket asks for, and whether the batch under the same spec is a startable graph — every ticket the spec lists as a sub-issue, the blocking links between them, and which of them nothing blocks. The graph comes from the tracker's blocking links, the same ones `--preflight` refuses on and `board.py` dispatches from. A ticket's `## Blocked by` section is the human-readable copy of those links, and a mismatch is a `WARN  … [blocked-by-mismatch]` naming the numbers each side has that the other does not.
+Three things at once: how the criteria are written, which worker the ticket asks for, and whether the batch under the same spec is a startable graph — every ticket the spec lists as a sub-issue, the blocking links between them, and which of them nothing blocks. The graph comes from the tracker's blocking links, the same ones `--preflight` refuses on and `advance` dispatches from. A ticket's `## Blocked by` section is the human-readable copy of those links, and a mismatch is a `WARN  … [blocked-by-mismatch]` naming the numbers each side has that the other does not.
 
 The worker reads the same way. `dispatch.sh` starts a ticket on the `models.md` row its `junior-worker` or `senior-worker` label names, so a ticket in the agent queue wearing no such label is an `ERROR  … [worker-label]`, and so is one wearing both. Its `## Worker` section is the human-readable copy, and a section that is missing or names the other one is a `WARN  … [worker-mismatch]`.
 

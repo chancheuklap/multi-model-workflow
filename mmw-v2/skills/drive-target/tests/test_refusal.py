@@ -7,8 +7,10 @@ three different wrong ways.
 """
 
 import importlib.util
+import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 
@@ -17,6 +19,7 @@ def load(name: str):
     spec = importlib.util.spec_from_file_location(f"mmw_{name}_under_test",
                                                   SCRIPTS / f"{name}.py")
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -52,11 +55,39 @@ class EveryRefusalInThePipeline(unittest.TestCase):
 
     def texts(self) -> dict[str, str]:
         hook = load("hook")
+        driver = load("screen_driver")
+        failed = mock.Mock(returncode=1, stderr="command failed: no such file\n", stdout="")
+        silent = mock.Mock(returncode=0, stderr="", stdout="")
+        adapter = mock.Mock()
+        adapter.cfg = {"start": "bin/start"}
+        adapter.root = Path("/tmp")
+        adapter.ready.return_value = (False, "not answering")
+        run_command = start_nonzero = start_silent = ""
+        with mock.patch.object(driver, "command_env", return_value={}), \
+             mock.patch.object(driver.subprocess, "run", return_value=failed):
+            try:
+                driver.run_command("bin/start", Path("/tmp"))
+            except SystemExit as exc:
+                run_command = str(exc)
+            try:
+                driver.bring_up(adapter)
+            except SystemExit as exc:
+                start_nonzero = str(exc)
+        with mock.patch.object(driver, "command_env", return_value={}), \
+             mock.patch.object(driver.subprocess, "run", return_value=silent), \
+             mock.patch.object(driver, "discover", return_value={}):
+            try:
+                driver.bring_up(adapter)
+            except SystemExit as exc:
+                start_silent = str(exc)
         return {
             "closeout": hook.REFUSAL.format(n=999999),
             "question": hook.NO_QUESTION,
             "kill": hook.no_kill("kill 12345"),
             "report_blocked": rf.REPORT_BLOCKED,
+            "run_command": run_command,
+            "start_nonzero": start_nonzero,
+            "start_silent": start_silent,
         }
 
     def test_all_of_them_fit_what_a_host_will_show(self):

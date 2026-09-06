@@ -100,6 +100,12 @@ class Repo:
         self.spec_dir = self.root / "docs" / "specs" / "x"
         self.spec_dir.mkdir(parents=True)
         self.contract = self.spec_dir / "screen-contract.yaml"
+        mmw = self.root / ".mmw"
+        mmw.mkdir()
+        (mmw / "target.json").write_text(json.dumps({
+            "start": "s", "stop": "t", "discover": "d", "reach": "r",
+            "transport_off": "off", "transport_on": "on", "leaves_machine": [],
+        }))
 
     def write_targets(self, stale_page=None):
         targets = self.spec_dir / "targets"
@@ -136,13 +142,24 @@ class TestScreenAxis(unittest.TestCase):
         errors, _ = self.lint(contract())
         self.assertEqual(errors, [])
 
-    def test_target_kind_is_checked_and_adapter_is_a_warning(self):
+    def test_target_kind_is_checked_and_adapter_is_an_error(self):
         doc = contract()
         doc["target"] = {"kind": "vt100", "adapter": "verify-ticket/references/targets/nope.md"}
         errors, warnings = self.lint(doc)
         self.assertTrue(any("target.kind" in e for e in errors))
-        self.assertFalse(any("target.adapter" in e for e in errors))
-        self.assertTrue(any("target.adapter" in w for w in warnings))
+        self.assertTrue(any("target.adapter" in e for e in errors))
+        self.assertFalse(any("target.adapter" in w for w in warnings))
+
+    def test_missing_target_json_is_an_error(self):
+        (self.repo.root / ".mmw" / "target.json").unlink()
+        errors, _ = self.lint(contract())
+        self.assertTrue(any("no .mmw/target.json" in e for e in errors), errors)
+
+    def test_target_validate_exit_2_is_an_error(self):
+        (self.repo.root / ".mmw" / "target.json").write_text("{bad")
+        errors, _ = self.lint(contract())
+        self.assertTrue(any("cannot be read as JSON" in e or "exited 2" in e for e in errors),
+                        errors)
 
     def test_a_viewport_on_a_breakpoint(self):
         doc = contract()
