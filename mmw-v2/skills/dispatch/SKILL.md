@@ -18,6 +18,14 @@ python3 <absolute path to scripts/status.py> …
 
 Resolve them from this file's own location. The path differs by machine and by host, and `install.sh` puts this skill wherever the host that gave it to you reads its skills from. `<engine>` is `scripts/verify-ticket.py` of the `verify-ticket` skill; resolve it from that skill's SKILL.md.
 
+`<dispatch>` runs two scripts of other skills — `lease.py` of the `drive-target` skill and `verify-ticket.py` — and finds them only in the directories you pass as `--tools`, one flag per directory, anywhere on the line:
+
+```bash
+bash <absolute path to scripts/dispatch.sh> --tools <drive-target scripts> --tools <verify-ticket scripts> …
+```
+
+Resolve both `scripts/` directories from those skills' own `SKILL.md`. Every command below is written without the two flags; add them to each. A form that needs one of the scripts and cannot find it exits 2 and names the directory to pass.
+
 ## One path: create_agent
 
 `start` and `advance` print one JSON object per ticket, one line, whose fields are the arguments of `create_agent` (`workspaceId`, `title`, `provider`, `settings`, `labels`, `initialPrompt`). You call `create_agent` on each line yourself, with `notifyOnFinish: true`. The script prints the object; the finish notification only fires for a `create_agent` that you issued. A session with no `create_agent` tool cannot dispatch: say so and stop.

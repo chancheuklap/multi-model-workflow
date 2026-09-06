@@ -18,10 +18,10 @@ Before every row the product is asked whether it is ready and the page is reload
 
 ## The criterion, in one shape
 
-Written onto the ticket, run by a shell months later with no model between; the path is literal and is the install location `install.sh` creates on every machine. Nothing about the machine is on the line: how the product is reached, and the reach script, come from the repository's `.mmw/target.json` through the contract's `target.kind` ([targets/README.md](targets/README.md)).
+Written onto the ticket, run by a shell months later with no model between. The script is named bare: `verify-ticket.py` puts this skill's `scripts/` on the `PATH` of the shell that runs the line (its `--tools`), so no install location is on the ticket. Nothing about the machine is on the line either: how the product is reached, and the reach script, come from the repository's `.mmw/target.json` through the contract's `target.kind` ([targets/README.md](targets/README.md)).
 
 ```
-CHECK: uv run ~/.agents/skills/verify-ticket/scripts/wiring-check.py --contract docs/specs/<effort>/screen-contract.yaml --rows <id,id>
+CHECK: wiring-check.py --contract docs/specs/<effort>/screen-contract.yaml --rows <id,id>
 EXPECT: WIRING OK <passed>/<total>
 ```
 
@@ -32,7 +32,7 @@ Rows that share a `reach` state may share a criterion; rows that need different 
 A wiring check can be asked to prove it can fail:
 
 ```
-CHECK: uv run ~/.agents/skills/verify-ticket/scripts/wiring-check.py --contract docs/specs/<effort>/screen-contract.yaml --rows <id,id> --negative
+CHECK: wiring-check.py --contract docs/specs/<effort>/screen-contract.yaml --rows <id,id> --negative
 EXPECT: WIRING NEGATIVE OK <n>/<n>
 ```
 

@@ -2,7 +2,7 @@
 
 You are the main agent. A spec's tickets will be worked while you are not watching each one. The scripts merge, archive, create workspaces, and print the arguments for `create_agent`. Every decision is yours: whether a worker continues, whether a failure is yours to fix, whether a question becomes a sub-issue, whether to `advance` again.
 
-This file is the order of the night. The commands, their exit codes, and the shape of a finish notification are in `SKILL.md` next to this file. Resolve `<dispatch>` the same way that file does.
+This file is the order of the night. The commands, their exit codes, and the shape of a finish notification are in `SKILL.md` next to this file. Resolve `<dispatch>` the same way that file does, and add its two `--tools` flags to every command here.
 
 ## 1. The user says the night starts
 

@@ -51,11 +51,6 @@ def source_shape(src: str) -> str:
     return "unknown"
 
 
-def skills_root() -> Path:
-    """The directory the installed skills sit in, from this file's own location."""
-    return Path(__file__).resolve().parents[2]
-
-
 def repo_root(contract: Path) -> Path:
     for parent in [contract.resolve()] + list(contract.resolve().parents):
         if (parent / ".git").exists():
@@ -129,11 +124,9 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
     kind = str(target.get("kind") or "")
     if kind not in TARGET_KINDS:
         errors.append(f"target.kind {kind!r} is not one of {sorted(TARGET_KINDS)}")
-    adapter = str(target.get("adapter") or "")
-    if not adapter:
-        errors.append("target.adapter missing (verify-ticket/references/targets/<kind>.md)")
-    elif not (skills_root() / adapter).exists():
-        errors.append(f"target.adapter {adapter!r} does not exist under {skills_root()}")
+    if "adapter" in target:
+        warnings.append("target.adapter is not read by anything; the drive-target skill picks "
+                        "the adapter by target.kind — drop the key")
     # -- viewports
     raw_vps = doc.get("viewports")
     widths: list[int] = []

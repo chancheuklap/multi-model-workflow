@@ -11,9 +11,9 @@ from tests._load import load
 
 vt = load()
 
-WIRING = ("uv run ~/.agents/skills/verify-ticket/scripts/wiring-check.py --contract "
+WIRING = ("wiring-check.py --contract "
           "docs/specs/x/screen-contract.yaml --rows create-project.add-material")
-PARITY = ("uv run ~/.agents/skills/verify-ticket/scripts/visual-parity.py --contract "
+PARITY = ("visual-parity.py --contract "
           "docs/specs/x/screen-contract.yaml --mount create-project")
 
 
@@ -113,17 +113,28 @@ class TestLintScreenContract(unittest.TestCase):
 class TestPipelineFlags(unittest.TestCase):
     """The two pipeline scripts are given what they need, nothing they retired, and
     nothing their `--help` does not list — the one check that catches a criterion
-    naming a capability that does not exist at the moment it is written."""
+    naming a capability that does not exist at the moment it is written. The scripts
+    belong to the drive-target skill and reach the lint through `--tools`, so the
+    test hands their directory over the way the agent does."""
+
+    def setUp(self):
+        from pathlib import Path
+        vt.TOOLS[:] = [Path(__file__).resolve().parents[2] / "drive-target" / "scripts"]
+        vt._HELP_FLAGS.clear()
+
+    def tearDown(self):
+        vt.TOOLS[:] = []
+        vt._HELP_FLAGS.clear()
 
     def test_visual_parity_without_contract_or_mount(self):
-        bare = "uv run ~/.agents/skills/verify-ticket/scripts/visual-parity.py --scenes a"
+        bare = "visual-parity.py --scenes a"
         findings = vt.lint_pipeline_flags("AC1", bare)
         self.assertTrue(any("without --contract" in f for f in findings))
         self.assertTrue(any("without --mount" in f for f in findings))
 
     def test_wiring_check_without_rows(self):
         findings = vt.lint_pipeline_flags(
-            "AC2", "uv run ~/.agents/skills/verify-ticket/scripts/wiring-check.py --contract c.yaml")
+            "AC2", "wiring-check.py --contract c.yaml")
         self.assertEqual(len(findings), 1)
         self.assertIn("without --rows", findings[0])
 

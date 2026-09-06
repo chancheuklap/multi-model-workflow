@@ -35,7 +35,7 @@ def contract():
     return {
         "effort": "x",
         "baselines": {"look": "handoff"},
-        "target": {"kind": "electron", "adapter": "verify-ticket/references/targets/electron.md"},
+        "target": {"kind": "electron"},
         "viewports": ["1440x900", "1180x720"],
         "pages": {
             PAGE_A: {"mount": "create-project", "route": "#/new-project",
@@ -133,12 +133,13 @@ class TestScreenAxis(unittest.TestCase):
         errors, _ = self.lint(contract())
         self.assertEqual(errors, [])
 
-    def test_target_kind_and_adapter(self):
+    def test_target_kind_is_checked_and_adapter_is_a_warning(self):
         doc = contract()
         doc["target"] = {"kind": "vt100", "adapter": "verify-ticket/references/targets/nope.md"}
-        errors, _ = self.lint(doc)
+        errors, warnings = self.lint(doc)
         self.assertTrue(any("target.kind" in e for e in errors))
-        self.assertTrue(any("target.adapter" in e and "does not exist" in e for e in errors))
+        self.assertFalse(any("target.adapter" in e for e in errors))
+        self.assertTrue(any("target.adapter" in w for w in warnings))
 
     def test_a_viewport_on_a_breakpoint(self):
         doc = contract()

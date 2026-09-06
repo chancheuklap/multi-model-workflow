@@ -3,8 +3,7 @@
 **Designed from the platform's rules, not measured on a product.** No repository holds
 one yet; this file and `ChromeExtensionAdapter` are the extension point filled in from
 the Manifest V3 specification, and the first real extension will correct them. Contract:
-`target.kind: chrome-extension`, `target.adapter:
-verify-ticket/references/targets/chrome-extension.md`.
+`target.kind: chrome-extension`. Adapter class: `ChromeExtensionAdapter`.
 
 ## `discover` prints
 

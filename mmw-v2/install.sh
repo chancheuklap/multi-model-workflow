@@ -3,7 +3,7 @@
 #
 #   技能              skills.txt 列出的，软链进 ~/.agents/skills 与 ~/.claude/skills
 #   subagent          agents/<名>/out/ 的 assembled subagent file，软链进各 host 的 agent 目录
-#   hook              verify-ticket 的 hook.py，写进各 host 自己的配置
+#   hook              drive-target 的 hook.py，写进各 host 自己的配置
 #   提示词            prompt/shared.md 与 prompt/hosts/<host>.md：Claude Code 读软链，Codex、Pi、Grok
 #                     读 prompt/render.py 拼出的 AGENTS.md
 #   launchd 任务      盯着源文件，改了就重拼 Codex、Pi、Grok 的 AGENTS.md
@@ -338,19 +338,19 @@ fi
 # ---------------- hook ----------------
 
 # 技能和 subagent 是 host 去读的，hook 是 host 来调的，所以它要在每个 host 的配置里各有一条。
-# 两样东西：verify-ticket 的 hook.py 的 pretool gate（五个 host）与 question gate（起 session
+# 两样东西：drive-target 的 hook.py 的 pretool gate（五个 host）与 question gate（起 session
 # 的三个 host）。四家写 JSON，pi 写一个扩展文件；每一处都指向 ~/.agents/skills 下的脚本——
 # 那已经是指回仓库的软链，所以改脚本不用重装。
 #
 # 合并而不是覆盖：这几处别人也各装了自己的东西。只认 command 里带本脚本名与 gate 名的
 # 那一条，认得出就换成新的，认不出就在后面添一条，别人的条目一个字不动。
 
-HOOK_SRC="$SELF_SRC/verify-ticket/scripts/hook.py"
+HOOK_SRC="$SELF_SRC/drive-target/scripts/hook.py"
 
 if [ -f "$HOOK_SRC" ]; then
   hooks_ran=1
   MMW_MODE="$mode" \
-  MMW_HOOK="$NEUTRAL_DIR/verify-ticket/scripts/hook.py" \
+  MMW_HOOK="$NEUTRAL_DIR/drive-target/scripts/hook.py" \
   MMW_NEUTRAL="$NEUTRAL_DIR" \
   MMW_HOME="$HOME_DIR" \
   MMW_CODEX="${CODEX_HOME:-$HOME_DIR/.codex}" \

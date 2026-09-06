@@ -37,6 +37,7 @@ productivity/writing-for-agents
 self/claude-design-blocks
 self/exe-release
 self/verify-ticket
+self/drive-target
 self/readable-docs
 self/manage-agents-md
 self/dispatch

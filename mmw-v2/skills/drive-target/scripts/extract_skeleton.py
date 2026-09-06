@@ -4,8 +4,9 @@ pipeline reads from that render.
 Usage: uv run python extract_skeleton.py <handoff dir> <out.json> [--targets <dir> [--contract <yaml>]]
 
 One render per scene in `scenes.json`, through the same driver interface parity uses
-(`verify-ticket/scripts/screen_driver.py`, installed beside this skill), so what comes
-out here is what the judge will read. Three things come out:
+(`screen_driver.py`, beside this script), so what comes out here is what the judge will
+read. The `align-screens` skill calls this script for its row inventory. Three things
+come out:
 
 - `<out.json>`, the skeleton: every interactive control keyed by (page, role,
   accessible name) with the scenes it is visible in — the row inventory the contract
@@ -37,24 +38,18 @@ INTERACTIVE = {"button", "textbox", "checkbox", "combobox", "link", "tab", "radi
 LINE = re.compile(r'^\s*-\s+(\w+)(?:\s+"((?:[^"\\]|\\.)*)")?')
 TARGET_HEADER = "# target trees of the handoff package page: "
 CLASSES_HEADER = "# class sets of the handoff package page: "
-DERIVED_LINE = ("# derived by align-screens extract_skeleton.py — the handoff package is the "
+DERIVED_LINE = ("# derived by extract_skeleton.py — the handoff package is the "
                 "baseline and this file is its readable view; the lint fails when the hashes "
                 "below no longer match the package")
 
 
 def load_driver():
-    here = Path(__file__).resolve()
-    candidates = [here.parents[2] / "verify-ticket/scripts/screen_driver.py"]
-    for base in (Path.home() / ".agents/skills", Path.home() / ".claude/skills"):
-        candidates.append(base / "verify-ticket/scripts/screen_driver.py")
-    for p in candidates:
-        if p.exists():
-            spec = importlib.util.spec_from_file_location("screen_driver", p)
-            mod = importlib.util.module_from_spec(spec)
-            sys.modules["screen_driver"] = mod
-            spec.loader.exec_module(mod)
-            return mod
-    raise SystemExit("screen_driver.py not found; install the verify-ticket skill")
+    here = Path(__file__).resolve().parent / "screen_driver.py"
+    spec = importlib.util.spec_from_file_location("screen_driver", here)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["screen_driver"] = mod
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def controls(aria: str) -> list[tuple[str, str]]:

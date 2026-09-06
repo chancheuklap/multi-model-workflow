@@ -1303,6 +1303,8 @@ def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
         cmd.append(str(ledger))
         env = os.environ.copy()
         env["MMW_TICKET"] = str(number)
+        if TOOLS:
+            env["PATH"] = os.pathsep.join([str(d) for d in TOOLS] + [env.get("PATH", "")])
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=root, env=env)
         printed = (result.stdout or "") + (result.stderr or "")
         sys.stdout.write(printed)
@@ -1748,6 +1750,19 @@ TICKET_SOURCE_RE = re.compile(r"^#(\d+)(?:\s|$)")
 DOC_SOURCE_RE = re.compile(r"^(docs/\S+)")
 STORY_SOURCE_RE = re.compile(r"^#\d+ story \d+")
 _HELP_FLAGS: dict[str, set[str]] = {}
+# The directories `--tools` named: where the scripts other skills own are found. A
+# `CHECK:` names a judge by its bare name (`wiring-check.py …`), and this process puts
+# these directories on the PATH of the shell that runs it. Nothing here looks for a
+# script outside this skill's own directory by any other route.
+TOOLS: list[Path] = []
+
+
+def tool(script: str) -> Path | None:
+    for directory in TOOLS:
+        candidate = directory / script
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def script_segment(check: str, script: str) -> str:
@@ -1764,13 +1779,15 @@ def help_flags(script: str) -> set[str]:
     This is the one place a criterion's reference to a capability that does not exist
     yet is caught at the moment it is written."""
     if script not in _HELP_FLAGS:
-        path = HERE / script
-        try:
-            out = subprocess.run([sys.executable, str(path), "--help"], capture_output=True,
-                                 text=True, timeout=60)
-            text = (out.stdout or "") + (out.stderr or "")
-        except (OSError, subprocess.TimeoutExpired):
-            text = ""
+        path = tool(script)
+        text = ""
+        if path is not None:
+            try:
+                out = subprocess.run([sys.executable, str(path), "--help"], capture_output=True,
+                                     text=True, timeout=60)
+                text = (out.stdout or "") + (out.stderr or "")
+            except (OSError, subprocess.TimeoutExpired):
+                text = ""
         _HELP_FLAGS[script] = set(FLAG_RE.findall(text))
     return _HELP_FLAGS[script]
 
@@ -2190,7 +2207,11 @@ def main(argv: list[str] | None = None) -> int:
                         help="write the closing-comment skeleton to this file")
     parser.add_argument("--sub-issue", nargs=2, metavar=("KIND", "FILE"),
                         help="open a needs-triage sub-issue under this ticket")
+    parser.add_argument("--tools", action="append", type=Path, default=[], metavar="DIR",
+                        help="a directory holding scripts of other skills (the drive-target "
+                             "skill's scripts/); put on the PATH of every CHECK; repeatable")
     args = parser.parse_args(argv)
+    TOOLS[:] = [d.resolve() for d in args.tools]
     chosen = [name for name, on in
               (("--lint", args.lint), ("--reverify", args.reverify),
                ("--preflight", args.preflight), ("--closeout", args.closeout is not None),

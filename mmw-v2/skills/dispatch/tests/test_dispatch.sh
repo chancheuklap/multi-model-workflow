@@ -470,14 +470,19 @@ path.write_text(json.dumps(rows))
 '
 }
 
+# The scripts of the two other skills dispatch.sh runs are handed to it with --tools,
+# the way the agent does; TOOLS holds those arguments for every call below.
+TOOLS=(--tools "$TMP/fake/skills/drive-target/scripts" --tools "$TMP/fake/skills/verify-ticket/scripts"
+       --tools "$(dirname "$SKILL")/drive-target/scripts" --tools "$(dirname "$SKILL")/verify-ticket/scripts")
+
 skill_copy_for() {
   local copy="$TMP/fake/skills/$1"
   rm -rf "$TMP/fake"
-  mkdir -p "$copy" "$TMP/fake/skills/verify-ticket/scripts"
+  mkdir -p "$copy" "$TMP/fake/skills/verify-ticket/scripts" "$TMP/fake/skills/drive-target/scripts"
   cp -R "$SKILL/models.md" "$SKILL/scripts" "$SKILL/references" "$copy/"
-  cp "$(dirname "$SKILL")/verify-ticket/scripts/lease.py" \
-     "$(dirname "$SKILL")/verify-ticket/scripts/refusal.py" \
-     "$TMP/fake/skills/verify-ticket/scripts/"
+  cp "$(dirname "$SKILL")/drive-target/scripts/lease.py" \
+     "$(dirname "$SKILL")/drive-target/scripts/refusal.py" \
+     "$TMP/fake/skills/drive-target/scripts/"
   printf '#!/usr/bin/env bash\nexit %s\n' "${2:-0}" > "$TMP/fake/install.sh"
   chmod +x "$TMP/fake/install.sh"
   printf '%s\n' "$copy"
@@ -501,7 +506,7 @@ scenario_check() {
 JSON
   reset_log
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" check 76)"
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   has "paseo :: provider :: ls :: --json"
 
@@ -514,7 +519,7 @@ JSON
   reset_log
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           MMW_FAKE_PASEO_SCENARIO=provider-down \
-          bash "$copy/scripts/dispatch.sh" check 76)"
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
   grep -q 'grok' "$TMP/err" || fail "the reason does not name the provider: $(cat "$TMP/err")"
   grep -q '#61' "$TMP/err" || fail "the reason does not name the ticket: $(cat "$TMP/err")"
@@ -533,7 +538,7 @@ scenario_advance() {
   seed_foreign_workspace
   local code
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" advance 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
 
   echo "--- both finished branches land on the main branch"
   [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
@@ -577,7 +582,7 @@ Merge branch 'issue-61'" ] || fail "merge order is wrong"
   seed_workspace 63
   seed_agent 63 worker
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" advance 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "exit $code on the second run: $(cat "$TMP/err")"
   grep -q "merged 0" "$TMP/err" || fail "the second run should report nothing merged: $(cat "$TMP/err")"
   grep -q "started 0" "$TMP/err" || fail "the second run should start nothing: $(cat "$TMP/err")"
@@ -586,7 +591,7 @@ Merge branch 'issue-61'" ] || fail "merge order is wrong"
 
   echo "--- a retired flag on advance exits 2 and calls nothing"
   reset_log
-  code="$(run_dispatch bash "$DISPATCH" advance 76 --json)"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" advance 76 --json)"
   [ "$code" = 2 ] || fail "expected exit 2 for --json, got $code: $(cat "$TMP/err")"
   grep -q "no longer a flag" "$TMP/err" || fail "the reason should say no longer a flag: $(cat "$TMP/err")"
   [ "$(count_of 'paseo ::')" = 0 ] || fail "paseo was called for advance --json"
@@ -606,7 +611,7 @@ scenario_advanceconflict() {
 
   local code
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" advance 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
 
   echo "--- a conflict stops the run with its own exit code"
   [ "$code" = 3 ] || fail "exit $code, not 3: $(cat "$TMP/err")"
@@ -640,7 +645,7 @@ scenario_advancedirty() {
 
   local code
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" advance 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
 
   echo "--- a tree with uncommitted work is refused before anything is merged"
   [ "$code" = 2 ] || fail "exit $code, not 2: $(cat "$TMP/err")"
@@ -658,7 +663,7 @@ scenario_start_worker() {
   echo "--- a ticket with no worker label prints one create_agent object on the default row"
   reset_log
   fresh_repo
-  code="$(run_dispatch bash "$DISPATCH" start 61 worker)"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   never_ran
   assert_create_shape || fail "the JSON line is wrong: $(cat "$TMP/out")"
@@ -689,7 +694,7 @@ scenario_start_worker() {
   reset_log
   fresh_repo
   make_branch issue-61 one.txt "already there"
-  code="$(run_dispatch bash "$DISPATCH" start 61 worker)"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   never_ran
   has ":: --mode :: checkout-branch"
@@ -700,7 +705,7 @@ scenario_start_worker() {
   reset_log
   fresh_repo
   code="$(run_dispatch env FAKE_GH_LABELS="ready-for-agent,senior-worker" \
-          bash "$DISPATCH" start 61 worker)"
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   never_ran
   [ "$(out_json provider)" = "grok/$SENIOR_MODEL" ] || fail "provider: $(out_json provider)"
@@ -710,7 +715,7 @@ scenario_start_worker() {
   echo "--- two worker labels are refused, and nothing is started"
   reset_log
   code="$(run_dispatch env FAKE_GH_LABELS="ready-for-agent,junior-worker,senior-worker" \
-          bash "$DISPATCH" start 61 worker)"
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 2 ] || fail "expected exit 2, got $code"
   grep -q '2 worker labels' "$TMP/err" || fail "the reason does not name the labels: $(cat "$TMP/err")"
   nothing_printed
@@ -720,12 +725,12 @@ scenario_start_worker() {
   echo "--- a retired flag on start exits 2 and calls nothing"
   reset_log
   fresh_repo
-  code="$(run_dispatch bash "$DISPATCH" start 61 worker --json)"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker --json)"
   [ "$code" = 2 ] || fail "expected exit 2 for --json, got $code: $(cat "$TMP/err")"
   grep -q "no longer a flag" "$TMP/err" || fail "the reason should say no longer a flag: $(cat "$TMP/err")"
   [ "$(count_of 'paseo ::')" = 0 ] || fail "paseo was called for start --json"
   [ "$(count_of 'gh ::')" = 0 ] || fail "gh was called for start --json"
-  code="$(run_dispatch bash "$DISPATCH" start 61 worker --run)"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker --run)"
   [ "$code" = 2 ] || fail "expected exit 2 for the retired flag, got $code: $(cat "$TMP/err")"
   grep -q "no longer a flag" "$TMP/err" || fail "the reason should say no longer a flag: $(cat "$TMP/err")"
 }
@@ -736,7 +741,7 @@ scenario_start_reviewer() {
   fresh_repo
   git -C "$TMP/repo" config branch.issue-61.mmw-base abcdef0123456789abcdef0123456789abcdef01
   seed_workspace 61
-  code="$(run_dispatch bash "$DISPATCH" start 61 reviewer)"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   never_ran
   [ "$(out_json title)" = "#61 reviewer" ] || fail "title: $(out_json title)"
@@ -758,7 +763,7 @@ scenario_start_verifier() {
   reset_log
   fresh_repo
   seed_workspace 61
-  code="$(run_dispatch bash "$DISPATCH" start 61 verifier)"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 verifier)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   never_ran
   [ "$(out_json title)" = "#61 verifier" ] || fail "title: $(out_json title)"
@@ -787,14 +792,14 @@ path.write_text(json.dumps([{
     "labels": {"mmw.ticket": "61", "mmw.kind": "worker", "mmw.spec": "76"},
 }]))
 '
-  code="$(run_dispatch bash "$DISPATCH" resume 61 continue)"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" resume 61 continue)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   has "paseo :: ls :: -g :: --json :: --label :: mmw.ticket=61 :: --label :: mmw.kind=worker"
   has "paseo :: send :: --no-wait :: agt_w61 :: continue"
 
   echo "--- no matching worker is a refusal, and nothing is sent"
   reset_log
-  code="$(run_dispatch bash "$DISPATCH" resume 61 continue)"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" resume 61 continue)"
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
   hasnt "paseo :: send"
 }
@@ -825,7 +830,7 @@ PY
   write_batch
   reset_log
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_VERIFY_FAIL=62 \
-          bash "$copy/scripts/dispatch.sh" reverify 76)"
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
   [ "$code" = 1 ] || fail "expected exit 1, got $code: $(cat "$TMP/err")"
   has "verify-ticket :: 61 :: --reverify"
   has "verify-ticket :: 62 :: --reverify"
@@ -838,7 +843,7 @@ PY
   echo "--- all green exits 0"
   reset_log
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_VERIFY_FAIL= \
-          bash "$copy/scripts/dispatch.sh" reverify 76)"
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   hasnt "gh :: issue :: reopen"
 }
@@ -870,7 +875,7 @@ JSON
   fresh_repo
   echo "--- without a reverify this session, the posted comment opens NIGHT SUMMARY and has no Reverify"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" summary 76)"
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   has "gh :: issue :: comment :: 76 :: --body"
   grep -q "^NIGHT SUMMARY " "$MMW_GH_LAST_BODY" \
@@ -881,13 +886,13 @@ JSON
   echo "--- after reverify, the posted comment has a Reverify line matching that run"
   reset_log
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" reverify 76)"
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
   [ "$code" = 0 ] || fail "reverify expected exit 0, got $code: $(cat "$TMP/err")"
   grep -q "reverify #76: 1 green, 0 red" "$TMP/out" \
     || fail "reverify should report 1 green: $(cat "$TMP/out")"
   reset_log
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" summary 76)"
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   grep -q "^NIGHT SUMMARY " "$MMW_GH_LAST_BODY" \
     || fail "the posted comment should open NIGHT SUMMARY: $(cat "$MMW_GH_LAST_BODY")"
@@ -912,7 +917,7 @@ scenario_release() {
   write_claimed_batch mmw-bot
   local code
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
-          bash "$DISPATCH" advance 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
 
   echo "--- a claim with no worker and no workspace behind it is given back"
   [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
@@ -941,7 +946,7 @@ scenario_release() {
   write_claimed_batch mmw-bot
   seed_workspace 63
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
-          bash "$DISPATCH" advance 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
   hasnt "gh :: issue :: edit :: 63 :: --remove-assignee"
   grep -q "released 0" "$TMP/err" \
@@ -957,7 +962,7 @@ scenario_releaseother() {
   write_claimed_batch alice
   local code
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
-          bash "$DISPATCH" advance 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
 
   echo "--- a ticket somebody else took is left exactly as it is"
   [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
@@ -979,7 +984,7 @@ scenario_releaselive() {
   seed_agent 63 worker
   local code
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
-          bash "$DISPATCH" advance 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
 
   echo "--- a claim whose worker is still alive is the owner's, and is not touched"
   [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
@@ -1013,7 +1018,7 @@ scenario_frontierwhy() {
   seed_agent 63 worker
   local code
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
-          bash "$DISPATCH" advance 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
 
   echo "--- an empty frontier is an explanation, not a failure"
   [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
@@ -1035,7 +1040,7 @@ scenario_frontierwhy() {
 ]
 JSON
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
-          bash "$DISPATCH" advance 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "exit $code on the finished batch: $(cat "$TMP/err")"
   grep -q "advance #76:" "$TMP/err" || fail "the summary line is missing: $(cat "$TMP/err")"
   ! grep -q "agent queue" "$TMP/err" \
@@ -1044,7 +1049,7 @@ JSON
 
 # ------------------------------------------------------------------ instance gate / suspend
 
-LEASE_PY="$(dirname "$SKILL")/verify-ticket/scripts/lease.py"
+LEASE_PY="$(dirname "$SKILL")/drive-target/scripts/lease.py"
 
 scenario_instancegate() {
   echo "--- a product that declares it cannot be isolated is serialised, not piled onto"
@@ -1066,7 +1071,7 @@ scenario_instancegate() {
 
   local code
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" advance 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
 
   echo "--- the merges still happen: the gate is about starting, not about landing work"
@@ -1090,7 +1095,7 @@ scenario_instancegate() {
   [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 0 ] \
     || fail "issue-99 should be free before the second advance"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" advance 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "exit $code on the second run: $(cat "$TMP/err")"
   has "paseo :: workspace :: create"
   has ":: --new-branch :: issue-63"
@@ -1114,7 +1119,7 @@ JSON
 open_a_night() {
   local code
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
-          bash "$DISPATCH" advance 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "advance exited $code: $(cat "$TMP/err")"
 }
 
@@ -1147,7 +1152,7 @@ scenario_suspend() {
   : > "$MMW_TEST_LOG"
   : > "$MMW_GH_LAST_BODY"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
-          bash "$DISPATCH" suspend 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" suspend 76)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
 
   has "paseo :: stop :: agt_61_worker"
@@ -1220,7 +1225,7 @@ sys.stdin.read()
   : > "$MMW_TEST_LOG"
   : > "$MMW_GH_LAST_BODY"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
-          bash "$DISPATCH" suspend 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" suspend 76)"
 
   echo "--- the refusal is reported, never swallowed and never forced"
   [ "$code" = 1 ] || fail "expected exit 1, got $code: $(cat "$TMP/err")"

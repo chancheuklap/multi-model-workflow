@@ -15,7 +15,7 @@ The file's shape is in [references/contract-format.md](references/contract-forma
 - The wayfinder map issue: its **Decisions so far** and, through each link, the closed tickets' resolution comments. Where a resolution names an ADR, a research file, a logic prototype's contract file or the domain doc, read that too.
 - The backend contract as it exists today: `openapi.json`. When the repository's own exporter writes one, use that; when it does not cover this product, dump it yourself — `uv run python <this skill>/scripts/dump_openapi.py <module>:<factory> <scratch>/openapi.json` calls the app factory and writes its OpenAPI document. A new project has no routes yet; the lint then marks calls `unverified` instead of failing them.
 - The spec's mechanism registry, when a spec exists. Before the first spec there is none: propose the mechanisms the rows need under `mechanisms`, put one entry on the gap list saying they are proposals, and say so in a comment at the top of the file. Each mechanism names who builds it (`built_by`) and how it writes (`via`); before tickets exist, `built_by` names the ticket to be — the contract ticket for a seed the first interface ticket needs — and is corrected when the tickets are cut.
-- What kind of product this is — a running desktop application, a server-rendered site, a single-page application, a browser extension — which is the contract's `target.kind`. The kinds and what each asks of the repository are in the `verify-ticket` skill's `references/targets/README.md`.
+- What kind of product this is — a running desktop application, a server-rendered site, a single-page application, a browser extension — which is the contract's `target.kind`. The kinds and what each asks of the repository are in the `drive-target` skill's `references/targets/README.md`.
 - The effort name: the name of the `docs/specs/<effort>/` directory the specs of this map live in. A map whose specs directory does not exist yet takes the map's title.
 - The scope. A full run covers every page in `scenes.json`. A scoped run names the pages it covers; the reverse sweep and the README dispositions then stay inside those pages, and the lint reports the other pages as warnings.
 
@@ -25,15 +25,17 @@ Write every path in a command out in full. Some hosts refuse `uv run … $VAR`.
 
 ### 1. Extract the skeleton
 
+The render is the `drive-target` skill's: resolve `<drive-target scripts>` from that skill's `SKILL.md`, then
+
 ```
-uv run python <this skill>/scripts/extract_skeleton.py <handoff dir> <scratch>/skeleton.json
+uv run python <drive-target scripts>/extract_skeleton.py <handoff dir> <scratch>/skeleton.json
 ```
 
 It renders every scene in `scenes.json` offline, through the same driver interface parity uses, reads each accessibility tree, and keeps every interactive control keyed by (page, role, accessible name) with the list of scenes it is visible in. This is the row inventory: a control the skeleton has and the contract lacks is a lint error, and so is the reverse. The accessible name is the whole name the tree reports, hint text included — copy it exactly. The same render leaves each scene's normalised tree and class set in the skeleton; step 6 writes them out as the target trees.
 
 ### 2. Declare the screen axis, name components and split preconditions
 
-Top level first: `target.kind` and `target.adapter`, and `viewports` copied from the handoff package `README.md` (the design size and the declared minimum; never a breakpoint of its stylesheets).
+Top level first: `target.kind`, and `viewports` copied from the handoff package `README.md` (the design size and the declared minimum; never a breakpoint of its stylesheets).
 
 Then, for each page in `scenes.json`, one `pages` entry: its **`mount`** — the short stable id the product will carry as `data-screen` on the one element that *is* this page — and its **`route`**. `mount` is your declaration, not a derivation: a page holds several components' rows, and the one with most rows can be a shared control borrowed from another page. For a `Component · ` page also name the **`component`** the implementation will own it under — the repository's existing feature directory when there is one, otherwise the page name; every row of that page's controls uses the same value. An `App · ` page is a whole-surface root and names no component.
 
@@ -77,7 +79,7 @@ Two things a gap list does not carry: an implementation that today does less tha
 Write `docs/specs/<effort>/screen-contract.yaml`, then render once more with the contract in hand so the retired controls are hidden, writing the target trees beside it:
 
 ```
-uv run python <this skill>/scripts/extract_skeleton.py <handoff dir> <scratch>/skeleton.json --targets docs/specs/<effort>/targets --contract docs/specs/<effort>/screen-contract.yaml
+uv run python <drive-target scripts>/extract_skeleton.py <handoff dir> <scratch>/skeleton.json --targets docs/specs/<effort>/targets --contract docs/specs/<effort>/screen-contract.yaml
 uv run python <this skill>/scripts/lint_contract.py docs/specs/<effort>/screen-contract.yaml <scratch>/skeleton.json [<openapi.json>]
 ```
 

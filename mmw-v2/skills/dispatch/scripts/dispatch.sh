@@ -11,6 +11,11 @@
 #   dispatch.sh summary <spec>
 #   dispatch.sh suspend <spec>
 #
+# Every form takes `--tools <directory>`, repeatable: where the scripts of other skills
+# are — `lease.py` of the drive-target skill, `verify-ticket.py` of the verify-ticket
+# skill. This script finds nothing outside its own skill directory by itself; the agent
+# resolves those skills by name and passes their `scripts/` directories.
+#
 # The ticket number and the kind of agent are the whole input for `start`. Which
 # of the worker rows a worker session starts from is the ticket's own `*-worker`
 # label, so one ticket keeps the same worker every time it is started. Which
@@ -29,11 +34,12 @@ SKILL_ROOT="$(dirname "$(dirname "$SELF")")"
 MODELS="$SKILL_ROOT/models.md"
 STATUS="$SKILL_ROOT/scripts/status.py"
 VERIFIER_MD="$(realpath "$SKILL_ROOT/references/verifier.md" 2>/dev/null || true)"
-# The skill lives under mmw-v2/skills/<name>, so `install.sh` is two directories up
-# and `verify-ticket.py` / `lease.py` are the sibling skill.
+# The skill lives under mmw-v2/skills/<name> of the toolbox checkout, so `install.sh`
+# is two directories up. `verify-ticket.py` and `lease.py` belong to other skills and
+# are found only in the directories `--tools` names (see the entry at the bottom).
 INSTALLER="$(dirname "$(dirname "$SKILL_ROOT")")/install.sh"
-VERIFY="$(dirname "$SKILL_ROOT")/verify-ticket/scripts/verify-ticket.py"
-LEASE="$(dirname "$SKILL_ROOT")/verify-ticket/scripts/lease.py"
+VERIFY=""
+LEASE=""
 
 # The row a ticket with no `*-worker` label starts from.
 DEFAULT_WORKER=junior-worker
@@ -350,16 +356,24 @@ for rec in mod.claimed():
 # and its tickets are serialised. That is the honest fallback. The alternative is what
 # 2026-09-05 did: five workers dispatched onto three fixed ports, one of them working.
 
+# Prints `instance.max`, or nothing when the repository declares none. A file that is
+# there but cannot be read is a fault, not "none declared": exit 2 with the reason.
 target_max_instances() {
   python3 - "$1" <<'PY'
 import json, sys
 from pathlib import Path
-try:
-    data = json.loads((Path(sys.argv[1]) / ".mmw" / "target.json").read_text(encoding="utf-8"))
-    value = data.get("instance", {}).get("max")
-    print(value if isinstance(value, int) and value > 0 else "")
-except Exception:
+path = Path(sys.argv[1]) / ".mmw" / "target.json"
+if not path.exists():
     print("")
+    sys.exit(0)
+try:
+    data = json.loads(path.read_text(encoding="utf-8"))
+except (OSError, ValueError) as exc:
+    print(f"dispatch: {path} cannot be read as JSON: {exc}", file=sys.stderr)
+    sys.exit(2)
+instance = data.get("instance") if isinstance(data, dict) else None
+value = instance.get("max") if isinstance(instance, dict) else None
+print(value if isinstance(value, int) and value > 0 else "")
 PY
 }
 
@@ -552,7 +566,7 @@ start_one() {
 
   if [ "$kind" = worker ]; then
     [ -f "$LEASE" ] \
-      || refuse "no lease.py at $LEASE: the verify-ticket skill is not installed beside this one, so no run can be given its own share of this machine. Run \`bash \"$INSTALLER\"\`, then dispatch again"
+      || refuse "no lease.py in any --tools directory, so no run can be given its own share of this machine. Pass --tools <the drive-target skill's scripts directory>, then dispatch again"
     [ -n "$cwd" ] \
       || refuse "could not read the workspace cwd for issue-$number, so no lease can be claimed"
     python3 "$LEASE" claim "$cwd" >/dev/null \
@@ -692,7 +706,7 @@ conflict_report() {
   echo
   echo "  Resolve it with the resolving-merge-conflicts skill — never --abort — run this"
   echo "  repository's own checks, commit the merge, then run:"
-  echo "    bash $SELF advance $MMW_ADVANCE_SPEC"
+  echo "    bash $SELF --tools <drive-target scripts> --tools <verify-ticket scripts> advance $MMW_ADVANCE_SPEC"
 }
 
 # 0 merged, 1 left in conflict, 2 could not run it at all.
@@ -789,7 +803,7 @@ advance() {
   done
 
   local started=0 refused=0 held=0 live max_inst trees
-  max_inst="$(target_max_instances "$root")"
+  max_inst="$(target_max_instances "$root")" || exit 2
   for number in $(printf '%s\n' "$plan" | awk '$1 == "DISPATCH" { print $2 }'); do
     if [ -n "$max_inst" ]; then
       trees="$(worktrees_root)"
@@ -807,7 +821,7 @@ advance() {
         continue
       fi
     fi
-    if bash "$SELF" start "$number" worker; then
+    if bash "$SELF" ${TOOLS_ARGS[@]+"${TOOLS_ARGS[@]}"} start "$number" worker; then
       started=$((started + 1))
     else
       refused=$((refused + 1))
@@ -924,7 +938,7 @@ suspend_night() {
       esac
     done
   else
-    echo "dispatch: no lease.py at $LEASE, so this night's slots were not given back and the next night will read this machine as fuller than it is" >&2
+    echo "dispatch: no lease.py in any --tools directory, so this night's slots were not given back and the next night will read this machine as fuller than it is; pass --tools <the drive-target skill's scripts directory>" >&2
     left=$((left + 1))
   fi
 
@@ -966,7 +980,7 @@ print("\n".join(ids))
 reverify_spec() {
   local spec="$1"
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
-  [ -f "$VERIFY" ] || refuse "no verify-ticket.py at $VERIFY"
+  [ -f "$VERIFY" ] || refuse "no verify-ticket.py in any --tools directory; pass --tools <the verify-ticket skill's scripts directory>"
 
   local root git_dir commit plan number rc printed ids login
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
@@ -1035,12 +1049,47 @@ summary_spec() {
 
 [ -f "$MODELS" ] || refuse "no models.md at $MODELS"
 
-for arg in "$@"; do
-  if [ "$arg" != "${arg#--}" ]; then
-    case "${arg#--}" in
-      json|run) refuse "$arg is no longer a flag" ;;
-    esac
-  fi
+# `--tools <dir>` may appear anywhere and any number of times. Everything else is
+# positional. A script of another skill is looked up by basename in those directories,
+# in the order given, and nowhere else.
+TOOLS=()
+positional=()
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --tools)
+      [ "$#" -ge 2 ] || refuse "--tools takes a directory"
+      TOOLS+=("$2")
+      shift 2
+      ;;
+    --tools=*)
+      TOOLS+=("${1#--tools=}")
+      shift
+      ;;
+    --json | --run) refuse "$1 is no longer a flag" ;;
+    *)
+      positional+=("$1")
+      shift
+      ;;
+  esac
+done
+set -- ${positional[@]+"${positional[@]}"}
+
+tool() {
+  local dir
+  for dir in ${TOOLS[@]+"${TOOLS[@]}"}; do
+    if [ -f "$dir/$1" ]; then
+      printf '%s\n' "$dir/$1"
+      return 0
+    fi
+  done
+  return 1
+}
+LEASE="$(tool lease.py || true)"
+VERIFY="$(tool verify-ticket.py || true)"
+# `advance` runs `start` through this same script; the directories travel with it.
+TOOLS_ARGS=()
+for dir in ${TOOLS[@]+"${TOOLS[@]}"}; do
+  TOOLS_ARGS+=(--tools "$dir")
 done
 
 case "${1:-}" in

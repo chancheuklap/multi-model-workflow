@@ -1,8 +1,7 @@
 # Target: electron
 
 An application that is already running on the machine, with a local backend of its
-own. Contract: `target.kind: electron`, `target.adapter:
-verify-ticket/references/targets/electron.md`. Adapter class: `ElectronAdapter`.
+own. Contract: `target.kind: electron`. Adapter class: `ElectronAdapter`.
 
 ## `discover` prints
 

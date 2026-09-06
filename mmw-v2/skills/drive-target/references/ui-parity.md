@@ -42,18 +42,16 @@ What kind of product this is, and how it is attached, readied, addressed, releas
 
 ## The criterion, in one shape
 
-Nobody types this command. It is written onto the ticket as a criterion, and a run of `verify-ticket.py` hands it to a shell months later with no model in between. So it carries a path written out in full, and nothing else that could go stale:
+Nobody types this command. It is written onto the ticket as a criterion, and a run of `verify-ticket.py` hands it to a shell months later with no model in between. The script is named bare — `verify-ticket.py` puts this skill's `scripts/` on that shell's `PATH` (its `--tools`) — and nothing else on the line can go stale:
 
 ```
-CHECK: uv run ~/.agents/skills/verify-ticket/scripts/visual-parity.py --contract docs/specs/<effort>/screen-contract.yaml --mount <id,id>
+CHECK: visual-parity.py --contract docs/specs/<effort>/screen-contract.yaml --mount <id,id>
 EXPECT: PARITY OK <passed>/<total>
 ```
 
 `--mount` names the `data-screen` values this ticket owns; every scene of the contract whose page (or whose own override) declares one of them is compared. `<total>` is scenes × viewports. Scenes belong to tickets by mount; when one page's scenes are split between two tickets, each adds `--scenes <name,name>`, a subset of what its mounts derive — the one way to split, and `verify-ticket --lint` checks that across the batch every scene of the contract is covered exactly once — by tickets that could run side by side; a ticket blocked by another may re-run that one's scenes, which is a re-verification, not a second claim. When mounts collide (a target without component pages, where every scene is whole-surface), scenes belong by `route` instead.
 
 The pixel threshold is not on the line: it is the script's default, so that loosening or tightening it is one edit to the script and not one to every ticket already published. A ticket names `--max-pct` only when its scenes are known to need another number, and says why beside the criterion.
-
-**That path stays literal, and stays exactly this one.** Everywhere else an agent reaches a script in this skill by resolving it from the skill's own location, because an agent knows where its host put the skill. A shell does not. `~/.agents/skills` is the install location `mmw-v2/install.sh` creates unconditionally on every machine, for every host, which makes it the one path a ticket can name and still run a year later on another checkout. Writing the resolved absolute path of your own machine into a ticket breaks it for every other machine; writing a placeholder breaks it immediately.
 
 On an electron target the run borrows the application's own window, because Electron exposes one page over its debugging port and refuses to open another. While a run is going the window switches between the viewports being compared; when it ends — however it ends — the window is given back at its own size, with its own clock, on its own page. A window that stays small after a run is a bug in the driver, not a diagnosis to make.
 

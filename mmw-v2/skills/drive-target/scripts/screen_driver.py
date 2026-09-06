@@ -286,7 +286,7 @@ def target_config(root: Path) -> dict:
     path = root / ".mmw" / "target.json"
     if not path.exists():
         raise SystemExit(f"no {path}: the repository has not said how its product is "
-                         f"reached (see verify-ticket/references/targets/README.md)")
+                         f"reached (see the drive-target skill's references/targets/README.md)")
     cfg = json.loads(path.read_text(encoding="utf-8"))
     for key in ("discover", "reach"):
         if not cfg.get(key):
@@ -1523,7 +1523,7 @@ def bring_up(adapter: Adapter) -> None:
         raise SystemExit(f"{why}; .mmw/target.json declares no `start`, so the run cannot "
                          f"bring the product up itself. Declare `start` (a command that "
                          f"brings it up and returns once it answers; see "
-                         f"verify-ticket/references/targets/README.md)")
+                         f"the drive-target skill's references/targets/README.md)")
     # 每次都跑，不只在没人应答的时候。`start` 按契约是幂等的，对已在应答的产品原样保留
     # ——但只有它知道那个产品是不是本工作树此刻的代码。跳过它，一个仍在应答的旧产品就
     # 永远不会被换掉，判据在旧代码上得出的结论没人会发现（2026-09-05 实测两次）。
