@@ -179,9 +179,17 @@ def assign_self(number: int) -> None:
 
 
 def close_ticket(number: int) -> None:
-    """Take the ticket out of the agent queue and close it. Patched out in tests."""
+    """Take the ticket out of the agent queue, release its claim, and close it.
+
+    The assignee comes off in the same edit as the label, for the same reason it does
+    on the hand back to triage: a claim outlives the session that made it, and only
+    that session knows it is done. `advance`'s give-a-claim-back reads open tickets
+    alone, so a claim left on a closed one is one nothing else ever takes off.
+    Patched out in tests.
+    """
     subprocess.run(
-        ["gh", "issue", "edit", str(number), "--remove-label", "ready-for-agent"],
+        ["gh", "issue", "edit", str(number),
+         "--remove-label", "ready-for-agent", "--remove-assignee", "@me"],
         check=True, env=GH_ENV,
     )
     subprocess.run(["gh", "issue", "close", str(number), "--reason", "completed"], check=True, env=GH_ENV)
@@ -695,14 +703,22 @@ def last_run(comments: list[str]) -> str | None:
     return newest_with_first_line(comments, "self-run", "reverify")
 
 
-def last_run_summary(comments: list[str]) -> str | None:
-    """The summary line of the newest `self-run` or `reverify` comment on the ticket.
+def last_reverify(comments: list[str]) -> str | None:
+    """The newest `reverify` comment on the ticket, `None` when none.
+
+    A `self-run` is the worker's own measurement of its own work; a `reverify` is the
+    verifier's, of the same criteria on the same commit. The closing gate reads only
+    this one, because the other is written by the party being judged.
+    """
+    return newest_with_first_line(comments, "reverify")
+
+
+def run_summary(run: str | None) -> str | None:
+    """The gate-check summary line of one run comment, `None` when it has none.
 
     A run comment opens with its own name and carries gate-check's summary on the line
-    under it, so that line is what the ticket currently reports about its criteria.
-    `None` when no run has been posted, or when the newest one printed no summary.
+    under it, so that line is what the run reports about the criteria.
     """
-    run = last_run(comments)
     if run is None:
         return None
     lines = run.strip().splitlines()
@@ -710,13 +726,22 @@ def last_run_summary(comments: list[str]) -> str | None:
     return summary if SUMMARY_RE.match(summary) else None
 
 
-def last_run_unmet(comments: list[str]) -> list[str]:
-    """The criteria the newest run's ledger left unmet, by id."""
-    run = last_run(comments)
+def run_unmet(run: str | None) -> list[str]:
+    """The criteria one run's ledger left unmet, by id."""
     if run is None:
         return []
     return [c["id"] for c in parse_criteria(run)
             if not (c["ticked"] and c["evidence"] and c["evidence"] != "pending")]
+
+
+def last_run_summary(comments: list[str]) -> str | None:
+    """The summary line of the newest `self-run` or `reverify` comment on the ticket."""
+    return run_summary(last_run(comments))
+
+
+def last_run_unmet(comments: list[str]) -> list[str]:
+    """The criteria the newest run's ledger left unmet, by id."""
+    return run_unmet(last_run(comments))
 
 
 def draft_problems(draft: str, comments: list[str]) -> list[str]:
@@ -782,42 +807,69 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
                 problems.append("the first line and the `Counts:` line disagree — "
                                 + "; ".join(off))
 
-    # The verifier's `VERDICT` is what a ticket needs to close as done, and only that.
-    # Handing the ticket back is the way out of everything else, including a verifier
-    # that never ran: `HANDOFF REQUIRED` claims nothing was finished and leaves the
-    # ticket open under `needs-triage`, where it is judged fresh. Demanding an
-    # independent check before a worker is allowed to say "I could not do this" would
-    # leave it with no way out at all.
-    if first == "ALL MET":
-        # A draft is written by hand and the runs are not, so `ALL MET` in the draft is a
-        # claim and the newest run's summary is the measurement. Only the newest one is
-        # read: a criterion the verifier found unmet and the worker then fixed is met
-        # again on the self-run after the fix, and that run is the one this sees.
+    return problems
+
+
+def verified_problems(draft: str, body: str, comments: list[str]) -> list[str]:
+    """What an `ALL MET` draft lacks in independent verification, in reader order.
+
+    Three facts, and all three are ones the worker cannot write for itself: the
+    verifier's own run of the criteria, the commit that run was made on, and the
+    criteria it ran. On 2026-09-06 #162 closed `ALL MET` with none of them holding —
+    the verifier had posted `VERDICT … AC1 failed`, the worker then rewrote AC1's
+    `CHECK:` into a command that passed, re-ran it itself, and closed on the same
+    commit. Each check below is one of the three doors that let that through.
+
+    `HANDOFF REQUIRED` reaches none of this. A worker whose verifier will not run must
+    still be able to hand the ticket back; demanding an independent check before it may
+    say "I could not do this" would leave it with no legal move at all.
+    """
+    problems = []
+    lines = draft.strip().splitlines()
+    first = lines[0].strip() if lines else ""
+    if first != "ALL MET":
+        return problems
+
+    reverify = last_reverify(comments)
+    if reverify is None:
+        problems.append("the ticket carries no `reverify` comment, so nothing but this "
+                        "ticket's own author has run its criteria. Dispatch the verifier; "
+                        "if it cannot run, close out as `HANDOFF REQUIRED` instead and say so")
+    else:
         # A run is generated from the ticket body, which carries no `ABANDON:` line, so a
         # criterion the draft abandons as `decision` still runs and still reports unmet.
         # That unmet is the one this draft is allowed to carry: the sub-issue is open and
-        # the ticket closes on it. Any other unmet in that run is a claim the draft
-        # cannot make.
-        decided = {a["ac"] for a in abandons if a["kind"] == "decision"}
-        summary = last_run_summary(comments)
-        unmet = last_run_unmet(comments)
+        # the ticket closes on it. Any other unmet is a claim the draft cannot make.
+        decided = {a["ac"] for a in parse_abandons(draft) if a["kind"] == "decision"}
+        summary = run_summary(reverify)
+        unmet = run_unmet(reverify)
         covered = (summary is not None and summary.startswith("UNMET:")
                    and unmet and set(unmet) <= decided)
         if summary and summary.startswith(("UNMET:", "HANDOFF REQUIRED:")) and not covered:
-            problems.append("the newest run on the ticket still reports unmet or abandoned "
-                            "criteria — rerun until the summary line is `ALL MET (...)`, "
-                            "or close out as `HANDOFF REQUIRED`")
-        verdict = last_verdict(comments)
-        if verdict is None:
-            problems.append("the ticket carries no `VERDICT <commit> by <model> — …` line, "
-                            "so nothing but this ticket's own author says the work is done. "
-                            "Dispatch the verifier; if it cannot run, close out as "
-                            "`HANDOFF REQUIRED` instead and say so")
-        elif not git("rev-parse", "HEAD").startswith(verdict) \
-                and draft_line(draft, "Post-verdict:") is None:
-            problems.append(f"the `VERDICT` is on {verdict} and HEAD has moved on; add a "
-                            f"`Post-verdict:` line naming every commit since it and where "
-                            f"it came from")
+            problems.append("the verifier's newest `reverify` still reports unmet or "
+                            "abandoned criteria — a `self-run` of your own does not settle "
+                            "it. Dispatch the verifier again, or close out as "
+                            "`HANDOFF REQUIRED`")
+        # The criteria the verifier ran must be the criteria the ticket now states. A
+        # ticket may legitimately rewrite one — a decision changed what it must do — but
+        # then what stands is a verification of something else, and the verifier runs again.
+        if criteria_shape(ledger_from_comment(reverify)) != \
+                criteria_shape(section(body, "Acceptance criteria")):
+            problems.append("the acceptance criteria have changed since the verifier ran: "
+                            "its `reverify` ledger and the ticket body no longer describe "
+                            "the same criteria. Dispatch the verifier again so the run and "
+                            "the ticket agree")
+
+    verdict = last_verdict(comments)
+    if verdict is None:
+        problems.append("the ticket carries no `VERDICT <commit> by <model> — …` line, "
+                        "so nothing but this ticket's own author says the work is done. "
+                        "Dispatch the verifier; if it cannot run, close out as "
+                        "`HANDOFF REQUIRED` instead and say so")
+    elif not git("rev-parse", "HEAD").startswith(verdict):
+        problems.append(f"the `VERDICT` is on {verdict} and HEAD has moved on. What was "
+                        f"independently verified is not what would be merged; dispatch the "
+                        f"verifier again on this commit")
     return problems
 
 
@@ -1305,11 +1357,6 @@ def run_draft(number: int, out_file: Path) -> int:
     base_branch = git("config", f"branch.issue-{number}.mmw-base-branch") or "main"
     branch_line = (f"Branch: issue-{number} Commit: {head} PR: none — will be merged into "
                    f"{base_branch} by dispatch.sh advance")
-    verdict = last_verdict(comments)
-    chain = ""
-    if verdict and head and not head.startswith(verdict):
-        chain = git("log", "--first-parent", "--format=%H", f"{verdict}..HEAD")
-    post = "Post-verdict: " + (", ".join(chain.split()) if chain else "None")
     review = newest_with_first_line(comments, "REVIEW") or ""
     files = outside_owns_files(outside_owns_from(run or ""))
     if files:
@@ -1327,7 +1374,7 @@ def run_draft(number: int, out_file: Path) -> int:
         sub = "Sub-issues opened: unknown (the tracker could not be asked)"
     counts_line = (f"Counts: {counts['met']} met, {counts['unmet']} unmet, "
                    f"{counts['abandoned']} abandoned of {counts['total']}")
-    parts = [first, "", branch_line, "", post, ""]
+    parts = [first, "", branch_line, ""]
     for item in criteria:
         parts.append(criterion_block(item))
         for abandon in abandons:
@@ -1609,8 +1656,10 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     """Check the closing comment against the ticket and the repository, then post it."""
     draft = draft_path.read_text(encoding="utf-8")
     comments = fetch_comments(number)
+    body = fetch_body(number)
     problems = draft_problems(draft, comments)
-    problems += review_problems(draft, fetch_body(number), comments)
+    problems += verified_problems(draft, body, comments)
+    problems += review_problems(draft, body, comments)
     problems += git_problems(repo_root())
     ticket = fetch_ticket(number)
     if ticket.get("state") != "OPEN":

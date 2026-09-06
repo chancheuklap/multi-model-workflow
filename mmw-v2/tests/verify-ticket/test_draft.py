@@ -216,10 +216,12 @@ class TestFixedLines(unittest.TestCase):
             text,
         )
 
-    def test_post_verdict_lists_the_first_parent_chain_after_the_verdict(self):
+    def test_the_draft_carries_no_line_about_commits_after_the_verdict(self):
+        """A worker's account of its own commits settled nothing, so the skeleton
+        stopped asking for one."""
         code, err, text, _ = run_draft((MET_RUN, VERDICT))
         self.assertEqual(code, 0, err)
-        self.assertIn(f"Post-verdict: {HEAD}", text)
+        self.assertNotIn("Post-verdict:", text)
 
     def test_each_criterion_carries_four_lines_and_the_self_run_evidence(self):
         code, err, text, _ = run_draft((MET_RUN, VERDICT))
@@ -302,16 +304,19 @@ class TestFilledDraftPassesCloseoutChecks(unittest.TestCase):
         with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
             self.assertEqual(vt.draft_problems(filled, list(comments)), [])
 
-    def test_no_verdict_is_named_by_draft_problems_on_an_all_met_draft(self):
+    def test_no_verdict_is_named_on_an_all_met_draft(self):
+        """A skeleton is well formed on its face and still cannot close: what it lacks
+        is a run and a commit somebody else produced, which is the other reader's job."""
         comments = (MET_RUN,)
         code, err, text, fake = run_draft(comments)
         self.assertEqual(code, 0, err)
         self.assertEqual(text.splitlines()[0], "ALL MET")
-        self.assertIn("Post-verdict: None", text)
         filled = text.replace(vt.FILL, "none")
         with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
-            problems = vt.draft_problems(filled, list(comments))
+            self.assertEqual(vt.draft_problems(filled, list(comments)), [])
+            problems = vt.verified_problems(filled, "", list(comments))
         self.assertTrue(any("carries no `VERDICT" in p for p in problems), problems)
+        self.assertTrue(any("carries no `reverify" in p for p in problems), problems)
 
 
 class TestCloseoutRefusesTheUnfilledSkeleton(unittest.TestCase):
