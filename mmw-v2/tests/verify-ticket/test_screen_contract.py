@@ -502,10 +502,6 @@ class TestContractPathInBackticks(unittest.TestCase):
         self.assertFalse(any("a.view" in f for f in findings), findings)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TestPartitionEdges(unittest.TestCase):
     def test_addressing_and_all_do_not_partition(self):
         body = ("## Acceptance criteria\n\n- [ ] AC1: x\n  CHECK: uv run visual-parity.py "
@@ -517,3 +513,7 @@ class TestPartitionEdges(unittest.TestCase):
                 "--contract c.yaml --mount m --scenes a.b; true\n  EXPECT: x\n")
         self.assertEqual(vt.parity_calls(body), [("AC1", ["m"], ["a.b"])])
 
+
+
+if __name__ == "__main__":
+    unittest.main()

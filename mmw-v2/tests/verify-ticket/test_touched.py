@@ -106,13 +106,15 @@ TICKET = 77
 class FakeGh:
     """`gh` by argv: view / api / comment. Git is not used by `--touched`."""
 
-    def __init__(self, comments, children, states=None, parent=SPEC, body=BODY):
+    def __init__(self, comments, children, states=None, parent=SPEC, body=BODY,
+                 api_fails=False):
         self.comments = {TICKET: list(comments)}
         self.bodies = {TICKET: body}
         self.bodies.update(children)
         self.children = dict(children)
         self.states = states or {n: "OPEN" for n in children}
         self.parent = parent
+        self.api_fails = api_fails
         self.recorded = []
         self.posted = []
 
@@ -147,6 +149,10 @@ class FakeGh:
             self.posted.append((number, Path(path).read_text(encoding="utf-8")))
             return result
         if cmd[:2] == ["gh", "api"]:
+            if self.api_fails:
+                result.returncode = 1
+                result.stderr = "Not Found"
+                return result
             joined = " ".join(cmd)
             found = re.search(r"issues/(\d+)/sub_issues", joined)
             spec = int(found.group(1)) if found else 0
@@ -158,9 +164,11 @@ class FakeGh:
         return result
 
 
-def run_touched(comments, children, states=None, parent=SPEC, body=BODY):
+def run_touched(comments, children, states=None, parent=SPEC, body=BODY,
+                api_fails=False):
     """Run --touched; `children` is `{number: body}` of the spec's sub-issues."""
-    fake = FakeGh(comments, children, states=states, parent=parent, body=body)
+    fake = FakeGh(comments, children, states=states, parent=parent, body=body,
+                  api_fails=api_fails)
     printed = io.StringIO()
     err = io.StringIO()
     with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
@@ -310,25 +318,11 @@ class TestRefusesAForeignOrUnreadableSpec(unittest.TestCase):
         self.assertIsNone(sub_issues_target(recorded))
 
     def test_a_spec_the_tracker_cannot_list_children_of_is_refused(self):
-        fake = FakeGh(
-            (SELF_RUN, DECISIONS, REVIEW), {80: SIBLING_COVERS}, parent=SPEC)
-
-        def run(cmd, **kwargs):
-            result = fake.run(cmd, **kwargs)
-            if cmd[:2] == ["gh", "api"]:
-                result.returncode = 1
-                result.stderr = "Not Found"
-                result.stdout = ""
-            return result
-
-        printed = io.StringIO()
-        err = io.StringIO()
-        with mock.patch.object(vt.subprocess, "run", side_effect=run):
-            with redirect_stdout(printed), redirect_stderr(err):
-                code = vt.run_touched(TICKET)
+        code, err, posted, _, _ = run_touched(
+            (SELF_RUN, DECISIONS, REVIEW), {80: SIBLING_COVERS}, api_fails=True)
         self.assertEqual(code, 2)
-        self.assertIn(str(SPEC), err.getvalue())
-        self.assertEqual(fake.posted, [])
+        self.assertIn(str(SPEC), err)
+        self.assertEqual(posted, [])
 
 
 if __name__ == "__main__":

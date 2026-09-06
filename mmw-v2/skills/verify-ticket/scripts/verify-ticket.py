@@ -216,6 +216,24 @@ def fetch_blocked_by(number: int) -> list[int]:
     return [b["number"] for b in (data.get("blockedBy") or {}).get("nodes", [])]
 
 
+def gh_detail(out: subprocess.CompletedProcess) -> str:
+    """The last line a failed `gh` call said, for the exception that carries it up.
+
+    `gh` writes its reason on stderr and falls back to stdout; the last line is the
+    one that names the failure, the rest being the request it was making.
+    """
+    detail = (out.stderr or out.stdout).strip().splitlines()
+    return detail[-1] if detail else f"gh exited {out.returncode}"
+
+
+class SubIssuesUnreadable(RuntimeError):
+    """The tracker could not list the children of an issue.
+
+    Distinct from an issue that has no children: that one is an empty list, this one
+    means the question went unanswered.
+    """
+
+
 def fetch_sub_issues(number: int) -> list[int]:
     """The tickets GitHub records as children of any issue, in its own order, every
     page of them (GitHub pages the list at 30, and an issue past its thirtieth child
@@ -230,17 +248,8 @@ def fetch_sub_issues(number: int) -> list[int]:
         capture_output=True, text=True, env=GH_ENV,
     )
     if out.returncode != 0:
-        detail = (out.stderr or out.stdout).strip().splitlines()
-        raise SubIssuesUnreadable(detail[-1] if detail else f"gh exited {out.returncode}")
+        raise SubIssuesUnreadable(gh_detail(out))
     return [int(line) for line in out.stdout.split() if line.strip()]
-
-
-class SubIssuesUnreadable(RuntimeError):
-    """The tracker could not list the children of an issue.
-
-    Distinct from an issue that has no children: that one is an empty list, this one
-    means the question went unanswered.
-    """
 
 
 class ParentUnreadable(RuntimeError):
@@ -263,8 +272,7 @@ def fetch_parent(number: int) -> int | None:
         capture_output=True, text=True, env=GH_ENV,
     )
     if out.returncode != 0:
-        detail = (out.stderr or out.stdout).strip().splitlines()
-        raise ParentUnreadable(detail[-1] if detail else f"gh exited {out.returncode}")
+        raise ParentUnreadable(gh_detail(out))
     try:
         parent = json.loads(out.stdout).get("parent")
         return int(parent["number"]) if parent else None
