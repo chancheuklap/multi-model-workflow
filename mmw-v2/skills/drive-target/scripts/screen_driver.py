@@ -68,7 +68,6 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from extract_skeleton import SCENE_HEADER  # noqa: E402
 from lease import leased_environment, worktree_of  # noqa: E402
 from refusal import REPORT_BLOCKED, refusal  # noqa: E402
 
@@ -116,6 +115,9 @@ RUNTIME_CLASS_PREFIXES = ("sc-", "dc-")
 DATA_SCREEN = "data-screen"
 PLACEHOLDER = re.compile(r"\{(\w+)\}")
 VIEWPORT_RE = re.compile(r"^(\d+)x(\d+)$")
+# Scene marker `extract_skeleton.py` writes into target trees; `count_volatile_hits`
+# splits on the same string.
+SCENE_HEADER = "## scene "
 
 
 # ---------------------------------------------------------------- the contract

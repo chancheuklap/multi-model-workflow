@@ -3,11 +3,10 @@
 Usage: uv run python lint_contract.py --tools <drive-target scripts> <screen-contract.yaml> <skeleton.json> [<openapi.json>]
 Exit 0 with no errors; 1 with errors listed one per line; warnings never fail.
 `--tools` is the `scripts/` directory of the drive-target skill. Three things
-come from that driver, and this file holds no copy of any: the target kinds,
-the check of `.mmw/target.json`, and matching (`matches_volatile` /
-`count_volatile_hits`). All three are loaded in-process through
-`extract_skeleton.py`'s `load_driver()`; kinds and the file check are the
-same functions `screen_driver.py target --kinds` / `--validate` run.
+come from that driver, and this file holds no copy of any: the target kinds
+(its `ADAPTERS`), the `.mmw/target.json` check (the function `target
+--validate` runs), and matching (`volatile_triggers` / `count_volatile_hits`).
+All three are loaded in-process through `extract_skeleton.py`'s `load_driver()`.
 Rules are the tables in ../references/contract-format.md: the control axis (rows), the
 screen axis (`target`, `viewports`, `pages`, `scenes`), the mechanism table, and the
 target trees under `<contract dir>/targets/`.
@@ -19,7 +18,6 @@ judges honour, kept in sight so they are never a silent allowance.
 from __future__ import annotations
 
 import hashlib
-import importlib.util
 import io
 import json
 import re
@@ -41,50 +39,30 @@ PROVEN = re.compile(r"^#\d+ AC\d+$")
 # all ask it, through `extract_skeleton.py`'s `load_driver()`.
 TOOLS: list[Path] = []
 
-_ES = None
-_ES_PATH: Path | None = None
 _SD = None
-_SD_PATH: Path | None = None
 
 
 def extract_skeleton_mod():
-    """`extract_skeleton.py` from `--tools`. Cached while the path is unchanged."""
-    global _ES, _ES_PATH
-    path = None
+    """`extract_skeleton.py` from `--tools`; Python's import cache holds it."""
     for directory in TOOLS:
-        candidate = directory / "extract_skeleton.py"
-        if candidate.is_file():
-            path = candidate
-            break
-    if path is None:
-        raise SystemExit("no extract_skeleton.py in any --tools directory; pass --tools <the "
-                         "drive-target skill's scripts directory>")
-    if _ES is not None and _ES_PATH == path:
-        return _ES
-    spec = importlib.util.spec_from_file_location("extract_skeleton", path)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules["extract_skeleton"] = mod
-    spec.loader.exec_module(mod)
-    _ES = mod
-    _ES_PATH = path
-    return mod
+        if (directory / "extract_skeleton.py").is_file():
+            if str(directory) not in sys.path:
+                sys.path.insert(0, str(directory))
+            import extract_skeleton
+            return extract_skeleton
+    raise SystemExit("no extract_skeleton.py in any --tools directory; pass --tools <the "
+                     "drive-target skill's scripts directory>")
 
 
 def screen_driver_mod():
     """The drive-target driver from `--tools`, loaded the same way
-    `extract_skeleton.py` loads it. Cached while the path is unchanged.
-    Matching (`matches_volatile` / `count_volatile_hits`) and the target
+    `extract_skeleton.py` loads it. Cached after the first load.
+    Matching (`volatile_triggers` / `count_volatile_hits`) and the target
     kinds / `.mmw/target.json` check all come from this module."""
-    global _SD, _SD_PATH
-    es = extract_skeleton_mod()
-    path = Path(es.__file__).resolve().parent / "screen_driver.py"
-    if not path.is_file():
-        raise SystemExit("no screen_driver.py in any --tools directory; pass --tools <the "
-                         "drive-target skill's scripts directory>")
-    if _SD is not None and _SD_PATH == path:
+    global _SD
+    if _SD is not None:
         return _SD
-    _SD = es.load_driver()
-    _SD_PATH = path
+    _SD = extract_skeleton_mod().load_driver()
     return _SD
 
 
@@ -142,10 +120,9 @@ def source_shape(src: str) -> str:
 
 
 def is_http_call(call) -> bool:
-    """A `METHOD /path` operation as `openapi.json` writes it. `ipc …`,
+    """A call whose first token is an HTTP method. `ipc …`,
     `chrome.runtime.sendMessage …`, and `none` are not."""
-    method, _, path = str(call).partition(" ")
-    return method.upper() in HTTP_METHODS and path.lstrip().startswith("/")
+    return str(call).partition(" ")[0].upper() in HTTP_METHODS
 
 
 def repo_root(contract: Path) -> Path:

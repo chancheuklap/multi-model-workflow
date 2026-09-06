@@ -349,10 +349,12 @@ class TestObserve(unittest.TestCase):
         doc["rows"][0]["calls"] = ["chrome.runtime.sendMessage x"]
         openapi = {"paths": {"/api/notes": {"post": {}}}}
         errors, warnings = lc.lint(doc, SKELETON, openapi)
-        self.assertFalse(any("observe" in e for e in errors), errors)
-        self.assertFalse(any("call not in openapi" in e for e in errors), errors)
-        self.assertTrue(any("observe is empty" in w and "non-HTTP" in w for w in warnings),
-                        warnings)
+        self.assertFalse(any("create-project.add-material" in e and "observe" in e
+                            for e in errors), errors)
+        self.assertFalse(any("create-project.add-material" in e and "call not in openapi" in e
+                            for e in errors), errors)
+        self.assertTrue(any("create-project.add-material" in w and "observe is empty" in w
+                            and "non-HTTP" in w for w in warnings), warnings)
 
     def test_missing_observe_on_an_http_call_is_an_error(self):
         doc = contract()
@@ -369,6 +371,28 @@ class TestObserve(unittest.TestCase):
         self.assertFalse(any("observe" in e for e in errors), errors)
         self.assertTrue(any("observe is empty" in w and "non-HTTP" in w for w in warnings),
                         warnings)
+
+    def test_a_mixed_row_missing_observe_is_an_error(self):
+        doc = contract()
+        doc["rows"][0]["calls"] = ["ipc x", "POST /api/notes"]
+        openapi = {"paths": {"/api/notes": {"post": {}}}}
+        errors, warnings = lc.lint(doc, SKELETON, openapi)
+        self.assertTrue(any("create-project.add-material" in e and "observe missing" in e
+                            for e in errors), errors)
+        self.assertFalse(any("create-project.add-material" in w and "observe is empty" in w
+                             for w in warnings), warnings)
+
+    def test_a_malformed_http_call_missing_observe_is_an_error(self):
+        doc = contract()
+        doc["rows"][0]["calls"] = ["POST api/notes"]
+        openapi = {"paths": {"/api/notes": {"post": {}}}}
+        errors, warnings = lc.lint(doc, SKELETON, openapi)
+        self.assertTrue(any("create-project.add-material" in e and "observe missing" in e
+                            for e in errors), errors)
+        self.assertTrue(any("create-project.add-material" in e and "call not in openapi" in e
+                            for e in errors), errors)
+        self.assertFalse(any("create-project.add-material" in w and "observe is empty" in w
+                             for w in warnings), warnings)
 
 
 class TestRetiredPrinted(unittest.TestCase):
@@ -440,11 +464,10 @@ class TestVolatileValues(unittest.TestCase):
         and does not."""
         aria = self.repo.spec_dir / "targets" / (PAGE_A[:-len(".dc.html")] + ".aria")
         unique = "- text: 当前余额\n- strong: 12,480 鸭豆\n"
-        header = lc.screen_driver_mod().SCENE_HEADER
         aria.write_text(
             aria.read_text(encoding="utf-8")
-            + header + "free-gate\n" + self.SIBLINGS
-            + header + "free-hold-unknown\n" + unique,
+            + "## scene free-gate\n" + self.SIBLINGS
+            + "## scene free-hold-unknown\n" + unique,
             encoding="utf-8")
         doc = contract()
         doc["volatile_values"] = [dict(self.AMBIGUOUS)]

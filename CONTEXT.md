@@ -694,7 +694,7 @@ _Avoid_: 接线测试, integration criterion
 _Home_: `mmw-v2/skills/drive-target/references/wiring-check.md`
 
 **`screen_driver.py`**:
-`scripts/screen_driver.py` beside the drive-target `SKILL.md`: the one driver both judges and `extract_skeleton.py` import — the contract's screen axis, `.mmw/target.json` and the declaration of its fields (`FIELDS`, each adapter's `discover_keys`), the adapters, the baseline server and its CDN answering (`vendor/`, cache, network), the controlled clock, `capture`, the normaliser and the class set. Nothing in it judges. Run as a command, `screen_driver.py target --check` is the setup-time bar for one repository; `--validate` and `--kinds` serve the contract lint.
+`scripts/screen_driver.py` beside the drive-target `SKILL.md`: the one driver both judges and `extract_skeleton.py` import — the contract's screen axis, `.mmw/target.json` and the declaration of its fields (`FIELDS`, each adapter's `discover_keys`), the adapters, the baseline server and its CDN answering (`vendor/`, cache, network), the controlled clock, `capture`, the normaliser and the class set. Nothing in it judges. Run as a command, `screen_driver.py target --check` is the setup-time bar for one repository. The contract lint loads this file in-process: kinds from `ADAPTERS`, the `.mmw/target.json` check through the function `target --validate` runs.
 _Avoid_: the driver module, 共用驱动
 _Home_: `mmw-v2/skills/drive-target/scripts/screen_driver.py`
 
@@ -768,7 +768,7 @@ _Avoid_: 类名集合, class list
 _Home_: `mmw-v2/skills/drive-target/references/ui-parity.md`
 
 **`volatile_values`**:
-A top-level list on the screen contract of display values the seed must not write — a wallet balance belonging to an external account, not a difference to hide. Each entry is a `page`, a `trigger` (role and accessible name, the same shape as `retired_ids`), one line of `reason`, and `after` (the previous named node) when the stem is not unique on the scene. The two judges mask that node on both sides before comparing; how the mask is applied and matched is in the contract format.
+A top-level list on the screen contract of display values the seed must not write — a wallet balance belonging to an external account, not a difference to hide. Each entry is a `page`, a `trigger` (role and accessible name, the same shape as `retired_ids`), one line of `reason`, and `after` (the previous named node) when another node on the scene shares its role and its name with the digits removed. The two judges mask that node on both sides before comparing; how the mask is applied and matched is in the contract format.
 _Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
 
 **perturbation run**:
