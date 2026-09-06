@@ -240,7 +240,7 @@ for a in "$@"; do
   [ "$a" = "--body" ] && body_next=1
 done
 case "$*" in
-  *"--json state,labels,blockedBy,title,body"*|*"--json state,labels,blockedBy,title"*)
+  *"--json state,labels,blockedBy,title,parent"*|*"--json state,labels,blockedBy,title,body"*|*"--json state,labels,blockedBy,title"*)
     MMW_WANT="$3" python3 -c '
 import json, os
 path = os.environ.get("FAKE_GH_TICKETS_FILE")
@@ -260,6 +260,7 @@ if path:
             "blockedBy": {"nodes": found.get("blockedBy", [])},
             "title": found.get("title", "a ticket"),
             "body": found.get("body", body),
+            "parent": found.get("parent", {"number": 76}),
         }))
         raise SystemExit
 print(json.dumps({
@@ -270,6 +271,8 @@ print(json.dumps({
     "title": os.environ.get("FAKE_GH_TITLE",
                             "landing 7 of 15: a new skill called dispatch"),
     "body": body,
+    "parent": ({"number": int(os.environ.get("FAKE_GH_PARENT", "76"))}
+               if os.environ.get("FAKE_GH_PARENT", "76") else None),
 }))
 ' ;;
   *"/sub_issues"*)
@@ -688,6 +691,8 @@ JSON
     || fail "the heartbeat prompt should name night.md step 3: $(cat "$MMW_TEST_LOG")"
   grep -q "$copy/scripts/dispatch.sh" "$MMW_TEST_LOG" \
     || fail "the heartbeat prompt should name dispatch.sh: $(cat "$MMW_TEST_LOG")"
+  grep -q "land --sweep" "$MMW_TEST_LOG" \
+    || fail "the heartbeat should sweep before it reads status, since a landing message can be lost: $(cat "$MMW_TEST_LOG")"
   local hb
   hb="$(git -C "$TMP/repo" rev-parse --absolute-git-dir)/mmw-heartbeat-76"
   [ -f "$hb" ] || fail "the heartbeat id file was not written"
@@ -704,6 +709,134 @@ JSON
     || fail "the second check should say the heartbeat already exists: $(cat "$TMP/err")"
   [ "$(tr -d '[:space:]' < "$hb")" = hb_test ] \
     || fail "the heartbeat id file should be unchanged: $(cat "$hb")"
+}
+
+# Tickets outside any batch: what `land` was built for. #64 is finished, #65 was
+# handed back, #66 is still being worked, #67 closed with its branch unmerged.
+write_landable() {
+  cat > "$TMP/tickets.json" <<JSON
+[
+  {"number": 64, "state": "CLOSED", "labels": [], "closedAt": "2026-09-07T01:00:00Z",
+   "assignees": ["mmw-bot"], "parent": null,
+   "comments": ["reverify\\nALL MET (1 met)", "ALL MET\\nBranch: issue-64"]},
+  {"number": 65, "state": "OPEN", "labels": ["needs-triage"], "parent": null,
+   "assignees": ["mmw-bot"],
+   "comments": ["HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 0 met of 1"]},
+  {"number": 66, "state": "OPEN", "labels": ["ready-for-agent"], "parent": null,
+   "assignees": ["mmw-bot"], "comments": ["self-run\\nUNMET: 1 (met: 0)"]},
+  {"number": 67, "state": "CLOSED", "labels": [], "closedAt": "2026-09-07T02:00:00Z",
+   "parent": null, "comments": ["ALL MET\\nBranch: issue-67"]},
+  {"number": 68, "state": "CLOSED", "labels": [], "closedAt": "2026-09-07T03:00:00Z",
+   "parent": null, "comments": ["voided: superseded by the spec"]}
+]
+JSON
+}
+
+scenario_land() {
+  reset_log
+  fresh_repo
+  write_landable
+  make_branch issue-64 four.txt "from 64"
+  make_branch issue-67 seven.txt "from 67"
+  seed_workspace 64
+  seed_workspace 65
+  seed_workspace 66
+  local code
+
+  echo "--- landing one finished ticket merges it, then archives its workspace"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 64)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  [ -f "$TMP/repo/four.txt" ] || fail "issue-64 was not merged"
+  has "paseo :: workspace :: archive :: wks_issue-64"
+
+  echo "--- and gives the claim back, which closing a ticket before this did not"
+  has "gh :: issue :: edit :: 64 :: --remove-assignee :: @me"
+
+  echo "--- it takes a ticket number, never a spec: no batch was read"
+  hasnt "sub_issues"
+
+  echo "--- a ticket still being worked is held, and nothing is done to it"
+  reset_log
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 66)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  hasnt "paseo :: workspace :: archive"
+  hasnt "gh :: issue :: edit :: 66"
+  grep -q "open with no verdict" "$TMP/err" \
+    || fail "the hold should say why: $(cat "$TMP/err")"
+
+  echo "--- a ticket handed back keeps its workspace for the next start, and gives the claim back"
+  reset_log
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 65)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  has "gh :: issue :: edit :: 65 :: --remove-assignee :: @me"
+  hasnt "paseo :: workspace :: archive"
+
+  echo "--- a closed ticket whose branch is not in HEAD is reported, not archived"
+  reset_log
+  seed_workspace 67
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 67)"
+  [ -f "$TMP/repo/seven.txt" ] || fail "issue-67 should have been merged first"
+  has "paseo :: workspace :: archive :: wks_issue-67"
+
+  echo "--- a voided ticket is never merged, and so is never archived either"
+  reset_log
+  fresh_repo
+  write_landable
+  make_branch issue-68 eight.txt "from 68"
+  seed_workspace 68
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 68)"
+  [ "$code" = 1 ] || fail "expected exit 1 for a closed branch left unmerged, got $code: $(cat "$TMP/err")"
+  [ ! -f "$TMP/repo/eight.txt" ] || fail "a ticket that did not close ALL MET must not be merged"
+  hasnt "paseo :: workspace :: archive"
+  grep -q "not in HEAD" "$TMP/err" \
+    || fail "the refusal should name what is unmerged: $(cat "$TMP/err")"
+}
+
+scenario_land_sweep() {
+  reset_log
+  fresh_repo
+  write_landable
+  make_branch issue-64 four.txt "from 64"
+  seed_workspace 64
+  seed_workspace 65
+  seed_workspace 66
+  seed_foreign_workspace
+  local code
+
+  echo "--- a sweep takes every ticket of this checkout, with no spec and no ticket number"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land --sweep)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  [ -f "$TMP/repo/four.txt" ] || fail "issue-64 was not merged by the sweep"
+  has "paseo :: workspace :: archive :: wks_issue-64"
+
+  echo "--- the one still being worked is left alone"
+  hasnt "wks_issue-66"
+
+  echo "--- and another checkout's workspace is never touched"
+  hasnt "wks_foreign_61"
+
+  echo "--- the tally names what happened, so a quiet sweep is not silence"
+  grep -q "land: merged 1, archived 1" "$TMP/err" \
+    || fail "the tally is missing: $(cat "$TMP/err")"
+
+  echo "--- a second sweep has nothing left to merge or archive"
+  reset_log
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land --sweep)"
+  [ "$code" = 0 ] || fail "expected exit 0 on the second sweep, got $code: $(cat "$TMP/err")"
+  hasnt "wks_issue-64"
+
+  echo "--- usage lists land"
+  reset_log
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" land 64 extra)"
+  [ "$code" = 2 ] || fail "expected exit 2 on a bad land, got $code"
+  grep -q "dispatch.sh land" "$TMP/err" || fail "usage should list land: $(cat "$TMP/err")"
 }
 
 scenario_advance() {
@@ -1766,10 +1899,10 @@ scenario_status() {
 
 # ------------------------------------------------------------------ entry
 
-ALL="check advance advanceconflict advancedirty start-worker start-reviewer start-verifier resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail suspend suspendbusy suspendnohb status"
+ALL="check advance advanceconflict advancedirty land landsweep start-worker start-reviewer start-verifier resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail suspend suspendbusy suspendnohb status"
 
 case "${1:-}" in
-  check|advance|advanceconflict|advancedirty|start-worker|start-reviewer|start-verifier|resume|wait|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|suspend|suspendbusy|suspendnohb|status)
+  check|advance|advanceconflict|advancedirty|land|landsweep|start-worker|start-reviewer|start-verifier|resume|wait|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|suspend|suspendbusy|suspendnohb|status)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -1784,6 +1917,8 @@ banner_for() {
     advance) echo DISPATCH-ADVANCE-OK ;;
     advanceconflict) echo DISPATCH-ADVANCE-CONFLICT-OK ;;
     advancedirty) echo DISPATCH-ADVANCE-DIRTY-OK ;;
+    land) echo DISPATCH-LAND-OK ;;
+    landsweep) echo DISPATCH-LAND-SWEEP-OK ;;
     start-worker) echo DISPATCH-START-WORKER-OK ;;
     start-reviewer) echo DISPATCH-START-REVIEWER-OK ;;
     start-verifier) echo DISPATCH-START-VERIFIER-OK ;;
@@ -1807,6 +1942,7 @@ banner_for() {
 
 fn_for() {
   case "$1" in
+    landsweep) echo scenario_land_sweep ;;
     start-worker) echo scenario_start_worker ;;
     start-reviewer) echo scenario_start_reviewer ;;
     start-verifier) echo scenario_start_verifier ;;

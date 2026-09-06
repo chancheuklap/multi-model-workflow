@@ -26,7 +26,28 @@ UNMET = """- [ ] AC2: the expiry page says the link is stale
   EXPECT: 2 passed
   EVIDENCE: pending"""
 
-VERDICT_COMMENT = f"VERDICT {VERIFIED} by opus — the importer writes six rows"
+VERDICT_COMMENT = f"VERDICT {HEAD} by opus — the importer writes six rows"
+STALE_VERDICT = f"VERDICT {VERIFIED} by opus — the importer writes six rows"
+
+
+def ledger_of(text):
+    """The criteria of a draft as a run states them: no `ABANDON:` lines.
+
+    A run is generated from the ticket body, and a body carries no `ABANDON:` line, so
+    a ledger that had one would not describe the same criteria as the body.
+    """
+    return [line for line in vt.ledger_from_comment(text)
+            if not line.startswith("ABANDON:")]
+
+
+def acceptance_body(ledger):
+    """A ticket body whose `## Acceptance criteria` are exactly these lines."""
+    return "\n".join(["## Acceptance criteria", ""] + ledger) + "\n"
+
+
+def reverify_of(ledger, summary="ALL MET (1 met)"):
+    """The verifier's own run of exactly these criteria, reporting `summary`."""
+    return "\n".join(["reverify", summary, ""] + ledger + ["", "Outside Owns: None"])
 
 
 def self_runs(block, rounds):
@@ -35,12 +56,9 @@ def self_runs(block, rounds):
     return ["\n".join(["self-run", "UNMET: 1", "", ledger])] * rounds
 
 
-def draft(first="ALL MET", criteria=(MET,), abandons=(), counts=None,
-          post_verdict="Post-verdict: None"):
+def draft(first="ALL MET", criteria=(MET,), abandons=(), counts=None):
     """Assemble a closing comment in the shape #60 section 9 step 5 fixes."""
     body = [first, "", "Branch: issue-77  Commit: 9b1d40c7  PR: none", ""]
-    if post_verdict is not None:
-        body += [post_verdict, ""]
     for i, block in enumerate(criteria):
         body.append(block)
         for line in abandons:
@@ -58,9 +76,15 @@ def counts_line(met=1, unmet=0, abandoned=0, total=1):
 
 def check(text, comments=(VERDICT_COMMENT,),
           verdict_reachable=True, head=HEAD, dirty=(), main_merged=True, diff="src/app.py",
-          state="OPEN", assignees=(ME,), check_only=True, repo=None):
+          state="OPEN", assignees=(ME,), check_only=True, repo=None, body=None,
+          reverify=True):
     """Run --closeout against a made-up ticket; return (exit code, stderr, side effects)."""
     seen = {"posted": [], "closed": [], "handed": [], "told": []}
+    ledger = ledger_of(text)
+    if body is None:
+        body = acceptance_body(ledger)
+    if reverify and not any(c.strip().startswith("reverify") for c in comments):
+        comments = tuple(comments) + (reverify_of(ledger),)
 
     def fake_git(*args, cwd=None):
         if args[:2] == ("rev-parse", "HEAD"):
@@ -83,6 +107,7 @@ def check(text, comments=(VERDICT_COMMENT,),
         path.write_text(text, encoding="utf-8")
         with mock.patch.object(vt, "fetch_comments", return_value=list(comments)), \
              mock.patch.object(vt, "fetch_ticket", return_value=ticket), \
+             mock.patch.object(vt, "fetch_body", return_value=body), \
              mock.patch.object(vt, "gh_login", return_value=ME), \
              mock.patch.object(vt, "repo_root", return_value=repo), \
              mock.patch.object(vt, "git", side_effect=fake_git), \
@@ -127,7 +152,7 @@ class TestFirstLine(unittest.TestCase):
         text = draft(criteria=(MET, UNMET),
                      abandons=("ABANDON: AC2 decision both wordings are legal; opened #58",),
                      counts=counts_line(met=1, abandoned=1, total=2))
-        newest_run = "\n".join(["self-run", "UNMET: 1 (met: 1)", "", MET, UNMET])
+        newest_run = "\n".join(["reverify", "UNMET: 1 (met: 1)", "", MET, UNMET])
         code, err, _ = check(text, comments=(VERDICT_COMMENT, newest_run))
         self.assertEqual(code, 0, err)
 
@@ -141,10 +166,10 @@ class TestFirstLine(unittest.TestCase):
         text = draft(criteria=(MET, UNMET, met3),
                      abandons=("ABANDON: AC2 decision both wordings are legal; opened #58",),
                      counts=counts_line(met=2, abandoned=1, total=3))
-        newest_run = "\n".join(["self-run", "UNMET: 2 (met: 1)", "", MET, UNMET, unmet3])
+        newest_run = "\n".join(["reverify", "UNMET: 2 (met: 1)", "", MET, UNMET, unmet3])
         code, err, _ = check(text, comments=(VERDICT_COMMENT, newest_run))
         self.assertEqual(code, 1)
-        self.assertIn("the newest run on the ticket still reports unmet", err)
+        self.assertIn("still reports unmet", err)
         self.assertNotIn("first line is `ALL MET` but", err)
 
     def test_a_well_formed_handoff_first_line_passes(self):
@@ -213,10 +238,9 @@ class TestVerdict(unittest.TestCase):
     The verifier's comment is exactly such a thing: the worker does not write it.
     """
 
-    def handoff(self, post_verdict="Post-verdict: None", **kwargs):
+    def handoff(self, **kwargs):
         text = draft(first=HANDOFF, criteria=(UNMET,), abandons=(ABANDONED,),
-                     counts=counts_line(met=0, abandoned=1, total=1),
-                     post_verdict=post_verdict)
+                     counts=counts_line(met=0, abandoned=1, total=1))
         return check(text, **kwargs)
 
     def test_all_met_with_no_verdict_is_still_refused(self):
@@ -232,89 +256,97 @@ class TestVerdict(unittest.TestCase):
         _, err, _ = check(draft(counts=counts_line()), comments=NO_VERDICT)
         self.assertIn("HANDOFF REQUIRED", err)
 
-    def test_a_verdict_commit_no_longer_in_history_falls_through_to_post_verdict(self):
-        """A lost verdict commit is HEAD having moved on, told the same way as any other."""
-        code, err, _ = check(draft(counts=counts_line(), post_verdict=None),
+    def test_a_verdict_on_head_passes(self):
+        code, err, _ = check(draft(counts=counts_line()))
+        self.assertEqual(code, 0, err)
+
+    def test_an_ancestor_verdict_is_refused(self):
+        """What was independently verified has to be what would be merged."""
+        code, err, _ = check(draft(counts=counts_line()), comments=(STALE_VERDICT,))
+        self.assertEqual(code, 1)
+        self.assertIn("HEAD has moved on", err)
+        self.assertIn("dispatch the verifier again", err)
+
+    def test_a_stale_verdict_has_no_second_way_through(self):
+        """#162 closed on a line the worker wrote about its own commits. There is now
+        no line to write: the only way past this is another verifier run."""
+        text = draft(counts=counts_line()).replace(
+            "Branch: issue-77  Commit: 9b1d40c7  PR: none",
+            "Branch: issue-77  Commit: 9b1d40c7  PR: none\n\n"
+            "Post-verdict: 9b1d40c7 (code-review found AC1)")
+        code, err, _ = check(text, comments=(STALE_VERDICT,))
+        self.assertEqual(code, 1)
+        self.assertIn("HEAD has moved on", err)
+
+    def test_a_verdict_commit_no_longer_in_history_is_refused_the_same_way(self):
+        code, err, _ = check(draft(counts=counts_line()), comments=(STALE_VERDICT,),
                              verdict_reachable=False)
         self.assertEqual(code, 1)
-        self.assertIn("add a `Post-verdict:` line", err)
-        self.assertNotIn("revert or a rebase", err)
-
-        code, err, _ = check(draft(counts=counts_line(),
-                                   post_verdict="Post-verdict: 9b1d40c7 (code-review found AC1)"),
-                             verdict_reachable=False)
-        self.assertEqual(code, 0, err)
-
-    def test_handing_over_needs_no_post_verdict_line(self):
-        code, err, _ = self.handoff(post_verdict=None)
-        self.assertEqual(code, 0, err)
-
-    def test_an_ancestor_verdict_passes_when_post_verdict_is_there(self):
-        code, err, _ = check(draft(counts=counts_line(),
-                                   post_verdict="Post-verdict: 9b1d40c7 (code-review found AC1)"))
-        self.assertEqual(code, 0, err)
-
-    def test_an_ancestor_verdict_without_post_verdict_is_refused(self):
-        code, err, _ = check(draft(counts=counts_line(), post_verdict=None))
-        self.assertEqual(code, 1)
-        self.assertIn("add a `Post-verdict:` line", err)
-
-    def test_a_verdict_on_head_needs_no_post_verdict(self):
-        code, err, _ = check(draft(counts=counts_line(), post_verdict=None), head=VERIFIED)
-        self.assertEqual(code, 0, err)
+        self.assertIn("HEAD has moved on", err)
 
     def test_the_newest_verdict_is_the_one_checked(self):
         comments = (f"VERDICT {'0' * 40} by opus — the importer writes six rows",
-                    f"VERDICT {VERIFIED} by opus — the expiry page reads right too")
-        code, err, _ = check(draft(counts=counts_line()), comments=comments, head=VERIFIED)
+                    f"VERDICT {HEAD} by opus — the expiry page reads right too")
+        code, err, _ = check(draft(counts=counts_line()), comments=comments)
         self.assertEqual(code, 0, err)
 
 
-class TestTheNewestRunAgreesWithTheDraft(unittest.TestCase):
-    """`ALL MET` is written by hand; the summary of a run is not.
+class TestOnlyTheVerifiersRunSettlesAllMet(unittest.TestCase):
+    """`ALL MET` is written by hand; the summary of a run is not — and the run that
+    counts is the one the worker did not make.
 
-    The newest `self-run` or `reverify` comment is the ticket's own last measurement of
-    its criteria, so a draft claiming everything passed while that summary still says
-    `UNMET:` is refused. Only the newest one is read: the worker fixes what the verifier
-    found, runs again, and the run after the fix is what the gate sees.
+    On 2026-09-06 #162 closed `ALL MET` after its verifier had posted `UNMET`: the
+    worker rewrote the failing criterion and re-ran it itself, and the gate read that
+    newer `self-run` instead. A `self-run` is no part of this judgement.
     """
 
     UNMET_RUN = "reverify\nUNMET: 1 (met: 0)\n\n" + UNMET
-    HANDOFF_RUN = ("self-run\nHANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 0 met of 1"
+    HANDOFF_RUN = ("reverify\nHANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 0 met of 1"
                    "\n\n" + UNMET)
-    MET_RUN = "self-run\nALL MET (1)\n\n" + MET
+    MET_SELF_RUN = "self-run\nALL MET (1)\n\n" + MET
 
-    def test_a_newest_reverify_reporting_unmet_refuses_all_met(self):
+    def test_a_reverify_reporting_unmet_refuses_all_met(self):
         code, err, _ = check(draft(counts=counts_line()),
                              comments=(VERDICT_COMMENT, self.UNMET_RUN))
         self.assertEqual(code, 1)
-        self.assertIn("the newest run on the ticket still reports unmet", err)
+        self.assertIn("still reports unmet", err)
 
-    def test_a_newest_run_summarising_as_handoff_refuses_all_met(self):
+    def test_a_reverify_summarising_as_handoff_refuses_all_met(self):
         code, err, _ = check(draft(counts=counts_line()),
                              comments=(VERDICT_COMMENT, self.HANDOFF_RUN))
         self.assertEqual(code, 1)
-        self.assertIn("the newest run on the ticket still reports unmet", err)
+        self.assertIn("still reports unmet", err)
 
-    def test_a_later_self_run_reporting_all_met_lets_the_draft_through(self):
+    def test_a_later_self_run_cannot_override_the_verifier(self):
+        """This is #162. The worker's own later run is newer and says everything passed;
+        the ticket still does not close."""
         code, err, _ = check(draft(counts=counts_line()),
-                             comments=(VERDICT_COMMENT, self.UNMET_RUN, self.MET_RUN))
-        self.assertEqual(code, 0, err)
+                             comments=(VERDICT_COMMENT, self.UNMET_RUN, self.MET_SELF_RUN))
+        self.assertEqual(code, 1)
+        self.assertIn("a `self-run` of your own does not settle", err)
 
-    def test_a_ticket_with_no_run_comment_is_not_held_to_this(self):
-        code, err, _ = check(draft(counts=counts_line()), comments=(VERDICT_COMMENT,))
-        self.assertEqual(code, 0, err)
+    def test_a_ticket_with_no_reverify_cannot_close_as_all_met(self):
+        code, err, _ = check(draft(counts=counts_line()), comments=(VERDICT_COMMENT,),
+                             reverify=False)
+        self.assertEqual(code, 1)
+        self.assertIn("carries no `reverify` comment", err)
 
     def test_the_refusal_names_both_ways_out(self):
         _, err, _ = check(draft(counts=counts_line()),
                           comments=(VERDICT_COMMENT, self.UNMET_RUN))
-        self.assertIn("`ALL MET (...)`", err)
+        self.assertIn("Dispatch the verifier again", err)
         self.assertIn("HANDOFF REQUIRED", err)
 
-    def test_handing_over_is_not_held_to_the_newest_run(self):
+    def test_handing_over_is_not_held_to_the_verifiers_run(self):
         text = draft(first=HANDOFF, criteria=(UNMET,), abandons=(ABANDONED,),
                      counts=counts_line(met=0, abandoned=1, total=1))
         code, err, _ = check(text, comments=(VERDICT_COMMENT, self.UNMET_RUN))
+        self.assertEqual(code, 0, err)
+
+    def test_handing_over_needs_no_reverify_at_all(self):
+        text = draft(first=HANDOFF, criteria=(UNMET,), abandons=(ABANDONED,),
+                     counts=counts_line(met=0, abandoned=1, total=1))
+        code, err, _ = check(text, comments=NO_VERDICT, reverify=False)
         self.assertEqual(code, 0, err)
 
 
@@ -393,7 +425,7 @@ class TestEveryRefusalHasAWayOut(unittest.TestCase):
             with self.subTest(ticket=label):
                 code, err, _ = check(
                     draft(first=HANDOFF, criteria=(UNMET,), abandons=(ABANDONED,),
-                          counts=counts_line(met=0, abandoned=1, total=1), post_verdict=None),
+                          counts=counts_line(met=0, abandoned=1, total=1)),
                     **kwargs)
                 self.assertEqual(code, 0, err)
 
@@ -453,7 +485,7 @@ class TestTheFirstLineCarriesTheWholeRefusal(unittest.TestCase):
     per run, and nothing caps that loop."""
 
     def three_problems(self):
-        return draft(criteria=(MET,), counts=counts_line(met=9, total=9), post_verdict=None)
+        return draft(criteria=(MET, UNMET), counts=counts_line(met=9, total=9))
 
     def test_the_first_line_counts_the_problems(self):
         code, err, _ = check(self.three_problems())
@@ -493,16 +525,76 @@ class TestTheVerdictCommitIsWrittenInFull(unittest.TestCase):
         self.assertIn("carries no `VERDICT", err)
 
     def test_the_full_forty_characters_is_read_as_a_verdict(self):
-        self.assertEqual(vt.last_verdict([VERDICT_COMMENT]), VERIFIED)
+        self.assertEqual(vt.last_verdict([STALE_VERDICT]), VERIFIED)
 
     def test_words_between_the_commit_and_by_do_not_hide_the_verdict(self):
         """Only the commit is read off the line, so anything else on it is free text."""
         code, err, _ = check(
             draft(counts=counts_line()),
-            comments=(f"VERDICT {VERIFIED} unit-test-verified by opus",))
+            comments=(f"VERDICT {HEAD} unit-test-verified by opus",))
         self.assertEqual(code, 0, err)
         self.assertEqual(
             vt.last_verdict([f"VERDICT {VERIFIED} unit-test-verified by opus"]), VERIFIED)
+
+
+class TestTheCriteriaTheVerifierRanAreTheCriteriaTheTicketStates(unittest.TestCase):
+    """#162, exactly: the verifier ran AC1 and reported it unmet, so the worker
+    rewrote AC1's `CHECK:` into a command that passed and closed on the same commit.
+    Nothing compared the criteria the verifier had run with the ones the ticket then
+    stated, so a ticket could be closed by changing the question."""
+
+    REWRITTEN = MET.replace("CHECK: pytest -q tests/test_import.py",
+                            "CHECK: pytest -q tests/test_import.py --deselect the-slow-one")
+
+    def test_a_rewritten_check_after_the_verifier_ran_is_refused(self):
+        code, err, _ = check(
+            draft(criteria=(self.REWRITTEN,), counts=counts_line()),
+            comments=(VERDICT_COMMENT, reverify_of([MET])))
+        self.assertEqual(code, 1)
+        self.assertIn("acceptance criteria have changed since the verifier ran", err)
+
+    def test_a_criterion_added_after_the_verifier_ran_is_refused(self):
+        code, err, _ = check(
+            draft(criteria=(MET, UNMET), counts=counts_line(met=1, unmet=1, total=2)),
+            comments=(VERDICT_COMMENT, reverify_of([MET])))
+        self.assertEqual(code, 1)
+        self.assertIn("acceptance criteria have changed since the verifier ran", err)
+
+    def test_the_same_criteria_pass(self):
+        code, err, _ = check(draft(counts=counts_line()),
+                             comments=(VERDICT_COMMENT, reverify_of([MET])))
+        self.assertEqual(code, 0, err)
+
+    def test_a_tick_or_a_piece_of_evidence_is_not_a_change(self):
+        """Every run writes its own ticks and evidence; only the criterion and its
+        command are the thing being compared."""
+        ran = MET.replace("- [x]", "- [ ]").replace(
+            "EVIDENCE: exit=0; EXPECT=matched; output-bytes=9", "EVIDENCE: pending")
+        code, err, _ = check(draft(counts=counts_line()),
+                             comments=(VERDICT_COMMENT, reverify_of([ran])))
+        self.assertEqual(code, 0, err)
+
+    def test_handing_over_is_not_held_to_this(self):
+        text = draft(first=HANDOFF, criteria=(UNMET,), abandons=(ABANDONED,),
+                     counts=counts_line(met=0, abandoned=1, total=1))
+        code, err, _ = check(text, comments=(VERDICT_COMMENT, reverify_of([MET])))
+        self.assertEqual(code, 0, err)
+
+
+class TestClosingReleasesTheTicket(unittest.TestCase):
+    """A claim outlives the session that made it, and `advance`'s give-a-claim-back
+    reads open tickets alone — so a claim left on a closed ticket is one nothing else
+    ever takes off. Both ways out of a ticket drop it."""
+
+    def test_closing_drops_the_assignee_with_the_label(self):
+        with mock.patch.object(vt.subprocess, "run") as run:
+            vt.close_ticket(77)
+        edit = run.call_args_list[0].args[0]
+        self.assertEqual(edit[:4], ["gh", "issue", "edit", "77"])
+        self.assertEqual(edit[edit.index("--remove-assignee") + 1], "@me")
+        self.assertEqual(edit[edit.index("--remove-label") + 1], "ready-for-agent")
+        closed = run.call_args_list[1].args[0]
+        self.assertEqual(closed[:4], ["gh", "issue", "close", "77"])
 
 
 class TestHandingBackReleasesTheTicket(unittest.TestCase):
