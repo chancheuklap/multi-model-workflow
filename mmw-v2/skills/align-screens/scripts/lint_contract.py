@@ -449,8 +449,7 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
             if page:
                 pages_for.setdefault(page, set()).add(sc)
         for page, scs in pages_for.items():
-            hits = sd.count_trigger_hits(
-                sd.scene_lines(tree_of(page), scs), wanted)
+            hits = sd.count_trigger_hits(tree_of(page), wanted, scs)
             if hits > 1:
                 errors.append(
                     f"{rid}: trigger {wanted.role} {wanted.name!r} on {page} "

@@ -900,8 +900,26 @@ def trigger_hit_indices(lines: list[str], trigger: VolatileTrigger) -> list[int]
     return hits
 
 
-def count_trigger_hits(lines: list[str], trigger: VolatileTrigger) -> int:
-    """Most exact `(role, name)` hits in any one scene, after `after` is applied."""
+def count_trigger_hits(lines: list[str], trigger: VolatileTrigger,
+                      scenes: set[str] | None = None) -> int:
+    """Most exact `(role, name)` hits in any one scene, after `after` is applied.
+
+    `scenes` narrows it to the named scenes of a target tree that carries `## scene`
+    markers; a tree with none is one scene and is counted whole whatever is asked for.
+    The narrowing lives here rather than in a filter the caller applies first, because
+    this function already walks scene by scene to take the maximum.
+    """
+    if scenes is not None and any(
+            raw.rstrip("\n").startswith(SCENE_HEADER) for raw in lines):
+        kept: list[str] = []
+        keep = False
+        for raw in lines:
+            line = raw.rstrip("\n")
+            if line.startswith(SCENE_HEADER):
+                keep = line[len(SCENE_HEADER):].strip() in scenes
+            if keep:
+                kept.append(raw)
+        lines = kept
     best = 0
     current = 0
     for item in named_nodes(lines):
@@ -915,22 +933,6 @@ def count_trigger_hits(lines: list[str], trigger: VolatileTrigger) -> int:
         if matches_volatile(role, name, [trigger], previous):
             current += 1
     return max(best, current)
-
-
-def scene_lines(lines: list[str], scenes: set[str]) -> list[str]:
-    """The named-node lines of `scenes` only. A file with no `## scene` marker
-    is one scene and is returned whole."""
-    if not any(raw.rstrip("\n").startswith(SCENE_HEADER) for raw in lines):
-        return list(lines)
-    out: list[str] = []
-    keep = False
-    for raw in lines:
-        line = raw.rstrip("\n")
-        if line.startswith(SCENE_HEADER):
-            keep = line[len(SCENE_HEADER):].strip() in scenes
-        if keep:
-            out.append(raw)
-    return out
 
 
 def matches_volatile(role: str, name: str, triggers: list[VolatileTrigger],
