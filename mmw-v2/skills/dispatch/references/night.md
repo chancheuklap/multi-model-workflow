@@ -52,7 +52,7 @@ The notification's first sentence is `Agent <id> (<title>) finished.` or `errore
 
 1. If it is `needs permission`: `list_pending_permissions` then `respond_to_permission` (CLI: `paseo permit`). Then go to 2. This is not a stop.
 2. Run `<dispatch> status <spec>`. The table's `note` column is `needs permission`, `ready`, `waiting on #<m>`, `closed: archive it` (Paseo still lists the agent but it is not running), the newest comment, or empty while a worker is live.
-3. Decide, using the table and the notification:
+3. Decide, using the table and the notification. A heartbeat fire is the same step with no notification: run `status`, take the matching row.
 
 | What you see | What you do |
 | --- | --- |
