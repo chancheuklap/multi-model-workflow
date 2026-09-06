@@ -65,6 +65,8 @@ Three things at once: how the criteria are written, which worker the ticket asks
 
 The worker reads the same way. `dispatch.sh` starts a ticket on the `models.md` row its `junior-worker` or `senior-worker` label names, so a ticket in the agent queue wearing no such label is an `ERROR  … [worker-label]`, and so is one wearing both. Its `## Worker` section is the human-readable copy, and a section that is missing or names the other one is a `WARN  … [worker-mismatch]`.
 
+When this ticket runs `visual-parity.py`, the batch's scene partition is checked too: every contract scene is covered once, every mount is owned. A closed sibling still covers the mounts whose `EXPECT:` `PARITY OK <n>/<n>` matches the contract's scenes on those mounts times the viewport count; a mismatch is an `ERROR` that names the ticket, the mount, the count then and the count now. Closed tickets do not take part in the overlap check — that check is for two workers on the same frontier.
+
 The batch converges when `ERROR` is at zero and every `WARN` has been looked at and either fixed or kept on purpose.
 
 ## Reached from here

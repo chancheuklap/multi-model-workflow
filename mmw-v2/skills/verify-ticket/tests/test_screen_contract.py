@@ -17,9 +17,9 @@ PARITY = ("visual-parity.py --contract "
           "docs/specs/x/screen-contract.yaml --mount create-project")
 
 
-def gate(gate_id, check):
+def gate(gate_id, check, expect="/^OK$/m"):
     return (f"- [ ] {gate_id}: something a stranger could judge\n"
-            f"  CHECK: {check}\n  EXPECT: /^OK$/m\n  EVIDENCE: pending")
+            f"  CHECK: {check}\n  EXPECT: {expect}\n  EVIDENCE: pending")
 
 
 def ticket(read_first, *criteria, parent="", blocked_by=""):
@@ -253,11 +253,11 @@ class TestScenePartition(unittest.TestCase):
         self.doc = vt.load_yaml_file(f.name)
         os.unlink(f.name)
 
-    def body(self, mounts, scenes=None):
+    def body(self, mounts, scenes=None, expect="/^OK$/m"):
         check = PARITY.replace("--mount create-project", f"--mount {mounts}")
         if scenes:
             check += f" --scenes {scenes}"
-        return ticket(ROWS, gate("AC1", check))
+        return ticket(ROWS, gate("AC1", check, expect=expect))
 
     def test_a_clean_partition_has_no_findings(self):
         bodies = {1: self.body("create-project"), 2: self.body("shell-header")}
@@ -276,6 +276,17 @@ class TestScenePartition(unittest.TestCase):
         self.assertTrue(any("empty is covered by more than one ticket" in f for f in findings))
         self.assertTrue(any("mount shell-header is owned by no ticket" in f for f in findings))
 
+    def test_closed_coverage_compares_expect_to_scenes_times_viewports(self):
+        doc = dict(self.doc)
+        doc["viewports"] = ["1440x900", "375x812"]
+        bodies = {1: self.body("shell-header")}
+        closed = {2: self.body("create-project", expect="PARITY OK 4/4")}
+        self.assertEqual(vt.lint_scene_partition(bodies, doc, closed), [])
+        findings = vt.lint_scene_partition(
+            bodies, doc, {2: self.body("create-project", expect="PARITY OK 2/2")})
+        self.assertTrue(any("closed ticket #2" in f and "2" in f and "4" in f
+                            for f in findings), findings)
+
 
 class TestBatchScenes(unittest.TestCase):
     """Which batch the partition is read over: the tracker's parent link, always.
@@ -287,7 +298,8 @@ class TestBatchScenes(unittest.TestCase):
 
     TWO_SPECS = "[Spec（#536）](u)，Implementation Decisions 第 13 节\n[Spec（#537）](u)，第 2 节"
 
-    def batch(self, mounts, parent=537, sub_issues=(1, 2), other=None, unreadable=False):
+    def batch(self, mounts, parent=537, sub_issues=(1, 2), other=None, unreadable=False,
+              other_state="OPEN", other_expect="/^OK$/m"):
         """`lint_batch_scenes` for ticket #1 over a batch the tracker hands back."""
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "screen-contract.yaml")
@@ -299,7 +311,8 @@ class TestBatchScenes(unittest.TestCase):
                                                           f"--mount {mounts}")),
                           parent=self.TWO_SPECS)
             theirs = ticket(rows, gate("AC1", check.replace("--mount create-project",
-                                                            f"--mount {other or mounts}")),
+                                                            f"--mount {other or mounts}"),
+                                       expect=other_expect),
                             parent=self.TWO_SPECS)
             parent_patch = (
                 mock.patch.object(vt, "fetch_parent",
@@ -310,7 +323,7 @@ class TestBatchScenes(unittest.TestCase):
                  mock.patch.object(vt, "fetch_sub_issues",
                                    return_value=list(sub_issues)) as fetch, \
                  mock.patch.object(vt, "fetch_outsider",
-                                   return_value={"spec": parent, "state": "OPEN"}), \
+                                   return_value={"spec": parent, "state": other_state}), \
                  mock.patch.object(vt, "fetch_body", return_value=theirs):
                 return vt.lint_batch_scenes(1, mine), fetch
 
@@ -330,6 +343,23 @@ class TestBatchScenes(unittest.TestCase):
         self.assertIn("could not say which spec #1 sits under", findings[0])
         self.assertIn("gh: connection refused", findings[0])
         fetch.assert_not_called()
+
+    def test_a_closed_ticket_whose_expect_matches_the_contract_still_covers_its_mount(self):
+        findings, _ = self.batch("shell-header", other="create-project",
+                                 other_state="CLOSED", other_expect="PARITY OK 2/2")
+        self.assertEqual(findings, [])
+
+    def test_a_closed_ticket_whose_expect_no_longer_matches_the_contract_is_an_error(self):
+        findings, _ = self.batch("shell-header", other="create-project",
+                                 other_state="CLOSED", other_expect="PARITY OK 1/1")
+        self.assertTrue(any("closed ticket #2" in f and "create-project" in f
+                            and "1" in f and "2" in f for f in findings), findings)
+
+    def test_a_closed_ticket_does_not_collide_with_an_open_ticket_on_the_same_mount(self):
+        findings, _ = self.batch("create-project", other="create-project",
+                                 other_state="CLOSED", other_expect="PARITY OK 2/2")
+        self.assertFalse(any("more than one ticket" in f for f in findings), findings)
+        self.assertTrue(any("shell-header" in f for f in findings), findings)
 
 
 REVIEW = ("REVIEW abc..def\n\n## Standards\n\nnone\n\n## Spec\n\n### Missing\n\n"
