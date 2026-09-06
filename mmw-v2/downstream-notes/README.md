@@ -11,7 +11,7 @@
 
 每份说明固定这三个标题字面，按这个顺序：
 
-- `## 改了什么`：改了什么。
+- `## 改了什么`。
 - `## 哪些产物失效`：consuming repository 里哪些产物因此失效：screen contract、ticket 的 `CHECK:`、`.mmw/target.json`、target trees，按类点名。
 - `## 怎么迁`：能一条命令说清的就给命令，说不清的给判断依据。
 
@@ -23,4 +23,4 @@
 
 ## 目前有说明的改动
 
-尚无。下一份从本仓库下一次会让 consuming repository 产物失效的改动起写。
+尚无。
