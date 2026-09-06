@@ -4,7 +4,7 @@
 #
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh check|advance|advanceconflict|advancedirty
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh start-worker|start-reviewer|start-verifier
-#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh resume|reverify|summary
+#   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh resume|wait|reverify|summary
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh instancegate|countfail|suspend|suspendbusy|suspendnohb|status
 #   bash mmw-v2/skills/dispatch/tests/test_dispatch.sh all
@@ -16,6 +16,7 @@
 # string; everything before it says what was checked.
 
 set -uo pipefail
+unset PASEO_AGENT_ID
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 SKILL="$(dirname "$HERE")"
@@ -165,6 +166,28 @@ if args[:1] == ["ls"]:
     print(json.dumps(out))
     sys.exit(0)
 
+if args[:1] == ["wait"]:
+    ident = args[1] if len(args) > 1 else ""
+    if scenario == "wait-timeout":
+        sys.exit(1)
+    ticket = ""
+    rows = load("agents.json")
+    for row in rows:
+        if row.get("id") == ident:
+            row["status"] = "idle"
+            ticket = str((row.get("labels") or {}).get("mmw.ticket") or "")
+    save("agents.json", rows)
+    comment = os.environ.get("MMW_FAKE_WAIT_COMMENT", "")
+    tickets_path = os.environ.get("FAKE_GH_TICKETS_FILE", "")
+    if comment and tickets_path and Path(tickets_path).is_file() and ticket:
+        tickets = json.loads(Path(tickets_path).read_text(encoding="utf-8"))
+        for t in tickets:
+            if str(t.get("number")) == ticket:
+                t.setdefault("comments", []).append(comment)
+                break
+        Path(tickets_path).write_text(json.dumps(tickets), encoding="utf-8")
+    sys.exit(0)
+
 if args[:1] == ["send"]:
     print(json.dumps({"ok": True}))
     sys.exit(0)
@@ -188,6 +211,10 @@ if args[:1] == ["archive"]:
     rows = [a for a in load("agents.json") if a.get("id") != ident]
     save("agents.json", rows)
     print(json.dumps({"id": ident, "archived": True}))
+    sys.exit(0)
+
+if args[:2] == ["heartbeat", "create"]:
+    print(json.dumps({"id": "hb_test"}))
     sys.exit(0)
 
 if args[:2] == ["heartbeat", "delete"]:
@@ -274,6 +301,20 @@ print(json.dumps({
     "title": found.get("title", "a ticket"),
     "createdAt": found.get("createdAt", "2026-08-30T00:00:00Z"),
     "closedAt": found.get("closedAt", ""),
+}))
+' ;;
+  *"--json comments"*)
+    MMW_WANT="$3" python3 -c '
+import json, os
+path = os.environ.get("FAKE_GH_TICKETS_FILE")
+rows = json.load(open(path)) if path else []
+try:
+    want = int(os.environ["MMW_WANT"])
+except Exception:
+    want = None
+found = next((t for t in rows if t.get("number") == want), {})
+print(json.dumps({
+    "comments": [{"body": b} for b in found.get("comments", [])],
 }))
 ' ;;
   *"--json assignees"*)
@@ -588,6 +629,9 @@ JSON
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   has "paseo :: provider :: ls :: --json"
+  hasnt "paseo :: heartbeat :: create"
+  grep -q "no PASEO_AGENT_ID" "$TMP/err" \
+    || fail "stderr should say no heartbeat was created: $(cat "$TMP/err")"
 
   echo "--- a provider that is not available, and a ticket with two grades, each printed"
   cat > "$TMP/tickets.json" <<'JSON'
@@ -618,6 +662,43 @@ JSON
   [ "$code" = 2 ] || fail "expected exit 2 when install.sh --check fails, got $code: $(cat "$TMP/err")"
   grep -q 'install.sh --check' "$TMP/err" \
     || fail "the reason should name install.sh --check: $(cat "$TMP/err")"
+  hasnt "paseo :: heartbeat :: create"
+
+  echo "--- with PASEO_AGENT_ID, check creates the heartbeat and writes the id"
+  copy="$(skill_copy_for check)"
+  fresh_repo
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent", "junior-worker"]}
+]
+JSON
+  reset_log
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" PASEO_AGENT_ID=agt_main \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
+  [ "$code" = 0 ] || fail "expected exit 0 with PASEO_AGENT_ID, got $code: $(cat "$TMP/err")"
+  has "paseo :: heartbeat :: create :: --cron :: */10 * * * * :: --name :: mmw-night-76 :: --json"
+  grep -q "status 76 (from " "$MMW_TEST_LOG" \
+    || fail "the heartbeat prompt should name status and the git root: $(cat "$MMW_TEST_LOG")"
+  grep -q "night.md step 3" "$MMW_TEST_LOG" \
+    || fail "the heartbeat prompt should name night.md step 3: $(cat "$MMW_TEST_LOG")"
+  grep -q "$copy/scripts/dispatch.sh" "$MMW_TEST_LOG" \
+    || fail "the heartbeat prompt should name dispatch.sh: $(cat "$MMW_TEST_LOG")"
+  local hb
+  hb="$(git -C "$TMP/repo" rev-parse --absolute-git-dir)/mmw-heartbeat-76"
+  [ -f "$hb" ] || fail "the heartbeat id file was not written"
+  [ "$(tr -d '[:space:]' < "$hb")" = hb_test ] \
+    || fail "the heartbeat id file should be hb_test: $(cat "$hb")"
+
+  echo "--- a second check does not create another heartbeat"
+  reset_log
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" PASEO_AGENT_ID=agt_main \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
+  [ "$code" = 0 ] || fail "expected exit 0 on the second check, got $code: $(cat "$TMP/err")"
+  hasnt "paseo :: heartbeat :: create"
+  grep -q "already exists" "$TMP/err" \
+    || fail "the second check should say the heartbeat already exists: $(cat "$TMP/err")"
+  [ "$(tr -d '[:space:]' < "$hb")" = hb_test ] \
+    || fail "the heartbeat id file should be unchanged: $(cat "$hb")"
 }
 
 scenario_advance() {
@@ -977,6 +1058,106 @@ path.write_text(json.dumps([{
   hasnt "paseo :: send"
 }
 
+scenario_wait() {
+  local code
+
+  echo "--- usage lists wait"
+  reset_log
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}")"
+  [ "$code" = 2 ] || fail "expected exit 2 for usage, got $code: $(cat "$TMP/err")"
+  grep -qF 'wait <n> worker|reviewer|verifier' "$TMP/err" \
+    || fail "usage should list wait: $(cat "$TMP/err")"
+
+  echo "--- a result already on the ticket is printed and wait is not called"
+  reset_log
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"],
+   "comments": ["REVIEW abcdef0123456789abcdef0123456789abcdef01..fedcba9876543210fedcba9876543210fedcba98\n## Standards"]}
+]
+JSON
+  seed_agent 61 reviewer
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" wait 61 reviewer)"
+  [ "$code" = 0 ] || fail "expected exit 0 when the result is already there, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/out")" = "REVIEW abcdef0123456789abcdef0123456789abcdef01..fedcba9876543210fedcba9876543210fedcba98" ] \
+    || fail "stdout should be the REVIEW first line: $(cat "$TMP/out")"
+  hasnt "paseo :: wait"
+  hasnt "gh :: issue :: comment"
+  hasnt "paseo :: archive"
+  hasnt "paseo :: send"
+
+  echo "--- wait then the result comment, printed, exit 0"
+  reset_log
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "comments": []}
+]
+JSON
+  seed_agent 61 worker
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          MMW_FAKE_WAIT_COMMENT="ALL MET" \
+          bash "$DISPATCH" "${TOOLS[@]}" wait 61 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0 after wait, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/out")" = "ALL MET" ] \
+    || fail "stdout should be ALL MET: $(cat "$TMP/out")"
+  has "paseo :: wait :: agt_61_worker :: --timeout :: 300"
+  has "gh :: issue :: view :: 61 :: --json :: comments"
+  hasnt "gh :: issue :: comment"
+  hasnt "paseo :: archive"
+
+  echo "--- the agent stopped with no result: exit 1, stderr names logs and the fallback"
+  reset_log
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "comments": []}
+]
+JSON
+  seed_agent 61 verifier
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" wait 61 verifier)"
+  [ "$code" = 1 ] || fail "expected exit 1 with no result, got $code: $(cat "$TMP/err")"
+  has "paseo :: wait :: agt_61_verifier :: --timeout :: 300"
+  grep -q "paseo logs agt_61_verifier" "$TMP/err" \
+    || fail "stderr should name paseo logs: $(cat "$TMP/err")"
+  grep -q "VERDICT" "$TMP/err" \
+    || fail "stderr should name the missing VERDICT: $(cat "$TMP/err")"
+  [ "$(wc -l < "$TMP/err" | tr -d ' ')" = 1 ] \
+    || fail "stderr should be one line: $(cat "$TMP/err")"
+  [ ! -s "$TMP/out" ] || fail "stdout should be empty on exit 1: $(cat "$TMP/out")"
+
+  echo "--- timeout while still running: exit 3"
+  reset_log
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "comments": []}
+]
+JSON
+  seed_agent 61 worker
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          MMW_FAKE_PASEO_SCENARIO=wait-timeout \
+          bash "$DISPATCH" "${TOOLS[@]}" wait 61 worker)"
+  [ "$code" = 3 ] || fail "expected exit 3 on timeout, got $code: $(cat "$TMP/err")"
+  has "paseo :: wait :: agt_61_worker :: --timeout :: 300"
+  [ "$(cat "$TMP/err")" = "still working: run wait again" ] \
+    || fail "stderr should say run wait again: $(cat "$TMP/err")"
+  [ ! -s "$TMP/out" ] || fail "stdout should be empty on timeout: $(cat "$TMP/out")"
+
+  echo "--- no matching agent is a refusal, exit 2, wait is not called"
+  reset_log
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "comments": []}
+]
+JSON
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" wait 61 reviewer)"
+  [ "$code" = 2 ] || fail "expected exit 2 with no agent, got $code: $(cat "$TMP/err")"
+  hasnt "paseo :: wait"
+  grep -q "no reviewer agent" "$TMP/err" \
+    || fail "stderr should say there is no such agent: $(cat "$TMP/err")"
+}
+
 scenario_reverify() {
   local copy code
   copy="$(skill_copy_for reverify)"
@@ -1071,6 +1252,16 @@ JSON
     || fail "the posted comment should open NIGHT SUMMARY: $(cat "$MMW_GH_LAST_BODY")"
   grep -q "Reverify: 1/0" "$MMW_GH_LAST_BODY" \
     || fail "missing Reverify line matching that reverify: $(cat "$MMW_GH_LAST_BODY")"
+
+  echo "--- after posting, the heartbeat named in the id file is deleted"
+  write_heartbeat
+  reset_log
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76)"
+  [ "$code" = 0 ] || fail "expected exit 0 after deleting the heartbeat, got $code: $(cat "$TMP/err")"
+  has "paseo :: heartbeat :: delete :: hb_76"
+  [ ! -f "$(git -C "$TMP/repo" rev-parse --absolute-git-dir)/mmw-heartbeat-76" ] \
+    || fail "the heartbeat id file is still there"
 }
 
 # ------------------------------------------------------------------ orphaned claims
@@ -1551,10 +1742,10 @@ scenario_status() {
 
 # ------------------------------------------------------------------ entry
 
-ALL="check advance advanceconflict advancedirty start-worker start-reviewer start-verifier resume reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail suspend suspendbusy suspendnohb status"
+ALL="check advance advanceconflict advancedirty start-worker start-reviewer start-verifier resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail suspend suspendbusy suspendnohb status"
 
 case "${1:-}" in
-  check|advance|advanceconflict|advancedirty|start-worker|start-reviewer|start-verifier|resume|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|suspend|suspendbusy|suspendnohb|status)
+  check|advance|advanceconflict|advancedirty|start-worker|start-reviewer|start-verifier|resume|wait|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|suspend|suspendbusy|suspendnohb|status)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -1573,6 +1764,7 @@ banner_for() {
     start-reviewer) echo DISPATCH-START-REVIEWER-OK ;;
     start-verifier) echo DISPATCH-START-VERIFIER-OK ;;
     resume) echo DISPATCH-RESUME-OK ;;
+    wait) echo DISPATCH-WAIT-OK ;;
     reverify) echo DISPATCH-REVERIFY-OK ;;
     summary) echo DISPATCH-SUMMARY-OK ;;
     release) echo DISPATCH-RELEASE-OK ;;

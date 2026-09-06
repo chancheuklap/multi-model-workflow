@@ -5,6 +5,7 @@
 #   dispatch.sh check <spec>
 #   dispatch.sh advance <spec>
 #   dispatch.sh start <n> worker|reviewer|verifier
+#   dispatch.sh wait <n> worker|reviewer|verifier
 #   dispatch.sh resume <n> "<text>"
 #   dispatch.sh status <spec>
 #   dispatch.sh reverify <spec>
@@ -70,6 +71,7 @@ usage() {
 usage: dispatch.sh check <spec>
        dispatch.sh advance <spec>
        dispatch.sh start <n> worker|reviewer|verifier
+       dispatch.sh wait <n> worker|reviewer|verifier
        dispatch.sh resume <n> "<text>"
        dispatch.sh status <spec>
        dispatch.sh reverify <spec>
@@ -302,11 +304,11 @@ for row in rows:
 '
 }
 
-# ticket<TAB>id for every live worker. Extra `--label` arguments go first
-# (ticket, spec); `mmw.kind=worker` is always last. Ticket is the issue-N
-# cwd basename, empty when the cwd is not one.
+# ticket<TAB>id<TAB>status for every live agent matching the `--label` filters.
+# Callers pass `mmw.kind=<kind>` themselves; ticket and spec go first. Ticket is
+# the issue-N cwd basename, empty when the cwd is not one.
 agents_by_label() {
-  { paseo ls -g --json "$@" --label mmw.kind=worker 2>/dev/null || true; } | python3 -c '
+  { paseo ls -g --json "$@" 2>/dev/null || true; } | python3 -c '
 import json, re, sys
 from pathlib import Path
 
@@ -322,7 +324,7 @@ for row in rows:
         continue
     found = issue.match(Path(row.get("cwd") or "").name)
     ticket = found.group(1) if found else ""
-    print(ticket + "\t" + row["id"])
+    print(ticket + "\t" + row["id"] + "\t" + str(row.get("status") or ""))
 '
 }
 
@@ -612,10 +614,102 @@ start_one() {
 resume_one() {
   local number="$1" text="$2" ident
   [ -n "$text" ] || refuse "resume needs the text to send"
-  ident="$(agents_by_label --label "mmw.ticket=$number" | head -n 1 | cut -f2)"
+  ident="$(agents_by_label --label "mmw.ticket=$number" --label mmw.kind=worker | head -n 1 | cut -f2)"
   [ -n "$ident" ] || refuse "no worker agent labelled mmw.ticket=$number"
   paseo send --no-wait "$ident" "$text" >/dev/null \
     || refuse "could not send to $ident"
+}
+
+# ------------------------------------------------------------------ wait
+
+# The first line of the newest comment whose first line is this kind's result:
+# worker `ALL MET` / `HANDOFF REQUIRED`, reviewer `REVIEW `, verifier `VERDICT`.
+result_first_line() {
+  local number="$1" kind="$2"
+  gh_ issue view "$number" --json comments 2>/dev/null | MMW_KIND="$kind" python3 -c '
+import json, os, sys
+
+kind = os.environ["MMW_KIND"]
+prefixes = {
+    "worker": ("ALL MET", "HANDOFF REQUIRED"),
+    "reviewer": ("REVIEW ",),
+    "verifier": ("VERDICT",),
+}.get(kind) or ()
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+found = ""
+for row in data.get("comments") or []:
+    if isinstance(row, dict):
+        body = row.get("body") or ""
+    else:
+        body = str(row or "")
+    stripped = body.strip()
+    head = stripped.splitlines()[0].strip() if stripped else ""
+    if any(head.startswith(p) for p in prefixes):
+        found = head
+if found:
+    print(found)
+'
+}
+
+wait_no_result() {
+  local number="$1" kind="$2" ident="$3" base
+  case "$kind" in
+    reviewer)
+      base="$(git config --get "branch.issue-$number.mmw-base" 2>/dev/null || true)"
+      [ -n "$base" ] || base="\$(git config branch.issue-$number.mmw-base)"
+      echo "dispatch: reviewer $ident on #$number stopped with no REVIEW comment: paseo logs $ident, then run the code-review skill in this host's general-purpose subagent with ticket $number and base commit $base; its report lands with the same REVIEW first line. Do not start a second reviewer" >&2
+      ;;
+    verifier)
+      echo "dispatch: verifier $ident on #$number stopped with no VERDICT comment: paseo logs $ident, then the verifier row of dispatch/SKILL.md" >&2
+      ;;
+    *)
+      echo "dispatch: worker $ident on #$number stopped with no ALL MET or HANDOFF REQUIRED comment: paseo logs $ident, then the worker row of dispatch/SKILL.md" >&2
+      ;;
+  esac
+  exit 1
+}
+
+# Block until the agent labelled mmw.ticket=<n> mmw.kind=<kind> is idle, then print
+# the first line of its result comment. A result already on the ticket is printed
+# without waiting. Writes nothing: no ticket comment, no agent command other than
+# `paseo wait`. MMW_WAIT_S (default 300) is the bound of each call; a host that
+# cancels a long command is survived by running wait again.
+wait_one() {
+  local number="$1" kind="$2"
+  case "$kind" in
+    worker|reviewer|verifier) ;;
+    *) refuse "the second argument is worker, reviewer or verifier, got $kind" ;;
+  esac
+
+  local head ident status
+  head="$(result_first_line "$number" "$kind")"
+  if [ -n "$head" ]; then
+    printf '%s\n' "$head"
+    return 0
+  fi
+
+  ident="$(agents_by_label --label "mmw.ticket=$number" --label "mmw.kind=$kind" | head -n 1 | cut -f2)"
+  [ -n "$ident" ] || refuse "no $kind agent labelled mmw.ticket=$number"
+
+  paseo wait "$ident" --timeout "${MMW_WAIT_S:-300}" >/dev/null 2>&1 || true
+
+  head="$(result_first_line "$number" "$kind")"
+  if [ -n "$head" ]; then
+    printf '%s\n' "$head"
+    return 0
+  fi
+
+  status="$(agents_by_label --label "mmw.ticket=$number" --label "mmw.kind=$kind" | head -n 1 | cut -f3 | tr '[:upper:]' '[:lower:]')"
+  case "$status" in
+    running|initializing)
+      echo "still working: run wait again" >&2
+      exit 3
+      ;;
+  esac
+  wait_no_result "$number" "$kind" "$ident"
 }
 
 # ------------------------------------------------------------------ check
@@ -678,6 +772,73 @@ if not ok:
   done <<<"$grades"
 
   [ "$failed" -eq 0 ] || exit 2
+}
+
+# The night's heartbeat id lives at <absolute-git-dir>/mmw-heartbeat-<spec>.
+heartbeat_file() {
+  local spec="$1" git_dir
+  git_dir="$(git rev-parse --absolute-git-dir 2>/dev/null)" || return 1
+  printf '%s\n' "$git_dir/mmw-heartbeat-$spec"
+}
+
+# 0 deleted or no file; 1 the file is there and delete failed.
+delete_heartbeat() {
+  local spec="$1" hb ident
+  hb="$(heartbeat_file "$spec")" || return 0
+  [ -f "$hb" ] || return 0
+  ident="$(tr -d '[:space:]' < "$hb")"
+  if [ -n "$ident" ] && paseo heartbeat delete "$ident" >/dev/null 2>&1; then
+    rm -f "$hb"
+    return 0
+  fi
+  echo "dispatch: could not delete heartbeat $ident for #$spec" >&2
+  return 1
+}
+
+# After the machine checks pass: create mmw-night-<spec> for this Paseo session
+# (PASEO_AGENT_ID) and write its id to the heartbeat file. A file that already
+# names a heartbeat is left alone. Outside a Paseo session, one stderr line and
+# exit 0 — there is no current agent to attach a heartbeat to.
+ensure_night_heartbeat() {
+  local spec="$1" root hb existing prompt json ident dir
+  if [ -z "${PASEO_AGENT_ID:-}" ]; then
+    echo "dispatch: not in a Paseo session (no PASEO_AGENT_ID), so no heartbeat was created" >&2
+    return 0
+  fi
+  root="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$root" ] \
+    || refuse "not inside a git repository, so the heartbeat id has nowhere to be written"
+  hb="$(heartbeat_file "$spec")" \
+    || refuse "not inside a git repository, so the heartbeat id has nowhere to be written"
+  if [ -f "$hb" ]; then
+    existing="$(tr -d '[:space:]' < "$hb")"
+    if [ -n "$existing" ]; then
+      echo "dispatch: heartbeat $existing for #$spec already exists" >&2
+      return 0
+    fi
+  fi
+  prompt="Run: bash $SELF"
+  for dir in ${TOOLS[@]+"${TOOLS[@]}"}; do
+    prompt="$prompt --tools $dir"
+  done
+  prompt="$prompt status $spec (from $root), then act per night.md step 3."
+  if ! json="$(paseo heartbeat create --cron '*/10 * * * *' --name "mmw-night-$spec" --json "$prompt")"; then
+    echo "dispatch: could not create heartbeat mmw-night-$spec" >&2
+    exit 2
+  fi
+  ident="$(printf '%s' "$json" | python3 -c '
+import json, sys
+try:
+    row = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+if not isinstance(row, dict):
+    sys.exit(0)
+print(row.get("id") or row.get("Id") or "")
+')"
+  [ -n "$ident" ] || { echo "dispatch: heartbeat create printed no id" >&2; exit 2; }
+  printf '%s\n' "$ident" > "$hb" \
+    || { echo "dispatch: could not write heartbeat id to $hb" >&2; exit 2; }
 }
 
 # ------------------------------------------------------------------ advancing
@@ -864,9 +1025,9 @@ advance() {
 
 # ------------------------------------------------------------------ suspend
 
-# ticket<TAB>id for every live worker labelled mmw.spec=<spec>.
+# ticket<TAB>id<TAB>status for every live worker labelled mmw.spec=<spec>.
 live_workers() {
-  agents_by_label --label "mmw.spec=$1" | awk -F '\t' '$1 != ""'
+  agents_by_label --label "mmw.spec=$1" --label mmw.kind=worker | awk -F '\t' '$1 != ""'
 }
 
 suspend_comment() {
@@ -912,7 +1073,7 @@ suspend_night() {
 
   local live number ident stopped=0
   live="$(live_workers "$spec")"
-  while IFS=$'\t' read -r number ident; do
+  while IFS=$'\t' read -r number ident _; do
     [ -n "$ident" ] || continue
     if paseo archive "$ident" >/dev/null 2>&1; then
       stopped=$((stopped + 1))
@@ -980,17 +1141,7 @@ raise SystemExit(0 if login in [a.get("login") for a in rows if isinstance(a, di
     left=$((left + 1))
   fi
 
-  local hb
-  hb="$git_dir/mmw-heartbeat-$spec"
-  if [ -f "$hb" ]; then
-    ident="$(tr -d '[:space:]' < "$hb")"
-    if [ -n "$ident" ] && paseo heartbeat delete "$ident" >/dev/null 2>&1; then
-      rm -f "$hb"
-    else
-      echo "dispatch: could not delete heartbeat $ident for #$spec" >&2
-      left=$((left + 1))
-    fi
-  fi
+  delete_heartbeat "$spec" || left=$((left + 1))
 
   echo "suspend #$spec: stopped $stopped, commented $commented, slots given back $back, claims given back $claims"
   [ "$left" -eq 0 ] || exit 1
@@ -1078,6 +1229,7 @@ summary_spec() {
   gh_ issue comment "$spec" --body "$body" >/dev/null \
     || refuse "could not post the night summary on #$spec"
   printf '%s\n' "$body"
+  delete_heartbeat "$spec" || exit 1
 }
 
 # ------------------------------------------------------------------ entry
@@ -1132,6 +1284,7 @@ case "${1:-}" in
     [ "$#" -eq 2 ] || usage
     case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac
     check_machine "$2"
+    ensure_night_heartbeat "$2"
     ;;
   advance)
     [ "$#" -eq 2 ] || usage
@@ -1141,6 +1294,11 @@ case "${1:-}" in
     [ "$#" -eq 3 ] || usage
     case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
     start_one "$2" "$3"
+    ;;
+  wait)
+    [ "$#" -eq 3 ] || usage
+    case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
+    wait_one "$2" "$3"
     ;;
   resume)
     [ "$#" -eq 3 ] || usage

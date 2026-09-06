@@ -32,15 +32,16 @@ Resolve both `scripts/` directories from those skills' own `SKILL.md`. Every com
 
 Only this path exists: everything one agent does to another — finish notifications, parent–child (`paseo.parent-agent-id`, archive cascade and the app tree), permission hand-off, readable labels — is complete only on the MCP side; the CLI is the side scripts read facts on and people use; future agent features land on the MCP side too.
 
-Then: the main agent waits for the finish notification. A worker blocks with `paseo wait <id>` — ending a turn spends the main agent's only finish notification for this worker.
+Then: the main agent waits for the finish notification. A worker runs `<dispatch> wait <n> verifier|reviewer` until it exits 0 — ending a turn spends the main agent's only finish notification for this worker.
 
 ## Find your command
 
 | You want to | Run |
 | --- | --- |
-| Start the reviewer on your ticket and wait for its report | `<dispatch> start <n> reviewer`, then the one path above; the report is the newest comment whose first line is `REVIEW `. **Start exits 2:** stderr is the reason; nothing was started — it is a pipeline fault: `<engine> <n> --sub-issue pipeline <file>`; the file's body is the command you ran and the output you saw; then stop. **Notification is `errored` or `was closed`, and there is no `REVIEW ` comment:** `paseo logs <id>`, then run the `code-review` skill in this host's general-purpose subagent with ticket `<n>` and base commit `$(git config branch.issue-<n>.mmw-base)`; its report lands with the same `REVIEW ` first line. Do not start a second reviewer. |
-| Start the verifier on your ticket | `<dispatch> start <n> verifier`, then the one path above; the report is the newest comment whose first line is `VERDICT`. Start it once. **Start exits 2:** stderr is the reason; nothing was started — it is a pipeline fault: `<engine> <n> --sub-issue pipeline <file>`; the file's body is the command you ran and the output you saw; then stop. |
-| Open the night on a spec | [references/night.md](references/night.md): `<dispatch> check <spec>`, then `<dispatch> advance <spec>`, then the one path above |
+| Start the reviewer on your ticket and wait for its report | `<dispatch> start <n> reviewer`, then the one path above, then `<dispatch> wait <n> reviewer` until it exits 0; it prints the first line of the `REVIEW ` comment. **Start exits 2:** stderr is the reason; nothing was started — it is a pipeline fault: `<engine> <n> --sub-issue pipeline <file>`; the file's body is the command you ran and the output you saw; then stop. **`wait` exits 1 (the reviewer stopped and there is no `REVIEW ` comment):** `paseo logs <id>`, then run the `code-review` skill in this host's general-purpose subagent with ticket `<n>` and base commit `$(git config branch.issue-<n>.mmw-base)`; its report lands with the same `REVIEW ` first line. Do not start a second reviewer. |
+| Start the verifier on your ticket | `<dispatch> start <n> verifier`, then the one path above, then `<dispatch> wait <n> verifier` until it exits 0; it prints the first line of the `VERDICT` comment. Start it once. **Start exits 2:** stderr is the reason; nothing was started — it is a pipeline fault: `<engine> <n> --sub-issue pipeline <file>`; the file's body is the command you ran and the output you saw; then stop. |
+| Open the night on a spec | [references/night.md](references/night.md): `<dispatch> check <spec>` (it also creates the night's heartbeat), then `<dispatch> advance <spec>`, then the one path above |
+| Wait for an agent you started, and read its result | `<dispatch> wait <n> worker\|reviewer\|verifier`: blocks until that agent is idle, then prints the first line of its result comment (`ALL MET` / `HANDOFF REQUIRED`, `REVIEW …`, `VERDICT …`). Exit 3: still working, run it again. Exit 1: it stopped without a result; stderr names the next step. Exit 2: no such agent |
 | A finish notification arrived (`finished` / `errored` / `was closed` / `needs permission`) | `<dispatch> status <spec>`, then the decision table in [references/night.md](references/night.md) |
 | Tell a live worker to continue | `<dispatch> resume <n> "<text>"`. Exit 0: the text was sent. Exit 2: no worker labelled `mmw.ticket=<n>` — read `status`, do not send again |
 | Start a worker on one ticket, outside a night | `<dispatch> start <n> worker`, then the one path above |
@@ -83,8 +84,8 @@ A notification is a `<paseo-system>` block whose first sentence is `Agent <id> (
 
 | Code | What happened |
 | --- | --- |
-| `0` | `install.sh --check` passed, every `bypass` row's host is `available` in `paseo provider ls --json`, and every queued ticket has at most one worker-grade label that `models.md` has a row for |
-| `2` | One or more of those failed. Stderr has one `dispatch: …` line per failure. Fix what the lines name — run `install.sh`, relabel the ticket, or wait until the host is `available` — then `check` again. Do not `advance` on 2 |
+| `0` | `install.sh --check` passed, every `bypass` row's host is `available` in `paseo provider ls --json`, and every queued ticket has at most one worker-grade label that `models.md` has a row for. In a Paseo session (`PASEO_AGENT_ID` set) the night's heartbeat `mmw-night-<spec>` now exists, every ten minutes, its id in `.git/mmw-heartbeat-<spec>`; outside one, stderr says no heartbeat was made |
+| `2` | One or more of those failed, or the heartbeat could not be created. Stderr has one `dispatch: …` line per failure. Fix what the lines name — run `install.sh`, relabel the ticket, or wait until the host is `available` — then `check` again. Do not `advance` on 2 |
 
 **`resume <n> "<text>"`:** `0` the text was sent; `2` no worker with those labels, nothing sent.
 
@@ -92,7 +93,9 @@ A notification is a `<paseo-system>` block whose first sentence is `Agent <id> (
 
 **`reverify <spec>`:** `0` every closed `ALL MET` ticket was green; `1` at least one was red — that ticket is reopened, labelled `needs-triage`, its assignee removed, and the failing `AC<n>` commented. Stdout names each ticket.
 
-**`summary <spec>`:** `0`. The spec has a new comment whose first line is `NIGHT SUMMARY <date>`. If `reverify` ran in this checkout, the comment also has a `Reverify: <green>/<red>` line.
+**`summary <spec>`:** `0`. The spec has a new comment whose first line is `NIGHT SUMMARY <date>`, and the heartbeat named in `.git/mmw-heartbeat-<spec>` is deleted with the file. If `reverify` ran in this checkout, the comment also has a `Reverify: <green>/<red>` line. `1`: the comment is posted but the heartbeat could not be deleted; stderr names it.
+
+**`wait <n> worker\|reviewer\|verifier`:** `0` the result comment is on the ticket and its first line is on stdout; `1` the agent is idle or closed and no result comment exists — stderr names the next step; `2` no agent labelled `mmw.ticket=<n>` of that kind; `3` still working after `MMW_WAIT_S` seconds (default 300) — run it again. It writes nothing.
 
 **`suspend <spec>`:**
 

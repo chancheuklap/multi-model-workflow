@@ -620,7 +620,7 @@ _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 ### Code review
 
 **code review**:
-One round: the worker starts the reviewer with `dispatch.sh start <n> reviewer `; the dispatcher starts three read-only axis subagents, each given three values — the base commit, the ticket number, and its reference file's path — each reading `git diff <base-commit>...HEAD`; one review comment results. The round ends only with that comment: after the finish notification (or `paseo wait <id>`), the worker reads the newest comment whose first line is `REVIEW `. Start exits 2: nothing was started — it is a pipeline fault: `<engine> <n> --sub-issue pipeline <file>`, then stop. The notification is `errored` or `was closed` with no `REVIEW ` comment: `paseo logs <id>`, then the `code-review` skill in this host's general-purpose subagent, whose report lands with the same first line. An in-ticket finding gets one round of fixes and a self-run, never a re-review; an out-of-ticket finding is `--sub-issue review`. Fixing a finding is bound by the writing rules.
+One round: the worker starts the reviewer with `dispatch.sh start <n> reviewer `; the dispatcher starts three read-only axis subagents, each given three values — the base commit, the ticket number, and its reference file's path — each reading `git diff <base-commit>...HEAD`; one review comment results. The round ends only with that comment: after `dispatch.sh wait <n> reviewer` exits 0, the worker reads the `REVIEW ` line it printed. Start exits 2: nothing was started — it is a pipeline fault: `<engine> <n> --sub-issue pipeline <file>`, then stop. The notification is `errored` or `was closed` with no `REVIEW ` comment: `paseo logs <id>`, then the `code-review` skill in this host's general-purpose subagent, whose report lands with the same first line. An in-ticket finding gets one round of fixes and a self-run, never a re-review; an out-of-ticket finding is `--sub-issue review`. Fixing a finding is bound by the writing rules.
 _Avoid_: the review stage
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
@@ -791,11 +791,11 @@ _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **dispatch**:
 Turning a ticket into a live Paseo agent that carries its ticket number, workspace, and agent labels: `dispatch.sh start <n> worker|reviewer|verifier`. The script checks the ticket may start, reads the role's `bypass` row of `models.md`, opens the workspace and records the base commit, and prints one `create_agent` object. The caller gives the ticket number and the kind; the worker-grade label picks which worker row. A ticket or session that has been through it is **dispatched**.
-_Avoid_: 派发 (as a term), run (as a dispatch.sh verb), wait (as a dispatch.sh verb)
+_Avoid_: 派发 (as a term), run (as a dispatch.sh verb)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`dispatch.sh`**:
-The dispatch skill's script, eight forms: `check <spec>`, `advance <spec>`, `start <n> worker|reviewer|verifier`, `resume <n> "<text>"`, `status <spec>`, `reverify <spec>`, `summary <spec>`, `suspend <spec>`. It writes the agent labels `mmw.ticket`, `mmw.kind`, `mmw.spec`, `mmw.profile`, `mmw.autonomous`; records `branch.issue-<n>.mmw-base`; reads the worker-grade label and nothing else to pick the worker row. Every form takes the two `--tools` directories. The skill's own text calls it `<dispatch>`.
+The dispatch skill's script, nine forms: `check <spec>`, `advance <spec>`, `start <n> worker|reviewer|verifier`, `wait <n> worker|reviewer|verifier`, `resume <n> "<text>"`, `status <spec>`, `reverify <spec>`, `summary <spec>`, `suspend <spec>`. It writes the agent labels `mmw.ticket`, `mmw.kind`, `mmw.spec`, `mmw.profile`, `mmw.autonomous`; records `branch.issue-<n>.mmw-base`; reads the worker-grade label and nothing else to pick the worker row. Every form takes the two `--tools` directories. The skill's own text calls it `<dispatch>`.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **dispatch line**:
@@ -804,11 +804,16 @@ _Avoid_: 派发 (as a term)词, prompt (bare)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **check**:
-`dispatch.sh check <spec>`: runs `install.sh --check`, confirms every `bypass` row's host is `available` in `paseo provider ls --json`, and confirms every queued ticket has at most one worker-grade label that `models.md` has a row for. Exit 0 all passed; exit 2 one or more failed, stderr one `dispatch: …` line per failure. Do not `advance` on 2.
+`dispatch.sh check <spec>`: runs `install.sh --check`, confirms every `bypass` row's host is `available` in `paseo provider ls --json`, and confirms every queued ticket has at most one worker-grade label that `models.md` has a row for; then, in a Paseo session, creates the night's **heartbeat** `mmw-night-<spec>` (every ten minutes, prompt `run status <spec>, act per step 3`) and writes its id to `.git/mmw-heartbeat-<spec>`. Exit 0 all passed; exit 2 one or more failed or the heartbeat could not be made, stderr one `dispatch: …` line per failure. Do not `advance` on 2.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **start**:
-`dispatch.sh start <n> worker|reviewer|verifier`: one ticket, one agent. It prints one JSON object whose fields are the arguments of `create_agent`; the caller issues `create_agent` with `notifyOnFinish: true` — a worker then blocks with `paseo wait <id>`, the main agent waits for the finish notification. The worker row of `models.md` is chosen by the ticket's `junior-worker` / `senior-worker` label; the reviewer's base commit is read from `git config branch.issue-<n>.mmw-base` by the script; the verifier's `initialPrompt` is `verify #<n>` plus the path of `references/verifier.md`. Exit 0 printed; exit 2 refused (`REFUSE`, reason on stderr), nothing started.
+`dispatch.sh start <n> worker|reviewer|verifier`: one ticket, one agent. It prints one JSON object whose fields are the arguments of `create_agent`; the caller issues `create_agent` with `notifyOnFinish: true` — a worker then blocks with `dispatch.sh wait <n> <kind>`, the main agent waits for the finish notification. The worker row of `models.md` is chosen by the ticket's `junior-worker` / `senior-worker` label; the reviewer's base commit is read from `git config branch.issue-<n>.mmw-base` by the script; the verifier's `initialPrompt` is `verify #<n>` plus the path of `references/verifier.md`. Exit 0 printed; exit 2 refused (`REFUSE`, reason on stderr), nothing started.
+_Home_: `mmw-v2/skills/dispatch/SKILL.md`
+
+**wait**:
+`dispatch.sh wait <n> worker|reviewer|verifier`: the one way an agent waits for an agent it started. It finds the agent by `mmw.ticket` and `mmw.kind`, blocks with `paseo wait` until it is idle, and prints the first line of its result comment — `ALL MET` or `HANDOFF REQUIRED` for a worker, `REVIEW …` for a reviewer, `VERDICT …` for a verifier — reading the ticket first, so a result already there returns at once. Exit 0 result printed; 1 the agent stopped without one (stderr names the next step); 2 no such agent; 3 still working after `MMW_WAIT_S` seconds (default 300) — run it again, which is how a host that cancels a long command is survived. It writes nothing. The main agent does not use it for its workers: it is woken by finish notifications and the heartbeat.
+_Avoid_: paseo wait (in skill text, for this), 等待 (as a term)
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **resume**:
@@ -825,7 +830,7 @@ _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **summary**:
-`dispatch.sh summary <spec>`: posts a comment on the spec whose first line is `NIGHT SUMMARY <date>`. If `reverify` ran in this checkout, a `Reverify: <green>/<red>` line is appended. Exit 0.
+`dispatch.sh summary <spec>`: posts a comment on the spec whose first line is `NIGHT SUMMARY <date>`, then deletes the heartbeat named in `.git/mmw-heartbeat-<spec>` and removes the file. If `reverify` ran in this checkout, a `Reverify: <green>/<red>` line is appended. Exit 0; exit 1 when the heartbeat could not be deleted.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **status.py**:
@@ -1101,5 +1106,5 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | category role | `bug` · `enhancement` |
 | `dispatch.sh` constants | `MERGE_TRIES = 3` · `LABEL_TITLE_CHARS` · `DEFAULT_WORKER` |
 | `lease.py` constants | `MMW_LEASE_SLOTS = 8` · `MMW_LEASE_PORT_BASE = 21000` · `MMW_LEASE_PORT_STRIDE = 20` |
-| `dispatch.sh` verbs | `check` · `advance` · `start` · `resume` · `status` · `reverify` · `summary` · `suspend` |
-| exit codes | `dispatch.sh start` 0 / 2 (nothing started) · `advance` 0 / 2 (nothing touched) / 3 (conflict still in the tree) · `check` 0 / 2 · `resume` 0 / 2 · `status` 0 / 2 (could not ask) · `reverify` 0 / 1 · `suspend` 0 / 1 (something left) / 2 (nothing touched) · `verify-ticket.py` 0 / 1 (`--closeout` refused) / 2 (`--preflight`, `--decisions`, `--touched` or `--sub-issue` refused) · `visual-parity.py` 0 / 1 (`DIFF`, `SHOWS-STATIC`) / 2 (`NEGATIVE CONTROL FAILED`, not ready, unreachable scene) · `wiring-check.py` 0 / 1 (`MISS`, `GREEN WITHOUT TRANSPORT`) / 2 (could not start, or `--negative` evaluated no observe) · `install.sh --check` 0 / 1 · `--lint` 0 unless an `ERROR` remains |
+| `dispatch.sh` verbs | `check` · `advance` · `start` · `wait` · `resume` · `status` · `reverify` · `summary` · `suspend` |
+| exit codes | `dispatch.sh start` 0 / 2 (nothing started) · `advance` 0 / 2 (nothing touched) / 3 (conflict still in the tree) · `check` 0 / 2 · `wait` 0 / 1 (no result) / 2 (no agent) / 3 (still working) · `resume` 0 / 2 · `status` 0 / 2 (could not ask) · `summary` 0 / 1 (heartbeat left) · `reverify` 0 / 1 · `suspend` 0 / 1 (something left) / 2 (nothing touched) · `verify-ticket.py` 0 / 1 (`--closeout` refused) / 2 (`--preflight`, `--decisions`, `--touched` or `--sub-issue` refused) · `visual-parity.py` 0 / 1 (`DIFF`, `SHOWS-STATIC`) / 2 (`NEGATIVE CONTROL FAILED`, not ready, unreachable scene) · `wiring-check.py` 0 / 1 (`MISS`, `GREEN WITHOUT TRANSPORT`) / 2 (could not start, or `--negative` evaluated no observe) · `install.sh --check` 0 / 1 · `--lint` 0 unless an `ERROR` remains |

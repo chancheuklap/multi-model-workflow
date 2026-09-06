@@ -12,7 +12,7 @@ Run, in this checkout, on the branch the night merges into:
 <dispatch> check <spec>
 ```
 
-**Exit 0:** create a heartbeat (`create_heartbeat`; CLI `paseo heartbeat create --cron '*/10 * * * *'`) with the fixed prompt `run status <spec>, act per step 3`. Write the heartbeat's id to `.git/mmw-heartbeat-<spec>` in this checkout — `suspend` deletes by that id. It only wakes; it never judges. A fire while you are busy is reported failed and simply fires next time. Then go to step 2. **Exit 2:** stderr is one line per failure (`install.sh --check`, a provider whose `status` is not `available`, a queued ticket with two worker-grade labels or a label `models.md` has no row for). Fix what the lines name, or tell the user if only they can, then run `check` again. Do not `advance` on 2.
+**Exit 0:** the machine is ready, and `check` has created the night's heartbeat — `mmw-night-<spec>`, every ten minutes, prompt `run status <spec>, act per step 3`, id in `.git/mmw-heartbeat-<spec>`; `summary` and `suspend` delete it by that id. It only wakes; it never judges. A fire while you are busy is reported failed and simply fires next time. Then go to step 2. **Exit 2:** stderr is one line per failure (`install.sh --check`, a provider whose `status` is not `available`, a queued ticket with two worker-grade labels or a label `models.md` has no row for). Fix what the lines name, or tell the user if only they can, then run `check` again. Do not `advance` on 2.
 
 ## 2. First `advance`
 
@@ -59,7 +59,7 @@ The notification's first sentence is `Agent <id> (<title>) finished.` or `errore
 | A ticket just closed `ALL MET`, or the frontier has `ready` rows and no live worker on them | `<dispatch> advance <spec>`, then `create_agent` on each new line |
 | The worker is live and the work should continue | `<dispatch> resume <n> "<what you settled, then: continue>"` |
 | The worker has stopped and the ticket has a new child whose first line is `SUB-ISSUE pipeline` | Read that sub-issue (`gh api repos/{owner}/{repo}/issues/<n>/sub_issues`). Fix the cause it names. Then `<dispatch> resume <n> "… continue"` |
-| The notification is `finished`, `status` shows the ticket still `OPEN`, and `paseo ls --label mmw.ticket=<n>` shows a live child labelled `mmw.kind=reviewer` or `mmw.kind=verifier` | Not a stop: the worker is blocking on `paseo wait` for that child and will carry on when it returns. Its one finish notification is spent; the heartbeat from step 1 runs `status` again within ten minutes. Do nothing. No live child and no closing comment: take the next matching row |
+| The notification is `finished`, `status` shows the ticket still `OPEN`, and `paseo ls --label mmw.ticket=<n>` shows a live child labelled `mmw.kind=reviewer` or `mmw.kind=verifier` | Not a stop: the worker is blocking in `wait` for that child and will carry on when it returns. Its one finish notification is spent; the heartbeat from step 1 runs `status` again within ten minutes. Do nothing. No live child and no closing comment: take the next matching row |
 | The worker `was closed`, or `errored` and `paseo logs <id>` shows only the prompt with no output (an agent created before the daemon restarted answers this way) | `paseo archive <id>`, then `<dispatch> advance <spec>`: with no agent on the ticket and its claim given back, the ticket is on the frontier again and `start` reuses its standing workspace and branch |
 | The worker `errored` short of a closing comment and `paseo logs <id>` shows what stopped it | Fix that — a file it could not find, a command it needs, a baseline it read wrong — then `resume` with that plus `continue`. A question only a person can settle: `resume` telling the worker to open it with `verify-ticket.py <n> --sub-issue decision <file>`, take the default meanwhile, and record it under `Decisions I made on my own`. Change no label |
 | The worker is live and nothing is wrong | Do not `resume`. Wait for the next notification |
@@ -80,7 +80,7 @@ The frontier is empty and `status` shows no live agent. Then, still on this bran
 
 `summary` posts a comment on the spec whose first line is `NIGHT SUMMARY <date>`, with the four lines `Closed:`, `Handed back to needs-triage:`, `Not dispatched, a blocker stayed open:`, `Sub-issues opened tonight:`. If `reverify` ran in this checkout, a `Reverify: <green>/<red>` line is appended.
 
-Delete the heartbeat from step 1 (`paseo heartbeat delete <id>`), and remove `.git/mmw-heartbeat-<spec>`.
+`summary` also deletes the heartbeat `check` created and removes `.git/mmw-heartbeat-<spec>`.
 
 Tell the user the night finished, and point them at that comment.
 
