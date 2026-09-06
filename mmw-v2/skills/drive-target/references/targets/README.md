@@ -60,9 +60,11 @@ cannot fit in a sentence — the reasons a field is shaped as it is — is below
   success over a sign-in that no longer works. Idempotent means running it twice gives
   the same result, not that what is already there can be trusted.
 - **`transport_off` breaks persistence of the observed rows, not the session.** The
-  wiring check's `--negative` runs every row with it and requires each to fail on an
-  `observe` assertion. If `attach` itself needs what was broken (a session lookup),
-  nothing is evaluated and the run proves nothing (exit 2).
+  wiring check's `--negative` breaks it for each row's own trigger and `observe`, after
+  that row's `reach` and `open` have put the control on screen, and puts it back before
+  the next row's `reach`. Each row must fail on an `observe` assertion. A row that
+  cannot be put on screen is not evaluated; if any named row was not, the criterion
+  is exit 2.
 - **`leaves_machine` is the ninth answer.** Opening the system browser, calling a paid
   service, writing a machine-global location: each is named with how the run
   neutralises it under `MMW_AUTOMATION=1`. Recording what would have been done, in the
