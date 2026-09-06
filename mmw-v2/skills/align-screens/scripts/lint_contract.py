@@ -66,6 +66,19 @@ def screen_driver_mod():
     return _SD
 
 
+def page_stem(page: str) -> str:
+    """The design page without its `.dc.html` suffix, as `extract_skeleton.py`
+    strips it: the two must agree or the lint looks for target files under a name
+    nothing writes."""
+    return extract_skeleton_mod().page_stem(page)
+
+
+def target_hashes(path: Path) -> dict[str, str]:
+    """`{"scenes.json": sha, "page": sha}` from a target file's header, read by the
+    same writer that put them there."""
+    return extract_skeleton_mod().read_target_hashes(path)
+
+
 def target_kinds() -> set[str]:
     return set(screen_driver_mod().ADAPTERS)
 
@@ -89,10 +102,6 @@ def target_file_problem(repo: Path, kind: str) -> tuple[str, str] | None:
         return None
     text = (buf_out.getvalue() or buf_err.getvalue()).strip()
     return ("error", text or f"target --validate exited {code}")
-
-
-def page_stem(page: str) -> str:
-    return re.sub(r"\.dc\.html$", "", page)
 
 
 VIA = {"api", "storage"}
@@ -144,17 +153,6 @@ def mechanisms_of(doc: dict) -> tuple[dict[str, dict], bool]:
     if isinstance(raw, list):
         return {str(m): {} for m in raw}, True
     return {str(k): (v or {}) for k, v in raw.items()}, False
-
-
-def target_hashes(path: Path) -> dict[str, str]:
-    out = {}
-    if not path.exists():
-        return out
-    for line in path.read_text(encoding="utf-8").splitlines()[:6]:
-        m = re.match(r"^# (scenes\.json|page) sha256=([0-9a-f]{64})$", line)
-        if m:
-            out[m.group(1)] = m.group(2)
-    return out
 
 
 def scene_name_of(value) -> str:
