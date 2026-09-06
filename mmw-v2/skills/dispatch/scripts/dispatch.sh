@@ -962,6 +962,8 @@ raise SystemExit(0 if login in [a.get("login") for a in rows if isinstance(a, di
 
   local cwd back=0 rc
   if [ -f "$LEASE" ]; then
+    [ -n "$(worktrees_root)" ] \
+      || echo "dispatch: no workspace of this checkout is standing, so a lease can be matched to a ticket only through a standing workspace; python3 $LEASE list shows what is still held, and claim reclaims a lease whose directory is gone" >&2
     for number in $batch; do
       cwd="$(workspace_cwd_for "$number")"
       [ -n "$cwd" ] || cwd="$(lease_worktree_for "$number")"

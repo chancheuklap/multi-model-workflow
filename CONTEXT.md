@@ -779,7 +779,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 ### Dispatch and the night
 
 **landing pipeline**:
-The whole path from spec to closed ticket, made of stations that each have an entry here: by day **publish** (a spec, its tickets, their lint); by night **dispatch**, **preflight**, the worker's closing steps, **closeout**, **advance**; in the morning **reverify**, **NIGHT SUMMARY** and the triage queue. Every rule of the path lives with its station; this entry only names them.
+The whole path from spec to closed ticket, made of stations that each have an entry here: by night **dispatch**, **preflight**, the worker's closing steps, **closeout**, **advance**; in the morning **reverify**, **NIGHT SUMMARY** and the triage queue. What feeds the night — **publish**, a spec, its tickets, their lint — is the day's work and has its own entries. Every rule of the path lives with its station; this entry only names them.
 _Admitted_: ticket pipeline (in triage text)
 _Avoid_: 流水线, this pipeline (as a name), 落地流水线
 _Home_: `mmw-v2/skills/dispatch/references/night.md`

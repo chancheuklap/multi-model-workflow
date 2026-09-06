@@ -12,9 +12,7 @@ in one screen. Nothing this program does needs a model, and nothing it does writ
 to the tracker or to Paseo.
 
 The two sources are the tracker (`gh`) and Paseo (`paseo ls` / `paseo inspect`),
-and nothing else — except `--advance-plan`, which also reads `paseo workspace ls`
-for the standing-workspace half of a claim give-back. There is no state file: each
-invocation is a full re-read.
+and nothing else. There is no state file: each invocation is a full re-read.
 
 Which ticket an agent belongs to is the basename of its `cwd`: `issue-<n>`. Kind is
 the `--label mmw.kind=` filter that returned the row — CLI `paseo ls --json` does
