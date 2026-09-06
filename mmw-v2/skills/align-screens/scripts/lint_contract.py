@@ -6,7 +6,7 @@ Exit 0 with no errors; 1 with errors listed one per line; warnings never fail.
 come from that driver, and this file holds no copy of any: the target kinds
 (its `ADAPTERS`), the `.mmw/target.json` check (the function `target
 --validate` runs), and matching (`volatile_triggers` / `row_trigger` /
-`count_volatile_hits`).
+`count_volatile_hits` / `count_trigger_hits`).
 All three are loaded in-process through `extract_skeleton.py`'s `load_driver()`.
 Rules are the tables in ../references/contract-format.md: the control axis (rows), the
 screen axis (`target`, `viewports`, `pages`, `scenes`), the mechanism table, and the
@@ -58,8 +58,9 @@ def extract_skeleton_mod():
 def screen_driver_mod():
     """The drive-target driver from `--tools`, loaded the same way
     `extract_skeleton.py` loads it. Cached after the first load.
-    Matching (`volatile_triggers` / `row_trigger` / `count_volatile_hits`) and
-    the target kinds / `.mmw/target.json` check all come from this module."""
+    Matching (`volatile_triggers` / `row_trigger` / `count_volatile_hits` /
+    `count_trigger_hits`) and the target kinds / `.mmw/target.json` check all
+    come from this module."""
     global _SD
     if _SD is not None:
         return _SD
@@ -428,13 +429,13 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
         elif hits > 1:
             errors.append(f"volatile_values: {role} {name!r} on {page} matches {hits} "
                           f"nodes; name the previous named node as after")
-    # -- row trigger uniqueness: same matcher, same `after`
+    # -- row trigger uniqueness: exact (role, name), same `after` pin
     sd = screen_driver_mod()
     for rid, row in rows.items():
         wanted = sd.row_trigger(row)
         if not wanted.role or not wanted.name:
             continue
-        row_scenes = [str(s) for s in (row.get("scenes") or [])]
+        row_scenes = [scene_name_of(s) for s in (row.get("scenes") or [])]
         if not row_scenes or contract_dir is None:
             continue
         pages_for: dict[str, set[str]] = {}
@@ -448,9 +449,9 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
             if aria is None:
                 aria = contract_dir / "targets" / f"{page_stem(page)}.aria"
             tree = aria.read_text(encoding="utf-8") if aria.exists() else ""
-            hits = sd.count_volatile_hits(
-                sd.scene_lines(tree.splitlines(), scs), [wanted])
-            if hits > 1 or (wanted.after is not None and hits != 1):
+            hits = sd.count_trigger_hits(
+                sd.scene_lines(tree.splitlines(), scs), wanted)
+            if hits > 1:
                 errors.append(
                     f"{rid}: trigger {wanted.role} {wanted.name!r} on {page} "
                     f"matches {hits} nodes; name the previous named node as after")

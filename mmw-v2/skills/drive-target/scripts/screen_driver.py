@@ -862,28 +862,59 @@ def row_trigger(row: dict) -> VolatileTrigger:
                            after_of(row))
 
 
-def trigger_hit_indices(lines: list[str], trigger: VolatileTrigger) -> list[int]:
-    """0-based indices among named nodes matching `trigger`'s role and name,
-    after `matches_volatile` applies `after`. Reading order is the tree's."""
-    hits: list[int] = []
+def named_nodes(lines: list[str]):
+    """Yield `(role, name, previous)` in reading order; yield `None` at a
+    `## scene` boundary so a consumer can take the maximum per scene.
+    Accessible name wins when a node carries both a name and a value, matching
+    `get_by_role(..., exact=True)`."""
     previous: tuple[str, str] | None = None
-    k = 0
     for raw in lines:
         line = raw.rstrip("\n")
         if line.startswith(SCENE_HEADER):
             previous = None
+            yield None
             continue
         own, _, _ = line.partition(" < ")
         parsed = _own_role_name(own)
         if parsed is None:
             continue
-        if volatile_name_matches(parsed[0], parsed[1], trigger.role, trigger.name):
-            if matches_volatile(parsed[0], parsed[1], [trigger], previous):
-                hits.append(k)
-            k += 1
+        yield parsed[0], parsed[1], previous
         if parsed[1]:
             previous = parsed
+
+
+def trigger_hit_indices(lines: list[str], trigger: VolatileTrigger) -> list[int]:
+    """0-based indices into `page.get_by_role(role, name=…, exact=True)`.
+    `k` counts exact `(role, name)` only; `matches_volatile` applies `after`."""
+    hits: list[int] = []
+    k = 0
+    for item in named_nodes(lines):
+        if item is None:
+            continue
+        role, name, previous = item
+        if (role, name) != (trigger.role, trigger.name):
+            continue
+        if matches_volatile(role, name, [trigger], previous):
+            hits.append(k)
+        k += 1
     return hits
+
+
+def count_trigger_hits(lines: list[str], trigger: VolatileTrigger) -> int:
+    """Most exact `(role, name)` hits in any one scene, after `after` is applied."""
+    best = 0
+    current = 0
+    for item in named_nodes(lines):
+        if item is None:
+            best = max(best, current)
+            current = 0
+            continue
+        role, name, previous = item
+        if (role, name) != (trigger.role, trigger.name):
+            continue
+        if matches_volatile(role, name, [trigger], previous):
+            current += 1
+    return max(best, current)
 
 
 def scene_lines(lines: list[str], scenes: set[str]) -> list[str]:
@@ -919,8 +950,13 @@ def _own_role_name(own: str) -> tuple[str, str] | None:
     m = ARIA_LINE.match(own)
     if not m:
         return None
-    value = m.group("value")
-    label = value.strip() if value else (m.group("name") or "")
+    name, value = m.group("name"), m.group("value")
+    if name is not None:
+        label = name
+    elif value:
+        label = value.strip()
+    else:
+        label = ""
     return m.group("role"), label
 
 
@@ -968,22 +1004,14 @@ def count_volatile_hits(lines: list[str], triggers: list[VolatileTrigger]) -> in
     named node."""
     best = 0
     current = 0
-    previous: tuple[str, str] | None = None
-    for raw in lines:
-        line = raw.rstrip("\n")
-        if line.startswith(SCENE_HEADER):
+    for item in named_nodes(lines):
+        if item is None:
             best = max(best, current)
             current = 0
-            previous = None
             continue
-        own, _, _ = line.partition(" < ")
-        parsed = _own_role_name(own)
-        if parsed is None:
-            continue
-        if matches_volatile(parsed[0], parsed[1], triggers, previous):
+        role, name, previous = item
+        if matches_volatile(role, name, triggers, previous):
             current += 1
-        if parsed[1]:
-            previous = parsed
     return max(best, current)
 
 
@@ -1245,10 +1273,7 @@ def perform(page, steps: list[dict], rows: dict[str, dict], values: dict[str, st
             raise SystemExit(f"open step names no contract row: {step['row']}")
         trig = row["trigger"]
         wanted = row_trigger(row)
-        control = page.get_by_role(trig["role"], name=trig["name"], exact=True)
-        wait_until(page, lambda: control.count() > 0,
-                   f'open step {step["row"]}: no control {trig["role"]} '
-                   f'"{trig["name"]}" on the page')
+        control = page.get_by_role(wanted.role, name=wanted.name, exact=True)
         target = _unique_control(page, control, wanted, step["row"])
         try:
             if trig["role"] in INPUT_ROLES:
@@ -1271,10 +1296,13 @@ def perform(page, steps: list[dict], rows: dict[str, dict], values: dict[str, st
 
 
 def _unique_control(page, control, wanted: VolatileTrigger, rid: str):
-    """The one locator `perform` may act on. `after` narrows through
-    `matches_volatile`; a non-unique result names the coordinate and stops."""
+    """The one locator `perform` may act on. `k` is an index into this
+    `get_by_role(..., exact=True)` locator; `after` pins through
+    `matches_volatile`. One `wait_until` per step."""
     label = f'{wanted.role} "{wanted.name}"'
     if wanted.after is None:
+        wait_until(page, lambda: control.count() > 0,
+                   f"open step {rid}: no control {label} on the page")
         n = control.count()
         if n != 1:
             raise SystemExit(
@@ -1282,16 +1310,23 @@ def _unique_control(page, control, wanted: VolatileTrigger, rid: str):
                 f"name the previous named node as after")
         return control.first
 
-    def unique_index():
+    idx = None
+
+    def ready() -> bool:
+        nonlocal idx
         lines = normalize_aria(page.locator("body").aria_snapshot())
         hits = trigger_hit_indices(lines, wanted)
-        return hits[0] if len(hits) == 1 else None
+        if len(hits) != 1:
+            idx = None
+            return False
+        idx = hits[0]
+        return True
 
     wait_until(
-        page, lambda: unique_index() is not None,
-        f"open step {rid}: {label} after {wanted.after[0]} "
-        f'"{wanted.after[1]}" is not unique')
-    return control.nth(unique_index())
+        page, ready,
+        f"open step {rid}: no control {label} after {wanted.after[0]} "
+        f'"{wanted.after[1]}" / not unique')
+    return control.nth(idx)
 
 
 def _enter_value(locator, typed: str) -> None:

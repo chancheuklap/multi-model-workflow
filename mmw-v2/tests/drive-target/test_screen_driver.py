@@ -148,10 +148,16 @@ class TestScreenAxis(unittest.TestCase):
 
 
 class FakePage:
-    """Enough of a Playwright page for `perform` and `navigate`."""
+    """Enough of a Playwright page for `perform` and `navigate`.
 
-    def __init__(self, controls):
-        self.controls = controls  # (role, name) -> count
+    `named` is the accessibility tree in reading order: `(role, name)` or
+    `(role, name, identity)`. When it is set, `get_by_role` and
+    `aria_snapshot` both read it, so `nth` resolves to a node rather than
+    an integer the test invented."""
+
+    def __init__(self, controls=None, named=None):
+        self.named = list(named or [])
+        self.controls = dict(controls or {})
         self.actions = []
         self.clock = self
         self.installed = False
@@ -184,15 +190,16 @@ class FakePage:
         class Root:
             def aria_snapshot(self_inner):
                 lines = []
-                for role, name in getattr(page, "named", []):
-                    lines.append(f'- {role} "{name}"')
+                for entry in page.named:
+                    lines.append(f'- {entry[0]} "{entry[1]}"')
                 return "\n".join(lines)
 
         return Root()
 
     def get_by_role(self, role, name=None, exact=False):
         page = self
-        count = self.controls.get((role, name), 0)
+        matches = [e for e in self.named if e[0] == role and e[1] == name]
+        count = len(matches) if self.named else self.controls.get((role, name), 0)
         # `tags` names the elements that are not what their role suggests: a
         # `combobox` that is a native `<select>` takes select_option, not fill.
         tag = getattr(self, "tags", {}).get((role, name), "")
@@ -212,6 +219,14 @@ class FakePage:
                 return Locator(n)
 
             def click(self_inner, timeout=None):
+                if matches:
+                    idx = 0 if self_inner._index is None else self_inner._index
+                    if idx < 0 or idx >= len(matches):
+                        raise Exception(f"nth({idx}) out of range ({len(matches)})")
+                    entry = matches[idx]
+                    ident = entry[2] if len(entry) > 2 else idx
+                    page.actions.append(("click", role, name, ident))
+                    return
                 if self_inner._index is None:
                     page.actions.append(("click", role, name))
                 else:
@@ -281,21 +296,36 @@ class TestOpenChain(unittest.TestCase):
 
     def test_two_same_name_controls_after_clicks_the_second(self):
         """Two buttons share a name. `after` (the previous named node) is the
-        heading that sits between them; perform clicks the second — the dialog
-        confirm, not the footer. agentflow#675."""
-        page = FakePage({("button", "放弃这次任务"): 2})
-        page.named = [
-            ("button", "放弃这次任务"),
-            ("heading", "要放弃这次任务吗"),
-            ("button", "放弃这次任务"),
-        ]
+        heading that sits between them; perform clicks the dialog confirm, not
+        the footer. agentflow#675."""
+        page = FakePage(named=[
+            ("button", "放弃这次任务", "footer"),
+            ("heading", "要放弃这次任务吗", "heading"),
+            ("button", "放弃这次任务", "dialog"),
+        ])
         rows = {"source-setup.abandon.confirm": {
             "trigger": {"role": "button", "name": "放弃这次任务"},
             "after": {"role": "heading", "name": "要放弃这次任务吗"},
         }}
         sd.perform(page, [{"row": "source-setup.abandon.confirm", "value": None}],
                    rows, {})
-        self.assertEqual(page.actions, [("click", "button", "放弃这次任务", 1)])
+        self.assertEqual(page.actions, [("click", "button", "放弃这次任务", "dialog")])
+
+    def test_a_digit_sibling_does_not_shift_the_exact_name_index(self):
+        """`删除 1` and `删除 2` share a stem. The locator is exact, so the
+        trigger `删除 2` is the only match; `after` must not count the sibling
+        into `nth`."""
+        page = FakePage(named=[
+            ("button", "删除 1", "first"),
+            ("heading", "确认", "heading"),
+            ("button", "删除 2", "second"),
+        ])
+        rows = {"x.confirm": {
+            "trigger": {"role": "button", "name": "删除 2"},
+            "after": {"role": "heading", "name": "确认"},
+        }}
+        sd.perform(page, [{"row": "x.confirm", "value": None}], rows, {})
+        self.assertEqual(page.actions, [("click", "button", "删除 2", "second")])
 
     def test_two_same_name_controls_without_after_stop_the_run(self):
         """The same two buttons with no `after`: the run stops and names the
@@ -762,6 +792,20 @@ class TestBaselineServing(unittest.TestCase):
         self.assertEqual(got[0].after, ("text", "当前余额"))
         self.assertEqual(sd.mask_volatile(lines, got), masked_pinned)
         self.assertEqual(sd.volatile_paint_js(got), js)
+
+    def test_a_row_trigger_index_is_exact_name_not_stem(self):
+        """`get_by_role(..., exact=True)` sees one `删除 2`. Stem matching
+        would also count `删除 1` and hand `nth(1)` an empty locator."""
+        lines = sd.normalize_aria(
+            '- button "删除 1"\n'
+            '- heading "确认"\n'
+            '- button "删除 2"\n'
+        )
+        pinned = sd.VolatileTrigger("button", "删除 2", ("heading", "确认"))
+        self.assertEqual(sd.trigger_hit_indices(lines, pinned), [0])
+        self.assertEqual(sd.count_trigger_hits(lines, pinned), 1)
+        self.assertEqual(
+            sd.count_volatile_hits(lines, [sd.VolatileTrigger("button", "删除 2")]), 2)
 
     def test_wrapper_page_carries_inline_head_and_scene(self):
         page = sd.wrapper_page("Component · 壳头", {"scenario": "ready", "standalone": False},

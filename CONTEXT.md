@@ -777,7 +777,7 @@ A top-level list on the screen contract of display values the seed must not writ
 _Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
 
 **`after`**:
-The previous named node that pins a `trigger` when role and accessible name are not unique on a scene. Same field, same `{ role, name }` shape, on a row and on a `volatile_values` entry; both judges and the lint match it through one function.
+The previous named node that pins a `trigger` when that trigger is not unique on a scene. Same field, same `{ role, name }` shape, on a row (exact role and accessible name) and on a `volatile_values` entry (role and digit-stripped stem). The tree takes that node from the line above, the pixel judge from a document-order walk of `nameOf`, and `perform()` from the normalised accessibility snapshot; the `after` pin is one function.
 _Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
 
 **perturbation run**:

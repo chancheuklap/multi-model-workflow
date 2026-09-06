@@ -540,6 +540,43 @@ class TestTriggerAfter(unittest.TestCase):
         self.assertFalse(any("create-project.abandon.confirm" in w for w in warnings),
                          warnings)
 
+    def test_a_same_stem_sibling_is_not_a_second_hit(self):
+        """A row trigger is exact. `确认` next to `确认 2` is one hit, so the
+        lint does not demand `after`."""
+        aria = self.repo.spec_dir / "targets" / (PAGE_A[:-len(".dc.html")] + ".aria")
+        aria.write_text(
+            aria.read_text(encoding="utf-8")
+            + "## scene empty\n"
+            + '- button "确认 2"\n'
+            + '- heading "标题"\n'
+            + '- button "确认"\n',
+            encoding="utf-8")
+        doc = contract()
+        row = dict(self.ROW)
+        row["trigger"] = {"role": "button", "name": "确认"}
+        doc["rows"] = [*doc["rows"], row]
+        errors, _ = lc.lint_screen_axis(
+            doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
+        self.assertFalse(any("create-project.abandon.confirm" in e for e in errors),
+                         errors)
+
+    def test_after_on_a_missing_trigger_is_not_this_rule(self):
+        """`after` present and zero hits is not the uniqueness ERROR: the
+        ticket only errors when the trigger matches more than one node and
+        the row has no coordinate."""
+        aria = self.repo.spec_dir / "targets" / (PAGE_A[:-len(".dc.html")] + ".aria")
+        aria.write_text(
+            aria.read_text(encoding="utf-8") + "## scene empty\n- heading \"其他\"\n",
+            encoding="utf-8")
+        doc = contract()
+        row = dict(self.ROW)
+        row["after"] = {"role": "heading", "name": "要放弃这次任务吗"}
+        doc["rows"] = [*doc["rows"], row]
+        errors, _ = lc.lint_screen_axis(
+            doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
+        self.assertFalse(any("create-project.abandon.confirm" in e
+                             and "matches 0 nodes" in e for e in errors), errors)
+
 
 if __name__ == "__main__":
     unittest.main()
