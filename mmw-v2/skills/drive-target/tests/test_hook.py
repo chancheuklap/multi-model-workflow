@@ -3,7 +3,8 @@
 Every test drives `hook.py` the way a host does — one event as JSON on stdin, one
 answer as JSON on stdout. `pretool` reads the working directory's basename;
 the question gate asks a `paseo` on PATH. Tests name a temporary directory
-`issue-<n>` and put a fake `paseo` on PATH.
+`issue-<n>` and put a fake `paseo` on PATH. An inherited `PASEO_AGENT_CWD` is
+cleared unless a test names it.
 """
 
 from __future__ import annotations
@@ -99,17 +100,21 @@ def fake_paseo_env(*, agent_id: str | None = None, listed_ids: tuple[str, ...] =
 
 def call(host: str, event: dict, env: dict | None = None,
          *, cwd_basename: str | None = None) -> tuple[int, dict | None]:
-    """Run the gate as its host would, and read back the answer it printed."""
+    """Run the gate as its host would, and read back the answer it printed.
+
+    An inherited `PASEO_AGENT_CWD` is dropped unless `env` names one, so a
+    dispatched session does not govern a test that names no ticket.
+    """
     if cwd_basename is None:
         cwd_basename = f"issue-{TICKET}"
     out = io.StringIO()
-    patched = {"PASEO_AGENT_CWD": ""}
-    if env:
-        patched.update(env)
+    mapped = dict(env or {})
     with named_cwd(cwd_basename), \
-         mock.patch.dict(os.environ, patched, clear=False), \
+         mock.patch.dict(os.environ, mapped, clear=False), \
          mock.patch.object(hk.sys, "stdin", io.StringIO(json.dumps(event))), \
          redirect_stdout(out), redirect_stderr(io.StringIO()):
+        if "PASEO_AGENT_CWD" not in mapped:
+            os.environ.pop("PASEO_AGENT_CWD", None)
         code = hk.main(["pretool", host])
     printed = out.getvalue().strip()
     return code, json.loads(printed) if printed else None
