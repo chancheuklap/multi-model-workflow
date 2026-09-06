@@ -5,21 +5,21 @@
 
 ## 什么改动必须写一份
 
-凡是改动会让 consuming repository 已有的 screen contract、ticket 的 `CHECK:` 或 `.mmw/target.json` 失效的。target trees 随 screen contract 一起点名。Done when：该不该写一份已经能从这一条判出来。
+凡是改动会让 consuming repository 已有的 screen contract、ticket 的 `CHECK:` 或 `.mmw/target.json` 失效的。target trees 随 screen contract 一起点名。
 
 ## 一份写三样
 
-1. 改了什么。
-2. consuming repository 里哪些产物因此失效：screen contract、ticket 的 `CHECK:`、`.mmw/target.json`、target trees，按类点名。
-3. 怎么迁：能一条命令说清的就给命令，说不清的给判断依据。
+每份说明固定这三个标题字面，按这个顺序：
 
-不做迁移脚本框架，不做版本号协商。文件以改动命名，列进下面的索引。Done when：三样都有、索引有这一条。
+- `## 改了什么`：改了什么。
+- `## 哪些产物失效`：consuming repository 里哪些产物因此失效：screen contract、ticket 的 `CHECK:`、`.mmw/target.json`、target trees，按类点名。
+- `## 怎么迁`：能一条命令说清的就给命令，说不清的给判断依据。
+
+不做迁移脚本框架，不做版本号协商。文件名是造成这次改动的 ticket 号加一个 slug（`158-drive-target-judges.md`）。索引每行 `[<文件>](<文件>) — mmw #<n>`。
 
 ## consuming repository 怎么用
 
-1. 打开对应改动的说明。
-2. 按「怎么迁」执行或判断。
-3. 迁完：该改的 screen contract、`CHECK:`、`.mmw/target.json`、target trees 与说明里点名的类一致。
+按 `## 怎么迁` 执行。
 
 ## 目前有说明的改动
 
