@@ -16,6 +16,7 @@ judges honour, kept in sight so they are never a silent allowance.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import re
 import subprocess
@@ -43,6 +44,27 @@ def driver() -> Path:
             return candidate
     raise SystemExit("no screen_driver.py in any --tools directory; pass --tools <the "
                      "drive-target skill's scripts directory>")
+
+
+_SD = None
+_SD_PATH: Path | None = None
+
+
+def screen_driver_mod():
+    """The drive-target driver from `--tools`. Cached while the path is unchanged.
+    `matches_volatile` / `count_volatile_hits` live there; this file does not
+    copy them."""
+    global _SD, _SD_PATH
+    path = driver()
+    if _SD is not None and _SD_PATH == path:
+        return _SD
+    spec = importlib.util.spec_from_file_location("_mmw_lint_screen_driver", path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["_mmw_lint_screen_driver"] = mod
+    spec.loader.exec_module(mod)
+    _SD = mod
+    _SD_PATH = path
+    return mod
 
 
 def target_kinds() -> set[str]:
@@ -394,9 +416,15 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
         if aria is None:
             aria = contract_dir / "targets" / f"{page_stem(page)}.aria"
         tree = aria.read_text(encoding="utf-8") if aria.exists() else ""
-        if not volatile_in_tree(tree, role, name):
+        hits = screen_driver_mod().count_volatile_hits(
+            tree.splitlines(),
+            screen_driver_mod().volatile_triggers({"volatile_values": [entry]}))
+        if hits == 0:
             warnings.append(f"volatile_values: {role} {name!r} on {page} is not in the "
                             f"target tree")
+        elif hits > 1:
+            errors.append(f"volatile_values: {role} {name!r} on {page} matches {hits} "
+                          f"nodes; name the previous named node as after")
     return errors, warnings
 
 
@@ -563,12 +591,6 @@ def volatile_lines(doc: dict) -> list[str]:
         reason = e.get("reason") or "(no reason)"
         out.append(f'VOLATILE {page} {role} "{name}": {reason}')
     return out
-
-
-def volatile_in_tree(text: str, role: str, name: str) -> bool:
-    """Whether the handoff target tree names this trigger — quoted accessible name
-    or the `: value` form of a static text node."""
-    return f'- {role} "{name}"' in text or f'- {role}: {name}' in text
 
 
 def main(argv: list[str]) -> int:

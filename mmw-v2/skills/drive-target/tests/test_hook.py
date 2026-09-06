@@ -520,7 +520,8 @@ class EndingAProcess(unittest.TestCase):
                 self.assertIsNone(answer, f"{command} was refused")
 
     def test_a_session_nobody_dispatched_is_not_governed(self):
-        code, answer = call("claude", with_command("claude", "kill 123"), env={},
+        code, answer = call("claude", with_command("claude", "kill 123"),
+                            env={"PASEO_AGENT_CWD": "/w/workspace"},
                             cwd_basename="workspace")
         self.assertEqual(code, 0)
         self.assertIsNone(answer)

@@ -560,8 +560,47 @@ class TestBaselineServing(unittest.TestCase):
              "trigger": {"role": "text", "name": "鸭豆余额 12,480"},
              "reason": "wallet balance is an external account; seed does not write it"}]}
         self.assertEqual(sd.volatile_triggers(scoped, "App · 商品项目库.dc.html"),
-                         [("text", "鸭豆余额 12,480")])
+                         [("text", "鸭豆余额 12,480", None)])
         self.assertEqual(sd.volatile_triggers(scoped, "Component · 工作台壳.dc.html"), [])
+
+    def test_three_same_stem_siblings_the_after_coordinate_hits_one(self):
+        """Three strongs share the stem 鸭豆. A trigger with no second coordinate
+        matches all three; `after` (the previous named node) matches only the
+        one that follows that node — agentflow#654's free-gate counterexample."""
+        tree = (
+            "- text: 每张费用\n"
+            "- strong: 20 鸭豆\n"
+            "- text: 最大预扣\n"
+            "- strong: 40 鸭豆\n"
+            "- text: 当前余额\n"
+            "- strong: 12,480 鸭豆\n"
+        )
+        lines = sd.normalize_aria(tree)
+        bare = [("strong", "12,480 鸭豆")]
+        pinned = [("strong", "12,480 鸭豆", ("text", "当前余额"))]
+        self.assertEqual(sd.count_volatile_hits(lines, bare), 3)
+        self.assertEqual(sd.count_volatile_hits(lines, pinned), 1)
+        two_scenes = [f"## scene free-gate", *lines, f"## scene free-hold-unknown", *lines]
+        self.assertEqual(sd.count_volatile_hits(two_scenes, bare), 3)
+        self.assertEqual(sd.count_volatile_hits(two_scenes, pinned), 1)
+        masked_bare = sd.mask_volatile(lines, bare)
+        masked_pinned = sd.mask_volatile(lines, pinned)
+        self.assertEqual(sum("<volatile>" in ln for ln in masked_bare), 3)
+        self.assertEqual(sum("<volatile>" in ln for ln in masked_pinned), 1)
+        self.assertTrue(any("20 鸭豆" in ln for ln in masked_pinned))
+        self.assertTrue(any("40 鸭豆" in ln for ln in masked_pinned))
+        self.assertFalse(any("12,480" in ln for ln in masked_pinned))
+        js = sd.volatile_paint_js(pinned)
+        self.assertIn("当前余额", js)
+        self.assertIn('"after"', js)
+        scoped = {"volatile_values": [
+            {"page": "Component · 自由模式.dc.html",
+             "trigger": {"role": "strong", "name": "12,480 鸭豆"},
+             "after": {"role": "text", "name": "当前余额"},
+             "reason": "wallet balance is an external account; seed does not write it"}]}
+        self.assertEqual(
+            sd.volatile_triggers(scoped, "Component · 自由模式.dc.html"),
+            [("strong", "12,480 鸭豆", ("text", "当前余额"))])
 
     def test_wrapper_page_carries_inline_head_and_scene(self):
         page = sd.wrapper_page("Component · 壳头", {"scenario": "ready", "standalone": False},
