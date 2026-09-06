@@ -998,6 +998,11 @@ One note per changed upstream skill in `mmw-v2/merge-notes/`: which passages thi
 _Admitted_: 说明 (in `merge-notes/README.md`)
 _Home_: `mmw-v2/merge-notes/README.md`
 
+**downstream-note**:
+One note per change in this repository that invalidates a consuming repository's existing screen contract, ticket `CHECK:`, or `.mmw/target.json` — what changed, which of those classes (plus target trees) go stale, and how to migrate — the opposite of a merge-note; `mmw-v2/downstream-notes/README.md` says which changes require one. Its fixed parts are Chinese literals: `## 改了什么`, `## 哪些产物失效`, `## 怎么迁`.
+_Admitted_: 说明 (in `downstream-notes/README.md`)
+_Home_: `mmw-v2/downstream-notes/README.md`
+
 **`UPSTREAM.md`**:
 The note written whenever upstream scripts are copied in without a subtree: source repository, commit, date, and which lines were changed.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/UPSTREAM.md`
