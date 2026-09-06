@@ -78,4 +78,4 @@ One change can pass one axis and fail another:
 
 ## What you do not do
 
-You report. You do not decide whether a review finding is worth fixing, and you do not fix one. The three-round cap and the repair path live in the `implement` skill, and the worker who reads your review comment applies them.
+You report. You do not decide whether a review finding is worth fixing, and you do not fix one. The repair path lives in the `implement` skill — one fix round for in-ticket findings, a sub-issue for the rest — and the worker who reads your review comment applies it.

@@ -148,7 +148,7 @@ _Avoid_: 退役 (as a term; the printed prefix is a literal)
 _Home_: `AGENTS.md`
 
 **issue tracker**:
-GitHub Issues for this repository, every operation through `gh`. It is the only store of fact and state: parent–child relations, blocking links, the frontier, and claims exist only here. Its operations — Create, Read, List, Comment, Apply and remove labels, Close, Read a PR, List external PRs, Claim, Resolve — are each one `gh` command in `docs/agents/issue-tracker.md`; `publish to the issue tracker` means create a GitHub issue; `PRs as a request surface` is `no`.
+GitHub Issues for this repository, every operation through `gh`. It is the only store of fact and state: parent–child relations, blocking links, the frontier, and claims exist only here. Its operations — Create, Read, List, Comment, Apply and remove labels, Close, Re-parent, Transfer, Read a PR, List external PRs, Claim, Resolve — are each one `gh` command in `docs/agents/issue-tracker.md`; `publish to the issue tracker` means create a GitHub issue; `PRs as a request surface` is `no`.
 _Admitted_: the tracker
 _Avoid_: backlog (for this), 真 tracker, GitHub Issues (as a term)
 _Home_: `docs/agents/issue-tracker.md`
@@ -370,7 +370,7 @@ _Avoid_: AC (in prose), 标准 (as a term), 验收标准, gate (for a criterion)
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`CHECK:`**:
-The shell command that decides a criterion. It runs in its own shell with the working directory at the repository root (or `CWD:`); a multi-line command is written only as a fenced block directly under it. It is the one line in the pipeline a shell runs with no agent in between, so any script it names is written by its full installed path. Its text comes from the precedent named in `## Testing Decisions`. A command may write `$MMW_TICKET` for the ticket number it is running against.
+The shell command that decides a criterion. It runs in its own shell with the working directory at the repository root (or `CWD:`); a multi-line command is written only as a fenced block directly under it. It is the one line in the pipeline a shell runs with no agent in between, so the program that runs it supplies its environment: `verify-ticket.py` puts every `--tools` directory on that shell's `PATH` and sets `MMW_TICKET` to the ticket number, and the line names a judge by its bare name and carries no install location. Its text comes from the precedent named in `## Testing Decisions`. A command may write `$MMW_TICKET` for the ticket number it is running against.
 _Avoid_: check command, the check (for this)
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
@@ -659,7 +659,7 @@ _Home_: `mmw-v2/skills/drive-target/references/ui-parity.md`
 ### Screen contract
 
 **screen contract**:
-`docs/specs/<effort>/screen-contract.yaml`, two axes. The **control axis**, `rows`: one row per user-visible behaviour of an interface — the control (`trigger`, by role and accessible name), its `precondition`, the `scenes` it is visible in, what it `calls`, which field feeds each value it `shows`, what state is `next`, what `on_failure` shows, where the behaviour was decided (`source`), how a test reaches the state (`reach`), and whether design and backend agree (`gap`). The **screen axis**: `target` (`kind`, `adapter`), `viewports`, `pages` (one per design page: `mount`, `route`, and a `Component · ` page's `component`) and `scenes` (one per scene: `page`, `reach`, `open`, overrides), plus the mechanism table with `via` and `built_by`. It carries no address. Written by `align-screens` on the alignment ticket; read by `to-spec`, `to-tickets`, `implement`, the Spec axis, both judges and `verify-ticket --lint`. It is the behaviour baseline of an interface, beside the handoff package as its look-and-copy baseline; the two never bind the same thing.
+`docs/specs/<effort>/screen-contract.yaml`, two axes. The **control axis**, `rows`: one row per user-visible behaviour of an interface — the control (`trigger`, by role and accessible name), its `precondition`, the `scenes` it is visible in, what it `calls`, which field feeds each value it `shows`, what state is `next`, what `on_failure` shows, where the behaviour was decided (`source`), how a test reaches the state (`reach`), and whether design and backend agree (`gap`). The **screen axis**: `target` (`kind`), `viewports`, `pages` (one per design page: `mount`, `route`, and a `Component · ` page's `component`) and `scenes` (one per scene: `page`, `reach`, `open`, overrides), plus the mechanism table with `via` and `built_by`. It carries no address. Written by `align-screens` on the alignment ticket; read by `to-spec`, `to-tickets`, `implement`, the Spec axis, both judges and `verify-ticket --lint`. It is the behaviour baseline of an interface, beside the handoff package as its look-and-copy baseline; the two never bind the same thing.
 _Avoid_: UI contract, interaction table, 界面合同表, 对齐表
 _Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
 
@@ -763,7 +763,7 @@ _Avoid_: 类名集合, class list
 _Home_: `mmw-v2/skills/drive-target/references/ui-parity.md`
 
 **`volatile_values`**:
-A top-level list on the screen contract of display values the seed must not write — a wallet balance belonging to an external account, not a difference to hide. Each entry is a `page`, a `trigger` (role and accessible name, the same shape as `retired_ids`), and one line of `reason`. Before the accessibility tree and the pixel judge compare, both sides replace that node's text with one token: the tree name becomes `<volatile>`, and the pixel judge puts the trigger's digits into the node on both sides, so the boxes are one width, and paints that box the same solid colour. The class set is not masked — the paint is an inline style, not a class name. A product node matches when its role equals the trigger's and the accessible names agree once digits and thousands separators are removed. The lint prints every entry on every run and warns when the trigger is not in that page's target tree.
+A top-level list on the screen contract of display values the seed must not write — a wallet balance belonging to an external account, not a difference to hide. Each entry is a `page`, a `trigger` (role and accessible name, the same shape as `retired_ids`), and one line of `reason`; the two judges mask that node on both sides before comparing. How the mask is applied and matched is in the contract format.
 _Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
 
 **perturbation run**:
@@ -782,7 +782,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 The whole path from spec to closed ticket: four steps by day (vocabulary, spec, tickets, lint), eight by night (a worker session from start of work to closing), two in the morning (the user takes over). Its only place to close a ticket or change a label is `--closeout`; its protocol slot is a comment's first line; it pushes no branch and reads no pull request; it reclaims no branch or worktree; it does not chase test coverage.
 _Admitted_: ticket pipeline (in triage text)
 _Avoid_: 流水线, this pipeline (as a name), 落地流水线
-_Home_: `docs/research/code-landing/11-target-pipeline.html`
+_Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **publish**:
 Creating the spec or the tickets as GitHub issues (`publish to the issue tracker`): each ticket as a native sub-issue of its spec, labelled `ready-for-agent` plus a worker grade, or `ready-for-human`. The **read-back** step follows: every ticket is read back — title and `## What to build` describe one slice, `## Blocked by` resolves, the native edge count matches, the spec's sub-issue count equals the batch, `## Read first` and `## Seam` are non-empty — and every ticket with criteria is run through `--lint`.
@@ -795,7 +795,7 @@ _Avoid_: 派发 (as a term), run (as a dispatch.sh verb), wait (as a dispatch.sh
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`dispatch.sh`**:
-The dispatch skill's script, seven forms: `check <spec>`, `advance <spec>`, `start <n> worker|reviewer|verifier`, `resume <n> "<text>"`, `status <spec>`, `reverify <spec>`, `summary <spec>`. It writes the agent labels `mmw.ticket`, `mmw.kind`, `mmw.spec`, `mmw.profile`, `mmw.autonomous`; records `branch.issue-<n>.mmw-base`; reads the worker-grade label and nothing else to pick the worker row. `start` and `advance` take exactly one of `--json` or `--run`. The skill's own text calls it `<dispatch>`.
+The dispatch skill's script, eight forms: `check <spec>`, `advance <spec>`, `start <n> worker|reviewer|verifier`, `resume <n> "<text>"`, `status <spec>`, `reverify <spec>`, `summary <spec>`, `suspend <spec>`. It writes the agent labels `mmw.ticket`, `mmw.kind`, `mmw.spec`, `mmw.profile`, `mmw.autonomous`; records `branch.issue-<n>.mmw-base`; reads the worker-grade label and nothing else to pick the worker row. Every form takes the two `--tools` directories. The skill's own text calls it `<dispatch>`.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **dispatch line**:
@@ -816,7 +816,7 @@ _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **status**:
-`dispatch.sh status <spec>`: prints the `status.py --table` view. Exit 0. Columns: `ticket`, `agent`, `id`, `agent_status`, `age`, `phase`, `ac`, `note`. A `note` of `needs permission` is the `needs permission` finish notification in table form.
+`dispatch.sh status <spec>`: prints the `status.py --table` view. Exit 0; exit 2 when the tracker or `paseo` could not be asked, with one `dispatch: …` line on stderr and no table. Columns: `ticket`, `agent`, `id`, `agent_status`, `age`, `phase`, `ac`, `note`. A `note` of `needs permission` is the `needs permission` finish notification in table form.
 _Avoid_: agent_status (Herdr lifecycle state)
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
@@ -845,7 +845,7 @@ _Avoid_: 开工守卫, 开工核对, the guard (for this)
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **claim**:
-Setting the ticket's assignee to oneself, `gh issue edit <n> --add-assignee @me`: the first write action after preflight's checks pass, and the session's first write. A claim exists only on the tracker, and the frontier takes unassigned tickets only, which is what keeps a second worker off a ticket somebody is already working. Three paths take a claim off: the closeout, the hand back to triage, and `advance`'s **give a claim back** (the `RELEASE` line) for a claim whose worker is gone. A session that ends any other way — a crash, a machine restart, a workspace archived from outside this pipeline — would otherwise leave the ticket off every frontier for good, with an empty frontier as the only sign of it.
+Setting the ticket's assignee to oneself, `gh issue edit <n> --add-assignee @me`: the first write action after preflight's checks pass, and the session's first write. A claim exists only on the tracker, and the frontier takes unassigned tickets only, which is what keeps a second worker off a ticket somebody is already working. Four paths take a claim off: the closeout, the hand back to triage, `advance`'s **give a claim back** (the `RELEASE` line) for a claim whose worker is gone, and `suspend`, which gives back every claim of the batch. A session that ends any other way — a crash, a machine restart, a workspace archived from outside this pipeline — would otherwise leave the ticket off every frontier for good, with an empty frontier as the only sign of it.
 _Admitted_: give a claim back (for the third path)
 _Avoid_: 认领 (as a term), assign to oneself, release (for taking a claim off)
 _Home_: `docs/agents/issue-tracker.md`
@@ -860,7 +860,7 @@ _Avoid_: 并回来 (as a term)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **suspend**:
-`dispatch.sh suspend <spec>`, the decision to give a night up before it is over, taken when the fault is in the pipeline rather than in a ticket. It interrupts every live worker of the batch with `paseo stop` (workspace and branch stay), comments `NIGHT SUSPENDED #<spec>` on every ticket still in the agent queue, gives back every lease slot the batch holds, and deletes the main agent's heartbeat (`paseo heartbeat delete`, id in `.git/mmw-heartbeat-<spec>`). The same batch is taken up again with `advance` once the fault is fixed. `lease.py` refuses a slot something still listens on, and `suspend` reports that on stderr and exits 1 rather than forcing it. Exit 0 when nothing was left over, 2 when nothing was touched. `ABANDON:` on a criterion is unrelated: it says one criterion was given up, and this says a night was.
+`dispatch.sh suspend <spec>`, the decision to give a night up before it is over, taken when the fault is in the pipeline rather than in a ticket. It archives every live worker of the batch with `paseo archive` — which interrupts the worker, takes it and its reviewer and verifier off the agent list, and leaves the workspace and the branch standing — comments `NIGHT SUSPENDED #<spec>` on every ticket still in the agent queue, gives back every claim and every lease slot the batch holds, and deletes the main agent's heartbeat when `.git/mmw-heartbeat-<spec>` names one. That is what lets `advance` take the same batch up again once the fault is fixed: each ticket is unclaimed, no agent holds it, and its standing workspace is reused. `lease.py` refuses a slot something still listens on, and `suspend` reports that on stderr and exits 1 rather than forcing it. Exit 0 when nothing was left over, 1 when something was, 2 when nothing was touched. `ABANDON:` on a criterion is unrelated: it says one criterion was given up, and this says a night was.
 _Avoid_: abandon (as the name of this), 收夜, give the night up (as a name)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
@@ -928,7 +928,7 @@ _Avoid_: 五宿主平权, host-neutral (as a name), 五个宿主
 _Home_: `AGENTS.md`
 
 **skills called by name**:
-A skill's scripts are resolved by the agent holding that skill, from its own `SKILL.md`, as `scripts/…`; a caller names the skill and what it wants done, never an install path. Installing a skill is receiving its scripts, so the two cannot drift and the path is right on every host. The one exception is the `CHECK:` written into a ticket, which a shell runs with no agent in between, so its path is written in full.
+A skill's scripts are resolved by the agent holding that skill, from its own `SKILL.md`, as `scripts/…`; a caller names the skill and what it wants done, never an install path. Installing a skill is receiving its scripts, so the two cannot drift and the path is right on every host. The `CHECK:` written into a ticket is run by a shell with no agent in between, and it names no path either: `verify-ticket.py` resolves the drive-target skill's `scripts/` through `--tools` and puts it on that shell's `PATH`.
 _Home_: `AGENTS.md`
 
 **silence is never a pass**:
@@ -966,7 +966,7 @@ _Home_: `AGENTS.md`
 ### The toolbox
 
 **skill**:
-The unit the toolbox ships, one directory with a `SKILL.md`. This repository's own: `dispatch`, `verify-ticket`, `drive-target`, `readable-docs`, `exe-release`, `manage-agents-md`, `claude-design-blocks`, `code-checkers`. From `mattpocock/skills`: `to-spec`, `to-tickets`, `implement`, `code-review`, `triage`, `wayfinder`, `domain-modeling`, `grilling`, `grill-me`, `grill-with-docs`, `prototype`, `research`, `resolving-merge-conflicts`, `setup-matt-pocock-skills`, `codebase-design`, `improve-codebase-architecture`, `tdd`, `diagnosing-bugs`, `ask-matt`, `wait-what`, `teach`, `to-questionnaire`, `writing-for-agents`, `handoff`, `wizard`. From `cathrynlavery/diagram-design`: `diagram-design`. A skill is named by its directory name; `the X skill` in prose, never `/X`.
+The unit the toolbox ships, one directory with a `SKILL.md`. This repository's own: `dispatch`, `verify-ticket`, `drive-target`, `align-screens`, `readable-docs`, `exe-release`, `manage-agents-md`, `claude-design-blocks`, `code-checkers`. From `mattpocock/skills`: `to-spec`, `to-tickets`, `implement`, `code-review`, `triage`, `wayfinder`, `domain-modeling`, `grilling`, `grill-me`, `grill-with-docs`, `prototype`, `research`, `resolving-merge-conflicts`, `setup-matt-pocock-skills`, `codebase-design`, `improve-codebase-architecture`, `tdd`, `diagnosing-bugs`, `ask-matt`, `wait-what`, `teach`, `to-questionnaire`, `writing-for-agents`, `handoff`, `wizard`. From `cathrynlavery/diagram-design`: `diagram-design`. A skill is named by its directory name; `the X skill` in prose, never `/X`.
 _Home_: `mmw-v2/skills.txt`
 
 **`SKILL.md`**:
@@ -1101,5 +1101,5 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | category role | `bug` · `enhancement` |
 | `dispatch.sh` constants | `MERGE_TRIES = 3` · `LABEL_TITLE_CHARS` · `DEFAULT_WORKER` |
 | `lease.py` constants | `MMW_LEASE_SLOTS = 8` · `MMW_LEASE_PORT_BASE = 21000` · `MMW_LEASE_PORT_STRIDE = 20` |
-| `dispatch.sh` verbs | `check` · `advance` · `start` · `resume` · `status` · `reverify` · `summary` |
-| exit codes | `dispatch.sh start` 0 / 2 (nothing started) · `advance` 0 / 2 (nothing touched) / 3 (conflict still in the tree) · `check` 0 / 2 · `resume` 0 / 2 · `reverify` 0 / 1 · `verify-ticket.py` 0 / 1 (`--closeout` refused) / 2 (`--preflight`, `--decisions`, `--touched` or `--sub-issue` refused) · `visual-parity.py` 0 / 1 (`DIFF`, `SHOWS-STATIC`) / 2 (`NEGATIVE CONTROL FAILED`, not ready, unreachable scene) · `wiring-check.py` 0 / 1 (`MISS`, `GREEN WITHOUT TRANSPORT`) / 2 (could not start, or `--negative` evaluated no observe) · `install.sh --check` 0 / 1 · `--lint` 0 unless an `ERROR` remains |
+| `dispatch.sh` verbs | `check` · `advance` · `start` · `resume` · `status` · `reverify` · `summary` · `suspend` |
+| exit codes | `dispatch.sh start` 0 / 2 (nothing started) · `advance` 0 / 2 (nothing touched) / 3 (conflict still in the tree) · `check` 0 / 2 · `resume` 0 / 2 · `status` 0 / 2 (could not ask) · `reverify` 0 / 1 · `suspend` 0 / 1 (something left) / 2 (nothing touched) · `verify-ticket.py` 0 / 1 (`--closeout` refused) / 2 (`--preflight`, `--decisions`, `--touched` or `--sub-issue` refused) · `visual-parity.py` 0 / 1 (`DIFF`, `SHOWS-STATIC`) / 2 (`NEGATIVE CONTROL FAILED`, not ready, unreachable scene) · `wiring-check.py` 0 / 1 (`MISS`, `GREEN WITHOUT TRANSPORT`) / 2 (could not start, or `--negative` evaluated no observe) · `install.sh --check` 0 / 1 · `--lint` 0 unless an `ERROR` remains |
