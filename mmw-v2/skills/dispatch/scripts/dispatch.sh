@@ -35,7 +35,6 @@ SELF="$(realpath "${BASH_SOURCE[0]}")"
 SKILL_ROOT="$(dirname "$(dirname "$SELF")")"
 MODELS="$SKILL_ROOT/models.md"
 STATUS="$SKILL_ROOT/scripts/status.py"
-VERIFIER_MD="$(realpath "$SKILL_ROOT/references/verifier.md" 2>/dev/null || true)"
 # The skill lives under mmw-v2/skills/<name> of the toolbox checkout, so `install.sh`
 # is two directories up. `verify-ticket.py` and `lease.py` belong to other skills and
 # are found only in the directories `--tools` names (see the entry at the bottom).
@@ -581,9 +580,7 @@ start_one() {
         || refuse "no branch.issue-$number.mmw-base, so the reviewer has no commit to start from"
       prompt="Use the code-review skill to review ticket #$number from base commit $base. $AUTONOMOUS" ;;
     verifier)
-      [ -n "$VERIFIER_MD" ] && [ -f "$VERIFIER_MD" ] \
-        || refuse "no verifier prompt at $SKILL_ROOT/references/verifier.md"
-      prompt="verify #$number 按 $VERIFIER_MD 行事" ;;
+      prompt="Use the verdict skill to verify ticket #$number. $AUTONOMOUS" ;;
   esac
 
   local workspace cwd created row

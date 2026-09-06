@@ -1,0 +1,479 @@
+"""The screen-contract rules: what `--lint` reports under `[screen-contract]`, and the
+closeout refusal when the Spec axis reported a `Missing` against a row the draft ignores.
+"""
+
+import os
+import tempfile
+import unittest
+from unittest import mock
+
+from _load import load
+
+vt = load()
+
+WIRING = ("wiring-check.py --contract "
+          "docs/specs/x/screen-contract.yaml --rows create-project.add-material")
+PARITY = ("visual-parity.py --contract "
+          "docs/specs/x/screen-contract.yaml --mount create-project")
+
+
+def gate(gate_id, check, expect="/^OK$/m"):
+    return (f"- [ ] {gate_id}: something a stranger could judge\n"
+            f"  CHECK: {check}\n  EXPECT: {expect}\n  EVIDENCE: pending")
+
+
+def ticket(read_first, *criteria, parent="", blocked_by=""):
+    body = ""
+    if parent:
+        body += "## Parent\n\n" + parent + "\n\n"
+    body += ("## Read first\n\n" + read_first + "\n\n## Acceptance criteria\n\n"
+             + "\n".join(criteria) + "\n")
+    if blocked_by:
+        body += "\n## Blocked by\n\n" + blocked_by + "\n"
+    return body
+
+
+ROWS = "- docs/specs/x/screen-contract.yaml rows: create-project.add-material (baseline)"
+
+CONTRACT = """
+target: {kind: electron, adapter: verify-ticket/references/targets/electron.md}
+viewports: [1440x900]
+pages:
+  "Component · 新建商品项目.dc.html": {mount: create-project, route: '#/new-project', component: cp}
+  "Component · 壳头.dc.html": {mount: shell-header, route: '#/', component: sh}
+mechanisms:
+  seed:library-ready: {via: api, built_by: '#637'}
+  seed:draft-existing: {via: storage, built_by: '#639', proven_by: '#639 AC4'}
+scenes:
+  empty: {page: "Component · 新建商品项目.dc.html", reach: [seed:library-ready]}
+  material-added: {page: "Component · 新建商品项目.dc.html", reach: [seed:draft-existing]}
+  shell-header.ready: {page: "Component · 壳头.dc.html", reach: [seed:library-ready]}
+rows:
+- id: create-project.add-material
+  component: cp
+  calls: ['POST /x']
+  reach: seed:library-ready
+  source: ['#537 story 2', '#537 Implementation Decisions 2', 'ADR-0021', '#420', 'docs/context/chameleon-product.md 新建商品项目', 'README §4.1']
+- id: create-project.name
+  component: cp
+  calls: [none]
+  reach: seed:library-ready
+  source: ['#537 Testing Decisions']
+- id: shell.sign-in
+  component: sh
+  calls: ['ipc x']
+  reach: seed:library-ready
+  source: ['#536 Implementation Decisions 3']
+"""
+
+
+class TestLintScreenContract(unittest.TestCase):
+    """The four original rules, against a contract that is on disk."""
+
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        path = os.path.join(self.dir.name, "screen-contract.yaml")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(CONTRACT)
+        self.rows = f"- `{path} rows: create-project.add-material`（基线）\n- `docs/adr/chameleon/0021-x.md`\n- #420\n- `docs/context/chameleon-product.md`"
+        self.parent = "[Spec（#537）](u)，Implementation Decisions 第 2 节"
+        self.wiring = WIRING.replace("docs/specs/x/screen-contract.yaml", path)
+        self.parity = PARITY.replace("docs/specs/x/screen-contract.yaml", path)
+
+    def tearDown(self):
+        self.dir.cleanup()
+
+    def lint(self, *criteria):
+        return vt.lint_screen_contract(ticket(self.rows, *criteria, parent=self.parent,
+                                              blocked_by="- #637"), 639)
+    def test_an_interface_ticket_without_row_ids_is_an_error(self):
+        findings = vt.lint_screen_contract(ticket("- README (baseline)", gate("AC1", PARITY)))
+        self.assertEqual(len(findings), 1)
+        self.assertIn("names no", findings[0])
+
+    def test_a_row_with_calls_needs_a_wiring_criterion(self):
+        findings = self.lint(gate("AC1", self.parity))
+        self.assertEqual(len(findings), 1)
+        self.assertIn("create-project.add-material", findings[0])
+        self.assertIn("wiring-check.py", findings[0])
+
+    def test_a_wiring_criterion_naming_the_row_satisfies_it(self):
+        self.assertEqual(self.lint(gate("AC1", self.parity), gate("AC2", self.wiring)), [])
+
+    def test_a_check_that_stubs_fetch_is_an_error(self):
+        stubbed = "pnpm vitest run src/__tests__/live.spec.ts  # vi.stubGlobal('fetch', ...)"
+        findings = self.lint(gate("AC1", self.wiring), gate("AC2", stubbed))
+        self.assertEqual(len(findings), 1)
+        self.assertIn("AC2", findings[0])
+
+    def test_a_ticket_without_interface_or_rows_has_nothing_to_say(self):
+        self.assertEqual(vt.lint_screen_contract(ticket("- ADR-0013 (baseline)", gate("AC1", "pytest -q"))), [])
+
+
+class TestPipelineFlags(unittest.TestCase):
+    """The two pipeline scripts are given what they need, nothing they retired, and
+    nothing their `--help` does not list — the one check that catches a criterion
+    naming a capability that does not exist at the moment it is written. The scripts
+    belong to the drive-target skill and reach the lint through `--tools`, so the
+    test hands their directory over the way the agent does."""
+
+    def setUp(self):
+        from pathlib import Path
+        vt.TOOLS[:] = [Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts"]
+        vt._HELP_FLAGS.clear()
+
+    def tearDown(self):
+        vt.TOOLS[:] = []
+        vt._HELP_FLAGS.clear()
+
+    def test_visual_parity_without_contract_or_mount(self):
+        bare = "visual-parity.py --scenes a"
+        findings = vt.lint_pipeline_flags("AC1", bare)
+        self.assertTrue(any("without --contract" in f for f in findings))
+        self.assertTrue(any("without --mount" in f for f in findings))
+
+    def test_wiring_check_without_rows(self):
+        findings = vt.lint_pipeline_flags(
+            "AC2", "wiring-check.py --contract c.yaml")
+        self.assertEqual(len(findings), 1)
+        self.assertIn("without --rows", findings[0])
+
+    def test_an_address_on_the_line_is_refused(self):
+        stale = PARITY + " --cdp http://127.0.0.1:9229 --impl http://127.0.0.1:5173/"
+        findings = vt.lint_pipeline_flags("AC1", stale)
+        self.assertEqual(len(findings), 2)
+        self.assertTrue(all(".mmw/target.json" in f for f in findings))
+
+    def test_a_flag_help_does_not_list_is_refused(self):
+        findings = vt.lint_pipeline_flags("AC1", PARITY + " --reach-hook x")
+        self.assertEqual(len(findings), 1)
+        self.assertIn("--reach-hook", findings[0])
+        self.assertIn("--help", findings[0])
+
+    def test_the_seed_belongs_to_the_contract_now(self):
+        findings = vt.lint_pipeline_flags("AC1", WIRING + ' --seed "uv run reach.py seed:x"')
+        self.assertEqual(len(findings), 1)
+        self.assertIn("--seed", findings[0])
+
+    def test_only_the_scripts_own_segment_is_read(self):
+        chained = ("uv run python scripts/testing/reach.py seed:x --perturb && " + PARITY)
+        self.assertEqual(vt.lint_pipeline_flags("AC1", chained), [])
+        self.assertEqual(vt.script_segment(chained, "visual-parity.py"),
+                         " --contract docs/specs/x/screen-contract.yaml --mount create-project")
+
+
+class TestParentSections(unittest.TestCase):
+    def test_chinese_shape(self):
+        parsed = vt.parent_sections(
+            "[Spec（#537）](u)，Implementation Decisions 第 2、9、11 节，User Stories 第 1、2 条；"
+            "[Spec（#536）](u)，Implementation Decisions 第 13 节与 Testing Decisions")
+        self.assertEqual(parsed[537]["sections"], {2, 9, 11})
+        self.assertFalse(parsed[537]["testing"])
+        self.assertEqual(parsed[536]["sections"], {13})
+        self.assertTrue(parsed[536]["testing"])
+
+    def test_english_shape(self):
+        parsed = vt.parent_sections("#535, Implementation Decisions sections 5 and 7")
+        self.assertEqual(parsed[535]["sections"], {5, 7})
+
+
+
+
+class TestSourcesAndMechanisms(unittest.TestCase):
+    """What a worker cannot see does not exist: every baseline-class source of an owned
+    row is under `## Read first`, every spec section under `## Parent`, and every
+    mechanism used is built by a ticket this one is blocked by."""
+
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.path = os.path.join(self.dir.name, "screen-contract.yaml")
+        with open(self.path, "w", encoding="utf-8") as f:
+            f.write(CONTRACT)
+        self.rows = (f"- `{self.path} rows: create-project.add-material, create-project.name`"
+                     "（基线）")
+        self.wiring = WIRING.replace("docs/specs/x/screen-contract.yaml", self.path)
+        self.parity = PARITY.replace("docs/specs/x/screen-contract.yaml", self.path)
+
+    def tearDown(self):
+        self.dir.cleanup()
+
+    def _lint(self, read_first_extra="", parent="", blocked_by="- #637", number=639):
+        body = ticket(self.rows + "\n" + read_first_extra, gate("AC1", self.parity),
+                      gate("AC2", self.wiring), parent=parent, blocked_by=blocked_by)
+        return vt.lint_screen_contract(body, number)
+
+    def test_every_missing_source_is_named_once(self):
+        findings = self._lint()
+        self.assertTrue(any("ADR-0021" in f for f in findings))
+        self.assertTrue(any("#420" in f for f in findings))
+        self.assertTrue(any("docs/context/chameleon-product.md" in f for f in findings))
+        self.assertTrue(any("Implementation Decisions section 2" in f for f in findings))
+        self.assertTrue(any("Testing Decisions" in f for f in findings))
+        self.assertFalse(any("story" in f for f in findings))
+        self.assertFalse(any("README" in f for f in findings))
+
+    def test_sources_in_read_first_and_parent_are_satisfied(self):
+        extra = ("- `docs/adr/chameleon/0021-chameleon-two-gates.md`（基线）\n"
+                 "- [两道门（#420）](u)（基线）\n- `docs/context/chameleon-product.md`——正名")
+        parent = "[Spec（#537）](u)，Implementation Decisions 第 2 节与 Testing Decisions"
+        self.assertEqual(self._lint(extra, parent), [])
+
+    def test_a_mechanism_built_elsewhere_needs_the_blocking_link(self):
+        findings = self._lint(blocked_by="None (can start immediately)")
+        self.assertTrue(any("seed:library-ready is built by #637" in f for f in findings))
+
+    def test_the_building_ticket_is_not_blocked_by_itself(self):
+        findings = self._lint(blocked_by="None (can start immediately)", number=637)
+        self.assertFalse(any("built by #637" in f for f in findings))
+
+    def test_a_scene_reached_under_the_mount_counts_as_used(self):
+        # material-added is under mount create-project and reaches seed:draft-existing (#639)
+        findings = self._lint(blocked_by="- #637", number=640)
+        self.assertTrue(any("seed:draft-existing is built by #639" in f for f in findings))
+
+    def test_explicit_scenes_stay_inside_the_mount(self):
+        body = ticket(self.rows, gate("AC1", self.parity + " --scenes empty,shell-header.ready"),
+                      gate("AC2", self.wiring), blocked_by="- #637")
+        findings = vt.lint_screen_contract(body, 639)
+        self.assertTrue(any("outside its mounts: shell-header.ready" in f for f in findings))
+
+    def test_an_unknown_mount_is_named(self):
+        body = ticket(self.rows, gate("AC1", self.parity.replace("create-project", "nowhere")),
+                      gate("AC2", self.wiring), blocked_by="- #637")
+        findings = vt.lint_screen_contract(body, 639)
+        self.assertTrue(any("--mount nowhere" in f for f in findings))
+
+
+class TestScenePartition(unittest.TestCase):
+    """Across the batch: every scene once, and every mount owned."""
+
+    def setUp(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False, encoding="utf-8") as f:
+            f.write(CONTRACT)
+        self.doc = vt.load_yaml_file(f.name)
+        os.unlink(f.name)
+
+    def body(self, mounts, scenes=None, expect="/^OK$/m"):
+        check = PARITY.replace("--mount create-project", f"--mount {mounts}")
+        if scenes:
+            check += f" --scenes {scenes}"
+        return ticket(ROWS, gate("AC1", check, expect=expect))
+
+    def test_a_clean_partition_has_no_findings(self):
+        bodies = {1: self.body("create-project"), 2: self.body("shell-header")}
+        self.assertEqual(vt.lint_scene_partition(bodies, self.doc), [])
+
+    def test_a_page_split_by_explicit_scenes(self):
+        bodies = {1: self.body("create-project", "empty"),
+                  2: self.body("create-project", "material-added"),
+                  3: self.body("shell-header")}
+        self.assertEqual(vt.lint_scene_partition(bodies, self.doc), [])
+
+    def test_an_uncovered_scene_and_a_doubly_covered_one(self):
+        bodies = {1: self.body("create-project", "empty"), 2: self.body("create-project")}
+        findings = vt.lint_scene_partition(bodies, self.doc)
+        self.assertTrue(any("shell-header.ready is covered by no ticket" in f for f in findings))
+        self.assertTrue(any("empty is covered by more than one ticket" in f for f in findings))
+        self.assertTrue(any("mount shell-header is owned by no ticket" in f for f in findings))
+
+    def test_closed_coverage_compares_expect_to_scenes_times_viewports(self):
+        doc = dict(self.doc)
+        doc["viewports"] = ["1440x900", "375x812"]
+        open_bodies = {1: self.body("shell-header")}
+        closed = {2: self.body("create-project", expect="PARITY OK 4/4")}
+        self.assertEqual(vt.lint_scene_partition(open_bodies, doc, closed), [])
+        findings = vt.lint_scene_partition(
+            open_bodies, doc, {2: self.body("create-project", expect="PARITY OK 2/2")})
+        self.assertIn(
+            "closed ticket #2 mount create-project covered 2 scenes then, 4 now",
+            findings)
+
+    def test_a_closed_ticket_that_split_a_page_still_covers_its_scenes(self):
+        open_bodies = {1: self.body("shell-header")}
+        closed = {2: self.body("create-project", "empty", expect="PARITY OK 1/1"),
+                  3: self.body("create-project", "material-added", expect="PARITY OK 1/1")}
+        self.assertEqual(vt.lint_scene_partition(open_bodies, self.doc, closed), [])
+
+    def test_a_closed_split_does_not_compare_against_the_whole_mount(self):
+        open_bodies = {1: self.body("shell-header")}
+        findings = vt.lint_scene_partition(
+            open_bodies, self.doc,
+            {2: self.body("create-project", "empty", expect="PARITY OK 1/1")})
+        self.assertIn("scene material-added is covered by no ticket's parity criterion",
+                      findings)
+        self.assertFalse(any("scenes then" in f for f in findings), findings)
+
+    def test_escaped_parity_ok_in_expect_still_covers(self):
+        open_bodies = {1: self.body("shell-header")}
+        closed = {2: self.body("create-project", expect=r"/PARITY OK 2\/2/")}
+        self.assertEqual(vt.lint_scene_partition(open_bodies, self.doc, closed), [])
+
+
+class TestBatchScenes(unittest.TestCase):
+    """Which batch the partition is read over: the tracker's parent link, always.
+
+    The double-claim check is the only thing that stops two tickets owning one page, and
+    reading the wrong batch makes it check a set this ticket is not in — which looks
+    exactly like a pass.
+    """
+
+    TWO_SPECS = "[Spec（#536）](u)，Implementation Decisions 第 13 节\n[Spec（#537）](u)，第 2 节"
+
+    def batch(self, mounts, parent=537, sub_issues=(1, 2), other=None, unreadable=False,
+              other_state="OPEN", other_expect="/^OK$/m"):
+        """`lint_batch_scenes` for ticket #1 over a batch the tracker hands back."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "screen-contract.yaml")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(CONTRACT)
+            rows = ROWS.replace("docs/specs/x/screen-contract.yaml", path)
+            check = PARITY.replace("docs/specs/x/screen-contract.yaml", path)
+            mine = ticket(rows, gate("AC1", check.replace("--mount create-project",
+                                                          f"--mount {mounts}")),
+                          parent=self.TWO_SPECS)
+            theirs = ticket(rows, gate("AC1", check.replace("--mount create-project",
+                                                            f"--mount {other or mounts}"),
+                                       expect=other_expect),
+                            parent=self.TWO_SPECS)
+            parent_patch = (
+                mock.patch.object(vt, "fetch_parent",
+                                  side_effect=vt.ParentUnreadable("gh: connection refused"))
+                if unreadable else
+                mock.patch.object(vt, "fetch_parent", return_value=parent))
+            with parent_patch, \
+                 mock.patch.object(vt, "fetch_sub_issues",
+                                   return_value=list(sub_issues)) as fetch, \
+                 mock.patch.object(vt, "fetch_outsider",
+                                   return_value={"spec": parent, "state": other_state}), \
+                 mock.patch.object(vt, "fetch_body", return_value=theirs):
+                return vt.lint_batch_scenes(1, mine), fetch
+
+    def test_the_batch_read_is_the_linked_spec_not_the_first_in_the_section(self):
+        findings, fetch = self.batch("create-project", other="shell-header")
+        fetch.assert_called_once_with(537)
+        self.assertEqual(findings, [])
+
+    def test_the_other_ticket_of_the_linked_batch_is_seen_claiming_the_same_mount(self):
+        findings, _ = self.batch("create-project", other="create-project")
+        self.assertTrue(any("covered by more than one ticket" in f for f in findings),
+                        findings)
+
+    def test_an_unreadable_parent_is_a_finding_not_a_silent_pass(self):
+        findings, fetch = self.batch("create-project", unreadable=True)
+        self.assertEqual(len(findings), 1)
+        self.assertIn("could not say which spec #1 sits under", findings[0])
+        self.assertIn("gh: connection refused", findings[0])
+        fetch.assert_not_called()
+
+    def test_a_closed_ticket_whose_expect_matches_the_contract_still_covers_its_mount(self):
+        findings, _ = self.batch("shell-header", other="create-project",
+                                 other_state="CLOSED", other_expect="PARITY OK 2/2")
+        self.assertEqual(findings, [])
+
+    def test_a_closed_ticket_whose_expect_no_longer_matches_the_contract_is_an_error(self):
+        findings, _ = self.batch("shell-header", other="create-project",
+                                 other_state="CLOSED", other_expect="PARITY OK 1/1")
+        self.assertIn(
+            "closed ticket #2 mount create-project covered 1 scenes then, 2 now",
+            findings)
+
+    def test_a_closed_ticket_with_no_parity_ok_in_expect_is_an_error(self):
+        findings, _ = self.batch("shell-header", other="create-project",
+                                 other_state="CLOSED", other_expect="/^OK$/m")
+        self.assertIn(
+            "closed ticket #2 mount create-project has no PARITY OK n/n in EXPECT, 2 now",
+            findings)
+
+    def test_a_closed_ticket_on_mount_all_covers_every_scene_when_the_count_matches(self):
+        findings, _ = self.batch("shell-header", other="all",
+                                 other_state="CLOSED", other_expect="PARITY OK 3/3")
+        self.assertEqual(findings, [])
+
+    def test_a_closed_ticket_does_not_collide_with_an_open_ticket_on_the_same_mount(self):
+        findings, _ = self.batch("create-project", other="create-project",
+                                 other_state="CLOSED", other_expect="PARITY OK 2/2")
+        self.assertFalse(any("more than one ticket" in f for f in findings), findings)
+        self.assertTrue(any("shell-header" in f for f in findings), findings)
+
+
+REVIEW = ("REVIEW abc..def\n\n## Standards\n\nnone\n\n## Spec\n\n### Missing\n\n"
+          "1. **create-project.add-material calls nothing.** The button toggles a boolean.\n\n"
+          "## Tests\n\nnone\n")
+BODY = ticket(ROWS, gate("AC1", WIRING))
+
+
+class TestScenePartitionReruns(TestScenePartition):
+    """A ticket blocked by another may re-run that ticket's scenes: the overlap is a
+    re-verification after a change both rest on, not two tickets claiming one page."""
+
+    def rerun(self, mounts, blocked_by):
+        check = PARITY.replace("--mount create-project", f"--mount {mounts}")
+        return ticket(ROWS, gate("AC1", check), blocked_by=blocked_by)
+
+    def test_a_blocked_rerun_of_the_same_mount_is_not_a_double_claim(self):
+        bodies = {1: self.body("create-project"), 2: self.rerun("create-project", "- #1"),
+                  3: self.body("shell-header")}
+        self.assertEqual(vt.lint_scene_partition(bodies, self.doc), [])
+
+    def test_two_unordered_tickets_on_one_mount_still_collide(self):
+        bodies = {1: self.body("create-project"), 2: self.body("create-project"),
+                  3: self.body("shell-header")}
+        findings = vt.lint_scene_partition(bodies, self.doc)
+        self.assertTrue(any("covered by more than one ticket" in f for f in findings))
+
+
+class TestReviewProblems(unittest.TestCase):
+    def test_a_missing_against_an_owned_row_the_draft_ignores_is_refused(self):
+        problems = vt.review_problems("ALL MET\nBranch: x\n", BODY, [REVIEW])
+        self.assertEqual(len(problems), 1)
+        self.assertIn("create-project.add-material", problems[0])
+
+    def test_naming_the_row_in_the_draft_answers_it(self):
+        draft = "ALL MET\nPost-verdict: 1234567 — create-project.add-material wired (review finding)\n"
+        self.assertEqual(vt.review_problems(draft, BODY, [REVIEW]), [])
+
+    def test_no_review_no_problem(self):
+        self.assertEqual(vt.review_problems("ALL MET\n", BODY, ["self-run\nALL MET (1 met)"]), [])
+
+    def test_a_ticket_without_rows_is_not_held_to_it(self):
+        body = ticket("- ADR-0013 (baseline)", gate("AC1", "pytest -q"))
+        self.assertEqual(vt.review_problems("ALL MET\n", body, [REVIEW]), [])
+
+
+class TestContractPathInBackticks(unittest.TestCase):
+    """A Read first line usually wraps the path in backticks; the contract is still read,
+    so a row whose calls are [none] asks for no wiring criterion."""
+
+    def test_an_unreadable_contract_is_a_finding_not_a_pass(self):
+        read_first = "- `/nowhere/screen-contract.yaml rows: a.view`（基线）"
+        findings = vt.lint_screen_contract(ticket(read_first, gate("AC1", PARITY)))
+        self.assertTrue(any("could not be read" in f for f in findings))
+
+    def test_backticked_path_is_opened_and_none_rows_need_no_wiring(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "screen-contract.yaml")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write("pages:\n  'Component · A.dc.html': {mount: create-project, route: '#/'}\n"
+                        "scenes:\n  s: {page: 'Component · A.dc.html'}\n"
+                        "rows:\n- id: a.view\n  calls: [none]\n- id: a.save\n  calls: ['POST /x']\n")
+            read_first = f"- `{path} rows: a.view, a.save`（基线）"
+            wiring = WIRING.replace("create-project.add-material", "a.save")
+            findings = vt.lint_screen_contract(ticket(read_first, gate("AC1", PARITY), gate("AC2", wiring)))
+        self.assertEqual(findings, [])
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+class TestPartitionEdges(unittest.TestCase):
+    def test_addressing_and_all_do_not_partition(self):
+        body = ("## Acceptance criteria\n\n- [ ] AC1: x\n  CHECK: uv run visual-parity.py "
+                "--contract c.yaml --mount all --addressing; true\n  EXPECT: /ADDRESSING/\n")
+        self.assertEqual(vt.parity_calls(body), [])
+
+    def test_a_trailing_semicolon_is_not_part_of_the_last_flag(self):
+        body = ("## Acceptance criteria\n\n- [ ] AC1: x\n  CHECK: uv run visual-parity.py "
+                "--contract c.yaml --mount m --scenes a.b; true\n  EXPECT: x\n")
+        self.assertEqual(vt.parity_calls(body), [("AC1", ["m"], ["a.b"])])
+
