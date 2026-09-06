@@ -38,6 +38,7 @@ INTERACTIVE = {"button", "textbox", "checkbox", "combobox", "link", "tab", "radi
 LINE = re.compile(r'^\s*-\s+(\w+)(?:\s+"((?:[^"\\]|\\.)*)")?')
 TARGET_HEADER = "# target trees of the handoff package page: "
 CLASSES_HEADER = "# class sets of the handoff package page: "
+SCENE_HEADER = "## scene "
 DERIVED_LINE = ("# derived by extract_skeleton.py — the handoff package is the "
                 "baseline and this file is its readable view; the lint fails when the hashes "
                 "below no longer match the package")
@@ -88,13 +89,13 @@ def write_targets(targets: Path, handoff: Path, scenes: list[dict], trees: dict[
         head = [f"# scenes.json sha256={scenes_hash}", f"# page sha256={page_hash}"]
         lines = [TARGET_HEADER + page, DERIVED_LINE, *head, ""]
         for s in entries:
-            lines.append(f"## scene {s['name']}")
+            lines.append(SCENE_HEADER + s["name"])
             lines.extend(trees[s["name"]])
             lines.append("")
         aria_file.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
         lines = [CLASSES_HEADER + page, DERIVED_LINE, *head, ""]
         for s in entries:
-            lines.append(f"## scene {s['name']}")
+            lines.append(SCENE_HEADER + s["name"])
             lines.extend(classes[s["name"]])
             lines.append("")
         classes_file.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")

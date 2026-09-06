@@ -768,7 +768,7 @@ _Avoid_: 类名集合, class list
 _Home_: `mmw-v2/skills/drive-target/references/ui-parity.md`
 
 **`volatile_values`**:
-A top-level list on the screen contract of display values the seed must not write — a wallet balance belonging to an external account, not a difference to hide. Each entry is a `page`, a `trigger` (role and accessible name, the same shape as `retired_ids`), and one line of `reason`; the two judges mask that node on both sides before comparing. How the mask is applied and matched is in the contract format.
+A top-level list on the screen contract of display values the seed must not write — a wallet balance belonging to an external account, not a difference to hide. Each entry is a `page`, a `trigger` (role and accessible name, the same shape as `retired_ids`), one line of `reason`, and `after` (the previous named node) when the stem is not unique on the scene. The two judges mask that node on both sides before comparing; how the mask is applied and matched is in the contract format.
 _Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
 
 **perturbation run**:

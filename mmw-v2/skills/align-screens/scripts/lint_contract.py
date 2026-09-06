@@ -2,9 +2,12 @@
 
 Usage: uv run python lint_contract.py --tools <drive-target scripts> <screen-contract.yaml> <skeleton.json> [<openapi.json>]
 Exit 0 with no errors; 1 with errors listed one per line; warnings never fail.
-`--tools` is the `scripts/` directory of the drive-target skill: the target kinds and
-the check of `.mmw/target.json` are that driver's, asked through `screen_driver.py
-target`, so this file holds no copy of either.
+`--tools` is the `scripts/` directory of the drive-target skill. Three things
+come from that driver, and this file holds no copy of any: the target kinds,
+the check of `.mmw/target.json`, and matching (`matches_volatile` /
+`count_volatile_hits`). All three are loaded in-process through
+`extract_skeleton.py`'s `load_driver()`; kinds and the file check are the
+same functions `screen_driver.py target --kinds` / `--validate` run.
 Rules are the tables in ../references/contract-format.md: the control axis (rows), the
 screen axis (`target`, `viewports`, `pages`, `scenes`), the mechanism table, and the
 target trees under `<contract dir>/targets/`.
@@ -17,10 +20,11 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import io
 import json
 import re
-import subprocess
 import sys
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 import yaml
@@ -32,47 +36,60 @@ MOUNT = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 VIEWPORT = re.compile(r"^(\d+)x(\d+)$")
 TICKET = re.compile(r"^#\d+$")
 PROVEN = re.compile(r"^#\d+ AC\d+$")
-# The directories `--tools` named. The driver of the drive-target skill is found there
-# and nowhere else; `target_kinds()` and `target_file_problem()` ask it.
+# The directories `--tools` named. The driver of the drive-target skill is found
+# there and nowhere else; `target_kinds()`, `target_file_problem()`, and matching
+# all ask it, through `extract_skeleton.py`'s `load_driver()`.
 TOOLS: list[Path] = []
 
-
-def driver() -> Path:
-    for directory in TOOLS:
-        candidate = directory / "screen_driver.py"
-        if candidate.is_file():
-            return candidate
-    raise SystemExit("no screen_driver.py in any --tools directory; pass --tools <the "
-                     "drive-target skill's scripts directory>")
-
-
+_ES = None
+_ES_PATH: Path | None = None
 _SD = None
 _SD_PATH: Path | None = None
 
 
-def screen_driver_mod():
-    """The drive-target driver from `--tools`. Cached while the path is unchanged.
-    `matches_volatile` / `count_volatile_hits` live there; this file does not
-    copy them."""
-    global _SD, _SD_PATH
-    path = driver()
-    if _SD is not None and _SD_PATH == path:
-        return _SD
-    spec = importlib.util.spec_from_file_location("_mmw_lint_screen_driver", path)
+def extract_skeleton_mod():
+    """`extract_skeleton.py` from `--tools`. Cached while the path is unchanged."""
+    global _ES, _ES_PATH
+    path = None
+    for directory in TOOLS:
+        candidate = directory / "extract_skeleton.py"
+        if candidate.is_file():
+            path = candidate
+            break
+    if path is None:
+        raise SystemExit("no extract_skeleton.py in any --tools directory; pass --tools <the "
+                         "drive-target skill's scripts directory>")
+    if _ES is not None and _ES_PATH == path:
+        return _ES
+    spec = importlib.util.spec_from_file_location("extract_skeleton", path)
     mod = importlib.util.module_from_spec(spec)
-    sys.modules["_mmw_lint_screen_driver"] = mod
+    sys.modules["extract_skeleton"] = mod
     spec.loader.exec_module(mod)
-    _SD = mod
-    _SD_PATH = path
+    _ES = mod
+    _ES_PATH = path
     return mod
 
 
+def screen_driver_mod():
+    """The drive-target driver from `--tools`, loaded the same way
+    `extract_skeleton.py` loads it. Cached while the path is unchanged.
+    Matching (`matches_volatile` / `count_volatile_hits`) and the target
+    kinds / `.mmw/target.json` check all come from this module."""
+    global _SD, _SD_PATH
+    es = extract_skeleton_mod()
+    path = Path(es.__file__).resolve().parent / "screen_driver.py"
+    if not path.is_file():
+        raise SystemExit("no screen_driver.py in any --tools directory; pass --tools <the "
+                         "drive-target skill's scripts directory>")
+    if _SD is not None and _SD_PATH == path:
+        return _SD
+    _SD = es.load_driver()
+    _SD_PATH = path
+    return _SD
+
+
 def target_kinds() -> set[str]:
-    out = subprocess.run([sys.executable, str(driver()), "target", "--kinds"],
-                         capture_output=True, text=True)
-    if out.returncode != 0:
-        raise SystemExit(f"screen_driver.py target --kinds failed: {out.stderr.strip()}")
-    return set(out.stdout.split())
+    return set(screen_driver_mod().ADAPTERS)
 
 
 def target_file_problem(repo: Path, kind: str) -> tuple[str, str] | None:
@@ -86,13 +103,14 @@ def target_file_problem(repo: Path, kind: str) -> tuple[str, str] | None:
     if not (repo / ".mmw" / "target.json").exists():
         return ("warning", "no .mmw/target.json yet; the contract ticket lands it — run "
                            "`screen_driver.py target --check` (the drive-target skill) there")
-    out = subprocess.run([sys.executable, str(driver()), "target", "--validate",
-                          "--repo", str(repo), "--kind", kind],
-                         capture_output=True, text=True)
-    if out.returncode == 0:
+    buf_out, buf_err = io.StringIO(), io.StringIO()
+    with redirect_stdout(buf_out), redirect_stderr(buf_err):
+        code = screen_driver_mod().target_main(
+            ["--validate", "--repo", str(repo), "--kind", kind])
+    if code == 0:
         return None
-    return ("error",
-            (out.stdout or out.stderr).strip() or f"target --validate exited {out.returncode}")
+    text = (buf_out.getvalue() or buf_err.getvalue()).strip()
+    return ("error", text or f"target --validate exited {code}")
 
 
 def page_stem(page: str) -> str:
@@ -100,6 +118,7 @@ def page_stem(page: str) -> str:
 
 
 VIA = {"api", "storage"}
+HTTP_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
 INPUT_ROLES = {"textbox", "combobox", "spinbutton", "searchbox"}
 BREAKPOINT = re.compile(r"@media[^{]*\((?:max|min)-width:\s*(\d+)px\)")
 # The shapes a `source` may take. A story is legal for the audit trail and warned on:
@@ -120,6 +139,13 @@ def source_shape(src: str) -> str:
         if rx.match(src):
             return shape
     return "unknown"
+
+
+def is_http_call(call) -> bool:
+    """A `METHOD /path` operation as `openapi.json` writes it. `ipc …`,
+    `chrome.runtime.sendMessage …`, and `none` are not."""
+    method, _, path = str(call).partition(" ")
+    return method.upper() in HTTP_METHODS and path.lstrip().startswith("/")
 
 
 def repo_root(contract: Path) -> Path:
@@ -488,7 +514,7 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
         if not calls:
             errors.append(f"{rid}: calls is empty (use [none])")
         for call in calls:
-            if call == "none" or str(call).startswith("ipc "):
+            if not is_http_call(call):
                 continue
             method, _, path = str(call).partition(" ")
             known = op_known(method, path)
@@ -504,9 +530,8 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
             if not row.get("route"):
                 errors.append(f"{rid}: route missing for a row with calls")
             observe = row.get("observe") or []
-            ipc_only = all(str(c).startswith("ipc ") for c in calls)
-            if not observe and ipc_only:
-                warnings.append(f"{rid}: observe is empty on an ipc-only row; the wiring check reads nothing")
+            if not observe and not any(is_http_call(c) for c in calls):
+                warnings.append(f"{rid}: observe is empty on a non-HTTP row; the wiring check reads nothing")
             elif not observe:
                 errors.append(f"{rid}: observe missing for a row with calls; a wiring check has nothing to read")
             for line in observe:

@@ -68,6 +68,7 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
+from extract_skeleton import SCENE_HEADER  # noqa: E402
 from lease import leased_environment, worktree_of  # noqa: E402
 from refusal import REPORT_BLOCKED, refusal  # noqa: E402
 
@@ -913,7 +914,7 @@ def count_volatile_hits(lines: list[str], triggers: list) -> int:
     previous: tuple[str, str] | None = None
     for raw in lines:
         line = raw.rstrip("\n")
-        if line.startswith("## scene "):
+        if line.startswith(SCENE_HEADER):
             best = max(best, current)
             current = 0
             previous = None
