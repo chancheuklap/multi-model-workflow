@@ -555,6 +555,8 @@ class TestBaselineServing(unittest.TestCase):
         self.assertIn(sd.VOLATILE_FILL, js)
         self.assertIn(sd.VOLATILE_DIGITS.pattern, js)
         self.assertIn('TD: "cell"', js)
+        cell_lines = sd.normalize_aria("- cell: 鸭豆余额 12,480\n")
+        self.assertEqual(sd.count_volatile_hits(cell_lines, [("text", "鸭豆余额 12,480")]), 1)
         scoped = {"volatile_values": [
             {"page": "App · 商品项目库.dc.html",
              "trigger": {"role": "text", "name": "鸭豆余额 12,480"},
@@ -580,9 +582,10 @@ class TestBaselineServing(unittest.TestCase):
         pinned = [("strong", "12,480 鸭豆", ("text", "当前余额"))]
         self.assertEqual(sd.count_volatile_hits(lines, bare), 3)
         self.assertEqual(sd.count_volatile_hits(lines, pinned), 1)
-        two_scenes = [f"## scene free-gate", *lines, f"## scene free-hold-unknown", *lines]
-        self.assertEqual(sd.count_volatile_hits(two_scenes, bare), 3)
-        self.assertEqual(sd.count_volatile_hits(two_scenes, pinned), 1)
+        unique = sd.normalize_aria("- text: 当前余额\n- strong: 12,480 鸭豆\n")
+        mixed = ["## scene free-gate", *lines, "## scene free-hold-unknown", *unique]
+        self.assertEqual(sd.count_volatile_hits(mixed, bare), 3)
+        self.assertEqual(sd.count_volatile_hits(mixed, pinned), 1)
         masked_bare = sd.mask_volatile(lines, bare)
         masked_pinned = sd.mask_volatile(lines, pinned)
         self.assertEqual(sum("<volatile>" in ln for ln in masked_bare), 3)
@@ -591,8 +594,20 @@ class TestBaselineServing(unittest.TestCase):
         self.assertTrue(any("40 鸭豆" in ln for ln in masked_pinned))
         self.assertFalse(any("12,480" in ln for ln in masked_pinned))
         js = sd.volatile_paint_js(pinned)
-        self.assertIn("当前余额", js)
-        self.assertIn('"after"', js)
+        self.assertIn("if (!w.after) return true;", js)
+        self.assertIn("if (!prev) return false;", js)
+        self.assertIn("prev = {role, nm};", js)
+        nested = sd.normalize_aria(
+            "- strong: 20 鸭豆\n"
+            "  - text: 每张\n"
+            "- text: 当前余额\n"
+            "- strong: 12,480 鸭豆\n"
+            "  - text: 可用\n"
+        )
+        nested_masked = sd.mask_volatile(nested, pinned)
+        self.assertTrue(any("20 鸭豆" in ln for ln in nested_masked))
+        self.assertFalse(any("12,480" in ln for ln in nested_masked))
+        self.assertTrue(any("<volatile>" in ln and "可用" in ln for ln in nested_masked))
         scoped = {"volatile_values": [
             {"page": "Component · 自由模式.dc.html",
              "trigger": {"role": "strong", "name": "12,480 鸭豆"},

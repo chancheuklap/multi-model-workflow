@@ -825,7 +825,10 @@ def volatile_trigger_parts(trigger) -> tuple[str, str, tuple[str, str] | None]:
 
 
 def volatile_name_matches(role: str, name: str, wanted_role: str, wanted_name: str) -> bool:
-    if role != wanted_role:
+    """Role and non-digit stem. A `text` trigger also matches the computed roles
+    a static string snapshots as (`cell`, `generic`, …), the same set the pixel
+    paint already used, so lint and the two judges name one node."""
+    if role != wanted_role and not (wanted_role == "text" and role in VOLATILE_TEXT_LIKE):
         return False
     if name == wanted_name:
         return True

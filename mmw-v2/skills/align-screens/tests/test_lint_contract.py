@@ -407,14 +407,18 @@ class TestVolatileValues(unittest.TestCase):
         matches all three and the lint errors; with `after` it matches one
         and does not."""
         aria = self.repo.spec_dir / "targets" / (PAGE_A[:-len(".dc.html")] + ".aria")
-        aria.write_text(aria.read_text(encoding="utf-8") + self.SIBLINGS,
-                        encoding="utf-8")
+        unique = "- text: 当前余额\n- strong: 12,480 鸭豆\n"
+        aria.write_text(
+            aria.read_text(encoding="utf-8")
+            + "## scene free-gate\n" + self.SIBLINGS
+            + "## scene free-hold-unknown\n" + unique,
+            encoding="utf-8")
         doc = contract()
         doc["volatile_values"] = [dict(self.AMBIGUOUS)]
         errors, warnings = lc.lint_screen_axis(
             doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
         self.assertTrue(any("volatile_values" in e and "12,480 鸭豆" in e
-                            and "matches" in e and "nodes" in e for e in errors), errors)
+                            and "matches 3 nodes" in e for e in errors), errors)
         self.assertFalse(any("volatile_values" in w for w in warnings), warnings)
 
         doc["volatile_values"][0]["after"] = {"role": "text", "name": "当前余额"}

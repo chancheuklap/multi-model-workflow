@@ -99,15 +99,28 @@ def fake_paseo_env(*, agent_id: str | None = None, listed_ids: tuple[str, ...] =
 
 def call(host: str, event: dict, env: dict | None = None,
          *, cwd_basename: str | None = None) -> tuple[int, dict | None]:
-    """Run the gate as its host would, and read back the answer it printed."""
+    """Run the gate as its host would, and read back the answer it printed.
+
+    The session directory is the temp cwd this helper just created. A parent
+    `PASEO_AGENT_CWD` (the worktree of the agent running the suite) must not
+    leak into `governed_ticket`; tests that want a different session directory
+    pass `PASEO_AGENT_CWD` in `env`.
+    """
     if cwd_basename is None:
         cwd_basename = f"issue-{TICKET}"
     out = io.StringIO()
-    with named_cwd(cwd_basename), \
-         mock.patch.dict(os.environ, env if env is not None else {}, clear=False), \
-         mock.patch.object(hk.sys, "stdin", io.StringIO(json.dumps(event))), \
-         redirect_stdout(out), redirect_stderr(io.StringIO()):
-        code = hk.main(["pretool", host])
+    with named_cwd(cwd_basename) as path:
+        merged = dict(os.environ)
+        if env:
+            merged.update(env)
+        if not env or "PASEO_AGENT_CWD" not in env:
+            merged["PASEO_AGENT_CWD"] = path
+        if not env or "PASEO_AGENT_ID" not in env:
+            merged.pop("PASEO_AGENT_ID", None)
+        with mock.patch.dict(os.environ, merged, clear=True), \
+             mock.patch.object(hk.sys, "stdin", io.StringIO(json.dumps(event))), \
+             redirect_stdout(out), redirect_stderr(io.StringIO()):
+            code = hk.main(["pretool", host])
     printed = out.getvalue().strip()
     return code, json.loads(printed) if printed else None
 
@@ -520,8 +533,7 @@ class EndingAProcess(unittest.TestCase):
                 self.assertIsNone(answer, f"{command} was refused")
 
     def test_a_session_nobody_dispatched_is_not_governed(self):
-        code, answer = call("claude", with_command("claude", "kill 123"),
-                            env={"PASEO_AGENT_CWD": "/w/workspace"},
+        code, answer = call("claude", with_command("claude", "kill 123"), env={},
                             cwd_basename="workspace")
         self.assertEqual(code, 0)
         self.assertIsNone(answer)
