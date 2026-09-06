@@ -274,6 +274,13 @@ class TestWaitingOnBothClocks(unittest.TestCase):
         self.budget = sd.WAIT_REAL_BUDGET_S
         sd.WAIT_REAL_BUDGET_S = 1.0
         self.addCleanup(setattr, sd, "WAIT_REAL_BUDGET_S", self.budget)
+        self._clocked_before = set(sd._CLOCKED)
+        self.addCleanup(self._drop_clocked)
+
+    def _drop_clocked(self):
+        for key in list(sd._CLOCKED):
+            if key not in self._clocked_before:
+                sd._CLOCKED.pop(key, None)
 
     def test_a_view_that_arrives_only_in_wall_time_is_found(self):
         page = FakePage({})
@@ -293,14 +300,15 @@ class TestWaitingOnBothClocks(unittest.TestCase):
         def run_for(ms):
             nonlocal painted
             page.ran += ms
-            if time.monotonic() >= response_at:
+            if time.monotonic() >= response_at and ms >= sd.FRAME_MS:
                 painted = True
 
         page.run_for = run_for
         sd.wait_until(page, lambda: painted, "no control")
+        self.assertTrue(painted)
         self.assertLessEqual(page.ran, sd.SETTLE_BUDGET_MS)
 
-    def test_the_virtual_clock_stops_at_the_budget_while_wall_time_runs(self):
+    def test_the_virtual_cap_is_not_exceeded_however_long_the_wait_runs(self):
         """The reason the virtual budget exists — a scene captured one step past itself —
         does not weaken because the wait got longer."""
         page = FakePage({})
@@ -315,8 +323,39 @@ class TestWaitingOnBothClocks(unittest.TestCase):
         said = str(raised.exception)
         self.assertIn("no control \u767b\u5f55", said, "the refusal names no fact")
         self.assertIn(f"{sd.SETTLE_VIRTUAL_MS + sd.SETTLE_BUDGET_MS} ms of controlled time", said)
-        self.assertIn(f"{sd.WAIT_REAL_BUDGET_S:g}s of wall time", said,
-                      "a reader cannot tell which budget ran out")
+        self.assertIn("1s of wall time", said, "a reader cannot tell which budget ran out")
+
+    def test_a_condition_that_never_holds_times_out_within_both_budgets(self):
+        page = FakePage({})
+        started = time.monotonic()
+        with self.assertRaises(SystemExit) as raised:
+            sd.wait_until(page, lambda: False, "no control \u767b\u5f55")
+        elapsed = time.monotonic() - started
+        said = str(raised.exception)
+        self.assertIn("no control \u767b\u5f55", said)
+        self.assertIn(f"{sd.SETTLE_VIRTUAL_MS + sd.SETTLE_BUDGET_MS} ms of controlled time", said)
+        self.assertIn("1s of wall time", said)
+        self.assertLess(elapsed, sd.WAIT_REAL_BUDGET_S + 2 * sd.WAIT_REAL_STEP_S)
+        self.assertGreaterEqual(elapsed, sd.WAIT_REAL_BUDGET_S - sd.WAIT_REAL_STEP_S)
+
+
+class TestTimerBasedWaitStaysOffTheWall(unittest.TestCase):
+    """A mount that appears on page timers is still found without sleeping on the wall.
+
+    Production `WAIT_REAL_BUDGET_S` is 8 s. Holding the whole virtual budget back
+    for frames across that window would stretch a 300 ms timer-based settle across
+    seconds of wall time and slow every scene. This case runs at the shipped
+    constants and fails if that happens.
+    """
+
+    def test_a_view_that_appears_on_timers_does_not_wait_on_the_wall(self):
+        page = FakePage({})
+        self.addCleanup(sd._CLOCKED.pop, id(page), None)
+        started = time.monotonic()
+        sd.wait_until(page, lambda: page.ran >= 300, "no mount")
+        self.assertLess(time.monotonic() - started, 0.5)
+        self.assertLessEqual(page.ran, sd.SETTLE_BUDGET_MS)
+        self.assertGreaterEqual(page.ran, 300)
 
 
 class TestClockAndNavigation(unittest.TestCase):

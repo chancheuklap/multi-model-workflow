@@ -85,9 +85,10 @@ DEFAULT_CACHE = Path.home() / ".cache" / "mmw" / "visual-parity"
 # `requestAnimationFrame` focus effect rides the same clock. Far below the handoff
 # package's own timers (an 1800 ms auto-advance, a 2600 ms auto-recover, a 2400 ms toast).
 SETTLE_VIRTUAL_MS = 200
-# Further virtual time the driver may spend, in `SETTLE_STEP_MS` steps, waiting for the
-# mount element to appear. Kept under the shortest auto-advance in any handoff package
-# seen so far, so a scene is never captured one step past itself.
+# Further virtual time the driver may spend waiting for the mount element to appear.
+# Spent in `SETTLE_STEP_MS` steps first, then in `FRAME_MS` ticks after each wall
+# sleep, never past this cap. Kept under the shortest auto-advance in any handoff
+# package seen so far, so a scene is never captured one step past itself.
 SETTLE_BUDGET_MS = 1400
 SETTLE_STEP_MS = 100
 # Virtual time and wall time are not interchangeable, and a view that appears only when
@@ -1127,19 +1128,21 @@ def wait_until(page, ready, what: str) -> None:
     The virtual budget is spent in steps and stops at `SETTLE_BUDGET_MS` because past
     that the handoff package's shortest auto-advance would fire and the scene would be
     captured one step beyond itself. Wall time is the other budget, for the responses
-    the view is waiting on. The two are spent together: enough virtual time is held
-    back for one frame after each wall step, so a paint scheduled after a response
-    arrives can still be waited for. No timer can fire beyond the virtual cap, so the
-    bound the virtual budget protects still holds.
+    the view is waiting on. The two are spent together: up to half the virtual budget
+    is held back so each wall step can still run a frame, and a paint scheduled after
+    a response arrives can still be waited for. The rest is spent in `SETTLE_STEP_MS`
+    steps first, so a timer-based mount is still found without waiting on the wall.
+    No timer can fire beyond the virtual cap, so the bound the virtual budget
+    protects still holds.
     """
     virtual = 0
     deadline = time.monotonic() + WAIT_REAL_BUDGET_S
     wall_steps = max(1, int(round(WAIT_REAL_BUDGET_S / WAIT_REAL_STEP_S)))
-    held = min(SETTLE_BUDGET_MS, FRAME_MS * wall_steps)
-    burst_until = SETTLE_BUDGET_MS - held
+    reserved_for_wall = min(SETTLE_BUDGET_MS // 2, FRAME_MS * wall_steps)
+    stepped_until = SETTLE_BUDGET_MS - reserved_for_wall
     while not ready():
-        if virtual < burst_until:
-            step = min(SETTLE_STEP_MS, burst_until - virtual)
+        if virtual < stepped_until:
+            step = min(SETTLE_STEP_MS, stepped_until - virtual)
             run_clock(page, step)
             virtual += step
             continue
