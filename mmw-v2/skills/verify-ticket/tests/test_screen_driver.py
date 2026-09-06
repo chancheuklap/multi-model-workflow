@@ -9,6 +9,7 @@ import os
 import sys
 import tempfile
 import shutil
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -228,6 +229,43 @@ class TestOpenChain(unittest.TestCase):
     def test_an_unknown_row_stops_the_run(self):
         with self.assertRaises(SystemExit):
             sd.perform(FakePage({}), [{"row": "no.such", "value": None}], self.ROWS, {})
+
+
+class TestWaitingOnBothClocks(unittest.TestCase):
+    """A view that appears when a response arrives, not when a timer fires.
+
+    Running the controlled clock fires the page's timers and returns at once, so a wait
+    counted only in virtual milliseconds hands a real request no time at all. Wall time
+    is the second budget, and spending it is safe: every timer on the page is under the
+    controlled clock, so the handoff package's auto-advance cannot fire while it passes.
+    """
+
+    def setUp(self):
+        self.budget = sd.WAIT_REAL_BUDGET_S
+        sd.WAIT_REAL_BUDGET_S = 1.0
+        self.addCleanup(setattr, sd, "WAIT_REAL_BUDGET_S", self.budget)
+
+    def test_a_view_that_arrives_only_in_wall_time_is_found(self):
+        page = FakePage({})
+        at = time.monotonic() + 0.3
+        sd.wait_until(page, lambda: time.monotonic() >= at, "never")
+
+    def test_the_virtual_clock_stops_at_the_budget_while_wall_time_runs(self):
+        """The reason the virtual budget exists — a scene captured one step past itself —
+        does not weaken because the wait got longer."""
+        page = FakePage({})
+        at = time.monotonic() + 0.3
+        sd.wait_until(page, lambda: time.monotonic() >= at, "never")
+        self.assertEqual(page.ran, sd.SETTLE_BUDGET_MS)
+
+    def test_running_out_names_both_budgets(self):
+        page = FakePage({})
+        with self.assertRaises(SystemExit) as raised:
+            sd.wait_until(page, lambda: False, "no control \u767b\u5f55")
+        said = str(raised.exception)
+        self.assertIn("no control \u767b\u5f55", said, "the refusal names no fact")
+        self.assertIn("ms of controlled time", said)
+        self.assertIn("s of wall time", said, "a reader cannot tell which budget ran out")
 
 
 class TestClockAndNavigation(unittest.TestCase):
