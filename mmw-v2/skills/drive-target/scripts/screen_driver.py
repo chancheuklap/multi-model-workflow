@@ -1140,28 +1140,30 @@ def wait_until(page, ready, what: str) -> None:
     wall_steps = max(1, int(round(WAIT_REAL_BUDGET_S / WAIT_REAL_STEP_S)))
     reserved_for_wall = min(SETTLE_BUDGET_MS // 2, FRAME_MS * wall_steps)
     stepped_until = SETTLE_BUDGET_MS - reserved_for_wall
+
+    def spend(most: int, cap: int = SETTLE_BUDGET_MS) -> int:
+        """Move the clock by at most `most`, never past `cap` of virtual time in all.
+        Returns what it spent, so a caller can tell a real step from a no-op."""
+        nonlocal virtual
+        step = min(most, cap - virtual)
+        if step <= 0:
+            return 0
+        run_clock(page, step)
+        virtual += step
+        return step
+
     while not ready():
         if virtual < stepped_until:
-            step = min(SETTLE_STEP_MS, stepped_until - virtual)
-            run_clock(page, step)
-            virtual += step
+            spend(SETTLE_STEP_MS, stepped_until)
             continue
         if time.monotonic() >= deadline:
-            leftover = SETTLE_BUDGET_MS - virtual
-            if leftover > 0:
-                run_clock(page, leftover)
-                virtual += leftover
-                if ready():
-                    break
+            if spend(SETTLE_BUDGET_MS) and ready():
+                break
             raise SystemExit(
                 f"{what} after {SETTLE_VIRTUAL_MS + virtual} ms of controlled time and "
                 f"{WAIT_REAL_BUDGET_S:g}s of wall time")
         time.sleep(WAIT_REAL_STEP_S)
-        leftover = SETTLE_BUDGET_MS - virtual
-        if leftover > 0:
-            tick = min(FRAME_MS, leftover)
-            run_clock(page, tick)
-            virtual += tick
+        spend(FRAME_MS)
 
 
 def wait_for_mount(page, selector: str) -> None:

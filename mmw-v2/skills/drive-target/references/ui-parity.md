@@ -32,7 +32,7 @@ That the three judges have different ranges is a decision written here, not an a
 
 ## The clock
 
-Every page runs under a paused fake clock the driver moves forward in 200 ms of virtual time after each navigation and each `open` step, stepping further only until the next `open` control, and after the chain the mount element, appears. The readiness poll of `support.js` (50 ms) fires, a focus effect on `requestAnimationFrame` fires, and none of the package's own timers — an 1800 ms auto-advance, a 2600 ms auto-recover, a 2400 ms toast — ever does. Animations are off through reduced motion on both sides. Nothing about "wait for it to settle" is in the contract.
+Every page runs under the **controlled clock** — the paused fake clock the driver installs, the only clock that page's timers and animation frames run on. The driver moves it forward 200 ms of virtual time after each navigation and each `open` step, then waits for the next `open` control, and after the chain the mount element, to appear. That wait spends two budgets together: virtual time in steps, capped so a scene is never captured past the package's shortest auto-advance, and wall time for the responses the view is waiting on, with part of the virtual budget held back so a paint scheduled after a response arrives can still be waited for. The readiness poll of `support.js` (50 ms) fires, a focus effect on `requestAnimationFrame` fires, and none of the package's own timers — an 1800 ms auto-advance, a 2600 ms auto-recover, a 2400 ms toast — ever does. Animations are off through reduced motion on both sides. Nothing about "wait for it to settle" is in the contract.
 
 ## Reaching a scene
 
