@@ -15,13 +15,14 @@ MMW 是用户跨 host、跨 repository、跨电脑共用的工作流 toolbox：�
 | `python3 mmw-v2/agents/assemble.py --check` | 校验 `mmw-v2/agents/<名>/out/` 的 assembled subagent file 与源一致。`install.sh --check` 已内含它；单跑用于只验这一样 |
 | `python3 mmw-v2/prompt/render.py --adopt` | 每台机器首次装提示词时跑一次：目标位置原有的 AGENTS.md 不是生成物，`render.py` 默认拒绝覆盖 |
 | `bash mmw-v2/prompt/tests/run.sh` | `render.py` 的测试 |
-| `bash mmw-v2/skills/<名>/tests/run.sh` | 单个技能的测试（`verify-ticket`、`drive-target`、`align-screens`、`dispatch`、`exe-release`、`manage-agents-md` 各有一份） |
+| `bash mmw-v2/tests/<名>/run.sh` | 单个技能的测试（`verify-ticket`、`drive-target`、`align-screens`、`dispatch`、`exe-release`、`manage-agents-md` 各有一份） |
 | `bash mmw-v2/hooks/tests/run.sh` | `rule-at-moment.py` 的测试 |
 
 ## 约定
 
 - `SKILL.md` 对所有 host 是同一份：不把任何 host 当默认或首选，不按 host 名分支；能力差异用按能力判断的自然语言写。
 - 装哪些技能只改 `mmw-v2/skills.txt`。host 上的 symlink 直接指向 source directory，改完下一次调用即生效；只有 frontmatter 的 `description` 是 host 启动时扫进去的，改它要重开会话。
+- `mmw-v2/skills/<名>/` 整个目录被软链进各 host，所以它只装拿着这份技能的 agent 要读要跑的东西：`SKILL.md`、reference 文件、`scripts/`。技能的测试在 `mmw-v2/tests/<名>/`，只存在于本仓库的 checkout 里；它从 `mmw-v2/tests/<名>/` 数两级回到 `mmw-v2/`，再进 `skills/<名>/scripts/` 找被测的脚本。
 - 技能自带的脚本，由拿着这份技能的 agent 从它的 `SKILL.md` 就地解析 `scripts/…`；caller 只点技能名与要做的事，不写安装路径。装了技能就是拿到脚本，两者不会各自漂移，路径在五个 host 上都对。写进 ticket 的那条 `CHECK:` 也不写路径：它由 shell 执行、中间没有 agent，所以由跑它的 `verify-ticket.py` 把 drive-target 技能的 `scripts/` 放上那个 shell 的 `PATH`（`--tools`），判官按裸名调用；形状在 `mmw-v2/skills/drive-target/references/wiring-check.md` 与 `ui-parity.md`。
 - 每个 agent 用哪个 host、哪个 model、哪档 effort、`permissions` 取 `bypass` / `—`，只改 `mmw-v2/skills/dispatch/models.md`。它跟着技能的 symlink 走，是这台机器的一份，consuming repository 里不放。
 - 用户级提示词只改 `mmw-v2/prompt/shared.md`（四家共用）和 `mmw-v2/prompt/hosts/<host>.md`（只给那一家）。`~/.codex/AGENTS.md`、`~/.pi/agent/AGENTS.md`、`~/.grok/AGENTS.md` 是生成物，直接改会被 `render.py` 拒绝覆盖。Cursor 不参与，它的用户级提示词在 app 里手动维护。

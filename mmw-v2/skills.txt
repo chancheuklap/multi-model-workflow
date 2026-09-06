@@ -46,3 +46,5 @@ self/code-checkers
 dd/diagram-design
 
 self/align-screens
+
+self/verdict
