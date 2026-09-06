@@ -1,8 +1,8 @@
 """The wiring check's negative control, without a browser.
 
-The three cases are the seam on mmw #207: `transport_off` is the row's own write,
-not the path that put the control on screen; a row that never reaches `observe`
-does not stop the rest; a positive run does not break the transport.
+`transport_off` is the row's own write, not the path that put the control on
+screen; a row that never reaches an observe assertion does not stop the rest;
+a positive run does not break the transport.
 """
 
 import contextlib
@@ -35,8 +35,7 @@ def load():
 wc = load()
 
 
-def _install_playwright():
-    """`main` imports Playwright only when it runs. The suite has no browser."""
+def _playwright_modules():
     pw = types.ModuleType("playwright")
     sync = types.ModuleType("playwright.sync_api")
 
@@ -48,11 +47,7 @@ def _install_playwright():
             return False
 
     sync.sync_playwright = lambda: _CM()
-    sys.modules.setdefault("playwright", pw)
-    sys.modules["playwright.sync_api"] = sync
-
-
-_install_playwright()
+    return {"playwright": pw, "playwright.sync_api": sync}
 
 
 class DrivePage(FakePage):
@@ -87,10 +82,15 @@ class DrivePage(FakePage):
 class RecordingAdapter(FakeAdapter):
     """FakeAdapter plus `transport_on`, a broken flag, and a queue of pages."""
 
-    def __init__(self, pages):
+    def __init__(self, pages, calls, *, hold_when_broken=(), surface_error=(),
+                 refuse_reach=False):
         super().__init__()
+        self.calls = calls
         self._pages = list(pages)
         self.broken = False
+        self.hold_when_broken = set(hold_when_broken)
+        self.surface_error = set(surface_error)
+        self.refuse_reach = refuse_reach
 
     def attach(self, pw, values):
         self.calls.append(("attach",))
@@ -99,8 +99,12 @@ class RecordingAdapter(FakeAdapter):
         return self._pages[0]
 
     def transport(self, mechanisms, values, perturb=False):
-        self.calls.append(("transport", tuple(mechanisms)))
-        return {**values, "project_id": "p1"}
+        if self.refuse_reach:
+            raise SystemExit(wc.sd.refusal(
+                "`reach` exited 1: boom",
+                "The repository's declared command did not succeed.",
+                wc.sd.REPORT_BLOCKED))
+        return super().transport(mechanisms, values, perturb)
 
     def transport_off(self):
         self.calls.append(("transport_off",))
@@ -112,7 +116,10 @@ class RecordingAdapter(FakeAdapter):
 
     def observe(self, line, values):
         self.calls.append(("observe", str(line), self.broken))
-        if self.broken:
+        if str(line) in self.surface_error:
+            op = str(line).split(" ->", 1)[0].strip()
+            return False, 503, f"{op} answered 503"
+        if self.broken and str(line) not in self.hold_when_broken:
             return False, None, f"{line} was missing"
         return True, None, ""
 
@@ -189,16 +196,20 @@ class TestNegativeControl(unittest.TestCase):
         argv = ["--contract", str(self.contract), "--rows", rows]
         if negative:
             argv.append("--negative")
-        with mock.patch.object(wc.sd, "adapter_for", return_value=adapter), \
+        with mock.patch.dict(sys.modules, _playwright_modules()), \
+             mock.patch.object(wc.sd, "adapter_for", return_value=adapter), \
              mock.patch.object(wc.sd, "repo_root", return_value=self.root):
             out, err = io.StringIO(), io.StringIO()
             with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
                 try:
                     code = wc.main(argv)
                 except SystemExit as exc:
-                    code = exc.code if isinstance(exc.code, int) else 1
-                    if exc.code not in (0, 1, 2, None) and not isinstance(exc.code, int):
-                        err.write(str(exc) + "\n")
+                    if isinstance(exc.code, int):
+                        code = exc.code
+                    else:
+                        code = 1
+                        if exc.code:
+                            err.write(str(exc.code) + "\n")
         return code, out.getvalue(), err.getvalue()
 
     def test_transport_off_runs_after_reach_before_the_row_action(self):
@@ -209,13 +220,10 @@ class TestNegativeControl(unittest.TestCase):
             ("button", "确认报价"),
             ("button", "保存"),
         ])
-        adapter = RecordingAdapter([page])
-        adapter.calls = calls
+        adapter = RecordingAdapter([page], calls)
         code, out, err = self._run(adapter, "gate-one.confirm,ok.save", negative=True)
         self.assertEqual(code, 0, err + out)
         self.assertIn("WIRING NEGATIVE OK 2/2", out)
-        # Two rows: each reach happens with the transport on, each row action
-        # with it off, and the next reach sees it restored.
         kinds = [c[0] if isinstance(c, tuple) else c for c in calls]
         off = kinds.index("transport_off")
         self.assertEqual(kinds[:off].count("transport"), 1, calls)
@@ -227,8 +235,13 @@ class TestNegativeControl(unittest.TestCase):
         self.assertIn(("observe", "GET /quote -> .price exists", True), after)
         on = kinds.index("transport_on")
         second_off = kinds.index("transport_off", on)
-        self.assertIn(("transport", ("seed:ok",)), calls[on:second_off])
+        self.assertIn(("transport", ("seed:ok",), False), calls[on:second_off])
         self.assertTrue(calls[kinds.index("observe", second_off)][2])
+        self.assertEqual(kinds.count("transport_off"), 2, calls)
+        self.assertEqual(kinds.count("transport_on"), 2, calls)
+        last_on = max(i for i, k in enumerate(kinds) if k == "transport_on")
+        last_release = max(i for i, k in enumerate(kinds) if k == "release")
+        self.assertLess(last_on, last_release, calls)
 
     def test_an_unevaluated_row_does_not_stop_the_rest_and_exits_2(self):
         """A mount that never appears is one unevaluated row, not the whole run."""
@@ -236,17 +249,30 @@ class TestNegativeControl(unittest.TestCase):
         missing = DrivePage(calls, mount=False, named=[("button", "确认报价"),
                                                        ("button", "打开报价")])
         present = DrivePage(calls, named=[("button", "保存")])
-        adapter = RecordingAdapter([missing, present])
-        adapter.calls = calls
+        adapter = RecordingAdapter([missing, present], calls)
         code, out, err = self._run(adapter, "gate-one.confirm,ok.save", negative=True)
         self.assertEqual(code, 2, err + out)
         self.assertIn("negative control proved nothing", err)
-        self.assertIn("gate-one.confirm", err)
-        self.assertNotIn("ok.save", err.split("no observe line was evaluated for", 1)[-1]
-                         .split("(", 1)[0])
+        self.assertIn("no observe line was evaluated for gate-one.confirm (", err)
         self.assertIn(("observe", "GET /y -> .saved == true", True), calls)
         self.assertNotIn(("observe", "GET /quote -> .price exists", True), calls)
         self.assertNotIn(("observe", "GET /quote -> .price exists", False), calls)
+
+    def test_a_missing_trigger_restores_the_transport_before_the_next_reach(self):
+        """The row's own click fails after `transport_off`; the next reach is intact."""
+        calls = []
+        no_trigger = DrivePage(calls, named=[("button", "打开报价")])
+        present = DrivePage(calls, named=[("button", "保存")])
+        adapter = RecordingAdapter([no_trigger, present], calls)
+        code, out, err = self._run(adapter, "gate-one.confirm,ok.save", negative=True)
+        self.assertEqual(code, 2, err + out)
+        self.assertIn("no observe line was evaluated for gate-one.confirm (", err)
+        kinds = [c[0] if isinstance(c, tuple) else c for c in calls]
+        off = kinds.index("transport_off")
+        on = kinds.index("transport_on")
+        self.assertLess(off, on, calls)
+        self.assertIn(("transport", ("seed:ok",), False), calls[on:])
+        self.assertIn(("observe", "GET /y -> .saved == true", True), calls)
 
     def test_a_positive_run_does_not_break_the_transport(self):
         calls = []
@@ -254,8 +280,7 @@ class TestNegativeControl(unittest.TestCase):
             ("button", "打开报价"),
             ("button", "确认报价"),
         ])
-        adapter = RecordingAdapter([page])
-        adapter.calls = calls
+        adapter = RecordingAdapter([page], calls)
         code, out, err = self._run(adapter, "gate-one.confirm")
         self.assertEqual(code, 0, err + out)
         self.assertIn("WIRING OK 1/1", out)
@@ -266,3 +291,52 @@ class TestNegativeControl(unittest.TestCase):
         self.assertIn(("click", "button", "确认报价"), calls)
         self.assertIn(("click", "button", "打开报价"), calls)
         self.assertLess(kinds.index("transport"), kinds.index("observe"))
+
+    def test_a_positive_run_still_stops_on_an_unreachable_row(self):
+        calls = []
+        missing = DrivePage(calls, mount=False, named=[("button", "打开报价"),
+                                                       ("button", "确认报价")])
+        present = DrivePage(calls, named=[("button", "保存")])
+        adapter = RecordingAdapter([missing, present], calls)
+        code, out, err = self._run(adapter, "gate-one.confirm,ok.save")
+        self.assertNotEqual(code, 0, err + out)
+        self.assertIn("no visible element matches", err)
+        self.assertNotIn(("transport", ("seed:ok",), False), calls)
+        self.assertNotIn("transport_off", [c[0] if isinstance(c, tuple) else c
+                                           for c in calls])
+
+    def test_a_read_surface_error_is_not_an_observe_assertion(self):
+        calls = []
+        page = DrivePage(calls, named=[
+            ("button", "打开报价"),
+            ("button", "确认报价"),
+        ])
+        adapter = RecordingAdapter(
+            [page], calls, surface_error={"GET /quote -> .price exists"})
+        code, out, err = self._run(adapter, "gate-one.confirm", negative=True)
+        self.assertEqual(code, 2, err + out)
+        self.assertIn("no observe line was evaluated for gate-one.confirm (", err)
+        self.assertIn("answered 503", err)
+        self.assertNotIn("WIRING NEGATIVE OK", out)
+
+    def test_exit_2_names_a_row_that_stayed_green(self):
+        calls = []
+        missing = DrivePage(calls, mount=False, named=[("button", "打开报价"),
+                                                       ("button", "确认报价")])
+        present = DrivePage(calls, named=[("button", "保存")])
+        adapter = RecordingAdapter(
+            [missing, present], calls,
+            hold_when_broken={"GET /y -> .saved == true"})
+        code, out, err = self._run(adapter, "gate-one.confirm,ok.save", negative=True)
+        self.assertEqual(code, 2, err + out)
+        self.assertIn("no observe line was evaluated for gate-one.confirm (", err)
+        self.assertIn("GREEN WITHOUT TRANSPORT ok.save", err)
+
+    def test_a_reach_refusal_does_not_tell_the_run_to_stop(self):
+        calls = []
+        page = DrivePage(calls, named=[("button", "保存")])
+        adapter = RecordingAdapter([page], calls, refuse_reach=True)
+        code, out, err = self._run(adapter, "ok.save", negative=True)
+        self.assertEqual(code, 2, err + out)
+        self.assertIn("MISS ok.save", err)
+        self.assertNotIn("Report the ticket blocked", err)

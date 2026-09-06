@@ -78,11 +78,31 @@ def observe_settled(adapter, line: str, values: dict[str, str]) -> tuple[bool, o
     """One observe line, re-read every `OBSERVE_STEP_S` until it holds, for at most
     `OBSERVE_BUDGET_S` of wall time. The last reading is what a miss reports."""
     deadline = time.monotonic() + OBSERVE_BUDGET_S
-    ok, got, why = adapter.observe(line, values)
-    while not ok and time.monotonic() < deadline:
-        time.sleep(OBSERVE_STEP_S)
+    while True:
         ok, got, why = adapter.observe(line, values)
-    return ok, got, why
+        if ok or time.monotonic() >= deadline:
+            return ok, got, why
+        time.sleep(OBSERVE_STEP_S)
+
+
+def assertion_miss(why: str) -> bool:
+    """The miss is `<expression> was <value>`, not a surface that did not answer."""
+    return " was " in why
+
+
+def miss_line(rid: str, reason: object) -> str:
+    """One `MISS` line. A reach-script refusal's 'report blocked' clause is dropped:
+    the negative run continues to the next row, so that instruction would be a lie."""
+    text = str(reason).strip()
+    blocked = getattr(sd, "REPORT_BLOCKED", "")
+    if blocked and blocked in text:
+        text = text.split(blocked, 1)[0].rstrip(" .")
+    return f"MISS {rid} — {text}"
+
+
+def green_without_transport(rid: str) -> str:
+    return (f"GREEN WITHOUT TRANSPORT {rid} — its observe lines held with the state "
+            f"transport broken; the read surface is not fed from persisted state")
 
 
 def run_rows(adapter, pw, wanted: list[str], by_id: dict[str, dict],
@@ -104,7 +124,7 @@ def run_rows(adapter, pw, wanted: list[str], by_id: dict[str, dict],
             row = by_id[rid]
             ok, why = adapter.ready()
             if not ok:
-                misses.append(f"MISS {rid} — not ready: {why}")
+                misses.append(miss_line(rid, f"not ready: {why}"))
                 continue
             # The row is driven on the first scene it is visible in: that scene's reach
             # and open put the control on screen (a control inside a dialog is reached the
@@ -129,12 +149,12 @@ def run_rows(adapter, pw, wanted: list[str], by_id: dict[str, dict],
             except SystemExit as exc:
                 if not negative:
                     raise
-                misses.append(f"MISS {rid} — {exc}")
+                misses.append(miss_line(rid, exc))
                 continue
             try:
                 sd.perform(page, drive_open, by_id, values)
             except SystemExit as exc:
-                misses.append(f"MISS {rid} — {exc}")
+                misses.append(miss_line(rid, exc))
                 continue
             try:
                 if negative:
@@ -142,18 +162,29 @@ def run_rows(adapter, pw, wanted: list[str], by_id: dict[str, dict],
                 try:
                     sd.perform(page, [{"row": rid, "value": row.get("value")}], by_id, values)
                 except SystemExit as exc:
-                    misses.append(f"MISS {rid} — {exc}")
+                    misses.append(miss_line(rid, exc))
                     continue
                 # The action's own request has to complete before the read is fresh, and the
                 # page's clock says nothing about that: the read surface is polled on the wall
                 # clock until the line holds or the budget is spent (the negative control
                 # spends it in full, which is what keeps a slow write from passing as none).
-                observed.append(rid)
+                # A surface that did not answer (`answered 503`) is not an observe
+                # assertion: the row was not evaluated.
+                saw_assertion = False
+                surface_error = False
                 for line in row["observe"]:
                     ok, got, why = observe_settled(adapter, str(line), values)
-                    if not ok:
-                        misses.append(f"MISS {rid} — {why}")
-                        break
+                    if ok:
+                        saw_assertion = True
+                        continue
+                    misses.append(miss_line(rid, why))
+                    if assertion_miss(why):
+                        saw_assertion = True
+                    else:
+                        surface_error = True
+                    break
+                if saw_assertion and not surface_error:
+                    observed.append(rid)
             finally:
                 if negative:
                     adapter.transport_on()
@@ -204,14 +235,11 @@ def main(argv: list[str] | None = None) -> int:
         for m in misses:
             print(m, file=sys.stderr)
         for w in still_green:
-            print(f"GREEN WITHOUT TRANSPORT {w} — its observe lines held with the state "
-                  f"transport broken; the read surface is not fed from persisted state",
-                  file=sys.stderr)
+            print(green_without_transport(w), file=sys.stderr)
         return 2
     if still_green:
         for w in still_green:
-            print(f"GREEN WITHOUT TRANSPORT {w} — its observe lines held with the state "
-                  f"transport broken; the read surface is not fed from persisted state")
+            print(green_without_transport(w))
         return 1
     for m in misses:
         print(m)
