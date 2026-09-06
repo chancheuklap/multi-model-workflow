@@ -613,9 +613,13 @@ class TestBaselineServing(unittest.TestCase):
              "trigger": {"role": "strong", "name": "12,480 鸭豆"},
              "after": {"role": "text", "name": "当前余额"},
              "reason": "wallet balance is an external account; seed does not write it"}]}
-        self.assertEqual(
-            sd.volatile_triggers(scoped, "Component · 自由模式.dc.html"),
-            [("strong", "12,480 鸭豆", ("text", "当前余额"))])
+        got = sd.volatile_triggers(scoped, "Component · 自由模式.dc.html")
+        self.assertEqual(got, [("strong", "12,480 鸭豆", ("text", "当前余额"))])
+        self.assertEqual(got[0].after, ("text", "当前余额"))
+
+    def test_advance_previous_does_not_reappear(self):
+        """The previous-named-node update is two lines at each of its two callers."""
+        self.assertFalse(hasattr(sd, "_advance_previous"))
 
     def test_wrapper_page_carries_inline_head_and_scene(self):
         page = sd.wrapper_page("Component · 壳头", {"scenario": "ready", "standalone": False},
