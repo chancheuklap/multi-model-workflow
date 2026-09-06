@@ -178,6 +178,18 @@ class FakePage:
     def reload(self, wait_until=None):
         self.actions.append("reload")
 
+    def locator(self, selector):
+        page = self
+
+        class Root:
+            def aria_snapshot(self_inner):
+                lines = []
+                for role, name in getattr(page, "named", []):
+                    lines.append(f'- {role} "{name}"')
+                return "\n".join(lines)
+
+        return Root()
+
     def get_by_role(self, role, name=None, exact=False):
         page = self
         count = self.controls.get((role, name), 0)
@@ -186,6 +198,9 @@ class FakePage:
         tag = getattr(self, "tags", {}).get((role, name), "")
 
         class Locator:
+            def __init__(self_inner, index=None):
+                self_inner._index = index
+
             def count(self_inner):
                 return count
 
@@ -193,8 +208,14 @@ class FakePage:
             def first(self_inner):
                 return self_inner
 
+            def nth(self_inner, n):
+                return Locator(n)
+
             def click(self_inner, timeout=None):
-                page.actions.append(("click", role, name))
+                if self_inner._index is None:
+                    page.actions.append(("click", role, name))
+                else:
+                    page.actions.append(("click", role, name, self_inner._index))
 
             def fill(self_inner, value, timeout=None):
                 page.actions.append(("fill", role, name, value))
@@ -257,6 +278,39 @@ class TestOpenChain(unittest.TestCase):
     def test_an_unknown_row_stops_the_run(self):
         with self.assertRaises(SystemExit):
             sd.perform(FakePage({}), [{"row": "no.such", "value": None}], self.ROWS, {})
+
+    def test_two_same_name_controls_after_clicks_the_second(self):
+        """Two buttons share a name. `after` (the previous named node) is the
+        heading that sits between them; perform clicks the second — the dialog
+        confirm, not the footer. agentflow#675."""
+        page = FakePage({("button", "放弃这次任务"): 2})
+        page.named = [
+            ("button", "放弃这次任务"),
+            ("heading", "要放弃这次任务吗"),
+            ("button", "放弃这次任务"),
+        ]
+        rows = {"source-setup.abandon.confirm": {
+            "trigger": {"role": "button", "name": "放弃这次任务"},
+            "after": {"role": "heading", "name": "要放弃这次任务吗"},
+        }}
+        sd.perform(page, [{"row": "source-setup.abandon.confirm", "value": None}],
+                   rows, {})
+        self.assertEqual(page.actions, [("click", "button", "放弃这次任务", 1)])
+
+    def test_two_same_name_controls_without_after_stop_the_run(self):
+        """The same two buttons with no `after`: the run stops and names the
+        coordinate, instead of silently taking the first."""
+        page = FakePage({("button", "放弃这次任务"): 2})
+        rows = {"source-setup.abandon.confirm": {
+            "trigger": {"role": "button", "name": "放弃这次任务"},
+        }}
+        with self.assertRaises(SystemExit) as raised:
+            sd.perform(page, [{"row": "source-setup.abandon.confirm", "value": None}],
+                       rows, {})
+        self.assertIn('button "放弃这次任务"', str(raised.exception))
+        self.assertIn("matches 2 controls", str(raised.exception))
+        self.assertIn("after", str(raised.exception))
+        self.assertEqual(page.actions, [])
 
 
 class TestWaitingOnBothClocks(unittest.TestCase):

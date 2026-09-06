@@ -664,7 +664,7 @@ _Home_: `mmw-v2/skills/drive-target/references/ui-parity.md`
 ### Screen contract
 
 **screen contract**:
-`docs/specs/<effort>/screen-contract.yaml`, two axes. The **control axis**, `rows`: one row per user-visible behaviour of an interface — the control (`trigger`, by role and accessible name), its `precondition`, the `scenes` it is visible in, what it `calls`, which field feeds each value it `shows`, what state is `next`, what `on_failure` shows, where the behaviour was decided (`source`), how a test reaches the state (`reach`), and whether design and backend agree (`gap`). The **screen axis**: `target` (`kind`), `viewports`, `pages` (one per design page: `mount`, `route`, and a `Component · ` page's `component`) and `scenes` (one per scene: `page`, `reach`, `open`, overrides), plus the mechanism table with `via` and `built_by`. It carries no address. Written by `align-screens` on the alignment ticket; read by `to-spec`, `to-tickets`, `implement`, the Spec axis, both judges and `verify-ticket --lint`. It is the behaviour baseline of an interface, beside the handoff package as its look-and-copy baseline; the two never bind the same thing.
+`docs/specs/<effort>/screen-contract.yaml`, two axes. The **control axis**, `rows`: one row per user-visible behaviour of an interface — the control (`trigger`, by role and accessible name, and `after` when that pair is not unique on a scene), its `precondition`, the `scenes` it is visible in, what it `calls`, which field feeds each value it `shows`, what state is `next`, what `on_failure` shows, where the behaviour was decided (`source`), how a test reaches the state (`reach`), and whether design and backend agree (`gap`). The **screen axis**: `target` (`kind`), `viewports`, `pages` (one per design page: `mount`, `route`, and a `Component · ` page's `component`) and `scenes` (one per scene: `page`, `reach`, `open`, overrides), plus the mechanism table with `via` and `built_by`. It carries no address. Written by `align-screens` on the alignment ticket; read by `to-spec`, `to-tickets`, `implement`, the Spec axis, both judges and `verify-ticket --lint`. It is the behaviour baseline of an interface, beside the handoff package as its look-and-copy baseline; the two never bind the same thing.
 _Avoid_: UI contract, interaction table, 界面合同表, 对齐表
 _Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
 
@@ -773,7 +773,11 @@ _Avoid_: 类名集合, class list
 _Home_: `mmw-v2/skills/drive-target/references/ui-parity.md`
 
 **`volatile_values`**:
-A top-level list on the screen contract of display values the seed must not write — a wallet balance belonging to an external account, not a difference to hide. Each entry is a `page`, a `trigger` (role and accessible name, the same shape as `retired_ids`), one line of `reason`, and `after` (the previous named node) when another node on the scene shares its role and its name with the digits removed. The two judges mask that node on both sides before comparing; how the mask is applied and matched is in the contract format.
+A top-level list on the screen contract of display values the seed must not write — a wallet balance belonging to an external account, not a difference to hide. Each entry is a `page`, a `trigger` (role and accessible name, the same shape as `retired_ids`), one line of `reason`, and `after` when another node on the scene shares its role and its name with the digits removed. The two judges mask that node on both sides before comparing; how the mask is applied and matched is in the contract format.
+_Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
+
+**`after`**:
+The previous named node that pins a `trigger` when role and accessible name are not unique on a scene. Same field, same `{ role, name }` shape, on a row and on a `volatile_values` entry; both judges and the lint match it through one function.
 _Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
 
 **perturbation run**:

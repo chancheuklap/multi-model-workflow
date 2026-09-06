@@ -484,5 +484,62 @@ class TestVolatileValues(unittest.TestCase):
         self.assertFalse(any("volatile_values" in w for w in warnings), warnings)
 
 
+class TestTriggerAfter(unittest.TestCase):
+    """A row whose trigger hits more than one named node on a scene, with no
+    `after`, is an ERROR — the same rule as `volatile_values`. With `after` it
+    matches one and does not."""
+
+    TREE = (
+        '- button "放弃这次任务"\n'
+        '- heading "要放弃这次任务吗"\n'
+        '- button "放弃这次任务"\n'
+    )
+    ROW = {
+        "id": "create-project.abandon.confirm",
+        "component": "features/project-setup/CreateProjectView",
+        "trigger": {"role": "button", "name": "放弃这次任务"},
+        "precondition": {},
+        "scenes": ["empty"],
+        "calls": ["none"],
+        "shows": {},
+        "next": "stay",
+        "source": ["#537 Implementation Decisions 2"],
+        "reach": "seed:library-ready",
+        "gap": "aligned",
+    }
+
+    def setUp(self):
+        lc.TOOLS[:] = [Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts"]
+        self.repo = Repo()
+        self.repo.write_targets()
+
+    def tearDown(self):
+        self.repo.cleanup()
+
+    def test_a_trigger_that_matches_several_nodes_is_an_error(self):
+        aria = self.repo.spec_dir / "targets" / (PAGE_A[:-len(".dc.html")] + ".aria")
+        aria.write_text(
+            aria.read_text(encoding="utf-8") + "## scene empty\n" + self.TREE,
+            encoding="utf-8")
+        doc = contract()
+        doc["rows"] = [*doc["rows"], dict(self.ROW)]
+        errors, warnings = lc.lint_screen_axis(
+            doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
+        self.assertTrue(any("create-project.abandon.confirm" in e
+                            and "放弃这次任务" in e
+                            and "matches 2 nodes" in e
+                            and "after" in e for e in errors), errors)
+        self.assertFalse(any("create-project.abandon.confirm" in w for w in warnings),
+                         warnings)
+
+        doc["rows"][-1]["after"] = {"role": "heading", "name": "要放弃这次任务吗"}
+        errors, warnings = lc.lint_screen_axis(
+            doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
+        self.assertFalse(any("create-project.abandon.confirm" in e for e in errors),
+                         errors)
+        self.assertFalse(any("create-project.abandon.confirm" in w for w in warnings),
+                         warnings)
+
+
 if __name__ == "__main__":
     unittest.main()

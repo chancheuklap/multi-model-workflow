@@ -797,7 +797,8 @@ def hide_retired_js(triggers: list[tuple[str, str]]) -> str:
 # sides may show different numbers and still match. The trigger is the handoff's
 # role and accessible name; a product node matches when its role is the same and the
 # non-digit stem of the name is the same. An optional `after` (the previous named
-# node) splits siblings that share that stem.
+# node) splits siblings that share that stem, and row triggers that share role
+# and name.
 VOLATILE_TOKEN = "<volatile>"
 VOLATILE_FILL = "#00E5FF"
 VOLATILE_DIGITS = re.compile(r"[\d,]+")
@@ -825,7 +826,9 @@ def volatile_stem(name: str) -> str:
 
 
 class VolatileTrigger(NamedTuple):
-    """One `volatile_values` trigger: role, accessible name, optional `after`."""
+    """A trigger plus optional `after`: role, accessible name, previous named
+    node. The same tuple is a `volatile_values` entry and a row that has to
+    pick one of several same-name controls."""
     role: str
     name: str
     after: tuple[str, str] | None = None
@@ -841,6 +844,62 @@ def volatile_name_matches(role: str, name: str, wanted_role: str, wanted_name: s
         return True
     stem = volatile_stem(wanted_name)
     return bool(stem) and volatile_stem(name) == stem
+
+
+def after_of(entry: dict) -> tuple[str, str] | None:
+    """`after` on a `volatile_values` entry or a row: the previous named node,
+    or None. One shape, one reader."""
+    raw = entry.get("after")
+    if isinstance(raw, dict) and raw.get("role") and raw.get("name"):
+        return (str(raw.get("role")), str(raw.get("name")))
+    return None
+
+
+def row_trigger(row: dict) -> VolatileTrigger:
+    """The row's trigger as a `VolatileTrigger`, `after` included."""
+    t = row.get("trigger") or {}
+    return VolatileTrigger(str(t.get("role") or ""), str(t.get("name") or ""),
+                           after_of(row))
+
+
+def trigger_hit_indices(lines: list[str], trigger: VolatileTrigger) -> list[int]:
+    """0-based indices among named nodes matching `trigger`'s role and name,
+    after `matches_volatile` applies `after`. Reading order is the tree's."""
+    hits: list[int] = []
+    previous: tuple[str, str] | None = None
+    k = 0
+    for raw in lines:
+        line = raw.rstrip("\n")
+        if line.startswith(SCENE_HEADER):
+            previous = None
+            continue
+        own, _, _ = line.partition(" < ")
+        parsed = _own_role_name(own)
+        if parsed is None:
+            continue
+        if volatile_name_matches(parsed[0], parsed[1], trigger.role, trigger.name):
+            if matches_volatile(parsed[0], parsed[1], [trigger], previous):
+                hits.append(k)
+            k += 1
+        if parsed[1]:
+            previous = parsed
+    return hits
+
+
+def scene_lines(lines: list[str], scenes: set[str]) -> list[str]:
+    """The named-node lines of `scenes` only. A file with no `## scene` marker
+    is one scene and is returned whole."""
+    if not any(raw.rstrip("\n").startswith(SCENE_HEADER) for raw in lines):
+        return list(lines)
+    out: list[str] = []
+    keep = False
+    for raw in lines:
+        line = raw.rstrip("\n")
+        if line.startswith(SCENE_HEADER):
+            keep = line[len(SCENE_HEADER):].strip() in scenes
+        if keep:
+            out.append(raw)
+    return out
 
 
 def matches_volatile(role: str, name: str, triggers: list[VolatileTrigger],
@@ -1176,35 +1235,63 @@ def perform(page, steps: list[dict], rows: dict[str, dict], values: dict[str, st
     """Walk a scene's `open` chain: each step names a contract row, whose trigger is
     clicked — or filled, for an input role, with the step's value. A control the
     previous step is still bringing on screen is waited for in clock steps, within the
-    same budget the mount gets; the mount itself is waited for after the chain."""
+    same budget the mount gets; the mount itself is waited for after the chain.
+    `after` on the row is the previous named node; without it, more than one match
+    is an error, not `.first`."""
     PlaywrightError = _playwright_error()
     for step in steps:
         row = rows.get(step["row"])
         if row is None:
             raise SystemExit(f"open step names no contract row: {step['row']}")
         trig = row["trigger"]
+        wanted = row_trigger(row)
         control = page.get_by_role(trig["role"], name=trig["name"], exact=True)
         wait_until(page, lambda: control.count() > 0,
                    f'open step {step["row"]}: no control {trig["role"]} '
                    f'"{trig["name"]}" on the page')
+        target = _unique_control(page, control, wanted, step["row"])
         try:
             if trig["role"] in INPUT_ROLES:
                 typed = fill(str(step.get("value") or ""), values)
-                _enter_value(control.first, typed)
+                _enter_value(target, typed)
                 # What was typed is a value from here on: `$typed` is the latest, and
                 # `$typed_<field>` keeps each row's, named by the row id's last segment.
                 values["typed"] = typed
                 values["typed_" + step["row"].rsplit(".", 1)[-1].replace("-", "_")] = typed
             else:
-                control.first.click(timeout=ACTION_TIMEOUT_MS)
+                target.click(timeout=ACTION_TIMEOUT_MS)
         except PlaywrightError as exc:
             # Under a paused clock nothing changes with wall time: a control that is not
             # enabled or visible now will not become so by waiting.
             reason = str(exc).splitlines()[0] if str(exc) else exc.__class__.__name__
-            state = _control_state(control.first)
+            state = _control_state(target)
             raise SystemExit(f'open step {step["row"]}: {trig["role"]} "{trig["name"]}" '
                              f"could not be acted on ({state}): {reason}") from exc
         run_clock(page, SETTLE_VIRTUAL_MS)
+
+
+def _unique_control(page, control, wanted: VolatileTrigger, rid: str):
+    """The one locator `perform` may act on. `after` narrows through
+    `matches_volatile`; a non-unique result names the coordinate and stops."""
+    label = f'{wanted.role} "{wanted.name}"'
+    if wanted.after is None:
+        n = control.count()
+        if n != 1:
+            raise SystemExit(
+                f"open step {rid}: {label} matches {n} controls; "
+                f"name the previous named node as after")
+        return control.first
+
+    def unique_index():
+        lines = normalize_aria(page.locator("body").aria_snapshot())
+        hits = trigger_hit_indices(lines, wanted)
+        return hits[0] if len(hits) == 1 else None
+
+    wait_until(
+        page, lambda: unique_index() is not None,
+        f"open step {rid}: {label} after {wanted.after[0]} "
+        f'"{wanted.after[1]}" is not unique')
+    return control.nth(unique_index())
 
 
 def _enter_value(locator, typed: str) -> None:
@@ -1819,11 +1906,8 @@ def volatile_triggers(doc: dict, page: str | None = None
     out: list[VolatileTrigger] = []
     for entry in _scoped_entries(doc, "volatile_values", page):
         t = entry["trigger"]
-        after = None
-        raw = entry.get("after")
-        if isinstance(raw, dict) and raw.get("role") and raw.get("name"):
-            after = (str(raw.get("role")), str(raw.get("name")))
-        out.append(VolatileTrigger(str(t.get("role")), str(t.get("name")), after))
+        out.append(VolatileTrigger(str(t.get("role")), str(t.get("name")),
+                                   after_of(entry)))
     return out
 
 
