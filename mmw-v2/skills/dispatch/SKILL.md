@@ -88,7 +88,7 @@ A notification is a `<paseo-system>` block whose first sentence is `Agent <id> (
 
 **`resume <n> "<text>"`:** `0` the text was sent; `2` no worker with those labels, nothing sent.
 
-**`status <spec>`:** `0`. Stdout is the table (`ticket`, `agent`, `id`, `agent_status`, `age`, `phase`, `ac`, `note`). A `note` of `needs permission` is the `needs permission` notification in table form.
+**`status <spec>`:** `0`, stdout is the table (`ticket`, `agent`, `id`, `agent_status`, `age`, `phase`, `ac`, `note`); a `note` of `needs permission` is the `needs permission` notification in table form. `2`: the tracker or `paseo` could not be asked — one `dispatch: …` line on stderr, no table; run it again once the daemon answers.
 
 **`reverify <spec>`:** `0` every closed `ALL MET` ticket was green; `1` at least one was red — that ticket is reopened, labelled `needs-triage`, its assignee removed, and the failing `AC<n>` commented. Stdout names each ticket.
 
@@ -98,6 +98,6 @@ A notification is a `<paseo-system>` block whose first sentence is `Agent <id> (
 
 | Code | What happened |
 | --- | --- |
-| `0` | Live workers of the batch were interrupted, every ticket still in the agent queue carries a `NIGHT SUSPENDED` comment, every slot the batch held is back, and the heartbeat is deleted |
-| `1` | The night is stopped as far as this command could take it, and what is left is on stderr, one line each. A slot with a listener on it: `lease.py` names the port and the pid, so stop that process where it was started and run `python3 <lease.py> release <its worktree>`. A ticket that could not be commented on is the one a morning reader will find without a verdict. A heartbeat this call could not delete is still waking the main agent |
+| `0` | Every live worker of the batch is archived (its reviewer and verifier with it; workspaces and branches stay), every ticket still in the agent queue carries a `NIGHT SUSPENDED` comment and is unclaimed, every slot the batch held is back, and the heartbeat named in `.git/mmw-heartbeat-<spec>` is deleted when that file exists |
+| `1` | The night is stopped as far as this command could take it, and what is left is on stderr, one line each. A slot with a listener on it: `lease.py` names the port and the pid, so stop that process where it was started and run `python3 <lease.py> release <its worktree>`. A ticket that could not be commented on or unclaimed is the one `advance` will not take up again. A heartbeat this call could not delete is still waking the main agent |
 | `2` | Nothing was touched. The reason is on stderr: not a git repository, the spec number is not digits only, or the tracker could not answer for the batch |

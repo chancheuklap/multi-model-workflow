@@ -77,34 +77,40 @@ def profile_rows() -> list[tuple[str, str, str, str, str]]:
     return [row for row in parse_model_rows() if row[4] in ("bypass", "read-only")]
 
 
-def apply_permissions(profile: dict, host: str, permissions: str) -> dict:
-    """按 host 把 permissions 单元格写成 profile 的 modeId / featureValues。
+def create_agent_settings(host: str, permissions: str) -> dict:
+    """permissions 单元格写成 create_agent 的 settings：`modeId` 或 `features`。
 
-    一份，install 与 --check 共用。claude / codex / 其它 三路。
+    claude / codex / 其它 三路。install 的 profile 与 dispatch 的 create_agent JSON
+    都从这里取，所以一种 host 只有一种拼法。
     """
     if permissions == "bypass":
         if host == "claude":
-            profile["modeId"] = "bypassPermissions"
-            profile.pop("featureValues", None)
-        elif host == "codex":
-            profile["modeId"] = "full-access"
-            profile.pop("featureValues", None)
-        else:
-            profile["featureValues"] = {"auto_accept": True}
-            profile.pop("modeId", None)
-    elif permissions == "read-only":
+            return {"modeId": "bypassPermissions"}
+        if host == "codex":
+            return {"modeId": "full-access"}
+        return {"features": {"auto_accept": True}}
+    if permissions == "read-only":
         if host == "claude":
-            profile["modeId"] = "plan"
-            profile.pop("featureValues", None)
-        elif host == "codex":
+            return {"modeId": "plan"}
+        if host == "codex":
             # Codex 没有 read-only 模式（auto / auto-review / full-access）；auto 权限最低，仍可改文件。
-            profile["modeId"] = "auto"
-            profile.pop("featureValues", None)
-        else:
-            profile["featureValues"] = {"auto_accept": False}
-            profile.pop("modeId", None)
+            return {"modeId": "auto"}
+        return {"features": {"auto_accept": False}}
+    raise ValueError(f"permissions 只能是 bypass 或 read-only，得到 {permissions!r}")
+
+
+def apply_permissions(profile: dict, host: str, permissions: str) -> dict:
+    """按 host 把 permissions 单元格写成 profile 的 modeId / featureValues。
+
+    一份，install 与 --check 共用。settings 的 `features` 在 profile 里叫 featureValues。
+    """
+    settings = create_agent_settings(host, permissions)
+    if "features" in settings:
+        profile["featureValues"] = settings["features"]
+        profile.pop("modeId", None)
     else:
-        raise ValueError(f"permissions 只能是 bypass 或 read-only，得到 {permissions!r}")
+        profile["modeId"] = settings["modeId"]
+        profile.pop("featureValues", None)
     return profile
 
 
@@ -123,8 +129,7 @@ def render(agent_dir: Path, table: dict[tuple[str, str], tuple[str, str]]) -> di
 
     listed = {h for h in hosts if (name, h) in table}
     unlisted = sorted(h for h in hosts if (name, h) not in table)
-    # verifier 在 models.md 里可以只有部分 host 的行；缺的 host 不装配。
-    if unlisted and name != "verifier":
+    if unlisted:
         raise ValueError(
             f"{agent_dir.name}: {MODELS} 里没有 {name} 在 {unlisted} 上的行，"
             f"model 与 effort 只从 models.md 读")

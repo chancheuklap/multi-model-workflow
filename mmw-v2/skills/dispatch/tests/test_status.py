@@ -379,10 +379,25 @@ class WorkerGrades(unittest.TestCase):
         with redirect_stdout(io.StringIO()) as out:
             self.assertEqual(status.worker_grades(76), 0)
         self.assertEqual(out.getvalue().splitlines(), [
+            "BATCH 61",
             "GRADE 61 junior-worker",
+            "BATCH 62",
             "GRADE 62 junior-worker senior-worker",
+            "BATCH 63",
             "GRADE 63",
+            "BATCH 64",
+            "BATCH 65",
         ])
+
+    def test_every_child_gets_a_batch_line_including_those_not_in_the_queue(self):
+        with redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(status.worker_grades(76), 0)
+        lines = out.getvalue().splitlines()
+        self.assertEqual(
+            [l for l in lines if l.startswith("BATCH ")],
+            ["BATCH 61", "BATCH 62", "BATCH 63", "BATCH 64", "BATCH 65"])
+        self.assertNotIn("GRADE 64", lines)
+        self.assertNotIn("GRADE 65", lines)
 
 
 class AdvancePlan(unittest.TestCase):
@@ -698,6 +713,18 @@ class ReadingPaseo(unittest.TestCase):
         self.assertEqual(found[0]["PendingPermissions"], [])
         self.assertEqual(found[0]["kind"], "worker")
         self.assertNotIn("ParentAgentId", found[0])
+
+    def test_main_turns_a_paseo_fault_into_exit_2_without_a_traceback(self):
+        def boom(args):
+            raise RuntimeError("paseo ls -g --json: exit 1")
+        status.paseo_json = boom
+        err = io.StringIO()
+        with redirect_stderr(err), redirect_stdout(io.StringIO()):
+            self.assertEqual(status.main(["--table", "76"]), 2)
+        lines = [l for l in err.getvalue().splitlines() if l]
+        self.assertEqual(len(lines), 1)
+        self.assertTrue(lines[0].startswith("dispatch:"))
+        self.assertNotIn("Traceback", err.getvalue())
 
     def test_live_agents_returns_one_row_per_kind_for_the_spec(self):
         by_kind = {

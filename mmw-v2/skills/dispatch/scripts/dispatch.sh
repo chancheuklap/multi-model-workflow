@@ -38,6 +38,7 @@ VERIFIER_MD="$(realpath "$SKILL_ROOT/references/verifier.md" 2>/dev/null || true
 # is two directories up. `verify-ticket.py` and `lease.py` belong to other skills and
 # are found only in the directories `--tools` names (see the entry at the bottom).
 INSTALLER="$(dirname "$(dirname "$SKILL_ROOT")")/install.sh"
+ASSEMBLE="$(dirname "$INSTALLER")/agents/assemble.py"
 VERIFY=""
 LEASE=""
 
@@ -47,7 +48,8 @@ DEFAULT_WORKER=junior-worker
 MERGE_TRIES=3                # a worker's commit in its worktree can hold the .git lock while advance merges
 
 AUTONOMOUS="You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
-PIPELINE_FAULT="A fault in the pipeline itself is not yours to work around: comment on the ticket with exactly what you ran and what you saw, then verify-ticket.py <n> --sub-issue pipeline <file> — the file body is the command you ran and the output you saw — and stop."
+PIPELINE_FAULT="A fault in the pipeline itself is reported, not worked around: verify-ticket.py <n> --sub-issue pipeline <file>, then stop (rule 5 of that section)."
+PRODUCT_RULES="Several tickets run on this machine at once. Before you start, reach or stop the product, read 'Five rules while the product is running' in the drive-target skill."
 
 # Grok Build hands its agents CLICOLOR_FORCE=1, and `gh` writes ANSI escapes into
 # --json output under it, which no JSON reader can parse.
@@ -404,7 +406,7 @@ ensure_workspace() {
     if git -C "$root" rev-parse --verify --quiet "refs/heads/issue-$number" >/dev/null; then
       record_base_if_missing "$number" "$root"
     fi
-    printf '%s\n' "$row"
+    printf '%s\t0\n' "$row"
     return 0
   fi
   project="$(project_id_for "$root")"
@@ -442,7 +444,7 @@ print((row.get("workspaceId") or "") + "\t" + (row.get("cwd") or ""))
   if git -C "$root" rev-parse --verify --quiet "refs/heads/issue-$number" >/dev/null; then
     record_base_if_missing "$number" "$root"
   fi
-  printf '%s\t%s\n' "$ident" "$cwd"
+  printf '%s\t%s\t1\n' "$ident" "$cwd"
 }
 
 archive_workspace() {
@@ -461,24 +463,26 @@ archive_workspace() {
 # ------------------------------------------------------------------ dispatch payload
 
 emit_create_json() {
-  python3 -c '
-import json, os
+  [ -f "$ASSEMBLE" ] || refuse "no assemble.py at $ASSEMBLE"
+  MMW_ASSEMBLE="$ASSEMBLE" python3 -c '
+import importlib.util, json, os, sys
 
+path = os.environ["MMW_ASSEMBLE"]
+spec = importlib.util.spec_from_file_location("mmw_assemble", path)
+if spec is None or spec.loader is None:
+    print("dispatch: no assemble.py at " + path, file=sys.stderr)
+    sys.exit(2)
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
 host = os.environ["MMW_HOST"]
-model = os.environ["MMW_MODEL"]
+settings = mod.create_agent_settings(host, os.environ["MMW_PERM"])
 effort = os.environ["MMW_EFFORT"]
-if host == "claude":
-    settings = {"modeId": "bypassPermissions"}
-elif host == "codex":
-    settings = {"modeId": "full-access"}
-else:
-    settings = {"features": {"auto_accept": True}}
 if effort and effort not in ("—", "-", ""):
     settings["thinkingOptionId"] = effort
 payload = {
     "workspaceId": os.environ["MMW_WORKSPACE"],
     "title": os.environ["MMW_TITLE"],
-    "provider": host + "/" + model,
+    "provider": host + "/" + os.environ["MMW_MODEL"],
     "settings": settings,
     "labels": {
         "mmw.ticket": os.environ["MMW_TICKET"],
@@ -545,7 +549,7 @@ start_one() {
   local prompt
   case "$kind" in
     worker)
-      prompt="Use the implement skill to work ticket #$number. $AUTONOMOUS $PIPELINE_FAULT" ;;
+      prompt="Use the implement skill to work ticket #$number. $AUTONOMOUS $PRODUCT_RULES $PIPELINE_FAULT" ;;
     reviewer)
       local base
       base="$(git -C "$root" config --get "branch.issue-$number.mmw-base")"
@@ -558,24 +562,31 @@ start_one() {
       prompt="verify #$number 按 $VERIFIER_MD 行事" ;;
   esac
 
-  local workspace cwd row
+  local workspace cwd created row
   row="$(ensure_workspace "$number" "$root" "$title")" \
     || refuse "could not open a workspace for issue-$number"
   workspace="$(printf '%s\n' "$row" | cut -f1)"
   cwd="$(printf '%s\n' "$row" | cut -f2)"
+  created="$(printf '%s\n' "$row" | cut -f3)"
 
   if [ "$kind" = worker ]; then
     [ -f "$LEASE" ] \
       || refuse "no lease.py in any --tools directory, so no run can be given its own share of this machine. Pass --tools <the drive-target skill's scripts directory>, then dispatch again"
     [ -n "$cwd" ] \
       || refuse "could not read the workspace cwd for issue-$number, so no lease can be claimed"
-    python3 "$LEASE" claim "$cwd" >/dev/null \
-      || refuse "no instance slot left on this machine for issue-$number; it keeps its label and starts at the next advance"
+    local claim_err
+    if ! claim_err="$(python3 "$LEASE" claim "$cwd" 2>&1 >/dev/null)"; then
+      if [ "$created" = 1 ] && [ -n "$workspace" ]; then
+        paseo workspace archive "$workspace" >/dev/null \
+          || echo "dispatch: could not archive the workspace for #$number" >&2
+      fi
+      refuse "issue-$number: $claim_err"
+    fi
   fi
 
   local agent_title="#$number $kind"
   MMW_WORKSPACE="$workspace" MMW_TITLE="$agent_title" \
-    MMW_HOST="$host" MMW_MODEL="$model" MMW_EFFORT="$effort" \
+    MMW_HOST="$host" MMW_MODEL="$model" MMW_EFFORT="$effort" MMW_PERM="$perm" \
     MMW_TICKET="$number" MMW_KIND="$kind" MMW_SPEC="$spec" \
     MMW_PROFILE="$profile" MMW_PROMPT="$prompt" \
     emit_create_json
@@ -639,6 +650,7 @@ if not ok:
     [ -n "$line" ] || continue
     local -a fields marked
     read -r -a fields <<<"$line"
+    [ "${fields[0]}" = "GRADE" ] || continue
     number="${fields[1]}"
     marked=("${fields[@]:2}")
     case "${#marked[@]}" in
@@ -836,22 +848,6 @@ advance() {
 
 # ------------------------------------------------------------------ suspend
 
-# The spec's children, via status.py — the one place the batch's child list is parsed.
-sub_issues() {
-  MMW_STATUS="$STATUS" MMW_SPEC_N="$1" python3 -c '
-import importlib.util, os, sys
-
-path = os.environ["MMW_STATUS"]
-spec = importlib.util.spec_from_file_location("mmw_status", path)
-if spec is None or spec.loader is None:
-    sys.exit(1)
-mod = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(mod)
-for n in mod.sub_issues(int(os.environ["MMW_SPEC_N"])):
-    print(n)
-'
-}
-
 # ticket<TAB>id for every live worker labelled mmw.spec=<spec>.
 live_workers() {
   agents_by_label --label "mmw.spec=$1" | awk -F '\t' '$1 != ""'
@@ -863,7 +859,7 @@ suspend_comment() {
     "NIGHT SUSPENDED #$spec" \
     "The night on spec #$spec was suspended at $when, so this ticket has no verdict: nothing here says whether its work is finished."
   if [ -n "$ident" ]; then
-    printf '%s\n' "Its worker $ident was interrupted (\`paseo stop\`); its workspace and its branch are untouched. The batch is taken up again where it stands with advance."
+    printf '%s\n' "Its worker $ident was interrupted (\`paseo archive\`); its workspace and its branch are untouched. The batch is taken up again where it stands with advance."
   else
     printf '%s\n' "No session of ours was working on it at that moment. Its workspace and its branch, if it has them, are untouched, and it keeps its label, so the next advance of #$spec starts it."
   fi
@@ -871,12 +867,14 @@ suspend_comment() {
 
 # Suspend the night without throwing its work away.
 #
-# Four things happen: every live worker of the batch is interrupted (`paseo stop`,
-# workspace and branch stay), every ticket still in the agent queue is told the night
-# was suspended, every lease slot the batch holds is given back, and the main agent's
-# heartbeat is deleted. A batch dispatched again from scratch would throw the night's
-# work away along with the night; `advance` after this takes the same workspaces up
-# where they stand.
+# Five things happen: every live worker of the batch is archived (`paseo archive`,
+# which interrupts a running agent and drops it from the live list, workspace and
+# branch stay), every ticket still in the agent queue is told the night was
+# suspended, every OPEN ready-for-agent ticket assigned to this pipeline's account
+# has that claim given back, every lease slot the batch holds is given back, and
+# the main agent's heartbeat is deleted when the id file is still there. A batch
+# dispatched again from scratch would throw the night's work away along with the
+# night; `advance` after this takes the same workspaces up where they stand.
 #
 # `lease.py` refuses a slot something still listens on, and that refusal is reported
 # rather than forced: taking a slot off a live process is the same act as ending it.
@@ -894,20 +892,16 @@ suspend_night() {
   grades="$(python3 "$STATUS" --worker-grades "$spec")" \
     || refuse "could not read the batch under #$spec"
   queued="$(printf '%s\n' "$grades" | awk '$1 == "GRADE" { print $2 }')"
-  if ! batch="$(sub_issues "$spec")"; then
-    echo "dispatch: could not read the batch under #$spec from status.py" >&2
-    left=$((left + 1))
-    batch=""
-  fi
+  batch="$(printf '%s\n' "$grades" | awk '$1 == "BATCH" { print $2 }')"
 
   local live number ident stopped=0
   live="$(live_workers "$spec")"
   while IFS=$'\t' read -r number ident; do
     [ -n "$ident" ] || continue
-    if paseo stop "$ident" >/dev/null 2>&1; then
+    if paseo archive "$ident" >/dev/null 2>&1; then
       stopped=$((stopped + 1))
     else
-      echo "dispatch: could not stop $ident on #$number" >&2
+      echo "dispatch: could not archive $ident on #$number" >&2
       left=$((left + 1))
     fi
   done <<<"$live"
@@ -923,6 +917,32 @@ suspend_night() {
       left=$((left + 1))
     fi
   done
+
+  local login claims=0
+  login="$(gh_ api user --jq .login 2>/dev/null | tr -d '[:space:]')"
+  if [ -n "$login" ]; then
+    for number in $queued; do
+      [ -n "$number" ] || continue
+      if printf '%s' "$(gh_ issue view "$number" --json assignees 2>/dev/null)" \
+           | MMW_LOGIN="$login" python3 -c '
+import json, os, sys
+login = os.environ["MMW_LOGIN"]
+try:
+    rows = (json.load(sys.stdin) or {}).get("assignees") or []
+except Exception:
+    raise SystemExit(1)
+raise SystemExit(0 if login in [a.get("login") for a in rows if isinstance(a, dict)] else 1)
+'; then
+        if gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1; then
+          claims=$((claims + 1))
+          echo "gave back the claim on #$number: the night is suspended, so the next advance can start it again" >&2
+        else
+          echo "dispatch: could not give back the claim on #$number" >&2
+          left=$((left + 1))
+        fi
+      fi
+    done
+  fi
 
   local cwd back=0 rc
   if [ -f "$LEASE" ]; then
@@ -952,12 +972,9 @@ suspend_night() {
       echo "dispatch: could not delete heartbeat $ident for #$spec" >&2
       left=$((left + 1))
     fi
-  else
-    echo "dispatch: no heartbeat id at $hb; the night's wakeup, if it is still there, was not deleted" >&2
-    left=$((left + 1))
   fi
 
-  echo "suspend #$spec: stopped $stopped, commented $commented, slots given back $back"
+  echo "suspend #$spec: stopped $stopped, commented $commented, slots given back $back, claims given back $claims"
   [ "$left" -eq 0 ] || exit 1
 }
 
@@ -1116,6 +1133,7 @@ case "${1:-}" in
     [ "$#" -eq 2 ] || usage
     case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac
     python3 "$STATUS" --table "$2"
+    exit $?
     ;;
   reverify)
     [ "$#" -eq 2 ] || usage

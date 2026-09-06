@@ -224,23 +224,23 @@ def counted_ac(ticket: dict) -> str:
 
 # The protocol-slot prefixes that name a `phase`. Newest matching comment wins.
 PHASE_MARKERS = (
-    ("self-run", "self-run"),
-    ("reverify", "reverify"),
-    ("VERDICT", "VERDICT"),
-    ("DECISIONS", "DECISIONS"),
-    ("REVIEW", "REVIEW"),
-    ("ALL MET", "ALL MET"),
-    ("HANDOFF REQUIRED", "HANDOFF REQUIRED"),
+    "self-run",
+    "reverify",
+    "VERDICT",
+    "DECISIONS",
+    "REVIEW",
+    "ALL MET",
+    "HANDOFF REQUIRED",
 )
 
 
 def phase_of(ticket: dict) -> str:
     """Where the ticket stands, read off the newest protocol-slot comment, or `-`."""
-    body = newest_with_first_line(ticket, *[prefix for prefix, _ in PHASE_MARKERS])
+    body = newest_with_first_line(ticket, *PHASE_MARKERS)
     head = first_line(body)
-    for prefix, label in PHASE_MARKERS:
+    for prefix in PHASE_MARKERS:
         if head.startswith(prefix):
-            return label
+            return prefix
     if ticket.get("state") == "CLOSED":
         return "closed"
     return "-"
@@ -432,40 +432,6 @@ def frontier(rows: list[dict]) -> list[dict]:
             and not off_frontier_reasons(r)]
 
 
-def orphan_claims(rows: list[dict], login: str) -> list[dict]:
-    """The rows whose claim outlived the worker that made it, in ticket order.
-
-    `verify-ticket.py --preflight` claims a ticket by assigning it to the account it
-    runs as, and exactly two paths give that claim back: the closeout, and the hand
-    back to triage. A session that ends any other way — a crash, a machine restart,
-    a workspace that was archived from outside this pipeline — leaves the claim
-    standing, and since `frontier` takes only unassigned tickets, that ticket is
-    never dispatched again.
-
-    Four things together say the owner of the claim is gone: the ticket is open, it
-    is in the agent queue rather than taken out of it by a person, this pipeline's
-    own account is on it, and no live worker of ours holds it. A claim by anyone
-    else is not this pipeline's to give back, and a ticket carrying one stays off
-    the frontier, which is the right answer: somebody took it.
-
-    The standing workspace is the fourth condition read a second way, and
-    `advance_plan` applies it after this list is built: an answered `paseo ls` with
-    no worker is not proof that no run is still there.
-
-    One risk stays here, unsolved on purpose: `paseo ls` answers for this machine
-    and no other. A worker of the same account running on a second machine reads
-    from here as a claim whose owner is gone. `dispatch.sh` printing a line for
-    every release is what makes that case visible instead of silent.
-    """
-    if not login:
-        return []
-    return [r for r in rows
-            if r["state"] == "OPEN"
-            and "ready-for-agent" in r["labels"]
-            and login in r["assignees"]
-            and r["worker"] is None]
-
-
 def why_not_on_frontier(row: dict) -> str:
     """Which of `frontier`'s conditions this ticket fails, in that function's order.
 
@@ -648,17 +614,21 @@ def advance_plan(spec: int) -> int:
 def worker_grades(spec: int) -> int:
     """The worker-grade labels of every ticket the night could dispatch.
 
-    One line per ticket that is `OPEN` and labelled `ready-for-agent`, blocked or not:
+    One `BATCH` line per child of the spec, then one `GRADE` line per ticket that is
+    `OPEN` and labelled `ready-for-agent`, blocked or not:
 
+        BATCH <ticket>
         GRADE <ticket> [<label> ...]
 
     The labels are the ticket's own ending in `-worker`, in name order, and a ticket
-    carrying none prints the number alone. `dispatch.sh check` reads this before the
-    night opens, and refuses the night when a label names a row `models.md` lacks or a
-    ticket carries two — the same refusals a dispatch would make, brought to the one
-    moment somebody is here to fix them.
+    carrying none prints the number alone. `dispatch.sh check` reads the `GRADE` lines
+    before the night opens, and refuses the night when a label names a row `models.md`
+    lacks or a ticket carries two — the same refusals a dispatch would make, brought
+    to the one moment somebody is here to fix them. `dispatch.sh suspend` reads the
+    `BATCH` lines as the spec's children, so that list is not fetched a second time.
     """
     for number in sub_issues(spec):
+        print(f"BATCH {number}")
         ticket = read_ticket(number)
         if ticket["state"] != "OPEN" or "ready-for-agent" not in ticket["labels"]:
             continue
@@ -703,14 +673,18 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = parse_args(list(sys.argv[1:] if argv is None else argv))
-    if args.advance_plan:
-        return advance_plan(args.spec)
-    if args.worker_grades:
-        return worker_grades(args.spec)
-    if args.summary:
-        return print_summary(args.spec)
-    return table(args.spec)
+    try:
+        args = parse_args(list(sys.argv[1:] if argv is None else argv))
+        if args.advance_plan:
+            return advance_plan(args.spec)
+        if args.worker_grades:
+            return worker_grades(args.spec)
+        if args.summary:
+            return print_summary(args.spec)
+        return table(args.spec)
+    except (RuntimeError, OSError, json.JSONDecodeError) as exc:
+        print(f"dispatch: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

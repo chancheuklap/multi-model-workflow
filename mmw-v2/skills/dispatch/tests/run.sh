@@ -6,7 +6,7 @@
 # Two engines, two test runners:
 #
 #   test_status.py      unittest, status.py against a fixed paseo ls/inspect snapshot and ticket set
-#   test_dispatch.sh    dispatch.sh against a fake `herdr` and a fake `gh` on PATH
+#   test_dispatch.sh    dispatch.sh against a fake `paseo` and a fake `gh` on PATH
 #
 # Neither needs the tracker, a terminal or a browser.
 
