@@ -16,6 +16,9 @@ lc = importlib.util.module_from_spec(spec)
 sys.modules["lint_contract"] = lc
 spec.loader.exec_module(lc)
 
+# The drive-target scripts the lint asks for its matching and its target kinds.
+TOOLS_DIR = Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts"
+
 PAGE_A = "Component · 新建商品项目.dc.html"
 PAGE_B = "Component · 壳头.dc.html"
 PAGE_APP = "App · 商品项目库.dc.html"
@@ -127,7 +130,7 @@ class TestScreenAxis(unittest.TestCase):
     def setUp(self):
         # The target kinds and the .mmw/target.json check are the drive-target skill's;
         # the lint reaches them through --tools, the way the agent passes them.
-        lc.TOOLS[:] = [Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts"]
+        lc.TOOLS[:] = [TOOLS_DIR]
         self.repo = Repo()
         self.repo.write_targets()
 
@@ -429,7 +432,7 @@ class TestVolatileValues(unittest.TestCase):
     }
 
     def setUp(self):
-        lc.TOOLS[:] = [Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts"]
+        lc.TOOLS[:] = [TOOLS_DIR]
         self.repo = Repo()
         self.repo.write_targets()
 
@@ -509,7 +512,7 @@ class TestTriggerAfter(unittest.TestCase):
     }
 
     def setUp(self):
-        lc.TOOLS[:] = [Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts"]
+        lc.TOOLS[:] = [TOOLS_DIR]
         self.repo = Repo()
         self.repo.write_targets()
 

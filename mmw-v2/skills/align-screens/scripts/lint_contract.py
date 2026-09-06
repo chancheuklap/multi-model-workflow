@@ -404,6 +404,15 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
                     errors.append(f"targets: {f.name} is stale — its hashes no longer match "
                                   f"scenes.json or {page}; regenerate with extract_skeleton.py")
     # -- volatile_values
+    def tree_of(page: str) -> list[str]:
+        """The page's target tree, as lines. `aria_of` holds the pages the target
+        directory declared; a page it does not name is looked for where
+        `extract_skeleton.py --targets` would have written it."""
+        aria = aria_of.get(page)
+        if aria is None:
+            aria = contract_dir / "targets" / f"{page_stem(page)}.aria"
+        return aria.read_text(encoding="utf-8").splitlines() if aria.exists() else []
+
     for entry in doc.get("volatile_values") or []:
         if not isinstance(entry, dict):
             continue
@@ -416,12 +425,8 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
             continue
         if contract_dir is None:
             continue
-        aria = aria_of.get(page)
-        if aria is None:
-            aria = contract_dir / "targets" / f"{page_stem(page)}.aria"
-        tree = aria.read_text(encoding="utf-8") if aria.exists() else ""
         hits = screen_driver_mod().count_volatile_hits(
-            tree.splitlines(),
+            tree_of(page),
             screen_driver_mod().volatile_triggers({"volatile_values": [entry]}))
         if hits == 0:
             warnings.append(f"volatile_values: {role} {name!r} on {page} is not in the "
@@ -439,18 +444,13 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
         if not row_scenes or contract_dir is None:
             continue
         pages_for: dict[str, set[str]] = {}
-        scene_decls = doc.get("scenes") or {}
         for sc in row_scenes:
-            page = scene_pages.get(sc) or str((scene_decls.get(sc) or {}).get("page") or "")
+            page = scene_pages.get(sc)
             if page:
                 pages_for.setdefault(page, set()).add(sc)
         for page, scs in pages_for.items():
-            aria = aria_of.get(page)
-            if aria is None:
-                aria = contract_dir / "targets" / f"{page_stem(page)}.aria"
-            tree = aria.read_text(encoding="utf-8") if aria.exists() else ""
             hits = sd.count_trigger_hits(
-                sd.scene_lines(tree.splitlines(), scs), wanted)
+                sd.scene_lines(tree_of(page), scs), wanted)
             if hits > 1:
                 errors.append(
                     f"{rid}: trigger {wanted.role} {wanted.name!r} on {page} "

@@ -1271,12 +1271,11 @@ def perform(page, steps: list[dict], rows: dict[str, dict], values: dict[str, st
         row = rows.get(step["row"])
         if row is None:
             raise SystemExit(f"open step names no contract row: {step['row']}")
-        trig = row["trigger"]
         wanted = row_trigger(row)
         control = page.get_by_role(wanted.role, name=wanted.name, exact=True)
         target = _unique_control(page, control, wanted, step["row"])
         try:
-            if trig["role"] in INPUT_ROLES:
+            if wanted.role in INPUT_ROLES:
                 typed = fill(str(step.get("value") or ""), values)
                 _enter_value(target, typed)
                 # What was typed is a value from here on: `$typed` is the latest, and
@@ -1290,7 +1289,7 @@ def perform(page, steps: list[dict], rows: dict[str, dict], values: dict[str, st
             # enabled or visible now will not become so by waiting.
             reason = str(exc).splitlines()[0] if str(exc) else exc.__class__.__name__
             state = _control_state(target)
-            raise SystemExit(f'open step {step["row"]}: {trig["role"]} "{trig["name"]}" '
+            raise SystemExit(f'open step {step["row"]}: {wanted.role} "{wanted.name}" '
                              f"could not be acted on ({state}): {reason}") from exc
         run_clock(page, SETTLE_VIRTUAL_MS)
 
