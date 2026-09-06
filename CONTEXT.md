@@ -688,7 +688,7 @@ _Avoid_: 合同票, prefactor ticket (for this one)
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **wiring criterion**:
-An acceptance criterion in the fixed shape of `references/wiring-check.md`, running `scripts/wiring-check.py --contract … --rows …`: for each row, put the product into its `reach` state through the reach script, open its `route` through the target's adapter, trigger the control, read its `observe` lines through the target's read surface. Prints `WIRING OK <passed>/<total>` or `MISS <row id> — <reason>`; with `--negative`, `WIRING NEGATIVE OK <n>/<n>`. No address is on its line. A criterion that stubs the application's own network is not one.
+An acceptance criterion in the fixed shape of `references/wiring-check.md`, running `scripts/wiring-check.py --contract … --rows …`: for each row, put the product into its `reach` state through the reach script, open its `route` through the target's adapter, trigger the control, read its `observe` lines through the target's read surface. A row with no `observe` is not one — it stays in the contract for the screen axis and documentation; named on the judge it is exit 2, not a pass. Prints `WIRING OK <passed>/<total>` or `MISS <row id> — <reason>`; with `--negative`, `WIRING NEGATIVE OK <n>/<n>`. No address is on its line. A criterion that stubs the application's own network is not one.
 _Admitted_: wiring check (for the run)
 _Avoid_: 接线测试, integration criterion
 _Home_: `mmw-v2/skills/drive-target/references/wiring-check.md`
