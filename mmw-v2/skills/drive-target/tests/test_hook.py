@@ -103,8 +103,11 @@ def call(host: str, event: dict, env: dict | None = None,
     if cwd_basename is None:
         cwd_basename = f"issue-{TICKET}"
     out = io.StringIO()
+    patched = {"PASEO_AGENT_CWD": ""}
+    if env:
+        patched.update(env)
     with named_cwd(cwd_basename), \
-         mock.patch.dict(os.environ, env if env is not None else {}, clear=False), \
+         mock.patch.dict(os.environ, patched, clear=False), \
          mock.patch.object(hk.sys, "stdin", io.StringIO(json.dumps(event))), \
          redirect_stdout(out), redirect_stderr(io.StringIO()):
         code = hk.main(["pretool", host])
