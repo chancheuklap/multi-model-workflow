@@ -69,6 +69,7 @@ usage() {
   cat >&2 <<'USAGE'
 usage: dispatch.sh check <spec>
        dispatch.sh advance <spec>
+       dispatch.sh land <n>|--sweep
        dispatch.sh start <n> worker|reviewer|verifier
        dispatch.sh wait <n> worker|reviewer|verifier
        dispatch.sh resume <n> "<text>"
@@ -130,7 +131,7 @@ worker_roles() {
 # `-worker`, space separated, and the first line is empty when it carries none.
 read_ticket() {
   local number="$1" json
-  json="$(gh_ issue view "$number" --json state,labels,blockedBy,title,body 2>/dev/null)" \
+  json="$(gh_ issue view "$number" --json state,labels,blockedBy,title,parent 2>/dev/null)" \
     || { echo "REFUSE could not read ticket #$number from the tracker"; return; }
   printf '%s' "$json" | MMW_TICKET_NUMBER="$number" python3 -c '
 import json, os, re, sys
@@ -147,9 +148,14 @@ labels = [label.get("name") for label in ticket.get("labels") or []]
 nodes = (ticket.get("blockedBy") or {}).get("nodes") or []
 blockers = ["#" + str(b.get("number")) for b in nodes if b.get("state") != "CLOSED"]
 grades = sorted(name for name in labels if name and name.endswith("-worker"))
-body = ticket.get("body") or ""
-found = re.search(r"(?ms)^## Parent\s*\n+.*?\#(\d+)", body)
-spec = found.group(1) if found else ""
+# The batch is the parent link the tracker records, and nothing else. `## Parent` is
+# prose written for a person: #193 opens that section with 「无 spec；本仓自建票。收口
+# #188 的评审票外」, so any reader taking the first `#N` in it comes back with 188.
+# That is how the three agents of #193 came to be labelled `mmw.spec=188`, where a
+# `suspend 188` would have archived them. A ticket with no parent link belongs to no
+# batch, and says so by carrying no spec label at all.
+parent = ticket.get("parent") or {}
+spec = str(parent.get("number") or "")
 
 if state != "open":
     print("REFUSE ticket #" + number + " is " + state + ", not open")
@@ -510,12 +516,16 @@ payload = {
     "labels": {
         "mmw.ticket": os.environ["MMW_TICKET"],
         "mmw.kind": os.environ["MMW_KIND"],
-        "mmw.spec": os.environ["MMW_SPEC"],
         "mmw.profile": os.environ["MMW_PROFILE"],
         "mmw.autonomous": "1",
     },
     "initialPrompt": os.environ["MMW_PROMPT"],
 }
+# A ticket outside any batch carries no `mmw.spec` at all, rather than an empty one:
+# a label filter matches an empty value, so `--label mmw.spec=` would collect every
+# batchless agent on the machine as though they were one batch.
+if os.environ["MMW_SPEC"]:
+    payload["labels"]["mmw.spec"] = os.environ["MMW_SPEC"]
 print(json.dumps(payload, ensure_ascii=False))
 '
 }
@@ -539,7 +549,9 @@ start_one() {
   if [ -n "${MMW_SPEC:-}" ]; then
     spec="$MMW_SPEC"
   fi
-  [ -n "$spec" ] || refuse "ticket #$number has no spec number in ## Parent"
+  # A ticket outside any batch is startable: it is dispatched one at a time and landed
+  # with `land <n>`, which asks for a ticket number and never a spec. What it does not
+  # get is a spec label, so no batch command ever picks it up as one of its own.
 
   local profile
   case "$kind" in
@@ -1048,6 +1060,133 @@ advance() {
   fi
 }
 
+# ------------------------------------------------------------------ landing
+
+# Every ticket this checkout owns a workspace for, in ticket order. `workspace_rows`
+# already answers for this checkout alone, which is what keeps a sweep from trying to
+# decide whether another product's branch is merged: only this repository can be asked
+# that, and it is asked about its own tickets only.
+landable_tickets() {
+  workspace_rows | python3 -c '
+import json, re, sys
+from pathlib import Path
+
+try:
+    rows = json.load(sys.stdin)
+except Exception:
+    rows = []
+if not isinstance(rows, list):
+    rows = []
+issue = re.compile(r"^issue-(\d+)$")
+seen = []
+for row in rows:
+    if not isinstance(row, dict):
+        continue
+    found = issue.match(Path(row.get("cwd") or "").name)
+    if found and found.group(1) not in seen:
+        seen.append(found.group(1))
+for number in sorted(seen, key=int):
+    print(number)
+'
+}
+
+# Land one ticket, or every ticket of this checkout that is ready to be landed.
+#
+# Landing is what closing a ticket does not do: merge the branch, archive the
+# workspace (which takes the agents inside it and deletes the worktree), give the
+# slot back, and give the claim back. `advance` does it for a batch after a merge;
+# this does it for one ticket, and asks for a ticket number rather than a spec —
+# which is the whole point. A ticket dispatched outside a night belongs to no spec,
+# so before this there was no command it could be landed with, and its agents, its
+# worktree and its slot stayed until somebody noticed.
+#
+# Order is fixed and the reason is the measurement: archiving a workspace deletes
+# its directory, so a branch not yet in HEAD has to be merged first or the work has
+# to be rebuilt from the branch to get it back.
+land_tickets() {
+  local root
+  root="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$root" ] || refuse "not inside a git repository, so there is nothing to land into"
+
+  if git -C "$root" rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
+    conflict_report "$root" >&2
+    exit 3
+  fi
+  local dirty
+  dirty="$(git -C "$root" status --porcelain --untracked-files=no)"
+  [ -z "$dirty" ] \
+    || refuse "$(printf '%s' "$dirty" | wc -l | tr -d ' ') tracked files have uncommitted changes; a merge would carry them in — commit them or set them aside first"
+
+  local -a numbers=("$@")
+  if [ "${#numbers[@]}" -eq 0 ]; then
+    local number
+    while IFS= read -r number; do
+      [ -n "$number" ] && numbers+=("$number")
+    done < <(landable_tickets)
+  fi
+  if [ "${#numbers[@]}" -eq 0 ]; then
+    echo "land: this checkout has no ticket workspaces to look at" >&2
+    return 0
+  fi
+
+  local plan
+  plan="$(python3 "$STATUS" --land-plan "${numbers[@]}")" \
+    || refuse "could not read $(printf '#%s ' "${numbers[@]}")from the tracker"
+
+  local merged=0 archived=0 released=0 kept=0 unmerged=0 number branch rc
+  while IFS= read -r number; do
+    [ -n "$number" ] || continue
+    branch="$(ticket_branch "$number")"
+    if ! git -C "$root" rev-parse --verify --quiet "refs/heads/$branch" >/dev/null; then
+      continue
+    fi
+    if git -C "$root" merge-base --is-ancestor "$branch" HEAD 2>/dev/null; then
+      continue
+    fi
+    merge_one "$root" "$branch"
+    rc=$?
+    if [ "$rc" -eq 1 ]; then
+      conflict_report "$root" >&2
+      exit 3
+    fi
+    [ "$rc" -eq 0 ] || refuse "could not merge $branch after $MERGE_TRIES tries; git said nothing this script can act on"
+    echo "merged $branch" >&2
+    merged=$((merged + 1))
+  done < <(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }')
+
+  for number in $(printf '%s\n' "$plan" | awk '$1 == "RELEASE" { print $2 }'); do
+    if gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1; then
+      released=$((released + 1))
+    else
+      echo "land: could not give #$number's claim back" >&2
+    fi
+  done
+
+  # A closed ticket whose branch is not in HEAD is the one case where archiving
+  # destroys something: the directory goes and the work is only on the branch. Say so
+  # and leave it standing — silence here would read exactly like a finished sweep.
+  for number in $(printf '%s\n' "$plan" | awk '$1 == "ARCHIVE" { print $2 }'); do
+    branch="$(ticket_branch "$number")"
+    if git -C "$root" rev-parse --verify --quiet "refs/heads/$branch" >/dev/null \
+       && ! git -C "$root" merge-base --is-ancestor "$branch" HEAD 2>/dev/null; then
+      echo "land: #$number is closed but $branch is not in HEAD; not archiving it — merge it or decide it is abandoned" >&2
+      unmerged=$((unmerged + 1))
+      continue
+    fi
+    archive_workspace "$number"
+    archived=$((archived + 1))
+  done
+
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    echo "  $line" >&2
+    kept=$((kept + 1))
+  done < <(printf '%s\n' "$plan" | sed -n 's/^HOLD \(.*\)$/#\1/p')
+
+  echo "land: merged $merged, archived $archived, released $released, still working $kept, left unmerged $unmerged" >&2
+  [ "$unmerged" -eq 0 ] || return 1
+}
+
 # ------------------------------------------------------------------ suspend
 
 # ticket<TAB>id<TAB>status for every live worker labelled mmw.spec=<spec>.
@@ -1314,6 +1453,19 @@ case "${1:-}" in
   advance)
     [ "$#" -eq 2 ] || usage
     advance "$2"
+    ;;
+  land)
+    case "${2:---sweep}" in
+      --sweep)
+        [ "$#" -le 2 ] || usage
+        land_tickets
+        ;;
+      *)
+        [ "$#" -eq 2 ] || usage
+        case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
+        land_tickets "$2"
+        ;;
+    esac
     ;;
   start)
     [ "$#" -eq 3 ] || usage

@@ -285,17 +285,48 @@ def sessions(agents: list[dict]) -> list[dict]:
     return found
 
 
-def worker_on(sessions_: list[dict], number: int, *, holding: bool = True) -> dict | None:
+def in_flight(ticket: dict) -> bool:
+    """Whether this ticket is still being worked, read off the tracker.
+
+    Paseo's agent status cannot answer this. An agent that has finished stops at
+    `idle`, and so does one asleep on a subagent: measured on 2026-09-07, 43 agents
+    that had run to completion showed `idle` and not one showed `closed`, which a
+    session only reaches when somebody terminates it. Anything keyed on that status
+    therefore reads every ticket as still being worked, for ever.
+
+    The tracker does answer it, in three bands, and the third is the one that keeps
+    this safe:
+
+        CLOSED                          not in flight — the worker wrote its verdict
+        OPEN, handed back to triage     not in flight — it said it could not finish
+        OPEN, no verdict either way     unknown, and treated as in flight
+
+    Reading the third band as finished is what closed #159 and #162 on incomplete
+    reviews on 2026-09-06: a reviewer sitting at `idle` while its three axis
+    subagents work looks exactly like one that has stopped. So this band does
+    nothing at all, and a ticket whose worker died without closing out stays claimed
+    until a person looks at it.
+    """
+    if ticket.get("state") == "CLOSED":
+        return False
+    return "needs-triage" not in (ticket.get("labels") or [])
+
+
+def worker_on(sessions_: list[dict], number: int, *, holding: bool = True,
+              ticket: dict | None = None) -> dict | None:
     """The worker session on `number`.
 
-    `paseo ls` still lists an agent whose status is `closed` (it only drops archived
-    ones). That agent is not running. When `holding` is true — frontier, RELEASE,
-    the table's live count — a closed worker is ignored. When `holding` is false,
-    the table can still name it.
+    When `holding` is true — frontier, RELEASE, the table's live count — the question
+    is whether anything still holds this ticket, and `ticket` answers it: a ticket the
+    tracker says is done is held by nobody, whatever Paseo still lists. A `closed`
+    agent holds nothing either; `paseo ls` keeps listing one, since it only drops
+    archived agents. When `holding` is false, the table can still name whatever is there.
     """
     workers = [s for s in sessions_
                if s["ticket"] == number and s["kind"] == "worker"]
     if holding:
+        if ticket is not None and not in_flight(ticket):
+            return None
         workers = [s for s in workers if s.get("status") != "closed"]
     return workers[0] if workers else None
 
@@ -314,7 +345,7 @@ def build_rows(numbers: list[int], tickets: dict[int, dict],
         ticket = tickets.get(number) or {"number": number, "state": "", "labels": [],
                                          "assignees": [], "blockers": [], "comments": []}
         display = worker_on(sessions_, number, holding=False)
-        holder = worker_on(sessions_, number, holding=True)
+        holder = worker_on(sessions_, number, holding=True, ticket=ticket)
         rows.append({
             "ticket": number,
             "worker": holder,
@@ -328,7 +359,7 @@ def build_rows(numbers: list[int], tickets: dict[int, dict],
             "age": display["created"] if display and display["created"] else "-",
             "phase": phase_of(ticket),
             "ac": counted_ac(ticket) or "-",
-            "note": note_of(ticket, display),
+            "note": note_of(ticket, display, holder),
             "head": last_first_line(ticket),
             "created": ticket.get("created") or "",
             "closed_at": ticket.get("closed_at") or "",
@@ -336,9 +367,18 @@ def build_rows(numbers: list[int], tickets: dict[int, dict],
     return rows
 
 
-def note_of(ticket: dict, worker: dict | None) -> str:
-    """One short phrase saying where this ticket stands, in the pipeline's own words."""
+def note_of(ticket: dict, worker: dict | None, holder: dict | None = None) -> str:
+    """One short phrase saying where this ticket stands, in the pipeline's own words.
+
+    `worker` is whatever Paseo lists for the ticket; `holder` is that same session only
+    while the tracker says the ticket is still being worked. The two differ exactly
+    when a ticket has come to rest and its agents are still listed — and then the note
+    is the ticket's own verdict plus what is left to do, rather than the blank that
+    means a worker is live.
+    """
     head = last_first_line(ticket)
+    if worker and not in_flight(ticket):
+        return (head[:44] + " · land it") if head else "land it"
     if worker:
         if worker.get("status") == "closed":
             return "closed: archive it"
@@ -562,6 +602,49 @@ def advance_plan(spec: int) -> int:
     return 0
 
 
+def land_plan(numbers: list[int]) -> int:
+    """What landing each of these tickets calls for, in the order `dispatch.sh` acts.
+
+    Four kinds of line and nothing else on stdout, because a script reads this:
+
+        MERGE <ticket>        closed with `ALL MET`: its branch belongs in the base branch
+        RELEASE <ticket>      this pipeline still holds the claim, and the work is over
+        ARCHIVE <ticket>      its workspace, the agents inside it and its slot may all go
+        HOLD <ticket> <why>   nothing may be done to it yet
+
+    Which of them a ticket gets is `in_flight`, plus one distinction that function does
+    not make. A ticket handed back to triage is over as a piece of work, but its
+    worktree is what the next `start` reuses, and archiving a workspace deletes that
+    directory — measured on 2026-09-07: `paseo workspace archive` returned
+    `removedDirectory: true` and took the three agents with it, leaving only the branch.
+    So a hand back gives the claim back and keeps the workspace; only a closed ticket
+    has both taken away.
+
+    Whether a branch exists and whether it is already in the base branch are git's
+    questions, and git is not one of this program's two sources. `dispatch.sh` asks
+    them, and skips a `MERGE` whose branch is already an ancestor.
+    """
+    login = own_login()
+    for number in numbers:
+        ticket = read_ticket(number)
+        if not ticket["state"]:
+            print(f"HOLD {number} the tracker could not be asked about this ticket")
+            continue
+        if in_flight(ticket):
+            head = last_first_line(ticket)
+            print(f"HOLD {number} it is open with no verdict on it"
+                  + (f" (newest comment: {head[:50]})" if head else ""))
+            continue
+        closed = ticket["state"] == "CLOSED"
+        if closed and first_line(newest_with_first_line(ticket, "ALL MET")).startswith("ALL MET"):
+            print(f"MERGE {number}")
+        if login and login in ticket["assignees"]:
+            print(f"RELEASE {number}")
+        if closed:
+            print(f"ARCHIVE {number}")
+    return 0
+
+
 def worker_grades(spec: int) -> int:
     """The worker-grade labels of every ticket the night could dispatch.
 
@@ -618,21 +701,29 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                        help="print the worker-grade labels of every ticket in the agent queue")
     forms.add_argument("--summary", action="store_true",
                        help="print the night summary and do not post it")
-    parser.add_argument("spec", type=int,
-                        help="the spec issue whose sub-issues are tonight's tickets")
-    return parser.parse_args(argv)
+    forms.add_argument("--land-plan", action="store_true",
+                       help="print what landing each of these tickets calls for")
+    parser.add_argument("spec", type=int, nargs="+",
+                        help="the spec issue whose sub-issues are tonight's tickets, or "
+                             "with --land-plan the ticket numbers to land")
+    args = parser.parse_args(argv)
+    if not args.land_plan and len(args.spec) != 1:
+        parser.error("only --land-plan takes more than one number")
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:
     try:
         args = parse_args(list(sys.argv[1:] if argv is None else argv))
+        if args.land_plan:
+            return land_plan(args.spec)
         if args.advance_plan:
-            return advance_plan(args.spec)
+            return advance_plan(args.spec[0])
         if args.worker_grades:
-            return worker_grades(args.spec)
+            return worker_grades(args.spec[0])
         if args.summary:
-            return print_summary(args.spec)
-        return table(args.spec)
+            return print_summary(args.spec[0])
+        return table(args.spec[0])
     except (RuntimeError, OSError, json.JSONDecodeError) as exc:
         print(f"dispatch: {exc}", file=sys.stderr)
         return 2
