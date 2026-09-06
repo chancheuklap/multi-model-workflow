@@ -175,7 +175,7 @@ if args[:1] == ["wait"]:
     rows = load("agents.json")
     for row in rows:
         if row.get("id") == ident:
-            row["status"] = "idle"
+            row["status"] = os.environ.get("MMW_FAKE_WAIT_STATUS", "idle")
             ticket = str((row.get("labels") or {}).get("mmw.ticket") or "")
     save("agents.json", rows)
     comment = os.environ.get("MMW_FAKE_WAIT_COMMENT", "")
@@ -1111,7 +1111,7 @@ JSON
   hasnt "gh :: issue :: comment"
   hasnt "paseo :: archive"
 
-  echo "--- the agent stopped with no result: exit 1, stderr names logs and the fallback"
+  echo "--- the agent is gone with no result: exit 1, stderr names logs and the fallback"
   reset_log
   cat > "$TMP/tickets.json" <<'JSON'
 [
@@ -1120,6 +1120,7 @@ JSON
 JSON
   seed_agent 61 verifier
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          MMW_FAKE_WAIT_STATUS=closed \
           bash "$DISPATCH" "${TOOLS[@]}" wait 61 verifier)"
   [ "$code" = 1 ] || fail "expected exit 1 with no result, got $code: $(cat "$TMP/err")"
   has "paseo :: wait :: agt_61_verifier :: --timeout :: 90"
@@ -1130,6 +1131,22 @@ JSON
   [ "$(wc -l < "$TMP/err" | tr -d ' ')" = 1 ] \
     || fail "stderr should be one line: $(cat "$TMP/err")"
   [ ! -s "$TMP/out" ] || fail "stdout should be empty on exit 1: $(cat "$TMP/out")"
+
+  echo "--- idle between turns with no result yet: exit 3, no fallback"
+  reset_log
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "comments": []}
+]
+JSON
+  seed_agent 61 reviewer
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" wait 61 reviewer)"
+  [ "$code" = 3 ] || fail "an idle reviewer is mid-job, expected exit 3, got $code: $(cat "$TMP/err")"
+  grep -q "still working" "$TMP/err" \
+    || fail "stderr should say still working: $(cat "$TMP/err")"
+  grep -q "code-review skill" "$TMP/err" \
+    && fail "an idle reviewer must not be sent to the fallback: $(cat "$TMP/err")"
 
   echo "--- timeout while still running: exit 3"
   reset_log

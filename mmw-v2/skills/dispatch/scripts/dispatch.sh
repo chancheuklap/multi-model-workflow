@@ -717,9 +717,17 @@ wait_one() {
     return 0
   fi
 
+  # An agent that is alive is still on the hook, whatever it is doing between turns.
+  # `idle` is not idle: the code-review skill has the reviewer start its three axis
+  # subagents and end its turn rather than poll them, so a reviewer that is doing
+  # exactly what it was told to do sits at `idle` for the whole of that work. Reading
+  # that as "stopped" sends the caller to a fallback while a healthy agent is mid-job;
+  # on 2026-09-06 that closed #162 on a thinner review than the one that arrived 50
+  # seconds later, and did the same to #159. Only an agent that is gone — `closed`,
+  # `error`, or no longer listed — has nobody left to do the job.
   status="$(agents_by_label --label "mmw.ticket=$number" --label "mmw.kind=$kind" | head -n 1 | cut -f3 | tr '[:upper:]' '[:lower:]')"
   case "$status" in
-    running|initializing)
+    running|initializing|idle)
       echo "still working: run wait again" >&2
       exit 3
       ;;
