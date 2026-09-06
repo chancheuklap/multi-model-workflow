@@ -23,9 +23,16 @@ def ticket(state="OPEN", labels=("ready-for-agent",), assignees=(), blockers=())
 
 
 def preflight(number=77, branch="issue-77", dirty=(), **kwargs):
-    """Run --preflight against a made-up ticket; return (exit code, what it posted)."""
+    """Run --preflight against a made-up ticket; return (exit code, what it posted).
+
+    `notify_parent` is stubbed with the rest of the outward calls. Unstubbed it reads
+    the real `PASEO_AGENT_ID` of whatever agent is running the suite and sends its
+    parent a real `#77 NOT_READY`, so a worker running these tests interrupts the
+    session that started it once per refusal case.
+    """
     posted = []
-    with mock.patch.object(vt, "fetch_ticket", return_value=ticket(**kwargs)), \
+    with mock.patch.object(vt, "notify_parent"), \
+         mock.patch.object(vt, "fetch_ticket", return_value=ticket(**kwargs)), \
          mock.patch.object(vt, "gh_login", return_value=ME), \
          mock.patch.object(vt, "current_branch", return_value=branch), \
          mock.patch.object(vt, "dirty_tracked", return_value=list(dirty)), \
