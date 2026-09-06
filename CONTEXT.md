@@ -698,6 +698,11 @@ _Home_: `mmw-v2/skills/drive-target/references/wiring-check.md`
 _Avoid_: the driver module, 共用驱动
 _Home_: `mmw-v2/skills/drive-target/scripts/screen_driver.py`
 
+**controlled clock**:
+The paused fake clock the driver installs on a page, the only clock that page's timers and animation frames run on. Virtual time on it is capped so a scene is never captured past the handoff package's shortest auto-advance; wall time is the other budget, spent together with the remaining virtual so a paint after a response arrives can still be waited for.
+_Admitted_: 受控时钟
+_Home_: `mmw-v2/skills/drive-target/scripts/screen_driver.py`
+
 **target**:
 What kind of product the judges drive, named in the contract as `target.kind` — `electron`, `web-spa`, `web-server-rendered`, `chrome-extension`. Two parties answer for it. The **adapter** is the class in `screen_driver.py` that answers the kind's seven **platform capabilities** in code — `attach`, `ready`, `address`, `release` (giving the product back — a user's window restored to its own size, clock and page, a browser the driver launched closed; not `lease.py release` and not the `RELEASE` line), `transport` (the write half), `observe` (the read half), and how to break the transport — with a file under `references/targets/` as its account and `discover_keys` naming what its `discover` prints. The **repository** answers for this product on this machine in `.mmw/target.json`: the fields the driver declares (`start`, `stop`, `discover`, `reach`, `transport_off`, `transport_on`, `leaves_machine`; optional `instance`, `checks`), printed with one sentence and one example each by `screen_driver.py target --check`, which exits 0 once the file is complete. The contract carries no `adapter` key.
 _Avoid_: platform (bare), 目标 (as a term), 适配器, target.adapter, the nine questions

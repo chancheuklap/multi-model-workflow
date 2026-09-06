@@ -264,8 +264,10 @@ class TestWaitingOnBothClocks(unittest.TestCase):
 
     Running the controlled clock fires the page's timers and returns at once, so a wait
     counted only in virtual milliseconds hands a real request no time at all. Wall time
-    is the second budget, and spending it is safe: every timer on the page is under the
-    controlled clock, so the handoff package's auto-advance cannot fire while it passes.
+    is the second budget, spent together with the remaining virtual so a paint after
+    the response can still be waited for. Spending wall time is safe: every timer on
+    the page is under the controlled clock, so the handoff package's auto-advance
+    cannot fire while it passes.
     """
 
     def setUp(self):
@@ -278,13 +280,33 @@ class TestWaitingOnBothClocks(unittest.TestCase):
         at = time.monotonic() + 0.3
         sd.wait_until(page, lambda: time.monotonic() >= at, "never")
 
+    def test_a_paint_after_a_response_is_found(self):
+        """A control that paints on an animation frame after a response arrives.
+
+        Virtual time spent before the response has nothing to paint. The paint
+        needs the clock to run after wall time has passed.
+        """
+        page = FakePage({})
+        response_at = time.monotonic() + 0.3
+        painted = False
+
+        def run_for(ms):
+            nonlocal painted
+            page.ran += ms
+            if time.monotonic() >= response_at:
+                painted = True
+
+        page.run_for = run_for
+        sd.wait_until(page, lambda: painted, "no control")
+        self.assertLessEqual(page.ran, sd.SETTLE_BUDGET_MS)
+
     def test_the_virtual_clock_stops_at_the_budget_while_wall_time_runs(self):
         """The reason the virtual budget exists — a scene captured one step past itself —
         does not weaken because the wait got longer."""
         page = FakePage({})
         at = time.monotonic() + 0.3
         sd.wait_until(page, lambda: time.monotonic() >= at, "never")
-        self.assertEqual(page.ran, sd.SETTLE_BUDGET_MS)
+        self.assertLessEqual(page.ran, sd.SETTLE_BUDGET_MS)
 
     def test_running_out_names_both_budgets(self):
         page = FakePage({})
@@ -292,8 +314,9 @@ class TestWaitingOnBothClocks(unittest.TestCase):
             sd.wait_until(page, lambda: False, "no control \u767b\u5f55")
         said = str(raised.exception)
         self.assertIn("no control \u767b\u5f55", said, "the refusal names no fact")
-        self.assertIn("ms of controlled time", said)
-        self.assertIn("s of wall time", said, "a reader cannot tell which budget ran out")
+        self.assertIn(f"{sd.SETTLE_VIRTUAL_MS + sd.SETTLE_BUDGET_MS} ms of controlled time", said)
+        self.assertIn(f"{sd.WAIT_REAL_BUDGET_S:g}s of wall time", said,
+                      "a reader cannot tell which budget ran out")
 
 
 class TestClockAndNavigation(unittest.TestCase):

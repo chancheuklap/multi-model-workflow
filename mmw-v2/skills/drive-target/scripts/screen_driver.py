@@ -93,10 +93,15 @@ SETTLE_STEP_MS = 100
 # Virtual time and wall time are not interchangeable, and a view that appears only when
 # a response arrives needs the second kind. Running the clock fires the page's timers and
 # returns at once, so a budget counted only in virtual milliseconds gives a real request
-# no time at all. Wall time is safe to spend: every timer on the page is under the
-# controlled clock, so the handoff package's auto-advance cannot fire while it passes.
+# no time at all. The two are spent together: wall time is when the request can complete,
+# and remaining virtual time after each wall step is what paints the result. Every timer
+# on the page is under the controlled clock, so the handoff package's auto-advance cannot
+# fire while wall time passes.
 WAIT_REAL_BUDGET_S = 8.0
 WAIT_REAL_STEP_S = 0.1
+# One animation frame. A response that arrives during wall time schedules its paint on
+# the next frame; a tick smaller than this would not fire it.
+FRAME_MS = 16
 # Wall-clock bound on one click or fill. The page's clock is paused, so an element that
 # is not enabled now stays so; the bound only keeps a wrong step from hanging the run.
 ACTION_TIMEOUT_MS = 2000
@@ -1119,25 +1124,41 @@ def navigate(page, url: str, reload: bool = False) -> None:
 def wait_until(page, ready, what: str) -> None:
     """Wait for `ready()` on both clocks, and say which budget ran out.
 
-    The virtual budget is spent first, in steps, which is what lets the page's own
-    render and poll timers run; it stops at `SETTLE_BUDGET_MS` because past that the
-    handoff package's shortest auto-advance would fire and the scene would be captured
-    one step beyond itself. Wall time is then spent without touching the clock, for the
-    responses the view is waiting on — no timer can fire while it passes, so the bound
-    the virtual budget protects still holds.
+    The virtual budget is spent in steps and stops at `SETTLE_BUDGET_MS` because past
+    that the handoff package's shortest auto-advance would fire and the scene would be
+    captured one step beyond itself. Wall time is the other budget, for the responses
+    the view is waiting on. The two are spent together: enough virtual time is held
+    back for one frame after each wall step, so a paint scheduled after a response
+    arrives can still be waited for. No timer can fire beyond the virtual cap, so the
+    bound the virtual budget protects still holds.
     """
     virtual = 0
     deadline = time.monotonic() + WAIT_REAL_BUDGET_S
+    wall_steps = max(1, int(round(WAIT_REAL_BUDGET_S / WAIT_REAL_STEP_S)))
+    held = min(SETTLE_BUDGET_MS, FRAME_MS * wall_steps)
+    burst_until = SETTLE_BUDGET_MS - held
     while not ready():
-        if virtual < SETTLE_BUDGET_MS:
-            run_clock(page, SETTLE_STEP_MS)
-            virtual += SETTLE_STEP_MS
+        if virtual < burst_until:
+            step = min(SETTLE_STEP_MS, burst_until - virtual)
+            run_clock(page, step)
+            virtual += step
             continue
         if time.monotonic() >= deadline:
+            leftover = SETTLE_BUDGET_MS - virtual
+            if leftover > 0:
+                run_clock(page, leftover)
+                virtual += leftover
+                if ready():
+                    break
             raise SystemExit(
                 f"{what} after {SETTLE_VIRTUAL_MS + virtual} ms of controlled time and "
                 f"{WAIT_REAL_BUDGET_S:g}s of wall time")
         time.sleep(WAIT_REAL_STEP_S)
+        leftover = SETTLE_BUDGET_MS - virtual
+        if leftover > 0:
+            tick = min(FRAME_MS, leftover)
+            run_clock(page, tick)
+            virtual += tick
 
 
 def wait_for_mount(page, selector: str) -> None:
