@@ -39,9 +39,11 @@ Nothing else. No summary of the change, no list of files, no restatement of what
 
 ## 3. Sort every review finding into in-ticket or out-of-ticket
 
-A review finding is **in-ticket** when it touches one of five things: this ticket's acceptance criteria, a decision in the spec section the ticket names, a baseline under the ticket's `## Read first`, the spec's `## Out of Scope`, or the spec's `## Testing Decisions`. Everything else is **out-of-ticket**.
+A review finding is **in-ticket** when it touches one of six things: this ticket's acceptance criteria, a decision in the spec section the ticket names, a baseline under the ticket's `## Read first`, the spec's `## Out of Scope`, the spec's `## Testing Decisions`, or a file inside this ticket's `## Owns`. Everything else is **out-of-ticket**.
 
 A line the Spec axis marks `should not` under its `Decisions` heading is **in-ticket**: it is the worker's own decision or a file it changed outside `## Owns`, so this ticket is where it is undone.
+
+A file outside `## Owns` is still not written: the sixth condition sorts a review finding onto this ticket's fix round; it does not widen where the worker may write.
 
 The split decides what happens next, which is why you make it rather than leaving it to the reader: in-ticket review findings get one round of fixes on this ticket; out-of-ticket review findings become this ticket's sub-issues (`--sub-issue review`) and block nothing. The worker opens them; you list them. The parent is this ticket.
 
