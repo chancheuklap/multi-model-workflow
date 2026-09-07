@@ -118,6 +118,22 @@ case "${1:-}" in
   *) die "用法：install.sh [--check]" 2 ;;
 esac
 
+# 装过之后记下是从哪个 checkout 装的。--check 从另一个 checkout 跑时，按记下的那个核对
+# 软链，只核对、不接管：一个冻结的 checkout 装给各 host 用，改造这套工具箱的那一夜就在
+# 别的 checkout 上进行，advance 并进去多少都不会动到正在运行的 host。
+INSTALLED_ROOT_FILE="$HOME_DIR/.mmw/installed-root"
+if [ "$mode" = check ] && [ -f "$INSTALLED_ROOT_FILE" ]; then
+  installed_root="$(cat "$INSTALLED_ROOT_FILE")"
+  if [ -n "$installed_root" ] && [ -d "$installed_root" ] && [ "$installed_root" != "$ROOT" ]; then
+    echo "装自  ${installed_root}（本 checkout ${ROOT} 只核对，不接管）"
+    ROOT="$installed_root"
+    SKILLS_SRC="$ROOT/upstream/skills"
+    SELF_SRC="$ROOT/skills"
+    DD_SRC="$ROOT/upstream-diagram-design/skills"
+    LIST="$ROOT/skills.txt"
+  fi
+fi
+
 [ -f "$LIST" ] || die "缺 skills.txt：$LIST"
 [ -d "$SKILLS_SRC" ] || die "缺 upstream 技能目录：$SKILLS_SRC"
 
@@ -1047,9 +1063,12 @@ if [ "$mode" = check ]; then
     echo "齐了：技能 ${installed_dests} 处 × ${#wanted_names[@]} 个，subagent 与 hook 见上"
   fi
 else
+  mkdir -p "$(dirname "$INSTALLED_ROOT_FILE")"
+  printf '%s\n' "$ROOT" > "$INSTALLED_ROOT_FILE"
   echo
   echo "source directory：${SKILLS_SRC}（mattpocock/skills）、${SELF_SRC}（自研）、${DD_SRC}（cathrynlavery/diagram-design）"
   echo "改技能直接改 source directory 里的文件，host 下次调用就是新的。"
+  echo "装自  ${ROOT}（记在 ${INSTALLED_ROOT_FILE}；别的 checkout 跑 --check 时按它核对）"
 fi
 
 exit "$rc"
