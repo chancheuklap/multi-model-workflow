@@ -96,12 +96,9 @@ def run_named(name: str, start: Path | None = None) -> int:
     if not isinstance(start_cmd, str) or not start_cmd.strip():
         return bail("`.mmw/target.json` has no `start` command")
 
-    started = run_command(start_cmd, root, env=env, check=False)
-    if started.returncode != 0:
-        return bail(proc=started)
-
     try:
-        data = discover(cfg, root)
+        run_command(start_cmd, root, env=env)
+        data = discover(cfg, root, env=env)
     except SystemExit as exc:
         return bail(proc=exc.code)
     addresses_into(env, data)

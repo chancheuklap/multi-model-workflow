@@ -2,7 +2,8 @@
 
 Nothing here judges. `story-parity.py` and `extract_skeleton.py` import the baseline
 server, the wrapper page, capture, and the accessibility-tree normaliser. `journey.py`
-runs `start` / `stop` and imports `discover`. Which keys a repository answers is declared
+runs every command `.mmw/target.json` declares through `run_command`, and imports
+`discover`. Which keys a repository answers is declared
 here, once, on `FIELDS`, and printed by
 
     screen_driver.py target --check [--repo <dir>] [--kind <kind> | --contract <yaml>]
@@ -294,6 +295,14 @@ def command_env(cwd: Path) -> dict[str, str]:
 
 def run_command(command: str, cwd: Path, env: dict[str, str] | None = None,
                 check: bool = True) -> subprocess.CompletedProcess:
+    """Run one command a repository declared, and hand back what it printed.
+
+    `env` is the environment to run under; omitted, the leased one for `cwd` is built
+    here. `check` decides what a non-zero exit means: raise `SystemExit` wrapping the
+    `CompletedProcess` (the default, for a command whose failure stops the run), or
+    return it for the caller to read (`stop`, which runs while something has already
+    gone wrong). A refusal from the lease is handed back in the same shape as a failed
+    command, so one caller reads one thing."""
     argv = shlex.split(command)
     try:
         resolved = command_env(cwd) if env is None else env
@@ -309,18 +318,23 @@ def run_command(command: str, cwd: Path, env: dict[str, str] | None = None,
     return proc
 
 
-def discover(cfg: dict, root: Path) -> dict:
-    """One JSON object of addresses, or SystemExit wrapping that command's CompletedProcess."""
-    proc = run_command(cfg["discover"], root)
-    out = (proc.stdout or "").strip()
+def discover(cfg: dict, root: Path, env: dict[str, str] | None = None) -> dict:
+    """One JSON object of addresses, or SystemExit wrapping that command's CompletedProcess.
+
+    `env` is the caller's environment, so `discover` runs under the same one `start` did;
+    omitted, `run_command` builds the leased one."""
+    proc = run_command(cfg["discover"], root, env=env)
+    out = proc.stdout.strip()
+    why = ""
     try:
         data = json.loads(out)
     except json.JSONDecodeError as exc:
-        proc.stderr = (proc.stderr or "") + (
-            f"discover printed no JSON object: {out[:200]!r} ({exc})\n")
-        raise SystemExit(proc)
-    if not isinstance(data, dict):
-        proc.stderr = (proc.stderr or "") + "discover must print one JSON object\n"
+        why = f"discover printed no JSON object: {out[:200]!r} ({exc})"
+    else:
+        if not isinstance(data, dict):
+            why = "discover must print one JSON object"
+    if why:
+        proc.stderr += why + "\n"
         raise SystemExit(proc)
     return data
 
