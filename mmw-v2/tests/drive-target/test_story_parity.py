@@ -22,6 +22,9 @@ SCRIPT = (
 )
 REPO = Path(__file__).resolve().parent / "fixtures" / "story" / "repo"
 CONTRACT = "docs/specs/story/screen-contract.yaml"
+# Dispatch leases occupy 21000 + slot*20. These sit above that, and the pid
+# keeps two tickets on this machine from binding the same port.
+STORY_PORT_BASE = 30000 + (os.getpid() % 800) * 20
 
 
 def load():
@@ -180,7 +183,7 @@ class TestStoryFixture(unittest.TestCase):
                   contract=None, extra_args=None):
         env = dict(os.environ)
         env["MMW_HOME"] = self.home
-        env["MMW_LEASE_PORT_BASE"] = "28000"
+        env["MMW_LEASE_PORT_BASE"] = str(STORY_PORT_BASE)
         env.pop("STORY_MUTATE", None)
         if extra_env:
             env.update(extra_env)
@@ -272,7 +275,8 @@ class TestStoryFixture(unittest.TestCase):
             proc = self.run_story(
                 cwd=root,
                 extra_args=["--scenes", "missing"],
-                extra_env={"MMW_HOME": home, "MMW_LEASE_PORT_BASE": "28300"},
+                extra_env={"MMW_HOME": home,
+                           "MMW_LEASE_PORT_BASE": str(STORY_PORT_BASE + 20)},
             )
             self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
             self.assertIn("404", proc.stderr)
