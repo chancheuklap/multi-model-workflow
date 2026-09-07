@@ -10,7 +10,7 @@ come out:
 
 - `<out.json>`, the skeleton: every interactive control keyed by (page, role,
   accessible name) with the scenes it is visible in — the row inventory the contract
-  is linted against — plus, per scene, its normalised tree and its class set.
+  is linted against — plus, per scene, its normalised tree and the class names in that subtree.
 - With `--targets <dir>`: one `<page>.aria` and one `<page>.classes` file per design
   page under that directory, holding every scene of the page. These are the handoff
   package's behavioural counterpart — the half of it a worker and the judge read

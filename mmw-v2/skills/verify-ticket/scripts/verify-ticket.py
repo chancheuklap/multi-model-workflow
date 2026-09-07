@@ -1938,32 +1938,6 @@ def tool(script: str) -> Path | None:
     return None
 
 
-def screen_driver_mod():
-    """The `drive-target` skill's `screen_driver.py`, loaded from `--tools` the way
-    that skill's own `extract_skeleton.load_driver` loads it — under the module name
-    `screen_driver`, registered before it is executed, because the dataclasses in it
-    resolve their own namespace through `sys.modules`. The two judges read a contract's
-    triggers through this module, so the ticket lint reads them the same way rather than
-    reimplementing the match. None when `--tools` did not supply it."""
-    global _SCREEN_DRIVER
-    if _SCREEN_DRIVER is not None:
-        return _SCREEN_DRIVER or None
-    path = tool("screen_driver.py")
-    if path is None:
-        _SCREEN_DRIVER = False
-        return None
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("screen_driver", path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["screen_driver"] = module
-    spec.loader.exec_module(module)
-    _SCREEN_DRIVER = module
-    return module
-
-
-_SCREEN_DRIVER = None
-
-
 APP_PAGE_PREFIX = "App · "
 RUN_VALUE_RE = re.compile(r"""--run(?:\s+|=)(?:"([^"]*)"|'([^']*)'|(\S+))""")
 JOURNEY_NAME_RE = re.compile(r"journey\.py\s+run\s+(\S+)")
@@ -2176,121 +2150,6 @@ def source_findings(row_ids: list[str], doc: dict, read_first: str, parent_text:
     return findings
 
 
-def mechanism_findings(number: int | None, body: str, doc: dict, row_ids: list[str],
-                       mounts: list[str]) -> list[str]:
-    """A ticket that uses mechanism M is blocked by M's `built_by`, unless it is that
-    ticket. Uses: the `reach` of the rows it owns and of the scenes under its mounts."""
-    raw = doc.get("mechanisms") or {}
-    if isinstance(raw, list):
-        return []
-    mechanisms = {str(k): (v or {}) for k, v in raw.items()}
-    rows = {str(r.get("id")): r for r in doc.get("rows") or []}
-    used: set[str] = set()
-    for rid in row_ids:
-        r = rows.get(rid) or {}
-        if r.get("reach"):
-            used.add(str(r["reach"]))
-    pages = doc.get("pages") or {}
-    for name, decl in (doc.get("scenes") or {}).items():
-        decl = decl or {}
-        mount = decl.get("mount") or (pages.get(decl.get("page")) or {}).get("mount")
-        if mount in mounts:
-            used.update(str(x) for x in decl.get("reach") or [])
-    blockers = set(blocked_by(body))
-    findings = []
-    for mech in sorted(used):
-        built = str((mechanisms.get(mech) or {}).get("built_by") or "")
-        m = re.match(r"^#(\d+)$", built)
-        if not m:
-            continue
-        builder = int(m.group(1))
-        if builder != number and builder not in blockers:
-            findings.append(f"mechanism {mech} is built by #{builder}, which `## Blocked by` "
-                            f"does not name")
-    return findings
-
-
-def scenes_by_mount(doc: dict) -> dict[str, list[str]]:
-    pages = doc.get("pages") or {}
-    out: dict[str, list[str]] = {}
-    for name, decl in (doc.get("scenes") or {}).items():
-        decl = decl or {}
-        mount = str(decl.get("mount") or (pages.get(decl.get("page")) or {}).get("mount") or "")
-        out.setdefault(mount, []).append(name)
-    return out
-
-
-def expand_mounts(mounts: list[str], by_mount: dict[str, list[str]]) -> list[str]:
-    """`--mount all` is every mount the contract declares."""
-    return [m for m in by_mount if m] if mounts == ["all"] else mounts
-
-
-NON_COMPARING_MODES = ("--addressing", "--render-only", "--shows-perturbation")
-
-
-def parity_calls(body: str) -> list[tuple[str, list[str], list[str] | None]]:
-    """`(gate_id, mounts, explicit scenes or None)` per criterion that compares with
-    visual-parity.py. Its other modes (`--addressing`, `--render-only`,
-    `--shows-perturbation`) cover no scene for the partition and are left out."""
-    out = []
-    for gate_id, check, _ in criteria_lines(body):
-        if "visual-parity.py" not in check:
-            continue
-        segment = script_segment(check, "visual-parity.py")
-        if any(mode in segment.split() for mode in NON_COMPARING_MODES):
-            continue
-        m = re.search(r"--mount\s+(\S+)", segment)
-        mounts = [x for x in (m.group(1).split(",") if m else []) if x]
-        s = re.search(r"--scenes\s+(\S+)", segment)
-        explicit = [x for x in s.group(1).split(",") if x] if s else None
-        out.append((gate_id, mounts, explicit))
-    return out
-
-
-def scene_findings(body: str, doc: dict) -> list[str]:
-    """An explicit `--scenes` list is a subset of what its `--mount` derives."""
-    findings = []
-    by_mount = scenes_by_mount(doc)
-    for gate_id, mounts, explicit in parity_calls(body):
-        mounts = expand_mounts(mounts, by_mount)
-        derived = {s for m in mounts for s in by_mount.get(m, [])}
-        for m in mounts:
-            if m not in by_mount:
-                findings.append(f"{gate_id}: --mount {m} is declared by no page of the contract")
-        if explicit:
-            outside = [s for s in explicit if s not in derived]
-            if outside:
-                findings.append(f"{gate_id}: --scenes names scenes outside its mounts: "
-                                f"{', '.join(outside)}")
-    return findings
-
-
-def trigger_findings(row_ids: list[str], doc: dict, contract_path: str | None) -> list[str]:
-    """Every owned row the judges could not drive, because its trigger's role and name
-    reach more than one node on a page the row's own scenes sit on. The judges refuse
-    such a row at run time; found here it costs a line in a lint instead of a ticket in
-    a night. The candidates come from the target trees beside the contract."""
-    sd = screen_driver_mod()
-    if sd is None or not contract_path or not hasattr(sd, "contract_trigger_conflicts"):
-        return []
-    try:
-        conflicts = sd.contract_trigger_conflicts(doc, Path(contract_path).parent, row_ids)
-    except OSError:
-        return []
-    findings = []
-    for c in conflicts:
-        head = (f"[{c.kind}] row {c.row_id} cannot be driven: its trigger reaches "
-                f"{c.hits} nodes on {c.page}")
-        if c.kind == sd.PIN_AFTER:
-            shown = " | ".join(f"{role} {name!r}"
-                               for role, name in [x for x in c.candidates if x[1]][:3])
-            findings.append(f"{head}; pin it with after — candidates: {shown}")
-        else:
-            findings.append(f"{head}; the matches sit in blocks the design repeats, so no "
-                            f"named node tells them apart and after cannot reach them")
-    return findings
-
-
 def lint_screen_contract(body: str, number: int | None = None,
                          root: Path | str | None = None) -> list[str]:
     """The interface rules of `to-tickets`, made mechanical.
@@ -2300,10 +2159,9 @@ def lint_screen_contract(body: str, number: int | None = None,
     is a non-empty command; a `journey.py run <name>` exists under `.mmw/journeys/`;
     no `CHECK:` may stub the application's own network (`vi.stubGlobal('fetch')`, msw,
     nock, fetch-mock) — mocking the product's API client module is not that; the
-    pipeline scripts are given what they need and nothing they retired; every mechanism
-    the ticket uses is built by a ticket it is blocked by; every baseline-class source
-    of an owned row is under `## Read first` and every spec-section source is named by
-    `## Parent`; an explicit `--scenes` list stays inside its `--mount`.
+    pipeline scripts are given what they need and nothing they retired; every
+    baseline-class source of an owned row is under `## Read first` and every
+    spec-section source is named by `## Parent`.
     """
     findings: list[str] = []
     repo = Path(root) if root is not None else repo_root()
@@ -2337,7 +2195,7 @@ def lint_screen_contract(body: str, number: int | None = None,
     if doc is None and contract_path:
         findings.append(f"the contract {contract_path} could not be read from here (not in "
                         f"the working tree, or neither pyyaml nor uv is available); the "
-                        f"source, mechanism and scene rules did not run")
+                        f"source rules did not run")
     if doc is not None:
         mounts_of = page_mounts(doc)
         for gate_id, check, _ in checks:
@@ -2351,11 +2209,7 @@ def lint_screen_contract(body: str, number: int | None = None,
                 elif page.startswith(APP_PAGE_PREFIX):
                     findings.append(f"{gate_id}: --pages {mount} names an App page; story "
                                     f"criteria cover Component pages")
-        mounts = [m for _, ms, _ in parity_calls(body) for m in ms]
         findings.extend(source_findings(row_ids, doc, read_first, parent_text))
-        findings.extend(mechanism_findings(number, body, doc, row_ids, mounts))
-        findings.extend(scene_findings(body, doc))
-        findings.extend(trigger_findings(row_ids, doc, contract_path))
     return findings
 
 

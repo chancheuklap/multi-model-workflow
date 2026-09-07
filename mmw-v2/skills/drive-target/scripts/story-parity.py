@@ -17,7 +17,7 @@ command, which prints `origin`; the story URL is
 The product side is the story page, captured at `[data-story-root]`. The design side is
 the existing baseline server and wrapper page, with `#dc-root` pinned to the box that
 root measured (`frame_box`). The two judges are the normalised accessibility tree and
-pixels after sub-cell alignment. The class set is not compared. No controlled clock is
+pixels after sub-cell alignment. Class names are not compared. No paused clock is
 installed on the story page; the design side uses `navigate`'s 200 ms of virtual time.
 
 Exit codes
@@ -385,7 +385,7 @@ def compare(*, plan, viewports, media, design_origin, pages, route_baseline,
         design_page = design_ctx.new_page()
         try:
             def capture_story(scene, viewport, png):
-                sd.resize(story_page, viewport, over_cdp=False)
+                sd.resize(story_page, viewport)
                 url = story_url(story_origin, scene.mount, scene.name, viewport)
                 try:
                     response = story_page.goto(url, wait_until="domcontentloaded")
@@ -413,7 +413,7 @@ def compare(*, plan, viewports, media, design_origin, pages, route_baseline,
 
             def capture_design(scene, viewport, box, png):
                 w, h = box[2], box[3]
-                sd.resize(design_page, viewport, over_cdp=False)
+                sd.resize(design_page, viewport)
                 sd.navigate(design_page, f"{design_origin}{sd.wrapper_path(scene.name)}")
                 sd.wait_for_mount(design_page, "#dc-root")
                 paint = (sd.volatile_paint_js(volatile[scene.name])

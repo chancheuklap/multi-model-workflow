@@ -25,7 +25,7 @@ A **target** is the product a consuming repository runs under automation. What t
 
 ## Five rules while the product is running
 
-Several runs share one machine, and each gets its own ports and directories from a lease ([references/targets/README.md](references/targets/README.md), **instance**). You never choose a port, start a backing service, or work out who holds what: one command — the `start` in `.mmw/target.json`, which the driver runs for you — brings up everything your criteria need.
+Several runs share one machine, and each gets its own ports and directories from a lease ([references/targets/README.md](references/targets/README.md), **instance**). You never choose a port, start a backing service, or work out who holds what: one command — the `start` in `.mmw/target.json`, which `journey.py` runs — brings up everything a journey needs.
 
 1. **Never end a process you did not start.** Stop your own product with the `stop` command its repository declares. Everything else on this machine belongs to another run, and another run's product looks exactly like a stuck one. Your shell refuses `kill`, `pkill`, `killall` and `xargs kill` for this reason (`scripts/hook.py`, registered in every host by `install.sh`).
 2. **Never start the product outside the lease.** Running the repository's start script yourself, in your own terminal, is how a run ends up on the ports another run is already using. The script refuses without a lease and prints the command that gives it one: `python3 <scripts>/lease.py run -- <the start command>`.

@@ -38,8 +38,6 @@ PIXEL_SCALE = 4
 DEFAULT_MAX_PCT = 3.0
 # How many implementation elements a pixel failure names under `around:`.
 AROUND_LIMIT = 5
-# How many class names a class failure prints per side.
-CLASS_LIMIT = 8
 
 NEGATIVE_CONTROL_SCENE = "__negative_control__"
 NEGATIVE_CONTROL_HEAD = """<style>#dc-root::before{content:'NEGATIVE CONTROL';position:absolute;top:0;left:0;right:0;height:120px;background:#ff2d55;color:#fff;font:32px/120px sans-serif;text-align:center;z-index:2147483647}</style>
@@ -50,7 +48,6 @@ NEGATIVE_CONTROL_HEAD = """<style>#dc-root::before{content:'NEGATIVE CONTROL';po
 normalize_aria = sd.normalize_aria
 aria_diff = sd.aria_diff
 resize = sd.resize
-impl_page_over_cdp = sd.page_by_title
 wrapper_page = sd.wrapper_page
 serve_baseline = sd.serve_baseline
 cdn_path = sd.cdn_path
@@ -223,41 +220,6 @@ def failures(c: Comparison, max_pct: float, console_limit: int) -> list[Reason]:
     return reasons
 
 
-def class_lines(classes: dict, limit: int = CLASS_LIMIT) -> list[str]:
-    out = []
-    for cls, el in classes.get("only_in_baseline", [])[:limit]:
-        out.append(f"  class only in baseline  {cls}  (on {el})")
-    for cls, el in classes.get("only_in_impl", [])[:limit]:
-        out.append(f"  class only in impl      {cls}  (on {el})")
-    return out
-
-
-# A design page renders its component alone; a product paints an overlay over whatever
-# page it was opened from. The pixel judge sees a rectangle of the screen, so a mount that
-# is a full-viewport scrim carries the page behind it into the comparison and the design
-# side has nothing there. No threshold fixes that, and the tree and the class set never see
-# it — they walk the mount's subtree, which the page behind is not in. So this says it.
-OVERLAY_HINT = (
-    "this mount's box is the whole viewport, so the screenshot carries whatever the "
-    "product paints behind it while the design page renders the component alone; if this "
-    "scene is an overlay, its mount belongs on the overlay's own opaque box, not on a "
-    "full-viewport scrim")
-
-
-def overlay_suspect(c: Comparison, reasons: list) -> bool:
-    """A failure on pixels alone, on a mount whose box is the viewport."""
-    if not reasons or any(r.kind != "pixel" for r in reasons):
-        return False
-    size = c.pixel.get("size_a")
-    if not size:
-        return False
-    try:
-        vw, vh = (int(n) for n in str(c.viewport).lower().split("x"))
-    except ValueError:
-        return False
-    return abs(size[0] - vw) <= 2 and abs(size[1] - vh) <= 2
-
-
 def gate(control: Comparison, comparisons: list[Comparison], max_pct: float,
          console_limit: int) -> tuple[int, list[str]]:
     """Exit code and the lines to print, in order. The negative control is judged
@@ -277,18 +239,14 @@ def gate(control: Comparison, comparisons: list[Comparison], max_pct: float,
             worst = max(worst, c.pixel["pct"])
         if reasons:
             failed += 1
-            box = c.pixel["box"]
-            line = (f"DIFF {c.scene} {c.viewport} {c.pixel['pct']}% box={box} "
+            line = (f"DIFF {c.scene} {c.viewport} {c.pixel['pct']}% "
                     f"— {'; '.join(r.en for r in reasons)}")
             if any(r.kind == "pixel" for r in reasons):
                 names = around(c.pixel, c.impl_elements)
                 if names:
                     line += " around: " + ", ".join(names)
-                if overlay_suspect(c, reasons):
-                    line += " — " + OVERLAY_HINT
             lines.append(line)
             lines.extend(change_lines(c.aria["diff"]))
-            lines.extend(class_lines(c.classes))
     if failed:
         return 1, lines
     return 0, [f"PARITY OK {len(comparisons)}/{len(comparisons)} pixel<={worst}%"]

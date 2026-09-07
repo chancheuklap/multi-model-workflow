@@ -25,7 +25,7 @@ amends: []
 ## Considered Options
 
 - **继续 #115：真状态加真容器，通用驱动器解释合同。** 否决。变色龙 S3 证明这个形状把流水线自己的缺陷乘开，worker 会被逼改产品迁就判据。
-- **把比较原语搬进 `story-parity.py`，删掉 `visual-parity.py`。** 否决。story 判官已经按名导入这些函数；搬一次是重写不是删除，测试与 `extract_skeleton.py` 的离线渲染会无谓分叉。文件留下的是库，命令行退出 2 并点名 `story-parity.py`。
+- **把比较原语搬进 `story-parity.py`，删掉 `visual-parity.py`。** 否决。story 判官已经按名导入这些函数；搬一次是重写不是删除，`test_visual_parity.py` 的像素用例与 `render_only` 会无谓分叉。文件留下的是库，命令行退出 2 并点名 `story-parity.py`。
 
 ## Consequences
 

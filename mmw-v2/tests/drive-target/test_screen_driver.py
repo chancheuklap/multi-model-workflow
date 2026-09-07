@@ -87,21 +87,18 @@ CATALOGUE = {
 
 
 class TestScreenAxis(unittest.TestCase):
-    """`mount` and `route` are declared once per page; a scene may override them."""
+    """`mount` is declared once per page; a scene may override it."""
 
     def test_page_defaults_flow_into_scenes(self):
         scenes = sd.scenes_of(CONTRACT, CATALOGUE)
         s = scenes["library-delete-confirm"]
-        self.assertEqual((s.mount, s.route), ("workbench-shell", "#/project/{project_id}"))
-        self.assertEqual(s.reach, ["seed:project-with-subjects"])
-        self.assertEqual(s.open, [{"row": "workbench-shell.delete.preview.allowed", "value": None}])
+        self.assertEqual(s.mount, "workbench-shell")
         self.assertEqual(s.props, {"scenario": "library-delete-confirm"})
 
     def test_a_scene_overrides_its_page(self):
         s = sd.scenes_of(CONTRACT, CATALOGUE)["library-name-duplicate"]
-        self.assertEqual(s.route, "#/new-project")
-        self.assertEqual(s.open, [{"row": "create-project.name",
-                                   "value": "{existing_project_name}"}])
+        self.assertEqual(s.mount, "create-project")
+        self.assertEqual(s.props, {"scenario": "library-name-duplicate"})
 
     def test_the_plan_is_derived_from_mounts(self):
         plan = sd.scene_plan(CONTRACT, CATALOGUE, ["workbench-shell"], None)
@@ -129,24 +126,17 @@ class TestScreenAxis(unittest.TestCase):
         finally:
             os.unlink(f.name)
 
-    def test_mechanisms_read_as_list_or_mapping(self):
-        self.assertEqual(sd.mechanisms_of({"mechanisms": ["seed:a"]}), {"seed:a": {}})
-        self.assertEqual(sd.mechanisms_of(CONTRACT)["seed:project-with-subjects"]["built_by"],
-                         "#639")
-
-    def test_retired_triggers_and_placeholders(self):
+    def test_retired_triggers_are_scoped_to_a_page(self):
         self.assertEqual(sd.retired_triggers(CONTRACT), [("button", "查看账务状态")])
         scoped = {"retired_ids": [{"id": "a", "page": "Component · 自由模式.dc.html",
                                    "trigger": {"role": "button", "name": "查看"}}]}
         self.assertEqual(sd.retired_triggers(scoped, "Component · 自由模式.dc.html"), [("button", "查看")])
         self.assertEqual(sd.retired_triggers(scoped, "Component · 任务详情.dc.html"), [])
         self.assertIsNone(sd.hide_js_for(scoped, "Component · 任务详情.dc.html"))
-        self.assertEqual(sd.fill("#/project/{project_id}", {"project_id": "p1"}), "#/project/p1")
-        self.assertEqual(sd.fill("#/x/{missing}", {}), "#/x/{missing}")
 
 
 class FakePage:
-    """Enough of a Playwright page for `perform` and `navigate`.
+    """Enough of a Playwright page for `navigate`.
 
     `named` is the accessibility tree in reading order: `(role, name)` or
     `(role, name, identity)`. When it is set, `get_by_role` and
@@ -251,17 +241,19 @@ class FakePage:
 
 
 class TestClockAndNavigation(unittest.TestCase):
-    def test_the_clock_is_installed_once_and_moved_forward_only(self):
+    def test_the_clock_is_installed_once_and_each_navigate_settles(self):
         page = FakePage({})
+        self.addCleanup(sd._CLOCK_PAGES.discard, id(page))
         sd.navigate(page, "http://x/#/a", reload=True)
         self.assertTrue(page.installed)
+        self.assertEqual(page.paused, sd.CLOCK_EPOCH_MS)
         self.assertEqual(page.actions, [("goto", "http://x/#/a"), "reload"])
         self.assertEqual(page.ran, sd.SETTLE_VIRTUAL_MS)
         page.installed = False
         sd.navigate(page, "http://x/#/b")
-        self.assertFalse(page.installed)  # not installed a second time
+        self.assertFalse(page.installed)
+        self.assertEqual(page.paused, sd.CLOCK_EPOCH_MS)
         self.assertEqual(page.ran, 2 * sd.SETTLE_VIRTUAL_MS)
-        sd._CLOCK_PAGES.discard(id(page))
 
 
 class TestBoxes(unittest.TestCase):
@@ -331,11 +323,7 @@ class TestTargetConfig(unittest.TestCase):
             (root / ".mmw" / "target.json").write_text(json.dumps(
                 {"discover": "printf %s '{\"cdp\": \"http://127.0.0.1:9229\"}'"}))
             cfg = sd.target_config(root)
-            self.assertEqual(sd.discover(cfg, root), {"cdp": "http://127.0.0.1:9229"})
-
-    def test_key_values(self):
-        self.assertEqual(sd.key_values("project_id=p1\nnoise\ncookie=a=b\n"),
-                         {"project_id": "p1", "cookie": "a=b"})
+            self.assertEqual(cfg["discover"], "printf %s '{\"cdp\": \"http://127.0.0.1:9229\"}'")
 
 
 class TestBaselineServing(unittest.TestCase):
@@ -465,17 +453,14 @@ class TestBaselineServing(unittest.TestCase):
         self.assertEqual(sd.mask_volatile(lines, got), masked_pinned)
         self.assertEqual(sd.volatile_paint_js(got), js)
 
-    def test_a_row_trigger_index_is_exact_name_not_stem(self):
-        """`get_by_role(..., exact=True)` sees one `删除 2`. Stem matching
-        would also count `删除 1` and hand `nth(1)` an empty locator."""
+    def test_volatile_hits_count_same_stem_names(self):
+        """`count_volatile_hits` matches on role plus the non-digit stem, so
+        `删除 2` also counts `删除 1`."""
         lines = sd.normalize_aria(
             '- button "删除 1"\n'
             '- heading "确认"\n'
             '- button "删除 2"\n'
         )
-        pinned = sd.VolatileTrigger("button", "删除 2", ("heading", "确认"))
-        self.assertEqual(sd.trigger_hit_indices(lines, pinned), [0])
-        self.assertEqual(sd.count_trigger_hits(lines, pinned), 1)
         self.assertEqual(
             sd.count_volatile_hits(lines, [sd.VolatileTrigger("button", "删除 2")]), 2)
 
@@ -517,7 +502,8 @@ class TestTargetCheck(unittest.TestCase):
     def test_kinds_are_the_named_product_kinds(self):
         code, out, _ = self.run_target("--kinds")
         self.assertEqual(code, 0)
-        self.assertEqual(out.split(), list(sd.KINDS))
+        self.assertEqual(out.split(),
+                         ["electron", "web-spa", "web-server-rendered", "chrome-extension"])
 
     def test_a_repository_without_the_file_is_told_every_required_field(self):
         with tempfile.TemporaryDirectory() as d:

@@ -20,12 +20,10 @@ import http.server
 import json
 import os
 import re
-import shlex
 import socketserver
 import subprocess
 import sys
 import threading
-import time
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
@@ -37,7 +35,6 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 from lease import leased_environment, worktree_of  # noqa: E402
-from refusal import REPORT_BLOCKED, refusal  # noqa: E402
 
 # ---------------------------------------------------------------- constants
 # The three scripts `support.js` loads from unpkg. Answered from the handoff package's
@@ -71,8 +68,6 @@ COMPARED_UNNAMED = {"dialog", "alertdialog"}
 # never carries them, and they are not part of the design.
 RUNTIME_CLASS_PREFIXES = ("sc-", "dc-")
 
-DATA_SCREEN = "data-screen"
-PLACEHOLDER = re.compile(r"\{(\w+)\}")
 VIEWPORT_RE = re.compile(r"^(\d+)x(\d+)$")
 # Scene marker `extract_skeleton.py` writes into target trees; `count_volatile_hits`
 # splits on the same string.
@@ -86,11 +81,7 @@ class Scene:
     name: str
     page: str
     mount: str
-    route: str
-    reach: list[str]
-    open: list[dict]
     props: dict
-    clock: int = 0
 
 
 def load_yaml(path: Path) -> dict:
@@ -120,13 +111,6 @@ def load_contract(path: Path) -> dict:
     return doc
 
 
-def mechanisms_of(doc: dict) -> dict[str, dict]:
-    """The mechanism table as a mapping, whichever shape the file wrote it in."""
-    raw = doc.get("mechanisms") or {}
-    if isinstance(raw, list):
-        return {str(m): {} for m in raw}
-    return {str(k): (v or {}) for k, v in raw.items()}
-
 
 def parse_viewports(raw) -> list[tuple[int, int]]:
     items = raw if isinstance(raw, list) else str(raw).split(",")
@@ -144,18 +128,9 @@ def parse_viewports(raw) -> list[tuple[int, int]]:
     return out
 
 
-def open_steps(raw) -> list[dict]:
-    steps = []
-    for step in raw or []:
-        if isinstance(step, str):
-            steps.append({"row": step, "value": None})
-        else:
-            steps.append({"row": str(step.get("row")), "value": step.get("value")})
-    return steps
-
 
 def scenes_of(doc: dict, catalogue: dict[str, dict]) -> dict[str, Scene]:
-    """Every screen declaration, with page-level `mount` and `route` filled in."""
+    """Every screen declaration, with page-level `mount` filled in."""
     pages = doc.get("pages") or {}
     out = {}
     for name, decl in (doc.get("scenes") or {}).items():
@@ -165,11 +140,7 @@ def scenes_of(doc: dict, catalogue: dict[str, dict]) -> dict[str, Scene]:
         out[name] = Scene(
             name=name, page=page,
             mount=str(decl.get("mount") or page_decl.get("mount") or ""),
-            route=str(decl.get("route") or page_decl.get("route") or ""),
-            reach=[str(r) for r in (decl.get("reach") or [])],
-            open=open_steps(decl.get("open")),
-            props=catalogue.get(name, {}).get("props") or {},
-            clock=int(decl.get("clock") or 0))
+            props=catalogue.get(name, {}).get("props") or {})
     return out
 
 
@@ -201,9 +172,6 @@ def scene_plan(doc: dict, catalogue: dict[str, dict], mounts: list[str],
                          f"{', '.join(outside)}")
     return [by_name[n] for n in explicit]
 
-
-def fill(text: str, values: dict[str, str]) -> str:
-    return PLACEHOLDER.sub(lambda m: values.get(m.group(1), m.group(0)), text)
 
 
 # ---------------------------------------------------------------- repository config
@@ -318,39 +286,7 @@ def command_env(cwd: Path) -> dict[str, str]:
     return env
 
 
-def run_command(command: str, cwd: Path, extra: list[str] | None = None) -> str:
-    proc = subprocess.run(shlex.split(command) + (extra or []), cwd=cwd,
-                          capture_output=True, text=True, env=command_env(cwd))
-    if proc.returncode != 0:
-        shown = f"{command}{' ' + ' '.join(extra) if extra else ''}"
-        detail = (proc.stderr.strip() or proc.stdout.strip()).splitlines()
-        first = detail[0] if detail else "(no output)"
-        raise SystemExit(refusal(
-            f"`{shown}` exited {proc.returncode}: {first}",
-            "The repository's declared command did not succeed.",
-            REPORT_BLOCKED,
-        ))
-    return proc.stdout
 
-
-def discover(cfg: dict, root: Path) -> dict:
-    out = run_command(cfg["discover"], root).strip()
-    try:
-        data = json.loads(out)
-    except json.JSONDecodeError as exc:
-        raise SystemExit(f"discover printed no JSON object: {out[:200]!r} ({exc})")
-    if not isinstance(data, dict):
-        raise SystemExit("discover must print one JSON object")
-    return data
-
-
-def key_values(text: str) -> dict[str, str]:
-    values = {}
-    for line in text.splitlines():
-        k, sep, v = line.partition("=")
-        if sep and k.strip():
-            values[k.strip()] = v.strip()
-    return values
 
 
 # ---------------------------------------------------------------- the tree
@@ -686,21 +622,11 @@ def volatile_stem(name: str) -> str:
 
 
 class VolatileTrigger(NamedTuple):
-    """A trigger plus whichever pin it needs: role, accessible name, and either `after`
-    (the previous named node) or `occurrence` with `of` (the Nth of N matches, in reading
-    order). The same tuple is a `volatile_values` entry and a row that has to pick one of
-    several same-name controls.
-
-    `of` is carried rather than looked up because it is the fact the pin depends on: a
-    positional pin is only meaningful against a known number of matches, and a row that
-    says "the first of two" fails loudly the day the product renders three. The lint keeps
-    it equal to the design tree's count, so it cannot drift into a private opinion."""
+    """A `volatile_values` entry: role, accessible name, and optional `after`
+    (the previous named node) when that pair is not unique on the scene."""
     role: str
     name: str
     after: tuple[str, str] | None = None
-    occurrence: int | None = None
-    of: int | None = None
-    within: tuple[str, str] | None = None
 
 
 def volatile_name_matches(role: str, name: str, wanted_role: str, wanted_name: str) -> bool:
@@ -716,37 +642,14 @@ def volatile_name_matches(role: str, name: str, wanted_role: str, wanted_name: s
 
 
 def after_of(entry: dict) -> tuple[str, str] | None:
-    """`after` on a `volatile_values` entry or a row: the previous named node,
-    or None. One shape, one reader."""
+    """`after` on a `volatile_values` entry: the previous named node, or None."""
     raw = entry.get("after")
     if isinstance(raw, dict) and raw.get("role") and raw.get("name"):
         return (str(raw.get("role")), str(raw.get("name")))
     return None
 
 
-def _int_or_none(value) -> int | None:
-    return value if isinstance(value, int) and not isinstance(value, bool) else None
 
-
-def within_of(entry: dict) -> tuple[str, str] | None:
-    """`within` on a row: the ancestor the control sits under, `{role}` or
-    `{role, name}`. A dialog rarely has a name of its own, so the name defaults to the
-    empty string and matches the unnamed container the tree records."""
-    raw = entry.get("within")
-    if isinstance(raw, dict) and "role" in raw:
-        return (str(raw.get("role") or ""), str(raw.get("name") or ""))
-    return None
-
-
-def row_trigger(row: dict) -> VolatileTrigger:
-    """The row's trigger as a `VolatileTrigger`, its pin included. `after` and
-    `occurrence` are the two pins and never both — which one a row may use is decided by
-    the design tree, not by whoever writes the row, and the contract lint holds it."""
-    t = row.get("trigger") or {}
-    return VolatileTrigger(str(t.get("role") or ""), str(t.get("name") or ""),
-                           after_of(row),
-                           _int_or_none(row.get("occurrence")), _int_or_none(row.get("of")),
-                           within_of(row))
 
 
 def named_nodes(lines: list[str], chains: list[tuple[tuple[str, str], ...]] | None = None):
@@ -785,83 +688,8 @@ def named_nodes(lines: list[str], chains: list[tuple[tuple[str, str], ...]] | No
             previous = parsed
 
 
-def trigger_hit_indices(lines: list[str], trigger: VolatileTrigger, chains=None) -> list[int]:
-    """0-based indices into `page.get_by_role(role, name=…, exact=True)`.
-    `k` counts exact `(role, name)` only; `matches_volatile` applies `after`."""
-    hits: list[int] = []
-    k = 0
-    for item in named_nodes(lines, chains):
-        if item is None:
-            continue
-        role, name, previous, chain = item
-        if (role, name) != (trigger.role, trigger.name):
-            continue
-        if matches_volatile(role, name, [trigger], previous, chain):
-            hits.append(k)
-        k += 1
-    return hits
 
 
-def narrow_pair(lines, chains, scenes):
-    """`narrow_to_scenes` for the two aligned views at once: a chain belongs to its line,
-    so filtering one without the other would silently pair a line with another node's
-    ancestors."""
-    if chains is None:
-        return narrow_to_scenes(lines, scenes), None
-    if scenes is None or not any(
-            raw.rstrip("\n").startswith(SCENE_HEADER) for raw in lines):
-        return lines, chains
-    kept_l, kept_c, keep = [], [], False
-    for raw, ch in zip(lines, chains):
-        line = raw.rstrip("\n")
-        if line.startswith(SCENE_HEADER):
-            keep = line[len(SCENE_HEADER):].strip() in scenes
-        if keep:
-            kept_l.append(raw)
-            kept_c.append(ch)
-    return kept_l, kept_c
-
-
-def narrow_to_scenes(lines: list[str], scenes: set[str] | None) -> list[str]:
-    """The lines of the named scenes of a target tree that carries `## scene` markers.
-    A tree with none is one scene and is returned whole whatever is asked for."""
-    if scenes is None or not any(
-            raw.rstrip("\n").startswith(SCENE_HEADER) for raw in lines):
-        return lines
-    kept: list[str] = []
-    keep = False
-    for raw in lines:
-        line = raw.rstrip("\n")
-        if line.startswith(SCENE_HEADER):
-            keep = line[len(SCENE_HEADER):].strip() in scenes
-        if keep:
-            kept.append(raw)
-    return kept
-
-
-def count_trigger_hits(lines: list[str], trigger: VolatileTrigger,
-                      scenes: set[str] | None = None, chains=None) -> int:
-    """Most exact `(role, name)` hits in any one scene, after `after` is applied.
-
-    `scenes` narrows it to the named scenes of a target tree that carries `## scene`
-    markers; a tree with none is one scene and is counted whole whatever is asked for.
-    The narrowing lives here rather than in a filter the caller applies first, because
-    this function already walks scene by scene to take the maximum.
-    """
-    lines, chains = narrow_pair(lines, chains, scenes)
-    best = 0
-    current = 0
-    for item in named_nodes(lines, chains):
-        if item is None:
-            best = max(best, current)
-            current = 0
-            continue
-        role, name, previous, chain = item
-        if (role, name) != (trigger.role, trigger.name):
-            continue
-        if matches_volatile(role, name, [trigger], previous, chain):
-            current += 1
-    return max(best, current)
 
 
 def matches_volatile(role: str, name: str, triggers: list[VolatileTrigger],
@@ -870,20 +698,6 @@ def matches_volatile(role: str, name: str, triggers: list[VolatileTrigger],
     for trigger in triggers:
         if not volatile_name_matches(role, name, trigger.role, trigger.name):
             continue
-        if trigger.within is not None:
-            # Any ancestor on the chain, by role, with the name checked only when the row
-            # gives one. Roles are structure and survive the product ordering its data
-            # differently or rendering a value another way; names do not. An empty role
-            # asks for the opposite — no ancestor of any named role — which is how the
-            # button that opens a dialog is told from the one that confirms inside it.
-            roles = [r for r, _ in chain]
-            if trigger.within[0]:
-                if not any(r == trigger.within[0]
-                           and (not trigger.within[1] or n == trigger.within[1])
-                           for r, n in chain):
-                    continue
-            elif roles:
-                continue
         if trigger.after is None:
             return True
         if previous is not None and volatile_name_matches(
@@ -1073,41 +887,12 @@ ELEMENTS_JS = """(() => {
 })()"""
 
 
-# One session per page for the whole run. An emulation override belongs to the session
-# that set it, so a second session cannot clear it and a first session left attached
-# goes on applying it.
-_CDP_SESSIONS: dict[int, object] = {}
 _CLOCK_PAGES: set[int] = set()
 
 
-def cdp_session(page):
-    session = _CDP_SESSIONS.get(id(page))
-    if session is None:
-        session = page.context.new_cdp_session(page)
-        _CDP_SESSIONS[id(page)] = session
-    return session
-
-
-def resize(page, viewport: tuple[int, int], over_cdp: bool) -> None:
-    """Put the page in a window of this size, however it was reached.
-
-    A context this program launched was given its viewport and its device pixel ratio
-    when it was created. A page reached over CDP belongs to the application, whose
-    context was created by somebody else and cannot be given either — so the size and
-    the ratio are pushed down as a device-metrics override instead. The ratio has to be
-    said out loud there: on a high-resolution screen the application renders at two
-    device pixels per CSS pixel, and a screenshot twice the size of the baseline's is a
-    failure before anything is compared. This layer stays whatever the target: an
-    extension's popup opened as a plain tab has no 400 px constraint of its own.
-    """
-    if over_cdp:
-        cdp_session(page).send(
-            "Emulation.setDeviceMetricsOverride",
-            {"width": viewport[0], "height": viewport[1],
-             "deviceScaleFactor": 1, "mobile": False})
-        page.emulate_media(reduced_motion="reduce")
-    else:
-        page.set_viewport_size({"width": viewport[0], "height": viewport[1]})
+def resize(page, viewport: tuple[int, int]) -> None:
+    """Put the page in a window of this size."""
+    page.set_viewport_size({"width": viewport[0], "height": viewport[1]})
 
 
 def install_clock(page) -> None:
@@ -1218,9 +1003,6 @@ def visible_box(page, selector: str, viewport: tuple[int, int]) -> tuple[int, in
             max(1, int(round(y1 - y0))))
 
 
-def mount_selector(mount: str) -> str:
-    return f'[{DATA_SCREEN}="{mount}"]'
-
 
 MOUNT_RECT_JS = """
 (selector) => {
@@ -1262,34 +1044,7 @@ def aria_path(png: Path) -> Path:
     return png.with_name(png.name.removesuffix(".png") + ".aria.yml")
 
 
-def page_by_title(browser, title_includes: str | None, timeout_seconds: int = 15):
-    """The application's own page, out of a browser this program connected to.
-
-    Picked by a substring of the window title rather than of the URL: a development
-    server takes whichever port is free at startup, so the URL is not the same twice.
-    With no substring given the first page is taken, which is what an application with
-    one window has.
-    """
-    import time
-
-    deadline = time.monotonic() + timeout_seconds
-    seen: list[str] = []
-    while True:
-        seen = []
-        for context in browser.contexts:
-            for page in context.pages:
-                title = page.title() or ""
-                seen.append(f"{title!r} @ {page.url}")
-                if not title_includes or title_includes in title:
-                    return page
-        if time.monotonic() >= deadline:
-            break
-        time.sleep(0.5)
-    raise SystemExit(
-        f"no page whose title holds {title_includes!r} within {timeout_seconds}s. "
-        f"Pages found: {seen or 'none'}")
-
-
+# ---------------------------------------------------------------- product kinds
 # ---------------------------------------------------------------- product kinds
 # Named in the contract as `target.kind`. Fields of `.mmw/target.json` are the
 # same for every kind; journeys connect with Playwright themselves.

@@ -10,7 +10,6 @@ import importlib.util
 import sys
 import unittest
 from pathlib import Path
-from unittest import mock
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts"
 
@@ -50,26 +49,16 @@ class Shape(unittest.TestCase):
         self.assertEqual(rf.REASON_LIMIT, 256)
 
 
-class EveryRefusalInThePipeline(unittest.TestCase):
-    """Whatever the wording, each of them has to fit and has to say what to do."""
+class RecordedRefusalsFit(unittest.TestCase):
+    """The refusals this suite records have to fit and have to say what to do."""
 
     def texts(self) -> dict[str, str]:
         hook = load("hook")
-        driver = load("screen_driver")
-        failed = mock.Mock(returncode=1, stderr="command failed: no such file\n", stdout="")
-        run_command = ""
-        with mock.patch.object(driver, "command_env", return_value={}), \
-             mock.patch.object(driver.subprocess, "run", return_value=failed):
-            try:
-                driver.run_command("bin/start", Path("/tmp"))
-            except SystemExit as exc:
-                run_command = str(exc)
         return {
             "closeout": hook.REFUSAL.format(n=999999),
             "question": hook.NO_QUESTION,
             "kill": hook.no_kill("kill 12345"),
             "report_blocked": rf.REPORT_BLOCKED,
-            "run_command": run_command,
         }
 
     def test_all_of_them_fit_what_a_host_will_show(self):

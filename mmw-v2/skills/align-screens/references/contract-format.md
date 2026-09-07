@@ -73,7 +73,7 @@ When a `story-parity.py --out` directory sits under the contract directory, the 
 
 ## Target trees
 
-`docs/specs/<effort>/targets/<page>.aria` and `<page>.classes`, one pair per design page, written by `extract_skeleton.py --targets` from the same render and the same normaliser the judges use: every scene's normalised tree and class set. They are the handoff package's behavioural counterpart — the half of it a worker reads directly — and a **derived view**: the package is the baseline, and each file's header carries the sha256 of `scenes.json` and of its page. | the lint fails when either hash no longer matches the package |
+`docs/specs/<effort>/targets/<page>.aria` and `<page>.classes`, one pair per design page, written by `extract_skeleton.py --targets` from the same render and the same normaliser the judges use: every scene's normalised tree and the class names in that subtree. They are the handoff package's behavioural counterpart — the half of it a worker reads directly — and a **derived view**: the package is the baseline, and each file's header carries the sha256 of `scenes.json` and of its page. | the lint fails when either hash no longer matches the package |
 
 ## A row
 
