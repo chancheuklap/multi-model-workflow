@@ -121,3 +121,11 @@ Upstream brings a wait loop back → put the end-of-turn wording back on steps 2
 (`issues/<n>/sub_issues`), not the spec's children filtered by first line. The worker
 also reads those open children at start of work, as a supplement to **What to build**.
 Upstream puts `Sub-issues opened:` back under the spec → point it at the ticket.
+
+## The in-ticket round is first, then out-of-ticket sub-issues
+
+Closing step 2's internal order only. The eight closing steps stay in the same order, and the verifier still runs after the reviewer. Inside step 2: the in-ticket round first (fix the in-ticket findings, rerun step 1's `self-run`), then open out-of-ticket sub-issues; a finding whose body no longer holds is not opened.
+
+Reason: the previous order opened the sub-issues from the review comment as written, so they were filed from text the in-ticket round then overturned (#235 is the instance: its body said to close the issue if a condition already held, and the in-ticket round had already made that condition hold).
+
+If upstream rewrites step 2 → take its wording and put this internal order back. Do not move the verifier, and do not reorder the eight steps.
