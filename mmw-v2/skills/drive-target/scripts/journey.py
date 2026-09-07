@@ -27,32 +27,13 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
-from lease import leased_environment, worktree_of  # noqa: E402
+from screen_driver import command_env, discover, repo_root, target_config  # noqa: E402
 
 DEFAULT_JOURNEYS = ".mmw/journeys"
 
 
-def find_repo(start: Path | None = None) -> Path:
-    """The directory that holds `.mmw/target.json`, walking up from `start`."""
-    here = (start or Path.cwd()).resolve()
-    for path in (here, *here.parents):
-        if (path / ".mmw" / "target.json").is_file():
-            return path
-    raise SystemExit(
-        f"no .mmw/target.json above {here}: the repository has not said how "
-        f"its product is started. Run `screen_driver.py target --check`."
-    )
-
-
-def load_target(root: Path) -> dict:
-    path = root / ".mmw" / "target.json"
-    try:
-        cfg = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise SystemExit(f"{path} cannot be read as JSON: {exc}")
-    if not isinstance(cfg, dict):
-        raise SystemExit(f"{path} must hold one JSON object")
-    return cfg
+def _exit_text(exc: SystemExit) -> str:
+    return exc.code if isinstance(exc.code, str) else str(exc)
 
 
 def last_line(text: str) -> str:
@@ -92,59 +73,48 @@ def journey_command(dest: Path) -> list[str] | str | None:
 
 
 def addresses_into(env: dict[str, str], data: dict) -> None:
+    """Put each discover key into the environment under its uppercase spelling."""
     for key, value in data.items():
         if isinstance(value, (dict, list)):
             rendered = json.dumps(value, ensure_ascii=False)
         else:
             rendered = str(value)
-        env[str(key)] = rendered
         env[str(key).upper()] = rendered
 
 
 def run_named(name: str, start: Path | None = None) -> int:
-    root = find_repo(start)
-    cfg = load_target(root)
-    env = dict(os.environ)
-    env.update(leased_environment(worktree_of(root)))
+    root = repo_root(start)
+    env = command_env(root)
+    try:
+        cfg = target_config(root)
+    except SystemExit as exc:
+        print(_exit_text(exc), file=sys.stderr)
+        return 2
+
+    def bail(message: str | None = None,
+             proc: subprocess.CompletedProcess | None = None) -> int:
+        stop(cfg, root, env)
+        if proc is not None:
+            if proc.stdout:
+                sys.stdout.write(proc.stdout)
+            if proc.stderr:
+                sys.stderr.write(proc.stderr)
+        elif message:
+            print(message, file=sys.stderr)
+        return 2
 
     start_cmd = cfg.get("start")
     if not isinstance(start_cmd, str) or not start_cmd.strip():
-        print("`.mmw/target.json` has no `start` command", file=sys.stderr)
-        return 2
+        return bail("`.mmw/target.json` has no `start` command")
 
     started = run_declared(start_cmd, root, env)
     if started.returncode != 0:
-        stop(cfg, root, env)
-        if started.stdout:
-            sys.stdout.write(started.stdout)
-        if started.stderr:
-            sys.stderr.write(started.stderr)
-        return 2
+        return bail(proc=started)
 
-    discover_cmd = cfg.get("discover")
-    if not isinstance(discover_cmd, str) or not discover_cmd.strip():
-        stop(cfg, root, env)
-        print("`.mmw/target.json` has no `discover` command", file=sys.stderr)
-        return 2
-    discovered = run_declared(discover_cmd, root, env)
-    if discovered.returncode != 0:
-        stop(cfg, root, env)
-        if discovered.stdout:
-            sys.stdout.write(discovered.stdout)
-        if discovered.stderr:
-            sys.stderr.write(discovered.stderr)
-        return 2
     try:
-        data = json.loads(discovered.stdout.strip())
-    except json.JSONDecodeError as exc:
-        stop(cfg, root, env)
-        print(f"discover printed no JSON object: {discovered.stdout[:200]!r} ({exc})",
-              file=sys.stderr)
-        return 2
-    if not isinstance(data, dict):
-        stop(cfg, root, env)
-        print("discover must print one JSON object", file=sys.stderr)
-        return 2
+        data = discover(cfg, root)
+    except SystemExit as exc:
+        return bail(_exit_text(exc))
     addresses_into(env, data)
 
     journeys = cfg.get("journeys") or DEFAULT_JOURNEYS

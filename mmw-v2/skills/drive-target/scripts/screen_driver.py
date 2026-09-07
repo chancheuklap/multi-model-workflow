@@ -2,7 +2,7 @@
 
 Nothing here judges. `story-parity.py` and `extract_skeleton.py` import the baseline
 server, the wrapper page, capture, and the accessibility-tree normaliser. `journey.py`
-runs `start` / `stop` / `discover` itself. Which keys a repository answers is declared
+runs `start` / `stop` and imports `discover`. Which keys a repository answers is declared
 here, once, on `FIELDS`, and printed by
 
     screen_driver.py target --check [--repo <dir>] [--kind <kind> | --contract <yaml>]
@@ -20,6 +20,7 @@ import http.server
 import json
 import os
 import re
+import shlex
 import socketserver
 import subprocess
 import sys
@@ -35,6 +36,7 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 from lease import leased_environment, worktree_of  # noqa: E402
+from refusal import REPORT_BLOCKED, refusal  # noqa: E402
 
 # ---------------------------------------------------------------- constants
 # The three scripts `support.js` loads from unpkg. Answered from the handoff package's
@@ -107,7 +109,7 @@ def load_contract(path: Path) -> dict:
     for key in ("target", "pages", "scenes", "viewports"):
         if key not in doc:
             raise SystemExit(f"{path}: contract has no top-level `{key}`; run align-screens "
-                             f"step 2 to declare the screen axis")
+                             f"step 2 to declare pages")
     return doc
 
 
@@ -286,6 +288,30 @@ def command_env(cwd: Path) -> dict[str, str]:
     return env
 
 
+def run_command(command: str, cwd: Path, extra: list[str] | None = None) -> str:
+    proc = subprocess.run(shlex.split(command) + (extra or []), cwd=cwd,
+                          capture_output=True, text=True, env=command_env(cwd))
+    if proc.returncode != 0:
+        shown = f"{command}{' ' + ' '.join(extra) if extra else ''}"
+        detail = (proc.stderr.strip() or proc.stdout.strip()).splitlines()
+        first = detail[0] if detail else "(no output)"
+        raise SystemExit(refusal(
+            f"`{shown}` exited {proc.returncode}: {first}",
+            "The repository's declared command did not succeed.",
+            REPORT_BLOCKED,
+        ))
+    return proc.stdout
+
+
+def discover(cfg: dict, root: Path) -> dict:
+    out = run_command(cfg["discover"], root).strip()
+    try:
+        data = json.loads(out)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"discover printed no JSON object: {out[:200]!r} ({exc})")
+    if not isinstance(data, dict):
+        raise SystemExit("discover must print one JSON object")
+    return data
 
 
 
@@ -1119,17 +1145,11 @@ def contract_kind(repo: Path, contract: Path | None) -> str:
     return str((load_yaml(contract).get("target") or {}).get("kind") or "")
 
 
-def fields_of(kind: str) -> tuple[Field, ...]:
-    """The `.mmw/target.json` keys every kind answers. `kind` is accepted so callers
-    that still pass one keep working; the list does not change with it."""
-    return FIELDS
-
-
 def target_problems(kind: str, cfg: dict) -> list[tuple[str, str]]:
     """What `.mmw/target.json` still has to answer: `(key, problem)` pairs, in the
     order `FIELDS` lists them. Empty when the file is complete."""
     problems: list[tuple[str, str]] = []
-    for f in fields_of(kind):
+    for f in FIELDS:
         if f.key not in cfg:
             if f.required:
                 problems.append((f.key, f"is missing — {f.what} — e.g. {f.example}"))
@@ -1211,7 +1231,7 @@ def target_main(argv: list[str]) -> int:
         print(f"    {key} — {what}")
     print(f"{path}: {'not there yet' if not path.exists() else 'read'}")
     named = {key for key, _ in problems}
-    for f in fields_of(kind):
+    for f in FIELDS:
         if f.key in named:
             why = next(w for k, w in problems if k == f.key)
             if why.startswith("is missing"):

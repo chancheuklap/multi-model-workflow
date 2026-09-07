@@ -31,6 +31,7 @@ if str(HERE) not in sys.path:
 from refusal import REPORT_BLOCKED, refusal  # noqa: E402
 
 SHELL_TOKENS = frozenset({"&&", "||", ";", "|"})
+TAIL_LINES = 20
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -41,11 +42,11 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def tail(text: str, n: int = 20) -> str:
+def tail(text: str) -> str:
     lines = (text or "").splitlines()
     if not lines:
         return "(no output)"
-    return "\n".join(lines[-n:])
+    return "\n".join(lines[-TAIL_LINES:])
 
 
 def refuse(what: str, why: str, next_step: str = REPORT_BLOCKED) -> int:

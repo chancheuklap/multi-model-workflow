@@ -177,7 +177,7 @@ class TestStoryFixture(unittest.TestCase):
         shutil.rmtree(cls.home, ignore_errors=True)
 
     def run_story(self, extra_env=None, timeout=180, cwd=None, pages="demo",
-                  contract=None):
+                  contract=None, extra_args=None):
         env = dict(os.environ)
         env["MMW_HOME"] = self.home
         env["MMW_LEASE_PORT_BASE"] = "28000"
@@ -185,11 +185,14 @@ class TestStoryFixture(unittest.TestCase):
         if extra_env:
             env.update(extra_env)
         out = tempfile.mkdtemp(prefix="story-out-")
+        argv = ["uv", "run", "python", str(SCRIPT),
+                "--contract", contract or CONTRACT, "--pages", pages,
+                "--out", out]
+        if extra_args:
+            argv.extend(extra_args)
         try:
             return subprocess.run(
-                ["uv", "run", "python", str(SCRIPT),
-                 "--contract", contract or CONTRACT, "--pages", pages,
-                 "--out", out],
+                argv,
                 cwd=cwd or REPO, capture_output=True, text=True, env=env,
                 timeout=timeout,
             )
@@ -249,6 +252,33 @@ class TestStoryFixture(unittest.TestCase):
             self.assertIn("stories", proc.stderr)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_an_unknown_scene_the_stories_server_answers_404_exits_2(self):
+        """fixtures/story/repo/stories/serve.py 404s an unknown scene; this is
+        the path that raises SystemExit('story page 404: …') and returns 2."""
+        tmp = Path(tempfile.mkdtemp(prefix="story-404-"))
+        home = tempfile.mkdtemp(prefix="mmw-story-404-home-")
+        try:
+            shutil.copytree(REPO, tmp / "repo", dirs_exist_ok=True)
+            root = tmp / "repo"
+            contract = root / CONTRACT
+            text = contract.read_text(encoding="utf-8")
+            text = text.replace(
+                '  gamma:\n    page: "Component · Demo.dc.html"\n',
+                '  gamma:\n    page: "Component · Demo.dc.html"\n'
+                '  missing:\n    page: "Component · Demo.dc.html"\n',
+            )
+            contract.write_text(text, encoding="utf-8")
+            proc = self.run_story(
+                cwd=root,
+                extra_args=["--scenes", "missing"],
+                extra_env={"MMW_HOME": home, "MMW_LEASE_PORT_BASE": "28300"},
+            )
+            self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
+            self.assertIn("404", proc.stderr)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+            shutil.rmtree(home, ignore_errors=True)
 
 
 if __name__ == "__main__":
