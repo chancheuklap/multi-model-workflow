@@ -1030,6 +1030,33 @@ def undrivable_lines(doc: dict, contract_dir, row_ids=None) -> list[str]:
     return out
 
 
+def driven_scenes(doc: dict, row: dict) -> set[str]:
+    """The scenes something actually acts on this row in.
+
+    A row is *visible* on far more scenes than it is driven on: `scenes` is where the
+    design draws the control, and a judge clicks it only on the one scene the row is
+    driven on — `drive.scene`, else the first it lists — plus any scene whose `open` chain
+    names it. A trigger that is not unique somewhere nobody clicks it is not a defect, and
+    treating it as one refuses contracts that work: on agentflow, 18 of 23 rows refused
+    that way were named by no `open` chain at all.
+    """
+    out: set[str] = set()
+    drive = (row.get("drive") or {}).get("scene")
+    names = [s if isinstance(s, str) else str((s or {}).get("name") or "")
+             for s in (row.get("scenes") or [])]
+    if drive:
+        out.add(str(drive))
+    elif names:
+        out.add(names[0])
+    rid = str(row.get("id") or "")
+    for name, decl in (doc.get("scenes") or {}).items():
+        for step in (decl or {}).get("open") or []:
+            named = step.get("row") if isinstance(step, dict) else step
+            if named == rid:
+                out.add(name)
+    return {n for n in out if n}
+
+
 def trigger_resolution(doc: dict, contract_dir, row_ids=None) -> dict[str, dict[str, list[int]]]:
     """For every row, *which* node its trigger resolves to on each of its pages.
 
@@ -1061,8 +1088,7 @@ def trigger_resolution(doc: dict, contract_dir, row_ids=None) -> dict[str, dict[
         # Per scene, not per page. A scene is what is on screen when the driver acts, so
         # it is the unit a pin is written against; a page's scenes concatenated would
         # count a control once per scene and no `of` could ever match.
-        for sc in row.get("scenes") or []:
-            name = sc if isinstance(sc, str) else str((sc or {}).get("name") or "")
+        for name in sorted(driven_scenes(doc, row)):
             page = scene_pages.get(name)
             if not page:
                 continue
@@ -1101,8 +1127,7 @@ def contract_trigger_conflicts(doc: dict, contract_dir, row_ids=None) -> list[Tr
         if not wanted.role or not wanted.name:
             continue
         pages: dict[str, set[str]] = {}
-        for sc in row.get("scenes") or []:
-            name = sc if isinstance(sc, str) else str((sc or {}).get("name") or "")
+        for name in driven_scenes(doc, row):
             page = scene_pages.get(name)
             if page:
                 pages.setdefault(page, set()).add(name)
