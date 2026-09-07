@@ -2017,9 +2017,11 @@ JSON
   mkdir -p "$ws/.mmw"
   printf '%s\n' '{"start":"true","discover":"true","reach":"true","stop":"true"}' \
     > "$ws/.mmw/target.json"
-  port="$(python3 "$LEASE_PY" list | grep -F "$ws" | awk '{split($4, a, "-"); print a[1]}' | head -1)"
-  [ -n "$port" ] \
-    || fail "could not read #63's port from lease.py list: $(python3 "$LEASE_PY" list)"
+  # `claim` on a worktree that already has a slot is a lookup and prints the record, so
+  # this reads #63's port without parsing `list`, which is the human view.
+  port="$(python3 "$LEASE_PY" claim "$ws" \
+          | python3 -c 'import json,sys; print(json.load(sys.stdin)["port_base"])')"
+  [ -n "$port" ] || fail "could not read #63's port from lease.py claim"
   hold="$TMP/listener63.fifo"
   rm -f "$hold"; mkfifo "$hold"
   python3 -c '
