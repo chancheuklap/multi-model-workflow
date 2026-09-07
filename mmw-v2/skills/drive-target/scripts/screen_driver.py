@@ -292,22 +292,29 @@ def command_env(cwd: Path) -> dict[str, str]:
     return env
 
 
-def run_command(command: str, cwd: Path, extra: list[str] | None = None) -> str:
-    proc = subprocess.run(shlex.split(command) + (extra or []), cwd=cwd,
-                          capture_output=True, text=True, env=command_env(cwd))
-    if proc.returncode != 0:
+def run_command(command: str, cwd: Path, env: dict[str, str] | None = None,
+                check: bool = True) -> subprocess.CompletedProcess:
+    proc = subprocess.run(
+        shlex.split(command), cwd=cwd, capture_output=True, text=True,
+        env=command_env(cwd) if env is None else env,
+    )
+    if check and proc.returncode != 0:
         raise SystemExit(proc)
-    return proc.stdout
+    return proc
 
 
 def discover(cfg: dict, root: Path) -> dict:
-    out = run_command(cfg["discover"], root).strip()
+    proc = run_command(cfg["discover"], root)
+    out = (proc.stdout or "").strip()
     try:
         data = json.loads(out)
     except json.JSONDecodeError as exc:
-        raise SystemExit(f"discover printed no JSON object: {out[:200]!r} ({exc})")
+        proc.stderr = (proc.stderr or "") + (
+            f"discover printed no JSON object: {out[:200]!r} ({exc})\n")
+        raise SystemExit(proc)
     if not isinstance(data, dict):
-        raise SystemExit("discover must print one JSON object")
+        proc.stderr = (proc.stderr or "") + "discover must print one JSON object\n"
+        raise SystemExit(proc)
     return data
 
 

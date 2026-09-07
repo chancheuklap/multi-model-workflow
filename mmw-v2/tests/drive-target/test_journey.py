@@ -193,6 +193,28 @@ class JourneyOrder(unittest.TestCase):
         self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
                          ["start", "discover", "stop"])
 
+    def test_discover_that_prints_no_json_forwards_stdout_and_stderr_whole(self):
+        self.repo.write_stack(discover="echo disc-plain-out\necho disc-plain-err >&2")
+        code, out, err = self.repo.run("demo")
+        self.assertEqual(code, 2)
+        self.assertIn("disc-plain-out", out)
+        self.assertIn("disc-plain-err", err)
+        self.assertIn("discover printed no JSON object", err)
+        self.assertNotIn("JOURNEY OK", out)
+        self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
+                         ["start", "discover", "stop"])
+
+    def test_discover_that_prints_an_array_forwards_stdout_and_stderr_whole(self):
+        self.repo.write_stack(discover="printf %s '[1]'\necho disc-arr-err >&2")
+        code, out, err = self.repo.run("demo")
+        self.assertEqual(code, 2)
+        self.assertIn("[1]", out)
+        self.assertIn("disc-arr-err", err)
+        self.assertIn("discover must print one JSON object", err)
+        self.assertNotIn("JOURNEY OK", out)
+        self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
+                         ["start", "discover", "stop"])
+
     def test_malformed_target_json_is_a_sentence_not_a_traceback(self):
         (self.repo.root / ".mmw" / "target.json").write_text("{bad\n", encoding="utf-8")
         code, out, err = self.repo.run("demo")

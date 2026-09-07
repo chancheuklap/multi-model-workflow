@@ -5,6 +5,8 @@ arithmetic, the tree's ancestor line, the baseline server, and `target --check`.
 import importlib.util
 import json
 import os
+import stat
+import subprocess
 import sys
 import tempfile
 import shutil
@@ -324,6 +326,54 @@ class TestTargetConfig(unittest.TestCase):
                 {"discover": "printf %s '{\"cdp\": \"http://127.0.0.1:9229\"}'"}))
             cfg = sd.target_config(root)
             self.assertEqual(cfg["discover"], "printf %s '{\"cdp\": \"http://127.0.0.1:9229\"}'")
+
+
+class TestDiscover(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        (self.root / ".mmw").mkdir()
+        self.addCleanup(self.tmp.cleanup)
+
+    def _write_discover(self, body: str) -> dict:
+        script = self.root / ".mmw" / "discover.sh"
+        script.write_text("#!/bin/sh\n" + body + "\n", encoding="utf-8")
+        script.chmod(script.stat().st_mode | stat.S_IXUSR)
+        return {"discover": str(script)}
+
+    def test_a_json_object_is_the_address(self):
+        cfg = self._write_discover('printf %s \'{"origin":"http://127.0.0.1:9"}\'')
+        self.assertEqual(sd.discover(cfg, self.root),
+                         {"origin": "http://127.0.0.1:9"})
+
+    def test_a_failed_command_raises_the_completed_process(self):
+        cfg = self._write_discover("echo disc-out\necho disc-err >&2\nexit 1")
+        with self.assertRaises(SystemExit) as raised:
+            sd.discover(cfg, self.root)
+        proc = raised.exception.code
+        self.assertIsInstance(proc, subprocess.CompletedProcess)
+        self.assertIn("disc-out", proc.stdout)
+        self.assertIn("disc-err", proc.stderr)
+
+    def test_non_json_stdout_raises_the_same_completed_process(self):
+        cfg = self._write_discover("echo disc-plain-out\necho disc-plain-err >&2")
+        with self.assertRaises(SystemExit) as raised:
+            sd.discover(cfg, self.root)
+        proc = raised.exception.code
+        self.assertIsInstance(proc, subprocess.CompletedProcess)
+        self.assertIn("disc-plain-out", proc.stdout)
+        self.assertIn("disc-plain-err", proc.stderr)
+        self.assertIn("discover printed no JSON object", proc.stderr)
+
+    def test_an_array_raises_the_same_completed_process(self):
+        cfg = self._write_discover("printf %s '[1]'\necho disc-arr-err >&2")
+        with self.assertRaises(SystemExit) as raised:
+            sd.discover(cfg, self.root)
+        proc = raised.exception.code
+        self.assertIsInstance(proc, subprocess.CompletedProcess)
+        self.assertEqual(proc.stdout, "[1]")
+        self.assertIn("disc-arr-err", proc.stderr)
+        self.assertIn("discover must print one JSON object", proc.stderr)
 
 
 class TestBaselineServing(unittest.TestCase):
