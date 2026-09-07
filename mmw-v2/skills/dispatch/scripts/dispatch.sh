@@ -410,6 +410,38 @@ live_instances() {
   python3 "$LEASE" count "$1"
 }
 
+# Whether an agent listing's status means it is still on the hook. `idle` is the
+# subtle one: a reviewer that started its three axis subagents and ended its turn
+# sits there for the whole of that work, so only an agent that is gone — `closed`,
+# `error`, or not listed at all — has nobody left to do the job.
+agent_is_live() {
+  case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
+    running | initializing | idle) return 0 ;;
+  esac
+  return 1
+}
+
+# Give a ticket's claim back, when this pipeline's own account holds it. Returns 0
+# given back, 1 nothing to give back (no login, or someone else holds it), 2 the
+# write failed. A ticket a person took for themselves is left exactly as it is.
+give_claim_back() {
+  local number="$1" login
+  login="$(gh_ api user --jq .login 2>/dev/null | tr -d '[:space:]')"
+  [ -n "$login" ] || return 1
+  printf '%s' "$(gh_ issue view "$number" --json assignees 2>/dev/null)" \
+    | MMW_LOGIN="$login" python3 -c '
+import json, os, sys
+login = os.environ["MMW_LOGIN"]
+try:
+    rows = (json.load(sys.stdin) or {}).get("assignees") or []
+except Exception:
+    raise SystemExit(1)
+raise SystemExit(0 if login in [a.get("login") for a in rows if isinstance(a, dict)] else 1)
+' || return 1
+  gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1 || return 2
+  return 0
+}
+
 # Give a finished ticket's slot back. Returns 0 released, 1 refused (something still
 # listens), 3 no lease was registered for that path.
 release_lease() {
@@ -662,22 +694,18 @@ start_one() {
 # silent keep.
 retract_one() {
   local number="$1"
-  case "$number" in *[!0-9]* | "") refuse "ticket number must be digits only, got $number" ;; esac
 
   local root
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] \
     || refuse "not inside a git repository, so there is no workspace to retract"
 
-  local live ident status
+  local live ident
   live="$(agents_by_label --label "mmw.ticket=$number" | head -n 1)"
   ident="$(printf '%s\n' "$live" | cut -f2)"
-  status="$(printf '%s\n' "$live" | cut -f3 | tr '[:upper:]' '[:lower:]')"
-  case "$status" in
-    running|initializing|idle)
-      refuse "#$number still has a live agent $ident; retract is for a start whose create_agent never ran"
-      ;;
-  esac
+  if agent_is_live "$(printf '%s\n' "$live" | cut -f3)"; then
+    refuse "#$number still has a live agent $ident; retract is for a start whose create_agent never ran"
+  fi
 
   local cwd archived=0 slot=0 claim=0 rc
   cwd="$(workspace_cwd_for "$number")"
@@ -685,37 +713,20 @@ retract_one() {
   if [ -n "$cwd" ]; then
     [ -f "$LEASE" ] \
       || refuse "no lease.py in any --tools directory, so the slot cannot be given back. Pass --tools <the drive-target skill's scripts directory>, then retract again"
-    release_lease "$cwd"
-    rc=$?
-    case "$rc" in
-      0) slot=1 ;;
-    esac
+    if release_lease "$cwd"; then
+      slot=1
+    fi
   fi
   if [ -n "$(workspace_id_for "$number")" ]; then
     archive_workspace "$number"
     archived=1
   fi
 
-  local login
-  login="$(gh_ api user --jq .login 2>/dev/null | tr -d '[:space:]')"
-  if [ -n "$login" ]; then
-    if printf '%s' "$(gh_ issue view "$number" --json assignees 2>/dev/null)" \
-         | MMW_LOGIN="$login" python3 -c '
-import json, os, sys
-login = os.environ["MMW_LOGIN"]
-try:
-    rows = (json.load(sys.stdin) or {}).get("assignees") or []
-except Exception:
-    raise SystemExit(1)
-raise SystemExit(0 if login in [a.get("login") for a in rows if isinstance(a, dict)] else 1)
-'; then
-      if gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1; then
-        claim=1
-      else
-        echo "dispatch: could not give back the claim on #$number" >&2
-      fi
-    fi
-  fi
+  give_claim_back "$number"
+  case "$?" in
+    0) claim=1 ;;
+    2) echo "dispatch: could not give back the claim on #$number" >&2 ;;
+  esac
 
   echo "retract #$number: archived $archived, slot given back $slot, claim given back $claim" >&2
 }
@@ -830,12 +841,10 @@ wait_one() {
   # seconds later, and did the same to #159. Only an agent that is gone — `closed`,
   # `error`, or no longer listed — has nobody left to do the job.
   status="$(agents_by_label --label "mmw.ticket=$number" --label "mmw.kind=$kind" | head -n 1 | cut -f3 | tr '[:upper:]' '[:lower:]')"
-  case "$status" in
-    running|initializing|idle)
-      echo "still working: run wait again" >&2
-      exit 3
-      ;;
-  esac
+  if agent_is_live "$status"; then
+    echo "still working: run wait again" >&2
+    exit 3
+  fi
   wait_no_result "$number" "$kind" "$ident"
 }
 
@@ -1384,31 +1393,21 @@ suspend_night() {
     fi
   done
 
-  local login claims=0
-  login="$(gh_ api user --jq .login 2>/dev/null | tr -d '[:space:]')"
-  if [ -n "$login" ]; then
-    for number in $queued; do
-      [ -n "$number" ] || continue
-      if printf '%s' "$(gh_ issue view "$number" --json assignees 2>/dev/null)" \
-           | MMW_LOGIN="$login" python3 -c '
-import json, os, sys
-login = os.environ["MMW_LOGIN"]
-try:
-    rows = (json.load(sys.stdin) or {}).get("assignees") or []
-except Exception:
-    raise SystemExit(1)
-raise SystemExit(0 if login in [a.get("login") for a in rows if isinstance(a, dict)] else 1)
-'; then
-        if gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1; then
-          claims=$((claims + 1))
-          echo "gave back the claim on #$number: the night is suspended, so the next advance can start it again" >&2
-        else
-          echo "dispatch: could not give back the claim on #$number" >&2
-          left=$((left + 1))
-        fi
-      fi
-    done
-  fi
+  local claims=0
+  for number in $queued; do
+    [ -n "$number" ] || continue
+    give_claim_back "$number"
+    case "$?" in
+      0)
+        claims=$((claims + 1))
+        echo "gave back the claim on #$number: the night is suspended, so the next advance can start it again" >&2
+        ;;
+      2)
+        echo "dispatch: could not give back the claim on #$number" >&2
+        left=$((left + 1))
+        ;;
+    esac
+  done
 
   local cwd back=0 rc
   if [ -f "$LEASE" ]; then

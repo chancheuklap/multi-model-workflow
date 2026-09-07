@@ -120,9 +120,15 @@ def profile_rows() -> list[ProfileRow]:
         out.append(ProfileRow(
             profile_id(agent, host, primary=False),
             agent, host, model, effort, permissions))
+    # The loop above already keeps two rows of one agent apart. What it cannot see
+    # is an agent literally named `<other>@<host>`, which would collide with the
+    # fallback id generated for `<other>` on that host.
     ids = [row.profile_id for row in out]
     if len(ids) != len(set(ids)):
-        raise ValueError(f"{MODELS}: two bypass rows produced the same profile id")
+        clash = sorted({i for i in ids if ids.count(i) > 1})
+        raise ValueError(
+            f"{MODELS}: an agent name collides with a generated fallback id: "
+            + ", ".join(clash))
     return out
 
 
