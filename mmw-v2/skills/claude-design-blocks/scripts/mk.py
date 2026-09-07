@@ -6,6 +6,12 @@ import sys, json, importlib.util, pathlib, os
 FX = os.environ.get("DC_FX", "FIXTURES")
 FX_FILE = os.environ.get("DC_FX_FILE", "data/fixtures.js")  # project-relative path of the fixtures script
 W, H = (int(v) for v in os.environ.get("DC_FRAME", "1440x900").split("x"))  # the application window the mockup was designed for
+_js = pathlib.Path(__file__).with_name("export_scene.js").read_text(encoding="utf-8")
+_start, _end = "// SHARED_BEGIN\n", "\n// SHARED_END"
+_i, _j = _js.find(_start), _js.find(_end)
+if _i < 0 or _j < 0:
+    raise RuntimeError("export_scene.js missing SHARED block")
+SHARED_JS = _js[_i + len(_start):_j]
 spec = importlib.util.spec_from_file_location("blk", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 links = "\n".join(f'        <link rel="stylesheet" href="./styles/{c}" />' for c in m.CSS)
 props = {"$preview": {"width": W, "height": H}, **m.PROPS}
@@ -41,10 +47,11 @@ html = f'''<!DOCTYPE html>
       data-dc-script
       data-props='{json.dumps(props, ensure_ascii=False, indent=2)}'
     >
+      {SHARED_JS}
       class Component extends DCLogic {{
         constructor(props) {{
           super(props);
-          this.state = Object.assign({{ fx: false, toast: "" }}, this.init(props));
+          this.state = Object.assign({{}}, STATE_SEED, this.init(props));
         }}
         componentDidMount() {{
           const tick = () => {{
@@ -65,7 +72,7 @@ html = f'''<!DOCTYPE html>
         emit(name, detail, fallback) {{
           if (this.props[name]) this.props[name](detail); else this.toast(fallback);
         }}
-        fx() {{ return window.{FX} || {{}}; }}
+        fx() {{ return readFx(window, "{FX}"); }}
 {m.LOGIC}
       }}
     </script>

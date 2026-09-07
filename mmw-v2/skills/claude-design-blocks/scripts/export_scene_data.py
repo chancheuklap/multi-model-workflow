@@ -11,85 +11,12 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 FX = os.environ.get("DC_FX", "FIXTURES")
 FX_FILE = os.environ.get("DC_FX_FILE", "data/fixtures.js")
 W, H = (int(v) for v in os.environ.get("DC_FRAME", "1440x900").split("x"))
-
-RUNNER = r"""
-const fs = require("fs");
-const [fxPath, fxName, propsJson] = process.argv.slice(2);
-const logic = fs.readFileSync(0, "utf8");
-const props = JSON.parse(propsJson);
-
-const window = {
-  addEventListener() {},
-  removeEventListener() {},
-  querySelector() { return null; },
-};
-const document = {
-  addEventListener() {},
-  removeEventListener() {},
-  querySelector() { return null; },
-};
-function setTimeout() {}
-function clearTimeout() {}
-globalThis.window = window;
-globalThis.document = document;
-globalThis.setTimeout = setTimeout;
-globalThis.clearTimeout = clearTimeout;
-
-const fxSource = fs.readFileSync(fxPath, "utf8");
-(0, eval)(fxSource);
-if (window[fxName] == null && globalThis[fxName] != null) {
-  window[fxName] = globalThis[fxName];
-}
-
-class DCLogic {
-  constructor(props) {
-    this.props = props;
-    this.state = Object.assign({ fx: false, toast: "" }, this.init(props));
-  }
-  setState(partial, cb) {
-    this.state = Object.assign({}, this.state, partial);
-    if (typeof cb === "function") cb();
-  }
-  fx() { return window[fxName] || {}; }
-  emit() {}
-  toast() {}
-  init() { return {}; }
-  onReady() {}
-  afterUpdate() {}
-  cleanup() {}
-  renderVals() { return {}; }
-}
-
-const Component = new Function(
-  "DCLogic",
-  `return class Component extends DCLogic {\n${logic}\n}`,
-)(DCLogic);
-const inst = new Component(props);
-inst.setState({ fx: true }, () => inst.onReady());
-const vals = inst.renderVals();
-process.stdout.write(JSON.stringify({
-  state: JSON.parse(JSON.stringify(inst.state)),
-  vals: JSON.parse(JSON.stringify(vals)),
-}));
-"""
-
-
-def load_page(src: Path):
-    spec = importlib.util.spec_from_file_location("blk", src)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def src_for(handoff: Path, page: str) -> Path:
-    name = page.removesuffix(".dc.html")
-    return handoff / "src" / f"{name}.py"
+RUNNER = Path(__file__).with_name("export_scene.js")
 
 
 def page_props(module, scene: dict) -> dict:
@@ -112,36 +39,32 @@ def last_line(text: str) -> str:
 
 def run_scene(handoff: Path, scene: dict) -> dict:
     page = scene.get("page") or ""
-    src = src_for(handoff, page)
+    src = handoff / "src" / f"{page.removesuffix('.dc.html')}.py"
     if not src.is_file():
         raise RuntimeError(f"no src for {page}: {src}")
-    module = load_page(src)
+    spec = importlib.util.spec_from_file_location("blk", src)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
     logic = getattr(module, "LOGIC", "")
     fx_path = handoff / FX_FILE
     if not fx_path.is_file():
         raise RuntimeError(f"no fixtures at {fx_path}")
-    with tempfile.TemporaryDirectory() as tmp:
-        runner = Path(tmp) / "export_scene.js"
-        runner.write_text(RUNNER, encoding="utf-8")
-        proc = subprocess.run(
-            ["node", str(runner), str(fx_path), FX, json.dumps(page_props(module, scene))],
-            input=logic,
-            capture_output=True,
-            text=True,
-        )
+    proc = subprocess.run(
+        ["node", str(RUNNER), str(fx_path), FX, json.dumps(page_props(module, scene))],
+        input=logic,
+        capture_output=True,
+        text=True,
+    )
     if proc.returncode != 0:
         raise RuntimeError(last_line(proc.stderr or proc.stdout))
     try:
-        data = json.loads(proc.stdout)
+        return json.loads(proc.stdout)
     except json.JSONDecodeError as exc:
         raise RuntimeError(last_line(proc.stdout or str(exc))) from exc
-    if not isinstance(data, dict) or "vals" not in data:
-        raise RuntimeError("Node wrote no {state, vals}")
-    return data
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = sys.argv[1:] if argv is None else argv
+def main() -> int:
+    args = sys.argv[1:]
     if len(args) != 1:
         sys.stderr.write("usage: export_scene_data.py <handoff-dir>\n")
         return 2
