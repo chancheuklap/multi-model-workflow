@@ -442,10 +442,6 @@ class TestConsole(unittest.TestCase):
         self.assertEqual(vp.failures(c, max_pct=1.0, console_limit=1), [])
         self.assertEqual(len(vp.failures(c, max_pct=1.0, console_limit=0)), 1)
 
-    def test_zero_is_the_default(self):
-        args = vp.build_parser().parse_args(["--contract", "c.yaml", "--mount", "m"])
-        self.assertEqual(args.console_errors, 0)
-
 
 class TestVolatileValues(unittest.TestCase):
     """The pixel judge's paint script is generated from the same implicit-role
@@ -531,41 +527,8 @@ class TestOverCdp(unittest.TestCase):
         self.assertIn("DevTools", str(raised.exception))
 
 
-class TestShowsCount(unittest.TestCase):
-    """`--shows-perturbation` evaluates only scenes whose rows declare `shows`."""
-
-    def scene(self, name):
-        return vp.sd.Scene(name, "p.dc.html", "m", "/", [], [], {})
-
-    def test_only_scenes_with_shows_rows_are_counted(self):
-        plan = [self.scene("plain"), self.scene("shown"), self.scene("other")]
-        rows = {
-            "a": {"scenes": ["plain"]},
-            "b": {"scenes": ["shown"], "shows": {"f": "x"}},
-            "c": {"scenes": ["elsewhere"], "shows": {"f": "y"}},
-        }
-        evaluated = [s.name for s in plan if vp.shows_row_ids(s, rows)]
-        self.assertEqual(evaluated, ["shown"])
-        n = len(evaluated)
-        self.assertEqual(f"SHOWS OK {n}/{n}", "SHOWS OK 1/1")
-        self.assertNotEqual(f"SHOWS OK {len(plan)}/{len(plan)}", "SHOWS OK 1/1")
-
-
 class TestArguments(unittest.TestCase):
-    """No address on the line: the contract and `.mmw/target.json` carry them all."""
-
-    def test_defaults(self):
-        args = vp.build_parser().parse_args(["--contract", "c.yaml", "--mount", "a,b"])
-        self.assertEqual(args.max_pct, 3.0)
-        self.assertIsNone(args.scenes)
-        self.assertFalse(args.render_only)
-        self.assertFalse(args.shows_perturbation)
-
-    def test_no_address_flag_is_accepted(self):
-        for retired in ("--impl", "--cdp", "--baseline", "--backend", "--viewports"):
-            with self.assertRaises(SystemExit):
-                vp.build_parser().parse_args(
-                    ["--contract", "c.yaml", "--mount", "a", retired, "x"])
+    """Helpers the story judge still uses."""
 
     def test_viewports_are_read_as_pairs(self):
         self.assertEqual(vp.parse_viewports(["1440x900", "1180x720"]),

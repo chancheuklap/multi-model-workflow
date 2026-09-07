@@ -3,7 +3,7 @@
 #
 #   bash mmw-v2/tests/drive-target/run.sh
 #
-# unittest over the driver, the two judges, the lease, the hook and the refusal text.
+# unittest over the driver, the story judge, the lease, the hook and the refusal text.
 # No tracker, no terminal, no browser.
 #
 # Without numpy and Pillow, test_visual_parity.py's TestShrunkPixels is skipped.

@@ -139,49 +139,41 @@ class TestPipelineFlags(unittest.TestCase):
         vt.TOOLS[:] = []
         vt._HELP_FLAGS.clear()
 
-    def test_visual_parity_without_contract_or_mount(self):
-        bare = "visual-parity.py --scenes a"
-        findings = vt.lint_pipeline_flags("AC1", bare)
-        self.assertTrue(any("without --contract" in f for f in findings))
-        self.assertTrue(any("without --mount" in f for f in findings))
-
-    def test_wiring_check_without_rows(self):
-        findings = vt.lint_pipeline_flags(
-            "AC2", "wiring-check.py --contract c.yaml")
-        self.assertEqual(len(findings), 1)
-        self.assertIn("without --rows", findings[0])
-
     def test_story_parity_without_pages(self):
         findings = vt.lint_pipeline_flags(
             "AC1", "story-parity.py --contract c.yaml")
         self.assertTrue(any("without --pages" in f for f in findings))
+
+    def test_story_parity_without_contract(self):
+        findings = vt.lint_pipeline_flags("AC1", "story-parity.py --pages demo")
+        self.assertTrue(any("without --contract" in f for f in findings))
 
     def test_boundary_check_without_run(self):
         findings = vt.lint_pipeline_flags("AC2", "boundary-check.py")
         self.assertTrue(any("without --run" in f for f in findings))
 
     def test_an_address_on_the_line_is_refused(self):
-        stale = PARITY + " --cdp http://127.0.0.1:9229 --impl http://127.0.0.1:5173/"
+        stale = STORY + " --cdp http://127.0.0.1:9229 --impl http://127.0.0.1:5173/"
         findings = vt.lint_pipeline_flags("AC1", stale)
         self.assertEqual(len(findings), 2)
         self.assertTrue(all(".mmw/target.json" in f for f in findings))
 
     def test_a_flag_help_does_not_list_is_refused(self):
-        findings = vt.lint_pipeline_flags("AC1", PARITY + " --reach-hook x")
+        findings = vt.lint_pipeline_flags("AC1", STORY + " --reach-hook x")
         self.assertEqual(len(findings), 1)
         self.assertIn("--reach-hook", findings[0])
         self.assertIn("--help", findings[0])
 
     def test_the_seed_belongs_to_the_contract_now(self):
-        findings = vt.lint_pipeline_flags("AC1", WIRING + ' --seed "uv run reach.py seed:x"')
+        findings = vt.lint_pipeline_flags("AC1", STORY + ' --seed "uv run reach.py seed:x"')
         self.assertEqual(len(findings), 1)
         self.assertIn("--seed", findings[0])
 
     def test_only_the_scripts_own_segment_is_read(self):
-        chained = ("uv run python scripts/testing/reach.py seed:x --perturb && " + PARITY)
+        chained = ("uv run python scripts/testing/reach.py seed:x --perturb && " + STORY)
         self.assertEqual(vt.lint_pipeline_flags("AC1", chained), [])
-        self.assertEqual(vt.script_segment(chained, "visual-parity.py"),
-                         " --contract docs/specs/x/screen-contract.yaml --mount create-project")
+        self.assertEqual(vt.script_segment(chained, "story-parity.py"),
+                         " --contract docs/specs/x/screen-contract.yaml --pages create-project")
 
 
 class TestParentSections(unittest.TestCase):

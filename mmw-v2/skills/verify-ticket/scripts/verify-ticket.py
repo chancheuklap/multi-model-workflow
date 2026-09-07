@@ -1909,15 +1909,12 @@ def lint_check_effects(body: str) -> list[str]:
 SCREEN_CONTRACT_ROWS_RE = re.compile(r"screen-contract\.yaml\s+rows?:\s*([^\n]+)")
 FETCH_STUB_RE = re.compile(r"stubGlobal\(\s*['\"]fetch['\"]|msw|nock\(|fetch-mock", re.IGNORECASE)
 FLAG_RE = re.compile(r"(?<!\S)(--[a-z][a-z0-9-]*)")
-# The two scripts of this pipeline a criterion may run, and what each must be given.
+# The scripts of this pipeline a criterion may run, and what each must be given.
 # Their addresses come from the repository's `.mmw/target.json`, never from the line.
 PIPELINE_SCRIPTS = {
-    "visual-parity.py": {"required": ("--contract", "--mount"),
-                         "retired": ("--baseline", "--impl", "--cdp", "--backend", "--seed",
-                                     "--impl-title", "--viewports")},
-    "wiring-check.py": {"required": ("--contract", "--rows"),
-                        "retired": ("--cdp", "--impl", "--backend", "--seed", "--impl-title")},
-    "story-parity.py": {"required": ("--contract", "--pages"), "retired": ()},
+    "story-parity.py": {"required": ("--contract", "--pages"),
+                        "retired": ("--baseline", "--impl", "--cdp", "--backend", "--seed",
+                                    "--impl-title", "--viewports", "--mount")},
     "boundary-check.py": {"required": ("--run",), "retired": ()},
 }
 SPEC_SECTION_SOURCE_RE = re.compile(r"^#(\d+) (Implementation Decisions|Testing Decisions)\s*(\d+)?")
@@ -1927,7 +1924,7 @@ DOC_SOURCE_RE = re.compile(r"^(docs/\S+)")
 STORY_SOURCE_RE = re.compile(r"^#\d+ story \d+")
 _HELP_FLAGS: dict[str, set[str]] = {}
 # The directories `--tools` named: where the scripts other skills own are found. A
-# `CHECK:` names a judge by its bare name (`wiring-check.py …`), and this process puts
+# `CHECK:` names a judge by its bare name (`story-parity.py …`), and this process puts
 # these directories on the PATH of the shell that runs it. Nothing here looks for a
 # script outside this skill's own directory by any other route.
 TOOLS: list[Path] = []

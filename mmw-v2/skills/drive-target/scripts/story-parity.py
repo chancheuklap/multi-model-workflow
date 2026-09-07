@@ -70,7 +70,6 @@ NEGATIVE_CONTROL_HEAD = vp.NEGATIVE_CONTROL_HEAD
 NEGATIVE_CONTROL_SCENE = vp.NEGATIVE_CONTROL_SCENE
 DEFAULT_MAX_PCT = vp.DEFAULT_MAX_PCT
 render_only = vp.render_only
-negative_control = vp.negative_control
 
 STORY_ROOT = "[data-story-root]"
 ORIGIN_WAIT_S = 15
@@ -126,7 +125,7 @@ def product_root() -> Path:
 
     The criterion is invoked from the product repository (AC1–AC3 `cd` there). If that
     directory holds the file, it is the product. Otherwise the git toplevel — the same
-    anchor `visual-parity.py` uses via `sd.repo_root()`.
+    anchor `sd.repo_root()` uses.
     """
     cwd = Path.cwd().resolve()
     if (cwd / ".mmw" / "target.json").exists():
@@ -214,6 +213,28 @@ class Stories:
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait(timeout=2)
+
+
+def negative_control(scene, vp, pages, capture_impl, capture_baseline, media) -> Comparison:
+    """The baseline server answers this scene's own address with the scene plus an
+    error banner in the served bytes; the story page is captured again. If the two
+    compare equal, the story capture went through the baseline server."""
+    path = sd.wrapper_path(scene.name)
+    saved = pages[path]
+    pages[path] = sd.wrapper_page(sd.component_of(scene.page), scene.props,
+                                  NEGATIVE_CONTROL_HEAD)
+    tag_vp = f"{vp[0]}x{vp[1]}"
+    stem = media / f"{NEGATIVE_CONTROL_SCENE}-{tag_vp}"
+    try:
+        impl = capture_impl(scene, vp, Path(f"{stem}-impl.png"))
+        wrong = capture_baseline(scene, vp, impl.box, Path(f"{stem}-baseline.png"))
+    finally:
+        pages[path] = saved
+    return Comparison(
+        NEGATIVE_CONTROL_SCENE, tag_vp,
+        pixel_diff(wrong.png, impl.png, Path(f"{stem}-diff.png")),
+        sd.aria_diff(wrong.aria, impl.aria, Path(f"{stem}.aria.diff")),
+        [], [], impl.elements, sd.class_diff(wrong.classes, impl.classes))
 
 
 def story_gate(control: Comparison, comparisons: list, max_pct: float,
