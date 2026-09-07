@@ -68,8 +68,8 @@ rows:
 """
 
 
-class TestLintScreenContract(unittest.TestCase):
-    """The four original rules, against a contract that is on disk."""
+class ContractFixture:
+    """A screen contract on disk, and a story criterion pointed at it."""
 
     def setUp(self):
         self.dir = tempfile.TemporaryDirectory()
@@ -83,13 +83,18 @@ class TestLintScreenContract(unittest.TestCase):
     def tearDown(self):
         self.dir.cleanup()
 
-    def story(self, pages="create-project"):
+    def story(self, mounts="create-project"):
         return STORY.replace("docs/specs/x/screen-contract.yaml", self.path).replace(
-            "--pages create-project", f"--pages {pages}")
+            "--pages create-project", f"--pages {mounts}")
 
     def lint(self, *criteria):
         return vt.lint_screen_contract(ticket(self.rows, *criteria, parent=self.parent,
                                               blocked_by="- #637"), 639)
+
+
+class TestLintScreenContract(ContractFixture, unittest.TestCase):
+    """An interface ticket names its screen-contract rows; no CHECK stubs the
+    application's own network. Against a contract that is on disk."""
     def test_an_interface_ticket_without_row_ids_is_an_error(self):
         findings = vt.lint_screen_contract(ticket("- README (baseline)", gate("AC1", STORY)))
         self.assertEqual(len(findings), 1)
@@ -124,11 +129,11 @@ class TestLintScreenContract(unittest.TestCase):
 
 
 class TestPipelineFlags(unittest.TestCase):
-    """The two pipeline scripts are given what they need, nothing they retired, and
-    nothing their `--help` does not list — the one check that catches a criterion
-    naming a capability that does not exist at the moment it is written. The scripts
-    belong to the drive-target skill and reach the lint through `--tools`, so the
-    test hands their directory over the way the agent does."""
+    """story-parity.py and boundary-check.py are given what they need, nothing they
+    retired, and nothing their `--help` does not list — the one check that catches
+    a criterion naming a capability that does not exist at the moment it is written.
+    The scripts belong to the drive-target skill and reach the lint through
+    `--tools`, so the test hands their directory over the way the agent does."""
 
     def setUp(self):
         from pathlib import Path
@@ -193,23 +198,17 @@ class TestParentSections(unittest.TestCase):
 
 
 
-class TestSourcesAndMechanisms(unittest.TestCase):
+class TestSourcesAndMechanisms(ContractFixture, unittest.TestCase):
     """What a worker cannot see does not exist: every baseline-class source of an owned
     row is under `## Read first`, every spec section under `## Parent`, and every
     mechanism used is built by a ticket this one is blocked by."""
 
     def setUp(self):
-        self.dir = tempfile.TemporaryDirectory()
-        self.path = os.path.join(self.dir.name, "screen-contract.yaml")
-        with open(self.path, "w", encoding="utf-8") as f:
-            f.write(CONTRACT)
+        super().setUp()
         self.rows = (f"- `{self.path} rows: create-project.add-material, create-project.name`"
                      "（基线）")
         self.story_check = STORY.replace("docs/specs/x/screen-contract.yaml", self.path)
         self.boundary_check = BOUNDARY
-
-    def tearDown(self):
-        self.dir.cleanup()
 
     def _lint(self, read_first_extra="", parent="", blocked_by="- #637", number=639):
         body = ticket(self.rows + "\n" + read_first_extra, gate("AC1", self.story_check),
@@ -286,31 +285,21 @@ class TestContractPathInBackticks(unittest.TestCase):
         self.assertFalse(any("could not be read" in f for f in findings), findings)
 
 
-class TestCriterionShapes(unittest.TestCase):
-    """The three criterion shapes `--lint` now checks, plus the fetch rule."""
+class TestCriterionShapes(ContractFixture, unittest.TestCase):
+    """Each `--pages` mount is a non-App page of the contract; a boundary-check.py
+    --run is a non-empty command; a journey.py run <name> exists under .mmw/journeys/."""
 
     def setUp(self):
-        self.dir = tempfile.TemporaryDirectory()
+        super().setUp()
         self.root = self.dir.name
-        path = os.path.join(self.root, "screen-contract.yaml")
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(CONTRACT)
-        self.path = path
         self.rows = (
-            f"- `{path} rows: create-project.add-material`（基线）\n"
+            f"- `{self.path} rows: create-project.add-material`（基线）\n"
             "- `docs/adr/chameleon/0021-chameleon-two-gates.md`（基线）\n"
             "- [两道门（#420）](u)（基线）\n"
             "- `docs/context/chameleon-product.md`——正名"
         )
         self.parent = "[Spec（#537）](u)，Implementation Decisions 第 2 节与 Testing Decisions"
         os.makedirs(os.path.join(self.root, ".mmw", "journeys", "smoke"), exist_ok=True)
-
-    def tearDown(self):
-        self.dir.cleanup()
-
-    def story(self, pages):
-        return STORY.replace("docs/specs/x/screen-contract.yaml", self.path).replace(
-            "--pages create-project", f"--pages {pages}")
 
     def lint(self, *criteria):
         return vt.lint_screen_contract(

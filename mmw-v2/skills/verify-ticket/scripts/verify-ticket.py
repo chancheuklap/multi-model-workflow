@@ -1946,7 +1946,7 @@ def tool(script: str) -> Path | None:
 
 APP_PAGE_PREFIX = "App · "
 RUN_VALUE_RE = re.compile(r"""--run(?:\s+|=)(?:"([^"]*)"|'([^']*)'|(\S+))""")
-JOURNEY_NAME_RE = re.compile(r"journey\.py\s+run\s+(\S+)")
+JOURNEY_NAME_RE = re.compile(r"^\s*run\s+(\S+)")
 
 
 def script_segment(check: str, script: str) -> str:
@@ -1961,7 +1961,7 @@ def script_segment(check: str, script: str) -> str:
 PAGES_VALUE_RE = re.compile(r"""--pages(?:\s+|=)(?:"([^"]*)"|'([^']*)'|(\S+))""")
 
 
-def story_pages(check: str) -> list[str]:
+def story_mounts(check: str) -> list[str]:
     """The `--pages` mounts a story-parity.py criterion names."""
     segment = script_segment(check, "story-parity.py")
     out: list[str] = []
@@ -1983,10 +1983,10 @@ def page_mounts(doc: dict) -> dict[str, str]:
     return out
 
 
-def run_values(check: str) -> list[str] | None:
-    """The `--run` values on a boundary-check.py criterion, or None when the flag is absent."""
+def run_values(check: str) -> list[str]:
+    """The `--run` values on a boundary-check.py criterion; empty when that script is absent."""
     if "boundary-check.py" not in check:
-        return None
+        return []
     segment = script_segment(check, "boundary-check.py")
     values = []
     for m in RUN_VALUE_RE.finditer(segment):
@@ -1996,11 +1996,6 @@ def run_values(check: str) -> list[str] | None:
     if "--run" in segment and not values:
         return [""]
     return values
-
-
-def journey_names(check: str) -> list[str]:
-    """The journey name on a `journey.py run <name>` criterion, from that command only."""
-    return JOURNEY_NAME_RE.findall("journey.py" + script_segment(check, "journey.py"))
 
 
 def help_flags(script: str) -> set[str]:
@@ -2179,13 +2174,11 @@ def lint_screen_contract(body: str, number: int | None = None,
         if FETCH_STUB_RE.search(check):
             findings.append(f"{gate_id}: CHECK stubs the application's own network; mock "
                             f"the product's API client module instead")
-        values = run_values(check)
-        if values is not None:
-            for value in values:
-                if not value.strip():
-                    findings.append(f"{gate_id}: boundary-check.py --run is empty")
-                    break
-        for name in journey_names(check):
+        for value in run_values(check):
+            if not value.strip():
+                findings.append(f"{gate_id}: boundary-check.py --run is empty")
+                break
+        for name in JOURNEY_NAME_RE.findall(script_segment(check, "journey.py")):
             dest = repo / ".mmw" / "journeys" / name
             if not dest.exists():
                 findings.append(f"{gate_id}: journey.py run {name} is not under .mmw/journeys/")
@@ -2207,7 +2200,7 @@ def lint_screen_contract(body: str, number: int | None = None,
         for gate_id, check, _ in checks:
             if "story-parity.py" not in check:
                 continue
-            for mount in story_pages(check):
+            for mount in story_mounts(check):
                 page = mounts_of.get(mount)
                 if page is None:
                     findings.append(f"{gate_id}: --pages {mount} is declared by no page "
