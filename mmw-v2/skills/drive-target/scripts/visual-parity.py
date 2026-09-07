@@ -574,8 +574,16 @@ def shows_perturbation(adapter, plan, vp, rows, media) -> int:
 
 
 def _join_js(*parts: str | None) -> str | None:
-    bits = [p for p in parts if p]
-    return "\n".join(bits) if bits else None
+    """One script out of several, each of which is a complete expression.
+
+    Every part here is an IIFE — `(() => { … })()`. Joined by a newline alone they
+    are one expression, not two statements: JavaScript inserts no semicolon before
+    `(`, so the second IIFE reads as a call on what the first returned, and the page
+    fails with `is not a function`. The pages that carry both a `retired_ids` hide
+    and a `volatile_values` paint are the ones that hit it.
+    """
+    bits = [p.strip() for p in parts if p]
+    return ";\n".join(bits) if bits else None
 
 
 def parity(*, adapter, plan, viewports, rows, media, origin, pages, route_baseline,

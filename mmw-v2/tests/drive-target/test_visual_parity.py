@@ -7,6 +7,8 @@ by `prototypes/code-landing/ui-gate/EXP/run.py`.
 """
 
 import importlib.util
+import shutil
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -60,6 +62,30 @@ def comparison(pixel=None, aria=None, console_baseline=(), console_impl=(),
                   "box": None, "size_a": (10, 10), "size_b": (10, 10)},
         aria or {"changed": 0, "lines_a": 5, "lines_b": 5, "diff": ""},
         list(console_baseline), list(console_impl))
+
+
+class TestJoinJs(unittest.TestCase):
+    """Two scripts joined must be two statements, not one call on the first."""
+
+    A = "(() => { globalThis.a = 1; })()"
+    B = "(() => { globalThis.b = 2; })()"
+
+    def test_two_iifes_run_as_two_statements(self):
+        joined = vp._join_js(self.A, self.B)
+        node = shutil.which("node")
+        if node is None:
+            self.skipTest("no node on this machine to parse the joined script")
+        run = subprocess.run(
+            [node, "-e", f"{joined};\nprocess.stdout.write(`${{globalThis.a}},${{globalThis.b}}`)"],
+            capture_output=True, text=True)
+        # Joined by a newline alone this is `})()(() => …)()`: a call on what the
+        # first IIFE returned, which is how the debt-gate mount crashed the judge.
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(run.stdout, "1,2")
+
+    def test_one_part_is_returned_as_is_and_none_stays_none(self):
+        self.assertEqual(vp._join_js(self.A, None), self.A)
+        self.assertIsNone(vp._join_js(None, None))
 
 
 class TestNormalize(unittest.TestCase):
