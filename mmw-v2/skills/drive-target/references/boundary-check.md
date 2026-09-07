@@ -11,7 +11,7 @@ CHECK: boundary-check.py --run "<the product's test command, a file or a case>"
 EXPECT: BOUNDARY OK <n>/<n>
 ```
 
-`<n>` is how many `--run` flags were given. Commands that share a test file may share a criterion; `--run` may be repeated.
+`<n>` is how many `--run` flags were given. Commands that share a test file may share a criterion; `--run` may be repeated. `--run` takes one command, not a shell line: `&&`, `||`, `;` and `|` are refused.
 
 ## What the product's test must do
 
@@ -26,8 +26,8 @@ An assertion that does not depend on the click reads exactly like one that does:
 ## Reading what it printed
 
 - `0`, one line `BOUNDARY OK <n>/<n>`: every command exited 0 as written and non-zero with `MMW_NEGATIVE=1`.
-- `1`, one line `MISS <command> — <last 20 lines of that command>`: the first pass was already red; the product's test is failing on its own, before any negative control.
-- `1`, one line `GREEN WITHOUT INTERACTION <command>`: the first pass passed, and so did the pass that skipped the click. The assertion does not depend on the interaction.
-- `2`: the command does not exist. The refusal names it and says to report the ticket blocked and stop.
+- `1`, `MISS <command> — <last 20 lines of that command>` and then `Fix the product's test; the negative control was not reached.`: the first pass was already red; the product's test is failing on its own, before any negative control.
+- `1`, `GREEN WITHOUT INTERACTION <command> — <why>. Make the assertion fail when the interaction helper does nothing.`: the first pass passed, and so did the pass that skipped the click. The assertion does not depend on the interaction.
+- `2`: the command could not be started. The refusal names the fact it checked — unclosed quotes, an empty `--run`, a shell token, a missing executable, a file that could not be executed — and gives the one way out.
 
-What to fix is what the line names. A `MISS` is the product's test. `GREEN WITHOUT INTERACTION` is the helper not honouring `MMW_NEGATIVE=1`, or an assertion that never needed the click.
+What to fix is what the line names. A `MISS` is the product's test. `GREEN WITHOUT INTERACTION` is an assertion that stays true when the helper does nothing.
