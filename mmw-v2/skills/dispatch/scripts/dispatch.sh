@@ -843,6 +843,14 @@ delete_heartbeat() {
 # worker through `verify-ticket.py`. What is left for a clock is a session that
 # stopped without either, and a ticket whose landing message was lost, which is why
 # the fire sweeps before it reads status.
+#
+# `--expires-in 16h` because a heartbeat can otherwise outlive every way of finding
+# it. Deleting one needs its id, the id lives only in `.git/mmw-heartbeat-<spec>`,
+# and `paseo heartbeat` has no form that lists them — so a night that ends without
+# `summary` or `suspend`, or a checkout cloned fresh, leaves something firing that
+# no command can reach. Sixteen hours outlasts any night this pipeline should run
+# and expires on its own by the following midday. A night still going at 16 hours
+# loses its backstop, which is the right way round: by then the night is the problem.
 ensure_night_heartbeat() {
   local spec="$1" root hb existing prompt json ident dir
   if [ -z "${PASEO_AGENT_ID:-}" ]; then
@@ -871,7 +879,8 @@ ensure_night_heartbeat() {
     runner="$runner --tools $dir"
   done
   prompt="Run: $runner land --sweep (it lands whatever came to rest unheard), then $runner status $spec (from $root), then act per night.md step 3."
-  if ! json="$(paseo heartbeat create --cron '7,47 * * * *' --name "mmw-night-$spec" --json "$prompt")"; then
+  if ! json="$(paseo heartbeat create --cron '7,47 * * * *' --expires-in 16h \
+                 --name "mmw-night-$spec" --json "$prompt")"; then
     echo "dispatch: could not create heartbeat mmw-night-$spec" >&2
     exit 2
   fi
