@@ -354,8 +354,28 @@ class TestCriterionShapes(unittest.TestCase):
         findings = self.lint(gate("AC1", self.story("app-shell")))
         self.assertTrue(any("app-shell" in f and "App" in f for f in findings), findings)
 
+    def test_an_app_page_in_a_comma_list_is_an_error(self):
+        findings = self.lint(gate("AC1", self.story("create-project,app-shell")))
+        self.assertTrue(any("app-shell" in f and "App" in f for f in findings), findings)
+
+    def test_an_equals_pages_flag_is_read(self):
+        check = STORY.replace("docs/specs/x/screen-contract.yaml", self.path).replace(
+            "--pages create-project", "--pages=app-shell")
+        findings = self.lint(gate("AC1", check))
+        self.assertTrue(any("app-shell" in f and "App" in f for f in findings), findings)
+
+    def test_a_second_pages_flag_is_read(self):
+        check = self.story("create-project") + " --pages app-shell"
+        findings = self.lint(gate("AC1", check))
+        self.assertTrue(any("app-shell" in f and "App" in f for f in findings), findings)
+
     def test_boundary_run_must_not_be_empty(self):
         findings = self.lint(gate("AC1", 'boundary-check.py --run ""'))
+        self.assertTrue(any("AC1" in f and "--run" in f and "empty" in f for f in findings),
+                        findings)
+
+    def test_a_bare_run_flag_is_empty(self):
+        findings = self.lint(gate("AC1", "boundary-check.py --run"))
         self.assertTrue(any("AC1" in f and "--run" in f and "empty" in f for f in findings),
                         findings)
 
@@ -366,10 +386,25 @@ class TestCriterionShapes(unittest.TestCase):
     def test_a_journey_name_that_exists_is_fine(self):
         self.assertEqual(self.lint(gate("AC1", JOURNEY)), [])
 
+    def test_a_chained_journey_check_reads_only_the_name(self):
+        self.assertEqual(self.lint(gate("AC1", "journey.py run smoke; true")), [])
+
     def test_a_journey_name_missing_under_journeys_is_an_error(self):
         findings = self.lint(gate("AC1", "journey.py run paid-smoke"))
         self.assertTrue(any("paid-smoke" in f and ".mmw/journeys" in f for f in findings),
                         findings)
+
+
+class TestPartitionEdges(unittest.TestCase):
+    def test_addressing_and_all_do_not_partition(self):
+        body = ("## Acceptance criteria\n\n- [ ] AC1: x\n  CHECK: uv run visual-parity.py "
+                "--contract c.yaml --mount all --addressing; true\n  EXPECT: /ADDRESSING/\n")
+        self.assertEqual(vt.parity_calls(body), [])
+
+    def test_a_trailing_semicolon_is_not_part_of_the_last_flag(self):
+        body = ("## Acceptance criteria\n\n- [ ] AC1: x\n  CHECK: uv run visual-parity.py "
+                "--contract c.yaml --mount m --scenes a.b; true\n  EXPECT: x\n")
+        self.assertEqual(vt.parity_calls(body), [("AC1", ["m"], ["a.b"])])
 
 
 if __name__ == "__main__":

@@ -1981,11 +1981,19 @@ def script_segment(check: str, script: str) -> str:
     return re.split(r"\s*(?:&&|\|\||;|\|)(?:\s|$)", rest, maxsplit=1)[0]
 
 
+PAGES_VALUE_RE = re.compile(r"""--pages(?:\s+|=)(?:"([^"]*)"|'([^']*)'|(\S+))""")
+
+
 def story_pages(check: str) -> list[str]:
     """The `--pages` mounts a story-parity.py criterion names."""
     segment = script_segment(check, "story-parity.py")
-    m = re.search(r"--pages\s+(\S+)", segment)
-    return [x for x in (m.group(1).split(",") if m else []) if x]
+    out: list[str] = []
+    for m in PAGES_VALUE_RE.finditer(segment):
+        raw = (m.group(1) if m.group(1) is not None
+               else m.group(2) if m.group(2) is not None
+               else m.group(3) or "")
+        out.extend(x for x in raw.split(",") if x)
+    return out
 
 
 def page_mounts(doc: dict) -> dict[str, str]:
@@ -2014,7 +2022,8 @@ def run_values(check: str) -> list[str] | None:
 
 
 def journey_names(check: str) -> list[str]:
-    return JOURNEY_NAME_RE.findall(check)
+    """The journey name on a `journey.py run <name>` criterion, from that command only."""
+    return JOURNEY_NAME_RE.findall("journey.py" + script_segment(check, "journey.py"))
 
 
 def help_flags(script: str) -> set[str]:
@@ -2300,7 +2309,7 @@ def lint_screen_contract(body: str, number: int | None = None,
     `## Parent`; an explicit `--scenes` list stays inside its `--mount`.
     """
     findings: list[str] = []
-    repo = Path(root) if root is not None else Path.cwd()
+    repo = Path(root) if root is not None else repo_root()
     read_first = "\n".join(section(body, "Read first"))
     parent_text = "\n".join(section(body, "Parent"))
     checks = criteria_lines(body)
