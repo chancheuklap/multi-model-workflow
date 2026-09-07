@@ -826,12 +826,20 @@ def volatile_stem(name: str) -> str:
 
 
 class VolatileTrigger(NamedTuple):
-    """A trigger plus optional `after`: role, accessible name, previous named
-    node. The same tuple is a `volatile_values` entry and a row that has to
-    pick one of several same-name controls."""
+    """A trigger plus whichever pin it needs: role, accessible name, and either `after`
+    (the previous named node) or `occurrence` with `of` (the Nth of N matches, in reading
+    order). The same tuple is a `volatile_values` entry and a row that has to pick one of
+    several same-name controls.
+
+    `of` is carried rather than looked up because it is the fact the pin depends on: a
+    positional pin is only meaningful against a known number of matches, and a row that
+    says "the first of two" fails loudly the day the product renders three. The lint keeps
+    it equal to the design tree's count, so it cannot drift into a private opinion."""
     role: str
     name: str
     after: tuple[str, str] | None = None
+    occurrence: int | None = None
+    of: int | None = None
 
 
 def volatile_name_matches(role: str, name: str, wanted_role: str, wanted_name: str) -> bool:
@@ -855,11 +863,18 @@ def after_of(entry: dict) -> tuple[str, str] | None:
     return None
 
 
+def _int_or_none(value) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
 def row_trigger(row: dict) -> VolatileTrigger:
-    """The row's trigger as a `VolatileTrigger`, `after` included."""
+    """The row's trigger as a `VolatileTrigger`, its pin included. `after` and
+    `occurrence` are the two pins and never both — which one a row may use is decided by
+    the design tree, not by whoever writes the row, and the contract lint holds it."""
     t = row.get("trigger") or {}
     return VolatileTrigger(str(t.get("role") or ""), str(t.get("name") or ""),
-                           after_of(row))
+                           after_of(row),
+                           _int_or_none(t.get("occurrence")), _int_or_none(t.get("of")))
 
 
 def named_nodes(lines: list[str]):
@@ -939,7 +954,15 @@ def count_trigger_hits(lines: list[str], trigger: VolatileTrigger,
             continue
         if matches_volatile(role, name, [trigger], previous):
             current += 1
-    return max(best, current)
+    hits = max(best, current)
+    if trigger.occurrence is not None:
+        # A positional pin resolves to one node exactly when the tree still holds the
+        # number it was written against and the index is inside it. Otherwise the count
+        # is returned unchanged, so every caller — the lint, the driver — sees an
+        # unresolved trigger rather than a pin quietly pointing somewhere else.
+        if trigger.of == hits and 1 <= trigger.occurrence <= hits:
+            return 1
+    return hits
 
 
 # The three classes a contract defect falls into. A class decides who repairs it, so it
@@ -974,13 +997,13 @@ class TriggerConflict(NamedTuple):
         reached, an operation the read surface does not have, an expression that will not
         parse.
 
-        `after` has to address *every* match, not most of them: a match that is the first
-        named node of its scene has nothing before it, and a pin that reaches the others
-        would silently leave that one to whichever node the driver found. So an unnamed
-        candidate makes the whole row positional."""
-        if len(self.candidates) > 1 and all(name for _, name in self.candidates):
-            return PIN_AFTER
-        return PIN_OCCURRENCE
+        The question is whether *some* `after` selects one match, not whether one reaches
+        all of them. A match that is the first named node of its scene has nothing before
+        it, so every `after` excludes it — which is the answer a row meaning the other
+        match wants. So distinct previous nodes, counting "nothing before it" as one of
+        them, is what makes a row pinnable; only when every match follows the same node
+        does no `after` exist and the row become positional."""
+        return PIN_AFTER if len(self.candidates) > 1 else PIN_OCCURRENCE
 
 
 def contract_trigger_conflicts(doc: dict, contract_dir, row_ids=None) -> list[TriggerConflict]:
@@ -1431,6 +1454,19 @@ def _unique_control(page, control, wanted: VolatileTrigger, rid: str):
     `get_by_role(..., exact=True)` locator; `after` pins through
     `matches_volatile`. One `wait_until` per step."""
     label = f'{wanted.role} "{wanted.name}"'
+    if wanted.occurrence is not None:
+        # The count is the assertion. Without it `nth(occurrence - 1)` would point
+        # wherever the product happened to put its blocks: a product rendering one more
+        # than the design does would be driven on the wrong control and still pass, which
+        # is the failure a positional pin is always accused of and the one thing that
+        # stops it. `of` is what the design tree held when the row was written, kept equal
+        # to it by the contract lint.
+        wait_until(page, lambda: control.count() == wanted.of,
+                   f"open step {rid}: {label} matches {control.count()} controls, and this "
+                   f"row is pinned to the {wanted.occurrence} of {wanted.of} the design "
+                   f"draws; the product is not rendering what the row was written against")
+        return control.nth(wanted.occurrence - 1)
+
     if wanted.after is None:
         wait_until(page, lambda: control.count() > 0,
                    f"open step {rid}: no control {label} on the page")

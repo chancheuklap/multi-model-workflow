@@ -736,7 +736,7 @@ class TestBaselineServing(unittest.TestCase):
              "trigger": {"role": "text", "name": "鸭豆余额 12,480"},
              "reason": "wallet balance is an external account; seed does not write it"}]}
         self.assertEqual(sd.volatile_triggers(scoped, "App · 商品项目库.dc.html"),
-                         [("text", "鸭豆余额 12,480", None)])
+                         [sd.VolatileTrigger("text", "鸭豆余额 12,480")])
         self.assertEqual(sd.volatile_triggers(scoped, "Component · 工作台壳.dc.html"), [])
 
     def test_three_same_stem_siblings_the_after_coordinate_hits_one(self):
@@ -788,7 +788,8 @@ class TestBaselineServing(unittest.TestCase):
              "after": {"role": "text", "name": "当前余额"},
              "reason": "wallet balance is an external account; seed does not write it"}]}
         got = sd.volatile_triggers(scoped, "Component · 自由模式.dc.html")
-        self.assertEqual(got, [("strong", "12,480 鸭豆", ("text", "当前余额"))])
+        self.assertEqual(got, [sd.VolatileTrigger("strong", "12,480 鸭豆",
+                                                  ("text", "当前余额"))])
         self.assertEqual(got[0].after, ("text", "当前余额"))
         self.assertEqual(sd.mask_volatile(lines, got), masked_pinned)
         self.assertEqual(sd.volatile_paint_js(got), js)
@@ -856,16 +857,18 @@ class WhichClassADefectIs(unittest.TestCase):
         self.assertEqual(c.kind, sd.PIN_OCCURRENCE)
         self.assertEqual([n for _, n in c.candidates], ["使用说明"])
 
-    def test_a_match_with_nothing_named_before_it_makes_the_row_positional(self):
-        """`after` has to reach every match. The first named node of a scene has nothing
-        before it, so a pin that splits the others would leave that one unaddressed."""
+    def test_a_match_with_nothing_before_it_is_still_told_apart_by_after(self):
+        """The first named node of a scene has nothing before it, and every `after`
+        excludes it — which is exactly how a row meaning the other match says so. What
+        makes a row positional is every match following the *same* node, not one of them
+        following none."""
         c = self.conflict(
             '- button "导出"\n'
             '- heading "任务详情"\n'
             '- button "导出"\n',
             "button", "导出")
         self.assertEqual(c.hits, 2)
-        self.assertEqual(c.kind, sd.PIN_OCCURRENCE)
+        self.assertEqual(c.kind, sd.PIN_AFTER)
 
     def test_a_class_is_one_of_the_three_names_a_program_branches_on(self):
         self.assertEqual(

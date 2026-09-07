@@ -460,12 +460,15 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
         elif hits > 1:
             errors.append(f"volatile_values: {role} {name!r} on {page} matches {hits} "
                           f"nodes; {after_advice(tree_of(page), screen_driver_mod().VolatileTrigger(role, name), None, page=page)}")
-    # -- row trigger uniqueness: exact (role, name), same `after` pin
+    # -- row trigger pins: which pin a row may use is decided by the design tree
     sd = screen_driver_mod()
     for rid, row in rows.items():
         wanted = sd.row_trigger(row)
         if not wanted.role or not wanted.name:
             continue
+        if wanted.after is not None and wanted.occurrence is not None:
+            errors.append(f"{rid}: trigger carries both after and occurrence; a row has one "
+                          f"pin, and which one is the tree's answer, not a preference")
         row_scenes = [scene_name_of(s) for s in (row.get("scenes") or [])]
         if not row_scenes or contract_dir is None:
             continue
@@ -475,11 +478,44 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
             if page:
                 pages_for.setdefault(page, set()).add(sc)
         for page, scs in pages_for.items():
-            hits = sd.count_trigger_hits(tree_of(page), wanted, scs)
-            if hits > 1:
-                errors.append(
-                    f"{rid}: trigger {wanted.role} {wanted.name!r} on {page} "
-                    f"matches {hits} nodes; {after_advice(tree_of(page), wanted, scs, rid, page)}")
+            tree = tree_of(page)
+            bare = sd.VolatileTrigger(wanted.role, wanted.name)
+            drawn = sd.count_trigger_hits(tree, bare, scs)
+            label = f"{rid}: trigger {wanted.role} {wanted.name!r} on {page}"
+            if drawn <= 1:
+                if wanted.occurrence is not None:
+                    errors.append(f"{label} matches {drawn} node; a positional pin claims "
+                                  f"an ambiguity the design does not have — drop it")
+                continue
+            kind = sd.TriggerConflict(
+                rid, page, drawn, sd.trigger_after_candidates(tree, bare, scs)).kind
+            # Which pin is legal is the tree's answer. Leaving the choice to whoever writes
+            # the row is how one thing gets two ways of being said: `after` survives the
+            # design putting another control before it and `occurrence` does not, so a row
+            # that *can* use `after` must, and a row in a repeated block cannot.
+            if kind == sd.PIN_AFTER and wanted.occurrence is not None:
+                errors.append(f"{label} matches {drawn} nodes, and their previous named "
+                              f"nodes differ, so this row is pinned with after, not by "
+                              f"position; {after_advice(tree, bare, scs, rid, page)}")
+            elif kind == sd.PIN_OCCURRENCE and wanted.after is not None:
+                errors.append(f"{label} matches {drawn} nodes; "
+                              f"{after_advice(tree, bare, scs, rid, page)}")
+            if wanted.occurrence is not None:
+                if wanted.of != drawn:
+                    errors.append(f"{label} matches {drawn} nodes, and the row says of "
+                                  f"{wanted.of}; a positional pin means nothing against a "
+                                  f"number that has moved")
+                elif not 1 <= wanted.occurrence <= drawn:
+                    errors.append(f"{label}: occurrence {wanted.occurrence} is outside the "
+                                  f"{drawn} nodes the design draws")
+                if wanted.occurrence != 1 and not (row.get("source") or []):
+                    errors.append(f"{label}: occurrence {wanted.occurrence} is not the "
+                                  f"first match, so it is a judgement about which block "
+                                  f"this row means; say where it came from in source")
+            resolved = sd.count_trigger_hits(tree, wanted, scs)
+            if resolved > 1:
+                errors.append(f"{label} matches {resolved} nodes; "
+                              f"{after_advice(tree, bare, scs, rid, page)}")
     return errors, warnings
 
 

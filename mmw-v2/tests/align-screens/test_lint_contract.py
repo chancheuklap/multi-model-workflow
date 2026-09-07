@@ -581,5 +581,86 @@ class TestTriggerAfter(unittest.TestCase):
                              and "matches 0 nodes" in e for e in errors), errors)
 
 
+class TestOccurrencePin(unittest.TestCase):
+    """A positional pin is only safe because the lint holds it. These are the holds."""
+
+    # Two blocks the design draws identically: every match follows the same node, so no
+    # `after` exists and `occurrence` is the only pin that can address them.
+    TREE = (
+        '- text: 参考图\n'
+        '- button "使用说明"\n'
+        '- button "添加参考图"\n'
+        '- text: 参考图\n'
+        '- button "使用说明"\n'
+        '- button "添加参考图"\n'
+        '- button "下一步"\n'
+    )
+    ROW = {
+        "id": "create-project.abandon.confirm",
+        "component": "features/project-setup/CreateProjectView",
+        "trigger": {"role": "button", "name": "添加参考图"},
+        "precondition": {},
+        "scenes": ["empty"],
+        "calls": ["none"],
+        "shows": {},
+        "next": "stay",
+        "source": ["#537 Implementation Decisions 2"],
+        "reach": "seed:library-ready",
+        "gap": "aligned",
+    }
+
+    def setUp(self):
+        lc.TOOLS[:] = [TOOLS_DIR]
+        self.repo = Repo()
+        self.repo.write_targets()
+        aria = self.repo.spec_dir / "targets" / (PAGE_A[:-len(".dc.html")] + ".aria")
+        aria.write_text(aria.read_text(encoding="utf-8") + "## scene empty\n" + self.TREE,
+                        encoding="utf-8")
+
+    def tearDown(self):
+        self.repo.cleanup()
+
+    def errors_for(self, trigger_extra: dict, **row_extra) -> list[str]:
+        doc = contract()
+        row = dict(self.ROW, **row_extra)
+        row["trigger"] = dict(self.ROW["trigger"], **trigger_extra)
+        doc["rows"] = [*doc["rows"], row]
+        errors, _ = lc.lint_screen_axis(doc, SKELETON, self.repo.baseline,
+                                        self.repo.spec_dir)
+        return [e for e in errors if self.ROW["id"] in e]
+
+    def test_a_repeated_block_takes_the_positional_pin_and_then_resolves(self):
+        self.assertTrue(self.errors_for({}), "unpinned, this row is undrivable")
+        self.assertEqual(self.errors_for({"occurrence": 1, "of": 2}), [])
+
+    def test_the_count_the_pin_was_written_against_is_held(self):
+        """A positional pin means nothing against a number that has moved."""
+        wrong = self.errors_for({"occurrence": 1, "of": 3})
+        self.assertTrue(any("of 3" in e for e in wrong), wrong)
+
+    def test_an_index_outside_the_matches_is_an_error(self):
+        out = self.errors_for({"occurrence": 3, "of": 2}, source=["#537 Implementation Decisions 2"])
+        self.assertTrue(any("outside" in e for e in out), out)
+
+    def test_a_pin_past_the_first_match_has_to_say_where_it_came_from(self):
+        """`occurrence: 1` is what the repair command writes, blind to the product.
+        Anything else is a judgement about which block the row means."""
+        row = dict(self.ROW)
+        row.pop("source")
+        self.assertTrue(any("source" in e for e in
+                            self.errors_for({"occurrence": 2, "of": 2}, source=[])),
+                        "a non-default index with no source must be refused")
+        self.assertEqual(self.errors_for({"occurrence": 2, "of": 2}), [])
+
+    def test_a_row_carries_one_pin(self):
+        both = self.errors_for({"occurrence": 1, "of": 2},
+                               after={"role": "button", "name": "使用说明"})
+        self.assertTrue(any("both after and occurrence" in e for e in both), both)
+
+    def test_a_positional_pin_on_an_unambiguous_trigger_is_refused(self):
+        out = self.errors_for({"name": "下一步", "occurrence": 1, "of": 1})
+        self.assertTrue(any("does not have" in e for e in out), out)
+
+
 if __name__ == "__main__":
     unittest.main()
