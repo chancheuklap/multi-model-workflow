@@ -832,10 +832,17 @@ delete_heartbeat() {
 # names a heartbeat is left alone. Outside a Paseo session, one stderr line and
 # exit 0 — there is no current agent to attach a heartbeat to.
 #
-# Hourly, because nothing in a working night needs it: every agent this pipeline
-# starts says so when it is done — a verifier and a reviewer through Paseo's own
-# notification, a worker through `verify-ticket.py`. What is left for a clock is a
-# session that stopped without either, and an hour is soon enough for that.
+# `7,47`: twice an hour, so the gap is 40 minutes and then 20, alternating. Standard
+# cron cannot say "every 40 minutes" — 60 does not divide by 40, so any expression
+# repeats on the hour — and 40 is the longer of the two gaps rather than the average.
+# The minutes are 7 and 47 rather than 0 and 40 because every cron job anybody writes
+# lands on the hour, and there is no reason to queue behind them.
+#
+# Nothing in a working night needs this at all: every agent this pipeline starts says
+# when it is done — a verifier and a reviewer through Paseo's own notification, a
+# worker through `verify-ticket.py`. What is left for a clock is a session that
+# stopped without either, and a ticket whose landing message was lost, which is why
+# the fire sweeps before it reads status.
 ensure_night_heartbeat() {
   local spec="$1" root hb existing prompt json ident dir
   if [ -z "${PASEO_AGENT_ID:-}" ]; then
@@ -864,7 +871,7 @@ ensure_night_heartbeat() {
     runner="$runner --tools $dir"
   done
   prompt="Run: $runner land --sweep (it lands whatever came to rest unheard), then $runner status $spec (from $root), then act per night.md step 3."
-  if ! json="$(paseo heartbeat create --cron '7 * * * *' --name "mmw-night-$spec" --json "$prompt")"; then
+  if ! json="$(paseo heartbeat create --cron '7,47 * * * *' --name "mmw-night-$spec" --json "$prompt")"; then
     echo "dispatch: could not create heartbeat mmw-night-$spec" >&2
     exit 2
   fi

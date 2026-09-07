@@ -818,7 +818,7 @@ _Avoid_: 派发 (as a term)词, prompt (bare)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **check**:
-`dispatch.sh check <spec>`: runs `install.sh --check`, confirms every `bypass` row's host is `available` in `paseo provider ls --json`, and confirms every queued ticket has at most one worker-grade label that `models.md` has a row for; then, in a Paseo session, creates the night's **heartbeat** `mmw-night-<spec>` (hourly, prompt `run status <spec>, act per step 3`) and writes its id to `.git/mmw-heartbeat-<spec>`. Exit 0 all passed; exit 2 one or more failed or the heartbeat could not be made, stderr one `dispatch: …` line per failure. Do not `advance` on 2.
+`dispatch.sh check <spec>`: runs `install.sh --check`, confirms every `bypass` row's host is `available` in `paseo provider ls --json`, and confirms every queued ticket has at most one worker-grade label that `models.md` has a row for; then, in a Paseo session, creates the night's **heartbeat** `mmw-night-<spec>` (at 7 and 47 minutes past the hour, prompt `land --sweep, then status <spec>, act per step 3`) and writes its id to `.git/mmw-heartbeat-<spec>`. Exit 0 all passed; exit 2 one or more failed or the heartbeat could not be made, stderr one `dispatch: …` line per failure. Do not `advance` on 2.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **start**:
