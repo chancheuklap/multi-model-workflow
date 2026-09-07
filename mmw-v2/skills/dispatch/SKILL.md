@@ -89,7 +89,7 @@ The night's heartbeat is created in [references/night.md](references/night.md) s
 
 | Code | What happened |
 | --- | --- |
-| `0` | Done. One JSON object per dispatched ticket on stdout; the line `advance #<spec>: merged <m>, already in <s>, released <g>, started <k>, refused <r>, held <h>` is on stderr. Each claim given back prints a line of its own naming the ticket and why; when nothing could start and tickets are still in the agent queue, stderr names every one of them and the condition holding it |
+| `0` | Done. One JSON object per dispatched ticket on stdout; the line `advance #<spec>: merged <m>, already in <s>, released <g>, started <k>, refused <r>, held <h>` is on stderr. `merged` counts carried branches too: an open ticket every one of whose unmet criteria a judge called `undrivable` has its branch merged and its workspace kept, and it stays open until that criterion is re-run green. Each claim given back prints a line of its own naming the ticket and why; when nothing could start and tickets are still in the agent queue, stderr names every one of them and the condition holding it |
 | `2` | Nothing was touched. Stderr: not a git repository, uncommitted tracked changes, or the `.git` lock was held for `MERGE_TRIES` tries — run `advance` again |
 | `3` | A merge is in conflict. Everything before it is merged and committed; nothing was archived, no workspace was created, nothing was dispatched. **The conflict is still in the tree and it stays there.** Resolve it with the `resolving-merge-conflicts` skill, run this repository's own checks, commit the merge, then run `advance` again. The conflict report (stderr) already names the two sides and the conflicted files |
 

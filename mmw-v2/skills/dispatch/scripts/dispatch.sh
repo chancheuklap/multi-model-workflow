@@ -1188,9 +1188,12 @@ advance() {
   plan="$(python3 "$STATUS" --advance-plan "$spec")" \
     || refuse "could not read the batch under #$spec"
 
+  # `CARRY` merges the same way `MERGE` does and is archived the way it is not: the
+  # ticket is still open, its criterion still has to be re-run in that workspace once the
+  # contract it is blocked on is repaired.
   local merged=0 skipped=0 number branch left rc
   local -a just_merged=()
-  for number in $(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }'); do
+  for number in $(printf '%s\n' "$plan" | awk '$1 == "MERGE" || $1 == "CARRY" { print $2 }'); do
     branch="$(ticket_branch "$number")"
     if ! git -C "$root" rev-parse --verify --quiet "refs/heads/$branch" >/dev/null; then
       skipped=$((skipped + 1))
@@ -1204,7 +1207,7 @@ advance() {
     merge_one "$root" "$branch"
     rc=$?
     if [ "$rc" -eq 1 ]; then
-      left="$(printf '%s\n' "$plan" | awk -v n="$number" '$1 == "MERGE" && seen { print "issue-" $2 } $2 == n { seen = 1 }')"
+      left="$(printf '%s\n' "$plan" | awk -v n="$number" '($1 == "MERGE" || $1 == "CARRY") && seen { print "issue-" $2 } $2 == n { seen = 1 }')"
       conflict_report "$root" "$left" >&2
       exit 3
     fi
@@ -1216,6 +1219,8 @@ advance() {
 
   local archived
   for archived in "${just_merged[@]+"${just_merged[@]}"}"; do
+    printf '%s\n' "$plan" | awk -v n="$archived" '$1 == "CARRY" && $2 == n { found = 1 }
+      END { exit !found }' && continue
     archive_workspace "$archived"
   done
 
@@ -1361,7 +1366,7 @@ land_tickets() {
     [ "$rc" -eq 0 ] || refuse "could not merge $branch after $MERGE_TRIES tries; git said nothing this script can act on"
     echo "merged $branch" >&2
     merged=$((merged + 1))
-  done < <(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }')
+  done < <(printf '%s\n' "$plan" | awk '$1 == "MERGE" || $1 == "CARRY" { print $2 }')
 
   for number in $(printf '%s\n' "$plan" | awk '$1 == "RELEASE" { print $2 }'); do
     if gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1; then

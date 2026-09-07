@@ -741,5 +741,39 @@ class ReadingPaseo(unittest.TestCase):
         })
 
 
+class CarriedBranches(unittest.TestCase):
+    """A ticket blocked only by a defect in the contract still lands its verified work.
+    On 2026-09-07 three tickets kept 69 verified commits off the branch, one criterion
+    each, because a ticket merged only when it closed."""
+
+    def handoff(self, kinds: str, unmet: int = 0) -> str:
+        return (f"HANDOFF REQUIRED: 1 abandoned ({kinds}), {unmet} unmet, 7 met of 8\n"
+                f"Branch: issue-1 Commit: abc\n")
+
+    def test_only_undrivable_criteria_carry(self):
+        t = ticket(1, state="OPEN", labels=("needs-triage",),
+                   comments=(self.handoff("undrivable"),))
+        self.assertTrue(status.merges_while_open(t))
+
+    def test_a_criterion_that_ran_and_failed_is_a_verdict(self):
+        """However an agent reads its own failure, red is red; only a judge's own line,
+        which `verify-ticket.py` insists on, makes a criterion undrivable."""
+        for kinds in ("failed", "stuck", "failed, undrivable", "decision"):
+            with self.subTest(kinds=kinds):
+                t = ticket(1, state="OPEN", labels=("needs-triage",),
+                           comments=(self.handoff(kinds),))
+                self.assertFalse(status.merges_while_open(t))
+
+    def test_an_unmet_criterion_keeps_the_branch_back(self):
+        """Unmet is work that was not done, not a contract that cannot be executed."""
+        t = ticket(1, state="OPEN", labels=("needs-triage",),
+                   comments=(self.handoff("undrivable", unmet=1),))
+        self.assertFalse(status.merges_while_open(t))
+
+    def test_a_ticket_with_no_handoff_does_not_carry(self):
+        self.assertFalse(status.merges_while_open(
+            ticket(1, state="OPEN", comments=("self-run\n3 met",))))
+
+
 if __name__ == "__main__":
     unittest.main()
