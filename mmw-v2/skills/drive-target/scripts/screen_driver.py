@@ -874,7 +874,7 @@ def row_trigger(row: dict) -> VolatileTrigger:
     t = row.get("trigger") or {}
     return VolatileTrigger(str(t.get("role") or ""), str(t.get("name") or ""),
                            after_of(row),
-                           _int_or_none(t.get("occurrence")), _int_or_none(t.get("of")))
+                           _int_or_none(row.get("occurrence")), _int_or_none(row.get("of")))
 
 
 def named_nodes(lines: list[str]):
@@ -912,6 +912,9 @@ def trigger_hit_indices(lines: list[str], trigger: VolatileTrigger) -> list[int]
         if matches_volatile(role, name, [trigger], previous):
             hits.append(k)
         k += 1
+    if trigger.occurrence is not None:
+        if trigger.of == len(hits) and 1 <= trigger.occurrence <= len(hits):
+            return [hits[trigger.occurrence - 1]]
     return hits
 
 
@@ -1004,6 +1007,48 @@ class TriggerConflict(NamedTuple):
         them, is what makes a row pinnable; only when every match follows the same node
         does no `after` exist and the row become positional."""
         return PIN_AFTER if len(self.candidates) > 1 else PIN_OCCURRENCE
+
+
+def trigger_resolution(doc: dict, contract_dir, row_ids=None) -> dict[str, dict[str, list[int]]]:
+    """For every row, *which* node its trigger resolves to on each of its pages.
+
+    The fingerprint a contract repair is proved against. Counts are not enough: a repair
+    must leave every other row on the same node, and two different nodes are the same
+    count. Same reader as `contract_trigger_conflicts` — contract and target trees only.
+    """
+    from pathlib import Path
+    contract_dir = Path(contract_dir)
+    scene_pages = {name: (decl or {}).get("page")
+                   for name, decl in (doc.get("scenes") or {}).items()}
+    trees: dict[str, list[str]] = {}
+
+    def tree_of(page: str) -> list[str]:
+        if page not in trees:
+            stem = page[:-len(".dc.html")] if page.endswith(".dc.html") else page
+            aria = contract_dir / "targets" / f"{stem}.aria"
+            trees[page] = aria.read_text(encoding="utf-8").splitlines() if aria.exists() else []
+        return trees[page]
+
+    out: dict[str, dict[str, list[int]]] = {}
+    for row in doc.get("rows") or []:
+        rid = str(row.get("id") or "")
+        if not rid or (row_ids is not None and rid not in set(row_ids)):
+            continue
+        wanted = row_trigger(row)
+        if not wanted.role or not wanted.name:
+            continue
+        # Per scene, not per page. A scene is what is on screen when the driver acts, so
+        # it is the unit a pin is written against; a page's scenes concatenated would
+        # count a control once per scene and no `of` could ever match.
+        for sc in row.get("scenes") or []:
+            name = sc if isinstance(sc, str) else str((sc or {}).get("name") or "")
+            page = scene_pages.get(name)
+            if not page:
+                continue
+            lines = narrow_to_scenes(tree_of(page), {name})
+            if lines:
+                out.setdefault(rid, {})[f"{page}::{name}"] = trigger_hit_indices(lines, wanted)
+    return out
 
 
 def contract_trigger_conflicts(doc: dict, contract_dir, row_ids=None) -> list[TriggerConflict]:

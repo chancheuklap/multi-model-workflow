@@ -1,7 +1,16 @@
 """Lint a screen contract against the handoff skeleton and, when given, openapi.json.
 
 Usage: uv run python lint_contract.py --tools <drive-target scripts> <screen-contract.yaml> <skeleton.json> [<openapi.json>]
+       uv run python lint_contract.py --tools <drive-target scripts> --pin [--base <ref>] <screen-contract.yaml>
 Exit 0 with no errors; 1 with errors listed one per line; warnings never fail.
+
+`--pin` repairs the locators a contract defect leaves undrivable, and proves each write
+before it keeps it: the repaired row must resolve to one node, and every other row must
+resolve to the node it resolved to in the committed contract at `--base` (the ticket
+branch's recorded base by default). It writes `after` only when one candidate is free and
+`occurrence: 1` otherwise, never reading the product — so it cannot search for the value
+that turns a criterion green. Anything else it refuses to a person by name. It needs the
+contract and the target trees beside it, nothing more; the skeleton is not read.
 `--tools` is the `scripts/` directory of the drive-target skill. Three things
 come from that driver, and this file holds no copy of any: the target kinds
 (its `ADAPTERS`), the `.mmw/target.json` check (the function `target
@@ -22,6 +31,7 @@ import hashlib
 import io
 import json
 import re
+import subprocess
 import sys
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -683,12 +693,218 @@ def volatile_lines(doc: dict) -> list[str]:
     return out
 
 
+# ---------------------------------------------------------------- the repair command
+ROW_HEAD = re.compile(r"^- id: (\S+)\s*$", re.M)
+
+
+def row_blocks(text: str) -> dict[str, tuple[int, int]]:
+    """Every row's span in the contract's own bytes, by id.
+
+    The repair edits the file as text, never as a parsed document: a 200 KB contract is
+    written by hand, and round-tripping it through a YAML dumper would rewrite every line
+    a person laid out to say something."""
+    heads = [(m.group(1), m.start()) for m in ROW_HEAD.finditer(text)]
+    out = {}
+    for i, (rid, start) in enumerate(heads):
+        end = heads[i + 1][1] if i + 1 < len(heads) else len(text)
+        out[rid] = (start, end)
+    return out
+
+
+def after_trigger(block: str) -> int:
+    """Where a sibling of `trigger` goes: the offset just past the trigger construct."""
+    m = re.search(r"^  trigger:(.*)$", block, re.M)
+    if not m:
+        return -1
+    end = m.end() + 1
+    if m.group(1).strip():
+        return end                      # inline `trigger: { … }`
+    for line in block[end:].splitlines(keepends=True):
+        if line.strip() and not line.startswith("    "):
+            break
+        end += len(line)
+    return end
+
+
+def write_pin(text: str, rid: str, lines: list[str]) -> str:
+    """`lines` as siblings of the row's `trigger`, where `after` already lives."""
+    start, end = row_blocks(text)[rid]
+    block = text[start:end]
+    at = after_trigger(block)
+    if at < 0:
+        raise SystemExit(f"{rid}: no trigger to pin")
+    body = "".join(f"  {line}\n" for line in lines)
+    return text[:start] + block[:at] + body + block[at:] + text[end:]
+
+
+def taken_after(doc: dict, wanted) -> set[tuple[str, str]]:
+    """The `after` values other rows sharing this exact trigger already use. A candidate
+    one of them has taken is not this row's to take."""
+    sd = screen_driver_mod()
+    out = set()
+    for row in doc.get("rows") or []:
+        other = sd.row_trigger(row)
+        if (other.role, other.name) == (wanted.role, wanted.name) and other.after:
+            out.add(other.after)
+    return out
+
+
+def settles(doc: dict, contract_dir: Path, row: dict, pin: dict) -> bool:
+    """Whether this pin leaves at most one node on every scene the row is drawn on.
+
+    Tried before anything is written. A candidate that merely differs from the others can
+    still cover two matches — three matches where two share a previous node have two
+    candidates and only one of them selects a single node."""
+    trial = dict(row, **pin)
+    probe = {"rows": [trial], "scenes": doc.get("scenes") or {}}
+    got = screen_driver_mod().trigger_resolution(probe, contract_dir).get(str(row.get("id")))
+    return bool(got) and all(len(v) <= 1 for v in got.values())
+
+
+def pin_plan(doc: dict, contract_dir: Path) -> tuple[dict[str, list[str]], list[str]]:
+    """What the repair may write, and what it refuses to a person.
+
+    Two rules make this safe to run without reading the product. `after` is written only
+    when the candidates left after removing the ones sibling rows already took come to
+    exactly one — choosing among several is choosing what the row *means*, and no proof
+    catches a wrong meaning. `occurrence` is only ever 1: the first match in reading
+    order, decided before the product is ever asked, so the command cannot search for the
+    value that turns a criterion green.
+    """
+    sd = screen_driver_mod()
+    writes: dict[str, list[str]] = {}
+    refusals: dict[str, str] = {}
+    rows = {str(r.get("id")): r for r in doc.get("rows") or []}
+    # A row conflicts once per page it is drawn on; it is repaired or refused once.
+    for c in sd.contract_trigger_conflicts(doc, contract_dir):
+        if c.row_id in writes or c.row_id in refusals:
+            continue
+        wanted = sd.row_trigger(rows[c.row_id])
+        if wanted.after is not None or wanted.occurrence is not None:
+            refusals[c.row_id] = (f"{c.row_id}: already pinned, and the pin does not "
+                                  f"resolve it; that is a contract question, not a repair")
+            continue
+        # A scene with no match at all is fine — the control is simply not drawn there.
+        # Scenes that do draw it must all draw the same number, or no single pin serves
+        # them: the driver asserts one count, on whichever scene it is driving.
+        seen = {k: v for k, v in (sd.trigger_resolution(doc, contract_dir, [c.row_id])
+                                  .get(c.row_id) or {}).items() if v}
+        counts = {len(v) for v in seen.values()}
+        if len(counts) > 1:
+            refusals[c.row_id] = (f"{c.row_id}: [{sd.NEEDS_DECISION}] the design draws "
+                                  f"{sorted(counts)} of this control on different scenes, so "
+                                  f"one pin cannot address them all; the row needs a "
+                                  f"drive.scene")
+            continue
+        if c.kind == sd.PIN_AFTER:
+            free = [p for p in c.candidates if p[1] and p not in taken_after(doc, wanted)]
+            works = [p for p in free if settles(doc, contract_dir, rows[c.row_id],
+                                                {"after": {"role": p[0], "name": p[1]}})]
+            if len(works) != 1:
+                refusals[c.row_id] = (
+                    f"{c.row_id}: [{sd.NEEDS_DECISION}] {len(works)} of the {len(free)} free "
+                    f"candidates leave one node on every scene, so which one this row means "
+                    f"is a decision, not a repair")
+                continue
+            writes[c.row_id] = [f"after: {{ role: {works[0][0]}, name: \"{works[0][1]}\" }}"]
+        else:
+            writes[c.row_id] = ["occurrence: 1", f"of: {counts.pop()}"]
+    return writes, sorted(refusals.values())
+
+
+def pin(contract: Path, base_ref: str | None) -> int:
+    """Repair every mechanically repairable locator, and prove it before it is kept."""
+    sd = screen_driver_mod()
+    text = contract.read_text(encoding="utf-8")
+    doc = yaml.safe_load(text)
+    contract_dir = contract.resolve().parent
+    root = repo_root(contract)
+
+    base = base_ref or recorded_base(root) or "HEAD"
+    rel = contract.resolve().relative_to(root.resolve())
+    shown = subprocess.run(["git", "-C", str(root), "show", f"{base}:{rel}"],
+                           capture_output=True, text=True)
+    if shown.returncode != 0:
+        print(f"ERROR cannot read {rel} at {base}: {shown.stderr.strip()}")
+        return 2
+    # Against the committed contract, never the working copy. Otherwise a caller could
+    # delete a hand-written pin, then have this command "repair" it, and each write would
+    # pass its own proof while the pair changed what the contract means.
+    before = sd.trigger_resolution(yaml.safe_load(shown.stdout), contract_dir)
+    print(f"proving against {base}:{rel}")
+
+    writes, refused = pin_plan(doc, contract_dir)
+    # A row the committed contract already resolved is not broken; something in the working
+    # copy broke it. Repairing it would let a caller delete a hand-written pin, have this
+    # command write a different one, and pass — each write proving itself while the pair
+    # moved the row to another node. This is the one way a repair could change meaning.
+    for rid in sorted(writes):
+        was = before.get(rid) or {}
+        if was and all(len(v) <= 1 for v in was.values()):
+            del writes[rid]
+            refused.append(f"{rid}: resolved at {base} and does not here, so the working "
+                           f"copy broke it; this command repairs contracts, not edits")
+    for line in refused:
+        print("REFUSED", line)
+    if not writes:
+        print(f"pinned 0 rows, {len(refused)} left to a person")
+        return 1 if refused else 0
+
+    edited = text
+    for rid, lines in writes.items():
+        edited = write_pin(edited, rid, lines)
+    after = sd.trigger_resolution(yaml.safe_load(edited), contract_dir)
+
+    kept, broke = [], []
+    for rid in writes:
+        got = after.get(rid) or {}
+        if not got or any(len(v) > 1 for v in got.values()):
+            broke.append(f"{rid}: the pin still leaves more than one node on some scene")
+    for rid, pages in before.items():
+        if rid not in writes and (after.get(rid) or {}) != pages:
+            broke.append(f"{rid}: a repair of another row moved this one; nothing written")
+    if broke:
+        for line in broke:
+            print("ERROR", line)
+        print(f"pinned 0 rows: the proof failed, the contract is untouched")
+        return 2
+
+    contract.write_text(edited, encoding="utf-8")
+    for rid, lines in writes.items():
+        kept.append(f"{rid}: {' '.join(lines)}")
+    for line in sorted(kept):
+        print("PINNED ", line)
+    print(f"pinned {len(writes)} rows, {len(refused)} left to a person; "
+          f"every other row resolves to the same node it did at {base}")
+    return 1 if refused else 0
+
+
+def recorded_base(root: Path) -> str | None:
+    """The base commit `dispatch.sh` recorded for this ticket's branch, when there is one."""
+    head = subprocess.run(["git", "-C", str(root), "rev-parse", "--abbrev-ref", "HEAD"],
+                          capture_output=True, text=True)
+    if head.returncode != 0:
+        return None
+    got = subprocess.run(["git", "-C", str(root), "config",
+                          f"branch.{head.stdout.strip()}.mmw-base"],
+                         capture_output=True, text=True)
+    return got.stdout.strip() or None
+
+
 def main(argv: list[str]) -> int:
     rest: list[str] = []
     TOOLS[:] = []
+    pin_mode = False
+    base_ref: str | None = None
     i = 1
     while i < len(argv):
-        if argv[i] == "--tools" and i + 1 < len(argv):
+        if argv[i] == "--pin":
+            pin_mode = True
+            i += 1
+        elif argv[i] == "--base" and i + 1 < len(argv):
+            base_ref = argv[i + 1]
+            i += 2
+        elif argv[i] == "--tools" and i + 1 < len(argv):
             TOOLS.append(Path(argv[i + 1]).resolve())
             i += 2
         elif argv[i].startswith("--tools="):
@@ -698,6 +914,11 @@ def main(argv: list[str]) -> int:
             rest.append(argv[i])
             i += 1
     argv = [argv[0], *rest]
+    if pin_mode:
+        if len(argv) != 2 or not TOOLS:
+            print(__doc__)
+            return 2
+        return pin(Path(argv[1]), base_ref)
     if len(argv) not in (3, 4) or not TOOLS:
         print(__doc__)
         return 2

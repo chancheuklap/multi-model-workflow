@@ -8,6 +8,11 @@ import os
 import sys
 import tempfile
 import unittest
+
+import yaml
+from contextlib import redirect_stdout
+import subprocess
+import io
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[2] / "skills" / "align-screens" / "scripts" / "lint_contract.py"
@@ -620,10 +625,14 @@ class TestOccurrencePin(unittest.TestCase):
     def tearDown(self):
         self.repo.cleanup()
 
-    def errors_for(self, trigger_extra: dict, **row_extra) -> list[str]:
+    def errors_for(self, pin: dict, **row_extra) -> list[str]:
+        """`occurrence` and `of` sit on the row, beside `after`: one home for pins."""
         doc = contract()
         row = dict(self.ROW, **row_extra)
-        row["trigger"] = dict(self.ROW["trigger"], **trigger_extra)
+        name = pin.pop("name", None)
+        if name is not None:
+            row["trigger"] = dict(self.ROW["trigger"], name=name)
+        row.update(pin)
         doc["rows"] = [*doc["rows"], row]
         errors, _ = lc.lint_screen_axis(doc, SKELETON, self.repo.baseline,
                                         self.repo.spec_dir)
@@ -660,6 +669,102 @@ class TestOccurrencePin(unittest.TestCase):
     def test_a_positional_pin_on_an_unambiguous_trigger_is_refused(self):
         out = self.errors_for({"name": "下一步", "occurrence": 1, "of": 1})
         self.assertTrue(any("does not have" in e for e in out), out)
+
+
+class TestPinCommand(unittest.TestCase):
+    """`--pin` repairs a locator and proves it before keeping it. The proof is the whole
+    reason an agent is allowed to touch a contract at all."""
+
+    TREE = (
+        '- text: 参考图\n'
+        '- button "使用说明"\n'
+        '- button "添加参考图"\n'
+        '- text: 参考图\n'
+        '- button "使用说明"\n'
+        '- button "添加参考图"\n'
+    )
+    ROW = {
+        "id": "create-project.abandon.confirm",
+        "component": "features/project-setup/CreateProjectView",
+        "trigger": {"role": "button", "name": "添加参考图"},
+        "precondition": {},
+        "scenes": ["empty"],
+        "calls": ["none"],
+        "shows": {},
+        "next": "stay",
+        "source": ["#537 Implementation Decisions 2"],
+        "reach": "seed:library-ready",
+        "gap": "aligned",
+    }
+
+    def setUp(self):
+        lc.TOOLS[:] = [TOOLS_DIR]
+        self.repo = Repo()
+        self.repo.write_targets()
+        aria = self.repo.spec_dir / "targets" / (PAGE_A[:-len(".dc.html")] + ".aria")
+        aria.write_text(aria.read_text(encoding="utf-8") + "## scene empty\n" + self.TREE,
+                        encoding="utf-8")
+
+    def tearDown(self):
+        self.repo.cleanup()
+
+    def commit(self, doc) -> Path:
+        """The contract on disk and in a commit, because the proof reads the committed one."""
+        path = self.repo.spec_dir / "screen-contract.yaml"
+        path.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False),
+                        encoding="utf-8")
+        root = self.repo.root
+        for cmd in (["init", "-q", "-b", "main"], ["add", "-A"],
+                    ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "c"]):
+            subprocess.run(["git", "-C", str(root), *cmd], check=False,
+                           capture_output=True)
+        return path
+
+    def run_pin(self, path: Path) -> tuple[int, str]:
+        out = io.StringIO()
+        with redirect_stdout(out):
+            code = lc.main(["lint_contract.py", "--tools", str(TOOLS_DIR), "--pin", str(path)])
+        return code, out.getvalue()
+
+    def test_a_repeated_block_is_pinned_and_the_write_is_kept(self):
+        doc = contract()
+        doc["rows"] = [*doc["rows"], dict(self.ROW)]
+        path = self.commit(doc)
+        code, said = self.run_pin(path)
+        self.assertIn("PINNED", said)
+        self.assertIn("occurrence: 1", said)
+        written = path.read_text(encoding="utf-8")
+        self.assertIn("occurrence: 1", written)
+        self.assertIn("of: 2", written)
+        self.assertEqual(code, 0, said)
+
+    def test_a_row_the_committed_contract_resolved_is_not_repaired(self):
+        """The one way a repair could change meaning: delete a hand-written pin, let the
+        command write a different one, and each write passes its own proof while the pair
+        moves the row to another node. The committed contract is what says it was fine."""
+        doc = contract()
+        pinned = dict(self.ROW, occurrence=2, of=2)
+        doc["rows"] = [*doc["rows"], pinned]
+        path = self.commit(doc)
+
+        broken = contract()
+        broken["rows"] = [*broken["rows"], dict(self.ROW)]     # the pin deleted
+        path.write_text(yaml.safe_dump(broken, allow_unicode=True, sort_keys=False),
+                        encoding="utf-8")
+        code, said = self.run_pin(path)
+        self.assertIn("the working copy broke it", said)
+        self.assertNotIn("PINNED", said)
+        self.assertNotIn("occurrence", path.read_text(encoding="utf-8"))
+
+    def test_nothing_is_written_when_the_proof_fails(self):
+        """Whatever the reason, a failed proof leaves the file exactly as it was."""
+        doc = contract()
+        doc["rows"] = [*doc["rows"], dict(self.ROW, scenes=["empty", "ready"])]
+        path = self.commit(doc)
+        before = path.read_text(encoding="utf-8")
+        code, said = self.run_pin(path)
+        if "PINNED" not in said:
+            self.assertEqual(path.read_text(encoding="utf-8"), before, said)
 
 
 if __name__ == "__main__":
