@@ -7,6 +7,7 @@ suite's own.
 
 from __future__ import annotations
 
+import atexit
 import importlib.util
 import io
 import json
@@ -26,6 +27,7 @@ JOURNEY = SCRIPTS / "journey.py"
 GUARD = SCRIPTS / "harness-guard.py"
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "journey"
 HOME = tempfile.mkdtemp(prefix="mmw-journey-home-")
+atexit.register(shutil.rmtree, HOME, True)
 
 
 def load(name: str, path: Path):
@@ -38,10 +40,6 @@ def load(name: str, path: Path):
 
 jy = load("journey", JOURNEY)
 hg = load("harness_guard", GUARD)
-
-
-def tearDownModule():
-    shutil.rmtree(HOME, ignore_errors=True)
 
 
 def write_exec(path: Path, body: str) -> None:
@@ -133,11 +131,12 @@ class JourneyOrder(unittest.TestCase):
         env = (self.repo.root / ".mmw" / "env").read_text(encoding="utf-8")
         self.assertIn("ORIGIN=http://127.0.0.1:9", env)
         self.assertIn("MMW_AUTOMATION=1", env)
-        self.assertIn("MMW_INSTANCE=", env)
+        self.assertRegex(env, r"MMW_INSTANCE=\S+")
         self.assertTrue((self.repo.root / ".mmw" / "stop-ran").is_file())
 
     def test_stop_runs_when_the_script_fails(self):
-        self.repo.write_journey("demo", "echo last-of-script >&2\nexit 7")
+        self.repo.write_journey(
+            "demo", "echo first-of-script >&2\necho last-of-script >&2\nexit 7")
         code, out, _ = self.repo.run("demo")
         self.assertEqual(code, 1, out)
         self.assertEqual(out, "JOURNEY FAILED demo at last-of-script\n")
@@ -151,7 +150,15 @@ class JourneyOrder(unittest.TestCase):
         self.assertIn("Gateway points elsewhere", err)
         self.assertNotIn("JOURNEY OK", out)
         self.assertNotIn("JOURNEY FAILED", out)
-        self.assertIn("stop", self.repo.log.read_text(encoding="utf-8").splitlines())
+        self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
+                         ["start", "stop"])
+
+    def test_a_missing_journey_prints_failed_and_is_exit_1(self):
+        code, out, _ = self.repo.run("no-such")
+        self.assertEqual(code, 1, out)
+        self.assertTrue(out.startswith("JOURNEY FAILED no-such at "), out)
+        self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
+                         ["start", "discover", "stop"])
 
     def test_a_package_json_run_script_is_the_journey(self):
         self.repo.write_journey(
@@ -172,6 +179,9 @@ class FixtureRepo(unittest.TestCase):
     def test_the_committed_demo_prints_ok_and_stop_ran(self):
         home = tempfile.mkdtemp(prefix="mmw-journey-ac-")
         self.addCleanup(shutil.rmtree, home, True)
+        stop_ran = FIXTURE / "repo" / ".mmw" / "stop-ran"
+        stop_ran.unlink(missing_ok=True)
+        self.addCleanup(stop_ran.unlink, missing_ok=True)
         proc = subprocess.run(
             [sys.executable, str(JOURNEY), "run", "demo"],
             cwd=FIXTURE / "repo",
@@ -180,8 +190,6 @@ class FixtureRepo(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(proc.stdout.splitlines()[0], "JOURNEY OK demo")
-        stop_ran = FIXTURE / "repo" / ".mmw" / "stop-ran"
-        self.addCleanup(stop_ran.unlink, missing_ok=True)
         self.assertIn("stop-ran", stop_ran.read_text())
 
 
@@ -194,6 +202,7 @@ class HarnessGuard(unittest.TestCase):
         text = out.getvalue()
         self.assertRegex(text, r"^HARNESS LEAK ")
         self.assertIn("src/app.js", text)
+        self.assertNotIn("src/note.js", text)
         self.assertNotIn("tests/", text)
         self.assertNotIn("scripts/dev/", text)
         self.assertNotIn("tools/opened.py", text)

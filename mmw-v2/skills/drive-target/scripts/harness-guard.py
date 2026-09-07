@@ -15,16 +15,32 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
-MARKERS = ("MMW_", "/api/dev/", "transport off", "__stub")
+READ_MMW = re.compile(
+    r"os\.environ(?:\.get)?\(\s*['\"]MMW_"
+    r"|os\.getenv\(\s*['\"]MMW_"
+    r"|process\.env\.MMW_"
+    r"|\$\{?MMW_[A-Z0-9_]+"
+    r"|env\[['\"]MMW_"
+)
+MARKERS = ("/api/dev/", "transport off", "__stub")
+PATH_TOKEN = re.compile(r"(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+")
 SKIP_DIRS = {
     ".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build",
 }
 
 
+def is_leak(line: str) -> bool:
+    if READ_MMW.search(line):
+        return True
+    return any(marker in line for marker in MARKERS)
+
+
 def load_named_files(root: Path) -> set[Path]:
+    """Files each `leaves_machine` entry names — the whole string, or a path in it."""
     path = root / ".mmw" / "target.json"
     if not path.is_file():
         return set()
@@ -33,16 +49,19 @@ def load_named_files(root: Path) -> set[Path]:
     except (OSError, json.JSONDecodeError):
         return set()
     named: set[Path] = set()
+    root_r = root.resolve()
     for item in cfg.get("leaves_machine") or []:
         if not isinstance(item, str):
             continue
-        candidate = (root / item).resolve()
-        try:
-            candidate.relative_to(root.resolve())
-        except ValueError:
-            continue
-        if candidate.is_file():
-            named.add(candidate)
+        candidates = [item.strip(), *PATH_TOKEN.findall(item)]
+        for raw in candidates:
+            candidate = (root / raw).resolve()
+            try:
+                candidate.relative_to(root_r)
+            except ValueError:
+                continue
+            if candidate.is_file():
+                named.add(candidate)
     return named
 
 
@@ -81,7 +100,7 @@ def scan(root: Path) -> list[str]:
             continue
         rel = path.resolve().relative_to(root.resolve()).as_posix()
         for number, line in enumerate(text.splitlines(), 1):
-            if any(marker in line for marker in MARKERS):
+            if is_leak(line):
                 leaks.append(f"HARNESS LEAK {rel}:{number}")
     return leaks
 

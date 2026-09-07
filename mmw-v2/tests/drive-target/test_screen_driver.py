@@ -658,7 +658,7 @@ class TestTargetConfig(unittest.TestCase):
             self.assertIn("target.json", str(raised.exception))
             (root / ".mmw").mkdir()
             (root / ".mmw" / "target.json").write_text(json.dumps(
-                {"discover": "printf %s '{\"cdp\": \"http://127.0.0.1:9229\"}'", "reach": "echo"}))
+                {"discover": "printf %s '{\"cdp\": \"http://127.0.0.1:9229\"}'"}))
             cfg = sd.target_config(root)
             self.assertEqual(sd.discover(cfg, root), {"cdp": "http://127.0.0.1:9229"})
 
@@ -999,8 +999,8 @@ class TestTargetCheck(unittest.TestCase):
         for f in sd.FIELDS:
             self.assertIn(("  missing  " if f.required else "  absent   ") + f.key, out)
         self.assertIn("ElectronAdapter", out)
-        self.assertIn("origin", out)
-        self.assertIn("stories", out)
+        self.assertIn("    origin — where the product is served", out)
+        self.assertIn("start refuses a Gateway address that points elsewhere", out)
         self.assertNotIn("  missing  reach", out)
         self.assertNotIn("transport_off", out)
         self.assertIn("e.g.", out)

@@ -73,11 +73,8 @@ def stop(cfg: dict, root: Path, env: dict[str, str]) -> None:
     subprocess.run(shlex.split(command), cwd=root, capture_output=True, text=True, env=env)
 
 
-def journey_command(dest: Path) -> list[str] | tuple[str, bool]:
-    """How to run `<journeys>/<name>`: a `run` file, or `package.json`'s `scripts.run`.
-
-    Returns argv, or `(shell_command, True)` when the command is a shell string.
-    """
+def journey_command(dest: Path) -> list[str] | str | None:
+    """How to run `<journeys>/<name>`: a `run` file, or `package.json`'s `scripts.run`."""
     runner = dest / "run"
     if runner.is_file() and os.access(runner, os.X_OK):
         return [str(runner)]
@@ -90,10 +87,8 @@ def journey_command(dest: Path) -> list[str] | tuple[str, bool]:
         scripts = data.get("scripts") if isinstance(data, dict) else None
         command = scripts.get("run") if isinstance(scripts, dict) else None
         if isinstance(command, str) and command.strip():
-            return command, True
-    raise SystemExit(
-        f"{dest} has no executable `run` and no package.json scripts.run"
-    )
+            return command
+    return None
 
 
 def addresses_into(env: dict[str, str], data: dict) -> None:
@@ -154,25 +149,24 @@ def run_named(name: str, start: Path | None = None) -> int:
 
     journeys = cfg.get("journeys") or DEFAULT_JOURNEYS
     dest = (root / journeys / name).resolve()
+    spec = journey_command(dest)
+    if spec is None:
+        stop(cfg, root, env)
+        print(f"JOURNEY FAILED {name} at {dest} has no executable `run` "
+              f"and no package.json scripts.run")
+        return 1
     try:
-        spec = journey_command(dest)
-        if isinstance(spec, tuple):
-            command, _shell = spec
-            script = subprocess.run(
-                command, shell=True, cwd=dest, capture_output=True, text=True, env=env,
-            )
-        else:
-            script = subprocess.run(
-                spec, cwd=dest, capture_output=True, text=True, env=env,
-            )
+        script = subprocess.run(
+            spec, shell=isinstance(spec, str), cwd=dest,
+            capture_output=True, text=True, env=env,
+        )
     finally:
         stop(cfg, root, env)
 
     if script.returncode == 0:
         print(f"JOURNEY OK {name}")
         return 0
-    combined = script.stderr if script.stderr.strip() else script.stdout
-    print(f"JOURNEY FAILED {name} at {last_line(combined)}")
+    print(f"JOURNEY FAILED {name} at {last_line(script.stdout + script.stderr)}")
     return 1
 
 
