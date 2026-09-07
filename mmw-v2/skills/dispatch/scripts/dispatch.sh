@@ -99,33 +99,21 @@ print(sys.stdin.read().rstrip("\n")[:int(os.environ["MMW_HEAD_CHARS"])])
 
 # ------------------------------------------------------------------ models.md
 
-# Prints "host<TAB>model<TAB>effort<TAB>permissions" for the agent asked for: the
-# first of its rows with `bypass`, since an agent that is both a session and a
-# subagent (the reviewer) has one row per host and only one of them starts a
-# session; when no row has any, the first row, so the caller's refusal can name it.
-# A later bypass row is the fallback host and is read by fallback_row_for_role.
-# Backticks are markdown, not part of any value.
+# Prints "host<TAB>model<TAB>effort<TAB>permissions" for the agent asked for.
+# With no second argument, or 1: the first bypass row, since an agent that is
+# both a session and a subagent (the reviewer) has one row per host and only one
+# of them starts a session; when no row has any, the first row, so the caller's
+# refusal can name it. With 2: the second bypass row (the fallback host), or
+# empty when it has none. Backticks are markdown, not part of any value.
 row_for_role() {
-  awk -F'|' -v want="$1" '
+  awk -F'|' -v want="$1" -v nth="${2:-1}" '
     function trim(s) { gsub(/^[ \t`]+/, "", s); gsub(/[ \t`]+$/, "", s); return s }
     /^[ \t]*\|/ && NF == 7 && trim($2) == want {
       row = trim($3) "\t" trim($4) "\t" trim($5) "\t" trim($6)
       if (first == "") first = row
-      perm = trim($6)
-      if (perm == "bypass") { print row; found = 1; exit }
+      if (trim($6) == "bypass" && ++n == nth) { print row; found = 1; exit }
     }
-    END { if (!found && first != "") print first }
-  ' "$MODELS"
-}
-
-# The second bypass row for the agent, same four fields, or empty when it has none.
-fallback_row_for_role() {
-  awk -F'|' -v want="$1" '
-    function trim(s) { gsub(/^[ \t`]+/, "", s); gsub(/[ \t`]+$/, "", s); return s }
-    /^[ \t]*\|/ && NF == 7 && trim($2) == want && trim($6) == "bypass" {
-      n++
-      if (n == 2) { print trim($3) "\t" trim($4) "\t" trim($5) "\t" trim($6); exit }
-    }
+    END { if (!found && nth == 1 && first != "") print first }
   ' "$MODELS"
 }
 
@@ -546,15 +534,22 @@ def payload(host, model, effort, perm, profile):
         body["labels"]["mmw.spec"] = os.environ["MMW_SPEC"]
     return body
 
-primary = payload(
-    os.environ["MMW_HOST"], os.environ["MMW_MODEL"], os.environ["MMW_EFFORT"],
-    os.environ["MMW_PERM"], os.environ["MMW_PROFILE"])
-fallback_host = os.environ.get("MMW_FALLBACK_HOST") or ""
-if fallback_host:
+rows = [line for line in (os.environ.get("MMW_ROWS") or "").splitlines() if line.strip()]
+if not rows:
+    print("dispatch: no models.md row to emit", file=sys.stderr)
+    sys.exit(2)
+
+def parse_row(line):
+    host, model, effort, perm = line.split("\t")
+    return host, model, effort, perm
+
+host, model, effort, perm = parse_row(rows[0])
+primary = payload(host, model, effort, perm, os.environ["MMW_PROFILE"])
+if len(rows) > 1:
+    host, model, effort, perm = parse_row(rows[1])
     primary["fallback"] = payload(
-        fallback_host, os.environ["MMW_FALLBACK_MODEL"],
-        os.environ["MMW_FALLBACK_EFFORT"], os.environ["MMW_FALLBACK_PERM"],
-        os.environ["MMW_PROFILE"] + "@" + fallback_host)
+        host, model, effort, perm,
+        mod.profile_id(os.environ["MMW_PROFILE"], host, primary=False))
 print(json.dumps(primary, ensure_ascii=False))
 '
 }
@@ -596,7 +591,7 @@ start_one() {
       esac ;;
   esac
 
-  local row host model effort perm
+  local row host model effort perm fb_row
   row="$(row_for_role "$profile")"
   [ -n "$row" ] || refuse "#$number needs the $profile row, and $MODELS has none"
   IFS=$'\t' read -r host model effort perm <<<"$row"
@@ -604,13 +599,7 @@ start_one() {
     bypass) ;;
     *) refuse "$profile is a subagent: it is started by the skill that needs it, not from here" ;;
   esac
-
-  local fb_row fb_host fb_model fb_effort fb_perm
-  fb_row="$(fallback_row_for_role "$profile")"
-  fb_host=""; fb_model=""; fb_effort=""; fb_perm=""
-  if [ -n "$fb_row" ]; then
-    IFS=$'\t' read -r fb_host fb_model fb_effort fb_perm <<<"$fb_row"
-  fi
+  fb_row="$(row_for_role "$profile" 2)"
 
   local root
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
@@ -631,12 +620,12 @@ start_one() {
       prompt="Use the verdict skill to verify ticket #$number. $AUTONOMOUS" ;;
   esac
 
-  local workspace cwd created row
-  row="$(ensure_workspace "$number" "$root" "$title")" \
+  local workspace cwd created ws_row
+  ws_row="$(ensure_workspace "$number" "$root" "$title")" \
     || refuse "could not open a workspace for issue-$number"
-  workspace="$(printf '%s\n' "$row" | cut -f1)"
-  cwd="$(printf '%s\n' "$row" | cut -f2)"
-  created="$(printf '%s\n' "$row" | cut -f3)"
+  workspace="$(printf '%s\n' "$ws_row" | cut -f1)"
+  cwd="$(printf '%s\n' "$ws_row" | cut -f2)"
+  created="$(printf '%s\n' "$ws_row" | cut -f3)"
 
   if [ "$kind" = worker ]; then
     [ -f "$LEASE" ] \
@@ -653,21 +642,24 @@ start_one() {
     fi
   fi
 
-  local agent_title="#$number $kind"
+  local agent_title="#$number $kind" rows
+  rows="$row"
+  [ -z "$fb_row" ] || rows="$row"$'\n'"$fb_row"
   MMW_WORKSPACE="$workspace" MMW_TITLE="$agent_title" \
-    MMW_HOST="$host" MMW_MODEL="$model" MMW_EFFORT="$effort" MMW_PERM="$perm" \
+    MMW_ROWS="$rows" \
     MMW_TICKET="$number" MMW_KIND="$kind" MMW_SPEC="$spec" \
     MMW_PROFILE="$profile" MMW_PROMPT="$prompt" \
-    MMW_FALLBACK_HOST="$fb_host" MMW_FALLBACK_MODEL="$fb_model" \
-    MMW_FALLBACK_EFFORT="$fb_effort" MMW_FALLBACK_PERM="$fb_perm" \
     emit_create_json
 }
 
 # ------------------------------------------------------------------ retract
 
-# Undo what start left behind when create_agent never ran: archive the workspace
-# (which releases its lease), give the claim back if this pipeline still holds it.
-# A live agent on the ticket is a running worker, not a failed start — refuse.
+# Undo what start left behind when create_agent never ran: archive the workspace,
+# give the slot back, give the claim back if this pipeline still holds it. The
+# branch stays, so the next start reuses it. A live agent on the ticket is a
+# running worker, not a failed start — refuse. `slot given back` is 1 only when
+# lease.py actually released; a missing --tools directory is a refusal, not a
+# silent keep.
 retract_one() {
   local number="$1"
   case "$number" in *[!0-9]* | "") refuse "ticket number must be digits only, got $number" ;; esac
@@ -690,16 +682,18 @@ retract_one() {
   local cwd archived=0 slot=0 claim=0 rc
   cwd="$(workspace_cwd_for "$number")"
   [ -n "$cwd" ] || cwd="$(lease_worktree_for "$number")"
-  if [ -n "$(workspace_id_for "$number")" ]; then
-    archive_workspace "$number"
-    archived=1
-    slot=1
-  elif [ -n "$cwd" ] && [ -f "$LEASE" ]; then
+  if [ -n "$cwd" ]; then
+    [ -f "$LEASE" ] \
+      || refuse "no lease.py in any --tools directory, so the slot cannot be given back. Pass --tools <the drive-target skill's scripts directory>, then retract again"
     release_lease "$cwd"
     rc=$?
     case "$rc" in
       0) slot=1 ;;
     esac
+  fi
+  if [ -n "$(workspace_id_for "$number")" ]; then
+    archive_workspace "$number"
+    archived=1
   fi
 
   local login

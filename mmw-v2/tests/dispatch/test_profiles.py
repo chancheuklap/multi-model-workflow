@@ -21,7 +21,7 @@ TABLE_HEAD = (
 )
 
 
-def rows_from(text: str) -> list[tuple[str, str, str, str, str, str]]:
+def rows_from(text: str) -> list:
     with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as fh:
         fh.write("# Models\n\n" + TABLE_HEAD + text)
         path = Path(fh.name)
@@ -40,14 +40,14 @@ class ProfileRowsTest(unittest.TestCase):
             "| junior-worker | cursor | `grok-4.6` | high | bypass |\n"
             "| junior-worker | grok | `grok-4.6` | high | bypass |\n"
         )
-        ids = [row[0] for row in rows]
+        ids = [row.profile_id for row in rows]
         self.assertEqual(ids, ["junior-worker", "junior-worker@grok"])
         self.assertEqual(len(ids), len(set(ids)))
-        by_id = {row[0]: row for row in rows}
-        self.assertEqual(by_id["junior-worker"][2], "cursor")
-        self.assertEqual(by_id["junior-worker@grok"][2], "grok")
-        self.assertEqual(by_id["junior-worker"][1], "junior-worker")
-        self.assertEqual(by_id["junior-worker@grok"][1], "junior-worker")
+        by_id = {row.profile_id: row for row in rows}
+        self.assertEqual(by_id["junior-worker"].host, "cursor")
+        self.assertEqual(by_id["junior-worker@grok"].host, "grok")
+        self.assertEqual(by_id["junior-worker"].agent, "junior-worker")
+        self.assertEqual(by_id["junior-worker@grok"].agent, "junior-worker")
 
     def test_advisor_bypass_and_native_on_the_same_host_still_make_one_profile(self):
         rows = rows_from(
@@ -56,16 +56,16 @@ class ProfileRowsTest(unittest.TestCase):
             "| advisor | grok | `grok-4.6` | xhigh | — |\n"
         )
         self.assertEqual(len(rows), 1)
-        profile_id, agent, host, model, effort, permissions = rows[0]
-        self.assertEqual(profile_id, "advisor")
-        self.assertEqual(agent, "advisor")
-        self.assertEqual(host, "claude")
-        self.assertEqual(permissions, "bypass")
-        self.assertEqual(model, "claude-fable-5-1")
-        self.assertEqual(effort, "medium")
+        row = rows[0]
+        self.assertEqual(row.profile_id, "advisor")
+        self.assertEqual(row.agent, "advisor")
+        self.assertEqual(row.host, "claude")
+        self.assertEqual(row.permissions, "bypass")
+        self.assertEqual(row.model, "claude-fable-5-1")
+        self.assertEqual(row.effort, "medium")
 
     def test_a_second_fallback_bypass_row_is_refused(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "more than one fallback"):
             rows_from(
                 "| junior-worker | cursor | `grok-4.6` | high | bypass |\n"
                 "| junior-worker | grok | `grok-4.6` | high | bypass |\n"
@@ -73,26 +73,28 @@ class ProfileRowsTest(unittest.TestCase):
             )
 
     def test_two_bypass_rows_on_the_same_host_are_refused(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "two bypass rows on"):
             rows_from(
                 "| junior-worker | cursor | `grok-4.6` | high | bypass |\n"
                 "| junior-worker | cursor | `grok-4.6` | high | bypass |\n"
             )
 
     def test_the_live_table_gives_junior_worker_a_grok_fallback_and_leaves_advisor(self):
+        previous = assemble.MODELS
         assemble.MODELS = ASSEMBLE_PATH.parent.parent / "skills" / "dispatch" / "models.md"
+        self.addCleanup(setattr, assemble, "MODELS", previous)
         rows = assemble.profile_rows()
-        ids = [row[0] for row in rows]
+        ids = [row.profile_id for row in rows]
         self.assertEqual(len(ids), len(set(ids)), ids)
-        by_id = {row[0]: row for row in rows}
-        self.assertEqual(by_id["junior-worker"][2], "cursor")
-        self.assertEqual(by_id["junior-worker@grok"][2], "grok")
-        self.assertEqual(by_id["junior-worker@grok"][3], "grok-4.6")
-        self.assertEqual(by_id["junior-worker@grok"][4], "high")
-        advisor = [row for row in rows if row[1] == "advisor"]
+        by_id = {row.profile_id: row for row in rows}
+        self.assertEqual(by_id["junior-worker"].host, "cursor")
+        self.assertEqual(by_id["junior-worker@grok"].host, "grok")
+        self.assertEqual(by_id["junior-worker@grok"].model, "grok-4.6")
+        self.assertEqual(by_id["junior-worker@grok"].effort, "high")
+        advisor = [row for row in rows if row.agent == "advisor"]
         self.assertEqual(len(advisor), 1)
-        self.assertEqual(advisor[0][0], "advisor")
-        self.assertEqual(advisor[0][2], "claude")
+        self.assertEqual(advisor[0].profile_id, "advisor")
+        self.assertEqual(advisor[0].host, "claude")
         parsed = assemble.parse_model_rows()
         advisor_claude = [row for row in parsed if row[0] == "advisor" and row[1] == "claude"]
         self.assertEqual({row[4] for row in advisor_claude}, {"bypass", "—"})

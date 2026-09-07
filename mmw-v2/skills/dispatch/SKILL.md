@@ -50,7 +50,7 @@ Then end your turn. What wakes you is the agent you just started coming to rest,
 | Tell a live worker to continue | `<dispatch> resume <n> "<text>"`. Exit 0: the text was sent. Exit 2: no worker labelled `mmw.ticket=<n>` — read `status`, do not send again |
 | Start a worker on one ticket, outside a night | `<dispatch> start <n> worker`, then the one path above. When that ticket comes to rest, `<dispatch> land <n>` is what ends it: no `advance` will, because a ticket outside a night belongs to no spec |
 | `create_agent` failed to start the provider | The error names provider initialization (`Failed to initialize session services` is one). Retry `create_agent` with the same object (every field except `fallback`) up to five times, waiting about 1, 2, 4, 8, then 16 seconds after each failure. After the fifth retry still fails: if the printed object had `fallback`, call `create_agent` with that object once, then comment on the ticket with first line `HOST <host> (fallback)`, naming the host that ran. If that call fails too, or there was no `fallback`: `<dispatch> retract <n>`, then `<engine> <n> --sub-issue pipeline <file>` — the file's body is every error you saw — then stop. `inspect_provider` is not a step on this path: it does not refresh the snapshot, and its success path hangs on `session/new` with no bound (measured 300s) |
-| Take back a start whose `create_agent` never ran | `<dispatch> retract <n>`: archive the workspace, give the slot back, give the claim back if this pipeline holds it. Exit 2 if a live agent is still on the ticket |
+| Take back a start whose `create_agent` never ran | `<dispatch> retract <n>`: archive the workspace, give the slot back, give the claim back if this pipeline holds it. The branch stays, so the next `start` reuses it. `slot given back` is 1 only when the lease was actually released. Exit 2 if a live agent is still on the ticket, or if a slot is held and `--tools` did not pass `lease.py` |
 | Re-run every closed `ALL MET` ticket on the branch you are on | `<dispatch> reverify <spec>` |
 | Post the night summary on the spec | `<dispatch> summary <spec>` |
 | Give the night up before it is over | `<dispatch> suspend <spec>` — [references/night.md](references/night.md) says what it stops and what it leaves standing |
@@ -105,7 +105,7 @@ The night's heartbeat is created in [references/night.md](references/night.md) s
 
 | Code | What happened |
 | --- | --- |
-| `0` | `install.sh --check` passed, the first `bypass` row of each worker grade, reviewer and verifier has its host `available` in `paseo provider ls --json`, and every queued ticket has at most one worker-grade label that `models.md` has a row for. In a Paseo session (`PASEO_AGENT_ID` set) the night's heartbeat `mmw-night-<spec>` now exists, every ten minutes, its id in `.git/mmw-heartbeat-<spec>`; outside one, stderr says no heartbeat was made |
+| `0` | `install.sh --check` passed, the first `bypass` row of each worker grade, reviewer and verifier has its host `available` in `paseo provider ls --json`, and every queued ticket has at most one worker-grade label that `models.md` has a row for. In a Paseo session (`PASEO_AGENT_ID` set) the night's heartbeat `mmw-night-<spec>` now exists, at 7 and 47 minutes past each hour, its id in `.git/mmw-heartbeat-<spec>`; outside one, stderr says no heartbeat was made |
 | `2` | One or more of those failed, or the heartbeat could not be created. Stderr has one `dispatch: …` line per failure. Fix what the lines name — run `install.sh`, relabel the ticket, or wait until the host is `available` — then `check` again. Do not `advance` on 2 |
 
 **`retract <n>`:**
@@ -113,7 +113,7 @@ The night's heartbeat is created in [references/night.md](references/night.md) s
 | Code | What happened |
 | --- | --- |
 | `0` | Done. Stderr: `retract #<n>: archived <a>, slot given back <s>, claim given back <c>` |
-| `2` | Nothing was touched. A live agent is on the ticket, or not a git repository, or the number is not digits |
+| `2` | Nothing was touched. A live agent is on the ticket, a slot is held and `lease.py` was not in `--tools`, or not a git repository, or the number is not digits |
 
 **`resume <n> "<text>"`:** `0` the text was sent; `2` no worker with those labels, nothing sent.
 

@@ -493,25 +493,7 @@ assert obj["notifyOnFinish"] is (obj["labels"]["mmw.kind"] != "worker"), obj["no
 
 row_host() { awk -F'|' -v want="$1" 'function t(s){gsub(/^[ \t`]+|[ \t`]+$/,"",s);return s} /^[ \t]*\|/ && NF==7 && t($2)==want {print t($3); exit}' "$SKILL/models.md"; }
 row_model() { awk -F'|' -v want="$1" 'function t(s){gsub(/^[ \t`]+|[ \t`]+$/,"",s);return s} /^[ \t]*\|/ && NF==7 && t($2)==want {print t($4); exit}' "$SKILL/models.md"; }
-row_bypass_host() {
-  awk -F'|' -v want="$1" -v nth="${2:-1}" '
-    function t(s){gsub(/^[ \t`]+|[ \t`]+$/,"",s);return s}
-    /^[ \t]*\|/ && NF==7 && t($2)==want && t($6)=="bypass" {
-      n++
-      if (n==nth) { print t($3); exit }
-    }' "$SKILL/models.md"
-}
-row_bypass_model() {
-  awk -F'|' -v want="$1" -v nth="${2:-1}" '
-    function t(s){gsub(/^[ \t`]+|[ \t`]+$/,"",s);return s}
-    /^[ \t]*\|/ && NF==7 && t($2)==want && t($6)=="bypass" {
-      n++
-      if (n==nth) { print t($4); exit }
-    }' "$SKILL/models.md"
-}
 JUNIOR_HOST="$(row_host junior-worker)"; JUNIOR_MODEL="$(row_model junior-worker)"
-JUNIOR_FALLBACK_HOST="$(row_bypass_host junior-worker 2)"
-JUNIOR_FALLBACK_MODEL="$(row_bypass_model junior-worker 2)"
 SENIOR_MODEL="$(row_model senior-worker)"
 one_line_reason() {
   [ "$(wc -l < "$TMP/err" | tr -d ' ')" = 1 ] \
@@ -1050,9 +1032,7 @@ assert obj["settings"].get("thinkingOptionId") == "high"
 assert obj["settings"].get("features") == {"auto_accept": True}, obj["settings"]
 ' "$TMP/out" || fail "create_agent settings changed: $(cat "$TMP/out")"
   echo "--- that object carries a complete fallback create_agent payload on the second bypass row"
-  [ -n "$JUNIOR_FALLBACK_HOST" ] \
-    || fail "models.md has no second bypass row for junior-worker"
-  [ "$(out_json fallback.provider)" = "$JUNIOR_FALLBACK_HOST/$JUNIOR_FALLBACK_MODEL" ] \
+  [ "$(out_json fallback.provider)" = "grok/grok-4.6" ] \
     || fail "fallback.provider: $(out_json fallback.provider)"
   python3 -c '
 import json, sys
@@ -1213,9 +1193,19 @@ JSON
   has "paseo :: workspace :: archive :: wks_issue-61"
   [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 0 ] \
     || fail "the slot should be free after retract, count is $(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")"
-  grep -q "retract #61:" "$TMP/err" \
-    || fail "retract should name what it did: $(cat "$TMP/err")"
+  grep -q "retract #61: archived 1, slot given back 1, claim given back 1" "$TMP/err" \
+    || fail "the counters should match what was undone: $(cat "$TMP/err")"
   has "gh :: issue :: edit :: 61 :: --remove-assignee :: @me"
+
+  echo "--- a second retract on the same ticket is a no-op, not a lie about the slot"
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env MMW_LEASE_SLOTS=1 FAKE_GH_LOGIN=mmw-bot \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" retract 61)"
+  [ "$code" = 0 ] || fail "second retract expected exit 0, got $code: $(cat "$TMP/err")"
+  hasnt "workspace :: archive"
+  grep -q "retract #61: archived 0, slot given back 0, claim given back 0" "$TMP/err" \
+    || fail "a second retract should report zeros: $(cat "$TMP/err")"
 
   echo "--- the freed slot is what the next start takes, not a second slot"
   : > "$MMW_TEST_LOG"
@@ -1239,6 +1229,42 @@ JSON
     || fail "the refusal should say a live agent is on the ticket: $(cat "$TMP/err")"
   [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 1 ] \
     || fail "a refused retract must not give the slot back, count is $(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")"
+
+  echo "--- a claim this pipeline does not hold is left alone"
+  reset_log
+  fresh_repo
+  cat > "$TMP/tickets.json" <<'JSON'
+[{"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "assignees": ["a-human"]}]
+JSON
+  code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "start expected exit 0, got $code: $(cat "$TMP/err")"
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env MMW_LEASE_SLOTS=1 FAKE_GH_LOGIN=mmw-bot \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" retract 61)"
+  [ "$code" = 0 ] || fail "retract expected exit 0, got $code: $(cat "$TMP/err")"
+  hasnt "gh :: issue :: edit"
+  grep -q "claim given back 0" "$TMP/err" \
+    || fail "someone else's claim must stay: $(cat "$TMP/err")"
+  [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 0 ] \
+    || fail "the slot should still be given back: $(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")"
+
+  echo "--- without lease.py, retract refuses and the slot stays held"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "start expected exit 0, got $code: $(cat "$TMP/err")"
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
+          bash "$DISPATCH" --tools "$(dirname "$SKILL")/verify-ticket/scripts" retract 61)"
+  [ "$code" = 2 ] || fail "expected exit 2 without lease.py, got $code: $(cat "$TMP/err")"
+  grep -q "lease.py" "$TMP/err" \
+    || fail "the refusal should name lease.py: $(cat "$TMP/err")"
+  hasnt "workspace :: archive"
+  [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 1 ] \
+    || fail "the slot must stay held when retract cannot see lease.py, count is $(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")"
 }
 
 scenario_start_reviewer() {

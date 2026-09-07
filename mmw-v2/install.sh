@@ -924,15 +924,15 @@ def notes_for(agent, host, permissions):
     return note
 
 
-def make_profile(profile_id, agent, host, model, effort, permissions, existing=None):
+def make_profile(row, existing=None):
     profile = dict(existing) if isinstance(existing, dict) else {}
-    profile["id"] = profile_id
-    profile["name"] = profile_id
-    profile["provider"] = host
-    profile["model"] = model
-    profile["thinkingOptionId"] = effort
-    profile["notes"] = notes_for(agent, host, permissions)
-    assemble.apply_permissions(profile, host, permissions)
+    profile["id"] = row.profile_id
+    profile["name"] = row.profile_id
+    profile["provider"] = row.host
+    profile["model"] = row.model
+    profile["thinkingOptionId"] = row.effort
+    profile["notes"] = notes_for(row.agent, row.host, row.permissions)
+    assemble.apply_permissions(profile, row.host, row.permissions)
     return profile
 
 
@@ -944,23 +944,22 @@ def merge(data, rows):
 
     daemon = data.setdefault("daemon", {})
     existing = list(daemon.get("agentProfiles") or [])
-    managed = {profile_id: (agent, host, model, effort, permissions)
-               for profile_id, agent, host, model, effort, permissions in rows}
+    managed = {row.profile_id: row for row in rows}
     new_profiles = []
     seen = set()
     dropped = []
     for profile in existing:
         pid = profile.get("id") if isinstance(profile, dict) else None
         if pid in managed:
-            new_profiles.append(make_profile(pid, *managed[pid], existing=profile))
+            new_profiles.append(make_profile(managed[pid], existing=profile))
             seen.add(pid)
         elif is_generated(profile):
             dropped.append(pid)
         else:
             new_profiles.append(profile)
-    for profile_id, spec in managed.items():
-        if profile_id not in seen:
-            new_profiles.append(make_profile(profile_id, *spec))
+    for row in managed.values():
+        if row.profile_id not in seen:
+            new_profiles.append(make_profile(row))
     daemon["agentProfiles"] = new_profiles
 
     worktrees = data.setdefault("worktrees", {})
@@ -989,31 +988,30 @@ if mode == "check":
     for profile in ((data.get("daemon") or {}).get("agentProfiles") or []):
         if isinstance(profile, dict) and profile.get("id"):
             by_id[profile["id"]] = profile
-    for profile_id, agent, host, model, effort, permissions in rows:
-        profile = by_id.get(profile_id)
+    for row in rows:
+        profile = by_id.get(row.profile_id)
         if profile is None:
-            sys.stderr.write(f"缺    profile {profile_id} 不在 {config_path}\n")
+            sys.stderr.write(f"缺    profile {row.profile_id} 不在 {config_path}\n")
             failed = True
             continue
-        want = make_profile(profile_id, agent, host, model, effort, permissions,
-                            existing=profile)
+        want = make_profile(row, existing=profile)
         if profile.get("model") != want["model"]:
-            sys.stderr.write(f"缺    profile {profile_id} model 与 models.md 不一致\n")
+            sys.stderr.write(f"缺    profile {row.profile_id} model 与 models.md 不一致\n")
             failed = True
         if profile.get("thinkingOptionId") != want["thinkingOptionId"]:
-            sys.stderr.write(f"缺    profile {profile_id} thinkingOptionId 与 models.md 不一致\n")
+            sys.stderr.write(f"缺    profile {row.profile_id} thinkingOptionId 与 models.md 不一致\n")
             failed = True
         if profile.get("provider") != want["provider"]:
-            sys.stderr.write(f"缺    profile {profile_id} provider 与 models.md 不一致\n")
+            sys.stderr.write(f"缺    profile {row.profile_id} provider 与 models.md 不一致\n")
             failed = True
         if profile.get("modeId") != want.get("modeId") or \
                 (profile.get("featureValues") or {}) != (want.get("featureValues") or {}):
-            sys.stderr.write(f"缺    profile {profile_id} permissions 与 models.md 不一致\n")
+            sys.stderr.write(f"缺    profile {row.profile_id} permissions 与 models.md 不一致\n")
             failed = True
         if profile.get("notes") != want["notes"]:
-            sys.stderr.write(f"缺    profile {profile_id} notes 与 models.md 不一致\n")
+            sys.stderr.write(f"缺    profile {row.profile_id} notes 与 models.md 不一致\n")
             failed = True
-    managed_ids = {profile_id for profile_id, *_ in rows}
+    managed_ids = {row.profile_id for row in rows}
     for profile in ((data.get("daemon") or {}).get("agentProfiles") or []):
         if not is_generated(profile):
             continue
