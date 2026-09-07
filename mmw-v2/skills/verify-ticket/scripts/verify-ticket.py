@@ -1940,7 +1940,7 @@ def tool(script: str) -> Path | None:
 
 APP_PAGE_PREFIX = "App · "
 RUN_VALUE_RE = re.compile(r"""--run(?:\s+|=)(?:"([^"]*)"|'([^']*)'|(\S+))""")
-JOURNEY_NAME_RE = re.compile(r"journey\.py\s+run\s+(\S+)")
+JOURNEY_NAME_RE = re.compile(r"^\s*run\s+(\S+)")
 
 
 def script_segment(check: str, script: str) -> str:
@@ -1955,11 +1955,6 @@ def script_segment(check: str, script: str) -> str:
 PAGES_VALUE_RE = re.compile(r"""--pages(?:\s+|=)(?:"([^"]*)"|'([^']*)'|(\S+))""")
 
 
-def comma_flag_values(raw: str) -> list[str]:
-    """The comma-separated items of one flag occurrence."""
-    return [x for x in raw.split(",") if x]
-
-
 def story_mounts(check: str) -> list[str]:
     """The `--pages` mounts a story-parity.py criterion names."""
     segment = script_segment(check, "story-parity.py")
@@ -1968,7 +1963,7 @@ def story_mounts(check: str) -> list[str]:
         raw = (m.group(1) if m.group(1) is not None
                else m.group(2) if m.group(2) is not None
                else m.group(3) or "")
-        out.extend(comma_flag_values(raw))
+        out.extend(x for x in raw.split(",") if x)
     return out
 
 
@@ -2177,8 +2172,7 @@ def lint_screen_contract(body: str, number: int | None = None,
             if not value.strip():
                 findings.append(f"{gate_id}: boundary-check.py --run is empty")
                 break
-        for name in JOURNEY_NAME_RE.findall(
-                "journey.py" + script_segment(check, "journey.py")):
+        for name in JOURNEY_NAME_RE.findall(script_segment(check, "journey.py")):
             dest = repo / ".mmw" / "journeys" / name
             if not dest.exists():
                 findings.append(f"{gate_id}: journey.py run {name} is not under .mmw/journeys/")
