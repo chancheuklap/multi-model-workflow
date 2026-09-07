@@ -13,6 +13,8 @@ import sys
 import tempfile
 import types
 import unittest
+from contextlib import redirect_stdout
+import shutil
 from pathlib import Path
 from unittest import mock
 
@@ -340,3 +342,68 @@ class TestNegativeControl(unittest.TestCase):
         self.assertEqual(code, 2, err + out)
         self.assertIn("MISS ok.save", err)
         self.assertNotIn("Report the ticket blocked", err)
+
+
+class TestDrivableReport(unittest.TestCase):
+    """The pass a main agent runs before a batch: every row a run cannot drive, in one
+    list, with nothing started and nothing asserted."""
+
+    TREE = (
+        "## scene ready\n"
+        '- text: 参考图\n'
+        '- button "使用说明"\n'
+        '- button "添加参考图"\n'
+        '- text: 参考图\n'
+        '- button "使用说明"\n'
+        '- button "添加参考图"\n'
+        '- button "下一步"\n'
+    )
+
+    def setUp(self):
+        self.dir = Path(tempfile.mkdtemp())
+        targets = self.dir / "targets"
+        targets.mkdir()
+        (targets / "Component · 原图设置.aria").write_text(self.TREE, encoding="utf-8")
+        self.doc = {
+            "scenes": {"ready": {"page": "Component · 原图设置.dc.html"}},
+            "rows": [
+                {"id": "a.ambiguous", "trigger": {"role": "button", "name": "添加参考图"},
+                 "scenes": ["ready"], "observe": ["GET /api/draft -> .has_draft == true"]},
+                {"id": "b.fine", "trigger": {"role": "button", "name": "下一步"},
+                 "scenes": ["ready"], "observe": ["GET /api/draft -> .ready == true"]},
+                {"id": "c.malformed", "trigger": {"role": "button", "name": "下一步"},
+                 "scenes": ["ready"], "observe": ["the draft is saved"]},
+            ],
+        }
+
+    def tearDown(self):
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def report(self, rows: list[str]) -> tuple[int, str]:
+        out = io.StringIO()
+        with redirect_stdout(out):
+            code = wc.drivable_report(self.doc, self.dir, rows)
+        return code, out.getvalue()
+
+    def test_an_ambiguous_trigger_is_named_with_its_class(self):
+        code, said = self.report(["a.ambiguous"])
+        self.assertEqual(code, 1)
+        self.assertIn("UNDRIVABLE [pin-occurrence] a.ambiguous", said)
+
+    def test_a_row_the_contract_can_point_at_is_not_named(self):
+        code, said = self.report(["b.fine"])
+        self.assertEqual(code, 0)
+        self.assertNotIn("UNDRIVABLE", said)
+
+    def test_an_observe_that_is_not_a_read_is_named(self):
+        code, said = self.report(["c.malformed"])
+        self.assertEqual(code, 1)
+        self.assertIn("is not `METHOD /path -> <expression>`", said)
+
+    def test_every_run_says_what_it_did_not_check(self):
+        """Silence here is not a clean contract, and reading it as one is how a batch gets
+        dispatched into defects this pass cannot see."""
+        _, said = self.report(["b.fine"])
+        self.assertIn("not a clean contract", said)
+        self.assertIn("whether any observe can hold", said)
+

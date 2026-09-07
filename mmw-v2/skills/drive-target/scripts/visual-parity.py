@@ -498,6 +498,21 @@ def run(args) -> int:
     explicit = [s.strip() for s in args.scenes.split(",") if s.strip()] if args.scenes else None
     plan = sd.scene_plan(doc, catalogue, mounts, explicit)
     rows = sd.rows_by_id(doc)
+
+    # The rows these scenes' `open` chains name, checked before the product is started.
+    # A scene reached by clicking a control the contract cannot point at is a scene this
+    # run will die in the middle of, having compared the ones before it — so the answer
+    # comes first, about every row at once.
+    opened = sorted({str(step.get("row")) for s in plan for step in (s.open or [])
+                     if step.get("row")})
+    undrivable = sd.undrivable_lines(doc, Path(args.contract).resolve().parent, opened)
+    if undrivable:
+        for line in undrivable:
+            print(line, file=sys.stderr)
+        print(f"{len(undrivable)} of the {len(opened)} rows these scenes open with cannot "
+              f"be driven as this contract stands; repair what is repairable with "
+              f"lint_contract.py --pin", file=sys.stderr)
+        return 2
     out = Path(args.out).resolve() if args.out else Path("./parity-shots").resolve()
     media = out / "media"
     media.mkdir(parents=True, exist_ok=True)

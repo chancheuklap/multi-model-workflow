@@ -16,6 +16,29 @@ Run, in this checkout, on the branch the night merges into:
 
 **Exit 0:** the machine is ready, and `check` has created the night's heartbeat — `mmw-night-<spec>`, at 7 and 47 minutes past each hour (40 minutes apart, then 20), prompt `land --sweep, then status <spec>, act per step 3`, id in `.git/mmw-heartbeat-<spec>`; `summary` and `suspend` delete it by that id, and it expires on its own after 16 hours in case neither ever runs — nothing lists heartbeats, so one whose id file is gone could otherwise fire for ever with no command able to reach it. It wakes and it sweeps; it never judges. A fire while you are busy is reported failed and simply fires next time. What the sweep covers is the one failure a working night cannot see: a ticket lands, and the message saying so never arrives — `notify_parent` writes one stderr line and gives up when there is no `PASEO_AGENT_ID`, when the parent is already archived, or when `paseo send` errors. The sweep asks Paseo what is here and the tracker what is finished, so it needs none of that to have worked. Then go to step 2. **Exit 2:** stderr is one line per failure (`install.sh --check`, a provider whose `status` is not `available`, a queued ticket with two worker-grade labels or a label `models.md` has no row for). Fix what the lines name, or tell the user if only they can, then run `check` again. Do not `advance` on 2.
 
+## 1b. Before the batch: what the contract cannot be driven on
+
+When the spec's tickets drive a screen contract, run this once, in the consuming
+repository, before the first `advance`:
+
+```bash
+uv run python <drive-target scripts>/wiring-check.py --contract docs/specs/<effort>/screen-contract.yaml --drivable
+```
+
+It starts nothing and asserts nothing. Every line opens `UNDRIVABLE [<class>]`: a row no
+run can drive as the contract stands, and which of three classes it is. `pin-after` and
+`pin-occurrence` a worker repairs itself with `lint_contract.py --pin`, which proves each
+write against the committed contract; `decision` is yours, and those lines are the list to
+answer in one sitting rather than one per ticket per night. On 2026-09-07 the same defects
+arrived three at a time, hours apart, each costing a whole ticket.
+
+**A clean run is not a clean contract.** It asserts no `observe`, and before the batch is
+dispatched there is no implemented feature to drive, so it cannot see an observe that
+contradicts its own scene's `reach`, one whose state that scene's stub makes impossible,
+or an operation the read surface does not have. Those surface only when a finished
+implementation runs its criteria, and they are handed back the way any other defect is.
+The pass prints this every time; do not read its silence as more than it says.
+
 ## 2. First `advance`
 
 Stay on this branch all night. Every `advance` merges into whatever `HEAD` is on.

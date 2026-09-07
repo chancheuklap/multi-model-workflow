@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import re
 import sys
 import time
 from pathlib import Path
@@ -63,7 +64,12 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="wiring-check.py", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--contract", required=True, metavar="FILE")
-    p.add_argument("--rows", required=True, metavar="IDS")
+    p.add_argument("--rows", metavar="IDS",
+                   help="required unless --drivable, which defaults to every row that "
+                        "has observe lines")
+    p.add_argument("--drivable", action="store_true",
+                   help="report every row this contract cannot be driven on, one list, "
+                        "and start nothing")
     p.add_argument("--negative", action="store_true",
                    help="per row, after reach and open, break the state transport and "
                         "require a MISS on an observe assertion")
@@ -193,20 +199,68 @@ def run_rows(adapter, pw, wanted: list[str], by_id: dict[str, dict],
     return misses, observed
 
 
+OBSERVE_SHAPE = re.compile(r"^[A-Z]+ \S+ -> \S")
+
+
+def drivable_report(doc: dict, contract_dir: Path, wanted: list[str]) -> int:
+    """Every row a run cannot drive as this contract stands, in one list, starting nothing.
+
+    What it does not check matters as much as what it does, and is printed every time: it
+    asserts no `observe`, so it cannot see an observe that contradicts its own scene's
+    reach, or one whose state the scene's stub makes impossible, or an operation the read
+    surface does not have. Those need a finished implementation and a real run. **A clean
+    run here is not a clean contract**, and reading it as one is how a batch gets
+    dispatched into defects this pass was never able to see.
+    """
+    rows = sd.rows_by_id(doc)
+    findings = sd.undrivable_lines(doc, contract_dir, wanted)
+    for rid in wanted:
+        for line in (rows.get(rid) or {}).get("observe") or []:
+            if not OBSERVE_SHAPE.match(str(line).strip()):
+                findings.append(f"{sd.UNDRIVABLE} [{sd.NEEDS_DECISION}] {rid} — observe line "
+                                f"is not `METHOD /path -> <expression>`: {line!r}")
+    for line in findings:
+        print(line)
+    print(f"{len(findings)} finding(s) over {len(wanted)} rows. Not checked here: whether a "
+          f"scene can be reached, whether the read surface has the operation an observe "
+          f"names, and whether any observe can hold — nothing is asserted and no product "
+          f"is started, so a clean run here is not a clean contract.")
+    return 1 if findings else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     root = sd.repo_root()
     doc = sd.load_contract(Path(args.contract))
     by_id = sd.rows_by_id(doc)
-    wanted = [s.strip() for s in args.rows.split(",") if s.strip()]
+    if not args.rows and not args.drivable:
+        print("--rows is required unless --drivable", file=sys.stderr)
+        return 2
+    wanted = ([s.strip() for s in args.rows.split(",") if s.strip()] if args.rows
+              else [rid for rid, row in by_id.items() if row.get("observe")])
     missing = [w for w in wanted if w not in by_id]
     if missing:
         print(f"rows not in contract: {', '.join(missing)}", file=sys.stderr)
         return 2
+    if args.drivable:
+        return drivable_report(doc, Path(args.contract).resolve().parent, wanted)
     for w in wanted:
         if not by_id[w].get("observe"):
             print(f"row {w} has no observe lines; nothing a machine can check", file=sys.stderr)
             return 2
+    # Before the product is started at all: a contract that cannot be executed says so
+    # about every named row at once. Driving into it instead fails on the first row and
+    # leaves the rest unknown, which is how one contract defect used to cost one ticket
+    # each time it was met.
+    undrivable = sd.undrivable_lines(doc, Path(args.contract).resolve().parent, wanted)
+    if undrivable:
+        for line in undrivable:
+            print(line, file=sys.stderr)
+        print(f"{len(undrivable)} of {len(wanted)} rows cannot be driven as this contract "
+              f"stands; repair what is repairable with lint_contract.py --pin",
+              file=sys.stderr)
+        return 2
+
     adapter = sd.adapter_for(doc, root)
     viewport = sd.parse_viewports(doc["viewports"])[0]
     baseline = (root / doc["baselines"]["look"]).resolve()

@@ -1009,6 +1009,27 @@ class TriggerConflict(NamedTuple):
         return PIN_AFTER if len(self.candidates) > 1 else PIN_OCCURRENCE
 
 
+# The fixed opening of a line that says a run cannot drive a row as the contract stands.
+# A program reads this — `verify-ticket.py` copies it into the handoff report and the merge
+# rule of the dispatch skill branches on it — so it is a prefix and a class name, never a
+# sentence. What follows the dash is for the agent reading the failure.
+UNDRIVABLE = "UNDRIVABLE"
+
+
+def undrivable_lines(doc: dict, contract_dir, row_ids=None) -> list[str]:
+    """One line per row this contract cannot be driven on, class first.
+
+    Both judges call this before they drive anything: a contract that cannot be executed
+    should say so about every row at once, not fail on the first and leave the rest
+    unknown. The same reader the two lints use, so all four say the same word about the
+    same row."""
+    out = []
+    for c in contract_trigger_conflicts(doc, contract_dir, row_ids):
+        out.append(f"{UNDRIVABLE} [{c.kind}] {c.row_id} — trigger reaches {c.hits} nodes "
+                   f"on {c.page}; the contract does not say which one this row means")
+    return out
+
+
 def trigger_resolution(doc: dict, contract_dir, row_ids=None) -> dict[str, dict[str, list[int]]]:
     """For every row, *which* node its trigger resolves to on each of its pages.
 
