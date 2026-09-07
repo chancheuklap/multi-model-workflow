@@ -2,10 +2,33 @@
 Each src/<name>.py defines NAME, CSS (list of file names under styles/), EXTRA_CSS, TEMPLATE, PROPS (dict), LOGIC (class body).
 Fixtures live on window.<FX>, loaded from <FX_FILE>; DC_FX names the global (default FIXTURES), DC_FX_FILE the file (default data/fixtures.js); components read them via this.fx().
 The helmet fixes #dc-root to the application window size (DC_FRAME, default 1440x900; transform: translateZ(0) makes position: fixed overlays contain to the frame) and sets #dc-root > * { height: 100% } so a component fills it; a component that keeps its natural height (a header bar) re-declares height: auto in EXTRA_CSS."""
-import sys, json, importlib.util, pathlib, os
+import sys, json, importlib.util, pathlib, os, re
 FX = os.environ.get("DC_FX", "FIXTURES")
 FX_FILE = os.environ.get("DC_FX_FILE", "data/fixtures.js")  # project-relative path of the fixtures script
 W, H = (int(v) for v in os.environ.get("DC_FRAME", "1440x900").split("x"))  # the application window the mockup was designed for
+
+def _from_export_scene(name, pattern, fallback):
+    sibling = pathlib.Path(__file__).with_name("export_scene.js")
+    if not sibling.is_file():
+        return fallback
+    m = re.search(pattern, sibling.read_text(encoding="utf-8"))
+    if not m:
+        raise RuntimeError(f"export_scene.js missing {name}")
+    return m.group(1)
+
+STATE_SEED_JS = _from_export_scene(
+    "STATE_SEED",
+    r"const STATE_SEED = (\{[^;]+\});",
+    '{ fx: false, toast: "" }',
+)
+READ_FX_JS = _from_export_scene(
+    "readFx",
+    r"(function readFx\(win, name\) \{\n  return win\[name\] \|\| \{\};\n\})",
+    "function readFx(win, name) {\n  return win[name] || {};\n}",
+)
+_seed = STATE_SEED_JS.replace("{", "{{").replace("}", "}}")
+_read_fx = READ_FX_JS.replace("{", "{{").replace("}", "}}")
+
 spec = importlib.util.spec_from_file_location("blk", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 links = "\n".join(f'        <link rel="stylesheet" href="./styles/{c}" />' for c in m.CSS)
 props = {"$preview": {"width": W, "height": H}, **m.PROPS}
@@ -41,10 +64,11 @@ html = f'''<!DOCTYPE html>
       data-dc-script
       data-props='{json.dumps(props, ensure_ascii=False, indent=2)}'
     >
+      {_read_fx}
       class Component extends DCLogic {{
         constructor(props) {{
           super(props);
-          this.state = Object.assign({{ fx: false, toast: "" }}, this.init(props));
+          this.state = Object.assign({_seed}, this.init(props));
         }}
         componentDidMount() {{
           const tick = () => {{
@@ -65,7 +89,7 @@ html = f'''<!DOCTYPE html>
         emit(name, detail, fallback) {{
           if (this.props[name]) this.props[name](detail); else this.toast(fallback);
         }}
-        fx() {{ return window.{FX} || {{}}; }}
+        fx() {{ return readFx(window, "{FX}"); }}
 {m.LOGIC}
       }}
     </script>
