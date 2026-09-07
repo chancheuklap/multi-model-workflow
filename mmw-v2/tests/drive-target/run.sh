@@ -10,15 +10,15 @@
 # `uv run --with numpy --with pillow`; without uv on PATH the run fails rather than
 # passing on a half suite.
 #
-# MMW_FORCE_SKIP=1: this runner skips one test. A skip count other than 0 exits
-# non-zero and does not print `all passed`.
+# MMW_FORCE_SKIP=1: this runner skips one test. A skip count other than 0, or a
+# run count of 0, exits non-zero and does not print `all passed`.
 
 set -euo pipefail
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 
 if ! command -v uv >/dev/null 2>&1; then
-  echo "### unittest failed: uv is not on PATH" >&2
+  echo "uv is not on PATH" >&2
   exit 1
 fi
 
@@ -29,7 +29,7 @@ MMW_HOME="$(mktemp -d)"
 export MMW_HOME
 trap 'rm -rf "$MMW_HOME"' EXIT
 
-if uv run --quiet --with numpy --with pillow python - "$HERE" <<'PY'
+if uv run --quiet --with numpy --with pillow python -u - "$HERE" <<'PY'
 import os
 import sys
 import unittest
@@ -42,14 +42,23 @@ if os.environ.get("MMW_FORCE_SKIP") == "1":
             self.skipTest("MMW_FORCE_SKIP=1")
     suite.addTest(_ForceSkip("test_mmw_force_skip"))
 result = unittest.TextTestRunner(verbosity=1).run(suite)
-print(f"skipped {len(result.skipped)}")
-if result.skipped:
+ran = result.testsRun
+skipped = len(result.skipped)
+print(f"ran {ran} skipped {skipped}")
+if skipped:
+    print(f"refusing: skipped {skipped}", file=sys.stderr)
     sys.exit(1)
-sys.exit(0 if result.wasSuccessful() else 1)
+if ran < 1:
+    print("refusing: ran 0", file=sys.stderr)
+    sys.exit(1)
+if not result.wasSuccessful():
+    print("failures above", file=sys.stderr)
+    sys.exit(1)
+sys.exit(0)
 PY
 then
   echo "all passed"
 else
-  echo "failures above" >&2
   exit 1
 fi
+

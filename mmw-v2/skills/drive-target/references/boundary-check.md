@@ -15,7 +15,7 @@ EXPECT: BOUNDARY OK <n>/<n>
 
 ## What the product's test must do
 
-The consuming repository's contract ticket delivers one shared interaction helper (click, fill) and the tests call only that helper, never the page directly. Under `MMW_NEGATIVE=1` the helper does nothing. The test asserts the request the product's API client module emitted — method, path, and fields — and replaces that module with a mock. Mocking the product's own API client module is the allowed seam. Stubbing `fetch`, msw, nock or fetch-mock is still a cheat. `--lint` reports `ERROR` when those names appear on a `CHECK:` line; a stub inside a test file is not that line, so lint does not catch it. This section and code review are what hold the test-file half.
+The consuming repository's contract ticket delivers one shared interaction helper (click, fill) and the tests call only that helper, never the page directly. Under `MMW_NEGATIVE=1` the helper does nothing. The test asserts the request the product's API client module emitted — method, path, and fields — and replaces that module with a mock. Mocking the product's own API client module is the allowed seam. Stubbing `fetch`, msw, nock or fetch-mock is still a cheat. `verify-ticket.py --lint` reports `ERROR` when those names appear on a `CHECK:` line; a stub inside a test file is not that line, so lint does not catch it. This section and code review are what hold the test-file half.
 
 That pairing is what makes the second pass mechanical. Skip the click, and a test that really asserted a request goes red; a test whose assertion is true without the click stays green, and this judge prints that.
 
