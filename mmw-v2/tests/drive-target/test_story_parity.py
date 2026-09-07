@@ -140,8 +140,7 @@ class TestStoryGate(unittest.TestCase):
 
     @unittest.skipUnless(
         importlib.util.find_spec("numpy") is not None,
-        "around ranks a numpy mask; system python3 for AC4 has none, and the "
-        "colour fixture's swatch is aria-hidden so around: is unverified there")
+        "around ranks a numpy mask")
     def test_a_pixel_failure_uses_the_shared_around(self):
         import numpy as np
         mask = np.zeros((50, 80), dtype=bool)
@@ -157,8 +156,11 @@ class TestStoryGate(unittest.TestCase):
         ]
         code, lines = sp.story_gate(self.caught(), [c], 3.0, 0)
         self.assertEqual(code, 1)
-        self.assertIn("pixel 12.5% > 3.0% (unaligned 31.0%)", lines[0])
-        self.assertIn("around:", lines[0])
+        self.assertEqual(lines, [
+            "DIFF default 400x300 12.5% (unaligned 31.0%) "
+            "— pixel 12.5% > 3.0% (unaligned 31.0%) "
+            "around: button \"Continue\", heading \"Demo card\"",
+        ])
 
 
 class TestStoryFixture(unittest.TestCase):
