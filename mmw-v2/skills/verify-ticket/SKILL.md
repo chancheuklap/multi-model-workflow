@@ -19,7 +19,7 @@ python3 <absolute path to that script>
 
 Resolve it from this file's own location. The path differs by machine and by host, and `install.sh` puts this skill wherever the host that gave it to you reads its skills from.
 
-Every run that executes a `CHECK:` — `<n>`, `--reverify` — and `--lint` take `--tools <directory>`: the `scripts/` directory of the `drive-target` skill, resolved from that skill's own `SKILL.md` the same way. A criterion names a judge by its bare name (`wiring-check.py …`, `visual-parity.py …`) and `<engine>` puts `--tools` on the `PATH` of the shell that runs it; nothing in a ticket says where this machine keeps its skills. Without `--tools`, such a criterion fails with `command not found`, which is the right failure.
+Every run that executes a `CHECK:` — `<n>`, `--reverify` — and `--lint` take `--tools <directory>`: the `scripts/` directory of the `drive-target` skill, resolved from that skill's own `SKILL.md` the same way. A criterion names a judge by its bare name (`story-parity.py …`, `boundary-check.py …`, `journey.py …`) and `<engine>` puts `--tools` on the `PATH` of the shell that runs it; nothing in a ticket says where this machine keeps its skills. Without `--tools`, such a criterion fails with `command not found`, which is the right failure.
 
 ## Find your run
 
@@ -65,11 +65,11 @@ Three things at once: how the criteria are written, which worker the ticket asks
 
 The worker reads the same way. `dispatch.sh` starts a ticket on the `models.md` row its `junior-worker` or `senior-worker` label names, so a ticket in the agent queue wearing no such label is an `ERROR  … [worker-label]`, and so is one wearing both. Its `## Worker` section is the human-readable copy, and a section that is missing or names the other one is a `WARN  … [worker-mismatch]`.
 
-When this ticket runs `visual-parity.py`, the batch's scene partition is checked too: every contract scene is covered once, every mount is owned. A closed sibling still covers the same mount-and-`--scenes` set an open ticket would, when its `EXPECT:` `PARITY OK <n>/<n>` matches that set times the viewport count; a mismatch is an `ERROR` that names the ticket, the mount, the count then and the count now. A closed sibling whose `EXPECT:` is not a `PARITY OK <n>/<n>` is an `ERROR` that says so. Closed tickets do not take part in the overlap check — that check is for two workers on the same frontier.
+The same run checks three criterion shapes. An interface ticket's `--pages` values must each be a `pages` mount of the contract and must not be an `App · ` page. A `boundary-check.py --run` must name a non-empty command. A `journey.py run <name>` must exist under the repository's `.mmw/journeys/`. `vi.stubGlobal('fetch')`, msw, nock and fetch-mock are refused; mocking the product's own API client module is not.
 
 The batch converges when `ERROR` is at zero and every `WARN` has been looked at and either fixed or kept on purpose.
 
 ## Reached from here
 
 - **`--closeout` refused your draft** → [references/closeout.md](references/closeout.md), the conditions it reads the draft against. The refusal itself is on stderr: the first line counts the problems, names the first, and gives the `--check-only` command that prints them all; every problem after the first is one more line opening `also:`. Go to the reference file when a line names a condition you cannot place. `--closeout <draft> --check-only` reports on a draft and changes nothing, at any time.
-- **A criterion has to launch, reach or observe the running product; you are writing the wiring or parity criterion, or reading a `MISS` or `DIFF` line; the repository has no `.mmw/target.json`; you are about to touch a process or a port** → the `drive-target` skill. Its five rules while the product is running bind every run of this skill.
+- **A criterion has to launch, reach or observe the running product; you are writing a story, boundary or journey criterion, or reading a `MISS` or `DIFF` line; the repository has no `.mmw/target.json`; you are about to touch a process or a port** → the `drive-target` skill. Its five rules while the product is running bind every run of this skill.

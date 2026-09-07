@@ -1917,6 +1917,8 @@ PIPELINE_SCRIPTS = {
                                      "--impl-title", "--viewports")},
     "wiring-check.py": {"required": ("--contract", "--rows"),
                         "retired": ("--cdp", "--impl", "--backend", "--seed", "--impl-title")},
+    "story-parity.py": {"required": ("--contract", "--pages"), "retired": ()},
+    "boundary-check.py": {"required": ("--run",), "retired": ()},
 }
 SPEC_SECTION_SOURCE_RE = re.compile(r"^#(\d+) (Implementation Decisions|Testing Decisions)\s*(\d+)?")
 ADR_SOURCE_RE = re.compile(r"^ADR-(\d{4})")
@@ -1965,6 +1967,11 @@ def screen_driver_mod():
 _SCREEN_DRIVER = None
 
 
+APP_PAGE_PREFIX = "App · "
+RUN_VALUE_RE = re.compile(r"""--run(?:\s+|=)(?:"([^"]*)"|'([^']*)'|(\S+))""")
+JOURNEY_NAME_RE = re.compile(r"journey\.py\s+run\s+(\S+)")
+
+
 def script_segment(check: str, script: str) -> str:
     """The part of a CHECK from the script's name to the end of that command."""
     i = check.find(script)
@@ -1972,6 +1979,51 @@ def script_segment(check: str, script: str) -> str:
         return ""
     rest = check[i + len(script):]
     return re.split(r"\s*(?:&&|\|\||;|\|)(?:\s|$)", rest, maxsplit=1)[0]
+
+
+PAGES_VALUE_RE = re.compile(r"""--pages(?:\s+|=)(?:"([^"]*)"|'([^']*)'|(\S+))""")
+
+
+def story_pages(check: str) -> list[str]:
+    """The `--pages` mounts a story-parity.py criterion names."""
+    segment = script_segment(check, "story-parity.py")
+    out: list[str] = []
+    for m in PAGES_VALUE_RE.finditer(segment):
+        raw = (m.group(1) if m.group(1) is not None
+               else m.group(2) if m.group(2) is not None
+               else m.group(3) or "")
+        out.extend(x for x in raw.split(",") if x)
+    return out
+
+
+def page_mounts(doc: dict) -> dict[str, str]:
+    """`pages.<page>.mount` → the page key."""
+    out: dict[str, str] = {}
+    for name, decl in (doc.get("pages") or {}).items():
+        mount = str((decl or {}).get("mount") or "")
+        if mount:
+            out[mount] = str(name)
+    return out
+
+
+def run_values(check: str) -> list[str] | None:
+    """The `--run` values on a boundary-check.py criterion, or None when the flag is absent."""
+    if "boundary-check.py" not in check:
+        return None
+    segment = script_segment(check, "boundary-check.py")
+    values = []
+    for m in RUN_VALUE_RE.finditer(segment):
+        values.append(m.group(1) if m.group(1) is not None
+                      else m.group(2) if m.group(2) is not None
+                      else m.group(3) or "")
+    if "--run" in segment and not values:
+        return [""]
+    return values
+
+
+def journey_names(check: str) -> list[str]:
+    """The journey name on a `journey.py run <name>` criterion, from that command only."""
+    return JOURNEY_NAME_RE.findall("journey.py" + script_segment(check, "journey.py"))
 
 
 def help_flags(script: str) -> set[str]:
@@ -2216,78 +2268,6 @@ def scene_findings(body: str, doc: dict) -> list[str]:
     return findings
 
 
-PARITY_OK_RE = re.compile(r"PARITY OK \d+\\?/(\d+)")
-
-
-def parity_ok_count(expect: str) -> int | None:
-    """The trailing `<n>` in `PARITY OK <n>/<n>`, including the regex form `PARITY OK n\\/n`."""
-    m = PARITY_OK_RE.search(expect or "")
-    if not m:
-        return None
-    return int(m.group(1))
-
-
-def lint_scene_partition(open_bodies: dict[int, str], doc: dict,
-                         closed_bodies: dict[int, str] | None = None) -> list[str]:
-    """Across a batch, the scenes the parity criteria cover — by mount, narrowed by an
-    explicit `--scenes` — are the contract's scenes, each exactly once, and every page's
-    mount is owned by some ticket. Two tickets ordered by `## Blocked by` are not a
-    split: the later one re-runs the earlier one's scenes after changing something they
-    rest on, so their overlap is a re-verification, not a double claim. A closed ticket
-    still covers the same mount-and-`--scenes` set an open ticket would, when its
-    `PARITY OK <n>/<n>` matches that set times the viewport count; it does not take
-    part in the overlap check."""
-    by_mount = scenes_by_mount(doc)
-    all_scenes = {s for scenes in by_mount.values() for s in scenes}
-    covered: dict[str, list[int]] = {}
-    owned_mounts: set[str] = set()
-    closed_scenes: set[str] = set()
-    findings: list[str] = []
-    n_vp = len(doc.get("viewports") or []) or 1
-    for number, body in (closed_bodies or {}).items():
-        expects = {gid: exp for gid, _, exp in criteria_lines(body)}
-        for gate_id, mounts, explicit in parity_calls(body):
-            mounts = expand_mounts(mounts, by_mount)
-            scenes = explicit if explicit else [s for m in mounts for s in by_mount.get(m, [])]
-            now = len(scenes) * n_vp
-            then = parity_ok_count(expects.get(gate_id, ""))
-            if then == now:
-                owned_mounts.update(mounts)
-                closed_scenes.update(scenes)
-            elif then is None:
-                findings.append(
-                    f"closed ticket #{number} mount {','.join(mounts)} "
-                    f"has no PARITY OK n/n in EXPECT, {now} now")
-            else:
-                findings.append(
-                    f"closed ticket #{number} mount {','.join(mounts)} "
-                    f"covered {then} scenes then, {now} now")
-    for number, body in open_bodies.items():
-        for _, mounts, explicit in parity_calls(body):
-            mounts = expand_mounts(mounts, by_mount)
-            owned_mounts.update(mounts)
-            scenes = explicit if explicit else [s for m in mounts for s in by_mount.get(m, [])]
-            for s in scenes:
-                covered.setdefault(s, []).append(number)
-    if not covered and not closed_scenes and not findings:
-        return []
-    for s in sorted(all_scenes - set(covered) - closed_scenes):
-        findings.append(f"scene {s} is covered by no ticket's parity criterion")
-    blocks = {n: set(blocked_by(b)) for n, b in open_bodies.items()}
-
-    def unordered(a: int, b: int) -> bool:
-        return a not in blocks[b] and b not in blocks[a]
-
-    for s, tickets in sorted(covered.items()):
-        if any(unordered(a, b) for i, a in enumerate(tickets) for b in tickets[i + 1:]):
-            findings.append(f"scene {s} is covered by more than one ticket: "
-                            + ", ".join(f"#{t}" for t in tickets))
-    for mount in sorted(set(by_mount) - owned_mounts):
-        if mount:
-            findings.append(f"mount {mount} is owned by no ticket in the batch")
-    return findings
-
-
 def trigger_findings(row_ids: list[str], doc: dict, contract_path: str | None) -> list[str]:
     """Every owned row the judges could not drive, because its trigger's role and name
     reach more than one node on a page the row's own scenes sit on. The judges refuse
@@ -2314,31 +2294,45 @@ def trigger_findings(row_ids: list[str], doc: dict, contract_path: str | None) -
     return findings
 
 
-def lint_screen_contract(body: str, number: int | None = None) -> list[str]:
+def lint_screen_contract(body: str, number: int | None = None,
+                         root: Path | str | None = None) -> list[str]:
     """The interface rules of `to-tickets`, made mechanical.
 
-    An interface ticket names its screen-contract rows under `## Read first`; a row with
-    observe needs a wiring criterion (a `CHECK:` running `wiring-check.py` that names the
-    row id); no `CHECK:` may stub the application's own network; the two pipeline scripts
-    are given what they need and nothing they retired; every mechanism the ticket uses
-    is built by a ticket it is blocked by; every baseline-class source of an owned row is
-    under `## Read first` and every spec-section source is named by `## Parent`; an
-    explicit `--scenes` list stays inside its `--mount`.
+    An interface ticket names its screen-contract rows under `## Read first`; each
+    `--pages` mount is a non-`App · ` page of that contract; a `boundary-check.py --run`
+    is a non-empty command; a `journey.py run <name>` exists under `.mmw/journeys/`;
+    no `CHECK:` may stub the application's own network (`vi.stubGlobal('fetch')`, msw,
+    nock, fetch-mock) — mocking the product's API client module is not that; the
+    pipeline scripts are given what they need and nothing they retired; every mechanism
+    the ticket uses is built by a ticket it is blocked by; every baseline-class source
+    of an owned row is under `## Read first` and every spec-section source is named by
+    `## Parent`; an explicit `--scenes` list stays inside its `--mount`.
     """
     findings: list[str] = []
+    repo = Path(root) if root is not None else repo_root()
     read_first = "\n".join(section(body, "Read first"))
     parent_text = "\n".join(section(body, "Parent"))
     checks = criteria_lines(body)
     for gate_id, check, _ in checks:
         findings.extend(lint_pipeline_flags(gate_id, check))
         if FETCH_STUB_RE.search(check):
-            findings.append(f"{gate_id}: CHECK stubs the application's own network; a "
-                            f"wiring criterion reads the backend instead")
+            findings.append(f"{gate_id}: CHECK stubs the application's own network; mock "
+                            f"the product's API client module instead")
+        values = run_values(check)
+        if values is not None:
+            for value in values:
+                if not value.strip():
+                    findings.append(f"{gate_id}: boundary-check.py --run is empty")
+                    break
+        for name in journey_names(check):
+            dest = repo / ".mmw" / "journeys" / name
+            if not dest.exists():
+                findings.append(f"{gate_id}: journey.py run {name} is not under .mmw/journeys/")
     m = SCREEN_CONTRACT_ROWS_RE.search(read_first)
-    interface_ticket = any("visual-parity.py" in check for _, check, _ in checks)
+    interface_ticket = any("story-parity.py" in check for _, check, _ in checks)
     if not m:
         if interface_ticket:
-            findings.append("interface ticket (a criterion runs visual-parity.py) names no "
+            findings.append("interface ticket (a criterion runs story-parity.py) names no "
                             "`screen-contract.yaml rows: <id, id>` line under `## Read first`")
         return findings
     row_ids = ROW_ID_RE.findall(m.group(1))
@@ -2347,63 +2341,25 @@ def lint_screen_contract(body: str, number: int | None = None) -> list[str]:
         findings.append(f"the contract {contract_path} could not be read from here (not in "
                         f"the working tree, or neither pyyaml nor uv is available); the "
                         f"source, mechanism and scene rules did not run")
-    rows_with_observe = set(row_ids)
     if doc is not None:
-        try:
-            rows_with_observe = {r["id"] for r in doc.get("rows") or []
-                                 if r["id"] in row_ids and r.get("observe")}
-        except (KeyError, TypeError):
-            pass
-    wiring_checks = [check for _, check, _ in checks if "wiring-check.py" in check]
-    for rid in sorted(rows_with_observe):
-        if not any(rid in check for check in wiring_checks):
-            findings.append(f"row {rid} has observe but no criterion runs wiring-check.py naming it")
-    if doc is not None:
+        mounts_of = page_mounts(doc)
+        for gate_id, check, _ in checks:
+            if "story-parity.py" not in check:
+                continue
+            for mount in story_pages(check):
+                page = mounts_of.get(mount)
+                if page is None:
+                    findings.append(f"{gate_id}: --pages {mount} is declared by no page "
+                                    f"of the contract")
+                elif page.startswith(APP_PAGE_PREFIX):
+                    findings.append(f"{gate_id}: --pages {mount} names an App page; story "
+                                    f"criteria cover Component pages")
         mounts = [m for _, ms, _ in parity_calls(body) for m in ms]
         findings.extend(source_findings(row_ids, doc, read_first, parent_text))
         findings.extend(mechanism_findings(number, body, doc, row_ids, mounts))
         findings.extend(scene_findings(body, doc))
         findings.extend(trigger_findings(row_ids, doc, contract_path))
     return findings
-
-
-def lint_batch_scenes(number: int, body: str) -> list[str]:
-    """The scene partition across the batch, read when this ticket runs visual-parity.py.
-
-    Closed siblings are passed separately: they still cover the same
-    mount-and-`--scenes` set an open ticket would when their `PARITY OK <n>/<n>`
-    matches, and they do not take part in overlap.
-    """
-    if not parity_calls(body):
-        return []
-    doc, _ = load_contract_doc("\n".join(section(body, "Read first")))
-    if doc is None:
-        return []
-    try:
-        spec = spec_of(number)
-    except ParentUnreadable as exc:
-        return [f"the tracker could not say which spec #{number} sits under ({exc}), so "
-                f"the scene partition across the batch was not checked"]
-    if spec is None:
-        return []
-    try:
-        children = fetch_sub_issues(spec)
-    except SubIssuesUnreadable as exc:
-        return [f"the tracker could not list the children of #{spec} ({exc}), so "
-                f"the scene partition across the batch was not checked"]
-    open_bodies = {number: body}
-    closed_bodies: dict[int, str] = {}
-    for n in children:
-        if n == number:
-            continue
-        try:
-            if fetch_outsider(n).get("state") == "CLOSED":
-                closed_bodies[n] = fetch_body(n)
-            else:
-                open_bodies[n] = fetch_body(n)
-        except Exception:  # noqa: BLE001
-            continue
-    return lint_scene_partition(open_bodies, doc, closed_bodies)
 
 
 def run_lint(number: int) -> int:
@@ -2449,9 +2405,6 @@ def run_lint(number: int) -> int:
     for finding in contract_findings:
         print("  ERROR " + finding + "  [screen-contract]")
     broken = broken + contract_findings
-    for finding in lint_batch_scenes(number, body):
-        print("  ERROR " + finding + "  [screen-contract]")
-        broken.append(finding)
     for finding in lint_check_effects(body):
         print("  WARN  " + finding + "  [shared-state]")
     for finding in lint_edges(body):

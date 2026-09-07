@@ -26,6 +26,8 @@ A test file in the diff that no `CHECK:` names is still worth a review finding, 
 
 When no `CHECK:` names a test file, report one line — no test-backed criteria in this ticket — and stop. There is nothing here for this axis.
 
+A criterion that runs `boundary-check.py` is already under a mechanical mutation check: the judge runs the product test twice and writes `GREEN WITHOUT INTERACTION` when the skipped-interaction pass stays green. Confirm the `--run` command is the product test this ticket added. Do not judge whether that case can go red; the judge already did.
+
 ## 2. The test smell baseline
 
 Six shapes. For each case in scope, ask all six:
