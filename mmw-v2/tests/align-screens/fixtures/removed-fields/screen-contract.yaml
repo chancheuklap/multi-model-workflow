@@ -1,0 +1,27 @@
+# Reader: ticket #221 AC1 CHECK — `lint_contract.py` run against this directory.
+# The unittest suite does not load these files.
+effort: removed-fields
+target:
+  kind: web-spa
+viewports: [400x300]
+pages:
+  "Component · Demo.dc.html":
+    mount: demo
+    route: /demo
+    component: demo
+scenes:
+  empty:
+    page: "Component · Demo.dc.html"
+rows:
+  - id: demo.save
+    component: demo
+    trigger: { role: button, name: "Save" }
+    precondition: {}
+    scenes: [empty]
+    calls: [none]
+    shows: {}
+    next: stay
+    observe: ["GET /api/x -> .ok == true"]
+    after: { role: heading, name: "Confirm" }
+    source: ["#216 Implementation Decisions 5"]
+    gap: aligned

@@ -1,0 +1,13 @@
+{
+  "scene_pages": {
+    "empty": "Component · Demo.dc.html"
+  },
+  "table": [
+    {
+      "page": "Component · Demo.dc.html",
+      "role": "button",
+      "name": "Save",
+      "scenes": ["empty"]
+    }
+  ]
+}
