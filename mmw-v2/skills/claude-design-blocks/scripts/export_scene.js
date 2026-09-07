@@ -1,14 +1,16 @@
 // Run one scene's LOGIC in Node. Args: <fxPath> <fxName> <propsJson>; LOGIC on stdin.
-// Prints {state, vals}. mk.py reads STATE_SEED and readFx from this file.
+// Prints {state, vals}. mk.py inserts the SHARED block into the wrapper it emits.
 const fs = require("fs");
 const [fxPath, fxName, propsJson] = process.argv.slice(2);
 const logic = fs.readFileSync(0, "utf8");
 const props = JSON.parse(propsJson);
 
+// SHARED_BEGIN
 const STATE_SEED = { fx: false, toast: "" };
 function readFx(win, name) {
   return win[name] || {};
 }
+// SHARED_END
 
 const window = {
   addEventListener() {},

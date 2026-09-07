@@ -12,7 +12,7 @@ set -euo pipefail
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 
 if ! command -v node >/dev/null 2>&1; then
-  echo "### claude-design-blocks failed: node is not on PATH" >&2
+  echo "claude-design-blocks failed: node is not on PATH" >&2
   exit 1
 fi
 
