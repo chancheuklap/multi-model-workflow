@@ -15,7 +15,7 @@ git diff <base-commit>...HEAD --stat
 git log <base-commit>..HEAD --oneline
 ```
 
-Three dots, so the comparison runs against the merge-base. A ref that does not resolve or an empty diff is a failure here, before three subagents spend a context each on nothing. Report it on the ticket anyway: `gh issue comment <ticket>`, first line `REVIEW <base commit>..<HEAD commit>` (the refs as you were given them, when one of them does not resolve), then one line saying which of the two failures it was. That comment is what the worker was woken for, so write it even when there is nothing to review. Then stop.
+Three dots, so the comparison runs against the merge-base. A ref that does not resolve or an empty diff is a failure here, before three subagents spend a context each on nothing. Report it on the ticket anyway, through the same call step 4 uses, first line `REVIEW <base commit>..<HEAD commit>` (the refs as you were given them, when one of them does not resolve), then one line saying which of the two failures it was. That report is what the worker is waiting for, so write it even when there is nothing to review. Then stop.
 
 Capture the resolved base commit and the resolved `HEAD` commit. Both go in the first line of the review comment.
 
@@ -37,6 +37,8 @@ your instructions: <absolute path to that agent's reference file>
 
 Nothing else. No summary of the change, no list of files, no restatement of what that axis looks for: the reference file says all of it, and a subagent that reads it gets the current wording rather than your paraphrase of it. Everything fixed — what to look for, where to find the repository's documented standards, how to reach the spec, which test files are in scope — is already written there.
 
+**Hold this turn until all three have answered.** On a host whose subagents run in the background unless told otherwise, ask for them to be waited on. The worker that started you is asleep on your report and is woken by your session coming to rest; a turn ended here is your session at rest with nothing written, which wakes it to find nothing and leaves it asking again until you finish.
+
 ## 3. Sort every review finding into in-ticket or out-of-ticket
 
 A review finding is **in-ticket** when it touches one of five things: this ticket's acceptance criteria, a decision in the spec section the ticket names, a baseline under the ticket's `## Read first`, the spec's `## Out of Scope`, or the spec's `## Testing Decisions`. Everything else is **out-of-ticket**.
@@ -52,9 +54,13 @@ The Tests axis splits on one question — is the test case the review finding na
 
 ## 4. Write one review comment on the ticket
 
+Write the report to a file, then hand that file to the `verify-ticket` skill's engine, resolving `scripts/verify-ticket.py` from that skill's own `SKILL.md`:
+
 ```sh
-gh issue comment <ticket> --body-file <file>
+python3 <verify-ticket scripts>/verify-ticket.py <ticket> --review <file>
 ```
+
+It posts the file as the review comment and, in the same call, tells the session that started you that the report has landed. One call because it is one act: a report on the ticket that the worker was not told about is a worker still asleep on a session that has already finished.
 
 The review comment's first line is fixed:
 
