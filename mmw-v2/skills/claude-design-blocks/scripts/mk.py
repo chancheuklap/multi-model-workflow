@@ -79,6 +79,4 @@ html = f'''<!DOCTYPE html>
   </body>
 </html>
 '''
-if os.environ.get("MMW_MK_MUTATE") == "1":
-    html = html.replace("class Component extends DCLogic", "{class Component extends DCLogic", 1)
 out = pathlib.Path(m.NAME + ".dc.html"); out.write_text(html); print(out, len(html))

@@ -9,6 +9,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -30,11 +31,18 @@ def page_props(module, scene: dict) -> dict:
     return props
 
 
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+
 def last_line(text: str) -> str:
     lines = [line.strip() for line in text.splitlines() if line.strip()]
-    while lines and (lines[-1].startswith("Node.js v") or lines[-1].startswith("at ")):
-        lines.pop()
-    return lines[-1] if lines else "failed"
+    while lines:
+        plain = _ANSI.sub("", lines[-1]).strip()
+        if plain.startswith("Node.js v") or plain.startswith("at "):
+            lines.pop()
+            continue
+        return plain
+    return "failed"
 
 
 def run_scene(handoff: Path, scene: dict) -> dict:

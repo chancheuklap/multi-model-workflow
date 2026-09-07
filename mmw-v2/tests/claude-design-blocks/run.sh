@@ -11,10 +11,6 @@ set -euo pipefail
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 
-# Node colours stack frames when FORCE_COLOR is set, even on captured stderr;
-# the failed-scene test then sees a frame instead of the thrown error.
-unset FORCE_COLOR
-
 if ! command -v node >/dev/null 2>&1; then
   echo "claude-design-blocks failed: node is not on PATH" >&2
   exit 1
