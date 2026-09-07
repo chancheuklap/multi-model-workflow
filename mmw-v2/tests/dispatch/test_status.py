@@ -63,16 +63,25 @@ def agent(ticket, status_="running", *, kind="worker", parent=None,
 
 
 def ticket(number, state="OPEN", labels=("ready-for-agent",), blockers=(),
-           assignees=(), comments=()):
+           assignees=(), comments=(), title=None, body=""):
     """One `gh issue view --json …` answer, before status.py normalises it."""
     return status.normalise_ticket(number, {
         "state": state,
-        "title": f"ticket {number}",
+        "title": title if title is not None else f"ticket {number}",
+        "body": body,
         "labels": [{"name": l} for l in labels],
         "assignees": [{"login": a} for a in assignees],
         "blockedBy": {"nodes": [{"number": b, "state": "OPEN"} for b in blockers]},
         "comments": [{"body": c, "createdAt": "2000-01-01T00:00:00Z"} for c in comments],
     })
+
+
+def review_child(number, comment, *, state="CLOSED", title=None, labels=("needs-triage",)):
+    """A review sub-issue: body first line `SUB-ISSUE review`, plus its close comment."""
+    return ticket(
+        number, state=state, labels=labels, comments=[comment],
+        title=title if title is not None else f"REVIEW: child {number}",
+        body=f"SUB-ISSUE review from #61\nREVIEW: child {number}\n")
 
 
 SELF_RUN_UNMET = "\n".join([
@@ -559,6 +568,7 @@ class Summary(unittest.TestCase):
         self.assertEqual(body[4], "Not dispatched, a blocker stayed open: "
                                   "#63 blocked by #62")
         self.assertEqual(body[5], "Sub-issues opened tonight: None")
+        self.assertEqual(body[6], "Sub-issues routed: 0/0/0/0/0")
 
     def test_summary_walks_the_tickets_children(self):
         """The fourth line is each ticket's children in the window, not the spec's tickets."""
@@ -566,8 +576,10 @@ class Summary(unittest.TestCase):
             61: ticket(61, state="CLOSED", labels=(), comments=["ALL MET\nBranch: x"]),
             64: ticket(64, labels=("needs-triage",), comments=["fresh"]),
             90: ticket(90, labels=("needs-triage",),
-                       comments=["SUB-ISSUE baseline from #61"]),
+                       title="REVIEW: RUNNER is now a Path",
+                       comments=["已收进 #80（triage close comment whose first line is body）"]),
             91: ticket(91, labels=("needs-triage",),
+                       title="a pipeline child",
                        comments=["SUB-ISSUE pipeline from #61"]),
         }
         tickets[61]["created"] = "2026-08-29T00:00:00Z"
@@ -590,7 +602,8 @@ class Summary(unittest.TestCase):
                 self.assertEqual(status.main(["--summary", "76"]), 0)
             lines = out.getvalue().splitlines()
             self.assertEqual(
-                lines[5], "Sub-issues opened tonight: #90 SUB-ISSUE baseline from #61")
+                lines[5], "Sub-issues opened tonight: #90 REVIEW: RUNNER is now a Path")
+            self.assertNotIn("已收进", lines[5])
             self.assertNotIn("#64", lines[5])
             self.assertNotIn("#91", lines[5])
             self.assertIn(61, asked)
@@ -628,11 +641,70 @@ class Summary(unittest.TestCase):
             self.assertEqual(lines[3], "Handed back to needs-triage: None")
             self.assertEqual(lines[4], "Not dispatched, a blocker stayed open: None")
             self.assertEqual(lines[5], "Sub-issues opened tonight: None")
+            self.assertEqual(lines[6], "Sub-issues routed: 0/0/0/0/0")
             self.assertEqual(
                 [c for c in gh_calls if c[:2] == ["issue", "comment"]], [])
         finally:
             (status.gh, status.sub_issues, status.read_ticket,
              status.paseo_json, status.night_opened) = saved
+
+    def test_the_sub_issue_line_is_number_and_title_not_the_close_comment(self):
+        """Triage close comments open with body, so taking the first line made a wall of text."""
+        child = review_child(
+            90,
+            "已收进 #254（`export_scene_data.py` 收束），挂在 #216 下，标 `ready-for-agent`。"
+            "已被 #223 做掉。已在基线分支上修掉。",
+            title="REVIEW: RUNNER is now a Path")
+        child["created"] = "2026-08-31T01:00:00Z"
+        rows = status.build_rows([61], {61: ticket(61, state="CLOSED", labels=())}, [])
+        body = status.summary(rows, opened="2026-08-30T00:00:00Z",
+                              now=datetime(2026, 8, 31, 2, 14),
+                              children=[child])
+        line = next(l for l in body.splitlines() if l.startswith("Sub-issues opened tonight:"))
+        self.assertEqual(line, "Sub-issues opened tonight: #90 REVIEW: RUNNER is now a Path")
+        self.assertNotIn("已收进", line)
+        self.assertNotIn("已被", line)
+        self.assertNotIn("已在基线", line)
+
+    def test_routed_counts_match_the_close_comments_and_unread_is_its_own_slot(self):
+        """opened / fixed / became / skipped / unread. Unreadable is not skipped."""
+        children = [
+            review_child(90, "已在基线分支上修掉（提交 `abc`）。night.md 1b 整段重写。"),
+            review_child(91, "已收进 #80（收束 runner），挂在 #76 下，标 `ready-for-agent`。"),
+            review_child(92, "已被 #70 做掉。CONTEXT.md 现在有 journey。"),
+            review_child(93, "按本票自己写的判据关闭。当前 HEAD 上那个 bool 不在了。"),
+            review_child(94, "按本票自己的判定关闭：Standards Finding 1 已在 #80 上取用。"),
+            review_child(95, "不做，理由是提出它的判官自己给的：建议不要采纳。"),
+            review_child(96, "当前措辞已是本票要的形状。boundary-check.md 的 Reading 一节。"),
+            review_child(97, "分两处落地，本票关闭。"),
+            review_child(98, "still open", state="OPEN"),
+            ticket(99, state="", labels=(), title="", body="SUB-ISSUE review from #61\n"),
+            ticket(100, state="CLOSED", labels=("needs-triage",),
+                   title="a baseline child",
+                   body="SUB-ISSUE baseline from #61\n",
+                   comments=["已收进 #80"]),
+        ]
+        for child in children:
+            child["created"] = "2026-08-31T01:00:00Z"
+        rows = status.build_rows([61], {61: ticket(61, state="CLOSED", labels=())}, [])
+        body = status.summary(rows, opened="2026-08-30T00:00:00Z",
+                              now=datetime(2026, 8, 31, 2, 14),
+                              children=children)
+        self.assertIn("Sub-issues routed: 10/1/1/5/3", body.splitlines())
+
+    def test_a_non_review_child_is_listed_and_not_routed(self):
+        child = ticket(
+            90, state="CLOSED", labels=("needs-triage",),
+            title="baseline: contract row missing",
+            body="SUB-ISSUE baseline from #61\n",
+            comments=["已在基线分支上修掉（提交 `abc`）。"])
+        child["created"] = "2026-08-31T01:00:00Z"
+        rows = status.build_rows([61], {61: ticket(61, state="CLOSED", labels=())}, [])
+        body = status.summary(rows, opened="2026-08-30T00:00:00Z",
+                              now=datetime(2026, 8, 31, 2, 14),
+                              children=[child]).splitlines()
+        self.assertEqual(body[5], "Sub-issues opened tonight: #90 baseline: contract row missing")
+        self.assertEqual(body[6], "Sub-issues routed: 0/0/0/0/0")
 
 
 class ReadingPaseo(unittest.TestCase):

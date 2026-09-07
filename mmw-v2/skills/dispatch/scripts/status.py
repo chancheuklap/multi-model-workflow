@@ -140,7 +140,7 @@ def sub_issues(number: int) -> list[int]:
 def read_ticket(number: int) -> dict:
     """One ticket, in the shape the rest of this file expects."""
     fields = ("state,labels,assignees,blockedBy,comments,title,"
-              "createdAt,closedAt")
+              "createdAt,closedAt,body")
     raw = gh_json(["issue", "view", str(number), "--json", fields], {})
     return normalise_ticket(number, raw)
 
@@ -153,6 +153,7 @@ def normalise_ticket(number: int, raw: dict) -> dict:
         "number": number,
         "state": (raw.get("state") or "").upper(),
         "title": raw.get("title") or "",
+        "body": raw.get("body") or "",
         "created": raw.get("createdAt") or "",
         "closed_at": raw.get("closedAt") or "",
         "labels": labels,
@@ -538,10 +539,71 @@ def night_opened(now: datetime | None = None) -> str:
         "%Y-%m-%dT%H:%M:%SZ")
 
 
+# Newest-comment first lines that classify a review sub-issue. Shapes taken
+# from the close comments triage left on #216's children. A ticket whose
+# newest comment matches none of these, or that could not be read, is unread:
+# that remainder is printed, never folded into skipped.
+ROUTE_FIXED = "已在基线分支上修掉"
+ROUTE_BECAME = "已收进 #"
+ROUTE_SKIPPED = (
+    "已被 #",
+    "按本票自己写的判据关闭",
+    "按本票自己的判定关闭",
+    "不做",
+    "当前措辞已是本票要的形状",
+)
+REVIEW_BODY = "SUB-ISSUE review"
+
+
+def is_review_sub_issue(ticket: dict) -> bool:
+    """A worker opened it with `--sub-issue review`; that kind is the body first line."""
+    return first_line(ticket.get("body") or "").startswith(REVIEW_BODY)
+
+
+def route_of(ticket: dict) -> str:
+    """`fixed`, `became`, `skipped`, or `unread`. Only a CLOSED ticket has a close comment."""
+    if (ticket.get("state") or "").upper() != "CLOSED":
+        return "unread"
+    head = last_first_line(ticket)
+    if head.startswith(ROUTE_FIXED):
+        return "fixed"
+    if head.startswith(ROUTE_BECAME):
+        return "became"
+    if any(head.startswith(p) for p in ROUTE_SKIPPED):
+        return "skipped"
+    return "unread"
+
+
+def routed_counts(children: list[dict]) -> tuple[int, int, int, int, int]:
+    """opened / fixed / became / skipped / unread among this batch's review sub-issues.
+
+    opened is the review sub-issues of the batch. The other four partition it:
+    main agent fixed on the closing pass, folded into a new ticket, left undone
+    after step 0, and everything that could not be classified. The fifth slot
+    is what keeps an unreadable child from looking like a skipped one.
+    """
+    opened = fixed = became = skipped = unread = 0
+    for child in children:
+        if not is_review_sub_issue(child):
+            continue
+        opened += 1
+        bucket = route_of(child)
+        if bucket == "fixed":
+            fixed += 1
+        elif bucket == "became":
+            became += 1
+        elif bucket == "skipped":
+            skipped += 1
+        else:
+            unread += 1
+    return opened, fixed, became, skipped, unread
+
+
 def summary(rows: list[dict], opened: str, now: datetime | None = None,
             children: list[dict] | None = None) -> str:
-    """Ticket numbers and first lines. What each says is on the ticket itself."""
+    """Ticket numbers and titles. What each says is on the ticket itself."""
     now = now or datetime.now()
+    kids = list(children or ())
     closed = [f"#{r['ticket']} {r['head'][:80]}".strip()
               for r in rows if r["state"] == "CLOSED" and r["closed_at"] > opened]
     back = [f"#{r['ticket']} {r['head'][:80]}".strip()
@@ -549,8 +611,9 @@ def summary(rows: list[dict], opened: str, now: datetime | None = None,
     waiting = [f"#{r['ticket']} blocked by "
                + ", ".join(f"#{b}" for b in r["blockers"])
                for r in rows if r["state"] == "OPEN" and r["blockers"]]
-    fresh = [f"#{c['number']} {last_first_line(c)[:80]}".strip()
-             for c in (children or ()) if (c.get("created") or "") > opened]
+    fresh = [f"#{c['number']} {(c.get('title') or '')[:80]}".strip()
+             for c in kids if (c.get("created") or "") > opened]
+    routed = routed_counts(kids)
     return "\n".join([
         NIGHT_SUMMARY.format(date=now.strftime("%Y-%m-%d")),
         "",
@@ -558,6 +621,7 @@ def summary(rows: list[dict], opened: str, now: datetime | None = None,
         "Handed back to needs-triage: " + (", ".join(back) or "None"),
         "Not dispatched, a blocker stayed open: " + (", ".join(waiting) or "None"),
         "Sub-issues opened tonight: " + (", ".join(fresh) or "None"),
+        "Sub-issues routed: %s/%s/%s/%s/%s" % routed,
     ])
 
 # --------------------------------------------------------------- the command forms
