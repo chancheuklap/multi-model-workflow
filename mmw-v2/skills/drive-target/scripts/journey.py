@@ -4,10 +4,10 @@
     journey.py run <name>
 
 Claims or reuses this worktree's lease, runs `.mmw/target.json`'s `start` every
-time, runs `discover` and puts the printed addresses plus the lease variables
-into the environment, runs `<journeys>/<name>` (a `run` executable, or the
-command `package.json` declares), and runs `stop` whether the script succeeded
-or not.
+time, runs `discover` and puts each printed address into the environment under
+its uppercase key (plus the lease variables), runs `<journeys>/<name>` (a `run`
+executable, or the command `package.json` declares), and runs `stop` whether
+the script succeeded or not.
 
     JOURNEY OK <name>                         exit 0
     JOURNEY FAILED <name> at <last line>      exit 1
@@ -114,6 +114,8 @@ def run_named(name: str, start: Path | None = None) -> int:
     try:
         data = discover(cfg, root)
     except SystemExit as exc:
+        if isinstance(exc.code, subprocess.CompletedProcess):
+            return bail(proc=exc.code)
         return bail(_exit_text(exc))
     addresses_into(env, data)
 

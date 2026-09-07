@@ -10,6 +10,7 @@ from __future__ import annotations
 import importlib.util
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -22,9 +23,25 @@ SCRIPT = (
 )
 REPO = Path(__file__).resolve().parent / "fixtures" / "story" / "repo"
 CONTRACT = "docs/specs/story/screen-contract.yaml"
-# Dispatch leases occupy 21000 + slot*20. These sit above that, and the pid
-# keeps two tickets on this machine from binding the same port.
-STORY_PORT_BASE = 30000 + (os.getpid() % 800) * 20
+
+
+def free_port_base(need: int = 20) -> int:
+    """First free block at or above 30000, the shape of test_dispatch.sh."""
+    for base in range(30000, 46000 - need):
+        held = []
+        try:
+            for port in range(base, base + need):
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                sock.bind(("127.0.0.1", port))
+                held.append(sock)
+            return base
+        except OSError:
+            continue
+        finally:
+            for sock in held:
+                sock.close()
+    raise AssertionError(f"no free port block of {need}")
 
 
 def load():
@@ -163,6 +180,17 @@ class TestStoryGate(unittest.TestCase):
         self.assertIn("pixel 12.5% > 3.0% (unaligned 31.0%)", lines[0])
         self.assertIn("around:", lines[0])
 
+    def test_class_or_console_alone_does_not_fail_a_scene(self):
+        c = comparison()
+        c.classes = {"only_in_baseline": [("btn", 'button "Continue"')],
+                     "only_in_impl": [], "changed": 1}
+        c.console_impl = ["error: Uncaught TypeError"]
+        code, lines = sp.story_gate(self.caught(), [c], 3.0, 0)
+        self.assertEqual(code, 0)
+        self.assertEqual(lines, ["STORY OK 1/1 pixel<=0.0%"])
+        vp_code, _ = sp.vp.gate(self.caught(), [c], 3.0, 0)
+        self.assertEqual(vp_code, 1)
+
 
 class TestStoryFixture(unittest.TestCase):
     """Real Chromium against the committed fixture. Precedent: TestShrunkPixels."""
@@ -183,7 +211,7 @@ class TestStoryFixture(unittest.TestCase):
                   contract=None, extra_args=None):
         env = dict(os.environ)
         env["MMW_HOME"] = self.home
-        env["MMW_LEASE_PORT_BASE"] = str(STORY_PORT_BASE)
+        env["MMW_LEASE_PORT_BASE"] = "28000"
         env.pop("STORY_MUTATE", None)
         if extra_env:
             env.update(extra_env)
@@ -272,14 +300,16 @@ class TestStoryFixture(unittest.TestCase):
                 '  missing:\n    page: "Component · Demo.dc.html"\n',
             )
             contract.write_text(text, encoding="utf-8")
+            self.assertIn("missing:", contract.read_text(encoding="utf-8"))
             proc = self.run_story(
                 cwd=root,
                 extra_args=["--scenes", "missing"],
                 extra_env={"MMW_HOME": home,
-                           "MMW_LEASE_PORT_BASE": str(STORY_PORT_BASE + 20)},
+                           "MMW_LEASE_PORT_BASE": str(free_port_base())},
             )
             self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
-            self.assertIn("404", proc.stderr)
+            self.assertIn("story page 404", proc.stderr)
+            self.assertIn("scene=missing", proc.stderr)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
             shutil.rmtree(home, ignore_errors=True)

@@ -42,9 +42,10 @@ field is shaped as it is are the fields below.
 5. **`journeys`.** The directory of journey scripts, default `.mmw/journeys`. Each
    `<name>` is a directory with an executable `run`, or a `package.json` that
    declares `scripts.run`. `python3 <scripts>/journey.py run <name>` claims the
-   lease, runs `start`, runs `discover`, puts the addresses and lease variables
-   into the environment, runs that script, and runs `stop` whether the script
-   succeeded or not.
+   lease, runs `start`, runs `discover`, puts each discover key into the
+   environment under its uppercase spelling (so `origin` arrives as `ORIGIN`)
+   together with the lease variables, runs that script, and runs `stop`
+   whether the script succeeded or not.
 
 6. **`leaves_machine`.** Each thing this product does in a run that reaches past
    this machine — opening the system browser, calling a paid service, writing a

@@ -36,7 +36,6 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 from lease import leased_environment, worktree_of  # noqa: E402
-from refusal import REPORT_BLOCKED, refusal  # noqa: E402
 
 # ---------------------------------------------------------------- constants
 # The three scripts `support.js` loads from unpkg. Answered from the handoff package's
@@ -262,7 +261,12 @@ def target_config(root: Path) -> dict:
         raise SystemExit(f"no {path}: the repository has not said how its product is "
                          f"reached. Run `screen_driver.py target --check --repo {root}` "
                          f"(the drive-target skill) and answer what it names")
-    cfg = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        cfg = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"{path} cannot be read as JSON: {exc}")
+    if not isinstance(cfg, dict):
+        raise SystemExit(f"{path} must hold one JSON object")
     if not cfg.get("discover"):
         raise SystemExit(f"{path} has no `discover` command; run `screen_driver.py target "
                          f"--check --repo {root}` and answer what it names")
@@ -292,14 +296,7 @@ def run_command(command: str, cwd: Path, extra: list[str] | None = None) -> str:
     proc = subprocess.run(shlex.split(command) + (extra or []), cwd=cwd,
                           capture_output=True, text=True, env=command_env(cwd))
     if proc.returncode != 0:
-        shown = f"{command}{' ' + ' '.join(extra) if extra else ''}"
-        detail = (proc.stderr.strip() or proc.stdout.strip()).splitlines()
-        first = detail[0] if detail else "(no output)"
-        raise SystemExit(refusal(
-            f"`{shown}` exited {proc.returncode}: {first}",
-            "The repository's declared command did not succeed.",
-            REPORT_BLOCKED,
-        ))
+        raise SystemExit(proc)
     return proc.stdout
 
 

@@ -24,4 +24,5 @@
 - [216-story-judges.md](216-story-judges.md) — mmw #216
 - [220-target-json-fields.md](220-target-json-fields.md) — mmw #220
 - [221-contract-format.md](221-contract-format.md) — mmw #221
+- [255-journey-address-case.md](255-journey-address-case.md) — mmw #255
 
