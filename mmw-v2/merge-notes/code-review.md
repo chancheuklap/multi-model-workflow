@@ -86,12 +86,6 @@ this axis is where they get one. Neither paragraph mentions `--mount`, the contr
 sends every later review down a path the tools no longer have. If upstream rewrites that
 section, put both paragraphs back after the screen-contract one.
 
-### agents/openai.yaml
-
-| 字段 | 我们的意图 |
-| --- | --- |
-| `interface.short_description` | 改成「一张 ticket 的 diff」加三个 axis，与 `SKILL.md` 的 `description` 同一个形态。上游改这一行 → 收上游措辞，axis 数与 ticket 按我们的 |
-
 ## A file inside Owns is in-ticket
 
 `SKILL.md` section 3 gained a sixth in-ticket condition, isomorphic with the five: the file the review finding points at sits inside this ticket's `## Owns`. The sentence that in-ticket review findings get one round of fixes on this ticket is unchanged — the sixth condition uses that round. The condition does not widen where the worker may write: a file outside `## Owns` is still not written.
@@ -99,3 +93,9 @@ section, put both paragraphs back after the screen-contract one.
 Reason, in the numbers from #277 Problem Statement: on the #216 night, 38 review sub-issues; 27 of them (71%) had a fix target that sat entirely inside that ticket's own `## Owns`, and the worker was forbidden to touch them.
 
 If upstream rewrites section 3 → take its wording and put the sixth condition back, with the sentence that a file outside `## Owns` is still not written.
+
+### agents/openai.yaml
+
+| 字段 | 我们的意图 |
+| --- | --- |
+| `interface.short_description` | 改成「一张 ticket 的 diff」加三个 axis，与 `SKILL.md` 的 `description` 同一个形态。上游改这一行 → 收上游措辞，axis 数与 ticket 按我们的 |
