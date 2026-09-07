@@ -102,13 +102,13 @@ Two things wake you, and both end here: a **ticket message** whose first line is
 
 Then end your turn. Most tickets that land are followed by another `advance`. The heartbeat from step 1 only wakes; it does not judge.
 
-## 4. The closing pass
+## 4. 收口轮|closing pass
 
-The 收口轮|closing pass starts here. The frontier is empty and `status` shows no live agent. If this spec's tickets still hold open review sub-issues — first line `SUB-ISSUE review from #<n>` — triage **exactly those**. If there are none, go to step 5.
+The frontier is empty and `status` shows no live agent. If this spec's tickets still hold open review sub-issues — first line `SUB-ISSUE review from #<n>`, listed per ticket by `gh api --paginate repos/{owner}/{repo}/issues/<n>/sub_issues?per_page=100` — route **exactly those**. If there are none, go to step 5.
 
-Judge each by ADR 0012 (`docs/adr/0012-review-finding-routing.md`): six steps in order, first match wins. That split is the threshold.
+Judge each by ADR 0012 (`docs/adr/0012-review-finding-routing.md`): six steps in order, first match wins.
 
-The ones you fix: commit under these three auditable rules, written here beside the threshold:
+The ones you fix: finish them in commits that follow these three rules:
 
 1. 一个提交对应一张（或一组同源）子票，commit message 按号关闭它们。
 2. 只动那张子票点名的文件。
@@ -128,7 +128,7 @@ Loop: tickets that land wake you at step 3; when the frontier is empty again, th
 
 ## 5. The night is over
 
-The frontier is empty, `status` shows no live agent, and step 4 left no open review sub-issue. Then, still on this branch:
+Step 4 left no open review sub-issue. Then, still on this branch:
 
 ```bash
 <dispatch> reverify <spec>
