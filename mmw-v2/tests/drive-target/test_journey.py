@@ -136,6 +136,20 @@ class JourneyOrder(unittest.TestCase):
         self.assertRegex(env, r"MMW_INSTANCE=\S+")
         self.assertTrue((self.repo.root / ".mmw" / "stop-ran").is_file())
 
+    def test_stop_sees_the_discovered_addresses(self):
+        stop_env = self.repo.root / ".mmw" / "stop-env"
+        self.repo.write_stack(
+            stop=(
+                f"echo ORIGIN=$ORIGIN MMW_INSTANCE=$MMW_INSTANCE >> '{stop_env}'\n"
+                "echo stop-ran > .mmw/stop-ran"
+            ),
+        )
+        code, out, _ = self.repo.run("demo")
+        self.assertEqual(code, 0, out)
+        env = stop_env.read_text(encoding="utf-8")
+        self.assertIn("ORIGIN=http://127.0.0.1:9", env)
+        self.assertRegex(env, r"MMW_INSTANCE=\S+")
+
     def test_stop_runs_when_the_script_fails(self):
         self.repo.write_journey(
             "demo", "echo first-of-script >&2\necho last-of-script >&2\nexit 7")
@@ -144,6 +158,16 @@ class JourneyOrder(unittest.TestCase):
         self.assertEqual(out, "JOURNEY FAILED demo at last-of-script\n")
         self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
                          ["start", "discover", "stop"])
+
+    def test_a_failing_stop_does_not_replace_the_journey_verdict(self):
+        self.repo.write_stack(stop="echo stop-broke >&2\nexit 3")
+        self.repo.write_journey(
+            "demo", "echo last-of-script >&2\nexit 7")
+        code, out, err = self.repo.run("demo")
+        self.assertEqual(code, 1, err)
+        self.assertEqual(out, "JOURNEY FAILED demo at last-of-script\n")
+        self.assertNotIn("Traceback", err)
+        self.assertNotIn("CompletedProcess", err)
 
     def test_start_failure_is_exit_2_and_prints_the_refusal_unchanged(self):
         self.repo.write_stack(start="echo Gateway points elsewhere >&2\nexit 1")

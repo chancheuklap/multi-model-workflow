@@ -294,9 +294,15 @@ def command_env(cwd: Path) -> dict[str, str]:
 
 def run_command(command: str, cwd: Path, env: dict[str, str] | None = None,
                 check: bool = True) -> subprocess.CompletedProcess:
+    argv = shlex.split(command)
+    try:
+        resolved = command_env(cwd) if env is None else env
+    except SystemExit as exc:
+        raise SystemExit(subprocess.CompletedProcess(
+            args=argv, returncode=2, stdout="", stderr=f"{exc}\n",
+        )) from None
     proc = subprocess.run(
-        shlex.split(command), cwd=cwd, capture_output=True, text=True,
-        env=command_env(cwd) if env is None else env,
+        argv, cwd=cwd, capture_output=True, text=True, env=resolved,
     )
     if check and proc.returncode != 0:
         raise SystemExit(proc)
@@ -304,6 +310,7 @@ def run_command(command: str, cwd: Path, env: dict[str, str] | None = None,
 
 
 def discover(cfg: dict, root: Path) -> dict:
+    """One JSON object of addresses, or SystemExit wrapping that command's CompletedProcess."""
     proc = run_command(cfg["discover"], root)
     out = (proc.stdout or "").strip()
     try:
