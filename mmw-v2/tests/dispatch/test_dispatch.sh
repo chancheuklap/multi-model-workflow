@@ -215,9 +215,19 @@ if args[:1] == ["stop"]:
     sys.exit(0)
 
 if args[:1] == ["archive"]:
-    ident = args[1] if len(args) > 1 else ""
-    rows = [a for a in load("agents.json") if a.get("id") != ident]
-    save("agents.json", rows)
+    # The real CLI refuses a running agent without --force ("Error: Agent <id> is
+    # currently running") and only then interrupts it. This fake used to accept every
+    # archive, which is how `suspend` shipped unable to stop the one thing it exists to
+    # stop: a worker in the middle of a turn.
+    force = "--force" in args
+    positional = [a for a in args[1:] if not a.startswith("--")]
+    ident = positional[0] if positional else ""
+    rows = load("agents.json")
+    target = next((a for a in rows if a.get("id") == ident), None)
+    if target is not None and target.get("status") == "running" and not force:
+        print(f"Error: Agent {ident} is currently running", file=sys.stderr)
+        sys.exit(1)
+    save("agents.json", [a for a in rows if a.get("id") != ident])
     print(json.dumps({"id": ident, "archived": True}))
     sys.exit(0)
 
@@ -1913,8 +1923,10 @@ scenario_suspend() {
           bash "$DISPATCH" "${TOOLS[@]}" suspend 76)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
 
-  has "paseo :: archive :: agt_61_worker"
-  hasnt "paseo :: archive :: agt_99_worker"
+  # `--force` is the whole point: without it the real CLI refuses a running agent, and a
+  # worker mid-turn is exactly what suspend exists to end.
+  has "paseo :: archive :: --force :: agt_61_worker"
+  hasnt "agt_99_worker"
   hasnt "paseo :: stop"
   has "paseo :: ls :: -g :: --json :: --label :: mmw.spec=76 :: --label :: mmw.kind=worker"
   hasnt "wks_foreign_61"
@@ -2105,7 +2117,7 @@ sys.stdin.read()
     || fail "a slot with a live listener was taken anyway: $(python3 "$LEASE_PY" list)"
 
   echo "--- and the rest of the night is still suspended: workers archived, tickets told"
-  has "paseo :: archive :: agt_61_worker"
+  has "paseo :: archive :: --force :: agt_61_worker"
   hasnt "paseo :: stop"
   [ "$(grep -cF 'NIGHT SUSPENDED #76' "$MMW_TEST_LOG")" = 2 ] \
     || fail "expected two suspend comments, got $(grep -cF 'NIGHT SUSPENDED #76' "$MMW_TEST_LOG")"

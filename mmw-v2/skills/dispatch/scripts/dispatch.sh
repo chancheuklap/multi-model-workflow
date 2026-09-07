@@ -1417,7 +1417,7 @@ suspend_comment() {
     "NIGHT SUSPENDED #$spec" \
     "The night on spec #$spec was suspended at $when, so this ticket has no verdict: nothing here says whether its work is finished."
   if [ -n "$ident" ]; then
-    printf '%s\n' "Its worker $ident was interrupted (\`paseo archive\`); its workspace and its branch are untouched. The batch is taken up again where it stands with advance."
+    printf '%s\n' "Its worker $ident was interrupted (\`paseo archive --force\`); its workspace and its branch are untouched. The batch is taken up again where it stands with advance."
   else
     printf '%s\n' "No session of ours was working on it at that moment. Its workspace and its branch, if it has them, are untouched, and it keeps its label, so the next advance of #$spec starts it."
   fi
@@ -1425,9 +1425,9 @@ suspend_comment() {
 
 # Suspend the night without throwing its work away.
 #
-# Five things happen: every live worker of the batch is archived (`paseo archive`,
-# which interrupts a running agent and drops it from the live list, workspace and
-# branch stay), every ticket still in the agent queue is told the night was
+# Five things happen: every live worker of the batch is archived (`paseo archive
+# --force`, which interrupts a running agent and drops it from the live list, workspace
+# and branch stay), every ticket still in the agent queue is told the night was
 # suspended, every OPEN ready-for-agent ticket assigned to this pipeline's account
 # has that claim given back, every lease slot the batch holds is given back, and
 # the main agent's heartbeat is deleted when the id file is still there. A batch
@@ -1452,14 +1452,19 @@ suspend_night() {
   queued="$(printf '%s\n' "$grades" | awk '$1 == "GRADE" { print $2 }')"
   batch="$(printf '%s\n' "$grades" | awk '$1 == "BATCH" { print $2 }')"
 
-  local live number ident stopped=0
+  # `--force` is what interrupts a worker mid-turn: plain `paseo archive` refuses a
+  # running agent and says to use it. Without it this loop archived only the workers that
+  # happened to be between turns — and a worker in the middle of one is the whole reason
+  # to suspend a night.
+  local live number ident stopped=0 still_live=""
   live="$(live_workers "$spec")"
   while IFS=$'\t' read -r number ident _; do
     [ -n "$ident" ] || continue
-    if paseo archive "$ident" >/dev/null 2>&1; then
+    if paseo archive --force "$ident" >/dev/null 2>&1; then
       stopped=$((stopped + 1))
     else
-      echo "dispatch: could not archive $ident on #$number" >&2
+      echo "dispatch: could not archive $ident on #$number, so its worker is still running" >&2
+      still_live="$still_live $number"
       left=$((left + 1))
     fi
   done <<<"$live"
@@ -1497,6 +1502,16 @@ suspend_night() {
     [ -n "$(worktrees_root)" ] \
       || echo "dispatch: no workspace of this checkout is standing, so a lease can be matched to a ticket only through a standing workspace; python3 $LEASE list shows what is still held, and claim reclaims a lease whose directory is gone" >&2
     for number in $batch; do
+      # A worker still running will start the product again, and the `stop` in between
+      # tears up the record of what it started — leaving processes that stop can no
+      # longer reach. So a ticket whose worker survived the archive keeps its slot: it
+      # is already counted as left behind, and this only says why.
+      case " $still_live " in
+        *" $number "*)
+          echo "dispatch: #$number keeps its slot while its worker runs; stopping a product under a live worker leaves processes its own stop cannot reach. End that agent, then suspend again" >&2
+          continue
+          ;;
+      esac
       cwd="$(workspace_cwd_for "$number")"
       [ -n "$cwd" ] || cwd="$(lease_worktree_for "$number")"
       [ -n "$cwd" ] || continue
