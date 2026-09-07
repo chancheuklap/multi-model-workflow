@@ -357,6 +357,21 @@ class TestCriterionShapes(ContractFixture, unittest.TestCase):
         self.assertTrue(any("paid-smoke" in f and ".mmw/journeys" in f for f in findings),
                         findings)
 
+    def test_a_journey_under_a_directory_the_check_cds_into_is_fine(self):
+        """A criterion that drives journey.py against a fixture `cd`s into it first, so
+        the journey it names is under that directory's `.mmw/`, not the repository's."""
+        os.makedirs(os.path.join(self.root, "fixtures", "repo", ".mmw", "journeys", "demo"),
+                    exist_ok=True)
+        self.assertEqual(
+            self.lint(gate("AC1", "cd fixtures/repo && journey.py run demo")), [])
+
+    def test_a_journey_missing_under_the_directory_the_check_cds_into_is_an_error(self):
+        os.makedirs(os.path.join(self.root, "fixtures", "repo", ".mmw", "journeys", "demo"),
+                    exist_ok=True)
+        findings = self.lint(gate("AC1", "cd fixtures/repo && journey.py run absent"))
+        self.assertTrue(any("absent" in f and ".mmw/journeys" in f for f in findings),
+                        findings)
+
 
 if __name__ == "__main__":
     unittest.main()

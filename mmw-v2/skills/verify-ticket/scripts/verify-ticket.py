@@ -1947,6 +1947,7 @@ def tool(script: str) -> Path | None:
 APP_PAGE_PREFIX = "App · "
 RUN_VALUE_RE = re.compile(r"""--run(?:\s+|=)(?:"([^"]*)"|'([^']*)'|(\S+))""")
 JOURNEY_NAME_RE = re.compile(r"^\s*run\s+(\S+)")
+CD_PREFIX_RE = re.compile(r"^\s*cd\s+(\S+)\s*&&")
 
 
 def script_segment(check: str, script: str) -> str:
@@ -2184,8 +2185,17 @@ def lint_screen_contract(body: str, number: int | None = None,
             if not value.strip():
                 findings.append(f"{gate_id}: boundary-check.py --run is empty")
                 break
+        # `journeys` is read from where the command will run, not from the repository
+        # root: a criterion that drives journey.py against a fixture `cd`s into it first,
+        # and the journey it names is under that directory's `.mmw/`.
+        base = repo
+        cdm = CD_PREFIX_RE.search(check)
+        if cdm:
+            candidate = (repo / cdm.group(1)).resolve()
+            if candidate.is_dir():
+                base = candidate
         for name in JOURNEY_NAME_RE.findall(script_segment(check, "journey.py")):
-            dest = repo / ".mmw" / "journeys" / name
+            dest = base / ".mmw" / "journeys" / name
             if not dest.exists():
                 findings.append(f"{gate_id}: journey.py run {name} is not under .mmw/journeys/")
     m = SCREEN_CONTRACT_ROWS_RE.search(read_first)
