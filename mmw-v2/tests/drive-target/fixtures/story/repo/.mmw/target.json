@@ -1,0 +1,3 @@
+{
+  "stories": "python3 -u stories/serve.py"
+}
