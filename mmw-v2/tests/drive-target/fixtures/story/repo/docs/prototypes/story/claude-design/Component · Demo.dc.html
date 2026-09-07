@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <style>
+          html, body { margin: 0; }
+          .demo {
+            width: 320px;
+            height: 200px;
+            box-sizing: border-box;
+            padding: 16px;
+            background: #f4f1ec;
+            font: 16px/24px sans-serif;
+            color: #1a1a1a;
+          }
+          .swatch { width: 80px; height: 80px; background: #2f6fed; }
+          h1 { margin: 0 0 8px; font-size: 20px; line-height: 24px; font-weight: 700; }
+          p { margin: 0 0 12px; }
+          button { margin: 0; padding: 4px 8px; font: 14px/20px sans-serif; }
+        </style>
+      </helmet>
+      <div class="demo">
+        <h1>Demo card</h1>
+        <p>{{ copy }}</p>
+        <div class="swatch" aria-hidden="true"></div>
+        <button type="button">Continue</button>
+      </div>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{
+  "scenario": {
+    "editor": "enum",
+    "default": "alpha",
+    "options": ["alpha", "beta", "gamma"]
+  }
+}'></script>
+  </body>
+</html>

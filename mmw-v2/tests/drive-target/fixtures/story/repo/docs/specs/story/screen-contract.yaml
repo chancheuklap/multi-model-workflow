@@ -1,0 +1,19 @@
+effort: story
+baselines:
+  look: docs/prototypes/story/claude-design
+target:
+  kind: web-spa
+viewports: [400x300]
+pages:
+  "Component · Demo.dc.html":
+    mount: demo
+    route: "/"
+    component: demo
+scenes:
+  alpha:
+    page: "Component · Demo.dc.html"
+  beta:
+    page: "Component · Demo.dc.html"
+  gamma:
+    page: "Component · Demo.dc.html"
+rows: []

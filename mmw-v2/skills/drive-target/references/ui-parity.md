@@ -1,80 +1,109 @@
 # Interface parity
 
-Whether an interface matches the design it was built from is `scripts/visual-parity.py`, next to this skill's `SKILL.md`. It reads the screen contract, puts the product into each scene through the repository's own reach script, opens the scene where the contract says the product shows it, and compares the block of the product that design page *is* against the design page rendered offline from the handoff package — by accessibility tree, by class set, and by pixels, at every viewport the contract names.
+Whether a product story matches the design page it was built from is
+`scripts/story-parity.py`, next to this skill's `SKILL.md`. It reads the screen
+contract and `scenes.json`, starts the product's story service from
+`.mmw/target.json`'s `stories` command (which prints `origin`), opens
+`<origin>/?page=<mount>&scene=<name>&viewport=<WxH>`, and compares that render
+with the design page rendered offline from the handoff package — by accessibility
+tree and by pixels, at every viewport the contract names. The class set is not
+compared.
 
-Two agents come here. The one **writing** the criterion needs the shape below. The one **reading** a `DIFF` line needs the last section.
+Two agents come here. The one **writing** the criterion needs the shape below. The
+one **reading** a `DIFF` line needs the last section.
 
-## Two levels
+## Two sides
 
-The `claude-design-blocks` skill prefixes every page `App · ` or `Component · `, and this script rests on that convention, not on anything the product does. An `App · ` scene compares the whole surface — which components are on it, and what box the layout gives each. A `Component · ` scene compares the block the product gives that one component. Neither replaces the other. A handoff package that holds only whole-page designs makes every scene whole-surface, and the model degrades to that without breaking.
+The **story page** is the product's. It renders the presentational component at
+`[data-story-root]`. That element's box is what the pixel judge measures. No
+backend, no seed, no route, no controlled clock: the page itself puts the
+component in the scene.
 
-## The mount
+The **design page** is the handoff package, served by the existing baseline server
+and wrapper page. `#dc-root` is pinned to the box `[data-story-root]` measured
+(`frame_box`). `retired_ids` are hidden on this side only; `volatile_values` are
+masked on both. `navigate` still moves the design page's clock 200 ms of virtual
+time after each load, so `support.js`'s readiness poll fires.
 
-Each design page declares, in the contract's `pages`, a **`mount`**: the value of the `data-screen` attribute on the one product element that page is. Its subtree is what the tree reads; its box is what the pixel judge measures. It is not a test hook: it is where "this design page is that block of the product" is written down, and the product carries it as a short stable id. A scene that is a top-level dialog outside that subtree overrides `mount` to the page root's id, or the dialog is invisible to the run.
+`--pages` names the `pages.<page>.mount` values of the non-`App · ` design pages
+this ticket owns. Every scene of the contract whose page declares one of them is
+compared. `--scenes` narrows that to a subset.
 
-## Measure the box, declare no size
+## Pixels
 
-The mount element is never pinned. The viewport is (the driver pushes a device-metrics override for every entry of the contract's `viewports`); the product lays the element out as it will; the element's box after that — `getBoundingClientRect()` — is what the design's `#dc-root` is pinned to for that scene. The two come out the same size by construction and no number appears in the contract. This rests on the porting convention that a ported component fills its container (`#dc-root > * { height:100% }`): the design renders at whatever box the product gives that component — a component under a 46 px title bar renders at 1440×854, a shell header at 1440×46 with its standalone padding collapsed. On a responsive target the measured width may land in a media query other than the design's default; that is correct, not a defect — the design is rendered at the width the product actually gives — and is not something to "fix".
+Both screenshots are shrunk by 4 (each cell the average of a 4×4 block), and each
+cell is then compared with the other image's cells sampled at every sub-cell
+origin: a cell counts as differing only when no sub-cell alignment explains it.
+The share that still differs is held to `--max-pct`, 3% by default.
 
-`viewports` come from the handoff package README (the design size and the declared minimum). A viewport on a breakpoint of the package's stylesheets compares two reflows and verifies nothing; the contract lint refuses it.
+The alignment is not a loosening, it is what makes the number mean what its name
+says. Shrinking by 4 does not remove offsets under 4 pixels — a line of text
+moving into or out of a cell changes that cell's average by about 64, far past the
+16 the comparison tolerates. With the alignment a 2 px shift is 0.0%; a shift of
+a whole cell or more still fails; a block of the wrong colour still fails; a
+shift laid on top of a real difference does not absolve it.
 
-## Three judges, two ranges — a written decision
+A `DIFF` line prints both numbers — `pixel 9.0% > 3.0% (unaligned 10.8%)`. Both
+high is drawn wrong; only the unaligned one high is merely out of position.
 
-The **accessibility tree** is the main judge: the sequence of named nodes in reading order — a button and its name, a heading and its text, a line of copy, a checkbox and its state — each with its nearest named ancestor, over the **whole subtree** under the mount, below the fold included. Unnamed wrappers and landmark names are not in it, so a product page that nests things in `list` and `article` where the component page had `generic` is the same tree; a button that moved out of its dialog is not. A node missing, added, renamed, given another role or another named ancestor fails the scene, and the `DIFF` line prints which.
+The tree is the main judge and walks the whole subtree under `[data-story-root]`
+and `#dc-root`, below the fold included. Pixels see only that box intersected with
+the viewport.
 
-The **class set** of the subtree is the second judge. The stylesheets are copied from the handoff package byte for byte, so with the tree equal a wrong colour or gap on the right element can only be the wrong class name — which the tree cannot see and a pixel share cannot name. A class one side lacks fails the scene and names the element wearing it.
-
-A display value the seed must not write — a wallet balance that belongs to an external account — is declared under the contract's `volatile_values` (`align-screens/references/contract-format.md`); the tree and the pixel judge replace that node with one token before comparing, the class set is untouched. It is for values the product cannot own, never for a difference to hide.
-
-**Pixels** are the third, for a block that did not render or came out the wrong colour. They see only the mount element's box **intersected with the viewport**, the baseline pinned to that same intersection; below the fold is the tree's alone. Both screenshots are shrunk by 4 (each cell the average of a 4×4 block), and each cell is then compared with the other image's cells sampled at **every sub-cell origin**: a cell counts as differing only when no sub-cell alignment explains it. The share that still differs is held to `--max-pct`, 3% by default.
-
-The alignment is not a loosening, it is what makes the number mean what its name says. Shrinking by 4 does not remove offsets under 4 pixels — a line of text moving into or out of a cell changes that cell's average by about 64, far past the 16 the comparison tolerates — so before it the judge failed differences nobody could see and passed ones anybody could: on a real 1440×900 baseline, a whole-page shift of 2 px measured 3.5% and failed, while a 250×50 control blanked out entirely measured 0.2% and passed. With the alignment those become 0.0% and unchanged; a shift of a whole cell or more still fails (6 px measures 3.3%), a block of the wrong colour still fails (5.4%), and a shift laid on top of a real difference does not absolve it (5.4%).
-
-A `DIFF` line prints both numbers — `pixel 9.0% > 3.0% (unaligned 10.8%)`. Both high is drawn wrong; only the unaligned one high is merely out of position. That is the layout/rendering split, and it needs no second threshold.
-
-**An overlay's mount is a wrapper whose box is the overlay's own opaque card**, never a full-viewport scrim container and never the card element itself — the class set reads the mount's descendants, so a mount on the card hides that card's own classes. The pixel judge compares a rectangle of the screen, so a scrim mount carries whatever the product paints behind it into the comparison, while the design page renders the component alone and has nothing behind it. No threshold fixes that, and the other two judges never see it — they walk the mount's subtree, which the page behind is not in. The price is that the scrim itself is then compared by nothing; that is accepted, because the alternative is that every modal's parity fails for a reason that is not the product's. A pixel-only failure on a mount whose box is the viewport says so on its `DIFF` line.
-
-What 3% lets through is for the class set and for the user looking at `--out`, not for another round of fixing.
-
-That the three judges have different ranges is a decision written here, not an accident: the tree is the main judge, so what is below the fold is judged by the main judge. The other road — scrolling both sides in step and comparing screen by screen — would pin the baseline to the scroll height, rendering the design at a height no App page ever drew.
-
-## The clock
-
-Every page runs under the **controlled clock** — the paused fake clock the driver installs, the only clock that page's timers and animation frames run on. The driver moves it forward 200 ms of virtual time after each navigation and each `open` step, then waits for the next `open` control, and after the chain the mount element, to appear. That wait spends two budgets together: virtual time in steps, capped so a scene is never captured past the package's shortest auto-advance, and wall time for the responses the view is waiting on, with part of the virtual budget held back so a paint scheduled after a response arrives can still be waited for. The readiness poll of `support.js` (50 ms) fires, a focus effect on `requestAnimationFrame` fires, and none of the package's own timers — an 1800 ms auto-advance, a 2600 ms auto-recover, a 2400 ms toast — ever does. Animations are off through reduced motion on both sides. Nothing about "wait for it to settle" is in the contract.
-
-## Reaching a scene
-
-The product is brought up by the run, not by the worker: `.mmw/target.json`'s `start` is run before the first scene every time, whether or not something answers, because only `start` knows whether what answers is this worktree's code ([targets/README.md](targets/README.md)). The contract's `scenes` say how: `reach`, the mechanisms the repository's reach script runs before the scene (idempotent, once per scene); the page's `route`, filled from the `KEY=VALUE` lines that script prints; then `open`, the row ids performed on the page, ending on a row whose `next` is the scene. Writes in `open` are fine — the next scene's `reach` puts the state back. A renderer that poses itself from fixtures to satisfy any of this is the failure this pipeline exists to catch. A scene whose `reach` names a mechanism nobody builds fails on the first night; the contract lint refuses it before then.
-
-What kind of product this is, and how it is attached, readied, addressed, released, seeded and read, is the contract's `target.kind` and the reference file under [targets/](targets/README.md). Addresses are never on the criterion: they come from the repository's `.mmw/target.json`.
+A display value the seed must not write is declared under the contract's
+`volatile_values`; both judges replace that node with one token before comparing.
 
 ## The criterion, in one shape
 
-Nobody types this command. It is written onto the ticket as a criterion, and a run of `verify-ticket.py` hands it to a shell months later with no model in between. The script is named bare — `verify-ticket.py` puts this skill's `scripts/` on that shell's `PATH` (its `--tools`) — and nothing else on the line can go stale:
+Nobody types this command. It is written onto the ticket as a criterion, and a
+run of `verify-ticket.py` hands it to a shell months later with no model in
+between. The script is named bare — `verify-ticket.py` puts this skill's
+`scripts/` on that shell's `PATH` (its `--tools`) — and nothing else on the line
+can go stale:
 
 ```
-CHECK: visual-parity.py --contract docs/specs/<effort>/screen-contract.yaml --mount <id,id>
-EXPECT: PARITY OK <passed>/<total>
+CHECK: story-parity.py --contract docs/specs/<effort>/screen-contract.yaml --pages <id,id>
+EXPECT: STORY OK <passed>/<total>
 ```
 
-`--mount` names the `data-screen` values this ticket owns; every scene of the contract whose page (or whose own override) declares one of them is compared. `<total>` is scenes × viewports. Scenes belong to tickets by mount; when one page's scenes are split between two tickets, each adds `--scenes <name,name>`, a subset of what its mounts derive — the one way to split, and `verify-ticket --lint` checks that across the batch every scene of the contract is covered exactly once — by tickets that could run side by side; a ticket blocked by another may re-run that one's scenes, which is a re-verification, not a second claim. When mounts collide (a target without component pages, where every scene is whole-surface), scenes belong by `route` instead.
+`--pages` names the `pages.<page>.mount` values this ticket owns.
+`<total>` is scenes × viewports. The pixel threshold is the script's default; a
+ticket names `--max-pct` only when its scenes are known to need another number,
+and says why beside the criterion.
 
-The pixel threshold is not on the line: it is the script's default, so that loosening or tightening it is one edit to the script and not one to every ticket already published. A ticket names `--max-pct` only when its scenes are known to need another number, and says why beside the criterion.
-
-On an electron target the run borrows the application's own window, because Electron exposes one page over its debugging port and refuses to open another. While a run is going the window switches between the viewports being compared; when it ends — however it ends — the window is given back at its own size, with its own clock, on its own page. A window that stays small after a run is a bug in the driver, not a diagnosis to make.
-
-Three more modes. `--addressing` is the contract ticket's criterion: for every scene under `--mount` (`--mount all` for every mount the contract declares), run its `reach`, fill its `route`, navigate, walk its `open` chain, and assert the mount element is there — the whole addressing model proved against an empty surface, printing `ADDRESSING OK <n>/<n>`, or one `UNREACHABLE <scene> — <why>` per scene that failed and then `ADDRESSING <reached>/<n> — <k> unreachable`; no baseline, no comparison. A scene unreachable only at an `open` step names the row whose control is missing: on an empty surface that is the row's own ticket still to land, and the tally is what the contract ticket reports. The other two are not for a criterion: `--render-only` renders the design side of the selected scenes into `--out` with no product at all, so a worker can look at what it is building; `--shows-perturbation` reseeds every scene with values other than `data/fixtures.js` and requires every scene whose rows declare `shows` to read differently — a value that stays the same is hard coded or fed from the wrong field.
+`--render-only` renders the design side of the selected scenes into `--out` with
+no product at all, so a worker can look at what it is building.
 
 ## Reading what it printed
 
 Three exit codes.
 
-- **`0`**, one line `PARITY OK <passed>/<total> pixel<=<worst>%`: every scene matched at every viewport. The number is the largest pixel share any pair had; the `EXPECT` above matches it as a prefix, and a difference under the threshold is on record without being a failure.
+- **`0`**, one line `STORY OK <passed>/<total> pixel<=<worst>%`: every scene
+  matched at every viewport. The number is the largest pixel share any pair had;
+  the `EXPECT` above matches it as a prefix, and a difference under the threshold
+  is on record without being a failure.
 - **`1`**: one `DIFF` line per failing scene and viewport.
-- **`2`** with `NEGATIVE CONTROL FAILED`: the run's own control was not caught — the baseline server was made to serve, at the first scene's own address, that scene with an error banner in the bytes it sends, the product was captured again, and the two compared equal, which means the product-side capture read the design's server; nothing this run says about parity can be trusted, and no parity conclusion is printed at all. Exit 2 also when the product is not ready or a scene cannot be reached, with the reason on stderr.
+- **`2`** with `NEGATIVE CONTROL FAILED`: the run's own control was not caught —
+  the baseline server was made to serve, at the first scene's own address, that
+  scene with an error banner in the bytes it sends, the story page was captured
+  again, and the two compared equal, which means the product-side capture read
+  the design's server; nothing this run says about parity can be trusted, and no
+  story conclusion is printed at all. Exit 2 also when the `stories` command does
+  not come up, when a story page is 404, or when `--pages` names a mount the
+  contract does not declare, with the reason on stderr.
 
-A failure line reads `DIFF <scene> <viewport> <pct>% box=… — <reasons>`, and the reasons after the dash are where the failure is named. A tree difference brings lines out under it: `baseline`, `impl`, `only in baseline`, `only in impl`, each node with `(in <ancestor>)` when it sits under a named one. A class difference brings `class only in baseline <name> (on <element>)` and its mirror. A pixel failure ends the line with `around: <role "name">, …`, the product's elements under the differing area, smallest first: that is the component to open. A size difference or a console error prints the `DIFF` line alone.
+A failure line reads
+`DIFF <scene> <viewport> <pct>% (unaligned <pct>%) — <reasons>`, and the reasons
+after the dash are where the failure is named. A tree difference brings lines out
+under it: `baseline`, `impl`, `only in baseline`, `only in impl`, each node with
+`(in <ancestor>)` when it sits under a named one. A pixel failure ends the line
+with `around: <role "name">, …`, the product's elements under the differing area,
+smallest first: that is the component to open.
 
-What to fix is what the line names: the tree lines, the class names, the elements after `around:`, the console error. A `DIFF` that names nothing you have not already fixed is not something to chase by changing fonts, line heights or renderer flags; run the criterion once more after the named fixes and take the result.
+What to fix is what the line names: the tree lines, the elements after `around:`,
+the console error. A `DIFF` that names nothing you have not already fixed is not
+something to chase by changing fonts, line heights or renderer flags; run the
+criterion once more after the named fixes and take the result.
 
-`--out <dir>` keeps the screenshots, the trees and the differing-pixel pictures for the user to look at.
+`--out <dir>` keeps the screenshots, the trees and the differing-pixel pictures
+for the user to look at.
