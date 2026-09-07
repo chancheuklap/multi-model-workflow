@@ -18,14 +18,21 @@ same application, so the lease cannot be per run.
     lease.py claim [<worktree>]        claim (or return) this worktree's slot
     lease.py env [<worktree>]          print the claim as KEY=VALUE lines
     lease.py run [<worktree>] -- CMD…  run CMD with the claim in its environment
-    lease.py release <worktree>        give the slot back
-    lease.py list                      what is claimed right now
+    lease.py release <worktree>        give the slot back; 0 given back, 3 there was none
+    lease.py list                      every live claim
     lease.py count <directory>         how many claims sit under a directory
 
 `claim` is atomic against other claimers: a slot is taken by creating its file with
 `O_CREAT | O_EXCL`, so two processes racing for the last slot cannot both win. There is
 no fallback to another slot on conflict and no shared file that several processes have to
 agree on — a worktree's slot is decided once and then it is simply looked up.
+
+Every verb answers a program or an agent; none of them formats for a person, because on
+this pipeline nobody reads a terminal. `claim`, `release` and `list` print JSON, `env`
+prints `KEY=VALUE`, `count` prints a number, and what a caller has to *decide* on is the
+exit code, never the wording. The one piece of prose here is the refusal a live listener
+earns, on stderr: its reader is an agent choosing what to do next, and it is written so
+that agent needs nothing else.
 
 **Nothing here ever ends a process.** `release` refuses while anything still listens on
 the slot, and says which pid and which directory, because reclaiming a slot from a live
@@ -238,8 +245,17 @@ def claim(worktree: Path) -> dict:
     ))
 
 
-def release(worktree: Path) -> str:
-    """Give this worktree's slot back. Refuses while anything still listens on it."""
+def release(worktree: Path) -> dict:
+    """Give this worktree's slot back. Refuses while anything still listens on it.
+
+    Returns what happened, as fields: `released`, the `slot` it was, and a `reason` when
+    nothing came back. A live listener still earns the three-part refusal on stderr,
+    because its reader is an agent deciding what to do next — but *which* of the three
+    outcomes happened is the exit code, so no caller ever has to read that sentence to
+    learn it. `dispatch.sh` used to tell "no lease" from "released" by matching the front
+    of the old sentence, which is a program reading prose: the sentence could not be
+    reworded without breaking it, and a caller that guessed wrong was silently wrong.
+    """
     target = str(worktree)
     for slot in range(SLOTS):
         record = read_slot(slot)
@@ -254,8 +270,8 @@ def release(worktree: Path) -> str:
                 "Stop that process where it was started, then release again.",
             ))
         slot_file(slot).unlink(missing_ok=True)
-        return f"released slot {slot} for {target}"
-    return f"no lease for {target}"
+        return {"released": True, "worktree": target, "slot": slot, "reason": None}
+    return {"released": False, "worktree": target, "slot": None, "reason": "no-lease"}
 
 
 def count_under(prefix: Path) -> int:
@@ -316,12 +332,14 @@ def main(argv: list[str] | None = None) -> int:
     verb, rest = argv[0], argv[1:]
 
     if verb == "list":
+        rows = []
         for record in claimed():
             held = busy(record["slot"])
-            mark = f"  (port {held[0]} held by pid {held[1]})" if held else ""
-            print(f"slot {record['slot']:>2}  ports {record['port_base']}-"
-                  f"{record['port_base'] + record['port_count'] - 1}  "
-                  f"{record['instance']}  {record['worktree']}{mark}")
+            row = dict(record)
+            row["busy"] = None if held is None else {
+                "port": held[0], "pid": held[1], "cwd": holder(held[1])}
+            rows.append(row)
+        print(json.dumps(rows, ensure_ascii=False))
         return 0
 
     if verb == "run":
@@ -353,8 +371,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{key}={value}")
         return 0
     if verb == "release":
-        print(release(tree))
-        return 0
+        result = release(tree)
+        print(json.dumps(result, ensure_ascii=False))
+        return 0 if result["released"] else 3
 
     sys.stderr.write(f"unknown verb: {verb}\n")
     return 2

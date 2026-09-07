@@ -498,16 +498,20 @@ give_slot_back() {
   release_lease "$1"
 }
 
+# `lease.py release` says which of the three outcomes happened in its exit code — 0 given
+# back, 3 there was no lease to give back, anything else refused — so this reads the code
+# and never the wording. It used to match the front of the sentence for "no lease", which
+# meant `lease.py` could not reword its own output without silently breaking this caller.
 release_lease() {
-  local out
-  if ! out="$(python3 "$LEASE" release "$1" 2>&1)"; then
-    printf 'dispatch: lease not released for %s: %s\n' "$1" "$out" >&2
-    return 1
-  fi
-  case "$out" in
-    "no lease for"*) return 3 ;;
+  local out rc
+  out="$(python3 "$LEASE" release "$1" 2>&1)"
+  rc=$?
+  case "$rc" in
+    0) return 0 ;;
+    3) return 3 ;;
   esac
-  return 0
+  printf 'dispatch: lease not released for %s: %s\n' "$1" "$out" >&2
+  return 1
 }
 
 # Prints workspaceId<TAB>cwd so start_one can claim a lease without a second list read.

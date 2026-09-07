@@ -5,7 +5,10 @@ worktree is gone because the test deletes a real directory — the two facts the
 built on are the two a fake would get wrong.
 """
 
+import contextlib
 import importlib.util
+import io
+import json
 import os
 import re
 import socket
@@ -256,6 +259,55 @@ class RegistryIsolation(unittest.TestCase):
                     f"which registry it writes to")
         self.assertTrue(named, "no test file names a lease-bound script; this check "
                                "found nothing to check")
+
+
+class WhatTheCommandLineAnswers(Base):
+    """Every verb is read by a program or an agent, so none of them answers in prose.
+
+    The decision a caller acts on is the exit code; the facts are JSON. `dispatch.sh`
+    once told "no lease" from "released" by matching the front of a sentence, which made
+    the wording load-bearing and the caller silently wrong when it changed.
+    """
+
+    def run_cli(self, *argv) -> tuple[int, str]:
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = self.lease.main(list(argv))
+        return code, out.getvalue()
+
+    def test_release_says_which_outcome_in_the_exit_code(self):
+        # Claimed through the command line too: `main` resolves the path it is given
+        # before it looks a lease up, so a test that claims past it would be asking
+        # about a worktree under a different name.
+        tree = self.tree("issue-640")
+        self.run_cli("claim", str(tree))
+        code, out = self.run_cli("release", str(tree))
+        self.assertEqual(code, 0, "a slot given back is exit 0")
+        self.assertEqual(json.loads(out)["released"], True)
+
+        code, out = self.run_cli("release", str(tree))
+        self.assertEqual(code, 3, "nothing to give back is exit 3, not a sentence to match")
+        row = json.loads(out)
+        self.assertEqual(row["released"], False)
+        self.assertEqual(row["reason"], "no-lease")
+
+    def test_list_is_json_a_program_can_read_a_field_out_of(self):
+        tree = self.tree("issue-640")
+        record = self.lease.claim(tree)
+        code, out = self.run_cli("list")
+        self.assertEqual(code, 0)
+        rows = json.loads(out)
+        self.assertEqual([r["worktree"] for r in rows], [str(tree)])
+        self.assertEqual(rows[0]["port_base"], record["port_base"])
+        self.assertIsNone(rows[0]["busy"], "nothing is listening on it")
+
+    def test_list_names_what_holds_a_slot_it_cannot_give_back(self):
+        tree = self.tree("issue-640")
+        record = self.lease.claim(tree)
+        self.bind(record["port_base"])
+        rows = json.loads(self.run_cli("list")[1])
+        self.assertEqual(rows[0]["busy"]["port"], record["port_base"])
+        self.assertIsInstance(rows[0]["busy"]["pid"], int)
 
 
 if __name__ == "__main__":

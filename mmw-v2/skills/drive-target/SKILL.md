@@ -20,7 +20,7 @@ A **target** is what kind of product the judges drive. The driver here reaches i
 | Rendering a handoff package for its row inventory and target trees (the `align-screens` skill sends you here) | `uv run python <scripts>/extract_skeleton.py <handoff dir> <out.json> [--targets <dir> --contract <yaml>]` |
 | Making a repository drivable (it has no `.mmw/target.json`, or a run refused for want of one) | `python3 <scripts>/screen_driver.py target --check` in that repository. It prints every field still to answer, one sentence and one example each; fill them and run it again until it exits 0. The reasons behind the fields are [references/targets/README.md](references/targets/README.md) |
 | The product is a kind the judges have not driven | [references/targets/README.md](references/targets/README.md), **Adding a kind** |
-| Giving a run its own ports and directories, or reading what `lease.py` refused | `python3 <scripts>/lease.py claim | env | run | release | list | count` — the driver claims one before it runs any command `.mmw/target.json` declares; `dispatch.sh` claims one per worktree it starts |
+| Giving a run its own ports and directories, or reading what `lease.py` refused | `python3 <scripts>/lease.py claim | env | run | release | list | count` — the driver claims one before it runs any command `.mmw/target.json` declares; `dispatch.sh` claims one per worktree it starts. `claim`, `release` and `list` answer in JSON and `release` says which of its three outcomes happened in its exit code (0 given back, 3 there was none), so a caller never has to read wording to learn what happened; the refusal a live listener earns is the one sentence here, on stderr, and its reader is you |
 
 ## Five rules while the product is running
 
