@@ -2,7 +2,7 @@
 
 Nothing here judges. `story-parity.py` and `extract_skeleton.py` import the baseline
 server, the wrapper page, capture, and the accessibility-tree normaliser. `journey.py`
-runs `start` / `stop` / `discover` itself. Which keys a repository answers is declared
+runs `start` / `stop` and imports `discover`. Which keys a repository answers is declared
 here, once, on `FIELDS`, and printed by
 
     screen_driver.py target --check [--repo <dir>] [--kind <kind> | --contract <yaml>]
@@ -20,6 +20,7 @@ import http.server
 import json
 import os
 import re
+import shlex
 import socketserver
 import subprocess
 import sys
@@ -107,7 +108,7 @@ def load_contract(path: Path) -> dict:
     for key in ("target", "pages", "scenes", "viewports"):
         if key not in doc:
             raise SystemExit(f"{path}: contract has no top-level `{key}`; run align-screens "
-                             f"step 2 to declare the screen axis")
+                             f"step 2 to declare pages")
     return doc
 
 
@@ -260,7 +261,12 @@ def target_config(root: Path) -> dict:
         raise SystemExit(f"no {path}: the repository has not said how its product is "
                          f"reached. Run `screen_driver.py target --check --repo {root}` "
                          f"(the drive-target skill) and answer what it names")
-    cfg = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        cfg = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"{path} cannot be read as JSON: {exc}")
+    if not isinstance(cfg, dict):
+        raise SystemExit(f"{path} must hold one JSON object")
     if not cfg.get("discover"):
         raise SystemExit(f"{path} has no `discover` command; run `screen_driver.py target "
                          f"--check --repo {root}` and answer what it names")
@@ -286,6 +292,23 @@ def command_env(cwd: Path) -> dict[str, str]:
     return env
 
 
+def run_command(command: str, cwd: Path, extra: list[str] | None = None) -> str:
+    proc = subprocess.run(shlex.split(command) + (extra or []), cwd=cwd,
+                          capture_output=True, text=True, env=command_env(cwd))
+    if proc.returncode != 0:
+        raise SystemExit(proc)
+    return proc.stdout
+
+
+def discover(cfg: dict, root: Path) -> dict:
+    out = run_command(cfg["discover"], root).strip()
+    try:
+        data = json.loads(out)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"discover printed no JSON object: {out[:200]!r} ({exc})")
+    if not isinstance(data, dict):
+        raise SystemExit("discover must print one JSON object")
+    return data
 
 
 
@@ -1119,17 +1142,11 @@ def contract_kind(repo: Path, contract: Path | None) -> str:
     return str((load_yaml(contract).get("target") or {}).get("kind") or "")
 
 
-def fields_of(kind: str) -> tuple[Field, ...]:
-    """The `.mmw/target.json` keys every kind answers. `kind` is accepted so callers
-    that still pass one keep working; the list does not change with it."""
-    return FIELDS
-
-
 def target_problems(kind: str, cfg: dict) -> list[tuple[str, str]]:
     """What `.mmw/target.json` still has to answer: `(key, problem)` pairs, in the
     order `FIELDS` lists them. Empty when the file is complete."""
     problems: list[tuple[str, str]] = []
-    for f in fields_of(kind):
+    for f in FIELDS:
         if f.key not in cfg:
             if f.required:
                 problems.append((f.key, f"is missing — {f.what} — e.g. {f.example}"))
@@ -1211,7 +1228,7 @@ def target_main(argv: list[str]) -> int:
         print(f"    {key} — {what}")
     print(f"{path}: {'not there yet' if not path.exists() else 'read'}")
     named = {key for key, _ in problems}
-    for f in fields_of(kind):
+    for f in FIELDS:
         if f.key in named:
             why = next(w for k, w in problems if k == f.key)
             if why.startswith("is missing"):

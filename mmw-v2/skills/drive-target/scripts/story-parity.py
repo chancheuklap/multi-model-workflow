@@ -60,11 +60,7 @@ vp = _load("visual-parity.py", "visual_parity")
 sd = vp.sd
 
 # Reused from visual-parity.py: do not copy.
-diff_images = vp.diff_images
-around = vp.around
-change_lines = vp.change_lines
 pixel_diff = vp.pixel_diff
-failures = vp.failures
 Comparison = vp.Comparison
 NEGATIVE_CONTROL_HEAD = vp.NEGATIVE_CONTROL_HEAD
 NEGATIVE_CONTROL_SCENE = vp.NEGATIVE_CONTROL_SCENE
@@ -215,7 +211,7 @@ class Stories:
             proc.wait(timeout=2)
 
 
-def negative_control(scene, vp, pages, capture_impl, capture_baseline, media) -> Comparison:
+def negative_control(scene, viewport, pages, capture_impl, capture_baseline, media) -> Comparison:
     """The baseline server answers this scene's own address with the scene plus an
     error banner in the served bytes; the story page is captured again. If the two
     compare equal, the story capture went through the baseline server."""
@@ -223,11 +219,11 @@ def negative_control(scene, vp, pages, capture_impl, capture_baseline, media) ->
     saved = pages[path]
     pages[path] = sd.wrapper_page(sd.component_of(scene.page), scene.props,
                                   NEGATIVE_CONTROL_HEAD)
-    tag_vp = f"{vp[0]}x{vp[1]}"
+    tag_vp = f"{viewport[0]}x{viewport[1]}"
     stem = media / f"{NEGATIVE_CONTROL_SCENE}-{tag_vp}"
     try:
-        impl = capture_impl(scene, vp, Path(f"{stem}-impl.png"))
-        wrong = capture_baseline(scene, vp, impl.box, Path(f"{stem}-baseline.png"))
+        impl = capture_impl(scene, viewport, Path(f"{stem}-impl.png"))
+        wrong = capture_baseline(scene, viewport, impl.box, Path(f"{stem}-baseline.png"))
     finally:
         pages[path] = saved
     return Comparison(
@@ -246,32 +242,8 @@ def story_gate(control: Comparison, comparisons: list, max_pct: float,
     compare those. The control still uses every reason `failures()` returns, so a
     collapsed capture is caught even when only a class or a console error differs.
     """
-    control_reasons = failures(control, max_pct, console_limit)
-    if not control_reasons:
-        return 2, ["NEGATIVE CONTROL FAILED: the implementation compared equal to a "
-                   "baseline render served with an error banner; the two capture chains "
-                   "have collapsed into one and this run proves nothing"]
-    lines = []
-    failed = 0
-    worst = 0.0
-    for c in comparisons:
-        reasons = [r for r in failures(c, max_pct, console_limit) if r.kind in JUDGED]
-        if c.pixel["size_equal"]:
-            worst = max(worst, c.pixel["pct"])
-        if reasons:
-            failed += 1
-            unaligned = c.pixel.get("pct_unaligned", c.pixel["pct"])
-            line = (f"DIFF {c.scene} {c.viewport} {c.pixel['pct']}% "
-                    f"(unaligned {unaligned}%) — {'; '.join(r.en for r in reasons)}")
-            if any(r.kind == "pixel" for r in reasons):
-                names = around(c.pixel, c.impl_elements)
-                if names:
-                    line += " around: " + ", ".join(names)
-            lines.append(line)
-            lines.extend(change_lines(c.aria["diff"]))
-    if failed:
-        return 1, lines
-    return 0, [f"STORY OK {len(comparisons)}/{len(comparisons)} pixel<={worst}%"]
+    return vp.gate(control, comparisons, max_pct, console_limit,
+                   kinds=JUDGED, ok_label="STORY OK", unaligned_on_diff=True)
 
 
 def build_parser() -> argparse.ArgumentParser:

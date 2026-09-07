@@ -221,10 +221,18 @@ def failures(c: Comparison, max_pct: float, console_limit: int) -> list[Reason]:
 
 
 def gate(control: Comparison, comparisons: list[Comparison], max_pct: float,
-         console_limit: int) -> tuple[int, list[str]]:
+         console_limit: int, *,
+         kinds: set[str] | None = None,
+         ok_label: str = "PARITY OK",
+         unaligned_on_diff: bool = False) -> tuple[int, list[str]]:
     """Exit code and the lines to print, in order. The negative control is judged
     before any scene: a comparison that did not catch a pair known to differ says
-    nothing about the scenes it passed."""
+    nothing about the scenes it passed.
+
+    `kinds` keeps only those reason kinds on each scene (the control still uses
+    every reason `failures()` returns). `ok_label` is the success-line prefix.
+    `unaligned_on_diff` puts the unaligned share on the `DIFF` prefix.
+    """
     control_reasons = failures(control, max_pct, console_limit)
     if not control_reasons:
         return 2, ["NEGATIVE CONTROL FAILED: the implementation compared equal to a "
@@ -235,12 +243,17 @@ def gate(control: Comparison, comparisons: list[Comparison], max_pct: float,
     worst = 0.0
     for c in comparisons:
         reasons = failures(c, max_pct, console_limit)
+        if kinds is not None:
+            reasons = [r for r in reasons if r.kind in kinds]
         if c.pixel["size_equal"]:
             worst = max(worst, c.pixel["pct"])
         if reasons:
             failed += 1
-            line = (f"DIFF {c.scene} {c.viewport} {c.pixel['pct']}% "
-                    f"— {'; '.join(r.en for r in reasons)}")
+            prefix = f"DIFF {c.scene} {c.viewport} {c.pixel['pct']}%"
+            if unaligned_on_diff:
+                unaligned = c.pixel.get("pct_unaligned", c.pixel["pct"])
+                prefix += f" (unaligned {unaligned}%)"
+            line = f"{prefix} — {'; '.join(r.en for r in reasons)}"
             if any(r.kind == "pixel" for r in reasons):
                 names = around(c.pixel, c.impl_elements)
                 if names:
@@ -249,7 +262,7 @@ def gate(control: Comparison, comparisons: list[Comparison], max_pct: float,
             lines.extend(change_lines(c.aria["diff"]))
     if failed:
         return 1, lines
-    return 0, [f"PARITY OK {len(comparisons)}/{len(comparisons)} pixel<={worst}%"]
+    return 0, [f"{ok_label} {len(comparisons)}/{len(comparisons)} pixel<={worst}%"]
 
 
 # ---------------------------------------------------------------- reading the diff

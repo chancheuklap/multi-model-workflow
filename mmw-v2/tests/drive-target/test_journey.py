@@ -117,7 +117,8 @@ class JourneyOrder(unittest.TestCase):
         self.repo.write_journey(
             "demo",
             f"echo script >> '{self.repo.log}'\n"
-            "echo ORIGIN=$ORIGIN MMW_INSTANCE=$MMW_INSTANCE MMW_AUTOMATION=$MMW_AUTOMATION "
+            "echo ORIGIN=$ORIGIN origin=[$origin] "
+            "MMW_INSTANCE=$MMW_INSTANCE MMW_AUTOMATION=$MMW_AUTOMATION "
             f">> '{self.repo.root / '.mmw' / 'env'}'\n"
             "exit 0",
         )
@@ -130,6 +131,7 @@ class JourneyOrder(unittest.TestCase):
                          ["start", "discover", "script", "stop"])
         env = (self.repo.root / ".mmw" / "env").read_text(encoding="utf-8")
         self.assertIn("ORIGIN=http://127.0.0.1:9", env)
+        self.assertIn("origin=[]", env)
         self.assertIn("MMW_AUTOMATION=1", env)
         self.assertRegex(env, r"MMW_INSTANCE=\S+")
         self.assertTrue((self.repo.root / ".mmw" / "stop-ran").is_file())
@@ -171,6 +173,42 @@ class JourneyOrder(unittest.TestCase):
         self.assertEqual(out, "JOURNEY OK via-npm\n")
         self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
                          ["start", "discover", "script", "stop"])
+
+    def test_a_missing_start_runs_stop_and_is_exit_2(self):
+        self.repo.write_target(extra={"start": ""})
+        code, out, err = self.repo.run("demo")
+        self.assertEqual(code, 2)
+        self.assertIn("no `start` command", err)
+        self.assertNotIn("JOURNEY OK", out)
+        self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
+                         ["stop"])
+
+    def test_a_failing_discover_forwards_stdout_and_stderr_whole(self):
+        self.repo.write_stack(discover="echo disc-out\necho disc-err >&2\nexit 1")
+        code, out, err = self.repo.run("demo")
+        self.assertEqual(code, 2)
+        self.assertIn("disc-out", out)
+        self.assertIn("disc-err", err)
+        self.assertNotIn("JOURNEY OK", out)
+        self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
+                         ["start", "discover", "stop"])
+
+    def test_malformed_target_json_is_a_sentence_not_a_traceback(self):
+        (self.repo.root / ".mmw" / "target.json").write_text("{bad\n", encoding="utf-8")
+        code, out, err = self.repo.run("demo")
+        self.assertEqual(code, 2)
+        self.assertIn("cannot be read as JSON", err)
+        self.assertNotIn("Traceback", err)
+        self.assertNotIn("JSONDecodeError", err)
+        self.assertNotIn("JOURNEY OK", out)
+
+    def test_a_target_json_array_is_a_sentence_not_a_traceback(self):
+        (self.repo.root / ".mmw" / "target.json").write_text("[]\n", encoding="utf-8")
+        code, out, err = self.repo.run("demo")
+        self.assertEqual(code, 2)
+        self.assertIn("must hold one JSON object", err)
+        self.assertNotIn("Traceback", err)
+        self.assertNotIn("AttributeError", err)
 
 
 class FixtureRepo(unittest.TestCase):
