@@ -190,6 +190,13 @@ if args[:1] == ["wait"]:
     sys.exit(0)
 
 if args[:1] == ["send"]:
+    # MMW_FAKE_SEND_FAILS makes the daemon refuse the message the way it does when the
+    # agent is in a turn: exit non-zero with the reason in one English sentence.
+    if os.environ.get("MMW_FAKE_SEND_FAILS"):
+        print(json.dumps({"error": {"code": "SEND_FAILED",
+                                    "message": "Failed to send message: "
+                                               "A foreground turn is already active"}}))
+        sys.exit(1)
     print(json.dumps({"ok": True}))
     sys.exit(0)
 
@@ -1346,6 +1353,22 @@ path.write_text(json.dumps([{
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" resume 61 continue)"
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
   hasnt "paseo :: send"
+
+  echo "--- a worker that is there but will not take the message is exit 3, not 2"
+  reset_log
+  seed_agent 61 worker
+  code="$(run_dispatch env MMW_FAKE_SEND_FAILS=1 \
+          bash "$DISPATCH" "${TOOLS[@]}" resume 61 continue)"
+  [ "$code" = 3 ] || fail "a busy worker must not read as a missing one, got $code: $(cat "$TMP/err")"
+  has "paseo :: send :: --no-wait :: agt_61_worker :: continue"
+
+  echo "--- and the refusal says to wait and run it again, not to stop sending"
+  grep -q "run resume again" "$TMP/err" \
+    || fail "the refusal should send the caller back to the same command: $(cat "$TMP/err")"
+
+  echo "--- it names get_agent_status as the way to tell busy from stuck"
+  grep -q "get_agent_status" "$TMP/err" \
+    || fail "a caller that keeps hitting exit 3 needs the one field that settles it: $(cat "$TMP/err")"
 }
 
 scenario_wait() {
