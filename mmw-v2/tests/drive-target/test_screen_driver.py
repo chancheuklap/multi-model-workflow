@@ -817,6 +817,62 @@ class TestBaselineServing(unittest.TestCase):
         self.assertEqual(sd.component_of("Component · 壳头.dc.html"), "Component · 壳头")
 
 
+class WhichClassADefectIs(unittest.TestCase):
+    """`TriggerConflict.kind` is the one place a tree becomes a class, so the contract
+    lint, the ticket lint and the merge rule cannot disagree about the same row."""
+
+    def conflict(self, aria: str, role: str, name: str):
+        lines = sd.normalize_aria(aria)
+        trigger = sd.VolatileTrigger(role, name)
+        return sd.TriggerConflict("r", "p", sd.count_trigger_hits(lines, trigger),
+                                  sd.trigger_after_candidates(lines, trigger))
+
+    def test_matches_with_different_neighbours_are_pinned_by_after(self):
+        """The footer button and the dialog's follow different named nodes, and naming
+        one says which control the row means."""
+        c = self.conflict(
+            '- heading "商品主体确认"\n'
+            '- button "放弃这次任务"\n'
+            '- heading "要放弃这次任务吗"\n'
+            '- button "继续这次任务"\n'
+            '- button "放弃这次任务"\n',
+            "button", "放弃这次任务")
+        self.assertEqual(c.hits, 2)
+        self.assertEqual(c.kind, sd.PIN_AFTER)
+        self.assertIn(("button", "继续这次任务"), c.candidates)
+
+    def test_matches_in_repeated_blocks_have_no_named_node_to_pin(self):
+        """Two config items the design draws identically: the node before each match is
+        the same, so no `after` can split them."""
+        c = self.conflict(
+            '- text: 参考图\n'
+            '- button "使用说明"\n'
+            '- button "添加参考图"\n'
+            '- text: 参考图\n'
+            '- button "使用说明"\n'
+            '- button "添加参考图"\n',
+            "button", "添加参考图")
+        self.assertEqual(c.hits, 2)
+        self.assertEqual(c.kind, sd.PIN_OCCURRENCE)
+        self.assertEqual([n for _, n in c.candidates], ["使用说明"])
+
+    def test_a_match_with_nothing_named_before_it_makes_the_row_positional(self):
+        """`after` has to reach every match. The first named node of a scene has nothing
+        before it, so a pin that splits the others would leave that one unaddressed."""
+        c = self.conflict(
+            '- button "导出"\n'
+            '- heading "任务详情"\n'
+            '- button "导出"\n',
+            "button", "导出")
+        self.assertEqual(c.hits, 2)
+        self.assertEqual(c.kind, sd.PIN_OCCURRENCE)
+
+    def test_a_class_is_one_of_the_three_names_a_program_branches_on(self):
+        self.assertEqual(
+            sorted({sd.PIN_AFTER, sd.PIN_OCCURRENCE, sd.NEEDS_DECISION}),
+            ["decision", "pin-after", "pin-occurrence"])
+
+
 if __name__ == "__main__":
     unittest.main()
 

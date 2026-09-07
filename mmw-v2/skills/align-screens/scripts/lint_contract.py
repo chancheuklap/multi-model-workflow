@@ -186,23 +186,30 @@ def open_lands(row: dict, scene: str, page: str, scene_pages: dict[str, str], de
     return False
 
 
-def after_advice(lines: list[str], trigger, scenes: set[str] | None) -> str:
-    """What to do about a trigger that matches more than one node, with the candidate
-    `after` pins read off the target tree so nobody has to go looking for them."""
+def after_advice(lines: list[str], trigger, scenes: set[str] | None,
+                 row_id: str = "", page: str = "") -> str:
+    """What to do about a trigger that reaches more than one node, opening with the
+    class the driver's own reader assigned it.
+
+    The class is never derived here. `TriggerConflict.kind` is the one place that turns a
+    tree into a class, so the contract lint, the ticket lint and the merge rule all say
+    the same word about the same row; what differs between them is only the sentence each
+    writes for its own reader."""
     sd = screen_driver_mod()
     candidates = sd.trigger_after_candidates(lines, trigger, scenes)
+    conflict = sd.TriggerConflict(row_id, page, 0, candidates)
     named = [c for c in candidates if c[1]]
-    if len(named) > 1:
+    if conflict.kind == sd.PIN_AFTER:
         shown = " | ".join(f"{role} {name!r}" for role, name in named[:4])
         more = "" if len(named) <= 4 else f" (+{len(named) - 4} more)"
-        return (f"name the previous named node as after — candidates: {shown}{more}")
-    if len(named) == 1:
+        return f"[{conflict.kind}] name the previous named node as after — candidates: {shown}{more}"
+    if named:
         role, name = named[0]
-        return (f"every match follows the same node ({role} {name!r}), so after cannot "
-                f"reach them: they sit in blocks the design repeats, and what tells the "
-                f"blocks apart is further back than the previous named node. A "
-                f"drive.scene does not help when one scene holds them all")
-    return ("no named node precedes the matches, so after has nothing to pin to")
+        return (f"[{conflict.kind}] every match follows the same node ({role} {name!r}): they "
+                f"sit in blocks the design repeats, no named node tells the blocks apart, "
+                f"and after cannot reach further back than the previous named node")
+    return (f"[{conflict.kind}] no named node precedes the matches, so after has nothing "
+            f"to pin to")
 
 
 def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
@@ -452,7 +459,7 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
                             f"target tree")
         elif hits > 1:
             errors.append(f"volatile_values: {role} {name!r} on {page} matches {hits} "
-                          f"nodes; {after_advice(tree_of(page), screen_driver_mod().VolatileTrigger(role, name), None)}")
+                          f"nodes; {after_advice(tree_of(page), screen_driver_mod().VolatileTrigger(role, name), None, page=page)}")
     # -- row trigger uniqueness: exact (role, name), same `after` pin
     sd = screen_driver_mod()
     for rid, row in rows.items():
@@ -472,7 +479,7 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
             if hits > 1:
                 errors.append(
                     f"{rid}: trigger {wanted.role} {wanted.name!r} on {page} "
-                    f"matches {hits} nodes; {after_advice(tree_of(page), wanted, scs)}")
+                    f"matches {hits} nodes; {after_advice(tree_of(page), wanted, scs, rid, page)}")
     return errors, warnings
 
 

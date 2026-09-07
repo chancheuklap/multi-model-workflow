@@ -2285,15 +2285,15 @@ def trigger_findings(row_ids: list[str], doc: dict, contract_path: str | None) -
         return []
     findings = []
     for c in conflicts:
-        head = (f"row {c.row_id} cannot be driven: its trigger reaches {c.hits} nodes on "
-                f"{c.page}")
-        if c.pinnable:
+        head = (f"[{c.kind}] row {c.row_id} cannot be driven: its trigger reaches "
+                f"{c.hits} nodes on {c.page}")
+        if c.kind == sd.PIN_AFTER:
             shown = " | ".join(f"{role} {name!r}"
                                for role, name in [x for x in c.candidates if x[1]][:3])
             findings.append(f"{head}; pin it with after — candidates: {shown}")
         else:
-            findings.append(f"{head}; after cannot split them, the matches sit in blocks "
-                            f"the design repeats")
+            findings.append(f"{head}; the matches sit in blocks the design repeats, so no "
+                            f"named node tells them apart and after cannot reach them")
     return findings
 
 

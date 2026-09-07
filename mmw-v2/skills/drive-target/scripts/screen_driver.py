@@ -942,20 +942,45 @@ def count_trigger_hits(lines: list[str], trigger: VolatileTrigger,
     return max(best, current)
 
 
+# The three classes a contract defect falls into. A class decides who repairs it, so it
+# is a string a program branches on and never a wording: `PIN_AFTER` and `PIN_OCCURRENCE`
+# a worker repairs, `NEEDS_DECISION` is a person's. Each reader of a contract renders its
+# own sentence for its own audience; what none of them may do is derive the class again.
+PIN_AFTER = "pin-after"
+PIN_OCCURRENCE = "pin-occurrence"
+NEEDS_DECISION = "decision"
+
+
 class TriggerConflict(NamedTuple):
     """A row whose trigger reaches more than one node on one of its own pages, with
-    the `after` candidates read off that page's target tree."""
+    the previous named node of each match read off that page's target tree."""
     row_id: str
     page: str
     hits: int
     candidates: list[tuple[str, str]]
 
     @property
-    def pinnable(self) -> bool:
-        """True when the candidates differ, so one of them is an `after` that splits
-        the matches. False when they are all the same node — the matches sit in blocks
-        the design repeats and `after` cannot reach past the previous named node."""
-        return len([c for c in self.candidates if c[1]]) > 1
+    def kind(self) -> str:
+        """Which class this defect is, decided by the design's own tree rather than by
+        anyone's judgement — and derived here alone, because a caller that decided it
+        again would be a second answer to the same question.
+
+        Candidates that differ: one of them is the `after` that splits the matches, and
+        naming it says *which* control the row means, which survives the design putting
+        another control before it. Candidates that are all one node: the matches sit in
+        blocks the design repeats, no named node tells them apart, and only a positional
+        pin can. A trigger that is not unique is always one of these two; `NEEDS_DECISION`
+        belongs to the checks a trigger reader does not make — a scene that cannot be
+        reached, an operation the read surface does not have, an expression that will not
+        parse.
+
+        `after` has to address *every* match, not most of them: a match that is the first
+        named node of its scene has nothing before it, and a pin that reaches the others
+        would silently leave that one to whichever node the driver found. So an unnamed
+        candidate makes the whole row positional."""
+        if len(self.candidates) > 1 and all(name for _, name in self.candidates):
+            return PIN_AFTER
+        return PIN_OCCURRENCE
 
 
 def contract_trigger_conflicts(doc: dict, contract_dir, row_ids=None) -> list[TriggerConflict]:
