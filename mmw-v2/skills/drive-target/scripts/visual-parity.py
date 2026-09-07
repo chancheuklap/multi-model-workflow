@@ -50,9 +50,14 @@ the tree alone. The third judge is the class set of the subtree: the stylesheets
 copied byte for byte, so a wrong colour or gap on the right element can only be the
 wrong class, which the tree cannot see and a pixel share cannot name.
 
-Pixels: both screenshots are shrunk by `PIXEL_SCALE` (box average) before they are
-compared, which removes glyph rendering and sub-`PIXEL_SCALE` offsets; the share of cells
-that still differ is compared with `--max-pct`. Measured on the first repository this
+Pixels: both screenshots are shrunk by `PIXEL_SCALE` (box average), and each cell is
+compared with the other image's cells sampled at every sub-cell origin, so a difference
+counts only when no sub-cell alignment explains it. The share of cells that still differ
+is compared with `--max-pct`. Shrinking alone does *not* remove offsets under
+`PIXEL_SCALE` — a line of text moving into or out of a 4-px cell changes that cell's
+average by about 64, far past `PIXEL_TOLERANCE` — which is why the alignment is here:
+before it, a 2-px shift nobody can see measured 3.5% and a control that was never drawn
+at all measured 0.2%. Measured on the first repository this
 ran against (2026-09-02, six scenes, two viewports): with the tree identical, the residue
 from font rendering alone was 0.04%–1.52% after shrinking by 4; scenes whose copy and
 layout were wrong measured 1.5%–31%, and every one of those also failed on the tree.
@@ -139,6 +144,23 @@ parse_viewports = sd.parse_viewports
 
 
 # ---------------------------------------------------------------- pixels
+def _shifted_cells(img, scale: int, cells: tuple[int, int], offset: tuple[int, int]):
+    """`img` as `scale`x`scale` box averages whose grid starts `offset` pixels in.
+
+    The grid keeps an unshifted grid's origin and is at most `cells` wide and tall: a
+    shift eats up to one cell off the right and the bottom, and those cells are left with
+    the unshifted comparison. `None` when the shift leaves less than one whole cell."""
+    import numpy as np
+    from PIL import Image
+    ox, oy = offset
+    w = min(cells[0], max(0, (img.width - ox) // scale))
+    h = min(cells[1], max(0, (img.height - oy) // scale))
+    if w < 1 or h < 1:
+        return None
+    crop = img.crop((ox, oy, ox + w * scale, oy + h * scale))
+    return np.asarray(crop.resize((w, h), Image.BOX), dtype=np.int16)
+
+
 def diff_images(ia, ib, out: Path | None = None, scale: int = PIXEL_SCALE) -> dict:
     """Two renders of the same scene, already loaded as RGB images.
 
@@ -151,15 +173,29 @@ def diff_images(ia, ib, out: Path | None = None, scale: int = PIXEL_SCALE) -> di
     original image, so it can be placed on the screenshot.
     """
     if ia.size != ib.size:
-        return {"size_equal": False, "pct": 100.0, "count": None, "total": None,
-                "box": None, "size_a": tuple(ia.size), "size_b": tuple(ib.size)}
+        return {"size_equal": False, "pct": 100.0, "pct_unaligned": 100.0, "count": None,
+                "total": None, "box": None, "mask": None,
+                "size_a": tuple(ia.size), "size_b": tuple(ib.size)}
     import numpy as np
     from PIL import Image
 
     small = (max(1, ia.width // scale), max(1, ia.height // scale))
     na = np.asarray(ia.resize(small, Image.BOX), dtype=np.int16)
     nb = np.asarray(ib.resize(small, Image.BOX), dtype=np.int16)
-    mask = (np.abs(na - nb) > PIXEL_TOLERANCE).any(axis=2)
+    unaligned = np.abs(na - nb).max(axis=2)
+    best = unaligned.copy()
+    for oy in range(scale):
+        for ox in range(scale):
+            if not ox and not oy:
+                continue
+            for shifted, fixed in ((_shifted_cells(ib, scale, small, (ox, oy)), na),
+                                   (_shifted_cells(ia, scale, small, (ox, oy)), nb)):
+                if shifted is None:
+                    continue
+                h, w = shifted.shape[0], shifted.shape[1]
+                here = np.abs(fixed[:h, :w] - shifted).max(axis=2)
+                np.minimum(best[:h, :w], here, out=best[:h, :w])
+    mask = best > PIXEL_TOLERANCE
     count, total = int(mask.sum()), int(mask.size)
     box = None
     if count:
@@ -172,8 +208,9 @@ def diff_images(ia, ib, out: Path | None = None, scale: int = PIXEL_SCALE) -> di
         big = np.kron(mask, np.ones((scale, scale), dtype=bool))
         vis[:big.shape[0], :big.shape[1]][big[:vis.shape[0], :vis.shape[1]]] = (230, 20, 60)
         Image.fromarray(vis).save(out)
-    return {"size_equal": True, "pct": round(100 * count / total, 3), "count": count,
-            "total": total, "box": box,
+    return {"size_equal": True, "pct": round(100 * count / total, 3),
+            "pct_unaligned": round(100 * int((unaligned > PIXEL_TOLERANCE).sum()) / total, 3),
+            "count": count, "total": total, "box": box, "mask": mask, "scale": scale,
             "size_a": tuple(ia.size), "size_b": tuple(ib.size)}
 
 
@@ -197,20 +234,30 @@ class Comparison:
                                                    "changed": 0})
 
 
-def around(box: list[int] | None, elements: list[dict], limit: int = AROUND_LIMIT) -> list[str]:
-    """The labels of the elements under a differing area, smallest first."""
-    if not box or not elements:
+def around(pixel: dict, elements: list[dict], limit: int = AROUND_LIMIT) -> list[str]:
+    """The labels of the elements the differing cells actually fall in, most first.
+
+    Ranked by how many differing cells sit inside each element's own box, ties going to
+    the smaller element. Ranking by the bounding box of every differing cell — which is
+    what this did — answers a different question: on a difference that spans a card, that
+    box *is* the card, so the list came back as the card's five smallest labels wherever
+    the difference happened to be. On agentflow#640 an agent read such a list as the
+    place to look and spent hours on elements the difference was not in."""
+    mask = pixel.get("mask")
+    if mask is None or not elements:
         return []
-    x0, y0, x1, y1 = box
-    hits = []
+    scale = pixel.get("scale") or PIXEL_SCALE
+    hits: list[tuple[int, int, str]] = []
     for e in elements:
-        ex0, ey0 = e["x"], e["y"]
-        ex1, ey1 = ex0 + e["w"], ey0 + e["h"]
-        if e["w"] <= 0 or e["h"] <= 0 or ex1 < x0 or ex0 > x1 or ey1 < y0 or ey0 > y1:
+        if e["w"] <= 0 or e["h"] <= 0:
             continue
-        hits.append((e["w"] * e["h"], e["label"]))
+        y0, x0 = max(0, int(e["y"]) // scale), max(0, int(e["x"]) // scale)
+        y1, x1 = int(e["y"] + e["h"] - 1) // scale, int(e["x"] + e["w"] - 1) // scale
+        inside = int(mask[y0:y1 + 1, x0:x1 + 1].sum())
+        if inside:
+            hits.append((-inside, e["w"] * e["h"], e["label"]))
     out: list[str] = []
-    for _, label in sorted(hits, key=lambda h: h[0]):
+    for _, _, label in sorted(hits):
         if label not in out:
             out.append(label)
         if len(out) == limit:
@@ -245,8 +292,11 @@ def failures(c: Comparison, max_pct: float, console_limit: int) -> list[Reason]:
             f"类名集合差 {c.classes['changed']} 个"))
     if c.pixel["size_equal"] and c.pixel["pct"] > max_pct:
         reasons.append(Reason(
-            "pixel", f"pixel {c.pixel['pct']}% > {max_pct}%",
-            f"像素差 {c.pixel['pct']}%，超过 {max_pct}%"))
+            "pixel",
+            f"pixel {c.pixel['pct']}% > {max_pct}% "
+            f"(unaligned {c.pixel.get('pct_unaligned', c.pixel['pct'])}%)",
+            f"像素差 {c.pixel['pct']}%，超过 {max_pct}%"
+            f"（未对齐口径 {c.pixel.get('pct_unaligned', c.pixel['pct'])}%）"))
     for side, side_zh, msgs in (("baseline", "基线", c.console_baseline),
                                 ("impl", "实现", c.console_impl)):
         if len(msgs) > console_limit:
@@ -264,6 +314,32 @@ def class_lines(classes: dict, limit: int = CLASS_LIMIT) -> list[str]:
     for cls, el in classes.get("only_in_impl", [])[:limit]:
         out.append(f"  class only in impl      {cls}  (on {el})")
     return out
+
+
+# A design page renders its component alone; a product paints an overlay over whatever
+# page it was opened from. The pixel judge sees a rectangle of the screen, so a mount that
+# is a full-viewport scrim carries the page behind it into the comparison and the design
+# side has nothing there. No threshold fixes that, and the tree and the class set never see
+# it — they walk the mount's subtree, which the page behind is not in. So this says it.
+OVERLAY_HINT = (
+    "this mount's box is the whole viewport, so the screenshot carries whatever the "
+    "product paints behind it while the design page renders the component alone; if this "
+    "scene is an overlay, its mount belongs on the overlay's own opaque box, not on a "
+    "full-viewport scrim")
+
+
+def overlay_suspect(c: Comparison, reasons: list) -> bool:
+    """A failure on pixels alone, on a mount whose box is the viewport."""
+    if not reasons or any(r.kind != "pixel" for r in reasons):
+        return False
+    size = c.pixel.get("size_a")
+    if not size:
+        return False
+    try:
+        vw, vh = (int(n) for n in str(c.viewport).lower().split("x"))
+    except ValueError:
+        return False
+    return abs(size[0] - vw) <= 2 and abs(size[1] - vh) <= 2
 
 
 def gate(control: Comparison, comparisons: list[Comparison], max_pct: float,
@@ -289,9 +365,11 @@ def gate(control: Comparison, comparisons: list[Comparison], max_pct: float,
             line = (f"DIFF {c.scene} {c.viewport} {c.pixel['pct']}% box={box} "
                     f"— {'; '.join(r.en for r in reasons)}")
             if any(r.kind == "pixel" for r in reasons):
-                names = around(box, c.impl_elements)
+                names = around(c.pixel, c.impl_elements)
                 if names:
                     line += " around: " + ", ".join(names)
+                if overlay_suspect(c, reasons):
+                    line += " — " + OVERLAY_HINT
             lines.append(line)
             lines.extend(change_lines(c.aria["diff"]))
             lines.extend(class_lines(c.classes))

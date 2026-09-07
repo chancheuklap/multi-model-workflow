@@ -194,6 +194,54 @@ class TestShrunkPixels(unittest.TestCase):
         paint(img)
         return img
 
+    def rows(self):
+        """A page of text-like rows: the shape whose ink a shift moves in and out of
+        every cell it touches."""
+        from PIL import ImageDraw
+
+        def paint(img):
+            d = ImageDraw.Draw(img)
+            # Kept clear of the borders: a shift pushes content off the edge, and on a
+            # 160×80 fixture that border row is a large share of the cells. A real render
+            # has margins; this one needs them to be about the shift and nothing else.
+            for y in range(15, 66, 6):
+                d.line((10, y, 149, y), fill=(20, 20, 20))
+        return self.image(paint)
+
+    def moved(self, img, px: int):
+        """The same page, `px` pixels lower. A translation of the whole render, which is
+        what a padding or line-height difference actually produces."""
+        from PIL import Image
+
+        out = Image.new("RGB", img.size, (255, 255, 255))
+        out.paste(img.crop((0, 0, img.width, img.height - px)), (0, px))
+        return out
+
+    def test_a_sub_cell_shift_is_not_a_difference(self):
+        """A 1-to-3 px offset is what glyph hinting and rounding produce; nobody sees it,
+        and it used to spend a whole criterion. Whole-cell offsets still count."""
+        base = self.rows()
+        for px in (1, 2, 3):
+            with self.subTest(px=px):
+                r = vp.diff_images(base, self.moved(base, px))
+                self.assertEqual(r["pct"], 0.0)
+                self.assertGreater(r["pct_unaligned"], r["pct"],
+                                   "the unaligned number is what it would have judged")
+
+    def test_a_shift_of_a_whole_cell_or_more_still_counts(self):
+        """The tolerance is sub-cell, not free: a visible move is still a difference."""
+        base = self.rows()
+        self.assertGreater(vp.diff_images(base, self.moved(base, 8))["pct"], 3.0)
+
+    def test_a_shift_does_not_absolve_a_real_difference(self):
+        """Otherwise adding an offset would be a way to make any failure go green."""
+        from PIL import ImageDraw
+
+        base = self.rows()
+        both = self.moved(base, 2)
+        ImageDraw.Draw(both).rectangle((40, 20, 79, 59), fill=(255, 45, 85))
+        self.assertGreater(vp.diff_images(base, both)["pct"], 3.0)
+
     def test_glyph_edges_vanish_and_a_block_stays(self):
         """One-pixel-wide lines, the shape of a glyph edge or a card border, average
         away inside a 4×4 cell; a 40×40 block of another colour does not."""
@@ -208,13 +256,24 @@ class TestShrunkPixels(unittest.TestCase):
         self.assertEqual(vp.diff_images(base, edges)["pct"], 0.0)
         self.assertGreater(vp.diff_images(base, edges, scale=1)["pct"], 10.0)
         blocked = vp.diff_images(base, block)
-        self.assertAlmostEqual(blocked["pct"], 100 * (10 * 10) / (40 * 20), places=1)
+        # The block is 10×10 cells. Alignment gives one boundary cell back — a cell at the
+        # edge of a solid block finds a match a sub-cell shift away — and that is the
+        # tolerance's price, paid at boundaries and nowhere else.
+        self.assertEqual((blocked["count"], blocked["total"]), (99, 800))
         self.assertEqual(blocked["box"], [40, 20, 79, 59])
-        self.assertEqual((blocked["count"], blocked["total"]), (100, 800))
+        self.assertGreater(blocked["pct"], 12.0)
+        self.assertAlmostEqual(blocked["pct_unaligned"], 100 * (10 * 10) / (40 * 20),
+                               places=1)
 
 
+@unittest.skipUnless(_has_imaging(), "needs numpy and Pillow: "
+                     "uv run --with numpy --with pillow python -m unittest")
 class TestAround(unittest.TestCase):
-    """A pixel failure names the implementation's elements under the box."""
+    """A pixel failure names the elements the differing cells are actually in.
+
+    Needs numpy because the ranking reads the differing-cell mask, which is the array the
+    judge already built — the alternative is a second, hand-rolled mask that would drift
+    from the one that decides the verdict."""
 
     ELEMENTS = [
         {"label": 'main "页面"', "x": 0, "y": 0, "w": 1440, "h": 900},
@@ -223,19 +282,42 @@ class TestAround(unittest.TestCase):
         {"label": 'button "设置"', "x": 1300, "y": 20, "w": 80, "h": 30},
     ]
 
-    def test_smallest_overlapping_element_first_and_the_page_last(self):
-        self.assertEqual(vp.around([90, 90, 240, 150], self.ELEMENTS),
+    def pixel(self, cells: list[tuple[int, int]]):
+        """A pixel result whose differing cells are exactly the ones named, in the
+        judge's 4-px grid."""
+        import numpy as np
+        mask = np.zeros((225, 360), dtype=bool)
+        for x, y in cells:
+            mask[y // 4, x // 4] = True
+        return {"mask": mask, "scale": 4}
+
+    def test_the_element_the_cells_are_in_comes_first_and_the_page_last(self):
+        self.assertEqual(vp.around(self.pixel([(140, 110), (150, 120)]), self.ELEMENTS),
                          ['button "开始生成"', 'main "页面"'])
 
-    def test_limit_and_no_box(self):
-        self.assertEqual(vp.around(None, self.ELEMENTS), [])
-        self.assertEqual(vp.around([0, 0, 1440, 900], self.ELEMENTS, limit=2),
-                         ['button "设置"', 'button "开始生成"'])
+    def test_an_element_the_cells_are_not_in_is_not_named(self):
+        """The old ranking took the bounding box of every differing cell and returned the
+        smallest elements touching it, so a difference in one corner named elements in
+        the other. Two far-apart differences must still name only their own elements."""
+        names = vp.around(self.pixel([(140, 110), (1340, 30)]), self.ELEMENTS)
+        self.assertIn('button "开始生成"', names)
+        self.assertIn('button "设置"', names)
+        self.assertNotIn('heading "任务队列"', names)
 
-    def test_the_diff_line_carries_the_names(self):
-        c = comparison(pixel={"size_equal": True, "pct": 12.5, "count": 100,
-                              "total": 800, "box": [90, 90, 240, 150],
-                              "size_a": (10, 10), "size_b": (10, 10)})
+    def test_limit_and_nothing_to_rank(self):
+        self.assertEqual(vp.around({"mask": None, "scale": 4}, self.ELEMENTS), [])
+        self.assertEqual(vp.around(self.pixel([]), self.ELEMENTS), [])
+        self.assertEqual(
+            len(vp.around(self.pixel([(140, 110), (1340, 30)]), self.ELEMENTS, limit=1)), 1)
+
+    def test_the_diff_line_carries_both_numbers_and_the_names(self):
+        """Both high is drawn wrong; only the unaligned one high is merely out of
+        position. That is the layout/rendering split, without a second threshold."""
+        pixel = dict(self.pixel([(140, 110), (150, 120)]),
+                     size_equal=True, pct=12.5, pct_unaligned=31.0, count=100,
+                     total=800, box=[90, 90, 240, 150],
+                     size_a=(10, 10), size_b=(10, 10))
+        c = comparison(pixel=pixel)
         c.impl_elements = self.ELEMENTS
         control = comparison(scene="__negative_control__",
                              pixel={"size_equal": True, "pct": 23.4, "count": 9,
@@ -244,8 +326,8 @@ class TestAround(unittest.TestCase):
         code, lines = vp.gate(control, [c], 3.0, 0)
         self.assertEqual(code, 1)
         self.assertEqual(lines, ["DIFF default 1440x900 12.5% box=[90, 90, 240, 150] "
-                                 "— pixel 12.5% > 3.0% around: button \"开始生成\", "
-                                 "main \"页面\""])
+                                 "— pixel 12.5% > 3.0% (unaligned 31.0%) "
+                                 "around: button \"开始生成\", main \"页面\""])
 
     def test_an_aria_failure_names_nothing(self):
         c = comparison(aria=vp.aria_diff(ROUND2_CARD, ROUND2_CARD.replace("2 张", "3 张", 1)))
