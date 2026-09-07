@@ -4,7 +4,9 @@
 #
 #   dispatch.sh check <spec>
 #   dispatch.sh advance <spec>
+#   dispatch.sh land <n>|--sweep
 #   dispatch.sh start <n> worker|reviewer|verifier
+#   dispatch.sh retract <n>
 #   dispatch.sh wait <n> worker|reviewer|verifier
 #   dispatch.sh resume <n> "<text>"
 #   dispatch.sh status <spec>
@@ -23,7 +25,9 @@
 # label, so one ticket keeps the same worker every time it is started. Which
 # host, model, thinking level and permissions the session gets come from that
 # row of `models.md`, expanded into the fields `create_agent` accepts. `start`
-# and `advance` always print one `create_agent` object per ticket.
+# and `advance` always print one `create_agent` object per ticket. A second
+# bypass row for that agent is nested as `fallback`, itself a complete
+# `create_agent` object; the caller strips `fallback` before the first call.
 #
 # Exit codes are documented in SKILL.md next to this script.
 
@@ -71,6 +75,7 @@ usage: dispatch.sh check <spec>
        dispatch.sh advance <spec>
        dispatch.sh land <n>|--sweep
        dispatch.sh start <n> worker|reviewer|verifier
+       dispatch.sh retract <n>
        dispatch.sh wait <n> worker|reviewer|verifier
        dispatch.sh resume <n> "<text>"
        dispatch.sh status <spec>
@@ -94,21 +99,21 @@ print(sys.stdin.read().rstrip("\n")[:int(os.environ["MMW_HEAD_CHARS"])])
 
 # ------------------------------------------------------------------ models.md
 
-# Prints "host<TAB>model<TAB>effort<TAB>permissions" for the agent asked for: the
-# first of its rows with `bypass`, since an agent that is both a session and a
-# subagent (the reviewer) has one row per host and only one of them starts a
-# session; when no row has any, the first row, so the caller's refusal can name it.
-# Backticks are markdown, not part of any value.
+# Prints "host<TAB>model<TAB>effort<TAB>permissions" for the agent asked for.
+# With no second argument, or 1: the first bypass row, since an agent that is
+# both a session and a subagent (the reviewer) has one row per host and only one
+# of them starts a session; when no row has any, the first row, so the caller's
+# refusal can name it. With 2: the second bypass row (the fallback host), or
+# empty when it has none. Backticks are markdown, not part of any value.
 row_for_role() {
-  awk -F'|' -v want="$1" '
+  awk -F'|' -v want="$1" -v nth="${2:-1}" '
     function trim(s) { gsub(/^[ \t`]+/, "", s); gsub(/[ \t`]+$/, "", s); return s }
     /^[ \t]*\|/ && NF == 7 && trim($2) == want {
       row = trim($3) "\t" trim($4) "\t" trim($5) "\t" trim($6)
       if (first == "") first = row
-      perm = trim($6)
-      if (perm == "bypass") { print row; found = 1; exit }
+      if (trim($6) == "bypass" && ++n == nth) { print row; found = 1; exit }
     }
-    END { if (!found && first != "") print first }
+    END { if (!found && nth == 1 && first != "") print first }
   ' "$MODELS"
 }
 
@@ -496,37 +501,56 @@ if spec is None or spec.loader is None:
     sys.exit(2)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
-host = os.environ["MMW_HOST"]
-settings = mod.create_agent_settings(host, os.environ["MMW_PERM"])
-effort = os.environ["MMW_EFFORT"]
-if effort and effort not in ("—", "-", ""):
-    settings["thinkingOptionId"] = effort
-# Paseo gives one terminal notification per created agent, spent the first time that
-# agent ends a turn. A verifier and a reviewer end one turn each, on the work being
-# done, so the notification lands where it means something and the worker sleeps on
-# it. A worker ends several — one for every agent it starts — so its first would
-# report a middle state and the main agent would never hear the ticket land. It is
-# told by `verify-ticket.py` instead, when the ticket comes to rest.
-payload = {
-    "workspaceId": os.environ["MMW_WORKSPACE"],
-    "title": os.environ["MMW_TITLE"],
-    "provider": host + "/" + os.environ["MMW_MODEL"],
-    "settings": settings,
-    "notifyOnFinish": os.environ["MMW_KIND"] != "worker",
-    "labels": {
-        "mmw.ticket": os.environ["MMW_TICKET"],
-        "mmw.kind": os.environ["MMW_KIND"],
-        "mmw.profile": os.environ["MMW_PROFILE"],
-        "mmw.autonomous": "1",
-    },
-    "initialPrompt": os.environ["MMW_PROMPT"],
-}
-# A ticket outside any batch carries no `mmw.spec` at all, rather than an empty one:
-# a label filter matches an empty value, so `--label mmw.spec=` would collect every
-# batchless agent on the machine as though they were one batch.
-if os.environ["MMW_SPEC"]:
-    payload["labels"]["mmw.spec"] = os.environ["MMW_SPEC"]
-print(json.dumps(payload, ensure_ascii=False))
+
+def payload(host, model, effort, perm, profile):
+    settings = mod.create_agent_settings(host, perm)
+    if effort and effort not in ("—", "-", ""):
+        settings["thinkingOptionId"] = effort
+    # Paseo gives one terminal notification per created agent, spent the first time
+    # that agent ends a turn. A verifier and a reviewer end one turn each, on the
+    # work being done, so the notification lands where it means something and the
+    # worker sleeps on it. A worker ends several — one for every agent it starts —
+    # so its first would report a middle state and the main agent would never hear
+    # the ticket land. It is told by `verify-ticket.py` instead, when the ticket
+    # comes to rest.
+    body = {
+        "workspaceId": os.environ["MMW_WORKSPACE"],
+        "title": os.environ["MMW_TITLE"],
+        "provider": host + "/" + model,
+        "settings": settings,
+        "notifyOnFinish": os.environ["MMW_KIND"] != "worker",
+        "labels": {
+            "mmw.ticket": os.environ["MMW_TICKET"],
+            "mmw.kind": os.environ["MMW_KIND"],
+            "mmw.profile": profile,
+            "mmw.autonomous": "1",
+        },
+        "initialPrompt": os.environ["MMW_PROMPT"],
+    }
+    # A ticket outside any batch carries no `mmw.spec` at all, rather than an empty
+    # one: a label filter matches an empty value, so `--label mmw.spec=` would
+    # collect every batchless agent on the machine as though they were one batch.
+    if os.environ["MMW_SPEC"]:
+        body["labels"]["mmw.spec"] = os.environ["MMW_SPEC"]
+    return body
+
+rows = [line for line in (os.environ.get("MMW_ROWS") or "").splitlines() if line.strip()]
+if not rows:
+    print("dispatch: no models.md row to emit", file=sys.stderr)
+    sys.exit(2)
+
+def parse_row(line):
+    host, model, effort, perm = line.split("\t")
+    return host, model, effort, perm
+
+host, model, effort, perm = parse_row(rows[0])
+primary = payload(host, model, effort, perm, os.environ["MMW_PROFILE"])
+if len(rows) > 1:
+    host, model, effort, perm = parse_row(rows[1])
+    primary["fallback"] = payload(
+        host, model, effort, perm,
+        mod.profile_id(os.environ["MMW_PROFILE"], host, primary=False))
+print(json.dumps(primary, ensure_ascii=False))
 '
 }
 
@@ -567,7 +591,7 @@ start_one() {
       esac ;;
   esac
 
-  local row host model effort perm
+  local row host model effort perm fb_row
   row="$(row_for_role "$profile")"
   [ -n "$row" ] || refuse "#$number needs the $profile row, and $MODELS has none"
   IFS=$'\t' read -r host model effort perm <<<"$row"
@@ -575,6 +599,7 @@ start_one() {
     bypass) ;;
     *) refuse "$profile is a subagent: it is started by the skill that needs it, not from here" ;;
   esac
+  fb_row="$(row_for_role "$profile" 2)"
 
   local root
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
@@ -595,12 +620,12 @@ start_one() {
       prompt="Use the verdict skill to verify ticket #$number. $AUTONOMOUS" ;;
   esac
 
-  local workspace cwd created row
-  row="$(ensure_workspace "$number" "$root" "$title")" \
+  local workspace cwd created ws_row
+  ws_row="$(ensure_workspace "$number" "$root" "$title")" \
     || refuse "could not open a workspace for issue-$number"
-  workspace="$(printf '%s\n' "$row" | cut -f1)"
-  cwd="$(printf '%s\n' "$row" | cut -f2)"
-  created="$(printf '%s\n' "$row" | cut -f3)"
+  workspace="$(printf '%s\n' "$ws_row" | cut -f1)"
+  cwd="$(printf '%s\n' "$ws_row" | cut -f2)"
+  created="$(printf '%s\n' "$ws_row" | cut -f3)"
 
   if [ "$kind" = worker ]; then
     [ -f "$LEASE" ] \
@@ -617,12 +642,82 @@ start_one() {
     fi
   fi
 
-  local agent_title="#$number $kind"
+  local agent_title="#$number $kind" rows
+  rows="$row"
+  [ -z "$fb_row" ] || rows="$row"$'\n'"$fb_row"
   MMW_WORKSPACE="$workspace" MMW_TITLE="$agent_title" \
-    MMW_HOST="$host" MMW_MODEL="$model" MMW_EFFORT="$effort" MMW_PERM="$perm" \
+    MMW_ROWS="$rows" \
     MMW_TICKET="$number" MMW_KIND="$kind" MMW_SPEC="$spec" \
     MMW_PROFILE="$profile" MMW_PROMPT="$prompt" \
     emit_create_json
+}
+
+# ------------------------------------------------------------------ retract
+
+# Undo what start left behind when create_agent never ran: archive the workspace,
+# give the slot back, give the claim back if this pipeline still holds it. The
+# branch stays, so the next start reuses it. A live agent on the ticket is a
+# running worker, not a failed start — refuse. `slot given back` is 1 only when
+# lease.py actually released; a missing --tools directory is a refusal, not a
+# silent keep.
+retract_one() {
+  local number="$1"
+  case "$number" in *[!0-9]* | "") refuse "ticket number must be digits only, got $number" ;; esac
+
+  local root
+  root="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$root" ] \
+    || refuse "not inside a git repository, so there is no workspace to retract"
+
+  local live ident status
+  live="$(agents_by_label --label "mmw.ticket=$number" | head -n 1)"
+  ident="$(printf '%s\n' "$live" | cut -f2)"
+  status="$(printf '%s\n' "$live" | cut -f3 | tr '[:upper:]' '[:lower:]')"
+  case "$status" in
+    running|initializing|idle)
+      refuse "#$number still has a live agent $ident; retract is for a start whose create_agent never ran"
+      ;;
+  esac
+
+  local cwd archived=0 slot=0 claim=0 rc
+  cwd="$(workspace_cwd_for "$number")"
+  [ -n "$cwd" ] || cwd="$(lease_worktree_for "$number")"
+  if [ -n "$cwd" ]; then
+    [ -f "$LEASE" ] \
+      || refuse "no lease.py in any --tools directory, so the slot cannot be given back. Pass --tools <the drive-target skill's scripts directory>, then retract again"
+    release_lease "$cwd"
+    rc=$?
+    case "$rc" in
+      0) slot=1 ;;
+    esac
+  fi
+  if [ -n "$(workspace_id_for "$number")" ]; then
+    archive_workspace "$number"
+    archived=1
+  fi
+
+  local login
+  login="$(gh_ api user --jq .login 2>/dev/null | tr -d '[:space:]')"
+  if [ -n "$login" ]; then
+    if printf '%s' "$(gh_ issue view "$number" --json assignees 2>/dev/null)" \
+         | MMW_LOGIN="$login" python3 -c '
+import json, os, sys
+login = os.environ["MMW_LOGIN"]
+try:
+    rows = (json.load(sys.stdin) or {}).get("assignees") or []
+except Exception:
+    raise SystemExit(1)
+raise SystemExit(0 if login in [a.get("login") for a in rows if isinstance(a, dict)] else 1)
+'; then
+      if gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1; then
+        claim=1
+      else
+        echo "dispatch: could not give back the claim on #$number" >&2
+      fi
+    fi
+  fi
+
+  echo "retract #$number: archived $archived, slot given back $slot, claim given back $claim" >&2
 }
 
 # ------------------------------------------------------------------ resume
@@ -1501,6 +1596,11 @@ case "${1:-}" in
     [ "$#" -eq 3 ] || usage
     case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
     start_one "$2" "$3"
+    ;;
+  retract)
+    [ "$#" -eq 2 ] || usage
+    case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
+    retract_one "$2"
     ;;
   wait)
     [ "$#" -eq 3 ] || usage

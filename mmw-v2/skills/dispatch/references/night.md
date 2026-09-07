@@ -24,7 +24,7 @@ Stay on this branch all night. Every `advance` merges into whatever `HEAD` is on
 <dispatch> advance <spec>
 ```
 
-**Exit 0:** stdout is zero or more JSON lines, one per ticket on the frontier. For each line, call `create_agent` with that object as printed. Then end your turn. **Exit 2:** nothing was touched; read stderr; if it is uncommitted changes, commit or set them aside and run `advance` again; if it is the `.git` lock, run `advance` again. **Exit 3:** a merge is in conflict, still in the tree. Resolve it with the `resolving-merge-conflicts` skill — never `--abort` — run this repository's own checks, commit the merge, then `advance` again.
+**Exit 0:** stdout is zero or more JSON lines, one per ticket on the frontier. For each line, call `create_agent` with every field except `fallback`. A `create_agent` that fails to start the provider is the `create_agent` failed to start the provider row of `SKILL.md`, not a second guess at the host. Then end your turn. **Exit 2:** nothing was touched; read stderr; if it is uncommitted changes, commit or set them aside and run `advance` again; if it is the `.git` lock, run `advance` again. **Exit 3:** a merge is in conflict, still in the tree. Resolve it with the `resolving-merge-conflicts` skill — never `--abort` — run this repository's own checks, commit the merge, then `advance` again.
 
 What `advance` does inside that one command — merge, archive, give claims back, then dispatch — is the next section.
 
@@ -59,7 +59,7 @@ Two things wake you, and both end here: a **ticket message** whose first line is
 
 | What you see | What you do |
 | --- | --- |
-| A ticket just closed `ALL MET`, or the frontier has `ready` rows and no live worker on them | `<dispatch> advance <spec>`, then `create_agent` on each new line |
+| A ticket just closed `ALL MET`, or the frontier has `ready` rows and no live worker on them | `<dispatch> advance <spec>`, then `create_agent` on each new line (every field except `fallback`; a failure to start the provider is the `SKILL.md` row of that name) |
 | The worker is live and the work should continue | `<dispatch> resume <n> "<what you settled, then: continue>"` |
 | The worker has stopped and the ticket has a new child whose first line is `SUB-ISSUE pipeline` | Read that sub-issue (`gh api --paginate repos/{owner}/{repo}/issues/<n>/sub_issues?per_page=100`). Fix the cause it names. Then `<dispatch> resume <n> "… continue"` |
 | `status` shows the ticket still `OPEN`, and `paseo ls --label mmw.ticket=<n>` shows a live child labelled `mmw.kind=reviewer` or `mmw.kind=verifier` | Not a stop: the worker is asleep on that child and wakes when it finishes. Do nothing |

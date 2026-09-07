@@ -3,7 +3,7 @@
 # Tests for dispatch.sh. One scenario per run:
 #
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh check|advance|advanceconflict|advancedirty
-#   bash mmw-v2/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|start-verifier
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|start-verifier|retract
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh resume|wait|reverify|summary
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh instancegate|countfail|suspend|suspendbusy|suspendnohb|status
@@ -1031,6 +1031,31 @@ obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.str
 assert obj["settings"].get("thinkingOptionId") == "high"
 assert obj["settings"].get("features") == {"auto_accept": True}, obj["settings"]
 ' "$TMP/out" || fail "create_agent settings changed: $(cat "$TMP/out")"
+  echo "--- that object carries a complete fallback create_agent payload on the second bypass row"
+  [ "$(out_json fallback.provider)" = "grok/grok-4.6" ] \
+    || fail "fallback.provider: $(out_json fallback.provider)"
+  python3 -c '
+import json, sys
+from pathlib import Path
+obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
+fb = obj["fallback"]
+for key in ("workspaceId", "title", "provider", "settings", "labels", "initialPrompt",
+            "notifyOnFinish"):
+    assert key in fb, key
+assert "fallback" not in fb
+assert fb["workspaceId"] == obj["workspaceId"]
+assert fb["title"] == obj["title"]
+assert fb["initialPrompt"] == obj["initialPrompt"]
+assert fb["notifyOnFinish"] == obj["notifyOnFinish"]
+assert fb["labels"]["mmw.ticket"] == obj["labels"]["mmw.ticket"]
+assert fb["labels"]["mmw.kind"] == "worker"
+assert fb["labels"]["mmw.profile"] == "junior-worker@grok", fb["labels"]["mmw.profile"]
+assert obj["labels"]["mmw.profile"] == "junior-worker"
+assert obj["provider"] != fb["provider"], obj["provider"]
+assert "modeId" not in fb["settings"], fb["settings"]
+assert fb["settings"].get("features") == {"auto_accept": True}, fb["settings"]
+assert fb["settings"].get("thinkingOptionId") == "high"
+' "$TMP/out" || fail "the fallback object is not a create_agent payload: $(cat "$TMP/out")"
   has ":: --mode :: branch-off"
   has ":: --new-branch :: issue-61"
   has ":: --isolation :: worktree"
@@ -1068,6 +1093,12 @@ assert obj["settings"].get("features") == {"auto_accept": True}, obj["settings"]
   [ "$(out_json provider)" = "grok/$SENIOR_MODEL" ] || fail "provider: $(out_json provider)"
   [ "$(out_json settings.thinkingOptionId)" = xhigh ] || fail "effort: $(out_json settings.thinkingOptionId)"
   [ "$(out_json labels.mmw.profile)" = senior-worker ] || fail "profile: $(out_json labels.mmw.profile)"
+  python3 -c '
+import json, sys
+from pathlib import Path
+obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
+assert "fallback" not in obj, obj
+' "$TMP/out" || fail "senior-worker has one bypass row, so start must not print fallback: $(cat "$TMP/out")"
 
   echo "--- two worker labels are refused, and nothing is started"
   reset_log
@@ -1132,6 +1163,108 @@ obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.str
 assert obj["settings"].get("thinkingOptionId") == "high"
 assert obj["settings"].get("features") == {"auto_accept": True}, obj["settings"]
 ' "$TMP/out" || fail "copied start settings are wrong: $(cat "$TMP/out")"
+}
+
+scenario_retract() {
+  local code
+  echo "--- usage lists retract"
+  reset_log
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}")"
+  [ "$code" = 2 ] || fail "expected exit 2 for usage, got $code: $(cat "$TMP/err")"
+  grep -qF 'retract <n>' "$TMP/err" \
+    || fail "usage should list retract: $(cat "$TMP/err")"
+
+  echo "--- retract after start archives the workspace and gives the slot back"
+  reset_log
+  fresh_repo
+  cat > "$TMP/tickets.json" <<'JSON'
+[{"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "assignees": ["mmw-bot"]}]
+JSON
+  code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "start expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 1 ] \
+    || fail "start should hold one slot, it holds $(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")"
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env MMW_LEASE_SLOTS=1 FAKE_GH_LOGIN=mmw-bot \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" retract 61)"
+  [ "$code" = 0 ] || fail "retract expected exit 0, got $code: $(cat "$TMP/err")"
+  has "paseo :: workspace :: archive :: wks_issue-61"
+  [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 0 ] \
+    || fail "the slot should be free after retract, count is $(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")"
+  grep -q "retract #61: archived 1, slot given back 1, claim given back 1" "$TMP/err" \
+    || fail "the counters should match what was undone: $(cat "$TMP/err")"
+  has "gh :: issue :: edit :: 61 :: --remove-assignee :: @me"
+
+  echo "--- a second retract on the same ticket is a no-op, not a lie about the slot"
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env MMW_LEASE_SLOTS=1 FAKE_GH_LOGIN=mmw-bot \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" retract 61)"
+  [ "$code" = 0 ] || fail "second retract expected exit 0, got $code: $(cat "$TMP/err")"
+  hasnt "workspace :: archive"
+  grep -q "retract #61: archived 0, slot given back 0, claim given back 0" "$TMP/err" \
+    || fail "a second retract should report zeros: $(cat "$TMP/err")"
+
+  echo "--- the freed slot is what the next start takes, not a second slot"
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
+          bash "$DISPATCH" "${TOOLS[@]}" start 62 worker)"
+  [ "$code" = 0 ] || fail "start after retract expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 1 ] \
+    || fail "the next start should take the freed slot, count is $(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")"
+  has ":: --new-branch :: issue-62"
+
+  echo "--- a live agent on the ticket is refused, and the workspace stays"
+  reset_log
+  fresh_repo
+  seed_workspace 61
+  seed_agent 61 worker
+  python3 "$LEASE_PY" claim "$MMW_FAKE_PASEO_STATE/issue-61" >/dev/null
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" retract 61)"
+  [ "$code" = 2 ] || fail "expected exit 2 with a live agent, got $code: $(cat "$TMP/err")"
+  hasnt "workspace :: archive"
+  grep -q "live agent" "$TMP/err" \
+    || fail "the refusal should say a live agent is on the ticket: $(cat "$TMP/err")"
+  [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 1 ] \
+    || fail "a refused retract must not give the slot back, count is $(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")"
+
+  echo "--- a claim this pipeline does not hold is left alone"
+  reset_log
+  fresh_repo
+  cat > "$TMP/tickets.json" <<'JSON'
+[{"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "assignees": ["a-human"]}]
+JSON
+  code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "start expected exit 0, got $code: $(cat "$TMP/err")"
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env MMW_LEASE_SLOTS=1 FAKE_GH_LOGIN=mmw-bot \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" retract 61)"
+  [ "$code" = 0 ] || fail "retract expected exit 0, got $code: $(cat "$TMP/err")"
+  hasnt "gh :: issue :: edit"
+  grep -q "claim given back 0" "$TMP/err" \
+    || fail "someone else's claim must stay: $(cat "$TMP/err")"
+  [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 0 ] \
+    || fail "the slot should still be given back: $(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")"
+
+  echo "--- without lease.py, retract refuses and the slot stays held"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "start expected exit 0, got $code: $(cat "$TMP/err")"
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
+          bash "$DISPATCH" --tools "$(dirname "$SKILL")/verify-ticket/scripts" retract 61)"
+  [ "$code" = 2 ] || fail "expected exit 2 without lease.py, got $code: $(cat "$TMP/err")"
+  grep -q "lease.py" "$TMP/err" \
+    || fail "the refusal should name lease.py: $(cat "$TMP/err")"
+  hasnt "workspace :: archive"
+  [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 1 ] \
+    || fail "the slot must stay held when retract cannot see lease.py, count is $(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")"
 }
 
 scenario_start_reviewer() {
@@ -1916,10 +2049,10 @@ scenario_status() {
 
 # ------------------------------------------------------------------ entry
 
-ALL="check advance advanceconflict advancedirty land landsweep start-worker start-reviewer start-verifier resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail suspend suspendbusy suspendnohb status"
+ALL="check advance advanceconflict advancedirty land landsweep start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail suspend suspendbusy suspendnohb status"
 
 case "${1:-}" in
-  check|advance|advanceconflict|advancedirty|land|landsweep|start-worker|start-reviewer|start-verifier|resume|wait|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|suspend|suspendbusy|suspendnohb|status)
+  check|advance|advanceconflict|advancedirty|land|landsweep|start-worker|start-reviewer|start-verifier|retract|resume|wait|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|suspend|suspendbusy|suspendnohb|status)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -1939,6 +2072,7 @@ banner_for() {
     start-worker) echo DISPATCH-START-WORKER-OK ;;
     start-reviewer) echo DISPATCH-START-REVIEWER-OK ;;
     start-verifier) echo DISPATCH-START-VERIFIER-OK ;;
+    retract) echo DISPATCH-RETRACT-OK ;;
     resume) echo DISPATCH-RESUME-OK ;;
     wait) echo DISPATCH-WAIT-OK ;;
     reverify) echo DISPATCH-REVERIFY-OK ;;

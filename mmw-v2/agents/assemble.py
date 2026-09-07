@@ -25,6 +25,7 @@ agent。Claude 与 pi 不看这个键，它们靠各自 hosts 里的 tools 列�
 import json
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 ROOT = Path(__file__).resolve().parent
 MODELS = ROOT.parent / "skills" / "dispatch" / "models.md"
@@ -73,9 +74,56 @@ def read_models() -> dict[tuple[str, str], tuple[str, str]]:
     return table
 
 
-def profile_rows() -> list[tuple[str, str, str, str, str]]:
-    """生成 Agent profile 的行：permissions 是 bypass 的那些。"""
-    return [row for row in parse_model_rows() if row[4] == "bypass"]
+def profile_id(agent: str, host: str, *, primary: bool) -> str:
+    """id 与 name 写入 ~/.paseo/config.json 的 daemon.agentProfiles。
+
+    一个 agent 的第一条 bypass 行沿用 agent 名，已有的 profile 和 mmw.profile 标签
+    都不动。同一 agent 的后一条 bypass 行是备用 host，id 为 `{agent}@{host}`，
+    两条才不会抢同一个 id。
+    """
+    return agent if primary else f"{agent}@{host}"
+
+
+class ProfileRow(NamedTuple):
+    profile_id: str
+    agent: str
+    host: str
+    model: str
+    effort: str
+    permissions: str
+
+
+def profile_rows() -> list[ProfileRow]:
+    """生成 Agent profile 的行：permissions 是 bypass 的那些。
+
+    一个 agent 至多两条 bypass：第一条是首选，profile_id 等于 agent；第二条是
+    备用 host，profile_id 为 `{agent}@{host}`。两条 bypass 不能落在同一 host 上。
+    """
+    primary_host: dict[str, str] = {}
+    have_fallback: set[str] = set()
+    out: list[ProfileRow] = []
+    for agent, host, model, effort, permissions in parse_model_rows():
+        if permissions != "bypass":
+            continue
+        if agent not in primary_host:
+            primary_host[agent] = host
+            out.append(ProfileRow(
+                profile_id(agent, host, primary=True),
+                agent, host, model, effort, permissions))
+            continue
+        if host == primary_host[agent]:
+            raise ValueError(f"{MODELS}: {agent} has two bypass rows on {host}")
+        if agent in have_fallback:
+            raise ValueError(
+                f"{MODELS}: {agent} has more than one fallback bypass row")
+        have_fallback.add(agent)
+        out.append(ProfileRow(
+            profile_id(agent, host, primary=False),
+            agent, host, model, effort, permissions))
+    ids = [row.profile_id for row in out]
+    if len(ids) != len(set(ids)):
+        raise ValueError(f"{MODELS}: two bypass rows produced the same profile id")
+    return out
 
 
 def create_agent_settings(host: str, permissions: str) -> dict:
