@@ -196,29 +196,21 @@ record_base_if_missing() {
 
 # ------------------------------------------------------------------ Paseo
 
-project_id_for() {
-  local root="$1"
-  MMW_ROOT="$root" python3 -c '
-import json, os, subprocess, sys
+# The Paseo project this checkout belongs to, registering it when it is not registered
+# yet. `paseo project create` answers with the existing project for a path it already
+# knows, so asking which project a checkout is and asking for one to be made are the
+# same call. Prints nothing when the daemon could not be asked.
+ensure_project_id() {
+  paseo project create "$1" --json 2>/dev/null | python3 -c '
+import json, sys
 
-root = os.path.realpath(os.environ["MMW_ROOT"])
-raw = subprocess.check_output(["paseo", "project", "ls", "--json"], text=True)
 try:
-    rows = json.loads(raw)
+    row = json.load(sys.stdin)
 except Exception:
     sys.exit(0)
-if not isinstance(rows, list):
-    sys.exit(0)
-for row in rows:
-    if not isinstance(row, dict):
-        continue
-    path = os.path.realpath(row.get("path") or "")
-    if path == root:
-        ident = row.get("projectId") or ""
-        if ident:
-            print(ident)
-        break
-' 2>/dev/null
+if isinstance(row, dict) and row.get("projectId"):
+    print(row["projectId"])
+'
 }
 
 # This checkout's workspaces as a JSON list. One read of the workspace list.
@@ -526,9 +518,9 @@ ensure_workspace() {
     printf '%s\t0\n' "$row"
     return 0
   fi
-  project="$(project_id_for "$root")"
+  project="$(ensure_project_id "$root")"
   [ -n "$project" ] \
-    || { echo "dispatch: no Paseo project whose path is $root" >&2; return 1; }
+    || { echo "dispatch: could not register a Paseo project for $root; ask the daemon what is wrong with \`paseo daemon status\`" >&2; return 1; }
 
   local ws_title
   ws_title="$(printf '#%s %s' "$number" "$(printf '%s' "$title" | head_chars "$LABEL_TITLE_CHARS")")"
@@ -883,14 +875,21 @@ wait_no_result() {
 # already written its result returns at once — which is the whole of it on the
 # ordinary path, since what wakes a caller is that agent finishing.
 #
-# When the comment is not there yet it blocks on `paseo wait` for MMW_WAIT_S seconds
-# (default 90) and exits 3, and running it again is how a host that stops waiting on
-# a long command is survived. No host kills such a command: all of them move it to
-# the background and hand back no exit code, and the bound has to stay under the
-# shortest of those — 30 seconds on Cursor, 120 on Grok Build and Claude Code
-# (measured 2026-09-06). Set MMW_WAIT_S below the host's own bound when it is
-# shorter than this default. Writes nothing: no ticket comment, no agent command
-# other than `paseo wait`.
+# When the comment is not there yet this waits MMW_WAIT_S seconds (default 90) and then
+# exits 3, and running it again is how a host that stops waiting on a long command is
+# survived. No host kills such a command: all of them move it to the background and hand
+# back no exit code, and the bound has to stay under the shortest of those — 30 seconds
+# on Cursor, 120 on Grok Build and Claude Code (measured 2026-09-06). Set MMW_WAIT_S
+# below the host's own bound when it is shorter than this default.
+#
+# The waiting is this function's, not `paseo wait`'s. What `paseo wait` waits for is the
+# agent going from busy to idle, and it returns at once for an agent that is already
+# idle — which is the state of an agent between turns, doing exactly what it was told.
+# Handing the whole budget to it therefore returns in milliseconds in the one case this
+# fallback exists for, and `run it again` becomes a loop with no beat in it, spending one
+# turn of the caller per round. So the budget is spent here: `paseo wait` for as long as
+# the agent is busy, the ticket read after each round, and a fixed beat between rounds
+# when it is not. Writes nothing: no ticket comment, no agent command but `paseo wait`.
 wait_one() {
   local number="$1" kind="$2"
   case "$kind" in
@@ -908,22 +907,28 @@ wait_one() {
   ident="$(agents_by_label --label "mmw.ticket=$number" --label "mmw.kind=$kind" | head -n 1 | cut -f2)"
   [ -n "$ident" ] || refuse "no $kind agent labelled mmw.ticket=$number"
 
-  paseo wait "$ident" --timeout "${MMW_WAIT_S:-90}" >/dev/null 2>&1 || true
-
-  head="$(result_first_line "$number" "$kind")"
-  if [ -n "$head" ]; then
-    printf '%s\n' "$head"
-    return 0
-  fi
+  local budget="${MMW_WAIT_S:-90}" beat="${MMW_WAIT_BEAT_S:-10}" spent=0 round_start
+  while [ "$spent" -lt "$budget" ]; do
+    round_start="$(date +%s)"
+    paseo wait "$ident" --timeout "$((budget - spent))" >/dev/null 2>&1 || true
+    head="$(result_first_line "$number" "$kind")"
+    if [ -n "$head" ]; then
+      printf '%s\n' "$head"
+      return 0
+    fi
+    spent=$((spent + $(date +%s) - round_start))
+    [ "$spent" -lt "$budget" ] || break
+    sleep "$beat"
+    spent=$((spent + beat))
+  done
 
   # An agent that is alive is still on the hook, whatever it is doing between turns.
-  # `idle` is not idle: the code-review skill has the reviewer start its three axis
-  # subagents and end its turn rather than poll them, so a reviewer that is doing
-  # exactly what it was told to do sits at `idle` for the whole of that work. Reading
-  # that as "stopped" sends the caller to a fallback while a healthy agent is mid-job;
-  # on 2026-09-06 that closed #162 on a thinner review than the one that arrived 50
-  # seconds later, and did the same to #159. Only an agent that is gone — `closed`,
-  # `error`, or no longer listed — has nobody left to do the job.
+  # `idle` is not idle: an agent that has handed work to subagents and ended its turn
+  # sits there for the whole of that work, doing exactly what it was told. Reading that
+  # as "stopped" sends the caller to a fallback while a healthy agent is mid-job; on
+  # 2026-09-06 that closed #162 on a thinner review than the one that arrived 50 seconds
+  # later, and did the same to #159. Only an agent that is gone — `closed`, `error`, or
+  # no longer listed — has nobody left to do the job.
   status="$(agents_by_label --label "mmw.ticket=$number" --label "mmw.kind=$kind" | head -n 1 | cut -f3 | tr '[:upper:]' '[:lower:]')"
   if agent_is_live "$status"; then
     echo "still working: run wait again" >&2
@@ -946,13 +951,26 @@ check_machine() {
     failed=1
   fi
 
-  local providers
-  providers="$(paseo provider ls --json 2>/dev/null)" || providers=""
-  local role host
+  # `provider ls` answers from a cached snapshot, and a host that was available when
+  # that snapshot was taken can since have been logged out of or upgraded out from under
+  # the daemon — a night that opens on that answer then fails one ticket at a time,
+  # hours later, for a reason `check` was asked to catch. `provider diagnostic` refreshes
+  # the snapshot for one host by really asking it: resolving the binary, reading its
+  # version and its login, and for an ACP host opening and closing a session. So each
+  # host is refreshed first and the verdict is then taken off the refreshed snapshot,
+  # rather than off the English sentence the diagnostic prints. That sentence is what a
+  # reader needs when the verdict is no, so it is kept and printed under the refusal.
+  #
+  # One diagnostic per host, not per row of `models.md`: several agents share a host, and
+  # the call costs seconds (measured: claude 0.7s, pi 1.7s, grok 2.5s, cursor 6.7s).
+  local role host hosts="" diag
   for role in $(worker_roles) reviewer verifier; do
     host="$(row_for_role "$role" | cut -f1)"
     [ -n "$host" ] || continue
-    MMW_HOST="$host" MMW_PROVIDERS="$providers" python3 -c '
+    case " $hosts " in *" $host "*) continue ;; esac
+    hosts="$hosts $host"
+    diag="$(paseo provider diagnostic "$host" --json 2>&1)" || diag=""
+    MMW_HOST="$host" MMW_PROVIDERS="$(paseo provider ls --json 2>/dev/null)" python3 -c '
 import json, os, sys
 
 host = os.environ["MMW_HOST"]
@@ -969,7 +987,21 @@ if isinstance(rows, list):
             break
 if not ok:
     sys.exit(1)
-' || { echo "dispatch: provider $host is not available" >&2; failed=1; }
+' || {
+      echo "dispatch: provider $host is not available" >&2
+      printf '%s' "$diag" | python3 -c '
+import json, sys
+
+try:
+    text = (json.load(sys.stdin) or {}).get("diagnostic") or ""
+except Exception:
+    text = ""
+for line in text.splitlines():
+    if line.strip():
+        print("  " + line.rstrip())
+' >&2
+      failed=1
+    }
   done
 
   local grades line number
@@ -1243,9 +1275,17 @@ advance() {
 
   local started=0 refused=0 held=0 live max_inst trees
   max_inst="$(target_max_instances "$root")" || exit 2
+  # Every issue workspace of a checkout sits under one directory, so this is asked for
+  # once rather than once per ticket — two Paseo calls each. It is asked again only
+  # while the answer is still empty, which is the state before this checkout has any
+  # workspace at all: the first `start` makes one, and from then on the count the gate
+  # reads has somewhere to be counted. A repository that declares no cap never needs the
+  # directory, and is not made to pay for finding it.
+  trees=""
+  [ -z "$max_inst" ] || trees="$(worktrees_root)"
   for number in $(printf '%s\n' "$plan" | awk '$1 == "DISPATCH" { print $2 }'); do
     if [ -n "$max_inst" ]; then
-      trees="$(worktrees_root)"
+      [ -n "$trees" ] || trees="$(worktrees_root)"
       if [ -n "$trees" ]; then
         live="$(live_instances "$trees")" \
           || refuse "could not count live instances under $trees"

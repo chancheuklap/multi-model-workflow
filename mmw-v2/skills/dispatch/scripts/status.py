@@ -85,12 +85,29 @@ def paseo_json(args: list[str]):
 AGENT_KINDS = ("worker", "reviewer", "verifier")
 
 
+def agents_awaiting_permission() -> set[str]:
+    """The id of every agent this daemon is holding a permission prompt for.
+
+    One call for the whole machine, so the table costs the same however many agents a
+    batch has. A call that could not be made is an empty set rather than an error: the
+    only thing it feeds is the `needs permission` note, and every other cell of the row
+    is worth printing without it.
+    """
+    try:
+        rows = paseo_json(["permit", "ls", "--json"])
+    except Exception:
+        return set()
+    if not isinstance(rows, list):
+        return set()
+    return {row["agentId"] for row in rows
+            if isinstance(row, dict) and row.get("agentId")}
+
+
 def live_agents(spec: int) -> list[dict]:
-    """Every live agent labelled `mmw.spec=<spec>`, with inspect fields merged in.
+    """Every live agent labelled `mmw.spec=<spec>`, and whether it is waiting on a person.
 
     `paseo ls --json` has no labels in the body, so both filters are `--label` on
-    the call: one `ls` per `mmw.kind`. Each agent is then inspected once for
-    `LastUsage` and `PendingPermissions`. Raises when `ls` itself could not be
+    the call: one `ls` per `mmw.kind`. Raises when `ls` itself could not be
     asked: an unanswered call is not an empty list.
     """
     out = []
@@ -110,17 +127,14 @@ def live_agents(spec: int) -> list[dict]:
             if agent_id in seen:
                 continue
             seen.add(agent_id)
-            try:
-                detail = paseo_json(["inspect", agent_id, "--json"])
-            except Exception:
-                detail = {}
-            if not isinstance(detail, dict):
-                detail = {}
             merged = dict(row)
             merged["kind"] = kind
-            merged["LastUsage"] = detail.get("LastUsage")
-            merged["PendingPermissions"] = detail.get("PendingPermissions") or []
+            merged["waiting_on_permission"] = False
             out.append(merged)
+    if out:
+        waiting = agents_awaiting_permission()
+        for row in out:
+            row["waiting_on_permission"] = row["id"] in waiting
     return out
 
 
@@ -308,8 +322,7 @@ def sessions(agents: list[dict]) -> list[dict]:
             "status": agent.get("status") or "-",
             "cwd": agent.get("cwd") or "",
             "created": agent.get("created") or "",
-            "LastUsage": agent.get("LastUsage"),
-            "PendingPermissions": agent.get("PendingPermissions") or [],
+            "waiting_on_permission": bool(agent.get("waiting_on_permission")),
         })
     return found
 
@@ -411,7 +424,7 @@ def note_of(ticket: dict, worker: dict | None, holder: dict | None = None) -> st
     if worker:
         if worker.get("status") == "closed":
             return "closed: archive it"
-        if worker.get("PendingPermissions"):
+        if worker.get("waiting_on_permission"):
             return "needs permission"
         return ""
     if ticket.get("state") == "CLOSED":

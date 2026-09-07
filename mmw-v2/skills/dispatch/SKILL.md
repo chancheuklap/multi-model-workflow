@@ -83,7 +83,7 @@ The night's heartbeat is created in [references/night.md](references/night.md) s
 | Code | What happened |
 | --- | --- |
 | `0` | One JSON object is on stdout. A second `bypass` row for that agent is nested as `fallback` |
-| `2` | Nothing was started. The reason is on stderr — read it verbatim. Typical causes: the ticket is not `OPEN` / not `ready-for-agent` / still blocked; two worker-grade labels; no `bypass` row in `models.md` for that agent; no `## Parent` spec number; no recorded base commit (reviewer); no Paseo project whose `path` is this checkout; an argument this form does not take |
+| `2` | Nothing was started. The reason is on stderr — read it verbatim. Typical causes: the ticket is not `OPEN` / not `ready-for-agent` / still blocked; two worker-grade labels; no `bypass` row in `models.md` for that agent; no `## Parent` spec number; no recorded base commit (reviewer); the Paseo daemon could not be asked to register this checkout as a project; an argument this form does not take |
 
 **`advance <spec>`:**
 
@@ -126,7 +126,7 @@ The night's heartbeat is created in [references/night.md](references/night.md) s
 
 **`summary <spec>`:** `0`. The spec has a new comment whose first line is `NIGHT SUMMARY <date>`, and the heartbeat named in `.git/mmw-heartbeat-<spec>` is deleted with the file. If `reverify` ran in this checkout, the comment also has a `Reverify: <green>/<red>` line. `1`: the comment is posted but the heartbeat could not be deleted; stderr names it.
 
-**`wait <n> worker\|reviewer\|verifier`:** `0` the result comment is on the ticket and its first line is on stdout; `1` the agent is gone — `closed`, `error`, or no longer listed — and no result comment exists; stderr names the next step. An `idle` agent is not gone: the code-review skill has a reviewer start its three axis subagents and end its turn instead of polling them, so an agent doing exactly what it was told sits at `idle` for the whole of that work, and `3` is the answer; `2` no agent labelled `mmw.ticket=<n>` of that kind; `3` still working after `MMW_WAIT_S` seconds (default 90), which covers `running`, `initializing` and `idle` — run it again. It reads the ticket before it waits at all, so a result already there returns at once. It writes nothing.
+**`wait <n> worker\|reviewer\|verifier`:** `0` the result comment is on the ticket and its first line is on stdout; `1` the agent is gone — `closed`, `error`, or no longer listed — and no result comment exists; stderr names the next step. An `idle` agent is not gone: an agent that has handed work to subagents and ended its turn sits at `idle` for the whole of that work, doing exactly what it was told, and `3` is the answer; `2` no agent labelled `mmw.ticket=<n>` of that kind; `3` still working, which covers `running`, `initializing` and `idle` — run it again. It reads the ticket before it waits at all, so a result already there returns at once. Otherwise it spends at least `MMW_WAIT_S` seconds (default 90) before answering `3`, re-reading the ticket every `MMW_WAIT_BEAT_S` seconds (default 10) — so `run it again` is a beat rather than a loop with nothing in it. It writes nothing.
 
 No host kills a command that outlasts its shell tool: all of them move it to the background and hand back no exit code, which reads as neither `0` nor `3`. When that happens, run `wait` again — and if this host stops waiting sooner than 90 seconds, set `MMW_WAIT_S` below that bound.
 

@@ -93,6 +93,19 @@ if args[:2] == ["provider", "models"]:
     print(json.dumps([{"id": "grok-4.6", "thinkingOptionIds": ["high", "xhigh"]}]))
     sys.exit(0)
 
+# The real call refreshes the daemon's snapshot for one host and answers with a text
+# blob; `check` reads it only to print under a refusal, so one line of it is enough.
+if args[:2] == ["provider", "diagnostic"]:
+    host = args[2] if len(args) > 2 else ""
+    down = scenario == "provider-down" and host == "grok"
+    print(json.dumps({
+        "provider": host,
+        "diagnostic": f"{host}\n  Resolved path: /fake/{host}\n"
+                      + ("  Auth: not logged in\n  Status: Unavailable" if down
+                         else "  Models: 2\n  Status: Ready"),
+    }))
+    sys.exit(0)
+
 if args[:2] == ["project", "ls"]:
     root = os.environ.get("MMW_FAKE_PROJECT_PATH")
     if not root:
@@ -107,6 +120,21 @@ if args[:2] == ["project", "ls"]:
         "kind": "git",
         "path": root,
     }]))
+    sys.exit(0)
+
+# Registering is idempotent in Paseo — an already-registered path answers with the
+# project it already has — so one row is the whole of what this has to imitate. Set
+# MMW_FAKE_PROJECT_UNREGISTRABLE to make the daemon refuse instead.
+if args[:2] == ["project", "create"]:
+    if os.environ.get("MMW_FAKE_PROJECT_UNREGISTRABLE"):
+        print("Cannot reach the daemon", file=sys.stderr)
+        sys.exit(1)
+    print(json.dumps({
+        "projectId": "prj_test",
+        "name": "repo",
+        "kind": "git",
+        "path": args[2] if len(args) > 2 else os.getcwd(),
+    }))
     sys.exit(0)
 
 if args[:2] == ["workspace", "ls"]:
@@ -201,7 +229,14 @@ if args[:1] == ["send"]:
     sys.exit(0)
 
 if args[:1] == ["inspect"]:
-    print(json.dumps({"LastUsage": None, "PendingPermissions": []}))
+    ident = args[1] if len(args) > 1 else ""
+    row = next((a for a in load("agents.json") if a.get("id") == ident), {})
+    print(json.dumps({"ParentAgentId": row.get("ParentAgentId")}))
+    sys.exit(0)
+
+# One answer for the whole daemon, which is what `status` reads it for.
+if args[:2] == ["permit", "ls"]:
+    print(json.dumps(load("permits.json")))
     sys.exit(0)
 
 if args[:1] == ["stop"]:
@@ -658,6 +693,10 @@ JSON
   grep -q "no PASEO_AGENT_ID" "$TMP/err" \
     || fail "stderr should say no heartbeat was created: $(cat "$TMP/err")"
 
+  echo "--- every host of the batch is refreshed once, however many rows share it"
+  [ "$(count_of 'provider :: diagnostic')" = 3 ] \
+    || fail "expected one diagnostic per distinct host, got $(count_of 'provider :: diagnostic'): $(grep 'provider :: diagnostic' "$MMW_TEST_LOG")"
+
   echo "--- a provider that is not available, and a ticket with two grades, each printed"
   cat > "$TMP/tickets.json" <<'JSON'
 [
@@ -671,6 +710,8 @@ JSON
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
   grep -q 'grok' "$TMP/err" || fail "the reason does not name the provider: $(cat "$TMP/err")"
   grep -q '#61' "$TMP/err" || fail "the reason does not name the ticket: $(cat "$TMP/err")"
+  grep -q 'Auth: not logged in' "$TMP/err" \
+    || fail "the refusal should carry the host's own account of why: $(cat "$TMP/err")"
   [ "$(wc -l < "$TMP/err" | tr -d ' ')" -ge 2 ] \
     || fail "expected one line per failing check: $(cat "$TMP/err")"
 
@@ -1166,6 +1207,26 @@ assert "fallback" not in obj, obj
   hasnt "workspace :: archive"
   grep -q 'issue-61:' "$TMP/err" || fail "the refusal should name the ticket: $(cat "$TMP/err")"
 
+  echo "--- the checkout is registered as a Paseo project rather than required to be one already"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  has "project :: create"
+  has ":: --project :: prj_test"
+
+  echo "--- a daemon that cannot register it refuses, and starts nothing"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch env MMW_FAKE_PROJECT_UNREGISTRABLE=1 \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  grep -q 'could not register a Paseo project' "$TMP/err" \
+    || fail "the refusal should say what failed: $(cat "$TMP/err")"
+  nothing_printed
+  never_ran
+  hasnt "workspace :: create"
+
   echo "--- a copied skill still finds assemble.py"
   local copy
   copy="$(skill_copy_for start)"
@@ -1419,12 +1480,12 @@ JSON
 JSON
   seed_agent 61 worker
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          MMW_FAKE_WAIT_COMMENT="ALL MET" \
+          MMW_FAKE_WAIT_COMMENT="ALL MET" MMW_WAIT_S=6 MMW_WAIT_BEAT_S=1 \
           bash "$DISPATCH" "${TOOLS[@]}" wait 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0 after wait, got $code: $(cat "$TMP/err")"
   [ "$(cat "$TMP/out")" = "ALL MET" ] \
     || fail "stdout should be ALL MET: $(cat "$TMP/out")"
-  has "paseo :: wait :: agt_61_worker :: --timeout :: 90"
+  has "paseo :: wait :: agt_61_worker :: --timeout :: 6"
   has "gh :: issue :: view :: 61 :: --json :: comments"
   hasnt "gh :: issue :: comment"
   hasnt "paseo :: archive"
@@ -1438,10 +1499,10 @@ JSON
 JSON
   seed_agent 61 verifier
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          MMW_FAKE_WAIT_STATUS=closed \
+          MMW_FAKE_WAIT_STATUS=closed MMW_WAIT_S=6 MMW_WAIT_BEAT_S=1 \
           bash "$DISPATCH" "${TOOLS[@]}" wait 61 verifier)"
   [ "$code" = 1 ] || fail "expected exit 1 with no result, got $code: $(cat "$TMP/err")"
-  has "paseo :: wait :: agt_61_verifier :: --timeout :: 90"
+  has "paseo :: wait :: agt_61_verifier :: --timeout :: 6"
   grep -q "paseo logs agt_61_verifier" "$TMP/err" \
     || fail "stderr should name paseo logs: $(cat "$TMP/err")"
   grep -q "VERDICT" "$TMP/err" \
@@ -1458,13 +1519,23 @@ JSON
 ]
 JSON
   seed_agent 61 reviewer
+  local began ended
+  began="$(date +%s)"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          MMW_WAIT_S=6 MMW_WAIT_BEAT_S=1 \
           bash "$DISPATCH" "${TOOLS[@]}" wait 61 reviewer)"
+  ended="$(date +%s)"
   [ "$code" = 3 ] || fail "an idle reviewer is mid-job, expected exit 3, got $code: $(cat "$TMP/err")"
   grep -q "still working" "$TMP/err" \
     || fail "stderr should say still working: $(cat "$TMP/err")"
   grep -q "code-review skill" "$TMP/err" \
     && fail "an idle reviewer must not be sent to the fallback: $(cat "$TMP/err")"
+
+  echo "--- and the budget was really spent: paseo wait returns at once for an idle agent"
+  [ "$((ended - began))" -ge 6 ] \
+    || fail "wait returned after $((ended - began))s of a 6s budget, so exit 3 has no beat in it"
+  [ "$(count_of 'paseo :: wait')" -ge 2 ] \
+    || fail "expected more than one round inside the budget: $(count_of 'paseo :: wait')"
 
   echo "--- timeout while still running: exit 3"
   reset_log
@@ -1475,10 +1546,10 @@ JSON
 JSON
   seed_agent 61 worker
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          MMW_FAKE_PASEO_SCENARIO=wait-timeout \
+          MMW_FAKE_PASEO_SCENARIO=wait-timeout MMW_WAIT_S=6 MMW_WAIT_BEAT_S=1 \
           bash "$DISPATCH" "${TOOLS[@]}" wait 61 worker)"
   [ "$code" = 3 ] || fail "expected exit 3 on timeout, got $code: $(cat "$TMP/err")"
-  has "paseo :: wait :: agt_61_worker :: --timeout :: 90"
+  has "paseo :: wait :: agt_61_worker :: --timeout :: 6"
   [ "$(cat "$TMP/err")" = "still working: run wait again" ] \
     || fail "stderr should say run wait again: $(cat "$TMP/err")"
   [ ! -s "$TMP/out" ] || fail "stdout should be empty on timeout: $(cat "$TMP/out")"
