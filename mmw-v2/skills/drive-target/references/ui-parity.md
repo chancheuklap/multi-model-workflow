@@ -100,10 +100,10 @@ under it: `baseline`, `impl`, `only in baseline`, `only in impl`, each node with
 with `around: <role "name">, …`, the product's elements under the differing area,
 smallest first: that is the component to open.
 
-What to fix is what the line names: the tree lines, the elements after `around:`,
-the console error. A `DIFF` that names nothing you have not already fixed is not
-something to chase by changing fonts, line heights or renderer flags; run the
-criterion once more after the named fixes and take the result.
+What to fix is what the line names: the tree lines, the elements after `around:`.
+A `DIFF` that names nothing you have not already fixed is not something to chase
+by changing fonts, line heights or renderer flags; run the criterion once more
+after the named fixes and take the result.
 
 `--out <dir>` keeps the screenshots, the trees and the differing-pixel pictures
 for the user to look at.

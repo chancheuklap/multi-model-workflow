@@ -42,8 +42,7 @@ def comparison(pixel=None, aria=None, scene="default", viewport="400x300"):
                   "count": 0, "total": 100, "box": None,
                   "size_a": (10, 10), "size_b": (10, 10)},
         aria or {"changed": 0, "lines_a": 5, "lines_b": 5, "diff": ""},
-        [], [], [],
-        sp.empty_classes())
+        [], [], [])
 
 
 class TestParseOrigin(unittest.TestCase):
@@ -75,6 +74,11 @@ class TestArguments(unittest.TestCase):
     def test_pages_is_required(self):
         with self.assertRaises(SystemExit):
             sp.build_parser().parse_args(["--contract", "c.yaml"])
+
+    def test_no_console_errors_flag(self):
+        with self.assertRaises(SystemExit):
+            sp.build_parser().parse_args(
+                ["--contract", "c.yaml", "--pages", "demo", "--console-errors", "0"])
 
 
 class TestStoryGate(unittest.TestCase):
@@ -113,14 +117,21 @@ class TestStoryGate(unittest.TestCase):
     def test_a_diff_line_names_unaligned_and_not_the_class_set(self):
         aria = sp.sd.aria_diff("- paragraph: Alpha scene copy\n",
                                "- paragraph: Alpha scene COPY\n")
-        c = comparison(aria=aria)
+        c = comparison(
+            pixel={"size_equal": True, "pct": 0.4, "pct_unaligned": 7.2,
+                   "count": 1, "total": 250, "box": None,
+                   "size_a": (10, 10), "size_b": (10, 10)},
+            aria=aria)
         c.classes = {"only_in_baseline": [("btn", 'button "Continue"')],
-                     "only_in_impl": [], "changed": 0}
+                     "only_in_impl": [], "changed": 1}
+        c.console_impl = ["error: Uncaught TypeError"]
         code, lines = sp.story_gate(self.caught(), [c], 3.0, 0)
         self.assertEqual(code, 1)
-        self.assertTrue(lines[0].startswith("DIFF default 400x300 0.0% (unaligned 0.0%)"))
+        self.assertTrue(lines[0].startswith(
+            "DIFF default 400x300 0.4% (unaligned 7.2%)"))
         self.assertIn("aria 2 changed lines", lines[0])
         self.assertNotIn("classes", lines[0])
+        self.assertNotIn("console", lines[0])
         self.assertNotIn("class only", "\n".join(lines))
         self.assertEqual(lines[1:], [
             "  baseline  paragraph Alpha scene copy",
@@ -128,8 +139,9 @@ class TestStoryGate(unittest.TestCase):
         ])
 
     @unittest.skipUnless(
-        __import__("importlib").util.find_spec("numpy") is not None,
-        "around ranks a numpy mask; the fixture tests cover the pixel failure")
+        importlib.util.find_spec("numpy") is not None,
+        "around ranks a numpy mask; system python3 for AC4 has none, and the "
+        "colour fixture's swatch is aria-hidden so around: is unverified there")
     def test_a_pixel_failure_uses_the_shared_around(self):
         import numpy as np
         mask = np.zeros((50, 80), dtype=bool)
@@ -149,19 +161,23 @@ class TestStoryGate(unittest.TestCase):
         self.assertIn("around:", lines[0])
 
 
-@unittest.skipUnless(shutil.which("uv"), "uv is how the criterion runs this script")
 class TestStoryFixture(unittest.TestCase):
     """Real Chromium against the committed fixture. Precedent: TestShrunkPixels."""
 
     @classmethod
     def setUpClass(cls):
+        if not shutil.which("uv"):
+            raise AssertionError(
+                "uv is missing; the story fixture cannot run and AC4 must not "
+                "print all passed")
         cls.home = tempfile.mkdtemp(prefix="mmw-story-parity-home-")
 
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(cls.home, ignore_errors=True)
 
-    def run_story(self, extra_env=None, timeout=180):
+    def run_story(self, extra_env=None, timeout=180, cwd=None, pages="demo",
+                  contract=None):
         env = dict(os.environ)
         env["MMW_HOME"] = self.home
         env["MMW_LEASE_PORT_BASE"] = "28000"
@@ -172,8 +188,10 @@ class TestStoryFixture(unittest.TestCase):
         try:
             return subprocess.run(
                 ["uv", "run", "python", str(SCRIPT),
-                 "--contract", CONTRACT, "--pages", "demo", "--out", out],
-                cwd=REPO, capture_output=True, text=True, env=env, timeout=timeout,
+                 "--contract", contract or CONTRACT, "--pages", pages,
+                 "--out", out],
+                cwd=cwd or REPO, capture_output=True, text=True, env=env,
+                timeout=timeout,
             )
         finally:
             shutil.rmtree(out, ignore_errors=True)
@@ -187,25 +205,50 @@ class TestStoryFixture(unittest.TestCase):
     def test_a_changed_word_prints_two_tree_lines_and_exits_1(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "copy"})
         self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
-        self.assertRegex(proc.stdout, r"(?m)^DIFF .* aria 2 changed lines")
-        self.assertRegex(proc.stdout, r"(?m)^  baseline  .+")
-        self.assertRegex(proc.stdout, r"(?m)^  impl      .+")
+        diffs = [ln for ln in proc.stdout.splitlines() if ln.startswith("DIFF ")]
+        self.assertEqual(len(diffs), 1, proc.stdout)
+        self.assertIn("alpha", diffs[0])
+        self.assertIn("aria 2 changed lines", diffs[0])
+        self.assertIn("Alpha scene copy", proc.stdout)
+        self.assertIn("Alpha scene COPY", proc.stdout)
 
     def test_a_changed_colour_fails_on_pixels(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "color"})
         self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
-        self.assertRegex(proc.stdout, r"(?m)^DIFF .* pixel [0-9.]+% > 3\.0%")
+        diffs = [ln for ln in proc.stdout.splitlines() if ln.startswith("DIFF ")]
+        self.assertEqual(len(diffs), 3, proc.stdout)
+        for line in diffs:
+            self.assertRegex(line, r"pixel [0-9.]+% > 3\.0%")
+            self.assertNotIn("aria", line)
 
     def test_a_mount_the_contract_does_not_declare_exits_2(self):
-        env = dict(os.environ)
-        env["MMW_HOME"] = self.home
-        proc = subprocess.run(
-            ["uv", "run", "python", str(SCRIPT),
-             "--contract", CONTRACT, "--pages", "no-such-page"],
-            cwd=REPO, capture_output=True, text=True, env=env, timeout=60,
-        )
+        proc = self.run_story(pages="no-such-page")
         self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
         self.assertIn("does not declare", proc.stderr)
+
+    def test_no_target_json_exits_2(self):
+        tmp = Path(tempfile.mkdtemp(prefix="story-no-target-"))
+        try:
+            shutil.copytree(REPO, tmp / "repo", dirs_exist_ok=True)
+            root = tmp / "repo"
+            shutil.rmtree(root / ".mmw")
+            proc = self.run_story(cwd=root)
+            self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
+            self.assertIn("target.json", proc.stderr)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_target_json_without_stories_exits_2(self):
+        tmp = Path(tempfile.mkdtemp(prefix="story-no-stories-"))
+        try:
+            shutil.copytree(REPO, tmp / "repo", dirs_exist_ok=True)
+            root = tmp / "repo"
+            (root / ".mmw" / "target.json").write_text("{}\n", encoding="utf-8")
+            proc = self.run_story(cwd=root)
+            self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
+            self.assertIn("stories", proc.stderr)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 if __name__ == "__main__":

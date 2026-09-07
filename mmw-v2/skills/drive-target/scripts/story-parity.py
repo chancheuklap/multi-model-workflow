@@ -69,10 +69,14 @@ Comparison = vp.Comparison
 NEGATIVE_CONTROL_HEAD = vp.NEGATIVE_CONTROL_HEAD
 NEGATIVE_CONTROL_SCENE = vp.NEGATIVE_CONTROL_SCENE
 DEFAULT_MAX_PCT = vp.DEFAULT_MAX_PCT
+render_only = vp.render_only
+negative_control = vp.negative_control
 
 STORY_ROOT = "[data-story-root]"
 ORIGIN_WAIT_S = 15
 _BOOTSTRAP = "MMW_STORY_PARITY_BOOTSTRAPPED"
+# Tree, pixels, and a size mismatch. Not the class set, not console errors.
+JUDGED = {"aria", "pixel", "size"}
 
 
 def _ensure_script_env() -> None:
@@ -117,25 +121,25 @@ def parse_origin(text: str) -> str | None:
     return None
 
 
-def nearest_target_root(start: Path) -> Path:
-    """The nearest directory above `start` that holds `.mmw/target.json`.
+def product_root() -> Path:
+    """Where `.mmw/target.json` lives for this run.
 
-    Walk from the working directory, not from the git toplevel: a fixture repository
-    lives inside this toolbox's checkout, and the git root's `.mmw/` is not the
-    fixture's.
+    The criterion is invoked from the product repository (AC1–AC3 `cd` there). If that
+    directory holds the file, it is the product. Otherwise the git toplevel — the same
+    anchor `visual-parity.py` uses via `sd.repo_root()`.
     """
-    start = start.resolve()
-    for path in [start, *start.parents]:
-        if (path / ".mmw" / "target.json").exists():
-            return path
-    raise SystemExit(
-        f"no .mmw/target.json above {start}: the repository has not said how its "
-        f"story pages are served"
-    )
+    cwd = Path.cwd().resolve()
+    if (cwd / ".mmw" / "target.json").exists():
+        return cwd
+    return sd.repo_root()
 
 
 def load_stories_config(root: Path) -> dict:
     path = root / ".mmw" / "target.json"
+    if not path.exists():
+        raise SystemExit(
+            f"no {path}: the repository has not said how its story pages are served"
+        )
     cfg = json.loads(path.read_text(encoding="utf-8"))
     if not cfg.get("stories"):
         raise SystemExit(
@@ -169,7 +173,7 @@ class Stories:
         env["PYTHONUNBUFFERED"] = "1"
         self.proc = subprocess.Popen(
             shlex.split(command), cwd=self.root, env=env,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
         )
         collected: list[str] = []
         done = threading.Event()
@@ -190,10 +194,7 @@ class Stories:
             self.origin = origin
             return self
         code = self.proc.poll()
-        err = ""
-        if code is not None and self.proc.stderr is not None:
-            err = self.proc.stderr.read() or ""
-        detail = (err or "".join(collected)).strip().splitlines()
+        detail = "".join(collected).strip().splitlines()
         first = detail[0] if detail else "(no output)"
         if code is not None:
             raise SystemExit(
@@ -215,13 +216,15 @@ class Stories:
             proc.wait(timeout=2)
 
 
-def empty_classes() -> dict:
-    return {"only_in_baseline": [], "only_in_impl": [], "changed": 0}
-
-
 def story_gate(control: Comparison, comparisons: list, max_pct: float,
-               console_limit: int) -> tuple[int, list[str]]:
-    """Exit code and the lines to print. The negative control is judged first."""
+               console_limit: int = 0) -> tuple[int, list[str]]:
+    """Exit code and the lines to print. The negative control is judged first.
+
+    Scene failures are the tree and the pixels (and a size mismatch). Class-set and
+    console reasons from the shared `failures()` are dropped: this judge does not
+    compare those. The control still uses every reason `failures()` returns, so a
+    collapsed capture is caught even when only a class or a console error differs.
+    """
     control_reasons = failures(control, max_pct, console_limit)
     if not control_reasons:
         return 2, ["NEGATIVE CONTROL FAILED: the implementation compared equal to a "
@@ -231,7 +234,7 @@ def story_gate(control: Comparison, comparisons: list, max_pct: float,
     failed = 0
     worst = 0.0
     for c in comparisons:
-        reasons = failures(c, max_pct, console_limit)
+        reasons = [r for r in failures(c, max_pct, console_limit) if r.kind in JUDGED]
         if c.pixel["size_equal"]:
             worst = max(worst, c.pixel["pct"])
         if reasons:
@@ -272,8 +275,6 @@ def build_parser() -> argparse.ArgumentParser:
                         f"(default {DEFAULT_MAX_PCT})")
     p.add_argument("--out", metavar="DIR", default=None,
                    help="where the screenshots and trees are written")
-    p.add_argument("--console-errors", type=int, default=0, metavar="N",
-                   help="how many console errors a page may log")
     p.add_argument("--cdn", metavar="DIR", default=None,
                    help="cache for the scripts support.js loads, when the handoff package "
                         "carries no vendor/ copy")
@@ -294,14 +295,16 @@ def refuse_pages(mounts: list[str], doc: dict, catalogue: dict) -> str | None:
 
 
 def run(args) -> int:
-    contract_path = Path(args.contract)
-    if not contract_path.is_absolute():
-        contract_path = (Path.cwd() / contract_path).resolve()
-    else:
-        contract_path = contract_path.resolve()
+    contract_path = Path(args.contract).resolve()
     doc = sd.load_contract(contract_path)
-    root = nearest_target_root(Path.cwd())
-    baseline = (root / doc["baselines"]["look"]).resolve()
+    look = doc["baselines"]["look"]
+    if args.render_only:
+        root = Path.cwd().resolve()
+        if not (root / look).exists():
+            root = sd.repo_root()
+    else:
+        root = product_root()
+    baseline = (root / look).resolve()
     catalogue = sd.load_catalogue(baseline)
     viewports = sd.parse_viewports(doc["viewports"])
     mounts = [m.strip() for m in args.pages.split(",") if m.strip()]
@@ -313,17 +316,12 @@ def run(args) -> int:
         print(why, file=sys.stderr)
         return 2
     explicit = [s.strip() for s in args.scenes.split(",") if s.strip()] if args.scenes else None
-    try:
-        plan = sd.scene_plan(doc, catalogue, mounts, explicit)
-    except SystemExit as exc:
-        print(exc, file=sys.stderr)
-        return 2
+    plan = sd.scene_plan(doc, catalogue, mounts, explicit)
     out = Path(args.out).resolve() if args.out else Path("./story-shots").resolve()
     media = out / "media"
     media.mkdir(parents=True, exist_ok=True)
     cache = Path(args.cdn).expanduser() if args.cdn else sd.DEFAULT_CACHE
     cfg = None if args.render_only else load_stories_config(root)
-    _ensure_script_env()
 
     pages = {sd.wrapper_path(s.name): sd.wrapper_page(sd.component_of(s.page), s.props)
              for s in plan}
@@ -343,35 +341,9 @@ def run(args) -> int:
                            route_baseline=route_baseline, hide_js=hide_js,
                            volatile=volatile, story_origin=stories.origin,
                            args=args)
-    except SystemExit as exc:
-        msg = exc.code if isinstance(exc.code, str) else str(exc)
-        if msg and msg not in ("0", "1", "2"):
-            print(msg, file=sys.stderr)
-        return 2
     finally:
         server.shutdown()
         server.server_close()
-
-
-def render_only(plan, viewports, media, origin, route_baseline, hide_js) -> int:
-    from playwright.sync_api import sync_playwright
-
-    vp_size = viewports[0]
-    with sync_playwright() as pw:
-        browser = pw.chromium.launch()
-        ctx = browser.new_context(viewport={"width": vp_size[0], "height": vp_size[1]},
-                                  device_scale_factor=1, reduced_motion="reduce",
-                                  locale="zh-CN")
-        ctx.route("**/*", route_baseline)
-        page = ctx.new_page()
-        for scene in plan:
-            sd.navigate(page, f"{origin}{sd.wrapper_path(scene.name)}")
-            sd.wait_for_mount(page, "#dc-root")
-            sd.capture(page, media / f"{scene.name}-baseline.png", selector="#dc-root",
-                       extra_js=hide_js[scene.name])
-            print(f"rendered {scene.name} -> {media / (scene.name + '-baseline.png')}")
-        browser.close()
-    return 0
 
 
 def compare(*, plan, viewports, media, design_origin, pages, route_baseline,
@@ -445,15 +417,14 @@ def compare(*, plan, viewports, media, design_origin, pages, route_baseline,
                         sd.aria_diff(base.aria, impl.aria,
                                      media / f"{scene.name}-{tag}.aria.diff",
                                      volatile=volatile[scene.name] or None),
-                        base.console, impl.console, impl.elements,
-                        empty_classes()))
+                        [], [], impl.elements))
                     if control is None:
                         control = negative_control(
                             scene, viewport, pages, capture_story, capture_design, media)
         finally:
             browser.close()
 
-    code, lines = story_gate(control, comparisons, args.max_pct, args.console_errors)
+    code, lines = story_gate(control, comparisons, args.max_pct)
     for line in lines:
         print(line)
     if code:
@@ -461,31 +432,16 @@ def compare(*, plan, viewports, media, design_origin, pages, route_baseline,
     return code
 
 
-def negative_control(scene, viewport, pages, capture_story, capture_design, media):
-    """The baseline server answers this scene's own address with an error banner in
-    the served bytes; the story page is captured again. Equal means both captures
-    read the design server, and the run is worthless."""
-    path = sd.wrapper_path(scene.name)
-    saved = pages[path]
-    pages[path] = sd.wrapper_page(sd.component_of(scene.page), scene.props,
-                                  NEGATIVE_CONTROL_HEAD)
-    tag = f"{viewport[0]}x{viewport[1]}"
-    stem = media / f"{NEGATIVE_CONTROL_SCENE}-{tag}"
-    try:
-        impl = capture_story(scene, viewport, Path(f"{stem}-impl.png"))
-        wrong = capture_design(scene, viewport, impl.box, Path(f"{stem}-baseline.png"))
-    finally:
-        pages[path] = saved
-    return Comparison(
-        NEGATIVE_CONTROL_SCENE, tag,
-        pixel_diff(wrong.png, impl.png, Path(f"{stem}-diff.png")),
-        sd.aria_diff(wrong.aria, impl.aria, Path(f"{stem}.aria.diff")),
-        [], [], impl.elements, empty_classes())
-
-
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    return run(args)
+    _ensure_script_env()
+    try:
+        return run(args)
+    except SystemExit as exc:
+        if isinstance(exc.code, int):
+            return exc.code
+        print(exc.code, file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":
