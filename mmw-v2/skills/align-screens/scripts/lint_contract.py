@@ -14,7 +14,7 @@ comes from that block. `uv run --script lint_contract.py` skips the re-exec.
 `--tools` is the `scripts/` directory of the drive-target skill. Two things
 come from that driver, and this file holds no copy of either: the `.mmw/target.json`
 check (the function `target --validate` runs), and matching (`volatile_triggers` /
-`count_volatile_hits`). Target kinds come from the same driver (`ADAPTERS`).
+`count_volatile_hits`). Target kinds come from the same driver (`KINDS`).
 All are loaded in-process through `extract_skeleton.py`'s `load_driver()`.
 Rules are the tables in ../references/contract-format.md.
 
@@ -124,7 +124,7 @@ def target_hashes(path: Path) -> dict[str, str]:
 
 
 def target_kinds() -> set[str]:
-    return set(screen_driver_mod().ADAPTERS)
+    return set(screen_driver_mod().KINDS)
 
 
 def target_file_problem(repo: Path, kind: str) -> tuple[str, str] | None:

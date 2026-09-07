@@ -9,10 +9,6 @@ from _load import load
 
 vt = load()
 
-WIRING = ("wiring-check.py --contract "
-          "docs/specs/x/screen-contract.yaml --rows create-project.add-material")
-PARITY = ("visual-parity.py --contract "
-          "docs/specs/x/screen-contract.yaml --mount create-project")
 STORY = ("story-parity.py --contract "
          "docs/specs/x/screen-contract.yaml --pages create-project")
 BOUNDARY = 'boundary-check.py --run "pnpm vitest run tests/boundary/add-material.test.ts"'
@@ -82,11 +78,14 @@ class TestLintScreenContract(unittest.TestCase):
             f.write(CONTRACT)
         self.rows = f"- `{path} rows: create-project.add-material`（基线）\n- `docs/adr/chameleon/0021-x.md`\n- #420\n- `docs/context/chameleon-product.md`"
         self.parent = "[Spec（#537）](u)，Implementation Decisions 第 2 节"
-        self.wiring = WIRING.replace("docs/specs/x/screen-contract.yaml", path)
-        self.parity = PARITY.replace("docs/specs/x/screen-contract.yaml", path)
+        self.path = path
 
     def tearDown(self):
         self.dir.cleanup()
+
+    def story(self, pages="create-project"):
+        return STORY.replace("docs/specs/x/screen-contract.yaml", self.path).replace(
+            "--pages create-project", f"--pages {pages}")
 
     def lint(self, *criteria):
         return vt.lint_screen_contract(ticket(self.rows, *criteria, parent=self.parent,
@@ -96,12 +95,12 @@ class TestLintScreenContract(unittest.TestCase):
         self.assertEqual(len(findings), 1)
         self.assertIn("names no", findings[0])
 
-    def test_a_row_with_observe_needs_no_wiring_criterion(self):
-        self.assertEqual(self.lint(gate("AC1", self.parity)), [])
+    def test_a_story_criterion_with_row_ids_is_fine(self):
+        self.assertEqual(self.lint(gate("AC1", self.story("create-project"))), [])
 
     def test_a_check_that_stubs_fetch_is_an_error(self):
         stubbed = "pnpm vitest run src/__tests__/live.spec.ts  # vi.stubGlobal('fetch', ...)"
-        findings = self.lint(gate("AC1", self.wiring), gate("AC2", stubbed))
+        findings = self.lint(gate("AC1", self.story("create-project")), gate("AC2", stubbed))
         self.assertEqual(len(findings), 1)
         self.assertIn("AC2", findings[0])
 
@@ -111,13 +110,14 @@ class TestLintScreenContract(unittest.TestCase):
             "nock('https://api.example').get('/x').reply(200)",
             "import fetchMock from 'fetch-mock'",
         ):
-            findings = self.lint(gate("AC1", self.wiring), gate("AC2", check))
+            findings = self.lint(gate("AC1", self.story("create-project")), gate("AC2", check))
             self.assertEqual(len(findings), 1, check)
             self.assertIn("AC2", findings[0])
 
     def test_mocking_the_product_api_client_is_fine(self):
         mocked = "pnpm vitest run tests/boundary/add-material.test.ts  # vi.mock('@/api/client')"
-        self.assertEqual(self.lint(gate("AC1", self.wiring), gate("AC2", mocked)), [])
+        self.assertEqual(self.lint(gate("AC1", self.story("create-project")),
+                                   gate("AC2", mocked)), [])
 
     def test_a_ticket_without_interface_or_rows_has_nothing_to_say(self):
         self.assertEqual(vt.lint_screen_contract(ticket("- ADR-0013 (baseline)", gate("AC1", "pytest -q"))), [])
@@ -139,49 +139,41 @@ class TestPipelineFlags(unittest.TestCase):
         vt.TOOLS[:] = []
         vt._HELP_FLAGS.clear()
 
-    def test_visual_parity_without_contract_or_mount(self):
-        bare = "visual-parity.py --scenes a"
-        findings = vt.lint_pipeline_flags("AC1", bare)
-        self.assertTrue(any("without --contract" in f for f in findings))
-        self.assertTrue(any("without --mount" in f for f in findings))
-
-    def test_wiring_check_without_rows(self):
-        findings = vt.lint_pipeline_flags(
-            "AC2", "wiring-check.py --contract c.yaml")
-        self.assertEqual(len(findings), 1)
-        self.assertIn("without --rows", findings[0])
-
     def test_story_parity_without_pages(self):
         findings = vt.lint_pipeline_flags(
             "AC1", "story-parity.py --contract c.yaml")
         self.assertTrue(any("without --pages" in f for f in findings))
+
+    def test_story_parity_without_contract(self):
+        findings = vt.lint_pipeline_flags("AC1", "story-parity.py --pages demo")
+        self.assertTrue(any("without --contract" in f for f in findings))
 
     def test_boundary_check_without_run(self):
         findings = vt.lint_pipeline_flags("AC2", "boundary-check.py")
         self.assertTrue(any("without --run" in f for f in findings))
 
     def test_an_address_on_the_line_is_refused(self):
-        stale = PARITY + " --cdp http://127.0.0.1:9229 --impl http://127.0.0.1:5173/"
+        stale = STORY + " --cdp http://127.0.0.1:9229 --impl http://127.0.0.1:5173/"
         findings = vt.lint_pipeline_flags("AC1", stale)
         self.assertEqual(len(findings), 2)
         self.assertTrue(all(".mmw/target.json" in f for f in findings))
 
     def test_a_flag_help_does_not_list_is_refused(self):
-        findings = vt.lint_pipeline_flags("AC1", PARITY + " --reach-hook x")
+        findings = vt.lint_pipeline_flags("AC1", STORY + " --reach-hook x")
         self.assertEqual(len(findings), 1)
         self.assertIn("--reach-hook", findings[0])
         self.assertIn("--help", findings[0])
 
     def test_the_seed_belongs_to_the_contract_now(self):
-        findings = vt.lint_pipeline_flags("AC1", WIRING + ' --seed "uv run reach.py seed:x"')
+        findings = vt.lint_pipeline_flags("AC1", STORY + ' --seed "uv run reach.py seed:x"')
         self.assertEqual(len(findings), 1)
         self.assertIn("--seed", findings[0])
 
     def test_only_the_scripts_own_segment_is_read(self):
-        chained = ("uv run python scripts/testing/reach.py seed:x --perturb && " + PARITY)
+        chained = ("uv run python scripts/testing/reach.py seed:x --perturb && " + STORY)
         self.assertEqual(vt.lint_pipeline_flags("AC1", chained), [])
-        self.assertEqual(vt.script_segment(chained, "visual-parity.py"),
-                         " --contract docs/specs/x/screen-contract.yaml --mount create-project")
+        self.assertEqual(vt.script_segment(chained, "story-parity.py"),
+                         " --contract docs/specs/x/screen-contract.yaml --pages create-project")
 
 
 class TestParentSections(unittest.TestCase):
@@ -213,15 +205,15 @@ class TestSourcesAndMechanisms(unittest.TestCase):
             f.write(CONTRACT)
         self.rows = (f"- `{self.path} rows: create-project.add-material, create-project.name`"
                      "（基线）")
-        self.wiring = WIRING.replace("docs/specs/x/screen-contract.yaml", self.path)
-        self.parity = PARITY.replace("docs/specs/x/screen-contract.yaml", self.path)
+        self.story_check = STORY.replace("docs/specs/x/screen-contract.yaml", self.path)
+        self.boundary_check = BOUNDARY
 
     def tearDown(self):
         self.dir.cleanup()
 
     def _lint(self, read_first_extra="", parent="", blocked_by="- #637", number=639):
-        body = ticket(self.rows + "\n" + read_first_extra, gate("AC1", self.parity),
-                      gate("AC2", self.wiring), parent=parent, blocked_by=blocked_by)
+        body = ticket(self.rows + "\n" + read_first_extra, gate("AC1", self.story_check),
+                      gate("AC2", self.boundary_check), parent=parent, blocked_by=blocked_by)
         return vt.lint_screen_contract(body, number)
 
     def test_every_missing_source_is_named_once(self):
@@ -240,36 +232,18 @@ class TestSourcesAndMechanisms(unittest.TestCase):
         parent = "[Spec（#537）](u)，Implementation Decisions 第 2 节与 Testing Decisions"
         self.assertEqual(self._lint(extra, parent), [])
 
-    def test_a_mechanism_built_elsewhere_needs_the_blocking_link(self):
-        findings = self._lint(blocked_by="None (can start immediately)")
-        self.assertTrue(any("seed:library-ready is built by #637" in f for f in findings))
-
-    def test_the_building_ticket_is_not_blocked_by_itself(self):
-        findings = self._lint(blocked_by="None (can start immediately)", number=637)
-        self.assertFalse(any("built by #637" in f for f in findings))
-
-    def test_a_scene_reached_under_the_mount_counts_as_used(self):
-        # material-added is under mount create-project and reaches seed:draft-existing (#639)
-        findings = self._lint(blocked_by="- #637", number=640)
-        self.assertTrue(any("seed:draft-existing is built by #639" in f for f in findings))
-
-    def test_explicit_scenes_stay_inside_the_mount(self):
-        body = ticket(self.rows, gate("AC1", self.parity + " --scenes empty,shell-header.ready"),
-                      gate("AC2", self.wiring), blocked_by="- #637")
+    def test_a_story_page_the_contract_does_not_declare_is_named(self):
+        body = ticket(self.rows, gate("AC1", self.story_check.replace(
+            "--pages create-project", "--pages nowhere")),
+                      gate("AC2", self.boundary_check), blocked_by="- #637")
         findings = vt.lint_screen_contract(body, 639)
-        self.assertTrue(any("outside its mounts: shell-header.ready" in f for f in findings))
-
-    def test_an_unknown_mount_is_named(self):
-        body = ticket(self.rows, gate("AC1", self.parity.replace("create-project", "nowhere")),
-                      gate("AC2", self.wiring), blocked_by="- #637")
-        findings = vt.lint_screen_contract(body, 639)
-        self.assertTrue(any("--mount nowhere" in f for f in findings))
+        self.assertTrue(any("--pages nowhere" in f for f in findings))
 
 
 REVIEW = ("REVIEW abc..def\n\n## Standards\n\nnone\n\n## Spec\n\n### Missing\n\n"
           "1. **create-project.add-material calls nothing.** The button toggles a boolean.\n\n"
           "## Tests\n\nnone\n")
-BODY = ticket(ROWS, gate("AC1", WIRING))
+BODY = ticket(ROWS, gate("AC1", STORY))
 
 
 class TestReviewProblems(unittest.TestCase):
@@ -296,7 +270,7 @@ class TestContractPathInBackticks(unittest.TestCase):
 
     def test_an_unreadable_contract_is_a_finding_not_a_pass(self):
         read_first = "- `/nowhere/screen-contract.yaml rows: a.view`（基线）"
-        findings = vt.lint_screen_contract(ticket(read_first, gate("AC1", PARITY)))
+        findings = vt.lint_screen_contract(ticket(read_first, gate("AC1", STORY)))
         self.assertTrue(any("could not be read" in f for f in findings))
 
     def test_backticked_path_is_opened(self):
@@ -308,7 +282,7 @@ class TestContractPathInBackticks(unittest.TestCase):
                         "rows:\n- id: a.view\n  calls: [none]\n- id: a.save\n  "
                         "calls: ['POST /x']\n  observe: ['GET /x -> .ok']\n")
             read_first = f"- `{path} rows: a.view, a.save`（基线）"
-            findings = vt.lint_screen_contract(ticket(read_first, gate("AC1", PARITY)))
+            findings = vt.lint_screen_contract(ticket(read_first, gate("AC1", STORY)))
         self.assertFalse(any("could not be read" in f for f in findings), findings)
 
 
@@ -393,18 +367,6 @@ class TestCriterionShapes(unittest.TestCase):
         findings = self.lint(gate("AC1", "journey.py run paid-smoke"))
         self.assertTrue(any("paid-smoke" in f and ".mmw/journeys" in f for f in findings),
                         findings)
-
-
-class TestPartitionEdges(unittest.TestCase):
-    def test_addressing_and_all_do_not_partition(self):
-        body = ("## Acceptance criteria\n\n- [ ] AC1: x\n  CHECK: uv run visual-parity.py "
-                "--contract c.yaml --mount all --addressing; true\n  EXPECT: /ADDRESSING/\n")
-        self.assertEqual(vt.parity_calls(body), [])
-
-    def test_a_trailing_semicolon_is_not_part_of_the_last_flag(self):
-        body = ("## Acceptance criteria\n\n- [ ] AC1: x\n  CHECK: uv run visual-parity.py "
-                "--contract c.yaml --mount m --scenes a.b; true\n  EXPECT: x\n")
-        self.assertEqual(vt.parity_calls(body), [("AC1", ["m"], ["a.b"])])
 
 
 if __name__ == "__main__":

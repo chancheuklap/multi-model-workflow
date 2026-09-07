@@ -30,7 +30,7 @@ The render is the `drive-target` skill's: resolve `<drive-target scripts>` from 
 uv run python <drive-target scripts>/extract_skeleton.py <handoff dir> <scratch>/skeleton.json
 ```
 
-It renders every scene in `scenes.json` offline, through the same driver the story judge uses, reads each accessibility tree, and keeps every interactive control keyed by (page, role, accessible name) with the list of scenes it is visible in. This is the row inventory: a control the skeleton has and the contract lacks is a lint error, and so is the reverse. The accessible name is the whole name the tree reports, hint text included — copy it exactly. The same render leaves each scene's normalised tree and class set in the skeleton; step 6 writes them out as the target trees.
+It renders every scene in `scenes.json` offline, through the same driver the story judge uses, reads each accessibility tree, and keeps every interactive control keyed by (page, role, accessible name) with the list of scenes it is visible in. This is the row inventory: a control the skeleton has and the contract lacks is a lint error, and so is the reverse. The accessible name is the whole name the tree reports, hint text included — copy it exactly. The same render leaves each scene's normalised tree and the class names in that subtree in the skeleton; step 6 writes them out as the target trees.
 
 ### 2. Declare pages, name components and split preconditions
 

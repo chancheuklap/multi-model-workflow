@@ -1,11 +1,11 @@
 ---
 name: drive-target
-description: Drive a running product for the two judges of an interface, and make a repository drivable. Use when a repository has no `.mmw/target.json` or its product is a kind the judges have not driven before, when a criterion has to launch, reach or observe the product (the wiring check, interface parity, the skeleton of a handoff package), when a `MISS` or `DIFF` line has to be read, or when a run needs its own share of this machine.
+description: Make a repository an automatable acceptance runtime — lease, start/stop, story judge, boundary check, journey runner, harness guard. Use when filling `.mmw/target.json`, writing a story, boundary or journey criterion, reading a DIFF, MISS or JOURNEY line, rendering a handoff package skeleton, or giving a run its own ports.
 ---
 
 # Drive target
 
-A **target** is what kind of product the judges drive. The driver here reaches it, puts it into a state, addresses a scene, reads it back, and gives it back; the two judges — the wiring check and interface parity — are two judgements over that one drive. What the driver cannot know on its own, the repository answers in `.mmw/target.json`.
+A **target** is the product a consuming repository runs under automation. What this skill cannot know on its own, the repository answers in `.mmw/`. Three judges use that answer: the story judge compares a presentational component with its design page, offline; the boundary check runs the product's own test twice, the second time without the click; a journey starts the real product, runs one Playwright script, and stops it.
 
 ## Resolve `<scripts>` once
 
@@ -15,17 +15,17 @@ A **target** is what kind of product the judges drive. The driver here reaches i
 
 | You are | Run or read |
 | --- | --- |
-| Writing the criterion that checks a control is wired to the backend as its screen-contract row says, or reading the `MISS` line one printed | [references/wiring-check.md](references/wiring-check.md) |
-| Writing the criterion that compares an interface against its handoff package, or reading the `DIFF` line one printed | [references/ui-parity.md](references/ui-parity.md) |
+| Writing the criterion that compares a product story with its design page, or reading the `DIFF` line one printed | [references/ui-parity.md](references/ui-parity.md) |
+| Writing the criterion that a control's click produces the request its `calls` column names, or reading `MISS` / `GREEN WITHOUT INTERACTION` | [references/boundary-check.md](references/boundary-check.md) |
+| Writing the criterion that runs one named journey against the real product, or reading `JOURNEY FAILED` | `python3 <scripts>/journey.py run <name>` — [references/targets/README.md](references/targets/README.md) names `start`, `stop`, `discover` and the journeys directory |
 | Rendering a handoff package for its row inventory and target trees (the `align-screens` skill sends you here) | `uv run python <scripts>/extract_skeleton.py <handoff dir> <out.json> [--targets <dir> --contract <yaml>]` |
 | Making a repository drivable (it has no `.mmw/target.json`, or a run refused for want of one) | `python3 <scripts>/screen_driver.py target --check` in that repository. It prints every field still to answer, one sentence and one example each; fill them and run it again until it exits 0. The reasons behind the fields are [references/targets/README.md](references/targets/README.md) |
-| The product is a kind the judges have not driven | [references/targets/README.md](references/targets/README.md), **Adding a kind** |
-| Finding out what a contract cannot be driven on, before anything is dispatched | `uv run python <scripts>/wiring-check.py --contract <yaml> --drivable` — starts nothing, asserts nothing; one `UNDRIVABLE [<class>]` line per row, and it prints what it does not check. Repair the two repairable classes with the `align-screens` skill's `lint_contract.py --pin`, which proves each write against the committed contract |
+| Checking that acceptance names are not scattered through the consuming repository | `python3 <scripts>/harness-guard.py <repository-root>` — [references/targets/README.md](references/targets/README.md), **`.mmw/` directory** |
 | Giving a run its own ports and directories, or reading what `lease.py` refused | `python3 <scripts>/lease.py claim | env | run | release | list | count` — the driver claims one before it runs any command `.mmw/target.json` declares; `dispatch.sh` claims one per worktree it starts. `claim`, `release` and `list` answer in JSON and `release` says which of its three outcomes happened in its exit code (0 given back, 3 there was none), so a caller never has to read wording to learn what happened; the refusal a live listener earns is the one sentence here, on stderr, and its reader is you |
 
 ## Five rules while the product is running
 
-Several runs share one machine, and each gets its own ports and directories from a lease ([references/targets/README.md](references/targets/README.md), **instance**). You never choose a port, start a backing service, or work out who holds what: one command — the `start` in `.mmw/target.json`, which the driver runs for you — brings up everything your criteria need.
+Several runs share one machine, and each gets its own ports and directories from a lease ([references/targets/README.md](references/targets/README.md), **instance**). You never choose a port, start a backing service, or work out who holds what: one command — the `start` in `.mmw/target.json`, which `journey.py` runs — brings up everything a journey needs.
 
 1. **Never end a process you did not start.** Stop your own product with the `stop` command its repository declares. Everything else on this machine belongs to another run, and another run's product looks exactly like a stuck one. Your shell refuses `kill`, `pkill`, `killall` and `xargs kill` for this reason (`scripts/hook.py`, registered in every host by `install.sh`).
 2. **Never start the product outside the lease.** Running the repository's start script yourself, in your own terminal, is how a run ends up on the ports another run is already using. The script refuses without a lease and prints the command that gives it one: `python3 <scripts>/lease.py run -- <the start command>`.

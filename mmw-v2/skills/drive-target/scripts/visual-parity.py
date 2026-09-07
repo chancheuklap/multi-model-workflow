@@ -3,103 +3,19 @@
 # requires-python = ">=3.11"
 # dependencies = ["numpy>=2", "Pillow>=10", "playwright>=1.58", "pyyaml>=6"]
 # ///
-"""Compare an interface against the handoff package it was built from, scene by scene.
+"""Pixel and tree helpers the story judge imports.
 
-    uv run visual-parity.py --contract docs/specs/<effort>/screen-contract.yaml --mount <id,id>
-
-The screen contract says everything a run needs: where the handoff package is
-(`baselines.look`), the sizes to compare at (`viewports`), which design page each scene
-is on and where the product shows it (`pages`, `scenes`: `mount`, `route`, `reach`,
-`open`), and what kind of product it is (`target.kind`). Addresses come from the
-repository's `.mmw/target.json` through the driver beside this script,
-`screen_driver.py`; no address is ever written on a criterion.
-
-`--mount` names the product elements — `data-screen` attribute values — whose scenes
-this run covers; every scene of the contract that declares one of them is compared.
-`--scenes` narrows that to a subset, which is how one design page's scenes are split
-between two tickets. A name outside the mounts is refused.
-
-Two-level model
----------------
-An `App · *` scene compares the whole surface — which components are on it, and what
-box the layout gives each. A `Component · *` scene compares the block the product gives
-that one component. That split rests on the `App · ` / `Component · ` page prefix the
-`claude-design-blocks` skill enforces, not on anything the product does; a handoff
-package that holds only whole-page designs makes every scene whole-surface, and the
-model degrades to that without breaking.
-
-Measure the box, declare no size
---------------------------------
-The mount element is never pinned. The viewport is (the adapter pushes a device-metrics
-override for every entry of `viewports`), the product lays the element out as it will,
-and its box — `getBoundingClientRect()` after the override — is what the design's
-`#dc-root` is pinned to for that scene. The two come out the same size by construction,
-and no number appears in the contract. This rests on the porting convention that a
-ported component fills its container (`#dc-root > * { height:100% }`). On a responsive
-target the measured width may land in a media query other than the design's default,
-and that is correct: the design is rendered at the width the product actually gives.
-
-Three judges, two ranges — a written decision, not a default
-------------------------------------------------------------
-The accessibility tree is the main judge: the sequence of named nodes in reading order,
-each with its nearest named ancestor, over the whole subtree under the mount, below the
-fold included. Pixels are the second judge — colour, spacing, a block that did not
-render — and see only the mount element's box intersected with the viewport, the
-baseline being pinned to that same intersection. What is below the fold is judged by
-the tree alone. The third judge is the class set of the subtree: the stylesheets are
-copied byte for byte, so a wrong colour or gap on the right element can only be the
-wrong class, which the tree cannot see and a pixel share cannot name.
-
-Pixels: both screenshots are shrunk by `PIXEL_SCALE` (box average), and each cell is
-compared with the other image's cells sampled at every sub-cell origin, so a difference
-counts only when no sub-cell alignment explains it. The share of cells that still differ
-is compared with `--max-pct`. Shrinking alone does *not* remove offsets under
-`PIXEL_SCALE` — a line of text moving into or out of a 4-px cell changes that cell's
-average by about 64, far past `PIXEL_TOLERANCE` — which is why the alignment is here:
-before it, a 2-px shift nobody can see measured 3.5% and a control that was never drawn
-at all measured 0.2%. Measured on the first repository this
-ran against (2026-09-02, six scenes, two viewports): with the tree identical, the residue
-from font rendering alone was 0.04%–1.52% after shrinking by 4; scenes whose copy and
-layout were wrong measured 1.5%–31%, and every one of those also failed on the tree.
-
-Controlled clock
-----------------
-Every page runs under a paused fake clock the driver moves forward in small steps: the
-readiness poll of `support.js` fires, a focus effect fires, and none of the handoff
-package's own timers (auto-advance, auto-recover, toast) ever does. Animations are off
-through reduced motion on both sides.
-
-Negative control across both sides
-----------------------------------
-After the first scene at the first viewport, the baseline server is made to serve, at
-that scene's own address, the same scene with an error banner in the bytes it sends;
-the implementation is captured again and compared with that render. The two must
-differ. If they compare equal, the two capture chains have collapsed into one — the
-implementation side is reading the design's server — and the run stops with exit 2,
-because nothing it would go on to say could be trusted.
-
-Exit codes
-----------
-Exit 0 and one line `PARITY OK <passed>/<total> pixel<=<worst>%` when every scene
-matches at every viewport. Exit 1 with one `DIFF` line per failing pair, each followed
-by the tree lines that differ and the class names one side lacks. Exit 2 when the
-negative control fails, when the product is not ready, or when a scene cannot be
-reached; then no parity conclusion is printed.
-
-`--out` holds the screenshot, the tree and the differing-pixel picture for every scene
-and viewport, for the user's eyes. `--render-only` renders the baseline side of the
-selected scenes into `--out` and stops, needing no product — what a worker opens to see
-what it is building. `--shows-perturbation` reseeds every scene with values other than
-`data/fixtures.js` and requires each scene whose rows declare `shows` to read differently.
+`story-parity.py` compares a product story page with the design page it was built
+from. The comparison primitives live here so both that judge and its tests share one
+implementation: `diff_images`, `pixel_diff`, `around`, `change_lines`, `text_changes`,
+`failures`, `gate`, `Comparison`, `Reason`, plus `render_only` for the design side
+with no product. Invoking this file as a command exits 2 and names `story-parity.py`.
 """
 
 from __future__ import annotations
 
-import argparse
 import importlib.util
-import re
 import sys
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -122,8 +38,6 @@ PIXEL_SCALE = 4
 DEFAULT_MAX_PCT = 3.0
 # How many implementation elements a pixel failure names under `around:`.
 AROUND_LIMIT = 5
-# How many class names a class failure prints per side.
-CLASS_LIMIT = 8
 
 NEGATIVE_CONTROL_SCENE = "__negative_control__"
 NEGATIVE_CONTROL_HEAD = """<style>#dc-root::before{content:'NEGATIVE CONTROL';position:absolute;top:0;left:0;right:0;height:120px;background:#ff2d55;color:#fff;font:32px/120px sans-serif;text-align:center;z-index:2147483647}</style>
@@ -134,7 +48,6 @@ NEGATIVE_CONTROL_HEAD = """<style>#dc-root::before{content:'NEGATIVE CONTROL';po
 normalize_aria = sd.normalize_aria
 aria_diff = sd.aria_diff
 resize = sd.resize
-impl_page_over_cdp = sd.page_by_title
 wrapper_page = sd.wrapper_page
 serve_baseline = sd.serve_baseline
 cdn_path = sd.cdn_path
@@ -307,41 +220,6 @@ def failures(c: Comparison, max_pct: float, console_limit: int) -> list[Reason]:
     return reasons
 
 
-def class_lines(classes: dict, limit: int = CLASS_LIMIT) -> list[str]:
-    out = []
-    for cls, el in classes.get("only_in_baseline", [])[:limit]:
-        out.append(f"  class only in baseline  {cls}  (on {el})")
-    for cls, el in classes.get("only_in_impl", [])[:limit]:
-        out.append(f"  class only in impl      {cls}  (on {el})")
-    return out
-
-
-# A design page renders its component alone; a product paints an overlay over whatever
-# page it was opened from. The pixel judge sees a rectangle of the screen, so a mount that
-# is a full-viewport scrim carries the page behind it into the comparison and the design
-# side has nothing there. No threshold fixes that, and the tree and the class set never see
-# it — they walk the mount's subtree, which the page behind is not in. So this says it.
-OVERLAY_HINT = (
-    "this mount's box is the whole viewport, so the screenshot carries whatever the "
-    "product paints behind it while the design page renders the component alone; if this "
-    "scene is an overlay, its mount belongs on the overlay's own opaque box, not on a "
-    "full-viewport scrim")
-
-
-def overlay_suspect(c: Comparison, reasons: list) -> bool:
-    """A failure on pixels alone, on a mount whose box is the viewport."""
-    if not reasons or any(r.kind != "pixel" for r in reasons):
-        return False
-    size = c.pixel.get("size_a")
-    if not size:
-        return False
-    try:
-        vw, vh = (int(n) for n in str(c.viewport).lower().split("x"))
-    except ValueError:
-        return False
-    return abs(size[0] - vw) <= 2 and abs(size[1] - vh) <= 2
-
-
 def gate(control: Comparison, comparisons: list[Comparison], max_pct: float,
          console_limit: int) -> tuple[int, list[str]]:
     """Exit code and the lines to print, in order. The negative control is judged
@@ -361,18 +239,14 @@ def gate(control: Comparison, comparisons: list[Comparison], max_pct: float,
             worst = max(worst, c.pixel["pct"])
         if reasons:
             failed += 1
-            box = c.pixel["box"]
-            line = (f"DIFF {c.scene} {c.viewport} {c.pixel['pct']}% box={box} "
+            line = (f"DIFF {c.scene} {c.viewport} {c.pixel['pct']}% "
                     f"— {'; '.join(r.en for r in reasons)}")
             if any(r.kind == "pixel" for r in reasons):
                 names = around(c.pixel, c.impl_elements)
                 if names:
                     line += " around: " + ", ".join(names)
-                if overlay_suspect(c, reasons):
-                    line += " — " + OVERLAY_HINT
             lines.append(line)
             lines.extend(change_lines(c.aria["diff"]))
-            lines.extend(class_lines(c.classes))
     if failed:
         return 1, lines
     return 0, [f"PARITY OK {len(comparisons)}/{len(comparisons)} pixel<={worst}%"]
@@ -444,105 +318,19 @@ def change_lines(diff: str) -> list[str]:
             out.append(f"  impl      {after}")
     return out
 
+# ---------------------------------------------------------------- library helpers used by story-parity.py
 
-# ---------------------------------------------------------------- arguments
-def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        prog="visual-parity.py",
-        usage="visual-parity.py --contract FILE --mount ID[,ID] [options]",
-        description="Compare an interface with the handoff package it was built from, "
-                    "scene by scene, by accessibility tree, class set and pixels.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    p.add_argument("--contract", required=True, metavar="FILE",
-                   help="the screen contract; it names the handoff package, the viewports, "
-                        "the target kind and every scene's mount, route, reach and open")
-    p.add_argument("--mount", required=True, metavar="IDS",
-                   help="comma-separated data-screen values; every scene declaring one of "
-                        "them is compared")
-    p.add_argument("--scenes", metavar="NAMES", default=None,
-                   help="a subset of the scenes --mount derives, when a page's scenes are "
-                        "split between tickets")
-    p.add_argument("--max-pct", type=float, default=DEFAULT_MAX_PCT, metavar="PCT",
-                   help=f"largest share of differing cells a scene may have, after both "
-                        f"screenshots are shrunk by {PIXEL_SCALE} (default {DEFAULT_MAX_PCT})")
-    p.add_argument("--out", metavar="DIR", default=None,
-                   help="where the screenshots and trees are written")
-    p.add_argument("--console-errors", type=int, default=0, metavar="N",
-                   help="how many console errors a page may log")
-    p.add_argument("--cdn", metavar="DIR", default=None,
-                   help="cache for the scripts `support.js` loads, when the handoff package "
-                        "carries no vendor/ copy")
-    p.add_argument("--addressing", action="store_true",
-                   help="the addressing self-check: for every selected scene, run its reach, "
-                        "fill its route, navigate, and assert the mount element is there; no "
-                        "open, no baseline, no comparison")
-    p.add_argument("--render-only", action="store_true",
-                   help="render the baseline side of the selected scenes into --out and "
-                        "stop; no product is needed")
-    p.add_argument("--shows-perturbation", action="store_true",
-                   help="reseed every scene with values other than data/fixtures.js and "
-                        "require each scene whose rows declare `shows` to read differently")
-    return p
+def _join_js(*parts: str | None) -> str | None:
+    """One script out of several, each of which is a complete expression.
 
-
-# ---------------------------------------------------------------- run
-def run(args) -> int:
-    root = sd.repo_root()
-    contract_path = Path(args.contract)
-    doc = sd.load_contract(contract_path)
-    baseline = (root / doc["baselines"]["look"]).resolve()
-    catalogue = sd.load_catalogue(baseline)
-    viewports = sd.parse_viewports(doc["viewports"])
-    mounts = [m.strip() for m in args.mount.split(",") if m.strip()]
-    explicit = [s.strip() for s in args.scenes.split(",") if s.strip()] if args.scenes else None
-    plan = sd.scene_plan(doc, catalogue, mounts, explicit)
-    rows = sd.rows_by_id(doc)
-
-    # The rows these scenes' `open` chains name, checked before the product is started.
-    # A scene reached by clicking a control the contract cannot point at is a scene this
-    # run will die in the middle of, having compared the ones before it — so the answer
-    # comes first, about every row at once.
-    opened = sorted({str(step.get("row")) for s in plan for step in (s.open or [])
-                     if step.get("row")})
-    undrivable = sd.undrivable_lines(doc, Path(args.contract).resolve().parent, opened)
-    if undrivable:
-        for line in undrivable:
-            print(line, file=sys.stderr)
-        print(f"{len(undrivable)} of the {len(opened)} rows these scenes open with cannot "
-              f"be driven as this contract stands; repair what is repairable with "
-              f"lint_contract.py --pin", file=sys.stderr)
-        return 2
-    out = Path(args.out).resolve() if args.out else Path("./parity-shots").resolve()
-    media = out / "media"
-    media.mkdir(parents=True, exist_ok=True)
-    cache = Path(args.cdn).expanduser() if args.cdn else sd.DEFAULT_CACHE
-
-    pages = {sd.wrapper_path(s.name): sd.wrapper_page(sd.component_of(s.page), s.props)
-             for s in plan}
-    server, port = sd.serve_baseline(baseline, pages)
-    origin = f"http://127.0.0.1:{port}"
-    route_baseline = sd.baseline_router(origin, baseline, cache)
-    hide_js = {s.name: sd.hide_js_for(doc, s.page) for s in plan}
-    volatile = {s.name: sd.volatile_triggers(doc, s.page) for s in plan}
-
-    from playwright.sync_api import sync_playwright
-
-    try:
-        if args.render_only:
-            return render_only(plan, viewports, media, origin, route_baseline, hide_js)
-        adapter = sd.adapter_for(doc, root)
-        if args.addressing:
-            return addressing(adapter, plan, viewports[0], rows)
-        if args.shows_perturbation:
-            return shows_perturbation(adapter, plan, viewports[0], rows, media)
-        return parity(adapter=adapter, plan=plan, viewports=viewports, rows=rows,
-                      media=media, origin=origin, pages=pages,
-                      route_baseline=route_baseline, hide_js=hide_js,
-                      volatile=volatile, args=args)
-    finally:
-        server.shutdown()
-        server.server_close()
+    Every part here is an IIFE — `(() => { … })()`. Joined by a newline alone they
+    are one expression, not two statements: JavaScript inserts no semicolon before
+    `(`, so the second IIFE reads as a call on what the first returned, and the page
+    fails with `is not a function`. The pages that carry both a `retired_ids` hide
+    and a `volatile_values` paint are the ones that hit it.
+    """
+    bits = [p.strip() for p in parts if p]
+    return ";\n".join(bits) if bits else None
 
 
 def render_only(plan, viewports, media, origin, route_baseline, hide_js) -> int:
@@ -566,238 +354,11 @@ def render_only(plan, viewports, media, origin, route_baseline, hide_js) -> int:
     return 0
 
 
-def addressing(adapter, plan, vp, rows) -> int:
-    """The contract ticket's check that needs no interface: the whole addressing model
-    — the state can be put, the placeholders fill, the route is reachable, the `open`
-    chain's controls exist, the mount is where the contract says — proved against an
-    empty surface. Prints `ADDRESSING OK
-    <n>/<n>`, or one `UNREACHABLE <scene> — <why>` per scene that failed and then
-    `ADDRESSING <reached>/<n> — <k> unreachable`."""
-    from playwright.sync_api import sync_playwright
-
-    failed = []
-    with sync_playwright() as pw:
-        page = None
-        try:
-            for scene in plan:
-                ok, why = adapter.ready()
-                if not ok:
-                    print(why, file=sys.stderr)
-                    return 2
-                try:
-                    values = adapter.transport(scene.reach, {})
-                    if page is None or adapter.reach_before_attach:
-                        if page is not None:
-                            adapter.release()
-                        page = adapter.attach(pw, values)
-                    sd.resize(page, vp, adapter.over_cdp)
-                    sd.navigate(page, adapter.address(scene.route, values), reload=True)
-                    sd.perform(page, scene.open, rows, values)
-                    sd.wait_for_mount(page, sd.mount_selector(scene.mount))
-                except SystemExit as exc:
-                    failed.append(f"UNREACHABLE {scene.name} — {exc}")
-        finally:
-            adapter.release()
-    for line in failed:
-        print(line)
-    if failed:
-        print(f"ADDRESSING {len(plan) - len(failed)}/{len(plan)} — {len(failed)} unreachable")
-        return 1
-    print(f"ADDRESSING OK {len(plan)}/{len(plan)}")
-    return 0
-
-
-def shows_row_ids(scene, rows) -> list[str]:
-    """Row ids that declare `shows` on this scene: the ones `--shows-perturbation` runs."""
-    return [rid for rid, r in rows.items()
-            if scene.name in (r.get("scenes") or []) and r.get("shows")]
-
-
-def shows_perturbation(adapter, plan, vp, rows, media) -> int:
-    """Every scene twice: seeded from `data/fixtures.js`, then with other values. A
-    scene whose rows declare `shows` must read differently, or a shown value is hard
-    coded or fed from the wrong field."""
-    from playwright.sync_api import sync_playwright
-
-    failed = []
-    checked = 0
-    with sync_playwright() as pw:
-        page = None
-        try:
-            for scene in plan:
-                ok, why = adapter.ready()
-                if not ok:
-                    print(why, file=sys.stderr)
-                    return 2
-                shows_rows = shows_row_ids(scene, rows)
-                if not shows_rows:
-                    continue
-                checked += 1
-                trees = []
-                for perturb in (False, True):
-                    values = adapter.transport(scene.reach, {}, perturb=perturb)
-                    if page is None or adapter.reach_before_attach:
-                        if page is not None:
-                            adapter.release()
-                        page = adapter.attach(pw, values)
-                    sd.resize(page, vp, adapter.over_cdp)
-                    sd.navigate(page, adapter.address(scene.route, values), reload=True)
-                    sel = sd.mount_selector(scene.mount)
-                    sd.perform(page, scene.open, rows, values)
-                    sd.wait_for_mount(page, sel)
-                    if scene.clock:
-                        sd.run_clock(page, scene.clock)
-                    shot = sd.capture(page, media / f"{scene.name}-{'perturbed' if perturb else 'seeded'}.png",
-                                      selector=sel)
-                    trees.append(sd.normalize_aria(shot.aria))
-                if trees[0] == trees[1]:
-                    failed.append(f"SHOWS-STATIC {scene.name} — reads the same under perturbed "
-                                  f"seed values; rows: {', '.join(shows_rows)}")
-            # Leave the product seeded the way every other run expects.
-            if plan:
-                adapter.transport(plan[-1].reach, {}, perturb=False)
-        finally:
-            adapter.release()
-    for line in failed:
-        print(line)
-    if failed:
-        return 1
-    print(f"SHOWS OK {checked}/{checked}")
-    return 0
-
-
-def _join_js(*parts: str | None) -> str | None:
-    """One script out of several, each of which is a complete expression.
-
-    Every part here is an IIFE — `(() => { … })()`. Joined by a newline alone they
-    are one expression, not two statements: JavaScript inserts no semicolon before
-    `(`, so the second IIFE reads as a call on what the first returned, and the page
-    fails with `is not a function`. The pages that carry both a `retired_ids` hide
-    and a `volatile_values` paint are the ones that hit it.
-    """
-    bits = [p.strip() for p in parts if p]
-    return ";\n".join(bits) if bits else None
-
-
-def parity(*, adapter, plan, viewports, rows, media, origin, pages, route_baseline,
-           hide_js, volatile, args) -> int:
-    from playwright.sync_api import sync_playwright
-
-    comparisons: list[Comparison] = []
-    control: Comparison | None = None
-    with sync_playwright() as pw:
-        page = None
-        try:
-            @contextmanager
-            def baseline_page(vp):
-                """A page for the handoff package side. Over CDP the application's own
-                page is routed for the render and unrouted after; otherwise a context of
-                this program's own."""
-                ctx = adapter.new_context(vp)
-                if ctx is None:
-                    page.route("**/*", route_baseline)
-                    try:
-                        yield page
-                    finally:
-                        page.unroute("**/*", route_baseline)
-                else:
-                    ctx.route("**/*", route_baseline)
-                    bp = ctx.new_page()
-                    try:
-                        yield bp
-                    finally:
-                        bp.close()
-                        ctx.unroute("**/*", route_baseline)
-
-            def capture_baseline(scene, vp, box, png, inline: bool = False):
-                w, h = box[2], box[3]
-                with baseline_page(vp) as bp:
-                    sd.resize(bp, vp, adapter.over_cdp)
-                    sd.navigate(bp, f"{origin}{sd.wrapper_path(scene.name)}")
-                    sd.wait_for_mount(bp, "#dc-root")
-                    paint = (sd.volatile_paint_js(volatile[scene.name])
-                             if volatile[scene.name] else None)
-                    return sd.capture(bp, png, selector="#dc-root", clip=(0, 0, w, h),
-                                      extra_css=sd.frame_box((w, h)),
-                                      extra_js=_join_js(hide_js[scene.name], paint))
-
-            def capture_impl(scene, vp, png):
-                sel = sd.mount_selector(scene.mount)
-                sd.resize(page, vp, adapter.over_cdp)
-                sd.navigate(page, adapter.address(scene.route, values), reload=True)
-                sd.perform(page, scene.open, rows, values)
-                sd.wait_for_mount(page, sel)
-                if scene.clock:
-                    sd.run_clock(page, scene.clock)
-                box = sd.visible_box(page, sel, vp)
-                paint = (sd.volatile_paint_js(volatile[scene.name])
-                         if volatile[scene.name] else None)
-                return sd.capture(page, png, selector=sel, clip=box, extra_js=paint)
-
-            for scene in plan:
-                ok, why = adapter.ready()
-                if not ok:
-                    print(why, file=sys.stderr)
-                    return 2
-                values = adapter.transport(scene.reach, {})
-                if page is None or adapter.reach_before_attach:
-                    if page is not None:
-                        adapter.release()
-                    page = adapter.attach(pw, values)
-                for vp in viewports:
-                    tag_vp = f"{vp[0]}x{vp[1]}"
-                    impl_shot = capture_impl(scene, vp, media / f"{scene.name}-{tag_vp}-impl.png")
-                    base_shot = capture_baseline(scene, vp, impl_shot.box,
-                                                 media / f"{scene.name}-{tag_vp}-baseline.png")
-                    comparisons.append(Comparison(
-                        scene.name, tag_vp,
-                        pixel_diff(base_shot.png, impl_shot.png,
-                                   media / f"{scene.name}-{tag_vp}-diff.png"),
-                        sd.aria_diff(base_shot.aria, impl_shot.aria,
-                                     media / f"{scene.name}-{tag_vp}.aria.diff",
-                                     volatile=volatile[scene.name] or None),
-                        base_shot.console, impl_shot.console, impl_shot.elements,
-                        sd.class_diff(base_shot.classes, impl_shot.classes)))
-                    if control is None:
-                        control = negative_control(scene, vp, pages, capture_impl,
-                                                   capture_baseline, media)
-        finally:
-            adapter.release()
-
-    code, lines = gate(control, comparisons, args.max_pct, args.console_errors)
-    for line in lines:
-        print(line)
-    if code:
-        print(f"screenshots and trees: {media}", file=sys.stderr)
-    return code
-
-
-def negative_control(scene, vp, pages, capture_impl, capture_baseline, media) -> Comparison:
-    """The baseline server is made to answer this scene's own address with the scene
-    plus an error banner in the served bytes; the implementation is captured again. If
-    the two compare equal, the implementation capture went through the baseline
-    server, and the run is worthless."""
-    path = sd.wrapper_path(scene.name)
-    saved = pages[path]
-    pages[path] = sd.wrapper_page(sd.component_of(scene.page), scene.props,
-                                  NEGATIVE_CONTROL_HEAD)
-    tag_vp = f"{vp[0]}x{vp[1]}"
-    stem = media / f"{NEGATIVE_CONTROL_SCENE}-{tag_vp}"
-    try:
-        impl = capture_impl(scene, vp, Path(f"{stem}-impl.png"))
-        wrong = capture_baseline(scene, vp, impl.box, Path(f"{stem}-baseline.png"))
-    finally:
-        pages[path] = saved
-    return Comparison(
-        NEGATIVE_CONTROL_SCENE, tag_vp,
-        pixel_diff(wrong.png, impl.png, Path(f"{stem}-diff.png")),
-        sd.aria_diff(wrong.aria, impl.aria, Path(f"{stem}.aria.diff")),
-        [], [], impl.elements, sd.class_diff(wrong.classes, impl.classes))
-
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
-    return run(args)
+    print("visual-parity.py no longer compares a running product; "
+          "run story-parity.py --contract FILE --pages ID[,ID]", file=sys.stderr)
+    return 2
 
 
 if __name__ == "__main__":

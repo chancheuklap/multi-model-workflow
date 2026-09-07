@@ -325,7 +325,7 @@ class TestAround(unittest.TestCase):
                                     "size_a": (10, 10), "size_b": (10, 10)})
         code, lines = vp.gate(control, [c], 3.0, 0)
         self.assertEqual(code, 1)
-        self.assertEqual(lines, ["DIFF default 1440x900 12.5% box=[90, 90, 240, 150] "
+        self.assertEqual(lines, ["DIFF default 1440x900 12.5% "
                                  "— pixel 12.5% > 3.0% (unaligned 31.0%) "
                                  "around: button \"开始生成\", main \"页面\""])
 
@@ -413,8 +413,8 @@ class TestNegativeControl(unittest.TestCase):
                          (0, ["PARITY OK 2/2 pixel<=0.0%"]))
 
     def test_the_ok_line_carries_the_worst_pixel_share(self):
-        """A difference under the threshold passes and is still on record, so the
-        `EXPECT: PARITY OK <passed>/<total>` on a ticket keeps matching as a prefix."""
+        """A difference under the threshold passes and is still on record, so
+        `gate`'s success line still names the worst share."""
         caught = comparison(scene="__negative_control__",
                             pixel={"size_equal": True, "pct": 23.4, "count": 9,
                                    "total": 100, "box": [0, 0, 9, 9],
@@ -442,10 +442,6 @@ class TestConsole(unittest.TestCase):
         self.assertEqual(vp.failures(c, max_pct=1.0, console_limit=1), [])
         self.assertEqual(len(vp.failures(c, max_pct=1.0, console_limit=0)), 1)
 
-    def test_zero_is_the_default(self):
-        args = vp.build_parser().parse_args(["--contract", "c.yaml", "--mount", "m"])
-        self.assertEqual(args.console_errors, 0)
-
 
 class TestVolatileValues(unittest.TestCase):
     """The pixel judge's paint script is generated from the same implicit-role
@@ -459,113 +455,10 @@ class TestVolatileValues(unittest.TestCase):
         self.assertIn(vp.sd.VOLATILE_FILL, js)
 
 
-class TestOverCdp(unittest.TestCase):
-    """An implementation that is already running is connected to, not opened.
-
-    The three things that differ from a browser this program launched are all here: the
-    size and the pixel ratio go down as a device-metrics override because the context
-    belongs to the application, the reduced-motion setting is put on the page for the
-    same reason, and the page is picked out of the application's own windows by title.
-    """
-
-    class Session:
-        def __init__(self):
-            self.sent = []
-
-        def send(self, method, params):
-            self.sent.append((method, params))
-
-    class Page:
-        def __init__(self, title="", url="http://127.0.0.1:5173/"):
-            self.session = TestOverCdp.Session()
-            self.context = type("Ctx", (), {
-                "new_cdp_session": lambda _self, page: page.session})()
-            self.sized = None
-            self.media = None
-            self._title = title
-            self.url = url
-
-        def set_viewport_size(self, size):
-            self.sized = size
-
-        def emulate_media(self, **kwargs):
-            self.media = kwargs
-
-        def title(self):
-            return self._title
-
-    def test_a_launched_page_is_given_its_viewport_directly(self):
-        page = self.Page()
-        vp.resize(page, (1440, 900), over_cdp=False)
-        self.assertEqual(page.sized, {"width": 1440, "height": 900})
-        self.assertEqual(page.session.sent, [])
-
-    def test_a_connected_page_is_sent_its_metrics_with_the_ratio_pinned(self):
-        page = self.Page()
-        vp.resize(page, (1180, 720), over_cdp=True)
-        self.assertIsNone(page.sized)
-        self.assertEqual(page.session.sent, [(
-            "Emulation.setDeviceMetricsOverride",
-            {"width": 1180, "height": 720, "deviceScaleFactor": 1, "mobile": False})])
-        self.assertEqual(page.media, {"reduced_motion": "reduce"})
-
-    def browser(self, *pages):
-        context = type("Ctx", (), {"pages": list(pages)})()
-        return type("Browser", (), {"contexts": [context]})()
-
-    def test_with_no_title_asked_for_the_first_page_is_taken(self):
-        first = self.Page(title="the app")
-        found = vp.impl_page_over_cdp(self.browser(first, self.Page(title="other")), None)
-        self.assertIs(found, first)
-
-    def test_a_title_substring_picks_the_window(self):
-        wanted = self.Page(title="商品工作台 — Chameleon")
-        found = vp.impl_page_over_cdp(
-            self.browser(self.Page(title="DevTools"), wanted), "Chameleon")
-        self.assertIs(found, wanted)
-
-    def test_no_such_window_says_what_was_there(self):
-        with self.assertRaises(SystemExit) as raised:
-            vp.impl_page_over_cdp(self.browser(self.Page(title="DevTools")),
-                                  "Chameleon", timeout_seconds=0)
-        self.assertIn("DevTools", str(raised.exception))
 
 
-class TestShowsCount(unittest.TestCase):
-    """`--shows-perturbation` evaluates only scenes whose rows declare `shows`."""
-
-    def scene(self, name):
-        return vp.sd.Scene(name, "p.dc.html", "m", "/", [], [], {})
-
-    def test_only_scenes_with_shows_rows_are_counted(self):
-        plan = [self.scene("plain"), self.scene("shown"), self.scene("other")]
-        rows = {
-            "a": {"scenes": ["plain"]},
-            "b": {"scenes": ["shown"], "shows": {"f": "x"}},
-            "c": {"scenes": ["elsewhere"], "shows": {"f": "y"}},
-        }
-        evaluated = [s.name for s in plan if vp.shows_row_ids(s, rows)]
-        self.assertEqual(evaluated, ["shown"])
-        n = len(evaluated)
-        self.assertEqual(f"SHOWS OK {n}/{n}", "SHOWS OK 1/1")
-        self.assertNotEqual(f"SHOWS OK {len(plan)}/{len(plan)}", "SHOWS OK 1/1")
-
-
-class TestArguments(unittest.TestCase):
-    """No address on the line: the contract and `.mmw/target.json` carry them all."""
-
-    def test_defaults(self):
-        args = vp.build_parser().parse_args(["--contract", "c.yaml", "--mount", "a,b"])
-        self.assertEqual(args.max_pct, 3.0)
-        self.assertIsNone(args.scenes)
-        self.assertFalse(args.render_only)
-        self.assertFalse(args.shows_perturbation)
-
-    def test_no_address_flag_is_accepted(self):
-        for retired in ("--impl", "--cdp", "--baseline", "--backend", "--viewports"):
-            with self.assertRaises(SystemExit):
-                vp.build_parser().parse_args(
-                    ["--contract", "c.yaml", "--mount", "a", retired, "x"])
+class TestSharedHelpers(unittest.TestCase):
+    """Helpers the story judge still uses."""
 
     def test_viewports_are_read_as_pairs(self):
         self.assertEqual(vp.parse_viewports(["1440x900", "1180x720"]),
@@ -588,7 +481,7 @@ class TestArguments(unittest.TestCase):
 
 
 class TestClasses(unittest.TestCase):
-    """The third judge: the class set of the subtree, compared as a set."""
+    """Class names in that subtree, compared as a set."""
 
     def test_a_missing_class_fails_the_scene_and_names_the_element(self):
         c = comparison()
@@ -596,8 +489,6 @@ class TestClasses(unittest.TestCase):
                                      {"btn": 'button "开始生成"'})
         reasons = vp.failures(c, max_pct=3.0, console_limit=0)
         self.assertEqual([r.kind for r in reasons], ["classes"])
-        self.assertEqual(vp.class_lines(c.classes),
-                         ['  class only in baseline  btn-primary  (on button "开始生成")'])
 
     def test_equal_sets_are_no_reason(self):
         c = comparison()

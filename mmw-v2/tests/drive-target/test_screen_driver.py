@@ -1,6 +1,5 @@
-"""The shared driver behind both judges, without a browser: the contract's screen
-axis, the seven capabilities against a fake adapter, the box arithmetic, the `open`
-chain, the tree's ancestor line, and the two read grammars.
+"""The shared driver without a browser: the contract's screen axis, the box
+arithmetic, the tree's ancestor line, the baseline server, and `target --check`.
 """
 
 import importlib.util
@@ -9,7 +8,6 @@ import os
 import sys
 import tempfile
 import shutil
-import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -89,21 +87,18 @@ CATALOGUE = {
 
 
 class TestScreenAxis(unittest.TestCase):
-    """`mount` and `route` are declared once per page; a scene may override them."""
+    """`mount` is declared once per page; a scene may override it."""
 
     def test_page_defaults_flow_into_scenes(self):
         scenes = sd.scenes_of(CONTRACT, CATALOGUE)
         s = scenes["library-delete-confirm"]
-        self.assertEqual((s.mount, s.route), ("workbench-shell", "#/project/{project_id}"))
-        self.assertEqual(s.reach, ["seed:project-with-subjects"])
-        self.assertEqual(s.open, [{"row": "workbench-shell.delete.preview.allowed", "value": None}])
+        self.assertEqual(s.mount, "workbench-shell")
         self.assertEqual(s.props, {"scenario": "library-delete-confirm"})
 
     def test_a_scene_overrides_its_page(self):
         s = sd.scenes_of(CONTRACT, CATALOGUE)["library-name-duplicate"]
-        self.assertEqual(s.route, "#/new-project")
-        self.assertEqual(s.open, [{"row": "create-project.name",
-                                   "value": "{existing_project_name}"}])
+        self.assertEqual(s.mount, "create-project")
+        self.assertEqual(s.props, {"scenario": "library-name-duplicate"})
 
     def test_the_plan_is_derived_from_mounts(self):
         plan = sd.scene_plan(CONTRACT, CATALOGUE, ["workbench-shell"], None)
@@ -131,24 +126,17 @@ class TestScreenAxis(unittest.TestCase):
         finally:
             os.unlink(f.name)
 
-    def test_mechanisms_read_as_list_or_mapping(self):
-        self.assertEqual(sd.mechanisms_of({"mechanisms": ["seed:a"]}), {"seed:a": {}})
-        self.assertEqual(sd.mechanisms_of(CONTRACT)["seed:project-with-subjects"]["built_by"],
-                         "#639")
-
-    def test_retired_triggers_and_placeholders(self):
+    def test_retired_triggers_are_scoped_to_a_page(self):
         self.assertEqual(sd.retired_triggers(CONTRACT), [("button", "查看账务状态")])
         scoped = {"retired_ids": [{"id": "a", "page": "Component · 自由模式.dc.html",
                                    "trigger": {"role": "button", "name": "查看"}}]}
         self.assertEqual(sd.retired_triggers(scoped, "Component · 自由模式.dc.html"), [("button", "查看")])
         self.assertEqual(sd.retired_triggers(scoped, "Component · 任务详情.dc.html"), [])
         self.assertIsNone(sd.hide_js_for(scoped, "Component · 任务详情.dc.html"))
-        self.assertEqual(sd.fill("#/project/{project_id}", {"project_id": "p1"}), "#/project/p1")
-        self.assertEqual(sd.fill("#/x/{missing}", {}), "#/x/{missing}")
 
 
 class FakePage:
-    """Enough of a Playwright page for `perform` and `navigate`.
+    """Enough of a Playwright page for `navigate`.
 
     `named` is the accessibility tree in reading order: `(role, name)` or
     `(role, name, identity)`. When it is set, `get_by_role` and
@@ -246,223 +234,26 @@ class FakePage:
         return Locator()
 
 
-class TestOpenChain(unittest.TestCase):
-    ROWS = sd.rows_by_id(CONTRACT)
-
-    def test_a_native_select_takes_select_option_not_fill(self):
-        page = FakePage({("combobox", "商品主体图"): 1})
-        page.tags = {("combobox", "商品主体图"): "SELECT"}
-        sd.perform(page, [{"row": "create-project.subject", "value": "商品主体图 1"}],
-                   self.ROWS, {})
-        self.assertEqual(page.actions,
-                         [("select_option", "combobox", "商品主体图", "商品主体图 1")])
-
-    def test_a_combobox_that_is_not_a_select_still_takes_fill(self):
-        page = FakePage({("combobox", "商品主体图"): 1})
-        sd.perform(page, [{"row": "create-project.subject", "value": "商品主体图 1"}],
-                   self.ROWS, {})
-        self.assertEqual(page.actions,
-                         [("fill", "combobox", "商品主体图", "商品主体图 1")])
-
-    def test_a_click_step_and_a_fill_step(self):
-        page = FakePage({("button", "删除商品项目"): 1, ("textbox", "商品名称"): 1})
-        sd.perform(page, [{"row": "workbench-shell.delete.preview.allowed", "value": None},
-                          {"row": "create-project.name", "value": "{existing_project_name}"}],
-                   self.ROWS, {"existing_project_name": "山野净洗洁精"})
-        self.assertEqual(page.actions, [("click", "button", "删除商品项目"),
-                                        ("fill", "textbox", "商品名称", "山野净洗洁精")])
-        self.assertEqual(page.ran, 2 * sd.SETTLE_VIRTUAL_MS)
-
-    def test_what_a_step_types_becomes_a_value(self):
-        page = FakePage({("textbox", "商品名称"): 1})
-        values = {"existing_project_name": "山野净洗洁精"}
-        sd.perform(page, [{"row": "create-project.name", "value": "{existing_project_name}"}],
-                   self.ROWS, values)
-        self.assertEqual(values["typed"], "山野净洗洁精")
-        self.assertEqual(values["typed_name"], "山野净洗洁精")
-
-    def test_a_missing_control_stops_the_run_and_names_it(self):
-        page = FakePage({})
-        with self.assertRaises(SystemExit) as raised:
-            sd.perform(page, [{"row": "workbench-shell.delete.preview.allowed", "value": None}],
-                       self.ROWS, {})
-        self.assertIn('button "删除商品项目"', str(raised.exception))
-        # the control is waited for in clock steps up to the budget before giving up
-        self.assertEqual(page.ran, sd.SETTLE_BUDGET_MS)
-
-    def test_an_unknown_row_stops_the_run(self):
-        with self.assertRaises(SystemExit):
-            sd.perform(FakePage({}), [{"row": "no.such", "value": None}], self.ROWS, {})
-
-    def test_two_same_name_controls_after_clicks_the_second(self):
-        """Two buttons share a name. `after` (the previous named node) is the
-        heading that sits between them; perform clicks the dialog confirm, not
-        the footer. agentflow#675."""
-        page = FakePage(named=[
-            ("button", "放弃这次任务", "footer"),
-            ("heading", "要放弃这次任务吗", "heading"),
-            ("button", "放弃这次任务", "dialog"),
-        ])
-        rows = {"source-setup.abandon.confirm": {
-            "trigger": {"role": "button", "name": "放弃这次任务"},
-            "after": {"role": "heading", "name": "要放弃这次任务吗"},
-        }}
-        sd.perform(page, [{"row": "source-setup.abandon.confirm", "value": None}],
-                   rows, {})
-        self.assertEqual(page.actions, [("click", "button", "放弃这次任务", "dialog")])
-
-    def test_a_digit_sibling_does_not_shift_the_exact_name_index(self):
-        """`删除 1` and `删除 2` share a stem. The locator is exact, so the
-        trigger `删除 2` is the only match; `after` must not count the sibling
-        into `nth`."""
-        page = FakePage(named=[
-            ("button", "删除 1", "first"),
-            ("heading", "确认", "heading"),
-            ("button", "删除 2", "second"),
-        ])
-        rows = {"x.confirm": {
-            "trigger": {"role": "button", "name": "删除 2"},
-            "after": {"role": "heading", "name": "确认"},
-        }}
-        sd.perform(page, [{"row": "x.confirm", "value": None}], rows, {})
-        self.assertEqual(page.actions, [("click", "button", "删除 2", "second")])
-
-    def test_two_same_name_controls_without_after_stop_the_run(self):
-        """The same two buttons with no `after`: the run stops and names the
-        coordinate, instead of silently taking the first."""
-        page = FakePage({("button", "放弃这次任务"): 2})
-        rows = {"source-setup.abandon.confirm": {
-            "trigger": {"role": "button", "name": "放弃这次任务"},
-        }}
-        with self.assertRaises(SystemExit) as raised:
-            sd.perform(page, [{"row": "source-setup.abandon.confirm", "value": None}],
-                       rows, {})
-        self.assertIn('button "放弃这次任务"', str(raised.exception))
-        self.assertIn("matches 2 controls", str(raised.exception))
-        self.assertIn("after", str(raised.exception))
-        self.assertEqual(page.actions, [])
 
 
-class TestWaitingOnBothClocks(unittest.TestCase):
-    """A view that appears when a response arrives, not when a timer fires.
-
-    Running the controlled clock fires the page's timers and returns at once, so a wait
-    counted only in virtual milliseconds hands a real request no time at all. Wall time
-    is the second budget, spent together with the remaining virtual so a paint after
-    the response can still be waited for. Spending wall time is safe: every timer on
-    the page is under the controlled clock, so the handoff package's auto-advance
-    cannot fire while it passes.
-    """
-
-    def setUp(self):
-        self.budget = sd.WAIT_REAL_BUDGET_S
-        sd.WAIT_REAL_BUDGET_S = 1.0
-        self.addCleanup(setattr, sd, "WAIT_REAL_BUDGET_S", self.budget)
-        self._clocked_before = set(sd._CLOCKED)
-        self.addCleanup(self._drop_clocked)
-
-    def _drop_clocked(self):
-        for key in list(sd._CLOCKED):
-            if key not in self._clocked_before:
-                sd._CLOCKED.pop(key, None)
-
-    def test_a_view_that_arrives_only_in_wall_time_is_found(self):
-        page = FakePage({})
-        at = time.monotonic() + 0.3
-        sd.wait_until(page, lambda: time.monotonic() >= at, "never")
-
-    def test_a_paint_after_a_response_is_found(self):
-        """A control that paints on an animation frame after a response arrives.
-
-        Virtual time spent before the response has nothing to paint. The paint
-        needs the clock to run after wall time has passed.
-        """
-        page = FakePage({})
-        response_at = time.monotonic() + 0.3
-        painted = False
-
-        def run_for(ms):
-            nonlocal painted
-            page.ran += ms
-            if time.monotonic() >= response_at and ms >= sd.FRAME_MS:
-                painted = True
-
-        page.run_for = run_for
-        sd.wait_until(page, lambda: painted, "no control")
-        self.assertTrue(painted)
-        self.assertLessEqual(page.ran, sd.SETTLE_BUDGET_MS)
-
-    def test_the_virtual_cap_is_not_exceeded_however_long_the_wait_runs(self):
-        """The reason the virtual budget exists — a scene captured one step past itself —
-        does not weaken because the wait got longer."""
-        page = FakePage({})
-        at = time.monotonic() + 0.3
-        sd.wait_until(page, lambda: time.monotonic() >= at, "never")
-        self.assertLessEqual(page.ran, sd.SETTLE_BUDGET_MS)
-
-    def test_running_out_names_both_budgets(self):
-        page = FakePage({})
-        with self.assertRaises(SystemExit) as raised:
-            sd.wait_until(page, lambda: False, "no control \u767b\u5f55")
-        said = str(raised.exception)
-        self.assertIn("no control \u767b\u5f55", said, "the refusal names no fact")
-        self.assertIn(f"{sd.SETTLE_VIRTUAL_MS + sd.SETTLE_BUDGET_MS} ms of controlled time", said)
-        self.assertIn("1s of wall time", said, "a reader cannot tell which budget ran out")
-
-    def test_a_condition_that_never_holds_times_out_within_both_budgets(self):
-        page = FakePage({})
-        started = time.monotonic()
-        with self.assertRaises(SystemExit) as raised:
-            sd.wait_until(page, lambda: False, "no control \u767b\u5f55")
-        elapsed = time.monotonic() - started
-        said = str(raised.exception)
-        self.assertIn("no control \u767b\u5f55", said)
-        self.assertIn(f"{sd.SETTLE_VIRTUAL_MS + sd.SETTLE_BUDGET_MS} ms of controlled time", said)
-        self.assertIn("1s of wall time", said)
-        self.assertLess(elapsed, sd.WAIT_REAL_BUDGET_S + 2 * sd.WAIT_REAL_STEP_S)
-        self.assertGreaterEqual(elapsed, sd.WAIT_REAL_BUDGET_S - sd.WAIT_REAL_STEP_S)
 
 
-class TestTimerBasedWaitStaysOffTheWall(unittest.TestCase):
-    """A mount that appears on page timers is still found without sleeping on the wall.
-
-    Production `WAIT_REAL_BUDGET_S` is 8 s. Holding the whole virtual budget back
-    for frames across that window would stretch a 300 ms timer-based settle across
-    seconds of wall time and slow every scene. This case runs at the shipped
-    constants and fails if that happens.
-    """
-
-    def test_a_view_that_appears_on_timers_does_not_wait_on_the_wall(self):
-        page = FakePage({})
-        self.addCleanup(sd._CLOCKED.pop, id(page), None)
-        started = time.monotonic()
-        sd.wait_until(page, lambda: page.ran >= 300, "no mount")
-        self.assertLess(time.monotonic() - started, 0.5)
-        self.assertLessEqual(page.ran, sd.SETTLE_BUDGET_MS)
-        self.assertGreaterEqual(page.ran, 300)
 
 
 class TestClockAndNavigation(unittest.TestCase):
-    def test_the_clock_is_installed_once_paused_and_moved_forward_only(self):
+    def test_the_clock_is_installed_once_and_each_navigate_settles(self):
         page = FakePage({})
+        self.addCleanup(sd._CLOCK_PAGES.discard, id(page))
         sd.navigate(page, "http://x/#/a", reload=True)
-        first = page.paused
         self.assertTrue(page.installed)
+        self.assertEqual(page.paused, sd.CLOCK_EPOCH_MS)
         self.assertEqual(page.actions, [("goto", "http://x/#/a"), "reload"])
         self.assertEqual(page.ran, sd.SETTLE_VIRTUAL_MS)
         page.installed = False
         sd.navigate(page, "http://x/#/b")
-        self.assertFalse(page.installed)  # not installed a second time
-        self.assertGreater(page.paused, first)
-        sd._CLOCKED.pop(id(page), None)
-
-    def test_restore_resumes_the_clock_on_a_page_it_clocked(self):
-        page = FakePage({})
-        page.context = type("Ctx", (), {"new_cdp_session": lambda _s, p: None})()
-        sd.navigate(page, "http://x/")
-        sd.restore(page, "http://x/")
-        self.assertIn("resume", page.actions)
-        self.assertNotIn(id(page), sd._CLOCKED)
+        self.assertFalse(page.installed)
+        self.assertEqual(page.paused, sd.CLOCK_EPOCH_MS)
+        self.assertEqual(page.ran, 2 * sd.SETTLE_VIRTUAL_MS)
 
 
 class TestBoxes(unittest.TestCase):
@@ -505,43 +296,6 @@ class TestTree(unittest.TestCase):
         self.assertEqual(sd.normalize_aria(tree),
                          ['- dialog "确认"', '- button "删除" < dialog "确认"', '- button "取消"'])
 
-    def test_tree_expression_grammar(self):
-        tree = ['- button "撤销分配" < table "成员"', '- text: 三个成员']
-        self.assertEqual(sd.evaluate_tree('node button "撤销分配" exists', tree)[0], True)
-        self.assertEqual(sd.evaluate_tree('node button "撤销" exists', tree)[0], False)
-        self.assertEqual(sd.evaluate_tree('node button "撤销分配" absent', tree)[0], False)
-        self.assertEqual(sd.evaluate_tree("node text exists", tree)[0], True)
-        with self.assertRaises(ValueError):
-            sd.evaluate_tree(".a == 1", tree)
-
-    def test_json_expression_grammar(self):
-        body = {"a": {"b": [{"c": "x"}]}, "n": 1, "s": "hello"}
-        self.assertEqual(sd.evaluate('.a.b[0].c == "x"', body), (True, "x"))
-        self.assertEqual(sd.evaluate(".n != 1", body), (False, 1))
-        self.assertEqual(sd.evaluate('.s contains "ell"', body), (True, "hello"))
-
-    @unittest.skipIf(shutil.which("jq") is None, "jq not on PATH")
-    def test_a_jq_program_runs_with_values_bound_as_variables(self):
-        body = {"projects": [{"name": "a", "id": "P1"}, {"name": "b", "id": "P2"}], "n": 2}
-        ok, got = sd.evaluate("([.projects[] | select(.id == $project_id)] | length) == 1",
-                              body, {"project_id": "P1"})
-        self.assertEqual((ok, got), (True, True))
-        ok, got = sd.evaluate(".n == $before", body, {"before": "3"})
-        self.assertEqual((ok, got), (False, False))
-        ok, _ = sd.evaluate("any(.projects[]; .name == $typed_name)", body, {"typed_name": "b"})
-        self.assertTrue(ok)
-
-    def test_an_unbound_variable_names_itself(self):
-        with self.assertRaises(SystemExit) as raised:
-            sd.evaluate(".n == $requested_count", {"n": 1}, {})
-        self.assertIn("$requested_count", str(raised.exception))
-
-    def test_exists_and_truthiness_and_a_trailing_note(self):
-        body = {"a": {"b": [{"c": "x"}]}, "n": 1, "s": "hello"}
-        self.assertEqual(sd.evaluate(".zz exists", body), (False, None))
-        self.assertEqual(sd.evaluate(".a", body)[0], True)
-        self.assertEqual(sd.evaluate(".n == 1  # the seed lays one", body), (True, 1))
-
 
 class TestClassSets(unittest.TestCase):
     def test_diff_names_the_element_that_wears_the_class(self):
@@ -554,99 +308,8 @@ class TestClassSets(unittest.TestCase):
         self.assertTrue(all(p in ("sc-", "dc-") for p in sd.RUNTIME_CLASS_PREFIXES))
 
 
-class FakeAdapter(sd.Adapter):
-    """The seven capabilities as a record of calls: the judges are tested against this
-    shape, so a change to what they ask of an adapter shows here first."""
-
-    kind = "fake"
-    reach_before_attach = True
-
-    def __init__(self):
-        super().__init__({"reach": "echo", "transport_off": "true", "transport_on": "true"},
-                         {}, Path("."))
-        self.calls = []
-
-    def transport(self, mechanisms, values, perturb=False):
-        self.calls.append(("transport", tuple(mechanisms), perturb))
-        return {**values, "project_id": "p1"}
-
-    def attach(self, pw, values):
-        self.calls.append(("attach", values.get("project_id")))
-        return FakePage({})
-
-    def ready(self):
-        self.calls.append(("ready",))
-        return True, ""
-
-    def address(self, route, values):
-        self.calls.append(("address", route))
-        return "app://" + sd.fill(route, values)
-
-    def release(self):
-        self.calls.append(("release",))
-
-    def transport_off(self):
-        self.calls.append(("transport_off",))
-
-    def observe(self, line, values):
-        self.calls.append(("observe", line))
-        return True, None, ""
 
 
-class TestSevenCapabilities(unittest.TestCase):
-    def test_each_capability_is_one_call(self):
-        a = FakeAdapter()
-        values = a.transport(["seed:x"], {}, perturb=True)
-        page = a.attach(None, values)
-        self.assertTrue(a.ready()[0])
-        self.assertEqual(a.address("#/project/{project_id}", values), "app://#/project/p1")
-        self.assertTrue(a.observe("GET /x -> .a", values)[0])
-        a.transport_off()
-        a.release()
-        self.assertIsInstance(page, FakePage)
-        self.assertEqual([c[0] for c in a.calls],
-                         ["transport", "attach", "ready", "address", "observe",
-                          "transport_off", "release"])
-        self.assertEqual(a.calls[0], ("transport", ("seed:x",), True))
-
-    def test_the_base_transport_runs_the_reach_command_and_reads_key_values(self):
-        with tempfile.TemporaryDirectory() as d:
-            script = Path(d) / "reach.sh"
-            script.write_text("#!/bin/sh\necho project_id=p9\necho \"args=$*\"\n")
-            script.chmod(0o755)
-            a = sd.Adapter({"reach": str(script)}, {}, Path(d))
-            values = a.transport(["seed:a", "dev:b"], {"k": "v"}, perturb=True)
-        self.assertEqual(values, {"k": "v", "project_id": "p9", "args": "seed:a dev:b --perturb"})
-        self.assertEqual(a.transport([], {"k": "v"}), {"k": "v"})
-
-    def test_a_missing_transport_off_is_named(self):
-        a = sd.Adapter({"reach": "true"}, {}, Path("."))
-        with self.assertRaises(SystemExit) as raised:
-            a.transport_off()
-        self.assertIn("transport_off", str(raised.exception))
-
-    def test_an_address_the_discover_did_not_print_is_named(self):
-        a = sd.ElectronAdapter({"reach": "true"}, {"impl": "http://x/"}, Path("."))
-        with self.assertRaises(SystemExit) as raised:
-            a.need("cdp")
-        self.assertIn("cdp", str(raised.exception))
-        self.assertEqual(a.address("#/project/{project_id}", {"project_id": "p1"}),
-                         "http://x/#/project/p1")
-
-    def test_the_electron_adapter_refuses_a_tree_observe(self):
-        a = sd.ElectronAdapter({"reach": "true"}, {"backend": "http://127.0.0.1:1"}, Path("."))
-        ok, _, why = a.observe('GET /x -> node button "y" exists', {})
-        self.assertFalse(ok)
-        self.assertIn("JSON read surface", why)
-
-    def test_adapter_for_reads_kind_and_refuses_an_unknown_one(self):
-        self.assertIn("electron", sd.ADAPTERS)
-        self.assertIn("web-server-rendered", sd.ADAPTERS)
-        self.assertIn("chrome-extension", sd.ADAPTERS)
-        with tempfile.TemporaryDirectory() as d:
-            with self.assertRaises(SystemExit) as raised:
-                sd.adapter_for({"target": {"kind": "vt100"}}, Path(d))
-            self.assertIn("vt100", str(raised.exception))
 
 
 class TestTargetConfig(unittest.TestCase):
@@ -660,11 +323,7 @@ class TestTargetConfig(unittest.TestCase):
             (root / ".mmw" / "target.json").write_text(json.dumps(
                 {"discover": "printf %s '{\"cdp\": \"http://127.0.0.1:9229\"}'"}))
             cfg = sd.target_config(root)
-            self.assertEqual(sd.discover(cfg, root), {"cdp": "http://127.0.0.1:9229"})
-
-    def test_key_values(self):
-        self.assertEqual(sd.key_values("project_id=p1\nnoise\ncookie=a=b\n"),
-                         {"project_id": "p1", "cookie": "a=b"})
+            self.assertEqual(cfg["discover"], "printf %s '{\"cdp\": \"http://127.0.0.1:9229\"}'")
 
 
 class TestBaselineServing(unittest.TestCase):
@@ -794,17 +453,14 @@ class TestBaselineServing(unittest.TestCase):
         self.assertEqual(sd.mask_volatile(lines, got), masked_pinned)
         self.assertEqual(sd.volatile_paint_js(got), js)
 
-    def test_a_row_trigger_index_is_exact_name_not_stem(self):
-        """`get_by_role(..., exact=True)` sees one `删除 2`. Stem matching
-        would also count `删除 1` and hand `nth(1)` an empty locator."""
+    def test_volatile_hits_count_same_stem_names(self):
+        """`count_volatile_hits` matches on role plus the non-digit stem, so
+        `删除 2` also counts `删除 1`."""
         lines = sd.normalize_aria(
             '- button "删除 1"\n'
             '- heading "确认"\n'
             '- button "删除 2"\n'
         )
-        pinned = sd.VolatileTrigger("button", "删除 2", ("heading", "确认"))
-        self.assertEqual(sd.trigger_hit_indices(lines, pinned), [0])
-        self.assertEqual(sd.count_trigger_hits(lines, pinned), 1)
         self.assertEqual(
             sd.count_volatile_hits(lines, [sd.VolatileTrigger("button", "删除 2")]), 2)
 
@@ -818,157 +474,13 @@ class TestBaselineServing(unittest.TestCase):
         self.assertEqual(sd.component_of("Component · 壳头.dc.html"), "Component · 壳头")
 
 
-class WhichClassADefectIs(unittest.TestCase):
-    """`TriggerConflict.kind` is the one place a tree becomes a class, so the contract
-    lint, the ticket lint and the merge rule cannot disagree about the same row."""
-
-    def conflict(self, aria: str, role: str, name: str):
-        lines = sd.normalize_aria(aria)
-        trigger = sd.VolatileTrigger(role, name)
-        return sd.TriggerConflict("r", "p", sd.count_trigger_hits(lines, trigger),
-                                  sd.trigger_after_candidates(lines, trigger))
-
-    def test_matches_with_different_neighbours_are_pinned_by_after(self):
-        """The footer button and the dialog's follow different named nodes, and naming
-        one says which control the row means."""
-        c = self.conflict(
-            '- heading "商品主体确认"\n'
-            '- button "放弃这次任务"\n'
-            '- heading "要放弃这次任务吗"\n'
-            '- button "继续这次任务"\n'
-            '- button "放弃这次任务"\n',
-            "button", "放弃这次任务")
-        self.assertEqual(c.hits, 2)
-        self.assertEqual(c.kind, sd.PIN_AFTER)
-        self.assertIn(("button", "继续这次任务"), c.candidates)
-
-    def test_matches_in_repeated_blocks_have_no_named_node_to_pin(self):
-        """Two config items the design draws identically: the node before each match is
-        the same, so no `after` can split them."""
-        c = self.conflict(
-            '- text: 参考图\n'
-            '- button "使用说明"\n'
-            '- button "添加参考图"\n'
-            '- text: 参考图\n'
-            '- button "使用说明"\n'
-            '- button "添加参考图"\n',
-            "button", "添加参考图")
-        self.assertEqual(c.hits, 2)
-        self.assertEqual(c.kind, sd.PIN_OCCURRENCE)
-        self.assertEqual([n for _, n in c.candidates], ["使用说明"])
-
-    def test_a_match_with_nothing_before_it_is_still_told_apart_by_after(self):
-        """The first named node of a scene has nothing before it, and every `after`
-        excludes it — which is exactly how a row meaning the other match says so. What
-        makes a row positional is every match following the *same* node, not one of them
-        following none."""
-        c = self.conflict(
-            '- button "导出"\n'
-            '- heading "任务详情"\n'
-            '- button "导出"\n',
-            "button", "导出")
-        self.assertEqual(c.hits, 2)
-        self.assertEqual(c.kind, sd.PIN_AFTER)
-
-    def test_a_class_is_one_of_the_three_names_a_program_branches_on(self):
-        self.assertEqual(
-            sorted({sd.PIN_AFTER, sd.PIN_OCCURRENCE, sd.NEEDS_DECISION}),
-            ["decision", "pin-after", "pin-occurrence"])
-
-
-if __name__ == "__main__":
-    unittest.main()
-
-
-class TestBringUp(unittest.TestCase):
-    class Stub:
-        def __init__(self, answers, cfg, root):
-            self.answers, self.cfg, self.root, self.addresses = list(answers), cfg, root, {}
-
-        def ready(self):
-            return self.answers.pop(0)
-
-    def test_an_answering_product_is_left_alone(self):
-        a = self.Stub([(True, "")], {}, Path("."))
-        sd.bring_up(a)
-
-    def test_no_start_declared_names_what_to_declare(self):
-        a = self.Stub([(False, "no backend")], {"discover": "x"}, Path("."))
-        with self.assertRaises(SystemExit) as raised:
-            sd.bring_up(a)
-        self.assertIn("`start`", str(raised.exception))
-
-    def test_start_is_run_once_then_discover_and_ready_again(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            cfg = {"start": "true",
-                   "discover": "printf %s '{\"cdp\": \"http://127.0.0.1:1\"}'"}
-            a = self.Stub([(False, "down"), (True, "")], cfg, root)
-            sd.bring_up(a)
-            self.assertEqual(a.addresses, {"cdp": "http://127.0.0.1:1"})
-            self.assertEqual(a.answers, [])
-
-    def test_a_start_that_returns_but_leaves_it_down_is_reported(self):
-        cfg = {"start": "true", "discover": "printf %s '{}'"}
-        a = self.Stub([(False, "down"), (False, "still down")], cfg, Path("."))
-        with self.assertRaises(SystemExit) as raised:
-            sd.bring_up(a)
-        self.assertIn("still down", str(raised.exception))
 
 
 
-class TestInstanceIdentity(unittest.TestCase):
-    """`ready` means answering **and** mine.
 
-    Liveness is not identity, and on a machine running several worktrees the difference
-    is the whole of the risk: a driver that accepts any answer measures another run's
-    code and reports the verdict as this ticket's. It also skips `start`, so the
-    repository's own "another checkout holds these ports" guard never runs.
-    """
 
-    def adapter(self, addresses, answer):
-        a = FakeAdapter()
-        a.addresses = addresses
-        a.observe = lambda line, values: answer
-        return a
 
-    def test_a_target_that_declares_no_check_is_unchanged(self):
-        a = self.adapter({}, (False, None, "never asked"))
-        self.assertEqual(a.instance_ok(), (True, ""))
 
-    def test_the_declared_check_passing_is_the_whole_of_it(self):
-        a = self.adapter({"instance_check": "GET /health -> .token == \"abc\"",
-                          "instance": "issue-640"}, (True, "abc", ""))
-        self.assertEqual(a.instance_ok(), (True, ""))
-
-    def test_another_run_holding_the_addresses_is_caught(self):
-        a = self.adapter({"instance_check": "GET /health -> .token == \"abc\"",
-                          "instance": "issue-640"}, (False, "zzz", ".token was \"zzz\""))
-        ok, why = a.instance_ok()
-        self.assertFalse(ok)
-        self.assertIn("issue-640", why, "the refusal names no fact")
-        self.assertIn("blocked", why, "the refusal names no next step")
-        self.assertLessEqual(len(why), 256)
-
-    def test_a_check_that_cannot_be_read_is_a_refusal_not_a_pass(self):
-        a = FakeAdapter()
-        a.addresses = {"instance_check": "GET /health -> .token", "instance": "issue-640"}
-
-        def boom(line, values):
-            raise RuntimeError("connection refused")
-
-        a.observe = boom
-        ok, why = a.instance_ok()
-        self.assertFalse(ok, "an unreadable check must not read as a pass")
-        self.assertIn("blocked", why)
-        self.assertLessEqual(len(why), 256)
-
-    def test_every_adapter_asks_it(self):
-        """The hole was in the capability, not in one kind of product."""
-        import inspect
-        for cls in (sd.ElectronAdapter, sd.WebAdapter):
-            with self.subTest(adapter=cls.__name__):
-                self.assertIn("instance_ok", inspect.getsource(cls.ready))
 
 
 class TestTargetCheck(unittest.TestCase):
@@ -987,10 +499,11 @@ class TestTargetCheck(unittest.TestCase):
             code = sd.target_main(list(argv))
         return code, out.getvalue(), err.getvalue()
 
-    def test_kinds_are_the_adapters(self):
+    def test_kinds_are_the_named_product_kinds(self):
         code, out, _ = self.run_target("--kinds")
         self.assertEqual(code, 0)
-        self.assertEqual(out.split(), sorted(sd.ADAPTERS))
+        self.assertEqual(out.split(),
+                         ["electron", "web-spa", "web-server-rendered", "chrome-extension"])
 
     def test_a_repository_without_the_file_is_told_every_required_field(self):
         with tempfile.TemporaryDirectory() as d:
@@ -998,7 +511,7 @@ class TestTargetCheck(unittest.TestCase):
         self.assertEqual(code, 1)
         for f in sd.FIELDS:
             self.assertIn(("  missing  " if f.required else "  absent   ") + f.key, out)
-        self.assertIn("ElectronAdapter", out)
+        self.assertIn("target.kind: electron", out)
         self.assertIn("    origin — where the product is served", out)
         self.assertIn("start refuses a Gateway address that points elsewhere", out)
         self.assertNotIn("  missing  reach", out)
@@ -1081,3 +594,5 @@ class TestTargetCheck(unittest.TestCase):
                 sd.target_config(Path(d))
         self.assertIn("target --check", str(raised.exception))
 
+if __name__ == "__main__":
+    unittest.main()

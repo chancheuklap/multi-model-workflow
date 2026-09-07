@@ -1,23 +1,16 @@
-"""The one driver behind both judges of an interface: interface parity and the wiring check.
+"""Shared runtime for story rendering and for a repository's `.mmw/target.json`.
 
-Everything that is not a judgement lives here — how a product is brought up, addressed,
-released, and read — so that `visual-parity.py` and `wiring-check.py` are two judgements
-over one drive. `extract_skeleton.py` of the `align-screens` skill imports the same
-module for its offline render of a handoff package.
-
-`.mmw/target.json` at the repository root is where the repository answers: `start`,
-`stop`, `discover`, `stories`, `journeys`, `leaves_machine`, optional `instance` and
-`checks`. Which keys it answers is declared here, once, on `FIELDS`, and printed by
+Nothing here judges. `story-parity.py` and `extract_skeleton.py` import the baseline
+server, the wrapper page, capture, and the accessibility-tree normaliser. `journey.py`
+runs `start` / `stop` / `discover` itself. Which keys a repository answers is declared
+here, once, on `FIELDS`, and printed by
 
     screen_driver.py target --check [--repo <dir>] [--kind <kind> | --contract <yaml>]
 
 which names every field still missing, with one sentence and one example each, and
 exits 0 once the file is complete. `discover` prints an origin-class address plus
 `instance` and `instance_check`. `target --validate` prints the first problem only;
-`target --kinds` lists the kinds this driver has.
-
-`start` is run every time a run needs the product. A repository that declares no
-`start` gets a run that stops naming `target --check`.
+`target --kinds` lists the product kinds a contract may name.
 """
 
 from __future__ import annotations
@@ -27,13 +20,10 @@ import http.server
 import json
 import os
 import re
-import shlex
 import socketserver
 import subprocess
 import sys
 import threading
-import time
-import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
@@ -45,7 +35,6 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 from lease import leased_environment, worktree_of  # noqa: E402
-from refusal import REPORT_BLOCKED, refusal  # noqa: E402
 
 # ---------------------------------------------------------------- constants
 # The three scripts `support.js` loads from unpkg. Answered from the handoff package's
@@ -55,34 +44,14 @@ CDN_PREFIX = "https://unpkg.com/"
 VENDOR_DIR = "vendor"
 DEFAULT_CACHE = Path.home() / ".cache" / "mmw" / "visual-parity"
 
-# Virtual milliseconds the controlled clock is run after a navigation: `support.js`
+# Virtual milliseconds the design page's clock is run after a navigation: `support.js`
 # polls readiness every 50 ms and each component first renders on that poll, and a
 # `requestAnimationFrame` focus effect rides the same clock. Far below the handoff
 # package's own timers (an 1800 ms auto-advance, a 2600 ms auto-recover, a 2400 ms toast).
 SETTLE_VIRTUAL_MS = 200
-# Further virtual time the driver may spend waiting for the mount element to appear.
-# Spent in `SETTLE_STEP_MS` steps first, then in `FRAME_MS` ticks after each wall
-# sleep, never past this cap. Kept under the shortest auto-advance in any handoff
-# package seen so far, so a scene is never captured one step past itself.
-SETTLE_BUDGET_MS = 1400
-SETTLE_STEP_MS = 100
-# Virtual time and wall time are not interchangeable, and a view that appears only when
-# a response arrives needs the second kind. Running the clock fires the page's timers and
-# returns at once, so a budget counted only in virtual milliseconds gives a real request
-# no time at all. The two are spent together: wall time is when the request can complete,
-# and remaining virtual time after each wall step is what paints the result. Every timer
-# on the page is under the controlled clock, so the handoff package's auto-advance cannot
-# fire while wall time passes.
-WAIT_REAL_BUDGET_S = 8.0
-WAIT_REAL_STEP_S = 0.1
-# One animation frame. A response that arrives during wall time schedules its paint on
-# the next frame; a tick smaller than this would not fire it.
 FRAME_MS = 16
-# Wall-clock bound on one click or fill. The page's clock is paused, so an element that
-# is not enabled now stays so; the bound only keeps a wrong step from hanging the run.
-ACTION_TIMEOUT_MS = 2000
-# Every scene starts the fake clock here and moves it forward only; `pause_at` refuses
-# to go back, and a page reached over CDP keeps one clock for the whole run.
+# Every design page starts the fake clock here and moves it forward only; `pause_at`
+# refuses to go back.
 CLOCK_EPOCH_MS = 1_700_000_000_000
 
 # Roles whose accessible name is dropped: a product page labels its `<main>`, a
@@ -95,14 +64,10 @@ LANDMARKS = {"main", "navigation", "banner", "contentinfo", "region", "complemen
 # uses the whole ancestor chain and needs no list, so a product built from `nav`, `table`
 # or a repeated `article` needs nothing added here.
 COMPARED_UNNAMED = {"dialog", "alertdialog"}
-# `open` steps on these roles carry a value to type instead of a click.
-INPUT_ROLES = {"textbox", "combobox", "spinbutton", "searchbox"}
 # Classes the Claude Design runtime adds around interpolated text and hosts; a product
 # never carries them, and they are not part of the design.
 RUNTIME_CLASS_PREFIXES = ("sc-", "dc-")
 
-DATA_SCREEN = "data-screen"
-PLACEHOLDER = re.compile(r"\{(\w+)\}")
 VIEWPORT_RE = re.compile(r"^(\d+)x(\d+)$")
 # Scene marker `extract_skeleton.py` writes into target trees; `count_volatile_hits`
 # splits on the same string.
@@ -116,14 +81,7 @@ class Scene:
     name: str
     page: str
     mount: str
-    route: str
-    reach: list[str]
-    open: list[dict]
     props: dict
-    # Virtual milliseconds the controlled clock is run after `open`, before capture:
-    # the one place elapsed time enters, for a state the design itself defines by time
-    # (a notice that dismisses after its toast timer).
-    clock: int = 0
 
 
 def load_yaml(path: Path) -> dict:
@@ -153,13 +111,6 @@ def load_contract(path: Path) -> dict:
     return doc
 
 
-def mechanisms_of(doc: dict) -> dict[str, dict]:
-    """The mechanism table as a mapping, whichever shape the file wrote it in."""
-    raw = doc.get("mechanisms") or {}
-    if isinstance(raw, list):
-        return {str(m): {} for m in raw}
-    return {str(k): (v or {}) for k, v in raw.items()}
-
 
 def parse_viewports(raw) -> list[tuple[int, int]]:
     items = raw if isinstance(raw, list) else str(raw).split(",")
@@ -177,18 +128,9 @@ def parse_viewports(raw) -> list[tuple[int, int]]:
     return out
 
 
-def open_steps(raw) -> list[dict]:
-    steps = []
-    for step in raw or []:
-        if isinstance(step, str):
-            steps.append({"row": step, "value": None})
-        else:
-            steps.append({"row": str(step.get("row")), "value": step.get("value")})
-    return steps
-
 
 def scenes_of(doc: dict, catalogue: dict[str, dict]) -> dict[str, Scene]:
-    """Every screen declaration, with page-level `mount` and `route` filled in."""
+    """Every screen declaration, with page-level `mount` filled in."""
     pages = doc.get("pages") or {}
     out = {}
     for name, decl in (doc.get("scenes") or {}).items():
@@ -198,11 +140,7 @@ def scenes_of(doc: dict, catalogue: dict[str, dict]) -> dict[str, Scene]:
         out[name] = Scene(
             name=name, page=page,
             mount=str(decl.get("mount") or page_decl.get("mount") or ""),
-            route=str(decl.get("route") or page_decl.get("route") or ""),
-            reach=[str(r) for r in (decl.get("reach") or [])],
-            open=open_steps(decl.get("open")),
-            props=catalogue.get(name, {}).get("props") or {},
-            clock=int(decl.get("clock") or 0))
+            props=catalogue.get(name, {}).get("props") or {})
     return out
 
 
@@ -218,7 +156,7 @@ def scene_plan(doc: dict, catalogue: dict[str, dict], mounts: list[str],
     """The scenes a run covers: every scene whose `mount` is one of `mounts`, narrowed to
     `explicit` when given — which must be a subset, because a page's scenes are split
     between two tickets only this way and a scene outside the mount is another ticket's.
-    `["all"]` means every mount the contract declares (the addressing self-check)."""
+    `["all"]` means every mount the contract declares."""
     scenes = scenes_of(doc, catalogue)
     if mounts == ["all"]:
         mounts = sorted({s.mount for s in scenes.values()})
@@ -234,39 +172,6 @@ def scene_plan(doc: dict, catalogue: dict[str, dict], mounts: list[str],
                          f"{', '.join(outside)}")
     return [by_name[n] for n in explicit]
 
-
-def scene_for_row(row: dict, scenes: dict[str, Scene]) -> Scene | None:
-    """The scene the wiring check drives a row on: the row's `drive.scene` when it names
-    one, else the first of the row's `scenes` the contract declares. Its `reach` and
-    `open` put the control on screen; a row whose control sits in a dialog is reached
-    the way the scene is."""
-    drive = row.get("drive") or {}
-    chosen = drive.get("scene")
-    if chosen:
-        if chosen not in scenes:
-            raise SystemExit(f"row {row.get('id')}: drive.scene {chosen!r} is not a declared scene")
-        return scenes[chosen]
-    for name in row.get("scenes") or []:
-        if name in scenes:
-            return scenes[name]
-    return None
-
-
-def drive_of(row: dict) -> tuple[list[str], list[dict]]:
-    """A row's own way to a state its scenes never show actionable: extra `reach`
-    mechanisms run after the scene's, and `open` steps performed after the scene's
-    chain and before the trigger (typing a name, picking a file)."""
-    drive = row.get("drive") or {}
-    reach = [str(m) for m in drive.get("reach") or []]
-    steps = []
-    for step in drive.get("open") or []:
-        steps.append({"row": step, "value": None} if isinstance(step, str)
-                     else {"row": str(step.get("row")), "value": step.get("value")})
-    return reach, steps
-
-
-def fill(text: str, values: dict[str, str]) -> str:
-    return PLACEHOLDER.sub(lambda m: values.get(m.group(1), m.group(0)), text)
 
 
 # ---------------------------------------------------------------- repository config
@@ -381,154 +286,7 @@ def command_env(cwd: Path) -> dict[str, str]:
     return env
 
 
-def run_command(command: str, cwd: Path, extra: list[str] | None = None) -> str:
-    proc = subprocess.run(shlex.split(command) + (extra or []), cwd=cwd,
-                          capture_output=True, text=True, env=command_env(cwd))
-    if proc.returncode != 0:
-        shown = f"{command}{' ' + ' '.join(extra) if extra else ''}"
-        detail = (proc.stderr.strip() or proc.stdout.strip()).splitlines()
-        first = detail[0] if detail else "(no output)"
-        raise SystemExit(refusal(
-            f"`{shown}` exited {proc.returncode}: {first}",
-            "The repository's declared command did not succeed.",
-            REPORT_BLOCKED,
-        ))
-    return proc.stdout
 
-
-def discover(cfg: dict, root: Path) -> dict:
-    out = run_command(cfg["discover"], root).strip()
-    try:
-        data = json.loads(out)
-    except json.JSONDecodeError as exc:
-        raise SystemExit(f"discover printed no JSON object: {out[:200]!r} ({exc})")
-    if not isinstance(data, dict):
-        raise SystemExit("discover must print one JSON object")
-    return data
-
-
-def key_values(text: str) -> dict[str, str]:
-    values = {}
-    for line in text.splitlines():
-        k, sep, v = line.partition("=")
-        if sep and k.strip():
-            values[k.strip()] = v.strip()
-    return values
-
-
-# ---------------------------------------------------------------- HTTP read surface
-def http_get(url: str, headers: dict | None = None, timeout: int = 15):
-    """`(status, content_type, body_bytes)`; a 4xx/5xx is returned, not raised."""
-    req = urllib.request.Request(url, method="GET", headers=headers or {})
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            return r.status, r.headers.get("Content-Type", ""), r.read()
-    except urllib.error.HTTPError as e:
-        return e.code, e.headers.get("Content-Type", "") if e.headers else "", b""
-    except (urllib.error.URLError, OSError) as e:
-        return 0, "", str(e).encode()
-
-
-def http_call(base: str, method: str, path: str, headers: dict | None = None):
-    req = urllib.request.Request(base.rstrip("/") + path, method=method, headers=headers or {})
-    try:
-        with urllib.request.urlopen(req, timeout=15) as r:
-            raw = r.read()
-            return r.status, (json.loads(raw) if raw else None)
-    except urllib.error.HTTPError as e:
-        return e.code, None
-    except (urllib.error.URLError, OSError):
-        return 0, None
-
-
-SIMPLE_EXPR = re.compile(r"^\s*(\.[\w.\[\]]*)\s*(?:(==|!=|contains|exists)\s*(.*))?$")
-JQ_VAR = re.compile(r"\$([A-Za-z_]\w*)")
-
-
-def evaluate(expr: str, body: object, values: dict[str, str] | None = None) -> tuple[bool, object]:
-    """An observe expression against a JSON body. The built-in grammar covers
-    `.a.b[0] == "x"`, `.a != 1`, `.a contains "x"`, `.a exists`, and a bare `.a` (truthy);
-    anything else is a jq program, run by the `jq` on PATH with every value the reach
-    script printed or an `open` step typed bound as a `$variable`. A `$variable` nothing
-    supplies is a contract defect and stops the run by name."""
-    expr = re.sub(r"\s+#.*$", "", expr.strip())  # a trailing `# note` is for the reader
-    m = SIMPLE_EXPR.match(expr)
-    if not m or "$" in expr:
-        return evaluate_jq(expr, body, values or {})
-    value: object = body
-    for part in re.findall(r"\.(\w+)|\[(\d+)\]", m.group(1)):
-        key, idx = part
-        try:
-            value = value[key] if key else value[int(idx)]
-        except (KeyError, IndexError, TypeError):
-            value = None
-            break
-    op, rhs = m.group(2), (m.group(3) or "").strip()
-    if op is None:
-        return bool(value), value
-    if op == "exists":
-        return value is not None, value
-    want = json.loads(rhs) if rhs else None
-    if op == "==":
-        return value == want, value
-    if op == "!=":
-        return value != want, value
-    return (want in value) if isinstance(value, (str, list)) else False, value
-
-
-def evaluate_jq(expr: str, body: object, values: dict[str, str]) -> tuple[bool, object]:
-    """`jq -e <expr>` over the body: exit 0 is true, 1 is false or null; the last output
-    line is what was seen. Values bind as `--argjson` when they read as JSON scalars
-    (numbers, booleans, null) and as `--arg` strings otherwise."""
-    unbound = sorted({v for v in JQ_VAR.findall(expr) if v not in values})
-    if unbound:
-        raise SystemExit(f"observe expression uses ${', $'.join(unbound)}, which neither the "
-                         f"reach script's KEY=VALUE lines nor a typed open step supplies: {expr}")
-    args = ["jq", "-e", "-c"]
-    for key, value in values.items():
-        if f"${key}" not in expr:
-            continue
-        try:
-            parsed = json.loads(value)
-        except (ValueError, TypeError):
-            parsed = None
-        if isinstance(parsed, (int, float, bool)) or parsed is None and value == "null":
-            args += ["--argjson", key, value]
-        else:
-            args += ["--arg", key, value]
-    args.append(expr)
-    try:
-        run = subprocess.run(args, input=json.dumps(body, ensure_ascii=False), capture_output=True,
-                             text=True, timeout=30)
-    except FileNotFoundError as exc:
-        raise SystemExit("observe expression needs jq on PATH: " + expr) from exc
-    if run.returncode not in (0, 1):
-        raise SystemExit(f"jq could not run the observe expression {expr!r}: "
-                         f"{run.stderr.strip() or run.returncode}")
-    lines = [line for line in run.stdout.splitlines() if line.strip()]
-    got: object = None
-    if lines:
-        try:
-            got = json.loads(lines[-1])
-        except ValueError:
-            got = lines[-1]
-    return run.returncode == 0, got
-
-
-NODE_EXPR = re.compile(r'^\s*node\s+(?P<role>[a-zA-Z]+)(?:\s+"(?P<name>(?:[^"\\]|\\.)*)")?'
-                       r'\s+(?P<op>exists|absent)\s*$')
-
-
-def evaluate_tree(expr: str, tree_lines: list[str]) -> tuple[bool, object]:
-    """`node <role> "<name>" exists` (or `absent`) against a normalised tree."""
-    m = NODE_EXPR.match(expr)
-    if not m:
-        raise ValueError(f"cannot read tree expression {expr!r}")
-    role, name, op = m.group("role"), m.group("name"), m.group("op")
-    wanted = f'- {role} "{name}"' if name is not None else f"- {role}"
-    hits = [ln for ln in tree_lines if ln.split(" < ")[0].startswith(wanted)]
-    found = bool(hits)
-    return (found if op == "exists" else not found), hits[:3]
 
 
 # ---------------------------------------------------------------- the tree
@@ -864,21 +622,11 @@ def volatile_stem(name: str) -> str:
 
 
 class VolatileTrigger(NamedTuple):
-    """A trigger plus whichever pin it needs: role, accessible name, and either `after`
-    (the previous named node) or `occurrence` with `of` (the Nth of N matches, in reading
-    order). The same tuple is a `volatile_values` entry and a row that has to pick one of
-    several same-name controls.
-
-    `of` is carried rather than looked up because it is the fact the pin depends on: a
-    positional pin is only meaningful against a known number of matches, and a row that
-    says "the first of two" fails loudly the day the product renders three. The lint keeps
-    it equal to the design tree's count, so it cannot drift into a private opinion."""
+    """A `volatile_values` entry: role, accessible name, and optional `after`
+    (the previous named node) when that pair is not unique on the scene."""
     role: str
     name: str
     after: tuple[str, str] | None = None
-    occurrence: int | None = None
-    of: int | None = None
-    within: tuple[str, str] | None = None
 
 
 def volatile_name_matches(role: str, name: str, wanted_role: str, wanted_name: str) -> bool:
@@ -894,37 +642,14 @@ def volatile_name_matches(role: str, name: str, wanted_role: str, wanted_name: s
 
 
 def after_of(entry: dict) -> tuple[str, str] | None:
-    """`after` on a `volatile_values` entry or a row: the previous named node,
-    or None. One shape, one reader."""
+    """`after` on a `volatile_values` entry: the previous named node, or None."""
     raw = entry.get("after")
     if isinstance(raw, dict) and raw.get("role") and raw.get("name"):
         return (str(raw.get("role")), str(raw.get("name")))
     return None
 
 
-def _int_or_none(value) -> int | None:
-    return value if isinstance(value, int) and not isinstance(value, bool) else None
 
-
-def within_of(entry: dict) -> tuple[str, str] | None:
-    """`within` on a row: the ancestor the control sits under, `{role}` or
-    `{role, name}`. A dialog rarely has a name of its own, so the name defaults to the
-    empty string and matches the unnamed container the tree records."""
-    raw = entry.get("within")
-    if isinstance(raw, dict) and "role" in raw:
-        return (str(raw.get("role") or ""), str(raw.get("name") or ""))
-    return None
-
-
-def row_trigger(row: dict) -> VolatileTrigger:
-    """The row's trigger as a `VolatileTrigger`, its pin included. `after` and
-    `occurrence` are the two pins and never both — which one a row may use is decided by
-    the design tree, not by whoever writes the row, and the contract lint holds it."""
-    t = row.get("trigger") or {}
-    return VolatileTrigger(str(t.get("role") or ""), str(t.get("name") or ""),
-                           after_of(row),
-                           _int_or_none(row.get("occurrence")), _int_or_none(row.get("of")),
-                           within_of(row))
 
 
 def named_nodes(lines: list[str], chains: list[tuple[tuple[str, str], ...]] | None = None):
@@ -963,399 +688,8 @@ def named_nodes(lines: list[str], chains: list[tuple[tuple[str, str], ...]] | No
             previous = parsed
 
 
-def trigger_hit_indices(lines: list[str], trigger: VolatileTrigger, chains=None) -> list[int]:
-    """0-based indices into `page.get_by_role(role, name=…, exact=True)`.
-    `k` counts exact `(role, name)` only; `matches_volatile` applies `after`."""
-    hits: list[int] = []
-    k = 0
-    for item in named_nodes(lines, chains):
-        if item is None:
-            continue
-        role, name, previous, chain = item
-        if (role, name) != (trigger.role, trigger.name):
-            continue
-        if matches_volatile(role, name, [trigger], previous, chain):
-            hits.append(k)
-        k += 1
-    if trigger.occurrence is not None:
-        if trigger.of == len(hits) and 1 <= trigger.occurrence <= len(hits):
-            return [hits[trigger.occurrence - 1]]
-    return hits
 
 
-def narrow_pair(lines, chains, scenes):
-    """`narrow_to_scenes` for the two aligned views at once: a chain belongs to its line,
-    so filtering one without the other would silently pair a line with another node's
-    ancestors."""
-    if chains is None:
-        return narrow_to_scenes(lines, scenes), None
-    if scenes is None or not any(
-            raw.rstrip("\n").startswith(SCENE_HEADER) for raw in lines):
-        return lines, chains
-    kept_l, kept_c, keep = [], [], False
-    for raw, ch in zip(lines, chains):
-        line = raw.rstrip("\n")
-        if line.startswith(SCENE_HEADER):
-            keep = line[len(SCENE_HEADER):].strip() in scenes
-        if keep:
-            kept_l.append(raw)
-            kept_c.append(ch)
-    return kept_l, kept_c
-
-
-def narrow_to_scenes(lines: list[str], scenes: set[str] | None) -> list[str]:
-    """The lines of the named scenes of a target tree that carries `## scene` markers.
-    A tree with none is one scene and is returned whole whatever is asked for."""
-    if scenes is None or not any(
-            raw.rstrip("\n").startswith(SCENE_HEADER) for raw in lines):
-        return lines
-    kept: list[str] = []
-    keep = False
-    for raw in lines:
-        line = raw.rstrip("\n")
-        if line.startswith(SCENE_HEADER):
-            keep = line[len(SCENE_HEADER):].strip() in scenes
-        if keep:
-            kept.append(raw)
-    return kept
-
-
-def count_trigger_hits(lines: list[str], trigger: VolatileTrigger,
-                      scenes: set[str] | None = None, chains=None) -> int:
-    """Most exact `(role, name)` hits in any one scene, after `after` is applied.
-
-    `scenes` narrows it to the named scenes of a target tree that carries `## scene`
-    markers; a tree with none is one scene and is counted whole whatever is asked for.
-    The narrowing lives here rather than in a filter the caller applies first, because
-    this function already walks scene by scene to take the maximum.
-    """
-    lines, chains = narrow_pair(lines, chains, scenes)
-    best = 0
-    current = 0
-    for item in named_nodes(lines, chains):
-        if item is None:
-            best = max(best, current)
-            current = 0
-            continue
-        role, name, previous, chain = item
-        if (role, name) != (trigger.role, trigger.name):
-            continue
-        if matches_volatile(role, name, [trigger], previous, chain):
-            current += 1
-    hits = max(best, current)
-    if trigger.occurrence is not None:
-        # A positional pin resolves to one node exactly when the tree still holds the
-        # number it was written against and the index is inside it. Otherwise the count
-        # is returned unchanged, so every caller — the lint, the driver — sees an
-        # unresolved trigger rather than a pin quietly pointing somewhere else.
-        if trigger.of == hits and 1 <= trigger.occurrence <= hits:
-            return 1
-    return hits
-
-
-# The three classes a contract defect falls into. A class decides who repairs it, so it
-# is a string a program branches on and never a wording: `PIN_AFTER` and `PIN_OCCURRENCE`
-# a worker repairs, `NEEDS_DECISION` is a person's. Each reader of a contract renders its
-# own sentence for its own audience; what none of them may do is derive the class again.
-PIN_WITHIN = "pin-within"
-PIN_AFTER = "pin-after"
-PIN_OCCURRENCE = "pin-occurrence"
-NEEDS_DECISION = "decision"
-
-
-class TriggerConflict(NamedTuple):
-    """A row whose trigger reaches more than one node on one of its own pages, with
-    the previous named node of each match read off that page's target tree."""
-    row_id: str
-    page: str
-    hits: int
-    candidates: list[tuple[str, str]]
-    ancestors: list[tuple[str, str]] = ()
-
-    @property
-    def kind(self) -> str:
-        """Which class this defect is, decided by the design's own tree rather than by
-        anyone's judgement — and derived here alone, because a caller that decided it
-        again would be a second answer to the same question.
-
-        Candidates that differ: one of them is the `after` that splits the matches, and
-        naming it says *which* control the row means, which survives the design putting
-        another control before it. Candidates that are all one node: the matches sit in
-        blocks the design repeats, no named node tells them apart, and only a positional
-        pin can. A trigger that is not unique is always one of these two; `NEEDS_DECISION`
-        belongs to the checks a trigger reader does not make — a scene that cannot be
-        reached, an operation the read surface does not have, an expression that will not
-        parse.
-
-        The question is whether *some* `after` selects one match, not whether one reaches
-        all of them. A match that is the first named node of its scene has nothing before
-        it, so every `after` excludes it — which is the answer a row meaning the other
-        match wants. So distinct previous nodes, counting "nothing before it" as one of
-        them, is what makes a row pinnable; only when every match follows the same node
-        does no `after` exist and the row become positional.
-
-        `within` comes first because it is the most durable answer: it says the control is
-        the one inside that container, which survives the design adding controls before it
-        or repeating the block. `after` is a sibling relationship and survives less.
-        `occurrence` says only "the Nth" and survives least, so it is what is left when the
-        design gives nothing else."""
-        if len(self.ancestors) > 1:
-            return PIN_WITHIN
-        return PIN_AFTER if len(self.candidates) > 1 else PIN_OCCURRENCE
-
-
-# The fixed opening of a line that says a run cannot drive a row as the contract stands.
-# A program reads this — `verify-ticket.py` copies it into the handoff report and the merge
-# rule of the dispatch skill branches on it — so it is a prefix and a class name, never a
-# sentence. What follows the dash is for the agent reading the failure.
-UNDRIVABLE = "UNDRIVABLE"
-
-
-def undrivable_lines(doc: dict, contract_dir, row_ids=None) -> list[str]:
-    """One line per row this contract cannot be driven on, class first.
-
-    Both judges call this before they drive anything: a contract that cannot be executed
-    should say so about every row at once, not fail on the first and leave the rest
-    unknown. The same reader the two lints use, so all four say the same word about the
-    same row."""
-    out = []
-    for c in contract_trigger_conflicts(doc, contract_dir, row_ids):
-        out.append(f"{UNDRIVABLE} [{c.kind}] {c.row_id} — trigger reaches {c.hits} nodes "
-                   f"on {c.page}; the contract does not say which one this row means")
-    return out
-
-
-def driven_scenes(doc: dict, row: dict) -> set[str]:
-    """The scenes something actually acts on this row in.
-
-    A row is *visible* on far more scenes than it is driven on: `scenes` is where the
-    design draws the control, and a judge clicks it only on the one scene the row is
-    driven on — `drive.scene`, else the first it lists — plus any scene whose `open` chain
-    names it. A trigger that is not unique somewhere nobody clicks it is not a defect, and
-    treating it as one refuses contracts that work: on agentflow, 18 of 23 rows refused
-    that way were named by no `open` chain at all.
-    """
-    out: set[str] = set()
-    drive = (row.get("drive") or {}).get("scene")
-    names = [s if isinstance(s, str) else str((s or {}).get("name") or "")
-             for s in (row.get("scenes") or [])]
-    if drive:
-        out.add(str(drive))
-    elif names:
-        out.add(names[0])
-    rid = str(row.get("id") or "")
-    for name, decl in (doc.get("scenes") or {}).items():
-        for step in (decl or {}).get("open") or []:
-            named = step.get("row") if isinstance(step, dict) else step
-            if named == rid:
-                out.add(name)
-    return {n for n in out if n}
-
-
-def trigger_resolution(doc: dict, contract_dir, row_ids=None) -> dict[str, dict[str, list[int]]]:
-    """For every row, *which* node its trigger resolves to on each of its pages.
-
-    The fingerprint a contract repair is proved against. Counts are not enough: a repair
-    must leave every other row on the same node, and two different nodes are the same
-    count. Same reader as `contract_trigger_conflicts` — contract and target trees only.
-    """
-    from pathlib import Path
-    contract_dir = Path(contract_dir)
-    scene_pages = {name: (decl or {}).get("page")
-                   for name, decl in (doc.get("scenes") or {}).items()}
-    trees: dict[str, tuple[list[str], list | None]] = {}
-
-    def tree_of(page: str) -> tuple[list[str], list | None]:
-        if page not in trees:
-            trees[page] = page_views(contract_dir, page)
-        return trees[page]
-
-    out: dict[str, dict[str, list[int]]] = {}
-    for row in doc.get("rows") or []:
-        rid = str(row.get("id") or "")
-        if not rid or (row_ids is not None and rid not in set(row_ids)):
-            continue
-        wanted = row_trigger(row)
-        if not wanted.role or not wanted.name:
-            continue
-        # Per scene, not per page. A scene is what is on screen when the driver acts, so
-        # it is the unit a pin is written against; a page's scenes concatenated would
-        # count a control once per scene and no `of` could ever match.
-        for name in sorted(driven_scenes(doc, row)):
-            page = scene_pages.get(name)
-            if not page:
-                continue
-            page_lines, page_chains = tree_of(page)
-            lines, chains = narrow_pair(page_lines, page_chains, {name})
-            if lines:
-                out.setdefault(rid, {})[f"{page}::{name}"] = trigger_hit_indices(
-                    lines, wanted, chains)
-    return out
-
-
-def page_views(contract_dir, page: str) -> tuple[list[str], list | None]:
-    """A page's stored comparison lines and, when the snapshot beside them is there, the
-    ancestor chains too.
-
-    The `.aria` file keeps one named ancestor per line, which is what a diff should say
-    and not enough to decide which control a row means. The `.snapshot` written next to it
-    by `extract_skeleton.py` is the render both views come from, so the chains are derived
-    here rather than stored twice. A checkout without the snapshot still lints — it just
-    cannot classify a row as `pin-within`, and says so by offering no ancestors.
-    """
-    from pathlib import Path
-    contract_dir = Path(contract_dir)
-    stem = page[:-len(".dc.html")] if page.endswith(".dc.html") else page
-    snapshot = contract_dir / "targets" / f"{stem}.snapshot"
-    if snapshot.exists():
-        lines: list[str] = []
-        chains: list = []
-        block: list[str] = []
-
-        def flush() -> None:
-            if not block:
-                return
-            got_lines, got_chains = normalize_aria_with_chains("\n".join(block))
-            lines.extend(got_lines)
-            chains.extend(got_chains)
-            block.clear()
-
-        for raw in snapshot.read_text(encoding="utf-8").splitlines():
-            if raw.startswith(SCENE_HEADER):
-                flush()
-                lines.append(raw)
-                chains.append(())
-            elif not raw.startswith("#"):
-                block.append(raw)
-        flush()
-        return lines, chains
-    aria = contract_dir / "targets" / f"{stem}.aria"
-    return (aria.read_text(encoding="utf-8").splitlines() if aria.exists() else []), None
-
-
-def contract_trigger_conflicts(doc: dict, contract_dir, row_ids=None) -> list[TriggerConflict]:
-    """Every row of `doc` whose trigger is not unique on a page its own scenes sit on.
-
-    Reads only the contract and the target trees beside it (`targets/<page>.aria`), so
-    the contract lint, the ticket lint and anyone holding a checkout get the same answer
-    without the handoff package. `row_ids` narrows it to the rows a ticket owns.
-    """
-    from pathlib import Path
-    contract_dir = Path(contract_dir)
-    scene_pages = {name: (decl or {}).get("page")
-                   for name, decl in (doc.get("scenes") or {}).items()}
-    trees: dict[str, tuple[list[str], list | None]] = {}
-
-    def tree_of(page: str) -> tuple[list[str], list | None]:
-        if page not in trees:
-            trees[page] = page_views(contract_dir, page)
-        return trees[page]
-
-    out: list[TriggerConflict] = []
-    for row in doc.get("rows") or []:
-        rid = str(row.get("id") or "")
-        if not rid or (row_ids is not None and rid not in set(row_ids)):
-            continue
-        wanted = row_trigger(row)
-        if not wanted.role or not wanted.name:
-            continue
-        # A row with its own `drive.reach` is driven in a state the scene's design tree
-        # does not show — a draft seeded with one config item where the scene draws two —
-        # so counting nodes in that tree answers a question about a different screen. It
-        # cannot be decided here, and the driver decides it at run time by counting what
-        # is actually on the page. Measured on agentflow: rows whose drive.reach was
-        # `seed:draft-single-ready` drew one control where their scene's tree drew two.
-        if (row.get("drive") or {}).get("reach"):
-            continue
-        pages: dict[str, set[str]] = {}
-        for name in driven_scenes(doc, row):
-            page = scene_pages.get(name)
-            if page:
-                pages.setdefault(page, set()).add(name)
-        for page, scs in sorted(pages.items()):
-            lines, chains = tree_of(page)
-            if not lines:
-                continue
-            hits = count_trigger_hits(lines, wanted, scs, chains)
-            if hits > 1:
-                out.append(TriggerConflict(
-                    rid, page, hits,
-                    trigger_after_candidates(lines, wanted, scs, chains),
-                    trigger_within_candidates(lines, wanted, scs, chains)))
-    return out
-
-
-def trigger_within_candidates(lines: list[str], trigger: VolatileTrigger,
-                              scenes: set[str] | None = None, chains=None) -> list[tuple[str, str]]:
-    """The `within` candidates: the ancestor of each node the trigger's exact
-    `(role, name)` matches, from the scenes where it matches more than once, deduplicated
-    in reading order. Two or more entries and one of them is the container that says which
-    control the row means — the answer for a confirm button inside a dialog and the page
-    button that opened it."""
-    lines, chains = narrow_pair(lines, chains, scenes)
-    out: list[tuple[str, str]] = []
-    seen: set[tuple[str, str]] = set()
-    scene_under: list[tuple[str, str]] = []
-
-    def take() -> None:
-        if len(scene_under) < 2:
-            return
-        for under in scene_under:
-            if under not in seen:
-                seen.add(under)
-                out.append(under)
-
-    for item in named_nodes(lines, chains):
-        if item is None:
-            take()
-            scene_under = []
-            continue
-        role, name, previous, chain = item
-        if (role, name) != (trigger.role, trigger.name):
-            continue
-        scene_under.append(chain[-1] if chain else ("", ""))
-    take()
-    return out
-
-
-def trigger_after_candidates(lines: list[str], trigger: VolatileTrigger,
-                            scenes: set[str] | None = None, chains=None) -> list[tuple[str, str]]:
-    """The `after` candidates for a trigger that is not unique: the previous named
-    node of each node its exact `(role, name)` matches, collected from the scenes
-    where it matches more than once, deduplicated in reading order.
-
-    Two or more entries: each picks a different node, so one of them is the `after`
-    the row wants. One entry: every match follows the same node, so `after` cannot
-    split them and the row needs a `drive.scene` where the pair is unique. Empty: the
-    pair matched nothing, or matched once everywhere, so there is nothing to pin.
-    """
-    lines, chains = narrow_pair(lines, chains, scenes)
-    out: list[tuple[str, str]] = []
-    seen: set[tuple[str, str]] = set()
-    scene_previous: list[tuple[str, str]] = []
-    scene_under: list[tuple[str, str]] = []
-
-    def take() -> None:
-        if len(scene_previous) < 2:
-            return
-        for prev in scene_previous:
-            if prev not in seen:
-                seen.add(prev)
-                out.append(prev)
-
-    for item in named_nodes(lines, chains):
-        if item is None:
-            take()
-            scene_previous = []
-            scene_under = []
-            continue
-        role, name, previous, chain = item
-        if (role, name) != (trigger.role, trigger.name):
-            continue
-        scene_previous.append(previous if previous is not None else ("", ""))
-        scene_under.append(chain[-1] if chain else ("", ""))
-    take()
-    return out
 
 
 def matches_volatile(role: str, name: str, triggers: list[VolatileTrigger],
@@ -1364,20 +698,6 @@ def matches_volatile(role: str, name: str, triggers: list[VolatileTrigger],
     for trigger in triggers:
         if not volatile_name_matches(role, name, trigger.role, trigger.name):
             continue
-        if trigger.within is not None:
-            # Any ancestor on the chain, by role, with the name checked only when the row
-            # gives one. Roles are structure and survive the product ordering its data
-            # differently or rendering a value another way; names do not. An empty role
-            # asks for the opposite — no ancestor of any named role — which is how the
-            # button that opens a dialog is told from the one that confirms inside it.
-            roles = [r for r, _ in chain]
-            if trigger.within[0]:
-                if not any(r == trigger.within[0]
-                           and (not trigger.within[1] or n == trigger.within[1])
-                           for r, n in chain):
-                    continue
-            elif roles:
-                continue
         if trigger.after is None:
             return True
         if previous is not None and volatile_name_matches(
@@ -1567,82 +887,32 @@ ELEMENTS_JS = """(() => {
 })()"""
 
 
-# One session per page for the whole run. An emulation override belongs to the session
-# that set it, so a second session cannot clear it and a first session left attached
-# goes on applying it.
-_CDP_SESSIONS: dict[int, object] = {}
-_CLOCKED: dict[int, int] = {}
+_CLOCK_PAGES: set[int] = set()
 
 
-def cdp_session(page):
-    session = _CDP_SESSIONS.get(id(page))
-    if session is None:
-        session = page.context.new_cdp_session(page)
-        _CDP_SESSIONS[id(page)] = session
-    return session
-
-
-def resize(page, viewport: tuple[int, int], over_cdp: bool) -> None:
-    """Put the page in a window of this size, however it was reached.
-
-    A context this program launched was given its viewport and its device pixel ratio
-    when it was created. A page reached over CDP belongs to the application, whose
-    context was created by somebody else and cannot be given either — so the size and
-    the ratio are pushed down as a device-metrics override instead. The ratio has to be
-    said out loud there: on a high-resolution screen the application renders at two
-    device pixels per CSS pixel, and a screenshot twice the size of the baseline's is a
-    failure before anything is compared. This layer stays whatever the target: an
-    extension's popup opened as a plain tab has no 400 px constraint of its own.
-    """
-    if over_cdp:
-        cdp_session(page).send(
-            "Emulation.setDeviceMetricsOverride",
-            {"width": viewport[0], "height": viewport[1],
-             "deviceScaleFactor": 1, "mobile": False})
-        page.emulate_media(reduced_motion="reduce")
-    else:
-        page.set_viewport_size({"width": viewport[0], "height": viewport[1]})
-
-
-def restore(page, home: str) -> None:
-    """Give the application's window back to the user: its own size, its own clock, and
-    its own page. The override `resize` pushes down holds until the session that set it
-    clears it; a paused clock would leave every timer of the application dead."""
-    session = _CDP_SESSIONS.pop(id(page), None)
-    try:
-        if _CLOCKED.pop(id(page), None) is not None:
-            page.clock.resume()
-        if session is not None:
-            session.send("Emulation.clearDeviceMetricsOverride")
-            page.emulate_media(reduced_motion="no-preference")
-            session.detach()
-        if home:
-            page.goto(home, wait_until="domcontentloaded")
-    except Exception:
-        pass
+def resize(page, viewport: tuple[int, int]) -> None:
+    """Put the page in a window of this size."""
+    page.set_viewport_size({"width": viewport[0], "height": viewport[1]})
 
 
 def install_clock(page) -> None:
-    """A controlled clock, installed once per page and moved forward only. Time is
-    paused before the navigation, so nothing the page schedules fires until the driver
-    runs it, and never further than the driver runs it."""
-    now = _CLOCKED.get(id(page))
-    if now is None:
-        page.clock.install(time=CLOCK_EPOCH_MS)
-        now = CLOCK_EPOCH_MS
-    page.clock.pause_at(now)
-    _CLOCKED[id(page)] = now
+    """Install a paused fake clock once per page, so `support.js`'s readiness poll
+    fires only when `run_clock` moves time, and never further than that."""
+    if id(page) in _CLOCK_PAGES:
+        return
+    page.clock.install(time=CLOCK_EPOCH_MS)
+    page.clock.pause_at(CLOCK_EPOCH_MS)
+    _CLOCK_PAGES.add(id(page))
 
 
 def run_clock(page, ms: int) -> None:
+    install_clock(page)
     page.clock.run_for(ms)
-    _CLOCKED[id(page)] = _CLOCKED.get(id(page), CLOCK_EPOCH_MS) + ms
 
 
 def navigate(page, url: str, reload: bool = False) -> None:
-    """Open `url` under the controlled clock and let it settle. `reload` is for a
-    hash-routed application: a same-document fragment jump returns from `networkidle`
-    before the view has re-rendered, and a reload is what makes it a fresh document."""
+    """Open `url` on a paused clock and let the design page settle 200 ms of virtual
+    time. `reload` is for a hash-routed document that would otherwise stay put."""
     install_clock(page)
     page.goto(url, wait_until="networkidle")
     if reload:
@@ -1650,186 +920,15 @@ def navigate(page, url: str, reload: bool = False) -> None:
     run_clock(page, SETTLE_VIRTUAL_MS)
 
 
-def wait_until(page, ready, what: str) -> None:
-    """Wait for `ready()` on both clocks, and say which budget ran out.
-
-    The virtual budget is spent in steps and stops at `SETTLE_BUDGET_MS` because past
-    that the handoff package's shortest auto-advance would fire and the scene would be
-    captured one step beyond itself. Wall time is the other budget, for the responses
-    the view is waiting on. The two are spent together: up to half the virtual budget
-    is held back so each wall step can still run a frame, and a paint scheduled after
-    a response arrives can still be waited for. The rest is spent in `SETTLE_STEP_MS`
-    steps first, so a timer-based mount is still found without waiting on the wall.
-    No timer can fire beyond the virtual cap, so the bound the virtual budget
-    protects still holds.
-    """
-    virtual = 0
-    deadline = time.monotonic() + WAIT_REAL_BUDGET_S
-    wall_steps = max(1, int(round(WAIT_REAL_BUDGET_S / WAIT_REAL_STEP_S)))
-    reserved_for_wall = min(SETTLE_BUDGET_MS // 2, FRAME_MS * wall_steps)
-    stepped_until = SETTLE_BUDGET_MS - reserved_for_wall
-
-    def spend(most: int, cap: int = SETTLE_BUDGET_MS) -> int:
-        """Move the clock by at most `most`, never past `cap` of virtual time in all.
-        Returns what it spent, so a caller can tell a real step from a no-op."""
-        nonlocal virtual
-        step = min(most, cap - virtual)
-        if step <= 0:
-            return 0
-        run_clock(page, step)
-        virtual += step
-        return step
-
-    while not ready():
-        if virtual < stepped_until:
-            spend(SETTLE_STEP_MS, stepped_until)
-            continue
-        if time.monotonic() >= deadline:
-            if spend(SETTLE_BUDGET_MS) and ready():
-                break
-            raise SystemExit(
-                f"{what} after {SETTLE_VIRTUAL_MS + virtual} ms of controlled time and "
-                f"{WAIT_REAL_BUDGET_S:g}s of wall time")
-        time.sleep(WAIT_REAL_STEP_S)
-        spend(FRAME_MS)
-
-
 def wait_for_mount(page, selector: str) -> None:
-    """Wait for the mount element to be on screen."""
-    wait_until(page, lambda: mount_rect(page, selector) is not None,
-               f"no visible element matches {selector}")
-
-
-def perform(page, steps: list[dict], rows: dict[str, dict], values: dict[str, str]) -> None:
-    """Walk a scene's `open` chain: each step names a contract row, whose trigger is
-    clicked — or filled, for an input role, with the step's value. A control the
-    previous step is still bringing on screen is waited for in clock steps, within the
-    same budget the mount gets; the mount itself is waited for after the chain.
-    `after` on the row is the previous named node; without it, more than one match
-    is an error, not `.first`."""
-    PlaywrightError = _playwright_error()
-    for step in steps:
-        row = rows.get(step["row"])
-        if row is None:
-            raise SystemExit(f"open step names no contract row: {step['row']}")
-        wanted = row_trigger(row)
-        control = page.get_by_role(wanted.role, name=wanted.name, exact=True)
-        target = _unique_control(page, control, wanted, step["row"])
-        try:
-            if wanted.role in INPUT_ROLES:
-                typed = fill(str(step.get("value") or ""), values)
-                _enter_value(target, typed)
-                # What was typed is a value from here on: `$typed` is the latest, and
-                # `$typed_<field>` keeps each row's, named by the row id's last segment.
-                values["typed"] = typed
-                values["typed_" + step["row"].rsplit(".", 1)[-1].replace("-", "_")] = typed
-            else:
-                target.click(timeout=ACTION_TIMEOUT_MS)
-        except PlaywrightError as exc:
-            # Under a paused clock nothing changes with wall time: a control that is not
-            # enabled or visible now will not become so by waiting.
-            reason = str(exc).splitlines()[0] if str(exc) else exc.__class__.__name__
-            state = _control_state(target)
-            raise SystemExit(f'open step {step["row"]}: {wanted.role} "{wanted.name}" '
-                             f"could not be acted on ({state}): {reason}") from exc
-        run_clock(page, SETTLE_VIRTUAL_MS)
-
-
-def _unique_control(page, control, wanted: VolatileTrigger, rid: str):
-    """The one locator `perform` may act on. `k` is an index into this
-    `get_by_role(..., exact=True)` locator; `after` pins through
-    `matches_volatile`. One `wait_until` per step."""
-    label = f'{wanted.role} "{wanted.name}"'
-    if wanted.occurrence is not None:
-        # The count is the assertion. Without it `nth(occurrence - 1)` would point
-        # wherever the product happened to put its blocks: a product rendering one more
-        # than the design does would be driven on the wrong control and still pass, which
-        # is the failure a positional pin is always accused of and the one thing that
-        # stops it. `of` is what the design tree held when the row was written, kept equal
-        # to it by the contract lint.
-        # Either the product draws the number the row was written against — then the pin
-        # picks among them — or it draws exactly one, and there is no ambiguity for a pin
-        # to resolve. A row is driven on more than one scene and the design need not draw
-        # the same number on each; demanding one number everywhere refuses a row that is
-        # unambiguous where it is being clicked. Anything else is the product not
-        # rendering what the row was written against, and it stops here.
-        wait_until(page, lambda: control.count() in (wanted.of, 1),
-                   f"open step {rid}: {label} matches {control.count()} controls; this row "
-                   f"is pinned to the {wanted.occurrence} of {wanted.of} the design draws, "
-                   f"and one control would need no pin at all")
-        return control.first if control.count() == 1 else control.nth(wanted.occurrence - 1)
-
-    if wanted.after is None and wanted.within is None:
-        wait_until(page, lambda: control.count() > 0,
-                   f"open step {rid}: no control {label} on the page")
-        n = control.count()
-        if n != 1:
-            raise SystemExit(
-                f"open step {rid}: {label} matches {n} controls; "
-                f"name the previous named node as after")
-        return control.first
-
-    idx = None
-
-    def ready() -> bool:
-        nonlocal idx
-        lines = normalize_aria(page.locator("body").aria_snapshot())
-        hits = trigger_hit_indices(lines, wanted)
-        if len(hits) != 1:
-            idx = None
-            return False
-        idx = hits[0]
-        return True
-
-    pin = (f'after {wanted.after[0]} "{wanted.after[1]}"' if wanted.after
-           else f'within {wanted.within[0]} "{wanted.within[1]}"')
-    wait_until(page, ready,
-               f"open step {rid}: no control {label} {pin} / not unique")
-    return control.nth(idx)
-
-
-def _enter_value(locator, typed: str) -> None:
-    """Put `typed` into a control, the way that control takes a value.
-
-    `combobox` is one accessible role over two different elements. A native
-    `<select>` takes a value only through `select_option`; Playwright's `fill`
-    raises on it. An `<input list=…>` or an ARIA combobox takes `fill` and has no
-    options to select. Asking the element which it is costs one round trip and is
-    the only way to tell them apart from the accessibility tree, where both are
-    `combobox`.
-    """
-    tag = ""
-    try:
-        tag = str(locator.evaluate("el => el.tagName") or "").lower()
-    except (AttributeError, TypeError):
-        # A page double without `evaluate`; the driver's own tests run one.
-        tag = ""
-    if tag == "select":
-        locator.select_option(label=typed, timeout=ACTION_TIMEOUT_MS)
+    """Wait for the mount element to be on screen, in virtual time only."""
+    if mount_rect(page, selector) is not None:
         return
-    locator.fill(typed, timeout=ACTION_TIMEOUT_MS)
-
-
-def _playwright_error() -> type[Exception]:
-    """Playwright's error class, imported when first needed: the driver's own tests run
-    a fake page without the package installed."""
-    try:
-        from playwright.sync_api import Error
-    except ImportError:
-        return Exception
-    return Error
-
-
-def _control_state(locator) -> str:
-    PlaywrightError = _playwright_error()
-    try:
-        if not locator.is_visible():
-            return "not visible"
-        if not locator.is_enabled():
-            return "disabled"
-        return "visible and enabled"
-    except PlaywrightError:
-        return "state unknown"
+    for _ in range(max(1, SETTLE_VIRTUAL_MS // FRAME_MS)):
+        run_clock(page, FRAME_MS)
+        if mount_rect(page, selector) is not None:
+            return
+    raise SystemExit(f"no visible element matches {selector}")
 
 
 def capture(page, png: Path, *, selector: str, clip: tuple[int, int, int, int] | None = None,
@@ -1904,9 +1003,6 @@ def visible_box(page, selector: str, viewport: tuple[int, int]) -> tuple[int, in
             max(1, int(round(y1 - y0))))
 
 
-def mount_selector(mount: str) -> str:
-    return f'[{DATA_SCREEN}="{mount}"]'
-
 
 MOUNT_RECT_JS = """
 (selector) => {
@@ -1948,412 +1044,11 @@ def aria_path(png: Path) -> Path:
     return png.with_name(png.name.removesuffix(".png") + ".aria.yml")
 
 
-def page_by_title(browser, title_includes: str | None, timeout_seconds: int = 15):
-    """The application's own page, out of a browser this program connected to.
-
-    Picked by a substring of the window title rather than of the URL: a development
-    server takes whichever port is free at startup, so the URL is not the same twice.
-    With no substring given the first page is taken, which is what an application with
-    one window has.
-    """
-    import time
-
-    deadline = time.monotonic() + timeout_seconds
-    seen: list[str] = []
-    while True:
-        seen = []
-        for context in browser.contexts:
-            for page in context.pages:
-                title = page.title() or ""
-                seen.append(f"{title!r} @ {page.url}")
-                if not title_includes or title_includes in title:
-                    return page
-        if time.monotonic() >= deadline:
-            break
-        time.sleep(0.5)
-    raise SystemExit(
-        f"no page whose title holds {title_includes!r} within {timeout_seconds}s. "
-        f"Pages found: {seen or 'none'}")
-
-
-# ---------------------------------------------------------------- adapters
-class Adapter:
-    """The seven capabilities for one target kind. Subclasses fill the blanks; the order
-    of `transport` and `attach` is theirs too (`reach_before_attach`)."""
-
-    kind = ""
-    over_cdp = False
-    reach_before_attach = False
-    # What this kind's `discover` prints: (key, what it is, required).
-    discover_keys: tuple[tuple[str, str, bool], ...] = ()
-    # Keys this kind needs in `.mmw/target.json`: the shared set, plus any of its own.
-    fields: tuple[Field, ...] = FIELDS
-    # Which read surface `observe` lines are held to: `json` (a JSON read surface plus a
-    # jq-style expression) or `tree` (an HTML page read in a second tab, `node … exists`).
-    read_surface = "json"
-
-    def __init__(self, cfg: dict, addresses: dict, root: Path):
-        self.cfg, self.addresses, self.root = cfg, addresses, root
-        self.pw = None
-        self.browser = None
-        self.page = None
-        self.home = ""
-
-    def need(self, key: str):
-        if key not in self.addresses:
-            raise SystemExit(f"discover printed no `{key}` for target kind {self.kind}")
-        return self.addresses[key]
-
-    # -- write half
-    def transport(self, mechanisms: list[str], values: dict[str, str],
-                  perturb: bool = False) -> dict[str, str]:
-        if not mechanisms:
-            return values
-        extra = list(mechanisms) + (["--perturb"] if perturb else [])
-        out = run_command(self.cfg["reach"], self.root, extra)
-        merged = dict(values)
-        merged.update(key_values(out))
-        return merged
-
-    def transport_off(self) -> None:
-        cmd = self.cfg.get("transport_off")
-        if not cmd:
-            raise SystemExit(".mmw/target.json has no `transport_off`; the negative "
-                             "control of the wiring check cannot break the transport")
-        run_command(cmd, self.root)
-
-    def transport_on(self) -> None:
-        cmd = self.cfg.get("transport_on")
-        if cmd:
-            run_command(cmd, self.root)
-
-    # -- the driven page
-    def attach(self, pw, values: dict[str, str]):
-        raise NotImplementedError
-
-    def ready(self) -> tuple[bool, str]:
-        raise NotImplementedError
-
-    def instance_ok(self) -> tuple[bool, str]:
-        """Whether the product answering these addresses is the one this run brought up.
-
-        Liveness is not identity. `ready` used to ask only whether *a* product answered,
-        and on a machine running several worktrees that difference is the whole of the
-        risk: a driver that accepts any answer judges another run's code and reports the
-        verdict as this ticket's. Worse, the answer also skips `start`, so a repository's
-        own "another checkout holds these ports" guard never runs.
-
-        `discover` names the check as one `observe` line in this target's own read
-        surface, so every adapter gets it without new machinery, and it is asked again
-        between scenes rather than once at start-up — an application replaced mid-run is
-        exactly what a start-up gate cannot see (2026-09-05: one worktree's application
-        was ended from outside and another's took its ports one second later).
-
-        A target that declares no check is unchanged.
-        """
-        line = self.addresses.get("instance_check")
-        if not line:
-            return True, ""
-        name = self.addresses.get("instance") or "this run"
-        try:
-            ok, _got, why = self.observe(line, {})
-        except Exception as exc:  # noqa: BLE001 - any failure here means "cannot tell"
-            return False, refusal(
-                f"The instance check `{line}` could not be read: {exc}.",
-                "Without it there is no telling whose product is answering.",
-                "Bring your own up with the `start` command in .mmw/target.json; if it "
-                "will not come up, report the ticket blocked and stop.",
-            )
-        if ok:
-            return True, ""
-        return False, refusal(
-            f"The product on these addresses is not the one {name} started ({why or line}).",
-            "Whose it is this cannot say: another run's, or this worktree's own.",
-            "Run `start` from .mmw/target.json and read it; if it cannot take the "
-            "addresses, report the ticket blocked and stop.",
-        )
-
-    def address(self, route: str, values: dict[str, str]) -> str:
-        raise NotImplementedError
-
-    def release(self) -> None:
-        raise NotImplementedError
-
-    def new_context(self, viewport: tuple[int, int]):
-        """A context of this program's own for the baseline side, when the driven page
-        cannot host it (a launched browser); `None` when the driven page is reused."""
-        return None
-
-    # -- read half
-    def observe(self, line: str, values: dict[str, str]) -> tuple[bool, object, str]:
-        """`(ok, got, why)` for one `METHOD /path -> <expression>` line."""
-        raise NotImplementedError
-
-
-class ElectronAdapter(Adapter):
-    """An application that already runs: reached over its debugging port, put into a
-    state by its local backend, read through that backend's JSON surface."""
-
-    kind = "electron"
-    over_cdp = True
-    reach_before_attach = False
-    read_surface = "json"
-    fields = Adapter.fields + ()
-    discover_keys = (
-        ("cdp", "the renderer's debugging port, e.g. http://127.0.0.1:9222", True),
-        ("impl", "the address the renderer is served at", True),
-        ("backend", "the local backend", True),
-        ("title", "a substring of the window title, when the application has several", False),
-    )
-
-    def attach(self, pw, values):
-        self.pw = pw
-        try:
-            self.browser = pw.chromium.connect_over_cdp(self.need("cdp"), timeout=10000)
-        except Exception as exc:  # noqa: BLE001
-            raise SystemExit(f"no application on {self.addresses['cdp']}: {exc}")
-        self.page = page_by_title(self.browser, self.addresses.get("title"))
-        self.home = self.need("impl")
-        return self.page
-
-    def ready(self):
-        status, _ = http_call(self.need("backend"), "GET", "/health")
-        if status >= 400 or status == 0:
-            return False, f"no backend answering {self.addresses['backend']}/health ({status})"
-        if self.page is not None and self.page.is_closed():
-            return False, "the application's page is gone"
-        return self.instance_ok()
-
-    def address(self, route, values):
-        return self.need("impl").rstrip("/") + "/" + fill(route, values).lstrip("/")
-
-    def release(self):
-        if self.page is not None:
-            restore(self.page, self.home)
-        if self.browser is not None:
-            self.browser.close()  # disconnects; the application goes on running
-
-    def observe(self, line, values):
-        op, _, expr = line.partition("->")
-        method, _, path = op.strip().partition(" ")
-        if NODE_EXPR.match(expr):
-            return False, None, ("this target has a JSON read surface; an observe line "
-                                 "reads it with a jq-style expression, not the tree")
-        status, body = http_call(self.need("backend"), method.upper(),
-                                 fill(path.strip(), values))
-        if status >= 300 or status == 0:
-            return False, status, f"{op.strip()} answered {status}"
-        ok, got = evaluate(expr.strip(), body, values)
-        return ok, got, "" if ok else f"{expr.strip()} was {json.dumps(got, ensure_ascii=False)}"
-
-
-class WebAdapter(Adapter):
-    """A page on a web server, server-rendered or a single-page application: the state
-    is put first (a user has to exist before anyone can be that user), then a browser
-    of this program's own is launched and given the session the reach script printed."""
-
-    kind = "web-server-rendered"
-    over_cdp = False
-    reach_before_attach = True
-    read_surface = "tree"
-    fields = Adapter.fields + ()
-    discover_keys = (
-        ("origin", "where the pages are served, e.g. http://127.0.0.1:8000", True),
-        ("ready", "a path answering under 400 when the server is up; default /health", False),
-    )
-
-    def __init__(self, cfg, addresses, root):
-        super().__init__(cfg, addresses, root)
-        self.context = None
-        self.cookie_header = ""
-
-    def _cookies(self, values):
-        raw = values.get("cookie", "")
-        origin = urllib.parse.urlsplit(self.need("origin"))
-        cookies = []
-        for part in filter(None, (p.strip() for p in raw.split(";"))):
-            name, _, value = part.partition("=")
-            cookies.append({"name": name, "value": value, "domain": origin.hostname,
-                            "path": "/"})
-        self.cookie_header = raw
-        return cookies
-
-    def attach(self, pw, values):
-        self.pw = pw
-        self.browser = pw.chromium.launch()
-        self.context = self.browser.new_context(device_scale_factor=1,
-                                                reduced_motion="reduce", locale="zh-CN")
-        cookies = self._cookies(values)
-        if cookies:
-            self.context.add_cookies(cookies)
-        self.page = self.context.new_page()
-        self.home = self.need("origin")
-        return self.page
-
-    def ready(self):
-        path = self.addresses.get("ready", "/health")
-        status, _, _ = http_get(self.need("origin").rstrip("/") + path)
-        if status == 0 or status >= 400:
-            return False, f"{self.addresses['origin']}{path} answered {status}"
-        return self.instance_ok()
-
-    def address(self, route, values):
-        return self.need("origin").rstrip("/") + "/" + fill(route, values).lstrip("/")
-
-    def release(self):
-        if self.browser is not None:
-            self.browser.close()
-
-    def new_context(self, viewport):
-        return self.browser.new_context(
-            viewport={"width": viewport[0], "height": viewport[1]},
-            device_scale_factor=1, reduced_motion="reduce", locale="zh-CN")
-
-    def observe(self, line, values):
-        op, _, expr = line.partition("->")
-        method, _, path = op.strip().partition(" ")
-        url = self.need("origin").rstrip("/") + fill(path.strip(), values)
-        headers = {"Cookie": self.cookie_header} if self.cookie_header else {}
-        if NODE_EXPR.match(expr):
-            if method.upper() != "GET":
-                return False, None, "a tree observe line reads with GET"
-            # A second tab, in the same session: the driven page stays where the action
-            # left it, and the read is a fresh document the action's view did not paint.
-            reader = self.context.new_page()
-            try:
-                reader.goto(url, wait_until="networkidle")
-                tree = normalize_aria(reader.locator("body").aria_snapshot())
-            finally:
-                reader.close()
-            ok, got = evaluate_tree(expr.strip(), tree)
-            return ok, got, "" if ok else f"{expr.strip()} was {json.dumps(got, ensure_ascii=False)}"
-        status, ctype, raw = http_get(url, headers) if method.upper() == "GET" else (0, "", b"")
-        if method.upper() != "GET":
-            status, body = http_call(self.need("origin"), method.upper(),
-                                     fill(path.strip(), values), headers)
-        else:
-            if status >= 300 or status == 0:
-                return False, status, f"{op.strip()} answered {status}"
-            if "json" not in ctype:
-                return False, None, (f"{op.strip()} answered {ctype or 'no content type'}; a "
-                                     f"jq-style expression needs a JSON read surface — on an "
-                                     f"HTML surface write `node <role> \"<name>\" exists`")
-            body = json.loads(raw) if raw else None
-        if status >= 300 or status == 0:
-            return False, status, f"{op.strip()} answered {status}"
-        ok, got = evaluate(expr.strip(), body, values)
-        return ok, got, "" if ok else f"{expr.strip()} was {json.dumps(got, ensure_ascii=False)}"
-
-
-class WebSpaAdapter(WebAdapter):
-    kind = "web-spa"
-    read_surface = "json"
-    fields = Adapter.fields + ()
-
-
-class ChromeExtensionAdapter(WebAdapter):
-    """Designed from the platform's rules, not measured on a product: no repository
-    holds one yet. The popup is opened as a plain tab (a popup closes on blur), so
-    attach and address take the web shape and the fixed popup size is one `viewports`
-    entry; the extension id is derived at load time, so `discover` prints it."""
-
-    kind = "chrome-extension"
-    read_surface = "json"
-    fields = Adapter.fields + ()
-    discover_keys = (
-        ("extension_dir", "the built extension directory to load", True),
-        ("extension_id", "the id the browser derives at load time", True),
-        ("popup", "the entry page; default popup.html", False),
-    )
-
-    def attach(self, pw, values):
-        self.pw = pw
-        ext = self.need("extension_dir")
-        self.context = pw.chromium.launch_persistent_context(
-            "", headless=False, device_scale_factor=1, reduced_motion="reduce",
-            args=[f"--disable-extensions-except={ext}", f"--load-extension={ext}"])
-        self.browser = self.context.browser
-        self.page = self.context.new_page()
-        self.home = ""
-        return self.page
-
-    def ready(self):
-        # A service worker is recycled after about thirty seconds idle; whether it is
-        # there is asked again before every scene, which is the point of `ready`.
-        workers = [w for w in self.context.service_workers]
-        return self.instance_ok() if workers else (False, "no service worker is alive")
-
-    def address(self, route, values):
-        ext_id = self.need("extension_id")
-        page = self.addresses.get("popup", "popup.html")
-        return f"chrome-extension://{ext_id}/{page}" + fill(route, values)
-
-    def release(self):
-        if self.context is not None:
-            self.context.close()
-
-    def new_context(self, viewport):
-        return self.context
-
-
-ADAPTERS = {a.kind: a for a in (ElectronAdapter, WebAdapter, WebSpaAdapter,
-                                ChromeExtensionAdapter)}
-
-
-START_TIMEOUT_S = 600
-
-
-def adapter_for(doc: dict, root: Path) -> Adapter:
-    kind = str((doc.get("target") or {}).get("kind") or "")
-    cls = ADAPTERS.get(kind)
-    if cls is None:
-        raise SystemExit(f"target.kind {kind!r} has no adapter; one of {sorted(ADAPTERS)}")
-    cfg = target_config(root)
-    adapter = cls(cfg, discover(cfg, root), root)
-    bring_up(adapter)
-    return adapter
-
-
-def bring_up(adapter: Adapter) -> None:
-    """The product answering before the first scene. `ready` is asked; when it says no,
-    `.mmw/target.json`'s `start` is run once — the repository's own way of bringing its
-    product up, with whatever it needs found or chosen inside that command — and
-    `discover` and `ready` are asked again. Nothing here is told how the product
-    starts, and nobody is expected to have started it by hand."""
-    ok, why = adapter.ready()
-    start = adapter.cfg.get("start")
-    if ok and not start:
-        return
-    if not start:
-        raise SystemExit(f"{why}; .mmw/target.json declares no `start`, so the run cannot "
-                         f"bring the product up itself. Run `screen_driver.py target --check "
-                         f"--repo {adapter.root}` and declare what it names")
-    # 每次都跑，不只在没人应答的时候。`start` 按契约是幂等的，对已在应答的产品原样保留
-    # ——但只有它知道那个产品是不是本工作树此刻的代码。跳过它，一个仍在应答的旧产品就
-    # 永远不会被换掉，判据在旧代码上得出的结论没人会发现（2026-09-05 实测两次）。
-    print(f"running start ({'answering' if ok else why}): {start}", file=sys.stderr)
-    try:
-        proc = subprocess.run(shlex.split(start), cwd=adapter.root, capture_output=True,
-                              text=True, timeout=START_TIMEOUT_S,
-                              env=command_env(adapter.root))
-    except subprocess.TimeoutExpired as exc:
-        raise SystemExit(f"`{start}` did not return within {START_TIMEOUT_S}s") from exc
-    if proc.returncode != 0:
-        detail = (proc.stderr.strip() or proc.stdout.strip()).splitlines()
-        first = detail[0] if detail else "(no output)"
-        raise SystemExit(refusal(
-            f"`{start}` exited {proc.returncode}: {first}",
-            "The repository's `start` command did not succeed.",
-            REPORT_BLOCKED,
-        ))
-    adapter.addresses = discover(adapter.cfg, adapter.root)
-    ok, why = adapter.ready()
-    if not ok:
-        raise SystemExit(refusal(
-            f"`{start}` returned 0.",
-            f"The product is still not answering ({why}).",
-            REPORT_BLOCKED,
-        ))
+# ---------------------------------------------------------------- product kinds
+# ---------------------------------------------------------------- product kinds
+# Named in the contract as `target.kind`. Fields of `.mmw/target.json` are the
+# same for every kind; journeys connect with Playwright themselves.
+KINDS = ("electron", "web-spa", "web-server-rendered", "chrome-extension")
 
 
 def _scoped_entries(doc: dict, key: str, page: str | None = None):
@@ -2425,15 +1120,14 @@ def contract_kind(repo: Path, contract: Path | None) -> str:
 
 
 def fields_of(kind: str) -> tuple[Field, ...]:
-    """The `.mmw/target.json` keys this kind's adapter declares, or the shared set
-    when `kind` has no adapter."""
-    cls = ADAPTERS.get(kind)
-    return cls.fields if cls is not None else FIELDS
+    """The `.mmw/target.json` keys every kind answers. `kind` is accepted so callers
+    that still pass one keep working; the list does not change with it."""
+    return FIELDS
 
 
 def target_problems(kind: str, cfg: dict) -> list[tuple[str, str]]:
-    """What `.mmw/target.json` still has to answer for this kind: `(key, problem)` pairs,
-    in the order the adapter's `fields` lists them. Empty when the file is complete."""
+    """What `.mmw/target.json` still has to answer: `(key, problem)` pairs, in the
+    order `FIELDS` lists them. Empty when the file is complete."""
     problems: list[tuple[str, str]] = []
     for f in fields_of(kind):
         if f.key not in cfg:
@@ -2454,33 +1148,33 @@ def target_problems(kind: str, cfg: dict) -> list[tuple[str, str]]:
             if not ok:
                 problems.append((f.key, f"must be {{\"max\": <n>, \"why\": \"<text>\"}} "
                                         f"— e.g. {f.example}"))
-    if kind and kind not in ADAPTERS:
-        problems.insert(0, ("target.kind", f"{kind!r} has no adapter; one of {sorted(ADAPTERS)}"))
+    if kind and kind not in KINDS:
+        problems.insert(0, ("target.kind", f"{kind!r} is not one of {list(KINDS)}"))
     return problems
 
 
 def target_main(argv: list[str]) -> int:
     """`screen_driver.py target …`: the setup-time bar for one repository.
 
-    `--check` prints the adapter's own account and every field of `.mmw/target.json`
-    as `ok` or `missing`, so a person filling the file reads one screen and nothing
-    else; exit 0 complete, 1 something missing, 2 the repository or the contract cannot
-    be read. `--validate` prints the first problem only. `--kinds` prints the kinds.
+    `--check` prints every field of `.mmw/target.json` as `ok` or `missing`, so a
+    person filling the file reads one screen and nothing else; exit 0 complete, 1
+    something missing, 2 the repository or the contract cannot be read.
+    `--validate` prints the first problem only. `--kinds` prints the product kinds.
     """
     import argparse
     parser = argparse.ArgumentParser(prog="screen_driver.py target")
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--check", action="store_true", help="print every field, ok or missing")
     mode.add_argument("--validate", action="store_true", help="print the first problem only")
-    mode.add_argument("--kinds", action="store_true", help="list the target kinds this driver has")
+    mode.add_argument("--kinds", action="store_true", help="list the product kinds a contract may name")
     parser.add_argument("--repo", type=Path, default=None,
                         help="the repository (default: the one the working directory is in)")
-    parser.add_argument("--kind", default=None, help="the target kind, instead of reading the contract")
+    parser.add_argument("--kind", default=None, help="the product kind, instead of reading the contract")
     parser.add_argument("--contract", type=Path, default=None,
                         help="the screen contract to read the kind from")
     args = parser.parse_args(argv)
     if args.kinds:
-        for kind in sorted(ADAPTERS):
+        for kind in KINDS:
             print(kind)
         return 0
     repo = (args.repo or repo_root()).resolve()
@@ -2511,13 +1205,7 @@ def target_main(argv: list[str]) -> int:
             return 1
         print(f"{path}: complete for target.kind {kind}")
         return 0
-    cls = ADAPTERS.get(kind)
-    print(f"target.kind: {kind or '(none)'}" + (f" — {cls.__name__}" if cls else ""))
-    if cls is not None:
-        doc = (cls.__doc__ or "").strip().split("\n\n")[0].replace("\n", " ")
-        print("  " + " ".join(doc.split()))
-        print(f"  state is put {'before' if cls.reach_before_attach else 'after'} attach; "
-              f"observe reads a {cls.read_surface} surface")
+    print(f"target.kind: {kind or '(none)'}")
     print("  discover prints:")
     for key, what in DISCOVER_PRINTS:
         print(f"    {key} — {what}")
@@ -2534,8 +1222,8 @@ def target_main(argv: list[str]) -> int:
             print(f"  ok       {f.key}")
         else:
             print(f"  absent   {f.key} ({f.shape}, optional) — {f.what}")
-    if kind and kind not in ADAPTERS:
-        print(f"  target.kind {kind!r} has no adapter; one of {sorted(ADAPTERS)}")
+    if kind and kind not in KINDS:
+        print(f"  target.kind {kind!r} is not one of {list(KINDS)}")
     print("rules:")
     print("  automation uses placeholder keys, vendor stubs, and local accounts")
     print("  start refuses a Gateway address that points elsewhere")

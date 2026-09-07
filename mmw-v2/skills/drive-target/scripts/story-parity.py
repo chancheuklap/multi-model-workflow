@@ -17,7 +17,7 @@ command, which prints `origin`; the story URL is
 The product side is the story page, captured at `[data-story-root]`. The design side is
 the existing baseline server and wrapper page, with `#dc-root` pinned to the box that
 root measured (`frame_box`). The two judges are the normalised accessibility tree and
-pixels after sub-cell alignment. The class set is not compared. No controlled clock is
+pixels after sub-cell alignment. Class names are not compared. No paused clock is
 installed on the story page; the design side uses `navigate`'s 200 ms of virtual time.
 
 Exit codes
@@ -70,7 +70,6 @@ NEGATIVE_CONTROL_HEAD = vp.NEGATIVE_CONTROL_HEAD
 NEGATIVE_CONTROL_SCENE = vp.NEGATIVE_CONTROL_SCENE
 DEFAULT_MAX_PCT = vp.DEFAULT_MAX_PCT
 render_only = vp.render_only
-negative_control = vp.negative_control
 
 STORY_ROOT = "[data-story-root]"
 ORIGIN_WAIT_S = 15
@@ -126,7 +125,7 @@ def product_root() -> Path:
 
     The criterion is invoked from the product repository (AC1–AC3 `cd` there). If that
     directory holds the file, it is the product. Otherwise the git toplevel — the same
-    anchor `visual-parity.py` uses via `sd.repo_root()`.
+    anchor `sd.repo_root()` uses.
     """
     cwd = Path.cwd().resolve()
     if (cwd / ".mmw" / "target.json").exists():
@@ -214,6 +213,28 @@ class Stories:
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait(timeout=2)
+
+
+def negative_control(scene, vp, pages, capture_impl, capture_baseline, media) -> Comparison:
+    """The baseline server answers this scene's own address with the scene plus an
+    error banner in the served bytes; the story page is captured again. If the two
+    compare equal, the story capture went through the baseline server."""
+    path = sd.wrapper_path(scene.name)
+    saved = pages[path]
+    pages[path] = sd.wrapper_page(sd.component_of(scene.page), scene.props,
+                                  NEGATIVE_CONTROL_HEAD)
+    tag_vp = f"{vp[0]}x{vp[1]}"
+    stem = media / f"{NEGATIVE_CONTROL_SCENE}-{tag_vp}"
+    try:
+        impl = capture_impl(scene, vp, Path(f"{stem}-impl.png"))
+        wrong = capture_baseline(scene, vp, impl.box, Path(f"{stem}-baseline.png"))
+    finally:
+        pages[path] = saved
+    return Comparison(
+        NEGATIVE_CONTROL_SCENE, tag_vp,
+        pixel_diff(wrong.png, impl.png, Path(f"{stem}-diff.png")),
+        sd.aria_diff(wrong.aria, impl.aria, Path(f"{stem}.aria.diff")),
+        [], [], impl.elements, sd.class_diff(wrong.classes, impl.classes))
 
 
 def story_gate(control: Comparison, comparisons: list, max_pct: float,
@@ -364,7 +385,7 @@ def compare(*, plan, viewports, media, design_origin, pages, route_baseline,
         design_page = design_ctx.new_page()
         try:
             def capture_story(scene, viewport, png):
-                sd.resize(story_page, viewport, over_cdp=False)
+                sd.resize(story_page, viewport)
                 url = story_url(story_origin, scene.mount, scene.name, viewport)
                 try:
                     response = story_page.goto(url, wait_until="domcontentloaded")
@@ -392,7 +413,7 @@ def compare(*, plan, viewports, media, design_origin, pages, route_baseline,
 
             def capture_design(scene, viewport, box, png):
                 w, h = box[2], box[3]
-                sd.resize(design_page, viewport, over_cdp=False)
+                sd.resize(design_page, viewport)
                 sd.navigate(design_page, f"{design_origin}{sd.wrapper_path(scene.name)}")
                 sd.wait_for_mount(design_page, "#dc-root")
                 paint = (sd.volatile_paint_js(volatile[scene.name])
