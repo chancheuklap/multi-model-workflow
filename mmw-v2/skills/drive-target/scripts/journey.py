@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import json
 import os
-import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -27,7 +26,7 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
-from screen_driver import command_env, discover, repo_root, target_config  # noqa: E402
+from screen_driver import command_env, discover, repo_root, run_command, target_config  # noqa: E402
 
 DEFAULT_JOURNEYS = ".mmw/journeys"
 
@@ -37,17 +36,11 @@ def last_line(text: str) -> str:
     return lines[-1] if lines else "(no output)"
 
 
-def run_declared(command: str, cwd: Path, env: dict[str, str]) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        shlex.split(command), cwd=cwd, capture_output=True, text=True, env=env,
-    )
-
-
 def stop(cfg: dict, root: Path, env: dict[str, str]) -> None:
     command = cfg.get("stop")
     if not command:
         return
-    subprocess.run(shlex.split(command), cwd=root, capture_output=True, text=True, env=env)
+    run_command(command, root, env=env, check=False)
 
 
 def journey_command(dest: Path) -> list[str] | str | None:
@@ -103,16 +96,14 @@ def run_named(name: str, start: Path | None = None) -> int:
     if not isinstance(start_cmd, str) or not start_cmd.strip():
         return bail("`.mmw/target.json` has no `start` command")
 
-    started = run_declared(start_cmd, root, env)
+    started = run_command(start_cmd, root, env=env, check=False)
     if started.returncode != 0:
         return bail(proc=started)
 
     try:
         data = discover(cfg, root)
     except SystemExit as exc:
-        if isinstance(exc.code, subprocess.CompletedProcess):
-            return bail(proc=exc.code)
-        return bail(str(exc))
+        return bail(proc=exc.code)
     addresses_into(env, data)
 
     journeys = cfg.get("journeys") or DEFAULT_JOURNEYS
