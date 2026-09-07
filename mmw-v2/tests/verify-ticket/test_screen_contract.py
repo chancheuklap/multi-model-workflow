@@ -69,7 +69,8 @@ rows:
 
 
 class TestLintScreenContract(unittest.TestCase):
-    """The four original rules, against a contract that is on disk."""
+    """An interface ticket names its screen-contract rows; no CHECK stubs the
+    application's own network. Against a contract that is on disk."""
 
     def setUp(self):
         self.dir = tempfile.TemporaryDirectory()
@@ -83,9 +84,9 @@ class TestLintScreenContract(unittest.TestCase):
     def tearDown(self):
         self.dir.cleanup()
 
-    def story(self, pages="create-project"):
+    def story(self, mounts="create-project"):
         return STORY.replace("docs/specs/x/screen-contract.yaml", self.path).replace(
-            "--pages create-project", f"--pages {pages}")
+            "--pages create-project", f"--pages {mounts}")
 
     def lint(self, *criteria):
         return vt.lint_screen_contract(ticket(self.rows, *criteria, parent=self.parent,
@@ -124,11 +125,11 @@ class TestLintScreenContract(unittest.TestCase):
 
 
 class TestPipelineFlags(unittest.TestCase):
-    """The two pipeline scripts are given what they need, nothing they retired, and
-    nothing their `--help` does not list — the one check that catches a criterion
-    naming a capability that does not exist at the moment it is written. The scripts
-    belong to the drive-target skill and reach the lint through `--tools`, so the
-    test hands their directory over the way the agent does."""
+    """story-parity.py and boundary-check.py are given what they need, nothing they
+    retired, and nothing their `--help` does not list — the one check that catches
+    a criterion naming a capability that does not exist at the moment it is written.
+    The scripts belong to the drive-target skill and reach the lint through
+    `--tools`, so the test hands their directory over the way the agent does."""
 
     def setUp(self):
         from pathlib import Path
@@ -286,31 +287,20 @@ class TestContractPathInBackticks(unittest.TestCase):
         self.assertFalse(any("could not be read" in f for f in findings), findings)
 
 
-class TestCriterionShapes(unittest.TestCase):
+class TestCriterionShapes(TestLintScreenContract):
     """The three criterion shapes `--lint` now checks, plus the fetch rule."""
 
     def setUp(self):
-        self.dir = tempfile.TemporaryDirectory()
+        super().setUp()
         self.root = self.dir.name
-        path = os.path.join(self.root, "screen-contract.yaml")
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(CONTRACT)
-        self.path = path
         self.rows = (
-            f"- `{path} rows: create-project.add-material`（基线）\n"
+            f"- `{self.path} rows: create-project.add-material`（基线）\n"
             "- `docs/adr/chameleon/0021-chameleon-two-gates.md`（基线）\n"
             "- [两道门（#420）](u)（基线）\n"
             "- `docs/context/chameleon-product.md`——正名"
         )
         self.parent = "[Spec（#537）](u)，Implementation Decisions 第 2 节与 Testing Decisions"
         os.makedirs(os.path.join(self.root, ".mmw", "journeys", "smoke"), exist_ok=True)
-
-    def tearDown(self):
-        self.dir.cleanup()
-
-    def story(self, pages):
-        return STORY.replace("docs/specs/x/screen-contract.yaml", self.path).replace(
-            "--pages create-project", f"--pages {pages}")
 
     def lint(self, *criteria):
         return vt.lint_screen_contract(
