@@ -21,7 +21,7 @@ _Avoid_: 会话 (as a term), pane
 _Home_: `mmw-v2/skills/dispatch/models.md`
 
 **main agent**:
-The session the user started themselves. By day it works with the user to produce specs and tickets; by night it runs `check`, then `advance`, then `status` on each finish notification, and `reverify` and `summary` when the frontier is empty, and only reads tickets. It is the one agent with no row in `models.md`; it is tied to no host. One main agent holds one spec.
+The session the user started themselves. By day it works with the user to produce specs and tickets; by night it runs `check`, then `advance`, then `status` each time a ticket message wakes it, and `reverify` and `summary` when the frontier is empty, and only reads tickets. It is the one agent with no row in `models.md`; it is tied to no host. One main agent holds one spec.
 _Avoid_: coordinator, orchestrator, 编排者, 主 agent, 出票的主 agent, 落地 agent, the single Claude Code session, mmw-main, board
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
@@ -47,7 +47,7 @@ _Avoid_: 高级工人, 高级 worker
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **reviewer**:
-The Paseo subagent a worker starts through the dispatch skill to run one round of code review. Its title is `#<n> reviewer`; it runs inside the worker's workspace, cuts no branch, and carries `mmw.kind=reviewer` with `mmw.autonomous=1`; the worker does not archive it: landing does, and takes the workspace with it, agents included (`land <n>` for one ticket, `advance` for a batch). On its own, `reviewer` always means this session, never one of the three axis subagents.
+The Paseo subagent a worker starts through the dispatch skill to run one round of code review. Its title is `#<n> reviewer`; it runs inside the worker's workspace, cuts no branch, and carries `mmw.kind=reviewer` with `mmw.autonomous=1` — the label is also what lets its report tell the worker, since only a session carrying it sends the `#<n> REVIEW` **ticket message**; the worker does not archive it: landing does, and takes the workspace with it, agents included (`land <n>` for one ticket, `advance` for a batch). On its own, `reviewer` always means this session, never one of the three axis subagents.
 _Admitted_: reviewer session
 _Avoid_: reviewer 会话, code-review 会话, 审稿人, MMW_AUTONOMOUS
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
@@ -184,7 +184,7 @@ A second `bypass` row for the same agent on a different host. The first `bypass`
 _Home_: `mmw-v2/skills/dispatch/models.md`
 
 **agent label**:
-A Paseo label on a Paseo agent, distinct from a tracker `label`. `start` writes five: `mmw.ticket=<n>`, `mmw.kind=worker|reviewer|verifier`, `mmw.spec=<spec>`, `mmw.profile=<profile id>`, `mmw.autonomous=1`. `mmw.profile` is the agent cell on the first `bypass` row and `{agent}@{host}` on the fallback host, so the label names the host that ran. `resume` finds the worker by `mmw.ticket` and `mmw.kind=worker`; the question gate finds autonomous agents by `mmw.autonomous=1`. CLI `paseo ls --json` does not print labels in the body, so a filter is `--label` on the call.
+A Paseo label on a Paseo agent, distinct from a tracker `label`. `start` writes five: `mmw.ticket=<n>`, `mmw.kind=worker|reviewer|verifier`, `mmw.spec=<spec>`, `mmw.profile=<profile id>`, `mmw.autonomous=1`. `mmw.profile` is the agent cell on the first `bypass` row and `{agent}@{host}` on the fallback host, so the label names the host that ran. `resume` finds the worker by `mmw.ticket` and `mmw.kind=worker`; the question gate finds autonomous agents by `mmw.autonomous=1`; `--review` asks whether the session running it is in `mmw.kind=reviewer` before it reports to a parent. CLI `paseo ls --json` does not print labels in the body, so a filter is `--label` on the call.
 _Avoid_: pane token, MMW_TICKET (session identity), MMW_AUTONOMOUS, launch arguments
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
@@ -556,7 +556,7 @@ _Avoid_: decisions comment, 临时决策评论
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **review comment**:
-The reviewer's report on the ticket: first line `REVIEW <base commit>..<HEAD commit>` (the refs as given, even when one does not resolve or the diff is empty), then the three axis reports under `## Standards`, `## Spec`, `## Tests`, never merged or reordered across axes, then `## In-ticket` and `## Out-of-ticket`, then one summary line per axis. The worker reads it after the reviewer's finish notification, or after `paseo wait <id>`.
+The reviewer's report on the ticket: first line `REVIEW <base commit>..<HEAD commit>` (the refs as given, even when one does not resolve or the diff is empty), then the three axis reports under `## Standards`, `## Spec`, `## Tests`, never merged or reordered across axes, then `## In-ticket` and `## Out-of-ticket`, then one summary line per axis. The worker reads it after the **ticket message** whose first line is `#<n> REVIEW`, sent by the same call that posts it; `dispatch.sh wait` is the fallback for a worker woken with the comment not yet there.
 _Avoid_: review report comment, REVIEW 评论, report (bare)
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
@@ -633,7 +633,7 @@ _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 ### Code review
 
 **code review**:
-One round: the worker starts the reviewer with `dispatch.sh start <n> reviewer `; the dispatcher starts three read-only axis subagents, each given three values — the base commit, the ticket number, and its reference file's path — each reading `git diff <base-commit>...HEAD`; one review comment results. The round ends only with that comment: the worker ends its turn after `create_agent`, is woken when the reviewer finishes, and reads the `REVIEW ` line off the ticket. Start exits 2: nothing was started — it is a pipeline fault: `<engine> <n> --sub-issue pipeline <file>`, then stop. The reviewer stopped with no `REVIEW ` comment: `paseo logs <id>`, then the `code-review` skill in this host's general-purpose subagent, whose report lands with the same first line. An in-ticket finding gets one round of fixes and a self-run, never a re-review; an out-of-ticket finding is `--sub-issue review`. Fixing a finding is bound by the writing rules.
+One round: the worker starts the reviewer with `dispatch.sh start <n> reviewer `; the dispatcher starts three read-only axis subagents, each given three values — the base commit, the ticket number, and its reference file's path — each reading `git diff <base-commit>...HEAD`; one review comment results. The round ends only with that comment, and so does the waiting: the worker ends its turn after `create_agent`, is woken by the `#<n> REVIEW` **ticket message** the same call that posts the comment sends, and reads the `REVIEW ` line off the ticket. The dispatcher holds its own turn until all three axes have answered, so that a session coming to rest means the report exists. Start exits 2: nothing was started — it is a pipeline fault: `<engine> <n> --sub-issue pipeline <file>`, then stop. The reviewer stopped with no `REVIEW ` comment: `paseo logs <id>`, then the `code-review` skill in this host's general-purpose subagent, whose report lands with the same first line. An in-ticket finding gets one round of fixes and a self-run, never a re-review; an out-of-ticket finding is `--sub-issue review`. Fixing a finding is bound by the writing rules.
 _Avoid_: the review stage
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
@@ -902,7 +902,7 @@ _Avoid_: abandon (as the name of this), 收夜, give the night up (as a name)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **night**:
-Everything between the last ticket published and the morning: the user says it starts, the main agent runs `check`, then `advance` and `create_agent` on each printed line, then on each finish notification runs `status` and decides — usually `advance` again, or `resume`, or `paseo logs`. A ticket leaves the night by its worker's closing comment, or by staying in the agent queue behind an open blocker all night, which the `Not dispatched, a blocker stayed open:` line of `NIGHT SUMMARY` lists. The night ends when the frontier is empty and `status` shows no live agent: then `reverify`, then `summary`. A `create_agent` that fails to start the provider is the `create_agent` failed to start the provider row of the dispatch skill, not a second guess at the host.
+Everything between the last ticket published and the morning: the user says it starts, the main agent runs `check`, then `advance` and `create_agent` on each printed line, then on each ticket message runs `status` and decides — usually `advance` again, or `resume`, or `paseo logs`. A ticket leaves the night by its worker's closing comment, or by staying in the agent queue behind an open blocker all night, which the `Not dispatched, a blocker stayed open:` line of `NIGHT SUMMARY` lists. The night ends when the frontier is empty and `status` shows no live agent: then `reverify`, then `summary`. A `create_agent` that fails to start the provider is the `create_agent` failed to start the provider row of the dispatch skill, not a second guess at the host.
 _Avoid_: 夜间编排主循环, night orchestration loop, 夜里 (as a term), 夜间 (as a term), run (as the command that opens a night)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
