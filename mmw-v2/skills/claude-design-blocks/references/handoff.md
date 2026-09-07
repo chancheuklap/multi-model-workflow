@@ -1,6 +1,6 @@
 # Handoff — a Claude Design project into the consuming repository
 
-What this writes is what the implementation is built from and what `visual-parity.py` later renders it against. It lands in the prototype leaf directory the port started from, beside that port's `src`, `styles` and `data`.
+What this writes is what the implementation is built from and what `story-parity.py` later compares each product story against. It lands in the prototype leaf directory the port started from, beside that port's `src`, `styles` and `data`.
 
 MCP tools: `mcp__claude-design__get_project` confirms the project id, `mcp__claude-design__list_files` and `mcp__claude-design__read_file` read it. Confirm they are callable before anything else. If one is missing, stop and tell the user this session cannot reach Claude Design, and which tool is absent.
 
@@ -12,7 +12,7 @@ Beside them, write `scenes.json`: one entry per scene, with `name`, `page` (the 
 
 ## `vendor/` — the three scripts `support.js` loads
 
-`support.js` loads `react@18.3.1`, `react-dom@18.3.1` and `@babel/standalone@7.29.0` from unpkg. Download the three files it names — read the `REACT_URL`, `REACT_DOM_URL` and `BABEL_URL` constants in the `support.js` that came down, versions and all — into `vendor/` under their own file names (`react.production.min.js`, `react-dom.production.min.js`, `babel.min.js`). The driver answers those URLs from `vendor/` first, then from a local cache, then from the network. A project that starts from zero renders the package three times before it has any product (skeleton extraction, target trees, the addressing self-check), and with a cold cache and no network all three would come out empty.
+`support.js` loads `react@18.3.1`, `react-dom@18.3.1` and `@babel/standalone@7.29.0` from unpkg. Download the three files it names — read the `REACT_URL`, `REACT_DOM_URL` and `BABEL_URL` constants in the `support.js` that came down, versions and all — into `vendor/` under their own file names (`react.production.min.js`, `react-dom.production.min.js`, `babel.min.js`). The driver answers those URLs from `vendor/` first, then from a local cache, then from the network. A project that starts from zero renders the package twice before it has any product (skeleton extraction, target trees), and with a cold cache and no network both would come out empty.
 
 ## Naming the scenes
 

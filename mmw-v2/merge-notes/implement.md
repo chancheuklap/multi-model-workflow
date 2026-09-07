@@ -69,9 +69,9 @@ the writing rules → keep the bullet.
 
 One sentence added to the "Once done" paragraph: a ticket that already carries a `self-run`, `VERDICT`, `DECISIONS` or `REVIEW` comment is resumed at the step after the newest of them. The main agent's `resume` sends a stopped worker `continue` and what it settled, nothing else, so the skill has to know it may be entering the closing steps mid-way. On the next upstream pull keep this sentence with the closing steps.
 
-## Where a failing `visual-parity.py` criterion is read
+## Where a failing `story-parity.py` criterion is read
 
-Two sentences added to step 1 of the closing steps. That script prints a single `DIFF <scene> <viewport> <pct>% box=… — <reasons>` line; which reasons bring sub-lines out under them, and what `NEGATIVE CONTROL FAILED` means, are written only in the verify-ticket skill. Every other refusal in the closing steps explains itself in its own stderr, so this is the one place the worker has to be sent elsewhere. The second sentence says to fix only what the line names and run once more, not to chase the pixel share: on ticket #548 of the chameleon repository a worker whose tree already matched spent sixteen parity runs changing fonts, line heights and renderer flags against a 1% pixel threshold, and abandoned the criterion. Upstream rewrites step 1 → keep both sentences.
+Two sentences added to step 1 of the closing steps. That script prints a single `DIFF <scene> <viewport> <pct>% (unaligned <pct>%) — <reasons>` line; which reasons bring sub-lines out under them, and what `NEGATIVE CONTROL FAILED` means, are written only in the verify-ticket skill. Every other refusal in the closing steps explains itself in its own stderr, so this is the one place the worker has to be sent elsewhere. The second sentence says to fix only what the line names and run once more, not to chase the pixel share: on ticket #548 of the chameleon repository a worker whose tree already matched spent sixteen parity runs changing fonts, line heights and renderer flags against a 1% pixel threshold, and abandoned the criterion. Upstream rewrites step 1 → keep both sentences.
 
 ## Two baselines with separate jurisdictions, and one code path
 

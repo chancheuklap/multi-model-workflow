@@ -356,7 +356,7 @@ def render_only(plan, viewports, media, origin, route_baseline, hide_js) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    print("visual-parity.py no longer compares a running product; "
+    print("visual-parity.py is a library, not a command; "
           "run story-parity.py --contract FILE --pages ID[,ID]", file=sys.stderr)
     return 2
 

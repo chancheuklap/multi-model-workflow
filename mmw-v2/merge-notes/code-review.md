@@ -70,6 +70,22 @@ has to resolve the link before it hands it over.
 
 `references/spec-reviewer.md`, under "What is not yours": one paragraph added after the handoff-package rule. The handoff package stays closed to this axis; the screen contract (`screen-contract.yaml`, row ids named in the ticket's `## Read first`) is opened, and each row is read as a requirement — `calls`, `shows`, `next`, `on_failure`. A `Missing` against a row's `calls` is worded row id first, because `verify-ticket --closeout` refuses a draft that does not answer it. Reason: on Chameleon's #549 this axis reported "the desktop never talks to the backend" and the ticket closed `ALL MET` anyway; the row id is what lets a script hold the two together. If upstream rewrites that section, keep the handoff rule as upstream words it and put this paragraph back after it.
 
+## The Spec axis opens the story page and the story adapter
+
+`references/spec-reviewer.md`, same section, two more paragraphs after the screen-contract
+one. **The story page**: every mount the ticket's story criterion names under `--pages` is
+declared by the contract's `pages`, and the diff puts `[data-story-root]` on the root of
+that design page's block. **The story adapter**: every field a row's `shows` column names
+appears in the product's adapter from `scenes.json` to the surface component's props,
+pointing at the same source field. Reason: `story-parity.py` compares a rendered story
+against the design page offline, so a mount the contract does not declare and an adapter
+reading the wrong field both come back as a pixel or tree difference with no name on it;
+this axis is where they get one. Neither paragraph mentions `--mount`, the contract's
+`open` chain, the addressing self-check or interface parity — those are retired words
+(`docs/adr/0011-component-story-not-whole-product.md`), and an axis file that names them
+sends every later review down a path the tools no longer have. If upstream rewrites that
+section, put both paragraphs back after the screen-contract one.
+
 ### agents/openai.yaml
 
 | 字段 | 我们的意图 |
