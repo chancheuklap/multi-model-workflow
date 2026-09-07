@@ -8,13 +8,14 @@ TEMPLATE = '''      <section class="canvas">
         <p>{{ label }}</p>
       </section>'''
 LOGIC = '''        init(props) {
-          return { label: this.fx().canvasLabel || "", scene: props.scene };
+          return { label: "", scene: props.scene };
         }
         onReady() {
           window.addEventListener("pointermove", () => {
             this.setState({ hovering: true });
           });
+          this.setState({ label: this.fx().canvasLabel || "" });
         }
         renderVals() {
-          return { label: this.state.label, scene: this.state.scene };
+          return { label: this.state.label, scene: this.state.scene, fx: this.state.fx };
         }'''

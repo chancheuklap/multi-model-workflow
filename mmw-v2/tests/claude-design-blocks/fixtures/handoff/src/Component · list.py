@@ -9,14 +9,22 @@ TEMPLATE = '''      <section class="list">
         <p>{{ count }}</p>
       </section>'''
 LOGIC = '''        init(props) {
-          const items = props.scene === "empty" ? [] : (this.fx().items || []);
-          return { items };
+          return { items: [], ready: false };
+        }
+        onReady() {
+          const items = this.props.scene === "empty" ? [] : (this.fx().items || []);
+          this.setState({ items, ready: true });
         }
         renderVals() {
+          if (!this.state.fx) {
+            return { title: "", count: 0, items: [], ready: false, fx: false };
+          }
           return {
             title: this.props.scene === "empty" ? "None" : "Ready",
             count: this.state.items.length,
             items: this.state.items,
+            ready: this.state.ready,
+            fx: this.state.fx,
             pick: () => this.emit("onPick", this.state.items[0], "picked"),
           };
         }'''

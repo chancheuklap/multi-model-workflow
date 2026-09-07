@@ -16,6 +16,7 @@ from pathlib import Path
 
 FX = os.environ.get("DC_FX", "FIXTURES")
 FX_FILE = os.environ.get("DC_FX_FILE", "data/fixtures.js")
+W, H = (int(v) for v in os.environ.get("DC_FRAME", "1440x900").split("x"))
 
 RUNNER = r"""
 const fs = require("fs");
@@ -70,8 +71,8 @@ const Component = new Function(
   `return class Component extends DCLogic {\n${logic}\n}`,
 )(DCLogic);
 const inst = new Component(props);
-if (typeof inst.onReady === "function") inst.onReady();
-const vals = typeof inst.renderVals === "function" ? inst.renderVals() : {};
+inst.setState({ fx: true }, () => inst.onReady());
+const vals = inst.renderVals();
 process.stdout.write(JSON.stringify({
   state: JSON.parse(JSON.stringify(inst.state)),
   vals: JSON.parse(JSON.stringify(vals)),
@@ -89,6 +90,17 @@ def load_page(src: Path):
 def src_for(handoff: Path, page: str) -> Path:
     name = page.removesuffix(".dc.html")
     return handoff / "src" / f"{name}.py"
+
+
+def page_props(module, scene: dict) -> dict:
+    props = {"$preview": {"width": W, "height": H}}
+    spec = getattr(module, "PROPS", None) or {}
+    if isinstance(spec, dict):
+        for key, value in spec.items():
+            if isinstance(value, dict) and "default" in value:
+                props[key] = value["default"]
+    props.update(scene.get("props") or {})
+    return props
 
 
 def last_line(text: str) -> str:
@@ -112,7 +124,7 @@ def run_scene(handoff: Path, scene: dict) -> dict:
         runner = Path(tmp) / "export_scene.js"
         runner.write_text(RUNNER, encoding="utf-8")
         proc = subprocess.run(
-            ["node", str(runner), str(fx_path), FX, json.dumps(scene.get("props") or {})],
+            ["node", str(runner), str(fx_path), FX, json.dumps(page_props(module, scene))],
             input=logic,
             capture_output=True,
             text=True,

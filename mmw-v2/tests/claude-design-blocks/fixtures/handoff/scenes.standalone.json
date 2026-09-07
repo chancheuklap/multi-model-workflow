@@ -7,12 +7,12 @@
   {
     "name": "list.empty",
     "page": "Component · list.dc.html",
-    "props": { "scene": "empty" }
+    "props": { "scene": "empty", "standalone": true }
   },
   {
     "name": "canvas.idle",
     "page": "Component · canvas.dc.html",
-    "props": { "scene": "idle", "standalone": true }
+    "props": { "scene": "idle" }
   },
   {
     "name": "canvas.dragging",

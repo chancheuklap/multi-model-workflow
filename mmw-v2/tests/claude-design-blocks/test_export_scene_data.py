@@ -51,8 +51,14 @@ class ExportSceneData(unittest.TestCase):
             data = by_name[name]["data"]
             self.assertIsNotNone(data["vals"])
             self.assertIn("state", data)
-        self.assertEqual(by_name["list.ready"]["data"]["vals"]["count"], 2)
-        self.assertEqual(by_name["list.ready"]["data"]["vals"]["title"], "Ready")
+            self.assertTrue(data["state"]["fx"])
+            self.assertTrue(data["vals"]["fx"])
+        ready = by_name["list.ready"]["data"]
+        self.assertEqual(len(ready["state"]["items"]), 2)
+        self.assertTrue(ready["state"]["ready"])
+        self.assertEqual(ready["vals"]["count"], 2)
+        self.assertEqual(ready["vals"]["title"], "Ready")
+        self.assertTrue(ready["vals"]["ready"])
         self.assertEqual(by_name["list.empty"]["data"]["vals"]["count"], 0)
         self.assertEqual(by_name["canvas.idle"]["data"]["vals"]["label"], "Board")
         self.assertEqual(by_name["canvas.dragging"]["data"]["vals"]["scene"], "dragging")
@@ -71,14 +77,29 @@ class ExportSceneData(unittest.TestCase):
         )
         result = export(self.handoff)
         self.assertEqual(result.returncode, 2)
-        self.assertIn("canvas.idle", result.stdout + result.stderr)
+        self.assertIn("list.empty", result.stdout + result.stderr)
+        for row in self.scenes():
+            self.assertNotIn("data", row)
+
+    def test_page_prop_defaults_fill_a_scene_that_omits_them(self):
+        rows = self.scenes()
+        idle = next(row for row in rows if row["name"] == "canvas.idle")
+        idle["props"] = {}
+        (self.handoff / "scenes.json").write_text(
+            json.dumps(rows, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        result = export(self.handoff)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        idle = next(row for row in self.scenes() if row["name"] == "canvas.idle")
+        self.assertEqual(idle["data"]["vals"]["scene"], "idle")
 
     def test_a_failed_scene_is_named_and_exits_1(self):
         src = self.handoff / "src" / "Component · list.py"
         src.write_text(
             src.read_text(encoding="utf-8").replace(
-                "return { items };",
-                'throw new Error("boom-list");\n          return { items };',
+                "this.setState({ items, ready: true });",
+                'throw new Error("boom-list");',
             ),
             encoding="utf-8",
         )
