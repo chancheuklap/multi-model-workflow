@@ -2,7 +2,7 @@
 
 `docs/specs/<effort>/screen-contract.yaml`. One file per effort, read by `to-spec`, `to-tickets`, `implement`, `code-review`, the story judge, the boundary check and the lint. YAML, because a linter reads it more often than a person does.
 
-The **control axis** is `rows`: one row per user-visible behaviour, keyed by the control. `pages` names each design page's story id (`mount`) and the component that owns it; `scenes` names which design page each scene of `scenes.json` belongs to. The two cannot be derived from each other — a page holds many rows, a row is visible on many scenes — so both are written, and the lint holds them to each other.
+The **control axis** is `rows`: one row per user-visible behaviour, keyed by the control. `pages` names each design page's story id (`mount`) and the component that owns it; `scenes` names which design page each scene of `scenes.json` belongs to. The control axis and these declarations cannot be derived from each other — a page holds many rows, a row is visible on many scenes — so both are written, and the lint holds them to each other.
 
 ## Top level
 
@@ -61,7 +61,7 @@ rows: [...]
 | `pages.<page>.component` | For a `Component · ` page: the rows' `component` value this page owns. `App · ` pages are whole-surface roots and carry none. | Component pages ↔ distinct `component` values one to one |
 | `scenes.<name>.page` | The `.dc.html` from `scenes.json`. | equals scenes.json; every scene of scenes.json has one entry and nothing else does |
 
-A key that is not in these tables, on a page, a scene, a row, or at the top level, is an error that names the key.
+A key that is not in this table or in the Column rules table below, on a page, a scene, a row, or at the top level, is an error that names the key.
 
 `pages` and `scenes` are filled at design time, with no running product: `page` from `scenes.json`, `mount` as a declaration. Verification needs the product; filling does not.
 
@@ -69,7 +69,7 @@ A `retired_ids` entry with a `trigger` names the `page` the control is on; the j
 
 A `volatile_values` entry is a display value the seed must not write — a wallet balance belonging to an external account, not a difference to hide. Same trigger shape as `retired_ids` (`page`, role, accessible name) plus one line of `reason`. When several nodes on one scene share that role and stem — three sibling `strong` whose names are `20 鸭豆`, `40 鸭豆`, `12,480 鸭豆` — the entry also names `after`: the previous named node (`text: 当前余额`). Matching uses one function (`matches_volatile`) on the story judge and on this lint: role equal (a `text` trigger also matches the roles a static string snapshots as in the tree — `cell`, `generic`, and the rest of that set), accessible names equal once digits and thousands separators are removed (`鸭豆余额 12,480` matches `鸭豆余额 1,000,000`; a currency sign or a unit stays and must agree), and when `after` is set, the previous named node in reading order matches that pair the same way. Before the accessibility tree and the pixel judge compare, both sides replace that node's text with one token: the tree name becomes `<volatile>`, and the pixel judge first puts the trigger's digits into the node on both sides (so the two boxes are one width and nothing after them moves, whatever number each side showed) and then paints that box the same solid colour, so different numbers compare equal. The lint prints every `volatile_values` entry on every run, warns when that trigger is not in that page's target tree, and errors when a `volatile_values` entry matches more than one node on any scene of that page.
 
-When a `story-parity.py --out` directory sits under the contract directory, the lint reads the newest such inventory (`media/<scene>-<WxH>-impl.png` files) and warns if a non-App page has a scene that inventory does not cover. No inventory is silence: the contract has not been compared yet.
+When a `story-parity.py --out` directory sits under the contract directory, the lint reads the newest such inventory (`media/<scene>-<WxH>-impl.png` files) and warns if a non-App page has a scene that inventory does not cover. `App · ` pages are outside this warning: the story judge's `--pages` takes only non-App mounts, so an App-page miss can never be repaired. That is how #216 Implementation Decisions section 5's "每个设计页" is applied to the judge that landed. No inventory is silence: the contract has not been compared yet.
 
 ## Target trees
 

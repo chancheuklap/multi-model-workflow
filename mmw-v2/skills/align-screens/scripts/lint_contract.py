@@ -1,4 +1,3 @@
-#!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
 # dependencies = ["pyyaml>=6"]
@@ -7,6 +6,10 @@
 
 Usage: uv run python lint_contract.py --tools <drive-target scripts> <screen-contract.yaml> <skeleton.json> [<openapi.json>]
 Exit 0 with no errors; 1 with errors listed one per line; warnings never fail.
+
+A `uv run python` invocation (the form a ticket CHECK writes) does not read the
+metadata block above; `main` then re-execs through `uv run --script` so PyYAML
+comes from that block. `uv run --script lint_contract.py` skips the re-exec.
 
 `--tools` is the `scripts/` directory of the drive-target skill. Two things
 come from that driver, and this file holds no copy of either: the `.mmw/target.json`
@@ -34,6 +37,17 @@ _BOOTSTRAP = "MMW_LINT_CONTRACT_BOOTSTRAPPED"
 try:
     import yaml
 except ImportError:
+    yaml = None
+
+
+def _ensure_yaml() -> None:
+    """Re-exec through `uv run --script` when this process has no PyYAML.
+
+    Called from `main` only, so importing the module in a test without the
+    dependency fails the import of `yaml` and does not replace the test process.
+    """
+    if yaml is not None:
+        return
     if os.environ.get(_BOOTSTRAP) == "1":
         raise SystemExit(
             "lint_contract.py is missing pyyaml after uv run --script; "
@@ -174,19 +188,13 @@ def stylesheet_breakpoints(baseline: Path) -> set[int]:
     return widths
 
 
-def scene_name_of(value) -> str:
-    """The scene a `next` or `on_failure` value names: its first token, before any
-    explanation in parentheses or a `|` alternative."""
-    return re.split(r"[\s(|]", str(value or "").strip(), maxsplit=1)[0]
-
-
 def unknown_keys(value: dict, allowed: set[str]) -> list[str]:
     return sorted(k for k in value if k not in allowed)
 
 
 def latest_story_out(contract_dir: Path) -> Path | None:
-    """The newest directory under the contract dir that holds a story-parity
-    `--out` media folder (`<scene>-<WxH>-impl.png`), or None."""
+    """The newest `media/` directory under the contract dir that holds
+    story-parity `--out` files (`<scene>-<WxH>-impl.png`), or None."""
     found: list[tuple[float, Path]] = []
     for media in contract_dir.rglob("media"):
         if not media.is_dir():
@@ -196,36 +204,22 @@ def latest_story_out(contract_dir: Path) -> Path | None:
         pngs = [p for p in media.iterdir() if p.is_file() and IMPL_PNG.match(p.name)]
         if not pngs:
             continue
-        found.append((max(p.stat().st_mtime for p in pngs), media.parent))
+        found.append((max(p.stat().st_mtime for p in pngs), media))
     if not found:
         return None
     found.sort()
     return found[-1][1]
 
 
-def covered_scenes(out_dir: Path) -> set[str]:
-    names: set[str] = set()
-    media = out_dir / "media"
-    if not media.is_dir():
-        return names
-    for path in media.iterdir():
-        m = IMPL_PNG.match(path.name)
-        if m:
-            names.add(m.group(1))
-    return names
-
-
-def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
-                     contract_dir: Path | None) -> tuple[list[str], list[str]]:
+def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
+                      contract_dir: Path | None) -> tuple[list[str], list[str]]:
     """Target, viewports, pages, scenes, target trees, volatile_values, and
     story coverage. Every finding names the key it is about."""
     errors: list[str] = []
     warnings: list[str] = []
-    rows = {str(r.get("id")): r for r in doc.get("rows") or []}
-    # -- unknown top-level keys
-    if isinstance(doc, dict):
-        for key in unknown_keys(doc, TOP_KEYS):
-            errors.append(f"{key} is not a contract field")
+    rows = {str(r.get("id")): r for r in doc.get("rows") or [] if isinstance(r, dict)}
+    for key in unknown_keys(doc, TOP_KEYS):
+        errors.append(f"{key} is not a contract field")
     # -- target
     target = doc.get("target") or {}
     kind = str(target.get("kind") or "")
@@ -373,11 +367,14 @@ def lint_screen_axis(doc: dict, skeleton: dict, baseline: Path | None,
         elif hits > 1:
             errors.append(f"volatile_values: {role} {name!r} on {page} matches {hits} "
                           f"nodes")
-    # -- story coverage: the newest story-parity --out under the contract dir
+    # -- story coverage: the newest story-parity --out under the contract dir.
+    # App pages are outside this warning: story-parity.py --pages takes only
+    # non-App mounts, so an App-page miss can never be repaired.
     if contract_dir is not None:
-        out_dir = latest_story_out(contract_dir)
-        if out_dir is not None:
-            seen = covered_scenes(out_dir)
+        media = latest_story_out(contract_dir)
+        if media is not None:
+            seen = {m.group(1) for p in media.iterdir()
+                    if p.is_file() and (m := IMPL_PNG.match(p.name))}
             by_page: dict[str, list[str]] = {}
             for sname, page in scene_pages.items():
                 if page.startswith("App · "):
@@ -428,10 +425,12 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
     seen_ids: set[str] = set()
     seen_triggers: dict[tuple[str, str], list[dict]] = {}
     for row in rows:
+        if not isinstance(row, dict):
+            errors.append(f"{row!r}: row must be a mapping")
+            continue
         rid = str(row.get("id", "<no id>"))
-        if isinstance(row, dict):
-            for key in unknown_keys(row, ROW_KEYS):
-                errors.append(f"{rid}: {key} is not a contract field")
+        for key in unknown_keys(row, ROW_KEYS):
+            errors.append(f"{rid}: {key} is not a contract field")
         if not ID.match(rid):
             errors.append(f"{rid}: id must look like <component>.<behaviour>")
         if rid in seen_ids:
@@ -535,6 +534,7 @@ def volatile_lines(doc: dict) -> list[str]:
 
 
 def main(argv: list[str]) -> int:
+    _ensure_yaml()
     rest: list[str] = []
     TOOLS[:] = []
     i = 1
@@ -565,7 +565,7 @@ def main(argv: list[str]) -> int:
     for line in volatile_lines(doc):
         print(line)
     errors, warnings = lint(doc, skeleton, openapi)
-    e2, w2 = lint_screen_axis(doc, skeleton, baseline, contract.resolve().parent)
+    e2, w2 = lint_declarations(doc, skeleton, baseline, contract.resolve().parent)
     errors += e2
     warnings += w2
     for w in warnings:

@@ -130,7 +130,7 @@ class TestScreenAxis(unittest.TestCase):
         self.repo.cleanup()
 
     def lint(self, doc):
-        errors, warnings = lc.lint_screen_axis(doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
+        errors, warnings = lc.lint_declarations(doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
         return errors, warnings
 
     def test_a_complete_contract_has_no_errors(self):
@@ -236,7 +236,7 @@ class TestRemovedFields(unittest.TestCase):
 
     def lint(self, doc):
         e1, w1 = lc.lint(doc, SKELETON, None)
-        e2, w2 = lc.lint_screen_axis(doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
+        e2, w2 = lc.lint_declarations(doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
         return e1 + e2, w1 + w2
 
     def test_a_row_with_observe_or_after_is_an_error(self):
@@ -258,15 +258,27 @@ class TestRemovedFields(unittest.TestCase):
         self.assertEqual(self.lint(doc)[0], [])
 
     def test_story_coverage_warns_when_a_page_scene_is_missing(self):
+        older = self.repo.spec_dir / "story-shots-old" / "media"
+        older.mkdir(parents=True)
+        for name in ("empty", "material-added", "shell-header.ready"):
+            png = older / f"{name}-1440x900-impl.png"
+            png.write_bytes(b"x")
+            os.utime(png, (1, 1))
         media = self.repo.spec_dir / "story-shots" / "media"
         media.mkdir(parents=True)
         (media / "empty-1440x900-impl.png").write_bytes(b"x")
         (media / "shell-header.ready-1440x900-impl.png").write_bytes(b"x")
         errors, warnings = self.lint(contract())
-        self.assertFalse(any("story" in e for e in errors), errors)
-        self.assertTrue(any("material-added" in w and "story" in w for w in warnings),
-                        warnings)
+        story = [w for w in warnings if w.startswith("story coverage:")]
+        self.assertEqual(story, [
+            f"story coverage: {PAGE_A} scenes material-added are not "
+            f"in the latest story-parity --out inventory",
+        ], warnings)
+        self.assertFalse(any("empty" in w and "story coverage:" in w for w in warnings),
+                         warnings)
+        self.assertFalse(any("shell-header.ready" in w for w in warnings), warnings)
         self.assertFalse(any("library.ready" in w for w in warnings), warnings)
+        self.assertFalse(any("story" in e for e in errors), errors)
 
 
 class TestSources(unittest.TestCase):
@@ -345,13 +357,13 @@ class TestVolatileValues(unittest.TestCase):
                         encoding="utf-8")
         doc = contract()
         doc["volatile_values"] = [self.ENTRY]
-        _, warnings = lc.lint_screen_axis(doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
+        _, warnings = lc.lint_declarations(doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
         self.assertTrue(any("volatile_values" in w and "鸭豆余额 12,480" in w
                             and "not in the target tree" in w for w in warnings), warnings)
 
         aria.write_text(aria.read_text(encoding="utf-8") + '- text: 鸭豆余额 12,480\n',
                         encoding="utf-8")
-        _, warnings = lc.lint_screen_axis(doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
+        _, warnings = lc.lint_declarations(doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
         self.assertFalse(any("volatile_values" in w for w in warnings), warnings)
 
     def test_an_entry_that_matches_several_nodes_is_an_error(self):
@@ -367,14 +379,14 @@ class TestVolatileValues(unittest.TestCase):
             encoding="utf-8")
         doc = contract()
         doc["volatile_values"] = [dict(self.AMBIGUOUS)]
-        errors, warnings = lc.lint_screen_axis(
+        errors, warnings = lc.lint_declarations(
             doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
         self.assertTrue(any("volatile_values" in e and "12,480 鸭豆" in e
                             and "matches 3 nodes" in e for e in errors), errors)
         self.assertFalse(any("volatile_values" in w for w in warnings), warnings)
 
         doc["volatile_values"][0]["after"] = {"role": "text", "name": "当前余额"}
-        errors, warnings = lc.lint_screen_axis(
+        errors, warnings = lc.lint_declarations(
             doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
         self.assertFalse(any("volatile_values" in e for e in errors), errors)
         self.assertFalse(any("volatile_values" in w for w in warnings), warnings)
