@@ -684,7 +684,7 @@ JSON
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" PASEO_AGENT_ID=agt_main \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
   [ "$code" = 0 ] || fail "expected exit 0 with PASEO_AGENT_ID, got $code: $(cat "$TMP/err")"
-  has "paseo :: heartbeat :: create :: --cron :: 7 * * * * :: --name :: mmw-night-76 :: --json"
+  has "paseo :: heartbeat :: create :: --cron :: 7,47 * * * * :: --name :: mmw-night-76 :: --json"
   grep -q "status 76 (from " "$MMW_TEST_LOG" \
     || fail "the heartbeat prompt should name status and the git root: $(cat "$MMW_TEST_LOG")"
   grep -q "night.md step 3" "$MMW_TEST_LOG" \
