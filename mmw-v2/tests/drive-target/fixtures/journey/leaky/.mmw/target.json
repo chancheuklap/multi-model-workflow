@@ -1,0 +1,7 @@
+{
+  "start": "true",
+  "stop": "true",
+  "discover": "true",
+  "stories": "true",
+  "leaves_machine": ["tools/opened.py"]
+}

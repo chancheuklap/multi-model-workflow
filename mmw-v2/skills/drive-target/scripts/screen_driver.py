@@ -307,10 +307,17 @@ class Field:
     required: bool = True
 
 
-# The keys every repository answers, whatever kind of product it has. What each kind's
-# `discover` must print is the adapter's `discover_keys`. `checks` is read by
+# The keys every repository answers, whatever kind of product it has. `discover`
+# prints an origin-class address plus identity. `checks` is read by
 # `verify-ticket.py --closeout`, not by this driver, and is listed so the file has one
 # account.
+DISCOVER_PRINTS: tuple[tuple[str, str], ...] = (
+    ("origin", "where the product is served, e.g. http://127.0.0.1:8000"),
+    ("instance", "a readable name for this run"),
+    ("instance_check", "one observe line whose truth means the product answering "
+                       "is the one this run started"),
+)
+
 FIELDS: tuple[Field, ...] = (
     Field("start", "command",
           "brings the product up with everything it needs — backing service, data "
@@ -323,21 +330,17 @@ FIELDS: tuple[Field, ...] = (
           "to end; the only way a run may end a process",
           '"uv run python scripts/testing/target.py stop"'),
     Field("discover", "command",
-          "prints one JSON object of this kind's addresses (see `discover prints` above), "
-          "plus `instance`, a readable name for this run, and `instance_check`, one "
-          "observe line whose truth means the product answering is the one this run started",
+          "prints one JSON object of origin-class addresses plus `instance`, a readable "
+          "name for this run, and `instance_check`, one observe line whose truth means "
+          "the product answering is the one this run started",
           '"uv run python scripts/testing/target.py discover"'),
-    Field("reach", "command prefix",
-          "the mechanism names of a scene or a row are appended (`seed:… dev:…`, and "
-          "`--perturb` for the perturbation run); establishes the state, idempotent, and "
-          "prints KEY=VALUE lines that fill every {placeholder}",
-          '"uv run python scripts/testing/reach.py"'),
-    Field("transport_off", "command",
-          "takes the persistence of the observed rows away while the product keeps "
-          "answering, for the wiring check's negative control",
-          '"uv run python scripts/testing/target.py transport off"'),
-    Field("transport_on", "command", "puts the persistence back",
-          '"uv run python scripts/testing/target.py transport on"'),
+    Field("stories", "command",
+          "brings up the story page service and prints its `origin`",
+          '"uv run python scripts/testing/target.py stories"'),
+    Field("journeys", "directory",
+          "the directory of journey scripts; default .mmw/journeys",
+          '".mmw/journeys"',
+          required=False),
     Field("leaves_machine", "list of strings",
           "each thing this product does in a run that reaches past this machine — opening "
           "the system browser, calling a paid service, writing a machine-global location — "
@@ -361,6 +364,15 @@ FIELDS: tuple[Field, ...] = (
 
 
 def repo_root(start: Path | None = None) -> Path:
+    """The directory that holds `.mmw/target.json`, else the git worktree.
+
+    A fixture or a path inside a consuming repository is the repository that
+    answered. The worktree is the fallback when nobody has answered yet.
+    """
+    here = (start or Path.cwd()).resolve()
+    for path in (here, *here.parents):
+        if (path / ".mmw" / "target.json").is_file():
+            return path
     return worktree_of(start)
 
 
@@ -2457,9 +2469,10 @@ def target_problems(kind: str, cfg: dict) -> list[tuple[str, str]]:
                 problems.append((f.key, f"is missing — {f.what} — e.g. {f.example}"))
             continue
         value = cfg[f.key]
-        if f.shape in ("command", "command prefix"):
+        if f.shape in ("command", "command prefix", "directory"):
             if not isinstance(value, str) or not value.strip():
-                problems.append((f.key, f"must be a non-empty command string — e.g. {f.example}"))
+                word = "directory" if f.shape == "directory" else "command"
+                problems.append((f.key, f"must be a non-empty {word} string — e.g. {f.example}"))
         elif f.key == "leaves_machine":
             if not isinstance(value, list) or not all(isinstance(x, str) for x in value):
                 problems.append((f.key, f"must be a list of strings ([] when nothing leaves) "
@@ -2535,10 +2548,8 @@ def target_main(argv: list[str]) -> int:
         print(f"  state is put {'before' if cls.reach_before_attach else 'after'} attach; "
               f"observe reads a {cls.read_surface} surface")
         print("  discover prints:")
-        for key, what, required in cls.discover_keys:
-            print(f"    {key}{'' if required else ' (optional)'} — {what}")
-        print("    instance, instance_check — a name for this run, and one observe line that "
-              "proves the product answering is this run's")
+        for key, what in DISCOVER_PRINTS:
+            print(f"    {key} — {what}")
     print(f"{path}: {'not there yet' if not path.exists() else 'read'}")
     named = {key for key, _ in problems}
     for f in fields_of(kind):
