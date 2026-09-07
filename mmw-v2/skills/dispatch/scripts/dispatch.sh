@@ -733,13 +733,32 @@ retract_one() {
 
 # ------------------------------------------------------------------ resume
 
+# Two ways this fails, and they call for opposite things. No such worker is final:
+# nothing will change by sending again. A worker that is there but will not take the
+# message is temporary: it is in a turn, and a turn ends.
+#
+# Which one it is comes from what this already knows rather than from reading the
+# error text. `paseo send` reports every failure as `SEND_FAILED` with the reason in
+# one English sentence (`Agent not found: …`, `A foreground turn is already active`),
+# and matching on that sentence would break the day it is reworded. It is not needed:
+# the agent was just found by label, so a failure after that is not "no such worker".
+#
+# The distinction is worth drawing because the old code gave both exit 2, whose
+# documented meaning is "read status, do not send again" — turning a three-minute
+# wait into a permanent answer. On 2026-09-07 (#211) a worker was left unreachable
+# this way and a five-hour session with 16 commits on its branch had to be killed.
 resume_one() {
-  local number="$1" text="$2" ident
+  local number="$1" text="$2" ident out
   [ -n "$text" ] || refuse "resume needs the text to send"
   ident="$(agents_by_label --label "mmw.ticket=$number" --label mmw.kind=worker | head -n 1 | cut -f2)"
   [ -n "$ident" ] || refuse "no worker agent labelled mmw.ticket=$number"
-  paseo send --no-wait "$ident" "$text" >/dev/null \
-    || refuse "could not send to $ident"
+  if out="$(paseo send --no-wait "$ident" "$text" 2>&1)"; then
+    return 0
+  fi
+  echo "dispatch: the worker $ident on #$number did not take the message" >&2
+  [ -n "$out" ] && printf '  %s\n' "$out" >&2
+  echo "dispatch: it is most likely in a turn — wait, then run resume again. If it keeps refusing, ask \`get_agent_status\` for this agent: an \`activeTurn\` of null with the send still failing is a stuck session, and the only way out is to replace it" >&2
+  exit 3
 }
 
 # ------------------------------------------------------------------ wait
