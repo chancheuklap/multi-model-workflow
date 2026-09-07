@@ -34,6 +34,7 @@ Every run that executes a `CHECK:` — `<n>`, `--reverify` — and `--lint` take
 | A **worker** assembling the closing-comment skeleton | `<engine> <n> --draft <out-file>` | Nothing on the ticket. The skeleton is written to `<out-file>`, with `skipped:` and `Decisions I made on my own` left as `<fill>`. `--closeout` refuses it until those are filled |
 | A **worker** opening a sub-issue under this ticket | `<engine> <n> --sub-issue <kind> <file>` | A new issue labelled `needs-triage`, parented to this ticket, first line `SUB-ISSUE <kind> from #<n>`. `kind` is `baseline`, `outside-owns`, `review`, `decision`, or `pipeline`. Empty file or unknown kind: exit 2 |
 | The **agent publishing a batch**, at the read-back step | `<engine> <n> --lint --tools <drive-target scripts>` | Nothing. Findings print to your terminal; no `CHECK:` runs and no comment is posted |
+| The **main agent** before a night's first `advance` | `<engine> <spec> --lint --tools <drive-target scripts>` | Nothing. The same findings, for every sub-issue of the spec in turn, then the batch graph once; exit 1 if any ticket or the graph has an `ERROR` |
 
 Exit code: `0` every criterion met, `1` something unmet or abandoned, `2` the ticket could not be read or the run could not start. `--preflight`, `--decisions`, `--touched` and `--sub-issue` use `2` for a refusal; `--closeout` uses `1`.
 
@@ -60,6 +61,8 @@ The `self-run` and `reverify` comment ends with the files this ticket's own comm
 A `CHECK:` is a shell command. One that needs more than a line carries it in a fenced block directly under `CHECK:`, and nothing inside that block is read as ledger syntax: a `- [ ]` line in a heredoc is text the command prints, not the next criterion. A bare line under a `CHECK:` is refused, and the refusal says to use a fenced block.
 
 ## `--lint` on a batch
+
+Given a ticket, `--lint` checks that ticket and the graph of the batch it sits under. Given the spec — an issue with no `## Acceptance criteria`, no parent, and sub-issues — it checks every sub-issue the same way, each under a line naming the ticket and its state, then the graph once, and ends with the list of tickets that had an `ERROR`. Closed tickets are included: a finding on one is stale text on the tracker, not a reason to stop, and the reader can see the state on the line above it.
 
 Three things at once: how the criteria are written, which worker the ticket asks for, and whether the batch under the same spec is a startable graph — every ticket the spec lists as a sub-issue, the blocking links between them, and which of them nothing blocks. The graph comes from the tracker's blocking links, the same ones `--preflight` refuses on and `advance` dispatches from. A ticket's `## Blocked by` section is the human-readable copy of those links, and a mismatch is a `WARN  … [blocked-by-mismatch]` naming the numbers each side has that the other does not.
 

@@ -9,6 +9,7 @@ comment. Nothing is cached and no file is left behind.
     verify-ticket.py <n>              run the unmet criteria, comment `self-run`
     verify-ticket.py <n> --reverify   re-run every criterion, comment `reverify`
     verify-ticket.py <n> --lint       audit how the criteria are written; print only
+    verify-ticket.py <spec> --lint    the same over every sub-issue of the spec
     verify-ticket.py <n> --preflight  claim the ticket, or refuse and say why
     verify-ticket.py <n> --closeout <draft>  check the closing comment, then post it
     verify-ticket.py <n> --decisions <file>  post the two-section file as `DECISIONS`
@@ -1741,6 +1742,11 @@ def lint_ticket_graph(number: int, body: str) -> int:
         print(f"  ERROR the tracker could not list the children of #{spec} "
               f"({exc}), so the batch graph was not checked  [sub-issues-unreadable]")
         return 1
+    return lint_batch_graph(spec, numbers)
+
+
+def lint_batch_graph(spec: int, numbers: list[int]) -> int:
+    """Check that `numbers`, the sub-issues of `spec`, form a startable graph."""
     if not numbers:
         print(f"  ERROR #{spec} has no sub-issues — publish tickets as sub-issues of the "
               f"spec, or the graph cannot be checked  [no-sub-issues]")
@@ -2213,9 +2219,10 @@ def lint_screen_contract(body: str, number: int | None = None,
     return findings
 
 
-def run_lint(number: int) -> int:
-    body = fetch_body(number)
-    labels = [label.get("name") or "" for label in fetch_ticket(number).get("labels") or []]
+def lint_criteria(number: int, body: str, labels: list[str]) -> int:
+    """Everything `--lint` says about one ticket's own text: its worker label, how its
+    criteria are written, and the three criterion shapes. The batch graph is not here;
+    `run_lint` checks that once per batch."""
     worker_errors, worker_warnings = lint_worker(labels, body)
 
     def report_worker() -> None:
@@ -2226,13 +2233,12 @@ def run_lint(number: int) -> int:
 
     # A `ready-for-human` ticket carries no criteria at all: what it holds is one thing
     # for the user to look at. gate-lint has nothing to say about it, and
-    # saying "zero live gates" would report the ticket's correct shape as a fault. Its
-    # place in the batch is still worth checking, so the graph check runs.
+    # saying "zero live gates" would report the ticket's correct shape as a fault.
     if not section(body, "Acceptance criteria"):
-        print(f"#{number} carries no `## Acceptance criteria`, so only the ticket graph "
-              f"is checked here")
+        print(f"#{number} carries no `## Acceptance criteria`, so only its worker label "
+              f"and its place in the batch are checked")
         report_worker()
-        return lint_ticket_graph(number, body) or (1 if worker_errors else 0)
+        return 1 if worker_errors else 0
 
     with tempfile.TemporaryDirectory(prefix="verify-ticket-") as tmp:
         ledger = write_ledger(body, Path(tmp))
@@ -2261,9 +2267,57 @@ def run_lint(number: int) -> int:
     for finding in lint_edges(body):
         print("  WARN  " + finding + "  [unexplained-edge]")
     report_worker()
+    return result.returncode or (1 if broken or worker_errors else 0)
 
+
+def ticket_labels(number: int) -> list[str]:
+    return labels_of(fetch_ticket(number))
+
+
+def labels_of(ticket: dict) -> list[str]:
+    return [label.get("name") or "" for label in ticket.get("labels") or []]
+
+
+def run_lint(number: int) -> int:
+    """`--lint` on a ticket lints that ticket and the graph of the batch it sits under.
+    `--lint` on a spec — an issue with no `## Acceptance criteria`, no parent, and
+    sub-issues — lints every one of those sub-issues, then the graph once. The night's
+    pre-batch pass names the spec, so a spec number must not come back as a quiet 0."""
+    body = fetch_body(number)
+    if not section(body, "Acceptance criteria"):
+        try:
+            is_spec = spec_of(number) is None and bool(fetch_sub_issues(number))
+        except ParentUnreadable as exc:
+            print(f"  ERROR the tracker could not say whether #{number} sits under a spec "
+                  f"({exc})  [parent-unreadable]")
+            return 1
+        except SubIssuesUnreadable as exc:
+            print(f"  ERROR the tracker could not list the children of #{number} "
+                  f"({exc})  [sub-issues-unreadable]")
+            return 1
+        if is_spec:
+            return lint_spec(number)
+    ticket_rc = lint_criteria(number, body, ticket_labels(number))
     graph = lint_ticket_graph(number, body)
-    return result.returncode or graph or (1 if broken or worker_errors else 0)
+    return 1 if (ticket_rc or graph) else 0
+
+
+def lint_spec(spec: int) -> int:
+    """Every sub-issue of the spec through `lint_criteria`, each under a line naming
+    it, then the batch graph once. Exit 1 if any ticket or the graph has an ERROR."""
+    numbers = fetch_sub_issues(spec)
+    print(f"#{spec} is a spec with {len(numbers)} sub-issues; linting each, then the graph")
+    failed: list[int] = []
+    for child in numbers:
+        ticket = fetch_ticket(child)
+        print(f"\n## #{child} ({ticket.get('state') or 'state unknown'})")
+        if lint_criteria(child, fetch_body(child), labels_of(ticket)):
+            failed.append(child)
+    print("\n## ticket graph")
+    graph = lint_batch_graph(spec, numbers)
+    if failed:
+        print("  ERROR tickets with findings: " + ", ".join(f"#{n}" for n in failed))
+    return 1 if (failed or graph) else 0
 
 
 def main(argv: list[str] | None = None) -> int:
