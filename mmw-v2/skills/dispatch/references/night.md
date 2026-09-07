@@ -102,9 +102,33 @@ Two things wake you, and both end here: a **ticket message** whose first line is
 
 Then end your turn. Most tickets that land are followed by another `advance`. The heartbeat from step 1 only wakes; it does not judge.
 
-## 4. The night is over
+## 4. The closing pass
 
-The frontier is empty and `status` shows no live agent. Then, still on this branch:
+The 收口轮|closing pass starts here. The frontier is empty and `status` shows no live agent. If this spec's tickets still hold open review sub-issues — first line `SUB-ISSUE review from #<n>` — triage **exactly those**. If there are none, go to step 5.
+
+Judge each by ADR 0012 (`docs/adr/0012-review-finding-routing.md`): six steps in order, first match wins. That split is the threshold.
+
+The ones you fix: commit under these three auditable rules, written here beside the threshold:
+
+1. 一个提交对应一张（或一组同源）子票，commit message 按号关闭它们。
+2. 只动那张子票点名的文件。
+3. 跑受影响的测试套件，commit message 引用看到的那一行（`ran 188 skipped 0` 这种，不是「测试通过」）。
+
+超出这三条的修复就是一张票。
+
+The ones that become tickets: open as few tickets as possible. A ticket whose files sit in another live ticket's `## Owns` is `Blocked by` that live ticket.
+
+Then:
+
+```bash
+<dispatch> advance <spec>
+```
+
+Loop: tickets that land wake you at step 3; when the frontier is empty again, this pass runs again. Continue until no review sub-issue survives. Then go to step 5.
+
+## 5. The night is over
+
+The frontier is empty, `status` shows no live agent, and step 4 left no open review sub-issue. Then, still on this branch:
 
 ```bash
 <dispatch> reverify <spec>
