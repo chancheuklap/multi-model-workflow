@@ -43,12 +43,15 @@ cannot fit in a sentence — the reasons a field is shaped as it is — is below
   `start` returns only once the product is *usable*, not merely alive: a product whose
   own dependencies are missing answers a health check and then disables every control,
   so `start` reads the surface that says so and fails on it, quoting what was missing.
-- **An overlay's mount is the overlay's own opaque box.** The pixel judge compares a
-  rectangle of the screen, so a `data-screen` on a full-viewport scrim carries whatever
-  the product paints behind it into the comparison, while the design page renders the
-  component alone. The tree and the class set never see it — they walk the mount's
+- **An overlay's mount is a wrapper around the overlay's card.** The pixel judge
+  compares a rectangle of the screen, so a `data-screen` on a full-viewport scrim carries
+  whatever the product paints behind it into the comparison, while the design page renders
+  the component alone. The tree and the class set never see it — they walk the mount's
   subtree, which the page behind is not in — so the failure looks like pixels and no
-  threshold fixes it. Put the attribute on the card.
+  threshold fixes it. Measured on one product: moving the attribute off the scrim took a
+  scene from 18.1% to 0.291%. Put it on a wrapper whose box is the card, not on the card:
+  the class set reads the mount's descendants (`querySelectorAll('*')`), so a mount on the
+  card hides that card's own classes from the judge.
 - **`stop` is the only way a run ends a process.** `hook.py pretool` refuses `kill`,
   `pkill`, `killall` and `xargs kill` and sends the reader to it; it ends only what this
   run recorded as its own, leaves a neighbour's product alone, exits 0 with nothing to
