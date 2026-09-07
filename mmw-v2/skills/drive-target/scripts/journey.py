@@ -32,10 +32,6 @@ from screen_driver import command_env, discover, repo_root, target_config  # noq
 DEFAULT_JOURNEYS = ".mmw/journeys"
 
 
-def _exit_text(exc: SystemExit) -> str:
-    return exc.code if isinstance(exc.code, str) else str(exc)
-
-
 def last_line(text: str) -> str:
     lines = [line for line in text.splitlines() if line.strip()]
     return lines[-1] if lines else "(no output)"
@@ -88,7 +84,7 @@ def run_named(name: str, start: Path | None = None) -> int:
     try:
         cfg = target_config(root)
     except SystemExit as exc:
-        print(_exit_text(exc), file=sys.stderr)
+        print(exc, file=sys.stderr)
         return 2
 
     def bail(message: str | None = None,
@@ -116,7 +112,7 @@ def run_named(name: str, start: Path | None = None) -> int:
     except SystemExit as exc:
         if isinstance(exc.code, subprocess.CompletedProcess):
             return bail(proc=exc.code)
-        return bail(_exit_text(exc))
+        return bail(str(exc))
     addresses_into(env, data)
 
     journeys = cfg.get("journeys") or DEFAULT_JOURNEYS

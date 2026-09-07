@@ -10,7 +10,6 @@ from __future__ import annotations
 import importlib.util
 import os
 import shutil
-import socket
 import subprocess
 import sys
 import tempfile
@@ -23,25 +22,6 @@ SCRIPT = (
 )
 REPO = Path(__file__).resolve().parent / "fixtures" / "story" / "repo"
 CONTRACT = "docs/specs/story/screen-contract.yaml"
-
-
-def free_port_base(need: int = 20) -> int:
-    """First free block at or above 30000, the shape of test_dispatch.sh."""
-    for base in range(30000, 46000 - need):
-        held = []
-        try:
-            for port in range(base, base + need):
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                sock.bind(("127.0.0.1", port))
-                held.append(sock)
-            return base
-        except OSError:
-            continue
-        finally:
-            for sock in held:
-                sock.close()
-    raise AssertionError(f"no free port block of {need}")
 
 
 def load():
@@ -232,6 +212,16 @@ class TestStoryFixture(unittest.TestCase):
         finally:
             shutil.rmtree(out, ignore_errors=True)
 
+    def copied_fixture(self) -> Path:
+        """A writable copy of the fixture repository, removed when the test ends.
+
+        The copy is not a git repository, so it takes a lease slot of its own and can
+        share the class home."""
+        tmp = Path(tempfile.mkdtemp(prefix="story-copy-"))
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        shutil.copytree(REPO, tmp / "repo", dirs_exist_ok=True)
+        return tmp / "repo"
+
     def test_three_equal_scenes_print_story_ok(self):
         proc = self.run_story()
         self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
@@ -263,58 +253,36 @@ class TestStoryFixture(unittest.TestCase):
         self.assertIn("does not declare", proc.stderr)
 
     def test_no_target_json_exits_2(self):
-        tmp = Path(tempfile.mkdtemp(prefix="story-no-target-"))
-        try:
-            shutil.copytree(REPO, tmp / "repo", dirs_exist_ok=True)
-            root = tmp / "repo"
-            shutil.rmtree(root / ".mmw")
-            proc = self.run_story(cwd=root)
-            self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
-            self.assertIn("target.json", proc.stderr)
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
+        root = self.copied_fixture()
+        shutil.rmtree(root / ".mmw")
+        proc = self.run_story(cwd=root)
+        self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
+        self.assertIn("target.json", proc.stderr)
 
     def test_target_json_without_stories_exits_2(self):
-        tmp = Path(tempfile.mkdtemp(prefix="story-no-stories-"))
-        try:
-            shutil.copytree(REPO, tmp / "repo", dirs_exist_ok=True)
-            root = tmp / "repo"
-            (root / ".mmw" / "target.json").write_text("{}\n", encoding="utf-8")
-            proc = self.run_story(cwd=root)
-            self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
-            self.assertIn("stories", proc.stderr)
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
+        root = self.copied_fixture()
+        (root / ".mmw" / "target.json").write_text("{}\n", encoding="utf-8")
+        proc = self.run_story(cwd=root)
+        self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
+        self.assertIn("stories", proc.stderr)
 
     def test_an_unknown_scene_the_stories_server_answers_404_exits_2(self):
         """fixtures/story/repo/stories/serve.py 404s an unknown scene; this is
         the path that raises SystemExit('story page 404: …') and returns 2."""
-        tmp = Path(tempfile.mkdtemp(prefix="story-404-"))
-        home = tempfile.mkdtemp(prefix="mmw-story-404-home-")
-        try:
-            shutil.copytree(REPO, tmp / "repo", dirs_exist_ok=True)
-            root = tmp / "repo"
-            contract = root / CONTRACT
-            text = contract.read_text(encoding="utf-8")
-            text = text.replace(
-                '  gamma:\n    page: "Component · Demo.dc.html"\n',
-                '  gamma:\n    page: "Component · Demo.dc.html"\n'
-                '  missing:\n    page: "Component · Demo.dc.html"\n',
-            )
-            contract.write_text(text, encoding="utf-8")
-            self.assertIn("missing:", contract.read_text(encoding="utf-8"))
-            proc = self.run_story(
-                cwd=root,
-                extra_args=["--scenes", "missing"],
-                extra_env={"MMW_HOME": home,
-                           "MMW_LEASE_PORT_BASE": str(free_port_base())},
-            )
-            self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
-            self.assertIn("story page 404", proc.stderr)
-            self.assertIn("scene=missing", proc.stderr)
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-            shutil.rmtree(home, ignore_errors=True)
+        root = self.copied_fixture()
+        contract = root / CONTRACT
+        text = contract.read_text(encoding="utf-8")
+        text = text.replace(
+            '  gamma:\n    page: "Component · Demo.dc.html"\n',
+            '  gamma:\n    page: "Component · Demo.dc.html"\n'
+            '  missing:\n    page: "Component · Demo.dc.html"\n',
+        )
+        contract.write_text(text, encoding="utf-8")
+        self.assertIn("missing:", contract.read_text(encoding="utf-8"))
+        proc = self.run_story(cwd=root, extra_args=["--scenes", "missing"])
+        self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
+        self.assertIn("story page 404", proc.stderr)
+        self.assertIn("scene=missing", proc.stderr)
 
 
 if __name__ == "__main__":

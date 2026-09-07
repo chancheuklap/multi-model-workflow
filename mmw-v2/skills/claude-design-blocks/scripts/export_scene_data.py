@@ -16,7 +16,7 @@ from pathlib import Path
 FX = os.environ.get("DC_FX", "FIXTURES")
 FX_FILE = os.environ.get("DC_FX_FILE", "data/fixtures.js")
 W, H = (int(v) for v in os.environ.get("DC_FRAME", "1440x900").split("x"))
-RUNNER = Path(__file__).with_name("export_scene.js")
+RUNNER_JS = Path(__file__).with_name("export_scene.js")
 
 
 def page_props(module, scene: dict) -> dict:
@@ -50,7 +50,7 @@ def run_scene(handoff: Path, scene: dict) -> dict:
     if not fx_path.is_file():
         raise RuntimeError(f"no fixtures at {fx_path}")
     proc = subprocess.run(
-        ["node", str(RUNNER), str(fx_path), FX, json.dumps(page_props(module, scene))],
+        ["node", str(RUNNER_JS), str(fx_path), FX, json.dumps(page_props(module, scene))],
         input=logic,
         capture_output=True,
         text=True,

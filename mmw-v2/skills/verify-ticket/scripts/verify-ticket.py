@@ -1961,14 +1961,24 @@ def script_segment(check: str, script: str) -> str:
 PAGES_VALUE_RE = re.compile(r"""--pages(?:\s+|=)(?:"([^"]*)"|'([^']*)'|(\S+))""")
 
 
+def flag_values(segment: str, pattern: re.Pattern) -> list[str]:
+    """Every value `pattern` matches in `segment`, double-quoted, single-quoted or bare.
+
+    The three alternatives are one capture group each, so which one carried the value
+    is the caller's question in every flag regex here; asking it once is the point."""
+    out: list[str] = []
+    for m in pattern.finditer(segment):
+        out.append(m.group(1) if m.group(1) is not None
+                   else m.group(2) if m.group(2) is not None
+                   else m.group(3) or "")
+    return out
+
+
 def story_mounts(check: str) -> list[str]:
     """The `--pages` mounts a story-parity.py criterion names."""
     segment = script_segment(check, "story-parity.py")
     out: list[str] = []
-    for m in PAGES_VALUE_RE.finditer(segment):
-        raw = (m.group(1) if m.group(1) is not None
-               else m.group(2) if m.group(2) is not None
-               else m.group(3) or "")
+    for raw in flag_values(segment, PAGES_VALUE_RE):
         out.extend(x for x in raw.split(",") if x)
     return out
 
@@ -1988,11 +1998,7 @@ def run_values(check: str) -> list[str]:
     if "boundary-check.py" not in check:
         return []
     segment = script_segment(check, "boundary-check.py")
-    values = []
-    for m in RUN_VALUE_RE.finditer(segment):
-        values.append(m.group(1) if m.group(1) is not None
-                      else m.group(2) if m.group(2) is not None
-                      else m.group(3) or "")
+    values = flag_values(segment, RUN_VALUE_RE)
     if "--run" in segment and not values:
         return [""]
     return values

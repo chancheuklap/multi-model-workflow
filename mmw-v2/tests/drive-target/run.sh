@@ -17,6 +17,11 @@ set -euo pipefail
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 
+# No parent to tell. `hook.py` and the lease read `PASEO_AGENT_ID` to address the session
+# that started a run; these tests exercise those paths against made-up agents, so under a
+# Paseo session they would reach a live agent as news about work nobody is doing.
+unset PASEO_AGENT_ID
+
 if ! command -v uv >/dev/null 2>&1; then
   echo "uv is not on PATH" >&2
   exit 1
