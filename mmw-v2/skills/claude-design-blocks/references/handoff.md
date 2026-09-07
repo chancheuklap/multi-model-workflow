@@ -8,7 +8,7 @@ MCP tools: `mcp__claude-design__get_project` confirms the project id, `mcp__clau
 
 `README.md` as Claude Design generates it, every component `.dc.html`, `styles/`, `data/`, and `support.js`. These are what the implementation is held to, so they stay exactly as downloaded.
 
-Beside them, write `scenes.json`: one entry per scene, with `name`, `page` (the `.dc.html` it pins) and `props` (the prop set that puts the design page in that state). The `.dc.html`, `styles/`, `data/`, `support.js`, `scenes.json` and `vendor/` are what the driver renders, so every scene can be rendered later without opening the project. The `README.md` is where a spec and its tickets take exact values and verbatim copy from.
+Beside them, write `scenes.json`: one entry per scene, with `name`, `page` (the `.dc.html` it pins) and `props` (the prop set that puts the design page in that state). Then run `scripts/export_scene_data.py` on the package directory: it executes each page's `LOGIC` in Node (`init` → `onReady` → `renderVals`) against `data/fixtures.js` and writes `{state, vals}` into that scene's `data`. A scene whose props set `standalone` is scaffolding — the script names it and stops. When the package is downloaded again, run the export again. The `.dc.html`, `styles/`, `data/`, `support.js`, `scenes.json` and `vendor/` are what the driver renders, so every scene can be rendered later without opening the project. The `README.md` is where a spec and its tickets take exact values and verbatim copy from.
 
 ## `vendor/` — the three scripts `support.js` loads
 
@@ -22,7 +22,7 @@ A scene name comes from the values of each page's `scene` prop in its `data-prop
 - **A `scene` value that more than one page uses becomes `<page>.<value>`**, so every name pins one page.
 - **The overview page is not a scene.** Canvas mode gives its root `height: auto` inside absolutely positioned frames, so the root has no height and its screenshot is empty. The product has no such page either.
 
-Done when: every scene in `scenes.json` has been rendered once and produced a non-empty root, with the network off.
+Done when: every scene in `scenes.json` has been rendered once and produced a non-empty root, with the network off, and every scene's `data` is non-empty.
 
 ## What comes next
 

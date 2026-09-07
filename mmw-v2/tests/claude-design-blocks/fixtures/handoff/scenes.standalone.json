@@ -1,0 +1,22 @@
+[
+  {
+    "name": "list.ready",
+    "page": "Component · list.dc.html",
+    "props": { "scene": "ready" }
+  },
+  {
+    "name": "list.empty",
+    "page": "Component · list.dc.html",
+    "props": { "scene": "empty" }
+  },
+  {
+    "name": "canvas.idle",
+    "page": "Component · canvas.dc.html",
+    "props": { "scene": "idle", "standalone": true }
+  },
+  {
+    "name": "canvas.dragging",
+    "page": "Component · canvas.dc.html",
+    "props": { "scene": "dragging" }
+  }
+]
