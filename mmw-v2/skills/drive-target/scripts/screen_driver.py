@@ -900,6 +900,23 @@ def trigger_hit_indices(lines: list[str], trigger: VolatileTrigger) -> list[int]
     return hits
 
 
+def narrow_to_scenes(lines: list[str], scenes: set[str] | None) -> list[str]:
+    """The lines of the named scenes of a target tree that carries `## scene` markers.
+    A tree with none is one scene and is returned whole whatever is asked for."""
+    if scenes is None or not any(
+            raw.rstrip("\n").startswith(SCENE_HEADER) for raw in lines):
+        return lines
+    kept: list[str] = []
+    keep = False
+    for raw in lines:
+        line = raw.rstrip("\n")
+        if line.startswith(SCENE_HEADER):
+            keep = line[len(SCENE_HEADER):].strip() in scenes
+        if keep:
+            kept.append(raw)
+    return kept
+
+
 def count_trigger_hits(lines: list[str], trigger: VolatileTrigger,
                       scenes: set[str] | None = None) -> int:
     """Most exact `(role, name)` hits in any one scene, after `after` is applied.
@@ -909,17 +926,7 @@ def count_trigger_hits(lines: list[str], trigger: VolatileTrigger,
     The narrowing lives here rather than in a filter the caller applies first, because
     this function already walks scene by scene to take the maximum.
     """
-    if scenes is not None and any(
-            raw.rstrip("\n").startswith(SCENE_HEADER) for raw in lines):
-        kept: list[str] = []
-        keep = False
-        for raw in lines:
-            line = raw.rstrip("\n")
-            if line.startswith(SCENE_HEADER):
-                keep = line[len(SCENE_HEADER):].strip() in scenes
-            if keep:
-                kept.append(raw)
-        lines = kept
+    lines = narrow_to_scenes(lines, scenes)
     best = 0
     current = 0
     for item in named_nodes(lines):
@@ -933,6 +940,104 @@ def count_trigger_hits(lines: list[str], trigger: VolatileTrigger,
         if matches_volatile(role, name, [trigger], previous):
             current += 1
     return max(best, current)
+
+
+class TriggerConflict(NamedTuple):
+    """A row whose trigger reaches more than one node on one of its own pages, with
+    the `after` candidates read off that page's target tree."""
+    row_id: str
+    page: str
+    hits: int
+    candidates: list[tuple[str, str]]
+
+    @property
+    def pinnable(self) -> bool:
+        """True when the candidates differ, so one of them is an `after` that splits
+        the matches. False when they are all the same node — the matches sit in blocks
+        the design repeats and `after` cannot reach past the previous named node."""
+        return len([c for c in self.candidates if c[1]]) > 1
+
+
+def contract_trigger_conflicts(doc: dict, contract_dir, row_ids=None) -> list[TriggerConflict]:
+    """Every row of `doc` whose trigger is not unique on a page its own scenes sit on.
+
+    Reads only the contract and the target trees beside it (`targets/<page>.aria`), so
+    the contract lint, the ticket lint and anyone holding a checkout get the same answer
+    without the handoff package. `row_ids` narrows it to the rows a ticket owns.
+    """
+    from pathlib import Path
+    contract_dir = Path(contract_dir)
+    scene_pages = {name: (decl or {}).get("page")
+                   for name, decl in (doc.get("scenes") or {}).items()}
+    trees: dict[str, list[str]] = {}
+
+    def tree_of(page: str) -> list[str]:
+        if page not in trees:
+            stem = page[:-len(".dc.html")] if page.endswith(".dc.html") else page
+            aria = contract_dir / "targets" / f"{stem}.aria"
+            trees[page] = aria.read_text(encoding="utf-8").splitlines() if aria.exists() else []
+        return trees[page]
+
+    out: list[TriggerConflict] = []
+    for row in doc.get("rows") or []:
+        rid = str(row.get("id") or "")
+        if not rid or (row_ids is not None and rid not in set(row_ids)):
+            continue
+        wanted = row_trigger(row)
+        if not wanted.role or not wanted.name:
+            continue
+        pages: dict[str, set[str]] = {}
+        for sc in row.get("scenes") or []:
+            name = sc if isinstance(sc, str) else str((sc or {}).get("name") or "")
+            page = scene_pages.get(name)
+            if page:
+                pages.setdefault(page, set()).add(name)
+        for page, scs in sorted(pages.items()):
+            lines = tree_of(page)
+            if not lines:
+                continue
+            hits = count_trigger_hits(lines, wanted, scs)
+            if hits > 1:
+                out.append(TriggerConflict(
+                    rid, page, hits, trigger_after_candidates(lines, wanted, scs)))
+    return out
+
+
+def trigger_after_candidates(lines: list[str], trigger: VolatileTrigger,
+                            scenes: set[str] | None = None) -> list[tuple[str, str]]:
+    """The `after` candidates for a trigger that is not unique: the previous named
+    node of each node its exact `(role, name)` matches, collected from the scenes
+    where it matches more than once, deduplicated in reading order.
+
+    Two or more entries: each picks a different node, so one of them is the `after`
+    the row wants. One entry: every match follows the same node, so `after` cannot
+    split them and the row needs a `drive.scene` where the pair is unique. Empty: the
+    pair matched nothing, or matched once everywhere, so there is nothing to pin.
+    """
+    lines = narrow_to_scenes(lines, scenes)
+    out: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    scene_previous: list[tuple[str, str]] = []
+
+    def take() -> None:
+        if len(scene_previous) < 2:
+            return
+        for prev in scene_previous:
+            if prev not in seen:
+                seen.add(prev)
+                out.append(prev)
+
+    for item in named_nodes(lines):
+        if item is None:
+            take()
+            scene_previous = []
+            continue
+        role, name, previous = item
+        if (role, name) != (trigger.role, trigger.name):
+            continue
+        scene_previous.append(previous if previous is not None else ("", ""))
+    take()
+    return out
 
 
 def matches_volatile(role: str, name: str, triggers: list[VolatileTrigger],

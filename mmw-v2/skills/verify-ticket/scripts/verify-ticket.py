@@ -1922,6 +1922,32 @@ def tool(script: str) -> Path | None:
     return None
 
 
+def screen_driver_mod():
+    """The `drive-target` skill's `screen_driver.py`, loaded from `--tools` the way
+    that skill's own `extract_skeleton.load_driver` loads it — under the module name
+    `screen_driver`, registered before it is executed, because the dataclasses in it
+    resolve their own namespace through `sys.modules`. The two judges read a contract's
+    triggers through this module, so the ticket lint reads them the same way rather than
+    reimplementing the match. None when `--tools` did not supply it."""
+    global _SCREEN_DRIVER
+    if _SCREEN_DRIVER is not None:
+        return _SCREEN_DRIVER or None
+    path = tool("screen_driver.py")
+    if path is None:
+        _SCREEN_DRIVER = False
+        return None
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("screen_driver", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["screen_driver"] = module
+    spec.loader.exec_module(module)
+    _SCREEN_DRIVER = module
+    return module
+
+
+_SCREEN_DRIVER = None
+
+
 def script_segment(check: str, script: str) -> str:
     """The part of a CHECK from the script's name to the end of that command."""
     i = check.find(script)
@@ -2245,6 +2271,32 @@ def lint_scene_partition(open_bodies: dict[int, str], doc: dict,
     return findings
 
 
+def trigger_findings(row_ids: list[str], doc: dict, contract_path: str | None) -> list[str]:
+    """Every owned row the judges could not drive, because its trigger's role and name
+    reach more than one node on a page the row's own scenes sit on. The judges refuse
+    such a row at run time; found here it costs a line in a lint instead of a ticket in
+    a night. The candidates come from the target trees beside the contract."""
+    sd = screen_driver_mod()
+    if sd is None or not contract_path or not hasattr(sd, "contract_trigger_conflicts"):
+        return []
+    try:
+        conflicts = sd.contract_trigger_conflicts(doc, Path(contract_path).parent, row_ids)
+    except OSError:
+        return []
+    findings = []
+    for c in conflicts:
+        head = (f"row {c.row_id} cannot be driven: its trigger reaches {c.hits} nodes on "
+                f"{c.page}")
+        if c.pinnable:
+            shown = " | ".join(f"{role} {name!r}"
+                               for role, name in [x for x in c.candidates if x[1]][:3])
+            findings.append(f"{head}; pin it with after — candidates: {shown}")
+        else:
+            findings.append(f"{head}; after cannot split them, the matches sit in blocks "
+                            f"the design repeats")
+    return findings
+
+
 def lint_screen_contract(body: str, number: int | None = None) -> list[str]:
     """The interface rules of `to-tickets`, made mechanical.
 
@@ -2294,6 +2346,7 @@ def lint_screen_contract(body: str, number: int | None = None) -> list[str]:
         findings.extend(source_findings(row_ids, doc, read_first, parent_text))
         findings.extend(mechanism_findings(number, body, doc, row_ids, mounts))
         findings.extend(scene_findings(body, doc))
+        findings.extend(trigger_findings(row_ids, doc, contract_path))
     return findings
 
 
