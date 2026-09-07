@@ -1126,6 +1126,14 @@ def contract_trigger_conflicts(doc: dict, contract_dir, row_ids=None) -> list[Tr
         wanted = row_trigger(row)
         if not wanted.role or not wanted.name:
             continue
+        # A row with its own `drive.reach` is driven in a state the scene's design tree
+        # does not show — a draft seeded with one config item where the scene draws two —
+        # so counting nodes in that tree answers a question about a different screen. It
+        # cannot be decided here, and the driver decides it at run time by counting what
+        # is actually on the page. Measured on agentflow: rows whose drive.reach was
+        # `seed:draft-single-ready` drew one control where their scene's tree drew two.
+        if (row.get("drive") or {}).get("reach"):
+            continue
         pages: dict[str, set[str]] = {}
         for name in driven_scenes(doc, row):
             page = scene_pages.get(name)
