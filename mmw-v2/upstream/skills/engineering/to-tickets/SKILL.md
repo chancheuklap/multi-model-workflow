@@ -177,6 +177,8 @@ Where this ticket is verified: the test layer and directory from the spec's Test
 
 The repository-relative paths this ticket may write, one per line, the test directory or test file from **Seam** included. Mark what this ticket creates with "(new)". No absolute path, no `..`, no bare `**`. Match the granularity to the split: a directory glob where this ticket owns the directory alone, file paths where several tickets divide one directory. Two tickets on the same frontier must not overlap here; where they cannot be pulled apart because both must edit one file, add a **Blocked by** edge instead. Everything outside these paths is read-only for this ticket.
 
+A ticket that deletes or renames a public name (a file, a script, a contract field, a criterion word) takes every place `grep` finds that name into its own `## Owns`. Find those places by grepping the name, not by listing from memory. When a hit already belongs to another ticket, leave it off this ticket and open a cleanup ticket **Blocked by** it instead. That is the same overlap discipline applied to a delete or a rename.
+
 - src/import/**
 - tests/import/**
 - src/import/ui/** (new)
