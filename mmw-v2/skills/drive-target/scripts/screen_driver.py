@@ -113,6 +113,13 @@ CLOCK_EPOCH_MS = 1_700_000_000_000
 # Roles whose accessible name is dropped: a product page labels its `<main>`, a
 # component page does not, and the landmark itself is what matters.
 LANDMARKS = {"main", "navigation", "banner", "contentinfo", "region", "complementary"}
+# Roles the *comparison* keeps even with no accessible name: a dialog is on screen, so a
+# product that stopped drawing one has to fail, and until this list existed an unnamed
+# dialog was dropped and no judge could see it. This is a statement about what counts as
+# structure on screen, and it is the only place a role is named — **locating** a control
+# uses the whole ancestor chain and needs no list, so a product built from `nav`, `table`
+# or a repeated `article` needs nothing added here.
+COMPARED_UNNAMED = {"dialog", "alertdialog"}
 # `open` steps on these roles carry a value to type instead of a click.
 INPUT_ROLES = {"textbox", "combobox", "spinbutton", "searchbox"}
 # Classes the Claude Design runtime adds around interpolated text and hosts; a product
@@ -546,6 +553,53 @@ ARIA_LINE = re.compile(
     r'(?P<attrs>(?: \[[^\]]*\])*)(?::\s*(?P<value>.*))?\s*$')
 
 
+def normalize_aria_with_chains(text: str) -> tuple[list[str], list[tuple[tuple[str, str], ...]]]:
+    """The comparison lines and, aligned with them, each node's full ancestor chain.
+
+    Two views of one walk, because the two jobs want opposite things. A **comparison**
+    line is name-sensitive and quiet: wrong copy has to fail, and an ancestor repeated on
+    every descendant would report one wrong name many times, so a line carries its nearest
+    *named* ancestor and nothing more. **Locating** a control wants the opposite — names
+    are product data (a card list ordered by update time, a timestamp rendered raw) and a
+    locator built on them moves when the data moves — so it gets the chain of every
+    ancestor, named or not, and matches on roles.
+
+    Returned together from one walk so the two can never drift: `chains[i]` belongs to
+    `lines[i]`.
+    """
+    lines: list[str] = []
+    chains: list[tuple[tuple[str, str], ...]] = []
+    named: list[tuple[int, str]] = []   # the comparison view's ancestors
+    every: list[tuple[int, tuple[str, str]]] = []   # the locating view's
+    for ln in text.splitlines():
+        m = ARIA_LINE.match(ln)
+        if not m:
+            continue
+        indent = len(m.group("indent").expandtabs(2))
+        while named and named[-1][0] >= indent:
+            named.pop()
+        while every and every[-1][0] >= indent:
+            every.pop()
+        role, name, attrs, value = (m.group("role"), m.group("name"),
+                                    m.group("attrs") or "", m.group("value"))
+        shown = None if role in LANDMARKS else name
+        every.append((indent, (role, name or "")))
+        if shown is None and not value and not attrs.strip() and role not in COMPARED_UNNAMED:
+            continue
+        if value:
+            node = f"- {role}: {value.strip()}"
+        elif shown is not None:
+            node = f'- {role} "{shown}"{attrs}'
+        else:
+            node = f"- {role}{attrs}"
+        parent = named[-1][1] if named else None
+        lines.append(f"{node} < {parent[2:]}" if parent else node)
+        chains.append(tuple(a for _, a in every[:-1]))
+        if shown is not None or value or role in COMPARED_UNNAMED:
+            named.append((indent, node))
+    return lines, chains
+
+
 def normalize_aria(text: str) -> list[str]:
     """The named nodes of a Playwright ARIA snapshot, in reading order, each with its
     nearest named ancestor.
@@ -573,7 +627,7 @@ def normalize_aria(text: str) -> list[str]:
                                     m.group("attrs") or "", m.group("value"))
         if role in LANDMARKS:
             name = None
-        if name is None and not value and not attrs.strip():
+        if name is None and not value and not attrs.strip() and role not in COMPARED_UNNAMED:
             continue
         if value:
             node = f"- {role}: {value.strip()}"
@@ -583,7 +637,7 @@ def normalize_aria(text: str) -> list[str]:
             node = f"- {role}{attrs}"
         parent = stack[-1][1] if stack else None
         out.append(f"{node} < {parent[2:]}" if parent else node)
-        if name is not None or value:
+        if name is not None or value or role in COMPARED_UNNAMED:
             stack.append((indent, node))
     return out
 
@@ -840,6 +894,7 @@ class VolatileTrigger(NamedTuple):
     after: tuple[str, str] | None = None
     occurrence: int | None = None
     of: int | None = None
+    within: tuple[str, str] | None = None
 
 
 def volatile_name_matches(role: str, name: str, wanted_role: str, wanted_name: str) -> bool:
@@ -867,6 +922,16 @@ def _int_or_none(value) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
+def within_of(entry: dict) -> tuple[str, str] | None:
+    """`within` on a row: the ancestor the control sits under, `{role}` or
+    `{role, name}`. A dialog rarely has a name of its own, so the name defaults to the
+    empty string and matches the unnamed container the tree records."""
+    raw = entry.get("within")
+    if isinstance(raw, dict) and "role" in raw:
+        return (str(raw.get("role") or ""), str(raw.get("name") or ""))
+    return None
+
+
 def row_trigger(row: dict) -> VolatileTrigger:
     """The row's trigger as a `VolatileTrigger`, its pin included. `after` and
     `occurrence` are the two pins and never both — which one a row may use is decided by
@@ -874,48 +939,84 @@ def row_trigger(row: dict) -> VolatileTrigger:
     t = row.get("trigger") or {}
     return VolatileTrigger(str(t.get("role") or ""), str(t.get("name") or ""),
                            after_of(row),
-                           _int_or_none(row.get("occurrence")), _int_or_none(row.get("of")))
+                           _int_or_none(row.get("occurrence")), _int_or_none(row.get("of")),
+                           within_of(row))
 
 
-def named_nodes(lines: list[str]):
-    """Yield `(role, name, previous)` in reading order; yield `None` at a
+def named_nodes(lines: list[str], chains: list[tuple[tuple[str, str], ...]] | None = None):
+    """Yield `(role, name, previous, ancestor)` in reading order; yield `None` at a
     `## scene` boundary so a consumer can take the maximum per scene.
     Accessible name wins when a node carries both a name and a value, matching
-    `get_by_role(..., exact=True)`."""
+    `get_by_role(..., exact=True)`.
+
+    `ancestor` is the node the line already names after ` < `. It was parsed off and
+    thrown away here, so the one fact that tells a dialog's confirm button from the page
+    button that opened it reached the tree comparison and nothing else — a trigger could
+    not be pinned by it because the matcher never saw it."""
     previous: tuple[str, str] | None = None
+    i = -1
     for raw in lines:
         line = raw.rstrip("\n")
+        i += 1
         if line.startswith(SCENE_HEADER):
             previous = None
             yield None
             continue
-        own, _, _ = line.partition(" < ")
+        own, sep, ancestor = line.partition(" < ")
         parsed = _own_role_name(own)
         if parsed is None:
             continue
-        yield parsed[0], parsed[1], previous
+        # The whole chain when the caller has it, else the one ancestor the line carries.
+        # A stored comparison line keeps only that one, which is why the offline readers
+        # take their lines from the snapshot beside it.
+        if chains is not None and i < len(chains):
+            chain = chains[i]
+        else:
+            under = _own_role_name(f"- {ancestor}") if sep else None
+            chain = (under,) if under else ()
+        yield parsed[0], parsed[1], previous, chain
         if parsed[1]:
             previous = parsed
 
 
-def trigger_hit_indices(lines: list[str], trigger: VolatileTrigger) -> list[int]:
+def trigger_hit_indices(lines: list[str], trigger: VolatileTrigger, chains=None) -> list[int]:
     """0-based indices into `page.get_by_role(role, name=…, exact=True)`.
     `k` counts exact `(role, name)` only; `matches_volatile` applies `after`."""
     hits: list[int] = []
     k = 0
-    for item in named_nodes(lines):
+    for item in named_nodes(lines, chains):
         if item is None:
             continue
-        role, name, previous = item
+        role, name, previous, chain = item
         if (role, name) != (trigger.role, trigger.name):
             continue
-        if matches_volatile(role, name, [trigger], previous):
+        if matches_volatile(role, name, [trigger], previous, chain):
             hits.append(k)
         k += 1
     if trigger.occurrence is not None:
         if trigger.of == len(hits) and 1 <= trigger.occurrence <= len(hits):
             return [hits[trigger.occurrence - 1]]
     return hits
+
+
+def narrow_pair(lines, chains, scenes):
+    """`narrow_to_scenes` for the two aligned views at once: a chain belongs to its line,
+    so filtering one without the other would silently pair a line with another node's
+    ancestors."""
+    if chains is None:
+        return narrow_to_scenes(lines, scenes), None
+    if scenes is None or not any(
+            raw.rstrip("\n").startswith(SCENE_HEADER) for raw in lines):
+        return lines, chains
+    kept_l, kept_c, keep = [], [], False
+    for raw, ch in zip(lines, chains):
+        line = raw.rstrip("\n")
+        if line.startswith(SCENE_HEADER):
+            keep = line[len(SCENE_HEADER):].strip() in scenes
+        if keep:
+            kept_l.append(raw)
+            kept_c.append(ch)
+    return kept_l, kept_c
 
 
 def narrow_to_scenes(lines: list[str], scenes: set[str] | None) -> list[str]:
@@ -936,7 +1037,7 @@ def narrow_to_scenes(lines: list[str], scenes: set[str] | None) -> list[str]:
 
 
 def count_trigger_hits(lines: list[str], trigger: VolatileTrigger,
-                      scenes: set[str] | None = None) -> int:
+                      scenes: set[str] | None = None, chains=None) -> int:
     """Most exact `(role, name)` hits in any one scene, after `after` is applied.
 
     `scenes` narrows it to the named scenes of a target tree that carries `## scene`
@@ -944,18 +1045,18 @@ def count_trigger_hits(lines: list[str], trigger: VolatileTrigger,
     The narrowing lives here rather than in a filter the caller applies first, because
     this function already walks scene by scene to take the maximum.
     """
-    lines = narrow_to_scenes(lines, scenes)
+    lines, chains = narrow_pair(lines, chains, scenes)
     best = 0
     current = 0
-    for item in named_nodes(lines):
+    for item in named_nodes(lines, chains):
         if item is None:
             best = max(best, current)
             current = 0
             continue
-        role, name, previous = item
+        role, name, previous, chain = item
         if (role, name) != (trigger.role, trigger.name):
             continue
-        if matches_volatile(role, name, [trigger], previous):
+        if matches_volatile(role, name, [trigger], previous, chain):
             current += 1
     hits = max(best, current)
     if trigger.occurrence is not None:
@@ -972,6 +1073,7 @@ def count_trigger_hits(lines: list[str], trigger: VolatileTrigger,
 # is a string a program branches on and never a wording: `PIN_AFTER` and `PIN_OCCURRENCE`
 # a worker repairs, `NEEDS_DECISION` is a person's. Each reader of a contract renders its
 # own sentence for its own audience; what none of them may do is derive the class again.
+PIN_WITHIN = "pin-within"
 PIN_AFTER = "pin-after"
 PIN_OCCURRENCE = "pin-occurrence"
 NEEDS_DECISION = "decision"
@@ -984,6 +1086,7 @@ class TriggerConflict(NamedTuple):
     page: str
     hits: int
     candidates: list[tuple[str, str]]
+    ancestors: list[tuple[str, str]] = ()
 
     @property
     def kind(self) -> str:
@@ -1005,7 +1108,15 @@ class TriggerConflict(NamedTuple):
         it, so every `after` excludes it — which is the answer a row meaning the other
         match wants. So distinct previous nodes, counting "nothing before it" as one of
         them, is what makes a row pinnable; only when every match follows the same node
-        does no `after` exist and the row become positional."""
+        does no `after` exist and the row become positional.
+
+        `within` comes first because it is the most durable answer: it says the control is
+        the one inside that container, which survives the design adding controls before it
+        or repeating the block. `after` is a sibling relationship and survives less.
+        `occurrence` says only "the Nth" and survives least, so it is what is left when the
+        design gives nothing else."""
+        if len(self.ancestors) > 1:
+            return PIN_WITHIN
         return PIN_AFTER if len(self.candidates) > 1 else PIN_OCCURRENCE
 
 
@@ -1068,13 +1179,11 @@ def trigger_resolution(doc: dict, contract_dir, row_ids=None) -> dict[str, dict[
     contract_dir = Path(contract_dir)
     scene_pages = {name: (decl or {}).get("page")
                    for name, decl in (doc.get("scenes") or {}).items()}
-    trees: dict[str, list[str]] = {}
+    trees: dict[str, tuple[list[str], list | None]] = {}
 
-    def tree_of(page: str) -> list[str]:
+    def tree_of(page: str) -> tuple[list[str], list | None]:
         if page not in trees:
-            stem = page[:-len(".dc.html")] if page.endswith(".dc.html") else page
-            aria = contract_dir / "targets" / f"{stem}.aria"
-            trees[page] = aria.read_text(encoding="utf-8").splitlines() if aria.exists() else []
+            trees[page] = page_views(contract_dir, page)
         return trees[page]
 
     out: dict[str, dict[str, list[int]]] = {}
@@ -1092,10 +1201,52 @@ def trigger_resolution(doc: dict, contract_dir, row_ids=None) -> dict[str, dict[
             page = scene_pages.get(name)
             if not page:
                 continue
-            lines = narrow_to_scenes(tree_of(page), {name})
+            page_lines, page_chains = tree_of(page)
+            lines, chains = narrow_pair(page_lines, page_chains, {name})
             if lines:
-                out.setdefault(rid, {})[f"{page}::{name}"] = trigger_hit_indices(lines, wanted)
+                out.setdefault(rid, {})[f"{page}::{name}"] = trigger_hit_indices(
+                    lines, wanted, chains)
     return out
+
+
+def page_views(contract_dir, page: str) -> tuple[list[str], list | None]:
+    """A page's stored comparison lines and, when the snapshot beside them is there, the
+    ancestor chains too.
+
+    The `.aria` file keeps one named ancestor per line, which is what a diff should say
+    and not enough to decide which control a row means. The `.snapshot` written next to it
+    by `extract_skeleton.py` is the render both views come from, so the chains are derived
+    here rather than stored twice. A checkout without the snapshot still lints — it just
+    cannot classify a row as `pin-within`, and says so by offering no ancestors.
+    """
+    from pathlib import Path
+    contract_dir = Path(contract_dir)
+    stem = page[:-len(".dc.html")] if page.endswith(".dc.html") else page
+    snapshot = contract_dir / "targets" / f"{stem}.snapshot"
+    if snapshot.exists():
+        lines: list[str] = []
+        chains: list = []
+        block: list[str] = []
+
+        def flush() -> None:
+            if not block:
+                return
+            got_lines, got_chains = normalize_aria_with_chains("\n".join(block))
+            lines.extend(got_lines)
+            chains.extend(got_chains)
+            block.clear()
+
+        for raw in snapshot.read_text(encoding="utf-8").splitlines():
+            if raw.startswith(SCENE_HEADER):
+                flush()
+                lines.append(raw)
+                chains.append(())
+            elif not raw.startswith("#"):
+                block.append(raw)
+        flush()
+        return lines, chains
+    aria = contract_dir / "targets" / f"{stem}.aria"
+    return (aria.read_text(encoding="utf-8").splitlines() if aria.exists() else []), None
 
 
 def contract_trigger_conflicts(doc: dict, contract_dir, row_ids=None) -> list[TriggerConflict]:
@@ -1109,13 +1260,11 @@ def contract_trigger_conflicts(doc: dict, contract_dir, row_ids=None) -> list[Tr
     contract_dir = Path(contract_dir)
     scene_pages = {name: (decl or {}).get("page")
                    for name, decl in (doc.get("scenes") or {}).items()}
-    trees: dict[str, list[str]] = {}
+    trees: dict[str, tuple[list[str], list | None]] = {}
 
-    def tree_of(page: str) -> list[str]:
+    def tree_of(page: str) -> tuple[list[str], list | None]:
         if page not in trees:
-            stem = page[:-len(".dc.html")] if page.endswith(".dc.html") else page
-            aria = contract_dir / "targets" / f"{stem}.aria"
-            trees[page] = aria.read_text(encoding="utf-8").splitlines() if aria.exists() else []
+            trees[page] = page_views(contract_dir, page)
         return trees[page]
 
     out: list[TriggerConflict] = []
@@ -1140,18 +1289,53 @@ def contract_trigger_conflicts(doc: dict, contract_dir, row_ids=None) -> list[Tr
             if page:
                 pages.setdefault(page, set()).add(name)
         for page, scs in sorted(pages.items()):
-            lines = tree_of(page)
+            lines, chains = tree_of(page)
             if not lines:
                 continue
-            hits = count_trigger_hits(lines, wanted, scs)
+            hits = count_trigger_hits(lines, wanted, scs, chains)
             if hits > 1:
                 out.append(TriggerConflict(
-                    rid, page, hits, trigger_after_candidates(lines, wanted, scs)))
+                    rid, page, hits,
+                    trigger_after_candidates(lines, wanted, scs, chains),
+                    trigger_within_candidates(lines, wanted, scs, chains)))
+    return out
+
+
+def trigger_within_candidates(lines: list[str], trigger: VolatileTrigger,
+                              scenes: set[str] | None = None, chains=None) -> list[tuple[str, str]]:
+    """The `within` candidates: the ancestor of each node the trigger's exact
+    `(role, name)` matches, from the scenes where it matches more than once, deduplicated
+    in reading order. Two or more entries and one of them is the container that says which
+    control the row means — the answer for a confirm button inside a dialog and the page
+    button that opened it."""
+    lines, chains = narrow_pair(lines, chains, scenes)
+    out: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    scene_under: list[tuple[str, str]] = []
+
+    def take() -> None:
+        if len(scene_under) < 2:
+            return
+        for under in scene_under:
+            if under not in seen:
+                seen.add(under)
+                out.append(under)
+
+    for item in named_nodes(lines, chains):
+        if item is None:
+            take()
+            scene_under = []
+            continue
+        role, name, previous, chain = item
+        if (role, name) != (trigger.role, trigger.name):
+            continue
+        scene_under.append(chain[-1] if chain else ("", ""))
+    take()
     return out
 
 
 def trigger_after_candidates(lines: list[str], trigger: VolatileTrigger,
-                            scenes: set[str] | None = None) -> list[tuple[str, str]]:
+                            scenes: set[str] | None = None, chains=None) -> list[tuple[str, str]]:
     """The `after` candidates for a trigger that is not unique: the previous named
     node of each node its exact `(role, name)` matches, collected from the scenes
     where it matches more than once, deduplicated in reading order.
@@ -1161,10 +1345,11 @@ def trigger_after_candidates(lines: list[str], trigger: VolatileTrigger,
     split them and the row needs a `drive.scene` where the pair is unique. Empty: the
     pair matched nothing, or matched once everywhere, so there is nothing to pin.
     """
-    lines = narrow_to_scenes(lines, scenes)
+    lines, chains = narrow_pair(lines, chains, scenes)
     out: list[tuple[str, str]] = []
     seen: set[tuple[str, str]] = set()
     scene_previous: list[tuple[str, str]] = []
+    scene_under: list[tuple[str, str]] = []
 
     def take() -> None:
         if len(scene_previous) < 2:
@@ -1174,24 +1359,41 @@ def trigger_after_candidates(lines: list[str], trigger: VolatileTrigger,
                 seen.add(prev)
                 out.append(prev)
 
-    for item in named_nodes(lines):
+    for item in named_nodes(lines, chains):
         if item is None:
             take()
             scene_previous = []
+            scene_under = []
             continue
-        role, name, previous = item
+        role, name, previous, chain = item
         if (role, name) != (trigger.role, trigger.name):
             continue
         scene_previous.append(previous if previous is not None else ("", ""))
+        scene_under.append(chain[-1] if chain else ("", ""))
     take()
     return out
 
 
 def matches_volatile(role: str, name: str, triggers: list[VolatileTrigger],
-                     previous: tuple[str, str] | None = None) -> bool:
+                     previous: tuple[str, str] | None = None,
+                     chain: tuple[tuple[str, str], ...] = ()) -> bool:
     for trigger in triggers:
         if not volatile_name_matches(role, name, trigger.role, trigger.name):
             continue
+        if trigger.within is not None:
+            # Any ancestor on the chain, by role, with the name checked only when the row
+            # gives one. Roles are structure and survive the product ordering its data
+            # differently or rendering a value another way; names do not. An empty role
+            # asks for the opposite — no ancestor of any named role — which is how the
+            # button that opens a dialog is told from the one that confirms inside it.
+            roles = [r for r, _ in chain]
+            if trigger.within[0]:
+                if not any(r == trigger.within[0]
+                           and (not trigger.within[1] or n == trigger.within[1])
+                           for r, n in chain):
+                    continue
+            elif roles:
+                continue
         if trigger.after is None:
             return True
         if previous is not None and volatile_name_matches(
@@ -1251,20 +1453,21 @@ def mask_volatile(lines: list[str], triggers: list[VolatileTrigger]) -> list[str
     return out
 
 
-def count_volatile_hits(lines: list[str], triggers: list[VolatileTrigger]) -> int:
+def count_volatile_hits(lines: list[str], triggers: list[VolatileTrigger],
+                        chains=None) -> int:
     """Most named nodes that match `triggers` in any one scene. A `## scene` line
     starts a new scene; a file with none is one scene. The matcher is
     `matches_volatile`, walked in reading order so `after` sees the previous
     named node."""
     best = 0
     current = 0
-    for item in named_nodes(lines):
+    for item in named_nodes(lines, chains):
         if item is None:
             best = max(best, current)
             current = 0
             continue
-        role, name, previous = item
-        if matches_volatile(role, name, triggers, previous):
+        role, name, previous, chain = item
+        if matches_volatile(role, name, triggers, previous, chain):
             current += 1
     return max(best, current)
 
@@ -1560,13 +1763,19 @@ def _unique_control(page, control, wanted: VolatileTrigger, rid: str):
         # is the failure a positional pin is always accused of and the one thing that
         # stops it. `of` is what the design tree held when the row was written, kept equal
         # to it by the contract lint.
-        wait_until(page, lambda: control.count() == wanted.of,
-                   f"open step {rid}: {label} matches {control.count()} controls, and this "
-                   f"row is pinned to the {wanted.occurrence} of {wanted.of} the design "
-                   f"draws; the product is not rendering what the row was written against")
-        return control.nth(wanted.occurrence - 1)
+        # Either the product draws the number the row was written against — then the pin
+        # picks among them — or it draws exactly one, and there is no ambiguity for a pin
+        # to resolve. A row is driven on more than one scene and the design need not draw
+        # the same number on each; demanding one number everywhere refuses a row that is
+        # unambiguous where it is being clicked. Anything else is the product not
+        # rendering what the row was written against, and it stops here.
+        wait_until(page, lambda: control.count() in (wanted.of, 1),
+                   f"open step {rid}: {label} matches {control.count()} controls; this row "
+                   f"is pinned to the {wanted.occurrence} of {wanted.of} the design draws, "
+                   f"and one control would need no pin at all")
+        return control.first if control.count() == 1 else control.nth(wanted.occurrence - 1)
 
-    if wanted.after is None:
+    if wanted.after is None and wanted.within is None:
         wait_until(page, lambda: control.count() > 0,
                    f"open step {rid}: no control {label} on the page")
         n = control.count()
@@ -1588,10 +1797,10 @@ def _unique_control(page, control, wanted: VolatileTrigger, rid: str):
         idx = hits[0]
         return True
 
-    wait_until(
-        page, ready,
-        f"open step {rid}: no control {label} after {wanted.after[0]} "
-        f'"{wanted.after[1]}" / not unique')
+    pin = (f'after {wanted.after[0]} "{wanted.after[1]}"' if wanted.after
+           else f'within {wanted.within[0]} "{wanted.within[1]}"')
+    wait_until(page, ready,
+               f"open step {rid}: no control {label} {pin} / not unique")
     return control.nth(idx)
 
 

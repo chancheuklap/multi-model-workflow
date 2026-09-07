@@ -761,6 +761,18 @@ def settles(doc: dict, contract_dir: Path, row: dict, pin: dict) -> bool:
     return bool(got) and all(len(v) <= 1 for v in got.values())
 
 
+def taken_within(doc: dict, trigger) -> set[tuple[str, str]]:
+    """The containers other rows sharing this trigger already claim. A pin another row
+    holds is not free: writing it here would give two rows one node."""
+    sd = screen_driver_mod()
+    out = set()
+    for row in doc.get("rows") or []:
+        w = sd.row_trigger(row)
+        if (w.role, w.name) == (trigger.role, trigger.name) and w.within is not None:
+            out.add(w.within)
+    return out
+
+
 def pin_plan(doc: dict, contract_dir: Path) -> tuple[dict[str, list[str]], list[str]]:
     """What the repair may write, and what it refuses to a person.
 
@@ -790,13 +802,23 @@ def pin_plan(doc: dict, contract_dir: Path) -> tuple[dict[str, list[str]], list[
         seen = {k: v for k, v in (sd.trigger_resolution(doc, contract_dir, [c.row_id])
                                   .get(c.row_id) or {}).items() if v}
         counts = {len(v) for v in seen.values()}
-        if len(counts) > 1:
-            refusals[c.row_id] = (f"{c.row_id}: [{sd.NEEDS_DECISION}] the design draws "
-                                  f"{sorted(counts)} of this control on different scenes, so "
-                                  f"one pin cannot address them all; the row needs a "
-                                  f"drive.scene")
-            continue
-        if c.kind == sd.PIN_AFTER:
+        if c.kind == sd.PIN_WITHIN:
+            # Both halves are tried, `within: {role: ""}` included: the button that opens
+            # a dialog is told from the one that confirms inside it by being under no
+            # container at all, and without the negative half only one of the pair could
+            # be said.
+            free = [a for a in c.ancestors if a not in taken_within(doc, wanted)]
+            works = [a for a in free if settles(doc, contract_dir, rows[c.row_id],
+                                                {"within": {"role": a[0], "name": a[1]}})]
+            if len(works) != 1:
+                refusals[c.row_id] = (
+                    f"{c.row_id}: [{sd.NEEDS_DECISION}] {len(works)} of the {len(free)} free "
+                    f"containers leave one node on every scene, so which one this row means "
+                    f"is a decision, not a repair")
+                continue
+            writes[c.row_id] = [
+                f'within: {{ role: "{works[0][0]}", name: "{works[0][1]}" }}']
+        elif c.kind == sd.PIN_AFTER:
             free = [p for p in c.candidates if p[1] and p not in taken_after(doc, wanted)]
             works = [p for p in free if settles(doc, contract_dir, rows[c.row_id],
                                                 {"after": {"role": p[0], "name": p[1]}})]
@@ -808,7 +830,16 @@ def pin_plan(doc: dict, contract_dir: Path) -> tuple[dict[str, list[str]], list[
                 continue
             writes[c.row_id] = [f"after: {{ role: {works[0][0]}, name: \"{works[0][1]}\" }}"]
         else:
-            writes[c.row_id] = ["occurrence: 1", f"of: {counts.pop()}"]
+            # `of` is the number on the scene that actually has the ambiguity; a scene
+            # that draws one needs no pin and the driver says so. Whether the pair settles
+            # every scene is proved below, not assumed from the counts.
+            trial = {"occurrence": 1, "of": max(counts)}
+            if not settles(doc, contract_dir, rows[c.row_id], trial):
+                refusals[c.row_id] = (
+                    f"{c.row_id}: [{sd.NEEDS_DECISION}] the first of {max(counts)} does not "
+                    f"leave one node on every scene this row is driven on")
+                continue
+            writes[c.row_id] = ["occurrence: 1", f"of: {max(counts)}"]
     return writes, sorted(refusals.values())
 
 

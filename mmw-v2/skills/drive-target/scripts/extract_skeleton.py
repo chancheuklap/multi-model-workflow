@@ -38,6 +38,7 @@ INTERACTIVE = {"button", "textbox", "checkbox", "combobox", "link", "tab", "radi
 LINE = re.compile(r'^\s*-\s+(\w+)(?:\s+"((?:[^"\\]|\\.)*)")?')
 TARGET_HEADER = "# target trees of the handoff package page: "
 CLASSES_HEADER = "# class sets of the handoff package page: "
+SNAPSHOT_HEADER = "# raw accessibility snapshots of the handoff package page: "
 DERIVED_LINE = ("# derived by extract_skeleton.py — the handoff package is the "
                 "baseline and this file is its readable view; the lint fails when the hashes "
                 "below no longer match the package")
@@ -69,13 +70,15 @@ def page_stem(page: str) -> str:
     return re.sub(r"\.dc\.html$", "", page)
 
 
-def target_files(targets: Path, page: str) -> tuple[Path, Path]:
+def target_files(targets: Path, page: str) -> tuple[Path, Path, Path]:
     stem = page_stem(page)
-    return targets / f"{stem}.aria", targets / f"{stem}.classes"
+    return (targets / f"{stem}.aria", targets / f"{stem}.classes",
+            targets / f"{stem}.snapshot")
 
 
 def write_targets(targets: Path, handoff: Path, scenes: list[dict], trees: dict[str, list[str]],
-                  classes: dict[str, list[str]], scene_header: str) -> list[Path]:
+                  classes: dict[str, list[str]], scene_header: str,
+                  snapshots: dict[str, str] | None = None) -> list[Path]:
     targets.mkdir(parents=True, exist_ok=True)
     scenes_hash = sha256_of(handoff / "scenes.json")
     written = []
@@ -84,7 +87,7 @@ def write_targets(targets: Path, handoff: Path, scenes: list[dict], trees: dict[
         by_page.setdefault(s["page"], []).append(s)
     for page, entries in sorted(by_page.items()):
         page_hash = sha256_of(handoff / page)
-        aria_file, classes_file = target_files(targets, page)
+        aria_file, classes_file, snapshot_file = target_files(targets, page)
         head = [f"# scenes.json sha256={scenes_hash}", f"# page sha256={page_hash}"]
         lines = [TARGET_HEADER + page, DERIVED_LINE, *head, ""]
         for s in entries:
@@ -92,6 +95,19 @@ def write_targets(targets: Path, handoff: Path, scenes: list[dict], trees: dict[
             lines.extend(trees[s["name"]])
             lines.append("")
         aria_file.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
+        if snapshots:
+            # The snapshot the two views are derived from, kept beside them. A comparison
+            # line carries one named ancestor, which is all a diff should say; deciding
+            # *which* control a contract row means wants the whole ancestor chain, and
+            # only this file still has it. Written from the same render, so the three can
+            # never disagree.
+            raw = [SNAPSHOT_HEADER + page, DERIVED_LINE, *head, ""]
+            for s2 in entries:
+                raw.append(scene_header + s2["name"])
+                raw.extend((snapshots.get(s2["name"]) or "").splitlines())
+                raw.append("")
+            snapshot_file.write_text("\n".join(raw).rstrip("\n") + "\n", encoding="utf-8")
+            written.append(snapshot_file)
         lines = [CLASSES_HEADER + page, DERIVED_LINE, *head, ""]
         for s in entries:
             lines.append(scene_header + s["name"])
@@ -132,6 +148,7 @@ def main(handoff: Path, out: Path, targets: Path | None, contract: Path | None) 
     rows: dict[tuple[str, str, str], dict] = {}
     per_scene: dict[str, int] = {}
     trees: dict[str, list[str]] = {}
+    snapshots: dict[str, str] = {}
     classes: dict[str, list[str]] = {}
     tmp = Path(tempfile.mkdtemp())
     with sync_playwright() as pw:
@@ -148,6 +165,7 @@ def main(handoff: Path, out: Path, targets: Path | None, contract: Path | None) 
             found = controls(shot.aria)
             per_scene[s["name"]] = len(found)
             trees[s["name"]] = sd.normalize_aria(shot.aria)
+            snapshots[s["name"]] = shot.aria
             classes[s["name"]] = sorted(shot.classes)
             for role, name in found:
                 row = rows.setdefault((s["page"], role, name),
@@ -167,7 +185,8 @@ def main(handoff: Path, out: Path, targets: Path | None, contract: Path | None) 
     print(f"scenes={result['scenes']} scene_x_control={result['scene_x_control']} "
           f"rows={result['rows']} -> {out}")
     if targets is not None:
-        written = write_targets(targets, handoff, scenes, trees, classes, sd.SCENE_HEADER)
+        written = write_targets(targets, handoff, scenes, trees, classes, sd.SCENE_HEADER,
+                                snapshots)
         print(f"targets: {len(written)} files under {targets}")
 
 
