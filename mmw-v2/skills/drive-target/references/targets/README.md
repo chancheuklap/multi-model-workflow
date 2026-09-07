@@ -46,7 +46,10 @@ cannot fit in a sentence — the reasons a field is shaped as it is — is below
 - **`stop` is the only way a run ends a process.** `hook.py pretool` refuses `kill`,
   `pkill`, `killall` and `xargs kill` and sends the reader to it; it ends only what this
   run recorded as its own, leaves a neighbour's product alone, exits 0 with nothing to
-  end, and does not release the lease — the driver does.
+  end, and does not release the lease — the driver does. It ends the containers of this
+  run's stack as well as its processes: `dispatch.sh` runs it from the worktree before
+  giving that worktree's slot back and archiving it, and after the archive the worktree
+  is gone and nothing can reach the stack again.
 - **`discover` prints addresses per kind, plus identity.** The kind's keys are in the
   adapter's account. `instance` (a readable name for this run) and `instance_check`
   (one `observe` line in this kind's read surface, true only when the product answering

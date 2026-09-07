@@ -6,7 +6,7 @@
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|start-verifier|retract
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh resume|wait|reverify|summary
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
-#   bash mmw-v2/tests/dispatch/test_dispatch.sh instancegate|countfail|suspend|suspendbusy|suspendnohb|status
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh instancegate|countfail|stopproduct|suspend|suspendbusy|suspendnohb|status
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh all
 #
 # A fake `paseo` and a fake `gh` sit in front of the real ones on PATH and write every
@@ -1964,6 +1964,98 @@ scenario_suspend() {
   hasnt "workspace :: create"
 }
 
+scenario_stopproduct() {
+  local code marker ws
+  echo "--- the product is stopped before its slot is given back and its worktree deleted"
+  reset_log
+  fresh_repo
+  cat > "$TMP/tickets.json" <<'JSON'
+[{"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "assignees": ["mmw-bot"]}]
+JSON
+  code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "start expected exit 0, got $code: $(cat "$TMP/err")"
+  ws="$MMW_FAKE_PASEO_STATE/issue-61"
+  marker="$TMP/stopped-61"
+  rm -f "$marker"
+  mkdir -p "$ws/.mmw"
+  printf '{"start":"true","discover":"true","reach":"true","stop":"touch %s"}\n' "$marker" \
+    > "$ws/.mmw/target.json"
+
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env MMW_LEASE_SLOTS=1 FAKE_GH_LOGIN=mmw-bot \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" retract 61)"
+  [ "$code" = 0 ] || fail "retract expected exit 0, got $code: $(cat "$TMP/err")"
+  [ -f "$marker" ] \
+    || fail "the repository's stop command should have run before the worktree went: $(cat "$TMP/err")"
+  has "paseo :: workspace :: archive :: wks_issue-61"
+  [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 0 ] \
+    || fail "the slot should be free once the product is stopped"
+
+  echo "--- a repository that declares no stop is not a failure"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
+          bash "$DISPATCH" "${TOOLS[@]}" start 62 worker)"
+  [ "$code" = 0 ] || fail "start 62 expected exit 0, got $code: $(cat "$TMP/err")"
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env MMW_LEASE_SLOTS=1 FAKE_GH_LOGIN=mmw-bot \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" retract 62)"
+  [ "$code" = 0 ] || fail "retract 62 expected exit 0, got $code: $(cat "$TMP/err")"
+  has "paseo :: workspace :: archive :: wks_issue-62"
+
+  echo "--- a product that will not go down keeps its worktree, and the refusal says where"
+  reset_log
+  fresh_repo
+  local port hold listener waited
+  code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
+          bash "$DISPATCH" "${TOOLS[@]}" start 63 worker)"
+  [ "$code" = 0 ] || fail "start 63 expected exit 0, got $code: $(cat "$TMP/err")"
+  ws="$MMW_FAKE_PASEO_STATE/issue-63"
+  mkdir -p "$ws/.mmw"
+  printf '%s\n' '{"start":"true","discover":"true","reach":"true","stop":"true"}' \
+    > "$ws/.mmw/target.json"
+  port="$(python3 "$LEASE_PY" list | grep -F "$ws" | awk '{split($4, a, "-"); print a[1]}' | head -1)"
+  [ -n "$port" ] \
+    || fail "could not read #63's port from lease.py list: $(python3 "$LEASE_PY" list)"
+  hold="$TMP/listener63.fifo"
+  rm -f "$hold"; mkfifo "$hold"
+  python3 -c '
+import socket, sys
+held = socket.socket()
+held.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+held.bind(("127.0.0.1", int(sys.argv[1])))
+held.listen(1)
+print("up", flush=True)
+sys.stdin.read()
+' "$port" < "$hold" > "$TMP/listener63.out" &
+  listener=$!
+  exec 8>"$hold"
+  waited=0
+  until grep -q up "$TMP/listener63.out" 2>/dev/null; do
+    sleep 0.2
+    waited=$((waited + 1))
+    [ "$waited" -lt 50 ] || fail "the test listener never came up"
+  done
+
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env MMW_LEASE_SLOTS=1 FAKE_GH_LOGIN=mmw-bot \
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" retract 63)"
+  hasnt "workspace :: archive"
+  grep -q "keeps its workspace" "$TMP/err" \
+    || fail "the refusal should say the workspace is kept: $(cat "$TMP/err")"
+  grep -qF "$ws" "$TMP/err" \
+    || fail "the refusal should name the worktree to stop it in: $(cat "$TMP/err")"
+
+  exec 8>&-
+  wait "$listener" 2>/dev/null || true
+  python3 "$LEASE_PY" release "$ws" >/dev/null 2>&1 || true
+  rc=0
+}
+
 scenario_suspendbusy() {
   local code port hold
   fresh_repo
@@ -2072,10 +2164,10 @@ scenario_status() {
 
 # ------------------------------------------------------------------ entry
 
-ALL="check advance advanceconflict advancedirty land landsweep start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail suspend suspendbusy suspendnohb status"
+ALL="check advance advanceconflict advancedirty land landsweep start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy suspendnohb status"
 
 case "${1:-}" in
-  check|advance|advanceconflict|advancedirty|land|landsweep|start-worker|start-reviewer|start-verifier|retract|resume|wait|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|suspend|suspendbusy|suspendnohb|status)
+  check|advance|advanceconflict|advancedirty|land|landsweep|start-worker|start-reviewer|start-verifier|retract|resume|wait|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|stopproduct|suspend|suspendbusy|suspendnohb|status)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -2107,6 +2199,7 @@ banner_for() {
     frontierwhy) echo DISPATCH-FRONTIER-WHY-OK ;;
     instancegate) echo DISPATCH-INSTANCE-GATE-OK ;;
     countfail) echo DISPATCH-COUNT-FAIL-OK ;;
+    stopproduct) echo STOP-PRODUCT-OK ;;
     suspend) echo SUSPEND-OK ;;
     suspendbusy) echo SUSPEND-BUSY-OK ;;
     suspendnohb) echo SUSPEND-NOHB-OK ;;

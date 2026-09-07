@@ -53,6 +53,8 @@ LEASE=""
 DEFAULT_WORKER=junior-worker
 
 MERGE_TRIES=3                # a worker's commit in its worktree can hold the .git lock while advance merges
+# A `stop` that hangs would hold up the whole night, and a night is unattended.
+STOP_TIMEOUT_S="${MMW_STOP_TIMEOUT_S:-300}"
 
 AUTONOMOUS="You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
 PIPELINE_FAULT="A fault in the pipeline itself is reported, not worked around: verify-ticket.py <n> --sub-issue pipeline <file>, then stop (rule 5 of that section)."
@@ -444,6 +446,58 @@ raise SystemExit(0 if login in [a.get("login") for a in rows if isinstance(a, di
 
 # Give a finished ticket's slot back. Returns 0 released, 1 refused (something still
 # listens), 3 no lease was registered for that path.
+# The command `.mmw/target.json` names for taking this run's product down, or nothing
+# when the repository declares none. A file that is there but cannot be read is a fault,
+# not "none declared": the same rule `target_max_instances` follows.
+target_stop_command() {
+  python3 - "$1" <<'TARGET_STOP_PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1]) / ".mmw" / "target.json"
+if not path.exists():
+    print("")
+    sys.exit(0)
+try:
+    data = json.loads(path.read_text(encoding="utf-8"))
+except (OSError, ValueError) as exc:
+    print(f"dispatch: {path} cannot be read as JSON: {exc}", file=sys.stderr)
+    sys.exit(2)
+value = data.get("stop") if isinstance(data, dict) else None
+print(value if isinstance(value, str) and value.strip() else "")
+TARGET_STOP_PY
+}
+
+# What a run leaves behind outlasts the run: the application's own processes, and the
+# containers its stack brings up. The command that takes them down lives in the worktree
+# and names that worktree's own compose project, so it runs only from inside — which
+# means before the worktree is archived, because archiving deletes it. Nothing here ran
+# it until 2026-09-07, and the shape of that was: the stack stays up, `lease.py` rightly
+# refuses a slot something is still listening on, the worktree goes anyway, and the slot
+# is held by a stack nothing can reach any more. Nine tickets and 36 containers had
+# collected that way, and a night with two slots could only ever run one worker.
+stop_product() {
+  local cwd="$1" cmd out
+  [ -n "$cwd" ] && [ -d "$cwd" ] || return 0
+  cmd="$(target_stop_command "$cwd")" || return 2
+  [ -n "$cmd" ] || return 0
+  local -a runner=()
+  command -v timeout >/dev/null 2>&1 && runner=(timeout "$STOP_TIMEOUT_S")
+  if ! out="$(cd "$cwd" && "${runner[@]}" sh -c "$cmd" 2>&1)"; then
+    printf 'dispatch: the product of %s did not stop: %s\n' "$cwd" \
+      "$(printf '%s' "$out" | tail -3 | tr '\n' ' ')" >&2
+    return 1
+  fi
+  return 0
+}
+
+# Stopping the product and giving its slot back are one act, and every caller wants both:
+# a slot is free only once nothing listens on its ports, and `lease.py` is right to refuse
+# one held by a live process rather than take it. Exit codes are `release_lease`'s.
+give_slot_back() {
+  stop_product "$1" || true
+  release_lease "$1"
+}
+
 release_lease() {
   local out
   if ! out="$(python3 "$LEASE" release "$1" 2>&1)"; then
@@ -506,13 +560,21 @@ print((row.get("workspaceId") or "") + "\t" + (row.get("cwd") or ""))
   printf '%s\t%s\t1\n' "$ident" "$cwd"
 }
 
+# Archiving deletes the worktree, and the worktree is where the product's stop command
+# lives — so a workspace whose slot did not come back is kept, not archived. Keeping it
+# is recoverable (stop the product there and run this again); archiving it is not.
 archive_workspace() {
-  local number="$1" ident cwd row
+  local number="$1" ident cwd row rc
   row="$(workspace_row_for "$number")"
   cwd="$(printf '%s\n' "$row" | cut -f2)"
   ident="$(printf '%s\n' "$row" | cut -f1)"
   if [ -n "$cwd" ] && [ -f "$LEASE" ]; then
-    release_lease "$cwd" || true
+    give_slot_back "$cwd"
+    rc=$?
+    if [ "$rc" = 1 ]; then
+      echo "dispatch: #$number keeps its workspace — its product is still up, and archiving would delete the worktree its stop command lives in. Stop it in $cwd, then run this again" >&2
+      return 1
+    fi
   fi
   [ -n "$ident" ] || return 0
   paseo workspace archive "$ident" >/dev/null \
@@ -713,13 +775,12 @@ retract_one() {
   if [ -n "$cwd" ]; then
     [ -f "$LEASE" ] \
       || refuse "no lease.py in any --tools directory, so the slot cannot be given back. Pass --tools <the drive-target skill's scripts directory>, then retract again"
-    if release_lease "$cwd"; then
+    if give_slot_back "$cwd"; then
       slot=1
     fi
   fi
   if [ -n "$(workspace_id_for "$number")" ]; then
-    archive_workspace "$number"
-    archived=1
+    archive_workspace "$number" && archived=1
   fi
 
   give_claim_back "$number"
@@ -1317,8 +1378,7 @@ land_tickets() {
       unmerged=$((unmerged + 1))
       continue
     fi
-    archive_workspace "$number"
-    archived=$((archived + 1))
+    archive_workspace "$number" && archived=$((archived + 1))
   done
 
   while IFS= read -r line; do
@@ -1436,7 +1496,7 @@ suspend_night() {
       cwd="$(workspace_cwd_for "$number")"
       [ -n "$cwd" ] || cwd="$(lease_worktree_for "$number")"
       [ -n "$cwd" ] || continue
-      release_lease "$cwd"
+      give_slot_back "$cwd"
       rc=$?
       case "$rc" in
         0) back=$((back + 1)) ;;
