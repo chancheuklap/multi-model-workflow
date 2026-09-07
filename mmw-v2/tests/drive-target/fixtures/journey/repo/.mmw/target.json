@@ -1,0 +1,7 @@
+{
+  "start": ".mmw/harness/start.sh",
+  "stop": ".mmw/harness/stop.sh",
+  "discover": ".mmw/harness/discover.sh",
+  "stories": "true",
+  "leaves_machine": []
+}

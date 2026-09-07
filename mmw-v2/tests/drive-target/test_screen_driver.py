@@ -658,7 +658,7 @@ class TestTargetConfig(unittest.TestCase):
             self.assertIn("target.json", str(raised.exception))
             (root / ".mmw").mkdir()
             (root / ".mmw" / "target.json").write_text(json.dumps(
-                {"discover": "printf %s '{\"cdp\": \"http://127.0.0.1:9229\"}'", "reach": "echo"}))
+                {"discover": "printf %s '{\"cdp\": \"http://127.0.0.1:9229\"}'"}))
             cfg = sd.target_config(root)
             self.assertEqual(sd.discover(cfg, root), {"cdp": "http://127.0.0.1:9229"})
 
@@ -976,8 +976,8 @@ class TestTargetCheck(unittest.TestCase):
     names every field of `.mmw/target.json` still to answer, and passes once the file
     is complete. The runtime reader `target_config` keeps its smaller bar."""
 
-    COMPLETE = {"start": "s", "stop": "t", "discover": "d", "reach": "r",
-                "transport_off": "off", "transport_on": "on", "leaves_machine": []}
+    COMPLETE = {"start": "s", "stop": "t", "discover": "d", "stories": "st",
+                "leaves_machine": []}
 
     def run_target(self, *argv):
         import io
@@ -999,7 +999,10 @@ class TestTargetCheck(unittest.TestCase):
         for f in sd.FIELDS:
             self.assertIn(("  missing  " if f.required else "  absent   ") + f.key, out)
         self.assertIn("ElectronAdapter", out)
-        self.assertIn("cdp", out)
+        self.assertIn("    origin — where the product is served", out)
+        self.assertIn("start refuses a Gateway address that points elsewhere", out)
+        self.assertNotIn("  missing  reach", out)
+        self.assertNotIn("transport_off", out)
         self.assertIn("e.g.", out)
 
     def test_a_complete_file_passes_and_optional_keys_stay_optional(self):
@@ -1011,6 +1014,25 @@ class TestTargetCheck(unittest.TestCase):
             self.assertIn("complete", out)
             code, out, _ = self.run_target("--validate", "--repo", d, "--kind", "web-spa")
             self.assertEqual(code, 0, out)
+
+    def test_check_without_repo_uses_the_target_json_above_cwd(self):
+        """A fixture lives inside another git worktree. `--repo` is omitted, so
+        the walk from cwd has to find that fixture's file, not the worktree root."""
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / ".mmw").mkdir()
+            (root / ".mmw" / "target.json").write_text(json.dumps(self.COMPLETE))
+            nested = root / "inner"
+            nested.mkdir()
+            here = Path.cwd()
+            os.chdir(nested)
+            try:
+                code, out, _ = self.run_target("--check", "--kind", "web-spa")
+            finally:
+                os.chdir(here)
+            self.assertEqual(code, 0, out)
+            self.assertIn("complete: the judges can drive this repository", out)
+            self.assertIn(str(root / ".mmw" / "target.json"), out)
 
     def test_validate_names_the_first_problem_and_counts_the_rest(self):
         with tempfile.TemporaryDirectory() as d:

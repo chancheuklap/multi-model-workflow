@@ -1,48 +1,23 @@
 """The one driver behind both judges of an interface: interface parity and the wiring check.
 
-Everything that is not a judgement lives here — how a product is reached, put into a
-state, addressed, released, and read — so that `visual-parity.py` and `wiring-check.py`
-are two judgements over one drive and cannot drift apart. `extract_skeleton.py` of the
-`align-screens` skill imports the same module for its offline render of a handoff
-package, so the trees it commits are produced by the code path the judges read.
+Everything that is not a judgement lives here — how a product is brought up, addressed,
+released, and read — so that `visual-parity.py` and `wiring-check.py` are two judgements
+over one drive. `extract_skeleton.py` of the `align-screens` skill imports the same
+module for its offline render of a handoff package.
 
-Seven platform capabilities, one adapter per target kind (`target.kind` in the screen
-contract; the reference file each `targets/<kind>.md` names is the human account):
-
-    attach     hand back a page that drives the product, as the identity the seeded state
-               belongs to; the adapter decides whether the state is put before or after
-    ready      is the product answering — re-checked between scenes, not once at start
-    address    turn a contract `route` into what `goto()` accepts
-    release    give the product back
-    transport  run the contract's `reach` mechanisms through the repository's own script
-               (the write half)
-    observe    read a persistent surface freshly, on a path the acting view did not
-               produce (the read half)
-    break the transport
-               `transport_off` / `transport_on` take persistence away and put it back
-               for the wiring check's negative control, while the product keeps answering
-
-Machine facts — addresses, the reach script, how to break the transport — are never in
-the contract. They come from `.mmw/target.json` at the repository root. Which keys a
-repository answers is declared here, once, on each adapter's `fields` and
-`discover_keys`, and printed for the person filling the file by
+`.mmw/target.json` at the repository root is where the repository answers: `start`,
+`stop`, `discover`, `stories`, `journeys`, `leaves_machine`, optional `instance` and
+`checks`. Which keys it answers is declared here, once, on `FIELDS`, and printed by
 
     screen_driver.py target --check [--repo <dir>] [--kind <kind> | --contract <yaml>]
 
 which names every field still missing, with one sentence and one example each, and
-exits 0 once the file is complete. `target --validate` prints the first problem only
-(for a lint); `target --kinds` lists the kinds this driver has.
+exits 0 once the file is complete. `discover` prints an origin-class address plus
+`instance` and `instance_check`. `target --validate` prints the first problem only;
+`target --kinds` lists the kinds this driver has.
 
-Nobody starts the product by hand for a run: when `ready` says it is not answering, the
-driver runs `start` once and asks again. A repository that declares no `start` gets a
-run that stops on the first scene naming `target --check`.
-
-`discover` prints, per kind: electron `cdp`, `impl`, `backend`, optional `title`;
-web-server-rendered / web-spa `origin`, optional `ready` (a path answering 2xx when up,
-default `/health`); chrome-extension `extension_dir`, and the popup page under
-`popup` (default `popup.html`). The reach command prints `KEY=VALUE` lines; every
-`{key}` in a route, an `open` value, or an `observe` line is filled from them, and a web
-target's `attach` takes its session cookie from the `cookie` key (`name=value`).
+`start` is run every time a run needs the product. A repository that declares no
+`start` gets a run that stops naming `target --check`.
 """
 
 from __future__ import annotations
@@ -307,10 +282,17 @@ class Field:
     required: bool = True
 
 
-# The keys every repository answers, whatever kind of product it has. What each kind's
-# `discover` must print is the adapter's `discover_keys`. `checks` is read by
+# The keys every repository answers, whatever kind of product it has. `discover`
+# prints an origin-class address plus identity. `checks` is read by
 # `verify-ticket.py --closeout`, not by this driver, and is listed so the file has one
 # account.
+DISCOVER_PRINTS: tuple[tuple[str, str], ...] = (
+    ("origin", "where the product is served, e.g. http://127.0.0.1:8000"),
+    ("instance", "a readable name for this run"),
+    ("instance_check", "one observe line whose truth means the product answering "
+                       "is the one this run started"),
+)
+
 FIELDS: tuple[Field, ...] = (
     Field("start", "command",
           "brings the product up with everything it needs — backing service, data "
@@ -323,28 +305,22 @@ FIELDS: tuple[Field, ...] = (
           "to end; the only way a run may end a process",
           '"uv run python scripts/testing/target.py stop"'),
     Field("discover", "command",
-          "prints one JSON object of this kind's addresses (see `discover prints` above), "
-          "plus `instance`, a readable name for this run, and `instance_check`, one "
-          "observe line whose truth means the product answering is the one this run started",
+          "prints one JSON object of origin-class addresses plus `instance`, a readable "
+          "name for this run, and `instance_check`, one observe line whose truth means "
+          "the product answering is the one this run started",
           '"uv run python scripts/testing/target.py discover"'),
-    Field("reach", "command prefix",
-          "the mechanism names of a scene or a row are appended (`seed:… dev:…`, and "
-          "`--perturb` for the perturbation run); establishes the state, idempotent, and "
-          "prints KEY=VALUE lines that fill every {placeholder}",
-          '"uv run python scripts/testing/reach.py"'),
-    Field("transport_off", "command",
-          "takes the persistence of the observed rows away while the product keeps "
-          "answering, for the wiring check's negative control",
-          '"uv run python scripts/testing/target.py transport off"'),
-    Field("transport_on", "command", "puts the persistence back",
-          '"uv run python scripts/testing/target.py transport on"'),
+    Field("stories", "command",
+          "brings up the story page service and prints its `origin`",
+          '"uv run python scripts/testing/target.py stories"'),
+    Field("journeys", "directory",
+          "the directory of journey scripts; default .mmw/journeys",
+          '".mmw/journeys"',
+          required=False),
     Field("leaves_machine", "list of strings",
-          "each thing this product does in a run that reaches past this machine — opening "
-          "the system browser, calling a paid service, writing a machine-global location — "
-          "and how the run neutralises and records it under MMW_AUTOMATION=1; [] when "
-          "nothing leaves",
-          '["opens the system browser -> under MMW_AUTOMATION=1 the URL is written to '
-          '$MMW_DATA_DIR/opened-urls instead"]'),
+          "each thing this product does in a run that reaches past this machine, naming "
+          "the file that records it under MMW_AUTOMATION=1; [] when nothing leaves",
+          '["tools/opened.py — system browser; under MMW_AUTOMATION=1 the URL is written '
+          'to $MMW_DATA_DIR/opened-urls"]'),
     Field("instance", "object {max, why}",
           "only when the product cannot move its ports (ports in a container file, a "
           "callback at a fixed port): how many runs one machine holds and what stops a "
@@ -361,6 +337,15 @@ FIELDS: tuple[Field, ...] = (
 
 
 def repo_root(start: Path | None = None) -> Path:
+    """The directory that holds `.mmw/target.json`, else the git worktree.
+
+    A fixture or a path inside a consuming repository is the repository that
+    answered. The worktree is the fallback when nobody has answered yet.
+    """
+    here = (start or Path.cwd()).resolve()
+    for path in (here, *here.parents):
+        if (path / ".mmw" / "target.json").is_file():
+            return path
     return worktree_of(start)
 
 
@@ -371,10 +356,9 @@ def target_config(root: Path) -> dict:
                          f"reached. Run `screen_driver.py target --check --repo {root}` "
                          f"(the drive-target skill) and answer what it names")
     cfg = json.loads(path.read_text(encoding="utf-8"))
-    for key in ("discover", "reach"):
-        if not cfg.get(key):
-            raise SystemExit(f"{path} has no `{key}` command; run `screen_driver.py target "
-                             f"--check --repo {root}` and answer what it names")
+    if not cfg.get("discover"):
+        raise SystemExit(f"{path} has no `discover` command; run `screen_driver.py target "
+                         f"--check --repo {root}` and answer what it names")
     return cfg
 
 
@@ -2457,9 +2441,9 @@ def target_problems(kind: str, cfg: dict) -> list[tuple[str, str]]:
                 problems.append((f.key, f"is missing — {f.what} — e.g. {f.example}"))
             continue
         value = cfg[f.key]
-        if f.shape in ("command", "command prefix"):
+        if f.shape in ("command", "directory"):
             if not isinstance(value, str) or not value.strip():
-                problems.append((f.key, f"must be a non-empty command string — e.g. {f.example}"))
+                problems.append((f.key, f"must be a non-empty {f.shape} string — e.g. {f.example}"))
         elif f.key == "leaves_machine":
             if not isinstance(value, list) or not all(isinstance(x, str) for x in value):
                 problems.append((f.key, f"must be a list of strings ([] when nothing leaves) "
@@ -2534,11 +2518,9 @@ def target_main(argv: list[str]) -> int:
         print("  " + " ".join(doc.split()))
         print(f"  state is put {'before' if cls.reach_before_attach else 'after'} attach; "
               f"observe reads a {cls.read_surface} surface")
-        print("  discover prints:")
-        for key, what, required in cls.discover_keys:
-            print(f"    {key}{'' if required else ' (optional)'} — {what}")
-        print("    instance, instance_check — a name for this run, and one observe line that "
-              "proves the product answering is this run's")
+    print("  discover prints:")
+    for key, what in DISCOVER_PRINTS:
+        print(f"    {key} — {what}")
     print(f"{path}: {'not there yet' if not path.exists() else 'read'}")
     named = {key for key, _ in problems}
     for f in fields_of(kind):
@@ -2554,6 +2536,10 @@ def target_main(argv: list[str]) -> int:
             print(f"  absent   {f.key} ({f.shape}, optional) — {f.what}")
     if kind and kind not in ADAPTERS:
         print(f"  target.kind {kind!r} has no adapter; one of {sorted(ADAPTERS)}")
+    print("rules:")
+    print("  automation uses placeholder keys, vendor stubs, and local accounts")
+    print("  start refuses a Gateway address that points elsewhere")
+    print("  leaves_machine actions record under MMW_AUTOMATION=1")
     if problems:
         print(f"{len(problems)} to answer; run this again when the file is filled")
         return 1

@@ -1,0 +1,9 @@
+{
+  "start": "true",
+  "stop": "true",
+  "discover": "true",
+  "stories": "true",
+  "leaves_machine": [
+    "tools/opened.py — system browser; under MMW_AUTOMATION=1 write the URL to $MMW_DATA_DIR/opened-urls"
+  ]
+}
