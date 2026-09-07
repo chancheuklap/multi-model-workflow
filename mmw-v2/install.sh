@@ -8,7 +8,8 @@
 #                     读 prompt/render.py 拼出的 AGENTS.md
 #   launchd 任务      盯着源文件，改了就重拼 Codex、Pi、Grok 的 AGENTS.md
 #   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里 grok/cursor 两条 provider、
-#                     models.md 每个 bypass 行一条 Agent profile、worktrees.root
+#                     models.md 每个 bypass 行一条 Agent profile（首选 id 为 agent 名，备用
+#                     host 为 `{agent}@{host}`）、worktrees.root
 #
 # 本仓库上一代装过、这次不装的东西（技能软链、hook 登记、Agent profile），install 摘掉，--check 报残留。
 #
@@ -805,7 +806,8 @@ fi
 #
 # 源在仓库（models.md 的 bypass 行、下面两条 provider 的字面量），host 侧只放生成物：
 # CLI 软链、~/.paseo/config.json 里的 provider 与 Agent profile、worktrees.root。
-# 合并写入：只增改 id 与 models.md bypass 行同名的 profile，其余条目一字不动。
+# 合并写入：只增改 id 与 profile_rows() 给出的 profile_id 同名的 profile，其余条目一字不动。
+# 一个 agent 的第一条 bypass 行 id 仍是 agent 名；备用 host 那条是 `{agent}@{host}`。
 # MMW_V2_HOME 之下不跑 paseo reload（与 launchd 同构）。
 
 PASEO_BIN_SRC="/Applications/Paseo.app/Contents/Resources/bin/paseo"
@@ -922,10 +924,10 @@ def notes_for(agent, host, permissions):
     return note
 
 
-def make_profile(agent, host, model, effort, permissions, existing=None):
+def make_profile(profile_id, agent, host, model, effort, permissions, existing=None):
     profile = dict(existing) if isinstance(existing, dict) else {}
-    profile["id"] = agent
-    profile["name"] = agent
+    profile["id"] = profile_id
+    profile["name"] = profile_id
     profile["provider"] = host
     profile["model"] = model
     profile["thinkingOptionId"] = effort
@@ -942,8 +944,8 @@ def merge(data, rows):
 
     daemon = data.setdefault("daemon", {})
     existing = list(daemon.get("agentProfiles") or [])
-    managed = {agent: (host, model, effort, permissions)
-               for agent, host, model, effort, permissions in rows}
+    managed = {profile_id: (agent, host, model, effort, permissions)
+               for profile_id, agent, host, model, effort, permissions in rows}
     new_profiles = []
     seen = set()
     dropped = []
@@ -956,9 +958,9 @@ def merge(data, rows):
             dropped.append(pid)
         else:
             new_profiles.append(profile)
-    for agent, spec in managed.items():
-        if agent not in seen:
-            new_profiles.append(make_profile(agent, *spec))
+    for profile_id, spec in managed.items():
+        if profile_id not in seen:
+            new_profiles.append(make_profile(profile_id, *spec))
     daemon["agentProfiles"] = new_profiles
 
     worktrees = data.setdefault("worktrees", {})
@@ -987,30 +989,31 @@ if mode == "check":
     for profile in ((data.get("daemon") or {}).get("agentProfiles") or []):
         if isinstance(profile, dict) and profile.get("id"):
             by_id[profile["id"]] = profile
-    for agent, host, model, effort, permissions in rows:
-        profile = by_id.get(agent)
+    for profile_id, agent, host, model, effort, permissions in rows:
+        profile = by_id.get(profile_id)
         if profile is None:
-            sys.stderr.write(f"缺    profile {agent} 不在 {config_path}\n")
+            sys.stderr.write(f"缺    profile {profile_id} 不在 {config_path}\n")
             failed = True
             continue
-        want = make_profile(agent, host, model, effort, permissions, existing=profile)
+        want = make_profile(profile_id, agent, host, model, effort, permissions,
+                            existing=profile)
         if profile.get("model") != want["model"]:
-            sys.stderr.write(f"缺    profile {agent} model 与 models.md 不一致\n")
+            sys.stderr.write(f"缺    profile {profile_id} model 与 models.md 不一致\n")
             failed = True
         if profile.get("thinkingOptionId") != want["thinkingOptionId"]:
-            sys.stderr.write(f"缺    profile {agent} thinkingOptionId 与 models.md 不一致\n")
+            sys.stderr.write(f"缺    profile {profile_id} thinkingOptionId 与 models.md 不一致\n")
             failed = True
         if profile.get("provider") != want["provider"]:
-            sys.stderr.write(f"缺    profile {agent} provider 与 models.md 不一致\n")
+            sys.stderr.write(f"缺    profile {profile_id} provider 与 models.md 不一致\n")
             failed = True
         if profile.get("modeId") != want.get("modeId") or \
                 (profile.get("featureValues") or {}) != (want.get("featureValues") or {}):
-            sys.stderr.write(f"缺    profile {agent} permissions 与 models.md 不一致\n")
+            sys.stderr.write(f"缺    profile {profile_id} permissions 与 models.md 不一致\n")
             failed = True
         if profile.get("notes") != want["notes"]:
-            sys.stderr.write(f"缺    profile {agent} notes 与 models.md 不一致\n")
+            sys.stderr.write(f"缺    profile {profile_id} notes 与 models.md 不一致\n")
             failed = True
-    managed_ids = {agent for agent, *_ in rows}
+    managed_ids = {profile_id for profile_id, *_ in rows}
     for profile in ((data.get("daemon") or {}).get("agentProfiles") or []):
         if not is_generated(profile):
             continue

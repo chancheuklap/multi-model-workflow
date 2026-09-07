@@ -38,7 +38,7 @@ A profile whose `notes` contain `from models.md` is one `install.sh` wrote: it i
 
 ## 5. What a row landed as
 
-**A `bypass` row** is an Agent profile in `~/.paseo/config.json`, under `daemon.agentProfiles`: one entry whose `id` and `name` are both the agent cell, carrying the row's `model` and `thinkingOptionId`. Read that file, or run `bash mmw-v2/install.sh --check`, which compares each profile to the current row and exits 1 on drift, naming the agent.
+**A `bypass` row** is an Agent profile in `~/.paseo/config.json`, under `daemon.agentProfiles`, carrying the row's `model` and `thinkingOptionId`. The first `bypass` row for an agent has `id` and `name` both equal to the agent cell. A later `bypass` row for the same agent is a fallback host: `id` and `name` are `{agent}@{host}` (`junior-worker@grok` for `junior-worker` on `grok`). Read that file, or run `bash mmw-v2/install.sh --check`, which compares each profile to the current row and exits 1 on drift, naming the profile id.
 
 **A `—` row** is a native subagent. Read the definition file for the agent you changed and confirm the new model is in it.
 
