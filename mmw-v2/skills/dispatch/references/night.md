@@ -139,7 +139,7 @@ Step 4 left no open review sub-issue. Then, still on this branch:
 
 `reverify` re-runs every closed `ALL MET` ticket's criteria against this `HEAD`. Exit 0: all green. Exit 1: each red ticket is already reopened, labelled `needs-triage`, unassigned, and commented with the failing `AC<n>` — that is the morning's triage queue; do not close those tickets.
 
-`summary` posts a comment on the spec whose first line is `NIGHT SUMMARY <date>`, with the four lines `Closed:`, `Handed back to needs-triage:`, `Not dispatched, a blocker stayed open:`, `Sub-issues opened tonight:`. If `reverify` ran in this checkout, a `Reverify: <green>/<red>` line is appended.
+`summary` posts a comment on the spec whose first line is `NIGHT SUMMARY <date>`, with the five lines `Closed:`, `Handed back to needs-triage:`, `Not dispatched, a blocker stayed open:`, `Sub-issues opened tonight:` (by number and title), and `Sub-issues routed: <opened>/<fixed>/<became>/<skipped>/<unread>` — this pass's own account of where each one went. If `reverify` ran in this checkout, a `Reverify: <green>/<red>` line is appended.
 
 `summary` also deletes the heartbeat `check` created and removes `.git/mmw-heartbeat-<spec>`.
 
