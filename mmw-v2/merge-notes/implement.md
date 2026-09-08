@@ -67,7 +67,15 @@ the writing rules → keep the bullet.
 
 ## Closing steps: resume after a re-prompt
 
-One sentence added to the "Once done" paragraph: a ticket that already carries a `self-run`, `VERDICT`, `DECISIONS` or `REVIEW` comment is resumed at the step after the newest of them. The main agent's `resume` sends a stopped worker `continue` and what it settled, nothing else, so the skill has to know it may be entering the closing steps mid-way. On the next upstream pull keep this sentence with the closing steps.
+A table added to the "Once done" paragraph, one row per state the ticket's own comments can be in, saying which closing step to resume at. The main agent's `resume` sends a stopped worker `continue` and what it settled, nothing else, so the skill has to know it may be entering the closing steps mid-way.
+
+It is a table rather than the one sentence it replaced ("resume at the step after the newest of them"). That sentence assumed comment kinds and steps correspond one to one, and they do not: step 2 posts its `REVIEW` in the middle and has the in-ticket fix round after it. Read literally, a newest `REVIEW` sent the worker to step 3 with the fix round skipped, and a `self-run` posted by that fix round sent it back to step 2, which forbids a second reviewer. The last two rows carry step 4's two-round cap into the resume path as well; without them a worker resumed after two verdicts starts a third verifier. Every condition is read off the ticket, never off the session.
+
+Upstream rewrites the "Once done" paragraph → take its wording and put the table back, rows and all.
+
+## Every script name says which skill owns it
+
+Two places in the body named a script with no skill beside it, against this file's own `## Reaching the two scripts` rule: `story-parity.py --render-only` in the target-trees paragraph, and "that skill is where the line is read" in closing step 1, whose only antecedent was a script name. Both now name the `drive-target` skill and the render-only one says to resolve `scripts/` from that skill's own SKILL.md. A bare script name is a name the worker cannot turn into a path: `install.sh` puts the skill wherever the host reads its skills from, and that differs by machine and by host. Upstream touches either sentence → keep the skill name.
 
 ## Where a failing `story-parity.py` criterion is read
 
