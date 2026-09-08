@@ -53,7 +53,7 @@ _Avoid_: reviewer 会话, code-review 会话, 审稿人, MMW_AUTONOMOUS
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **dispatcher**:
-The role the reviewer session takes once it holds the `code-review` skill: it starts the three read-only axis subagents, sorts every review finding into in-ticket or out-of-ticket by the five conditions in that skill's section 3, and writes the one review comment. It reviews nothing and fixes nothing itself, and it is the only reader of `code-review/SKILL.md`.
+The role the reviewer session takes once it holds the `code-review` skill: it starts the three read-only axis subagents, sorts every review finding into in-ticket or out-of-ticket by the six conditions in that skill's section 3, and writes the one review comment. It reviews nothing and fixes nothing itself, and it is the only reader of `code-review/SKILL.md`.
 _Avoid_: 派发 (as a term)者
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
@@ -360,7 +360,7 @@ Where this ticket is verified: the test layer and directory copied from `## Test
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`## Owns`**:
-The repository-relative paths this ticket may write, one per line — where you may write, not where the code is. It includes the Seam's test directory or file; a path the ticket creates is marked `(new)`; no absolute path, `..`, or bare `**`. Two tickets on one frontier may not overlap; where they would, a `## Blocked by` edge is added. A ticket that has a directory to itself writes a **directory glob**; several tickets dividing one directory go down to file level. The **Owns check** at start of work confirms every glob matches or is `(new)` (an older ticket derives one from its Seam). The **Owns two grades** rule handles a file outside Owns: change it and record it under `Outside Owns:` when a criterion cannot pass otherwise; leave it and open a sub-issue when the change is merely convenient.
+The repository-relative paths this ticket may write, one per line — where you may write, not where the code is. It includes the Seam's test directory or file; a path the ticket creates is marked `(new)`; no absolute path, `..`, or bare `**`. Two tickets on one frontier may not overlap; where they would, a `## Blocked by` edge is added. A ticket that has a directory to itself writes a **directory glob**; several tickets dividing one directory go down to file level. The **Owns check** at start of work confirms every glob matches or is `(new)` (an older ticket derives one from its Seam). A ticket that deletes or renames a public name — a file, a script, a contract field, a criterion word — takes every `grep` hit for that name into its own Owns, or opens a cleanup ticket `Blocked by` the ticket that owns a stale reference. The **Owns two grades** rule handles a file outside Owns: change it and record it under `Outside Owns:` when a criterion cannot pass otherwise; leave it and open a sub-issue when the change is merely convenient.
 _Avoid_: 目录 glob, Owns 核对, Owns 两档
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
@@ -522,7 +522,7 @@ _Avoid_: 票评论, COMMENT (as a kind label)
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **first line**:
-The first line of a ticket comment: the pipeline's protocol slot, by which `--closeout`, `advance`, `status.py`, and `triage` recognise a comment — `NOT_READY:`, `self-run`, `reverify`, `VERDICT …`, `DECISIONS`, `REVIEW <base commit>..<HEAD commit>`, `TOUCHED BY #<n>`, `ALL MET`, `HANDOFF REQUIRED: …`, `CHECKS FAILED`, `NIGHT SUMMARY <date>`, `SUB-ISSUE <kind> from #<n>`. A disclaimer therefore goes last. `NIGHT SUMMARY` lists tickets by number and first line.
+The first line of a ticket comment: the pipeline's protocol slot, by which `--closeout`, `advance`, `status.py`, and `triage` recognise a comment — `NOT_READY:`, `self-run`, `reverify`, `VERDICT …`, `DECISIONS`, `REVIEW <base commit>..<HEAD commit>`, `TOUCHED BY #<n>`, `ALL MET`, `HANDOFF REQUIRED: …`, `CHECKS FAILED`, `NIGHT SUMMARY <date>`, `SUB-ISSUE <kind> from #<n>`. A disclaimer therefore goes last. `status.py` reads a closed sub-issue's own close comment by the same slot, to say how the closing pass routed it: `已在基线分支上修掉`, `已收进 #`, `已被 #`, `按本票自己写的判据关闭`, `按本票自己的判定关闭`, `不做`, `当前措辞已是本票要的形状`. `NIGHT SUMMARY` lists tickets by number and title.
 _Admitted_: protocol slot
 _Avoid_: 首行, 协议位, status word, wait, slot (bare — see **slot**)
 _Home_: `mmw-v2/skills/dispatch/scripts/status.py`
@@ -595,7 +595,7 @@ _Avoid_: form, 提问表单, BLOCKED:, MMW_AUTONOMOUS
 _Home_: `mmw-v2/skills/drive-target/scripts/hook.py`
 
 **`NIGHT SUMMARY`**:
-The comment `NIGHT SUMMARY <date>` that `dispatch.sh summary <spec>` posts on the spec when the night is over: four lines, `Closed:`, `Handed back to needs-triage:`, `Not dispatched, a blocker stayed open:`, `Sub-issues opened tonight:` (each ticket's children opened in the night window), ticket numbers and first lines only. If `reverify` ran in this checkout, a `Reverify: <green>/<red>` line is appended.
+The comment `NIGHT SUMMARY <date>` that `dispatch.sh summary <spec>` posts on the spec when the night is over: five lines, `Closed:`, `Handed back to needs-triage:`, `Not dispatched, a blocker stayed open:`, `Sub-issues opened tonight:` (each ticket's children opened in the night window, by number and title), and `Sub-issues routed:` (`opened/fixed/became/skipped/unread`, the closing pass's own account). If `reverify` ran in this checkout, a `Reverify: <green>/<red>` line is appended.
 _Avoid_: 夜间总结, the night summary
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
@@ -643,7 +643,7 @@ _Avoid_: 轴 (for this), Standards 轴, Spec 轴, Tests 轴, 缺项, 实现得�
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
 **review finding**:
-One item an axis subagent reports, quoting the requirement line it fails. It is **in-ticket** when it touches this ticket's acceptance criteria, a decision in the spec section the ticket names, a baseline under `## Read first`, the spec's `## Out of Scope`, or the spec's `## Testing Decisions` — then it gets one round of fixes, and `ABANDON: AC<n> failed` if the fix cannot be made; otherwise it is **out-of-ticket** and becomes a non-blocking sub-issue under the ticket, labelled `needs-triage`, while the ticket still closes. The dispatcher sorts them.
+One item an axis subagent reports, quoting the requirement line it fails. It is **in-ticket** when it touches this ticket's acceptance criteria, a decision in the spec section the ticket names, a baseline under `## Read first`, the spec's `## Out of Scope`, the spec's `## Testing Decisions`, or a file inside this ticket's `## Owns` — then it gets one round of fixes, and `ABANDON: AC<n> failed` if the fix cannot be made; otherwise it is **out-of-ticket** and becomes a non-blocking sub-issue under the ticket, labelled `needs-triage`, while the ticket still closes. The dispatcher sorts them.
 _Avoid_: finding (bare), 票内, 票外, 票内发现, 票外发现
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
