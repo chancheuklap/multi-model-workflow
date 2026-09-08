@@ -595,7 +595,7 @@ _Avoid_: form, 提问表单, BLOCKED:, MMW_AUTONOMOUS
 _Home_: `mmw-v2/skills/drive-target/scripts/hook.py`
 
 **`NIGHT SUMMARY`**:
-The comment `NIGHT SUMMARY <date>` that `dispatch.sh summary <spec>` posts on the spec when the night is over: five lines, `Closed:`, `Handed back to needs-triage:`, `Not dispatched, a blocker stayed open:`, `Sub-issues opened tonight:` (each ticket's children opened in the night window, by number and title), and `Sub-issues routed:` (`opened/fixed/became/skipped/unread`, the closing pass's own account). If `reverify` ran in this checkout, a `Reverify: <green>/<red>` line is appended.
+The comment `NIGHT SUMMARY <date>` that `dispatch.sh summary <spec>` posts on the spec when the night is over: five lines, `Closed:`, `Handed back to needs-triage:`, `Not dispatched, a blocker stayed open:`, `Sub-issues opened tonight:` (each ticket's children opened in the night window, by number and title), and `Review sub-issues routed:` (`opened/fixed/became/skipped/unread`, the closing pass's own account of the `review` kind only — the batch's `outside-owns`, `baseline`, `decision` and `pipeline` children are on the line above and not in this count). If `reverify` ran in this checkout, a `Reverify: <green>/<red>` line is appended.
 _Avoid_: 夜间总结, the night summary
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 

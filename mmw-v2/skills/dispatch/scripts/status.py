@@ -607,8 +607,14 @@ def routed_counts(children: list[dict]) -> tuple[int, int, int, int, int, int]:
 
 
 def routed_line(counts: tuple[int, int, int, int, int, int]) -> str:
-    """The summary line a person reads: slash counts, then the names of the slots."""
-    return f"Sub-issues routed: {'/'.join(str(n) for n in counts)} ({ROUTE_SLOTS})"
+    """The summary line a person reads: slash counts, then the names of the slots.
+
+    It says `Review` because it counts only children whose first line is
+    `SUB-ISSUE review from #<n>`. A batch also opens `outside-owns`, `baseline`,
+    `decision` and `pipeline` children, and those are listed by
+    `Sub-issues opened tonight:` above without being routed here — so the two
+    lines carry different totals on purpose, and the label is what says why."""
+    return f"Review sub-issues routed: {'/'.join(str(n) for n in counts)} ({ROUTE_SLOTS})"
 
 
 def summary(rows: list[dict], opened: str, now: datetime | None = None,
