@@ -21,7 +21,7 @@ _Avoid_: 会话 (as a term), pane
 _Home_: `mmw-v2/skills/dispatch/models.md`
 
 **main agent**:
-The session the user started themselves. By day it works with the user to produce specs and tickets; by night it runs `check`, then `advance`, then `status` on each finish notification, and `reverify` and `summary` when the frontier is empty, and only reads tickets. It is the one agent with no row in `models.md`; it is tied to no host. One main agent holds one spec.
+The session the user started themselves. By day it works with the user to produce specs and tickets; by night it runs `check`, then `advance`, then `status` on each finish notification, the **收口轮** when the frontier is empty and review sub-issues remain, then `reverify` and `summary`, and only reads tickets. It is the one agent with no row in `models.md`; it is tied to no host. One main agent holds one spec.
 _Avoid_: coordinator, orchestrator, 编排者, 主 agent, 出票的主 agent, 落地 agent, the single Claude Code session, mmw-main, board
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
@@ -788,7 +788,7 @@ _Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
 ### Dispatch and the night
 
 **landing pipeline**:
-The whole path from spec to closed ticket, made of stations that each have an entry here: by night **dispatch**, **preflight**, the worker's closing steps, **closeout**, **land** and **advance**; in the morning **reverify**, **NIGHT SUMMARY** and the triage queue. What feeds the night — **publish**, a spec, its tickets, their lint — is the day's work and has its own entries. Every rule of the path lives with its station; this entry only names them.
+The whole path from spec to closed ticket, made of stations that each have an entry here: by night **dispatch**, **preflight**, the worker's closing steps, **closeout**, **land**, **advance** and the **收口轮**; in the morning **reverify**, **NIGHT SUMMARY** and the triage queue. What feeds the night — **publish**, a spec, its tickets, their lint — is the day's work and has its own entries. Every rule of the path lives with its station; this entry only names them.
 _Admitted_: ticket pipeline (in triage text)
 _Avoid_: 流水线, this pipeline (as a name), 落地流水线
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
@@ -889,9 +889,18 @@ _Avoid_: abandon (as the name of this), 收夜, give the night up (as a name)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **night**:
-Everything between the last ticket published and the morning: the user says it starts, the main agent runs `check`, then `advance` and `create_agent` on each printed line, then on each finish notification runs `status` and decides — usually `advance` again, or `resume`, or `paseo logs`. A ticket leaves the night by its worker's closing comment, or by staying in the agent queue behind an open blocker all night, which the `Not dispatched, a blocker stayed open:` line of `NIGHT SUMMARY` lists. The night ends when the frontier is empty and `status` shows no live agent: then `reverify`, then `summary`. A `create_agent` that fails to start the provider is the `create_agent` failed to start the provider row of the dispatch skill, not a second guess at the host.
+Everything between the last ticket published and the morning: the user says it starts, the main agent runs `check`, then `advance` and `create_agent` on each printed line, then on each finish notification runs `status` and decides — usually `advance` again, or `resume`, or `paseo logs`. A ticket leaves the night by its worker's closing comment, or by staying in the agent queue behind an open blocker all night, which the `Not dispatched, a blocker stayed open:` line of `NIGHT SUMMARY` lists. The night ends when the frontier is empty and `status` shows no live agent: then the **收口轮** if open review sub-issues remain, then `reverify`, then `summary`. A `create_agent` that fails to start the provider is the `create_agent` failed to start the provider row of the dispatch skill, not a second guess at the host.
 _Avoid_: 夜间编排主循环, night orchestration loop, 夜里 (as a term), 夜间 (as a term), run (as the command that opens a night)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
+
+**收口轮**:
+The pass the main agent runs when the frontier is empty and this spec's tickets still hold open review sub-issues: route exactly those sub-issues by ADR 0012, commit the ones it fixes under the three rules listed in `night.md` step 4, open as few tickets as possible for the ones that become tickets (a ticket whose files sit in another live ticket's `## Owns` is `Blocked by` that ticket), then `advance`, and loop until none survive. It sits between the empty frontier and `reverify` in `night.md`.
+_Admitted_: closing pass
+_Home_: `mmw-v2/skills/dispatch/references/night.md`
+
+**门槛**:
+The six steps in ADR 0012 that decide whether an out-of-ticket review finding is worth a ticket. They run in order, first match wins; the default is that the main agent fixes it.
+_Home_: `docs/adr/0012-review-finding-routing.md`
 
 **morning**:
 The user takes over with the two **morning queries**, `is:open label:needs-triage` (which `triage` reads) and `is:open label:ready-for-human` (which the user reads); the commands are in `docs/agents/issue-tracker.md`.
