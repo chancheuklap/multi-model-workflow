@@ -52,21 +52,13 @@ GATE_LINE_RE = re.compile(r"^- \[( |x|X)\] ([A-Za-z0-9][A-Za-z0-9._-]*):")
 SUB_ISSUE_KINDS = ("baseline", "outside-owns", "review", "decision", "pipeline")
 FILL = "<fill>"
 
-# A criterion is abandoned for one of four reasons. `failed` ran and did not pass;
+# A criterion is abandoned for one of three reasons. `failed` ran and did not pass;
 # `stuck` never ran or cannot be done; the two are told apart for whoever reads the
 # ticket in the morning, and both hand the ticket back. `decision` needs a person to
 # choose, and is the only one that still closes. How many rounds a criterion gets is
 # the worker's own judgement, said on the `ABANDON:` line.
-#
-# `undrivable` is the one kind that is not the worker's to claim: a judge decided it and
-# printed `UNDRIVABLE` — the contract cannot say which node a row means, so no run can
-# drive it, whatever the product does. The closeout refuses the word unless that criterion's
-# own evidence carries it. It hands the ticket back like the other two, and it is the only
-# kind whose branch may still be merged, because the defect is in another artifact owned by
-# another ticket and the work on this branch was verified.
-ABANDON_KINDS = ("decision", "failed", "stuck", "undrivable")
-HANDOFF_KINDS = ("failed", "stuck", "undrivable")
-UNDRIVABLE_MARK = "UNDRIVABLE"
+ABANDON_KINDS = ("decision", "failed", "stuck")
+HANDOFF_KINDS = ("failed", "stuck")
 # Seconds one `CHECK:` may run. A ticket raises it per criterion with `TIMEOUT:`; the
 # worker's own run and the verifier's `--reverify` read the same lines, so the two
 # never disagree about it.
@@ -805,21 +797,12 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
     criteria = parse_criteria(draft)
     ids = [c["id"] for c in criteria]
     abandons = parse_abandons(draft)
-    evidence_of = {c["id"]: " ".join(c.get("evidence") or []) if isinstance(c.get("evidence"), list)
-                   else str(c.get("evidence") or "") for c in criteria}
     for a in abandons:
         if a["kind"] not in ABANDON_KINDS:
             problems.append(f"ABANDON: {a['ac']} has kind `{a['kind']}`; "
                             f"it must be one of {', '.join(ABANDON_KINDS)}")
         if a["ac"] not in ids:
             problems.append(f"ABANDON: {a['ac']} points at a criterion the draft does not list")
-        # Not a word a worker may reach for. A judge prints `UNDRIVABLE` when the contract
-        # cannot say which node a row means, and that print lands in the criterion's own
-        # evidence; without it, this is `failed` or `stuck` and the branch does not merge.
-        if a["kind"] == "undrivable" and UNDRIVABLE_MARK not in evidence_of.get(a["ac"], ""):
-            problems.append(f"ABANDON: {a['ac']} is abandoned as `undrivable`, but its "
-                            f"EVIDENCE does not carry the judge's `{UNDRIVABLE_MARK}` line; "
-                            f"only a judge decides that a row cannot be driven")
 
     blocking = sorted({a["kind"] for a in abandons if a["kind"] in HANDOFF_KINDS})
     if first == "ALL MET" and blocking:

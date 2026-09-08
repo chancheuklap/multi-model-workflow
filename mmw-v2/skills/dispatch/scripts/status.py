@@ -213,35 +213,6 @@ HANDOFF_RE = re.compile(
     r"(?:,\s*unmet:\s*(\d+))?")
 
 
-CARRIED_RE = re.compile(
-    r"^HANDOFF REQUIRED:\s*(\d+)\s+abandoned\s*\(([^)]*)\),\s*(\d+)\s+unmet,")
-
-
-def merges_while_open(ticket: dict) -> bool:
-    """Whether an open ticket's branch belongs in the base branch anyway.
-
-    True when every criterion it did not meet was abandoned as `undrivable` — a judge
-    printing that the contract cannot say which node a row means, which no change to the
-    product answers — and nothing was merely unmet. The defect is in another artifact,
-    owned by another ticket; the work on this branch was verified, and holding it back
-    holds back nothing but itself. On 2026-09-07 three tickets kept 69 verified commits
-    off the branch that way, each for one criterion.
-
-    Only what a judge decided counts. A criterion that ran and came back red is a verdict,
-    however an agent reads it, and `verify-ticket.py` refuses the word `undrivable` unless
-    the judge's own line is in that criterion's evidence.
-
-    The ticket stays open. `closed = ALL MET` is untouched: it closes when the contract is
-    repaired and its criterion is re-run green.
-    """
-    line = first_line(newest_with_first_line(ticket, "HANDOFF REQUIRED:"))
-    found = CARRIED_RE.match(line)
-    if not found:
-        return False
-    kinds = {k.strip() for k in found.group(2).split(",") if k.strip()}
-    return kinds == {"undrivable"} and int(found.group(3)) == 0
-
-
 def counted_ac(ticket: dict) -> str:
     """`<met>/<total>` off the newest self-run or reverify comment, or `-`.
 
@@ -673,9 +644,6 @@ def advance_plan(spec: int) -> int:
     order `dispatch.sh` acts on them:
 
         MERGE <ticket>      closed with `ALL MET`, the one that closed first at the top
-        CARRY <ticket>      open, and every criterion it did not meet was abandoned as
-                            `undrivable`: its branch belongs in the base branch, its
-                            workspace stays, and the ticket stays open
         RELEASE <ticket>    in the agent queue and claimed, with no running worker
                             behind the claim: its worker is gone. A standing workspace
                             is not a reason to keep the claim; that directory is what
@@ -706,14 +674,6 @@ def advance_plan(spec: int) -> int:
             and first_line(newest_with_first_line(t, "ALL MET")).startswith("ALL MET")]
     for ticket in sorted(done, key=lambda t: t["closed_at"]):
         print(f"MERGE {ticket['number']}")
-    # After them, so a carried branch is never the base a closed one merges onto. A
-    # different verb because a different thing follows: a closed ticket's workspace is
-    # archived after its merge, a carried one's is kept, the way every handed-back
-    # ticket's is — its criterion has still to be re-run there.
-    for ticket in sorted((t for t in tickets.values()
-                          if t["state"] == "OPEN" and merges_while_open(t)),
-                         key=lambda t: t["number"]):
-        print(f"CARRY {ticket['number']}")
     rows = build_rows(numbers, tickets, sessions(live_agents(spec)))
     login = own_login()
     for row in rows:
@@ -742,8 +702,6 @@ def land_plan(numbers: list[int]) -> int:
     Four kinds of line and nothing else on stdout, because a script reads this:
 
         MERGE <ticket>        closed with `ALL MET`: its branch belongs in the base branch
-        CARRY <ticket>        open, and only `undrivable` criteria unmet: its branch
-                              belongs in the base branch and the ticket stays open
         RELEASE <ticket>      this pipeline still holds the claim, and the work is over
         ARCHIVE <ticket>      its workspace, the agents inside it and its slot may all go
         HOLD <ticket> <why>   still being worked: nothing may be done to it yet
@@ -780,11 +738,6 @@ def land_plan(numbers: list[int]) -> int:
         asked = False
         if closed and first_line(newest_with_first_line(ticket, "ALL MET")).startswith("ALL MET"):
             print(f"MERGE {number}")
-            asked = True
-        elif not closed and merges_while_open(ticket):
-            # The same rule as `advance_plan`. Two readers of one question is how the
-            # hourly sweep and the main agent come to disagree about the same ticket.
-            print(f"CARRY {number}")
             asked = True
         if login and login in ticket["assignees"]:
             print(f"RELEASE {number}")

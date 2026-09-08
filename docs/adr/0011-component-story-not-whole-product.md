@@ -21,6 +21,7 @@ amends: []
 | `visual-parity.py` 的 parity、`--addressing`、`--shows-perturbation` 模式 | `story-parity.py`；`shows` 的字段来源由 Spec axis 核对 adapter；寻址由旅程覆盖 |
 | `screen_driver.py` 的 `Adapter` 及四个子类、`observe` / `evaluate*`、`perform`、定位钉、`undrivable_lines`、双预算等待 | 旅程脚本用 Playwright 原生 API；story 页面用假定时器；设计侧仍跑 200 ms 虚拟时间 |
 | 合同的画面轴、`--pin`、scene 分区 lint | align-screens 第 5 节的合同格式；每页一条 story 判据、每有调用的行一条边界判据 |
+| `ABANDON:` 的 `undrivable` kind 与 `status.py` 的 `CARRY`（打印 `UNDRIVABLE` 的是本表第三行删掉的寻址层，mmw #297 补删） | 无：合同缺陷现在以判官的红裁决交回 triage，开着的票的分支一律不合并 |
 
 ## Considered Options
 
