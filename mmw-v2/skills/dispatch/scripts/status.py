@@ -28,6 +28,7 @@ import os
 import re
 import subprocess
 import sys
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -557,13 +558,13 @@ ROUTE_SKIPPED = (
     "不做",
     "当前措辞已是本票要的形状",
 )
-REVIEW_BODY = "SUB-ISSUE review"
+ROUTE_REVIEW = "SUB-ISSUE review"
 ROUTE_SLOTS = "opened/fixed/became/skipped/unread/open"
 
 
 def is_review_sub_issue(ticket: dict) -> bool:
     """A worker opened it with `--sub-issue review`; that kind is the body first line."""
-    return first_line(ticket.get("body") or "").startswith(REVIEW_BODY)
+    return first_line(ticket.get("body") or "").startswith(ROUTE_REVIEW)
 
 
 def route_of(ticket: dict) -> str:
@@ -575,7 +576,7 @@ def route_of(ticket: dict) -> str:
         return "fixed"
     if head.startswith(ROUTE_BECAME):
         return "became"
-    if any(head.startswith(p) for p in ROUTE_SKIPPED):
+    if head.startswith(ROUTE_SKIPPED):
         return "skipped"
     return "unread"
 
@@ -590,27 +591,19 @@ def routed_counts(children: list[dict]) -> tuple[int, int, int, int, int, int]:
     unreadable child from looking like a skipped one; open is not that slot.
     The night window does not apply: this is the batch, not tonight's listing.
     """
-    opened = fixed = became = skipped = unread = still_open = 0
+    seen: Counter[str] = Counter()
+    opened = 0
     for child in children:
         if child.get("unread_raw"):
             opened += 1
-            unread += 1
+            seen["unread"] += 1
             continue
         if not is_review_sub_issue(child):
             continue
         opened += 1
-        bucket = route_of(child)
-        if bucket == "fixed":
-            fixed += 1
-        elif bucket == "became":
-            became += 1
-        elif bucket == "skipped":
-            skipped += 1
-        elif bucket == "open":
-            still_open += 1
-        else:
-            unread += 1
-    return opened, fixed, became, skipped, unread, still_open
+        seen[route_of(child)] += 1
+    return (opened, seen["fixed"], seen["became"], seen["skipped"],
+            seen["unread"], seen["open"])
 
 
 def routed_line(counts: tuple[int, int, int, int, int, int]) -> str:
