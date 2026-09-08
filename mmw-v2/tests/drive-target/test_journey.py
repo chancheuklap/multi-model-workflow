@@ -114,21 +114,30 @@ class JourneyOrder(unittest.TestCase):
         self.addCleanup(self.repo.close)
         self.repo.write_target()
         self.repo.write_stack()
-        self.repo.write_journey(
-            "demo",
-            f"echo script >> '{self.repo.log}'\n"
-            "echo ORIGIN=$ORIGIN origin=[$origin] "
-            "MMW_INSTANCE=$MMW_INSTANCE MMW_AUTOMATION=$MMW_AUTOMATION "
-            f">> '{self.repo.root / '.mmw' / 'env'}'\n"
-            "exit 0",
-        )
+        self.repo.write_journey("demo", self.reaches_the_product)
 
-    def test_start_discover_script_stop_and_lease_and_addresses_reach_the_script(self):
+    # No fake stack has a product to reach, so a journey here depends on the product the
+    # only way it can: on the address `discover` printed. The control pass moves that
+    # address, so this script goes red there exactly as a real journey would.
+    ADDRESS = "http://127.0.0.1:9"
+
+    @property
+    def reaches_the_product(self) -> str:
+        return (f"echo script >> '{self.repo.log}'\n"
+                "echo ORIGIN=$ORIGIN origin=[$origin] "
+                "MMW_INSTANCE=$MMW_INSTANCE MMW_AUTOMATION=$MMW_AUTOMATION "
+                f">> '{self.repo.root / '.mmw' / 'env'}'\n"
+                f'[ "$ORIGIN" = "{self.ADDRESS}" ] || exit 9\n'
+                "exit 0")
+
+    def test_start_discover_script_stop_control_and_addresses_reach_the_script(self):
         code, out, _ = self.repo.run("demo")
         self.assertEqual(code, 0, out)
         self.assertEqual(out, "JOURNEY OK demo\n")
+        # The control pass is the trailing `script`: it runs after `stop`, so the product
+        # is already down when it runs.
         self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
-                         ["start", "discover", "script", "stop"])
+                         ["start", "discover", "script", "stop", "script"])
         env = (self.repo.root / ".mmw" / "env").read_text(encoding="utf-8")
         self.assertIn("ORIGIN=http://127.0.0.1:9", env)
         self.assertIn("origin=[]", env)
@@ -189,14 +198,15 @@ class JourneyOrder(unittest.TestCase):
     def test_a_package_json_run_script_is_the_journey(self):
         self.repo.write_journey(
             "via-npm",
-            f"echo script >> '{self.repo.log}'; echo from-package; exit 0",
+            f"echo script >> '{self.repo.log}'; echo from-package; "
+            f'[ "$ORIGIN" = "{self.ADDRESS}" ] || exit 9',
             package=True,
         )
         code, out, _ = self.repo.run("via-npm")
         self.assertEqual(code, 0, out)
         self.assertEqual(out, "JOURNEY OK via-npm\n")
         self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
-                         ["start", "discover", "script", "stop"])
+                         ["start", "discover", "script", "stop", "script"])
 
     def test_a_missing_start_runs_stop_and_is_exit_2(self):
         self.repo.write_target(extra={"start": ""})
@@ -257,6 +267,81 @@ class JourneyOrder(unittest.TestCase):
         self.assertNotIn("AttributeError", err)
 
 
+class NegativeControl(unittest.TestCase):
+    """A judge that cannot go red is not a judge. The control pass runs the script once
+    more with the product stopped and every discovered address pointing nowhere."""
+
+    def setUp(self):
+        self.repo = Repo()
+        self.addCleanup(self.repo.close)
+        self.repo.write_target()
+        self.repo.write_stack()
+
+    def test_a_journey_that_asserts_nothing_is_caught(self):
+        self.repo.write_journey("lazy", "exit 0")
+        code, out, _ = self.repo.run("lazy")
+        self.assertEqual(code, 1, out)
+        self.assertTrue(out.startswith("JOURNEY GREEN WITHOUT PRODUCT lazy at "), out)
+        self.assertIn("product stopped", out)
+
+    def test_a_journey_that_reaches_the_product_passes(self):
+        self.repo.write_journey(
+            "real", '[ "$ORIGIN" = "http://127.0.0.1:9" ] || exit 9')
+        code, out, _ = self.repo.run("real")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(out, "JOURNEY OK real\n")
+
+    def test_a_first_pass_that_fails_never_reaches_the_control(self):
+        self.repo.write_journey(
+            "broken",
+            f"echo script >> '{self.repo.log}'\necho last-of-script >&2\nexit 7")
+        code, out, _ = self.repo.run("broken")
+        self.assertEqual(code, 1, out)
+        self.assertEqual(out, "JOURNEY FAILED broken at last-of-script\n")
+        self.assertEqual(
+            self.repo.log.read_text(encoding="utf-8").splitlines().count("script"), 1)
+
+    def test_the_control_moves_the_port_and_sets_its_own_variable(self):
+        seen = self.repo.root / ".mmw" / "control-env"
+        self.repo.write_journey(
+            "watch",
+            f"echo ORIGIN=$ORIGIN NEG=$MMW_JOURNEY_NEGATIVE "
+            f"INSTANCE=$INSTANCE SLOT=$MMW_SLOT >> '{seen}'\n"
+            '[ "$ORIGIN" = "http://127.0.0.1:9" ] || exit 9')
+        code, out, _ = self.repo.run("watch")
+        self.assertEqual(code, 0, out)
+        first, second = seen.read_text(encoding="utf-8").splitlines()
+        self.assertIn("ORIGIN=http://127.0.0.1:9 ", first)
+        self.assertIn("NEG= ", first)
+        self.assertRegex(second, r"ORIGIN=http://127\.0\.0\.1:\d+ ")
+        self.assertNotIn("ORIGIN=http://127.0.0.1:9 ", second)
+        self.assertIn("NEG=1", second)
+        # `instance` carries no port and is left alone; the lease is the same run's.
+        self.assertIn("INSTANCE=t", second)
+        self.assertRegex(second, r"SLOT=\d+")
+
+
+class RepointingAnAddress(unittest.TestCase):
+    """Which discover values the control pass moves, and which it must not touch."""
+
+    def test_a_url_keeps_its_scheme_host_and_path(self):
+        self.assertEqual(jy.repointed("http://127.0.0.1:5173/app", 41000),
+                         "http://127.0.0.1:41000/app")
+
+    def test_a_bare_host_and_port_is_moved_too(self):
+        self.assertEqual(jy.repointed("127.0.0.1:9222", 41000), "127.0.0.1:41000")
+
+    def test_a_value_with_no_port_is_left_alone(self):
+        self.assertIsNone(jy.repointed("demo", 41000))
+        self.assertIsNone(jy.repointed("GET /health -> .ok", 41000))
+
+    def test_the_port_it_picks_is_one_nothing_listens_on(self):
+        import socket
+        port = jy.closed_port()
+        with socket.socket() as probe:
+            self.assertNotEqual(probe.connect_ex(("127.0.0.1", port)), 0)
+
+
 class FixtureRepo(unittest.TestCase):
     """The committed fixture is what AC1 and AC2 run against."""
 
@@ -275,6 +360,21 @@ class FixtureRepo(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(proc.stdout.splitlines()[0], "JOURNEY OK demo")
         self.assertIn("stop-ran", stop_ran.read_text())
+
+    def test_the_committed_demo_would_go_red_without_its_product(self):
+        """The fixture is a miniature of a real target: `start` brings a product up on
+        this run's own port, `stop` ends the pid it recorded, and the journey asserts
+        something only that product answers. Its `JOURNEY OK` above therefore means the
+        control pass went red, which is the whole point of committing it."""
+        home = tempfile.mkdtemp(prefix="mmw-journey-neg-")
+        self.addCleanup(shutil.rmtree, home, True)
+        proc = subprocess.run(
+            [sys.executable, str(FIXTURE / "repo" / ".mmw" / "journeys" / "demo" / "run")],
+            cwd=FIXTURE / "repo" / ".mmw" / "journeys" / "demo",
+            capture_output=True, text=True,
+            env={**os.environ, "ORIGIN": f"http://127.0.0.1:{jy.closed_port()}"},
+        )
+        self.assertNotEqual(proc.returncode, 0, proc.stdout)
 
 
 class HarnessGuard(unittest.TestCase):

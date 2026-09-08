@@ -707,7 +707,7 @@ start_one() {
         || refuse "no branch.issue-$number.mmw-base, so the reviewer has no commit to start from"
       prompt="Use the code-review skill to review ticket #$number from base commit $base. $AUTONOMOUS" ;;
     verifier)
-      prompt="Use the verdict skill to verify ticket #$number. $AUTONOMOUS" ;;
+      prompt="Use the verdict skill to verify ticket #$number. $AUTONOMOUS $PRODUCT_RULES" ;;
   esac
 
   local workspace cwd created ws_row
@@ -1220,12 +1220,9 @@ advance() {
   plan="$(python3 "$STATUS" --advance-plan "$spec")" \
     || refuse "could not read the batch under #$spec"
 
-  # `CARRY` merges the same way `MERGE` does and is archived the way it is not: the
-  # ticket is still open, its criterion still has to be re-run in that workspace once the
-  # contract it is blocked on is repaired.
   local merged=0 skipped=0 number branch left rc
   local -a just_merged=()
-  for number in $(printf '%s\n' "$plan" | awk '$1 == "MERGE" || $1 == "CARRY" { print $2 }'); do
+  for number in $(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }'); do
     branch="$(ticket_branch "$number")"
     if ! git -C "$root" rev-parse --verify --quiet "refs/heads/$branch" >/dev/null; then
       skipped=$((skipped + 1))
@@ -1239,7 +1236,7 @@ advance() {
     merge_one "$root" "$branch"
     rc=$?
     if [ "$rc" -eq 1 ]; then
-      left="$(printf '%s\n' "$plan" | awk -v n="$number" '($1 == "MERGE" || $1 == "CARRY") && seen { print "issue-" $2 } $2 == n { seen = 1 }')"
+      left="$(printf '%s\n' "$plan" | awk -v n="$number" '$1 == "MERGE" && seen { print "issue-" $2 } $2 == n { seen = 1 }')"
       conflict_report "$root" "$left" >&2
       exit 3
     fi
@@ -1251,8 +1248,6 @@ advance() {
 
   local archived
   for archived in "${just_merged[@]+"${just_merged[@]}"}"; do
-    printf '%s\n' "$plan" | awk -v n="$archived" '$1 == "CARRY" && $2 == n { found = 1 }
-      END { exit !found }' && continue
     archive_workspace "$archived"
   done
 
@@ -1406,7 +1401,7 @@ land_tickets() {
     [ "$rc" -eq 0 ] || refuse "could not merge $branch after $MERGE_TRIES tries; git said nothing this script can act on"
     echo "merged $branch" >&2
     merged=$((merged + 1))
-  done < <(printf '%s\n' "$plan" | awk '$1 == "MERGE" || $1 == "CARRY" { print $2 }')
+  done < <(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }')
 
   for number in $(printf '%s\n' "$plan" | awk '$1 == "RELEASE" { print $2 }'); do
     if gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1; then
@@ -1610,9 +1605,19 @@ reverify_spec() {
 
   local green=0 red=0
   for number in $(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }'); do
-    printed="$(python3 "$VERIFY" "$number" --reverify 2>&1)"
+    # `--tools` is forwarded because the judges of a criterion are named bare and are
+    # found only in the directories it names. Without it every interface criterion of
+    # every ticket fails `command not found`, and the branch below would reopen and hand
+    # back a whole night of finished work for a fault in this command line.
+    printed="$(python3 "$VERIFY" "$number" --reverify ${TOOLS_ARGS[@]+"${TOOLS_ARGS[@]}"} 2>&1)"
     rc=$?
     printf '%s\n' "$printed"
+    # 2 is `the run could not start`, which says nothing about the ticket. Reading it as
+    # a red ticket is how one broken invocation becomes a batch of reopened tickets.
+    if [ "$rc" -eq 2 ]; then
+      echo "dispatch: #$number could not be re-run, so nothing was judged; the rest of this reverify is skipped" >&2
+      exit 2
+    fi
     if [ "$rc" -eq 0 ]; then
       gh_ issue comment "$number" --body "$commit" >/dev/null
       green=$((green + 1))

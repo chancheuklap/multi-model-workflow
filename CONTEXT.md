@@ -58,9 +58,9 @@ _Avoid_: 派发 (as a term)者
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
 **verifier**:
-The Paseo subagent a worker starts last of its closing steps, at most twice, with the prompt `verify #<n> 按 <path> 行事` and nothing else. `<path>` is `mmw-v2/skills/dispatch/references/verifier.md`, resolved from the dispatch skill. In the same worktree on the same commit it re-runs every acceptance criterion with `--reverify` and posts one `VERDICT`. It runs after the last commit, because `--closeout` requires its commit to be `HEAD`; a second round follows a fix, and a second failure is a `HANDOFF REQUIRED` rather than a third round. It may repair its environment and changes no file in the repository; it never writes an `ABANDON:` line.
+The Paseo agent a worker starts last of its closing steps, at most twice, with the prompt `Use the verdict skill to verify ticket #<n>` plus the two standing sentences every dispatched agent gets. In the same worktree on the same commit it re-runs every acceptance criterion with `--reverify` and posts one `VERDICT`. It runs after the last commit, because `--closeout` requires its commit to be `HEAD`; a second round follows a fix, and a second failure is a `HANDOFF REQUIRED` rather than a third round. It may repair its own environment and changes no file in the repository; it never starts the product by hand and never writes an `ABANDON:` line.
 _Avoid_: 复验者, verifier 子代理, subagent verifier
-_Home_: `mmw-v2/skills/dispatch/references/verifier.md`
+_Home_: `mmw-v2/skills/verdict/SKILL.md`
 
 **advisor**:
 The second-opinion agent on a stronger model; it implements nothing. Two doors: a Paseo session from the `bypass` row of `models.md` when `list_profiles` lists `advisor`, otherwise a native subagent from the `—` rows. Only the second is held to reading by anything but its own instructions — the tools list in its definition file has no Edit or Write, where a Paseo session on any host can write through a shell.
@@ -546,9 +546,9 @@ _Avoid_: 复验
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **`VERDICT`**:
-The verifier's judgement, posted with `gh issue comment` after its `--reverify` run: `VERDICT <full 40-character commit> by <model> — <one line>`. The one line says, in order, how it ran (`walked the flow in a running interface`, `commands only`, or `could not start`), what came back, and what it repaired. It is bound to one commit, so the branch is merged and never rebased; it covers that commit and no later one, which is why the verifier is the last of the closing steps. An `ALL MET` draft needs it on the ticket **and** needs that commit to be `HEAD`: what was verified independently is what gets merged, and there is no line a worker can write instead. `HANDOFF REQUIRED` is held to none of its conditions. The verifier's whole report is this line plus the two `git status --porcelain --untracked-files=no` outputs.
+The verifier's judgement, posted with `gh issue comment` after its `--reverify` run: `VERDICT <full 40-character commit> by <model> — <one line>`. The one line says, in order, how it ran (`commands only`, or `could not start` when a criterion could not be run at all — the verifier never starts the product by hand), what came back, and what it repaired. It is bound to one commit, so the branch is merged and never rebased; it covers that commit and no later one, which is why the verifier is the last of the closing steps. An `ALL MET` draft needs it on the ticket **and** needs that commit to be `HEAD`: what was verified independently is what gets merged, and there is no line a worker can write instead. `HANDOFF REQUIRED` is held to none of its conditions. The verifier's whole report is this line plus the two `git status --porcelain --untracked-files=no` outputs.
 _Avoid_: the verdict line, verdict comment, 判决
-_Home_: `mmw-v2/skills/dispatch/references/verifier.md`
+_Home_: `mmw-v2/skills/verdict/SKILL.md`
 
 **`DECISIONS`**:
 The comment `--decisions` posts on the ticket once, after the review and before starting the verifier: first line `DECISIONS`, then `Decisions I made on my own` — every line so far, in the closing comment's shape — and `Outside Owns` — the `Outside Owns:` line of the newest `self-run` with one sentence per file saying why. The Spec axis reads it and judges every line; a fix round after the verifier adds no second one, and the closing comment carries the final version. `--closeout` does not check it.
@@ -681,10 +681,10 @@ The second pass of a boundary criterion: the same command, with `MMW_NEGATIVE=1`
 _Home_: `mmw-v2/skills/drive-target/references/boundary-check.md`
 
 **journey**:
-One Playwright script under `.mmw/journeys/<name>/`, run against the real product on this machine. `scripts/journey.py run <name>` claims the lease, runs `start`, runs `discover`, puts the addresses and lease variables into the environment, runs the script, and runs `stop` whether the script succeeded or not. Prints `JOURNEY OK <name>` or `JOURNEY FAILED <name> at <last line>`. Quantity and content are the owner's; the default three are money, the login gate, and one submit chain.
+One Playwright script under `.mmw/journeys/<name>/`, run against the real product on this machine. `scripts/journey.py run <name>` claims the lease, runs `start`, runs `discover`, puts the addresses and lease variables into the environment, runs the script, and runs `stop` whether the script succeeded or not; then runs the script once more as its **negative control**. Prints `JOURNEY OK <name>`, `JOURNEY FAILED <name> at <last line>`, or `JOURNEY GREEN WITHOUT PRODUCT <name> at <last line>`. Quantity and content are the owner's; the default three are money, the login gate, and one submit chain.
 _Admitted_: `journey.py`
 _Avoid_: wiring check (when a whole-product run is meant), parity run
-_Home_: `mmw-v2/skills/drive-target/scripts/journey.py`
+_Home_: `mmw-v2/skills/drive-target/references/journey.md`
 
 **`.mmw/harness`**:
 The directory in a consuming repository that holds start-the-stack, vendor stubs, account seeds, the few seeds a journey uses, and the entry that records an action that would leave the machine. Product answers live in `.mmw/` (`target.json`, `harness/`, `journeys/`, `stories/`); `harness-guard.py` fails a name that leaks outside `.mmw/`, `tests/`, `scripts/dev/`, or a file `leaves_machine` names.
@@ -692,9 +692,9 @@ _Avoid_: reach script, `scripts/testing/` (when this directory is meant)
 _Home_: `mmw-v2/skills/drive-target/references/targets/README.md`
 
 **negative control**:
-The pair each judge builds to prove it can fail, judged before any real result. The story judge's: after the first scene at the first viewport, the baseline server serves that scene's own address with an error banner in the served bytes, the story page is captured again, and the two must differ — equal means the product capture read the design's server, and the run stops with `NEGATIVE CONTROL FAILED`. The boundary criterion's is the **mutation check**.
+The pair each judge builds to prove it can fail. The story judge's is judged before any real result: after the first scene at the first viewport, the baseline server serves that scene's own address with an error banner in the served bytes, the story page is captured again, and the two must differ — equal means the product capture read the design's server, and the run stops with `NEGATIVE CONTROL FAILED`. The boundary criterion's is the **mutation check**. The journey's runs last, after `stop`: the script runs again with every discovered address repointed to a closed port and `MMW_JOURNEY_NEGATIVE=1` set, and a second pass is `JOURNEY GREEN WITHOUT PRODUCT`.
 _Avoid_: 负控制, GREEN WITHOUT TRANSPORT
-_Home_: `mmw-v2/skills/drive-target/scripts/story-parity.py`, `mmw-v2/skills/drive-target/scripts/boundary-check.py`
+_Home_: `mmw-v2/skills/drive-target/scripts/story-parity.py`, `mmw-v2/skills/drive-target/scripts/boundary-check.py`, `mmw-v2/skills/drive-target/scripts/journey.py`
 
 **normalisation**:
 How an accessibility tree is read before comparison: as the sequence of its named nodes in reading order — role, name or text, and state attributes — each followed by ` < ` and its nearest named ancestor, with unnamed wrappers and landmark names dropped. One normaliser, in `screen_driver.py`, serves the story judge and the target trees. The accessibility tree walks the whole subtree under `[data-story-root]` or `#dc-root`; the pixel judge sees only that box intersected with the viewport, on both sides.
@@ -817,7 +817,7 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **start**:
-`dispatch.sh start <n> worker|reviewer|verifier`: one ticket, one agent. It prints one JSON object whose fields are the arguments of `create_agent`, `notifyOnFinish` among them: `true` for a reviewer and a verifier, whose one turn ends on the work being done, and `false` for a worker, which ends several and says it is done through the **ticket message** instead. A second `bypass` row for that agent is nested as `fallback`. The caller issues `create_agent` with every field except `fallback`, then ends its turn. The worker row of `models.md` is chosen by the ticket's `junior-worker` / `senior-worker` label; the reviewer's base commit is read from `git config branch.issue-<n>.mmw-base` by the script; the verifier's `initialPrompt` is `verify #<n>` plus the path of `references/verifier.md`. Exit 0 printed; exit 2 refused (`REFUSE`, reason on stderr), nothing started.
+`dispatch.sh start <n> worker|reviewer|verifier`: one ticket, one agent. It prints one JSON object whose fields are the arguments of `create_agent`, `notifyOnFinish` among them: `true` for a reviewer and a verifier, whose one turn ends on the work being done, and `false` for a worker, which ends several and says it is done through the **ticket message** instead. A second `bypass` row for that agent is nested as `fallback`. The caller issues `create_agent` with every field except `fallback`, then ends its turn. The worker row of `models.md` is chosen by the ticket's `junior-worker` / `senior-worker` label; the reviewer's base commit is read from `git config branch.issue-<n>.mmw-base` by the script; the verifier's `initialPrompt` names the `verdict` skill and the ticket. Exit 0 printed; exit 2 refused (`REFUSE`, reason on stderr), nothing started.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **retract**:
@@ -894,13 +894,13 @@ _Avoid_: 夜间编排主循环, night orchestration loop, 夜里 (as a term), �
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **收口轮**:
-The pass the main agent runs when the frontier is empty and this spec's tickets still hold open review sub-issues: route exactly those sub-issues by ADR 0012, commit the ones it fixes under the three rules listed in `night.md` step 4, open as few tickets as possible for the ones that become tickets (a ticket whose files sit in another live ticket's `## Owns` is `Blocked by` that ticket), then `advance`, and loop until none survive. It sits between the empty frontier and `reverify` in `night.md`.
+The pass the main agent runs when the frontier is empty and this spec's tickets still hold open review sub-issues: route exactly those sub-issues by the 门槛, commit the ones it fixes under the three rules listed beside them, open as few tickets as possible for the ones that become tickets (a ticket whose files sit in another live ticket's `## Owns` is `Blocked by` that ticket), then `advance`, and loop until none survive. It sits between the empty frontier and `reverify` in `night.md`.
 _Admitted_: closing pass
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **门槛**:
-The six steps in ADR 0012 that decide whether an out-of-ticket review finding is worth a ticket. They run in order, first match wins; the default is that the main agent fixes it.
-_Home_: `docs/adr/0012-review-finding-routing.md`
+The four steps, and the check before them, that decide whether an out-of-ticket review finding is worth a ticket. They run in order, first match wins; the default is that the main agent fixes it. They are written in `night.md` step 4, where they are executed: a night runs in a consuming repository, which has no copy of this repository's `docs/`. ADR 0012 records why the thresholds fall where they do, not how to apply them.
+_Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **morning**:
 The user takes over with the two **morning queries**, `is:open label:needs-triage` (which `triage` reads) and `is:open label:ready-for-human` (which the user reads); the commands are in `docs/agents/issue-tracker.md`.
@@ -974,9 +974,9 @@ Every run reads the ticket afresh, writes at most one comment, and carries nothi
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **The environment is yours; the repository is not**:
-The verifier may install a dependency, move off a taken port, or find a connection string, and leaves the repository exactly as it found it; two identical `git status` outputs are the proof.
+The verifier may install a dependency, download a browser, or find a connection string, and leaves the repository exactly as it found it; two identical `git status` outputs are the proof. What it never repairs is what the machine hands out: ports and the data directory come from the lease, and the product is started and stopped only by `.mmw/target.json`'s own commands, which the criteria run themselves.
 _Avoid_: the verifier's boundary
-_Home_: `mmw-v2/skills/dispatch/references/verifier.md`
+_Home_: `mmw-v2/skills/verdict/SKILL.md`
 
 **No pull request, and no push**:
 No step of the pipeline reads a pull request and no branch is pushed; a ticket's work reaches the base branch through `advance`'s local merge, and the closing comment's `PR:` line is written in the future tense.
@@ -1140,4 +1140,4 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | `dispatch.sh` constants | `MERGE_TRIES = 3` · `LABEL_TITLE_CHARS` · `DEFAULT_WORKER` |
 | `lease.py` constants | `MMW_LEASE_SLOTS = 8` · `MMW_LEASE_PORT_BASE = 21000` · `MMW_LEASE_PORT_STRIDE = 20` |
 | `dispatch.sh` verbs | `check` · `advance` · `land` · `start` · `retract` · `wait` · `resume` · `status` · `reverify` · `summary` · `suspend` |
-| exit codes | `dispatch.sh start` 0 / 2 (nothing started) · `advance` 0 / 2 (nothing touched) / 3 (conflict still in the tree) · `check` 0 / 2 · `wait` 0 / 1 (no result) / 2 (no agent) / 3 (still working) · `land` 0 / 1 (a closed ticket left unmerged) / 2 (nothing touched) / 3 (conflict) · `resume` 0 / 2 (no worker) / 3 (worker there, in a turn) · `status` 0 / 2 (could not ask) · `summary` 0 / 1 (heartbeat left) · `reverify` 0 / 1 · `suspend` 0 / 1 (something left) / 2 (nothing touched) · `verify-ticket.py` 0 / 1 (`--closeout` refused) / 2 (`--preflight`, `--decisions`, `--touched` or `--sub-issue` refused) · `story-parity.py` 0 / 1 (`DIFF`) / 2 (`NEGATIVE CONTROL FAILED`, stories command down, story page 404) · `boundary-check.py` 0 / 1 (`MISS`, `GREEN WITHOUT INTERACTION`) / 2 (could not start) · `journey.py` 0 / 1 (`JOURNEY FAILED`) / 2 (`start` refused) · `install.sh --check` 0 / 1 · `--lint` 0 unless an `ERROR` remains |
+| exit codes | `dispatch.sh start` 0 / 2 (nothing started) · `advance` 0 / 2 (nothing touched) / 3 (conflict still in the tree) · `check` 0 / 2 · `wait` 0 / 1 (no result) / 2 (no agent) / 3 (still working) · `land` 0 / 1 (a closed ticket left unmerged) / 2 (nothing touched) / 3 (conflict) · `resume` 0 / 2 (no worker) / 3 (worker there, in a turn) · `status` 0 / 2 (could not ask) · `summary` 0 / 1 (heartbeat left) · `reverify` 0 / 1 / 2 (a ticket could not be re-run; nothing judged) · `suspend` 0 / 1 (something left) / 2 (nothing touched) · `verify-ticket.py` 0 / 1 (`--closeout` refused) / 2 (`--preflight`, `--decisions`, `--touched` or `--sub-issue` refused; a judge named by a `CHECK:` in no `--tools` directory) · `story-parity.py` 0 / 1 (`DIFF`) / 2 (`NEGATIVE CONTROL FAILED`, stories command down, story page 404) · `boundary-check.py` 0 / 1 (`MISS`, `GREEN WITHOUT INTERACTION`) / 2 (could not start) · `journey.py` 0 / 1 (`JOURNEY FAILED`, `JOURNEY GREEN WITHOUT PRODUCT`) / 2 (`start` refused) · `install.sh --check` 0 / 1 · `--lint` 0 unless an `ERROR` remains |

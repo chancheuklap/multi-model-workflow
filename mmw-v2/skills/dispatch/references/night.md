@@ -22,7 +22,7 @@ When the spec's tickets drive a screen contract, run this once, before the first
 `advance`:
 
 ```bash
-<engine> <spec> --lint
+<engine> <spec> --lint --tools <drive-target scripts>
 ```
 
 It starts nothing and runs no product. It reads the batch's tickets and the contract they
@@ -59,7 +59,7 @@ What `advance` does inside that one command — merge, archive, give claims back
 
 `<dispatch> advance <spec>` merges the branch of every ticket that closed with `ALL MET` into the branch you are on at that moment, archives each merged ticket's workspace, gives back the claims whose workers are gone, then dispatches every ticket on the frontier.
 
-It also merges a branch that is **carried**: an open ticket every one of whose unmet criteria was abandoned as `undrivable` — a judge printing that the contract cannot say which node a row means, which no change to the product answers. The defect is in another artifact owned by another ticket, and the work on this branch was verified; holding it back holds back nothing but itself. Only a judge's own line counts: `verify-ticket.py` refuses the word unless that criterion's evidence carries it, and a criterion that ran and came back red is a verdict however an agent reads it. A carried ticket **stays open** and keeps its workspace — `closed = ALL MET` is untouched, and its criterion has still to be re-run there. The way it is re-run is the way any handed-back ticket is: a person puts `ready-for-agent` back on it once the contract is repaired, and the next `advance` starts a worker in the standing workspace. **`reverify` will not do it** — that re-runs closed `ALL MET` tickets only. The branch you open the night on is the base branch, so stay on it all night: every `advance` merges into whatever `HEAD` is on, and `git config branch.issue-<n>.mmw-base-branch` is a record for readers, not something `advance` consults.
+An open ticket's branch is never merged, whatever its criteria say: `closed = ALL MET` is the whole rule. A contract defect a worker cannot answer from its own code comes back as a red criterion and a `HANDOFF REQUIRED` ticket, the way any other defect does. The branch you open the night on is the base branch, so stay on it all night: every `advance` merges into whatever `HEAD` is on, and `git config branch.issue-<n>.mmw-base-branch` is a record for readers, not something `advance` consults.
 
 The four are one command because the order is the reason. A worktree is cut from `HEAD` at the moment it is opened, so a branch merged after the next ticket is dispatched is a branch that ticket cannot see; the frontier is read after the claims come off, so a ticket freed by this run starts in this run rather than the next one; and `advance` archives a ticket's workspace only after that ticket's branch is already in `HEAD`, releasing its lease first.
 
@@ -93,6 +93,7 @@ Two things wake you, and both end here: a **ticket message** whose first line is
 | `resume` has exited 3 several times and you cannot tell whether it is working or stuck | Ask `get_agent_status` for that agent. An `activeTurn` naming a turn means it is working. An `activeTurn` of null while the send still fails means the session is stuck: a rejected send left `lastError` set, the send path reads that field, and it will take no message again. Archive it and `<dispatch> start <n> worker` — the workspace and branch are reused, the commits are all there, and what the worker was told in that session is not |
 | The worker has stopped and the ticket has a new child whose first line is `SUB-ISSUE pipeline` | Read that sub-issue (`gh api --paginate repos/{owner}/{repo}/issues/<n>/sub_issues?per_page=100`). Fix the cause it names. Then `<dispatch> resume <n> "… continue"` |
 | `status` shows the ticket still `OPEN`, and `paseo ls --label mmw.ticket=<n>` shows a live child labelled `mmw.kind=reviewer` or `mmw.kind=verifier` | Not a stop: the worker is asleep on that child and wakes when it finishes. Do nothing |
+| The message reads `#<n> HANDOFF REQUIRED` | That ticket is finished for tonight: the closeout already swapped its label for `needs-triage`, gave its claim back and left it open, and it is the morning's triage rather than yours. Its workspace stays for the next `start`, so do not archive it. What is yours is the rest of the batch, which that ticket may have been blocking: `<dispatch> advance <spec>`. Its row in the table reads `… · land it`, and the row below says what that means |
 | The message reads `#<n> NOT_READY` | The ticket refused to be claimed and `--preflight` said why in a comment on it. Fix what that comment names, then `<dispatch> advance <spec>` |
 | A row whose `note` ends in `· land it`: the ticket has come to rest and its agents are still listed | `<dispatch> land <n>`. It merges, archives the workspace with its agents, and gives the slot and the claim back. `advance` does the same for the whole batch, so either ends this row |
 | `status` notes `closed: archive it`, or `paseo logs <id>` shows only the prompt with no output (an agent created before the daemon restarted answers this way) | `paseo archive <id>`, then `<dispatch> advance <spec>`: with no agent on the ticket and its claim given back, the ticket is on the frontier again and `start` reuses its standing workspace and branch |
@@ -106,7 +107,14 @@ Then end your turn. Most tickets that land are followed by another `advance`. Th
 
 The frontier is empty and `status` shows no live agent. If this spec's tickets still hold open review sub-issues — first line `SUB-ISSUE review from #<n>`, listed per ticket by `gh api --paginate repos/{owner}/{repo}/issues/<n>/sub_issues?per_page=100` — route **exactly those**. If there are none, go to step 5.
 
-Judge each by ADR 0012 (`docs/adr/0012-review-finding-routing.md`): six steps in order, first match wins.
+Judge each one by the four steps below, **in order, first match wins**, after the check that comes before them. They are written here because this is where they are executed, and the night runs in a repository that has no copy of this toolbox's own decision records. Why the thresholds fall where they do, and what was rejected, is `docs/adr/0012-review-finding-routing.md` in the multi-model-workflow repository — read it when you want the reasoning, never in order to route.
+
+**Step 0, before you classify at all.** Check the condition the sub-issue's own body states against the current `HEAD`. It no longer holds: close the sub-issue and do nothing else. A quarter of them go this way — a later ticket of the same batch already did it, or the judge that raised it wrote that it should not be taken up.
+
+1. **Does it fall inside another still-open ticket's `## Owns`?** → a ticket, `Blocked by` that open one. Not a question of size: the constraint is concurrency. Fixing it yourself on the base branch makes the next `advance` conflict when that ticket's branch merges.
+2. **Is it a hole in the acceptance itself** — a `CHECK:` that is already green while the thing it names is broken or never reached? → a ticket, `senior-worker`, and it asks for a negative control. This class fails in the one way nobody notices (`docs/adr/0008-silence-is-never-a-pass.md`).
+3. **How many files does the fix touch?** One → fix it yourself. Two or more **with a design coupling between them** — how you fix one decides how you fix the other, and neither can be written until both are settled → a ticket, `senior-worker`. Counting files is not counting effort; it is asking whether the change has a cross-file shape somebody should look at. **A name echoed through prose is not a coupling**: renaming a thing along with its restatements in a domain doc, a `SKILL.md` and a reference file is mechanical, `grep` proves you got them all, and it stays with you.
+4. **Nothing matched** → fix it yourself. **The default is to fix it, not to open a ticket.**
 
 The ones you fix: finish them in commits that follow these three rules:
 
@@ -115,8 +123,8 @@ The ones you fix: finish them in commits that follow these three rules:
 3. It runs the affected test suites, and the commit message quotes the line it saw (`ran 188 skipped 0`, not "the tests pass").
 
 A fix that exceeds those three is a ticket after all. That is the way out, and it is
-also what keeps step 5 of ADR 0012 from swallowing work that should have been reviewed:
-the whole pass is auditable from `git log` in the morning, with no second agent.
+also what keeps step 4 from swallowing work that should have been reviewed: the whole
+pass is auditable from `git log` in the morning, with no second agent.
 
 The ones that become tickets: open as few tickets as possible. A ticket whose files sit in another live ticket's `## Owns` is `Blocked by` that live ticket.
 

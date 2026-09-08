@@ -897,38 +897,44 @@ class ReadingPaseo(unittest.TestCase):
         })
 
 
-class CarriedBranches(unittest.TestCase):
-    """A ticket blocked only by a defect in the contract still lands its verified work.
-    On 2026-09-07 three tickets kept 69 verified commits off the branch, one criterion
-    each, because a ticket merged only when it closed."""
+class AnOpenTicketNeverMerges(unittest.TestCase):
+    """`closed = ALL MET` is the whole merge rule, in both plans. A ticket handed back
+    for a defect it could not answer keeps its branch to itself until it closes: the
+    two plans are read by the main agent and by the hourly sweep, and one of them
+    knowing something the other does not is a night disagreeing with itself."""
 
-    def handoff(self, kinds: str, unmet: int = 0) -> str:
-        return (f"HANDOFF REQUIRED: 1 abandoned ({kinds}), {unmet} unmet, 7 met of 8\n"
-                f"Branch: issue-1 Commit: abc\n")
+    def setUp(self):
+        self.saved = (status.sub_issues, status.read_ticket, status.live_agents,
+                      status.own_login)
+        self.tickets = {
+            1: ticket(1, state="OPEN", labels=("needs-triage",),
+                      comments=("HANDOFF REQUIRED: 1 abandoned (failed), 0 unmet, "
+                                "7 met of 8\nBranch: issue-1 Commit: abc",)),
+        }
+        status.sub_issues = lambda spec: list(self.tickets)
+        status.read_ticket = lambda n: self.tickets[n]
+        status.live_agents = lambda spec: []
+        status.own_login = lambda: ""
 
-    def test_only_undrivable_criteria_carry(self):
-        t = ticket(1, state="OPEN", labels=("needs-triage",),
-                   comments=(self.handoff("undrivable"),))
-        self.assertTrue(status.merges_while_open(t))
+    def tearDown(self):
+        (status.sub_issues, status.read_ticket, status.live_agents,
+         status.own_login) = self.saved
 
-    def test_a_criterion_that_ran_and_failed_is_a_verdict(self):
-        """However an agent reads its own failure, red is red; only a judge's own line,
-        which `verify-ticket.py` insists on, makes a criterion undrivable."""
-        for kinds in ("failed", "stuck", "failed, undrivable", "decision"):
-            with self.subTest(kinds=kinds):
-                t = ticket(1, state="OPEN", labels=("needs-triage",),
-                           comments=(self.handoff(kinds),))
-                self.assertFalse(status.merges_while_open(t))
+    def lines(self, call):
+        out = io.StringIO()
+        with redirect_stdout(out), redirect_stderr(io.StringIO()):
+            self.assertEqual(call(), 0)
+        return out.getvalue().splitlines()
 
-    def test_an_unmet_criterion_keeps_the_branch_back(self):
-        """Unmet is work that was not done, not a contract that cannot be executed."""
-        t = ticket(1, state="OPEN", labels=("needs-triage",),
-                   comments=(self.handoff("undrivable", unmet=1),))
-        self.assertFalse(status.merges_while_open(t))
+    def test_advance_does_not_merge_it(self):
+        self.assertEqual(
+            [l for l in self.lines(lambda: status.advance_plan(76))
+             if l.startswith(("MERGE", "CARRY"))], [])
 
-    def test_a_ticket_with_no_handoff_does_not_carry(self):
-        self.assertFalse(status.merges_while_open(
-            ticket(1, state="OPEN", comments=("self-run\n3 met",))))
+    def test_land_says_there_is_nothing_left_to_do(self):
+        rows = self.lines(lambda: status.land_plan([1]))
+        self.assertEqual([l for l in rows if l.startswith(("MERGE", "CARRY"))], [])
+        self.assertTrue([l for l in rows if l.startswith("NOTHING 1")], rows)
 
 
 if __name__ == "__main__":

@@ -30,11 +30,13 @@ The render is the `drive-target` skill's: resolve `<drive-target scripts>` from 
 uv run python <drive-target scripts>/extract_skeleton.py <handoff dir> <scratch>/skeleton.json
 ```
 
+It drives a real browser: Playwright with Chromium has to be installed on this machine before the command will run at all.
+
 It renders every scene in `scenes.json` offline, through the same driver the story judge uses, reads each accessibility tree, and keeps every interactive control keyed by (page, role, accessible name) with the list of scenes it is visible in. This is the row inventory: a control the skeleton has and the contract lacks is a lint error, and so is the reverse. The accessible name is the whole name the tree reports, hint text included — copy it exactly. The same render leaves each scene's normalised tree and the class names in that subtree in the skeleton; step 6 writes them out as the target trees.
 
 ### 2. Declare pages, name components and split preconditions
 
-Top level first: `target.kind`, and `viewports` copied from the handoff package `README.md` (the design size and the declared minimum; never a breakpoint of its stylesheets).
+Top level first: `target.kind`, and `viewports`. `viewports` is your declaration, the way `mount` is: the design size the handoff pages were built at, and a second, narrower one only when the package `README.md` declares a minimum width. Claude Design generates that README and does not promise either number, so read it, take what it gives, and write the design size alone when it gives nothing else. Never a breakpoint of the package's stylesheets: a viewport equal to one compares two reflows and verifies nothing, and the lint refuses it.
 
 Then, for each page in `scenes.json`, one `pages` entry: its **`mount`** — the short stable id the product will serve as the story page (`?page=<mount>`), and carry as `data-screen` on the one element that *is* this page. `mount` is your declaration, not a derivation: a page holds several components' rows, and the one with most rows can be a shared control borrowed from another page. For a `Component · ` page also name the **`component`** the implementation will own it under — the repository's existing feature directory when there is one, otherwise the page name; every row of that page's controls uses the same value. An `App · ` page is a whole-surface root and names no component; only an `App · ` page may also name its **`route`**, the address journeys compare.
 

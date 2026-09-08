@@ -36,6 +36,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -51,21 +52,13 @@ GATE_LINE_RE = re.compile(r"^- \[( |x|X)\] ([A-Za-z0-9][A-Za-z0-9._-]*):")
 SUB_ISSUE_KINDS = ("baseline", "outside-owns", "review", "decision", "pipeline")
 FILL = "<fill>"
 
-# A criterion is abandoned for one of four reasons. `failed` ran and did not pass;
+# A criterion is abandoned for one of three reasons. `failed` ran and did not pass;
 # `stuck` never ran or cannot be done; the two are told apart for whoever reads the
 # ticket in the morning, and both hand the ticket back. `decision` needs a person to
 # choose, and is the only one that still closes. How many rounds a criterion gets is
 # the worker's own judgement, said on the `ABANDON:` line.
-#
-# `undrivable` is the one kind that is not the worker's to claim: a judge decided it and
-# printed `UNDRIVABLE` — the contract cannot say which node a row means, so no run can
-# drive it, whatever the product does. The closeout refuses the word unless that criterion's
-# own evidence carries it. It hands the ticket back like the other two, and it is the only
-# kind whose branch may still be merged, because the defect is in another artifact owned by
-# another ticket and the work on this branch was verified.
-ABANDON_KINDS = ("decision", "failed", "stuck", "undrivable")
-HANDOFF_KINDS = ("failed", "stuck", "undrivable")
-UNDRIVABLE_MARK = "UNDRIVABLE"
+ABANDON_KINDS = ("decision", "failed", "stuck")
+HANDOFF_KINDS = ("failed", "stuck")
 # Seconds one `CHECK:` may run. A ticket raises it per criterion with `TIMEOUT:`; the
 # worker's own run and the verifier's `--reverify` read the same lines, so the two
 # never disagree about it.
@@ -804,21 +797,12 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
     criteria = parse_criteria(draft)
     ids = [c["id"] for c in criteria]
     abandons = parse_abandons(draft)
-    evidence_of = {c["id"]: " ".join(c.get("evidence") or []) if isinstance(c.get("evidence"), list)
-                   else str(c.get("evidence") or "") for c in criteria}
     for a in abandons:
         if a["kind"] not in ABANDON_KINDS:
             problems.append(f"ABANDON: {a['ac']} has kind `{a['kind']}`; "
                             f"it must be one of {', '.join(ABANDON_KINDS)}")
         if a["ac"] not in ids:
             problems.append(f"ABANDON: {a['ac']} points at a criterion the draft does not list")
-        # Not a word a worker may reach for. A judge prints `UNDRIVABLE` when the contract
-        # cannot say which node a row means, and that print lands in the criterion's own
-        # evidence; without it, this is `failed` or `stuck` and the branch does not merge.
-        if a["kind"] == "undrivable" and UNDRIVABLE_MARK not in evidence_of.get(a["ac"], ""):
-            problems.append(f"ABANDON: {a['ac']} is abandoned as `undrivable`, but its "
-                            f"EVIDENCE does not carry the judge's `{UNDRIVABLE_MARK}` line; "
-                            f"only a judge decides that a row cannot be driven")
 
     blocking = sorted({a["kind"] for a in abandons if a["kind"] in HANDOFF_KINDS})
     if first == "ALL MET" and blocking:
@@ -1521,6 +1505,7 @@ def run_sub_issue(number: int, kind: str, path: Path) -> int:
 
 def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
     body = fetch_body(number)
+    require_judges(body)
     root = repo_root()
     carried = carried_ledger(number, body) if reverify else []
     with tempfile.TemporaryDirectory(prefix="verify-ticket-") as tmp:
@@ -1987,6 +1972,9 @@ PIPELINE_SCRIPTS = {
                                     "--impl-title", "--viewports", "--mount")},
     "boundary-check.py": {"required": ("--run",), "retired": ()},
 }
+# The judges of the `drive-target` skill. A `CHECK:` names one by its bare name, and
+# `--tools` is the only thing that puts it where a shell can find it.
+JUDGES = ("story-parity.py", "boundary-check.py", "journey.py")
 SPEC_SECTION_SOURCE_RE = re.compile(r"^#(\d+) (Implementation Decisions|Testing Decisions)\s*(\d+)?")
 ADR_SOURCE_RE = re.compile(r"^ADR-(\d{4})")
 TICKET_SOURCE_RE = re.compile(r"^#(\d+)(?:\s|$)")
@@ -2006,6 +1994,35 @@ def tool(script: str) -> Path | None:
         if candidate.is_file():
             return candidate
     return None
+
+
+class JudgeUnreachable(RuntimeError):
+    """A `CHECK:` names one of the judges and no `--tools` directory holds it."""
+
+
+def require_judges(body: str) -> None:
+    """Refuse, before anything runs, when a criterion names a judge this run cannot reach.
+
+    Without the directory, the criterion fails `command not found`, which reads exactly
+    like a criterion that ran and did not pass: gate-check records it as one more unmet
+    gate and this run exits 1. On 2026-09-08 `dispatch.sh reverify` was found running
+    with no `--tools` at all, which would have reopened and handed back every interface
+    ticket of a batch for a fault in the invocation. So the run stops here instead,
+    names the script, and writes nothing to the ticket.
+
+    `PATH` is the second place looked at: a directory put there by hand is a legitimate
+    way to reach the judges, and refusing it would refuse something that works.
+    """
+    missing = sorted({judge
+                      for _, check, _ in criteria_lines(body)
+                      for judge in JUDGES
+                      if judge in check
+                      and tool(judge) is None and shutil.which(judge) is None})
+    if missing:
+        raise JudgeUnreachable(
+            ", ".join(missing) + ": named by a `CHECK:` and in no --tools directory and "
+            "not on PATH. Nothing was run and nothing was written. Pass "
+            "--tools <the drive-target skill's scripts directory> and run again.")
 
 
 APP_PAGE_PREFIX = "App · "
@@ -2340,6 +2357,7 @@ def lint_criteria(number: int, body: str, labels: list[str]) -> int:
     """Everything `--lint` says about one ticket's own text: its worker label, how its
     criteria are written, and the three criterion shapes. The batch graph is not here;
     `run_lint` checks that once per batch."""
+    require_judges(body)
     worker_errors, worker_warnings = lint_worker(labels, body)
 
     def report_worker() -> None:
@@ -2498,9 +2516,13 @@ def main(argv: list[str] | None = None) -> int:
         if not args.review.is_file():
             parser.error(f"no file at {args.review}")
         return run_review(args.ticket, args.review)
-    if args.lint:
-        return run_lint(args.ticket)
-    return run_checks(args.ticket, args.reverify, args.timeout)
+    try:
+        if args.lint:
+            return run_lint(args.ticket)
+        return run_checks(args.ticket, args.reverify, args.timeout)
+    except JudgeUnreachable as exc:
+        print(f"verify-ticket: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

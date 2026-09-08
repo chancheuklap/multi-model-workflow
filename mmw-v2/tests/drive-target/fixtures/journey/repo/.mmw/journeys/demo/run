@@ -1,2 +1,5 @@
 #!/bin/sh
-exit 0
+# Asserts something only the running product can satisfy, which is what makes the
+# negative control mean anything: with the product stopped and ORIGIN pointing nowhere,
+# this line fails.
+curl -sf --max-time 5 "$ORIGIN/health" | grep -q '^ok$'
