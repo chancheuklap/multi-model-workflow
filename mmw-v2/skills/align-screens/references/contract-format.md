@@ -13,7 +13,7 @@ baselines:
   precedence: "look & verbatim copy -> handoff package; calls, shows, next, on_failure -> this file"
 target:
   kind: electron                          # electron | web-spa | web-server-rendered | chrome-extension
-viewports: [1440x900, 1180x720]           # copied from the handoff package README; never a breakpoint of its stylesheets
+viewports: [1440x900, 1180x720]           # the design size, and its declared minimum when the README states one
 pages:                                    # one per .dc.html page of scenes.json
   "App · 笔记列表.dc.html":
     mount: notes-app                    # the story page id; the product story is addressed by this value
@@ -55,7 +55,7 @@ rows: [...]
 | Key | Rule | Lint |
 | --- | --- | --- |
 | `target.kind` | One of the adapters the driver of the `drive-target` skill has: `electron`, `web-spa`, `web-server-rendered`, `chrome-extension`. Selects how the repository answers in `.mmw/target.json`. What the repository has to answer is declared by that skill: run `screen_driver.py target --check` in the repository to see every field, one sentence and one example each. | one of the four (`target --validate` of the drive-target skill) |
-| `viewports` | `WIDTHxHEIGHT` entries copied from the handoff package README (its design size and its declared minimum). A viewport equal to a media-query breakpoint of the package's stylesheets compares two reflows and verifies nothing. | parseable; no width equals a `@media (max-width\|min-width: Npx)` of `styles/*.css` |
+| `viewports` | `WIDTHxHEIGHT` entries, declared by whoever writes this file: the design size the handoff pages were built at, plus its declared minimum when the package README states one. The README is generated and promises neither number, so one entry is a complete answer. A viewport equal to a media-query breakpoint of the package's stylesheets compares two reflows and verifies nothing. | parseable; no width equals a `@media (max-width\|min-width: Npx)` of `styles/*.css` |
 | `pages.<page>.mount` | A short stable id — the story page id the product serves as `?page=<mount>`. It is also the value of `data-screen` on the one product element this page *is*, when the surface carries that attribute. Declared by the person writing the contract, never derived from the `component` column (a page holds several components' rows, and the one with most rows can be a borrowed shared control). | present, `[a-z0-9-]`, unique across pages |
 | `pages.<page>.route` | The product address of an `App · ` page. Journeys compare those whole surfaces. A `Component · ` page must not carry this key. | absent on every non-App page |
 | `pages.<page>.component` | For a `Component · ` page: the rows' `component` value this page owns. `App · ` pages are whole-surface roots and carry none. | Component pages ↔ distinct `component` values one to one |
