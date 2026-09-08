@@ -122,7 +122,7 @@ The night's heartbeat is created in [references/night.md](references/night.md) s
 
 **`status <spec>`:** `0`, stdout is the table (`ticket`, `agent`, `id`, `agent_status`, `age`, `phase`, `ac`, `note`); a `note` of `needs permission` is the `needs permission` notification in table form, and `closed: archive it` names an agent Paseo still lists but which is not running — it holds nothing, and `advance` gives its claim back. `2`: the tracker or `paseo` could not be asked — one `dispatch: …` line on stderr, no table; run it again once the daemon answers.
 
-**`reverify <spec>`:** `0` every closed `ALL MET` ticket was green; `1` at least one was red — that ticket is reopened, labelled `needs-triage`, its assignee removed, and the failing `AC<n>` commented. Stdout names each ticket.
+**`reverify <spec>`:** `0` every closed `ALL MET` ticket was green; `1` at least one was red — that ticket is reopened, labelled `needs-triage`, its assignee removed, and the failing `AC<n>` commented. Stdout names each ticket. `2` a ticket could not be re-run at all: nothing was judged, no ticket was touched, and the rest of the batch is skipped — stderr names the ticket and `verify-ticket.py` says what was missing. A run that could not start says nothing about the work, so it is never a red ticket.
 
 **`summary <spec>`:** `0`. The spec has a new comment whose first line is `NIGHT SUMMARY <date>`, and the heartbeat named in `.git/mmw-heartbeat-<spec>` is deleted with the file. If `reverify` ran in this checkout, the comment also has a `Reverify: <green>/<red>` line. `1`: the comment is posted but the heartbeat could not be deleted; stderr names it.
 

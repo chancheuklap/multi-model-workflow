@@ -19,7 +19,7 @@ python3 <absolute path to that script>
 
 Resolve it from this file's own location. The path differs by machine and by host, and `install.sh` puts this skill wherever the host that gave it to you reads its skills from.
 
-Every run that executes a `CHECK:` — `<n>`, `--reverify` — and `--lint` take `--tools <directory>`: the `scripts/` directory of the `drive-target` skill, resolved from that skill's own `SKILL.md` the same way. A criterion names a judge by its bare name (`story-parity.py …`, `boundary-check.py …`, `journey.py …`) and `<engine>` puts `--tools` on the `PATH` of the shell that runs it; nothing in a ticket says where this machine keeps its skills. Without `--tools`, such a criterion fails with `command not found`, which is the right failure.
+Every run that executes a `CHECK:` — `<n>`, `--reverify` — and `--lint` take `--tools <directory>`: the `scripts/` directory of the `drive-target` skill, resolved from that skill's own `SKILL.md` the same way. A criterion names a judge by its bare name (`story-parity.py …`, `boundary-check.py …`, `journey.py …`) and `<engine>` puts `--tools` on the `PATH` of the shell that runs it; nothing in a ticket says where this machine keeps its skills. A run whose ticket names a judge that no `--tools` directory holds, and that is not on `PATH` either, is refused before anything starts: exit 2, the script named on stderr, nothing run and no comment posted. A missing directory is a fault in the command you typed, and a criterion failing `command not found` reads exactly like one that ran and did not pass.
 
 ## Find your run
 

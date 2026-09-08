@@ -22,7 +22,7 @@ When the spec's tickets drive a screen contract, run this once, before the first
 `advance`:
 
 ```bash
-<engine> <spec> --lint
+<engine> <spec> --lint --tools <drive-target scripts>
 ```
 
 It starts nothing and runs no product. It reads the batch's tickets and the contract they

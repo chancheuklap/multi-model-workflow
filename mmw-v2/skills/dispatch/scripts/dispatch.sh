@@ -1610,9 +1610,19 @@ reverify_spec() {
 
   local green=0 red=0
   for number in $(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }'); do
-    printed="$(python3 "$VERIFY" "$number" --reverify 2>&1)"
+    # `--tools` is forwarded because the judges of a criterion are named bare and are
+    # found only in the directories it names. Without it every interface criterion of
+    # every ticket fails `command not found`, and the branch below would reopen and hand
+    # back a whole night of finished work for a fault in this command line.
+    printed="$(python3 "$VERIFY" "$number" --reverify ${TOOLS_ARGS[@]+"${TOOLS_ARGS[@]}"} 2>&1)"
     rc=$?
     printf '%s\n' "$printed"
+    # 2 is `the run could not start`, which says nothing about the ticket. Reading it as
+    # a red ticket is how one broken invocation becomes a batch of reopened tickets.
+    if [ "$rc" -eq 2 ]; then
+      echo "dispatch: #$number could not be re-run, so nothing was judged; the rest of this reverify is skipped" >&2
+      exit 2
+    fi
     if [ "$rc" -eq 0 ]; then
       gh_ issue comment "$number" --body "$commit" >/dev/null
       green=$((green + 1))
