@@ -22,7 +22,7 @@ amends: []
 - **第 1 步**：它落在另一张**还开着**的票的 `## Owns` 里吗 → 开票，且这张票 `Blocked by` 那张活票。不看大小：并发约束不是工作量，main agent 在 **base branch** 直接改会让下一次 `advance` 合并那张活票时冲突。
 - **第 2 步**：存在一条已经绿了的 `CHECK:`，而它点名的那样东西是坏的或没被执行到 → 开票，`senior-worker`，并要求 **negative control**。这一类的错法是「没有人会发现」，属 `docs/adr/0008-silence-is-never-a-pass.md`。
 - **第 3 步**：要改的是本仓多张票都指着的文件吗。名单写死：根 `CONTEXT.md`、根 `AGENTS.md`、任何 `SKILL.md`、`mmw-v2/skills/dispatch/references/night.md`、`docs/agents/*.md`、`mmw-v2/merge-notes/*`、`mmw-v2/downstream-notes/*` → main agent 自己改。这些文件夜里没有第二个人在动，且是文字指向类，`grep` 就能验证。
-- **第 4 步**：修它要动几个文件。一个 → main agent 自己改；两个及以上且它们之间有调用关系（改一个不改另一个就坏）→ 开票，`senior-worker`。数文件不是数工作量，是数这个改动有没有一个跨文件的形状。
+- **第 4 步**：修它要动几个文件。一个 → main agent 自己改；两个及以上、且它们之间有**设计上的**咬合（一处的改法决定另一处的改法，不定下来两处都写不对）→ 开票，`senior-worker`。数文件不是数工作量，是数这个改动有没有一个判官该看一眼的跨文件形状。**一个名字在文档里的回声不算咬合**：改名连同它在 `CONTEXT.md`、`night.md`、\`SKILL.md\` 里的复述是机械的，`grep` 就能验证全改到了，仍走「自己改」。
 - **第 5 步**：都不匹配 → main agent 自己改。**默认是自己改，不是开票。**
 
 ## Considered Options
