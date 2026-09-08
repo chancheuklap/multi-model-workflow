@@ -1,8 +1,12 @@
 """Remove class rules that neither templates, logic, nor fixtures reference. Read the printed list before accepting it.
-Usage: deadsweep.py <src dir> <fixtures.js> <css files...>"""
+Usage: deadsweep.py <src dir> <fixtures.js> <css files...>
+The corpus is every src/*.py, the fixtures, mk.py, and every .dc.html in the working directory that no source builds
+(an app page written by hand, a page written inside Claude Design) — those pages are the only record of the classes they use."""
 import re,pathlib,sys
 srcdir,fx=pathlib.Path(sys.argv[1]),pathlib.Path(sys.argv[2])
-corpus=''.join(p.read_text() for p in srcdir.glob('*.py'))+fx.read_text()+(srcdir.parent/'mk.py').read_text()
+built={p.stem for p in srcdir.glob('*.py')}
+handwritten=[p for p in sorted(srcdir.parent.glob('*.dc.html')) if p.name[:-len('.dc.html')] not in built]
+corpus=''.join(p.read_text() for p in srcdir.glob('*.py'))+fx.read_text()+(srcdir.parent/'mk.py').read_text()+''.join(p.read_text() for p in handwritten)
 dyn_prefixes=set(re.findall(r'"([a-z][\w-]*-)"\s*\+', corpus))
 def used(c): return re.search(r'[^\w-]'+re.escape(c)+r'(?![\w-])', corpus) is not None
 def alive(sel):
