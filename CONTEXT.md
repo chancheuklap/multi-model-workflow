@@ -546,9 +546,9 @@ _Avoid_: 复验
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **`VERDICT`**:
-The verifier's judgement, posted with `gh issue comment` after its `--reverify` run: `VERDICT <full 40-character commit> by <model> — <one line>`. The one line says, in order, how it ran (`walked the flow in a running interface`, `commands only`, or `could not start`), what came back, and what it repaired. It is bound to one commit, so the branch is merged and never rebased; it covers that commit and no later one, which is why the verifier is the last of the closing steps. An `ALL MET` draft needs it on the ticket **and** needs that commit to be `HEAD`: what was verified independently is what gets merged, and there is no line a worker can write instead. `HANDOFF REQUIRED` is held to none of its conditions. The verifier's whole report is this line plus the two `git status --porcelain --untracked-files=no` outputs.
+The verifier's judgement, posted with `gh issue comment` after its `--reverify` run: `VERDICT <full 40-character commit> by <model> — <one line>`. The one line says, in order, how it ran (`commands only`, or `could not start` when a criterion could not be run at all — the verifier never starts the product by hand), what came back, and what it repaired. It is bound to one commit, so the branch is merged and never rebased; it covers that commit and no later one, which is why the verifier is the last of the closing steps. An `ALL MET` draft needs it on the ticket **and** needs that commit to be `HEAD`: what was verified independently is what gets merged, and there is no line a worker can write instead. `HANDOFF REQUIRED` is held to none of its conditions. The verifier's whole report is this line plus the two `git status --porcelain --untracked-files=no` outputs.
 _Avoid_: the verdict line, verdict comment, 判决
-_Home_: `mmw-v2/skills/dispatch/references/verifier.md`
+_Home_: `mmw-v2/skills/verdict/SKILL.md`
 
 **`DECISIONS`**:
 The comment `--decisions` posts on the ticket once, after the review and before starting the verifier: first line `DECISIONS`, then `Decisions I made on my own` — every line so far, in the closing comment's shape — and `Outside Owns` — the `Outside Owns:` line of the newest `self-run` with one sentence per file saying why. The Spec axis reads it and judges every line; a fix round after the verifier adds no second one, and the closing comment carries the final version. `--closeout` does not check it.
@@ -817,7 +817,7 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **start**:
-`dispatch.sh start <n> worker|reviewer|verifier`: one ticket, one agent. It prints one JSON object whose fields are the arguments of `create_agent`, `notifyOnFinish` among them: `true` for a reviewer and a verifier, whose one turn ends on the work being done, and `false` for a worker, which ends several and says it is done through the **ticket message** instead. A second `bypass` row for that agent is nested as `fallback`. The caller issues `create_agent` with every field except `fallback`, then ends its turn. The worker row of `models.md` is chosen by the ticket's `junior-worker` / `senior-worker` label; the reviewer's base commit is read from `git config branch.issue-<n>.mmw-base` by the script; the verifier's `initialPrompt` is `verify #<n>` plus the path of `references/verifier.md`. Exit 0 printed; exit 2 refused (`REFUSE`, reason on stderr), nothing started.
+`dispatch.sh start <n> worker|reviewer|verifier`: one ticket, one agent. It prints one JSON object whose fields are the arguments of `create_agent`, `notifyOnFinish` among them: `true` for a reviewer and a verifier, whose one turn ends on the work being done, and `false` for a worker, which ends several and says it is done through the **ticket message** instead. A second `bypass` row for that agent is nested as `fallback`. The caller issues `create_agent` with every field except `fallback`, then ends its turn. The worker row of `models.md` is chosen by the ticket's `junior-worker` / `senior-worker` label; the reviewer's base commit is read from `git config branch.issue-<n>.mmw-base` by the script; the verifier's `initialPrompt` names the `verdict` skill and the ticket. Exit 0 printed; exit 2 refused (`REFUSE`, reason on stderr), nothing started.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **retract**:
@@ -974,9 +974,9 @@ Every run reads the ticket afresh, writes at most one comment, and carries nothi
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **The environment is yours; the repository is not**:
-The verifier may install a dependency, move off a taken port, or find a connection string, and leaves the repository exactly as it found it; two identical `git status` outputs are the proof.
+The verifier may install a dependency, download a browser, or find a connection string, and leaves the repository exactly as it found it; two identical `git status` outputs are the proof. What it never repairs is what the machine hands out: ports and the data directory come from the lease, and the product is started and stopped only by `.mmw/target.json`'s own commands, which the criteria run themselves.
 _Avoid_: the verifier's boundary
-_Home_: `mmw-v2/skills/dispatch/references/verifier.md`
+_Home_: `mmw-v2/skills/verdict/SKILL.md`
 
 **No pull request, and no push**:
 No step of the pipeline reads a pull request and no branch is pushed; a ticket's work reaches the base branch through `advance`'s local merge, and the closing comment's `PR:` line is written in the future tense.
