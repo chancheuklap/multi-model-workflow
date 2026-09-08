@@ -9,8 +9,42 @@ with the design page rendered offline from the handoff package — by accessibil
 tree and by pixels, at every viewport the contract names. The class set is not
 compared.
 
-Two agents come here. The one **writing** the criterion needs the shape below. The
-one **reading** a `DIFF` line needs the last section.
+Three agents come here. The one **building** the story page and its adapter needs the
+next section. The one **writing** the criterion needs the shape below it. The one
+**reading** a `DIFF` line needs the last section.
+
+## The story page the product serves
+
+One ticket builds this and every later interface ticket copies it: the contract
+ticket, whose `## Owns` covers `.mmw/stories/`. Five things make a story page one this
+judge can read, and none of them is visible from a `DIFF` line months later.
+
+- **`.mmw/target.json`'s `stories` command brings the service up and prints its
+  `origin`**, the same shape `start` and `discover` have. The judge runs it, reads that
+  one line, and stops the service when it finishes. Nothing else tells it where the
+  pages are.
+- **The address carries the whole request.** The judge opens
+  `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>` and nothing else: `page` is the
+  screen contract's `pages.<page>.mount`, `scene` is a name from `scenes.json`,
+  `viewport` is `WIDTHxHEIGHT`. A page that needs a route, a login or a click first is
+  a page this judge cannot reach.
+- **`[data-story-root]` sits on the root of the design page's own block** — not on a
+  wrapper around it, not on a child inside it. That element's box is what the pixel
+  judge measures and what the accessibility tree is walked from, so a wrapper adds
+  padding the design side does not have and a child cuts the comparison short. A run
+  that cannot find it stops with `no visible [data-story-root] at <url>`.
+- **The adapter puts the component in the scene from `scenes.json`.** Each scene entry
+  carries `data` (`{state, vals}`, written by the handoff run's
+  `export_scene_data.py`); the adapter maps those fields onto the presentational
+  component's props, and the screen contract's `shows` column for each row says which
+  field feeds which displayed value. The `code-review` Spec axis checks that mapping
+  against the contract, field by field.
+- **Nothing else runs.** No backend, no seed, no route, no controlled clock: the page
+  puts the component in the scene by itself. A story page that reaches for the product's
+  data layer is a page whose result depends on what happens to be in it.
+
+`--render-only` renders the design side of a scene into a directory with no product at
+all, which is what you look at while building the product side.
 
 ## Two sides
 

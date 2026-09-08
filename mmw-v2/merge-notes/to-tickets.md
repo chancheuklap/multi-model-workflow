@@ -49,3 +49,20 @@
 理由：#216 那一夜 #230、#231、#232、#241、#242、#243、#249、#250、#251、#252 十张子票全是同一类——某张票删了 `wiring-check.py` 或改了合同格式，别处还指着它，而那些地方不在该票的 `## Owns` 里。
 
 上游改 `## Owns` 一节 → 收上游对既有三条约束的措辞，这一段保留。
+
+## 合同票的 Read first 点名 story 页面那一节
+
+合同票交付的「story-page skeleton and one adapter precedent」那一句后面加一句：它的
+**Read first** 点名 `drive-target` 技能 `references/ui-parity.md` 的
+**The story page the product serves**。
+
+理由是那一节的内容原先散在三份写给别人的文件里——`[data-story-root]` 在 `ui-parity.md`
+的 `Two sides`（收信人是写判据的人和读 `DIFF` 的人）与 `code-review` 的
+`references/spec-reviewer.md`（reviewer 读的），地址形状在 `targets/README.md` 第 4 条，
+adapter 读 `scenes.json` 的 `data` 在 `to-spec` 一句。造 story 页面的那个 worker 一份都不会
+打开，`screen_driver.py target --check` 给 `stories` 字段的整句说明也只有「brings up the
+story page service and prints its origin」。它只能先造错，再被
+`no visible [data-story-root] at <url>` 退回来。
+
+把要求集中到 `ui-parity.md` 之后，还要有人把 worker 带过去，而带它的只能是票的
+**Read first**——这一句就是那个动作。上游改写合同票那一段 → 收上游措辞，这一句保留。
