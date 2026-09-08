@@ -106,7 +106,14 @@ Then end your turn. Most tickets that land are followed by another `advance`. Th
 
 The frontier is empty and `status` shows no live agent. If this spec's tickets still hold open review sub-issues — first line `SUB-ISSUE review from #<n>`, listed per ticket by `gh api --paginate repos/{owner}/{repo}/issues/<n>/sub_issues?per_page=100` — route **exactly those**. If there are none, go to step 5.
 
-Judge each by ADR 0012 (`docs/adr/0012-review-finding-routing.md`): six steps in order, first match wins.
+Judge each one by the four steps below, **in order, first match wins**, after the check that comes before them. They are written here because this is where they are executed, and the night runs in a repository that has no copy of this toolbox's own decision records. Why the thresholds fall where they do, and what was rejected, is `docs/adr/0012-review-finding-routing.md` in the multi-model-workflow repository — read it when you want the reasoning, never in order to route.
+
+**Step 0, before you classify at all.** Check the condition the sub-issue's own body states against the current `HEAD`. It no longer holds: close the sub-issue and do nothing else. A quarter of them go this way — a later ticket of the same batch already did it, or the judge that raised it wrote that it should not be taken up.
+
+1. **Does it fall inside another still-open ticket's `## Owns`?** → a ticket, `Blocked by` that open one. Not a question of size: the constraint is concurrency. Fixing it yourself on the base branch makes the next `advance` conflict when that ticket's branch merges.
+2. **Is it a hole in the acceptance itself** — a `CHECK:` that is already green while the thing it names is broken or never reached? → a ticket, `senior-worker`, and it asks for a negative control. This class fails in the one way nobody notices (`docs/adr/0008-silence-is-never-a-pass.md`).
+3. **How many files does the fix touch?** One → fix it yourself. Two or more **with a design coupling between them** — how you fix one decides how you fix the other, and neither can be written until both are settled → a ticket, `senior-worker`. Counting files is not counting effort; it is asking whether the change has a cross-file shape somebody should look at. **A name echoed through prose is not a coupling**: renaming a thing along with its restatements in a domain doc, a `SKILL.md` and a reference file is mechanical, `grep` proves you got them all, and it stays with you.
+4. **Nothing matched** → fix it yourself. **The default is to fix it, not to open a ticket.**
 
 The ones you fix: finish them in commits that follow these three rules:
 
@@ -115,8 +122,8 @@ The ones you fix: finish them in commits that follow these three rules:
 3. It runs the affected test suites, and the commit message quotes the line it saw (`ran 188 skipped 0`, not "the tests pass").
 
 A fix that exceeds those three is a ticket after all. That is the way out, and it is
-also what keeps step 5 of ADR 0012 from swallowing work that should have been reviewed:
-the whole pass is auditable from `git log` in the morning, with no second agent.
+also what keeps step 4 from swallowing work that should have been reviewed: the whole
+pass is auditable from `git log` in the morning, with no second agent.
 
 The ones that become tickets: open as few tickets as possible. A ticket whose files sit in another live ticket's `## Owns` is `Blocked by` that live ticket.
 

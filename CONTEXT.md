@@ -894,13 +894,13 @@ _Avoid_: 夜间编排主循环, night orchestration loop, 夜里 (as a term), �
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **收口轮**:
-The pass the main agent runs when the frontier is empty and this spec's tickets still hold open review sub-issues: route exactly those sub-issues by ADR 0012, commit the ones it fixes under the three rules listed in `night.md` step 4, open as few tickets as possible for the ones that become tickets (a ticket whose files sit in another live ticket's `## Owns` is `Blocked by` that ticket), then `advance`, and loop until none survive. It sits between the empty frontier and `reverify` in `night.md`.
+The pass the main agent runs when the frontier is empty and this spec's tickets still hold open review sub-issues: route exactly those sub-issues by the 门槛, commit the ones it fixes under the three rules listed beside them, open as few tickets as possible for the ones that become tickets (a ticket whose files sit in another live ticket's `## Owns` is `Blocked by` that ticket), then `advance`, and loop until none survive. It sits between the empty frontier and `reverify` in `night.md`.
 _Admitted_: closing pass
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **门槛**:
-The six steps in ADR 0012 that decide whether an out-of-ticket review finding is worth a ticket. They run in order, first match wins; the default is that the main agent fixes it.
-_Home_: `docs/adr/0012-review-finding-routing.md`
+The four steps, and the check before them, that decide whether an out-of-ticket review finding is worth a ticket. They run in order, first match wins; the default is that the main agent fixes it. They are written in `night.md` step 4, where they are executed: a night runs in a consuming repository, which has no copy of this repository's `docs/`. ADR 0012 records why the thresholds fall where they do, not how to apply them.
+_Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **morning**:
 The user takes over with the two **morning queries**, `is:open label:needs-triage` (which `triage` reads) and `is:open label:ready-for-human` (which the user reads); the commands are in `docs/agents/issue-tracker.md`.
