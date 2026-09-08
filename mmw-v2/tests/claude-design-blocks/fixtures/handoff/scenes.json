@@ -2,21 +2,41 @@
   {
     "name": "list.ready",
     "page": "Component · list.dc.html",
-    "props": { "scene": "ready" }
+    "props": {
+      "scene": "ready"
+    }
   },
   {
     "name": "list.empty",
     "page": "Component · list.dc.html",
-    "props": { "scene": "empty" }
+    "props": {
+      "scene": "empty"
+    }
   },
   {
     "name": "canvas.idle",
     "page": "Component · canvas.dc.html",
-    "props": { "scene": "idle" }
+    "props": {
+      "scene": "idle"
+    }
   },
   {
     "name": "canvas.dragging",
     "page": "Component · canvas.dc.html",
-    "props": { "scene": "dragging" }
+    "props": {
+      "scene": "dragging"
+    }
+  },
+  {
+    "name": "board.ready",
+    "page": "App · board.dc.html",
+    "props": {}
+  },
+  {
+    "name": "board.empty",
+    "page": "App · board.dc.html",
+    "props": {
+      "scenario": "empty"
+    }
   }
 ]

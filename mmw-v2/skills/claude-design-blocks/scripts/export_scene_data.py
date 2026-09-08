@@ -1,4 +1,10 @@
-"""Write each scene's `{state, vals}` into `scenes.json` by running that page's LOGIC in Node.
+"""Write each scene's `{state, vals}` into `scenes.json` by running its page in Node.
+
+The input is the downloaded page itself — the `.dc.html` in the package, which is the
+baseline the implementation is held to. A page's source under `src/` is what `mk.py`
+built it from; it is not read here, because not every page has one (an app page is
+written by hand, and a page written inside Claude Design has no source at all) and
+because a source can drift from the page that came down.
 
 Usage: export_scene_data.py <handoff-dir>
 Prints `exported <n>/<n> scenes`. Exit 1 if a scene fails (names it and the last
@@ -6,26 +12,60 @@ error line); 2 if a scene's props set `standalone`.
 """
 from __future__ import annotations
 
-import importlib.util
 import json
-import os
 import re
 import subprocess
 import sys
+from html.parser import HTMLParser
 from pathlib import Path
 
-FX = os.environ.get("DC_FX", "FIXTURES")
-FX_FILE = os.environ.get("DC_FX_FILE", "data/fixtures.js")
-W, H = (int(v) for v in os.environ.get("DC_FRAME", "1440x900").split("x"))
 RUNNER_JS = Path(__file__).with_name("export_scene.js")
+RUNTIME = "support.js"
 
 
-def page_props(module, scene: dict) -> dict:
-    props = {"$preview": {"width": W, "height": H}}
-    spec = getattr(module, "PROPS", None) or {}
-    if isinstance(spec, dict):
-        for key, value in spec.items():
-            if isinstance(value, dict) and "default" in value:
+class _Page(HTMLParser):
+    """The three things a scene needs from a downloaded page: the `data-props` prop
+    declarations, the `src` of every script the page loads, and the body of its
+    `<script data-dc-script>`."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.props: dict = {}
+        self.sources: list[str] = []
+        self.script = ""
+        self._in_logic = False
+
+    def handle_starttag(self, tag, attrs):
+        if tag != "script":
+            return
+        attr = {k: v for k, v in attrs}
+        if "src" in attr and attr["src"]:
+            self.sources.append(attr["src"])
+        if "data-dc-script" not in attr:
+            return
+        self._in_logic = True
+        raw = attr.get("data-props")
+        if raw:
+            self.props = json.loads(raw)
+
+    def handle_data(self, data):
+        if self._in_logic:
+            self.script += data
+
+    def handle_endtag(self, tag):
+        if tag == "script":
+            self._in_logic = False
+
+
+def page_props(declared: dict, scene: dict) -> dict:
+    """The props the page opens with: each declaration's `default`, then the scene's
+    own props over them. `$preview` is a value, not a declaration."""
+    props = {}
+    if isinstance(declared, dict):
+        for key, value in declared.items():
+            if key == "$preview":
+                props[key] = value
+            elif isinstance(value, dict) and "default" in value:
                 props[key] = value["default"]
     props.update(scene.get("props") or {})
     return props
@@ -46,20 +86,25 @@ def last_line(text: str) -> str:
 
 
 def run_scene(handoff: Path, scene: dict) -> dict:
-    page = scene.get("page") or ""
-    src = handoff / "src" / f"{page.removesuffix('.dc.html')}.py"
-    if not src.is_file():
-        raise RuntimeError(f"no src for {page}: {src}")
-    spec = importlib.util.spec_from_file_location("blk", src)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    logic = getattr(module, "LOGIC", "")
-    fx_path = handoff / FX_FILE
-    if not fx_path.is_file():
-        raise RuntimeError(f"no fixtures at {fx_path}")
+    name = scene.get("page") or ""
+    page = handoff / name
+    if not page.is_file():
+        raise RuntimeError(f"no page in the package: {page}")
+    parsed = _Page()
+    parsed.feed(page.read_text(encoding="utf-8"))
+    if not parsed.script.strip():
+        raise RuntimeError(f"{name}: no <script data-dc-script>")
+    fixtures = []
+    for src in parsed.sources:
+        if "://" in src or src.rsplit("/", 1)[-1] == RUNTIME:
+            continue
+        path = handoff / re.sub(r"^\./", "", src)
+        if not path.is_file():
+            raise RuntimeError(f"{name} loads {src}, which the package does not have")
+        fixtures.append(str(path))
     proc = subprocess.run(
-        ["node", str(RUNNER_JS), str(fx_path), FX, json.dumps(page_props(module, scene))],
-        input=logic,
+        ["node", str(RUNNER_JS), json.dumps(page_props(parsed.props, scene)), *fixtures],
+        input=parsed.script,
         capture_output=True,
         text=True,
     )

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <script src="./data/fixtures.js"></script>
+        <style>
+          body { margin: 0; }
+          #dc-root { width: 1440px; height: 900px; margin: 0 auto; position: relative; }
+        </style>
+      </helmet>
+      <main class="board" data-screen-label="board">
+        <h1>{{ heading }}</h1>
+        <dc-import name="Component · list" scene="{{ listScene }}" onPick="{{ pick }}"></dc-import>
+        <dc-import name="Component · canvas" scene="idle"></dc-import>
+      </main>
+      <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+        <div class="dc-toast" role="status">{{ toast }}</div>
+      </sc-if>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{
+  "$preview": { "width": 1440, "height": 900 },
+  "scenario": { "editor": "enum", "default": "ready", "tsType": "string", "options": ["ready", "empty"] }
+}'
+    >
+      class Component extends DCLogic {
+        constructor(props) {
+          super(props);
+          this.state = { picked: null, toast: "" };
+        }
+        componentDidUpdate(prev) {
+          if (prev.scenario !== this.props.scenario) this.setState({ picked: null });
+        }
+        componentWillUnmount() { clearTimeout(this._t); }
+        toast(msg) {
+          this.setState({ toast: msg });
+          clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: "" }), 2400);
+        }
+        renderVals() {
+          const items = (window.FIXTURES && window.FIXTURES.items) || [];
+          const empty = this.props.scenario === "empty";
+          return {
+            toast: this.state.toast,
+            picked: this.state.picked,
+            listScene: empty ? "empty" : "ready",
+            heading: empty ? "None" : "Board",
+            count: empty ? 0 : items.length,
+            pick: (item) => this.setState({ picked: item.id }),
+          };
+        }
+      }
+    </script>
+  </body>
+</html>

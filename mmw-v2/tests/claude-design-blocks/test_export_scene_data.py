@@ -1,7 +1,9 @@
 """Export each scene's data from a miniature handoff package.
 
-The script is the seam: a real `src/*.py` + `data/fixtures.js` + `scenes.json`,
-Node running the page LOGIC, no browser. State arrives only from those files.
+The script is the seam: the package's own `.dc.html` pages + `data/fixtures.js` +
+`scenes.json`, Node running each page's logic class, no browser. The package carries
+both shapes a real one carries — pages `mk.py` built from a source under `src/`, and
+an app page written by hand that has no source at all.
 """
 
 import json
@@ -40,12 +42,12 @@ class ExportSceneData(unittest.TestCase):
     def scenes(self):
         return json.loads((self.handoff / "scenes.json").read_text(encoding="utf-8"))
 
-    def test_four_scenes_get_data_including_the_window_listener_page(self):
+    def test_every_scene_gets_data_including_the_window_listener_page(self):
         result = export(self.handoff)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("exported 4/4 scenes", result.stdout)
+        self.assertIn("exported 6/6 scenes", result.stdout)
         rows = self.scenes()
-        self.assertEqual(len(rows), 4)
+        self.assertEqual(len(rows), 6)
         by_name = {row["name"]: row for row in rows}
         for name in ("list.ready", "list.empty", "canvas.idle", "canvas.dragging"):
             data = by_name[name]["data"]
@@ -62,6 +64,35 @@ class ExportSceneData(unittest.TestCase):
         self.assertEqual(by_name["list.empty"]["data"]["vals"]["count"], 0)
         self.assertEqual(by_name["canvas.idle"]["data"]["vals"]["label"], "Board")
         self.assertEqual(by_name["canvas.dragging"]["data"]["vals"]["scene"], "dragging")
+
+    def test_a_page_with_no_source_exports_its_own_state(self):
+        result = export(self.handoff)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.handoff / "src" / "App · board.py").exists())
+        by_name = {row["name"]: row for row in self.scenes()}
+        ready = by_name["board.ready"]["data"]
+        self.assertEqual(ready["vals"]["heading"], "Board")
+        self.assertEqual(ready["vals"]["count"], 2)
+        self.assertEqual(ready["state"], {"picked": None, "toast": ""})
+        # The page has no componentDidMount, so nothing seeds `fx`; the export
+        # reports the state the page really holds.
+        self.assertNotIn("fx", ready["state"])
+        self.assertEqual(by_name["board.empty"]["data"]["vals"]["heading"], "None")
+        self.assertEqual(by_name["board.empty"]["data"]["vals"]["count"], 0)
+
+    def test_the_page_is_the_baseline_not_the_source_it_was_built_from(self):
+        src = self.handoff / "src" / "Component · list.py"
+        src.write_text(
+            src.read_text(encoding="utf-8").replace(
+                'this.props.scene === "empty" ? "None" : "Ready"',
+                '"from the source"',
+            ),
+            encoding="utf-8",
+        )
+        result = export(self.handoff)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        ready = next(row for row in self.scenes() if row["name"] == "list.ready")
+        self.assertEqual(ready["data"]["vals"]["title"], "Ready")
 
     def test_functions_are_stripped_from_vals(self):
         result = export(self.handoff)
@@ -95,9 +126,9 @@ class ExportSceneData(unittest.TestCase):
         self.assertEqual(idle["data"]["vals"]["scene"], "idle")
 
     def test_a_failed_scene_is_named_and_exits_1(self):
-        src = self.handoff / "src" / "Component · list.py"
-        src.write_text(
-            src.read_text(encoding="utf-8").replace(
+        page = self.handoff / "Component · list.dc.html"
+        page.write_text(
+            page.read_text(encoding="utf-8").replace(
                 "this.setState({ items, ready: true });",
                 'throw new Error("boom-list");',
             ),
@@ -108,6 +139,14 @@ class ExportSceneData(unittest.TestCase):
         combined = result.stdout + result.stderr
         self.assertIn("list.ready", combined)
         self.assertIn("boom-list", combined.splitlines()[-1])
+
+    def test_a_scene_whose_page_is_absent_is_named_and_exits_1(self):
+        (self.handoff / "App · board.dc.html").unlink()
+        result = export(self.handoff)
+        self.assertEqual(result.returncode, 1)
+        combined = result.stdout + result.stderr
+        self.assertIn("board.ready", combined)
+        self.assertIn("App · board.dc.html", combined)
 
 
 if __name__ == "__main__":

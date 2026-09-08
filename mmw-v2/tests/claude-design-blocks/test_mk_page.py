@@ -25,7 +25,6 @@ MK = (
     / "scripts"
     / "mk.py"
 )
-EXPORT_JS = MK.with_name("export_scene.js")
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "handoff"
 SRC = Path("src") / "Component · list.py"
 PAGE = "Component · list.dc.html"
@@ -44,15 +43,15 @@ def script_body(html: str) -> str:
 
 
 def shared_js() -> str:
-    text = EXPORT_JS.read_text(encoding="utf-8")
-    start, end = "// SHARED_BEGIN\n", "\n// SHARED_END"
-    i, j = text.find(start), text.find(end)
-    if i < 0 or j < 0:
-        raise AssertionError("export_scene.js missing SHARED block")
-    block = text[i + len(start) : j]
-    if not block.strip():
-        raise AssertionError("export_scene.js SHARED block is empty")
-    return block
+    """The prelude mk.py puts above every class body it emits."""
+    block = re.search(
+        r'^SHARED_JS = """(.*?)"""',
+        MK.read_text(encoding="utf-8"),
+        flags=re.DOTALL | re.MULTILINE,
+    )
+    if block is None or not block.group(1).strip():
+        raise AssertionError("mk.py has no SHARED_JS block")
+    return block.group(1)
 
 
 class MkPage(unittest.TestCase):
@@ -62,7 +61,6 @@ class MkPage(unittest.TestCase):
         shutil.copytree(FIXTURE, self.handoff)
         self.scripts = Path(self.tmp.name) / "scripts"
         self.scripts.mkdir()
-        shutil.copy(EXPORT_JS, self.scripts / "export_scene.js")
         self.addCleanup(self.tmp.cleanup)
 
     def write_mk(self, mutate: bool) -> Path:
