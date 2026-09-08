@@ -69,7 +69,7 @@ Three things at once: how the criteria are written, which worker the ticket asks
 
 The worker reads the same way. `dispatch.sh` starts a ticket on the `models.md` row its `junior-worker` or `senior-worker` label names, so a ticket in the agent queue wearing no such label is an `ERROR  … [worker-label]`, and so is one wearing both. Its `## Worker` section is the human-readable copy, and a section that is missing or names the other one is a `WARN  … [worker-mismatch]`.
 
-The same run checks three criterion shapes. An interface ticket's `--pages` values must each be a `pages` mount of the contract and must not be an `App · ` page. A `boundary-check.py --run` must name a non-empty command. A `journey.py run <name>` must exist under the repository's `.mmw/journeys/`. `vi.stubGlobal('fetch')`, msw, nock and fetch-mock are refused; mocking the product's own API client module is not.
+The same run checks three criterion shapes. An interface ticket's `--pages` values must each be a `pages` mount of the contract and must not be an `App · ` page. A `boundary-check.py --run` must name a non-empty command. A `journey.py run <name>` must exist under the repository's `.mmw/journeys/`, unless the ticket's `## Owns` covers that directory — then this is the ticket that builds it, and it is absent until the work lands. A flag inside a quoted `--run` value belongs to the command that value carries, not to the judge. `vi.stubGlobal('fetch')`, msw, nock and fetch-mock are refused; mocking the product's own API client module is not.
 
 The batch converges when `ERROR` is at zero and every `WARN` has been looked at and either fixed or kept on purpose.
 

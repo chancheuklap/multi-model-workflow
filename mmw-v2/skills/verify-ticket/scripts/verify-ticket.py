@@ -35,6 +35,7 @@ import fnmatch
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -2013,13 +2014,49 @@ JOURNEY_NAME_RE = re.compile(r"^\s*run\s+(\S+)")
 CD_PREFIX_RE = re.compile(r"^\s*cd\s+(\S+)\s*&&")
 
 
+OPERATOR_RE = re.compile(r"(?:&&|\|\||;|\|)(?:\s|$)")
+
+
 def script_segment(check: str, script: str) -> str:
-    """The part of a CHECK from the script's name to the end of that command."""
+    """The part of a CHECK from the script's name to the end of that command.
+
+    An operator inside a quoted value belongs to the command that value carries, not
+    to the shell reading this line, so the end of the command is looked for outside
+    the quotes."""
     i = check.find(script)
     if i < 0:
         return ""
     rest = check[i + len(script):]
-    return re.split(r"\s*(?:&&|\|\||;|\|)(?:\s|$)", rest, maxsplit=1)[0]
+    quote = ""
+    for j, ch in enumerate(rest):
+        if quote:
+            if ch == quote:
+                quote = ""
+        elif ch in "\"'":
+            quote = ch
+        elif OPERATOR_RE.match(rest, j):
+            return rest[:j].rstrip()
+    return rest
+
+
+def segment_flags(segment: str) -> set[str]:
+    """The flags of the judge's own command line.
+
+    `--run` carries a whole command as its value, and that command has flags of its
+    own (`pnpm --dir desktop-chameleon exec vitest run …`). The shell hands a quoted
+    value to the judge as one word, so the words are cut the way the shell cuts them
+    and only a word that is itself a flag is read; a line whose quotes do not balance
+    is cut on whitespace instead, which is what this did before shell words."""
+    try:
+        words = shlex.split(segment)
+    except ValueError:
+        words = segment.split()
+    out: set[str] = set()
+    for word in words:
+        m = FLAG_RE.match(word)
+        if m:
+            out.add(m.group(1))
+    return out
 
 
 PAGES_VALUE_RE = re.compile(r"""--pages(?:\s+|=)(?:"([^"]*)"|'([^']*)'|(\S+))""")
@@ -2091,8 +2128,7 @@ def lint_pipeline_flags(gate_id: str, check: str) -> list[str]:
     for script, rules in PIPELINE_SCRIPTS.items():
         if script not in check:
             continue
-        segment = script_segment(check, script)
-        flags = set(FLAG_RE.findall(segment))
+        flags = segment_flags(script_segment(check, script))
         for flag in rules["required"]:
             if flag not in flags:
                 findings.append(f"{gate_id}: {script} without {flag}")
@@ -2227,7 +2263,8 @@ def lint_screen_contract(body: str, number: int | None = None,
 
     An interface ticket names its screen-contract rows under `## Read first`; each
     `--pages` mount is a non-`App · ` page of that contract; a `boundary-check.py --run`
-    is a non-empty command; a `journey.py run <name>` exists under `.mmw/journeys/`;
+    is a non-empty command; a `journey.py run <name>` exists under `.mmw/journeys/`
+    unless this ticket's `## Owns` covers that directory;
     no `CHECK:` may stub the application's own network (`vi.stubGlobal('fetch')`, msw,
     nock, fetch-mock) — mocking the product's API client module is not that; the
     pipeline scripts are given what they need and nothing they retired; every
@@ -2238,6 +2275,7 @@ def lint_screen_contract(body: str, number: int | None = None,
     repo = Path(root) if root is not None else repo_root()
     read_first = "\n".join(section(body, "Read first"))
     parent_text = "\n".join(section(body, "Parent"))
+    owns = owns_globs(body)
     checks = criteria_lines(body)
     for gate_id, check, _ in checks:
         findings.extend(lint_pipeline_flags(gate_id, check))
@@ -2251,16 +2289,23 @@ def lint_screen_contract(body: str, number: int | None = None,
         # `journeys` is read from where the command will run, not from the repository
         # root: a criterion that drives journey.py against a fixture `cd`s into it first,
         # and the journey it names is under that directory's `.mmw/`.
-        base = repo
+        base, prefix = repo, ""
         cdm = CD_PREFIX_RE.search(check)
         if cdm:
             candidate = (repo / cdm.group(1)).resolve()
             if candidate.is_dir():
                 base = candidate
+                prefix = cdm.group(1).removeprefix("./").strip("/")
         for name in JOURNEY_NAME_RE.findall(script_segment(check, "journey.py")):
-            dest = base / ".mmw" / "journeys" / name
-            if not dest.exists():
-                findings.append(f"{gate_id}: journey.py run {name} is not under .mmw/journeys/")
+            if (base / ".mmw" / "journeys" / name).exists():
+                continue
+            # A ticket whose `## Owns` covers the directory is the ticket that creates
+            # it, so it is absent until this ticket's own work lands. The rule asks
+            # after a journey someone else was to have built.
+            path = "/".join(p for p in (prefix, ".mmw", "journeys", name) if p)
+            if any(glob_covers(g, path) for g in owns):
+                continue
+            findings.append(f"{gate_id}: journey.py run {name} is not under .mmw/journeys/")
     m = SCREEN_CONTRACT_ROWS_RE.search(read_first)
     interface_ticket = any("story-parity.py" in check for _, check, _ in checks)
     if not m:
