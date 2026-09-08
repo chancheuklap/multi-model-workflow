@@ -65,4 +65,6 @@ story page service and prints its origin」。它只能先造错，再被
 `no visible [data-story-root] at <url>` 退回来。
 
 把要求集中到 `ui-parity.md` 之后，还要有人把 worker 带过去，而带它的只能是票的
-**Read first**——这一句就是那个动作。上游改写合同票那一段 → 收上游措辞，这一句保留。
+**Read first**——这一句就是那个动作。同一句一并点名 `references/journey.md`：合同票也交付
+旅程骨架，而每条旅程会在产品停掉之后被再跑一遍，什么都不断言的脚本会被报出来而不是放过
+（mmw #297 决策 7）。上游改写合同票那一段 → 收上游措辞，这一句保留。

@@ -45,7 +45,10 @@ field is shaped as it is are the fields below.
    lease, runs `start`, runs `discover`, puts each discover key into the
    environment under its uppercase spelling (so `origin` arrives as `ORIGIN`)
    together with the lease variables, runs that script, and runs `stop`
-   whether the script succeeded or not.
+   whether the script succeeded or not. Then it runs the script once more, with the
+   product down and the addresses moved, as its negative control: what a journey script
+   has to assert for that to work, and what each line it prints means, are
+   [../journey.md](../journey.md).
 
 6. **`leaves_machine`.** Each thing this product does in a run that reaches past
    this machine — opening the system browser, calling a paid service, writing a
