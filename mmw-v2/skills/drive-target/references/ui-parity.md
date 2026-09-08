@@ -34,7 +34,7 @@ compared. `--scenes` narrows that to a subset.
 Both screenshots are shrunk by 4 (each cell the average of a 4×4 block), and each
 cell is then compared with the other image's cells sampled at every sub-cell
 origin: a cell counts as differing only when no sub-cell alignment explains it.
-The share that still differs is held to `--max-pct`, 3% by default.
+The share that still differs is held to `--max-pct`, 5% by default.
 
 The alignment is not a loosening, it is what makes the number mean what its name
 says. Shrinking by 4 does not remove offsets under 4 pixels — a line of text

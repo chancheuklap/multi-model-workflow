@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -67,7 +68,7 @@ class TestArguments(unittest.TestCase):
     def test_defaults(self):
         args = sp.build_parser().parse_args(
             ["--contract", "c.yaml", "--pages", "demo"])
-        self.assertEqual(args.max_pct, 3.0)
+        self.assertEqual(args.max_pct, 5.0)
         self.assertIsNone(args.scenes)
         self.assertFalse(args.render_only)
 
@@ -244,7 +245,7 @@ class TestStoryFixture(unittest.TestCase):
         diffs = [ln for ln in proc.stdout.splitlines() if ln.startswith("DIFF ")]
         self.assertEqual(len(diffs), 3, proc.stdout)
         for line in diffs:
-            self.assertRegex(line, r"pixel [0-9.]+% > 3\.0%")
+            self.assertRegex(line, rf"pixel [0-9.]+% > {re.escape(str(sp.DEFAULT_MAX_PCT))}%")
             self.assertNotIn("aria", line)
 
     def test_a_mount_the_contract_does_not_declare_exits_2(self):

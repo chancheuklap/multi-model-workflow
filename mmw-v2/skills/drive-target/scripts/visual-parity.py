@@ -35,7 +35,13 @@ sd = _load_driver()
 PIXEL_TOLERANCE = 16
 # Both screenshots are shrunk by this factor (box average) before pixels are compared.
 PIXEL_SCALE = 4
-DEFAULT_MAX_PCT = 3.0
+# 5%, not 3%: pinning the design side to the box the product measured lands half a
+# pixel off whenever the component's height is not a whole number, and that alone
+# costs a tall component about 2% before it has drawn anything wrong (agentflow #710,
+# 2026-09-08: a 1440×632 card differed by 1.8–2.1%, and 4087 of its 4417 differing
+# pixels were the outermost one-pixel ring). A budget the framing eats two thirds of
+# is not a budget.
+DEFAULT_MAX_PCT = 5.0
 # How many implementation elements a pixel failure names under `around:`.
 AROUND_LIMIT = 5
 
