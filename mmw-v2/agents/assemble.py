@@ -62,10 +62,9 @@ def parse_model_rows() -> list[tuple[str, str, str, str, str]]:
 def read_models() -> dict[tuple[str, str], tuple[str, str]]:
     """(agent, host) -> (model, effort)，给 native subagent 用。
 
-    一个 (agent, host) 可以有两行：advisor 在 claude 上既是 Paseo 会话（bypass）又是
-    native subagent（—）。native subagent 用 `—` 行，所以它无条件写入，bypass 行只在
-    没有 `—` 行时补位——reviewer 在 claude 上只有 bypass 行，而三轴 subagent 要的正是
-    那一行的 model 与 effort。
+    一个 (agent, host) 可以有两行，一行 bypass 一行 `—`。native subagent 用 `—` 行，
+    所以它无条件写入，bypass 行只在没有 `—` 行时补位——reviewer 在 claude 上只有 bypass
+    行，而三轴 subagent 要的正是那一行的 model 与 effort。
     """
     table: dict[tuple[str, str], tuple[str, str]] = {}
     for agent, host, model, effort, permissions in parse_model_rows():

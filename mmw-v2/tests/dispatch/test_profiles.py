@@ -1,4 +1,4 @@
-"""profile_rows: unique ids for a fallback host, advisor's two same-host rows untouched.
+"""profile_rows: unique ids for a fallback host, a native row on the same host untouched.
 
     python3 -m unittest discover -s mmw-v2/tests/dispatch -p test_profiles.py
 """
@@ -49,20 +49,20 @@ class ProfileRowsTest(unittest.TestCase):
         self.assertEqual(by_id["junior-worker"].agent, "junior-worker")
         self.assertEqual(by_id["junior-worker@grok"].agent, "junior-worker")
 
-    def test_advisor_bypass_and_native_on_the_same_host_still_make_one_profile(self):
+    def test_a_native_row_on_the_same_host_makes_no_second_profile(self):
         rows = rows_from(
-            "| advisor | claude | `claude-fable-5-1` | medium | bypass |\n"
-            "| advisor | claude | `claude-fable-5-1` | medium | — |\n"
-            "| advisor | grok | `grok-4.6` | xhigh | — |\n"
+            "| reviewer | claude | `claude-opus-5` | high | bypass |\n"
+            "| reviewer | claude | `claude-opus-5` | high | — |\n"
+            "| reviewer | grok | `grok-4.6` | high | — |\n"
         )
         self.assertEqual(len(rows), 1)
         row = rows[0]
-        self.assertEqual(row.profile_id, "advisor")
-        self.assertEqual(row.agent, "advisor")
+        self.assertEqual(row.profile_id, "reviewer")
+        self.assertEqual(row.agent, "reviewer")
         self.assertEqual(row.host, "claude")
         self.assertEqual(row.permissions, "bypass")
-        self.assertEqual(row.model, "claude-fable-5-1")
-        self.assertEqual(row.effort, "medium")
+        self.assertEqual(row.model, "claude-opus-5")
+        self.assertEqual(row.effort, "high")
 
     def test_a_second_fallback_bypass_row_is_refused(self):
         with self.assertRaisesRegex(ValueError, "more than one fallback"):
@@ -79,7 +79,7 @@ class ProfileRowsTest(unittest.TestCase):
                 "| junior-worker | cursor | `grok-4.6` | high | bypass |\n"
             )
 
-    def test_the_live_table_gives_junior_worker_a_grok_fallback_and_leaves_advisor(self):
+    def test_the_live_table_gives_junior_worker_a_grok_fallback_and_advisor_one_row(self):
         previous = assemble.MODELS
         assemble.MODELS = ASSEMBLE_PATH.parent.parent / "skills" / "dispatch" / "models.md"
         self.addCleanup(setattr, assemble, "MODELS", previous)
@@ -96,8 +96,8 @@ class ProfileRowsTest(unittest.TestCase):
         self.assertEqual(advisor[0].profile_id, "advisor")
         self.assertEqual(advisor[0].host, "claude")
         parsed = assemble.parse_model_rows()
-        advisor_claude = [row for row in parsed if row[0] == "advisor" and row[1] == "claude"]
-        self.assertEqual({row[4] for row in advisor_claude}, {"bypass", "—"})
+        advisor_rows = [row for row in parsed if row[0] == "advisor"]
+        self.assertEqual([(row[1], row[4]) for row in advisor_rows], [("claude", "bypass")])
 
 
 if __name__ == "__main__":

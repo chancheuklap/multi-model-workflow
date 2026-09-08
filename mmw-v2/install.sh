@@ -894,9 +894,11 @@ PURPOSES = {
 }
 
 # advisor 的 profile 多一句：它跟别的不同，不是流水线自己派的，是某个 agent 撞上一个
-# 决定时临时问的，所以 notes 要说清 initialPrompt 怎么写——问题包的内容在那份定义文件里。
-ADVISOR_PROMPT = ("A caller uses `create_agent`; initialPrompt is 'Follow {path}' "
-                  "plus the question packet that file describes.")
+# 决定时临时问的，所以 notes 要说清 initialPrompt 怎么写。什么时候问、包里装什么、为什么
+# 不由 caller 划定调查范围，在 advisor 技能的 references/consulting.md，不在这里。
+ADVISOR_PROMPT = ("A caller uses `create_agent`; initialPrompt is 'Use the advisor skill.' "
+                  "plus the question packet. The caller reads the advisor skill's "
+                  "references/consulting.md first: it decides what the question carries.")
 
 
 def die(msg):
@@ -936,8 +938,7 @@ def notes_for(agent, host, permissions):
     note = (f"{agent} from models.md {agent}/{host}; "
             f"{PURPOSES.get(agent, 'dispatched by this pipeline')}.")
     if agent == "advisor":
-        note += " " + ADVISOR_PROMPT.format(
-            path=home_dir / ".claude" / "agents" / "advisor.md")
+        note += " " + ADVISOR_PROMPT
     return note
 
 

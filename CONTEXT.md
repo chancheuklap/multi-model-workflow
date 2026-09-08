@@ -16,7 +16,7 @@ _Avoid_: board
 _Home_: `mmw-v2/skills/dispatch/models.md`
 
 **session**:
-A host process that is a Paseo agent, or the main agent the user started themselves. It carries a host and — for a dispatched agent — agent labels. The main agent, a worker, a reviewer, and the verifier are sessions; the three code-review axis subagents are native subagents inside the reviewer session.
+A host process that is a Paseo agent, or the main agent the user started themselves. It carries a host and — for a dispatched agent — agent labels. The main agent, a worker, a reviewer, the verifier, and the advisor are sessions; the three code-review axis subagents are native subagents inside the reviewer session.
 _Avoid_: 会话 (as a term), pane
 _Home_: `mmw-v2/skills/dispatch/models.md`
 
@@ -63,8 +63,13 @@ _Avoid_: 复验者, verifier 子代理, subagent verifier
 _Home_: `mmw-v2/skills/verdict/SKILL.md`
 
 **advisor**:
-The second-opinion agent on a stronger model; it implements nothing. Two doors: a Paseo session from the `bypass` row of `models.md` when `list_profiles` lists `advisor`, otherwise a native subagent from the `—` rows. Only the second is held to reading by anything but its own instructions — the tools list in its definition file has no Edit or Write, where a Paseo session on any host can write through a shell.
-_Home_: `mmw-v2/agents/advisor/agent.json`
+The second-opinion agent on a stronger model; it implements nothing. One door: a Paseo session from the `bypass` row of `models.md`, started with `create_agent` by whichever agent hit the decision, its `initialPrompt` naming the `advisor` skill plus the **question packet**. Nothing but its own instructions holds it to reading — a Paseo session on any host can write through a shell.
+_Home_: `mmw-v2/skills/advisor/SKILL.md`
+
+**question packet**:
+What a caller hands the advisor, and the only thing the advisor sees: the recent user/assistant exchange quoted, the caller's current understanding, the constraints, the options weighed, and the file paths believed relevant. It carries the decision and the evidence; what to read and what to conclude stay the advisor's.
+_Avoid_: 问题包, advisor prompt, brief
+_Home_: `mmw-v2/skills/advisor/references/consulting.md`
 
 **claim-checker**:
 The subagent that fact-checks a finished document and returns a claim table — every claim marked ✅ sourced, ❌ unsourced, or ⚠️ misleading, with a severity. The `readable-docs` skill runs it before a document is saved or published.
