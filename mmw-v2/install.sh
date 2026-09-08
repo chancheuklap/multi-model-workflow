@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 把六样东西装到本机，让每个 host 都读得到：
+# 把七样东西装到本机，让每个 host 都读得到：
 #
 #   技能              skills.txt 列出的，软链进 ~/.agents/skills 与 ~/.claude/skills
 #   subagent          agents/<名>/out/ 的 assembled subagent file，软链进各 host 的 agent 目录
@@ -10,6 +10,7 @@
 #   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里 grok/cursor 两条 provider、
 #                     models.md 每个 bypass 行一条 Agent profile（首选 id 为 agent 名，备用
 #                     host 为 `{agent}@{host}`）、worktrees.root
+#   Cursor 的 MCP     ~/.cursor/mcp.json 里 nowledge-mem 一条，内容问本机 nmem 要
 #
 # 本仓库上一代装过、这次不装的东西（技能软链、hook 登记、Agent profile），install 摘掉，--check 报残留。
 #
@@ -1070,6 +1071,80 @@ if paths:
   else
     echo "注意  paseo reload 没跑成：${reload_out:-exit $?}"
   fi
+fi
+
+# Cursor 的 Nowledge Mem MCP 一条：~/.cursor/mcp.json 里 mcpServers.nowledge-mem。
+# 条目内容问本机的 nmem 要（`nmem config mcp show --host cursor`),因为 URL 与 header 跟着
+# 这台机器的 nmem client 配置走，本地 server 与 remote Mem 两样。唯一的改动是去掉它给的
+# type 字段：cursor-agent 只认 url 与 headers，带上 type 它把整条 server 跳过，症状是
+# `cursor-agent mcp list` 报 No MCP servers configured、worker 静默地没有 memory 工具。
+# 同一份文件里别的 server 一字不动。没有可用 nmem 的机器跳过这一样。
+
+CURSOR_MCP="$HOME_DIR/.cursor/mcp.json"
+
+if [ ! -d "$HOME_DIR/.cursor" ]; then
+  echo "跳过  ${CURSOR_MCP}（host 没装）"
+elif command -v nmem >/dev/null 2>&1 && nmem_mcp="$(nmem --json config mcp show --host cursor 2>/dev/null)"; then
+  MMW_MODE="$mode" \
+  MMW_CURSOR_MCP="$CURSOR_MCP" \
+  MMW_NMEM_MCP="$nmem_mcp" \
+  python3 - <<'PY' || rc=1
+import json
+import os
+import shutil
+import sys
+from datetime import datetime
+from pathlib import Path
+
+mode = os.environ["MMW_MODE"]
+path = Path(os.environ["MMW_CURSOR_MCP"])
+NAME = "nowledge-mem"
+
+try:
+    want = json.loads(os.environ["MMW_NMEM_MCP"])["config"]["mcpServers"][NAME]
+except Exception as exc:
+    sys.stderr.write(f"缺    nmem config mcp show --host cursor 没给出 {NAME}：{exc}\n")
+    sys.exit(1)
+if not isinstance(want, dict):
+    sys.stderr.write(f"缺    nmem 给的 {NAME} 不是一个 object\n")
+    sys.exit(1)
+want.pop("type", None)
+
+
+def load(p):
+    if not p.is_file():
+        return {}
+    try:
+        value = json.loads(p.read_text(encoding="utf-8"))
+    except Exception as exc:
+        sys.stderr.write(f"缺    {p} 不是合法 JSON：{exc}\n")
+        sys.exit(1)
+    return value if isinstance(value, dict) else {}
+
+
+data = load(path)
+have = (data.get("mcpServers") or {}).get(NAME)
+
+if mode == "check":
+    if have != want:
+        sys.stderr.write(f"缺    {path} 里 mcpServers.{NAME} 与 nmem 给的不一致\n")
+        sys.exit(1)
+    sys.exit(0)
+
+if have != want:
+    data.setdefault("mcpServers", {})[NAME] = want
+    text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+    if path.is_file():
+        stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        shutil.copy2(path, path.with_name(path.name + ".bak-" + stamp))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    scratch = path.with_name(path.name + ".mmw-tmp")
+    scratch.write_text(text, encoding="utf-8")
+    scratch.replace(path)
+print(f"已装  {path}")
+PY
+else
+  echo "跳过  ${CURSOR_MCP}（本机没有可用的 nmem）"
 fi
 
 if [ "$mode" = check ]; then
