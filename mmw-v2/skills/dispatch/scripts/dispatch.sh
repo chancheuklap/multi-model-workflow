@@ -707,7 +707,7 @@ start_one() {
         || refuse "no branch.issue-$number.mmw-base, so the reviewer has no commit to start from"
       prompt="Use the code-review skill to review ticket #$number from base commit $base. $AUTONOMOUS" ;;
     verifier)
-      prompt="Use the verdict skill to verify ticket #$number. $AUTONOMOUS" ;;
+      prompt="Use the verdict skill to verify ticket #$number. $AUTONOMOUS $PRODUCT_RULES" ;;
   esac
 
   local workspace cwd created ws_row

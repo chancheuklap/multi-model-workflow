@@ -33,13 +33,15 @@ You are done when that comment is on the ticket. Your report to the worker is th
 
 Writing that line is the whole of your judgement. It says three things, in this order:
 
-1. **How you ran the criteria.** `walked the flow in a running interface` when you drove the changed flow in an interface you started, `commands only` when nothing was started, `could not start` when a criterion could not be run at all.
+1. **How you ran the criteria.** `commands only` when every criterion ran, `could not start` when one could not be run at all. There is no third answer: you never start the product by hand. A criterion that needs it starts it itself, through the `start` command in `.mmw/target.json`, and stops it again.
 2. **What came back.** `all passed`, or which criteria failed, named by the ids the ticket gives them.
 3. **What you repaired.** Anything you changed in the environment to get the commands to run. Say nothing here when you changed nothing.
 
 ## The environment is yours; the repository is not
 
-A missing dependency, a port already taken, a connection string that lives in the repository's own configuration: install it, move off it, go find it, and run again. `could not start` is what you write once that repair has failed, not instead of trying it.
+A missing dependency, a browser this machine has not downloaded, a connection string that lives in the repository's own configuration: install it, download it, go find it, and run again. `could not start` is what you write once that repair has failed, not instead of trying it.
+
+What you never repair is anything the machine hands out. Ports and the data directory come from this worktree's lease, not from you, and the product is started and stopped only by the `start` and `stop` commands of `.mmw/target.json`, which the criteria run themselves. A port that is taken belongs to another run on this machine: leave it, and read `Five rules while the product is running` in the `drive-target` skill, which binds every command you run here.
 
 The repository is what you leave exactly as you found it. You report on the criteria; the worker fixes whatever you report. So:
 

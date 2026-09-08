@@ -58,9 +58,9 @@ _Avoid_: 派发 (as a term)者
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
 **verifier**:
-The Paseo subagent a worker starts last of its closing steps, at most twice, with the prompt `verify #<n> 按 <path> 行事` and nothing else. `<path>` is `mmw-v2/skills/dispatch/references/verifier.md`, resolved from the dispatch skill. In the same worktree on the same commit it re-runs every acceptance criterion with `--reverify` and posts one `VERDICT`. It runs after the last commit, because `--closeout` requires its commit to be `HEAD`; a second round follows a fix, and a second failure is a `HANDOFF REQUIRED` rather than a third round. It may repair its environment and changes no file in the repository; it never writes an `ABANDON:` line.
+The Paseo agent a worker starts last of its closing steps, at most twice, with the prompt `Use the verdict skill to verify ticket #<n>` plus the two standing sentences every dispatched agent gets. In the same worktree on the same commit it re-runs every acceptance criterion with `--reverify` and posts one `VERDICT`. It runs after the last commit, because `--closeout` requires its commit to be `HEAD`; a second round follows a fix, and a second failure is a `HANDOFF REQUIRED` rather than a third round. It may repair its own environment and changes no file in the repository; it never starts the product by hand and never writes an `ABANDON:` line.
 _Avoid_: 复验者, verifier 子代理, subagent verifier
-_Home_: `mmw-v2/skills/dispatch/references/verifier.md`
+_Home_: `mmw-v2/skills/verdict/SKILL.md`
 
 **advisor**:
 The second-opinion agent on a stronger model; it implements nothing. Two doors: a Paseo session from the `bypass` row of `models.md` when `list_profiles` lists `advisor`, otherwise a native subagent from the `—` rows. Only the second is held to reading by anything but its own instructions — the tools list in its definition file has no Edit or Write, where a Paseo session on any host can write through a shell.
