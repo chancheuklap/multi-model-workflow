@@ -16,14 +16,15 @@ comment. Nothing is cached and no file is left behind.
     verify-ticket.py <n> --touched    comment `TOUCHED BY` on open siblings that own a file
     verify-ticket.py <n> --draft <out-file>  write the closing-comment skeleton
     verify-ticket.py <n> --sub-issue <kind> <file>  open a needs-triage child of this ticket
+    verify-ticket.py <n> --review <file>  post the review report and tell the worker
 
 Exit code follows gate-check: 0 all met, 1 unmet or abandoned, 2 usage or
 infrastructure. `--preflight` exits 2 when it refuses; `--closeout` exits 1.
-`--decisions`, `--touched` and `--sub-issue` exit 2 when they refuse.
+`--decisions`, `--touched`, `--sub-issue` and `--review` exit 2 when they refuse.
 
-Four of those runs leave the ticket at rest and nothing more for its worker to do:
-`--closeout` either way, a `--preflight` that refuses, and `--sub-issue pipeline`.
-Each tells the session that started this one, so the ticket landing is what wakes it
+Five of those runs leave a session with nothing more to wait for: `--closeout` either
+way, a `--preflight` that refuses, `--sub-issue pipeline`, and `--review`. Each tells
+the session that started this one, so what wakes it is the thing it was waiting for
 rather than a clock. See `notify_parent`.
 """
 
@@ -135,6 +136,39 @@ def notify_parent(text: str) -> None:
     if sent.returncode != 0:
         sys.stderr.write(f"could not tell {parent}: "
                          + (sent.stderr or sent.stdout or "paseo send failed").rstrip() + "\n")
+
+
+def running_as_reviewer() -> bool:
+    """Whether this process is the Paseo agent labelled `mmw.kind=reviewer`.
+
+    The dispatch skill has a fallback for a reviewer session that stopped without a
+    report: the worker runs the same review in a subagent of its own. That subagent's
+    parent is the main agent, not the worker, so `the session that started this one`
+    means a different session there, and telling it would send a review line to the one
+    session with no use for it. A run that is not the labelled reviewer posts the
+    comment and tells nobody — the worker is the one running it, and it is awake.
+
+    No id, no `paseo` on PATH, a failed call, or an id that is not in the returned list:
+    false, the same as a session outside Paseo.
+    """
+    agent = os.environ.get("PASEO_AGENT_ID", "").strip()
+    if not agent:
+        return False
+    try:
+        found = subprocess.run(
+            ["paseo", "ls", "-g", "--json", "--label", "mmw.kind=reviewer"],
+            capture_output=True, text=True, timeout=15, env=GH_ENV)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    if found.returncode != 0:
+        return False
+    try:
+        rows = json.loads(found.stdout)
+    except (json.JSONDecodeError, TypeError):
+        return False
+    if not isinstance(rows, list):
+        return False
+    return any(isinstance(row, dict) and row.get("id") == agent for row in rows)
 
 
 def fetch_body(number: int) -> str:
@@ -1304,6 +1338,35 @@ def open_children_owns(number: int) -> list[tuple[int, list[str]]]:
     return found
 
 
+def run_review(number: int, path: Path) -> int:
+    """Post the review report on the ticket, and tell the session that started this one.
+
+    Posting and telling are one call because they are one act. A reviewer session that
+    posts its report and then simply ends has told nobody: Paseo gives a session one
+    terminal notification, spent the first time that session ends a turn, and a reviewer
+    that hands its three axes to subagents and comes back for their answers has already
+    ended one turn before the report exists. The worker waiting on that report would
+    then have nothing left but to ask again and again.
+
+    The first line is fixed because it is the whole of what the worker matches on, both
+    in the message and later on the ticket. A file that does not open with it is
+    refused rather than posted, since a report the worker cannot find is a report that
+    did not arrive.
+    """
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    stripped = text.strip()
+    head = stripped.splitlines()[0].strip() if stripped else ""
+    if not head.startswith("REVIEW "):
+        return refuse(
+            "a review comment opens `REVIEW <base commit>..<HEAD commit>`, and this file "
+            + (f"opens `{head[:60]}`" if head else "is empty"))
+    post_comment(number, text if text.endswith("\n") else text + "\n")
+    print(f"REVIEW: posted on #{number}")
+    if running_as_reviewer():
+        notify_parent(f"#{number} REVIEW")
+    return 0
+
+
 def run_touched(number: int) -> int:
     """Comment `TOUCHED BY #<n>` on open siblings whose `## Owns` covers a file."""
     comments = fetch_comments(number)
@@ -2351,6 +2414,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="write the closing-comment skeleton to this file")
     parser.add_argument("--sub-issue", nargs=2, metavar=("KIND", "FILE"),
                         help="open a needs-triage sub-issue under this ticket")
+    parser.add_argument("--review", type=Path, metavar="FILE",
+                        help="post the review report and tell the session that started this one")
     parser.add_argument("--tools", action="append", type=Path, default=[], metavar="DIR",
                         help="a directory holding scripts of other skills (the drive-target "
                              "skill's scripts/); put on the PATH of every CHECK; repeatable")
@@ -2361,7 +2426,8 @@ def main(argv: list[str] | None = None) -> int:
                ("--preflight", args.preflight), ("--closeout", args.closeout is not None),
                ("--decisions", args.decisions is not None), ("--touched", args.touched),
                ("--draft", args.draft is not None),
-               ("--sub-issue", args.sub_issue is not None)) if on]
+               ("--sub-issue", args.sub_issue is not None),
+               ("--review", args.review is not None)) if on]
     if len(chosen) > 1:
         parser.error(f"{' and '.join(chosen)} are different jobs; pick one")
     if args.check_only and args.closeout is None:
@@ -2383,6 +2449,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.sub_issue is not None:
         kind, file = args.sub_issue
         return run_sub_issue(args.ticket, kind, Path(file))
+    if args.review is not None:
+        if not args.review.is_file():
+            parser.error(f"no file at {args.review}")
+        return run_review(args.ticket, args.review)
     if args.lint:
         return run_lint(args.ticket)
     return run_checks(args.ticket, args.reverify, args.timeout)

@@ -1048,11 +1048,25 @@ save(config_path, data)
 print(f"已装  {config_path}")
 PY
 
+# `paseo reload` 落地本段刚写的大部分：Agent profile 与两条 provider 都在 Paseo 的可热
+# 重载清单上。`worktrees.root` 不在——Paseo 只在启动时读它一次——所以改了它要重启
+# daemon，否则新工作区还是建到 daemon 启动时的那个根目录去。哪些设置卡在这上面，只有
+# `--json` 的 restartRequiredPaths 按名字说得出来。它比对的是 daemon 启动时的配置，所以
+# 列出来的不限于这一次安装改的。
 if [ "$mode" != check ] && [ "$HOME_DIR" = "$HOME" ]; then
-  if reload_out="$(PATH="$HOME_DIR/.local/bin:$PATH" paseo reload 2>&1)"; then
-    if printf '%s\n' "$reload_out" | grep -qi 'restart-required'; then
-      echo "注意  paseo reload 报 restart-required，daemon 未重启"
-    fi
+  if reload_out="$(PATH="$HOME_DIR/.local/bin:$PATH" paseo reload --json 2>&1)"; then
+    printf '%s' "$reload_out" | python3 -c '
+import json, sys
+
+try:
+    paths = (json.load(sys.stdin) or {}).get("restartRequiredPaths") or []
+except Exception:
+    sys.exit(0)
+if paths:
+    print("注意  这些设置要等 daemon 重启才生效，跑 paseo daemon restart：")
+    for path in paths:
+        print("        " + str(path))
+'
   else
     echo "注意  paseo reload 没跑成：${reload_out:-exit $?}"
   fi

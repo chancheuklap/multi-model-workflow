@@ -1,6 +1,6 @@
 ---
 name: verify-ticket
-description: Run one ticket's acceptance criteria, and close the ticket when they pass. Use to claim a ticket before starting work on it, to run its criteria after writing code, to re-run them as its verifier, to post its decisions or open a sub-issue under it, to close it out from a written draft, or to lint a batch of tickets before publishing them.
+description: Run one ticket's acceptance criteria, and close the ticket when they pass. Use to claim a ticket before starting work on it, to run its criteria after writing code, to re-run them as its verifier, to post its decisions or open a sub-issue under it, to post a reviewer's report, to close it out from a written draft, or to lint a batch of tickets before publishing them.
 ---
 
 # Verify ticket
@@ -33,12 +33,13 @@ Every run that executes a `CHECK:` — `<n>`, `--reverify` — and `--lint` take
 | A **worker** telling the tickets whose files moved | `<engine> <n> --touched` | A `TOUCHED BY #<n>` comment on each open sibling whose `## Owns` covers a file on the newest `self-run`'s `Outside Owns:` line. If there is no `REVIEW` comment: exit 2. If that line is `None`: nothing posted, exit 0 |
 | A **worker** assembling the closing-comment skeleton | `<engine> <n> --draft <out-file>` | Nothing on the ticket. The skeleton is written to `<out-file>`, with `skipped:` and `Decisions I made on my own` left as `<fill>`. `--closeout` refuses it until those are filled |
 | A **worker** opening a sub-issue under this ticket | `<engine> <n> --sub-issue <kind> <file>` | A new issue labelled `needs-triage`, parented to this ticket, first line `SUB-ISSUE <kind> from #<n>`. `kind` is `baseline`, `outside-owns`, `review`, `decision`, or `pipeline`. Empty file or unknown kind: exit 2 |
+| The **reviewer** on ticket `<n>`, with its report written to a file | `<engine> <n> --review <file>` | The file posted as a comment, and the session that started the reviewer told the review landed. A file whose first line is not `REVIEW <base commit>..<HEAD commit>` is refused: exit 2, nothing posted, since that line is what the worker looks for |
 | The **agent publishing a batch**, at the read-back step | `<engine> <n> --lint --tools <drive-target scripts>` | Nothing. Findings print to your terminal; no `CHECK:` runs and no comment is posted |
 | The **main agent** before a night's first `advance` | `<engine> <spec> --lint --tools <drive-target scripts>` | Nothing. The same findings, for every sub-issue of the spec in turn, then the batch graph once; exit 1 if any ticket or the graph has an `ERROR` |
 
-Exit code: `0` every criterion met, `1` something unmet or abandoned, `2` the ticket could not be read or the run could not start. `--preflight`, `--decisions`, `--touched` and `--sub-issue` use `2` for a refusal; `--closeout` uses `1`.
+Exit code: `0` every criterion met, `1` something unmet or abandoned, `2` the ticket could not be read or the run could not start. `--preflight`, `--decisions`, `--touched`, `--sub-issue` and `--review` use `2` for a refusal; `--closeout` uses `1`.
 
-Four of these runs leave the ticket at rest with nothing more for its worker to do — `--closeout` either way, a `--preflight` that refuses, and `--sub-issue pipeline` — and each one sends the session that started this worker a message whose first line is `#<n>` plus that result. That message is how the main agent learns the ticket landed, so the run that posts the comment is the run that reports it, and a worker cannot do the first and forget the second. Outside a Paseo session nothing is sent.
+Five of these runs leave a session with nothing more to wait for, and each one sends the session that started this one a message whose first line is `#<n>` plus that result. Four are the ticket coming to rest — `--closeout` either way, a `--preflight` that refuses, and `--sub-issue pipeline` — and they reach the main agent. The fifth is `--review`, which reaches the worker waiting on that report. The run that posts the comment is the run that reports it, so neither can be done without the other. Outside a Paseo session nothing is sent; `--review` also sends nothing when the session running it is not the reviewer Paseo started, which is the fallback the dispatch skill has a worker run for itself.
 
 A `CHECK:` may run ten minutes. A criterion that needs longer says so on the ticket, on a `TIMEOUT: <seconds>` line under its `EVIDENCE:`; every run reads those lines off the ticket body, so the worker's own run and the verifier's `--reverify` are held to the same number. `--timeout <seconds>` raises it for one run. Neither lowers it.
 

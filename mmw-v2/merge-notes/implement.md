@@ -89,16 +89,18 @@ output it saw, then stop). All five are parented to this ticket.
 Upstream rewrites the writing rules → keep the bullet and these five kinds, parented
 to the ticket.
 
-## Finish notification shape
+## What wakes the worker between the closing steps
 
-One sentence sits between closing steps 2 and 4: a `<paseo-system>` block whose first sentence is `Agent <id> (<title>) finished|errored|was closed|needs permission.`, and it carries an `<agent-response>`, arriving in the current turn when busy or as a new turn when idle. A second sentence says ending a turn to wait for one costs nothing, because what tells the main agent the ticket is done is `verify-ticket.py` at the closeout. Upstream has no such sentence. Spec #118 §5 / ticket #129 What to build item 3. Keep both on the next pull.
+A paragraph sits between closing steps 2 and 4 naming the two shapes. One is a message whose first line is `#<n> REVIEW`: the review report landing on the ticket, sent by the same call that posts it. The other is a finish notification — a `<paseo-system>` block whose first sentence is `Agent <id> (<title>) finished|errored|was closed|needs permission.`, carrying an `<agent-response>`, arriving in the current turn when busy or as a new turn when idle — which is what the verifier wakes the worker with, and what a reviewer that stopped without writing anything wakes it with. A last sentence says ending a turn to wait for either costs nothing, because what tells the main agent the ticket is done is `verify-ticket.py` at the closeout. Upstream has no such paragraph. Spec #118 §5 / ticket #129 What to build item 3. Keep it on the next pull.
+
+Step 2 names the message rather than the notification because a reviewer's one notification is not reliably the report: it is spent the first time that session ends a turn, and whether a dispatcher ends one after handing its three axes to subagents is the model's own choice. See the `code-review` merge-note, 「报告和报信是同一次调用」.
 
 ## End the turn on the verifier and the reviewer
 
-Steps 2 and 4 both end with `create_agent` and then the worker ending its turn. Paseo
-wakes it when that child finishes, with the child's own last reply attached, and the
-worker reads the ticket for the result comment. `<dispatch> wait` is the fallback for
-one case only: woken, and the comment is not on the ticket yet.
+Steps 2 and 4 both end with `create_agent` and then the worker ending its turn. The
+worker is woken — by the reviewer's message, by the verifier's finish notification —
+and reads the ticket for the result comment. `<dispatch> wait` is the fallback for one
+case only: woken, and the comment is not on the ticket yet.
 
 This replaces a loop the worker used to sit in, running `wait` every ninety seconds
 until it exited 0. Two facts, both measured 2026-09-06, retired it. Paseo delivers a

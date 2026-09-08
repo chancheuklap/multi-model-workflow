@@ -1,10 +1,10 @@
 """Tests for status.py against fixed samples: no tracker, no Paseo daemon, no clock.
 
 The two sources status.py reads are a `paseo ls --json` array and a set of tickets, so
-the samples here are one of each, in the shape the real calls return them. Inspect
-fields (`LastUsage`, `PendingPermissions`, `ParentAgentId`) are merged onto each ls
-row the way `live_agents` does. Everything status.py decides is a function of those
-two, which is why none of it needs a terminal.
+the samples here are one of each, in the shape the real calls return them. Whether an
+agent is waiting on a person is carried the way `live_agents` carries it, as the
+`waiting_on_permission` flag it derives from one `paseo permit ls`. Everything
+status.py decides is a function of those two, which is why none of it needs a terminal.
 
     python3 -m unittest discover -s mmw-v2/tests/dispatch -p test_status.py
 """
@@ -35,16 +35,15 @@ def paseo_json_by_kind(by_kind, spec=76):
                 if f"mmw.kind={kind}" in labels:
                     return [row]
             return []
-        if args[:1] == ["inspect"]:
-            return {}
+        if args[:2] == ["permit", "ls"]:
+            return []
         raise AssertionError(args)
     return fake
 
 
-def agent(ticket, status_="running", *, kind="worker", parent=None,
-          created="2 minutes ago", agent_id=None, pending=None, name=None, cwd=None,
-          last_usage=None):
-    """One `paseo ls --json` row with the inspect fields already merged in."""
+def agent(ticket, status_="running", *, kind="worker",
+          created="2 minutes ago", agent_id=None, waiting=False, name=None, cwd=None):
+    """One row in the shape `live_agents` hands on: an ls row plus what it added."""
     aid = agent_id or f"{ticket:08d}-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
     return {
         "id": aid,
@@ -56,9 +55,7 @@ def agent(ticket, status_="running", *, kind="worker", parent=None,
         "cwd": cwd if cwd is not None else f"/repo/issue-{ticket}",
         "created": created,
         "kind": kind,
-        "LastUsage": last_usage,
-        "PendingPermissions": pending or [],
-        "ParentAgentId": parent,
+        "waiting_on_permission": waiting,
     }
 
 
@@ -174,7 +171,7 @@ class Identity(unittest.TestCase):
         self.assertEqual([r["ticket"] for r in status.held(rows)], [61])
 
     def test_a_reviewer_alone_does_not_count_as_the_worker_being_held(self):
-        child = agent(61, kind="reviewer", parent=WORKER_61, agent_id=REVIEWER_61)
+        child = agent(61, kind="reviewer", agent_id=REVIEWER_61)
         rows = status.build_rows(
             [61], {61: ticket(61)}, status.sessions([child]))
         self.assertIsNone(rows[0]["worker"])
@@ -239,7 +236,7 @@ class Rows(unittest.TestCase):
 
     def test_only_the_worker_counts_as_held(self):
         worker = agent(61, agent_id=WORKER_61)
-        child = agent(63, kind="reviewer", parent=WORKER_61, agent_id=REVIEWER_61)
+        child = agent(63, kind="reviewer", agent_id=REVIEWER_61)
         tickets = {61: ticket(61), 63: ticket(63)}
         rows = status.build_rows(list(tickets), tickets, status.sessions([worker, child]))
         self.assertEqual([r["ticket"] for r in status.held(rows)], [61])
@@ -252,7 +249,7 @@ class Rows(unittest.TestCase):
         self.assertEqual([r["ticket"] for r in status.frontier(rows)], [70])
 
     def test_pending_permissions_show_on_the_note(self):
-        agents = [agent(61, pending=[{"id": "perm-1"}])]
+        agents = [agent(61, waiting=True)]
         rows = status.build_rows([61], {61: ticket(61)}, status.sessions(agents))
         self.assertEqual(rows[0]["note"], "needs permission")
 
@@ -775,8 +772,8 @@ class ReadingPaseo(unittest.TestCase):
     def setUp(self):
         self.saved = status.paseo_json
         self.ls = []
-        self.inspect = {}
-        self.inspect_ids = []
+        self.permits = []
+        self.permit_calls = 0
 
         def fake(args):
             if args[:3] == ["ls", "-g", "--json"]:
@@ -784,9 +781,9 @@ class ReadingPaseo(unittest.TestCase):
                 if any(l.startswith("mmw.kind=") and l != "mmw.kind=worker" for l in labels):
                     return []
                 return list(self.ls)
-            if args[:1] == ["inspect"]:
-                self.inspect_ids.append(args[1])
-                return dict(self.inspect.get(args[1], {}))
+            if args[:2] == ["permit", "ls"]:
+                self.permit_calls += 1
+                return list(self.permits)
             raise AssertionError(args)
 
         status.paseo_json = fake
@@ -810,34 +807,59 @@ class ReadingPaseo(unittest.TestCase):
         self.ls = []
         self.assertEqual(status.live_agents(76), [])
 
-    def test_each_ls_row_is_inspected_once_and_the_three_keys_are_merged(self):
-        self.ls = [{
-            "id": WORKER_61,
-            "shortId": WORKER_61[:7],
+    def ls_row(self, agent_id=WORKER_61):
+        return {
+            "id": agent_id,
+            "shortId": agent_id[:7],
             "name": "#61 worker",
             "provider": "grok/grok-4.6",
             "thinking": "high",
             "status": "running",
             "cwd": "/repo/issue-61",
             "created": "2 minutes ago",
-        }]
-        self.inspect[WORKER_61] = {
-            "LastUsage": {"InputTokens": 1, "OutputTokens": 2,
-                          "CachedTokens": 0, "CostUsd": 0.01},
-            "PendingPermissions": [],
-            "ParentAgentId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         }
+
+    def test_an_ls_row_is_carried_through_with_its_kind_and_permission_flag(self):
+        self.ls = [self.ls_row()]
         found = status.live_agents(76)
-        self.assertEqual(self.inspect_ids, [WORKER_61])
         self.assertEqual(len(found), 1)
         self.assertEqual(found[0]["id"], WORKER_61)
         self.assertEqual(found[0]["status"], "running")
         self.assertEqual(found[0]["cwd"], "/repo/issue-61")
         self.assertEqual(found[0]["created"], "2 minutes ago")
-        self.assertEqual(found[0]["LastUsage"]["InputTokens"], 1)
-        self.assertEqual(found[0]["PendingPermissions"], [])
         self.assertEqual(found[0]["kind"], "worker")
-        self.assertNotIn("ParentAgentId", found[0])
+        self.assertIs(found[0]["waiting_on_permission"], False)
+
+    def test_one_permit_call_answers_for_every_agent_of_the_batch(self):
+        second = "55555555-5555-4555-8555-555555555555"
+        self.ls = [self.ls_row(), self.ls_row(second)]
+        self.permits = [{"id": "perm-1", "agentId": second,
+                         "agentShortId": second[:7], "name": "Bash"}]
+        found = {row["id"]: row for row in status.live_agents(76)}
+        self.assertEqual(self.permit_calls, 1)
+        self.assertIs(found[WORKER_61]["waiting_on_permission"], False)
+        self.assertIs(found[second]["waiting_on_permission"], True)
+
+    def test_a_batch_with_no_agent_does_not_ask_about_permissions(self):
+        self.ls = []
+        self.assertEqual(status.live_agents(76), [])
+        self.assertEqual(self.permit_calls, 0)
+
+    def test_an_unanswered_permit_call_leaves_the_rest_of_the_row_readable(self):
+        self.ls = [self.ls_row()]
+
+        outer = status.paseo_json
+
+        def fake(args):
+            if args[:2] == ["permit", "ls"]:
+                raise RuntimeError("paseo permit ls: exit 1")
+            return outer(args)
+
+        status.paseo_json = fake
+        found = status.live_agents(76)
+        self.assertEqual(len(found), 1)
+        self.assertIs(found[0]["waiting_on_permission"], False)
+        self.assertEqual(found[0]["status"], "running")
 
     def test_main_turns_a_paseo_fault_into_exit_2_without_a_traceback(self):
         def boom(args):
