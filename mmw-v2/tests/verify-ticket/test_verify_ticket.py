@@ -304,12 +304,35 @@ class TestOwns(unittest.TestCase):
 
 
 class TestLint(unittest.TestCase):
-    def lint(self, body: str):
+    def lint(self, body: str, labels=()):
+        """`--lint` on a ticket whose text is `body` and whose labels are `labels`.
+
+        The tracker is reached for three things and all three are answered here: the
+        body, the parent link, and the labels the worker rule reads. Left unpatched,
+        `fetch_ticket` runs `gh issue view` against the real repository, which makes
+        a unit test wait on the network and fail when it is not there."""
+        ticket_json = {"state": "OPEN", "labels": [{"name": name} for name in labels],
+                       "assignees": [], "blockedBy": []}
         with mock.patch.object(vt, "fetch_body", return_value=body), \
-             mock.patch.object(vt, "fetch_parent", return_value=None):
+             mock.patch.object(vt, "fetch_parent", return_value=None), \
+             mock.patch.object(vt, "fetch_ticket", return_value=ticket_json):
             with redirect_stdout(io.StringIO()) as out:
                 code = vt.run_lint(1)
         return code, out.getvalue()
+
+    def test_the_worker_label_the_tracker_carries_is_what_the_rule_reads(self):
+        """A ticket in the agent queue with no worker label is the one worker ERROR,
+        and it is the labels that decide it, not anything in the body."""
+        body = ticket(
+            "- [ ] AC1: the importer writes six rows",
+            "  CHECK: node scripts/import.mjs fixtures/valid.json",
+            "  EXPECT: /wrote 6 rows/",
+            "  EVIDENCE: pending",
+        )
+        code, printed = self.lint(body, labels=["ready-for-agent"])
+        self.assertEqual(code, 1)
+        self.assertIn("worker-label", printed)
+        self.assertEqual(self.lint(body, labels=["needs-triage"])[0], 0)
 
     def test_a_weak_expectation_is_reported_without_failing_the_run(self):
         """A warning is for a person to weigh, so it must not decide the exit code."""

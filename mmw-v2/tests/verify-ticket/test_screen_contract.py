@@ -21,7 +21,7 @@ def gate(gate_id, check, expect=OK_EXPECT):
             f"  CHECK: {check}\n  EXPECT: {expect}\n  EVIDENCE: pending")
 
 
-def ticket(read_first, *criteria, parent="", blocked_by=""):
+def ticket(read_first, *criteria, parent="", blocked_by="", owns=""):
     body = ""
     if parent:
         body += "## Parent\n\n" + parent + "\n\n"
@@ -29,6 +29,8 @@ def ticket(read_first, *criteria, parent="", blocked_by=""):
              + "\n".join(criteria) + "\n")
     if blocked_by:
         body += "\n## Blocked by\n\n" + blocked_by + "\n"
+    if owns:
+        body += "\n## Owns\n\n" + owns + "\n"
     return body
 
 
@@ -174,6 +176,27 @@ class TestPipelineFlags(unittest.TestCase):
         self.assertEqual(len(findings), 1)
         self.assertIn("--seed", findings[0])
 
+    def test_a_flag_inside_a_quoted_run_value_belongs_to_that_command(self):
+        """`--run` carries a whole command; `pnpm --dir <app>` is how this repository
+        runs a front-end test, and `--dir` is pnpm's, not the judge's."""
+        check = ('boundary-check.py --run "pnpm --dir desktop-chameleon exec vitest run '
+                 'tests/boundary/add-material.test.ts"')
+        self.assertEqual(vt.lint_pipeline_flags("AC2", check), [])
+
+    def test_a_run_value_carrying_an_operator_is_still_one_value(self):
+        check = 'boundary-check.py --run "pnpm --dir app build && pnpm --dir app test"'
+        self.assertEqual(vt.lint_pipeline_flags("AC2", check), [])
+
+    def test_an_equals_run_value_hides_its_commands_flags_too(self):
+        check = "boundary-check.py --run='pnpm --dir app exec vitest run t.ts'"
+        self.assertEqual(vt.lint_pipeline_flags("AC2", check), [])
+
+    def test_a_flag_of_the_judge_after_a_quoted_run_value_is_still_read(self):
+        check = 'boundary-check.py --run "pnpm --dir app test" --reach-hook x'
+        findings = vt.lint_pipeline_flags("AC2", check)
+        self.assertEqual(len(findings), 1)
+        self.assertIn("--reach-hook", findings[0])
+
     def test_only_the_scripts_own_segment_is_read(self):
         chained = ("uv run python scripts/testing/reach.py seed:x --perturb && " + STORY)
         self.assertEqual(vt.lint_pipeline_flags("AC1", chained), [])
@@ -301,9 +324,9 @@ class TestCriterionShapes(ContractFixture, unittest.TestCase):
         self.parent = "[Spec（#537）](u)，Implementation Decisions 第 2 节与 Testing Decisions"
         os.makedirs(os.path.join(self.root, ".mmw", "journeys", "smoke"), exist_ok=True)
 
-    def lint(self, *criteria):
+    def lint(self, *criteria, owns=""):
         return vt.lint_screen_contract(
-            ticket(self.rows, *criteria, parent=self.parent, blocked_by="- #637"),
+            ticket(self.rows, *criteria, parent=self.parent, blocked_by="- #637", owns=owns),
             639, root=self.root)
 
     def test_pages_in_the_contract_that_are_not_app_pages_are_fine(self):
@@ -371,6 +394,27 @@ class TestCriterionShapes(ContractFixture, unittest.TestCase):
         findings = self.lint(gate("AC1", "cd fixtures/repo && journey.py run absent"))
         self.assertTrue(any("absent" in f and ".mmw/journeys" in f for f in findings),
                         findings)
+
+    def test_a_journey_this_ticket_owns_is_not_yet_expected_to_exist(self):
+        """The ticket that builds the journey names it before it is there; `## Owns`
+        covering the directory is what says this ticket is that ticket."""
+        self.assertEqual(
+            self.lint(gate("AC1", "journey.py run money"), owns="- `.mmw/journeys/money/**`"), [])
+
+    def test_a_wider_owns_glob_covers_the_journey_directory(self):
+        self.assertEqual(
+            self.lint(gate("AC1", "journey.py run money"), owns="- `.mmw/**`"), [])
+
+    def test_an_owns_glob_for_another_journey_does_not_cover_this_one(self):
+        findings = self.lint(gate("AC1", "journey.py run money"),
+                             owns="- `.mmw/journeys/login-gate/**`")
+        self.assertTrue(any("money" in f and ".mmw/journeys" in f for f in findings), findings)
+
+    def test_owns_covers_a_journey_under_the_directory_the_check_cds_into(self):
+        os.makedirs(os.path.join(self.root, "fixtures", "repo", ".mmw"), exist_ok=True)
+        self.assertEqual(
+            self.lint(gate("AC1", "cd fixtures/repo && journey.py run absent"),
+                      owns="- `fixtures/repo/.mmw/journeys/absent/**`"), [])
 
 
 if __name__ == "__main__":
