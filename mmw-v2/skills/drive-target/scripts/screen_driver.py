@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Shared runtime for story rendering and for a repository's `.mmw/target.json`.
 
 Nothing here judges. `story-parity.py` and `extract_skeleton.py` import the baseline
