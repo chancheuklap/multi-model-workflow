@@ -209,12 +209,21 @@ def match_offering(
     for offering in pool:
         oid = _norm(str(offering.get("id") or ""))
         name = _norm(str(offering.get("name") or ""))
-        if needle == oid or needle == name or needle in oid or needle in name:
+        # The block under the live table renders ids through `_slug_everyday`,
+        # so a cell copied from it ("fable 5.1") must match the id it was
+        # rendered from ("claude-fable-5-1"). Compare against that form too, or
+        # the table tells you to write a name nothing can resolve.
+        slug = _norm(_slug_everyday(str(offering.get("id") or "")))
+        if needle in (oid, name, slug) or needle in oid or needle in name:
             hits.append(offering)
-    # exact id or name wins over substring
+    # exact id, name or everyday name wins over substring
     exact = [
         o for o in hits
-        if needle in (_norm(str(o.get("id") or "")), _norm(str(o.get("name") or "")))
+        if needle in (
+            _norm(str(o.get("id") or "")),
+            _norm(str(o.get("name") or "")),
+            _norm(_slug_everyday(str(o.get("id") or ""))),
+        )
     ]
     if len(exact) == 1:
         hits = exact
@@ -626,19 +635,11 @@ def fetch_offerings(host: str) -> list[dict]:
     mode = os.environ.get("MMW_CATALOG_MODE", DEFAULT_CATALOG_MODE)
     if mode == "paseo":
         return _paseo_models(host)
-    binaries = {
-        "cursor": ["cursor-agent", "models"],
-        "grok": ["grok", "models"],
-    }
-    if host == "cursor":
-        return _parse_cursor_models(_run(binaries["cursor"]))
-    if host == "grok":
-        return _parse_grok_models(_run(binaries["grok"]))
-    if host in ("claude", "codex", "pi"):
-        paseo = _paseo_models(host)
-        if paseo:
-            return paseo
-    return []
+    # One catalog source per host, shared with the block written under the live
+    # table: what `offerings_markdown` lists is exactly what `resolve_row` can
+    # resolve. Asking two different sources is how a name the block told you to
+    # write ends up matching nothing.
+    return fetch_cli_offerings(host)
 
 
 def resolve_row(host: str, model: str, effort: str) -> tuple[str, str, str]:

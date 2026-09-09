@@ -798,7 +798,6 @@ MMW_MODELS_PY="$SELF_SRC/dispatch/scripts/models.py" \
 MMW_PASEO_WORKTREES="$PASEO_WORKTREES_ROOT" \
 MMW_HOME_DIR="$HOME_DIR" \
 MMW_LIVE_MODELS="$HOME_DIR/.mmw/models.md" \
-MMW_CATALOG_MODE=paseo \
 python3 - <<'PY' || rc=1
 import importlib.util
 import json
