@@ -1,6 +1,9 @@
 ---
 date: 2026-09-08
+amends: []
 ---
+
+> 现行读法见 ADR 0015：`## Consequences` 第三条末句「`assemble.py` 的补位机制不变，仍然由 reviewer 在 claude 上那一行用着」不再成立——`assemble.py` 连同 `mmw-v2/agents/` 整个目录已经删掉，`models.md` 的解析搬进了 `mmw-v2/skills/dispatch/scripts/models.py`。advisor 只有一扇门、正文是技能、两侧共用这个决定本身没有变。
 
 # advisor 只有一扇门：正文是技能，两侧共用
 

@@ -4,6 +4,8 @@ amends: [0003]
 ---
 
 > 正文里的数目写的是 2026-08-26 当时的值。现在装几个技能见 `mmw-v2/skills.txt`，安装器里还有几处按宿主名写死的表见 `mmw-v2/install.sh`。
+>
+> 现行读法见 ADR 0015：工具箱不再交付 subagent，各 host 的 `agents/` 目录都成了退役位置。所以正文里三处讲 subagent 的话不再成立——「subagent 不走这条，仍按宿主各装一份」、「subagent 那半边仍要加一行安装点和一份成品壳」，以及 `## Consequences` 末条把 0003 的「五个宿主统一散装」留给 subagent 的那一句。技能装进一个各家通用的位置、只为 Claude Code 单独再装一份这个决定本身没有变。
 
 # 技能装进一个各家通用的位置，只为 Claude Code 单独再装一份
 

@@ -1,5 +1,6 @@
 ---
 date: 2026-09-09
+amends: [0003, 0006, 0014]
 ---
 
 # 工具箱不再交付 subagent：用 host 自带的通用 subagent
@@ -29,3 +30,4 @@ MMW 只交付技能。`mmw-v2/agents/` 整个目录连同 `assemble.py`、`revie
 - **`models.py` 跟着 dispatch 技能的 symlink 走**，所以它在五个 host 上都在，被拷走的技能目录也自带它——`assemble.py` 原先要靠 `install.sh` 的路径反推才找得到。
 - **`install.sh` 从装七样变六样**，`--check` 不再包含 `assemble.py --check`。工具箱的五层测试里"结构核对"那一层少了一个被测对象。
 - **各 host 的 `agents/` 目录成为退役位置。** 装过上一代的机器上留着六处软链指向已删文件，host 扫到一条断链就是一个起不来的 agent，所以要跑一次 `bash mmw-v2/install.sh` 才算清干净；`--check` 在清干净之前会一直报 `残留`。
+- **这一个决定同时作废了先前三份 ADR 里的句子。** `0014` 的「`assemble.py` 的补位机制不变，仍然由 reviewer 在 claude 上那一行用着」；`0006` 的「subagent 不走这条，仍按宿主各装一份」「subagent 那半边仍要加一行安装点和一份成品壳」，以及它把 0003 的散装说法留给 subagent 的那一句；`0003` 的「本篇『五个宿主各装一份』只对 subagent 仍然成立」与「九个交付面现在只剩技能与 subagent 两面」。三份各自的 `# ` 标题之上都有一段 `>` 注指回这里：它们同出一因，不是三个各自独立的错误。
