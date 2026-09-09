@@ -211,6 +211,32 @@ def test_electron_builder_writing_somewhere_else_is_caught(repo):
     assert "release-out" in finding["detail"]
 
 
+@pytest.mark.parametrize(
+    "yml",
+    [
+        pytest.param("directories: {output: dist}\n", id="flow-style"),
+        pytest.param("directories: &dirs\n  output: dist\n", id="anchored"),
+        pytest.param("build:\n  directories:\n    output: dist\n", id="nested-under-a-parent"),
+    ],
+)
+def test_an_electron_builder_config_this_check_cannot_read_says_so(repo, yml):
+    """三种写法都合法，行级解析都读不出来。回执要说的是「我读不懂这个输入」，
+    不是「你的两个值漂开了」——后者会把 agent 支去比对两个其实相同的值。"""
+    (repo / "desktop-newcomer" / "electron-builder.yml").write_text(yml, encoding="utf-8")
+    (finding,) = _verify(MINIMAL_KEY, repo)
+    assert finding["name"] == "electron_builder_output_unreadable"
+    assert finding["name"] != "electron_builder_output_drift"
+
+
+def test_a_readable_config_that_really_drifts_is_still_drift(repo):
+    """读得动、值真的不同，回执仍是漂移那一条。"""
+    (repo / "desktop-newcomer" / "electron-builder.yml").write_text(
+        "directories:\n  output: somewhere-else\n", encoding="utf-8"
+    )
+    (finding,) = _verify(MINIMAL_KEY, repo)
+    assert finding["name"] == "electron_builder_output_drift"
+
+
 def test_the_cli_exits_non_zero_so_the_engine_stops_the_run(repo):
     doc = deepcopy(MINIMAL_KEY)
     doc["python_backend"]["icon"] = "src/newcomer/nope.ico"

@@ -98,8 +98,10 @@ append_attempt() {
 
 _repo_top() { git rev-parse --show-toplevel 2>/dev/null || die "not inside a git repository"; }
 
+# 两条 date 都解析不了就非零退出，让调用方 die。die 不写在这里:它被 $( ) 包着,
+# exit 只杀掉那个子 shell,算术随后拿到空串。
 iso_to_epoch() {
-  date -u -d "$1" +%s 2>/dev/null || date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$1" +%s 2>/dev/null || echo 0
+  date -u -d "$1" +%s 2>/dev/null || date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$1" +%s 2>/dev/null
 }
 
 _convergence_guard() {
@@ -132,11 +134,13 @@ _convergence_guard() {
     return 1
   fi
 
-  local started wallmax elapsed
+  local started wallmax elapsed started_epoch
   started="$(jq -r '.budget.started_at // ""' "$f")"
   wallmax="$(jq -r '.budget.max_wall_clock_seconds // 0' "$f")"
   if [ -n "$started" ] && [ "$wallmax" -gt 0 ]; then
-    elapsed=$(( $(date -u +%s) - $(iso_to_epoch "$started") ))
+    started_epoch="$(iso_to_epoch "$started")" \
+      || die "budget.started_at is not a date this engine can read: $started"
+    elapsed=$(( $(date -u +%s) - started_epoch ))
     if [ "$elapsed" -ge "$wallmax" ]; then
       edit "$f" --arg s "$stage" --argjson e "$elapsed" --argjson w "$wallmax" \
         '.pause={at_stage:$s, kind:"surface", reason:"needs-redirection",
@@ -1424,6 +1428,20 @@ cmd_dispatch() {
        | .current_stage=$n'
     emit_event "$f" "classified" "$name" "$tier" "$fp" "$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
     echo "TRANSIENT-RETRY:$name ($fp, rerun as-is, no fix dispatched)"
+    return 0
+  fi
+
+  # 环境处置(fingerprint 前缀 env:,如构建机上还有个进程占着文件、某个环境变量没设)同样没有
+  # 可修的代码——要做的是那件处置本身。停在 needs-context 上,question 就是这条 finding 自己的
+  # remediation;跑出包流程的那个 agent 做完再 resume。不派 fix executor。
+  local non_env remediation
+  non_env="$(printf '%s' "$cls" | jq -r '[.failing[] | select((.root_cause_fingerprint // "") | startswith("env:") | not)] | length')"
+  if [ "$non_env" -eq 0 ]; then
+    remediation="$(printf '%s' "$cls" | jq -r '.failing[0].remediation // ""')"
+    edit "$f" --arg n "$name" --arg q "$remediation" \
+      '.pause={at_stage:$n, kind:"surface", reason:"needs-context", question:$q}'
+    emit_event "$f" "paused" "$name" "$tier" "$fp" ""
+    echo "ENV-ACTION:$name ($fp, no fix dispatched; do this, then resume: $remediation)"
     return 0
   fi
 

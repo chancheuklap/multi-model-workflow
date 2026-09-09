@@ -267,6 +267,27 @@ case "$out" in
   *) no "墙钟预算回归 ($out)" ;;
 esac
 
+# started_at 两条 date 都解析不了,是状态文件里的一个事实错误,不是预算耗尽:引擎停下并
+# 说出这个字段。拿 0 顶上会让 elapsed 变成当前 Unix 时间,比任何墙钟上限都大。
+repo="$(new_case wall-clock-unreadable '["true"]' '["true"]' '["true"]' '["sh","-c","echo {\\\"findings\\\":[]}"]')"
+sf="$(state_file "$repo")"
+fail_stage_p1 "$repo"
+tmp_state="$(mktemp)"
+jq '.budget.started_at="not-a-date"' "$sf" > "$tmp_state" && mv "$tmp_state" "$sf"
+err_file="$(mktemp)"
+rc=0
+out="$(run_release "$repo" dispatch --stage verify_key --findings "$FIX/finding.p1.json" 2>"$err_file")" || rc=$?
+[ "$rc" -eq 1 ] && ok "started_at 读不出→退 1" || no "started_at 读不出退出码=$rc"
+case "$out" in
+  *BUDGET-EXCEEDED*) no "started_at 读不出仍印 BUDGET-EXCEEDED ($out)" ;;
+  *) ok "started_at 读不出不印 BUDGET-EXCEEDED" ;;
+esac
+err_text="$(cat "$err_file")"
+case "$err_text" in
+  *"budget.started_at"*) ok "stderr 点名 budget.started_at" ;;
+  *) no "stderr 未点名 budget.started_at ($err_text)" ;;
+esac
+
 # P0 安全回归:gitignored 的受保护文件(如自愈修复新建 .env/secret)不能绕过 path-gate。
 # 一般候选集用 --exclude-standard 排除 gitignored,曾致 gitignored 的受保护路径不被 gate 看到。
 fix_gitignored='["sh","-c","printf leak > migrations/oops.ignored"]'

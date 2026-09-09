@@ -50,7 +50,7 @@ it instead of re-diagnosing.
 
 1. `<engine> receipt` for what was already tried. Read engine logs, builder logs, and finding text from the latest record.
 2. Diagnose from log text. Do not guess.
-3. If you can act: environment issues (network, busy builder) you may handle. **Code or config changes commit to the current branch**, and the current stage re-verifies them.
+3. If you can act: environment issues (network, busy builder) you may handle. When `dispatch` printed an `ENV-ACTION:` line, that line already names the environment action this step is asking for, and no fix was dispatched — do that action, and `resume` is the whole of step 4. **Code or config changes commit to the current branch**, and the current stage re-verifies them.
 4. Run `<engine> resume`, then follow engine state through this stage and the remaining full-package checks.
 5. **Same root cause twice, or the cause is billing, a contract, a protected path, or a product decision the user must make — stop and hand it over.** Do not loop.
 

@@ -484,6 +484,33 @@ esac
 
 bash "$RF" close >/dev/null
 
+# 回归:env: 指纹是环境处置,不派修。停在 needs-context 的 .pause 上,question 就是这条
+# finding 的 remediation;跑出包流程的那个 agent 做完那件事自己 resume。
+# 这一段的 fix_executor 会往 editable_paths 里写一个文件:它没被写出来,就是没派修的证据。
+mkdir -p scripts/release
+jq '.fix_executor=["sh","-c","printf fixed > scripts/release/env-fix.txt"]' \
+  "$FIX/manifest.fake.json" > env-branch.json
+# 保护规则源要在位、要已提交:否则 dispatch 在跑 fix_executor 之前就停在
+# 「protection source unreadable」上,后面那两条反向断言就是白绿的。
+cp "$FIX/release_protection.fake.json" release_protection.json
+git add release_protection.json
+git commit -qm env-branch-seed
+env_head_before="$(git rev-parse HEAD)"
+bash "$RF" init --manifest env-branch.json >/dev/null
+bash "$RF" stage fail --stage doctor --findings "$FIX/finding.env.json" >/dev/null
+out="$(bash "$RF" dispatch --stage doctor --findings "$FIX/finding.env.json")"
+case "$out" in
+  ENV-ACTION:doctor*) ok "env: 指纹印环境处置回执" ;;
+  *) no "env: dispatch ($out)" ;;
+esac
+[ "$(jq -r '.pause.reason // ""' "$SF")" = "needs-context" ] \
+  && ok "env: 停在 needs-context 的 .pause 上" || no "env: pause=$(jq -c '.pause' "$SF")"
+[ "$(jq -r '.pause.question // ""' "$SF")" = "$(jq -r '.findings[0].remediation' "$FIX/finding.env.json")" ] \
+  && ok "env: question 就是这条 finding 的 remediation" || no "env: question=$(jq -r '.pause.question // ""' "$SF")"
+[ ! -f scripts/release/env-fix.txt ] && ok "env: 一个 fix agent 都没派" || no "env: 竟派了 fix agent"
+[ "$(git rev-parse HEAD)" = "$env_head_before" ] && ok "env: 没有自动修复提交" || no "env: 竟产生了修复提交"
+bash "$RF" close >/dev/null
+
 # ── 放弃这一轮 ──────────────────────────────────────────────────────────────
 #
 # 守:abort 不写交付记录。close 无条件写那一份,它说的是「这个产品在这个 commit 上出过包」;

@@ -220,15 +220,16 @@ def test_every_rule_pattern_compiles():
         re.compile(pattern)
 
 
-def test_transient_is_a_prefix_the_engine_really_acts_on():
-    """`transient:` 是引擎唯一按前缀分派的：全部 finding 都是 transient 就直接重跑这一阶段，
-    不派代码修复、也不消耗修复轮次。所以这个前缀写错，一条网络抖动会被当成代码问题去修。
-
-    （`env:` 是给人和 agent 读的约定，引擎不按它分派。）
+def test_transient_and_env_are_prefixes_the_engine_really_acts_on():
+    """引擎按这两个前缀分派：全部 finding 都是 `transient:` 就直接重跑这一阶段；全部都是
+    `env:` 就停在 needs-context 的 pause 上，等做完那件环境处置的人 resume。两条都不派代码
+    修复、也不消耗修复轮次。所以前缀写错，一条网络抖动或一次环境处置会被当成代码问题去修。
     """
     engine = ENGINE.read_text(encoding="utf-8")
     assert 'startswith("transient:")' in engine
+    assert 'startswith("env:")' in engine
     assert any(fp.startswith("transient:") for _, _, fp, _ in dc.RULES)
+    assert any(fp.startswith("env:") for _, _, fp, _ in dc.RULES)
 
 
 def test_a_missing_module_is_not_mistaken_for_a_network_blip():
