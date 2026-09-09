@@ -1,6 +1,6 @@
 # TypeScript / JavaScript
 
-`oxlint` lints; `oxlint-tsgolint` gives it types, and with them the type check itself. No separate `tsc --noEmit`, and no `typescript-eslint` — TypeScript 7 ships no stable programmatic API, so it cannot run there at all.
+`oxlint` lints; `oxlint-tsgolint` gives it types, and with them the type check itself. No separate `tsc --noEmit`, and no `typescript-eslint`.
 
 ```bash
 pnpm add -D oxlint oxlint-tsgolint

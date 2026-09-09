@@ -1,6 +1,6 @@
 # Ask the user
 
-Branches **create** and **rewrite**. The survey list holds what the repository shows. Four things it cannot show: who the project serves and how serious it is, what this repository is not, the conventions nobody wrote down, and the reasons behind the odd choices. You get those from the user now, with the fixed questions below. Each question carries a recommended answer drawn from the survey list, so the user confirms or corrects instead of composing.
+Situations **create** and **rewrite**. The survey list holds what the repository shows. Four things it cannot show: who the project serves and how serious it is, what this repository is not, the conventions nobody wrote down, and the reasons behind the odd choices. You get those from the user now, with the fixed questions below. Each question carries a recommended answer drawn from the survey list, so the user confirms or corrects instead of composing.
 
 This is one round: the questions are fixed, there is no follow-up tree, and nothing else is asked here.
 
@@ -16,7 +16,7 @@ Each question should be formatted like so:
 ➡️ <your recommended answer>
 ```
 
-The recommended answer quotes the survey entry and its evidence. When the survey list has nothing for a question, the recommended answer is "the survey found nothing for this". On the rewrite branch, the lines `destinations.md` sent to `ask` are the old file's identity lines; they are the recommended answers to the four identity questions, each marked "from the current file".
+The recommended answer quotes the survey entry and its evidence. When the survey list has nothing for a question, the recommended answer is "the survey found nothing for this". In the rewrite situation, the lines `destinations.md` sent to `ask` are the old file's identity lines; they are the recommended answers to the four identity questions, each marked "from the current file".
 
 ## Project identity, four questions
 

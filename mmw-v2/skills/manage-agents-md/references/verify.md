@@ -1,16 +1,16 @@
 # Verify and report
 
-All branches. Two things close the work: the mechanical checks pass, and the report says what changed.
+All situations. Two things close the work: the mechanical checks pass, and the report says what changed. `<scripts>` below is resolved in [../SKILL.md](../SKILL.md), **Resolve `<scripts>` once**.
 
 ## Checks
 
 From the repository root:
 
 ```bash
-bash "$(dirname <path of this skill's SKILL.md>)/scripts/check.sh" .
+bash <scripts>/check.sh .
 ```
 
-The path of `SKILL.md` is the one your host loaded this skill from. The script judges only what a machine can: the root `AGENTS.md` exists and is within 150 lines; every `AGENTS.md` has a `CLAUDE.md` beside it made of `@` lines, one of them `@AGENTS.md`; every backticked path with a slash exists; every `<important if="...">` closes; the root carries the subdirectory sentence; no `AGENTS.override.md` remains. It prints one line per failure and exits non-zero. Fix every line it prints and run it again until it prints `ok`.
+The script judges only what a machine can: the root `AGENTS.md` exists and is within the limit it sets; every `AGENTS.md` has a `CLAUDE.md` beside it made of `@` lines, one of them `@AGENTS.md`; every backticked path with a slash exists; every `<important if="...">` closes; the root carries the subdirectory sentence; no `AGENTS.override.md` remains. It prints one line per failure and exits non-zero. Fix every line it prints and run it again until it prints `ok`. A failure whose cause is that this repository cannot satisfy it is a pass: write that cause down and stop there. Two failures reach that — a root file already over the limit with nothing left to move into a directory's file (it prints `<path>: <n> lines, limit is <limit>`), and a backticked path that a clean checkout does not hold (a generated file, a file the repository ignores). A placeholder path is not one of them: `check.sh` skips a backticked token carrying `<…>`.
 
 Verify exact paths and commands exist. The script covers paths. Commands you verify yourself: run each one a file names, or read the script it invokes, and fix the line when it fails.
 
@@ -46,4 +46,4 @@ What was NOT removed:
 
 followed by **Pending user decisions**: one line per user-owned line that looks stale, per empty pair, and per new pair awaiting its purpose line — each with the file, the line, and the code evidence. The user merges the branch after reading.
 
-Done when `check.sh` prints `ok`, every command in every file you wrote or edited has been verified, and the report is written. On the incremental branch, done also requires the one commit on the branch.
+Done when `check.sh` prints `ok`, every command in every file you wrote or edited has been verified, and the report is written. In the incremental situation, done also requires the one commit on the branch.

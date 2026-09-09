@@ -2,17 +2,27 @@
 # Mechanical checks on a repository's AGENTS.md / CLAUDE.md files. Judges only what a
 # machine can: line count, the CLAUDE.md beside each AGENTS.md, path references,
 # tag balance, the subdirectory sentence, leftover AGENTS.override.md. Content
-# quality is the skill's job.
+# quality is the skill's job. Two values the skill's prose only refers to live here:
+# the root file's line limit and the directories never scanned.
 #
-#   bash scripts/check.sh [repo-root]     # default: current directory
+#   bash <scripts>/check.sh [repo-root]          # run the checks; default: current directory
+#   bash <scripts>/check.sh --limit              # print the root file's line limit
+#   bash <scripts>/check.sh --list [repo-root]   # print every file the checks scan
 #
 # Prints one line per failure as "<path>: <message>", exits 1 on any failure.
 
 set -euo pipefail
 
+ROOT_LIMIT=150
+
+mode=check
+case "${1:-}" in
+  --limit) echo "$ROOT_LIMIT"; exit 0 ;;
+  --list)  mode=list; shift ;;
+esac
+
 ROOT="${1:-.}"
 ROOT="$(CDPATH='' cd -- "$ROOT" && pwd -P)"
-ROOT_LIMIT=150
 fails=0
 fail() { echo "$1"; fails=$((fails + 1)); }
 
@@ -25,8 +35,14 @@ find_files() {  # find_files <name>
 
 rel() { printf '%s\n' "${1#"$ROOT"/}"; }
 
+if [ "$mode" = list ]; then
+  { find_files AGENTS.md; find_files CLAUDE.md; find_files AGENTS.override.md; } \
+    | LC_ALL=C sort | awk -v n="${#ROOT}" 'length($0) { print substr($0, n + 2) }'
+  exit 0
+fi
+
 # 6. No AGENTS.override.md anywhere.
-# (Checks are numbered as in the skill's verify.md, not in file order.)
+# (Checks are numbered as in the skill's references/verify.md, not in file order.)
 while IFS= read -r f; do
   [ -n "$f" ] && fail "$(rel "$f"): AGENTS.override.md must be renamed to AGENTS.md"
 done < <(find_files AGENTS.override.md)

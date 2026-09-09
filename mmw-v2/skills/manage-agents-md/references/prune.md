@@ -1,8 +1,8 @@
 # Prune
 
-All branches. The files are written. Now read each one you wrote or edited line by line: first against the list of what must not be there, then with the four tests under Pruning, then through the self-check.
+All situations. The files are written. Now read each one you wrote or edited line by line: first against the list of what must not be there, then with the four tests under Pruning, then through the self-check.
 
-On the **incremental** branch the user-owned lines named in [incremental.md](incremental.md) are exempt: read them, leave them, and put a doubt about one into the report.
+In the **incremental** situation the user-owned lines named in [incremental.md](incremental.md) are exempt: read them, leave them, and put a doubt about one into the report.
 
 ## What NOT to Add
 
@@ -26,7 +26,7 @@ Each rule, then what it catches.
 
 ## Pruning
 
-The criteria are the `writing-for-agents` skill's Context pointers, Pruning and Negation sections — read them there. Its Pruning section holds the four tests: single source of truth, environment and cache, relevance, no-ops. Its Negation section is why a rule that survives is phrased as the behaviour to perform.
+The criteria are the `writing-for-agents` skill's Context pointers, Pruning and Leading words sections — read them there. Its Pruning section holds the four tests: single source of truth, environment and cache, relevance, no-ops. Its Leading words section is why a rule that survives is phrased as the behaviour to perform.
 
 ## Self-check
 
@@ -34,11 +34,11 @@ Answer each for the file in front of you. A "no" means the file is not finished:
 
 | Criterion | Check |
 | --- | --- |
-| Commands | Is every command in the table one that `--help` and the manifest do not explain, and is none of that kind missing? Would each one run as written? |
+| Commands | Has every command in the table passed the command rule in [write.md](write.md), and is none of that kind missing? |
 | Orientation | Do the identity lines and External References let an agent find where things live? |
 | Non-obvious patterns | Are gotchas and quirks documented? |
 | Conciseness | No verbose explanations or obvious info? |
-| Currency | Does it reflect current codebase state — no outdated versions, no deleted files? |
+| Currency | Does it reflect current codebase state — no outdated versions? |
 | Actionability | Are instructions executable, not vague — no template text left uncustomized, no "TODO"? |
 | Single source | Does no line repeat a line of another `AGENTS.md` in this repository? |
 
