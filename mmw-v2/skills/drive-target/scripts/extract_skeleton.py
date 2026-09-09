@@ -3,7 +3,7 @@ pipeline reads from that render.
 
 Usage: uv run python extract_skeleton.py <handoff dir> <out.json> [--targets <dir> [--contract <yaml>]]
 
-One render per scene in `scenes.json`, through the same driver interface parity uses
+One render per scene in `scenes.json`, through the same driver the story judge uses
 (`screen_driver.py`, beside this script), so what comes out here is what the judge will
 read. The `align-screens` skill calls this script for its row inventory. Three things
 come out:

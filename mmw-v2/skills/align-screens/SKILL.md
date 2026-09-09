@@ -9,12 +9,18 @@ A handoff package says what the interface looks like and what it says. The wayfi
 
 The file's shape is in [references/contract-format.md](references/contract-format.md). Read it before step 2.
 
+## Resolve `<scripts>` once
+
+`<scripts>` in every command below is the `scripts/` directory next to this file. Resolve it from this file's own location. The path differs by machine and by host, and `install.sh` puts this skill wherever the host that gave it to you reads its skills from.
+
+Every one of them is run as `uv run python <scripts>/…`, never `python3`: `scripts/lint_contract.py` carries a `# /// script` dependency block (`pyyaml>=6`), and `scripts/dump_openapi.py` imports the consuming repository's own application module. Both need the environment `uv` builds.
+
 ## Inputs
 
 - The handoff package directory: `README.md`, the `.dc.html` pages, `styles/`, `data/fixtures.js`, `support.js`, `scenes.json`, and `vendor/` with the three scripts `support.js` loads. It is a **baseline for look and copy**; you never edit it.
 - The wayfinder map issue: its **Decisions so far** and, through each link, the closed tickets' resolution comments. Where a resolution names an ADR, a research file, a logic prototype's contract file or the domain doc, read that too.
-- The backend contract as it exists today: `openapi.json`. When the repository's own exporter writes one, use that; when it does not cover this product, dump it yourself — `uv run python <this skill>/scripts/dump_openapi.py <module>:<factory> <scratch>/openapi.json` calls the app factory and writes its OpenAPI document. A new project has no routes yet; the lint then marks calls `unverified` instead of failing them.
-- What kind of product this is — a running desktop application, a server-rendered site, a single-page application, a browser extension — which is the contract's `target.kind`. The kinds and what each asks of the repository are in the `drive-target` skill's `references/targets/README.md`.
+- The backend contract as it exists today: `openapi.json`. When the repository's own exporter writes one, use that; when it does not cover this product, dump it yourself — `uv run python <scripts>/dump_openapi.py <module>:<factory> <scratch>/openapi.json` calls the app factory and writes its OpenAPI document. A new project has no routes yet; the lint then marks calls `unverified` instead of failing them.
+- What kind of product this is — a running desktop application, a server-rendered site, a single-page application, a browser extension — which is the contract's `target.kind`. The kinds and what each asks of the repository are in the `drive-target` skill's `references/runtime-environment.md`.
 - The effort name: the name of the `docs/specs/<effort>/` directory the specs of this map live in. A map whose specs directory does not exist yet takes the map's title.
 - The scope. A full run covers every page in `scenes.json`. A scoped run names the pages it covers; the reverse sweep and the README dispositions then stay inside those pages, and the lint reports the other pages as warnings.
 
@@ -78,7 +84,7 @@ Write `docs/specs/<effort>/screen-contract.yaml`, then render once more with the
 
 ```
 uv run python <drive-target scripts>/extract_skeleton.py <handoff dir> <scratch>/skeleton.json --targets docs/specs/<effort>/targets --contract docs/specs/<effort>/screen-contract.yaml
-uv run python <this skill>/scripts/lint_contract.py --tools <drive-target scripts> docs/specs/<effort>/screen-contract.yaml <scratch>/skeleton.json [<openapi.json>]
+uv run python <scripts>/lint_contract.py --tools <drive-target scripts> docs/specs/<effort>/screen-contract.yaml <scratch>/skeleton.json [<openapi.json>]
 ```
 
 The lint asks the drive-target skill's driver for the target kinds and for the state of the repository's `.mmw/target.json` (a warning while the contract ticket has not landed it; an error once the file is there and a field is still missing), which is why it takes `--tools`. The target trees — one `.aria` and one `.classes` file per design page under `docs/specs/<effort>/targets/` — are what a worker writes toward and what the judges compare against, produced by the judges' own normaliser. They are a derived view of the handoff package and carry its hashes; the lint fails when they go stale. When a `story-parity.py --out` directory sits under the contract directory, the lint warns if a non-App page has a scene that inventory does not cover. `App · ` pages are outside that warning: the story judge's `--pages` takes only non-App mounts. Zero errors, or fix the file. Then write the **API contract** draft — one entry per distinct operation in `calls`, with the request and response fields the rows' `shows` and `on_failure` imply — to `<scratch>/api-contract.md`, for the `to-spec` skill to fold into the spec's Implementation Decisions.
@@ -92,3 +98,11 @@ The lint asks the drive-target skill's driver for the target kinds and for the s
 ## Done when
 
 `screen-contract.yaml` lints clean, every row's `gap` is `aligned`, every scene of `scenes.json` has a declaration, every page has a `mount`, every `Component · ` page has a `component`, only `App · ` pages have a `route`, the target trees under `docs/specs/<effort>/targets/` match the package, every README statement about behaviour has a disposition, `api-contract.md` exists, and the person has answered every entry of the gap list — or, in a run without the person, the gap list is written and the run has said so.
+
+## Exit codes
+
+`scripts/lint_contract.py` prints its warnings first, one per line under `WARN  `, then its errors, one per line under `ERROR `, and last — whatever the outcome — one line `<n> errors, <n> warnings over <n> rows`. A warning never makes the run red.
+
+- `0`: no errors. Warnings may still be there to read.
+- `1`: at least one error. Fix the contract and run it again; zero errors is the bar step 6 sets.
+- `2`: the call itself was wrong — the positional arguments were not the contract and the skeleton (with `openapi.json` optional third), or `--tools` was not given. It prints its own usage to stdout and reads nothing.
