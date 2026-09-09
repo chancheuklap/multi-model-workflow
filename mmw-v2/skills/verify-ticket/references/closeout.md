@@ -1,29 +1,42 @@
-# Closing out
+# Closing the ticket out
 
-## Resolve `<engine>` once
+`<engine>` is resolved once, the way this skill's `SKILL.md` says under `## Resolve `<engine>` once`.
 
-`<engine>` is `scripts/verify-ticket.py`, resolved from this skill's own `SKILL.md` the way its **Resolve `<engine>` once** section says.
+The work is committed and the ticket's last comments are being written. Four runs belong to this moment.
 
-## The four runs
+## `--decisions`
 
-```bash
+```
 <engine> <n> --decisions <file>
+```
+
+It lands a comment whose first line is `DECISIONS`. The file is two sections and no others: `Decisions I made on my own` — every such line written so far, one per line, in the shape the closing comment uses — and `Outside Owns` — the `Outside Owns:` line of the newest `self-run`, followed by one sentence per file saying which criterion could not pass without it; `None` when that line is `None`. A ticket keeps one such comment and no more: a second run is refused with `#<n> already carries a DECISIONS comment` and posts nothing. A missing or extra section is refused the same way, with the section named on stderr.
+
+## `--touched`
+
+```
 <engine> <n> --touched
+```
+
+It lands a `TOUCHED BY #<n>` comment on each open sibling whose `## Owns` covers a file on the newest `self-run`'s `Outside Owns:` line, so the ticket that owns the file learns that somebody else wrote in it. When that line is `None` nothing is posted. It is refused with `#<n> carries no REVIEW comment` on a ticket the reviewer has not reported on yet: the review is what says whether those files should have been touched at all.
+
+## `--draft`
+
+```
 <engine> <n> --draft <out-file>
+```
+
+Nothing lands on the ticket. The closing-comment skeleton is written to `<out-file>`, recounted from the ticket and the newest `self-run`, with `skipped:` and `Decisions I made on my own` left as `<fill>`; its `Sub-issues opened:` is this ticket's sub-issues. Fill those two before the next run — `--closeout` refuses the skeleton until they are.
+
+## `--closeout`
+
+```
 <engine> <n> --closeout <draft>
 ```
 
-`--decisions` lands a comment whose first line is `DECISIONS`. The file is two sections, `Decisions I made on my own` and `Outside Owns`; a section missing from it is a refusal with the reason on stderr. A ticket carries one such comment: a second run is refused with `#<n> already carries a DECISIONS comment`, and nothing is posted.
+It posts the draft, takes `ready-for-agent` off, and closes the ticket. A draft whose first line is `HANDOFF REQUIRED` posts and swaps `ready-for-agent` for `needs-triage`, leaving the ticket open to be judged fresh.
 
-`--touched` lands a `TOUCHED BY #<n>` comment on each open sibling whose `## Owns` covers a file on the newest `self-run`'s `Outside Owns:` line. Until the review has landed it is refused with `#<n> carries no REVIEW comment`. When that line is `None` nothing is posted and the run still succeeds.
-
-`--draft` puts nothing on the ticket. The closing-comment skeleton is written to `<out-file>`, with `skipped:` and `Decisions I made on my own` left as `<fill>` and `Sub-issues opened:` filled with this ticket's sub-issues. `--closeout` refuses the skeleton until those two are filled.
-
-`--closeout` posts the draft, takes `ready-for-agent` off and closes the ticket. A draft opening `HANDOFF REQUIRED` posts and swaps `ready-for-agent` for `needs-triage`, leaving the ticket open to be judged fresh. When it refuses, the first stderr line counts the problems, names the first, and gives the `--check-only` command that prints them all; every problem after the first is one more line opening `also:`. `--closeout <draft> --check-only` reports on a draft and changes nothing, at any time.
-
-## Exit codes
-
-`--draft` writes a file and exits `0`; it refuses nothing. `--closeout` uses `1` for a refusal, so an unmet closing condition reads like an unmet criterion rather than a broken command. `--decisions` and `--touched` use `2`, and post nothing.
+When it refuses, the first line of stderr counts the problems, names the first, and gives the `--check-only` command that prints them all; every problem after the first is one more line opening `also:`. A refused draft leaves the ticket exactly as it was. `--closeout <draft> --check-only` reports on a draft and changes nothing, at any time.
 
 ## What `--closeout` reads the draft against
 
@@ -45,3 +58,9 @@ Fix the draft, or fix what the draft describes, and run it again.
 `HANDOFF REQUIRED` is held to none of the `VERDICT` conditions. It claims nothing was finished, so it is the way out of anything you cannot fix yourself, including a verifier that never ran. Whether the work is any good is what the `CHECK` commands, the verifier and `code-review` decide before you write the draft.
 
 One gate comes after the draft: an accepted `ALL MET` draft still has to pass the repository's own `checks` in `.mmw/target.json` before the ticket closes. `checks` is optional and this run's to read: a list run in order at the repository root, each entry a command string held to the same bound as a `CHECK:` (`DEFAULT_TIMEOUT`, 600 s) or `{"run": "<command>", "timeout": <seconds>}` for a suite that needs longer. Any non-zero exit leaves the ticket open and posts `CHECKS FAILED` with each failed command and its last 20 lines; every exit 0 appends `CHECKS OK <n>/<n>` to the closing comment. A key that is not a list, an entry of another shape, or a file that is not JSON is `CHECKS FAILED`, not absence; a repository without the key is unchanged. `--reverify`, `--lint`, `--check-only` and a `HANDOFF REQUIRED` draft do not run them. `CHECKS FAILED` on the ticket means the draft was fine and the suite was not; fix the code, run the suite yourself, and run `--closeout` again.
+
+## Exit codes
+
+- `--decisions` and `--touched`: `0` posted (or, for `--touched`, nothing to post), `2` refused, with the reason on stderr and nothing posted.
+- `--draft`: `0`. It writes a file and reads no condition, so there is nothing for it to refuse.
+- `--closeout`: `0` the ticket is closed, `1` refused — by one of the conditions above, or by the repository's own `checks`.

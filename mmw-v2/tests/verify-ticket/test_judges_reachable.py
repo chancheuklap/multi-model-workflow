@@ -1,4 +1,4 @@
-"""A run refuses when a `CHECK:` names a judge no `--tools` directory holds.
+"""A run refuses when a `CHECK:` names a judge it cannot reach.
 
 The failure this prevents is not a loud one. A judge that is not on the shell's PATH
 makes its criterion fail `command not found`, gate-check records one more unmet gate,
@@ -31,6 +31,7 @@ def ticket(check: str) -> str:
 
 STORY = ("story-parity.py --contract docs/specs/x/screen-contract.yaml "
          "--pages create-project")
+HARNESS = "harness-guard.py ."
 
 
 class RequireJudges(unittest.TestCase):
@@ -58,6 +59,11 @@ class RequireJudges(unittest.TestCase):
     def test_a_ticket_naming_no_judge_is_not_refused(self):
         self.assertIsNone(vt.require_judges(ticket("pnpm vitest run tests/a.test.ts")))
 
+    def test_a_harness_guard_criterion_that_reaches_nothing_is_refused(self):
+        with self.assertRaises(vt.JudgeUnreachable) as caught:
+            vt.require_judges(ticket(HARNESS))
+        self.assertIn("harness-guard.py", str(caught.exception))
+
     def test_every_missing_judge_is_named_at_once(self):
         body = ("## Acceptance criteria\n\n"
                 f"- [ ] AC1: look\n  CHECK: {STORY}\n  EXPECT: /^STORY OK/m\n"
@@ -66,7 +72,7 @@ class RequireJudges(unittest.TestCase):
                 "  EXPECT: /^BOUNDARY OK/m\n  EVIDENCE: pending\n"
                 "- [ ] AC3: the journey\n  CHECK: journey.py run smoke\n"
                 "  EXPECT: JOURNEY OK smoke\n  EVIDENCE: pending\n"
-                "- [ ] AC4: the harness\n  CHECK: harness-guard.py src\n"
+                f"- [ ] AC4: no acceptance name leaks\n  CHECK: {HARNESS}\n"
                 "  EXPECT: HARNESS OK\n  EVIDENCE: pending\n")
         with self.assertRaises(vt.JudgeUnreachable) as caught:
             vt.require_judges(body)
@@ -74,43 +80,43 @@ class RequireJudges(unittest.TestCase):
                       "harness-guard.py"):
             self.assertIn(judge, str(caught.exception))
 
-    def test_the_harness_guard_is_a_judge_like_the_other_three(self):
-        """A `CHECK:` naming it that the shell cannot answer is refused, not run and failed."""
-        with self.assertRaises(vt.JudgeUnreachable) as caught:
-            vt.require_judges(ticket("harness-guard.py src"))
-        self.assertIn("harness-guard.py", str(caught.exception))
-
 
 class NothingIsWritten(unittest.TestCase):
     """The refusal comes before the run, so the ticket is left exactly as it was.
 
-    Both runs pass `--tools` at an empty directory: `main()` otherwise resolves the
-    `drive-target` skill's `scripts/` beside this checkout, where the judges really are.
+    `main` falls back to the `drive-target` skill's `scripts/` beside this one, which in
+    a checkout holds every judge. These runs point that fallback at an empty directory,
+    so nothing is reachable and the refusal is the one being tested.
     """
 
+    def setUp(self):
+        self.empty = tempfile.TemporaryDirectory()
+        self.nowhere = mock.patch.object(vt, "HERE", Path(self.empty.name))
+        self.nowhere.start()
+
     def tearDown(self):
+        self.nowhere.stop()
+        self.empty.cleanup()
         vt.TOOLS[:] = []
 
     def test_run_checks_exits_2_and_posts_no_comment(self):
         posted = []
-        with tempfile.TemporaryDirectory() as empty, \
-             mock.patch.object(vt, "fetch_body", return_value=ticket(STORY)), \
+        with mock.patch.object(vt, "fetch_body", return_value=ticket(STORY)), \
              mock.patch.object(vt, "post_comment", side_effect=lambda n, b: posted.append(b)):
             err = io.StringIO()
             with redirect_stdout(io.StringIO()), redirect_stderr(err):
-                code = vt.main(["1", "--tools", empty])
+                code = vt.main(["1"])
         self.assertEqual(code, 2)
         self.assertEqual(posted, [])
         self.assertIn("story-parity.py", err.getvalue())
 
     def test_run_lint_exits_2_rather_than_reporting_a_finding(self):
-        with tempfile.TemporaryDirectory() as empty, \
-             mock.patch.object(vt, "fetch_body", return_value=ticket(STORY)), \
+        with mock.patch.object(vt, "fetch_body", return_value=ticket(STORY)), \
              mock.patch.object(vt, "ticket_labels", return_value=["ready-for-agent",
                                                                   "junior-worker"]):
             err = io.StringIO()
             with redirect_stdout(io.StringIO()), redirect_stderr(err):
-                code = vt.main(["1", "--lint", "--tools", empty])
+                code = vt.main(["1", "--lint"])
         self.assertEqual(code, 2)
         self.assertIn("story-parity.py", err.getvalue())
 

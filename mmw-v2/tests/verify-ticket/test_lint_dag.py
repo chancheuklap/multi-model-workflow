@@ -6,6 +6,9 @@ an issue number and dependencies come from the tracker's blocking links. The cas
 below are the ones that file's `_detect_cycles` and `compute_levels` distinguish — the
 two-node cycle Kahn's algorithm cannot drain, the longer cycle `_trace_cycle` walks
 back to a path, and the diamond where a level is the longest path, not the shortest.
+
+An edge is the blocking link the tracker records, and that is what the graph below is
+built from.
 """
 
 import io
@@ -24,18 +27,14 @@ def entries(**graph):
     return [{"id": int(name[1:]), "dependencies": deps} for name, deps in graph.items()]
 
 
-def body(parent=76, blockers=("None (can start immediately)",)):
-    lines = ["## Parent", "", f"#{parent}, Implementation Decisions section 1", "",
-             "## Blocked by", ""]
-    lines += [f"- {b}" for b in blockers]
-    return "\n".join(lines) + "\n"
+def body(parent=76):
+    return f"## Parent\n\n#{parent}, Implementation Decisions section 1\n"
 
 
 def lint_graph(ticket=77, spec=76, batch=(), links=None, outside=None):
     """Run the graph half of --lint over a made-up batch; return (exit code, output).
 
-    `links` is `{ticket: [blockers]}`, the blocking links the tracker records, and the whole
-    of what the graph is built from.
+    `links` is `{ticket: [blockers]}`, the blocking links the tracker records.
 
     `outside` is `{blocker: (spec, state)}` for the blockers that are not in the batch:
     a spec number and `OPEN` or `CLOSED` for a ticket under another spec, and left out

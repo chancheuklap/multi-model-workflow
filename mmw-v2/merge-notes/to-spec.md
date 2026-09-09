@@ -8,6 +8,7 @@
 
 | 段落 | 我们的意图 |
 | --- | --- |
+| frontmatter 的 `description` | 我们没改，**引号也不能去**。值里 `tracker: no` 是一个冒号加空格，YAML 会把不带引号的这一行读成一个嵌套 mapping 的 key，`yaml.safe_load` 对整块 frontmatter 抛 `ScannerError: mapping values are not allowed here`——坏的不是这一个 key，是整份 frontmatter。而 `description` 恰好是每个 host 启动时唯一扫进技能列表的那一行，所以症状不是一声响的失败，是这份技能整个安静地消失；再加上改这一行要重开会话才生效，改动和症状之间还隔着一段距离。理由写在这里，是因为 `description` 的值里装不下注释。别人要求「把 description 统一成不带引号」时 → 这一份是例外，值里含冒号加空格的都是 |
 | frontmatter 的 `disable-model-invocation: true` | 删掉。本仓要求这个 skill 模型可触发——不留上游的人工触发限制，免得漏输入指令时 agent 没法自己认出该用它。上游改这一行 → 仍然删，跟 `agents/openai.yaml` 的 `policy` 块同增同删 |
 | 第 3 步的 seam 由 agent 定、不问 user 那一段，与 `<spec-template>` 里 `## Testing Decisions` 的 `How a test arrives at a state` 那一项 | 我们加的整块。seam 只回答测试在哪**观察**；测试怎么**到达**要测的状态，上游没有问处。判据是「声明的 seam 的写入面够不着」：真数据库的 seam 里测试直接改行就到了，不用写；而经 debugging port 比对界面只读渲染结果、写不进应用状态，就必须在这里点名将来靠什么到达、以及那条通路存在于哪些构建。形态按 consuming repository 自己的可测试性规则给，规则没出口时是那个 repository 要补、不是 spec 去裁定——MMW v2 不该知道某个 repository 的测试规矩写了第几条；spec 只「say so」，后面接一句由 `to-tickets` 出 `reach` ticket，这样这个状态有终点，不在两份技能之间来回。第 3 步明写 seam 由 agent 自己定、不让 user 确认——user 看不懂 seam，问他等于把自己该做的判断推给读不懂的人，也跟开头「只交还一个判断」自相矛盾；user 看到的只是 `## Testing Decisions` 首句那句大白话。上游自己给 `## Testing Decisions` 加了要求 → 收上游措辞，这一项保留；上游加回「问 user 确认 seam」→ 不收 |
 | 第 4 步的 `Leave it unlabelled` | 我们改的：spec 不打 label。spec 是它底下那批 ticket 的容器，不是一件待办。不打 `ready-for-agent` 的 spec 三道关全都过不去：进不了 `is:open label:ready-for-agent` 这条 agent queue，过不了 `preflight` 的第四项（`NOT_READY: … has no ready-for-agent label`），也过不了 `dispatch.sh` 派活前的查票（`REFUSE ticket #… is not labelled ready-for-agent`）。上游改这句措辞 → 仍然不打 label |
@@ -27,15 +28,3 @@
 | 字段 | 我们的意图 |
 | --- | --- |
 | `policy` 整块（`allow_implicit_invocation: false`） | 删掉。跟 `SKILL.md` 的 `disable-model-invocation` 同步去掉，两处必须同增同删 |
-
-## `description` 的引号是必需的
-
-`SKILL.md` frontmatter 的 `description` 带双引号，别的技能不带。这不是不一致：值里有 `tracker: no`，
-一个冒号加空格。去掉引号，YAML 把它读成一个嵌套 mapping 的 key，`yaml.safe_load` 对**整块 frontmatter**
-抛 `ScannerError: mapping values are not allowed here`——坏的不是这一个 key，是整份 frontmatter。
-
-症状不响：`description` 恰好是每个 host 启动时唯一扫进技能列表的那一行，解析不了这份技能就整个安静地不见；
-再加上改 `description` 要重开会话才生效，改动和症状之间还隔着一段距离。
-
-理由没有地方写进文件本身——`description` 的值装不下注释——所以写在这里。上游或任何一次「统一成不带引号」的
-清理走到这一行 → 引号留着，先把整块 frontmatter 喂给 `yaml.safe_load` 跑一遍再说。

@@ -1,6 +1,6 @@
 ---
 name: to-tickets
-description: Break a plan, spec, or the current conversation into a set of tracer-bullet tickets, each declaring its blocking edges, published to the project issue tracker as one issue per ticket with blocking links. Use once a spec or plan is agreed and the work has to become tickets an agent can be dispatched onto.
+description: Break a plan, spec, or the current conversation into a set of tracer-bullet tickets, each declaring its blocking edges, published to the project issue tracker as one issue per ticket with blocking links. Use when a spec or an approved plan has to become the batch an agent works ticket by ticket, and when that batch has to be read back and reported as published.
 ---
 
 # To Tickets
@@ -95,10 +95,8 @@ Present the proposed breakdown as a numbered list. For each ticket an agent work
 - **Title**: short descriptive name
 - **Blocked by**: which other tickets (if any) must complete first
 - **What it delivers**: the end-to-end behaviour this ticket makes work
-- **Worker**: `junior` or `senior`, then ` — ` and the one line that says why. This line is the only time the grade passes a person's eye.
+- **Worker**: `junior` or `senior`, then ` — ` and the one line that buys it. This line is the only time the grade passes a person's eye. `junior-worker` is the default, and a ticket goes to `senior-worker` when getting it wrong is wrong **silently** — money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default — because none of those fail on the day they are written. A ticket whose **Seam** already names a precedent to copy stays on `junior-worker`. Name the worker; the model behind each one lives in the live table `~/.mmw/models.md`, which is the only place a model is written down.
 - **Choices**: every choice question 5 sent here, one line each — the options, and the one you would take. Omit the line when there are none.
-
-`junior-worker` is the default, and the line beside the grade is what buys the other one: a ticket goes to `senior-worker` when getting it wrong is wrong **silently** — money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default — because none of those fail on the day they are written. A ticket whose **Seam** already names a precedent to copy stays on `junior-worker`.
 
 Then the `ready-for-human` tickets, in the same list, each with its **Title**, **Blocked by**, its kind (*reaction* or *reach*) and what is to be looked at.
 
@@ -114,7 +112,7 @@ Iterate until the user approves the breakdown. Write each answered choice into t
 
 ### 7. Publish the tickets to the configured tracker
 
-Publish the approved tickets to the issue tracker `/setup-matt-pocock-skills` configured (GitHub, Linear, …): one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native issue dependencies and sub-issue relationship where it has them. On GitHub, create each ticket as a sub-issue of the spec (`gh issue create --parent <spec>`, or attach it through the `sub_issues` API): the ticket graph of the `verify-ticket` skill's `--lint`, and the board, read only that relationship. Apply the `ready-for-agent` triage label to every ticket an agent works, and beside it the `junior-worker` or `senior-worker` label the breakdown approved in step 6 gives it; the ones a person must judge carry `ready-for-human` instead, and no worker.
+Publish the approved tickets to the issue tracker `/setup-matt-pocock-skills` configured (GitHub, Linear, …): one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native issue dependencies and sub-issue relationship where it has them. On GitHub, create each ticket as a sub-issue of the spec (`gh issue create --parent <spec>`, or attach it through the `sub_issues` API): the ticket graph of the `verify-ticket` skill's `--lint`, and the board, read only that relationship. Apply the `ready-for-agent` triage label to every ticket an agent works, and beside it the `junior-worker` or `senior-worker` label the approved list of step 6 gives it; the ones a person must judge carry `ready-for-human` instead, and no worker.
 
 Work the **frontier**: the tickets that are open, carry `ready-for-agent`, have every blocker closed, and have neither an assignee nor a live session. For a purely linear chain that means top to bottom.
 
@@ -132,7 +130,7 @@ Then each kind of ticket, for the sections that kind must carry. On the ones an 
 - **Read first** and **Seam** are present and non-empty ("none" counts as present). Where **Read first** carries a baseline — anything that records a settled conclusion — its line marks it as one.
 - **Owns** is present and non-empty, every entry is a repository-relative path or glob, and no two tickets on the same frontier overlap there. A change a ticket needs in a tool skill outside the repository is not a ticket and not an **Owns** entry: the toolbox is improved in use, the change is made there at once.
 - Every thing a criterion needs to reach its state — the ones the spec's Testing Decisions names under **How a test arrives at a state** — is under some ticket's **Owns**, and is the `built_by` of that mechanism in the contract. That the builder truly builds it is yours to check: a criterion that assumes a mechanism nobody builds fails on the night it first runs, and by then the batch is out.
-- The `verify-ticket` skill's `--lint` has been run on the ticket's issue number, and every ERROR it reports is fixed before you report the batch. Read every WARN once and either fix it or keep it on purpose. What it looks at, and what each finding means, is in that skill's `references/linting.md`.
+- The `verify-ticket` skill's `--lint` has been run on the ticket's issue number, and every ERROR it reports is fixed before you report the batch. Read every WARN once and either fix it or keep it on purpose. What that run reads and what it reports is that skill's `references/linting.md`.
 
 On the `ready-for-human` ones — no agent can repair one, so all of the five things it holds are checked:
 
@@ -156,7 +154,7 @@ The end-to-end behaviour this ticket makes work, from the user's perspective, no
 
 ## Read first
 
-The source material behind the sections named under **Parent**: decision tickets, ADRs, research files, prototype directories, domain docs — copied from what those sections cite, one per line, each with a word on what it settles. The implementer reads these and nothing else from the spec's Sources. Whatever here records a settled conclusion — the chosen artifact of a prototype, a handoff package downloaded from Claude Design, an ADR's decision in the untitled paragraph under its title, the resolution of a decision ticket — is a **baseline**: a contract, not a reference, marked as one on its line. An interface ticket carries two baseline lines: the handoff package, for look and verbatim copy, and the screen contract with the row ids this ticket owns (`screen-contract.yaml rows: create-project.add-material, create-project.next`), for calls, shown values, transitions and timing. The verbatim copy in the criteria comes from the handoff package; the values shown come from the rows' `shows`. Write "None" if the sections cite nothing.
+The source material behind the sections named under **Parent**: decision tickets, ADRs, research files, prototype directories, domain docs — copied from what those sections cite, one per line, each with a word on what it settles. The implementer reads these and nothing else from the spec's Sources. Whatever here records a settled conclusion — the chosen artifact of a prototype, a handoff package downloaded from Claude Design, the decision an ADR states in the paragraph under its title, the resolution of a decision ticket — is a **baseline**: a contract, not a reference, marked as one on its line. An interface ticket carries two baseline lines: the handoff package, for look and verbatim copy, and the screen contract with the row ids this ticket owns (`screen-contract.yaml rows: create-project.add-material, create-project.next`), for calls, shown values, transitions and timing. The verbatim copy in the criteria comes from the handoff package; the values shown come from the rows' `shows`. Write "None" if the sections cite nothing.
 
 For an interface ticket the rest of this section is **derived, not hand-picked**, because what is not in front of the worker does not exist to it. Two lookups from the row ids above, never from a file path:
 
