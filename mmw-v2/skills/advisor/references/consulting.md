@@ -36,4 +36,4 @@ A second opinion you steered is your own opinion in a stronger model's voice.
 
 ## What comes back
 
-A verdict — "do X, not Y, because Z" — and the single risk that decides it; or that your reading is sound, with the one thing to watch.
+A recommendation — "do X, not Y, because Z" — and the single risk that decides it; or that your reading is sound, with the one thing to watch.
