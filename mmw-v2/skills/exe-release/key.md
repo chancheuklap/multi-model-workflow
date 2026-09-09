@@ -1,12 +1,14 @@
-# Write a key
+# Write a release key
 
-A product ships by declaring one key: `<product>.release-adapter.json`, one file, JSON only.
+A product ships by declaring one release key: `<product>.release-adapter.json`, one file, JSON only.
 
-**Adding a product means writing a key. It does not mean writing Python.** When something cannot be said in the key, the answer is a new key field or a new capability in the skill — never a script in the product repo. A script there is a copy of packaging knowledge that the next product will have to write again.
+The filename says `adapter`, and so does the `--adapter` flag every script below takes. Both are literals a program reads — `release-flow.sh` finds keys by `*.release-adapter.json`, `verify_key.py` recognises them the same way — so they stay as they are. Prose calls this file the release key.
 
-**A product that does not ship through this skill yet starts in [new-product.md](new-product.md)** — whether it has never been packaged, or ships today through its own packaging scripts. That file covers what the repo must contain before a key is worth writing, and it sends you back here for the fields.
+**Adding a product means writing a release key. It does not mean writing Python.** When something cannot be said in the release key, the answer is a new field in it or a new capability in the skill — never a script in the product repo. A script there is a copy of packaging knowledge that the next product will have to write again.
 
-`scripts/release_contracts.py` is the authority on field names and shapes. This file is why each part exists and what it costs to get wrong.
+**A product that does not ship through this skill yet starts in [new-product.md](new-product.md)** — whether it has never been packaged, or ships today through its own packaging scripts. That file covers what the repo must contain before a release key is worth writing, and it sends you back here for the fields.
+
+`<release-scripts>` in every command and path below is the `scripts/` directory the engine lives in; `SKILL.md`'s section **Resolve `<release>` once** resolves it. `<release-scripts>/release_contracts.py` is the authority on field names and shapes. This file is why each part exists and what it costs to get wrong.
 
 ## What belongs where
 
@@ -16,7 +18,7 @@ Ask one question about any piece of the build:
 
 | Answer | Goes | Shape |
 | --- | --- | --- |
-| No, only the values differ | **the key** | JSON |
+| No, only the values differ | **the release key** | JSON |
 | No, it is the same action | **the skill** | code, written once |
 | Yes, it is this app's own business | **the product repo** | code, and keep it thin |
 
@@ -46,17 +48,17 @@ Applied to checks, the same question reads: **a check every product needs is the
 }
 ```
 
-That is a complete key. The engine supplies the pipeline — `verify_key`, `assemble`, `build` — and the skill supplies the diagnoser. A key adds `stages` only for what it needs to run *before* that, on its own repository: the version is not one that already shipped, the repository still matches what the key claims. The engine appends its three afterwards.
+That is a complete release key. The engine supplies the pipeline — `verify_key`, `assemble`, `build` — and the skill supplies the diagnoser. A release key adds `stages` only for what it needs to run *before* that, on its own repository: the version is not one that already shipped, the repository still matches what it claims. The engine appends its three afterwards.
 
-Those three names are reserved; a key that uses one is refused. The rule used to be that a key naming one of them took over the whole list — and a key that had copied `assemble` from another key silently turned the engine's `verify_key` off, with every step still reporting green. If a product needs a different assemble or a different build, the skill is missing a capability: add it there, not by shadowing a stage here.
+Those three names are reserved; a release key that uses one is refused. The rule used to be that a release key naming one of them took over the whole list — and a release key that had copied `assemble` from another one silently turned the engine's `verify_key` off, with every step still reporting green. If a product needs a different assemble or a different build, the skill is missing a capability: add it there, not by shadowing a stage here.
 
-Paths in the key are repository-relative POSIX paths, and two templates are available: `${DESKTOP_DIR}` and `${BUILD_ROOT}`. Absolute paths are refused: the key is written on one machine and executed on another. `${RELEASE_PLUGIN_DIR}` expands to the skill's own `scripts/` directory — use it for anything the skill provides, since where the skill is installed is the host's business.
+Paths in the release key are repository-relative POSIX paths, and two templates are available: `${DESKTOP_DIR}` and `${BUILD_ROOT}`. Absolute paths are refused: the release key is written on one machine and executed on another. `${RELEASE_PLUGIN_DIR}` expands to the skill's own `scripts/` directory — use it for anything the skill provides, since where the skill is installed is the host's business.
 
-**`toolchain` is extras only.** Step 1 of the build checks every command the generated script actually invokes — the compile runner, the package manager, the build-machine setup script — all derived from what this key already says. List a tool here only when the product needs one beyond those. Restating the derived ones is how a key ends up demanding a tool the build does not use, and turning a working build machine away at step 1.
+**`toolchain` is extras only.** Step 1 of the build checks every command the generated script actually invokes — the compile runner, the package manager, the build-machine setup script — all derived from what this release key already says. List a tool here only when the product needs one beyond those. Restating the derived ones is how a release key ends up demanding a tool the build does not use, and turning a working build machine away at step 1.
 
 ### `vendor_artifacts` — a binary the package ships but git cannot hold
 
-ffmpeg, an embedded interpreter, anything too large to commit. Put the files on the build machine under `<cache_root>/vendor/<name>/`, and the key says which ones to copy in and where:
+ffmpeg, an embedded interpreter, anything too large to commit. Put the files on the build machine under `<cache_root>/vendor/<name>/`, and the release key says which ones to copy in and where:
 
 ```jsonc
 "vendor_artifacts": [{
@@ -73,7 +75,7 @@ ffmpeg, an embedded interpreter, anything too large to commit. Put the files on 
 
 **The hashes are the point.** `lock` is a JSON file in the repository recording each file's sha256, and a copy that does not match stops the release. The same tool built from a different source is not the same file, and the difference does not announce itself: the build succeeds, the app runs, and on a customer machine it quietly does the slow thing. The one this rule caught: the locked ffmpeg needs an NVIDIA driver from 2021, the current upstream build needs one from 2025, and customers in between lose GPU encoding and never see an error.
 
-Keep the hashes in the lock file rather than in the key when the repo already reads them -- one place, or they drift.
+Keep the hashes in the lock file rather than in the release key when the repo already reads them -- one place, or they drift.
 
 **A copyleft binary travels with its licence.** Mark the upstream licence file `"license": true`, and list the notices your repo writes itself -- the offer of source a GPL binary obliges you to make:
 
@@ -118,7 +120,7 @@ Staging runs **after** the `runtime_prepare` hook and **before** `asset_parity` 
 
 ### `python_backend` — compiling the backend
 
-One Nuitka invocation per entry in `targets`. The skill renders the command; the key supplies every value in it.
+One Nuitka invocation per entry in `targets`. The skill renders the command; the release key supplies every value in it.
 
 ```jsonc
 "python_backend": {
@@ -171,13 +173,13 @@ Native extensions that need a DLL the compiler does not carry go in `build_targe
 }
 ```
 
-Every field has a default that fits the common case; `"electron": {}` is a complete declaration. The front end is installed and built with pnpm and a `build` script — one set of commands in the skill, not a field each key restates. NSIS comes with electron-builder, so the build machine does not need a standalone `makensis`: requiring one more tool would turn a working build machine away at step 1.
+Every field has a default that fits the common case; `"electron": {}` is a complete declaration. The front end is installed and built with pnpm and a `build` script — one set of commands in the skill, not a field each release key restates. NSIS comes with electron-builder, so the build machine does not need a standalone `makensis`: requiring one more tool would turn a working build machine away at step 1.
 
-`"installer": "repo_hook"` is for a product whose delivery format is its own — a self-update feed, or a hand-written installer whose semantics (carrying the VC++ runtime, stamping an app id, keeping user data on uninstall) the generic installer cannot reproduce. That key must also declare `build_hooks.installer`. Leave a product on `electron_builder` unless it truly has its own format.
+`"installer": "repo_hook"` is for a product whose delivery format is its own — a self-update feed, or a hand-written installer whose semantics (carrying the VC++ runtime, stamping an app id, keeping user data on uninstall) the generic installer cannot reproduce. That release key must also declare `build_hooks.installer`. Leave a product on `electron_builder` unless it truly has its own format.
 
 ### `build_hooks` — where the product gets called back
 
-Hooks hang on phases, not on step numbers: which steps exist depends on what the key declares, so the numbers move; the phases do not.
+Hooks hang on phases, not on step numbers: which steps exist depends on what the release key declares, so the numbers move; the phases do not.
 
 | Phase | Hook | What the product does here |
 | --- | --- | --- |
@@ -188,19 +190,19 @@ Hooks hang on phases, not on step numbers: which steps exist depends on what the
 | `installer_ready` | `installer` | only with `"installer": "repo_hook"` |
 | `release_ready` | `package_integrity` | the installer exists — verify it |
 
-**`build_hooks` is optional as a whole, and a first key omits it.** Add one when the product has a check of its own to run at that moment. Declaring a hook with an empty argv is refused: that reads as configured but does nothing.
+**`build_hooks` is optional as a whole, and a first release key omits it.** Add one when the product has a check of its own to run at that moment. Declaring a hook with an empty argv is refused: that reads as configured but does nothing.
 
 **A hook's own logging has to survive the build machine's codepage.** A Windows build machine outside an English locale runs Python with a legacy codepage on both ends, and a hook that moves subprocess output around crashes on it while the check it ran was passing. Both directions need saying, once, in the hook: read with `subprocess.run(..., encoding="utf-8", errors="replace")`, and at start-up `sys.stdout.reconfigure(errors="replace")` for what the hook prints itself. Without the first, the reader thread dies and `result.stdout` is `None`; without the second, one Chinese character or one replacement character raises on the way out.
 
-A hook is an **addition**, never a substitute. Two checks the skill runs on every build, with no hook and no key field:
+A hook is an **addition**, never a substitute. Two checks the skill runs on every build, with no hook and no field in the release key:
 
-- **No business source in the shipped tree.** Compiling exists to not ship source. A package that ships it still installs and still runs, so nothing reveals the leak — the product's commercial premise is simply gone. The packages to look for are `python_backend.include_packages`, which the key already declares.
+- **No business source in the shipped tree.** Compiling exists to not ship source. A package that ships it still installs and still runs, so nothing reveals the leak — the product's commercial premise is simply gone. The packages to look for are `python_backend.include_packages`, which the release key already declares.
 - **The compiler's leftovers do not ship.** Nuitka leaves `<entry>.build`, `<entry>.dist` and `<entry>.onefile-build` beside the finished exe, in the directory the packer copies whole. Left there, the same content ships three times over — inside the exe, as the dist tree, and as the raw payload; one product carried 4 GB that way. `.build` is worse than bloat: it holds the C the compiler generated from the product's own source. The engine removes all three, right after the payload check reads them, so **do not put `--remove-output` in `extra_flags`**: it deletes the directories during the compile and downgrades the payload check to comparing exe tails.
-- **An installer really landed at `installer_glob`.** "The installer step exited 0" and "there is an installer" are different facts: a packer can fail its own cleanup, a repo hook can run half way. Which is why a key with an installer step must declare where the installer lands. The check runs after the `package_integrity` hook, so the glob may point at a delivery directory that the hook itself fills once the gates pass.
+- **An installer really landed at `installer_glob`.** "The installer step exited 0" and "there is an installer" are different facts: a packer can fail its own cleanup, a repo hook can run half way. Which is why a release key with an installer step must declare where the installer lands. The check runs after the `package_integrity` hook, so the glob may point at a delivery directory that the hook itself fills once the gates pass.
 
 ### What is genuinely optional
 
-`fix_executor`, `editable_paths`, `protection_source`, `post_fix_gate`, `derive`, `event_sink` are the self-heal and observability equipment. These are optional because each one only exists once the product has grown the thing it guards — a derived artifact to regenerate, a test suite to re-run after an automated fix, a log system to feed. A product with none of them still ships a correct package; the engine skips what the key does not declare, and says so rather than pretending it ran.
+`fix_executor`, `editable_paths`, `protection_source`, `post_fix_gate`, `derive`, `event_sink` are the self-heal and observability equipment. These are optional because each one only exists once the product has grown the thing it guards — a derived artifact to regenerate, a test suite to re-run after an automated fix, a log system to feed. A product with none of them still ships a correct package; the engine skips what the release key does not declare, and says so rather than pretending it ran.
 
 ### `diagnose_rules` — this product's own log patterns
 
@@ -208,25 +210,30 @@ Patterns only this product's build produces, matched **before** the skill's gene
 
 ## Prove it without building
 
-Check the key against the repo first. It is seconds, and it catches the class of mistake whose alternative is finding out forty minutes into a compile:
+Check the release key against the repo first. It is seconds, and it catches the class of mistake whose alternative is finding out forty minutes into a compile. What each exit code below means is in `SKILL.md`'s section **Exit codes**.
 
 ```bash
-uv run --with 'pydantic>=2' python scripts/verify_key.py --adapter <key> --repo-root <repo>
+uv run --with 'pydantic>=2' python <release-scripts>/verify_key.py --adapter <key> --repo-root <repo>
 ```
 
-It checks only what a machine can decide: every path the key names exists, the self-check runs an executable the key actually builds, no two compile targets write the same filename, no `nofollow_imports` pattern blocks a module the self-check needs, and — the expensive one — the key's `--adapter` arguments point at *this* key. Give a key a stage that reads a different key and the build runs from that one while every step reports green.
+It checks only what a machine can decide: every path the release key names exists, the self-check runs an executable the release key actually builds, no two compile targets write the same filename, no `nofollow_imports` pattern blocks a module the self-check needs, and — the expensive one — its `--adapter` arguments point at *this* release key. Give a release key a stage that reads a different one and the build runs from that one while every step reports green.
 
 Then assemble and read the script:
 
 ```bash
-uv run --with 'pydantic>=2' python scripts/release_script_assembler.py assemble \
-  --adapter <key> --repo-root <repo> --output /tmp/release.ps1 --context-output /tmp/ctx.json
-uv run --with 'pydantic>=2' python scripts/release_script_assembler.py check \
-  --script /tmp/release.ps1 --context /tmp/ctx.json
+out="$(mktemp -d)"
+script="$out/release.ps1"
+context="$out/ctx.json"
+uv run --with 'pydantic>=2' python <release-scripts>/release_script_assembler.py assemble \
+  --adapter <key> --repo-root <repo> --output "$script" --context-output "$context"
+uv run --with 'pydantic>=2' python <release-scripts>/release_script_assembler.py check \
+  --script "$script" --context "$context"
 ```
 
-Read the generated script. Every step it prints is a step the key asked for, the compile carries every flag you declared and nothing else, and no step refers to a path the repo does not have.
+`$out` is this run's own directory. A fixed name under `/tmp` is shared: two runs at once overwrite each other's assembled script, and the check reads whichever landed last.
 
-With a build machine reachable, also check that the generated PowerShell parses on it — `tests/check-generated-powershell.sh <host> /tmp/release.ps1`. A syntax error caught here costs seconds; caught on the build machine it costs the whole compile before it.
+Read the generated script. Every step it prints is a step the release key asked for, the compile carries every flag you declared and nothing else, and no step refers to a path the repo does not have.
 
-Then ship it once, and read what the build machine says. A key is proven by a package that installs, not by a script that assembles.
+With a build machine reachable, also check that the generated PowerShell parses on it — `tests/check-generated-powershell.sh <host> "$script"`. A syntax error caught here costs seconds; caught on the build machine it costs the whole compile before it.
+
+Then ship it once, and read what the build machine says. A release key is proven by a package that installs, not by a script that assembles.
