@@ -129,8 +129,8 @@ def negative_env(env: dict[str, str], data: dict) -> dict[str, str]:
 
 def run_named(name: str, start: Path | None = None) -> int:
     root = repo_root(start)
-    env = command_env(root)
     try:
+        env = command_env(root)
         cfg = target_config(root)
     except SystemExit as exc:
         print(exc, file=sys.stderr)
@@ -151,6 +151,10 @@ def run_named(name: str, start: Path | None = None) -> int:
     start_cmd = cfg.get("start")
     if not isinstance(start_cmd, str) or not start_cmd.strip():
         return bail("`.mmw/target.json` has no `start` command")
+
+    stop_cmd = cfg.get("stop")
+    if not isinstance(stop_cmd, str) or not stop_cmd.strip():
+        return bail("`.mmw/target.json` has no `stop` command")
 
     try:
         run_command(start_cmd, root, env=env)

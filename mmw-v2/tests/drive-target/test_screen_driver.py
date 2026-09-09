@@ -54,7 +54,7 @@ CONTRACT = {
                                    "reach": ["seed:project-with-subjects"],
                                    "open": ["workbench-shell.delete.preview.allowed"]},
         "library-name-duplicate": {"page": "Component · 新建商品项目.dc.html",
-                                   "route": "#/new-project", "mount": "create-project",
+                                   "route": "#/new-project",
                                    "reach": ["seed:library-ready"],
                                    "open": [{"row": "create-project.name",
                                              "value": "{existing_project_name}"}]},
@@ -87,7 +87,7 @@ CATALOGUE = {
 
 
 class TestScreenAxis(unittest.TestCase):
-    """`mount` is declared once per page; a scene may override it."""
+    """`mount` is declared on the page, and only there; a scene takes its page's."""
 
     def test_page_defaults_flow_into_scenes(self):
         scenes = sd.scenes_of(CONTRACT, CATALOGUE)
@@ -95,8 +95,11 @@ class TestScreenAxis(unittest.TestCase):
         self.assertEqual(s.mount, "workbench-shell")
         self.assertEqual(s.props, {"scenario": "library-delete-confirm"})
 
-    def test_a_scene_overrides_its_page(self):
-        s = sd.scenes_of(CONTRACT, CATALOGUE)["library-name-duplicate"]
+    def test_a_mount_written_on_a_scene_is_not_read(self):
+        contract = dict(CONTRACT, scenes=dict(CONTRACT["scenes"]))
+        contract["scenes"]["library-name-duplicate"] = dict(
+            contract["scenes"]["library-name-duplicate"], mount="workbench-shell")
+        s = sd.scenes_of(contract, CATALOGUE)["library-name-duplicate"]
         self.assertEqual(s.mount, "create-project")
         self.assertEqual(s.props, {"scenario": "library-name-duplicate"})
 

@@ -249,6 +249,12 @@ class TestRemovedFields(unittest.TestCase):
         self.assertTrue(any("after" in e and "create-project.add-material" in e
                             for e in errors), errors)
 
+    def test_a_scene_with_mount_is_an_error(self):
+        doc = contract()
+        doc["scenes"]["empty"]["mount"] = "create-project"
+        errors, _ = self.lint(doc)
+        self.assertTrue(any("mount" in e and "empty" in e for e in errors), errors)
+
     def test_a_non_app_page_with_route_is_an_error(self):
         doc = contract()
         doc["pages"][PAGE_A]["route"] = "#/new-project"

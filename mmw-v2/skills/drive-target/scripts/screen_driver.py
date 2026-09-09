@@ -142,7 +142,7 @@ def scenes_of(doc: dict, catalogue: dict[str, dict]) -> dict[str, Scene]:
         page_decl = pages.get(page) or {}
         out[name] = Scene(
             name=name, page=page,
-            mount=str(decl.get("mount") or page_decl.get("mount") or ""),
+            mount=str(page_decl.get("mount") or ""),
             props=catalogue.get(name, {}).get("props") or {})
     return out
 
@@ -345,53 +345,6 @@ def discover(cfg: dict, root: Path, env: dict[str, str] | None = None) -> dict:
 ARIA_LINE = re.compile(
     r'^(?P<indent>\s*)- (?P<role>[a-zA-Z]+)(?: "(?P<name>(?:[^"\\]|\\.)*)")?'
     r'(?P<attrs>(?: \[[^\]]*\])*)(?::\s*(?P<value>.*))?\s*$')
-
-
-def normalize_aria_with_chains(text: str) -> tuple[list[str], list[tuple[tuple[str, str], ...]]]:
-    """The comparison lines and, aligned with them, each node's full ancestor chain.
-
-    Two views of one walk, because the two jobs want opposite things. A **comparison**
-    line is name-sensitive and quiet: wrong copy has to fail, and an ancestor repeated on
-    every descendant would report one wrong name many times, so a line carries its nearest
-    *named* ancestor and nothing more. **Locating** a control wants the opposite — names
-    are product data (a card list ordered by update time, a timestamp rendered raw) and a
-    locator built on them moves when the data moves — so it gets the chain of every
-    ancestor, named or not, and matches on roles.
-
-    Returned together from one walk so the two can never drift: `chains[i]` belongs to
-    `lines[i]`.
-    """
-    lines: list[str] = []
-    chains: list[tuple[tuple[str, str], ...]] = []
-    named: list[tuple[int, str]] = []   # the comparison view's ancestors
-    every: list[tuple[int, tuple[str, str]]] = []   # the locating view's
-    for ln in text.splitlines():
-        m = ARIA_LINE.match(ln)
-        if not m:
-            continue
-        indent = len(m.group("indent").expandtabs(2))
-        while named and named[-1][0] >= indent:
-            named.pop()
-        while every and every[-1][0] >= indent:
-            every.pop()
-        role, name, attrs, value = (m.group("role"), m.group("name"),
-                                    m.group("attrs") or "", m.group("value"))
-        shown = None if role in LANDMARKS else name
-        every.append((indent, (role, name or "")))
-        if shown is None and not value and not attrs.strip() and role not in COMPARED_UNNAMED:
-            continue
-        if value:
-            node = f"- {role}: {value.strip()}"
-        elif shown is not None:
-            node = f'- {role} "{shown}"{attrs}'
-        else:
-            node = f"- {role}{attrs}"
-        parent = named[-1][1] if named else None
-        lines.append(f"{node} < {parent[2:]}" if parent else node)
-        chains.append(tuple(a for _, a in every[:-1]))
-        if shown is not None or value or role in COMPARED_UNNAMED:
-            named.append((indent, node))
-    return lines, chains
 
 
 def normalize_aria(text: str) -> list[str]:

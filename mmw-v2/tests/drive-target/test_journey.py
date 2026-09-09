@@ -40,6 +40,10 @@ def load(name: str, path: Path):
 
 jy = load("journey", JOURNEY)
 hg = load("harness_guard", GUARD)
+# The lease the driver claims through, reached from the function `journey.py` itself
+# imported: filling this registry is filling the one a run started here would claim from,
+# and it is this suite's own `MMW_HOME`, never the machine's.
+LEASE = sys.modules[jy.command_env.__globals__["leased_environment"].__module__]
 
 
 def write_exec(path: Path, body: str) -> None:
@@ -207,6 +211,29 @@ class JourneyOrder(unittest.TestCase):
         self.assertEqual(out, "JOURNEY OK via-npm\n")
         self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
                          ["start", "discover", "script", "stop", "script"])
+
+    def test_a_full_machine_is_exit_2_and_nothing_is_started(self):
+        held = tempfile.TemporaryDirectory()
+        self.addCleanup(held.cleanup)
+        # `claim` sweeps before it takes a slot, and a slot only comes back when its
+        # worktree is gone, so the directories that fill the table have to be real.
+        for n in range(LEASE.SLOTS):
+            tree = Path(held.name) / f"held-{n}"
+            tree.mkdir()
+            LEASE.claim(tree)
+        code, out, err = self.repo.run("demo")
+        self.assertEqual(code, 2)
+        self.assertNotIn("JOURNEY", out)
+        self.assertIn("instance slots", err)
+        self.assertFalse(self.repo.log.exists(), "a command ran on a full machine")
+
+    def test_a_missing_stop_is_refused_before_start_and_is_exit_2(self):
+        self.repo.write_target(extra={"stop": ""})
+        code, out, err = self.repo.run("demo")
+        self.assertEqual(code, 2)
+        self.assertIn("no `stop` command", err)
+        self.assertNotIn("JOURNEY", out)
+        self.assertFalse(self.repo.log.exists(), "the product was started anyway")
 
     def test_a_missing_start_runs_stop_and_is_exit_2(self):
         self.repo.write_target(extra={"start": ""})
