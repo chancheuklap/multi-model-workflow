@@ -11,9 +11,9 @@ Ship an install package for every product this change touched, far enough that t
 
 ## Resolve `<release>` once
 
-`<release>` in every command below is `bash <absolute path of scripts/release-flow.sh>` — the engine, next to this file — so `<release> where` runs `bash /…/scripts/release-flow.sh where`. `<release-scripts>` is the `scripts/` directory that engine lives in, and [key.md](key.md) runs two more executables out of it. Resolve both from this file's own location, once. The path differs by machine and by host, and `install.sh` puts this skill wherever the host that gave it to you reads its skills from.
+`<release>` in every command below is `bash <absolute path of scripts/release-flow.sh>` — the engine, next to this file — so `<release> where` runs `bash /…/scripts/release-flow.sh where`. `<release-scripts>` is the `scripts/` directory that engine lives in, and [key.md](references/key.md) runs two more executables out of it. Resolve both from this file's own location, once. The path differs by machine and by host, and `install.sh` puts this skill wherever the host that gave it to you reads its skills from.
 
-The engine is the deterministic layer: the state machine, the three failure grades, path guards, same-cause circuit breakers, and budget breakers all live there. **You are the judgment layer:** name the products for this run, read the state and run the action it names, and diagnose the one class of pause the engine cannot judge. Grades, guards, and the executor stay with the engine — [driving.md](driving.md) states that boundary at the step where it applies.
+The engine is the deterministic layer: the state machine, the three failure grades, path guards, same-cause circuit breakers, and budget breakers all live there. **You are the judgment layer:** name the products for this run, read the state and run the action it names, and diagnose the one class of pause the engine cannot judge. Grades, guards, and the executor stay with the engine — [driving.md](references/driving.md) states that boundary at the step where it applies.
 
 ## Exit codes
 
@@ -53,8 +53,8 @@ Decide which to ship: take the paths this change touched (`git diff --name-only 
 If you cannot tell, include the product and write the reason in the table below, then continue. Do not omit a product. A product whose config names no path that could ever match is a config to fix, not a product to skip.
 
 **A product this change touched but no release key names does not ship yet.** Bringing it in is one
-JSON file plus whatever the repo still lacks: [new-product.md](new-product.md) starts there and
-hands off to [key.md](key.md) for the fields. Do not write packaging scripts in the product repo
+JSON file plus whatever the repo still lacks: [new-product.md](references/new-product.md) starts there and
+hands off to [key.md](references/key.md) for the fields. Do not write packaging scripts in the product repo
 to work around a release key that cannot say something; add the field or the capability, where every
 product gets it.
 
@@ -72,11 +72,11 @@ For each product from step 2, in order:
 <release> init --manifest <absolute path of that config>
 ```
 
-Then read [driving.md](driving.md) in full and drive until the package is ready. **That file is the driving contract.** This skill does not retell it.
+Then read [driving.md](references/driving.md) in full and drive until the package is ready. **That file is the driving contract.** This skill does not retell it.
 
 `<release> close` one product before starting the next. Do not run two at once — the repo has one state file.
 
-A round that will not produce a package — the product is blocked and you are shipping another one first — is ended the way [driving.md](driving.md)'s **Close** section says. It matters at this level because step 4 below reads delivery records as fact.
+A round that will not produce a package — the product is blocked and you are shipping another one first — is ended the way [driving.md](references/driving.md)'s **Close** section says. It matters at this level because step 4 below reads delivery records as fact.
 
 ## 4. Same-commit check
 
@@ -96,7 +96,7 @@ A mismatch: ship that product again (back to step 3, only the mismatches). Then 
 
 ## 5. User install test
 
-[driving.md](driving.md)'s **Close** section says where a package path comes from and what to say when there is none.
+[driving.md](references/driving.md)'s **Close** section says where a package path comes from and what to say when there is none.
 
 Give the user: which products shipped, where each package is, which commit this set is.
 
