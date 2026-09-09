@@ -1,9 +1,14 @@
-"""Remove class rules that neither templates, logic, nor fixtures reference. Read the printed list before accepting it.
-Usage: deadsweep.py <src dir> <fixtures.js> <css files...>
+"""Remove class rules that neither templates, logic, nor fixtures reference.
+Usage: deadsweep.py [--dry-run] <src dir> <fixtures.js> <css files...>
+--dry-run prints the deletion list and writes nothing. Run it that way first and read the list:
+a real run rewrites every stylesheet in place, and the only way back is git, which the working
+directory need not be under.
 The corpus is every src/*.py, the fixtures, mk.py, and every .dc.html in the working directory that no source builds
 (an app page written by hand, a page written inside Claude Design) — those pages are the only record of the classes they use."""
 import re,pathlib,sys
-srcdir,fx=pathlib.Path(sys.argv[1]),pathlib.Path(sys.argv[2])
+args=[a for a in sys.argv[1:] if a!='--dry-run']
+dry='--dry-run' in sys.argv[1:]
+srcdir,fx=pathlib.Path(args[0]),pathlib.Path(args[1])
 built={p.stem for p in srcdir.glob('*.py')}
 handwritten=[p for p in sorted(srcdir.parent.glob('*.dc.html')) if p.name[:-len('.dc.html')] not in built]
 corpus=''.join(p.read_text() for p in srcdir.glob('*.py'))+fx.read_text()+(srcdir.parent/'mk.py').read_text()+''.join(p.read_text() for p in handwritten)
@@ -13,7 +18,7 @@ def alive(sel):
     base=re.sub(r'::?[a-zA-Z-]+(\([^)]*\))?','',sel); base=re.sub(r'\[[^\]]*\]','',base)
     cls=re.findall(r'\.([\w-]+)',base)
     return all(used(c) or any(c.startswith(p) for p in dyn_prefixes) for c in cls)
-for f in sys.argv[3:]:
+for f in args[2:]:
     css=open(f).read(); removed=[]
     def walk(s):
         res=[];pos=0
@@ -39,5 +44,6 @@ for f in sys.argv[3:]:
                 elif cm: res.append(lead+cm.rstrip()+'\n')
             pos=j
         return ''.join(res)
-    new=re.sub(r'\n{3,}','\n\n',walk(css)); open(f,'w').write(new)
+    new=re.sub(r'\n{3,}','\n\n',walk(css))
     print(f,"removed",len(removed),len(css),"->",len(new)); print("  ",sorted(set(removed)))
+    if not dry: open(f,'w').write(new)
