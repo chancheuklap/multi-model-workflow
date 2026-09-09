@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# check.sh: each of the six checks passes on a good repo and fails on exactly the broken one.
+# check.sh: each of the six checks passes on a good repo and fails on exactly the broken one,
+# and what --limit and --list print is what the checks use.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CHECK="$SCRIPT_DIR/../../skills/manage-agents-md/scripts/check.sh"
@@ -104,6 +105,25 @@ expect_fail "no root AGENTS.md" "$d" "AGENTS.md: missing"
 
 d="$TMP/ignored"; good_repo "$d"; mkdir -p "$d/node_modules/x" "$d/.worktrees/y"; printf 'x\n' > "$d/node_modules/x/AGENTS.override.md"; printf 'x\n' > "$d/.worktrees/y/AGENTS.override.md"
 expect_pass "node_modules and .worktrees are skipped" "$d"
+
+LIMIT="$(bash "$CHECK" --limit)"
+d="$TMP/limitprint"; good_repo "$d"
+n="$(wc -l < "$d/AGENTS.md" | tr -d ' ')"
+while [ "$n" -lt $((LIMIT + 1)) ]; do echo "- filler" >> "$d/AGENTS.md"; n=$((n + 1)); done
+expect_fail "the printed limit is the limit enforced" "$d" "AGENTS.md: $((LIMIT + 1)) lines, limit is $LIMIT"
+
+d="$TMP/listskip"; good_repo "$d"; mkdir -p "$d/node_modules/x" "$d/.worktrees/y"
+printf 'x\n' > "$d/node_modules/x/AGENTS.md"; printf 'x\n' > "$d/.worktrees/y/CLAUDE.md"
+listed="$(bash "$CHECK" --list "$d")"
+if grep -qE 'node_modules|\.worktrees' <<<"$listed"; then
+  no "the printed list skips node_modules and .worktrees ($listed)"
+else ok "the printed list skips node_modules and .worktrees"; fi
+
+d="$TMP/listall"; good_repo "$d"; printf 'x\n' > "$d/src/AGENTS.override.md"
+listed="$(bash "$CHECK" --list "$d")"
+if grep -qx 'AGENTS.md' <<<"$listed" && grep -qx 'CLAUDE.md' <<<"$listed" && grep -qx 'src/AGENTS.override.md' <<<"$listed"; then
+  ok "the printed list holds all three file names"
+else no "the printed list holds all three file names ($listed)"; fi
 
 echo "  $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

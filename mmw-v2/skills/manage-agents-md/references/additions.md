@@ -1,6 +1,6 @@
 # Additions
 
-Branch: **incremental**. You have `scope.md` and `survey-list.md` built from the change sets. For each `AGENTS.md` in scope you now decide what the code changes made false and what they added, and edit the file. Every edit has code evidence in the survey list; the user-owned lines named in [incremental.md](incremental.md) stay as they are, and a doubt about one of them goes to the report.
+Situation: **incremental**. You have `scope.md` and `survey-list.md` built from the change sets. For each `AGENTS.md` in scope you now decide what the code changes made false and what they added, and edit the file. Every edit has code evidence in the survey list; the user-owned lines named in [incremental.md](incremental.md) stay as they are, and a doubt about one of them goes to the report.
 
 ## Steps
 
@@ -12,9 +12,9 @@ For each file in `scope.md`:
 
 ## Where an addition goes
 
-A fact whose place is a directory goes into that directory's `AGENTS.md`; when the directory has no pair yet, create both files on the nested template in [write.md](write.md), with the purpose line taken from the survey list's purpose entry and listed under **Pending user decisions** for confirmation. A fact whose place is `root` goes into the root file. A directory whose last rule just disappeared is an **empty pair**: it keeps both files on this branch; the report lists it under **Pending user decisions** and the user removes it.
+A fact whose place is a directory goes into that directory's `AGENTS.md`; when the directory has no pair yet, create both files on the nested template in [write.md](write.md), with the purpose line taken from the survey list's purpose entry and listed under **Pending user decisions** for confirmation. A fact whose place is `root` goes into the root file. A directory whose last rule just disappeared is an **empty pair**: it keeps both files in this situation; the report lists it under **Pending user decisions** and the user removes it.
 
-When the root file passes 150 lines after additions, move the lines whose place is one directory into that directory's file, as [write.md](write.md) says.
+When the root file passes the limit `check.sh` sets after additions, move the lines whose place is one directory into that directory's file, as [write.md](write.md) says.
 
 Done when every file in `scope.md` has an entry in `changes.md` — edits with evidence, or "no change needed".
 

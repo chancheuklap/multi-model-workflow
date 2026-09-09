@@ -1,10 +1,10 @@
 # Write
 
-Branches **create** and **rewrite**. You have `survey-list.md`, with the user's answers appended. You now write the files, root first, one at a time, from that list alone. Each line you write comes from one entry; an idea with no entry is not written. Entries of type defect are never written; they go to the report that [verify.md](verify.md) writes at the end.
+Situations **create** and **rewrite**. You have `survey-list.md`, with the user's answers appended. You now write the files, root first, one at a time, from that list alone. Each line you write comes from one entry; an idea with no entry is not written. Entries of type defect are never written; they go to the report that [verify.md](verify.md) writes at the end.
 
 ## Language
 
-Write in the language the repository's existing instruction files use; on the create branch, the language the user answered in. Translate the section headings of the templates; keep the subdirectory sentence in English as shown, because `scripts/check.sh` looks for it by its English words.
+Write in the language the repository's existing instruction files use; in the create situation, the language the user answered in. Translate the section headings of the templates; keep the subdirectory sentence in English as shown, because `<scripts>/check.sh` looks for it by its English words.
 
 ## Steps
 
@@ -57,7 +57,7 @@ A fact that describes a practice is a convention; a fact that describes a conseq
 
 The last line is written exactly as shown, in English whatever the file's language. Hosts that load nested files on their own lose nothing by it; hosts that stop at the working directory depend on it.
 
-A root file carries only the sections above: no directory map, no environment variables, no list of installed skills, no commit attribution, no metadata header, no index of nested files. It is 150 lines at most; past that, rules that hold only in one directory move to that directory's file and documents get a row in External References instead of a summary.
+A root file carries only the sections above: no directory map, no environment variables, no list of installed skills, no commit attribution, no metadata header, no index of nested files. It stays within the limit `check.sh` sets — `bash <scripts>/check.sh --limit` prints it; past that, rules that hold only in one directory move to that directory's file and documents get a row in External References instead of a summary.
 
 ## Nested template
 
@@ -131,7 +131,7 @@ Good — each rule has its own narrow trigger:
 Write the smallest useful file. Use only sections that add non-obvious value.
 
 - Use headings, bullets, and tables; avoid paragraphs outside the identity lines.
-- Use repo-relative paths; avoid vague references like "see docs". A path that stands for a whole class of files carries a `<name>` placeholder for the varying segment (`mmw-v2/skills/<name>/tests/run.sh`); `scripts/check.sh` skips a backticked token with `<…>` and checks every other slashed token against the disk.
+- Use repo-relative paths; avoid vague references like "see docs". A path that stands for a whole class of files carries a `<name>` placeholder for the varying segment (`packages/<name>/package.json`); `<scripts>/check.sh` skips a backticked token with `<…>` and checks every other slashed token against the disk.
 - List exact external files for setup, architecture, API specs, security, release, and policy docs when they exist.
 - Prefer file-scoped test/lint/typecheck commands; include full builds only when no narrower command exists. Write only commands whose meaning `--help` and the manifest's scripts do not give. On a rewrite every command in the old file passes through this rule: one whose meaning is discoverable stays in `inputs.md`, every other one is kept.
 - Put commands in tables when there is more than one.
@@ -141,8 +141,8 @@ Write the smallest useful file. Use only sections that add non-obvious value.
 
 ## Pointers
 
-An External References row and the subdirectory sentence are context pointers: their wording decides whether an agent reaches the file. The criteria are the `writing-for-agents` skill's Context pointers, Pruning and Negation sections — read them there.
+An External References row and the subdirectory sentence are context pointers: their wording decides whether an agent reaches the file. The criteria are the `writing-for-agents` skill's Context pointers, Pruning and Leading words sections — read them there.
 
-Done when every pair from step 1 exists, every line in every file traces to one survey-list entry, and the root is within 150 lines.
+Done when every pair from step 1 exists, every line in every file traces to one survey-list entry, and the root is within the limit `check.sh` sets.
 
 Next: [prune.md](prune.md).

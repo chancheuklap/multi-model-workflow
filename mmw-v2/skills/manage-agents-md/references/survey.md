@@ -2,7 +2,7 @@
 
 You are collecting the facts the `AGENTS.md` files will be written from. Everything that ends up in a file traces back to an entry in the **survey list** you build here, or to the user's answer later. So the survey covers the whole repository; the shortlist below is only what every surveyor reads first.
 
-On the **incremental** branch the survey covers only `scope.md`: for each listed `AGENTS.md`, its change set and the lines in that file the changes bear on. Dispatch one directory group per listed file and no topic groups, and skip the reading list below; the change set is the whole assignment.
+In the **incremental** situation the survey covers only `scope.md`: for each listed `AGENTS.md`, its change set and the lines in that file the changes bear on. Dispatch one directory group per listed file and no topic groups, and skip the reading list below; the change set is the whole assignment.
 
 ## What every surveyor reads first
 
@@ -66,11 +66,11 @@ When two parts of the repository do the same thing differently, report both with
 
 Merge every report into one file, `survey-list.md` in the scratch directory: every entry kept with its evidence, exact duplicates dropped, sorted by place with `root` first. This file is the **survey list**; every later step reads it and nothing else from the survey. [ask.md](ask.md) appends the user's answers to it as entries of type identity and purpose.
 
-Done when every group has reported ("nothing found" counts), `grep -c '^- fact:' survey-list.md` equals `grep -c '^  evidence:' survey-list.md`, and the entries are sorted by place.
+Done when every group has reported ("nothing found" counts), every `- fact:` line in `survey-list.md` is followed by its own `  evidence:` line and every `  evidence:` line follows a `- fact:` line — read the file top to bottom and name every line on either side that has no partner — and the entries are sorted by place.
 
-Next, by branch:
+Next, by the word in `situation.md`:
 
-| Branch | Open |
+| Situation | Open |
 | --- | --- |
 | create | [ask.md](ask.md) |
 | rewrite | [migrate.md](migrate.md) |

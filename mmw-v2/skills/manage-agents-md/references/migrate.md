@@ -1,12 +1,12 @@
 # Migrate
 
-Branch: **rewrite**. You have `inventory.md` (the old files, read in full), `inputs.md` (their commands and imports), and `survey-list.md`. Now every old line gets a destination: a section of the new format, the user's questions, or the "what was removed" list. No line is lost without a reason written down.
+Situation: **rewrite**. You have `inventory.md` (the old files, read in full), `inputs.md` (their commands and imports), and `survey-list.md`. Now every old line gets a destination: a section of the new format, the user's questions, or the "what was removed" list. No line is lost without a reason written down.
 
 ## How to apply
 
 1. **Identify the project identity** — extract what the old files say about what this is. It becomes the recommended answer in [ask.md](ask.md), where the user confirms or replaces it.
 2. **Extract the package manager and runtime** — condense to one or two lines.
-3. **Extract commands** — every command in the old file passes through the command rule in [write.md](write.md): one whose meaning the manifest's scripts or `--help` already give stays in `inputs.md`; every other one is kept.
+3. **Extract commands** — every command in the old file passes through the command rule in [write.md](write.md).
 4. **Break apart rules** — split any list of rules into individual `<important if>` blocks with specific conditions. You can group rules, but never group unrelated rules under one broad condition. A rule every task needs stays bare, as a convention or a gotcha.
 5. **Wrap domain sections** — testing, API patterns, state management, i18n, etc. each get their own block with a condition describing when that knowledge matters.
 6. **Send the rest to prune** — a line that matches the list in [prune.md](prune.md) gets `removed: <reason>` as its destination now, so the "what was removed" list is complete before writing starts.
