@@ -1,6 +1,6 @@
 ---
 name: triage
-description: Move issues and external PRs through a state machine of triage roles, categorise, verify, grill if needed, and record what the evaluation established.
+description: Move issues and external PRs through a state machine of triage roles, categorise, verify, grill if needed, and record what the evaluation established. Use when issues or external PRs you did not create are waiting to be judged. Not for tickets this repository's own pipeline produced, which are already agent-ready.
 ---
 
 # Triage
@@ -41,13 +41,13 @@ For a PR, the same states read against the attached code: `ready-for-agent` mean
 
 Every triaged issue should carry exactly one category role and one state role. The exception is work this repo plans for itself — a spec's tickets, a decision ticket — which carries a state role and no category; see `docs/agents/triage-labels.md`. If state roles conflict, flag it and ask the maintainer before doing anything else.
 
-These are canonical role names. The actual label strings used in the issue tracker may differ. The mapping should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
+These are canonical role names. The actual label strings used in the issue tracker may differ. The mapping should have been provided to you. If not, tell the user to run the `setup-matt-pocock-skills` skill.
 
 State transitions: an unlabeled issue normally goes to `needs-triage` first; from there it moves to `needs-info`, `ready-for-agent`, `ready-for-human`, or `wontfix`. `needs-info` returns to `needs-triage` once the reporter replies. The maintainer can override at any time; flag transitions that look unusual and ask before proceeding.
 
 ## Invocation
 
-The maintainer invokes `/triage` and describes what they want in natural language. Interpret the request and act. Examples:
+The maintainer invokes this skill and describes what they want in natural language. Interpret the request and act. Examples:
 
 - "Show me anything that needs my attention"
 - "Let's look at #42" (issue or PR)
@@ -80,7 +80,7 @@ Read that comment and the ticket's `self-run` / `VERDICT` / `REVIEW` trail inste
 
 3. **Verify the claim.** Before any grilling, check that the claim holds up. For a bug, reproduce it from the reporter's steps. For a PR, confirm the diff does what it claims: check it out, run the relevant tests or commands. Report what happened: confirmed (with code path), failed, or insufficient detail (a strong `needs-info` signal). A confirmed verification makes a much stronger brief.
 
-4. **Grill (if needed).** If the request needs fleshing out, call the Skill tool twice, for "grilling" and "domain-modeling", and grill it into shape a round of questions at a time, sharpening domain terms and updating `CONTEXT.md`/ADRs inline as decisions land.
+4. **Grill (if needed).** If the request needs fleshing out, read the `grilling` and `domain-modeling` skills' `SKILL.md` and grill it into shape a round of questions at a time, sharpening domain terms and updating `CONTEXT.md`/ADRs inline as decisions land.
 
 5. **Apply the outcome:** the four outcomes are `needs-info`, `ready-for-agent`, `ready-for-human` and `wontfix`. Staying at `needs-triage` is not an outcome. `needs-info`, `ready-for-human`, and `wontfix` change the label only; the parent stays.
 
@@ -89,10 +89,10 @@ Read that comment and the ticket's `self-run` / `VERDICT` / `REVIEW` trail inste
      | Judgement | Command |
      | --- | --- |
      | Work that belongs to another ticket in this batch | `gh issue edit <m> --parent <ticket>` |
-     | New work in this batch, belonging to no existing ticket | `gh issue edit <m> --parent <spec>`; fill the eight sections of `<issue-template>` (in `to-tickets`); the `verify-ticket` skill's `--lint <m>` passes; from then it is a ticket |
+     | New work in this batch, belonging to no existing ticket | `gh issue edit <m> --parent <spec>`; fill every section of `<issue-template>` (in `to-tickets`); the `verify-ticket` skill's `--lint <m>` passes; from then it is a ticket |
      | A toolbox problem found in a consuming repository | `gh issue transfer <m> chancheuklap/multi-model-workflow`; the parent–child link breaks on transfer; origin remains the body's first line |
 
-     When the issue is work from outside, judging it agent-ready does not brief it for work here. Route it into the ticket pipeline: write a spec with `/to-spec`, or extend a published one through that skill's step for revising a published spec, citing this issue as a source, then cut tickets from that spec with `/to-tickets`, which labels them `ready-for-agent` there in the eight-section shape `verify-ticket.py` can read. The label goes on those tickets, not on this issue, and the spec's publish step closes this issue attached under the spec.
+     When the issue is work from outside, judging it agent-ready does not brief it for work here. Route it into the ticket pipeline: write a spec with the `to-spec` skill, or extend a published one through that skill's step for revising a published spec, citing this issue as a source, then cut tickets from that spec with the `to-tickets` skill, which labels them `ready-for-agent` there in the shape `<issue-template>` defines and `verify-ticket.py` can read. The label goes on those tickets, not on this issue, and the spec's publish step closes this issue attached under the spec.
    - `ready-for-human`: written here rather than routed. Write what `to-tickets` writes for this label — **the five things** in the `to-tickets` skill's `references/person-ticket.md`, nothing more.
    - `needs-info`: post triage notes (template below).
    - For `wontfix`, close the issue, with the comment depending on *why*:
@@ -103,7 +103,7 @@ Read that comment and the ticket's `self-run` / `VERDICT` / `REVIEW` trail inste
 
 ## Quick state override
 
-If the maintainer says "move #42 to ready-for-agent", trust them and apply the role directly. Confirm what you're about to do (role changes, comment, close), then act. Skip grilling. If moving to `ready-for-agent` without a grilling session, ask whether they want to route it into the ticket pipeline now: `/to-spec`, then `/to-tickets`.
+If the maintainer says "move #42 to ready-for-agent", trust them and apply the role directly. Confirm what you're about to do (role changes, comment, close), then act. Skip grilling. If moving to `ready-for-agent` without a grilling session, ask whether they want to route it into the ticket pipeline now: the `to-spec` skill, then the `to-tickets` skill.
 
 ## Needs-info template
 

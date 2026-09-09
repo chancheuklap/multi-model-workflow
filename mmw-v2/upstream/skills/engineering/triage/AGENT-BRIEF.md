@@ -1,8 +1,8 @@
 # Writing Agent Briefs
 
-An agent brief is the structured comment `/triage` posts on a GitHub issue or PR at the evaluation stage: what reproducing the claim produced, the root-cause leads the codebase turned up, what would have to be true for the request to be satisfied, and the outcome being recommended. It is the record of the investigation, kept on the issue so it outlives the session that did the work.
+An agent brief is the structured comment the `triage` skill posts on a GitHub issue or PR at the evaluation stage: what reproducing the claim produced, the root-cause leads the codebase turned up, what would have to be true for the request to be satisfied, and the outcome being recommended. It is the record of the investigation, kept on the issue so it outlives the session that did the work.
 
-Nothing is dispatched from an agent brief. An issue judged `ready-for-agent` goes into the ticket pipeline, where `/to-spec` reads the agent brief as one of the spec's sources and `/to-tickets` cuts the tickets an agent works from.
+Nothing is dispatched from an agent brief. An issue judged `ready-for-agent` goes into the ticket pipeline, where the `to-spec` skill reads the agent brief as one of the spec's sources and the `to-tickets` skill cuts the tickets an agent works from.
 
 A brief covers both surfaces: for an issue, the finding is about behaviour that is missing or broken; for a PR, it is about the state of the existing diff: what it already does, what is missing, what review raised. Same principles either way; the PR example below shows the difference.
 
@@ -24,12 +24,12 @@ Describe **what** the system should do, not **how** to implement it. How is deci
 
 - **Good:** "The `SkillConfig` type should accept an optional `schedule` field of type `CronExpression`"
 - **Bad:** "Open src/types/skill.ts and add a schedule field on line 42"
-- **Good:** "When a user runs `/triage` with no arguments, they should see a summary of issues needing attention"
+- **Good:** "When a user runs the triage skill with no arguments, they should see a summary of issues needing attention"
 - **Bad:** "Add a switch statement in the main handler function"
 
 ### Complete acceptance criteria
 
-A finding nobody can check is an opinion. Every brief states, concretely and testably, what would have to be true for the request to be satisfied, one thing at a time, each independently verifiable. `/to-tickets` is where each of these picks up the command that decides it.
+A finding nobody can check is an opinion. Every brief states, concretely and testably, what would have to be true for the request to be satisfied, one thing at a time, each independently verifiable. The `to-tickets` skill is where each of these picks up the command that decides it.
 
 - **Good:** "Running `gh issue list --label needs-triage` returns issues that have been through initial classification"
 - **Bad:** "Triage should work correctly"

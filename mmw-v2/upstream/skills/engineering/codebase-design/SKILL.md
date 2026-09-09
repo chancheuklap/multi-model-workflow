@@ -9,7 +9,7 @@ Design **deep modules**: a lot of behaviour behind a small interface, placed at 
 
 ## Glossary
 
-Use these terms exactly: don't substitute "component," "service," "API," or "boundary." Consistent language is the whole point.
+Use these terms exactly in design prose: don't substitute "component," "service," "API," or "boundary" for them there. Consistent language is the whole point. The rule governs prose, not names that already exist: a command name, an acceptance-criterion category, or a literal a program prints keeps the name it has.
 
 **Module**: anything with an interface and an implementation. Deliberately scale-agnostic: a function, class, package, or tier-spanning slice. _Avoid_: unit, component, service.
 
