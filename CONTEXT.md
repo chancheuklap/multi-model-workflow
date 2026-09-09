@@ -369,8 +369,8 @@ _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 The ticket section holding the acceptance criteria, one after another. A `ready-for-human` ticket has none.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
-**`## Blocked by`**:
-One of the five things a `ready-for-human` ticket holds: the ticket that produces the thing it waits on. An agent ticket has no such section; its blocking lives on the tracker's native blocking links alone.
+**Blocked by**:
+One of the five things a `ready-for-human` ticket holds: the ticket that produces the thing it waits on. An agent ticket carries no such item; its blocking lives on the tracker's native blocking links alone.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **acceptance criterion**:

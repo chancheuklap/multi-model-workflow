@@ -20,7 +20,7 @@ red for a real journey: the product is down, and the addresses point nowhere.
     JOURNEY OK <name>                                 exit 0
     JOURNEY FAILED <name> at <last line>              exit 1
     JOURNEY GREEN WITHOUT PRODUCT <name> — <line>     exit 1
-    start's own refusal, unchanged                    exit 2
+    the run never got as far as the script            exit 2
 """
 
 from __future__ import annotations

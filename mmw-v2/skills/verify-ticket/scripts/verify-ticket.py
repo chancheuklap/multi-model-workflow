@@ -1732,7 +1732,7 @@ def criteria_lines(body: str) -> list[tuple[str, str, str]]:
             for c in parse_criteria("\n".join(section(body, "Acceptance criteria")))]
 
 
-def lint_worker(labels: list[str], body: str) -> list[str]:
+def lint_worker(labels: list[str]) -> list[str]:
     """Which worker this ticket gets, as the tracker's labels say.
 
     `dispatch.sh` reads the label and nothing else, so a ticket carrying none is worked by
@@ -2211,7 +2211,7 @@ def lint_criteria(number: int, body: str, labels: list[str]) -> int:
     criteria are written, and the three criterion shapes. The batch graph is not here;
     `run_lint` checks that once per batch."""
     require_judges(body)
-    worker_errors = lint_worker(labels, body)
+    worker_errors = lint_worker(labels)
 
     def report_worker() -> None:
         for finding in worker_errors:

@@ -863,7 +863,7 @@ wait_no_result() {
       echo "dispatch: verifier $ident on #$number stopped with no VERDICT comment: paseo logs $ident" >&2
       ;;
     *)
-      echo "dispatch: worker $ident on #$number stopped with no ALL MET or HANDOFF REQUIRED comment: paseo logs $ident, then the worker row of dispatch/SKILL.md" >&2
+      echo "dispatch: worker $ident on #$number stopped with no ALL MET or HANDOFF REQUIRED comment: paseo logs $ident" >&2
       ;;
   esac
   exit 1
