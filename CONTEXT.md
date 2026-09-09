@@ -13,15 +13,15 @@ Vocabulary that belongs to one skill alone — `exe-release`'s release key, tier
 **agent**:
 Any session or subagent this pipeline sends out or runs: the main agent, a worker, a reviewer, the verifier, the advisor, a code-review axis subagent.
 _Avoid_: board
-_Home_: `mmw-v2/skills/dispatch/models.md`
+_Home_: `~/.mmw/models.md`
 
 **session**:
 A host process that is a Paseo agent, or the main agent the user started themselves. It carries a host and — for a dispatched agent — agent labels. The main agent, a worker, a reviewer, the verifier, and the advisor are sessions; the three code-review axis subagents are not — they are subagents inside the reviewer session.
 _Avoid_: 会话 (as a term), pane
-_Home_: `mmw-v2/skills/dispatch/models.md`
+_Home_: `~/.mmw/models.md`
 
 **main agent**:
-The session the user started themselves. By day it works with the user to produce specs and tickets; by night it runs `check`, then `advance`, then `status` each time a ticket message wakes it, the **收口轮** when the frontier is empty and review sub-issues remain, then `reverify` and `summary`, and only reads tickets. It is the one agent with no row in `models.md`; it is tied to no host. One main agent holds one spec.
+The session the user started themselves. By day it works with the user to produce specs and tickets; by night it runs `check`, then `advance`, then `status` each time a ticket message wakes it, the **收口轮** when the frontier is empty and review sub-issues remain, then `reverify` and `summary`, and only reads tickets. It is the one agent with no row in the live table; it is tied to no host. One main agent holds one spec.
 _Avoid_: coordinator, orchestrator, 编排者, 主 agent, 出票的主 agent, 落地 agent, the single Claude Code session, mmw-main, board
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
@@ -32,14 +32,14 @@ _Avoid_: 工人, 做票的 agent, 领票的 agent, MMW_TICKET
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **worker grade**:
-Which of the two workers a ticket goes to. Each grade is at once a ticket label, a row of `models.md`, and the answer in the ticket's `## Worker` section; the user sees it once, as the `Worker:` line of the `to-tickets` quiz, and the label is read afresh every time the ticket is started.
+Which of the two workers a ticket goes to. Each grade is at once a ticket label, a row of the live table, and the answer in the ticket's `## Worker` section; the user sees it once, as the `Worker:` line of the `to-tickets` quiz, and the label is read afresh every time the ticket is started.
 _Avoid_: grade of worker, seat, lane (for this)
-_Home_: `mmw-v2/skills/dispatch/models.md`
+_Home_: `~/.mmw/models.md`
 
 **`junior-worker`**:
 The default worker grade (`DEFAULT_WORKER` in `dispatch.sh`).
 _Avoid_: 初级工人, 初级 worker
-_Home_: `mmw-v2/skills/dispatch/models.md`
+_Home_: `~/.mmw/models.md`
 
 **`senior-worker`**:
 The worker grade a ticket names when getting it wrong would be wrong silently.
@@ -63,7 +63,7 @@ _Avoid_: 复验者, verifier 子代理, subagent verifier
 _Home_: `mmw-v2/skills/verdict/SKILL.md`
 
 **advisor**:
-The second-opinion agent on a stronger model; it implements nothing. One door: a Paseo session from the `bypass` row of `models.md`, started with `create_agent` by whichever agent hit the decision, its `initialPrompt` naming the `advisor` skill plus the **question packet**. Nothing but its own instructions holds it to reading — a Paseo session on any host can write through a shell.
+The second-opinion agent on a stronger model; it implements nothing. One door: a Paseo session from the advisor row of the live table, started with `create_agent` by whichever agent hit the decision, its `initialPrompt` naming the `advisor` skill plus the **question packet**. Nothing but its own instructions holds it to reading — a Paseo session on any host can write through a shell.
 _Home_: `mmw-v2/skills/advisor/SKILL.md`
 
 **question packet**:
@@ -72,7 +72,7 @@ _Avoid_: 问题包, advisor prompt, brief
 _Home_: `mmw-v2/skills/advisor/references/consulting.md`
 
 **host**:
-The command-line agent program a session runs on: one of `claude`, `codex`, `grok`, `cursor`, `pi`. It is the `host` column of `models.md`. Each host has its own install locations, hook configuration, form close key, and effort spelling.
+The command-line agent program a session runs on: one of `claude`, `codex`, `grok`, `cursor`, `pi`. It is the `host` column of the live table. Each host has its own install locations, hook configuration, form close key, and effort spelling.
 _Avoid_: 宿主, agent kind
 _Home_: `mmw-v2/skills/drive-target/scripts/hook.py`
 
@@ -82,7 +82,7 @@ _Avoid_: human (for this), maintainer (in this repository's text), reporter (in 
 _Home_: `docs/agents/triage-labels.md`
 
 **subagent**:
-An agent started inside another agent's session, holding its own context and answering back into that session. The toolbox ships no subagent definitions and installs nothing into any host's `agents/` directory: a skill that needs one asks for the host's own general-purpose subagent, which runs on the model of the session that starts it and has no `models.md` row. Results that must be written back to the ticket, read by another role, and openable by a person run as a Paseo subagent instead; work that is only an internal split of the current step runs as a subagent. The three code-review axis subagents are subagents of the reviewer session; the reviewer and the verifier themselves are Paseo subagents of the worker.
+An agent started inside another agent's session, holding its own context and answering back into that session. The toolbox ships no subagent definitions and installs nothing into any host's `agents/` directory: a skill that needs one asks for the host's own general-purpose subagent, which runs on the model of the session that starts it and has no live-table row. Results that must be written back to the ticket, read by another role, and openable by a person run as a Paseo subagent instead; work that is only an internal split of the current step runs as a subagent. The three code-review axis subagents are subagents of the reviewer session; the reviewer and the verifier themselves are Paseo subagents of the worker.
 _Avoid_: sub-agent, background agent, seat, 子代理 (as a term), native subagent, assembled subagent file
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
@@ -100,7 +100,7 @@ _Avoid_: 工具箱, this repository (as a name), 活层, live layer
 _Home_: `AGENTS.md`
 
 **consuming repository**:
-The outside repository where real tickets are run, as distinct from the toolbox. It must hold a `DESIGN.md` before UI refinement; `models.md` is never placed in it.
+The outside repository where real tickets are run, as distinct from the toolbox. It must hold a `DESIGN.md` before UI refinement; the live table is never placed in it.
 _Avoid_: consumer repo, 消费仓库, the project (for this), the repo (for this)
 _Home_: `AGENTS.md`
 
@@ -158,7 +158,7 @@ The CLI every issue-tracker operation goes through. `CLICOLOR` and `CLICOLOR_FOR
 _Home_: `docs/agents/issue-tracker.md`
 
 **Paseo**:
-The process manager that hosts every Paseo agent this pipeline starts: workspaces, Agent profiles, agent labels, and finish notifications. Its CLI is `paseo`; its MCP tools include `create_agent`, `list_pending_permissions`, `respond_to_permission`. `install.sh` writes the CLI symlink, two providers, every `bypass` Agent profile, and `worktrees.root`.
+The process manager that hosts every Paseo agent this pipeline starts: workspaces, agent labels, and finish notifications. Its CLI is `paseo`; its MCP tools include `create_agent`, `list_pending_permissions`, `respond_to_permission`. `install.sh` writes the CLI symlink, two providers, and `worktrees.root`. It does not write Agent profiles.
 _Avoid_: Herdr, terminal multiplexer
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
@@ -176,15 +176,15 @@ _Avoid_: 工作区 (for the git sense, that is a worktree), pane, monitor tab, H
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **Agent profile**:
-One entry `install.sh` writes into `~/.paseo/config.json` under `daemon.agentProfiles` from a `models.md` row. The first `bypass` row for an agent has `id` and `name` both equal to the agent cell; a later `bypass` row for the same agent is a **fallback host** and has `id` and `name` `{agent}@{host}`. A caller that has the profile uses `create_agent`.
+A hand-written entry in `~/.paseo/config.json` under `daemon.agentProfiles`. It is not MMW config: `install.sh` does not write these from the live table. Notes containing `from models.md` are leftover generated profiles — `--check` reports `残留`, install drops them. Hand-written profiles are left alone.
 _Home_: `mmw-v2/install.sh`
 
 **fallback host**:
-A second `bypass` row for the same agent on a different host. The first `bypass` row is the host `start` uses; `create_agent` tries the fallback host only after five retries on the first have failed. An agent has at most one, and only `junior-worker` has one.
-_Home_: `mmw-v2/skills/dispatch/models.md`
+A second live-table row for the same agent on a different host. The first row is the host `start` uses; `create_agent` tries the fallback host only after five retries on the first have failed. An agent has at most one, and only `junior-worker` has one.
+_Home_: `~/.mmw/models.md`
 
 **agent label**:
-A Paseo label on a Paseo agent, distinct from a tracker `label`. `start` writes five: `mmw.ticket=<n>`, `mmw.kind=worker|reviewer|verifier`, `mmw.spec=<spec>`, `mmw.profile=<profile id>`, `mmw.autonomous=1`. `mmw.profile` is the agent cell on the first `bypass` row and `{agent}@{host}` on the fallback host, so the label names the host that ran. `resume` finds the worker by `mmw.ticket` and `mmw.kind=worker`; the question gate finds autonomous agents by `mmw.autonomous=1`; `--review` asks whether the session running it is in `mmw.kind=reviewer` before it reports to a parent. CLI `paseo ls --json` does not print labels in the body, so a filter is `--label` on the call.
+A Paseo label on a Paseo agent, distinct from a tracker `label`. `start` writes four: `mmw.ticket=<n>`, `mmw.kind=worker|reviewer|verifier`, `mmw.spec=<spec>`, `mmw.autonomous=1`. `resume` finds the worker by `mmw.ticket` and `mmw.kind=worker`; the question gate finds autonomous agents by `mmw.autonomous=1`; `--review` asks whether the session running it is in `mmw.kind=reviewer` before it reports to a parent. CLI `paseo ls --json` does not print labels in the body, so a filter is `--label` on the call.
 _Avoid_: pane token, MMW_TICKET (session identity), MMW_AUTONOMOUS, launch arguments
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
@@ -799,12 +799,12 @@ _Avoid_: 发布 (as a term), 出票 (as a term), 回读 (as a term)
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **dispatch**:
-Turning a ticket into a live Paseo agent that carries its ticket number, workspace, and agent labels: `dispatch.sh start <n> worker|reviewer|verifier`. The script checks the ticket may start, reads the role's first `bypass` row of `models.md`, opens the workspace and records the base commit, and prints one `create_agent` object, with a nested `fallback` object when that agent has a fallback host. The caller gives the ticket number and the kind; the worker-grade label picks which worker row. A ticket or session that has been through it is **dispatched**.
+Turning a ticket into a live Paseo agent that carries its ticket number, workspace, and agent labels: `dispatch.sh start <n> worker|reviewer|verifier`. The script checks the ticket may start, reads the role's first live-table row, opens the workspace and records the base commit, and prints one `create_agent` object, with a nested `fallback` object when that agent has a fallback host. The caller gives the ticket number and the kind; the worker-grade label picks which worker row. A ticket or session that has been through it is **dispatched**.
 _Avoid_: 派发 (as a term), run (as a dispatch.sh verb)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`dispatch.sh`**:
-The dispatch skill's script: `check <spec>`, `advance <spec>`, `land <n>|--sweep`, `start <n> worker|reviewer|verifier`, `retract <n>`, `wait <n> worker|reviewer|verifier`, `resume <n> "<text>"`, `status <spec>`, `reverify <spec>`, `summary <spec>`, `suspend <spec>`. It writes the agent labels `mmw.ticket`, `mmw.kind`, `mmw.spec`, `mmw.profile`, `mmw.autonomous`; records `branch.issue-<n>.mmw-base`; reads the worker-grade label and nothing else to pick the worker row. Every form takes the two `--tools` directories. The skill's own text calls it `<dispatch>`.
+The dispatch skill's script: `check <spec>`, `advance <spec>`, `land <n>|--sweep`, `start <n> worker|reviewer|verifier`, `retract <n>`, `wait <n> worker|reviewer|verifier`, `resume <n> "<text>"`, `status <spec>`, `reverify <spec>`, `summary <spec>`, `suspend <spec>`. It writes the agent labels `mmw.ticket`, `mmw.kind`, `mmw.spec`, `mmw.autonomous`; records `branch.issue-<n>.mmw-base`; reads the worker-grade label and nothing else to pick the worker row. Every form takes the two `--tools` directories. The skill's own text calls it `<dispatch>`.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **dispatch line**:
@@ -813,11 +813,11 @@ _Avoid_: 派发 (as a term)词, prompt (bare)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **check**:
-`dispatch.sh check <spec>`: runs `install.sh --check`, confirms the first `bypass` row of each worker grade, reviewer and verifier has its host `available` in `paseo provider ls --json`, and confirms every queued ticket has at most one worker-grade label that `models.md` has a row for; then, in a Paseo session, creates the night's **heartbeat** `mmw-night-<spec>` (at 7 and 47 minutes past the hour, expiring after 16 hours, prompt `land --sweep, then status <spec>, act per step 3`) and writes its id to `.git/mmw-heartbeat-<spec>`. Exit 0 all passed; exit 2 one or more failed or the heartbeat could not be made, stderr one `dispatch: …` line per failure. Do not `advance` on 2.
+`dispatch.sh check <spec>`: runs `install.sh --check`, confirms the first host of each worker grade, reviewer and verifier is `available` in `paseo provider ls --json`, and confirms every queued ticket has at most one worker-grade label that the live table has a row for; then, in a Paseo session, creates the night's **heartbeat** `mmw-night-<spec>` (at 7 and 47 minutes past the hour, expiring after 16 hours, prompt `land --sweep, then status <spec>, act per step 3`) and writes its id to `.git/mmw-heartbeat-<spec>`. Exit 0 all passed; exit 2 one or more failed or the heartbeat could not be made, stderr one `dispatch: …` line per failure. Do not `advance` on 2.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **start**:
-`dispatch.sh start <n> worker|reviewer|verifier`: one ticket, one agent. It prints one JSON object whose fields are the arguments of `create_agent`, `notifyOnFinish` among them: `true` for a reviewer and a verifier, whose one turn ends on the work being done, and `false` for a worker, which ends several and says it is done through the **ticket message** instead. A second `bypass` row for that agent is nested as `fallback`. The caller issues `create_agent` with every field except `fallback`, then ends its turn. The worker row of `models.md` is chosen by the ticket's `junior-worker` / `senior-worker` label; the reviewer's base commit is read from `git config branch.issue-<n>.mmw-base` by the script; the verifier's `initialPrompt` names the `verdict` skill and the ticket. Exit 0 printed; exit 2 refused (`REFUSE`, reason on stderr), nothing started.
+`dispatch.sh start <n> worker|reviewer|verifier`: one ticket, one agent. It prints one JSON object whose fields are the arguments of `create_agent`, `notifyOnFinish` among them: `true` for a reviewer and a verifier, whose one turn ends on the work being done, and `false` for a worker, which ends several and says it is done through the **ticket message** instead. A second live-table row for that agent is nested as `fallback`. The caller issues `create_agent` with every field except `fallback`, then ends its turn. The worker row of the live table is chosen by the ticket's `junior-worker` / `senior-worker` label; the reviewer's base commit is read from `git config branch.issue-<n>.mmw-base` by the script; the verifier's `initialPrompt` names the `verdict` skill and the ticket. Exit 0 printed; exit 2 refused (`REFUSE`, reason on stderr), nothing started.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **retract**:
@@ -1031,27 +1031,27 @@ The note written whenever upstream scripts are copied in without a subtree: sour
 _Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/UPSTREAM.md`
 
 **`models.md`**:
-The one table, one row per `(agent, host)`. Five columns `agent | host | model | effort | permissions`, for every agent the pipeline sends out except the main agent and the three code-review axis subagents — the only place a dispatched agent's model is written. It travels with the dispatch skill, one per machine, never into a consuming repository. `install.sh` writes an Agent profile from every row; `models.py` next to it is the only reader of the file. Editing rules are in `references/editing-models.md`.
+The live table at `~/.mmw/models.md`, one row per `(agent, host)`. Four columns `agent | host | model | effort`, everyday names, for every agent the pipeline sends out except the main agent and the three code-review axis subagents — the only place a dispatched agent's model is written. `start` asks this machine what that host offers and uses the unique match; `models.py` next to `hosts.json` is the only reader of the file. Git holds no human-edited copy: `hosts.json` records how each host starts on Herdr and on Paseo, plus the default rows first `install.sh` copies here. The three code-review axis subagents have no row of their own: they run on the model of the reviewer session that starts them. An agent told to change host, model, `effort`, or whether the night runs on Herdr or Paseo reads `references/editing-models.md`.
 _Avoid_: the table (for this), 模型表, 角色表, launch arguments
-_Home_: `mmw-v2/skills/dispatch/models.md`
+_Home_: `~/.mmw/models.md`
 
 **`effort`**:
-The `effort` column: the thinking level, written as Paseo lists it for that model under `thinkingOptionIds` (`high`, `xhigh`, `medium`, …; one host's `high` is another's `xhigh`) and passed through to `create_agent` and to the Agent profile as `thinkingOptionId`. Every row needs one.
+The `effort` column of the live table: the everyday thinking level (`high`, `xhigh`, `medium`, …). On Paseo it becomes that host's thinking field (`thinkingOptionId`, or on Cursor-on-Paseo the on/off value that host lists). Every row needs one.
 _Admitted_: thinking level
 _Avoid_: thinking effort, reasoning effort (in prose), 思考强度
-_Home_: `mmw-v2/skills/dispatch/models.md`
+_Home_: `~/.mmw/models.md`
 
 **permissions**:
-The fifth column of `models.md`, and it takes one value, `bypass`: the agent runs as its own Paseo session on the host column's host, with all permissions granted. There is no read-only value: no host has a mode that both keeps a session to reading and lets it finish a turn on its own, so an agent that must not write is a subagent, held to reading by what it is told to do and by whatever restriction the call that starts it can carry.
+How a dispatched session is started: all tools granted. It is not a column of the live table. Each host's spelling lives in `hosts.json` (`bypassPermissions`, Cursor `auto_accept`, …). There is no read-only value: no host has a mode that both keeps a session to reading and lets it finish a turn on its own, so an agent that must not write is a subagent, held to reading by what it is told to do and by whatever restriction the call that starts it can carry.
 _Avoid_: launch arguments
-_Home_: `mmw-v2/skills/dispatch/models.md`
+_Home_: `mmw-v2/skills/dispatch/hosts.json`
 
 **`models.py`**:
-`mmw-v2/skills/dispatch/scripts/models.py`, the only reader of `models.md` and a library with no command line. `profile_rows()` turns the table into the Agent profiles `install.sh` writes; `create_agent_settings()` turns one row's `permissions` cell into the `settings` of a `create_agent` call, which is where each host's spelling of its permission mode lives, so `install.sh` and `dispatch.sh` cannot disagree about it.
+`mmw-v2/skills/dispatch/scripts/models.py`, the only reader of the live table and of `hosts.json`, a library with no command line. It resolves everyday names against tonight's catalog and turns a row into `create_agent` fields, so `install.sh --check` and `dispatch.sh start` cannot disagree about it.
 _Home_: `mmw-v2/skills/dispatch/scripts/models.py`
 
 **`install.sh`**:
-`mmw-v2/install.sh`, the only install entry. It installs six things: skill symlinks into `~/.agents/skills` and `~/.claude/skills`; hooks into each host's own configuration; user-level prompts (`~/.claude/CLAUDE.md` a symlink to `prompt/shared.md`, Codex, Pi and Grok each a file `prompt/render.py` writes); a launchd task that re-renders those three when the source changes; Paseo configuration (`~/.local/bin/paseo`, two providers in `~/.paseo/config.json`, one Agent profile per `bypass` row, `worktrees.root`); the `nowledge-mem` entry in `~/.cursor/mcp.json`. It reads `skills.txt`, clears the retired locations, and prints one line per item with the prefixes `已装`, `残留`, `退役`, `冲突`, ending with markers such as `HOOKS-INSTALLED`. **`install.sh --check`** looks and changes nothing: exit 0 when complete, 1 when something is missing or a stale link remains; `dispatch.sh check` runs it before a night. `MMW_V2_HOME` moves the install location for tests.
+`mmw-v2/install.sh`, the only install entry. It installs six things: skill symlinks into `~/.agents/skills` and `~/.claude/skills`; hooks into each host's own configuration; user-level prompts (`~/.claude/CLAUDE.md` a symlink to `prompt/shared.md`, Codex, Pi and Grok each a file `prompt/render.py` writes); a launchd task that re-renders those three when the source changes; Paseo configuration (`~/.local/bin/paseo`, two providers in `~/.paseo/config.json`, `worktrees.root`); the `nowledge-mem` entry in `~/.cursor/mcp.json`. It does not write Agent profiles; leftover generated profiles (notes containing `from models.md`) are reported as `残留`. First install copies the live table if it is missing; later ones leave it. It reads `skills.txt`, clears the retired locations, and prints one line per item with the prefixes `已装`, `残留`, `退役`, `冲突`, ending with markers such as `HOOKS-INSTALLED`. **`install.sh --check`** looks and changes nothing: exit 0 when complete, 1 when something is missing or a stale link remains; it expands every live-table row through `models.py`, and `dispatch.sh check` runs it before a night. `MMW_V2_HOME` moves the install location for tests.
 _Avoid_: the installer, 安装器, 安装入口 (as a term), 只看不动 (as a term)
 _Home_: `mmw-v2/install.sh`
 
@@ -1116,11 +1116,9 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | `phase` | `self-run` · `reverify` · `VERDICT` · `DECISIONS` · `REVIEW` · `ALL MET` · `HANDOFF REQUIRED` · `closed` · `-` |
 | `status.py` columns | `ticket` · `agent` · `id` · `agent_status` · `age` · `phase` · `ac` · `note` |
 | `note` | `needs permission` · `ready` · `waiting on #<m>` · newest first line · empty while a worker is live |
-| agent label | `mmw.ticket` · `mmw.kind` · `mmw.spec` · `mmw.profile` · `mmw.autonomous` |
+| agent label | `mmw.ticket` · `mmw.kind` · `mmw.spec` · `mmw.autonomous` |
 | `mmw.kind` | `worker` · `reviewer` · `verifier` |
 | finish notification | `finished` · `errored` · `was closed` · `needs permission` |
-| `permissions` | `bypass` · `—` |
-| `--sub-issue` kind | `baseline` · `outside-owns` · `review` · `decision` · `pipeline` |
 | host | `claude` · `codex` · `grok` · `cursor` · `pi` |
 | `target.kind` | `electron` · `web-spa` · `web-server-rendered` · `chrome-extension` |
 | mechanism `via` | `api` · `storage` |

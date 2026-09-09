@@ -152,7 +152,7 @@ A reference to the parent issue on the tracker, followed by the numbered Impleme
 
 ## Worker
 
-Which of the two workers this ticket gets, and one line saying why. `junior-worker` is the default, and the line is what buys the other one: a ticket goes to `senior-worker` when getting it wrong is wrong **silently** — money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default — because none of those fail on the day they are written. A ticket whose **Seam** already names a precedent to copy stays on `junior-worker`. Name the worker; the model behind each one lives in `models.md` in the `dispatch` skill, which is the only place a model is written down.
+Which of the two workers this ticket gets, and one line saying why. `junior-worker` is the default, and the line is what buys the other one: a ticket goes to `senior-worker` when getting it wrong is wrong **silently** — money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default — because none of those fail on the day they are written. A ticket whose **Seam** already names a precedent to copy stays on `junior-worker`. Name the worker; the model behind each one lives in the live table `~/.mmw/models.md`, which is the only place a model is written down.
 
 senior-worker — one settlement per task, and a wrong one surfaces days later in the ledger rather than in a failing test.
 

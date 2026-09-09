@@ -28,7 +28,7 @@ Resolve both `scripts/` directories from those skills' own `SKILL.md`. Every com
 
 ## One path: create_agent
 
-`start` and `advance` print one JSON object per ticket, one line, whose fields are the arguments of `create_agent` (`workspaceId`, `title`, `provider`, `settings`, `notifyOnFinish`, `labels`, `initialPrompt`). A second `bypass` row for that agent is nested as `fallback`, itself a complete `create_agent` object: same `workspaceId`, `title`, `initialPrompt` and `notifyOnFinish`; `provider`, `settings` and `labels.mmw.profile` are the fallback host's. Call `create_agent` with every field except `fallback` — every remaining field is already decided, `notifyOnFinish` included. A session with no `create_agent` tool cannot dispatch: say so and stop.
+`start` and `advance` print one JSON object per ticket, one line, whose fields are the arguments of `create_agent` (`workspaceId`, `title`, `provider`, `settings`, `notifyOnFinish`, `labels`, `initialPrompt`). A second live-table row for that agent is nested as `fallback`, itself a complete `create_agent` object: same `workspaceId`, `title`, `initialPrompt` and `notifyOnFinish`; `provider` and `settings` are the fallback host's. Call `create_agent` with every field except `fallback` — every remaining field is already decided, `notifyOnFinish` included. A session with no `create_agent` tool cannot dispatch: say so and stop.
 
 When that call fails, the `create_agent` failed to start the provider row of `Find your command` is the next step.
 
@@ -56,7 +56,7 @@ Then end your turn. What wakes you is the agent you just started having somethin
 | Post the night summary on the spec | `<dispatch> summary <spec>` |
 | Give the night up before it is over | `<dispatch> suspend <spec>` — [references/night.md](references/night.md) says what it stops and what it leaves standing |
 | Change one ticket's worker grade | Swap its `junior-worker` / `senior-worker` label on the tracker; the next `start` reads it |
-| Change which host, model or `effort` an agent runs on | Edit `models.md`, next to this file — but read [references/editing-models.md](references/editing-models.md) first |
+| Change which host, model or `effort` an agent runs on, or whether the night runs on Herdr or Paseo | Read [references/editing-models.md](references/editing-models.md) |
 
 The night itself — `check`, then `advance`, then what to do on each notification until the frontier is empty — is [references/night.md](references/night.md).
 
@@ -74,7 +74,7 @@ The night's heartbeat is created in [references/night.md](references/night.md) s
 
 `<n>` and `<spec>` are digits only, no `#`.
 
-`start`'s third argument is `worker`, `reviewer` or `verifier`. Which of the two worker rows in `models.md` a worker starts from is the ticket's own `junior-worker` or `senior-worker` label, read fresh on every start. A ticket carrying neither label starts on `junior-worker`; one carrying both, or one naming a grade `models.md` has no row for, is refused (exit 2, stderr names the ticket). The reviewer reads `git config branch.issue-<n>.mmw-base` itself; you do not pass a base commit.
+`start`'s third argument is `worker`, `reviewer` or `verifier`. Which of the two worker rows in the live table (`~/.mmw/models.md`) a worker starts from is the ticket's own `junior-worker` or `senior-worker` label, read fresh on every start. A ticket carrying neither label starts on `junior-worker`; one carrying both, or one naming a grade the live table has no row for, is refused (exit 2, stderr names the ticket). The reviewer reads `git config branch.issue-<n>.mmw-base` itself; you do not pass a base commit.
 
 ## Exit codes
 
@@ -82,8 +82,8 @@ The night's heartbeat is created in [references/night.md](references/night.md) s
 
 | Code | What happened |
 | --- | --- |
-| `0` | One JSON object is on stdout. A second `bypass` row for that agent is nested as `fallback` |
-| `2` | Nothing was started. The reason is on stderr — read it verbatim. Typical causes: the ticket is not `OPEN` / not `ready-for-agent` / still blocked; two worker-grade labels; no `bypass` row in `models.md` for that agent; no `## Parent` spec number; no recorded base commit (reviewer); the Paseo daemon could not be asked to register this checkout as a project; an argument this form does not take |
+| `0` | One JSON object is on stdout. A second live-table row for that agent is nested as `fallback` |
+| `2` | Nothing was started. The reason is on stderr — read it verbatim. Typical causes: the ticket is not `OPEN` / not `ready-for-agent` / still blocked; two worker-grade labels; no live-table row for that agent; no `## Parent` spec number; no recorded base commit (reviewer); the Paseo daemon could not be asked to register this checkout as a project; an argument this form does not take |
 
 **`advance <spec>`:**
 
@@ -106,7 +106,7 @@ The night's heartbeat is created in [references/night.md](references/night.md) s
 
 | Code | What happened |
 | --- | --- |
-| `0` | `install.sh --check` passed, the first `bypass` row of each worker grade, reviewer and verifier has its host `available` in `paseo provider ls --json`, and every queued ticket has at most one worker-grade label that `models.md` has a row for. In a Paseo session (`PASEO_AGENT_ID` set) the night's heartbeat `mmw-night-<spec>` now exists, at 7 and 47 minutes past each hour, its id in `.git/mmw-heartbeat-<spec>`; outside one, stderr says no heartbeat was made |
+| `0` | `install.sh --check` passed, the first host of each worker grade, reviewer and verifier is `available` in `paseo provider ls --json`, and every queued ticket has at most one worker-grade label that the live table has a row for. In a Paseo session (`PASEO_AGENT_ID` set) the night's heartbeat `mmw-night-<spec>` now exists, at 7 and 47 minutes past each hour, its id in `.git/mmw-heartbeat-<spec>`; outside one, stderr says no heartbeat was made |
 | `2` | One or more of those failed, or the heartbeat could not be created. Stderr has one `dispatch: …` line per failure. Fix what the lines name — run `install.sh`, relabel the ticket, or wait until the host is `available` — then `check` again. Do not `advance` on 2 |
 
 **`retract <n>`:**

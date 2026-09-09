@@ -23,10 +23,11 @@
 # The ticket number and the kind of agent are the whole input for `start`. Which
 # of the worker rows a worker session starts from is the ticket's own `*-worker`
 # label, so one ticket keeps the same worker every time it is started. Which
-# host, model, thinking level and permissions the session gets come from that
-# row of `models.md`, expanded into the fields `create_agent` accepts. `start`
+# host, model and thinking level the session gets come from that
+# row of the live table (~/.mmw/models.md), resolved against tonight's
+# catalog and expanded into the fields `create_agent` accepts. `start`
 # and `advance` always print one `create_agent` object per ticket. A second
-# bypass row for that agent is nested as `fallback`, itself a complete
+# row for that agent is nested as `fallback`, itself a complete
 # `create_agent` object; the caller strips `fallback` before the first call.
 #
 # Exit codes are documented in SKILL.md next to this script.
@@ -37,13 +38,20 @@ LABEL_TITLE_CHARS=20         # how much of the ticket title fits on a workspace 
 
 SELF="$(realpath "${BASH_SOURCE[0]}")"
 SKILL_ROOT="$(dirname "$(dirname "$SELF")")"
-MODELS="$SKILL_ROOT/models.md"
+if [ -n "${MMW_LIVE_MODELS:-}" ]; then
+  MODELS="$MMW_LIVE_MODELS"
+elif [ -n "${MMW_V2_HOME:-}" ]; then
+  MODELS="$MMW_V2_HOME/.mmw/models.md"
+else
+  MODELS="$HOME/.mmw/models.md"
+fi
+export MMW_CATALOG_MODE="${MMW_CATALOG_MODE:-paseo}"
 STATUS="$SKILL_ROOT/scripts/status.py"
 # The skill lives under mmw-v2/skills/<name> of the toolbox checkout, so `install.sh`
 # is two directories up. `verify-ticket.py` and `lease.py` belong to other skills and
 # are found only in the directories `--tools` names (see the entry at the bottom).
 INSTALLER="$(dirname "$(dirname "$SKILL_ROOT")")/install.sh"
-# `models.py` reads `models.md`, so it belongs to this skill and travels with it.
+# `models.py` reads the live table, so it belongs to this skill and travels with it.
 MODELS_PY="$SKILL_ROOT/scripts/models.py"
 VERIFY=""
 LEASE=""
@@ -98,34 +106,43 @@ print(sys.stdin.read().rstrip("\n")[:int(os.environ["MMW_HEAD_CHARS"])])
 '
 }
 
-# ------------------------------------------------------------------ models.md
+# ------------------------------------------------------------------ live table
 
-# Prints "host<TAB>model<TAB>effort<TAB>permissions" for the agent asked for.
-# With no second argument, or 1: the agent's first bypass row; when it has no
-# bypass row at all, its first row, so the caller's refusal can name the row it
-# will not start. With 2: the second bypass row (the fallback host), or empty
-# when it has none. Backticks are markdown, not part of any value.
+# Prints "host<TAB>resolved-model<TAB>effort" for the agent asked for.
 row_for_role() {
-  awk -F'|' -v want="$1" -v nth="${2:-1}" '
-    function trim(s) { gsub(/^[ \t`]+/, "", s); gsub(/[ \t`]+$/, "", s); return s }
-    /^[ \t]*\|/ && NF == 7 && trim($2) == want {
-      row = trim($3) "\t" trim($4) "\t" trim($5) "\t" trim($6)
-      if (first == "") first = row
-      if (trim($6) == "bypass" && ++n == nth) { print row; found = 1; exit }
-    }
-    END { if (!found && nth == 1 && first != "") print first }
-  ' "$MODELS"
+  [ -f "$MODELS_PY" ] || refuse "no models.py at $MODELS_PY"
+  MMW_MODELS_PY="$MODELS_PY" MMW_AGENT="$1" MMW_NTH="${2:-1}" python3 -c '
+import importlib.util, os, sys
+path = os.environ["MMW_MODELS_PY"]
+spec = importlib.util.spec_from_file_location("mmw_models", path)
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+try:
+    print(mod.row_tsv(os.environ["MMW_AGENT"], int(os.environ["MMW_NTH"])))
+except ValueError as exc:
+    text = str(exc)
+    if text.startswith("no row "):
+        sys.exit(0)
+    print(text, file=sys.stderr)
+    sys.exit(2)
+'
 }
 
-# Prints every agent name in `models.md` a ticket may ask for by label, one per line.
 worker_roles() {
-  awk -F'|' '
-    function trim(s) { gsub(/^[ \t`]+/, "", s); gsub(/[ \t`]+$/, "", s); return s }
-    /^[ \t]*\|/ && NF == 7 {
-      name = trim($2)
-      if (name ~ /-worker$/ && !seen[name]++) print name
-    }
-  ' "$MODELS"
+  [ -f "$MODELS_PY" ] || return 0
+  MMW_MODELS_PY="$MODELS_PY" python3 -c '
+import importlib.util, os, sys
+path = os.environ["MMW_MODELS_PY"]
+spec = importlib.util.spec_from_file_location("mmw_models", path)
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+try:
+    for name in mod.worker_role_names():
+        print(name)
+except ValueError as exc:
+    print(exc, file=sys.stderr)
+    sys.exit(2)
+'
 }
 
 # ------------------------------------------------------------------ the ticket
@@ -590,17 +607,11 @@ if spec is None or spec.loader is None:
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 
-def payload(host, model, effort, perm, profile):
-    settings = mod.create_agent_settings(host, perm)
-    if effort and effort not in ("—", "-", ""):
-        settings["thinkingOptionId"] = effort
-    # Paseo gives one terminal notification per created agent, spent the first time
-    # that agent ends a turn. A verifier and a reviewer end one turn each, on the
-    # work being done, so the notification lands where it means something and the
-    # worker sleeps on it. A worker ends several — one for every agent it starts —
-    # so its first would report a middle state and the main agent would never hear
-    # the ticket land. It is told by `verify-ticket.py` instead, when the ticket
-    # comes to rest.
+def payload(host, model, effort):
+    settings = mod.create_agent_settings(host)
+    thinking = mod.thinking_option(host, effort)
+    if thinking is not None:
+        settings["thinkingOptionId"] = thinking
     body = {
         "workspaceId": os.environ["MMW_WORKSPACE"],
         "title": os.environ["MMW_TITLE"],
@@ -610,34 +621,28 @@ def payload(host, model, effort, perm, profile):
         "labels": {
             "mmw.ticket": os.environ["MMW_TICKET"],
             "mmw.kind": os.environ["MMW_KIND"],
-            "mmw.profile": profile,
             "mmw.autonomous": "1",
         },
         "initialPrompt": os.environ["MMW_PROMPT"],
     }
-    # A ticket outside any batch carries no `mmw.spec` at all, rather than an empty
-    # one: a label filter matches an empty value, so `--label mmw.spec=` would
-    # collect every batchless agent on the machine as though they were one batch.
     if os.environ["MMW_SPEC"]:
         body["labels"]["mmw.spec"] = os.environ["MMW_SPEC"]
     return body
 
 rows = [line for line in (os.environ.get("MMW_ROWS") or "").splitlines() if line.strip()]
 if not rows:
-    print("dispatch: no models.md row to emit", file=sys.stderr)
+    print("dispatch: no live-table row to emit", file=sys.stderr)
     sys.exit(2)
 
 def parse_row(line):
-    host, model, effort, perm = line.split("\t")
-    return host, model, effort, perm
+    host, model, effort = line.split("\t")[:3]
+    return host, model, effort
 
-host, model, effort, perm = parse_row(rows[0])
-primary = payload(host, model, effort, perm, os.environ["MMW_PROFILE"])
+host, model, effort = parse_row(rows[0])
+primary = payload(host, model, effort)
 if len(rows) > 1:
-    host, model, effort, perm = parse_row(rows[1])
-    primary["fallback"] = payload(
-        host, model, effort, perm,
-        mod.profile_id(os.environ["MMW_PROFILE"], host, primary=False))
+    host, model, effort = parse_row(rows[1])
+    primary["fallback"] = payload(host, model, effort)
 print(json.dumps(primary, ensure_ascii=False))
 '
 }
@@ -679,15 +684,11 @@ start_one() {
       esac ;;
   esac
 
-  local row host model effort perm fb_row
-  row="$(row_for_role "$profile")"
+  local row host model effort fb_row
+  row="$(row_for_role "$profile")" || exit 2
   [ -n "$row" ] || refuse "#$number needs the $profile row, and $MODELS has none"
-  IFS=$'\t' read -r host model effort perm <<<"$row"
-  case "$perm" in
-    bypass) ;;
-    *) refuse "$profile is a subagent: it is started by the skill that needs it, not from here" ;;
-  esac
-  fb_row="$(row_for_role "$profile" 2)"
+  IFS=$'\t' read -r host model effort <<<"$row"
+  fb_row="$(row_for_role "$profile" 2)" || exit 2
 
   local root
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
@@ -736,7 +737,7 @@ start_one() {
   MMW_WORKSPACE="$workspace" MMW_TITLE="$agent_title" \
     MMW_ROWS="$rows" \
     MMW_TICKET="$number" MMW_KIND="$kind" MMW_SPEC="$spec" \
-    MMW_PROFILE="$profile" MMW_PROMPT="$prompt" \
+    MMW_PROMPT="$prompt" \
     emit_create_json
 }
 
@@ -959,11 +960,12 @@ check_machine() {
   # rather than off the English sentence the diagnostic prints. That sentence is what a
   # reader needs when the verdict is no, so it is kept and printed under the refusal.
   #
-  # One diagnostic per host, not per row of `models.md`: several agents share a host, and
+  # One diagnostic per host, not per row of the live table: several agents share a host, and
   # the call costs seconds (measured: claude 0.7s, pi 1.7s, grok 2.5s, cursor 6.7s).
-  local role host hosts="" diag
+  local role host host_line hosts="" diag
   for role in $(worker_roles) reviewer verifier; do
-    host="$(row_for_role "$role" | cut -f1)"
+    host_line="$(row_for_role "$role")" || { failed=1; continue; }
+    host="$(printf '%s\n' "$host_line" | cut -f1)"
     [ -n "$host" ] || continue
     case " $hosts " in *" $host "*) continue ;; esac
     hosts="$hosts $host"
@@ -1668,7 +1670,7 @@ summary_spec() {
 
 # ------------------------------------------------------------------ entry
 
-[ -f "$MODELS" ] || refuse "no models.md at $MODELS"
+[ -f "$MODELS" ] || refuse "no live table at $MODELS; run install.sh"
 
 # `--tools <dir>` may appear anywhere and any number of times. Everything else is
 # positional. A script of another skill is looked up by basename in those directories,

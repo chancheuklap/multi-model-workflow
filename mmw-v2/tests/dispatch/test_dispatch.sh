@@ -441,6 +441,8 @@ export MMW_TEST_LOG="$TMP/calls.log"
 export MMW_FAKE_PASEO_STATE="$TMP/paseo-state"
 export MMW_GH_LAST_BODY="$TMP/gh-last-body"
 export MMW_HOME="$TMP/mmw-home"
+export MMW_LIVE_MODELS="$TMP/live-models.md"
+export MMW_HOST_CATALOG="$HERE/catalog.json"
 export MMW_LEASE_PORT_STRIDE=20
 export MMW_LEASE_PORT_BASE="$(python3 -c '
 import os, socket
@@ -467,6 +469,15 @@ else:
 ')"
 mkdir -p "$MMW_HOME"
 : > "$MMW_GH_LAST_BODY"
+python3 -c '
+import importlib.util
+from pathlib import Path
+p = Path("'"$SKILL"'/scripts/models.py")
+spec = importlib.util.spec_from_file_location("mmw_models", p)
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+Path("'"$MMW_LIVE_MODELS"'").write_text(mod.default_live_markdown(), encoding="utf-8")
+'
 
 git init -q -b main "$TMP/repo"
 git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m fixture
@@ -543,10 +554,10 @@ assert obj["notifyOnFinish"] is (obj["labels"]["mmw.kind"] != "worker"), obj["no
 ' "$TMP/out"
 }
 
-row_host() { awk -F'|' -v want="$1" 'function t(s){gsub(/^[ \t`]+|[ \t`]+$/,"",s);return s} /^[ \t]*\|/ && NF==7 && t($2)==want {print t($3); exit}' "$SKILL/models.md"; }
-row_model() { awk -F'|' -v want="$1" 'function t(s){gsub(/^[ \t`]+|[ \t`]+$/,"",s);return s} /^[ \t]*\|/ && NF==7 && t($2)==want {print t($4); exit}' "$SKILL/models.md"; }
-JUNIOR_HOST="$(row_host junior-worker)"; JUNIOR_MODEL="$(row_model junior-worker)"
-SENIOR_MODEL="$(row_model senior-worker)"
+row_host() { awk -F'|' -v want="$1" 'function t(s){gsub(/^[ \t`]+|[ \t`]+$/,"",s);return s} /^[ \t]*\|/ && NF==6 && t($2)==want {print t($3); exit}' "$MMW_LIVE_MODELS"; }
+JUNIOR_HOST="$(row_host junior-worker)"
+JUNIOR_MODEL=grok-4.6
+SENIOR_MODEL=grok-4.6
 one_line_reason() {
   [ "$(wc -l < "$TMP/err" | tr -d ' ')" = 1 ] \
     || fail "the reason should be one line: $(cat "$TMP/err")"
@@ -657,7 +668,7 @@ skill_copy_for() {
   local copy="$TMP/fake/skills/$1"
   rm -rf "$TMP/fake"
   mkdir -p "$copy" "$TMP/fake/skills/verify-ticket/scripts" "$TMP/fake/skills/drive-target/scripts"
-  cp -R "$SKILL/models.md" "$SKILL/scripts" "$SKILL/references" "$copy/"
+  cp -R "$SKILL/hosts.json" "$SKILL/scripts" "$SKILL/references" "$copy/"
   cp "$(dirname "$SKILL")/drive-target/scripts/lease.py" \
      "$(dirname "$SKILL")/drive-target/scripts/refusal.py" \
      "$TMP/fake/skills/drive-target/scripts/"
@@ -1057,9 +1068,16 @@ scenario_start_worker() {
   [ "$(out_json labels.mmw.ticket)" = 61 ] || fail "ticket label"
   [ "$(out_json labels.mmw.kind)" = worker ] || fail "kind label"
   [ "$(out_json labels.mmw.spec)" = 76 ] || fail "spec label"
-  [ "$(out_json labels.mmw.profile)" = junior-worker ] || fail "profile label"
   [ "$(out_json labels.mmw.autonomous)" = 1 ] || fail "autonomous label"
-  [ "$(out_json settings.thinkingOptionId)" = high ] || fail "effort: $(out_json settings.thinkingOptionId)"
+  python3 -c '
+import json, sys
+from pathlib import Path
+obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
+assert "mmw.profile" not in obj["labels"], obj["labels"]
+assert obj["settings"].get("thinkingOptionId") == "true", obj["settings"]
+assert obj["settings"].get("modeId") == "agent", obj["settings"]
+assert obj["settings"].get("features") == {"auto_accept": True}, obj["settings"]
+' "$TMP/out" || fail "create_agent settings changed: $(cat "$TMP/out")"
   case "$(out_json initialPrompt)" in
     "Use the implement skill to work ticket #61."*) ;;
     *) fail "the worker dispatch line is missing: $(out_json initialPrompt)" ;;
@@ -1080,14 +1098,7 @@ scenario_start_worker() {
     *"Several tickets run on this machine at once. Before you start, reach or stop the product, read 'Five rules while the product is running' in the drive-target skill."*) ;;
     *) fail "the product-rules sentence is missing: $(out_json initialPrompt)" ;;
   esac
-  python3 -c '
-import json, sys
-from pathlib import Path
-obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
-assert obj["settings"].get("thinkingOptionId") == "high"
-assert obj["settings"].get("features") == {"auto_accept": True}, obj["settings"]
-' "$TMP/out" || fail "create_agent settings changed: $(cat "$TMP/out")"
-  echo "--- that object carries a complete fallback create_agent payload on the second bypass row"
+  echo "--- that object carries a complete fallback create_agent payload on the second live-table row"
   [ "$(out_json fallback.provider)" = "grok/grok-4.6" ] \
     || fail "fallback.provider: $(out_json fallback.provider)"
   python3 -c '
@@ -1105,8 +1116,8 @@ assert fb["initialPrompt"] == obj["initialPrompt"]
 assert fb["notifyOnFinish"] == obj["notifyOnFinish"]
 assert fb["labels"]["mmw.ticket"] == obj["labels"]["mmw.ticket"]
 assert fb["labels"]["mmw.kind"] == "worker"
-assert fb["labels"]["mmw.profile"] == "junior-worker@grok", fb["labels"]["mmw.profile"]
-assert obj["labels"]["mmw.profile"] == "junior-worker"
+assert "mmw.profile" not in fb["labels"], fb["labels"]
+assert "mmw.profile" not in obj["labels"], obj["labels"]
 assert obj["provider"] != fb["provider"], obj["provider"]
 assert "modeId" not in fb["settings"], fb["settings"]
 assert fb["settings"].get("features") == {"auto_accept": True}, fb["settings"]
@@ -1148,13 +1159,13 @@ assert fb["settings"].get("thinkingOptionId") == "high"
   never_ran
   [ "$(out_json provider)" = "grok/$SENIOR_MODEL" ] || fail "provider: $(out_json provider)"
   [ "$(out_json settings.thinkingOptionId)" = xhigh ] || fail "effort: $(out_json settings.thinkingOptionId)"
-  [ "$(out_json labels.mmw.profile)" = senior-worker ] || fail "profile: $(out_json labels.mmw.profile)"
   python3 -c '
 import json, sys
 from pathlib import Path
 obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
+assert "mmw.profile" not in obj["labels"], obj["labels"]
 assert "fallback" not in obj, obj
-' "$TMP/out" || fail "senior-worker has one bypass row, so start must not print fallback: $(cat "$TMP/out")"
+' "$TMP/out" || fail "senior-worker has one live-table row, so start must not print fallback: $(cat "$TMP/out")"
 
   echo "--- two worker labels are refused, and nothing is started"
   reset_log
@@ -1236,7 +1247,7 @@ assert "fallback" not in obj, obj
 import json, sys
 from pathlib import Path
 obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
-assert obj["settings"].get("thinkingOptionId") == "high"
+assert obj["settings"].get("thinkingOptionId") == "true"
 assert obj["settings"].get("features") == {"auto_accept": True}, obj["settings"]
 ' "$TMP/out" || fail "copied start settings are wrong: $(cat "$TMP/out")"
 }
@@ -1364,7 +1375,14 @@ scenario_start_reviewer() {
   never_ran
   [ "$(out_json title)" = "#61 reviewer" ] || fail "title: $(out_json title)"
   [ "$(out_json labels.mmw.kind)" = reviewer ] || fail "kind label"
-  [ "$(out_json labels.mmw.profile)" = reviewer ] || fail "profile label"
+  python3 -c '
+import json, sys
+from pathlib import Path
+obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
+assert "mmw.profile" not in obj["labels"], obj["labels"]
+assert obj["provider"] == "claude/claude-opus-5", obj["provider"]
+assert obj["settings"].get("thinkingOptionId") == "high"
+' "$TMP/out" || fail "reviewer payload: $(cat "$TMP/out")"
   case "$(out_json initialPrompt)" in
     "Use the code-review skill to review ticket #61 from base commit abcdef0123456789abcdef0123456789abcdef01."*) ;;
     *) fail "the reviewer dispatch line did not carry the recorded base commit: $(out_json initialPrompt)" ;;
@@ -1385,7 +1403,14 @@ scenario_start_verifier() {
   never_ran
   [ "$(out_json title)" = "#61 verifier" ] || fail "title: $(out_json title)"
   [ "$(out_json labels.mmw.kind)" = verifier ] || fail "kind label"
-  [ "$(out_json labels.mmw.profile)" = verifier ] || fail "profile label"
+  python3 -c '
+import json, sys
+from pathlib import Path
+obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
+assert "mmw.profile" not in obj["labels"], obj["labels"]
+assert obj["provider"] == "claude/claude-sonnet-5", obj["provider"]
+assert obj["settings"].get("thinkingOptionId") == "high"
+' "$TMP/out" || fail "verifier payload: $(cat "$TMP/out")"
   case "$(out_json initialPrompt)" in
     "Use the verdict skill to verify ticket #61."*) ;;
     *) fail "the verifier prompt does not name the verdict skill: $(out_json initialPrompt)" ;;

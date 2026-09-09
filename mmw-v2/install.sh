@@ -7,11 +7,10 @@
 #                     读 prompt/render.py 拼出的 AGENTS.md
 #   launchd 任务      盯着源文件，改了就重拼 Codex、Pi、Grok 的 AGENTS.md
 #   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里 grok/cursor 两条 provider、
-#                     models.md 每个 bypass 行一条 Agent profile（首选 id 为 agent 名，备用
-#                     host 为 `{agent}@{host}`）、worktrees.root
+#                     worktrees.root。不写 Agent profile。第一次把活表拷进 ~/.mmw/models.md，之后不覆盖。
 #   Cursor 的 MCP     ~/.cursor/mcp.json 里 nowledge-mem 一条，内容问本机 nmem 要
 #
-# 本仓库上一代装过、这次不装的东西（技能软链、subagent 定义文件、hook 登记、Agent profile），
+# 本仓库上一代装过、这次不装的东西（技能软链、subagent 定义文件、hook 登记、从 models.md 生成的 Agent profile），
 # install 摘掉，--check 报残留。
 #
 # 技能有三个来源：mattpocock/skills 的在 upstream/skills/，我们自己写的在 skills/（skills.txt
@@ -373,7 +372,7 @@ COMMAND = f"python3 '{hook}' pretool "
 QUESTION = f"python3 '{hook}' question "
 
 # The tool each host calls to put a question on the screen: the matcher of its
-# question gate. Only the hosts `models.md` starts sessions on carry one.
+# question gate. Only the hosts the live table starts sessions on carry one.
 QUESTION_TOOLS = {"claude": "AskUserQuestion", "grok": "ask_user_question",
                   "codex": "request_user_input"}
 
@@ -766,10 +765,10 @@ fi
 
 # ---------------- Paseo 侧配置 ----------------
 #
-# 源在仓库（models.md 的 bypass 行、下面两条 provider 的字面量），host 侧只放生成物：
-# CLI 软链、~/.paseo/config.json 里的 provider 与 Agent profile、worktrees.root。
-# 合并写入：只增改 id 与 profile_rows() 给出的 profile_id 同名的 profile，其余条目一字不动。
-# 一个 agent 的第一条 bypass 行 id 仍是 agent 名；备用 host 那条是 `{agent}@{host}`。
+# 源在仓库（hosts.json 里两条 provider 的字面量），host 侧只放生成物：CLI 软链、
+# ~/.paseo/config.json 里的 provider、worktrees.root。活表在 ~/.mmw/models.md：第一次
+# install 从 hosts.json 的 defaults 拷入，之后不覆盖。不写 Agent profile。笔记含
+# `from models.md` 的生成 profile 安装时摘掉、--check 报残留；手写的不动。
 # MMW_V2_HOME 之下不跑 paseo reload（与 launchd 同构）。
 
 PASEO_BIN_SRC="/Applications/Paseo.app/Contents/Resources/bin/paseo"
@@ -797,6 +796,8 @@ MMW_PASEO_CONFIG="$PASEO_CONFIG" \
 MMW_MODELS_PY="$SELF_SRC/dispatch/scripts/models.py" \
 MMW_PASEO_WORKTREES="$PASEO_WORKTREES_ROOT" \
 MMW_HOME_DIR="$HOME_DIR" \
+MMW_LIVE_MODELS="$HOME_DIR/.mmw/models.md" \
+MMW_CATALOG_MODE=paseo \
 python3 - <<'PY' || rc=1
 import importlib.util
 import json
@@ -810,13 +811,11 @@ mode = os.environ["MMW_MODE"]
 config_path = Path(os.environ["MMW_PASEO_CONFIG"])
 models_py = Path(os.environ["MMW_MODELS_PY"])
 worktrees_root = os.environ["MMW_PASEO_WORKTREES"]
-home_dir = Path(os.environ["MMW_HOME_DIR"])
 GENERATED_MARK = "from models.md"
 
 _spec = importlib.util.spec_from_file_location("mmw_models", models_py)
 models = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(models)
-models_path = models.MODELS
 
 GROK_PROVIDER = {
     "extends": "acp",
@@ -829,21 +828,6 @@ CURSOR_PROVIDER = {
     "label": "Cursor",
     "command": ["cursor-agent", "acp"],
 }
-
-PURPOSES = {
-    "junior-worker": "the default worker grade, for tickets labelled junior-worker or carrying no worker-grade label",
-    "senior-worker": "the worker grade for tickets where getting it wrong would be wrong silently",
-    "reviewer": "runs one round of code review on a ticket from a base commit",
-    "verifier": "re-runs every acceptance criterion and posts one VERDICT",
-    "advisor": "a second opinion on a stronger model, consulted at most once per decision",
-}
-
-# advisor 的 profile 多一句：它跟别的不同，不是流水线自己派的，是某个 agent 撞上一个
-# 决定时临时问的，所以 notes 要说清 initialPrompt 怎么写。什么时候问、包里装什么、为什么
-# 不由 caller 划定调查范围，在 advisor 技能的 references/consulting.md，不在这里。
-ADVISOR_PROMPT = ("A caller uses `create_agent`; initialPrompt is 'Use the advisor skill.' "
-                  "plus the question packet. The caller reads the advisor skill's "
-                  "references/consulting.md first: it decides what the question carries.")
 
 
 def die(msg):
@@ -879,67 +863,55 @@ def is_generated(profile):
     return isinstance(notes, str) and GENERATED_MARK in notes
 
 
-def notes_for(agent, host, permissions):
-    note = (f"{agent} from models.md {agent}/{host}; "
-            f"{PURPOSES.get(agent, 'dispatched by this pipeline')}.")
-    if agent == "advisor":
-        note += " " + ADVISOR_PROMPT
-    return note
+def drop_generated(data):
+    daemon = data.setdefault("daemon", {})
+    existing = list(daemon.get("agentProfiles") or [])
+    kept = []
+    dropped = []
+    for profile in existing:
+        if is_generated(profile):
+            dropped.append(profile.get("id") if isinstance(profile, dict) else None)
+        else:
+            kept.append(profile)
+    daemon["agentProfiles"] = kept
+    return dropped
 
 
-def make_profile(row, existing=None):
-    profile = dict(existing) if isinstance(existing, dict) else {}
-    profile["id"] = row.profile_id
-    profile["name"] = row.profile_id
-    profile["provider"] = row.host
-    profile["model"] = row.model
-    profile["thinkingOptionId"] = row.effort
-    profile["notes"] = notes_for(row.agent, row.host, row.permissions)
-    models.apply_permissions(profile, row.host, row.permissions)
-    return profile
-
-
-def merge(data, rows):
+def merge_providers(data):
     agents = data.setdefault("agents", {})
     providers = agents.setdefault("providers", {})
     providers["grok"] = dict(GROK_PROVIDER)
     providers["cursor"] = dict(CURSOR_PROVIDER)
-
-    daemon = data.setdefault("daemon", {})
-    existing = list(daemon.get("agentProfiles") or [])
-    managed = {row.profile_id: row for row in rows}
-    new_profiles = []
-    seen = set()
-    dropped = []
-    for profile in existing:
-        pid = profile.get("id") if isinstance(profile, dict) else None
-        if pid in managed:
-            new_profiles.append(make_profile(managed[pid], existing=profile))
-            seen.add(pid)
-        elif is_generated(profile):
-            dropped.append(pid)
-        else:
-            new_profiles.append(profile)
-    for row in managed.values():
-        if row.profile_id not in seen:
-            new_profiles.append(make_profile(row))
-    daemon["agentProfiles"] = new_profiles
-
     worktrees = data.setdefault("worktrees", {})
     worktrees["root"] = worktrees_root
     data.setdefault("version", 1)
-    return data, dropped
+    return data
 
 
+failed = False
 try:
-    rows = models.profile_rows()
+    if mode != "check":
+        if models.adopt_live_table():
+            print(f"已装  活表 {models.live_path()}")
+    live = models.live_path()
+    if not live.is_file():
+        sys.stderr.write(f"缺    活表 {live}\n")
+        sys.exit(1)
+    rows = models.session_rows()
 except ValueError as exc:
     die(str(exc))
 if not rows:
-    die(f"{models_path} 里一行 bypass 都没有")
+    die(f"{models.live_path()} 里一行都没有")
+for row in rows:
+    try:
+        host, model, effort = models.resolve_row(row.host, row.model, row.effort)
+        models.create_agent_settings(host)
+        models.thinking_option(host, effort)
+    except ValueError as exc:
+        sys.stderr.write(f"缺    {exc}\n")
+        failed = True
 
 if mode == "check":
-    failed = False
     data = load(config_path)
     providers = ((data.get("agents") or {}).get("providers") or {})
     for name, want in (("grok", GROK_PROVIDER), ("cursor", CURSOR_PROVIDER)):
@@ -947,40 +919,9 @@ if mode == "check":
         if have != want:
             sys.stderr.write(f"缺    agents.providers.{name} 与 install.sh 不一致\n")
             failed = True
-    by_id = {}
     for profile in ((data.get("daemon") or {}).get("agentProfiles") or []):
-        if isinstance(profile, dict) and profile.get("id"):
-            by_id[profile["id"]] = profile
-    for row in rows:
-        profile = by_id.get(row.profile_id)
-        if profile is None:
-            sys.stderr.write(f"缺    profile {row.profile_id} 不在 {config_path}\n")
-            failed = True
-            continue
-        want = make_profile(row, existing=profile)
-        if profile.get("model") != want["model"]:
-            sys.stderr.write(f"缺    profile {row.profile_id} model 与 models.md 不一致\n")
-            failed = True
-        if profile.get("thinkingOptionId") != want["thinkingOptionId"]:
-            sys.stderr.write(f"缺    profile {row.profile_id} thinkingOptionId 与 models.md 不一致\n")
-            failed = True
-        if profile.get("provider") != want["provider"]:
-            sys.stderr.write(f"缺    profile {row.profile_id} provider 与 models.md 不一致\n")
-            failed = True
-        if profile.get("modeId") != want.get("modeId") or \
-                (profile.get("featureValues") or {}) != (want.get("featureValues") or {}):
-            sys.stderr.write(f"缺    profile {row.profile_id} permissions 与 models.md 不一致\n")
-            failed = True
-        if profile.get("notes") != want["notes"]:
-            sys.stderr.write(f"缺    profile {row.profile_id} notes 与 models.md 不一致\n")
-            failed = True
-    managed_ids = {row.profile_id for row in rows}
-    for profile in ((data.get("daemon") or {}).get("agentProfiles") or []):
-        if not is_generated(profile):
-            continue
-        pid = profile.get("id")
-        if pid not in managed_ids:
-            sys.stderr.write(f"残留  profile {pid}\n")
+        if is_generated(profile):
+            sys.stderr.write(f"残留  profile {profile.get('id')}\n")
             failed = True
     have_root = ((data.get("worktrees") or {}).get("root"))
     if have_root != worktrees_root:
@@ -988,15 +929,17 @@ if mode == "check":
         failed = True
     sys.exit(1 if failed else 0)
 
-data, dropped = merge(load(config_path), rows)
-for pid in dropped:
+if failed:
+    sys.exit(1)
+
+data = merge_providers(load(config_path))
+for pid in drop_generated(data):
     print(f"摘掉  profile {pid}")
 save(config_path, data)
 print(f"已装  {config_path}")
 PY
 
-# `paseo reload` 落地本段刚写的大部分：Agent profile 与两条 provider 都在 Paseo 的可热
-# 重载清单上。`worktrees.root` 不在——Paseo 只在启动时读它一次——所以改了它要重启
+# `paseo reload` 落地本段刚写的两条 provider。`worktrees.root` 不在——Paseo 只在启动时读它一次——所以改了它要重启
 # daemon，否则新工作区还是建到 daemon 启动时的那个根目录去。哪些设置卡在这上面，只有
 # `--json` 的 restartRequiredPaths 按名字说得出来。它比对的是 daemon 启动时的配置，所以
 # 列出来的不限于这一次安装改的。

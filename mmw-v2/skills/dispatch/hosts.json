@@ -1,0 +1,63 @@
+{
+  "defaults": [
+    {"agent": "junior-worker", "host": "cursor", "model": "grok 4.6", "effort": "high"},
+    {"agent": "junior-worker", "host": "grok", "model": "grok 4.6", "effort": "high"},
+    {"agent": "senior-worker", "host": "grok", "model": "grok 4.6", "effort": "xhigh"},
+    {"agent": "reviewer", "host": "claude", "model": "opus 5", "effort": "high"},
+    {"agent": "verifier", "host": "claude", "model": "sonnet 5", "effort": "high"},
+    {"agent": "advisor", "host": "claude", "model": "fable 5.1", "effort": "medium"}
+  ],
+  "hosts": {
+    "cursor": {
+      "binary": "cursor-agent",
+      "effort_in_model": true,
+      "herdr": {
+        "argv": ["--model", "{model}", "--force", "--trust", "--approve-mcps"]
+      },
+      "paseo": {
+        "settings": {"modeId": "agent", "features": {"auto_accept": true}},
+        "thinking": "boolean"
+      }
+    },
+    "grok": {
+      "binary": "grok",
+      "efforts": ["xhigh", "high", "medium", "low"],
+      "herdr": {
+        "argv": ["-m", "{model}", "--reasoning-effort", "{effort}", "--permission-mode", "bypassPermissions", "--always-approve"]
+      },
+      "paseo": {
+        "settings": {"features": {"auto_accept": true}},
+        "thinking": "option_id"
+      }
+    },
+    "claude": {
+      "binary": "claude",
+      "efforts": ["low", "medium", "high", "xhigh", "max", "ultracode"],
+      "herdr": {
+        "argv": ["--model", "{model}", "--effort", "{effort}", "--permission-mode", "bypassPermissions", "-n", "{name}"]
+      },
+      "paseo": {
+        "settings": {"modeId": "bypassPermissions"},
+        "thinking": "option_id"
+      }
+    },
+    "codex": {
+      "binary": "codex",
+      "efforts": ["low", "medium", "high", "xhigh"],
+      "herdr": {
+        "argv": ["-m", "{model}", "-c", "model_reasoning_effort=\"{effort}\"", "--dangerously-bypass-approvals-and-sandbox"]
+      },
+      "paseo": {
+        "settings": {"modeId": "full-access"},
+        "thinking": "option_id"
+      }
+    },
+    "pi": {
+      "binary": "pi",
+      "paseo": {
+        "settings": {"features": {"auto_accept": true}},
+        "thinking": "option_id"
+      }
+    }
+  }
+}
