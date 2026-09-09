@@ -27,7 +27,7 @@
 | 第 6 行 dispatcher 段与第 2 节标题、首段 | `SKILL.md` 的两扇门与 `references/session.md` 第 2 节 | 我们改的：会话自称 `reviewer session`，三个轴是 host 自带的通用 subagent，再调一次本技能并带上 axis 名（`Standards` / `Spec` / `Tests`），不写 model、不写路径。第 8 行原有 `When either is missing, ask for it.` 删去：`dispatch.sh` 起 reviewer 时两个值必带，而 reviewer 与等它的 worker 之间只有票上 `^REVIEW ` 一条通道，问不到人，屏幕上一张 form 只会被 board 关掉。上游改这两处 → 收上游措辞，通用 subagent、再调本技能、不问值这三条保留 |
 | frontmatter 的 `description` | `SKILL.md` 第 3 行，改写了 | 收窄成两扇门：一张 ticket、一个 base commit、三个 axis；轴 subagent 再给一个 axis 名。末句给的是这个技能要的值，不写调用形状（理由见末节）。上游那句招揽「review a branch / a PR / review since X」的用法在正文里没有落点。上游改这一行 → 收上游对三个 axis 的措辞，两扇门与 ticket number 保留 |
 | 第 1 步「say which one it was and stop」 | `references/session.md` 第 1 节，改写了 | base commit 解析不了或 diff 为空时，也要写到 ticket 上，走第 4 节同一条通道，first line 仍是 `REVIEW <base commit>..<HEAD commit>`，正文一行说是哪一种失败。理由是同一份文件末尾自己写的原则（只存在于 session 里的 report 谁也读不到），而 worker 在票上只找 first line `^REVIEW `：不写 ticket，它什么也找不到。两条失败路径与成功路径同一条通道，所以「报告落地」与「告诉 worker」在这三种结局下都不会各走各的。上游改这一步 → 收上游的判断，写到 ticket 上与走同一条通道这两条保留 |
-| 无 | `references/session.md` 第 2 节末尾一段 | 我们加的：要求 dispatcher 在三个 axis subagent 都回话之前不结束回合，并对「subagent 默认后台跑」的 host 明写要等。措辞按能力说，不点 host 名。理由：Paseo 只给一个 session 一次终结通知，花在它第一次结束回合的时刻；dispatcher 把活派给 subagent 之后就结束回合的话，那一次通知落在报告还不存在的时刻，之后不会再有第二次，等它的 worker 只剩下反复问一条路。上游若写明并行 subagent 的等待语义 → 收上游措辞，「不在中途结束回合」保留 |
+| 无 | `references/session.md` 第 2 节末尾一段 | 我们加的：要求 dispatcher 在三个 axis subagent 都回话之前不结束回合，并对「subagent 默认后台跑」的 host 明写要等。措辞按能力说，不点 host 名。理由是第 4 节那一次调用——它贴出报告并在同一次调用里报信，那是叫醒 worker 的唯一一条路；中途结束回合时报告还没写出来，那一次调用也就还没发生，等它的 worker 只剩下反复问。上游若写明并行 subagent 的等待语义 → 收上游措辞，「不在中途结束回合」保留，理由不要写成「session 停下来本身会叫醒 worker」——那不是真的 |
 | 第 2 步 subagent 表里的 reference 路径 | `SKILL.md` 的轴门与 `references/session.md` 第 2 节 | 不再把绝对路径交给 subagent。prompt 是一句 `Use the code-review skill … axis <Name>`，轴门用相对链接指向三份 reference。上游改这张表 → 收上游的行，不写路径、再调本技能按我们的 |
 | 第 3 步 identify the standards sources 的来源清单 | `references/standards-reviewer.md` 第 2 节，加了一条 | 加 `codebase-design` 技能的 `SKILL.md`（按技能名点名，不写安装路径，subagent 从自己 host 装技能的位置解析）：`to-tickets` 把「接口是不是 pass-through」这类判断路由到 Standards axis，路由的终点得存在，而 depth / seam / adapter 这套 vocabulary 只在那个技能里。上游把这套 vocabulary 接进来 → 收上游措辞 |
 | 无 | `references/standards-reviewer.md` 第 3 节末尾的 deletion test，与第 4 节的对应一行 | 我们加的：判 depth 的那一条，措辞照抄 `codebase-design/SKILL.md` 的 deletion test（删掉这个模块，复杂度是消失还是在 N 个调用方那里重新出现）。与 code smell 同级，是 judgement call，「The repository overrides」同样管它 |
@@ -47,17 +47,18 @@
 ## 报告和报信是同一次调用
 
 `references/session.md` 第 1 节与第 4 节都不用 `gh issue comment`，改用 `verify-ticket` 技能的
-`verify-ticket.py <ticket> --review <file>`：它贴出评论，并在同一次调用里告诉起这个 reviewer 的
-session 报告已经落地。
+`<engine> <ticket> --review <file>`：它贴出评论，并在同一次调用里告诉起这个 reviewer 的
+session 报告已经落地。记号与另外三个调用方一致，都写 `<engine>`、都说从 `verify-ticket` 技能自己的
+`SKILL.md` 解析它。这一条 run 的行为与它的 exit code 写在那份技能的 `references/reporting.md`；
+`session.md` 留下的是固定首行 `REVIEW <base commit>..<HEAD commit>` 与它的理由，那是调用方要照着写的政策。
 
 这是本仓 `docs/adr/0010-agents-are-woken-not-polled.md` 已经为 worker 定下的那条规矩，reviewer
 同样适用：状态落地和「告诉需要知道的人」拆成两步就会漏。漏的方式是具体的——Paseo 一个 session 只有
 一次终结通知，花在它第一次结束回合的时刻，而 dispatcher 是否在派完 subagent 之后结束回合由模型临场
 决定；花错了就没有第二次，worker 只能反复问。
 
-`--review` 只在跑它的 session 确实带着 `mmw.kind=reviewer` 标签时才报信。`dispatch` 技能有一条兜底：
-reviewer session 没留下报告时，worker 在自己这边起一个 subagent 重跑同一份评审——那个 subagent 的上级
-是 main agent，报信会送错人。
+`--review` 无条件报信：没有守卫去问跑它的 session 是不是 Paseo 起的那个 reviewer，也没有「reviewer 没留下
+报告时 worker 自己起 subagent 重跑一份评审」那条兜底。reviewer 停了没留评论就是 `wait` 退 1，此外什么都不补。
 
 上游把落点写成别的命令 → 收上游对 report 形状的措辞，调用改回 `--review`。
 
@@ -69,7 +70,7 @@ reviewer session 没留下报告时，worker 在自己这边起一个 subagent �
 2. 上游给 `SKILL.md` 加了新的一步：它是 dispatcher 的动作就进 `references/session.md`，是某一个 axis 要照的规则就进那个 axis 的 reference file。
 3. 上游加了第三个 axis：与我们的 Tests axis 合并还是并列，看它问的是不是同一个问题；并列的话 `SKILL.md` 的轴门和 `references/session.md` 第 2 节都要加一行。
 4. `SKILL.md` 只做分门，不含 smell baseline 正文与任何 subagent brief 原文。收上游时这些进了门口，就是有 axis 要照的规则没搬进 reference file。
-5. Markdown 文件一律英文，不写出处、不写落地记录。`references/` 下 axis 各一份，dispatcher 的步骤在 `references/session.md`，门口在 `SKILL.md`。
+5. frontmatter 的 `description` 不带引号（值里没有冒号加空格）。Markdown 文件一律英文，不写出处、不写落地记录。`references/` 下 axis 各一份，dispatcher 的步骤在 `references/session.md`，门口在 `SKILL.md`。
 
 ## What the caller gives, not what the call looks like
 

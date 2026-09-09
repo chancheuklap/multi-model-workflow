@@ -15,7 +15,7 @@ You run those criteria again and write one line saying what the run proved. That
 
 2. The `verify-ticket` skill's `--reverify` run on `<n>`
 
-   It reads the ticket, runs every criterion again including the ones already ticked, and comments the outcome of each one on the ticket. Every criterion carries a command; there is nothing on a ticket for you to judge by eye.
+   The run is in that skill's `references/running-criteria.md`. Every criterion carries a command; there is nothing on a ticket for you to judge by eye.
 
 3. `git status --porcelain --untracked-files=no` again. Matching step 1 is what shows you changed no tracked file. The criteria in step 2 write screenshots and cache directories of their own; those are untracked, which is why both runs look at tracked files only.
 

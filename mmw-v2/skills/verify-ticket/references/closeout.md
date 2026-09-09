@@ -1,4 +1,31 @@
-# What `--closeout` reads the draft against
+# Closing out
+
+## Resolve `<engine>` once
+
+`<engine>` is `scripts/verify-ticket.py`, resolved from this skill's own `SKILL.md` the way its **Resolve `<engine>` once** section says.
+
+## The four runs
+
+```bash
+<engine> <n> --decisions <file>
+<engine> <n> --touched
+<engine> <n> --draft <out-file>
+<engine> <n> --closeout <draft>
+```
+
+`--decisions` lands a comment whose first line is `DECISIONS`. The file is two sections, `Decisions I made on my own` and `Outside Owns`; a section missing from it is a refusal with the reason on stderr. A ticket carries one such comment: a second run is refused with `#<n> already carries a DECISIONS comment`, and nothing is posted.
+
+`--touched` lands a `TOUCHED BY #<n>` comment on each open sibling whose `## Owns` covers a file on the newest `self-run`'s `Outside Owns:` line. Until the review has landed it is refused with `#<n> carries no REVIEW comment`. When that line is `None` nothing is posted and the run still succeeds.
+
+`--draft` puts nothing on the ticket. The closing-comment skeleton is written to `<out-file>`, with `skipped:` and `Decisions I made on my own` left as `<fill>` and `Sub-issues opened:` filled with this ticket's sub-issues. `--closeout` refuses the skeleton until those two are filled.
+
+`--closeout` posts the draft, takes `ready-for-agent` off and closes the ticket. A draft opening `HANDOFF REQUIRED` posts and swaps `ready-for-agent` for `needs-triage`, leaving the ticket open to be judged fresh. When it refuses, the first stderr line counts the problems, names the first, and gives the `--check-only` command that prints them all; every problem after the first is one more line opening `also:`. `--closeout <draft> --check-only` reports on a draft and changes nothing, at any time.
+
+## Exit codes
+
+`--draft` writes a file and exits `0`; it refuses nothing. `--closeout` uses `1` for a refusal, so an unmet closing condition reads like an unmet criterion rather than a broken command. `--decisions` and `--touched` use `2`, and post nothing.
+
+## What `--closeout` reads the draft against
 
 You are the worker who wrote the closing comment to a file and had it refused. Every condition below is one `--closeout` checks against the draft before it posts the draft; the stderr line names the first, and `--check-only` prints them all. A refused draft leaves the ticket exactly as it was — same comments, same state, same labels.
 

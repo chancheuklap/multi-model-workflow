@@ -1,8 +1,8 @@
 """`--review`: post the review report on the ticket and tell the worker in one call.
 
 The report and the telling are one act, so the two things asserted here are that the
-comment lands with the first line the worker matches on, and that the message goes only
-to a session that really is the reviewer Paseo started.
+comment lands with the first line the worker matches on, and that the session that started
+this one is told in the same run.
 """
 
 import io
@@ -49,8 +49,7 @@ Standards: 0 findings. Spec: 0 findings. Tests: 0 findings.
 class FakeCalls:
     """Every subprocess this run makes, answered the way the real commands answer."""
 
-    def __init__(self, *, labelled_reviewer=True, send_fails=False):
-        self.labelled_reviewer = labelled_reviewer
+    def __init__(self, *, send_fails=False):
         self.send_fails = send_fails
         self.recorded = []
         self.posted = []
@@ -62,10 +61,6 @@ class FakeCalls:
             number = int(cmd[3])
             path = cmd[cmd.index("--body-file") + 1]
             self.posted.append((number, Path(path).read_text(encoding="utf-8")))
-            return result
-        if cmd[:2] == ["paseo", "ls"]:
-            rows = [{"id": AGENT}] if self.labelled_reviewer else [{"id": "someone-else"}]
-            result.stdout = json.dumps(rows)
             return result
         if cmd[:2] == ["paseo", "inspect"]:
             result.stdout = json.dumps({"ParentAgentId": PARENT})
@@ -83,10 +78,9 @@ class FakeCalls:
         return [c for c in self.recorded if c[:2] == ["paseo", "send"]]
 
 
-def run_review(text=REPORT, *, agent=AGENT, labelled_reviewer=True, send_fails=False,
-               write=True):
+def run_review(text=REPORT, *, agent=AGENT, send_fails=False, write=True):
     """Run --review against a made-up ticket; return (exit, stderr, fake)."""
-    fake = FakeCalls(labelled_reviewer=labelled_reviewer, send_fails=send_fails)
+    fake = FakeCalls(send_fails=send_fails)
     environ = {"PASEO_AGENT_ID": agent} if agent else {}
     with TemporaryDirectory() as tmp:
         path = Path(tmp) / "review.md"
@@ -145,12 +139,6 @@ class TestTellsTheSessionThatStartedIt(unittest.TestCase):
         order = [c[:3] for c in fake.recorded]
         self.assertLess(order.index(["gh", "issue", "comment"]),
                         order.index(["paseo", "send", "--no-wait"]))
-
-    def test_a_session_that_is_not_the_labelled_reviewer_tells_nobody(self):
-        code, err, fake = run_review(labelled_reviewer=False)
-        self.assertEqual(code, 0, err)
-        self.assertEqual(len(fake.posted), 1)
-        self.assertEqual(fake.sent(), [])
 
     def test_outside_paseo_the_report_still_lands(self):
         code, err, fake = run_review(agent="")

@@ -1,6 +1,6 @@
 ---
 name: to-tickets
-description: Break a plan, spec, or the current conversation into a set of tracer-bullet tickets, each declaring its blocking edges, published to the project issue tracker as one issue per ticket with blocking links.
+description: Break a plan, spec, or the current conversation into a set of tracer-bullet tickets, each declaring its blocking edges, published to the project issue tracker as one issue per ticket with blocking links. Use once a spec or plan is agreed and the work has to become tickets an agent can be dispatched onto.
 ---
 
 # To Tickets
@@ -35,7 +35,7 @@ Break the work into **tracer bullet** tickets.
 
 </vertical-slice-rules>
 
-**The contract ticket comes first when the spec has a screen contract.** It lands every product answer under `.mmw/`: `target.json` filled until `screen_driver.py target --check` of the `drive-target` skill exits 0, the story-page skeleton and one adapter precedent, the interaction-helper precedent a `boundary-check.py` criterion copies, the journey skeleton, and the harness guard. Its **Read first** names two sections of the `drive-target` skill that nothing else would put in front of the worker: `references/ui-parity.md`, **The story page the product serves**, for what the story page and its adapter have to be; and `references/journey.md` for what a journey script has to assert, since every journey is run a second time with the product down and one that asserts nothing is reported rather than passed. Those skeletons are the precedents later tickets copy. It carries one criterion that starts the stack on a clean machine and signs in: `journey.py run smoke`. Journeys appear only on this ticket and on tickets the owner named. Every other ticket in the batch is blocked by it.
+**The contract ticket comes first when the spec has a screen contract.** It lands every product answer under `.mmw/`: `target.json` filled until `screen_driver.py target --check` of the `drive-target` skill exits 0, the story-page skeleton and one adapter precedent, the interaction-helper precedent a `boundary-check.py` criterion copies, the journey skeleton, and the harness guard. Its **Read first** names two sections of the `drive-target` skill that nothing else would put in front of the worker: `references/story-parity.md`, **The story page the product serves**, for what the story page and its adapter have to be; and `references/journey.md` for what a journey script has to assert, since every journey is run a second time with the product down and one that asserts nothing is reported rather than passed. Those skeletons are the precedents later tickets copy. It carries one criterion that starts the stack on a clean machine and signs in: `journey.py run smoke`. Journeys appear only on this ticket and on tickets the owner named. Every other ticket in the batch is blocked by it.
 
 **Wide refactors are the exception to vertical slicing.** A **wide refactor** is one mechanical change (rename a column, retype a shared symbol) whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket; green is promised only there.
 
@@ -95,8 +95,10 @@ Present the proposed breakdown as a numbered list. For each ticket an agent work
 - **Title**: short descriptive name
 - **Blocked by**: which other tickets (if any) must complete first
 - **What it delivers**: the end-to-end behaviour this ticket makes work
-- **Worker**: `junior` or `senior`, then ` — ` and the one-line reason from its **Worker** section. This line is the only time the grade passes a person's eye: `--lint` checks that the label and the section agree, not that the grade is right.
+- **Worker**: `junior` or `senior`, then ` — ` and the one line that says why. This line is the only time the grade passes a person's eye.
 - **Choices**: every choice question 5 sent here, one line each — the options, and the one you would take. Omit the line when there are none.
+
+`junior-worker` is the default, and the line beside the grade is what buys the other one: a ticket goes to `senior-worker` when getting it wrong is wrong **silently** — money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default — because none of those fail on the day they are written. A ticket whose **Seam** already names a precedent to copy stays on `junior-worker`.
 
 Then the `ready-for-human` tickets, in the same list, each with its **Title**, **Blocked by**, its kind (*reaction* or *reach*) and what is to be looked at.
 
@@ -112,7 +114,7 @@ Iterate until the user approves the breakdown. Write each answered choice into t
 
 ### 7. Publish the tickets to the configured tracker
 
-Publish the approved tickets to the issue tracker `/setup-matt-pocock-skills` configured (GitHub, Linear, …): one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native issue dependencies and sub-issue relationship where it has them; otherwise set each ticket's "Blocked by" to the blocking issues. On GitHub, create each ticket as a sub-issue of the spec (`gh issue create --parent <spec>`, or attach it through the `sub_issues` API): the ticket graph of the `verify-ticket` skill's `--lint`, and the board, read only that relationship. Apply the `ready-for-agent` triage label to every ticket an agent works, and beside it the `junior-worker` or `senior-worker` label its **Worker** section names; the ones a person must judge carry `ready-for-human` instead, and no worker.
+Publish the approved tickets to the issue tracker `/setup-matt-pocock-skills` configured (GitHub, Linear, …): one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native issue dependencies and sub-issue relationship where it has them. On GitHub, create each ticket as a sub-issue of the spec (`gh issue create --parent <spec>`, or attach it through the `sub_issues` API): the ticket graph of the `verify-ticket` skill's `--lint`, and the board, read only that relationship. Apply the `ready-for-agent` triage label to every ticket an agent works, and beside it the `junior-worker` or `senior-worker` label the breakdown approved in step 6 gives it; the ones a person must judge carry `ready-for-human` instead, and no worker.
 
 Work the **frontier**: the tickets that are open, carry `ready-for-agent`, have every blocker closed, and have neither an assignee nor a live session. For a purely linear chain that means top to bottom.
 
@@ -123,16 +125,14 @@ Do NOT close or modify any parent issue.
 After publishing, fetch each ticket again and check every one:
 
 - The title and **What to build** describe the same slice.
-- Every entry under **Blocked by** is an identifier that resolves to one of this batch's tickets, and the ticket it resolves to is the one meant.
-- On a tracker with native issue dependencies, the number of blocking links equals the number of **Blocked by** entries.
 - On GitHub, the spec's sub-issue count equals the number of tickets in this batch.
 
 Then each kind of ticket, for the sections that kind must carry. On the ones an agent works:
 
 - **Read first** and **Seam** are present and non-empty ("none" counts as present). Where **Read first** carries a baseline — anything that records a settled conclusion — its line marks it as one.
 - **Owns** is present and non-empty, every entry is a repository-relative path or glob, and no two tickets on the same frontier overlap there. A change a ticket needs in a tool skill outside the repository is not a ticket and not an **Owns** entry: the toolbox is improved in use, the change is made there at once.
-- Every thing a criterion needs to reach its state — the ones the spec's Testing Decisions names under **How a test arrives at a state** — is under some ticket's **Owns**, and is the `built_by` of that mechanism in the contract. `--lint` checks that a ticket using a mechanism is blocked by its `built_by`; that the builder truly builds it is yours to check: a criterion that assumes a mechanism nobody builds fails on the night it first runs, and by then the batch is out.
-- The `verify-ticket` skill's `--lint` has been run on the ticket's issue number, and every ERROR it reports is fixed before you report the batch. Read every WARN once and either fix it or keep it on purpose. Its `[screen-contract]` findings are the interface rules above made mechanical: an interface ticket without row ids in **Read first**, a `--pages` mount the contract does not declare or that names an `App · ` page, a `boundary-check.py --run` that is empty, a `journey.py run <name>` that is not under `.mmw/journeys/`, a `CHECK:` that stubs the application's own `fetch`, a pipeline script called without `--contract` (and `--pages` or `--run`) or with a flag its `--help` does not list or an address that belongs in `.mmw/target.json`, a mechanism used without its `built_by` in **Blocked by**, a row source that is not under **Read first** or a spec section **Parent** does not name, an explicit `--scenes` outside its mounts, and an unknown `--mount`.
+- Every thing a criterion needs to reach its state — the ones the spec's Testing Decisions names under **How a test arrives at a state** — is under some ticket's **Owns**, and is the `built_by` of that mechanism in the contract. That the builder truly builds it is yours to check: a criterion that assumes a mechanism nobody builds fails on the night it first runs, and by then the batch is out.
+- The `verify-ticket` skill's `--lint` has been run on the ticket's issue number, and every ERROR it reports is fixed before you report the batch. Read every WARN once and either fix it or keep it on purpose. What it looks at, and what each finding means, is in that skill's `references/linting.md`.
 
 On the `ready-for-human` ones — no agent can repair one, so all of the five things it holds are checked:
 
@@ -150,19 +150,13 @@ Fix what fails before reporting the batch as published. When the batch is a spec
 
 A reference to the parent issue on the tracker, followed by the numbered Implementation Decisions sections this ticket implements ("#535, Implementation Decisions sections 5 and 7"). Omit the section only when the source was not an existing issue.
 
-## Worker
-
-Which of the two workers this ticket gets, and one line saying why. `junior-worker` is the default, and the line is what buys the other one: a ticket goes to `senior-worker` when getting it wrong is wrong **silently** — money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default — because none of those fail on the day they are written. A ticket whose **Seam** already names a precedent to copy stays on `junior-worker`. Name the worker; the model behind each one lives in the live table `~/.mmw/models.md`, which is the only place a model is written down.
-
-senior-worker — one settlement per task, and a wrong one surfaces days later in the ledger rather than in a failing test.
-
 ## What to build
 
 The end-to-end behaviour this ticket makes work, from the user's perspective, not layer-by-layer implementation. Write it as numbered points, one thing per point, each point complete with the test that decides it and the reason it is there. A choice the user settled in the quiz of step 6 is a point of its own here, stated as the ticket's decision. A person scans it for the one point they came for, an agent works from it with none of your context, and neither gets through one long paragraph.
 
 ## Read first
 
-The source material behind the sections named under **Parent**: decision tickets, ADRs, research files, prototype directories, domain docs — copied from what those sections cite, one per line, each with a word on what it settles. The implementer reads these and nothing else from the spec's Sources. Whatever here records a settled conclusion — the chosen artifact of a prototype, a handoff package downloaded from Claude Design, the Decision of an ADR, the resolution of a decision ticket — is a **baseline**: a contract, not a reference, marked as one on its line. An interface ticket carries two baseline lines: the handoff package, for look and verbatim copy, and the screen contract with the row ids this ticket owns (`screen-contract.yaml rows: create-project.add-material, create-project.next`), for calls, shown values, transitions and timing. The verbatim copy in the criteria comes from the handoff package; the values shown come from the rows' `shows`. Write "None" if the sections cite nothing.
+The source material behind the sections named under **Parent**: decision tickets, ADRs, research files, prototype directories, domain docs — copied from what those sections cite, one per line, each with a word on what it settles. The implementer reads these and nothing else from the spec's Sources. Whatever here records a settled conclusion — the chosen artifact of a prototype, a handoff package downloaded from Claude Design, an ADR's decision in the untitled paragraph under its title, the resolution of a decision ticket — is a **baseline**: a contract, not a reference, marked as one on its line. An interface ticket carries two baseline lines: the handoff package, for look and verbatim copy, and the screen contract with the row ids this ticket owns (`screen-contract.yaml rows: create-project.add-material, create-project.next`), for calls, shown values, transitions and timing. The verbatim copy in the criteria comes from the handoff package; the values shown come from the rows' `shows`. Write "None" if the sections cite nothing.
 
 For an interface ticket the rest of this section is **derived, not hand-picked**, because what is not in front of the worker does not exist to it. Two lookups from the row ids above, never from a file path:
 
@@ -196,10 +190,6 @@ A ticket that deletes or renames a file, a script, a contract field, or a criter
   TIMEOUT: 1800
 
 Every criterion here carries a command. A judgement goes to code review; a thing only a person can look at is its own `ready-for-human` ticket, blocked by this one. `TIMEOUT:` is optional: seconds this `CHECK:` may run, written when the precedent takes longer than ten minutes — a full build, a suite that starts a browser — and read by the worker's own run and the verifier's alike. It raises the limit and never lowers it.
-
-## Blocked by
-
-- The issue number of each blocking ticket, or "None (can start immediately)". On a tracker with native issue dependencies, add the same blocking links there too.
 
 </issue-template>
 

@@ -20,10 +20,22 @@
 | 模板里 `## Further Notes` 之前的 `## Sources` 节 | 我们加的：一手来源固定十一类（wayfinder `map`、decision ticket、上游 spec、ADR、research file、prototype 目录、handoff package、screen contract、Domain docs、实测证据、测试规则），每类无则填 `none`。`implement` 技能靠这个节名往回读，改名要同步改 `implement`；`to-tickets` 的 `## Read first` 从这里按 ticket 挑。上游自己加了同类的来源节 → 用上游的名字，同步改 `implement` 与 `to-tickets`，十一类保留 |
 
 | 第 2 步的第二段（screen contract）、`## Implementation Decisions` 说明里的 **API contract** 小节、`## Sources` 的 Handoff package 与 Screen contract 两类 | 我们加的：有界面的效果有两个各管一域的基线——交接包管外观与逐字文案，`docs/specs/<effort>/screen-contract.yaml`（`align-screens` 技能从 alignment ticket 写出）管调用、显示值、流转、失败与计时。spec 读全合同；有 `gap` 未 `aligned` 就退回 alignment ticket，不出 spec。`calls`/`shows` 两列生成 **API contract** 小节，新项目的 OpenAPI 从这里起。理由：交接包和后端决定各自完整、无处汇合，变色龙的界面因此接了空。上游改这几节 → 收上游措辞，这三处接回去；Sources 若改名同步改 `implement`、`to-tickets`、`align-screens` |
-| 第 2 步「读全合同」加 `pages` 与 `scenes`；`## Implementation Decisions` 说明加「story 的定论折进实现它的小节」一段并把「user-story number」从出处清单拿掉；API contract 之后的 **visual acceptance** 只引 `pages` 与 story 判官；**How a test arrives at a state** 写 story adapter 读 `scenes.json`、边界测试走交互助手、旅程走 `.mmw/target.json`（不设 mechanism registry）；**Test surfaces** 为第 6 节七问（起栈、收栈、地址与身份、story 页面、旅程目录、离机动作、实例上限），目标参考写成 `drive-target` 技能的 `references/targets/` | 我们改的，来自 mmw #216 第 8 节（取代 #115 的 mechanism registry 与「只引 pages/scenes」的 visual acceptance）。上游改这几节 → 收上游措辞，story / boundary-check / journey 的落点保留 |
+| 第 2 步「读全合同」加 `pages` 与 `scenes`；`## Implementation Decisions` 说明加「story 的定论折进实现它的小节」一段并把「user-story number」从出处清单拿掉；API contract 之后的 **visual acceptance** 只引 `pages` 与 story 判官；**How a test arrives at a state** 写 story adapter 读 `scenes.json`、边界测试走交互助手、旅程走 `.mmw/target.json`（不设 mechanism registry）；**Test surfaces** 为第 6 节七问（起栈、收栈、地址与身份、story 页面、旅程目录、离机动作、实例上限），目标参考写成 `drive-target` 技能的 `references/runtime-environment.md` | 我们改的，来自 mmw #216 第 8 节（取代 #115 的 mechanism registry 与「只引 pages/scenes」的 visual acceptance）。上游改这几节 → 收上游措辞，story / boundary-check / journey 的落点保留 |
 
 ### agents/openai.yaml
 
 | 字段 | 我们的意图 |
 | --- | --- |
 | `policy` 整块（`allow_implicit_invocation: false`） | 删掉。跟 `SKILL.md` 的 `disable-model-invocation` 同步去掉，两处必须同增同删 |
+
+## `description` 的引号是必需的
+
+`SKILL.md` frontmatter 的 `description` 带双引号，别的技能不带。这不是不一致：值里有 `tracker: no`，
+一个冒号加空格。去掉引号，YAML 把它读成一个嵌套 mapping 的 key，`yaml.safe_load` 对**整块 frontmatter**
+抛 `ScannerError: mapping values are not allowed here`——坏的不是这一个 key，是整份 frontmatter。
+
+症状不响：`description` 恰好是每个 host 启动时唯一扫进技能列表的那一行，解析不了这份技能就整个安静地不见；
+再加上改 `description` 要重开会话才生效，改动和症状之间还隔着一段距离。
+
+理由没有地方写进文件本身——`description` 的值装不下注释——所以写在这里。上游或任何一次「统一成不带引号」的
+清理走到这一行 → 引号留着，先把整块 frontmatter 喂给 `yaml.safe_load` 跑一遍再说。

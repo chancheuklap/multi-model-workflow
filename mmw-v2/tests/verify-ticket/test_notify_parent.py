@@ -1,6 +1,6 @@
 """Telling the session that started this one that the ticket came to rest.
 
-Four runs reach a resting state and call this; what each of them says is asserted
+Five runs reach a resting state and call this; what each of them says is asserted
 where that run is tested. Here is the call itself: who it reaches, and what it does
 when there is nobody to reach.
 """

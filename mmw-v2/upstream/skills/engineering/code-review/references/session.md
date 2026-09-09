@@ -26,7 +26,7 @@ Use the code-review skill to review ticket #<ticket> from base commit <resolved 
 
 Nothing else. No summary of the change, no list of files, no restatement of what that axis looks for, no path. The skill is what they read, and the axis word is which door they take.
 
-**Hold this turn until all three have answered.** On a host whose subagents run in the background unless told otherwise, ask for them to be waited on. The worker that started you is asleep on your report and is woken by your session coming to rest; a turn ended here is your session at rest with nothing written, which wakes it to find nothing and leaves it asking again until you finish.
+**Hold this turn until all three have answered.** On a host whose subagents run in the background unless told otherwise, ask for them to be waited on. The worker that started you is asleep on your report, and what wakes it is the call in section 4 that posts the report. A turn ended here has written nothing, so that call has not been made and the worker is still asleep, with nothing on the ticket to find.
 
 ## 3. Sort every review finding into in-ticket or out-of-ticket
 
@@ -45,13 +45,13 @@ The Tests axis splits on one question — is the test case the review finding na
 
 ## 4. Write one review comment on the ticket
 
-Write the report to a file, then hand that file to the `verify-ticket` skill's engine, resolving `scripts/verify-ticket.py` from that skill's own `SKILL.md`:
+Write the report to a file, then hand that file to `<engine>`, the `verify-ticket` skill's `scripts/verify-ticket.py`, resolved from that skill's own `SKILL.md`:
 
 ```sh
-python3 <verify-ticket scripts>/verify-ticket.py <ticket> --review <file>
+<engine> <ticket> --review <file>
 ```
 
-It posts the file as the review comment and, in the same call, tells the session that started you that the report has landed. One call because it is one act: a report on the ticket that the worker was not told about is a worker still asleep on a session that has already finished.
+What that run posts, what it tells, and what it refuses are in the `verify-ticket` skill's `references/reporting.md`.
 
 The review comment's first line is fixed:
 

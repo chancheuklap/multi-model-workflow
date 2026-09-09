@@ -6,11 +6,6 @@ an issue number and dependencies come from the tracker's blocking links. The cas
 below are the ones that file's `_detect_cycles` and `compute_levels` distinguish — the
 two-node cycle Kahn's algorithm cannot drain, the longer cycle `_trace_cycle` walks
 back to a path, and the diamond where a level is the longest path, not the shortest.
-
-Every edge has two accounts on a real ticket: the blocking link the tracker records,
-which is what the graph is built from, and the `## Blocked by` section a person reads.
-`lint_graph` below writes both from one description so they agree, and takes `stated`
-to make them disagree.
 """
 
 import io
@@ -36,12 +31,11 @@ def body(parent=76, blockers=("None (can start immediately)",)):
     return "\n".join(lines) + "\n"
 
 
-def lint_graph(ticket=77, spec=76, batch=(), links=None, stated=None, outside=None):
+def lint_graph(ticket=77, spec=76, batch=(), links=None, outside=None):
     """Run the graph half of --lint over a made-up batch; return (exit code, output).
 
-    `links` is `{ticket: [blockers]}`, the blocking links the tracker records. Each
-    ticket's `## Blocked by` section is written from the same numbers unless `stated`
-    names it, which is how the two accounts of an edge are made to disagree.
+    `links` is `{ticket: [blockers]}`, the blocking links the tracker records, and the whole
+    of what the graph is built from.
 
     `outside` is `{blocker: (spec, state)}` for the blockers that are not in the batch:
     a spec number and `OPEN` or `CLOSED` for a ticket under another spec, and left out
@@ -51,11 +45,7 @@ def lint_graph(ticket=77, spec=76, batch=(), links=None, stated=None, outside=No
     body is written from the same number unless a test writes it otherwise.
     """
     links = dict(links or {})
-    stated = dict(stated or {})
     outside = {n: {"spec": sp, "state": st} for n, (sp, st) in (outside or {}).items()}
-
-    def refs(numbers):
-        return tuple(f"#{n}" for n in numbers) or ("None (can start immediately)",)
 
     with mock.patch.object(vt, "fetch_sub_issues", return_value=list(batch)), \
          mock.patch.object(vt, "fetch_parent", return_value=spec), \
@@ -63,10 +53,7 @@ def lint_graph(ticket=77, spec=76, batch=(), links=None, stated=None, outside=No
                            side_effect=lambda n: list(links.get(n, []))), \
          mock.patch.object(vt, "fetch_outsider",
                            side_effect=lambda n: outside.get(
-                               n, {"spec": None, "state": "OPEN"})), \
-         mock.patch.object(vt, "fetch_body",
-                           side_effect=lambda n: body(
-                               blockers=refs(stated.get(n, links.get(n, []))))):
+                               n, {"spec": None, "state": "OPEN"})):
         with redirect_stdout(io.StringIO()) as out:
             code = vt.lint_ticket_graph(ticket, body(parent=spec))
     return code, out.getvalue()
@@ -138,19 +125,6 @@ class TestLintTicketGraph(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("level 0: #61", out)
         self.assertIn("level 1: #62, #63", out)
-
-    def test_the_graph_is_built_from_the_links_not_the_section(self):
-        """A cycle the tracker records is a cycle even where no `## Blocked by` says so."""
-        code, out = lint_graph(batch=(61, 62), links={61: [62], 62: [61]},
-                               stated={61: [], 62: []})
-        self.assertEqual(code, 1)
-        self.assertIn("  [cycle]", out)
-
-    def test_a_section_edge_the_tracker_does_not_link_is_not_in_the_graph(self):
-        code, out = lint_graph(batch=(61, 62), links={61: [], 62: []},
-                               stated={62: [61]})
-        self.assertEqual(code, 0)
-        self.assertIn("level 0: #61, #62", out)
 
     def test_a_ticket_the_tracker_gives_no_parent_falls_back_to_the_section(self):
         """No parent link still has a batch when `## Parent` names a spec."""
@@ -285,67 +259,7 @@ class TestInBatch(unittest.TestCase):
         self.assertEqual(original[1]["dependencies"], [61, 999])
 
 
-class TestBlockedByMismatch(unittest.TestCase):
-    """The `## Blocked by` section is the copy; the tracker's links are the graph.
-
-    A number in one and not the other is two accounts of the same edge disagreeing, and
-    the reader cannot tell which one the batch was planned around. It is a WARN, not an
-    ERROR: the graph itself is still checkable, and which side is wrong is a judgement.
-    """
-
-    def warnings(self, out):
-        return [l for l in out.splitlines() if "[blocked-by-mismatch]" in l]
-
-    def test_two_accounts_that_agree_warn_about_nothing(self):
-        code, out = lint_graph(batch=(61, 62), links={61: [], 62: [61]})
-        self.assertEqual(code, 0)
-        self.assertEqual(self.warnings(out), [])
-
-    def test_none_in_the_section_and_no_link_agree(self):
-        code, out = lint_graph(batch=(61,), links={61: []})
-        self.assertEqual(code, 0)
-        self.assertEqual(self.warnings(out), [])
-
-    def test_a_number_only_the_section_names_is_warned_about(self):
-        code, out = lint_graph(batch=(61, 62), links={61: [], 62: []},
-                               stated={62: [61]})
-        line = self.warnings(out)[0]
-        self.assertTrue(line.startswith("  WARN  #62: "), line)
-        self.assertIn("`## Blocked by` names #61", line)
-        self.assertIn("the tracker does not link", line)
-        self.assertTrue(line.endswith("  [blocked-by-mismatch]"), line)
-
-    def test_a_number_only_the_tracker_links_is_warned_about(self):
-        code, out = lint_graph(batch=(61, 62), links={61: [], 62: [61]},
-                               stated={62: []})
-        line = self.warnings(out)[0]
-        self.assertIn("the tracker links #61", line)
-        self.assertIn("`## Blocked by` does not name", line)
-
-    def test_both_sides_are_named_when_each_has_one_the_other_lacks(self):
-        code, out = lint_graph(batch=(61, 62, 63), links={61: [], 62: [], 63: [61]},
-                               stated={63: [62]})
-        line = self.warnings(out)[0]
-        self.assertIn("`## Blocked by` names #62", line)
-        self.assertIn("the tracker links #61", line)
-
-    def test_the_mismatch_alone_does_not_fail_the_run(self):
-        code, out = lint_graph(batch=(61, 62), links={61: [], 62: []}, stated={62: [61]})
-        self.assertEqual(code, 0)
-        self.assertEqual(len(self.warnings(out)), 1)
-
-
-class TestBlockedBy(unittest.TestCase):
-    def test_none_reads_as_no_blockers(self):
-        self.assertEqual(vt.blocked_by(body()), [])
-
-    def test_each_referenced_ticket_is_a_blocker(self):
-        self.assertEqual(vt.blocked_by(body(blockers=("#61", "#62"))), [61, 62])
-
-    def test_a_cross_repo_ref_in_blocked_by_is_not_this_repos_ticket(self):
-        self.assertEqual(
-            vt.blocked_by("## Blocked by\n\n- agentflow#655\n- #61\n"), [61])
-
+class TestParentSpec(unittest.TestCase):
     def test_the_parent_spec_is_read_off_the_parent_section(self):
         self.assertEqual(vt.parent_spec(body(parent=60)), 60)
 

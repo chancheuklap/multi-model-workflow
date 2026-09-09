@@ -65,37 +65,52 @@ class RequireJudges(unittest.TestCase):
                 "- [ ] AC2: the click calls\n  CHECK: boundary-check.py --run \"pnpm t\"\n"
                 "  EXPECT: /^BOUNDARY OK/m\n  EVIDENCE: pending\n"
                 "- [ ] AC3: the journey\n  CHECK: journey.py run smoke\n"
-                "  EXPECT: JOURNEY OK smoke\n  EVIDENCE: pending\n")
+                "  EXPECT: JOURNEY OK smoke\n  EVIDENCE: pending\n"
+                "- [ ] AC4: the harness\n  CHECK: harness-guard.py src\n"
+                "  EXPECT: HARNESS OK\n  EVIDENCE: pending\n")
         with self.assertRaises(vt.JudgeUnreachable) as caught:
             vt.require_judges(body)
-        for judge in ("story-parity.py", "boundary-check.py", "journey.py"):
+        for judge in ("story-parity.py", "boundary-check.py", "journey.py",
+                      "harness-guard.py"):
             self.assertIn(judge, str(caught.exception))
+
+    def test_the_harness_guard_is_a_judge_like_the_other_three(self):
+        """A `CHECK:` naming it that the shell cannot answer is refused, not run and failed."""
+        with self.assertRaises(vt.JudgeUnreachable) as caught:
+            vt.require_judges(ticket("harness-guard.py src"))
+        self.assertIn("harness-guard.py", str(caught.exception))
 
 
 class NothingIsWritten(unittest.TestCase):
-    """The refusal comes before the run, so the ticket is left exactly as it was."""
+    """The refusal comes before the run, so the ticket is left exactly as it was.
+
+    Both runs pass `--tools` at an empty directory: `main()` otherwise resolves the
+    `drive-target` skill's `scripts/` beside this checkout, where the judges really are.
+    """
 
     def tearDown(self):
         vt.TOOLS[:] = []
 
     def test_run_checks_exits_2_and_posts_no_comment(self):
         posted = []
-        with mock.patch.object(vt, "fetch_body", return_value=ticket(STORY)), \
+        with tempfile.TemporaryDirectory() as empty, \
+             mock.patch.object(vt, "fetch_body", return_value=ticket(STORY)), \
              mock.patch.object(vt, "post_comment", side_effect=lambda n, b: posted.append(b)):
             err = io.StringIO()
             with redirect_stdout(io.StringIO()), redirect_stderr(err):
-                code = vt.main(["1"])
+                code = vt.main(["1", "--tools", empty])
         self.assertEqual(code, 2)
         self.assertEqual(posted, [])
         self.assertIn("story-parity.py", err.getvalue())
 
     def test_run_lint_exits_2_rather_than_reporting_a_finding(self):
-        with mock.patch.object(vt, "fetch_body", return_value=ticket(STORY)), \
+        with tempfile.TemporaryDirectory() as empty, \
+             mock.patch.object(vt, "fetch_body", return_value=ticket(STORY)), \
              mock.patch.object(vt, "ticket_labels", return_value=["ready-for-agent",
                                                                   "junior-worker"]):
             err = io.StringIO()
             with redirect_stdout(io.StringIO()), redirect_stderr(err):
-                code = vt.main(["1", "--lint"])
+                code = vt.main(["1", "--lint", "--tools", empty])
         self.assertEqual(code, 2)
         self.assertIn("story-parity.py", err.getvalue())
 
