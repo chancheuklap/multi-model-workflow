@@ -1,4 +1,4 @@
-"""A run refuses when a `CHECK:` names a judge no `--tools` directory holds.
+"""A run refuses when a `CHECK:` names a judge it cannot reach.
 
 The failure this prevents is not a loud one. A judge that is not on the shell's PATH
 makes its criterion fail `command not found`, gate-check records one more unmet gate,
@@ -31,6 +31,7 @@ def ticket(check: str) -> str:
 
 STORY = ("story-parity.py --contract docs/specs/x/screen-contract.yaml "
          "--pages create-project")
+HARNESS = "harness-guard.py ."
 
 
 class RequireJudges(unittest.TestCase):
@@ -58,6 +59,11 @@ class RequireJudges(unittest.TestCase):
     def test_a_ticket_naming_no_judge_is_not_refused(self):
         self.assertIsNone(vt.require_judges(ticket("pnpm vitest run tests/a.test.ts")))
 
+    def test_a_harness_guard_criterion_that_reaches_nothing_is_refused(self):
+        with self.assertRaises(vt.JudgeUnreachable) as caught:
+            vt.require_judges(ticket(HARNESS))
+        self.assertIn("harness-guard.py", str(caught.exception))
+
     def test_every_missing_judge_is_named_at_once(self):
         body = ("## Acceptance criteria\n\n"
                 f"- [ ] AC1: look\n  CHECK: {STORY}\n  EXPECT: /^STORY OK/m\n"
@@ -65,17 +71,32 @@ class RequireJudges(unittest.TestCase):
                 "- [ ] AC2: the click calls\n  CHECK: boundary-check.py --run \"pnpm t\"\n"
                 "  EXPECT: /^BOUNDARY OK/m\n  EVIDENCE: pending\n"
                 "- [ ] AC3: the journey\n  CHECK: journey.py run smoke\n"
-                "  EXPECT: JOURNEY OK smoke\n  EVIDENCE: pending\n")
+                "  EXPECT: JOURNEY OK smoke\n  EVIDENCE: pending\n"
+                f"- [ ] AC4: no acceptance name leaks\n  CHECK: {HARNESS}\n"
+                "  EXPECT: HARNESS OK\n  EVIDENCE: pending\n")
         with self.assertRaises(vt.JudgeUnreachable) as caught:
             vt.require_judges(body)
-        for judge in ("story-parity.py", "boundary-check.py", "journey.py"):
+        for judge in ("story-parity.py", "boundary-check.py", "journey.py",
+                      "harness-guard.py"):
             self.assertIn(judge, str(caught.exception))
 
 
 class NothingIsWritten(unittest.TestCase):
-    """The refusal comes before the run, so the ticket is left exactly as it was."""
+    """The refusal comes before the run, so the ticket is left exactly as it was.
+
+    `main` falls back to the `drive-target` skill's `scripts/` beside this one, which in
+    a checkout holds every judge. These runs point that fallback at an empty directory,
+    so nothing is reachable and the refusal is the one being tested.
+    """
+
+    def setUp(self):
+        self.empty = tempfile.TemporaryDirectory()
+        self.nowhere = mock.patch.object(vt, "HERE", Path(self.empty.name))
+        self.nowhere.start()
 
     def tearDown(self):
+        self.nowhere.stop()
+        self.empty.cleanup()
         vt.TOOLS[:] = []
 
     def test_run_checks_exits_2_and_posts_no_comment(self):

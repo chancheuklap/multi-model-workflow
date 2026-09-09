@@ -5,27 +5,6 @@ The ticket is the only state. Every run reads the `## Acceptance criteria` and
 `## Owns` sections fresh from the issue, writes them to a ledger, hands
 that ledger to unlazy's `gate-check`, and posts the updated ledger back as one
 comment. Nothing is cached and no file is left behind.
-
-    verify-ticket.py <n>              run the unmet criteria, comment `self-run`
-    verify-ticket.py <n> --reverify   re-run every criterion, comment `reverify`
-    verify-ticket.py <n> --lint       audit how the criteria are written; print only
-    verify-ticket.py <spec> --lint    the same over every sub-issue of the spec
-    verify-ticket.py <n> --preflight  claim the ticket, or refuse and say why
-    verify-ticket.py <n> --closeout <draft>  check the closing comment, then post it
-    verify-ticket.py <n> --decisions <file>  post the two-section file as `DECISIONS`
-    verify-ticket.py <n> --touched    comment `TOUCHED BY` on open siblings that own a file
-    verify-ticket.py <n> --draft <out-file>  write the closing-comment skeleton
-    verify-ticket.py <n> --sub-issue <kind> <file>  open a needs-triage child of this ticket
-    verify-ticket.py <n> --review <file>  post the review report and tell the worker
-
-Exit code follows gate-check: 0 all met, 1 unmet or abandoned, 2 usage or
-infrastructure. `--preflight` exits 2 when it refuses; `--closeout` exits 1.
-`--decisions`, `--touched`, `--sub-issue` and `--review` exit 2 when they refuse.
-
-Five of those runs leave a session with nothing more to wait for: `--closeout` either
-way, a `--preflight` that refuses, `--sub-issue pipeline`, and `--review`. Each tells
-the session that started this one, so what wakes it is the thing it was waiting for
-rather than a clock. See `notify_parent`.
 """
 
 from __future__ import annotations
@@ -132,39 +111,6 @@ def notify_parent(text: str) -> None:
                          + (sent.stderr or sent.stdout or "paseo send failed").rstrip() + "\n")
 
 
-def running_as_reviewer() -> bool:
-    """Whether this process is the Paseo agent labelled `mmw.kind=reviewer`.
-
-    The dispatch skill has a fallback for a reviewer session that stopped without a
-    report: the worker runs the same review in a subagent of its own. That subagent's
-    parent is the main agent, not the worker, so `the session that started this one`
-    means a different session there, and telling it would send a review line to the one
-    session with no use for it. A run that is not the labelled reviewer posts the
-    comment and tells nobody — the worker is the one running it, and it is awake.
-
-    No id, no `paseo` on PATH, a failed call, or an id that is not in the returned list:
-    false, the same as a session outside Paseo.
-    """
-    agent = os.environ.get("PASEO_AGENT_ID", "").strip()
-    if not agent:
-        return False
-    try:
-        found = subprocess.run(
-            ["paseo", "ls", "-g", "--json", "--label", "mmw.kind=reviewer"],
-            capture_output=True, text=True, timeout=15, env=GH_ENV)
-    except (OSError, subprocess.SubprocessError):
-        return False
-    if found.returncode != 0:
-        return False
-    try:
-        rows = json.loads(found.stdout)
-    except (json.JSONDecodeError, TypeError):
-        return False
-    if not isinstance(rows, list):
-        return False
-    return any(isinstance(row, dict) and row.get("id") == agent for row in rows)
-
-
 def fetch_body(number: int) -> str:
     """The issue body, straight from the tracker. Patched out in tests."""
     out = subprocess.run(
@@ -216,7 +162,7 @@ def assign_self(number: int) -> None:
 
 
 def close_ticket(number: int) -> None:
-    """Take the ticket out of the agent queue, release its claim, and close it.
+    """Take the ticket out of the agent queue, take its claim off, and close it.
 
     The assignee comes off in the same edit as the label, for the same reason it does
     on the hand back to triage: a claim outlives the session that made it, and only
@@ -397,19 +343,6 @@ def spec_of(number: int) -> int | None:
     if parent is not None:
         return parent
     return parent_spec(fetch_body(number))
-
-
-def blocked_by(body: str) -> list[int]:
-    """The ticket numbers in `## Blocked by`. `None (can start immediately)` is empty.
-
-    This section is the copy the user reads. What the graph is checked against is the
-    tracker's own blocking links, `fetch_blocked_by`.
-    """
-    out = []
-    for line in section(body, "Blocked by"):
-        for m in ISSUE_REF_RE.finditer(line):
-            out.append(int(m.group(1)))
-    return out
 
 
 def owns_globs(body: str) -> list[str]:
@@ -1122,12 +1055,10 @@ def waiting_outside(entries: list[dict]) -> list[str]:
 
 
 def ticket_entries(numbers: list[int]) -> list[dict]:
-    """One entry per ticket: the tracker's blocking links, and the ticket's own copy.
+    """One entry per ticket: the blocking links the tracker records.
 
     `dependencies` is what the tracker records, and it is the graph every check below
     runs on — the same edges `--preflight` refuses on and `dispatch.sh advance` dispatches from.
-    `stated` is the `## Blocked by` section of the ticket body, carried alongside so
-    `blocked_by_mismatch` can hold the two accounts of one edge against each other.
 
     A dependency outside this batch is kept, and `outside` says what was found at the
     other end of it: `{number: {"spec": …, "state": …}}`. One lookup per distinct
@@ -1135,8 +1066,7 @@ def ticket_entries(numbers: list[int]) -> list[dict]:
     same one.
     """
     batch = set(numbers)
-    entries = [{"id": n, "dependencies": fetch_blocked_by(n), "stated": blocked_by(fetch_body(n))}
-               for n in numbers]
+    entries = [{"id": n, "dependencies": fetch_blocked_by(n)} for n in numbers]
     found: dict[int, dict] = {}
     for entry in entries:
         for dep in entry["dependencies"]:
@@ -1145,35 +1075,6 @@ def ticket_entries(numbers: list[int]) -> list[dict]:
     for entry in entries:
         entry["outside"] = {d: found[d] for d in entry["dependencies"] if d in found}
     return entries
-
-
-def blocked_by_mismatch(entries: list[dict]) -> list[str]:
-    """Tickets whose `## Blocked by` section and blocking links do not name the same set.
-
-    A reader of the ticket sees the section; every command in this pipeline sees the
-    links. When the two differ, the ticket says one thing about what has to land first
-    and the tracker says another, and neither the reader nor the graph can tell which
-    the batch was planned around.
-    """
-    findings = []
-    for entry in entries:
-        native = set(entry["dependencies"])
-        stated = set(entry.get("stated", []))
-        if native == stated:
-            continue
-        sides = []
-        if stated - native:
-            sides.append("`## Blocked by` names "
-                         + ", ".join(f"#{n}" for n in sorted(stated - native))
-                         + ", which the tracker does not link")
-        if native - stated:
-            sides.append("the tracker links "
-                         + ", ".join(f"#{n}" for n in sorted(native - stated))
-                         + ", which `## Blocked by` does not name")
-        findings.append(f"#{entry['id']}: " + "; ".join(sides)
-                        + ". The graph is checked against the links, so fix whichever "
-                          "side is wrong until both name the same tickets.")
-    return findings
 
 
 # ---------------------------------------------------------- worker mechanical
@@ -1347,8 +1248,7 @@ def run_review(number: int, path: Path) -> int:
             + (f"opens `{head[:60]}`" if head else "is empty"))
     post_comment(number, text if text.endswith("\n") else text + "\n")
     print(f"REVIEW: posted on #{number}")
-    if running_as_reviewer():
-        notify_parent(f"#{number} REVIEW")
+    notify_parent(f"#{number} REVIEW")
     return 0
 
 
@@ -1803,8 +1703,6 @@ def lint_batch_graph(spec: int, numbers: list[int]) -> int:
     entries = ticket_entries(numbers)
     # Printed before the errors, because an error returns here and a disagreement about
     # an edge is often what the error is: a cycle, or a blocker that is no ticket.
-    for finding in blocked_by_mismatch(entries):
-        print("  WARN  " + finding + "  [blocked-by-mismatch]")
     for finding in cross_batch_findings(entries):
         print("  WARN  " + finding + "  [cross-batch]")
     inside = in_batch(entries)
@@ -1834,41 +1732,25 @@ def criteria_lines(body: str) -> list[tuple[str, str, str]]:
             for c in parse_criteria("\n".join(section(body, "Acceptance criteria")))]
 
 
-def stated_worker(body: str) -> str:
-    """The worker the `## Worker` section names, or "" when it names none."""
-    for line in section(body, "Worker"):
-        for word in re.findall(r"[a-z0-9-]+", line):
-            if WORKER_LABEL_RE.match(word):
-                return word
-    return ""
+def lint_worker(labels: list[str], body: str) -> list[str]:
+    """Which worker this ticket gets, as the tracker's labels say.
 
+    `dispatch.sh` reads the label and nothing else, so a ticket carrying none is worked by
+    whichever worker the default is rather than the one it was written for, and one carrying
+    both is a ticket no start can place.
 
-def lint_worker(labels: list[str], body: str) -> tuple[list[str], list[str]]:
-    """Which worker this ticket gets, said on the tracker and again in the body.
-
-    `dispatch.sh` reads the label and nothing else, and a ticket carrying none is worked
-    by whichever worker the default is rather than the one it was written for. The
-    `## Worker` section is the reader's copy of the same answer; the two saying different
-    things leaves nobody able to tell which the ticket was planned around.
-
-    Returns `(errors, warnings)`. A ticket outside the agent queue gets neither: what it
-    holds is one thing for the user to look at, and no worker is started on it.
+    A ticket outside the agent queue is clean either way: what it holds is one thing for the
+    user to look at, and no worker is started on it.
     """
     if "ready-for-agent" not in labels:
-        return [], []
+        return []
     marked = sorted(name for name in labels if WORKER_LABEL_RE.match(name or ""))
     if len(marked) > 1:
-        return ([f"carries {len(marked)} worker labels ({', '.join(marked)}), and it "
-                 f"takes one"], [])
+        return [f"carries {len(marked)} worker labels ({', '.join(marked)}), and it takes one"]
     if not marked:
-        return (["carries no worker label: add `junior-worker` or `senior-worker`, so "
-                 "every start puts it on the row it was written for"], [])
-    stated = stated_worker(body)
-    if not stated:
-        return ([], [f"is labelled {marked[0]}, and no `## Worker` section says so"])
-    if stated != marked[0]:
-        return ([], [f"is labelled {marked[0]}, and `## Worker` says {stated}"])
-    return [], []
+        return ["carries no worker label: add `junior-worker` or `senior-worker`, so "
+                "every start puts it on the row it was written for"]
+    return []
 
 
 def lint_expectations(body: str) -> list[str]:
@@ -1907,39 +1789,6 @@ def lint_timeouts(body: str) -> list[str]:
     return findings
 
 
-def body_outside(body: str, heading: str) -> str:
-    """The whole ticket except one `## <heading>` section."""
-    lines = body.splitlines()
-    kept, skipping = [], False
-    for line in lines:
-        if line.startswith("## "):
-            skipping = line.strip() == f"## {heading}"
-        if not skipping:
-            kept.append(line)
-    return "\n".join(kept)
-
-
-def lint_edges(body: str) -> list[str]:
-    """Blocking edges that nothing else on the ticket accounts for.
-
-    A `## Blocked by` entry earns its place by being visible elsewhere: named in
-    `## What to build`, listed under `## Read first`, needed by a criterion, or holding a
-    file two tickets would otherwise both write. An edge that appears nowhere but the
-    `## Blocked by` section is one nobody can check — it is as likely to be a dependency
-    somebody forgot to explain as one that was never real. This narrows what to read; it
-    does not decide which.
-    """
-    findings = []
-    elsewhere = body_outside(body, "Blocked by")
-    for ticket in blocked_by(body):
-        if not re.search(rf"#{ticket}\b", elsewhere):
-            findings.append(
-                f"#{ticket} blocks this ticket, but nothing outside `## Blocked by` mentions "
-                f"it. Say where the dependency bites — the criterion that needs its output, "
-                f"or the file both tickets would write — or drop the edge.")
-    return findings
-
-
 def lint_check_effects(body: str) -> list[str]:
     """Which criteria leave the repository or the ticket somewhere new.
 
@@ -1964,7 +1813,10 @@ def lint_check_effects(body: str) -> list[str]:
 SCREEN_CONTRACT_ROWS_RE = re.compile(r"screen-contract\.yaml\s+rows?:\s*([^\n]+)")
 FETCH_STUB_RE = re.compile(r"stubGlobal\(\s*['\"]fetch['\"]|msw|nock\(|fetch-mock", re.IGNORECASE)
 FLAG_RE = re.compile(r"(?<!\S)(--[a-z][a-z0-9-]*)")
-# The scripts of this pipeline a criterion may run, and what each must be given.
+# The scripts of this pipeline a criterion may run, and what each call must carry: the flags
+# it cannot leave out, and the ones that have been retired. `lint_pipeline_flags` reads it, so a
+# script that takes no flags at all has nothing to assert here and is left out of it, which is
+# why this holds fewer scripts than `JUDGES` below does.
 # Their addresses come from the repository's `.mmw/target.json`, never from the line.
 PIPELINE_SCRIPTS = {
     "story-parity.py": {"required": ("--contract", "--pages"),
@@ -1972,19 +1824,20 @@ PIPELINE_SCRIPTS = {
                                     "--impl-title", "--viewports", "--mount")},
     "boundary-check.py": {"required": ("--run",), "retired": ()},
 }
-# The judges of the `drive-target` skill. A `CHECK:` names one by its bare name, and
-# `--tools` is the only thing that puts it where a shell can find it.
-JUDGES = ("story-parity.py", "boundary-check.py", "journey.py")
+# The judges of the `drive-target` skill: every script a `CHECK:` names by its bare name and
+# that `require_judges` refuses a run for when the shell could not find it. The default place
+# looked at is that skill's `scripts/`, resolved in `main()`; `--tools` overrides it.
+JUDGES = ("story-parity.py", "boundary-check.py", "journey.py", "harness-guard.py")
 SPEC_SECTION_SOURCE_RE = re.compile(r"^#(\d+) (Implementation Decisions|Testing Decisions)\s*(\d+)?")
 ADR_SOURCE_RE = re.compile(r"^ADR-(\d{4})")
 TICKET_SOURCE_RE = re.compile(r"^#(\d+)(?:\s|$)")
 DOC_SOURCE_RE = re.compile(r"^(docs/\S+)")
 STORY_SOURCE_RE = re.compile(r"^#\d+ story \d+")
 _HELP_FLAGS: dict[str, set[str]] = {}
-# The directories `--tools` named: where the scripts other skills own are found. A
-# `CHECK:` names a judge by its bare name (`story-parity.py …`), and this process puts
-# these directories on the PATH of the shell that runs it. Nothing here looks for a
-# script outside this skill's own directory by any other route.
+# Where the scripts other skills own are found: the `drive-target` skill's `scripts/` by
+# default, or the directories `--tools` named instead. A `CHECK:` names a judge by its bare
+# name (`story-parity.py …`), and this process puts these directories on the PATH of the
+# shell that runs it. Nothing here looks for such a script by any other route.
 TOOLS: list[Path] = []
 
 
@@ -1997,7 +1850,7 @@ def tool(script: str) -> Path | None:
 
 
 class JudgeUnreachable(RuntimeError):
-    """A `CHECK:` names one of the judges and no `--tools` directory holds it."""
+    """A `CHECK:` names one of the judges and no directory in force holds it."""
 
 
 def require_judges(body: str) -> None:
@@ -2020,9 +1873,9 @@ def require_judges(body: str) -> None:
                       and tool(judge) is None and shutil.which(judge) is None})
     if missing:
         raise JudgeUnreachable(
-            ", ".join(missing) + ": named by a `CHECK:` and in no --tools directory and "
-            "not on PATH. Nothing was run and nothing was written. Pass "
-            "--tools <the drive-target skill's scripts directory> and run again.")
+            ", ".join(missing) + ": named by a `CHECK:` and in none of the directories "
+            "this run searched and not on PATH. Nothing was run and nothing was written. Pass "
+            "--tools <a directory holding it> and run again.")
 
 
 APP_PAGE_PREFIX = "App · "
@@ -2358,13 +2211,11 @@ def lint_criteria(number: int, body: str, labels: list[str]) -> int:
     criteria are written, and the three criterion shapes. The batch graph is not here;
     `run_lint` checks that once per batch."""
     require_judges(body)
-    worker_errors, worker_warnings = lint_worker(labels, body)
+    worker_errors = lint_worker(labels, body)
 
     def report_worker() -> None:
         for finding in worker_errors:
             print(f"  ERROR #{number} " + finding + "  [worker-label]")
-        for finding in worker_warnings:
-            print(f"  WARN  #{number} " + finding + "  [worker-mismatch]")
 
     # A `ready-for-human` ticket carries no criteria at all: what it holds is one thing
     # for the user to look at. gate-lint has nothing to say about it, and
@@ -2399,8 +2250,6 @@ def lint_criteria(number: int, body: str, labels: list[str]) -> int:
     broken = broken + contract_findings
     for finding in lint_check_effects(body):
         print("  WARN  " + finding + "  [shared-state]")
-    for finding in lint_edges(body):
-        print("  WARN  " + finding + "  [unexplained-edge]")
     report_worker()
     return result.returncode or (1 if broken or worker_errors else 0)
 
@@ -2483,7 +2332,11 @@ def main(argv: list[str] | None = None) -> int:
                         help="a directory holding scripts of other skills (the drive-target "
                              "skill's scripts/); put on the PATH of every CHECK; repeatable")
     args = parser.parse_args(argv)
-    TOOLS[:] = [d.resolve() for d in args.tools]
+    # The judges live in the `drive-target` skill, beside this one under `skills/`, so this
+    # file's own location answers where they are and no caller has to know. `--tools`
+    # overrides that for a run against a copy somewhere else.
+    TOOLS[:] = ([d.resolve() for d in args.tools]
+                or [HERE.parents[1] / "drive-target" / "scripts"])
     chosen = [name for name, on in
               (("--lint", args.lint), ("--reverify", args.reverify),
                ("--preflight", args.preflight), ("--closeout", args.closeout is not None),
