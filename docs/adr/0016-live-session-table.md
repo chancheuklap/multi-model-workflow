@@ -20,7 +20,7 @@ amends: [0015]
 
 ## Consequences
 
-- **活表第一次 `install.sh` 从 `hosts.json` 的 defaults 拷入，之后不覆盖。** 缺活表时 `start` 拒绝并点名 `install.sh`。`--check` 不拿活表和默认行做 diff。
+- **活表第一次 `install.sh` 从 `hosts.json` 的 defaults 拷入，之后不覆盖行。** 缺活表时 `start` 拒绝并点名 `install.sh`。`--check` 不拿活表和默认行做 diff。表下 `<!-- mmw-offerings -->` 一块是五个 CLI host 今晚的目录，`install.sh` 与 `python3 models.py offerings` 刷新它；`start` 不读。Cursor 的目录是一对一行：effort 在 Cursor app 里按模型指定，`cursor-agent models` 只列出已有的对；活表不能另写一个不存在的档。Paseo 上 Cursor thinking 仍只有开和关。
 - **Paseo 不再从活表写 Agent profile，也不再打 `mmw.profile`。** 笔记含 `from models.md` 的生成 profile 报残留；手写的不动。不删 `~/paseo-worktrees`。
 - **0015 里「这次不删 `permissions` 列」不再成立。** 派出的全是会话，那一列只有一个合法值。
 - **轴评审和 main agent 仍然没有自己的行。**

@@ -7,7 +7,8 @@
 #                     读 prompt/render.py 拼出的 AGENTS.md
 #   launchd 任务      盯着源文件，改了就重拼 Codex、Pi、Grok 的 AGENTS.md
 #   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里 grok/cursor 两条 provider、
-#                     worktrees.root。不写 Agent profile。第一次把活表拷进 ~/.mmw/models.md，之后不覆盖。
+#                     worktrees.root。不写 Agent profile。第一次把活表拷进 ~/.mmw/models.md，之后不覆盖行；
+#                     每次安装刷新表下五个 CLI host 的目录。
 #   Cursor 的 MCP     ~/.cursor/mcp.json 里 nowledge-mem 一条，内容问本机 nmem 要
 #
 # 本仓库上一代装过、这次不装的东西（技能软链、subagent 定义文件、hook 登记、从 models.md 生成的 Agent profile），
@@ -891,8 +892,11 @@ def merge_providers(data):
 failed = False
 try:
     if mode != "check":
-        if models.adopt_live_table():
+        created = models.adopt_live_table()
+        models.refresh_live_offerings()
+        if created:
             print(f"已装  活表 {models.live_path()}")
+        print(f"已扫  目录 {models.live_path()}")
     live = models.live_path()
     if not live.is_file():
         sys.stderr.write(f"缺    活表 {live}\n")
@@ -929,14 +933,12 @@ if mode == "check":
         failed = True
     sys.exit(1 if failed else 0)
 
-if failed:
-    sys.exit(1)
-
 data = merge_providers(load(config_path))
 for pid in drop_generated(data):
     print(f"摘掉  profile {pid}")
 save(config_path, data)
 print(f"已装  {config_path}")
+sys.exit(1 if failed else 0)
 PY
 
 # `paseo reload` 落地本段刚写的两条 provider。`worktrees.root` 不在——Paseo 只在启动时读它一次——所以改了它要重启

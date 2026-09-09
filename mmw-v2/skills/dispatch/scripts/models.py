@@ -2,7 +2,8 @@
 
 活表是 ~/.mmw/models.md（MMW_LIVE_MODELS / MMW_V2_HOME 可改）。hosts.json 跟着
 技能走，记下每个 host 在 Herdr 和 Paseo 上怎么起，以及第一次 install 拷进活表的
-默认行。一个库，没有命令行入口。dispatch.sh 的 start 与 install.sh 共用。
+默认行。`python3 models.py offerings` 扫五个 CLI host 的目录，写在活表下半；
+`start` 不读那一块。dispatch.sh 的 start 与 install.sh 共用本文件。
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 from typing import NamedTuple
 
@@ -21,6 +23,11 @@ ALLOWED_AGENTS = (
 # Herdr checkout asks the host CLI; Paseo checkout asks paseo. Tests set
 # MMW_CATALOG_MODE or MMW_HOST_CATALOG.
 DEFAULT_CATALOG_MODE = "herdr"
+CLI_HOSTS = ("cursor", "grok", "claude", "codex", "pi")
+OFFERINGS_BEGIN = "<!-- mmw-offerings -->"
+OFFERINGS_END = "<!-- /mmw-offerings -->"
+_CURSOR_EFFORT_IN_ID = re.compile(
+    r"-(none|low|medium|high|xhigh|max)(?:-fast)?$", re.I)
 
 
 def live_path() -> Path:
@@ -62,8 +69,9 @@ def default_live_markdown() -> str:
     lines = [
         "# Models",
         "",
-        "This machine's table. `start` reads it. Edit it to change host, model or effort;",
-        "do not commit it. First `install.sh` copies the defaults; later ones leave it.",
+        "This machine's table. `start` reads the rows. Copy `model` and `effort` from the tables below.",
+        "Do not commit this file. First `install.sh` copies the defaults; later ones leave the rows",
+        "and refresh the copy-tables.",
         "",
         "| agent | host | model | effort |",
         "| --- | --- | --- | --- |",
@@ -85,13 +93,29 @@ def adopt_live_table() -> bool:
     return True
 
 
+def strip_offerings(text: str) -> str:
+    """Keep the fill-in table; drop a previous scanned catalog block."""
+    start = text.find(OFFERINGS_BEGIN)
+    if start == -1:
+        return text.rstrip() + "\n"
+    end = text.find(OFFERINGS_END)
+    if end == -1:
+        return text[:start].rstrip() + "\n"
+    after = text[end + len(OFFERINGS_END):]
+    return (text[:start] + after).strip() + "\n"
+
+
 def parse_live_rows(path: Path | None = None) -> list[tuple[str, str, str, str]]:
     """活表每一行：(agent, host, model, effort)。"""
     source = path or _models_file()
     if not source.is_file():
         raise ValueError(f"缺活表：{source}；跑 install.sh")
     rows: list[tuple[str, str, str, str]] = []
-    for line in source.read_text(encoding="utf-8").splitlines():
+    text = source.read_text(encoding="utf-8")
+    cut = text.find(OFFERINGS_BEGIN)
+    if cut != -1:
+        text = text[:cut]
+    for line in text.splitlines():
         if not line.lstrip().startswith("|"):
             continue
         cells = [c.strip().strip("`").strip() for c in line.strip().strip("|").split("|")]
@@ -211,10 +235,33 @@ def match_offering(
         f"{query!r} matches more than one offering: " + ", ".join(ids))
 
 
-def _run(argv: list[str]) -> str:
+def _which(name: str) -> str | None:
+    extra = [
+        str(Path.home() / ".local" / "bin"),
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+    ]
+    path = os.pathsep.join(extra + [os.environ.get("PATH") or ""])
+    for folder in path.split(os.pathsep):
+        if not folder:
+            continue
+        candidate = Path(folder) / name
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return None
+
+
+def _run(argv: list[str], timeout: int = 30) -> str:
+    if not argv:
+        return ""
+    binary = argv[0]
+    resolved = binary if "/" in binary else (_which(binary) or "")
+    if not resolved:
+        return ""
     try:
         proc = subprocess.run(
-            argv, check=False, capture_output=True, text=True, timeout=20)
+            [resolved, *argv[1:]],
+            check=False, capture_output=True, text=True, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired):
         return ""
     return proc.stdout or ""
@@ -228,9 +275,16 @@ def _parse_cursor_models(text: str) -> list[dict]:
             continue
         if " - " in line:
             ident, name = line.split(" - ", 1)
-            out.append({"id": ident.strip(), "name": name.strip()})
+            ident, name = ident.strip(), name.strip()
         elif re.match(r"^[\w.-]+$", line):
-            out.append({"id": line, "name": line})
+            ident = name = line
+        else:
+            continue
+        effort = ""
+        matched = _CURSOR_EFFORT_IN_ID.search(ident)
+        if matched:
+            effort = matched.group(1).lower()
+        out.append({"id": ident, "name": name, "thinkingOptionIds": [effort] if effort else []})
     return out
 
 
@@ -241,6 +295,97 @@ def _parse_grok_models(text: str) -> list[dict]:
         if m:
             ident = m.group(1).strip("()")
             out.append({"id": ident, "name": ident})
+    return out
+
+
+def _parse_claude_help(text: str) -> tuple[list[str], list[str]]:
+    """Aliases mentioned under --model, and --effort levels."""
+    start = text.find("--model")
+    chunk = text[start:start + 800] if start != -1 else ""
+    aliases = [a for a in re.findall(r"'([A-Za-z0-9][A-Za-z0-9._:-]*)'", chunk) if a not in ("e.g.",)]
+    effort_m = re.search(
+        r"--effort <level>\s+Effort level for the current session\s+\(([^)]+)\)",
+        text, re.S)
+    if effort_m is None:
+        effort_m = re.search(r"--effort <level>[^(]*\(([^)]+)\)", text)
+    efforts = [p.strip() for p in effort_m.group(1).split(",")] if effort_m else []
+    return aliases, efforts
+
+
+def _claude_settings_models() -> list[str]:
+    path = Path.home() / ".claude" / "settings.json"
+    if not path.is_file():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    if not isinstance(data, dict):
+        return []
+    names = []
+    current = data.get("model")
+    if isinstance(current, str) and current.strip():
+        names.append(current.strip())
+    settings = data.get("modelSettings")
+    if isinstance(settings, dict):
+        names.extend(str(k) for k in settings if k)
+    seen = set()
+    out = []
+    for name in names:
+        if name not in seen:
+            seen.add(name)
+            out.append(name)
+    return out
+
+
+def _parse_codex_debug_models(text: str) -> list[dict]:
+    if not text.strip():
+        return []
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return []
+    rows = data.get("models") if isinstance(data, dict) else data
+    if not isinstance(rows, list):
+        return []
+    out = []
+    for item in rows:
+        if not isinstance(item, dict):
+            continue
+        ident = str(item.get("slug") or item.get("id") or "")
+        if not ident:
+            continue
+        name = str(item.get("display_name") or ident)
+        levels = []
+        for level in item.get("supported_reasoning_levels") or []:
+            if isinstance(level, dict):
+                value = level.get("effort") or level.get("id") or level.get("level")
+            else:
+                value = level
+            if value:
+                levels.append(str(value))
+        out.append({"id": ident, "name": name, "thinkingOptionIds": levels})
+    return out
+
+
+def _parse_pi_models(text: str) -> list[dict]:
+    out = []
+    for line in text.splitlines():
+        if not line.strip() or line.lower().startswith("provider"):
+            continue
+        m = re.match(r"^(\S+)\s+(\S+)\s+\S+\s+\S+\s+(\S+)\s+(\S+)\s*$", line)
+        if not m:
+            continue
+        provider, model, thinking, _images = m.groups()
+        ident = f"{provider}/{model}"
+        out.append({
+            "id": ident,
+            "name": model,
+            "thinkingOptionIds": (
+                ["off", "minimal", "low", "medium", "high", "xhigh", "max"]
+                if thinking.lower() == "yes" else []
+            ),
+        })
     return out
 
 
@@ -263,6 +408,208 @@ def _paseo_models(host: str) -> list[dict]:
         thinking = item.get("thinkingOptionIds") or []
         out.append({"id": ident, "name": name, "thinkingOptionIds": thinking})
     return out
+
+
+def _host_efforts(host: str, offering: dict | None = None) -> list[str]:
+    ids = [str(x) for x in ((offering or {}).get("thinkingOptionIds") or []) if x]
+    if ids:
+        return ids
+    spec = load_hosts()["hosts"].get(host) or {}
+    return [str(x) for x in (spec.get("efforts") or [])]
+
+
+def fetch_cli_offerings(host: str) -> list[dict]:
+    """Ask the host CLI. Never Paseo. Empty if the binary is missing or silent."""
+    if host == "cursor":
+        return _parse_cursor_models(_run(["cursor-agent", "models"]))
+    if host == "grok":
+        rows = _parse_grok_models(_run(["grok", "models"]))
+        efforts = _host_efforts("grok")
+        for row in rows:
+            row.setdefault("thinkingOptionIds", list(efforts))
+        return rows
+    if host == "claude":
+        aliases, efforts = _parse_claude_help(_run(["claude", "--help"]))
+        names = list(aliases)
+        for name in _claude_settings_models():
+            if name not in names:
+                names.append(name)
+        return [
+            {"id": name, "name": name, "thinkingOptionIds": list(efforts)}
+            for name in names
+        ]
+    if host == "codex":
+        return _parse_codex_debug_models(_run(["codex", "debug", "models"], timeout=45))
+    if host == "pi":
+        rows = _parse_pi_models(_run(["pi", "--list-models"]))
+        fallback = ["off", "minimal", "low", "medium", "high", "xhigh", "max"]
+        for row in rows:
+            if not row.get("thinkingOptionIds"):
+                row["thinkingOptionIds"] = list(fallback)
+        return rows
+    return []
+
+
+def scan_cli_catalogs() -> dict[str, list[dict]]:
+    """Tonight's five CLI catalogs. Tests set MMW_HOST_CATALOG to skip the binaries."""
+    catalog = os.environ.get("MMW_HOST_CATALOG")
+    if catalog:
+        data = json.loads(Path(catalog).read_text(encoding="utf-8"))
+        return {host: list(data.get(host) or []) for host in CLI_HOSTS}
+    return {host: fetch_cli_offerings(host) for host in CLI_HOSTS}
+
+
+_EFFORT_ORDER = (
+    "none", "off", "minimal", "low", "medium", "high", "xhigh", "max",
+    "ultra", "ultracode")
+
+
+def _sort_efforts(values: list[str]) -> list[str]:
+    rank = {name: i for i, name in enumerate(_EFFORT_ORDER)}
+    seen = []
+    for value in values:
+        if value and value not in seen:
+            seen.append(value)
+    return sorted(seen, key=lambda x: (rank.get(x, 99), x))
+
+
+def _slug_everyday(ident: str) -> str:
+    text = ident.strip()
+    text = re.sub(r"^(claude|cursor)-", "", text, flags=re.I)
+    text = re.sub(r"(?<=\D)(\d)-(\d)(?=\D|$)", r"\1.\2", text)
+    if "/" in text:
+        text = text.split("/", 1)[-1]
+    text = text.replace("-", " ").replace("_", " ")
+    return re.sub(r"\s+", " ", text).strip().lower()
+
+
+def _cursor_family_name(name: str, ident: str, *, fast: bool) -> str:
+    text = name.strip() or ident
+    text = re.sub(r"\s*\([^)]*\)", "", text)
+    text = re.sub(r"\s+Fast$", "", text, flags=re.I)
+    text = re.sub(r"\s+1M\b", "", text, flags=re.I)
+    for _ in range(4):
+        text = re.sub(
+            r"\s+(Low|Medium|High|Extra High|Max|None|Thinking)$",
+            "", text, flags=re.I)
+    text = re.sub(r"^Cursor\s+", "", text, flags=re.I)
+    text = re.sub(r"^Claude\s+", "", text, flags=re.I)
+    text = re.sub(r"\s+", " ", text).strip().lower()
+    if ident and "thinking" in ident.lower() and "thinking" not in text.split():
+        text = f"{text} thinking"
+    if not text:
+        text = _slug_everyday(_CURSOR_EFFORT_IN_ID.sub("", ident))
+    if fast and "fast" not in text.split():
+        text = f"{text} fast"
+    return text
+
+
+def _collapse_fillable(rows: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    efforts: dict[str, list[str]] = {}
+    order: list[str] = []
+    for model, cell in rows:
+        if model not in efforts:
+            order.append(model)
+            efforts[model] = []
+        efforts[model].extend(
+            part.strip() for part in cell.split(",") if part.strip() and part.strip() != "—")
+    out = []
+    for model in order:
+        names = _sort_efforts(efforts[model])
+        out.append((model, ", ".join(names) if names else "—"))
+    return out
+
+
+def fillable_rows(host: str, offerings: list[dict]) -> list[tuple[str, str]]:
+    """(model cell, effort cell) — the two values to copy into the live table."""
+    if host == "cursor":
+        rows = []
+        seen: set[tuple[str, str]] = set()
+        for offering in offerings:
+            ident = str(offering.get("id") or "")
+            name = str(offering.get("name") or ident)
+            fast = ident.lower().endswith("-fast")
+            matched = _CURSOR_EFFORT_IN_ID.search(ident)
+            effort = matched.group(1).lower() if matched else "—"
+            model = _cursor_family_name(name, ident, fast=fast)
+            pair = (model, effort)
+            if pair in seen:
+                continue
+            seen.add(pair)
+            rows.append(pair)
+        rows.sort(key=lambda item: (
+            item[0],
+            _EFFORT_ORDER.index(item[1]) if item[1] in _EFFORT_ORDER else 99,
+        ))
+        return rows
+
+    skip = {"opus", "sonnet", "fable"} if host == "claude" else set()
+    rows = []
+    seen = set()
+    for offering in offerings:
+        ident = str(offering.get("id") or "")
+        name = str(offering.get("name") or ident)
+        if ident.lower() in skip or name.lower() in skip:
+            continue
+        if host == "pi":
+            model = ident.split("/", 1)[-1] if ident else name
+        elif name and name.lower() != ident.lower() and not re.search(r"\d", name):
+            model = name.lower().strip()
+        else:
+            model = _slug_everyday(name if re.search(r"\d", name) else ident)
+        if not model or model in seen:
+            continue
+        seen.add(model)
+        efforts = _sort_efforts(_host_efforts(host, offering))
+        rows.append((model, ", ".join(efforts) if efforts else "—"))
+    return _collapse_fillable(rows)
+
+
+def offerings_markdown(catalogs: dict | None = None) -> str:
+    catalogs = catalogs if catalogs is not None else scan_cli_catalogs()
+    lines = [
+        OFFERINGS_BEGIN,
+        "## What to write in `model` and `effort`",
+        "",
+        "Each row below is one pair you can copy into the table above.",
+        "`start` does not read this block.",
+        "",
+    ]
+    for host in CLI_HOSTS:
+        lines.append(f"### {host}")
+        lines.append("")
+        offerings = catalogs.get(host) or []
+        rows = fillable_rows(host, offerings)
+        if not rows:
+            lines.append("Nothing to copy tonight.")
+            lines.append("")
+            continue
+        if host == "cursor":
+            lines.append(
+                "Copy one whole row. Cursor effort is set per model in the Cursor app; "
+                "a level that has no row is not available until you add it there and scan again."
+            )
+            lines.append("")
+        lines.append("| model | effort |")
+        lines.append("| --- | --- |")
+        for model, effort in rows:
+            lines.append(f"| {model} | {effort} |")
+        lines.append("")
+    lines.append(OFFERINGS_END)
+    lines.append("")
+    return "\n".join(lines)
+
+
+def refresh_live_offerings() -> Path:
+    """Write or replace the scanned catalog under the live table. Rows stay."""
+    dest = live_path()
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if dest.is_file():
+        body = strip_offerings(dest.read_text(encoding="utf-8"))
+    else:
+        body = default_live_markdown()
+    dest.write_text(body.rstrip() + "\n\n" + offerings_markdown(), encoding="utf-8")
+    return dest
 
 
 def fetch_offerings(host: str) -> list[dict]:
@@ -403,3 +750,16 @@ def worker_role_names() -> list[str]:
         if row.agent.endswith("-worker") and row.agent not in seen:
             seen.append(row.agent)
     return seen
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = list(sys.argv[1:] if argv is None else argv)
+    if args == ["offerings"]:
+        print(refresh_live_offerings())
+        return 0
+    sys.stderr.write("usage: models.py offerings\n")
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

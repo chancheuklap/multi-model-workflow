@@ -153,3 +153,119 @@ class AdoptTest(unittest.TestCase):
         for name in ("junior-worker", "senior-worker", "reviewer",
                      "verifier", "advisor"):
             self.assertIn(name, text)
+
+
+class CliCatalogParseTest(unittest.TestCase):
+    def test_cursor_line_carries_the_effort_inside_the_id(self):
+        rows = models._parse_cursor_models(
+            "Available models\n"
+            "cursor-grok-4.6-high - Cursor Grok 4.6\n"
+            "cursor-grok-4.6-high-fast - Cursor Grok 4.6 Fast\n"
+        )
+        self.assertEqual(rows[0]["id"], "cursor-grok-4.6-high")
+        self.assertEqual(rows[0]["thinkingOptionIds"], ["high"])
+
+    def test_grok_stars_are_model_ids(self):
+        rows = models._parse_grok_models(
+            "Available models:\n  * grok-4.6 (default)\n  - grok-4.5\n")
+        self.assertEqual([r["id"] for r in rows], ["grok-4.6", "grok-4.5"])
+
+    def test_claude_help_lists_aliases_and_effort(self):
+        aliases, efforts = models._parse_claude_help(
+            "  --model <model>                       Model for the current session. Provide\n"
+            "                                        an alias for the latest model (e.g.\n"
+            "                                        'fable', 'opus', or 'sonnet') or a\n"
+            "                                        model's full name (e.g.\n"
+            "                                        'claude-fable-5').\n"
+            "  --effort <level>                      Effort level for the current session\n"
+            "                                        (low, medium, high, xhigh, max)\n"
+        )
+        self.assertIn("opus", aliases)
+        self.assertIn("claude-fable-5", aliases)
+        self.assertEqual(efforts, ["low", "medium", "high", "xhigh", "max"])
+
+    def test_codex_debug_json_keeps_slug_and_effort(self):
+        raw = json.dumps({"models": [{
+            "slug": "gpt-5.6-sol",
+            "display_name": "GPT-5.6-Sol",
+            "supported_reasoning_levels": [
+                {"effort": "low"}, {"effort": "high"}],
+        }]})
+        rows = models._parse_codex_debug_models(raw)
+        self.assertEqual(rows[0]["id"], "gpt-5.6-sol")
+        self.assertEqual(rows[0]["thinkingOptionIds"], ["low", "high"])
+
+    def test_pi_list_models_uses_provider_slash_model(self):
+        rows = models._parse_pi_models(
+            "provider      model                         context  max-out  thinking  images\n"
+            "xai           grok-4.6                      500K     500K     yes       yes   \n"
+        )
+        self.assertEqual(rows[0]["id"], "xai/grok-4.6")
+        self.assertIn("high", rows[0]["thinkingOptionIds"])
+
+    def test_fillable_rows_are_the_cells_to_copy(self):
+        rows = models.fillable_rows("cursor", [
+            {"id": "cursor-grok-4.6-high", "name": "Cursor Grok 4.6"},
+            {"id": "cursor-grok-4.6-low", "name": "Cursor Grok 4.6 Low"},
+            {"id": "cursor-grok-4.6-high-fast", "name": "Cursor Grok 4.6 Fast"},
+        ])
+        by_model = [(m, e) for m, e in rows]
+        self.assertIn(("grok 4.6", "high"), by_model)
+        self.assertIn(("grok 4.6", "low"), by_model)
+        self.assertIn(("grok 4.6 fast", "high"), by_model)
+        self.assertNotIn(("grok 4.6", "low, high"), by_model)
+
+
+class OfferingsBlockTest(unittest.TestCase):
+    def setUp(self):
+        os.environ["MMW_HOST_CATALOG"] = str(CATALOG)
+        self.addCleanup(os.environ.pop, "MMW_HOST_CATALOG", None)
+
+    def test_a_catalog_table_below_the_rows_is_not_read_as_an_agent(self):
+        rows = rows_from(
+            "| junior-worker | grok | grok 4.6 | high |\n"
+            "\n"
+            "<!-- mmw-offerings -->\n"
+            "| intern | grok | nope | high |\n"
+            "<!-- /mmw-offerings -->\n"
+        )
+        self.assertEqual([r.agent for r in rows], ["junior-worker"])
+
+    def test_refresh_rewrites_the_catalog_and_keeps_the_rows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "models.md"
+            dest.write_text(
+                "# Models\n\n" + TABLE_HEAD
+                + "| junior-worker | grok | grok 4.6 | high |\n"
+                + "\n# touched\n",
+                encoding="utf-8")
+            os.environ["MMW_LIVE_MODELS"] = str(dest)
+            self.addCleanup(os.environ.pop, "MMW_LIVE_MODELS", None)
+            models.MODELS = dest
+            models.refresh_live_offerings()
+            text = dest.read_text(encoding="utf-8")
+            self.assertIn("touched", text)
+            self.assertIn("<!-- mmw-offerings -->", text)
+            self.assertIn("| model | effort |", text)
+            self.assertIn("| grok 4.6 |", text)
+            self.assertIn("| gpt 5.6 sol |", text)
+            self.assertIn("Copy one whole row", text)
+            self.assertNotIn("| grok 4.6 | low, high |", text)
+            again = models.session_rows()
+            self.assertEqual([(r.agent, r.host) for r in again],
+                             [("junior-worker", "grok")])
+
+    def test_offerings_command_prints_the_live_path(self):
+        from io import StringIO
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "models.md"
+            os.environ["MMW_LIVE_MODELS"] = str(dest)
+            self.addCleanup(os.environ.pop, "MMW_LIVE_MODELS", None)
+            models.MODELS = None
+            with patch("sys.stdout", new_callable=StringIO) as out:
+                self.assertEqual(models.main(["offerings"]), 0)
+            self.assertEqual(out.getvalue().strip(), str(dest))
+            self.assertTrue(dest.is_file())
+            self.assertIn("junior-worker", dest.read_text(encoding="utf-8"))
+            self.assertIn("<!-- mmw-offerings -->", dest.read_text(encoding="utf-8"))

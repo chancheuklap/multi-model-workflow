@@ -11,5 +11,11 @@
     {"id": "claude-opus-5", "name": "Opus 5", "thinkingOptionIds": ["low", "medium", "high", "xhigh"]},
     {"id": "claude-sonnet-5", "name": "Sonnet 5", "thinkingOptionIds": ["low", "medium", "high", "xhigh"]},
     {"id": "claude-fable-5-1", "name": "Fable 5.1", "thinkingOptionIds": ["low", "medium", "high", "xhigh"]}
+  ],
+  "codex": [
+    {"id": "gpt-5.6-sol", "name": "GPT-5.6-Sol", "thinkingOptionIds": ["low", "medium", "high", "xhigh"]}
+  ],
+  "pi": [
+    {"id": "xai/grok-4.6", "name": "grok-4.6", "thinkingOptionIds": ["off", "low", "medium", "high"]}
   ]
 }

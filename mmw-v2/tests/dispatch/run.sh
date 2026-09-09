@@ -6,7 +6,7 @@
 # Two engines, three test files:
 #
 #   test_status.py      unittest, status.py against a fixed paseo ls/inspect snapshot and ticket set
-#   test_profiles.py    unittest, models.bypass_argv, catalog match, adopt, create_agent settings
+#   test_profiles.py    unittest, models.bypass_argv, catalog match, adopt, create_agent settings, CLI scan
 #   test_dispatch.sh    dispatch.sh against a fake `paseo` and a fake `gh` on PATH
 #
 # None needs the tracker, a terminal or a browser.
@@ -14,6 +14,8 @@
 set -euo pipefail
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+
+unset MMW_CATALOG_MODE
 
 rc=0
 
