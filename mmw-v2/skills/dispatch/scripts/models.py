@@ -236,11 +236,11 @@ def match_offering(
 
 
 def _which(name: str) -> str | None:
-    # `_run` calls a host's CLI from whatever shell it was handed — an agent's shell
-    # tool, `install.sh` refreshing the copy table, `dispatch.sh` starting an agent —
-    # and a non-login shell's `PATH` can be short enough to hold none of them. On this
-    # machine those CLIs live in `~/.local/bin` and in Homebrew's prefix, which is the
-    # Mac-plus-Homebrew assumption these absolute paths carry, so they go in front of it.
+    # The only caller is `_run`, which has to find each host's CLI from a non-login
+    # shell whose PATH may be short: an agent's shell tool, `install.sh` refreshing the
+    # copy table, `dispatch.sh` starting an agent. On this machine those CLIs are
+    # installed in ~/.local/bin and /opt/homebrew/bin, so the list assumes a Mac with
+    # Homebrew.
     extra = [
         str(Path.home() / ".local" / "bin"),
         "/opt/homebrew/bin",
