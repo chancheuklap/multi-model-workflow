@@ -39,6 +39,12 @@ Whether this session is governed is read off the process:
   `paseo ls -g --json --label mmw.autonomous=1` and refuses only when that id is
   in the returned list. No id, no `paseo` on PATH, a failed call, or an id that
   is not in the list: no refusal.
+
+Cursor CLI imports Claude Code hooks and has no off switch, so this file is
+invoked twice: `pretool cursor` from `~/.cursor/hooks.json`, and `pretool
+claude` from `~/.claude/settings.json`. The Claude-registered copy exits
+immediately when the process is Cursor. Claude Code does not set those
+markers, and is unchanged.
 """
 
 from __future__ import annotations
@@ -82,6 +88,21 @@ QUESTION_TOOLS = {
     "cursor": ("AskQuestion",),
     "pi": ("ask_user_question",),
 }
+
+
+def imported_into_cursor(host: str, event: dict) -> bool:
+    """True when Cursor is running the Claude-registered copy of this file.
+
+    That copy would refuse in Claude's JSON, which Cursor may not honour, and
+    the gate would run twice. The Cursor-registered invocation stays.
+    """
+    if host != "claude":
+        return False
+    if os.environ.get("CURSOR_AGENT", "").strip() == "1":
+        return True
+    if "CURSOR_VERSION" in os.environ:
+        return True
+    return "cursor_version" in event
 
 
 def read_event() -> dict:
@@ -303,9 +324,12 @@ def main(argv: list[str] | None = None) -> int:
     if len(argv) != 2 or argv[0] not in GATES or argv[1] not in HOSTS:
         sys.stderr.write(f"usage: hook.py <{'|'.join(GATES)}> <{'|'.join(HOSTS)}>\n")
         return 0
+    event = read_event()
+    if imported_into_cursor(argv[1], event):
+        return 0
     if argv[0] == "question":
-        return run_question(argv[1], read_event())
-    return run_pretool(argv[1], read_event())
+        return run_question(argv[1], event)
+    return run_pretool(argv[1], event)
 
 
 if __name__ == "__main__":

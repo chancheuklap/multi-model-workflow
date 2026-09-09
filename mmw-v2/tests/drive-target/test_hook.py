@@ -119,6 +119,10 @@ def call(host: str, event: dict, env: dict | None = None,
             merged["PASEO_AGENT_CWD"] = path
         if not env or "PASEO_AGENT_ID" not in env:
             merged.pop("PASEO_AGENT_ID", None)
+        if not env or "CURSOR_AGENT" not in env:
+            merged.pop("CURSOR_AGENT", None)
+        if not env or "CURSOR_VERSION" not in env:
+            merged.pop("CURSOR_VERSION", None)
         with mock.patch.dict(os.environ, merged, clear=True), \
              mock.patch.object(hk.sys, "stdin", io.StringIO(json.dumps(event))), \
              redirect_stdout(out), redirect_stderr(io.StringIO()):
@@ -434,6 +438,11 @@ class TestTheQuestionGate(unittest.TestCase):
                 hk.main(["question", "claude"])
         self.assertEqual(out.getvalue().strip(), "")
 
+    def test_claude_question_is_silent_inside_cursor(self):
+        with fake_paseo_env(agent_id=AGENT_ID, listed_ids=(AGENT_ID,)) as env:
+            env["CURSOR_AGENT"] = "1"
+            self.assertEqual(self.ask("claude", env), (0, None))
+
     def test_the_reason_says_where_the_question_goes(self):
         with fake_paseo_env(agent_id=AGENT_ID, listed_ids=(AGENT_ID,)) as env:
             _, answer = self.ask("grok", env)
@@ -444,6 +453,42 @@ class TestTheQuestionGate(unittest.TestCase):
 
     def test_it_arrives_whole_on_the_host_that_clips_it(self):
         self.assertLessEqual(HOST_PREFIX + len(hk.NO_QUESTION), rf.REASON_LIMIT)
+
+
+class TestClaudeCopyNoOpsInsideCursor(unittest.TestCase):
+    """Cursor CLI imports Claude Code hooks and has no off switch.
+
+    The Claude-registered copy would refuse in Claude's JSON; Cursor may not
+    honour that, and the gate would run twice. The Cursor-registered
+    invocation stays.
+    """
+
+    def test_claude_pretool_is_silent_when_cursor_agent_is_set(self):
+        self.assertEqual(
+            call("claude", EVENTS["claude"], env={"CURSOR_AGENT": "1"}),
+            (0, None),
+        )
+
+    def test_claude_pretool_is_silent_when_cursor_version_is_set(self):
+        self.assertEqual(
+            call("claude", EVENTS["claude"], env={"CURSOR_VERSION": "2026.09.08"}),
+            (0, None),
+        )
+
+    def test_claude_pretool_is_silent_when_the_event_names_cursor(self):
+        event = dict(EVENTS["claude"])
+        event["cursor_version"] = "2026.09.08"
+        self.assertEqual(call("claude", event), (0, None))
+
+    def test_cursor_pretool_still_refuses_inside_cursor(self):
+        code, answer = call("cursor", EVENTS["cursor"], env={"CURSOR_AGENT": "1"})
+        self.assertEqual(code, 0)
+        self.assertEqual(answer["permission"], "deny")
+
+    def test_claude_pretool_still_refuses_when_the_process_is_not_cursor(self):
+        code, answer = call("claude", EVENTS["claude"])
+        self.assertEqual(code, 0)
+        self.assertIsNotNone(answer)
 
 
 class TestNothingBlocksOnBadInput(unittest.TestCase):
