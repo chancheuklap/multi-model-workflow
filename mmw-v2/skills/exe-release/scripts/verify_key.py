@@ -80,12 +80,21 @@ def _iter_argvs(manifest: ReleaseAdapterManifest) -> list[tuple[str, list[str]]]
     return argvs
 
 
-def _electron_builder_output_dir(config: Path) -> str | None:
-    """从 electron-builder.yml 读 directories.output（行级解析，读不出返回 None）。"""
+class UnreadableElectronBuilderConfig(Exception):
+    """行级解析器在这份 electron-builder.yml 里拿不出 directories.output。"""
+
+
+def _electron_builder_output_dir(config: Path) -> str:
+    """从 electron-builder.yml 读 directories.output。
+
+    行级解析：只认顶层 `directories:` 块，以及缩进在它下面的 `output:` 一行。
+    别的合法写法——流式、带锚点、`directories` 嵌在别的键下面——这里读不出来，
+    抛 UnreadableElectronBuilderConfig，不当作一个值。
+    """
     try:
         lines = config.read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return None
+    except OSError as exc:
+        raise UnreadableElectronBuilderConfig(f"the file will not open: {exc}") from exc
     in_directories = False
     for line in lines:
         stripped = line.split("#", 1)[0].rstrip()
@@ -96,7 +105,9 @@ def _electron_builder_output_dir(config: Path) -> str | None:
             continue
         if in_directories and stripped.strip().startswith("output:"):
             return stripped.split(":", 1)[1].strip().strip("'\"").rstrip("/")
-    return None
+    raise UnreadableElectronBuilderConfig(
+        "no top-level `directories:` block with an `output:` line indented under it"
+    )
 
 
 def _expand(manifest: ReleaseAdapterManifest, value: str) -> str | None:
@@ -268,18 +279,36 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                 "electron-builder config",
             )
         else:
-            actual = _electron_builder_output_dir(config)
-            if actual != declared:
+            locator = f"{manifest.build_target.desktop_dir}/electron-builder.yml"
+            try:
+                actual = _electron_builder_output_dir(config)
+            except UnreadableElectronBuilderConfig as exc:
                 findings.append(
                     _finding(
                         product,
                         "electron",
-                        "electron_builder_output_drift",
-                        f"{manifest.build_target.desktop_dir}/electron-builder.yml",
-                        f"directories.output is {actual!r}, the key says electron.dist_dir is {declared!r}",
-                        "make both point at the same directory",
+                        "electron_builder_output_unreadable",
+                        locator,
+                        f"this check reads directories.output line by line and got nothing "
+                        f"out of this file ({exc}); whether it agrees with electron.dist_dir "
+                        f"{declared!r} is unknown",
+                        "read directories.output out of the file yourself and compare it with "
+                        "electron.dist_dir; writing it as a top-level `directories:` block with "
+                        "`output:` indented under it puts it back within reach of this check",
                     )
                 )
+            else:
+                if actual != declared:
+                    findings.append(
+                        _finding(
+                            product,
+                            "electron",
+                            "electron_builder_output_drift",
+                            locator,
+                            f"directories.output is {actual!r}, the key says electron.dist_dir is {declared!r}",
+                            "make both point at the same directory",
+                        )
+                    )
 
     # ── 钥匙里指向钥匙自己的地方，指的是不是自己 ────────────────────────────
     #

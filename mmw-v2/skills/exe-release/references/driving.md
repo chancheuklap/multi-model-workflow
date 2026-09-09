@@ -2,7 +2,7 @@
 
 `exe-release` step 3 reads this file. By then this product's loop is started, or a previous loop is still there to resume.
 
-`<engine>` below is `bash <absolute path of scripts/release-flow.sh>`, the same path step 3 resolved.
+`<release>` below is `bash <absolute path of scripts/release-flow.sh>`, the same path step 3 resolved.
 
 **The engine owns the loop. You are its hands.** Progress, next action, repair count, and success come from engine state. Do not resume from session memory. Do not pick the next stage yourself. Do not keep a second log of what you already tried.
 
@@ -11,19 +11,19 @@
 Each round, first run:
 
 ```bash
-<engine> where
+<release> where
 ```
 
 Act on this output only. Do not predict the next state. A stage, a dispatch, or a self-heal after shipping starts can create new commits. Those commits are verified by that stage and by the final full-package result.
 
 | Output | Do | Hand back? |
 | --- | --- | --- |
-| `STAGE:<name>` or `RETRY-STAGE:<name>` | `<engine> stage run --stage <name>`. The engine expands args, routes remote builds, runs diagnostics, writes the result from the exit code, and records findings | No |
-| `PAUSED:needs-context` with a `FIX-BRIEF=` line in the log | Read that brief. It names the findings and what to change. Fix, **commit**, then `<engine> resume` | No |
-| `SUCCESS:all stages done` | `<engine> exit-check` must return `DONE`, then `<engine> close` | No. Success without `DONE` is an engine bug. Do not announce success |
+| `STAGE:<name>` or `RETRY-STAGE:<name>` | `<release> stage run --stage <name>`. The engine expands args, routes remote builds, runs diagnostics, writes the result from the exit code, and records findings | No |
+| `PAUSED:needs-context` with a `FIX-BRIEF=` line in the log | Read that brief. It names the findings and what to change. Fix, **commit**, then `<release> resume` | No |
+| `SUCCESS:all stages done` | `<release> exit-check` must return `DONE`, then `<release> close` | No. Success without `DONE` is an engine bug. Do not announce success |
 | `PAUSED:needs-context` | See "Pause: missing context" below. This is not the end | Hand back only after two failed attempts |
-| `PAUSED:needs-redirection` | Read `<engine> receipt`. Give it to the user as-is | Yes. Protected paths, circuit breakers, and spent budget must not continue on their own |
-| `CORRUPT:` / `NO-STAGES:` | Read `<engine> receipt`. Do not run a stage. Do not `resume` | Yes |
+| `PAUSED:needs-redirection` | Read `<release> receipt`. Give it to the user as-is | Yes. Protected paths, circuit breakers, and spent budget must not continue on their own |
+| `CORRUPT:` / `NO-STAGES:` | Read `<release> receipt`. Do not run a stage. Do not `resume` | Yes |
 | Any other output, or the command itself errors | Do not guess the state. Do not `init` again | Yes, with the raw output |
 
 After a stage, ask `where` again until the table names a terminal state. **Do not stop to report to the user after every `where`.**
@@ -33,8 +33,8 @@ After a stage, ask `where` again until the table names a terminal state. **Do no
 When `stage run` fails, the engine has already diagnosed and graded. Read `where`:
 
 - `PAUSED` — the engine already stopped it. Read the state. Do not dispatch a fix.
-- `RETRY-STAGE` — run `<engine> dispatch --stage <name>` once. The engine decides the fix from its ledger.
-- After `dispatch`, `where` is still `STAGE` or `RETRY-STAGE` — run `<engine> round next` once, then return to the state table and re-run that stage.
+- `RETRY-STAGE` — run `<release> dispatch --stage <name>` once. The engine decides the fix from its ledger.
+- After `dispatch`, `where` is still `STAGE` or `RETRY-STAGE` — run `<release> round next` once, then return to the state table and re-run that stage.
 
 `round next` records "already handled once". A clean full run does not consume a round.
 
@@ -48,10 +48,10 @@ A P1 failure the engine could grade but cannot fix by itself arrives here too, w
 `FIX-BRIEF=<path>` line in the log. That brief is the findings written out for you to act on — read
 it instead of re-diagnosing.
 
-1. `<engine> receipt` for what was already tried. Read engine logs, builder logs, and finding text from the latest record.
+1. `<release> receipt` for what was already tried. Read engine logs, builder logs, and finding text from the latest record.
 2. Diagnose from log text. Do not guess.
-3. If you can act: environment issues (network, busy builder) you may handle. **Code or config changes commit to the current branch**, and the current stage re-verifies them.
-4. Run `<engine> resume`, then follow engine state through this stage and the remaining full-package checks.
+3. If you can act: environment issues (network, busy builder) you may handle. When `dispatch` printed an `ENV-ACTION:` line, that line already names the environment action this step is asking for, and no fix was dispatched — do that action, and `resume` is the whole of step 4. **Code or config changes commit to the current branch**, and the current stage re-verifies them.
+4. Run `<release> resume`, then follow engine state through this stage and the remaining full-package checks.
 5. **Same root cause twice, or the cause is billing, a contract, a protected path, or a product decision the user must make — stop and hand it over.** Do not loop.
 
 Step 3 says commit because the remote build ships `git archive HEAD`. A change left in the
@@ -89,14 +89,12 @@ Missing in both places is a `PAUSED:needs-context` you can often close yourself:
 
 ## Close
 
-- `SUCCESS` is not spoken success. Only `<engine> exit-check` returning `DONE` means the package is ready. Then `<engine> close`.
-- Package paths come from this stage's `DELIVERED` lines. On gather failure, read the WARN path left in the build directory. If neither exists, say you have no path. Do not invent one.
+- Package paths come from the build stage's `DELIVERED` lines. On gather failure, read the WARN path left in the build directory. If neither exists, say you have no path. Do not invent one.
 - `close` leaves a delivery record (product name plus the ship commit). `exe-release` step 4 uses it for the same-commit check. **Do not delete it by hand.**
-- **A round that is not going to produce a package ends with `<engine> abort`, never `close`.** `close` writes that delivery record unconditionally — use it on a round that failed, or on one you are abandoning to ship a different product first, and you have written down a package that does not exist, on top of the last record that was true. `abort` drops the round and keeps the artifacts; it writes no record.
+- **A round that is not going to produce a package ends with `<release> abort`, never `close`.** `close` writes that delivery record unconditionally — use it on a round that failed, or on one you are abandoning to ship a different product first, and you have written down a package that does not exist, on top of the last record that was true. `abort` drops the round and keeps the artifacts; it writes no record.
 
 ## The build machine keeps building without you
 
 The build runs as a scheduled task on that machine. This side only watches for its exit code, so losing this side — the process killed, the network dropped, the session ended — does not stop the build. It finishes, it produces an installer, and nothing here knows.
 
 Just run the build stage again. It asks the build machine first whether this round (same commit, same product) is still running, and attaches to it instead of starting a second one. Do not re-run it hoping to "restart" a build you think is stuck: attaching is the only safe move while a build is live, because a fresh round wipes the source tree that build is reading.
-- `CORRUPT` and `NO-STAGES` never run the next stage and never `resume` on their own. The receipt is the only log of what was tried. Give it to the user as-is.

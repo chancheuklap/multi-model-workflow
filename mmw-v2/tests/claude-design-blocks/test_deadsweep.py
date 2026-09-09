@@ -54,9 +54,9 @@ class Deadsweep(unittest.TestCase):
         self.css.write_text(CSS, encoding="utf-8")
         self.addCleanup(self.tmp.cleanup)
 
-    def sweep(self) -> subprocess.CompletedProcess:
+    def sweep(self, *flags: str) -> subprocess.CompletedProcess:
         return subprocess.run(
-            [sys.executable, str(SCRIPT), "src", "data/fixtures.js", "app.css"],
+            [sys.executable, str(SCRIPT), *flags, "src", "data/fixtures.js", "app.css"],
             cwd=self.work,
             capture_output=True,
             text=True,
@@ -77,6 +77,15 @@ class Deadsweep(unittest.TestCase):
         css = self.css.read_text(encoding="utf-8")
         self.assertIn(".list", css)
         self.assertNotIn(".board-head", css)
+
+    def test_a_dry_run_prints_the_list_and_leaves_the_stylesheet_alone(self):
+        """「读了列表再接受」要有一个真的发生的时机:一份在文件被改写前一行印出来的
+        清单,读它的人没有时间对它做任何事。"""
+        before = self.css.read_text(encoding="utf-8")
+        result = self.sweep("--dry-run")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(".gone", result.stdout)
+        self.assertEqual(self.css.read_text(encoding="utf-8"), before)
 
 
 if __name__ == "__main__":
