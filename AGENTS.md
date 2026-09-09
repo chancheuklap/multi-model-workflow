@@ -23,13 +23,16 @@ MMW 是用户跨 host、跨 repository、跨电脑共用的工作流 toolbox：�
 - `SKILL.md` 对所有 host 是同一份：不把任何 host 当默认或首选，不按 host 名分支；能力差异用按能力判断的自然语言写。
 - 装哪些技能只改 `mmw-v2/skills.txt`。host 上的 symlink 直接指向 source directory，改完下一次调用即生效；只有 frontmatter 的 `description` 是 host 启动时扫进去的，改它要重开会话。
 - `mmw-v2/skills/<名>/` 整个目录被软链进各 host，所以它只装拿着这份技能的 agent 要读要跑的东西：`SKILL.md`、reference 文件、`scripts/`。技能的测试在 `mmw-v2/tests/<名>/`，只存在于本仓库的 checkout 里；它从 `mmw-v2/tests/<名>/` 数两级回到 `mmw-v2/`，再进 `skills/<名>/scripts/` 找被测的脚本。
-- 技能自带的脚本，由拿着这份技能的 agent 从它的 `SKILL.md` 就地解析 `scripts/…`；caller 只点技能名与要做的事，不写安装路径。装了技能就是拿到脚本，两者不会各自漂移，路径在五个 host 上都对。写进 ticket 的那条 `CHECK:` 也不写路径：它由 shell 执行、中间没有 agent，所以由跑它的 `verify-ticket.py` 把 drive-target 技能的 `scripts/` 放上那个 shell 的 `PATH`（`--tools`），判官按裸名调用；形状在 `mmw-v2/skills/drive-target/references/boundary-check.md` 与 `ui-parity.md`。
+- 技能自带的脚本，由拿着这份技能的 agent 从它的 `SKILL.md` 就地解析 `scripts/…`；caller 只点技能名与要做的事，不写安装路径。装了技能就是拿到脚本，两者不会各自漂移，路径在五个 host 上都对。写进 ticket 的那条 `CHECK:` 也不写路径：它由 shell 执行、中间没有 agent，所以由跑它的 `verify-ticket.py` 把 drive-target 技能的 `scripts/` 放上那个 shell 的 `PATH`（`--tools`），判官按裸名调用；形状在 `mmw-v2/skills/drive-target/references/boundary-check.md` 与 `story-parity.md`。
+- 一份技能指自己或兄弟技能的脚本，只用一种写法：开一节定义一个贯穿全文的记号，节名统一成 `` ## Resolve `<记号>` once ``，节里说这个记号在下文每条命令里展开成什么、并且从这份文件自己的位置解析一次。正文里不再出现裸相对路径，也不出现全文没有定义的记号。一个记号在整个工具箱里只解析出一个可执行文件——一个 agent 一次拿着好几份技能，把所有技能的词汇当成一套。
+- 散文与命令里的绝对路径只有三类是合法的：(a) 本机用户级的固定位置（`~/.mmw/models.md`、`~/.agents/skills`、`~/.claude/skills` 这一类，它们就是那台机器上的地址，没有相对写法）；(b) 一个记号在运行时展开成的绝对路径（`` `<dispatch>` `` 展开成 `bash <absolute path to scripts/dispatch.sh>` 这一类——写在正文里的是记号，绝对路径只在执行时才有）；(c) 一次运行自己造出来的临时路径（`mktemp` 派生的，不是 `/tmp` 下的固定名）。这三类之外出现的绝对路径是缺陷。
+- 本仓自写的技能不带 `agents/openai.yaml` 之类的 host 侧清单文件：一份技能的名字与描述只有 `SKILL.md` 的 frontmatter 一处权威。
 - 每个 agent 用哪个 host、哪个 model、哪档 effort，只改本机 `~/.mmw/models.md`。第一次 `install.sh` 把默认行拷进去，之后不覆盖。仓里的 `hosts.json` 只记各 host 怎么起，不记今晚谁用谁。consuming repository 里不放。`dispatch.sh` 拿 `models.py` 拼 `create_agent` 的 settings。
 - 用户级提示词只改 `mmw-v2/prompt/shared.md`（四家共用）和 `mmw-v2/prompt/hosts/<host>.md`（只给那一家）。`~/.codex/AGENTS.md`、`~/.pi/agent/AGENTS.md`、`~/.grok/AGENTS.md` 是生成物，直接改会被 `render.py` 拒绝覆盖。Cursor 不参与，它的用户级提示词在 app 里手动维护。
 - `~/.cursor/mcp.json` 里的 `nowledge-mem` 一条由 `install.sh` 管：内容问本机 `nmem config mcp show --host cursor` 要，写进去之前摘掉它给的 `type` 字段——`cursor-agent` 只认 `url` 与 `headers`，带上 `type` 它把整条 server 跳过，症状是 worker 静默地没有 memory 工具。同一份文件里别的 server 不动；手改这一条，下次 `install.sh` 会覆盖，`--check` 会先报出来。
 - `mmw-v2/upstream/` 是 mattpocock/skills 的 git subtree（squash），`mmw-v2/upstream-diagram-design/` 是 cathrynlavery/diagram-design 的另一个。两者都可编辑；upstream 自带的 `AGENTS.md`、`CLAUDE.md`、`CONTEXT.md` 原样不动——`mmw-v2/upstream/CONTEXT.md` 是 upstream 自己的 vocabulary，本仓的 vocabulary 只有根 `CONTEXT.md`。拉 upstream 和解冲突见 `mmw-v2/merge-notes/README.md`；改了 upstream 的技能就写或更新它的 merge-note。
 - 本仓库改动作废了 consuming repository 已有的产物，就写一份 downstream-note，判据与写法见 `mmw-v2/downstream-notes/README.md`。
-- 两个 subtree 之外还有一份从 unlazy 抄进来的脚本：`mmw-v2/skills/verify-ticket/scripts/gate-check/`。它没有 subtree，`git subtree pull` 和 merge-note 都不管它，来源、commit 与改过哪几行记在 `mmw-v2/skills/verify-ticket/scripts/gate-check/UPSTREAM.md`。
+- 两个 subtree 之外还有一份从 unlazy 抄进来的脚本：`mmw-v2/skills/verify-ticket/scripts/gate-check/`。它没有 subtree，`git subtree pull` 和 merge-note 都不管它，来源、commit 与改过哪几行记在 `mmw-v2/skills/verify-ticket/scripts/gate-check/UPSTREAM.md`。这份 `UPSTREAM.md` 是「技能目录只装拿着这份技能的 agent 要读要跑的东西」那条约定的唯一例外：它记的是这个目录里这几个文件的来源与本地改动，读它的人是下一次去 unlazy 那边比对的人，而他手上唯一的线索就是这个目录本身；挪出去，`scripts/` 里就剩一批看不出出处的第三方文件。
 
 ## Agent skills
 
