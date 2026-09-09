@@ -396,7 +396,7 @@ def note_of(ticket: dict, worker: dict | None, holder: dict | None = None) -> st
     """
     head = last_first_line(ticket)
     if worker and not in_flight(ticket):
-        return (head[:44] + " · land it") if head else "land it"
+        return (head[:44] + " · at rest") if head else "at rest"
     if worker:
         if worker.get("status") == "closed":
             return "closed: archive it"
@@ -708,8 +708,7 @@ def land_plan(numbers: list[int]) -> int:
         NOTHING <ticket> <why>  over, and already landed: there is nothing left to do
 
     Every ticket gets at least one line. A ticket that needs nothing is the case that
-    reads exactly like a ticket the plan forgot, and a sweep that says nothing about it
-    reads exactly like a sweep that worked — so it says so.
+    reads exactly like a ticket the plan forgot — so it says so.
 
     Which of them a ticket gets is `in_flight`, plus one distinction that function does
     not make. A ticket handed back to triage is over as a piece of work, but its

@@ -4,7 +4,7 @@
 #
 #   dispatch.sh check <spec>
 #   dispatch.sh advance <spec>
-#   dispatch.sh land <n>|--sweep
+#   dispatch.sh land <n>
 #   dispatch.sh start <n> worker|reviewer|verifier
 #   dispatch.sh retract <n>
 #   dispatch.sh wait <n> worker|reviewer|verifier
@@ -14,11 +14,12 @@
 #   dispatch.sh summary <spec>
 #   dispatch.sh suspend <spec>
 #
-# Every form takes `--tools <directory>`, repeatable: where the scripts of other skills
-# are — `lease.py` of the drive-target skill, `verify-ticket.py` of the verify-ticket
-# skill. Other skills' scripts are found only in those directories. One file belongs
+# Every script this one calls is found by resolution, from this file's own path:
+# `lease.py` of the drive-target skill and `verify-ticket.py` of the verify-ticket
+# skill are in the `scripts/` of their own skills one directory over. One file belongs
 # to the toolbox itself, not to any skill, and is taken from the toolbox root (this
-# skill directory two levels up): `install.sh`.
+# skill directory two levels up): `install.sh`. `--tools <directory>` is an override,
+# repeatable: a directory given that way is searched before the resolved location.
 #
 # The ticket number and the kind of agent are the whole input for `start`. Which
 # of the worker rows a worker session starts from is the ticket's own `*-worker`
@@ -30,7 +31,8 @@
 # row for that agent is nested as `fallback`, itself a complete
 # `create_agent` object; the caller strips `fallback` before the first call.
 #
-# Exit codes are documented in SKILL.md next to this script.
+# Each command's exit codes are written beside that command, in the door that carries it;
+# SKILL.md next to this script is the index of doors.
 
 set -uo pipefail
 
@@ -48,8 +50,9 @@ fi
 export MMW_CATALOG_MODE="${MMW_CATALOG_MODE:-paseo}"
 STATUS="$SKILL_ROOT/scripts/status.py"
 # The skill lives under mmw-v2/skills/<name> of the toolbox checkout, so `install.sh`
-# is two directories up. `verify-ticket.py` and `lease.py` belong to other skills and
-# are found only in the directories `--tools` names (see the entry at the bottom).
+# is two directories up, and `verify-ticket.py` and `lease.py` are in the `scripts/` of
+# their own skills one directory over. A `--tools` directory given on the command line
+# is searched before those.
 INSTALLER="$(dirname "$(dirname "$SKILL_ROOT")")/install.sh"
 # `models.py` reads the live table, so it belongs to this skill and travels with it.
 MODELS_PY="$SKILL_ROOT/scripts/models.py"
@@ -82,7 +85,7 @@ usage() {
   cat >&2 <<'USAGE'
 usage: dispatch.sh check <spec>
        dispatch.sh advance <spec>
-       dispatch.sh land <n>|--sweep
+       dispatch.sh land <n>
        dispatch.sh start <n> worker|reviewer|verifier
        dispatch.sh retract <n>
        dispatch.sh wait <n> worker|reviewer|verifier
@@ -747,8 +750,7 @@ start_one() {
 # give the slot back, give the claim back if this pipeline still holds it. The
 # branch stays, so the next start reuses it. A live agent on the ticket is a
 # running worker, not a failed start — refuse. `slot given back` is 1 only when
-# lease.py actually released; a missing --tools directory is a refusal, not a
-# silent keep.
+# lease.py actually released; a missing `lease.py` is a refusal, not a silent keep.
 retract_one() {
   local number="$1"
 
@@ -852,15 +854,13 @@ if found:
 }
 
 wait_no_result() {
-  local number="$1" kind="$2" ident="$3" base
+  local number="$1" kind="$2" ident="$3"
   case "$kind" in
     reviewer)
-      base="$(git config --get "branch.issue-$number.mmw-base" 2>/dev/null || true)"
-      [ -n "$base" ] || base="\$(git config branch.issue-$number.mmw-base)"
-      echo "dispatch: reviewer $ident on #$number stopped with no REVIEW comment: paseo logs $ident, then run the code-review skill in this host's general-purpose subagent with ticket $number and base commit $base; its report lands with the same REVIEW first line. Do not start a second reviewer" >&2
+      echo "dispatch: reviewer $ident on #$number stopped with no REVIEW comment: paseo logs $ident" >&2
       ;;
     verifier)
-      echo "dispatch: verifier $ident on #$number stopped with no VERDICT comment: paseo logs $ident, then the verifier row of dispatch/SKILL.md" >&2
+      echo "dispatch: verifier $ident on #$number stopped with no VERDICT comment: paseo logs $ident" >&2
       ;;
     *)
       echo "dispatch: worker $ident on #$number stopped with no ALL MET or HANDOFF REQUIRED comment: paseo logs $ident, then the worker row of dispatch/SKILL.md" >&2
@@ -1026,99 +1026,6 @@ for line in text.splitlines():
   [ "$failed" -eq 0 ] || exit 2
 }
 
-# The night's heartbeat id lives at <absolute-git-dir>/mmw-heartbeat-<spec>.
-heartbeat_file() {
-  local spec="$1" git_dir
-  git_dir="$(git rev-parse --absolute-git-dir 2>/dev/null)" || return 1
-  printf '%s\n' "$git_dir/mmw-heartbeat-$spec"
-}
-
-# 0 deleted or no file; 1 the file is there and delete failed.
-delete_heartbeat() {
-  local spec="$1" hb ident
-  hb="$(heartbeat_file "$spec")" || return 0
-  [ -f "$hb" ] || return 0
-  ident="$(tr -d '[:space:]' < "$hb")"
-  if [ -n "$ident" ] && paseo heartbeat delete "$ident" >/dev/null 2>&1; then
-    rm -f "$hb"
-    return 0
-  fi
-  echo "dispatch: could not delete heartbeat $ident for #$spec" >&2
-  return 1
-}
-
-# After the machine checks pass: create mmw-night-<spec> for this Paseo session
-# (PASEO_AGENT_ID) and write its id to the heartbeat file. A file that already
-# names a heartbeat is left alone. Outside a Paseo session, one stderr line and
-# exit 0 — there is no current agent to attach a heartbeat to.
-#
-# `7,47`: twice an hour, so the gap is 40 minutes and then 20, alternating. Standard
-# cron cannot say "every 40 minutes" — 60 does not divide by 40, so any expression
-# repeats on the hour — and 40 is the longer of the two gaps rather than the average.
-# The minutes are 7 and 47 rather than 0 and 40 because every cron job anybody writes
-# lands on the hour, and there is no reason to queue behind them.
-#
-# Nothing in a working night needs this at all: every agent this pipeline starts says
-# when it is done — a verifier and a reviewer through Paseo's own notification, a
-# worker through `verify-ticket.py`. What is left for a clock is a session that
-# stopped without either, and a ticket whose landing message was lost, which is why
-# the fire sweeps before it reads status.
-#
-# `--expires-in 16h` because a heartbeat can otherwise outlive every way of finding
-# it. Deleting one needs its id, the id lives only in `.git/mmw-heartbeat-<spec>`,
-# and `paseo heartbeat` has no form that lists them — so a night that ends without
-# `summary` or `suspend`, or a checkout cloned fresh, leaves something firing that
-# no command can reach. Sixteen hours outlasts any night this pipeline should run
-# and expires on its own by the following midday. A night still going at 16 hours
-# loses its backstop, which is the right way round: by then the night is the problem.
-ensure_night_heartbeat() {
-  local spec="$1" root hb existing prompt json ident dir
-  if [ -z "${PASEO_AGENT_ID:-}" ]; then
-    echo "dispatch: not in a Paseo session (no PASEO_AGENT_ID), so no heartbeat was created" >&2
-    return 0
-  fi
-  root="$(git rev-parse --show-toplevel 2>/dev/null)"
-  [ -n "$root" ] \
-    || refuse "not inside a git repository, so the heartbeat id has nowhere to be written"
-  hb="$(heartbeat_file "$spec")" \
-    || refuse "not inside a git repository, so the heartbeat id has nowhere to be written"
-  if [ -f "$hb" ]; then
-    existing="$(tr -d '[:space:]' < "$hb")"
-    if [ -n "$existing" ]; then
-      echo "dispatch: heartbeat $existing for #$spec already exists" >&2
-      return 0
-    fi
-  fi
-  # The sweep goes first, and it is why this heartbeat is worth more than a reminder.
-  # A ticket tells the main agent it has landed through `notify_parent`, which fails
-  # silently three ways: no `PASEO_AGENT_ID`, a parent already archived, a `paseo send`
-  # that errors. Each writes one line to a stderr nobody reads. The sweep needs none of
-  # that to have worked: it asks Paseo what is here and the tracker what is finished.
-  local runner="bash $SELF"
-  for dir in ${TOOLS[@]+"${TOOLS[@]}"}; do
-    runner="$runner --tools $dir"
-  done
-  prompt="Run: $runner land --sweep (it lands whatever came to rest unheard), then $runner status $spec (from $root), then act per night.md step 3."
-  if ! json="$(paseo heartbeat create --cron '7,47 * * * *' --expires-in 16h \
-                 --name "mmw-night-$spec" --json "$prompt")"; then
-    echo "dispatch: could not create heartbeat mmw-night-$spec" >&2
-    exit 2
-  fi
-  ident="$(printf '%s' "$json" | python3 -c '
-import json, sys
-try:
-    row = json.load(sys.stdin)
-except Exception:
-    sys.exit(0)
-if not isinstance(row, dict):
-    sys.exit(0)
-print(row.get("id") or row.get("Id") or "")
-')"
-  [ -n "$ident" ] || { echo "dispatch: heartbeat create printed no id" >&2; exit 2; }
-  printf '%s\n' "$ident" > "$hb" \
-    || { echo "dispatch: could not write heartbeat id to $hb" >&2; exit 2; }
-}
-
 # ------------------------------------------------------------------ advancing
 
 ticket_branch() { printf 'issue-%s\n' "$1"; }
@@ -1172,7 +1079,7 @@ conflict_report() {
   echo
   echo "  Resolve it with the resolving-merge-conflicts skill — never --abort — run this"
   echo "  repository's own checks, commit the merge, then run:"
-  echo "    bash $SELF --tools <drive-target scripts> --tools <verify-ticket scripts> advance $MMW_ADVANCE_SPEC"
+  echo "    bash $SELF advance $MMW_ADVANCE_SPEC"
 }
 
 # 0 merged, 1 left in conflict, 2 could not run it at all.
@@ -1264,7 +1171,7 @@ advance() {
       released=$((released + 1))
       echo "released the claim on #$number: it is open in the agent queue with no running worker of ours on it, so the worker that claimed it is gone" >&2
     else
-      echo "dispatch: could not release the claim on #$number, so it stays off the frontier" >&2
+      echo "dispatch: could not take the claim off #$number, so it stays off the frontier" >&2
     fi
   done
 
@@ -1311,35 +1218,7 @@ advance() {
 
 # ------------------------------------------------------------------ landing
 
-# Every ticket this checkout owns a workspace for, in ticket order. `workspace_rows`
-# already answers for this checkout alone, which is what keeps a sweep from trying to
-# decide whether another product's branch is merged: only this repository can be asked
-# that, and it is asked about its own tickets only.
-landable_tickets() {
-  workspace_rows | python3 -c '
-import json, re, sys
-from pathlib import Path
-
-try:
-    rows = json.load(sys.stdin)
-except Exception:
-    rows = []
-if not isinstance(rows, list):
-    rows = []
-issue = re.compile(r"^issue-(\d+)$")
-seen = []
-for row in rows:
-    if not isinstance(row, dict):
-        continue
-    found = issue.match(Path(row.get("cwd") or "").name)
-    if found and found.group(1) not in seen:
-        seen.append(found.group(1))
-for number in sorted(seen, key=int):
-    print(number)
-'
-}
-
-# Land one ticket, or every ticket of this checkout that is ready to be landed.
+# Land one ticket.
 #
 # Landing is what closing a ticket does not do: merge the branch, archive the
 # workspace (which takes the agents inside it and deletes the worktree), give the
@@ -1367,16 +1246,6 @@ land_tickets() {
     || refuse "$(printf '%s' "$dirty" | wc -l | tr -d ' ') tracked files have uncommitted changes; a merge would carry them in — commit them or set them aside first"
 
   local -a numbers=("$@")
-  if [ "${#numbers[@]}" -eq 0 ]; then
-    local number
-    while IFS= read -r number; do
-      [ -n "$number" ] && numbers+=("$number")
-    done < <(landable_tickets)
-  fi
-  if [ "${#numbers[@]}" -eq 0 ]; then
-    echo "land: this checkout has no ticket workspaces to look at" >&2
-    return 0
-  fi
 
   local plan
   plan="$(python3 "$STATUS" --land-plan "${numbers[@]}")" \
@@ -1465,12 +1334,11 @@ suspend_comment() {
 
 # Suspend the night without throwing its work away.
 #
-# Five things happen: every live worker of the batch is archived (`paseo archive
+# Four things happen: every live worker of the batch is archived (`paseo archive
 # --force`, which interrupts a running agent and drops it from the live list, workspace
 # and branch stay), every ticket still in the agent queue is told the night was
 # suspended, every OPEN ready-for-agent ticket assigned to this pipeline's account
-# has that claim given back, every lease slot the batch holds is given back, and
-# the main agent's heartbeat is deleted when the id file is still there. A batch
+# has that claim given back, and every lease slot the batch holds is given back. A batch
 # dispatched again from scratch would throw the night's work away along with the
 # night; `advance` after this takes the same workspaces up where they stand.
 #
@@ -1566,8 +1434,6 @@ suspend_night() {
     echo "dispatch: no lease.py in any --tools directory, so this night's slots were not given back and the next night will read this machine as fuller than it is; pass --tools <the drive-target skill's scripts directory>" >&2
     left=$((left + 1))
   fi
-
-  delete_heartbeat "$spec" || left=$((left + 1))
 
   echo "suspend #$spec: stopped $stopped, commented $commented, slots given back $back, claims given back $claims"
   [ "$left" -eq 0 ] || exit 1
@@ -1665,7 +1531,6 @@ summary_spec() {
   gh_ issue comment "$spec" --body "$body" >/dev/null \
     || refuse "could not post the night summary on #$spec"
   printf '%s\n' "$body"
-  delete_heartbeat "$spec" || exit 1
 }
 
 # ------------------------------------------------------------------ entry
@@ -1674,7 +1539,7 @@ summary_spec() {
 
 # `--tools <dir>` may appear anywhere and any number of times. Everything else is
 # positional. A script of another skill is looked up by basename in those directories,
-# in the order given, and nowhere else.
+# in the order given.
 TOOLS=()
 positional=()
 while [ "$#" -gt 0 ]; do
@@ -1707,8 +1572,9 @@ tool() {
   done
   return 1
 }
-LEASE="$(tool lease.py || true)"
-VERIFY="$(tool verify-ticket.py || true)"
+SKILLS_ROOT="$(dirname "$SKILL_ROOT")"
+LEASE="$(tool lease.py || printf '%s\n' "$SKILLS_ROOT/drive-target/scripts/lease.py")"
+VERIFY="$(tool verify-ticket.py || printf '%s\n' "$SKILLS_ROOT/verify-ticket/scripts/verify-ticket.py")"
 # `advance` runs `start` through this same script; the directories travel with it.
 TOOLS_ARGS=()
 for dir in ${TOOLS[@]+"${TOOLS[@]}"}; do
@@ -1720,24 +1586,15 @@ case "${1:-}" in
     [ "$#" -eq 2 ] || usage
     case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac
     check_machine "$2"
-    ensure_night_heartbeat "$2"
     ;;
   advance)
     [ "$#" -eq 2 ] || usage
     advance "$2"
     ;;
   land)
-    case "${2:---sweep}" in
-      --sweep)
-        [ "$#" -le 2 ] || usage
-        land_tickets
-        ;;
-      *)
-        [ "$#" -eq 2 ] || usage
-        case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
-        land_tickets "$2"
-        ;;
-    esac
+    [ "$#" -eq 2 ] || usage
+    case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
+    land_tickets "$2"
     ;;
   start)
     [ "$#" -eq 3 ] || usage

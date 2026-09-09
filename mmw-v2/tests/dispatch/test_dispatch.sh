@@ -6,7 +6,7 @@
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|start-verifier|retract
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh resume|wait|reverify|summary
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
-#   bash mmw-v2/tests/dispatch/test_dispatch.sh instancegate|countfail|stopproduct|suspend|suspendbusy|suspendnohb|status
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh instancegate|countfail|stopproduct|suspend|suspendbusy|status
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh all
 #
 # A fake `paseo` and a fake `gh` sit in front of the real ones on PATH and write every
@@ -264,14 +264,6 @@ if args[:1] == ["archive"]:
         sys.exit(1)
     save("agents.json", [a for a in rows if a.get("id") != ident])
     print(json.dumps({"id": ident, "archived": True}))
-    sys.exit(0)
-
-if args[:2] == ["heartbeat", "create"]:
-    print(json.dumps({"id": "hb_test"}))
-    sys.exit(0)
-
-if args[:2] == ["heartbeat", "delete"]:
-    print(json.dumps({"ok": True}))
     sys.exit(0)
 
 print("{}", file=sys.stderr)
@@ -698,9 +690,6 @@ JSON
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   has "paseo :: provider :: ls :: --json"
-  hasnt "paseo :: heartbeat :: create"
-  grep -q "no PASEO_AGENT_ID" "$TMP/err" \
-    || fail "stderr should say no heartbeat was created: $(cat "$TMP/err")"
 
   echo "--- every host of the batch is refreshed once, however many rows share it"
   [ "$(count_of 'provider :: diagnostic')" = 3 ] \
@@ -737,45 +726,6 @@ JSON
   [ "$code" = 2 ] || fail "expected exit 2 when install.sh --check fails, got $code: $(cat "$TMP/err")"
   grep -q 'install.sh --check' "$TMP/err" \
     || fail "the reason should name install.sh --check: $(cat "$TMP/err")"
-  hasnt "paseo :: heartbeat :: create"
-
-  echo "--- with PASEO_AGENT_ID, check creates the heartbeat and writes the id"
-  copy="$(skill_copy_for check)"
-  fresh_repo
-  cat > "$TMP/tickets.json" <<'JSON'
-[
-  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent", "junior-worker"]}
-]
-JSON
-  reset_log
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" PASEO_AGENT_ID=agt_main \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
-  [ "$code" = 0 ] || fail "expected exit 0 with PASEO_AGENT_ID, got $code: $(cat "$TMP/err")"
-  has "paseo :: heartbeat :: create :: --cron :: 7,47 * * * * :: --expires-in :: 16h :: --name :: mmw-night-76 :: --json"
-  grep -q "status 76 (from " "$MMW_TEST_LOG" \
-    || fail "the heartbeat prompt should name status and the git root: $(cat "$MMW_TEST_LOG")"
-  grep -q "night.md step 3" "$MMW_TEST_LOG" \
-    || fail "the heartbeat prompt should name night.md step 3: $(cat "$MMW_TEST_LOG")"
-  grep -q "$copy/scripts/dispatch.sh" "$MMW_TEST_LOG" \
-    || fail "the heartbeat prompt should name dispatch.sh: $(cat "$MMW_TEST_LOG")"
-  grep -q "land --sweep" "$MMW_TEST_LOG" \
-    || fail "the heartbeat should sweep before it reads status, since a landing message can be lost: $(cat "$MMW_TEST_LOG")"
-  local hb
-  hb="$(git -C "$TMP/repo" rev-parse --absolute-git-dir)/mmw-heartbeat-76"
-  [ -f "$hb" ] || fail "the heartbeat id file was not written"
-  [ "$(tr -d '[:space:]' < "$hb")" = hb_test ] \
-    || fail "the heartbeat id file should be hb_test: $(cat "$hb")"
-
-  echo "--- a second check does not create another heartbeat"
-  reset_log
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" PASEO_AGENT_ID=agt_main \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
-  [ "$code" = 0 ] || fail "expected exit 0 on the second check, got $code: $(cat "$TMP/err")"
-  hasnt "paseo :: heartbeat :: create"
-  grep -q "already exists" "$TMP/err" \
-    || fail "the second check should say the heartbeat already exists: $(cat "$TMP/err")"
-  [ "$(tr -d '[:space:]' < "$hb")" = hb_test ] \
-    || fail "the heartbeat id file should be unchanged: $(cat "$hb")"
 }
 
 # Tickets outside any batch: what `land` was built for. #64 is finished, #65 was
@@ -879,48 +829,6 @@ scenario_land() {
   hasnt "paseo :: workspace :: archive"
   grep -q "not in HEAD" "$TMP/err" \
     || fail "the refusal should name what is unmerged: $(cat "$TMP/err")"
-}
-
-scenario_land_sweep() {
-  reset_log
-  fresh_repo
-  write_landable
-  make_branch issue-64 four.txt "from 64"
-  seed_workspace 64
-  seed_workspace 65
-  seed_workspace 66
-  seed_foreign_workspace
-  local code
-
-  echo "--- a sweep takes every ticket of this checkout, with no spec and no ticket number"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" land --sweep)"
-  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  [ -f "$TMP/repo/four.txt" ] || fail "issue-64 was not merged by the sweep"
-  has "paseo :: workspace :: archive :: wks_issue-64"
-
-  echo "--- the one still being worked is left alone"
-  hasnt "wks_issue-66"
-
-  echo "--- and another checkout's workspace is never touched"
-  hasnt "wks_foreign_61"
-
-  echo "--- the tally names what happened, so a quiet sweep is not silence"
-  grep -q "land: merged 1, archived 1" "$TMP/err" \
-    || fail "the tally is missing: $(cat "$TMP/err")"
-
-  echo "--- a second sweep has nothing left to merge or archive"
-  reset_log
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" land --sweep)"
-  [ "$code" = 0 ] || fail "expected exit 0 on the second sweep, got $code: $(cat "$TMP/err")"
-  hasnt "wks_issue-64"
-
-  echo "--- usage lists land"
-  reset_log
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" land 64 extra)"
-  [ "$code" = 2 ] || fail "expected exit 2 on a bad land, got $code"
-  grep -q "dispatch.sh land" "$TMP/err" || fail "usage should list land: $(cat "$TMP/err")"
 }
 
 scenario_advance() {
@@ -1337,21 +1245,33 @@ JSON
   [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 0 ] \
     || fail "the slot should still be given back: $(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")"
 
-  echo "--- without lease.py, retract refuses and the slot stays held"
+  echo "--- with no lease.py to be found at all, retract refuses and the slot stays held"
   reset_log
   fresh_repo
   code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
           bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "start expected exit 0, got $code: $(cat "$TMP/err")"
   : > "$MMW_TEST_LOG"
+  local copy
+  copy="$(skill_copy_for retract)"
+  rm -f "$TMP/fake/skills/drive-target/scripts/lease.py"
   code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
-          bash "$DISPATCH" --tools "$(dirname "$SKILL")/verify-ticket/scripts" retract 61)"
+          bash "$copy/scripts/dispatch.sh" retract 61)"
   [ "$code" = 2 ] || fail "expected exit 2 without lease.py, got $code: $(cat "$TMP/err")"
   grep -q "lease.py" "$TMP/err" \
     || fail "the refusal should name lease.py: $(cat "$TMP/err")"
   hasnt "workspace :: archive"
   [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 1 ] \
     || fail "the slot must stay held when retract cannot see lease.py, count is $(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")"
+
+  echo "--- and with the drive-target skill next door, no --tools is needed to find it"
+  : > "$MMW_TEST_LOG"
+  cp "$(dirname "$SKILL")/drive-target/scripts/lease.py" "$TMP/fake/skills/drive-target/scripts/"
+  code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
+          bash "$copy/scripts/dispatch.sh" retract 61)"
+  [ "$code" = 0 ] || fail "expected exit 0 with lease.py next door, got $code: $(cat "$TMP/err")"
+  [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 0 ] \
+    || fail "the slot should be given back, count is $(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")"
 }
 
 scenario_start_reviewer() {
@@ -1686,16 +1606,6 @@ JSON
     || fail "the posted comment should open NIGHT SUMMARY: $(cat "$MMW_GH_LAST_BODY")"
   grep -q "Reverify: 1/0" "$MMW_GH_LAST_BODY" \
     || fail "missing Reverify line matching that reverify: $(cat "$MMW_GH_LAST_BODY")"
-
-  echo "--- after posting, the heartbeat named in the id file is deleted"
-  write_heartbeat
-  reset_log
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76)"
-  [ "$code" = 0 ] || fail "expected exit 0 after deleting the heartbeat, got $code: $(cat "$TMP/err")"
-  has "paseo :: heartbeat :: delete :: hb_76"
-  [ ! -f "$(git -C "$TMP/repo" rev-parse --absolute-git-dir)/mmw-heartbeat-76" ] \
-    || fail "the heartbeat id file is still there"
 }
 
 # ------------------------------------------------------------------ orphaned claims
@@ -1982,10 +1892,6 @@ open_a_night() {
   [ "$code" = 0 ] || fail "advance exited $code: $(cat "$TMP/err")"
 }
 
-write_heartbeat() {
-  printf 'hb_76\n' > "$(git -C "$TMP/repo" rev-parse --absolute-git-dir)/mmw-heartbeat-76"
-}
-
 scenario_suspend() {
   local code
   fresh_repo
@@ -2007,10 +1913,9 @@ scenario_suspend() {
   seed_foreign_workspace
   mkdir -p "$TMP/other-repo/issue-61"
   python3 "$LEASE_PY" claim "$TMP/other-repo/issue-61" >/dev/null
-  write_heartbeat
   claim_tickets 61 63
 
-  echo "--- suspend archives the live worker, comments, gives the slots and claims back, deletes the heartbeat"
+  echo "--- suspend archives the live worker, comments, gives the slots and claims back"
   : > "$MMW_TEST_LOG"
   : > "$MMW_GH_LAST_BODY"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
@@ -2048,14 +1953,11 @@ scenario_suspend() {
     || fail "the comment on #63 does not say it had no session"
   hasnt "gh :: issue :: comment :: 65"
 
-  echo "--- the slots the night held are back, and the heartbeat is gone"
+  echo "--- the slots the night held are back"
   [ "$(python3 "$LEASE_PY" count "$MMW_FAKE_PASEO_STATE")" = 0 ] \
     || fail "slots are still held: $(python3 "$LEASE_PY" list)"
   [ "$(python3 "$LEASE_PY" count "$TMP/other-repo")" = 1 ] \
     || fail "a lease from another checkout was released: $(python3 "$LEASE_PY" list)"
-  has "paseo :: heartbeat :: delete :: hb_76"
-  [ ! -f "$(git -C "$TMP/repo" rev-parse --absolute-git-dir)/mmw-heartbeat-76" ] \
-    || fail "the heartbeat id file is still there"
   grep -q 'suspend #76: stopped 1, commented 2, slots given back 3, claims given back 2' "$TMP/out" \
     || fail "the summary line is wrong: $(cat "$TMP/out")"
 
@@ -2173,7 +2075,6 @@ scenario_suspendbusy() {
   seed_workspace 65
   python3 "$LEASE_PY" claim "$MMW_FAKE_PASEO_STATE/issue-65" >/dev/null
   seed_agent 61 worker
-  write_heartbeat
 
   echo "--- something is still listening on #61's slot"
   port="$(python3 "$LEASE_PY" claim "$MMW_FAKE_PASEO_STATE/issue-61" \
@@ -2223,24 +2124,6 @@ sys.stdin.read()
   rm -f "$hold"
 }
 
-scenario_suspendnohb() {
-  local code
-  fresh_repo
-  reset_log
-  write_open_batch
-  open_a_night
-  seed_agent 61 worker
-  echo "--- a missing heartbeat file is a normal close, not a failure"
-  : > "$MMW_TEST_LOG"
-  : > "$MMW_GH_LAST_BODY"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
-          bash "$DISPATCH" "${TOOLS[@]}" suspend 76)"
-  [ "$code" = 0 ] || fail "expected exit 0 without a heartbeat file, got $code: $(cat "$TMP/err")"
-  ! grep -qi heartbeat "$TMP/err" \
-    || fail "a missing heartbeat should not warn: $(cat "$TMP/err")"
-  grep -q 'suspend #76:' "$TMP/out" || fail "the summary line is missing: $(cat "$TMP/out")"
-}
-
 scenario_status() {
   local code
   echo "--- status prints the table header and exits 0"
@@ -2272,10 +2155,10 @@ scenario_status() {
 
 # ------------------------------------------------------------------ entry
 
-ALL="check advance advanceconflict advancedirty land landsweep start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy suspendnohb status"
+ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status"
 
 case "${1:-}" in
-  check|advance|advanceconflict|advancedirty|land|landsweep|start-worker|start-reviewer|start-verifier|retract|resume|wait|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|stopproduct|suspend|suspendbusy|suspendnohb|status)
+  check|advance|advanceconflict|advancedirty|land|start-worker|start-reviewer|start-verifier|retract|resume|wait|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|stopproduct|suspend|suspendbusy|status)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -2291,7 +2174,6 @@ banner_for() {
     advanceconflict) echo DISPATCH-ADVANCE-CONFLICT-OK ;;
     advancedirty) echo DISPATCH-ADVANCE-DIRTY-OK ;;
     land) echo DISPATCH-LAND-OK ;;
-    landsweep) echo DISPATCH-LAND-SWEEP-OK ;;
     start-worker) echo DISPATCH-START-WORKER-OK ;;
     start-reviewer) echo DISPATCH-START-REVIEWER-OK ;;
     start-verifier) echo DISPATCH-START-VERIFIER-OK ;;
@@ -2310,14 +2192,12 @@ banner_for() {
     stopproduct) echo STOP-PRODUCT-OK ;;
     suspend) echo SUSPEND-OK ;;
     suspendbusy) echo SUSPEND-BUSY-OK ;;
-    suspendnohb) echo SUSPEND-NOHB-OK ;;
     status) echo DISPATCH-STATUS-OK ;;
   esac
 }
 
 fn_for() {
   case "$1" in
-    landsweep) echo scenario_land_sweep ;;
     start-worker) echo scenario_start_worker ;;
     start-reviewer) echo scenario_start_reviewer ;;
     start-verifier) echo scenario_start_verifier ;;

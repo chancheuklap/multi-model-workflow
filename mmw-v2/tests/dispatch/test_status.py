@@ -900,8 +900,8 @@ class ReadingPaseo(unittest.TestCase):
 class AnOpenTicketNeverMerges(unittest.TestCase):
     """`closed = ALL MET` is the whole merge rule, in both plans. A ticket handed back
     for a defect it could not answer keeps its branch to itself until it closes: the
-    two plans are read by the main agent and by the hourly sweep, and one of them
-    knowing something the other does not is a night disagreeing with itself."""
+    two plans are both read by the main agent, and one of them knowing something the
+    other does not is a night disagreeing with itself."""
 
     def setUp(self):
         self.saved = (status.sub_issues, status.read_ticket, status.live_agents,
