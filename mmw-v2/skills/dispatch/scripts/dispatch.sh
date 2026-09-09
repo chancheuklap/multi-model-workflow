@@ -16,9 +16,9 @@
 #
 # Every form takes `--tools <directory>`, repeatable: where the scripts of other skills
 # are — `lease.py` of the drive-target skill, `verify-ticket.py` of the verify-ticket
-# skill. Other skills' scripts are found only in those directories. Two files belong
-# to the toolbox itself, not to any skill, and are taken from the toolbox root (this
-# skill directory two levels up): `install.sh` and `agents/assemble.py`.
+# skill. Other skills' scripts are found only in those directories. One file belongs
+# to the toolbox itself, not to any skill, and is taken from the toolbox root (this
+# skill directory two levels up): `install.sh`.
 #
 # The ticket number and the kind of agent are the whole input for `start`. Which
 # of the worker rows a worker session starts from is the ticket's own `*-worker`
@@ -43,9 +43,8 @@ STATUS="$SKILL_ROOT/scripts/status.py"
 # is two directories up. `verify-ticket.py` and `lease.py` belong to other skills and
 # are found only in the directories `--tools` names (see the entry at the bottom).
 INSTALLER="$(dirname "$(dirname "$SKILL_ROOT")")/install.sh"
-# assemble.py sits next to install.sh under agents/: both belong to the toolbox, not
-# to a skill, so they are not passed in with `--tools`.
-ASSEMBLE="$(dirname "$INSTALLER")/agents/assemble.py"
+# `models.py` reads `models.md`, so it belongs to this skill and travels with it.
+MODELS_PY="$SKILL_ROOT/scripts/models.py"
 VERIFY=""
 LEASE=""
 
@@ -102,11 +101,10 @@ print(sys.stdin.read().rstrip("\n")[:int(os.environ["MMW_HEAD_CHARS"])])
 # ------------------------------------------------------------------ models.md
 
 # Prints "host<TAB>model<TAB>effort<TAB>permissions" for the agent asked for.
-# With no second argument, or 1: the first bypass row, since an agent that is
-# both a session and a subagent (the reviewer) has one row per host and only one
-# of them starts a session; when no row has any, the first row, so the caller's
-# refusal can name it. With 2: the second bypass row (the fallback host), or
-# empty when it has none. Backticks are markdown, not part of any value.
+# With no second argument, or 1: the agent's first bypass row; when it has no
+# bypass row at all, its first row, so the caller's refusal can name the row it
+# will not start. With 2: the second bypass row (the fallback host), or empty
+# when it has none. Backticks are markdown, not part of any value.
 row_for_role() {
   awk -F'|' -v want="$1" -v nth="${2:-1}" '
     function trim(s) { gsub(/^[ \t`]+/, "", s); gsub(/[ \t`]+$/, "", s); return s }
@@ -580,14 +578,14 @@ archive_workspace() {
 # ------------------------------------------------------------------ dispatch payload
 
 emit_create_json() {
-  [ -f "$ASSEMBLE" ] || refuse "no assemble.py at $ASSEMBLE"
-  MMW_ASSEMBLE="$ASSEMBLE" python3 -c '
+  [ -f "$MODELS_PY" ] || refuse "no models.py at $MODELS_PY"
+  MMW_MODELS_PY="$MODELS_PY" python3 -c '
 import importlib.util, json, os, sys
 
-path = os.environ["MMW_ASSEMBLE"]
-spec = importlib.util.spec_from_file_location("mmw_assemble", path)
+path = os.environ["MMW_MODELS_PY"]
+spec = importlib.util.spec_from_file_location("mmw_models", path)
 if spec is None or spec.loader is None:
-    print("dispatch: no assemble.py at " + path, file=sys.stderr)
+    print("dispatch: no models.py at " + path, file=sys.stderr)
     sys.exit(2)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)

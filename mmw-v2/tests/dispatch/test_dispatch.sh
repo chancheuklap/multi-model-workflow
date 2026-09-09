@@ -661,8 +661,6 @@ skill_copy_for() {
   cp "$(dirname "$SKILL")/drive-target/scripts/lease.py" \
      "$(dirname "$SKILL")/drive-target/scripts/refusal.py" \
      "$TMP/fake/skills/drive-target/scripts/"
-  mkdir -p "$TMP/fake/agents"
-  cp "$(dirname "$(dirname "$SKILL")")/agents/assemble.py" "$TMP/fake/agents/"
   printf '#!/usr/bin/env bash\nexit %s\n' "${2:-0}" > "$TMP/fake/install.sh"
   chmod +x "$TMP/fake/install.sh"
   printf '%s\n' "$copy"
@@ -1227,7 +1225,7 @@ assert "fallback" not in obj, obj
   never_ran
   hasnt "workspace :: create"
 
-  echo "--- a copied skill still finds assemble.py"
+  echo "--- a copied skill still finds models.py"
   local copy
   copy="$(skill_copy_for start)"
   reset_log

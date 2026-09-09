@@ -1,6 +1,6 @@
 # Multi-Model Workflow
 
-A toolbox of skills and subagents shared across hosts, repositories, and machines. Its core is the landing pipeline: one unit of work travels from a written spec, through a ticket, through an agent that writes the code, to a closed ticket with evidence attached. This file fixes the name of everything the pipeline invents, so that a session starting with an empty context uses the same word the last one used.
+A toolbox of skills shared across hosts, repositories, and machines. Its core is the landing pipeline: one unit of work travels from a written spec, through a ticket, through an agent that writes the code, to a closed ticket with evidence attached. This file fixes the name of everything the pipeline invents, so that a session starting with an empty context uses the same word the last one used.
 
 How to read an entry: the bold line is the term's only name; a term whose name is a literal string that appears in a file, a command, or a comment is named by that string exactly (case, colon, and all). The definition says what the thing is and what sets it apart from its neighbours. `_Admitted_` lists the one other wording that may appear in prose. `_Avoid_` lists dead words: a sentence in this repository that uses one is wrong; an item followed by a note in parentheses says in which sense the word is dead. `_Home_` is the file whose text or code the definition is taken from; when this file and that one disagree, that one is right and this file is rewritten.
 
@@ -11,12 +11,12 @@ Vocabulary that belongs to one skill alone — `exe-release`'s release key, tier
 ### Roles
 
 **agent**:
-Any session or subagent this pipeline sends out or runs: the main agent, a worker, a reviewer, the verifier, the advisor, the claim-checker.
+Any session or subagent this pipeline sends out or runs: the main agent, a worker, a reviewer, the verifier, the advisor, a code-review axis subagent.
 _Avoid_: board
 _Home_: `mmw-v2/skills/dispatch/models.md`
 
 **session**:
-A host process that is a Paseo agent, or the main agent the user started themselves. It carries a host and — for a dispatched agent — agent labels. The main agent, a worker, a reviewer, the verifier, and the advisor are sessions; the three code-review axis subagents are native subagents inside the reviewer session.
+A host process that is a Paseo agent, or the main agent the user started themselves. It carries a host and — for a dispatched agent — agent labels. The main agent, a worker, a reviewer, the verifier, and the advisor are sessions; the three code-review axis subagents are not — they are subagents inside the reviewer session.
 _Avoid_: 会话 (as a term), pane
 _Home_: `mmw-v2/skills/dispatch/models.md`
 
@@ -71,11 +71,6 @@ What a caller hands the advisor, and the only thing the advisor sees: the recent
 _Avoid_: 问题包, advisor prompt, brief
 _Home_: `mmw-v2/skills/advisor/references/consulting.md`
 
-**claim-checker**:
-The subagent that fact-checks a finished document and returns a claim table — every claim marked ✅ sourced, ❌ unsourced, or ⚠️ misleading, with a severity. The `readable-docs` skill runs it before a document is saved or published.
-_Avoid_: the checker (for this), claim checker
-_Home_: `mmw-v2/agents/claim-checker/body.md`
-
 **host**:
 The command-line agent program a session runs on: one of `claude`, `codex`, `grok`, `cursor`, `pi`. It is the `host` column of `models.md`. Each host has its own install locations, hook configuration, form close key, and effort spelling.
 _Avoid_: 宿主, agent kind
@@ -87,9 +82,9 @@ _Avoid_: human (for this), maintainer (in this repository's text), reporter (in 
 _Home_: `docs/agents/triage-labels.md`
 
 **subagent**:
-As a deliverable it is one of the two things the toolbox ships: one shared `body.md` wrapped in a per-host shell by `assemble.py` into `agents/<name>/out/` and symlinked once per host, a `models.md` row whose `permissions` are `—`. Results that must be written back to the ticket, read by another role, and openable by a person, run as a Paseo subagent; work that is only an internal split of the current step runs as a native subagent. The three code-review axis subagents are the `reviewer` subagent inside the reviewer session; the reviewer and the verifier themselves are Paseo subagents of the worker.
-_Avoid_: sub-agent, background agent, seat, 子代理 (as a term)
-_Home_: `mmw-v2/install.sh`
+An agent started inside another agent's session, holding its own context and answering back into that session. The toolbox ships no subagent definitions and installs nothing into any host's `agents/` directory: a skill that needs one asks for the host's own general-purpose subagent, which runs on the model of the session that starts it and has no `models.md` row. Results that must be written back to the ticket, read by another role, and openable by a person run as a Paseo subagent instead; work that is only an internal split of the current step runs as a subagent. The three code-review axis subagents are subagents of the reviewer session; the reviewer and the verifier themselves are Paseo subagents of the worker.
+_Avoid_: sub-agent, background agent, seat, 子代理 (as a term), native subagent, assembled subagent file
+_Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
 **caller**:
 Seen from inside a skill or subagent, the agent that invoked it and composed its packet. A caller names the skill and what it wants done, never an install path.
@@ -138,7 +133,7 @@ _Avoid_: 通用位置, 中立目录, 用户级目录
 _Home_: `docs/adr/0006-skills-install-to-neutral-dir.md`
 
 **symlink**:
-What `install.sh` makes: skills into the two install locations, assembled subagent files into each host's agent directory, `hook.py` into `~/.claude/hooks/`, and `~/.local/bin/paseo` to the Paseo CLI. A symlink is not a copy — the host reads the repository file — and whichever checkout runs `install.sh` takes over the batch.
+What `install.sh` makes: skills into the two install locations, `hook.py` into `~/.claude/hooks/`, and `~/.local/bin/paseo` to the Paseo CLI. A symlink is not a copy — the host reads the repository file — and whichever checkout runs `install.sh` takes over the batch.
 _Avoid_: agent detection rule
 _Home_: `mmw-v2/install.sh`
 
@@ -148,7 +143,7 @@ _Avoid_: 残留 (as a term; the printed prefix is a literal)
 _Home_: `mmw-v2/install.sh`
 
 **retired**:
-The state of a skill or subagent moved to `deprecated/` (unchanged, not treated as fact), and of an install location that is no longer a target though its host still scans it. `install.sh` prints `退役` when it clears its own links from one.
+The state of a skill or subagent moved to `deprecated/` (unchanged, not treated as fact), and of an install location that is no longer a target though its host still scans it. The retired locations are the four per-host `skills/` directories and every host's `agents/` directory, including `~/.grok/roles/`. `install.sh` prints `退役` when it clears its own links from one.
 _Avoid_: 退役 (as a term; the printed prefix is a literal)
 _Home_: `AGENTS.md`
 
@@ -181,11 +176,11 @@ _Avoid_: 工作区 (for the git sense, that is a worktree), pane, monitor tab, H
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **Agent profile**:
-One entry `install.sh` writes into `~/.paseo/config.json` under `daemon.agentProfiles` from a `models.md` row whose `permissions` are `bypass`. The first `bypass` row for an agent has `id` and `name` both equal to the agent cell; a later `bypass` row for the same agent is a **fallback host** and has `id` and `name` `{agent}@{host}`. A caller that has the profile uses `create_agent`; a `—` row is a native subagent and gets no profile.
+One entry `install.sh` writes into `~/.paseo/config.json` under `daemon.agentProfiles` from a `models.md` row. The first `bypass` row for an agent has `id` and `name` both equal to the agent cell; a later `bypass` row for the same agent is a **fallback host** and has `id` and `name` `{agent}@{host}`. A caller that has the profile uses `create_agent`.
 _Home_: `mmw-v2/install.sh`
 
 **fallback host**:
-A second `bypass` row for the same agent on a different host. The first `bypass` row is the host `start` uses; `create_agent` tries the fallback host only after five retries on the first have failed. An agent has at most one. `advisor`'s two rows on `claude` are two doors (`bypass` and `—`), not a fallback host.
+A second `bypass` row for the same agent on a different host. The first `bypass` row is the host `start` uses; `create_agent` tries the fallback host only after five retries on the first have failed. An agent has at most one, and only `junior-worker` has one.
 _Home_: `mmw-v2/skills/dispatch/models.md`
 
 **agent label**:
@@ -313,7 +308,7 @@ _Avoid_: prior art, 先例, the precedent it names
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **test layer**:
-The layer a feature's tests land in — named per layer with its directory and precedent in `## Testing Decisions` and copied into `## Seam`. The toolbox's own tests have five layers: **structural check** (`install.sh --check`, which runs `assemble.py --check`), **own-script layer** (this repository's scripts against fixed samples, entry `tests/run.sh` per skill), **vendored-script layer** (the tests that came with copied upstream scripts), **skill-behaviour layer** (run the skill for real on a throwaway ticket inside a worktree and check what appears on the ticket), and **real ticket** (one real ticket carried from writing to closing; nothing merges to the base branch until it passes).
+The layer a feature's tests land in — named per layer with its directory and precedent in `## Testing Decisions` and copied into `## Seam`. The toolbox's own tests have five layers: **structural check** (`install.sh --check`), **own-script layer** (this repository's scripts against fixed samples, entry `tests/run.sh` per skill), **vendored-script layer** (the tests that came with copied upstream scripts), **skill-behaviour layer** (run the skill for real on a throwaway ticket inside a worktree and check what appears on the ticket), and **real ticket** (one real ticket carried from writing to closing; nothing merges to the base branch until it passes).
 _Avoid_: 测试层, 结构核对, 自写脚本层, vendor 脚本层, 技能行为层, 真票
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
@@ -1004,11 +999,11 @@ _Home_: `AGENTS.md`
 ### The toolbox
 
 **skill**:
-The unit the toolbox ships, one directory with a `SKILL.md`. This repository's own: `dispatch`, `verify-ticket`, `drive-target`, `align-screens`, `readable-docs`, `exe-release`, `manage-agents-md`, `claude-design-blocks`, `code-checkers`. From `mattpocock/skills`: `to-spec`, `to-tickets`, `implement`, `code-review`, `triage`, `wayfinder`, `domain-modeling`, `grilling`, `grill-me`, `grill-with-docs`, `prototype`, `research`, `resolving-merge-conflicts`, `setup-matt-pocock-skills`, `codebase-design`, `improve-codebase-architecture`, `tdd`, `diagnosing-bugs`, `ask-matt`, `wait-what`, `teach`, `to-questionnaire`, `writing-for-agents`, `handoff`, `wizard`. From `cathrynlavery/diagram-design`: `diagram-design`. A skill is named by its directory name; `the X skill` in prose, never `/X`.
+The unit the toolbox ships, one directory with a `SKILL.md`. This repository's own: `dispatch`, `verify-ticket`, `verdict`, `advisor`, `drive-target`, `align-screens`, `exe-release`, `manage-agents-md`, `claude-design-blocks`, `code-checkers`. From `mattpocock/skills`: `to-spec`, `to-tickets`, `implement`, `code-review`, `triage`, `wayfinder`, `domain-modeling`, `grilling`, `grill-me`, `grill-with-docs`, `prototype`, `research`, `resolving-merge-conflicts`, `setup-matt-pocock-skills`, `codebase-design`, `improve-codebase-architecture`, `tdd`, `diagnosing-bugs`, `ask-matt`, `wait-what`, `teach`, `to-questionnaire`, `writing-for-agents`, `handoff`, `wizard`. From `cathrynlavery/diagram-design`: `diagram-design`. A skill is named by its directory name; `the X skill` in prose, never `/X`.
 _Home_: `mmw-v2/skills.txt`
 
 **`SKILL.md`**:
-A skill's entry file: the host loads the skill from it, and its location resolves the skill's `scripts/` and `references/`. It is symlinked from the source directory, so an edit takes effect on the next invocation; only its frontmatter **`description`** — the one thing a host scans at start — needs a new session. The frontmatter switch **`disable-model-invocation`** makes a skill user-invoked only; it is set or removed together with `policy.allow_implicit_invocation: false` in `agents/openai.yaml`, and this repository keeps it only on `readable-docs`, `setup-matt-pocock-skills`, `grill-me`, `handoff`, `wait-what`. A step in a skill closes with **`Done when`**, its completion test.
+A skill's entry file: the host loads the skill from it, and its location resolves the skill's `scripts/` and `references/`. It is symlinked from the source directory, so an edit takes effect on the next invocation; only its frontmatter **`description`** — the one thing a host scans at start — needs a new session. The frontmatter switch **`disable-model-invocation`** makes a skill user-invoked only; it is set or removed together with `policy.allow_implicit_invocation: false` in `agents/openai.yaml`, and this repository keeps it only on `setup-matt-pocock-skills`, `grill-me`, `handoff`, `wait-what`. A step in a skill closes with **`Done when`**, its completion test.
 _Avoid_: 技能正文 (as a term), 用户触发开关, user-invoked (as a name), completion criterion
 _Home_: `AGENTS.md`
 
@@ -1036,28 +1031,27 @@ The note written whenever upstream scripts are copied in without a subtree: sour
 _Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/UPSTREAM.md`
 
 **`models.md`**:
-The one table, one row per `(agent, host)`. Five columns `agent | host | model | effort | permissions`, for every agent the pipeline sends out except the main agent — the only place a dispatched agent's model is written. It travels with the dispatch skill, one per machine, never into a consuming repository. `install.sh` writes an Agent profile from every `bypass` row; `assemble.py` reads the `—` rows, and the reviewer `bypass` row a second time for the axis subagent. The three code-review axis subagents have no row of their own. Editing rules are in `references/editing-models.md`.
+The one table, one row per `(agent, host)`. Five columns `agent | host | model | effort | permissions`, for every agent the pipeline sends out except the main agent and the three code-review axis subagents — the only place a dispatched agent's model is written. It travels with the dispatch skill, one per machine, never into a consuming repository. `install.sh` writes an Agent profile from every row; `models.py` next to it is the only reader of the file. Editing rules are in `references/editing-models.md`.
 _Avoid_: the table (for this), 模型表, 角色表, launch arguments
 _Home_: `mmw-v2/skills/dispatch/models.md`
 
 **`effort`**:
-The `effort` column: the host's own name for the thinking level (`high`, `xhigh`, `medium`, …; one host's `high` is another's `xhigh`), passed as `thinkingOptionId`; Codex spells it `model_reasoning_effort`, Grok `reasoning_effort`; Cursor burns it into the model name, so its column is `—`.
+The `effort` column: the thinking level, written as Paseo lists it for that model under `thinkingOptionIds` (`high`, `xhigh`, `medium`, …; one host's `high` is another's `xhigh`) and passed through to `create_agent` and to the Agent profile as `thinkingOptionId`. Every row needs one.
 _Admitted_: thinking level
 _Avoid_: thinking effort, reasoning effort (in prose), 思考强度
 _Home_: `mmw-v2/skills/dispatch/models.md`
 
 **permissions**:
-The fifth column of `models.md`, and it takes two values. `bypass`: the agent runs as its own Paseo session on the host column's host, with all permissions granted. `—`: the agent is a native subagent, started inside the session that dispatches it. There is no read-only value: no host has a mode that both keeps a session to reading and lets it finish a turn on its own, and an agent that must not write is a native subagent, where the definition file's tools list decides.
+The fifth column of `models.md`, and it takes one value, `bypass`: the agent runs as its own Paseo session on the host column's host, with all permissions granted. There is no read-only value: no host has a mode that both keeps a session to reading and lets it finish a turn on its own, so an agent that must not write is a subagent, held to reading by what it is told to do and by whatever restriction the call that starts it can carry.
 _Avoid_: launch arguments
 _Home_: `mmw-v2/skills/dispatch/models.md`
 
-**`assemble.py`**:
-`mmw-v2/agents/assemble.py`: builds each host's subagent file from `body.md` (the prompt text, single source), `agent.json` (`name`, `description`, the optional `sandbox`: `read-only` by default or `workspace-write`, honoured by Cursor, Codex, Grok), and `models.md`, into `agents/<name>/out/` — the **assembled subagent file**, one **per-host shell** around one body, because each host spells the model field differently. It writes only when something changed; `--check` verifies without writing; `install.sh` assembles first and then symlinks.
-_Avoid_: 装配 (as a term), 成品, out/ file, 壳 (as a term)
-_Home_: `mmw-v2/agents/assemble.py`
+**`models.py`**:
+`mmw-v2/skills/dispatch/scripts/models.py`, the only reader of `models.md` and a library with no command line. `profile_rows()` turns the table into the Agent profiles `install.sh` writes; `create_agent_settings()` turns one row's `permissions` cell into the `settings` of a `create_agent` call, which is where each host's spelling of its permission mode lives, so `install.sh` and `dispatch.sh` cannot disagree about it.
+_Home_: `mmw-v2/skills/dispatch/scripts/models.py`
 
 **`install.sh`**:
-`mmw-v2/install.sh`, the only install entry. It installs six things: skill symlinks into `~/.agents/skills` and `~/.claude/skills`; assembled subagent files into each host's agent directory; hooks into each host's own configuration; user-level prompts (`~/.claude/CLAUDE.md` a symlink to `prompt/shared.md`, Codex, Pi and Grok each a file `prompt/render.py` writes); a launchd task that re-renders those three when the source changes; Paseo configuration (`~/.local/bin/paseo`, two providers in `~/.paseo/config.json`, one Agent profile per `bypass` row, `worktrees.root`). It reads `skills.txt`, clears the retired locations, and prints one line per item with the prefixes `已装`, `装配`, `残留`, `退役`, `冲突`, ending with markers such as `HOOKS-INSTALLED`. **`install.sh --check`** looks and changes nothing: exit 0 when complete, 1 when something is missing or a stale link remains; it includes `assemble.py --check`, and `dispatch.sh check` runs it before a night. `MMW_V2_HOME` moves the install location for tests.
+`mmw-v2/install.sh`, the only install entry. It installs six things: skill symlinks into `~/.agents/skills` and `~/.claude/skills`; hooks into each host's own configuration; user-level prompts (`~/.claude/CLAUDE.md` a symlink to `prompt/shared.md`, Codex, Pi and Grok each a file `prompt/render.py` writes); a launchd task that re-renders those three when the source changes; Paseo configuration (`~/.local/bin/paseo`, two providers in `~/.paseo/config.json`, one Agent profile per `bypass` row, `worktrees.root`); the `nowledge-mem` entry in `~/.cursor/mcp.json`. It reads `skills.txt`, clears the retired locations, and prints one line per item with the prefixes `已装`, `残留`, `退役`, `冲突`, ending with markers such as `HOOKS-INSTALLED`. **`install.sh --check`** looks and changes nothing: exit 0 when complete, 1 when something is missing or a stale link remains; `dispatch.sh check` runs it before a night. `MMW_V2_HOME` moves the install location for tests.
 _Avoid_: the installer, 安装器, 安装入口 (as a term), 只看不动 (as a term)
 _Home_: `mmw-v2/install.sh`
 
