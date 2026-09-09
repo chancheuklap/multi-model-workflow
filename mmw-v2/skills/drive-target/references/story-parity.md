@@ -1,7 +1,8 @@
-# Interface parity
+# Story parity
 
 Whether a product story matches the design page it was built from is
-`scripts/story-parity.py`, next to this skill's `SKILL.md`. It reads the screen
+`<scripts>/story-parity.py`; `<scripts>` is the notation this skill's `SKILL.md`
+defines under **Resolve `<scripts>` once**. It reads the screen
 contract and `scenes.json`, starts the product's story service from
 `.mmw/target.json`'s `stories` command (which prints `origin`), opens
 `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>`, and compares that render
@@ -108,7 +109,7 @@ and says why beside the criterion.
 `--render-only` renders the design side of the selected scenes into `--out` with
 no product at all, so a worker can look at what it is building.
 
-## Reading what it printed
+## Exit codes
 
 Three exit codes.
 

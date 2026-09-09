@@ -1,6 +1,6 @@
 # Boundary check
 
-Whether a control's click produces the request its screen-contract `calls` column names is `scripts/boundary-check.py`, next to this skill's `SKILL.md`. It does not start the product and it does not read a page. It runs the command it was given twice in this process's cwd: first as written, then with `MMW_NEGATIVE=1` in the environment and nothing else changed. The first pass must exit 0; the second must exit non-zero. A ticket that owns a `calls` row carries this check for that row.
+Whether a control's click produces the request its screen-contract `calls` column names is `<scripts>/boundary-check.py`; `<scripts>` is the notation this skill's `SKILL.md` defines under **Resolve `<scripts>` once**. It does not start the product and it does not read a page. It runs the command it was given twice in this process's cwd: first as written, then with `MMW_NEGATIVE=1` in the environment and nothing else changed. The first pass must exit 0; the second must exit non-zero. A ticket that owns a `calls` row carries this check for that row.
 
 ## The criterion, in one shape
 
@@ -23,7 +23,7 @@ That pairing is what makes the second pass mechanical. Skip the click, and a tes
 
 An assertion that does not depend on the click reads exactly like one that does: both exit 0, both print a pass. The question a gate is judged by is whether a run that did nothing at all would be noticed (`docs/adr/0008-silence-is-never-a-pass.md`). The second pass is that notice. A reviewer does not read the test to decide whether it can go red; the judge writes `GREEN WITHOUT INTERACTION` when it cannot.
 
-## Reading what it printed
+## Exit codes
 
 - `0`, one line `BOUNDARY OK <n>/<n>`: every command exited 0 as written and non-zero with `MMW_NEGATIVE=1`.
 - `1`, `MISS <command> — <last 20 lines of that command>` and then `Fix the product's test; the negative control was not reached.`: the first pass was already red; the product's test is failing on its own, before any negative control.

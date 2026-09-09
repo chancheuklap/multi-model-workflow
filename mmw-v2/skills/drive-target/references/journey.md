@@ -1,7 +1,8 @@
 # Journey
 
 Whether one end-to-end path still works against the real product is
-`scripts/journey.py`, next to this skill's `SKILL.md`. It claims this worktree's lease,
+`<scripts>/journey.py`; `<scripts>` is the notation this skill's `SKILL.md` defines under
+**Resolve `<scripts>` once**. It claims this worktree's lease,
 runs `.mmw/target.json`'s `start`, runs `discover`, puts every printed address into the
 environment under its uppercase key alongside the lease variables, runs the script, and
 runs `stop` whether the script succeeded or not. Then it runs the script once more, with
@@ -82,7 +83,7 @@ That pass goes red with the product down, so the control is satisfied. Whether a
 asserts the thing worth asserting is read by the `code-review` Tests axis and by whoever
 named the journey.
 
-## Reading what it printed
+## Exit codes
 
 - **`0`**, `JOURNEY OK <name>`: the script passed against the running product and failed
   without it.
@@ -95,6 +96,10 @@ named the journey.
   both times. Nothing is known about the product from this run. Fix the script, not the
   product: make it assert something the product has to be up to satisfy.
 - **`2`**: the run could not get as far as the script. `start`'s own refusal is passed
-  through unchanged — read it and do what its last sentence says; `.mmw/target.json` with
-  no `start`, a `discover` that printed no JSON object, and a `target.json` that is not
-  one object each say so on stderr. `stop` runs before this returns.
+  through unchanged — read it and do what its last sentence says; every instance slot on
+  this machine already claimed, a `.mmw/target.json` with no `start` command or no `stop`
+  command, a `discover` that printed no JSON object, and a `target.json` that is not one
+  object each say so on stderr. `stop` runs before this returns whenever
+  `.mmw/target.json` was read and declares one; a full machine, an unreadable
+  `.mmw/target.json`, and one with no `stop` are refused before any command in it is
+  run.
