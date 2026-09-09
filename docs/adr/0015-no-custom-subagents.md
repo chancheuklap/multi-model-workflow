@@ -23,7 +23,7 @@ MMW 只交付技能。`mmw-v2/agents/` 整个目录连同 `assemble.py`、`revie
 
 ## Consequences
 
-- **三个 code-review axis subagent 不再有任何权限档或工具白名单拦着它们写文件**，拦住它们的是 `references/standards-reviewer.md`、`spec-reviewer.md`、`tests-reviewer.md` 开头那句 `You are read-only. You change no file`，以及 `code-review/SKILL.md` 第 2 节要求"能限制工具的 host 就限成只读"。这与 advisor 的处境相同（`0014-advisor-has-one-door.md`），理由也相同：五个 host 里只有两个收工具白名单。
+- **三个 code-review axis subagent 不再有任何权限档或工具白名单拦着它们写文件**，拦住它们的是 `references/standards-reviewer.md`、`spec-reviewer.md`、`tests-reviewer.md` 开头那句 `You are read-only. You change no file`，以及 `references/session.md` 第 2 节要求"能限制工具的 host 就限成只读"。轴 subagent 再调一次本技能、带上 axis 名，不读绝对路径。这与 advisor 的处境相同（`0014-advisor-has-one-door.md`），理由也相同：五个 host 里只有两个收工具白名单。
 - **三个 axis subagent 跑在 reviewer session 的 model 上**，即 `models.md` 里 reviewer 那一行的 `claude-opus-5` / `high`，而不再是原先四行各自的模型。想单独给 axis 换模型，得先给它一扇自己的门。
 - **`models.md` 从十五行减到六行**，`permissions` 列只剩 `bypass` 一个值。
 - **`models.py` 跟着 dispatch 技能的 symlink 走**，所以它在五个 host 上都在，被拷走的技能目录也自带它——`assemble.py` 原先要靠 `install.sh` 的路径反推才找得到。
