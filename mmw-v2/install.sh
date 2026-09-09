@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# 把七样东西装到本机，让每个 host 都读得到：
+# 把六样东西装到本机，让每个 host 都读得到：
 #
 #   技能              skills.txt 列出的，软链进 ~/.agents/skills 与 ~/.claude/skills
-#   subagent          agents/<名>/out/ 的 assembled subagent file，软链进各 host 的 agent 目录
 #   hook              drive-target 的 hook.py，写进各 host 自己的配置
 #   提示词            prompt/shared.md 与 prompt/hosts/<host>.md：Claude Code 读软链，Codex、Pi、Grok
 #                     读 prompt/render.py 拼出的 AGENTS.md
@@ -12,7 +11,8 @@
 #                     host 为 `{agent}@{host}`）、worktrees.root
 #   Cursor 的 MCP     ~/.cursor/mcp.json 里 nowledge-mem 一条，内容问本机 nmem 要
 #
-# 本仓库上一代装过、这次不装的东西（技能软链、hook 登记、Agent profile），install 摘掉，--check 报残留。
+# 本仓库上一代装过、这次不装的东西（技能软链、subagent 定义文件、hook 登记、Agent profile），
+# install 摘掉，--check 报残留。
 #
 # 技能有三个来源：mattpocock/skills 的在 upstream/skills/，我们自己写的在 skills/（skills.txt
 # 里前缀 self/），cathrynlavery/diagram-design 的在 upstream-diagram-design/skills/（前缀 dd/）。三者
@@ -35,11 +35,6 @@
 # agents/openai.yaml。两者都在技能目录内，软链一并带过去，所以技能安装没有任何按 host
 # 分支的逻辑。
 #
-# subagent 跟技能不同：model 字段各家写法不一样，同一份正文必须按 host 换 per-host shell。
-# per-host shell 由 agents/assemble.py 从 body.md + agent.json assemble 进 agents/<名>/out/，
-# 这里只把 assembled subagent file 软链到各 host 的 agent 目录。软链仍指回仓库：改了 body.md
-# 跑一次 assemble.py（或本脚本），host 下一次调用就是新的。
-#
 
 set -euo pipefail
 
@@ -59,6 +54,7 @@ ours_skill_target() {
   return 1
 }
 
+# 本仓库不再装 subagent 定义文件，所以这个判据只用来认领残留：见下面 RETIRED_AGENT_DIRS。
 ours_agent_target() {
   case "$1" in
     */mmw-v2/agents/*) return 0 ;;
@@ -227,7 +223,7 @@ for dest in "${HOST_DIRS[@]}"; do
   echo "已装  ${#linked[@]} 个技能 -> $dest"
 done
 
-# ---------------- retired 的技能位置 ----------------
+# ---------------- retired 的安装位置 ----------------
 
 # 下面四处是 retired 的安装位置：主循环不装它们，各自的 host 却仍在扫。留在那里的软链是
 # 上一轮 skills.txt 的旧版本，跟 ~/.agents/skills 那份撞名；实测里 Grok 取 ~/.grok/skills
@@ -265,95 +261,44 @@ for dest in "${RETIRED_DIRS[@]}"; do
   echo "退役  摘掉 ${#retired[@]} 个技能 <- ${dest}"
 done
 
-# ---------------- subagent ----------------
+# 下面六处是各 host 扫 subagent 定义文件的目录。本仓库不往里装任何东西：每个 host 都自带
+# 通用 subagent，用哪个 model 由起它的那个会话决定，所以一份按 host 各写一遍的定义文件没有
+# 读者。留在那里的软链指向本仓库已经删掉的文件，host 扫到一条断链就是一个起不来的 agent，
+# 所以每次安装摘一遍，--check 报残留。判据与技能那边同构：只认指回本仓库的，别人放在同一个
+# 目录里的东西一律不碰。
+RETIRED_AGENT_DIRS=(
+  "$HOME_DIR/.claude/agents"
+  "${CODEX_HOME:-$HOME_DIR/.codex}/agents"
+  "${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME_DIR/.pi}/agent}/agents"
+  "$HOME_DIR/.cursor/agents"
+  "$HOME_DIR/.grok/agents"
+  "$HOME_DIR/.grok/roles"
+)
 
-AGENTS_SRC="$ROOT/agents"
+for dest in "${RETIRED_AGENT_DIRS[@]}"; do
+  [ -d "$dest" ] || continue
 
-if [ -d "$AGENTS_SRC" ]; then
-  # assembled subagent file 必须与源一致：装的时候先 assemble，查的时候只验不写。
+  retired=()
+  while IFS= read -r stale; do
+    [ -n "$stale" ] || continue
+    retired+=("$stale")
+  done < <(repo_links "$dest" ours_agent_target)
+
   if [ "$mode" = check ]; then
-    python3 "$AGENTS_SRC/assemble.py" --check || rc=1
-  else
-    python3 "$AGENTS_SRC/assemble.py"
+    if [ "${#retired[@]}" -gt 0 ]; then
+      echo "残留  ${dest} 里还有 ${#retired[@]} 条 subagent 软链指回本仓库，跑一次 install.sh 摘掉" >&2
+      rc=1
+    fi
+    continue
   fi
 
-  agent_names=()
-  for d in "$AGENTS_SRC"/*/; do
-    [ -f "${d}agent.json" ] || continue
-    agent_names+=("$(basename "$d")")
+  [ -f "$dest/.mmw-agents" ] && rm "$dest/.mmw-agents"
+  [ "${#retired[@]}" -gt 0 ] || continue
+  for stale in "${retired[@]}"; do
+    rm "$stale"
   done
-  [ "${#agent_names[@]}" -gt 0 ] || die "agents/ 目录在，里面却一个 agent 都没有"
-
-  # 一行一个安装点：host 根|目标目录|assembled subagent file 名|落地后缀。
-  # grok 一家两处：agents/ 放定义与 model，roles/ 放只读能力与 effort。
-  agent_dests=(
-    "$HOME_DIR/.claude|$HOME_DIR/.claude/agents|claude.md|.md"
-    "${CODEX_HOME:-$HOME_DIR/.codex}|${CODEX_HOME:-$HOME_DIR/.codex}/agents|codex.toml|.toml"
-    "${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME_DIR/.pi}/agent}|${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME_DIR/.pi}/agent}/agents|pi.md|.md"
-    "$HOME_DIR/.cursor|$HOME_DIR/.cursor/agents|cursor.md|.md"
-    "$HOME_DIR/.grok|$HOME_DIR/.grok/agents|grok.md|.md"
-    "$HOME_DIR/.grok|$HOME_DIR/.grok/roles|grok.role.toml|.toml"
-  )
-
-  for row in "${agent_dests[@]}"; do
-    IFS='|' read -r host_home dest src_name suffix <<<"$row"
-    [ -d "$host_home" ] || continue
-
-    keep=()
-    for name in "${agent_names[@]}"; do
-      [ -f "$AGENTS_SRC/$name/out/$src_name" ] || continue
-      keep+=("$name$suffix")
-    done
-
-    if [ "$mode" = check ]; then
-      for name in "${agent_names[@]}"; do
-        want="$AGENTS_SRC/$name/out/$src_name"
-        [ -f "$want" ] || continue
-        link="$dest/$name$suffix"
-        if [ ! -L "$link" ] || [ "$(readlink "$link")" != "$want" ]; then
-          echo "缺    $link" >&2
-          rc=1
-        fi
-      done
-      while IFS= read -r stale; do
-        [ -n "$stale" ] || continue
-        echo "残留  $stale 指回本仓库，agents/ 下却没有它，跑一次 install.sh 摘掉" >&2
-        rc=1
-      done < <(stale_links "$dest" ours_agent_target "${keep[@]}")
-      continue
-    fi
-
-    mkdir -p "$dest"
-
-    # 清理：这个目录里指回本仓库 agents/、这次却不装的软链，摘掉。
-    while IFS= read -r stale; do
-      [ -n "$stale" ] || continue
-      rm "$stale"; echo "摘掉  $stale"
-    done < <(stale_links "$dest" ours_agent_target "${keep[@]}")
-
-    [ -f "$dest/.mmw-agents" ] && rm "$dest/.mmw-agents"
-
-    linked=()
-    for name in "${agent_names[@]}"; do
-      want="$AGENTS_SRC/$name/out/$src_name"
-      [ -f "$want" ] || continue
-      link="$dest/$name$suffix"
-      if [ -e "$link" ] || [ -L "$link" ]; then
-        if [ -L "$link" ] && ours_agent_target "$(readlink "$link")"; then
-          :
-        else
-          echo "冲突  $link 已存在且不是本仓库装的，跳过" >&2
-          rc=1
-          continue
-        fi
-      fi
-      ln -sfn "$want" "$link"
-      linked+=("$name$suffix")
-    done
-
-    echo "已装  ${#linked[@]} 个 agent -> $dest"
-  done
-fi
+  echo "退役  摘掉 ${#retired[@]} 个 subagent <- ${dest}"
+done
 
 # ---------------- hook ----------------
 
@@ -849,7 +794,7 @@ fi
 
 MMW_MODE="$mode" \
 MMW_PASEO_CONFIG="$PASEO_CONFIG" \
-MMW_ASSEMBLE="$AGENTS_SRC/assemble.py" \
+MMW_MODELS_PY="$SELF_SRC/dispatch/scripts/models.py" \
 MMW_PASEO_WORKTREES="$PASEO_WORKTREES_ROOT" \
 MMW_HOME_DIR="$HOME_DIR" \
 python3 - <<'PY' || rc=1
@@ -863,15 +808,15 @@ from pathlib import Path
 
 mode = os.environ["MMW_MODE"]
 config_path = Path(os.environ["MMW_PASEO_CONFIG"])
-assemble_path = Path(os.environ["MMW_ASSEMBLE"])
+models_py = Path(os.environ["MMW_MODELS_PY"])
 worktrees_root = os.environ["MMW_PASEO_WORKTREES"]
 home_dir = Path(os.environ["MMW_HOME_DIR"])
 GENERATED_MARK = "from models.md"
 
-_spec = importlib.util.spec_from_file_location("mmw_assemble", assemble_path)
-assemble = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(assemble)
-models_path = assemble.MODELS
+_spec = importlib.util.spec_from_file_location("mmw_models", models_py)
+models = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(models)
+models_path = models.MODELS
 
 GROK_PROVIDER = {
     "extends": "acp",
@@ -950,7 +895,7 @@ def make_profile(row, existing=None):
     profile["model"] = row.model
     profile["thinkingOptionId"] = row.effort
     profile["notes"] = notes_for(row.agent, row.host, row.permissions)
-    assemble.apply_permissions(profile, row.host, row.permissions)
+    models.apply_permissions(profile, row.host, row.permissions)
     return profile
 
 
@@ -987,7 +932,7 @@ def merge(data, rows):
 
 
 try:
-    rows = assemble.profile_rows()
+    rows = models.profile_rows()
 except ValueError as exc:
     die(str(exc))
 if not rows:
@@ -1150,7 +1095,7 @@ fi
 
 if [ "$mode" = check ]; then
   if [ "$rc" -eq 0 ]; then
-    echo "齐了：技能 ${installed_dests} 处 × ${#wanted_names[@]} 个，subagent 与 hook 见上"
+    echo "齐了：技能 ${installed_dests} 处 × ${#wanted_names[@]} 个，hook 见上"
   fi
 else
   mkdir -p "$(dirname "$INSTALLED_ROOT_FILE")"

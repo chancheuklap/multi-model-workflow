@@ -6,7 +6,7 @@
 # Two engines, three test files:
 #
 #   test_status.py      unittest, status.py against a fixed paseo ls/inspect snapshot and ticket set
-#   test_profiles.py    unittest, assemble.profile_rows against a temp models.md and the live table
+#   test_profiles.py    unittest, models.profile_rows against a temp models.md and the live table
 #   test_dispatch.sh    dispatch.sh against a fake `paseo` and a fake `gh` on PATH
 #
 # None needs the tracker, a terminal or a browser.
