@@ -41,7 +41,7 @@ extend-immutable-calls = [
 ]
 ```
 
-**ruff has no baseline and no diff-aware mode** — upstream has declined it, and third-party wrappers track ruff's output format and break on its releases. Write the filter yourself: `ruff check --output-format json` gives `filename` and `location.row`; intersect those with `git diff --unified=0`. Around 100 lines, no new dependency. Watch the two traps in `SKILL.md`: ruff's paths are absolute, and untracked files are in no diff.
+**ruff has no checker baseline and no diff-aware mode** — upstream has declined it, and third-party wrappers track ruff's output format and break on its releases. Write the filter yourself: `ruff check --output-format json` gives `filename` and `location.row`; intersect those with `git diff --unified=0`. Around 100 lines, no new dependency. Watch the two traps in [first-run.md](first-run.md).
 
 Rules worth reading rather than fixing in bulk, because each one names a place the code can lose an error or a fact: `BLE001` blind `except Exception`, `S110`/`S112` `except: pass` and `except: continue`, `B023` a closure capturing a loop variable, `DTZ` a naive `datetime` in a system that spans machines or handles money.
 
@@ -64,15 +64,13 @@ baseline = "pyrefly-baseline.json"
 replace-imports-with-any = ["cv2", "onnxruntime", "onnxruntime.*"]
 ```
 
-**Baseline, not `pyrefly suppress`.** `suppress` writes an ignore comment at every site — thousands of lines of source noise. The baseline is one file the tool reads:
+**The checker baseline, not `pyrefly suppress`.** The baseline is one file the tool reads:
 
 ```bash
 uv run pyrefly check --baseline=pyrefly-baseline.json --update-baseline   # record
 uv run pyrefly check                                                      # only new errors
 uv run pyrefly check --baseline=pyrefly-baseline.json --prune-baseline    # shrink after fixes
 ```
-
-Commit the baseline; it belongs to the branch like the config does.
 
 ## djlint
 
