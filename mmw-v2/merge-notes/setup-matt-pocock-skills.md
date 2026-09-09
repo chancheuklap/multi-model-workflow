@@ -20,7 +20,8 @@
 | --- | --- |
 | frontmatter 的 `disable-model-invocation: true` | 保留。这是四个例外之一（另三个是 `grill-me`、`handoff`、`wait-what`）：它一个仓库只跑一次、会覆盖 `docs/agents/` 下三份文件，不该由模型自己认出来触发。上游改这一行 → 收上游，跟 `agents/openai.yaml` 的 `policy` 块一起处理 |
 | 第 3 步 Confirm and edit 的第一条草稿项 | 从「whichever of `CLAUDE.md` / `AGENTS.md` is being edited」改成固定的 `AGENTS.md`，跟第 4 步同步 |
-| 第 4 步 Pick the file to edit（`CLAUDE.md` 在就改它、两个都没有就问用户、绝不在另一个已存在时新建） | 改成：`## Agent skills` 块永远写进 `AGENTS.md`，没有就建；`CLAUDE.md` 只放 `@AGENTS.md` 一行加它原有的其他 `@` 行，别的内容搬进 `AGENTS.md`。理由是本仓另一个技能 `manage-agents-md` 就是这个形态（`mmw-v2/skills/manage-agents-md/write.md:13`「the line `@AGENTS.md` … Nothing else.」），它的 `scripts/check.sh` 会把 `CLAUDE.md` 里每一行非 `@import` 判成错——照上游的规则跑完 setup，再跑 `manage-agents-md` 就是两个技能互相拆台。本仓已经按这个形态落地（`docs/adr/0005-docs-layer-adopted-by-v2.md`：`## Agent skills` 块在根 `AGENTS.md`）。上游改这一步 → 不收，除非它自己也变成只写 `AGENTS.md` |
+| 第 4 步 Pick the file to edit（`CLAUDE.md` 在就改它、两个都没有就问用户、绝不在另一个已存在时新建） | 改成：`## Agent skills` 块永远写进 `AGENTS.md`，没有就建；`CLAUDE.md` 只放 `@AGENTS.md` 一行加它原有的其他 `@` 行，别的内容搬进 `AGENTS.md`。理由是本仓另一个技能 `manage-agents-md` 就是这个形态（它的 `references/write.md` 里 `CLAUDE.md` 只放「the line `@AGENTS.md` … Nothing else.」那一条），它的 `scripts/check.sh` 会把 `CLAUDE.md` 里每一行非 `@import` 判成错——照上游的规则跑完 setup，再跑 `manage-agents-md` 就是两个技能互相拆台。本仓已经按这个形态落地（`docs/adr/0005-docs-layer-adopted-by-v2.md`：`## Agent skills` 块在根 `AGENTS.md`）。上游改这一步 → 不收，除非它自己也变成只写 `AGENTS.md` |
+| frontmatter 的 `description` | 值外面那对引号保留。这个值里有「冒号加空格」（`for the engineering skills: set up its issue tracker`），去掉引号 YAML 会把它当成一个 mapping 并报 `mapping values are not allowed here`，整份 frontmatter 解析失败，host 启动时读不到这份技能的描述。上游改这一行的内容 → 收上游，引号跟着值走：值里只要还有冒号加空格就必须带引号 |
 
 ### issue-tracker-github.md（种子）
 
@@ -29,9 +30,28 @@
 | Conventions 开头新增的 **Every list read is a whole list** | 本仓加的，种子里没有。`gh issue list` 不带 `-L` 停在 30 条，`gh api` 的列表端点不带 `--paginate` 只回第一页，两者都不在输出里留任何标记，所以读了一半的集合看起来和完整的一模一样。agent 照这份文件写命令，看不见的票它当作不存在。上游若自己加了同义的一条 → 收上游措辞；上游改这一段 → 保留本仓这条，它是行为要求不是文风 |
 | **List issues**、**Frontier query**、两条 Morning queries 的命令 | 一律补 `--limit 500`。上游改这几条命令 → 收上游的其余部分，`--limit` 必须留着 |
 | **Child ticket** 里读子票的命令 | 从 `gh api` on the sub-issues endpoint 写成完整的 `gh api --paginate repos/<owner>/<repo>/issues/<map>/sub_issues?per_page=100`。理由同上：2026-09-06 在 agentflow 上，spec #537 有 37 个子票，不分页只看得到 30 个，7 张票在读的人眼里不存在 |
+| `## Pull requests as a triage surface` 的 `**PRs as a request surface: no.**` 一句括号里，与 `## Wayfinding operations` 的 `Used by …` 一句 | host 中立：两处技能点名写成散文形式。共同理由见 [README.md](README.md#host-中立) |
 
 ### triage-labels.md（种子）
 
 | 段落 | 我们的意图 |
 | --- | --- |
 | 表格下面那句举例「apply the AFK-ready triage label」 | 例子换成 `ready-for-agent`。这句教读者「技能提到 triage role → 来这张表取本仓真实的 label」，而 `AFK-ready` 在表里没有对应行，全仓也没有一个技能这么写——`triage/SKILL.md` 从头到尾直接写 `ready-for-agent`。上游改这句 → 收上游措辞，例子必须用表里真有的 label |
+
+### domain.md（种子）
+
+| 段落 | 我们的意图 |
+| --- | --- |
+| `## Before exploring, read these` 里 `If any of these files don't exist` 那一句，与 `## Use the glossary's vocabulary` 的末句 | host 中立：三处技能点名写成散文形式。共同理由见 [README.md](README.md#host-中立) |
+
+### issue-tracker-gitlab.md
+
+| 段落 | 我们的意图 |
+| --- | --- |
+| `## Merge requests as a triage surface` 的 `**MRs as a request surface: no.**` 一句括号里，与 `## Wayfinding operations` 的 `Used by …` 一句 | host 中立：两处技能点名写成散文形式。同一节 **Blocking** 一条里的 `/blocked_by #<n>` 与 `"/blocked_by #<blocker>"` 没动：那是 GitLab 自己的 quick action，是一条真要打出去的命令，不是技能名。共同理由见 [README.md](README.md#host-中立) |
+
+### issue-tracker-local.md
+
+| 段落 | 我们的意图 |
+| --- | --- |
+| `## Wayfinding operations` 的 `Used by …` 一句 | host 中立：技能点名写成散文形式。共同理由见 [README.md](README.md#host-中立) |
