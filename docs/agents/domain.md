@@ -44,6 +44,8 @@ When your output names a domain concept (in an issue title, a refactor proposal,
 
 A definition in `CONTEXT.md` that disagrees with the file its `_Home_` line names is wrong: fix `CONTEXT.md`.
 
+An attribute that can be had by reading the `_Home_` file itself — a field list, an exit code, a command's switches, the branches of a behaviour — is not repeated in `CONTEXT.md`: an entry says what the term is and how it differs from its neighbours, and points at `_Home_` for the rest. So an entry saying less than its `_Home_` is not a defect; saying more is.
+
 If the concept you need isn't in `CONTEXT.md` yet, that's a signal — either you're inventing language the project doesn't use (reconsider) or there's a real gap (note it for the domain-modeling skill).
 
 ## Flag ADR conflicts

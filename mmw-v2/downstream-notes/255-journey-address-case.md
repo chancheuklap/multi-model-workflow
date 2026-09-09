@@ -11,4 +11,4 @@
 
 ## 怎么迁
 
-旅程脚本改读大写：`$ORIGIN`、`$INSTANCE`、`$INSTANCE_CHECK`。`references/targets/README.md` 第 5 条现在写明只认大写。
+旅程脚本改读大写：`$ORIGIN`、`$INSTANCE`、`$INSTANCE_CHECK`。`references/runtime-environment.md` 里 `journeys` 那一条现在写明只认大写。
