@@ -1205,6 +1205,12 @@ class Relay:
             return "drop", (f"it belongs to the watch on {describe_watch(watch_from_key(watch))}, "
                             f"which was closed")
         if row.get("to") == WORKER:
+            # A slot wake is for a wait. One that has ended since — the worker got a slot
+            # on an earlier wake, and its run is on the ticket — would only have it run its
+            # criteria again for nothing.
+            if row.get("event") == QUEUED \
+                    and not (per_ticket.get(str(row.get("ticket"))) or {}).get("waiting"):
+                return "drop", f"#{row.get('ticket')} no longer waits for a product slot"
             current = self._worker_before(per_ticket, row.get("ticket"), None)
             if current is None:
                 return "keep", f"there is no #{row.get('ticket')}'s worker to compare it with"

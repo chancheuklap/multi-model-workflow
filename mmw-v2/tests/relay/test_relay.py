@@ -915,6 +915,29 @@ class SlotWakeTest(RelayCase):
         self.poll()
         self.assertEqual(self.woken(), [])
 
+    def test_a_slot_wake_not_yet_sent_when_the_wait_ends_is_dropped(self):
+        """Two slots given back before the worker's turn ends queue two wakes; the first
+        gets it a slot, and its run ends the wait before the second is sent. The runner
+        takes the first and cannot show a turn starting (4), which holds the second back
+        for that pass."""
+        self.board[62].append(self.queued(110))
+        self.board[61] += [comment(120, "ticket.landed", 61), comment(121, "ticket.released", 61)]
+        self.poll()
+        self.assertEqual(self.woken(), [(62, "wk-62"), (62, "wk-62")])
+        self.send.code = 4
+        self.relay.deliver()
+        self.assertEqual(self.send.sent, [("paseo", "wk-62", "#62 worker.queued")])
+        later = T0 + timedelta(seconds=30)
+        self.clock.moment = later
+        self.board[62].append(comment(130, "ticket.checked", 62, updated=later, run="self",
+                                      commit="a" * 40, result="met"))
+        self.poll()
+        # Acked through the first row; the second is still queued for it.
+        self.assertEqual(self.relay.ack_wake(("paseo", "wk-62"), 62, "worker.queued"), (1, 1, 1))
+        self.relay.deliver()
+        self.assertEqual(len(self.send.sent), 1, "the second wake was sent after the wait ended")
+        self.assertEqual(self.woken(), [])
+
     def test_a_lost_reviewer_does_not_end_the_wait(self):
         self.board[62] += [self.queued(110),
                            comment(112, "reviewer.lost", 62, session="rv-1", runner="paseo")]
