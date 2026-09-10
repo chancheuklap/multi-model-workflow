@@ -721,6 +721,11 @@ if args[:2] == ["terminal", "create"]:
         print(json.dumps({"ok": False, "error": {"code": "create_failed"}}),
               file=sys.stderr)
         sys.exit(1)
+    if scenario == "start-refused":
+        # What Orca 1.4.199 really does: the refusal is JSON on stdout, stderr is empty.
+        print(json.dumps({"ok": False, "error": {"code": "selector_not_found",
+                                                 "message": "selector_not_found"}}))
+        sys.exit(1)
     handle = "term_%s" % (len(load_terminals()) + 1)
     rows = load_terminals()
     rows.append({
@@ -5037,6 +5042,18 @@ scenario_runnerstop() {
   hasnt "herdr :: pane :: close"
 }
 
+scenario_orcarefusalreason() {
+  local code
+  RUNNER="$ORCA_RUNNER"
+  echo "--- a terminal create Orca refuses on stdout carries Orca's reason"
+  reset_log
+  fresh_repo
+  code="$(MMW_FAKE_ORCA_SCENARIO=start-refused run_runner start --host grok --model grok-4.6 --effort high --cwd "$TMP/repo" --prompt go)"
+  [ "$code" = 1 ] || fail "expected refusal 1, got $code"
+  grep -q "terminal create refused grok .*selector_not_found" "$TMP/err" \
+    || fail "the refusal should carry Orca's reason: $(cat "$TMP/err")"
+}
+
 scenario_orcatruncated() {
   local code
   RUNNER="$ORCA_RUNNER"
@@ -5087,7 +5104,7 @@ scenario_orcanohosts() {
   hasnt "orca :: terminal :: create"
 }
 
-ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openrefused openticket ack unopened runnerself orcaunobserved adopt"
+ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openrefused openticket ack unopened runnerself orcaunobserved adopt orcarefusalreason"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -5143,6 +5160,7 @@ banner_for() {
     startonce) echo START-ONCE-OK ;;
     runneronticket) echo RUNNER-ON-TICKET-OK ;;
     runnerstop) echo RUNNER-STOP-OK ;;
+    orcarefusalreason) echo ORCA-REFUSAL-REASON-OK ;;
     runnersend) echo RUNNER-SEND-OK ;;
     runnerliveness) echo RUNNER-LIVENESS-OK ;;
     runnerparity) echo RUNNER-PARITY-OK ;;
