@@ -12,6 +12,7 @@
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh orcasend|orcaclosed
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh worktreegit|worktreegoverned|worktreeremove|installorca
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh usesagree|usesmismatch|usesunreadable
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh paseostartdir|paseorejectspath|landarchivesagents
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh all
 #
 # A fake `paseo`, a fake `herdr`, a fake `orca` and a fake `gh` sit in front of the
@@ -38,7 +39,7 @@ mkdir -p "$TMP/bin" "$TMP/paseo-state"
 
 cat > "$TMP/bin/paseo" <<'FAKE'
 #!/usr/bin/env python3
-import json, os, subprocess, sys
+import json, os, re, subprocess, sys
 from pathlib import Path
 
 log = os.environ["MMW_TEST_LOG"]
@@ -317,6 +318,49 @@ if args[:1] == ["archive"]:
         sys.exit(1)
     save("agents.json", [a for a in rows if a.get("id") != ident])
     print(json.dumps({"id": ident, "archived": True}))
+    sys.exit(0)
+
+# Paseo 0.7.2 create_agent: workspaceId is an existing wks_<16 hex> id
+# (generateWorkspaceId in the installed app). A path never matches, and
+# resolveCreateAgentWorkspace(kind "existing") throws
+# "Workspace <id> not found". A directory goes in workspace.source with
+# kind "directory", which requires relationship alongside workspace.
+WKS_ID = re.compile(r"^wks_[0-9a-f]{16}$")
+if args[:1] == ["validate-create-agent"]:
+    try:
+        payload = json.load(sys.stdin)
+    except Exception:
+        print("create_agent payload is not JSON", file=sys.stderr)
+        sys.exit(1)
+    if not isinstance(payload, dict):
+        print("create_agent payload is not an object", file=sys.stderr)
+        sys.exit(1)
+    wid = payload.get("workspaceId")
+    if wid is not None:
+        if not isinstance(wid, str) or not WKS_ID.match(wid):
+            print("Workspace %s not found" % wid, file=sys.stderr)
+            sys.exit(1)
+        known = [w for w in load("workspaces.json") if w.get("workspaceId") == wid]
+        if not known:
+            print("Workspace %s not found" % wid, file=sys.stderr)
+            sys.exit(1)
+        print(json.dumps({"ok": True}))
+        sys.exit(0)
+    workspace = payload.get("workspace")
+    rel = payload.get("relationship")
+    source = workspace.get("source") if isinstance(workspace, dict) else None
+    path = source.get("path") if isinstance(source, dict) else None
+    if (not isinstance(workspace, dict)
+            or not isinstance(rel, dict)
+            or workspace.get("kind") != "create"
+            or not isinstance(source, dict)
+            or source.get("kind") != "directory"
+            or not isinstance(path, str) or not path.strip()
+            or rel.get("kind") not in ("subagent", "detached")):
+        print("create_agent needs workspace.source.kind=directory with a path",
+              file=sys.stderr)
+        sys.exit(1)
+    print(json.dumps({"ok": True}))
     sys.exit(0)
 
 print("{}", file=sys.stderr)
@@ -1028,9 +1072,14 @@ raw = Path(sys.argv[1]).read_text()
 lines = [l for l in raw.splitlines() if l.strip()]
 assert len(lines) == 1, raw
 obj = json.loads(lines[0])
-for key in ("workspaceId", "title", "provider", "settings", "labels", "initialPrompt",
-            "notifyOnFinish"):
+for key in ("title", "provider", "settings", "labels", "initialPrompt",
+            "notifyOnFinish", "workspace", "relationship"):
     assert key in obj, key
+assert "workspaceId" not in obj, obj
+assert obj["relationship"] == {"kind": "subagent"}, obj["relationship"]
+assert obj["workspace"]["kind"] == "create", obj["workspace"]
+assert obj["workspace"]["source"]["kind"] == "directory", obj["workspace"]
+assert obj["workspace"]["source"]["path"], obj["workspace"]
 # A worker is told to be done by verify-ticket.py, so the one notification Paseo gives
 # is not spent on the middle state it would otherwise report; every other kind ends one
 # turn, on the work being done, and that notification wakes whoever started it.
@@ -1388,7 +1437,14 @@ Merge branch 'issue-61'" ] || fail "merge order is wrong"
   [ "$(out_json title)" = "#63 worker" ] || fail "title: $(out_json title)"
   [ "$(out_json labels.mmw.ticket)" = 63 ] || fail "ticket: $(out_json labels.mmw.ticket)"
   [ "$(out_json labels.mmw.kind)" = worker ] || fail "kind: $(out_json labels.mmw.kind)"
-  [ -n "$(out_json workspaceId)" ] || fail "workspaceId missing"
+  python3 -c '
+import json, sys
+from pathlib import Path
+obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
+assert "workspaceId" not in obj, obj
+assert obj["workspace"]["source"]["kind"] == "directory"
+assert obj["workspace"]["source"]["path"]
+' "$TMP/out" || fail "the dispatched JSON must give the directory in workspace.source, not workspaceId: $(cat "$TMP/out")"
   grep -q "advance #76:" "$TMP/err" || fail "the summary line should be on stderr: $(cat "$TMP/err")"
   [ "$(git -C "$TMP/repo" config --get branch.issue-63.mmw-base)" = "$(git -C "$TMP/repo" rev-parse HEAD)" ] \
     || fail "mmw-base should be HEAD for a branch-off"
@@ -1528,11 +1584,13 @@ import json, sys
 from pathlib import Path
 obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
 fb = obj["fallback"]
-for key in ("workspaceId", "title", "provider", "settings", "labels", "initialPrompt",
-            "notifyOnFinish"):
+for key in ("title", "provider", "settings", "labels", "initialPrompt",
+            "notifyOnFinish", "workspace", "relationship"):
     assert key in fb, key
 assert "fallback" not in fb
-assert fb["workspaceId"] == obj["workspaceId"]
+assert "workspaceId" not in fb, fb
+assert fb["workspace"] == obj["workspace"]
+assert fb["relationship"] == obj["relationship"]
 assert fb["title"] == obj["title"]
 assert fb["initialPrompt"] == obj["initialPrompt"]
 assert fb["notifyOnFinish"] == obj["notifyOnFinish"]
@@ -3371,12 +3429,110 @@ scenario_usesunreadable() {
   has "herdr :: tab :: create :: --help"
 }
 
+# Feed a create_agent object to the fake. Exit 0 accepted, 1 rejected.
+feed_create() {
+  python3 "$TMP/bin/paseo" validate-create-agent
+}
+
+scenario_paseostartdir() {
+  local code dest
+  echo "--- start prints workspace.source.kind=directory, not a path in workspaceId"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  assert_create_shape || fail "the JSON line is wrong: $(cat "$TMP/out")"
+  dest="$(cd "$TMP/repo" && git rev-parse --show-toplevel)/.worktrees/issue-61"
+  python3 -c '
+import json, sys
+from pathlib import Path
+obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
+assert "workspaceId" not in obj, obj
+assert obj["workspace"]["kind"] == "create"
+assert obj["workspace"]["source"]["kind"] == "directory"
+assert obj["workspace"]["source"]["path"] == sys.argv[2], (obj["workspace"], sys.argv[2])
+assert obj["relationship"] == {"kind": "subagent"}
+' "$TMP/out" "$dest" \
+    || fail "start must give the worktree as workspace.source.path: $(cat "$TMP/out") want $dest"
+
+  echo "--- the fake paseo accepts that object"
+  feed_create < "$TMP/out" > "$TMP/feed.out" 2> "$TMP/feed.err"
+  [ "$?" = 0 ] || fail "fake paseo should accept start's object: $(cat "$TMP/feed.err")"
+
+  echo "--- stuffing the path into workspaceId is what the fake rejects, so this case would go red"
+  python3 -c '
+import json, sys
+from pathlib import Path
+obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
+obj["workspaceId"] = obj["workspace"]["source"]["path"]
+print(json.dumps(obj))
+' "$TMP/out" > "$TMP/path-id.json"
+  feed_create < "$TMP/path-id.json" > "$TMP/feed.out" 2> "$TMP/feed.err"
+  [ "$?" != 0 ] || fail "a path in workspaceId must be rejected: $(cat "$TMP/feed.out")"
+  grep -q "Workspace .* not found" "$TMP/feed.err" \
+    || fail "the rejection should name the workspace: $(cat "$TMP/feed.err")"
+}
+
+scenario_paseorejectspath() {
+  echo "--- a path is not a wks_<16 hex> id, so the fake refuses it"
+  reset_log
+  printf '%s\n' '{"workspaceId":"/tmp/repo/.worktrees/issue-61","title":"#61 worker","provider":"grok/grok-4.6","settings":{},"notifyOnFinish":false,"labels":{"mmw.ticket":"61","mmw.kind":"worker"},"initialPrompt":"go"}' \
+    | feed_create > "$TMP/feed.out" 2> "$TMP/feed.err"
+  [ "$?" != 0 ] || fail "path workspaceId should be rejected: $(cat "$TMP/feed.out")"
+  grep -q 'Workspace /tmp/repo/.worktrees/issue-61 not found' "$TMP/feed.err" \
+    || fail "the refusal should name the path: $(cat "$TMP/feed.err")"
+
+  echo "--- a workspaceId that looks like an id but is not wks_<16 hex> is refused too"
+  printf '%s\n' '{"workspaceId":"wks_issue-61","title":"#61 worker","provider":"grok/grok-4.6","settings":{},"notifyOnFinish":false,"labels":{},"initialPrompt":"go"}' \
+    | feed_create > "$TMP/feed.out" 2> "$TMP/feed.err"
+  [ "$?" != 0 ] || fail "wks_issue-61 should be rejected: $(cat "$TMP/feed.out")"
+
+  echo "--- the directory field the night uses is accepted"
+  printf '%s\n' '{"title":"#61 worker","provider":"grok/grok-4.6","settings":{},"notifyOnFinish":false,"labels":{},"initialPrompt":"go","relationship":{"kind":"subagent"},"workspace":{"kind":"create","source":{"kind":"directory","path":"/tmp/repo/.worktrees/issue-61"}}}' \
+    | feed_create > "$TMP/feed.out" 2> "$TMP/feed.err"
+  [ "$?" = 0 ] || fail "directory workspace.source should be accepted: $(cat "$TMP/feed.err")"
+}
+
+scenario_landarchivesagents() {
+  local code left
+  echo "--- land takes the ticket's Paseo agents off the list and leaves another ticket's"
+  reset_log
+  fresh_repo
+  write_landable
+  make_branch issue-64 four.txt "from 64"
+  seed_workspace 64
+  seed_agent 64 worker
+  seed_agent 64 reviewer
+  seed_agent 64 verifier
+  seed_agent 99 worker 99
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 64)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  [ -f "$TMP/repo/four.txt" ] || fail "issue-64 was not merged"
+  assert_no_wt 64
+  assert_branch 64
+  has "paseo :: archive :: --force :: agt_64_worker"
+  has "paseo :: archive :: --force :: agt_64_reviewer"
+  has "paseo :: archive :: --force :: agt_64_verifier"
+  hasnt "paseo :: archive :: --force :: agt_99_worker"
+  hasnt "paseo :: workspace :: archive"
+  left="$(python3 -c '
+import json, os
+from pathlib import Path
+path = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "agents.json"
+rows = json.loads(path.read_text()) if path.is_file() else []
+print(" ".join(sorted(r["id"] for r in rows)))
+')"
+  [ "$left" = "agt_99_worker" ] \
+    || fail "only the other ticket's agent should remain, got: $left"
+}
+
 # ------------------------------------------------------------------ entry
 
-ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable"
+ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir paseorejectspath landarchivesagents"
 
 case "${1:-}" in
-  check|advance|advanceconflict|advancedirty|land|start-worker|start-reviewer|start-verifier|retract|resume|wait|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|stopproduct|suspend|suspendbusy|status|runnerstart|runnersend|runnerliveness|runnerparity|herdrworkingsend|herdrliveness|orcasend|orcaclosed|worktreegit|worktreegoverned|worktreeremove|installorca|usesagree|usesmismatch|usesunreadable)
+  check|advance|advanceconflict|advancedirty|land|start-worker|start-reviewer|start-verifier|retract|resume|wait|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|stopproduct|suspend|suspendbusy|status|runnerstart|runnersend|runnerliveness|runnerparity|herdrworkingsend|herdrliveness|orcasend|orcaclosed|worktreegit|worktreegoverned|worktreeremove|installorca|usesagree|usesmismatch|usesunreadable|paseostartdir|paseorejectspath|landarchivesagents)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -3426,6 +3582,9 @@ banner_for() {
     usesagree) echo USES-AGREE-OK ;;
     usesmismatch) echo USES-MISMATCH-OK ;;
     usesunreadable) echo USES-UNREADABLE-OK ;;
+    paseostartdir) echo PASEO-START-DIR-OK ;;
+    paseorejectspath) echo PASEO-REJECTS-PATH-OK ;;
+    landarchivesagents) echo LAND-ARCHIVES-AGENTS-OK ;;
   esac
 }
 
