@@ -4,7 +4,7 @@
 #
 #   bash mmw-v2/tests/relay/test_relay.sh wake|worker|busy|retired|gone|reconcile|pollfail
 #   bash mmw-v2/tests/relay/test_relay.sh singleton|nothing|openstopped|readonly
-#   bash mmw-v2/tests/relay/test_relay.sh startstop|watches|onewatch|ackwake
+#   bash mmw-v2/tests/relay/test_relay.sh startstop|watches|onewatch|slotwake|ackwake
 #   bash mmw-v2/tests/relay/test_relay.sh all
 #
 # A fake `gh` and a fake `paseo` sit in front of the real ones on PATH and write every
@@ -648,6 +648,27 @@ PY
   [ "$code" = 0 ] || fail "start once it has ended expected 0, got $code: $(cat "$TMP/err")"
 }
 
+scenario_slotwake() {
+  local code
+  echo "--- a slot given back wakes the worker whose run waits for one, and it acks that wake"
+  reset
+  agents main-a wk-61 wk-62
+  watch --tickets 61,62
+  event 61 100 worker.started runner=paseo session=wk-61
+  event 62 101 worker.started runner=paseo session=wk-62
+  event 62 110 worker.queued
+  event 61 120 ticket.landed
+  code="$(relay_ run --repo "$REPO" --once)"
+  [ "$code" = 0 ] || fail "run --once expected 0, got $code: $(cat "$TMP/err")"
+  has "paseo :: send :: --no-wait :: wk-62 :: #62 worker.queued"
+  expect_rows "1 62 worker.queued wk-62 delivered"
+  code="$(relay_ ack --repo "$REPO" --runner paseo --session wk-62 --ticket 62 --event worker.queued)"
+  [ "$code" = 0 ] || fail "the worker's ack expected 0, got $code: $(cat "$TMP/err")"
+  code="$(relay_ run --repo "$REPO" --once)"
+  [ "$code" = 0 ] || fail "a second run expected 0, got $code: $(cat "$TMP/err")"
+  expect_rows ""
+}
+
 scenario_ackwake() {
   local code
   echo "--- a recipient acks the wake it read by ticket and event; a second ack of it is refused"
@@ -682,7 +703,7 @@ scenario_ackwake() {
   expect_rows "2 61 reviewer.reported wk-61 delivered"
 }
 
-ALL="wake worker busy retired gone reconcile pollfail singleton nothing openstopped readonly startstop watches onewatch ackwake"
+ALL="wake worker busy retired gone reconcile pollfail singleton nothing openstopped readonly startstop watches onewatch slotwake ackwake"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;

@@ -42,14 +42,31 @@ tickets watch.
              verifier.lost (that reviewer or verifier died with no result): the session
              that started that reviewer or verifier. Its runner and session are the
              `runner` and `session` fields of the ticket's latest `worker.started` before
-             the event
-    main    ticket.passed, ticket.returned, ticket.refused, child.opened of kind fault
+             the event. And worker.queued, when a product slot is given back (below)
+    main     ticket.passed, ticket.returned, ticket.refused, child.opened of kind fault
              (the pipeline itself broken) or decision, worker.lost: the main agent of the
              ticket's watch. The relay's own relay.recovered: every watch's main agent
 
 A worker needs no registration: the ticket says who it is. Each row is written with its
 recipient's runner and session, and only that recipient — the pair, never the session
 id alone — consumes it.
+
+**A slot given back.** A run of the criteria that finds no free product slot posts
+`worker.queued` and exits, and nothing on its own ticket will ever wake it. So the relay
+keeps, per watched ticket, whether a `worker.queued` is pending: set by one, cleared by
+exactly the events that clear the fold's `waiting` in events.py — a `ticket.checked`, any
+event of `ENDS_EVERY_HOLD`, the worker's result (`RESULTS["worker"]`), and an event of
+`ENDS_ONE_HOLD` other than `reviewer.lost` and `verifier.lost`. When an event of
+`SLOT_ENDS` that gives a slot back lands on any watched ticket (all of them but
+`spec.suspended`, which stops the night), every watched ticket whose pending
+`worker.queued` is older — a lower comment id — gets one row `#<m> worker.queued` for its
+worker: the latest `worker.started` of that ticket before the releasing comment. The row
+is keyed by the releasing comment and the woken ticket, so a re-read never queues it
+twice. Slots are counted per machine, not per watch, so a waiting ticket of any watch is
+woken. A poll's events are taken in comment-id order across all its tickets, so an older
+wait and a newer release meet in the order they happened. The flag is kept in `seen.json`
+and recomputed by the full read on start. The woken worker runs its criteria again and
+acks the wake like any other.
 
 **Reading the board.** Every `--interval` seconds (default 30) the relay reads the
 comments of each watched ticket updated since the newest one it saw there, less two
@@ -145,8 +162,10 @@ Files in the state directory:
     queue.jsonl     the rows, one JSON object per line, in sequence order
     queue.seq       the last sequence number issued
     queue.lock      taken for every read-and-write of the files below it
-    seen.json       per ticket: (comment, event) pairs translated, newest updated_at, and
-                    every worker.started as [comment id, runner, session]
+    seen.json       per ticket: (comment, event) pairs translated, newest updated_at,
+                    every worker.started as [comment id, runner, session], the pending
+                    worker.queued (`waiting`: its comment id, or null) and the newest
+                    comment id applied to that flag (`waiting_read`)
     watches.json    every open watch, keyed `spec:<n>` or `tickets:<n>[,<n>...]`: the
                     watch (`spec` or `tickets`), its main agent's `runner` and `session`,
                     when it was opened (`at`), and since when that runner has answered
@@ -269,6 +288,10 @@ WAKES: dict[str, dict] = {
 # The event that says which session is a ticket's worker.
 WORKER_STARTED = "worker.started"
 
+# The event a run posts when it waits for a product slot, and the wake its worker gets
+# when one is given back.
+QUEUED = "worker.queued"
+
 # The one row the relay writes about itself rather than about a ticket.
 RECOVERED = "relay.recovered"
 
@@ -329,6 +352,21 @@ def woken_by(event: dict) -> str | None:
         if event.get(field) not in allowed:
             return None
     return rule["to"]
+
+
+def ends_waiting(name: str) -> bool:
+    """Whether this event ends a run's wait for a product slot: the events that clear the
+    fold's `waiting` in events.py. A lost reviewer or verifier ends only its own hold, and
+    the worker's run is still waiting."""
+    return (name == "ticket.checked" or name in events.ENDS_EVERY_HOLD
+            or name in events.RESULTS["worker"]
+            or (name in events.ENDS_ONE_HOLD and name not in ("reviewer.lost", "verifier.lost")))
+
+
+def gives_slot_back(name: str) -> bool:
+    """Whether this event gives a product slot back to the machine. `spec.suspended` gives
+    its slots back too, and stops the night with them: nobody waits on it."""
+    return name in events.SLOT_ENDS and name != "spec.suspended"
 
 
 def wake_text(row: dict) -> str:
@@ -538,6 +576,8 @@ def _slot(per_ticket: dict, ticket: int) -> dict:
     slot.setdefault("keys", [])
     slot.setdefault("mark", None)
     slot.setdefault("workers", [])
+    slot.setdefault("waiting", None)
+    slot.setdefault("waiting_read", 0)
     return slot
 
 
@@ -885,7 +925,9 @@ class Relay:
         with self.queue_lock():
             marks = {k: v.get("mark") for k, v in self._read_state("seen.json", {}).get("tickets", {}).items()}
 
-        found: list[dict] = []
+        # Everything that happened, to be taken in the order it landed: the wakes, and what
+        # makes a ticket wait for a product slot, stop waiting, or give a slot back.
+        timeline: list[dict] = []
         workers: list[tuple[int, int, str, str]] = []
         unreadable: list[tuple[int, object, str]] = []
         read: dict[int, str | None] = {}
@@ -919,11 +961,13 @@ class Relay:
                     else:
                         unreadable.append((number, cid, "its worker.started names no runner and session"))
                     continue
+                if name == QUEUED or ends_waiting(name) or gives_slot_back(name):
+                    timeline.append({"slot": True, "cid": cid, "home": number, "event": name})
                 role = woken_by(event)
                 if role is None:
                     continue
-                found.append({"key": f"{cid}:{name}", "cid": cid, "home": number,
-                              "ticket": ticket, "event": name, "to": role, "watch": key})
+                timeline.append({"key": f"{cid}:{name}", "cid": cid, "home": number,
+                                 "ticket": ticket, "event": name, "to": role, "watch": key})
             read[number] = newest or None
 
         now = self.clock()
@@ -941,6 +985,10 @@ class Relay:
                 if all(entry[0] != cid for entry in slot["workers"]):
                     slot["workers"].append([cid, runner, session])
                     slot["workers"].sort()
+            # A ticket read in full has its wait for a slot recomputed from its whole history.
+            for number in read:
+                if number not in self.reconciled:
+                    _slot(per_ticket, number).update(waiting=None, waiting_read=0)
             rows = self._rows()
             queued = {r.get("key") for r in rows}
             already = {k for entry in per_ticket.values() for k in entry.get("keys", [])}
@@ -962,7 +1010,10 @@ class Relay:
                     new_gap = {"generation": int(gap.get("generation") or 0) + 1,
                                "since": last_good, "until": iso(now)}
             # Comment ids rise across the whole repository, so this is the order the events landed in.
-            for item in sorted(found, key=lambda f: f["cid"]):
+            for item in sorted(timeline, key=lambda f: (f["cid"], 0 if f.get("slot") else 1)):
+                if item.get("slot"):
+                    self._slot_event(item, per_ticket, tickets, queued, already, added, unaddressed)
+                    continue
                 if item["key"] in already or item["key"] in queued:
                     continue
                 if item["to"] == MAIN:
@@ -1000,7 +1051,13 @@ class Relay:
             # reported the first time it is seen and not again.
             problems = [(n, cid, f"{cid}:reported", why) for n, cid, why in unreadable]
             for item in unaddressed:
-                if item["to"] == MAIN:
+                if item.get("slot"):
+                    woken = item["woken"]
+                    problems.append((woken, item["cid"], f"{item['cid']}:reported",
+                                     f"it gives a product slot back and #{woken} waits for one, "
+                                     f"and no worker.started on #{woken} comes before it, so "
+                                     f"there is no session to wake"))
+                elif item["to"] == MAIN:
                     problems.append((item["home"], item["cid"], f"{item['cid']}:reported",
                                      f"it wakes the main agent of "
                                      f"{describe_watch(watch_from_key(item['watch']))}, and that "
@@ -1036,6 +1093,37 @@ class Relay:
                            f"this cycle is not recorded as a good poll (started {iso(started)}).\n")
         self.out.flush()
         return not failures
+
+    def _slot_event(self, item: dict, per_ticket: dict, tickets: dict[int, str],
+                    queued: set, already: set, added: list[dict], unaddressed: list[dict]) -> None:
+        """One event that starts or ends its ticket's wait for a product slot, or gives a
+        slot back. A ticket's wait moves only on events newer than the last one applied to
+        it, so the overlap of an incremental read never brings back a wait that ended."""
+        cid, name = item["cid"], item["event"]
+        slot = _slot(per_ticket, item["home"])
+        if cid > (slot.get("waiting_read") or 0):
+            if name == QUEUED:
+                slot["waiting"] = cid
+            elif ends_waiting(name):
+                slot["waiting"] = None
+            slot["waiting_read"] = cid
+        if not gives_slot_back(name):
+            return
+        for number in sorted(tickets):
+            waiting = (per_ticket.get(str(number)) or {}).get("waiting")
+            if not waiting or waiting >= cid:
+                continue
+            key = f"slot:{cid}:{number}"
+            if key in already or key in queued:
+                continue
+            address = self._worker_before(per_ticket, number, cid)
+            if address is None:
+                unaddressed.append({"slot": True, "cid": cid, "woken": number})
+                continue
+            queued.add(key)
+            added.append({"key": key, "cid": cid, "home": number, "ticket": number,
+                          "event": QUEUED, "to": WORKER, "watch": tickets[number],
+                          "runner": address[0], "session": address[1]})
 
     # ------------------------------------------------------------- delivering
 

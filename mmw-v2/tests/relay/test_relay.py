@@ -4,8 +4,9 @@ The relay's outsides are the board (a `Board` whose `gh` answers from a dict of 
 here), the runner's `send` verb (a function here that records what it was handed and
 answers with the exit code a test chooses), the runner's `liveness` verb (a function
 answering what a test chooses) and the clock. Between them runs the whole relay: the
-watches and their main agents, reading events, dedup, who each row is for, the queue,
-delivery, ack, the unattended-stretch marker, the watch of a main agent that is gone. What is asserted is what an outsider can see: the watches, the rows in the
+watches and their main agents, reading events, dedup, who each row is for, the slot
+wake, the queue, delivery, ack, the unattended-stretch marker, the watch of a main agent
+that is gone. What is asserted is what an outsider can see: the watches, the rows in the
 queue, their order and recipients, what was sent to whom, and what is left after an ack.
 
     python3 -m unittest discover -s mmw-v2/tests/relay -p test_relay.py
@@ -839,6 +840,102 @@ class WatchesTest(RelayCase):
         self.clock.moment = T0 + timedelta(hours=1, seconds=30)
         self.poll()
         self.assertEqual(len([r for r in self.rows() if r["event"] == relay.RECOVERED]), 2)
+
+
+class SlotWakeTest(RelayCase):
+    """A run that found no free product slot waits under a `worker.queued`, and a slot
+    given back on any watched ticket wakes its worker."""
+
+    def setUp(self):
+        super().setUp()
+        self.board[61].append(started(100, 61, "wk-61"))
+        self.board[62].append(started(101, 62, "wk-62"))
+
+    @staticmethod
+    def queued(cid: int, ticket: int = 62, updated: datetime = T0) -> dict:
+        return comment(cid, "worker.queued", ticket, updated=updated, reason="machine-full", run="self")
+
+    def woken(self):
+        return [(r["ticket"], r["session"]) for r in self.rows() if r["event"] == "worker.queued"]
+
+    def test_a_slot_given_back_wakes_the_worker_waiting_for_one(self):
+        self.board[62].append(self.queued(110))
+        self.board[61].append(comment(120, "ticket.landed", 61))
+        self.poll()
+        self.assertEqual(self.addressed(), [(1, "worker.queued", "worker", "wk-62")])
+        self.relay.deliver()
+        self.assertEqual(self.send.sent, [("paseo", "wk-62", "#62 worker.queued")])
+        # Read again, and read in full by a restarted relay: queued no second time.
+        self.poll()
+        self.relay = self.fresh()
+        self.poll()
+        self.assertEqual(len(self.rows()), 1)
+        self.assertEqual(self.relay.ack_wake(("paseo", "wk-62"), 62, "worker.queued"), (1, 1, 0))
+
+    def test_the_run_that_got_a_slot_ends_the_wait_and_the_next_release_wakes_nobody(self):
+        self.board[62] += [self.queued(110),
+                           comment(115, "ticket.checked", 62, run="self", commit="a" * 40, result="met")]
+        self.board[61].append(comment(120, "ticket.landed", 61))
+        self.poll()
+        self.assertEqual(self.woken(), [])
+
+    def test_a_release_older_than_the_wait_wakes_nobody(self):
+        self.board[61].append(comment(105, "ticket.released", 61))
+        self.board[62].append(self.queued(110))
+        self.poll()
+        self.assertEqual(self.woken(), [])
+
+    def test_a_release_read_again_after_a_newer_wait_wakes_nobody(self):
+        self.board[61].append(comment(105, "ticket.released", 61))
+        self.board[62].append(self.queued(110))
+        self.poll()
+        # The next read takes the release again, in its two minutes of overlap, and the
+        # wait recorded since is newer than it.
+        self.clock.moment = T0 + timedelta(seconds=30)
+        self.poll()
+        self.assertEqual(self.woken(), [])
+
+    def test_a_wait_and_a_later_release_meet_across_polls(self):
+        self.board[62].append(self.queued(110))
+        self.poll()
+        self.assertEqual(self.woken(), [])
+        later = T0 + timedelta(seconds=30)
+        self.clock.moment = later
+        self.board[61].append(comment(120, "worker.retracted", 61, updated=later))
+        self.poll()
+        self.assertEqual(self.woken(), [(62, "wk-62")])
+
+    def test_an_ended_wait_read_again_in_the_overlap_stays_ended(self):
+        self.board[62] += [self.queued(110),
+                           comment(115, "ticket.checked", 62, run="self", commit="a" * 40, result="met")]
+        self.poll()
+        later = T0 + timedelta(seconds=30)
+        self.clock.moment = later
+        self.board[61].append(comment(120, "ticket.landed", 61, updated=later))
+        self.poll()
+        self.assertEqual(self.woken(), [])
+
+    def test_a_lost_reviewer_does_not_end_the_wait(self):
+        self.board[62] += [self.queued(110),
+                           comment(112, "reviewer.lost", 62, session="rv-1", runner="paseo")]
+        self.board[61].append(comment(120, "ticket.landed", 61))
+        self.poll()
+        self.assertEqual(self.addressed(), [(1, "reviewer.lost", "worker", "wk-62"),
+                                            (2, "worker.queued", "worker", "wk-62")])
+
+    def test_a_waiting_ticket_of_another_watch_is_woken(self):
+        self.relay.open_watch({"tickets": [70]}, "paseo", "main-b")
+        self.board[70] = [started(102, 70, "wk-70"), self.queued(110, 70)]
+        self.board[61].append(comment(120, "ticket.landed", 61))
+        self.poll()
+        self.assertEqual(self.woken(), [(70, "wk-70")])
+        self.assertEqual(self.rows()[0]["watch"], "tickets:70")
+
+    def test_the_wait_is_kept_where_a_restart_reads_it(self):
+        self.board[62].append(self.queued(110))
+        self.poll()
+        seen = json.loads((self.state / "seen.json").read_text())
+        self.assertEqual((seen["tickets"]["62"]["waiting"], seen["tickets"]["61"]["waiting"]), (110, None))
 
 
 class MainGoneTest(RelayCase):
