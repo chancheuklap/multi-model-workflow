@@ -81,8 +81,16 @@ refuse() {
 }
 
 runner() {
-  [ -f "$RUNNER" ] || refuse "no runner adapter at $RUNNER"
   bash "$RUNNER" "$@"
+}
+
+# Called once at the top of every command that talks to the runner, before any `$(…)`.
+# The check cannot live in `runner()`: three of its callers run it inside `$(…)`, and a
+# `refuse` there ends only that subshell — the command then carries on with an empty
+# answer. With the adapter file gone that made `retract` archive a running worker's
+# workspace and exit 0, and `wait` report "still working" and exit 3 forever.
+require_runner() {
+  [ -f "$RUNNER" ] || refuse "no runner adapter at $RUNNER; reinstall this skill or restore that file, then run the command again"
 }
 
 usage() {
@@ -554,7 +562,7 @@ print(json.dumps(primary, ensure_ascii=False))
 
 start_one() {
   local number="$1" kind="$2"
-  [ -f "$RUNNER" ] || refuse "no runner adapter at $RUNNER"
+  require_runner
   case "$kind" in
     worker|reviewer|verifier) ;;
     *) refuse "the second argument is worker, reviewer or verifier, got $kind" ;;
@@ -668,13 +676,21 @@ retract_one() {
   [ -n "$root" ] \
     || refuse "not inside a git repository, so there is no workspace to retract"
 
+  require_runner
   local live ident
   live="$(agents_by_label --label "mmw.ticket=$number" | head -n 1)"
   ident="$(printf '%s\n' "$live" | cut -f2)"
+  # Archiving a workspace ends whatever runs in it, so only an agent the runner has shown
+  # to be stopped lets this go on. Anything else — alive, unknown, or an answer this does
+  # not recognise — refuses: a retract that cannot prove the agent is gone does nothing.
   if [ -n "$ident" ]; then
     case "$(runner liveness "$ident")" in
-      alive|unknown)
+      stopped) ;;
+      alive)
         refuse "#$number still has a live agent $ident; retract is for a start whose create_agent never ran"
+        ;;
+      *)
+        refuse "cannot tell whether #$number's agent $ident is still running, so nothing was archived; retract only once that agent is shown to be stopped"
         ;;
     esac
   fi
@@ -708,11 +724,10 @@ retract_one() {
 # nothing will change by sending again. A worker that is there but will not take the
 # message is temporary: it is in a turn, and a turn ends.
 #
-# Which one it is comes from what this already knows rather than from reading the
-# error text. `paseo send` reports every failure as `SEND_FAILED` with the reason in
-# one English sentence (`Agent not found: …`, `A foreground turn is already active`),
-# and matching on that sentence would break the day it is reworded. It is not needed:
-# the agent was just found by label, so a failure after that is not "no such worker".
+# Which one it is, is the runner adapter's answer, not this function's reading of an
+# error sentence: `send` answers 0 when the message was taken, 3 when the agent is there
+# but in a turn, and 2 when there is no such session (#314 section 1). This maps those
+# three and nothing else.
 #
 # The distinction is worth drawing because the old code gave both exit 2, whose
 # documented meaning is "read status, do not send again" — turning a three-minute
@@ -721,6 +736,7 @@ retract_one() {
 resume_one() {
   local number="$1" text="$2" ident out
   [ -n "$text" ] || refuse "resume needs the text to send"
+  require_runner
   ident="$(agents_by_label --label "mmw.ticket=$number" --label mmw.kind=worker | head -n 1 | cut -f2)"
   [ -n "$ident" ] || refuse "no worker agent labelled mmw.ticket=$number"
   out="$(runner send "$ident" "$text" 2>&1)"
@@ -796,14 +812,11 @@ wait_no_result() {
 # on Cursor, 120 on Grok Build and Claude Code (measured 2026-09-06). Set MMW_WAIT_S
 # below the host's own bound when it is shorter than this default.
 #
-# The waiting is this function's, not `paseo wait`'s. What `paseo wait` waits for is the
-# agent going from busy to idle, and it returns at once for an agent that is already
-# idle — which is the state of an agent between turns, doing exactly what it was told.
-# Handing the whole budget to it therefore returns in milliseconds in the one case this
-# fallback exists for, and `run it again` becomes a loop with no beat in it, spending one
-# turn of the caller per round. So the budget is spent here: `paseo wait` for as long as
-# the agent is busy, the ticket read after each round, and a fixed beat between rounds
-# when it is not. Writes nothing: no ticket comment, no agent command but `paseo wait`.
+# The waiting is this function's own: it reads the ticket, then sleeps a fixed beat, and
+# repeats until the budget is spent. It calls no runner command to wait on, so the wait
+# path goes through the runner adapter only for the one liveness question at the end.
+# The result lands on the ticket, so reading the ticket every beat finds it at most one
+# beat after it is written. Writes nothing.
 wait_one() {
   local number="$1" kind="$2"
   case "$kind" in
@@ -818,13 +831,13 @@ wait_one() {
     return 0
   fi
 
+  require_runner
   ident="$(agents_by_label --label "mmw.ticket=$number" --label "mmw.kind=$kind" | head -n 1 | cut -f2)"
   [ -n "$ident" ] || refuse "no $kind agent labelled mmw.ticket=$number"
 
   local budget="${MMW_WAIT_S:-90}" beat="${MMW_WAIT_BEAT_S:-10}" spent=0 round_start
   while [ "$spent" -lt "$budget" ]; do
     round_start="$(date +%s)"
-    paseo wait "$ident" --timeout "$((budget - spent))" >/dev/null 2>&1 || true
     head="$(result_first_line "$number" "$kind")"
     if [ -n "$head" ]; then
       printf '%s\n' "$head"
@@ -848,8 +861,12 @@ wait_one() {
     stopped)
       wait_no_result "$number" "$kind" "$ident"
       ;;
-    *)
+    alive)
       echo "still working: run wait again" >&2
+      exit 3
+      ;;
+    *)
+      echo "cannot tell whether $ident is still working: run wait again" >&2
       exit 3
       ;;
   esac

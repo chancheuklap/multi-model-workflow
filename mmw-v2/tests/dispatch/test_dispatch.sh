@@ -856,12 +856,38 @@ print(json.dumps({
   *"--json comments"*)
     MMW_WANT="$3" python3 -c '
 import json, os
+from pathlib import Path
 path = os.environ.get("FAKE_GH_TICKETS_FILE")
 rows = json.load(open(path)) if path else []
 try:
     want = int(os.environ["MMW_WANT"])
 except Exception:
     want = None
+# Time passing while `wait` waits. `wait` reads the ticket, sleeps a beat, and reads it
+# again; from the second read on, the agent has finished: MMW_FAKE_WAIT_COMMENT lands on
+# the ticket and MMW_FAKE_WAIT_STATUS becomes every agent status. The first read sees
+# neither, so a scenario can tell "already there" from "arrived while waiting".
+state = os.environ.get("MMW_FAKE_PASEO_STATE")
+if state and (os.environ.get("MMW_FAKE_WAIT_COMMENT") or os.environ.get("MMW_FAKE_WAIT_STATUS")):
+    counter = Path(state) / "comment_reads"
+    reads = int(counter.read_text()) + 1 if counter.is_file() else 1
+    counter.write_text(str(reads))
+    done = Path(state) / "wait_delivered"
+    if reads >= 2 and not done.is_file():
+        done.write_text("1")
+        comment = os.environ.get("MMW_FAKE_WAIT_COMMENT", "")
+        if comment and path:
+            for t in rows:
+                if t.get("number") == want:
+                    t.setdefault("comments", []).append(comment)
+            Path(path).write_text(json.dumps(rows), encoding="utf-8")
+        status = os.environ.get("MMW_FAKE_WAIT_STATUS", "")
+        agents = Path(state) / "agents.json"
+        if status and agents.is_file():
+            ag = json.loads(agents.read_text(encoding="utf-8"))
+            for a in ag:
+                a["status"] = status
+            agents.write_text(json.dumps(ag), encoding="utf-8")
 found = next((t for t in rows if t.get("number") == want), {})
 print(json.dumps({
     "comments": [{"body": b} for b in found.get("comments", [])],
@@ -986,6 +1012,7 @@ reset_log() {
   mkdir -p "$MMW_FAKE_PASEO_STATE" "$MMW_FAKE_HERDR_STATE" "$MMW_FAKE_ORCA_STATE"
   echo '[]' > "$MMW_FAKE_PASEO_STATE/workspaces.json"
   echo '[]' > "$MMW_FAKE_PASEO_STATE/agents.json"
+  rm -f "$MMW_FAKE_PASEO_STATE/comment_reads" "$MMW_FAKE_PASEO_STATE/wait_delivered"
   echo '[]' > "$MMW_FAKE_HERDR_STATE/agents.json"
   echo '[]' > "$MMW_FAKE_ORCA_STATE/terminals.json"
   echo '[]' > "$MMW_FAKE_ORCA_STATE/setups.json"
@@ -1981,7 +2008,7 @@ JSON
   [ "$code" = 0 ] || fail "expected exit 0 after wait, got $code: $(cat "$TMP/err")"
   [ "$(cat "$TMP/out")" = "ALL MET" ] \
     || fail "stdout should be ALL MET: $(cat "$TMP/out")"
-  has "paseo :: wait :: agt_61_worker :: --timeout :: 6"
+  hasnt "paseo :: wait"
   has "gh :: issue :: view :: 61 :: --json :: comments"
   hasnt "gh :: issue :: comment"
   hasnt "paseo :: archive"
@@ -1998,7 +2025,7 @@ JSON
           MMW_FAKE_WAIT_STATUS=closed MMW_WAIT_S=6 MMW_WAIT_BEAT_S=1 \
           bash "$DISPATCH" "${TOOLS[@]}" wait 61 verifier)"
   [ "$code" = 1 ] || fail "expected exit 1 with no result, got $code: $(cat "$TMP/err")"
-  has "paseo :: wait :: agt_61_verifier :: --timeout :: 6"
+  hasnt "paseo :: wait"
   grep -q "paseo logs agt_61_verifier" "$TMP/err" \
     || fail "stderr should name paseo logs: $(cat "$TMP/err")"
   grep -q "VERDICT" "$TMP/err" \
@@ -2027,11 +2054,12 @@ JSON
   grep -q "code-review skill" "$TMP/err" \
     && fail "an idle reviewer must not be sent to the fallback: $(cat "$TMP/err")"
 
-  echo "--- and the budget was really spent: paseo wait returns at once for an idle agent"
+  echo "--- and the budget was really spent, one ticket read per beat"
   [ "$((ended - began))" -ge 6 ] \
     || fail "wait returned after $((ended - began))s of a 6s budget, so exit 3 has no beat in it"
-  [ "$(count_of 'paseo :: wait')" -ge 2 ] \
-    || fail "expected more than one round inside the budget: $(count_of 'paseo :: wait')"
+  [ "$(count_of 'gh :: issue :: view :: 61 :: --json :: comments')" -ge 2 ] \
+    || fail "expected more than one ticket read inside the budget: $(count_of 'gh :: issue :: view :: 61 :: --json :: comments')"
+  hasnt "paseo :: wait"
 
   echo "--- timeout while still running: exit 3"
   reset_log
@@ -2045,7 +2073,7 @@ JSON
           MMW_FAKE_PASEO_SCENARIO=wait-timeout MMW_WAIT_S=6 MMW_WAIT_BEAT_S=1 \
           bash "$DISPATCH" "${TOOLS[@]}" wait 61 worker)"
   [ "$code" = 3 ] || fail "expected exit 3 on timeout, got $code: $(cat "$TMP/err")"
-  has "paseo :: wait :: agt_61_worker :: --timeout :: 6"
+  hasnt "paseo :: wait"
   [ "$(cat "$TMP/err")" = "still working: run wait again" ] \
     || fail "stderr should say run wait again: $(cat "$TMP/err")"
   [ ! -s "$TMP/out" ] || fail "stdout should be empty on timeout: $(cat "$TMP/out")"
@@ -3529,17 +3557,84 @@ print(" ".join(sorted(r["id"] for r in rows)))
 
 # ------------------------------------------------------------------ entry
 
-ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir paseorejectspath landarchivesagents"
+# Sets one fake Paseo agent's status. An unrecognised status is how a runner that
+# cannot tell is reached: runners/paseo.sh answers `unknown` for it.
+set_agent_status() {
+  MMW_ID="$1" MMW_STATUS="$2" python3 -c '
+import json, os
+from pathlib import Path
+path = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "agents.json"
+rows = json.loads(path.read_text())
+for r in rows:
+    if r.get("id") == os.environ["MMW_ID"]:
+        r["status"] = os.environ["MMW_STATUS"]
+path.write_text(json.dumps(rows))
+'
+}
 
-case "${1:-}" in
-  check|advance|advanceconflict|advancedirty|land|start-worker|start-reviewer|start-verifier|retract|resume|wait|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|stopproduct|suspend|suspendbusy|status|runnerstart|runnersend|runnerliveness|runnerparity|herdrworkingsend|herdrliveness|orcasend|orcaclosed|worktreegit|worktreegoverned|worktreeremove|installorca|usesagree|usesmismatch|usesunreadable|paseostartdir|paseorejectspath|landarchivesagents)
-    wanted="$1" ;;
-  all)
-    wanted="$ALL" ;;
+scenario_noadapterretract() {
+  local code copy
+  echo "--- adapter gone: retract refuses with exit 2 and archives nothing"
+  reset_log
+  seed_agent 61 worker
+  copy="$(skill_copy_for retract)"
+  rm -f "$copy/scripts/runners/paseo.sh"
+  code="$(run_dispatch bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" retract 61)"
+  [ "$code" = 2 ] || fail "expected exit 2 with the adapter gone, got $code: $(cat "$TMP/err")"
+  grep -q "runners/paseo.sh" "$TMP/err" || fail "stderr should name the missing adapter: $(cat "$TMP/err")"
+  if grep -q "retract #61:" "$TMP/err"; then fail "a refused retract must not reach its summary: $(cat "$TMP/err")"; fi
+  hasnt "paseo :: archive"
+}
+
+scenario_noadapterwait() {
+  local code copy
+  echo "--- adapter gone: wait refuses with exit 2, never exit 3"
+  reset_log
+  printf '%s\n' '[{"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "comments": []}]' > "$TMP/tickets.json"
+  seed_agent 61 worker
+  copy="$(skill_copy_for wait)"
+  rm -f "$copy/scripts/runners/paseo.sh"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" MMW_WAIT_S=2 MMW_WAIT_BEAT_S=1 \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" wait 61 worker)"
+  [ "$code" = 2 ] || fail "expected exit 2 with the adapter gone, got $code: $(cat "$TMP/err")"
+  grep -q "runners/paseo.sh" "$TMP/err" || fail "stderr should name the missing adapter: $(cat "$TMP/err")"
+  if grep -q "^still working:" "$TMP/err"; then fail "a missing adapter must not read as still working: $(cat "$TMP/err")"; fi
+}
+
+scenario_unknownnotalive() {
+  local code
+  echo "--- runner answers unknown: wait retries but says it cannot tell"
+  reset_log
+  printf '%s\n' '[{"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "comments": []}]' > "$TMP/tickets.json"
+  seed_agent 61 worker
+  set_agent_status agt_61_worker not-a-status
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" MMW_WAIT_S=2 MMW_WAIT_BEAT_S=1 \
+          bash "$DISPATCH" "${TOOLS[@]}" wait 61 worker)"
+  [ "$code" = 3 ] || fail "unknown still retries: expected exit 3, got $code: $(cat "$TMP/err")"
+  grep -q "cannot tell" "$TMP/err" || fail "wait should say it cannot tell: $(cat "$TMP/err")"
+  if grep -q "^still working:" "$TMP/err"; then fail "unknown must not read as still working: $(cat "$TMP/err")"; fi
+
+  echo "--- runner answers unknown: retract refuses and archives nothing"
+  reset_log
+  seed_agent 61 worker
+  set_agent_status agt_61_worker not-a-status
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" retract 61)"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "cannot tell" "$TMP/err" || fail "retract should say it cannot tell: $(cat "$TMP/err")"
+  if grep -q "still has a live agent" "$TMP/err"; then fail "unknown must not read as a live agent: $(cat "$TMP/err")"; fi
+  hasnt "paseo :: archive"
+}
+
+ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir paseorejectspath landarchivesagents noadapterretract noadapterwait unknownnotalive"
+
+# One list of scenario names, ALL; a name on the command line is accepted when it is in it.
+case " $ALL all " in
+  *" ${1:-} "*) ;;
   *)
     echo "usage: test_dispatch.sh $(echo "$ALL" | tr ' ' '|')|all" >&2
     exit 2 ;;
 esac
+if [ "$1" = all ]; then wanted="$ALL"; else wanted="$1"; fi
 
 banner_for() {
   case "$1" in
@@ -3568,6 +3663,9 @@ banner_for() {
     suspendbusy) echo SUSPEND-BUSY-OK ;;
     status) echo DISPATCH-STATUS-OK ;;
     runnerstart) echo RUNNER-START-OK ;;
+    noadapterretract) echo NO-ADAPTER-RETRACT-OK ;;
+    noadapterwait) echo NO-ADAPTER-WAIT-OK ;;
+    unknownnotalive) echo UNKNOWN-NOT-ALIVE-OK ;;
     runnersend) echo RUNNER-SEND-OK ;;
     runnerliveness) echo RUNNER-LIVENESS-OK ;;
     runnerparity) echo RUNNER-PARITY-OK ;;

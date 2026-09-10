@@ -6,9 +6,10 @@
 #   runners/paseo.sh send <session-id> <text>
 #   runners/paseo.sh liveness <session-id>
 #
-# start takes host, model, effort, cwd, skip-approval, and the first prompt, and
-# prints a session id, or refuses. Paseo sessions are created by create_agent, so
-# this verb succeeds without calling `paseo run`.
+# start takes host, model, effort, cwd, skip-approval, and the first prompt. Today a
+# Paseo session is created by the main agent's create_agent, from the object dispatch.sh
+# prints, so this verb accepts its arguments and does nothing else: it prints nothing
+# and never refuses.
 # send: exit 0 the text was delivered; 3 the session is there and did not take it;
 # 2 there is no such session.
 # liveness prints one of `alive`, `stopped`, `unknown` on stdout.
@@ -77,7 +78,13 @@ send() {
   rc=$?
   case "$rc" in
     1) exit 2 ;;
-    2) exit 3 ;;
+    2)
+      # Could not ask Paseo at all. That is not "no such session" (exit 2 tells the caller
+      # never to send again), so it takes the retry answer, 3 — but says why, because 3
+      # alone reads as "it is in a turn", which nobody checked.
+      echo "runners/paseo.sh: could not ask Paseo whether $ident is there (paseo ls failed or answered in a shape this cannot read); nothing was sent" >&2
+      exit 3
+      ;;
   esac
   if out="$(paseo_ send --no-wait "$ident" "$text" 2>&1)"; then
     exit 0
