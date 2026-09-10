@@ -337,6 +337,7 @@
      A sheet over the board. Nothing on it is state of a ticket, so no lamp colour appears
      here. A cell `start` would refuse is hatched ink, the same treatment the top bar gives a
      failed read. */
+  /* the two icon buttons at the right end of the top bar: refresh, then the settings gear */
   .gear {
     flex: none; width: 30px; height: 30px; display: inline-grid; place-items: center; padding: 0;
     border: 1px solid var(--rule); border-radius: 7px; background: var(--panel); color: var(--soft); cursor: pointer;
@@ -403,8 +404,8 @@
     border: 1px solid var(--rule); border-radius: 6px; font-size: 11px; color: var(--soft); white-space: nowrap;
   }
   .hs-name { font: 600 10.5px var(--mono); color: var(--hs-name, var(--ink)); }
-  .hs.missing, .hs.silent { border-style: dashed; color: var(--faint); }
-  .hs.missing, .hs.silent { --hs-name: var(--soft); }
+  .hs.missing, .hs.silent, .hs.down { border-style: dashed; color: var(--faint); }
+  .hs.missing, .hs.silent, .hs.down { --hs-name: var(--soft); }
   .sel.changed { border-color: var(--ink); box-shadow: inset 0 0 0 0.5px var(--ink); font-weight: 600; }
   .sel.bad {
     border-color: var(--ink); box-shadow: inset 0 0 0 0.5px var(--ink);
@@ -479,6 +480,12 @@
     <div class="brand"><span class="brand-mark">MMW</span><span class="brand-name">task board</span><span class="brand-repo">chancheuklap/multi-model-workflow</span></div>
     <div class="counters" id="counters"></div>
     <div class="readstate" id="readstate"></div>
+    <button class="gear" id="refresh" aria-label="立刻重读 GitHub" title="立刻重读 GitHub（页面开着时每分钟自动读一次）">
+      <svg class="gear-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
+        <path d="M21 3v5h-5"></path>
+      </svg>
+    </button>
     <button class="gear" id="open-settings" aria-label="本机配置" aria-haspopup="dialog" aria-expanded="false" title="本机配置：每个角色跑在哪个 host、model、effort">
       <svg class="gear-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
@@ -534,7 +541,7 @@ const SCENES = ["morning", "twenty-tickets", "bad-data", "empty"];
    settings sheet shows. Built by build_fixtures.py with the dispatch skill's models.py;
    do not edit between the markers. */
 /* SETTINGS:BEGIN */
-const SETTINGS = {"store":"~/.mmw/models.json","agents":["junior-worker","senior-worker","reviewer","verifier","advisor"],"hosts":["cursor","grok","claude","codex","pi"],"binaries":{"cursor":"cursor-agent","grok":"grok","claude":"claude","codex":"codex","pi":"pi"},"runners":["herdr","orca","paseo"],"scenes":{"mine":{"name":"本机配置合法","scannedAt":"2026-09-10T23:02:00Z","hosts":{"cursor":{"state":"ok","offered":[{"model":"auto","efforts":["—"]},{"model":"composer 2.5","efforts":["—"]},{"model":"gemini 3.8 flash","efforts":["medium"]},{"model":"gpt-5.6 sol","efforts":["high","xhigh"]},{"model":"grok 4.6","efforts":["high","xhigh"]},{"model":"grok 4.6 fast","efforts":["high"]},{"model":"kimi k3","efforts":["high"]},{"model":"opus 5","efforts":["medium","high"]},{"model":"sonnet 5","efforts":["high"]}]},"grok":{"state":"ok","offered":[{"model":"grok 4.6","efforts":["low","medium","high","xhigh"]},{"model":"grok 4.5","efforts":["low","medium","high","xhigh"]}]},"claude":{"state":"ok","offered":[{"model":"opus 5","efforts":["low","medium","high","xhigh","max"]},{"model":"sonnet 5","efforts":["low","medium","high","xhigh","max"]},{"model":"fable 5.1","efforts":["low","medium","high","xhigh","max"]},{"model":"fable 5","efforts":["low","medium","high","xhigh","max"]}]},"codex":{"state":"ok","offered":[{"model":"gpt 6 astra","efforts":["low","medium","high","xhigh","max","ultra"]},{"model":"gpt 5.6 sol","efforts":["low","medium","high","xhigh","max","ultra"]},{"model":"gpt 5.6 luna","efforts":["low","medium","high","xhigh","max"]},{"model":"gpt 5.5","efforts":["low","medium","high","xhigh"]}]},"pi":{"state":"ok","offered":[{"model":"deepseek-v4-pro","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"k3","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"grok-4.6","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"gpt-5.6-sol","efforts":["off","minimal","low","medium","high","xhigh","max"]}]}},"saved":{"runner":"orca","rows":{"junior-worker":{"host":"grok","model":"grok 4.6","effort":"high"},"senior-worker":{"host":"codex","model":"gpt 5.6 sol","effort":"high"},"reviewer":{"host":"claude","model":"opus 5","effort":"high"},"verifier":{"host":"claude","model":"sonnet 5","effort":"high"},"advisor":{"host":"claude","model":"fable 5.1","effort":"medium"}}}},"fresh":{"name":"新机器 · 初始值里的 cursor 没装","scannedAt":"2026-09-10T23:02:00Z","hosts":{"cursor":{"state":"missing","offered":[]},"grok":{"state":"ok","offered":[{"model":"grok 4.6","efforts":["low","medium","high","xhigh"]},{"model":"grok 4.5","efforts":["low","medium","high","xhigh"]}]},"claude":{"state":"ok","offered":[{"model":"opus 5","efforts":["low","medium","high","xhigh","max"]},{"model":"sonnet 5","efforts":["low","medium","high","xhigh","max"]},{"model":"fable 5.1","efforts":["low","medium","high","xhigh","max"]},{"model":"fable 5","efforts":["low","medium","high","xhigh","max"]}]},"codex":{"state":"ok","offered":[{"model":"gpt 6 astra","efforts":["low","medium","high","xhigh","max","ultra"]},{"model":"gpt 5.6 sol","efforts":["low","medium","high","xhigh","max","ultra"]},{"model":"gpt 5.6 luna","efforts":["low","medium","high","xhigh","max"]},{"model":"gpt 5.5","efforts":["low","medium","high","xhigh"]}]},"pi":{"state":"ok","offered":[{"model":"deepseek-v4-pro","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"k3","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"grok-4.6","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"gpt-5.6-sol","efforts":["off","minimal","low","medium","high","xhigh","max"]}]}},"saved":{"runner":"orca","rows":{"junior-worker":{"host":"cursor","model":"grok 4.6","effort":"high"},"senior-worker":{"host":"grok","model":"grok 4.6","effort":"xhigh"},"reviewer":{"host":"claude","model":"opus 5","effort":"high"},"verifier":{"host":"claude","model":"sonnet 5","effort":"high"},"advisor":{"host":"claude","model":"fable 5.1","effort":"medium"}}}},"retired":{"name":"选中的 model 本机已经没有","scannedAt":"2026-09-10T23:30:00Z","hosts":{"cursor":{"state":"ok","offered":[{"model":"auto","efforts":["—"]},{"model":"composer 2.5","efforts":["—"]},{"model":"gemini 3.8 flash","efforts":["medium"]},{"model":"gpt-5.6 sol","efforts":["high","xhigh"]},{"model":"grok 4.6","efforts":["high","xhigh"]},{"model":"grok 4.6 fast","efforts":["high"]},{"model":"kimi k3","efforts":["high"]},{"model":"opus 5","efforts":["medium","high"]},{"model":"sonnet 5","efforts":["high"]}]},"grok":{"state":"ok","offered":[{"model":"grok 4.6","efforts":["low","medium","high","xhigh"]},{"model":"grok 4.5","efforts":["low","medium","high","xhigh"]}]},"claude":{"state":"ok","offered":[{"model":"opus 5","efforts":["low","medium","high","xhigh","max"]},{"model":"sonnet 5","efforts":["low","medium","high","xhigh","max"]},{"model":"fable 5.1","efforts":["low","medium","high","xhigh","max"]}]},"codex":{"state":"ok","offered":[{"model":"gpt 6 astra","efforts":["low","medium","high","xhigh","max","ultra"]},{"model":"gpt 5.6 sol","efforts":["low","medium","high","xhigh","max","ultra"]},{"model":"gpt 5.6 luna","efforts":["low","medium","high","xhigh","max"]},{"model":"gpt 5.5","efforts":["low","medium","high","xhigh"]}]},"pi":{"state":"ok","offered":[{"model":"deepseek-v4-pro","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"k3","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"grok-4.6","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"gpt-5.6-sol","efforts":["off","minimal","low","medium","high","xhigh","max"]}]}},"saved":{"runner":"orca","rows":{"junior-worker":{"host":"grok","model":"grok 4.6","effort":"high"},"senior-worker":{"host":"codex","model":"gpt 5.6 sol","effort":"high"},"reviewer":{"host":"claude","model":"opus 5","effort":"high"},"verifier":{"host":"claude","model":"sonnet 5","effort":"high"},"advisor":{"host":"claude","model":"fable 5","effort":"medium"}}}},"changed":{"name":"打开后被别处改过","scannedAt":"2026-09-10T23:02:00Z","hosts":{"cursor":{"state":"ok","offered":[{"model":"auto","efforts":["—"]},{"model":"composer 2.5","efforts":["—"]},{"model":"gemini 3.8 flash","efforts":["medium"]},{"model":"gpt-5.6 sol","efforts":["high","xhigh"]},{"model":"grok 4.6","efforts":["high","xhigh"]},{"model":"grok 4.6 fast","efforts":["high"]},{"model":"kimi k3","efforts":["high"]},{"model":"opus 5","efforts":["medium","high"]},{"model":"sonnet 5","efforts":["high"]}]},"grok":{"state":"ok","offered":[{"model":"grok 4.6","efforts":["low","medium","high","xhigh"]},{"model":"grok 4.5","efforts":["low","medium","high","xhigh"]}]},"claude":{"state":"ok","offered":[{"model":"opus 5","efforts":["low","medium","high","xhigh","max"]},{"model":"sonnet 5","efforts":["low","medium","high","xhigh","max"]},{"model":"fable 5.1","efforts":["low","medium","high","xhigh","max"]},{"model":"fable 5","efforts":["low","medium","high","xhigh","max"]}]},"codex":{"state":"ok","offered":[{"model":"gpt 6 astra","efforts":["low","medium","high","xhigh","max","ultra"]},{"model":"gpt 5.6 sol","efforts":["low","medium","high","xhigh","max","ultra"]},{"model":"gpt 5.6 luna","efforts":["low","medium","high","xhigh","max"]},{"model":"gpt 5.5","efforts":["low","medium","high","xhigh"]}]},"pi":{"state":"ok","offered":[{"model":"deepseek-v4-pro","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"k3","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"grok-4.6","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"gpt-5.6-sol","efforts":["off","minimal","low","medium","high","xhigh","max"]}]}},"saved":{"runner":"orca","rows":{"junior-worker":{"host":"grok","model":"grok 4.6","effort":"high"},"senior-worker":{"host":"codex","model":"gpt 5.6 sol","effort":"high"},"reviewer":{"host":"claude","model":"opus 5","effort":"high"},"verifier":{"host":"claude","model":"sonnet 5","effort":"high"},"advisor":{"host":"claude","model":"fable 5.1","effort":"medium"}}},"changedElsewhere":{"at":"2026-09-10T23:44:00Z","saved":{"runner":"orca","rows":{"junior-worker":{"host":"grok","model":"grok 4.6","effort":"high"},"senior-worker":{"host":"codex","model":"gpt 5.6 sol","effort":"high"},"reviewer":{"host":"codex","model":"gpt 5.6 sol","effort":"xhigh"},"verifier":{"host":"claude","model":"sonnet 5","effort":"high"},"advisor":{"host":"claude","model":"fable 5.1","effort":"medium"}}}}}}};
+const SETTINGS = {"store":"~/.mmw/models.json","agents":["junior-worker","senior-worker","reviewer","verifier","advisor"],"hosts":["cursor","grok","claude","codex","pi"],"binaries":{"cursor":"cursor-agent","grok":"grok","claude":"claude","codex":"codex","pi":"pi"},"runners":["herdr","orca","paseo"],"scenes":{"mine":{"name":"本机配置合法","scannedAt":"2026-09-10T23:02:00Z","scans":{"cli":{"cursor":{"state":"ok","offered":[{"model":"auto","efforts":["—"]},{"model":"composer 2.5","efforts":["—"]},{"model":"gemini 3.8 flash","efforts":["medium"]},{"model":"gpt-5.6 sol","efforts":["high","xhigh"]},{"model":"grok 4.6","efforts":["high","xhigh"]},{"model":"grok 4.6 fast","efforts":["high"]},{"model":"kimi k3","efforts":["high"]},{"model":"opus 5","efforts":["medium","high"]},{"model":"sonnet 5","efforts":["high"]}]},"grok":{"state":"ok","offered":[{"model":"grok 4.6","efforts":["low","medium","high","xhigh"]},{"model":"grok 4.5","efforts":["low","medium","high","xhigh"]}]},"claude":{"state":"ok","offered":[{"model":"opus 5","efforts":["low","medium","high","xhigh","max"]},{"model":"sonnet 5","efforts":["low","medium","high","xhigh","max"]},{"model":"fable 5.1","efforts":["low","medium","high","xhigh","max"]},{"model":"fable 5","efforts":["low","medium","high","xhigh","max"]}]},"codex":{"state":"ok","offered":[{"model":"gpt 6 astra","efforts":["low","medium","high","xhigh","max","ultra"]},{"model":"gpt 5.6 sol","efforts":["low","medium","high","xhigh","max","ultra"]},{"model":"gpt 5.6 luna","efforts":["low","medium","high","xhigh","max"]},{"model":"gpt 5.5","efforts":["low","medium","high","xhigh"]}]},"pi":{"state":"ok","offered":[{"model":"deepseek-v4-pro","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"k3","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"grok-4.6","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"gpt-5.6-sol","efforts":["off","minimal","low","medium","high","xhigh","max"]}]}},"paseo":{"cursor":{"state":"down","offered":[]},"grok":{"state":"down","offered":[]},"claude":{"state":"down","offered":[]},"codex":{"state":"down","offered":[]},"pi":{"state":"down","offered":[]}}},"saved":{"runner":"orca","rows":{"junior-worker":{"host":"grok","model":"grok 4.6","effort":"high"},"senior-worker":{"host":"codex","model":"gpt 5.6 sol","effort":"high"},"reviewer":{"host":"claude","model":"opus 5","effort":"high"},"verifier":{"host":"claude","model":"sonnet 5","effort":"high"},"advisor":{"host":"claude","model":"fable 5.1","effort":"medium"}}}},"fresh":{"name":"新机器 · 初始值里的 cursor 没装","scannedAt":"2026-09-10T23:02:00Z","scans":{"cli":{"cursor":{"state":"missing","offered":[]},"grok":{"state":"ok","offered":[{"model":"grok 4.6","efforts":["low","medium","high","xhigh"]},{"model":"grok 4.5","efforts":["low","medium","high","xhigh"]}]},"claude":{"state":"ok","offered":[{"model":"opus 5","efforts":["low","medium","high","xhigh","max"]},{"model":"sonnet 5","efforts":["low","medium","high","xhigh","max"]},{"model":"fable 5.1","efforts":["low","medium","high","xhigh","max"]},{"model":"fable 5","efforts":["low","medium","high","xhigh","max"]}]},"codex":{"state":"ok","offered":[{"model":"gpt 6 astra","efforts":["low","medium","high","xhigh","max","ultra"]},{"model":"gpt 5.6 sol","efforts":["low","medium","high","xhigh","max","ultra"]},{"model":"gpt 5.6 luna","efforts":["low","medium","high","xhigh","max"]},{"model":"gpt 5.5","efforts":["low","medium","high","xhigh"]}]},"pi":{"state":"ok","offered":[{"model":"deepseek-v4-pro","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"k3","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"grok-4.6","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"gpt-5.6-sol","efforts":["off","minimal","low","medium","high","xhigh","max"]}]}},"paseo":{"cursor":{"state":"down","offered":[]},"grok":{"state":"down","offered":[]},"claude":{"state":"down","offered":[]},"codex":{"state":"down","offered":[]},"pi":{"state":"down","offered":[]}}},"saved":{"runner":"orca","rows":{"junior-worker":{"host":"cursor","model":"grok 4.6","effort":"high"},"senior-worker":{"host":"grok","model":"grok 4.6","effort":"xhigh"},"reviewer":{"host":"claude","model":"opus 5","effort":"high"},"verifier":{"host":"claude","model":"sonnet 5","effort":"high"},"advisor":{"host":"claude","model":"fable 5.1","effort":"medium"}}}},"retired":{"name":"选中的 model 本机已经没有","scannedAt":"2026-09-10T23:30:00Z","scans":{"cli":{"cursor":{"state":"ok","offered":[{"model":"auto","efforts":["—"]},{"model":"composer 2.5","efforts":["—"]},{"model":"gemini 3.8 flash","efforts":["medium"]},{"model":"gpt-5.6 sol","efforts":["high","xhigh"]},{"model":"grok 4.6","efforts":["high","xhigh"]},{"model":"grok 4.6 fast","efforts":["high"]},{"model":"kimi k3","efforts":["high"]},{"model":"opus 5","efforts":["medium","high"]},{"model":"sonnet 5","efforts":["high"]}]},"grok":{"state":"ok","offered":[{"model":"grok 4.6","efforts":["low","medium","high","xhigh"]},{"model":"grok 4.5","efforts":["low","medium","high","xhigh"]}]},"claude":{"state":"ok","offered":[{"model":"opus 5","efforts":["low","medium","high","xhigh","max"]},{"model":"sonnet 5","efforts":["low","medium","high","xhigh","max"]},{"model":"fable 5.1","efforts":["low","medium","high","xhigh","max"]}]},"codex":{"state":"ok","offered":[{"model":"gpt 6 astra","efforts":["low","medium","high","xhigh","max","ultra"]},{"model":"gpt 5.6 sol","efforts":["low","medium","high","xhigh","max","ultra"]},{"model":"gpt 5.6 luna","efforts":["low","medium","high","xhigh","max"]},{"model":"gpt 5.5","efforts":["low","medium","high","xhigh"]}]},"pi":{"state":"ok","offered":[{"model":"deepseek-v4-pro","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"k3","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"grok-4.6","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"gpt-5.6-sol","efforts":["off","minimal","low","medium","high","xhigh","max"]}]}},"paseo":{"cursor":{"state":"down","offered":[]},"grok":{"state":"down","offered":[]},"claude":{"state":"down","offered":[]},"codex":{"state":"down","offered":[]},"pi":{"state":"down","offered":[]}}},"saved":{"runner":"orca","rows":{"junior-worker":{"host":"grok","model":"grok 4.6","effort":"high"},"senior-worker":{"host":"codex","model":"gpt 5.6 sol","effort":"high"},"reviewer":{"host":"claude","model":"opus 5","effort":"high"},"verifier":{"host":"claude","model":"sonnet 5","effort":"high"},"advisor":{"host":"claude","model":"fable 5","effort":"medium"}}}},"paseo-off":{"name":"runner 是 paseo · Paseo 没开","scannedAt":"2026-09-10T23:02:00Z","scans":{"cli":{"cursor":{"state":"ok","offered":[{"model":"auto","efforts":["—"]},{"model":"composer 2.5","efforts":["—"]},{"model":"gemini 3.8 flash","efforts":["medium"]},{"model":"gpt-5.6 sol","efforts":["high","xhigh"]},{"model":"grok 4.6","efforts":["high","xhigh"]},{"model":"grok 4.6 fast","efforts":["high"]},{"model":"kimi k3","efforts":["high"]},{"model":"opus 5","efforts":["medium","high"]},{"model":"sonnet 5","efforts":["high"]}]},"grok":{"state":"ok","offered":[{"model":"grok 4.6","efforts":["low","medium","high","xhigh"]},{"model":"grok 4.5","efforts":["low","medium","high","xhigh"]}]},"claude":{"state":"ok","offered":[{"model":"opus 5","efforts":["low","medium","high","xhigh","max"]},{"model":"sonnet 5","efforts":["low","medium","high","xhigh","max"]},{"model":"fable 5.1","efforts":["low","medium","high","xhigh","max"]},{"model":"fable 5","efforts":["low","medium","high","xhigh","max"]}]},"codex":{"state":"ok","offered":[{"model":"gpt 6 astra","efforts":["low","medium","high","xhigh","max","ultra"]},{"model":"gpt 5.6 sol","efforts":["low","medium","high","xhigh","max","ultra"]},{"model":"gpt 5.6 luna","efforts":["low","medium","high","xhigh","max"]},{"model":"gpt 5.5","efforts":["low","medium","high","xhigh"]}]},"pi":{"state":"ok","offered":[{"model":"deepseek-v4-pro","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"k3","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"grok-4.6","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"gpt-5.6-sol","efforts":["off","minimal","low","medium","high","xhigh","max"]}]}},"paseo":{"cursor":{"state":"down","offered":[]},"grok":{"state":"down","offered":[]},"claude":{"state":"down","offered":[]},"codex":{"state":"down","offered":[]},"pi":{"state":"down","offered":[]}}},"saved":{"runner":"paseo","rows":{"junior-worker":{"host":"grok","model":"grok 4.6","effort":"high"},"senior-worker":{"host":"codex","model":"gpt 5.6 sol","effort":"high"},"reviewer":{"host":"claude","model":"opus 5","effort":"high"},"verifier":{"host":"claude","model":"sonnet 5","effort":"high"},"advisor":{"host":"claude","model":"fable 5.1","effort":"medium"}}}},"changed":{"name":"打开后被别处改过","scannedAt":"2026-09-10T23:02:00Z","scans":{"cli":{"cursor":{"state":"ok","offered":[{"model":"auto","efforts":["—"]},{"model":"composer 2.5","efforts":["—"]},{"model":"gemini 3.8 flash","efforts":["medium"]},{"model":"gpt-5.6 sol","efforts":["high","xhigh"]},{"model":"grok 4.6","efforts":["high","xhigh"]},{"model":"grok 4.6 fast","efforts":["high"]},{"model":"kimi k3","efforts":["high"]},{"model":"opus 5","efforts":["medium","high"]},{"model":"sonnet 5","efforts":["high"]}]},"grok":{"state":"ok","offered":[{"model":"grok 4.6","efforts":["low","medium","high","xhigh"]},{"model":"grok 4.5","efforts":["low","medium","high","xhigh"]}]},"claude":{"state":"ok","offered":[{"model":"opus 5","efforts":["low","medium","high","xhigh","max"]},{"model":"sonnet 5","efforts":["low","medium","high","xhigh","max"]},{"model":"fable 5.1","efforts":["low","medium","high","xhigh","max"]},{"model":"fable 5","efforts":["low","medium","high","xhigh","max"]}]},"codex":{"state":"ok","offered":[{"model":"gpt 6 astra","efforts":["low","medium","high","xhigh","max","ultra"]},{"model":"gpt 5.6 sol","efforts":["low","medium","high","xhigh","max","ultra"]},{"model":"gpt 5.6 luna","efforts":["low","medium","high","xhigh","max"]},{"model":"gpt 5.5","efforts":["low","medium","high","xhigh"]}]},"pi":{"state":"ok","offered":[{"model":"deepseek-v4-pro","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"k3","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"grok-4.6","efforts":["off","minimal","low","medium","high","xhigh","max"]},{"model":"gpt-5.6-sol","efforts":["off","minimal","low","medium","high","xhigh","max"]}]}},"paseo":{"cursor":{"state":"down","offered":[]},"grok":{"state":"down","offered":[]},"claude":{"state":"down","offered":[]},"codex":{"state":"down","offered":[]},"pi":{"state":"down","offered":[]}}},"saved":{"runner":"orca","rows":{"junior-worker":{"host":"grok","model":"grok 4.6","effort":"high"},"senior-worker":{"host":"codex","model":"gpt 5.6 sol","effort":"high"},"reviewer":{"host":"claude","model":"opus 5","effort":"high"},"verifier":{"host":"claude","model":"sonnet 5","effort":"high"},"advisor":{"host":"claude","model":"fable 5.1","effort":"medium"}}},"changedElsewhere":{"at":"2026-09-10T23:44:00Z","saved":{"runner":"orca","rows":{"junior-worker":{"host":"grok","model":"grok 4.6","effort":"high"},"senior-worker":{"host":"codex","model":"gpt 5.6 sol","effort":"high"},"reviewer":{"host":"codex","model":"gpt 5.6 sol","effort":"xhigh"},"verifier":{"host":"claude","model":"sonnet 5","effort":"high"},"advisor":{"host":"claude","model":"fable 5.1","effort":"medium"}}}}}}};
 /* SETTINGS:END */
 
 /* BOARD:BEGIN */
@@ -856,11 +863,12 @@ const Board = {
    SETTINGS LOGIC — one scan of this machine's hosts and one configuration in;
    what the settings sheet offers, flags and would change out. No DOM here: it
    is the sheet's half of #318's testing seam, and build_fixtures.py copies it
-   into the Claude Design port so the two agree. A scene `sc` carries `hosts`
-   (the scan: per host `state` missing | silent | ok and the `offered` models
-   with their efforts); a configuration is { runner, rows: { agent: { host,
-   model, effort } } }, and `auto` as a runner lets `start` look at the runner
-   it runs in.
+   into the Claude Design port so the two agree. A `scan` maps each host to its
+   `state` — missing (its CLI is not installed), silent (it answered nothing),
+   down (Paseo was asked and its daemon is not running) or ok — and the models
+   it `offered` with their efforts. A configuration is { runner, rows: { agent:
+   { host, model, effort } } }; `auto` as a runner lets `start` look at the
+   runner it runs in.
    ════════════════════════════════════════════════════════════════════════ */
 const LocalConfig = {
   CELLS: ['host', 'model', 'effort'],
@@ -871,26 +879,33 @@ const LocalConfig = {
     verifier: '复验每张票的判据',
     advisor: '被问到时给第二意见',
   },
-  hostScan: (sc, host) => sc.hosts[host] || { state: 'missing', offered: [] },
-  offeredBy: (sc, host) => LocalConfig.hostScan(sc, host).offered,
-  effortsOf: (sc, host, model) => (LocalConfig.offeredBy(sc, host).find(o => o.model === model) || { efforts: [] }).efforts,
-  hostWhy: (state, host) => (state === 'missing'
-    ? `这台机器上没装 ${host} 的 CLI（${SETTINGS.binaries[host]}）` : `${host} 的 CLI 在扫描时没有回答`),
+  // Which place the options are asked of: Paseo when the runner is paseo, each host's own
+  // CLI otherwise — the place `start` asks when it resolves the same row.
+  source: d => (d.runner === 'paseo' ? 'paseo' : 'cli'),
+  hostScan: (scan, host) => scan[host] || { state: 'missing', offered: [] },
+  offeredBy: (scan, host) => LocalConfig.hostScan(scan, host).offered,
+  effortsOf: (scan, host, model) => (LocalConfig.offeredBy(scan, host).find(o => o.model === model) || { efforts: [] }).efforts,
+  stateWord: state => ({ missing: '本机没装', silent: '没有回答', down: 'Paseo 没开' }[state] || state),
+  hostWhy: (state, host) => ({
+    missing: `这台机器上没装 ${host} 的 CLI（${SETTINGS.binaries[host]}），换一个这台机器有的`,
+    silent: `${host} 的 CLI 在扫描时没有回答，换一个这台机器有的`,
+    down: `Paseo 服务没开，问不到 ${host} 的 model；先开 Paseo，或者把 runner 换回 orca 或 herdr`,
+  }[state]),
 
   // Everything `start` would refuse, and why — in the order it meets them: the host, then
   // the model on that host, then the effort of that model.
-  problems(sc, d) {
+  problems(scan, d) {
     const L = LocalConfig, out = [];
     if (d.runner !== 'auto' && !SETTINGS.runners.includes(d.runner)) out.push({ key: 'runner', cell: 'runner', text: `${d.runner} 没有适配器，start 起不了会话` });
     for (const a of SETTINGS.agents) {
       const r = d.rows[a];
       if (!SETTINGS.hosts.includes(r.host)) { out.push({ key: a, cell: 'host', text: `${r.host} 不是 MMW 认识的 host` }); continue; }
-      const hs = L.hostScan(sc, r.host);
-      if (hs.state !== 'ok') { out.push({ key: a, cell: 'host', text: `${L.hostWhy(hs.state, r.host)}，换一个这台机器有的` }); continue; }
+      const hs = L.hostScan(scan, r.host);
+      if (hs.state !== 'ok') { out.push({ key: a, cell: 'host', text: L.hostWhy(hs.state, r.host) }); continue; }
       if (!r.model) { out.push({ key: a, cell: 'model', text: '还没选 model' }); continue; }
       if (!hs.offered.some(o => o.model === r.model)) { out.push({ key: a, cell: 'model', text: `这台机器的 ${r.host} 已经不提供 ${r.model}` }); continue; }
       if (!r.effort) { out.push({ key: a, cell: 'effort', text: '还没选 effort' }); continue; }
-      if (!L.effortsOf(sc, r.host, r.model).includes(r.effort)) out.push({ key: a, cell: 'effort', text: `${r.model} 在 ${r.host} 上没有 ${r.effort} 这一档` });
+      if (!L.effortsOf(scan, r.host, r.model).includes(r.effort)) out.push({ key: a, cell: 'effort', text: `${r.model} 在 ${r.host} 上没有 ${r.effort} 这一档` });
     }
     return out;
   },
@@ -906,14 +921,14 @@ const LocalConfig = {
   // One cell of the draft `d` changed. A changed host keeps the model if the new host
   // offers it too, else waits for a choice; the effort follows the same way, and a model
   // with only one legal effort takes it.
-  setCell(sc, d, key, cell, value) {
+  setCell(scan, d, key, cell, value) {
     const L = LocalConfig;
     if (key === 'runner') { d.runner = value; return d; }
     const r = d.rows[key];
     r[cell] = value;
-    if (cell === 'host' && !L.offeredBy(sc, value).some(o => o.model === r.model)) r.model = '';
+    if (cell === 'host' && !L.offeredBy(scan, value).some(o => o.model === r.model)) r.model = '';
     if (cell !== 'effort') {
-      const es = L.effortsOf(sc, r.host, r.model);
+      const es = L.effortsOf(scan, r.host, r.model);
       if (!es.includes(r.effort)) r.effort = es.length === 1 ? es[0] : '';
     }
     return d;
@@ -929,15 +944,15 @@ const LocalConfig = {
     ];
     return opts.map(o => ({ ...o, selected: o.value === d.runner, disabled: !!o.disabled }));
   },
-  rowOptions(sc, d, a) {
-    const L = LocalConfig, r = d.rows[a], hs = L.hostScan(sc, r.host);
+  rowOptions(scan, d, a) {
+    const L = LocalConfig, r = d.rows[a], hs = L.hostScan(scan, r.host);
     const hostOk = hs.state === 'ok', modelKnown = hostOk && hs.offered.some(o => o.model === r.model);
     const mark = (opts, value) => opts.map(o => ({ ...o, selected: o.value === value, disabled: !!o.disabled }));
     const host = [
       ...(SETTINGS.hosts.includes(r.host) ? [] : [{ value: r.host, text: `${r.host} · MMW 不认识` }]),
       ...SETTINGS.hosts.map(h => {
-        const st = L.hostScan(sc, h).state;
-        return { value: h, text: st === 'ok' ? h : `${h} · ${st === 'missing' ? '本机没装' : '没有回答'}`, disabled: st !== 'ok' && h !== r.host };
+        const st = L.hostScan(scan, h).state;
+        return { value: h, text: st === 'ok' ? h : `${h} · ${L.stateWord(st)}`, disabled: st !== 'ok' && h !== r.host };
       }),
     ];
     const model = !hostOk ? [{ value: r.model, text: r.model || '—' }] : [
@@ -946,14 +961,14 @@ const LocalConfig = {
     ];
     const effort = !modelKnown ? [{ value: r.effort, text: r.effort || '—' }] : [
       ...(!r.effort ? [{ value: '', text: '选一档', disabled: true }] : []),
-      ...L.effortsOf(sc, r.host, r.model).map(e => ({ value: e, text: e === '—' ? '—（不设）' : e })),
+      ...L.effortsOf(scan, r.host, r.model).map(e => ({ value: e, text: e === '—' ? '—（不设）' : e })),
     ];
     return { host: mark(host, r.host), model: mark(model, r.model), effort: mark(effort, r.effort), hostOk, modelKnown };
   },
-  hostChips(sc) {
+  hostChips(scan) {
     return SETTINGS.hosts.map(h => {
-      const s = LocalConfig.hostScan(sc, h);
-      return { host: h, state: s.state, what: s.state === 'ok' ? `${s.offered.length} 个 model` : s.state === 'missing' ? '本机没装' : '没有回答' };
+      const s = LocalConfig.hostScan(scan, h);
+      return { host: h, state: s.state, what: s.state === 'ok' ? `${s.offered.length} 个 model` : LocalConfig.stateWord(s.state) };
     });
   },
 };
@@ -993,6 +1008,7 @@ function defaultExpanded(task) {
 
 function loadScene(key, keepView) {
   S.scene = key;
+  S.refreshedAt = null;
   const sc = scene();
   S.task = sc.select.task ?? sc.tasks[0]?.n ?? null;
   S.sel = sc.select.node ?? null;
@@ -1022,10 +1038,14 @@ function renderTop() {
     <span class="counter"><span class="light green"></span>在跑 <span class="counter-n">${count('green')}</span>${waiting ? `<span class="counter-sub">其中等槽位 ${waiting}</span>` : ''}</span>
     <span class="counter"><span class="light hollow"></span>待派 <span class="counter-n">${count('hollow')}</span></span>
     <span class="counter"><span class="light ink"></span>好了 <span class="counter-n">${count('ink')}</span></span>`;
+  // The board reads GitHub while the page is open: everything once on opening, then every minute
+  // the comments of the tickets not yet landed, and the whole tree every ten minutes. The
+  // refresh button reads now.
+  const readAt = S.refreshedAt && !sc.readFailed ? S.refreshedAt : sc.readAt;
   $('readstate').className = 'readstate' + (sc.readFailed ? ' failed' : '');
   $('readstate').textContent = sc.readFailed
     ? `读 GitHub 失败 · 下面是 ${hhmm(sc.readAt)} 的数据（${minutes(sc.readAt)} 分钟前）`
-    : `只读 · ${hhmm(sc.readAt)} 读取`;
+    : `只读 · ${hhmm(readAt)} 读取`;
   const btn = $('need-you');
   if (orange) btn.onclick = jumpToNextOrange;
 }
@@ -1457,8 +1477,10 @@ window.addEventListener('resize', () => applyView());
    left alone. In the mockup a save changes only the page.
    ════════════════════════════════════════════════════════════════════════ */
 const SET = { open: false, scene: Object.keys(SETTINGS.scenes)[0], saved: null, draft: null, scannedAt: null,
-  scanning: false, savedAt: null, refused: 0, reread: false, back: null };
+  scanSource: 'cli', scanning: false, savedAt: null, refused: 0, reread: false, back: null };
 const sScene = () => SETTINGS.scenes[SET.scene];
+// The scan on screen: the one asked of the place the runner on screen sends `start` to.
+const sScan = () => sScene().scans[SET.scanSource];
 const copy = o => JSON.parse(JSON.stringify(o));
 const later = m => new Date(new Date(NOW).getTime() + m * 60000).toISOString();
 
@@ -1466,6 +1488,7 @@ function loadSettings(key) {
   SET.scene = key;
   const sc = sScene();
   SET.saved = copy(sc.saved); SET.draft = copy(sc.saved); SET.scannedAt = sc.scannedAt;
+  SET.scanSource = LocalConfig.source(sc.saved);
   SET.scanning = false; SET.savedAt = null; SET.refused = 0; SET.reread = false;
   renderSettings();
   renderScenebar();
@@ -1473,8 +1496,8 @@ function loadSettings(key) {
 
 function renderSettings() {
   if (!SET.open) return;
-  const L = LocalConfig, sc = sScene(), d = SET.draft;
-  const probs = SET.scanning ? [] : L.problems(sc, d), ch = L.changes(d, SET.saved);
+  const L = LocalConfig, sc = sScene(), scan = sScan(), d = SET.draft;
+  const probs = SET.scanning ? [] : L.problems(scan, d), ch = L.changes(d, SET.saved);
   const bad = (key, cell) => probs.find(p => p.key === key && p.cell === cell);
   const select = (key, cell, options, label, disabled) => {
     const cls = bad(key, cell) ? ' bad' : ch.some(c => c.key === key && c.cells.includes(cell)) ? ' changed' : '';
@@ -1486,7 +1509,7 @@ function renderSettings() {
     return b ? `<div class="role-foot">${b}</div>` : '';
   };
   const rowHTML = a => {
-    const o = L.rowOptions(sc, d, a);
+    const o = L.rowOptions(scan, d, a);
     return `<div class="role">
       <div class="role-name"><span class="role-agent">${a}</span><span class="role-what">${L.ROLE_WHAT[a]}</span></div>
       ${select(a, 'host', o.host, `${a} 的 host`, SET.scanning)}
@@ -1495,7 +1518,7 @@ function renderSettings() {
       ${foot(a)}
     </div>`;
   };
-  const hostChips = L.hostChips(sc).map(c =>
+  const hostChips = L.hostChips(scan).map(c =>
     `<span class="hs ${SET.scanning ? '' : c.state}"><span class="hs-name">${c.host}</span>${SET.scanning ? '…' : c.what}</span>`).join('');
   const when = '保存后，下一个新起的 agent 就用新值；已经在跑的不受影响。';
 
@@ -1512,14 +1535,14 @@ function renderSettings() {
     <div class="sheet-head"><div class="sheet-head-text">
       <span class="dp-eyebrow">本机配置</span>
       <h2 class="sheet-title" id="set-title">这台机器上，每个角色跑在哪</h2>
-      <p class="sheet-sub" id="set-sub">下拉菜单里的选项，是 MMW 刚问过这台机器上每个 host 的 CLI 得到的。这里就是 MMW 管这件事的唯一地方，保存在本机的 <span class="sheet-code">${esc(SETTINGS.store)}</span>；这一页不写 GitHub。</p>
+      <p class="sheet-sub" id="set-sub">下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 <span class="sheet-code">start</span> 起会话时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 <span class="sheet-code">${esc(SETTINGS.store)}</span>；这一页不写 GitHub。</p>
     </div><button class="dp-close" data-set-close aria-label="关闭本机配置">×</button></div>
     <div class="sheet-body">
       ${SET.refused ? `<div class="refused" role="alert"><p class="refused-text"><b>没有保存。</b>这一页打开之后，本机配置在 ${hhmm(at)} 被别处改过（一个 agent 从命令行改的）。重新读取会换成现在保存着的内容，你刚才改的 ${SET.refused} 处要再改一次。</p><button class="btn" id="set-reread">重新读取</button></div>` : ''}
       <section class="set-block">
         <div class="set-block-head"><span class="dp-section-title">本机的 host</span>
-          <span class="scan">${SET.scanning ? '<span class="spin"></span>正在问每个 host 的 CLI 有哪些 model…'
-            : `${hhmm(SET.scannedAt)} 扫描 · <button class="linkbtn" id="set-rescan">重新扫描</button>`}</span></div>
+          <span class="scan">${SET.scanning ? `<span class="spin"></span>${L.source(d) === 'paseo' ? '正在向 Paseo 要每个 host 的 model…' : '正在问每个 host 的 CLI 有哪些 model…'}`
+            : `${hhmm(SET.scannedAt)} 问${SET.scanSource === 'paseo' ? ' Paseo' : '各 host 的 CLI'} · <button class="linkbtn" id="set-rescan">重新扫描</button>`}</span></div>
         <div class="hostscan">${hostChips}</div>
       </section>
       <section class="set-block">
@@ -1528,7 +1551,7 @@ function renderSettings() {
           ${select('runner', 'runner', L.runnerOptions(d), 'runner', SET.scanning)}
           ${foot('runner')}
         </div>
-        <p class="set-note">环境变量 <span class="sheet-code">MMW_RUNNER</span> 设了时，它优先于这一格。「按所在环境判断」让 <span class="sheet-code">start</span> 看自己跑在哪个 runner 里，判断不出时用 orca。</p>
+        <p class="set-note">环境变量 <span class="sheet-code">MMW_RUNNER</span> 设了时，它优先于这一格。「按所在环境判断」让 <span class="sheet-code">start</span> 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，<span class="sheet-code">start</span> 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。</p>
       </section>
       <section class="set-block">
         <div class="set-block-head"><span class="dp-section-title">一个角色一行</span></div>
@@ -1576,19 +1599,22 @@ function saveSettings() {
 }
 function rereadSettings() {
   const now = sScene().changedElsewhere.saved;
-  SET.saved = copy(now); SET.draft = copy(now);
+  SET.saved = copy(now); SET.draft = copy(now); SET.scanSource = LocalConfig.source(now);
   SET.refused = 0; SET.reread = true; SET.savedAt = null;
   renderSettings();
   toast('已重新读取：reviewer 现在是 codex · gpt 5.6 sol · xhigh。');
 }
+// A rescan asks the place the runner on screen points at: Paseo for paseo, the CLIs otherwise.
 function rescanSettings() {
+  const source = LocalConfig.source(SET.draft);
   SET.scanning = true;
   renderSettings();
   setTimeout(() => {
     if (!SET.open) return;
-    SET.scanning = false; SET.scannedAt = later(1);
+    SET.scanning = false; SET.scannedAt = later(1); SET.scanSource = source;
     renderSettings();
-    toast('示例：真的 board 在这里重新问一遍每个 host 的 CLI。');
+    toast(source === 'paseo' ? '示例：真的 board 在这里向 Paseo 要每个 host 的 model；这台机器的 Paseo 没开。'
+      : '示例：真的 board 在这里重新问一遍每个 host 的 CLI。');
   }, 1400);
 }
 function settingsKey(e) {
@@ -1606,11 +1632,18 @@ function settingsKey(e) {
 }
 
 $('open-settings').onclick = openSettings;
+$('refresh').onclick = () => {
+  if (scene().readFailed) { toast(`示例：重读仍然失败，下面还是 ${hhmm(scene().readAt)} 的数据。`); return; }
+  S.refreshedAt = NOW;
+  renderTop();
+  toast('示例：真的 board 在这里立刻重读一次 GitHub；页面开着时它每分钟自己读一次。');
+};
 $('settings').addEventListener('change', e => {
   const s = e.target.closest('select[data-cell]');
   if (!s) return;
   SET.savedAt = null;
-  LocalConfig.setCell(sScene(), SET.draft, s.dataset.key, s.dataset.cell, s.value);
+  LocalConfig.setCell(sScan(), SET.draft, s.dataset.key, s.dataset.cell, s.value);
+  if (LocalConfig.source(SET.draft) !== SET.scanSource) { rescanSettings(); return; }
   renderSettings();
   $(s.id)?.focus();
 });

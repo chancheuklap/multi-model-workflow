@@ -3,7 +3,7 @@
    appears here. A cell `start` would refuse is hatched ink, the same treatment the top bar
    gives a failed read. */
 
-/* the gear at the right end of the top bar */
+/* the two icon buttons at the right end of the top bar: refresh, then the settings gear */
 .gear {
   flex: none; width: 30px; height: 30px; display: inline-grid; place-items: center; padding: 0;
   border: 1px solid var(--rule); border-radius: 7px; background: var(--panel); color: var(--soft); cursor: pointer;
@@ -50,6 +50,7 @@
 .hs-name { font: 600 10.5px var(--mono); color: var(--hs-name, var(--ink)); }
 .hs.missing { border-style: dashed; color: var(--faint); --hs-name: var(--soft); }
 .hs.silent { border-style: dashed; color: var(--faint); --hs-name: var(--soft); }
+.hs.down { border-style: dashed; color: var(--faint); --hs-name: var(--soft); }
 
 /* one grid template for the header and every row, so the columns line up down the table */
 .roles { --cols: 150px 100px minmax(0, 1fr) 104px; display: flex; flex-direction: column; }

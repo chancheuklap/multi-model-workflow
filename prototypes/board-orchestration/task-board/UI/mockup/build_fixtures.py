@@ -23,7 +23,9 @@ markers is copied into `../work/data/fixtures.js` the way the board logic is. It
 hosts, their CLI binaries and the default rows are `hosts.json` read by `load_hosts`, the
 runners are the adapters under `scripts/runners/`, and each host's `model` and `effort`
 options are `fillable_rows` of an example catalog in the shape `scan_cli_catalogs` returns
-when it asks the hosts' CLIs — the everyday names `start` resolves. A saved configuration
+when it asks the hosts' CLIs — the everyday names `start` resolves. Each scene also carries
+the scan asked of Paseo, shown when the runner is `paseo`; in every scene Paseo's daemon is
+not running, so that scan has no host answering. A saved configuration
 holds the runner and all five agents' rows; a new machine's is MMW's initial values
 (`hosts.json` `defaults`, `models.DEFAULT_RUNNER`), every other one is example data.
 """
@@ -441,6 +443,11 @@ def scanned(catalog: dict[str, list[dict]], missing: frozenset[str] = frozenset(
     return out
 
 
+def paseo_down() -> dict[str, dict]:
+    """The same scan asked of Paseo while its daemon is not running: no host answers."""
+    return {host: {"state": "down", "offered": []} for host in models.CLI_HOSTS}
+
+
 def config(runner: str, rows: dict[str, tuple[str, str, str]]) -> dict:
     """One saved configuration: the runner, and every agent's host, model and effort."""
     return {"runner": runner, "rows": {a: dict(zip(("host", "model", "effort"), rows[a])) for a in models.ALLOWED_AGENTS}}
@@ -458,20 +465,26 @@ def settings() -> dict:
     hosts = models.load_hosts()
     initial = {r["agent"]: (r["host"], r["model"], r["effort"]) for r in hosts["defaults"]}
     full = scanned(example_catalog())
+    # Each scene carries both scans a page can show: asked of the hosts' own CLIs, and asked
+    # of Paseo. Which one the page shows follows the runner, as the one `start` asks does.
+    both = lambda cli: {"cli": cli, "paseo": paseo_down()}  # noqa: E731
     scenes = {
-        "mine": {"name": "本机配置合法", "scannedAt": iso("07:02"), "hosts": full,
+        "mine": {"name": "本机配置合法", "scannedAt": iso("07:02"), "scans": both(full),
                  "saved": config("orca", MINE)},
         # A new machine: the first install filled in MMW's initial values, and one of them
         # names a host this machine does not have.
         "fresh": {"name": "新机器 · 初始值里的 cursor 没装", "scannedAt": iso("07:02"),
-                  "hosts": scanned(example_catalog(), missing=frozenset({"cursor"})),
+                  "scans": both(scanned(example_catalog(), missing=frozenset({"cursor"}))),
                   "saved": config(models.DEFAULT_RUNNER, initial)},
         # A saved model the host's CLI no longer lists.
         "retired": {"name": "选中的 model 本机已经没有", "scannedAt": iso("07:30"),
-                    "hosts": scanned(example_catalog({"claude": {"claude-fable-5"}})),
+                    "scans": both(scanned(example_catalog({"claude": {"claude-fable-5"}}))),
                     "saved": config("orca", {**MINE, "advisor": ("claude", "fable 5", "medium")})},
         # Saved again elsewhere after the page opened: an agent changed reviewer from the command line.
-        "changed": {"name": "打开后被别处改过", "scannedAt": iso("07:02"), "hosts": full,
+        # The runner is paseo, so the page asks Paseo, and Paseo's daemon is not running.
+        "paseo-off": {"name": "runner 是 paseo · Paseo 没开", "scannedAt": iso("07:02"), "scans": both(full),
+                      "saved": config("paseo", MINE)},
+        "changed": {"name": "打开后被别处改过", "scannedAt": iso("07:02"), "scans": both(full),
                     "saved": config("orca", MINE),
                     "changedElsewhere": {"at": iso("07:44"),
                                          "saved": config("orca", {**MINE, "reviewer": ("codex", "gpt 5.6 sol", "xhigh")})}},
