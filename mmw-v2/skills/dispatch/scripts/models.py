@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 import os
 import re
 import subprocess
@@ -23,7 +24,7 @@ ALLOWED_AGENTS = (
     "junior-worker", "senior-worker", "reviewer", "verifier", "advisor")
 # Lody cuts its own worktree. Level 4 must not pick it; ticket / env / live may.
 WORKTREE_OWNING = frozenset({"lody"})
-DEFAULT_RUNNER = "paseo"
+DEFAULT_RUNNER = "orca"
 # Herdr checkout asks the host CLI; Paseo checkout asks paseo. Tests set
 # MMW_CATALOG_MODE or MMW_HOST_CATALOG.
 DEFAULT_CATALOG_MODE = "herdr"
@@ -147,26 +148,20 @@ class SessionRow(NamedTuple):
     host: str
     model: str
     effort: str
-    primary: bool
 
 
 def session_rows(path: Path | None = None) -> list[SessionRow]:
-    """第一条是 start 用的 host，后一条是 fallback。同一 agent 不能两个同一 host。"""
+    """一个 agent 一行：今晚这个角色跑在哪，只有一个答案。"""
     source = path or _models_file()
-    primary_host: dict[str, str] = {}
-    have_fallback: set[str] = set()
+    seen: set[str] = set()
     out: list[SessionRow] = []
     for agent, host, model, effort in parse_live_rows(source):
-        if agent not in primary_host:
-            primary_host[agent] = host
-            out.append(SessionRow(agent, host, model, effort, True))
-            continue
-        if host == primary_host[agent]:
-            raise ValueError(f"{source}: {agent} has two rows on {host}")
-        if agent in have_fallback:
-            raise ValueError(f"{source}: {agent} has more than one fallback row")
-        have_fallback.add(agent)
-        out.append(SessionRow(agent, host, model, effort, False))
+        if agent in seen:
+            raise ValueError(
+                f"{source}: {agent} has two rows, and an agent has one; "
+                f"delete the row you do not want tonight")
+        seen.add(agent)
+        out.append(SessionRow(agent, host, model, effort))
     return out
 
 
@@ -756,7 +751,16 @@ def resolve_row(host: str, model: str, effort: str) -> tuple[str, str, str]:
 
 
 def bypass_argv(host: str, model: str, effort: str, name: str) -> list[str]:
-    """Resolved model expanded to the argv after `herdr agent start … --`."""
+    """The host CLI's own launch flags, model and effort filled in.
+
+    Read from the `herdr` block of a host in hosts.json. That block is the host's
+    command-line argv and nothing Herdr-specific: every runner that starts a host by
+    running its CLI in a terminal — Herdr after `agent start … --`, Orca inside
+    `terminal create --command` — runs these same flags, so an edit to the block is an
+    edit to how that host starts on all of them. The runner adapters build their launch
+    line from here (`models.py bypass-argv` and `models.py launch-line`); none keeps a
+    copy. An empty effort (`—`) drops the effort flag rather than passing `—`.
+    """
     spec = load_hosts()["hosts"].get(host)
     if not spec or "herdr" not in spec:
         raise ValueError(f"no bypass argv for host {host}")
@@ -819,19 +823,46 @@ def thinking_option(host: str, effort: str, offering: dict | None = None) -> str
     return effort
 
 
-def resolve_session(agent: str, nth: int = 1) -> SessionRow:
+def resolve_session(agent: str) -> SessionRow:
     rows = [r for r in session_rows() if r.agent == agent]
-    if nth < 1 or nth > len(rows):
-        raise ValueError(f"no row {nth} for {agent}")
-    row = rows[nth - 1]
+    if not rows:
+        raise ValueError(f"no row for {agent}")
+    row = rows[0]
     host, model, effort = resolve_row(row.host, row.model, row.effort)
-    return SessionRow(row.agent, host, model, effort, row.primary)
+    return SessionRow(row.agent, host, model, effort)
 
 
-def row_tsv(agent: str, nth: int = 1) -> str:
+def row_tsv(agent: str) -> str:
     """host<TAB>resolved-model<TAB>effort for dispatch.sh."""
-    row = resolve_session(agent, nth)
+    row = resolve_session(agent)
     return f"{row.host}\t{row.model}\t{row.effort}"
+
+
+def runner_name(environ: Mapping[str, str] | None = None) -> str:
+    """Tonight's runner: MMW_RUNNER, then the live table's runner row, then the
+    innermost runner this process runs in, then the default."""
+    env = os.environ if environ is None else environ
+    return pick_runner(
+        env=env.get("MMW_RUNNER"),
+        live=parse_live_runner(),
+        runtime=env,
+    )
+
+
+def paseo_run_args(host: str, model: str, effort: str) -> list[str]:
+    """The `paseo run` flags for a host: provider/model, mode and thinking level.
+
+    `paseo run` carries `--mode` and `--thinking` and no other setting (Paseo 0.7.2,
+    `cli/dist/commands/agent/run.js`), so a host's `features` are not passed.
+    """
+    settings = create_agent_settings(host)
+    argv = ["--provider", f"{host}/{model}"]
+    if settings.get("modeId"):
+        argv += ["--mode", str(settings["modeId"])]
+    thinking = thinking_option(host, effort)
+    if thinking is not None:
+        argv += ["--thinking", thinking]
+    return argv
 
 
 def worker_role_names() -> list[str]:
@@ -842,12 +873,48 @@ def worker_role_names() -> list[str]:
     return seen
 
 
+def launch_line(host: str, model: str, effort: str, name: str) -> list[str]:
+    """The whole command that starts a host: its binary, then `bypass_argv`."""
+    return [HOST_BINARIES.get(host), *bypass_argv(host, model, effort, name)]
+
+
+USAGE = ("usage: models.py offerings\n"
+         "       models.py runner\n"
+         "       models.py paseo-args <host> <model> <effort>\n"
+         "       models.py bypass-argv <host> <model> <effort> <name>\n"
+         "       models.py launch-line <host> <model> <effort> <name>\n")
+
+
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if args == ["offerings"]:
         print(refresh_live_offerings())
         return 0
-    sys.stderr.write("usage: models.py offerings\n")
+    if args == ["runner"]:
+        print(runner_name())
+        return 0
+    if len(args) == 4 and args[0] == "paseo-args":
+        try:
+            print("\n".join(paseo_run_args(*args[1:])))
+        except (ValueError, OSError, json.JSONDecodeError) as exc:
+            sys.stderr.write(f"models.py: {exc}\n")
+            return 2
+        return 0
+    if len(args) == 5 and args[0] in ("bypass-argv", "launch-line"):
+        verb, host, model, effort, name = args
+        try:
+            if verb == "bypass-argv":
+                print("\n".join(bypass_argv(host, model, effort, name)))
+            else:
+                print(shlex.join(launch_line(host, model, effort, name)))
+        except (ValueError, OSError, json.JSONDecodeError) as exc:
+            # A host with no launch block, or a hosts.json that cannot be read, is a
+            # refusal: starting the host without its model and effort would run a session
+            # nobody asked for, and would look like one that started fine.
+            sys.stderr.write(f"models.py: cannot build the launch line for {host}: {exc}\n")
+            return 2
+        return 0
+    sys.stderr.write(USAGE)
     return 2
 
 

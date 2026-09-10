@@ -48,7 +48,7 @@ class PickRunnerLevelsTest(unittest.TestCase):
             models.pick_runner(runtime=("tmux",), default="paseo"), "tmux")
 
     def test_default_when_nobody_spoke(self):
-        self.assertEqual(models.pick_runner(), "paseo")
+        self.assertEqual(models.pick_runner(), "orca")
 
     def test_ticket_beats_env(self):
         self.assertEqual(
@@ -193,7 +193,7 @@ class LiveRunnerRowTest(unittest.TestCase):
         self.assertEqual(
             models.pick_runner(live=live, runtime={"HERDR_ENV": "1"}),
             "herdr")
-        self.assertEqual(models.pick_runner(live=live), "paseo")
+        self.assertEqual(models.pick_runner(live=live), "orca")
 
 
 if __name__ == "__main__":

@@ -2,30 +2,38 @@
 #
 # Paseo adapter: the three verbs, and nothing else.
 #
-#   runners/paseo.sh start --host H --model M --effort E --cwd DIR [--skip-approval] --prompt TEXT
+#   runners/paseo.sh start --host H --model M --effort E --cwd DIR [--skip-approval]
+#                          [--title T] [--label K=V]... --prompt TEXT
 #   runners/paseo.sh send <session-id> <text>
 #   runners/paseo.sh liveness <session-id>
+#   runners/paseo.sh stop <session-id>
 #
-# start takes host, model, effort, cwd, skip-approval, and the first prompt, and
-# prints a session id, or refuses. Paseo sessions are created by create_agent, so
-# this verb succeeds without calling `paseo run`.
+# start runs `paseo run -d` in DIR and prints the agent id Paseo answers with; exit 1,
+# with the reason on stderr, when Paseo did not start it. The host's mode and thinking
+# level come from `models.py paseo-args`. Labels are put on the agent as given.
 # send: exit 0 the text was delivered; 3 the session is there and did not take it;
 # 2 there is no such session.
 # liveness prints one of `alive`, `stopped`, `unknown` on stdout.
+# stop ends the session: exit 0 it is gone (or was already), 1 it could not be ended.
 #
+# MMW_USES: run -d --json --provider --mode --thinking --cwd --title --label
 # MMW_USES: send --no-wait
 # MMW_USES: ls -g --json
+# MMW_USES: archive --force
 
 set -uo pipefail
+
+HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 
 paseo_() {
   env -u CLICOLOR_FORCE -u CLICOLOR paseo "$@"
 }
 
 usage() {
-  echo "usage: runners/paseo.sh start --host H --model M --effort E --cwd DIR [--skip-approval] --prompt TEXT" >&2
+  echo "usage: runners/paseo.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--label K=V]... --prompt TEXT" >&2
   echo "       runners/paseo.sh send <session-id> <text>" >&2
   echo "       runners/paseo.sh liveness <session-id>" >&2
+  echo "       runners/paseo.sh stop <session-id>" >&2
   exit 2
 }
 
@@ -53,10 +61,21 @@ sys.exit(1)
 }
 
 start() {
+  local host="" model="" effort="" cwd="" prompt="" title=""
+  local -a labels=()
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      --host|--model|--effort|--cwd|--prompt)
+      --host|--model|--effort|--cwd|--prompt|--title|--label)
         [ "$#" -ge 2 ] || usage
+        case "$1" in
+          --host) host="$2" ;;
+          --model) model="$2" ;;
+          --effort) effort="$2" ;;
+          --cwd) cwd="$2" ;;
+          --prompt) prompt="$2" ;;
+          --title) title="$2" ;;
+          --label) labels+=(--label "$2") ;;
+        esac
         shift 2
         ;;
       --skip-approval)
@@ -67,7 +86,36 @@ start() {
         ;;
     esac
   done
-  exit 0
+  [ -n "$host" ] && [ -n "$model" ] && [ -n "$cwd" ] && [ -n "$prompt" ] || usage
+
+  local flags line err out ident
+  local -a args=()
+  flags="$(python3 "$(dirname "$HERE")/models.py" paseo-args "$host" "$model" "$effort")" || exit 1
+  while IFS= read -r line; do
+    [ -z "$line" ] || args+=("$line")
+  done <<<"$flags"
+  [ -z "$title" ] || args+=(--title "$title")
+  err="$(mktemp)"
+  trap 'rm -f "$err"' EXIT
+  # PASEO_WORKSPACE_ID from the caller's terminal would put the agent in that workspace
+  # instead of DIR (`paseo run` ranks it above --cwd).
+  if ! out="$(env -u PASEO_WORKSPACE_ID -u CLICOLOR_FORCE -u CLICOLOR paseo run -d --json \
+        "${args[@]}" --cwd "$cwd" ${labels[@]+"${labels[@]}"} -- "$prompt" 2>"$err")"; then
+    echo "runners/paseo.sh: paseo run refused $host in $cwd: $(tr '\n' ' ' < "$err")" >&2
+    exit 1
+  fi
+  ident="$(printf '%s' "$out" | python3 -c '
+import json, sys
+try:
+    print(json.load(sys.stdin).get("agentId") or "")
+except Exception:
+    pass
+')"
+  if [ -z "$ident" ]; then
+    echo "runners/paseo.sh: paseo run answered without an agentId, so there is no session to report: $out" >&2
+    exit 1
+  fi
+  printf '%s\n' "$ident"
 }
 
 send() {
@@ -77,7 +125,13 @@ send() {
   rc=$?
   case "$rc" in
     1) exit 2 ;;
-    2) exit 3 ;;
+    2)
+      # Could not ask Paseo at all. That is not "no such session" (exit 2 tells the caller
+      # never to send again), so it takes the retry answer, 3 — but says why, because 3
+      # alone reads as "it is in a turn", which nobody checked.
+      echo "runners/paseo.sh: could not ask Paseo whether $ident is there (paseo ls failed or answered in a shape this cannot read); nothing was sent" >&2
+      exit 3
+      ;;
   esac
   if out="$(paseo_ send --no-wait "$ident" "$text" 2>&1)"; then
     exit 0
@@ -115,6 +169,16 @@ liveness() {
   exit 0
 }
 
+stop() {
+  local ident="${1:-}"
+  [ -n "$ident" ] || usage
+  ls_status "$ident" >/dev/null
+  [ "$?" = 1 ] && exit 0
+  # --force interrupts an agent mid-turn; plain archive refuses a running one.
+  paseo_ archive --force "$ident" >/dev/null 2>&1 || exit 1
+  exit 0
+}
+
 [ "$#" -ge 1 ] || usage
 verb="$1"
 shift
@@ -122,5 +186,6 @@ case "$verb" in
   start) start "$@" ;;
   send) send "$@" ;;
   liveness) liveness "$@" ;;
+  stop) stop "$@" ;;
   *) usage ;;
 esac
