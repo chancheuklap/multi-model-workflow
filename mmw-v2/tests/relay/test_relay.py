@@ -44,13 +44,28 @@ def started(cid: int, ticket: int, session: str, runner: str = "paseo") -> dict:
     return comment(cid, "worker.started", ticket, runner=runner, session=session)
 
 
+# What each event must carry to be an event at all (`events.EVENTS`), for the fixtures
+# below that do not care about those fields.
+REQUIRED = {
+    "verifier.passed": {"commit": "a" * 40},
+    "verifier.failed": {"commit": "a" * 40},
+    "ticket.refused": {"reason": "blocked"},
+    "ticket.released": {"reason": "worker-lost"},
+    "child.opened": {"child": 90, "kind": "review"},
+    "worker.lost": {"session": "gone", "runner": "paseo"},
+    "worker.started": {"host": "grok", "model": "grok-4.6", "effort": "high", "grade": "junior-worker", "worktree": "/repo/.worktrees/issue-61", "branch": "issue-61", "base": "0" * 40},
+    "reviewer.started": {"session": "rv-1", "runner": "paseo"},
+    "verifier.started": {"session": "vf-1", "runner": "paseo"},
+}
+
+
 def comment(cid: int, event: str | None, ticket: int | None = None,
             updated: datetime = T0, **payload) -> dict:
-    """One GitHub issue comment; with an event it ends with the hidden mmw block."""
+    """One GitHub issue comment; with an event it is written the way the scripts write one."""
     body = "a first line for people, worded any way"
     if event:
-        block = {"v": 1, "event": event, "ticket": ticket, **payload}
-        body += "\n\n<!-- mmw " + json.dumps(block) + " -->"
+        body = relay.events.build(event, ticket=ticket, line=body, at=stamp(updated),
+                                  **{**REQUIRED.get(event, {}), **payload})
     return {"id": cid, "body": body, "created_at": stamp(updated), "updated_at": stamp(updated)}
 
 
@@ -206,9 +221,9 @@ class QueueTest(RelayCase):
             comment(105, "verifier.started", 61),
             comment(106, "verifier.failed", 61),
             comment(107, "verifier.passed", 61),
-            comment(108, "child.opened", 61, kind="finding"),
-            comment(109, "child.opened", 61, kind="deferred"),
-            comment(110, "child.opened", 61, kind="fault"),
+            comment(108, "child.opened", 61, kind="review"),
+            comment(109, "child.opened", 61, kind="outside-owns"),
+            comment(110, "child.opened", 61, kind="pipeline"),
             comment(111, "child.opened", 61, kind="decision"),
             comment(112, "ticket.passed", 61),
             comment(113, "ticket.landed", 61),
@@ -293,10 +308,13 @@ class WorkerRecipientTest(RelayCase):
         self.assertEqual(self.err.getvalue(), "")
 
     def test_a_worker_started_without_runner_and_session_is_reported(self):
-        self.board[61].append(comment(101, "worker.started", 61, session="wk-a"))
+        # Written by hand, not by a script: the event table refuses to build this one.
+        bare = '{"v":1,"event":"worker.started","ticket":61,"session":"wk-a"}'
+        self.board[61].append({"id": 101, "body": f"started\n\n<!-- mmw {bare} -->",
+                               "created_at": stamp(T0), "updated_at": stamp(T0)})
         self.board[61].append(comment(102, "reviewer.reported", 61))
         self.poll()
-        self.assertIn("comment 101 on #61 was not translated: its worker.started names no runner and session",
+        self.assertIn("comment 101 on #61 was not translated: `worker.started` carries no `runner`",
                       self.err.getvalue())
         self.assertEqual(self.rows(), [])
 
@@ -359,6 +377,15 @@ class ReadEventTest(unittest.TestCase):
     def test_a_name_outside_subject_verb_is_unreadable(self):
         with self.assertRaises(relay.UnreadableEvent):
             relay.read_event('<!-- mmw {"v":1,"event":"ALL MET"} -->')
+
+    def test_an_event_missing_a_field_it_requires_is_unreadable(self):
+        with self.assertRaises(relay.UnreadableEvent):
+            relay.read_event('<!-- mmw {"v":1,"event":"worker.started","ticket":61} -->')
+
+    def test_what_the_scripts_write_is_what_the_relay_reads(self):
+        body = relay.events.build("worker.started", ticket=61, line="worker started",
+                                  session="term_7", runner="orca", **REQUIRED["worker.started"])
+        self.assertEqual(relay.read_event(body)["session"], "term_7")
 
 
 class DeliveryTest(RelayCase):

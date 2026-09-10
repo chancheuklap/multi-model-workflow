@@ -1,28 +1,28 @@
 #!/usr/bin/env python3
-"""One read-only view of every ticket under a spec and every Paseo agent on one.
+"""One read-only view of every ticket under a spec, computed from the tickets' events.
 
-    status.py --table <spec>          print one table and exit
-    status.py --advance-plan <spec>   what `dispatch.sh advance` has to do, in order
-    status.py --worker-grades <spec>  the worker-grade labels of every ticket in the queue
-    status.py --summary <spec>        print the night summary; do not post it
+    status.py --table <spec>            print one table and exit
+    status.py --advance-plan <spec>     what `dispatch.sh advance` has to do, in order
+    status.py --reverify-plan <spec>    the landed tickets `dispatch.sh reverify` runs again
+    status.py --worker-grades <spec>    the worker-grade labels of every ticket in the queue
+    status.py --summary <spec>          print the night summary; do not post it
+    status.py --land-plan <n>...        what landing each of these tickets calls for
 
-One program, four forms, reading the same two sources, so there is never a second
-truth to reconcile. `--table` is what an agent runs when it wants the whole picture
-in one screen. Nothing this program does needs a model, and nothing it does writes
-to the tracker or to Paseo.
-
-The two sources are the tracker (`gh`) and Paseo (`paseo ls` / `paseo inspect`),
-and nothing else. There is no state file: each invocation is a full re-read.
-
-Which ticket an agent belongs to is the basename of its `cwd`: `issue-<n>`. Kind is
-the `--label mmw.kind=` filter that returned the row — CLI `paseo ls --json` does
-not carry labels in the body, so the script asks once per kind. `phase` and the
-criteria count come off the ticket's comments.
+One program, six forms, reading one source, so there is never a second truth to
+reconcile. The source is the tracker (`gh`): each ticket's state, labels, assignees and
+blocking links, and its comments. Where a ticket stands — which agent sessions were
+started on it and on which runner, whether its worker is still live, whether it passed,
+landed or came back — is the fold of its comments' events, computed by `events.py` of
+the verify-ticket skill (`MMW_EVENTS_PY` names it when `dispatch.sh` resolved it
+somewhere else). Nothing here asks a runner what it is running: a runner answers for
+one machine, and the ticket answers for all of them. Nothing this program does needs a
+model, and nothing it does writes to the tracker. Each invocation is a full re-read.
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -31,6 +31,22 @@ import sys
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+
+def _load_events():
+    default = Path(__file__).resolve().parents[2] / "verify-ticket" / "scripts" / "events.py"
+    path = Path(os.environ.get("MMW_EVENTS_PY") or default)
+    if not path.is_file():
+        sys.stderr.write(f"dispatch: no events.py at {path}; the verify-ticket skill has to "
+                         f"sit beside this one, or MMW_EVENTS_PY has to name its events.py\n")
+        raise SystemExit(2)
+    spec = importlib.util.spec_from_file_location("mmw_events", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+events = _load_events()
 
 # --------------------------------------------------------------------- reading
 
@@ -64,81 +80,6 @@ def own_login() -> str:
     return gh(["api", "user", "-q", ".login"]).strip()
 
 
-def paseo(args: list[str]) -> str:
-    """`paseo` with the same colour stripping as `gh`."""
-    env = dict(os.environ)
-    env.pop("CLICOLOR_FORCE", None)
-    env.pop("CLICOLOR", None)
-    run = subprocess.run(["paseo", *args], capture_output=True, text=True, env=env,
-                         timeout=20)
-    if run.returncode != 0:
-        raise RuntimeError(f"paseo {' '.join(args)}: exit {run.returncode}")
-    return run.stdout
-
-
-def paseo_json(args: list[str]):
-    text = paseo(args)
-    if not text.strip():
-        raise RuntimeError(f"paseo {' '.join(args)}: no answer")
-    return json.loads(text)
-
-
-AGENT_KINDS = ("worker", "reviewer", "verifier")
-
-
-def agents_awaiting_permission() -> set[str]:
-    """The id of every agent this daemon is holding a permission prompt for.
-
-    One call for the whole machine, so the table costs the same however many agents a
-    batch has. A call that could not be made is an empty set rather than an error: the
-    only thing it feeds is the `needs permission` note, and every other cell of the row
-    is worth printing without it.
-    """
-    try:
-        rows = paseo_json(["permit", "ls", "--json"])
-    except Exception:
-        return set()
-    if not isinstance(rows, list):
-        return set()
-    return {row["agentId"] for row in rows
-            if isinstance(row, dict) and row.get("agentId")}
-
-
-def live_agents(spec: int) -> list[dict]:
-    """Every live agent labelled `mmw.spec=<spec>`, and whether it is waiting on a person.
-
-    `paseo ls --json` has no labels in the body, so both filters are `--label` on
-    the call: one `ls` per `mmw.kind`. Raises when `ls` itself could not be
-    asked: an unanswered call is not an empty list.
-    """
-    out = []
-    seen: set[str] = set()
-    for kind in AGENT_KINDS:
-        rows = paseo_json([
-            "ls", "-g", "--json",
-            "--label", f"mmw.spec={spec}",
-            "--label", f"mmw.kind={kind}",
-        ])
-        if not isinstance(rows, list):
-            raise RuntimeError("paseo ls: expected a list")
-        for row in rows:
-            if not isinstance(row, dict) or not row.get("id"):
-                continue
-            agent_id = row["id"]
-            if agent_id in seen:
-                continue
-            seen.add(agent_id)
-            merged = dict(row)
-            merged["kind"] = kind
-            merged["waiting_on_permission"] = False
-            out.append(merged)
-    if out:
-        waiting = agents_awaiting_permission()
-        for row in out:
-            row["waiting_on_permission"] = row["id"] in waiting
-    return out
-
-
 def sub_issues(number: int) -> list[int]:
     """The issue's own children, followed through the tracker's native relation.
 
@@ -163,7 +104,9 @@ def read_ticket(number: int) -> dict:
 def normalise_ticket(number: int, raw: dict) -> dict:
     labels = [l.get("name") for l in raw.get("labels") or [] if isinstance(l, dict)]
     nodes = (raw.get("blockedBy") or {}).get("nodes") or []
-    bodies = [c.get("body") or "" for c in raw.get("comments") or [] if isinstance(c, dict)]
+    comments = [c for c in raw.get("comments") or [] if isinstance(c, dict)]
+    blocked_by = [{"number": int(n["number"]), "state": (n.get("state") or "").upper()}
+                  for n in nodes if isinstance(n, dict) and n.get("number")]
     return {
         "number": number,
         "state": (raw.get("state") or "").upper(),
@@ -173,11 +116,12 @@ def normalise_ticket(number: int, raw: dict) -> dict:
         "closed_at": raw.get("closedAt") or "",
         "labels": labels,
         "assignees": [a.get("login") for a in raw.get("assignees") or [] if isinstance(a, dict)],
-        "blockers": [int(n["number"]) for n in nodes
-                     if isinstance(n, dict) and n.get("state") != "CLOSED" and n.get("number")],
-        "comments": bodies,
-        # `gh_json` answers `{}` when the call fails. That child still exists as a
-        # number; folding it into "not a review" would drop it from every slot.
+        "blocked_by": blocked_by,
+        "blockers": [b["number"] for b in blocked_by if b["state"] != "CLOSED"],
+        "comments": [c.get("body") or "" for c in comments],
+        "fold": events.fold(comments, issue=number),
+        # `gh_json` answers `{}` when the call fails. That ticket still exists as a
+        # number; reading it as an empty ticket would drop it from every decision.
         "unread_raw": not raw,
     }
 
@@ -188,19 +132,36 @@ def first_line(text: str) -> str:
     return stripped.splitlines()[0].strip() if stripped else ""
 
 
-def last_first_line(ticket: dict) -> str:
-    """The first line of the ticket's newest comment: the pipeline's protocol slot."""
-    comments = ticket.get("comments") or []
-    return first_line(comments[-1]) if comments else ""
-
-
 def newest_with_first_line(ticket: dict, *prefixes: str) -> str:
-    """The newest comment whose first line starts with one of `prefixes`."""
+    """The newest comment whose first line starts with one of `prefixes`.
+
+    Used for the criteria runs alone: `self-run` and `reverify` comments are the ledger
+    each run posts, not events, and their counts are read off them.
+    """
     for body in reversed(ticket.get("comments") or []):
         head = first_line(body)
         if any(head.startswith(p) for p in prefixes):
             return body
     return ""
+
+
+def head_of(ticket: dict) -> str:
+    """The line a person reads as where the ticket stands.
+
+    The first line of the newest event, or, on a ticket that carries none, of the newest
+    comment. It is shown and never decided on.
+    """
+    last = ticket["fold"]["last"]
+    if last:
+        return last["line"]
+    comments = ticket.get("comments") or []
+    return first_line(comments[-1]) if comments else ""
+
+
+def outcome_line(ticket: dict) -> str:
+    """The first line of the ticket's own result, `ticket.passed` or `ticket.returned`."""
+    outcome = ticket["fold"]["outcome"]
+    return outcome["line"] if outcome else head_of(ticket)
 
 
 # The three summary lines gate-check prints, one of which is the second line of every
@@ -239,205 +200,202 @@ def counted_ac(ticket: dict) -> str:
     return "-"
 
 
-# The protocol-slot prefixes that name a `phase`. Newest matching comment wins.
-PHASE_MARKERS = (
-    "self-run",
-    "reverify",
-    "VERDICT",
-    "DECISIONS",
-    "REVIEW",
-    "ALL MET",
-    "HANDOFF REQUIRED",
-)
-
-
 def phase_of(ticket: dict) -> str:
-    """Where the ticket stands, read off the newest protocol-slot comment, or `-`."""
-    body = newest_with_first_line(ticket, *PHASE_MARKERS)
-    head = first_line(body)
-    for prefix in PHASE_MARKERS:
-        if head.startswith(prefix):
-            return prefix
-    if ticket.get("state") == "CLOSED":
-        return "closed"
-    return "-"
-
-# --------------------------------------------------------------------- the sessions
-
-ISSUE_DIR = re.compile(r"^issue-(\d+)$")
-
-
-def ticket_of_cwd(cwd: str) -> int | None:
-    """The ticket number encoded as the basename of a worktree, or None."""
-    base = Path((cwd or "").rstrip("/")).name
-    found = ISSUE_DIR.fullmatch(base)
-    return int(found.group(1)) if found else None
-
-
-def sessions(agents: list[dict]) -> list[dict]:
-    """The spec's live agents, each named as a ticket and a kind.
-
-    A live agent whose `cwd` basename is not `issue-<n>` is not ours. Kind is
-    whatever `live_agents` set from the `mmw.kind` filter; a missing kind is a
-    worker, which is what a test fixture that only names the ticket produces.
-    An agent whose kind is not `worker`, `reviewer` or `verifier` is not ours.
-    """
-    found = []
-    for agent in agents:
-        number = ticket_of_cwd(agent.get("cwd") or "")
-        if number is None:
-            continue
-        kind = agent.get("kind") or "worker"
-        if kind not in AGENT_KINDS:
-            continue
-        found.append({
-            "ticket": number,
-            "kind": kind,
-            "name": agent.get("name") or "",
-            "id": agent.get("id") or "",
-            "status": agent.get("status") or "-",
-            "cwd": agent.get("cwd") or "",
-            "created": agent.get("created") or "",
-            "waiting_on_permission": bool(agent.get("waiting_on_permission")),
-        })
-    return found
+    """The newest event on the ticket, by name; `closed` or `-` on a ticket with none."""
+    last = ticket["fold"]["last"]
+    if last:
+        return last["event"]
+    return "closed" if ticket.get("state") == "CLOSED" else "-"
 
 
 def in_flight(ticket: dict) -> bool:
-    """Whether this ticket is still being worked, read off the tracker.
-
-    Paseo's agent status cannot answer this. An agent that has finished stops at
-    `idle`, and so does one asleep on a subagent: measured on 2026-09-07, 43 agents
-    that had run to completion showed `idle` and not one showed `closed`, which a
-    session only reaches when somebody terminates it. Anything keyed on that status
-    therefore reads every ticket as still being worked, for ever.
-
-    The tracker does answer it, in three bands, and the third is the one that keeps
-    this safe:
+    """Whether `land` may treat this ticket's work as still going on, read off the tracker.
 
         CLOSED                          not in flight — the worker wrote its verdict
         OPEN, handed back to triage     not in flight — it said it could not finish
-        OPEN, no verdict either way     unknown, and treated as in flight
+        OPEN, no verdict either way     in flight
 
-    Reading the third band as finished is what closed #159 and #162 on incomplete
-    reviews on 2026-09-06: a reviewer sitting at `idle` while its three axis
-    subagents work looks exactly like one that has stopped. So this band does
-    nothing at all, and a ticket whose worker died without closing out stays claimed
-    until a person looks at it.
+    Only `land_plan` asks this. Whether a worker holds the ticket is the fold's `held`,
+    and no label changes that answer.
     """
     if ticket.get("state") == "CLOSED":
         return False
     return "needs-triage" not in (ticket.get("labels") or [])
 
 
-def worker_on(sessions_: list[dict], number: int, *, holding: bool = True,
-              ticket: dict | None = None) -> dict | None:
-    """The worker session on `number`.
-
-    When `holding` is true — frontier, RELEASE, the table's live count — the question
-    is whether anything still holds this ticket, and `ticket` answers it: a ticket the
-    tracker says is done is held by nobody, whatever Paseo still lists. A `closed`
-    agent holds nothing either; `paseo ls` keeps listing one, since it only drops
-    archived agents. When `holding` is false, the table can still name whatever is there.
-    """
-    workers = [s for s in sessions_
-               if s["ticket"] == number and s["kind"] == "worker"]
-    if holding:
-        if ticket is not None and not in_flight(ticket):
-            return None
-        workers = [s for s in workers if s.get("status") != "closed"]
-    return workers[0] if workers else None
+def passed_unlanded(ticket: dict) -> bool:
+    """Closed with a `ticket.passed` that no `ticket.landed` has followed."""
+    fold = ticket["fold"]
+    return ticket.get("state") == "CLOSED" and fold["passed"] and not fold["landed"]
 
 
-def held(rows: list[dict]) -> list[dict]:
-    """The rows whose worker is a running Paseo agent of this spec."""
-    return [r for r in rows if r["worker"]]
+def landed(ticket: dict) -> bool:
+    """Closed with a `ticket.passed`, and landed since."""
+    fold = ticket["fold"]
+    return ticket.get("state") == "CLOSED" and fold["passed"] and fold["landed"]
+
+
+def unreadable_reason(ticket: dict) -> str:
+    """Why this ticket's events cannot be decided on, or empty when they can."""
+    if ticket.get("unread_raw"):
+        return "the tracker did not answer for it"
+    bad = ticket["fold"]["unreadable"]
+    if not bad:
+        return ""
+    item = bad[0]
+    more = f" (and {len(bad) - 1} more)" if len(bad) > 1 else ""
+    return f"comment {item['comment']}: {item['reason']}{more}"
 
 # --------------------------------------------------------------------- the rows
 
-def build_rows(numbers: list[int], tickets: dict[int, dict],
-               sessions_: list[dict]) -> list[dict]:
-    """One row per ticket, joining what the tracker says to what Paseo sees."""
+def blocker_reason(number: int, state: str, tickets: dict[int, dict], lookup) -> str:
+    """Why blocker `number` still holds its ticket back, or empty when it no longer does.
+
+    A blocker lets go when its work is on the base branch, not when it closes: the
+    ticket it blocks is cut from the base branch and has to find that work there. The
+    signal is `ticket.landed`, read off the blocker's own events. A blocker closed without
+    a pass — by a person, or as not planned — has nothing that will ever land, and lets
+    go on closing.
+    """
+    if state != "CLOSED":
+        return "open"
+    blocker = tickets.get(number) or lookup(number)
+    if blocker is None or blocker.get("unread_raw"):
+        return "the tracker did not answer for it"
+    if blocker["fold"]["unreadable"]:
+        return "its events cannot be read"
+    if not passed_unlanded(blocker):
+        return ""
+    return "passed, not landed"
+
+
+def cached(read):
+    seen: dict[int, dict] = {}
+
+    def lookup(number: int) -> dict:
+        if number not in seen:
+            seen[number] = read(number)
+        return seen[number]
+    return lookup
+
+
+def holder_of(fold: dict) -> dict | None:
+    """What holds the ticket: its newest live session, or the claim no session has taken
+    over yet, or None when nothing does."""
+    if fold["holders"]:
+        return fold["holders"][-1]
+    if fold["claim_hold"]:
+        return {"session": None, "runner": None, "started_at": None, "claim": True}
+    return None
+
+
+def build_rows(numbers: list[int], tickets: dict[int, dict], *, lookup=None) -> list[dict]:
+    """One row per ticket: what the tracker says, and what its events fold to."""
+    lookup = lookup or cached(read_ticket)
     rows = []
     for number in sorted(set(numbers)):
-        ticket = tickets.get(number) or {"number": number, "state": "", "labels": [],
-                                         "assignees": [], "blockers": [], "comments": []}
-        display = worker_on(sessions_, number, holding=False)
-        holder = worker_on(sessions_, number, holding=True, ticket=ticket)
+        ticket = tickets.get(number) or normalise_ticket(number, {})
+        fold = ticket["fold"]
+        blocking = []
+        for node in ticket.get("blocked_by") or []:
+            why = blocker_reason(node["number"], node["state"], tickets, lookup)
+            if why:
+                blocking.append((node["number"], why))
+        shown = fold["worker"]
         rows.append({
             "ticket": number,
-            "worker": holder,
+            "worker": holder_of(fold),
+            "live_workers": fold["live_workers"],
             "state": ticket["state"],
             "labels": ticket["labels"],
-            "blockers": ticket["blockers"],
+            "blockers": [n for n, _ in blocking],
+            "blocking": blocking,
             "assignees": ticket["assignees"],
-            "agent": display["name"] if display else "-",
-            "status": display["status"] if display else "-",
-            "agent_id": (display["id"][:7] if display and display["id"] else "-"),
-            "age": display["created"] if display and display["created"] else "-",
+            "unreadable": unreadable_reason(ticket),
+            "runner": (shown.get("runner") or "-") if shown else "-",
+            "session": (shown.get("session") or "-") if shown else "-",
+            "held": ("live" if shown["live"] else shown.get("ended_by") or "-") if shown else "-",
+            "since": (shown.get("started_at") or "-") if shown else "-",
             "phase": phase_of(ticket),
             "ac": counted_ac(ticket) or "-",
-            "note": note_of(ticket, display, holder),
-            "head": last_first_line(ticket),
+            "head": head_of(ticket),
+            "outcome": outcome_line(ticket),
             "created": ticket.get("created") or "",
             "closed_at": ticket.get("closed_at") or "",
         })
+        rows[-1]["note"] = note_of(ticket, rows[-1])
     return rows
 
 
-def note_of(ticket: dict, worker: dict | None, holder: dict | None = None) -> str:
+def blocking_text(blocking: list[tuple[int, str]]) -> str:
+    return ", ".join(f"#{n}" + ("" if why == "open" else f" ({why})") for n, why in blocking)
+
+
+def note_of(ticket: dict, row: dict) -> str:
     """One short phrase saying where this ticket stands, in the pipeline's own words.
 
-    `worker` is whatever Paseo lists for the ticket; `holder` is that same session only
-    while the tracker says the ticket is still being worked. The two differ exactly
-    when a ticket has come to rest and its agents are still listed — and then the note
-    is the ticket's own verdict plus what is left to do, rather than the blank that
-    means a worker is live.
+    Blank means a worker is live on a ticket still in flight: nothing to say.
     """
-    head = last_first_line(ticket)
-    if worker and not in_flight(ticket):
-        return (head[:44] + " · at rest") if head else "at rest"
-    if worker:
-        if worker.get("status") == "closed":
-            return "closed: archive it"
-        if worker.get("waiting_on_permission"):
-            return "needs permission"
+    head = row["head"]
+    if row["unreadable"]:
+        return ("events unreadable: " + row["unreadable"])[:80]
+    if len(row["live_workers"]) > 1:
+        return (f"{len(row['live_workers'])} live workers: "
+                + ", ".join(r.get("session") or "?" for r in row["live_workers"]))
+    if row["worker"] and row["worker"].get("claim"):
+        return "claimed, no session started yet"
+    if row["worker"]:
         return ""
     if ticket.get("state") == "CLOSED":
         return head[:60]
-    if ticket.get("blockers"):
-        return "waiting on " + ", ".join(f"#{b}" for b in ticket["blockers"])
+    if row["blocking"]:
+        return "waiting on " + blocking_text(row["blocking"])
     if "needs-triage" in (ticket.get("labels") or []):
         return head[:60] or "needs-triage"
     if "ready-for-agent" in (ticket.get("labels") or []):
         return "ready"
     return head[:60]
 
+
+def held(rows: list[dict]) -> list[dict]:
+    """The rows a live worker holds."""
+    return [r for r in rows if r["worker"]]
+
 # --------------------------------------------------------------------- the frontier
 
 def off_frontier_reasons(row: dict) -> list[str]:
-    """Which of `frontier`'s last three conditions this ticket fails, in that order.
+    """Which of `frontier`'s last four conditions this ticket fails, in that order.
 
     Read for a ticket already known to be open and in the agent queue, so the first
     two conditions are behind it.
     """
     reasons = []
-    if row["blockers"]:
-        reasons.append("blocked by " + ", ".join(f"#{b}" for b in row["blockers"]))
+    if row["unreadable"]:
+        reasons.append("its events cannot be read — " + row["unreadable"])
+    if row["blocking"]:
+        reasons.append("blocked by " + blocking_text(row["blocking"]))
     if row["assignees"]:
         reasons.append("claimed by " + ", ".join(row["assignees"]))
-    if row["worker"] is not None:
-        worker = row["worker"]
-        reasons.append(f"held by the worker {worker['name']} ({worker['status']})")
+    worker = row["worker"]
+    if worker is not None and worker.get("claim"):
+        reasons.append("held by its ticket.claimed, which no started session has taken "
+                       "over; if the worker that claimed it is gone, retract it")
+    elif worker is not None:
+        reasons.append(f"held by the worker {worker.get('session') or '?'} on "
+                       f"{worker.get('runner') or '?'}, started "
+                       f"{worker.get('started_at') or 'at an unrecorded time'}; if that "
+                       f"session is gone, retract it")
     return reasons
 
 
 def frontier(rows: list[dict]) -> list[dict]:
     """The tickets that may be started right now, in ticket order.
 
-    Open, in the agent queue, every blocker closed, nobody has claimed it, and no live
-    worker already holds it. The last of those is what keeps a second round from
-    starting a second worker on a ticket the first one is still doing.
+    Open, in the agent queue, events readable, every blocker landed, nobody has claimed
+    it, and nothing holds it — no `ticket.claimed` and no started session that an event
+    has not ended. The last of those is what keeps a second round from starting a second
+    worker on a ticket the first one is still doing, on whichever runner and machine
+    that worker was started.
     """
     return [r for r in rows
             if r["state"] == "OPEN"
@@ -446,12 +404,7 @@ def frontier(rows: list[dict]) -> list[dict]:
 
 
 def why_not_on_frontier(row: dict) -> str:
-    """Which of `frontier`'s conditions this ticket fails, in that function's order.
-
-    Read only for a ticket already known to be open and in the agent queue, so the
-    first two conditions are behind it and the three left are the ones a person cannot
-    see from outside this program.
-    """
+    """Which of `frontier`'s conditions this ticket fails, in that function's order."""
     return ("; ".join(off_frontier_reasons(row))
             or "open, unclaimed, unblocked and unheld: it should have started")
 
@@ -460,8 +413,7 @@ def explain_empty_frontier(rows: list[dict], spec: int) -> None:
     """Say on stderr why nothing can start, one line per ticket still in the queue.
 
     A frontier that is empty because the batch is finished and a frontier that is empty
-    because every ticket is stuck print the same thing — nothing — and what separates
-    them is five conditions no reader can see from outside `frontier`. So whenever the
+    because every ticket is stuck print the same thing — nothing — so whenever the
     batch still holds open tickets in the agent queue and none of them can start, each
     of those tickets names the condition holding it.
     """
@@ -476,8 +428,8 @@ def explain_empty_frontier(rows: list[dict], spec: int) -> None:
 
 # --------------------------------------------------------------------- output
 
-COLUMNS = (("ticket", 8), ("agent", 18), ("id", 8), ("agent_status", 14),
-           ("age", 16), ("phase", 19), ("ac", 7), ("note", 0))
+COLUMNS = (("ticket", 8), ("runner", 8), ("session", 16), ("worker", 18),
+           ("since", 22), ("phase", 19), ("ac", 7), ("note", 0))
 
 
 def render_row(cells: dict) -> str:
@@ -499,10 +451,10 @@ def render_table(rows: list[dict], spec: int | None, now: datetime) -> str:
     for row in rows:
         lines.append(render_row({
             "ticket": f"#{row['ticket']}",
-            "agent": row["agent"],
-            "id": row["agent_id"],
-            "agent_status": row["status"],
-            "age": row["age"],
+            "runner": row["runner"],
+            "session": row["session"],
+            "worker": row["held"],
+            "since": row["since"],
             "phase": row["phase"],
             "ac": row["ac"],
             "note": row["note"],
@@ -516,9 +468,9 @@ NIGHT_SUMMARY = "NIGHT SUMMARY {date}"
 def night_opened(now: datetime | None = None) -> str:
     """Sixteen hours before now, the window `--summary` treats as tonight.
 
-    The old board process used the moment it started. This program has no process
-    that lives the night, so the window is a lookback long enough to cover a night
-    that started in the evening and is summarised the next morning.
+    This program has no process that lives the night, so the window is a lookback long
+    enough to cover a night that started in the evening and is summarised the next
+    morning.
     """
     now = now or datetime.now(timezone.utc)
     if now.tzinfo is None:
@@ -527,53 +479,36 @@ def night_opened(now: datetime | None = None) -> str:
         "%Y-%m-%dT%H:%M:%SZ")
 
 
-# Newest-comment first lines that classify a review sub-issue. Shapes taken
-# from the close comments triage left on #216's children. A CLOSED ticket
-# whose newest comment matches none of these is unread. A ticket the tracker
-# could not answer for is also unread — that remainder is printed, never
-# folded into skipped. A ticket that is still OPEN is `open`, not unread:
-# it has not been routed yet, which is a different state.
-ROUTE_FIXED = "已在基线分支上修掉"
-ROUTE_BECAME = "已收进 #"
-ROUTE_SKIPPED = (
-    "已被 #",
-    "按本票自己写的判据关闭",
-    "按本票自己的判定关闭",
-    "不做",
-    "当前措辞已是本票要的形状",
-)
-ROUTE_REVIEW = "SUB-ISSUE review"
 ROUTE_SLOTS = "opened/fixed/became/skipped/unread/open"
+ROUTES = {"fixed": "fixed", "became-ticket": "became", "stale": "skipped"}
 
 
-def is_review_sub_issue(ticket: dict) -> bool:
-    """A worker opened it with `--sub-issue review`; that kind is the body first line."""
-    return first_line(ticket.get("body") or "").startswith(ROUTE_REVIEW)
+def is_review_sub_issue(child: dict) -> bool:
+    """A child its parent's `child.opened` event records as the `review` kind."""
+    return child.get("kind") == "review"
 
 
-def route_of(ticket: dict) -> str:
-    """`fixed`, `became`, `skipped`, `open`, or `unread`. Only CLOSED has a close comment."""
-    if (ticket.get("state") or "").upper() != "CLOSED":
+def route_of(child: dict) -> str:
+    """`fixed`, `became`, `skipped`, `open`, or `unread`.
+
+    The route is the `resolution` of the parent's `child.closed` event for this child.
+    Only a CLOSED child has one; a child that is still open has not been routed yet,
+    which is a different state from a closed one no event accounts for.
+    """
+    if (child.get("state") or "").upper() != "CLOSED":
         return "open"
-    head = last_first_line(ticket)
-    if head.startswith(ROUTE_FIXED):
-        return "fixed"
-    if head.startswith(ROUTE_BECAME):
-        return "became"
-    if head.startswith(ROUTE_SKIPPED):
-        return "skipped"
-    return "unread"
+    return ROUTES.get(child.get("resolution") or "", "unread")
 
 
 def routed_counts(children: list[dict]) -> tuple[int, int, int, int, int, int]:
     """opened / fixed / became / skipped / unread / open among this batch's review sub-issues.
 
-    opened is the review sub-issues of the batch, plus any child the tracker
-    could not answer for. The other five partition it: main agent fixed on the
-    closing pass, folded into a new ticket, left undone after step 0, could not
-    be classified (or read), and still open. The unread slot is what keeps an
-    unreadable child from looking like a skipped one; open is not that slot.
-    The night window does not apply: this is the batch, not tonight's listing.
+    opened is the review sub-issues of the batch, plus any child the tracker could not
+    answer for. The other five partition it: main agent fixed on the closing pass,
+    folded into a new ticket, left undone as stale, could not be classified (or read),
+    and still open. The unread slot is what keeps an unreadable child from looking like
+    a skipped one. The night window does not apply: this is the batch, not tonight's
+    listing.
     """
     seen: Counter[str] = Counter()
     opened = 0
@@ -593,26 +528,24 @@ def routed_counts(children: list[dict]) -> tuple[int, int, int, int, int, int]:
 def routed_line(counts: tuple[int, int, int, int, int, int]) -> str:
     """The summary line a person reads: slash counts, then the names of the slots.
 
-    It says `Review` because it counts only children whose first line is
-    `SUB-ISSUE review from #<n>`. A batch also opens `outside-owns`, `baseline`,
-    `decision` and `pipeline` children, and those are listed by
-    `Sub-issues opened tonight:` above without being routed here — so the two
+    It says `Review` because it counts only the `review` kind of child. A batch also
+    opens `outside-owns`, `baseline`, `decision` and `pipeline` children, and those are
+    listed by `Sub-issues opened tonight:` above without being routed here — so the two
     lines carry different totals on purpose, and the label is what says why."""
     return f"Review sub-issues routed: {'/'.join(str(n) for n in counts)} ({ROUTE_SLOTS})"
 
 
 def summary(rows: list[dict], opened: str, now: datetime | None = None,
             children: list[dict] | None = None) -> str:
-    """Ticket numbers and comment first lines; the sub-issue line is titles."""
+    """Ticket numbers and the first line of each one's result; sub-issues by title."""
     now = now or datetime.now()
     kids = list(children or ())
-    closed = [f"#{r['ticket']} {r['head'][:80]}".strip()
+    closed = [f"#{r['ticket']} {r['outcome'][:80]}".strip()
               for r in rows if r["state"] == "CLOSED" and r["closed_at"] > opened]
-    back = [f"#{r['ticket']} {r['head'][:80]}".strip()
+    back = [f"#{r['ticket']} {r['outcome'][:80]}".strip()
             for r in rows if r["state"] == "OPEN" and "needs-triage" in r["labels"]]
-    waiting = [f"#{r['ticket']} blocked by "
-               + ", ".join(f"#{b}" for b in r["blockers"])
-               for r in rows if r["state"] == "OPEN" and r["blockers"]]
+    waiting = [f"#{r['ticket']} blocked by " + blocking_text(r["blocking"])
+               for r in rows if r["state"] == "OPEN" and r["blocking"]]
     fresh = [f"#{c['number']} {(c.get('title') or '')[:80]}".strip()
              for c in kids if (c.get("created") or "") > opened]
     return "\n".join([
@@ -627,14 +560,11 @@ def summary(rows: list[dict], opened: str, now: datetime | None = None,
 
 # --------------------------------------------------------------- the command forms
 
-def collect(spec: int) -> tuple[list[dict], list[dict]]:
-    """Everything one round needs: the rows, and the live sessions behind them."""
-    agents = live_agents(spec)
-    sessions_ = sessions(agents)
-    numbers = list(sub_issues(spec))
-    numbers += [s["ticket"] for s in sessions_]
+def collect(spec: int) -> tuple[list[dict], dict[int, dict]]:
+    """Everything one round needs: the rows, and the tickets behind them."""
+    numbers = sub_issues(spec)
     tickets = {n: read_ticket(n) for n in sorted(set(numbers))}
-    return build_rows(numbers, tickets, sessions_), sessions_
+    return build_rows(numbers, tickets), tickets
 
 
 def advance_plan(spec: int) -> int:
@@ -643,48 +573,67 @@ def advance_plan(spec: int) -> int:
     Three kinds of line and nothing else on stdout, because a script reads this, in the
     order `dispatch.sh` acts on them:
 
-        MERGE <ticket>      closed with `ALL MET`, the one that closed first at the top
-        RELEASE <ticket>    in the agent queue and claimed, with no running worker
-                            behind the claim: its worker is gone. A standing workspace
-                            is not a reason to keep the claim; that directory is what
-                            the next dispatch reuses.
-        DISPATCH <ticket>   on the frontier, in ticket order
+        MERGE <ticket>      closed with a pass that has not landed, the one that
+                            closed first at the top
+        RELEASE <ticket>    in the agent queue and claimed by this pipeline, and an
+                            event has ended every hold on it: the worker is gone
+        DISPATCH <ticket>   on the frontier as the tracker stands now, in ticket order
 
-    A ticket usually carries a `RELEASE` line and a `DISPATCH` line of the same plan:
-    the claim is what kept it off the frontier, and the frontier is read here as it
-    stands once `dispatch.sh` has done the releases printed above it, so a ticket freed
-    by this plan starts in the same advance rather than the next one.
+    The frontier reads the tracker as it stands: a merge this plan asks for unblocks
+    nothing until its `ticket.landed` is on the ticket. `dispatch.sh` therefore asks for
+    the plan a second time after its merges and releases, and starts only what that
+    second plan's DISPATCH lines name.
 
-    The merge order is the order the tickets closed, which is already the order their
-    blockers imposed: `--preflight` refuses a ticket whose blocker is open, so none of
-    them can have closed before the ones it waited on.
+    A ticket is held from its `ticket.claimed` or any `*.started` until an event ends
+    the hold (`events.ENDS_EVERY_HOLD`, `events.ENDS_ONE_HOLD`); no runner is asked and
+    no label is read. A claim is given back only after such an event: a claim no event
+    ever showed a worker holding is kept, since nothing shows its worker gone. A ticket
+    whose events cannot be read is neither merged nor released nor dispatched, and says
+    why.
 
     Whether a branch exists and whether it is already in the base branch are git's
-    questions, and git is not one of this program's two sources. `dispatch.sh` asks
-    them, and skips what it finds already merged.
+    questions, and git is not this program's source. `dispatch.sh` asks them.
 
     What no line accounts for goes to stderr: an empty frontier with tickets still in
-    the agent queue names every one of them and the condition holding it, because
-    otherwise it reads exactly like a batch with nothing left to do.
+    the agent queue names every one of them and the condition holding it.
     """
     numbers = sub_issues(spec)
     tickets = {n: read_ticket(n) for n in numbers}
-    done = [t for t in tickets.values()
-            if t["state"] == "CLOSED"
-            and first_line(newest_with_first_line(t, "ALL MET")).startswith("ALL MET")]
+    done = []
+    for ticket in tickets.values():
+        if not passed_unlanded(ticket):
+            continue
+        if unreadable_reason(ticket):
+            print(f"#{ticket['number']} is not merged: its events cannot be read "
+                  f"({unreadable_reason(ticket)})", file=sys.stderr)
+            continue
+        done.append(ticket)
     for ticket in sorted(done, key=lambda t: t["closed_at"]):
         print(f"MERGE {ticket['number']}")
-    rows = build_rows(numbers, tickets, sessions(live_agents(spec)))
+    rows = build_rows(numbers, tickets)
     login = own_login()
     for row in rows:
         if row["state"] != "OPEN" or "ready-for-agent" not in row["labels"]:
             continue
         if not login or login not in row["assignees"]:
             continue
-        if row["worker"] is not None:
-            print(f"#{row['ticket']} keeps its claim: a live worker "
-                  f"{row['worker']['name']} still holds it",
-                  file=sys.stderr)
+        if row["unreadable"]:
+            print(f"#{row['ticket']} keeps its claim: its events cannot be read "
+                  f"({row['unreadable']})", file=sys.stderr)
+            continue
+        worker = row["worker"]
+        if worker is not None and worker.get("claim"):
+            print(f"#{row['ticket']} keeps its claim: its ticket.claimed is still a hold, "
+                  f"and no event has ended it", file=sys.stderr)
+            continue
+        if worker is not None:
+            print(f"#{row['ticket']} keeps its claim: the worker "
+                  f"{worker.get('session')} on {worker.get('runner')} "
+                  f"is live on its events", file=sys.stderr)
+            continue
+        if not tickets[row["ticket"]]["fold"]["hold_ended"]:
+            print(f"#{row['ticket']} keeps its claim: no event on it ever showed a worker "
+                  f"holding it, so none shows that worker gone", file=sys.stderr)
             continue
         print(f"RELEASE {row['ticket']}")
         row["assignees"] = [a for a in row["assignees"] if a != login]
@@ -696,31 +645,48 @@ def advance_plan(spec: int) -> int:
     return 0
 
 
+def reverify_plan(spec: int) -> int:
+    """The tickets `dispatch.sh reverify` runs again on the base branch, in closing order.
+
+        REVERIFY <ticket>   closed with a pass, and landed
+
+    A ticket that passed and has not landed is not on the base branch, so running its
+    criteria there would fail it for work that is not there yet; it is named on stderr
+    instead.
+    """
+    tickets = [read_ticket(n) for n in sub_issues(spec)]
+    for ticket in sorted(tickets, key=lambda t: t["closed_at"]):
+        if unreadable_reason(ticket):
+            print(f"#{ticket['number']} is not re-run: its events cannot be read "
+                  f"({unreadable_reason(ticket)})", file=sys.stderr)
+        elif landed(ticket):
+            print(f"REVERIFY {ticket['number']}")
+        elif passed_unlanded(ticket):
+            print(f"#{ticket['number']} passed and has not landed, so it is not re-run "
+                  f"on the base branch", file=sys.stderr)
+    return 0
+
+
 def land_plan(numbers: list[int]) -> int:
     """What landing each of these tickets calls for, in the order `dispatch.sh` acts.
 
-    Four kinds of line and nothing else on stdout, because a script reads this:
+    Five kinds of line and nothing else on stdout, because a script reads this:
 
-        MERGE <ticket>        closed with `ALL MET`: its branch belongs in the base branch
+        MERGE <ticket>        closed with a pass that has not landed: its branch belongs
+                              in the base branch
         RELEASE <ticket>      this pipeline still holds the claim, and the work is over
         ARCHIVE <ticket>      its workspace, the agents inside it and its slot may all go
-        HOLD <ticket> <why>   still being worked: nothing may be done to it yet
+        HOLD <ticket> <why>   still being worked, or its events cannot be read: nothing
+                              may be done to it yet
         NOTHING <ticket> <why>  over, and already landed: there is nothing left to do
 
     Every ticket gets at least one line. A ticket that needs nothing is the case that
     reads exactly like a ticket the plan forgot — so it says so.
 
-    Which of them a ticket gets is `in_flight`, plus one distinction that function does
-    not make. A ticket handed back to triage is over as a piece of work, but its
-    worktree is what the next `start` reuses, and archiving a workspace deletes that
-    directory — measured on 2026-09-07: `paseo workspace archive` returned
-    `removedDirectory: true` and took the three agents with it, leaving only the branch.
-    So a hand back gives the claim back and keeps the workspace; only a closed ticket
-    has both taken away.
-
-    Whether a branch exists and whether it is already in the base branch are git's
-    questions, and git is not one of this program's two sources. `dispatch.sh` asks
-    them, and skips a `MERGE` whose branch is already an ancestor.
+    A ticket handed back to triage is over as a piece of work, but its worktree is what
+    the next `start` reuses, and archiving a workspace deletes that directory. So a hand
+    back gives the claim back and keeps the workspace; only a closed ticket has both
+    taken away.
     """
     login = own_login()
     for number in numbers:
@@ -728,14 +694,18 @@ def land_plan(numbers: list[int]) -> int:
         if not ticket["state"]:
             print(f"HOLD {number} the tracker could not be asked about this ticket")
             continue
+        bad = unreadable_reason(ticket)
+        if bad:
+            print(f"HOLD {number} its events cannot be read ({bad})")
+            continue
         if in_flight(ticket):
-            head = last_first_line(ticket)
+            head = head_of(ticket)
             print(f"HOLD {number} it is open with no verdict on it"
-                  + (f" (newest comment: {head[:50]})" if head else ""))
+                  + (f" (newest: {head[:50]})" if head else ""))
             continue
         closed = ticket["state"] == "CLOSED"
         asked = False
-        if closed and first_line(newest_with_first_line(ticket, "ALL MET")).startswith("ALL MET"):
+        if closed and ticket["fold"]["passed"] and not ticket["fold"]["landed"]:
             print(f"MERGE {number}")
             asked = True
         if login and login in ticket["assignees"]:
@@ -783,11 +753,18 @@ def table(spec: int) -> int:
 
 
 def print_summary(spec: int) -> int:
-    rows, _ = collect(spec)
+    rows, tickets = collect(spec)
     children = []
     for number in (r["ticket"] for r in rows):
-        for child in sub_issues(number):
-            children.append(read_ticket(child))
+        known = tickets[number]["fold"]["children"] if number in tickets else {}
+        for child_number in sub_issues(number):
+            child = read_ticket(child_number)
+            recorded = known.get(str(child_number)) or {}
+            if recorded.get("kind"):
+                child["kind"] = recorded["kind"]
+            if recorded.get("resolution"):
+                child["resolution"] = recorded["resolution"]
+            children.append(child)
     print(summary(rows, night_opened(), children=children))
     return 0
 
@@ -796,12 +773,14 @@ def print_summary(spec: int) -> int:
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="status.py",
-        description="The read-only view over one spec's tickets and their agents.")
+        description="The read-only view over one spec's tickets, from their events.")
     forms = parser.add_mutually_exclusive_group(required=True)
     forms.add_argument("--table", action="store_true",
                        help="print one table and exit")
     forms.add_argument("--advance-plan", action="store_true",
                        help="print what `dispatch.sh advance` has to do, in order")
+    forms.add_argument("--reverify-plan", action="store_true",
+                       help="print the landed tickets `dispatch.sh reverify` runs again")
     forms.add_argument("--worker-grades", action="store_true",
                        help="print the worker-grade labels of every ticket in the agent queue")
     forms.add_argument("--summary", action="store_true",
@@ -824,6 +803,8 @@ def main(argv: list[str] | None = None) -> int:
             return land_plan(args.spec)
         if args.advance_plan:
             return advance_plan(args.spec[0])
+        if args.reverify_plan:
+            return reverify_plan(args.spec[0])
         if args.worker_grades:
             return worker_grades(args.spec[0])
         if args.summary:

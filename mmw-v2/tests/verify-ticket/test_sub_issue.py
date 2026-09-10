@@ -74,6 +74,38 @@ class TestCreatesForEachKind(unittest.TestCase):
         self.assertIn("detail", posted)
 
 
+class TestRecordsTheChildOnTheTicket(unittest.TestCase):
+    """The ticket's own events are where its children are found."""
+
+    def test_child_opened_is_posted_on_the_ticket_with_the_new_number_and_kind(self):
+        code, _, err, recorded, bodies = run_sub_issue(
+            "review", "RUNNER is now a Path\n\nthe finding\n")
+        self.assertEqual(code, 0, err)
+        comment = next(c for c in recorded if c[:3] == ["gh", "issue", "comment"])
+        self.assertEqual(comment[3], "77")
+        what, payload = vt.events.parse(bodies[-1])
+        self.assertEqual((what, payload["event"], payload["child"], payload["kind"],
+                          payload["title"], payload["ticket"]),
+                         ("event", "child.opened", 99, "review", "RUNNER is now a Path", 77))
+
+    def test_a_child_whose_event_could_not_be_written_exits_1_and_says_not_to_open_it_again(self):
+        def fake_run(cmd, **kwargs):
+            result = mock.Mock(returncode=0, stderr="",
+                               stdout="https://github.com/o/r/issues/99\n")
+            if cmd[:3] == ["gh", "issue", "comment"]:
+                raise vt.subprocess.CalledProcessError(1, cmd)
+            return result
+
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "body.md"
+            path.write_text("A title\n\nbody\n", encoding="utf-8")
+            with mock.patch.object(vt.subprocess, "run", side_effect=fake_run):
+                with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
+                    code = vt.run_sub_issue(77, "decision", path)
+        self.assertEqual(code, 1)
+        self.assertIn("do not open it again", err.getvalue())
+
+
 class TestRefusesEmptyOrUnknown(unittest.TestCase):
     def test_an_empty_file_exits_2_and_creates_nothing(self):
         code, _, err, recorded, _ = run_sub_issue("baseline", "")

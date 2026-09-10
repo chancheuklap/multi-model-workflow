@@ -8,7 +8,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from _load import load
+from _load import event, load
 
 vt = load()
 
@@ -94,6 +94,12 @@ REVIEW_SILENT = """REVIEW abcdef0..1234567
 
 None
 """
+
+# The same reports as the scripts post them: each one an event.
+DECISIONS, DECISIONS_NO_AC = (event("worker.decided", t) for t in (DECISIONS, DECISIONS_NO_AC))
+REVIEW, REVIEW_SHOULD_NOT, REVIEW_SILENT = (
+    event("reviewer.reported", t, base="abcdef0", head="1234567")
+    for t in (REVIEW, REVIEW_SHOULD_NOT, REVIEW_SILENT))
 
 SIBLING_COVERS = "## Owns\n\n- src/**\n"
 SIBLING_OTHER = "## Owns\n\n- lib/**\n"

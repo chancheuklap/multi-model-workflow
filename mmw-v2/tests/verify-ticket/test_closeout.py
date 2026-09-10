@@ -8,7 +8,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from _load import load
+from _load import event, load
 
 vt = load()
 
@@ -26,8 +26,18 @@ UNMET = """- [ ] AC2: the expiry page says the link is stale
   EXPECT: 2 passed
   EVIDENCE: pending"""
 
-VERDICT_COMMENT = f"VERDICT {HEAD} by opus — the importer writes six rows"
-STALE_VERDICT = f"VERDICT {VERIFIED} by opus — the importer writes six rows"
+VERDICT_COMMENT = event("verifier.passed",
+                        f"VERDICT {HEAD} by opus — the importer writes six rows", commit=HEAD)
+STALE_VERDICT = event("verifier.passed",
+                      f"VERDICT {VERIFIED} by opus — the importer writes six rows",
+                      commit=VERIFIED)
+
+
+def posted_as(body):
+    """A posted closing comment as `(prose, event name)`: the draft, then its event."""
+    what, payload = vt.events.parse(body)
+    assert what == "event", (what, payload, body)
+    return body[:body.index("\n\n<!-- mmw")] + "\n", payload["event"]
 
 
 def ledger_of(text):
@@ -285,10 +295,28 @@ class TestVerdict(unittest.TestCase):
         self.assertIn("HEAD has moved on", err)
 
     def test_the_newest_verdict_is_the_one_checked(self):
-        comments = (f"VERDICT {'0' * 40} by opus — the importer writes six rows",
-                    f"VERDICT {HEAD} by opus — the expiry page reads right too")
+        comments = (event("verifier.failed", f"VERDICT {'0' * 40} by opus — AC1 failed",
+                          commit="0" * 40),
+                    event("verifier.passed",
+                          f"VERDICT {HEAD} by opus — the expiry page reads right too",
+                          commit=HEAD))
         code, err, _ = check(draft(counts=counts_line()), comments=comments)
         self.assertEqual(code, 0, err)
+
+    def test_a_verdict_typed_as_a_comment_is_not_a_verdict(self):
+        """A verdict is an event the verifier's script posts. The same words typed into a
+        comment by hand carry no event, so the gate has nothing independent to read."""
+        code, err, _ = check(draft(counts=counts_line()),
+                             comments=(f"VERDICT {HEAD} by opus — all passed",))
+        self.assertEqual(code, 1)
+        self.assertIn("carries no `VERDICT", err)
+
+    def test_an_event_block_that_cannot_be_read_is_a_refusal_not_a_skip(self):
+        broken = "VERDICT on HEAD\n\n<!-- mmw {\"v\":1,\"event\": -->\n"
+        code, err, _ = check(draft(counts=counts_line()),
+                             comments=(VERDICT_COMMENT, broken))
+        self.assertEqual(code, 1)
+        self.assertIn("cannot read", err)
 
 
 class TestOnlyTheVerifiersRunSettlesAllMet(unittest.TestCase):
@@ -519,22 +547,25 @@ class TestTheVerdictCommitIsWrittenInFull(unittest.TestCase):
     """
 
     def test_a_shortened_commit_is_not_read_as_a_verdict(self):
-        code, err, _ = check(draft(counts=counts_line()),
-                             comments=(f"VERDICT {VERIFIED[:8]} by opus — six rows",))
+        short = ("VERDICT six rows\n\n" + vt.events.block({
+            "v": 1, "event": "verifier.passed", "stage": "verify", "actor": "verifier",
+            "spec": None, "ticket": 77, "at": "2026-09-10T00:00:00Z",
+            "commit": VERIFIED[:8]}) + "\n")
+        code, err, _ = check(draft(counts=counts_line()), comments=(short,))
         self.assertEqual(code, 1)
         self.assertIn("carries no `VERDICT", err)
+        self.assertIn("cannot read", err)
 
     def test_the_full_forty_characters_is_read_as_a_verdict(self):
         self.assertEqual(vt.last_verdict([STALE_VERDICT]), VERIFIED)
 
-    def test_words_between_the_commit_and_by_do_not_hide_the_verdict(self):
-        """Only the commit is read off the line, so anything else on it is free text."""
-        code, err, _ = check(
-            draft(counts=counts_line()),
-            comments=(f"VERDICT {HEAD} unit-test-verified by opus",))
+    def test_the_commit_is_the_event_field_not_the_words_of_its_line(self):
+        """The first line is for a person, so what it says about a commit decides nothing."""
+        worded = event("verifier.passed", f"VERDICT {VERIFIED} unit-test-verified by opus",
+                       commit=HEAD)
+        code, err, _ = check(draft(counts=counts_line()), comments=(worded,))
         self.assertEqual(code, 0, err)
-        self.assertEqual(
-            vt.last_verdict([f"VERDICT {VERIFIED} unit-test-verified by opus"]), VERIFIED)
+        self.assertEqual(vt.last_verdict([worded]), HEAD)
 
 
 class TestTheCriteriaTheVerifierRanAreTheCriteriaTheTicketStates(unittest.TestCase):
@@ -629,10 +660,11 @@ class TestNoSideEffectOnFail(unittest.TestCase):
         text = draft(counts=counts_line())
         code, err, seen = check(text, check_only=False)
         self.assertEqual(code, 0, err)
-        self.assertEqual(seen["posted"], [(77, text)])
+        self.assertEqual([(n, posted_as(b)) for n, b in seen["posted"]],
+                         [(77, (text, "ticket.passed"))])
         self.assertEqual(seen["closed"], [77])
         self.assertEqual(seen["handed"], [])
-        self.assertEqual(seen["told"], ["#77 ALL MET"])
+        self.assertEqual(seen["told"], ["#77 ticket.passed"])
 
     def test_handoff_posts_the_draft_and_swaps_the_label(self):
         text = draft(first="HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 1 met of 2",
@@ -641,10 +673,17 @@ class TestNoSideEffectOnFail(unittest.TestCase):
                      counts=counts_line(met=1, abandoned=1, total=2))
         code, err, seen = check(text, check_only=False)
         self.assertEqual(code, 0, err)
-        self.assertEqual(seen["posted"], [(77, text)])
+        self.assertEqual([(n, posted_as(b)) for n, b in seen["posted"]],
+                         [(77, (text, "ticket.returned"))])
+        payload = vt.events.parse(seen["posted"][0][1])[1]
+        self.assertEqual(payload["abandoned"], [
+            {"ac": "AC2", "kind": "stuck",
+             "reason": "chromium will not start here; tried the bundled build too"}])
+        self.assertEqual(payload["counts"],
+                         {"met": 1, "unmet": 0, "abandoned": 1, "total": 2})
         self.assertEqual(seen["closed"], [])
         self.assertEqual(seen["handed"], [77])
-        self.assertEqual(seen["told"], ["#77 HANDOFF REQUIRED"])
+        self.assertEqual(seen["told"], ["#77 ticket.returned"])
 
     def test_a_ticket_someone_else_holds_is_refused(self):
         code, err, seen = check(draft(counts=counts_line()), assignees=("someone-else",),
@@ -740,7 +779,8 @@ class TestTargetJsonChecks(unittest.TestCase):
             text = draft(counts=counts_line())
             code, err, seen = check(text, check_only=False, repo=root)
         self.assertEqual(code, 0, err)
-        self.assertEqual(seen["posted"], [(77, text)])
+        self.assertEqual([(n, posted_as(b)) for n, b in seen["posted"]],
+                         [(77, (text, "ticket.passed"))])
         self.assertEqual(seen["closed"], [77])
         self.assertNotIn("CHECKS OK", seen["posted"][0][1])
 
@@ -795,7 +835,7 @@ class TestTargetJsonChecks(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertEqual(seen["closed"], [])
         self.assertEqual(seen["handed"], [77])
-        self.assertEqual(seen["posted"][0][1], text)
+        self.assertEqual(posted_as(seen["posted"][0][1]), (text, "ticket.returned"))
         self.assertNotIn("CHECKS FAILED", seen["posted"][0][1])
 
 

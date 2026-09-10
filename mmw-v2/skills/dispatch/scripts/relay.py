@@ -25,8 +25,8 @@ nothing else (docs/adr/0001-tracker-repo-authority.md).
     worker   reviewer.reported, verifier.passed, verifier.failed: the session that started
              that reviewer or verifier. Its runner and session are the `runner` and
              `session` fields of the ticket's latest `worker.started` before the event.
-    main     ticket.passed, ticket.returned, ticket.refused, child.opened of kind fault or
-             decision, worker.lost, and the relay's own relay.recovered: the main agent, as
+    main     ticket.passed, ticket.returned, ticket.refused, child.opened of kind pipeline
+             (a fault in the pipeline itself) or decision, worker.lost, and the relay's own relay.recovered: the main agent, as
              `register` names it.
 
 A worker needs no registration: the ticket says who it is. Each row is written with its
@@ -103,9 +103,9 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
-import re
 import signal
 import subprocess
 import sys
@@ -120,6 +120,24 @@ if str(HERE) not in sys.path:
 
 import statedir  # noqa: E402
 from statedir import LockHeld  # noqa: E402
+
+
+def _load_events():
+    """`events.py` of the verify-ticket skill, beside this one: the one reader of the
+    comment format. `MMW_EVENTS_PY` names it when `dispatch.sh` resolved it elsewhere."""
+    default = HERE.parents[1] / "verify-ticket" / "scripts" / "events.py"
+    path = Path(os.environ.get("MMW_EVENTS_PY") or default)
+    if not path.is_file():
+        sys.stderr.write(f"relay: no events.py at {path}; the verify-ticket skill has to sit "
+                         f"beside this one, or MMW_EVENTS_PY has to name its events.py\n")
+        raise SystemExit(2)
+    spec = importlib.util.spec_from_file_location("mmw_events", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+events = _load_events()
 
 RUNNERS = HERE / "runners"
 DEFAULT_INTERVAL = 30
@@ -139,7 +157,7 @@ WAKES: dict[str, dict] = {
     "ticket.passed": {"to": MAIN},
     "ticket.returned": {"to": MAIN},
     "ticket.refused": {"to": MAIN},
-    "child.opened": {"to": MAIN, "when": {"kind": ("fault", "decision")}},
+    "child.opened": {"to": MAIN, "when": {"kind": ("pipeline", "decision")}},
     "worker.lost": {"to": MAIN},
 }
 
@@ -148,9 +166,6 @@ WORKER_STARTED = "worker.started"
 
 # The one row the relay writes about itself rather than about a ticket.
 RECOVERED = "relay.recovered"
-
-BLOCK_RE = re.compile(r"<!--\s*mmw\s+(\{.*?\})\s*-->", re.DOTALL)
-EVENT_NAME_RE = re.compile(r"^[a-z]+\.[a-z]+$")
 
 
 class Refusal(RuntimeError):
@@ -182,29 +197,20 @@ def parse_iso(text: str) -> datetime:
 # ----------------------------------------------------------------- the comment format
 
 def read_event(body: str) -> dict | None:
-    """The event one comment carries, or None when it carries none.
+    """The event one comment carries, as its payload, or None when it carries none.
 
-    The only place the relay reads the comment format: the hidden block
-    `<!-- mmw {"v":1,"event":"ticket.passed","ticket":61,...} -->` that ends an event
-    comment. The comment's first line is prose for people and is never read. A block that is
-    there but is not a version-1 event raises UnreadableEvent: a comment that looks like an
+    The comment format is read by `events.parse` and nowhere else in the pipeline: the
+    hidden `<!-- mmw {...} -->` block that ends an event comment, checked against the
+    event table. The comment's first line is prose for people and is never read. A block
+    that is there but cannot be read raises UnreadableEvent: a comment that looks like an
     event and cannot be read is a different answer from a comment with no event.
     """
-    blocks = BLOCK_RE.findall(body or "")
-    if not blocks:
+    what, value = events.parse(body or "")
+    if what == "none":
         return None
-    try:
-        data = json.loads(blocks[-1])
-    except ValueError as exc:
-        raise UnreadableEvent(f"its mmw block is not JSON ({exc})") from None
-    if not isinstance(data, dict):
-        raise UnreadableEvent("its mmw block is not a JSON object")
-    if data.get("v") != 1:
-        raise UnreadableEvent(f"its mmw block has version {data.get('v')!r}, and this relay reads version 1")
-    event = data.get("event")
-    if not isinstance(event, str) or not EVENT_NAME_RE.match(event):
-        raise UnreadableEvent(f"its mmw block names no event of the form subject.verb: {event!r}")
-    return data
+    if what == "unreadable":
+        raise UnreadableEvent(value)
+    return value
 
 
 def woken_by(event: dict) -> str | None:
