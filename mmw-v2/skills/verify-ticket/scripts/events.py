@@ -39,7 +39,10 @@ that has no ids (a test fixture, a list of bodies) is replayed in the order give
 `fold` and the three readers after it read the issue's comments from `gh issue view
 <issue> --json comments`, or from `--comments-file` (`-` for stdin) when the caller has
 already fetched them: a JSON object with a `comments` list, a list of comment objects,
-or a list of bodies. Exit 0 answered, 2 the comments could not be read.
+or a list of bodies. Exit 0 answered, 2 the comments could not be read, 3 (`session`,
+`sessions`, `result`) a comment carries an event block nobody can read, named on stderr.
+`result` prints the event's name and its key fields (`verifier.failed commit=… failed=AC2`),
+never its prose.
 """
 
 from __future__ import annotations
@@ -88,23 +91,35 @@ EVENTS: dict[str, dict] = {
     "ticket.landed":     {"stage": "land",     "actor": "main"},
     "ticket.regressed":  {"stage": "regress",  "actor": "main", "required": ("commit",)},
 
+    # Everything the ticket says about where its worker runs, so every later command and
+    # every machine finds it there. `effort` is written `—` when the host takes none; the
+    # worktree is an absolute path, since no runner is asked to find it.
     "worker.started":    {"stage": "dispatch", "actor": "main",
-                          "required": ("session", "runner")},
-    "worker.resumed":    {"stage": "work",     "actor": "main"},
-    "worker.retracted":  {"stage": "dispatch", "actor": "main"},
+                          "required": ("session", "runner", "host", "model", "effort",
+                                       "grade", "worktree", "branch", "base"),
+                          "patterns": {"worktree": r"/.*"}},
+    "worker.resumed":    {"stage": "work",     "actor": "main",
+                          "together": (("session", "runner"),)},
+    "worker.retracted":  {"stage": "dispatch", "actor": "main",
+                          "together": (("session", "runner"),)},
+    # The session this names is the one replaced; the one replacing it is always a
+    # `worker.started` of its own that follows.
     "worker.replaced":   {"stage": "dispatch", "actor": "main",
-                          "required": ("session", "runner", "replaced")},
+                          "required": ("session", "runner")},
     "worker.decided":    {"stage": "work",     "actor": "worker"},
     # The one event not written by the agent it is about: a dead agent cannot write its
     # own obituary. Which script writes it, and when, belongs to the liveness judge.
-    "worker.lost":       {"stage": "work",     "actor": "judge", "required": ("session",)},
+    "worker.lost":       {"stage": "work",     "actor": "judge",
+                          "required": ("session", "runner")},
 
     "reviewer.started":  {"stage": "review",   "actor": "worker",
-                          "required": ("session", "runner")},
+                          "required": ("session", "runner"),
+                          "patterns": {"worktree": r"/.*"}},
     "reviewer.reported": {"stage": "review",   "actor": "reviewer"},
 
     "verifier.started":  {"stage": "verify",   "actor": "worker",
-                          "required": ("session", "runner")},
+                          "required": ("session", "runner"),
+                          "patterns": {"worktree": r"/.*"}},
     # A verdict covers one commit, written in full: a ticket closes on it being the
     # commit at HEAD, and two commits share a short prefix often enough to pass a draft
     # against a verdict on neither of them.
@@ -122,20 +137,23 @@ EVENTS: dict[str, dict] = {
 
 COMMON = ("v", "event", "stage", "actor", "spec", "ticket", "at")
 
-# What ends an agent's hold on a ticket. A start opens a session; each of these closes
-# the sessions it names (`session` in its payload), or every session of the kinds listed
-# when it names none.
-CLOSES: dict[str, tuple[str, ...]] = {
-    "worker.lost": ("worker",),
-    "worker.retracted": ("worker",),
-    "ticket.passed": ("worker",),
-    "ticket.returned": ("worker",),
-    "ticket.released": ("worker",),
-    "spec.suspended": ("worker",),
-    "ticket.landed": AGENT_KINDS,
-    "reviewer.reported": ("reviewer",),
-    "verifier.passed": ("verifier",),
-    "verifier.failed": ("verifier",),
+# A ticket is held from a `ticket.claimed` or any `*.started` until an event ends that
+# hold. These end every hold on the ticket. `ticket.passed` ends none: until the ticket
+# lands its worker may still be at work on it — a close that failed after the pass leaves
+# the ticket open and the worker retrying. Labels never end a hold.
+ENDS_EVERY_HOLD = ("ticket.landed", "ticket.returned", "ticket.released", "spec.suspended")
+# These end the hold of the one session they name, matched by its (runner, session)
+# pair and never by the id alone: two runners can hand out the same id. A retraction
+# also ends a claim no started session has taken over, since it gives the claim back.
+ENDS_ONE_HOLD = ("worker.retracted", "worker.lost", "worker.replaced")
+
+# The fields `result` prints after an event's name.
+RESULT_FIELDS = {
+    "ticket.passed": ("commit",),
+    "ticket.returned": (),
+    "reviewer.reported": ("base", "head"),
+    "verifier.passed": ("commit",),
+    "verifier.failed": ("commit", "failed", "ran"),
 }
 
 # The result each kind of agent is started to produce.
@@ -174,6 +192,12 @@ def _check(event: str, payload: dict) -> str | None:
         value = payload.get(key)
         if value not in (None, "") and not re.fullmatch(pattern, str(value)):
             return f"`{event}` has {key} `{value}`, which is not the shape {pattern}"
+    for group in spec.get("together") or ():
+        given = [key for key in group if payload.get(key) not in (None, "")]
+        if given and len(given) != len(group):
+            missing = [key for key in group if key not in given]
+            return (f"`{event}` names {', '.join(given)} without {', '.join(missing)}; "
+                    f"they are one thing and come together")
     return None
 
 
@@ -189,6 +213,16 @@ def block(payload: dict) -> str:
     return f"<!-- {MARK} " + text.replace(">", "\\u003e") + " -->"
 
 
+def neutralise(prose: str) -> str:
+    """`prose` with every `<!-- mmw` opener made visible text.
+
+    A report that quotes an event — a review of this very code, a criterion's output —
+    would otherwise carry a second block, and its ticket would read as holding an event
+    nobody wrote. `&lt;!--` renders as `<!--` for a person and opens nothing.
+    """
+    return OPENER_RE.sub(lambda m: "&lt;!--" + m.group(0)[4:], prose or "")
+
+
 def build(event: str, *, ticket: int | None, line: str, text: str = "",
           spec: int | None = None, actor: str | None = None, stage: str | None = None,
           at: str | None = None, **fields) -> str:
@@ -197,11 +231,12 @@ def build(event: str, *, ticket: int | None, line: str, text: str = "",
     `ticket` is the ticket the event is about (None for an event about a whole spec),
     and `spec` the spec it sits under when the writer knows it. Fields whose value is
     None are left out. Raises EventError for an event or payload the table refuses.
+    The prose is passed through `neutralise`, so the only block is the event's own.
     """
     table = EVENTS.get(event)
     if table is None:
         raise EventError(f"`{event}` is not an event of this pipeline")
-    first = (line or "").strip().splitlines()
+    first = neutralise(line).strip().splitlines()
     if not first or not first[0].strip():
         raise EventError(f"`{event}` needs a first line a person can read")
     payload = {
@@ -226,7 +261,7 @@ def build(event: str, *, ticket: int | None, line: str, text: str = "",
     if rest:
         parts.append(rest)
     if text and text.strip():
-        parts += ["", text.strip("\n")]
+        parts += ["", neutralise(text).strip("\n")]
     return "\n".join(parts) + "\n\n" + block(payload) + "\n"
 
 
@@ -280,7 +315,9 @@ def normalise(comments) -> list[dict]:
     Accepts comment objects (`gh issue view --json comments`, REST, or a fixture) and bare
     bodies. The id is the numeric comment id: `databaseId`, a numeric `id`, or the number
     in the comment's `#issuecomment-<id>` URL. When every comment has one, the order is
-    by id; otherwise the order given.
+    by id; otherwise the order given. A comment is edited in place, so one id handed in
+    twice — a later page, an incremental read — is the version with the newest
+    `updated_at`.
     """
     out = []
     for position, item in enumerate(comments or [], start=1):
@@ -295,7 +332,19 @@ def normalise(comments) -> list[dict]:
         if ident is None:
             found = COMMENT_ID_RE.search(str(item.get("url") or item.get("html_url") or ""))
             ident = int(found.group(1)) if found else None
-        out.append({"id": ident, "body": item.get("body") or "", "position": position})
+        updated = str(item.get("updated_at") or item.get("updatedAt")
+                      or item.get("lastEditedAt") or item.get("created_at")
+                      or item.get("createdAt") or "")
+        out.append({"id": ident, "body": item.get("body") or "", "position": position,
+                    "updated": updated})
+    newest: dict[int, dict] = {}
+    for comment in out:
+        if comment["id"] is None:
+            continue
+        held = newest.get(comment["id"])
+        if held is None or comment["updated"] >= held["updated"]:
+            newest[comment["id"]] = comment
+    out = [c for c in out if c["id"] is None or newest[c["id"]] is c]
     if out and all(c["id"] is not None for c in out):
         out.sort(key=lambda c: c["id"])
     return out
@@ -323,6 +372,8 @@ def empty_state(issue: int | None = None) -> dict:
         "results": {kind: None for kind in AGENT_KINDS},
         "children": {},
         "sessions": [],
+        "claim_hold": False,
+        "ever_held": False,
         "spec_opened": False,
         "spec_closed": False,
     }
@@ -340,11 +391,12 @@ def _summary(comment: dict, payload: dict) -> dict:
     }
 
 
-def _close(state: dict, kinds: tuple[str, ...], by: str, session: str | None) -> None:
+def _end(state: dict, by: str, pair: tuple | None = None) -> None:
+    """End the hold of the session `pair` names, or of every session when it is None."""
     for record in state["sessions"]:
-        if record["kind"] not in kinds or not record["live"]:
+        if not record["live"]:
             continue
-        if session and record["session"] != session:
+        if pair is not None and (record["runner"], record["session"]) != pair:
             continue
         record["live"] = False
         record["ended_by"] = by
@@ -374,25 +426,32 @@ def apply(state: dict, event: dict) -> None:
             "live": True,
             "ended_by": None,
         })
+        # A claim made before its session's start was recorded is that session's.
+        state.update(claim_hold=False, ever_held=True)
         if kind == "worker":
             state["suspended"] = False
     elif name == "worker.resumed":
         workers = [r for r in state["sessions"] if r["kind"] == "worker"]
-        wanted = payload.get("session")
-        target = next((r for r in reversed(workers) if r["session"] == wanted), None) \
-            if wanted else (workers[-1] if workers else None)
+        wanted = (payload.get("runner"), payload.get("session"))
+        target = next((r for r in reversed(workers)
+                       if (r["runner"], r["session"]) == wanted), None) \
+            if wanted[1] else (workers[-1] if workers else None)
         if target is not None:
             target["live"] = True
             target["ended_by"] = None
-    elif name == "worker.replaced":
-        _close(state, ("worker",), name, payload.get("replaced"))
+            state["ever_held"] = True
     elif name == "ticket.claimed":
         state["claimed"] = True
         state["claimant"] = payload.get("login")
+        if not any(r["live"] for r in state["sessions"]):
+            state["claim_hold"] = True
+        state["ever_held"] = True
     elif name == "ticket.refused":
         state["refused"] = {"reason": payload.get("reason"), "line": event["line"]}
     elif name == "ticket.passed":
-        state.update(passed=True, returned=False, claimed=False, outcome=event)
+        # A pass after a landing is new work, and it has not landed yet.
+        state.update(passed=True, landed=False, returned=False, claimed=False,
+                     outcome=event)
     elif name == "ticket.returned":
         state.update(passed=False, returned=True, claimed=False, outcome=event)
     elif name == "ticket.released":
@@ -423,8 +482,14 @@ def apply(state: dict, event: dict) -> None:
         state["children"].setdefault(str(child), {"child": child}).update(
             resolution=payload.get("resolution"), ticket=payload.get("became"))
 
-    if name in CLOSES:
-        _close(state, CLOSES[name], name, payload.get("session"))
+    if name in ENDS_EVERY_HOLD:
+        _end(state, name)
+        state["claim_hold"] = False
+    elif name in ENDS_ONE_HOLD:
+        if payload.get("session"):
+            _end(state, name, (payload.get("runner"), payload.get("session")))
+        if name == "worker.retracted":
+            state["claim_hold"] = False
     for agent_kind, names in RESULTS.items():
         if name in names:
             state["results"][agent_kind] = event
@@ -462,8 +527,27 @@ def fold(comments, issue: int | None = None) -> dict:
     workers = [r for r in state["sessions"] if r["kind"] == "worker"]
     state["worker"] = workers[-1] if workers else None
     state["live_workers"] = [r for r in workers if r["live"]]
-    state["worker_live"] = bool(state["live_workers"])
+    state["holders"] = [r for r in state["sessions"] if r["live"]]
+    state["held"] = bool(state["holders"]) or state["claim_hold"]
+    # Only a hold that an event ended says the ticket's claim is nobody's any more.
+    state["hold_ended"] = state["ever_held"] and not state["held"]
     return state
+
+
+def describe(record: dict) -> str:
+    """An event as `result` prints it: its name, then its key fields."""
+    payload = record["payload"]
+    parts = [record["event"]]
+    for key in RESULT_FIELDS.get(record["event"], ()):
+        value = payload.get(key)
+        if value is None:
+            continue
+        if isinstance(value, list):
+            value = ",".join(str(v) for v in value) or "-"
+        elif isinstance(value, bool):
+            value = "true" if value else "false"
+        parts.append(f"{key}={value}")
+    return " ".join(parts)
 
 
 def newest(comments, *names: str) -> dict | None:
@@ -524,10 +608,14 @@ def read_comments(issue: int | None, source: str | None) -> list:
     raise Unreadable(f"the comments of #{issue} came back in no shape this reads")
 
 
-def warn_unreadable(state: dict, issue: int | None) -> None:
+def refuse_unreadable(state: dict, issue: int | None) -> bool:
+    """Name every unreadable comment on stderr; True when there was one."""
     for item in state["unreadable"]:
         sys.stderr.write(f"events: #{issue if issue is not None else '?'} comment "
-                         f"{item['comment']} ({item['line'][:60]}): {item['reason']}\n")
+                         f"{item['comment']} ({item['line'][:60]}): {item['reason']}; "
+                         f"nothing is answered about this ticket until that comment is "
+                         f"fixed\n")
+    return bool(state["unreadable"])
 
 
 def _fields(pairs: list[str], typed: bool) -> dict:
@@ -598,7 +686,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "fold":
         print(json.dumps(state, ensure_ascii=False, indent=2, default=str))
         return 0
-    warn_unreadable(state, args.issue)
+    # A ticket with an event nobody can read has no answer: any one given would be read
+    # as the whole truth by a caller about to archive, send or wait.
+    if refuse_unreadable(state, args.issue):
+        return 3
     if args.command == "session":
         record = session_of(state, args.kind)
         if record and record.get("session"):
@@ -610,7 +701,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     record = state["results"].get(args.kind)
     if record:
-        print(record["line"])
+        print(describe(record))
     return 0
 
 

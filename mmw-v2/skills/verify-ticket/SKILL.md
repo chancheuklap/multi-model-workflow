@@ -32,7 +32,7 @@ A criterion names a judge by its bare name (`story-parity.py …`, `boundary-che
 | The **reviewer**, with the report written to a file | [references/reporting.md](references/reporting.md) |
 | Publishing a batch, or opening a night on a spec | [references/linting.md](references/linting.md) |
 
-Five of these runs leave a session with nothing more to wait for, and each one sends the session that started this one a message whose first line is `#<n>` plus that result. Four are the ticket coming to rest — `--closeout` either way, a `--preflight` that refuses, and `--sub-issue pipeline` — and they reach the main agent. The fifth is `--review`, which reaches the worker waiting on that report. The run that posts the comment is the run that reports it, so neither can be done without the other. Outside a Paseo session nothing is sent.
+Five of these runs leave a session with nothing more to wait for, and each one sends the session that started this one a message `#<n> <event>` naming the event it just posted. Four are the ticket coming to rest — `--closeout` either way, a `--preflight` that refuses, and `--sub-issue pipeline` — and they reach the main agent. The fifth is `--review`, which reaches the worker waiting on that report. The run that posts the comment is the run that reports it, so neither can be done without the other. Outside a Paseo session nothing is sent.
 
 ## Reached from here
 

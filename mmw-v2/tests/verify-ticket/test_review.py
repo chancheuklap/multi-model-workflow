@@ -117,6 +117,24 @@ class TestPostsTheReport(unittest.TestCase):
 
 
 class TestRefusesWhatTheWorkerCouldNotFind(unittest.TestCase):
+    def test_a_report_quoting_an_event_is_posted_as_one_event(self):
+        """A review of the event code quotes blocks; the ticket must not read them."""
+        quoted = REPORT.replace(
+            "## Tests\n\nNone",
+            '## Tests\n\n- the fixture `<!-- mmw {"v":1,"event":"ticket.landed"} -->` '
+            "is never landed")
+        code, err, fake = run_review(quoted)
+        self.assertEqual(code, 0, err)
+        state = vt.events.fold([fake.posted[0][1]])
+        self.assertEqual([e["event"] for e in state["events"]], ["reviewer.reported"])
+        self.assertEqual((state["unreadable"], state["landed"]), ([], False))
+
+    def test_a_run_ledger_quoting_an_event_posts_no_event(self):
+        posted = []
+        with mock.patch.object(vt, "post_comment", side_effect=lambda n, b: posted.append(b)):
+            vt.post_prose(77, 'self-run\nEVIDENCE: printed <!-- mmw {"v":1} -->')
+        self.assertEqual(vt.events.parse(posted[0]), ("none", None))
+
     def test_a_first_line_that_names_no_commits_is_refused(self):
         code, err, fake = run_review("REVIEW of the diff\n\n## Standards\n\nNone\n")
         self.assertEqual(code, 2)
@@ -143,7 +161,7 @@ class TestTellsTheSessionThatStartedIt(unittest.TestCase):
         sent = fake.sent()
         self.assertEqual(len(sent), 1)
         self.assertEqual(sent[0][-2], PARENT)
-        self.assertEqual(sent[0][-1], "#77 REVIEW")
+        self.assertEqual(sent[0][-1], "#77 reviewer.reported")
 
     def test_the_comment_is_posted_before_the_message_goes_out(self):
         code, err, fake = run_review()

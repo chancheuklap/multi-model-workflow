@@ -664,7 +664,7 @@ class TestNoSideEffectOnFail(unittest.TestCase):
                          [(77, (text, "ticket.passed"))])
         self.assertEqual(seen["closed"], [77])
         self.assertEqual(seen["handed"], [])
-        self.assertEqual(seen["told"], ["#77 ALL MET"])
+        self.assertEqual(seen["told"], ["#77 ticket.passed"])
 
     def test_handoff_posts_the_draft_and_swaps_the_label(self):
         text = draft(first="HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 1 met of 2",
@@ -683,7 +683,7 @@ class TestNoSideEffectOnFail(unittest.TestCase):
                          {"met": 1, "unmet": 0, "abandoned": 1, "total": 2})
         self.assertEqual(seen["closed"], [])
         self.assertEqual(seen["handed"], [77])
-        self.assertEqual(seen["told"], ["#77 HANDOFF REQUIRED"])
+        self.assertEqual(seen["told"], ["#77 ticket.returned"])
 
     def test_a_ticket_someone_else_holds_is_refused(self):
         code, err, seen = check(draft(counts=counts_line()), assignees=("someone-else",),

@@ -14,6 +14,7 @@
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh usesagree|usesmismatch|usesunreadable
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh paseostartdir|landarchivesagents
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh orcadoubledispatch|unreadableevents|startunrecorded
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh mergewithoutbranch|retractunreadable
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh all
 #
 # A fake `paseo`, a fake `herdr`, a fake `orca` and a fake `gh` sit in front of the
@@ -1303,14 +1304,24 @@ path.write_text(json.dumps(rows))
   post_ev "$n" "$kind.started" --ticket "$n" --spec "$spec" \
     --line "$kind started on paseo: session agt_${n}_$kind" \
     --field "session=agt_${n}_$kind" --field runner=paseo \
-    --field "worktree=$MMW_FAKE_PASEO_STATE/issue-$n" --field "branch=issue-$n"
+    $(start_facts "$MMW_FAKE_PASEO_STATE/issue-$n" "$n" "$kind")
+}
+
+# The facts every start carries beyond its session and runner, for events seeded by hand:
+# `start_facts <absolute worktree> <ticket> <kind>`.
+start_facts() {
+  local grade="$3"
+  [ "$3" = worker ] && grade=junior-worker
+  printf '%s\n' --field host=grok --field model=grok-4.6 --field effort=high \
+    --field "grade=$grade" --field "worktree=$1" --field "branch=issue-$2" \
+    --field "base=0000000000000000000000000000000000000000"
 }
 
 # The `<kind>.started` event `start` writes on a ticket, for a session seeded by hand:
 # `runner_line <n> <runner> <session> <kind>`.
 runner_line() {
   post_ev "$1" "$4.started" --ticket "$1" --line "$4 started on $2: session $3" \
-    --field "session=$3" --field "runner=$2"
+    --field "session=$3" --field "runner=$2" $(start_facts "$(wt "$1")" "$1" "$4")
 }
 
 seed_herdr_agent() {
@@ -2110,8 +2121,8 @@ JSON
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" wait 61 reviewer)"
   [ "$code" = 0 ] || fail "expected exit 0 when the result is already there, got $code: $(cat "$TMP/err")"
-  [ "$(cat "$TMP/out")" = "REVIEW abcdef0123456789abcdef0123456789abcdef01..fedcba9876543210fedcba9876543210fedcba98" ] \
-    || fail "stdout should be the REVIEW first line: $(cat "$TMP/out")"
+  [ "$(cat "$TMP/out")" = "reviewer.reported base=abcdef0123456789abcdef0123456789abcdef01" ] \
+    || fail "stdout should be the event and its key fields: $(cat "$TMP/out")"
   hasnt "paseo :: wait"
   hasnt "gh :: issue :: comment"
   hasnt "paseo :: archive"
@@ -2130,8 +2141,8 @@ JSON
           MMW_WAIT_S=6 MMW_WAIT_BEAT_S=1 \
           bash "$DISPATCH" "${TOOLS[@]}" wait 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0 after wait, got $code: $(cat "$TMP/err")"
-  [ "$(cat "$TMP/out")" = "ALL MET" ] \
-    || fail "stdout should be ALL MET: $(cat "$TMP/out")"
+  [ "$(cat "$TMP/out")" = "ticket.passed" ] \
+    || fail "stdout should be ticket.passed: $(cat "$TMP/out")"
   hasnt "paseo :: wait"
   has "gh :: issue :: view :: 61 :: --json :: comments"
   hasnt "gh :: issue :: comment"
@@ -2337,11 +2348,16 @@ JSON
 
 # ------------------------------------------------------------------ orphaned claims
 
+# #63 is claimed by <login>; its worker, started on Orca, has been reported lost.
 write_claimed_batch() {
   cat > "$TMP/tickets.json" <<JSON
 [
   {"number": 63, "state": "OPEN", "labels": ["ready-for-agent"], "assignees": ["$1"],
-   "body": "## Parent\\n\\n#76\\n", "title": "claimed ticket"}
+   "body": "## Parent\\n\\n#76\\n", "title": "claimed ticket",
+   "comments": [$(ev worker.started 63 "worker started on orca: session term_3" \
+                  --field session=term_3 --field runner=orca $(start_facts "$(wt 63)" 63 worker)),
+                $(ev ticket.claimed 63 "Claimed #63"),
+                $(ev worker.lost 63 "term_3 is gone" --field session=term_3 --field runner=orca)]}
 ]
 JSON
 }
@@ -2354,7 +2370,7 @@ scenario_release() {
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
 
-  echo "--- a claim with no worker and no workspace behind it is given back"
+  echo "--- a claim whose worker was reported lost, with no workspace behind it, is given back"
   [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
   has "gh :: issue :: edit :: 63 :: --remove-assignee :: @me"
   grep -q "released 1" "$TMP/err" || fail "the summary does not count it: $(cat "$TMP/err")"
@@ -2443,14 +2459,17 @@ scenario_releasestanding() {
   local code
   reset_log
   fresh_repo
-  cat > "$TMP/tickets.json" <<'JSON'
+  cat > "$TMP/tickets.json" <<JSON
 [
   {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "assignees": ["mmw-bot"],
-   "body": "## Parent\\n\\n#76\\n", "title": "claimed ticket"}
+   "body": "## Parent\\n\\n#76\\n", "title": "claimed ticket",
+   "comments": [$(ev worker.started 61 "worker started on orca: session term_1" \
+                  --field session=term_1 --field runner=orca $(start_facts "$(wt 61)" 61 worker)),
+                $(ev worker.lost 61 "term_1 is gone" --field session=term_1 --field runner=orca)]}
 ]
 JSON
   seed_workspace 61
-  echo "--- assigned, no live worker, workspace still standing: RELEASE then DISPATCH into that workspace"
+  echo "--- assigned, its worker lost, workspace still standing: RELEASE then DISPATCH into that workspace"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
@@ -3845,8 +3864,7 @@ scenario_orcadoubledispatch() {
   {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "assignees": ["mmw-bot"],
    "body": "## Parent\\n\\n#76\\n", "title": "claimed ticket",
    "comments": [$(ev worker.started 61 "worker started on orca: session term_7" --spec 76 \
-                  --field session=term_7 --field runner=orca \
-                  --field "worktree=$(wt 61)" --field branch=issue-61)]}
+                  --field session=term_7 --field runner=orca $(start_facts "$(wt 61)" 61 worker))]}
 ]
 JSON
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
@@ -3888,6 +3906,57 @@ scenario_startunrecorded() {
     || fail "the refusal should say the start was not recorded: $(cat "$TMP/err")"
   grep -q "was stopped again" "$TMP/err" \
     || fail "the refusal should say the session was stopped: $(cat "$TMP/err")"
+}
+
+# A passed ticket whose branch is not in this checkout cannot be merged, so it does not
+# land, and the ticket it blocks is not started on a base branch that lacks its work.
+scenario_mergewithoutbranch() {
+  local code
+  echo "--- a blocker that passed and could not be merged here does not unblock its ticket"
+  reset_log
+  fresh_repo
+  cat > "$TMP/tickets.json" <<JSON
+[
+  {"number": 60, "state": "CLOSED", "labels": [], "closedAt": "2026-08-31T01:00:00Z",
+   "comments": [$(ev ticket.passed 60 "ALL MET" --field branch=issue-60)]},
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"],
+   "blockedBy": [{"number": 60, "state": "CLOSED"}]}
+]
+JSON
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
+  never_ran
+  assert_no_wt 61
+  grep -q "started 0" "$TMP/err" || fail "#61 was started on a base without #60: $(cat "$TMP/err")"
+  grep -q "#61 blocked by #60 (passed, not landed)" "$TMP/err" \
+    || fail "stderr should say #61 waits on #60's landing: $(cat "$TMP/err")"
+  [ -z "$(posted_events 60)" ] || fail "#60 must not be recorded landed: $(posted_events 60)"
+}
+
+# A ticket carrying an event nobody can read has no answer: retract archives nothing.
+scenario_retractunreadable() {
+  local code
+  echo "--- retract refuses on a ticket whose events cannot be read, and keeps the worktree"
+  reset_log
+  fresh_repo
+  seed_workspace 61
+  runner_line 61 paseo agt_old worker
+  MMW_N=61 python3 -c '
+import json, os
+from pathlib import Path
+store = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "gh-comments.json"
+posted = json.loads(store.read_text()) if store.is_file() else {}
+posted.setdefault(os.environ["MMW_N"], []).append(
+    "worker started again\n\n<!-- mmw {\"v\":1,\"event\":\"worker.started\",\"session\": -->")
+store.write_text(json.dumps(posted))
+'
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" retract 61)"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  assert_wt 61
+  grep -q "comment 2" "$TMP/err" || fail "stderr should name the unreadable comment: $(cat "$TMP/err")"
+  hasnt "paseo :: archive"
+  hasnt "gh :: issue :: edit"
 }
 
 # A comment whose event block cannot be read is not a comment with no event.
@@ -4155,7 +4224,7 @@ scenario_orcanohosts() {
   hasnt "orca :: terminal :: create"
 }
 
-ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded"
+ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -4229,6 +4298,8 @@ banner_for() {
     orcadoubledispatch) echo ORCA-DOUBLE-DISPATCH-OK ;;
     unreadableevents) echo UNREADABLE-EVENTS-OK ;;
     startunrecorded) echo START-UNRECORDED-OK ;;
+    mergewithoutbranch) echo MERGE-WITHOUT-BRANCH-OK ;;
+    retractunreadable) echo RETRACT-UNREADABLE-OK ;;
   esac
 }
 

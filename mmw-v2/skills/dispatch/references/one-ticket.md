@@ -5,7 +5,7 @@ You are starting one worker on one ticket, with no batch behind it. A ticket out
 Three steps:
 
 1. `<dispatch> start <n> worker`.
-2. `<dispatch> wait <n> worker` until it answers `ALL MET` or `HANDOFF REQUIRED` (exit codes in [inside-a-ticket.md](inside-a-ticket.md)); a ticket message with the same first line may arrive first when both sessions are on Paseo.
+2. `<dispatch> wait <n> worker` until it answers `ticket.passed` or `ticket.returned` (exit codes in [inside-a-ticket.md](inside-a-ticket.md)); a ticket message naming the same event may arrive first when both sessions are on Paseo.
 3. `<dispatch> land <n>`: it runs the product's `stop` in the ticket's worktree, merges its branch and records `ticket.landed` on the ticket, stops every session the ticket's `*.started` events name, removes its worktree, and gives its slot and its claim back.
 
 ## Exit codes

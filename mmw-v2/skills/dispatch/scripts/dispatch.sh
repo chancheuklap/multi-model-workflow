@@ -663,13 +663,13 @@ for key in ("slot", "port_base"):
 ' 2>/dev/null)"
   fi
   # The event is the only place this session is recorded: every later command finds
-  # it there, and `advance` reads a ticket with no live worker on its events as free.
+  # it there, and `advance` reads a ticket whose events show no hold as free.
   # So a session whose event could not be written is stopped again rather than left
   # running where nothing can find it — a second worker would be started beside it.
   if ! post_event "$number" "$kind.started" --ticket "$number" --spec "$spec" \
        --line "$kind started on $RUNNER_NAME: session $session, $host $model ($effort)" \
        --field "session=$session" --field "runner=$RUNNER_NAME" \
-       --field "host=$host" --field "model=$model" --field "effort=$effort" \
+       --field "host=$host" --field "model=$model" --field "effort=${effort:-—}" \
        --field "grade=$profile" --field "worktree=$cwd" --field "branch=issue-$number" \
        --field "base=$(git -C "$root" config --get "branch.issue-$number.mmw-base")" \
        ${slot_fields[@]+"${slot_fields[@]}"}; then
@@ -793,10 +793,10 @@ resume_one() {
 
 # ------------------------------------------------------------------ wait
 
-# The first line of the newest comment carrying this kind's result event: worker
-# `ticket.passed` / `ticket.returned`, reviewer `reviewer.reported`, verifier
-# `verifier.passed` / `verifier.failed`. Nothing when there is none; exit 2 when the
-# ticket could not be read.
+# The newest result event of this kind — worker `ticket.passed` / `ticket.returned`,
+# reviewer `reviewer.reported`, verifier `verifier.passed` / `verifier.failed` — as its
+# name and key fields (`verifier.failed commit=… failed=AC2`). Nothing when there is
+# none; non-zero when the ticket could not be read or carries an event nobody can read.
 result_first_line() {
   ticket_events "$1" result --kind "$2"
 }
@@ -817,8 +817,8 @@ wait_no_result() {
   exit 1
 }
 
-# Print the first line of the comment carrying the newest result event of this kind on
-# ticket <n>. The ticket is read first, so an agent that has
+# Print the newest result event of this kind on ticket <n>, by name and key fields.
+# The ticket is read first, so an agent that has
 # already written its result returns at once — which is the whole of it on the
 # ordinary path, since what wakes a caller is that agent finishing.
 #
@@ -842,7 +842,8 @@ wait_one() {
   esac
 
   local head ident
-  head="$(result_first_line "$number" "$kind")"
+  head="$(result_first_line "$number" "$kind")" \
+    || refuse "could not read #$number's events, so what its $kind reported is unknown"
   if [ -n "$head" ]; then
     printf '%s\n' "$head"
     return 0
@@ -858,7 +859,8 @@ wait_one() {
   local budget="${MMW_WAIT_S:-90}" beat="${MMW_WAIT_BEAT_S:-10}" spent=0 round_start
   while [ "$spent" -lt "$budget" ]; do
     round_start="$(date +%s)"
-    head="$(result_first_line "$number" "$kind")"
+    head="$(result_first_line "$number" "$kind")" \
+      || refuse "could not read #$number's events, so what its $kind reported is unknown"
     if [ -n "$head" ]; then
       printf '%s\n' "$head"
       return 0
@@ -1095,9 +1097,14 @@ advance() {
   [ -z "$dirty" ] \
     || refuse "$(printf '%s' "$dirty" | wc -l | tr -d ' ') tracked files have uncommitted changes; a merge would carry them in — commit them or set them aside first"
 
-  local plan
-  plan="$(python3 "$STATUS" --advance-plan "$spec")" \
-    || refuse "could not read the batch under #$spec"
+  # The first plan says what to merge and which claims to give back. Its stderr repeats
+  # in the second plan, which is the one read for what to start, so it is shown only
+  # when the plan could not be made at all.
+  local plan plan_err
+  plan_err="$(mktemp)"
+  plan="$(python3 "$STATUS" --advance-plan "$spec" 2>"$plan_err")" \
+    || { cat "$plan_err" >&2; rm -f "$plan_err"; refuse "could not read the batch under #$spec"; }
+  rm -f "$plan_err"
 
   local merged=0 skipped=0 number branch left rc
   local -a just_merged=()
@@ -1133,24 +1140,31 @@ advance() {
 
   # A claim whose worker is gone keeps its ticket off the frontier for good: only the
   # closeout and the hand back to triage ever give a claim back, and the frontier takes
-  # unassigned tickets alone. The plan names a claim only when the ticket's events show
-  # no live worker — a start that a retraction, a loss, a landing or a suspension has
-  # closed — so a worker started on any runner, on any machine, keeps its claim.
+  # unassigned tickets alone. The plan names a claim only when an event on the ticket
+  # has ended every hold on it — a retraction, a loss, a landing, a hand back, a release
+  # or a suspension — so a worker started on any runner, on any machine, keeps its
+  # claim, and so does one that claimed and has not had its start recorded yet.
   # `--remove-assignee @me` is the whole write, so a ticket a person took for themselves
   # is left exactly as it is.
   local released=0
   for number in $(printf '%s\n' "$plan" | awk '$1 == "RELEASE" { print $2 }'); do
     if gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1; then
       released=$((released + 1))
-      echo "released the claim on #$number: it is open in the agent queue and its events show no live worker, so the worker that claimed it is gone" >&2
+      echo "released the claim on #$number: it is open in the agent queue and an event on it ended its worker's hold, so the worker that claimed it is gone" >&2
       post_event "$number" ticket.released --ticket "$number" --spec "$spec" \
-          --line "Gave the claim on #$number back: its events show no live worker" \
+          --line "Gave the claim on #$number back: an event on it ended its worker's hold" \
           --field reason=worker-lost \
         || echo "dispatch: the claim on #$number is given back, but its ticket.released event was not written" >&2
     else
       echo "dispatch: could not take the claim off #$number, so it stays off the frontier" >&2
     fi
   done
+
+  # What to start is read again, now that the merges above are recorded as landed and
+  # the claims given back: a merge that could not happen — no branch here to merge —
+  # left no `ticket.landed`, so the tickets it blocks stay blocked.
+  plan="$(python3 "$STATUS" --advance-plan "$spec")" \
+    || refuse "could not read the batch under #$spec again after its merges, so nothing was started"
 
   local started=0 refused=0 held=0 live max_inst trees
   max_inst="$(target_max_instances "$root")" || exit 2

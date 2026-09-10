@@ -52,7 +52,8 @@ REQUIRED = {
     "ticket.refused": {"reason": "blocked"},
     "ticket.released": {"reason": "worker-lost"},
     "child.opened": {"child": 90, "kind": "review"},
-    "worker.lost": {"session": "gone"},
+    "worker.lost": {"session": "gone", "runner": "paseo"},
+    "worker.started": {"host": "grok", "model": "grok-4.6", "effort": "high", "grade": "junior-worker", "worktree": "/repo/.worktrees/issue-61", "branch": "issue-61", "base": "0" * 40},
     "reviewer.started": {"session": "rv-1", "runner": "paseo"},
     "verifier.started": {"session": "vf-1", "runner": "paseo"},
 }
@@ -383,7 +384,7 @@ class ReadEventTest(unittest.TestCase):
 
     def test_what_the_scripts_write_is_what_the_relay_reads(self):
         body = relay.events.build("worker.started", ticket=61, line="worker started",
-                                  session="term_7", runner="orca")
+                                  session="term_7", runner="orca", **REQUIRED["worker.started"])
         self.assertEqual(relay.read_event(body)["session"], "term_7")
 
 

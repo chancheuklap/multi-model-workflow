@@ -151,6 +151,16 @@ def post_comment(number: int, body: str) -> None:
         os.unlink(path)
 
 
+def post_prose(number: int, text: str) -> None:
+    """Post a comment that is not an event: a run's ledger, `CHECKS FAILED`, `TOUCHED BY`.
+
+    What it quotes — a command's output, a file path — may hold an `<!-- mmw` opener, and
+    that would read on the ticket as an event nobody wrote. `events.neutralise` makes any
+    such opener visible text.
+    """
+    post_comment(number, events.neutralise(text))
+
+
 def post_event(number: int, event: str, line: str, text: str = "",
                spec: int | None = None, **fields) -> str:
     """Post one event on ticket `number`: `line` for a person, the block for the fold."""
@@ -1286,7 +1296,7 @@ def run_review(number: int, path: Path) -> int:
     post_event(number, "reviewer.reported", head, rest,
                base=found.group(1), head=found.group(2))
     print(f"REVIEW: posted on #{number}")
-    notify_parent(f"#{number} REVIEW")
+    notify_parent(f"#{number} reviewer.reported")
     return 0
 
 
@@ -1335,7 +1345,7 @@ def run_touched(number: int) -> int:
         for child, globs in siblings:
             if not any(glob_covers(g, path) for g in globs):
                 continue
-            post_comment(child, comment)
+            post_prose(child, comment)
             posted_to.append(child)
     if posted_to:
         print("TOUCHED: " + ", ".join(f"#{n}" for n in posted_to))
@@ -1455,7 +1465,7 @@ def run_sub_issue(number: int, kind: str, path: Path) -> int:
     # `pipeline` is the kind the worker stops on, so the ticket comes to rest here and
     # the parent is told. Every other kind is opened mid-work and the worker carries on.
     if kind == "pipeline":
-        notify_parent(f"#{number} SUB-ISSUE pipeline")
+        notify_parent(f"#{number} child.opened kind=pipeline")
     print(found.group(1) if found else printed)
     return recorded
 
@@ -1494,7 +1504,7 @@ def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
         "",
         outside_owns_line(number, owns_globs(body), root),
     ])
-    post_comment(number, comment)
+    post_prose(number, comment)
     return result.returncode
 
 
@@ -1566,7 +1576,7 @@ def run_preflight(number: int) -> int:
         reason, sentence = problems[0]
         post_event(number, "ticket.refused", sentence, spec=spec_field(ticket),
                    reason=reason, branch=branch or None)
-        notify_parent(f"#{number} NOT_READY")
+        notify_parent(f"#{number} ticket.refused")
         sys.stderr.write(sentence + "\n")
         return 2
     assign_self(number)
@@ -1740,7 +1750,7 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     if first == "ALL MET":
         ok, extra = run_target_json_checks(repo_root())
         if not ok:
-            post_comment(number, extra)
+            post_prose(number, extra)
             sys.stderr.write(extra.splitlines()[0] + "\n")
             return 1
         if extra:
@@ -1759,11 +1769,11 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
                           for a in abandons] or None)
     if first == "ALL MET":
         close_ticket(number)
-        notify_parent(f"#{number} ALL MET")
+        notify_parent(f"#{number} ticket.passed")
         print(f"CLOSED: #{number}")
     else:
         hand_back_for_triage(number)
-        notify_parent(f"#{number} HANDOFF REQUIRED")
+        notify_parent(f"#{number} ticket.returned")
         print(f"HANDED BACK: #{number} is now needs-triage and stays open")
     return 0
 

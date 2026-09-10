@@ -33,8 +33,18 @@ def ev(name, line, ticket=61, **fields):
 
 def started(ticket, session, runner="orca", kind="worker"):
     return ev(f"{kind}.started", f"{kind} started on {runner}: session {session}", ticket,
-              session=session, runner=runner, worktree=f"/repo/.worktrees/issue-{ticket}",
-              branch=f"issue-{ticket}")
+              session=session, runner=runner, host="grok", model="grok-4.6", effort="high",
+              grade="junior-worker" if kind == "worker" else kind,
+              worktree=f"/repo/.worktrees/issue-{ticket}", branch=f"issue-{ticket}",
+              base="0" * 40)
+
+
+def claimed(ticket):
+    return ev("ticket.claimed", f"Claimed #{ticket}", ticket, login="mmw-bot")
+
+
+def lost(ticket, session, runner="orca"):
+    return ev("worker.lost", f"{session} is gone", ticket, session=session, runner=runner)
 
 
 def passed(ticket):
@@ -123,22 +133,21 @@ class WhoHoldsATicket(unittest.TestCase):
                          ("orca", "term_7", "live"))
         self.assertEqual(status.held([row]), [row])
 
-    def test_a_reviewer_alone_does_not_hold_the_ticket(self):
+    def test_any_started_session_holds_the_ticket_a_reviewer_s_too(self):
         row = self.row(started(61, "rev_1", kind="reviewer"))
-        self.assertIsNone(row["worker"])
+        self.assertEqual(row["worker"]["session"], "rev_1")
 
     def test_each_closing_event_ends_the_hold(self):
         closers = {
             "worker.retracted": ev("worker.retracted", "retracted", session="term_7",
                                    runner="orca"),
-            "worker.lost": ev("worker.lost", "lost", session="term_7"),
+            "worker.lost": lost(61, "term_7"),
             "ticket.landed": landed(61),
             "ticket.released": ev("ticket.released", "released", reason="worker-lost"),
             "spec.suspended": ev("spec.suspended", "NIGHT SUSPENDED #76"),
-            "ticket.passed": passed(61),
             "ticket.returned": returned(61),
-            "worker.replaced": ev("worker.replaced", "replaced", session="term_8",
-                                  runner="orca", replaced="term_7"),
+            "worker.replaced": ev("worker.replaced", "replaced", session="term_7",
+                                  runner="orca"),
         }
         for name, closer in closers.items():
             with self.subTest(closer=name):
@@ -146,7 +155,18 @@ class WhoHoldsATicket(unittest.TestCase):
                 self.assertIsNone(row["worker"], name)
 
     def test_a_loss_of_another_session_leaves_this_one_holding(self):
-        row = self.row(started(61, "term_7"), ev("worker.lost", "lost", session="term_2"))
+        row = self.row(started(61, "term_7"), lost(61, "term_2"))
+        self.assertEqual(row["worker"]["session"], "term_7")
+
+    def test_a_claim_with_no_start_recorded_holds_the_ticket(self):
+        row = self.row(claimed(61), assignees=("mmw-bot",))
+        self.assertTrue(row["worker"]["claim"])
+        self.assertEqual(status.frontier([row]), [])
+        self.assertIn("held by its ticket.claimed", status.why_not_on_frontier(row))
+
+    def test_a_pass_on_a_ticket_still_open_does_not_end_the_hold(self):
+        """The close after the pass failed: the worker is retrying on an open ticket."""
+        row = self.row(started(61, "term_7"), claimed(61), passed(61))
         self.assertEqual(row["worker"]["session"], "term_7")
 
     def test_a_resumed_worker_holds_again(self):
@@ -154,10 +174,11 @@ class WhoHoldsATicket(unittest.TestCase):
                        ev("worker.resumed", "resumed", session="term_7", runner="orca"))
         self.assertEqual(row["worker"]["session"], "term_7")
 
-    def test_a_ticket_the_tracker_says_is_over_is_held_by_nobody(self):
-        row = self.row(started(61, "term_7"), state="CLOSED", labels=())
-        self.assertIsNone(row["worker"])
-        self.assertTrue(row["note"].endswith("at rest"), row["note"])
+    def test_labels_never_hide_a_hold(self):
+        for labels in (("ready-for-agent", "needs-triage"), ("needs-triage",), ()):
+            with self.subTest(labels=labels):
+                row = self.row(started(61, "term_7"), labels=labels)
+                self.assertEqual(row["worker"]["session"], "term_7")
 
     def test_two_live_workers_are_named_on_the_note(self):
         row = self.row(started(61, "term_7"), started(61, "term_8"))
@@ -225,9 +246,6 @@ class BlockersLetGoWhenTheyLand(unittest.TestCase):
         blocker = ticket(60, state="CLOSED", labels=(), comments=[passed(60), landed(60)])
         self.assertEqual(self.frontier(blocker), [61])
 
-    def test_a_blocker_this_plan_merges_first_lets_go(self):
-        blocker = ticket(60, state="CLOSED", labels=(), comments=[passed(60)])
-        self.assertEqual(self.frontier(blocker, landing={60}), [61])
 
     def test_a_blocker_closed_without_a_pass_lets_go_on_closing(self):
         blocker = ticket(60, state="CLOSED", labels=(), comments=["voided by a person"])
@@ -425,10 +443,21 @@ class AdvancePlan(Plans):
         self.tickets = {61: self.closed(61, "2026-08-31T01:00:00Z", passed(61), landed(61))}
         self.assertEqual(self.plan(), ([], []))
 
-    def test_a_ticket_blocked_by_one_this_plan_merges_is_dispatched_by_the_same_advance(self):
+    def test_a_ticket_blocked_by_one_this_plan_merges_waits_for_its_landing(self):
+        """The plan reads the tracker as it stands: the merge unblocks nothing until its
+        ticket.landed is written, which `dispatch.sh` reads in its second plan."""
         self.tickets = {60: self.closed(60, "2026-08-31T01:00:00Z", passed(60)),
                         61: ticket(61, closed_blockers=(60,))}
-        self.assertEqual(self.plan()[0], ["MERGE 60", "DISPATCH 61"])
+        self.assertEqual(self.plan()[0], ["MERGE 60"])
+        self.tickets[60] = self.closed(60, "2026-08-31T01:00:00Z", passed(60), landed(60))
+        self.assertEqual(self.plan()[0], ["DISPATCH 61"])
+
+    def test_a_ticket_whose_events_cannot_be_read_is_never_merged(self):
+        self.tickets = {61: self.closed(61, "2026-08-31T01:00:00Z", passed(61),
+                                        UnreadableEvents.BROKEN)}
+        out, err = self.plan()
+        self.assertEqual(out, [])
+        self.assertIn("#61 is not merged: its events cannot be read", "\n".join(err))
 
     def test_a_claim_with_a_live_worker_on_its_events_is_kept_on_any_runner(self):
         """2026-09-10: a worker on Orca, invisible to Paseo, lost its claim and got a
@@ -450,10 +479,45 @@ class AdvancePlan(Plans):
             ev("worker.retracted", "retracted", session="term_7", runner="orca")])}
         self.assertEqual(self.plan()[0], ["RELEASE 61", "DISPATCH 61"])
 
-    def test_a_claim_with_no_worker_ever_started_is_released(self):
+    def test_a_claim_no_event_ever_showed_held_is_kept(self):
+        """Only an event that ended a hold says a claim's worker is gone."""
         status.own_login = lambda: self.LOGIN
         self.tickets = {61: ticket(61, assignees=(self.LOGIN,))}
+        out, err = self.plan()
+        self.assertEqual(out, [])
+        self.assertIn("#61 keeps its claim: no event on it ever showed a worker holding it",
+                      "\n".join(err))
+
+    def test_a_claim_whose_worker_is_lost_is_released_and_dispatched(self):
+        status.own_login = lambda: self.LOGIN
+        self.tickets = {61: ticket(61, assignees=(self.LOGIN,),
+                                   comments=[started(61, "term_7"), claimed(61),
+                                             lost(61, "term_7")])}
         self.assertEqual(self.plan()[0], ["RELEASE 61", "DISPATCH 61"])
+
+    def test_a_claim_made_before_its_start_was_recorded_is_kept(self):
+        status.own_login = lambda: self.LOGIN
+        self.tickets = {61: ticket(61, assignees=(self.LOGIN,), comments=[claimed(61)])}
+        out, err = self.plan()
+        self.assertEqual(out, [])
+        self.assertIn("#61 keeps its claim: its ticket.claimed is still a hold", "\n".join(err))
+
+    def test_a_passed_ticket_whose_close_failed_keeps_its_claim(self):
+        status.own_login = lambda: self.LOGIN
+        self.tickets = {61: ticket(61, assignees=(self.LOGIN,), comments=[
+            started(61, "term_7"), claimed(61), passed(61)])}
+        out, err = self.plan()
+        self.assertEqual(out, [])
+        self.assertIn("#61 keeps its claim: the worker term_7 on orca", "\n".join(err))
+
+    def test_a_triage_label_beside_the_agent_queue_does_not_free_a_live_ticket(self):
+        status.own_login = lambda: self.LOGIN
+        self.tickets = {61: ticket(61, labels=("ready-for-agent", "needs-triage"),
+                                   assignees=(self.LOGIN,),
+                                   comments=[started(61, "term_7"), claimed(61)])}
+        out, err = self.plan()
+        self.assertEqual(out, [])
+        self.assertIn("#61 keeps its claim: the worker term_7 on orca", "\n".join(err))
 
     def test_a_claim_on_a_ticket_whose_events_cannot_be_read_is_kept(self):
         status.own_login = lambda: self.LOGIN

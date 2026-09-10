@@ -209,14 +209,14 @@ def phase_of(ticket: dict) -> str:
 
 
 def in_flight(ticket: dict) -> bool:
-    """Whether this ticket is still being worked, read off the tracker.
+    """Whether `land` may treat this ticket's work as still going on, read off the tracker.
 
         CLOSED                          not in flight — the worker wrote its verdict
         OPEN, handed back to triage     not in flight — it said it could not finish
         OPEN, no verdict either way     in flight
 
-    A worker the fold still shows as live holds only a ticket in flight: a ticket the
-    tracker says is done is held by nobody, whatever its event log last recorded.
+    Only `land_plan` asks this. Whether a worker holds the ticket is the fold's `held`,
+    and no label changes that answer.
     """
     if ticket.get("state") == "CLOSED":
         return False
@@ -248,15 +248,14 @@ def unreadable_reason(ticket: dict) -> str:
 
 # --------------------------------------------------------------------- the rows
 
-def blocker_reason(number: int, state: str, tickets: dict[int, dict],
-                   landing: set[int], lookup) -> str:
+def blocker_reason(number: int, state: str, tickets: dict[int, dict], lookup) -> str:
     """Why blocker `number` still holds its ticket back, or empty when it no longer does.
 
     A blocker lets go when its work is on the base branch, not when it closes: the
     ticket it blocks is cut from the base branch and has to find that work there. The
-    signal is `ticket.landed`. A blocker closed without a pass — by a person, or as not
-    planned — has nothing that will ever land, and lets go on closing. `landing` is the
-    tickets this plan merges before it dispatches.
+    signal is `ticket.landed`, read off the blocker's own events. A blocker closed without
+    a pass — by a person, or as not planned — has nothing that will ever land, and lets
+    go on closing.
     """
     if state != "CLOSED":
         return "open"
@@ -265,7 +264,7 @@ def blocker_reason(number: int, state: str, tickets: dict[int, dict],
         return "the tracker did not answer for it"
     if blocker["fold"]["unreadable"]:
         return "its events cannot be read"
-    if number in landing or not passed_unlanded(blocker):
+    if not passed_unlanded(blocker):
         return ""
     return "passed, not landed"
 
@@ -280,8 +279,17 @@ def cached(read):
     return lookup
 
 
-def build_rows(numbers: list[int], tickets: dict[int, dict], *,
-               landing: set[int] | frozenset = frozenset(), lookup=None) -> list[dict]:
+def holder_of(fold: dict) -> dict | None:
+    """What holds the ticket: its newest live session, or the claim no session has taken
+    over yet, or None when nothing does."""
+    if fold["holders"]:
+        return fold["holders"][-1]
+    if fold["claim_hold"]:
+        return {"session": None, "runner": None, "started_at": None, "claim": True}
+    return None
+
+
+def build_rows(numbers: list[int], tickets: dict[int, dict], *, lookup=None) -> list[dict]:
     """One row per ticket: what the tracker says, and what its events fold to."""
     lookup = lookup or cached(read_ticket)
     rows = []
@@ -290,16 +298,14 @@ def build_rows(numbers: list[int], tickets: dict[int, dict], *,
         fold = ticket["fold"]
         blocking = []
         for node in ticket.get("blocked_by") or []:
-            why = blocker_reason(node["number"], node["state"], tickets, set(landing), lookup)
+            why = blocker_reason(node["number"], node["state"], tickets, lookup)
             if why:
                 blocking.append((node["number"], why))
         shown = fold["worker"]
-        live = fold["live_workers"]
-        holder = live[-1] if live and in_flight(ticket) else None
         rows.append({
             "ticket": number,
-            "worker": holder,
-            "live_workers": live if in_flight(ticket) else [],
+            "worker": holder_of(fold),
+            "live_workers": fold["live_workers"],
             "state": ticket["state"],
             "labels": ticket["labels"],
             "blockers": [n for n, _ in blocking],
@@ -331,14 +337,13 @@ def note_of(ticket: dict, row: dict) -> str:
     Blank means a worker is live on a ticket still in flight: nothing to say.
     """
     head = row["head"]
-    fold = ticket["fold"]
     if row["unreadable"]:
         return ("events unreadable: " + row["unreadable"])[:80]
-    if fold["worker_live"] and not in_flight(ticket):
-        return (head[:44] + " · at rest") if head else "at rest"
     if len(row["live_workers"]) > 1:
         return (f"{len(row['live_workers'])} live workers: "
                 + ", ".join(r.get("session") or "?" for r in row["live_workers"]))
+    if row["worker"] and row["worker"].get("claim"):
+        return "claimed, no session started yet"
     if row["worker"]:
         return ""
     if ticket.get("state") == "CLOSED":
@@ -371,8 +376,11 @@ def off_frontier_reasons(row: dict) -> list[str]:
         reasons.append("blocked by " + blocking_text(row["blocking"]))
     if row["assignees"]:
         reasons.append("claimed by " + ", ".join(row["assignees"]))
-    if row["worker"] is not None:
-        worker = row["worker"]
+    worker = row["worker"]
+    if worker is not None and worker.get("claim"):
+        reasons.append("held by its ticket.claimed, which no started session has taken "
+                       "over; if the worker that claimed it is gone, retract it")
+    elif worker is not None:
         reasons.append(f"held by the worker {worker.get('session') or '?'} on "
                        f"{worker.get('runner') or '?'}, started "
                        f"{worker.get('started_at') or 'at an unrecorded time'}; if that "
@@ -384,9 +392,10 @@ def frontier(rows: list[dict]) -> list[dict]:
     """The tickets that may be started right now, in ticket order.
 
     Open, in the agent queue, events readable, every blocker landed, nobody has claimed
-    it, and no live worker already holds it. The last of those is what keeps a second
-    round from starting a second worker on a ticket the first one is still doing, on
-    whichever runner and machine that worker was started.
+    it, and nothing holds it — no `ticket.claimed` and no started session that an event
+    has not ended. The last of those is what keeps a second round from starting a second
+    worker on a ticket the first one is still doing, on whichever runner and machine
+    that worker was started.
     """
     return [r for r in rows
             if r["state"] == "OPEN"
@@ -566,18 +575,21 @@ def advance_plan(spec: int) -> int:
 
         MERGE <ticket>      closed with a pass that has not landed, the one that
                             closed first at the top
-        RELEASE <ticket>    in the agent queue and claimed by this pipeline, with no
-                            live worker on its events: the worker that claimed it is gone
-        DISPATCH <ticket>   on the frontier, in ticket order
+        RELEASE <ticket>    in the agent queue and claimed by this pipeline, and an
+                            event has ended every hold on it: the worker is gone
+        DISPATCH <ticket>   on the frontier as the tracker stands now, in ticket order
 
-    The frontier is read as it stands once `dispatch.sh` has done the lines printed
-    above it: a ticket freed by a RELEASE starts in the same advance, and a ticket
-    blocked only by one this plan merges is unblocked by that merge.
+    The frontier reads the tracker as it stands: a merge this plan asks for unblocks
+    nothing until its `ticket.landed` is on the ticket. `dispatch.sh` therefore asks for
+    the plan a second time after its merges and releases, and starts only what that
+    second plan's DISPATCH lines name.
 
-    A claim is given back only when the ticket's events show no live worker. Whether a
-    worker is live is never asked of a runner here: the ticket's `worker.started`,
-    closed by nothing since, is what says one is. A ticket whose events cannot be read
-    keeps its claim and stays off the frontier, and says why.
+    A ticket is held from its `ticket.claimed` or any `*.started` until an event ends
+    the hold (`events.ENDS_EVERY_HOLD`, `events.ENDS_ONE_HOLD`); no runner is asked and
+    no label is read. A claim is given back only after such an event: a claim no event
+    ever showed a worker holding is kept, since nothing shows its worker gone. A ticket
+    whose events cannot be read is neither merged nor released nor dispatched, and says
+    why.
 
     Whether a branch exists and whether it is already in the base branch are git's
     questions, and git is not this program's source. `dispatch.sh` asks them.
@@ -587,10 +599,18 @@ def advance_plan(spec: int) -> int:
     """
     numbers = sub_issues(spec)
     tickets = {n: read_ticket(n) for n in numbers}
-    done = [t for t in tickets.values() if passed_unlanded(t)]
+    done = []
+    for ticket in tickets.values():
+        if not passed_unlanded(ticket):
+            continue
+        if unreadable_reason(ticket):
+            print(f"#{ticket['number']} is not merged: its events cannot be read "
+                  f"({unreadable_reason(ticket)})", file=sys.stderr)
+            continue
+        done.append(ticket)
     for ticket in sorted(done, key=lambda t: t["closed_at"]):
         print(f"MERGE {ticket['number']}")
-    rows = build_rows(numbers, tickets, landing={t["number"] for t in done})
+    rows = build_rows(numbers, tickets)
     login = own_login()
     for row in rows:
         if row["state"] != "OPEN" or "ready-for-agent" not in row["labels"]:
@@ -601,10 +621,19 @@ def advance_plan(spec: int) -> int:
             print(f"#{row['ticket']} keeps its claim: its events cannot be read "
                   f"({row['unreadable']})", file=sys.stderr)
             continue
-        if row["worker"] is not None:
+        worker = row["worker"]
+        if worker is not None and worker.get("claim"):
+            print(f"#{row['ticket']} keeps its claim: its ticket.claimed is still a hold, "
+                  f"and no event has ended it", file=sys.stderr)
+            continue
+        if worker is not None:
             print(f"#{row['ticket']} keeps its claim: the worker "
-                  f"{row['worker'].get('session')} on {row['worker'].get('runner')} "
+                  f"{worker.get('session')} on {worker.get('runner')} "
                   f"is live on its events", file=sys.stderr)
+            continue
+        if not tickets[row["ticket"]]["fold"]["hold_ended"]:
+            print(f"#{row['ticket']} keeps its claim: no event on it ever showed a worker "
+                  f"holding it, so none shows that worker gone", file=sys.stderr)
             continue
         print(f"RELEASE {row['ticket']}")
         row["assignees"] = [a for a in row["assignees"] if a != login]
@@ -627,7 +656,10 @@ def reverify_plan(spec: int) -> int:
     """
     tickets = [read_ticket(n) for n in sub_issues(spec)]
     for ticket in sorted(tickets, key=lambda t: t["closed_at"]):
-        if landed(ticket):
+        if unreadable_reason(ticket):
+            print(f"#{ticket['number']} is not re-run: its events cannot be read "
+                  f"({unreadable_reason(ticket)})", file=sys.stderr)
+        elif landed(ticket):
             print(f"REVERIFY {ticket['number']}")
         elif passed_unlanded(ticket):
             print(f"#{ticket['number']} passed and has not landed, so it is not re-run "
