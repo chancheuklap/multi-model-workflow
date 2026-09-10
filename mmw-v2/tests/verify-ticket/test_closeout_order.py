@@ -45,5 +45,61 @@ class TestNoEventWhenTheTrackerRefuses(unittest.TestCase):
         self.assertIn("no ticket.returned event was posted", err)
 
 
+CLAIMED = tc.event("ticket.claimed", "Claimed #77 on issue-77", login=tc.ME, branch="issue-77")
+
+
+def after_a_lost_post(text, **kwargs):
+    """--closeout on a ticket a previous run already changed, whose event was never posted."""
+    return tc.check(text, comments=(tc.VERDICT_COMMENT, CLAIMED), check_only=False, **kwargs)
+
+
+class TestAnEventThatCouldNotBePostedIsPostedByTheNextRun(unittest.TestCase):
+    def test_a_post_that_fails_after_the_close_says_to_run_closeout_again(self):
+        code, err, _ = tc.check(tc.draft(counts=tc.counts_line()), check_only=False, post_fails=True)
+        self.assertEqual(code, 1)
+        self.assertEqual(tc.CALLS, ["closed", "posted"])
+        self.assertIn("#77 is closed, and its ticket.passed event could not be posted", err)
+        self.assertIn("Run --closeout again with the same draft", err)
+
+    def test_the_rerun_on_the_closed_ticket_posts_the_missing_ticket_passed(self):
+        code, err, seen = after_a_lost_post(tc.draft(counts=tc.counts_line()), state="CLOSED",
+                                            assignees=(), reason="COMPLETED")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(tc.CALLS, ["posted"], "the close is not made twice")
+        self.assertEqual(tc.posted_as(seen["posted"][0][1])[1], "ticket.passed")
+
+    def test_the_rerun_on_the_handed_back_ticket_posts_the_missing_ticket_returned(self):
+        code, err, seen = after_a_lost_post(tc.draft(**HANDOFF), assignees=(),
+                                            labels=("needs-triage",))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(tc.CALLS, ["posted"], "the hand back is not made twice")
+        self.assertEqual(tc.posted_as(seen["posted"][0][1])[1], "ticket.returned")
+
+    def test_a_closed_ticket_that_already_carries_its_event_is_still_refused(self):
+        passed = tc.event("ticket.passed", "ALL MET", commit=tc.HEAD)
+        code, err, seen = tc.check(tc.draft(counts=tc.counts_line()), state="CLOSED", assignees=(),
+                                   reason="COMPLETED", check_only=False,
+                                   comments=(tc.VERDICT_COMMENT, CLAIMED, passed))
+        self.assertEqual(code, 1)
+        self.assertIn("already CLOSED", err)
+        self.assertEqual(seen["posted"], [])
+
+    def test_a_ticket_closed_as_not_planned_is_somebody_elses_decision(self):
+        code, err, seen = after_a_lost_post(tc.draft(counts=tc.counts_line()), state="CLOSED",
+                                            assignees=(), reason="NOT_PLANNED")
+        self.assertEqual(code, 1)
+        self.assertIn("already CLOSED", err)
+        self.assertEqual(seen["posted"], [])
+
+    def test_a_round_claimed_by_someone_else_is_not_completed(self):
+        theirs = tc.event("ticket.claimed", "Claimed #77 on issue-77", login="someone-else",
+                          branch="issue-77")
+        code, err, seen = tc.check(tc.draft(counts=tc.counts_line()), state="CLOSED", assignees=(),
+                                   reason="COMPLETED", check_only=False,
+                                   comments=(tc.VERDICT_COMMENT, theirs))
+        self.assertEqual(code, 1)
+        self.assertEqual(seen["posted"], [])
+
+
 if __name__ == "__main__":
     unittest.main()

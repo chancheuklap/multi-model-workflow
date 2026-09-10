@@ -92,9 +92,10 @@ CALLS = []
 def check(text, comments=(VERDICT_COMMENT,),
           verdict_reachable=True, head=HEAD, dirty=(), main_merged=True, diff="src/app.py",
           state="OPEN", assignees=(ME,), check_only=True, repo=None, body=None,
-          reverify=True, tracker_fails=False):
+          reverify=True, tracker_fails=False, post_fails=False, labels=(), reason=None):
     """Run --closeout against a made-up ticket; return (exit code, stderr, side effects).
-    With `tracker_fails` the tracker refuses to close the ticket or hand it back."""
+    With `tracker_fails` the tracker refuses to close the ticket or hand it back; with
+    `post_fails` it refuses the comment. `reason` is the ticket's `stateReason`."""
     seen = {"posted": [], "closed": [], "handed": []}
     CALLS.clear()
 
@@ -108,6 +109,8 @@ def check(text, comments=(VERDICT_COMMENT,),
 
     def post(number, body):
         CALLS.append("posted")
+        if post_fails:
+            raise subprocess.CalledProcessError(1, ["gh", "issue", "comment", str(number)])
         seen["posted"].append((number, body))
     ledger = ledger_of(text)
     if body is None:
@@ -129,8 +132,10 @@ def check(text, comments=(VERDICT_COMMENT,),
     def fake_is_ancestor(commit, descendant, root=None):
         return main_merged if commit == "main" else verdict_reachable
 
-    ticket = {"state": state, "labels": [], "assignees": [{"login": a} for a in assignees],
-              "blockedBy": {"nodes": []}}
+    ticket = {"state": state, "labels": [{"name": n} for n in labels],
+              "assignees": [{"login": a} for a in assignees], "blockedBy": {"nodes": []}}
+    if reason:
+        ticket["stateReason"] = reason
     with TemporaryDirectory() as tmp:
         path = Path(tmp) / "closeout.md"
         path.write_text(text, encoding="utf-8")
@@ -632,14 +637,17 @@ class TestClosingReleasesTheTicket(unittest.TestCase):
     ever takes off. Both ways out of a ticket drop it."""
 
     def test_closing_drops_the_assignee_with_the_label(self):
+        """The close comes first: it is the change `ticket.passed` announces, and a close
+        that fails leaves nothing changed to run the closeout again over."""
         with mock.patch.object(vt.subprocess, "run") as run:
+            run.return_value.returncode = 0
             vt.close_ticket(77)
-        edit = run.call_args_list[0].args[0]
+        closed = run.call_args_list[0].args[0]
+        self.assertEqual(closed[:4], ["gh", "issue", "close", "77"])
+        edit = run.call_args_list[1].args[0]
         self.assertEqual(edit[:4], ["gh", "issue", "edit", "77"])
         self.assertEqual(edit[edit.index("--remove-assignee") + 1], "@me")
         self.assertEqual(edit[edit.index("--remove-label") + 1], "ready-for-agent")
-        closed = run.call_args_list[1].args[0]
-        self.assertEqual(closed[:4], ["gh", "issue", "close", "77"])
 
 
 class TestHandingBackReleasesTheTicket(unittest.TestCase):

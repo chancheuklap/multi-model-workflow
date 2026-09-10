@@ -142,7 +142,7 @@ def fetch_ticket(number: int) -> dict:
     """State, labels, assignees, blockers and parent of the ticket. Patched out in tests."""
     out = subprocess.run(
         ["gh", "issue", "view", str(number), "--json",
-         "state,labels,assignees,blockedBy,parent"],
+         "state,stateReason,labels,assignees,blockedBy,parent"],
         capture_output=True, text=True, check=True, env=GH_ENV,
     )
     return json.loads(out.stdout)
@@ -177,20 +177,53 @@ def assign_self(number: int) -> None:
 
 
 def close_ticket(number: int) -> None:
-    """Take the ticket out of the agent queue, take its claim off, and close it.
+    """Close the ticket, then take it out of the agent queue and take its claim off.
 
-    The assignee comes off in the same edit as the label, for the same reason it does
-    on the hand back to triage: a claim outlives the session that made it, and only
-    that session knows it is done. `advance`'s give-a-claim-back reads open tickets
-    alone, so a claim left on a closed one is one nothing else ever takes off.
-    Patched out in tests.
+    The close comes first because it is the change `ticket.passed` announces: when it
+    fails nothing has changed, and the closeout can simply be run again. The assignee
+    comes off in the same edit as the label, for the same reason it does on the hand back
+    to triage: a claim outlives the session that made it, and only that session knows it
+    is done. `advance`'s give-a-claim-back reads open tickets alone, so a claim left on a
+    closed one is one nothing else ever takes off — an edit that fails after the close is
+    said on stderr, and the close stands. Patched out in tests.
     """
-    subprocess.run(
+    subprocess.run(["gh", "issue", "close", str(number), "--reason", "completed"], check=True, env=GH_ENV)
+    edit = subprocess.run(
         ["gh", "issue", "edit", str(number),
          "--remove-label", "ready-for-agent", "--remove-assignee", "@me"],
-        check=True, env=GH_ENV,
+        capture_output=True, text=True, env=GH_ENV,
     )
-    subprocess.run(["gh", "issue", "close", str(number), "--reason", "completed"], check=True, env=GH_ENV)
+    if edit.returncode != 0:
+        sys.stderr.write(f"#{number} is closed, and its ready-for-agent label or your claim could "
+                         f"not be taken off: {' '.join((edit.stderr or edit.stdout).split())[:200]}\n")
+
+
+def unannounced_change(ticket: dict, comments: list[str], me: str, first: str) -> str | None:
+    """The state change a closeout of this worker's round made without posting its event:
+    "closed" or "handed", or None.
+
+    A closeout makes the change first and posts the event after it, so a post that fails
+    leaves a ticket closed (or handed back) with no `ticket.passed` (or `ticket.returned`)
+    — which the ordinary checks then refuse, since the ticket is no longer open and yours.
+    It is this round's when the newest `ticket.claimed` is yours and no closing event
+    follows it; a ticket closed as anything but completed is somebody else's decision.
+    """
+    state = events.fold(comments)
+    names = [e["event"] for e in state["events"]]
+    if "ticket.claimed" not in names or state.get("claimant") != me:
+        return None
+    last = len(names) - 1 - names[::-1].index("ticket.claimed")
+    if any(name in ("ticket.passed", "ticket.returned") for name in names[last + 1:]):
+        return None
+    labels = {label.get("name") for label in ticket.get("labels") or []}
+    assigned = any(a.get("login") == me for a in ticket.get("assignees") or [])
+    if first == "ALL MET" and ticket.get("state") == "CLOSED" \
+            and str(ticket.get("stateReason") or "").upper() == "COMPLETED":
+        return "closed"
+    if first.startswith("HANDOFF REQUIRED") and ticket.get("state") == "OPEN" and not assigned \
+            and "needs-triage" in labels and "ready-for-agent" not in labels:
+        return "handed"
+    return None
 
 
 def hand_back_for_triage(number: int) -> None:
@@ -1696,10 +1729,14 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     problems += event_problems(comments)
     problems += git_problems(repo_root())
     ticket = fetch_ticket(number)
-    if ticket.get("state") != "OPEN":
-        problems.append(f"#{number} is already {ticket.get('state', 'unreadable')}")
     me = gh_login()
-    if not any(a.get("login") == me for a in ticket.get("assignees", [])):
+    first = (draft.strip().splitlines() or [""])[0].strip()
+    # A previous run of this closeout that closed (or handed back) the ticket and could not
+    # post the event: this run posts it, and does nothing else.
+    pending = unannounced_change(ticket, comments, me, first)
+    if ticket.get("state") != "OPEN" and pending != "closed":
+        problems.append(f"#{number} is already {ticket.get('state', 'unreadable')}")
+    if pending is None and not any(a.get("login") == me for a in ticket.get("assignees", [])):
         problems.append(f"#{number} is not assigned to you ({me}); run --preflight first")
 
     if problems:
@@ -1718,8 +1755,7 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
         print(f"CLOSEOUT OK: #{number} draft passes every check")
         return 0
 
-    first = draft.strip().splitlines()[0].strip()
-    if first == "ALL MET":
+    if first == "ALL MET" and pending is None:
         ok, extra = run_target_json_checks(repo_root())
         if not ok:
             post_prose(number, extra)
@@ -1742,24 +1778,35 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     # The state change first, then the event that announces it: the event is what wakes
     # the main agent and what `advance` merges on, so it must never stand on a ticket the
     # tracker did not close or hand back.
+    if pending is None:
+        try:
+            if passed:
+                close_ticket(number)
+            else:
+                hand_back_for_triage(number)
+        except (OSError, subprocess.CalledProcessError) as exc:
+            act = "close" if passed else "hand back to needs-triage"
+            sys.stderr.write(f"closeout refused: the tracker did not {act} #{number} ({exc}), so "
+                             f"no {event} event was posted and nothing reads the ticket as "
+                             f"{'passed' if passed else 'returned'}. Read #{number} on the "
+                             f"tracker for what the edit left done, then run --closeout again\n")
+            return 1
     try:
-        if passed:
-            close_ticket(number)
-        else:
-            hand_back_for_triage(number)
+        post_event(number, event, first,
+                   "\n".join(draft.strip("\n").splitlines()[1:]).strip("\n"), **fields)
     except (OSError, subprocess.CalledProcessError) as exc:
-        act = "close" if passed else "hand back to needs-triage"
-        sys.stderr.write(f"closeout refused: the tracker did not {act} #{number} ({exc}), so no "
-                         f"{event} event was posted and nothing reads the ticket as "
-                         f"{'passed' if passed else 'returned'}. Read #{number} on the tracker "
-                         f"for what the edit left done, then run --closeout again\n")
+        done = "closed" if passed else "handed back to needs-triage"
+        sys.stderr.write(f"closeout incomplete: #{number} is {done}, and its {event} event could "
+                         f"not be posted ({exc}), so nothing wakes the main agent and nothing "
+                         f"reads the ticket as {'passed' if passed else 'returned'} yet. Run "
+                         f"--closeout again with the same draft: it sees the {done} ticket and "
+                         f"posts the missing event\n")
         return 1
-    post_event(number, event, first, "\n".join(draft.strip("\n").splitlines()[1:]).strip("\n"),
-               **fields)
+    note = f" (posted the {event} event a previous run could not)" if pending else ""
     if passed:
-        print(f"CLOSED: #{number}")
+        print(f"CLOSED: #{number}{note}")
     else:
-        print(f"HANDED BACK: #{number} is now needs-triage and stays open")
+        print(f"HANDED BACK: #{number} is now needs-triage and stays open{note}")
     return 0
 
 
