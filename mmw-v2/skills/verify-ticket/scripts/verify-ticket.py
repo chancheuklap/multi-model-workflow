@@ -2060,6 +2060,16 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
                              f"{'passed' if passed else 'returned'}. Read #{number} on the "
                              f"tracker for what the edit left done, then run --closeout again\n")
             return 1
+    # A handed-back ticket's work is over for the night, and `ticket.returned` says so —
+    # its product slot free included: the relay wakes the workers queued for a slot on
+    # that event. So the slot goes back before the event, on the run that hands back and
+    # on one posting the event a previous run could not; a slot that will not come back
+    # is said on stderr, and the ticket is still announced as returned.
+    if not passed:
+        problem = give_slot_back(repo_root())
+        if problem:
+            sys.stderr.write(f"#{number} is handed back, but its product slot was not given "
+                             f"back: {problem}\n")
     try:
         post_event(number, event, first,
                    "\n".join(draft.strip("\n").splitlines()[1:]).strip("\n"), **fields)
@@ -2075,12 +2085,6 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     if passed:
         print(f"CLOSED: #{number}{note}")
     else:
-        # A handed-back ticket's work is over for the night: its slot goes back now, not
-        # when somebody next lands it, or it holds the product from every other ticket.
-        problem = give_slot_back(repo_root())
-        if problem:
-            sys.stderr.write(f"#{number} is handed back, but its product slot was not given "
-                             f"back: {problem}\n")
         print(f"HANDED BACK: #{number} is now needs-triage and stays open{note}")
     return 0
 
