@@ -77,6 +77,14 @@ Options:
   --json                            Output in JSON format
   -h, --help                        display help for command
 """,
+    ("archive",): """Usage: paseo archive [options] <id>
+
+Archive an agent (soft-delete)
+
+Options:
+  --force               Interrupt the agent if it is running, then archive
+  -h, --help            display help for command
+""",
     ("send",): """Usage: paseo send [options] <id> [prompt]
 
 Send a message/task to an existing agent
@@ -412,6 +420,10 @@ Options:
 """
 
 HERDR_HELP = {
+    ("pane", "close"): """Close a pane
+
+Usage: herdr pane close <pane_id>
+""",
     ("tab", "create"): """Create a tab
 
 Usage: herdr tab create [OPTIONS]
@@ -483,6 +495,12 @@ if "-h" in args or "--help" in args:
     if uses == "mismatch" and cmd == ("tab", "create"):
         page = page.replace("      --no-focus\n", "")
     print(page)
+    sys.exit(0)
+
+if args[:2] == ["pane", "close"]:
+    pane = args[2] if len(args) > 2 else ""
+    save_agents([a for a in load_agents() if a.get("pane_id") != pane])
+    print(json.dumps({"result": {"closed": pane}}))
     sys.exit(0)
 
 if args[:2] == ["tab", "create"]:
@@ -2550,7 +2568,7 @@ scenario_suspend() {
   has "paseo :: archive :: --force :: agt_61_worker"
   hasnt "agt_99_worker"
   hasnt "paseo :: stop"
-  has "paseo :: ls :: -g :: --json :: --label :: mmw.spec=76 :: --label :: mmw.kind=worker"
+  has "gh :: issue :: view :: 61 :: --json :: comments"
   hasnt "wks_foreign_61"
   hasnt "workspace :: archive"
   has "gh :: issue :: edit :: 61 :: --remove-assignee :: @me"
@@ -3844,6 +3862,32 @@ scenario_herdrstartloud() {
   grep -q "agent start refused" "$TMP/err" || fail "stderr should name the refused agent start: $(cat "$TMP/err")"
 }
 
+scenario_runnerstop() {
+  local code
+  echo "--- orca stop closes the terminal; a handle already gone is 0"
+  reset_log
+  RUNNER="$ORCA_RUNNER"
+  seed_orca_terminal term_61 true true
+  code="$(run_runner stop term_61)"
+  [ "$code" = 0 ] || fail "orca stop expected 0, got $code: $(cat "$TMP/err")"
+  has "orca :: terminal :: close :: --terminal :: term_61"
+  code="$(run_runner stop term_61)"
+  [ "$code" = 0 ] || fail "stopping a gone terminal expected 0, got $code"
+  echo "--- herdr stop closes the agent's pane"
+  reset_log
+  RUNNER="$HERDR_RUNNER"
+  seed_herdr_agent issue-61 working
+  code="$(run_runner stop issue-61)"
+  [ "$code" = 0 ] || fail "herdr stop expected 0, got $code: $(cat "$TMP/err")"
+  has "herdr :: pane :: close :: pane_1"
+  echo "--- a list it cannot read is not a stop"
+  reset_log
+  seed_herdr_agent issue-61 working
+  code="$(MMW_FAKE_HERDR_SCENARIO=list-fail run_runner stop issue-61)"
+  [ "$code" = 1 ] || fail "an unreadable list must not read as stopped, got $code"
+  hasnt "herdr :: pane :: close"
+}
+
 scenario_orcatruncated() {
   local code
   RUNNER="$ORCA_RUNNER"
@@ -3894,7 +3938,7 @@ scenario_orcanohosts() {
   hasnt "orca :: terminal :: create"
 }
 
-ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket"
+ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -3948,6 +3992,7 @@ banner_for() {
     startreturnssession) echo START-RETURNS-SESSION-OK ;;
     startonce) echo START-ONCE-OK ;;
     runneronticket) echo RUNNER-ON-TICKET-OK ;;
+    runnerstop) echo RUNNER-STOP-OK ;;
     runnersend) echo RUNNER-SEND-OK ;;
     runnerliveness) echo RUNNER-LIVENESS-OK ;;
     runnerparity) echo RUNNER-PARITY-OK ;;

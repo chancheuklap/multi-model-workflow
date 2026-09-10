@@ -6,6 +6,7 @@
 #                          [--title T] [--label K=V]... --prompt TEXT
 #   runners/paseo.sh send <session-id> <text>
 #   runners/paseo.sh liveness <session-id>
+#   runners/paseo.sh stop <session-id>
 #
 # start runs `paseo run -d` in DIR and prints the agent id Paseo answers with; exit 1,
 # with the reason on stderr, when Paseo did not start it. The host's mode and thinking
@@ -13,10 +14,12 @@
 # send: exit 0 the text was delivered; 3 the session is there and did not take it;
 # 2 there is no such session.
 # liveness prints one of `alive`, `stopped`, `unknown` on stdout.
+# stop ends the session: exit 0 it is gone (or was already), 1 it could not be ended.
 #
 # MMW_USES: run -d --json --provider --mode --thinking --cwd --title --label
 # MMW_USES: send --no-wait
 # MMW_USES: ls -g --json
+# MMW_USES: archive --force
 
 set -uo pipefail
 
@@ -30,6 +33,7 @@ usage() {
   echo "usage: runners/paseo.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--label K=V]... --prompt TEXT" >&2
   echo "       runners/paseo.sh send <session-id> <text>" >&2
   echo "       runners/paseo.sh liveness <session-id>" >&2
+  echo "       runners/paseo.sh stop <session-id>" >&2
   exit 2
 }
 
@@ -165,6 +169,16 @@ liveness() {
   exit 0
 }
 
+stop() {
+  local ident="${1:-}"
+  [ -n "$ident" ] || usage
+  ls_status "$ident" >/dev/null
+  [ "$?" = 1 ] && exit 0
+  # --force interrupts an agent mid-turn; plain archive refuses a running one.
+  paseo_ archive --force "$ident" >/dev/null 2>&1 || exit 1
+  exit 0
+}
+
 [ "$#" -ge 1 ] || usage
 verb="$1"
 shift
@@ -172,5 +186,6 @@ case "$verb" in
   start) start "$@" ;;
   send) send "$@" ;;
   liveness) liveness "$@" ;;
+  stop) stop "$@" ;;
   *) usage ;;
 esac

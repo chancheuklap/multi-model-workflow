@@ -5,6 +5,7 @@
 #   runners/orca.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--label K=V]... --prompt TEXT
 #   runners/orca.sh send <session-id> <text>
 #   runners/orca.sh liveness <session-id>
+#   runners/orca.sh stop <session-id>
 #
 # start takes host, model, effort, cwd, skip-approval, and the first prompt, and
 # prints a session id, or refuses. One call: `terminal create --worktree path:<abs>
@@ -20,6 +21,7 @@
 # receipt could not be read, or the handle is past a truncated list.
 # liveness prints one of `alive`, `stopped`, `unknown` on stdout. A running process
 # and an idle UI are two fields; idle is not what this verb answers.
+# stop ends the session: exit 0 it is gone (or was already), 1 it could not be ended.
 #
 # MMW_USES: terminal create --worktree --command --title --json
 # MMW_USES: terminal send --terminal --text --enter --wait-submit --json
@@ -42,6 +44,7 @@ usage() {
   echo "usage: runners/orca.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--label K=V]... --prompt TEXT" >&2
   echo "       runners/orca.sh send <session-id> <text>" >&2
   echo "       runners/orca.sh liveness <session-id>" >&2
+  echo "       runners/orca.sh stop <session-id>" >&2
   exit 2
 }
 
@@ -314,6 +317,15 @@ liveness() {
   exit 0
 }
 
+stop() {
+  local ident="${1:-}"
+  [ -n "$ident" ] || usage
+  list_row "$ident" >/dev/null
+  [ "$?" = 1 ] && exit 0
+  orca_ terminal close --terminal "$ident" --json >/dev/null 2>&1 || exit 1
+  exit 0
+}
+
 [ "$#" -ge 1 ] || usage
 verb="$1"
 shift
@@ -321,5 +333,6 @@ case "$verb" in
   start) start "$@" ;;
   send) send "$@" ;;
   liveness) liveness "$@" ;;
+  stop) stop "$@" ;;
   *) usage ;;
 esac

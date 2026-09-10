@@ -134,6 +134,25 @@ if found:
 '
 }
 
+# Every session a ticket's RUNNER lines name, one "runner<TAB>session" per line.
+sessions_on_ticket() {
+  gh_ issue view "$1" --json comments 2>/dev/null | python3 -c '
+import json, sys
+try:
+    comments = json.load(sys.stdin).get("comments") or []
+except Exception:
+    comments = []
+seen = []
+for comment in comments:
+    first = ((comment or {}).get("body") or "").strip().splitlines()[:1]
+    parts = first[0].split() if first else []
+    if len(parts) == 4 and parts[0] == "RUNNER" and (parts[1], parts[2]) not in seen:
+        seen.append((parts[1], parts[2]))
+for runner, session in seen:
+    print(runner + "\t" + session)
+'
+}
+
 usage() {
   cat >&2 <<'USAGE'
 usage: dispatch.sh check <spec>
@@ -276,29 +295,6 @@ workspace_cwd_for() {
   [ -d "$dest" ] && printf '%s\n' "$dest"
 }
 
-# ticket<TAB>id<TAB>status for every live agent matching the `--label` filters.
-# Callers pass `mmw.kind=<kind>` themselves; ticket and spec go first. Ticket is
-# the issue-N cwd basename, empty when the cwd is not one.
-agents_by_label() {
-  { paseo ls -g --json "$@" 2>/dev/null || true; } | python3 -c '
-import json, re, sys
-from pathlib import Path
-
-try:
-    rows = json.load(sys.stdin)
-except Exception:
-    rows = []
-if not isinstance(rows, list):
-    rows = []
-issue = re.compile(r"^issue-(\d+)$")
-for row in rows:
-    if not isinstance(row, dict) or not row.get("id"):
-        continue
-    found = issue.match(Path(row.get("cwd") or "").name)
-    ticket = found.group(1) if found else ""
-    print(ticket + "\t" + row["id"] + "\t" + str(row.get("status") or ""))
-'
-}
 
 # The registered worktree for ticket `number`, even after its workspace has been
 # archived: `lease.py` still holds the path. Used when `workspace_cwd_for` is empty.
@@ -500,17 +496,16 @@ remove_worktree() {
   return 1
 }
 
-# Take this ticket's agents off Paseo's list. `paseo archive --force` is the
-# same command suspend uses: it interrupts a running agent and drops it from
-# `paseo ls`. Git removes the worktree separately; Paseo is not asked to.
+# End every session the ticket's RUNNER lines name, each through its own runner's
+# `stop`. Git removes the worktree separately; no runner is asked to.
 archive_ticket_agents() {
-  local number="$1" ident
-  while IFS=$'\t' read -r _ ident _; do
+  local number="$1" name ident
+  while IFS=$'\t' read -r name ident; do
     [ -n "$ident" ] || continue
-    if ! paseo archive --force "$ident" >/dev/null 2>&1; then
-      echo "dispatch: could not archive $ident on #$number, so it stays on Paseo's list" >&2
-    fi
-  done < <(agents_by_label --label "mmw.ticket=$number")
+    use_runner "$name"
+    runner stop "$ident" \
+      || echo "dispatch: could not stop $ident on #$number; it is still open on $name" >&2
+  done < <(sessions_on_ticket "$number")
 }
 
 # Removing the worktree is where the product's stop command lives — so a worktree
@@ -1235,9 +1230,6 @@ land_tickets() {
 # ------------------------------------------------------------------ suspend
 
 # ticket<TAB>id<TAB>status for every live worker labelled mmw.spec=<spec>.
-live_workers() {
-  agents_by_label --label "mmw.spec=$1" --label mmw.kind=worker | awk -F '\t' '$1 != ""'
-}
 
 suspend_comment() {
   local spec="$1" when="$2" ident="$3"
@@ -1245,7 +1237,7 @@ suspend_comment() {
     "NIGHT SUSPENDED #$spec" \
     "The night on spec #$spec was suspended at $when, so this ticket has no verdict: nothing here says whether its work is finished."
   if [ -n "$ident" ]; then
-    printf '%s\n' "Its worker $ident was interrupted (\`paseo archive --force\`); its workspace and its branch are untouched. The batch is taken up again where it stands with advance."
+    printf '%s\n' "Its worker $ident was interrupted; its workspace and its branch are untouched. The batch is taken up again where it stands with advance."
   else
     printf '%s\n' "No session of ours was working on it at that moment. Its workspace and its branch, if it has them, are untouched, and it keeps its label, so the next advance of #$spec starts it."
   fi
@@ -1279,22 +1271,24 @@ suspend_night() {
   queued="$(printf '%s\n' "$grades" | awk '$1 == "GRADE" { print $2 }')"
   batch="$(printf '%s\n' "$grades" | awk '$1 == "BATCH" { print $2 }')"
 
-  # `--force` is what interrupts a worker mid-turn: plain `paseo archive` refuses a
-  # running agent and says to use it. Without it this loop archived only the workers that
-  # happened to be between turns — and a worker in the middle of one is the whole reason
-  # to suspend a night.
-  local live number ident stopped=0 still_live=""
-  live="$(live_workers "$spec")"
-  while IFS=$'\t' read -r number ident _; do
-    [ -n "$ident" ] || continue
-    if paseo archive --force "$ident" >/dev/null 2>&1; then
+  # Each ticket's worker is the one its RUNNER line names, ended through that runner's
+  # `stop`, which interrupts it mid-turn. One already shown to be stopped is left alone.
+  local live="" number ident line stopped=0 still_live=""
+  for number in $batch; do
+    line="$(session_on_ticket "$number" worker)"
+    [ -n "$line" ] || continue
+    ident="$(printf '%s\n' "$line" | cut -f2)"
+    use_runner "$(printf '%s\n' "$line" | cut -f1)"
+    [ "$(runner liveness "$ident")" = stopped ] && continue
+    if runner stop "$ident"; then
       stopped=$((stopped + 1))
+      live="$live$number"$'\t'"$ident"$'\n'
     else
-      echo "dispatch: could not archive $ident on #$number, so its worker is still running" >&2
+      echo "dispatch: could not stop $ident on #$number, so its worker is still running" >&2
       still_live="$still_live $number"
       left=$((left + 1))
     fi
-  done <<<"$live"
+  done
 
   local when commented=0
   when="$(date -u +%Y-%m-%dT%H:%M:%SZ)"

@@ -5,6 +5,7 @@
 #   runners/herdr.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--label K=V]... --prompt TEXT
 #   runners/herdr.sh send <session-id> <text>
 #   runners/herdr.sh liveness <session-id>
+#   runners/herdr.sh stop <session-id>
 #
 # start takes host, model, effort, cwd, skip-approval, and the first prompt, and
 # prints a session id, or refuses with exit 1 and one stderr line naming what failed.
@@ -16,11 +17,14 @@
 # be read, so a `--until working` match would not prove a new turn started.
 # liveness prints one of `alive`, `stopped`, `unknown` on stdout. Stopped means
 # the name is absent from `agent list`; a name still on that list is not stopped.
+# stop closes the session's pane: exit 0 it is gone (or was already), 1 it could not
+# be ended.
 #
 # MMW_USES: tab create --cwd --no-focus
 # MMW_USES: agent start --kind --pane --timeout
 # MMW_USES: agent prompt --wait --until --timeout
 # MMW_USES: agent list
+# MMW_USES: pane close
 
 set -uo pipefail
 
@@ -36,6 +40,7 @@ usage() {
   echo "usage: runners/herdr.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--label K=V]... --prompt TEXT" >&2
   echo "       runners/herdr.sh send <session-id> <text>" >&2
   echo "       runners/herdr.sh liveness <session-id>" >&2
+  echo "       runners/herdr.sh stop <session-id>" >&2
   exit 2
 }
 
@@ -236,6 +241,26 @@ liveness() {
   exit 0
 }
 
+stop() {
+  local ident="${1:-}" json pane
+  [ -n "$ident" ] || usage
+  list_status "$ident" >/dev/null
+  [ "$?" = 1 ] && exit 0
+  json="$(herdr_ agent list 2>/dev/null)" || exit 1
+  pane="$(printf '%s' "$json" | MMW_IDENT="$ident" python3 -c '
+import json, os, sys
+try:
+    for row in json.load(sys.stdin)["result"]["agents"]:
+        if str(row.get("name") or "") == os.environ["MMW_IDENT"]:
+            print(row.get("pane_id") or "")
+except Exception:
+    pass
+')"
+  [ -n "$pane" ] || exit 1
+  herdr_ pane close "$pane" >/dev/null 2>&1 || exit 1
+  exit 0
+}
+
 [ "$#" -ge 1 ] || usage
 verb="$1"
 shift
@@ -243,5 +268,6 @@ case "$verb" in
   start) start "$@" ;;
   send) send "$@" ;;
   liveness) liveness "$@" ;;
+  stop) stop "$@" ;;
   *) usage ;;
 esac
