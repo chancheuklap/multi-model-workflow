@@ -185,6 +185,8 @@ DEFAULT_INTERVAL = 30
 OVERLAP = timedelta(seconds=120)
 QUEUE_WAIT = 10.0
 SEND_TIMEOUT = 180
+# How long one `gh` read of the board may take before it counts as failed.
+GH_TIMEOUT = 120
 START_WAIT = 15.0
 STOP_WAIT = 15.0
 
@@ -291,7 +293,7 @@ def gh_list(args: list[str]) -> list:
     """Run `gh` and read its answer as a list, pages flattened. Raises PollError otherwise."""
     try:
         run = subprocess.run(["gh", *args], capture_output=True, text=True,
-                             env=quiet_env(), timeout=120)
+                             env=quiet_env(), timeout=GH_TIMEOUT)
     except (OSError, subprocess.SubprocessError) as exc:
         raise PollError(f"gh could not be run: {exc}") from None
     if run.returncode != 0:

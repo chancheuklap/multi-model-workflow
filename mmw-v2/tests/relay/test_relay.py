@@ -53,9 +53,9 @@ REQUIRED = {
     "ticket.released": {"reason": "worker-lost"},
     "child.opened": {"child": 90, "kind": "review"},
     "worker.lost": {"session": "gone", "runner": "paseo"},
-    "worker.started": {"host": "grok", "model": "grok-4.6", "effort": "high", "grade": "junior-worker", "worktree": "/repo/.worktrees/issue-61", "branch": "issue-61", "base": "0" * 40},
-    "reviewer.started": {"session": "rv-1", "runner": "paseo"},
-    "verifier.started": {"session": "vf-1", "runner": "paseo"},
+    "worker.started": {"machine": "mac-1", "host": "grok", "model": "grok-4.6", "effort": "high", "grade": "junior-worker", "worktree": "/repo/.worktrees/issue-61", "branch": "issue-61", "base": "0" * 40},
+    "reviewer.started": {"session": "rv-1", "runner": "paseo", "machine": "mac-1"},
+    "verifier.started": {"session": "vf-1", "runner": "paseo", "machine": "mac-1"},
 }
 
 

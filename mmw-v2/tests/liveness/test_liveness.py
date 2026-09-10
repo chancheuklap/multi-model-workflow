@@ -50,10 +50,16 @@ def stamp(moment: datetime) -> str:
     return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+# The machine every fixture session was started on, and the one the watchdog under test
+# says it runs on.
+HERE_MACHINE = "mac-1"
+
 REQUIRED = {
-    "worker.started": {"host": "claude", "model": "m", "effort": "high", "grade": "junior-worker",
-                       "worktree": "/repo/.worktrees/issue-61", "branch": "issue-61",
-                       "base": "0" * 40},
+    "worker.started": {"machine": HERE_MACHINE, "host": "claude", "model": "m", "effort": "high",
+                       "grade": "junior-worker", "worktree": "/repo/.worktrees/issue-61",
+                       "branch": "issue-61", "base": "0" * 40},
+    "reviewer.started": {"machine": HERE_MACHINE},
+    "verifier.started": {"machine": HERE_MACHINE},
     "worker.lost": {},
     "worker.replaced": {},
     "ticket.released": {"reason": "landed"},
@@ -121,12 +127,16 @@ class StateCase(unittest.TestCase):
 class Tolerance(unittest.TestCase):
     def test_short_polls_keep_the_floor(self):
         self.assertEqual(dog.tolerance(60), 300)
-        self.assertEqual(dog.tolerance(240), 300)
+        self.assertEqual(dog.tolerance(120), 300)
 
     def test_it_grows_with_the_poll_once_the_poll_passes_the_floor(self):
         # A fixed 300 would read a healthy watchdog polling every 300s as dead mid-wait.
-        self.assertEqual(dog.tolerance(300), 360)
-        self.assertEqual(dog.tolerance(1000), 1060)
+        self.assertEqual(dog.tolerance(300), 480)
+        self.assertEqual(dog.tolerance(1000), 1180)
+
+    def test_the_margin_outlasts_one_adapter_call_plus_one_gh_read(self):
+        # A slow but alive watchdog, waiting on one of each, is never read as hung.
+        self.assertGreaterEqual(dog.MARGIN, dog.ADAPTER_TIMEOUT + dog.relay_mod.GH_TIMEOUT)
 
     def test_an_unreadable_poll_takes_the_default(self):
         self.assertEqual(dog.tolerance(None), 300)
@@ -138,7 +148,8 @@ class Health(unittest.TestCase):
 
     def beat(self, age: int, poll: int = 60, **over) -> dict:
         return {"pid": 4242, "identity": "Thu Sep 10 01:00:00 2026",
-                "at": stamp(T0 - timedelta(seconds=age)), "poll": poll, **over}
+                "at": stamp(T0 - timedelta(seconds=age)),
+                "read_at": stamp(T0 - timedelta(seconds=age)), "poll": poll, **over}
 
     def test_no_live_holder_is_not_healthy_whatever_the_heartbeat_says(self):
         ok, why = dog.health(None, self.beat(1), T0)
@@ -163,9 +174,19 @@ class Health(unittest.TestCase):
         self.assertIn("301s ago, past its tolerance of 300s", why)
 
     def test_a_long_poll_is_not_read_as_stale_mid_wait(self):
-        # poll 400: the tolerance is 460, so a heartbeat 400s old is a watchdog asleep.
+        # poll 400: the tolerance is 580, so a heartbeat 400s old is a watchdog asleep.
         self.assertTrue(dog.health(self.HOLDER, self.beat(400, poll=400), T0)[0])
-        self.assertFalse(dog.health(self.HOLDER, self.beat(461, poll=400), T0)[0])
+        self.assertFalse(dog.health(self.HOLDER, self.beat(581, poll=400), T0)[0])
+
+    def test_a_watchdog_that_cannot_read_the_board_is_not_healthy(self):
+        beat = self.beat(1, read_at=stamp(T0 - timedelta(seconds=301)),
+                         read_failure="#61: gh exited 1: HTTP 502")
+        ok, why = dog.health(self.HOLDER, beat, T0)
+        self.assertFalse(ok)
+        self.assertIn("has not read the whole board since", why)
+        self.assertIn("HTTP 502", why)
+        beat["read_at"] = stamp(T0 - timedelta(seconds=299))
+        self.assertTrue(dog.health(self.HOLDER, beat, T0)[0])
 
 
 class LockIdentity(StateCase):
@@ -173,7 +194,7 @@ class LockIdentity(StateCase):
 
     def heartbeat_by(self, pid: int, identity: str | None) -> None:
         self.write("watchdog.json", {"pid": pid, "identity": identity, "at": stamp(dog.now_utc()),
-                                     "poll": 60})
+                                     "read_at": stamp(dog.now_utc()), "poll": 60})
 
     def test_own_pid_and_identity_with_its_own_heartbeat_is_healthy(self):
         me = statedir.process_identity(os.getpid())
@@ -334,14 +355,14 @@ class Judge(unittest.TestCase):
         self.assertEqual(dog.judge(f, T0 + timedelta(seconds=599), 600)["state"], "recent")
         verdict = dog.judge(f, T0 + timedelta(seconds=600), 600)
         self.assertEqual(verdict["state"], "silent")
-        self.assertEqual(verdict["sessions"], [("worker", "orca", "t1")])
+        self.assertEqual(verdict["sessions"], [("worker", "orca", "t1", HERE_MACHINE)])
 
     def test_only_the_live_workers_pair_is_named(self):
         f = self.fold(comment(1, "worker.started", 61, T0, runner="herdr", session="h1"),
                       comment(2, "worker.replaced", 61, T0, runner="herdr", session="h1"),
                       comment(3, "worker.started", 61, T0, runner="orca", session="t2"))
         self.assertEqual(dog.judge(f, T0 + timedelta(hours=1), 600)["sessions"],
-                         [("worker", "orca", "t2")])
+                         [("worker", "orca", "t2", HERE_MACHINE)])
 
     def test_an_unreadable_event_is_its_own_answer(self):
         f = events.fold(["prose", "x\n\n<!-- mmw {not json} -->"], issue=61)
@@ -373,7 +394,8 @@ class Rounds(StateCase):
     def watchdog(self) -> "dog.Watchdog":
         return dog.Watchdog(self.state, "o/r", board=self.board, ask=self.ask, send=self.send,
                             post=self.post, clock=self.clock, pid=os.getpid(),
-                            identity=statedir.own_identity(), err=io.StringIO())
+                            identity=statedir.own_identity(), machine=HERE_MACHINE,
+                            err=io.StringIO())
 
     def silent_worker(self, runner="herdr", session="h1"):
         self.board.tickets[61] = [comment(1, "worker.started", 61, self.SILENT, runner=runner,
@@ -498,6 +520,43 @@ class Rounds(StateCase):
                          [{"kind": "reviewer", "runner": "orca", "session": "rv"}])
         self.assertIn("the reviewer session rv", self.send.calls[0][2])
 
+    def test_a_session_started_on_another_machine_is_unknown_never_asked_or_lost(self):
+        self.board.tickets[61] = [comment(1, "worker.started", 61, self.SILENT, runner="orca",
+                                          session="t9", machine="mac-2")]
+        self.ask.default = "stopped"  # what this machine's Orca would say of a stranger
+        self.watchdog().round()
+        self.assertEqual((self.ask.calls, self.post.calls), ([], []))
+        self.assertEqual(self.heartbeat()["unknown"]["61"]["sessions"],
+                         [{"kind": "worker", "runner": "orca", "session": "t9", "machine": "mac-2"}])
+        self.assertIn("was started on mac-2, not on mac-1", self.send.calls[0][2])
+
+    def test_board_reads_failing_past_the_tolerance_are_reported_once_and_unhealthy(self):
+        class Failing(FakeBoard):
+            def comments(self, ticket, since):
+                raise dog.relay_mod.PollError("gh exited 1: HTTP 502")
+        self.board = Failing({}, {7: [61]})
+        self.watchdog().round()
+        self.assertEqual(self.send.calls, [], "inside the tolerance it is not yet a finding")
+        self.clock.moment = T0 + timedelta(seconds=301)
+        self.watchdog().round()   # a restarted watchdog keeps the time of the last whole read
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1)
+        self.assertIn("watchdog: cannot read the board since 2026-09-10T01:00:00Z: #61: gh exited 1",
+                      self.send.calls[0][2])
+        beat = self.heartbeat()
+        ok, why = dog.health({"pid": beat["pid"], "identity": beat["identity"]}, beat,
+                             self.clock.moment)
+        self.assertFalse(ok)
+        self.assertIn("has not read the whole board", why)
+
+    def test_a_restart_after_good_reads_starts_healthy(self):
+        # Yesterday's last whole read is no failure: only a failing stretch is carried.
+        self.write("watchdog.json", {"read_at": stamp(T0 - timedelta(hours=9)), "read_failure": None})
+        wd = self.watchdog()
+        wd.write_beat()
+        beat = self.heartbeat()
+        self.assertTrue(dog.health({"pid": beat["pid"], "identity": beat["identity"]}, beat, T0)[0])
+
     def test_a_recent_ticket_is_not_asked(self):
         self.board.tickets[61] = [comment(1, "worker.started", 61, T0 - timedelta(minutes=2),
                                           runner="herdr", session="h1")]
@@ -579,6 +638,28 @@ class Rounds(StateCase):
         self.board = Failing({}, {7: [61]})
         self.watchdog().round()
         self.assertIsNone(self.heartbeat()["held"])
+
+
+class Arm(StateCase):
+    def test_a_watchdog_that_beats_is_not_ended_for_failing_reads(self):
+        # A live holder whose heartbeat is fresh is slow or blind, not hung.
+        holder = subprocess.Popen([sys.executable, "-c", (
+            "import sys, time; sys.path.insert(0, %r); import statedir\n"
+            "with statedir.locked(__import__('pathlib').Path(%r), wait=0, purpose='test'):\n"
+            "    print('held', flush=True); time.sleep(30)\n") % (str(SCRIPTS), str(self.state / "watchdog.lock"))],
+            stdout=subprocess.PIPE, text=True)
+        self.addCleanup(lambda: (holder.kill(), holder.wait(), holder.stdout.close()))
+        self.assertEqual(holder.stdout.readline().strip(), "held")
+        record = statedir.holder(self.state / "watchdog.lock")
+        now = dog.now_utc()
+        self.write("watchdog.json", {"pid": record["pid"], "identity": record["identity"],
+                                     "at": stamp(now), "poll": 60,
+                                     "read_at": stamp(now - timedelta(seconds=400)),
+                                     "read_failure": "#61: HTTP 502"})
+        ok, why = dog.arm(self.state, "o/r", wait=1)
+        self.assertFalse(ok)
+        self.assertIn("has not read the whole board", why)
+        self.assertIsNone(holder.poll(), "arm ended a watchdog that was beating")
 
 
 class LostEvent(unittest.TestCase):

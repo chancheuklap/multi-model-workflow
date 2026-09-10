@@ -78,14 +78,24 @@ answered decides what happens next:
 repository has one watchdog; the lock's record names its pid and process identity, the
 same convention as the relay's. It writes `watchdog.json`, the heartbeat, at start, after
 every ticket and at the end of every round, with that same pid and identity. A heartbeat
-is fresh when its age is within the tolerance `max(300, poll + 60)` seconds: a fixed number
-would read a healthy watchdog as dead as soon as its poll grew past it. The watchdog is
-healthy when the lock names a live process, the heartbeat was written by that process, and
-it is fresh. A pid alone is never enough: a dead watchdog's pid can be handed to another
-process, and that process is not a watchdog.
+is fresh when its age is within the tolerance `max(300, poll + MARGIN)` seconds, MARGIN
+being one adapter call plus one gh read (60 + 120 s), the longest it waits between two
+beats: a fixed number would read a healthy watchdog as dead as soon as its poll grew past
+it. The watchdog is healthy when the lock names a live process, the heartbeat was written
+by that process, it is fresh, and its last whole read of the board (`read_at`, carried
+across restarts) is within the tolerance too: a watchdog that cannot read the board
+watches nothing, and after the tolerance it says so once (`cannot read the board`). A pid
+alone is never enough: a dead watchdog's pid can be handed to another process, and that
+process is not a watchdog.
 
-**Arming.** `arm` does nothing when the watchdog is healthy. Otherwise it ends a hung one
-(a live holder whose heartbeat is past its tolerance, identity checked, SIGTERM), starts
+**Only this machine's sessions are asked.** Every `*.started` records the machine it was
+started on (`machine`, the hostname). A runner answers for its own machine, and asked about
+a session started on another it would say `stopped` of a worker that is alive; so a session
+from another machine is recorded as unknown and reported, never asked and never lost.
+
+**Arming.** `arm` does nothing when the watchdog is healthy, and ends nothing that still
+beats: one that cannot read the board is left running to report it. Otherwise it ends a hung
+one (a live holder whose heartbeat is past its tolerance, identity checked, SIGTERM), starts
 `run` as a process of its own session with its output appended to `watchdog.log`, and waits
 up to `--wait` seconds (default 5) for it to be healthy. `MMW_WATCHDOG_PY` names the script
 that is started, for tests and for trying the hook against a watchdog that will not start.
@@ -93,8 +103,9 @@ that is started, for tests and for trying the hook against a watchdog that will 
 Files in the state directory, beside the relay's:
 
     watchdog.lock   held for as long as a `run` runs: one watchdog per repository
-    watchdog.json   the heartbeat: pid, identity, at, poll, tolerance, silence, watch, held,
-                    waiting, unknown, lost, relay, pending, reported, main, closed
+    watchdog.json   the heartbeat: pid, identity, machine, at, poll, tolerance, silence,
+                    watch, held, waiting, unknown, lost, relay, read_at, read_failure,
+                    pending, reported, main, closed
     watchdog.log    what every started watchdog printed, appended
 
 Exit codes:
@@ -115,6 +126,7 @@ import os
 import signal
 import subprocess
 import sys
+import socket
 import tempfile
 import time
 from datetime import datetime, timezone
@@ -134,9 +146,11 @@ events = relay_mod.events
 DEFAULT_POLL = 60
 DEFAULT_SILENCE = 600
 BASE_TOLERANCE = 300
-MARGIN = 60
 ARM_WAIT = 5.0
 ADAPTER_TIMEOUT = 60
+# The longest a healthy watchdog goes between two heartbeats beyond its sleep: it beats
+# after every ticket read and every runner asked, so one gh read and one adapter call.
+MARGIN = ADAPTER_TIMEOUT + relay_mod.GH_TIMEOUT
 POST_TIMEOUT = 60
 REPORTED_KEEP = 200
 
@@ -165,11 +179,13 @@ def parse_iso(text) -> datetime | None:
 # ----------------------------------------------------------------- judgements (pure)
 
 def tolerance(poll) -> int:
-    """How old a heartbeat may be and still be fresh: `max(300, poll + 60)` seconds.
+    """How old a heartbeat may be and still be fresh: `max(300, poll + MARGIN)` seconds,
+    MARGIN being one adapter call plus one gh read (60 + 120).
 
-    A watchdog beats once a round and sleeps `poll` seconds between rounds, so a healthy
-    one's heartbeat is up to `poll` old plus the round's own work. A fixed tolerance stops
-    bounding that the moment the poll grows past it.
+    A watchdog sleeps `poll` seconds between rounds and beats after every ticket read and
+    every runner asked, so a healthy one's heartbeat is up to `poll` old plus the slowest
+    single call it waits on. A fixed tolerance stops bounding that the moment the poll
+    grows past it, and a smaller margin would have `arm` end a watchdog that is only slow.
     """
     try:
         poll = int(poll)
@@ -182,9 +198,11 @@ def health(holder: dict | None, beat: dict | None, now: datetime) -> tuple[bool,
     """Whether a watchdog is healthy, from its lock's live holder and its heartbeat.
 
     `holder` is `statedir.holder(watchdog.lock)`: the lock's record when its pid runs now
-    with the recorded identity, else None. Healthy is three things together: a live holder,
+    with the recorded identity, else None. Healthy is four things together: a live holder,
     a heartbeat that holder wrote (same pid and identity: a heartbeat left by an earlier
-    watchdog proves nothing about this one), and that heartbeat within `tolerance`.
+    watchdog proves nothing about this one), that heartbeat within `tolerance`, and a
+    whole read of the board within `tolerance` too (`read_at`, carried across restarts): a
+    watchdog that cannot read the board watches nothing, however regularly it beats.
     """
     if holder is None:
         last = f", last heartbeat {beat.get('at')}" if beat and beat.get("at") else ""
@@ -203,7 +221,18 @@ def health(holder: dict | None, beat: dict | None, now: datetime) -> tuple[bool,
     if age > limit:
         return False, (f"the watchdog (pid {pid}) last beat {age}s ago, past its tolerance of "
                        f"{limit}s")
+    read = parse_iso(beat.get("read_at") or beat.get("started"))
+    if read is not None and (now - read).total_seconds() > limit:
+        return False, (f"the watchdog (pid {pid}) has not read the whole board since "
+                       f"{iso(read)}, past its tolerance of {limit}s: "
+                       f"{beat.get('read_failure') or 'no read has succeeded'}")
     return True, f"the watchdog (pid {pid}) beat {max(age, 0)}s ago"
+
+
+def stale(beat: dict | None, now: datetime) -> bool:
+    """A heartbeat older than its tolerance: the watchdog writing it is hung, not slow."""
+    at = parse_iso((beat or {}).get("at"))
+    return at is None or (now - at).total_seconds() > tolerance((beat or {}).get("poll"))
 
 
 def judge(fold: dict, now: datetime, silence: int) -> dict:
@@ -240,33 +269,16 @@ def judge(fold: dict, now: datetime, silence: int) -> dict:
             "comment": last.get("comment")}
 
 
-def to_ask(fold: dict) -> list[tuple[str, str, str]]:
-    """(kind, runner, session) of every session still holding the ticket that can still
-    owe it something: every live worker, and every live reviewer or verifier with no
-    result of its kind after its own start. One whose result is in has done its work, and
-    its process ending is not a loss."""
-    done: list = []
-    for event in fold.get("events") or []:
-        for kind, names in events.RESULTS.items():
-            if kind != "worker" and event.get("event") in names:
-                done.append((kind, event.get("comment")))
+def to_ask(fold: dict) -> list[tuple[str, str, str, str]]:
+    """(kind, runner, session, machine) of every session still holding the ticket. A
+    reviewer's or verifier's result ends its own hold in the fold, so one whose result is
+    in is not among them: its process ending is not a loss."""
     out = []
     for record in fold.get("holders") or []:
         kind, runner, session = record.get("kind"), record.get("runner"), record.get("session")
-        if not (kind and runner and session):
-            continue
-        began = record.get("comment")
-        if kind != "worker" and any(k == kind and _after(c, began) for k, c in done):
-            continue
-        out.append((kind, runner, session))
+        if kind and runner and session:
+            out.append((kind, runner, session, record.get("machine") or ""))
     return out
-
-
-def _after(comment, began) -> bool:
-    try:
-        return comment > began
-    except TypeError:
-        return False
 
 
 def night_open(state: Path) -> bool:
@@ -407,7 +419,8 @@ class Watchdog:
                  post: Callable[..., tuple[bool, str]] = post_lost,
                  clock: Callable[[], datetime] = now_utc,
                  poll: int = DEFAULT_POLL, silence: int = DEFAULT_SILENCE,
-                 pid: int | None = None, identity: str | None = None, err=None):
+                 pid: int | None = None, identity: str | None = None,
+                 machine: str | None = None, err=None):
         self.state = Path(state)
         self.repo = repo
         self.board = board if board is not None else relay_mod.Board(repo)
@@ -419,6 +432,7 @@ class Watchdog:
         self.silence = silence
         self.pid = pid if pid is not None else os.getpid()
         self.identity = identity if identity is not None else statedir.own_identity()
+        self.machine = machine if machine is not None else socket.gethostname()
         self.err = err or sys.stderr
         previous = self._read("watchdog.json", {})
         previous = previous if isinstance(previous, dict) else {}
@@ -429,7 +443,14 @@ class Watchdog:
             "held": None, "waiting": [], "unknown": {}, "lost": {}, "relay": None,
             "pending": previous.get("pending") or [],
             "reported": previous.get("reported") or [],
-            "main": None, "closed": None,
+            "main": None, "closed": None, "machine": self.machine,
+            # The last round that read every ticket. While reads are failing it is carried
+            # across restarts, so a restart does not wipe out how long the board has gone
+            # unread; a watchdog that was reading, or a night that closed, starts afresh.
+            "read_at": (previous.get("read_at") if previous.get("read_failure")
+                        and not previous.get("closed") else None) or iso(self.clock()),
+            "read_failure": (previous.get("read_failure")
+                             if not previous.get("closed") else None),
         }
 
     # ------------------------------------------------------------- files
@@ -482,10 +503,12 @@ class Watchdog:
             })
 
         read_all = True
+        failures: list[str] = []
         try:
             tickets, spec = self.watched()
         except relay_mod.PollError as exc:
             self.err.write(f"watchdog: could not read the night's tickets: {exc}\n")
+            failures.append(f"the night's tickets: {exc}")
             tickets, spec = [], None
             read_all = False
         held: list[int] = []
@@ -496,7 +519,7 @@ class Watchdog:
                 comments = self.board.comments(number, None)
             except relay_mod.PollError as exc:
                 self.err.write(f"watchdog: could not read #{number}: {exc}\n")
-                self.beat["failure"] = f"#{number}: {exc}"
+                failures.append(f"#{number}: {exc}")
                 read_all = False
                 continue
             fold = events.fold(comments, issue=number)
@@ -525,7 +548,16 @@ class Watchdog:
         self.beat.update(held=held if read_all else (held or None), waiting=waiting,
                          unknown=unknown)
         if read_all:
-            self.beat.pop("failure", None)
+            self.beat.update(read_at=iso(now), read_failure=None)
+        else:
+            self.beat["read_failure"] = "; ".join(failures)
+            since = parse_iso(self.beat.get("read_at"))
+            if since is not None and (now - since).total_seconds() > tolerance(self.poll):
+                findings.append({
+                    "key": f"read:{self.beat.get('read_at')}",
+                    "text": f"watchdog: cannot read the board since {self.beat.get('read_at')}: "
+                            f"{self.beat['read_failure']}",
+                })
         woke = self._report(findings)
         self.write_beat()
         return "woke" if woke else "watching"
@@ -549,8 +581,24 @@ class Watchdog:
                         f"since {since or 'an unknown time'}",
             })
             return
-        for kind, runner, session in verdict["sessions"]:
+        for kind, runner, session, machine in verdict["sessions"]:
+            if machine != self.machine:
+                # A runner answers for its own machine: asked here about a session started
+                # elsewhere it would say `stopped` of a worker that is alive.
+                entry = unknown.setdefault(str(number), {"sessions": [], "since": since,
+                                                         "why": "the runner could not say"})
+                entry["sessions"].append({"kind": kind, "runner": runner, "session": session,
+                                          "machine": machine})
+                findings.append({
+                    "key": f"elsewhere:{number}:{kind}:{runner}:{session}:{verdict.get('comment')}",
+                    "text": f"watchdog: #{number} liveness unknown: the {kind} session "
+                            f"{session} was started on {machine or 'an unrecorded machine'}, "
+                            f"not on {self.machine}, and only that machine can ask {runner}; "
+                            f"silent since {since or 'an unknown time'}",
+                })
+                continue
             answer = self.ask(runner, session)
+            self.write_beat()
             if answer == "alive":
                 continue
             if answer == "stopped":
@@ -639,6 +687,10 @@ def arm(state: Path, repo: str, wait: float = ARM_WAIT) -> tuple[bool, str]:
     if ok:
         return True, why
     holder = statedir.holder(state / "watchdog.lock")
+    if holder is not None and not stale(beat, now_utc()):
+        # Beating, and unhealthy for another reason (it cannot read the board): starting
+        # another would change nothing, and this one reports what fails.
+        return False, why
     if holder is not None:
         # A live holder with a stale heartbeat is hung. Its identity was just checked by
         # `holder`, so this pid is that watchdog and nobody else.

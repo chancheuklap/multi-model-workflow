@@ -16,16 +16,20 @@ runs every time the main agent's turn ends, and:
 **Whose turn.** Only the main agent's. For every state directory under `$MMW_HOME/state`
 with an open night (`watchdog.night_open`), the relay's `recipient.json` names the main
 agent's runner and session; this process asks that runner's adapter `self` which session
-it runs in, and acts only when the two are the same. A worker's turn end, or any session
-on a machine with no open night, is let through after reading a few files. When `self`
-cannot tell (exit 1), the session is taken to be the main agent: a guard run once too often
-costs a check, a guard skipped costs the night.
+it runs in, and acts only when the two are the same. Anything it cannot establish — no
+`recipient.json`, one it cannot read, no adapter for that runner, `self` answering anything
+but its session id — means this is not the main agent, and the turn ends: a worker, or a
+child process that inherited a runner's variables, must never be held by the main agent's
+guard. The real main agent always matches, because `dispatch.sh open` refuses to register
+a main agent whose `self` cannot be read. A worker's turn end, or any session on a machine
+with no open night, is let through after reading a few files.
 
 **The predicate** (`verdict`): block when the watchdog is not healthy and the watchdog's
 last heartbeat does not say that nothing is held. No heartbeat at all, or one from a round
 that could not read every ticket, is not "nothing held". Healthy is the watchdog's own
 test: its lock names a live process by pid and process identity, that process wrote the
-heartbeat, and the heartbeat is within `max(300, poll + 60)` seconds.
+heartbeat, the heartbeat is within `max(300, poll + MARGIN)` seconds, and so is its last
+whole read of the board (`watchdog.py`'s header has both).
 
 **What each host can do at a turn end** (what the checks below saw, not what the hosts'
 documents promise):
@@ -234,31 +238,26 @@ def open_states(dog) -> list[Path]:
     return [p for p in candidates if dog.night_open(p)]
 
 
-def is_main(state: Path) -> tuple[bool | None, str]:
-    """Whether this process runs in the session registered as the night's main agent.
-    (True/False/None for cannot tell, what was compared)."""
+def is_main(state: Path) -> bool:
+    """True only when this process's own (runner, session), read by that runner's `self`,
+    is the main agent `recipient.json` registers. Whatever cannot be established is False."""
     try:
         record = statedir.read_json(state / "recipient.json", {})
     except ValueError:
-        return None, f"{state / 'recipient.json'} is not JSON"
+        return False
     runner = record.get("runner") if isinstance(record, dict) else None
     session = record.get("session") if isinstance(record, dict) else None
     if not runner or not session:
-        return None, "no main agent is registered"
+        return False
     adapter = runners_dir() / f"{runner}.sh"
     if not adapter.is_file():
-        return None, f"no adapter {adapter} to ask"
+        return False
     try:
         run = subprocess.run(["bash", str(adapter), "self"], capture_output=True, text=True,
                              timeout=SELF_TIMEOUT)
-    except (OSError, subprocess.SubprocessError) as exc:
-        return None, f"{runner}.sh self could not be run: {exc}"
-    me = (run.stdout or "").strip()
-    if run.returncode == 0:
-        return me == session, f"this session is {runner} {me}, the main agent is {runner} {session}"
-    if run.returncode == 3:
-        return False, f"this process runs in no {runner} session"
-    return None, f"{runner}.sh self answered {run.returncode}"
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return run.returncode == 0 and (run.stdout or "").strip() == session
 
 
 def now_iso() -> str:
@@ -283,8 +282,7 @@ def guard(host: str, forced: bool = False) -> list[str]:
 
     blocks: list[str] = []
     for state in open_states(dog):
-        main, compared = is_main(state)
-        if main is False:
+        if not is_main(state):
             continue
         repo = dog.repo_of(state)
         healthy, why, beat = dog.read_health(state)
@@ -298,7 +296,7 @@ def guard(host: str, forced: bool = False) -> list[str]:
         block, reason = verdict(held, healthy, why)
         if forced and block:
             block, reason = False, f"the continuation an earlier block forced, still: {reason}"
-        log(state, host, block, held, reason if main else f"{reason} ({compared})")
+        log(state, host, block, held, reason)
         if block:
             which = ", ".join(f"#{n}" for n in held) if isinstance(held, list) else \
                 "which ones is not known: no watchdog round has read them all"

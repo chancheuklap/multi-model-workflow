@@ -1532,7 +1532,8 @@ path.write_text(json.dumps(rows))
 start_facts() {
   local grade="$3"
   [ "$3" = worker ] && grade=junior-worker
-  printf '%s\n' --field host=grok --field model=grok-4.6 --field effort=high \
+  printf '%s\n' --field "machine=$(python3 -c 'import socket; print(socket.gethostname())')" \
+    --field host=grok --field model=grok-4.6 --field effort=high \
     --field "grade=$grade" --field "worktree=$1" --field "branch=issue-$2" \
     --field "base=0000000000000000000000000000000000000000"
 }
@@ -4108,6 +4109,8 @@ assert not bad, bad
 assert w["host"] and w["model"] and w["live"], w
 assert w.get("slot") is None, w
 ' || fail "worker.started should name this session with the grade row and this worktree, and no slot: $(posted_events 61 session runner grade slot)"
+  posted_events 61 machine | grep -qx "worker.started machine=$(python3 -c 'import socket; print(socket.gethostname())')" \
+    || fail "the adopted worker.started should name this machine: $(posted_events 61 machine)"
   [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
     || fail "adopt took a slot; the first run that needs the product claims it: $(python3 "$LEASE_PY" list)"
   case "$(relay_now)" in *'{"tickets": [61]}'*) ;; *) fail "a relay should watch #61: $(relay_now)" ;; esac
@@ -4705,6 +4708,8 @@ scenario_runneronticket() {
     || fail "the worker.started event should carry no slot: $(posted_events 61 slot)"
   posted_events 61 base | grep -qE "^worker.started base=[0-9a-f]{40}$" \
     || fail "the worker.started event should carry the base commit: $(posted_events 61 base)"
+  posted_events 61 machine | grep -qx "worker.started machine=$(python3 -c 'import socket; print(socket.gethostname())')" \
+    || fail "the worker.started event should name this machine: $(posted_events 61 machine)"
 }
 
 # The double dispatch of 2026-09-10: a worker started on Orca is live, and its ticket is

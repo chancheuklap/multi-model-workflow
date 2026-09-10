@@ -40,6 +40,7 @@ cat > "$TMP/runners/fake.sh" <<'FAKE'
 #!/usr/bin/env bash
 case "$1" in
   self)
+    [ -z "${FAKE_SELF_RC:-}" ] || exit "$FAKE_SELF_RC"
     [ -n "${FAKE_SELF:-}" ] || exit 3
     printf '%s\n' "$FAKE_SELF" ;;
   liveness) printf 'alive\n' ;;
@@ -158,6 +159,14 @@ check_silent "cursor copy loaded by grok (no cursor_version in the payload) stan
 echo "### whose turn, and which night"
 hook claude "$CLAUDE" FAKE_SELF=worker-9;  check_silent "a session that is not the registered main agent is let through"
 hook claude "$CLAUDE" FAKE_SELF=;          check_silent "a process in no session of the main agent's runner is let through"
+hook claude "$CLAUDE" FAKE_SELF_RC=1;      check_silent "a session whose runner cannot name it is not taken for the main agent"
+mv "$STATE/recipient.json" "$TMP/recipient.aside"
+hook claude "$CLAUDE";                     check_silent "no registered main agent: nobody's turn is held"
+printf '{"runner": "nosuch", "session": "main-1"}\n' > "$STATE/recipient.json"
+hook claude "$CLAUDE";                     check_silent "a main agent on a runner with no adapter: nobody's turn is held"
+printf 'not json\n' > "$STATE/recipient.json"
+hook claude "$CLAUDE";                     check_silent "an unreadable registration: nobody's turn is held"
+mv "$TMP/recipient.aside" "$STATE/recipient.json"
 mv "$STATE/relay.json" "$TMP/relay.json.aside"
 printf '{"at": null, "stopped": "2026-09-10T00:00:00Z"}\n' > "$STATE/beat.json"
 hook claude "$CLAUDE";                     check_silent "no open night: nothing to guard"
@@ -172,6 +181,7 @@ grep -q "claude block held=\[61\]" "$STATE/guard.log" && { pass=$((pass + 1)); e
   || { failed=$((failed + 1)); echo "FAIL guard.log has no block line for held=[61]" >&2; }
 
 echo "### the hook re-arms the watchdog, and a healthy one lets the turn end"
+: > "$STATE/watchdog.log"   # the failed arms of the cases above are not this case's
 hook claude "$CLAUDE" MMW_WATCHDOG_PY= PATH="$TMP/bin:$PATH"
 check_silent "claude Stop with the real watchdog.py armed by the hook"
 cat > "$TMP/owned.py" <<'PY'
@@ -187,8 +197,16 @@ if python3 "$TMP/owned.py" "$STATE"; then
 else
   failed=$((failed + 1)); echo "FAIL the armed watchdog is not holding its lock with its own heartbeat" >&2
 fi
+first_pid="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["pid"])' "$STATE/watchdog.lock")"
 hook codex "$CODEX" MMW_WATCHDOG_PY= PATH="$TMP/bin:$PATH"
-check_silent "a second turn end finds it healthy and starts nothing"
+check_silent "a second turn end finds it healthy"
+arms="$(grep -c "arming the watchdog" "$STATE/watchdog.log")"
+now_pid="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["pid"])' "$STATE/watchdog.lock")"
+if [ "$arms" = 1 ] && [ "$now_pid" = "$first_pid" ]; then
+  pass=$((pass + 1)); echo "ok   and starts no second watchdog: one arm in watchdog.log, the same pid holds the lock"
+else
+  failed=$((failed + 1)); echo "FAIL a healthy watchdog was armed again: $arms arms, lock pid $first_pid then $now_pid" >&2
+fi
 
 echo
 echo "passed $pass, failed $failed"

@@ -32,7 +32,7 @@ def comment(ident, body):
 
 def started(session="term_7", runner="orca", kind="worker"):
     return ev(f"{kind}.started", f"{kind} started on {runner}: session {session}",
-              session=session, runner=runner, host="grok", model="grok-4.6",
+              session=session, runner=runner, machine="mac-1", host="grok", model="grok-4.6",
               effort="high", grade="junior-worker", worktree="/repo/.worktrees/issue-61",
               branch="issue-61", base="0" * 40)
 
@@ -90,7 +90,8 @@ class TheVocabulary(unittest.TestCase):
             events.build("ticket.released", ticket=61, line="x", reason="bored")
 
     def test_a_worker_start_missing_any_of_its_facts_is_refused_when_written(self):
-        full = dict(session="t", runner="orca", host="grok", model="m", effort="high",
+        full = dict(session="t", runner="orca", machine="mac-1", host="grok", model="m",
+                    effort="high",
                     grade="junior-worker", worktree="/repo/.worktrees/issue-61",
                     branch="issue-61", base="0" * 40)
         events.build("worker.started", ticket=61, line="started", **full)
@@ -103,13 +104,13 @@ class TheVocabulary(unittest.TestCase):
     def test_a_worker_start_on_a_relative_worktree_is_refused(self):
         with self.assertRaises(events.EventError):
             events.build("worker.started", ticket=61, line="started", session="t",
-                         runner="orca", host="grok", model="m", effort="high",
-                         grade="junior-worker", worktree=".worktrees/issue-61",
+                         runner="orca", machine="mac-1", host="grok", model="m",
+                         effort="high", grade="junior-worker", worktree=".worktrees/issue-61",
                          branch="issue-61", base="0" * 40)
 
     def test_no_effort_is_written_as_an_explicit_dash(self):
         body = events.build("worker.started", ticket=61, line="started", session="t",
-                            runner="herdr", host="grok", model="m", effort="—",
+                            runner="herdr", machine="mac-1", host="grok", model="m", effort="—",
                             grade="junior-worker", worktree="/w", branch="issue-61",
                             base="0" * 40)
         self.assertEqual(events.parse(body)[1]["effort"], "—")
@@ -383,6 +384,23 @@ class WaitingAndSlots(unittest.TestCase):
         state = events.fold([checked_run(slot=2), checked_run(run="reverify")])
         self.assertEqual(state["slot"], 2)
 
+    def test_a_result_ends_the_hold_of_the_reviewer_or_verifier_that_produced_it(self):
+        state = events.fold([started(), started("rv_1", kind="reviewer"),
+                             ev("reviewer.reported", "REVIEW", base="0" * 40, head="1" * 40),
+                             started("vf_1", kind="verifier"),
+                             ev("verifier.failed", "VERDICT", commit="a" * 40),
+                             started("rv_2", kind="reviewer")])
+        self.assertEqual([(r["kind"], r["session"]) for r in state["holders"]],
+                         [("worker", "term_7"), ("reviewer", "rv_2")])
+        self.assertEqual({r["session"]: r["ended_by"] for r in state["sessions"] if not r["live"]},
+                         {"rv_1": "reviewer.reported", "vf_1": "verifier.failed"})
+
+    def test_after_a_finished_reviewer_a_lost_worker_frees_the_ticket(self):
+        state = events.fold([started(), started("rv_1", kind="reviewer"),
+                             ev("reviewer.reported", "REVIEW", base="0" * 40, head="1" * 40),
+                             ev("worker.lost", "lost", session="term_7", runner="orca")])
+        self.assertEqual((state["held"], state["hold_ended"]), (False, True))
+
     def test_whatever_ends_the_workers_hold_ends_its_wait(self):
         for closing in (ev("worker.lost", "lost", session="term_7", runner="orca"),
                         ev("ticket.returned", "HANDOFF REQUIRED: 1 abandoned"),
@@ -476,7 +494,8 @@ class CommandLine(unittest.TestCase):
         code, out, err = self.run_cli(
             "emit", "worker.started", "--ticket", "61", "--spec", "76",
             "--line", "worker started on orca: session term_7",
-            "--field", "session=term_7", "--field", "runner=orca", "--field", "host=grok",
+            "--field", "session=term_7", "--field", "runner=orca", "--field", "machine=mac-1",
+            "--field", "host=grok",
             "--field", "model=m", "--field", "effort=high", "--field", "grade=junior-worker",
             "--field", "worktree=/repo/.worktrees/issue-61", "--field", "branch=issue-61",
             "--field", "base=" + "0" * 40, "--field", "note=", "--json-field", "slot=2")

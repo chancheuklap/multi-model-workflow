@@ -197,6 +197,12 @@ ticket_spec() {
 # Post one event on issue <issue>. Everything after the issue number is `events.py
 # emit`'s own arguments. Exit 0 posted, 1 the tracker did not take it, 2 the event could
 # not be built (the reason is on stderr).
+# This machine's hostname, as `socket.gethostname()` reads it — the same call the watchdog
+# makes, so a session started here is asked about only from here.
+machine_name() {
+  python3 -c 'import socket; print(socket.gethostname())'
+}
+
 post_event() {
   local issue="$1" body
   shift
@@ -472,6 +478,7 @@ for r in state.get("sessions") or []:
   if ! post_event "$number" worker.started --ticket "$number" --spec "$spec" \
        --line "worker adopted on $runner: session $session, $host $model ($effort)" \
        --field "session=$session" --field "runner=$runner" \
+       --field "machine=$(machine_name)" \
        --field "host=$host" --field "model=$model" --field "effort=${effort:-—}" \
        --field "grade=$profile" --field "worktree=$tree" --field "branch=issue-$number" \
        --field "base=$base" --json-field adopted=true; then
@@ -966,6 +973,7 @@ start_one() {
   if ! post_event "$number" "$kind.started" --ticket "$number" --spec "$spec" \
        --line "$kind started on $RUNNER_NAME: session $session, $host $model ($effort)" \
        --field "session=$session" --field "runner=$RUNNER_NAME" \
+       --field "machine=$(machine_name)" \
        --field "host=$host" --field "model=$model" --field "effort=${effort:-—}" \
        --field "grade=$profile" --field "worktree=$cwd" --field "branch=issue-$number" \
        --field "base=$(git -C "$root" config --get "branch.issue-$number.mmw-base")"; then

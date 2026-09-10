@@ -115,10 +115,12 @@ EVENTS: dict[str, dict] = {
 
     # Everything the ticket says about where its worker runs, so every later command and
     # every machine finds it there. `effort` is written `—` when the host takes none; the
-    # worktree is an absolute path, since no runner is asked to find it.
+    # worktree is an absolute path, since no runner is asked to find it. `machine` is the
+    # hostname of the machine the session was started on: a runner answers for its own
+    # machine only, so only that machine may ask it whether the session is alive.
     "worker.started":    {"stage": "dispatch", "actor": "main",
-                          "required": ("session", "runner", "host", "model", "effort",
-                                       "grade", "worktree", "branch", "base"),
+                          "required": ("session", "runner", "machine", "host", "model",
+                                       "effort", "grade", "worktree", "branch", "base"),
                           "patterns": {"worktree": r"/.*"}},
     "worker.resumed":    {"stage": "work",     "actor": "main",
                           "together": (("session", "runner"),)},
@@ -147,7 +149,7 @@ EVENTS: dict[str, dict] = {
                           "required": ("session", "runner")},
 
     "reviewer.started":  {"stage": "review",   "actor": "worker",
-                          "required": ("session", "runner"),
+                          "required": ("session", "runner", "machine"),
                           "patterns": {"worktree": r"/.*"}},
     "reviewer.reported": {"stage": "review",   "actor": "reviewer"},
     # A reviewer whose session stopped with no `reviewer.reported` after its start.
@@ -155,7 +157,7 @@ EVENTS: dict[str, dict] = {
                           "required": ("session", "runner")},
 
     "verifier.started":  {"stage": "verify",   "actor": "worker",
-                          "required": ("session", "runner"),
+                          "required": ("session", "runner", "machine"),
                           "patterns": {"worktree": r"/.*"}},
     # A verdict covers one commit, written in full: a ticket closes on it being the
     # commit at HEAD, and two commits share a short prefix often enough to pass a draft
@@ -199,6 +201,12 @@ ENDS_EVERY_HOLD = ("ticket.landed", "ticket.returned", "ticket.released", "spec.
 # the ticket; a refusal that names no session ends nothing.
 ENDS_ONE_HOLD = ("worker.retracted", "worker.lost", "worker.replaced", "ticket.refused",
                  "reviewer.lost", "verifier.lost")
+# A reviewer or verifier has done its work once its result is on the ticket, so its
+# result ends its own hold: the session it names when it names one, else the newest live
+# session of that kind — the one that was started to produce it. A finished reviewer that
+# went on holding the ticket would keep it off the frontier after its worker is gone.
+ENDS_OWN_HOLD = {"reviewer.reported": "reviewer", "verifier.passed": "verifier",
+                 "verifier.failed": "verifier"}
 # A worktree's product slot is held until its ticket's work ends, and given back at that
 # moment: it lands, it is handed back, its claim is released, the night is suspended, or
 # its start is retracted. A replaced or lost worker's worktree keeps its slot for the
@@ -487,6 +495,7 @@ def apply(state: dict, event: dict) -> None:
             "worktree": payload.get("worktree"),
             "branch": payload.get("branch"),
             "base": payload.get("base"),
+            "machine": payload.get("machine"),
             "started_at": payload.get("at"),
             "comment": event["comment"],
             "live": True,
@@ -567,6 +576,14 @@ def apply(state: dict, event: dict) -> None:
             _end(state, name, (payload.get("runner"), payload.get("session")))
         if name == "worker.retracted":
             state["claim_hold"] = False
+    if name in ENDS_OWN_HOLD:
+        if payload.get("session"):
+            _end(state, name, (payload.get("runner"), payload.get("session")))
+        else:
+            mine = [r for r in state["sessions"]
+                    if r["kind"] == ENDS_OWN_HOLD[name] and r["live"]]
+            if mine:
+                _end(state, name, (mine[-1]["runner"], mine[-1]["session"]))
     # A run waits only while a worker is at work on the ticket: whatever ends a worker's
     # hold, or the worker's own result, ends the wait with it. A lost reviewer or verifier
     # ends only its own hold; the worker's run is still waiting.

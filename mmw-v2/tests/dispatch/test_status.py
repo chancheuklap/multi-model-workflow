@@ -34,7 +34,8 @@ def ev(name, line, ticket=61, **fields):
 
 def started(ticket, session, runner="orca", kind="worker"):
     return ev(f"{kind}.started", f"{kind} started on {runner}: session {session}", ticket,
-              session=session, runner=runner, host="grok", model="grok-4.6", effort="high",
+              session=session, runner=runner, machine="mac-1", host="grok", model="grok-4.6",
+              effort="high",
               grade="junior-worker" if kind == "worker" else kind,
               worktree=f"/repo/.worktrees/issue-{ticket}", branch=f"issue-{ticket}",
               base="0" * 40)
@@ -510,6 +511,20 @@ class AdvancePlan(Plans):
                                    comments=[started(61, "term_7"), claimed(61),
                                              lost(61, "term_7")])}
         self.assertEqual(self.plan()[0], ["RELEASE 61", "DISPATCH 61"])
+
+    def test_a_finished_reviewer_does_not_keep_a_lost_or_retracted_workers_ticket(self):
+        # The reviewer's report ended its own hold, so when the worker goes — lost, or
+        # retracted — nothing holds the ticket any more, and advance starts it again.
+        for ending in (lost(61, "term_7"),
+                       ev("worker.retracted", "retracted", session="term_7", runner="orca")):
+            with self.subTest(ending=ending.split("\n")[0]):
+                status.own_login = lambda: self.LOGIN
+                self.tickets = {61: ticket(61, assignees=(self.LOGIN,), comments=[
+                    started(61, "term_7"), claimed(61),
+                    started(61, "rv_1", kind="reviewer"),
+                    ev("reviewer.reported", "REVIEW", base="0" * 40, head="1" * 40),
+                    ending])}
+                self.assertEqual(self.plan()[0], ["RELEASE 61", "DISPATCH 61"])
 
     def test_a_claim_made_before_its_start_was_recorded_is_kept(self):
         status.own_login = lambda: self.LOGIN

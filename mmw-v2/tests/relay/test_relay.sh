@@ -125,7 +125,7 @@ updated = rest.pop(0) if rest and "=" not in rest[0] else "2026-09-10T01:00:00Z"
 block = {"v": 1, "event": name, "ticket": ticket, **dict(r.split("=", 1) for r in rest)}
 # What an event must carry to be one (`events.py`'s table), when the scenario does not care.
 block = {**{"ticket.refused": {"reason": "blocked"},
-            "worker.started": {"host": "grok", "model": "grok-4.6", "effort": "high",
+            "worker.started": {"machine": "mac-1", "host": "grok", "model": "grok-4.6", "effort": "high",
                                "grade": "junior-worker", "worktree": "/repo/.worktrees/issue-61",
                                "branch": "issue-61", "base": "0" * 40}}.get(name, {}), **block}
 path = board / f"{ticket}.json"

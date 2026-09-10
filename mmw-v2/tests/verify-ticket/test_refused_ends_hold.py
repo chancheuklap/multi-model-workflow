@@ -17,7 +17,7 @@ from _load import event, load, load_events
 vt = load()
 ev = load_events()
 
-FACTS = dict(host="grok", model="grok-4.6", effort="high", grade="junior-worker",
+FACTS = dict(machine="mac-1", host="grok", model="grok-4.6", effort="high", grade="junior-worker",
              worktree="/repo/.worktrees/issue-77", branch="issue-77", base="0" * 40)
 
 
