@@ -1,8 +1,9 @@
 """读本机活表，问今晚的目录，再按 hosts.json 展开成启动参数。
 
 活表是 ~/.mmw/models.md（MMW_LIVE_MODELS / MMW_V2_HOME 可改）。hosts.json 跟着
-技能走，记下每个 host 在 Herdr 和 Paseo 上怎么起，以及第一次 install 拷进活表的
-默认行。`python3 models.py offerings` 扫五个 CLI host 的目录，写在活表下半；
+技能走，记下每个 host 怎么起——它自己的命令行（`cli` 块，凡是在终端里跑 host CLI
+的 runner 都读它）与它在 Paseo 上的 settings（`paseo` 块）——以及第一次 install
+拷进活表的默认行。`python3 models.py offerings` 扫五个 CLI host 的目录，写在活表下半；
 `start` 不读那一块。dispatch.sh 的 start 与 install.sh 共用本文件。
 """
 
@@ -25,9 +26,10 @@ ALLOWED_AGENTS = (
 # Lody cuts its own worktree. Level 4 must not pick it; ticket / env / live may.
 WORKTREE_OWNING = frozenset({"lody"})
 DEFAULT_RUNNER = "orca"
-# Herdr checkout asks the host CLI; Paseo checkout asks paseo. Tests set
-# MMW_CATALOG_MODE or MMW_HOST_CATALOG.
-DEFAULT_CATALOG_MODE = "herdr"
+# Which catalog a row resolves against: `paseo` asks paseo, `cli` asks the host's own
+# CLI (a runner that runs the CLI in a terminal starts it with those ids). dispatch.sh
+# sets MMW_CATALOG_MODE from tonight's runner; tests set it or MMW_HOST_CATALOG.
+DEFAULT_CATALOG_MODE = "cli"
 CLI_HOSTS = ("cursor", "grok", "claude", "codex", "pi")
 OFFERINGS_BEGIN = "<!-- mmw-offerings -->"
 OFFERINGS_END = "<!-- /mmw-offerings -->"
@@ -732,7 +734,7 @@ def resolve_row(host: str, model: str, effort: str) -> tuple[str, str, str]:
     spec = hosts[host]
     offerings = fetch_offerings(host)
     mode = os.environ.get("MMW_CATALOG_MODE", DEFAULT_CATALOG_MODE)
-    # Cursor on Herdr burns effort into the model id; on Paseo the same host
+    # Cursor's own CLI burns effort into the model id; on Paseo the same host
     # lists `grok-4.6` and thinking is on/off, so do not require a `-high` suffix.
     effort_in_model = bool(spec.get("effort_in_model")) and mode != "paseo"
     offering = match_offering(
@@ -756,18 +758,18 @@ def resolve_row(host: str, model: str, effort: str) -> tuple[str, str, str]:
 def bypass_argv(host: str, model: str, effort: str, name: str) -> list[str]:
     """The host CLI's own launch flags, model and effort filled in.
 
-    Read from the `herdr` block of a host in hosts.json. That block is the host's
-    command-line argv and nothing Herdr-specific: every runner that starts a host by
-    running its CLI in a terminal — Herdr after `agent start … --`, Orca inside
-    `terminal create --command` — runs these same flags, so an edit to the block is an
-    edit to how that host starts on all of them. The runner adapters build their launch
-    line from here (`models.py bypass-argv` and `models.py launch-line`); none keeps a
-    copy. An empty effort (`—`) drops the effort flag rather than passing `—`.
+    Read from the `cli` block of a host in hosts.json: the host's own command-line argv.
+    Every runner that starts a host by running its CLI in a terminal — Herdr after
+    `agent start … --`, Orca inside `terminal create --command` — runs these same flags,
+    so an edit to the block is an edit to how that host starts on all of them. The runner
+    adapters build their launch line from here (`models.py bypass-argv` and `models.py
+    launch-line`); none keeps a copy. An empty effort (`—`) drops the effort flag rather
+    than passing `—`.
     """
     spec = load_hosts()["hosts"].get(host)
-    if not spec or "herdr" not in spec:
-        raise ValueError(f"no bypass argv for host {host}")
-    template = list(spec["herdr"]["argv"])
+    if not spec or "cli" not in spec:
+        raise ValueError(f"no bypass argv for host {host}: hosts.json gives it no `cli` block")
+    template = list(spec["cli"]["argv"])
     argv = []
     skip_next = False
     for i, part in enumerate(template):

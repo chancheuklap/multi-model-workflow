@@ -53,7 +53,7 @@ class BypassArgvTest(unittest.TestCase):
             "--permission-mode", "bypassPermissions", "--always-approve",
         ])
 
-    def test_claude_reviewer_takes_the_herdr_name(self):
+    def test_claude_reviewer_takes_the_session_name(self):
         argv = models.bypass_argv(
             "claude", "claude-opus-5", "high", "issue-61-review")
         self.assertEqual(argv, [
@@ -61,9 +61,16 @@ class BypassArgvTest(unittest.TestCase):
             "--permission-mode", "bypassPermissions", "-n", "issue-61-review",
         ])
 
-    def test_an_unknown_host_is_refused(self):
-        with self.assertRaisesRegex(ValueError, "no bypass argv"):
+    def test_a_host_without_a_cli_block_is_refused(self):
+        with self.assertRaisesRegex(ValueError, "no bypass argv for host pi: .*`cli` block"):
             models.bypass_argv("pi", "x", "low", "issue-1")
+
+    def test_the_command_line_block_is_named_cli(self):
+        hosts = models.load_hosts()["hosts"]
+        self.assertEqual(
+            sorted(h for h, spec in hosts.items() if "cli" in spec),
+            ["claude", "codex", "cursor", "grok"])
+        self.assertEqual([h for h, spec in hosts.items() if "herdr" in spec], [])
 
 
 class LaunchLineTest(unittest.TestCase):
