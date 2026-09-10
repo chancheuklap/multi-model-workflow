@@ -36,9 +36,9 @@
 # of the worker rows a worker session starts from is the ticket's own `*-worker`
 # label, so one ticket keeps the same worker every time it is started. Which
 # host, model and thinking level the session gets come from that
-# row of the live table (~/.mmw/models.md), resolved against tonight's
-# catalog. Tonight's runner is `models.py runner`: MMW_RUNNER, then the
-# table's runner row, then the runner this process runs in, then orca.
+# row of the live table (~/.mmw/models.md), resolved against the catalog of the runner
+# that starts it (`use_catalog_of`). Tonight's runner is `models.py runner`: MMW_RUNNER,
+# then the table's runner row, then the runner this process runs in, then orca.
 # `start` has that runner's adapter (scripts/runners/<runner>.sh) start the
 # session, writes a `worker.started`, `reviewer.started` or `verifier.started` event
 # on the ticket — session, runner, host, model, effort, grade, the worktree's absolute
@@ -48,8 +48,11 @@
 # adapter refuses is refused once: no retry, no other host, no other runner. A worker
 # started on a ticket whose events still show a live worker replaces that one: the old
 # session is stopped through its own runner and a `worker.replaced` naming it goes on
-# the ticket before the new `worker.started`. `resume`, `wait`, `retract`, `land` and
-# `suspend` find the session in those events and ask the runner the event names.
+# the ticket before the new `worker.started`. A worker started in a standing worktree
+# that an earlier worker of the ticket left with uncommitted edits first commits them on
+# the ticket branch (`keep_unfinished_work`). `resume`, `retract`, `land` and `suspend`
+# find the session in those events and ask the runner the event names; `wait` only reads
+# the ticket.
 #
 # Nothing here tells anyone that a result landed. `relay.py`, beside this script, watches
 # the board and wakes the session waiting on each result event through that session's
@@ -75,7 +78,6 @@ elif [ -n "${MMW_V2_HOME:-}" ]; then
 else
   MODELS="$HOME/.mmw/models.md"
 fi
-export MMW_CATALOG_MODE="${MMW_CATALOG_MODE:-paseo}"
 STATUS="$SKILL_ROOT/scripts/status.py"
 RELAY="$SKILL_ROOT/scripts/relay.py"
 RUNNER=""
@@ -117,10 +119,10 @@ runner() {
 }
 
 # Called once at the top of every command that talks to the runner, before any `$(…)`.
-# The check cannot live in `runner()`: three of its callers run it inside `$(…)`, and a
-# `refuse` there ends only that subshell — the command then carries on with an empty
-# answer. With the adapter file gone that made `retract` archive a running worker's
-# workspace and exit 0, and `wait` report "still working" and exit 3 forever.
+# The check cannot live in `runner()`: its callers run it inside `$(…)`, and a `refuse`
+# there ends only that subshell — the command then carries on with an empty answer. With
+# the adapter file gone that made `retract` archive a running worker's workspace and
+# exit 0.
 require_runner() {
   [ -f "$RUNNER" ] || refuse "no runner adapter for ${RUNNER_NAME:-this runner} at ${RUNNER:-scripts/runners/}; name paseo, orca or herdr in MMW_RUNNER or the runner row of $MODELS, or restore that file, then run the command again"
 }
@@ -138,6 +140,19 @@ tonight_runner() {
   name="$(python3 "$MODELS_PY" runner)" && [ -n "$name" ] \
     || refuse "could not tell tonight's runner from MMW_RUNNER, $MODELS or this process"
   printf '%s\n' "$name"
+}
+
+# Which catalog `models.py` resolves a live-table row against: the runner that starts the
+# session decides. Paseo is handed Paseo's own provider model ids; a runner that runs the
+# host's CLI in a terminal (Orca, Herdr) is handed the CLI's own ids, so its row is
+# resolved against the CLI's catalog, the one the table under the live table is copied
+# from. Resolving against another runner's catalog either fails outright (Paseo's daemon is
+# not running) or names a model the CLI does not have.
+use_catalog_of() {
+  case "$1" in
+    paseo) export MMW_CATALOG_MODE=paseo ;;
+    *) export MMW_CATALOG_MODE=cli ;;
+  esac
 }
 
 # The ticket's comments as the tracker answers them. Exit non-zero, with the reason on
@@ -177,6 +192,24 @@ sessions_on_ticket() {
 # "runner<TAB>session" per line, oldest first.
 live_workers_on_ticket() {
   ticket_events "$1" live --kind worker
+}
+
+# Who left the uncommitted edits a ticket's standing worktree may hold: its newest worker
+# session, as "worker <session> on <runner>, left when …" — the event that ended its hold,
+# or that it was replaced (a replacement stops a live one just before). Nothing when no
+# worker was ever started on the ticket; non-zero when its events could not be read.
+last_worker_on_ticket() {
+  ticket_events "$1" fold | python3 -c '
+import json, sys
+state = json.load(sys.stdin)
+workers = [r for r in state.get("sessions") or [] if r.get("kind") == "worker"]
+if not workers:
+    raise SystemExit(0)
+last = workers[-1]
+how = ("it was replaced" if last.get("live")
+       else "its hold ended with " + str(last.get("ended_by") or "an event"))
+print("worker %s on %s, left when %s" % (last.get("session"), last.get("runner"), how))
+'
 }
 
 # The spec ticket <n> sits under — the parent link the tracker records — for the `spec`
@@ -429,6 +462,7 @@ adopt_ticket() {
     1) profile="${marked[0]}" ;;
     *) refuse "#$number carries ${#marked[@]} worker labels (${marked[*]}), and it takes one" ;;
   esac
+  use_catalog_of "$runner"
   row="$(row_for_role "$profile")" || exit 2
   [ -n "$row" ] || refuse "#$number needs the $profile row, and $MODELS has none"
   IFS=$'\t' read -r host model effort <<<"$row"
@@ -806,6 +840,28 @@ remove_worktree() {
   return 1
 }
 
+# Commit the uncommitted edits a ticket's worker left in its worktree, on the ticket
+# branch, naming who left them (`left_by`). A worker whose session ended mid-turn — lost,
+# stopped by a suspension, replaced, retracted — leaves its unfinished work that way, and
+# it is the ticket's: the next worker's `--preflight` refuses a worktree with uncommitted
+# changes to tracked files, and `git worktree remove --force` deletes them. Only tracked
+# files are taken, the same set the preflight checks; the screenshots and caches a
+# criteria run writes are untracked and stay out. The repository's own commit hooks are
+# skipped: what is saved is half-written code, and a hook refusing it would stop the
+# hand-over; the next worker's commits and the closeout's checks run them as usual.
+# Exit 0 committed, or nothing to commit; 1 not committed, the reason on stderr.
+keep_unfinished_work() {
+  local number="$1" cwd="$2" left_by="$3" out
+  [ -n "$cwd" ] && [ -d "$cwd" ] || return 0
+  [ -n "$(git -C "$cwd" status --porcelain --untracked-files=no 2>/dev/null)" ] || return 0
+  if ! out="$(git -C "$cwd" commit --all --no-verify --quiet \
+        -m "wip(#$number): uncommitted work of $left_by" 2>&1)"; then
+    echo "dispatch: $cwd holds uncommitted work of $left_by, and it could not be committed on issue-$number: $(printf '%s' "$out" | tail -2 | tr '\n' ' ')" >&2
+    return 1
+  fi
+  echo "dispatch: committed the uncommitted work of $left_by on issue-$number" >&2
+}
+
 # End every session the ticket's events name, each through its own runner's `stop`.
 # Git removes the worktree separately; no runner is asked to. Exit 1 when the ticket's
 # events could not be read: then nobody knows which sessions run in the worktree, and
@@ -893,6 +949,7 @@ start_one() {
   esac
 
   local row host model effort
+  use_catalog_of "$RUNNER_NAME"
   row="$(row_for_role "$profile")" || exit 2
   [ -n "$row" ] || refuse "#$number needs the $profile row, and $MODELS has none"
   IFS=$'\t' read -r host model effort <<<"$row"
@@ -943,13 +1000,25 @@ start_one() {
   cwd="$(printf '%s\n' "$ws_row" | cut -f2)"
   created="$(printf '%s\n' "$ws_row" | cut -f3)"
 
-  # Labels are for runners that keep them (Paseo); the others take and ignore them.
-  local -a labels=(--label "mmw.ticket=$number" --label "mmw.kind=$kind")
-  [ -z "$spec" ] || labels+=(--label "mmw.spec=$spec")
+  # A standing worktree a worker of this ticket left — lost, stopped by a suspension, or
+  # replaced a moment ago — can hold its uncommitted edits. They are this ticket's work,
+  # and the new worker continues from them; left uncommitted, its `--preflight` would
+  # refuse the worktree. A worktree no worker of this ticket has had is not touched: its
+  # changes are somebody else's, and the preflight refuses them rather than take them.
+  if [ "$kind" = worker ] && [ "$created" = 0 ]; then
+    local left_by
+    left_by="$(last_worker_on_ticket "$number")" \
+      || refuse "could not read #$number's events, so whose edits $cwd holds is unknown; nothing was started"
+    if [ -n "$left_by" ]; then
+      keep_unfinished_work "$number" "$cwd" "$left_by" \
+        || refuse "the uncommitted work in $cwd was not saved (the reason is above), and a new worker cannot start on it; commit or set it aside on issue-$number, then start again. Nothing was started"
+    fi
+  fi
+
   local session
   if ! session="$(runner start --host "$host" --model "$model" --effort "$effort" \
-       --cwd "$cwd" --prompt "$prompt" --skip-approval --title "#$number $kind" \
-       "${labels[@]}")" || [ -z "$session" ]; then
+       --cwd "$cwd" --prompt "$prompt" --skip-approval --title "#$number $kind")" \
+     || [ -z "$session" ]; then
     if [ "$created" = 1 ] && [ -n "$cwd" ]; then
       remove_worktree "$root" "$cwd" \
         || echo "dispatch: could not remove the worktree for #$number" >&2
@@ -1029,6 +1098,15 @@ retract_one() {
   local cwd archived=0 slot=0 claim=0 rc
   cwd="$(workspace_cwd_for "$number")"
   [ -n "$cwd" ] || cwd="$(lease_worktree_for "$number")"
+  # Archiving removes the worktree with --force, and its uncommitted edits with it. They
+  # are the ticket's unfinished work, so they are saved on its branch first, and the
+  # next start picks them up with the branch.
+  if [ -n "$cwd" ] && [ -d "$cwd" ]; then
+    local left_by="whoever claimed #$number with no session recorded on it"
+    [ -z "$ident" ] || left_by="worker $ident on $RUNNER_NAME, left when its session stopped"
+    keep_unfinished_work "$number" "$cwd" "$left_by" \
+      || refuse "the uncommitted work in $cwd was not saved (the reason is above), and archiving would delete it; commit or set it aside on issue-$number, then retract again. Nothing was retracted"
+  fi
   if [ -n "$cwd" ]; then
     [ -f "$LEASE" ] \
       || refuse "no lease.py in any --tools directory, so the slot cannot be given back. Pass --tools <the drive-target skill's scripts directory>, then retract again"
@@ -1069,13 +1147,16 @@ retract_one() {
 #
 # Which one it is, is the runner adapter's answer, not this function's reading of an
 # error sentence: `send` answers 0 when the message was taken, 3 when the agent is there
-# but in a turn, and 2 when there is no such session (#314 section 1). This maps those
-# three and nothing else.
+# but in a turn, and 2 when there is no such session (#314 section 1). A fourth answer, 4,
+# is a message the session was handed and whose turn start its runner cannot observe
+# (Orca running Grok answers every send that way, and Grok reads each one, a busy Grok
+# once its turn ends): the text is in the session, so it is recorded like a 0 and exits 4,
+# which says not to send it again. Sending it again would have the worker read it twice.
 #
-# The distinction is worth drawing because the old code gave both exit 2, whose
-# documented meaning is "read status, do not send again" — turning a three-minute
-# wait into a permanent answer. On 2026-09-07 (#211) a worker was left unreachable
-# this way and a five-hour session with 16 commits on its branch had to be killed.
+# Telling "not there" from "in a turn" is worth it: reading both as "not there", whose
+# documented meaning is "read status, do not send again", turns a three-minute wait into
+# a permanent answer. On 2026-09-07 (#211) a worker was left unreachable that way and a
+# five-hour session with 16 commits on its branch had to be killed.
 resume_one() {
   local number="$1" text="$2" ident out
   [ -n "$text" ] || refuse "resume needs the text to send"
@@ -1088,22 +1169,19 @@ resume_one() {
   out="$(runner send "$ident" "$text" 2>&1)"
   local rc=$?
   case "$rc" in
-    0)
+    0 | 4)
       post_event "$number" worker.resumed --ticket "$number" --spec "$(ticket_spec "$number")" \
           --line "Resumed the worker $ident on $RUNNER_NAME" \
           --field "session=$ident" --field "runner=$RUNNER_NAME" \
         || echo "dispatch: the worker $ident took the message, but the worker.resumed event on #$number was not written" >&2
-      return 0 ;;
+      [ "$rc" = 0 ] && return 0
+      echo "dispatch: the worker $ident on #$number was handed the message, and $RUNNER_NAME cannot show a turn starting on it; the text is in the session, so do not send it again" >&2
+      exit 4 ;;
     2) refuse "#$number's worker $ident is not on $RUNNER_NAME any more" ;;
   esac
-  if [ "$rc" = 4 ]; then
-    echo "dispatch: the worker $ident on #$number was handed the message, and $RUNNER_NAME saw no turn start; read its session before sending it again" >&2
-    [ -n "$out" ] && printf '  %s\n' "$out" >&2
-    exit 3
-  fi
   echo "dispatch: the worker $ident on #$number did not take the message" >&2
   [ -n "$out" ] && printf '  %s\n' "$out" >&2
-  echo "dispatch: it is most likely in a turn — wait, then run resume again. If it keeps refusing, ask \`get_agent_status\` for this agent: an \`activeTurn\` of null with the send still failing is a stuck session, and the only way out is to replace it" >&2
+  echo "dispatch: it is most likely in a turn — wait, then run resume again. A worker that keeps refusing while nothing on its ticket moves is replaced with start $number worker, which stops it through its runner first" >&2
   exit 3
 }
 
@@ -1117,39 +1195,11 @@ result_event() {
   ticket_events "$1" result --kind "$2"
 }
 
-wait_no_result() {
-  local number="$1" kind="$2" ident="$3"
-  case "$kind" in
-    reviewer)
-      echo "dispatch: reviewer $ident on #$number stopped with no reviewer.reported event; read its session on $RUNNER_NAME" >&2
-      ;;
-    verifier)
-      echo "dispatch: verifier $ident on #$number stopped with no verifier.passed or verifier.failed event; read its session on $RUNNER_NAME" >&2
-      ;;
-    *)
-      echo "dispatch: worker $ident on #$number stopped with no ticket.passed or ticket.returned event; read its session on $RUNNER_NAME" >&2
-      ;;
-  esac
-  exit 1
-}
-
-# Print the newest result event of this kind on ticket <n>, by name and key fields.
-# The ticket is read first, so an agent that has
-# already written its result returns at once — which is the whole of it on the
-# ordinary path: a caller runs this after the relay woke it with that event, to read it.
-#
-# When the comment is not there yet this waits MMW_WAIT_S seconds (default 90) and then
-# exits 3, and running it again is how a host that stops waiting on a long command is
-# survived. No host kills such a command: all of them move it to the background and hand
-# back no exit code, and the bound has to stay under the shortest of those — 30 seconds
-# on Cursor, 120 on Grok Build and Claude Code (measured 2026-09-06). Set MMW_WAIT_S
-# below the host's own bound when it is shorter than this default.
-#
-# The waiting is this function's own: it reads the ticket, then sleeps a fixed beat, and
-# repeats until the budget is spent. It calls no runner command to wait on, so the wait
-# path goes through the runner adapter only for the one liveness question at the end.
-# The result lands on the ticket, so reading the ticket every beat finds it at most one
-# beat after it is written. Writes nothing.
+# Print the newest result event of this kind on ticket <n>, by name and key fields: a
+# read of the ticket, and nothing else. A caller runs it after the relay woke it with that
+# event, so the result is there. It waits for nothing and asks no runner: a session that
+# has not reported yet is heard from when its result lands, and one that died is the
+# watchdog's to find. Writes nothing.
 wait_one() {
   local number="$1" kind="$2"
   case "$kind" in
@@ -1157,7 +1207,7 @@ wait_one() {
     *) refuse "the second argument is worker, reviewer or verifier, got $kind" ;;
   esac
 
-  local head ident
+  local head
   head="$(result_event "$number" "$kind")" \
     || refuse "could not read #$number's events, so what its $kind reported is unknown"
   if [ -n "$head" ]; then
@@ -1167,47 +1217,10 @@ wait_one() {
 
   local line
   line="$(session_on_ticket "$number" "$kind")" \
-    || refuse "could not read #$number's events, so there is no session to wait on"
-  [ -n "$line" ] || refuse "#$number has no $kind.started event, so there is no session to wait on"
-  use_runner "$(printf '%s\n' "$line" | cut -f1)"
-  ident="$(printf '%s\n' "$line" | cut -f2)"
-
-  local budget="${MMW_WAIT_S:-90}" beat="${MMW_WAIT_BEAT_S:-10}" spent=0 round_start
-  while [ "$spent" -lt "$budget" ]; do
-    round_start="$(date +%s)"
-    head="$(result_event "$number" "$kind")" \
-      || refuse "could not read #$number's events, so what its $kind reported is unknown"
-    if [ -n "$head" ]; then
-      printf '%s\n' "$head"
-      return 0
-    fi
-    spent=$((spent + $(date +%s) - round_start))
-    [ "$spent" -lt "$budget" ] || break
-    sleep "$beat"
-    spent=$((spent + beat))
-  done
-
-  # An agent that is alive is still on the hook, whatever it is doing between turns.
-  # `idle` is not idle: an agent that has handed work to subagents and ended its turn
-  # sits there for the whole of that work, doing exactly what it was told. Reading that
-  # as "stopped" sends the caller to start a replacement while a healthy agent is mid-job; on
-  # 2026-09-06 that closed #162 on a thinner review than the one that arrived 50 seconds
-  # later, and did the same to #159. Only an agent that is gone — `closed`, `error`, or
-  # no longer listed — has nobody left to do the job. `unknown` is not alive, and it is
-  # not stopped either: wait says so and is run again.
-  case "$(runner liveness "$ident")" in
-    stopped)
-      wait_no_result "$number" "$kind" "$ident"
-      ;;
-    alive)
-      echo "still working: run wait again" >&2
-      exit 3
-      ;;
-    *)
-      echo "cannot tell whether $ident is still working: run wait again" >&2
-      exit 3
-      ;;
-  esac
+    || refuse "could not read #$number's events, so what its $kind reported is unknown"
+  [ -n "$line" ] || refuse "#$number has no $kind.started event, so there is no result to read"
+  echo "dispatch: #$number carries no result of its $kind yet; the relay wakes you when it lands, so end your turn" >&2
+  exit 3
 }
 
 # ------------------------------------------------------------------ check
@@ -1224,6 +1237,32 @@ check_machine() {
     failed=1
   fi
 
+  # Tonight's runner has to be one this skill has an adapter for, and every row `start`
+  # reads — each worker grade, the reviewer, the verifier — has to resolve against the
+  # catalog of that runner. A row that does not resolve refuses every start of its agent,
+  # one ticket at a time, hours into the night; here it is one line before the night opens,
+  # in the resolver's own words.
+  local runner roles role out err_file
+  runner="$(tonight_runner)"
+  if [ ! -f "$SKILL_ROOT/scripts/runners/$runner.sh" ]; then
+    echo "dispatch: tonight's runner is $runner, and this skill has no adapter for it (scripts/runners/$runner.sh); name paseo, orca or herdr in MMW_RUNNER or the runner row of $MODELS" >&2
+    failed=1
+  fi
+  use_catalog_of "$runner"
+  roles="$(worker_roles | tr '\n' ' ')" \
+    || { echo "dispatch: $MODELS cannot be read (the reason is above)" >&2; failed=1; roles=""; }
+  err_file="$(mktemp)"
+  for role in $roles reviewer verifier; do
+    if ! out="$(row_for_role "$role" 2>"$err_file")"; then
+      echo "dispatch: the $role row of $MODELS does not resolve on $runner: $(tr '\n' ' ' < "$err_file")" >&2
+      failed=1
+    elif [ -z "$out" ]; then
+      echo "dispatch: $MODELS has no $role row, and every $role start reads one" >&2
+      failed=1
+    fi
+  done
+  rm -f "$err_file"
+
   # `provider ls` answers from a cached snapshot, and a host that was available when
   # that snapshot was taken can since have been logged out of or upgraded out from under
   # the daemon — a night that opens on that answer then fails one ticket at a time,
@@ -1237,10 +1276,10 @@ check_machine() {
   # One diagnostic per host, not per row of the live table: several agents share a host, and
   # the call costs seconds (measured: claude 0.7s, pi 1.7s, grok 2.5s, cursor 6.7s).
   # Paseo's provider snapshot only says something about sessions Paseo starts.
-  local role host host_line hosts="" diag roles=""
-  [ "$(tonight_runner)" = paseo ] && roles="$(worker_roles) reviewer verifier"
-  for role in $roles; do
-    host_line="$(row_for_role "$role")" || { failed=1; continue; }
+  local host host_line hosts="" diag paseo_roles=""
+  [ "$runner" = paseo ] && paseo_roles="$roles reviewer verifier"
+  for role in $paseo_roles; do
+    host_line="$(row_for_role "$role" 2>/dev/null)" || continue
     host="$(printf '%s\n' "$host_line" | cut -f1)"
     [ -n "$host" ] || continue
     case " $hosts " in *" $host "*) continue ;; esac
@@ -1292,8 +1331,11 @@ for line in text.splitlines():
     marked=("${fields[@]:2}")
     case "${#marked[@]}" in
       0) ;;
-      1) [ -n "$(row_for_role "${marked[0]}")" ] \
-           || { echo "dispatch: #$number asks for ${marked[0]}, and $MODELS has no such row" >&2; failed=1; } ;;
+      1) case " $roles " in
+           *" ${marked[0]} "*) ;;
+           *) echo "dispatch: #$number asks for ${marked[0]}, and $MODELS has no such row" >&2
+              failed=1 ;;
+         esac ;;
       *) echo "dispatch: #$number carries ${#marked[@]} worker labels (${marked[*]}), and it takes one" >&2
          failed=1 ;;
     esac
@@ -1453,10 +1495,14 @@ advance() {
     just_merged+=("$number")
   done
 
+  # The workspace goes, its slot with it, before the landing is recorded: an event is
+  # posted once the state it announces holds, and `ticket.landed` announces that the
+  # ticket's work is over, its product slot included. The relay wakes every worker waiting
+  # for a slot when it reads one, so a slot still held at that moment is a wake for nothing.
   local archived
   for archived in "${just_merged[@]+"${just_merged[@]}"}"; do
-    record_landed "$archived" "$root" "$spec"
     archive_workspace "$archived"
+    record_landed "$archived" "$root" "$spec"
   done
 
   # A claim whose worker is gone keeps its ticket off the frontier for good: only the
@@ -1472,11 +1518,11 @@ advance() {
     if gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1; then
       released=$((released + 1))
       echo "released the claim on #$number: it is open in the agent queue and an event on it ended its worker's hold, so the worker that claimed it is gone" >&2
+      give_ticket_slot_back "$number" || true
       post_event "$number" ticket.released --ticket "$number" --spec "$spec" \
           --line "Gave the claim on #$number back: an event on it ended its worker's hold" \
           --field reason=worker-lost \
         || echo "dispatch: the claim on #$number is given back, but its ticket.released event was not written" >&2
-      give_ticket_slot_back "$number" || true
     else
       echo "dispatch: could not take the claim off #$number, so it stays off the frontier" >&2
     fi
@@ -1502,6 +1548,10 @@ advance() {
   done
 
   echo "advance #$spec: merged $merged, already in $skipped, released $released, started $started, refused $refused" >&2
+  # A refused start is its own exit code. Read as success it ends the main agent's turn,
+  # and when nothing else of the batch is running no wake will ever come: the ticket sits
+  # on the frontier, never started, and the night stops there without a word.
+  [ "$refused" -eq 0 ] || exit 4
 }
 
 # ------------------------------------------------------------------ landing
@@ -1542,7 +1592,11 @@ land_tickets() {
   plan="$(python3 "$STATUS" --land-plan "${numbers[@]}")" \
     || refuse "could not read $(printf '#%s ' "${numbers[@]}")from the tracker"
 
+  # A branch in HEAD is recorded as landed only after its workspace, and the slot with it,
+  # has gone below: `ticket.landed` announces the ticket's work is over, and the relay
+  # wakes the workers waiting for a slot when it reads one.
   local merged=0 archived=0 released=0 kept=0 unmerged=0 number branch rc
+  local -a in_head=()
   while IFS= read -r number; do
     [ -n "$number" ] || continue
     branch="$(ticket_branch "$number")"
@@ -1551,7 +1605,7 @@ land_tickets() {
       continue
     fi
     if git -C "$root" merge-base --is-ancestor "$branch" HEAD 2>/dev/null; then
-      record_landed "$number" "$root" "$(ticket_spec "$number")"
+      in_head+=("$number")
       continue
     fi
     merge_one "$root" "$branch"
@@ -1563,17 +1617,17 @@ land_tickets() {
     [ "$rc" -eq 0 ] || refuse "could not merge $branch after $MERGE_TRIES tries; git said nothing this script can act on"
     echo "merged $branch" >&2
     merged=$((merged + 1))
-    record_landed "$number" "$root" "$(ticket_spec "$number")"
+    in_head+=("$number")
   done < <(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }')
 
   for number in $(printf '%s\n' "$plan" | awk '$1 == "RELEASE" { print $2 }'); do
     if gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1; then
       released=$((released + 1))
+      give_ticket_slot_back "$number" || true
       post_event "$number" ticket.released --ticket "$number" --spec "$(ticket_spec "$number")" \
           --line "Gave the claim on #$number back: its work is over" \
           --field reason=landed \
         || echo "land: #$number's claim is given back, but its ticket.released event was not written" >&2
-      give_ticket_slot_back "$number" || true
     else
       echo "land: could not give #$number's claim back" >&2
     fi
@@ -1591,6 +1645,10 @@ land_tickets() {
       continue
     fi
     archive_workspace "$number" && archived=$((archived + 1))
+  done
+
+  for number in "${in_head[@]+"${in_head[@]}"}"; do
+    record_landed "$number" "$root" "$(ticket_spec "$number")"
   done
 
   while IFS= read -r line; do
@@ -1628,7 +1686,7 @@ suspend_text() {
   printf '%s\n' \
     "The night on spec #$spec was suspended at $when, so this ticket has no verdict: nothing here says whether its work is finished."
   if [ -n "$ident" ]; then
-    printf '%s\n' "Its worker $ident was interrupted; its workspace and its branch are untouched. The batch is taken up again where it stands with advance."
+    printf '%s\n' "Interrupted: $ident. Its workspace and its branch are untouched, and the next worker's start commits any edit left uncommitted. The batch is taken up again where it stands with advance."
   else
     printf '%s\n' "No session of ours was working on it at that moment. Its workspace and its branch, if it has them, are untouched, and it keeps its label, so the next advance of #$spec starts it."
   fi
@@ -1636,19 +1694,20 @@ suspend_text() {
 
 # Suspend the night without throwing its work away.
 #
-# Five things happen: every worker the batch's events name that is not already stopped
-# is ended through its own runner's `stop`, which interrupts a running agent (workspace
-# and branch stay); every ticket still in the agent queue gets a `spec.suspended` event,
+# Five things happen: every session still holding a ticket of the batch — worker,
+# reviewer or verifier — that is not already stopped is ended through its own runner's
+# `stop`, which interrupts a running agent (workspace and branch stay); every ticket
+# still in the agent queue gets a `spec.suspended` event,
 # and so does the spec; every OPEN ready-for-agent ticket assigned to this pipeline's
 # account has that claim given back, with a `ticket.released` event (reason
 # `suspended`); and every lease slot the batch holds is given back. A batch dispatched
 # again from scratch would throw the night's work away along with the night; `advance`
 # after this takes the same workspaces up where they stand.
 #
-# A ticket whose worker could not be stopped gets none of that: `spec.suspended` would
-# close its worker on the ticket's events while it still runs, and the next `advance`
-# would start a second one beside it. It keeps its claim and its slot, and is counted as
-# left behind.
+# A ticket one of whose sessions could not be stopped gets none of that: `spec.suspended`
+# would close that session on the ticket's events while it still runs, and the next
+# `advance` would start a second worker beside it. It keeps its claim and its slot, and
+# is counted as left behind.
 #
 # `lease.py` refuses a slot something still listens on, and that refusal is reported
 # rather than forced: taking a slot off a live process is the same act as ending it.
@@ -1668,30 +1727,34 @@ suspend_night() {
   queued="$(printf '%s\n' "$grades" | awk '$1 == "GRADE" { print $2 }')"
   batch="$(printf '%s\n' "$grades" | awk '$1 == "BATCH" { print $2 }')"
 
-  # Each ticket's worker is the newest one its events name, ended through that session's
-  # runner's `stop`, which interrupts it mid-turn. One already shown to be stopped is left
-  # alone. A ticket whose events cannot be read is treated as one whose worker may still
-  # run: nobody can say it does not.
-  local live="" number ident line stopped=0 still_live=""
+  # Every session still holding a ticket of the batch — its worker, and a reviewer or a
+  # verifier whose result is not in — is ended through its own runner's `stop`, which
+  # interrupts it mid-turn: a verifier left running keeps running the product, and the
+  # slot is given back under it below. One already shown to be stopped is left alone. A
+  # ticket whose events cannot be read, or one of whose sessions will not stop, is left as
+  # it is: nobody can say nothing still runs on it.
+  local live="" number ident name sessions stopped=0 still_live=""
   for number in $batch; do
-    if ! line="$(session_on_ticket "$number" worker)"; then
-      echo "dispatch: could not read #$number's events, so whether a worker still runs on it is unknown; it is left as it is" >&2
+    if ! sessions="$(ticket_events "$number" live)"; then
+      echo "dispatch: could not read #$number's events, so whether a session still runs on it is unknown; it is left as it is" >&2
       still_live="$still_live $number"
       left=$((left + 1))
       continue
     fi
-    [ -n "$line" ] || continue
-    ident="$(printf '%s\n' "$line" | cut -f2)"
-    use_runner "$(printf '%s\n' "$line" | cut -f1)"
-    [ "$(runner liveness "$ident")" = stopped ] && continue
-    if runner stop "$ident"; then
-      stopped=$((stopped + 1))
-      live="$live$number"$'\t'"$ident"$'\n'
-    else
-      echo "dispatch: could not stop $ident on #$number, so its worker is still running" >&2
-      still_live="$still_live $number"
-      left=$((left + 1))
-    fi
+    while IFS=$'\t' read -r name ident; do
+      [ -n "$ident" ] || continue
+      use_runner "$name"
+      [ "$(runner liveness "$ident")" = stopped ] && continue
+      if runner stop "$ident"; then
+        stopped=$((stopped + 1))
+        live="$live$number"$'\t'"$ident"$'\n'
+      else
+        echo "dispatch: could not stop $ident on #$number, so it is still running" >&2
+        still_live="$still_live $number"
+        left=$((left + 1))
+        break
+      fi
+    done <<<"$sessions"
   done
 
   local when commented=0
@@ -1701,7 +1764,7 @@ suspend_night() {
     || { echo "dispatch: could not write the spec.suspended event on #$spec" >&2; left=$((left + 1)); }
   for number in $queued; do
     case " $still_live " in *" $number "*) continue ;; esac
-    ident="$(printf '%s\n' "$live" | awk -F '\t' -v n="$number" '$1 == n { print $2; exit }')"
+    ident="$(printf '%s\n' "$live" | awk -F '\t' -v n="$number" '$1 == n { ids = ids sep $2; sep = ", " } END { print ids }')"
     local -a interrupted=()
     [ -z "$ident" ] || interrupted=(--field "interrupted=$ident")
     if post_event "$number" spec.suspended --ticket "$number" --spec "$spec" \

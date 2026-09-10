@@ -16,6 +16,7 @@
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh orcadoubledispatch|unreadableevents|startunrecorded
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh mergewithoutbranch|retractunreadable
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh open|openrefused|openticket|ack|unopened|runnerself|orcaunobserved|adopt
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh keepunfinished|advancerefused|catalogbyrunner
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh all
 #
 # A fake `paseo`, a fake `herdr`, a fake `orca` and a fake `gh` sit in front of the
@@ -1455,10 +1456,11 @@ spec.loader.exec_module(ev)
 out = [l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()]
 run = json.loads(Path(sys.argv[2]).read_text().splitlines()[-1])
 assert out == [run["id"]], (out, run["id"])
-for key in ("title", "provider", "labels", "initialPrompt", "cwd"):
+for key in ("title", "provider", "initialPrompt", "cwd"):
     assert run.get(key), key
-kind = run["labels"]["mmw.kind"]
-ticket = run["labels"]["mmw.ticket"]
+# Which ticket and which kind a session is for is its started event, not a runner label.
+assert not run.get("labels"), run.get("labels")
+ticket, kind = run["title"].lstrip("#").split(" ", 1)
 assert run["cwd"].endswith("/.worktrees/issue-" + ticket), run["cwd"]
 posted = json.loads(Path(sys.argv[3]).read_text()).get(ticket, [])
 state = ev.fold(posted)
@@ -1696,6 +1698,80 @@ JSON
   [ "$code" = 2 ] || fail "expected exit 2 when install.sh --check fails, got $code: $(cat "$TMP/err")"
   grep -q 'install.sh --check' "$TMP/err" \
     || fail "the reason should name install.sh --check: $(cat "$TMP/err")"
+
+  echo "--- a row that does not resolve on tonight's runner is refused in the resolver's words, whatever the tickets carry"
+  copy="$(skill_copy_for check)"
+  reset_log
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 63, "state": "OPEN", "labels": ["ready-for-agent"]}
+]
+JSON
+  python3 -c '
+import json, sys
+path = sys.argv[1]
+catalog = json.load(open(path))
+catalog["claude"] = [o for o in catalog["claude"] if o["id"] != "claude-sonnet-5"]
+json.dump(catalog, open(sys.argv[2], "w"))
+' "$HERE/catalog.json" "$TMP/catalog-no-sonnet.json"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" MMW_RUNNER=orca \
+          MMW_HOST_CATALOG="$TMP/catalog-no-sonnet.json" \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
+  [ "$code" = 2 ] || fail "a verifier row that does not resolve is exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "the verifier row of .* does not resolve on orca: 'sonnet 5'" "$TMP/err" \
+    || fail "the refusal should name the row, the runner and the resolver's reason: $(cat "$TMP/err")"
+  hasnt "paseo :: provider"
+
+  echo "--- a runner this skill has no adapter for is refused before the night"
+  reset_log
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" MMW_RUNNER=tmux \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
+  [ "$code" = 2 ] || fail "a runner with no adapter is exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "tonight's runner is tmux, and this skill has no adapter for it" "$TMP/err" \
+    || fail "the refusal should name the runner: $(cat "$TMP/err")"
+}
+
+# A row resolves against the catalog of the runner that starts the session: Orca runs the
+# host's CLI, which takes the CLI's own model id (Cursor's carries its effort,
+# `cursor-grok-4.6-high`), and Paseo takes Paseo's (`grok-4.6`). The fixture catalog holds
+# both shapes, so only the runner decides which one comes out.
+scenario_catalogbyrunner() {
+  local code
+  echo "--- on Orca the junior worker starts with the CLI's own model id"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch env MMW_RUNNER=orca bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  has "orca :: terminal :: create"
+  grep -F "orca :: terminal :: create" "$MMW_TEST_LOG" | grep -qF -- "--model cursor-grok-4.6-high" \
+    || fail "the launch line should carry the CLI's id: $(grep -F 'orca :: terminal :: create' "$MMW_TEST_LOG")"
+  posted_events 61 model | grep -qx "worker.started model=cursor-grok-4.6-high" \
+    || fail "the started event should record the id the session got: $(posted_events 61 model)"
+
+  echo "--- on Paseo the same row starts with Paseo's model id"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch env MMW_RUNNER=paseo bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  has "paseo :: run"
+  [ "$(out_json provider)" = "$JUNIOR_HOST/grok-4.6" ] || fail "provider: $(out_json provider)"
+}
+
+scenario_advancerefused() {
+  local code
+  echo "--- a start the runner refuses is exit 4 from advance, naming the ticket and the reason"
+  reset_log
+  fresh_repo
+  write_batch
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" MMW_FAKE_PASEO_SCENARIO=run-fail \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 4 ] || fail "a refused start must not read as success, expected exit 4, got $code: $(cat "$TMP/err")"
+  grep -q "started 0, refused 1" "$TMP/err" || fail "the tally should count the refusal: $(cat "$TMP/err")"
+  grep -q "provider initialization failed" "$TMP/err" \
+    || fail "stderr should carry the runner's own reason: $(cat "$TMP/err")"
+  grep -q "did not start .* for #63 worker" "$TMP/err" \
+    || fail "stderr should name the ticket: $(cat "$TMP/err")"
+  [ "$(count_of "paseo :: run")" = 1 ] || fail "the refused start is tried once: $(count_of "paseo :: run") runs"
 }
 
 # Tickets outside any batch: what `land` was built for. #64 is finished, #65 was
@@ -1744,8 +1820,8 @@ scenario_land() {
   echo "--- and gives the claim back, which closing a ticket before this did not"
   has "gh :: issue :: edit :: 64 :: --remove-assignee :: @me"
 
-  echo "--- both are events on the ticket: landed, then the claim released as landed"
-  [ "$(posted_events 64 branch reason | tr '\n' '|')" = "ticket.landed branch=issue-64 reason=None|ticket.released branch=None reason=landed|" ] \
+  echo "--- both are events on the ticket, the landing recorded last, once the workspace and its slot are gone"
+  [ "$(posted_events 64 branch reason | tr '\n' '|')" = "ticket.released branch=None reason=landed|ticket.landed branch=issue-64 reason=None|" ] \
     || fail "the land events are wrong: $(posted_events 64 branch reason)"
 
   echo "--- it takes a ticket number, never a spec: no batch was read"
@@ -1845,8 +1921,6 @@ Merge branch 'issue-61'" ] || fail "merge order is wrong"
   started_once
   assert_started || fail "the dispatched JSON is wrong: $(cat "$TMP/out")"
   [ "$(out_json title)" = "#63 worker" ] || fail "title: $(out_json title)"
-  [ "$(out_json labels.mmw.ticket)" = 63 ] || fail "ticket: $(out_json labels.mmw.ticket)"
-  [ "$(out_json labels.mmw.kind)" = worker ] || fail "kind: $(out_json labels.mmw.kind)"
   python3 -c '
 import json, sys
 from pathlib import Path
@@ -1957,9 +2031,8 @@ scenario_start_worker() {
   assert_started || fail "the JSON line is wrong: $(cat "$TMP/out")"
   [ "$(out_json title)" = "#61 worker" ] || fail "title: $(out_json title)"
   [ "$(out_json provider)" = "$JUNIOR_HOST/$JUNIOR_MODEL" ] || fail "provider: $(out_json provider)"
-  [ "$(out_json labels.mmw.ticket)" = 61 ] || fail "ticket label"
-  [ "$(out_json labels.mmw.kind)" = worker ] || fail "kind label"
-  [ "$(out_json labels.mmw.spec)" = 76 ] || fail "spec label"
+  [ "$(posted_events 61 spec | grep '^worker.started')" = "worker.started spec=76" ] \
+    || fail "the worker.started event should name spec 76: $(posted_events 61 spec)"
   python3 -c '
 import json, sys
 from pathlib import Path
@@ -2254,7 +2327,6 @@ scenario_start_reviewer() {
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   started_once
   [ "$(out_json title)" = "#61 reviewer" ] || fail "title: $(out_json title)"
-  [ "$(out_json labels.mmw.kind)" = reviewer ] || fail "kind label"
   python3 -c '
 import json, sys
 from pathlib import Path
@@ -2282,7 +2354,6 @@ scenario_start_verifier() {
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   started_once
   [ "$(out_json title)" = "#61 verifier" ] || fail "title: $(out_json title)"
-  [ "$(out_json labels.mmw.kind)" = verifier ] || fail "kind label"
   python3 -c '
 import json, sys
 from pathlib import Path
@@ -2341,9 +2412,25 @@ path.write_text(json.dumps([{
   grep -q "run resume again" "$TMP/err" \
     || fail "the refusal should send the caller back to the same command: $(cat "$TMP/err")"
 
-  echo "--- it names get_agent_status as the way to tell busy from stuck"
+  echo "--- it names the way out that works on every runner: replacing the worker"
+  grep -q "start 61 worker" "$TMP/err" \
+    || fail "a caller that keeps hitting exit 3 needs the one command that settles it: $(cat "$TMP/err")"
   grep -q "get_agent_status" "$TMP/err" \
-    || fail "a caller that keeps hitting exit 3 needs the one field that settles it: $(cat "$TMP/err")"
+    && fail "a Paseo-only tool must not be the advice on every runner: $(cat "$TMP/err")"
+
+  echo "--- a message handed over that the runner cannot confirm is exit 4, recorded, not to be sent again"
+  reset_log
+  seed_orca_terminal term_w61
+  runner_line 61 orca term_w61 worker
+  code="$(run_dispatch env MMW_FAKE_ORCA_SEND=unobserved \
+          bash "$DISPATCH" "${TOOLS[@]}" resume 61 continue)"
+  [ "$code" = 4 ] || fail "an unconfirmed hand-over is exit 4, got $code: $(cat "$TMP/err")"
+  [ "$(count_of "orca :: terminal :: send")" = 1 ] \
+    || fail "the text is typed once: $(count_of "orca :: terminal :: send") sends"
+  grep -q "do not send it again" "$TMP/err" \
+    || fail "the caller must be told not to send it again: $(cat "$TMP/err")"
+  posted_events 61 session | grep -q "^worker.resumed session=term_w61" \
+    || fail "the hand-over is recorded as worker.resumed: $(posted_events 61 session)"
 }
 
 scenario_wait() {
@@ -2375,48 +2462,7 @@ JSON
   hasnt "paseo :: archive"
   hasnt "paseo :: send"
 
-  echo "--- wait then the result comment, printed, exit 0"
-  reset_log
-  cat > "$TMP/tickets.json" <<'JSON'
-[
-  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "comments": []}
-]
-JSON
-  seed_agent 61 worker
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          MMW_FAKE_WAIT_COMMENT="$(python3 "$EVENTS_PY" emit ticket.passed --ticket 61 --line "ALL MET")" \
-          MMW_WAIT_S=6 MMW_WAIT_BEAT_S=1 \
-          bash "$DISPATCH" "${TOOLS[@]}" wait 61 worker)"
-  [ "$code" = 0 ] || fail "expected exit 0 after wait, got $code: $(cat "$TMP/err")"
-  [ "$(cat "$TMP/out")" = "ticket.passed" ] \
-    || fail "stdout should be ticket.passed: $(cat "$TMP/out")"
-  hasnt "paseo :: wait"
-  has "gh :: issue :: view :: 61 :: --json :: comments"
-  hasnt "gh :: issue :: comment"
-  hasnt "paseo :: archive"
-
-  echo "--- the agent is gone with no result: exit 1, stderr names logs and the fallback"
-  reset_log
-  cat > "$TMP/tickets.json" <<'JSON'
-[
-  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "comments": []}
-]
-JSON
-  seed_agent 61 verifier
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          MMW_FAKE_WAIT_STATUS=closed MMW_WAIT_S=6 MMW_WAIT_BEAT_S=1 \
-          bash "$DISPATCH" "${TOOLS[@]}" wait 61 verifier)"
-  [ "$code" = 1 ] || fail "expected exit 1 with no result, got $code: $(cat "$TMP/err")"
-  hasnt "paseo :: wait"
-  grep -q "agt_61_verifier on #61 stopped with no verifier.passed or verifier.failed event; read its session on paseo" "$TMP/err" \
-    || fail "stderr should name the session and its runner: $(cat "$TMP/err")"
-  grep -q "verifier.passed" "$TMP/err" \
-    || fail "stderr should name the missing verdict event: $(cat "$TMP/err")"
-  [ "$(wc -l < "$TMP/err" | tr -d ' ')" = 1 ] \
-    || fail "stderr should be one line: $(cat "$TMP/err")"
-  [ ! -s "$TMP/out" ] || fail "stdout should be empty on exit 1: $(cat "$TMP/out")"
-
-  echo "--- idle between turns with no result yet: exit 3, no fallback"
+  echo "--- no result yet: exit 3 at once, one read of the ticket, no runner asked"
   reset_log
   cat > "$TMP/tickets.json" <<'JSON'
 [
@@ -2427,38 +2473,20 @@ JSON
   local began ended
   began="$(date +%s)"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          MMW_WAIT_S=6 MMW_WAIT_BEAT_S=1 \
           bash "$DISPATCH" "${TOOLS[@]}" wait 61 reviewer)"
   ended="$(date +%s)"
-  [ "$code" = 3 ] || fail "an idle reviewer is mid-job, expected exit 3, got $code: $(cat "$TMP/err")"
-  grep -q "still working" "$TMP/err" \
-    || fail "stderr should say still working: $(cat "$TMP/err")"
-  grep -q "code-review skill" "$TMP/err" \
-    && fail "an idle reviewer must not be sent to the fallback: $(cat "$TMP/err")"
-
-  echo "--- and the budget was really spent, one ticket read per beat"
-  [ "$((ended - began))" -ge 6 ] \
-    || fail "wait returned after $((ended - began))s of a 6s budget, so exit 3 has no beat in it"
-  [ "$(count_of 'gh :: issue :: view :: 61 :: --json :: comments')" -ge 2 ] \
-    || fail "expected more than one ticket read inside the budget: $(count_of 'gh :: issue :: view :: 61 :: --json :: comments')"
+  [ "$code" = 3 ] || fail "no result yet is exit 3, got $code: $(cat "$TMP/err")"
+  grep -q "no result of its reviewer yet" "$TMP/err" \
+    || fail "stderr should say no result is there yet: $(cat "$TMP/err")"
+  grep -q "end your turn" "$TMP/err" \
+    || fail "stderr should send the caller to end its turn, not to wait again: $(cat "$TMP/err")"
+  [ "$((ended - began))" -lt 5 ] \
+    || fail "wait took $((ended - began))s: it waits for nothing and answers at once"
+  [ "$(count_of 'gh :: issue :: view :: 61 :: --json :: comments')" -le 2 ] \
+    || fail "wait reads the ticket and does not poll it: $(count_of 'gh :: issue :: view :: 61 :: --json :: comments') reads"
   hasnt "paseo :: wait"
-
-  echo "--- timeout while still running: exit 3"
-  reset_log
-  cat > "$TMP/tickets.json" <<'JSON'
-[
-  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "comments": []}
-]
-JSON
-  seed_agent 61 worker
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          MMW_FAKE_PASEO_SCENARIO=wait-timeout MMW_WAIT_S=6 MMW_WAIT_BEAT_S=1 \
-          bash "$DISPATCH" "${TOOLS[@]}" wait 61 worker)"
-  [ "$code" = 3 ] || fail "expected exit 3 on timeout, got $code: $(cat "$TMP/err")"
-  hasnt "paseo :: wait"
-  [ "$(cat "$TMP/err")" = "still working: run wait again" ] \
-    || fail "stderr should say run wait again: $(cat "$TMP/err")"
-  [ ! -s "$TMP/out" ] || fail "stdout should be empty on timeout: $(cat "$TMP/out")"
+  hasnt "paseo :: ls"
+  [ ! -s "$TMP/out" ] || fail "stdout should be empty with no result: $(cat "$TMP/out")"
 
   echo "--- no matching agent is a refusal, exit 2, wait is not called"
   reset_log
@@ -3087,6 +3115,7 @@ scenario_suspend() {
     || fail "the night should hold three slots, it holds $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
 
   seed_agent 61 worker
+  seed_agent 61 verifier
   seed_agent 99 worker 99
   seed_foreign_workspace
   mkdir -p "$TMP/other-repo/issue-61"
@@ -3104,8 +3133,10 @@ scenario_suspend() {
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
 
   # `--force` is the whole point: without it the real CLI refuses a running agent, and a
-  # worker mid-turn is exactly what suspend exists to end.
+  # worker mid-turn is exactly what suspend exists to end. A verifier still running on the
+  # ticket is ended too: left alone it keeps the product up after its slot is given back.
   has "paseo :: archive :: --force :: agt_61_worker"
+  has "paseo :: archive :: --force :: agt_61_verifier"
   hasnt "agt_99_worker"
   hasnt "paseo :: stop"
   has "gh :: issue :: view :: 61 :: --json :: comments"
@@ -3130,12 +3161,12 @@ scenario_suspend() {
   has "gh :: issue :: comment :: 76 :: --body"
   [ "$(grep -cF 'NIGHT SUSPENDED #76' "$MMW_TEST_LOG")" = 3 ] \
     || fail "expected the spec and two tickets told, got $(grep -cF 'NIGHT SUSPENDED #76' "$MMW_TEST_LOG")"
-  posted_events 61 interrupted | grep -qx "spec.suspended interrupted=agt_61_worker" \
-    || fail "#61 should carry spec.suspended naming its worker: $(posted_events 61 interrupted)"
+  posted_events 61 interrupted | grep -qx "spec.suspended interrupted=agt_61_worker, agt_61_verifier" \
+    || fail "#61 should carry spec.suspended naming its worker and verifier: $(posted_events 61 interrupted)"
   posted_events 61 reason | grep -qx "ticket.released reason=suspended" \
     || fail "#61 should carry ticket.released (suspended): $(posted_events 61 reason)"
-  grep -qF 'Its worker agt_61_worker was interrupted' "$MMW_TEST_LOG" \
-    || fail "the comment on #61 does not say its worker was interrupted"
+  grep -qF 'Interrupted: agt_61_worker, agt_61_verifier.' "$MMW_TEST_LOG" \
+    || fail "the comment on #61 does not say its sessions were interrupted"
   grep -qF 'No session of ours was working on it' "$MMW_TEST_LOG" \
     || fail "the comment on #63 does not say it had no session"
   hasnt "gh :: issue :: comment :: 65"
@@ -3145,7 +3176,7 @@ scenario_suspend() {
     || fail "slots are still held: $(python3 "$LEASE_PY" list)"
   [ "$(python3 "$LEASE_PY" count "$TMP/other-repo")" = 1 ] \
     || fail "a lease from another checkout was released: $(python3 "$LEASE_PY" list)"
-  grep -q 'suspend #76: stopped 1, commented 2, slots given back 3, claims given back 2' "$TMP/out" \
+  grep -q 'suspend #76: stopped 2, commented 2, slots given back 3, claims given back 2' "$TMP/out" \
     || fail "the summary line is wrong: $(cat "$TMP/out")"
   [ -z "$(relay_now)" ] || fail "suspend should have stopped the night's relay: $(relay_now)"
 
@@ -4925,32 +4956,21 @@ scenario_noadapterretract() {
 
 scenario_noadapterwait() {
   local code copy
-  echo "--- adapter gone: wait refuses with exit 2, never exit 3"
+  echo "--- wait asks no runner: with the adapter gone it still reads the ticket and answers"
   reset_log
   printf '%s\n' '[{"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "comments": []}]' > "$TMP/tickets.json"
   seed_agent 61 worker
   copy="$(skill_copy_for wait)"
   rm -f "$copy/scripts/runners/paseo.sh"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" MMW_WAIT_S=2 MMW_WAIT_BEAT_S=1 \
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" wait 61 worker)"
-  [ "$code" = 2 ] || fail "expected exit 2 with the adapter gone, got $code: $(cat "$TMP/err")"
-  grep -q "runners/paseo.sh" "$TMP/err" || fail "stderr should name the missing adapter: $(cat "$TMP/err")"
-  if grep -q "^still working:" "$TMP/err"; then fail "a missing adapter must not read as still working: $(cat "$TMP/err")"; fi
+  [ "$code" = 3 ] || fail "no result yet is exit 3 whatever the adapter, got $code: $(cat "$TMP/err")"
+  grep -q "no result of its worker yet" "$TMP/err" || fail "stderr should say no result yet: $(cat "$TMP/err")"
+  hasnt "paseo ::"
 }
 
 scenario_unknownnotalive() {
   local code
-  echo "--- runner answers unknown: wait retries but says it cannot tell"
-  reset_log
-  printf '%s\n' '[{"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "comments": []}]' > "$TMP/tickets.json"
-  seed_agent 61 worker
-  set_agent_status agt_61_worker not-a-status
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" MMW_WAIT_S=2 MMW_WAIT_BEAT_S=1 \
-          bash "$DISPATCH" "${TOOLS[@]}" wait 61 worker)"
-  [ "$code" = 3 ] || fail "unknown still retries: expected exit 3, got $code: $(cat "$TMP/err")"
-  grep -q "cannot tell" "$TMP/err" || fail "wait should say it cannot tell: $(cat "$TMP/err")"
-  if grep -q "^still working:" "$TMP/err"; then fail "unknown must not read as still working: $(cat "$TMP/err")"; fi
-
   echo "--- runner answers unknown: retract refuses and archives nothing"
   reset_log
   seed_agent 61 worker
@@ -4960,6 +4980,62 @@ scenario_unknownnotalive() {
   grep -q "cannot tell" "$TMP/err" || fail "retract should say it cannot tell: $(cat "$TMP/err")"
   if grep -q "still has a live agent" "$TMP/err"; then fail "unknown must not read as a live agent: $(cat "$TMP/err")"; fi
   hasnt "paseo :: archive"
+}
+
+# A worker whose session ended mid-turn leaves its edits uncommitted. The next start keeps
+# them as a commit on the ticket branch, so the new worker's preflight finds a clean tree
+# and continues from them; a retraction keeps them before it removes the worktree; a
+# worktree no worker of the ticket had is left alone for the preflight to refuse.
+scenario_keepunfinished() {
+  local code head
+  echo "--- a start after a lost worker commits the edits it left, naming who left them"
+  reset_log
+  fresh_repo
+  make_branch issue-61 one.txt "from 61"
+  seed_workspace 61
+  printf 'half written\n' >> "$(wt 61)/one.txt"
+  runner_line 61 paseo agt_61_worker worker
+  post_ev 61 worker.lost --ticket 61 --line "The worker is gone" \
+    --field session=agt_61_worker --field runner=paseo
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  started_once
+  [ -z "$(git -C "$(wt 61)" status --porcelain --untracked-files=no)" ] \
+    || fail "the new worker's preflight needs a clean tree: $(git -C "$(wt 61)" status --porcelain)"
+  head="$(git -C "$(wt 61)" log -1 --format=%s)"
+  [ "$head" = "wip(#61): uncommitted work of worker agt_61_worker on paseo, left when its hold ended with worker.lost" ] \
+    || fail "the commit should name who left the edits and how its hold ended: $head"
+  git -C "$(wt 61)" show HEAD:one.txt | grep -q "half written" \
+    || fail "the edit is not in the commit"
+
+  echo "--- a worktree no worker of the ticket had keeps its edits, for the preflight to refuse"
+  reset_log
+  fresh_repo
+  make_branch issue-62 two.txt "from 62"
+  seed_workspace 62
+  printf 'somebody else\n' >> "$(wt 62)/two.txt"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 62 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  [ -n "$(git -C "$(wt 62)" status --porcelain --untracked-files=no)" ] \
+    || fail "edits no worker of #62 left must not be committed"
+  [ "$(git -C "$(wt 62)" log -1 --format=%s)" = "issue-62" ] \
+    || fail "no commit should have been made on issue-62: $(git -C "$(wt 62)" log -1 --format=%s)"
+
+  echo "--- a retraction commits the edits before it removes the worktree"
+  reset_log
+  fresh_repo
+  make_branch issue-63 three.txt "from 63"
+  seed_workspace 63
+  printf 'half written\n' >> "$(wt 63)/three.txt"
+  runner_line 63 paseo agt_63_worker worker
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" retract 63)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  assert_no_wt 63
+  head="$(git -C "$TMP/repo" log -1 --format=%s issue-63)"
+  [ "$head" = "wip(#63): uncommitted work of worker agt_63_worker on paseo, left when its session stopped" ] \
+    || fail "the retraction should have kept the edits on issue-63: $head"
+  git -C "$TMP/repo" show issue-63:three.txt | grep -q "half written" \
+    || fail "the edit is not on the branch"
 }
 
 scenario_herdrunreadablelist() {
@@ -5141,7 +5217,7 @@ scenario_orcanohosts() {
   hasnt "orca :: terminal :: create"
 }
 
-ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openrefused openticket ack unopened runnerself orcaunobserved adopt orcarefusalreason nightfromtask"
+ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openrefused openticket ack unopened runnerself orcaunobserved adopt orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -5199,6 +5275,9 @@ banner_for() {
     runnerstop) echo RUNNER-STOP-OK ;;
     orcarefusalreason) echo ORCA-REFUSAL-REASON-OK ;;
     nightfromtask) echo NIGHT-FROM-TASK-OK ;;
+    keepunfinished) echo KEEP-UNFINISHED-OK ;;
+    advancerefused) echo ADVANCE-REFUSED-OK ;;
+    catalogbyrunner) echo CATALOG-BY-RUNNER-OK ;;
     runnersend) echo RUNNER-SEND-OK ;;
     runnerliveness) echo RUNNER-LIVENESS-OK ;;
     runnerparity) echo RUNNER-PARITY-OK ;;
