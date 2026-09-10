@@ -8,6 +8,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import shlex
 import tempfile
 import unittest
 from pathlib import Path
@@ -63,6 +64,39 @@ class BypassArgvTest(unittest.TestCase):
     def test_an_unknown_host_is_refused(self):
         with self.assertRaisesRegex(ValueError, "no bypass argv"):
             models.bypass_argv("pi", "x", "low", "issue-1")
+
+
+class LaunchLineTest(unittest.TestCase):
+    PROMPT = "Use the implement skill on #61. Don't ask 'Shall I…?'"
+
+    def launch_line(self, *args: str) -> tuple[int, str, str]:
+        from io import StringIO
+        from unittest.mock import patch
+        with patch("sys.stdout", new_callable=StringIO) as out, \
+                patch("sys.stderr", new_callable=StringIO) as err:
+            code = models.main(["launch-line", *args])
+        return code, out.getvalue(), err.getvalue()
+
+    def test_the_prompt_is_the_last_argument_quoted(self):
+        code, out, _ = self.launch_line("grok", "grok-4.6", "high", "issue-61", self.PROMPT)
+        self.assertEqual(code, 0)
+        argv = shlex.split(out)
+        self.assertEqual(argv, [
+            "grok", *models.bypass_argv("grok", "grok-4.6", "high", "issue-61"),
+            self.PROMPT,
+        ])
+        self.assertTrue(out.rstrip("\n").endswith(" " + shlex.quote(self.PROMPT)), out)
+
+    def test_without_a_prompt_the_line_ends_with_the_flags(self):
+        code, out, _ = self.launch_line("grok", "grok-4.6", "high", "issue-61")
+        self.assertEqual(code, 0)
+        self.assertEqual(shlex.split(out), [
+            "grok", *models.bypass_argv("grok", "grok-4.6", "high", "issue-61")])
+
+    def test_a_prompt_that_reads_as_a_flag_is_refused(self):
+        code, out, err = self.launch_line("grok", "grok-4.6", "high", "issue-61", "--help")
+        self.assertEqual((code, out), (2, ""))
+        self.assertIn("cannot build the launch line for grok", err)
 
 
 class SessionRowsTest(unittest.TestCase):

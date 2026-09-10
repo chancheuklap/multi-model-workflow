@@ -650,7 +650,7 @@ if args[:1] == ["agent-context"]:
         wait_flags = "terminal for timeout-ms"
     print(json.dumps({
         "schemaVersion": 1,
-        "commandCount": 5,
+        "commandCount": 6,
         "commands": [
             {"command": "terminal create",
              "flags": ["help", "json", "worktree", "command", "title"]},
@@ -658,6 +658,8 @@ if args[:1] == ["agent-context"]:
              "flags": ["help", "json", "terminal", "text", "enter",
                        "wait-submit"]},
             {"command": "terminal wait", "flags": wait_flags},
+            {"command": "terminal read",
+             "flags": ["help", "json", "terminal", "cursor", "limit", "screen"]},
             {"command": "terminal list",
              "flags": ["help", "json", "worktree"]},
             {"command": "terminal close",
@@ -736,6 +738,7 @@ if args[:2] == ["terminal", "create"]:
         "writable": True,
         "worktree": opt("--worktree"),
         "title": opt("--title"),
+        "command": opt("--command"),
     })
     save_terminals(rows)
     print(json.dumps({
@@ -816,14 +819,18 @@ if args[:2] == ["terminal", "send"]:
     print(json.dumps(receipt(["input_accepted", "turn_started"])))
     sys.exit(0)
 
+# A condition that was met is answered under result.wait, and a wait that ran out as
+# error.code `timeout` (Orca 1.4.199, read off a real `terminal wait --json` on
+# 2026-09-11). `exit` is met only under `exited`: the program in a terminal this fake
+# creates keeps running.
 if args[:2] == ["terminal", "wait"]:
+    want = opt("--for")
     if scenario == "wait-fail":
         sys.exit(1)
-    if scenario == "wait-garbage":
+    if scenario == "wait-garbage" or (scenario == "exit-wait-garbage" and want == "exit"):
         print("not-json")
         sys.exit(0)
     target = opt("--terminal")
-    want = opt("--for")
     row = next((t for t in load_terminals() if t.get("handle") == target), None)
     if row is None:
         print(json.dumps({
@@ -836,7 +843,8 @@ if args[:2] == ["terminal", "wait"]:
         if scenario == "exited":
             print(json.dumps({
                 "ok": True,
-                "result": {"satisfied": True, "status": "exited"},
+                "result": {"wait": {"handle": target, "condition": "exit",
+                                    "satisfied": True, "status": "exited"}},
             }))
             sys.exit(0)
         print(json.dumps({
@@ -847,12 +855,38 @@ if args[:2] == ["terminal", "wait"]:
     if scenario == "wait-busy":
         print(json.dumps({
             "ok": True,
-            "result": {"satisfied": False, "status": "running"},
+            "result": {"wait": {"handle": target, "condition": want,
+                                "satisfied": False, "status": "running"}},
         }))
         sys.exit(0)
     print(json.dumps({
         "ok": True,
-        "result": {"satisfied": True, "status": "running"},
+        "result": {"wait": {"handle": target, "condition": want,
+                            "satisfied": True, "status": "running"}},
+    }))
+    sys.exit(0)
+
+# What the terminal holds, in the shape of a real `terminal read --json` (Orca 1.4.199,
+# 2026-09-11): result.terminal.tail, a list of lines. The tail is empty, as Orca's is
+# once the program has exited, unless MMW_FAKE_ORCA_TAIL gives the lines.
+if args[:2] == ["terminal", "read"]:
+    target = opt("--terminal")
+    row = next((t for t in load_terminals() if t.get("handle") == target), None)
+    if row is None:
+        print(json.dumps({
+            "ok": False,
+            "error": {"code": "terminal_handle_stale",
+                      "message": "terminal_handle_stale"},
+        }))
+        sys.exit(1)
+    tail = os.environ.get("MMW_FAKE_ORCA_TAIL")
+    print(json.dumps({
+        "ok": True,
+        "result": {"terminal": {
+            "handle": target,
+            "status": "exited" if scenario == "exited" else "running",
+            "tail": tail.split("\n") if tail is not None else [],
+        }},
     }))
     sys.exit(0)
 
@@ -3739,6 +3773,24 @@ path.write_text(json.dumps([{
   hasnt "orca :: worktree :: create"
   hasnt "orca :: orchestration"
 
+  echo "--- the first prompt is the last argument of the command exec runs, and nothing is typed"
+  reset_log
+  local first="Use the implement skill on #61. Don't ask 'Shall I…?'"
+  code="$(run_runner start --host grok --model grok-4.6 --effort high \
+          --cwd . --prompt "$first" --skip-approval)"
+  [ "$code" = 0 ] || fail "orca start expected 0, got $code: $(cat "$TMP/err")"
+  MMW_FIRST="$first" python3 -c '
+import json, os, shlex, sys
+argv = shlex.split(json.load(open(sys.argv[1]))[-1]["command"])
+assert argv[:2] == ["exec", "grok"], argv
+assert argv[-1] == os.environ["MMW_FIRST"], argv
+' "$MMW_FAKE_ORCA_STATE/terminals.json" \
+    || fail "the command should be exec grok … with the prompt last: $(arg_after --command)"
+  hasnt "orca :: terminal :: send"
+  hasnt "--for :: tui-idle"
+  grep -q -- '--for :: exit' "$MMW_TEST_LOG" \
+    || fail "start should wait for the host to exit: $(cat "$MMW_TEST_LOG")"
+
   echo "--- send three states"
   reset_log
   seed_orca_terminal term_w61
@@ -3912,6 +3964,15 @@ scenario_orcaunobserved() {
   code="$(MMW_FAKE_ORCA_SEND=refused run_runner send term_w61 '#61 ticket.passed')"
   [ "$code" = 3 ] || fail "a refused send expected 3, got $code: $(cat "$TMP/err")"
   grep -q "Orca refused the send" "$TMP/err" || fail "stderr: $(cat "$TMP/err")"
+
+  echo "--- a host whose delivery Orca cannot report still starts: the handle, exit 0, its terminal kept"
+  reset_log
+  fresh_repo
+  code="$(MMW_FAKE_ORCA_SEND=unobserved run_runner start --host grok --model grok-4.6 --effort high --cwd "$TMP/repo" --prompt go)"
+  [ "$code" = 0 ] || fail "an unobserved host is a start, expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/out")" = term_1 ] || fail "start should print the handle: $(cat "$TMP/out")"
+  hasnt "orca :: terminal :: send"
+  hasnt "orca :: terminal :: close"
   RUNNER="$PASEO_RUNNER"
 }
 
@@ -5233,16 +5294,54 @@ scenario_orcanotconnected() {
   has "orca :: terminal :: wait"
 }
 
+# How many terminals the fake Orca still has open.
+orca_terminals_left() {
+  python3 -c 'import json, sys; print(len(json.load(open(sys.argv[1]))))' \
+    "$MMW_FAKE_ORCA_STATE/terminals.json"
+}
+
 scenario_orcanoorphan() {
   local code
   RUNNER="$ORCA_RUNNER"
-  echo "--- a start whose first prompt is not taken closes its terminal and says so"
+  echo "--- a host that exits as soon as it starts is refused, says why, and leaves no terminal"
   reset_log
   fresh_repo
-  code="$(MMW_FAKE_ORCA_SEND=accepted-only run_runner start --host grok --model "grok 4.6" --effort high --cwd "$TMP/repo" --prompt go)"
+  code="$(MMW_FAKE_ORCA_SCENARIO=exited run_runner start --host grok --model "grok 4.6" --effort high --cwd "$TMP/repo" --prompt go)"
   [ "$code" = 1 ] || fail "expected refusal 1, got $code: $(cat "$TMP/err")"
+  nothing_printed
+  one_line_reason
+  grep -q "grok exited within 3 s of starting" "$TMP/err" || fail "stderr should say the host exited: $(cat "$TMP/err")"
+  grep -q "its last lines: none, Orca kept no output" "$TMP/err" \
+    || fail "an emptied terminal should be said to hold no output: $(cat "$TMP/err")"
+  grep -qF "run it by hand there: grok -m 'grok 4.6' --reasoning-effort high" "$TMP/err" \
+    || fail "stderr should give the command to run by hand: $(cat "$TMP/err")"
+  has "orca :: terminal :: read"
   has "orca :: terminal :: close"
-  grep -q "was closed" "$TMP/err" || fail "stderr should say the terminal was closed: $(cat "$TMP/err")"
+  [ "$(orca_terminals_left)" = 0 ] || fail "a refused start left a terminal behind"
+
+  echo "--- the lines the terminal still holds go into the refusal"
+  reset_log
+  code="$(MMW_FAKE_ORCA_SCENARIO=exited MMW_FAKE_ORCA_TAIL=$'\nerror: unexpected argument found\n' \
+          run_runner start --host grok --model grok-4.6 --effort high --cwd "$TMP/repo" --prompt go)"
+  [ "$code" = 1 ] || fail "expected refusal 1, got $code: $(cat "$TMP/err")"
+  grep -q "its last lines: error: unexpected argument found;" "$TMP/err" \
+    || fail "stderr should carry the terminal's last lines: $(cat "$TMP/err")"
+
+  echo "--- an exit wait this cannot read falls back to liveness: alive is a start"
+  reset_log
+  code="$(MMW_FAKE_ORCA_SCENARIO=exit-wait-garbage run_runner start --host grok --model grok-4.6 --effort high --cwd "$TMP/repo" --prompt go)"
+  [ "$code" = 0 ] || fail "a live handle is a start, expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/out")" = term_1 ] || fail "start should print the handle: $(cat "$TMP/out")"
+  hasnt "orca :: terminal :: close"
+
+  echo "--- and a liveness that is not alive is a refusal that closes the terminal"
+  reset_log
+  code="$(MMW_FAKE_ORCA_SCENARIO=wait-garbage run_runner start --host grok --model grok-4.6 --effort high --cwd "$TMP/repo" --prompt go)"
+  [ "$code" = 1 ] || fail "expected refusal 1, got $code: $(cat "$TMP/err")"
+  nothing_printed
+  grep -q "whether it is still running could not be read" "$TMP/err" || fail "stderr should say why: $(cat "$TMP/err")"
+  has "orca :: terminal :: close"
+  [ "$(orca_terminals_left)" = 0 ] || fail "a refused start left a terminal behind"
 }
 
 scenario_orcanohosts() {

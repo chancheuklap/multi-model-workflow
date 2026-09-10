@@ -876,16 +876,31 @@ def worker_role_names() -> list[str]:
     return seen
 
 
-def launch_line(host: str, model: str, effort: str, name: str) -> list[str]:
-    """The whole command that starts a host: its binary, then `bypass_argv`."""
-    return [HOST_BINARIES.get(host), *bypass_argv(host, model, effort, name)]
+def launch_line(host: str, model: str, effort: str, name: str,
+                prompt: str = "") -> list[str]:
+    """The whole command that starts a host: its binary, then `bypass_argv`, then the
+    first prompt when there is one.
+
+    Each host with a launch block takes an initial prompt as its last positional
+    argument (`grok [PROMPT]`, `codex [PROMPT]`, `claude [prompt]`, `cursor-agent
+    [prompt]`), so a runner that starts the host from this line does not type the prompt
+    into it afterwards. A prompt that begins with `-` is refused: the host would read it
+    as a flag.
+    """
+    argv = [HOST_BINARIES.get(host), *bypass_argv(host, model, effort, name)]
+    if prompt:
+        if prompt.startswith("-"):
+            raise ValueError(
+                "the first prompt begins with '-', and the host would read it as a flag")
+        argv.append(prompt)
+    return argv
 
 
 USAGE = ("usage: models.py offerings\n"
          "       models.py runner\n"
          "       models.py paseo-args <host> <model> <effort>\n"
          "       models.py bypass-argv <host> <model> <effort> <name>\n"
-         "       models.py launch-line <host> <model> <effort> <name>\n")
+         "       models.py launch-line <host> <model> <effort> <name> [<prompt>]\n")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -903,13 +918,15 @@ def main(argv: list[str] | None = None) -> int:
             sys.stderr.write(f"models.py: {exc}\n")
             return 2
         return 0
-    if len(args) == 5 and args[0] in ("bypass-argv", "launch-line"):
-        verb, host, model, effort, name = args
+    if (len(args) == 5 and args[0] == "bypass-argv") or (
+            len(args) in (5, 6) and args[0] == "launch-line"):
+        verb, host, model, effort, name = args[:5]
+        prompt = args[5] if len(args) == 6 else ""
         try:
             if verb == "bypass-argv":
                 print("\n".join(bypass_argv(host, model, effort, name)))
             else:
-                print(shlex.join(launch_line(host, model, effort, name)))
+                print(shlex.join(launch_line(host, model, effort, name, prompt)))
         except (ValueError, OSError, json.JSONDecodeError) as exc:
             # A host with no launch block, or a hosts.json that cannot be read, is a
             # refusal: starting the host without its model and effort would run a session
