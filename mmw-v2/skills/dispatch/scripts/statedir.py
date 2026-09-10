@@ -20,7 +20,8 @@ a process is still up, a refusal that has to name the holder.
 **A pid alone does not name a process.** The system hands a dead process's pid to the next
 process that starts. So a record names a live holder only when its pid is running now *and*
 that process's identity is the one recorded. The identity is the start time `ps -o lstart=`
-prints: a process keeps it for life, and a later process given the same pid has another.
+prints, in UTC and the C locale so that every reader prints it alike: a process keeps it for
+life, and a later process given the same pid has another.
 A record whose pid is dead, or whose pid now belongs to a process that started at another
 time, is stale and names nobody.
 
@@ -123,7 +124,9 @@ def process_identity(pid: int) -> str | None:
     no such process (or `ps` could not be asked)."""
     if not isinstance(pid, int) or pid <= 0:
         return None
-    env = dict(os.environ, LC_ALL="C", LANG="C")
+    # `ps` prints the start time in the caller's locale and time zone; pinned, a writer and a
+    # reader under different settings still agree on one process.
+    env = dict(os.environ, LC_ALL="C", LANG="C", TZ="UTC")
     try:
         run = subprocess.run(["ps", "-o", "lstart=", "-p", str(pid)],
                              capture_output=True, text=True, env=env, timeout=10)

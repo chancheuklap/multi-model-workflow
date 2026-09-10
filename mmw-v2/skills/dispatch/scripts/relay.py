@@ -3,8 +3,8 @@
 
     relay.py run --repo O/R (--tickets N[,N...] | --spec N) [--once] [--interval S] [--grace S]
     relay.py register --repo O/R --runner R --session S
-    relay.py ack --repo O/R --session S --through SEQ
-    relay.py queue --repo O/R [--session S]
+    relay.py ack --repo O/R --runner R --session S --through SEQ
+    relay.py queue --repo O/R [--runner R --session S]
 
 **A translator, not a board.** The relay does one thing: when a comment carrying one of
 the events in `WAKES` lands on a ticket it watches, it writes one row into the wake queue
@@ -30,7 +30,8 @@ nothing else (docs/adr/0001-tracker-repo-authority.md).
              `register` names it.
 
 A worker needs no registration: the ticket says who it is. Each row is written with its
-recipient's runner and session, and only that session consumes it.
+recipient's runner and session, and only that recipient — the pair, never the session
+id alone — consumes it.
 
 **Reading the board.** Every `--interval` seconds (default 30) the relay reads the
 comments of each watched ticket updated since the newest one it saw there, less two
@@ -59,15 +60,17 @@ agent registered another session, or a later `worker.started` put another worker
 ticket — is dropped without a send, for the same reason as a 2. Every drop is reported on
 stderr. A recipient's rows reach it in sequence order: after one of them stays, that
 recipient gets nothing more this pass, and the other recipients are not held up by it.
-Delivery never removes a row: only `ack --session S --through <seq>` does, and it removes
-S's rows up to that sequence number whatever their content, and nobody else's. So a row
+Delivery never removes a row: only `ack --runner R --session S --through <seq>` does, and it
+removes that recipient's rows up to that sequence number whatever their content, and nobody
+else's. So a row
 sent twice — every unacked row is sent once more each time the relay starts — is still
 handled once.
 
 **An unattended stretch** is time with no good poll: the relay was down, or its reads kept
-failing. When the time since the last good poll exceeds `--grace` seconds (default three
-intervals), the next good poll queues one `relay.recovered` row to the main agent for the
-whole stretch, ahead of the events it recovered: one announcement per stretch, never one
+failing. Time spent in delivery passes is not part of it: a slow send delays the next poll,
+and the relay was attending all the while. When the time since the last good poll, less
+the time spent delivering, exceeds `--grace` seconds (default three intervals), the next
+good poll queues one `relay.recovered` row to the main agent for the whole stretch, ahead of the events it recovered: one announcement per stretch, never one
 per missed event. A stretch is named by the time of the last good poll before it — its
 generation — and `gap.json` records the latest one announced; a stretch already announced
 is never announced again, whatever became of its row. Consuming rows goes by sequence
@@ -81,7 +84,8 @@ Files in the state directory:
     seen.json       per ticket: (comment, event) pairs translated, newest updated_at, and
                     every worker.started as [comment id, runner, session]
     recipient.json  the main agent's registered runner and session
-    beat.json       the last good poll, the last failed one and why, the run's interval and grace
+    beat.json       the last good poll, seconds spent delivering since it, the pass under way,
+                    the last failed poll and why, the run's interval and grace
     gap.json        the latest unattended stretch announced
     relay.lock      held for as long as a `run` runs: one relay per repository
 
@@ -390,6 +394,12 @@ class Relay:
             return data
         return None
 
+    def _no_main(self) -> Refusal:
+        return Refusal(f"no main agent is registered in {self.path('recipient.json')}, so its "
+                       f"wake-ups have nobody to go to. Run `relay.py register --repo "
+                       f"<owner/name> --runner <runner> --session <session>` for the main "
+                       f"agent's session.")
+
     def register(self, runner: str, session: str) -> dict:
         record = {"runner": runner, "session": session, "at": iso(self.clock())}
         with self.queue_lock():
@@ -409,36 +419,39 @@ class Relay:
 
     # ------------------------------------------------------------- reading the queue
 
-    def rows(self, session: str | None = None) -> list[dict]:
+    def rows(self, address: tuple[str, str] | None = None) -> list[dict]:
+        """Every row, or the rows of one recipient, named by its (runner, session)."""
         with self.queue_lock():
             rows = self._rows()
-        return [r for r in rows if session is None or r.get("session") == session]
+        return [r for r in rows if address is None or (r.get("runner"), r.get("session")) == address]
 
-    def ack(self, session: str, through: int) -> tuple[int, int]:
-        """Remove `session`'s rows with seq <= through. Returns (removed, left for session)."""
+    def ack(self, address: tuple[str, str], through: int) -> tuple[int, int]:
+        """Remove the rows of recipient `address` (runner, session) with seq <= through.
+        Returns (removed, left for that recipient)."""
+        runner, session = address
         with self.queue_lock():
             rows = self._rows()
             last = self._last_seq(rows)
             if through > last:
                 raise Refusal(f"no row with sequence {through} was ever issued; the last one is "
                               f"{last}. Acking past it would remove rows nobody has read. Run "
-                              f"`relay.py queue --session {session}` and ack through the highest "
-                              f"seq it printed.")
-            keep = [r for r in rows if not (r.get("session") == session and r["seq"] <= through)]
+                              f"`relay.py queue --runner {runner} --session {session}` and ack "
+                              f"through the highest seq it printed.")
+
+            def mine(row: dict) -> bool:
+                return (row.get("runner"), row.get("session")) == address
+
+            keep = [r for r in rows if not (mine(r) and r["seq"] <= through)]
             if len(keep) != len(rows):
                 self._write_rows(keep)
-            return len(rows) - len(keep), sum(1 for r in keep if r.get("session") == session)
+            return len(rows) - len(keep), sum(1 for r in keep if mine(r))
 
     # ------------------------------------------------------------- polling
 
     def poll(self, watched: Callable[[], list[int]], interval: int, grace: int) -> bool:
         """Read the watched tickets and queue what they carry. True when every read was made."""
-        main = self.recipient()
-        if main is None:
-            raise Refusal(f"no main agent is registered in {self.path('recipient.json')}, so its "
-                          f"wake-ups have nobody to go to. Run `relay.py register --repo "
-                          f"<owner/name> --runner <runner> --session <session>` for the main "
-                          f"agent's session.")
+        if self.recipient() is None:
+            raise self._no_main()
         started = self.clock()
         failures: list[str] = []
         try:
@@ -494,6 +507,11 @@ class Relay:
         unaddressed: list[dict] = []
         reported: list[tuple[int, object, str]] = []
         with self.queue_lock():
+            # Read here, under the lock `register` writes under: a registration that changed
+            # while the board was being read addresses these rows, not the one before it.
+            main = self.recipient()
+            if main is None:
+                raise self._no_main()
             seen = self._read_state("seen.json", {})
             per_ticket = seen.setdefault("tickets", {})
             for ticket, cid, runner, session in workers:
@@ -509,7 +527,7 @@ class Relay:
             gap = self._read_state("gap.json", {})
             last_good = beat.get("at")
             new_gap = None
-            if not failures and last_good and (now - parse_iso(last_good)).total_seconds() > grace:
+            if not failures and last_good and self._unattended(beat, now) > grace:
                 key = f"gap:{last_good}"
                 if gap.get("since") != last_good and key not in queued:
                     added.append({"key": key, "home": None, "ticket": None, "event": RECOVERED,
@@ -568,7 +586,7 @@ class Relay:
             if failures:
                 beat.update(failed_at=iso(now), failure="; ".join(failures))
             else:
-                beat.update(at=iso(now), failed_at=None, failure=None)
+                beat.update(at=iso(now), delivering=0, failed_at=None, failure=None)
             beat.update(interval=interval, grace=grace)
             statedir.write_atomic(self.path("beat.json"), json.dumps(beat, sort_keys=True) + "\n")
 
@@ -616,16 +634,49 @@ class Relay:
                            f"{row.get('session')}): {why}\n")
             self.out.write(f"dropped {row['seq']} {wake_text(row)}\n")
 
+    @staticmethod
+    def _unattended(beat: dict, now: datetime) -> float:
+        """Seconds since the last good poll that the relay spent neither delivering nor able
+        to poll: down, or its reads failing. Time in delivery passes does not count — a slow
+        send delays the next poll, and nobody was unattended while it ran."""
+        last = beat.get("at")
+        if not last:
+            return 0.0
+        spent = float(beat.get("delivering") or 0)
+        if beat.get("delivery_started"):
+            spent += max(0.0, (now - parse_iso(beat["delivery_started"])).total_seconds())
+        return (now - parse_iso(last)).total_seconds() - spent
+
+    def _note_delivery(self, begun: datetime, ended: datetime | None) -> None:
+        """Record a delivery pass in beat.json: its start while it runs, its length after."""
+        with self.queue_lock():
+            beat = self._read_state("beat.json", {})
+            if ended is None:
+                beat["delivery_started"] = iso(begun)
+            else:
+                beat["delivery_started"] = None
+                beat["delivering"] = float(beat.get("delivering") or 0) + (ended - begun).total_seconds()
+            statedir.write_atomic(self.path("beat.json"), json.dumps(beat, sort_keys=True) + "\n")
+
     def deliver(self) -> None:
         """One pass over the undelivered rows, in sequence order, each to its own recipient."""
+        with self.queue_lock():
+            pending = [r for r in self._rows() if not r.get("delivered")]
+        if not pending:
+            return
+        begun = self.clock()
+        self._note_delivery(begun, None)
+        try:
+            self._deliver(pending)
+        finally:
+            self._note_delivery(begun, self.clock())
+
+    def _deliver(self, pending: list[dict]) -> None:
         main = self.recipient()
         with self.queue_lock():
-            rows = self._rows()
             per_ticket = self._read_state("seen.json", {}).get("tickets", {})
         held: set[tuple[str, str]] = set()
-        for row in rows:
-            if row.get("delivered"):
-                continue
+        for row in pending:
             address = (row.get("runner"), row.get("session"))
             if row.get("to") == WORKER:
                 current = self._worker_before(per_ticket, row.get("ticket"), None)
@@ -675,11 +726,12 @@ class Relay:
                     f"so an empty queue does not mean nothing happened{failure}")
         if not last:
             return f"the relay (pid {holder.get('pid')}) has not completed a good poll yet{failure}"
-        age = (self.clock() - parse_iso(last)).total_seconds()
+        unattended = self._unattended(beat, self.clock())
         grace = beat.get("grace")
-        if isinstance(grace, (int, float)) and age > grace:
-            return (f"the relay (pid {holder.get('pid')}) last completed a good poll at {last}, "
-                    f"{int(age)}s ago, past its grace of {int(grace)}s{failure}")
+        if isinstance(grace, (int, float)) and unattended > grace:
+            return (f"the relay (pid {holder.get('pid')}) last completed a good poll at {last}, and "
+                    f"{int(unattended)}s since then went on no poll and no delivery, past its "
+                    f"grace of {int(grace)}s{failure}")
         return None
 
 
@@ -788,14 +840,19 @@ def cmd_register(args) -> int:
 
 
 def cmd_ack(args) -> int:
-    removed, left = Relay(state_for(args.repo)).ack(args.session, args.through)
-    print(f"acked {args.session} through {args.through}: removed {removed}, {left} left for {args.session}")
+    removed, left = Relay(state_for(args.repo)).ack((args.runner, args.session), args.through)
+    print(f"acked {args.runner} {args.session} through {args.through}: removed {removed}, "
+          f"{left} left for it")
     return 0
 
 
 def cmd_queue(args) -> int:
+    if (args.runner is None) != (args.session is None):
+        raise Refusal("a recipient is a runner and a session together; pass both --runner and "
+                      "--session, or neither for every row.")
     relay = Relay(state_for(args.repo))
-    for row in relay.rows(args.session):
+    address = (args.runner, args.session) if args.session else None
+    for row in relay.rows(address):
         print(json.dumps({k: v for k, v in row.items() if k != "key"}, sort_keys=True))
     sys.stdout.flush()
     problem = relay.health()
@@ -827,12 +884,14 @@ def main(argv: list[str] | None = None) -> int:
 
     ack = sub.add_parser("ack", help="remove one recipient's rows up to a sequence number")
     ack.add_argument("--repo", required=True)
+    ack.add_argument("--runner", required=True)
     ack.add_argument("--session", required=True)
     ack.add_argument("--through", required=True, type=positive_int)
     ack.set_defaults(fn=cmd_ack)
 
     queue = sub.add_parser("queue", help="print the rows, or one recipient's rows")
     queue.add_argument("--repo", required=True)
+    queue.add_argument("--runner")
     queue.add_argument("--session")
     queue.set_defaults(fn=cmd_queue)
 

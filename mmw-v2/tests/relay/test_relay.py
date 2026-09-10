@@ -32,6 +32,7 @@ _spec.loader.exec_module(relay)
 import statedir  # noqa: E402
 
 T0 = datetime(2026, 9, 10, 1, 0, 0, tzinfo=timezone.utc)
+MAIN_A = ("paseo", "main-a")
 
 
 def stamp(moment: datetime) -> str:
@@ -62,6 +63,7 @@ class FakeGh:
         self.spec_children = spec_children or {}
         self.failing: set[int] = set()
         self.calls: list[list[str]] = []
+        self.during_read = None  # called while a ticket's comments are read: time passing
 
     def __call__(self, args: list[str]) -> list:
         self.calls.append(args)
@@ -73,6 +75,8 @@ class FakeGh:
             return [{"number": n} for n in self.spec_children.get(number, [])]
         if number in self.failing:
             raise relay.PollError("gh exited 1: HTTP 502: Bad Gateway")
+        if self.during_read:
+            self.during_read()
         since = dict(p.split("=", 1) for p in query.split("&") if "=" in p).get("since")
         rows = [c for c in self.board.get(number, []) if not since or c["updated_at"] >= since]
         return rows
@@ -160,7 +164,7 @@ class QueueTest(RelayCase):
         self.board[61].append(comment(101, "ticket.passed", 61))
         self.board[62].append(comment(102, "ticket.passed", 62))
         self.poll()
-        self.assertEqual(self.relay.ack("main-a", 2), (2, 0))
+        self.assertEqual(self.relay.ack(MAIN_A, 2), (2, 0))
         self.board[61].append(comment(103, "ticket.refused", 61))
         self.poll()
         self.assertEqual(self.summary(), [(3, 61, "ticket.refused")])
@@ -169,14 +173,14 @@ class QueueTest(RelayCase):
         for cid in (101, 102, 103):
             self.board[61].append(comment(cid, "ticket.passed", 61))
         self.poll()
-        self.assertEqual(self.relay.ack("main-a", 2), (2, 1))
+        self.assertEqual(self.relay.ack(MAIN_A, 2), (2, 1))
         self.assertEqual([r["seq"] for r in self.rows()], [3])
 
     def test_ack_past_the_last_seq_issued_is_refused_and_removes_nothing(self):
         self.board[61].append(comment(101, "ticket.passed", 61))
         self.poll()
         with self.assertRaises(relay.Refusal) as caught:
-            self.relay.ack("main-a", 5)
+            self.relay.ack(MAIN_A, 5)
         self.assertIn("the last one is 1", str(caught.exception))
         self.assertEqual(len(self.rows()), 1)
 
@@ -187,7 +191,7 @@ class QueueTest(RelayCase):
         self.relay = self.fresh()
         self.poll()
         self.assertEqual(self.summary(), [(1, 61, "ticket.passed")])
-        self.relay.ack("main-a", 1)
+        self.relay.ack(MAIN_A, 1)
         self.relay = self.fresh()
         self.poll()
         self.assertEqual(self.rows(), [])
@@ -240,6 +244,15 @@ class QueueTest(RelayCase):
         self.poll()
         self.assertEqual(self.err.getvalue(), "")
         self.assertEqual(self.rows(), [])
+
+    def test_a_registration_made_while_the_board_is_read_addresses_the_new_rows(self):
+        self.board[61].append(comment(101, "ticket.passed", 61))
+        self.gh.during_read = lambda: self.relay.register("paseo", "main-b")
+        self.poll()
+        self.gh.during_read = None
+        self.assertEqual(self.addressed(), [(1, "ticket.passed", "main", "main-b")])
+        self.relay.deliver()
+        self.assertEqual(self.send.sent, [("paseo", "main-b", "#61 ticket.passed")])
 
     def test_poll_with_no_registered_recipient_is_refused(self):
         (self.state / "recipient.json").unlink()
@@ -310,14 +323,24 @@ class WorkerRecipientTest(RelayCase):
         self.assertEqual([(r["seq"], bool(r["delivered"])) for r in self.rows()],
                          [(1, False), (2, False), (3, True)])
 
+    def test_a_recipient_is_its_runner_and_session_together(self):
+        self.relay.register("paseo", "s-1")
+        self.board[61] += [started(101, 61, "s-1", runner="orca"), comment(102, "ticket.passed", 61),
+                           comment(103, "reviewer.reported", 61)]
+        self.poll()
+        self.assertEqual([(r["runner"], r["session"]) for r in self.rows()], [("paseo", "s-1"), ("orca", "s-1")])
+        self.assertEqual([r["seq"] for r in self.relay.rows(("orca", "s-1"))], [2])
+        self.assertEqual(self.relay.ack(("orca", "s-1"), 2), (1, 0))
+        self.assertEqual([(r["seq"], r["runner"]) for r in self.rows()], [(1, "paseo")])
+
     def test_ack_removes_only_that_recipients_rows(self):
         self.board[61] += [started(101, 61, "wk-61"), comment(102, "ticket.refused", 61),
                            comment(103, "reviewer.reported", 61), comment(104, "ticket.passed", 61)]
         self.poll()
-        self.assertEqual(self.relay.ack("wk-61", 3), (1, 0))
+        self.assertEqual(self.relay.ack(("paseo", "wk-61"), 3), (1, 0))
         self.assertEqual([(r["seq"], r["session"]) for r in self.rows()], [(1, "main-a"), (3, "main-a")])
-        self.assertEqual([r["seq"] for r in self.relay.rows("main-a")], [1, 3])
-        self.assertEqual(self.relay.ack("main-a", 1), (1, 1))
+        self.assertEqual([r["seq"] for r in self.relay.rows(MAIN_A)], [1, 3])
+        self.assertEqual(self.relay.ack(MAIN_A, 1), (1, 1))
         self.assertEqual([r["seq"] for r in self.rows()], [3])
 
 
@@ -361,7 +384,7 @@ class DeliveryTest(RelayCase):
         self.relay.forget_deliveries()
         self.relay.deliver()
         self.assertEqual([t for _, _, t in self.send.sent[2:]], ["#61 ticket.passed", "#62 ticket.returned"])
-        self.relay.ack("main-a", 2)
+        self.relay.ack(MAIN_A, 2)
         self.assertEqual(self.rows(), [])
 
     def test_a_row_stays_when_the_recipient_is_in_a_turn(self):
@@ -484,7 +507,7 @@ class RecoveryTest(RelayCase):
         self.poll()
         self.clock.moment = T0 + timedelta(hours=1)
         self.poll()
-        self.relay.ack("main-a", 1)
+        self.relay.ack(MAIN_A, 1)
         # The good poll's beat is lost (a crash before it was written): same stretch again.
         (self.state / "beat.json").write_text(json.dumps({"at": stamp(T0), "grace": 90, "interval": 30}))
         self.clock.moment = T0 + timedelta(hours=2)
@@ -516,6 +539,38 @@ class RecoveryTest(RelayCase):
             self.clock.moment = T0 + timedelta(seconds=30 * step)
             self.poll()
         self.assertEqual(self.recovered_rows(), [])
+
+    def test_time_spent_delivering_is_not_an_unattended_stretch(self):
+        def slow(runner, session, text):
+            self.send.sent.append((runner, session, text))
+            self.clock.moment += timedelta(seconds=200)
+            return 0
+
+        self.relay.send = slow
+        self.board[61].append(comment(101, "ticket.passed", 61))
+        self.poll()
+        self.relay.deliver()
+        self.clock.moment += timedelta(seconds=30)
+        with statedir.locked(self.state / "relay.lock", wait=0, purpose="test"):
+            self.assertIsNone(self.relay.health(), "230s since the good poll, 200 of them delivering")
+        self.poll()
+        self.assertEqual(self.recovered_rows(), [])
+
+    def test_a_delivery_pass_under_way_is_not_past_grace(self):
+        self.poll()
+        self.board[61].append(comment(101, "ticket.passed", 61))
+        self.poll()
+        seen = []
+
+        def slow(runner, session, text):
+            self.clock.moment += timedelta(seconds=200)
+            seen.append(self.relay.health())
+            return 0
+
+        self.relay.send = slow
+        with statedir.locked(self.state / "relay.lock", wait=0, purpose="test"):
+            self.relay.deliver()
+        self.assertEqual(seen, [None])
 
     def test_a_failing_poll_does_not_end_the_stretch(self):
         self.poll()
@@ -579,6 +634,27 @@ class StateDirTest(unittest.TestCase):
         with statedir.locked(self.lock, wait=0, purpose="test"):
             record = statedir.holder(self.lock)
         self.assertEqual(record["identity"], statedir.process_identity(os.getpid()))
+
+    def test_a_holder_in_one_time_zone_is_live_to_a_reader_in_another(self):
+        code = ("import sys, time; sys.path.insert(0, sys.argv[1]); import statedir\n"
+                "with statedir.locked(sys.argv[2], wait=0, purpose='held under Tokyo time'):\n"
+                "    print('held', flush=True); time.sleep(60)\n")
+        child = subprocess.Popen([sys.executable, "-c", code, str(SCRIPTS), str(self.lock)],
+                                 stdout=subprocess.PIPE, text=True,
+                                 env=dict(os.environ, TZ="Asia/Tokyo"))
+        self.addCleanup(lambda: (child.kill(), child.wait(), child.stdout.close()))
+        self.assertEqual(child.stdout.readline().strip(), "held")
+        old = os.environ.get("TZ")
+        os.environ["TZ"] = "America/New_York"
+        try:
+            record = statedir.holder(self.lock)
+        finally:
+            if old is None:
+                os.environ.pop("TZ", None)
+            else:
+                os.environ["TZ"] = old
+        self.assertIsNotNone(record)
+        self.assertEqual(record["pid"], child.pid)
 
     def test_a_live_holder_is_named_excludes_others_and_frees_the_lock_when_killed(self):
         code = ("import sys, time; sys.path.insert(0, sys.argv[1]); import statedir\n"

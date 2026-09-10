@@ -186,10 +186,10 @@ scenario_wake() {
   hasnt "ticket.claimed"
   expect_rows "1 61 ticket.passed main-a delivered
 2 62 ticket.returned main-a delivered"
-  code="$(relay_ ack --repo "$REPO" --session main-a --through 1)"
+  code="$(relay_ ack --repo "$REPO" --runner paseo --session main-a --through 1)"
   [ "$code" = 0 ] || fail "ack expected 0, got $code: $(cat "$TMP/err")"
   expect_rows "2 62 ticket.returned main-a delivered"
-  code="$(relay_ ack --repo "$REPO" --session main-a --through 9)"
+  code="$(relay_ ack --repo "$REPO" --runner paseo --session main-a --through 9)"
   [ "$code" = 1 ] || fail "ack past the last seq expected 1, got $code"
   grep -q "the last one is 2" "$TMP/err" || fail "the refusal should name the last seq: $(cat "$TMP/err")"
   expect_rows "2 62 ticket.returned main-a delivered"
@@ -211,12 +211,12 @@ scenario_worker() {
   hasnt "main-a :: #61 reviewer.reported"
   expect_rows "1 61 reviewer.reported wk-61 delivered
 2 61 ticket.passed main-a delivered"
-  python3 "$RELAY" queue --repo "$REPO" --session wk-61 > "$TMP/out" 2>/dev/null
+  python3 "$RELAY" queue --repo "$REPO" --runner paseo --session wk-61 > "$TMP/out" 2>/dev/null
   [ "$(wc -l < "$TMP/out" | tr -d ' ')" = 1 ] && grep -q '"session": "wk-61"' "$TMP/out" \
-    || fail "queue --session wk-61 should print the worker's one row: $(cat "$TMP/out")"
-  code="$(relay_ ack --repo "$REPO" --session wk-61 --through 2)"
+    || fail "queue --runner paseo --session wk-61 should print the worker's one row: $(cat "$TMP/out")"
+  code="$(relay_ ack --repo "$REPO" --runner paseo --session wk-61 --through 2)"
   [ "$code" = 0 ] || fail "the worker's ack expected 0, got $code: $(cat "$TMP/err")"
-  grep -q "removed 1, 0 left for wk-61" "$TMP/out" || fail "ack should say what it removed: $(cat "$TMP/out")"
+  grep -q "acked paseo wk-61 through 2: removed 1, 0 left for it" "$TMP/out" || fail "ack should say what it removed: $(cat "$TMP/out")"
   expect_rows "2 61 ticket.passed main-a delivered"
 }
 
@@ -279,7 +279,7 @@ scenario_reconcile() {
   register_main
   event 61 101 ticket.passed
   relay_ run --repo "$REPO" --tickets 61,62 --once >/dev/null
-  relay_ ack --repo "$REPO" --session main-a --through 1 >/dev/null
+  relay_ ack --repo "$REPO" --runner paseo --session main-a --through 1 >/dev/null
   # Down for an hour: the last good poll is an hour old, and two tickets landed meanwhile,
   # one of them stamped before the relay's own mark (a comment that became visible late).
   set_beat 2020-01-01T00:00:00Z
@@ -300,7 +300,7 @@ scenario_reconcile() {
   [ "$(rows | grep -c relay.recovered)" = 1 ] || fail "the stretch should be announced once: $(rows)"
   # The announcement is acked, and then the same stretch comes round again: the good poll
   # that ended it never got its beat written (a crash in between). It is not announced twice.
-  relay_ ack --repo "$REPO" --session main-a --through 4 >/dev/null
+  relay_ ack --repo "$REPO" --runner paseo --session main-a --through 4 >/dev/null
   set_beat 2020-01-01T00:00:00Z
   : > "$MMW_TEST_LOG"
   code="$(relay_ run --repo "$REPO" --tickets 61,62 --once)"
