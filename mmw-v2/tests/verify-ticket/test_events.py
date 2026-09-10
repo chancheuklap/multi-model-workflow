@@ -482,6 +482,41 @@ class Unreadable(unittest.TestCase):
         self.assertUnreadable(body, "one comment is one event")
 
 
+class Blockers(unittest.TestCase):
+    """A blocker lets go of the ticket it blocks once its work has landed on the base
+    branch, or once it closed with nothing that will ever land. `blocker_hold` is the one
+    answer `--preflight` and the dispatch skill's frontier both give."""
+
+    PASSED = ev("ticket.passed", "ALL MET", commit="a" * 40)
+    LANDED = ev("ticket.landed", "Landed #61 on main")
+
+    def hold(self, state, *comments):
+        return events.blocker_hold(state, events.fold(list(comments)))
+
+    def test_an_open_blocker_holds_whatever_its_events_say(self):
+        self.assertEqual(self.hold("OPEN", self.PASSED, self.LANDED), "open")
+        self.assertEqual(events.blocker_hold("OPEN", None), "open")
+
+    def test_a_closed_blocker_that_passed_holds_until_it_lands(self):
+        self.assertEqual(self.hold("CLOSED", self.PASSED), "passed, not landed")
+        self.assertEqual(self.hold("CLOSED", self.PASSED, self.LANDED), "")
+
+    def test_a_pass_after_a_landing_is_new_work_that_has_not_landed(self):
+        self.assertEqual(self.hold("CLOSED", self.PASSED, self.LANDED, self.PASSED),
+                         "passed, not landed")
+
+    def test_a_blocker_closed_without_a_pass_lets_go(self):
+        self.assertEqual(self.hold("CLOSED"), "")
+        self.assertEqual(self.hold("CLOSED", ev("ticket.returned", "HANDOFF REQUIRED")), "")
+
+    def test_a_closed_blocker_nobody_can_read_holds(self):
+        self.assertEqual(self.hold("CLOSED", self.PASSED, self.LANDED,
+                                   "x\n\n<!-- mmw {not json} -->"),
+                         "its events cannot be read")
+        self.assertEqual(events.blocker_hold("CLOSED", None),
+                         "the tracker did not answer for it")
+
+
 class CommandLine(unittest.TestCase):
     """`events.py` for the bash callers: emit a body, and read the fold back."""
 

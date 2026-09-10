@@ -1730,12 +1730,24 @@ def give_slot_back(root: Path) -> str | None:
     return None
 
 
+def blocker_fold(number: int) -> dict | None:
+    """The events of blocker `number` folded, or None when the tracker did not answer."""
+    try:
+        return events.fold(fetch_comments(number), issue=number)
+    except (OSError, ValueError, subprocess.CalledProcessError):
+        return None
+
+
 def refusals(number: int, ticket: dict, me: str, branch: str,
              dirty: list[str]) -> list[tuple[str, str]]:
     """Why this ticket is not ready to be worked on, in the order a worker would hit it.
 
     Each refusal is `(reason, sentence)`: the reason is the `ticket.refused` event's
     `reason` field, one of `events.REFUSALS`, and the sentence is its first line.
+
+    A blocker holds until its work has landed, as `events.blocker_hold` reads it off the
+    blocker's own events — the same answer the dispatch skill's frontier gives, so a
+    ticket that skill starts is never refused here for a blocker it had let go.
 
     Every one of these ends in `stop`. The six conditions are set up before a worker
     exists — `dispatch.sh` opens the worktree on `issue-<n>` and checks the state, the
@@ -1766,13 +1778,18 @@ def refusals(number: int, ticket: dict, me: str, branch: str,
         out.append(("not-ready",
                     f"NOT_READY: #{number} has no ready-for-agent label, so it has not been "
                     f"cleared for an agent yet; stop and leave it to whoever triages it"))
-    blockers = [b for b in ticket.get("blockedBy", {}).get("nodes", [])
-                if b.get("state") != "CLOSED"]
-    if blockers:
-        names = ", ".join(f"#{b['number']}" for b in blockers)
+    holding = []
+    for node in ticket.get("blockedBy", {}).get("nodes", []):
+        state = node.get("state") or ""
+        why = events.blocker_hold(state, blocker_fold(node["number"]) if state == "CLOSED"
+                                  else None)
+        if why:
+            holding.append(f"#{node['number']}" + ("" if why == "open" else f" ({why})"))
+    if holding:
         out.append(("blocked",
-                    f"NOT_READY: #{number} is blocked by {names}; stop — `dispatch.sh` "
-                    f"starts this ticket again once those close, so do not wait or retry"))
+                    f"NOT_READY: #{number} is blocked by {', '.join(holding)}; stop — "
+                    f"`dispatch.sh` starts this ticket again once those land, so do not "
+                    f"wait or retry"))
     holders = [a.get("login", "") for a in ticket.get("assignees", [])]
     others = [h for h in holders if h != me]
     if others:

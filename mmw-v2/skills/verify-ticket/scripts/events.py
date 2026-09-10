@@ -696,6 +696,28 @@ def sessions_of(state: dict) -> list[tuple[str, str]]:
     return seen
 
 
+def blocker_hold(state: str, fold: dict | None) -> str:
+    """Why a blocker still holds back the ticket it blocks, or empty when it has let go.
+
+    `state` is the blocker's state on the tracker, `fold` its own events folded, or None
+    when the tracker did not answer for them. A blocker lets go when its work is on the
+    base branch, not when it closes: the ticket it blocks is cut from the base branch and
+    has to find that work there. The signal is `ticket.landed`. A blocker closed without
+    a pass — by a person, or as not planned — has nothing that will ever land, and lets go
+    on closing. A closed blocker whose events cannot be read has not said which of the
+    two it is, so it holds.
+    """
+    if state != "CLOSED":
+        return "open"
+    if fold is None:
+        return "the tracker did not answer for it"
+    if fold["unreadable"]:
+        return "its events cannot be read"
+    if fold["passed"] and not fold["landed"]:
+        return "passed, not landed"
+    return ""
+
+
 # ------------------------------------------------------------------ command line
 
 GH_ENV = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR_FORCE", "CLICOLOR")}
