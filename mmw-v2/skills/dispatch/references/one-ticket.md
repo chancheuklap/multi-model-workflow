@@ -6,7 +6,10 @@ Four steps:
 
 1. `<dispatch> open-ticket <n>`: it names this session to the relay as the main agent — the runner and session its runner's adapter reads from this process — and starts the relay watching ticket `<n>` alone.
 2. `<dispatch> start <n> worker`, then end your turn.
-3. You are woken with `#<n> ticket.passed` or `#<n> ticket.returned` (or `#<n> ticket.refused`, `#<n> child.opened`, `#<n> worker.lost`). Read that event on the ticket, act on it, then `<dispatch> ack <n> <that event>` (exit codes in [inside-a-ticket.md](inside-a-ticket.md)).
+3. You are woken with `#<n> ticket.passed` or `#<n> ticket.returned`, or with one of the three below. Read that event on the ticket, act on it, then `<dispatch> ack <n> <that event>` (exit codes in [inside-a-ticket.md](inside-a-ticket.md)).
+   - `#<n> worker.lost`: the worker's session stopped. `<dispatch> start <n> worker` starts another in the same workspace; it first commits what the lost one left uncommitted on the ticket branch.
+   - `#<n> ticket.refused`: the worker refused to claim the ticket, and the event's `reason` says why. Fix that, then `<dispatch> start <n> worker` again.
+   - `#<n> child.opened`: a `fault` stopped the worker — fix what the child names, then `<dispatch> resume <n> "<what you fixed>, then: continue"`; a `decision` is for the user in the morning, and the worker carries on.
 4. Once the ticket passed or came back: `<dispatch> land <n>`. It runs the product's `stop` in the ticket's worktree, merges its branch and records `ticket.landed` on the ticket, stops every session the ticket's `*.started` events name, removes its worktree, gives its slot and its claim back, and stops the relay `open-ticket` started.
 
 ## Exit codes
@@ -23,7 +26,7 @@ Four steps:
 | Code | What happened |
 | --- | --- |
 | `0` | The session is running; its id is on stdout and its `worker.started` event is on the ticket |
-| `2` | Nothing was started. The reason is on stderr — read it verbatim. Typical causes: the ticket is not `OPEN` / not `ready-for-agent` / still blocked; no running relay watches the ticket (step 1 was not run, or another relay runs); two worker-grade labels; no live-table row for that agent; the runner refused the start (its reason is on stderr, and it was not retried); an argument this form does not take |
+| `2` | Nothing was started. The reason is on stderr — read it verbatim. Typical causes: the ticket is not `OPEN` / not `ready-for-agent` / still blocked (a blocker that passed holds until it has landed); no running relay watches the ticket (step 1 was not run, or another relay runs); two worker-grade labels; no live-table row for that agent; the runner refused the start (its reason is on stderr, and it was not retried); an argument this form does not take |
 
 **`land <n>`:**
 
