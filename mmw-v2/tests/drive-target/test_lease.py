@@ -135,6 +135,98 @@ class Releasing(Base):
         self.assertEqual(len(self.lease.claimed()), 1, "the slot was taken anyway")
 
 
+class StoppingBeforeReleasing(Base):
+    """`release --stop` takes the product down with the `stop` its repository declares,
+    then gives the slot back: one act, because a slot is free only once nothing listens on
+    its ports. The listener check, not the stop, is what keeps a live product's slot."""
+
+    def declare(self, tree: Path, stop: str = "", text: str | None = None) -> None:
+        (tree / ".mmw").mkdir(exist_ok=True)
+        (tree / ".mmw" / "target.json").write_text(
+            text if text is not None else json.dumps({"stop": stop}), encoding="utf-8")
+
+    def run_cli(self, *argv) -> tuple[int, str, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = self.lease.main(list(argv))
+        return code, out.getvalue(), err.getvalue()
+
+    def claimed_tree(self, name: str = "issue-640") -> Path:
+        tree = self.tree(name)
+        self.run_cli("claim", str(tree))
+        return tree
+
+    def test_the_declared_stop_runs_in_the_worktree_before_the_slot_is_given_back(self):
+        tree = self.claimed_tree()
+        slot_file = self.lease.slot_file(self.lease.claimed()[0]["slot"])
+        seen = self.trees / "seen"
+        self.declare(tree, f"pwd -P > '{seen}'; test -f '{slot_file}' && echo held >> '{seen}'; "
+                           f"echo \"$MMW_INSTANCE\" >> '{seen}'")
+        code, out, err = self.run_cli("release", str(tree), "--stop")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(json.loads(out)["released"], True)
+        where, held, instance = seen.read_text(encoding="utf-8").splitlines()
+        self.assertEqual((where, held), (str(tree.resolve()), "held"))
+        self.assertTrue(instance.startswith("issue-640-"), "the stop ran outside its claim")
+        self.assertEqual(self.lease.claimed(), [])
+
+    def test_a_stop_that_fails_is_said_and_the_slot_is_still_given_back(self):
+        tree = self.claimed_tree()
+        self.declare(tree, "echo compose down failed >&2; exit 7")
+        code, _, err = self.run_cli("release", str(tree), "--stop")
+        self.assertEqual(code, 0, err)
+        self.assertIn("exited 7: compose down failed", err)
+        self.assertEqual(self.lease.claimed(), [])
+
+    def test_a_stop_that_does_not_finish_is_ended_and_the_slot_still_asked_for(self):
+        import time
+        tree = self.claimed_tree()
+        self.declare(tree, "sleep 5")
+        self.lease.STOP_TIMEOUT_S = 1
+        began = time.monotonic()
+        code, _, err = self.run_cli("release", str(tree), "--stop")
+        self.assertLess(time.monotonic() - began, 4, "the release waited out the stop")
+        self.assertEqual(code, 0, err)
+        self.assertIn("did not finish in 1s", err)
+        self.assertEqual(self.lease.claimed(), [])
+
+    def test_a_failed_stop_leaves_a_live_product_its_slot(self):
+        tree = self.claimed_tree()
+        self.bind(self.lease.claimed()[0]["port_base"])
+        self.declare(tree, "exit 1")
+        with self.assertRaises(SystemExit) as caught:
+            self.run_cli("release", str(tree), "--stop")
+        self.assertIn("Stop that process", str(caught.exception))
+        self.assertEqual(len(self.lease.claimed()), 1)
+
+    def test_no_target_json_is_no_stop_and_a_plain_release(self):
+        tree = self.claimed_tree()
+        code, out, err = self.run_cli("release", str(tree), "--stop")
+        self.assertEqual((code, err), (0, ""))
+        self.assertEqual(json.loads(out)["released"], True)
+        self.assertEqual(self.lease.claimed(), [])
+
+    def test_a_target_json_nobody_can_read_is_exit_2_and_keeps_the_slot(self):
+        """A stop nobody can read is not "no stop declared": the product may still be up,
+        so nothing is stopped and nothing is given back."""
+        tree = self.claimed_tree()
+        self.declare(tree, text="{not json")
+        code, out, err = self.run_cli("release", str(tree), "--stop")
+        self.assertEqual((code, out), (2, ""))
+        self.assertIn(".mmw/target.json cannot be read as JSON", err)
+        self.assertEqual(len(self.lease.claimed()), 1)
+        with self.assertRaises(self.lease.StopUnreadable):
+            self.lease.release(self.lease.worktree_of(tree), stop=True)
+
+    def test_a_worktree_with_no_slot_runs_no_stop(self):
+        tree = self.tree("issue-640")
+        stopped = self.trees / "stopped"
+        self.declare(tree, f"touch '{stopped}'")
+        code, _, _ = self.run_cli("release", str(tree), "--stop")
+        self.assertEqual(code, 3)
+        self.assertFalse(stopped.exists())
+
+
 class Sweeping(Base):
     def test_a_worktree_that_is_gone_gives_its_slot_back(self):
         """`dispatch.sh` prunes worktree registrations but removes no directory, so

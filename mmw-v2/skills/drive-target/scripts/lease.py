@@ -19,12 +19,13 @@ application, so the lease cannot be per run. Writing code takes no slot. The one
 that is not a ticket's, the main agent's reverify in the main checkout, gives its slot
 back when it ends.
 
-    lease.py claim [<worktree>]        claim (or return) this worktree's slot; 4 none free
-    lease.py env [<worktree>]          print the claim as KEY=VALUE lines
-    lease.py run [<worktree>] -- CMD…  run CMD with the claim in its environment
-    lease.py release <worktree>        give the slot back; 0 given back, 3 there was none
-    lease.py list                      every live claim
-    lease.py count <directory>         how many claims sit under a directory
+    lease.py claim [<worktree>]           claim (or return) this worktree's slot; 4 none free
+    lease.py env [<worktree>]             print the claim as KEY=VALUE lines
+    lease.py run [<worktree>] -- CMD…     run CMD with the claim in its environment
+    lease.py release <worktree> [--stop]  give the slot back, with --stop after running the
+                                          product's `stop`; 0 given back, 3 there was none
+    lease.py list                         every live claim
+    lease.py count <directory>            how many claims sit under a directory
 
 Two limits bound a claim. The machine's is `SLOTS`. The product's is `instance.max` in
 the repository's `.mmw/target.json` — a product that cannot move its ports declares how
@@ -48,8 +49,10 @@ exit code, never the wording. The one piece of prose here is the refusal a live 
 earns, on stderr: its reader is an agent choosing what to do next, and it is written so
 that agent needs nothing else.
 
-**Nothing here ever ends a process.** `release` refuses while anything still listens on
-the slot, and says which pid and which directory, because reclaiming a slot from a live
+**Nothing here ends a process except through the repository's own `stop`.** `release
+--stop` runs that command, which ends only what this run started, and ends the command
+itself if it runs past `MMW_STOP_TIMEOUT_S`. `release` refuses while anything still listens
+on the slot, and says which pid and which directory, because reclaiming a slot from a live
 process is the same act as killing it.
 
 What a claim puts in the environment:
@@ -76,6 +79,7 @@ import os
 import socket
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -92,6 +96,9 @@ PORT_STRIDE = int(os.environ.get("MMW_LEASE_PORT_STRIDE", "20"))
 # How many runs this machine will hold. No claim goes past it; a machine that can hold
 # more says so here rather than in any skill's code.
 SLOTS = int(os.environ.get("MMW_LEASE_SLOTS", "8"))
+# Seconds the product's `stop` gets before `release --stop` ends it and asks for the slot
+# anyway.
+STOP_TIMEOUT_S = int(os.environ.get("MMW_STOP_TIMEOUT_S", "300"))
 
 ROOT = Path(os.environ.get("MMW_HOME", str(Path.home() / ".mmw")))
 REGISTRY = ROOT / "leases"
@@ -238,6 +245,30 @@ class CapUnreadable(RuntimeError):
     """`.mmw/target.json` is there and cannot be read, so the product's limit is unknown."""
 
 
+class StopUnreadable(RuntimeError):
+    """`.mmw/target.json` is there and cannot be read, so the product's `stop` is unknown."""
+
+
+def target_json(worktree: Path, unreadable: type[RuntimeError]):
+    """What this worktree's `.mmw/target.json` holds, or None when it has none.
+
+    Raises `unreadable` for a file that is there and is not JSON: what it declares is then
+    unknown, and unknown is not "declares nothing".
+    """
+    path = worktree / ".mmw" / "target.json"
+    if not path.is_file():
+        return None
+    # Short, so the refusal built on it keeps its whole first part: the reader needs to
+    # know which file and why, and the worktree it sits in is the one it is running in.
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise unreadable(f".mmw/target.json cannot be read as JSON ({exc.msg}, line "
+                         f"{exc.lineno})") from None
+    except OSError as exc:
+        raise unreadable(f".mmw/target.json cannot be read: {exc.strerror}") from None
+
+
 def _git(worktree: Path, *args: str) -> str:
     try:
         out = subprocess.run(["git", "-C", str(worktree), *args], capture_output=True,
@@ -266,18 +297,7 @@ def product_cap(worktree: Path) -> tuple[int, str] | None:
     Raises `CapUnreadable` for a `.mmw/target.json` that is there and is not JSON: a limit
     nobody can read is not "no limit", and taking a slot past it is how 2026-09-05 went.
     """
-    path = worktree / ".mmw" / "target.json"
-    if not path.is_file():
-        return None
-    # Short, so the refusal built on it keeps its whole first part: the reader needs to
-    # know which file and why, and the worktree it sits in is the one it is running in.
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise CapUnreadable(f".mmw/target.json cannot be read as JSON ({exc.msg}, line "
-                            f"{exc.lineno})") from None
-    except OSError as exc:
-        raise CapUnreadable(f".mmw/target.json cannot be read: {exc.strerror}") from None
+    data = target_json(worktree, CapUnreadable)
     instance = data.get("instance") if isinstance(data, dict) else None
     limit = instance.get("max") if isinstance(instance, dict) else None
     if not isinstance(limit, int) or limit <= 0:
@@ -373,22 +393,69 @@ def claim(worktree: Path) -> dict:
         )) from None
 
 
-def release(worktree: Path) -> dict:
+def stop_command(worktree: Path) -> str | None:
+    """The `stop` this worktree's `.mmw/target.json` declares, or None when it declares
+    none. Raises `StopUnreadable` for a file that is there and cannot be read."""
+    data = target_json(worktree, StopUnreadable)
+    command = data.get("stop") if isinstance(data, dict) else None
+    return command if isinstance(command, str) and command.strip() else None
+
+
+def stop_product(worktree: Path, record: dict) -> str | None:
+    """Run the product's `stop` from inside `worktree`, under the claim `record` it was
+    started under; the reason when it did not stop cleanly, None when it did or declares
+    no `stop`.
+
+    Its output goes to a file rather than a pipe: a stop past `STOP_TIMEOUT_S` is ended,
+    and a process it started that still held a pipe open would keep this waiting on it.
+    """
+    command = stop_command(worktree)
+    if command is None:
+        return None
+    env = dict(os.environ)
+    env.update(environment(record))
+    with tempfile.TemporaryFile() as out:
+        try:
+            proc = subprocess.run(command, shell=True, cwd=worktree, env=env, stdout=out,
+                                  stderr=subprocess.STDOUT, timeout=STOP_TIMEOUT_S)
+        except subprocess.TimeoutExpired:
+            return f"its stop did not finish in {STOP_TIMEOUT_S}s"
+        except OSError as exc:
+            return f"its stop could not be run: {exc.strerror or exc}"
+        if proc.returncode == 0:
+            return None
+        out.seek(0)
+        said = [line for line in out.read().decode("utf-8", "replace").splitlines()
+                if line.strip()]
+    return f"its stop exited {proc.returncode}" + (f": {' '.join(said[-3:])}" if said else "")
+
+
+def release(worktree: Path, stop: bool = False) -> dict:
     """Give this worktree's slot back. Refuses while anything still listens on it.
+
+    With `stop`, the product's `stop` in `.mmw/target.json` runs first, because a slot is
+    free only once nothing listens on its ports. A stop that fails or does not finish is
+    said on stderr and the slot is still asked for: the listener check is what keeps a
+    live product's slot, whatever the stop did. A `.mmw/target.json` that cannot be read
+    raises `StopUnreadable` and gives nothing back. A worktree with no slot runs no stop:
+    the product starts only under a claim, so without one nothing of this run's is up.
 
     Returns what happened, as fields: `released`, the `slot` it was, and a `reason` when
     nothing came back. A live listener still earns the three-part refusal on stderr,
     because its reader is an agent deciding what to do next — but *which* of the three
     outcomes happened is the exit code, so no caller ever has to read that sentence to
-    learn it. `dispatch.sh` used to tell "no lease" from "released" by matching the front
-    of the old sentence, which is a program reading prose: the sentence could not be
-    reworded without breaking it, and a caller that guessed wrong was silently wrong.
+    learn it, and the sentence can be reworded without breaking a caller.
     """
     target = str(worktree)
     for slot in range(SLOTS):
         record = read_slot(slot)
         if not record or record.get("worktree") != target:
             continue
+        if stop:
+            problem = stop_product(worktree, record)
+            if problem:
+                sys.stderr.write(f"lease.py: the product of {target} did not stop cleanly "
+                                 f"({problem}); giving slot {slot} back is still tried\n")
         held = busy(slot)
         if held:
             port, pid = held
@@ -490,6 +557,9 @@ def main(argv: list[str] | None = None) -> int:
         print(count_under(Path(rest[0])))
         return 0
 
+    stop = verb == "release" and "--stop" in rest
+    if stop:
+        rest.remove("--stop")
     tree = worktree_of(rest[0] if rest else None)
     if verb == "claim":
         try:
@@ -507,7 +577,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{key}={value}")
         return 0
     if verb == "release":
-        result = release(tree)
+        try:
+            result = release(tree, stop=stop)
+        except StopUnreadable as exc:
+            sys.stderr.write(f"{exc}; the product's stop is unknown, so nothing was stopped "
+                             f"and the slot was not given back\n")
+            return 2
         print(json.dumps(result, ensure_ascii=False))
         return 0 if result["released"] else 3
 

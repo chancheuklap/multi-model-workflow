@@ -1711,36 +1711,23 @@ def run_checks(number: int, reverify: bool, timeout: int | None,
 # The exit of a run whose criteria ran and whose result could not be written on the
 # ticket. It is not 1: a caller reads 1 as "the criteria are red", and nothing says so.
 NOT_RECORDED = 4
-STOP_TIMEOUT_S = int(os.environ.get("MMW_STOP_TIMEOUT_S", "300"))
 
 
 def give_slot_back(root: Path) -> str | None:
     """Take this worktree's product down and give its slot back; the reason when that
     could not be done, None when it was or there was no slot to give.
 
-    The product's `stop` in `.mmw/target.json` runs first, from the worktree, because a
-    slot is free only once nothing listens on its ports and `lease.py` rightly refuses
-    one held by a live process.
+    `lease.py` does both, as `release` with `stop`: the product's `stop` in
+    `.mmw/target.json` runs first, from the worktree, because a slot is free only once
+    nothing listens on its ports and `lease.py` rightly refuses one held by a live process.
     """
     lease = load_lease()
     if lease is None:
         return "no directory in force holds lease.py"
-    worktree = lease.worktree_of(root)
-    if not any(r.get("worktree") == str(worktree) for r in lease.claimed()):
-        return None
     try:
-        data = json.loads((Path(root) / ".mmw" / "target.json").read_text(encoding="utf-8"))
-        stop = data.get("stop") if isinstance(data, dict) else None
-    except (OSError, json.JSONDecodeError):
-        stop = None
-    if isinstance(stop, str) and stop.strip():
-        try:
-            subprocess.run(stop, shell=True, cwd=root, capture_output=True, text=True,
-                           timeout=STOP_TIMEOUT_S)
-        except (OSError, subprocess.SubprocessError) as exc:
-            return f"its stop command did not finish ({exc})"
-    try:
-        lease.release(worktree)
+        lease.release(lease.worktree_of(root), stop=True)
+    except lease.StopUnreadable as exc:
+        return f"{exc}, so the product's stop is unknown and the slot was kept"
     except SystemExit as exc:
         return str(exc)
     return None
