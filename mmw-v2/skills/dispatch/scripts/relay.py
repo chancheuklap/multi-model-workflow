@@ -2,8 +2,11 @@
 """The relay: events on the board in, wake-ups for the session waiting on them out.
 
     relay.py run --repo O/R (--tickets N[,N...] | --spec N) [--once] [--interval S] [--grace S]
+    relay.py start --repo O/R (--tickets N[,N...] | --spec N) [--interval S] [--grace S]
+    relay.py stop --repo O/R [--tickets N[,N...] | --spec N]
+    relay.py watching --repo O/R [--ticket N] [--spec S]
     relay.py register --repo O/R --runner R --session S
-    relay.py ack --repo O/R --runner R --session S --through SEQ
+    relay.py ack --repo O/R --runner R --session S (--through SEQ | --ticket N --event E | --event relay.recovered)
     relay.py queue --repo O/R [--runner R --session S]
 
 **A translator, not a board.** The relay does one thing: when a comment carrying one of
@@ -64,7 +67,23 @@ Delivery never removes a row: only `ack --runner R --session S --through <seq>` 
 removes that recipient's rows up to that sequence number whatever their content, and nobody
 else's. So a row
 sent twice — every unacked row is sent once more each time the relay starts — is still
-handled once.
+handled once. A woken session knows the wake it read, not its sequence number, so
+`ack --ticket N --event E` names the wake instead: it acks through the recipient's oldest
+delivered row naming that ticket and event (the oldest queued one when none is marked
+delivered), and `--event relay.recovered` does the same for the announcement. A wake that
+is no longer queued for that recipient but was translated once is acked already, and the
+second ack is answered 0; a wake that was never queued is refused.
+
+**Starting and stopping.** `run` holds `relay.lock` for as long as it runs and records
+what it watches in `relay.json` beside it (its pid, its process identity, `watch`:
+`{"spec": N}` or `{"tickets": [...]}`), so one repository has one relay and anyone can ask
+what it watches. `start` runs `run` as a process of its own session, detached from the
+caller, with its output appended to `relay.log`, and returns once that process holds the
+lock: a caller's turn ending does not end the relay. `stop` ends the running relay with
+SIGTERM, but only when it watches what the caller names: a relay watching another spec or
+other tickets is left running. `watching` says whether a running relay would see a
+ticket's events: it watches the ticket's spec, or the ticket itself; with `--spec` alone,
+whether it watches that spec.
 
 **An unattended stretch** is time with no good poll: the relay was down, or its reads kept
 failing. Time spent in delivery passes is not part of it: a slow send delays the next poll,
@@ -74,7 +93,9 @@ good poll queues one `relay.recovered` row to the main agent for the whole stret
 per missed event. A stretch is named by the time of the last good poll before it — its
 generation — and `gap.json` records the latest one announced; a stretch already announced
 is never announced again, whatever became of its row. Consuming rows goes by sequence
-number and announcing a stretch goes by generation; neither touches the other.
+number and announcing a stretch goes by generation; neither touches the other. A relay
+ended by `stop` was stopped on purpose — the night it watched was closed — so `stop`
+clears the last good poll, and the time until the next start is no stretch at all.
 
 Files in the state directory:
 
@@ -84,6 +105,8 @@ Files in the state directory:
     seen.json       per ticket: (comment, event) pairs translated, newest updated_at, and
                     every worker.started as [comment id, runner, session]
     recipient.json  the main agent's registered runner and session
+    relay.json      the running relay's pid, process identity and what it watches
+    relay.log       what every started relay printed, appended
     beat.json       the last good poll, seconds spent delivering since it, the pass under way,
                     the last failed poll and why, the run's interval and grace
     gap.json        the latest unattended stretch announced
@@ -94,8 +117,16 @@ Exit codes:
     run       0 --once read every watched ticket; 3 --once could not read at least one;
               1 refused (no main agent registered, another relay running, a state file
               unreadable)
+    start     0 a relay watching that is running (started now, or already); 1 refused (no
+              main agent registered, a relay watching something else is running, the
+              relay exited or did not take its lock; its log's last lines are on stderr)
+    stop      0 no relay is running any more (stopped now, or none was); 1 it did not end;
+              3 the running relay watches something else and was left running
+    watching  0 a running relay watches that ticket, or that spec; 1 none does (stderr
+              says why)
     register  0 registered; 1 refused (no such adapter, the runner says the session stopped)
-    ack       0 acked; 1 refused (a sequence number that was never issued)
+    ack       0 acked, or that wake was acked already; 1 refused (a sequence number that
+              was never issued, a wake that was never queued)
     queue     0 rows printed and a relay polled within its grace; 3 rows printed, but no
               relay is running or its last good poll is older than its grace
 """
@@ -144,6 +175,8 @@ DEFAULT_INTERVAL = 30
 OVERLAP = timedelta(seconds=120)
 QUEUE_WAIT = 10.0
 SEND_TIMEOUT = 180
+START_WAIT = 15.0
+STOP_WAIT = 15.0
 
 MAIN = "main"
 WORKER = "worker"
@@ -452,6 +485,37 @@ class Relay:
                 self._write_rows(keep)
             return len(rows) - len(keep), sum(1 for r in keep if mine(r))
 
+    def ack_wake(self, address: tuple[str, str], ticket: int | None, event: str) -> tuple[int, int, int] | None:
+        """Ack the wake `address` read, named as it was sent: ticket and event, or the
+        announcement `relay.recovered`. Acks through that recipient's oldest delivered row
+        naming it, or its oldest queued one when none is marked delivered. Returns
+        (through, removed, left for that recipient), or None when no such row is queued
+        for it."""
+        def names_it(row: dict) -> bool:
+            if (row.get("runner"), row.get("session")) != address or row.get("event") != event:
+                return False
+            return event == RECOVERED or row.get("ticket") == ticket
+
+        with self.queue_lock():
+            hits = [r for r in self._rows() if names_it(r)]
+        if not hits:
+            return None
+        delivered = [r for r in hits if r.get("delivered")]
+        through = min(r["seq"] for r in (delivered or hits))
+        removed, left = self.ack(address, through)
+        return through, removed, left
+
+    def was_queued(self, ticket: int | None, event: str) -> bool:
+        """Whether a wake naming this ticket and event, or a `relay.recovered`, was ever
+        translated into a row: the difference between a wake acked already and one that
+        never existed."""
+        if event == RECOVERED:
+            return bool(self._read_state("gap.json", {}).get("since"))
+        with self.queue_lock():
+            seen = self._read_state("seen.json", {}).get("tickets", {})
+        keys = (seen.get(str(ticket)) or {}).get("keys") or []
+        return any(key.endswith(f":{event}") for key in keys)
+
     # ------------------------------------------------------------- polling
 
     def poll(self, watched: Callable[[], list[int]], interval: int, grace: int) -> bool:
@@ -741,6 +805,57 @@ class Relay:
         return None
 
 
+# ----------------------------------------------------------------- the running relay
+
+def running(state: Path) -> tuple[dict, dict | None] | None:
+    """The live holder of this state directory's `relay.lock` and what it watches, or None
+    when no relay runs. The watch is None while the relay has not recorded it yet (the
+    moment between taking the lock and writing `relay.json`)."""
+    holder = statedir.holder(state / "relay.lock")
+    if holder is None:
+        return None
+    try:
+        record = statedir.read_json(state / "relay.json", {})
+    except ValueError:
+        record = {}
+    if isinstance(record, dict) and record.get("pid") == holder.get("pid") \
+            and record.get("identity") == holder.get("identity"):
+        return holder, record.get("watch")
+    return holder, None
+
+
+def describe_watch(watch: dict | None) -> str:
+    if not watch:
+        return "something it has not recorded yet"
+    if watch.get("spec"):
+        return f"spec #{watch['spec']}"
+    tickets = watch.get("tickets") or []
+    return ("tickets " if len(tickets) > 1 else "ticket ") + ", ".join(f"#{n}" for n in tickets)
+
+
+def watch_of(args) -> dict | None:
+    if getattr(args, "spec", None):
+        return {"spec": args.spec}
+    if getattr(args, "tickets", None):
+        return {"tickets": list(args.tickets)}
+    return None
+
+
+def watch_argv(watch: dict) -> list[str]:
+    if watch.get("spec"):
+        return ["--spec", str(watch["spec"])]
+    return ["--tickets", ",".join(str(n) for n in watch["tickets"])]
+
+
+def log_tail(path: Path, lines: int = 5) -> str:
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return "nothing"
+    kept = [line for line in text.splitlines() if line.strip()][-lines:]
+    return " | ".join(kept) or "nothing"
+
+
 # ----------------------------------------------------------------- commands
 
 def positive_int(text: str) -> int:
@@ -803,22 +918,144 @@ def cmd_run(args) -> int:
     def stop(signum, frame):
         raise SystemExit(0)
 
+    watch = watch_of(args)
     try:
         with statedir.locked(state / "relay.lock", wait=0, purpose=f"relay for {args.repo}"):
             signal.signal(signal.SIGTERM, stop)
             signal.signal(signal.SIGINT, stop)
-            relay.forget_deliveries()
-            while True:
-                good = relay.poll(watched, interval, grace)
-                relay.deliver()
-                if args.once:
-                    return 0 if good else 3
-                time.sleep(interval)
+            record = {"pid": os.getpid(), "identity": statedir.own_identity(), "watch": watch,
+                      "interval": interval, "grace": grace, "started": iso(now_utc())}
+            statedir.write_atomic(state / "relay.json", json.dumps(record, sort_keys=True) + "\n")
+            try:
+                relay.forget_deliveries()
+                while True:
+                    good = relay.poll(watched, interval, grace)
+                    relay.deliver()
+                    if args.once:
+                        return 0 if good else 3
+                    time.sleep(interval)
+            finally:
+                try:
+                    (state / "relay.json").unlink()
+                except OSError:
+                    pass
     except LockHeld as exc:
         if exc.path != state / "relay.lock":
             raise
         raise Refusal(f"another relay is running for {args.repo}: {exc}. One repository has one "
                       f"relay. Leave that one running, or end that pid and start this again.") from None
+
+
+def cmd_start(args) -> int:
+    state = state_for(args.repo)
+    want = watch_of(args)
+    if Relay(state).recipient() is None:
+        raise Refusal(f"no main agent is registered in {state / 'recipient.json'}, so a relay "
+                      f"would have nobody to wake. Run `relay.py register --repo {args.repo} "
+                      f"--runner <runner> --session <session>` for the main agent's session "
+                      f"first.")
+    found = running(state)
+    if found is not None:
+        holder, watch = found
+        if watch == want:
+            print(f"relay already running for {args.repo}: pid {holder.get('pid')}, watching "
+                  f"{describe_watch(watch)}")
+            return 0
+        raise Refusal(f"a relay is already running for {args.repo} (pid {holder.get('pid')}), "
+                      f"watching {describe_watch(watch)}, and one repository has one relay. "
+                      f"Close what it was started for (the night's summary or suspend, or "
+                      f"land for one ticket), or end it with `relay.py stop --repo "
+                      f"{args.repo}`, then start again.")
+    log = state / "relay.log"
+    argv = [sys.executable, str(Path(__file__).resolve()), "run", "--repo", args.repo,
+            *watch_argv(want), "--interval", str(args.interval)]
+    if args.grace is not None:
+        argv += ["--grace", str(args.grace)]
+    with open(log, "a", encoding="utf-8") as fh:
+        fh.write(f"--- {iso(now_utc())} starting a relay for {args.repo}, watching "
+                 f"{describe_watch(want)}\n")
+        fh.flush()
+        # A session of its own: the caller's turn, shell or terminal ending does not end it.
+        child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=fh,
+                                 stderr=subprocess.STDOUT, env=quiet_env(),
+                                 start_new_session=True, close_fds=True)
+    deadline = time.monotonic() + START_WAIT
+    while time.monotonic() < deadline:
+        code = child.poll()
+        if code is not None:
+            raise Refusal(f"the relay exited {code} as it started, so nothing watches the "
+                          f"board. The last lines of {log}: {log_tail(log)}")
+        found = running(state)
+        if found is not None and found[0].get("pid") == child.pid and found[1] == want:
+            print(f"relay started for {args.repo}: pid {child.pid}, watching "
+                  f"{describe_watch(want)}, log {log}")
+            return 0
+        time.sleep(0.1)
+    child.terminate()
+    raise Refusal(f"the relay (pid {child.pid}) did not take {state / 'relay.lock'} within "
+                  f"{START_WAIT:.0f}s and was ended. The last lines of {log}: {log_tail(log)}")
+
+
+def cmd_stop(args) -> int:
+    state = state_for(args.repo)
+    want = watch_of(args)
+    found = running(state)
+    if found is None:
+        print(f"no relay is running for {args.repo}")
+        return 0
+    holder, watch = found
+    pid = holder.get("pid")
+    if want is not None and watch != want:
+        sys.stderr.write(f"relay: the relay running for {args.repo} (pid {pid}) watches "
+                         f"{describe_watch(watch)}, not {describe_watch(want)}; it was left "
+                         f"running\n")
+        return 3
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    except OSError as exc:
+        raise Refusal(f"could not signal the relay (pid {pid}): {exc}. It is still running; "
+                      f"end that pid by hand.") from None
+    deadline = time.monotonic() + STOP_WAIT
+    while time.monotonic() < deadline:
+        if statedir.holder(state / "relay.lock") is None:
+            # Stopped on purpose, so the time until the next start is nobody's unattended
+            # stretch: the next relay reads every ticket in full on start all the same, and
+            # announces no `relay.recovered` for a night that was closed.
+            relay = Relay(state)
+            with relay.queue_lock():
+                beat = relay._read_state("beat.json", {})
+                beat.update(at=None, delivering=0, delivery_started=None, stopped=iso(now_utc()))
+                statedir.write_atomic(state / "beat.json", json.dumps(beat, sort_keys=True) + "\n")
+            print(f"stopped the relay for {args.repo}: pid {pid}, watching {describe_watch(watch)}")
+            return 0
+        time.sleep(0.1)
+    raise Refusal(f"the relay (pid {pid}) was sent SIGTERM and still holds "
+                  f"{state / 'relay.lock'} after {STOP_WAIT:.0f}s. It is still running; end "
+                  f"that pid by hand.")
+
+
+def cmd_watching(args) -> int:
+    if args.ticket is None and args.spec is None:
+        raise Refusal("name the ticket (--ticket), its spec (--spec), or both.")
+    state = state_for(args.repo)
+    found = running(state)
+    if found is None:
+        sys.stderr.write(f"relay: no relay is running for {args.repo}\n")
+        return 1
+    holder, watch = found
+    asked = f"#{args.ticket}" if args.ticket is not None else f"spec #{args.spec}"
+    if watch and ((args.spec and watch.get("spec") == args.spec)
+                  or (args.ticket is not None and args.ticket in (watch.get("tickets") or []))):
+        print(f"{asked} is watched by the relay for {args.repo}: pid {holder.get('pid')}, "
+              f"watching {describe_watch(watch)}")
+        return 0
+    if args.ticket is not None:
+        asked += f", a ticket of spec #{args.spec}," if args.spec else ", a ticket of no spec,"
+    sys.stderr.write(f"relay: the relay running for {args.repo} (pid {holder.get('pid')}) watches "
+                     f"{describe_watch(watch)}, and {asked} is not among them\n")
+    return 1
 
 
 def cmd_register(args) -> int:
@@ -846,8 +1083,34 @@ def cmd_register(args) -> int:
 
 
 def cmd_ack(args) -> int:
-    removed, left = Relay(state_for(args.repo)).ack((args.runner, args.session), args.through)
-    print(f"acked {args.runner} {args.session} through {args.through}: removed {removed}, "
+    relay = Relay(state_for(args.repo))
+    address = (args.runner, args.session)
+    if args.through is not None:
+        if args.event or args.ticket is not None:
+            raise Refusal("an ack names a sequence number (--through) or a wake (--ticket and "
+                          "--event), not both.")
+        removed, left = relay.ack(address, args.through)
+        print(f"acked {args.runner} {args.session} through {args.through}: removed {removed}, "
+              f"{left} left for it")
+        return 0
+    if not args.event:
+        raise Refusal("an ack names a sequence number (--through) or the wake it read "
+                      "(--ticket N --event E, or --event relay.recovered).")
+    if args.event != RECOVERED and args.ticket is None:
+        raise Refusal(f"the wake `{args.event}` is about a ticket; pass --ticket with its number.")
+    ticket = None if args.event == RECOVERED else args.ticket
+    wake = RECOVERED if ticket is None else f"#{ticket} {args.event}"
+    done = relay.ack_wake(address, ticket, args.event)
+    if done is None:
+        if relay.was_queued(ticket, args.event):
+            print(f"nothing queued for {args.runner} {args.session} is `{wake}`: it was acked "
+                  f"already, or dropped")
+            return 0
+        raise Refusal(f"no wake `{wake}` was ever queued in {relay.state}, so there is nothing "
+                      f"to ack. Ack the wake as it reached you: the ticket number and the event "
+                      f"name it carried.")
+    through, removed, left = done
+    print(f"acked {args.runner} {args.session} `{wake}` through {through}: removed {removed}, "
           f"{left} left for it")
     return 0
 
@@ -882,17 +1145,41 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--grace", type=non_negative_int)
     run.set_defaults(fn=cmd_run)
 
+    start = sub.add_parser("start", help="run the relay in the background, detached")
+    start.add_argument("--repo", required=True)
+    which = start.add_mutually_exclusive_group(required=True)
+    which.add_argument("--tickets", type=ticket_list)
+    which.add_argument("--spec", type=positive_int)
+    start.add_argument("--interval", type=positive_int, default=DEFAULT_INTERVAL)
+    start.add_argument("--grace", type=non_negative_int)
+    start.set_defaults(fn=cmd_start)
+
+    stop = sub.add_parser("stop", help="end the running relay, when it watches what is named")
+    stop.add_argument("--repo", required=True)
+    which = stop.add_mutually_exclusive_group()
+    which.add_argument("--tickets", type=ticket_list)
+    which.add_argument("--spec", type=positive_int)
+    stop.set_defaults(fn=cmd_stop)
+
+    watching = sub.add_parser("watching", help="whether a running relay sees a ticket's events")
+    watching.add_argument("--repo", required=True)
+    watching.add_argument("--ticket", type=positive_int)
+    watching.add_argument("--spec", type=positive_int)
+    watching.set_defaults(fn=cmd_watching)
+
     reg = sub.add_parser("register", help="name the main agent's runner and session")
     reg.add_argument("--repo", required=True)
     reg.add_argument("--runner", required=True)
     reg.add_argument("--session", required=True)
     reg.set_defaults(fn=cmd_register)
 
-    ack = sub.add_parser("ack", help="remove one recipient's rows up to a sequence number")
+    ack = sub.add_parser("ack", help="remove one recipient's rows through a sequence number or a wake")
     ack.add_argument("--repo", required=True)
     ack.add_argument("--runner", required=True)
     ack.add_argument("--session", required=True)
-    ack.add_argument("--through", required=True, type=positive_int)
+    ack.add_argument("--through", type=positive_int)
+    ack.add_argument("--ticket", type=positive_int)
+    ack.add_argument("--event")
     ack.set_defaults(fn=cmd_ack)
 
     queue = sub.add_parser("queue", help="print the rows, or one recipient's rows")

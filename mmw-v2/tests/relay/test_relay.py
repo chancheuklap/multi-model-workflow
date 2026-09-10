@@ -362,6 +362,57 @@ class WorkerRecipientTest(RelayCase):
         self.assertEqual([r["seq"] for r in self.rows()], [3])
 
 
+class AckByWakeTest(RelayCase):
+    """A woken session knows the wake it read — ticket and event — not a sequence number."""
+
+    def board_with_two_recipients(self):
+        self.board[61] += [started(100, 61, "wk-61"), comment(101, "ticket.passed", 61),
+                           comment(102, "reviewer.reported", 61)]
+        self.board[62] += [comment(103, "ticket.returned", 62)]
+        self.poll()
+
+    def test_the_wake_is_acked_by_ticket_and_event_and_nobody_elses_row_goes(self):
+        self.board_with_two_recipients()
+        self.relay.deliver()
+        self.assertEqual(self.relay.ack_wake(MAIN_A, 61, "ticket.passed"), (1, 1, 1))
+        self.assertEqual(self.summary(), [(2, 61, "reviewer.reported"), (3, 62, "ticket.returned")])
+        self.assertEqual(self.relay.ack_wake(("paseo", "wk-61"), 61, "reviewer.reported"), (2, 1, 0))
+        self.assertEqual(self.summary(), [(3, 62, "ticket.returned")])
+
+    def test_a_wake_for_another_recipient_is_not_acked_by_this_one(self):
+        self.board_with_two_recipients()
+        self.assertIsNone(self.relay.ack_wake(MAIN_A, 61, "reviewer.reported"))
+        self.assertEqual(len(self.rows()), 3)
+
+    def test_it_acks_through_the_delivered_row_that_woke_it_not_a_later_one(self):
+        """The same event name twice on one ticket (a pass, a regression, a pass): the
+        wake that was delivered is the one read, and a later row stays for its own wake."""
+        self.board[61] += [comment(101, "ticket.passed", 61)]
+        self.poll()
+        self.relay.deliver()
+        self.board[61] += [comment(102, "ticket.passed", 61, updated=T0 + timedelta(seconds=5))]
+        self.clock.moment = T0 + timedelta(seconds=30)
+        self.poll()
+        self.assertEqual(self.relay.ack_wake(MAIN_A, 61, "ticket.passed"), (1, 1, 1))
+        self.assertEqual(self.summary(), [(2, 61, "ticket.passed")])
+
+    def test_an_acked_wake_was_queued_and_one_never_translated_was_not(self):
+        self.board_with_two_recipients()
+        self.relay.ack_wake(MAIN_A, 61, "ticket.passed")
+        self.assertIsNone(self.relay.ack_wake(MAIN_A, 61, "ticket.passed"))
+        self.assertTrue(self.relay.was_queued(61, "ticket.passed"))
+        self.assertFalse(self.relay.was_queued(99, "ticket.passed"))
+        self.assertFalse(self.relay.was_queued(61, "ticket.refused"))
+
+    def test_the_recovered_announcement_is_acked_by_its_name(self):
+        self.poll()
+        self.clock.moment = T0 + timedelta(hours=1)
+        self.poll()
+        self.assertEqual([r["event"] for r in self.rows()], ["relay.recovered"])
+        self.assertEqual(self.relay.ack_wake(MAIN_A, None, "relay.recovered"), (1, 1, 0))
+        self.assertTrue(self.relay.was_queued(None, "relay.recovered"))
+
+
 class ReadEventTest(unittest.TestCase):
     def test_prose_alone_is_no_event(self):
         self.assertIsNone(relay.read_event("ALL MET\n\nall green"))

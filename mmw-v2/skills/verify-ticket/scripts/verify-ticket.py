@@ -84,44 +84,6 @@ STATEFUL_COMMAND_RE = re.compile(
 GH_ENV = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR_FORCE", "CLICOLOR")}
 
 
-def notify_parent(text: str) -> None:
-    """Tell the session that started this one that the ticket came to rest.
-
-    Paseo gives a session one terminal notification, spent the first time it ends a
-    turn. A worker ends several — one for every agent it starts and sleeps on — so
-    that notification is spent on a middle state and the main agent never hears the
-    ticket land. This message is what it hears instead.
-
-    The call lives here rather than in the worker's own steps so that the write and
-    the telling are one act: the comment lands, the message goes out, and no worker
-    can do the first and forget the second.
-
-    Outside a Paseo session, or with no parent, nobody is listening. A send that
-    fails says so on stderr and changes no exit code — the ticket is already where it
-    belongs, and an undelivered message does not undo that.
-    """
-    agent = os.environ.get("PASEO_AGENT_ID", "").strip()
-    if not agent:
-        return
-    try:
-        found = subprocess.run(["paseo", "inspect", agent, "--json"],
-                               capture_output=True, text=True, timeout=15, env=GH_ENV)
-        parent = json.loads(found.stdout).get("ParentAgentId") if found.returncode == 0 else None
-    except (OSError, subprocess.SubprocessError, json.JSONDecodeError, AttributeError):
-        parent = None
-    if not isinstance(parent, str) or not parent:
-        return
-    try:
-        sent = subprocess.run(["paseo", "send", "--no-wait", parent, text],
-                              capture_output=True, text=True, timeout=30, env=GH_ENV)
-    except (OSError, subprocess.SubprocessError) as exc:
-        sys.stderr.write(f"could not tell {parent}: {exc}\n")
-        return
-    if sent.returncode != 0:
-        sys.stderr.write(f"could not tell {parent}: "
-                         + (sent.stderr or sent.stdout or "paseo send failed").rstrip() + "\n")
-
-
 def fetch_body(number: int) -> str:
     """The issue body, straight from the tracker. Patched out in tests."""
     out = subprocess.run(
@@ -1270,14 +1232,11 @@ REVIEW_HEAD_RE = re.compile(r"^REVIEW (\S+?)\.\.(\S+)")
 
 
 def run_review(number: int, path: Path) -> int:
-    """Post the review report on the ticket, and tell the session that started this one.
+    """Post the review report on the ticket, as the `reviewer.reported` event.
 
-    Posting and telling are one call because they are one act. A reviewer session that
-    posts its report and then simply ends has told nobody: Paseo gives a session one
-    terminal notification, spent the first time that session ends a turn, and a reviewer
-    that hands its three axes to subagents and comes back for their answers has already
-    ended one turn before the report exists. The worker waiting on that report would
-    then have nothing left but to ask again and again.
+    Nothing here tells the worker: the event on the ticket is what the relay of the
+    dispatch skill turns into the worker's wake-up, so a report that lands is a report
+    its worker hears about, however the reviewer's turns fell.
 
     The file opens `REVIEW <base commit>..<HEAD commit>`: that line becomes the
     comment's first line, and the two commits become the `reviewer.reported` event's
@@ -1296,7 +1255,6 @@ def run_review(number: int, path: Path) -> int:
     post_event(number, "reviewer.reported", head, rest,
                base=found.group(1), head=found.group(2))
     print(f"REVIEW: posted on #{number}")
-    notify_parent(f"#{number} reviewer.reported")
     return 0
 
 
@@ -1462,10 +1420,6 @@ def run_sub_issue(number: int, kind: str, path: Path) -> int:
             sys.stderr.write(f"opened #{child} under #{number}, but the child.opened event "
                              f"on #{number} was not written ({exc}); do not open it again\n")
             recorded = 1
-    # `pipeline` is the kind the worker stops on, so the ticket comes to rest here and
-    # the parent is told. Every other kind is opened mid-work and the worker carries on.
-    if kind == "pipeline":
-        notify_parent(f"#{number} child.opened kind=pipeline")
     print(found.group(1) if found else printed)
     return recorded
 
@@ -1576,7 +1530,6 @@ def run_preflight(number: int) -> int:
         reason, sentence = problems[0]
         post_event(number, "ticket.refused", sentence, spec=spec_field(ticket),
                    reason=reason, branch=branch or None)
-        notify_parent(f"#{number} ticket.refused")
         sys.stderr.write(sentence + "\n")
         return 2
     assign_self(number)
@@ -1769,11 +1722,9 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
                           for a in abandons] or None)
     if first == "ALL MET":
         close_ticket(number)
-        notify_parent(f"#{number} ticket.passed")
         print(f"CLOSED: #{number}")
     else:
         hand_back_for_triage(number)
-        notify_parent(f"#{number} ticket.returned")
         print(f"HANDED BACK: #{number} is now needs-triage and stays open")
     return 0
 
@@ -2465,7 +2416,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sub-issue", nargs=2, metavar=("KIND", "FILE"),
                         help="open a needs-triage sub-issue under this ticket")
     parser.add_argument("--review", type=Path, metavar="FILE",
-                        help="post the review report and tell the session that started this one")
+                        help="post the review report on the ticket")
     parser.add_argument("--verdict", metavar="LINE",
                         help="post the verifier's verdict on HEAD, read off its newest reverify")
     parser.add_argument("--model", help="with --verdict: the model this verifier runs on")

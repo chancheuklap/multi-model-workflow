@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 #
-# Orca adapter: the three verbs, and nothing else.
+# Orca adapter: the three verbs of the runner boundary, `stop`, and `self`.
 #
 #   runners/orca.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--label K=V]... --prompt TEXT
 #   runners/orca.sh send <session-id> <text>
 #   runners/orca.sh liveness <session-id>
 #   runners/orca.sh stop <session-id>
+#   runners/orca.sh self
 #
 # start takes host, model, effort, cwd, skip-approval, and the first prompt, and
 # prints a session id, or refuses. One call: `terminal create --worktree path:<abs>
@@ -18,10 +19,19 @@
 # send: exit 0 the text was delivered (input_accepted and turn_started); 3 the
 # session is there and did not take it (input_accepted without turn_started); 2
 # there is no such session (terminal_not_writable); 4 unknown — the list or the
-# receipt could not be read, or the handle is past a truncated list.
+# receipt could not be read, the handle is past a truncated list, or the text was
+# accepted by a terminal whose program Orca cannot observe (`observation`
+# `unsupported`), so whether a turn started is not known. The receipt's stages are
+# `result.send.prompt.stages` and its warnings `result.warnings` (Orca 1.4.199, read
+# 2026-09-10 off a real `terminal send --json`).
 # liveness prints one of `alive`, `stopped`, `unknown` on stdout. A running process
 # and an idle UI are two fields; idle is not what this verb answers.
 # stop ends the session: exit 0 it is gone (or was already), 1 it could not be ended.
+# self prints the id of the session this process itself runs in, the id `send` reaches:
+# exit 0 printed; 3 this process runs in no session of this runner; 1 it does, and its id
+# cannot be read (the reason on stderr). The main agent names itself to the relay with it.
+# Orca sets ORCA_TERMINAL_HANDLE in every terminal it runs, and that handle is the one
+# `terminal list` lists and `send` takes.
 #
 # MMW_USES: terminal create --worktree --command --title --json
 # MMW_USES: terminal send --terminal --text --enter --wait-submit --json
@@ -45,6 +55,7 @@ usage() {
   echo "       runners/orca.sh send <session-id> <text>" >&2
   echo "       runners/orca.sh liveness <session-id>" >&2
   echo "       runners/orca.sh stop <session-id>" >&2
+  echo "       runners/orca.sh self" >&2
   exit 2
 }
 
@@ -118,17 +129,19 @@ if kind == "handle":
         handle = terminal.get("handle")
     print(str(handle or data.get("handle") or ""))
 elif kind == "send":
-    stages = data.get("stages") or result.get("stages") or []
+    send = result.get("send") if isinstance(result.get("send"), dict) else {}
+    prompt = send.get("prompt") if isinstance(send.get("prompt"), dict) else {}
+    stages = prompt.get("stages") or []
     if not isinstance(stages, list):
         stages = []
-    warning = (
-        data.get("warning")
-        or result.get("warning")
-        or err.get("message")
-        or ""
-    )
+    warnings = result.get("warnings") or []
+    if not isinstance(warnings, list):
+        warnings = [warnings]
+    warning = " ".join(str(w) for w in warnings) or err.get("message") or ""
+    observation = str(prompt.get("observation") or "")
     code = err.get("code") or data.get("code") or ""
-    print("%s\t%s\t%s" % (code, ",".join(str(s) for s in stages), warning))
+    print("%s\t%s\t%s\t%s" % (code, ",".join(str(s) for s in stages), observation,
+                                 " ".join(warning.split())))
 elif kind == "wait":
     code = err.get("code") or data.get("code") or ""
     satisfied = result.get("satisfied")
@@ -213,7 +226,7 @@ start() {
 }
 
 send() {
-  local ident="${1:-}" text="${2:-}" rc out code stages warning
+  local ident="${1:-}" text="${2:-}" rc out code stages observation warning receipt rest
   [ -n "$ident" ] && [ -n "$text" ] || usage
   list_row "$ident" >/dev/null
   rc=$?
@@ -233,6 +246,8 @@ send() {
   code="${receipt%%	*}"
   rest="${receipt#*	}"
   stages="${rest%%	*}"
+  rest="${rest#*	}"
+  observation="${rest%%	*}"
   warning="${rest#*	}"
   case "$code" in
     terminal_not_writable|terminal_handle_stale) exit 2 ;;
@@ -241,7 +256,14 @@ send() {
     *,turn_started,*) exit 0 ;;
   esac
   case ",$stages," in
-    *,input_accepted,*) exit 3 ;;
+    *,input_accepted,*)
+      if [ "$observation" = unsupported ]; then
+        echo "runners/orca.sh: $ident took the text, and Orca cannot observe the program in it, so whether a turn started is not known: $warning" >&2
+        printf '%s\n' unknown
+        exit 4
+      fi
+      exit 3
+      ;;
   esac
   case "$warning" in
     *"no turn start was observed"*) exit 3 ;;
@@ -326,6 +348,19 @@ stop() {
   exit 0
 }
 
+self_() {
+  if [ -n "${ORCA_TERMINAL_HANDLE:-}" ]; then
+    printf '%s\n' "$ORCA_TERMINAL_HANDLE"
+    exit 0
+  fi
+  if [ "$(printf '%s' "${TERM_PROGRAM:-}" | tr '[:upper:]' '[:lower:]')" = orca ]; then
+    echo "runners/orca.sh: this process runs in an Orca terminal (TERM_PROGRAM=Orca) and ORCA_TERMINAL_HANDLE is not set, so its terminal handle cannot be read" >&2
+    exit 1
+  fi
+  echo "runners/orca.sh: neither ORCA_TERMINAL_HANDLE nor TERM_PROGRAM=Orca is set, so this process is not in an Orca terminal" >&2
+  exit 3
+}
+
 [ "$#" -ge 1 ] || usage
 verb="$1"
 shift
@@ -334,5 +369,6 @@ case "$verb" in
   send) send "$@" ;;
   liveness) liveness "$@" ;;
   stop) stop "$@" ;;
+  self) self_ ;;
   *) usage ;;
 esac

@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 #
-# Herdr adapter: the three verbs, and nothing else.
+# Herdr adapter: the three verbs of the runner boundary, `stop`, and `self`.
 #
 #   runners/herdr.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--label K=V]... --prompt TEXT
 #   runners/herdr.sh send <session-id> <text>
 #   runners/herdr.sh liveness <session-id>
 #   runners/herdr.sh stop <session-id>
+#   runners/herdr.sh self
 #
 # start takes host, model, effort, cwd, skip-approval, and the first prompt, and
 # prints a session id, or refuses with exit 1 and one stderr line naming what failed.
@@ -19,6 +20,12 @@
 # the name is absent from `agent list`; a name still on that list is not stopped.
 # stop closes the session's pane: exit 0 it is gone (or was already), 1 it could not
 # be ended.
+# self prints the id of the session this process itself runs in, the id `send` reaches:
+# exit 0 printed; 3 this process runs in no session of this runner; 1 it does, and its id
+# cannot be read (the reason on stderr). The main agent names itself to the relay with it.
+# Herdr sets HERDR_ENV=1 and HERDR_PANE_ID in every pane it runs; the session id is the
+# name `agent list` gives the agent in that pane, since a name is what `send` takes. An
+# agent with no name there cannot be addressed and is refused.
 #
 # MMW_USES: tab create --cwd --no-focus
 # MMW_USES: agent start --kind --pane --timeout
@@ -41,6 +48,7 @@ usage() {
   echo "       runners/herdr.sh send <session-id> <text>" >&2
   echo "       runners/herdr.sh liveness <session-id>" >&2
   echo "       runners/herdr.sh stop <session-id>" >&2
+  echo "       runners/herdr.sh self" >&2
   exit 2
 }
 
@@ -269,6 +277,62 @@ except Exception:
   exit 0
 }
 
+self_() {
+  local pane="${HERDR_PANE_ID:-}" json name rc
+  if [ "${HERDR_ENV:-}" != 1 ]; then
+    echo "runners/herdr.sh: HERDR_ENV is not 1, so this process is not in a Herdr pane" >&2
+    exit 3
+  fi
+  if [ -z "$pane" ]; then
+    echo "runners/herdr.sh: HERDR_ENV is 1 and HERDR_PANE_ID is not set, so which pane this process runs in cannot be read" >&2
+    exit 1
+  fi
+  json="$(herdr_ agent list 2>/dev/null)" || {
+    echo "runners/herdr.sh: could not ask herdr agent list which agent runs in pane $pane" >&2
+    exit 1
+  }
+  name="$(printf '%s' "$json" | MMW_PANE="$pane" python3 -c '
+import json, os, sys
+
+# Exit 0 with the name of the agent in this pane; 4 it is there with no name; 1 no agent
+# is listed in this pane; 2 the list could not be read.
+pane = os.environ["MMW_PANE"]
+try:
+    agents = json.load(sys.stdin)["result"]["agents"]
+    if not isinstance(agents, list):
+        sys.exit(2)
+    for row in agents:
+        if isinstance(row, dict) and str(row.get("pane_id") or "") == pane:
+            name = str(row.get("name") or "")
+            if not name:
+                sys.exit(4)
+            print(name)
+            sys.exit(0)
+except SystemExit:
+    raise
+except Exception:
+    sys.exit(2)
+sys.exit(1)
+')"
+  rc=$?
+  case "$rc" in
+    0)
+      printf '%s\n' "$name"
+      exit 0
+      ;;
+    4)
+      echo "runners/herdr.sh: the agent in pane $pane has no name, and a Herdr session is addressed by its name; give it one with herdr agent rename $pane <name>, then run this again" >&2
+      ;;
+    1)
+      echo "runners/herdr.sh: herdr agent list shows no agent in pane $pane, so this process is not a session Herdr can address" >&2
+      ;;
+    *)
+      echo "runners/herdr.sh: herdr agent list answered in a shape this cannot read, so which agent runs in pane $pane is unknown" >&2
+      ;;
+  esac
+  exit 1
+}
+
 [ "$#" -ge 1 ] || usage
 verb="$1"
 shift
@@ -277,5 +341,6 @@ case "$verb" in
   send) send "$@" ;;
   liveness) liveness "$@" ;;
   stop) stop "$@" ;;
+  self) self_ ;;
   *) usage ;;
 esac

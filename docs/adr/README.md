@@ -15,7 +15,7 @@
 
 **本目录不写 `## Decision` 一节。** 找决定就读 `# ` 标题和它下面那一段。
 
-篇幅：0008 至 0019 在 20 到 55 行之间，多数在 26 到 39 行。
+篇幅：0008 至 0020 在 20 到 55 行之间，多数在 26 到 39 行。
 
 | 编号 | 标题 | 日期 | 改写了哪几份 | 被哪几份改写 |
 | --- | --- | --- | --- | --- |
@@ -28,16 +28,17 @@
 | [0007](0007-prompt-source-lives-in-repo.md) | 用户级提示词的源放在仓库里，host 目录只放软链或生成物 | 2026-09-05 | 无 | 无 |
 | [0008](0008-silence-is-never-a-pass.md) | 流水线里每一道闸口，拒绝要点名事实、给唯一出路，且不许靠什么都不做通过 | 2026-09-06 | 无 | 无 |
 | [0009](0009-night-orchestration-on-paseo.md) | 夜间编排从 Herdr 迁到 Paseo：脚本只做工具，判断归 main agent | 2026-09-06 | 无 | 0010、0018、0019 |
-| [0010](0010-agents-are-woken-not-polled.md) | agent 之间靠事件互相叫醒，谁都不许轮询另一个 agent | 2026-09-06 | 0009 | 0013、0017 |
+| [0010](0010-agents-are-woken-not-polled.md) | agent 之间靠事件互相叫醒，谁都不许轮询另一个 agent | 2026-09-06 | 0009 | 0013、0017、0020 |
 | [0011](0011-component-story-not-whole-product.md) | 界面等价在组件级离线判定，整机只跑少量旅程 | 2026-09-08 | 无 | 无 |
 | [0012](0012-review-finding-routing.md) | 一条 review finding 什么时候值一张票：四步判据，默认是 main agent 自己改 | 2026-09-08 | 0008、0009 | 无 |
-| [0013](0013-a-report-and-its-message-are-one-call.md) | reviewer 与 worker 一样，报告落地和报信是同一次脚本调用 | 2026-09-08 | 0010 | 无 |
+| [0013](0013-a-report-and-its-message-are-one-call.md) | reviewer 与 worker 一样，报告落地和报信是同一次脚本调用 | 2026-09-08 | 0010 | 0020（整份作废） |
 | [0014](0014-advisor-has-one-door.md) | advisor 只有一扇门：正文是技能，两侧共用 | 2026-09-08 | 无 | 0015 |
 | [0015](0015-no-custom-subagents.md) | 工具箱不再交付 subagent：用 host 自带的通用 subagent | 2026-09-09 | 0003、0006、0014 | 0016 |
 | [0016](0016-live-session-table.md) | 会话怎么起写在本机活表里 | 2026-09-09 | 0015 | 0018 |
-| [0017](0017-the-night-has-no-clock.md) | 这一夜没有任何时钟 | 2026-09-10 | 0010 | 无 |
-| [0018](0018-runner-behind-one-boundary.md) | runner 收进一条边界：协议只调三个动词，一个 runner 一个适配器，今晚用哪个是本机一行配置 | 2026-09-10 | 0009、0016 | 0019 |
+| [0017](0017-the-night-has-no-clock.md) | 这一夜没有任何时钟 | 2026-09-10 | 0010 | 0020 |
+| [0018](0018-runner-behind-one-boundary.md) | runner 收进一条边界：协议只调三个动词，一个 runner 一个适配器，今晚用哪个是本机一行配置 | 2026-09-10 | 0009、0016 | 0019、0020 |
 | [0019](0019-ticket-state-is-a-fold-of-events.md) | 票的状态是它的事件折叠出来的：评论首行不再是协议，谁在跑这张票写在票上 | 2026-09-10 | 0009、0018 | 无 |
+| [0020](0020-wakes-come-from-the-board.md) | 唤醒从 board 上发出：中继读票上的结果事件，经 runner 的送消息动词送到等它的那个会话，任何脚本都不再报信 | 2026-09-10 | 0010、0013、0017、0018 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`，两份 ADR 里的 A3（设计系统 token 越界）与 B1（设计系统规则违反）由 `mmw-v2/skills/drive-target/scripts/story-parity.py` 部分承接。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 

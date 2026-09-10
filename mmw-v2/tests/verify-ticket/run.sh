@@ -24,16 +24,10 @@ MMW_HOME="$(mktemp -d)"
 export MMW_HOME
 trap 'rm -rf "$MMW_HOME"' EXIT
 
-# No parent to tell. `verify-ticket.py` sends the session that started it a message the
-# moment a ticket comes to rest, addressed through `PASEO_AGENT_ID`; the tests run the
-# real function against made-up tickets, so under a Paseo session every refusal they
-# exercise would reach a live agent as news about a ticket number that is fixture data.
-unset PASEO_AGENT_ID
-
-# Same reason, the other variable this suite's subject reads: `verify-ticket.py` takes the
-# ticket it is about from `MMW_TICKET` when no number is on the command line, and a worker
-# session sets it. Under one, a test that means to exercise a made-up ticket would act on
-# the real one that session is working. Measured 2026-09-10 on #320.
+# `verify-ticket.py` takes the ticket it is about from `MMW_TICKET` when no number is on
+# the command line, and a worker session sets it. Under one, a test that means to
+# exercise a made-up ticket would act on the real one that session is working. Measured
+# 2026-09-10 on #320.
 unset MMW_TICKET
 
 rc=0

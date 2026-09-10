@@ -1,6 +1,6 @@
 ---
 name: dispatch
-description: Put another agent to work on a ticket, and move a night's batch of tickets forward. Use to start a worker, reviewer or verifier, to retract a start whose session is gone, to resume a worker, to check the machine before a night, to advance a spec, to suspend a night, to read status after being woken by an agent you started, to reverify closed tickets, to post the night summary, or to change which host, model or thinking level an agent in this pipeline runs on.
+description: Put another agent to work on a ticket, and move a night's batch of tickets forward. Use to start a worker, reviewer or verifier, to retract a start whose session is gone, to resume a worker, to check the machine before a night, to open a night or one ticket, to advance a spec, to suspend a night, to read what woke you about an agent you started and acknowledge that wake, to reverify closed tickets, to post the night summary, or to change which host, model or thinking level an agent in this pipeline runs on.
 ---
 
 # Dispatch
@@ -29,9 +29,16 @@ A start the runner refuses is refused once, exit 2, with the runner's reason on 
 
 ## What tells you it is done
 
-The session you started is working the moment `start` returns. Its result lands on the ticket as an event: `ticket.passed` or `ticket.returned` from a worker, `reviewer.reported` from a reviewer, `verifier.passed` or `verifier.failed` from a verifier. `<dispatch> wait <n> <kind>` reads that event: exit 0 prints its name and key fields (`verifier.failed commit=<commit> failed=AC2 ran=true`), and that name is what you act on; exit 3 means still working — run it again — and exit 1 means the session is gone with no result. Keep running `wait` until it answers 0 or 1; do not end your turn in between, because nothing on an Orca or Herdr session will wake you.
+The session you started is working the moment `start` returns, and you end your turn: you are woken, you never wait or ask. Its result lands on the ticket as an event — `ticket.passed` or `ticket.returned` from a worker, `reviewer.reported` from a reviewer, `verifier.passed` or `verifier.failed` from a verifier — and the **relay**, a process that watches the board from the moment the main agent opens the night (or the one ticket), sends the session waiting on that event a **wake**: a message `#<n> <event>`, the ticket number and the event's name and nothing else. A worker is woken for its reviewer's `reviewer.reported` and its verifier's `verifier.passed` or `verifier.failed`. The main agent is woken for `ticket.passed`, `ticket.returned`, `ticket.refused`, a `child.opened` of kind `pipeline` or `decision`, `worker.lost`, and `relay.recovered since <time>` — the relay was down or could not read the board from that time on, has read every ticket again, and the wakes for what it found follow this one.
 
-One more thing can arrive while you wait, and only when both sessions are on Paseo: a **ticket message**, a plain message `#<n> <event>` — `#<n> ticket.passed`, `#<n> ticket.returned`, `#<n> ticket.refused`, `#<n> child.opened kind=pipeline` or `#<n> reviewer.reported` — which `verify-ticket.py` sends through Paseo to the session that started the agent, in the same call that posts that event. It interrupts: a command running when it arrives is cut short, so run that command again. It says which ticket and which event; `status` says the rest.
+On waking:
+
+1. A wake can cut short a command you were running. Run that command again first.
+2. Read what the wake names on the ticket: the event is the answer, and the wake carries nothing the board does not. `<dispatch> wait <n> <kind>` prints a result event by name and key fields (`verifier.failed commit=<commit> failed=AC2 ran=true`) in one line; it returns at once when the result is there. It is a read, not the way you learn a result.
+3. Act on it, as your door says.
+4. `<dispatch> ack <n> <event>` with the ticket and the event the wake named (`<dispatch> ack relay.recovered` for that one). Until you ack it, the relay sends the same wake again each time it restarts; acking a wake twice is harmless.
+
+The relay runs between `open` and `summary` or `suspend` for a night, and between `open-ticket` and `land` for one ticket. `start` and `advance` refuse a ticket no running relay watches (exit 2): its result would land and wake nobody.
 
 ## The arguments you supply
 
