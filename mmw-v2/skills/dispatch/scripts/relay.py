@@ -25,9 +25,11 @@ nothing else (docs/adr/0001-tracker-repo-authority.md).
 
 **Who is woken.** The session waiting on the event, which `WAKES` names by role:
 
-    worker   reviewer.reported, verifier.passed, verifier.failed: the session that started
-             that reviewer or verifier. Its runner and session are the `runner` and
-             `session` fields of the ticket's latest `worker.started` before the event.
+    worker   reviewer.reported, verifier.passed, verifier.failed, and reviewer.lost or
+             verifier.lost (that reviewer or verifier died with no result): the session
+             that started that reviewer or verifier. Its runner and session are the
+             `runner` and `session` fields of the ticket's latest `worker.started` before
+             the event.
     main     ticket.passed, ticket.returned, ticket.refused, child.opened of kind fault
              (the pipeline itself broken) or decision, worker.lost, and the relay's own
              relay.recovered: the main agent, as `register` names it.
@@ -195,6 +197,8 @@ WAKES: dict[str, dict] = {
     "reviewer.reported": {"to": WORKER},
     "verifier.passed": {"to": WORKER},
     "verifier.failed": {"to": WORKER},
+    "reviewer.lost": {"to": WORKER},
+    "verifier.lost": {"to": WORKER},
     "ticket.passed": {"to": MAIN},
     "ticket.returned": {"to": MAIN},
     "ticket.refused": {"to": MAIN},

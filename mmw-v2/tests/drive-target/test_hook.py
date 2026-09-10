@@ -439,9 +439,19 @@ class TestTheQuestionGate(unittest.TestCase):
         self.assertEqual(out.getvalue().strip(), "")
 
     def test_claude_question_is_silent_inside_cursor(self):
-        with fake_paseo_env(agent_id=AGENT_ID, listed_ids=(AGENT_ID,)) as env:
-            env["CURSOR_AGENT"] = "1"
+        asks = dict(self.ASKS, claude=dict(self.ASKS["claude"], cursor_version="2026.09.08"))
+        with fake_paseo_env(agent_id=AGENT_ID, listed_ids=(AGENT_ID,)) as env, \
+             mock.patch.object(self, "ASKS", asks):
             self.assertEqual(self.ask("claude", env), (0, None))
+
+    def test_claude_question_still_refuses_in_a_claude_started_from_a_cursor_pane(self):
+        # Cursor's environment reaches every child; only its payload says Cursor sent it.
+        with fake_paseo_env(agent_id=AGENT_ID, listed_ids=(AGENT_ID,)) as env:
+            env.update(CURSOR_AGENT="1", CURSOR_VERSION="2026.09.08",
+                       CURSOR_INVOKED_AS="cursor-agent")
+            code, answer = self.ask("claude", env)
+        self.assertEqual(code, 0)
+        self.assertIsNotNone(answer)
 
     def test_the_reason_says_where_the_question_goes(self):
         with fake_paseo_env(agent_id=AGENT_ID, listed_ids=(AGENT_ID,)) as env:
@@ -460,20 +470,17 @@ class TestClaudeCopyNoOpsInsideCursor(unittest.TestCase):
 
     The Claude-registered copy would refuse in Claude's JSON; Cursor may not
     honour that, and the gate would run twice. The Cursor-registered
-    invocation stays.
+    invocation stays. Which host sent the event is read off its payload, never
+    off the environment, which Cursor hands to every child process.
     """
 
-    def test_claude_pretool_is_silent_when_cursor_agent_is_set(self):
-        self.assertEqual(
-            call("claude", EVENTS["claude"], env={"CURSOR_AGENT": "1"}),
-            (0, None),
-        )
-
-    def test_claude_pretool_is_silent_when_cursor_version_is_set(self):
-        self.assertEqual(
-            call("claude", EVENTS["claude"], env={"CURSOR_VERSION": "2026.09.08"}),
-            (0, None),
-        )
+    def test_claude_pretool_still_refuses_in_a_claude_started_from_a_cursor_pane(self):
+        # A Claude session started by hand from a Cursor pane inherits CURSOR_AGENT and
+        # CURSOR_VERSION; its own events carry no cursor_version, and its gate stays on.
+        code, answer = call("claude", EVENTS["claude"],
+                            env={"CURSOR_AGENT": "1", "CURSOR_VERSION": "2026.09.08"})
+        self.assertEqual(code, 0)
+        self.assertIsNotNone(answer)
 
     def test_claude_pretool_is_silent_when_the_event_names_cursor(self):
         event = dict(EVENTS["claude"])

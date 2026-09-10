@@ -43,8 +43,11 @@ Whether this session is governed is read off the process:
 Cursor CLI imports Claude Code hooks and has no off switch, so this file is
 invoked twice: `pretool cursor` from `~/.cursor/hooks.json`, and `pretool
 claude` from `~/.claude/settings.json`. The Claude-registered copy exits
-immediately when the process is Cursor. Claude Code does not set those
-markers, and is unchanged.
+immediately when the payload Cursor sent carries Cursor's own `cursor_version`.
+It never asks the environment: Cursor exports `CURSOR_AGENT`, `CURSOR_VERSION`
+and friends into every child process, so a Claude session started by hand from
+a Cursor pane inherits them, and an environment test would switch off that
+Claude session's own gate. Claude Code never sends `cursor_version`.
 """
 
 from __future__ import annotations
@@ -94,15 +97,10 @@ def imported_into_cursor(host: str, event: dict) -> bool:
     """True when Cursor is running the Claude-registered copy of this file.
 
     That copy would refuse in Claude's JSON, which Cursor may not honour, and
-    the gate would run twice. The Cursor-registered invocation stays.
+    the gate would run twice. The Cursor-registered invocation stays. Read off
+    the payload this event came with, never off the environment (see the header).
     """
-    if host != "claude":
-        return False
-    if os.environ.get("CURSOR_AGENT", "").strip() == "1":
-        return True
-    if "CURSOR_VERSION" in os.environ:
-        return True
-    return "cursor_version" in event
+    return host == "claude" and isinstance(event.get("cursor_version"), str)
 
 
 def read_event() -> dict:

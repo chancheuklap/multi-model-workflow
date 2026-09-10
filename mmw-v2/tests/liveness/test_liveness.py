@@ -334,13 +334,14 @@ class Judge(unittest.TestCase):
         self.assertEqual(dog.judge(f, T0 + timedelta(seconds=599), 600)["state"], "recent")
         verdict = dog.judge(f, T0 + timedelta(seconds=600), 600)
         self.assertEqual(verdict["state"], "silent")
-        self.assertEqual(verdict["pairs"], [("orca", "t1")])
+        self.assertEqual(verdict["sessions"], [("worker", "orca", "t1")])
 
     def test_only_the_live_workers_pair_is_named(self):
         f = self.fold(comment(1, "worker.started", 61, T0, runner="herdr", session="h1"),
                       comment(2, "worker.replaced", 61, T0, runner="herdr", session="h1"),
                       comment(3, "worker.started", 61, T0, runner="orca", session="t2"))
-        self.assertEqual(dog.judge(f, T0 + timedelta(hours=1), 600)["pairs"], [("orca", "t2")])
+        self.assertEqual(dog.judge(f, T0 + timedelta(hours=1), 600)["sessions"],
+                         [("worker", "orca", "t2")])
 
     def test_an_unreadable_event_is_its_own_answer(self):
         f = events.fold(["prose", "x\n\n<!-- mmw {not json} -->"], issue=61)
@@ -386,11 +387,12 @@ class Rounds(StateCase):
         self.ask.answers[("herdr", "h1")] = "stopped"
         self.assertEqual(self.watchdog().round(), "watching")
         self.assertEqual(len(self.post.calls), 1)
-        repo, ticket, spec, runner, session, since = self.post.calls[0]
-        self.assertEqual((repo, ticket, spec, runner, session), ("o/r", 61, 7, "herdr", "h1"))
+        repo, kind, ticket, spec, runner, session, since = self.post.calls[0]
+        self.assertEqual((repo, kind, ticket, spec, runner, session),
+                         ("o/r", "worker", 61, 7, "herdr", "h1"))
         self.assertEqual(since, stamp(self.SILENT))
         self.assertEqual(self.send.calls, [], "worker.lost wakes the main agent through the relay")
-        self.assertEqual(self.heartbeat()["lost"]["61"]["session"], "h1")
+        self.assertEqual(self.heartbeat()["lost"]["61"][0]["session"], "h1")
 
     def test_unknown_is_recorded_and_reported_never_posted(self):
         self.silent_worker()
@@ -398,7 +400,8 @@ class Rounds(StateCase):
         self.watchdog().round()
         self.assertEqual(self.post.calls, [])
         beat = self.heartbeat()
-        self.assertEqual(beat["unknown"]["61"]["session"], "h1")
+        self.assertEqual(beat["unknown"]["61"]["sessions"],
+                         [{"kind": "worker", "runner": "herdr", "session": "h1"}])
         self.assertEqual(beat["held"], [61])
         self.assertEqual(len(self.send.calls), 1)
         runner, session, text = self.send.calls[0]
@@ -428,6 +431,53 @@ class Rounds(StateCase):
         beat = self.heartbeat()
         self.assertEqual((beat["held"], beat["waiting"]), ([61], [61]))
 
+    def children(self, *extra):
+        """A live worker, then a reviewer and a verifier it started, then `extra`."""
+        self.board.tickets[61] = [
+            comment(1, "worker.started", 61, self.SILENT, runner="herdr", session="h1"),
+            comment(2, "reviewer.started", 61, self.SILENT, runner="orca", session="rv"),
+            comment(3, "verifier.started", 61, self.SILENT, runner="paseo", session="vf"),
+            *extra]
+
+    def test_every_live_session_is_asked_through_its_own_runner(self):
+        self.children()
+        self.watchdog().round()
+        self.assertEqual(sorted(self.ask.calls), [("herdr", "h1"), ("orca", "rv"), ("paseo", "vf")])
+
+    def test_a_stopped_reviewer_or_verifier_with_no_result_is_lost(self):
+        self.children()
+        self.ask.answers.update({("orca", "rv"): "stopped", ("paseo", "vf"): "stopped"})
+        self.watchdog().round()
+        posted = sorted((c[1], c[4], c[5]) for c in self.post.calls)
+        self.assertEqual(posted, [("reviewer", "orca", "rv"), ("verifier", "paseo", "vf")])
+        self.assertEqual(self.send.calls, [], "those two wake the worker through the relay")
+
+    def test_a_reviewer_whose_report_is_in_is_not_asked(self):
+        self.children(comment(4, "reviewer.reported", 61, self.SILENT))
+        self.ask.default = "stopped"
+        self.watchdog().round()
+        self.assertEqual(sorted(self.ask.calls), [("herdr", "h1"), ("paseo", "vf")])
+        self.assertNotIn("reviewer", [c[1] for c in self.post.calls])
+
+    def test_a_report_before_this_reviewer_started_does_not_count_for_it(self):
+        self.board.tickets[61] = [
+            comment(1, "worker.started", 61, self.SILENT, runner="herdr", session="h1"),
+            comment(2, "reviewer.started", 61, self.SILENT, runner="orca", session="rv1"),
+            comment(3, "reviewer.reported", 61, self.SILENT),
+            comment(4, "reviewer.started", 61, self.SILENT, runner="orca", session="rv2")]
+        self.watchdog().round()
+        self.assertIn(("orca", "rv2"), self.ask.calls)
+        self.assertNotIn(("orca", "rv1"), self.ask.calls)
+
+    def test_an_unknown_reviewer_is_recorded_never_lost(self):
+        self.children()
+        self.ask.answers[("orca", "rv")] = "unknown"
+        self.watchdog().round()
+        self.assertEqual(self.post.calls, [])
+        self.assertEqual(self.heartbeat()["unknown"]["61"]["sessions"],
+                         [{"kind": "reviewer", "runner": "orca", "session": "rv"}])
+        self.assertIn("the reviewer session rv", self.send.calls[0][2])
+
     def test_a_recent_ticket_is_not_asked(self):
         self.board.tickets[61] = [comment(1, "worker.started", 61, T0 - timedelta(minutes=2),
                                           runner="herdr", session="h1")]
@@ -438,7 +488,7 @@ class Rounds(StateCase):
         self.board.tickets[61] = [comment(1, "ticket.claimed", 61, self.SILENT)]
         self.watchdog().round()
         self.assertEqual(self.ask.calls, [])
-        self.assertIn("#61 is held with no worker session to ask", self.send.calls[0][2])
+        self.assertIn("#61 is held with no session to ask", self.send.calls[0][2])
 
     def test_a_finding_is_reported_once_across_rounds_and_restarts(self):
         self.silent_worker()
@@ -513,14 +563,28 @@ class Rounds(StateCase):
 
 class LostEvent(unittest.TestCase):
     def test_the_body_is_a_worker_lost_event_naming_the_pair(self):
-        what, payload = events.parse(dog.lost_body(61, 7, "herdr", "h1", stamp(T0)))
+        what, payload = events.parse(dog.lost_body("worker", 61, 7, "herdr", "h1", stamp(T0)))
         self.assertEqual(what, "event")
         self.assertEqual((payload["event"], payload["actor"], payload["runner"],
                           payload["session"], payload["ticket"], payload["spec"]),
                          ("worker.lost", "judge", "herdr", "h1", 61, 7))
         fold = events.fold([comment(1, "worker.started", 61, T0, runner="herdr", session="h1"),
-                            {"id": 2, "body": dog.lost_body(61, 7, "herdr", "h1", None)}], issue=61)
+                            {"id": 2, "body": dog.lost_body("worker", 61, 7, "herdr", "h1", None)}],
+                           issue=61)
         self.assertFalse(fold["held"], "worker.lost ends the hold of the pair it names")
+
+    def test_reviewer_and_verifier_lost_end_only_their_own_hold(self):
+        for kind in ("reviewer", "verifier"):
+            with self.subTest(kind=kind):
+                what, payload = events.parse(dog.lost_body(kind, 61, 7, "orca", "s2", None))
+                self.assertEqual((what, payload["event"], payload["actor"]),
+                                 ("event", f"{kind}.lost", "judge"))
+                fold = events.fold([
+                    comment(1, "worker.started", 61, T0, runner="herdr", session="h1"),
+                    comment(2, f"{kind}.started", 61, T0, runner="orca", session="s2"),
+                    {"id": 3, "body": dog.lost_body(kind, 61, 7, "orca", "s2", None)}], issue=61)
+                self.assertEqual([(r["kind"], r["session"]) for r in fold["holders"]],
+                                 [("worker", "h1")])
 
 
 if __name__ == "__main__":

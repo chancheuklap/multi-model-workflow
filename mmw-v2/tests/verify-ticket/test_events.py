@@ -38,11 +38,13 @@ def started(session="term_7", runner="orca", kind="worker"):
 
 
 class TheVocabulary(unittest.TestCase):
-    """26 events — the spec's 25 and `worker.queued` — one shape, a closed set of subjects."""
+    """28 events — the spec's 25, `worker.queued`, `reviewer.lost` and `verifier.lost` —
+    one shape, a closed set of subjects."""
 
-    def test_there_are_twenty_six_events(self):
-        self.assertEqual(len(events.EVENTS), 26)
-        for name in ("ticket.checked", "worker.touched", "worker.queued"):
+    def test_there_are_twenty_eight_events(self):
+        self.assertEqual(len(events.EVENTS), 28)
+        for name in ("ticket.checked", "worker.touched", "worker.queued", "reviewer.lost",
+                     "verifier.lost"):
             with self.subTest(name=name):
                 self.assertIn(name, events.EVENTS)
 

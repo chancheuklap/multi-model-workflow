@@ -38,22 +38,25 @@ night is closed this process writes a last heartbeat saying so and exits.
    `waiting`: a `worker.queued` its run still waits under, because no product slot was
    free — is skipped: queueing is not dying. A held ticket whose newest event is less than
    `--silence` seconds old (default 600) is skipped.
-3. Every other held ticket is silent. For each live worker session its fold names — the
-   (runner, session) pair of its `worker.started` — this asks that runner's adapter, and no
+3. Every other held ticket is silent. For each session that still holds it — the
+   (runner, session) pair of every `worker.started`, `reviewer.started` or
+   `verifier.started` no later event has ended, less a reviewer or verifier whose result
+   is already on the ticket after its start — this asks that session's own runner, and no
    other runner, `runners/<runner>.sh liveness <session>`:
 
        alive     nothing
-       stopped   `worker.lost` is posted on the ticket, naming that pair. It is the one
-                 event not written by the agent it is about, and this process is its one
-                 writer. It ends that session's hold, and the relay wakes the main agent
-                 with `#<n> worker.lost`.
+       stopped   `<kind>.lost` is posted on the ticket, naming that pair: `worker.lost`,
+                 `reviewer.lost` or `verifier.lost`. They are the only events not written
+                 by the agent they are about, and this process is their one writer. Each
+                 ends that session's hold; the relay wakes the main agent on
+                 `worker.lost`, and the ticket's worker on the other two, so a worker
+                 asleep on a reviewer or verifier that died is woken to start another.
        unknown   recorded as unknown in the heartbeat, and a finding. Never rendered as
-                 alive, never a `worker.lost`: an answer the adapter could not give — or a
+                 alive, never a `*.lost`: an answer the adapter could not give — or a
                  missing adapter, a non-zero exit, a timeout — is not a death.
 
-   A silent ticket held by no live worker session (a claim no start names, or a reviewer
-   or verifier left holding it) has nobody to ask, and is a finding too. So is a ticket
-   whose events cannot be read.
+   A silent ticket held by no session to ask (a claim no start names, or only sessions
+   whose results are in) is a finding too. So is a ticket whose events cannot be read.
 
 **Findings wake the main agent directly**, through the `send` of the runner the relay has
 it registered under (`recipient.json`), one message on one line, each finding in it beginning `watchdog:`. Not
@@ -134,7 +137,6 @@ ADAPTER_TIMEOUT = 60
 POST_TIMEOUT = 60
 REPORTED_KEEP = 200
 
-LOST = "worker.lost"
 ANSWERS = ("alive", "stopped", "unknown")
 
 
@@ -210,9 +212,9 @@ def judge(fold: dict, now: datetime, silence: int) -> dict:
                                                        `waiting`, the `worker.queued` its
                                                        run still waits under
         {"state": "recent", "since": T}                newest event younger than `silence`
-        {"state": "silent", "since": T, "pairs": [...], "comment": C}
-                                                       held and silent; `pairs` is every
-                                                       live worker's (runner, session)
+        {"state": "silent", "since": T, "sessions": [...], "comment": C}
+                                                       held and silent; `sessions` is every
+                                                       (kind, runner, session) to ask
     """
     if fold.get("unreadable"):
         return {"state": "unreadable",
@@ -228,9 +230,37 @@ def judge(fold: dict, now: datetime, silence: int) -> dict:
     at = parse_iso(since)
     if at is not None and (now - at).total_seconds() < silence:
         return {"state": "recent", "since": since}
-    pairs = [(r.get("runner"), r.get("session")) for r in fold.get("live_workers") or []
-             if r.get("runner") and r.get("session")]
-    return {"state": "silent", "since": since, "pairs": pairs, "comment": last.get("comment")}
+    return {"state": "silent", "since": since, "sessions": to_ask(fold),
+            "comment": last.get("comment")}
+
+
+def to_ask(fold: dict) -> list[tuple[str, str, str]]:
+    """(kind, runner, session) of every session still holding the ticket that can still
+    owe it something: every live worker, and every live reviewer or verifier with no
+    result of its kind after its own start. One whose result is in has done its work, and
+    its process ending is not a loss."""
+    done: list = []
+    for event in fold.get("events") or []:
+        for kind, names in events.RESULTS.items():
+            if kind != "worker" and event.get("event") in names:
+                done.append((kind, event.get("comment")))
+    out = []
+    for record in fold.get("holders") or []:
+        kind, runner, session = record.get("kind"), record.get("runner"), record.get("session")
+        if not (kind and runner and session):
+            continue
+        began = record.get("comment")
+        if kind != "worker" and any(k == kind and _after(c, began) for k, c in done):
+            continue
+        out.append((kind, runner, session))
+    return out
+
+
+def _after(comment, began) -> bool:
+    try:
+        return comment > began
+    except TypeError:
+        return False
 
 
 def night_open(state: Path) -> bool:
@@ -323,20 +353,20 @@ def send_to(runner: str, session: str, text: str) -> int:
     return run.returncode
 
 
-def lost_body(ticket: int, spec: int | None, runner: str, session: str,
+def lost_body(kind: str, ticket: int, spec: int | None, runner: str, session: str,
               since: str | None) -> str:
-    """The comment body of `worker.lost` for (runner, session) on `ticket`."""
+    """The comment body of `<kind>.lost` for (runner, session) on `ticket`."""
     return events.build(
-        LOST, ticket=ticket, spec=spec, runner=runner, session=session,
-        line=(f"Worker {runner} session {session} is gone: {runner} says it has stopped, and "
-              f"the ticket has had no event since {since or 'its start'}."),
+        f"{kind}.lost", ticket=ticket, spec=spec, runner=runner, session=session,
+        line=(f"The {kind}, {runner} session {session}, is gone: {runner} says it has "
+              f"stopped, and the ticket has had no event since {since or 'its start'}."),
     )
 
 
-def post_lost(repo: str, ticket: int, spec: int | None, runner: str, session: str,
+def post_lost(repo: str, kind: str, ticket: int, spec: int | None, runner: str, session: str,
               since: str | None) -> tuple[bool, str]:
-    """Post `worker.lost` for (runner, session) on `ticket`. (posted, what went wrong)."""
-    body = lost_body(ticket, spec, runner, session, since)
+    """Post `<kind>.lost` for (runner, session) on `ticket`. (posted, what went wrong)."""
+    body = lost_body(kind, ticket, spec, runner, session, since)
     with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as fh:
         fh.write(body)
         path = fh.name
@@ -504,36 +534,39 @@ class Watchdog:
                 findings: list[dict]) -> None:
         """The third layer, for one held and silent ticket."""
         since = verdict.get("since")
-        if not verdict["pairs"]:
-            unknown[str(number)] = {"why": "held by no live worker session", "since": since}
+        if not verdict["sessions"]:
+            unknown[str(number)] = {"why": "held by no session to ask", "since": since}
             findings.append({
                 "key": f"unheld:{number}:{verdict.get('comment')}",
-                "text": f"watchdog: #{number} is held with no worker session to ask, silent "
+                "text": f"watchdog: #{number} is held with no session to ask, silent "
                         f"since {since or 'an unknown time'}",
             })
             return
-        for runner, session in verdict["pairs"]:
+        for kind, runner, session in verdict["sessions"]:
             answer = self.ask(runner, session)
             if answer == "alive":
                 continue
             if answer == "stopped":
-                posted, why = self.post(self.repo, number, spec, runner, session, since)
+                posted, why = self.post(self.repo, kind, number, spec, runner, session, since)
                 if posted:
-                    self.beat["lost"][str(number)] = {"runner": runner, "session": session,
-                                                      "at": iso(self.clock())}
-                    self.err.write(f"watchdog: posted worker.lost on #{number} for {runner} "
+                    self.beat["lost"].setdefault(str(number), []).append(
+                        {"kind": kind, "runner": runner, "session": session,
+                         "at": iso(self.clock())})
+                    self.err.write(f"watchdog: posted {kind}.lost on #{number} for {runner} "
                                    f"session {session}\n")
                 else:
-                    self.err.write(f"watchdog: {runner} says session {session} of #{number} "
-                                   f"stopped, and worker.lost could not be posted: {why}; "
-                                   f"it is tried again next round\n")
+                    self.err.write(f"watchdog: {runner} says {kind} session {session} of "
+                                   f"#{number} stopped, and {kind}.lost could not be posted: "
+                                   f"{why}; it is tried again next round\n")
                 continue
-            unknown[str(number)] = {"runner": runner, "session": session, "since": since,
-                                    "why": "the runner could not say"}
+            entry = unknown.setdefault(str(number), {"sessions": [], "since": since,
+                                                     "why": "the runner could not say"})
+            entry["sessions"].append({"kind": kind, "runner": runner, "session": session})
             findings.append({
-                "key": f"unknown:{number}:{runner}:{session}:{verdict.get('comment')}",
+                "key": f"unknown:{number}:{kind}:{runner}:{session}:{verdict.get('comment')}",
                 "text": f"watchdog: #{number} liveness unknown: {runner} could not say whether "
-                        f"session {session} is alive; silent since {since or 'an unknown time'}",
+                        f"the {kind} session {session} is alive; silent since "
+                        f"{since or 'an unknown time'}",
             })
 
     def _report(self, findings: list[dict]) -> bool:

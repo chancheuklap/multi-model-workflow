@@ -140,8 +140,9 @@ EVENTS: dict[str, dict] = {
     # so the worker that owns them reads what another ticket did to them.
     "worker.touched":    {"stage": "work",     "actor": "worker",
                           "required": ("by", "files")},
-    # The one event not written by the agent it is about: a dead agent cannot write its
-    # own obituary. Which script writes it, and when, belongs to the liveness judge.
+    # The three `*.lost` events are the only ones not written by the agent they are about:
+    # a dead agent cannot write its own obituary. The liveness judge writes them, once the
+    # session's own runner says it has stopped (the dispatch skill's watchdog.py).
     "worker.lost":       {"stage": "work",     "actor": "judge",
                           "required": ("session", "runner")},
 
@@ -149,6 +150,9 @@ EVENTS: dict[str, dict] = {
                           "required": ("session", "runner"),
                           "patterns": {"worktree": r"/.*"}},
     "reviewer.reported": {"stage": "review",   "actor": "reviewer"},
+    # A reviewer whose session stopped with no `reviewer.reported` after its start.
+    "reviewer.lost":     {"stage": "review",   "actor": "judge",
+                          "required": ("session", "runner")},
 
     "verifier.started":  {"stage": "verify",   "actor": "worker",
                           "required": ("session", "runner"),
@@ -160,6 +164,9 @@ EVENTS: dict[str, dict] = {
                           "patterns": {"commit": r"[0-9a-f]{40}"}},
     "verifier.failed":   {"stage": "verify",   "actor": "verifier", "required": ("commit",),
                           "patterns": {"commit": r"[0-9a-f]{40}"}},
+    # A verifier whose session stopped with no verdict after its start.
+    "verifier.lost":     {"stage": "verify",   "actor": "judge",
+                          "required": ("session", "runner")},
 
     # One run of the criteria or of the repository's checks, on one commit: its result,
     # its counts, each criterion's outcome, and — for the worker's own run on its own
@@ -190,7 +197,8 @@ ENDS_EVERY_HOLD = ("ticket.landed", "ticket.returned", "ticket.released", "spec.
 # also ends a claim no started session has taken over, since it gives the claim back. A
 # refusal ends the hold of the session that refused to claim, which does nothing more on
 # the ticket; a refusal that names no session ends nothing.
-ENDS_ONE_HOLD = ("worker.retracted", "worker.lost", "worker.replaced", "ticket.refused")
+ENDS_ONE_HOLD = ("worker.retracted", "worker.lost", "worker.replaced", "ticket.refused",
+                 "reviewer.lost", "verifier.lost")
 # A worktree's product slot is held until its ticket's work ends, and given back at that
 # moment: it lands, it is handed back, its claim is released, the night is suspended, or
 # its start is retracted. A replaced or lost worker's worktree keeps its slot for the
@@ -560,9 +568,11 @@ def apply(state: dict, event: dict) -> None:
             _end(state, name, (payload.get("runner"), payload.get("session")))
         if name == "worker.retracted":
             state["claim_hold"] = False
-    # A run waits only while a worker is at work on the ticket: whatever ends a hold, or
-    # the worker's own result, ends the wait with it.
-    if name in ENDS_EVERY_HOLD or name in ENDS_ONE_HOLD or name in RESULTS["worker"]:
+    # A run waits only while a worker is at work on the ticket: whatever ends a worker's
+    # hold, or the worker's own result, ends the wait with it. A lost reviewer or verifier
+    # ends only its own hold; the worker's run is still waiting.
+    if name in ENDS_EVERY_HOLD or name in RESULTS["worker"] \
+            or (name in ENDS_ONE_HOLD and name not in ("reviewer.lost", "verifier.lost")):
         state["waiting"] = None
     if name in SLOT_ENDS:
         state["slot"] = None

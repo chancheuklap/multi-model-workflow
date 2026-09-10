@@ -90,9 +90,11 @@ every host upgrade.
                           --no-session-persistence. Stop fired, blocked (exit 2); the model
                           got the text and replied NOTED; the next Stop (stop_hook_active)
                           was let through. Two turns.
-    codex 0.153.4         codex exec --ephemeral --dangerously-bypass-hook-trust,
-                          CODEX_HOME=<throwaway>. "hook: Stop Blocked", reply NOTED, the next
-                          Stop let through ("hook: Stop Completed").
+    codex 0.153.4         codex exec --ephemeral, CODEX_HOME=<throwaway>, the hook trusted by
+                          the trusted_hash install.sh wrote into its config.toml (no
+                          --dangerously-bypass-hook-trust). "hook: Stop Blocked", reply
+                          NOTED, the next Stop let through ("hook: Stop Completed"). With
+                          that config.toml moved aside the hook did not run at all.
     grok 1.0.27           grok -p, HOME=<throwaway>. Its own Stop fired, blocked (exit 2),
                           reply NOTED in the same process, the next Stop (stopHookActive) let
                           through. Grok also ran the Claude-registered copy, three times, each

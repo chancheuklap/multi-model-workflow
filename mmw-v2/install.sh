@@ -744,14 +744,141 @@ for path in RETIRED_PI:
         path.unlink()
         print(f"摘掉  {path}")
 
+# ---- codex 的 hook 信任 ----
+#
+# 2026-08-29 实测：写进 hooks.json 还不够。Codex 开场先弹「N hooks need review」，按一次 t
+# 之前这条 hook 是 Installed 而 Active 为 0。按下去记的是 config.toml 里的一张表
+# [hooks.state."<hooks.json 路径>:<事件>:<组号>:<处理器号>"]，trusted_hash 一行。这个哈希由
+# codex-rs 的 hooks/src/engine/discovery.rs（hook_hash）与 config/src/fingerprint.rs
+# （version_for_toml）算：规范化之后的 {event_name, matcher, hooks: [这一条处理器]} 按键排序、
+# 紧凑 JSON 的 sha256。所以本段替本仓库写进 hooks.json 的那几条处理器照同一算法算出哈希，
+# 写进这张表，不用再按 t；别的处理器一条不碰。2026-09-10 拿本机 ~/.codex/hooks.json 的 16 条
+# 处理器核对过这个算法：14 条与 config.toml 已记的哈希一致，另 2 条是信任之后又改过的。
+# Codex 换了算法，这里写的哈希就对不上，Codex 照旧弹「need review」，--check 不会知道。
+CODEX_LABELS = {"PreToolUse": "pre_tool_use", "PermissionRequest": "permission_request",
+                "PostToolUse": "post_tool_use", "PreCompact": "pre_compact",
+                "PostCompact": "post_compact", "SessionStart": "session_start",
+                "SessionEnd": "session_end", "UserPromptSubmit": "user_prompt_submit",
+                "SubagentStart": "subagent_start", "SubagentStop": "subagent_stop",
+                "Stop": "stop", "Interrupt": "interrupt"}
+CODEX_CONTEXT_EVENTS = {"PreToolUse", "PostToolUse", "SessionStart", "UserPromptSubmit",
+                        "SubagentStart"}
+
+
+def codex_trust_hash(event, matcher, handler):
+    import hashlib
+
+    timeout = handler.get("timeout")
+    if event in ("SessionEnd", "Interrupt"):
+        timeout = max(1, min(timeout if timeout is not None else 1, 3))
+    else:
+        timeout = max(1, timeout if timeout is not None else 600)
+    normal = {"type": "command", "command": handler["command"], "timeout": timeout,
+              "async": bool(handler.get("async", False))}
+    if handler.get("statusMessage") is not None:
+        normal["statusMessage"] = handler["statusMessage"]
+    limit = handler.get("additionalContextLimit")
+    if event in CODEX_CONTEXT_EVENTS and limit is not None and limit != 2500:
+        normal["additionalContextLimit"] = limit
+    identity = {"event_name": CODEX_LABELS[event], "hooks": [normal]}
+    if matcher is not None:
+        identity["matcher"] = matcher
+    text = json.dumps(identity, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def codex_trust_wanted():
+    """{hooks.state 表名: 哈希}，本仓库写进 codex hooks.json 的每一条处理器一行。"""
+    path = codex_home / "hooks.json"
+    ours_there = keep.get(path, set())
+    wanted = {}
+    for event, groups in (load(path).get("hooks") or {}).items():
+        if event not in CODEX_LABELS or not isinstance(groups, list):
+            continue
+        for gi, group in enumerate(groups):
+            for hi, handler in enumerate((group or {}).get("hooks") or []):
+                if isinstance(handler, dict) and handler.get("command") in ours_there:
+                    name = f"{path}:{CODEX_LABELS[event]}:{gi}:{hi}"
+                    wanted[name] = codex_trust_hash(event, group.get("matcher"), handler)
+    return wanted
+
+
+def codex_trust_recorded():
+    import tomllib
+
+    try:
+        data = tomllib.loads((codex_home / "config.toml").read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {}
+    except Exception as exc:
+        sys.stderr.write(f"读不懂  {codex_home / 'config.toml'}：{exc}\n")
+        return None
+    state = (data.get("hooks") or {}).get("state") or {}
+    return {k: (v or {}).get("trusted_hash") for k, v in state.items() if isinstance(v, dict)}
+
+
+def toml_key(name):
+    return '"' + name.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def codex_trust_write(wanted):
+    """把 wanted 里对不上的每一条写进 config.toml：表已在就换它的 trusted_hash 行，不在就追加。"""
+    import re
+
+    path = codex_home / "config.toml"
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    recorded = codex_trust_recorded() or {}
+    changed = False
+    for name, digest in wanted.items():
+        if recorded.get(name) == digest:
+            continue
+        header = f"[hooks.state.{toml_key(name)}]"
+        line = f'trusted_hash = "{digest}"'
+        at = text.find(header + "\n")
+        if at >= 0:
+            start = at + len(header) + 1
+            nxt = re.search(r"^\[", text[start:], re.M)
+            end = start + nxt.start() if nxt else len(text)
+            body = re.sub(r"^trusted_hash\s*=.*$", line, text[start:end], flags=re.M)
+            if line not in body:
+                body = line + "\n" + body
+            text = text[:start] + body + text[end:]
+        else:
+            text = text.rstrip("\n") + ("\n\n" if text.strip() else "") + header + "\n" + line + "\n"
+        changed = True
+    if changed:
+        import tomllib
+
+        # 写坏的 config.toml 会让 codex 起不来：写之前先读一遍自己要写的东西。
+        try:
+            tomllib.loads(text)
+        except Exception as exc:
+            sys.stderr.write(f"没写  {path}：改完读不回来（{exc}），原文件没动\n")
+            return False
+        if path.is_file():
+            stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            shutil.copy2(path, path.with_name(path.name + ".bak-" + stamp))
+        scratch = path.with_name(path.name + ".mmw-tmp")
+        scratch.write_text(text, encoding="utf-8")
+        scratch.replace(path)
+    return changed
+
+
+if codex_home.is_dir():
+    wanted = codex_trust_wanted()
+    if mode != "check" and wanted and codex_trust_recorded() is not None:
+        codex_trust_write(wanted)
+    recorded = codex_trust_recorded()
+    for name, digest in wanted.items():
+        if recorded is not None and recorded.get(name) == digest:
+            print(f"信任  {codex_home / 'config.toml'}  {name}")
+        else:
+            sys.stderr.write(f"缺    {codex_home / 'config.toml'}  hooks.state {name} 的 trusted_hash"
+                             f"（codex 会弹「hooks need review」）\n")
+            failed = True
+
 if mode != "check":
     print(f"已装  {count} 条 hook")
-    if codex_home.is_dir():
-        # 2026-08-29 实测：写进 hooks.json 还不够。Codex 开场先弹「N hooks need review」，
-        # 按一次 t 之前这条 hook 是 Installed 而 Active 为 0。按下去记的是这条 hook 的哈希
-        # （config.toml 的 [hooks.state]），所以 hook.py 的路径一变要再按一次。
-        print("注意  codex 里这条 hook 要按一次 t 才生效：下次开 codex 会看到"
-              "「hooks need review」，按 t 信任")
 sys.exit(1 if failed else 0)
 PY
 fi
