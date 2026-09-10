@@ -190,7 +190,7 @@ A hand-written entry in `~/.paseo/config.json` under `daemon.agentProfiles`. It 
 _Home_: `mmw-v2/install.sh`
 
 **agent label**:
-A Paseo label on a Paseo agent, distinct from a tracker `label`. `start` hands every runner four — `mmw.ticket=<n>`, `mmw.kind=worker|reviewer|verifier`, `mmw.spec=<spec>` (only for a ticket with a parent spec), `mmw.autonomous=1` — and only the Paseo adapter keeps them; the other adapters take them and drop them. One reader is left: the question gate finds autonomous agents by `mmw.autonomous=1`. Which session belongs to a ticket is its started event, not a label. CLI `paseo ls --json` does not print labels in the body, so a filter is `--label` on the call.
+A Paseo label on a Paseo agent, distinct from a tracker `label`. `start` hands every runner three — `mmw.ticket=<n>`, `mmw.kind=worker|reviewer|verifier`, `mmw.spec=<spec>` (only for a ticket with a parent spec) — and only the Paseo adapter keeps them; the other adapters take them and drop them. Nothing in the pipeline reads them. Which session belongs to a ticket is its started event, not a label. CLI `paseo ls --json` does not print labels in the body, so a filter is `--label` on the call.
 _Avoid_: pane token, MMW_TICKET (session identity), MMW_AUTONOMOUS, launch arguments
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
@@ -656,7 +656,7 @@ The files this ticket's own commits changed that no `## Owns` glob covers, along
 _Home_: `mmw-v2/skills/verify-ticket/references/running-criteria.md`
 
 **question gate**:
-`hook.py question <host>`: the refusal of the host's question tool (`AskUserQuestion` on Claude Code, `ask_user_question` on Grok, `request_user_input` on Codex) in any Paseo agent labelled `mmw.autonomous=1`. The gate reads `PASEO_AGENT_ID` and asks `paseo ls -g --json --label mmw.autonomous=1`. Its reason names the two ways out — take the likeliest option and record it under `Decisions I made on my own`, or `ABANDON: AC<n> decision` with `--sub-issue decision` under the ticket — so no question from a gated session reaches a screen nobody watches. The gate covers Paseo agents only: on another runner, only the autonomous sentence of the session's dispatch line keeps a question off the screen.
+`hook.py question <host>`: the refusal of the host's question tool (`AskUserQuestion` on Claude Code, `ask_user_question` on Grok, `request_user_input` on Codex) in any session whose working directory's basename is `issue-<n>` — the ticket worktree every runner starts a worker, reviewer or verifier in, with nobody at its screen. It asks no runner. Its reason names the two ways out — take the likeliest option and record it under `Decisions I made on my own`, or `ABANDON: AC<n> decision` with `--sub-issue decision` under the ticket — so no question from a gated session reaches a screen nobody watches.
 _Avoid_: form, 提问表单, BLOCKED:, MMW_AUTONOMOUS
 _Home_: `mmw-v2/skills/drive-target/scripts/hook.py`
 
@@ -880,7 +880,7 @@ _Avoid_: 派发 (as a term), run (as a dispatch.sh verb)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`dispatch.sh`**:
-The dispatch skill's script: `check <spec>`, `open <spec>`, `open-ticket <n>`, `adopt <n>`, `self`, `advance <spec>`, `land <n>`, `start <n> worker|reviewer|verifier`, `retract <n>`, `wait <n> worker|reviewer|verifier`, `ack <n> <event>` / `ack relay.recovered`, `resume <n> "<text>"`, `status <spec>`, `reverify <spec>`, `route <ticket> <child> fixed|stale|became-ticket [<new ticket>]`, `summary <spec>`, `suspend <spec>`. It starts, messages, asks after and stops a session only through the adapter of the runner that runs it, and hands that adapter the agent labels `mmw.ticket`, `mmw.kind`, `mmw.spec`, `mmw.autonomous`, which only Paseo keeps; it records `branch.issue-<n>.mmw-base`; reads the worker-grade label and nothing else to pick the worker row. The skill's own text calls it `<dispatch>`.
+The dispatch skill's script: `check <spec>`, `open <spec>`, `open-ticket <n>`, `adopt <n>`, `self`, `advance <spec>`, `land <n>`, `start <n> worker|reviewer|verifier`, `retract <n>`, `wait <n> worker|reviewer|verifier`, `ack <n> <event>` / `ack relay.recovered`, `resume <n> "<text>"`, `status <spec>`, `reverify <spec>`, `route <ticket> <child> fixed|stale|became-ticket [<new ticket>]`, `summary <spec>`, `suspend <spec>`. It starts, messages, asks after and stops a session only through the adapter of the runner that runs it, and hands that adapter the agent labels `mmw.ticket`, `mmw.kind`, `mmw.spec`, which only Paseo keeps; it records `branch.issue-<n>.mmw-base`; reads the worker-grade label and nothing else to pick the worker row. The skill's own text calls it `<dispatch>`.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **dispatch line**:
@@ -1216,7 +1216,7 @@ _Avoid_: 钩子 (for this sense), turn.py
 _Home_: `mmw-v2/install.sh`
 
 **`hook.py`**:
-`scripts/hook.py` of the drive-target skill, the host-side enforcement of two rules, one per member of its `GATES`: **`pretool`** — when the host is about to run a shell command, it refuses `gh issue close` and label changes on the ticket named by the working directory's basename `issue-<n>`, checks nothing, and points at `--closeout`; **`question`** — when the host is about to call its question tool in a Paseo agent labelled `mmw.autonomous=1`, it refuses and names the two ways out. A cwd that is not `issue-<n>` is not a `pretool` gate; a host that runs its hooks from elsewhere (Cursor runs them from `~/.cursor`) is placed by `PASEO_AGENT_CWD` instead, which only a Paseo agent has. No `PASEO_AGENT_ID`, or an id not in `paseo ls --label mmw.autonomous=1`, is not a `question` gate. Its answer takes each host's shape (`permissionDecision: deny` on Claude Code and Codex, `decision: deny` on Grok, which clips the reason at 256 characters, `permission: deny` on Cursor); the verb in prose is **refuse**. It is symlinked, so editing it needs no reinstall.
+`scripts/hook.py` of the drive-target skill, the host-side enforcement of two rules, one per member of its `GATES`: **`pretool`** — when the host is about to run a shell command, it refuses `gh issue close` and label changes on the ticket named by the working directory's basename `issue-<n>`, checks nothing, and points at `--closeout`; **`question`** — when the host is about to call its question tool in a ticket worktree, it refuses and names the two ways out. A cwd that is not `issue-<n>` is not a gate of either kind; a host that runs its hooks from elsewhere (Cursor runs them from `~/.cursor`) is placed by `PASEO_AGENT_CWD` instead, which only a Paseo agent has. Its answer takes each host's shape (`permissionDecision: deny` on Claude Code and Codex, `decision: deny` on Grok, which clips the reason at 256 characters, `permission: deny` on Cursor); the verb in prose is **refuse**. It is symlinked, so editing it needs no reinstall.
 _Admitted_: hook.py pretool
 _Avoid_: the pretool gate, pretool 门, 关票 gate, 拦截 hook, MMW_TICKET, MMW_AUTONOMOUS
 _Home_: `mmw-v2/skills/drive-target/scripts/hook.py`
@@ -1286,7 +1286,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | turn-end event (turn guard) | Claude, Codex, Grok `Stop` (exit 2 holds the turn) · Cursor `stop` (`followup_message`) · Pi `agent_settled` (follow-up) |
 | relay wakes the main agent | `ticket.passed` · `ticket.returned` · `ticket.refused` · `child.opened` (kind `fault` or `decision`) · `worker.lost` · `relay.recovered` |
 | relay send answer | `0` delivered · `4` handed over, unconfirmed (treated as delivered) · `3` nothing sent · `2` no such session · other kept |
-| agent label | `mmw.ticket` · `mmw.kind` · `mmw.spec` · `mmw.autonomous` |
+| agent label | `mmw.ticket` · `mmw.kind` · `mmw.spec` |
 | `mmw.kind` | `worker` · `reviewer` · `verifier` |
 | finish notification | `finished` · `errored` · `was closed` · `needs permission` |
 | host | `claude` · `codex` · `grok` · `cursor` · `pi` |

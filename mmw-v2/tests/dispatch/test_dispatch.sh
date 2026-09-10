@@ -1955,7 +1955,6 @@ scenario_start_worker() {
   [ "$(out_json labels.mmw.ticket)" = 61 ] || fail "ticket label"
   [ "$(out_json labels.mmw.kind)" = worker ] || fail "kind label"
   [ "$(out_json labels.mmw.spec)" = 76 ] || fail "spec label"
-  [ "$(out_json labels.mmw.autonomous)" = 1 ] || fail "autonomous label"
   python3 -c '
 import json, sys
 from pathlib import Path

@@ -35,7 +35,6 @@ HOST_PREFIX = len("Hook denied: ")
 
 TICKET = 64
 CLOSE = f"gh issue close {TICKET} --reason completed"
-AGENT_ID = "11111111-2222-4333-8444-555555555555"
 
 # One event per host, in the shape that host actually sends. Cursor's is the payload
 # captured 2026-08-29 from cursor-agent 2026.08.25: the command at the top level, and
@@ -68,36 +67,6 @@ def named_cwd(basename: str):
             os.chdir(previous)
 
 
-@contextmanager
-def fake_paseo_env(*, agent_id: str | None = None, listed_ids: tuple[str, ...] = (),
-                   no_paseo: bool = False):
-    """PATH holds a `paseo` that only answers `ls`, or an empty directory.
-
-    The JSON list it prints is `MMW_FAKE_PASEO_JSON`: include the process's
-    `PASEO_AGENT_ID` or not, as the caller asks.
-    """
-    with tempfile.TemporaryDirectory() as root:
-        env: dict[str, str] = {}
-        if agent_id is not None:
-            env["PASEO_AGENT_ID"] = agent_id
-        if no_paseo:
-            env["PATH"] = root
-        else:
-            script = os.path.join(root, "paseo")
-            with open(script, "w", encoding="utf-8") as fh:
-                fh.write("#!/bin/bash\n")
-                fh.write('if [ "$*" != "ls -g --json --label mmw.autonomous=1" ]; then\n')
-                fh.write("  echo '[]'\n")
-                fh.write("  exit 2\n")
-                fh.write("fi\n")
-                fh.write('printf "%s\\n" "$MMW_FAKE_PASEO_JSON"\n')
-            os.chmod(script, 0o755)
-            env["PATH"] = root
-            env["MMW_FAKE_PASEO_JSON"] = json.dumps(
-                [{"id": i} for i in listed_ids], ensure_ascii=False)
-        yield env
-
-
 def call(host: str, event: dict, env: dict | None = None,
          *, cwd_basename: str | None = None) -> tuple[int, dict | None]:
     """Run the gate as its host would, and read back the answer it printed.
@@ -117,8 +86,6 @@ def call(host: str, event: dict, env: dict | None = None,
             merged.update(env)
         if not env or "PASEO_AGENT_CWD" not in env:
             merged["PASEO_AGENT_CWD"] = path
-        if not env or "PASEO_AGENT_ID" not in env:
-            merged.pop("PASEO_AGENT_ID", None)
         if not env or "CURSOR_AGENT" not in env:
             merged.pop("CURSOR_AGENT", None)
         if not env or "CURSOR_VERSION" not in env:
@@ -386,8 +353,7 @@ class TestTheWordingSaysWhatToDoNext(unittest.TestCase):
 # ------------------------------------------------------------------------ AC6
 
 class TestTheQuestionGate(unittest.TestCase):
-    """A session whose PASEO_AGENT_ID is labelled mmw.autonomous=1 may not put a
-    question on the screen."""
+    """A session in a ticket worktree may not put a question on the screen, on any runner."""
 
     ASKS = {
         "claude": {"hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion",
@@ -398,64 +364,59 @@ class TestTheQuestionGate(unittest.TestCase):
                  "toolInput": {"questions": []}},
     }
 
-    def ask(self, host: str, env: dict) -> tuple[int, dict | None]:
+    def ask(self, host: str, cwd_basename: str = f"issue-{TICKET}", env: dict | None = None,
+            event: dict | None = None) -> tuple[int, dict | None]:
         out = io.StringIO()
-        with mock.patch.dict(os.environ, env, clear=True), \
-             mock.patch.object(hk.sys, "stdin", io.StringIO(json.dumps(self.ASKS[host]))), \
-             redirect_stdout(out), redirect_stderr(io.StringIO()):
-            code = hk.main(["question", host])
+        with named_cwd(cwd_basename):
+            merged = {k: v for k, v in os.environ.items()
+                      if not k.startswith(("PASEO_", "CURSOR_"))}
+            merged.update(env or {})
+            with mock.patch.dict(os.environ, merged, clear=True), \
+                 mock.patch.object(hk.sys, "stdin",
+                                   io.StringIO(json.dumps(event or self.ASKS[host]))), \
+                 redirect_stdout(out), redirect_stderr(io.StringIO()):
+                code = hk.main(["question", host])
         printed = out.getvalue().strip()
         return code, json.loads(printed) if printed else None
 
-    def test_question_refuses_when_paseo_lists_this_agent(self):
-        with fake_paseo_env(agent_id=AGENT_ID, listed_ids=(AGENT_ID,)) as env:
-            for host in self.ASKS:
-                with self.subTest(host=host):
-                    code, answer = self.ask(host, env)
-                    self.assertEqual(code, 0)
-                    self.assertIsNotNone(answer)
+    def test_question_refuses_in_a_ticket_worktree_with_no_runner_variables(self):
+        # An Orca or Herdr session carries no PASEO_* variable; the worktree alone decides.
+        for host in self.ASKS:
+            with self.subTest(host=host):
+                code, answer = self.ask(host, env={"ORCA_TERMINAL_HANDLE": "term_1"})
+                self.assertEqual(code, 0)
+                self.assertIsNotNone(answer)
 
-    def test_question_passes_when_paseo_does_not_list_this_agent(self):
-        with fake_paseo_env(agent_id=AGENT_ID, listed_ids=("other-agent",)) as env:
-            for host in self.ASKS:
-                with self.subTest(host=host):
-                    self.assertEqual(self.ask(host, env), (0, None))
+    def test_question_passes_outside_a_ticket_worktree(self):
+        for host in self.ASKS:
+            with self.subTest(host=host):
+                self.assertEqual(self.ask(host, cwd_basename="multi-model-workflow"), (0, None))
 
-    def test_question_passes_without_paseo_or_without_an_agent_id(self):
-        with fake_paseo_env(agent_id=AGENT_ID, no_paseo=True) as env:
-            self.assertEqual(self.ask("grok", env), (0, None))
-        with fake_paseo_env(listed_ids=(AGENT_ID,)) as env:
-            self.assertEqual(self.ask("grok", env), (0, None))
+    def test_the_question_gate_asks_no_runner(self):
+        with mock.patch("subprocess.run") as run, mock.patch("subprocess.Popen") as popen:
+            _, answer = self.ask("grok")
+        self.assertIsNotNone(answer)
+        run.assert_not_called()
+        popen.assert_not_called()
 
     def test_another_tool_under_the_same_gate_goes_through(self):
         event = {"hook_event_name": "PreToolUse", "tool_name": "Bash",
                  "tool_input": {"command": "ls"}}
-        with fake_paseo_env(agent_id=AGENT_ID, listed_ids=(AGENT_ID,)) as env:
-            out = io.StringIO()
-            with mock.patch.dict(os.environ, env, clear=True), \
-                 mock.patch.object(hk.sys, "stdin", io.StringIO(json.dumps(event))), \
-                 redirect_stdout(out):
-                hk.main(["question", "claude"])
-        self.assertEqual(out.getvalue().strip(), "")
+        self.assertEqual(self.ask("claude", event=event), (0, None))
 
     def test_claude_question_is_silent_inside_cursor(self):
-        asks = dict(self.ASKS, claude=dict(self.ASKS["claude"], cursor_version="2026.09.08"))
-        with fake_paseo_env(agent_id=AGENT_ID, listed_ids=(AGENT_ID,)) as env, \
-             mock.patch.object(self, "ASKS", asks):
-            self.assertEqual(self.ask("claude", env), (0, None))
+        event = dict(self.ASKS["claude"], cursor_version="2026.09.08")
+        self.assertEqual(self.ask("claude", event=event), (0, None))
 
     def test_claude_question_still_refuses_in_a_claude_started_from_a_cursor_pane(self):
         # Cursor's environment reaches every child; only its payload says Cursor sent it.
-        with fake_paseo_env(agent_id=AGENT_ID, listed_ids=(AGENT_ID,)) as env:
-            env.update(CURSOR_AGENT="1", CURSOR_VERSION="2026.09.08",
-                       CURSOR_INVOKED_AS="cursor-agent")
-            code, answer = self.ask("claude", env)
+        code, answer = self.ask("claude", env={"CURSOR_AGENT": "1", "CURSOR_VERSION": "2026.09.08",
+                                               "CURSOR_INVOKED_AS": "cursor-agent"})
         self.assertEqual(code, 0)
         self.assertIsNotNone(answer)
 
     def test_the_reason_says_where_the_question_goes(self):
-        with fake_paseo_env(agent_id=AGENT_ID, listed_ids=(AGENT_ID,)) as env:
-            _, answer = self.ask("grok", env)
+        _, answer = self.ask("grok")
         reason = reason_of(answer)
         self.assertIn("Decisions I made on my own", reason)
         self.assertIn("ABANDON: AC<n> decision", reason)
@@ -522,8 +483,7 @@ class TestNothingBlocksOnBadInput(unittest.TestCase):
         self.assertEqual(self.quiet(["stop", "claude"]), (0, ""))
 
     def test_the_question_gate_reads_nothing_it_cannot(self):
-        with fake_paseo_env(agent_id=AGENT_ID, listed_ids=(AGENT_ID,)) as env, \
-             mock.patch.dict(os.environ, env, clear=True), \
+        with named_cwd(f"issue-{TICKET}"), \
              mock.patch.object(hk.sys, "stdin", io.StringIO("not json")), \
              redirect_stdout(io.StringIO()) as out:
             self.assertEqual(hk.main(["question", "grok"]), 0)

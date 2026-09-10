@@ -938,7 +938,7 @@ start_one() {
   created="$(printf '%s\n' "$ws_row" | cut -f3)"
 
   # Labels are for runners that keep them (Paseo); the others take and ignore them.
-  local -a labels=(--label "mmw.ticket=$number" --label "mmw.kind=$kind" --label mmw.autonomous=1)
+  local -a labels=(--label "mmw.ticket=$number" --label "mmw.kind=$kind")
   [ -z "$spec" ] || labels+=(--label "mmw.spec=$spec")
   local session
   if ! session="$(runner start --host "$host" --model "$model" --effort "$effort" \
