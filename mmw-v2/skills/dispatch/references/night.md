@@ -8,7 +8,7 @@ Between the steps below you end your turn. The relay you start in step 1 wakes y
 
 ## 1. The user says the night starts
 
-Run, in this checkout, on the branch the night merges into:
+Run on the branch the night merges into, in whichever checkout has it: the main checkout or a task worktree of your own. Ticket branches are cut from that branch; their worktrees always go under the main checkout's `.worktrees/`, and a name `issue-<n>` there belongs to the pipeline.
 
 ```bash
 <dispatch> check <spec>

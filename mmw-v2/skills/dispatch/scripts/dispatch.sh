@@ -411,17 +411,11 @@ adopt_ticket() {
 
   # The base is the commit the branch was cut from the base branch at: what `start`
   # records when it cuts the branch, found here from the checkout the night runs in.
-  local base base_branch main_tree
+  local base base_branch
   base="$(git -C "$tree" config --get "branch.issue-$number.mmw-base")"
   base_branch="$(git -C "$tree" config --get "branch.issue-$number.mmw-base-branch")"
-  if [ -z "$base_branch" ]; then
-    main_tree="$(git -C "$tree" worktree list --porcelain | sed -n '1s/^worktree //p')"
-    base_branch="$(git -C "$main_tree" rev-parse --abbrev-ref HEAD 2>/dev/null)"
-    case "$base_branch" in
-      "issue-$number" | HEAD | "")
-        refuse "no base branch for issue-$number: the main checkout is on ${base_branch:-nothing}. Record it with git config branch.issue-$number.mmw-base-branch <branch>, then adopt again" ;;
-    esac
-  fi
+  [ -n "$base_branch" ] \
+    || refuse "no base branch recorded for issue-$number, and which branch it merges into is not this script's guess. Record it with git config branch.issue-$number.mmw-base-branch <the branch the night merges into>, then adopt again"
   if [ -z "$base" ]; then
     base="$(git -C "$tree" merge-base HEAD "$base_branch" 2>/dev/null)"
     [ -n "$base" ] || refuse "issue-$number and $base_branch share no commit, so there is no base to review from"
@@ -578,16 +572,17 @@ else:
 # merge base of HEAD and that branch; `mmw-base-branch` likewise, with the branch HEAD
 # is on. A value already there is left alone: it was recorded when the branch was cut
 # and is the better answer.
+# `base_branch` is the branch the ticket's branch was cut from: the one the night merges
+# into. Recorded once, when the branch is cut; later starts leave it as it is.
 record_base_if_missing() {
-  local number="$1" root="$2" found
+  local number="$1" root="$2" base_branch="$3" found
+  [ -n "$base_branch" ] || return 0
   if [ -z "$(git -C "$root" config --get "branch.issue-$number.mmw-base")" ]; then
-    found="$(git -C "$root" merge-base HEAD "issue-$number" 2>/dev/null)"
-    [ -z "$found" ] && found="$(git -C "$root" rev-parse HEAD 2>/dev/null)"
+    found="$(git -C "$root" merge-base "$base_branch" "issue-$number" 2>/dev/null)"
     [ -n "$found" ] && git -C "$root" config "branch.issue-$number.mmw-base" "$found"
   fi
   if [ -z "$(git -C "$root" config --get "branch.issue-$number.mmw-base-branch")" ]; then
-    git -C "$root" config "branch.issue-$number.mmw-base-branch" \
-      "$(git -C "$root" rev-parse --abbrev-ref HEAD)"
+    git -C "$root" config "branch.issue-$number.mmw-base-branch" "$base_branch"
   fi
 }
 
@@ -598,9 +593,15 @@ record_base_if_missing() {
 # no runner name in the path, and the slug stays `issue-<n>` so hook.py's
 # TICKET_DIR still governs the session.
 
+# The repository's main checkout: where every ticket's worktree lives, whichever
+# checkout — and whichever branch — a command runs from.
+main_checkout() {
+  git worktree list --porcelain 2>/dev/null | sed -n '1s/^worktree //p'
+}
+
 worktrees_root() {
   local root
-  root="$(git rev-parse --show-toplevel 2>/dev/null)" || true
+  root="$(main_checkout)"
   [ -n "$root" ] || return 0
   printf '%s/.worktrees\n' "$root"
 }
@@ -766,12 +767,19 @@ release_lease() {
 # Prints dest<TAB>cwd<TAB>created. dest is the absolute worktree path, and cwd is the
 # same path: the directory the runner is told to start the session in.
 ensure_workspace() {
-  local number="$1" root="$2" dest
+  local number="$1" root="$2" dest base
   dest="$root/.worktrees/issue-$number"
+  # The branch the command runs on is the one the night merges into, so a new ticket
+  # branch is cut from it. A ticket branch is never a base: a worker starting its reviewer
+  # runs on issue-<n>, and that branch already exists.
+  base="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
+  case "$base" in HEAD | issue-[0-9]*) base="" ;; esac
   if [ -d "$dest" ]; then
-    if git -C "$root" rev-parse --verify --quiet "refs/heads/issue-$number" >/dev/null; then
-      record_base_if_missing "$number" "$root"
-    fi
+    local on
+    on="$(git -C "$dest" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+    [ "$on" = "issue-$number" ] \
+      || { echo "dispatch: $dest is on ${on:-no branch}, not issue-$number; it is not this ticket's worktree — move it or rename it, then start again" >&2; return 1; }
+    record_base_if_missing "$number" "$root" "$base"
     printf '%s\t%s\t0\n' "$dest" "$dest"
     return 0
   fi
@@ -780,14 +788,12 @@ ensure_workspace() {
     git -C "$root" worktree add --quiet "$dest" "issue-$number" \
       || { echo "dispatch: could not create a worktree for issue-$number" >&2; return 1; }
   else
-    local base
-    base="$(git -C "$root" rev-parse --abbrev-ref HEAD)"
-    [ -n "$base" ] && [ "$base" != HEAD ] \
-      || { echo "dispatch: not on a named branch, so a new issue-$number cannot be cut" >&2; return 1; }
-    git -C "$root" worktree add --quiet -b "issue-$number" "$dest" \
+    [ -n "$base" ] \
+      || { echo "dispatch: this checkout is on ${base:-a detached HEAD or a ticket branch}, so a new issue-$number has nothing to be cut from; run it from the branch the night merges into" >&2; return 1; }
+    git -C "$root" worktree add --quiet -b "issue-$number" "$dest" "$base" \
       || { echo "dispatch: could not create a worktree for issue-$number" >&2; return 1; }
   fi
-  record_base_if_missing "$number" "$root"
+  record_base_if_missing "$number" "$root" "$base"
   printf '%s\t%s\t1\n' "$dest" "$dest"
 }
 
@@ -895,7 +901,7 @@ start_one() {
   # reviewer and its verifier from its own worktree, and `.worktrees/` cut under that one
   # would be a second worktree of the branch it already has checked out.
   local root
-  root="$(git worktree list --porcelain 2>/dev/null | sed -n '1s/^worktree //p')"
+  root="$(main_checkout)"
   [ -n "$root" ] \
     || refuse "not inside a git repository, so there is no working directory to give the session"
 

@@ -206,7 +206,7 @@ _Avoid_: ticket message, closeout notification, 通知 (as a term)
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **worktree**:
-The per-ticket git worktree of a workspace, `<repository root>/.worktrees/issue-<n>`, on the branch `issue-<n>`, cut from HEAD at the moment `advance` (or `start`) creates the workspace — recorded in `branch.issue-<n>.mmw-base`. `dispatch.sh` cuts and removes it with git; no runner name is in the path, and a runner is only told the absolute path. The reviewer and the verifier run inside it. `advance` archives the workspace only after that ticket's branch is already in HEAD; archive uses `git worktree remove --force` and does not inspect uncommitted work.
+The per-ticket git worktree of a workspace, `<main checkout>/.worktrees/issue-<n>` — the repository's first worktree, whichever checkout the command runs from — on the branch `issue-<n>`, cut from the branch of the checkout `advance` (or `start`) runs in, the branch the night merges into; the commit it was cut at is recorded in `branch.issue-<n>.mmw-base` and that branch in `branch.issue-<n>.mmw-base-branch`. A directory `issue-<n>` on any other branch is refused, never taken over. `dispatch.sh` cuts and removes it with git; no runner name is in the path, and a runner is only told the absolute path. The reviewer and the verifier run inside it. `advance` archives the workspace only after that ticket's branch is already in HEAD; archive uses `git worktree remove --force` and does not inspect uncommitted work.
 _Avoid_: 工作区, checkout (when this is meant), ~/.mmw/worktrees
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
