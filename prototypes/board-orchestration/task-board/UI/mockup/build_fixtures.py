@@ -16,7 +16,7 @@ the closing steps of `implement`, and a ticket is handed back only for a `failed
 The data is an example, not the owner's tickets. Times are local wall-clock times of the
 night of 2026-09-10; the board read the tracker at 07:39 on 09-11.
 
-The settings page's data (#335: which host, model and effort each agent runs on, and the
+The settings page's data (#318 §12–17: which host, model and effort each agent runs on, and the
 runner, chosen on this machine) goes between the `SETTINGS:BEGIN` and `SETTINGS:END`
 markers of both files, and the mockup's settings logic between its `SETTINGS-LOGIC`
 markers is copied into `../work/data/fixtures.js` the way the board logic is. It is built with the dispatch skill's own `models.py`: the

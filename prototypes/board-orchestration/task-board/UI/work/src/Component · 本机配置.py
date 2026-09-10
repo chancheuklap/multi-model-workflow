@@ -1,4 +1,4 @@
-# The settings sheet (#335): which host, model and effort each agent runs on, and the runner,
+# The settings sheet (#318 §12–17): which host, model and effort each agent runs on, and the runner,
 # chosen on this machine from what its hosts answered — asked of Paseo when the runner is paseo,
 # of each host's own CLI otherwise, as `start` does. Opened from the gear in the top bar.
 # Build: DC_FX=FIXTURES DC_FRAME=1440x900 python3 mk.py "src/Component · 本机配置.py"
