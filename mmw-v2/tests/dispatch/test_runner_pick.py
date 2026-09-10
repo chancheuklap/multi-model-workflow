@@ -114,7 +114,7 @@ class WorktreeOwningTest(unittest.TestCase):
     def test_worktree_owning_among_runtime_signals_is_skipped(self):
         self.assertEqual(
             models.pick_runner(
-                runtime=("herdr", "lody", "tmux"), default="paseo"),
+                runtime=("herdr", "tmux", "lody"), default="paseo"),
             "tmux")
 
     def test_worktree_owning_ticket_is_used(self):

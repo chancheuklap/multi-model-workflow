@@ -210,12 +210,12 @@ def _spoken_runner(value: str | None) -> str | None:
 
 
 def runtime_from_environ(environ: Mapping[str, str]) -> tuple[str, ...]:
-    """Outer-to-inner runners visible in this process. Innermost wins at level 4.
+    """Runners visible in this process: TERM_PROGRAM, then HERDR_ENV, then TMUX.
 
     Environment variables cannot express nesting. TERM_PROGRAM is treated as
-    outermost (last to win): Herdr opened inside an Orca terminal is herdr, not
-    orca. Herdr versus tmux still cannot be told apart from the environment
-    alone.
+    the outer signal: Herdr opened inside an Orca terminal is herdr, not orca.
+    When HERDR_ENV and TMUX are both set, this returns tmux last; that does not
+    say which is nested in which.
     """
     found: list[str] = []
     if (environ.get("TERM_PROGRAM") or "").strip().lower() == "orca":

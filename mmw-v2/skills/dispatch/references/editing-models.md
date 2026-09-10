@@ -8,9 +8,9 @@ The table is `~/.mmw/models.md`. It is this machine's fact. Edit it; do not edit
 
 Four columns: `agent | host | model | effort`. The `model` and `effort` cells are copied from the tables under `<!-- mmw-offerings -->` in that same file — those tables are the legal pairs for tonight. Allowed `agent` values: `junior-worker`, `senior-worker`, `reviewer`, `verifier`, `advisor`. The first row for an agent is the host `start` uses; a later row on a different host is the fallback. Two rows for one agent cannot share a host.
 
-A two-cell `runner` row may sit above those: `| runner | <name> |`. Names: `herdr`, `orca`, `paseo`, `tmux`, `lody`. Do not write those into `host`. `pick_runner` already selects from that row and from `MMW_RUNNER`. Until #325 lands, `start` does not read either; tonight's runner is still which checkout is installed. A fresh table has no runner row, so runtime detection can speak; the fallback is `paseo`. `lody` is only used when written in the row, in `MMW_RUNNER`, or on the ticket.
+A two-cell `runner` row may sit above those: `| runner | <name> |`. Names: `herdr`, `orca`, `paseo`, `tmux`, `lody`. Do not write those into `host`. `parse_live_runner` can read that row; `pick_runner` ranks it with the other levels. `MMW_RUNNER` is the name reserved for level 2; nothing reads it yet. Until #325 lands, `start` reads neither. Tonight's runner is still which checkout is installed. A fresh table has no runner row, so runtime detection can speak; the fallback is `paseo`. `lody` is only used when written in the row or on the ticket.
 
-Runtime detection treats `TERM_PROGRAM=Orca` as outermost: Herdr opened inside an Orca terminal is `herdr`. Environment variables cannot say who is nested in whom, so Herdr versus tmux cannot be told apart from the environment alone.
+Runtime detection treats `TERM_PROGRAM=Orca` as the outer signal: Herdr opened inside an Orca terminal is `herdr`. When `HERDR_ENV` and `TMUX` are both set, the code returns `tmux`; that does not say which is nested in which.
 
 The next `start` reads the agent rows above `<!-- mmw-offerings -->`. First `install.sh` copies the defaults if the file is missing; a later `install.sh` leaves the rows and refreshes the copy-tables.
 
