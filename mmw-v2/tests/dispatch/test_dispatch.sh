@@ -4092,6 +4092,14 @@ JSON
   self_picked_worktree
   tree="$(cd "$(wt 61)" && pwd -P)"
 
+  echo "--- with no base branch recorded, adopt asks for it rather than guessing"
+  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" adopt 61) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
+  [ "$code" = 2 ] || fail "adopt without a base branch expected 2, got $code"
+  grep -q "git config branch.issue-61.mmw-base-branch" "$TMP/err" \
+    || fail "the refusal should give the command that records it: $(cat "$TMP/err")"
+  git -C "$TMP/repo" config branch.issue-61.mmw-base-branch main
+
   echo "--- a session that picked #61 up itself becomes its worker, and a relay watches #61"
   code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" adopt 61) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
@@ -5054,6 +5062,35 @@ scenario_orcarefusalreason() {
     || fail "the refusal should carry Orca's reason: $(cat "$TMP/err")"
 }
 
+scenario_nightfromtask() {
+  local code task
+  echo "--- a night run from a task-branch worktree cuts tickets from that branch, under the main checkout"
+  reset_log
+  fresh_repo
+  git -C "$TMP/repo" checkout -q -b feature-x
+  printf 'x\n' > "$TMP/repo/feat.txt"
+  git -C "$TMP/repo" add feat.txt
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q -m feature-x
+  git -C "$TMP/repo" checkout -q main
+  task="$TMP/repo/.worktrees/task-x"
+  git -C "$TMP/repo" worktree add -q "$task" feature-x
+  code="$( (cd "$task" && bash "$DISPATCH" "${TOOLS[@]}" start 61 worker) > "$TMP/out" 2> "$TMP/err"; echo $?)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  [ -d "$TMP/repo/.worktrees/issue-61" ] || fail "the ticket worktree should be under the main checkout's .worktrees"
+  [ ! -d "$task/.worktrees/issue-61" ] || fail "no second .worktrees under the task worktree"
+  [ -f "$TMP/repo/.worktrees/issue-61/feat.txt" ] || fail "issue-61 should be cut from feature-x, the branch the night runs on"
+  [ "$(git -C "$TMP/repo" config --get branch.issue-61.mmw-base-branch)" = feature-x ] \
+    || fail "mmw-base-branch should be feature-x, got $(git -C "$TMP/repo" config --get branch.issue-61.mmw-base-branch)"
+
+  echo "--- a directory named issue-<n> on another branch is not taken over"
+  reset_log
+  git -C "$TMP/repo" worktree add -q "$TMP/repo/.worktrees/issue-62" -b mine main
+  code="$( (cd "$task" && bash "$DISPATCH" "${TOOLS[@]}" start 62 worker) > "$TMP/out" 2> "$TMP/err"; echo $?)"
+  [ "$code" = 2 ] || fail "expected refusal 2, got $code"
+  grep -q "is on mine, not issue-62" "$TMP/err" || fail "the refusal should name the branch it found: $(cat "$TMP/err")"
+  never_ran
+}
+
 scenario_orcatruncated() {
   local code
   RUNNER="$ORCA_RUNNER"
@@ -5104,7 +5141,7 @@ scenario_orcanohosts() {
   hasnt "orca :: terminal :: create"
 }
 
-ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openrefused openticket ack unopened runnerself orcaunobserved adopt orcarefusalreason"
+ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openrefused openticket ack unopened runnerself orcaunobserved adopt orcarefusalreason nightfromtask"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -5161,6 +5198,7 @@ banner_for() {
     runneronticket) echo RUNNER-ON-TICKET-OK ;;
     runnerstop) echo RUNNER-STOP-OK ;;
     orcarefusalreason) echo ORCA-REFUSAL-REASON-OK ;;
+    nightfromtask) echo NIGHT-FROM-TASK-OK ;;
     runnersend) echo RUNNER-SEND-OK ;;
     runnerliveness) echo RUNNER-LIVENESS-OK ;;
     runnerparity) echo RUNNER-PARITY-OK ;;
