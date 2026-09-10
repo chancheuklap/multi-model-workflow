@@ -3,11 +3,16 @@
 # Start an agent on a ticket, move a spec's batch forward, or report on one.
 #
 #   dispatch.sh check <spec>
+#   dispatch.sh open <spec>
+#   dispatch.sh open-ticket <n>
+#   dispatch.sh adopt <n>
+#   dispatch.sh self
 #   dispatch.sh advance <spec>
 #   dispatch.sh land <n>
 #   dispatch.sh start <n> worker|reviewer|verifier
 #   dispatch.sh retract <n>
 #   dispatch.sh wait <n> worker|reviewer|verifier
+#   dispatch.sh ack <n> <event> | relay.recovered
 #   dispatch.sh resume <n> "<text>"
 #   dispatch.sh status <spec>
 #   dispatch.sh reverify <spec>
@@ -46,6 +51,16 @@
 # the ticket before the new `worker.started`. `resume`, `wait`, `retract`, `land` and
 # `suspend` find the session in those events and ask the runner the event names.
 #
+# Nothing here tells anyone that a result landed. `relay.py`, beside this script, watches
+# the board and wakes the session waiting on each result event through that session's
+# runner's `send`. `open` (a night) and `open-ticket` (one ticket outside a night) register
+# the main agent — the runner and session its adapter's `self` reads — and start the
+# relay; `summary` and `suspend`, or `land` for one ticket, stop it. `start` and `advance`
+# refuse a ticket no running relay watches, since its result would wake nobody. `ack` is
+# how a woken session says it handled the wake it read. `adopt` makes a session that
+# picked a ticket up itself that ticket's worker, as `start` would have. `self` prints the
+# runner and session this process runs in.
+#
 # Each command's exit codes are written beside that command, in the door that carries it;
 # SKILL.md next to this script is the index of doors.
 
@@ -62,6 +77,7 @@ else
 fi
 export MMW_CATALOG_MODE="${MMW_CATALOG_MODE:-paseo}"
 STATUS="$SKILL_ROOT/scripts/status.py"
+RELAY="$SKILL_ROOT/scripts/relay.py"
 RUNNER=""
 RUNNER_NAME=""
 # The skill lives under mmw-v2/skills/<name> of the toolbox checkout, so `install.sh`
@@ -191,11 +207,16 @@ post_event() {
 usage() {
   cat >&2 <<'USAGE'
 usage: dispatch.sh check <spec>
+       dispatch.sh open <spec>
+       dispatch.sh open-ticket <n>
+       dispatch.sh adopt <n>
+       dispatch.sh self
        dispatch.sh advance <spec>
        dispatch.sh land <n>
        dispatch.sh start <n> worker|reviewer|verifier
        dispatch.sh retract <n>
        dispatch.sh wait <n> worker|reviewer|verifier
+       dispatch.sh ack <n> <event> | relay.recovered
        dispatch.sh resume <n> "<text>"
        dispatch.sh status <spec>
        dispatch.sh reverify <spec>
@@ -204,6 +225,260 @@ usage: dispatch.sh check <spec>
        dispatch.sh route <ticket> <child> fixed|stale|became-ticket [<new ticket>]
 USAGE
   exit 2
+}
+
+# ------------------------------------------------------------------ the relay
+#
+# Wake-ups come from the board, never from here: `relay.py` reads the tickets' events and
+# hands each result to the session waiting on it through that session's runner's `send`.
+# What these helpers do is name the main agent to it, start and stop it, and ask whether it
+# watches a ticket.
+
+# This repository as `gh` names it, owner/name: the relay keeps one state directory per
+# repository. Exit 2, with the reason on stderr, when the tracker cannot say.
+repo_slug() {
+  local slug
+  slug="$(gh_ repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null | tr -d '[:space:]')"
+  if [ -z "$slug" ]; then
+    echo "dispatch: the tracker could not say which repository this checkout is (gh repo view), so the relay's state for it cannot be found" >&2
+    return 2
+  fi
+  printf '%s\n' "$slug"
+}
+
+# The runner and session this process itself runs in, "runner<TAB>session", as that
+# runner's adapter reads it (`self`). The innermost runner is asked first: an agent Paseo
+# runs can sit in a terminal of Herdr or Orca, and Herdr can run inside an Orca terminal;
+# a wake sent to the outer one would be typed into whatever that terminal shows. Exit 2,
+# with the reason on stderr, when no adapter sees this process, or one sees it and cannot
+# read its id: then nothing can be sent to it.
+OWN_RUNNERS="paseo herdr orca"
+own_session() {
+  local name adapter out err rc asked=""
+  err="$(mktemp)"
+  for name in $OWN_RUNNERS; do
+    adapter="$SKILL_ROOT/scripts/runners/$name.sh"
+    [ -f "$adapter" ] || continue
+    asked="$asked $name"
+    out="$(bash "$adapter" self 2>"$err")"
+    rc=$?
+    case "$rc" in
+      0)
+        rm -f "$err"
+        printf '%s\t%s\n' "$name" "$out"
+        return 0
+        ;;
+      3) ;;
+      *)
+        echo "dispatch: this session cannot be named to the relay, so no wake could reach it: $(tr '\n' ' ' < "$err")" >&2
+        rm -f "$err"
+        return 2
+        ;;
+    esac
+  done
+  rm -f "$err"
+  echo "dispatch: this session runs in no runner whose adapter can name it (asked:${asked:- none}), so no wake could reach it; run it inside a session of one of them" >&2
+  return 2
+}
+
+# Exit 0 when a running relay sees ticket <n>'s events — it watches the ticket's spec, or
+# the ticket — or, with no ticket, when it watches <spec>. Otherwise the reason on stderr.
+relay_watches() {
+  local number="$1" spec="$2" repo
+  repo="$(repo_slug)" || return 2
+  local -a which=()
+  [ -z "$number" ] || which+=(--ticket "$number")
+  [ -z "$spec" ] || which+=(--spec "$spec")
+  python3 "$RELAY" watching --repo "$repo" "${which[@]}" >/dev/null
+}
+
+# Stop the relay started for what the arguments name (`--spec N` or `--tickets N`).
+# Exit 0 it stopped, or none ran; 3 the relay that runs watches something else and was
+# left running; 1 it did not end, the reason on stderr.
+stop_relay() {
+  local repo out rc
+  repo="$(repo_slug)" || return 1
+  out="$(python3 "$RELAY" stop --repo "$repo" "$@" 2>&1)"
+  rc=$?
+  case "$rc" in
+    0)
+      case "$out" in stopped*) echo "dispatch: $out" >&2 ;; esac
+      return 0
+      ;;
+    3) return 3 ;;
+  esac
+  echo "dispatch: ${out#relay: }" >&2
+  return 1
+}
+
+# Register this session as the main agent and start the relay for what the arguments name
+# (`--spec N` or `--tickets N`). Prints "runner<TAB>session<TAB>started|running" — whether
+# this call started the relay or found it running. Exit 2 with the reason on stderr.
+open_relay() {
+  local repo line runner session started
+  repo="$(repo_slug)" || return 2
+  line="$(own_session)" || return 2
+  runner="${line%%$'\t'*}"
+  session="${line#*$'\t'}"
+  python3 "$RELAY" register --repo "$repo" --runner "$runner" --session "$session" >/dev/null \
+    || { echo "dispatch: the main agent, $runner session $session, could not be registered with the relay (the reason is above), so nothing was opened" >&2; return 2; }
+  started="$(python3 "$RELAY" start --repo "$repo" "$@")" \
+    || { echo "dispatch: the relay did not start (the reason is above), so nothing watches the board" >&2; return 2; }
+  echo "dispatch: $started" >&2
+  case "$started" in
+    "relay started"*) printf '%s\t%s\tstarted\n' "$runner" "$session" ;;
+    *) printf '%s\t%s\trunning\n' "$runner" "$session" ;;
+  esac
+}
+
+# `open <spec>`: the night begins. The main agent is named to the relay, the relay starts
+# watching the spec's tickets, and `spec.opened` on the spec records who is woken. A
+# spec.opened that could not be written stops the relay this call started: a night that
+# says nowhere that it is open is not opened.
+open_night() {
+  local spec="$1" opened runner session how
+  opened="$(open_relay --spec "$spec")" || exit 2
+  IFS=$'\t' read -r runner session how <<<"$opened"
+  if ! post_event "$spec" spec.opened --spec "$spec" \
+       --line "NIGHT OPENED #$spec: wake-ups go to the main agent, $runner session $session" \
+       --field "runner=$runner" --field "session=$session"; then
+    [ "$how" = started ] && stop_relay --spec "$spec"
+    refuse "could not write the spec.opened event on #$spec, so the night is not open$([ "$how" = started ] && echo " and the relay this started was stopped again"); run open again once the tracker takes comments"
+  fi
+  echo "opened #$spec: wake-ups go to $runner session $session"
+}
+
+# `open-ticket <n>`: one ticket outside a night. The main agent is named to the relay and
+# the relay watches that ticket alone; `land <n>` stops it.
+open_ticket() {
+  local number="$1" opened runner session how
+  opened="$(open_relay --tickets "$number")" || exit 2
+  IFS=$'\t' read -r runner session how <<<"$opened"
+  echo "opened #$number: wake-ups go to $runner session $session"
+}
+
+# `ack <n> <event>` or `ack relay.recovered`: the wake this session read is handled, and
+# the relay sends it no more. The session is named the way its adapter's `self` reads it.
+ack_wake() {
+  local repo line runner session
+  repo="$(repo_slug)" || exit 2
+  line="$(own_session)" || exit 2
+  runner="${line%%$'\t'*}"
+  session="${line#*$'\t'}"
+  if [ "$#" -eq 1 ]; then
+    python3 "$RELAY" ack --repo "$repo" --runner "$runner" --session "$session" --event "$1" || exit 2
+  else
+    python3 "$RELAY" ack --repo "$repo" --runner "$runner" --session "$session" \
+      --ticket "$1" --event "$2" || exit 2
+  fi
+}
+
+# `adopt <n>`: the calling session becomes ticket <n>'s worker. A session that picked the
+# ticket up itself was started by no `start`, so no `worker.started` names it: its
+# reviewer's report would wake nobody, and `start <n> reviewer` would refuse. This writes
+# that event with the session's own runner and session (its adapter's `self`) and the
+# facts `start` writes — the grade's live-table row, this worktree, its branch and base,
+# and no slot, which the first run of its criteria that runs the product claims — and makes sure a relay watches the ticket: the one
+# already watching it, or one started for this ticket alone with this session as the one
+# woken. Run it from the ticket's worktree, on branch issue-<n>, before claiming.
+adopt_ticket() {
+  local number="$1" line runner session
+  line="$(own_session)" || exit 2
+  runner="${line%%$'\t'*}"
+  session="${line#*$'\t'}"
+
+  local answer grades title spec
+  answer="$(read_ticket "$number")"
+  case "$answer" in
+    "REFUSE "*) refuse "${answer#REFUSE }" ;;
+    "") refuse "the tracker did not answer with a readable ticket #$number" ;;
+  esac
+  { IFS= read -r grades; IFS= read -r title; IFS= read -r spec; } <<<"$answer"
+
+  local tree branch
+  tree="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$tree" ] || refuse "not inside a git repository, so there is no worktree to adopt #$number in"
+  tree="$(CDPATH='' cd -- "$tree" && pwd -P)"
+  branch="$(git -C "$tree" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+  [ "$branch" = "issue-$number" ] \
+    || refuse "this worktree is on ${branch:-a detached HEAD}, and #$number is worked on branch issue-$number; adopt it from a worktree on issue-$number, where its preflight will claim it"
+
+  # The base is the commit the branch was cut from the base branch at: what `start`
+  # records when it cuts the branch, found here from the checkout the night runs in.
+  local base base_branch main_tree
+  base="$(git -C "$tree" config --get "branch.issue-$number.mmw-base")"
+  base_branch="$(git -C "$tree" config --get "branch.issue-$number.mmw-base-branch")"
+  if [ -z "$base_branch" ]; then
+    main_tree="$(git -C "$tree" worktree list --porcelain | sed -n '1s/^worktree //p')"
+    base_branch="$(git -C "$main_tree" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+    case "$base_branch" in
+      "issue-$number" | HEAD | "")
+        refuse "no base branch for issue-$number: the main checkout is on ${base_branch:-nothing}. Record it with git config branch.issue-$number.mmw-base-branch <branch>, then adopt again" ;;
+    esac
+  fi
+  if [ -z "$base" ]; then
+    base="$(git -C "$tree" merge-base HEAD "$base_branch" 2>/dev/null)"
+    [ -n "$base" ] || refuse "issue-$number and $base_branch share no commit, so there is no base to review from"
+  fi
+
+  local -a marked
+  local profile row host model effort
+  read -r -a marked <<<"$grades"
+  case "${#marked[@]}" in
+    0) profile="$DEFAULT_WORKER" ;;
+    1) profile="${marked[0]}" ;;
+    *) refuse "#$number carries ${#marked[@]} worker labels (${marked[*]}), and it takes one" ;;
+  esac
+  row="$(row_for_role "$profile")" || exit 2
+  [ -n "$row" ] || refuse "#$number needs the $profile row, and $MODELS has none"
+  IFS=$'\t' read -r host model effort <<<"$row"
+
+  # A worker that is still live on the ticket is somebody else's hold; this is not how a
+  # running worker is replaced. The same session adopting again only refreshes the event.
+  local holders
+  holders="$(ticket_events "$number" fold | python3 -c '
+import json, sys
+state = json.load(sys.stdin)
+for r in state.get("sessions") or []:
+    if r.get("kind") == "worker" and r.get("live"):
+        print(str(r.get("runner")) + "\t" + str(r.get("session")))
+')" || refuse "could not read #$number's events, so whether a worker already holds it is unknown; nothing was adopted"
+  local who already=""
+  while IFS= read -r who; do
+    [ -n "$who" ] || continue
+    if [ "$who" = "$runner"$'\t'"$session" ]; then
+      already=1
+      continue
+    fi
+    refuse "#$number is held by worker ${who#*$'\t'} on ${who%%$'\t'*}; retract that start once its session is gone, then adopt again"
+  done <<<"$holders"
+
+  # A relay has to see this ticket, or the reviewer's report lands and wakes nobody.
+  local started=""
+  if ! relay_watches "$number" "$spec" 2>/dev/null; then
+    local opened
+    opened="$(open_relay --tickets "$number")" \
+      || refuse "no relay watches #$number and none could be started for it (the reason is above), so nothing was adopted"
+    case "$opened" in *$'\t'started) started=1 ;; esac
+  fi
+
+  git -C "$tree" config "branch.issue-$number.mmw-base" "$base"
+  git -C "$tree" config "branch.issue-$number.mmw-base-branch" "$base_branch"
+  if [ -n "$already" ]; then
+    echo "dispatch: #$number's worker.started already names $runner session $session" >&2
+    printf '%s\n' "$session"
+    return 0
+  fi
+  if ! post_event "$number" worker.started --ticket "$number" --spec "$spec" \
+       --line "worker adopted on $runner: session $session, $host $model ($effort)" \
+       --field "session=$session" --field "runner=$runner" \
+       --field "host=$host" --field "model=$model" --field "effort=${effort:-—}" \
+       --field "grade=$profile" --field "worktree=$tree" --field "branch=issue-$number" \
+       --field "base=$base" --json-field adopted=true; then
+    [ -n "$started" ] && stop_relay --tickets "$number"
+    refuse "could not write the worker.started event on #$number, so this session is not its worker$([ -n "$started" ] && echo " and the relay this started was stopped again"); adopt again once the tracker takes comments"
+  fi
+  printf '%s\n' "$session"
 }
 
 # ------------------------------------------------------------------ live table
@@ -583,6 +858,13 @@ start_one() {
   # with `land <n>`, which asks for a ticket number and never a spec. What it does not
   # get is a spec label, so no batch command ever picks it up as one of its own.
 
+  # Whatever this session reports lands on the ticket, and only the relay turns that into
+  # a wake for whoever waits on it. With no relay watching the ticket the result would
+  # land and wake nobody, and the night would stop there without a word.
+  local watched
+  watched="$(relay_watches "$number" "$spec" 2>&1)" \
+    || refuse "nothing would wake anyone when #$number's $kind reports: ${watched#relay: }. The main agent opens the night with open <spec>, or open-ticket <n> for a ticket outside a night; nothing was started"
+
   local profile
   case "$kind" in
     reviewer) profile=reviewer ;;
@@ -602,8 +884,11 @@ start_one() {
   [ -n "$row" ] || refuse "#$number needs the $profile row, and $MODELS has none"
   IFS=$'\t' read -r host model effort <<<"$row"
 
+  # The checkout the night runs in, whichever worktree this runs from: a worker starts its
+  # reviewer and its verifier from its own worktree, and `.worktrees/` cut under that one
+  # would be a second worktree of the branch it already has checked out.
   local root
-  root="$(git rev-parse --show-toplevel 2>/dev/null)"
+  root="$(git worktree list --porcelain 2>/dev/null | sed -n '1s/^worktree //p')"
   [ -n "$root" ] \
     || refuse "not inside a git repository, so there is no working directory to give the session"
 
@@ -787,7 +1072,8 @@ resume_one() {
   use_runner "$(printf '%s\n' "$line" | cut -f1)"
   ident="$(printf '%s\n' "$line" | cut -f2)"
   out="$(runner send "$ident" "$text" 2>&1)"
-  case "$?" in
+  local rc=$?
+  case "$rc" in
     0)
       post_event "$number" worker.resumed --ticket "$number" --spec "$(ticket_spec "$number")" \
           --line "Resumed the worker $ident on $RUNNER_NAME" \
@@ -796,6 +1082,11 @@ resume_one() {
       return 0 ;;
     2) refuse "#$number's worker $ident is not on $RUNNER_NAME any more" ;;
   esac
+  if [ "$rc" = 4 ]; then
+    echo "dispatch: the worker $ident on #$number was handed the message, and $RUNNER_NAME saw no turn start; read its session before sending it again" >&2
+    [ -n "$out" ] && printf '  %s\n' "$out" >&2
+    exit 3
+  fi
   echo "dispatch: the worker $ident on #$number did not take the message" >&2
   [ -n "$out" ] && printf '  %s\n' "$out" >&2
   echo "dispatch: it is most likely in a turn — wait, then run resume again. If it keeps refusing, ask \`get_agent_status\` for this agent: an \`activeTurn\` of null with the send still failing is a stuck session, and the only way out is to replace it" >&2
@@ -831,7 +1122,7 @@ wait_no_result() {
 # Print the newest result event of this kind on ticket <n>, by name and key fields.
 # The ticket is read first, so an agent that has
 # already written its result returns at once — which is the whole of it on the
-# ordinary path, since what wakes a caller is that agent finishing.
+# ordinary path: a caller runs this after the relay woke it with that event, to read it.
 #
 # When the comment is not there yet this waits MMW_WAIT_S seconds (default 90) and then
 # exits 3, and running it again is how a host that stops waiting on a long command is
@@ -1108,6 +1399,11 @@ advance() {
   [ -z "$dirty" ] \
     || refuse "$(printf '%s' "$dirty" | wc -l | tr -d ' ') tracked files have uncommitted changes; a merge would carry them in — commit them or set them aside first"
 
+  # A night that is not open has no relay, so a ticket landing would wake nobody.
+  local watched
+  watched="$(relay_watches "" "$spec" 2>&1)" \
+    || refuse "the night on #$spec is not open: ${watched#relay: }. Nothing would wake you when a ticket lands, so nothing was merged or started; run open $spec first"
+
   # The first plan says what to merge and which claims to give back. Its stderr repeats
   # in the second plan, which is the one read for what to start, so it is shown only
   # when the plan could not be made at all.
@@ -1299,7 +1595,15 @@ land_tickets() {
   done < <(printf '%s\n' "$plan" | sed -n 's/^NOTHING \([0-9]*\) \(.*\)$/#\1 needs nothing: \2/p')
 
   echo "land: merged $merged, archived $archived, released $released, still working $kept, already landed $nothing, left unmerged $unmerged" >&2
-  [ "$unmerged" -eq 0 ] || return 1
+
+  # `land <n>` is the whole ending of a ticket outside a night, so the relay `open-ticket`
+  # started for it ends here. A relay watching a night is not this one and is left alone.
+  local relay_left=0
+  if [ "$kept" -eq 0 ]; then
+    stop_relay --tickets "${numbers[0]}"
+    [ "$?" = 1 ] && relay_left=1
+  fi
+  [ "$unmerged" -eq 0 ] && [ "$relay_left" -eq 0 ] || return 1
 }
 
 # ------------------------------------------------------------------ suspend
@@ -1447,6 +1751,13 @@ suspend_night() {
     left=$((left + 1))
   fi
 
+  # A suspended night wakes nobody: its relay stops with it.
+  stop_relay --spec "$spec"
+  case "$?" in
+    1) left=$((left + 1)) ;;
+    3) echo "dispatch: the relay running for this repository does not watch #$spec, so it was left running" >&2 ;;
+  esac
+
   echo "suspend #$spec: stopped $stopped, commented $commented, slots given back $back, claims given back $claims"
   [ "$left" -eq 0 ] || exit 1
 }
@@ -1565,6 +1876,16 @@ summary_spec() {
       --field "date=$(date +%Y-%m-%d)" \
     || refuse "could not post the night summary on #$spec"
   printf '%s\n' "$body"
+
+  # The night is over, and so is what woke its sessions.
+  stop_relay --spec "$spec"
+  case "$?" in
+    1)
+      echo "dispatch: the summary is posted on #$spec, and the relay watching it is still running (the reason is above)" >&2
+      exit 1
+      ;;
+    3) echo "dispatch: the relay running for this repository does not watch #$spec, so it was left running" >&2 ;;
+  esac
 }
 
 # ------------------------------------------------------------------ route
@@ -1707,6 +2028,13 @@ route_child() {
 
 # ------------------------------------------------------------------ entry
 
+# `self` reads nothing but this process and its runner, so it answers without a live
+# table: `verify-ticket.py` asks it for the session a refusal is written by.
+if [ "${1:-}" = self ] && [ "$#" -eq 1 ]; then
+  own_session
+  exit $?
+fi
+
 [ -f "$MODELS" ] || refuse "no live table at $MODELS; run install.sh"
 
 # `--tools <dir>` may appear anywhere and any number of times. Everything else is
@@ -1763,6 +2091,33 @@ case "${1:-}" in
     [ "$#" -eq 2 ] || usage
     case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac
     check_machine "$2"
+    ;;
+  open)
+    [ "$#" -eq 2 ] || usage
+    case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac
+    open_night "$2"
+    ;;
+  open-ticket)
+    [ "$#" -eq 2 ] || usage
+    case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
+    open_ticket "$2"
+    ;;
+  adopt)
+    [ "$#" -eq 2 ] || usage
+    case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
+    adopt_ticket "$2"
+    ;;
+  ack)
+    if [ "$#" -eq 2 ] && [ "$2" = relay.recovered ]; then
+      ack_wake relay.recovered
+    elif [ "$#" -eq 3 ]; then
+      # The wake reads `#<n> <event>`; the number is taken with or without its `#`.
+      number="${2#\#}"
+      case "$number" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
+      ack_wake "$number" "$3"
+    else
+      usage
+    fi
     ;;
   advance)
     [ "$#" -eq 2 ] || usage

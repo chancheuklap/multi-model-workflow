@@ -100,12 +100,33 @@ def counts_line(met=1, unmet=0, abandoned=0, total=1):
     return f"Counts: {met} met, {unmet} unmet, {abandoned} abandoned of {total}"
 
 
+# Every post and every state change the newest `check` made, in the order it made them.
+CALLS = []
+
+
 def check(text, comments=(VERDICT_COMMENT,),
           verdict_reachable=True, head=HEAD, dirty=(), main_merged=True, diff="src/app.py",
           state="OPEN", assignees=(ME,), check_only=True, repo=None, body=None,
-          reverify=True):
-    """Run --closeout against a made-up ticket; return (exit code, stderr, side effects)."""
-    seen = {"posted": [], "closed": [], "handed": [], "told": []}
+          reverify=True, tracker_fails=False, post_fails=False, labels=(), reason=None):
+    """Run --closeout against a made-up ticket; return (exit code, stderr, side effects).
+    With `tracker_fails` the tracker refuses to close the ticket or hand it back; with
+    `post_fails` it refuses the comment. `reason` is the ticket's `stateReason`."""
+    seen = {"posted": [], "closed": [], "handed": []}
+    CALLS.clear()
+
+    def change(kind):
+        def run(number):
+            CALLS.append(kind)
+            if tracker_fails:
+                raise subprocess.CalledProcessError(1, ["gh", "issue", "edit", str(number)])
+            seen[kind].append(number)
+        return run
+
+    def post(number, body):
+        CALLS.append("posted")
+        if post_fails:
+            raise subprocess.CalledProcessError(1, ["gh", "issue", "comment", str(number)])
+        seen["posted"].append((number, body))
     ledger = ledger_of(text)
     if body is None:
         body = acceptance_body(ledger)
@@ -126,8 +147,10 @@ def check(text, comments=(VERDICT_COMMENT,),
     def fake_is_ancestor(commit, descendant, root=None):
         return main_merged if commit == "main" else verdict_reachable
 
-    ticket = {"state": state, "labels": [], "assignees": [{"login": a} for a in assignees],
-              "blockedBy": {"nodes": []}}
+    ticket = {"state": state, "labels": [{"name": n} for n in labels],
+              "assignees": [{"login": a} for a in assignees], "blockedBy": {"nodes": []}}
+    if reason:
+        ticket["stateReason"] = reason
     with TemporaryDirectory() as tmp:
         path = Path(tmp) / "closeout.md"
         path.write_text(text, encoding="utf-8")
@@ -139,14 +162,9 @@ def check(text, comments=(VERDICT_COMMENT,),
              mock.patch.object(vt, "git", side_effect=fake_git), \
              mock.patch.object(vt, "is_ancestor", side_effect=fake_is_ancestor), \
              mock.patch.object(vt, "dirty_tracked", side_effect=lambda root=None: list(dirty)), \
-             mock.patch.object(vt, "post_comment",
-                               side_effect=lambda n, b: seen["posted"].append((n, b))), \
-             mock.patch.object(vt, "close_ticket",
-                               side_effect=lambda n: seen["closed"].append(n)), \
-             mock.patch.object(vt, "hand_back_for_triage",
-                               side_effect=lambda n: seen["handed"].append(n)), \
-             mock.patch.object(vt, "notify_parent",
-                               side_effect=lambda t: seen["told"].append(t)):
+             mock.patch.object(vt, "post_comment", side_effect=post), \
+             mock.patch.object(vt, "close_ticket", side_effect=change("closed")), \
+             mock.patch.object(vt, "hand_back_for_triage", side_effect=change("handed")):
             with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
                 code = vt.run_closeout(77, path, check_only)
     return code, err.getvalue(), seen
@@ -643,14 +661,17 @@ class TestClosingReleasesTheTicket(unittest.TestCase):
     ever takes off. Both ways out of a ticket drop it."""
 
     def test_closing_drops_the_assignee_with_the_label(self):
+        """The close comes first: it is the change `ticket.passed` announces, and a close
+        that fails leaves nothing changed to run the closeout again over."""
         with mock.patch.object(vt.subprocess, "run") as run:
+            run.return_value.returncode = 0
             vt.close_ticket(77)
-        edit = run.call_args_list[0].args[0]
+        closed = run.call_args_list[0].args[0]
+        self.assertEqual(closed[:4], ["gh", "issue", "close", "77"])
+        edit = run.call_args_list[1].args[0]
         self.assertEqual(edit[:4], ["gh", "issue", "edit", "77"])
         self.assertEqual(edit[edit.index("--remove-assignee") + 1], "@me")
         self.assertEqual(edit[edit.index("--remove-label") + 1], "ready-for-agent")
-        closed = run.call_args_list[1].args[0]
-        self.assertEqual(closed[:4], ["gh", "issue", "close", "77"])
 
 
 class TestHandingBackReleasesTheTicket(unittest.TestCase):
@@ -674,12 +695,12 @@ class TestNoSideEffectOnFail(unittest.TestCase):
         text = draft(criteria=(MET,), counts=counts_line(met=9, total=9))
         code, _, seen = check(text, check_only=False)
         self.assertEqual(code, 1)
-        self.assertEqual(seen, {"posted": [], "closed": [], "handed": [], "told": []})
+        self.assertEqual(seen, {"posted": [], "closed": [], "handed": []})
 
     def test_check_only_passes_without_touching_the_ticket(self):
         code, err, seen = check(draft(counts=counts_line()), check_only=True)
         self.assertEqual(code, 0, err)
-        self.assertEqual(seen, {"posted": [], "closed": [], "handed": [], "told": []})
+        self.assertEqual(seen, {"posted": [], "closed": [], "handed": []})
 
     def test_all_met_posts_the_draft_and_closes(self):
         text = draft(counts=counts_line())
@@ -689,7 +710,6 @@ class TestNoSideEffectOnFail(unittest.TestCase):
                          [(77, (text, "ticket.passed"))])
         self.assertEqual(seen["closed"], [77])
         self.assertEqual(seen["handed"], [])
-        self.assertEqual(seen["told"], ["#77 ticket.passed"])
 
     def test_handoff_posts_the_draft_and_swaps_the_label(self):
         text = draft(first="HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 1 met of 2",
@@ -708,7 +728,6 @@ class TestNoSideEffectOnFail(unittest.TestCase):
                          {"met": 1, "unmet": 0, "abandoned": 1, "total": 2})
         self.assertEqual(seen["closed"], [])
         self.assertEqual(seen["handed"], [77])
-        self.assertEqual(seen["told"], ["#77 ticket.returned"])
 
     def test_a_hand_back_gives_the_slot_back_and_a_close_leaves_it_to_the_landing(self):
         """A handed-back ticket's work is over for the night; kept, its slot would hold

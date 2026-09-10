@@ -15,14 +15,13 @@ KINDS = ("finding", "contract", "deferred", "decision", "fault")
 
 
 def run_sub_issue(kind, text, label_problem=None):
-    """Run --sub-issue; return (exit, stdout, stderr, gh argv list, posted bodies, told).
+    """Run --sub-issue; return (exit, stdout, stderr, gh argv list, posted bodies).
 
     `label_problem` is what `ensure_label` answers: None when the repository has the
     `mmw:child` label or it was created, a reason when it could not be created.
     """
     recorded = []
     posted_bodies = []
-    told = []
     labels_asked = []
 
     def fake_run(cmd, **kwargs):
@@ -44,12 +43,11 @@ def run_sub_issue(kind, text, label_problem=None):
         path = Path(tmp) / "body.md"
         path.write_text(text, encoding="utf-8")
         with mock.patch.object(vt.subprocess, "run", side_effect=fake_run), \
-             mock.patch.object(vt, "ensure_label", side_effect=fake_label), \
-             mock.patch.object(vt, "notify_parent", side_effect=told.append):
+             mock.patch.object(vt, "ensure_label", side_effect=fake_label):
             with redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()) as err:
                 code = vt.run_sub_issue(77, kind, path)
     run_sub_issue.labels_asked = labels_asked
-    return code, out.getvalue(), err.getvalue(), recorded, posted_bodies, told
+    return code, out.getvalue(), err.getvalue(), recorded, posted_bodies
 
 
 def create_of(recorded):
@@ -64,7 +62,7 @@ class TestCreatesForEachKind(unittest.TestCase):
     def test_each_kind_fires_gh_issue_create_with_parent_and_labels(self):
         for kind in KINDS:
             with self.subTest(kind=kind):
-                code, out, err, recorded, _, _ = run_sub_issue(
+                code, out, err, recorded, _ = run_sub_issue(
                     kind, f"The {kind} case\n\nbody of the sub-issue\n")
                 self.assertEqual(code, 0, err)
                 create = create_of(recorded)
@@ -75,7 +73,7 @@ class TestCreatesForEachKind(unittest.TestCase):
 
     def test_parent_is_the_ticket(self):
         """`--parent` is this ticket; the ticket body is not consulted."""
-        code, _, err, recorded, _, _ = run_sub_issue(
+        code, _, err, recorded, _ = run_sub_issue(
             "contract", "The handoff and the spec disagree\n\ndetail\n")
         self.assertEqual(code, 0, err)
         create = create_of(recorded)
@@ -83,7 +81,7 @@ class TestCreatesForEachKind(unittest.TestCase):
         self.assertEqual(create.count("--parent"), 1)
 
     def test_the_body_opens_with_a_line_naming_the_kind_and_the_ticket(self):
-        code, _, err, recorded, bodies, _ = run_sub_issue(
+        code, _, err, recorded, bodies = run_sub_issue(
             "contract", "The handoff and the spec disagree\n\ndetail\n")
         self.assertEqual(code, 0, err)
         self.assertTrue(any(c[:3] == ["gh", "issue", "create"] for c in recorded))
@@ -99,13 +97,13 @@ class TestTheLayerLabel(unittest.TestCase):
     off a label rather than counting how deep it is nested."""
 
     def test_the_child_label_is_made_sure_of_before_anything_is_opened(self):
-        code, _, err, recorded, _, _ = run_sub_issue("finding", "A finding\n\nbody\n")
+        code, _, err, recorded, _ = run_sub_issue("finding", "A finding\n\nbody\n")
         self.assertEqual(code, 0, err)
         self.assertEqual(run_sub_issue.labels_asked, ["mmw:child"])
         self.assertIn("mmw:child", labels_of(create_of(recorded)))
 
     def test_a_label_that_cannot_be_created_refuses_and_opens_nothing(self):
-        code, _, err, recorded, bodies, _ = run_sub_issue(
+        code, _, err, recorded, bodies = run_sub_issue(
             "finding", "A finding\n\nbody\n", label_problem="HTTP 403: not allowed")
         self.assertEqual(code, 2)
         self.assertIn("mmw:child", err)
@@ -136,7 +134,7 @@ class TestRecordsTheChildOnTheTicket(unittest.TestCase):
     """The ticket's own events are where its children are found."""
 
     def test_child_opened_is_posted_on_the_ticket_with_the_new_number_and_kind(self):
-        code, _, err, recorded, bodies, _ = run_sub_issue(
+        code, _, err, recorded, bodies = run_sub_issue(
             "finding", "RUNNER is now a Path\n\nthe finding\n")
         self.assertEqual(code, 0, err)
         comment = next(c for c in recorded if c[:3] == ["gh", "issue", "comment"])
@@ -165,37 +163,20 @@ class TestRecordsTheChildOnTheTicket(unittest.TestCase):
         self.assertIn("do not open it again", err.getvalue())
 
 
-class TestOnlyAFaultTellsTheParent(unittest.TestCase):
-    """A `fault` is the kind the worker stops on, so the ticket comes to rest there and
-    the session that started it is told. Every other kind is opened mid-work."""
-
-    def test_a_fault_tells_the_parent(self):
-        code, _, err, _, _, told = run_sub_issue(
-            "fault", "The driver would not start\n\nran the start; saw the lease refused\n")
-        self.assertEqual(code, 0, err)
-        self.assertEqual(told, ["#77 child.opened kind=fault"])
-
-    def test_a_decision_tells_nobody(self):
-        code, _, err, _, _, told = run_sub_issue(
-            "decision", "Which wording\n\nboth are legal\n")
-        self.assertEqual(code, 0, err)
-        self.assertEqual(told, [])
-
-
 class TestRefusesEmptyOrUnknown(unittest.TestCase):
     def test_an_empty_file_exits_2_and_creates_nothing(self):
-        code, _, err, recorded, _, _ = run_sub_issue("contract", "")
+        code, _, err, recorded, _ = run_sub_issue("contract", "")
         self.assertEqual(code, 2)
         self.assertTrue(err.strip())
         self.assertFalse(any(c[:3] == ["gh", "issue", "create"] for c in recorded))
 
     def test_whitespace_only_is_empty(self):
-        code, _, err, recorded, _, _ = run_sub_issue("finding", "  \n\n")
+        code, _, err, recorded, _ = run_sub_issue("finding", "  \n\n")
         self.assertEqual(code, 2)
         self.assertFalse(any(c[:3] == ["gh", "issue", "create"] for c in recorded))
 
     def test_an_unknown_kind_exits_2_and_creates_nothing(self):
-        code, _, err, recorded, _, _ = run_sub_issue(
+        code, _, err, recorded, _ = run_sub_issue(
             "other", "A title\n\nbody\n")
         self.assertEqual(code, 2)
         self.assertIn("kind", err.lower())
@@ -204,19 +185,18 @@ class TestRefusesEmptyOrUnknown(unittest.TestCase):
     def test_the_retired_kind_names_are_refused(self):
         for kind in ("review", "baseline", "outside-owns", "pipeline"):
             with self.subTest(kind=kind):
-                code, _, err, recorded, _, told = run_sub_issue(
+                code, _, err, recorded, _ = run_sub_issue(
                     kind, "A title\n\nbody\n")
                 self.assertEqual(code, 2)
                 self.assertIn("finding, contract, deferred, decision, fault", err)
                 self.assertFalse(any(c[:3] == ["gh", "issue", "create"] for c in recorded))
-                self.assertEqual(told, [])
 
     def test_fault_kind_is_accepted_and_a_sixth_name_exits_2(self):
-        code, _, err, recorded, _, _ = run_sub_issue(
+        code, _, err, recorded, _ = run_sub_issue(
             "fault", "The driver would not start\n\nran the start; saw the lease refused\n")
         self.assertEqual(code, 0, err)
         self.assertTrue(any(c[:3] == ["gh", "issue", "create"] for c in recorded))
-        code, _, err, recorded, _, _ = run_sub_issue(
+        code, _, err, recorded, _ = run_sub_issue(
             "toolbox", "A title\n\nbody\n")
         self.assertEqual(code, 2)
         self.assertFalse(any(c[:3] == ["gh", "issue", "create"] for c in recorded))

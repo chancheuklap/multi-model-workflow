@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 #
-# Paseo adapter: the three verbs, and nothing else.
+# Paseo adapter: the three verbs of the runner boundary, `stop`, and `self`.
 #
 #   runners/paseo.sh start --host H --model M --effort E --cwd DIR [--skip-approval]
 #                          [--title T] [--label K=V]... --prompt TEXT
 #   runners/paseo.sh send <session-id> <text>
 #   runners/paseo.sh liveness <session-id>
 #   runners/paseo.sh stop <session-id>
+#   runners/paseo.sh self
 #
 # start runs `paseo run -d` in DIR and prints the agent id Paseo answers with; exit 1,
 # with the reason on stderr, when Paseo did not start it. The host's mode and thinking
@@ -15,6 +16,10 @@
 # 2 there is no such session.
 # liveness prints one of `alive`, `stopped`, `unknown` on stdout.
 # stop ends the session: exit 0 it is gone (or was already), 1 it could not be ended.
+# self prints the id of the session this process itself runs in, the id `send` reaches:
+# exit 0 printed; 3 this process runs in no session of this runner; 1 it does, and its id
+# cannot be read (the reason on stderr). The main agent names itself to the relay with it.
+# Paseo sets PASEO_AGENT_ID in every agent it runs, and that id is the one `send` takes.
 #
 # MMW_USES: run -d --json --provider --mode --thinking --cwd --title --label
 # MMW_USES: send --no-wait
@@ -34,6 +39,7 @@ usage() {
   echo "       runners/paseo.sh send <session-id> <text>" >&2
   echo "       runners/paseo.sh liveness <session-id>" >&2
   echo "       runners/paseo.sh stop <session-id>" >&2
+  echo "       runners/paseo.sh self" >&2
   exit 2
 }
 
@@ -183,6 +189,17 @@ stop() {
   exit 0
 }
 
+self_() {
+  local ident="${PASEO_AGENT_ID:-}"
+  ident="${ident//[[:space:]]/}"
+  if [ -z "$ident" ]; then
+    echo "runners/paseo.sh: PASEO_AGENT_ID is not set, so this process is not in a Paseo agent" >&2
+    exit 3
+  fi
+  printf '%s\n' "$ident"
+  exit 0
+}
+
 [ "$#" -ge 1 ] || usage
 verb="$1"
 shift
@@ -191,5 +208,6 @@ case "$verb" in
   send) send "$@" ;;
   liveness) liveness "$@" ;;
   stop) stop "$@" ;;
+  self) self_ ;;
   *) usage ;;
 esac

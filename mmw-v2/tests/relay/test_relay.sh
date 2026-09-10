@@ -4,6 +4,7 @@
 #
 #   bash mmw-v2/tests/relay/test_relay.sh wake|worker|busy|retired|gone|reconcile|pollfail
 #   bash mmw-v2/tests/relay/test_relay.sh singleton|norecipient|registerstopped|readonly
+#   bash mmw-v2/tests/relay/test_relay.sh startstop|ackwake
 #   bash mmw-v2/tests/relay/test_relay.sh all
 #
 # A fake `gh` and a fake `paseo` sit in front of the real ones on PATH and write every
@@ -27,6 +28,8 @@ TMP="$(mktemp -d)"
 BG_PID=""
 cleanup() {
   [ -n "$BG_PID" ] && kill "$BG_PID" 2>/dev/null
+  # A relay `start` left running would outlive this file and poll a board that is gone.
+  python3 "$RELAY" stop --repo "$REPO" >/dev/null 2>&1
   rm -rf "$TMP"
 }
 trap cleanup EXIT
@@ -421,7 +424,123 @@ PY
   expect_rows "1 61 ticket.passed main-a delivered"
 }
 
-ALL="wake worker busy retired gone reconcile pollfail singleton norecipient registerstopped readonly"
+scenario_startstop() {
+  local code pid got
+  echo "--- start runs a relay of its own that polls and delivers, and stop ends it"
+  reset
+  code="$(relay_ start --repo "$REPO" --tickets 61 --interval 60)"
+  [ "$code" = 1 ] || fail "start with nobody registered expected refusal 1, got $code"
+  grep -q "relay.py register --repo o/r" "$TMP/err" || fail "the refusal should give the register command: $(cat "$TMP/err")"
+  register_main
+  event 61 101 ticket.passed
+  code="$(relay_ start --repo "$REPO" --tickets 61 --interval 60)"
+  [ "$code" = 0 ] || fail "start expected 0, got $code: $(cat "$TMP/err")"
+  grep -q "^relay started for o/r: pid [0-9]*, watching ticket #61, log $STATE/relay.log" "$TMP/out" \
+    || fail "start should name the pid, the watch and the log: $(cat "$TMP/out")"
+  pid="$(sed -n 's/^relay started for o\/r: pid \([0-9]*\),.*/\1/p' "$TMP/out")"
+  for _ in $(seq 1 100); do
+    grep -qF "paseo :: send :: --no-wait :: main-a :: #61 ticket.passed" "$MMW_TEST_LOG" && break
+    sleep 0.1
+  done
+  has "paseo :: send :: --no-wait :: main-a :: #61 ticket.passed"
+  python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); sys.exit(0 if r["pid"] == int(sys.argv[2]) and r["watch"] == {"tickets": [61]} else 1)' \
+    "$STATE/relay.json" "$pid" || fail "relay.json should name pid $pid and its watch: $(cat "$STATE/relay.json")"
+
+  echo "--- a second start of the same watch finds it running; another watch is refused"
+  code="$(relay_ start --repo "$REPO" --tickets 61 --interval 60)"
+  [ "$code" = 0 ] || fail "a second start expected 0, got $code: $(cat "$TMP/err")"
+  grep -q "relay already running for o/r: pid $pid, watching ticket #61" "$TMP/out" || fail "it should find pid $pid: $(cat "$TMP/out")"
+  code="$(relay_ start --repo "$REPO" --spec 76)"
+  [ "$code" = 1 ] || fail "a start on another watch expected 1, got $code"
+  grep -q "already running for o/r (pid $pid), watching ticket #61, and one repository has one relay" "$TMP/err" \
+    || fail "the refusal should name the running relay: $(cat "$TMP/err")"
+
+  echo "--- watching answers for the ticket it watches and no other"
+  code="$(relay_ watching --repo "$REPO" --ticket 61)"
+  [ "$code" = 0 ] || fail "watching #61 expected 0, got $code: $(cat "$TMP/err")"
+  code="$(relay_ watching --repo "$REPO" --ticket 62 --spec 76)"
+  [ "$code" = 1 ] || fail "watching #62 expected 1, got $code"
+  grep -q "watches ticket #61, and #62, a ticket of spec #76, is not among them" "$TMP/err" || fail "stderr: $(cat "$TMP/err")"
+
+  echo "--- stop leaves a relay watching something else running, and ends the one it names"
+  code="$(relay_ stop --repo "$REPO" --spec 76)"
+  [ "$code" = 3 ] || fail "stop on another watch expected 3, got $code"
+  kill -0 "$pid" 2>/dev/null || fail "the relay should still run"
+  code="$(relay_ stop --repo "$REPO" --tickets 61)"
+  [ "$code" = 0 ] || fail "stop expected 0, got $code: $(cat "$TMP/err")"
+  grep -q "stopped the relay for o/r: pid $pid, watching ticket #61" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
+  kill -0 "$pid" 2>/dev/null && fail "pid $pid should be gone"
+  [ ! -f "$STATE/relay.json" ] || fail "a relay that stopped leaves no relay.json: $(cat "$STATE/relay.json")"
+  code="$(relay_ watching --repo "$REPO" --ticket 61)"
+  [ "$code" = 1 ] || fail "watching with no relay expected 1, got $code"
+
+  echo "--- a relay stopped on purpose leaves no unattended stretch for the next one to announce"
+  event 61 102 ticket.refused 2026-09-10T01:05:00Z
+  code="$(relay_ run --repo "$REPO" --tickets 61 --once --grace 0)"
+  [ "$code" = 0 ] || fail "the next relay expected 0, got $code: $(cat "$TMP/err")"
+  got="$(rows)"
+  case "$got" in *relay.recovered*) fail "a stop is not an unattended stretch: $got" ;; esac
+  case "$got" in *"61 ticket.refused"*) ;; *) fail "the next relay should still read what landed meanwhile: $got" ;; esac
+
+  code="$(relay_ stop --repo "$REPO")"
+  [ "$code" = 0 ] || fail "stop with nothing running expected 0, got $code"
+  grep -q "no relay is running for o/r" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
+
+  echo "--- stop with no relay alive still forgets the last good poll of the one that died"
+  python3 "$RELAY" run --repo "$REPO" --tickets 61 --once >/dev/null 2>&1
+  set_beat 2020-01-01T00:00:00Z
+  code="$(relay_ stop --repo "$REPO")"
+  [ "$code" = 0 ] || fail "stop expected 0, got $code"
+  relay_ ack --repo "$REPO" --runner paseo --session main-a --through 2 >/dev/null
+  code="$(relay_ run --repo "$REPO" --tickets 61 --once --grace 0)"
+  [ "$code" = 0 ] || fail "the next relay expected 0, got $code: $(cat "$TMP/err")"
+  got="$(rows)"
+  case "$got" in *relay.recovered*) fail "a stop after a death is not an unattended stretch to announce: $got" ;; esac
+
+  echo "--- start refuses, and runs nothing, when the registration cannot be read"
+  echo "not json" > "$STATE/recipient.json"
+  code="$(relay_ start --repo "$REPO" --tickets 61 --interval 60)"
+  [ "$code" = 1 ] || fail "a start over an unreadable recipient expected 1, got $code"
+  grep -q "recipient.json is not JSON" "$TMP/err" || fail "stderr: $(cat "$TMP/err")"
+  code="$(relay_ watching --repo "$REPO" --ticket 61)"
+  [ "$code" = 1 ] || fail "nothing should be running, got $code"
+}
+
+scenario_ackwake() {
+  local code
+  echo "--- a recipient acks the wake it read by ticket and event; a second ack of it is refused"
+  reset
+  agents main-a wk-61
+  register_main
+  event 61 100 worker.started runner=paseo session=wk-61
+  event 61 101 ticket.passed
+  event 61 102 reviewer.reported
+  relay_ run --repo "$REPO" --tickets 61 --once >/dev/null
+  code="$(relay_ ack --repo "$REPO" --runner paseo --session main-a --ticket 61 --event ticket.passed)"
+  [ "$code" = 0 ] || fail "ack expected 0, got $code: $(cat "$TMP/err")"
+  grep -q "acked paseo main-a \`#61 ticket.passed\` through 1: removed 1, 0 left for it" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
+  expect_rows "2 61 reviewer.reported wk-61 delivered"
+  code="$(relay_ ack --repo "$REPO" --runner paseo --session main-a --ticket 61 --event ticket.passed)"
+  [ "$code" = 1 ] || fail "a second ack matches no row of main-a and is refused, got $code"
+  grep -q "no wake \`#61 ticket.passed\` is queued for paseo session main-a" "$TMP/err" || fail "stderr: $(cat "$TMP/err")"
+  grep -q "Queued for this session: nothing" "$TMP/err" || fail "the refusal should say what main-a has queued: $(cat "$TMP/err")"
+
+  echo "--- a session acking a wake that went to another session is refused, and removes nothing"
+  code="$(relay_ ack --repo "$REPO" --runner paseo --session main-a --ticket 61 --event reviewer.reported)"
+  [ "$code" = 1 ] || fail "main-a acking the worker's wake expected 1, got $code"
+  code="$(relay_ ack --repo "$REPO" --runner orca --session wk-61 --ticket 61 --event reviewer.reported)"
+  [ "$code" = 1 ] || fail "the same session id on another runner is another session, expected 1, got $code"
+  expect_rows "2 61 reviewer.reported wk-61 delivered"
+  code="$(relay_ ack --repo "$REPO" --runner paseo --session main-a --ticket 61 --event ticket.refused)"
+  [ "$code" = 1 ] || fail "ack of a wake never queued expected 1, got $code"
+  code="$(relay_ ack --repo "$REPO" --runner paseo --session main-a --event ticket.passed)"
+  [ "$code" = 1 ] || fail "ack of a ticket event with no ticket expected 1, got $code"
+  code="$(relay_ ack --repo "$REPO" --runner paseo --session main-a --through 2 --ticket 61 --event ticket.passed)"
+  [ "$code" = 1 ] || fail "ack with a seq and a wake expected 1, got $code"
+  expect_rows "2 61 reviewer.reported wk-61 delivered"
+}
+
+ALL="wake worker busy retired gone reconcile pollfail singleton norecipient registerstopped readonly startstop ackwake"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;
