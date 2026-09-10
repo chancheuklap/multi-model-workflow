@@ -43,6 +43,16 @@ def event(name, text, ticket=77, **fields):
                          at=AT, **fields)
 
 
+def started(ticket=77, **fields):
+    """One readable `worker.started`, with caller overrides for the field under test."""
+    payload = dict(session=f"wk-{ticket}", runner="paseo", machine="mac-1", host="codex",
+                   model="gpt-5", effort="high", grade="senior-worker",
+                   worktree=f"/repo/.worktrees/issue-{ticket}", branch=f"issue-{ticket}",
+                   base="0" * 40)
+    payload.update(fields)
+    return event("worker.started", "Worker started", ticket=ticket, **payload)
+
+
 def checked(run, ledger, summary=None, ticket=77, commit="0" * 40, **fields):
     """One run of `ledger` (its lines, or its text) as a `ticket.checked` event.
 
