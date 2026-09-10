@@ -56,7 +56,7 @@ night is closed this process writes a last heartbeat saying so and exits.
    whose events cannot be read.
 
 **Findings wake the main agent directly**, through the `send` of the runner the relay has
-it registered under (`recipient.json`), one message whose lines begin `watchdog:`. Not
+it registered under (`recipient.json`), one message on one line, each finding in it beginning `watchdog:`. Not
 through the relay's queue: the relay may be the thing that is down. Each finding is sent
 once — keyed by what it is about and the ticket's newest event, or the relay's last good
 poll — and never again for the same stretch, across restarts of this process. What `send`
@@ -554,7 +554,8 @@ class Watchdog:
             self.err.write("watchdog: no main agent is registered (recipient.json), so these "
                            "findings are kept: " + "; ".join(p["text"] for p in pending) + "\n")
             return False
-        text = "\n".join(p["text"] for p in pending)
+        # One line: a runner types what it is handed into a terminal, where a newline submits.
+        text = " | ".join(p["text"] for p in pending)
         code = self.send(main["runner"], main["session"], text)
         if code in (0, 4):
             self.beat["reported"] = (reported + [p["key"] for p in pending])[-REPORTED_KEEP:]

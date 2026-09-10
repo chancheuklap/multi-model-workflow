@@ -27,19 +27,19 @@ that could not read every ticket, is not "nothing held". Healthy is the watchdog
 test: its lock names a live process by pid and process identity, that process wrote the
 heartbeat, and the heartbeat is within `max(300, poll + 60)` seconds.
 
-**What each host can do at a turn end**:
+**What each host can do at a turn end** (what the checks below saw, not what the hosts'
+documents promise):
 
     host     event            can it keep the turn from ending?     how this file answers
     claude   Stop             yes: exit 2, stderr to the model       exit 2 + stderr
     codex    Stop             yes: exit 2, stderr to the model       exit 2 + stderr
-    pi       agent_settled    no; an extension sends one follow-up   exit 2 + stderr, which the
+    grok     Stop             yes: exit 2, stderr to the model,      exit 2 + stderr
+                              another round in the same process
+    pi       agent_settled    no; the extension sends one follow-up  exit 2 + stderr, which the
                               message, which starts another run      extension sends as a follow-up
     cursor   stop             no; exit 2 is ignored. One             exit 0, `{"followup_message":
                               `followup_message` on stdout starts    ...}` on stdout
                               another turn
-    grok     Stop             no; the reason is fed back as a        exit 2 + stderr
-                              message and the agent runs another
-                              round
 
 A block is asked for once per turn end: a stop that is already the continuation a block
 forced (`stop_hook_active` for Claude and Codex, `stopHookActive` — or `stop_hook_active`
@@ -52,9 +52,9 @@ command to run when it did not come up.
 
 **Three lessons about hooks that fire in the wrong host**, copied from firstmate
 (`docs/turnend-guard.md`, `bin/fm-hook-host-lib.sh`), because each is a direct hit here:
-Cursor and Grok both load `~/.claude/settings.json`, and Grok also loads
-`~/.cursor/hooks.json`, so the copies registered for Claude and for Cursor run inside
-those hosts as well.
+Cursor and Grok both load `~/.claude/settings.json`, and Grok's own documents say it loads
+`~/.cursor/hooks.json` too, so the copies registered for Claude and for Cursor can run
+inside those hosts as well.
 
 1. The Claude-registered copy stands down when `GROK_AGENT` or `GROK_HOOK_EVENT` is set —
    both, because Grok 0.2.73 injects only the first and 1.0.0 only the second, so a guard
@@ -76,12 +76,43 @@ host shows, which never blocks. Exit 2 means only "held tickets and no healthy w
 Each decision it makes for a main agent is appended to `guard.log` in that night's state
 directory.
 
-**Checked against the real hosts**, one short non-interactive session each, with the guard
-registered in a throwaway home and a throwaway `MMW_HOME` whose night was open, whose
-registered main agent was that session, and whose watchdog could not start
-(`MMW_WATCHDOG_PY` naming a script that exits at once):
+**Checked against the real hosts** on 2026-09-10, one short session each with the prompt
+"reply OK; if a turn guard blocks you, run nothing and reply NOTED". The registrations were
+the ones install.sh's hook section writes, written into a throwaway home; the environment
+was emptied except for PATH, a throwaway `MMW_HOME` whose night was open and whose
+registered main agent was the session's own runner session, and `MMW_WATCHDOG_PY` naming a
+script that exits at once, so arming failed. "Fired" and "blocked" are read off
+`guard.log`; "replied" off the host's own output. Run this again for every new host and
+every host upgrade.
 
-    (filled in below by the checks that were run)
+    claude 2.1.267        claude -p, real HOME (its login is in the keychain) with
+                          --setting-sources project --settings <the throwaway settings.json>
+                          --no-session-persistence. Stop fired, blocked (exit 2); the model
+                          got the text and replied NOTED; the next Stop (stop_hook_active)
+                          was let through. Two turns.
+    codex 0.153.4         codex exec --ephemeral --dangerously-bypass-hook-trust,
+                          CODEX_HOME=<throwaway>. "hook: Stop Blocked", reply NOTED, the next
+                          Stop let through ("hook: Stop Completed").
+    grok 1.0.27           grok -p, HOME=<throwaway>. Its own Stop fired, blocked (exit 2),
+                          reply NOTED in the same process, the next Stop (stopHookActive) let
+                          through. Grok also ran the Claude-registered copy, three times, each
+                          with GROK_HOOK_EVENT and GROK_SESSION_ID set and GROK_AGENT unset;
+                          that copy stood down every time (guard.log holds only grok lines).
+                          The Cursor-registered stop copy did not fire at all.
+    pi 0.85.1             PI_CODING_AGENT_DIR=<throwaway>. agent_settled fired and the guard
+                          answered 2. Under `pi -p` the extension's follow-up started a second
+                          run and the process exited before that run replied. Under
+                          `pi --mode rpc` the follow-up run replied NOTED and its own
+                          agent_settled was skipped by the latch. Pi cannot hold a turn: the
+                          follow-up works only while the pi process stays up.
+    cursor 2026.09.08     cursor-agent -p: the stop hook does not fire (a probe showed
+                          sessionStart firing and stop, beforeSubmitPrompt and
+                          afterAgentResponse not), so headless proves nothing. Interactive,
+                          in a pane of a throwaway Herdr session, real HOME (its login is not
+                          found under another), registrations in the throwaway workspace
+                          loaded with --trust: stop fired, the followup_message started a
+                          second turn that replied NOTED, the next stop (loop_count 1) was
+                          let through.
 """
 
 from __future__ import annotations

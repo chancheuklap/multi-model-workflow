@@ -317,6 +317,18 @@ class Judge(unittest.TestCase):
         fold["waiting"] = None
         self.assertEqual(dog.judge(fold, T0 + timedelta(hours=5), 600)["state"], "silent")
 
+    def test_waiting_ends_at_the_next_run(self):
+        # The real fold: worker.queued makes the ticket wait, a later event that is not
+        # ticket.checked leaves it waiting, and ticket.checked ends the wait.
+        started = comment(1, "worker.started", 61, T0, runner="orca", session="t1")
+        queued = comment(2, "worker.queued", 61, T0, reason="product-full", run="self")
+        decided = comment(3, "worker.decided", 61, T0)
+        checked = comment(4, "ticket.checked", 61, T0, run="self", commit="a" * 40, result="met")
+        later = T0 + timedelta(hours=2)
+        self.assertEqual(dog.judge(self.fold(started, queued), later, 600)["state"], "waiting")
+        self.assertEqual(dog.judge(self.fold(started, queued, decided), later, 600)["state"], "waiting")
+        self.assertEqual(dog.judge(self.fold(started, queued, checked), later, 600)["state"], "silent")
+
     def test_a_recent_event_is_not_silence(self):
         f = self.fold(comment(1, "worker.started", 61, T0, runner="orca", session="t1"))
         self.assertEqual(dog.judge(f, T0 + timedelta(seconds=599), 600)["state"], "recent")
@@ -405,6 +417,16 @@ class Rounds(StateCase):
         self.silent_worker(runner="herdr", session="h1")
         self.watchdog().round()
         self.assertEqual(self.ask.calls, [("herdr", "h1")])
+
+    def test_a_ticket_waiting_for_a_slot_is_not_asked(self):
+        self.silent_worker()
+        self.board.tickets[61].append(comment(2, "worker.queued", 61, self.SILENT,
+                                              reason="machine-full", run="self"))
+        self.ask.default = "stopped"
+        self.watchdog().round()
+        self.assertEqual((self.ask.calls, self.post.calls, self.send.calls), ([], [], []))
+        beat = self.heartbeat()
+        self.assertEqual((beat["held"], beat["waiting"]), ([61], [61]))
 
     def test_a_recent_ticket_is_not_asked(self):
         self.board.tickets[61] = [comment(1, "worker.started", 61, T0 - timedelta(minutes=2),

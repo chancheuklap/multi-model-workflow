@@ -44,6 +44,8 @@ On waking:
 
 The relay runs between `open` and `summary` or `suspend` for a night, and between `open-ticket` and `land` for one ticket. `start` and `advance` refuse a ticket no running relay watches (exit 2): its result would land and wake nobody.
 
+A session that dies writes nothing, so the relay has nothing to send. Two things that are not agents cover that. The **watchdog** is a process of its own, one per repository, that the **turn guard** — a hook on your host's turn end, installed by `install.sh` — starts again at the end of each of your turns while a night is open and it is not running. Every minute it checks the relay, and it asks the runner of each held ticket that has had no event for ten minutes, and is not waiting for a product slot, whether that ticket's worker is still there. A runner that says the worker stopped gets `worker.lost` written on the ticket, which reaches you as a relay wake like any other. Everything else it finds reaches you as one message, each finding in it beginning `watchdog:` — the relay is down, a runner could not say whether a worker is alive, a held ticket has no worker session to ask, a ticket's events cannot be read — each once; those are not queued rows, so there is nothing to ack. While tickets are held and the watchdog is not running, the turn guard keeps your turn from ending, or, on a host that cannot hold a turn, sends you one message; its text names the one command to run.
+
 ## The arguments you supply
 
 `<n>`, `<spec>` and `<child>` are digits only, no `#`.
