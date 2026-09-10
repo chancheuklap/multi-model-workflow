@@ -1,0 +1,110 @@
+/* The settings sheet (#335): which host, model and effort each agent runs on, and the
+   runner, chosen on this machine. Nothing on it is state of a ticket, so no lamp colour
+   appears here. A cell `start` would refuse is hatched ink, the same treatment the top bar
+   gives a failed read. */
+
+/* the gear at the right end of the top bar */
+.gear {
+  flex: none; width: 30px; height: 30px; display: inline-grid; place-items: center; padding: 0;
+  border: 1px solid var(--rule); border-radius: 7px; background: var(--panel); color: var(--soft); cursor: pointer;
+}
+.gear:hover { color: var(--ink); border-color: rgba(45, 49, 66, 0.34); }
+.gear.on { color: var(--ink); border-color: rgba(45, 49, 66, 0.34); }
+.gear-icon { width: 15px; height: 15px; }
+
+/* the sheet, centred over whatever frame it is mounted in */
+.scrim {
+  position: absolute; inset: 0; z-index: 25; display: grid; place-items: center;
+  padding: 24px 16px; background: rgba(29, 32, 48, 0.46);
+}
+.sheet {
+  width: min(800px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 12px;
+  box-shadow: 0 24px 64px rgba(20, 22, 34, 0.28);
+}
+.sheet-head { display: flex; align-items: flex-start; gap: 16px; padding: 18px 24px 16px; border-bottom: 1px solid var(--rule); }
+.sheet-head-text { flex: 1; min-width: 0; }
+.sheet-title { margin: 7px 0 5px; font-size: 18px; line-height: 1.3; font-weight: 600; text-wrap: balance; }
+.sheet-sub { margin: 0; font-size: 12px; color: var(--soft); max-width: 64ch; }
+.sheet-code { font: 11px var(--mono); color: var(--muted); }
+.sheet-body { overflow-y: auto; padding-inline: 24px; display: flex; flex-direction: column; }
+.set-block { display: flex; flex-direction: column; gap: 10px; padding-block: 16px; }
+.set-block.ruled { border-top: 1px solid var(--rule-2); }
+.set-block-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; }
+.set-note { margin: 0; font-size: 11.5px; color: var(--soft); max-width: 66ch; }
+.scan { display: inline-flex; align-items: center; gap: 8px; font: 10.5px var(--mono); color: var(--faint); white-space: nowrap; }
+.spin { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--ghost); border-top-color: var(--ink); animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.linkbtn {
+  background: none; border: 0; padding: 0; font: inherit; color: var(--muted); cursor: pointer;
+  text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 2px;
+}
+.linkbtn:hover { color: var(--ink); text-decoration-color: currentColor; }
+
+/* what this machine's hosts answered */
+.hostscan { display: flex; flex-wrap: wrap; gap: 6px; }
+.hs {
+  display: inline-flex; align-items: center; gap: 6px; height: 24px; padding-inline: 9px;
+  border: 1px solid var(--rule); border-radius: 6px; font-size: 11px; color: var(--soft); white-space: nowrap;
+}
+.hs-name { font: 600 10.5px var(--mono); color: var(--hs-name, var(--ink)); }
+.hs.missing { border-style: dashed; color: var(--faint); --hs-name: var(--soft); }
+.hs.silent { border-style: dashed; color: var(--faint); --hs-name: var(--soft); }
+
+/* one grid template for the header and every row, so the columns line up down the table */
+.roles { --cols: 150px 100px minmax(0, 1fr) 104px; display: flex; flex-direction: column; }
+.roles-head { display: grid; grid-template-columns: var(--cols); column-gap: 10px; padding-bottom: 6px; font: 500 9px/1 var(--mono); letter-spacing: 0.14em; color: var(--faint); }
+.role { display: grid; grid-template-columns: var(--cols); column-gap: 10px; row-gap: 6px; padding-block: 11px; border-top: 1px solid var(--rule-2); align-items: center; }
+.role-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.role-agent { font: 600 12px var(--mono); color: var(--ink); }
+.role-what { font-size: 11px; color: var(--soft); }
+.role-foot { grid-column: 2 / -1; display: flex; flex-direction: column; gap: 4px; }
+.role-bad { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600; color: var(--ink); }
+.hatch {
+  flex: none; width: 10px; height: 10px; border: 1px solid var(--ink); border-radius: 2px;
+  background: repeating-linear-gradient(135deg, rgba(45, 49, 66, 0.28) 0 2px, transparent 2px 4px);
+}
+.runner-row { display: grid; grid-template-columns: 150px 220px minmax(0, 1fr); column-gap: 10px; row-gap: 6px; align-items: center; }
+
+/* a dropdown; a changed cell is set in heavier ink, one `start` would refuse is hatched */
+.sel {
+  appearance: none; -webkit-appearance: none; width: 100%; height: 30px; padding: 0 26px 0 9px;
+  font: 12px var(--mono); color: var(--ink); text-overflow: ellipsis; cursor: pointer;
+  background: var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%237a8399' stroke-width='1.4'/%3E%3C/svg%3E") no-repeat right 9px center;
+  border: 1px solid rgba(45, 49, 66, 0.18); border-radius: 6px;
+}
+.sel:hover { border-color: rgba(45, 49, 66, 0.36); }
+.sel:disabled { cursor: default; color: var(--faint); }
+.sel.changed { border-color: var(--ink); box-shadow: inset 0 0 0 0.5px var(--ink); font-weight: 600; }
+.sel.bad {
+  border-color: var(--ink); box-shadow: inset 0 0 0 0.5px var(--ink);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%232d3142' stroke-width='1.4'/%3E%3C/svg%3E"),
+    repeating-linear-gradient(135deg, rgba(45, 49, 66, 0.07) 0 5px, transparent 5px 10px);
+  background-repeat: no-repeat, repeat; background-position: right 9px center, 0 0;
+}
+
+/* a save refused because the configuration changed elsewhere */
+.refused {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap;
+  margin-top: 16px; padding: 10px 12px; border: 1px solid var(--ink); border-radius: 6px;
+  background: repeating-linear-gradient(135deg, rgba(45, 49, 66, 0.05) 0 6px, transparent 6px 12px);
+  font-size: 12px; color: var(--ink);
+}
+.refused-text { margin: 0; max-width: 60ch; }
+
+/* the foot: what a save would change, and the two buttons */
+.sheet-foot { display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap; padding: 14px 24px; border-top: 1px solid var(--rule); background: #fbfbfa; }
+.foot-status { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+.foot-strong { color: var(--ink); font-weight: 600; display: flex; align-items: center; gap: 7px; }
+.foot-quiet { font-size: 11px; color: var(--soft); }
+.foot-actions { display: flex; gap: 8px; margin-left: auto; }
+.btn {
+  height: 32px; padding-inline: 14px; border-radius: 7px; cursor: pointer; font-size: 12.5px; white-space: nowrap;
+  border: 1px solid rgba(45, 49, 66, 0.2); background: var(--panel); color: var(--muted);
+}
+.btn:hover { border-color: rgba(45, 49, 66, 0.4); color: var(--ink); }
+.btn:disabled { opacity: 0.38; cursor: default; }
+.btn.primary { background: var(--ink); border-color: var(--ink); color: #ffffff; font-weight: 500; }
+.btn.primary:hover { background: #1f2231; }
+
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; border-top-color: var(--ghost); } }

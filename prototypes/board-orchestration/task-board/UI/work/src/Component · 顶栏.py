@@ -1,7 +1,8 @@
-# The top bar: the four lamp counts, "needs you" as the one button, and when the data was read.
+# The top bar: the four lamp counts, "needs you" as the one button, when the data was read, and
+# the gear that opens the settings sheet.
 # Build: DC_FX=FIXTURES DC_FRAME=1440x52 python3 mk.py "src/Component · 顶栏.py"
 NAME = "Component · 顶栏"
-CSS = ["tokens.css", "board.css"]
+CSS = ["tokens.css", "board.css", "settings.css"]
 EXTRA_CSS = "          .sc-host { height: 100%; }"   # an imported component's host fills the slot the page gives it
 PROPS = {
   "scene": {"editor": "enum", "default": "morning", "tsType": "string",
@@ -16,6 +17,7 @@ TEMPLATE = r'''      <header class="topbar board" data-screen-label="顶栏">
           <span class="counter"><span class="light ink"></span>好了<span class="counter-n">{{ v.inkN }}</span></span>
         </div>
         <div class="{{ v.readCls }}">{{ v.readText }}</div>
+        <button type="button" class="{{ gearCls }}" aria-label="本机配置" title="本机配置：每个角色跑在哪个 host、model、effort" onClick="{{ openSettings }}"><svg class="gear-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
       </header>'''
 LOGIC = r'''        init(props) { return {}; }
         onReady() { this.forceUpdate(); }
@@ -28,5 +30,7 @@ LOGIC = r'''        init(props) { return {}; }
           return {
             toast: this.state.toast, v,
             jump: () => this.emit("onJumpNeedYou", null, "→ 画布跳到下一张需要你的票，并在详情栏打开它"),
+            gearCls: this.props.settingsOpen ? "gear on" : "gear",
+            openSettings: () => this.emit("onOpenSettings", null, "→ 打开本机配置"),
           };
         }'''

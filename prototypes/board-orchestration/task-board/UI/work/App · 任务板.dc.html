@@ -10,21 +10,27 @@
       <helmet data-dc-atomics>
         <link rel="stylesheet" href="./styles/tokens.css" />
         <link rel="stylesheet" href="./styles/board.css" />
+        <link rel="stylesheet" href="./styles/settings.css" />
         <script src="./data/fixtures.js"></script>
         <style>
           body { margin: 0; min-height: 100vh; background: #e6e3df; }
           html body #dc-root { width: 1440px; height: 900px; margin: 0 auto; overflow: hidden; position: relative; transform: translateZ(0); }
-          .app-shell { height: 100%; display: grid; grid-template-rows: 52px minmax(0, 1fr); grid-template-columns: 236px minmax(0, 1fr) 340px; background: var(--panel); }
+          .app-shell { position: relative; height: 100%; display: grid; grid-template-rows: 52px minmax(0, 1fr); grid-template-columns: 236px minmax(0, 1fr) 340px; background: var(--panel); }
           .app-top { grid-column: 1 / -1; min-width: 0; }
           .app-slot { min-width: 0; min-height: 0; overflow: hidden; }
           .app-slot > .sc-host, .app-top > .sc-host { height: 100%; }
+          .app-sheet { position: absolute; inset: 0; z-index: 30; }
+          .app-sheet > .sc-host { height: 100%; }
         </style>
       </helmet>
       <main class="app-shell board" data-screen-label="任务板">
-        <div class="app-top"><dc-import name="Component · 顶栏" scene="{{ scene }}" onJumpNeedYou="{{ jump }}" hint-size="100%,52px"></dc-import></div>
+        <div class="app-top"><dc-import name="Component · 顶栏" scene="{{ scene }}" settingsOpen="{{ settingsOpen }}" onJumpNeedYou="{{ jump }}" onOpenSettings="{{ openSettings }}" hint-size="100%,52px"></dc-import></div>
         <div class="app-slot"><dc-import name="Component · 任务列表" scene="{{ scene }}" task="{{ task }}" onSelectTask="{{ pickTask }}" hint-size="100%,100%"></dc-import></div>
         <div class="app-slot"><dc-import name="Component · 画布" scene="{{ scene }}" task="{{ task }}" sel="{{ sel }}" onSelectNode="{{ pickNode }}" hint-size="100%,100%"></dc-import></div>
         <div class="app-slot"><dc-import name="Component · 详情" scene="{{ scene }}" sel="{{ sel }}" onGoto="{{ goto }}" onClose="{{ close }}" hint-size="100%,100%"></dc-import></div>
+        <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
+          <div class="app-sheet"><dc-import name="Component · 本机配置" scene="{{ settingsScene }}" onClose="{{ closeSettings }}" hint-size="100%,100%"></dc-import></div>
+        </sc-if>
       </main>
     </x-dc>
     <script
@@ -32,15 +38,17 @@
       data-dc-script
       data-props='{
   "$preview": { "width": 1440, "height": 900 },
-  "scene": { "editor": "enum", "default": "morning", "tsType": "string", "options": ["morning", "twenty-tickets", "bad-data", "empty"] }
+  "scene": { "editor": "enum", "default": "morning", "tsType": "string", "options": ["morning", "twenty-tickets", "bad-data", "empty"] },
+  "settings": { "editor": "enum", "default": "closed", "tsType": "string", "options": ["closed", "mine", "fresh", "retired", "changed"] }
 }'
     >
-      // The page holds which task is on the canvas and which card is selected; the four
-      // components report clicks, and this page decides what the others show next.
+      // The page holds which task is on the canvas, which card is selected and whether the
+      // settings sheet is open; the components report clicks, and this page decides what the
+      // others show next. The `settings` prop opens the sheet on one of its data scenes.
       class Component extends DCLogic {
         constructor(props) {
           super(props);
-          this.state = { ready: false, task: null, sel: null };
+          this.state = { ready: false, task: null, sel: null, settingsOpen: this.settingsProp() !== "closed" };
         }
         componentDidMount() {
           const tick = () => {
@@ -52,7 +60,9 @@
         componentWillUnmount() { clearTimeout(this._w); }
         componentDidUpdate(prev) {
           if (prev.scene !== this.props.scene) this.reset();
+          if (prev.settings !== this.props.settings) this.setState({ settingsOpen: this.settingsProp() !== "closed" });
         }
+        settingsProp() { return this.props.settings || "closed"; }
         sceneKey() { return this.props.scene || "morning"; }
         reset() {
           const sc = window.MMWBoard.scene(this.sceneKey());
@@ -62,6 +72,10 @@
           const B = window.MMWBoard;
           return {
             scene: this.sceneKey(), task: this.state.task, sel: this.state.sel,
+            settingsOpen: this.state.settingsOpen,
+            settingsScene: this.settingsProp() === "closed" ? "mine" : this.settingsProp(),
+            openSettings: () => this.setState({ settingsOpen: true }),
+            closeSettings: () => this.setState({ settingsOpen: false }),
             pickTask: n => this.setState({ task: n, sel: null }),
             pickNode: n => this.setState({ sel: n }),
             goto: n => {

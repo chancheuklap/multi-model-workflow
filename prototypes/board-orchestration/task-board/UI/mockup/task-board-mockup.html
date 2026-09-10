@@ -342,7 +342,7 @@
     border: 1px solid var(--rule); border-radius: 7px; background: var(--panel); color: var(--soft); cursor: pointer;
   }
   .gear:hover, .gear[aria-expanded="true"] { color: var(--ink); border-color: rgba(45,49,66,0.34); }
-  .gear svg { width: 15px; height: 15px; }
+  .gear-icon { width: 15px; height: 15px; }
   .scrim {
     position: fixed; inset: 0; z-index: 25; display: grid; place-items: center;
     padding: 24px 16px 84px; background: rgba(29,32,48,0.46);
@@ -353,10 +353,10 @@
     box-shadow: 0 24px 64px rgba(20,22,34,0.28);
   }
   .sheet-head { display: flex; align-items: flex-start; gap: 16px; padding: 18px 24px 16px; border-bottom: 1px solid var(--rule); }
-  .sheet-head > div { flex: 1; min-width: 0; }
+  .sheet-head-text { flex: 1; min-width: 0; }
   .sheet-title { margin: 7px 0 5px; font-size: 18px; line-height: 1.3; font-weight: 600; text-wrap: balance; }
   .sheet-sub { margin: 0; font-size: 12px; color: var(--soft); max-width: 64ch; }
-  .sheet-sub code, .set-note code, .foot-status code { font: 11px var(--mono); color: var(--muted); }
+  .sheet-code { font: 11px var(--mono); color: var(--muted); }
   .sheet-body { overflow-y: auto; padding-inline: 24px; display: flex; flex-direction: column; }
   .set-block { display: flex; flex-direction: column; gap: 10px; padding-block: 16px; }
   .set-block + .set-block { border-top: 1px solid var(--rule-2); }
@@ -381,8 +381,6 @@
   .role-agent { font: 600 12px var(--mono); color: var(--ink); }
   .role-what { font-size: 11px; color: var(--soft); }
   .role-foot { grid-column: 2 / -1; display: flex; flex-direction: column; gap: 4px; }
-  .role-default { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 11px; color: var(--faint); }
-  .role-default b { font: 400 10.5px var(--mono); color: var(--soft); }
   .role-bad { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600; color: var(--ink); }
   .hatch {
     flex: none; width: 10px; height: 10px; border: 1px solid var(--ink); border-radius: 2px;
@@ -404,9 +402,9 @@
     display: inline-flex; align-items: center; gap: 6px; height: 24px; padding-inline: 9px;
     border: 1px solid var(--rule); border-radius: 6px; font-size: 11px; color: var(--soft); white-space: nowrap;
   }
-  .hs b { font: 600 10.5px var(--mono); color: var(--ink); }
+  .hs-name { font: 600 10.5px var(--mono); color: var(--hs-name, var(--ink)); }
   .hs.missing, .hs.silent { border-style: dashed; color: var(--faint); }
-  .hs.missing b, .hs.silent b { color: var(--soft); }
+  .hs.missing, .hs.silent { --hs-name: var(--soft); }
   .sel.changed { border-color: var(--ink); box-shadow: inset 0 0 0 0.5px var(--ink); font-weight: 600; }
   .sel.bad {
     border-color: var(--ink); box-shadow: inset 0 0 0 0.5px var(--ink);
@@ -420,14 +418,14 @@
     background: repeating-linear-gradient(135deg, rgba(45,49,66,0.05) 0 6px, transparent 6px 12px);
     font-size: 12px; color: var(--ink);
   }
-  .refused p { margin: 0; max-width: 60ch; }
+  .refused-text { margin: 0; max-width: 60ch; }
   .sheet-foot {
     display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap;
     padding: 14px 24px; border-top: 1px solid var(--rule); background: #fbfbfa;
   }
   .foot-status { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
-  .foot-status .strong { color: var(--ink); font-weight: 600; display: flex; align-items: center; gap: 7px; }
-  .foot-status .quiet { font-size: 11px; color: var(--soft); }
+  .foot-strong { color: var(--ink); font-weight: 600; display: flex; align-items: center; gap: 7px; }
+  .foot-quiet { font-size: 11px; color: var(--soft); }
   .foot-actions { display: flex; gap: 8px; margin-left: auto; }
   .btn {
     height: 32px; padding-inline: 14px; border-radius: 7px; cursor: pointer; font-size: 12.5px; white-space: nowrap;
@@ -482,7 +480,7 @@
     <div class="counters" id="counters"></div>
     <div class="readstate" id="readstate"></div>
     <button class="gear" id="open-settings" aria-label="本机配置" aria-haspopup="dialog" aria-expanded="false" title="本机配置：每个角色跑在哪个 host、model、effort">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <svg class="gear-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
         <circle cx="12" cy="12" r="3"/>
       </svg>
@@ -852,6 +850,114 @@ const Board = {
   },
 };
 /* BOARD:END */
+
+/* SETTINGS-LOGIC:BEGIN */
+/* ════════════════════════════════════════════════════════════════════════
+   SETTINGS LOGIC — one scan of this machine's hosts and one configuration in;
+   what the settings sheet offers, flags and would change out. No DOM here: it
+   is the sheet's half of #318's testing seam, and build_fixtures.py copies it
+   into the Claude Design port so the two agree. A scene `sc` carries `hosts`
+   (the scan: per host `state` missing | silent | ok and the `offered` models
+   with their efforts); a configuration is { runner, rows: { agent: { host,
+   model, effort } } }, and `auto` as a runner lets `start` look at the runner
+   it runs in.
+   ════════════════════════════════════════════════════════════════════════ */
+const LocalConfig = {
+  CELLS: ['host', 'model', 'effort'],
+  ROLE_WHAT: {
+    'junior-worker': '贴 junior-worker label 的票',
+    'senior-worker': '贴 senior-worker label 的票',
+    reviewer: '评审每张票的改动',
+    verifier: '复验每张票的判据',
+    advisor: '被问到时给第二意见',
+  },
+  hostScan: (sc, host) => sc.hosts[host] || { state: 'missing', offered: [] },
+  offeredBy: (sc, host) => LocalConfig.hostScan(sc, host).offered,
+  effortsOf: (sc, host, model) => (LocalConfig.offeredBy(sc, host).find(o => o.model === model) || { efforts: [] }).efforts,
+  hostWhy: (state, host) => (state === 'missing'
+    ? `这台机器上没装 ${host} 的 CLI（${SETTINGS.binaries[host]}）` : `${host} 的 CLI 在扫描时没有回答`),
+
+  // Everything `start` would refuse, and why — in the order it meets them: the host, then
+  // the model on that host, then the effort of that model.
+  problems(sc, d) {
+    const L = LocalConfig, out = [];
+    if (d.runner !== 'auto' && !SETTINGS.runners.includes(d.runner)) out.push({ key: 'runner', cell: 'runner', text: `${d.runner} 没有适配器，start 起不了会话` });
+    for (const a of SETTINGS.agents) {
+      const r = d.rows[a];
+      if (!SETTINGS.hosts.includes(r.host)) { out.push({ key: a, cell: 'host', text: `${r.host} 不是 MMW 认识的 host` }); continue; }
+      const hs = L.hostScan(sc, r.host);
+      if (hs.state !== 'ok') { out.push({ key: a, cell: 'host', text: `${L.hostWhy(hs.state, r.host)}，换一个这台机器有的` }); continue; }
+      if (!r.model) { out.push({ key: a, cell: 'model', text: '还没选 model' }); continue; }
+      if (!hs.offered.some(o => o.model === r.model)) { out.push({ key: a, cell: 'model', text: `这台机器的 ${r.host} 已经不提供 ${r.model}` }); continue; }
+      if (!r.effort) { out.push({ key: a, cell: 'effort', text: '还没选 effort' }); continue; }
+      if (!L.effortsOf(sc, r.host, r.model).includes(r.effort)) out.push({ key: a, cell: 'effort', text: `${r.model} 在 ${r.host} 上没有 ${r.effort} 这一档` });
+    }
+    return out;
+  },
+  // What a save would change, one entry per row that now runs on something else.
+  changes(d, s) {
+    const out = d.runner !== s.runner ? [{ key: 'runner', text: 'runner', cells: ['runner'] }] : [];
+    for (const a of SETTINGS.agents) {
+      const cells = LocalConfig.CELLS.filter(c => d.rows[a][c] !== s.rows[a][c]);
+      if (cells.length) out.push({ key: a, text: `${a} 的 ${cells.join('、')}`, cells });
+    }
+    return out;
+  },
+  // One cell of the draft `d` changed. A changed host keeps the model if the new host
+  // offers it too, else waits for a choice; the effort follows the same way, and a model
+  // with only one legal effort takes it.
+  setCell(sc, d, key, cell, value) {
+    const L = LocalConfig;
+    if (key === 'runner') { d.runner = value; return d; }
+    const r = d.rows[key];
+    r[cell] = value;
+    if (cell === 'host' && !L.offeredBy(sc, value).some(o => o.model === r.model)) r.model = '';
+    if (cell !== 'effort') {
+      const es = L.effortsOf(sc, r.host, r.model);
+      if (!es.includes(r.effort)) r.effort = es.length === 1 ? es[0] : '';
+    }
+    return d;
+  },
+
+  // The options of each dropdown. A saved value this machine no longer offers stays in its
+  // dropdown, named for what is wrong with it; an empty cell shows a disabled prompt.
+  runnerOptions(d) {
+    const opts = [
+      ...(d.runner !== 'auto' && !SETTINGS.runners.includes(d.runner) ? [{ value: d.runner, text: `${d.runner} · 没有适配器` }] : []),
+      ...SETTINGS.runners.map(r => ({ value: r, text: r })),
+      { value: 'auto', text: '按所在环境判断' },
+    ];
+    return opts.map(o => ({ ...o, selected: o.value === d.runner, disabled: !!o.disabled }));
+  },
+  rowOptions(sc, d, a) {
+    const L = LocalConfig, r = d.rows[a], hs = L.hostScan(sc, r.host);
+    const hostOk = hs.state === 'ok', modelKnown = hostOk && hs.offered.some(o => o.model === r.model);
+    const mark = (opts, value) => opts.map(o => ({ ...o, selected: o.value === value, disabled: !!o.disabled }));
+    const host = [
+      ...(SETTINGS.hosts.includes(r.host) ? [] : [{ value: r.host, text: `${r.host} · MMW 不认识` }]),
+      ...SETTINGS.hosts.map(h => {
+        const st = L.hostScan(sc, h).state;
+        return { value: h, text: st === 'ok' ? h : `${h} · ${st === 'missing' ? '本机没装' : '没有回答'}`, disabled: st !== 'ok' && h !== r.host };
+      }),
+    ];
+    const model = !hostOk ? [{ value: r.model, text: r.model || '—' }] : [
+      ...(!r.model ? [{ value: '', text: '选一个 model', disabled: true }] : modelKnown ? [] : [{ value: r.model, text: `${r.model} · 本机已经没有` }]),
+      ...hs.offered.map(o => ({ value: o.model, text: o.model })),
+    ];
+    const effort = !modelKnown ? [{ value: r.effort, text: r.effort || '—' }] : [
+      ...(!r.effort ? [{ value: '', text: '选一档', disabled: true }] : []),
+      ...L.effortsOf(sc, r.host, r.model).map(e => ({ value: e, text: e === '—' ? '—（不设）' : e })),
+    ];
+    return { host: mark(host, r.host), model: mark(model, r.model), effort: mark(effort, r.effort), hostOk, modelKnown };
+  },
+  hostChips(sc) {
+    return SETTINGS.hosts.map(h => {
+      const s = LocalConfig.hostScan(sc, h);
+      return { host: h, state: s.state, what: s.state === 'ok' ? `${s.offered.length} 个 model` : s.state === 'missing' ? '本机没装' : '没有回答' };
+    });
+  },
+};
+/* SETTINGS-LOGIC:END */
 
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -1345,64 +1451,16 @@ window.addEventListener('resize', () => applyView());
 
 /* ════════════════════════════════════════════════════════════════════════
    SETTINGS — which host, model and effort each agent runs on, and the runner:
-   MMW's one configuration on this machine (#335). The options come straight
-   from MMW asking this machine's hosts: each host's CLI is either not
-   installed, silent, or answers with the model and effort pairs `start` can
-   resolve. What is saved is shown even when this machine's hosts no longer
-   offer it, flagged, and nothing is saved while anything is flagged. A save
-   reaches the next agent that starts; a session already running is left alone.
-   In the mockup a save changes only the page.
+   MMW's one configuration on this machine (#335). The sheet renders what
+   LocalConfig (above) computes; this part holds the sheet's state and wires
+   it. A save reaches the next agent that starts; a session already running is
+   left alone. In the mockup a save changes only the page.
    ════════════════════════════════════════════════════════════════════════ */
-const ROLE_WHAT = {
-  'junior-worker': '贴 junior-worker label 的票',
-  'senior-worker': '贴 senior-worker label 的票',
-  reviewer: '评审每张票的改动',
-  verifier: '复验每张票的判据',
-  advisor: '被问到时给第二意见',
-};
-const CELLS = ['host', 'model', 'effort'];
 const SET = { open: false, scene: Object.keys(SETTINGS.scenes)[0], saved: null, draft: null, scannedAt: null,
   scanning: false, savedAt: null, refused: 0, reread: false, back: null };
 const sScene = () => SETTINGS.scenes[SET.scene];
 const copy = o => JSON.parse(JSON.stringify(o));
 const later = m => new Date(new Date(NOW).getTime() + m * 60000).toISOString();
-const hostScan = host => sScene().hosts[host] || { state: 'missing', offered: [] };
-const offeredBy = host => hostScan(host).offered;
-const effortsOf = (host, model) => (offeredBy(host).find(o => o.model === model) || { efforts: [] }).efforts;
-const HOST_WHY = {
-  missing: h => `这台机器上没装 ${h} 的 CLI（${SETTINGS.binaries[h]}）`,
-  silent: h => `${h} 的 CLI 在扫描时没有回答`,
-};
-
-const Local = {
-  // Everything `start` would refuse, and why — in the order it meets them: the host, then
-  // the model on that host, then the effort of that model. `auto` is not a runner name: it
-  // lets `start` look at the runner it runs in.
-  problems(d) {
-    const out = [];
-    if (d.runner !== 'auto' && !SETTINGS.runners.includes(d.runner)) out.push({ key: 'runner', cell: 'runner', text: `${d.runner} 没有适配器，start 起不了会话` });
-    for (const a of SETTINGS.agents) {
-      const r = d.rows[a];
-      if (!SETTINGS.hosts.includes(r.host)) { out.push({ key: a, cell: 'host', text: `${r.host} 不是 MMW 认识的 host` }); continue; }
-      const hs = hostScan(r.host);
-      if (hs.state !== 'ok') { out.push({ key: a, cell: 'host', text: `${HOST_WHY[hs.state](r.host)}，换一个这台机器有的` }); continue; }
-      if (!r.model) { out.push({ key: a, cell: 'model', text: '还没选 model' }); continue; }
-      if (!hs.offered.some(o => o.model === r.model)) { out.push({ key: a, cell: 'model', text: `这台机器的 ${r.host} 已经不提供 ${r.model}` }); continue; }
-      if (!r.effort) { out.push({ key: a, cell: 'effort', text: '还没选 effort' }); continue; }
-      if (!effortsOf(r.host, r.model).includes(r.effort)) out.push({ key: a, cell: 'effort', text: `${r.model} 在 ${r.host} 上没有 ${r.effort} 这一档` });
-    }
-    return out;
-  },
-  // What a save would change, one entry per row that now runs on something else.
-  changes(d, s) {
-    const out = d.runner !== s.runner ? [{ key: 'runner', text: 'runner', cells: ['runner'] }] : [];
-    for (const a of SETTINGS.agents) {
-      const cells = CELLS.filter(c => d.rows[a][c] !== s.rows[a][c]);
-      if (cells.length) out.push({ key: a, text: `${a} 的 ${cells.join('、')}`, cells });
-    }
-    return out;
-  },
-};
 
 function loadSettings(key) {
   SET.scene = key;
@@ -1413,88 +1471,51 @@ function loadSettings(key) {
   renderScenebar();
 }
 
-// A changed host keeps the model if the new host offers it too, else waits for a choice;
-// the effort follows the same way, and a model with only one legal effort takes it.
-function setCell(key, cell, value) {
-  SET.savedAt = null;
-  if (key === 'runner') { SET.draft.runner = value; return; }
-  const r = SET.draft.rows[key];
-  r[cell] = value;
-  if (cell === 'host' && !offeredBy(value).some(o => o.model === r.model)) r.model = '';
-  if (cell !== 'effort') {
-    const es = effortsOf(r.host, r.model);
-    if (!es.includes(r.effort)) r.effort = es.length === 1 ? es[0] : '';
-  }
-}
-
 function renderSettings() {
   if (!SET.open) return;
-  const d = SET.draft;
-  const probs = SET.scanning ? [] : Local.problems(d), ch = Local.changes(d, SET.saved);
+  const L = LocalConfig, sc = sScene(), d = SET.draft;
+  const probs = SET.scanning ? [] : L.problems(sc, d), ch = L.changes(d, SET.saved);
   const bad = (key, cell) => probs.find(p => p.key === key && p.cell === cell);
-  const select = (key, cell, value, options, label, disabled) => {
+  const select = (key, cell, options, label, disabled) => {
     const cls = bad(key, cell) ? ' bad' : ch.some(c => c.key === key && c.cells.includes(cell)) ? ' changed' : '';
     return `<select class="sel${cls}" id="set-${key}-${cell}" data-key="${key}" data-cell="${cell}" aria-label="${esc(label)}"${disabled ? ' disabled' : ''}>
-      ${options.map(o => `<option value="${esc(o.value)}"${o.value === value ? ' selected' : ''}${o.disabled ? ' disabled' : ''}>${esc(o.text)}</option>`).join('')}</select>`;
+      ${options.map(o => `<option value="${esc(o.value)}"${o.selected ? ' selected' : ''}${o.disabled ? ' disabled' : ''}>${esc(o.text)}</option>`).join('')}</select>`;
   };
-  const badLine = key => probs.filter(p => p.key === key).map(p => `<div class="role-bad"><span class="hatch"></span>${esc(p.text)}</div>`).join('');
-  const foot = key => { const b = badLine(key); return b ? `<div class="role-foot">${b}</div>` : ''; };
-
-  const runnerOpts = [
-    ...(d.runner !== 'auto' && !SETTINGS.runners.includes(d.runner) ? [{ value: d.runner, text: `${d.runner} · 没有适配器` }] : []),
-    ...SETTINGS.runners.map(r => ({ value: r, text: r })),
-    { value: 'auto', text: '按所在环境判断' },
-  ];
+  const foot = key => {
+    const b = probs.filter(p => p.key === key).map(p => `<div class="role-bad"><span class="hatch"></span>${esc(p.text)}</div>`).join('');
+    return b ? `<div class="role-foot">${b}</div>` : '';
+  };
   const rowHTML = a => {
-    const r = d.rows[a], hs = hostScan(r.host);
-    const hostOk = hs.state === 'ok', modelKnown = hostOk && hs.offered.some(o => o.model === r.model);
-    const hostOpts = [
-      ...(SETTINGS.hosts.includes(r.host) ? [] : [{ value: r.host, text: `${r.host} · MMW 不认识` }]),
-      ...SETTINGS.hosts.map(h => {
-        const st = hostScan(h).state;
-        return { value: h, text: st === 'ok' ? h : `${h} · ${st === 'missing' ? '本机没装' : '没有回答'}`, disabled: st !== 'ok' && h !== r.host };
-      }),
-    ];
-    const modelOpts = !hostOk ? [{ value: r.model, text: r.model || '—' }] : [
-      ...(!r.model ? [{ value: '', text: '选一个 model', disabled: true }] : modelKnown ? [] : [{ value: r.model, text: `${r.model} · 本机已经没有` }]),
-      ...hs.offered.map(o => ({ value: o.model, text: o.model })),
-    ];
-    const effortOpts = !modelKnown ? [{ value: r.effort, text: r.effort || '—' }] : [
-      ...(!r.effort ? [{ value: '', text: '选一档', disabled: true }] : []),
-      ...effortsOf(r.host, r.model).map(e => ({ value: e, text: e === '—' ? '—（不设）' : e })),
-    ];
+    const o = L.rowOptions(sc, d, a);
     return `<div class="role">
-      <div class="role-name"><span class="role-agent">${a}</span><span class="role-what">${ROLE_WHAT[a]}</span></div>
-      ${select(a, 'host', r.host, hostOpts, `${a} 的 host`, SET.scanning)}
-      ${select(a, 'model', r.model, modelOpts, `${a} 的 model`, SET.scanning || !hostOk)}
-      ${select(a, 'effort', r.effort, effortOpts, `${a} 的 effort`, SET.scanning || !modelKnown)}
+      <div class="role-name"><span class="role-agent">${a}</span><span class="role-what">${L.ROLE_WHAT[a]}</span></div>
+      ${select(a, 'host', o.host, `${a} 的 host`, SET.scanning)}
+      ${select(a, 'model', o.model, `${a} 的 model`, SET.scanning || !o.hostOk)}
+      ${select(a, 'effort', o.effort, `${a} 的 effort`, SET.scanning || !o.modelKnown)}
       ${foot(a)}
     </div>`;
   };
-  const hostChips = SETTINGS.hosts.map(h => {
-    const s = hostScan(h);
-    const what = SET.scanning ? '…' : s.state === 'ok' ? `${s.offered.length} 个 model` : s.state === 'missing' ? '本机没装' : '没有回答';
-    return `<span class="hs ${SET.scanning ? '' : s.state}"><b>${h}</b>${what}</span>`;
-  }).join('');
+  const hostChips = L.hostChips(sc).map(c =>
+    `<span class="hs ${SET.scanning ? '' : c.state}"><span class="hs-name">${c.host}</span>${SET.scanning ? '…' : c.what}</span>`).join('');
   const when = '保存后，下一个新起的 agent 就用新值；已经在跑的不受影响。';
 
   let status;
-  if (SET.refused) status = `<span class="strong">没有保存</span><span class="quiet">这一页打开之后，本机配置被别处改过，先重新读取。</span>`;
-  else if (SET.scanning) status = `<span class="strong">正在扫描本机的 host</span><span class="quiet">扫描完之前不能保存。</span>`;
-  else if (probs.length) status = `<span class="strong"><span class="hatch"></span>有 ${probs.length} 处 start 会拒绝，改好之前不能保存</span><span class="quiet">带斜线的格子，下面一行写着哪里不对。</span>`;
-  else if (ch.length) status = `<span class="strong">改了 ${ch.length} 处：${esc(ch.map(c => c.text).join('；'))}</span><span class="quiet">${when}</span>`;
-  else if (SET.savedAt) status = `<span class="strong">已保存 · ${hhmm(SET.savedAt)}</span><span class="quiet">从下一个新起的 agent 开始用；已经在跑的不受影响。</span>`;
-  else status = `<span class="strong">没有改动</span><span class="quiet">上面就是下一个新起的 agent 会用的配置。</span>`;
+  if (SET.refused) status = `<span class="foot-strong">没有保存</span><span class="foot-quiet">这一页打开之后，本机配置被别处改过，先重新读取。</span>`;
+  else if (SET.scanning) status = `<span class="foot-strong">正在扫描本机的 host</span><span class="foot-quiet">扫描完之前不能保存。</span>`;
+  else if (probs.length) status = `<span class="foot-strong"><span class="hatch"></span>有 ${probs.length} 处 start 会拒绝，改好之前不能保存</span><span class="foot-quiet">带斜线的格子，下面一行写着哪里不对。</span>`;
+  else if (ch.length) status = `<span class="foot-strong">改了 ${ch.length} 处：${esc(ch.map(c => c.text).join('；'))}</span><span class="foot-quiet">${when}</span>`;
+  else if (SET.savedAt) status = `<span class="foot-strong">已保存 · ${hhmm(SET.savedAt)}</span><span class="foot-quiet">从下一个新起的 agent 开始用；已经在跑的不受影响。</span>`;
+  else status = `<span class="foot-strong">没有改动</span><span class="foot-quiet">上面就是下一个新起的 agent 会用的配置。</span>`;
 
-  const at = sScene().changedElsewhere?.at;
+  const at = sc.changedElsewhere?.at;
   $('settings').innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="set-title" aria-describedby="set-sub">
-    <div class="sheet-head"><div>
+    <div class="sheet-head"><div class="sheet-head-text">
       <span class="dp-eyebrow">本机配置</span>
       <h2 class="sheet-title" id="set-title">这台机器上，每个角色跑在哪</h2>
-      <p class="sheet-sub" id="set-sub">下拉菜单里的选项，是 MMW 刚问过这台机器上每个 host 的 CLI 得到的。这里就是 MMW 管这件事的唯一地方，保存在本机的 <code>${esc(SETTINGS.store)}</code>；这一页不写 GitHub。</p>
+      <p class="sheet-sub" id="set-sub">下拉菜单里的选项，是 MMW 刚问过这台机器上每个 host 的 CLI 得到的。这里就是 MMW 管这件事的唯一地方，保存在本机的 <span class="sheet-code">${esc(SETTINGS.store)}</span>；这一页不写 GitHub。</p>
     </div><button class="dp-close" data-set-close aria-label="关闭本机配置">×</button></div>
     <div class="sheet-body">
-      ${SET.refused ? `<div class="refused" role="alert"><p><b>没有保存。</b>这一页打开之后，本机配置在 ${hhmm(at)} 被别处改过（一个 agent 从命令行改的）。重新读取会换成现在保存着的内容，你刚才改的 ${SET.refused} 处要再改一次。</p><button class="btn" id="set-reread">重新读取</button></div>` : ''}
+      ${SET.refused ? `<div class="refused" role="alert"><p class="refused-text"><b>没有保存。</b>这一页打开之后，本机配置在 ${hhmm(at)} 被别处改过（一个 agent 从命令行改的）。重新读取会换成现在保存着的内容，你刚才改的 ${SET.refused} 处要再改一次。</p><button class="btn" id="set-reread">重新读取</button></div>` : ''}
       <section class="set-block">
         <div class="set-block-head"><span class="dp-section-title">本机的 host</span>
           <span class="scan">${SET.scanning ? '<span class="spin"></span>正在问每个 host 的 CLI 有哪些 model…'
@@ -1504,10 +1525,10 @@ function renderSettings() {
       <section class="set-block">
         <div class="runner-row">
           <div class="role-name"><span class="role-agent">runner</span><span class="role-what">用什么起会话</span></div>
-          ${select('runner', 'runner', d.runner, runnerOpts, 'runner', SET.scanning)}
+          ${select('runner', 'runner', L.runnerOptions(d), 'runner', SET.scanning)}
           ${foot('runner')}
         </div>
-        <p class="set-note">环境变量 <code>MMW_RUNNER</code> 设了时，它优先于这一格。「按所在环境判断」让 <code>start</code> 看自己跑在哪个 runner 里，判断不出时用 orca。</p>
+        <p class="set-note">环境变量 <span class="sheet-code">MMW_RUNNER</span> 设了时，它优先于这一格。「按所在环境判断」让 <span class="sheet-code">start</span> 看自己跑在哪个 runner 里，判断不出时用 orca。</p>
       </section>
       <section class="set-block">
         <div class="set-block-head"><span class="dp-section-title">一个角色一行</span></div>
@@ -1545,7 +1566,7 @@ function closeSettings() {
   SET.back?.focus?.();
 }
 function saveSettings() {
-  const ch = Local.changes(SET.draft, SET.saved);
+  const ch = LocalConfig.changes(SET.draft, SET.saved);
   // The real board sends the version it read and is refused when the saved config moved on.
   if (sScene().changedElsewhere && !SET.reread) { SET.refused = ch.length; renderSettings(); return; }
   SET.saved = copy(SET.draft);
@@ -1588,13 +1609,14 @@ $('open-settings').onclick = openSettings;
 $('settings').addEventListener('change', e => {
   const s = e.target.closest('select[data-cell]');
   if (!s) return;
-  setCell(s.dataset.key, s.dataset.cell, s.value);
+  SET.savedAt = null;
+  LocalConfig.setCell(sScene(), SET.draft, s.dataset.key, s.dataset.cell, s.value);
   renderSettings();
   $(s.id)?.focus();
 });
 $('settings').addEventListener('click', e => {
   // A click beside the sheet closes it only when there is nothing to lose.
-  if (e.target === $('settings')) { if (!Local.changes(SET.draft, SET.saved).length) closeSettings(); return; }
+  if (e.target === $('settings')) { if (!LocalConfig.changes(SET.draft, SET.saved).length) closeSettings(); return; }
   if (e.target.closest('[data-set-close]')) return closeSettings();
   if (e.target.closest('#set-save')) return saveSettings();
   if (e.target.closest('#set-rescan')) return rescanSettings();

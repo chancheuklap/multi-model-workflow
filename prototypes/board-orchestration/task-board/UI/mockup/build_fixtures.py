@@ -18,7 +18,8 @@ night of 2026-09-10; the board read the tracker at 07:39 on 09-11.
 
 The settings page's data (#335: which host, model and effort each agent runs on, and the
 runner, chosen on this machine) goes between the `SETTINGS:BEGIN` and `SETTINGS:END`
-markers of the mockup only. It is built with the dispatch skill's own `models.py`: the
+markers of both files, and the mockup's settings logic between its `SETTINGS-LOGIC`
+markers is copied into `../work/data/fixtures.js` the way the board logic is. It is built with the dispatch skill's own `models.py`: the
 hosts, their CLI binaries and the default rows are `hosts.json` read by `load_hosts`, the
 runners are the adapters under `scripts/runners/`, and each host's `model` and `effort`
 options are `fillable_rows` of an example catalog in the shape `scan_cli_catalogs` returns
@@ -504,14 +505,16 @@ def main() -> int:
                 f"const SCENES = {json.dumps(list(data))};\n")
     mockup_path = HERE / "task-board-mockup.html"
     mockup = splice(mockup_path.read_text(encoding="utf-8"), "FIXTURES", fixtures)
-    mockup = splice(mockup, "SETTINGS",
-                    f"const SETTINGS = {json.dumps(settings(), ensure_ascii=False, separators=(',', ':'))};\n")
+    settings_js = f"const SETTINGS = {json.dumps(settings(), ensure_ascii=False, separators=(',', ':'))};\n"
+    mockup = splice(mockup, "SETTINGS", settings_js)
     mockup_path.write_text(mockup, encoding="utf-8")
-    # The Claude Design pages load one script: the same data, and the mockup's board logic
-    # copied over, so the two never disagree on how a fold is shown.
+    # The Claude Design pages load one script: the same data, and the mockup's board and
+    # settings logic copied over, so the two never disagree on what a fold or a scan shows.
     js_path = HERE.parent / "work" / "data" / "fixtures.js"
     js = splice(js_path.read_text(encoding="utf-8"), "FIXTURES", fixtures)
     js = splice(js, "BOARD", between(mockup, "BOARD").group(2))
+    js = splice(js, "SETTINGS", settings_js)
+    js = splice(js, "SETTINGS-LOGIC", between(mockup, "SETTINGS-LOGIC").group(2))
     js_path.write_text(js, encoding="utf-8")
     for path in (mockup_path, js_path):
         print(f"wrote {path.relative_to(HERE.parent)}")
