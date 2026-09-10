@@ -81,15 +81,19 @@ class Clock:
 
 
 class FakeBoard:
+    """Comments by ticket, and each spec's sub-issues as numbers (open) or (number, state)."""
+
     def __init__(self, tickets: dict[int, list[dict]], spec_children=None):
         self.tickets = tickets
         self.spec_children = spec_children or {}
+        self.read: list[int] = []
 
     def comments(self, ticket, since):
+        self.read.append(ticket)
         return list(self.tickets.get(ticket, []))
 
-    def sub_issues(self, number):
-        return list(self.spec_children.get(number, []))
+    def children(self, number):
+        return [c if isinstance(c, tuple) else (c, "open") for c in self.spec_children.get(number, [])]
 
 
 class Recorder:
@@ -120,6 +124,12 @@ class StateCase(unittest.TestCase):
 
     def write(self, name: str, value) -> None:
         (self.state / name).write_text(json.dumps(value) + "\n", encoding="utf-8")
+
+    def open_watches(self, *entries: dict) -> None:
+        """watches.json holding each entry: a watch (`spec` or `tickets`) with its main agent."""
+        self.write("watches.json", {
+            (f"spec:{e['spec']}" if e.get("spec") else
+             "tickets:" + ",".join(str(n) for n in e["tickets"])): e for e in entries})
 
 
 # ----------------------------------------------------------------- tolerance and health
@@ -296,25 +306,54 @@ class HostSide(unittest.TestCase):
         self.assertEqual(guard.answer("cursor", False, "why"), (0, "", ""))
 
 
+class WhoseTurn(StateCase):
+    """`is_main` against a runner adapter whose `self` answers $FAKE_SELF, with two watches
+    open: spec 7 opened by main-1 and ticket #70 opened by main-2."""
+
+    def setUp(self):
+        super().setUp()
+        runners = Path(self.tmp.name) / "runners"
+        runners.mkdir()
+        (runners / "fake.sh").write_text('case "$1" in self) printf "%s\\n" "$FAKE_SELF" ;; *) exit 3 ;; esac\n')
+        self.env("MMW_RUNNERS_DIR", str(runners))
+        self.open_watches({"spec": 7, "runner": "fake", "session": "main-1"},
+                          {"tickets": [70], "runner": "fake", "session": "main-2"})
+
+    def env(self, name: str, value: str) -> None:
+        old = os.environ.get(name)
+        os.environ[name] = value
+        self.addCleanup(lambda: os.environ.pop(name) if old is None
+                        else os.environ.__setitem__(name, old))
+
+    def test_the_main_agent_of_every_open_watch_is_guarded_and_nobody_else(self):
+        for session, guarded in (("main-1", True), ("main-2", True), ("main-3", False)):
+            with self.subTest(session=session):
+                self.env("FAKE_SELF", session)
+                self.assertEqual(guard.is_main(self.state, dog), guarded)
+
+    def test_a_main_agent_on_a_runner_with_no_adapter_is_nobody(self):
+        self.open_watches({"spec": 7, "runner": "nosuch", "session": "main-1"})
+        self.env("FAKE_SELF", "main-1")
+        self.assertFalse(guard.is_main(self.state, dog))
+
+
 # ----------------------------------------------------------------- the night
 
 class NightOpen(StateCase):
-    def test_a_running_or_dead_relays_record_is_an_open_night(self):
-        self.write("relay.json", {"pid": 1, "watch": {"spec": 7}})
+    def test_an_open_watch_is_an_open_night_whether_or_not_a_relay_runs(self):
+        # A relay that died leaves its watches: an open night with no relay.
+        self.open_watches({"spec": 7, **MAIN})
         self.assertTrue(dog.night_open(self.state))
 
-    def test_a_last_good_poll_without_a_record_is_an_open_night(self):
-        # A relay that exited on an error removed relay.json and left its last good poll.
+    def test_no_watch_open_is_no_night(self):
         self.write("beat.json", {"at": stamp(T0)})
-        self.assertTrue(dog.night_open(self.state))
-
-    def test_a_relay_stopped_on_purpose_closes_the_night(self):
-        self.write("beat.json", {"at": None, "stopped": stamp(T0)})
+        self.assertFalse(dog.night_open(self.state))
+        self.write("watches.json", {})
         self.assertFalse(dog.night_open(self.state))
         self.assertFalse(dog.night_open(statedir.state_dir("o/never")))
 
-    def test_an_unreadable_beat_is_not_a_closed_night(self):
-        (self.state / "beat.json").write_text("{not json", encoding="utf-8")
+    def test_unreadable_watches_are_not_a_closed_night(self):
+        (self.state / "watches.json").write_text("{not json", encoding="utf-8")
         self.assertTrue(dog.night_open(self.state))
 
 
@@ -368,6 +407,15 @@ class Judge(unittest.TestCase):
         f = events.fold(["prose", "x\n\n<!-- mmw {not json} -->"], issue=61)
         self.assertEqual(dog.judge(f, T0, 600)["state"], "unreadable")
 
+    def test_idle_is_a_worker_alone_quiet_past_the_idle_time_with_nothing_to_wait_on(self):
+        started = comment(1, "worker.started", 61, T0, runner="orca", session="t1")
+        self.assertFalse(dog.judge(self.fold(started), T0 + timedelta(seconds=3599), 600, 3600)["idle"])
+        self.assertTrue(dog.judge(self.fold(started), T0 + timedelta(seconds=3600), 600, 3600)["idle"])
+        reviewer = comment(2, "reviewer.started", 61, T0, runner="orca", session="rv")
+        self.assertFalse(dog.judge(self.fold(started, reviewer), T0 + timedelta(hours=2), 600, 3600)["idle"])
+        passed = comment(2, "ticket.passed", 61, T0)
+        self.assertFalse(dog.judge(self.fold(started, passed), T0 + timedelta(hours=2), 600, 3600)["idle"])
+
 
 class Rounds(StateCase):
     """Watchdog.round over a fake board, fake runner verbs and a fake post."""
@@ -376,14 +424,14 @@ class Rounds(StateCase):
 
     def setUp(self):
         super().setUp()
-        self.write("recipient.json", MAIN)
+        self.open_watches({"spec": 7, **MAIN})
         # An open night whose relay is healthy: this process holds the relay's lock with its
         # own identity, and the relay polled a moment ago.
         self.relay_lock = statedir.locked(self.state / "relay.lock", wait=0, purpose="test relay")
         self.relay_lock.__enter__()
         self.addCleanup(self.relay_lock.__exit__, None, None, None)
         self.write("relay.json", {"pid": os.getpid(), "identity": statedir.own_identity(),
-                                  "watch": {"spec": 7}, "started": stamp(T0 - timedelta(hours=1))})
+                                  "started": stamp(T0 - timedelta(hours=1))})
         self.write("beat.json", {"at": stamp(T0), "delivering": 0, "grace": 90, "interval": 30})
         self.board = FakeBoard({}, {7: [61]})
         self.ask = Recorder(default="alive")
@@ -612,16 +660,111 @@ class Rounds(StateCase):
 
     def test_a_relay_just_started_is_given_its_grace(self):
         self.write("beat.json", {"at": None})
-        self.write("relay.json", {"pid": os.getpid(), "watch": {"spec": 7},
-                                  "started": stamp(T0 - timedelta(seconds=10))})
+        self.write("relay.json", {"pid": os.getpid(), "started": stamp(T0 - timedelta(seconds=10))})
         self.watchdog().round()
         self.assertEqual(self.send.calls, [])
 
     def test_a_closed_night_ends_the_watchdog(self):
-        (self.state / "relay.json").unlink()
-        self.write("beat.json", {"at": None, "stopped": stamp(T0)})
+        self.write("watches.json", {})
         self.assertEqual(self.watchdog().round(), "closed")
         self.assertTrue(self.heartbeat()["closed"])
+
+    # ------------------------------------------------------------- several watches
+
+    OTHER = {"runner": "paseo", "session": "main-b"}
+
+    def two_watches(self):
+        """The night on spec 7 (main agent term_main) and ticket #70 alone (main-b)."""
+        self.open_watches({"spec": 7, **MAIN}, {"tickets": [70], **self.OTHER})
+
+    def test_a_finding_about_a_ticket_goes_to_the_main_agent_of_its_watch_alone(self):
+        self.two_watches()
+        self.ask.default = "unknown"
+        self.board.tickets[70] = [comment(1, "worker.started", 70, self.SILENT, runner="herdr",
+                                          session="h70")]
+        self.watchdog().round()
+        self.assertEqual([(c[0], c[1]) for c in self.send.calls], [("paseo", "main-b")])
+        self.assertIn("#70 liveness unknown", self.send.calls[0][2])
+        self.silent_worker()
+        self.watchdog().round()
+        self.assertEqual([(c[0], c[1]) for c in self.send.calls[1:]], [("orca", "term_main")])
+        self.assertIn("#61 liveness unknown", self.send.calls[1][2])
+
+    def test_relay_down_goes_to_every_main_agent_once_each(self):
+        self.two_watches()
+        self.relay_lock.__exit__(None, None, None)
+        self.write("relay.lock", {"pid": os.getpid(), "identity": "Mon Jan  1 00:00:00 2001"})
+        self.watchdog().round()
+        self.assertEqual(sorted((c[0], c[1]) for c in self.send.calls),
+                         [("orca", "term_main"), ("paseo", "main-b")])
+        self.assertTrue(all("watchdog: relay down" in c[2] for c in self.send.calls))
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 2, "each main agent is told once per stretch")
+
+    def test_a_main_agent_that_was_not_told_is_told_next_round_and_the_other_not_again(self):
+        self.two_watches()
+        self.relay_lock.__exit__(None, None, None)
+        self.write("relay.lock", {"pid": os.getpid(), "identity": "Mon Jan  1 00:00:00 2001"})
+        self.send.answers[("paseo", "main-b")] = 3
+        self.send.default = 4
+        self.watchdog().round()
+        self.send.answers.clear()
+        self.watchdog().round()
+        self.assertEqual([(c[0], c[1]) for c in self.send.calls],
+                         [("orca", "term_main"), ("paseo", "main-b"), ("paseo", "main-b")])
+
+    def test_a_closed_ticket_of_a_night_is_not_read_and_a_ticket_watched_alone_is(self):
+        self.two_watches()
+        self.board.spec_children[7] = [61, (62, "closed")]
+        self.watchdog().round()
+        self.assertEqual(sorted(self.board.read), [61, 70])
+
+    # ------------------------------------------------------------- idle
+
+    IDLE = T0 - timedelta(hours=1)
+
+    def idle_worker(self, *extra):
+        self.board.tickets[61] = [comment(1, "worker.started", 61, self.IDLE, runner="herdr",
+                                          session="h1"), *extra]
+
+    def test_a_live_worker_with_nothing_to_wait_on_for_an_hour_is_a_finding_once(self):
+        self.idle_worker()
+        self.send.default = 4
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1)
+        self.assertEqual(self.send.calls[0][:2], ("orca", "term_main"))
+        self.assertEqual(self.send.calls[0][2],
+                         "watchdog: #61 silent since 2026-09-10T00:00:00Z with nothing to wait on: "
+                         "its worker h1 on herdr is alive, and no reviewer, verifier or product "
+                         "slot is pending")
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1, "once per ticket and newest event")
+
+    def test_a_live_worker_silent_less_than_an_hour_is_not_idle(self):
+        self.silent_worker()
+        self.watchdog().round()
+        self.assertEqual(self.send.calls, [])
+
+    def test_a_live_worker_waiting_on_something_is_not_idle(self):
+        for why, extra in (
+                ("a live reviewer", comment(2, "reviewer.started", 61, self.IDLE, runner="orca",
+                                            session="rv")),
+                ("a product slot", comment(2, "worker.queued", 61, self.IDLE, reason="machine-full",
+                                           run="self")),
+                ("the landing of its pass", comment(2, "ticket.passed", 61, self.IDLE))):
+            with self.subTest(why=why):
+                self.send.calls.clear()
+                (self.state / "watchdog.json").unlink(missing_ok=True)
+                self.idle_worker(extra)
+                self.watchdog().round()
+                self.assertEqual(self.send.calls, [])
+
+    def test_a_worker_that_is_not_alive_is_no_idle_finding(self):
+        self.idle_worker()
+        self.ask.default = "stopped"
+        self.watchdog().round()
+        self.assertEqual(self.send.calls, [])
+        self.assertEqual([c[1] for c in self.post.calls], ["worker"])
 
     def test_the_heartbeat_names_this_process_and_its_poll(self):
         self.silent_worker()

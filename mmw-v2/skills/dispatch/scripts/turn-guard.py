@@ -13,16 +13,18 @@ runs every time the main agent's turn ends, and:
 1. re-arms the watchdog (`watchdog.arm`) when it is not healthy, and
 2. keeps the turn from ending when tickets are held and the watchdog is still not healthy.
 
-**Whose turn.** Only the main agent's. For every state directory under `$MMW_HOME/state`
-with an open night (`watchdog.night_open`), the relay's `recipient.json` names the main
-agent's runner and session; this process asks that runner's adapter `self` which session
-it runs in, and acts only when the two are the same. Anything it cannot establish — no
-`recipient.json`, one it cannot read, no adapter for that runner, `self` answering anything
-but its session id — means this is not the main agent, and the turn ends: a worker, or a
-child process that inherited a runner's variables, must never be held by the main agent's
-guard. The real main agent always matches, because `dispatch.sh open` refuses to register
-a main agent whose `self` cannot be read. A worker's turn end, or any session on a machine
-with no open night, is let through after reading a few files.
+**Whose turn.** Only a main agent's. For every state directory under `$MMW_HOME/state`
+with an open night (`watchdog.night_open`: the relay's `watches.json` names a watch), each
+open watch names its main agent's runner and session; this process asks each of those
+runners' adapter `self` which session it runs in, and acts when the answer is the main
+agent of any watch of that directory — a repository with two nights open guards both
+their main agents, and nobody else. Anything it cannot establish — no `watches.json`, one
+it cannot read, no adapter for that runner, `self` answering anything but a session id —
+means this is not a main agent, and the turn ends: a worker, or a child process that
+inherited a runner's variables, must never be held by a main agent's guard. A real main
+agent always matches, because `dispatch.sh open` refuses to open a watch for a session
+whose `self` cannot be read. A worker's turn end, or any session on a machine with no open
+night, is let through after reading a few files.
 
 **The predicate** (`verdict`): block when the watchdog is not healthy and the watchdog's
 last heartbeat does not say that nothing is held. No heartbeat at all, or one from a round
@@ -238,26 +240,26 @@ def open_states(dog) -> list[Path]:
     return [p for p in candidates if dog.night_open(p)]
 
 
-def is_main(state: Path) -> bool:
+def is_main(state: Path, dog) -> bool:
     """True only when this process's own (runner, session), read by that runner's `self`,
-    is the main agent `recipient.json` registers. Whatever cannot be established is False."""
+    is the main agent of a watch open on `state`. Whatever cannot be established is False."""
     try:
-        record = statedir.read_json(state / "recipient.json", {})
+        watches = dog.relay_mod.read_watches(state)
     except ValueError:
         return False
-    runner = record.get("runner") if isinstance(record, dict) else None
-    session = record.get("session") if isinstance(record, dict) else None
-    if not runner or not session:
-        return False
-    adapter = runners_dir() / f"{runner}.sh"
-    if not adapter.is_file():
-        return False
-    try:
-        run = subprocess.run(["bash", str(adapter), "self"], capture_output=True, text=True,
-                             timeout=SELF_TIMEOUT)
-    except (OSError, subprocess.SubprocessError):
-        return False
-    return run.returncode == 0 and (run.stdout or "").strip() == session
+    mains = {dog.relay_mod.main_of(entry) for entry in watches.values()}
+    for runner in sorted({runner for runner, _ in mains}):
+        adapter = runners_dir() / f"{runner}.sh"
+        if not adapter.is_file():
+            continue
+        try:
+            run = subprocess.run(["bash", str(adapter), "self"], capture_output=True, text=True,
+                                 timeout=SELF_TIMEOUT)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if run.returncode == 0 and (runner, (run.stdout or "").strip()) in mains:
+            return True
+    return False
 
 
 def now_iso() -> str:
@@ -282,7 +284,7 @@ def guard(host: str, forced: bool = False) -> list[str]:
 
     blocks: list[str] = []
     for state in open_states(dog):
-        if not is_main(state):
+        if not is_main(state, dog):
             continue
         repo = dog.repo_of(state)
         healthy, why, beat = dog.read_health(state)
