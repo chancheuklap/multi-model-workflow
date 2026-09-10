@@ -18,6 +18,7 @@
 #   dispatch.sh reverify <spec>
 #   dispatch.sh summary <spec>
 #   dispatch.sh suspend <spec>
+#   dispatch.sh route <ticket> <child> fixed|stale|became-ticket [<new ticket>]
 #
 # Every script this one calls is found by resolution, from this file's own path:
 # `lease.py` of the drive-target skill, and `verify-ticket.py` and `events.py` of the
@@ -41,10 +42,14 @@
 # `start` has that runner's adapter (scripts/runners/<runner>.sh) start the
 # session, writes a `worker.started`, `reviewer.started` or `verifier.started` event
 # on the ticket — session, runner, host, model, effort, grade, the worktree's absolute
-# path, branch, base commit, and for a worker its slot — and prints the session id. A
-# start the adapter refuses is refused once: no retry, no other host, no other runner.
-# `resume`, `wait`, `retract`, `land` and `suspend` find the session in those events
-# and ask the runner the event names.
+# path, branch and base commit — and prints the session id. A worker takes no product
+# slot here: the first run of its criteria that needs the product claims one
+# (`verify-ticket.py`), and the worktree keeps it until the ticket lands. A start the
+# adapter refuses is refused once: no retry, no other host, no other runner. A worker
+# started on a ticket whose events still show a live worker replaces that one: the old
+# session is stopped through its own runner and a `worker.replaced` naming it goes on
+# the ticket before the new `worker.started`. `resume`, `wait`, `retract`, `land` and
+# `suspend` find the session in those events and ask the runner the event names.
 #
 # Nothing here tells anyone that a result landed. `relay.py`, beside this script, watches
 # the board and wakes the session waiting on each result event through that session's
@@ -93,7 +98,7 @@ MERGE_TRIES=3                # a worker's commit in its worktree can hold the .g
 STOP_TIMEOUT_S="${MMW_STOP_TIMEOUT_S:-300}"
 
 AUTONOMOUS="You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
-PIPELINE_FAULT="A fault in the pipeline itself is reported, not worked around: verify-ticket.py <n> --sub-issue pipeline <file>, then stop (rule 5 of that section)."
+PIPELINE_FAULT="A fault in the pipeline itself is reported, not worked around: verify-ticket.py <n> --sub-issue fault <file>, then stop (rule 5 of that section)."
 PRODUCT_RULES="Several tickets run on this machine at once. Before you start, reach or stop the product, read 'Five rules while the product is running' in the drive-target skill."
 
 # Grok Build hands its agents CLICOLOR_FORCE=1, and `gh` writes ANSI escapes into
@@ -168,6 +173,27 @@ sessions_on_ticket() {
   ticket_events "$1" sessions
 }
 
+# Every worker session whose hold no event on the ticket has ended, one
+# "runner<TAB>session" per line, oldest first.
+live_workers_on_ticket() {
+  ticket_events "$1" live --kind worker
+}
+
+# The spec ticket <n> sits under — the parent link the tracker records — for the `spec`
+# field of the events written on it. MMW_SPEC answers first when the caller set it (a
+# batch command knows its spec). Prints nothing when the tracker records no parent or
+# could not be asked: the event is written either way, and the field is left empty.
+ticket_spec() {
+  local found
+  if [ -n "${MMW_SPEC:-}" ]; then
+    printf '%s\n' "$MMW_SPEC"
+    return 0
+  fi
+  found="$(gh_ issue view "$1" --json parent --jq '.parent.number // empty' 2>/dev/null | head -n 1)"
+  case "$found" in "" | *[!0-9]*) return 0 ;; esac
+  printf '%s\n' "$found"
+}
+
 # Post one event on issue <issue>. Everything after the issue number is `events.py
 # emit`'s own arguments. Exit 0 posted, 1 the tracker did not take it, 2 the event could
 # not be built (the reason is on stderr).
@@ -196,6 +222,7 @@ usage: dispatch.sh check <spec>
        dispatch.sh reverify <spec>
        dispatch.sh summary <spec>
        dispatch.sh suspend <spec>
+       dispatch.sh route <ticket> <child> fixed|stale|became-ticket [<new ticket>]
 USAGE
   exit 2
 }
@@ -351,7 +378,7 @@ ack_wake() {
 # reviewer's report would wake nobody, and `start <n> reviewer` would refuse. This writes
 # that event with the session's own runner and session (its adapter's `self`) and the
 # facts `start` writes — the grade's live-table row, this worktree, its branch and base,
-# and the slot `lease.py` gives it — and makes sure a relay watches the ticket: the one
+# and no slot, which the first run of its criteria that runs the product claims — and makes sure a relay watches the ticket: the one
 # already watching it, or one started for this ticket alone with this session as the one
 # woken. Run it from the ticket's worktree, on branch issue-<n>, before claiming.
 adopt_ticket() {
@@ -426,11 +453,6 @@ for r in state.get("sessions") or []:
     refuse "#$number is held by worker ${who#*$'\t'} on ${who%%$'\t'*}; retract that start once its session is gone, then adopt again"
   done <<<"$holders"
 
-  [ -f "$LEASE" ] \
-    || refuse "no lease.py in any --tools directory, so this worktree cannot be given its share of the machine; pass --tools <the drive-target skill's scripts directory>"
-  local claimed
-  claimed="$(python3 "$LEASE" claim "$tree")" || refuse "issue-$number: no slot for $tree (the reason is above)"
-
   # A relay has to see this ticket, or the reviewer's report lands and wakes nobody.
   local started=""
   if ! relay_watches "$number" "$spec" 2>/dev/null; then
@@ -447,24 +469,12 @@ for r in state.get("sessions") or []:
     printf '%s\n' "$session"
     return 0
   fi
-  local -a slot_fields=()
-  read -r -a slot_fields <<<"$(printf '%s' "$claimed" | python3 -c '
-import json, sys
-try:
-    record = json.load(sys.stdin)
-except Exception:
-    record = {}
-for key in ("slot", "port_base"):
-    if isinstance(record.get(key), int):
-        print(f"--json-field {key}={record[key]}", end=" ")
-' 2>/dev/null)"
   if ! post_event "$number" worker.started --ticket "$number" --spec "$spec" \
        --line "worker adopted on $runner: session $session, $host $model ($effort)" \
        --field "session=$session" --field "runner=$runner" \
        --field "host=$host" --field "model=$model" --field "effort=${effort:-—}" \
        --field "grade=$profile" --field "worktree=$tree" --field "branch=issue-$number" \
-       --field "base=$base" --json-field adopted=true \
-       ${slot_fields[@]+"${slot_fields[@]}"}; then
+       --field "base=$base" --json-field adopted=true; then
     [ -n "$started" ] && stop_relay --tickets "$number"
     refuse "could not write the worker.started event on #$number, so this session is not its worker$([ -n "$started" ] && echo " and the relay this started was stopped again"); adopt again once the tracker takes comments"
   fi
@@ -629,45 +639,14 @@ for rec in mod.claimed():
 ' 2>/dev/null
 }
 
-# ------------------------------------------------------------------ the instance gate
+# ------------------------------------------------------------------ slots
 #
 # Several runs share one machine. `lease.py` hands each worktree a block of ports and a
-# directory nothing else uses; this is the half that decides how many runs may be up at
-# once, because only the dispatcher knows it is starting more than one.
-#
-# A repository that can isolate its product says nothing and gets the machine's limit. A
-# repository that cannot — ports written into a container file, a callback registered at
-# a fixed port, an installed product that hardcodes them — says so in `.mmw/target.json`:
-#
-#     "instance": {"max": 1, "why": "<what stops a second one>"}
-#
-# and its tickets are serialised. That is the honest fallback. The alternative is what
-# 2026-09-05 did: five workers dispatched onto three fixed ports, one of them working.
-
-# Prints `instance.max`, or nothing when the repository declares none. A file that is
-# there but cannot be read is a fault, not "none declared": exit 2 with the reason.
-target_max_instances() {
-  python3 - "$1" <<'PY'
-import json, sys
-from pathlib import Path
-path = Path(sys.argv[1]) / ".mmw" / "target.json"
-if not path.exists():
-    print("")
-    sys.exit(0)
-try:
-    data = json.loads(path.read_text(encoding="utf-8"))
-except (OSError, ValueError) as exc:
-    print(f"dispatch: {path} cannot be read as JSON: {exc}", file=sys.stderr)
-    sys.exit(2)
-instance = data.get("instance") if isinstance(data, dict) else None
-value = instance.get("max") if isinstance(instance, dict) else None
-print(value if isinstance(value, int) and value > 0 else "")
-PY
-}
-
-live_instances() {
-  python3 "$LEASE" count "$1"
-}
+# directory nothing else uses. Nothing here takes a slot: a worker writes code without
+# one, and the first run of its criteria that needs the product claims it, waiting while
+# the product's `instance.max` or the machine's slots are all held. What this script does
+# is give slots back — at landing, at a retraction, at a suspension — after taking the
+# product down, since a slot is free only once nothing listens on its ports.
 
 # Give a ticket's claim back, when this pipeline's own account holds it. Returns 0
 # given back, 1 nothing to give back (no login, or someone else holds it), 2 the
@@ -690,11 +669,9 @@ raise SystemExit(0 if login in [a.get("login") for a in rows if isinstance(a, di
   return 0
 }
 
-# Give a finished ticket's slot back. Returns 0 released, 1 refused (something still
-# listens), 3 no lease was registered for that path.
 # The command `.mmw/target.json` names for taking this run's product down, or nothing
 # when the repository declares none. A file that is there but cannot be read is a fault,
-# not "none declared": the same rule `target_max_instances` follows.
+# not "none declared": exit 2 with the reason.
 target_stop_command() {
   python3 - "$1" <<'TARGET_STOP_PY'
 import json, sys
@@ -738,10 +715,29 @@ stop_product() {
 
 # Stopping the product and giving its slot back are one act, and every caller wants both:
 # a slot is free only once nothing listens on its ports, and `lease.py` is right to refuse
-# one held by a live process rather than take it. Exit codes are `release_lease`'s.
+# one held by a live process rather than take it. Exit codes are `release_lease`'s: 0
+# released, 1 refused (something still listens), 3 no lease was registered for that path.
 give_slot_back() {
   stop_product "$1" || true
   release_lease "$1"
+}
+
+# Give ticket <n>'s slot back at the moment a released claim ends its work: a slot is
+# held until the ticket's work ends, not until somebody next lands it. Returns 0 given
+# back or none held, 1 still held (said on stderr).
+give_ticket_slot_back() {
+  local number="$1" cwd
+  [ -f "$LEASE" ] \
+    || { echo "dispatch: no lease.py in any --tools directory, so #$number's slot was not given back" >&2; return 1; }
+  cwd="$(workspace_cwd_for "$number")"
+  [ -n "$cwd" ] || cwd="$(lease_worktree_for "$number")"
+  [ -n "$cwd" ] || return 0
+  give_slot_back "$cwd"
+  case "$?" in
+    0 | 3) return 0 ;;
+  esac
+  echo "dispatch: #$number's claim is given back, but its slot is still held: stop its product in $cwd, then python3 $LEASE release $cwd" >&2
+  return 1
 }
 
 # `lease.py release` says which of the three outcomes happened in its exit code — 0 given
@@ -910,30 +906,29 @@ start_one() {
       prompt="Use the verdict skill to verify ticket #$number. $AUTONOMOUS $PRODUCT_RULES" ;;
   esac
 
-  local cwd created ws_row claimed=""
+  # A worker started on a ticket whose events still show a live worker replaces it. Two
+  # workers in one worktree commit over each other, so the old session is stopped first,
+  # through its own runner, and a start whose predecessor will not stop starts nothing.
+  local -a replaced=()
+  if [ "$kind" = worker ]; then
+    local live_list old_runner old_ident
+    live_list="$(live_workers_on_ticket "$number")" \
+      || refuse "could not read #$number's events, so whether a worker already runs there is unknown; nothing was started"
+    while IFS=$'\t' read -r old_runner old_ident; do
+      [ -n "$old_ident" ] || continue
+      use_runner "$old_runner"
+      runner stop "$old_ident" \
+        || refuse "#$number's worker $old_ident on $old_runner is live on its events and could not be stopped, so no second worker was started beside it; end it on $old_runner, then start again"
+      replaced+=("$old_runner"$'\t'"$old_ident")
+    done <<<"$live_list"
+    use_runner "$(tonight_runner)"
+  fi
+
+  local cwd created ws_row
   ws_row="$(ensure_workspace "$number" "$root")" \
     || refuse "could not open a worktree for issue-$number"
   cwd="$(printf '%s\n' "$ws_row" | cut -f2)"
   created="$(printf '%s\n' "$ws_row" | cut -f3)"
-
-  if [ "$kind" = worker ]; then
-    [ -f "$LEASE" ] \
-      || refuse "no lease.py in any --tools directory, so no run can be given its own share of this machine. Pass --tools <the drive-target skill's scripts directory>, then dispatch again"
-    [ -n "$cwd" ] \
-      || refuse "could not read the workspace cwd for issue-$number, so no lease can be claimed"
-    local claim_err claim_errfile
-    claim_errfile="$(mktemp)"
-    if ! claimed="$(python3 "$LEASE" claim "$cwd" 2>"$claim_errfile")"; then
-      claim_err="$(cat "$claim_errfile")"
-      rm -f "$claim_errfile"
-      if [ "$created" = 1 ] && [ -n "$cwd" ]; then
-        remove_worktree "$root" "$cwd" \
-          || echo "dispatch: could not remove the worktree for #$number" >&2
-      fi
-      refuse "issue-$number: $claim_err"
-    fi
-    rm -f "$claim_errfile"
-  fi
 
   # Labels are for runners that keep them (Paseo); the others take and ignore them.
   local -a labels=(--label "mmw.ticket=$number" --label "mmw.kind=$kind" --label mmw.autonomous=1)
@@ -950,20 +945,20 @@ start_one() {
   fi
   session="$(printf '%s\n' "$session" | tail -n 1)"
 
-  # A worker's slot is the lease record `lease.py claim` printed: its number and first port.
-  local -a slot_fields=()
-  if [ -n "$claimed" ]; then
-    read -r -a slot_fields <<<"$(printf '%s' "$claimed" | python3 -c '
-import json, sys
-try:
-    record = json.load(sys.stdin)
-except Exception:
-    record = {}
-for key in ("slot", "port_base"):
-    if isinstance(record.get(key), int):
-        print(f"--json-field {key}={record[key]}", end=" ")
-' 2>/dev/null)"
-  fi
+  # The replaced sessions are closed on the ticket before the new one is recorded, so the
+  # fold never reads two live workers. One whose event could not be written is stopped
+  # but still reads live, and `status` names both; say so rather than leave it unsaid.
+  local pair
+  for pair in "${replaced[@]+"${replaced[@]}"}"; do
+    old_runner="${pair%%$'\t'*}"
+    old_ident="${pair#*$'\t'}"
+    post_event "$number" worker.replaced --ticket "$number" --spec "$spec" \
+        --line "Replaced the worker $old_ident on $old_runner with $session on $RUNNER_NAME" \
+        --field "session=$old_ident" --field "runner=$old_runner" \
+        --field "by_session=$session" --field "by_runner=$RUNNER_NAME" \
+      || echo "dispatch: $old_ident on $old_runner is stopped, but the worker.replaced event on #$number was not written, so its events still read it as live beside $session; run retract once $session is done, or write it again" >&2
+  done
+
   # The event is the only place this session is recorded: every later command finds
   # it there, and `advance` reads a ticket whose events show no hold as free.
   # So a session whose event could not be written is stopped again rather than left
@@ -973,8 +968,7 @@ for key in ("slot", "port_base"):
        --field "session=$session" --field "runner=$RUNNER_NAME" \
        --field "host=$host" --field "model=$model" --field "effort=${effort:-—}" \
        --field "grade=$profile" --field "worktree=$cwd" --field "branch=issue-$number" \
-       --field "base=$(git -C "$root" config --get "branch.issue-$number.mmw-base")" \
-       ${slot_fields[@]+"${slot_fields[@]}"}; then
+       --field "base=$(git -C "$root" config --get "branch.issue-$number.mmw-base")"; then
     if runner stop "$session"; then
       refuse "could not write the $kind.started event on #$number, so session $session on $RUNNER_NAME was stopped again rather than left running where no command can find it; start again once the tracker takes comments"
     fi
@@ -1042,7 +1036,7 @@ retract_one() {
   # ticket would read as held by a worker that is gone, and never be started again.
   local -a named=()
   [ -z "$ident" ] || named=(--field "session=$ident" --field "runner=$RUNNER_NAME")
-  post_event "$number" worker.retracted --ticket "$number" --spec "${MMW_SPEC:-}" \
+  post_event "$number" worker.retracted --ticket "$number" --spec "$(ticket_spec "$number")" \
       --line "Retracted the start on #$number: archived $archived, slot given back $slot, claim given back $claim" \
       ${named[@]+"${named[@]}"} \
       --json-field "archived=$([ "$archived" = 1 ] && echo true || echo false)" \
@@ -1081,7 +1075,7 @@ resume_one() {
   local rc=$?
   case "$rc" in
     0)
-      post_event "$number" worker.resumed --ticket "$number" --spec "${MMW_SPEC:-}" \
+      post_event "$number" worker.resumed --ticket "$number" --spec "$(ticket_spec "$number")" \
           --line "Resumed the worker $ident on $RUNNER_NAME" \
           --field "session=$ident" --field "runner=$RUNNER_NAME" \
         || echo "dispatch: the worker $ident took the message, but the worker.resumed event on #$number was not written" >&2
@@ -1105,7 +1099,7 @@ resume_one() {
 # reviewer `reviewer.reported`, verifier `verifier.passed` / `verifier.failed` — as its
 # name and key fields (`verifier.failed commit=… failed=AC2`). Nothing when there is
 # none; non-zero when the ticket could not be read or carries an event nobody can read.
-result_first_line() {
+result_event() {
   ticket_events "$1" result --kind "$2"
 }
 
@@ -1150,7 +1144,7 @@ wait_one() {
   esac
 
   local head ident
-  head="$(result_first_line "$number" "$kind")" \
+  head="$(result_event "$number" "$kind")" \
     || refuse "could not read #$number's events, so what its $kind reported is unknown"
   if [ -n "$head" ]; then
     printf '%s\n' "$head"
@@ -1167,7 +1161,7 @@ wait_one() {
   local budget="${MMW_WAIT_S:-90}" beat="${MMW_WAIT_BEAT_S:-10}" spent=0 round_start
   while [ "$spent" -lt "$budget" ]; do
     round_start="$(date +%s)"
-    head="$(result_first_line "$number" "$kind")" \
+    head="$(result_event "$number" "$kind")" \
       || refuse "could not read #$number's events, so what its $kind reported is unknown"
     if [ -n "$head" ]; then
       printf '%s\n' "$head"
@@ -1468,6 +1462,7 @@ advance() {
           --line "Gave the claim on #$number back: an event on it ended its worker's hold" \
           --field reason=worker-lost \
         || echo "dispatch: the claim on #$number is given back, but its ticket.released event was not written" >&2
+      give_ticket_slot_back "$number" || true
     else
       echo "dispatch: could not take the claim off #$number, so it stays off the frontier" >&2
     fi
@@ -1479,34 +1474,12 @@ advance() {
   plan="$(python3 "$STATUS" --advance-plan "$spec")" \
     || refuse "could not read the batch under #$spec again after its merges, so nothing was started"
 
-  local started=0 refused=0 held=0 live max_inst trees
-  max_inst="$(target_max_instances "$root")" || exit 2
-  # Every issue workspace of a checkout sits under one directory, so this is asked for
-  # once rather than once per ticket — two Paseo calls each. It is asked again only
-  # while the answer is still empty, which is the state before this checkout has any
-  # workspace at all: the first `start` makes one, and from then on the count the gate
-  # reads has somewhere to be counted. A repository that declares no cap never needs the
-  # directory, and is not made to pay for finding it.
-  trees=""
-  [ -z "$max_inst" ] || trees="$(worktrees_root)"
+  # Every ticket on the frontier is started: how many work at once is the frontier's
+  # answer alone. How many run the product at once is `instance.max`'s, and it is asked
+  # at the first run of each worker's criteria that needs the product, not here —
+  # writing code takes no slot, so a worker is never kept from its code by a port.
+  local started=0 refused=0
   for number in $(printf '%s\n' "$plan" | awk '$1 == "DISPATCH" { print $2 }'); do
-    if [ -n "$max_inst" ]; then
-      [ -n "$trees" ] || trees="$(worktrees_root)"
-      if [ -n "$trees" ]; then
-        live="$(live_instances "$trees")" \
-          || refuse "could not count live instances under $trees"
-      else
-        live=0
-      fi
-      if [ "$live" -ge "$max_inst" ]; then
-        # Not a refusal: the ticket keeps its label and its place on the frontier, and
-        # the next advance starts it. Dispatching past what the machine holds is how a
-        # night ends up with one worker working and four waiting on a port that will
-        # never free (2026-09-05).
-        held=$((held + 1))
-        continue
-      fi
-    fi
     if bash "$SELF" ${TOOLS_ARGS[@]+"${TOOLS_ARGS[@]}"} start "$number" worker; then
       started=$((started + 1))
     else
@@ -1514,10 +1487,7 @@ advance() {
     fi
   done
 
-  echo "advance #$spec: merged $merged, already in $skipped, released $released, started $started, refused $refused, held $held" >&2
-  if [ "$held" -gt 0 ]; then
-    echo "  $held ticket(s) held back: this product declares max $max_inst concurrent run(s); they start at the next advance" >&2
-  fi
+  echo "advance #$spec: merged $merged, already in $skipped, released $released, started $started, refused $refused" >&2
 }
 
 # ------------------------------------------------------------------ landing
@@ -1567,7 +1537,7 @@ land_tickets() {
       continue
     fi
     if git -C "$root" merge-base --is-ancestor "$branch" HEAD 2>/dev/null; then
-      record_landed "$number" "$root"
+      record_landed "$number" "$root" "$(ticket_spec "$number")"
       continue
     fi
     merge_one "$root" "$branch"
@@ -1579,16 +1549,17 @@ land_tickets() {
     [ "$rc" -eq 0 ] || refuse "could not merge $branch after $MERGE_TRIES tries; git said nothing this script can act on"
     echo "merged $branch" >&2
     merged=$((merged + 1))
-    record_landed "$number" "$root"
+    record_landed "$number" "$root" "$(ticket_spec "$number")"
   done < <(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }')
 
   for number in $(printf '%s\n' "$plan" | awk '$1 == "RELEASE" { print $2 }'); do
     if gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1; then
       released=$((released + 1))
-      post_event "$number" ticket.released --ticket "$number" \
+      post_event "$number" ticket.released --ticket "$number" --spec "$(ticket_spec "$number")" \
           --line "Gave the claim on #$number back: its work is over" \
           --field reason=landed \
         || echo "land: #$number's claim is given back, but its ticket.released event was not written" >&2
+      give_ticket_slot_back "$number" || true
     else
       echo "land: could not give #$number's claim back" >&2
     fi
@@ -1793,18 +1764,24 @@ suspend_night() {
 
 # ------------------------------------------------------------------ reverify / summary
 
-failing_ac_ids() {
-  python3 -c '
-import re, sys
-
-text = sys.stdin.read()
-ids = []
-for line in text.splitlines():
-    found = re.match(r"^- \[ \] ([A-Za-z0-9][A-Za-z0-9._-]*):", line.strip())
-    if found:
-        ids.append(found.group(1))
-print("\n".join(ids))
-'
+# The red reverify of ticket <n> on commit <c>: prints the criteria it left unmet, space
+# separated — the `failed` field of the newest reverify `ticket.checked` — and returns 0
+# only when that event is a run of <c> whose result is not `met`. Returns 1 when the
+# ticket carries no such run, which is not a red ticket: nothing on it says what ran.
+# Returns 2 when the ticket's events could not be read.
+red_reverify_of() {
+  local number="$1" commit="$2" line field ran="" result=""
+  local -a failed=()
+  line="$(ticket_events "$number" checked --run reverify)" || return 2
+  for field in $line; do
+    case "$field" in
+      commit=*) ran="${field#commit=}" ;;
+      result=*) result="${field#result=}" ;;
+      failed=*) [ "${field#failed=}" = "-" ] || IFS=',' read -r -a failed <<<"${field#failed=}" ;;
+    esac
+  done
+  [ "$ran" = "$commit" ] && [ -n "$result" ] && [ "$result" != met ] || return 1
+  printf '%s\n' "${failed[*]+"${failed[*]}"}"
 }
 
 reverify_spec() {
@@ -1827,17 +1804,25 @@ reverify_spec() {
     # found only in the directories it names. Without it every interface criterion of
     # every ticket fails `command not found`, and the branch below would reopen and hand
     # back a whole night of finished work for a fault in this command line.
-    printed="$(python3 "$VERIFY" "$number" --reverify ${TOOLS_ARGS[@]+"${TOOLS_ARGS[@]}"} 2>&1)"
+    # The run writes its own `ticket.checked` (run `reverify`, actor `main`), which is the
+    # whole record of a green one.
+    printed="$(python3 "$VERIFY" "$number" --reverify --actor main ${TOOLS_ARGS[@]+"${TOOLS_ARGS[@]}"} 2>&1)"
     rc=$?
     printf '%s\n' "$printed"
-    # 2 is `the run could not start`, which says nothing about the ticket. Reading it as
-    # a red ticket is how one broken invocation becomes a batch of reopened tickets.
-    if [ "$rc" -eq 2 ]; then
-      echo "dispatch: #$number could not be re-run, so nothing was judged; the rest of this reverify is skipped" >&2
+    # Red is exit 1 and a reverify ticket.checked of this HEAD that is not met; every
+    # other answer — 2 the run could not start, 3 it waited for a product slot and none
+    # came free, 4 its result could not be written, a crash, or a 1 the ticket holds no
+    # red run of HEAD for — says nothing about the ticket. Reading one as a red ticket is
+    # how one broken invocation reopens a batch of landed work.
+    ids=""
+    if [ "$rc" -eq 1 ]; then
+      ids="$(red_reverify_of "$number" "$commit")" || rc=5
+    fi
+    if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ]; then
+      echo "dispatch: #$number could not be re-run on $commit (exit $rc, or no red run of it is recorded on the ticket), so nothing was judged; the rest of this reverify is skipped" >&2
       exit 2
     fi
     if [ "$rc" -eq 0 ]; then
-      gh_ issue comment "$number" --body "$commit" >/dev/null
       green=$((green + 1))
     else
       red=$((red + 1))
@@ -1856,7 +1841,6 @@ print((rows[0].get("login") or "") if rows else "")
       else
         gh_ issue edit "$number" --add-label needs-triage >/dev/null
       fi
-      ids="$(printf '%s\n' "$printed" | failing_ac_ids | awk 'NF' | paste -sd ' ' -)"
       post_event "$number" ticket.regressed --ticket "$number" --spec "$spec" \
           --line "Reverify on $commit failed${ids:+: $ids}; reopened for triage" \
           --field "commit=$commit" \
@@ -1902,6 +1886,144 @@ summary_spec() {
       ;;
     3) echo "dispatch: the relay running for this repository does not watch #$spec, so it was left running" >&2 ;;
   esac
+}
+
+# ------------------------------------------------------------------ route
+
+# Make sure the repository has the layer label `$1`. A label the repository lacks makes
+# every `gh issue edit --add-label` naming it fail, so the first issue of each layer
+# creates it; one that already exists is left exactly as it is.
+ensure_label() {
+  local name="$1" color description out
+  case "$name" in
+    mmw:ticket) color=0e8a16; description="MMW layer: a ticket, one unit of work" ;;
+    *) return 1 ;;
+  esac
+  out="$(gh_ label create "$name" --color "$color" --description "$description" 2>&1)" && return 0
+  case "$out" in *"already exists"*) return 0 ;; esac
+  echo "dispatch: the repository has no $name label and it could not be created: $out" >&2
+  return 1
+}
+
+# Prints "<parent>" for issue <n>: the number of the issue the tracker records it under,
+# or nothing when it records none. Non-zero when the tracker could not be asked.
+parent_of() {
+  local json
+  json="$(gh_ issue view "$1" --json parent 2>/dev/null)" || return 2
+  printf '%s' "$json" | python3 -c '
+import json, sys
+try:
+    parent = (json.load(sys.stdin) or {}).get("parent") or {}
+except Exception:
+    raise SystemExit(2)
+number = parent.get("number") if isinstance(parent, dict) else None
+print(number if isinstance(number, int) else "")
+'
+}
+
+# Route one child of a ticket, the closing pass's decision carried out: the child is
+# closed (or, having become a ticket, moved), and a `child.closed` event naming how goes
+# on the ticket it came from. That event is the one record of where the child went;
+# the night summary counts findings by it.
+#
+#   fixed               the main agent fixed it on this branch; closed as completed
+#   stale               what it states no longer holds at HEAD; closed as not planned
+#   became-ticket <m>   it is now ticket #<m>. When <m> is the child itself it stays open,
+#                       its layer label goes from mmw:child to mmw:ticket, and its parent
+#                       moves from the ticket to the spec — `verify-ticket.py` finds a
+#                       ticket's spec through its direct parent alone, so a ticket left
+#                       under a ticket would name that ticket as its spec. When <m> is
+#                       another issue, the child is closed as a duplicate of it and #<m>
+#                       gets the same label and the same parent.
+#
+# The ticket the child came from is named on the command line and must carry the
+# `child.opened` for it; the spec is that event's `spec`. Both are facts fixed when the
+# child was opened, and never read off the tree, which a became-ticket route itself
+# changes — so a route cut short is run again as it was, and does only the steps not yet
+# done: a child already closed is not closed twice, an issue already under the spec is
+# not moved, and a child whose `child.closed` is on the ticket is routed already.
+#
+# Exit 0 routed and recorded, or already so. 1 the tracker took some of it and not the
+# rest; stderr says which, nothing was undone, and the same command finishes it. 2
+# nothing was done: the arguments are wrong, the ticket carries no `child.opened` for
+# this child, the child was routed another way, or the tracker could not be asked.
+route_child() {
+  local ticket="$1" child="$2" resolution="$3" became="${4:-}"
+  case "$ticket" in *[!0-9]* | "") refuse "the ticket number must be digits only, got $ticket" ;; esac
+  case "$child" in *[!0-9]* | "") refuse "the child number must be digits only, got $child" ;; esac
+  case "$resolution" in
+    fixed | stale) [ -z "$became" ] || refuse "$resolution takes no ticket number" ;;
+    became-ticket)
+      case "$became" in *[!0-9]* | "") refuse "became-ticket needs the number of the ticket it became, digits only" ;; esac ;;
+    *) refuse "the resolution is fixed, stale or became-ticket, got $resolution" ;;
+  esac
+
+  local opened kind spec done_resolution done_became
+  opened="$(ticket_events "$ticket" child --child "$child")" \
+    || refuse "could not read #$ticket's events, so whether it opened #$child is unknown; nothing was done"
+  [ -n "$opened" ] \
+    || refuse "#$ticket carries no child.opened for #$child, so #$child is not a child it opened; name the ticket that opened it. Nothing was done"
+  IFS=$'\t' read -r kind spec done_resolution done_became <<<"$opened"
+  [ "$spec" != "-" ] || spec=""
+  if [ "$done_resolution" != "-" ]; then
+    if [ "$done_resolution" = "$resolution" ] && { [ -z "$became" ] || [ "$done_became" = "$became" ]; }; then
+      echo "route #$child: already routed $resolution${became:+ #$became}, recorded on #$ticket" >&2
+      return 0
+    fi
+    refuse "#$child is already routed $done_resolution on #$ticket; nothing was done"
+  fi
+  if [ "$resolution" = became-ticket ] && [ -z "$spec" ]; then
+    refuse "#$ticket's child.opened for #$child names no spec, so there is no spec for #$became to move under; nothing was done"
+  fi
+
+  local state
+  state="$(gh_ issue view "$child" --json state --jq .state 2>/dev/null)" \
+    || refuse "could not read #$child's state; nothing was done"
+
+  local line
+  case "$resolution" in
+    fixed)
+      [ "$state" = CLOSED ] || gh_ issue close "$child" --reason completed >/dev/null 2>&1 \
+        || refuse "could not close #$child; nothing was recorded"
+      line="Fixed #$child on the closing pass" ;;
+    stale)
+      [ "$state" = CLOSED ] || gh_ issue close "$child" --reason "not planned" >/dev/null 2>&1 \
+        || refuse "could not close #$child; nothing was recorded"
+      line="Closed #$child: what it states no longer holds" ;;
+    became-ticket)
+      ensure_label mmw:ticket || exit 2
+      local current labels
+      current="$(parent_of "$became")" || refuse "could not ask the tracker where #$became sits; nothing was done"
+      labels="$(gh_ issue view "$became" --json labels --jq '.labels[].name' 2>/dev/null)" \
+        || refuse "could not read #$became's labels; nothing was done"
+      local -a edit=()
+      printf '%s\n' "$labels" | grep -qx 'mmw:ticket' || edit+=(--add-label mmw:ticket)
+      [ "$current" = "$spec" ] || edit+=(--parent "$spec")
+      if printf '%s\n' "$labels" | grep -qx 'mmw:child'; then
+        edit+=(--remove-label mmw:child)
+      fi
+      if [ "${#edit[@]}" -gt 0 ]; then
+        gh_ issue edit "$became" "${edit[@]}" >/dev/null 2>&1 \
+          || refuse "could not make #$became a ticket under #$spec; nothing was recorded"
+      fi
+      if [ "$became" != "$child" ] && [ "$state" != CLOSED ]; then
+        if ! gh_ issue close "$child" --duplicate-of "$became" >/dev/null 2>&1; then
+          echo "dispatch: #$became is a ticket under #$spec, but #$child could not be closed as its duplicate and no child.closed was written; run this again" >&2
+          exit 1
+        fi
+      fi
+      line="#$child became ticket #$became under #$spec" ;;
+  esac
+
+  local -a fields=(--field "child=$child" --field "resolution=$resolution")
+  [ -z "$became" ] || fields+=(--json-field "became=$became")
+  [ "$resolution" != fixed ] || fields+=(--field "commit=$(git rev-parse HEAD 2>/dev/null)")
+  if ! post_event "$ticket" child.closed --ticket "$ticket" --spec "$spec" --line "$line" \
+       "${fields[@]}"; then
+    echo "dispatch: #$child is routed ($resolution) but the child.closed event on #$ticket was not written, so the night summary counts it unread; run this again" >&2
+    exit 1
+  fi
+  echo "route #$child: $resolution${became:+ #$became}, recorded on #$ticket" >&2
 }
 
 # ------------------------------------------------------------------ entry
@@ -2043,6 +2165,10 @@ case "${1:-}" in
   suspend)
     [ "$#" -eq 2 ] || usage
     suspend_night "$2"
+    ;;
+  route)
+    [ "$#" -eq 4 ] || [ "$#" -eq 5 ] || usage
+    route_child "$2" "$3" "$4" "${5:-}"
     ;;
   "" | -h | --help)
     usage

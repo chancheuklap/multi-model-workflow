@@ -36,7 +36,7 @@ A line the Spec axis marks `should not` under its `Decisions` heading is **in-ti
 
 A file outside `## Owns` is still not written: the sixth condition sorts a review finding onto this ticket's fix round; it does not widen where the worker may write.
 
-The split decides what happens next, which is why you make it rather than leaving it to the reader: in-ticket review findings get one round of fixes on this ticket; out-of-ticket review findings become this ticket's sub-issues (`--sub-issue review`) and block nothing. The worker opens them; you list them. The parent is this ticket.
+The split decides what happens next, which is why you make it rather than leaving it to the reader: in-ticket review findings get one round of fixes on this ticket; out-of-ticket review findings become this ticket's `finding` children (`--sub-issue finding`) and block nothing. The worker opens them; you list them. The parent is this ticket.
 
 The Tests axis splits on one question — is the test case the review finding names one that a `CHECK:` names?
 
@@ -75,4 +75,4 @@ One change can pass one axis and fail another:
 
 ## What you do not do
 
-You report. You do not decide whether a review finding is worth fixing, and you do not fix one. The repair path lives in the `implement` skill — one fix round for in-ticket findings, a sub-issue for the rest — and the worker who reads your review comment applies it.
+You report. You do not decide whether a review finding is worth fixing, and you do not fix one. The repair path lives in the `implement` skill — one fix round for in-ticket findings, a `finding` child for the rest — and the worker who reads your review comment applies it.

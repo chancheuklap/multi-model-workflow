@@ -101,15 +101,19 @@ start() {
     [ -z "$line" ] || args+=("$line")
   done <<<"$flags"
   [ -z "$title" ] || args+=(--title "$title")
+  # The temporary file is removed here, on both paths, and not by an EXIT trap: `err` is
+  # local to this function and gone by the time the script exits, so a trap naming it
+  # removed nothing and failed under `set -u`.
   err="$(mktemp)"
-  trap 'rm -f "$err"' EXIT
   # PASEO_WORKSPACE_ID from the caller's terminal would put the agent in that workspace
   # instead of DIR (`paseo run` ranks it above --cwd).
   if ! out="$(env -u PASEO_WORKSPACE_ID -u CLICOLOR_FORCE -u CLICOLOR paseo run -d --json \
         "${args[@]}" --cwd "$cwd" ${labels[@]+"${labels[@]}"} -- "$prompt" 2>"$err")"; then
     echo "runners/paseo.sh: paseo run refused $host in $cwd: $(tr '\n' ' ' < "$err")" >&2
+    rm -f "$err"
     exit 1
   fi
+  rm -f "$err"
   ident="$(printf '%s' "$out" | python3 -c '
 import json, sys
 try:

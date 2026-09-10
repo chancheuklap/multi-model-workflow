@@ -11,21 +11,35 @@ worker's worth of work.
 
 A **lease** is that missing word. It is a registration of `worktree path -> slot`, and a
 slot is a block of ports and a data directory that no other slot overlaps. It is claimed
-once per worktree and lives as long as the worktree does: a worktree runs its criteria
-many times in a night — self-run, reverify, the closeout checks — and they all want the
-same application, so the lease cannot be per run.
+once per worktree, by the first run of that worktree's criteria that needs the product,
+and lives until the ticket's work ends — landed, handed back, released, suspended or its
+start retracted: a worktree runs its criteria many times in a night — the worker's own
+run, the verifier's reverify, the closeout checks — and they all want the same
+application, so the lease cannot be per run. Writing code takes no slot. The one run
+that is not a ticket's, the main agent's reverify in the main checkout, gives its slot
+back when it ends.
 
-    lease.py claim [<worktree>]        claim (or return) this worktree's slot
+    lease.py claim [<worktree>]        claim (or return) this worktree's slot; 4 none free
     lease.py env [<worktree>]          print the claim as KEY=VALUE lines
     lease.py run [<worktree>] -- CMD…  run CMD with the claim in its environment
     lease.py release <worktree>        give the slot back; 0 given back, 3 there was none
     lease.py list                      every live claim
     lease.py count <directory>         how many claims sit under a directory
 
-`claim` is atomic against other claimers: a slot is taken by creating its file with
-`O_CREAT | O_EXCL`, so two processes racing for the last slot cannot both win. There is
-no fallback to another slot on conflict and no shared file that several processes have to
-agree on — a worktree's slot is decided once and then it is simply looked up.
+Two limits bound a claim. The machine's is `SLOTS`. The product's is `instance.max` in
+the repository's `.mmw/target.json` — a product that cannot move its ports declares how
+many copies of it can run at once — and it counts every claim made from that repository,
+wherever its directory is: a ticket worktree, the main checkout running the night's
+reverify, or any other checkout sharing the repository's git directory. Each claim
+records that git directory, so the count holds after a worktree is gone. A claim past
+either limit is not taken: `claim` exits 4 and prints which limit and
+who holds the slots, because the caller waits and asks again rather than giving up
+(`verify-ticket.py` does, and says on the ticket that it is waiting).
+
+`claim` is atomic against other claimers: the count and the take happen under one lock on
+the registry, and a slot is taken by creating its file with `O_CREAT | O_EXCL`, so two
+processes racing for the last slot cannot both win. There is no fallback to another slot
+on conflict — a worktree's slot is decided once and then it is simply looked up.
 
 Every verb answers a program or an agent; none of them formats for a person, because on
 this pipeline nobody reads a terminal. `claim`, `release` and `list` print JSON, `env`
@@ -55,6 +69,7 @@ number is right to; a derived port leaking into it turns a correct suite red.
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
@@ -74,8 +89,8 @@ from refusal import REPORT_BLOCKED, refusal  # noqa: E402
 # derives for its own long-lived services and below the ephemeral range macOS hands out.
 PORT_BASE = int(os.environ.get("MMW_LEASE_PORT_BASE", "21000"))
 PORT_STRIDE = int(os.environ.get("MMW_LEASE_PORT_STRIDE", "20"))
-# How many runs this machine will hold. The gate never dispatches past it; a machine that
-# can hold more says so here rather than in any skill's code.
+# How many runs this machine will hold. No claim goes past it; a machine that can hold
+# more says so here rather than in any skill's code.
 SLOTS = int(os.environ.get("MMW_LEASE_SLOTS", "8"))
 
 ROOT = Path(os.environ.get("MMW_HOME", str(Path.home() / ".mmw")))
@@ -203,46 +218,159 @@ def sweep() -> list[int]:
     return freed
 
 
-def claim(worktree: Path) -> dict:
-    """This worktree's slot, taken now if it does not have one.
+class Full(Exception):
+    """No slot can be taken now: `reason` is `product-full` (this repository's
+    `instance.max` is reached) or `machine-full` (every slot of this machine is taken).
+    `limit` is the limit reached and `holders` the worktrees holding its slots."""
+
+    def __init__(self, reason: str, limit: int, holders: list[str]):
+        super().__init__(f"{reason}: {len(holders)} of {limit} slots held")
+        self.reason = reason
+        self.limit = limit
+        self.holders = holders
+
+    def as_json(self) -> dict:
+        return {"claimed": False, "reason": self.reason, "limit": self.limit,
+                "holders": self.holders}
+
+
+class CapUnreadable(RuntimeError):
+    """`.mmw/target.json` is there and cannot be read, so the product's limit is unknown."""
+
+
+def _git(worktree: Path, *args: str) -> str:
+    try:
+        out = subprocess.run(["git", "-C", str(worktree), *args], capture_output=True,
+                             text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return out.stdout.strip() if out.returncode == 0 else ""
+
+
+def repository_of(worktree: Path) -> str | None:
+    """The git directory every checkout of this worktree's repository shares, or None
+    outside a repository. It is what a claim is counted against a product's limit by."""
+    common = _git(worktree, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    if not common:
+        return None
+    try:
+        return str(Path(common).resolve())
+    except OSError:
+        return common
+
+
+def product_cap(worktree: Path) -> tuple[int, str] | None:
+    """`(instance.max, the repository's shared git directory)` for this worktree, or None
+    when it declares no limit or sits in no repository.
+
+    Raises `CapUnreadable` for a `.mmw/target.json` that is there and is not JSON: a limit
+    nobody can read is not "no limit", and taking a slot past it is how 2026-09-05 went.
+    """
+    path = worktree / ".mmw" / "target.json"
+    if not path.is_file():
+        return None
+    # Short, so the refusal built on it keeps its whole first part: the reader needs to
+    # know which file and why, and the worktree it sits in is the one it is running in.
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise CapUnreadable(f".mmw/target.json cannot be read as JSON ({exc.msg}, line "
+                            f"{exc.lineno})") from None
+    except OSError as exc:
+        raise CapUnreadable(f".mmw/target.json cannot be read: {exc.strerror}") from None
+    instance = data.get("instance") if isinstance(data, dict) else None
+    limit = instance.get("max") if isinstance(instance, dict) else None
+    if not isinstance(limit, int) or limit <= 0:
+        return None
+    repo = repository_of(worktree)
+    return (limit, repo) if repo else None
+
+
+class _Locked:
+    """An exclusive lock on the registry, held while a claim counts and takes."""
+
+    def __enter__(self):
+        REGISTRY.mkdir(parents=True, exist_ok=True)
+        self.handle = open(REGISTRY / ".lock", "a+")
+        fcntl.flock(self.handle, fcntl.LOCK_EX)
+        return self
+
+    def __exit__(self, *exc):
+        fcntl.flock(self.handle, fcntl.LOCK_UN)
+        self.handle.close()
+
+
+def try_claim(worktree: Path) -> dict:
+    """This worktree's slot, taken now if it does not have one; `Full` when no slot may be.
 
     Re-claiming is a lookup, so every command of a run agrees without a shared file to
-    keep in step.
+    keep in step, and a worktree that already holds its slot is never refused one.
     """
-    REGISTRY.mkdir(parents=True, exist_ok=True)
     target = str(worktree)
-    for slot in range(SLOTS):
-        record = read_slot(slot)
-        if record and record.get("worktree") == target:
+    with _Locked():
+        for slot in range(SLOTS):
+            record = read_slot(slot)
+            if record and record.get("worktree") == target:
+                return record
+        sweep()
+
+        cap = product_cap(worktree)
+        if cap is not None:
+            limit, repo = cap
+            held = [r["worktree"] for r in claimed() if r.get("repo") == repo]
+            if len(held) >= limit:
+                raise Full("product-full", limit, held)
+
+        record = {
+            "worktree": target,
+            "repo": cap[1] if cap is not None else repository_of(worktree),
+            "instance": instance_name(worktree),
+            "slot": None,
+            "port_base": None,
+            "port_count": PORT_STRIDE,
+            # So a slot that is still held in the morning can be read against the night.
+            "claimed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        }
+        for slot in range(SLOTS):
+            record["slot"] = slot
+            record["port_base"] = PORT_BASE + slot * PORT_STRIDE
+            payload = json.dumps(record, ensure_ascii=False, indent=2).encode("utf-8")
+            try:
+                fd = os.open(slot_file(slot), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+            except FileExistsError:
+                continue
+            with os.fdopen(fd, "wb") as handle:
+                handle.write(payload)
             return record
-    sweep()
+        raise Full("machine-full", SLOTS, [r.get("worktree", "") for r in claimed()])
 
-    record = {
-        "worktree": target,
-        "instance": instance_name(worktree),
-        "slot": None,
-        "port_base": None,
-        "port_count": PORT_STRIDE,
-        # So a slot that is still held in the morning can be read against the night.
-        "claimed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-    }
-    for slot in range(SLOTS):
-        record["slot"] = slot
-        record["port_base"] = PORT_BASE + slot * PORT_STRIDE
-        payload = json.dumps(record, ensure_ascii=False, indent=2).encode("utf-8")
-        try:
-            fd = os.open(slot_file(slot), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
-        except FileExistsError:
-            continue
-        with os.fdopen(fd, "wb") as handle:
-            handle.write(payload)
-        return record
 
-    raise SystemExit(refusal(
-        f"All {SLOTS} instance slots on this machine are claimed.",
-        "A run needs one and none is free.",
-        REPORT_BLOCKED,
-    ))
+def claim(worktree: Path) -> dict:
+    """This worktree's slot, or the refusal a caller that cannot wait gets.
+
+    The judges of the drive-target skill come here through `leased_environment` in the
+    middle of a criterion, where there is nobody to wait: `verify-ticket.py` has already
+    claimed the slot before the run began, and waited for it when none was free, so a
+    judge reaching this with no slot free is a run that skipped that step.
+    """
+    try:
+        return try_claim(worktree)
+    except CapUnreadable as exc:
+        raise SystemExit(refusal(str(exc), "The product's limit is unknown.",
+                                 REPORT_BLOCKED)) from None
+    except Full as full:
+        if full.reason == "product-full":
+            raise SystemExit(refusal(
+                f"This product's instance.max of {full.limit} is reached: "
+                f"{', '.join(full.holders)}.",
+                "A run needs one and none is free.",
+                REPORT_BLOCKED,
+            )) from None
+        raise SystemExit(refusal(
+            f"All {SLOTS} instance slots on this machine are claimed.",
+            "A run needs one and none is free.",
+            REPORT_BLOCKED,
+        )) from None
 
 
 def release(worktree: Path) -> dict:
@@ -364,7 +492,15 @@ def main(argv: list[str] | None = None) -> int:
 
     tree = worktree_of(rest[0] if rest else None)
     if verb == "claim":
-        print(json.dumps(claim(tree), ensure_ascii=False))
+        try:
+            record = try_claim(tree)
+        except CapUnreadable as exc:
+            sys.stderr.write(f"{exc}\n")
+            return 2
+        except Full as full:
+            print(json.dumps(full.as_json(), ensure_ascii=False))
+            return 4
+        print(json.dumps(record, ensure_ascii=False))
         return 0
     if verb == "env":
         for key, value in leased_environment(tree).items():

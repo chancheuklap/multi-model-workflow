@@ -9,7 +9,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from _load import event, load
+from _load import checked, event, load
 
 vt = load()
 
@@ -29,54 +29,44 @@ BODY = """## Parent
   EVIDENCE: pending
 """
 
-MET_RUN = """self-run
-ALL MET (1)
-
-- [x] AC1: the importer writes six rows
+LEDGER = """- [x] AC1: the importer writes six rows
   CHECK: pytest -q tests/test_import.py
   EXPECT: 1 passed
-  EVIDENCE: exit=0; EXPECT=matched; output-bytes=9
+  EVIDENCE: exit=0; EXPECT=matched; output-bytes=9"""
 
-Outside Owns: None
-"""
 
-FAILED_RUN = """self-run
-UNMET: 1 (met: 0)
+def self_run(ledger, summary, outside_owns=()):
+    """The worker's own run of `ledger` as its `ticket.checked` event."""
+    abandons = vt.parse_abandons(ledger)
+    return checked("self", ledger, summary, outside_owns=list(outside_owns),
+                   abandons=abandons or None)
 
-- [ ] AC1: the importer writes six rows
+
+MET_RUN = self_run(LEDGER, "ALL MET (1 met)")
+
+FAILED_RUN = self_run("""- [ ] AC1: the importer writes six rows
   CHECK: pytest -q tests/test_import.py
   EXPECT: 1 passed
   EVIDENCE: exit=1; EXPECT=missed; output-bytes=4
-ABANDON: AC1 failed chromium kept crashing; tried the bundled build too
+ABANDON: AC1 failed chromium kept crashing; tried the bundled build too""", "UNMET: 1 (met: 0)")
 
-Outside Owns: None
-"""
-
-STUCK_RUN = """self-run
-UNMET: 1 (met: 0)
-
-- [ ] AC1: the importer writes six rows
+STUCK_RUN = self_run("""- [ ] AC1: the importer writes six rows
   CHECK: pytest -q tests/test_import.py
   EXPECT: 1 passed
   EVIDENCE: pending
-ABANDON: AC1 stuck the endpoint it checks does not exist yet
+ABANDON: AC1 stuck the endpoint it checks does not exist yet""", "UNMET: 1 (met: 0)")
 
-Outside Owns: None
-"""
-
-DECISION_RUN = """self-run
-UNMET: 1 (met: 0)
-
-- [ ] AC1: the importer writes six rows
+DECISION_RUN = self_run("""- [ ] AC1: the importer writes six rows
   CHECK: pytest -q tests/test_import.py
   EXPECT: 1 passed
   EVIDENCE: pending
-ABANDON: AC1 decision which helper to keep
+ABANDON: AC1 decision which helper to keep""", "UNMET: 1 (met: 0)")
 
-Outside Owns: None
-"""
+FILES_RUN = self_run(LEDGER, "ALL MET (1 met)", outside_owns=("src/helper.py",))
 
-FILES_RUN = MET_RUN.replace("Outside Owns: None", "Outside Owns: src/helper.py")
+# The old run comment, typed by hand. It carries no event, so it is prose.
+TYPED_SELF_RUN = ("self-run\nALL MET (1)\n\n" + LEDGER
+                  + "\n\nOutside Owns: src/helper.py\n")
 
 VERDICT = event("verifier.passed", f"VERDICT {VERIFIED} by opus — the importer writes six rows",
                 commit=VERIFIED)
@@ -156,11 +146,15 @@ class FakeGh:
                     "blockedBy": {"nodes": []},
                 })
             return result
-        if cmd[:2] == ["gh", "api"] and any("sub_issues" in a for a in cmd):
-            found = re.search(r"issues/(\d+)/sub_issues", " ".join(cmd))
+        if cmd[:3] == ["gh", "api", "graphql"]:
+            found = re.search(r"root=(\d+)", " ".join(cmd))
             number = int(found.group(1)) if found else 0
             kids = self.sub_issues if number == 77 else []
-            result.stdout = "\n".join(str(n) for n in kids) + ("\n" if kids else "")
+            result.stdout = json.dumps({"data": {"repository": {"issue": {
+                "number": number, "title": "ticket", "state": "OPEN",
+                "subIssuesSummary": {"total": len(kids), "completed": 0},
+                "subIssues": {"nodes": [{"number": k, "title": f"child {k}",
+                                         "state": "OPEN"} for k in kids]}}}}})
             return result
         if cmd[:3] == ["gh", "api", "user"]:
             result.stdout = ME + "\n"
@@ -209,6 +203,22 @@ class TestFirstLine(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertEqual(text.splitlines()[0], "ALL MET")
         self.assertIn("ABANDON: AC1 decision", text)
+
+
+class TestOnlyTheRunsEventIsRead(unittest.TestCase):
+    def test_a_typed_self_run_comment_is_not_a_run(self):
+        """A comment whose first line is `self-run` and that carries no event is prose:
+        the skeleton takes its ticks and its Outside Owns from nothing."""
+        code, err, text, _ = run_draft((TYPED_SELF_RUN, VERDICT))
+        self.assertEqual(code, 0, err)
+        self.assertIn("- [ ] AC1: the importer writes six rows", text)
+        self.assertIn("EVIDENCE: pending", text)
+        self.assertIn("Outside Owns: None", text)
+
+    def test_the_newest_self_run_is_the_one_read(self):
+        code, err, text, _ = run_draft((FILES_RUN, MET_RUN, VERDICT))
+        self.assertEqual(code, 0, err)
+        self.assertIn("Outside Owns: None", text)
 
 
 class TestFixedLines(unittest.TestCase):
@@ -277,12 +287,9 @@ None
             sub_issues=(90, 91),
         )
         self.assertEqual(code, 0, err)
-        target = None
-        for cmd in fake.recorded:
-            if cmd[:2] == ["gh", "api"] and any("sub_issues" in a for a in cmd):
-                found = re.search(r"issues/(\d+)/sub_issues", " ".join(cmd))
-                target = int(found.group(1)) if found else None
-        self.assertEqual(target, 77)
+        asked = [cmd for cmd in fake.recorded if cmd[:3] == ["gh", "api", "graphql"]]
+        self.assertEqual(len(asked), 1)
+        self.assertIn("root=77", asked[0])
         line = next(l for l in text.splitlines() if l.startswith("Sub-issues opened:"))
         self.assertEqual(line, "Sub-issues opened: #90, #91")
 
@@ -321,7 +328,8 @@ class TestFilledDraftPassesCloseoutChecks(unittest.TestCase):
             self.assertEqual(vt.draft_problems(filled, list(comments)), [])
             problems = vt.verified_problems(filled, "", list(comments))
         self.assertTrue(any("carries no `VERDICT" in p for p in problems), problems)
-        self.assertTrue(any("carries no `reverify" in p for p in problems), problems)
+        self.assertTrue(any("carries no reverify `ticket.checked`" in p for p in problems),
+                        problems)
 
 
 class TestCloseoutRefusesTheUnfilledSkeleton(unittest.TestCase):

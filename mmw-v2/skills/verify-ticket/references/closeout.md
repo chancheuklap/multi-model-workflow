@@ -2,7 +2,7 @@
 
 `<engine>` is resolved once, the way this skill's `SKILL.md` says under `## Resolve `<engine>` once`.
 
-The work is committed and the ticket's last comments are being written. Four runs belong to this moment.
+The work is committed and the ticket's last events are being written. Four runs belong to this moment.
 
 ## `--decisions`
 
@@ -10,7 +10,7 @@ The work is committed and the ticket's last comments are being written. Four run
 <engine> <n> --decisions <file>
 ```
 
-It lands a `worker.decided` event, a comment whose first line is `DECISIONS`. The file is two sections and no others: `Decisions I made on my own` — every such line written so far, one per line, in the shape the closing comment uses — and `Outside Owns` — the `Outside Owns:` line of the newest `self-run`, followed by one sentence per file saying which criterion could not pass without it; `None` when that line is `None`. A ticket keeps one such comment and no more: a second run is refused with `#<n> already carries a DECISIONS comment` and posts nothing. A missing or extra section is refused the same way, with the section named on stderr.
+It lands a `worker.decided` event, a comment whose first line is `DECISIONS`. The file is two sections and no others: `Decisions I made on my own` — every such line written so far, one per line, in the shape the closing comment uses — and `Outside Owns` — the `Outside Owns:` line of your newest own run (its `ticket.checked` event, run `self`), followed by one sentence per file saying which criterion could not pass without it; `None` when that line is `None`. A file whose line does not match that run is refused with the line the run gives, and a ticket with no run of your own yet is refused. A ticket keeps one such comment and no more: a second run is refused with `#<n> already carries a DECISIONS comment` and posts nothing. A missing or extra section is refused the same way, with the section named on stderr.
 
 ## `--touched`
 
@@ -18,7 +18,7 @@ It lands a `worker.decided` event, a comment whose first line is `DECISIONS`. Th
 <engine> <n> --touched
 ```
 
-It lands a `TOUCHED BY #<n>` comment on each open sibling whose `## Owns` covers a file on the newest `self-run`'s `Outside Owns:` line, so the ticket that owns the file learns that somebody else wrote in it. When that line is `None` nothing is posted. It is refused with `#<n> carries no REVIEW comment` on a ticket the reviewer has not reported on yet: the review is what says whether those files should have been touched at all.
+It lands one `worker.touched` event on each open sibling whose `## Owns` covers a file your newest own run lists outside `## Owns`, so the ticket that owns the file learns that somebody else wrote in it: the event names this ticket and the files, and its comment gives each file with the `DECISIONS` sentence about it, the criterion that sentence names and the review's Spec-axis judgement of it. When the run lists no such file nothing is posted. It is refused with `#<n> carries no reviewer.reported event` on a ticket the reviewer has not reported on yet: the review is what says whether those files should have been touched at all.
 
 ## `--draft`
 
@@ -26,7 +26,7 @@ It lands a `TOUCHED BY #<n>` comment on each open sibling whose `## Owns` covers
 <engine> <n> --draft <out-file>
 ```
 
-Nothing lands on the ticket. The closing-comment skeleton is written to `<out-file>`, recounted from the ticket and the newest `self-run`, with `skipped:` and `Decisions I made on my own` left as `<fill>`; its `Sub-issues opened:` is this ticket's sub-issues. Fill those two before the next run — `--closeout` refuses the skeleton until they are.
+Nothing lands on the ticket. The closing-comment skeleton is written to `<out-file>`, recounted from the ticket and your newest own run, with `skipped:` and `Decisions I made on my own` left as `<fill>`; its `Sub-issues opened:` is this ticket's sub-issues. Fill those two before the next run — `--closeout` refuses the skeleton until they are.
 
 ## `--closeout`
 
@@ -48,8 +48,8 @@ Fix the draft, or fix what the draft describes, and run it again.
 - **The `ABANDON:` lines.** Each names one of `decision`, `failed`, `stuck`, and points at a criterion the draft itself lists. No round count is asked of any kind: `failed` (it ran and did not pass) and `stuck` (it would not run) are told apart for the reader, and the reason on the line says what was tried.
 - **The ticks and their `EVIDENCE:`.** A ticked criterion whose evidence is missing or `pending` is refused, and so is a `CHECK:` continued on a bare line instead of in a fenced block.
 - **`Counts: <met> met, <unmet> unmet, <abandoned> abandoned of <total>`.** The line has to be there, it has to match the draft recounted criterion by criterion, and on a `HANDOFF REQUIRED` draft the first line's four numbers have to agree with it.
-- **The verifier's own run.** An `ALL MET` draft is read against the newest `reverify` comment on the ticket, and never against a `self-run`. It is refused when the ticket carries no `reverify` at all, and when that run summarises as `UNMET:` or `HANDOFF REQUIRED:` — unless every criterion it left unmet is one the draft abandons as `decision`; a run is generated from the ticket body, which carries no `ABANDON:` line, so a `decision` criterion still runs and still reports unmet there. A `self-run` of your own, however new and however green, does not settle this: on 2026-09-06 #162 closed by posting one after its verifier had reported `AC1 failed`. Dispatch the verifier again, or close out as `HANDOFF REQUIRED`.
-- **The criteria that run covered.** The `reverify` ledger and the ticket's current `## Acceptance criteria` must describe the same criteria: same text, same `CHECK`. A ticket may legitimately rewrite a criterion, but then what stands is a verification of a different question, and the verifier runs again. This is the other half of #162: the criterion the verifier failed was rewritten into one that passed.
+- **The verifier's own run.** An `ALL MET` draft is read against the newest reverify `ticket.checked` event on the ticket, and never against a run of your own. It is refused when the ticket carries no reverify run at all, and when that run's result is not `met` — unless every criterion it left unmet is one the draft abandons as `decision`; a run is generated from the ticket body, which carries no `ABANDON:` line, so a `decision` criterion still runs and still reports unmet there. A run of your own, however new and however green, does not settle this: on 2026-09-06 #162 closed by posting one after its verifier had reported `AC1 failed`. Dispatch the verifier again, or close out as `HANDOFF REQUIRED`.
+- **The criteria that run covered.** The criteria the reverify ran — the fingerprint on its event — and the ticket's current `## Acceptance criteria` must be the same criteria: same text, same `CHECK`. A ticket may legitimately rewrite a criterion, but then what stands is a verification of a different question, and the verifier runs again. This is the other half of #162: the criterion the verifier failed was rewritten into one that passed.
 - **`VERDICT`.** An `ALL MET` draft needs the verifier's verdict on the ticket — the `verifier.passed` or `verifier.failed` event its `--verdict` run posts, first line `VERDICT <commit> by <model> — <one line>` — and the full 40-character commit that event covers must be `HEAD`. What was verified independently has to be what gets merged, and there is no line you can write instead: a `VERDICT` typed into a comment carries no event and is not a verdict, and the verifier runs after the last commit, which is why it is the last of the closing steps.
 - **The ticket's events.** A comment on the ticket that carries an event block this pipeline cannot read is a refusal naming that comment: the gate decides from the ticket's events, so one it cannot read is a question left unanswered, not a comment to skip.
 - **The review's `Missing` against a screen-contract row.** When the ticket's `## Read first` names screen-contract rows and the newest `reviewer.reported` event's Spec axis reports a `Missing` that names one of them, the draft has to name that row id too — beside the commit that fixed it, or under `Sub-issues opened:`. A finding that a control calls nothing is the one this pipeline was rebuilt to stop letting through, so silence on it is a refusal.
@@ -58,7 +58,7 @@ Fix the draft, or fix what the draft describes, and run it again.
 
 `HANDOFF REQUIRED` is held to none of the `VERDICT` conditions. It claims nothing was finished, so it is the way out of anything you cannot fix yourself, including a verifier that never ran. Whether the work is any good is what the `CHECK` commands, the verifier and `code-review` decide before you write the draft.
 
-One gate comes after the draft: an accepted `ALL MET` draft still has to pass the repository's own `checks` in `.mmw/target.json` before the ticket closes. `checks` is optional and this run's to read: a list run in order at the repository root, each entry a command string held to the same bound as a `CHECK:` (`DEFAULT_TIMEOUT`, 600 s) or `{"run": "<command>", "timeout": <seconds>}` for a suite that needs longer. Any non-zero exit leaves the ticket open and posts `CHECKS FAILED` with each failed command and its last 20 lines; every exit 0 appends `CHECKS OK <n>/<n>` to the closing comment. A key that is not a list, an entry of another shape, or a file that is not JSON is `CHECKS FAILED`, not absence; a repository without the key is unchanged. `--reverify`, `--lint`, `--check-only` and a `HANDOFF REQUIRED` draft do not run them. `CHECKS FAILED` on the ticket means the draft was fine and the suite was not; fix the code, run the suite yourself, and run `--closeout` again.
+One gate comes after the draft: an accepted `ALL MET` draft still has to pass the repository's own `checks` in `.mmw/target.json` before the ticket closes. `checks` is optional and this run's to read: a list run in order at the repository root, each entry a command string held to the same bound as a `CHECK:` (`DEFAULT_TIMEOUT`, 600 s) or `{"run": "<command>", "timeout": <seconds>}` for a suite that needs longer. The run lands as a `ticket.checked` event of its own, run `repo-checks`, before the closing comment: result `met` and the count passed when every command exited 0, and the ticket then closes; result `unmet` with each failed command and its last 20 lines when any did not, and the ticket stays open. A key that is not a list, an entry of another shape, or a file that is not JSON is an `unmet` run naming that problem, not absence; a repository without the key runs nothing and posts no such event. `--reverify`, `--lint`, `--check-only` and a `HANDOFF REQUIRED` draft do not run them. An `unmet` repository run on the ticket means the draft was fine and the suite was not; fix the code, run the suite yourself, and run `--closeout` again.
 
 ## Exit codes
 
