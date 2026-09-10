@@ -88,7 +88,11 @@ class TestDoubleCondition(LedgerRun):
         ))
         self.assertEqual(code, 1)
         self.assertIn("- [ ] AC1:", comment)
-        self.assertIn("EVIDENCE: pending", comment)
+        # The failure is recorded, not left `pending`, and it says which of the two
+        # conditions failed: the output matched, the exit code did not.
+        self.assertIn("exit=3", comment)
+        self.assertIn("EXPECT=matched", comment)
+        self.assertNotIn("EVIDENCE: pending", comment)
 
     def test_exit_zero_with_unmatched_output_does_not_pass(self):
         code, comment, _ = self.run_ticket(ticket(

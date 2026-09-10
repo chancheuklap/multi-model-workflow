@@ -332,6 +332,39 @@ test("status log: appends, and appends survive concurrency", async () => {
   } finally { s.cleanup(); }
 });
 
+test("evidence: a failing criterion records why it failed, not pending", async () => {
+  const s = sandbox();
+  try {
+    const failing = nodeEval("console.log('line-one'); console.log('the-real-reason'); process.exit(3)");
+    s.write("GATES.md", "# Gates\n\n" + gate("G1", "fails on purpose", failing, "never-printed"));
+    const r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
+    const led = s.read("GATES.md");
+    assert(r.code !== 0, "a failing criterion must still fail the run, got exit " + r.code);
+    assertHas(led, "- [ ] G1", "a failed criterion stays unchecked");
+    assertLacks(led, "EVIDENCE: pending", "ledger");
+    assertHas(led, "exit=3", "ledger");
+    assertHas(led, "EXPECT=not matched", "ledger");
+    assertHas(led, "the-real-reason", "ledger");
+  } finally { s.cleanup(); }
+});
+
+test("evidence: a reverify that turns a met criterion red records the failure, not pending", async () => {
+  const s = sandbox();
+  try {
+    const failing = nodeEval("console.log('regressed-here'); process.exit(1)");
+    s.write("GATES.md", "# Gates\n\n- [x] G1: was green\n  CHECK: " + failing +
+      "\n  EXPECT: never-printed\n  EVIDENCE: exit=0; shell=/bin/sh; EXPECT=matched\n");
+    const r = await run(GATE_CHECK, ["--reverify", "GATES.md"], { cwd: s.dir });
+    const led = s.read("GATES.md");
+    assert(r.code !== 0, "a regressed criterion must still fail the run, got exit " + r.code);
+    assertHas(led, "- [ ] G1", "a regressed criterion is unchecked");
+    assertLacks(led, "EVIDENCE: pending", "ledger");
+    assertLacks(led, "EXPECT=matched", "the old pass evidence must not survive a failed reverify");
+    assertHas(led, "exit=1", "ledger");
+    assertHas(led, "regressed-here", "ledger");
+  } finally { s.cleanup(); }
+});
+
 // ---------------------------------------------------------------- driver
 
 const selected = tests.filter(t => t.name.includes(filter));

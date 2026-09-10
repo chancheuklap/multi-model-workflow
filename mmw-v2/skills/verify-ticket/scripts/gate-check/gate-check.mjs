@@ -581,6 +581,24 @@ function evidenceFor(result) {
     "; output-bytes=" + fingerprint.bytes).slice(0, 900);
 }
 
+// A failed criterion records why it failed, in the same fields a pass records plus the
+// output summary the console line already prints. Without it the ledger said `pending`,
+// and a red that did not repeat could never be explained: the output was on a stdout
+// nobody kept. The checkbox stays the authority on met: every reader (`gateState`, and
+// `verify-ticket.py`'s tally) counts a criterion met only when it is ticked, so evidence
+// on an unticked line cannot pass it.
+function failureEvidenceFor(result) {
+  const clean = (value) => terminalSafe(value).replace(/[\r\n\t]+/g, " ");
+  const fingerprint = outputFingerprint(result.output);
+  return ("exit=" + (result.exitCode === null ? "none" : result.exitCode) +
+    (result.signal ? "; signal=" + clean(result.signal) : "") +
+    (result.error ? "; error=" + clean(result.error) : "") +
+    "; shell=" + clean(shell) + "; cwd=" + clean(result.cwd) + "; path=" + pathEvidence +
+    "; EXPECT=" + (result.matched ? "matched" : "not matched") +
+    "; output-sha256=" + fingerprint.sha256 + "; output-bytes=" + fingerprint.bytes +
+    "; output=" + clean(failureOutput(result.output))).slice(0, 900);
+}
+
 function insertOrUpdateEvidence(doc, gate, value) {
   if (gate.evidenceLine !== -1) {
     const indent = (doc.lines[gate.evidenceLine].match(/^\s*/) || ["  "])[0];
@@ -594,7 +612,6 @@ function insertOrUpdateEvidence(doc, gate, value) {
 const resultKey = (file, id) => resolve(file) + "\0" + id;
 const staleResults = new Map();
 for (const result of results) {
-  if (!result.ok && !(opt.reverify && result.wasMet)) continue;
   try {
     await withFileLock(root, result.file, () => {
       let doc = parseGates(readFileSync(result.file, "utf8"));
@@ -610,7 +627,7 @@ for (const result of results) {
         insertOrUpdateEvidence(doc, fresh, evidenceFor(result));
       } else {
         doc.lines[fresh.line] = doc.lines[fresh.line].replace(/^- \[(x|X)\]/, "- [ ]");
-        insertOrUpdateEvidence(doc, fresh, "pending");
+        insertOrUpdateEvidence(doc, fresh, failureEvidenceFor(result));
       }
       writeAtomic(result.file, formatDocument(doc));
     });
