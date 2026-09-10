@@ -13,6 +13,7 @@ import os
 import re
 import subprocess
 import sys
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import NamedTuple
 
@@ -20,6 +21,9 @@ SKILL_DIR = Path(__file__).resolve().parent.parent
 HOSTS_JSON = SKILL_DIR / "hosts.json"
 ALLOWED_AGENTS = (
     "junior-worker", "senior-worker", "reviewer", "verifier", "advisor")
+# Lody cuts its own worktree. Level 4 must not pick it; ticket / env / live may.
+WORKTREE_OWNING = frozenset({"lody"})
+DEFAULT_RUNNER = "paseo"
 # Herdr checkout asks the host CLI; Paseo checkout asks paseo. Tests set
 # MMW_CATALOG_MODE or MMW_HOST_CATALOG.
 DEFAULT_CATALOG_MODE = "herdr"
@@ -73,6 +77,9 @@ def default_live_markdown() -> str:
         "Do not commit this file. First `install.sh` copies the defaults; later ones leave the rows",
         "and refresh the copy-tables.",
         "",
+        "| runner | paseo |",
+        "| --- | --- |",
+        "",
         "| agent | host | model | effort |",
         "| --- | --- | --- | --- |",
     ]
@@ -119,6 +126,8 @@ def parse_live_rows(path: Path | None = None) -> list[tuple[str, str, str, str]]
         if not line.lstrip().startswith("|"):
             continue
         cells = [c.strip().strip("`").strip() for c in line.strip().strip("|").split("|")]
+        if cells and cells[0].lower() == "runner":
+            continue
         if len(cells) == 5:
             cells = cells[:4]
         if len(cells) != 4:
@@ -167,6 +176,78 @@ def session_rows(path: Path | None = None) -> list[SessionRow]:
 def bypass_rows(path: Path | None = None) -> list[SessionRow]:
     """旧名：全部派出的行都是会话。"""
     return session_rows(path)
+
+
+def parse_live_runner(path: Path | None = None) -> str | None:
+    """活表的 runner 行。没有这一行、或格子是空的，返回 None。"""
+    source = path or _models_file()
+    if not source.is_file():
+        return None
+    text = source.read_text(encoding="utf-8")
+    cut = text.find(OFFERINGS_BEGIN)
+    if cut != -1:
+        text = text[:cut]
+    for line in text.splitlines():
+        if not line.lstrip().startswith("|"):
+            continue
+        cells = [c.strip().strip("`").strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 2:
+            continue
+        if cells[0].lower() != "runner":
+            continue
+        if set(cells[1]) <= set("- "):
+            continue
+        spoken = _spoken_runner(cells[1])
+        if spoken:
+            return spoken
+    return None
+
+
+def _spoken_runner(value: str | None) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip().strip("`").lower()
+    if not text or text in ("—", "-", "none"):
+        return None
+    return text
+
+
+def runtime_from_environ(environ: Mapping[str, str]) -> tuple[str, ...]:
+    """Outer-to-inner runners visible in this process. Innermost wins at level 4."""
+    found: list[str] = []
+    if (environ.get("HERDR_ENV") or "").strip():
+        found.append("herdr")
+    if (environ.get("TERM_PROGRAM") or "").strip().lower() == "orca":
+        found.append("orca")
+    if (environ.get("TMUX") or "").strip():
+        found.append("tmux")
+    return tuple(found)
+
+
+def pick_runner(
+    ticket: str | None = None,
+    env: str | None = None,
+    live: str | None = None,
+    runtime: Mapping[str, str] | Sequence[str] = (),
+    default: str = DEFAULT_RUNNER,
+) -> str:
+    """First speaker wins: ticket, env, live table, innermost runtime, default."""
+    for value in (ticket, env, live):
+        spoken = _spoken_runner(value)
+        if spoken:
+            return spoken
+    if isinstance(runtime, Mapping):
+        names = runtime_from_environ(runtime)
+    else:
+        names = tuple(
+            spoken for spoken in (_spoken_runner(n) for n in runtime) if spoken)
+    detected = [name for name in names if name not in WORKTREE_OWNING]
+    if detected:
+        return detected[-1]
+    spoken = _spoken_runner(default)
+    if spoken:
+        return spoken
+    raise ValueError("no runner")
 
 
 def _norm(text: str) -> str:

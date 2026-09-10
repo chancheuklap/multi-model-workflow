@@ -8,7 +8,7 @@ The table is `~/.mmw/models.md`. It is this machine's fact. Edit it; do not edit
 
 Four columns: `agent | host | model | effort`. The `model` and `effort` cells are copied from the tables under `<!-- mmw-offerings -->` in that same file — those tables are the legal pairs for tonight. Allowed `agent` values: `junior-worker`, `senior-worker`, `reviewer`, `verifier`, `advisor`. The first row for an agent is the host `start` uses; a later row on a different host is the fallback. Two rows for one agent cannot share a host.
 
-Herdr versus Paseo is not a column. Do not write `herdr` or `paseo` into `host`. Changing which night this machine runs is changing which checkout is installed, not a cell.
+A `runner` row sits above those: `| runner | <name> |`. Names: `herdr`, `orca`, `paseo`, `tmux`, `lody`. Do not write those into `host`. Changing which night this machine runs is editing that row. One launch without touching the row: `MMW_RUNNER`. `lody` is only used when written in the row, in `MMW_RUNNER`, or on the ticket.
 
 The next `start` reads the rows above `<!-- mmw-offerings -->`. First `install.sh` copies the defaults if the file is missing; a later `install.sh` leaves the rows and refreshes the copy-tables.
 
