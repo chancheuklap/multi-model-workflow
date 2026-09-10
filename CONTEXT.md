@@ -201,12 +201,12 @@ _Avoid_: ticket message, closeout notification, 通知 (as a term)
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **worktree**:
-The per-ticket git worktree of a workspace, `<main checkout>/.worktrees/issue-<n>` — the repository's first worktree, whichever checkout the command runs from — on the branch `issue-<n>`, cut from the branch of the checkout `advance` (or `start`) runs in, the branch the night merges into; the commit it was cut at is recorded in `branch.issue-<n>.mmw-base` and that branch in `branch.issue-<n>.mmw-base-branch`. A directory `issue-<n>` on any other branch is refused, never taken over. `dispatch.sh` cuts and removes it with git; no runner name is in the path, and a runner is only told the absolute path. The reviewer and the verifier run inside it. `advance` archives the workspace only after that ticket's branch is already in HEAD; archive uses `git worktree remove --force` and does not inspect uncommitted work.
+The per-ticket git worktree of a workspace, `<main checkout>/.worktrees/issue-<n>`, on the ticket branch `issue-<n>`. `start` fetches origin first. When `origin/issue-<n>` exists, the local branch is created from it or fast-forwarded to it; commits on both sides are a refusal. When it does not, the branch is created from `origin/<into>` and immediately pushed with its upstream set. A directory `issue-<n>` on any other branch is refused, never taken over. `dispatch.sh` creates and removes the worktree with git; no runner name is in the path, and a runner is only told the absolute path. The reviewer and verifier run inside it.
 _Avoid_: 工作区, checkout (when this is meant), ~/.mmw/worktrees
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **ticket branch**:
-The branch `issue-<n>`. A ticket started again reuses it as it stands; `--preflight` refuses when the session is not on it; `advance` merges it into the base branch when the ticket is `CLOSED`, its events carry a `ticket.passed` that no `ticket.landed` has followed, the branch exists, and it is not already an ancestor.
+The branch `issue-<n>`, shared through `origin/issue-<n>`. A new start publishes it before the worker runs. A replacement, `retract` and `suspend` commit tracked edits and push it before the handoff releases anything; a rejected push is a refusal and is never forced. A later start fetches and fast-forwards a remote-ahead local branch, and refuses divergent histories with both ahead counts. `--preflight` refuses when the session is not on it; `advance` keeps its existing local merge behavior.
 _Admitted_: `issue-<n>`
 _Avoid_: branch (bare), 分支名 (as a term)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
@@ -217,7 +217,7 @@ _Avoid_: base-commit (in prose), 起点 commit, cut point, 切点
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **base branch**:
-The branch the main agent is on when it opens the night and runs `advance`: every `advance` merges into whatever HEAD is on, so the main agent stays on that branch all night. `git config branch.issue-<n>.mmw-base-branch` records it when the workspace is created; `advance` does not read it. The closing comment's `PR:` line reads `none — will be merged into <base branch> by dispatch.sh advance`.
+The integration branch the main agent is on when it opens the night and runs `advance`. `check` requires `origin`, a working fetch and dry-run push, `origin/<base branch>`, and no local commits ahead of it. `open` records it as `spec.opened.into`; a worker records the resolved value as `worker.started.into`. Resolution reads the latest worker event, else the open night's event, else the current checkout branch outside a night. An old latest `worker.started` without `into` is refused rather than filled from git config. `advance` still merges into local `HEAD` and does not read this field.
 _Avoid_: main branch, 基线分支, main (as a name)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
@@ -1127,8 +1127,8 @@ The verifier may install a dependency, download a browser, or find a connection 
 _Avoid_: the verifier's boundary
 _Home_: `mmw-v2/skills/verdict/SKILL.md`
 
-**No pull request, and no push**:
-No step of the pipeline reads a pull request and no branch is pushed; a ticket's work reaches the base branch through `advance`'s local merge, and the closing comment's `PR:` line is written in the future tense.
+**No pull request**:
+No step of the pipeline reads a pull request. Ticket branches are pushed to origin for cross-machine handoff; a ticket's work still reaches the base branch through `advance`'s local merge, and the closing comment's `PR:` line is written in the future tense.
 _Home_: `mmw-v2/merge-notes/implement.md`
 
 **fixed headings**:
