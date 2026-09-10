@@ -13,7 +13,7 @@
 #   dispatch.sh reverify <spec>
 #   dispatch.sh summary <spec>
 #   dispatch.sh suspend <spec>
-#   dispatch.sh route <child> fixed|stale|became-ticket [<ticket>]
+#   dispatch.sh route <ticket> <child> fixed|stale|became-ticket [<new ticket>]
 #
 # Every script this one calls is found by resolution, from this file's own path:
 # `lease.py` of the drive-target skill, and `verify-ticket.py` and `events.py` of the
@@ -201,7 +201,7 @@ usage: dispatch.sh check <spec>
        dispatch.sh reverify <spec>
        dispatch.sh summary <spec>
        dispatch.sh suspend <spec>
-       dispatch.sh route <child> fixed|stale|became-ticket [<ticket>]
+       dispatch.sh route <ticket> <child> fixed|stale|became-ticket [<new ticket>]
 USAGE
   exit 2
 }
@@ -445,6 +445,24 @@ stop_product() {
 give_slot_back() {
   stop_product "$1" || true
   release_lease "$1"
+}
+
+# Give ticket <n>'s slot back at the moment a released claim ends its work: a slot is
+# held until the ticket's work ends, not until somebody next lands it. Returns 0 given
+# back or none held, 1 still held (said on stderr).
+give_ticket_slot_back() {
+  local number="$1" cwd
+  [ -f "$LEASE" ] \
+    || { echo "dispatch: no lease.py in any --tools directory, so #$number's slot was not given back" >&2; return 1; }
+  cwd="$(workspace_cwd_for "$number")"
+  [ -n "$cwd" ] || cwd="$(lease_worktree_for "$number")"
+  [ -n "$cwd" ] || return 0
+  give_slot_back "$cwd"
+  case "$?" in
+    0 | 3) return 0 ;;
+  esac
+  echo "dispatch: #$number's claim is given back, but its slot is still held: stop its product in $cwd, then python3 $LEASE release $cwd" >&2
+  return 1
 }
 
 # `lease.py release` says which of the three outcomes happened in its exit code — 0 given
@@ -1148,6 +1166,7 @@ advance() {
           --line "Gave the claim on #$number back: an event on it ended its worker's hold" \
           --field reason=worker-lost \
         || echo "dispatch: the claim on #$number is given back, but its ticket.released event was not written" >&2
+      give_ticket_slot_back "$number" || true
     else
       echo "dispatch: could not take the claim off #$number, so it stays off the frontier" >&2
     fi
@@ -1244,6 +1263,7 @@ land_tickets() {
           --line "Gave the claim on #$number back: its work is over" \
           --field reason=landed \
         || echo "land: #$number's claim is given back, but its ticket.released event was not written" >&2
+      give_ticket_slot_back "$number" || true
     else
       echo "land: could not give #$number's claim back" >&2
     fi
@@ -1433,13 +1453,24 @@ suspend_night() {
 
 # ------------------------------------------------------------------ reverify / summary
 
-# The criteria the newest reverify run on ticket <n> left unmet, space separated: the
-# `failed` field of its `ticket.checked` event, which `verify-ticket.py --reverify` has
-# just written. Non-zero when the ticket's events could not be read.
-failing_ac_ids() {
-  local line
-  line="$(ticket_events "$1" checked --run reverify)" || return 2
-  printf '%s\n' "$line" | tr ' ' '\n' | sed -n 's/^failed=//p' | tr ',' ' ' | sed 's/^-$//'
+# The red reverify of ticket <n> on commit <c>: prints the criteria it left unmet, space
+# separated — the `failed` field of the newest reverify `ticket.checked` — and returns 0
+# only when that event is a run of <c> whose result is not `met`. Returns 1 when the
+# ticket carries no such run, which is not a red ticket: nothing on it says what ran.
+# Returns 2 when the ticket's events could not be read.
+red_reverify_of() {
+  local number="$1" commit="$2" line field ran="" result=""
+  local -a failed=()
+  line="$(ticket_events "$number" checked --run reverify)" || return 2
+  for field in $line; do
+    case "$field" in
+      commit=*) ran="${field#commit=}" ;;
+      result=*) result="${field#result=}" ;;
+      failed=*) [ "${field#failed=}" = "-" ] || IFS=',' read -r -a failed <<<"${field#failed=}" ;;
+    esac
+  done
+  [ "$ran" = "$commit" ] && [ -n "$result" ] && [ "$result" != met ] || return 1
+  printf '%s\n' "${failed[*]+"${failed[*]}"}"
 }
 
 reverify_spec() {
@@ -1467,11 +1498,17 @@ reverify_spec() {
     printed="$(python3 "$VERIFY" "$number" --reverify --actor main ${TOOLS_ARGS[@]+"${TOOLS_ARGS[@]}"} 2>&1)"
     rc=$?
     printf '%s\n' "$printed"
-    # 2 is `the run could not start` and 3 `it waited for a product slot and none came
-    # free`; neither says anything about the ticket. Reading one as a red ticket is how
-    # one broken invocation becomes a batch of reopened tickets.
-    if [ "$rc" -eq 2 ] || [ "$rc" -eq 3 ]; then
-      echo "dispatch: #$number could not be re-run, so nothing was judged; the rest of this reverify is skipped" >&2
+    # Red is exit 1 and a reverify ticket.checked of this HEAD that is not met; every
+    # other answer — 2 the run could not start, 3 it waited for a product slot and none
+    # came free, 4 its result could not be written, a crash, or a 1 the ticket holds no
+    # red run of HEAD for — says nothing about the ticket. Reading one as a red ticket is
+    # how one broken invocation reopens a batch of landed work.
+    ids=""
+    if [ "$rc" -eq 1 ]; then
+      ids="$(red_reverify_of "$number" "$commit")" || rc=5
+    fi
+    if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ]; then
+      echo "dispatch: #$number could not be re-run on $commit (exit $rc, or no red run of it is recorded on the ticket), so nothing was judged; the rest of this reverify is skipped" >&2
       exit 2
     fi
     if [ "$rc" -eq 0 ]; then
@@ -1493,7 +1530,6 @@ print((rows[0].get("login") or "") if rows else "")
       else
         gh_ issue edit "$number" --add-label needs-triage >/dev/null
       fi
-      ids="$(failing_ac_ids "$number" | awk 'NF' | paste -sd ' ' -)"
       post_event "$number" ticket.regressed --ticket "$number" --spec "$spec" \
           --line "Reverify on $commit failed${ids:+: $ids}; reopened for triage" \
           --field "commit=$commit" \
@@ -1579,11 +1615,20 @@ print(number if isinstance(number, int) else "")
 #                       another issue, the child is closed as a duplicate of it and #<m>
 #                       gets the same label and the same parent.
 #
-# Exit 0 routed and recorded. 1 the tracker took some of it and not the rest; stderr says
-# which, and nothing was undone. 2 nothing was done: the arguments are wrong, the child
-# has no parent ticket, or the tracker could not be asked.
+# The ticket the child came from is named on the command line and must carry the
+# `child.opened` for it; the spec is that event's `spec`. Both are facts fixed when the
+# child was opened, and never read off the tree, which a became-ticket route itself
+# changes — so a route cut short is run again as it was, and does only the steps not yet
+# done: a child already closed is not closed twice, an issue already under the spec is
+# not moved, and a child whose `child.closed` is on the ticket is routed already.
+#
+# Exit 0 routed and recorded, or already so. 1 the tracker took some of it and not the
+# rest; stderr says which, nothing was undone, and the same command finishes it. 2
+# nothing was done: the arguments are wrong, the ticket carries no `child.opened` for
+# this child, the child was routed another way, or the tracker could not be asked.
 route_child() {
-  local child="$1" resolution="$2" became="${3:-}"
+  local ticket="$1" child="$2" resolution="$3" became="${4:-}"
+  case "$ticket" in *[!0-9]* | "") refuse "the ticket number must be digits only, got $ticket" ;; esac
   case "$child" in *[!0-9]* | "") refuse "the child number must be digits only, got $child" ;; esac
   case "$resolution" in
     fixed | stale) [ -z "$became" ] || refuse "$resolution takes no ticket number" ;;
@@ -1592,22 +1637,36 @@ route_child() {
     *) refuse "the resolution is fixed, stale or became-ticket, got $resolution" ;;
   esac
 
-  local ticket spec
-  ticket="$(parent_of "$child")" || refuse "could not ask the tracker which ticket #$child came from; nothing was done"
-  [ -n "$ticket" ] || refuse "#$child has no parent ticket, so there is no ticket to record its route on; nothing was done"
-  spec="$(parent_of "$ticket")" || refuse "could not ask the tracker which spec #$ticket sits under; nothing was done"
-  if [ "$resolution" = became-ticket ] && [ -z "$spec" ]; then
-    refuse "#$ticket sits under no spec, so there is no spec for #$became to move under; nothing was done"
+  local opened kind spec done_resolution done_became
+  opened="$(ticket_events "$ticket" child --child "$child")" \
+    || refuse "could not read #$ticket's events, so whether it opened #$child is unknown; nothing was done"
+  [ -n "$opened" ] \
+    || refuse "#$ticket carries no child.opened for #$child, so #$child is not a child it opened; name the ticket that opened it. Nothing was done"
+  IFS=$'\t' read -r kind spec done_resolution done_became <<<"$opened"
+  [ "$spec" != "-" ] || spec=""
+  if [ "$done_resolution" != "-" ]; then
+    if [ "$done_resolution" = "$resolution" ] && { [ -z "$became" ] || [ "$done_became" = "$became" ]; }; then
+      echo "route #$child: already routed $resolution${became:+ #$became}, recorded on #$ticket" >&2
+      return 0
+    fi
+    refuse "#$child is already routed $done_resolution on #$ticket; nothing was done"
   fi
+  if [ "$resolution" = became-ticket ] && [ -z "$spec" ]; then
+    refuse "#$ticket's child.opened for #$child names no spec, so there is no spec for #$became to move under; nothing was done"
+  fi
+
+  local state
+  state="$(gh_ issue view "$child" --json state --jq .state 2>/dev/null)" \
+    || refuse "could not read #$child's state; nothing was done"
 
   local line
   case "$resolution" in
     fixed)
-      gh_ issue close "$child" --reason completed >/dev/null 2>&1 \
+      [ "$state" = CLOSED ] || gh_ issue close "$child" --reason completed >/dev/null 2>&1 \
         || refuse "could not close #$child; nothing was recorded"
       line="Fixed #$child on the closing pass" ;;
     stale)
-      gh_ issue close "$child" --reason "not planned" >/dev/null 2>&1 \
+      [ "$state" = CLOSED ] || gh_ issue close "$child" --reason "not planned" >/dev/null 2>&1 \
         || refuse "could not close #$child; nothing was recorded"
       line="Closed #$child: what it states no longer holds" ;;
     became-ticket)
@@ -1616,16 +1675,19 @@ route_child() {
       current="$(parent_of "$became")" || refuse "could not ask the tracker where #$became sits; nothing was done"
       labels="$(gh_ issue view "$became" --json labels --jq '.labels[].name' 2>/dev/null)" \
         || refuse "could not read #$became's labels; nothing was done"
-      local -a edit=(--add-label mmw:ticket)
+      local -a edit=()
+      printf '%s\n' "$labels" | grep -qx 'mmw:ticket' || edit+=(--add-label mmw:ticket)
       [ "$current" = "$spec" ] || edit+=(--parent "$spec")
       if printf '%s\n' "$labels" | grep -qx 'mmw:child'; then
         edit+=(--remove-label mmw:child)
       fi
-      gh_ issue edit "$became" "${edit[@]}" >/dev/null 2>&1 \
-        || refuse "could not make #$became a ticket under #$spec; nothing was recorded"
-      if [ "$became" != "$child" ]; then
+      if [ "${#edit[@]}" -gt 0 ]; then
+        gh_ issue edit "$became" "${edit[@]}" >/dev/null 2>&1 \
+          || refuse "could not make #$became a ticket under #$spec; nothing was recorded"
+      fi
+      if [ "$became" != "$child" ] && [ "$state" != CLOSED ]; then
         if ! gh_ issue close "$child" --duplicate-of "$became" >/dev/null 2>&1; then
-          echo "dispatch: #$became is a ticket under #$spec, but #$child could not be closed as its duplicate and no child.closed was written; close it, then run this again" >&2
+          echo "dispatch: #$became is a ticket under #$spec, but #$child could not be closed as its duplicate and no child.closed was written; run this again" >&2
           exit 1
         fi
       fi
@@ -1750,8 +1812,8 @@ case "${1:-}" in
     suspend_night "$2"
     ;;
   route)
-    [ "$#" -eq 3 ] || [ "$#" -eq 4 ] || usage
-    route_child "$2" "$3" "${4:-}"
+    [ "$#" -eq 4 ] || [ "$#" -eq 5 ] || usage
+    route_child "$2" "$3" "$4" "${5:-}"
     ;;
   "" | -h | --help)
     usage

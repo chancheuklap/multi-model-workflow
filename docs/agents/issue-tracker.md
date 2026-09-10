@@ -61,7 +61,7 @@ A layer label puts an issue in no queue. The layer label tells a board which lay
 parent link tells the scripts which spec a ticket sits under — `verify-ticket.py` takes a ticket's
 spec to be its direct parent and never walks further up. So a child that becomes a ticket changes
 both: its label goes from `mmw:child` to `mmw:ticket`, and its parent moves from the ticket it came
-from to that ticket's spec (`dispatch.sh route <child> became-ticket <ticket>` does both). Where it
+from to that ticket's spec (`dispatch.sh route <ticket> <child> became-ticket <new ticket>` does both, taking the spec from the `child.opened` event rather than the tree). Where it
 came from stays on the record as the `child.closed` event on the original ticket.
 
 ## Pull requests as a triage surface

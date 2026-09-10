@@ -61,13 +61,14 @@ field. This section says why each one is shaped the way it is.
 - **`instance`.** A product whose ports cannot move says
   `{"max": <n>, "why": "…"}`; absent means the product takes its ports from the
   lease and the machine's own limit applies. `lease.py` enforces `max` at the moment
-  a slot is claimed, counting the slots this repository's ticket worktrees (the ones
-  under `<main checkout>/.worktrees`) already hold. A ticket takes its slot at the
-  first run of its criteria that runs the product and keeps it until it lands, so
-  `max` bounds how many tickets are past that point at once; how many workers write
-  code at once is not bounded by it. A run that finds `max` reached waits, and its
-  ticket says so. A checkout outside that directory — the main checkout re-running
-  the night's criteria — is held to the machine's limit alone.
+  a slot is claimed, counting every slot this repository already holds, wherever its
+  checkout is — the ticket worktrees and the main checkout re-running the night's
+  criteria alike. A ticket takes its slot at the first run of its criteria that runs
+  the product and keeps it until its work ends — landed, handed back, released,
+  suspended or retracted — so `max` bounds how many tickets are past that point at
+  once; how many workers write code at once is not bounded by it. The main checkout's
+  re-run gives its slot back as each run ends. A run that finds `max` reached waits,
+  and its ticket says so.
 
 - **`checks`.** The repository's own checks. The `verify-ticket` skill's
   `--closeout` runs them.

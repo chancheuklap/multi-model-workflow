@@ -90,6 +90,15 @@ class TestTheRunDecides(unittest.TestCase):
 
 
 class TestRefusals(unittest.TestCase):
+    def test_a_reverify_of_an_older_commit_is_no_run_of_head(self):
+        """The newest reverify passed on an older commit; HEAD moved on since. A verdict
+        on HEAD would report a run nobody made."""
+        older = checked("reverify", MET_AC1, "ALL MET (1 met)", commit="1" * 40)
+        code, err, posted = verdict("all passed", [older])
+        self.assertEqual(code, 2)
+        self.assertEqual(posted, [])
+        self.assertIn("Run --reverify first, on this commit", err)
+
     def test_no_reverify_run_is_refused_and_nothing_is_posted(self):
         code, err, posted = verdict("commands only; all passed", [SELF_RUN_MET])
         self.assertEqual(code, 2)

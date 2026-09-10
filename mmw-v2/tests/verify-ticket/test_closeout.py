@@ -710,6 +710,21 @@ class TestNoSideEffectOnFail(unittest.TestCase):
         self.assertEqual(seen["handed"], [77])
         self.assertEqual(seen["told"], ["#77 ticket.returned"])
 
+    def test_a_hand_back_gives_the_slot_back_and_a_close_leaves_it_to_the_landing(self):
+        """A handed-back ticket's work is over for the night; kept, its slot would hold
+        the product from every other ticket until somebody landed it."""
+        handoff = draft(first="HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 1 met of 2",
+                        criteria=(MET, UNMET),
+                        abandons=("ABANDON: AC2 stuck chromium will not start here; tried the bundled build too",),
+                        counts=counts_line(met=1, abandoned=1, total=2))
+        for text, expected in ((handoff, 1), (draft(counts=counts_line()), 0)):
+            gave = []
+            with mock.patch.object(vt, "give_slot_back",
+                                   side_effect=lambda root: gave.append(root)):
+                code, err, _ = check(text, check_only=False)
+            self.assertEqual(code, 0, err)
+            self.assertEqual(len(gave), expected, text.splitlines()[0])
+
     def test_a_ticket_someone_else_holds_is_refused(self):
         code, err, seen = check(draft(counts=counts_line()), assignees=("someone-else",),
                                 check_only=False)

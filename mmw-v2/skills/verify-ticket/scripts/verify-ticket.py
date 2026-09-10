@@ -1544,8 +1544,9 @@ def hold_slot(number: int, root: Path, run: str, comments: list,
     the run cannot go on.
 
     Writing code takes no slot. The first run of the criteria that needs the product
-    claims one, and the worktree holds it until its ticket lands, so every later run —
-    the verifier's reverify, the closeout's checks — finds it already there. When no
+    claims one, and the worktree holds it until its ticket's work ends — landed, handed
+    back, released, suspended or retracted — so every later run — the verifier's
+    reverify, the closeout's checks — finds it already there. When no
     slot is free the run waits: a `worker.queued` event goes on the ticket, once for
     this wait, so a ticket quiet for twenty minutes reads as queued and not as dead;
     the claim is asked again every `SLOT_BEAT_S` seconds, and after `SLOT_WAIT_S` the run
@@ -1570,11 +1571,18 @@ def hold_slot(number: int, root: Path, run: str, comments: list,
             if not announced:
                 what = ("this product's instance.max" if full.reason == "product-full"
                         else "every slot of this machine")
-                post_event(number, "worker.queued",
-                           f"Waiting for a product slot: {what} ({full.limit}) is held",
-                           "\n".join(f"- {h}" for h in full.holders),
-                           run=run, reason=full.reason, limit=full.limit,
-                           holders=full.holders, worktree=str(worktree), actor=actor)
+                try:
+                    post_event(number, "worker.queued",
+                               f"Waiting for a product slot: {what} ({full.limit}) is held",
+                               "\n".join(f"- {h}" for h in full.holders),
+                               run=run, reason=full.reason, limit=full.limit,
+                               holders=full.holders, worktree=str(worktree), actor=actor)
+                except (OSError, subprocess.CalledProcessError) as exc:
+                    # A wait the ticket does not show reads as a dead worker.
+                    sys.stderr.write(f"#{number}: no product slot is free and the "
+                                     f"worker.queued event could not be written ({exc}); "
+                                     f"nothing was run. Run it again.\n")
+                    return NOT_RECORDED
                 announced = True
             if spent >= SLOT_WAIT_S:
                 sys.stderr.write(
@@ -1595,7 +1603,8 @@ def run_checks(number: int, reverify: bool, timeout: int | None,
     """Run the ticket's criteria and post the run as one `ticket.checked` event.
 
     Exit 0 every criterion met, 1 not, 2 the run could not start (nothing was judged and
-    nothing was written), 3 it waited for a product slot and none came free.
+    nothing was written), 3 it waited for a product slot and none came free, 4 the
+    criteria ran and the ticket.checked recording them could not be written.
     """
     body = fetch_body(number)
     require_judges(body)
@@ -1647,20 +1656,75 @@ def run_checks(number: int, reverify: bool, timeout: int | None,
     prose = [updated]
     if not reverify:
         prose += ["", outside_owns_text(fields)]
-    post_event(number, "ticket.checked",
-               f"{'Reverify' if reverify else 'Own run'} on {head[:12]}: "
-               f"{summary or outcome}",
-               "\n".join(prose), run=run, commit=head, result=outcome,
-               counts=tally(criteria, abandons),
-               criteria=results,
-               failed=[r["id"] for r in results if not r["met"]],
-               abandons=abandons or None,
-               shape=shape_digest(section(body, "Acceptance criteria")),
-               slot=slot.get("slot") if slot else None,
-               port_base=slot.get("port_base") if slot else None,
-               actor=actor, stage=("regress" if actor == "main" else RUN_STAGE[run]),
-               **fields)
-    return result.returncode
+    try:
+        post_event(number, "ticket.checked",
+                   f"{'Reverify' if reverify else 'Own run'} on {head[:12]}: "
+                   f"{summary or outcome}",
+                   "\n".join(prose), run=run, commit=head, result=outcome,
+                   counts=tally(criteria, abandons),
+                   criteria=results,
+                   failed=[r["id"] for r in results if not r["met"]],
+                   abandons=abandons or None,
+                   shape=shape_digest(section(body, "Acceptance criteria")),
+                   slot=slot.get("slot") if slot else None,
+                   port_base=slot.get("port_base") if slot else None,
+                   actor=actor, stage=("regress" if actor == "main" else RUN_STAGE[run]),
+                   **fields)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        # The criteria ran, but nothing on the ticket says how. Every reader decides from
+        # that event, so this run counts as one that did not happen — never as red.
+        sys.stderr.write(f"#{number}: the run finished {outcome} on {head[:12]}, but its "
+                         f"ticket.checked event could not be written ({exc}), so the ticket "
+                         f"records no run. Run it again once the tracker takes comments.\n")
+        recorded = False
+    else:
+        recorded = True
+    # The main agent's reverify runs in the main checkout, which no ticket's work ends
+    # for: its slot is given back when the run ends.
+    if slot and actor == "main":
+        problem = give_slot_back(root)
+        if problem:
+            sys.stderr.write(f"#{number}: the main checkout's product slot was not given "
+                             f"back: {problem}\n")
+    return result.returncode if recorded else NOT_RECORDED
+
+
+# The exit of a run whose criteria ran and whose result could not be written on the
+# ticket. It is not 1: a caller reads 1 as "the criteria are red", and nothing says so.
+NOT_RECORDED = 4
+STOP_TIMEOUT_S = int(os.environ.get("MMW_STOP_TIMEOUT_S", "300"))
+
+
+def give_slot_back(root: Path) -> str | None:
+    """Take this worktree's product down and give its slot back; the reason when that
+    could not be done, None when it was or there was no slot to give.
+
+    The product's `stop` in `.mmw/target.json` runs first, from the worktree, because a
+    slot is free only once nothing listens on its ports and `lease.py` rightly refuses
+    one held by a live process.
+    """
+    lease = load_lease()
+    if lease is None:
+        return "no directory in force holds lease.py"
+    worktree = lease.worktree_of(root)
+    if not any(r.get("worktree") == str(worktree) for r in lease.claimed()):
+        return None
+    try:
+        data = json.loads((Path(root) / ".mmw" / "target.json").read_text(encoding="utf-8"))
+        stop = data.get("stop") if isinstance(data, dict) else None
+    except (OSError, json.JSONDecodeError):
+        stop = None
+    if isinstance(stop, str) and stop.strip():
+        try:
+            subprocess.run(stop, shell=True, cwd=root, capture_output=True, text=True,
+                           timeout=STOP_TIMEOUT_S)
+        except (OSError, subprocess.SubprocessError) as exc:
+            return f"its stop command did not finish ({exc})"
+    try:
+        lease.release(worktree)
+    except SystemExit as exc:
+        return str(exc)
+    return None
 
 
 def refusals(number: int, ticket: dict, me: str, branch: str,
@@ -1945,6 +2009,12 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
         print(f"CLOSED: #{number}")
     else:
         hand_back_for_triage(number)
+        # A handed-back ticket's work is over for the night: its slot goes back now, not
+        # when somebody next lands it, or it holds the product from every other ticket.
+        problem = give_slot_back(repo_root())
+        if problem:
+            sys.stderr.write(f"#{number} is handed back, but its product slot was not given "
+                             f"back: {problem}\n")
         notify_parent(f"#{number} ticket.returned")
         print(f"HANDED BACK: #{number} is now needs-triage and stays open")
     return 0
@@ -1973,6 +2043,12 @@ def run_verdict(number: int, line: str, model: str) -> int:
         return refuse(f"#{number} carries no reverify `ticket.checked` event, so there is no "
                       f"run for this verdict to report. Run --reverify first; if it could "
                       f"not start, say `could not start` in the line")
+    # A verdict covers HEAD, so the run it reports has to be a run of HEAD. The newest
+    # reverify on an older commit says nothing about the commit this verdict would name.
+    if ran and reverify.get("commit") != commit:
+        return refuse(f"#{number}'s newest reverify ran on {str(reverify.get('commit'))[:12]}, "
+                      f"and HEAD is {commit[:12]}: no run of HEAD exists for this verdict to "
+                      f"report. Run --reverify first, on this commit")
     passed = bool(ran and reverify.get("result") == "met")
     post_event(number, "verifier.passed" if passed else "verifier.failed",
                f"VERDICT {commit} by {model.strip()} — {line}",

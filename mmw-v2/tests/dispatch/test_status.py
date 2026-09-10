@@ -734,6 +734,41 @@ class Summary(unittest.TestCase):
         c = child(98, kind="finding", resolution="fixed", state="OPEN")
         self.assertEqual(status.route_of(c), "open")
 
+    def test_a_finding_promoted_in_place_counts_as_became_though_it_is_open(self):
+        c = child(98, kind="finding", resolution="became-ticket", state="OPEN")
+        self.assertEqual(status.route_of(c), "became")
+
+    def test_a_finding_that_moved_under_the_spec_is_still_counted_from_its_ticket(self):
+        """Promoted in place, #92 is a ticket under the spec now and under #61 no longer.
+        The count comes from #61's events, not from where #92 sits."""
+        raws = {
+            61: {"state": "CLOSED", "title": "ticket 61", "body": "", "labels": [],
+                 "assignees": [], "blockedBy": {"nodes": []},
+                 "comments": [{"body": passed(61)},
+                              {"body": ev("child.opened", "Opened #92 (finding)", 61,
+                                          child=92, kind="finding")},
+                              {"body": ev("child.closed", "#92 became ticket #92", 61,
+                                          child=92, resolution="became-ticket", became=92)}],
+                 "createdAt": "2026-08-29T00:00:00Z", "closedAt": "2026-08-31T02:00:00Z"},
+            92: {"state": "OPEN", "title": "a finding, now a ticket", "body": "",
+                 "labels": [{"name": "mmw:ticket"}], "assignees": [],
+                 "blockedBy": {"nodes": []}, "comments": [],
+                 "createdAt": "2026-08-31T01:00:00Z", "closedAt": ""},
+        }
+        saved = (status.gh_json, status.spec_tree, status.night_opened)
+        try:
+            status.gh_json = lambda args, fallback=None: raws[int(args[2])]
+            status.spec_tree = lambda spec: {"number": 76, "children": [
+                {"number": 61, "state": "CLOSED", "children": []},
+                {"number": 92, "state": "OPEN", "children": []}]}
+            status.night_opened = lambda now=None: "2026-08-30T00:00:00Z"
+            with redirect_stdout(io.StringIO()) as out:
+                self.assertEqual(status.main(["--summary", "76"]), 0)
+        finally:
+            (status.gh_json, status.spec_tree, status.night_opened) = saved
+        self.assertEqual(out.getvalue().splitlines()[6],
+                         status.routed_line((1, 0, 1, 0, 0, 0)))
+
     def test_a_child_the_tracker_could_not_answer_is_unread_not_omitted(self):
         c = status.normalise_ticket(99, {})
         self.assertTrue(c["unread_raw"])

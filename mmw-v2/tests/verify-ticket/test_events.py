@@ -391,8 +391,12 @@ class WaitingAndSlots(unittest.TestCase):
                 state = events.fold([started(), queued(), closing])
                 self.assertIsNone(state["waiting"])
 
-    def test_the_slot_is_given_back_at_landing_retraction_and_suspension(self):
+    def test_the_slot_is_given_back_when_the_tickets_work_ends(self):
+        """Landed, handed back, released, suspended, or its start retracted: a ticket
+        handed back keeps no slot all night."""
         for closing in (ev("ticket.landed", "Landed"),
+                        ev("ticket.returned", "HANDOFF REQUIRED: 1 abandoned (stuck)"),
+                        ev("ticket.released", "Released", reason="worker-lost"),
                         ev("worker.retracted", "Retracted", session="term_7",
                            runner="orca"),
                         ev("spec.suspended", "NIGHT SUSPENDED #76")):
@@ -400,10 +404,15 @@ class WaitingAndSlots(unittest.TestCase):
                 state = events.fold([started(), checked_run(slot=1), closing])
                 self.assertIsNone(state["slot"])
 
-    def test_a_pass_does_not_give_the_slot_back(self):
-        """The slot is held until landing, not until the ticket passes."""
-        state = events.fold([started(), checked_run(slot=1), ev("ticket.passed", "ALL MET")])
-        self.assertEqual(state["slot"], 1)
+    def test_a_pass_a_replacement_or_a_loss_does_not_give_the_slot_back(self):
+        """A pass is not the end of the work; a replaced or lost worker's worktree keeps
+        its slot for whoever carries on in it."""
+        for keeping in (ev("ticket.passed", "ALL MET"),
+                        ev("worker.replaced", "Replaced", session="term_7", runner="orca"),
+                        ev("worker.lost", "Lost", session="term_7", runner="orca")):
+            with self.subTest(event=events.parse(keeping)[1]["event"]):
+                state = events.fold([started(), checked_run(slot=1), keeping])
+                self.assertEqual(state["slot"], 1)
 
     def test_the_newest_run_of_each_kind_is_kept_apart(self):
         state = events.fold([checked_run(run="self", result="unmet", failed=["AC2"]),

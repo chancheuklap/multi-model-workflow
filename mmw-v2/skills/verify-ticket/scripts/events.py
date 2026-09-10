@@ -10,6 +10,7 @@ comments into its state.
     events.py result [<issue>] --kind worker|reviewer|verifier [--comments-file F|-]
     events.py checked [<issue>] [--run self|reverify|repo-checks] [--comments-file F|-]
     events.py live [<issue>] [--kind worker|reviewer|verifier] [--comments-file F|-]
+    events.py child [<issue>] --child N [--comments-file F|-]
 
 A ticket's state is stored nowhere. It is computed: every comment on the issue is read in
 comment-id order, the events they carry are replayed from an empty state, and what comes
@@ -46,7 +47,9 @@ but `fold`) a comment carries an event block nobody can read, named on stderr.
 `result` prints the event's name and its key fields (`verifier.failed commit=… failed=AC2`),
 never its prose. `checked` prints the newest `ticket.checked` the same way, of one run
 when `--run` names it. `live` prints "runner<TAB>session" for every session of that kind
-whose hold no event has ended, oldest first.
+whose hold no event has ended, oldest first. `child` prints, for a child this issue's
+`child.opened` names, "kind<TAB>spec<TAB>resolution<TAB>became" (`-` for none yet), and
+nothing when no `child.opened` on this issue names it.
 """
 
 from __future__ import annotations
@@ -183,6 +186,12 @@ ENDS_EVERY_HOLD = ("ticket.landed", "ticket.returned", "ticket.released", "spec.
 # pair and never by the id alone: two runners can hand out the same id. A retraction
 # also ends a claim no started session has taken over, since it gives the claim back.
 ENDS_ONE_HOLD = ("worker.retracted", "worker.lost", "worker.replaced")
+# A worktree's product slot is held until its ticket's work ends, and given back at that
+# moment: it lands, it is handed back, its claim is released, the night is suspended, or
+# its start is retracted. A replaced or lost worker's worktree keeps its slot for the
+# worker that carries on in it.
+SLOT_ENDS = ("ticket.landed", "ticket.returned", "ticket.released", "spec.suspended",
+             "worker.retracted")
 
 # The fields `result` and `checked` print after an event's name.
 RESULT_FIELDS = {
@@ -412,8 +421,7 @@ def empty_state(issue: int | None = None) -> dict:
         "checks": {run: None for run in CHECK_RUNS},
         # The `worker.queued` a run is still waiting under, or None.
         "waiting": None,
-        # The product slot the newest run held, until the ticket lands, its start is
-        # retracted or the night is suspended — the three moments the slot is given back.
+        # The product slot the newest run held, until an event in `SLOT_ENDS` gives it back.
         "slot": None,
         "touched": [],
         "children": {},
@@ -532,7 +540,8 @@ def apply(state: dict, event: dict) -> None:
     elif name == "child.opened":
         child = payload.get("child")
         state["children"].setdefault(str(child), {"child": child}).update(
-            kind=payload.get("kind"), title=payload.get("title"))
+            kind=payload.get("kind"), title=payload.get("title"), opened=True,
+            spec=payload.get("spec"))
     elif name == "child.closed":
         child = payload.get("child")
         state["children"].setdefault(str(child), {"child": child}).update(
@@ -550,7 +559,7 @@ def apply(state: dict, event: dict) -> None:
     # the worker's own result, ends the wait with it.
     if name in ENDS_EVERY_HOLD or name in ENDS_ONE_HOLD or name in RESULTS["worker"]:
         state["waiting"] = None
-    if name in ("ticket.landed", "worker.retracted", "spec.suspended"):
+    if name in SLOT_ENDS:
         state["slot"] = None
     for agent_kind, names in RESULTS.items():
         if name in names:
@@ -739,7 +748,7 @@ def main(argv: list[str] | None = None) -> int:
     emit.add_argument("--actor")
     emit.add_argument("--stage")
 
-    for name in ("fold", "session", "sessions", "result", "checked", "live"):
+    for name in ("fold", "session", "sessions", "result", "checked", "live", "child"):
         reader = sub.add_parser(name)
         reader.add_argument("issue", nargs="?", type=int)
         reader.add_argument("--comments-file")
@@ -747,6 +756,8 @@ def main(argv: list[str] | None = None) -> int:
             reader.add_argument("--kind", choices=AGENT_KINDS, required=(name == "result"))
         if name == "checked":
             reader.add_argument("--run", choices=CHECK_RUNS)
+        if name == "child":
+            reader.add_argument("--child", type=int, required=True)
 
     args = parser.parse_args(argv)
     try:
@@ -791,6 +802,12 @@ def main(argv: list[str] | None = None) -> int:
         record = checked_of(state, args.run)
         if record:
             print(describe(record))
+        return 0
+    if args.command == "child":
+        entry = state["children"].get(str(args.child)) or {}
+        if entry.get("opened"):
+            print("\t".join("-" if entry.get(key) in (None, "") else str(entry[key])
+                            for key in ("kind", "spec", "resolution", "ticket")))
         return 0
     record = state["results"].get(args.kind)
     if record:

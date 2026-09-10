@@ -932,6 +932,14 @@ if "--jq" in os.environ["MMW_JQ"]:
 else:
     print(json.dumps({"parent": parent}))
 ' ;;
+  *"--json state --jq"*)
+    MMW_WANT="$3" python3 -c '
+import json, os
+path = os.environ.get("FAKE_GH_TICKETS_FILE")
+rows = json.load(open(path)) if path else []
+want = int(os.environ["MMW_WANT"])
+print(next((t for t in rows if t.get("number") == want), {}).get("state", "OPEN"))
+' ;;
   *"--json labels --jq"*)
     MMW_WANT="$3" python3 -c '
 import json, os
@@ -950,6 +958,8 @@ for name in found.get("labels", []):
     fi
     echo "✓ Label \"$3\" created" ;;
   "issue close "*)
+    # FAKE_GH_CLOSE_FAILS: the tracker refuses the close, the way a network drop does.
+    [ -z "${FAKE_GH_CLOSE_FAILS:-}" ] || { echo "HTTP 502" >&2; exit 1; }
     echo "✓ Closed issue #$3" ;;
   *"--json state,labels,assignees,blockedBy,comments"*)
     MMW_WANT="$3" python3 -c '
@@ -2341,12 +2351,18 @@ with open(log, "a", encoding="utf-8") as fh:
 number = sys.argv[1]
 if number in os.environ.get("FAKE_VERIFY_WAIT", "").split(","):
     sys.exit(3)
+if number in os.environ.get("FAKE_VERIFY_UNRECORDED", "").split(","):
+    sys.exit(4)
 failing = {n for n in os.environ.get("FAKE_VERIFY_FAIL", "").split(",") if n}
 failed = ["AC3"] if number in failing else []
+# FAKE_VERIFY_CRASH: red exit with nothing posted, the way a crash after the run is.
+if number in os.environ.get("FAKE_VERIFY_CRASH", "").split(","):
+    sys.exit(1)
+head = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
 body = subprocess.run(
     [sys.executable, os.environ["MMW_EVENTS_PY_FOR_TESTS"], "emit", "ticket.checked",
      "--ticket", number, "--line", "Reverify", "--actor", "main", "--stage", "regress",
-     "--field", "run=reverify", "--field", "commit=" + "a" * 40,
+     "--field", "run=reverify", "--field", "commit=" + head,
      "--field", "result=" + ("unmet" if failed else "met"),
      "--json-field", "failed=" + json.dumps(failed)],
     capture_output=True, text=True, check=True).stdout
@@ -2382,6 +2398,22 @@ PY
   posted_events 62 failed | grep -qx "ticket.regressed failed=\['AC3'\]" \
     || fail "#62 should carry ticket.regressed naming AC3: $(posted_events 62 failed)"
 
+  echo "--- a run whose result could not be written, or a red exit with no red run of HEAD on the ticket, is not a red ticket"
+  local how
+  for how in FAKE_VERIFY_UNRECORDED FAKE_VERIFY_CRASH; do
+    reset_log
+    post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
+    post_ev 62 ticket.landed --ticket 62 --line "Landed issue-62 into main"
+    # An older red run is on #61: a reader of "the newest reverify" alone would reopen it.
+    post_ev 61 ticket.checked --ticket 61 --line "Reverify" --actor main --field run=reverify \
+      --field "commit=$(printf 'b%.0s' $(seq 40))" --field result=unmet --json-field 'failed=["AC9"]'
+    code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" "$how=61" \
+            bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
+    [ "$code" = 2 ] || fail "$how: expected exit 2, got $code: $(cat "$TMP/err")"
+    hasnt "gh :: issue :: reopen"
+    ! posted_events 61 | grep -q ticket.regressed || fail "$how: #61 was regressed: $(posted_events 61)"
+  done
+
   echo "--- a run that waited for a slot and got none is not a red ticket"
   reset_log
   post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
@@ -2390,7 +2422,7 @@ PY
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
   [ "$code" = 2 ] || fail "expected exit 2 when a run waited and could not start, got $code: $(cat "$TMP/err")"
   hasnt "gh :: issue :: reopen"
-  grep -q "#61 could not be re-run, so nothing was judged" "$TMP/err" \
+  grep -q "#61 could not be re-run on .*, so nothing was judged" "$TMP/err" \
     || fail "the run that could not start should be named: $(cat "$TMP/err")"
 
   echo "--- a ticket that passed and has not landed is not run again on the base branch"
@@ -2523,10 +2555,14 @@ scenario_release() {
   reset_log
   write_claimed_batch mmw-bot
   seed_workspace 63
+  python3 "$LEASE_PY" claim "$(wt 63)" >/dev/null
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
   has "gh :: issue :: edit :: 63 :: --remove-assignee :: @me"
+  echo "--- the release ends the lost worker's work, so the slot its worktree held goes back with the claim"
+  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
+    || fail "#63's slot outlived its released claim: $(python3 "$LEASE_PY" list)"
   grep -q "released 1" "$TMP/err" \
     || fail "the claim should have been given back: $(cat "$TMP/err")"
   grep -q "started 1" "$TMP/err" || fail "it was freed and then left: $(cat "$TMP/err")"
@@ -2713,21 +2749,32 @@ assert [h.endswith("issue-99") for h in got["holders"]] == [True], got
   python3 "$LEASE_PY" release "$TMP/repo/.worktrees/issue-99" >/dev/null
 }
 
-# #61 is a ticket under spec #76; #90–#93 are children it opened; #80 is a ticket already
-# under the spec; #95 sits under nothing.
+# #61 is a ticket under spec #76, and its events carry a child.opened for each of
+# #90–#93 naming spec #76. #92 has already been moved under the spec, the way a route
+# cut short after its move leaves it, and #76 itself sits under map #18 — so a route
+# that read the spec off the tree would move #92 under the map. #80 is a ticket already
+# under the spec; #95 is an issue under #61 that no event of #61 names.
 write_route_batch() {
-  cat > "$TMP/tickets.json" <<'JSON'
+  cat > "$TMP/tickets.json" <<JSON
 [
-  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent", "mmw:ticket"], "parent": {"number": 76}},
+  {"number": 18, "state": "OPEN", "labels": ["mmw:map"], "parent": null},
+  {"number": 76, "state": "OPEN", "labels": ["mmw:spec"], "parent": {"number": 18}},
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent", "mmw:ticket"], "parent": {"number": 76},
+   "comments": [$(ev child.opened 61 "Opened #90 (finding)" --spec 76 --field child=90 --field kind=finding),
+                $(ev child.opened 61 "Opened #91 (finding)" --spec 76 --field child=91 --field kind=finding),
+                $(ev child.opened 61 "Opened #92 (finding)" --spec 76 --field child=92 --field kind=finding),
+                $(ev child.opened 61 "Opened #93 (deferred)" --spec 76 --field child=93 --field kind=deferred)]},
   {"number": 80, "state": "OPEN", "labels": ["ready-for-agent"], "parent": {"number": 76}},
   {"number": 90, "state": "OPEN", "labels": ["needs-triage", "mmw:child"], "parent": {"number": 61}},
   {"number": 91, "state": "OPEN", "labels": ["needs-triage", "mmw:child"], "parent": {"number": 61}},
-  {"number": 92, "state": "OPEN", "labels": ["needs-triage", "mmw:child"], "parent": {"number": 61}},
+  {"number": 92, "state": "OPEN", "labels": ["needs-triage", "mmw:child"], "parent": {"number": 76}},
   {"number": 93, "state": "OPEN", "labels": ["needs-triage", "mmw:child"], "parent": {"number": 61}},
-  {"number": 95, "state": "OPEN", "labels": ["needs-triage"], "parent": null}
+  {"number": 95, "state": "OPEN", "labels": ["needs-triage"], "parent": {"number": 61}}
 ]
 JSON
 }
+
+route_in() { run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" "$@"; }
 
 scenario_route() {
   local code
@@ -2735,28 +2782,25 @@ scenario_route() {
   fresh_repo
   write_route_batch
   echo "--- fixed: the child is closed as completed and child.closed goes on its ticket"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" route 90 fixed)"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 fixed)"
   [ "$code" = 0 ] || fail "route fixed expected exit 0, got $code: $(cat "$TMP/err")"
   has "gh :: issue :: close :: 90 :: --reason :: completed"
 
   echo "--- stale: closed as not planned"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" route 91 stale)"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 91 stale)"
   [ "$code" = 0 ] || fail "route stale expected exit 0, got $code: $(cat "$TMP/err")"
   has "gh :: issue :: close :: 91 :: --reason :: not planned"
 
-  echo "--- became-ticket as itself: relabelled mmw:ticket and moved under the spec, left open"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" route 92 became-ticket 92)"
+  echo "--- became-ticket as itself: relabelled mmw:ticket, left open, under the spec its child.opened names — never the map the tree would give"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 92 became-ticket 92)"
   [ "$code" = 0 ] || fail "route became-ticket expected exit 0, got $code: $(cat "$TMP/err")"
   has "gh :: label :: create :: mmw:ticket"
-  has "gh :: issue :: edit :: 92 :: --add-label :: mmw:ticket :: --parent :: 76 :: --remove-label :: mmw:child"
+  has "gh :: issue :: edit :: 92 :: --add-label :: mmw:ticket :: --remove-label :: mmw:child"
+  hasnt ":: --parent :: 18"
   hasnt "gh :: issue :: close :: 92"
 
   echo "--- became-ticket as another ticket already under the spec: no move, and the child closes as its duplicate"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LABEL_EXISTS=1 \
-          bash "$DISPATCH" "${TOOLS[@]}" route 93 became-ticket 80)"
+  code="$(route_in env FAKE_GH_LABEL_EXISTS=1 bash "$DISPATCH" "${TOOLS[@]}" route 61 93 became-ticket 80)"
   [ "$code" = 0 ] || fail "a label that already exists should not stop the route, got $code: $(cat "$TMP/err")"
   has "gh :: issue :: edit :: 80 :: --add-label :: mmw:ticket"
   hasnt "gh :: issue :: edit :: 80 :: --add-label :: mmw:ticket :: --parent"
@@ -2769,17 +2813,40 @@ scenario_route() {
   posted_events 61 commit | head -n 1 | grep -Eq "^child.closed commit=[0-9a-f]{40}$" \
     || fail "a fixed child names the commit it was fixed on: $(posted_events 61 commit)"
 
-  echo "--- a child with no parent ticket, and a resolution that is none of the three, change nothing"
+  echo "--- run again, a route already recorded does nothing and says so"
+  : > "$MMW_TEST_LOG"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 92 became-ticket 92)"
+  [ "$code" = 0 ] || fail "a route already recorded should exit 0, got $code: $(cat "$TMP/err")"
+  grep -q "already routed" "$TMP/err" || fail "it should say so: $(cat "$TMP/err")"
+  hasnt "gh :: issue :: edit"
+  [ "$(posted_events 61 | grep -c child.closed)" = 4 ] || fail "a second child.closed was posted"
+
+  echo "--- routed another way already: refused, nothing done"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 stale)"
+  [ "$code" = 2 ] || fail "a child already routed fixed should refuse stale, got $code: $(cat "$TMP/err")"
+  hasnt "gh :: issue :: close"
+
+  echo "--- cut short after its tracker steps began, the same command finishes it"
   reset_log
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" route 95 fixed)"
-  [ "$code" = 2 ] || fail "a child with no parent should exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "#95 has no parent ticket" "$TMP/err" || fail "the refusal should say why: $(cat "$TMP/err")"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" route 90 done)"
+  write_route_batch
+  code="$(route_in env FAKE_GH_CLOSE_FAILS=1 bash "$DISPATCH" "${TOOLS[@]}" route 61 93 became-ticket 80)"
+  [ "$code" = 1 ] || fail "a close the tracker refused should exit 1, got $code: $(cat "$TMP/err")"
+  [ -z "$(posted_events 61)" ] || fail "no child.closed before the close: $(posted_events 61)"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 93 became-ticket 80)"
+  [ "$code" = 0 ] || fail "the re-run should finish it, got $code: $(cat "$TMP/err")"
+  hasnt ":: --parent :: 18"
+  posted_events 61 child spec | grep -qx "child.closed child=93 spec=76" \
+    || fail "the re-run records the spec its child.opened names: $(posted_events 61 child spec)"
+
+  echo "--- a child the ticket did not open, and a resolution that is none of the three, change nothing"
+  reset_log
+  write_route_batch
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 95 fixed)"
+  [ "$code" = 2 ] || fail "a child with no child.opened should exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "#61 carries no child.opened for #95" "$TMP/err" || fail "the refusal should say why: $(cat "$TMP/err")"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 done)"
   [ "$code" = 2 ] || fail "an unknown resolution should exit 2, got $code: $(cat "$TMP/err")"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" route 90 became-ticket)"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 became-ticket)"
   [ "$code" = 2 ] || fail "became-ticket with no ticket should exit 2, got $code: $(cat "$TMP/err")"
   hasnt "gh :: issue :: close"
   hasnt "gh :: issue :: edit"
@@ -3152,6 +3219,16 @@ scenario_runnerstart() {
   assert_started || fail "start did not go through the adapter: $(cat "$TMP/out")"
   assert_wt 61
   hasnt_runner_worktree
+
+  echo "--- the adapter leaves no temporary file behind and says nothing on a clean start"
+  reset_log
+  fresh_repo
+  mkdir -p "$TMP/tmpdir"
+  rm -rf "$TMP/tmpdir"/*
+  code="$(run_dispatch env TMPDIR="$TMP/tmpdir" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  ! grep -q "unbound variable" "$TMP/err" || fail "the adapter failed on its way out: $(cat "$TMP/err")"
+  [ -z "$(ls -A "$TMP/tmpdir")" ] || fail "start leaked temporary files: $(ls -A "$TMP/tmpdir")"
 
   echo "--- without the adapter, start refuses and starts nothing"
   copy="$(skill_copy_for start)"

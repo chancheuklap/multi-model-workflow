@@ -312,15 +312,29 @@ class TheProductsLimit(Base):
         self.lease.release(first)
         self.assertEqual(self.lease.try_claim(second)["worktree"], str(second))
 
-    def test_the_main_checkout_is_held_to_the_machines_limit_alone(self):
-        """The night's reverify runs in the main checkout; counting it against the
-        product's limit would starve every ticket of a product capped at one."""
-        self.lease.try_claim(self.ticket_tree(1))
+    def test_the_main_checkout_counts_toward_the_limit_like_any_other(self):
+        """The night's reverify runs the product in the main checkout; a claim there that
+        the limit did not count would put a second copy on the ports the limit exists to
+        protect."""
         (self.repo / ".mmw").mkdir()
         (self.repo / ".mmw" / "target.json").write_text(
             json.dumps({"instance": {"max": 1}}), encoding="utf-8")
-        self.assertEqual(self.lease.try_claim(self.lease.worktree_of(self.repo))["worktree"],
-                         str(self.lease.worktree_of(self.repo)))
+        main = self.lease.worktree_of(self.repo)
+        first = self.ticket_tree(1)
+        self.lease.try_claim(first)
+        with self.assertRaises(self.lease.Full) as caught:
+            self.lease.try_claim(main)
+        self.assertEqual(caught.exception.holders, [str(first)])
+        self.lease.release(first)
+        self.lease.try_claim(main)
+        with self.assertRaises(self.lease.Full) as caught:
+            self.lease.try_claim(self.ticket_tree(2))
+        self.assertEqual(caught.exception.holders, [str(main)])
+
+    def test_a_claim_records_its_repository_so_the_count_needs_no_directory(self):
+        first = self.ticket_tree(1)
+        record = self.lease.try_claim(first)
+        self.assertEqual(record["repo"], str((self.repo / ".git").resolve()))
 
     def test_another_repositorys_worktrees_do_not_count(self):
         other = self.trees / "other"

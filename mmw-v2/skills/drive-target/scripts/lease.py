@@ -12,9 +12,12 @@ worker's worth of work.
 A **lease** is that missing word. It is a registration of `worktree path -> slot`, and a
 slot is a block of ports and a data directory that no other slot overlaps. It is claimed
 once per worktree, by the first run of that worktree's criteria that needs the product,
-and lives until the ticket lands: a worktree runs its criteria many times in a night —
-the worker's own run, the verifier's reverify, the closeout checks — and they all want
-the same application, so the lease cannot be per run. Writing code takes no slot.
+and lives until the ticket's work ends — landed, handed back, released, suspended or its
+start retracted: a worktree runs its criteria many times in a night — the worker's own
+run, the verifier's reverify, the closeout checks — and they all want the same
+application, so the lease cannot be per run. Writing code takes no slot. The one run
+that is not a ticket's, the main agent's reverify in the main checkout, gives its slot
+back when it ends.
 
     lease.py claim [<worktree>]        claim (or return) this worktree's slot; 4 none free
     lease.py env [<worktree>]          print the claim as KEY=VALUE lines
@@ -25,10 +28,11 @@ the same application, so the lease cannot be per run. Writing code takes no slot
 
 Two limits bound a claim. The machine's is `SLOTS`. The product's is `instance.max` in
 the repository's `.mmw/target.json` — a product that cannot move its ports declares how
-many copies of it can run at once — and it counts the claims of that repository's ticket
-worktrees, the ones under `<main checkout>/.worktrees`; a checkout outside that directory
-(the main checkout itself, running the night's reverify) is held to the machine's limit
-alone. A claim past either limit is not taken: `claim` exits 4 and prints which limit and
+many copies of it can run at once — and it counts every claim made from that repository,
+wherever its directory is: a ticket worktree, the main checkout running the night's
+reverify, or any other checkout sharing the repository's git directory. Each claim
+records that git directory, so the count holds after a worktree is gone. A claim past
+either limit is not taken: `claim` exits 4 and prints which limit and
 who holds the slots, because the caller waits and asks again rather than giving up
 (`verify-ticket.py` does, and says on the ticket that it is waiting).
 
@@ -243,18 +247,21 @@ def _git(worktree: Path, *args: str) -> str:
     return out.stdout.strip() if out.returncode == 0 else ""
 
 
-def _within(path: str, root: Path) -> bool:
+def repository_of(worktree: Path) -> str | None:
+    """The git directory every checkout of this worktree's repository shares, or None
+    outside a repository. It is what a claim is counted against a product's limit by."""
+    common = _git(worktree, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    if not common:
+        return None
     try:
-        tree = Path(path).resolve()
+        return str(Path(common).resolve())
     except OSError:
-        return False
-    return tree == root or root in tree.parents
+        return common
 
 
-def product_cap(worktree: Path) -> tuple[int, Path] | None:
-    """`(instance.max, the directory its ticket worktrees sit under)` for this worktree's
-    repository, or None when it declares no limit or this worktree is not a ticket
-    worktree of it.
+def product_cap(worktree: Path) -> tuple[int, str] | None:
+    """`(instance.max, the repository's shared git directory)` for this worktree, or None
+    when it declares no limit or sits in no repository.
 
     Raises `CapUnreadable` for a `.mmw/target.json` that is there and is not JSON: a limit
     nobody can read is not "no limit", and taking a slot past it is how 2026-09-05 went.
@@ -275,13 +282,8 @@ def product_cap(worktree: Path) -> tuple[int, Path] | None:
     limit = instance.get("max") if isinstance(instance, dict) else None
     if not isinstance(limit, int) or limit <= 0:
         return None
-    common = _git(worktree, "rev-parse", "--path-format=absolute", "--git-common-dir")
-    if not common:
-        return None
-    trees = (Path(common).parent / ".worktrees").resolve()
-    if not _within(str(worktree), trees) or Path(worktree).resolve() == trees:
-        return None
-    return limit, trees
+    repo = repository_of(worktree)
+    return (limit, repo) if repo else None
 
 
 class _Locked:
@@ -314,13 +316,14 @@ def try_claim(worktree: Path) -> dict:
 
         cap = product_cap(worktree)
         if cap is not None:
-            limit, trees = cap
-            held = [r["worktree"] for r in claimed() if _within(r.get("worktree", ""), trees)]
+            limit, repo = cap
+            held = [r["worktree"] for r in claimed() if r.get("repo") == repo]
             if len(held) >= limit:
                 raise Full("product-full", limit, held)
 
         record = {
             "worktree": target,
+            "repo": cap[1] if cap is not None else repository_of(worktree),
             "instance": instance_name(worktree),
             "slot": None,
             "port_base": None,

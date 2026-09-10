@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import importlib.util
 import io
+import json
 import subprocess
 import tempfile
 import unittest
@@ -668,7 +669,8 @@ class TestTheProductSlot(unittest.TestCase):
         sh("worktree", "add", "-q", "-b", "issue-1", str(main / ".worktrees" / "issue-1"))
         return main, (main / ".worktrees" / "issue-1").resolve()
 
-    def run_in(self, root: Path, body: str, comments=(), tools=(DRIVE,), lease="patched"):
+    def run_in(self, root: Path, body: str, comments=(), tools=(DRIVE,), lease="patched",
+               reverify=False, actor=None, post=None):
         posted: list[str] = []
         real_run = vt.subprocess.run
 
@@ -682,7 +684,7 @@ class TestTheProductSlot(unittest.TestCase):
                    mock.patch.object(vt, "fetch_comments", return_value=list(comments)),
                    mock.patch.object(vt, "outside_owns", return_value=[]),
                    mock.patch.object(vt, "post_comment",
-                                     side_effect=lambda n, b: posted.append(b)),
+                                     side_effect=post or (lambda n, b: posted.append(b))),
                    mock.patch.object(vt, "TOOLS", [Path(t) for t in tools]),
                    mock.patch.object(vt, "SLOT_WAIT_S", 0),
                    mock.patch.object(vt.subprocess, "run", side_effect=spy)]
@@ -692,7 +694,7 @@ class TestTheProductSlot(unittest.TestCase):
             p.start()
         try:
             with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
-                code = vt.run_checks(1, False, None)
+                code = vt.run_checks(1, reverify, None, actor)
         finally:
             for p in reversed(patches):
                 p.stop()
@@ -756,15 +758,52 @@ class TestTheProductSlot(unittest.TestCase):
         self.assertIsNone(state["waiting"])
         self.assertIsNotNone(state["slot"])
 
-    def test_the_main_checkout_is_held_to_the_machine_limit_alone(self):
-        """The night's reverify runs in the main checkout, which is no ticket worktree."""
+    def test_the_main_checkout_waits_for_the_limit_like_any_ticket(self):
+        """The night's reverify runs the product in the main checkout; the limit counts
+        that run as it counts a ticket's."""
         main, _ = self.main_repo(instance_max=1)
         other = main / ".worktrees" / "issue-2"
         other.mkdir()
         self.lease.try_claim(other.resolve())
-        code, posted, err = self.run_in(main.resolve(), PRODUCT)
+        code, posted, err = self.run_in(main.resolve(), PRODUCT, reverify=True, actor="main")
+        self.assertEqual(code, 3, err)
+        self.assertEqual(payload_of(posted[0])["event"], "worker.queued")
+        self.assertNotIn("gate", self.order)
+
+    def test_the_main_agents_reverify_gives_its_slot_back_when_it_ends(self):
+        main, _ = self.main_repo(instance_max=1)
+        stopped = self.tmp / "stopped"
+        (main / ".mmw" / "target.json").write_text(json.dumps(
+            {"instance": {"max": 1}, "stop": f"touch '{stopped}'"}))
+        code, posted, err = self.run_in(main.resolve(), PRODUCT, reverify=True, actor="main")
         self.assertEqual(code, 0, err)
-        self.assertEqual(payload_of(posted[-1])["event"], "ticket.checked")
+        self.assertEqual(payload_of(posted[-1])["actor"], "main")
+        self.assertIsNotNone(payload_of(posted[-1])["slot"])
+        self.assertEqual(self.lease.claimed(), [], "the main checkout kept its slot")
+        self.assertTrue(stopped.exists(), "the product was not stopped before the release")
+
+    def test_a_verifiers_reverify_keeps_the_worktrees_slot(self):
+        _, root = self.main_repo(instance_max=1)
+        code, _, err = self.run_in(root, PRODUCT, reverify=True)
+        self.assertEqual(code, 0, err)
+        self.assertEqual([r["worktree"] for r in self.lease.claimed()], [str(root)])
+
+    def test_a_run_whose_result_could_not_be_written_is_not_red(self):
+        """A red run and an unrecorded one must never share an exit: the night's
+        reverify reopens a landed ticket on 1."""
+        _, root = self.main_repo()
+
+        def tracker_down(number, body):
+            raise vt.subprocess.CalledProcessError(1, ["gh", "issue", "comment"])
+
+        failing = ticket("- [ ] AC1: fails", "  CHECK: false", "  EXPECT: x",
+                         "  EVIDENCE: pending")
+        for body in (PLAIN, failing):
+            with self.subTest(body=body[:40]):
+                code, _, err = self.run_in(root, body, post=tracker_down)
+                self.assertEqual(code, vt.NOT_RECORDED, err)
+                self.assertNotIn(code, (0, 1))
+                self.assertIn("could not be written", err)
 
     def test_a_full_machine_queues_the_run_the_same_way(self):
         _, root = self.main_repo()

@@ -470,13 +470,18 @@ def is_finding(child: dict) -> bool:
 def route_of(child: dict) -> str:
     """`fixed`, `became`, `skipped`, `open`, or `unread`.
 
-    The route is the `resolution` of the parent's `child.closed` event for this child.
-    Only a CLOSED child has one; a child that is still open has not been routed yet,
-    which is a different state from a closed one no event accounts for.
+    The route is the `resolution` of the originating ticket's `child.closed` event for
+    this child. A finding that became a ticket in place stays open — it is the ticket
+    now — so `became-ticket` counts whatever its state; `fixed` and `stale` close the
+    child, so an open one with either has not been routed through yet. An open child with
+    no route is open; a closed one no event accounts for is unread.
     """
+    resolution = child.get("resolution") or ""
+    if resolution == "became-ticket":
+        return ROUTES[resolution]
     if (child.get("state") or "").upper() != "CLOSED":
         return "open"
-    return ROUTES.get(child.get("resolution") or "", "unread")
+    return ROUTES.get(resolution, "unread")
 
 
 def routed_counts(children: list[dict]) -> tuple[int, int, int, int, int, int]:
@@ -731,17 +736,25 @@ def table(spec: int) -> int:
 
 
 def print_summary(spec: int) -> int:
-    """The night summary. The spec's tickets and every ticket's children come from one
-    read of the spec's tree; each child's kind and route from its ticket's events."""
+    """The night summary. The spec's tickets come from one read of its tree; every
+    ticket's children are the ones its `child.opened` events name, plus any the tree
+    holds under it that no event names, and each child's kind and route are its
+    ticket's events. Where a child sits now decides nothing: a finding that became a
+    ticket has moved from under its ticket to under the spec."""
     batch = spec_tree(spec)
     numbers = [t["number"] for t in tree.children(batch)]
     tickets = {n: read_ticket(n) for n in sorted(set(numbers))}
     rows = build_rows(numbers, tickets)
     children = []
+    seen: set[int] = set()
     for node in tree.children(batch):
         number = node["number"]
         known = tickets[number]["fold"]["children"] if number in tickets else {}
-        for child_number in (c["number"] for c in tree.children(node)):
+        named = [int(k) for k, v in known.items() if v.get("opened") and str(k).isdigit()]
+        for child_number in named + [c["number"] for c in tree.children(node)]:
+            if child_number in seen:
+                continue
+            seen.add(child_number)
             child = read_ticket(child_number)
             recorded = known.get(str(child_number)) or {}
             if recorded.get("kind"):
