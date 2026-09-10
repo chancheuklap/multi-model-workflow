@@ -1,11 +1,12 @@
 """The opening guard: six conditions, and what the ticket is told when one fails."""
 
 import io
+import subprocess
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from unittest import mock
 
-from _load import load
+from _load import event, load
 
 vt = load()
 
@@ -29,10 +30,23 @@ def ticket(state="OPEN", labels=("ready-for-agent",), assignees=(), blockers=())
     }
 
 
-def preflight(number=77, branch="issue-77", dirty=(), **kwargs):
-    """Run --preflight against a made-up ticket; return (exit code, what it posted)."""
+def preflight(number=77, branch="issue-77", dirty=(), history=None, **kwargs):
+    """Run --preflight against a made-up ticket; return (exit code, what it posted).
+
+    `history` is each blocker's comments by number, read when that blocker is closed; a
+    blocker it does not name has none, and one it maps to an exception is a blocker the
+    tracker did not answer for."""
     posted = []
+    history = history or {}
+
+    def comments_of(n):
+        found = history.get(n, [])
+        if isinstance(found, Exception):
+            raise found
+        return list(found)
+
     with mock.patch.object(vt, "fetch_ticket", return_value=ticket(**kwargs)), \
+         mock.patch.object(vt, "fetch_comments", side_effect=comments_of), \
          mock.patch.object(vt, "gh_login", return_value=ME), \
          mock.patch.object(vt, "current_branch", return_value=branch), \
          mock.patch.object(vt, "dirty_tracked", return_value=list(dirty)), \
@@ -101,6 +115,56 @@ class TestRefusals(unittest.TestCase):
         code, _, err, _ = preflight(state="CLOSED")
         self.assertEqual(code, 2)
         self.assertIn("is CLOSED, not OPEN", err)
+
+
+PASSED = event("ticket.passed", "ALL MET", ticket=62, commit="a" * 40)
+LANDED = event("ticket.landed", "Landed #62 on main", ticket=62)
+
+
+class TestABlockerLetsGoOnceItHasLanded(unittest.TestCase):
+    """The ticket is cut from the base branch and has to find its blocker's work there, so
+    a blocker lets go when it lands, not when it closes — the rule the dispatch skill's
+    frontier starts tickets by. A preflight that let go on the close would claim a ticket
+    whose base does not carry the work it builds on."""
+
+    def blocked(self, state, comments=()):
+        return preflight(blockers=[(62, state)], history={62: comments})
+
+    def test_a_blocker_that_passed_and_has_not_landed_holds(self):
+        code, posted, err, assign = self.blocked("CLOSED", [PASSED])
+        self.assertEqual(code, 2)
+        self.assertEqual(event_of(posted[0][1])[1]["reason"], "blocked")
+        self.assertIn("blocked by #62 (passed, not landed)", err)
+        self.assertIn("once those land", err)
+        assign.assert_not_called()
+
+    def test_the_same_blocker_lets_go_once_it_has_landed(self):
+        code, posted, err, assign = self.blocked("CLOSED", [PASSED, LANDED])
+        self.assertEqual(code, 0, err)
+        self.assertEqual(event_of(posted[0][1])[0], "ticket.claimed")
+        assign.assert_called_once_with(77)
+
+    def test_a_blocker_closed_without_a_pass_lets_go(self):
+        code, _, err, assign = self.blocked("CLOSED")
+        self.assertEqual(code, 0, err)
+        assign.assert_called_once_with(77)
+
+    def test_an_open_blocker_holds_and_is_named_plainly(self):
+        code, posted, err, _ = self.blocked("OPEN")
+        self.assertEqual(code, 2)
+        self.assertEqual(event_of(posted[0][1])[1]["reason"], "blocked")
+        self.assertIn("blocked by #62;", err)
+
+    def test_a_closed_blocker_whose_events_cannot_be_read_holds(self):
+        cases = (("its events cannot be read", ["x\n\n<!-- mmw {not json} -->"]),
+                 ("the tracker did not answer for it",
+                  subprocess.CalledProcessError(1, ["gh", "issue", "view", "62"])))
+        for why, comments in cases:
+            with self.subTest(why=why):
+                code, _, err, assign = self.blocked("CLOSED", comments)
+                self.assertEqual(code, 2)
+                self.assertIn(f"#62 ({why})", err)
+                assign.assert_not_called()
 
 
 class TestEveryRefusalSaysStop(unittest.TestCase):

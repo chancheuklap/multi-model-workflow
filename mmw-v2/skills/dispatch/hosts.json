@@ -1,7 +1,7 @@
 {
   "defaults": [
-    {"agent": "junior-worker", "host": "cursor", "model": "grok 4.6", "effort": "high"},
-    {"agent": "senior-worker", "host": "grok", "model": "grok 4.6", "effort": "xhigh"},
+    {"agent": "junior-worker", "host": "grok", "model": "grok 4.6", "effort": "high"},
+    {"agent": "senior-worker", "host": "codex", "model": "gpt 5.6 sol", "effort": "high"},
     {"agent": "reviewer", "host": "claude", "model": "opus 5", "effort": "high"},
     {"agent": "verifier", "host": "claude", "model": "sonnet 5", "effort": "high"},
     {"agent": "advisor", "host": "claude", "model": "fable 5.1", "effort": "medium"}
@@ -10,7 +10,7 @@
     "cursor": {
       "binary": "cursor-agent",
       "effort_in_model": true,
-      "herdr": {
+      "cli": {
         "argv": ["--model", "{model}", "--force", "--trust", "--approve-mcps"]
       },
       "paseo": {
@@ -21,7 +21,7 @@
     "grok": {
       "binary": "grok",
       "efforts": ["xhigh", "high", "medium", "low"],
-      "herdr": {
+      "cli": {
         "argv": ["-m", "{model}", "--reasoning-effort", "{effort}", "--permission-mode", "bypassPermissions", "--always-approve"]
       },
       "paseo": {
@@ -32,7 +32,7 @@
     "claude": {
       "binary": "claude",
       "efforts": ["low", "medium", "high", "xhigh", "max", "ultracode"],
-      "herdr": {
+      "cli": {
         "argv": ["--model", "{model}", "--effort", "{effort}", "--permission-mode", "bypassPermissions", "-n", "{name}"]
       },
       "paseo": {
@@ -43,7 +43,7 @@
     "codex": {
       "binary": "codex",
       "efforts": ["low", "medium", "high", "xhigh"],
-      "herdr": {
+      "cli": {
         "argv": ["-m", "{model}", "-c", "model_reasoning_effort=\"{effort}\"", "--dangerously-bypass-approvals-and-sandbox"]
       },
       "paseo": {

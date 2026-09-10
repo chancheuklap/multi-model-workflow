@@ -4,9 +4,13 @@
 `ticket.returned` is what frees the rest of the batch; either one standing on a ticket the
 tracker did not close or hand back would be read as true by every program. So the close
 or the hand back comes first, and when the tracker refuses it, nothing is posted.
+`ticket.returned` also says the ticket's work is over, its product slot free with it — the
+relay wakes the workers queued for a slot on it — so on a hand back the slot goes back
+before the event too.
 """
 
 import unittest
+from unittest import mock
 
 import test_closeout as tc
 
@@ -16,16 +20,30 @@ HANDOFF = dict(first="HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 1 met of 2
                counts=tc.counts_line(met=1, abandoned=1, total=2))
 
 
+def with_the_slot(text, **kwargs):
+    """`tc.check`, with the product slot's release recorded in `tc.CALLS` as "slot"."""
+    with mock.patch.object(tc.vt, "give_slot_back",
+                           side_effect=lambda root: tc.CALLS.append("slot")):
+        return tc.check(text, **kwargs)
+
+
 class TestTheChangeComesFirst(unittest.TestCase):
     def test_a_pass_closes_the_ticket_then_posts_ticket_passed(self):
-        code, err, _ = tc.check(tc.draft(counts=tc.counts_line()), check_only=False)
+        code, err, _ = with_the_slot(tc.draft(counts=tc.counts_line()), check_only=False)
         self.assertEqual(code, 0, err)
-        self.assertEqual(tc.CALLS, ["closed", "posted"])
+        self.assertEqual(tc.CALLS, ["closed", "posted"], "a pass leaves the slot to the landing")
 
-    def test_a_hand_back_swaps_the_label_then_posts_ticket_returned(self):
-        code, err, _ = tc.check(tc.draft(**HANDOFF), check_only=False)
+    def test_a_hand_back_swaps_the_label_gives_the_slot_back_then_posts_ticket_returned(self):
+        code, err, _ = with_the_slot(tc.draft(**HANDOFF), check_only=False)
         self.assertEqual(code, 0, err)
-        self.assertEqual(tc.CALLS, ["handed", "posted"])
+        self.assertEqual(tc.CALLS, ["handed", "slot", "posted"])
+
+    def test_a_slot_that_will_not_come_back_still_lets_the_ticket_be_returned(self):
+        with mock.patch.object(tc.vt, "give_slot_back", return_value="slot 2 still has a listener"):
+            code, err, seen = tc.check(tc.draft(**HANDOFF), check_only=False)
+        self.assertEqual(code, 0, err)
+        self.assertIn("its product slot was not given back: slot 2 still has a listener", err)
+        self.assertEqual(tc.posted_as(seen["posted"][0][1])[1], "ticket.returned")
 
 
 class TestNoEventWhenTheTrackerRefuses(unittest.TestCase):
@@ -69,10 +87,13 @@ class TestAnEventThatCouldNotBePostedIsPostedByTheNextRun(unittest.TestCase):
         self.assertEqual(tc.posted_as(seen["posted"][0][1])[1], "ticket.passed")
 
     def test_the_rerun_on_the_handed_back_ticket_posts_the_missing_ticket_returned(self):
-        code, err, seen = after_a_lost_post(tc.draft(**HANDOFF), assignees=(),
-                                            labels=("needs-triage",))
+        with mock.patch.object(tc.vt, "give_slot_back",
+                               side_effect=lambda root: tc.CALLS.append("slot")):
+            code, err, seen = after_a_lost_post(tc.draft(**HANDOFF), assignees=(),
+                                                labels=("needs-triage",))
         self.assertEqual(code, 0, err)
-        self.assertEqual(tc.CALLS, ["posted"], "the hand back is not made twice")
+        self.assertEqual(tc.CALLS, ["slot", "posted"],
+                         "the hand back is not made twice, and a slot still held goes back first")
         self.assertEqual(tc.posted_as(seen["posted"][0][1])[1], "ticket.returned")
 
     def test_a_closed_ticket_that_already_carries_its_event_is_still_refused(self):

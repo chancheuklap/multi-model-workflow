@@ -1,8 +1,9 @@
 """读本机活表，问今晚的目录，再按 hosts.json 展开成启动参数。
 
 活表是 ~/.mmw/models.md（MMW_LIVE_MODELS / MMW_V2_HOME 可改）。hosts.json 跟着
-技能走，记下每个 host 在 Herdr 和 Paseo 上怎么起，以及第一次 install 拷进活表的
-默认行。`python3 models.py offerings` 扫五个 CLI host 的目录，写在活表下半；
+技能走，记下每个 host 怎么起——它自己的命令行（`cli` 块，凡是在终端里跑 host CLI
+的 runner 都读它）与它在 Paseo 上的 settings（`paseo` 块）——以及第一次 install
+拷进活表的默认行。`python3 models.py offerings` 扫五个 CLI host 的目录，写在活表下半；
 `start` 不读那一块。dispatch.sh 的 start 与 install.sh 共用本文件。
 """
 
@@ -20,14 +21,16 @@ from typing import NamedTuple
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 HOSTS_JSON = SKILL_DIR / "hosts.json"
+RUNNERS_DIR = SKILL_DIR / "scripts" / "runners"
 ALLOWED_AGENTS = (
     "junior-worker", "senior-worker", "reviewer", "verifier", "advisor")
 # Lody cuts its own worktree. Level 4 must not pick it; ticket / env / live may.
 WORKTREE_OWNING = frozenset({"lody"})
 DEFAULT_RUNNER = "orca"
-# Herdr checkout asks the host CLI; Paseo checkout asks paseo. Tests set
-# MMW_CATALOG_MODE or MMW_HOST_CATALOG.
-DEFAULT_CATALOG_MODE = "herdr"
+# Which catalog a row resolves against: `paseo` asks paseo, `cli` asks the host's own
+# CLI (a runner that runs the CLI in a terminal starts it with those ids). dispatch.sh
+# sets MMW_CATALOG_MODE from tonight's runner; tests set it or MMW_HOST_CATALOG.
+DEFAULT_CATALOG_MODE = "cli"
 CLI_HOSTS = ("cursor", "grok", "claude", "codex", "pi")
 OFFERINGS_BEGIN = "<!-- mmw-offerings -->"
 OFFERINGS_END = "<!-- /mmw-offerings -->"
@@ -207,13 +210,19 @@ def _spoken_runner(value: str | None) -> str | None:
     return text
 
 
+def has_adapter(name: str) -> bool:
+    """True when the dispatch skill has an adapter for this runner, `runners/<name>.sh`."""
+    return (RUNNERS_DIR / f"{name}.sh").is_file()
+
+
 def runtime_from_environ(environ: Mapping[str, str]) -> tuple[str, ...]:
     """Runners visible in this process: TERM_PROGRAM, then HERDR_ENV, then TMUX.
 
     Environment variables cannot express nesting. TERM_PROGRAM is treated as
     the outer signal: Herdr opened inside an Orca terminal is herdr, not orca.
     When HERDR_ENV and TMUX are both set, this returns tmux last; that does not
-    say which is nested in which.
+    say which is nested in which. This reports what the environment shows, adapter
+    or not; `pick_runner` is what passes over a runner no adapter can drive.
     """
     found: list[str] = []
     if (environ.get("TERM_PROGRAM") or "").strip().lower() == "orca":
@@ -232,7 +241,14 @@ def pick_runner(
     runtime: Mapping[str, str] | Sequence[str] = (),
     default: str = DEFAULT_RUNNER,
 ) -> str:
-    """First speaker wins: ticket, env, live table, innermost runtime, default."""
+    """First speaker wins: ticket, env, live table, innermost runtime, default.
+
+    A name given by the ticket, the environment or the live table is returned as given,
+    adapter or not: someone chose it, and `start` refuses a runner it has no adapter for
+    by name. The runtime level is a guess from the environment, so it only names a
+    runner that has an adapter (`has_adapter`) and does not cut its own worktree: a
+    guess that names tmux, which nothing here can drive, would refuse every start.
+    """
     for value in (ticket, env, live):
         spoken = _spoken_runner(value)
         if spoken:
@@ -242,7 +258,8 @@ def pick_runner(
     else:
         names = tuple(
             spoken for spoken in (_spoken_runner(n) for n in runtime) if spoken)
-    detected = [name for name in names if name not in WORKTREE_OWNING]
+    detected = [name for name in names
+                if name not in WORKTREE_OWNING and has_adapter(name)]
     if detected:
         return detected[-1]
     spoken = _spoken_runner(default)
@@ -732,7 +749,7 @@ def resolve_row(host: str, model: str, effort: str) -> tuple[str, str, str]:
     spec = hosts[host]
     offerings = fetch_offerings(host)
     mode = os.environ.get("MMW_CATALOG_MODE", DEFAULT_CATALOG_MODE)
-    # Cursor on Herdr burns effort into the model id; on Paseo the same host
+    # Cursor's own CLI burns effort into the model id; on Paseo the same host
     # lists `grok-4.6` and thinking is on/off, so do not require a `-high` suffix.
     effort_in_model = bool(spec.get("effort_in_model")) and mode != "paseo"
     offering = match_offering(
@@ -756,18 +773,18 @@ def resolve_row(host: str, model: str, effort: str) -> tuple[str, str, str]:
 def bypass_argv(host: str, model: str, effort: str, name: str) -> list[str]:
     """The host CLI's own launch flags, model and effort filled in.
 
-    Read from the `herdr` block of a host in hosts.json. That block is the host's
-    command-line argv and nothing Herdr-specific: every runner that starts a host by
-    running its CLI in a terminal — Herdr after `agent start … --`, Orca inside
-    `terminal create --command` — runs these same flags, so an edit to the block is an
-    edit to how that host starts on all of them. The runner adapters build their launch
-    line from here (`models.py bypass-argv` and `models.py launch-line`); none keeps a
-    copy. An empty effort (`—`) drops the effort flag rather than passing `—`.
+    Read from the `cli` block of a host in hosts.json: the host's own command-line argv.
+    Every runner that starts a host by running its CLI in a terminal — Herdr after
+    `agent start … --`, Orca inside `terminal create --command` — runs these same flags,
+    so an edit to the block is an edit to how that host starts on all of them. The runner
+    adapters build their launch line from here (`models.py bypass-argv` and `models.py
+    launch-line`); none keeps a copy. An empty effort (`—`) drops the effort flag rather
+    than passing `—`.
     """
     spec = load_hosts()["hosts"].get(host)
-    if not spec or "herdr" not in spec:
-        raise ValueError(f"no bypass argv for host {host}")
-    template = list(spec["herdr"]["argv"])
+    if not spec or "cli" not in spec:
+        raise ValueError(f"no bypass argv for host {host}: hosts.json gives it no `cli` block")
+    template = list(spec["cli"]["argv"])
     argv = []
     skip_next = False
     for i, part in enumerate(template):
@@ -843,7 +860,7 @@ def row_tsv(agent: str) -> str:
 
 def runner_name(environ: Mapping[str, str] | None = None) -> str:
     """Tonight's runner: MMW_RUNNER, then the live table's runner row, then the
-    innermost runner this process runs in, then the default."""
+    innermost runner this process runs in that has an adapter, then the default."""
     env = os.environ if environ is None else environ
     return pick_runner(
         env=env.get("MMW_RUNNER"),
@@ -876,16 +893,31 @@ def worker_role_names() -> list[str]:
     return seen
 
 
-def launch_line(host: str, model: str, effort: str, name: str) -> list[str]:
-    """The whole command that starts a host: its binary, then `bypass_argv`."""
-    return [HOST_BINARIES.get(host), *bypass_argv(host, model, effort, name)]
+def launch_line(host: str, model: str, effort: str, name: str,
+                prompt: str = "") -> list[str]:
+    """The whole command that starts a host: its binary, then `bypass_argv`, then the
+    first prompt when there is one.
+
+    Each host with a launch block takes an initial prompt as its last positional
+    argument (`grok [PROMPT]`, `codex [PROMPT]`, `claude [prompt]`, `cursor-agent
+    [prompt]`), so a runner that starts the host from this line does not type the prompt
+    into it afterwards. A prompt that begins with `-` is refused: the host would read it
+    as a flag.
+    """
+    argv = [HOST_BINARIES.get(host), *bypass_argv(host, model, effort, name)]
+    if prompt:
+        if prompt.startswith("-"):
+            raise ValueError(
+                "the first prompt begins with '-', and the host would read it as a flag")
+        argv.append(prompt)
+    return argv
 
 
 USAGE = ("usage: models.py offerings\n"
          "       models.py runner\n"
          "       models.py paseo-args <host> <model> <effort>\n"
          "       models.py bypass-argv <host> <model> <effort> <name>\n"
-         "       models.py launch-line <host> <model> <effort> <name>\n")
+         "       models.py launch-line <host> <model> <effort> <name> [<prompt>]\n")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -903,13 +935,15 @@ def main(argv: list[str] | None = None) -> int:
             sys.stderr.write(f"models.py: {exc}\n")
             return 2
         return 0
-    if len(args) == 5 and args[0] in ("bypass-argv", "launch-line"):
-        verb, host, model, effort, name = args
+    if (len(args) == 5 and args[0] == "bypass-argv") or (
+            len(args) in (5, 6) and args[0] == "launch-line"):
+        verb, host, model, effort, name = args[:5]
+        prompt = args[5] if len(args) == 6 else ""
         try:
             if verb == "bypass-argv":
                 print("\n".join(bypass_argv(host, model, effort, name)))
             else:
-                print(shlex.join(launch_line(host, model, effort, name)))
+                print(shlex.join(launch_line(host, model, effort, name, prompt)))
         except (ValueError, OSError, json.JSONDecodeError) as exc:
             # A host with no launch block, or a hosts.json that cannot be read, is a
             # refusal: starting the host without its model and effort would run a session

@@ -1,7 +1,9 @@
 {
   "cursor": [
     {"id": "grok-4.6", "name": "Grok 4.6"},
-    {"id": "grok-4.6-fast", "name": "Grok 4.6 Fast"}
+    {"id": "grok-4.6-fast", "name": "Grok 4.6 Fast"},
+    {"id": "cursor-grok-4.6-high", "name": "Grok 4.6 High", "thinkingOptionIds": ["high"]},
+    {"id": "cursor-grok-4.6-high-fast", "name": "Grok 4.6 High Fast", "thinkingOptionIds": ["high"]}
   ],
   "grok": [
     {"id": "grok-4.6", "name": "Grok 4.6", "thinkingOptionIds": ["xhigh", "high", "medium", "low"]},

@@ -59,9 +59,10 @@ CLASS_LABELS = {
 # The scripts of the drive-target skill that run a command `.mmw/target.json` declares,
 # under this worktree's lease. A criterion naming one needs the product, and so a slot.
 PRODUCT_JUDGES = ("story-parity.py", "journey.py", "screen_driver.py", "lease.py")
-# How long one run waits for a product slot before it hands back exit 3, and how often it
-# asks again in between. The bound stays under the time a host lets a command run before
-# it moves it to the background; a run given back 3 is run again, and the wait goes on.
+# How long a reverify waits for a product slot before it hands back exit 3, and how often
+# it asks again in between. The bound stays under the time a host lets a command run
+# before it moves it to the background; a reverify given back 3 is run again, and the wait
+# goes on. The worker's own run does not wait here: it is woken when a slot is given back.
 SLOT_WAIT_S = int(os.environ.get("MMW_SLOT_WAIT_S", "90"))
 SLOT_BEAT_S = int(os.environ.get("MMW_SLOT_BEAT_S", "10"))
 
@@ -1549,11 +1550,17 @@ def hold_slot(number: int, root: Path, run: str, comments: list,
     Writing code takes no slot. The first run of the criteria that needs the product
     claims one, and the worktree holds it until its ticket's work ends — landed, handed
     back, released, suspended or retracted — so every later run — the verifier's
-    reverify, the closeout's checks — finds it already there. When no
-    slot is free the run waits: a `worker.queued` event goes on the ticket, once for
-    this wait, so a ticket quiet for twenty minutes reads as queued and not as dead;
-    the claim is asked again every `SLOT_BEAT_S` seconds, and after `SLOT_WAIT_S` the run
-    exits 3 with nothing judged, to be run again.
+    reverify, the closeout's checks — finds it already there.
+
+    When no slot is free, a `worker.queued` event goes on the ticket, once for this wait,
+    so a ticket quiet for twenty minutes reads as queued and not as dead. The worker's
+    own run then exits 3 at once with nothing judged. A slot comes back only when another
+    ticket's work ends, and the event that ends it is what the relay of the dispatch skill
+    wakes every queued worker on, with `#<n> worker.queued`; the worker runs the same
+    command again then. Waiting here instead would cost the worker a turn every
+    `SLOT_WAIT_S` for as long as the slots stay held. A reverify — the verifier's, or the
+    main agent's — normally finds its worktree's slot already held; when it does not, it
+    asks again every `SLOT_BEAT_S` seconds and exits 3 after `SLOT_WAIT_S`, to be run again.
     """
     lease = load_lease()
     if lease is None:
@@ -1587,6 +1594,14 @@ def hold_slot(number: int, root: Path, run: str, comments: list,
                                      f"nothing was run. Run it again.\n")
                     return NOT_RECORDED
                 announced = True
+            if run == "self":
+                sys.stderr.write(
+                    f"#{number}: no product slot is free — {full.reason}, "
+                    f"{len(full.holders)} of {full.limit} held. Nothing was run; the ticket "
+                    f"says it is waiting. End your turn: the relay wakes you with "
+                    f"`#{number} worker.queued` when a slot is given back. Run the same "
+                    f"command again then.\n")
+                return 3
             if spent >= SLOT_WAIT_S:
                 sys.stderr.write(
                     f"#{number}: no product slot came free in {spent}s — {full.reason}, "
@@ -1606,8 +1621,9 @@ def run_checks(number: int, reverify: bool, timeout: int | None,
     """Run the ticket's criteria and post the run as one `ticket.checked` event.
 
     Exit 0 every criterion met, 1 not, 2 the run could not start (nothing was judged and
-    nothing was written), 3 it waited for a product slot and none came free, 4 the
-    criteria ran and the ticket.checked recording them could not be written.
+    nothing was written), 3 no product slot was free — at once for the worker's own run,
+    after `SLOT_WAIT_S` for a reverify — 4 the criteria ran and the ticket.checked
+    recording them could not be written.
     """
     body = fetch_body(number)
     require_judges(body)
@@ -1695,39 +1711,34 @@ def run_checks(number: int, reverify: bool, timeout: int | None,
 # The exit of a run whose criteria ran and whose result could not be written on the
 # ticket. It is not 1: a caller reads 1 as "the criteria are red", and nothing says so.
 NOT_RECORDED = 4
-STOP_TIMEOUT_S = int(os.environ.get("MMW_STOP_TIMEOUT_S", "300"))
 
 
 def give_slot_back(root: Path) -> str | None:
     """Take this worktree's product down and give its slot back; the reason when that
     could not be done, None when it was or there was no slot to give.
 
-    The product's `stop` in `.mmw/target.json` runs first, from the worktree, because a
-    slot is free only once nothing listens on its ports and `lease.py` rightly refuses
-    one held by a live process.
+    `lease.py` does both, as `release` with `stop`: the product's `stop` in
+    `.mmw/target.json` runs first, from the worktree, because a slot is free only once
+    nothing listens on its ports and `lease.py` rightly refuses one held by a live process.
     """
     lease = load_lease()
     if lease is None:
         return "no directory in force holds lease.py"
-    worktree = lease.worktree_of(root)
-    if not any(r.get("worktree") == str(worktree) for r in lease.claimed()):
-        return None
     try:
-        data = json.loads((Path(root) / ".mmw" / "target.json").read_text(encoding="utf-8"))
-        stop = data.get("stop") if isinstance(data, dict) else None
-    except (OSError, json.JSONDecodeError):
-        stop = None
-    if isinstance(stop, str) and stop.strip():
-        try:
-            subprocess.run(stop, shell=True, cwd=root, capture_output=True, text=True,
-                           timeout=STOP_TIMEOUT_S)
-        except (OSError, subprocess.SubprocessError) as exc:
-            return f"its stop command did not finish ({exc})"
-    try:
-        lease.release(worktree)
+        lease.release(lease.worktree_of(root), stop=True)
+    except lease.StopUnreadable as exc:
+        return f"{exc}, so the product's stop is unknown and the slot was kept"
     except SystemExit as exc:
         return str(exc)
     return None
+
+
+def blocker_fold(number: int) -> dict | None:
+    """The events of blocker `number` folded, or None when the tracker did not answer."""
+    try:
+        return events.fold(fetch_comments(number), issue=number)
+    except (OSError, ValueError, subprocess.CalledProcessError):
+        return None
 
 
 def refusals(number: int, ticket: dict, me: str, branch: str,
@@ -1736,6 +1747,10 @@ def refusals(number: int, ticket: dict, me: str, branch: str,
 
     Each refusal is `(reason, sentence)`: the reason is the `ticket.refused` event's
     `reason` field, one of `events.REFUSALS`, and the sentence is its first line.
+
+    A blocker holds until its work has landed, as `events.blocker_hold` reads it off the
+    blocker's own events — the same answer the dispatch skill's frontier gives, so a
+    ticket that skill starts is never refused here for a blocker it had let go.
 
     Every one of these ends in `stop`. The six conditions are set up before a worker
     exists — `dispatch.sh` opens the worktree on `issue-<n>` and checks the state, the
@@ -1766,13 +1781,18 @@ def refusals(number: int, ticket: dict, me: str, branch: str,
         out.append(("not-ready",
                     f"NOT_READY: #{number} has no ready-for-agent label, so it has not been "
                     f"cleared for an agent yet; stop and leave it to whoever triages it"))
-    blockers = [b for b in ticket.get("blockedBy", {}).get("nodes", [])
-                if b.get("state") != "CLOSED"]
-    if blockers:
-        names = ", ".join(f"#{b['number']}" for b in blockers)
+    holding = []
+    for node in ticket.get("blockedBy", {}).get("nodes", []):
+        state = node.get("state") or ""
+        why = events.blocker_hold(state, blocker_fold(node["number"]) if state == "CLOSED"
+                                  else None)
+        if why:
+            holding.append(f"#{node['number']}" + ("" if why == "open" else f" ({why})"))
+    if holding:
         out.append(("blocked",
-                    f"NOT_READY: #{number} is blocked by {names}; stop — `dispatch.sh` "
-                    f"starts this ticket again once those close, so do not wait or retry"))
+                    f"NOT_READY: #{number} is blocked by {', '.join(holding)}; stop — "
+                    f"`dispatch.sh` starts this ticket again once those land, so do not "
+                    f"wait or retry"))
     holders = [a.get("login", "") for a in ticket.get("assignees", [])]
     others = [h for h in holders if h != me]
     if others:
@@ -2027,6 +2047,16 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
                              f"{'passed' if passed else 'returned'}. Read #{number} on the "
                              f"tracker for what the edit left done, then run --closeout again\n")
             return 1
+    # A handed-back ticket's work is over for the night, and `ticket.returned` says so —
+    # its product slot free included: the relay wakes the workers queued for a slot on
+    # that event. So the slot goes back before the event, on the run that hands back and
+    # on one posting the event a previous run could not; a slot that will not come back
+    # is said on stderr, and the ticket is still announced as returned.
+    if not passed:
+        problem = give_slot_back(repo_root())
+        if problem:
+            sys.stderr.write(f"#{number} is handed back, but its product slot was not given "
+                             f"back: {problem}\n")
     try:
         post_event(number, event, first,
                    "\n".join(draft.strip("\n").splitlines()[1:]).strip("\n"), **fields)
@@ -2042,12 +2072,6 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     if passed:
         print(f"CLOSED: #{number}{note}")
     else:
-        # A handed-back ticket's work is over for the night: its slot goes back now, not
-        # when somebody next lands it, or it holds the product from every other ticket.
-        problem = give_slot_back(repo_root())
-        if problem:
-            sys.stderr.write(f"#{number} is handed back, but its product slot was not given "
-                             f"back: {problem}\n")
         print(f"HANDED BACK: #{number} is now needs-triage and stays open{note}")
     return 0
 

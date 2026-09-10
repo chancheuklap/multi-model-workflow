@@ -1,10 +1,12 @@
 """Tests for relay.py and statedir.py: no tracker, no runner, no network.
 
-The relay's two outsides are the board (a `Board` whose `gh` answers from a dict of
-comments here) and the runner's `send` verb (a function here that records what it was
-handed and answers with the exit code a test chooses). Between them runs the whole relay:
-reading events, dedup, who each row is for, the queue, delivery, ack, the
-unattended-stretch marker. What is asserted is what an outsider can see: the rows in the
+The relay's outsides are the board (a `Board` whose `gh` answers from a dict of comments
+here), the runner's `send` verb (a function here that records what it was handed and
+answers with the exit code a test chooses), the runner's `liveness` verb (a function
+answering what a test chooses) and the clock. Between them runs the whole relay: the
+watches and their main agents, reading events, dedup, who each row is for, the slot
+wake, the queue, delivery, ack, the unattended-stretch marker, the watch of a main agent
+that is gone. What is asserted is what an outsider can see: the watches, the rows in the
 queue, their order and recipients, what was sent to whom, and what is left after an ack.
 
     python3 -m unittest discover -s mmw-v2/tests/relay -p test_relay.py
@@ -87,7 +89,9 @@ class FakeGh:
         parts = path.split("/")
         number = int(parts[4])
         if parts[5] == "sub_issues":
-            return [{"number": n} for n in self.spec_children.get(number, [])]
+            if number in self.failing:
+                raise relay.PollError("gh exited 1: HTTP 502: Bad Gateway")
+            return [{"number": n, "state": "open"} for n in self.spec_children.get(number, [])]
         if number in self.failing:
             raise relay.PollError("gh exited 1: HTTP 502: Bad Gateway")
         if self.during_read:
@@ -126,7 +130,22 @@ class Clock:
         return self.moment
 
 
+class FakeAsk:
+    """The runner's liveness verb: records (runner, session), answers from `answers`."""
+
+    def __init__(self, default: str = "alive"):
+        self.default = default
+        self.answers: dict[tuple[str, str], str] = {}
+        self.calls: list[tuple[str, str]] = []
+
+    def __call__(self, runner: str, session: str) -> str:
+        self.calls.append((runner, session))
+        return self.answers.get((runner, session), self.default)
+
+
 class RelayCase(unittest.TestCase):
+    """One repository's state directory with tickets #61 and #62 watched, main agent main-a."""
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -137,9 +156,10 @@ class RelayCase(unittest.TestCase):
         self.board: dict[int, list[dict]] = {61: [], 62: []}
         self.gh = FakeGh(self.board)
         self.send = FakeSend()
+        self.ask = FakeAsk()
         self.clock = Clock()
         self.relay = self.fresh()
-        self.relay.register("paseo", "main-a")
+        self.relay.open_watch({"tickets": [61, 62]}, "paseo", "main-a")
 
     def restore_home(self):
         if self.old_home is None:
@@ -151,10 +171,14 @@ class RelayCase(unittest.TestCase):
         """A relay as a newly started process would be: same state directory, nothing in memory."""
         self.out, self.err = io.StringIO(), io.StringIO()
         return relay.Relay(self.state, relay.Board("o/r", self.gh), send=self.send,
-                           clock=self.clock, out=self.out, err=self.err)
+                           clock=self.clock, ask=self.ask, out=self.out, err=self.err)
 
-    def poll(self, tickets=(61, 62), grace=90):
-        return self.relay.poll(lambda: list(tickets), 30, grace)
+    def poll(self, grace=90):
+        return self.relay.poll(30, grace)
+
+    def watches(self):
+        """Each open watch's key and its main agent."""
+        return {k: (w["runner"], w["session"]) for k, w in self.relay.watches().items()}
 
     def rows(self):
         return self.relay.rows()
@@ -285,20 +309,20 @@ class QueueTest(RelayCase):
         self.assertEqual(self.err.getvalue(), "")
         self.assertEqual(self.rows(), [])
 
-    def test_a_registration_made_while_the_board_is_read_addresses_the_new_rows(self):
+    def test_a_main_agent_replaced_while_the_board_is_read_addresses_the_new_rows(self):
         self.board[61].append(comment(101, "ticket.passed", 61))
-        self.gh.during_read = lambda: self.relay.register("paseo", "main-b")
+        self.gh.during_read = lambda: self.relay.open_watch({"tickets": [61, 62]}, "paseo", "main-b")
         self.poll()
         self.gh.during_read = None
         self.assertEqual(self.addressed(), [(1, "ticket.passed", "main", "main-b")])
         self.relay.deliver()
         self.assertEqual(self.send.sent, [("paseo", "main-b", "#61 ticket.passed")])
 
-    def test_poll_with_no_registered_recipient_is_refused(self):
-        (self.state / "recipient.json").unlink()
-        with self.assertRaises(relay.Refusal) as caught:
-            self.poll()
-        self.assertIn("relay.py register", str(caught.exception))
+    def test_a_poll_with_nothing_watched_reads_nothing(self):
+        self.relay.close_watch(None)
+        self.board[61].append(comment(101, "ticket.passed", 61))
+        self.assertTrue(self.poll())
+        self.assertEqual((self.gh.calls, self.rows()), ([], []))
 
 
 class WorkerRecipientTest(RelayCase):
@@ -367,7 +391,7 @@ class WorkerRecipientTest(RelayCase):
                          [(1, False), (2, False), (3, True)])
 
     def test_a_recipient_is_its_runner_and_session_together(self):
-        self.relay.register("paseo", "s-1")
+        self.relay.open_watch({"tickets": [61, 62]}, "paseo", "s-1")
         self.board[61] += [started(101, 61, "s-1", runner="orca"), comment(102, "ticket.passed", 61),
                            comment(103, "reviewer.reported", 61)]
         self.poll()
@@ -535,14 +559,23 @@ class DeliveryTest(RelayCase):
 
     def test_a_row_for_a_retired_main_session_is_dropped_without_a_send(self):
         self.queue_two()
-        self.relay.register("paseo", "main-b")
+        self.relay.open_watch({"tickets": [61, 62]}, "paseo", "main-b")
         self.board[61].append(comment(103, "ticket.refused", 61))
         self.poll()
         self.relay.deliver()
         self.assertEqual(self.send.sent, [("paseo", "main-b", "#61 ticket.refused")])
         self.assertEqual([(r["seq"], r["session"]) for r in self.rows()], [(3, "main-b")])
-        self.assertIn("addressed to paseo session main-a, and the registered main agent is now paseo "
-                      "session main-b", self.err.getvalue())
+        self.assertIn("addressed to paseo session main-a, and the main agent of tickets #61, #62 is "
+                      "now paseo session main-b", self.err.getvalue())
+
+    def test_a_row_of_a_closed_watch_is_dropped_without_a_send(self):
+        self.relay.open_watch({"tickets": [70]}, "paseo", "main-b")
+        self.board[70] = [comment(103, "ticket.passed", 70)]
+        self.queue_two()
+        self.relay.close_watch("tickets:61,62")
+        self.relay.deliver()
+        self.assertEqual(self.send.sent, [("paseo", "main-b", "#70 ticket.passed")])
+        self.assertIn("it belongs to the watch on tickets #61, #62, which was closed", self.err.getvalue())
 
 
 class PollingTest(RelayCase):
@@ -594,14 +627,24 @@ class PollingTest(RelayCase):
         self.assertEqual(self.gh.sinces(62), [None, None, None, stamp(T0 - timedelta(seconds=120))])
 
     def test_spec_mode_watches_the_sub_issues_read_each_cycle(self):
+        self.relay.close_watch(None)
+        self.relay.open_watch({"spec": 50}, "paseo", "main-a")
         self.gh.spec_children[50] = [61]
         self.board[62].append(comment(102, "ticket.passed", 62))
-        board = relay.Board("o/r", self.gh)
-        self.relay.poll(lambda: board.sub_issues(50), 30, 90)
+        self.poll()
         self.assertEqual(self.rows(), [])
         self.gh.spec_children[50] = [61, 62]
-        self.relay.poll(lambda: board.sub_issues(50), 30, 90)
+        self.poll()
         self.assertEqual(self.summary(), [(1, 62, "ticket.passed")])
+
+    def test_a_spec_whose_tickets_cannot_be_listed_is_no_good_poll_and_others_are_read(self):
+        self.relay.open_watch({"spec": 50}, "paseo", "main-b")
+        self.gh.spec_children[50] = [63]
+        self.gh.failing.add(50)
+        self.board[61].append(comment(101, "ticket.passed", 61))
+        self.assertFalse(self.poll())
+        self.assertIn("could not read the tickets of spec #50", self.err.getvalue())
+        self.assertEqual(self.summary(), [(1, 61, "ticket.passed")])
 
 
 class RecoveryTest(RelayCase):
@@ -702,6 +745,289 @@ class RecoveryTest(RelayCase):
         self.clock.moment = T0 + timedelta(hours=2)
         self.poll()
         self.assertEqual([r["since"] for r in self.recovered_rows()], [stamp(T0)])
+
+
+class WatchesTest(RelayCase):
+    """Several watches in one repository, each with its own main agent: a night on spec
+    #76 (tickets #61 and #62) opened by main-a, and whatever a test opens beside it."""
+
+    def setUp(self):
+        super().setUp()
+        self.relay.close_watch(None)
+        self.gh.spec_children[76] = [61, 62]
+        self.relay.open_watch({"spec": 76}, "paseo", "main-a")
+        self.board[5] = []
+
+    def written(self) -> bytes:
+        return (self.state / "watches.json").read_bytes()
+
+    def test_a_ticket_outside_the_night_gets_its_own_watch_and_the_nights_main_is_untouched(self):
+        # Opening a watch from a second session used to re-point the running night's
+        # wake-ups, findings and turn guard to that session.
+        previous, _ = self.relay.open_watch({"tickets": [5]}, "paseo", "main-b")
+        self.assertIsNone(previous)
+        self.assertEqual(self.watches(), {"spec:76": MAIN_A, "tickets:5": ("paseo", "main-b")})
+        self.board[5].append(comment(101, "ticket.passed", 5))
+        self.board[61].append(comment(102, "ticket.passed", 61))
+        self.poll()
+        self.assertEqual(self.addressed(), [(1, "ticket.passed", "main", "main-b"),
+                                            (2, "ticket.passed", "main", "main-a")])
+        self.relay.deliver()
+        self.assertEqual(self.send.sent, [("paseo", "main-b", "#5 ticket.passed"),
+                                          ("paseo", "main-a", "#61 ticket.passed")])
+
+    def test_a_ticket_of_a_watched_spec_is_refused_and_nothing_is_written(self):
+        before = self.written()
+        with self.assertRaises(relay.Refusal) as caught:
+            self.relay.open_watch({"tickets": [61]}, "paseo", "main-b")
+        self.assertIn("ticket #61 was not opened: #61 is a sub-issue of spec #76, which is watched "
+                      "with paseo session main-a as its main agent", str(caught.exception))
+        self.assertEqual(self.written(), before)
+
+    def test_a_spec_one_of_whose_tickets_is_watched_alone_is_refused(self):
+        self.relay.open_watch({"tickets": [5]}, "paseo", "main-b")
+        before = self.written()
+        self.gh.spec_children[80] = [4, 5]
+        with self.assertRaises(relay.Refusal) as caught:
+            self.relay.open_watch({"spec": 80}, "paseo", "main-c")
+        self.assertIn("spec #80 was not opened: its sub-issue #5 is already watched as ticket #5, "
+                      "whose main agent is paseo session main-b", str(caught.exception))
+        self.assertEqual(self.written(), before)
+
+    def test_a_ticket_is_in_one_watch_only(self):
+        self.relay.open_watch({"tickets": [5]}, "paseo", "main-b")
+        with self.assertRaises(relay.Refusal) as caught:
+            self.relay.open_watch({"tickets": [5, 6]}, "paseo", "main-c")
+        self.assertIn("#5 is already watched as ticket #5", str(caught.exception))
+
+    def test_an_overlap_that_cannot_be_checked_is_refused(self):
+        self.gh.failing.add(76)
+        with self.assertRaises(relay.Refusal) as caught:
+            self.relay.open_watch({"tickets": [5]}, "paseo", "main-b")
+        self.assertIn("could not read the sub-issues of spec #76", str(caught.exception))
+        self.assertEqual(self.watches(), {"spec:76": MAIN_A})
+
+    def test_opening_a_watch_again_replaces_its_main_agent_and_no_other(self):
+        self.relay.open_watch({"tickets": [5]}, "paseo", "main-b")
+        previous, _ = self.relay.open_watch({"spec": 76}, "orca", "term-a2")
+        self.assertEqual(relay.main_of(previous), MAIN_A)
+        self.assertEqual(self.watches(), {"spec:76": ("orca", "term-a2"),
+                                          "tickets:5": ("paseo", "main-b")})
+
+    def test_closing_one_watch_leaves_the_others_and_the_last_good_poll(self):
+        self.relay.open_watch({"tickets": [5]}, "paseo", "main-b")
+        self.poll()
+        (self.state / "relay.json").write_text(json.dumps({"pid": 1, "identity": "x"}))
+        closed, left = self.relay.close_watch("spec:76")
+        self.assertEqual((list(closed), list(left)), (["spec:76"], ["tickets:5"]))
+        self.assertEqual(json.loads((self.state / "beat.json").read_text())["at"], stamp(T0))
+        self.assertNotIn("ending", json.loads((self.state / "relay.json").read_text()))
+        self.assertFalse(self.relay.leave_if_unwatched())
+        closed, left = self.relay.close_watch("tickets:5")
+        self.assertEqual((list(closed), left), (["tickets:5"], {}))
+        self.assertIsNone(json.loads((self.state / "beat.json").read_text())["at"],
+                          "the last watch closed forgets the last good poll")
+        self.assertTrue(json.loads((self.state / "relay.json").read_text())["ending"])
+
+    def test_the_recovered_stretch_goes_once_to_each_main_agent(self):
+        self.relay.open_watch({"tickets": [5]}, "paseo", "main-b")
+        self.relay.open_watch({"tickets": [7]}, "paseo", "main-b")
+        self.poll()
+        self.clock.moment = T0 + timedelta(hours=1)
+        self.poll()
+        self.assertEqual(sorted(r["session"] for r in self.rows() if r["event"] == relay.RECOVERED),
+                         ["main-a", "main-b"])
+        self.clock.moment = T0 + timedelta(hours=1, seconds=30)
+        self.poll()
+        self.assertEqual(len([r for r in self.rows() if r["event"] == relay.RECOVERED]), 2)
+
+
+class SlotWakeTest(RelayCase):
+    """A run that found no free product slot waits under a `worker.queued`, and a slot
+    given back on any watched ticket wakes its worker."""
+
+    def setUp(self):
+        super().setUp()
+        self.board[61].append(started(100, 61, "wk-61"))
+        self.board[62].append(started(101, 62, "wk-62"))
+
+    @staticmethod
+    def queued(cid: int, ticket: int = 62, updated: datetime = T0) -> dict:
+        return comment(cid, "worker.queued", ticket, updated=updated, reason="machine-full", run="self")
+
+    def woken(self):
+        return [(r["ticket"], r["session"]) for r in self.rows() if r["event"] == "worker.queued"]
+
+    def test_a_slot_given_back_wakes_the_worker_waiting_for_one(self):
+        self.board[62].append(self.queued(110))
+        self.board[61].append(comment(120, "ticket.landed", 61))
+        self.poll()
+        self.assertEqual(self.addressed(), [(1, "worker.queued", "worker", "wk-62")])
+        self.relay.deliver()
+        self.assertEqual(self.send.sent, [("paseo", "wk-62", "#62 worker.queued")])
+        # Read again, and read in full by a restarted relay: queued no second time.
+        self.poll()
+        self.relay = self.fresh()
+        self.poll()
+        self.assertEqual(len(self.rows()), 1)
+        self.assertEqual(self.relay.ack_wake(("paseo", "wk-62"), 62, "worker.queued"), (1, 1, 0))
+
+    def test_the_run_that_got_a_slot_ends_the_wait_and_the_next_release_wakes_nobody(self):
+        self.board[62] += [self.queued(110),
+                           comment(115, "ticket.checked", 62, run="self", commit="a" * 40, result="met")]
+        self.board[61].append(comment(120, "ticket.landed", 61))
+        self.poll()
+        self.assertEqual(self.woken(), [])
+
+    def test_a_release_older_than_the_wait_wakes_nobody(self):
+        self.board[61].append(comment(105, "ticket.released", 61))
+        self.board[62].append(self.queued(110))
+        self.poll()
+        self.assertEqual(self.woken(), [])
+
+    def test_a_release_read_again_after_a_newer_wait_wakes_nobody(self):
+        self.board[61].append(comment(105, "ticket.released", 61))
+        self.board[62].append(self.queued(110))
+        self.poll()
+        # The next read takes the release again, in its two minutes of overlap, and the
+        # wait recorded since is newer than it.
+        self.clock.moment = T0 + timedelta(seconds=30)
+        self.poll()
+        self.assertEqual(self.woken(), [])
+
+    def test_a_wait_and_a_later_release_meet_across_polls(self):
+        self.board[62].append(self.queued(110))
+        self.poll()
+        self.assertEqual(self.woken(), [])
+        later = T0 + timedelta(seconds=30)
+        self.clock.moment = later
+        self.board[61].append(comment(120, "worker.retracted", 61, updated=later))
+        self.poll()
+        self.assertEqual(self.woken(), [(62, "wk-62")])
+
+    def test_an_ended_wait_read_again_in_the_overlap_stays_ended(self):
+        self.board[62] += [self.queued(110),
+                           comment(115, "ticket.checked", 62, run="self", commit="a" * 40, result="met")]
+        self.poll()
+        later = T0 + timedelta(seconds=30)
+        self.clock.moment = later
+        self.board[61].append(comment(120, "ticket.landed", 61, updated=later))
+        self.poll()
+        self.assertEqual(self.woken(), [])
+
+    def test_a_slot_wake_not_yet_sent_when_the_wait_ends_is_dropped(self):
+        """Two slots given back before the worker's turn ends queue two wakes; the first
+        gets it a slot, and its run ends the wait before the second is sent. The runner
+        takes the first and cannot show a turn starting (4), which holds the second back
+        for that pass."""
+        self.board[62].append(self.queued(110))
+        self.board[61] += [comment(120, "ticket.landed", 61), comment(121, "ticket.released", 61)]
+        self.poll()
+        self.assertEqual(self.woken(), [(62, "wk-62"), (62, "wk-62")])
+        self.send.code = 4
+        self.relay.deliver()
+        self.assertEqual(self.send.sent, [("paseo", "wk-62", "#62 worker.queued")])
+        later = T0 + timedelta(seconds=30)
+        self.clock.moment = later
+        self.board[62].append(comment(130, "ticket.checked", 62, updated=later, run="self",
+                                      commit="a" * 40, result="met"))
+        self.poll()
+        # Acked through the first row; the second is still queued for it.
+        self.assertEqual(self.relay.ack_wake(("paseo", "wk-62"), 62, "worker.queued"), (1, 1, 1))
+        self.relay.deliver()
+        self.assertEqual(len(self.send.sent), 1, "the second wake was sent after the wait ended")
+        self.assertEqual(self.woken(), [])
+
+    def test_a_lost_reviewer_does_not_end_the_wait(self):
+        self.board[62] += [self.queued(110),
+                           comment(112, "reviewer.lost", 62, session="rv-1", runner="paseo")]
+        self.board[61].append(comment(120, "ticket.landed", 61))
+        self.poll()
+        self.assertEqual(self.addressed(), [(1, "reviewer.lost", "worker", "wk-62"),
+                                            (2, "worker.queued", "worker", "wk-62")])
+
+    def test_a_waiting_ticket_of_another_watch_is_woken(self):
+        self.relay.open_watch({"tickets": [70]}, "paseo", "main-b")
+        self.board[70] = [started(102, 70, "wk-70"), self.queued(110, 70)]
+        self.board[61].append(comment(120, "ticket.landed", 61))
+        self.poll()
+        self.assertEqual(self.woken(), [(70, "wk-70")])
+        self.assertEqual(self.rows()[0]["watch"], "tickets:70")
+
+    def test_the_wait_is_kept_where_a_restart_reads_it(self):
+        self.board[62].append(self.queued(110))
+        self.poll()
+        seen = json.loads((self.state / "seen.json").read_text())
+        self.assertEqual((seen["tickets"]["62"]["waiting"], seen["tickets"]["61"]["waiting"]), (110, None))
+
+
+class MainGoneTest(RelayCase):
+    """A watch whose main agent's session is gone: tickets #61 and #62 opened by main-a,
+    whose runner answers `stopped`, and ticket #70 opened by main-b, alive."""
+
+    def setUp(self):
+        super().setUp()
+        self.relay.open_watch({"tickets": [70]}, "paseo", "main-b")
+        self.ask.answers[MAIN_A] = "stopped"
+
+    def test_the_main_agents_are_asked_every_ten_cycles(self):
+        for _ in range(9):
+            self.relay.cycle(30, 90)
+        self.assertEqual(self.ask.calls, [])
+        self.relay.cycle(30, 90)
+        self.assertEqual(sorted(self.ask.calls), [MAIN_A, ("paseo", "main-b")])
+
+    def test_a_main_agent_answered_stopped_for_an_hour_has_its_watch_closed(self):
+        self.relay.check_mains()
+        self.clock.moment = T0 + timedelta(seconds=3599)
+        self.relay.check_mains()
+        self.assertIn("tickets:61,62", self.watches())
+        self.clock.moment = T0 + timedelta(seconds=3600)
+        self.relay.check_mains()
+        self.assertEqual(self.watches(), {"tickets:70": ("paseo", "main-b")})
+        self.assertIn("closed the watch on tickets #61, #62: paseo has answered that its main "
+                      "agent, session main-a, is stopped at every ask since 2026-09-10T01:00:00Z",
+                      self.out.getvalue())
+
+    def test_an_answer_other_than_stopped_starts_the_count_again(self):
+        for answer in ("unknown", "alive"):
+            with self.subTest(answer=answer):
+                self.clock.moment = T0
+                self.ask.answers[MAIN_A] = "stopped"
+                self.relay.open_watch({"tickets": [61, 62]}, "paseo", "main-a")
+                self.relay.check_mains()
+                self.clock.moment = T0 + timedelta(seconds=1800)
+                self.ask.answers[MAIN_A] = answer
+                self.relay.check_mains()
+                self.ask.answers[MAIN_A] = "stopped"
+                self.clock.moment = T0 + timedelta(seconds=3600)
+                self.relay.check_mains()
+                self.clock.moment = T0 + timedelta(seconds=7199)
+                self.relay.check_mains()
+                self.assertIn("tickets:61,62", self.watches())
+                self.clock.moment = T0 + timedelta(seconds=7200)
+                self.relay.check_mains()
+                self.assertNotIn("tickets:61,62", self.watches())
+
+    def test_the_count_outlives_a_restart(self):
+        self.relay.check_mains()
+        self.relay = self.fresh()
+        self.clock.moment = T0 + timedelta(seconds=3600)
+        self.relay.check_mains()
+        self.assertNotIn("tickets:61,62", self.watches())
+
+    def test_the_last_watch_closed_ends_the_relay_and_forgets_the_last_good_poll(self):
+        self.ask.answers[("paseo", "main-b")] = "stopped"
+        self.poll()
+        (self.state / "relay.json").write_text(json.dumps({"pid": 1, "identity": "x"}))
+        self.relay.check_mains()
+        self.clock.moment = T0 + timedelta(seconds=3600)
+        self.relay.check_mains()
+        self.assertEqual(self.watches(), {})
+        self.assertIn("no watch is left, and the relay ends", self.out.getvalue())
+        self.assertIsNone(json.loads((self.state / "beat.json").read_text())["at"])
+        self.assertTrue(json.loads((self.state / "relay.json").read_text())["ending"])
+        self.assertTrue(self.relay.leave_if_unwatched())
 
 
 class HealthTest(RelayCase):

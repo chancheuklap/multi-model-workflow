@@ -2,20 +2,42 @@
 #
 # Orca adapter: the three verbs of the runner boundary, `stop`, and `self`.
 #
-#   runners/orca.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--label K=V]... --prompt TEXT
+#   runners/orca.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] --prompt TEXT
 #   runners/orca.sh send <session-id> <text>
 #   runners/orca.sh liveness <session-id>
 #   runners/orca.sh stop <session-id>
 #   runners/orca.sh self
 #
 # start takes host, model, effort, cwd, skip-approval, and the first prompt, and
-# prints a session id, or refuses. One call: `terminal create --worktree path:<abs>
-# --command <launch line> --title <name> --json`. The worktree is already cut; this
-# verb only starts a session at that absolute path.
-# The launch line is models.py `launch-line`: the host binary and its own flags from
-# hosts.json, which carry the approval bypass, so `--skip-approval` is always honoured
-# by those flags. A host with no launch block (today `pi`) is a refusal, not a start
-# with no model, no effort and no bypass.
+# prints a session id, or refuses with exit 1 and the reason on stderr. The worktree is
+# already cut; this verb only starts a session at that absolute path, with one
+# `terminal create --worktree path:<abs> --command 'exec <launch line>' --title <name>
+# --json`.
+# The launch line is models.py `launch-line` with the first prompt: the host binary, its
+# own flags from hosts.json, which carry the approval bypass, so `--skip-approval` is
+# always honoured by those flags, and last the prompt, which each host takes as its first
+# turn (`grok [PROMPT]`, `codex [PROMPT]`, `claude [prompt]`, `cursor-agent [prompt]`).
+# The prompt is not typed into the terminal: for some programs Orca cannot report
+# whether typed input started a turn (Grok, Orca 1.4.199: `input_accepted` with
+# `observation` `unsupported`), so a typed first prompt could not be confirmed. A host
+# with no launch block (today `pi`) is a refusal, not a start with no model, no effort
+# and no bypass.
+# Orca runs `--command` in a shell that stays at its prompt when the command ends, and a
+# terminal whose shell is at its prompt is a running terminal to Orca. `exec` makes the
+# host the terminal's own process, so the terminal ends when the host does: that is how
+# start sees a host that quit, and how `liveness` answers `stopped` for one.
+# After the create, start waits up to 3 s for the terminal to exit. A wait that times out
+# is a host that is running, and the handle is printed. An exit in that time (satisfied,
+# status `exited`, or the handle stale or not writable) is a host that quit at once: the
+# refusal carries the terminal's last lines (`terminal read`, `result.terminal.tail`),
+# which Orca 1.4.199 has already emptied once the terminal exited, so it also gives the
+# command to run by hand to see why. An answer this cannot read falls back to `liveness`
+# of the handle: `alive` is a start, anything else a refusal. A refused start closes its
+# terminal: dispatch is about to say this ticket has no session, and a second start would
+# put two agents on one worktree.
+# A host started with a model it does not know does not exit (Grok, Claude and Codex show
+# the error on screen and wait), so this wait cannot catch a bad model; the model has to
+# be checked against the host's catalog before `start`.
 # send: exit 0 the text was delivered (input_accepted and turn_started); 4 the text went
 # into the terminal and no turn start was seen — the program is mid-turn and will read it
 # when the turn ends, or it is one Orca cannot observe (`observation` `unsupported`) — or
@@ -37,13 +59,15 @@
 # MMW_USES: terminal create --worktree --command --title --json
 # MMW_USES: terminal send --terminal --text --enter --wait-submit --json
 # MMW_USES: terminal wait --terminal --for --timeout-ms --json
+# MMW_USES: terminal read --terminal --json
 # MMW_USES: terminal list --json
 # MMW_USES: terminal close --terminal --json
 
 set -uo pipefail
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-START_WAIT_MS=30000
+START_EXIT_WAIT_MS=3000
+START_TAIL_LINES=5
 SEND_WAIT_S=30
 LIVENESS_WAIT_MS=100
 
@@ -52,7 +76,7 @@ orca_() {
 }
 
 usage() {
-  echo "usage: runners/orca.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--label K=V]... --prompt TEXT" >&2
+  echo "usage: runners/orca.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] --prompt TEXT" >&2
   echo "       runners/orca.sh send <session-id> <text>" >&2
   echo "       runners/orca.sh liveness <session-id>" >&2
   echo "       runners/orca.sh stop <session-id>" >&2
@@ -144,11 +168,15 @@ elif kind == "send":
     print("%s\t%s\t%s\t%s" % (code, ",".join(str(s) for s in stages), observation,
                                  " ".join(warning.split())))
 elif kind == "wait":
+    # A condition that was met is answered under result.wait, and a wait that ran out
+    # as error.code `timeout` (Orca 1.4.199, read 2026-09-11 off a real
+    # `terminal wait --for exit --json`).
+    wait = result.get("wait") if isinstance(result.get("wait"), dict) else result
     code = err.get("code") or data.get("code") or ""
-    satisfied = result.get("satisfied")
+    satisfied = wait.get("satisfied")
     if satisfied is None:
         satisfied = data.get("satisfied")
-    status = str(result.get("status") or data.get("status") or "")
+    status = str(wait.get("status") or data.get("status") or "")
     flag = "true" if satisfied is True or str(satisfied).lower() == "true" else "false"
     print("%s\t%s\t%s" % (code, flag, status))
 else:
@@ -158,6 +186,21 @@ else:
 
 host_command() {
   python3 "$(dirname "$HERE")/models.py" launch-line "$@"
+}
+
+# Prints the last lines the terminal holds, blank ones dropped, joined on one line;
+# nothing when they cannot be read.
+last_lines() {
+  orca_ terminal read --terminal "$1" --json 2>/dev/null | MMW_KEEP="$START_TAIL_LINES" python3 -c '
+import json, os, sys
+
+try:
+    tail = json.load(sys.stdin)["result"]["terminal"]["tail"]
+    lines = [" ".join(str(line).split()) for line in tail]
+    print(" | ".join([line for line in lines if line][-int(os.environ["MMW_KEEP"]):]))
+except Exception:
+    pass
+'
 }
 
 start() {
@@ -178,8 +221,8 @@ start() {
       --skip-approval)
         shift
         ;;
-      --title|--label)
-        # Metadata for runners that keep it; this one names the session after its worktree.
+      --title)
+        # This runner names the session after its worktree.
         [ "$#" -ge 2 ] || usage
         shift 2
         ;;
@@ -194,14 +237,14 @@ start() {
   abs="$(CDPATH='' cd -- "$cwd" && pwd -P)" || exit 1
   name="$(basename -- "$abs")"
   [ -n "$name" ] && [ "$name" != "/" ] || name=mmw
-  cmd="$(host_command "$host" "$model" "$effort" "$name")" || exit 1
+  cmd="$(host_command "$host" "$model" "$effort" "$name" "$prompt")" || exit 1
 
   local err
   err="$(mktemp)"
   trap 'rm -f "$err"' EXIT
   if ! json="$(orca_ terminal create \
         --worktree "path:$abs" \
-        --command "$cmd" \
+        --command "exec $cmd" \
         --title "$name" \
         --json 2>"$err")"; then
     # Orca answers a refusal as JSON on stdout (`ok: false`, `error.message`); stderr is
@@ -224,17 +267,39 @@ except Exception:
     exit 1
   fi
 
-  orca_ terminal wait --terminal "$handle" --for tui-idle \
-    --timeout-ms "$START_WAIT_MS" --json >/dev/null 2>&1 || true
-  if ! bash "$0" send "$handle" "$prompt" >/dev/null; then
-    # A refused start must not leave its agent behind: dispatch is about to say this
-    # ticket has no session, and a second start would put two agents on one worktree.
+  local out info code rest satisfied status
+  out="$(orca_ terminal wait --terminal "$handle" --for exit \
+        --timeout-ms "$START_EXIT_WAIT_MS" --json 2>&1)" || true
+  info="$(printf '%s' "$out" | parse_json wait)" || info=""
+  code="${info%%	*}"
+  rest="${info#*	}"
+  satisfied="${rest%%	*}"
+  status="$(printf '%s' "${rest#*	}" | tr '[:upper:]' '[:lower:]')"
+  if [ "$code" = timeout ]; then
+    printf '%s\n' "$handle"
+    exit 0
+  fi
+  case "$code" in
+    terminal_handle_stale|terminal_not_writable) satisfied=true ;;
+  esac
+  if [ "$satisfied" = true ] || [ "$status" = exited ]; then
+    local tail line
+    tail="$(last_lines "$handle")"
+    line="$(host_command "$host" "$model" "$effort" "$name" 2>/dev/null)"
     orca_ terminal close --terminal "$handle" --json >/dev/null 2>&1 || true
-    echo "runners/orca.sh: $host started at $abs but did not take its first prompt; that terminal ($handle) was closed" >&2
+    echo "runners/orca.sh: $host exited within $((START_EXIT_WAIT_MS / 1000)) s of starting at $abs, so there is no session, and its terminal ($handle) was closed; its last lines: ${tail:-none, Orca kept no output}; to see why, run it by hand there: $line" >&2
     exit 1
   fi
-  printf '%s\n' "$handle"
-  exit 0
+  # An answer that says neither: the handle's own liveness decides.
+  local answer
+  answer="$(bash "$0" liveness "$handle" 2>/dev/null)" || answer=""
+  if [ "$answer" = alive ]; then
+    printf '%s\n' "$handle"
+    exit 0
+  fi
+  orca_ terminal close --terminal "$handle" --json >/dev/null 2>&1 || true
+  echo "runners/orca.sh: $host was started at $abs and whether it is still running could not be read (terminal wait answered: $(printf '%s' "$out" | tr '\n' ' ' | tr -s ' '); liveness answered ${answer:-nothing}), so its terminal ($handle) was closed" >&2
+  exit 1
 }
 
 send() {

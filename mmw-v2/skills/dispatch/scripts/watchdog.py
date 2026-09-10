@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""The watchdog: the second and third layers of liveness for one repository's open night.
+"""The watchdog: the second and third layers of liveness for one repository's open watches.
 
-    watchdog.py run --repo O/R [--poll S] [--silence S] [--once]
+    watchdog.py run --repo O/R [--poll S] [--silence S] [--idle S] [--once]
     watchdog.py arm --repo O/R [--wait S]
     watchdog.py status --repo O/R
 
@@ -12,20 +12,22 @@ This process is what notices. It costs no tokens and holds no session: it reads 
 `gh` and the runner adapters, and it is not an agent.
 
 **Three layers, and which one this is.** The first layer is `turn-guard.py`, beside this
-file: a hook on the main agent's own turn end that re-arms this process and will not let
+file: a hook on each main agent's own turn end that re-arms this process and will not let
 that turn end while tickets are held and this process is not healthy. This file is the
 second layer (it beats, it watches the relay) and the third (it asks a silent ticket's
 runner whether its worker is still there). When this process dies, the first layer finds
-out at the main agent's next turn end; there is no fourth layer, so a crash of the host
-the main agent runs in is found by a person.
+out at a main agent's next turn end; there is no fourth layer, so a crash of the host a
+main agent runs in is found by a person.
 
-**What it watches.** The tickets of the night the relay was started for: `relay.json` in
-the state directory names the spec (whose sub-issues are read again every round) or the
-tickets. A night is open while `relay.json` is there or the relay's `beat.json` still holds
-a last good poll: `relay.py stop`, which `summary`, `suspend` and `land` run, clears the
-latter and the relay removes the former on its way out. A relay that died leaves one of the
-two behind, so a dead relay is an open night with no relay, never a closed one. When the
-night is closed this process writes a last heartbeat saying so and exits.
+**What it watches.** Every watch the relay has open for the repository (`watches.json` in
+the state directory, relay.py): a night — a spec, whose sub-issues are listed again every
+round — or tickets outside a night. Each watch has its own main agent. A closed sub-issue
+of a spec is not read: a closed ticket's worker has handed in its work. A ticket a tickets
+watch names is always read. A night is open while `watches.json` names a watch: `relay.py
+stop`, which `summary`, `suspend` and `land` run, closes one, and the relay closes the
+watch of a main agent that has been gone for an hour. A relay that died leaves its
+watches open, so a dead relay is an open night with no relay, never a closed one. When no
+watch is open this process writes a last heartbeat saying so and exits.
 
 **Each round**, every `--poll` seconds (default 60):
 
@@ -60,33 +62,55 @@ night is closed this process writes a last heartbeat saying so and exits.
 
    A silent ticket held by no session to ask (a claim no start names, or only sessions
    whose results are in) is a finding too. So is a ticket whose events cannot be read.
+4. A silent ticket whose newest event is at least `--idle` seconds old (default 3600),
+   whose worker's runner answered `alive`, and whose fold shows it waiting for nothing —
+   no live reviewer or verifier session, no `waiting`, not `passed` — is a finding: its
+   worker is there and nothing will ever wake it (a worker that ended its turn with no
+   result, say). Once per ticket and newest event.
 
-**Findings wake the main agent directly**, through the `send` of the runner the relay has
-it registered under (`recipient.json`), one message on one line, each finding in it beginning `watchdog:`. Not
-through the relay's queue: the relay may be the thing that is down. Each finding is sent
-once — keyed by what it is about and the ticket's newest event, or the relay's last good
-poll — and never again for the same stretch, across restarts of this process. What `send`
-answered decides what happens next:
+**Findings wake the main agent directly**, through the `send` of the runner that main
+agent runs in, one message on one line, each finding in it beginning `watchdog:`. Not
+through the relay's queue: the relay may be the thing that is down. A finding about a
+ticket goes to the main agent of the watch the ticket belongs to; `relay down` and
+`cannot read the board` go to every watch's main agent. Each finding is sent to each of
+its main agents once — keyed by that main agent, what the finding is about, and the
+ticket's newest event or the relay's last good poll — and never again for the same
+stretch, across restarts of this process. What `send` answered decides what happens next:
 
-    0      delivered and a turn started. This process exits: the main agent is now in a
-           turn, and that turn's end re-arms it (one-shot, re-armed by the hook)
+    0      delivered and a turn started. This process exits once the round's sends are
+           done: that main agent is now in a turn, and that turn's end re-arms it
+           (one-shot, re-armed by the hook)
     4      handed over, not confirmed: not sent again, and this process keeps running
     3, 5+  nothing was sent: kept, and sent again next round
-    2      the main agent's session is gone: recorded, kept, nobody to tell
+    2      that main agent's session is gone: recorded, kept, nobody to tell
+
+The findings exactly:
+
+    watchdog: relay down (<what is wrong>); details: python3 <this file> status --repo <repo>
+    watchdog: #<n> events unreadable
+    watchdog: #<n> is held with no session to ask, silent since <time>
+    watchdog: #<n> liveness unknown: <runner> could not say whether the <kind> session
+              <session> is alive; silent since <time>
+    watchdog: #<n> liveness unknown: the <kind> session <session> was started on
+              <machine>, not on <this machine>, and only that machine can ask <runner>;
+              silent since <time>
+    watchdog: #<n> silent since <time> with nothing to wait on: its worker <session> on
+              <runner> is alive, and no reviewer, verifier or product slot is pending
+    watchdog: cannot read the board since <time>: <what failed>
 
 **The heartbeat and the lock.** `run` holds `watchdog.lock` for as long as it runs, so a
-repository has one watchdog; the lock's record names its pid and process identity, the
-same convention as the relay's. It writes `watchdog.json`, the heartbeat, at start, after
-every ticket and at the end of every round, with that same pid and identity. A heartbeat
-is fresh when its age is within the tolerance `max(300, poll + MARGIN)` seconds, MARGIN
-being one adapter call plus one gh read (60 + 120 s), the longest it waits between two
-beats: a fixed number would read a healthy watchdog as dead as soon as its poll grew past
-it. The watchdog is healthy when the lock names a live process, the heartbeat was written
-by that process, it is fresh, and its last whole read of the board (`read_at`, carried
-across restarts) is within the tolerance too: a watchdog that cannot read the board
-watches nothing, and after the tolerance it says so once (`cannot read the board`). A pid
-alone is never enough: a dead watchdog's pid can be handed to another process, and that
-process is not a watchdog.
+repository has one watchdog, serving every watch; the lock's record names its pid and
+process identity, the same convention as the relay's. It writes `watchdog.json`, the
+heartbeat, at start, after every ticket and at the end of every round, with that same pid
+and identity. A heartbeat is fresh when its age is within the tolerance
+`max(300, poll + MARGIN)` seconds, MARGIN being one adapter call plus one gh read
+(60 + 120 s), the longest it waits between two beats: a fixed number would read a healthy
+watchdog as dead as soon as its poll grew past it. The watchdog is healthy when the lock
+names a live process, the heartbeat was written by that process, it is fresh, and its last
+whole read of the board (`read_at`, carried across restarts) is within the tolerance too:
+a watchdog that cannot read the board watches nothing, and after the tolerance it says so
+once (`cannot read the board`). A pid alone is never enough: a dead watchdog's pid can be
+handed to another process, and that process is not a watchdog.
 
 **Only this machine's sessions are asked.** Every `*.started` records the machine it was
 started on (`machine`, the hostname). A runner answers for its own machine, and asked about
@@ -104,15 +128,18 @@ Files in the state directory, beside the relay's:
 
     watchdog.lock   held for as long as a `run` runs: one watchdog per repository
     watchdog.json   the heartbeat: pid, identity, machine, at, poll, tolerance, silence,
-                    watch, held, waiting, unknown, lost, relay, read_at, read_failure,
-                    pending, reported, main, closed
+                    idle, watches (the open watches as last read, with their main agents),
+                    held, waiting, unknown, lost, relay, read_at, read_failure, pending
+                    (findings not yet sent, each with the runner and session it is for),
+                    reported ([runner, session, key] of each finding sent), main (per main
+                    agent, why its findings could not be sent), closed
     watchdog.log    what every started watchdog printed, appended
 
 Exit codes:
 
-    run      0 ran until the night closed, until it woke the main agent, or one round with
-             --once; 1 refused (the repository name, a state file that is not JSON). Another
-             watchdog already running is 0: arming twice is not an error
+    run      0 ran until no watch was open, until it woke a main agent, or one round with
+             --once; 1 refused (the repository name, a state file that is not JSON).
+             Another watchdog already running is 0: arming twice is not an error
     arm      0 the watchdog is healthy (now, or already); 1 it could not be made healthy,
              and stderr says why with the last lines of watchdog.log
     status   0 healthy; 3 not healthy, or no open night; the heartbeat is printed either way
@@ -145,6 +172,7 @@ events = relay_mod.events
 
 DEFAULT_POLL = 60
 DEFAULT_SILENCE = 600
+DEFAULT_IDLE = 3600
 BASE_TOLERANCE = 300
 ARM_WAIT = 5.0
 ADAPTER_TIMEOUT = 60
@@ -235,7 +263,7 @@ def stale(beat: dict | None, now: datetime) -> bool:
     return at is None or (now - at).total_seconds() > tolerance((beat or {}).get("poll"))
 
 
-def judge(fold: dict, now: datetime, silence: int) -> dict:
+def judge(fold: dict, now: datetime, silence: int, idle: int = DEFAULT_IDLE) -> dict:
     """What one ticket's fold says the third layer should do with it.
 
         {"state": "unreadable"}                        a comment's event cannot be read
@@ -246,9 +274,13 @@ def judge(fold: dict, now: datetime, silence: int) -> dict:
                                                        run still waits under; asked about
                                                        whatever its silence
         {"state": "recent", "since": T}                newest event younger than `silence`
-        {"state": "silent", "since": T, "sessions": [...], "comment": C}
+        {"state": "silent", "since": T, "sessions": [...], "comment": C, "idle": B}
                                                        held and silent; `sessions` is every
-                                                       (kind, runner, session) to ask
+                                                       (kind, runner, session) to ask;
+                                                       `idle` when its newest event is at
+                                                       least `idle` old and it waits for
+                                                       nothing: no live reviewer or
+                                                       verifier, and no pass
     """
     if fold.get("unreadable"):
         return {"state": "unreadable",
@@ -265,8 +297,11 @@ def judge(fold: dict, now: datetime, silence: int) -> dict:
     at = parse_iso(since)
     if at is not None and (now - at).total_seconds() < silence:
         return {"state": "recent", "since": since}
+    helpers = [r for r in fold.get("holders") or [] if r.get("kind") in ("reviewer", "verifier")]
+    quiet = at is not None and (now - at).total_seconds() >= idle
     return {"state": "silent", "since": since, "sessions": to_ask(fold),
-            "comment": last.get("comment")}
+            "comment": last.get("comment"),
+            "idle": quiet and not helpers and not fold.get("passed")}
 
 
 def to_ask(fold: dict) -> list[tuple[str, str, str, str]]:
@@ -282,17 +317,14 @@ def to_ask(fold: dict) -> list[tuple[str, str, str, str]]:
 
 
 def night_open(state: Path) -> bool:
-    """Whether a night is open on this state directory: the relay's `relay.json` is there,
-    or its `beat.json` still holds a last good poll. `relay.py stop` clears the one and the
-    relay removes the other on its way out; a relay that died leaves one behind. A
-    `beat.json` that cannot be read is not a closed night."""
-    if (state / "relay.json").exists():
-        return True
+    """Whether a night — any watch — is open on this state directory: the relay's
+    `watches.json` names one. `relay.py stop` closes a watch, and the relay closes the
+    watch of a main agent gone for an hour; a relay that died leaves its watches open. A
+    `watches.json` that cannot be read is not a closed night."""
     try:
-        beat = statedir.read_json(state / "beat.json", {})
+        return bool(relay_mod.read_watches(state))
     except ValueError:
         return True
-    return bool(isinstance(beat, dict) and beat.get("at"))
 
 
 def relay_problem(state: Path, now: datetime) -> str | None:
@@ -419,6 +451,7 @@ class Watchdog:
                  post: Callable[..., tuple[bool, str]] = post_lost,
                  clock: Callable[[], datetime] = now_utc,
                  poll: int = DEFAULT_POLL, silence: int = DEFAULT_SILENCE,
+                 idle: int = DEFAULT_IDLE,
                  pid: int | None = None, identity: str | None = None,
                  machine: str | None = None, err=None):
         self.state = Path(state)
@@ -430,6 +463,7 @@ class Watchdog:
         self.clock = clock
         self.poll = poll
         self.silence = silence
+        self.idle = idle
         self.pid = pid if pid is not None else os.getpid()
         self.identity = identity if identity is not None else statedir.own_identity()
         self.machine = machine if machine is not None else socket.gethostname()
@@ -438,11 +472,14 @@ class Watchdog:
         previous = previous if isinstance(previous, dict) else {}
         self.beat = {
             "pid": self.pid, "identity": self.identity, "started": iso(self.clock()),
-            "poll": poll, "tolerance": tolerance(poll), "silence": silence, "round": 0,
-            "watch": previous.get("watch"),
+            "poll": poll, "tolerance": tolerance(poll), "silence": silence, "idle": idle,
+            "round": 0,
+            "watches": previous.get("watches") if isinstance(previous.get("watches"), dict) else {},
             "held": None, "waiting": [], "unknown": {}, "lost": {}, "relay": None,
-            "pending": previous.get("pending") or [],
-            "reported": previous.get("reported") or [],
+            "pending": [p for p in previous.get("pending") or []
+                        if isinstance(p, dict) and p.get("runner") and p.get("session")],
+            "reported": [r for r in previous.get("reported") or []
+                         if isinstance(r, list) and len(r) == 3],
             "main": None, "closed": None, "machine": self.machine,
             # The last round that read every ticket. While reads are failing it is carried
             # across restarts, so a restart does not wipe out how long the board has gone
@@ -466,22 +503,41 @@ class Watchdog:
 
     # ------------------------------------------------------------- one round
 
-    def watched(self) -> tuple[list[int], int | None]:
-        """The tickets of the open night and its spec (None for a night of tickets)."""
+    def watches(self, failures: list[str]) -> dict[str, dict]:
+        """The open watches, by key; the last ones read when `watches.json` cannot be."""
         try:
-            record = self._read("relay.json", {})
-        except ValueError:
-            record = {}
-        watch = (record or {}).get("watch") if isinstance(record, dict) else None
-        if watch:
-            self.beat["watch"] = watch
-        watch = self.beat.get("watch") or {}
-        if watch.get("spec"):
-            return self.board.sub_issues(int(watch["spec"])), int(watch["spec"])
-        return [int(n) for n in watch.get("tickets") or []], None
+            self.beat["watches"] = relay_mod.read_watches(self.state)
+        except ValueError as exc:
+            failures.append(f"the watches ({self.state / 'watches.json'} is not JSON: {exc})")
+        return self.beat.get("watches") or {}
+
+    def watched(self, watches: dict[str, dict], failures: list[str]) -> dict[int, dict]:
+        """Every ticket to read this round, each with its watch: `spec` (None for a
+        tickets watch) and `main`, the (runner, session) its findings go to. Tickets
+        watches are taken first, as the relay takes them. A closed sub-issue of a spec is
+        left out; a spec whose sub-issues cannot be listed is a failure."""
+        tickets: dict[int, dict] = {}
+        ordered = sorted(watches.items(), key=lambda kv: (0 if kv[1].get("tickets") else 1, kv[0]))
+        for key, entry in ordered:
+            home = {"key": key, "spec": None, "main": relay_mod.main_of(entry)}
+            if entry.get("tickets"):
+                for number in entry["tickets"]:
+                    tickets.setdefault(int(number), home)
+                continue
+            spec = int(entry["spec"])
+            try:
+                children = self.board.children(spec)
+            except relay_mod.PollError as exc:
+                self.err.write(f"watchdog: could not read the tickets of spec #{spec}: {exc}\n")
+                failures.append(f"the tickets of spec #{spec}: {exc}")
+                continue
+            for number, state in children:
+                if state != "closed":
+                    tickets.setdefault(int(number), {**home, "spec": spec})
+        return tickets
 
     def round(self) -> str:
-        """One round. Returns `closed` (the night is over), `woke` (the main agent was woken
+        """One round. Returns `closed` (no watch is open), `woke` (a main agent was woken
         and is in a turn) or `watching`."""
         now = self.clock()
         self.beat["round"] += 1
@@ -491,6 +547,9 @@ class Watchdog:
             return "closed"
 
         findings: list[dict] = []
+        failures: list[str] = []
+        watches = self.watches(failures)
+        everyone = sorted({relay_mod.main_of(entry) for entry in watches.values()})
         problem = relay_problem(self.state, now)
         self.beat["relay"] = problem
         if problem:
@@ -500,21 +559,16 @@ class Watchdog:
                 "key": f"relay:{beat.get('at') or 'never'}:{record.get('started') or ''}",
                 "text": f"watchdog: relay down ({problem}); details: python3 {Path(__file__).resolve()} "
                         f"status --repo {self.repo}",
+                "to": everyone,
             })
 
-        read_all = True
-        failures: list[str] = []
-        try:
-            tickets, spec = self.watched()
-        except relay_mod.PollError as exc:
-            self.err.write(f"watchdog: could not read the night's tickets: {exc}\n")
-            failures.append(f"the night's tickets: {exc}")
-            tickets, spec = [], None
-            read_all = False
+        tickets = self.watched(watches, failures)
+        read_all = not failures
         held: list[int] = []
         waiting: list[int] = []
         unknown: dict = {}
-        for number in dict.fromkeys(tickets):
+        for number, home in tickets.items():
+            to = [home["main"]]
             try:
                 comments = self.board.comments(number, None)
             except relay_mod.PollError as exc:
@@ -523,24 +577,24 @@ class Watchdog:
                 read_all = False
                 continue
             fold = events.fold(comments, issue=number)
-            verdict = judge(fold, now, self.silence)
+            verdict = judge(fold, now, self.silence, self.idle)
             state = verdict["state"]
             if state == "unreadable":
                 held.append(number)
                 unknown[str(number)] = {"why": "events unreadable"}
                 findings.append({"key": f"unreadable:{number}:{verdict['comments']}",
-                                 "text": f"watchdog: #{number} events unreadable"})
+                                 "text": f"watchdog: #{number} events unreadable", "to": to})
             elif state == "free":
                 pass
             elif state == "waiting":
                 held.append(number)
                 waiting.append(number)
-                self._silent(number, spec, verdict, unknown, findings)
+                self._silent(number, home["spec"], verdict, unknown, findings, to)
             elif state == "recent":
                 held.append(number)
             else:
                 held.append(number)
-                self._silent(number, spec, verdict, unknown, findings)
+                self._silent(number, home["spec"], verdict, unknown, findings, to)
             self.beat["unknown"] = unknown
             self.write_beat()
 
@@ -557,8 +611,9 @@ class Watchdog:
                     "key": f"read:{self.beat.get('read_at')}",
                     "text": f"watchdog: cannot read the board since {self.beat.get('read_at')}: "
                             f"{self.beat['read_failure']}",
+                    "to": everyone,
                 })
-        woke = self._report(findings)
+        woke = self._report(findings, everyone)
         self.write_beat()
         return "woke" if woke else "watching"
 
@@ -570,7 +625,7 @@ class Watchdog:
         return value if isinstance(value, dict) else {}
 
     def _silent(self, number: int, spec: int | None, verdict: dict, unknown: dict,
-                findings: list[dict]) -> None:
+                findings: list[dict], to: list[tuple[str, str]]) -> None:
         """The third layer, for one held and silent ticket."""
         since = verdict.get("since")
         if not verdict["sessions"]:
@@ -579,6 +634,7 @@ class Watchdog:
                 "key": f"unheld:{number}:{verdict.get('comment')}",
                 "text": f"watchdog: #{number} is held with no session to ask, silent "
                         f"since {since or 'an unknown time'}",
+                "to": to,
             })
             return
         for kind, runner, session, machine in verdict["sessions"]:
@@ -595,11 +651,21 @@ class Watchdog:
                             f"{session} was started on {machine or 'an unrecorded machine'}, "
                             f"not on {self.machine}, and only that machine can ask {runner}; "
                             f"silent since {since or 'an unknown time'}",
+                    "to": to,
                 })
                 continue
             answer = self.ask(runner, session)
             self.write_beat()
             if answer == "alive":
+                if kind == "worker" and verdict.get("idle"):
+                    # Alive, and nothing it waits on will ever land: nobody is coming to wake it.
+                    findings.append({
+                        "key": f"idle:{number}:{verdict.get('comment')}",
+                        "text": f"watchdog: #{number} silent since {since} with nothing to wait "
+                                f"on: its worker {session} on {runner} is alive, and no "
+                                f"reviewer, verifier or product slot is pending",
+                        "to": to,
+                    })
                 continue
             if answer == "stopped":
                 posted, why = self.post(self.repo, kind, number, spec, runner, session, since)
@@ -622,42 +688,57 @@ class Watchdog:
                 "text": f"watchdog: #{number} liveness unknown: {runner} could not say whether "
                         f"the {kind} session {session} is alive; silent since "
                         f"{since or 'an unknown time'}",
+                "to": to,
             })
 
-    def _report(self, findings: list[dict]) -> bool:
-        """Send what has not been sent to the main agent. True when a turn started on it."""
-        reported = list(self.beat.get("reported") or [])
-        pending = [p for p in self.beat.get("pending") or [] if p.get("key") not in reported]
-        keys = {p["key"] for p in pending}
+    def _report(self, findings: list[dict], everyone: list[tuple[str, str]]) -> bool:
+        """Send each main agent what has not been sent to it. True when a turn started on
+        one of them. A finding kept for a session that is the main agent of no open watch
+        any more is let go: there is nobody left to tell."""
+        reported = [r for r in self.beat.get("reported") or [] if isinstance(r, list) and len(r) == 3]
+        done = {tuple(r) for r in reported}
+        mains = set(everyone)
+        pending = [p for p in self.beat.get("pending") or []
+                   if (p.get("runner"), p.get("session"), p.get("key")) not in done
+                   and (p.get("runner"), p.get("session")) in mains]
+        keys = {(p["runner"], p["session"], p["key"]) for p in pending}
         for finding in findings:
-            if finding["key"] not in reported and finding["key"] not in keys:
-                pending.append(finding)
-                keys.add(finding["key"])
+            for runner, session in finding["to"]:
+                mark = (runner, session, finding["key"])
+                if mark not in done and mark not in keys:
+                    pending.append({"key": finding["key"], "text": finding["text"],
+                                    "runner": runner, "session": session})
+                    keys.add(mark)
         self.beat["pending"] = pending
         if not pending:
-            return False
-        main = self._read_quiet("recipient.json")
-        if not main.get("runner") or not main.get("session"):
-            self.beat["main"] = "no main agent is registered with the relay"
-            self.err.write("watchdog: no main agent is registered (recipient.json), so these "
-                           "findings are kept: " + "; ".join(p["text"] for p in pending) + "\n")
-            return False
-        # One line: a runner types what it is handed into a terminal, where a newline submits.
-        text = " | ".join(p["text"] for p in pending)
-        code = self.send(main["runner"], main["session"], text)
-        if code in (0, 4):
-            self.beat["reported"] = (reported + [p["key"] for p in pending])[-REPORTED_KEEP:]
-            self.beat["pending"] = []
             self.beat["main"] = None
-            return code == 0
-        if code == 2:
-            self.beat["main"] = f"{main['runner']} has no session {main['session']}"
-            self.err.write(f"watchdog: the main agent's session ({main['runner']} "
-                           f"{main['session']}) is gone, so nobody can be told: {text}\n")
-        else:
-            self.err.write(f"watchdog: {main['runner']}.sh send answered {code}; the findings "
-                           f"are sent again next round\n")
-        return False
+            return False
+        by_main: dict[tuple[str, str], list[dict]] = {}
+        for item in pending:
+            by_main.setdefault((item["runner"], item["session"]), []).append(item)
+        woke = False
+        kept: list[dict] = []
+        problems: dict[str, str] = {}
+        for (runner, session), items in by_main.items():
+            # One line: a runner types what it is handed into a terminal, where a newline submits.
+            text = " | ".join(p["text"] for p in items)
+            code = self.send(runner, session, text)
+            if code in (0, 4):
+                reported.extend([runner, session, p["key"]] for p in items)
+                woke = woke or code == 0
+                continue
+            kept.extend(items)
+            if code == 2:
+                problems[f"{runner} {session}"] = f"{runner} has no session {session}"
+                self.err.write(f"watchdog: the main agent's session ({runner} {session}) is "
+                               f"gone, so nobody can be told: {text}\n")
+            else:
+                self.err.write(f"watchdog: {runner}.sh send answered {code}; the findings for "
+                               f"{session} are sent again next round\n")
+        self.beat["reported"] = reported[-REPORTED_KEEP:]
+        self.beat["pending"] = kept
+        self.beat["main"] = problems or None
+        return woke
 
 
 # ----------------------------------------------------------------- reading and arming
@@ -748,7 +829,7 @@ def cmd_run(args) -> int:
         with statedir.locked(state / "watchdog.lock", wait=0, purpose=f"watchdog for {args.repo}"):
             signal.signal(signal.SIGTERM, stop)
             signal.signal(signal.SIGINT, stop)
-            dog = Watchdog(state, args.repo, poll=args.poll, silence=args.silence)
+            dog = Watchdog(state, args.repo, poll=args.poll, silence=args.silence, idle=args.idle)
             dog.write_beat()
             while True:
                 outcome = dog.round()
@@ -788,10 +869,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="watchdog.py", description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
 
-    run = sub.add_parser("run", help="watch the open night until it closes or a wake lands")
+    run = sub.add_parser("run", help="watch the open watches until none is left or a wake lands")
     run.add_argument("--repo", required=True)
     run.add_argument("--poll", type=positive_int, default=DEFAULT_POLL)
     run.add_argument("--silence", type=positive_int, default=DEFAULT_SILENCE)
+    run.add_argument("--idle", type=positive_int, default=DEFAULT_IDLE)
     run.add_argument("--once", action="store_true")
     run.set_defaults(fn=cmd_run)
 

@@ -10,7 +10,7 @@
 <engine> <n> --preflight
 ```
 
-It checks the branch, uncommitted tracked changes, the ticket's state, its `ready-for-agent` label, its open blockers, and its assignee, and claims the ticket for you when all six pass, posting a `ticket.claimed` event. If it prints `NOT_READY`, stop — the reason is already on the ticket as a `ticket.refused` event whose first line is that sentence, so there is nothing to report twice. The event names your runner and session (as the `dispatch` skill's `self` reads them), which ends your hold on the ticket: you do nothing more on it, and the main agent is woken to fix the reason and start it again.
+It checks the branch, uncommitted tracked changes, the ticket's state, its `ready-for-agent` label, its blockers — one that is open, or closed with a pass that has not landed, still holds it — and its assignee, and claims the ticket for you when all six pass, posting a `ticket.claimed` event. If it prints `NOT_READY`, stop — the reason is already on the ticket as a `ticket.refused` event whose first line is that sentence, so there is nothing to report twice. The event names your runner and session (as the `dispatch` skill's `self` reads them), which ends your hold on the ticket: you do nothing more on it, and the main agent is woken to fix the reason and start it again.
 
 This is the only run that claims a ticket, and the claim is what the closeout reads at the end: a draft on a ticket you do not hold is refused with `#<n> is not assigned to you (<login>); run --preflight first`. So it comes before anything else on the ticket, including work you are being prompted back into after the claim was taken off.
 

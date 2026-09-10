@@ -219,24 +219,13 @@ def unreadable_reason(ticket: dict) -> str:
 # --------------------------------------------------------------------- the rows
 
 def blocker_reason(number: int, state: str, tickets: dict[int, dict], lookup) -> str:
-    """Why blocker `number` still holds its ticket back, or empty when it no longer does.
-
-    A blocker lets go when its work is on the base branch, not when it closes: the
-    ticket it blocks is cut from the base branch and has to find that work there. The
-    signal is `ticket.landed`, read off the blocker's own events. A blocker closed without
-    a pass — by a person, or as not planned — has nothing that will ever land, and lets
-    go on closing.
+    """Why blocker `number` still holds its ticket back, or empty when it no longer does:
+    `events.blocker_hold`, the same answer the worker's `--preflight` gives. A blocker's
+    events are read only once it is closed; an open one holds whatever they say.
     """
-    if state != "CLOSED":
-        return "open"
-    blocker = tickets.get(number) or lookup(number)
-    if blocker is None or blocker.get("unread_raw"):
-        return "the tracker did not answer for it"
-    if blocker["fold"]["unreadable"]:
-        return "its events cannot be read"
-    if not passed_unlanded(blocker):
-        return ""
-    return "passed, not landed"
+    blocker = (tickets.get(number) or lookup(number)) if state == "CLOSED" else None
+    fold = None if blocker is None or blocker.get("unread_raw") else blocker["fold"]
+    return events.blocker_hold(state, fold)
 
 
 def cached(read):

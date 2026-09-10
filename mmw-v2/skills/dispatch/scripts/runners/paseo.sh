@@ -3,7 +3,7 @@
 # Paseo adapter: the three verbs of the runner boundary, `stop`, and `self`.
 #
 #   runners/paseo.sh start --host H --model M --effort E --cwd DIR [--skip-approval]
-#                          [--title T] [--label K=V]... --prompt TEXT
+#                          [--title T] --prompt TEXT
 #   runners/paseo.sh send <session-id> <text>
 #   runners/paseo.sh liveness <session-id>
 #   runners/paseo.sh stop <session-id>
@@ -11,7 +11,7 @@
 #
 # start runs `paseo run -d` in DIR and prints the agent id Paseo answers with; exit 1,
 # with the reason on stderr, when Paseo did not start it. The host's mode and thinking
-# level come from `models.py paseo-args`. Labels are put on the agent as given.
+# level come from `models.py paseo-args`.
 # send: exit 0 the text was delivered; 3 the session is there and did not take it;
 # 2 there is no such session.
 # liveness prints one of `alive`, `stopped`, `unknown` on stdout.
@@ -21,7 +21,7 @@
 # cannot be read (the reason on stderr). The main agent names itself to the relay with it.
 # Paseo sets PASEO_AGENT_ID in every agent it runs, and that id is the one `send` takes.
 #
-# MMW_USES: run -d --json --provider --mode --thinking --cwd --title --label
+# MMW_USES: run -d --json --provider --mode --thinking --cwd --title
 # MMW_USES: send --no-wait
 # MMW_USES: ls -g --json
 # MMW_USES: archive --force
@@ -35,7 +35,7 @@ paseo_() {
 }
 
 usage() {
-  echo "usage: runners/paseo.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--label K=V]... --prompt TEXT" >&2
+  echo "usage: runners/paseo.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] --prompt TEXT" >&2
   echo "       runners/paseo.sh send <session-id> <text>" >&2
   echo "       runners/paseo.sh liveness <session-id>" >&2
   echo "       runners/paseo.sh stop <session-id>" >&2
@@ -68,10 +68,9 @@ sys.exit(1)
 
 start() {
   local host="" model="" effort="" cwd="" prompt="" title=""
-  local -a labels=()
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      --host|--model|--effort|--cwd|--prompt|--title|--label)
+      --host|--model|--effort|--cwd|--prompt|--title)
         [ "$#" -ge 2 ] || usage
         case "$1" in
           --host) host="$2" ;;
@@ -80,7 +79,6 @@ start() {
           --cwd) cwd="$2" ;;
           --prompt) prompt="$2" ;;
           --title) title="$2" ;;
-          --label) labels+=(--label "$2") ;;
         esac
         shift 2
         ;;
@@ -108,7 +106,7 @@ start() {
   # PASEO_WORKSPACE_ID from the caller's terminal would put the agent in that workspace
   # instead of DIR (`paseo run` ranks it above --cwd).
   if ! out="$(env -u PASEO_WORKSPACE_ID -u CLICOLOR_FORCE -u CLICOLOR paseo run -d --json \
-        "${args[@]}" --cwd "$cwd" ${labels[@]+"${labels[@]}"} -- "$prompt" 2>"$err")"; then
+        "${args[@]}" --cwd "$cwd" -- "$prompt" 2>"$err")"; then
     echo "runners/paseo.sh: paseo run refused $host in $cwd: $(tr '\n' ' ' < "$err")" >&2
     rm -f "$err"
     exit 1
