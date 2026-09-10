@@ -268,8 +268,10 @@ USAGE
 #
 # Wake-ups come from the board, never from here: `relay.py` reads the tickets' events and
 # hands each result to the session waiting on it through that session's runner's `send`.
-# What these helpers do is name the main agent to it, start and stop it, and ask whether it
-# watches a ticket.
+# What these helpers do is open and close a watch — a night, or tickets outside one — with
+# this session as its main agent, and ask whether the relay watches a ticket. One relay
+# process serves every watch of the repository: it starts with the first and ends with the
+# last.
 
 # This repository as `gh` names it, owner/name: the relay keeps one state directory per
 # repository. Exit 2, with the reason on stderr, when the tracker cannot say.
@@ -318,7 +320,7 @@ own_session() {
   return 2
 }
 
-# Exit 0 when a running relay sees ticket <n>'s events — it watches the ticket's spec, or
+# Exit 0 when a running relay sees ticket <n>'s events — a watch of the ticket's spec, or of
 # the ticket — or, with no ticket, when it watches <spec>. Otherwise the reason on stderr.
 relay_watches() {
   local number="$1" spec="$2" repo
@@ -329,9 +331,9 @@ relay_watches() {
   python3 "$RELAY" watching --repo "$repo" "${which[@]}" >/dev/null
 }
 
-# Stop the relay started for what the arguments name (`--spec N` or `--tickets N`).
-# Exit 0 it stopped, or none ran; 3 the relay that runs watches something else and was
-# left running; 1 it did not end, the reason on stderr.
+# Close the watch the arguments name (`--spec N` or `--tickets N`); the relay process ends
+# with its last watch. Exit 0 closed, or nothing was watched; 3 that watch is not open, and
+# the relay's other watches were left alone; 1 the relay did not end, the reason on stderr.
 stop_relay() {
   local repo out rc
   repo="$(repo_slug)" || return 1
@@ -348,29 +350,30 @@ stop_relay() {
   return 1
 }
 
-# Register this session as the main agent and start the relay for what the arguments name
-# (`--spec N` or `--tickets N`). Prints "runner<TAB>session<TAB>started|running" — whether
-# this call started the relay or found it running. Exit 2 with the reason on stderr.
+# Open the watch the arguments name (`--spec N` or `--tickets N`) with this session as its
+# main agent, and make sure the relay runs. One call to `relay.py start`, which checks
+# everything before it writes anything: a refused watch leaves every open watch, and its
+# main agent, as it was. Prints "runner<TAB>session<TAB>started|running": `started` when
+# this call opened the watch, `running` when it was open already and this session is now
+# its main agent. Exit 2 with the reason on stderr.
 open_relay() {
-  local repo line runner session started
+  local repo line runner session out
   repo="$(repo_slug)" || return 2
   line="$(own_session)" || return 2
   runner="${line%%$'\t'*}"
   session="${line#*$'\t'}"
-  python3 "$RELAY" register --repo "$repo" --runner "$runner" --session "$session" >/dev/null \
-    || { echo "dispatch: the main agent, $runner session $session, could not be registered with the relay (the reason is above), so nothing was opened" >&2; return 2; }
-  started="$(python3 "$RELAY" start --repo "$repo" "$@")" \
-    || { echo "dispatch: the relay did not start (the reason is above), so nothing watches the board" >&2; return 2; }
-  echo "dispatch: $started" >&2
-  case "$started" in
-    "relay started"*) printf '%s\t%s\tstarted\n' "$runner" "$session" ;;
+  out="$(python3 "$RELAY" start --repo "$repo" "$@" --runner "$runner" --session "$session")" \
+    || { echo "dispatch: the relay did not open the watch for $runner session $session (the reason is above), so nothing was opened" >&2; return 2; }
+  printf '%s\n' "$out" | sed 's/^/dispatch: /' >&2
+  case "$out" in
+    "opened "*) printf '%s\t%s\tstarted\n' "$runner" "$session" ;;
     *) printf '%s\t%s\trunning\n' "$runner" "$session" ;;
   esac
 }
 
-# `open <spec>`: the night begins. The main agent is named to the relay, the relay starts
-# watching the spec's tickets, and `spec.opened` on the spec records who is woken. A
-# spec.opened that could not be written stops the relay this call started: a night that
+# `open <spec>`: the night begins. The relay watches the spec's tickets with this session
+# as the night's main agent, and `spec.opened` on the spec records who is woken. A
+# spec.opened that could not be written closes the watch this call opened: a night that
 # says nowhere that it is open is not opened.
 open_night() {
   local spec="$1" opened runner session how
@@ -380,13 +383,13 @@ open_night() {
        --line "NIGHT OPENED #$spec: wake-ups go to the main agent, $runner session $session" \
        --field "runner=$runner" --field "session=$session"; then
     [ "$how" = started ] && stop_relay --spec "$spec"
-    refuse "could not write the spec.opened event on #$spec, so the night is not open$([ "$how" = started ] && echo " and the relay this started was stopped again"); run open again once the tracker takes comments"
+    refuse "could not write the spec.opened event on #$spec, so the night is not open$([ "$how" = started ] && echo " and the watch this opened was closed again"); run open again once the tracker takes comments"
   fi
   echo "opened #$spec: wake-ups go to $runner session $session"
 }
 
-# `open-ticket <n>`: one ticket outside a night. The main agent is named to the relay and
-# the relay watches that ticket alone; `land <n>` stops it.
+# `open-ticket <n>`: one ticket outside a night. The relay watches that ticket with this
+# session as its main agent; `land <n>` closes the watch.
 open_ticket() {
   local number="$1" opened runner session how
   opened="$(open_relay --tickets "$number")" || exit 2
@@ -415,9 +418,9 @@ ack_wake() {
 # reviewer's report would wake nobody, and `start <n> reviewer` would refuse. This writes
 # that event with the session's own runner and session (its adapter's `self`) and the
 # facts `start` writes — the grade's live-table row, this worktree, its branch and base,
-# and no slot, which the first run of its criteria that runs the product claims — and makes sure a relay watches the ticket: the one
-# already watching it, or one started for this ticket alone with this session as the one
-# woken. Run it from the ticket's worktree, on branch issue-<n>, before claiming.
+# and no slot, which the first run of its criteria that runs the product claims — and makes sure a relay watches the ticket: the
+# watch already covering it, or a watch of this ticket alone with this session as its main
+# agent. Run it from the ticket's worktree, on branch issue-<n>, before claiming.
 adopt_ticket() {
   local number="$1" line runner session
   line="$(own_session)" || exit 2
@@ -490,7 +493,7 @@ for r in state.get("sessions") or []:
   if ! relay_watches "$number" "$spec" 2>/dev/null; then
     local opened
     opened="$(open_relay --tickets "$number")" \
-      || refuse "no relay watches #$number and none could be started for it (the reason is above), so nothing was adopted"
+      || refuse "no relay watches #$number and no watch could be opened for it (the reason is above), so nothing was adopted"
     case "$opened" in *$'\t'started) started=1 ;; esac
   fi
 
@@ -509,7 +512,7 @@ for r in state.get("sessions") or []:
        --field "grade=$profile" --field "worktree=$tree" --field "branch=issue-$number" \
        --field "base=$base" --json-field adopted=true; then
     [ -n "$started" ] && stop_relay --tickets "$number"
-    refuse "could not write the worker.started event on #$number, so this session is not its worker$([ -n "$started" ] && echo " and the relay this started was stopped again"); adopt again once the tracker takes comments"
+    refuse "could not write the worker.started event on #$number, so this session is not its worker$([ -n "$started" ] && echo " and the watch this opened was closed again"); adopt again once the tracker takes comments"
   fi
   printf '%s\n' "$session"
 }
@@ -1636,8 +1639,9 @@ land_tickets() {
 
   echo "land: merged $merged, archived $archived, released $released, still working $kept, already landed $nothing, left unmerged $unmerged" >&2
 
-  # `land <n>` is the whole ending of a ticket outside a night, so the relay `open-ticket`
-  # started for it ends here. A relay watching a night is not this one and is left alone.
+  # `land <n>` is the whole ending of a ticket outside a night, so the watch `open-ticket`
+  # opened for it closes here, and the relay with it when it watched nothing else. A
+  # night's watch is not this one and is left alone.
   local relay_left=0
   if [ "$kept" -eq 0 ]; then
     stop_relay --tickets "${numbers[0]}"
@@ -1796,7 +1800,7 @@ suspend_night() {
     left=$((left + 1))
   fi
 
-  # A suspended night wakes nobody: its relay stops with it.
+  # A suspended night wakes nobody: its watch closes with it.
   stop_relay --spec "$spec"
   case "$?" in
     1) left=$((left + 1)) ;;
@@ -1922,11 +1926,11 @@ summary_spec() {
     || refuse "could not post the night summary on #$spec"
   printf '%s\n' "$body"
 
-  # The night is over, and so is what woke its sessions.
+  # The night is over, and so is its watch: nothing wakes its sessions any more.
   stop_relay --spec "$spec"
   case "$?" in
     1)
-      echo "dispatch: the summary is posted on #$spec, and the relay watching it is still running (the reason is above)" >&2
+      echo "dispatch: the summary is posted on #$spec and its watch is closed, and the relay, which watched nothing else, is still running (the reason is above)" >&2
       exit 1
       ;;
     3) echo "dispatch: the relay running for this repository does not watch #$spec, so it was left running" >&2 ;;

@@ -1222,9 +1222,10 @@ PY
   rm -rf "$STATE_DIR"
 }
 
-# A stand-in for a running relay that watches <watch> (default spec 76): a process of its
-# own, detached so that nobody here has to reap it, whose pid and identity the lock record
-# and relay.json name. It never polls; only what `watching`, `start` and `stop` read of a
+# A stand-in for a running relay whose one watch is <watch> (default spec 76), opened by
+# paseo session agt_main: a process of its own, detached so that nobody here has to reap
+# it, whose pid and identity the lock record and relay.json name, and the watch written
+# into watches.json. It never polls; only what `watching`, `start` and `stop` read of a
 # running relay is imitated.
 fake_relay() {
   local watch='{"spec": 76}'
@@ -1246,13 +1247,17 @@ for _ in range(50):
 record = {"pid": child.pid, "identity": identity, "since": "2026-09-10T00:00:00Z",
           "purpose": "a stand-in relay"}
 (state / "relay.lock").write_text(json.dumps(record) + "\n")
-(state / "relay.json").write_text(json.dumps({"pid": child.pid, "identity": identity,
-                                              "watch": json.loads(sys.argv[3])}) + "\n")
+(state / "relay.json").write_text(json.dumps({"pid": child.pid, "identity": identity}) + "\n")
+watch = json.loads(sys.argv[3])
+key = (f"spec:{watch['spec']}" if watch.get("spec")
+       else "tickets:" + ",".join(str(n) for n in sorted(watch["tickets"])))
+(state / "watches.json").write_text(json.dumps(
+    {key: {**watch, "runner": "paseo", "session": "agt_main", "at": "2026-09-10T00:00:00Z"}}) + "\n")
 PY
 }
 
-# The pid of the relay holding o/r's lock, and what relay.json says it watches; nothing
-# when none runs.
+# The pid of the relay holding o/r's lock, and the watches it has open, each as its watch
+# (`{"spec": N}` or `{"tickets": [...]}`); nothing when none runs.
 relay_now() {
   python3 - "$SKILL/scripts" "$STATE_DIR" <<'PY'
 import json, sys
@@ -1263,10 +1268,25 @@ state = Path(sys.argv[2])
 holder = statedir.holder(state / "relay.lock") if (state / "relay.lock").exists() else None
 if holder:
     try:
-        watch = json.loads((state / "relay.json").read_text()).get("watch")
+        watches = json.loads((state / "watches.json").read_text())
     except Exception:
-        watch = None
-    print(holder["pid"], json.dumps(watch, sort_keys=True))
+        watches = {}
+    shown = [{k: w[k] for k in ("spec", "tickets") if k in w} for _, w in sorted(watches.items())]
+    print(holder["pid"], " ".join(json.dumps(w, sort_keys=True) for w in shown))
+PY
+}
+
+# The main agent of the open watch <key> (`spec:N` or `tickets:N`), "runner session";
+# nothing when that watch is not open.
+watch_main() {
+  python3 - "$STATE_DIR/watches.json" "$1" <<'PY'
+import json, sys
+try:
+    watch = json.load(open(sys.argv[1])).get(sys.argv[2])
+except (OSError, ValueError):
+    watch = None
+if watch:
+    print(watch["runner"], watch["session"])
 PY
 }
 
@@ -3994,13 +4014,12 @@ scenario_open() {
   no_relay
   write_open_batch
   seed_main_agent agt_main
-  echo "--- open registers the main agent, starts the relay on the spec, and writes spec.opened"
+  echo "--- open opens the spec's watch with this session as its main agent, starts the relay, and writes spec.opened"
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 0 ] || fail "open expected 0, got $code: $(cat "$TMP/err")"
   grep -qx "opened #76: wake-ups go to paseo session agt_main" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
-  python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); sys.exit(0 if (r["runner"], r["session"]) == ("paseo", "agt_main") else 1)' \
-    "$STATE_DIR/recipient.json" || fail "the main agent should be registered: $(cat "$STATE_DIR/recipient.json" 2>&1)"
+  [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "spec 76's main agent should be agt_main: $(cat "$STATE_DIR/watches.json" 2>&1)"
   case "$(relay_now)" in *'{"spec": 76}'*) ;; *) fail "a relay should be watching spec 76: $(relay_now)" ;; esac
   posted_events 76 runner session | grep -qx "spec.opened runner=paseo session=agt_main" \
     || fail "#76 should carry spec.opened naming the main agent: $(posted_events 76 runner session)"
@@ -4019,16 +4038,37 @@ scenario_open() {
   [ "$code" = 0 ] || fail "a second open of #76 expected 0, got $code: $(cat "$TMP/err")"
   [ "$(relay_now | cut -d' ' -f1)" = "$pid" ] || fail "the relay should be the same process: $pid, now $(relay_now)"
 
-  echo "--- another night in this repository is refused while this one's relay runs"
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+  echo "--- another night in this repository, opened by another session, joins the one relay with its own main agent"
+  seed_main_agent agt_other
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_other FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open 77)"
-  [ "$code" = 2 ] || fail "open 77 expected 2, got $code"
-  grep -q "watching spec #76, and one repository has one relay" "$TMP/err" || fail "the refusal should name the running relay: $(cat "$TMP/err")"
-  [ -z "$(posted_events 77)" ] || fail "#77 should carry nothing: $(posted_events 77)"
+  [ "$code" = 0 ] || fail "open 77 expected 0, got $code: $(cat "$TMP/err")"
+  grep -qx "opened #77: wake-ups go to paseo session agt_other" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
+  [ "$(relay_now | cut -d' ' -f1)" = "$pid" ] || fail "the second night should join relay $pid: $(relay_now)"
+  [ "$(watch_main spec:77)" = "paseo agt_other" ] || fail "spec 77's main agent should be agt_other: $(cat "$STATE_DIR/watches.json")"
+  [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "spec 76's main agent should still be agt_main: $(cat "$STATE_DIR/watches.json")"
+  posted_events 77 runner session | grep -qx "spec.opened runner=paseo session=agt_other" \
+    || fail "#77 should carry spec.opened naming its main agent: $(posted_events 77 runner session)"
 
-  echo "--- summary stops the relay open started"
+  echo "--- a ticket of an open night is refused a watch of its own, and the night keeps its main agent"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_other FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" open-ticket 61)"
+  [ "$code" = 2 ] || fail "open-ticket 61 expected 2, got $code"
+  grep -q "#61 is a sub-issue of spec #76, which is watched with paseo session agt_main as its main agent" "$TMP/err" \
+    || fail "the refusal should name the watch it overlaps: $(cat "$TMP/err")"
+  [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "a refused open must not touch spec 76's main agent: $(cat "$STATE_DIR/watches.json")"
+  [ -z "$(watch_main tickets:61)" ] || fail "no watch on #61 should be open: $(cat "$STATE_DIR/watches.json")"
+
+  echo "--- summary closes its night's watch, and the relay goes on for the other night"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" summary 76)"
   [ "$code" = 0 ] || fail "summary expected 0, got $code: $(cat "$TMP/err")"
+  grep -q "stopped watching spec #76 for o/r: the relay (pid $pid) goes on watching spec #77" "$TMP/err" \
+    || fail "summary should say the relay goes on for #77: $(cat "$TMP/err")"
+  case "$(relay_now)" in "$pid "'{"spec": 77}') ;; *) fail "relay $pid should watch spec 77 alone: $(relay_now)" ;; esac
+
+  echo "--- the last night's summary ends the relay"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" summary 77)"
+  [ "$code" = 0 ] || fail "summary 77 expected 0, got $code: $(cat "$TMP/err")"
   [ -z "$(relay_now)" ] || fail "summary should have stopped the relay: $(relay_now)"
   kill -0 "$pid" 2>/dev/null && fail "relay pid $pid should be gone"
   no_relay
@@ -4046,7 +4086,7 @@ scenario_openrefused() {
   [ "$code" = 2 ] || fail "expected 2, got $code: $(cat "$TMP/err")"
   grep -q "runs in no runner whose adapter can name it (asked: paseo herdr orca)" "$TMP/err" \
     || fail "the refusal should name the runners asked: $(cat "$TMP/err")"
-  [ ! -f "$STATE_DIR/recipient.json" ] || fail "nothing should be registered"
+  [ ! -f "$STATE_DIR/watches.json" ] || fail "no watch should be open: $(cat "$STATE_DIR/watches.json")"
   [ -z "$(relay_now)" ] || fail "no relay should run: $(relay_now)"
   hasnt "gh :: issue :: comment :: 76"
 
@@ -4067,7 +4107,7 @@ scenario_openrefused() {
           FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 2 ] || fail "an unnamed Herdr agent expected 2, got $code"
   grep -q "has no name" "$TMP/err" || fail "the refusal should be Herdr's, not an Orca registration: $(cat "$TMP/err")"
-  [ ! -f "$STATE_DIR/recipient.json" ] || fail "the outer Orca terminal must not be registered"
+  [ ! -f "$STATE_DIR/watches.json" ] || fail "the outer Orca terminal must not be made a main agent: $(cat "$STATE_DIR/watches.json")"
 
   echo "--- a session the runner shows stopped is refused"
   reset_log
@@ -4078,16 +4118,17 @@ scenario_openrefused() {
   grep -q "session agt_gone is stopped" "$TMP/err" || fail "the refusal should say the session is stopped: $(cat "$TMP/err")"
   [ -z "$(relay_now)" ] || fail "no relay should run: $(relay_now)"
 
-  echo "--- spec.opened that cannot be written stops the relay open started"
+  echo "--- spec.opened that cannot be written closes the watch open opened, and the relay with it"
   reset_log
   no_relay
   seed_main_agent agt_main
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_COMMENT_FAILS=1 FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 2 ] || fail "expected 2, got $code"
-  grep -q "could not write the spec.opened event on #76, so the night is not open and the relay this started was stopped again" "$TMP/err" \
-    || fail "the refusal should say the relay was stopped: $(cat "$TMP/err")"
+  grep -q "could not write the spec.opened event on #76, so the night is not open and the watch this opened was closed again" "$TMP/err" \
+    || fail "the refusal should say the watch was closed: $(cat "$TMP/err")"
   [ -z "$(relay_now)" ] || fail "the relay should have been stopped: $(relay_now)"
+  [ -z "$(watch_main spec:76)" ] || fail "no watch on #76 should be open: $(cat "$STATE_DIR/watches.json")"
   no_relay
 }
 
@@ -4105,11 +4146,12 @@ scenario_openticket() {
   {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"]}
 ]
 JSON
-  echo "--- open-ticket registers the main agent and starts a relay on that ticket alone"
+  echo "--- open-ticket opens a watch of that ticket alone with this session as its main agent, and starts the relay"
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open-ticket 90)"
   [ "$code" = 0 ] || fail "open-ticket expected 0, got $code: $(cat "$TMP/err")"
   case "$(relay_now)" in *'{"tickets": [90]}'*) ;; *) fail "a relay should watch #90: $(relay_now)" ;; esac
+  [ "$(watch_main tickets:90)" = "paseo agt_main" ] || fail "#90's main agent should be agt_main: $(cat "$STATE_DIR/watches.json")"
   hasnt "gh :: issue :: comment"
 
   echo "--- a ticket of a spec is not what this relay watches, so its start is refused"
@@ -4129,6 +4171,18 @@ JSON
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" land 90)"
   [ "$code" = 0 ] || fail "land with a night open expected 0, got $code: $(cat "$TMP/err")"
   case "$(relay_now)" in *'{"spec": 76}'*) ;; *) fail "the night's relay should still run: $(relay_now)" ;; esac
+
+  echo "--- a ticket outside the open night gets a watch of its own beside it, and the night keeps its main agent"
+  local pid
+  pid="$(relay_now | cut -d' ' -f1)"
+  seed_main_agent agt_other
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_other FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" open-ticket 95)"
+  [ "$code" = 0 ] || fail "open-ticket 95 beside the night expected 0, got $code: $(cat "$TMP/err")"
+  grep -qx "opened #95: wake-ups go to paseo session agt_other" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
+  [ "$(relay_now)" = "$pid "'{"spec": 76} {"tickets": [95]}' ] || fail "relay $pid should watch the night and #95: $(relay_now)"
+  [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "the night's main agent should still be agt_main: $(cat "$STATE_DIR/watches.json")"
+  [ "$(watch_main tickets:95)" = "paseo agt_other" ] || fail "#95's main agent should be agt_other: $(cat "$STATE_DIR/watches.json")"
   no_relay
 }
 
@@ -4187,8 +4241,8 @@ assert w.get("slot") is None, w
   [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
     || fail "adopt took a slot; the first run that needs the product claims it: $(python3 "$LEASE_PY" list)"
   case "$(relay_now)" in *'{"tickets": [61]}'*) ;; *) fail "a relay should watch #61: $(relay_now)" ;; esac
-  python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); sys.exit(0 if r["session"] == "agt_self" else 1)' \
-    "$STATE_DIR/recipient.json" || fail "the adopting session is the one woken for #61's results"
+  [ "$(watch_main tickets:61)" = "paseo agt_self" ] \
+    || fail "the adopting session is the main agent of #61's watch: $(cat "$STATE_DIR/watches.json")"
 
   echo "--- and from there its reviewer can be started: the ticket can finish"
   code="$( (cd "$tree" && env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
@@ -4228,7 +4282,8 @@ JSON
           bash "$DISPATCH" "${TOOLS[@]}" adopt 61) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
   [ "$code" = 0 ] || fail "adopt in a night expected 0, got $code: $(cat "$TMP/err")"
   case "$(relay_now)" in *'{"spec": 76}'*) ;; *) fail "the night's relay should be the one: $(relay_now)" ;; esac
-  [ ! -f "$STATE_DIR/recipient.json" ] || fail "the night's registration is not this session's to take"
+  [ "$(watch_main spec:76)" = "paseo agt_main" ] && [ -z "$(watch_main tickets:61)" ] \
+    || fail "the night's main agent is not this session's to take: $(cat "$STATE_DIR/watches.json")"
   no_relay
 }
 

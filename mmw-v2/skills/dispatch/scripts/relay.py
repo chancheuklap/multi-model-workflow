@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """The relay: events on the board in, wake-ups for the session waiting on them out.
 
-    relay.py run --repo O/R (--tickets N[,N...] | --spec N) [--once] [--interval S] [--grace S]
-    relay.py start --repo O/R (--tickets N[,N...] | --spec N) [--interval S] [--grace S]
-    relay.py stop --repo O/R [--tickets N[,N...] | --spec N]
+    relay.py start --repo O/R (--spec N | --tickets N[,N...]) --runner R --session S [--interval S] [--grace S]
+    relay.py add --repo O/R (--spec N | --tickets N[,N...]) --runner R --session S
+    relay.py stop --repo O/R [--spec N | --tickets N[,N...]]
     relay.py watching --repo O/R [--ticket N] [--spec S]
-    relay.py register --repo O/R --runner R --session S
+    relay.py run --repo O/R [--once] [--interval S] [--grace S]
     relay.py ack --repo O/R --runner R --session S (--through SEQ | --ticket N --event E | --event relay.recovered)
     relay.py queue --repo O/R [--runner R --session S]
 
@@ -23,16 +23,29 @@ comments and sub-issues; its only writes are files in this repository's state di
 on this machine (statedir.py). Tickets are written by the scripts that write them and by
 nothing else (docs/adr/0001-tracker-repo-authority.md).
 
+**Watches.** What the relay reads is the union of its watches. A watch is what one
+`dispatch.sh open`, `open-ticket` or `adopt` opens: `{"spec": N}`, a night — N's
+sub-issues, listed again every cycle — or `{"tickets": [n, ...]}`, tickets outside a
+night. Each watch has its own main agent, a (runner, session) pair: the session that
+opened it. Nothing names a main agent but the watch it opened; there is no registration
+apart from a watch. A repository has one relay process and one state directory however many
+watches are open, so nights run from several branches or worktrees, one-ticket runs and
+adopted tickets all go through the same process. Two watches never share a ticket: a
+tickets watch naming a sub-issue of a watched spec, or a spec one of whose sub-issues a
+tickets watch names, is refused, since that ticket's wakes would have two main agents. A
+ticket that comes to sit under a watched spec after both were opened stays with its
+tickets watch.
+
 **Who is woken.** The session waiting on the event, which `WAKES` names by role:
 
     worker   reviewer.reported, verifier.passed, verifier.failed, and reviewer.lost or
              verifier.lost (that reviewer or verifier died with no result): the session
              that started that reviewer or verifier. Its runner and session are the
              `runner` and `session` fields of the ticket's latest `worker.started` before
-             the event.
-    main     ticket.passed, ticket.returned, ticket.refused, child.opened of kind fault
-             (the pipeline itself broken) or decision, worker.lost, and the relay's own
-             relay.recovered: the main agent, as `register` names it.
+             the event
+    main    ticket.passed, ticket.returned, ticket.refused, child.opened of kind fault
+             (the pipeline itself broken) or decision, worker.lost: the main agent of the
+             ticket's watch. The relay's own relay.recovered: every watch's main agent
 
 A worker needs no registration: the ticket says who it is. Each row is written with its
 recipient's runner and session, and only that recipient — the pair, never the session
@@ -41,15 +54,15 @@ id alone — consumes it.
 **Reading the board.** Every `--interval` seconds (default 30) the relay reads the
 comments of each watched ticket updated since the newest one it saw there, less two
 minutes of overlap, and records every (comment, event) pair it has translated, so the
-overlap never queues one twice. With `--spec N` the watched tickets are N's sub-issues,
-read again every cycle. On start it reads every watched ticket in full, not since
-anything: a relay that was down does not get to assume it missed nothing. A ticket whose
-read fails is reported on stderr, keeps its old mark and is read again next cycle, and a
-cycle with a failed read is never recorded as a good poll
-(docs/adr/0008-silence-is-never-a-pass.md).
+overlap never queues one twice. On start it reads every watched ticket in full, not since
+anything: a relay that was down does not get to assume it missed nothing. So is a ticket
+the first time a watch brings it in. A ticket whose read fails is reported on stderr,
+keeps its old mark and is read again next cycle, and a cycle with a failed read is never
+recorded as a good poll (docs/adr/0008-silence-is-never-a-pass.md).
 
 **A row's life.** Queued: `seq` (monotonic across all recipients, never reused, even after
-the queue empties), `ticket`, `event`, `to` (worker or main), the recipient's `runner` and
+the queue empties), `ticket`, `event`, `to` (worker or main), `watch` (the key of the
+watch its ticket belongs to; none on relay.recovered), the recipient's `runner` and
 `session`, `at`. Delivered: the relay ran `runners/<runner>.sh send <session> "#<ticket>
 <event>"` — the text carries the ticket number and the event name and nothing else; what
 happened is read on the board. What `send` answered decides what happens to the row:
@@ -66,55 +79,81 @@ happened is read on the board. What `send` answered decides what happens to the 
                       session; the row is dropped
     anything else     the send could not be run or did not answer; the row stays
 
-A row whose runner and session are no longer the current ones for its role — the main
-agent registered another session, or a later `worker.started` put another worker on the
-ticket — is dropped without a send, for the same reason as a 2. Every drop is reported on
-stderr. A recipient's rows reach it in sequence order: after one of them stays, that
-recipient gets nothing more this pass, and the other recipients are not held up by it.
-Delivery never removes a row: only `ack --runner R --session S --through <seq>` does, and it
-removes that recipient's rows up to that sequence number whatever their content, and nobody
-else's. So a row
-sent twice — every unacked row is sent once more each time the relay starts — is still
-handled once. A woken session knows the wake it read, not its sequence number, so
-`ack --ticket N --event E` names the wake instead: it acks through the recipient's oldest
-delivered row naming that ticket and event (the oldest queued one when none is marked
-delivered), and `--event relay.recovered` does the same for the announcement. Only that
-recipient's rows are looked at: an ack that matches none of them — acked already, sent to
-another session, or never queued — is refused, naming what it looked for and what is
-queued for that recipient, and removes nothing.
+A row that is no longer its recipient's is dropped without a send, for the same reason
+as a 2: its watch was closed; its watch's main agent is now another session (the watch
+was opened again from a new session); a later `worker.started` put another worker on the
+ticket; or, for relay.recovered, its recipient is the main agent of no watch any more.
+Every drop is reported on stderr. A recipient's rows reach it in sequence order: after
+one of them stays, that recipient gets nothing more this pass, and the other recipients
+are not held up by it. Delivery never removes a row: only `ack --runner R --session S
+--through <seq>` does, and it removes that recipient's rows up to that sequence number
+whatever their content, and nobody else's. So a row sent twice — every unacked row is
+sent once more each time the relay starts — is still handled once. A woken session knows
+the wake it read, not its sequence number, so `ack --ticket N --event E` names the wake
+instead: it acks through the recipient's oldest delivered row naming that ticket and event
+(the oldest queued one when none is marked delivered), and `--event relay.recovered` does
+the same for the announcement. Only that recipient's rows are looked at: an ack that
+matches none of them — acked already, sent to another session, or never queued — is
+refused, naming what it looked for and what is queued for that recipient, and removes
+nothing.
 
-**Starting and stopping.** `run` holds `relay.lock` for as long as it runs and records
-what it watches in `relay.json` beside it (its pid, its process identity, `watch`:
-`{"spec": N}` or `{"tickets": [...]}`), so one repository has one relay and anyone can ask
-what it watches. `start` runs `run` as a process of its own session, detached from the
-caller, with its output appended to `relay.log`, and returns once that process holds the
-lock: a caller's turn ending does not end the relay. `stop` ends the running relay with
-SIGTERM, but only when it watches what the caller names: a relay watching another spec or
-other tickets is left running. `watching` says whether a running relay would see a
-ticket's events: it watches the ticket's spec, or the ticket itself; with `--spec` alone,
-whether it watches that spec.
+**Opening a watch.** `start` checks first and writes after. It refuses when there is no
+adapter for the runner, when that runner's `liveness` says the session is `stopped`
+(every wake-up sent to it would be dropped), or when the watch overlaps another (the
+sub-issues of the specs involved are read from the board for that; a read that fails is
+a refusal too). Only when every check passes is the watch written with its main agent,
+under the queue lock. Opening a watch that is open already replaces that watch's main
+agent — a main agent replaced by a new session — and never touches another watch's.
+Then, when no relay runs for the repository, it starts `run` as a process of its own
+session, detached from the caller, with its output appended to `relay.log`, and returns
+once that process holds `relay.lock`: a caller's turn ending does not end the relay. A
+relay that does not come up has the watch this call opened closed again. When a relay
+runs, `start` only records the watch, and that process reads it on its next cycle. `add`
+is `start` without the process: the checks and the write.
+
+**Closing a watch.** `stop --spec N` or `--tickets N` closes that watch and its main
+agent; with none named it closes every watch. When no watch is left it ends the process
+with SIGTERM and forgets the last good poll: the night was closed on purpose, and the time
+until the next start is nobody's unattended stretch. Closing a watch that is not open
+changes nothing. `watching` says whether a running relay would see a ticket's events: a
+tickets watch names the ticket, or a spec watch is the ticket's spec; with `--spec`
+alone, whether that spec is watched.
+
+**A main agent that is gone.** A night whose main agent's session was closed without
+`summary` or `suspend` would otherwise be polled for ever, a few thousand REST requests an
+hour. Every 10 cycles the relay asks each watch's main agent's runner `liveness`. A main
+agent answered `stopped` at every ask for 3600 seconds or more has its watch closed as
+`stop` would close it, with a line in `relay.log`; `alive` or `unknown` starts the count
+again. The hour lets the reviewers and verifiers still at work bring their results back
+to their workers first, and the next `open` reads everything in full. The relay exits
+when no watch is left.
 
 **An unattended stretch** is time with no good poll: the relay was down, or its reads kept
 failing. Time spent in delivery passes is not part of it: a slow send delays the next poll,
 and the relay was attending all the while. When the time since the last good poll, less
 the time spent delivering, exceeds `--grace` seconds (default three intervals), the next
-good poll queues one `relay.recovered` row to the main agent for the whole stretch, ahead of the events it recovered: one announcement per stretch, never one
-per missed event. A stretch is named by the time of the last good poll before it — its
-generation — and `gap.json` records the latest one announced; a stretch already announced
-is never announced again, whatever became of its row. Consuming rows goes by sequence
-number and announcing a stretch goes by generation; neither touches the other. A relay
-ended by `stop` was stopped on purpose — the night it watched was closed — so `stop`
-clears the last good poll, and the time until the next start is no stretch at all.
+good poll queues one `relay.recovered` row to each watch's main agent (one per session,
+however many watches it opened) for the whole stretch, ahead of the events it recovered:
+one announcement per stretch, never one per missed event. A stretch is named by the time
+of the last good poll before it — its generation — and `gap.json` records the latest one
+announced; a stretch already announced is never announced again, whatever became of its
+rows. Consuming rows goes by sequence number and announcing a stretch goes by generation;
+neither touches the other.
 
 Files in the state directory:
 
     queue.jsonl     the rows, one JSON object per line, in sequence order
     queue.seq       the last sequence number issued
-    queue.lock      taken for every read and write of the files below it
+    queue.lock      taken for every read-and-write of the files below it
     seen.json       per ticket: (comment, event) pairs translated, newest updated_at, and
                     every worker.started as [comment id, runner, session]
-    recipient.json  the main agent's registered runner and session
-    relay.json      the running relay's pid, process identity and what it watches
+    watches.json    every open watch, keyed `spec:<n>` or `tickets:<n>[,<n>...]`: the
+                    watch (`spec` or `tickets`), its main agent's `runner` and `session`,
+                    when it was opened (`at`), and since when that runner has answered
+                    `stopped` (`stopped_since`, null while it has not). It outlives the
+                    process: a relay that died leaves its watches open
+    relay.json      the running relay's pid, process identity, interval, grace, start
+                    time, and `ending` once it has no watch left and is on its way out
     relay.log       what every started relay printed, appended
     beat.json       the last good poll, seconds spent delivering since it, the pass under way,
                     the last failed poll and why, the run's interval and grace
@@ -123,22 +162,35 @@ Files in the state directory:
 
 Exit codes:
 
-    run       0 --once read every watched ticket; 3 --once could not read at least one;
-              1 refused (no main agent registered, another relay running, a state file
-              unreadable)
-    start     0 a relay watching that is running (started now, or already); 1 refused (no
-              main agent registered, a relay watching something else is running, the
-              relay exited or did not take its lock; its log's last lines are on stderr)
-    stop      0 no relay is running any more (stopped now, or none was), and the last
-              good poll is forgotten either way; 1 it did not end;
-              3 the running relay watches something else and was left running
+    start     0 the watch is recorded and a relay runs (started now, or already); 1
+              refused (no adapter, the runner says the session is stopped, the watch
+              overlaps another, the board could not be read to check that, the relay
+              running is one whose `relay.json` names a single `watch` and reads no
+              watches.json, a state file unreadable, the relay exited or did not take its
+              lock: its log's last lines are on stderr, and a watch this call opened was
+              closed again)
+    add       0 recorded; 1 refused, as for start
+    stop      0 done: that watch is closed, and the process ended with the last watch (or
+              nothing was watched); 1 the process did not end; 3 that watch is not open,
+              and nothing was changed
     watching  0 a running relay watches that ticket, or that spec; 1 none does (stderr
               says why)
-    register  0 registered; 1 refused (no such adapter, the runner says the session stopped)
+    run       0 --once read every watched ticket, or the last watch was closed; 3 --once
+              could not read at least one; 1 refused (nothing is watched, another relay is
+              running, a state file unreadable)
     ack       0 acked; 1 refused (a sequence number that was never issued, a wake with no
               row queued for that runner and session)
     queue     0 rows printed and a relay polled within its grace; 3 rows printed, but no
               relay is running or its last good poll is older than its grace
+
+`start` and `add` print `opened the watch on <watch> for <repo>: wake-ups go to <runner>
+session <session>` for a watch that was not open, or `reopened ...` for one that was
+(`, was <runner> session <session>` when its main agent changed); `start` then prints
+`relay started for <repo>: pid <pid>, watching <watches>, log <path>` or `relay already
+running for <repo>: pid <pid>, watching <watches>`. `stop` prints `stopped the relay for
+<repo>: pid <pid>, watching <watches closed>` when the process ended, `stopped watching
+<watch> for <repo>: ...` when other watches remain or no process ran, and `no relay is
+running for <repo>` when nothing was watched.
 """
 
 from __future__ import annotations
@@ -187,8 +239,14 @@ QUEUE_WAIT = 10.0
 SEND_TIMEOUT = 180
 # How long one `gh` read of the board may take before it counts as failed.
 GH_TIMEOUT = 120
+# How long one adapter's `liveness` may take before its answer counts as unknown.
+LIVENESS_TIMEOUT = 60
 START_WAIT = 15.0
 STOP_WAIT = 15.0
+# Every this many cycles the relay asks each watch's main agent's runner whether it lives,
+MAIN_CHECK_EVERY = 10
+# and closes the watch of one answered `stopped` at every ask for this many seconds.
+MAIN_GONE_AFTER = 3600
 
 MAIN = "main"
 WORKER = "worker"
@@ -213,6 +271,8 @@ WORKER_STARTED = "worker.started"
 
 # The one row the relay writes about itself rather than about a ticket.
 RECOVERED = "relay.recovered"
+
+LIVENESS_ANSWERS = ("alive", "stopped", "unknown")
 
 
 class Refusal(RuntimeError):
@@ -278,6 +338,90 @@ def wake_text(row: dict) -> str:
     return f"#{row.get('ticket')} {row.get('event')}"
 
 
+# ----------------------------------------------------------------- watches
+
+def watch_key(watch: dict) -> str:
+    """The name a watch is kept under: `spec:<n>`, or `tickets:<n>[,<n>...]` in order."""
+    if watch.get("spec"):
+        return f"spec:{int(watch['spec'])}"
+    return "tickets:" + ",".join(str(n) for n in sorted({int(n) for n in watch.get("tickets") or []}))
+
+
+def watch_from_key(key: str) -> dict:
+    kind, _, numbers = (key or "").partition(":")
+    if kind == "spec":
+        return {"spec": int(numbers)}
+    return {"tickets": [int(n) for n in numbers.split(",") if n]}
+
+
+def describe_watch(watch: dict | None) -> str:
+    if not watch:
+        return "nothing"
+    if watch.get("spec"):
+        return f"spec #{watch['spec']}"
+    tickets = watch.get("tickets") or []
+    return ("tickets " if len(tickets) > 1 else "ticket ") + ", ".join(f"#{n}" for n in tickets)
+
+
+def describe_watches(watches: dict) -> str:
+    return " and ".join(describe_watch(w) for _, w in sorted(watches.items())) or "nothing"
+
+
+def watch_of(args) -> dict | None:
+    if getattr(args, "spec", None):
+        return {"spec": args.spec}
+    if getattr(args, "tickets", None):
+        return {"tickets": sorted(set(args.tickets))}
+    return None
+
+
+def read_watches(state: Path) -> dict[str, dict]:
+    """The open watches of a state directory, by key: each a watch (`spec` or `tickets`)
+    with its main agent's `runner` and `session`. An entry without a main agent is no
+    watch. Raises ValueError when `watches.json` is there and is not JSON."""
+    data = statedir.read_json(Path(state) / "watches.json", {})
+    out: dict[str, dict] = {}
+    for key, entry in (data.items() if isinstance(data, dict) else []):
+        if not isinstance(entry, dict) or not entry.get("runner") or not entry.get("session"):
+            continue
+        if not entry.get("spec") and not entry.get("tickets"):
+            continue
+        out[key] = entry
+    return out
+
+
+def main_of(entry: dict) -> tuple[str, str]:
+    return entry["runner"], entry["session"]
+
+
+def overlap(want: dict, watches: dict[str, dict], children: dict[int, list[int]]) -> str | None:
+    """Why `want` shares a ticket with another open watch, or None. `children` holds the
+    sub-issues of every spec the comparison needs."""
+    key = watch_key(want)
+    for other_key, other in sorted(watches.items()):
+        if other_key == key:
+            continue
+        whose = f"{other['runner']} session {other['session']}"
+        if want.get("tickets"):
+            mine = set(want["tickets"])
+            if other.get("tickets"):
+                shared = sorted(mine & set(other["tickets"]))
+                if shared:
+                    return (f"#{shared[0]} is already watched as {describe_watch(other)}, whose "
+                            f"main agent is {whose}")
+            else:
+                shared = sorted(mine & set(children.get(int(other["spec"]), [])))
+                if shared:
+                    return (f"#{shared[0]} is a sub-issue of spec #{other['spec']}, which is "
+                            f"watched with {whose} as its main agent")
+        elif other.get("tickets"):
+            shared = sorted(set(children.get(int(want["spec"]), [])) & set(other["tickets"]))
+            if shared:
+                return (f"its sub-issue #{shared[0]} is already watched as "
+                        f"{describe_watch(other)}, whose main agent is {whose}")
+    return None
+
+
 # ----------------------------------------------------------------- reading the board
 
 def quiet_env() -> dict:
@@ -325,13 +469,19 @@ class Board:
             url += f"&since={since}"
         return [c for c in self.gh(["api", "--paginate", "--slurp", url]) if isinstance(c, dict)]
 
-    def sub_issues(self, number: int) -> list[int]:
+    def children(self, number: int) -> list[tuple[int, str]]:
+        """Each sub-issue of `number` as (number, state): the state lower case, `open` or
+        `closed` as the REST answer gives it, empty when the answer carries none."""
         rows = self.gh(["api", "--paginate", "--slurp",
                         f"repos/{self.repo}/issues/{number}/sub_issues?per_page=100"])
-        return [int(r["number"]) for r in rows if isinstance(r, dict) and r.get("number")]
+        return [(int(r["number"]), str(r.get("state") or "").lower())
+                for r in rows if isinstance(r, dict) and r.get("number")]
+
+    def sub_issues(self, number: int) -> list[int]:
+        return [n for n, _ in self.children(number)]
 
 
-# ----------------------------------------------------------------- delivering
+# ----------------------------------------------------------------- the runner
 
 def adapter_path(runner: str) -> Path:
     return RUNNERS / f"{runner}.sh"
@@ -365,6 +515,22 @@ def send_via_adapter(runner: str, session: str, text: str) -> int:
     return run.returncode
 
 
+def ask_liveness(runner: str, session: str) -> str:
+    """`runners/<runner>.sh liveness <session>`: alive, stopped or unknown. Anything the
+    adapter did not answer in so many words — no adapter, a non-zero exit, a timeout,
+    other output — is unknown, never alive and never stopped."""
+    adapter = adapter_path(runner)
+    if not runner or not adapter.is_file():
+        return "unknown"
+    try:
+        run = subprocess.run(["bash", str(adapter), "liveness", session], capture_output=True,
+                             text=True, env=quiet_env(), timeout=LIVENESS_TIMEOUT)
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    answer = (run.stdout or "").strip()
+    return answer if run.returncode == 0 and answer in LIVENESS_ANSWERS else "unknown"
+
+
 # ----------------------------------------------------------------- the relay
 
 def _slot(per_ticket: dict, ticket: int) -> dict:
@@ -376,20 +542,24 @@ def _slot(per_ticket: dict, ticket: int) -> dict:
 
 
 class Relay:
-    """The queue, the recipients and the marks for one repository's state directory."""
+    """The queue, the watches, the recipients and the marks for one repository's state
+    directory."""
 
     def __init__(self, state: Path, board: Board | None = None,
                  send: Callable[[str, str, str], int] = send_via_adapter,
                  clock: Callable[[], datetime] = now_utc,
+                 ask: Callable[[str, str], str] = ask_liveness,
                  out=None, err=None):
         self.state = Path(state)
         self.board = board
         self.send = send
         self.clock = clock
+        self.ask = ask
         self.out = out or sys.stdout
         self.err = err or sys.stderr
         # Tickets read in full since this process started: the rest are read since their mark.
         self.reconciled: set[int] = set()
+        self.cycles = 0
 
     # ------------------------------------------------------------- files
 
@@ -443,26 +613,176 @@ class Relay:
                           f"and run the command again.") from None
         return max([recorded] + [r["seq"] for r in rows])
 
-    # ------------------------------------------------------------- recipients
+    # ------------------------------------------------------------- watches
 
-    def recipient(self) -> dict | None:
-        """The main agent's registration, or None."""
-        data = self._read_state("recipient.json", None)
-        if isinstance(data, dict) and data.get("runner") and data.get("session"):
-            return data
-        return None
+    def watches(self) -> dict[str, dict]:
+        """Every open watch, by key. `watches.json` is replaced in one step, so it is read
+        without the lock; every change to it is made under the lock."""
+        try:
+            return read_watches(self.state)
+        except ValueError as exc:
+            raise Refusal(f"{self.path('watches.json')} is not JSON ({exc}); which watches are "
+                          f"open, and whose wake-ups go where, cannot be told. Move that file "
+                          f"aside and open each watch again (dispatch.sh open, open-ticket or "
+                          f"adopt).") from None
 
-    def _no_main(self) -> Refusal:
-        return Refusal(f"no main agent is registered in {self.path('recipient.json')}, so its "
-                       f"wake-ups have nobody to go to. Run `relay.py register --repo "
-                       f"<owner/name> --runner <runner> --session <session>` for the main "
-                       f"agent's session.")
+    def _write_watches(self, watches: dict[str, dict]) -> None:
+        statedir.write_atomic(self.path("watches.json"),
+                              json.dumps(watches, sort_keys=True, indent=1) + "\n")
 
-    def register(self, runner: str, session: str) -> dict:
-        record = {"runner": runner, "session": session, "at": iso(self.clock())}
+    def _relay_record(self) -> dict:
+        try:
+            record = statedir.read_json(self.path("relay.json"), {})
+        except ValueError:
+            return {}
+        return record if isinstance(record, dict) else {}
+
+    def _mark_ending(self) -> None:
+        """Say in the running relay's record that it has no watch left and is leaving, so a
+        `start` that comes now starts another instead of counting on this one."""
+        record = self._relay_record()
+        if record:
+            record["ending"] = True
+            statedir.write_atomic(self.path("relay.json"), json.dumps(record, sort_keys=True) + "\n")
+
+    def _forget_last_poll(self) -> None:
+        """No watch is left: the time until the next start is nobody's unattended stretch,
+        and no `relay.recovered` is announced for a closed night. The next relay reads
+        every ticket in full on start all the same."""
+        beat = self._read_state("beat.json", {})
+        if beat:
+            beat.update(at=None, delivering=0, delivery_started=None, stopped=iso(self.clock()))
+            statedir.write_atomic(self.path("beat.json"), json.dumps(beat, sort_keys=True) + "\n")
+
+    def _children_for(self, want: dict, watches: dict[str, dict]) -> dict[int, list[int]]:
+        """The sub-issues of every spec the overlap check of `want` needs, from the board."""
+        key = watch_key(want)
+        if want.get("tickets"):
+            specs = [int(w["spec"]) for k, w in watches.items() if k != key and w.get("spec")]
+        elif any(w.get("tickets") for k, w in watches.items() if k != key):
+            specs = [int(want["spec"])]
+        else:
+            specs = []
+        children: dict[int, list[int]] = {}
+        for spec in specs:
+            try:
+                children[spec] = self.board.sub_issues(spec)
+            except PollError as exc:
+                raise Refusal(f"could not read the sub-issues of spec #{spec}, so whether "
+                              f"{describe_watch(want)} shares a ticket with another watch is "
+                              f"not known: {exc}. Nothing was recorded; run it again once the "
+                              f"tracker answers.") from None
+        return children
+
+    def open_watch(self, want: dict, runner: str, session: str) -> tuple[dict | None, dict]:
+        """Record `want` with (runner, session) as its main agent, unless it shares a ticket
+        with another open watch. Opening a watch that is open replaces its main agent and
+        nothing else. Returns (the entry replaced, or None for a new watch; the running
+        relay's record as it stood when the watch was written)."""
+        key = watch_key(want)
+        for _ in range(3):
+            before = self.watches()
+            children = self._children_for(want, before)
+            with self.queue_lock():
+                watches = self.watches()
+                # A watch opened or closed while the board was read: check against that.
+                if set(watches) != set(before):
+                    continue
+                problem = overlap(want, watches, children)
+                if problem:
+                    raise Refusal(f"{describe_watch(want)} was not opened: {problem}. A ticket "
+                                  f"is watched once, so that its wake-ups have one main agent. "
+                                  f"Close that watch first (land for one ticket, summary or "
+                                  f"suspend for a night), or work the ticket in the watch that "
+                                  f"has it. Nothing was recorded.")
+                previous = watches.get(key)
+                watches[key] = {**want, "runner": runner, "session": session,
+                                "at": iso(self.clock()), "stopped_since": None}
+                self._write_watches(watches)
+                return previous, self._relay_record()
+        raise Refusal("the open watches kept changing while this one was checked against them; "
+                      "run it again.")
+
+    def restore_watch(self, key: str, previous: dict | None) -> None:
+        """Put watch `key` back as it was before `open_watch`: gone when it was new."""
         with self.queue_lock():
-            statedir.write_atomic(self.path("recipient.json"), json.dumps(record, sort_keys=True) + "\n")
-        return record
+            watches = self.watches()
+            if previous is None:
+                watches.pop(key, None)
+            else:
+                watches[key] = previous
+            self._write_watches(watches)
+
+    def close_watch(self, key: str | None) -> tuple[dict[str, dict], dict[str, dict]]:
+        """Close the watch `key`, or every watch when it is None. Returns (the watches
+        closed, the watches left). When none is left, the running relay's record says it is
+        ending and the last good poll is forgotten."""
+        with self.queue_lock():
+            watches = self.watches()
+            closed = {k: v for k, v in watches.items() if key is None or k == key}
+            left = {k: v for k, v in watches.items() if k not in closed}
+            if closed:
+                self._write_watches(left)
+            if not left:
+                self._mark_ending()
+                self._forget_last_poll()
+        return closed, left
+
+    def leave_if_unwatched(self) -> bool:
+        """True, with the record marked ending, when no watch is left for this relay."""
+        with self.queue_lock():
+            if self.watches():
+                return False
+            self._mark_ending()
+            return True
+
+    def check_mains(self) -> None:
+        """Ask each watch's main agent's runner whether it lives, and close the watch of one
+        answered `stopped` at every ask for MAIN_GONE_AFTER seconds or more."""
+        answers: dict[tuple[str, str], str] = {}
+        for entry in self.watches().values():
+            address = main_of(entry)
+            if address not in answers:
+                answers[address] = self.ask(*address)
+        now = self.clock()
+        gone: list[tuple[str, dict]] = []
+        with self.queue_lock():
+            watches = self.watches()
+            changed = False
+            for key, entry in sorted(watches.items()):
+                answer = answers.get(main_of(entry))
+                if answer is None:
+                    continue  # opened, or given another main agent, while the runners were asked
+                if answer != "stopped":
+                    if entry.get("stopped_since"):
+                        entry["stopped_since"] = None
+                        changed = True
+                    continue
+                try:
+                    since = parse_iso(entry["stopped_since"]) if entry.get("stopped_since") else None
+                except ValueError:
+                    since = None
+                if since is None:
+                    entry["stopped_since"] = iso(now)
+                    changed = True
+                elif (now - since).total_seconds() >= MAIN_GONE_AFTER:
+                    gone.append((key, entry))
+            for key, _ in gone:
+                del watches[key]
+                changed = True
+            if changed:
+                self._write_watches(watches)
+            if gone and not watches:
+                self._mark_ending()
+                self._forget_last_poll()
+        for _, entry in gone:
+            self.out.write(f"closed the watch on {describe_watch(entry)}: {entry['runner']} has "
+                           f"answered that its main agent, session {entry['session']}, is "
+                           f"stopped at every ask since {entry['stopped_since']}, "
+                           f"{MAIN_GONE_AFTER}s or more, so its wake-ups have nobody to go to\n")
+        if gone and not watches:
+            self.out.write("no watch is left, and the relay ends\n")
+        self.out.flush()
 
     @staticmethod
     def _worker_before(per_ticket: dict, ticket, cid: int | None) -> tuple[str, str] | None:
@@ -526,17 +846,42 @@ class Relay:
 
     # ------------------------------------------------------------- polling
 
-    def poll(self, watched: Callable[[], list[int]], interval: int, grace: int) -> bool:
+    def cycle(self, interval: int, grace: int) -> bool:
+        """One cycle of `run`: poll, deliver, and every MAIN_CHECK_EVERY cycles ask after
+        the main agents. True when every read was made."""
+        self.cycles += 1
+        good = self.poll(interval, grace)
+        self.deliver()
+        if self.cycles % MAIN_CHECK_EVERY == 0:
+            self.check_mains()
+        return good
+
+    def _watched_tickets(self, watches: dict[str, dict], failures: list[str]) -> dict[int, str]:
+        """Every watched ticket and the key of the watch it belongs to. Tickets watches are
+        taken first: a ticket one names stays its, whatever spec it later sits under."""
+        tickets: dict[int, str] = {}
+        ordered = sorted(watches.items(), key=lambda kv: (0 if kv[1].get("tickets") else 1, kv[0]))
+        for key, entry in ordered:
+            if entry.get("tickets"):
+                numbers = entry["tickets"]
+            else:
+                try:
+                    numbers = self.board.sub_issues(int(entry["spec"]))
+                except PollError as exc:
+                    failures.append(f"the tickets of spec #{entry['spec']}: {exc}")
+                    continue
+            for number in numbers:
+                tickets.setdefault(int(number), key)
+        return tickets
+
+    def poll(self, interval: int, grace: int) -> bool:
         """Read the watched tickets and queue what they carry. True when every read was made."""
-        if self.recipient() is None:
-            raise self._no_main()
+        watches = self.watches()
+        if not watches:
+            return True
         started = self.clock()
         failures: list[str] = []
-        try:
-            tickets = list(dict.fromkeys(watched()))
-        except PollError as exc:
-            failures.append(f"the watched tickets: {exc}")
-            tickets = []
+        tickets = self._watched_tickets(watches, failures)
         with self.queue_lock():
             marks = {k: v.get("mark") for k, v in self._read_state("seen.json", {}).get("tickets", {}).items()}
 
@@ -544,7 +889,7 @@ class Relay:
         workers: list[tuple[int, int, str, str]] = []
         unreadable: list[tuple[int, object, str]] = []
         read: dict[int, str | None] = {}
-        for number in tickets:
+        for number, key in tickets.items():
             mark = marks.get(str(number))
             since = None
             if number in self.reconciled and mark:
@@ -565,8 +910,9 @@ class Relay:
                     continue
                 if event is None:
                     continue
+                name = event["event"]
                 ticket = event.get("ticket") if isinstance(event.get("ticket"), int) else number
-                if event["event"] == WORKER_STARTED:
+                if name == WORKER_STARTED:
                     runner, session = event.get("runner"), event.get("session")
                     if isinstance(runner, str) and runner and isinstance(session, str) and session:
                         workers.append((ticket, cid, runner, session))
@@ -576,8 +922,8 @@ class Relay:
                 role = woken_by(event)
                 if role is None:
                     continue
-                found.append({"key": f"{cid}:{event['event']}", "cid": cid, "home": number,
-                              "ticket": ticket, "event": event["event"], "to": role})
+                found.append({"key": f"{cid}:{name}", "cid": cid, "home": number,
+                              "ticket": ticket, "event": name, "to": role, "watch": key})
             read[number] = newest or None
 
         now = self.clock()
@@ -585,11 +931,9 @@ class Relay:
         unaddressed: list[dict] = []
         reported: list[tuple[int, object, str]] = []
         with self.queue_lock():
-            # Read here, under the lock `register` writes under: a registration that changed
-            # while the board was being read addresses these rows, not the one before it.
-            main = self.recipient()
-            if main is None:
-                raise self._no_main()
+            # Read here, under the lock every change to them is made under: a main agent
+            # replaced while the board was read addresses these rows, not the one before it.
+            watches = self.watches()
             seen = self._read_state("seen.json", {})
             per_ticket = seen.setdefault("tickets", {})
             for ticket, cid, runner, session in workers:
@@ -605,12 +949,16 @@ class Relay:
             gap = self._read_state("gap.json", {})
             last_good = beat.get("at")
             new_gap = None
-            if not failures and last_good and self._unattended(beat, now) > grace:
-                key = f"gap:{last_good}"
-                if gap.get("since") != last_good and key not in queued:
+            if not failures and last_good and self._unattended(beat, now) > grace \
+                    and gap.get("since") != last_good:
+                for address in sorted({main_of(e) for e in watches.values()}):
+                    key = f"gap:{last_good}:{address[0]}:{address[1]}"
+                    if key in queued:
+                        continue
                     added.append({"key": key, "home": None, "ticket": None, "event": RECOVERED,
-                                  "to": MAIN, "runner": main["runner"], "session": main["session"],
-                                  "since": last_good})
+                                  "to": MAIN, "watch": None, "runner": address[0],
+                                  "session": address[1], "since": last_good})
+                if added:
                     new_gap = {"generation": int(gap.get("generation") or 0) + 1,
                                "since": last_good, "until": iso(now)}
             # Comment ids rise across the whole repository, so this is the order the events landed in.
@@ -618,7 +966,8 @@ class Relay:
                 if item["key"] in already or item["key"] in queued:
                     continue
                 if item["to"] == MAIN:
-                    address = (main["runner"], main["session"])
+                    entry = watches.get(item["watch"])
+                    address = main_of(entry) if entry else None
                 else:
                     address = self._worker_before(per_ticket, item["ticket"], item["cid"])
                 if address is None:
@@ -647,15 +996,22 @@ class Relay:
             for row in added:
                 if row.get("home") is not None:
                     _slot(per_ticket, row["home"])["keys"].append(row["key"])
-            # A comment the relay could not translate, or a worker wake-up with no worker on
-            # its ticket, is reported the first time it is seen and not again.
-            problems = [(n, cid, why) for n, cid, why in unreadable] + [
-                (item["home"], item["cid"], f"it wakes #{item['ticket']}'s worker, and no "
-                 f"worker.started on #{item['ticket']} comes before it, so there is no session "
-                 f"to wake") for item in unaddressed]
-            for number, cid, why in problems:
+            # A comment the relay could not translate, or a wake-up with nobody to go to, is
+            # reported the first time it is seen and not again.
+            problems = [(n, cid, f"{cid}:reported", why) for n, cid, why in unreadable]
+            for item in unaddressed:
+                if item["to"] == MAIN:
+                    problems.append((item["home"], item["cid"], f"{item['cid']}:reported",
+                                     f"it wakes the main agent of "
+                                     f"{describe_watch(watch_from_key(item['watch']))}, and that "
+                                     f"watch was closed"))
+                else:
+                    problems.append((item["home"], item["cid"], f"{item['cid']}:reported",
+                                     f"it wakes #{item['ticket']}'s worker, and no "
+                                     f"worker.started on #{item['ticket']} comes before it, so "
+                                     f"there is no session to wake"))
+            for number, cid, key, why in problems:
                 slot = _slot(per_ticket, number)
-                key = f"{cid}:reported"
                 if key not in slot["keys"]:
                     slot["keys"].append(key)
                     reported.append((number, cid, why))
@@ -752,27 +1108,46 @@ class Relay:
         finally:
             self._note_delivery(begun, self.clock())
 
+    def _recipient_now(self, row: dict, watches: dict[str, dict], per_ticket: dict) -> tuple[str, str | None]:
+        """Whether `row` is still its recipient's: ("send", None); ("drop", why); or
+        ("keep", why) when there is nobody to compare it with."""
+        address = (row.get("runner"), row.get("session"))
+        watch = row.get("watch")
+        if watch is not None and watch not in watches:
+            return "drop", (f"it belongs to the watch on {describe_watch(watch_from_key(watch))}, "
+                            f"which was closed")
+        if row.get("to") == WORKER:
+            current = self._worker_before(per_ticket, row.get("ticket"), None)
+            if current is None:
+                return "keep", f"there is no #{row.get('ticket')}'s worker to compare it with"
+            whose = f"#{row.get('ticket')}'s worker"
+        elif watch is not None:
+            current = main_of(watches[watch])
+            whose = f"the main agent of {describe_watch(watches[watch])}"
+        elif address in {main_of(e) for e in watches.values()}:
+            return "send", None
+        else:
+            return "drop", (f"it is addressed to {address[0]} session {address[1]}, the main "
+                            f"agent of no open watch: a late message for a retired session")
+        if address != current:
+            return "drop", (f"it is addressed to {address[0]} session {address[1]}, and {whose} "
+                            f"is now {current[0]} session {current[1]}: a late message for a "
+                            f"retired session")
+        return "send", None
+
     def _deliver(self, pending: list[dict]) -> None:
-        main = self.recipient()
+        watches = self.watches()
         with self.queue_lock():
             per_ticket = self._read_state("seen.json", {}).get("tickets", {})
         held: set[tuple[str, str]] = set()
         for row in pending:
             address = (row.get("runner"), row.get("session"))
-            if row.get("to") == WORKER:
-                current = self._worker_before(per_ticket, row.get("ticket"), None)
-                whose = f"#{row.get('ticket')}'s worker"
-            else:
-                current = (main["runner"], main["session"]) if main else None
-                whose = "the registered main agent"
-            if current is None:
-                self.err.write(f"relay: kept row {row['seq']} ({wake_text(row)}): there is no "
-                               f"{whose} to compare it with; run `relay.py register`\n")
+            verdict, why = self._recipient_now(row, watches, per_ticket)
+            if verdict == "keep":
+                self.err.write(f"relay: kept row {row['seq']} ({wake_text(row)}): {why}\n")
                 continue
-            if address != current:
-                self._drop(row, f"it is addressed to {address[0]} session {address[1]}, and "
-                                f"{whose} is now {current[0]} session {current[1]}: a late message "
-                                f"for a retired session")
+            if verdict == "drop":
+                self._drop(row, why)
                 continue
             if address in held:
                 continue
@@ -826,10 +1201,10 @@ class Relay:
 
 # ----------------------------------------------------------------- the running relay
 
-def running(state: Path) -> tuple[dict, dict | None] | None:
-    """The live holder of this state directory's `relay.lock` and what it watches, or None
-    when no relay runs. The watch is None while the relay has not recorded it yet (the
-    moment between taking the lock and writing `relay.json`)."""
+def running(state: Path) -> tuple[dict, dict] | None:
+    """The live holder of this state directory's `relay.lock` and its `relay.json` record,
+    or None when no relay runs. The record is empty while the relay has not written it yet
+    (the moment between taking the lock and writing `relay.json`)."""
     holder = statedir.holder(state / "relay.lock")
     if holder is None:
         return None
@@ -839,44 +1214,8 @@ def running(state: Path) -> tuple[dict, dict | None] | None:
         record = {}
     if isinstance(record, dict) and record.get("pid") == holder.get("pid") \
             and record.get("identity") == holder.get("identity"):
-        return holder, record.get("watch")
-    return holder, None
-
-
-def describe_watch(watch: dict | None) -> str:
-    if not watch:
-        return "something it has not recorded yet"
-    if watch.get("spec"):
-        return f"spec #{watch['spec']}"
-    tickets = watch.get("tickets") or []
-    return ("tickets " if len(tickets) > 1 else "ticket ") + ", ".join(f"#{n}" for n in tickets)
-
-
-def watch_of(args) -> dict | None:
-    if getattr(args, "spec", None):
-        return {"spec": args.spec}
-    if getattr(args, "tickets", None):
-        return {"tickets": list(args.tickets)}
-    return None
-
-
-def watch_argv(watch: dict) -> list[str]:
-    if watch.get("spec"):
-        return ["--spec", str(watch["spec"])]
-    return ["--tickets", ",".join(str(n) for n in watch["tickets"])]
-
-
-def clear_last_poll(state: Path) -> None:
-    """Forget the last good poll. A relay ended by `stop` was ended on purpose, so the time
-    until the next start is nobody's unattended stretch: the next relay reads every ticket
-    in full on start all the same, and announces no `relay.recovered` for a closed night."""
-    relay = Relay(state)
-    with relay.queue_lock():
-        beat = relay._read_state("beat.json", {})
-        if not beat:
-            return
-        beat.update(at=None, delivering=0, delivery_started=None, stopped=iso(now_utc()))
-        statedir.write_atomic(state / "beat.json", json.dumps(beat, sort_keys=True) + "\n")
+        return holder, record
+    return holder, {}
 
 
 def log_tail(path: Path, lines: int = 5) -> str:
@@ -929,40 +1268,32 @@ def state_for(repo: str) -> Path:
 
 def cmd_run(args) -> int:
     state = state_for(args.repo)
-    board = Board(args.repo)
-    relay = Relay(state, board)
+    relay = Relay(state, Board(args.repo))
     interval = args.interval
     grace = args.grace if args.grace is not None else 3 * interval
-    if relay.recipient() is None:
-        raise Refusal(f"no main agent is registered in {state / 'recipient.json'}, so its "
-                      f"wake-ups have nobody to go to. Run `relay.py register --repo {args.repo} "
-                      f"--runner <runner> --session <session>` for the main agent's session, then "
-                      f"start the relay again.")
-    if args.spec:
-        def watched() -> list[int]:
-            return board.sub_issues(args.spec)
-    else:
-        tickets = args.tickets
-
-        def watched() -> list[int]:
-            return tickets
+    if not relay.watches():
+        raise Refusal(f"nothing is watched for {args.repo}: {state / 'watches.json'} names no "
+                      f"watch, so no event would wake anyone. `relay.py start --repo {args.repo} "
+                      f"--spec <n> | --tickets <n> --runner <runner> --session <session>` opens "
+                      f"one and starts the relay.")
 
     def stop(signum, frame):
         raise SystemExit(0)
 
-    watch = watch_of(args)
     try:
         with statedir.locked(state / "relay.lock", wait=0, purpose=f"relay for {args.repo}"):
             signal.signal(signal.SIGTERM, stop)
             signal.signal(signal.SIGINT, stop)
-            record = {"pid": os.getpid(), "identity": statedir.own_identity(), "watch": watch,
+            record = {"pid": os.getpid(), "identity": statedir.own_identity(),
                       "interval": interval, "grace": grace, "started": iso(now_utc())}
             statedir.write_atomic(state / "relay.json", json.dumps(record, sort_keys=True) + "\n")
             try:
                 relay.forget_deliveries()
                 while True:
-                    good = relay.poll(watched, interval, grace)
-                    relay.deliver()
+                    if relay.leave_if_unwatched():
+                        print(f"no watch is open for {args.repo} any more; the relay ends", flush=True)
+                        return 0
+                    good = relay.cycle(interval, grace)
                     if args.once:
                         return 0 if good else 3
                     time.sleep(interval)
@@ -975,37 +1306,97 @@ def cmd_run(args) -> int:
         if exc.path != state / "relay.lock":
             raise
         raise Refusal(f"another relay is running for {args.repo}: {exc}. One repository has one "
-                      f"relay. Leave that one running, or end that pid and start this again.") from None
+                      f"relay process, and it serves every watch. Leave that one running, or end "
+                      f"that pid and start this again.") from None
+
+
+def open_checked(args) -> tuple[Relay, dict, dict | None, dict]:
+    """The checks `start` and `add` make, then the watch written: (the relay, the watch,
+    the entry it replaced or None, the running relay's record when it was written)."""
+    state = state_for(args.repo)
+    adapter = adapter_path(args.runner)
+    if not adapter.is_file():
+        known = ", ".join(sorted(p.stem for p in RUNNERS.glob("*.sh"))) or "none"
+        raise Refusal(f"there is no runner adapter {adapter}; the adapters here are: {known}. "
+                      f"Open the watch from a session of one of those runners.")
+    answer = ask_liveness(args.runner, args.session)
+    if answer == "stopped":
+        raise Refusal(f"{args.runner} says session {args.session} is stopped, so every wake-up sent "
+                      f"to it would be dropped. Open the watch from the main agent's live session.")
+    if answer != "alive":
+        sys.stderr.write(f"relay: {args.runner} could not say whether session {args.session} is "
+                         f"alive; the watch is opened all the same, and the first delivery will tell\n")
+    found = running(state)
+    if found is not None and "watch" in found[1]:
+        # A record that names a `watch` was written by a relay that serves that one watch,
+        # takes its main agent from recipient.json and never reads watches.json.
+        raise Refusal(f"the relay running for {args.repo} (pid {found[0].get('pid')}) serves one "
+                      f"watch, {describe_watch(found[1]['watch'])}, and would never read this one. "
+                      f"End it with `relay.py stop --repo {args.repo}`, open its night again "
+                      f"(dispatch.sh open or open-ticket), then open this watch. Nothing was "
+                      f"recorded.")
+    relay = Relay(state, Board(args.repo))
+    want = watch_of(args)
+    previous, record = relay.open_watch(want, args.runner, args.session)
+    return relay, want, previous, record
+
+
+def opened_line(repo: str, want: dict, previous: dict | None, runner: str, session: str) -> str:
+    if previous is None:
+        return (f"opened the watch on {describe_watch(want)} for {repo}: wake-ups go to {runner} "
+                f"session {session}")
+    was = "" if main_of(previous) == (runner, session) else \
+        f", was {previous['runner']} session {previous['session']}"
+    return (f"reopened the watch on {describe_watch(want)} for {repo}: wake-ups go to {runner} "
+            f"session {session}{was}")
+
+
+def cmd_add(args) -> int:
+    _, want, previous, _ = open_checked(args)
+    print(opened_line(args.repo, want, previous, args.runner, args.session))
+    return 0
 
 
 def cmd_start(args) -> int:
-    state = state_for(args.repo)
-    want = watch_of(args)
-    if Relay(state).recipient() is None:
-        raise Refusal(f"no main agent is registered in {state / 'recipient.json'}, so a relay "
-                      f"would have nobody to wake. Run `relay.py register --repo {args.repo} "
-                      f"--runner <runner> --session <session>` for the main agent's session "
-                      f"first.")
-    found = running(state)
-    if found is not None:
-        holder, watch = found
-        if watch == want:
-            print(f"relay already running for {args.repo}: pid {holder.get('pid')}, watching "
-                  f"{describe_watch(watch)}")
-            return 0
-        raise Refusal(f"a relay is already running for {args.repo} (pid {holder.get('pid')}), "
-                      f"watching {describe_watch(watch)}, and one repository has one relay. "
-                      f"Close what it was started for (the night's summary or suspend, or "
-                      f"land for one ticket), or end it with `relay.py stop --repo "
-                      f"{args.repo}`, then start again.")
+    relay, want, previous, record = open_checked(args)
+    state = relay.state
+    opened = opened_line(args.repo, want, previous, args.runner, args.session)
+    holder = statedir.holder(state / "relay.lock")
+    ending = holder is not None and record.get("pid") == holder.get("pid") and record.get("ending")
+    if holder is not None and not ending:
+        print(opened)
+        print(f"relay already running for {args.repo}: pid {holder.get('pid')}, watching "
+              f"{describe_watches(relay.watches())}")
+        return 0
+    try:
+        if ending:
+            # It had no watch left and is on its way out: let it go, then start another.
+            deadline = time.monotonic() + STOP_WAIT
+            while time.monotonic() < deadline and statedir.holder(state / "relay.lock") is not None:
+                time.sleep(0.1)
+            if statedir.holder(state / "relay.lock") is not None:
+                raise Refusal(f"the relay (pid {holder.get('pid')}) had no watch left and was "
+                              f"ending, and it still holds {state / 'relay.lock'} after "
+                              f"{STOP_WAIT:.0f}s. End that pid by hand, then start again.")
+        pid = spawn(args, state)
+    except Refusal:
+        relay.restore_watch(watch_key(want), previous)
+        raise
+    print(opened)
+    print(f"relay started for {args.repo}: pid {pid}, watching {describe_watches(relay.watches())}, "
+          f"log {state / 'relay.log'}")
+    return 0
+
+
+def spawn(args, state: Path) -> int:
+    """Start `run` as a process of its own session; its pid once it holds the lock."""
     log = state / "relay.log"
     argv = [sys.executable, str(Path(__file__).resolve()), "run", "--repo", args.repo,
-            *watch_argv(want), "--interval", str(args.interval)]
+            "--interval", str(args.interval)]
     if args.grace is not None:
         argv += ["--grace", str(args.grace)]
     with open(log, "a", encoding="utf-8") as fh:
-        fh.write(f"--- {iso(now_utc())} starting a relay for {args.repo}, watching "
-                 f"{describe_watch(want)}\n")
+        fh.write(f"--- {iso(now_utc())} starting a relay for {args.repo}\n")
         fh.flush()
         # A session of its own: the caller's turn, shell or terminal ending does not end it.
         child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=fh,
@@ -1018,10 +1409,8 @@ def cmd_start(args) -> int:
             raise Refusal(f"the relay exited {code} as it started, so nothing watches the "
                           f"board. The last lines of {log}: {log_tail(log)}")
         found = running(state)
-        if found is not None and found[0].get("pid") == child.pid and found[1] == want:
-            print(f"relay started for {args.repo}: pid {child.pid}, watching "
-                  f"{describe_watch(want)}, log {log}")
-            return 0
+        if found is not None and found[0].get("pid") == child.pid and found[1]:
+            return child.pid
         time.sleep(0.1)
     child.terminate()
     raise Refusal(f"the relay (pid {child.pid}) did not take {state / 'relay.lock'} within "
@@ -1031,37 +1420,50 @@ def cmd_start(args) -> int:
 def cmd_stop(args) -> int:
     state = state_for(args.repo)
     want = watch_of(args)
-    found = running(state)
-    if found is None:
-        # A relay that died, or was killed, leaves its last good poll behind; the next start
-        # would announce the time since as an unattended stretch of a night now closed.
-        clear_last_poll(state)
-        print(f"no relay is running for {args.repo}")
-        return 0
-    holder, watch = found
-    pid = holder.get("pid")
-    if want is not None and watch != want:
-        sys.stderr.write(f"relay: the relay running for {args.repo} (pid {pid}) watches "
-                         f"{describe_watch(watch)}, not {describe_watch(want)}; it was left "
-                         f"running\n")
+    relay = Relay(state)
+    key = watch_key(want) if want else None
+    watches = relay.watches()
+    if key is not None and watches and key not in watches:
+        sys.stderr.write(f"relay: {describe_watch(want)} is not watched for {args.repo}; the relay "
+                         f"watches {describe_watches(watches)}, and nothing was changed\n")
         return 3
+    closed, left = relay.close_watch(key)
+    found = running(state)
+    if left:
+        if not closed:
+            sys.stderr.write(f"relay: {describe_watch(want)} is not watched for {args.repo}; the "
+                             f"relay watches {describe_watches(left)}, and nothing was changed\n")
+            return 3
+        if found is not None:
+            print(f"stopped watching {describe_watches(closed)} for {args.repo}: the relay "
+                  f"(pid {found[0].get('pid')}) goes on watching {describe_watches(left)}")
+        else:
+            print(f"stopped watching {describe_watches(closed)} for {args.repo}: no relay is "
+                  f"running, and {describe_watches(left)} is still watched")
+        return 0
+    if found is None:
+        if closed:
+            print(f"stopped watching {describe_watches(closed)} for {args.repo}; no relay was running")
+        else:
+            print(f"no relay is running for {args.repo}")
+        return 0
+    pid = found[0].get("pid")
     try:
         os.kill(pid, signal.SIGTERM)
     except ProcessLookupError:
         pass
     except OSError as exc:
-        raise Refusal(f"could not signal the relay (pid {pid}): {exc}. It is still running; "
-                      f"end that pid by hand.") from None
+        raise Refusal(f"could not signal the relay (pid {pid}): {exc}. It is still running with "
+                      f"no watch left; end that pid by hand.") from None
     deadline = time.monotonic() + STOP_WAIT
     while time.monotonic() < deadline:
         if statedir.holder(state / "relay.lock") is None:
-            clear_last_poll(state)
-            print(f"stopped the relay for {args.repo}: pid {pid}, watching {describe_watch(watch)}")
+            print(f"stopped the relay for {args.repo}: pid {pid}, watching {describe_watches(closed)}")
             return 0
         time.sleep(0.1)
     raise Refusal(f"the relay (pid {pid}) was sent SIGTERM and still holds "
-                  f"{state / 'relay.lock'} after {STOP_WAIT:.0f}s. It is still running; end "
-                  f"that pid by hand.")
+                  f"{state / 'relay.lock'} after {STOP_WAIT:.0f}s. It is still running with no "
+                  f"watch left; end that pid by hand.")
 
 
 def cmd_watching(args) -> int:
@@ -1072,42 +1474,21 @@ def cmd_watching(args) -> int:
     if found is None:
         sys.stderr.write(f"relay: no relay is running for {args.repo}\n")
         return 1
-    holder, watch = found
+    pid = found[0].get("pid")
+    watches = Relay(state).watches()
     asked = f"#{args.ticket}" if args.ticket is not None else f"spec #{args.spec}"
-    if watch and ((args.spec and watch.get("spec") == args.spec)
-                  or (args.ticket is not None and args.ticket in (watch.get("tickets") or []))):
-        print(f"{asked} is watched by the relay for {args.repo}: pid {holder.get('pid')}, "
-              f"watching {describe_watch(watch)}")
-        return 0
+    for entry in watches.values():
+        if (args.spec and entry.get("spec") == args.spec) \
+                or (args.ticket is not None and args.ticket in (entry.get("tickets") or [])):
+            print(f"{asked} is watched by the relay for {args.repo}: pid {pid}, as "
+                  f"{describe_watch(entry)}, whose main agent is {entry['runner']} session "
+                  f"{entry['session']}")
+            return 0
     if args.ticket is not None:
         asked += f", a ticket of spec #{args.spec}," if args.spec else ", a ticket of no spec,"
-    sys.stderr.write(f"relay: the relay running for {args.repo} (pid {holder.get('pid')}) watches "
-                     f"{describe_watch(watch)}, and {asked} is not among them\n")
+    sys.stderr.write(f"relay: the relay running for {args.repo} (pid {pid}) watches "
+                     f"{describe_watches(watches)}, and {asked} is not among them\n")
     return 1
-
-
-def cmd_register(args) -> int:
-    state = state_for(args.repo)
-    adapter = adapter_path(args.runner)
-    if not adapter.is_file():
-        known = ", ".join(sorted(p.stem for p in RUNNERS.glob("*.sh"))) or "none"
-        raise Refusal(f"there is no runner adapter {adapter}; the adapters here are: {known}. "
-                      f"Register with one of those runners.")
-    try:
-        run = subprocess.run(["bash", str(adapter), "liveness", args.session], capture_output=True,
-                             text=True, env=quiet_env(), timeout=60)
-        answer = (run.stdout or "").strip() if run.returncode == 0 else "unknown"
-    except (OSError, subprocess.SubprocessError):
-        answer = "unknown"
-    if answer == "stopped":
-        raise Refusal(f"{args.runner} says session {args.session} is stopped, so every wake-up sent "
-                      f"to it would be dropped. Register the main agent's live session id.")
-    record = Relay(state).register(args.runner, args.session)
-    if answer != "alive":
-        sys.stderr.write(f"relay: registered, but {args.runner} could not say whether session "
-                         f"{args.session} is alive (it answered {answer!r}); the first delivery will tell\n")
-    print(json.dumps(record, sort_keys=True))
-    return 0
 
 
 def cmd_ack(args) -> int:
@@ -1163,30 +1544,30 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="relay.py", description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
 
-    run = sub.add_parser("run", help="poll the board and deliver wake-ups")
-    run.add_argument("--repo", required=True)
-    which = run.add_mutually_exclusive_group(required=True)
-    which.add_argument("--tickets", type=ticket_list)
-    which.add_argument("--spec", type=positive_int)
-    run.add_argument("--once", action="store_true")
-    run.add_argument("--interval", type=positive_int, default=DEFAULT_INTERVAL)
-    run.add_argument("--grace", type=non_negative_int)
-    run.set_defaults(fn=cmd_run)
+    def watch_args(command, required: bool) -> None:
+        which = command.add_mutually_exclusive_group(required=required)
+        which.add_argument("--tickets", type=ticket_list)
+        which.add_argument("--spec", type=positive_int)
 
-    start = sub.add_parser("start", help="run the relay in the background, detached")
+    start = sub.add_parser("start", help="open a watch with its main agent, and run the relay unless it runs")
     start.add_argument("--repo", required=True)
-    which = start.add_mutually_exclusive_group(required=True)
-    which.add_argument("--tickets", type=ticket_list)
-    which.add_argument("--spec", type=positive_int)
+    watch_args(start, True)
+    start.add_argument("--runner", required=True)
+    start.add_argument("--session", required=True)
     start.add_argument("--interval", type=positive_int, default=DEFAULT_INTERVAL)
     start.add_argument("--grace", type=non_negative_int)
     start.set_defaults(fn=cmd_start)
 
-    stop = sub.add_parser("stop", help="end the running relay, when it watches what is named")
+    add = sub.add_parser("add", help="open a watch with its main agent, starting nothing")
+    add.add_argument("--repo", required=True)
+    watch_args(add, True)
+    add.add_argument("--runner", required=True)
+    add.add_argument("--session", required=True)
+    add.set_defaults(fn=cmd_add)
+
+    stop = sub.add_parser("stop", help="close a watch, or every watch; the relay ends with the last")
     stop.add_argument("--repo", required=True)
-    which = stop.add_mutually_exclusive_group()
-    which.add_argument("--tickets", type=ticket_list)
-    which.add_argument("--spec", type=positive_int)
+    watch_args(stop, False)
     stop.set_defaults(fn=cmd_stop)
 
     watching = sub.add_parser("watching", help="whether a running relay sees a ticket's events")
@@ -1195,11 +1576,12 @@ def main(argv: list[str] | None = None) -> int:
     watching.add_argument("--spec", type=positive_int)
     watching.set_defaults(fn=cmd_watching)
 
-    reg = sub.add_parser("register", help="name the main agent's runner and session")
-    reg.add_argument("--repo", required=True)
-    reg.add_argument("--runner", required=True)
-    reg.add_argument("--session", required=True)
-    reg.set_defaults(fn=cmd_register)
+    run = sub.add_parser("run", help="poll the board for every open watch and deliver wake-ups")
+    run.add_argument("--repo", required=True)
+    run.add_argument("--once", action="store_true")
+    run.add_argument("--interval", type=positive_int, default=DEFAULT_INTERVAL)
+    run.add_argument("--grace", type=non_negative_int)
+    run.set_defaults(fn=cmd_run)
 
     ack = sub.add_parser("ack", help="remove one recipient's rows through a sequence number or a wake")
     ack.add_argument("--repo", required=True)
