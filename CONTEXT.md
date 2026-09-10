@@ -427,7 +427,7 @@ The line `ABANDON: AC<n> <kind> <reason>` a worker — never the verifier — wr
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **blocking link**:
-The tracker's native dependency edge, the copy every script reads. A **blocker** is a ticket that must land before this one is dispatched; `--preflight` refuses only while it is open. `--lint`'s ticket graph and the night's frontier are computed from it; GitHub's `issue_dependencies_summary.blocked_by` counts open blockers only. Adding one takes the blocker's **database id** (`gh api … --jq .id`). A blocker under another spec is reported as `cross-batch`.
+The tracker's native dependency edge, the copy every script reads. A **blocker** is a ticket that must land before this one is dispatched, unless it closed without a `ticket.passed` and so lets go on closing; `--preflight` refuses while it holds — open, passed and not landed, or closed with events that cannot be read (`events.py` `blocker_hold`). `--lint`'s ticket graph and the night's frontier are computed from it; GitHub's `issue_dependencies_summary.blocked_by` counts open blockers only. Adding one takes the blocker's **database id** (`gh api … --jq .id`). A blocker under another spec is reported as `cross-batch`.
 _Admitted_: native issue dependencies (when naming the GitHub feature)
 _Avoid_: blocking edge, dependency (for this), edge (for this), native blocking link, 上游票号, blocking ticket
 _Home_: `docs/agents/issue-tracker.md`
