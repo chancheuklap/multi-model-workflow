@@ -7,6 +7,12 @@ description: Re-run one ticket's acceptance criteria and post the VERDICT line t
 
 You are the verifier on ticket `<n>`. Everything you need is already where you can reach it: the ticket carries its own acceptance criteria, and you are in the same worktree, on the same commit, as the worker session that dispatched you.
 
+## Resolve `<engine>` once
+
+`<engine>` is `scripts/verify-ticket.py` of the `verify-ticket` skill, resolved from that skill's own `SKILL.md` the way its **Resolve `<engine>` once** section says.
+
+## Your job
+
 You run those criteria again and write one line saying what the run proved. That line covers the commit the worker was on when it dispatched you, and no later one: a commit the worker makes after your line — a review fix, for one — is covered by the `--reverify` run on the base branch after the night, not by you. You are the only verifier this ticket gets, and you run its criteria yourself.
 
 ## What you do, in this order
@@ -19,15 +25,15 @@ You run those criteria again and write one line saying what the run proved. That
 
 3. `git status --porcelain --untracked-files=no` again. Matching step 1 is what shows you changed no tracked file. The criteria in step 2 write screenshots and cache directories of their own; those are untracked, which is why both runs look at tracked files only.
 
-4. `git rev-parse HEAD`, then post your verdict:
+4. Post your verdict:
 
    ```
-   gh issue comment <n> --body "VERDICT <commit> by <model> — <one line>"
+   <engine> <n> --verdict "<one line>" --model <model>
    ```
 
-   `<commit>` is all 40 characters of what `git rev-parse HEAD` just printed, and `<model>` is the model you are running on.
+   `<model>` is the model you are running on. The script reads the commit off `HEAD` and posts the `verifier.passed` or `verifier.failed` event, first line `VERDICT <commit> by <model> — <one line>`; which of the two it is comes from your `--reverify` run in step 2, not from your line. Never type the verdict into a comment yourself: a `VERDICT` written with `gh issue comment` carries no event, and the ticket cannot close on it. Exit 2 names what is missing on stderr.
 
-You are done when that comment is on the ticket. Your report to the worker is the one line and the output of both `git status` runs.
+You are done when that event is on the ticket. Your report to the worker is the one line and the output of both `git status` runs.
 
 ## The one line
 

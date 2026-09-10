@@ -12,6 +12,13 @@ vt = load()
 ME = "chancheuklap"
 
 
+def event_of(body):
+    """The event a posted comment carries, as `(name, payload)`."""
+    what, payload = vt.events.parse(body)
+    assert what == "event", (what, payload, body)
+    return payload["event"], payload
+
+
 def ticket(state="OPEN", labels=("ready-for-agent",), assignees=(), blockers=()):
     return {
         "state": state,
@@ -55,7 +62,9 @@ class TestBranch(unittest.TestCase):
         code, posted, err, _ = preflight(branch="main")
         self.assertEqual([n for n, _ in posted], [77])
         self.assertTrue(posted[0][1].startswith("NOT_READY: branch is main, not issue-77"))
-        self.assertEqual(posted[0][1], err.strip())
+        self.assertEqual(vt.events.first_line(posted[0][1]), err.strip())
+        name, payload = event_of(posted[0][1])
+        self.assertEqual((name, payload["reason"]), ("ticket.refused", "wrong-branch"))
 
     def test_the_right_branch_passes(self):
         code, _, _, assign = preflight(branch="issue-77")
@@ -136,8 +145,13 @@ class TestEveryRefusalSaysStop(unittest.TestCase):
                 code, posted, err, assign = preflight(**case)
                 self.assertEqual(code, 2)
                 self.assertEqual(len(posted), 1)
-                self.assertEqual(posted[0][1], err.strip())
+                self.assertEqual(vt.events.first_line(posted[0][1]), err.strip())
+                self.assertEqual(event_of(posted[0][1])[0], "ticket.refused")
                 assign.assert_not_called()
+
+    def test_each_refusal_names_its_own_reason_on_the_event(self):
+        reasons = [event_of(preflight(**case)[1][0][1])[1]["reason"] for case in self.ALL_SIX]
+        self.assertEqual(reasons, list(vt.events.REFUSALS))
 
 
 class TestIdempotence(unittest.TestCase):
@@ -146,7 +160,10 @@ class TestIdempotence(unittest.TestCase):
     def test_a_ticket_already_held_by_me_still_passes(self):
         code, posted, _, assign = preflight(assignees=(ME,))
         self.assertEqual(code, 0)
-        self.assertEqual(posted, [])
+        self.assertEqual(len(posted), 1)
+        name, payload = event_of(posted[0][1])
+        self.assertEqual((name, payload["login"], payload["ticket"]),
+                         ("ticket.claimed", ME, 77))
         assign.assert_called_once_with(77)
 
 

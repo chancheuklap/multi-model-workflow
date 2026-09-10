@@ -9,7 +9,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from _load import load
+from _load import event, load
 
 vt = load()
 
@@ -78,7 +78,8 @@ Outside Owns: None
 
 FILES_RUN = MET_RUN.replace("Outside Owns: None", "Outside Owns: src/helper.py")
 
-VERDICT = f"VERDICT {VERIFIED} by opus — the importer writes six rows"
+VERDICT = event("verifier.passed", f"VERDICT {VERIFIED} by opus — the importer writes six rows",
+                commit=VERIFIED)
 
 REVIEW = """REVIEW abcdef0..1234567
 
@@ -104,6 +105,10 @@ picked the existing helper
 Outside Owns: src/helper.py
 src/helper.py was required for AC1
 """
+
+# The same reports as the scripts post them: each one an event.
+REVIEW = event("reviewer.reported", REVIEW, base="abcdef0", head="1234567")
+DECISIONS = event("worker.decided", DECISIONS)
 
 
 class FakeGh:
@@ -249,7 +254,7 @@ class TestFixedLines(unittest.TestCase):
         self.assertNotIn("(reasonable)", text)
 
     def test_a_review_that_names_no_line_for_the_file_invents_no_judgement(self):
-        silent = """REVIEW abcdef0..1234567
+        silent = event("reviewer.reported", """REVIEW abcdef0..1234567
 
 ## Spec
 
@@ -258,7 +263,7 @@ None
 ## Tests
 
 None
-"""
+""", base="abcdef0", head="1234567")
         code, err, text, _ = run_draft((FILES_RUN, VERDICT, silent, DECISIONS))
         self.assertEqual(code, 0, err)
         self.assertIn("Outside Owns: src/helper.py", text)

@@ -15,7 +15,15 @@ The worker's run takes the criteria not yet met and lands a comment whose first 
 
 `--reverify` reads the ticket, runs every criterion again including the ones already ticked, and comments the outcome of each one on the ticket. Its comment opens `reverify`, and the worker's ticks are re-run rather than trusted.
 
-`verify-ticket.py` reads the ticket and writes one comment. The ticket body, the `CHECK` commands and what a criterion means are yours. A wrong `CHECK` is fixed on the ticket: comment saying what is wrong with it, edit the criterion, run again. The `VERDICT` line is the verifier's own comment, written after `--reverify`, not something `verify-ticket.py` emits.
+`verify-ticket.py` reads the ticket and writes one comment. The ticket body, the `CHECK` commands and what a criterion means are yours. A wrong `CHECK` is fixed on the ticket: comment saying what is wrong with it, edit the criterion, run again.
+
+## The verifier's verdict
+
+```bash
+<engine> <n> --verdict "<one line>" --model <the model you run on>
+```
+
+The verifier runs this after its `--reverify`. It posts one event on the ticket, first line `VERDICT <commit> by <model> — <one line>`: `verifier.passed` when that newest `reverify` comment summarises `ALL MET`, `verifier.failed` otherwise, naming the criteria it left unmet. The commit is `HEAD`, all 40 characters, read by the script. A line that opens `could not start` is a `verifier.failed` whose criteria never ran. Which of the two it is comes from the run, never from the words of the line, so a verdict cannot say more than the run it reports. Exit `0` posted; `2` refused and nothing posted — no `--model`, no `HEAD`, or no `reverify` comment on the ticket for a line that does not open `could not start`.
 
 A `CHECK:` may run ten minutes. A criterion that needs longer says so on the ticket, on a `TIMEOUT: <seconds>` line under its `EVIDENCE:`; every run reads those lines off the ticket body, so the worker's own run and the verifier's `--reverify` are held to the same number. `--timeout <seconds>` raises it for one run. Neither lowers it.
 

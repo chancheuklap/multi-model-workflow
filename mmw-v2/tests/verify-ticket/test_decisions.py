@@ -8,7 +8,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from _load import load
+from _load import event, load
 
 vt = load()
 
@@ -98,6 +98,9 @@ class TestPostsTheComment(unittest.TestCase):
         self.assertEqual(len(posted), 1)
         self.assertEqual(posted[0][0], 77)
         self.assertEqual(posted[0][1].splitlines()[0], "DECISIONS")
+        what, payload = vt.events.parse(posted[0][1])
+        self.assertEqual((what, payload["event"], payload["ticket"]),
+                         ("event", "worker.decided", 77))
 
     def test_the_file_body_follows_the_first_line(self):
         code, err, posted, _ = run_decisions(TWO_SECTIONS)
@@ -110,7 +113,7 @@ class TestPostsTheComment(unittest.TestCase):
 
 class TestRefusesWhenTheTicketAlreadyHasOne(unittest.TestCase):
     def test_a_second_decisions_comment_is_refused(self):
-        existing = "DECISIONS\n\n## Decisions I made on my own\n\nalready\n\n## Outside Owns\n\nOutside Owns: None\n"
+        existing = event("worker.decided", "DECISIONS\n\n## Decisions I made on my own\n\nalready\n\n## Outside Owns\n\nOutside Owns: None\n")
         code, err, posted, recorded = run_decisions(
             TWO_SECTIONS, comments=(SELF_RUN, existing))
         self.assertEqual(code, 2)
@@ -159,7 +162,7 @@ class TestTheThreeRefusalsDiffer(unittest.TestCase):
         no_run = NO_SELF_RUN.format(n=77)
         self.assertEqual(len({already, missing, no_run}), 3)
         cases = [
-            (TWO_SECTIONS, (SELF_RUN, "DECISIONS\n\n## Decisions I made on my own\n\nx\n\n## Outside Owns\n\nOutside Owns: None\n"), already),
+            (TWO_SECTIONS, (SELF_RUN, event("worker.decided", "DECISIONS\n\n## Decisions I made on my own\n\nx\n\n## Outside Owns\n\nOutside Owns: None\n")), already),
             ("## Outside Owns\n\nOutside Owns: None\n", (SELF_RUN,), missing),
             (TWO_SECTIONS, (), no_run),
         ]

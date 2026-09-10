@@ -103,6 +103,13 @@ class TestPostsTheReport(unittest.TestCase):
         self.assertEqual(body.splitlines()[0], "REVIEW abcdef0..1234567")
         self.assertIn("## Standards", body)
 
+    def test_the_comment_is_the_reviewer_reported_event_naming_both_commits(self):
+        code, err, fake = run_review()
+        self.assertEqual(code, 0, err)
+        what, payload = vt.events.parse(fake.posted[0][1])
+        self.assertEqual((what, payload["event"], payload["base"], payload["head"]),
+                         ("event", "reviewer.reported", "abcdef0", "1234567"))
+
     def test_a_file_with_no_trailing_newline_still_posts_one(self):
         code, err, fake = run_review(REPORT.rstrip("\n"))
         self.assertEqual(code, 0, err)
@@ -110,6 +117,11 @@ class TestPostsTheReport(unittest.TestCase):
 
 
 class TestRefusesWhatTheWorkerCouldNotFind(unittest.TestCase):
+    def test_a_first_line_that_names_no_commits_is_refused(self):
+        code, err, fake = run_review("REVIEW of the diff\n\n## Standards\n\nNone\n")
+        self.assertEqual(code, 2)
+        self.assertEqual(fake.posted, [])
+
     def test_a_first_line_that_is_not_review_is_refused_and_nothing_is_posted(self):
         code, err, fake = run_review("## Standards\n\nNone\n")
         self.assertEqual(code, 2)

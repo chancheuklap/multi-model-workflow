@@ -1,10 +1,9 @@
-"""Tests for status.py against fixed samples: no tracker, no Paseo daemon, no clock.
+"""Tests for status.py against fixed tickets: no tracker, no runner, no clock.
 
-The two sources status.py reads are a `paseo ls --json` array and a set of tickets, so
-the samples here are one of each, in the shape the real calls return them. Whether an
-agent is waiting on a person is carried the way `live_agents` carries it, as the
-`waiting_on_permission` flag it derives from one `paseo permit ls`. Everything
-status.py decides is a function of those two, which is why none of it needs a terminal.
+The one source status.py reads is the tracker, so the samples here are tickets in the
+shape `gh issue view --json …` returns them, their comments carrying the events the
+pipeline's scripts write. Everything status.py decides is a function of those, which is
+why none of it needs a terminal.
 
     python3 -m unittest discover -s mmw-v2/tests/dispatch -p test_status.py
 """
@@ -22,63 +21,53 @@ STATUS_PATH = Path(__file__).resolve().parents[2] / "skills" / "dispatch" / "scr
 _spec = importlib.util.spec_from_file_location("status", STATUS_PATH)
 status = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(status)
+events = status.events
+
+AT = "2026-09-10T01:00:00Z"
 
 
-def paseo_json_by_kind(by_kind, spec=76):
-    """A `paseo_json` stand-in: `ls` returns the row for that kind under `mmw.spec`."""
-    def fake(args):
-        if args[:3] == ["ls", "-g", "--json"]:
-            labels = [args[i + 1] for i, a in enumerate(args) if a == "--label"]
-            if f"mmw.spec={spec}" not in labels:
-                return []
-            for kind, row in by_kind.items():
-                if f"mmw.kind={kind}" in labels:
-                    return [row]
-            return []
-        if args[:2] == ["permit", "ls"]:
-            return []
-        raise AssertionError(args)
-    return fake
+def ev(name, line, ticket=61, **fields):
+    """One comment as the pipeline's scripts post it."""
+    return events.build(name, ticket=ticket, line=line, at=AT, **fields)
 
 
-def agent(ticket, status_="running", *, kind="worker",
-          created="2 minutes ago", agent_id=None, waiting=False, name=None, cwd=None):
-    """One row in the shape `live_agents` hands on: an ls row plus what it added."""
-    aid = agent_id or f"{ticket:08d}-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
-    return {
-        "id": aid,
-        "shortId": aid[:7],
-        "name": name or f"#{ticket} {kind}",
-        "provider": "grok/grok-4.6",
-        "thinking": "high",
-        "status": status_,
-        "cwd": cwd if cwd is not None else f"/repo/issue-{ticket}",
-        "created": created,
-        "kind": kind,
-        "waiting_on_permission": waiting,
-    }
+def started(ticket, session, runner="orca", kind="worker"):
+    return ev(f"{kind}.started", f"{kind} started on {runner}: session {session}", ticket,
+              session=session, runner=runner, worktree=f"/repo/.worktrees/issue-{ticket}",
+              branch=f"issue-{ticket}")
+
+
+def passed(ticket):
+    return ev("ticket.passed", "ALL MET", ticket)
+
+
+def landed(ticket):
+    return ev("ticket.landed", f"Landed issue-{ticket} into main", ticket)
+
+
+def returned(ticket, line="HANDOFF REQUIRED: 1 abandoned (failed), 0 unmet, 4 met of 5"):
+    return ev("ticket.returned", line, ticket)
 
 
 def ticket(number, state="OPEN", labels=("ready-for-agent",), blockers=(),
-           assignees=(), comments=(), title=None, body=""):
+           assignees=(), comments=(), title=None, body="", closed_blockers=()):
     """One `gh issue view --json …` answer, before status.py normalises it."""
+    nodes = ([{"number": b, "state": "OPEN"} for b in blockers]
+             + [{"number": b, "state": "CLOSED"} for b in closed_blockers])
     return status.normalise_ticket(number, {
         "state": state,
         "title": title if title is not None else f"ticket {number}",
         "body": body,
         "labels": [{"name": l} for l in labels],
         "assignees": [{"login": a} for a in assignees],
-        "blockedBy": {"nodes": [{"number": b, "state": "OPEN"} for b in blockers]},
+        "blockedBy": {"nodes": nodes},
         "comments": [{"body": c, "createdAt": "2000-01-01T00:00:00Z"} for c in comments],
     })
 
 
-def review_child(number, comment, *, state="CLOSED", title=None, labels=("needs-triage",)):
-    """A review sub-issue: body first line `SUB-ISSUE review`, plus its close comment."""
-    return ticket(
-        number, state=state, labels=labels, comments=[comment],
-        title=title if title is not None else f"REVIEW: child {number}",
-        body=f"SUB-ISSUE review from #61\nREVIEW: child {number}\n")
+def rows_of(tickets, **kwargs):
+    return status.build_rows(list(tickets), tickets,
+                             lookup=lambda n: tickets.get(n), **kwargs)
 
 
 SELF_RUN_UNMET = "\n".join([
@@ -116,160 +105,171 @@ SELF_RUN_HANDOFF = "\n".join([
     "Outside Owns: None",
 ])
 
-VERDICT = ("VERDICT 1111111111111111111111111111111111111111 by Sonnet 5 — "
-           "commands only; all passed; nothing repaired.")
 
-DECISIONS = "DECISIONS\n\nDecisions I made on my own\n- none\n\nOutside Owns\nNone"
+class WhoHoldsATicket(unittest.TestCase):
+    """A worker holds its ticket from its `worker.started` until an event closes it.
 
-REVIEW = "REVIEW abcdef0..1234567\n\nStandards: pass"
+    Nothing here asks a runner: a worker started on Orca, on Herdr or on another
+    machine holds its ticket exactly as one on Paseo does.
+    """
 
+    def row(self, *comments, **kwargs):
+        return rows_of({61: ticket(61, comments=comments, **kwargs)})[0]
 
-WORKER_61 = "11111111-1111-4111-8111-111111111111"
-REVIEWER_61 = "22222222-2222-4222-8222-222222222222"
-VERIFIER_61 = "33333333-3333-4333-8333-333333333333"
-ADVISOR_61 = "44444444-4444-4444-8444-444444444444"
+    def test_a_started_worker_holds_its_ticket_and_the_row_names_it(self):
+        row = self.row(started(61, "term_7"))
+        self.assertEqual(row["worker"]["session"], "term_7")
+        self.assertEqual((row["runner"], row["session"], row["held"]),
+                         ("orca", "term_7", "live"))
+        self.assertEqual(status.held([row]), [row])
 
+    def test_a_reviewer_alone_does_not_hold_the_ticket(self):
+        row = self.row(started(61, "rev_1", kind="reviewer"))
+        self.assertIsNone(row["worker"])
 
-class Identity(unittest.TestCase):
-    """Which ticket and kind a live agent belongs to."""
-
-    def test_cwd_basename_names_the_ticket_and_a_root_agent_is_the_worker(self):
-        found = status.sessions([agent(61, agent_id=WORKER_61)])[0]
-        self.assertEqual((found["ticket"], found["kind"]), (61, "worker"))
-
-    def test_a_tilde_cwd_still_reads_the_basename(self):
-        found = status.sessions([agent(62, cwd="~/.paseo/worktrees/hash/issue-62")])[0]
-        self.assertEqual(found["ticket"], 62)
-
-    def test_kind_comes_from_the_mmw_kind_filter_not_from_parent(self):
-        by_kind = {
-            "worker": {
-                "id": WORKER_61, "shortId": WORKER_61[:7], "name": "#61 worker",
-                "status": "running", "cwd": "/repo/issue-61", "created": "2 minutes ago",
-            },
-            "reviewer": {
-                "id": REVIEWER_61, "shortId": REVIEWER_61[:7], "name": "#61 reviewer",
-                "status": "running", "cwd": "/repo/issue-61", "created": "2 minutes ago",
-                "ParentAgentId": WORKER_61,
-            },
+    def test_each_closing_event_ends_the_hold(self):
+        closers = {
+            "worker.retracted": ev("worker.retracted", "retracted", session="term_7",
+                                   runner="orca"),
+            "worker.lost": ev("worker.lost", "lost", session="term_7"),
+            "ticket.landed": landed(61),
+            "ticket.released": ev("ticket.released", "released", reason="worker-lost"),
+            "spec.suspended": ev("spec.suspended", "NIGHT SUSPENDED #76"),
+            "ticket.passed": passed(61),
+            "ticket.returned": returned(61),
+            "worker.replaced": ev("worker.replaced", "replaced", session="term_8",
+                                  runner="orca", replaced="term_7"),
         }
-        saved = status.paseo_json
-        try:
-            status.paseo_json = paseo_json_by_kind(by_kind)
-            found = {s["kind"]: s for s in status.sessions(status.live_agents(76))}
-        finally:
-            status.paseo_json = saved
-        self.assertEqual(found["worker"]["id"], WORKER_61)
-        self.assertEqual(found["reviewer"]["id"], REVIEWER_61)
+        for name, closer in closers.items():
+            with self.subTest(closer=name):
+                row = self.row(started(61, "term_7"), closer)
+                self.assertIsNone(row["worker"], name)
 
-    def test_a_cwd_that_is_not_an_issue_directory_is_not_ours(self):
-        self.assertEqual(status.sessions([agent(61, cwd="/repo/scratch")]), [])
+    def test_a_loss_of_another_session_leaves_this_one_holding(self):
+        row = self.row(started(61, "term_7"), ev("worker.lost", "lost", session="term_2"))
+        self.assertEqual(row["worker"]["session"], "term_7")
 
-    def test_a_live_worker_is_held(self):
-        rows = status.build_rows([61], {61: ticket(61)},
-                                 status.sessions([agent(61, agent_id=WORKER_61)]))
-        self.assertEqual([r["ticket"] for r in status.held(rows)], [61])
+    def test_a_resumed_worker_holds_again(self):
+        row = self.row(started(61, "term_7"), returned(61),
+                       ev("worker.resumed", "resumed", session="term_7", runner="orca"))
+        self.assertEqual(row["worker"]["session"], "term_7")
 
-    def test_a_reviewer_alone_does_not_count_as_the_worker_being_held(self):
-        child = agent(61, kind="reviewer", agent_id=REVIEWER_61)
-        rows = status.build_rows(
-            [61], {61: ticket(61)}, status.sessions([child]))
-        self.assertIsNone(rows[0]["worker"])
-        self.assertEqual(status.held(rows), [])
+    def test_a_ticket_the_tracker_says_is_over_is_held_by_nobody(self):
+        row = self.row(started(61, "term_7"), state="CLOSED", labels=())
+        self.assertIsNone(row["worker"])
+        self.assertTrue(row["note"].endswith("at rest"), row["note"])
 
-    def test_unknown_kind_is_not_a_worker(self):
-        advisor = agent(61, kind="advisor", agent_id=ADVISOR_61)
-        found = status.sessions([advisor])
-        self.assertEqual(found, [])
-        rows = status.build_rows([61], {61: ticket(61)}, found)
-        self.assertEqual(rows[0]["agent"], "-")
-        table = status.render_table(rows, 76, datetime(2000, 1, 1, 2, 14))
-        self.assertNotIn("advisor", table)
-        self.assertNotIn(ADVISOR_61[:7], table)
+    def test_two_live_workers_are_named_on_the_note(self):
+        row = self.row(started(61, "term_7"), started(61, "term_8"))
+        self.assertEqual(row["note"], "2 live workers: term_7, term_8")
 
 
 class Rows(unittest.TestCase):
-    """The table's own contents, joined from the two sources."""
+    """The table's own contents, off the tickets and their events."""
 
     def rows(self):
-        agents = [
-            agent(61, "running", created="2 minutes ago", agent_id=WORKER_61),
-            agent(62, "idle", created="10 minutes ago"),
-            agent(63, "idle", created="15 minutes ago"),
-        ]
         tickets = {
-            61: ticket(61, comments=[SELF_RUN_UNMET]),
+            61: ticket(61, comments=[started(61, "term_1"), SELF_RUN_UNMET]),
             62: ticket(62, comments=[SELF_RUN_UNMET]),
-            63: ticket(63, comments=[SELF_RUN_UNMET]),
             64: ticket(64, state="CLOSED", labels=(),
-                       comments=[SELF_RUN_ALL_MET, "ALL MET\nBranch: issue-64"]),
+                       comments=[SELF_RUN_ALL_MET, passed(64)]),
             65: ticket(65, blockers=(62,)),
         }
-        return status.build_rows(list(tickets), tickets, status.sessions(agents))
+        return rows_of(tickets)
 
     def row(self, number):
         return next(r for r in self.rows() if r["ticket"] == number)
 
-    def test_a_running_agent_shows_its_paseo_status_id_age_and_no_note(self):
+    def test_a_live_worker_shows_its_runner_session_and_no_note(self):
         row = self.row(61)
-        self.assertEqual(row["agent"], "#61 worker")
-        self.assertEqual(row["status"], "running")
-        self.assertEqual(row["agent_id"], WORKER_61[:7])
-        self.assertEqual(row["age"], "2 minutes ago")
-        self.assertEqual(row["phase"], "self-run")
-        self.assertNotIn("turn", row)
+        self.assertEqual((row["runner"], row["session"], row["held"], row["since"]),
+                         ("orca", "term_1", "live", AT))
+        self.assertEqual(row["phase"], "worker.started")
         self.assertEqual(row["note"], "")
 
     def test_ac_comes_off_the_newest_self_run(self):
         self.assertEqual(self.row(62)["ac"], "3/5")
 
-    def test_a_closed_ticket_keeps_its_counts_and_names_the_closing_comment(self):
+    def test_a_closed_ticket_names_its_result(self):
         row = self.row(64)
-        self.assertEqual((row["agent"], row["phase"], row["ac"]), ("-", "ALL MET", "5/5"))
+        self.assertEqual((row["runner"], row["phase"], row["ac"]), ("-", "ticket.passed", "5/5"))
         self.assertEqual(row["note"], "ALL MET")
 
     def test_a_blocked_ticket_names_what_it_waits_on(self):
         self.assertEqual(self.row(65)["note"], "waiting on #62")
 
-    def test_the_frontier_leaves_out_what_is_held_claimed_or_blocked(self):
-        self.assertEqual([r["ticket"] for r in status.frontier(self.rows())], [])
+    def test_the_frontier_leaves_out_what_is_held_or_blocked(self):
+        self.assertEqual([r["ticket"] for r in status.frontier(self.rows())], [62])
 
-    def test_only_the_worker_counts_as_held(self):
-        worker = agent(61, agent_id=WORKER_61)
-        child = agent(63, kind="reviewer", agent_id=REVIEWER_61)
-        tickets = {61: ticket(61), 63: ticket(63)}
-        rows = status.build_rows(list(tickets), tickets, status.sessions([worker, child]))
-        self.assertEqual([r["ticket"] for r in status.held(rows)], [61])
-        self.assertIsNone(next(r for r in rows if r["ticket"] == 63)["worker"])
-
-    def test_the_frontier_takes_a_ready_ticket_with_no_session_and_no_blocker(self):
+    def test_the_frontier_takes_a_ready_ticket_with_no_worker_and_no_blocker(self):
         tickets = {70: ticket(70), 71: ticket(71, assignees=("someone",)),
                    72: ticket(72, labels=("needs-triage",))}
-        rows = status.build_rows(list(tickets), tickets, [])
-        self.assertEqual([r["ticket"] for r in status.frontier(rows)], [70])
+        self.assertEqual([r["ticket"] for r in status.frontier(rows_of(tickets))], [70])
 
-    def test_pending_permissions_show_on_the_note(self):
-        agents = [agent(61, waiting=True)]
-        rows = status.build_rows([61], {61: ticket(61)}, status.sessions(agents))
-        self.assertEqual(rows[0]["note"], "needs permission")
 
-    def test_a_closed_worker_is_listed_but_does_not_hold_the_ticket(self):
-        agents = [agent(61, "closed", agent_id=WORKER_61)]
-        tickets = {61: ticket(61, assignees=("mmw-bot",))}
-        rows = status.build_rows([61], tickets, status.sessions(agents))
-        self.assertEqual(rows[0]["agent"], "#61 worker")
-        self.assertEqual(rows[0]["status"], "closed")
-        self.assertEqual(rows[0]["note"], "closed: archive it")
-        self.assertIsNone(rows[0]["worker"])
-        self.assertEqual(status.held(rows), [])
-        table = status.render_table(rows, 76, datetime(2000, 1, 1, 2, 14))
-        self.assertIn("#61 worker", table)
-        self.assertIn("closed", table)
-        self.assertIn("0 live", table.splitlines()[0])
+class BlockersLetGoWhenTheyLand(unittest.TestCase):
+    """A ticket is cut from the base branch, so a blocker that closed with its branch not
+    yet merged has left nothing there to build on. The unlock is `ticket.landed`."""
+
+    def frontier(self, blocker, **kwargs):
+        tickets = {60: blocker, 61: ticket(61, closed_blockers=(60,))}
+        return [r["ticket"] for r in status.frontier(rows_of(tickets, **kwargs))]
+
+    def test_a_blocker_that_passed_and_has_not_landed_still_blocks(self):
+        blocker = ticket(60, state="CLOSED", labels=(), comments=[passed(60)])
+        self.assertEqual(self.frontier(blocker), [])
+        row = rows_of({60: blocker, 61: ticket(61, closed_blockers=(60,))})[1]
+        self.assertEqual(row["note"], "waiting on #60 (passed, not landed)")
+
+    def test_a_landed_blocker_lets_go(self):
+        blocker = ticket(60, state="CLOSED", labels=(), comments=[passed(60), landed(60)])
+        self.assertEqual(self.frontier(blocker), [61])
+
+    def test_a_blocker_this_plan_merges_first_lets_go(self):
+        blocker = ticket(60, state="CLOSED", labels=(), comments=[passed(60)])
+        self.assertEqual(self.frontier(blocker, landing={60}), [61])
+
+    def test_a_blocker_closed_without_a_pass_lets_go_on_closing(self):
+        blocker = ticket(60, state="CLOSED", labels=(), comments=["voided by a person"])
+        self.assertEqual(self.frontier(blocker), [61])
+
+    def test_an_open_blocker_blocks(self):
+        tickets = {60: ticket(60), 61: ticket(61, blockers=(60,))}
+        self.assertEqual([r["ticket"] for r in status.frontier(rows_of(tickets))], [60])
+
+    def test_a_regressed_blocker_blocks_again_once_it_passes_until_it_lands_again(self):
+        blocker = ticket(60, state="CLOSED", labels=(), comments=[
+            passed(60), landed(60),
+            ev("ticket.regressed", "Reverify failed", 60, commit="a" * 40),
+            passed(60)])
+        self.assertEqual(self.frontier(blocker), [])
+
+    def test_a_blocker_outside_the_batch_is_read_from_the_tracker(self):
+        outside = ticket(90, state="CLOSED", labels=(), comments=[passed(90)])
+        tickets = {61: ticket(61, closed_blockers=(90,))}
+        rows = status.build_rows([61], tickets, lookup=lambda n: {90: outside}[n])
+        self.assertEqual(rows[0]["blockers"], [90])
+
+
+class UnreadableEvents(unittest.TestCase):
+    """A comment whose event block cannot be read is a question left unanswered."""
+
+    BROKEN = "worker started\n\n<!-- mmw {\"v\":1,\"event\":\"worker.started\" -->"
+
+    def test_a_ticket_with_an_unreadable_event_is_off_the_frontier_and_says_why(self):
+        rows = rows_of({61: ticket(61, comments=[self.BROKEN])})
+        self.assertEqual(status.frontier(rows), [])
+        self.assertIn("its events cannot be read", status.why_not_on_frontier(rows[0]))
+        self.assertTrue(rows[0]["note"].startswith("events unreadable"), rows[0]["note"])
+
+    def test_a_blocker_whose_events_cannot_be_read_blocks(self):
+        tickets = {60: ticket(60, state="CLOSED", labels=(), comments=[self.BROKEN]),
+                   61: ticket(61, closed_blockers=(60,))}
+        self.assertEqual(status.frontier(rows_of(tickets)), [])
 
 
 class TicketReading(unittest.TestCase):
-    """The few fields read out of a ticket's comments."""
+    """The criteria counts read off the newest run comment."""
 
     def test_the_counts_come_off_the_newest_self_run(self):
         self.assertEqual(status.counted_ac(ticket(62, comments=[SELF_RUN_UNMET])), "3/5")
@@ -291,41 +291,28 @@ class TicketReading(unittest.TestCase):
     def test_a_ticket_with_no_run_has_no_counts(self):
         self.assertEqual(status.counted_ac(ticket(62)), "-")
 
-    def test_the_newest_comment_of_a_kind_wins(self):
-        found = status.newest_with_first_line(
-            ticket(62, comments=[SELF_RUN_UNMET, VERDICT, SELF_RUN_ALL_MET]),
-            "self-run", "reverify")
-        self.assertEqual(status.first_line(found), "self-run")
-        self.assertEqual(status.counted_ac(ticket(62, comments=[SELF_RUN_UNMET, VERDICT,
-                                                               SELF_RUN_ALL_MET])), "5/5")
+    def test_the_newest_run_wins(self):
+        comments = [SELF_RUN_UNMET, passed(62), SELF_RUN_ALL_MET]
+        self.assertEqual(status.counted_ac(ticket(62, comments=comments)), "5/5")
 
 
-class PhaseFromComments(unittest.TestCase):
-    """`phase` is the newest protocol-slot comment, not a token on the agent."""
+class PhaseFromEvents(unittest.TestCase):
+    """`phase` is the newest event's name, and a first line decides nothing."""
 
-    def test_each_protocol_slot_is_a_phase(self):
-        cases = (
-            (SELF_RUN_UNMET, "self-run"),
-            ("reverify\nALL MET (5 met)", "reverify"),
-            (VERDICT, "VERDICT"),
-            (DECISIONS, "DECISIONS"),
-            (REVIEW, "REVIEW"),
-            ("ALL MET\nBranch: x", "ALL MET"),
-            ("HANDOFF REQUIRED: 1 abandoned (failed), 0 unmet, 4 met of 5",
-             "HANDOFF REQUIRED"),
-        )
-        for body, phase in cases:
-            with self.subTest(phase=phase):
-                self.assertEqual(status.phase_of(ticket(61, comments=[body])), phase)
+    def test_the_newest_event_is_the_phase(self):
+        t = ticket(61, comments=[started(61, "term_1"), SELF_RUN_UNMET,
+                                 ev("worker.decided", "DECISIONS")])
+        self.assertEqual(status.phase_of(t), "worker.decided")
 
-    def test_the_newest_protocol_slot_wins(self):
-        t = ticket(61, comments=[SELF_RUN_UNMET, VERDICT, DECISIONS])
-        self.assertEqual(status.phase_of(t), "DECISIONS")
+    def test_a_comment_that_only_looks_like_a_result_is_prose(self):
+        t = ticket(61, comments=["ALL MET\nBranch: x", "VERDICT " + "a" * 40 + " by x — ok"])
+        self.assertEqual(status.phase_of(t), "-")
+        self.assertFalse(t["fold"]["passed"])
 
-    def test_a_ticket_with_no_protocol_slot_has_no_phase(self):
+    def test_a_ticket_with_no_event_has_no_phase(self):
         self.assertEqual(status.phase_of(ticket(61)), "-")
 
-    def test_a_closed_ticket_with_no_closing_comment_still_says_closed(self):
+    def test_a_closed_ticket_with_no_event_still_says_closed(self):
         self.assertEqual(status.phase_of(ticket(61, state="CLOSED", labels=())), "closed")
 
 
@@ -333,14 +320,11 @@ class Table(unittest.TestCase):
     """The one screen `--table` prints."""
 
     def table(self, spec=60):
-        agents = [agent(61, "running", created="2 minutes ago", agent_id=WORKER_61,
-                        name="#61 worker")]
-        tickets = {61: ticket(61, comments=[SELF_RUN_UNMET]),
+        tickets = {61: ticket(61, comments=[started(61, "term_1"), SELF_RUN_UNMET]),
                    65: ticket(65, blockers=(61,))}
-        rows = status.build_rows(list(tickets), tickets, status.sessions(agents))
-        return status.render_table(rows, spec, datetime(2026, 8, 31, 2, 14))
+        return status.render_table(rows_of(tickets), spec, datetime(2026, 8, 31, 2, 14))
 
-    def test_the_first_line_names_the_time_the_spec_the_count_and_the_live_sessions(self):
+    def test_the_first_line_names_the_time_the_spec_the_count_and_the_live_workers(self):
         self.assertEqual(self.table().splitlines()[0],
                          "mmw status · 02:14 · spec #60 · 2 tickets · 1 live")
 
@@ -348,20 +332,16 @@ class Table(unittest.TestCase):
         self.assertEqual(self.table(spec=None).splitlines()[0],
                          "mmw status · 02:14 · 2 tickets · 1 live")
 
-    def test_the_columns_include_id_and_age_and_drop_turn(self):
+    def test_the_columns(self):
         self.assertEqual(self.table().splitlines()[2].split(),
-                         ["ticket", "agent", "id", "agent_status", "age",
+                         ["ticket", "runner", "session", "worker", "since",
                           "phase", "ac", "note"])
 
-    def test_one_line_per_ticket_in_ticket_order_with_id_and_age(self):
+    def test_one_line_per_ticket_in_ticket_order(self):
         body = self.table().splitlines()[3:]
         self.assertEqual([l.split()[0] for l in body], ["#61", "#65"])
-        self.assertIn("#61 worker", body[0])
-        id_at = 1 + 8 + 18
-        self.assertEqual(body[0][id_at:id_at + 8].strip(), "1111111")
-        self.assertNotIn(WORKER_61, body[0])
-        self.assertIn("2 minutes ago", body[0])
-        self.assertIn("self-run", body[0])
+        self.assertEqual(body[0].split()[1:5], ["orca", "term_1", "live", AT])
+        self.assertIn("worker.started", body[0])
         self.assertIn("waiting on #61", body[1])
 
 
@@ -398,73 +378,90 @@ class WorkerGrades(unittest.TestCase):
             "BATCH 65",
         ])
 
-    def test_every_child_gets_a_batch_line_including_those_not_in_the_queue(self):
-        with redirect_stdout(io.StringIO()) as out:
-            self.assertEqual(status.worker_grades(76), 0)
-        lines = out.getvalue().splitlines()
-        self.assertEqual(
-            [l for l in lines if l.startswith("BATCH ")],
-            ["BATCH 61", "BATCH 62", "BATCH 63", "BATCH 64", "BATCH 65"])
-        self.assertNotIn("GRADE 64", lines)
-        self.assertNotIn("GRADE 65", lines)
 
-
-class AdvancePlan(unittest.TestCase):
-    """The three kinds of line `--advance-plan` prints, and what it says when it prints none."""
+class Plans(unittest.TestCase):
+    """The plan forms read the batch through `sub_issues` and `read_ticket`."""
 
     LOGIN = "mmw-bot"
 
     def setUp(self):
-        self.saved = (status.sub_issues, status.read_ticket, status.live_agents,
-                      status.own_login)
-        self.tickets = {
-            61: ticket(61, state="CLOSED", labels=(),
-                       comments=["ALL MET\nBranch: issue-61"]),
-            62: ticket(62, state="CLOSED", labels=(),
-                       comments=["ALL MET\nBranch: issue-62"]),
-            63: ticket(63, state="CLOSED", labels=(),
-                       comments=["HANDOFF REQUIRED: 1 abandoned (failed), 0 unmet, 4 met of 5"]),
-            70: ticket(70),
-            71: ticket(71, blockers=(70,)),
-        }
-        self.tickets[61]["closed_at"] = "2026-08-31T01:00:00Z"
-        self.tickets[62]["closed_at"] = "2026-08-31T02:00:00Z"
-        self.tickets[63]["closed_at"] = "2026-08-31T03:00:00Z"
-        self.agents = []
+        self.saved = (status.sub_issues, status.read_ticket, status.own_login)
+        self.tickets = {}
         status.sub_issues = lambda spec: list(self.tickets)
         status.read_ticket = lambda n: self.tickets[n]
-        status.live_agents = lambda spec: self.agents
         status.own_login = lambda: ""
 
     def tearDown(self):
-        (status.sub_issues, status.read_ticket, status.live_agents,
-         status.own_login) = self.saved
+        (status.sub_issues, status.read_ticket, status.own_login) = self.saved
 
-    def plan(self, spec=76):
-        """The plan's stdout lines and its stderr lines, the two channels held apart."""
+    def closed(self, number, at, *comments):
+        t = ticket(number, state="CLOSED", labels=(), comments=comments)
+        t["closed_at"] = at
+        return t
+
+    def run_form(self, form, *args):
         out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
-            self.assertEqual(status.advance_plan(spec), 0)
+            self.assertEqual(form(*args), 0)
         return out.getvalue().splitlines(), err.getvalue().splitlines()
 
-    def test_merges_closed_all_met_in_closing_order_then_dispatches_the_frontier(self):
-        self.assertEqual(self.plan()[0], [
-            "MERGE 61",
-            "MERGE 62",
-            "DISPATCH 70",
-        ])
 
-    def test_a_live_worker_keeps_its_ticket_off_the_frontier(self):
-        self.agents = [agent(70)]
-        self.assertEqual(self.plan()[0], [
-            "MERGE 61",
-            "MERGE 62",
-        ])
+class AdvancePlan(Plans):
+    """The three kinds of line `--advance-plan` prints, and what it says when it prints none."""
 
-    def test_a_claim_with_no_session_behind_it_is_released_and_then_dispatched(self):
+    def plan(self, spec=76):
+        return self.run_form(status.advance_plan, spec)
+
+    def test_merges_passed_tickets_in_closing_order_then_dispatches_the_frontier(self):
+        self.tickets = {
+            61: self.closed(61, "2026-08-31T02:00:00Z", passed(61)),
+            62: self.closed(62, "2026-08-31T01:00:00Z", passed(62)),
+            63: self.closed(63, "2026-08-31T03:00:00Z", returned(63)),
+            70: ticket(70),
+        }
+        self.assertEqual(self.plan()[0], ["MERGE 62", "MERGE 61", "DISPATCH 70"])
+
+    def test_a_landed_ticket_is_not_merged_again(self):
+        self.tickets = {61: self.closed(61, "2026-08-31T01:00:00Z", passed(61), landed(61))}
+        self.assertEqual(self.plan(), ([], []))
+
+    def test_a_ticket_blocked_by_one_this_plan_merges_is_dispatched_by_the_same_advance(self):
+        self.tickets = {60: self.closed(60, "2026-08-31T01:00:00Z", passed(60)),
+                        61: ticket(61, closed_blockers=(60,))}
+        self.assertEqual(self.plan()[0], ["MERGE 60", "DISPATCH 61"])
+
+    def test_a_claim_with_a_live_worker_on_its_events_is_kept_on_any_runner(self):
+        """2026-09-10: a worker on Orca, invisible to Paseo, lost its claim and got a
+        second worker beside it. The ticket's own events are what say it is held."""
+        status.own_login = lambda: self.LOGIN
+        self.tickets = {61: ticket(61, assignees=(self.LOGIN,),
+                                   comments=[started(61, "term_7", runner="orca")])}
+        out, err = self.plan()
+        self.assertEqual(out, [])
+        joined = "\n".join(err)
+        self.assertIn("#61 keeps its claim: the worker term_7 on orca is live on its events",
+                      joined)
+        self.assertIn("held by the worker term_7 on orca", joined)
+
+    def test_a_claim_whose_start_was_retracted_is_released_and_dispatched(self):
+        status.own_login = lambda: self.LOGIN
+        self.tickets = {61: ticket(61, assignees=(self.LOGIN,), comments=[
+            started(61, "term_7"),
+            ev("worker.retracted", "retracted", session="term_7", runner="orca")])}
+        self.assertEqual(self.plan()[0], ["RELEASE 61", "DISPATCH 61"])
+
+    def test_a_claim_with_no_worker_ever_started_is_released(self):
         status.own_login = lambda: self.LOGIN
         self.tickets = {61: ticket(61, assignees=(self.LOGIN,))}
         self.assertEqual(self.plan()[0], ["RELEASE 61", "DISPATCH 61"])
+
+    def test_a_claim_on_a_ticket_whose_events_cannot_be_read_is_kept(self):
+        status.own_login = lambda: self.LOGIN
+        self.tickets = {61: ticket(61, assignees=(self.LOGIN,),
+                                   comments=[UnreadableEvents.BROKEN])}
+        out, err = self.plan()
+        self.assertEqual(out, [])
+        self.assertIn("#61 keeps its claim: its events cannot be read", "\n".join(err))
 
     def test_a_claim_this_pipeline_did_not_make_is_left_alone(self):
         status.own_login = lambda: self.LOGIN
@@ -473,70 +470,78 @@ class AdvancePlan(unittest.TestCase):
         self.assertEqual(out, [])
         self.assertIn("#61 claimed by alice", err[1])
 
-    def test_a_claim_with_a_live_worker_on_it_is_its_owners(self):
-        status.own_login = lambda: self.LOGIN
-        self.tickets = {61: ticket(61, assignees=(self.LOGIN,))}
-        self.agents = [agent(61)]
-        out, err = self.plan()
-        self.assertEqual(out, [])
-        joined = "\n".join(err)
-        self.assertIn("#61 keeps its claim", joined)
-        self.assertIn("live worker #61 worker", joined)
-
-    def test_a_claim_with_neither_a_worker_nor_a_workspace_is_still_released(self):
-        status.own_login = lambda: self.LOGIN
-        self.tickets = {61: ticket(61, assignees=(self.LOGIN,))}
-        self.assertEqual(self.plan()[0], ["RELEASE 61", "DISPATCH 61"])
-
-    def test_a_closed_worker_does_not_keep_the_claim(self):
-        status.own_login = lambda: self.LOGIN
-        self.tickets = {61: ticket(61, assignees=(self.LOGIN,))}
-        self.agents = [agent(61, "closed")]
-        self.assertEqual(self.plan()[0], ["RELEASE 61", "DISPATCH 61"])
-
     def test_with_no_login_to_compare_against_nothing_is_released(self):
         self.tickets = {61: ticket(61, assignees=(self.LOGIN,))}
         self.assertEqual(self.plan()[0], [])
-
-    def test_the_merges_come_first_and_in_closing_order(self):
-        status.own_login = lambda: self.LOGIN
-        self.tickets = {
-            61: ticket(61, state="CLOSED", labels=(),
-                       comments=["ALL MET\nBranch: issue-61"]),
-            62: ticket(62, state="CLOSED", labels=(),
-                       comments=["ALL MET\nBranch: issue-62"]),
-            63: ticket(63, assignees=(self.LOGIN,)),
-        }
-        self.tickets[61]["closed_at"] = "2026-08-31T02:00:00Z"
-        self.tickets[62]["closed_at"] = "2026-08-31T01:00:00Z"
-        self.assertEqual(self.plan()[0],
-                         ["MERGE 62", "MERGE 61", "RELEASE 63", "DISPATCH 63"])
 
     def test_an_empty_frontier_names_every_queued_ticket_and_its_condition(self):
         self.tickets = {
             61: ticket(61, assignees=("alice",)),
             62: ticket(62, blockers=(61,)),
-            63: ticket(63),
+            63: ticket(63, comments=[started(63, "term_3")]),
             64: ticket(64, labels=("needs-triage",)),
         }
-        self.agents = [agent(63)]
         out, err = self.plan()
         self.assertEqual(out, [])
-        self.assertEqual(err, [
+        self.assertEqual(err[:3], [
             "dispatch: nothing on #76's frontier, and 3 open ticket(s) are still in "
             "the agent queue:",
             "  #61 claimed by alice",
             "  #62 blocked by #61",
-            "  #63 held by the worker #63 worker (running)",
         ])
+        self.assertTrue(err[3].startswith("  #63 held by the worker term_3 on orca, started "),
+                        err[3])
 
     def test_a_batch_with_nothing_left_in_the_queue_says_nothing(self):
         self.tickets = {61: ticket(61, state="CLOSED", labels=())}
         self.assertEqual(self.plan(), ([], []))
 
-    def test_a_frontier_with_something_on_it_needs_no_explanation(self):
-        self.tickets = {61: ticket(61), 62: ticket(62, blockers=(61,))}
-        self.assertEqual(self.plan(), (["DISPATCH 61"], []))
+
+class ReverifyPlan(Plans):
+    """`--reverify-plan`: the landed tickets, which are the ones on the base branch."""
+
+    def test_only_landed_passes_are_run_again_and_the_rest_are_named(self):
+        self.tickets = {
+            61: self.closed(61, "2026-08-31T01:00:00Z", passed(61), landed(61)),
+            62: self.closed(62, "2026-08-31T02:00:00Z", passed(62)),
+            63: self.closed(63, "2026-08-31T03:00:00Z", returned(63)),
+        }
+        out, err = self.run_form(status.reverify_plan, 76)
+        self.assertEqual(out, ["REVERIFY 61"])
+        self.assertIn("#62 passed and has not landed", "\n".join(err))
+
+
+class LandPlan(Plans):
+    """`--land-plan`: a handed-back ticket keeps its branch to itself until it passes."""
+
+    def test_a_handed_back_ticket_is_not_merged(self):
+        self.tickets = {1: ticket(1, labels=("needs-triage",), comments=[returned(1)])}
+        rows, _ = self.run_form(status.land_plan, [1])
+        self.assertEqual([l for l in rows if l.startswith("MERGE")], [])
+        self.assertTrue([l for l in rows if l.startswith("NOTHING 1")], rows)
+
+    def test_a_passed_ticket_merges_and_a_landed_one_does_not(self):
+        self.tickets = {1: self.closed(1, "x", passed(1)),
+                        2: self.closed(2, "x", passed(2), landed(2))}
+        rows, _ = self.run_form(status.land_plan, [1, 2])
+        self.assertEqual([l for l in rows if l.startswith("MERGE")], ["MERGE 1"])
+
+    def test_a_ticket_whose_events_cannot_be_read_is_held(self):
+        self.tickets = {1: self.closed(1, "x", UnreadableEvents.BROKEN)}
+        rows, _ = self.run_form(status.land_plan, [1])
+        self.assertEqual(len(rows), 1)
+        self.assertTrue(rows[0].startswith("HOLD 1 its events cannot be read"), rows)
+
+
+def child(number, *, state="CLOSED", title=None, kind=None, resolution=None):
+    c = ticket(number, state=state, labels=("needs-triage",),
+               title=title if title is not None else f"child {number}")
+    if kind:
+        c["kind"] = kind
+    if resolution:
+        c["resolution"] = resolution
+    c["created"] = "2026-08-31T01:00:00Z"
+    return c
 
 
 class Summary(unittest.TestCase):
@@ -544,9 +549,8 @@ class Summary(unittest.TestCase):
 
     def test_the_summary_keeps_closed_handed_and_waiting_and_lists_sub_issues_by_title(self):
         tickets = {
-            61: ticket(61, state="CLOSED", labels=(), comments=["ALL MET\nBranch: x"]),
-            62: ticket(62, labels=("needs-triage",),
-                       comments=["HANDOFF REQUIRED: 1 abandoned (failed), 0 unmet, 4 met of 5"]),
+            61: ticket(61, state="CLOSED", labels=(), comments=[passed(61), landed(61)]),
+            62: ticket(62, labels=("needs-triage",), comments=[returned(62)]),
             63: ticket(63, blockers=(62,)),
             64: ticket(64, labels=("needs-triage",), comments=["fresh"]),
         }
@@ -554,8 +558,7 @@ class Summary(unittest.TestCase):
                              (63, "2026-08-29"), (64, "2026-08-31")):
             tickets[number]["created"] = when + "T00:00:00Z"
         tickets[61]["closed_at"] = "2026-08-31T02:00:00Z"
-        rows = status.build_rows(list(tickets), tickets, [])
-        body = status.summary(rows, opened="2026-08-30T00:00:00Z",
+        body = status.summary(rows_of(tickets), opened="2026-08-30T00:00:00Z",
                               now=datetime(2026, 8, 31, 2, 14)).splitlines()
         self.assertEqual(body[0], "NIGHT SUMMARY 2026-08-31")
         self.assertEqual(body[2], "Closed: #61 ALL MET")
@@ -567,175 +570,83 @@ class Summary(unittest.TestCase):
         self.assertEqual(body[5], "Sub-issues opened tonight: None")
         self.assertEqual(body[6], status.routed_line((0, 0, 0, 0, 0, 0)))
 
-    def test_summary_walks_the_tickets_children(self):
-        """The fourth line is each ticket's children in the window, not the spec's tickets."""
+    def test_the_cli_window_is_sixteen_hours_back(self):
+        self.assertEqual(
+            status.night_opened(datetime(2026, 8, 31, 8, 0, tzinfo=timezone.utc)),
+            "2026-08-30T16:00:00Z")
+
+    def test_routed_counts_come_off_the_parents_child_events(self):
+        """opened/fixed/became/skipped/unread/open, each slot a distinct number."""
+        children = [
+            child(89, kind="review", resolution="fixed"),
+            child(90, kind="review", resolution="fixed"),
+            child(91, kind="review", resolution="became-ticket"),
+            child(92, kind="review", resolution="stale"),
+            child(93, kind="review"),
+            child(94, kind="review", state="OPEN"),
+            status.normalise_ticket(99, {}),
+            child(100, kind="baseline", resolution="fixed"),
+            child(101),
+        ]
+        self.assertEqual(status.routed_counts(children), (7, 2, 1, 1, 2, 1))
+
+    def test_summary_walks_the_tickets_children_and_reads_their_kind_off_the_parent(self):
         raws = {
             61: {"state": "CLOSED", "title": "ticket 61", "body": "",
                  "labels": [], "assignees": [], "blockedBy": {"nodes": []},
-                 "comments": [{"body": "ALL MET\nBranch: x"}],
+                 "comments": [{"body": passed(61)},
+                              {"body": ev("child.opened", "Opened #90 (review)", 61,
+                                          child=90, kind="review")},
+                              {"body": ev("child.opened", "Opened #91 (pipeline)", 61,
+                                          child=91, kind="pipeline")},
+                              {"body": ev("child.closed", "#90 became #80", 61,
+                                          child=90, resolution="became-ticket", became=80)}],
                  "createdAt": "2026-08-29T00:00:00Z",
                  "closedAt": "2026-08-31T02:00:00Z"},
             64: {"state": "OPEN", "title": "ticket 64", "body": "",
                  "labels": [{"name": "needs-triage"}], "assignees": [],
-                 "blockedBy": {"nodes": []},
-                 "comments": [{"body": "fresh"}],
+                 "blockedBy": {"nodes": []}, "comments": [{"body": "fresh"}],
                  "createdAt": "2026-08-31T00:00:00Z", "closedAt": ""},
             90: {"state": "CLOSED", "title": "REVIEW: RUNNER is now a Path",
-                 "body": "SUB-ISSUE review from #61\nREVIEW: child 90\n",
-                 "labels": [{"name": "needs-triage"}], "assignees": [],
-                 "blockedBy": {"nodes": []},
-                 "comments": [{"body": "已收进 #80（triage close comment whose first line is body）"}],
+                 "body": "SUB-ISSUE review from #61\n", "labels": [], "assignees": [],
+                 "blockedBy": {"nodes": []}, "comments": [],
                  "createdAt": "2026-08-31T01:00:00Z", "closedAt": ""},
             91: {"state": "OPEN", "title": "a pipeline child",
-                 "body": "SUB-ISSUE pipeline from #61\n",
-                 "labels": [{"name": "needs-triage"}], "assignees": [],
-                 "blockedBy": {"nodes": []},
-                 "comments": [{"body": "SUB-ISSUE pipeline from #61"}],
+                 "body": "SUB-ISSUE pipeline from #61\n", "labels": [], "assignees": [],
+                 "blockedBy": {"nodes": []}, "comments": [],
                  "createdAt": "2026-08-29T00:00:00Z", "closedAt": ""},
         }
         children = {76: [61, 64], 61: [90, 91], 64: []}
-        asked = []
-        viewed = []
-        saved = (status.gh_json, status.sub_issues, status.paseo_json,
-                 status.night_opened)
+        saved = (status.gh_json, status.sub_issues, status.night_opened)
 
         def fake_gh_json(args, fallback=None):
             if args[:2] == ["issue", "view"]:
-                viewed.append(list(args))
                 return raws[int(args[2])]
             return [] if fallback is None else fallback
 
         try:
             status.gh_json = fake_gh_json
-            status.sub_issues = (lambda n: asked.append(n) or list(children.get(n, [])))
-            status.paseo_json = (
-                lambda args: [] if args[:3] == ["ls", "-g", "--json"] else {})
+            status.sub_issues = lambda n: list(children.get(n, []))
             status.night_opened = lambda now=None: "2026-08-30T00:00:00Z"
             with redirect_stdout(io.StringIO()) as out:
                 self.assertEqual(status.main(["--summary", "76"]), 0)
             lines = out.getvalue().splitlines()
             self.assertEqual(
                 lines[5], "Sub-issues opened tonight: #90 REVIEW: RUNNER is now a Path")
-            self.assertNotIn("已收进", lines[5])
-            self.assertNotIn("#64", lines[5])
-            self.assertNotIn("#91", lines[5])
             self.assertEqual(lines[6], status.routed_line((1, 0, 1, 0, 0, 0)))
-            self.assertIn(61, asked)
-            self.assertIn(64, asked)
-            fields = next(a[a.index("--json") + 1] for a in viewed)
-            self.assertIn("body", fields.split(","))
         finally:
-            (status.gh_json, status.sub_issues, status.paseo_json,
-             status.night_opened) = saved
+            (status.gh_json, status.sub_issues, status.night_opened) = saved
 
-    def test_the_cli_window_is_sixteen_hours_back(self):
-        self.assertEqual(
-            status.night_opened(datetime(2026, 8, 31, 8, 0, tzinfo=timezone.utc)),
-            "2026-08-30T16:00:00Z")
-
-    def test_the_summary_form_prints_and_does_not_post(self):
-        tickets = {
-            61: ticket(61, state="CLOSED", labels=(), comments=["ALL MET\nBranch: x"]),
-        }
-        tickets[61]["closed_at"] = "2026-08-31T02:00:00Z"
-        tickets[61]["created"] = "2026-08-29T00:00:00Z"
-        gh_calls = []
-        saved = (status.gh, status.sub_issues, status.read_ticket,
-                 status.paseo_json, status.night_opened)
-        try:
-            status.gh = lambda args: gh_calls.append(list(args)) or ""
-            status.sub_issues = lambda spec: [61]
-            status.read_ticket = lambda n: tickets[n]
-            status.paseo_json = (
-                lambda args: [] if args[:3] == ["ls", "-g", "--json"] else {})
-            status.night_opened = lambda now=None: "2026-08-30T00:00:00Z"
-            with redirect_stdout(io.StringIO()) as out:
-                self.assertEqual(status.main(["--summary", "76"]), 0)
-            lines = out.getvalue().splitlines()
-            self.assertTrue(lines[0].startswith("NIGHT SUMMARY "))
-            self.assertEqual(lines[2], "Closed: #61 ALL MET")
-            self.assertEqual(lines[3], "Handed back to needs-triage: None")
-            self.assertEqual(lines[4], "Not dispatched, a blocker stayed open: None")
-            self.assertEqual(lines[5], "Sub-issues opened tonight: None")
-            self.assertEqual(lines[6], status.routed_line((0, 0, 0, 0, 0, 0)))
-            self.assertEqual(
-                [c for c in gh_calls if c[:2] == ["issue", "comment"]], [])
-        finally:
-            (status.gh, status.sub_issues, status.read_ticket,
-             status.paseo_json, status.night_opened) = saved
-
-    def test_the_sub_issue_line_is_number_and_title_not_the_close_comment(self):
-        """Triage close comments open with body, so taking the first line made a wall of text."""
-        child = review_child(
-            90,
-            "已收进 #254（`export_scene_data.py` 收束），挂在 #216 下，标 `ready-for-agent`。"
-            "已被 #223 做掉。已在基线分支上修掉。",
-            title="REVIEW: RUNNER is now a Path")
-        child["created"] = "2026-08-31T01:00:00Z"
-        rows = status.build_rows([61], {61: ticket(61, state="CLOSED", labels=())}, [])
-        body = status.summary(rows, opened="2026-08-30T00:00:00Z",
-                              now=datetime(2026, 8, 31, 2, 14),
-                              children=[child])
-        line = next(l for l in body.splitlines() if l.startswith("Sub-issues opened tonight:"))
-        self.assertEqual(line, "Sub-issues opened tonight: #90 REVIEW: RUNNER is now a Path")
-        self.assertNotIn("已收进", line)
-        self.assertNotIn("已被", line)
-        self.assertNotIn("已在基线", line)
-
-    def test_routed_counts_match_the_close_comments_and_unread_is_its_own_slot(self):
-        """opened/fixed/became/skipped/unread/open. Each slot a distinct number."""
-        children = [
-            review_child(89, "已在基线分支上修掉（提交 `def`）。AGENTS.md 指向改过了。"),
-            review_child(90, "已在基线分支上修掉（提交 `abc`）。night.md 1b 整段重写。"),
-            review_child(91, "已收进 #80（收束 runner），挂在 #76 下，标 `ready-for-agent`。"),
-            review_child(92, "已被 #70 做掉。CONTEXT.md 现在有 journey。"),
-            review_child(93, "按本票自己写的判据关闭。当前 HEAD 上那个 bool 不在了。"),
-            review_child(94, "按本票自己的判定关闭：Standards Finding 1 已在 #80 上取用。"),
-            review_child(95, "不做，理由是提出它的判官自己给的：建议不要采纳。"),
-            review_child(96, "当前措辞已是本票要的形状。boundary-check.md 的 Reading 一节。"),
-            review_child(97, "分两处落地，本票关闭。"),
-            review_child(98, "已在基线分支上修掉（提交 `abc`）。", state="OPEN"),
-            status.normalise_ticket(99, {}),
-            ticket(100, state="CLOSED", labels=("needs-triage",),
-                   title="a baseline child",
-                   body="SUB-ISSUE baseline from #61\n",
-                   comments=["已收进 #80"]),
-        ]
-        for child in children:
-            child["created"] = "2026-08-31T01:00:00Z"
-        rows = status.build_rows([61], {61: ticket(61, state="CLOSED", labels=())}, [])
-        body = status.summary(rows, opened="2026-08-30T00:00:00Z",
-                              now=datetime(2026, 8, 31, 2, 14),
-                              children=children)
-        # 11 opened: 2 fixed, 1 became, 5 skipped, 2 unread (#97 + unread raw), 1 open
-        self.assertIn(status.routed_line((11, 2, 1, 5, 2, 1)), body.splitlines())
-
-    def test_an_open_child_with_a_classifying_comment_is_open_not_unread(self):
-        """The CLOSED guard runs first: a live comment does not classify an open ticket."""
-        child = review_child(98, "已在基线分支上修掉（提交 `abc`）。", state="OPEN")
-        self.assertEqual(status.route_of(child), "open")
-        self.assertEqual(status.routed_counts([child]), (1, 0, 0, 0, 0, 1))
+    def test_an_open_child_is_open_not_unread(self):
+        c = child(98, kind="review", resolution="fixed", state="OPEN")
+        self.assertEqual(status.route_of(c), "open")
 
     def test_a_child_the_tracker_could_not_answer_is_unread_not_omitted(self):
-        child = status.normalise_ticket(99, {})
-        self.assertTrue(child["unread_raw"])
-        self.assertFalse(status.is_review_sub_issue(child))
-        self.assertEqual(status.routed_counts([child]), (1, 0, 0, 0, 1, 0))
+        c = status.normalise_ticket(99, {})
+        self.assertTrue(c["unread_raw"])
+        self.assertEqual(status.routed_counts([c]), (1, 0, 0, 0, 1, 0))
 
-    def test_routed_counts_the_batch_not_the_night_window(self):
-        old = review_child(88, "已收进 #80")
-        old["created"] = "2026-08-29T00:00:00Z"
-        new = review_child(90, "已在基线分支上修掉（提交 `abc`）。")
-        new["created"] = "2026-08-31T01:00:00Z"
-        rows = status.build_rows([61], {61: ticket(61, state="CLOSED", labels=())}, [])
-        body = status.summary(rows, opened="2026-08-30T00:00:00Z",
-                              now=datetime(2026, 8, 31, 2, 14),
-                              children=[old, new]).splitlines()
-        self.assertEqual(body[5], "Sub-issues opened tonight: #90 REVIEW: child 90")
-        self.assertNotIn("#88", body[5])
-        self.assertEqual(body[6], status.routed_line((2, 1, 1, 0, 0, 0)))
-
-    def test_read_ticket_asks_gh_for_the_body_field(self):
+    def test_read_ticket_asks_gh_for_the_body_and_the_comments(self):
         asked = []
 
         def fake_gh_json(args, fallback=None):
@@ -748,193 +659,32 @@ class Summary(unittest.TestCase):
             status.read_ticket(90)
         finally:
             status.gh_json = saved
-        fields = asked[0][asked[0].index("--json") + 1]
-        self.assertIn("body", fields.split(","))
-
-    def test_a_non_review_child_is_listed_and_not_routed(self):
-        child = ticket(
-            90, state="CLOSED", labels=("needs-triage",),
-            title="baseline: contract row missing",
-            body="SUB-ISSUE baseline from #61\n",
-            comments=["已在基线分支上修掉（提交 `abc`）。"])
-        child["created"] = "2026-08-31T01:00:00Z"
-        rows = status.build_rows([61], {61: ticket(61, state="CLOSED", labels=())}, [])
-        body = status.summary(rows, opened="2026-08-30T00:00:00Z",
-                              now=datetime(2026, 8, 31, 2, 14),
-                              children=[child]).splitlines()
-        self.assertEqual(body[5], "Sub-issues opened tonight: #90 baseline: contract row missing")
-        self.assertEqual(body[6], status.routed_line((0, 0, 0, 0, 0, 0)))
+        fields = asked[0][asked[0].index("--json") + 1].split(",")
+        self.assertIn("body", fields)
+        self.assertIn("comments", fields)
 
 
-class ReadingPaseo(unittest.TestCase):
-    """What status.py makes of Paseo's answers about a session."""
+class NoRunnerIsAsked(unittest.TestCase):
+    """status.py's one source is the tracker: no runner command is ever run."""
 
-    def setUp(self):
-        self.saved = status.paseo_json
-        self.ls = []
-        self.permits = []
-        self.permit_calls = 0
+    def test_the_table_runs_nothing_but_gh(self):
+        ran = []
+        saved = (status.subprocess.run, status.sub_issues, status.read_ticket)
 
-        def fake(args):
-            if args[:3] == ["ls", "-g", "--json"]:
-                labels = [args[i + 1] for i, a in enumerate(args) if a == "--label"]
-                if any(l.startswith("mmw.kind=") and l != "mmw.kind=worker" for l in labels):
-                    return []
-                return list(self.ls)
-            if args[:2] == ["permit", "ls"]:
-                self.permit_calls += 1
-                return list(self.permits)
-            raise AssertionError(args)
+        def fake_run(cmd, **kwargs):
+            ran.append(cmd[0])
+            raise AssertionError(f"ran {cmd}")
 
-        status.paseo_json = fake
-
-    def tearDown(self):
-        status.paseo_json = self.saved
-
-    def test_an_unanswered_ls_is_not_a_spec_with_no_agents(self):
-        def boom(args):
-            raise RuntimeError("exit 1")
-        status.paseo_json = boom
-        with self.assertRaises(RuntimeError):
-            status.live_agents(76)
-
-    def test_a_non_list_ls_is_refused_the_same_way(self):
-        status.paseo_json = lambda args: {"agents": []}
-        with self.assertRaises(RuntimeError):
-            status.live_agents(76)
-
-    def test_an_empty_list_is_read_as_no_agents(self):
-        self.ls = []
-        self.assertEqual(status.live_agents(76), [])
-
-    def ls_row(self, agent_id=WORKER_61):
-        return {
-            "id": agent_id,
-            "shortId": agent_id[:7],
-            "name": "#61 worker",
-            "provider": "grok/grok-4.6",
-            "thinking": "high",
-            "status": "running",
-            "cwd": "/repo/issue-61",
-            "created": "2 minutes ago",
-        }
-
-    def test_an_ls_row_is_carried_through_with_its_kind_and_permission_flag(self):
-        self.ls = [self.ls_row()]
-        found = status.live_agents(76)
-        self.assertEqual(len(found), 1)
-        self.assertEqual(found[0]["id"], WORKER_61)
-        self.assertEqual(found[0]["status"], "running")
-        self.assertEqual(found[0]["cwd"], "/repo/issue-61")
-        self.assertEqual(found[0]["created"], "2 minutes ago")
-        self.assertEqual(found[0]["kind"], "worker")
-        self.assertIs(found[0]["waiting_on_permission"], False)
-
-    def test_one_permit_call_answers_for_every_agent_of_the_batch(self):
-        second = "55555555-5555-4555-8555-555555555555"
-        self.ls = [self.ls_row(), self.ls_row(second)]
-        self.permits = [{"id": "perm-1", "agentId": second,
-                         "agentShortId": second[:7], "name": "Bash"}]
-        found = {row["id"]: row for row in status.live_agents(76)}
-        self.assertEqual(self.permit_calls, 1)
-        self.assertIs(found[WORKER_61]["waiting_on_permission"], False)
-        self.assertIs(found[second]["waiting_on_permission"], True)
-
-    def test_a_batch_with_no_agent_does_not_ask_about_permissions(self):
-        self.ls = []
-        self.assertEqual(status.live_agents(76), [])
-        self.assertEqual(self.permit_calls, 0)
-
-    def test_an_unanswered_permit_call_leaves_the_rest_of_the_row_readable(self):
-        self.ls = [self.ls_row()]
-
-        outer = status.paseo_json
-
-        def fake(args):
-            if args[:2] == ["permit", "ls"]:
-                raise RuntimeError("paseo permit ls: exit 1")
-            return outer(args)
-
-        status.paseo_json = fake
-        found = status.live_agents(76)
-        self.assertEqual(len(found), 1)
-        self.assertIs(found[0]["waiting_on_permission"], False)
-        self.assertEqual(found[0]["status"], "running")
-
-    def test_main_turns_a_paseo_fault_into_exit_2_without_a_traceback(self):
-        def boom(args):
-            raise RuntimeError("paseo ls -g --json: exit 1")
-        status.paseo_json = boom
-        err = io.StringIO()
-        with redirect_stderr(err), redirect_stdout(io.StringIO()):
-            self.assertEqual(status.main(["--table", "76"]), 2)
-        lines = [l for l in err.getvalue().splitlines() if l]
-        self.assertEqual(len(lines), 1)
-        self.assertTrue(lines[0].startswith("dispatch:"))
-        self.assertNotIn("Traceback", err.getvalue())
-
-    def test_live_agents_returns_one_row_per_kind_for_the_spec(self):
-        by_kind = {
-            "worker": {
-                "id": WORKER_61, "shortId": WORKER_61[:7], "name": "#61 worker",
-                "status": "running", "cwd": "/repo/issue-61", "created": "2 minutes ago",
-            },
-            "reviewer": {
-                "id": REVIEWER_61, "shortId": REVIEWER_61[:7], "name": "#61 reviewer",
-                "status": "running", "cwd": "/repo/issue-61", "created": "2 minutes ago",
-            },
-            "verifier": {
-                "id": VERIFIER_61, "shortId": VERIFIER_61[:7], "name": "#61 verifier",
-                "status": "running", "cwd": "/repo/issue-61", "created": "2 minutes ago",
-            },
-        }
-        status.paseo_json = paseo_json_by_kind(by_kind)
-        found = {a["kind"]: a["id"] for a in status.live_agents(76)}
-        self.assertEqual(found, {
-            "worker": WORKER_61,
-            "reviewer": REVIEWER_61,
-            "verifier": VERIFIER_61,
-        })
-
-
-class AnOpenTicketNeverMerges(unittest.TestCase):
-    """`closed = ALL MET` is the whole merge rule, in both plans. A ticket handed back
-    for a defect it could not answer keeps its branch to itself until it closes: the
-    two plans are both read by the main agent, and one of them knowing something the
-    other does not is a night disagreeing with itself."""
-
-    def setUp(self):
-        self.saved = (status.sub_issues, status.read_ticket, status.live_agents,
-                      status.own_login)
-        self.tickets = {
-            1: ticket(1, state="OPEN", labels=("needs-triage",),
-                      comments=("HANDOFF REQUIRED: 1 abandoned (failed), 0 unmet, "
-                                "7 met of 8\nBranch: issue-1 Commit: abc",)),
-        }
-        status.sub_issues = lambda spec: list(self.tickets)
-        status.read_ticket = lambda n: self.tickets[n]
-        status.live_agents = lambda spec: []
-        status.own_login = lambda: ""
-
-    def tearDown(self):
-        (status.sub_issues, status.read_ticket, status.live_agents,
-         status.own_login) = self.saved
-
-    def lines(self, call):
-        out = io.StringIO()
-        with redirect_stdout(out), redirect_stderr(io.StringIO()):
-            self.assertEqual(call(), 0)
-        return out.getvalue().splitlines()
-
-    def test_advance_does_not_merge_it(self):
-        self.assertEqual(
-            [l for l in self.lines(lambda: status.advance_plan(76))
-             if l.startswith(("MERGE", "CARRY"))], [])
-
-    def test_land_says_there_is_nothing_left_to_do(self):
-        rows = self.lines(lambda: status.land_plan([1]))
-        self.assertEqual([l for l in rows if l.startswith(("MERGE", "CARRY"))], [])
-        self.assertTrue([l for l in rows if l.startswith("NOTHING 1")], rows)
+        try:
+            status.subprocess.run = fake_run
+            status.sub_issues = lambda spec: [61]
+            status.read_ticket = lambda n: ticket(61, comments=[started(61, "term_1")])
+            with redirect_stdout(io.StringIO()) as out:
+                self.assertEqual(status.main(["--table", "76"]), 0)
+        finally:
+            (status.subprocess.run, status.sub_issues, status.read_ticket) = saved
+        self.assertEqual(ran, [])
+        self.assertIn("1 live", out.getvalue())
 
 
 if __name__ == "__main__":

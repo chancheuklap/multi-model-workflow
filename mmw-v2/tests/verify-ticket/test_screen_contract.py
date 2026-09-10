@@ -5,7 +5,7 @@ closeout refusal when the Spec axis reported a `Missing` against a row the draft
 import os
 import tempfile
 import unittest
-from _load import load
+from _load import event, load
 
 vt = load()
 
@@ -262,9 +262,10 @@ class TestSourcesAndMechanisms(ContractFixture, unittest.TestCase):
         self.assertTrue(any("--pages nowhere" in f for f in findings))
 
 
-REVIEW = ("REVIEW abc..def\n\n## Standards\n\nnone\n\n## Spec\n\n### Missing\n\n"
-          "1. **create-project.add-material calls nothing.** The button toggles a boolean.\n\n"
-          "## Tests\n\nnone\n")
+REVIEW = event("reviewer.reported",
+               "REVIEW abc..def\n\n## Standards\n\nnone\n\n## Spec\n\n### Missing\n\n"
+               "1. **create-project.add-material calls nothing.** The button toggles a boolean.\n\n"
+               "## Tests\n\nnone\n", base="abc", head="def")
 BODY = ticket(ROWS, gate("AC1", STORY))
 
 
