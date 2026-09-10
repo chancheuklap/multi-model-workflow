@@ -9,6 +9,8 @@
 #   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里 grok/cursor 两条 provider、
 #                     worktrees.root。不写 Agent profile。第一次把活表拷进 ~/.mmw/models.md，之后不覆盖行；
 #                     每次安装刷新表下五个 CLI host 的目录。
+#   Orca 侧工作树     有 orca 时：每个 setup 的 worktree-base-path 为 .worktrees；
+#                     repo 的 externalWorktreeVisibility 为 show。没有 orca 则跳过。
 #   Cursor 的 MCP     ~/.cursor/mcp.json 里 nowledge-mem 一条，内容问本机 nmem 要
 #
 # 本仓库上一代装过、这次不装的东西（技能软链、subagent 定义文件、hook 登记、从 models.md 生成的 Agent profile），
@@ -961,6 +963,130 @@ if paths:
   else
     echo "注意  paseo reload 没跑成：${reload_out:-exit $?}"
   fi
+fi
+
+# ---------------- Orca 侧工作树配置 ----------------
+#
+# 协议自己用 git 切工作树，落点是每个仓库的 `.worktrees/`。这两条只约束 runner 自己
+# 建出来的树也落在同一处，以及外部工作树对人可见（只为人眼，寻址一律用绝对路径）。
+# 没有 orca 的机器跳过。--check 只读：`orca project setups --json` 与
+# `orca repo list --json`。setup-update 只在安装时写，--check 不写。
+# worktree-base-path 还没写过（字段缺席）不当成缺：这台机器要等下一次安装才写，
+# 字段在而不是 `.worktrees` 才报缺。可见性没有 CLI 可写，只核对
+# `externalWorktreeVisibility` 为 `show`。
+
+if command -v orca >/dev/null 2>&1; then
+  MMW_MODE="$mode" python3 - <<'PY' || rc=1
+import json
+import os
+import subprocess
+import sys
+
+mode = os.environ["MMW_MODE"]
+
+
+def orca(*args):
+    env = dict(os.environ)
+    env.pop("CLICOLOR_FORCE", None)
+    env.pop("CLICOLOR", None)
+    return subprocess.run(
+        ["orca", *args],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+
+def payload(proc):
+    try:
+        data = json.loads(proc.stdout or "")
+    except Exception:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def result_list(data, *keys):
+    if not isinstance(data, dict):
+        return []
+    value = data.get("result")
+    if isinstance(value, list):
+        return [x for x in value if isinstance(x, dict)]
+    if isinstance(value, dict):
+        for key in keys:
+            rows = value.get(key)
+            if isinstance(rows, list):
+                return [x for x in rows if isinstance(x, dict)]
+    return []
+
+
+def base_path_of(row):
+    for key in ("worktreeBasePath", "worktree_base_path", "worktree-base-path"):
+        value = row.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def base_path_ok(value):
+    return value == ".worktrees" or value.endswith("/.worktrees")
+
+
+failed = False
+setups_proc = orca("project", "setups", "--json")
+if setups_proc.returncode != 0:
+    sys.stderr.write("缺    orca project setups --json\n")
+    sys.exit(1)
+setups = result_list(payload(setups_proc))
+
+if mode != "check":
+    for row in setups:
+        ident = str(row.get("id") or "")
+        if not ident:
+            continue
+        upd = orca(
+            "project", "setup-update",
+            "--setup", ident,
+            "--worktree-base-path", ".worktrees",
+            "--json",
+        )
+        if upd.returncode != 0:
+            sys.stderr.write(f"缺    orca project setup-update --setup {ident} --worktree-base-path .worktrees\n")
+            failed = True
+        else:
+            print(f"已装  orca setup {ident} worktree-base-path .worktrees")
+    setups_proc = orca("project", "setups", "--json")
+    setups = result_list(payload(setups_proc)) if setups_proc.returncode == 0 else setups
+
+if mode == "check":
+    for row in setups:
+        ident = str(row.get("id") or row.get("path") or "?")
+        have = base_path_of(row)
+        if not have:
+            continue
+        if not base_path_ok(have):
+            sys.stderr.write(
+                f"缺    orca worktree-base-path 应为 .worktrees 实为 {have}（setup {ident}）\n"
+            )
+            failed = True
+
+repos_proc = orca("repo", "list", "--json")
+if repos_proc.returncode != 0:
+    sys.stderr.write("缺    orca repo list --json\n")
+    sys.exit(1)
+for row in result_list(payload(repos_proc), "repos"):
+    vis = row.get("externalWorktreeVisibility")
+    path = row.get("path") or row.get("id") or "?"
+    if vis != "show":
+        sys.stderr.write(
+            f"缺    orca externalWorktreeVisibility 应为 show 实为 {vis}（{path}）\n"
+        )
+        failed = True
+
+sys.exit(1 if failed else 0)
+PY
+else
+  echo "跳过  orca 工作树配置（本机没有 orca）"
 fi
 
 # Cursor 的 Nowledge Mem MCP 一条：~/.cursor/mcp.json 里 mcpServers.nowledge-mem。
