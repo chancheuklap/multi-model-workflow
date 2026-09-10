@@ -456,7 +456,8 @@ def repo_root() -> Path:
     return Path(top) if top else Path.cwd()
 
 
-def outside_owns_fields(number: int, globs: list[str], root: Path, base: str) -> dict:
+def outside_owns_fields(number: int, globs: list[str], root: Path,
+                        base: str | None) -> dict:
     """What the worker's own run records about files outside `## Owns`: `outside_owns`,
     the list, or `outside_owns_unchecked`, the branch it could not be asked on.
 
@@ -466,7 +467,7 @@ def outside_owns_fields(number: int, globs: list[str], root: Path, base: str) ->
     nothing and runs past the 65536 characters a comment holds.
     """
     branch = current_branch(root)
-    if branch != f"issue-{number}":
+    if branch != f"issue-{number}" or not base:
         return {"outside_owns_unchecked": branch or "(detached)"}
     return {"outside_owns": outside_owns(globs, root, base)}
 
@@ -782,16 +783,26 @@ def last_reverify(comments: list) -> dict | None:
     return record["payload"] if record else None
 
 
-def worker_started_field(number: int, comments: list, field: str) -> tuple[str | None, str | None]:
-    """One field of the newest `worker.started`, or the refusal for a pre-transition ticket."""
+def newest_worker_started(number: int, comments: list) -> tuple[dict | None, str | None]:
+    """The newest readable `worker.started` payload, or the fact that none exists."""
     record = events.newest(comments, "worker.started")
-    value = (record or {}).get("payload", {}).get(field)
+    if record:
+        return record["payload"], None
+    return None, (f"#{number} carries no readable worker.started event; run "
+                  f"`dispatch.sh start {number} worker` so the ticket records one")
+
+
+def worker_started_field(number: int, comments: list,
+                         field: str) -> tuple[str | None, str | None]:
+    """One required field of the newest readable `worker.started`."""
+    started, problem = newest_worker_started(number, comments)
+    if problem:
+        return None, problem
+    value = started.get(field)
     if isinstance(value, str) and value:
         return value, None
-    return None, (f"#{number} was started before the `{field}` transition: its newest "
-                  f"worker.started carries no `{field}`. Run `dispatch.sh start {number} "
-                  f"worker` again so the ticket records it; do not recover it from local "
-                  f"git configuration")
+    return None, (f"#{number}'s newest worker.started carries no `{field}`; run "
+                  f"`dispatch.sh start {number} worker` again so it records one")
 
 
 def draft_problems(draft: str, comments: list[str]) -> list[str]:
@@ -1637,11 +1648,8 @@ def run_checks(number: int, reverify: bool, timeout: int | None,
         return refuse("could not read HEAD, so this run would name no commit. Nothing was "
                       "run and nothing was written.")
     comments = fetch_comments(number)
-    base = None
-    if not reverify:
-        base, problem = worker_started_field(number, comments, "base")
-        if problem:
-            return refuse(problem)
+    started = events.newest(comments, "worker.started") if not reverify else None
+    base = (started or {}).get("payload", {}).get("base")
     slot = None
     if needs_product(body):
         slot = hold_slot(number, root, run, comments, actor)
@@ -1992,27 +2000,25 @@ def push_ticket_branch(number: int, root: Path, commit: str) -> str | None:
             ["git", "push", "origin", f"{commit}:{ref}"], cwd=root,
             capture_output=True, text=True,
         )
-    except OSError as exc:
-        return (f"origin could not receive {commit[:12]} for issue-{number}: {exc}. "
-                f"The ticket remains open; fix Git access and run --closeout again")
-    if pushed.returncode != 0:
-        detail = " ".join((pushed.stderr or pushed.stdout).strip().splitlines())
-        return (f"origin rejected {commit[:12]} for issue-{number}: "
-                f"{detail[:500] or f'git push exited {pushed.returncode}'}. The ticket remains "
-                f"open; resolve the rejection and run --closeout again. No force-push was used")
-    try:
+        if pushed.returncode != 0:
+            detail = " ".join((pushed.stderr or pushed.stdout).strip().splitlines())
+            return (f"origin rejected {commit} for issue-{number}: "
+                    f"{detail[:500] or f'git push exited {pushed.returncode}'}. The ticket "
+                    f"remains open; resolve the rejection and run --closeout again. "
+                    f"No force-push was used")
         remote = subprocess.run(
             ["git", "ls-remote", "--heads", "origin", ref], cwd=root,
             capture_output=True, text=True,
         )
     except OSError as exc:
-        return (f"origin/issue-{number} could not be confirmed at verdict commit {commit}: "
+        return (f"git could not reach origin for issue-{number} at verdict commit {commit}: "
                 f"{exc}. The ticket remains open; fix Git access and run --closeout again")
     remote_commit = (remote.stdout.strip().split() or [""])[0]
     if remote.returncode != 0 or remote_commit != commit:
         detail = " ".join((remote.stderr or remote.stdout).strip().splitlines())
+        resolved = remote_commit or "nothing"
         return (f"origin/issue-{number} could not be confirmed at verdict commit {commit}: "
-                f"{detail[:500] or f'it resolved to {remote_commit or "nothing"}'}. The ticket "
+                f"{detail[:500] or f'it resolved to {resolved}'}. The ticket "
                 f"remains open; confirm the remote and run --closeout again")
     return None
 
@@ -2022,18 +2028,24 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     draft = draft_path.read_text(encoding="utf-8")
     comments = fetch_comments(number)
     body = fetch_body(number)
-    into, into_problem = worker_started_field(number, comments, "into")
-    base, base_problem = worker_started_field(number, comments, "base")
+    first = (draft.strip().splitlines() or [""])[0].strip()
+    passed = first == "ALL MET"
+    started, started_problem = newest_worker_started(number, comments)
+    base = (started or {}).get("base")
+    into = (started or {}).get("into") if passed else None
     problems = draft_problems(draft, comments)
     problems += verified_problems(draft, body, comments)
     problems += review_problems(draft, body, comments)
     problems += event_problems(comments)
-    problems += [p for p in (into_problem, base_problem) if p]
+    if started_problem:
+        problems.append(started_problem)
+    elif passed and not into:
+        problems.append(f"#{number}'s newest worker.started carries no `into`; run "
+                        f"`dispatch.sh start {number} worker` again so it records one")
     if base:
         problems += git_problems(base, repo_root())
     ticket = fetch_ticket(number)
     me = gh_login()
-    first = (draft.strip().splitlines() or [""])[0].strip()
     # A previous run of this closeout that closed (or handed back) the ticket and could not
     # post the event: this run posts it, and does nothing else.
     pending = unannounced_change(ticket, comments, me, first)
@@ -2058,7 +2070,8 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
         print(f"CLOSEOUT OK: #{number} draft passes every check")
         return 0
 
-    if first == "ALL MET" and pending is None:
+    head = git("rev-parse", "HEAD")
+    if passed and pending is None:
         checks = run_target_json_checks(repo_root(), into)
         if checks is not None and not post_repo_checks(number, checks, spec_field(ticket)):
             named = ", ".join(f["command"] for f in checks["failed"]) or checks["problem"]
@@ -2066,9 +2079,7 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
                              f"({named}); the ticket.checked event on #{number} carries "
                              f"each failed command and its last lines\n")
             return 1
-
-    if first == "ALL MET":
-        problem = push_ticket_branch(number, repo_root(), git("rev-parse", "HEAD"))
+        problem = push_ticket_branch(number, repo_root(), head)
         if problem:
             sys.stderr.write(f"closeout refused: {problem}\n")
             return 1
@@ -2077,14 +2088,14 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     # event block after it. `abandoned` carries every `ABANDON:` line — on a pass only
     # `decision` ones can be there, on a hand back they are the reason it came back.
     abandons = parse_abandons(draft)
-    passed = first == "ALL MET"
     event = "ticket.passed" if passed else "ticket.returned"
-    fields = dict(spec=spec_field(ticket), commit=git("rev-parse", "HEAD") or None,
+    fields = dict(spec=spec_field(ticket), commit=head or None,
                   branch=current_branch(repo_root()) or None,
-                  into=into,
                   counts=tally(parse_criteria(draft), abandons),
                   abandoned=[{"ac": a["ac"], "kind": a["kind"], "reason": a["reason"]}
                              for a in abandons] or None)
+    if passed:
+        fields["into"] = into
     # The state change first, then the event that announces it: the event is what wakes
     # the main agent and what `advance` merges on, so it must never stand on a ticket the
     # tracker did not close or hand back.

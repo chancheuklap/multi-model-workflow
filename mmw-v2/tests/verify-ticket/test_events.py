@@ -38,7 +38,8 @@ def started(session="term_7", runner="orca", kind="worker"):
 
 
 class TheVocabulary(unittest.TestCase):
-    """29 events — the spec's 25 plus the four later events — one shape and closed sets."""
+    """29 events — the spec's 25 plus worker.queued, reviewer.lost, verifier.lost and
+    ticket.bounced — one shape and closed sets."""
 
     def test_there_are_twenty_nine_events(self):
         self.assertEqual(len(events.EVENTS), 29)
@@ -60,8 +61,14 @@ class TheVocabulary(unittest.TestCase):
         self.assertIn("commit", reason)
 
     def test_bounced_reason_is_closed(self):
-        with self.assertRaises(events.EventError):
-            ev("ticket.bounced", "Could not land", reason="network", commit="a" * 40)
+        block = events.block({
+            "v": 1, "event": "ticket.bounced", "stage": "land", "actor": "main",
+            "spec": 76, "ticket": 61, "at": SAME_SECOND, "reason": "network",
+            "commit": "a" * 40,
+        })
+        what, reason = events.parse("Could not land\n\n" + block)
+        self.assertEqual(what, "unreadable")
+        self.assertIn("reason", reason)
 
     def test_started_without_into_is_readable(self):
         what, payload = events.parse(started())

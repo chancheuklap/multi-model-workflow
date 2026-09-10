@@ -114,8 +114,8 @@ EVENTS: dict[str, dict] = {
     "ticket.landed":     {"stage": "land",     "actor": "main"},
     "ticket.regressed":  {"stage": "regress",  "actor": "main", "required": ("commit",)},
     "ticket.bounced":    {"stage": "land",     "actor": "main",
-                           "required": ("reason", "commit"),
-                           "closed": {"reason": BOUNCE_REASONS}},
+                          "required": ("reason", "commit"),
+                          "closed": {"reason": BOUNCE_REASONS}},
 
     # Everything the ticket says about where its worker runs, so every later command and
     # every machine finds it there. `effort` is written `—` when the host takes none; the
@@ -213,9 +213,9 @@ ENDS_ONE_HOLD = ("worker.retracted", "worker.lost", "worker.replaced", "ticket.r
 ENDS_OWN_HOLD = {"reviewer.reported": "reviewer", "verifier.passed": "verifier",
                  "verifier.failed": "verifier"}
 # A worktree's product slot is held until its ticket's work ends, and given back at that
-# moment: it lands, it is handed back, its claim is released, the night is suspended, or
-# its start is retracted. A replaced or lost worker's worktree keeps its slot for the
-# worker that carries on in it.
+# moment: it lands, it is handed back, its merge is bounced, its claim is released, the
+# night is suspended, or its start is retracted. A replaced or lost worker's worktree
+# keeps its slot for the worker that carries on in it.
 SLOT_ENDS = ("ticket.landed", "ticket.returned", "ticket.released", "ticket.bounced",
              "spec.suspended", "worker.retracted")
 
