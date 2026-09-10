@@ -56,9 +56,10 @@
 #
 # Nothing here tells anyone that a result landed. `relay.py`, beside this script, watches
 # the board and wakes the session waiting on each result event through that session's
-# runner's `send`. `open` (a night) and `open-ticket` (one ticket outside a night) register
-# the main agent — the runner and session its adapter's `self` reads — and start the
-# relay; `summary` and `suspend`, or `land` for one ticket, stop it. `start` and `advance`
+# runner's `send`. `open` (a night) and `open-ticket` (one ticket outside a night) open a
+# watch on the relay whose main agent is the calling session — the runner and session its
+# adapter's `self` reads — and start the relay when none runs; `summary` and `suspend`, or
+# `land` for one ticket, close that watch, and the relay ends with its last. `start` and `advance`
 # refuse a ticket no running relay watches, since its result would wake nobody. `ack` is
 # how a woken session says it handled the wake it read. `adopt` makes a session that
 # picked a ticket up itself that ticket's worker, as `start` would have. `self` prints the
