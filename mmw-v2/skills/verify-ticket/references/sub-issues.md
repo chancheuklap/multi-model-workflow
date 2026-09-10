@@ -22,7 +22,7 @@ A kind is named for who can answer the child, not for where it came from:
 | `decision` | the worker | a choice only a person can make; the worker carries on with the default | the user |
 | `fault` | any role | the pipeline itself is broken — a script, a hook, the driver, the target contract | the user, to fix the pipeline. The agent that opens it stops where it is |
 
-An empty file, or a kind that is not one of the five, is refused and nothing is opened. A repository that lacks the `mmw:child` label and will not let it be created is refused the same way. `fault` is the one kind that brings the ticket to rest: it sends `#<n> child.opened kind=fault` to the session that started this one.
+An empty file, or a kind that is not one of the five, is refused and nothing is opened. A repository that lacks the `mmw:child` label and will not let it be created is refused the same way. `fault` is the one kind that brings the ticket to rest. This run tells nobody: the relay of the `dispatch` skill reads the `child.opened` on the ticket and wakes the main agent with `#<n> child.opened` for a `fault` or a `decision`.
 
 ## Exit codes
 
