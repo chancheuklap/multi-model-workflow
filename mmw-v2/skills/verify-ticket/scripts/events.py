@@ -8,6 +8,8 @@ comments into its state.
     events.py session [<issue>] [--kind worker|reviewer|verifier] [--comments-file F|-]
     events.py sessions [<issue>] [--comments-file F|-]
     events.py result [<issue>] --kind worker|reviewer|verifier [--comments-file F|-]
+    events.py checked [<issue>] [--run self|reverify|repo-checks] [--comments-file F|-]
+    events.py live [<issue>] [--kind worker|reviewer|verifier] [--comments-file F|-]
 
 A ticket's state is stored nowhere. It is computed: every comment on the issue is read in
 comment-id order, the events they carry are replayed from an empty state, and what comes
@@ -36,13 +38,15 @@ Ordering is by comment id, which GitHub hands out in increasing order; the times
 not used, because two comments written in the same second carry the same one. A caller
 that has no ids (a test fixture, a list of bodies) is replayed in the order given.
 
-`fold` and the three readers after it read the issue's comments from `gh issue view
+`fold` and the readers after it read the issue's comments from `gh issue view
 <issue> --json comments`, or from `--comments-file` (`-` for stdin) when the caller has
 already fetched them: a JSON object with a `comments` list, a list of comment objects,
-or a list of bodies. Exit 0 answered, 2 the comments could not be read, 3 (`session`,
-`sessions`, `result`) a comment carries an event block nobody can read, named on stderr.
+or a list of bodies. Exit 0 answered, 2 the comments could not be read, 3 (every reader
+but `fold`) a comment carries an event block nobody can read, named on stderr.
 `result` prints the event's name and its key fields (`verifier.failed commit=… failed=AC2`),
-never its prose.
+never its prose. `checked` prints the newest `ticket.checked` the same way, of one run
+when `--run` names it. `live` prints "runner<TAB>session" for every session of that kind
+whose hold no event has ended, oldest first.
 """
 
 from __future__ import annotations
@@ -73,8 +77,20 @@ AGENT_KINDS = ("worker", "reviewer", "verifier")
 REFUSALS = ("wrong-branch", "dirty-tree", "not-open", "not-ready", "blocked", "claimed-by-other")
 RELEASE_REASONS = ("landed", "suspended", "worker-lost")
 CHILD_RESOLUTIONS = ("fixed", "stale", "became-ticket")
-CHILD_KINDS = ("baseline", "outside-owns", "review", "decision", "pipeline")
+# The five kinds of child, named for who can answer each: `finding`, a reviewer's defect
+# outside the ticket's scope; `contract`, a baseline the ticket was told to follow that
+# does not hold; `deferred`, work outside `## Owns` left for a later ticket; `decision`, a
+# choice only a person can make; `fault`, the pipeline itself broken.
+CHILD_KINDS = ("finding", "contract", "deferred", "decision", "fault")
 ABANDON_KINDS = ("decision", "failed", "stuck")
+# The three runs of a ticket's criteria and checks: the worker's own run, a second run of
+# every criterion (the verifier's, or the main agent's on the base branch after landing),
+# and the repository's own `checks` of `.mmw/target.json` at the closeout.
+CHECK_RUNS = ("self", "reverify", "repo-checks")
+CHECK_RESULTS = ("met", "unmet", "handoff")
+# Why a run waits for a product slot: this product's `instance.max` is reached, or every
+# slot of this machine is taken.
+QUEUE_REASONS = ("product-full", "machine-full")
 
 EVENTS: dict[str, dict] = {
     "spec.opened":       {"stage": "night",    "actor": "main"},
@@ -107,6 +123,17 @@ EVENTS: dict[str, dict] = {
     "worker.replaced":   {"stage": "dispatch", "actor": "main",
                           "required": ("session", "runner")},
     "worker.decided":    {"stage": "work",     "actor": "worker"},
+    # A run of the criteria needed the product and no slot was free, so it waits for one:
+    # the one state in which a worker is neither dead nor done. It ends at the next
+    # `ticket.checked`, which names the slot the run got, or at any event that ends the
+    # worker's hold.
+    "worker.queued":     {"stage": "work",     "actor": "worker",
+                          "required": ("reason", "run"),
+                          "closed": {"reason": QUEUE_REASONS, "run": CHECK_RUNS}},
+    # Files ticket `by` changed that this ticket's `## Owns` covers, posted on this ticket
+    # so the worker that owns them reads what another ticket did to them.
+    "worker.touched":    {"stage": "work",     "actor": "worker",
+                          "required": ("by", "files")},
     # The one event not written by the agent it is about: a dead agent cannot write its
     # own obituary. Which script writes it, and when, belongs to the liveness judge.
     "worker.lost":       {"stage": "work",     "actor": "judge",
@@ -128,6 +155,16 @@ EVENTS: dict[str, dict] = {
     "verifier.failed":   {"stage": "verify",   "actor": "verifier", "required": ("commit",),
                           "patterns": {"commit": r"[0-9a-f]{40}"}},
 
+    # One run of the criteria or of the repository's checks, on one commit: its result,
+    # its counts, each criterion's outcome, and — for the worker's own run on its own
+    # branch — the files it changed outside `## Owns`. `repo-checks` carries each failed
+    # command with its last lines. `slot` is the product slot the run held, when it
+    # needed the product.
+    "ticket.checked":    {"stage": "work",     "actor": "worker",
+                          "required": ("run", "commit", "result"),
+                          "closed": {"run": CHECK_RUNS, "result": CHECK_RESULTS},
+                          "patterns": {"commit": r"[0-9a-f]{40}"}},
+
     "child.opened":      {"stage": "work",     "actor": "worker",
                           "required": ("child", "kind"), "closed": {"kind": CHILD_KINDS}},
     "child.closed":      {"stage": "close",    "actor": "main",
@@ -147,13 +184,14 @@ ENDS_EVERY_HOLD = ("ticket.landed", "ticket.returned", "ticket.released", "spec.
 # also ends a claim no started session has taken over, since it gives the claim back.
 ENDS_ONE_HOLD = ("worker.retracted", "worker.lost", "worker.replaced")
 
-# The fields `result` prints after an event's name.
+# The fields `result` and `checked` print after an event's name.
 RESULT_FIELDS = {
     "ticket.passed": ("commit",),
     "ticket.returned": (),
     "reviewer.reported": ("base", "head"),
     "verifier.passed": ("commit",),
     "verifier.failed": ("commit", "failed", "ran"),
+    "ticket.checked": ("run", "commit", "result", "failed"),
 }
 
 # The result each kind of agent is started to produce.
@@ -370,6 +408,14 @@ def empty_state(issue: int | None = None) -> dict:
         "verdict": None,
         "decided": 0,
         "results": {kind: None for kind in AGENT_KINDS},
+        # The newest `ticket.checked` of each run.
+        "checks": {run: None for run in CHECK_RUNS},
+        # The `worker.queued` a run is still waiting under, or None.
+        "waiting": None,
+        # The product slot the newest run held, until the ticket lands, its start is
+        # retracted or the night is suspended — the three moments the slot is given back.
+        "slot": None,
+        "touched": [],
         "children": {},
         "sessions": [],
         "claim_hold": False,
@@ -473,6 +519,16 @@ def apply(state: dict, event: dict) -> None:
         state["verdict"] = event
     elif name == "worker.decided":
         state["decided"] += 1
+    elif name == "worker.queued":
+        state["waiting"] = event
+    elif name == "ticket.checked":
+        state["checks"][payload.get("run")] = event
+        state["waiting"] = None
+        if payload.get("slot") is not None:
+            state["slot"] = payload.get("slot")
+    elif name == "worker.touched":
+        state["touched"].append({"by": payload.get("by"), "files": payload.get("files"),
+                                 "comment": event["comment"]})
     elif name == "child.opened":
         child = payload.get("child")
         state["children"].setdefault(str(child), {"child": child}).update(
@@ -490,6 +546,12 @@ def apply(state: dict, event: dict) -> None:
             _end(state, name, (payload.get("runner"), payload.get("session")))
         if name == "worker.retracted":
             state["claim_hold"] = False
+    # A run waits only while a worker is at work on the ticket: whatever ends a hold, or
+    # the worker's own result, ends the wait with it.
+    if name in ENDS_EVERY_HOLD or name in ENDS_ONE_HOLD or name in RESULTS["worker"]:
+        state["waiting"] = None
+    if name in ("ticket.landed", "worker.retracted", "spec.suspended"):
+        state["slot"] = None
     for agent_kind, names in RESULTS.items():
         if name in names:
             state["results"][agent_kind] = event
@@ -563,6 +625,25 @@ def session_of(state: dict, kind: str | None = None) -> dict | None:
     """The newest session of `kind` (any kind when None) the issue names."""
     found = [r for r in state["sessions"] if kind is None or r["kind"] == kind]
     return found[-1] if found else None
+
+
+def checked_of(state: dict, run: str | None = None) -> dict | None:
+    """The newest `ticket.checked` of `run`, or of any run when None."""
+    if run is not None:
+        return state["checks"].get(run)
+    found = [record for record in state["checks"].values() if record]
+    return max(found, key=_order) if found else None
+
+
+def _order(record: dict):
+    comment = record.get("comment")
+    return comment if isinstance(comment, int) else 0
+
+
+def live_of(state: dict, kind: str | None = None) -> list[dict]:
+    """Every session of `kind` (any kind when None) whose hold no event has ended."""
+    return [r for r in state["sessions"]
+            if r["live"] and (kind is None or r["kind"] == kind)]
 
 
 def sessions_of(state: dict) -> list[tuple[str, str]]:
@@ -658,12 +739,14 @@ def main(argv: list[str] | None = None) -> int:
     emit.add_argument("--actor")
     emit.add_argument("--stage")
 
-    for name in ("fold", "session", "sessions", "result"):
+    for name in ("fold", "session", "sessions", "result", "checked", "live"):
         reader = sub.add_parser(name)
         reader.add_argument("issue", nargs="?", type=int)
         reader.add_argument("--comments-file")
-        if name in ("session", "result"):
+        if name in ("session", "result", "live"):
             reader.add_argument("--kind", choices=AGENT_KINDS, required=(name == "result"))
+        if name == "checked":
+            reader.add_argument("--run", choices=CHECK_RUNS)
 
     args = parser.parse_args(argv)
     try:
@@ -698,6 +781,16 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "sessions":
         for runner, session in sessions_of(state):
             print(f"{runner}\t{session}")
+        return 0
+    if args.command == "live":
+        for record in live_of(state, args.kind):
+            if record.get("session"):
+                print(f"{record.get('runner') or ''}\t{record['session']}")
+        return 0
+    if args.command == "checked":
+        record = checked_of(state, args.run)
+        if record:
+            print(describe(record))
         return 0
     record = state["results"].get(args.kind)
     if record:

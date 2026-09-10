@@ -112,9 +112,9 @@ Iterate until the user approves the breakdown. Write each answered choice into t
 
 ### 7. Publish the tickets to the configured tracker
 
-Publish the approved tickets to the issue tracker `/setup-matt-pocock-skills` configured (GitHub, Linear, …): one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native issue dependencies and sub-issue relationship where it has them. On GitHub, create each ticket as a sub-issue of the spec (`gh issue create --parent <spec>`, or attach it through the `sub_issues` API): the ticket graph of the `verify-ticket` skill's `--lint`, and the board, read only that relationship. Apply the `ready-for-agent` triage label to every ticket an agent works, and beside it the `junior-worker` or `senior-worker` label the approved list of step 6 gives it; the ones a person must judge carry `ready-for-human` instead, and no worker.
+Publish the approved tickets to the issue tracker `/setup-matt-pocock-skills` configured (GitHub, Linear, …): one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native issue dependencies and sub-issue relationship where it has them. On GitHub, create each ticket as a sub-issue of the spec (`gh issue create --parent <spec>`, or attach it through the `sub_issues` API): the ticket graph of the `verify-ticket` skill's `--lint`, and the board, read only that relationship, and the scripts take a ticket's spec to be its direct parent. Every ticket carries the layer label `mmw:ticket`, which tells the board that this issue is a ticket without its counting how deep it is nested; a repository that lacks the label gets it first, with `gh label create mmw:ticket --color 0e8a16 --description "MMW layer: a ticket, one unit of work"`. Apply the `ready-for-agent` triage label to every ticket an agent works, and beside it the `junior-worker` or `senior-worker` label the approved list of step 6 gives it; the ones a person must judge carry `ready-for-human` instead, and no worker.
 
-Work the **frontier**: the tickets that are open, carry `ready-for-agent`, have every blocker closed, and have neither an assignee nor a live session. For a purely linear chain that means top to bottom.
+Work the **frontier**: the tickets that are open, carry `ready-for-agent`, have every blocker landed (merged into the base branch, not merely closed), and have neither an assignee nor a live session. For a purely linear chain that means top to bottom.
 
 Do NOT close or modify any parent issue.
 
@@ -123,7 +123,7 @@ Do NOT close or modify any parent issue.
 After publishing, fetch each ticket again and check every one:
 
 - The title and **What to build** describe the same slice.
-- On GitHub, the spec's sub-issue count equals the number of tickets in this batch.
+- On GitHub, the spec's sub-issue count equals the number of tickets in this batch, and every one of them carries `mmw:ticket`.
 
 Then each kind of ticket, for the sections that kind must carry. On the ones an agent works:
 

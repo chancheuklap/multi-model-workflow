@@ -1,35 +1,54 @@
-"""Ledger behaviour, run against fixed ticket bodies. Never calls the tracker."""
+"""Ledger behaviour, run against fixed ticket bodies. Never calls the tracker.
+
+A run of the criteria is one `ticket.checked` event on the ticket: its prose is the
+updated ledger for a person, and its payload — run, commit, result, counts, each
+criterion's outcome, the files outside `## Owns`, the product slot it held — is what
+every later reader decides on.
+"""
 
 from __future__ import annotations
 
+import importlib.util
 import io
+import subprocess
+import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
+from pathlib import Path
 from unittest import mock
 
-from _load import load
+from _load import SCRIPT, checked, load
 
 vt = load()
+
+DRIVE = SCRIPT.parents[2] / "drive-target" / "scripts"
+HEAD_RE = r"^[0-9a-f]{40}$"
 
 
 def ticket(*criteria: str, owns: str = "- src/**") -> str:
     return "## Owns\n\n" + owns + "\n\n## Acceptance criteria\n\n" + "\n".join(criteria) + "\n"
 
 
-class LedgerRun(unittest.TestCase):
-    """Runs the real gate-check against a fixed body and captures the comment."""
+def payload_of(comment: str) -> dict:
+    what, payload = vt.events.parse(comment)
+    assert what == "event", (what, payload, comment)
+    return payload
 
-    def run_ticket(self, body: str, reverify: bool = False, previous: list[str] | None = None,
-                   comments: list[str] | None = None):
+
+class LedgerRun(unittest.TestCase):
+    """Runs the real gate-check against a fixed body and captures what it posts."""
+
+    def run_ticket(self, body: str, reverify: bool = False, comments: list[str] | None = None,
+                   actor: str | None = None, outside=()):
         posted: list[str] = []
         with mock.patch.object(vt, "fetch_body", return_value=body), \
-             mock.patch.object(vt, "fetch_comments", return_value=comments or []), \
-             mock.patch.object(vt, "previous_ledger", return_value=previous or []), \
-             mock.patch.object(vt, "outside_owns", return_value=[]), \
+             mock.patch.object(vt, "fetch_comments", return_value=list(comments or [])), \
+             mock.patch.object(vt, "outside_owns", return_value=list(outside)), \
              mock.patch.object(vt, "current_branch", return_value="issue-1"), \
              mock.patch.object(vt, "post_comment", side_effect=lambda n, b: posted.append(b)):
             with redirect_stdout(io.StringIO()) as out:
-                code = vt.run_checks(1, reverify, None)
+                code = vt.run_checks(1, reverify, None, actor)
+        self.posted = posted
         return code, (posted[0] if posted else ""), out.getvalue()
 
 
@@ -93,6 +112,7 @@ class TestDoubleCondition(LedgerRun):
         self.assertIn("exit=3", comment)
         self.assertIn("EXPECT=matched", comment)
         self.assertNotIn("EVIDENCE: pending", comment)
+        self.assertEqual(payload_of(comment)["criteria"][0]["met"], False)
 
     def test_exit_zero_with_unmatched_output_does_not_pass(self):
         code, comment, _ = self.run_ticket(ticket(
@@ -127,16 +147,75 @@ class TestDoubleCondition(LedgerRun):
         self.assertEqual(code, 1)
         self.assertNotIn("RUN  AC:AC2", printed)
         self.assertIn("- [ ] AC2:", comment)
+        self.assertEqual(payload_of(comment)["failed"], ["AC2"])
 
-    def test_the_comment_carries_the_first_line_and_the_owns_list(self):
-        _, comment, _ = self.run_ticket(ticket(
-            "- [ ] AC1: the importer writes six rows",
-            "  CHECK: echo 'wrote 6 rows'",
-            "  EXPECT: wrote 6 rows",
-            "  EVIDENCE: pending",
-        ))
-        self.assertTrue(comment.startswith("self-run"))
-        self.assertIn("Outside Owns: None", comment)
+
+class TestTheRunIsOneTicketCheckedEvent(LedgerRun):
+    """The worker's own run and a reverify each post exactly one `ticket.checked`, and
+    everything a later reader decides on is in its payload, never in its first line."""
+
+    BODY = ticket(
+        "- [ ] AC1: the importer writes six rows",
+        "  CHECK: echo 'wrote 6 rows'",
+        "  EXPECT: wrote 6 rows",
+        "  EVIDENCE: pending",
+        "- [ ] AC2: the importer refuses an empty file",
+        "  CHECK: echo 'accepted'",
+        "  EXPECT: refused",
+        "  EVIDENCE: pending",
+    )
+
+    def test_the_workers_own_run_carries_its_result_counts_outcomes_and_outside_owns(self):
+        code, comment, _ = self.run_ticket(self.BODY, outside=["docs/stray.md"])
+        self.assertEqual(code, 1)
+        self.assertEqual(len(self.posted), 1)
+        payload = payload_of(comment)
+        self.assertEqual((payload["event"], payload["run"], payload["actor"],
+                          payload["stage"], payload["result"]),
+                         ("ticket.checked", "self", "worker", "work", "unmet"))
+        self.assertRegex(payload["commit"], HEAD_RE)
+        self.assertEqual(payload["counts"],
+                         {"met": 1, "unmet": 1, "abandoned": 0, "total": 2})
+        self.assertEqual([(c["id"], c["met"]) for c in payload["criteria"]],
+                         [("AC1", True), ("AC2", False)])
+        self.assertTrue(payload["criteria"][0]["evidence"].startswith("exit=0"))
+        self.assertEqual(payload["failed"], ["AC2"])
+        self.assertEqual(payload["outside_owns"], ["docs/stray.md"])
+        self.assertEqual(payload["shape"],
+                         vt.shape_digest(vt.section(self.BODY, "Acceptance criteria")))
+        self.assertNotIn("slot", payload)
+        self.assertIn("Outside Owns: docs/stray.md", comment)
+
+    def test_all_met_is_result_met(self):
+        body = ticket("- [ ] AC1: a", "  CHECK: echo ok", "  EXPECT: ok", "  EVIDENCE: pending")
+        code, comment, _ = self.run_ticket(body)
+        self.assertEqual((code, payload_of(comment)["result"], payload_of(comment)["failed"]),
+                         (0, "met", []))
+
+    def test_a_reverify_by_the_main_agent_says_so(self):
+        body = ticket("- [ ] AC1: a", "  CHECK: echo ok", "  EXPECT: ok", "  EVIDENCE: pending")
+        code, comment, _ = self.run_ticket(body, reverify=True, actor="main")
+        self.assertEqual(code, 0)
+        payload = payload_of(comment)
+        self.assertEqual((payload["run"], payload["actor"], payload["stage"]),
+                         ("reverify", "main", "regress"))
+        self.assertNotIn("outside_owns", payload)
+        self.assertNotIn("Outside Owns:", comment)
+
+    def test_a_reverify_left_to_its_default_is_the_verifiers(self):
+        body = ticket("- [ ] AC1: a", "  CHECK: echo ok", "  EXPECT: ok", "  EVIDENCE: pending")
+        _, comment, _ = self.run_ticket(body, reverify=True)
+        payload = payload_of(comment)
+        self.assertEqual((payload["actor"], payload["stage"]), ("verifier", "verify"))
+
+    def test_a_head_that_is_not_a_commit_is_refused_before_anything_runs(self):
+        body = ticket("- [ ] AC1: a", "  CHECK: echo ok", "  EXPECT: ok", "  EVIDENCE: pending")
+        with mock.patch.object(vt, "git", return_value=""), \
+             redirect_stderr(io.StringIO()) as err:
+            code, comment, printed = self.run_ticket(body)
+        self.assertEqual((code, comment), (2, ""))
+        self.assertIn("could not read HEAD", err.getvalue())
+        self.assertNotIn("ALL MET", printed)
 
 
 class TestMmwTicketInCheckEnv(LedgerRun):
@@ -155,7 +234,7 @@ class TestMmwTicketInCheckEnv(LedgerRun):
 
 class TestNoRoundCap(LedgerRun):
     """How many rounds a criterion gets is the worker's own judgement: no run names a
-    limit, however many self-runs the ticket already carries."""
+    limit, however many runs of its own the ticket already carries."""
 
     FAILING = ("- [ ] AC1: the importer writes six rows\n"
                "  CHECK: echo 'wrote 4 rows'; exit 1\n"
@@ -163,7 +242,7 @@ class TestNoRoundCap(LedgerRun):
                "  EVIDENCE: pending")
 
     def prior_runs(self, rounds: int) -> list[str]:
-        return ["\n".join(["self-run", "UNMET: 1", "", self.FAILING])] * rounds
+        return [checked("self", self.FAILING, "UNMET: 1", ticket=1)] * rounds
 
     def test_no_run_names_a_limit(self):
         for rounds in (0, 2, 5):
@@ -200,10 +279,8 @@ class TestCheckTimeout(LedgerRun):
         self.assertEqual(vt.check_timeout(self.body("900"), 100), 900)
 
     def test_the_ledger_handed_to_gate_check_carries_no_timeout_line(self):
-        import tempfile
-        from pathlib import Path as P
         with tempfile.TemporaryDirectory() as tmp:
-            ledger = vt.write_ledger(self.body("900"), P(tmp))
+            ledger = vt.write_ledger(self.body("900"), Path(tmp))
             text = ledger.read_text(encoding="utf-8")
         self.assertNotIn("TIMEOUT", text)
         self.assertIn("CHECK: echo ok1", text)
@@ -232,10 +309,12 @@ class TestCheckTimeout(LedgerRun):
             seen.append(list(cmd))
             return real(cmd, *a, **kw)
 
-        previous = ["- [x] AC1: thing 1", "  CHECK: echo ok1", "  EXPECT: ok1",
-                    "  EVIDENCE: exit=0; EXPECT=matched"]
+        body = self.body("1200")
+        previous = checked("self", ["- [x] AC1: thing 1", "  CHECK: echo ok1", "  EXPECT: ok1",
+                                    "  TIMEOUT: 1200",
+                                    "  EVIDENCE: exit=0; EXPECT=matched"], ticket=1)
         with mock.patch.object(vt.subprocess, "run", side_effect=spy):
-            self.run_ticket(self.body("1200"), reverify=True, previous=previous)
+            self.run_ticket(body, reverify=True, comments=[previous])
         gate = next(c for c in seen if any(str(x).endswith("gate-check.mjs") for x in c))
         self.assertEqual(gate[gate.index("--timeout") + 1], "1200")
 
@@ -256,43 +335,101 @@ class TestReverify(LedgerRun):
             "  EXPECT: wrote 6 rows",
             "  EVIDENCE: pending",
         )
-        previous = [
+        previous = checked("self", [
             "- [x] AC1: the importer writes six rows",
             "  CHECK: echo 'wrote 6 rows'",
             "  EXPECT: wrote 6 rows",
             "  EVIDENCE: exit=0; shell=/bin/sh; cwd=.; EXPECT=matched",
-        ]
-        code, comment, printed = self.run_ticket(body, reverify=True, previous=previous)
+        ], ticket=1)
+        code, comment, printed = self.run_ticket(body, reverify=True, comments=[previous])
         self.assertEqual(code, 0)
-        self.assertTrue(comment.startswith("reverify"))
+        self.assertEqual(payload_of(comment)["run"], "reverify")
         self.assertIn("previously met reverified: 1", printed)
 
+    def test_a_first_line_saying_self_run_carries_nothing_forward(self):
+        """The old ledger comment, typed by hand, is prose: nothing is carried from it."""
+        body = ticket("- [ ] AC1: a", "  CHECK: echo ok", "  EXPECT: ok", "  EVIDENCE: pending")
+        typed = "self-run\nALL MET (1 met)\n\n- [x] AC1: a\n  CHECK: echo ok\n  EXPECT: ok\n" \
+                "  EVIDENCE: exit=0; EXPECT=matched"
+        _, _, printed = self.run_ticket(body, reverify=True, comments=[typed])
+        self.assertIn("previously met reverified: 0", printed)
 
-class TestLedgerFromComment(unittest.TestCase):
-    def test_a_previous_comment_yields_its_gate_lines_only(self):
-        comment = (
-            "self-run\n"
-            "UNMET: 1 (met: 1)\n"
-            "\n"
-            "- [x] AC1: a\n"
-            "  CHECK: true\n"
-            "  EXPECT: a\n"
-            "  EVIDENCE: exit=0; shell=/bin/sh\n"
-            "- [ ] AC2: b\n"
-            "  CHECK: false\n"
-            "  EXPECT: b\n"
-            "  EVIDENCE: pending\n"
-            "\n"
-            "Outside Owns: None\n"
-        )
-        self.assertEqual(vt.ledger_from_comment(comment), [
-            "- [x] AC1: a", "  CHECK: true", "  EXPECT: a",
-            "  EVIDENCE: exit=0; shell=/bin/sh",
-            "- [ ] AC2: b", "  CHECK: false", "  EXPECT: b", "  EVIDENCE: pending",
-        ])
 
-    def test_a_comment_without_gate_lines_yields_nothing(self):
-        self.assertEqual(vt.ledger_from_comment("VERDICT abc unit-test-verified"), [])
+class TestLedgerWithResults(unittest.TestCase):
+    """A run's ticks and evidence written back onto the criteria the body states."""
+
+    LINES = ["- [ ] AC1: a", "  CHECK: true", "  EXPECT: a", "  EVIDENCE: pending",
+             "- [ ] AC2: b", "  CHECK: false", "  EXPECT: b", "  EVIDENCE: pending"]
+
+    def test_ticks_and_evidence_come_from_the_run(self):
+        out = vt.ledger_with_results(self.LINES, [
+            {"id": "AC1", "met": True, "evidence": "exit=0; EXPECT=matched"},
+            {"id": "AC2", "met": False, "evidence": "exit=1"}])
+        self.assertEqual(out, [
+            "- [x] AC1: a", "  CHECK: true", "  EXPECT: a", "  EVIDENCE: exit=0; EXPECT=matched",
+            "- [ ] AC2: b", "  CHECK: false", "  EXPECT: b", "  EVIDENCE: exit=1"])
+
+    def test_a_criterion_the_run_does_not_name_is_left_as_the_body_has_it(self):
+        out = vt.ledger_with_results(self.LINES, [{"id": "AC2", "met": True, "evidence": "e"}])
+        self.assertEqual(out[:4], self.LINES[:4])
+        self.assertEqual(out[4], "- [x] AC2: b")
+
+    def test_evidence_is_written_after_the_last_attribute_when_the_body_has_none(self):
+        out = vt.ledger_with_results(
+            ["- [ ] AC1: a", "  CHECK: true", "  EXPECT: a", "", "- [ ] AC2: b",
+             "  CHECK: true", "  EXPECT: b"],
+            [{"id": "AC1", "met": True, "evidence": "e1"},
+             {"id": "AC2", "met": True, "evidence": "e2"}])
+        self.assertEqual(out, ["- [x] AC1: a", "  CHECK: true", "  EXPECT: a", "  EVIDENCE: e1",
+                               "", "- [x] AC2: b", "  CHECK: true", "  EXPECT: b",
+                               "  EVIDENCE: e2"])
+
+    def test_a_criterion_shaped_line_inside_a_fenced_check_is_the_command(self):
+        lines = ["- [ ] AC1: a", "  CHECK:", "  ```sh", "  cat <<'EOF'",
+                 "- [ ] AC9: printed, not a criterion", "  EOF", "  ```", "  EXPECT: AC9"]
+        out = vt.ledger_with_results(lines, [{"id": "AC1", "met": True, "evidence": "e"},
+                                             {"id": "AC9", "met": True, "evidence": "x"}])
+        self.assertEqual(out[0], "- [x] AC1: a")
+        self.assertIn("- [ ] AC9: printed, not a criterion", out)
+        self.assertEqual(out[-1], "  EVIDENCE: e")
+        self.assertEqual([c["id"] for c in vt.parse_criteria("\n".join(out))], ["AC1"])
+
+
+class TestCarriedLedger(unittest.TestCase):
+    """`--reverify` carries the newest run's ticks and evidence, unless the ticket has
+    rewritten its criteria since."""
+
+    BODY = ("## Acceptance criteria\n\n"
+            "- [ ] AC1: the importer writes six rows\n"
+            "  CHECK: pytest test_importer_v5.py\n"
+            "  EXPECT: /^\\d+ passed/m\n"
+            "  EVIDENCE: pending\n\n"
+            "## Blocked by\n")
+    SAME = ["- [x] AC1: the importer writes six rows",
+            "  CHECK: pytest test_importer_v5.py",
+            "  EXPECT: /^\\d+ passed/m",
+            "  EVIDENCE: exit=0; EXPECT=matched"]
+
+    def test_a_run_of_the_same_criteria_is_carried(self):
+        self.assertEqual(vt.carried_ledger(self.BODY, [checked("self", self.SAME)]), self.SAME)
+
+    def test_a_run_whose_command_the_ticket_has_rewritten_is_dropped(self):
+        """The old command names a file a later decision renamed: the body wins."""
+        stale = [line.replace("v5", "v4") for line in self.SAME]
+        self.assertEqual(vt.carried_ledger(self.BODY, [checked("self", stale)]), [])
+
+    def test_the_newest_of_the_workers_run_and_a_reverify_is_carried(self):
+        unmet = [self.SAME[0].replace("[x]", "[ ]")] + self.SAME[1:3] + ["  EVIDENCE: exit=1"]
+        comments = [checked("self", unmet), checked("reverify", self.SAME)]
+        self.assertEqual(vt.carried_ledger(self.BODY, comments), self.SAME)
+        comments = [checked("reverify", self.SAME), checked("self", unmet)]
+        self.assertEqual(vt.carried_ledger(self.BODY, comments)[0], unmet[0])
+
+    def test_no_run_and_the_repository_checks_carry_nothing(self):
+        self.assertEqual(vt.carried_ledger(self.BODY, []), [])
+        repo = vt.events.build("ticket.checked", ticket=77, line="checks", run="repo-checks",
+                               commit="0" * 40, result="met")
+        self.assertEqual(vt.carried_ledger(self.BODY, [repo]), [])
 
 
 class TestOwns(unittest.TestCase):
@@ -392,123 +529,264 @@ class TestLint(unittest.TestCase):
         self.assertIn("LINT OK", printed)
 
 
-if __name__ == "__main__":
-    unittest.main()
+def git_repo(root: Path):
+    """A repository with one commit at `root`; returns a function running git there."""
+    def sh(*args, cwd=root):
+        subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
 
-
-class TestCarriedLedger(unittest.TestCase):
-    """`--reverify` carries the last run's ledger, unless the ticket has been rewritten."""
-
-    BODY = ("## Acceptance criteria\n\n"
-            "- [ ] AC1: the importer writes six rows\n"
-            "  CHECK: pytest test_importer_v5.py\n"
-            "  EXPECT: /^\\d+ passed/m\n"
-            "  EVIDENCE: pending\n\n"
-            "## Blocked by\n")
-
-    def carried(self, previous):
-        with mock.patch.object(vt, "previous_ledger", return_value=previous):
-            return vt.carried_ledger(1, self.BODY)
-
-    def test_a_ledger_of_the_same_criteria_is_carried(self):
-        same = ["- [x] AC1: the importer writes six rows",
-                "  CHECK: pytest test_importer_v5.py",
-                "  EXPECT: /^\\d+ passed/m",
-                "  EVIDENCE: exit=0; EXPECT=matched"]
-        self.assertEqual(self.carried(same), same)
-
-    def test_a_ledger_whose_command_the_ticket_has_rewritten_is_dropped(self):
-        """The old command names a file a later decision renamed: the body wins."""
-        stale = ["- [x] AC1: the importer writes six rows",
-                 "  CHECK: pytest test_importer_v4.py",
-                 "  EXPECT: /^\\d+ passed/m",
-                 "  EVIDENCE: exit=0; EXPECT=matched"]
-        self.assertEqual(self.carried(stale), [])
+    sh("init", "-q", "-b", "main")
+    sh("config", "user.email", "t@t")
+    sh("config", "user.name", "t")
+    return sh
 
 
 class TestOutsideOwns(unittest.TestCase):
     """`outside_owns` counts this ticket's own commits, not what a merge rides in."""
 
     def repo(self, tmp):
-        import subprocess
-
-        def sh(*args, **kw):
-            subprocess.run(args, cwd=tmp, check=True, capture_output=True, **kw)
-
-        sh("git", "init", "-q", "-b", "main")
-        sh("git", "config", "user.email", "t@t")
-        sh("git", "config", "user.name", "t")
+        sh = git_repo(tmp)
         (tmp / "base.txt").write_text("base\n")
-        sh("git", "add", "-A")
-        sh("git", "commit", "-qm", "base")
+        sh("add", "-A")
+        sh("commit", "-qm", "base")
         return sh
 
     def test_a_merged_branch_does_not_count_as_this_tickets_work(self):
-        import tempfile
-        from pathlib import Path
-
         with tempfile.TemporaryDirectory() as raw:
             tmp = Path(raw)
             sh = self.repo(tmp)
             # The earlier ticket's branch commits its own file.
-            sh("git", "checkout", "-qb", "issue-2")
+            sh("checkout", "-qb", "issue-2")
             (tmp / "theirs.txt").write_text("theirs\n")
-            sh("git", "add", "-A")
-            sh("git", "commit", "-qm", "issue-2 work")
+            sh("add", "-A")
+            sh("commit", "-qm", "issue-2 work")
             # This ticket's branch commits one file inside Owns, one outside...
-            sh("git", "checkout", "-q", "main")
-            sh("git", "checkout", "-qb", "issue-4")
+            sh("checkout", "-q", "main")
+            sh("checkout", "-qb", "issue-4")
             (tmp / "mine.txt").write_text("mine\n")
             (tmp / "stray.txt").write_text("stray\n")
-            sh("git", "add", "-A")
-            sh("git", "commit", "-qm", "issue-4 work")
+            sh("add", "-A")
+            sh("commit", "-qm", "issue-4 work")
             # ...then merges the earlier ticket's branch to build on it.
-            sh("git", "merge", "-q", "--no-ff", "-m", "merge issue-2", "issue-2")
+            sh("merge", "-q", "--no-ff", "-m", "merge issue-2", "issue-2")
             self.assertEqual(vt.outside_owns(["mine.txt"], tmp), ["stray.txt"])
 
     def test_backticked_owns_that_cover_the_commit_report_none(self):
         """A `## Owns` bullet written `` `path` `` still excludes that path."""
-        import tempfile
-        from pathlib import Path
-
         with tempfile.TemporaryDirectory() as raw:
             tmp = Path(raw)
             sh = self.repo(tmp)
-            sh("git", "checkout", "-qb", "issue-4")
+            sh("checkout", "-qb", "issue-4")
             (tmp / "mine.txt").write_text("mine\n")
-            sh("git", "add", "-A")
-            sh("git", "commit", "-qm", "issue-4 work")
+            sh("add", "-A")
+            sh("commit", "-qm", "issue-4 work")
             globs = vt.owns_globs("## Owns\n\n- `mine.txt`\n")
             self.assertEqual(globs, ["mine.txt"])
-            self.assertEqual(vt.outside_owns_line(4, globs, tmp), "Outside Owns: None")
+            fields = vt.outside_owns_fields(4, globs, tmp)
+            self.assertEqual(fields, {"outside_owns": []})
+            self.assertEqual(vt.outside_owns_text(fields), "Outside Owns: None")
 
-    def test_the_line_is_answered_on_the_tickets_own_branch(self):
-        import tempfile
-        from pathlib import Path
-
+    def test_the_list_is_answered_on_the_tickets_own_branch(self):
         with tempfile.TemporaryDirectory() as raw:
             tmp = Path(raw)
             sh = self.repo(tmp)
-            sh("git", "checkout", "-qb", "issue-4")
+            sh("checkout", "-qb", "issue-4")
             (tmp / "stray.txt").write_text("stray\n")
-            sh("git", "add", "-A")
-            sh("git", "commit", "-qm", "issue-4 work")
-            self.assertEqual(vt.outside_owns_line(4, ["mine.txt"], tmp),
-                             "Outside Owns: stray.txt")
+            sh("add", "-A")
+            sh("commit", "-qm", "issue-4 work")
+            fields = vt.outside_owns_fields(4, ["mine.txt"], tmp)
+            self.assertEqual(fields, {"outside_owns": ["stray.txt"]})
+            self.assertEqual(vt.outside_owns_text(fields), "Outside Owns: stray.txt")
 
-    def test_the_line_is_left_unanswered_on_the_branch_tickets_merge_into(self):
+    def test_the_list_is_left_unanswered_on_the_branch_tickets_merge_into(self):
         """A re-run there is walking every ticket's commits, which answers nothing."""
-        import tempfile
-        from pathlib import Path
-
         with tempfile.TemporaryDirectory() as raw:
             tmp = Path(raw)
             sh = self.repo(tmp)
-            sh("git", "checkout", "-qb", "spec-branch")
+            sh("checkout", "-qb", "spec-branch")
             (tmp / "stray.txt").write_text("stray\n")
-            sh("git", "add", "-A")
-            sh("git", "commit", "-qm", "somebody else's work")
+            sh("add", "-A")
+            sh("commit", "-qm", "somebody else's work")
+            fields = vt.outside_owns_fields(4, ["mine.txt"], tmp)
+            self.assertEqual(fields, {"outside_owns_unchecked": "spec-branch"})
             self.assertEqual(
-                vt.outside_owns_line(4, ["mine.txt"], tmp),
+                vt.outside_owns_text(fields),
                 "Outside Owns: not checked on spec-branch, which carries more than "
                 "this ticket")
+
+
+def lease_in(home: Path):
+    """`lease.py` of the drive-target skill, its registry under `home`, not ~/.mmw."""
+    spec = importlib.util.spec_from_file_location(f"lease_for_tests_{id(home)}",
+                                                  DRIVE / "lease.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    module.REGISTRY = home / "leases"
+    module.INSTANCES = home / "instances"
+    return module
+
+
+PRODUCT = ticket("- [ ] AC1: the journey through the importer runs",
+                 "  CHECK: echo journey.py import",
+                 "  EXPECT: journey.py import",
+                 "  EVIDENCE: pending")
+PLAIN = ticket("- [ ] AC1: the importer writes six rows",
+               "  CHECK: echo 'wrote 6 rows'",
+               "  EXPECT: wrote 6 rows",
+               "  EVIDENCE: pending")
+
+
+class TestTheProductSlot(unittest.TestCase):
+    """Writing code takes no slot. The first run of the criteria that needs the product
+    claims one before anything runs; with none free it waits, visibly, on the ticket."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(subprocess.run, ["rm", "-rf", str(self.tmp)])
+        self.lease = lease_in(self.tmp / "home")
+        self.order: list[str] = []
+        real_claim = self.lease.try_claim
+
+        def claim(worktree):
+            self.order.append("claim")
+            return real_claim(worktree)
+
+        self.lease.try_claim = claim
+
+    def main_repo(self, instance_max=None):
+        """A main checkout, with `.mmw/target.json` declaring `instance.max` when given,
+        and a ticket worktree `.worktrees/issue-1` cut from it."""
+        main = self.tmp / "main"
+        main.mkdir()
+        sh = git_repo(main)
+        if instance_max is not None:
+            (main / ".mmw").mkdir()
+            (main / ".mmw" / "target.json").write_text(
+                '{"instance": {"max": %d, "why": "fixed host ports"}}' % instance_max)
+        (main / "base.txt").write_text("base\n")
+        sh("add", "-A")
+        sh("commit", "-qm", "base")
+        sh("worktree", "add", "-q", "-b", "issue-1", str(main / ".worktrees" / "issue-1"))
+        return main, (main / ".worktrees" / "issue-1").resolve()
+
+    def run_in(self, root: Path, body: str, comments=(), tools=(DRIVE,), lease="patched"):
+        posted: list[str] = []
+        real_run = vt.subprocess.run
+
+        def spy(cmd, *a, **kw):
+            if any(str(x).endswith("gate-check.mjs") for x in cmd):
+                self.order.append("gate")
+            return real_run(cmd, *a, **kw)
+
+        patches = [mock.patch.object(vt, "repo_root", return_value=root),
+                   mock.patch.object(vt, "fetch_body", return_value=body),
+                   mock.patch.object(vt, "fetch_comments", return_value=list(comments)),
+                   mock.patch.object(vt, "outside_owns", return_value=[]),
+                   mock.patch.object(vt, "post_comment",
+                                     side_effect=lambda n, b: posted.append(b)),
+                   mock.patch.object(vt, "TOOLS", [Path(t) for t in tools]),
+                   mock.patch.object(vt, "SLOT_WAIT_S", 0),
+                   mock.patch.object(vt.subprocess, "run", side_effect=spy)]
+        if lease == "patched":
+            patches.append(mock.patch.object(vt, "load_lease", return_value=self.lease))
+        for p in patches:
+            p.start()
+        try:
+            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
+                code = vt.run_checks(1, False, None)
+        finally:
+            for p in reversed(patches):
+                p.stop()
+        return code, posted, err.getvalue()
+
+    def test_a_ticket_whose_criteria_never_run_the_product_claims_no_slot(self):
+        _, root = self.main_repo()
+        code, posted, err = self.run_in(root, PLAIN)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.order, ["gate"])
+        self.assertEqual(self.lease.claimed(), [])
+        self.assertNotIn("slot", payload_of(posted[0]))
+
+    def test_the_first_run_that_needs_the_product_claims_before_anything_runs(self):
+        _, root = self.main_repo()
+        code, posted, err = self.run_in(root, PRODUCT)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.order, ["claim", "gate"])
+        held = self.lease.claimed()
+        self.assertEqual([r["worktree"] for r in held], [str(root)])
+        payload = payload_of(posted[-1])
+        self.assertEqual((payload["event"], payload["slot"], payload["port_base"]),
+                         ("ticket.checked", held[0]["slot"], held[0]["port_base"]))
+
+    def test_a_second_run_finds_the_slot_it_already_holds(self):
+        _, root = self.main_repo(instance_max=1)
+        self.run_in(root, PRODUCT)
+        code, posted, err = self.run_in(root, PRODUCT)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(len(self.lease.claimed()), 1)
+        self.assertEqual([payload_of(b)["event"] for b in posted], ["ticket.checked"])
+
+    def test_a_full_product_queues_the_run_on_the_ticket_and_runs_nothing(self):
+        main, root = self.main_repo(instance_max=1)
+        other = main / ".worktrees" / "issue-2"
+        other.mkdir()
+        self.lease.try_claim(other.resolve())
+        self.order.clear()
+
+        code, posted, err = self.run_in(root, PRODUCT)
+        self.assertEqual(code, 3, err)
+        self.assertNotIn("gate", self.order)
+        self.assertEqual(len(posted), 1)
+        queued = payload_of(posted[0])
+        self.assertEqual((queued["event"], queued["reason"], queued["run"], queued["limit"]),
+                         ("worker.queued", "product-full", "self", 1))
+        self.assertEqual(queued["holders"], [str(other.resolve())])
+        self.assertIn("Run the same command again", err)
+
+        # Asked again while the wait is already on the ticket: no second event.
+        code, again, _ = self.run_in(root, PRODUCT, comments=posted)
+        self.assertEqual((code, again), (3, []))
+
+        # The other ticket lands and gives its slot back: this run claims and runs, and
+        # its ticket.checked ends the wait.
+        self.lease.slot_file(self.lease.claimed()[0]["slot"]).unlink()
+        code, done, err = self.run_in(root, PRODUCT, comments=posted)
+        self.assertEqual(code, 0, err)
+        self.assertEqual([payload_of(b)["event"] for b in done], ["ticket.checked"])
+        state = vt.events.fold(posted + done)
+        self.assertIsNone(state["waiting"])
+        self.assertIsNotNone(state["slot"])
+
+    def test_the_main_checkout_is_held_to_the_machine_limit_alone(self):
+        """The night's reverify runs in the main checkout, which is no ticket worktree."""
+        main, _ = self.main_repo(instance_max=1)
+        other = main / ".worktrees" / "issue-2"
+        other.mkdir()
+        self.lease.try_claim(other.resolve())
+        code, posted, err = self.run_in(main.resolve(), PRODUCT)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(payload_of(posted[-1])["event"], "ticket.checked")
+
+    def test_a_full_machine_queues_the_run_the_same_way(self):
+        _, root = self.main_repo()
+
+        def full(worktree):
+            raise self.lease.Full("machine-full", 8, ["/a", "/b"])
+
+        self.lease.try_claim = full
+        code, posted, _ = self.run_in(root, PRODUCT)
+        self.assertEqual(code, 3)
+        self.assertEqual(payload_of(posted[0])["reason"], "machine-full")
+
+    def test_a_product_criterion_with_no_lease_py_reachable_is_refused(self):
+        _, root = self.main_repo()
+        judges = self.tmp / "judges"
+        judges.mkdir()
+        (judges / "journey.py").write_text("")
+        code, posted, err = self.run_in(root, PRODUCT, tools=(judges,), lease="real")
+        self.assertEqual((code, posted), (2, []))
+        self.assertNotIn("gate", self.order)
+        self.assertIn("lease.py", err)
+
+
+if __name__ == "__main__":
+    unittest.main()

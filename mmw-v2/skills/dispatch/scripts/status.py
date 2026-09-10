@@ -9,14 +9,17 @@
     status.py --land-plan <n>...        what landing each of these tickets calls for
 
 One program, six forms, reading one source, so there is never a second truth to
-reconcile. The source is the tracker (`gh`): each ticket's state, labels, assignees and
-blocking links, and its comments. Where a ticket stands — which agent sessions were
-started on it and on which runner, whether its worker is still live, whether it passed,
-landed or came back — is the fold of its comments' events, computed by `events.py` of
-the verify-ticket skill (`MMW_EVENTS_PY` names it when `dispatch.sh` resolved it
-somewhere else). Nothing here asks a runner what it is running: a runner answers for
-one machine, and the ticket answers for all of them. Nothing this program does needs a
-model, and nothing it does writes to the tracker. Each invocation is a full re-read.
+reconcile. The source is the tracker (`gh`): the spec's tree of tickets and their
+children, read in one query by `tree.py`, and each ticket's state, labels, assignees,
+blocking links and comments. Where a ticket stands — which agent sessions were started
+on it and on which runner, whether its worker is still live or waiting for a product
+slot, how its criteria last ran, whether it passed, landed or came back — is the fold of
+its comments' events, computed by `events.py`. Both files are the verify-ticket skill's
+(`MMW_EVENTS_PY` names `events.py` when `dispatch.sh` resolved it somewhere else, and
+`tree.py` is read from beside it). Nothing here asks a runner what it is running: a
+runner answers for one machine, and the ticket answers for all of them. Nothing this
+program does needs a model, and nothing it does writes to the tracker. Each invocation is
+a full re-read.
 """
 
 from __future__ import annotations
@@ -25,7 +28,6 @@ import argparse
 import importlib.util
 import json
 import os
-import re
 import subprocess
 import sys
 from collections import Counter
@@ -33,20 +35,22 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
-def _load_events():
+def _load(name: str, filename: str):
     default = Path(__file__).resolve().parents[2] / "verify-ticket" / "scripts" / "events.py"
-    path = Path(os.environ.get("MMW_EVENTS_PY") or default)
+    path = Path(os.environ.get("MMW_EVENTS_PY") or default).parent / filename
     if not path.is_file():
-        sys.stderr.write(f"dispatch: no events.py at {path}; the verify-ticket skill has to "
-                         f"sit beside this one, or MMW_EVENTS_PY has to name its events.py\n")
+        sys.stderr.write(f"dispatch: no {filename} at {path}; the verify-ticket skill has "
+                         f"to sit beside this one, or MMW_EVENTS_PY has to name its "
+                         f"events.py\n")
         raise SystemExit(2)
-    spec = importlib.util.spec_from_file_location("mmw_events", path)
+    spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-events = _load_events()
+events = _load("mmw_events", "events.py")
+tree = _load("mmw_tree", "tree.py")
 
 # --------------------------------------------------------------------- reading
 
@@ -80,17 +84,30 @@ def own_login() -> str:
     return gh(["api", "user", "-q", ".login"]).strip()
 
 
-def sub_issues(number: int) -> list[int]:
-    """The issue's own children, followed through the tracker's native relation.
+def _gh_run(args: list[str]) -> tuple[int, str, str]:
+    env = dict(os.environ)
+    env.pop("CLICOLOR_FORCE", None)
+    env.pop("CLICOLOR", None)
+    run = subprocess.run(["gh", *args], capture_output=True, text=True, env=env)
+    return run.returncode, run.stdout, run.stderr
 
-    Called with a spec, that is the batch. Called with a ticket, that is what
-    the ticket opened.
+
+def spec_tree(spec: int) -> dict:
+    """The spec's tickets and each ticket's children, in one query (`tree.py`).
+
+    A tree the tracker could not answer for whole raises `RuntimeError`: a batch read
+    with a ticket missing looks exactly like a smaller batch, and every plan this
+    program prints would be made on it.
     """
-    rows = gh_json(["api", "--paginate", "--slurp",
-                    f"repos/{{owner}}/{{repo}}/issues/{number}/sub_issues?per_page=100"], [])
-    # `--slurp` answers with one array per page; a single page answered flat is read too.
-    flat = [r for page in rows for r in (page if isinstance(page, list) else [page])]
-    return [int(r["number"]) for r in flat if isinstance(r, dict) and r.get("number")]
+    try:
+        return tree.read(spec, "spec", gh=_gh_run)
+    except tree.TreeUnreadable as exc:
+        raise RuntimeError(f"could not read the tree under #{spec}: {exc}") from None
+
+
+def sub_issues(number: int) -> list[int]:
+    """The spec's tickets, in the tracker's own order."""
+    return [child["number"] for child in tree.children(spec_tree(number))]
 
 
 def read_ticket(number: int) -> dict:
@@ -118,7 +135,6 @@ def normalise_ticket(number: int, raw: dict) -> dict:
         "assignees": [a.get("login") for a in raw.get("assignees") or [] if isinstance(a, dict)],
         "blocked_by": blocked_by,
         "blockers": [b["number"] for b in blocked_by if b["state"] != "CLOSED"],
-        "comments": [c.get("body") or "" for c in comments],
         "fold": events.fold(comments, issue=number),
         # `gh_json` answers `{}` when the call fails. That ticket still exists as a
         # number; reading it as an empty ticket would drop it from every decision.
@@ -127,35 +143,12 @@ def normalise_ticket(number: int, raw: dict) -> dict:
 
 # --------------------------------------------------------------------- the tickets
 
-def first_line(text: str) -> str:
-    stripped = (text or "").strip()
-    return stripped.splitlines()[0].strip() if stripped else ""
-
-
-def newest_with_first_line(ticket: dict, *prefixes: str) -> str:
-    """The newest comment whose first line starts with one of `prefixes`.
-
-    Used for the criteria runs alone: `self-run` and `reverify` comments are the ledger
-    each run posts, not events, and their counts are read off them.
-    """
-    for body in reversed(ticket.get("comments") or []):
-        head = first_line(body)
-        if any(head.startswith(p) for p in prefixes):
-            return body
-    return ""
-
-
 def head_of(ticket: dict) -> str:
-    """The line a person reads as where the ticket stands.
-
-    The first line of the newest event, or, on a ticket that carries none, of the newest
-    comment. It is shown and never decided on.
-    """
+    """The line a person reads as where the ticket stands: the first line of the newest
+    event. It is shown and never decided on; a comment carrying no event is prose and is
+    not shown here."""
     last = ticket["fold"]["last"]
-    if last:
-        return last["line"]
-    comments = ticket.get("comments") or []
-    return first_line(comments[-1]) if comments else ""
+    return last["line"] if last else ""
 
 
 def outcome_line(ticket: dict) -> str:
@@ -164,40 +157,17 @@ def outcome_line(ticket: dict) -> str:
     return outcome["line"] if outcome else head_of(ticket)
 
 
-# The three summary lines gate-check prints, one of which is the second line of every
-# `self-run` and `reverify` comment. Each stops at its own numbers rather than at the
-# closing bracket, because the bracket may also hold the reverify counts or a scope.
-ALL_MET_RE = re.compile(r"^ALL MET\s*\((\d+)\s+met\b")
-UNMET_RE = re.compile(r"^UNMET:\s*(\d+)\s*\(met:\s*(\d+)\b")
-HANDOFF_RE = re.compile(
-    r"^HANDOFF REQUIRED:\s*(\d+)\s+abandoned\s*\(met:\s*(\d+)"
-    r"(?:,\s*unmet:\s*(\d+))?")
-
-
 def counted_ac(ticket: dict) -> str:
-    """`<met>/<total>` off the newest self-run or reverify comment, or `-`.
-
-    The total is every criterion the summary line accounts for: met, unmet, and, on a
-    `HANDOFF REQUIRED:` line, abandoned as well. `ALL MET` accounts for none but the
-    met ones, which is what makes it `ALL MET`.
-    """
-    body = newest_with_first_line(ticket, "self-run", "reverify")
-    for raw in body.splitlines():
-        line = raw.strip()
-        found = ALL_MET_RE.match(line)
-        if found:
-            met = int(found.group(1))
-            return f"{met}/{met}"
-        found = HANDOFF_RE.match(line)
-        if found:
-            abandoned, met = int(found.group(1)), int(found.group(2))
-            unmet = int(found.group(3) or 0)
-            return f"{met}/{met + unmet + abandoned}"
-        found = UNMET_RE.match(line)
-        if found:
-            unmet, met = int(found.group(1)), int(found.group(2))
-            return f"{met}/{met + unmet}"
-    return "-"
+    """`<met>/<total>` off the newest run of the criteria — the worker's own or a
+    reverify — or `-` when none has run. The counts are that `ticket.checked` event's."""
+    record = events.checked_of(ticket["fold"], "self")
+    other = events.checked_of(ticket["fold"], "reverify")
+    if other and (record is None or other["comment"] > record["comment"]):
+        record = other
+    counts = (record or {}).get("payload", {}).get("counts") or {}
+    if not isinstance(counts.get("met"), int) or not isinstance(counts.get("total"), int):
+        return "-"
+    return f"{counts['met']}/{counts['total']}"
 
 
 def phase_of(ticket: dict) -> str:
@@ -317,6 +287,8 @@ def build_rows(numbers: list[int], tickets: dict[int, dict], *, lookup=None) -> 
             "held": ("live" if shown["live"] else shown.get("ended_by") or "-") if shown else "-",
             "since": (shown.get("started_at") or "-") if shown else "-",
             "phase": phase_of(ticket),
+            "waiting": fold["waiting"],
+            "slot": fold["slot"],
             "ac": counted_ac(ticket) or "-",
             "head": head_of(ticket),
             "outcome": outcome_line(ticket),
@@ -334,7 +306,9 @@ def blocking_text(blocking: list[tuple[int, str]]) -> str:
 def note_of(ticket: dict, row: dict) -> str:
     """One short phrase saying where this ticket stands, in the pipeline's own words.
 
-    Blank means a worker is live on a ticket still in flight: nothing to say.
+    Blank means a worker is live on a ticket still in flight: nothing to say. A worker
+    whose run is queued for a product slot says so, and since when, because a ticket
+    quiet for twenty minutes is otherwise the same row whether it is queued or dead.
     """
     head = row["head"]
     if row["unreadable"]:
@@ -344,6 +318,11 @@ def note_of(ticket: dict, row: dict) -> str:
                 + ", ".join(r.get("session") or "?" for r in row["live_workers"]))
     if row["worker"] and row["worker"].get("claim"):
         return "claimed, no session started yet"
+    if row["waiting"]:
+        payload = row["waiting"]["payload"]
+        return (f"waiting for a product slot since {row['waiting'].get('at') or '?'} "
+                f"({payload.get('reason')}, {len(payload.get('holders') or [])} of "
+                f"{payload.get('limit')} held)")
     if row["worker"]:
         return ""
     if ticket.get("state") == "CLOSED":
@@ -483,9 +462,9 @@ ROUTE_SLOTS = "opened/fixed/became/skipped/unread/open"
 ROUTES = {"fixed": "fixed", "became-ticket": "became", "stale": "skipped"}
 
 
-def is_review_sub_issue(child: dict) -> bool:
-    """A child its parent's `child.opened` event records as the `review` kind."""
-    return child.get("kind") == "review"
+def is_finding(child: dict) -> bool:
+    """A child its parent's `child.opened` event records as the `finding` kind."""
+    return child.get("kind") == "finding"
 
 
 def route_of(child: dict) -> str:
@@ -501,14 +480,13 @@ def route_of(child: dict) -> str:
 
 
 def routed_counts(children: list[dict]) -> tuple[int, int, int, int, int, int]:
-    """opened / fixed / became / skipped / unread / open among this batch's review sub-issues.
+    """opened / fixed / became / skipped / unread / open among this batch's findings.
 
-    opened is the review sub-issues of the batch, plus any child the tracker could not
+    opened is the `finding` children of the batch, plus any child the tracker could not
     answer for. The other five partition it: main agent fixed on the closing pass,
-    folded into a new ticket, left undone as stale, could not be classified (or read),
-    and still open. The unread slot is what keeps an unreadable child from looking like
-    a skipped one. The night window does not apply: this is the batch, not tonight's
-    listing.
+    became a ticket, left undone as stale, could not be classified (or read), and still
+    open. The unread slot is what keeps an unreadable child from looking like a skipped
+    one. The night window does not apply: this is the batch, not tonight's listing.
     """
     seen: Counter[str] = Counter()
     opened = 0
@@ -517,7 +495,7 @@ def routed_counts(children: list[dict]) -> tuple[int, int, int, int, int, int]:
             opened += 1
             seen["unread"] += 1
             continue
-        if not is_review_sub_issue(child):
+        if not is_finding(child):
             continue
         opened += 1
         seen[route_of(child)] += 1
@@ -528,11 +506,11 @@ def routed_counts(children: list[dict]) -> tuple[int, int, int, int, int, int]:
 def routed_line(counts: tuple[int, int, int, int, int, int]) -> str:
     """The summary line a person reads: slash counts, then the names of the slots.
 
-    It says `Review` because it counts only the `review` kind of child. A batch also
-    opens `outside-owns`, `baseline`, `decision` and `pipeline` children, and those are
-    listed by `Sub-issues opened tonight:` above without being routed here — so the two
-    lines carry different totals on purpose, and the label is what says why."""
-    return f"Review sub-issues routed: {'/'.join(str(n) for n in counts)} ({ROUTE_SLOTS})"
+    It says `Findings` because it counts only the `finding` kind of child. A batch also
+    opens `contract`, `deferred`, `decision` and `fault` children, and those are listed
+    by `Sub-issues opened tonight:` above without being routed here — so the two lines
+    carry different totals on purpose, and the label is what says why."""
+    return f"Findings routed: {'/'.join(str(n) for n in counts)} ({ROUTE_SLOTS})"
 
 
 def summary(rows: list[dict], opened: str, now: datetime | None = None,
@@ -753,11 +731,17 @@ def table(spec: int) -> int:
 
 
 def print_summary(spec: int) -> int:
-    rows, tickets = collect(spec)
+    """The night summary. The spec's tickets and every ticket's children come from one
+    read of the spec's tree; each child's kind and route from its ticket's events."""
+    batch = spec_tree(spec)
+    numbers = [t["number"] for t in tree.children(batch)]
+    tickets = {n: read_ticket(n) for n in sorted(set(numbers))}
+    rows = build_rows(numbers, tickets)
     children = []
-    for number in (r["ticket"] for r in rows):
+    for node in tree.children(batch):
+        number = node["number"]
         known = tickets[number]["fold"]["children"] if number in tickets else {}
-        for child_number in sub_issues(number):
+        for child_number in (c["number"] for c in tree.children(node)):
             child = read_ticket(child_number)
             recorded = known.get(str(child_number)) or {}
             if recorded.get("kind"):

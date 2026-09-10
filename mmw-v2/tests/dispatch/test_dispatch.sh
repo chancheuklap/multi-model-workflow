@@ -6,7 +6,7 @@
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|start-verifier|retract
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh resume|wait|reverify|summary
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
-#   bash mmw-v2/tests/dispatch/test_dispatch.sh instancegate|countfail|stopproduct|suspend|suspendbusy|status
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh slotatclaim|route|specfield|stopproduct|suspend|suspendbusy|status
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh runnerstart|runnersend|runnerliveness
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh runnerparity|herdrworkingsend|herdrliveness
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh orcasend|orcaclosed
@@ -374,6 +374,9 @@ if args[:1] == ["archive"]:
     # archive, which is how `suspend` shipped unable to stop the one thing it exists to
     # stop: a worker in the middle of a turn.
     force = "--force" in args
+    if scenario == "archive-fail":
+        print("Error: the daemon did not answer", file=sys.stderr)
+        sys.exit(1)
     positional = [a for a in args[1:] if not a.startswith("--")]
     ident = positional[0] if positional else ""
     rows = load("agents.json")
@@ -875,20 +878,79 @@ print(json.dumps({
                if os.environ.get("FAKE_GH_PARENT", "76") else None),
 }))
 ' ;;
-  *"/sub_issues"*)
-    MMW_SUB_ISSUES_URL="$*" python3 -c '
+  "api graphql "*)
+    # The tree of issues under `root=<n>`, the way `tree.py` asks for it: any number that
+    # is not one of the fixture tickets is the spec, whose children are every ticket; a
+    # ticket's children are its own `children` numbers. FAKE_GH_TREE_SHORT answers with
+    # one ticket fewer than the count it gives, the way a page left unread would.
+    MMW_GRAPHQL_ARGS="$*" python3 -c '
 import json, os, re
 path = os.environ.get("FAKE_GH_TICKETS_FILE")
 rows = json.load(open(path)) if path else []
-url = os.environ.get("MMW_SUB_ISSUES_URL") or ""
-found = re.search(r"/issues/(\d+)/sub_issues", url)
+found = re.search(r"(?:^| )root=(\d+)", os.environ.get("MMW_GRAPHQL_ARGS") or "")
 want = int(found.group(1)) if found else None
-owned = {t["number"] for t in rows if "number" in t}
-if want is None or want in owned:
-    print("[]")
+by_number = {t["number"]: t for t in rows if "number" in t}
+
+def node(number, depth):
+    t = by_number.get(number, {})
+    out = {"number": number, "title": t.get("title", "a ticket"),
+           "state": t.get("state", "OPEN")}
+    if depth:
+        kids = t.get("children", [])
+        out["subIssuesSummary"] = {"total": len(kids), "completed": 0}
+        out["subIssues"] = {"nodes": [node(k, depth - 1) for k in kids]}
+    return out
+
+if want in by_number:
+    issue = node(want, 1)
 else:
-    print(json.dumps([{"number": t["number"]} for t in rows]))
+    tickets = [node(t["number"], 1) for t in rows if "number" in t]
+    total = len(tickets)
+    if os.environ.get("FAKE_GH_TREE_SHORT") and tickets:
+        tickets = tickets[:-1]
+    issue = {"number": want, "title": "the spec", "state": "OPEN",
+             "subIssuesSummary": {"total": total, "completed": 0},
+             "subIssues": {"nodes": tickets}}
+print(json.dumps({"data": {"repository": {"issue": issue}}}))
 ' ;;
+  *"--json parent"*)
+    # `parent_of` and `ticket_spec`: the issue this one sits under. A fixture ticket
+    # names its own `parent`; any other number is the spec, which sits under nothing.
+    MMW_WANT="$3" MMW_JQ="$*" python3 -c '
+import json, os
+path = os.environ.get("FAKE_GH_TICKETS_FILE")
+rows = json.load(open(path)) if path else []
+want = int(os.environ["MMW_WANT"])
+found = next((t for t in rows if t.get("number") == want), None)
+if found is not None:
+    parent = found.get("parent", {"number": int(os.environ.get("FAKE_GH_PARENT") or 76)}
+                       if os.environ.get("FAKE_GH_PARENT", "76") else None)
+else:
+    parent = None
+if "--jq" in os.environ["MMW_JQ"]:
+    print(parent["number"] if parent else "")
+else:
+    print(json.dumps({"parent": parent}))
+' ;;
+  *"--json labels --jq"*)
+    MMW_WANT="$3" python3 -c '
+import json, os
+path = os.environ.get("FAKE_GH_TICKETS_FILE")
+rows = json.load(open(path)) if path else []
+want = int(os.environ["MMW_WANT"])
+found = next((t for t in rows if t.get("number") == want), {})
+for name in found.get("labels", []):
+    print(name)
+' ;;
+  "label create "*)
+    # FAKE_GH_LABEL_EXISTS: the repository already has it, which `gh` reports as a failure.
+    if [ -n "${FAKE_GH_LABEL_EXISTS:-}" ]; then
+      echo "label with name \"$3\" already exists; use \`--force\` to update its color and description" >&2
+      exit 1
+    fi
+    echo "✓ Label \"$3\" created" ;;
+  "issue close "*)
+    echo "✓ Closed issue #$3" ;;
   *"--json state,labels,assignees,blockedBy,comments"*)
     MMW_WANT="$3" python3 -c '
 import json, os
@@ -1167,6 +1229,18 @@ for body in posted:
 }
 export MMW_EVENTS_PY_FOR_TESTS="$(dirname "$SKILL")/verify-ticket/scripts/events.py"
 
+# The comments posted on ticket <n> during this run, as `gh issue view --json comments`
+# answers them, for handing to `events.py … --comments-file -`.
+gh_comments_json() {
+  MMW_N="$1" python3 -c '
+import json, os
+from pathlib import Path
+store = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "gh-comments.json"
+posted = json.loads(store.read_text()).get(os.environ["MMW_N"], []) if store.is_file() else []
+print(json.dumps({"comments": [{"body": b} for b in posted]}))
+'
+}
+
 wt() { printf '%s/.worktrees/issue-%s\n' "$TMP/repo" "$1"; }
 trees() { printf '%s/.worktrees\n' "$TMP/repo"; }
 assert_wt() {
@@ -1406,6 +1480,7 @@ skill_copy_for() {
      "$(dirname "$SKILL")/drive-target/scripts/refusal.py" \
      "$TMP/fake/skills/drive-target/scripts/"
   cp "$(dirname "$SKILL")/verify-ticket/scripts/events.py" \
+     "$(dirname "$SKILL")/verify-ticket/scripts/tree.py" \
      "$TMP/fake/skills/verify-ticket/scripts/"
   printf '#!/usr/bin/env bash\nexit %s\n' "${2:-0}" > "$TMP/fake/install.sh"
   chmod +x "$TMP/fake/install.sh"
@@ -1751,11 +1826,11 @@ assert obj["settings"].get("modeId") == "agent", obj["settings"]
     *) fail "the autonomous sentence is missing from the worker prompt" ;;
   esac
   case "$(out_json initialPrompt)" in
-    *"--sub-issue pipeline"*) ;;
+    *"--sub-issue fault"*) ;;
     *) fail "the pipeline-fault sentence is missing from the worker prompt" ;;
   esac
   case "$(out_json initialPrompt)" in
-    *"A fault in the pipeline itself is reported, not worked around: verify-ticket.py <n> --sub-issue pipeline <file>, then stop (rule 5 of that section)."*) ;;
+    *"A fault in the pipeline itself is reported, not worked around: verify-ticket.py <n> --sub-issue fault <file>, then stop (rule 5 of that section)."*) ;;
     *) fail "the shortened pipeline-fault sentence is missing: $(out_json initialPrompt)" ;;
   esac
   case "$(out_json initialPrompt)" in
@@ -1825,33 +1900,49 @@ assert "mmw.profile" not in obj["labels"], obj["labels"]
   [ "$code" = 2 ] || fail "expected exit 2 for the retired flag, got $code: $(cat "$TMP/err")"
   grep -q "no longer a flag" "$TMP/err" || fail "the reason should say no longer a flag: $(cat "$TMP/err")"
 
-  echo "--- a refused lease removes a worktree this start created, and keeps one that already stood"
+  echo "--- a worker start takes no slot: writing code needs none, even with every slot claimed"
   reset_log
   fresh_repo
   seed_workspace 99
   MMW_LEASE_SLOTS=1 python3 "$LEASE_PY" claim "$TMP/repo/.worktrees/issue-99" >/dev/null
   code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
           bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
-  [ "$code" = 2 ] || fail "expected exit 2 when the lease is refused, got $code: $(cat "$TMP/err")"
-  assert_no_wt 61
-  assert_wt 99
-  hasnt_runner_worktree
-  grep -q 'issue-61:' "$TMP/err" || fail "the refusal should name the ticket: $(cat "$TMP/err")"
-  grep -q 'instance slots' "$TMP/err" || fail "the refusal should carry lease.py's slot fact: $(cat "$TMP/err")"
-  grep -q 'Report the ticket blocked and stop' "$TMP/err" \
-    || fail "the refusal should carry lease.py's next step: $(cat "$TMP/err")"
-  reset_log
-  fresh_repo
-  seed_workspace 61
-  seed_workspace 99
-  MMW_LEASE_SLOTS=1 python3 "$LEASE_PY" claim "$TMP/repo/.worktrees/issue-99" >/dev/null
-  : > "$MMW_TEST_LOG"
-  code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
-          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
-  [ "$code" = 2 ] || fail "expected exit 2 on a standing worktree, got $code: $(cat "$TMP/err")"
+  [ "$code" = 0 ] || fail "a full machine must not stop a worker from starting, got $code: $(cat "$TMP/err")"
+  started_once
   assert_wt 61
-  hasnt_runner_worktree
-  grep -q 'issue-61:' "$TMP/err" || fail "the refusal should name the ticket: $(cat "$TMP/err")"
+  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
+    || fail "start took a slot: $(python3 "$LEASE_PY" list)"
+  posted_events 61 slot port_base | grep -qx "worker.started slot=None port_base=None" \
+    || fail "worker.started should carry no slot: $(posted_events 61 slot port_base)"
+  python3 "$LEASE_PY" release "$TMP/repo/.worktrees/issue-99" >/dev/null
+
+  echo "--- a start on a ticket whose worker is still live replaces it: stopped, worker.replaced, then worker.started"
+  reset_log
+  fresh_repo
+  seed_agent 61 worker
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0 for a replacement, got $code: $(cat "$TMP/err")"
+  has "paseo :: archive :: --force :: agt_61_worker"
+  local new
+  new="$(tail -n 1 "$TMP/out")"
+  [ "$(posted_events 61 session runner by_session | tr '\n' '|')" = \
+    "worker.started session=agt_61_worker runner=paseo by_session=None|worker.replaced session=agt_61_worker runner=paseo by_session=$new|worker.started session=$new runner=paseo by_session=None|" ] \
+    || fail "replacement events: $(posted_events 61 session runner by_session)"
+  [ "$(printf '%s' "$(gh_comments_json 61)" | python3 "$EVENTS_PY" live --kind worker --comments-file - 61)" = "paseo	$new" ] \
+    || fail "after the replacement only the new worker is live: $(printf '%s' "$(gh_comments_json 61)" | python3 "$EVENTS_PY" live --kind worker --comments-file - 61)"
+
+  echo "--- a live worker that will not stop is not replaced, and nothing is started beside it"
+  reset_log
+  fresh_repo
+  seed_agent 61 worker
+  code="$(run_dispatch env MMW_FAKE_PASEO_SCENARIO=archive-fail \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 2 ] || fail "expected exit 2 when the live worker will not stop, got $code: $(cat "$TMP/err")"
+  grep -q "agt_61_worker on paseo is live on its events and could not be stopped" "$TMP/err" \
+    || fail "the refusal should name the live worker: $(cat "$TMP/err")"
+  never_ran
+  [ "$(posted_events 61 | tr '\n' '|')" = "worker.started|" ] \
+    || fail "nothing should be posted: $(posted_events 61)"
 
   echo "--- a copied skill still finds models.py"
   local copy
@@ -1886,8 +1977,10 @@ JSON
   code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
           bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "start expected exit 0, got $code: $(cat "$TMP/err")"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
-    || fail "start should hold one slot, it holds $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
+    || fail "start should hold no slot, it holds $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  # The worker's first run of a criterion that needs the product claims it.
+  MMW_LEASE_SLOTS=1 python3 "$LEASE_PY" claim "$(wt 61)" >/dev/null
   set_agent_status "$(cat "$TMP/out")" closed
   : > "$MMW_TEST_LOG"
   code="$(run_dispatch env MMW_LEASE_SLOTS=1 FAKE_GH_LOGIN=mmw-bot \
@@ -1913,14 +2006,16 @@ JSON
   grep -q "retract #61: archived 0, slot given back 0, claim given back 0" "$TMP/err" \
     || fail "a second retract should report zeros: $(cat "$TMP/err")"
 
-  echo "--- the freed slot is what the next start takes, not a second slot"
+  echo "--- the freed slot is the one the next ticket's first product run takes"
   : > "$MMW_TEST_LOG"
   code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
           bash "$DISPATCH" "${TOOLS[@]}" start 62 worker)"
   [ "$code" = 0 ] || fail "start after retract expected exit 0, got $code: $(cat "$TMP/err")"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
-    || fail "the next start should take the freed slot, count is $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
   assert_wt 62
+  MMW_LEASE_SLOTS=1 python3 "$LEASE_PY" claim "$(wt 62)" >/dev/null \
+    || fail "the slot retract gave back should be free for the next claim: $(python3 "$LEASE_PY" list)"
+  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
+    || fail "the next claim should take the freed slot, count is $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
 
   echo "--- a live agent on the ticket is refused, and the workspace stays"
   reset_log
@@ -1963,6 +2058,7 @@ JSON
   code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
           bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "start expected exit 0, got $code: $(cat "$TMP/err")"
+  MMW_LEASE_SLOTS=1 python3 "$LEASE_PY" claim "$(wt 61)" >/dev/null
   set_agent_status "$(cat "$TMP/out")" closed
   : > "$MMW_TEST_LOG"
   local copy
@@ -2232,21 +2328,34 @@ scenario_reverify() {
   local copy code
   copy="$(skill_copy_for reverify)"
   mkdir -p "$TMP/fake/skills/verify-ticket/scripts"
+  # The real run posts its own `ticket.checked` on the ticket; this one posts the same
+  # event straight into the fake tracker. FAKE_VERIFY_WAIT: it waited for a product slot
+  # and none came free (exit 3), and posted nothing.
   cat > "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py" <<'PY'
 #!/usr/bin/env python3
-import os, sys
+import json, os, subprocess, sys
+from pathlib import Path
 log = os.environ["MMW_TEST_LOG"]
 with open(log, "a", encoding="utf-8") as fh:
     fh.write("verify-ticket" + "".join(" :: " + a for a in sys.argv[1:]) + "\n")
 number = sys.argv[1]
+if number in os.environ.get("FAKE_VERIFY_WAIT", "").split(","):
+    sys.exit(3)
 failing = {n for n in os.environ.get("FAKE_VERIFY_FAIL", "").split(",") if n}
-if number in failing:
-    print("UNMET: 1 (met: 4)")
-    print("- [x] AC1: one")
-    print("- [ ] AC3: three")
-    sys.exit(1)
-print("ALL MET (5 met)")
-sys.exit(0)
+failed = ["AC3"] if number in failing else []
+body = subprocess.run(
+    [sys.executable, os.environ["MMW_EVENTS_PY_FOR_TESTS"], "emit", "ticket.checked",
+     "--ticket", number, "--line", "Reverify", "--actor", "main", "--stage", "regress",
+     "--field", "run=reverify", "--field", "commit=" + "a" * 40,
+     "--field", "result=" + ("unmet" if failed else "met"),
+     "--json-field", "failed=" + json.dumps(failed)],
+    capture_output=True, text=True, check=True).stdout
+store = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "gh-comments.json"
+posted = json.loads(store.read_text()) if store.is_file() else {}
+posted.setdefault(number, []).append(body)
+store.write_text(json.dumps(posted))
+print("UNMET: 1 (met: 4)" if failed else "ALL MET (5 met)")
+sys.exit(1 if failed else 0)
 PY
   chmod +x "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py"
 
@@ -2258,15 +2367,31 @@ PY
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_VERIFY_FAIL=62 \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
   [ "$code" = 1 ] || fail "expected exit 1, got $code: $(cat "$TMP/err")"
-  has "verify-ticket :: 61 :: --reverify"
-  has "verify-ticket :: 62 :: --reverify"
+  echo "--- each run is the main agent's reverify, and a green one writes nothing but its own run"
+  has "verify-ticket :: 61 :: --reverify :: --actor :: main"
+  has "verify-ticket :: 62 :: --reverify :: --actor :: main"
+  hasnt "gh :: issue :: comment :: 61"
+  [ "$(posted_events 61 run actor | tr '\n' '|')" = "ticket.landed run=None actor=main|ticket.checked run=reverify actor=main|" ] \
+    || fail "#61 should carry its landing and the reverify's ticket.checked only: $(posted_events 61 run actor)"
   has "gh :: issue :: reopen :: 62"
   has "gh :: issue :: edit :: 62 :: --add-label :: needs-triage :: --remove-assignee :: alice"
   grep -q "AC3" "$MMW_TEST_LOG" || fail "the failing criterion was not commented: $(cat "$MMW_TEST_LOG")"
   grep -q "reverify #76: 1 green, 1 red" "$TMP/out" \
     || fail "the summary line is missing: $(cat "$TMP/out")"
+  echo "--- the red ticket's failing criteria come off its ticket.checked, not the run's printout"
   posted_events 62 failed | grep -qx "ticket.regressed failed=\['AC3'\]" \
     || fail "#62 should carry ticket.regressed naming AC3: $(posted_events 62 failed)"
+
+  echo "--- a run that waited for a slot and got none is not a red ticket"
+  reset_log
+  post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
+  post_ev 62 ticket.landed --ticket 62 --line "Landed issue-62 into main"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_VERIFY_WAIT=61 \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
+  [ "$code" = 2 ] || fail "expected exit 2 when a run waited and could not start, got $code: $(cat "$TMP/err")"
+  hasnt "gh :: issue :: reopen"
+  grep -q "#61 could not be re-run, so nothing was judged" "$TMP/err" \
+    || fail "the run that could not start should be named: $(cat "$TMP/err")"
 
   echo "--- a ticket that passed and has not landed is not run again on the base branch"
   reset_log
@@ -2531,8 +2656,8 @@ JSON
 
 LEASE_PY="$(dirname "$SKILL")/drive-target/scripts/lease.py"
 
-scenario_instancegate() {
-  echo "--- a product that declares it cannot be isolated is serialised, not piled onto"
+scenario_slotatclaim() {
+  echo "--- a product capped at one run still has every frontier ticket started: code takes no slot"
   reset_log
   fresh_repo
   write_batch
@@ -2553,61 +2678,132 @@ scenario_instancegate() {
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
-
-  echo "--- the merges still happen: the gate is about starting, not about landing work"
   [ -f "$TMP/repo/one.txt" ] || fail "issue-61 was not merged"
   [ -f "$TMP/repo/two.txt" ] || fail "issue-62 was not merged"
 
-  echo "--- a merged ticket's lease is released before its worktree is removed"
+  echo "--- a merged ticket's slot is given back before its worktree is removed: held until landing"
   [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
     || fail "issue-62's lease should be gone after archive, count is $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
   assert_no_wt 62
   assert_branch 62
   hasnt_runner_worktree
 
-  echo "--- the frontier ticket is held back rather than sent onto a busy machine"
-  grep -q "held 1" "$TMP/err" || fail "nothing was held back: $(cat "$TMP/err")"
-  grep -q "held back" "$TMP/err" || fail "the reason was not reported: $(cat "$TMP/err")"
-  assert_no_wt 63
-
-  echo "--- it kept its label, so the next advance starts it once a slot is free"
-  : > "$MMW_TEST_LOG"
-  : > "$MMW_GH_LAST_BODY"
-  python3 "$LEASE_PY" release "$TMP/repo/.worktrees/issue-99" >/dev/null
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
-    || fail "issue-99 should be free before the second advance"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
-  [ "$code" = 0 ] || fail "exit $code on the second run: $(cat "$TMP/err")"
+  echo "--- the frontier ticket starts although the product's one slot is held, and takes none"
   assert_wt 63
-  hasnt_runner_worktree
+  grep -q "started 1" "$TMP/err" || fail "the frontier ticket was not started: $(cat "$TMP/err")"
+  ! grep -q "held" "$TMP/err" || fail "advance still holds tickets back: $(cat "$TMP/err")"
+  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
+    || fail "the start took a slot: $(python3 "$LEASE_PY" list)"
+
+  echo "--- its first run that needs the product is the one told to wait: lease.py answers 4, full"
+  cp "$TMP/repo/.mmw/target.json" "$(wt 63)/.mmw/target.json" 2>/dev/null \
+    || { mkdir -p "$(wt 63)/.mmw" && cp "$TMP/repo/.mmw/target.json" "$(wt 63)/.mmw/target.json"; }
+  local answer
+  answer="$(python3 "$LEASE_PY" claim "$(wt 63)")"
+  code=$?
+  [ "$code" = 4 ] || fail "the claim past instance.max should exit 4, got $code: $answer"
+  printf '%s' "$answer" | python3 -c '
+import json, sys
+got = json.load(sys.stdin)
+assert got["claimed"] is False and got["reason"] == "product-full" and got["limit"] == 1, got
+assert [h.endswith("issue-99") for h in got["holders"]] == [True], got
+' || fail "the full answer should name the limit and who holds it: $answer"
 
   rm -f "$TMP/repo/.mmw/target.json"
+  python3 "$LEASE_PY" release "$TMP/repo/.worktrees/issue-99" >/dev/null
 }
 
-scenario_countfail() {
+# #61 is a ticket under spec #76; #90–#93 are children it opened; #80 is a ticket already
+# under the spec; #95 sits under nothing.
+write_route_batch() {
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent", "mmw:ticket"], "parent": {"number": 76}},
+  {"number": 80, "state": "OPEN", "labels": ["ready-for-agent"], "parent": {"number": 76}},
+  {"number": 90, "state": "OPEN", "labels": ["needs-triage", "mmw:child"], "parent": {"number": 61}},
+  {"number": 91, "state": "OPEN", "labels": ["needs-triage", "mmw:child"], "parent": {"number": 61}},
+  {"number": 92, "state": "OPEN", "labels": ["needs-triage", "mmw:child"], "parent": {"number": 61}},
+  {"number": 93, "state": "OPEN", "labels": ["needs-triage", "mmw:child"], "parent": {"number": 61}},
+  {"number": 95, "state": "OPEN", "labels": ["needs-triage"], "parent": null}
+]
+JSON
+}
+
+scenario_route() {
   local code
-  echo "--- lease.py count failing is a refusal, not a silent open gate"
   reset_log
   fresh_repo
-  write_batch
-  mkdir -p "$TMP/repo/.mmw" "$TMP/fake-lease"
-  printf '%s\n' '{"start":"true","discover":"true","reach":"true","instance":{"max":1,"why":"fixed host ports"}}' \
-    > "$TMP/repo/.mmw/target.json"
-  cat > "$TMP/fake-lease/lease.py" <<'PY'
-#!/usr/bin/env python3
-import sys
-print("lease count failed", file=sys.stderr)
-sys.exit(1)
-PY
-  chmod +x "$TMP/fake-lease/lease.py"
-  seed_workspace 61
+  write_route_batch
+  echo "--- fixed: the child is closed as completed and child.closed goes on its ticket"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" --tools "$TMP/fake-lease" "${TOOLS[@]}" advance 76)"
-  [ "$code" = 2 ] || fail "expected exit 2 when count fails, got $code: $(cat "$TMP/err")"
-  grep -q "could not count live instances" "$TMP/err" \
-    || fail "the reason should say count failed: $(cat "$TMP/err")"
-  hasnt "workspace :: create"
+          bash "$DISPATCH" "${TOOLS[@]}" route 90 fixed)"
+  [ "$code" = 0 ] || fail "route fixed expected exit 0, got $code: $(cat "$TMP/err")"
+  has "gh :: issue :: close :: 90 :: --reason :: completed"
+
+  echo "--- stale: closed as not planned"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" route 91 stale)"
+  [ "$code" = 0 ] || fail "route stale expected exit 0, got $code: $(cat "$TMP/err")"
+  has "gh :: issue :: close :: 91 :: --reason :: not planned"
+
+  echo "--- became-ticket as itself: relabelled mmw:ticket and moved under the spec, left open"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" route 92 became-ticket 92)"
+  [ "$code" = 0 ] || fail "route became-ticket expected exit 0, got $code: $(cat "$TMP/err")"
+  has "gh :: label :: create :: mmw:ticket"
+  has "gh :: issue :: edit :: 92 :: --add-label :: mmw:ticket :: --parent :: 76 :: --remove-label :: mmw:child"
+  hasnt "gh :: issue :: close :: 92"
+
+  echo "--- became-ticket as another ticket already under the spec: no move, and the child closes as its duplicate"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LABEL_EXISTS=1 \
+          bash "$DISPATCH" "${TOOLS[@]}" route 93 became-ticket 80)"
+  [ "$code" = 0 ] || fail "a label that already exists should not stop the route, got $code: $(cat "$TMP/err")"
+  has "gh :: issue :: edit :: 80 :: --add-label :: mmw:ticket"
+  hasnt "gh :: issue :: edit :: 80 :: --add-label :: mmw:ticket :: --parent"
+  has "gh :: issue :: close :: 93 :: --duplicate-of :: 80"
+
+  echo "--- each route is one child.closed on the ticket the child came from, naming the spec"
+  [ "$(posted_events 61 child resolution became spec | tr '\n' '|')" = \
+    "child.closed child=90 resolution=fixed became=None spec=76|child.closed child=91 resolution=stale became=None spec=76|child.closed child=92 resolution=became-ticket became=92 spec=76|child.closed child=93 resolution=became-ticket became=80 spec=76|" ] \
+    || fail "child.closed events: $(posted_events 61 child resolution became spec)"
+  posted_events 61 commit | head -n 1 | grep -Eq "^child.closed commit=[0-9a-f]{40}$" \
+    || fail "a fixed child names the commit it was fixed on: $(posted_events 61 commit)"
+
+  echo "--- a child with no parent ticket, and a resolution that is none of the three, change nothing"
+  reset_log
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" route 95 fixed)"
+  [ "$code" = 2 ] || fail "a child with no parent should exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "#95 has no parent ticket" "$TMP/err" || fail "the refusal should say why: $(cat "$TMP/err")"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" route 90 done)"
+  [ "$code" = 2 ] || fail "an unknown resolution should exit 2, got $code: $(cat "$TMP/err")"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" route 90 became-ticket)"
+  [ "$code" = 2 ] || fail "became-ticket with no ticket should exit 2, got $code: $(cat "$TMP/err")"
+  hasnt "gh :: issue :: close"
+  hasnt "gh :: issue :: edit"
+  [ -z "$(posted_events 61)" ] || fail "nothing should be posted: $(posted_events 61)"
+}
+
+scenario_specfield() {
+  local code
+  echo "--- outside a batch command, the events a command writes still name the ticket's spec"
+  reset_log
+  fresh_repo
+  cat > "$TMP/tickets.json" <<'JSON'
+[{"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "assignees": ["mmw-bot"], "parent": {"number": 76}}]
+JSON
+  seed_agent 61 worker
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" resume 61 "continue")"
+  [ "$code" = 0 ] || fail "resume expected exit 0, got $code: $(cat "$TMP/err")"
+  set_agent_status agt_61_worker closed
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
+          bash "$DISPATCH" "${TOOLS[@]}" retract 61)"
+  [ "$code" = 0 ] || fail "retract expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(posted_events 61 spec | tr '\n' '|')" = "worker.started spec=76|worker.resumed spec=76|worker.retracted spec=76|" ] \
+    || fail "every event should carry spec 76: $(posted_events 61 spec)"
 }
 
 write_open_batch() {
@@ -2655,6 +2851,11 @@ scenario_suspend() {
 
   [ -d "$TMP/repo/.worktrees/issue-61" ] || fail "the night did not open a worktree for #61"
   [ -d "$TMP/repo/.worktrees/issue-63" ] || fail "the night did not open a worktree for #63"
+  # The starts took no slot; each worker's first run that needs the product claims one.
+  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
+    || fail "the starts should hold no slot, they hold $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  python3 "$LEASE_PY" claim "$TMP/repo/.worktrees/issue-61" >/dev/null
+  python3 "$LEASE_PY" claim "$TMP/repo/.worktrees/issue-63" >/dev/null
   seed_workspace 65
   python3 "$LEASE_PY" claim "$TMP/repo/.worktrees/issue-65" >/dev/null
   [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 3 ] \
@@ -2688,8 +2889,9 @@ scenario_suspend() {
   has "gh :: issue :: edit :: 61 :: --remove-assignee :: @me"
   [ "$(count_of "status.py --worker-grades")" = 1 ] \
     || fail "worker-grades should be read once, got $(count_of "status.py --worker-grades")"
-  [ "$(count_of "/sub_issues")" = 1 ] \
-    || fail "the batch should be read once, got $(count_of "/sub_issues")"
+  [ "$(count_of "gh :: api :: graphql")" = 1 ] \
+    || fail "the batch should be read once, got $(count_of "gh :: api :: graphql")"
+  hasnt "/sub_issues"
   [ -d "$TMP/repo/.worktrees/issue-61" ] || fail "the worktree for #61 was removed"
   [ -d "$TMP/repo/.worktrees/issue-63" ] || fail "the worktree for #63 was removed"
   git -C "$TMP/repo" rev-parse --verify --quiet refs/heads/issue-61 >/dev/null \
@@ -3838,13 +4040,13 @@ scenario_runneronticket() {
   [ "$(posted_events 61 session runner host model effort grade worktree branch)" = "$want" ] \
     || fail "the verifier.started event is wrong: $(posted_events 61 session runner host model effort grade worktree branch)"
 
-  echo "--- a worker's start carries its slot"
+  echo "--- a worker's start carries no slot: the first run that needs the product claims it"
   reset_log
   fresh_repo
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  posted_events 61 slot | grep -qE "^worker.started slot=[0-9]+$" \
-    || fail "the worker.started event should carry the slot: $(posted_events 61 slot)"
+  posted_events 61 slot | grep -qx "worker.started slot=None" \
+    || fail "the worker.started event should carry no slot: $(posted_events 61 slot)"
   posted_events 61 base | grep -qE "^worker.started base=[0-9a-f]{40}$" \
     || fail "the worker.started event should carry the base commit: $(posted_events 61 base)"
 }
@@ -4224,7 +4426,7 @@ scenario_orcanohosts() {
   hasnt "orca :: terminal :: create"
 }
 
-ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable"
+ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -4255,8 +4457,9 @@ banner_for() {
     releaselive) echo RELEASE-LIVE-OK ;;
     releasestanding) echo RELEASE-STANDING-OK ;;
     frontierwhy) echo DISPATCH-FRONTIER-WHY-OK ;;
-    instancegate) echo DISPATCH-INSTANCE-GATE-OK ;;
-    countfail) echo DISPATCH-COUNT-FAIL-OK ;;
+    slotatclaim) echo SLOT-AT-CLAIM-OK ;;
+    route) echo ROUTE-OK ;;
+    specfield) echo SPEC-FIELD-OK ;;
     stopproduct) echo STOP-PRODUCT-OK ;;
     suspend) echo SUSPEND-OK ;;
     suspendbusy) echo SUSPEND-BUSY-OK ;;

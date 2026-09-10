@@ -25,9 +25,9 @@ nothing else (docs/adr/0001-tracker-repo-authority.md).
     worker   reviewer.reported, verifier.passed, verifier.failed: the session that started
              that reviewer or verifier. Its runner and session are the `runner` and
              `session` fields of the ticket's latest `worker.started` before the event.
-    main     ticket.passed, ticket.returned, ticket.refused, child.opened of kind pipeline
-             (a fault in the pipeline itself) or decision, worker.lost, and the relay's own relay.recovered: the main agent, as
-             `register` names it.
+    main     ticket.passed, ticket.returned, ticket.refused, child.opened of kind fault
+             (the pipeline itself broken) or decision, worker.lost, and the relay's own
+             relay.recovered: the main agent, as `register` names it.
 
 A worker needs no registration: the ticket says who it is. Each row is written with its
 recipient's runner and session, and only that recipient — the pair, never the session
@@ -157,7 +157,7 @@ WAKES: dict[str, dict] = {
     "ticket.passed": {"to": MAIN},
     "ticket.returned": {"to": MAIN},
     "ticket.refused": {"to": MAIN},
-    "child.opened": {"to": MAIN, "when": {"kind": ("pipeline", "decision")}},
+    "child.opened": {"to": MAIN, "when": {"kind": ("fault", "decision")}},
     "worker.lost": {"to": MAIN},
 }
 

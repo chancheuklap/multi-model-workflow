@@ -2,13 +2,14 @@
 
 import io
 import json
+import subprocess
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from _load import event, load
+from _load import checked, event, load
 
 vt = load()
 
@@ -41,13 +42,22 @@ def posted_as(body):
 
 
 def ledger_of(text):
-    """The criteria of a draft as a run states them: no `ABANDON:` lines.
+    """The criteria of a draft as a run states them: from its first criterion to its
+    `Outside Owns:` line, with no `ABANDON:` lines.
 
     A run is generated from the ticket body, and a body carries no `ABANDON:` line, so
     a ledger that had one would not describe the same criteria as the body.
     """
-    return [line for line in vt.ledger_from_comment(text)
-            if not line.startswith("ABANDON:")]
+    lines = text.splitlines()
+    start = next((i for i, line in enumerate(lines) if vt.GATE_LINE_RE.match(line)), None)
+    if start is None:
+        return []
+    end = next((i for i, line in enumerate(lines[start:], start)
+                if line.startswith("Outside Owns:")), len(lines))
+    out = [line for line in lines[start:end] if not line.startswith("ABANDON:")]
+    while out and not out[-1].strip():
+        out.pop()
+    return out
 
 
 def acceptance_body(ledger):
@@ -57,13 +67,19 @@ def acceptance_body(ledger):
 
 def reverify_of(ledger, summary="ALL MET (1 met)"):
     """The verifier's own run of exactly these criteria, reporting `summary`."""
-    return "\n".join(["reverify", summary, ""] + ledger + ["", "Outside Owns: None"])
+    return checked("reverify", ledger, summary, commit=HEAD)
 
 
 def self_runs(block, rounds):
-    """`rounds` self-run comments, each leaving that criterion unmet."""
+    """`rounds` runs of the worker's own, each leaving that criterion unmet."""
     ledger = block if block.startswith("- [ ]") else block.replace("- [x]", "- [ ]")
-    return ["\n".join(["self-run", "UNMET: 1", "", ledger])] * rounds
+    return [checked("self", [ledger], "UNMET: 1")] * rounds
+
+
+def is_reverify(comment):
+    what, payload = vt.events.parse(comment)
+    return (what == "event" and payload["event"] == "ticket.checked"
+            and payload["run"] == "reverify")
 
 
 def draft(first="ALL MET", criteria=(MET,), abandons=(), counts=None):
@@ -93,7 +109,7 @@ def check(text, comments=(VERDICT_COMMENT,),
     ledger = ledger_of(text)
     if body is None:
         body = acceptance_body(ledger)
-    if reverify and not any(c.strip().startswith("reverify") for c in comments):
+    if reverify and not any(is_reverify(c) for c in comments):
         comments = tuple(comments) + (reverify_of(ledger),)
 
     def fake_git(*args, cwd=None):
@@ -162,7 +178,7 @@ class TestFirstLine(unittest.TestCase):
         text = draft(criteria=(MET, UNMET),
                      abandons=("ABANDON: AC2 decision both wordings are legal; opened #58",),
                      counts=counts_line(met=1, abandoned=1, total=2))
-        newest_run = "\n".join(["reverify", "UNMET: 1 (met: 1)", "", MET, UNMET])
+        newest_run = checked("reverify", [MET, UNMET], "UNMET: 1 (met: 1)")
         code, err, _ = check(text, comments=(VERDICT_COMMENT, newest_run))
         self.assertEqual(code, 0, err)
 
@@ -176,7 +192,7 @@ class TestFirstLine(unittest.TestCase):
         text = draft(criteria=(MET, UNMET, met3),
                      abandons=("ABANDON: AC2 decision both wordings are legal; opened #58",),
                      counts=counts_line(met=2, abandoned=1, total=3))
-        newest_run = "\n".join(["reverify", "UNMET: 2 (met: 1)", "", MET, UNMET, unmet3])
+        newest_run = checked("reverify", [MET, UNMET, unmet3], "UNMET: 2 (met: 1)")
         code, err, _ = check(text, comments=(VERDICT_COMMENT, newest_run))
         self.assertEqual(code, 1)
         self.assertIn("still reports unmet", err)
@@ -237,7 +253,7 @@ class TestBody(unittest.TestCase):
 
 HANDOFF = "HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 0 met of 1"
 ABANDONED = "ABANDON: AC2 stuck chromium will not start here; tried the bundled build too"
-NO_VERDICT = ("self-run\nUNMET: 1 (met: 0)",)
+NO_VERDICT = (checked("self", [UNMET], "UNMET: 1 (met: 0)"),)
 
 
 class TestVerdict(unittest.TestCase):
@@ -328,10 +344,9 @@ class TestOnlyTheVerifiersRunSettlesAllMet(unittest.TestCase):
     newer `self-run` instead. A `self-run` is no part of this judgement.
     """
 
-    UNMET_RUN = "reverify\nUNMET: 1 (met: 0)\n\n" + UNMET
-    HANDOFF_RUN = ("reverify\nHANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 0 met of 1"
-                   "\n\n" + UNMET)
-    MET_SELF_RUN = "self-run\nALL MET (1)\n\n" + MET
+    UNMET_RUN = checked("reverify", [UNMET], "UNMET: 1 (met: 0)")
+    HANDOFF_RUN = checked("reverify", [UNMET], "HANDOFF REQUIRED: 1 abandoned (met: 0)")
+    MET_SELF_RUN = checked("self", [MET], "ALL MET (1 met)")
 
     def test_a_reverify_reporting_unmet_refuses_all_met(self):
         code, err, _ = check(draft(counts=counts_line()),
@@ -351,13 +366,23 @@ class TestOnlyTheVerifiersRunSettlesAllMet(unittest.TestCase):
         code, err, _ = check(draft(counts=counts_line()),
                              comments=(VERDICT_COMMENT, self.UNMET_RUN, self.MET_SELF_RUN))
         self.assertEqual(code, 1)
-        self.assertIn("a `self-run` of your own does not settle", err)
+        self.assertIn("a run of your own does not settle", err)
 
     def test_a_ticket_with_no_reverify_cannot_close_as_all_met(self):
         code, err, _ = check(draft(counts=counts_line()), comments=(VERDICT_COMMENT,),
                              reverify=False)
         self.assertEqual(code, 1)
-        self.assertIn("carries no `reverify` comment", err)
+        self.assertIn("carries no reverify `ticket.checked` event", err)
+
+    def test_a_reverify_typed_as_a_comment_is_not_a_reverify(self):
+        """The old `reverify` comment carried its summary on its second line. Nothing
+        reads a first line now: typed by hand, it is prose, and the gate still waits for
+        the verifier's event."""
+        typed = "reverify\nALL MET (1 met)\n\n" + MET
+        code, err, _ = check(draft(counts=counts_line()),
+                             comments=(VERDICT_COMMENT, typed), reverify=False)
+        self.assertEqual(code, 1)
+        self.assertIn("carries no reverify `ticket.checked` event", err)
 
     def test_the_refusal_names_both_ways_out(self):
         _, err, _ = check(draft(counts=counts_line()),
@@ -705,12 +730,21 @@ def write_checks(root: Path, commands):
         json.dumps({"checks": commands}), encoding="utf-8")
 
 
+def repo_checks(posted):
+    """The payload of the one `ticket.checked` (run `repo-checks`) among posted bodies."""
+    found = [vt.events.parse(b)[1] for _, b in posted]
+    found = [p for p in found if p["event"] == "ticket.checked" and p["run"] == "repo-checks"]
+    assert len(found) == 1, found
+    return found[0]
+
+
 class TestTargetJsonChecks(unittest.TestCase):
     """After the draft is accepted and before the ticket closes, `checks` in
     `.mmw/target.json` run at the repository root. They are the consuming repository's
-    own 'run the tests' rule, made a gate; `--reverify` and `--lint` never run them."""
+    own 'run the tests' rule, made a gate; `--reverify` and `--lint` never run them.
+    Their run is a `ticket.checked` event of its own, run `repo-checks`."""
 
-    def test_failing_checks_do_not_close_and_the_comment_starts_checks_failed(self):
+    def test_failing_checks_do_not_close_and_the_event_carries_each_failure(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             write_checks(root, [
@@ -723,16 +757,17 @@ class TestTargetJsonChecks(unittest.TestCase):
         self.assertEqual(seen["closed"], [])
         self.assertEqual(seen["handed"], [])
         self.assertEqual(len(seen["posted"]), 1)
-        body = seen["posted"][0][1]
-        self.assertEqual(body.splitlines()[0], "CHECKS FAILED")
-        self.assertEqual(body.count("python3 -c"), 2)
-        self.assertIn("raise SystemExit(2)", body)
-        self.assertNotIn("\n1\n", "\n" + body)
-        self.assertIn("\n6\n", "\n" + body)
-        self.assertIn("\n25\n", "\n" + body)
-        self.assertNotIn(text.strip(), body)
+        payload = repo_checks(seen["posted"])
+        self.assertEqual((payload["result"], payload["commit"]), ("unmet", HEAD))
+        self.assertEqual(payload["counts"], {"passed": 0, "total": 2})
+        commands = payload["commands"]
+        self.assertEqual(len(commands), 2)
+        self.assertIn("raise SystemExit(2)", commands[1]["command"])
+        tail = commands[0]["tail"].splitlines()
+        self.assertEqual((tail[0], tail[-1], len(tail)), ("6", "25", 20))
+        self.assertNotIn(text.strip(), seen["posted"][0][1])
 
-    def test_passing_checks_close_with_checks_ok_on_the_closing_comment(self):
+    def test_passing_checks_are_an_event_before_the_closing_comment(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             write_checks(root, ["true", "true"])
@@ -740,10 +775,10 @@ class TestTargetJsonChecks(unittest.TestCase):
             code, err, seen = check(text, check_only=False, repo=root)
         self.assertEqual(code, 0, err)
         self.assertEqual(seen["closed"], [77])
-        posted = seen["posted"][0][1]
-        self.assertTrue(posted.startswith(text.rstrip("\n")))
-        self.assertIn("CHECKS OK 2/2", posted.splitlines())
-        self.assertEqual(posted.splitlines()[0], "ALL MET")
+        payload = repo_checks(seen["posted"])
+        self.assertEqual((payload["result"], payload["counts"]),
+                         ("met", {"passed": 2, "total": 2}))
+        self.assertEqual(posted_as(seen["posted"][1][1]), (text, "ticket.passed"))
 
     def test_an_entry_with_its_own_timeout_is_held_to_it(self):
         with TemporaryDirectory() as tmp:
@@ -756,9 +791,8 @@ class TestTargetJsonChecks(unittest.TestCase):
             code, err, seen = check(text, check_only=False, repo=root)
         self.assertEqual(code, 1, err)
         self.assertEqual(seen["closed"], [])
-        body = seen["posted"][0][1]
-        self.assertEqual(body.splitlines()[0], "CHECKS FAILED")
-        self.assertIn("timed out after 1s", body)
+        payload = repo_checks(seen["posted"])
+        self.assertIn("timed out after 1s", payload["commands"][0]["tail"])
 
     def test_an_entry_that_is_neither_string_nor_run_object_does_not_close(self):
         with TemporaryDirectory() as tmp:
@@ -768,7 +802,9 @@ class TestTargetJsonChecks(unittest.TestCase):
             code, err, seen = check(text, check_only=False, repo=root)
         self.assertEqual(code, 1, err)
         self.assertEqual(seen["closed"], [])
-        self.assertEqual(seen["posted"][0][1].splitlines()[0], "CHECKS FAILED")
+        payload = repo_checks(seen["posted"])
+        self.assertEqual(payload["result"], "unmet")
+        self.assertIn("neither a string", payload["problem"])
 
     def test_no_checks_key_leaves_closeout_unchanged(self):
         with TemporaryDirectory() as tmp:
@@ -782,7 +818,6 @@ class TestTargetJsonChecks(unittest.TestCase):
         self.assertEqual([(n, posted_as(b)) for n, b in seen["posted"]],
                          [(77, (text, "ticket.passed"))])
         self.assertEqual(seen["closed"], [77])
-        self.assertNotIn("CHECKS OK", seen["posted"][0][1])
 
     def test_reverify_and_lint_do_not_run_the_target_json_checks(self):
         body = ("## Worker\n\njunior-worker\n\n## Acceptance criteria\n\n"
@@ -791,8 +826,13 @@ class TestTargetJsonChecks(unittest.TestCase):
                 "  EXPECT: ok\n  EVIDENCE: pending\n")
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            subprocess.run(["git", "-C", str(root), "-c", "user.email=t@t", "-c",
+                            "user.name=t", "commit", "-q", "--allow-empty", "-m", "base"],
+                           check=True)
             marker = root / "ran.marker"
             write_checks(root, [f"touch '{marker}'"])
+            posted = []
             with mock.patch.object(vt, "repo_root", return_value=root), \
                  mock.patch.object(vt, "fetch_body", return_value=body), \
                  mock.patch.object(vt, "fetch_ticket",
@@ -801,12 +841,13 @@ class TestTargetJsonChecks(unittest.TestCase):
                                                  "state": "OPEN"}), \
                  mock.patch.object(vt, "fetch_comments", return_value=[]), \
                  mock.patch.object(vt, "fetch_parent", return_value=None), \
-                 mock.patch.object(vt, "post_comment"), \
-                 mock.patch.object(vt, "outside_owns_line",
-                                   return_value="Outside Owns: None"):
+                 mock.patch.object(vt, "post_comment",
+                                   side_effect=lambda n, b: posted.append(b)):
                 with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
                     vt.run_lint(77)
-                    vt.run_checks(77, True, None)
+                    code = vt.run_checks(77, True, None)
+            self.assertEqual(code, 0)
+            self.assertEqual([vt.events.parse(b)[1]["run"] for b in posted], ["reverify"])
             self.assertFalse(marker.exists())
 
     def test_malformed_checks_do_not_close(self):
@@ -819,9 +860,7 @@ class TestTargetJsonChecks(unittest.TestCase):
             code, err, seen = check(text, check_only=False, repo=root)
         self.assertEqual(code, 1, err)
         self.assertEqual(seen["closed"], [])
-        body = seen["posted"][0][1]
-        self.assertEqual(body.splitlines()[0], "CHECKS FAILED")
-        self.assertIn("not a list", body)
+        self.assertIn("not a list", repo_checks(seen["posted"])["problem"])
 
     def test_handoff_does_not_run_checks(self):
         with TemporaryDirectory() as tmp:
@@ -835,8 +874,8 @@ class TestTargetJsonChecks(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertEqual(seen["closed"], [])
         self.assertEqual(seen["handed"], [77])
-        self.assertEqual(posted_as(seen["posted"][0][1]), (text, "ticket.returned"))
-        self.assertNotIn("CHECKS FAILED", seen["posted"][0][1])
+        self.assertEqual([posted_as(b) for _, b in seen["posted"]],
+                         [(text, "ticket.returned")])
 
 
 if __name__ == "__main__":

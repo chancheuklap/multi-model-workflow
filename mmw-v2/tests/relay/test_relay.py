@@ -221,15 +221,16 @@ class QueueTest(RelayCase):
             comment(105, "verifier.started", 61),
             comment(106, "verifier.failed", 61),
             comment(107, "verifier.passed", 61),
-            comment(108, "child.opened", 61, kind="review"),
-            comment(109, "child.opened", 61, kind="outside-owns"),
-            comment(110, "child.opened", 61, kind="pipeline"),
+            comment(108, "child.opened", 61, kind="finding"),
+            comment(109, "child.opened", 61, kind="deferred"),
+            comment(110, "child.opened", 61, kind="fault"),
             comment(111, "child.opened", 61, kind="decision"),
-            comment(112, "ticket.passed", 61),
-            comment(113, "ticket.landed", 61),
-            comment(114, "worker.lost", 61),
+            comment(112, "child.opened", 61, kind="contract"),
+            comment(113, "ticket.passed", 61),
+            comment(114, "ticket.landed", 61),
+            comment(115, "worker.lost", 61),
         ]
-        self.board[62] += [comment(115, "ticket.returned", 62), comment(116, "ticket.refused", 62)]
+        self.board[62] += [comment(116, "ticket.returned", 62), comment(117, "ticket.refused", 62)]
         self.poll()
         self.assertEqual(self.addressed(), [
             (1, "reviewer.reported", "worker", "wk-61"),
@@ -242,6 +243,16 @@ class QueueTest(RelayCase):
             (8, "ticket.returned", "main", "main-a"),
             (9, "ticket.refused", "main", "main-a"),
         ])
+        # The two children that wake the main agent are the fault and the decision.
+        woken = [r for r in self.rows() if r["event"] == "child.opened"]
+        self.assertEqual(len(woken), 2)
+
+    def test_a_fault_wakes_the_main_agent_and_the_other_kinds_do_not(self):
+        for kind, wakes in (("fault", True), ("decision", True), ("finding", False),
+                            ("contract", False), ("deferred", False)):
+            with self.subTest(kind=kind):
+                self.assertEqual(relay.woken_by({"event": "child.opened", "kind": kind}),
+                                 relay.MAIN if wakes else None)
 
     def test_the_ticket_is_the_one_the_event_names_or_else_the_issue_it_sits_on(self):
         self.board[61].append(comment(101, "ticket.passed", 70))

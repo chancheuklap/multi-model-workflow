@@ -8,24 +8,25 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from _load import event, load
+from _load import checked, event, load
 
 vt = load()
 
 BODY = "## Parent\n\n#118, Implementation Decisions section 11\n"
 
-SELF_RUN = """self-run
-ALL MET (1)
-
-- [x] AC1: the importer writes six rows
+LEDGER = """- [x] AC1: the importer writes six rows
   CHECK: echo ok
   EXPECT: ok
-  EVIDENCE: exit=0; EXPECT=matched; output-bytes=2
+  EVIDENCE: exit=0; EXPECT=matched; output-bytes=2"""
 
-Outside Owns: src/helper.py
-"""
+SELF_RUN = checked("self", LEDGER, "ALL MET (1 met)", outside_owns=["src/helper.py"])
+SELF_RUN_NONE = checked("self", LEDGER, "ALL MET (1 met)", outside_owns=[])
+SELF_RUN_TWO = checked("self", LEDGER, "ALL MET (1 met)",
+                       outside_owns=["src/helper.py", "src/parse.py"])
 
-SELF_RUN_NONE = SELF_RUN.replace("Outside Owns: src/helper.py", "Outside Owns: None")
+# The old run comment, typed by hand: it carries no event, so it is not a run.
+TYPED_SELF_RUN = ("self-run\nALL MET (1)\n\n" + LEDGER
+                  + "\n\nOutside Owns: src/helper.py\n")
 
 DECISIONS = """DECISIONS
 
@@ -154,16 +155,22 @@ class FakeGh:
             path = cmd[cmd.index("--body-file") + 1]
             self.posted.append((number, Path(path).read_text(encoding="utf-8")))
             return result
-        if cmd[:2] == ["gh", "api"]:
+        if cmd[:3] == ["gh", "api", "graphql"]:
             if self.api_fails:
                 result.returncode = 1
                 result.stderr = "Not Found"
                 return result
-            joined = " ".join(cmd)
-            found = re.search(r"issues/(\d+)/sub_issues", joined)
+            found = re.search(r"root=(\d+)", " ".join(cmd))
             spec = int(found.group(1)) if found else 0
             kids = list(self.children) if spec == self.parent else []
-            result.stdout = "\n".join(str(n) for n in kids) + ("\n" if kids else "")
+            result.stdout = json.dumps({"data": {"repository": {"issue": {
+                "number": spec, "title": "spec", "state": "OPEN",
+                "subIssuesSummary": {"total": len(kids), "completed": 0},
+                "subIssues": {"nodes": [
+                    {"number": k, "title": f"ticket {k}",
+                     "state": self.states.get(k, "OPEN"),
+                     "subIssuesSummary": {"total": 0, "completed": 0},
+                     "subIssues": {"nodes": []}} for k in kids]}}}}})
             return result
         result.returncode = 1
         result.stderr = "unexpected command: " + " ".join(cmd)
@@ -184,12 +191,20 @@ def run_touched(comments, children, states=None, parent=SPEC, body=BODY,
 
 
 def sub_issues_target(recorded):
+    """The issue whose tree `--touched` asked the tracker for, or None."""
     for cmd in recorded:
-        if cmd[:2] == ["gh", "api"]:
-            found = re.search(r"issues/(\d+)/sub_issues", " ".join(cmd))
+        if cmd[:3] == ["gh", "api", "graphql"]:
+            found = re.search(r"root=(\d+)", " ".join(cmd))
             if found:
                 return int(found.group(1))
     return None
+
+
+def touched(body):
+    """A posted body as `(prose, payload)`: it must be one `worker.touched` event."""
+    what, payload = vt.events.parse(body)
+    assert what == "event" and payload["event"] == "worker.touched", (what, payload)
+    return body[:body.index("\n\n<!-- mmw")], payload
 
 
 class TestPostsOnlyOnCoveringOpenTickets(unittest.TestCase):
@@ -205,10 +220,15 @@ class TestPostsOnlyOnCoveringOpenTickets(unittest.TestCase):
         comment = next(c for c in recorded if c[:3] == ["gh", "issue", "comment"])
         self.assertEqual(comment[3], "80")
         self.assertIn("--body-file", comment)
-        self.assertEqual(posted[0][1].splitlines()[0], "TOUCHED BY #77")
-        self.assertIn("src/helper.py", posted[0][1])
-        self.assertIn("src/helper.py was required for AC1", posted[0][1])
-        self.assertIn("reasonable", posted[0][1])
+        prose, payload = touched(posted[0][1])
+        self.assertEqual((payload["ticket"], payload["by"], payload["files"]),
+                         (80, 77, ["src/helper.py"]))
+        self.assertEqual(payload["details"], [{
+            "path": "src/helper.py", "sentence": "src/helper.py was required for AC1",
+            "ac": "AC1", "judgement": "reasonable"}])
+        self.assertIn("src/helper.py was required for AC1", prose)
+        self.assertIn("reasonable", prose)
+        self.assertNotIn("TOUCHED BY", posted[0][1])
         self.assertIn("80", printed)
 
     def test_sub_issues_are_queried_on_the_linked_spec_not_the_ticket(self):
@@ -260,25 +280,59 @@ class TestPostsOnlyOnCoveringOpenTickets(unittest.TestCase):
         self.assertEqual(posted, [])
 
 
+class TestOneEventPerSibling(unittest.TestCase):
+    """What a sibling hears is one `worker.touched` naming every file of its own that
+    this ticket changed, never one per file and never one on the ticket itself."""
+
+    def test_a_sibling_covering_two_files_gets_one_event_naming_both(self):
+        code, err, posted, _, _ = run_touched(
+            (SELF_RUN_TWO, DECISIONS, REVIEW), {80: SIBLING_COVERS})
+        self.assertEqual(code, 0, err)
+        self.assertEqual([n for n, _ in posted], [80])
+        _, payload = touched(posted[0][1])
+        self.assertEqual(payload["files"], ["src/helper.py", "src/parse.py"])
+        self.assertEqual([d["path"] for d in payload["details"]],
+                         ["src/helper.py", "src/parse.py"])
+
+    def test_each_covering_sibling_gets_only_the_files_it_owns(self):
+        code, err, posted, _, _ = run_touched(
+            (SELF_RUN_TWO, DECISIONS, REVIEW),
+            {80: SIBLING_COVERS, 82: SIBLING_EXACT, 81: SIBLING_OTHER})
+        self.assertEqual(code, 0, err)
+        got = {n: touched(b)[1] for n, b in posted}
+        self.assertEqual(sorted(got), [80, 82])
+        self.assertEqual(got[80]["files"], ["src/helper.py", "src/parse.py"])
+        self.assertEqual(got[82]["files"], ["src/helper.py"])
+        self.assertTrue(all(p["by"] == 77 and p["spec"] == SPEC for p in got.values()))
+
+    def test_the_posting_ticket_never_gets_one(self):
+        """The ticket is one of the spec's children too, and its own `## Owns` may well
+        cover the path; it is the one that changed the file, so it is told nothing."""
+        code, err, posted, _, _ = run_touched(
+            (SELF_RUN, DECISIONS, REVIEW), {TICKET: SIBLING_COVERS, 80: SIBLING_COVERS})
+        self.assertEqual(code, 0, err)
+        self.assertEqual([n for n, _ in posted], [80])
+
+
 class TestCommentShape(unittest.TestCase):
     def test_no_ac_number_omits_the_empty_line(self):
         code, err, posted, _, _ = run_touched(
             (SELF_RUN, DECISIONS_NO_AC, REVIEW), {80: SIBLING_COVERS})
         self.assertEqual(code, 0, err)
-        lines = posted[0][1].splitlines()
-        self.assertEqual(lines[0], "TOUCHED BY #77")
-        self.assertEqual(lines[1], "")
-        self.assertEqual(lines[2], "src/helper.py")
-        self.assertEqual(lines[3], "src/helper.py was required for the importer")
-        self.assertEqual(lines[4], "reasonable")
-        self.assertEqual(sum(1 for ln in lines if ln == ""), 1)
+        prose, payload = touched(posted[0][1])
+        lines = prose.splitlines()
+        self.assertEqual(lines[0], "#77 changed 1 file(s) this ticket owns")
+        self.assertEqual(lines[1:], ["", "src/helper.py",
+                                     "src/helper.py was required for the importer",
+                                     "reasonable"])
+        self.assertNotIn("ac", payload["details"][0])
         self.assertFalse(any(re.fullmatch(r"AC\d+", line) for line in lines))
 
     def test_no_decisions_comment_says_so_instead_of_repeating_the_path(self):
         code, err, posted, _, _ = run_touched(
             (SELF_RUN, REVIEW), {80: SIBLING_COVERS})
         self.assertEqual(code, 0, err)
-        body = posted[0][1]
+        body, _ = touched(posted[0][1])
         self.assertIn("no DECISIONS comment on #77 yet", body)
         path_lines = [ln for ln in body.splitlines() if ln.strip() == "src/helper.py"]
         self.assertEqual(path_lines, ["src/helper.py"])
@@ -289,9 +343,21 @@ class TestRefusesWithoutAReview(unittest.TestCase):
         code, err, posted, _, recorded = run_touched(
             (SELF_RUN, DECISIONS), {80: SIBLING_COVERS})
         self.assertEqual(code, 2)
-        self.assertIn("REVIEW", err)
+        self.assertIn("carries no reviewer.reported event", err)
         self.assertEqual(posted, [])
         self.assertFalse(any(c[:3] == ["gh", "issue", "comment"] for c in recorded))
+
+
+class TestRefusesWithoutARun(unittest.TestCase):
+    def test_a_typed_self_run_comment_is_not_a_run(self):
+        """A comment whose first line is `self-run` and that carries no event is prose,
+        so the ticket has no run of its own to read Outside Owns from."""
+        code, err, posted, _, recorded = run_touched(
+            (TYPED_SELF_RUN, DECISIONS, REVIEW), {80: SIBLING_COVERS})
+        self.assertEqual(code, 2)
+        self.assertIn("carries no ticket.checked of your own run", err)
+        self.assertEqual(posted, [])
+        self.assertIsNone(sub_issues_target(recorded))
 
 
 class TestNonePostsNothing(unittest.TestCase):

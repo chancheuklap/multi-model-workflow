@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import importlib.util
 import io
+import json
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timezone
@@ -80,40 +81,24 @@ def rows_of(tickets, **kwargs):
                              lookup=lambda n: tickets.get(n), **kwargs)
 
 
-SELF_RUN_UNMET = "\n".join([
-    "self-run",
-    "UNMET: 2 (met: 3)",
-    "",
-    "- [x] AC1: one",
-    "  EVIDENCE: exit=0; EXPECT=matched",
-    "- [ ] AC3: three",
-    "  EVIDENCE: pending",
-    "- [ ] AC5: five",
-    "  EVIDENCE: pending",
-    "",
-    "Outside Owns: None",
-])
+def run_of(run, met, unmet=0, abandoned=0, result=None, ticket=61):
+    """One run of the criteria as `verify-ticket.py` posts it: a `ticket.checked`."""
+    total = met + unmet + abandoned
+    result = result or ("met" if not unmet and not abandoned else "unmet")
+    return ev("ticket.checked", f"{run} run: {met} of {total} met", ticket,
+              run=run, commit="a" * 40, result=result,
+              counts={"met": met, "unmet": unmet, "abandoned": abandoned, "total": total},
+              failed=[f"AC{i}" for i in range(met + 1, total + 1)])
 
-SELF_RUN_ALL_MET = "\n".join([
-    "self-run",
-    "ALL MET (5 met)",
-    "",
-    "- [x] AC1: one",
-    "  EVIDENCE: exit=0; EXPECT=matched",
-    "",
-    "Outside Owns: None",
-])
 
-SELF_RUN_HANDOFF = "\n".join([
-    "self-run",
-    "HANDOFF REQUIRED: 1 abandoned (met: 3, unmet: 1)",
-    "  AC4: no credential for the staging account on this machine",
-    "",
-    "- [x] AC1: one",
-    "  EVIDENCE: exit=0; EXPECT=matched",
-    "",
-    "Outside Owns: None",
-])
+def queued(ticket, reason="product-full", limit=1, holders=("/repo/.worktrees/issue-60",)):
+    return ev("worker.queued", "Waiting for a product slot", ticket, run="self",
+              reason=reason, limit=limit, holders=list(holders))
+
+
+SELF_RUN_UNMET = run_of("self", met=3, unmet=2)
+SELF_RUN_ALL_MET = run_of("self", met=5)
+SELF_RUN_HANDOFF = run_of("self", met=3, unmet=1, abandoned=1, result="handoff")
 
 
 class WhoHoldsATicket(unittest.TestCase):
@@ -205,7 +190,7 @@ class Rows(unittest.TestCase):
         row = self.row(61)
         self.assertEqual((row["runner"], row["session"], row["held"], row["since"]),
                          ("orca", "term_1", "live", AT))
-        self.assertEqual(row["phase"], "worker.started")
+        self.assertEqual(row["phase"], "ticket.checked")
         self.assertEqual(row["note"], "")
 
     def test_ac_comes_off_the_newest_self_run(self):
@@ -287,31 +272,62 @@ class UnreadableEvents(unittest.TestCase):
 
 
 class TicketReading(unittest.TestCase):
-    """The criteria counts read off the newest run comment."""
+    """The criteria counts read off the newest `ticket.checked` of a criteria run."""
 
-    def test_the_counts_come_off_the_newest_self_run(self):
+    def test_the_counts_come_off_the_newest_run(self):
         self.assertEqual(status.counted_ac(ticket(62, comments=[SELF_RUN_UNMET])), "3/5")
         self.assertEqual(status.counted_ac(ticket(62, comments=[SELF_RUN_ALL_MET])), "5/5")
 
-    def test_a_handoff_summary_line_counts_the_abandoned_criteria_too(self):
+    def test_a_handoff_run_counts_the_abandoned_criteria_too(self):
         self.assertEqual(status.counted_ac(ticket(62, comments=[SELF_RUN_HANDOFF])), "3/5")
-
-    def test_a_summary_line_carrying_a_reverify_count_or_a_scope_still_counts(self):
-        for line, counted in (
-                ("ALL MET (5 met, reran: 5, previously met reverified: 5) [scope api]",
-                 "5/5"),
-                ("UNMET: 2 (met: 3, abandoned: 0, reran: 5) [scope api]", "3/5"),
-                ("HANDOFF REQUIRED: 2 abandoned (met: 3, unmet: 1, reran: 6)", "3/6")):
-            with self.subTest(line=line):
-                self.assertEqual(
-                    status.counted_ac(ticket(62, comments=["self-run\n" + line])), counted)
 
     def test_a_ticket_with_no_run_has_no_counts(self):
         self.assertEqual(status.counted_ac(ticket(62)), "-")
 
-    def test_the_newest_run_wins(self):
+    def test_the_newest_run_wins_whichever_run_it_is(self):
         comments = [SELF_RUN_UNMET, passed(62), SELF_RUN_ALL_MET]
         self.assertEqual(status.counted_ac(ticket(62, comments=comments)), "5/5")
+        comments = [SELF_RUN_ALL_MET, run_of("reverify", met=4, unmet=1)]
+        self.assertEqual(status.counted_ac(ticket(62, comments=comments)), "4/5")
+
+    def test_the_repository_checks_are_not_criteria(self):
+        checks = ev("ticket.checked", "Repository checks: 0/3 passed", 62, run="repo-checks",
+                    commit="a" * 40, result="unmet", counts={"passed": 0, "total": 3})
+        self.assertEqual(status.counted_ac(ticket(62, comments=[SELF_RUN_ALL_MET, checks])),
+                         "5/5")
+
+    def test_a_typed_run_comment_gives_no_counts(self):
+        """The old run comment carried gate-check's summary on its second line. A first
+        line is read by nothing now, so the same words typed by hand count nothing."""
+        typed = "self-run\nALL MET (5 met)\n\n- [x] AC1: one\n  EVIDENCE: exit=0"
+        self.assertEqual(status.counted_ac(ticket(62, comments=[typed])), "-")
+
+
+class Waiting(unittest.TestCase):
+    """A run queued for a product slot is visible on the ticket's row, and only while
+    it waits: the run that gets the slot, or anything that ends the worker's hold, ends
+    the wait."""
+
+    def row(self, *comments):
+        return rows_of({61: ticket(61, comments=comments)})[0]
+
+    def test_a_queued_run_names_the_wait_on_the_note(self):
+        row = self.row(started(61, "term_7"), queued(61))
+        self.assertTrue(row["note"].startswith("waiting for a product slot since "), row)
+        self.assertIn("product-full, 1 of 1 held", row["note"])
+
+    def test_the_run_that_got_the_slot_ends_the_wait(self):
+        got = ev("ticket.checked", "self run", 61, run="self", commit="a" * 40,
+                 result="met", counts={"met": 1, "unmet": 0, "abandoned": 0, "total": 1},
+                 slot=2)
+        row = self.row(started(61, "term_7"), queued(61), got)
+        self.assertIsNone(row["waiting"])
+        self.assertEqual((row["note"], row["slot"]), ("", 2))
+
+    def test_a_lost_worker_is_not_waiting(self):
+        row = self.row(started(61, "term_7"), queued(61), lost(61, "term_7"))
+        self.assertIsNone(row["waiting"])
+        self.assertNotIn("waiting for a product slot", row["note"])
 
 
 class PhaseFromEvents(unittest.TestCase):
@@ -359,7 +375,7 @@ class Table(unittest.TestCase):
         body = self.table().splitlines()[3:]
         self.assertEqual([l.split()[0] for l in body], ["#61", "#65"])
         self.assertEqual(body[0].split()[1:5], ["orca", "term_1", "live", AT])
-        self.assertIn("worker.started", body[0])
+        self.assertIn("ticket.checked", body[0])
         self.assertIn("waiting on #61", body[1])
 
 
@@ -628,7 +644,7 @@ class Summary(unittest.TestCase):
         self.assertEqual(body[2], "Closed: #61 ALL MET")
         self.assertEqual(body[3], "Handed back to needs-triage: "
                                   "#62 HANDOFF REQUIRED: 1 abandoned (failed), 0 unmet, "
-                                  "4 met of 5, #64 fresh")
+                                  "4 met of 5, #64")
         self.assertEqual(body[4], "Not dispatched, a blocker stayed open: "
                                   "#63 blocked by #62")
         self.assertEqual(body[5], "Sub-issues opened tonight: None")
@@ -642,27 +658,29 @@ class Summary(unittest.TestCase):
     def test_routed_counts_come_off_the_parents_child_events(self):
         """opened/fixed/became/skipped/unread/open, each slot a distinct number."""
         children = [
-            child(89, kind="review", resolution="fixed"),
-            child(90, kind="review", resolution="fixed"),
-            child(91, kind="review", resolution="became-ticket"),
-            child(92, kind="review", resolution="stale"),
-            child(93, kind="review"),
-            child(94, kind="review", state="OPEN"),
+            child(89, kind="finding", resolution="fixed"),
+            child(90, kind="finding", resolution="fixed"),
+            child(91, kind="finding", resolution="became-ticket"),
+            child(92, kind="finding", resolution="stale"),
+            child(93, kind="finding"),
+            child(94, kind="finding", state="OPEN"),
             status.normalise_ticket(99, {}),
-            child(100, kind="baseline", resolution="fixed"),
+            child(100, kind="contract", resolution="fixed"),
             child(101),
         ]
         self.assertEqual(status.routed_counts(children), (7, 2, 1, 1, 2, 1))
+        self.assertTrue(status.routed_line((7, 2, 1, 1, 2, 1)).startswith(
+            "Findings routed: 7/2/1/1/2/1 "))
 
     def test_summary_walks_the_tickets_children_and_reads_their_kind_off_the_parent(self):
         raws = {
             61: {"state": "CLOSED", "title": "ticket 61", "body": "",
                  "labels": [], "assignees": [], "blockedBy": {"nodes": []},
                  "comments": [{"body": passed(61)},
-                              {"body": ev("child.opened", "Opened #90 (review)", 61,
-                                          child=90, kind="review")},
-                              {"body": ev("child.opened", "Opened #91 (pipeline)", 61,
-                                          child=91, kind="pipeline")},
+                              {"body": ev("child.opened", "Opened #90 (finding)", 61,
+                                          child=90, kind="finding")},
+                              {"body": ev("child.opened", "Opened #91 (fault)", 61,
+                                          child=91, kind="fault")},
                               {"body": ev("child.closed", "#90 became #80", 61,
                                           child=90, resolution="became-ticket", became=80)}],
                  "createdAt": "2026-08-29T00:00:00Z",
@@ -672,16 +690,25 @@ class Summary(unittest.TestCase):
                  "blockedBy": {"nodes": []}, "comments": [{"body": "fresh"}],
                  "createdAt": "2026-08-31T00:00:00Z", "closedAt": ""},
             90: {"state": "CLOSED", "title": "REVIEW: RUNNER is now a Path",
-                 "body": "SUB-ISSUE review from #61\n", "labels": [], "assignees": [],
+                 "body": "A `finding` child of #61.\n", "labels": [], "assignees": [],
                  "blockedBy": {"nodes": []}, "comments": [],
                  "createdAt": "2026-08-31T01:00:00Z", "closedAt": ""},
-            91: {"state": "OPEN", "title": "a pipeline child",
-                 "body": "SUB-ISSUE pipeline from #61\n", "labels": [], "assignees": [],
+            91: {"state": "OPEN", "title": "a fault child",
+                 "body": "A `fault` child of #61.\n", "labels": [], "assignees": [],
                  "blockedBy": {"nodes": []}, "comments": [],
                  "createdAt": "2026-08-29T00:00:00Z", "closedAt": ""},
         }
-        children = {76: [61, 64], 61: [90, 91], 64: []}
-        saved = (status.gh_json, status.sub_issues, status.night_opened)
+        read_trees = []
+
+        def fake_tree(spec):
+            read_trees.append(spec)
+            return {"number": 76, "children": [
+                {"number": 61, "state": "CLOSED",
+                 "children": [{"number": 90, "state": "CLOSED"},
+                              {"number": 91, "state": "OPEN"}]},
+                {"number": 64, "state": "OPEN", "children": []}]}
+
+        saved = (status.gh_json, status.spec_tree, status.night_opened)
 
         def fake_gh_json(args, fallback=None):
             if args[:2] == ["issue", "view"]:
@@ -690,7 +717,7 @@ class Summary(unittest.TestCase):
 
         try:
             status.gh_json = fake_gh_json
-            status.sub_issues = lambda n: list(children.get(n, []))
+            status.spec_tree = fake_tree
             status.night_opened = lambda now=None: "2026-08-30T00:00:00Z"
             with redirect_stdout(io.StringIO()) as out:
                 self.assertEqual(status.main(["--summary", "76"]), 0)
@@ -698,11 +725,13 @@ class Summary(unittest.TestCase):
             self.assertEqual(
                 lines[5], "Sub-issues opened tonight: #90 REVIEW: RUNNER is now a Path")
             self.assertEqual(lines[6], status.routed_line((1, 0, 1, 0, 0, 0)))
+            # The tickets and every ticket's children come from one read of the tree.
+            self.assertEqual(read_trees, [76])
         finally:
-            (status.gh_json, status.sub_issues, status.night_opened) = saved
+            (status.gh_json, status.spec_tree, status.night_opened) = saved
 
     def test_an_open_child_is_open_not_unread(self):
-        c = child(98, kind="review", resolution="fixed", state="OPEN")
+        c = child(98, kind="finding", resolution="fixed", state="OPEN")
         self.assertEqual(status.route_of(c), "open")
 
     def test_a_child_the_tracker_could_not_answer_is_unread_not_omitted(self):
@@ -726,6 +755,56 @@ class Summary(unittest.TestCase):
         fields = asked[0][asked[0].index("--json") + 1].split(",")
         self.assertIn("body", fields)
         self.assertIn("comments", fields)
+
+
+class TheTreeIsOneQuery(unittest.TestCase):
+    """The batch is read as the spec's tree, in one GraphQL query, and a tree the
+    tracker could not answer for whole is a refusal — never an emptier batch."""
+
+    def test_the_batch_is_one_graphql_query_rooted_at_the_spec(self):
+        asked = []
+
+        def fake_gh(args):
+            asked.append(args)
+            return 0, json.dumps({"data": {"repository": {"issue": {
+                "number": 76, "title": "spec", "state": "OPEN",
+                "subIssuesSummary": {"total": 2, "completed": 0},
+                "subIssues": {"nodes": [
+                    {"number": 61, "title": "a", "state": "OPEN",
+                     "subIssuesSummary": {"total": 0, "completed": 0},
+                     "subIssues": {"nodes": []}},
+                    {"number": 62, "title": "b", "state": "OPEN",
+                     "subIssuesSummary": {"total": 0, "completed": 0},
+                     "subIssues": {"nodes": []}}]}}}}}), ""
+
+        saved = status._gh_run
+        try:
+            status._gh_run = fake_gh
+            self.assertEqual(status.sub_issues(76), [61, 62])
+        finally:
+            status._gh_run = saved
+        self.assertEqual(len(asked), 1)
+        self.assertEqual(asked[0][:2], ["api", "graphql"])
+        self.assertIn("root=76", asked[0])
+        self.assertIn("subIssues(first:100)", " ".join(asked[0]))
+
+    def test_a_tree_cut_short_is_exit_2_not_an_empty_batch(self):
+        def cut_short(args):
+            return 0, json.dumps({"data": {"repository": {"issue": {
+                "number": 76, "title": "spec", "state": "OPEN",
+                "subIssuesSummary": {"total": 3, "completed": 0},
+                "subIssues": {"nodes": []}}}}}), ""
+
+        saved = status._gh_run
+        try:
+            status._gh_run = cut_short
+            with redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()) as err:
+                code = status.main(["--advance-plan", "76"])
+        finally:
+            status._gh_run = saved
+        self.assertEqual(code, 2)
+        self.assertEqual(out.getvalue(), "")
+        self.assertIn("could not read the tree under #76", err.getvalue())
 
 
 class NoRunnerIsAsked(unittest.TestCase):

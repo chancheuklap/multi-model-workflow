@@ -12,6 +12,7 @@ built from.
 """
 
 import io
+import json
 import subprocess
 import unittest
 from contextlib import redirect_stdout
@@ -302,22 +303,66 @@ class TestFetchParent(unittest.TestCase):
             self.fetch(stdout="not json at all")
 
 
+def tree_answer(children, total=None, root=655):
+    """The tracker's answer to the one tree query rooted at spec `root`."""
+    nodes = [{"number": n, "title": f"ticket {n}", "state": "OPEN",
+              "subIssuesSummary": {"total": 0, "completed": 0},
+              "subIssues": {"nodes": []}} for n in children]
+    return json.dumps({"data": {"repository": {"issue": {
+        "number": root, "title": "spec", "state": "OPEN",
+        "subIssuesSummary": {"total": len(children) if total is None else total,
+                             "completed": 0},
+        "subIssues": {"nodes": nodes}}}}})
+
+
 class TestFetchSubIssues(unittest.TestCase):
-    """A spec this repository does not have is a refusal, not a stack trace."""
+    """One GraphQL query for the whole tree under the spec. A spec this repository does
+    not have, a tracker that answers with an error, and a list shorter than the count
+    the tracker gives for it are all refusals — never a smaller batch."""
 
     def fetch(self, returncode=0, stdout="", stderr=""):
         result = subprocess.CompletedProcess([], returncode, stdout, stderr)
         with mock.patch.object(vt.subprocess, "run", return_value=result) as run:
             return vt.fetch_sub_issues(655), run
 
-    def test_numbers_are_returned(self):
-        numbers, _ = self.fetch(stdout="161\n166\n")
+    def test_numbers_are_returned_from_one_graphql_query(self):
+        numbers, run = self.fetch(stdout=tree_answer([161, 166]))
         self.assertEqual(numbers, [161, 166])
+        self.assertEqual(run.call_count, 1)
+        args = run.call_args.args[0]
+        self.assertEqual(args[:3], ["gh", "api", "graphql"])
+        self.assertIn("root=655", args)
+        self.assertNotIn("sub_issues", " ".join(args))
 
     def test_a_failed_call_raises_a_typed_error_not_called_process_error(self):
         with self.assertRaises(vt.SubIssuesUnreadable) as caught:
             self.fetch(returncode=1, stderr="gh: Not Found\n")
         self.assertIn("Not Found", str(caught.exception))
+
+    def test_a_list_shorter_than_its_count_is_unreadable_not_a_smaller_batch(self):
+        with self.assertRaises(vt.SubIssuesUnreadable) as caught:
+            self.fetch(stdout=tree_answer([161, 166], total=3))
+        self.assertIn("3 sub-issues and 2 came back", str(caught.exception))
+
+    def test_an_answer_carrying_errors_is_unreadable(self):
+        answer = json.dumps({"data": None, "errors": [
+            {"type": "MAX_NODE_LIMIT_EXCEEDED", "message": "exceeds the maximum limit"}]})
+        with self.assertRaises(vt.SubIssuesUnreadable) as caught:
+            self.fetch(stdout=answer)
+        self.assertIn("exceeds the maximum limit", str(caught.exception))
+
+    def test_a_spec_the_tracker_does_not_have_is_unreadable(self):
+        answer = json.dumps({"data": {"repository": {"issue": None}}})
+        with self.assertRaises(vt.SubIssuesUnreadable):
+            self.fetch(stdout=answer)
+
+    def test_a_tickets_own_children_are_read_one_layer_down(self):
+        result = subprocess.CompletedProcess([], 0, tree_answer([90], root=77), "")
+        with mock.patch.object(vt.subprocess, "run", return_value=result) as run:
+            self.assertEqual(vt.fetch_sub_issues(77, "ticket"), [90])
+        query = next(a for a in run.call_args.args[0] if a.startswith("query="))
+        self.assertEqual(query.count("subIssues("), 1)
+        self.assertIn("subIssues(first:50)", query)
 
 
 class TestBorrowedFromUpstream(unittest.TestCase):

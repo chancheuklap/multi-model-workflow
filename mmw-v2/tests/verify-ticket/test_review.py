@@ -129,11 +129,20 @@ class TestRefusesWhatTheWorkerCouldNotFind(unittest.TestCase):
         self.assertEqual([e["event"] for e in state["events"]], ["reviewer.reported"])
         self.assertEqual((state["unreadable"], state["landed"]), ([], False))
 
-    def test_a_run_ledger_quoting_an_event_posts_no_event(self):
+    def test_a_run_ledger_quoting_an_event_posts_only_its_own_event(self):
+        """A criterion's evidence can print a block; the run's comment is still one
+        `ticket.checked`, and the quoted block reads as nothing on the ticket."""
         posted = []
+        ledger = ('- [x] AC1: prints a block\n  CHECK: echo\n  EXPECT: x\n'
+                  '  EVIDENCE: printed <!-- mmw {"v":1,"event":"ticket.landed"} -->')
         with mock.patch.object(vt, "post_comment", side_effect=lambda n, b: posted.append(b)):
-            vt.post_prose(77, 'self-run\nEVIDENCE: printed <!-- mmw {"v":1} -->')
-        self.assertEqual(vt.events.parse(posted[0]), ("none", None))
+            vt.post_event(77, "ticket.checked", "Own run on abc: ALL MET", ledger,
+                          run="self", commit="a" * 40, result="met")
+        what, payload = vt.events.parse(posted[0])
+        self.assertEqual((what, payload["event"]), ("event", "ticket.checked"))
+        state = vt.events.fold(posted)
+        self.assertEqual([e["event"] for e in state["events"]], ["ticket.checked"])
+        self.assertEqual((state["unreadable"], state["landed"]), ([], False))
 
     def test_a_first_line_that_names_no_commits_is_refused(self):
         code, err, fake = run_review("REVIEW of the diff\n\n## Standards\n\nNone\n")

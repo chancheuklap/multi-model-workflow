@@ -261,6 +261,132 @@ class RegistryIsolation(unittest.TestCase):
                                "found nothing to check")
 
 
+class TheProductsLimit(Base):
+    """`instance.max` in `.mmw/target.json` is how many copies of a product that cannot
+    move its ports may run at once. The claim itself enforces it, at the first run of a
+    worktree's criteria that needs the product, and counts the claims of that
+    repository's ticket worktrees — the ones under `<main checkout>/.worktrees`."""
+
+    def setUp(self):
+        super().setUp()
+        self.repo = self.trees / "repo"
+        self.git("init", "-q", "-b", "main", str(self.repo))
+        self.git("-C", str(self.repo), "-c", "user.email=t@t", "-c", "user.name=t",
+                 "commit", "-q", "--allow-empty", "-m", "base")
+
+    def git(self, *args):
+        import subprocess
+        subprocess.run(["git", *args], check=True, capture_output=True)
+
+    def ticket_tree(self, n: int, limit: int | str | None = 1, repo: Path | None = None) -> Path:
+        repo = repo or self.repo
+        tree = repo / ".worktrees" / f"issue-{n}"
+        self.git("-C", str(repo), "worktree", "add", "-q", "-b", f"issue-{n}", str(tree))
+        if limit is not None:
+            (tree / ".mmw").mkdir(exist_ok=True)
+            text = (limit if isinstance(limit, str)
+                    else json.dumps({"instance": {"max": limit, "why": "fixed ports"}}))
+            (tree / ".mmw" / "target.json").write_text(text, encoding="utf-8")
+        return self.lease.worktree_of(tree)
+
+    def test_a_second_ticket_worktree_past_the_limit_is_told_the_product_is_full(self):
+        first = self.ticket_tree(1)
+        self.lease.try_claim(first)
+        with self.assertRaises(self.lease.Full) as caught:
+            self.lease.try_claim(self.ticket_tree(2))
+        self.assertEqual((caught.exception.reason, caught.exception.limit),
+                         ("product-full", 1))
+        self.assertEqual(caught.exception.holders, [str(first)])
+        self.assertEqual(len(self.lease.claimed()), 1, "a slot was taken past the limit")
+
+    def test_a_worktree_that_holds_its_slot_is_never_refused_it(self):
+        first = self.ticket_tree(1)
+        record = self.lease.try_claim(first)
+        self.ticket_tree(2)
+        self.assertEqual(self.lease.try_claim(first), record)
+
+    def test_a_slot_given_back_is_the_next_worktrees(self):
+        first = self.ticket_tree(1)
+        second = self.ticket_tree(2)
+        self.lease.try_claim(first)
+        self.lease.release(first)
+        self.assertEqual(self.lease.try_claim(second)["worktree"], str(second))
+
+    def test_the_main_checkout_is_held_to_the_machines_limit_alone(self):
+        """The night's reverify runs in the main checkout; counting it against the
+        product's limit would starve every ticket of a product capped at one."""
+        self.lease.try_claim(self.ticket_tree(1))
+        (self.repo / ".mmw").mkdir()
+        (self.repo / ".mmw" / "target.json").write_text(
+            json.dumps({"instance": {"max": 1}}), encoding="utf-8")
+        self.assertEqual(self.lease.try_claim(self.lease.worktree_of(self.repo))["worktree"],
+                         str(self.lease.worktree_of(self.repo)))
+
+    def test_another_repositorys_worktrees_do_not_count(self):
+        other = self.trees / "other"
+        self.git("init", "-q", "-b", "main", str(other))
+        self.git("-C", str(other), "-c", "user.email=t@t", "-c", "user.name=t",
+                 "commit", "-q", "--allow-empty", "-m", "base")
+        self.lease.try_claim(self.ticket_tree(1, repo=other))
+        self.lease.try_claim(self.ticket_tree(1))
+
+    def test_no_limit_declared_is_the_machines_limit(self):
+        for n in range(1, 5):
+            self.lease.try_claim(self.ticket_tree(n, limit=None))
+        with self.assertRaises(self.lease.Full) as caught:
+            self.lease.try_claim(self.ticket_tree(5, limit=None))
+        self.assertEqual((caught.exception.reason, caught.exception.limit), ("machine-full", 4))
+
+    def test_a_limit_nobody_can_read_is_not_no_limit(self):
+        tree = self.ticket_tree(1, limit="{not json")
+        with self.assertRaises(self.lease.CapUnreadable):
+            self.lease.try_claim(tree)
+        with self.assertRaises(SystemExit):
+            self.lease.claim(tree)
+        self.assertEqual(self.lease.claimed(), [])
+
+    def test_a_judge_that_reaches_a_full_product_is_refused_with_a_way_out(self):
+        self.lease.try_claim(self.ticket_tree(1))
+        with self.assertRaises(SystemExit) as caught:
+            self.lease.claim(self.ticket_tree(2))
+        self.assertIn("instance.max of 1", str(caught.exception))
+        self.assertIn("blocked", str(caught.exception))
+
+    def test_the_command_line_answers_4_and_says_who_holds_the_slots(self):
+        first = self.ticket_tree(1)
+        self.lease.try_claim(first)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = self.lease.main(["claim", str(self.ticket_tree(2))])
+        self.assertEqual(code, 4, "a full product is a wait, told by its own exit code")
+        self.assertEqual(json.loads(out.getvalue()),
+                         {"claimed": False, "reason": "product-full", "limit": 1,
+                          "holders": [str(first)]})
+
+    def test_the_count_and_the_take_are_one_act_under_a_lock(self):
+        """Two runs asking for the last slot at once must not both count one free slot.
+        With the registry's lock held elsewhere, a claim waits for it rather than
+        counting on its own."""
+        import fcntl
+        import subprocess
+        import time
+        tree = self.ticket_tree(1)
+        self.lease.REGISTRY.mkdir(parents=True, exist_ok=True)
+        env = dict(os.environ, MMW_HOME=str(self.home), MMW_LEASE_SLOTS="4",
+                   MMW_LEASE_PORT_BASE="21400", MMW_LEASE_PORT_STRIDE="5")
+        with open(self.lease.REGISTRY / ".lock", "a+") as held:
+            fcntl.flock(held, fcntl.LOCK_EX)
+            proc = subprocess.Popen([sys.executable, str(SCRIPT), "claim", str(tree)],
+                                    env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            time.sleep(1.0)
+            waiting = proc.poll() is None
+            fcntl.flock(held, fcntl.LOCK_UN)
+        out, err = proc.communicate(timeout=30)
+        self.assertTrue(waiting, "the claim went ahead while the registry was locked")
+        self.assertEqual(proc.returncode, 0, err)
+        self.assertEqual(json.loads(out)["worktree"], str(tree))
+
+
 class WhatTheCommandLineAnswers(Base):
     """Every verb is read by a program or an agent, so none of them answers in prose.
 

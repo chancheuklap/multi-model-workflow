@@ -7,8 +7,10 @@ reached here by writing the comments down. No tracker, no runner, no clock.
 """
 
 import json
+import os
 import subprocess
 import sys
+import tempfile
 import unittest
 
 from _load import EVENTS, load_events
@@ -36,10 +38,30 @@ def started(session="term_7", runner="orca", kind="worker"):
 
 
 class TheVocabulary(unittest.TestCase):
-    """23 events, one shape, a closed set of subjects."""
+    """26 events — the spec's 25 and `worker.queued` — one shape, a closed set of subjects."""
 
-    def test_there_are_twenty_three_events(self):
-        self.assertEqual(len(events.EVENTS), 23)
+    def test_there_are_twenty_six_events(self):
+        self.assertEqual(len(events.EVENTS), 26)
+        for name in ("ticket.checked", "worker.touched", "worker.queued"):
+            with self.subTest(name=name):
+                self.assertIn(name, events.EVENTS)
+
+    def test_the_five_child_kinds_are_named_for_who_can_answer_them(self):
+        self.assertEqual(events.CHILD_KINDS,
+                         ("finding", "contract", "deferred", "decision", "fault"))
+        for old in ("review", "baseline", "outside-owns", "pipeline"):
+            with self.subTest(old=old):
+                with self.assertRaises(events.EventError):
+                    events.build("child.opened", ticket=61, line="x", child=90, kind=old)
+
+    def test_a_check_names_its_run_and_its_result_from_closed_sets(self):
+        full = dict(run="self", commit="a" * 40, result="met")
+        events.build("ticket.checked", ticket=61, line="x", **full)
+        for key, bad in (("run", "self-run"), ("result", "ALL MET"), ("commit", "a" * 8)):
+            with self.subTest(key=key):
+                with self.assertRaises(events.EventError):
+                    events.build("ticket.checked", ticket=61, line="x",
+                                 **{**full, key: bad})
 
     def test_every_name_is_subject_dot_past_tense_verb_with_no_value_in_it(self):
         for name in events.EVENTS:
@@ -305,11 +327,12 @@ class Replays(unittest.TestCase):
 
     def test_children_carry_their_kind_and_their_resolution(self):
         state = events.fold([
-            ev("child.opened", "Opened #90 (review)", child=90, kind="review"),
+            ev("child.opened", "Opened #90 (finding)", child=90, kind="finding"),
             ev("child.closed", "#90 became #80", child=90, resolution="became-ticket",
                became=80)])
-        self.assertEqual(state["children"]["90"]["kind"], "review")
+        self.assertEqual(state["children"]["90"]["kind"], "finding")
         self.assertEqual(state["children"]["90"]["resolution"], "became-ticket")
+        self.assertEqual(state["children"]["90"]["ticket"], 80)
 
     def test_a_late_comment_is_replayed_in_its_place_not_applied_last(self):
         """Released, claimed again, then passed, landed and regressed — with the second
@@ -327,6 +350,74 @@ class Replays(unittest.TestCase):
         self.assertEqual((state["held"], state["passed"], state["landed"], state["regressed"]),
                          (False, False, False, True))
         self.assertEqual([e["comment"] for e in state["events"]], [1, 2, 3, 4, 5, 6])
+
+
+def queued(run="self", reason="product-full"):
+    return ev("worker.queued", "Waiting for a product slot", run=run, reason=reason,
+              limit=1, holders=["/repo/.worktrees/issue-60"])
+
+
+def checked_run(run="self", slot=None, result="met", failed=()):
+    return ev("ticket.checked", f"{run} run", run=run, commit="a" * 40, result=result,
+              counts={"met": 1, "unmet": len(failed), "abandoned": 0,
+                      "total": 1 + len(failed)},
+              failed=list(failed), slot=slot)
+
+
+class WaitingAndSlots(unittest.TestCase):
+    """A run queued for a product slot is the one state where a worker is neither dead
+    nor done; the fold says so until a run gets its slot or the worker's hold ends."""
+
+    def test_a_queued_run_is_waiting_until_a_checked_run_names_its_slot(self):
+        state = events.fold([started(), queued()])
+        self.assertEqual(state["waiting"]["payload"]["reason"], "product-full")
+        self.assertIsNone(state["slot"])
+        state = events.fold([started(), queued(), checked_run(slot=3)])
+        self.assertIsNone(state["waiting"])
+        self.assertEqual(state["slot"], 3)
+        self.assertEqual(state["checks"]["self"]["payload"]["slot"], 3)
+
+    def test_a_check_without_a_slot_keeps_the_slot_an_earlier_run_took(self):
+        state = events.fold([checked_run(slot=2), checked_run(run="reverify")])
+        self.assertEqual(state["slot"], 2)
+
+    def test_whatever_ends_the_workers_hold_ends_its_wait(self):
+        for closing in (ev("worker.lost", "lost", session="term_7", runner="orca"),
+                        ev("ticket.returned", "HANDOFF REQUIRED: 1 abandoned"),
+                        ev("spec.suspended", "NIGHT SUSPENDED #76"),
+                        ev("worker.retracted", "Retracted", session="term_7",
+                           runner="orca")):
+            with self.subTest(event=events.parse(closing)[1]["event"]):
+                state = events.fold([started(), queued(), closing])
+                self.assertIsNone(state["waiting"])
+
+    def test_the_slot_is_given_back_at_landing_retraction_and_suspension(self):
+        for closing in (ev("ticket.landed", "Landed"),
+                        ev("worker.retracted", "Retracted", session="term_7",
+                           runner="orca"),
+                        ev("spec.suspended", "NIGHT SUSPENDED #76")):
+            with self.subTest(event=events.parse(closing)[1]["event"]):
+                state = events.fold([started(), checked_run(slot=1), closing])
+                self.assertIsNone(state["slot"])
+
+    def test_a_pass_does_not_give_the_slot_back(self):
+        """The slot is held until landing, not until the ticket passes."""
+        state = events.fold([started(), checked_run(slot=1), ev("ticket.passed", "ALL MET")])
+        self.assertEqual(state["slot"], 1)
+
+    def test_the_newest_run_of_each_kind_is_kept_apart(self):
+        state = events.fold([checked_run(run="self", result="unmet", failed=["AC2"]),
+                             checked_run(run="reverify"),
+                             checked_run(run="self")])
+        self.assertEqual(state["checks"]["self"]["comment"], 3)
+        self.assertEqual(state["checks"]["reverify"]["comment"], 2)
+        self.assertIsNone(state["checks"]["repo-checks"])
+
+    def test_touched_files_land_in_touched(self):
+        state = events.fold([ev("worker.touched", "#62 changed 1 file(s) this ticket owns",
+                                by=62, files=["src/a.py"])])
+        self.assertEqual([(t["by"], t["files"]) for t in state["touched"]],
+                         [(62, ["src/a.py"])])
 
 
 class Unreadable(unittest.TestCase):
@@ -437,6 +528,48 @@ class CommandLine(unittest.TestCase):
                 self.assertIn("comment 4", err)
         code, out, _ = self.run_cli("fold", "61", "--comments-file", "-", stdin=data)
         self.assertEqual(len(json.loads(out)["unreadable"]), 1)
+
+    def comments_file(self, *bodies):
+        handle = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                             encoding="utf-8")
+        with handle:
+            json.dump({"comments": [comment(i, b) for i, b in enumerate(bodies, 1)]}, handle)
+        self.addCleanup(os.unlink, handle.name)
+        return handle.name
+
+    def test_checked_prints_the_newest_run_by_name_and_key_fields(self):
+        path = self.comments_file(
+            checked_run(run="self", result="unmet", failed=["AC2", "AC3"]),
+            checked_run(run="reverify", result="unmet", failed=["AC3"]))
+        code, out, err = self.run_cli("checked", "61", "--comments-file", path)
+        self.assertEqual((code, out, err),
+                         (0, f"ticket.checked run=reverify commit={'a' * 40} result=unmet "
+                             f"failed=AC3\n", ""))
+        code, out, _ = self.run_cli("checked", "61", "--run", "self", "--comments-file", path)
+        self.assertEqual(out, f"ticket.checked run=self commit={'a' * 40} result=unmet "
+                              f"failed=AC2,AC3\n")
+        code, out, _ = self.run_cli("checked", "61", "--run", "repo-checks",
+                                    "--comments-file", path)
+        self.assertEqual((code, out), (0, ""))
+
+    def test_live_prints_every_session_no_event_has_ended(self):
+        path = self.comments_file(
+            started("term_7"), started("term_8"),
+            ev("worker.replaced", "replaced", session="term_7", runner="orca"),
+            started("rev_1", kind="reviewer"))
+        code, out, err = self.run_cli("live", "61", "--kind", "worker", "--comments-file", path)
+        self.assertEqual((code, out, err), (0, "orca\tterm_8\n", ""))
+        code, out, _ = self.run_cli("live", "61", "--comments-file", path)
+        self.assertEqual(out, "orca\tterm_8\norca\trev_1\n")
+
+    def test_the_new_readers_give_no_answer_over_an_unreadable_block(self):
+        path = self.comments_file(checked_run(), started(), "x\n\n<!-- mmw {bad} -->")
+        for args in (("checked",), ("live", "--kind", "worker")):
+            with self.subTest(args=args):
+                code, out, err = self.run_cli(args[0], "61", *args[1:],
+                                              "--comments-file", path)
+                self.assertEqual((code, out), (3, ""))
+                self.assertIn("comment 3", err)
 
     def test_comments_that_cannot_be_read_are_exit_2_not_an_empty_ticket(self):
         code, out, err = self.run_cli("session", "61", "--comments-file", "-",
