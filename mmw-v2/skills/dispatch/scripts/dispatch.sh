@@ -26,10 +26,13 @@
 # label, so one ticket keeps the same worker every time it is started. Which
 # host, model and thinking level the session gets come from that
 # row of the live table (~/.mmw/models.md), resolved against tonight's
-# catalog and expanded into the fields `create_agent` accepts. `start`
-# and `advance` always print one `create_agent` object per ticket. A second
-# row for that agent is nested as `fallback`, itself a complete
-# `create_agent` object; the caller strips `fallback` before the first call.
+# catalog. Tonight's runner is `models.py runner`: MMW_RUNNER, then the
+# table's runner row, then the runner this process runs in, then orca.
+# `start` has that runner's adapter (scripts/runners/<runner>.sh) start the
+# session, writes `RUNNER <runner> <session> <kind>` on the ticket, and prints
+# the session id. A start the adapter refuses is refused once: no retry, no
+# other host, no other runner. `resume`, `wait` and `retract` find the
+# session on that ticket line and ask the runner it names.
 #
 # Each command's exit codes are written beside that command, in the door that carries it;
 # SKILL.md next to this script is the index of doors.
@@ -47,7 +50,8 @@ else
 fi
 export MMW_CATALOG_MODE="${MMW_CATALOG_MODE:-paseo}"
 STATUS="$SKILL_ROOT/scripts/status.py"
-RUNNER="$SKILL_ROOT/scripts/runners/paseo.sh"
+RUNNER=""
+RUNNER_NAME=""
 # The skill lives under mmw-v2/skills/<name> of the toolbox checkout, so `install.sh`
 # is two directories up, and `verify-ticket.py` and `lease.py` are in the `scripts/` of
 # their own skills one directory over. A `--tools` directory given on the command line
@@ -90,7 +94,44 @@ runner() {
 # answer. With the adapter file gone that made `retract` archive a running worker's
 # workspace and exit 0, and `wait` report "still working" and exit 3 forever.
 require_runner() {
-  [ -f "$RUNNER" ] || refuse "no runner adapter at $RUNNER; reinstall this skill or restore that file, then run the command again"
+  [ -f "$RUNNER" ] || refuse "no runner adapter for ${RUNNER_NAME:-this runner} at ${RUNNER:-scripts/runners/}; name paseo, orca or herdr in MMW_RUNNER or the runner row of $MODELS, or restore that file, then run the command again"
+}
+
+# Points `runner` at one adapter. The name comes from `models.py runner` for a start,
+# and from the ticket's RUNNER line for everything after it.
+use_runner() {
+  RUNNER_NAME="$1"
+  RUNNER="$SKILL_ROOT/scripts/runners/$1.sh"
+  require_runner
+}
+
+tonight_runner() {
+  local name
+  name="$(python3 "$MODELS_PY" runner)" && [ -n "$name" ] \
+    || refuse "could not tell tonight's runner from MMW_RUNNER, $MODELS or this process"
+  printf '%s\n' "$name"
+}
+
+# Prints "runner<TAB>session" from the newest `RUNNER <runner> <session> <kind>` comment
+# on the ticket, of this kind when one is given, and nothing when there is none.
+session_on_ticket() {
+  local number="$1" kind="${2:-}"
+  gh_ issue view "$number" --json comments 2>/dev/null | MMW_KIND="$kind" python3 -c '
+import json, os, sys
+try:
+    comments = json.load(sys.stdin).get("comments") or []
+except Exception:
+    comments = []
+want = os.environ["MMW_KIND"]
+found = ""
+for comment in comments:
+    first = ((comment or {}).get("body") or "").strip().splitlines()[:1]
+    parts = first[0].split() if first else []
+    if len(parts) == 4 and parts[0] == "RUNNER" and (not want or parts[3] == want):
+        found = parts[1] + "\t" + parts[2]
+if found:
+    print(found)
+'
 }
 
 usage() {
@@ -115,14 +156,14 @@ USAGE
 # Prints "host<TAB>resolved-model<TAB>effort" for the agent asked for.
 row_for_role() {
   [ -f "$MODELS_PY" ] || refuse "no models.py at $MODELS_PY"
-  MMW_MODELS_PY="$MODELS_PY" MMW_AGENT="$1" MMW_NTH="${2:-1}" python3 -c '
+  MMW_MODELS_PY="$MODELS_PY" MMW_AGENT="$1" python3 -c '
 import importlib.util, os, sys
 path = os.environ["MMW_MODELS_PY"]
 spec = importlib.util.spec_from_file_location("mmw_models", path)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 try:
-    print(mod.row_tsv(os.environ["MMW_AGENT"], int(os.environ["MMW_NTH"])))
+    print(mod.row_tsv(os.environ["MMW_AGENT"]))
 except ValueError as exc:
     text = str(exc)
     if text.startswith("no row "):
@@ -422,9 +463,8 @@ release_lease() {
   return 1
 }
 
-# Prints dest<TAB>cwd<TAB>created. dest is the absolute worktree path, which
-# emit_create_json puts in workspace.source.path. Paseo reads workspaceId as
-# an already-registered wks_<16 hex> id, so a path must not go there.
+# Prints dest<TAB>cwd<TAB>created. dest is the absolute worktree path, and cwd is the
+# same path: the directory the runner is told to start the session in.
 ensure_workspace() {
   local number="$1" root="$2" dest
   dest="$root/.worktrees/issue-$number"
@@ -496,73 +536,11 @@ archive_workspace() {
   remove_worktree "$root" "$cwd"
 }
 
-# ------------------------------------------------------------------ dispatch payload
-
-emit_create_json() {
-  [ -f "$MODELS_PY" ] || refuse "no models.py at $MODELS_PY"
-  MMW_MODELS_PY="$MODELS_PY" python3 -c '
-import importlib.util, json, os, sys
-
-path = os.environ["MMW_MODELS_PY"]
-spec = importlib.util.spec_from_file_location("mmw_models", path)
-if spec is None or spec.loader is None:
-    print("dispatch: no models.py at " + path, file=sys.stderr)
-    sys.exit(2)
-mod = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(mod)
-
-def payload(host, model, effort):
-    settings = mod.create_agent_settings(host)
-    thinking = mod.thinking_option(host, effort)
-    if thinking is not None:
-        settings["thinkingOptionId"] = thinking
-    body = {
-        "title": os.environ["MMW_TITLE"],
-        "provider": host + "/" + model,
-        "settings": settings,
-        "notifyOnFinish": os.environ["MMW_KIND"] != "worker",
-        "labels": {
-            "mmw.ticket": os.environ["MMW_TICKET"],
-            "mmw.kind": os.environ["MMW_KIND"],
-            "mmw.autonomous": "1",
-        },
-        "initialPrompt": os.environ["MMW_PROMPT"],
-        "relationship": {"kind": "subagent"},
-        "workspace": {
-            "kind": "create",
-            "source": {
-                "kind": "directory",
-                "path": os.environ["MMW_WORKSPACE"],
-            },
-        },
-    }
-    if os.environ["MMW_SPEC"]:
-        body["labels"]["mmw.spec"] = os.environ["MMW_SPEC"]
-    return body
-
-rows = [line for line in (os.environ.get("MMW_ROWS") or "").splitlines() if line.strip()]
-if not rows:
-    print("dispatch: no live-table row to emit", file=sys.stderr)
-    sys.exit(2)
-
-def parse_row(line):
-    host, model, effort = line.split("\t")[:3]
-    return host, model, effort
-
-host, model, effort = parse_row(rows[0])
-primary = payload(host, model, effort)
-if len(rows) > 1:
-    host, model, effort = parse_row(rows[1])
-    primary["fallback"] = payload(host, model, effort)
-print(json.dumps(primary, ensure_ascii=False))
-'
-}
-
 # ------------------------------------------------------------------ start
 
 start_one() {
   local number="$1" kind="$2"
-  require_runner
+  use_runner "$(tonight_runner)"
   case "$kind" in
     worker|reviewer|verifier) ;;
     *) refuse "the second argument is worker, reviewer or verifier, got $kind" ;;
@@ -596,11 +574,10 @@ start_one() {
       esac ;;
   esac
 
-  local row host model effort fb_row
+  local row host model effort
   row="$(row_for_role "$profile")" || exit 2
   [ -n "$row" ] || refuse "#$number needs the $profile row, and $MODELS has none"
   IFS=$'\t' read -r host model effort <<<"$row"
-  fb_row="$(row_for_role "$profile" 2)" || exit 2
 
   local root
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
@@ -621,10 +598,9 @@ start_one() {
       prompt="Use the verdict skill to verify ticket #$number. $AUTONOMOUS $PRODUCT_RULES" ;;
   esac
 
-  local workspace cwd created ws_row
+  local cwd created ws_row
   ws_row="$(ensure_workspace "$number" "$root")" \
     || refuse "could not open a worktree for issue-$number"
-  workspace="$(printf '%s\n' "$ws_row" | cut -f1)"
   cwd="$(printf '%s\n' "$ws_row" | cut -f2)"
   created="$(printf '%s\n' "$ws_row" | cut -f3)"
 
@@ -643,27 +619,28 @@ start_one() {
     fi
   fi
 
-  local agent_title="#$number $kind" rows
-  rows="$row"
-  [ -z "$fb_row" ] || rows="$row"$'\n'"$fb_row"
-  if ! runner start --host "$host" --model "$model" --effort "$effort" \
-       --cwd "$cwd" --prompt "$prompt" --skip-approval; then
+  # Labels are for runners that keep them (Paseo); the others take and ignore them.
+  local -a labels=(--label "mmw.ticket=$number" --label "mmw.kind=$kind" --label mmw.autonomous=1)
+  [ -z "$spec" ] || labels+=(--label "mmw.spec=$spec")
+  local session
+  if ! session="$(runner start --host "$host" --model "$model" --effort "$effort" \
+       --cwd "$cwd" --prompt "$prompt" --skip-approval --title "#$number $kind" \
+       "${labels[@]}")" || [ -z "$session" ]; then
     if [ "$created" = 1 ] && [ -n "$cwd" ]; then
       remove_worktree "$root" "$cwd" \
         || echo "dispatch: could not remove the worktree for #$number" >&2
     fi
-    refuse "could not start a session for #$number"
+    refuse "$RUNNER_NAME did not start $host for #$number $kind (its reason is above); nothing was retried. Fix what it names, or change this agent's row in $MODELS, then start again"
   fi
-  MMW_WORKSPACE="$workspace" MMW_TITLE="$agent_title" \
-    MMW_ROWS="$rows" \
-    MMW_TICKET="$number" MMW_KIND="$kind" MMW_SPEC="$spec" \
-    MMW_PROMPT="$prompt" \
-    emit_create_json
+  session="$(printf '%s\n' "$session" | tail -n 1)"
+  gh_ issue comment "$number" --body "RUNNER $RUNNER_NAME $session $kind" >/dev/null 2>&1 \
+    || echo "dispatch: could not write 'RUNNER $RUNNER_NAME $session $kind' on #$number; post it by hand" >&2
+  printf '%s\n' "$session"
 }
 
 # ------------------------------------------------------------------ retract
 
-# Undo what start left behind when create_agent never ran: archive the workspace,
+# Undo what start left behind when its session is gone: archive the workspace,
 # give the slot back, give the claim back if this pipeline still holds it. The
 # branch stays, so the next start reuses it. A live agent on the ticket is a
 # running worker, not a failed start — refuse. `slot given back` is 1 only when
@@ -676,10 +653,10 @@ retract_one() {
   [ -n "$root" ] \
     || refuse "not inside a git repository, so there is no workspace to retract"
 
-  require_runner
-  local live ident
-  live="$(agents_by_label --label "mmw.ticket=$number" | head -n 1)"
-  ident="$(printf '%s\n' "$live" | cut -f2)"
+  local line ident
+  line="$(session_on_ticket "$number")"
+  ident="$(printf '%s\n' "$line" | cut -f2)"
+  [ -z "$line" ] || use_runner "$(printf '%s\n' "$line" | cut -f1)"
   # Archiving a workspace ends whatever runs in it, so only an agent the runner has shown
   # to be stopped lets this go on. Anything else — alive, unknown, or an answer this does
   # not recognise — refuses: a retract that cannot prove the agent is gone does nothing.
@@ -687,7 +664,7 @@ retract_one() {
     case "$(runner liveness "$ident")" in
       stopped) ;;
       alive)
-        refuse "#$number still has a live agent $ident; retract is for a start whose create_agent never ran"
+        refuse "#$number still has a live agent $ident on $RUNNER_NAME; retract is for a start whose session is gone"
         ;;
       *)
         refuse "cannot tell whether #$number's agent $ident is still running, so nothing was archived; retract only once that agent is shown to be stopped"
@@ -736,13 +713,15 @@ retract_one() {
 resume_one() {
   local number="$1" text="$2" ident out
   [ -n "$text" ] || refuse "resume needs the text to send"
-  require_runner
-  ident="$(agents_by_label --label "mmw.ticket=$number" --label mmw.kind=worker | head -n 1 | cut -f2)"
-  [ -n "$ident" ] || refuse "no worker agent labelled mmw.ticket=$number"
+  local line
+  line="$(session_on_ticket "$number" worker)"
+  [ -n "$line" ] || refuse "#$number has no RUNNER line for a worker, so there is no session to send to"
+  use_runner "$(printf '%s\n' "$line" | cut -f1)"
+  ident="$(printf '%s\n' "$line" | cut -f2)"
   out="$(runner send "$ident" "$text" 2>&1)"
   case "$?" in
     0) return 0 ;;
-    2) refuse "no worker agent labelled mmw.ticket=$number" ;;
+    2) refuse "#$number's worker $ident is not on $RUNNER_NAME any more" ;;
   esac
   echo "dispatch: the worker $ident on #$number did not take the message" >&2
   [ -n "$out" ] && printf '  %s\n' "$out" >&2
@@ -788,13 +767,13 @@ wait_no_result() {
   local number="$1" kind="$2" ident="$3"
   case "$kind" in
     reviewer)
-      echo "dispatch: reviewer $ident on #$number stopped with no REVIEW comment: paseo logs $ident" >&2
+      echo "dispatch: reviewer $ident on #$number stopped with no REVIEW comment; read its session on $RUNNER_NAME" >&2
       ;;
     verifier)
-      echo "dispatch: verifier $ident on #$number stopped with no VERDICT comment: paseo logs $ident" >&2
+      echo "dispatch: verifier $ident on #$number stopped with no VERDICT comment; read its session on $RUNNER_NAME" >&2
       ;;
     *)
-      echo "dispatch: worker $ident on #$number stopped with no ALL MET or HANDOFF REQUIRED comment: paseo logs $ident" >&2
+      echo "dispatch: worker $ident on #$number stopped with no ALL MET or HANDOFF REQUIRED comment; read its session on $RUNNER_NAME" >&2
       ;;
   esac
   exit 1
@@ -831,9 +810,11 @@ wait_one() {
     return 0
   fi
 
-  require_runner
-  ident="$(agents_by_label --label "mmw.ticket=$number" --label "mmw.kind=$kind" | head -n 1 | cut -f2)"
-  [ -n "$ident" ] || refuse "no $kind agent labelled mmw.ticket=$number"
+  local line
+  line="$(session_on_ticket "$number" "$kind")"
+  [ -n "$line" ] || refuse "#$number has no RUNNER line for a $kind, so there is no session to wait on"
+  use_runner "$(printf '%s\n' "$line" | cut -f1)"
+  ident="$(printf '%s\n' "$line" | cut -f2)"
 
   local budget="${MMW_WAIT_S:-90}" beat="${MMW_WAIT_BEAT_S:-10}" spent=0 round_start
   while [ "$spent" -lt "$budget" ]; do
@@ -852,11 +833,11 @@ wait_one() {
   # An agent that is alive is still on the hook, whatever it is doing between turns.
   # `idle` is not idle: an agent that has handed work to subagents and ended its turn
   # sits there for the whole of that work, doing exactly what it was told. Reading that
-  # as "stopped" sends the caller to a fallback while a healthy agent is mid-job; on
+  # as "stopped" sends the caller to start a replacement while a healthy agent is mid-job; on
   # 2026-09-06 that closed #162 on a thinner review than the one that arrived 50 seconds
   # later, and did the same to #159. Only an agent that is gone — `closed`, `error`, or
-  # no longer listed — has nobody left to do the job. `unknown` is not alive; wait
-  # retries rather than taking the fallback, which is the same class of mistake.
+  # no longer listed — has nobody left to do the job. `unknown` is not alive, and it is
+  # not stopped either: wait says so and is run again.
   case "$(runner liveness "$ident")" in
     stopped)
       wait_no_result "$number" "$kind" "$ident"

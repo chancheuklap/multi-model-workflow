@@ -66,28 +66,20 @@ class BypassArgvTest(unittest.TestCase):
 
 
 class SessionRowsTest(unittest.TestCase):
-    def test_two_rows_for_one_agent_keep_primary_then_fallback(self):
-        rows = rows_from(
-            "| junior-worker | cursor | grok 4.6 | high |\n"
-            "| junior-worker | grok | grok 4.6 | high |\n"
-        )
-        self.assertEqual([(r.host, r.primary) for r in rows],
-                         [("cursor", True), ("grok", False)])
-
-    def test_a_second_fallback_row_is_refused(self):
-        with self.assertRaisesRegex(ValueError, "more than one fallback"):
+    def test_two_rows_for_one_agent_are_refused(self):
+        with self.assertRaisesRegex(ValueError, "junior-worker has two rows"):
             rows_from(
                 "| junior-worker | cursor | grok 4.6 | high |\n"
                 "| junior-worker | grok | grok 4.6 | high |\n"
-                "| junior-worker | claude | opus 5 | high |\n"
             )
 
-    def test_two_rows_on_the_same_host_are_refused(self):
-        with self.assertRaisesRegex(ValueError, "two rows on"):
-            rows_from(
-                "| junior-worker | cursor | grok 4.6 | high |\n"
-                "| junior-worker | cursor | grok 4.6 | high |\n"
-            )
+    def test_one_row_per_agent_is_read_in_order(self):
+        rows = rows_from(
+            "| junior-worker | cursor | grok 4.6 | high |\n"
+            "| reviewer | claude | opus 5 | high |\n"
+        )
+        self.assertEqual([(r.agent, r.host) for r in rows],
+                         [("junior-worker", "cursor"), ("reviewer", "claude")])
 
     def test_an_unknown_agent_is_refused(self):
         with self.assertRaisesRegex(ValueError, "不是派出的角色"):

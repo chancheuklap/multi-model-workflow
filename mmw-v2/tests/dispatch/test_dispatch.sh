@@ -12,7 +12,7 @@
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh orcasend|orcaclosed
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh worktreegit|worktreegoverned|worktreeremove|installorca
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh usesagree|usesmismatch|usesunreadable
-#   bash mmw-v2/tests/dispatch/test_dispatch.sh paseostartdir|paseorejectspath|landarchivesagents
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh paseostartdir|landarchivesagents
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh all
 #
 # A fake `paseo`, a fake `herdr`, a fake `orca` and a fake `gh` sit in front of the
@@ -62,6 +62,21 @@ Options:
 """
 
 PASEO_HELP = {
+    ("run",): """Usage: paseo run [options] <prompt>
+
+Create and start an agent with a task
+
+Options:
+  -d, --background                  Run in background
+  --title <title>                   Assign a title to the agent
+  --provider <provider>             Agent provider, or provider/model
+  --mode <mode>                     Provider-specific mode
+  --thinking <id>                   Thinking option ID to use for this run
+  --cwd <path>                      Working directory (default: current)
+  --label <key=value>               Add label(s) to the agent (default: [])
+  --json                            Output in JSON format
+  -h, --help                        display help for command
+""",
     ("send",): """Usage: paseo send [options] <id> [prompt]
 
 Send a message/task to an existing agent
@@ -249,6 +264,46 @@ if args[:1] == ["ls"]:
     print(json.dumps(out))
     sys.exit(0)
 
+# `paseo run -d --json … -- <prompt>`: records the request in the shape the checks read
+# (runs.jsonl, newest last), lists the agent with its labels, answers with its id.
+if args[:1] == ["run"]:
+    if scenario == "run-fail":
+        print("Error: Failed to create agent: provider initialization failed", file=sys.stderr)
+        sys.exit(1)
+    rest = args[1:]
+    prompt = rest[rest.index("--") + 1] if "--" in rest else rest[-1]
+    def flag(name):
+        return rest[rest.index(name) + 1] if name in rest else None
+    labels = {}
+    for i, a in enumerate(rest):
+        if a == "--label" and i + 1 < len(rest) and "=" in rest[i + 1]:
+            k, v = rest[i + 1].split("=", 1)
+            labels[k] = v
+    settings = {}
+    if flag("--mode"):
+        settings["modeId"] = flag("--mode")
+    if flag("--thinking"):
+        settings["thinkingOptionId"] = flag("--thinking")
+    rows = load("agents.json")
+    ident = "agt_run_%d" % (len(rows) + 1)
+    request = {
+        "id": ident,
+        "background": "-d" in rest,
+        "title": flag("--title"),
+        "provider": flag("--provider"),
+        "settings": settings,
+        "labels": labels,
+        "cwd": flag("--cwd"),
+        "initialPrompt": prompt,
+    }
+    with open(state / "runs.jsonl", "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(request) + "\n")
+    rows.append({"id": ident, "name": request["title"] or ident, "status": "running",
+                 "cwd": request["cwd"], "labels": labels})
+    save("agents.json", rows)
+    print(json.dumps({"agentId": ident, "status": "running", "cwd": request["cwd"]}))
+    sys.exit(0)
+
 if args[:1] == ["wait"]:
     ident = args[1] if len(args) > 1 else ""
     if scenario == "wait-timeout":
@@ -318,49 +373,6 @@ if args[:1] == ["archive"]:
         sys.exit(1)
     save("agents.json", [a for a in rows if a.get("id") != ident])
     print(json.dumps({"id": ident, "archived": True}))
-    sys.exit(0)
-
-# Paseo 0.7.2 create_agent: workspaceId is an existing wks_<16 hex> id
-# (generateWorkspaceId in the installed app). A path never matches, and
-# resolveCreateAgentWorkspace(kind "existing") throws
-# "Workspace <id> not found". A directory goes in workspace.source with
-# kind "directory", which requires relationship alongside workspace.
-WKS_ID = re.compile(r"^wks_[0-9a-f]{16}$")
-if args[:1] == ["validate-create-agent"]:
-    try:
-        payload = json.load(sys.stdin)
-    except Exception:
-        print("create_agent payload is not JSON", file=sys.stderr)
-        sys.exit(1)
-    if not isinstance(payload, dict):
-        print("create_agent payload is not an object", file=sys.stderr)
-        sys.exit(1)
-    wid = payload.get("workspaceId")
-    if wid is not None:
-        if not isinstance(wid, str) or not WKS_ID.match(wid):
-            print("Workspace %s not found" % wid, file=sys.stderr)
-            sys.exit(1)
-        known = [w for w in load("workspaces.json") if w.get("workspaceId") == wid]
-        if not known:
-            print("Workspace %s not found" % wid, file=sys.stderr)
-            sys.exit(1)
-        print(json.dumps({"ok": True}))
-        sys.exit(0)
-    workspace = payload.get("workspace")
-    rel = payload.get("relationship")
-    source = workspace.get("source") if isinstance(workspace, dict) else None
-    path = source.get("path") if isinstance(source, dict) else None
-    if (not isinstance(workspace, dict)
-            or not isinstance(rel, dict)
-            or workspace.get("kind") != "create"
-            or not isinstance(source, dict)
-            or source.get("kind") != "directory"
-            or not isinstance(path, str) or not path.strip()
-            or rel.get("kind") not in ("subagent", "detached")):
-        print("create_agent needs workspace.source.kind=directory with a path",
-              file=sys.stderr)
-        sys.exit(1)
-    print(json.dumps({"ok": True}))
     sys.exit(0)
 
 print("{}", file=sys.stderr)
@@ -911,8 +923,10 @@ if state and (os.environ.get("MMW_FAKE_WAIT_COMMENT") or os.environ.get("MMW_FAK
                 a["status"] = status
             agents.write_text(json.dumps(ag), encoding="utf-8")
 found = next((t for t in rows if t.get("number") == want), {})
+store = Path(state or ".") / "gh-comments.json"
+posted = json.loads(store.read_text()).get(str(want), []) if state and store.is_file() else []
 print(json.dumps({
-    "comments": [{"body": b} for b in found.get("comments", [])],
+    "comments": [{"body": b} for b in list(found.get("comments", [])) + posted],
 }))
 ' ;;
   *"--json assignees"*)
@@ -930,6 +944,16 @@ print(json.dumps({
     echo '{"title":"a ticket"}' ;;
   *"api user"*)
     printf '%s\n' "${FAKE_GH_LOGIN:-mmw-bot}" ;;
+  "issue comment "*)
+    MMW_N="$3" python3 -c '
+import json, os
+from pathlib import Path
+store = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "gh-comments.json"
+rows = json.loads(store.read_text()) if store.is_file() else {}
+rows.setdefault(os.environ["MMW_N"], []).append(Path(os.environ["MMW_GH_LAST_BODY"]).read_text().rstrip("\n"))
+store.write_text(json.dumps(rows))
+'
+    echo "https://github.com/o/r/issues/$3#issuecomment-1" ;;
   *"issue edit"*)
     number="$3"
     remove=""
@@ -986,6 +1010,9 @@ export MMW_FAKE_ORCA_STATE="$TMP/orca-state"
 export MMW_GH_LAST_BODY="$TMP/gh-last-body"
 export MMW_HOME="$TMP/mmw-home"
 export MMW_LIVE_MODELS="$TMP/live-models.md"
+# Tonight's runner is pinned: the session running this suite may itself sit in Orca,
+# Herdr or tmux, and runtime detection would pick that runner.
+export MMW_RUNNER=paseo
 export MMW_HOST_CATALOG="$HERE/catalog.json"
 export MMW_LEASE_PORT_STRIDE=20
 export MMW_LEASE_PORT_BASE="$(python3 -c '
@@ -1034,7 +1061,8 @@ reset_log() {
   mkdir -p "$MMW_FAKE_PASEO_STATE" "$MMW_FAKE_HERDR_STATE" "$MMW_FAKE_ORCA_STATE"
   echo '[]' > "$MMW_FAKE_PASEO_STATE/workspaces.json"
   echo '[]' > "$MMW_FAKE_PASEO_STATE/agents.json"
-  rm -f "$MMW_FAKE_PASEO_STATE/comment_reads" "$MMW_FAKE_PASEO_STATE/wait_delivered"
+  rm -f "$MMW_FAKE_PASEO_STATE/comment_reads" "$MMW_FAKE_PASEO_STATE/wait_delivered" \
+    "$MMW_FAKE_PASEO_STATE/gh-comments.json" "$MMW_FAKE_PASEO_STATE/runs.jsonl"
   echo '[]' > "$MMW_FAKE_HERDR_STATE/agents.json"
   echo '[]' > "$MMW_FAKE_ORCA_STATE/terminals.json"
   echo '[]' > "$MMW_FAKE_ORCA_STATE/setups.json"
@@ -1094,15 +1122,13 @@ hasnt_runner_worktree() {
 never_ran() { hasnt "paseo :: run"; }
 nothing_printed() { [ ! -s "$TMP/out" ] || fail "stdout should be empty: $(cat "$TMP/out")"; }
 
-# One field of the single JSON line dispatch printed. Nested keys use one
+# One field of the newest `paseo run` request the fake recorded. Nested keys use one
 # dot: `labels.mmw.ticket` is labels["mmw.ticket"], not three hops.
 out_json() {
   MMW_JSON_PATH="$1" python3 -c '
 import json, os, sys
 from pathlib import Path
-lines = [l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()]
-assert len(lines) == 1, lines
-node = json.loads(lines[0])
+node = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])
 path = os.environ["MMW_JSON_PATH"]
 if "." in path:
     top, rest = path.split(".", 1)
@@ -1110,30 +1136,31 @@ if "." in path:
 else:
     node = node[path]
 print(node)
-' "$TMP/out"
+' "$MMW_FAKE_PASEO_STATE/runs.jsonl"
 }
 
-assert_create_shape() {
+started_once() {
+  [ "$(count_of "paseo :: run")" = 1 ] \
+    || fail "expected exactly one paseo run, got $(count_of "paseo :: run")"
+}
+
+# A start that went through: one session started in the ticket's worktree, stdout is
+# its id, and the ticket carries the RUNNER line the later commands read.
+assert_started() {
   python3 -c '
 import json, sys
 from pathlib import Path
-raw = Path(sys.argv[1]).read_text()
-lines = [l for l in raw.splitlines() if l.strip()]
-assert len(lines) == 1, raw
-obj = json.loads(lines[0])
-for key in ("title", "provider", "settings", "labels", "initialPrompt",
-            "notifyOnFinish", "workspace", "relationship"):
-    assert key in obj, key
-assert "workspaceId" not in obj, obj
-assert obj["relationship"] == {"kind": "subagent"}, obj["relationship"]
-assert obj["workspace"]["kind"] == "create", obj["workspace"]
-assert obj["workspace"]["source"]["kind"] == "directory", obj["workspace"]
-assert obj["workspace"]["source"]["path"], obj["workspace"]
-# A worker is told to be done by verify-ticket.py, so the one notification Paseo gives
-# is not spent on the middle state it would otherwise report; every other kind ends one
-# turn, on the work being done, and that notification wakes whoever started it.
-assert obj["notifyOnFinish"] is (obj["labels"]["mmw.kind"] != "worker"), obj["notifyOnFinish"]
-' "$TMP/out"
+out = [l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()]
+run = json.loads(Path(sys.argv[2]).read_text().splitlines()[-1])
+assert out == [run["id"]], (out, run["id"])
+for key in ("title", "provider", "labels", "initialPrompt", "cwd"):
+    assert run.get(key), key
+kind = run["labels"]["mmw.kind"]
+ticket = run["labels"]["mmw.ticket"]
+assert run["cwd"].endswith("/.worktrees/issue-" + ticket), run["cwd"]
+posted = json.loads(Path(sys.argv[3]).read_text()).get(ticket, [])
+assert "RUNNER paseo " + run["id"] + " " + kind in posted, posted
+' "$TMP/out" "$MMW_FAKE_PASEO_STATE/runs.jsonl" "$MMW_FAKE_PASEO_STATE/gh-comments.json"
 }
 
 row_host() { awk -F'|' -v want="$1" 'function t(s){gsub(/^[ \t`]+|[ \t`]+$/,"",s);return s} /^[ \t]*\|/ && NF==6 && t($2)==want {print t($3); exit}' "$MMW_LIVE_MODELS"; }
@@ -1193,6 +1220,22 @@ rows.append({
     "labels": {"mmw.ticket": n, "mmw.kind": kind, "mmw.spec": spec},
 })
 path.write_text(json.dumps(rows))
+store = state / "gh-comments.json"
+posted = json.loads(store.read_text()) if store.is_file() else {}
+posted.setdefault(n, []).append("RUNNER paseo agt_" + n + "_" + kind + " " + kind)
+store.write_text(json.dumps(posted))
+'
+}
+
+# The RUNNER line `start` writes on a ticket, for a session seeded by hand.
+runner_line() {
+  MMW_N="$1" MMW_LINE="RUNNER $2 $3 $4" python3 -c '
+import json, os
+from pathlib import Path
+store = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "gh-comments.json"
+posted = json.loads(store.read_text()) if store.is_file() else {}
+posted.setdefault(os.environ["MMW_N"], []).append(os.environ["MMW_LINE"])
+store.write_text(json.dumps(posted))
 '
 }
 
@@ -1481,19 +1524,17 @@ Merge branch 'issue-61'" ] || fail "merge order is wrong"
   [ "$(git -C "$(wt 63)" rev-parse --abbrev-ref HEAD)" = issue-63 ] \
     || fail "frontier worktree should be on issue-63"
   hasnt_runner_worktree
-  never_ran
-  assert_create_shape || fail "the dispatched JSON is wrong: $(cat "$TMP/out")"
+  started_once
+  assert_started || fail "the dispatched JSON is wrong: $(cat "$TMP/out")"
   [ "$(out_json title)" = "#63 worker" ] || fail "title: $(out_json title)"
   [ "$(out_json labels.mmw.ticket)" = 63 ] || fail "ticket: $(out_json labels.mmw.ticket)"
   [ "$(out_json labels.mmw.kind)" = worker ] || fail "kind: $(out_json labels.mmw.kind)"
   python3 -c '
 import json, sys
 from pathlib import Path
-obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
-assert "workspaceId" not in obj, obj
-assert obj["workspace"]["source"]["kind"] == "directory"
-assert obj["workspace"]["source"]["path"]
-' "$TMP/out" || fail "the dispatched JSON must give the directory in workspace.source, not workspaceId: $(cat "$TMP/out")"
+obj = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])
+assert obj["cwd"].endswith("/.worktrees/issue-63"), obj["cwd"]
+' "$MMW_FAKE_PASEO_STATE/runs.jsonl" || fail "the session must start in the ticket worktree"
   grep -q "advance #76:" "$TMP/err" || fail "the summary line should be on stderr: $(cat "$TMP/err")"
   [ "$(git -C "$TMP/repo" config --get branch.issue-63.mmw-base)" = "$(git -C "$TMP/repo" rev-parse HEAD)" ] \
     || fail "mmw-base should be HEAD for a branch-off"
@@ -1583,13 +1624,13 @@ scenario_advancedirty() {
 
 scenario_start_worker() {
   local code
-  echo "--- a ticket with no worker label prints one create_agent object on the default row"
+  echo "--- a ticket with no worker label starts one session on the default row and prints its id"
   reset_log
   fresh_repo
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  never_ran
-  assert_create_shape || fail "the JSON line is wrong: $(cat "$TMP/out")"
+  started_once
+  assert_started || fail "the JSON line is wrong: $(cat "$TMP/out")"
   [ "$(out_json title)" = "#61 worker" ] || fail "title: $(out_json title)"
   [ "$(out_json provider)" = "$JUNIOR_HOST/$JUNIOR_MODEL" ] || fail "provider: $(out_json provider)"
   [ "$(out_json labels.mmw.ticket)" = 61 ] || fail "ticket label"
@@ -1599,12 +1640,11 @@ scenario_start_worker() {
   python3 -c '
 import json, sys
 from pathlib import Path
-obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
+obj = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])
 assert "mmw.profile" not in obj["labels"], obj["labels"]
 assert obj["settings"].get("thinkingOptionId") == "true", obj["settings"]
 assert obj["settings"].get("modeId") == "agent", obj["settings"]
-assert obj["settings"].get("features") == {"auto_accept": True}, obj["settings"]
-' "$TMP/out" || fail "create_agent settings changed: $(cat "$TMP/out")"
+' "$MMW_FAKE_PASEO_STATE/runs.jsonl" || fail "paseo run settings changed: $(cat "$TMP/out")"
   case "$(out_json initialPrompt)" in
     "Use the implement skill to work ticket #61."*) ;;
     *) fail "the worker dispatch line is missing: $(out_json initialPrompt)" ;;
@@ -1625,33 +1665,6 @@ assert obj["settings"].get("features") == {"auto_accept": True}, obj["settings"]
     *"Several tickets run on this machine at once. Before you start, reach or stop the product, read 'Five rules while the product is running' in the drive-target skill."*) ;;
     *) fail "the product-rules sentence is missing: $(out_json initialPrompt)" ;;
   esac
-  echo "--- that object carries a complete fallback create_agent payload on the second live-table row"
-  [ "$(out_json fallback.provider)" = "grok/grok-4.6" ] \
-    || fail "fallback.provider: $(out_json fallback.provider)"
-  python3 -c '
-import json, sys
-from pathlib import Path
-obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
-fb = obj["fallback"]
-for key in ("title", "provider", "settings", "labels", "initialPrompt",
-            "notifyOnFinish", "workspace", "relationship"):
-    assert key in fb, key
-assert "fallback" not in fb
-assert "workspaceId" not in fb, fb
-assert fb["workspace"] == obj["workspace"]
-assert fb["relationship"] == obj["relationship"]
-assert fb["title"] == obj["title"]
-assert fb["initialPrompt"] == obj["initialPrompt"]
-assert fb["notifyOnFinish"] == obj["notifyOnFinish"]
-assert fb["labels"]["mmw.ticket"] == obj["labels"]["mmw.ticket"]
-assert fb["labels"]["mmw.kind"] == "worker"
-assert "mmw.profile" not in fb["labels"], fb["labels"]
-assert "mmw.profile" not in obj["labels"], obj["labels"]
-assert obj["provider"] != fb["provider"], obj["provider"]
-assert "modeId" not in fb["settings"], fb["settings"]
-assert fb["settings"].get("features") == {"auto_accept": True}, fb["settings"]
-assert fb["settings"].get("thinkingOptionId") == "high"
-' "$TMP/out" || fail "the fallback object is not a create_agent payload: $(cat "$TMP/out")"
   assert_wt 61
   [ "$(git -C "$(wt 61)" rev-parse --abbrev-ref HEAD)" = issue-61 ] \
     || fail "new worktree should be on issue-61"
@@ -1671,7 +1684,7 @@ assert fb["settings"].get("thinkingOptionId") == "high"
   make_branch issue-61 one.txt "already there"
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  never_ran
+  started_once
   assert_wt 61
   [ "$(git -C "$(wt 61)" rev-parse --abbrev-ref HEAD)" = issue-61 ] \
     || fail "existing branch should be checked out in the worktree"
@@ -1683,16 +1696,15 @@ assert fb["settings"].get("thinkingOptionId") == "high"
   code="$(run_dispatch env FAKE_GH_LABELS="ready-for-agent,senior-worker" \
           bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  never_ran
+  started_once
   [ "$(out_json provider)" = "grok/$SENIOR_MODEL" ] || fail "provider: $(out_json provider)"
   [ "$(out_json settings.thinkingOptionId)" = xhigh ] || fail "effort: $(out_json settings.thinkingOptionId)"
   python3 -c '
 import json, sys
 from pathlib import Path
-obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
+obj = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])
 assert "mmw.profile" not in obj["labels"], obj["labels"]
-assert "fallback" not in obj, obj
-' "$TMP/out" || fail "senior-worker has one live-table row, so start must not print fallback: $(cat "$TMP/out")"
+' "$MMW_FAKE_PASEO_STATE/runs.jsonl" || fail "the senior-worker start carries a profile label"
 
   echo "--- two worker labels are refused, and nothing is started"
   reset_log
@@ -1754,10 +1766,9 @@ assert "fallback" not in obj, obj
   python3 -c '
 import json, sys
 from pathlib import Path
-obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
+obj = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])
 assert obj["settings"].get("thinkingOptionId") == "true"
-assert obj["settings"].get("features") == {"auto_accept": True}, obj["settings"]
-' "$TMP/out" || fail "copied start settings are wrong: $(cat "$TMP/out")"
+' "$MMW_FAKE_PASEO_STATE/runs.jsonl" || fail "copied start settings are wrong: $(cat "$TMP/out")"
 }
 
 scenario_retract() {
@@ -1780,6 +1791,7 @@ JSON
   [ "$code" = 0 ] || fail "start expected exit 0, got $code: $(cat "$TMP/err")"
   [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
     || fail "start should hold one slot, it holds $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  set_agent_status "$(cat "$TMP/out")" closed
   : > "$MMW_TEST_LOG"
   code="$(run_dispatch env MMW_LEASE_SLOTS=1 FAKE_GH_LOGIN=mmw-bot \
           FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
@@ -1836,6 +1848,7 @@ JSON
   code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
           bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "start expected exit 0, got $code: $(cat "$TMP/err")"
+  set_agent_status "$(cat "$TMP/out")" closed
   : > "$MMW_TEST_LOG"
   code="$(run_dispatch env MMW_LEASE_SLOTS=1 FAKE_GH_LOGIN=mmw-bot \
           FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
@@ -1853,6 +1866,7 @@ JSON
   code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
           bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "start expected exit 0, got $code: $(cat "$TMP/err")"
+  set_agent_status "$(cat "$TMP/out")" closed
   : > "$MMW_TEST_LOG"
   local copy
   copy="$(skill_copy_for retract)"
@@ -1894,17 +1908,17 @@ scenario_start_reviewer() {
   seed_workspace 61
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  never_ran
+  started_once
   [ "$(out_json title)" = "#61 reviewer" ] || fail "title: $(out_json title)"
   [ "$(out_json labels.mmw.kind)" = reviewer ] || fail "kind label"
   python3 -c '
 import json, sys
 from pathlib import Path
-obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
+obj = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])
 assert "mmw.profile" not in obj["labels"], obj["labels"]
 assert obj["provider"] == "claude/claude-opus-5", obj["provider"]
 assert obj["settings"].get("thinkingOptionId") == "high"
-' "$TMP/out" || fail "reviewer payload: $(cat "$TMP/out")"
+' "$MMW_FAKE_PASEO_STATE/runs.jsonl" || fail "reviewer payload: $(cat "$TMP/out")"
   case "$(out_json initialPrompt)" in
     "Use the code-review skill to review ticket #61 from base commit abcdef0123456789abcdef0123456789abcdef01."*) ;;
     *) fail "the reviewer dispatch line did not carry the recorded base commit: $(out_json initialPrompt)" ;;
@@ -1922,17 +1936,17 @@ scenario_start_verifier() {
   seed_workspace 61
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 verifier)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  never_ran
+  started_once
   [ "$(out_json title)" = "#61 verifier" ] || fail "title: $(out_json title)"
   [ "$(out_json labels.mmw.kind)" = verifier ] || fail "kind label"
   python3 -c '
 import json, sys
 from pathlib import Path
-obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
+obj = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])
 assert "mmw.profile" not in obj["labels"], obj["labels"]
 assert obj["provider"] == "claude/claude-sonnet-5", obj["provider"]
 assert obj["settings"].get("thinkingOptionId") == "high"
-' "$TMP/out" || fail "verifier payload: $(cat "$TMP/out")"
+' "$MMW_FAKE_PASEO_STATE/runs.jsonl" || fail "verifier payload: $(cat "$TMP/out")"
   case "$(out_json initialPrompt)" in
     "Use the verdict skill to verify ticket #61."*) ;;
     *) fail "the verifier prompt does not name the verdict skill: $(out_json initialPrompt)" ;;
@@ -1945,7 +1959,7 @@ assert obj["settings"].get("thinkingOptionId") == "high"
 
 scenario_resume() {
   local code
-  echo "--- a live worker is found by ticket and kind labels and sent the text"
+  echo "--- a live worker is found by the RUNNER line on its ticket and sent the text"
   reset_log
   python3 -c '
 import json, os
@@ -1959,9 +1973,10 @@ path.write_text(json.dumps([{
     "labels": {"mmw.ticket": "61", "mmw.kind": "worker", "mmw.spec": "76"},
 }]))
 '
+  runner_line 61 paseo agt_w61 worker
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" resume 61 continue)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  has "paseo :: ls :: -g :: --json :: --label :: mmw.ticket=61 :: --label :: mmw.kind=worker"
+  has "gh :: issue :: view :: 61 :: --json :: comments"
   has "paseo :: send :: --no-wait :: agt_w61 :: continue"
 
   echo "--- no matching worker is a refusal, and nothing is sent"
@@ -2048,8 +2063,8 @@ JSON
           bash "$DISPATCH" "${TOOLS[@]}" wait 61 verifier)"
   [ "$code" = 1 ] || fail "expected exit 1 with no result, got $code: $(cat "$TMP/err")"
   hasnt "paseo :: wait"
-  grep -q "paseo logs agt_61_verifier" "$TMP/err" \
-    || fail "stderr should name paseo logs: $(cat "$TMP/err")"
+  grep -q "agt_61_verifier on #61 stopped with no VERDICT comment; read its session on paseo" "$TMP/err" \
+    || fail "stderr should name the session and its runner: $(cat "$TMP/err")"
   grep -q "VERDICT" "$TMP/err" \
     || fail "stderr should name the missing VERDICT: $(cat "$TMP/err")"
   [ "$(wc -l < "$TMP/err" | tr -d ' ')" = 1 ] \
@@ -2111,8 +2126,8 @@ JSON
           bash "$DISPATCH" "${TOOLS[@]}" wait 61 reviewer)"
   [ "$code" = 2 ] || fail "expected exit 2 with no agent, got $code: $(cat "$TMP/err")"
   hasnt "paseo :: wait"
-  grep -q "no reviewer agent" "$TMP/err" \
-    || fail "stderr should say there is no such agent: $(cat "$TMP/err")"
+  grep -q "no RUNNER line for a reviewer" "$TMP/err" \
+    || fail "stderr should say there is no session on the ticket: $(cat "$TMP/err")"
 }
 
 scenario_reverify() {
@@ -2264,7 +2279,7 @@ scenario_release() {
     || fail "the claim should have been given back: $(cat "$TMP/err")"
   grep -q "started 1" "$TMP/err" || fail "it was freed and then left: $(cat "$TMP/err")"
   hasnt "workspace :: create"
-  grep -q '"title": "#63 worker"' "$TMP/out" \
+  [ "$(out_json title)" = "#63 worker" ] \
     || fail "it should re-dispatch into the standing workspace: $(cat "$TMP/out")"
 }
 
@@ -2326,7 +2341,7 @@ JSON
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
-  grep -q '"title": "#61 worker"' "$TMP/out" \
+  [ "$(out_json title)" = "#61 worker" ] \
     || fail "advance should dispatch #61: $(cat "$TMP/out")"
   hasnt "workspace :: create"
   has "gh :: issue :: edit :: 61 :: --remove-assignee :: @me"
@@ -2503,6 +2518,8 @@ scenario_suspend() {
   reset_log
   write_open_batch
   open_a_night
+  # The night's starts are real sessions now; this scenario seeds the one it wants.
+  echo '[]' > "$MMW_FAKE_PASEO_STATE/agents.json"
 
   [ -d "$TMP/repo/.worktrees/issue-61" ] || fail "the night did not open a worktree for #61"
   [ -d "$TMP/repo/.worktrees/issue-63" ] || fail "the night did not open a worktree for #63"
@@ -2573,7 +2590,7 @@ scenario_suspend() {
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "advance after suspend exited $code: $(cat "$TMP/err")"
-  grep -q '"title": "#61 worker"' "$TMP/out" \
+  grep -q '"title": "#61 worker"' "$MMW_FAKE_PASEO_STATE/runs.jsonl" \
     || fail "advance after suspend should re-dispatch #61: $(cat "$TMP/out")"
   hasnt "workspace :: create"
 }
@@ -2682,6 +2699,8 @@ scenario_suspendbusy() {
   reset_log
   write_open_batch
   open_a_night
+  # The night's starts are real sessions now; this scenario seeds the one it wants.
+  echo '[]' > "$MMW_FAKE_PASEO_STATE/agents.json"
   seed_workspace 65
   python3 "$LEASE_PY" claim "$TMP/repo/.worktrees/issue-65" >/dev/null
   seed_agent 61 worker
@@ -2772,17 +2791,17 @@ run_runner() {
 
 scenario_runnerstart() {
   local code copy
-  echo "--- start <n> worker still prints create_agent, and git owns the worktree"
+  echo "--- start <n> worker goes through the adapter, and git owns the worktree"
   reset_log
   fresh_repo
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  never_ran
-  assert_create_shape || fail "create_agent print surface moved: $(cat "$TMP/out")"
+  started_once
+  assert_started || fail "start did not go through the adapter: $(cat "$TMP/out")"
   assert_wt 61
   hasnt_runner_worktree
 
-  echo "--- that path goes through the adapter: without it, start refuses and prints no create_agent"
+  echo "--- without the adapter, start refuses and starts nothing"
   copy="$(skill_copy_for start)"
   rm -f "$copy/scripts/runners/paseo.sh"
   reset_log
@@ -2793,13 +2812,6 @@ scenario_runnerstart() {
     || fail "the refusal should name the adapter: $(cat "$TMP/err")"
   nothing_printed
   never_ran
-
-  echo "--- the adapter's start verb does not spawn (create_agent print stays)"
-  reset_log
-  code="$(run_runner start --host grok --model grok-4.6 --effort high \
-          --cwd "$TMP/repo" --prompt "hi" --skip-approval)"
-  [ "$code" = 0 ] || fail "adapter start expected exit 0, got $code: $(cat "$TMP/err")"
-  [ "$(count_of 'paseo :: run')" = 0 ] || fail "adapter start called paseo run: $(cat "$MMW_TEST_LOG")"
 }
 
 scenario_runnersend() {
@@ -2818,6 +2830,7 @@ path.write_text(json.dumps([{
     "labels": {"mmw.ticket": "61", "mmw.kind": "worker", "mmw.spec": "76"},
 }]))
 '
+  runner_line 61 paseo agt_w61 worker
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" resume 61 continue)"
   [ "$code" = 0 ] || fail "delivered must be exit 0, got $code: $(cat "$TMP/err")"
   has "paseo :: send :: --no-wait :: agt_w61 :: continue"
@@ -3617,68 +3630,53 @@ scenario_usesorcaunreadable() {
   fi
 }
 
-# Feed a create_agent object to the fake. Exit 0 accepted, 1 rejected.
-feed_create() {
-  python3 "$TMP/bin/paseo" validate-create-agent
-}
-
 scenario_paseostartdir() {
   local code dest
-  echo "--- start prints workspace.source.kind=directory, not a path in workspaceId"
+  echo "--- start hands the ticket worktree to the runner as the session's directory"
   reset_log
   fresh_repo
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  assert_create_shape || fail "the JSON line is wrong: $(cat "$TMP/out")"
   dest="$(cd "$TMP/repo" && git rev-parse --show-toplevel)/.worktrees/issue-61"
-  python3 -c '
-import json, sys
-from pathlib import Path
-obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
-assert "workspaceId" not in obj, obj
-assert obj["workspace"]["kind"] == "create"
-assert obj["workspace"]["source"]["kind"] == "directory"
-assert obj["workspace"]["source"]["path"] == sys.argv[2], (obj["workspace"], sys.argv[2])
-assert obj["relationship"] == {"kind": "subagent"}
-' "$TMP/out" "$dest" \
-    || fail "start must give the worktree as workspace.source.path: $(cat "$TMP/out") want $dest"
-
-  echo "--- the fake paseo accepts that object"
-  feed_create < "$TMP/out" > "$TMP/feed.out" 2> "$TMP/feed.err"
-  [ "$?" = 0 ] || fail "fake paseo should accept start's object: $(cat "$TMP/feed.err")"
-
-  echo "--- stuffing the path into workspaceId is what the fake rejects, so this case would go red"
-  python3 -c '
-import json, sys
-from pathlib import Path
-obj = json.loads([l for l in Path(sys.argv[1]).read_text().splitlines() if l.strip()][0])
-obj["workspaceId"] = obj["workspace"]["source"]["path"]
-print(json.dumps(obj))
-' "$TMP/out" > "$TMP/path-id.json"
-  feed_create < "$TMP/path-id.json" > "$TMP/feed.out" 2> "$TMP/feed.err"
-  [ "$?" != 0 ] || fail "a path in workspaceId must be rejected: $(cat "$TMP/feed.out")"
-  grep -q "Workspace .* not found" "$TMP/feed.err" \
-    || fail "the rejection should name the workspace: $(cat "$TMP/feed.err")"
+  [ "$(out_json cwd)" = "$dest" ] || fail "cwd: $(out_json cwd), want $dest"
 }
 
-scenario_paseorejectspath() {
-  echo "--- a path is not a wks_<16 hex> id, so the fake refuses it"
+scenario_startreturnssession() {
+  local code
+  echo "--- start prints the session id the runner answered with, and nothing else"
   reset_log
-  printf '%s\n' '{"workspaceId":"/tmp/repo/.worktrees/issue-61","title":"#61 worker","provider":"grok/grok-4.6","settings":{},"notifyOnFinish":false,"labels":{"mmw.ticket":"61","mmw.kind":"worker"},"initialPrompt":"go"}' \
-    | feed_create > "$TMP/feed.out" 2> "$TMP/feed.err"
-  [ "$?" != 0 ] || fail "path workspaceId should be rejected: $(cat "$TMP/feed.out")"
-  grep -q 'Workspace /tmp/repo/.worktrees/issue-61 not found' "$TMP/feed.err" \
-    || fail "the refusal should name the path: $(cat "$TMP/feed.err")"
+  fresh_repo
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/out")" = agt_run_1 ] || fail "stdout should be the session id: $(cat "$TMP/out")"
+  if grep -q '{' "$TMP/out"; then fail "stdout still carries an object: $(cat "$TMP/out")"; fi
+}
 
-  echo "--- a workspaceId that looks like an id but is not wks_<16 hex> is refused too"
-  printf '%s\n' '{"workspaceId":"wks_issue-61","title":"#61 worker","provider":"grok/grok-4.6","settings":{},"notifyOnFinish":false,"labels":{},"initialPrompt":"go"}' \
-    | feed_create > "$TMP/feed.out" 2> "$TMP/feed.err"
-  [ "$?" != 0 ] || fail "wks_issue-61 should be rejected: $(cat "$TMP/feed.out")"
+scenario_startonce() {
+  local code
+  echo "--- a start the runner refuses is refused once: one paseo run, no second host"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch env MMW_FAKE_PASEO_SCENARIO=run-fail bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  started_once
+  grep -q "nothing was retried" "$TMP/err" || fail "the refusal should say it was not retried: $(cat "$TMP/err")"
+  nothing_printed
+  assert_no_wt 61
+}
 
-  echo "--- the directory field the night uses is accepted"
-  printf '%s\n' '{"title":"#61 worker","provider":"grok/grok-4.6","settings":{},"notifyOnFinish":false,"labels":{},"initialPrompt":"go","relationship":{"kind":"subagent"},"workspace":{"kind":"create","source":{"kind":"directory","path":"/tmp/repo/.worktrees/issue-61"}}}' \
-    | feed_create > "$TMP/feed.out" 2> "$TMP/feed.err"
-  [ "$?" = 0 ] || fail "directory workspace.source should be accepted: $(cat "$TMP/feed.err")"
+scenario_runneronticket() {
+  local code
+  echo "--- a start writes the runner and its session id on the ticket"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
+  [ "$code" = 2 ] || true
+  reset_log
+  fresh_repo
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 verifier)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  has "gh :: issue :: comment :: 61 :: --body :: RUNNER paseo agt_run_1 verifier"
 }
 
 scenario_landarchivesagents() {
@@ -3896,7 +3894,7 @@ scenario_orcanohosts() {
   hasnt "orca :: terminal :: create"
 }
 
-ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir paseorejectspath landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable"
+ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -3947,6 +3945,9 @@ banner_for() {
     installorcashape) echo INSTALL-ORCA-SHAPE-OK ;;
     usesnorunners) echo USES-NO-RUNNERS-OK ;;
     usesorcaunreadable) echo USES-ORCA-UNREADABLE-OK ;;
+    startreturnssession) echo START-RETURNS-SESSION-OK ;;
+    startonce) echo START-ONCE-OK ;;
+    runneronticket) echo RUNNER-ON-TICKET-OK ;;
     runnersend) echo RUNNER-SEND-OK ;;
     runnerliveness) echo RUNNER-LIVENESS-OK ;;
     runnerparity) echo RUNNER-PARITY-OK ;;
@@ -3962,7 +3963,6 @@ banner_for() {
     usesmismatch) echo USES-MISMATCH-OK ;;
     usesunreadable) echo USES-UNREADABLE-OK ;;
     paseostartdir) echo PASEO-START-DIR-OK ;;
-    paseorejectspath) echo PASEO-REJECTS-PATH-OK ;;
     landarchivesagents) echo LAND-ARCHIVES-AGENTS-OK ;;
   esac
 }
