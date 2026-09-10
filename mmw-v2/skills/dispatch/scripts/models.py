@@ -21,6 +21,7 @@ from typing import NamedTuple
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 HOSTS_JSON = SKILL_DIR / "hosts.json"
+RUNNERS_DIR = SKILL_DIR / "scripts" / "runners"
 ALLOWED_AGENTS = (
     "junior-worker", "senior-worker", "reviewer", "verifier", "advisor")
 # Lody cuts its own worktree. Level 4 must not pick it; ticket / env / live may.
@@ -209,13 +210,19 @@ def _spoken_runner(value: str | None) -> str | None:
     return text
 
 
+def has_adapter(name: str) -> bool:
+    """True when the dispatch skill has an adapter for this runner, `runners/<name>.sh`."""
+    return (RUNNERS_DIR / f"{name}.sh").is_file()
+
+
 def runtime_from_environ(environ: Mapping[str, str]) -> tuple[str, ...]:
     """Runners visible in this process: TERM_PROGRAM, then HERDR_ENV, then TMUX.
 
     Environment variables cannot express nesting. TERM_PROGRAM is treated as
     the outer signal: Herdr opened inside an Orca terminal is herdr, not orca.
     When HERDR_ENV and TMUX are both set, this returns tmux last; that does not
-    say which is nested in which.
+    say which is nested in which. This reports what the environment shows, adapter
+    or not; `pick_runner` is what passes over a runner no adapter can drive.
     """
     found: list[str] = []
     if (environ.get("TERM_PROGRAM") or "").strip().lower() == "orca":
@@ -234,7 +241,14 @@ def pick_runner(
     runtime: Mapping[str, str] | Sequence[str] = (),
     default: str = DEFAULT_RUNNER,
 ) -> str:
-    """First speaker wins: ticket, env, live table, innermost runtime, default."""
+    """First speaker wins: ticket, env, live table, innermost runtime, default.
+
+    A name given by the ticket, the environment or the live table is returned as given,
+    adapter or not: someone chose it, and `start` refuses a runner it has no adapter for
+    by name. The runtime level is a guess from the environment, so it only names a
+    runner that has an adapter (`has_adapter`) and does not cut its own worktree: a
+    guess that names tmux, which nothing here can drive, would refuse every start.
+    """
     for value in (ticket, env, live):
         spoken = _spoken_runner(value)
         if spoken:
@@ -244,7 +258,8 @@ def pick_runner(
     else:
         names = tuple(
             spoken for spoken in (_spoken_runner(n) for n in runtime) if spoken)
-    detected = [name for name in names if name not in WORKTREE_OWNING]
+    detected = [name for name in names
+                if name not in WORKTREE_OWNING and has_adapter(name)]
     if detected:
         return detected[-1]
     spoken = _spoken_runner(default)
@@ -845,7 +860,7 @@ def row_tsv(agent: str) -> str:
 
 def runner_name(environ: Mapping[str, str] | None = None) -> str:
     """Tonight's runner: MMW_RUNNER, then the live table's runner row, then the
-    innermost runner this process runs in, then the default."""
+    innermost runner this process runs in that has an adapter, then the default."""
     env = os.environ if environ is None else environ
     return pick_runner(
         env=env.get("MMW_RUNNER"),

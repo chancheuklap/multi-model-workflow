@@ -45,7 +45,7 @@ class PickRunnerLevelsTest(unittest.TestCase):
 
     def test_runtime_alone_is_used(self):
         self.assertEqual(
-            models.pick_runner(runtime=("tmux",), default="paseo"), "tmux")
+            models.pick_runner(runtime=("orca",), default="paseo"), "orca")
 
     def test_default_when_nobody_spoke(self):
         self.assertEqual(models.pick_runner(), "orca")
@@ -64,7 +64,7 @@ class PickRunnerLevelsTest(unittest.TestCase):
     def test_live_beats_runtime(self):
         self.assertEqual(
             models.pick_runner(
-                live="herdr", runtime=("tmux",), default="paseo"),
+                live="herdr", runtime=("orca",), default="paseo"),
             "herdr")
 
     def test_runtime_beats_default(self):
@@ -80,15 +80,8 @@ class PickRunnerLevelsTest(unittest.TestCase):
     def test_innermost_runtime_signal_wins(self):
         self.assertEqual(
             models.pick_runner(
-                runtime=("herdr", "tmux"), default="paseo"),
-            "tmux")
-
-    def test_herdr_env_and_tmux_detect_as_tmux(self):
-        names = models.runtime_from_environ(
-            {"HERDR_ENV": "1", "TMUX": "/tmp/tmux-1000/default"})
-        self.assertEqual(names, ("herdr", "tmux"))
-        self.assertEqual(
-            models.pick_runner(runtime=names, default="paseo"), "tmux")
+                runtime=("orca", "herdr"), default="paseo"),
+            "herdr")
 
     def test_term_program_orca_is_orca(self):
         names = models.runtime_from_environ({"TERM_PROGRAM": "Orca"})
@@ -106,6 +99,33 @@ class PickRunnerLevelsTest(unittest.TestCase):
         self.assertEqual(models.pick_runner(runtime=env), "herdr")
 
 
+class RuntimeHasAnAdapterTest(unittest.TestCase):
+    def test_the_adapters_are_the_files_beside_models_py(self):
+        self.assertEqual(
+            [name for name in ("herdr", "orca", "paseo", "tmux", "lody")
+             if models.has_adapter(name)],
+            ["herdr", "orca", "paseo"])
+
+    def test_tmux_alone_falls_through_to_the_default(self):
+        environ = {"TMUX": "/tmp/tmux-1000/default"}
+        self.assertEqual(models.runtime_from_environ(environ), ("tmux",))
+        self.assertEqual(models.pick_runner(runtime=environ), "orca")
+        self.assertEqual(
+            models.pick_runner(runtime=environ, default="paseo"), "paseo")
+
+    def test_herdr_env_and_tmux_pick_herdr(self):
+        environ = {"HERDR_ENV": "1", "TMUX": "/tmp/tmux-1000/default"}
+        self.assertEqual(models.runtime_from_environ(environ), ("herdr", "tmux"))
+        self.assertEqual(
+            models.pick_runner(runtime=environ, default="paseo"), "herdr")
+
+    def test_an_explicit_runner_without_an_adapter_is_returned_as_given(self):
+        self.assertEqual(
+            models.runner_name({"MMW_RUNNER": "tmux", "HERDR_ENV": "1"}), "tmux")
+        self.assertEqual(
+            models.pick_runner(live="tmux", runtime={"HERDR_ENV": "1"}), "tmux")
+
+
 class WorktreeOwningTest(unittest.TestCase):
     def test_worktree_owning_runtime_is_ignored(self):
         self.assertEqual(
@@ -114,8 +134,8 @@ class WorktreeOwningTest(unittest.TestCase):
     def test_worktree_owning_among_runtime_signals_is_skipped(self):
         self.assertEqual(
             models.pick_runner(
-                runtime=("herdr", "tmux", "lody"), default="paseo"),
-            "tmux")
+                runtime=("orca", "herdr", "lody"), default="paseo"),
+            "herdr")
 
     def test_worktree_owning_ticket_is_used(self):
         self.assertEqual(
