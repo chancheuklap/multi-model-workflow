@@ -486,6 +486,17 @@ scenario_startstop() {
   [ "$code" = 0 ] || fail "stop with nothing running expected 0, got $code"
   grep -q "no relay is running for o/r" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
 
+  echo "--- stop with no relay alive still forgets the last good poll of the one that died"
+  python3 "$RELAY" run --repo "$REPO" --tickets 61 --once >/dev/null 2>&1
+  set_beat 2020-01-01T00:00:00Z
+  code="$(relay_ stop --repo "$REPO")"
+  [ "$code" = 0 ] || fail "stop expected 0, got $code"
+  relay_ ack --repo "$REPO" --runner paseo --session main-a --through 2 >/dev/null
+  code="$(relay_ run --repo "$REPO" --tickets 61 --once --grace 0)"
+  [ "$code" = 0 ] || fail "the next relay expected 0, got $code: $(cat "$TMP/err")"
+  got="$(rows)"
+  case "$got" in *relay.recovered*) fail "a stop after a death is not an unattended stretch to announce: $got" ;; esac
+
   echo "--- start refuses, and runs nothing, when the registration cannot be read"
   echo "not json" > "$STATE/recipient.json"
   code="$(relay_ start --repo "$REPO" --tickets 61 --interval 60)"
@@ -497,7 +508,7 @@ scenario_startstop() {
 
 scenario_ackwake() {
   local code
-  echo "--- a recipient acks the wake it read by ticket and event, twice harmlessly"
+  echo "--- a recipient acks the wake it read by ticket and event; a second ack of it is refused"
   reset
   agents main-a wk-61
   register_main
@@ -510,8 +521,16 @@ scenario_ackwake() {
   grep -q "acked paseo main-a \`#61 ticket.passed\` through 1: removed 1, 0 left for it" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
   expect_rows "2 61 reviewer.reported wk-61 delivered"
   code="$(relay_ ack --repo "$REPO" --runner paseo --session main-a --ticket 61 --event ticket.passed)"
-  [ "$code" = 0 ] || fail "a second ack expected 0, got $code"
-  grep -q "acked already" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
+  [ "$code" = 1 ] || fail "a second ack matches no row of main-a and is refused, got $code"
+  grep -q "no wake \`#61 ticket.passed\` is queued for paseo session main-a" "$TMP/err" || fail "stderr: $(cat "$TMP/err")"
+  grep -q "Queued for this session: nothing" "$TMP/err" || fail "the refusal should say what main-a has queued: $(cat "$TMP/err")"
+
+  echo "--- a session acking a wake that went to another session is refused, and removes nothing"
+  code="$(relay_ ack --repo "$REPO" --runner paseo --session main-a --ticket 61 --event reviewer.reported)"
+  [ "$code" = 1 ] || fail "main-a acking the worker's wake expected 1, got $code"
+  code="$(relay_ ack --repo "$REPO" --runner orca --session wk-61 --ticket 61 --event reviewer.reported)"
+  [ "$code" = 1 ] || fail "the same session id on another runner is another session, expected 1, got $code"
+  expect_rows "2 61 reviewer.reported wk-61 delivered"
   code="$(relay_ ack --repo "$REPO" --runner paseo --session main-a --ticket 61 --event ticket.refused)"
   [ "$code" = 1 ] || fail "ack of a wake never queued expected 1, got $code"
   code="$(relay_ ack --repo "$REPO" --runner paseo --session main-a --event ticket.passed)"

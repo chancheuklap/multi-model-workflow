@@ -396,13 +396,11 @@ class AckByWakeTest(RelayCase):
         self.assertEqual(self.relay.ack_wake(MAIN_A, 61, "ticket.passed"), (1, 1, 1))
         self.assertEqual(self.summary(), [(2, 61, "ticket.passed")])
 
-    def test_an_acked_wake_was_queued_and_one_never_translated_was_not(self):
+    def test_a_wake_acked_already_matches_nothing_the_second_time(self):
         self.board_with_two_recipients()
         self.relay.ack_wake(MAIN_A, 61, "ticket.passed")
         self.assertIsNone(self.relay.ack_wake(MAIN_A, 61, "ticket.passed"))
-        self.assertTrue(self.relay.was_queued(61, "ticket.passed"))
-        self.assertFalse(self.relay.was_queued(99, "ticket.passed"))
-        self.assertFalse(self.relay.was_queued(61, "ticket.refused"))
+        self.assertEqual(len(self.rows()), 2)
 
     def test_the_recovered_announcement_is_acked_by_its_name(self):
         self.poll()
@@ -410,7 +408,6 @@ class AckByWakeTest(RelayCase):
         self.poll()
         self.assertEqual([r["event"] for r in self.rows()], ["relay.recovered"])
         self.assertEqual(self.relay.ack_wake(MAIN_A, None, "relay.recovered"), (1, 1, 0))
-        self.assertTrue(self.relay.was_queued(None, "relay.recovered"))
 
 
 class ReadEventTest(unittest.TestCase):
@@ -475,13 +472,33 @@ class DeliveryTest(RelayCase):
         self.relay.deliver()
         self.assertEqual([t for _, _, t in self.send.sent[1:]], ["#61 ticket.passed", "#62 ticket.returned"])
 
-    def test_a_row_stays_when_the_send_answer_is_unknown(self):
+    def test_a_row_stays_when_the_send_was_not_made(self):
         self.queue_two()
-        for code in (4, 1):
+        for code in (relay.NOT_SENT, 1):
             self.send.code = code
             self.relay.deliver()
             self.assertEqual([(r["seq"], r["delivered"]) for r in self.rows()], [(1, None), (2, None)])
-        self.assertIn("neither delivered nor refused", self.err.getvalue())
+        self.assertIn("which says it was not sent", self.err.getvalue())
+
+    def test_a_wake_handed_over_unconfirmed_is_delivered_and_not_typed_again(self):
+        """Answer 4: the text reached the session and no turn start was seen. Sending it
+        again every cycle would type the same wake into the session again and again."""
+        self.queue_two()
+        self.send.code = 4
+        self.relay.deliver()
+        rows = self.rows()
+        self.assertTrue(rows[0]["delivered"])
+        self.assertTrue(rows[0].get("unconfirmed"))
+        self.assertEqual(len(self.send.sent), 1, "one recipient: nothing more to it this pass")
+        self.relay.deliver()
+        self.relay.deliver()
+        self.assertEqual([s[2] for s in self.send.sent].count(relay.wake_text(rows[0])), 1)
+        self.assertEqual(len(self.rows()), 2, "delivered is not acked: the rows stay")
+        self.relay.forget_deliveries()
+        self.send.code = 0
+        self.relay.deliver()
+        self.assertEqual([s[2] for s in self.send.sent].count(relay.wake_text(rows[0])), 2,
+                         "a restart sends an unconfirmed row once more, like every unacked row")
 
     def test_a_row_is_dropped_when_the_runner_has_no_such_session(self):
         self.queue_two()

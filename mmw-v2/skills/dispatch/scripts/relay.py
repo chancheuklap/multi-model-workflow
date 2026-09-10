@@ -53,10 +53,16 @@ the queue empties), `ticket`, `event`, `to` (worker or main), the recipient's `r
 happened is read on the board. What `send` answered decides what happens to the row:
 
     0                 delivered; the row stays until it is acked
-    3                 the recipient is in a turn and did not take it; the row stays
+    4                 handed over and not confirmed: the text reached the session and
+                      no turn start was seen. Delivered all the same (`unconfirmed` on
+                      the row): typing it again every cycle would bury the session in
+                      copies. Like any delivered row it stays until acked, and is sent
+                      once more only when the relay restarts
+    3                 nothing was sent: the recipient is in a turn, or its runner could
+                      not be asked; the row stays and is sent again next cycle
     2                 the runner has no such session: a late delivery to a retired
                       session; the row is dropped
-    4, anything else  unknown; the row stays
+    anything else     the send could not be run or did not answer; the row stays
 
 A row whose runner and session are no longer the current ones for its role — the main
 agent registered another session, or a later `worker.started` put another worker on the
@@ -70,9 +76,10 @@ sent twice — every unacked row is sent once more each time the relay starts �
 handled once. A woken session knows the wake it read, not its sequence number, so
 `ack --ticket N --event E` names the wake instead: it acks through the recipient's oldest
 delivered row naming that ticket and event (the oldest queued one when none is marked
-delivered), and `--event relay.recovered` does the same for the announcement. A wake that
-is no longer queued for that recipient but was translated once is acked already, and the
-second ack is answered 0; a wake that was never queued is refused.
+delivered), and `--event relay.recovered` does the same for the announcement. Only that
+recipient's rows are looked at: an ack that matches none of them — acked already, sent to
+another session, or never queued — is refused, naming what it looked for and what is
+queued for that recipient, and removes nothing.
 
 **Starting and stopping.** `run` holds `relay.lock` for as long as it runs and records
 what it watches in `relay.json` beside it (its pid, its process identity, `watch`:
@@ -120,13 +127,14 @@ Exit codes:
     start     0 a relay watching that is running (started now, or already); 1 refused (no
               main agent registered, a relay watching something else is running, the
               relay exited or did not take its lock; its log's last lines are on stderr)
-    stop      0 no relay is running any more (stopped now, or none was); 1 it did not end;
+    stop      0 no relay is running any more (stopped now, or none was), and the last
+              good poll is forgotten either way; 1 it did not end;
               3 the running relay watches something else and was left running
     watching  0 a running relay watches that ticket, or that spec; 1 none does (stderr
               says why)
     register  0 registered; 1 refused (no such adapter, the runner says the session stopped)
-    ack       0 acked, or that wake was acked already; 1 refused (a sequence number that
-              was never issued, a wake that was never queued)
+    ack       0 acked; 1 refused (a sequence number that was never issued, a wake with no
+              row queued for that runner and session)
     queue     0 rows printed and a relay polled within its grace; 3 rows printed, but no
               relay is running or its last good poll is older than its grace
 """
@@ -323,23 +331,28 @@ def adapter_path(runner: str) -> Path:
     return RUNNERS / f"{runner}.sh"
 
 
+# What `send_via_adapter` answers when the adapter itself gave no answer: it is not an
+# adapter's exit code, so the row is kept and sent again.
+NOT_SENT = 5
+
+
 def send_via_adapter(runner: str, session: str, text: str) -> int:
     """`runners/<runner>.sh send <session> <text>`; its exit code. A send that could not be
-    run, or did not answer in time, is 4: nobody knows whether it arrived."""
+    run, or did not answer in time, is NOT_SENT: the adapter said nothing, not 4."""
     adapter = adapter_path(runner)
     if not adapter.is_file():
         sys.stderr.write(f"relay: no runner adapter at {adapter}; nothing was sent\n")
-        return 4
+        return NOT_SENT
     try:
         run = subprocess.run(["bash", str(adapter), "send", session, text],
                              capture_output=True, text=True, env=quiet_env(),
                              timeout=SEND_TIMEOUT)
     except subprocess.TimeoutExpired:
         sys.stderr.write(f"relay: {runner}.sh send did not answer within {SEND_TIMEOUT}s\n")
-        return 4
+        return NOT_SENT
     except OSError as exc:
         sys.stderr.write(f"relay: {runner}.sh send could not be run: {exc}\n")
-        return 4
+        return NOT_SENT
     for line in (run.stderr or "").splitlines():
         if line.strip():
             sys.stderr.write(f"relay: {runner}.sh: {line}\n")
@@ -504,17 +517,6 @@ class Relay:
         through = min(r["seq"] for r in (delivered or hits))
         removed, left = self.ack(address, through)
         return through, removed, left
-
-    def was_queued(self, ticket: int | None, event: str) -> bool:
-        """Whether a wake naming this ticket and event, or a `relay.recovered`, was ever
-        translated into a row: the difference between a wake acked already and one that
-        never existed."""
-        if event == RECOVERED:
-            return bool(self._read_state("gap.json", {}).get("since"))
-        with self.queue_lock():
-            seen = self._read_state("seen.json", {}).get("tickets", {})
-        keys = (seen.get(str(ticket)) or {}).get("keys") or []
-        return any(key.endswith(f":{event}") for key in keys)
 
     # ------------------------------------------------------------- polling
 
@@ -684,7 +686,8 @@ class Relay:
                     row["delivered"] = None
                 self._write_rows(rows)
 
-    def _settle(self, seq: int, delivered: str | None = None, drop: bool = False) -> bool:
+    def _settle(self, seq: int, delivered: str | None = None, drop: bool = False,
+                unconfirmed: bool = False) -> bool:
         """Mark row `seq` delivered, or drop it. False when it is no longer queued (acked)."""
         with self.queue_lock():
             rows = self._rows()
@@ -695,6 +698,8 @@ class Relay:
                 rows = [r for r in rows if r["seq"] != seq]
             else:
                 hit[0]["delivered"] = delivered
+                if unconfirmed:
+                    hit[0]["unconfirmed"] = True
             self._write_rows(rows)
             return True
 
@@ -769,6 +774,14 @@ class Relay:
             if code == 0:
                 if self._settle(row["seq"], delivered=iso(self.clock())):
                     self.out.write(f"delivered {row['seq']} {wake_text(row)} to {address[1]}\n")
+            elif code == 4:
+                # Handed over and not confirmed. Marked delivered, so it is not typed into
+                # the session again every cycle; it is sent once more on a restart, like
+                # every unacked row.
+                held.add(address)
+                if self._settle(row["seq"], delivered=iso(self.clock()), unconfirmed=True):
+                    self.out.write(f"delivered {row['seq']} {wake_text(row)} to {address[1]}, "
+                                   f"unconfirmed: {address[0]} took it and saw no turn start\n")
             elif code == 2:
                 self._drop(row, f"{address[0]} has no session {address[1]}: a late message for a "
                                 f"retired session")
@@ -778,8 +791,8 @@ class Relay:
             else:
                 held.add(address)
                 self.err.write(f"relay: kept row {row['seq']} ({wake_text(row)}): {address[0]}.sh "
-                               f"send answered {code}, which says neither delivered nor refused; it "
-                               f"is sent again next cycle\n")
+                               f"send answered {code}, which says it was not sent; it is sent "
+                               f"again next cycle\n")
         self.out.flush()
 
     # ------------------------------------------------------------- health
@@ -845,6 +858,19 @@ def watch_argv(watch: dict) -> list[str]:
     if watch.get("spec"):
         return ["--spec", str(watch["spec"])]
     return ["--tickets", ",".join(str(n) for n in watch["tickets"])]
+
+
+def clear_last_poll(state: Path) -> None:
+    """Forget the last good poll. A relay ended by `stop` was ended on purpose, so the time
+    until the next start is nobody's unattended stretch: the next relay reads every ticket
+    in full on start all the same, and announces no `relay.recovered` for a closed night."""
+    relay = Relay(state)
+    with relay.queue_lock():
+        beat = relay._read_state("beat.json", {})
+        if not beat:
+            return
+        beat.update(at=None, delivering=0, delivery_started=None, stopped=iso(now_utc()))
+        statedir.write_atomic(state / "beat.json", json.dumps(beat, sort_keys=True) + "\n")
 
 
 def log_tail(path: Path, lines: int = 5) -> str:
@@ -1001,6 +1027,9 @@ def cmd_stop(args) -> int:
     want = watch_of(args)
     found = running(state)
     if found is None:
+        # A relay that died, or was killed, leaves its last good poll behind; the next start
+        # would announce the time since as an unattended stretch of a night now closed.
+        clear_last_poll(state)
         print(f"no relay is running for {args.repo}")
         return 0
     holder, watch = found
@@ -1020,14 +1049,7 @@ def cmd_stop(args) -> int:
     deadline = time.monotonic() + STOP_WAIT
     while time.monotonic() < deadline:
         if statedir.holder(state / "relay.lock") is None:
-            # Stopped on purpose, so the time until the next start is nobody's unattended
-            # stretch: the next relay reads every ticket in full on start all the same, and
-            # announces no `relay.recovered` for a night that was closed.
-            relay = Relay(state)
-            with relay.queue_lock():
-                beat = relay._read_state("beat.json", {})
-                beat.update(at=None, delivering=0, delivery_started=None, stopped=iso(now_utc()))
-                statedir.write_atomic(state / "beat.json", json.dumps(beat, sort_keys=True) + "\n")
+            clear_last_poll(state)
             print(f"stopped the relay for {args.repo}: pid {pid}, watching {describe_watch(watch)}")
             return 0
         time.sleep(0.1)
@@ -1102,13 +1124,13 @@ def cmd_ack(args) -> int:
     wake = RECOVERED if ticket is None else f"#{ticket} {args.event}"
     done = relay.ack_wake(address, ticket, args.event)
     if done is None:
-        if relay.was_queued(ticket, args.event):
-            print(f"nothing queued for {args.runner} {args.session} is `{wake}`: it was acked "
-                  f"already, or dropped")
-            return 0
-        raise Refusal(f"no wake `{wake}` was ever queued in {relay.state}, so there is nothing "
-                      f"to ack. Ack the wake as it reached you: the ticket number and the event "
-                      f"name it carried.")
+        mine = [wake_text(r).split(" since ")[0] for r in relay.rows(address)]
+        held = ", ".join(f"`{w}`" for w in mine) if mine else "nothing"
+        raise Refusal(f"no wake `{wake}` is queued for {args.runner} session {args.session}, "
+                      f"so nothing was acked: it was acked already, it went to another "
+                      f"session, or it was never queued. Queued for this session: {held}. "
+                      f"Ack a wake from this session, as it reached it: the ticket number and "
+                      f"the event name it carried.")
     through, removed, left = done
     print(f"acked {args.runner} {args.session} `{wake}` through {through}: removed {removed}, "
           f"{left} left for it")

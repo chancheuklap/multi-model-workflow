@@ -16,14 +16,15 @@
 # hosts.json, which carry the approval bypass, so `--skip-approval` is always honoured
 # by those flags. A host with no launch block (today `pi`) is a refusal, not a start
 # with no model, no effort and no bypass.
-# send: exit 0 the text was delivered (input_accepted and turn_started); 3 the
-# session is there and did not take it (input_accepted without turn_started); 2
-# there is no such session (terminal_not_writable); 4 unknown — the list or the
-# receipt could not be read, the handle is past a truncated list, or the text was
-# accepted by a terminal whose program Orca cannot observe (`observation`
-# `unsupported`), so whether a turn started is not known. The receipt's stages are
-# `result.send.prompt.stages` and its warnings `result.warnings` (Orca 1.4.199, read
-# 2026-09-10 off a real `terminal send --json`).
+# send: exit 0 the text was delivered (input_accepted and turn_started); 4 the text went
+# into the terminal and no turn start was seen — the program is mid-turn and will read it
+# when the turn ends, or it is one Orca cannot observe (`observation` `unsupported`) — or
+# the receipt could not be read after the send: handed over, not confirmed, and not to be
+# typed again; 3 nothing was typed — the list could not be read, the handle is past a
+# truncated list, or Orca refused the send with an error of its own — so sending again
+# is safe; 2 there is no such session (terminal_not_writable, or a complete list without
+# it). The receipt's stages are `result.send.prompt.stages` and its warnings
+# `result.warnings` (Orca 1.4.199, read 2026-09-10 off a real `terminal send --json`).
 # liveness prints one of `alive`, `stopped`, `unknown` on stdout. A running process
 # and an idle UI are two fields; idle is not what this verb answers.
 # stop ends the session: exit 0 it is gone (or was already), 1 it could not be ended.
@@ -233,13 +234,14 @@ send() {
   case "$rc" in
     1) exit 2 ;;
     2)
-      printf '%s\n' unknown
-      exit 4
+      echo "runners/orca.sh: could not tell from terminal list whether $ident is there; nothing was sent" >&2
+      exit 3
       ;;
   esac
   out="$(orca_ terminal send --terminal "$ident" --text "$text" --enter \
         --wait-submit "$SEND_WAIT_S" --json 2>&1)" || true
   receipt="$(printf '%s' "$out" | parse_json send)" || {
+    echo "runners/orca.sh: terminal send to $ident answered with no receipt this can read; the text may be in the terminal" >&2
     printf '%s\n' unknown
     exit 4
   }
@@ -259,15 +261,18 @@ send() {
     *,input_accepted,*)
       if [ "$observation" = unsupported ]; then
         echo "runners/orca.sh: $ident took the text, and Orca cannot observe the program in it, so whether a turn started is not known: $warning" >&2
-        printf '%s\n' unknown
-        exit 4
+      else
+        echo "runners/orca.sh: $ident took the text and no turn start was seen; a program mid-turn reads it when the turn ends: $warning" >&2
       fi
-      exit 3
+      printf '%s\n' unknown
+      exit 4
       ;;
   esac
-  case "$warning" in
-    *"no turn start was observed"*) exit 3 ;;
-  esac
+  if [ -n "$code" ]; then
+    echo "runners/orca.sh: Orca refused the send to $ident ($code); nothing was typed: $warning" >&2
+    exit 3
+  fi
+  echo "runners/orca.sh: terminal send to $ident answered with no stage this can read; the text may be in the terminal: $warning" >&2
   printf '%s\n' unknown
   exit 4
 }

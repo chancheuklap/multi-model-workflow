@@ -5,7 +5,7 @@ description: Implement a piece of work based on a spec or set of tickets. Use wh
 
 Implement the work described by the user in the spec or tickets.
 
-First claim the ticket with the `verify-ticket` skill: its `--preflight` run, in that skill's `references/claiming.md`. It is first because nothing else in this pipeline claims a ticket, and step 8 below cannot close one you do not hold.
+First claim the ticket with the `verify-ticket` skill: its `--preflight` run, in that skill's `references/claiming.md`. It is first because nothing else in this pipeline claims a ticket, and step 8 below cannot close one you do not hold. If you picked the ticket up yourself rather than being started on it, run `<dispatch> adopt <n>` just before that claim, from the ticket's worktree on branch `issue-<n>` (the `dispatch` skill's `references/inside-a-ticket.md`): it records you as the ticket's worker and makes sure a relay watches the ticket. Without it no event names your session, so your reviewer's report and your verifier's verdict would wake nobody, and `start <n> reviewer` would refuse.
 
 Then check the ticket is coherent: its title and **What to build** describe the same vertical slice; every glob under **Owns** either matches an existing path or is marked `(new)`. An older ticket without **Owns** gets one derived from its **Seam** and the spec sections **Parent** names — post the derived list as a comment on the ticket, then continue.
 

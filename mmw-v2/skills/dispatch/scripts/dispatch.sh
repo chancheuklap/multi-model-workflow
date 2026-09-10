@@ -5,6 +5,8 @@
 #   dispatch.sh check <spec>
 #   dispatch.sh open <spec>
 #   dispatch.sh open-ticket <n>
+#   dispatch.sh adopt <n>
+#   dispatch.sh self
 #   dispatch.sh advance <spec>
 #   dispatch.sh land <n>
 #   dispatch.sh start <n> worker|reviewer|verifier
@@ -50,7 +52,9 @@
 # the main agent — the runner and session its adapter's `self` reads — and start the
 # relay; `summary` and `suspend`, or `land` for one ticket, stop it. `start` and `advance`
 # refuse a ticket no running relay watches, since its result would wake nobody. `ack` is
-# how a woken session says it handled the wake it read.
+# how a woken session says it handled the wake it read. `adopt` makes a session that
+# picked a ticket up itself that ticket's worker, as `start` would have. `self` prints the
+# runner and session this process runs in.
 #
 # Each command's exit codes are written beside that command, in the door that carries it;
 # SKILL.md next to this script is the index of doors.
@@ -179,6 +183,8 @@ usage() {
 usage: dispatch.sh check <spec>
        dispatch.sh open <spec>
        dispatch.sh open-ticket <n>
+       dispatch.sh adopt <n>
+       dispatch.sh self
        dispatch.sh advance <spec>
        dispatch.sh land <n>
        dispatch.sh start <n> worker|reviewer|verifier
@@ -338,6 +344,131 @@ ack_wake() {
     python3 "$RELAY" ack --repo "$repo" --runner "$runner" --session "$session" \
       --ticket "$1" --event "$2" || exit 2
   fi
+}
+
+# `adopt <n>`: the calling session becomes ticket <n>'s worker. A session that picked the
+# ticket up itself was started by no `start`, so no `worker.started` names it: its
+# reviewer's report would wake nobody, and `start <n> reviewer` would refuse. This writes
+# that event with the session's own runner and session (its adapter's `self`) and the
+# facts `start` writes — the grade's live-table row, this worktree, its branch and base,
+# and the slot `lease.py` gives it — and makes sure a relay watches the ticket: the one
+# already watching it, or one started for this ticket alone with this session as the one
+# woken. Run it from the ticket's worktree, on branch issue-<n>, before claiming.
+adopt_ticket() {
+  local number="$1" line runner session
+  line="$(own_session)" || exit 2
+  runner="${line%%$'\t'*}"
+  session="${line#*$'\t'}"
+
+  local answer grades title spec
+  answer="$(read_ticket "$number")"
+  case "$answer" in
+    "REFUSE "*) refuse "${answer#REFUSE }" ;;
+    "") refuse "the tracker did not answer with a readable ticket #$number" ;;
+  esac
+  { IFS= read -r grades; IFS= read -r title; IFS= read -r spec; } <<<"$answer"
+
+  local tree branch
+  tree="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$tree" ] || refuse "not inside a git repository, so there is no worktree to adopt #$number in"
+  tree="$(CDPATH='' cd -- "$tree" && pwd -P)"
+  branch="$(git -C "$tree" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+  [ "$branch" = "issue-$number" ] \
+    || refuse "this worktree is on ${branch:-a detached HEAD}, and #$number is worked on branch issue-$number; adopt it from a worktree on issue-$number, where its preflight will claim it"
+
+  # The base is the commit the branch was cut from the base branch at: what `start`
+  # records when it cuts the branch, found here from the checkout the night runs in.
+  local base base_branch main_tree
+  base="$(git -C "$tree" config --get "branch.issue-$number.mmw-base")"
+  base_branch="$(git -C "$tree" config --get "branch.issue-$number.mmw-base-branch")"
+  if [ -z "$base_branch" ]; then
+    main_tree="$(git -C "$tree" worktree list --porcelain | sed -n '1s/^worktree //p')"
+    base_branch="$(git -C "$main_tree" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+    case "$base_branch" in
+      "issue-$number" | HEAD | "")
+        refuse "no base branch for issue-$number: the main checkout is on ${base_branch:-nothing}. Record it with git config branch.issue-$number.mmw-base-branch <branch>, then adopt again" ;;
+    esac
+  fi
+  if [ -z "$base" ]; then
+    base="$(git -C "$tree" merge-base HEAD "$base_branch" 2>/dev/null)"
+    [ -n "$base" ] || refuse "issue-$number and $base_branch share no commit, so there is no base to review from"
+  fi
+
+  local -a marked
+  local profile row host model effort
+  read -r -a marked <<<"$grades"
+  case "${#marked[@]}" in
+    0) profile="$DEFAULT_WORKER" ;;
+    1) profile="${marked[0]}" ;;
+    *) refuse "#$number carries ${#marked[@]} worker labels (${marked[*]}), and it takes one" ;;
+  esac
+  row="$(row_for_role "$profile")" || exit 2
+  [ -n "$row" ] || refuse "#$number needs the $profile row, and $MODELS has none"
+  IFS=$'\t' read -r host model effort <<<"$row"
+
+  # A worker that is still live on the ticket is somebody else's hold; this is not how a
+  # running worker is replaced. The same session adopting again only refreshes the event.
+  local holders
+  holders="$(ticket_events "$number" fold | python3 -c '
+import json, sys
+state = json.load(sys.stdin)
+for r in state.get("sessions") or []:
+    if r.get("kind") == "worker" and r.get("live"):
+        print(str(r.get("runner")) + "\t" + str(r.get("session")))
+')" || refuse "could not read #$number's events, so whether a worker already holds it is unknown; nothing was adopted"
+  local who already=""
+  while IFS= read -r who; do
+    [ -n "$who" ] || continue
+    if [ "$who" = "$runner"$'\t'"$session" ]; then
+      already=1
+      continue
+    fi
+    refuse "#$number is held by worker ${who#*$'\t'} on ${who%%$'\t'*}; retract that start once its session is gone, then adopt again"
+  done <<<"$holders"
+
+  [ -f "$LEASE" ] \
+    || refuse "no lease.py in any --tools directory, so this worktree cannot be given its share of the machine; pass --tools <the drive-target skill's scripts directory>"
+  local claimed
+  claimed="$(python3 "$LEASE" claim "$tree")" || refuse "issue-$number: no slot for $tree (the reason is above)"
+
+  # A relay has to see this ticket, or the reviewer's report lands and wakes nobody.
+  local started=""
+  if ! relay_watches "$number" "$spec" 2>/dev/null; then
+    local opened
+    opened="$(open_relay --tickets "$number")" \
+      || refuse "no relay watches #$number and none could be started for it (the reason is above), so nothing was adopted"
+    case "$opened" in *$'\t'started) started=1 ;; esac
+  fi
+
+  git -C "$tree" config "branch.issue-$number.mmw-base" "$base"
+  git -C "$tree" config "branch.issue-$number.mmw-base-branch" "$base_branch"
+  if [ -n "$already" ]; then
+    echo "dispatch: #$number's worker.started already names $runner session $session" >&2
+    printf '%s\n' "$session"
+    return 0
+  fi
+  local -a slot_fields=()
+  read -r -a slot_fields <<<"$(printf '%s' "$claimed" | python3 -c '
+import json, sys
+try:
+    record = json.load(sys.stdin)
+except Exception:
+    record = {}
+for key in ("slot", "port_base"):
+    if isinstance(record.get(key), int):
+        print(f"--json-field {key}={record[key]}", end=" ")
+' 2>/dev/null)"
+  if ! post_event "$number" worker.started --ticket "$number" --spec "$spec" \
+       --line "worker adopted on $runner: session $session, $host $model ($effort)" \
+       --field "session=$session" --field "runner=$runner" \
+       --field "host=$host" --field "model=$model" --field "effort=${effort:-—}" \
+       --field "grade=$profile" --field "worktree=$tree" --field "branch=issue-$number" \
+       --field "base=$base" --json-field adopted=true \
+       ${slot_fields[@]+"${slot_fields[@]}"}; then
+    [ -n "$started" ] && stop_relay --tickets "$number"
+    refuse "could not write the worker.started event on #$number, so this session is not its worker$([ -n "$started" ] && echo " and the relay this started was stopped again"); adopt again once the tracker takes comments"
+  fi
+  printf '%s\n' "$session"
 }
 
 # ------------------------------------------------------------------ live table
@@ -757,8 +888,11 @@ start_one() {
   [ -n "$row" ] || refuse "#$number needs the $profile row, and $MODELS has none"
   IFS=$'\t' read -r host model effort <<<"$row"
 
+  # The checkout the night runs in, whichever worktree this runs from: a worker starts its
+  # reviewer and its verifier from its own worktree, and `.worktrees/` cut under that one
+  # would be a second worktree of the branch it already has checked out.
   local root
-  root="$(git rev-parse --show-toplevel 2>/dev/null)"
+  root="$(git worktree list --porcelain 2>/dev/null | sed -n '1s/^worktree //p')"
   [ -n "$root" ] \
     || refuse "not inside a git repository, so there is no working directory to give the session"
 
@@ -944,7 +1078,8 @@ resume_one() {
   use_runner "$(printf '%s\n' "$line" | cut -f1)"
   ident="$(printf '%s\n' "$line" | cut -f2)"
   out="$(runner send "$ident" "$text" 2>&1)"
-  case "$?" in
+  local rc=$?
+  case "$rc" in
     0)
       post_event "$number" worker.resumed --ticket "$number" --spec "${MMW_SPEC:-}" \
           --line "Resumed the worker $ident on $RUNNER_NAME" \
@@ -953,6 +1088,11 @@ resume_one() {
       return 0 ;;
     2) refuse "#$number's worker $ident is not on $RUNNER_NAME any more" ;;
   esac
+  if [ "$rc" = 4 ]; then
+    echo "dispatch: the worker $ident on #$number was handed the message, and $RUNNER_NAME saw no turn start; read its session before sending it again" >&2
+    [ -n "$out" ] && printf '  %s\n' "$out" >&2
+    exit 3
+  fi
   echo "dispatch: the worker $ident on #$number did not take the message" >&2
   [ -n "$out" ] && printf '  %s\n' "$out" >&2
   echo "dispatch: it is most likely in a turn — wait, then run resume again. If it keeps refusing, ask \`get_agent_status\` for this agent: an \`activeTurn\` of null with the send still failing is a stuck session, and the only way out is to replace it" >&2
@@ -1766,6 +1906,13 @@ summary_spec() {
 
 # ------------------------------------------------------------------ entry
 
+# `self` reads nothing but this process and its runner, so it answers without a live
+# table: `verify-ticket.py` asks it for the session a refusal is written by.
+if [ "${1:-}" = self ] && [ "$#" -eq 1 ]; then
+  own_session
+  exit $?
+fi
+
 [ -f "$MODELS" ] || refuse "no live table at $MODELS; run install.sh"
 
 # `--tools <dir>` may appear anywhere and any number of times. Everything else is
@@ -1832,6 +1979,11 @@ case "${1:-}" in
     [ "$#" -eq 2 ] || usage
     case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
     open_ticket "$2"
+    ;;
+  adopt)
+    [ "$#" -eq 2 ] || usage
+    case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
+    adopt_ticket "$2"
     ;;
   ack)
     if [ "$#" -eq 2 ] && [ "$2" = relay.recovered ]; then

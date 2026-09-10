@@ -34,7 +34,7 @@ Nothing lands on the ticket. The closing-comment skeleton is written to `<out-fi
 <engine> <n> --closeout <draft>
 ```
 
-It posts the draft as the `ticket.passed` event, takes `ready-for-agent` off, and closes the ticket. A draft whose first line is `HANDOFF REQUIRED` posts as the `ticket.returned` event, carrying each `ABANDON:` line, and swaps `ready-for-agent` for `needs-triage`, leaving the ticket open to be judged fresh. The draft's first line is the input this run reads to tell the two apart; on the ticket it is a line for a person, and the event is what every program reads.
+It takes `ready-for-agent` off, closes the ticket, and then posts the draft as the `ticket.passed` event. A draft whose first line is `HANDOFF REQUIRED` swaps `ready-for-agent` for `needs-triage`, leaving the ticket open to be judged fresh, and then posts as the `ticket.returned` event, carrying each `ABANDON:` line. The event comes after the change it announces because it is what wakes the main agent and what `advance` merges on: when the tracker does not make the change, no event is posted and the run is refused, saying so. The draft's first line is the input this run reads to tell the two apart; on the ticket it is a line for a person, and the event is what every program reads.
 
 When it refuses, the first line of stderr counts the problems, names the first, and gives the `--check-only` command that prints them all; every problem after the first is one more line opening `also:`. A refused draft leaves the ticket exactly as it was. `--closeout <draft> --check-only` reports on a draft and changes nothing, at any time.
 
@@ -64,4 +64,4 @@ One gate comes after the draft: an accepted `ALL MET` draft still has to pass th
 
 - `--decisions` and `--touched`: `0` posted (or, for `--touched`, nothing to post), `2` refused, with the reason on stderr and nothing posted.
 - `--draft`: `0`. It writes a file and reads no condition, so there is nothing for it to refuse.
-- `--closeout`: `0` the ticket is closed, `1` refused — by one of the conditions above, or by the repository's own `checks`.
+- `--closeout`: `0` the ticket is closed (or handed back) and its event posted, `1` refused — by one of the conditions above, by the repository's own `checks`, or by the tracker not closing or handing back the ticket, in which case no event was posted and stderr says to read the ticket before running it again.

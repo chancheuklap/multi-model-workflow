@@ -155,6 +155,22 @@ def gh_login() -> str:
     return out.stdout.strip()
 
 
+def own_session() -> tuple[str, str] | None:
+    """(runner, session) of the session this run is part of, as `dispatch.sh self` of the
+    dispatch skill beside this one reads it, or None when it cannot say: outside any
+    runner, or with that skill not there. Patched out in tests."""
+    script = HERE.parents[1] / "dispatch" / "scripts" / "dispatch.sh"
+    if not script.is_file():
+        return None
+    try:
+        out = subprocess.run(["bash", str(script), "self"], capture_output=True, text=True,
+                             timeout=60, env=GH_ENV)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    runner, _, session = out.stdout.strip().partition("\t")
+    return (runner, session) if out.returncode == 0 and runner and session else None
+
+
 def assign_self(number: int) -> None:
     """Claim the ticket. Patched out in tests."""
     subprocess.run(["gh", "issue", "edit", str(number), "--add-assignee", "@me"], check=True, env=GH_ENV)
@@ -1528,8 +1544,11 @@ def run_preflight(number: int) -> int:
     problems = refusals(number, ticket, me, branch, dirty_tracked(root))
     if problems:
         reason, sentence = problems[0]
+        # The refusing session is named so its own hold ends with this event and the
+        # ticket is free for the next start; a session that cannot name itself ends none.
+        runner, session = own_session() or (None, None)
         post_event(number, "ticket.refused", sentence, spec=spec_field(ticket),
-                   reason=reason, branch=branch or None)
+                   reason=reason, branch=branch or None, runner=runner, session=session)
         sys.stderr.write(sentence + "\n")
         return 2
     assign_self(number)
@@ -1713,18 +1732,33 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     # event block after it. `abandoned` carries every `ABANDON:` line — on a pass only
     # `decision` ones can be there, on a hand back they are the reason it came back.
     abandons = parse_abandons(draft)
-    post_event(number, "ticket.passed" if first == "ALL MET" else "ticket.returned",
-               first, "\n".join(draft.strip("\n").splitlines()[1:]).strip("\n"),
-               spec=spec_field(ticket), commit=git("rev-parse", "HEAD") or None,
-               branch=current_branch(repo_root()) or None,
-               counts=tally(parse_criteria(draft), abandons),
-               abandoned=[{"ac": a["ac"], "kind": a["kind"], "reason": a["reason"]}
-                          for a in abandons] or None)
-    if first == "ALL MET":
-        close_ticket(number)
+    passed = first == "ALL MET"
+    event = "ticket.passed" if passed else "ticket.returned"
+    fields = dict(spec=spec_field(ticket), commit=git("rev-parse", "HEAD") or None,
+                  branch=current_branch(repo_root()) or None,
+                  counts=tally(parse_criteria(draft), abandons),
+                  abandoned=[{"ac": a["ac"], "kind": a["kind"], "reason": a["reason"]}
+                             for a in abandons] or None)
+    # The state change first, then the event that announces it: the event is what wakes
+    # the main agent and what `advance` merges on, so it must never stand on a ticket the
+    # tracker did not close or hand back.
+    try:
+        if passed:
+            close_ticket(number)
+        else:
+            hand_back_for_triage(number)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        act = "close" if passed else "hand back to needs-triage"
+        sys.stderr.write(f"closeout refused: the tracker did not {act} #{number} ({exc}), so no "
+                         f"{event} event was posted and nothing reads the ticket as "
+                         f"{'passed' if passed else 'returned'}. Read #{number} on the tracker "
+                         f"for what the edit left done, then run --closeout again\n")
+        return 1
+    post_event(number, event, first, "\n".join(draft.strip("\n").splitlines()[1:]).strip("\n"),
+               **fields)
+    if passed:
         print(f"CLOSED: #{number}")
     else:
-        hand_back_for_triage(number)
         print(f"HANDED BACK: #{number} is now needs-triage and stays open")
     return 0
 

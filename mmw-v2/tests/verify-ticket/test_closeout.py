@@ -2,6 +2,7 @@
 
 import io
 import json
+import subprocess
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -84,12 +85,30 @@ def counts_line(met=1, unmet=0, abandoned=0, total=1):
     return f"Counts: {met} met, {unmet} unmet, {abandoned} abandoned of {total}"
 
 
+# Every post and every state change the newest `check` made, in the order it made them.
+CALLS = []
+
+
 def check(text, comments=(VERDICT_COMMENT,),
           verdict_reachable=True, head=HEAD, dirty=(), main_merged=True, diff="src/app.py",
           state="OPEN", assignees=(ME,), check_only=True, repo=None, body=None,
-          reverify=True):
-    """Run --closeout against a made-up ticket; return (exit code, stderr, side effects)."""
+          reverify=True, tracker_fails=False):
+    """Run --closeout against a made-up ticket; return (exit code, stderr, side effects).
+    With `tracker_fails` the tracker refuses to close the ticket or hand it back."""
     seen = {"posted": [], "closed": [], "handed": []}
+    CALLS.clear()
+
+    def change(kind):
+        def run(number):
+            CALLS.append(kind)
+            if tracker_fails:
+                raise subprocess.CalledProcessError(1, ["gh", "issue", "edit", str(number)])
+            seen[kind].append(number)
+        return run
+
+    def post(number, body):
+        CALLS.append("posted")
+        seen["posted"].append((number, body))
     ledger = ledger_of(text)
     if body is None:
         body = acceptance_body(ledger)
@@ -123,12 +142,9 @@ def check(text, comments=(VERDICT_COMMENT,),
              mock.patch.object(vt, "git", side_effect=fake_git), \
              mock.patch.object(vt, "is_ancestor", side_effect=fake_is_ancestor), \
              mock.patch.object(vt, "dirty_tracked", side_effect=lambda root=None: list(dirty)), \
-             mock.patch.object(vt, "post_comment",
-                               side_effect=lambda n, b: seen["posted"].append((n, b))), \
-             mock.patch.object(vt, "close_ticket",
-                               side_effect=lambda n: seen["closed"].append(n)), \
-             mock.patch.object(vt, "hand_back_for_triage",
-                               side_effect=lambda n: seen["handed"].append(n)):
+             mock.patch.object(vt, "post_comment", side_effect=post), \
+             mock.patch.object(vt, "close_ticket", side_effect=change("closed")), \
+             mock.patch.object(vt, "hand_back_for_triage", side_effect=change("handed")):
             with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
                 code = vt.run_closeout(77, path, check_only)
     return code, err.getvalue(), seen

@@ -13,9 +13,12 @@
 # A pane is created first: `agent start` only runs in an existing pane. The launch
 # flags come from models.py (`bypass-argv`); a host it cannot build them for is a
 # refusal, not a start without a model.
-# send: exit 0 the text was delivered; 3 the session is there and did not take it;
-# 2 there is no such session; 4 unknown — already working, or the list could not
-# be read, so a `--until working` match would not prove a new turn started.
+# send: exit 0 the text was delivered; 3 nothing was sent — the agent is already working
+# or at an approval (`agent_blocked`), whose `--until working` match would not prove a new
+# turn started, or the list could not be read — so sending again is safe; 4 the text was
+# handed to the agent and no turn start was seen (`agent_prompt_stalled`, `timeout`, or
+# an error this does not know): handed over, not confirmed, and not to be typed again;
+# 2 there is no such session.
 # liveness prints one of `alive`, `stopped`, `unknown` on stdout. Stopped means
 # the name is absent from `agent list`; a name still on that list is not stopped.
 # stop closes the session's pane: exit 0 it is gone (or was already), 1 it could not
@@ -206,14 +209,14 @@ send() {
   case "$rc" in
     1) exit 2 ;;
     2)
-      printf '%s\n' unknown
-      exit 4
+      echo "runners/herdr.sh: could not read herdr agent list to find $ident; nothing was sent" >&2
+      exit 3
       ;;
   esac
   case "$(printf '%s' "$status" | tr '[:upper:]' '[:lower:]')" in
     working|unknown|"")
-      printf '%s\n' unknown
-      exit 4
+      echo "runners/herdr.sh: $ident is ${status:-in no state Herdr names}, so a new turn could not be told from this one; nothing was sent" >&2
+      exit 3
       ;;
   esac
   if out="$(herdr_ agent prompt "$ident" "$text" \
@@ -225,7 +228,7 @@ send() {
   printf '%s\n' "$out" >&2
   case "$code" in
     agent_not_found) exit 2 ;;
-    agent_blocked|agent_prompt_stalled|timeout) exit 3 ;;
+    agent_blocked) exit 3 ;;
   esac
   printf '%s\n' unknown
   exit 4
