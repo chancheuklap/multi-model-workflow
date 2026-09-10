@@ -15,6 +15,16 @@ the closing steps of `implement`, and a ticket is handed back only for a `failed
 
 The data is an example, not the owner's tickets. Times are local wall-clock times of the
 night of 2026-09-10; the board read the tracker at 07:39 on 09-11.
+
+The settings page's data (#335: which host, model and effort each agent runs on, and the
+runner, chosen on this machine) goes between the `SETTINGS:BEGIN` and `SETTINGS:END`
+markers of the mockup only. It is built with the dispatch skill's own `models.py`: the
+hosts, their CLI binaries and the default rows are `hosts.json` read by `load_hosts`, the
+runners are the adapters under `scripts/runners/`, and each host's `model` and `effort`
+options are `fillable_rows` of an example catalog in the shape `scan_cli_catalogs` returns
+when it asks the hosts' CLIs — the everyday names `start` resolves. A saved configuration
+holds the runner and all five agents' rows; a new machine's is MMW's initial values
+(`hosts.json` `defaults`, `models.DEFAULT_RUNNER`), every other one is example data.
 """
 from __future__ import annotations
 
@@ -27,8 +37,11 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[4]
+DISPATCH_SCRIPTS = REPO / "mmw-v2" / "skills" / "dispatch" / "scripts"
 sys.path.insert(0, str(REPO / "mmw-v2" / "skills" / "verify-ticket" / "scripts"))
+sys.path.insert(0, str(DISPATCH_SCRIPTS))
 import events  # noqa: E402
+import models  # noqa: E402
 
 # The machine's clock is UTC+8 (the owner's); events carry UTC, as events.now() writes them.
 LOCAL = timezone(timedelta(hours=8))
@@ -364,6 +377,114 @@ def build() -> dict:
             "empty": {"name": "还没有任务", "readAt": iso("07:39"), "readFailed": False, "select": {}, "tasks": []}}
 
 
+# ── the settings page: what this machine's hosts offer, and what the owner saved ──
+
+# What `cursor-agent models` prints: Cursor burns the effort into the model id, so one
+# family comes back as one line per level the owner enabled in the Cursor app.
+CURSOR_MODELS = """\
+auto - Auto
+composer-2.5 - Composer 2.5
+grok-4.6-high - Grok 4.6 High
+grok-4.6-xhigh - Grok 4.6 Extra High
+grok-4.6-high-fast - Grok 4.6 High Fast
+claude-opus-5-medium - Claude Opus 5 Medium
+claude-opus-5-high - Claude Opus 5 High
+claude-sonnet-5-high - Claude Sonnet 5 High
+gpt-5.6-sol-high - GPT-5.6 Sol High
+gpt-5.6-sol-xhigh - GPT-5.6 Sol Extra High
+gemini-3.8-flash-medium - Gemini 3.8 Flash Medium
+kimi-k3-high - Kimi K3 High
+"""
+CLAUDE_EFFORTS = ["low", "medium", "high", "xhigh", "max"]
+PI_EFFORTS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"]
+
+
+def example_catalog(drop: dict | None = None) -> dict[str, list[dict]]:
+    """Tonight's five CLI catalogs in the shape `models.scan_cli_catalogs` returns them.
+    `drop` names, per host, the ids a later scan no longer lists."""
+    grok = models._host_efforts("grok")
+    catalog = {
+        "cursor": models._parse_cursor_models(CURSOR_MODELS),
+        "grok": [{"id": i, "name": i, "thinkingOptionIds": list(grok)} for i in ("grok-4.6", "grok-4.5")],
+        # `claude --help` names the bare aliases too; `fillable_rows` skips them.
+        "claude": [{"id": i, "name": i, "thinkingOptionIds": CLAUDE_EFFORTS}
+                   for i in ("opus", "sonnet", "fable", "claude-opus-5", "claude-sonnet-5",
+                             "claude-fable-5-1", "claude-fable-5")],
+        "codex": [{"id": "gpt-6-astra", "name": "GPT-6-Astra", "thinkingOptionIds": CLAUDE_EFFORTS + ["ultra"]},
+                  {"id": "gpt-5.6-sol", "name": "GPT-5.6-Sol", "thinkingOptionIds": CLAUDE_EFFORTS + ["ultra"]},
+                  {"id": "gpt-5.6-luna", "name": "GPT-5.6-Luna", "thinkingOptionIds": CLAUDE_EFFORTS},
+                  {"id": "gpt-5.5", "name": "GPT-5.5", "thinkingOptionIds": CLAUDE_EFFORTS[:4]}],
+        "pi": [{"id": i, "name": i.split("/", 1)[1], "thinkingOptionIds": PI_EFFORTS}
+               for i in ("deepseek/deepseek-v4-pro", "moonshot/k3", "xai/grok-4.6", "openai/gpt-5.6-sol")],
+    }
+    for host, ids in (drop or {}).items():
+        catalog[host] = [o for o in catalog[host] if o["id"] not in ids]
+    return catalog
+
+
+def scanned(catalog: dict[str, list[dict]], missing: frozenset[str] = frozenset()) -> dict[str, dict]:
+    """What the board's scan of this machine hands the page, host by host: whether the
+    host's CLI is installed (`missing`), answered with nothing (`silent`), or answered
+    (`ok`), and then one entry per `model` with the `effort` cells it may take. `—` is a
+    legal cell of its own: a model that takes no effort."""
+    out = {}
+    for host in models.CLI_HOSTS:
+        if host in missing:
+            out[host] = {"state": "missing", "offered": []}
+            continue
+        by_model: dict[str, list[str]] = {}
+        for model, cell in models.fillable_rows(host, catalog.get(host) or []):
+            by_model.setdefault(model, []).extend(e.strip() for e in cell.split(",") if e.strip())
+        offered = [{"model": m, "efforts": e} for m, e in by_model.items()]
+        out[host] = {"state": "ok" if offered else "silent", "offered": offered}
+    return out
+
+
+def config(runner: str, rows: dict[str, tuple[str, str, str]]) -> dict:
+    """One saved configuration: the runner, and every agent's host, model and effort."""
+    return {"runner": runner, "rows": {a: dict(zip(("host", "model", "effort"), rows[a])) for a in models.ALLOWED_AGENTS}}
+
+
+# What this example machine runs: the owner's own choices, not MMW's initial values.
+MINE = {"junior-worker": ("grok", "grok 4.6", "high"),
+        "senior-worker": ("codex", "gpt 5.6 sol", "high"),
+        "reviewer": ("claude", "opus 5", "high"),
+        "verifier": ("claude", "sonnet 5", "high"),
+        "advisor": ("claude", "fable 5.1", "medium")}
+
+
+def settings() -> dict:
+    hosts = models.load_hosts()
+    initial = {r["agent"]: (r["host"], r["model"], r["effort"]) for r in hosts["defaults"]}
+    full = scanned(example_catalog())
+    scenes = {
+        "mine": {"name": "本机配置合法", "scannedAt": iso("07:02"), "hosts": full,
+                 "saved": config("orca", MINE)},
+        # A new machine: the first install filled in MMW's initial values, and one of them
+        # names a host this machine does not have.
+        "fresh": {"name": "新机器 · 初始值里的 cursor 没装", "scannedAt": iso("07:02"),
+                  "hosts": scanned(example_catalog(), missing=frozenset({"cursor"})),
+                  "saved": config(models.DEFAULT_RUNNER, initial)},
+        # A saved model the host's CLI no longer lists.
+        "retired": {"name": "选中的 model 本机已经没有", "scannedAt": iso("07:30"),
+                    "hosts": scanned(example_catalog({"claude": {"claude-fable-5"}})),
+                    "saved": config("orca", {**MINE, "advisor": ("claude", "fable 5", "medium")})},
+        # Saved again elsewhere after the page opened: an agent changed reviewer from the command line.
+        "changed": {"name": "打开后被别处改过", "scannedAt": iso("07:02"), "hosts": full,
+                    "saved": config("orca", MINE),
+                    "changedElsewhere": {"at": iso("07:44"),
+                                         "saved": config("orca", {**MINE, "reviewer": ("codex", "gpt 5.6 sol", "xhigh")})}},
+    }
+    return {
+        "store": "~/.mmw/models.json",
+        "agents": list(models.ALLOWED_AGENTS),
+        "hosts": list(hosts["hosts"]),
+        "binaries": {h: models.HOST_BINARIES.get(h) for h in hosts["hosts"]},
+        "runners": sorted(p.stem for p in (DISPATCH_SCRIPTS / "runners").glob("*.sh")),
+        "scenes": scenes,
+    }
+
+
 def between(text: str, name: str) -> re.Match:
     found = re.search(rf"(/\* {name}:BEGIN \*/\n)(.*?)(/\* {name}:END \*/)", text, re.S)
     if not found:
@@ -383,6 +504,8 @@ def main() -> int:
                 f"const SCENES = {json.dumps(list(data))};\n")
     mockup_path = HERE / "task-board-mockup.html"
     mockup = splice(mockup_path.read_text(encoding="utf-8"), "FIXTURES", fixtures)
+    mockup = splice(mockup, "SETTINGS",
+                    f"const SETTINGS = {json.dumps(settings(), ensure_ascii=False, separators=(',', ':'))};\n")
     mockup_path.write_text(mockup, encoding="utf-8")
     # The Claude Design pages load one script: the same data, and the mockup's board logic
     # copied over, so the two never disagree on how a fold is shown.
