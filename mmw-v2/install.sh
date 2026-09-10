@@ -25,7 +25,9 @@
 # 改它要重开会话。）
 #
 #   install.sh            装
-#   install.sh --check    只看装没装，不动磁盘。齐了回 0，缺东西或有 stale link 回 1
+#   install.sh --check    只看装没装，不动磁盘。齐了回 0，缺东西或有 stale link 回 1。
+#                         另读 runners/*.sh 的 MMW_USES，问 PATH 上的二进制还认不认；
+#                         读不到帮助页报「没查」，flag 对不上报「不一致」，两句话分开。
 #
 # 两种模式在 hook 都齐了的时候都打印 HOOKS-INSTALLED。
 #
@@ -1087,6 +1089,189 @@ sys.exit(1 if failed else 0)
 PY
 else
   echo "跳过  orca 工作树配置（本机没有 orca）"
+fi
+
+# ---------------- 适配器 MMW_USES 自检 ----------------
+#
+# 只在 --check 里跑。读 runners/<name>.sh 文件头的 MMW_USES，去问 PATH 上的同名
+# 二进制还认不认这些命令和 flag。Orca 走 `agent-context --json` 精确比对；Herdr
+# 与 Paseo 退化成子命令帮助页上的文本核对。Herdr 的子命令帮助会静默掉回顶层用法
+# 页（退出码 0），所以必须先确认读到的是这一页：首行不是顶层用法的首行，且
+# Usage 行点名这个子命令。确认不了就报「没查」，不拿那一页去对 flag——掉回的
+# 顶层页上，flag 名碰巧出现是假一致，碰巧不出现是假不一致。本机没有这个二进制
+# 则跳过。只报，不禁止：不扫 skills.txt，也不删任何技能。
+
+if [ "$mode" = check ]; then
+  MMW_ROOT="$ROOT" python3 - <<'PY' || rc=1
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+root = Path(os.environ["MMW_ROOT"])
+runners = root / "skills" / "dispatch" / "scripts" / "runners"
+failed = False
+
+
+def run_cmd(binary, argv):
+    env = dict(os.environ)
+    env.pop("CLICOLOR_FORCE", None)
+    env.pop("CLICOLOR", None)
+    return subprocess.run(
+        [binary, *argv],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+
+def first_line(text):
+    for line in (text or "").splitlines():
+        stripped = line.strip()
+        if stripped:
+            return stripped
+    return ""
+
+
+def parse_uses(path):
+    rows = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("# MMW_USES:"):
+            continue
+        rest = line.split(":", 1)[1].strip()
+        tokens = rest.split()
+        cmd, flags = [], []
+        for token in tokens:
+            if token.startswith("-"):
+                flags.append(token)
+            else:
+                cmd.append(token)
+        if cmd:
+            rows.append((cmd, flags, rest))
+    return rows
+
+
+def flag_in_help(text, flag):
+    return re.search(
+        r"(^|[\s,\[\|/])" + re.escape(flag) + r"(?![A-Za-z0-9-])",
+        text or "",
+    ) is not None
+
+
+def usage_names(text, binary, cmd):
+    needle = " ".join([binary, *cmd])
+    for line in (text or "").splitlines():
+        stripped = line.strip()
+        if stripped.lower().startswith("usage:") and needle in stripped:
+            return True
+    return False
+
+
+def help_text(binary, cmd):
+    top = run_cmd(binary, ["--help"])
+    top_first = first_line(top.stdout or top.stderr)
+    for _ in range(3):
+        for flag in ("--help", "-h"):
+            proc = run_cmd(binary, [*cmd, flag])
+            text = proc.stdout or proc.stderr or ""
+            if not text.strip():
+                continue
+            if first_line(text) == top_first:
+                continue
+            if not usage_names(text, binary, cmd):
+                continue
+            return text
+    return None
+
+
+def unread(binary, cmd):
+    global failed
+    failed = True
+    named = " ".join([binary, *cmd])
+    sys.stderr.write(f"没查    读不到 {named} 的帮助页\n")
+
+
+def mismatch(cmd, flag):
+    global failed
+    failed = True
+    named = " ".join([*cmd, flag])
+    key = flag.lstrip("-")
+    sys.stderr.write(
+        f"不一致  适配器说它要用 {named}，二进制的 flags 里没有 {key}\n"
+    )
+
+
+def check_help(binary, rows):
+    if shutil.which(binary) is None:
+        return
+    for cmd, flags, rest in rows:
+        text = help_text(binary, cmd)
+        if text is None:
+            unread(binary, cmd)
+            continue
+        for flag in flags:
+            if not flag_in_help(text, flag):
+                mismatch(cmd, flag)
+
+
+def orca_catalog():
+    proc = run_cmd("orca", ["agent-context", "--json"])
+    try:
+        data = json.loads(proc.stdout or "")
+    except Exception:
+        return None
+    cmds = data.get("commands") if isinstance(data, dict) else None
+    if not isinstance(cmds, list):
+        return None
+    by_name = {}
+    for row in cmds:
+        if isinstance(row, dict) and row.get("command"):
+            by_name[str(row["command"])] = row
+    return by_name
+
+
+def check_orca(rows):
+    global failed
+    if shutil.which("orca") is None:
+        return
+    catalog = orca_catalog()
+    if catalog is None:
+        sys.stderr.write("没查    读不到 orca agent-context --json\n")
+        failed = True
+        return
+    for cmd, flags, rest in rows:
+        name = " ".join(cmd)
+        row = catalog.get(name)
+        if not isinstance(row, dict):
+            sys.stderr.write(
+                f"不一致  适配器说它要用 {rest}，二进制没有 {name}\n"
+            )
+            failed = True
+            continue
+        have = {str(item).lstrip("-") for item in (row.get("flags") or [])}
+        for flag in flags:
+            key = flag.lstrip("-")
+            if key not in have:
+                mismatch(cmd, flag)
+
+
+if runners.is_dir():
+    for path in sorted(runners.glob("*.sh")):
+        binary = path.stem
+        rows = parse_uses(path)
+        if not rows:
+            continue
+        if binary == "orca":
+            check_orca(rows)
+        else:
+            check_help(binary, rows)
+
+sys.exit(1 if failed else 0)
+PY
 fi
 
 # Cursor 的 Nowledge Mem MCP 一条：~/.cursor/mcp.json 里 mcpServers.nowledge-mem。

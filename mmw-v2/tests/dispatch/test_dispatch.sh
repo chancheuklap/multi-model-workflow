@@ -11,6 +11,7 @@
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh runnerparity|herdrworkingsend|herdrliveness
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh orcasend|orcaclosed
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh worktreegit|worktreegoverned|worktreeremove|installorca
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh usesagree|usesmismatch|usesunreadable
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh all
 #
 # A fake `paseo`, a fake `herdr`, a fake `orca` and a fake `gh` sit in front of the
@@ -48,6 +49,37 @@ args = sys.argv[1:]
 state = Path(os.environ["MMW_FAKE_PASEO_STATE"])
 state.mkdir(parents=True, exist_ok=True)
 scenario = os.environ.get("MMW_FAKE_PASEO_SCENARIO", "")
+uses = os.environ.get("MMW_FAKE_USES", "agree")
+
+PASEO_HELP_TOP = """Usage: paseo [options] [command]
+
+Paseo CLI - control your AI coding agents from the command line
+
+Options:
+  --json                        output in JSON format
+  -h, --help                    display help for command
+"""
+
+PASEO_HELP = {
+    ("send",): """Usage: paseo send [options] <id> [prompt]
+
+Send a message/task to an existing agent
+
+Options:
+  --no-wait             Return immediately without waiting for completion
+  --json                Output in JSON format
+  -h, --help            display help for command
+""",
+    ("ls",): """Usage: paseo ls [options]
+
+List agents. By default excludes archived agents.
+
+Options:
+  -g, --global         List agents across all directories
+  --json               Output in JSON format
+  -h, --help            display help for command
+""",
+}
 
 
 def load(name):
@@ -84,6 +116,18 @@ def labels_from_args():
         i += 1
     return wanted
 
+
+if "-h" in args or "--help" in args:
+    cmd = tuple(a for a in args if a not in ("-h", "--help"))
+    if not cmd:
+        print(PASEO_HELP_TOP)
+        sys.exit(0)
+    page = PASEO_HELP.get(cmd)
+    if page is None:
+        print(PASEO_HELP_TOP)
+        sys.exit(0)
+    print(page)
+    sys.exit(0)
 
 if args[:2] == ["provider", "ls"]:
     grok = "unavailable" if scenario == "provider-down" else "available"
@@ -292,6 +336,57 @@ args = sys.argv[1:]
 state = Path(os.environ["MMW_FAKE_HERDR_STATE"])
 state.mkdir(parents=True, exist_ok=True)
 scenario = os.environ.get("MMW_FAKE_HERDR_SCENARIO", "")
+uses = os.environ.get("MMW_FAKE_USES", "agree")
+
+HERDR_HELP_TOP = """herdr — terminal workspace manager for AI coding agents
+
+Usage: herdr [options]
+       herdr --session <name> [options]
+       herdr agent start
+       herdr tab create
+
+Options:
+  -h, --help
+      --timeout <MS>
+      --kind <KIND>
+      --pane <ID>
+      --wait
+      --until <STATUS>
+      --cwd <PATH>
+"""
+
+HERDR_HELP = {
+    ("tab", "create"): """Create a tab
+
+Usage: herdr tab create [OPTIONS]
+
+Options:
+      --cwd <PATH>
+      --no-focus
+""",
+    ("agent", "start"): """Start a supported interactive agent in an existing pane
+
+Usage: herdr agent start <NAME> --kind <KIND> --pane <ID> [OPTIONS]
+
+Options:
+      --kind <KIND>
+      --pane <ID>
+      --timeout <MS>
+""",
+    ("agent", "prompt"): """Submit a prompt to an agent
+
+Usage: herdr agent prompt <TARGET> <TEXT> [OPTIONS]
+
+Options:
+      --wait
+      --until <STATUS>
+      --timeout <MS>
+""",
+    ("agent", "list"): """List agents
+
+Usage: herdr agent list
+""",
+}
 
 
 def load_agents():
@@ -316,6 +411,23 @@ def opt(flag):
             return args[i + 1]
     return ""
 
+
+if "-h" in args or "--help" in args:
+    cmd = tuple(a for a in args if a not in ("-h", "--help"))
+    if uses == "unreadable" and cmd:
+        print(HERDR_HELP_TOP)
+        sys.exit(0)
+    if not cmd:
+        print(HERDR_HELP_TOP)
+        sys.exit(0)
+    page = HERDR_HELP.get(cmd)
+    if page is None:
+        print(HERDR_HELP_TOP)
+        sys.exit(0)
+    if uses == "mismatch" and cmd == ("tab", "create"):
+        page = page.replace("      --no-focus\n", "")
+    print(page)
+    sys.exit(0)
 
 if args[:2] == ["tab", "create"]:
     if scenario == "tab-fail":
@@ -408,6 +520,7 @@ state = Path(os.environ["MMW_FAKE_ORCA_STATE"])
 state.mkdir(parents=True, exist_ok=True)
 scenario = os.environ.get("MMW_FAKE_ORCA_SCENARIO", "")
 send_mode = os.environ.get("MMW_FAKE_ORCA_SEND", "") or scenario
+uses = os.environ.get("MMW_FAKE_USES", "agree")
 
 
 def load_terminals():
@@ -432,6 +545,29 @@ def opt(flag):
             return args[i + 1]
     return ""
 
+
+if args[:1] == ["agent-context"]:
+    wait_flags = ["help", "json", "pairing-code", "environment",
+                  "terminal", "for", "timeout-ms"]
+    if uses == "mismatch":
+        wait_flags = [f for f in wait_flags if f != "for"]
+    print(json.dumps({
+        "schemaVersion": 1,
+        "commandCount": 5,
+        "commands": [
+            {"command": "terminal create",
+             "flags": ["help", "json", "worktree", "command", "title"]},
+            {"command": "terminal send",
+             "flags": ["help", "json", "terminal", "text", "enter",
+                       "wait-submit"]},
+            {"command": "terminal wait", "flags": wait_flags},
+            {"command": "terminal list",
+             "flags": ["help", "json", "worktree"]},
+            {"command": "terminal close",
+             "flags": ["help", "json", "terminal"]},
+        ],
+    }))
+    sys.exit(0)
 
 if args[:2] == ["project", "setups"]:
     path = state / "setups.json"
@@ -811,7 +947,7 @@ reset_log() {
   echo '[]' > "$MMW_FAKE_ORCA_STATE/setups.json"
   echo '[]' > "$MMW_FAKE_ORCA_STATE/repos.json"
   unset MMW_FAKE_HERDR_SCENARIO MMW_FAKE_HERDR_PROMPT MMW_FAKE_SEND_FAILS
-  unset MMW_FAKE_ORCA_SCENARIO MMW_FAKE_ORCA_SEND
+  unset MMW_FAKE_ORCA_SCENARIO MMW_FAKE_ORCA_SEND MMW_FAKE_USES
   rm -rf "$MMW_HOME/leases"
 }
 has() { grep -qF -- "$1" "$MMW_TEST_LOG" || fail "no call matching: $1"; }
@@ -3187,12 +3323,60 @@ state = Path(os.environ["MMW_FAKE_ORCA_STATE"])
   hasnt "orca :: worktree :: rm"
 }
 
+run_uses_check() {
+  local installer home
+  installer="$(dirname "$(dirname "$HERE")")/install.sh"
+  home="$TMP/install-home"
+  rm -rf "$home"
+  mkdir -p "$home"
+  : > "$MMW_TEST_LOG"
+  (MMW_V2_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
+}
+
+scenario_usesagree() {
+  echo "--- declared flags the binary has: --check is silent about MMW_USES"
+  reset_log
+  MMW_FAKE_USES=agree run_uses_check
+  grep -E '没查|不一致' "$TMP/err" "$TMP/out" \
+    && fail "agree should print neither 没查 nor 不一致: $(cat "$TMP/err") $(cat "$TMP/out")"
+  has "orca :: agent-context"
+  has "herdr :: agent :: start :: --help"
+  has "paseo :: send :: --help"
+}
+
+scenario_usesmismatch() {
+  echo "--- a declared flag the binary lacks: --check names that command and flag"
+  reset_log
+  MMW_FAKE_USES=mismatch run_uses_check
+  grep -q '不一致' "$TMP/err" \
+    || fail "mismatch should print 不一致: $(cat "$TMP/err")"
+  grep -q '没查' "$TMP/err" \
+    && fail "mismatch on a readable page is 不一致, not 没查: $(cat "$TMP/err")"
+  grep -qE 'tab create --no-focus' "$TMP/err" \
+    || fail "should name tab create --no-focus: $(cat "$TMP/err")"
+  grep -qE '没有 no-focus' "$TMP/err" \
+    || fail "should say the binary lacks no-focus: $(cat "$TMP/err")"
+}
+
+scenario_usesunreadable() {
+  echo "--- herdr subcommand help falls back to the top page: 没查, not 不一致"
+  reset_log
+  MMW_FAKE_USES=unreadable run_uses_check
+  grep -q '没查' "$TMP/err" \
+    || fail "fallback help must print 没查: $(cat "$TMP/err")"
+  grep -q '不一致' "$TMP/err" \
+    && fail "fallback help must not print 不一致: $(cat "$TMP/err")"
+  grep -q 'herdr' "$TMP/err" \
+    || fail "没查 should name herdr: $(cat "$TMP/err")"
+  has "herdr :: tab :: create :: --help"
+}
+
 # ------------------------------------------------------------------ entry
 
-ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca"
+ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable"
 
 case "${1:-}" in
-  check|advance|advanceconflict|advancedirty|land|start-worker|start-reviewer|start-verifier|retract|resume|wait|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|stopproduct|suspend|suspendbusy|status|runnerstart|runnersend|runnerliveness|runnerparity|herdrworkingsend|herdrliveness|orcasend|orcaclosed|worktreegit|worktreegoverned|worktreeremove|installorca)
+  check|advance|advanceconflict|advancedirty|land|start-worker|start-reviewer|start-verifier|retract|resume|wait|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|stopproduct|suspend|suspendbusy|status|runnerstart|runnersend|runnerliveness|runnerparity|herdrworkingsend|herdrliveness|orcasend|orcaclosed|worktreegit|worktreegoverned|worktreeremove|installorca|usesagree|usesmismatch|usesunreadable)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -3239,6 +3423,9 @@ banner_for() {
     worktreegoverned) echo WORKTREE-GOVERNED-OK ;;
     worktreeremove) echo WORKTREE-REMOVE-OK ;;
     installorca) echo INSTALL-ORCA-OK ;;
+    usesagree) echo USES-AGREE-OK ;;
+    usesmismatch) echo USES-MISMATCH-OK ;;
+    usesunreadable) echo USES-UNREADABLE-OK ;;
   esac
 }
 
