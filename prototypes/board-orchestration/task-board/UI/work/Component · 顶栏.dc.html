@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="stylesheet" href="./styles/tokens.css" />
+        <link rel="stylesheet" href="./styles/board.css" />
+        <script src="./data/fixtures.js"></script>
+        <style>
+          body { margin: 0; min-height: 100vh; background: #e6e3df; }
+          #dc-root { width: 1440px; height: 52px; margin: 0 auto; overflow: hidden; position: relative; transform: translateZ(0); }
+          #dc-root > * { height: 100%; }
+          .dc-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 50; padding: 10px 16px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; box-shadow: 0 12px 32px rgba(45, 25, 34, 0.25); }
+          .dc-backdrop { position: fixed; inset: 0; background: rgba(40, 25, 32, 0.38); z-index: 40; }
+          .dc-modal { position: fixed; inset: 0; margin: auto; height: fit-content; z-index: 41; }
+          .sc-host { height: 100%; }
+        </style>
+      </helmet>
+      <header class="topbar board" data-screen-label="顶栏">
+        <div class="brand"><span class="brand-mark">MMW</span><span class="brand-name">task board</span><span class="brand-repo">chancheuklap/multi-model-workflow</span></div>
+        <div class="counters">
+          <button type="button" class="{{ v.needCls }}" disabled="{{ v.noNeed }}" onClick="{{ jump }}" title="跳到下一张需要你的票"><span class="{{ v.needLightCls }}"></span>需要你<span class="{{ v.needNCls }}">{{ v.orangeN }}</span></button>
+          <span class="counter"><span class="light green"></span>在跑<span class="counter-n">{{ v.greenN }}</span><sc-if value="{{ v.hasWaiting }}" hint-placeholder-val="{{ true }}"><span class="counter-sub">{{ v.waitingSub }}</span></sc-if></span>
+          <span class="counter"><span class="light hollow"></span>待派<span class="counter-n">{{ v.hollowN }}</span></span>
+          <span class="counter"><span class="light ink"></span>好了<span class="counter-n">{{ v.inkN }}</span></span>
+        </div>
+        <div class="{{ v.readCls }}">{{ v.readText }}</div>
+      </header>
+      <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+        <div class="dc-toast" role="status">{{ toast }}</div>
+      </sc-if>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{
+  "$preview": {
+    "width": 1440,
+    "height": 52
+  },
+  "scene": {
+    "editor": "enum",
+    "default": "morning",
+    "tsType": "string",
+    "options": [
+      "morning",
+      "twenty-tickets",
+      "bad-data",
+      "empty"
+    ]
+  }
+}'
+    >
+      const STATE_SEED = { fx: false, toast: "" };
+      function readFx(win, name) {
+        return win[name] || {};
+      }
+      class Component extends DCLogic {
+        constructor(props) {
+          super(props);
+          this.state = Object.assign({}, STATE_SEED, this.init(props));
+        }
+        componentDidMount() {
+          const tick = () => {
+            if (window.FIXTURES) { this.setState({ fx: true }, () => this.onReady && this.onReady()); return; }
+            this._w = setTimeout(tick, 50);
+          };
+          tick();
+        }
+        componentWillUnmount() { clearTimeout(this._w); clearTimeout(this._t); this.cleanup && this.cleanup(); }
+        componentDidUpdate(prev) {
+          if (prev.scene !== this.props.scene) this.setState(this.init(this.props), () => this.onReady && this.onReady());
+          this.afterUpdate && this.afterUpdate(prev);
+        }
+        toast(msg) {
+          this.setState({ toast: msg });
+          clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: "" }), 2400);
+        }
+        emit(name, detail, fallback) {
+          if (this.props[name]) this.props[name](detail); else this.toast(fallback);
+        }
+        fx() { return readFx(window, "FIXTURES"); }
+        init(props) { return {}; }
+        onReady() { this.forceUpdate(); }
+        renderVals() {
+          const B = window.MMWBoard;
+          const v = B ? B.topbarView(this.props.scene || "morning")
+            : { needCls: "counter", needNCls: "counter-n", needLightCls: "light hollow", orangeN: 0, greenN: 0, hollowN: 0, inkN: 0, waitingSub: "", readCls: "readstate", readText: "" };
+          v.noNeed = !v.hot;
+          v.hasWaiting = !!v.waitingSub;
+          return {
+            toast: this.state.toast, v,
+            jump: () => this.emit("onJumpNeedYou", null, "→ 画布跳到下一张需要你的票，并在详情栏打开它"),
+          };
+        }
+      }
+    </script>
+  </body>
+</html>

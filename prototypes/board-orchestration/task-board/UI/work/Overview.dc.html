@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link rel="stylesheet" href="./styles/tokens.css" />
+        <style>
+          html body #dc-root { width: auto !important; height: auto !important; overflow: visible !important; transform: none !important; }
+          .ov-frame { position: absolute; }
+          .ov-label { position: absolute; left: 0; top: -26px; font: 500 12px/1 var(--sans); color: var(--muted); white-space: nowrap; cursor: move; }
+          .ov-clip { position: relative; overflow: hidden; background: var(--panel); border-radius: 8px; box-shadow: 0 1px 2px rgba(45, 49, 66, 0.10), 0 8px 24px rgba(45, 49, 66, 0.08); width: 100%; height: 100%; }
+          .ov-scale { transform: scale(0.5); transform-origin: 0 0; }
+          .ov-app > .sc-host, .ov-app > .sc-host > * { width: 1440px; height: 900px; }
+          .ov-top > .sc-host, .ov-top > .sc-host > * { width: 1440px; height: 52px; }
+          .ov-tasks > .sc-host, .ov-tasks > .sc-host > * { width: 236px; height: 848px; }
+          .ov-canvas > .sc-host, .ov-canvas > .sc-host > * { width: 864px; height: 848px; }
+          .ov-detail > .sc-host, .ov-detail > .sc-host > * { width: 340px; height: 848px; }
+        </style>
+      </helmet>
+      <div class="ov-frame" style="left: 40px; top: 60px; width: 720px; height: 450px;">
+        <div class="ov-label" data-drags-parent="1">App · 任务板</div>
+        <div class="ov-clip"><div class="ov-scale ov-app"><dc-import name="App · 任务板" scene="morning" hint-size="1440px,900px"></dc-import></div></div>
+      </div>
+      <div class="ov-frame" style="left: 40px; top: 580px; width: 720px; height: 26px;">
+        <div class="ov-label" data-drags-parent="1">Component · 顶栏</div>
+        <div class="ov-clip"><div class="ov-scale ov-top"><dc-import name="Component · 顶栏" scene="morning" hint-size="1440px,52px"></dc-import></div></div>
+      </div>
+      <div class="ov-frame" style="left: 40px; top: 660px; width: 118px; height: 424px;">
+        <div class="ov-label" data-drags-parent="1">Component · 任务列表</div>
+        <div class="ov-clip"><div class="ov-scale ov-tasks"><dc-import name="Component · 任务列表" scene="morning" hint-size="236px,848px"></dc-import></div></div>
+      </div>
+      <div class="ov-frame" style="left: 198px; top: 660px; width: 432px; height: 424px;">
+        <div class="ov-label" data-drags-parent="1">Component · 画布</div>
+        <div class="ov-clip"><div class="ov-scale ov-canvas"><dc-import name="Component · 画布" scene="morning" hint-size="864px,848px"></dc-import></div></div>
+      </div>
+      <div class="ov-frame" style="left: 670px; top: 660px; width: 170px; height: 424px;">
+        <div class="ov-label" data-drags-parent="1">Component · 详情</div>
+        <div class="ov-clip"><div class="ov-scale ov-detail"><dc-import name="Component · 详情" scene="morning" hint-size="340px,848px"></dc-import></div></div>
+      </div>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{}'
+    >
+      class Component extends DCLogic {
+        renderVals() { return {}; }
+      }
+    </script>
+  </body>
+</html>
