@@ -204,7 +204,18 @@ start() {
         --command "$cmd" \
         --title "$name" \
         --json 2>"$err")"; then
-    echo "runners/orca.sh: terminal create refused $host at $abs: $(tr '\n' ' ' < "$err")" >&2
+    # Orca answers a refusal as JSON on stdout (`ok: false`, `error.message`); stderr is
+    # usually empty, so the reason is read from both.
+    local reason
+    reason="$( { tr '\n' ' ' < "$err"; printf '%s' "$json" | python3 -c '
+import json, sys
+try:
+    error = json.load(sys.stdin).get("error") or {}
+    print(error.get("message") or error.get("code") or "")
+except Exception:
+    pass
+'; } | tr '\n' ' ')"
+    echo "runners/orca.sh: terminal create refused $host at $abs: ${reason:-Orca gave no reason}" >&2
     exit 1
   fi
   handle="$(printf '%s' "$json" | parse_json handle)" || handle=""
