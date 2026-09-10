@@ -38,15 +38,35 @@ def started(session="term_7", runner="orca", kind="worker"):
 
 
 class TheVocabulary(unittest.TestCase):
-    """28 events — the spec's 25, `worker.queued`, `reviewer.lost` and `verifier.lost` —
-    one shape, a closed set of subjects."""
+    """29 events — the spec's 25 plus the four later events — one shape and closed sets."""
 
-    def test_there_are_twenty_eight_events(self):
-        self.assertEqual(len(events.EVENTS), 28)
+    def test_there_are_twenty_nine_events(self):
+        self.assertEqual(len(events.EVENTS), 29)
         for name in ("ticket.checked", "worker.touched", "worker.queued", "reviewer.lost",
-                     "verifier.lost"):
+                     "verifier.lost", "ticket.bounced"):
             with self.subTest(name=name):
                 self.assertIn(name, events.EVENTS)
+
+    def test_bounced_needs_reason_and_commit(self):
+        readable = ev("ticket.bounced", "Could not land", reason="conflict",
+                      commit="a" * 40)
+        self.assertEqual(events.parse(readable)[0], "event")
+        missing = events.block({
+            "v": 1, "event": "ticket.bounced", "stage": "land", "actor": "main",
+            "spec": 76, "ticket": 61, "at": SAME_SECOND, "reason": "conflict",
+        })
+        what, reason = events.parse("Could not land\n\n" + missing)
+        self.assertEqual(what, "unreadable")
+        self.assertIn("commit", reason)
+
+    def test_bounced_reason_is_closed(self):
+        with self.assertRaises(events.EventError):
+            ev("ticket.bounced", "Could not land", reason="network", commit="a" * 40)
+
+    def test_started_without_into_is_readable(self):
+        what, payload = events.parse(started())
+        self.assertEqual(what, "event")
+        self.assertNotIn("into", payload)
 
     def test_the_five_child_kinds_are_named_for_who_can_answer_them(self):
         self.assertEqual(events.CHILD_KINDS,
@@ -250,6 +270,15 @@ class Replays(unittest.TestCase):
                          (False, False, True))
         self.assertIsNone(state["outcome"])
 
+    def test_bounced_withdraws_the_pass(self):
+        state = events.fold([
+            started(), ev("ticket.passed", "ALL MET"), ev("ticket.landed", "Landed"),
+            ev("ticket.bounced", "Could not land", reason="conflict", commit="a" * 40,
+               into="main", files=["src/app.py"]),
+        ])
+        self.assertEqual((state["passed"], state["landed"]), (False, False))
+        self.assertIsNone(state["outcome"])
+
     def test_passing_again_after_a_regression_is_a_pass_that_has_not_landed(self):
         state = events.fold([
             ev("ticket.passed", "ALL MET"), ev("ticket.landed", "Landed"),
@@ -423,6 +452,15 @@ class WaitingAndSlots(unittest.TestCase):
             with self.subTest(event=events.parse(closing)[1]["event"]):
                 state = events.fold([started(), checked_run(slot=1), closing])
                 self.assertIsNone(state["slot"])
+
+    def test_bounced_ends_every_hold(self):
+        closing = ev("ticket.bounced", "Could not land", reason="checks", commit="a" * 40,
+                     into="main", commands=[{"command": "false", "tail": "failed"}])
+        state = events.fold([started(), started("rev_1", kind="reviewer"),
+                             checked_run(slot=1), closing])
+        self.assertFalse(state["held"])
+        self.assertIsNone(state["slot"])
+        self.assertTrue(all(r["ended_by"] == "ticket.bounced" for r in state["sessions"]))
 
     def test_a_pass_a_replacement_or_a_loss_does_not_give_the_slot_back(self):
         """A pass is not the end of the work; a replaced or lost worker's worktree keeps

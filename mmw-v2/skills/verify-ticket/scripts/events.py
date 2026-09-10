@@ -94,6 +94,7 @@ CHECK_RESULTS = ("met", "unmet", "handoff")
 # Why a run waits for a product slot: this product's `instance.max` is reached, or every
 # slot of this machine is taken.
 QUEUE_REASONS = ("product-full", "machine-full")
+BOUNCE_REASONS = ("conflict", "checks")
 
 EVENTS: dict[str, dict] = {
     "spec.opened":       {"stage": "night",    "actor": "main"},
@@ -112,6 +113,9 @@ EVENTS: dict[str, dict] = {
                           "required": ("reason",), "closed": {"reason": RELEASE_REASONS}},
     "ticket.landed":     {"stage": "land",     "actor": "main"},
     "ticket.regressed":  {"stage": "regress",  "actor": "main", "required": ("commit",)},
+    "ticket.bounced":    {"stage": "land",     "actor": "main",
+                           "required": ("reason", "commit"),
+                           "closed": {"reason": BOUNCE_REASONS}},
 
     # Everything the ticket says about where its worker runs, so every later command and
     # every machine finds it there. `effort` is written `—` when the host takes none; the
@@ -193,7 +197,8 @@ COMMON = ("v", "event", "stage", "actor", "spec", "ticket", "at")
 # hold. These end every hold on the ticket. `ticket.passed` ends none: until the ticket
 # lands its worker may still be at work on it — a close that failed after the pass leaves
 # the ticket open and the worker retrying. Labels never end a hold.
-ENDS_EVERY_HOLD = ("ticket.landed", "ticket.returned", "ticket.released", "spec.suspended")
+ENDS_EVERY_HOLD = ("ticket.landed", "ticket.returned", "ticket.released",
+                   "ticket.bounced", "spec.suspended")
 # These end the hold of the one session they name, matched by its (runner, session)
 # pair and never by the id alone: two runners can hand out the same id. A retraction
 # also ends a claim no started session has taken over, since it gives the claim back. A
@@ -211,8 +216,8 @@ ENDS_OWN_HOLD = {"reviewer.reported": "reviewer", "verifier.passed": "verifier",
 # moment: it lands, it is handed back, its claim is released, the night is suspended, or
 # its start is retracted. A replaced or lost worker's worktree keeps its slot for the
 # worker that carries on in it.
-SLOT_ENDS = ("ticket.landed", "ticket.returned", "ticket.released", "spec.suspended",
-             "worker.retracted")
+SLOT_ENDS = ("ticket.landed", "ticket.returned", "ticket.released", "ticket.bounced",
+             "spec.suspended", "worker.retracted")
 
 # The fields `result` and `checked` print after an event's name.
 RESULT_FIELDS = {
@@ -433,6 +438,7 @@ def empty_state(issue: int | None = None) -> dict:
         "landed": False,
         "released": None,
         "regressed": False,
+        "bounced": False,
         "suspended": False,
         "review": None,
         "verdict": None,
@@ -495,6 +501,7 @@ def apply(state: dict, event: dict) -> None:
             "worktree": payload.get("worktree"),
             "branch": payload.get("branch"),
             "base": payload.get("base"),
+            "into": payload.get("into"),
             "machine": payload.get("machine"),
             "started_at": payload.get("at"),
             "comment": event["comment"],
@@ -536,6 +543,8 @@ def apply(state: dict, event: dict) -> None:
         state["landed"] = True
     elif name == "ticket.regressed":
         state.update(passed=False, landed=False, regressed=True, outcome=None)
+    elif name == "ticket.bounced":
+        state.update(passed=False, landed=False, bounced=True, outcome=None)
     elif name == "spec.suspended":
         state["suspended"] = True
     elif name == "spec.opened":

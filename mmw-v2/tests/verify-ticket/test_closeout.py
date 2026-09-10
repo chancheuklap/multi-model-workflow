@@ -17,6 +17,16 @@ ME = "chancheuklap"
 VERIFIED = "3f9c2e1adeadbeefcafe0123456789abcdef0123"
 HEAD = "9b1d40c7feedface0011223344556677889900aa"
 
+
+def worker_started(base="main", into="spec-337"):
+    return event("worker.started", "Worker started", session="wk-77", runner="paseo",
+                 machine="mac-1", host="codex", model="gpt-5", effort="high",
+                 grade="senior-worker", worktree="/repo/.worktrees/issue-77",
+                 branch="issue-77", base=base, into=into)
+
+
+STARTED = worker_started()
+
 MET = """- [x] AC1: the importer writes six rows
   CHECK: pytest -q tests/test_import.py
   EXPECT: /\\d+ passed/
@@ -128,6 +138,7 @@ def check(text, comments=(VERDICT_COMMENT,),
             raise subprocess.CalledProcessError(1, ["gh", "issue", "comment", str(number)])
         seen["posted"].append((number, body))
     ledger = ledger_of(text)
+    comments = (STARTED, *comments)
     if body is None:
         body = acceptance_body(ledger)
     if reverify and not any(is_reverify(c) for c in comments):
@@ -162,6 +173,7 @@ def check(text, comments=(VERDICT_COMMENT,),
              mock.patch.object(vt, "git", side_effect=fake_git), \
              mock.patch.object(vt, "is_ancestor", side_effect=fake_is_ancestor), \
              mock.patch.object(vt, "dirty_tracked", side_effect=lambda root=None: list(dirty)), \
+             mock.patch.object(vt, "push_ticket_branch", return_value=None), \
              mock.patch.object(vt, "post_comment", side_effect=post), \
              mock.patch.object(vt, "close_ticket", side_effect=change("closed")), \
              mock.patch.object(vt, "hand_back_for_triage", side_effect=change("handed")):
@@ -702,7 +714,7 @@ class TestNoSideEffectOnFail(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertEqual(seen, {"posted": [], "closed": [], "handed": []})
 
-    def test_all_met_posts_the_draft_and_closes(self):
+    def test_passed_carries_into(self):
         text = draft(counts=counts_line())
         code, err, seen = check(text, check_only=False)
         self.assertEqual(code, 0, err)
@@ -710,6 +722,8 @@ class TestNoSideEffectOnFail(unittest.TestCase):
                          [(77, (text, "ticket.passed"))])
         self.assertEqual(seen["closed"], [77])
         self.assertEqual(seen["handed"], [])
+        payload = vt.events.parse(seen["posted"][0][1])[1]
+        self.assertEqual(payload["into"], "spec-337")
 
     def test_handoff_posts_the_draft_and_swaps_the_label(self):
         text = draft(first="HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 1 met of 2",
@@ -814,6 +828,18 @@ class TestTargetJsonChecks(unittest.TestCase):
                          ("met", {"passed": 2, "total": 2}))
         self.assertEqual(posted_as(seen["posted"][1][1]), (text, "ticket.passed"))
 
+    def test_repo_checks_see_mmw_base_ref(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_checks(root, [
+                "python3 -c \"import os,sys; sys.exit(os.environ.get('MMW_BASE_REF') "
+                "!= 'origin/spec-337')\"",
+            ])
+            text = draft(counts=counts_line())
+            code, err, seen = check(text, check_only=False, repo=root)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(repo_checks(seen["posted"])["result"], "met")
+
     def test_an_entry_with_its_own_timeout_is_held_to_it(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -910,6 +936,95 @@ class TestTargetJsonChecks(unittest.TestCase):
         self.assertEqual(seen["handed"], [77])
         self.assertEqual([posted_as(b) for _, b in seen["posted"]],
                          [(text, "ticket.returned")])
+
+
+class TestCloseoutPush(unittest.TestCase):
+    def make_repo(self, root: Path):
+        remote = root / "origin.git"
+        work = root / "work"
+        subprocess.run(["git", "init", "-q", "--bare", str(remote)], check=True)
+        subprocess.run(["git", "init", "-q", "-b", "issue-77", str(work)], check=True)
+        subprocess.run(["git", "-C", str(work), "config", "user.email", "t@t"], check=True)
+        subprocess.run(["git", "-C", str(work), "config", "user.name", "t"], check=True)
+        (work / "base.txt").write_text("base\n")
+        subprocess.run(["git", "-C", str(work), "add", "-A"], check=True)
+        subprocess.run(["git", "-C", str(work), "commit", "-qm", "base"], check=True)
+        base = subprocess.run(["git", "-C", str(work), "rev-parse", "HEAD"], check=True,
+                              capture_output=True, text=True).stdout.strip()
+        subprocess.run(["git", "-C", str(work), "remote", "add", "origin", str(remote)],
+                       check=True)
+        return work, remote, base
+
+    def add_verdict_commit(self, work: Path):
+        (work / "work.txt").write_text("done\n")
+        subprocess.run(["git", "-C", str(work), "add", "-A"], check=True)
+        subprocess.run(["git", "-C", str(work), "commit", "-qm", "ticket work"], check=True)
+        return subprocess.run(["git", "-C", str(work), "rev-parse", "HEAD"], check=True,
+                              capture_output=True, text=True).stdout.strip()
+
+    def run_closeout(self, work: Path, base: str, head: str):
+        text = draft(counts=counts_line())
+        ledger = ledger_of(text)
+        comments = [worker_started(base=base), reverify_of(ledger).replace(HEAD, head),
+                    event("verifier.passed", f"VERDICT {head} by opus — all passed",
+                          commit=head)]
+        posted, closed = [], []
+        real_git = vt.git
+
+        def git_in_worktree(*args, cwd=None):
+            return real_git(*args, cwd=cwd or work)
+
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "closeout.md"
+            path.write_text(text, encoding="utf-8")
+            with mock.patch.object(vt, "repo_root", return_value=work), \
+                 mock.patch.object(vt, "fetch_comments", return_value=comments), \
+                 mock.patch.object(vt, "fetch_body", return_value=acceptance_body(ledger)), \
+                 mock.patch.object(vt, "fetch_ticket", return_value={
+                     "state": "OPEN", "labels": [{"name": "ready-for-agent"}],
+                     "assignees": [{"login": ME}], "blockedBy": {"nodes": []}}), \
+                 mock.patch.object(vt, "gh_login", return_value=ME), \
+                 mock.patch.object(vt, "git", side_effect=git_in_worktree), \
+                 mock.patch.object(vt, "post_comment", side_effect=lambda n, b: posted.append(b)), \
+                 mock.patch.object(vt, "close_ticket", side_effect=lambda n: closed.append(n)):
+                with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
+                    code = vt.run_closeout(77, path, False)
+        return code, err.getvalue(), posted, closed
+
+    def test_closeout_pushes_the_verdict_commit(self):
+        with TemporaryDirectory() as tmp:
+            work, remote, base = self.make_repo(Path(tmp))
+            head = self.add_verdict_commit(work)
+            code, err, posted, closed = self.run_closeout(work, base, head)
+            remote_head = subprocess.run(
+                ["git", "--git-dir", str(remote), "rev-parse", "refs/heads/issue-77"],
+                capture_output=True, text=True).stdout.strip()
+        self.assertEqual(code, 0, err)
+        self.assertEqual(remote_head, head)
+        self.assertEqual(closed, [77])
+        self.assertEqual(vt.events.parse(posted[-1])[1]["into"], "spec-337")
+
+    def test_closeout_refuses_when_the_push_is_rejected(self):
+        with TemporaryDirectory() as tmp:
+            work, remote, base = self.make_repo(Path(tmp))
+            subprocess.run(["git", "-C", str(work), "push", "-q", "origin",
+                            "HEAD:refs/heads/issue-77"], check=True)
+            before = subprocess.run(
+                ["git", "--git-dir", str(remote), "rev-parse", "refs/heads/issue-77"],
+                check=True, capture_output=True, text=True).stdout.strip()
+            head = self.add_verdict_commit(work)
+            hook = remote / "hooks" / "pre-receive"
+            hook.write_text("#!/bin/sh\necho protected branch >&2\nexit 1\n")
+            hook.chmod(0o755)
+            code, err, posted, closed = self.run_closeout(work, base, head)
+            after = subprocess.run(
+                ["git", "--git-dir", str(remote), "rev-parse", "refs/heads/issue-77"],
+                check=True, capture_output=True, text=True).stdout.strip()
+        self.assertNotEqual(code, 0)
+        self.assertIn("protected branch", err)
+        self.assertEqual((before, after), (base, base))
+        self.assertEqual(closed, [])
+        self.assertEqual(posted, [])
 
 
 if __name__ == "__main__":
