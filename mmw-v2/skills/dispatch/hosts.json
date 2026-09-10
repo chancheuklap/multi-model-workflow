@@ -1,7 +1,7 @@
 {
   "defaults": [
-    {"agent": "junior-worker", "host": "cursor", "model": "grok 4.6", "effort": "high"},
-    {"agent": "senior-worker", "host": "grok", "model": "grok 4.6", "effort": "xhigh"},
+    {"agent": "junior-worker", "host": "grok", "model": "grok 4.6", "effort": "high"},
+    {"agent": "senior-worker", "host": "codex", "model": "gpt 5.6 sol", "effort": "high"},
     {"agent": "reviewer", "host": "claude", "model": "opus 5", "effort": "high"},
     {"agent": "verifier", "host": "claude", "model": "sonnet 5", "effort": "high"},
     {"agent": "advisor", "host": "claude", "model": "fable 5.1", "effort": "medium"}

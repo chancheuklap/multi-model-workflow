@@ -1179,15 +1179,24 @@ else:
 ')"
 mkdir -p "$MMW_HOME"
 : > "$MMW_GH_LAST_BODY"
-python3 -c '
-import importlib.util
-from pathlib import Path
-p = Path("'"$SKILL"'/scripts/models.py")
-spec = importlib.util.spec_from_file_location("mmw_models", p)
-mod = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(mod)
-Path("'"$MMW_LIVE_MODELS"'").write_text(mod.default_live_markdown(), encoding="utf-8")
-'
+# The live table every scenario starts from. It is this suite's own fixture, not
+# hosts.json's defaults: what a fresh machine is given can change without changing what
+# the scenarios exercise (a Cursor junior row with its effort inside the model id, a Grok
+# senior row at xhigh).
+cat > "$MMW_LIVE_MODELS" <<'TABLE'
+# Models
+
+| runner | orca |
+| --- | --- |
+
+| agent | host | model | effort |
+| --- | --- | --- | --- |
+| junior-worker | cursor | grok 4.6 | high |
+| senior-worker | grok | grok 4.6 | xhigh |
+| reviewer | claude | opus 5 | high |
+| verifier | claude | sonnet 5 | high |
+| advisor | claude | fable 5.1 | medium |
+TABLE
 
 git init -q -b main "$TMP/repo"
 git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m fixture
