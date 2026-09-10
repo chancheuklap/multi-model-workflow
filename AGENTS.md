@@ -20,7 +20,7 @@ MMW 是用户跨 host、跨 repository、跨电脑共用的工作流 toolbox：�
 
 ## 约定
 
-- `SKILL.md` 对所有 host 是同一份：不把任何 host 当默认或首选，不按 host 名分支；能力差异用按能力判断的自然语言写。
+- `SKILL.md` 对所有 host、所有 runner 是同一份：不把任何 host 当默认或首选，不按 host 名或 runner 名分支；能力差异用按能力判断的自然语言写。今晚用哪个 runner 由 `models.py runner` 选（最后一级是默认值），正文照写这个选法，不替它假定。某个 runner 自己的命令只写在它的适配器 `mmw-v2/skills/dispatch/scripts/runners/<runner>.sh` 里。frontmatter 的 `description` 不写任何 runner 的名字：它被扫进各 host 的系统提示，写一个就把整份技能锁在那个 runner 上；选定的 runner 起不来时，拒绝是脚本运行时 stderr 上的一行，不是 `description` 里的前置条件。
 - 装哪些技能只改 `mmw-v2/skills.txt`。host 上的 symlink 直接指向 source directory，改完下一次调用即生效；只有 frontmatter 的 `description` 是 host 启动时扫进去的，改它要重开会话。
 - `mmw-v2/skills/<名>/` 整个目录被软链进各 host，所以它只装拿着这份技能的 agent 要读要跑的东西：`SKILL.md`、reference 文件、`scripts/`。技能的测试在 `mmw-v2/tests/<名>/`，只存在于本仓库的 checkout 里；它从 `mmw-v2/tests/<名>/` 数两级回到 `mmw-v2/`，再进 `skills/<名>/scripts/` 找被测的脚本。
 - 技能自带的脚本，由拿着这份技能的 agent 从它的 `SKILL.md` 就地解析 `scripts/…`；caller 只点技能名与要做的事，不写安装路径。装了技能就是拿到脚本，两者不会各自漂移，路径在五个 host 上都对。写进 ticket 的那条 `CHECK:` 也不写路径：它由 shell 执行、中间没有 agent，所以由跑它的 `verify-ticket.py` 把 drive-target 技能的 `scripts/` 放上那个 shell 的 `PATH`（`--tools`），判官按裸名调用；形状在 `mmw-v2/skills/drive-target/references/boundary-check.md` 与 `story-parity.md`。
