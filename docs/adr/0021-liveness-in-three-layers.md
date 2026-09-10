@@ -5,7 +5,7 @@ amends: [0017, 0020]
 
 # 判活分三层，都不是 agent：回合守卫在主 agent 的回合结束时重新武装看门进程，看门进程看中继并问沉默票的 runner，`worker.lost` 只由它写
 
-一张票的 worker 死了，票上什么都不会发生，board 上的沉默和还在干活长得一样（`docs/adr/0008-silence-is-never-a-pass.md`）。现在由三层接住，没有一层是 agent，也不花 token。第一层是回合守卫 `mmw-v2/skills/dispatch/scripts/turn-guard.py`，`install.sh` 把它挂在五个 host 的回合结束事件上（Claude、Codex、Grok 的 `Stop`，Cursor 的 `stop`，Pi 由扩展接 `agent_settled`）：只对中继登记的主 agent 那个会话起作用；看门进程不健康就重新拉起它，还有票被占着而它仍起不来，就不让这一回合结束（Claude、Codex、Grok 用 exit 2），拦不住的 host 塞一条消息（Cursor 的 `followup_message`、Pi 扩展的 follow-up）。第二层是看门进程 `watchdog.py`，一个仓库一个，锁 `watchdog.lock` 记 pid 与进程身份，每轮写心跳 `watchdog.json`；心跳新旧的容差是 `max(300, poll + 60)` 秒；每一轮也看中继的锁记录与最近一次成功轮询。第三层在同一个进程里：一张被占着、不在等槽位（折叠结果的 `waiting`）、超过十分钟没有新事件的票，对还占着它的每一个会话——worker，以及结果还没落在票上的 reviewer / verifier——只问它的 `*.started` 写的那个 runner 那个会话还在不在：`stopped` 就在票上写 `worker.lost`、`reviewer.lost` 或 `verifier.lost`，中继把第一种送给主 agent，后两种送给这张票的 worker；`unknown` 记为不知道，从不当成活着，也从不写 `*.lost`。设计与理由在 spec #317。
+一张票的 worker 死了，票上什么都不会发生，board 上的沉默和还在干活长得一样（`docs/adr/0008-silence-is-never-a-pass.md`）。现在由三层接住，没有一层是 agent，也不花 token。第一层是回合守卫 `mmw-v2/skills/dispatch/scripts/turn-guard.py`，`install.sh` 把它挂在五个 host 的回合结束事件上（Claude、Codex、Grok 的 `Stop`，Cursor 的 `stop`，Pi 由扩展接 `agent_settled`）：只对中继登记的主 agent 那个会话起作用；看门进程不健康就重新拉起它，还有票被占着而它仍起不来，就不让这一回合结束（Claude、Codex、Grok 用 exit 2），拦不住的 host 塞一条消息（Cursor 的 `followup_message`、Pi 扩展的 follow-up）。第二层是看门进程 `watchdog.py`，一个仓库一个，锁 `watchdog.lock` 记 pid 与进程身份，每轮写心跳 `watchdog.json`；心跳新旧的容差是 `max(300, poll + 60)` 秒；每一轮也看中继的锁记录与最近一次成功轮询。第三层在同一个进程里：一张被占着、超过十分钟没有新事件的票，或者正在等槽位（折叠结果的 `waiting`）的票——等槽位不算死，但也不免检，它不看沉默多久、每一轮都问——对还占着它的每一个会话——worker，以及结果还没落在票上的 reviewer / verifier——只问它的 `*.started` 写的那个 runner 那个会话还在不在：`stopped` 就在票上写 `worker.lost`、`reviewer.lost` 或 `verifier.lost`，中继把第一种送给主 agent，后两种送给这张票的 worker；`unknown` 记为不知道，从不当成活着，也从不写 `*.lost`。设计与理由在 spec #317。
 
 ## 几个 spec 没写死、这里定下来的地方
 
@@ -20,6 +20,7 @@ amends: [0017, 0020]
 
 - **Claude 用 `asyncRewake` 把看门进程挂在钩子上异步跑，退出码 2 叫醒主 agent（firstmate 的做法）。** 否决。只有 Claude 有这个机制；Cursor 没有，firstmate 记下过 Grok 在守卫失灵时把它同步跑满 28800 秒、那一回合再没结束。每个 host 都用同一种方式：钩子把看门进程作为独立会话的进程拉起就返回，由 runner 的 `send` 叫醒主 agent。主 agent 本来就必须跑在一个 runner 会话里（`docs/adr/0020-wakes-come-from-the-board.md`）。
 - **守卫从 GitHub 现读哪些票被占着。** 否决。回合结束钩子在主 agent 的每一回合末尾都跑，一次网络请求加折叠太慢；它读看门进程最近一轮心跳里的 `held`。没有心跳，或者那一轮没读全，就不算「什么都没占着」。
+- **等槽位的票整张跳过。** 否决（spec #317 第 4 节「等槽位不算死，但也不免检」）：一个在排队时死掉的 worker 会永远占着它的票，没有任何事件结束这个占用。
 - **判「等槽位」看最新一条事件是不是 `worker.queued`。** 否决。一次等待中间还可能落别的事件；等待是否结束由 `events.py` 的折叠结果 `waiting` 回答（到下一条 `ticket.checked` 或结束占用的事件为止），这一层不另起判据。
 - **runner 是 Orca 时直接读它的 Dispatch 状态。** 否决，理由在 spec #317 的 Out of Scope：那是第四个动词。
 

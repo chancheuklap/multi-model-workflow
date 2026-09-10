@@ -421,15 +421,35 @@ class Rounds(StateCase):
         self.watchdog().round()
         self.assertEqual(self.ask.calls, [("herdr", "h1")])
 
-    def test_a_ticket_waiting_for_a_slot_is_not_asked(self):
-        self.silent_worker()
-        self.board.tickets[61].append(comment(2, "worker.queued", 61, self.SILENT,
-                                              reason="machine-full", run="self"))
-        self.ask.default = "stopped"
+    def queued(self, minutes_ago: int):
+        at = T0 - timedelta(minutes=minutes_ago)
+        self.board.tickets[61] = [
+            comment(1, "worker.started", 61, at, runner="herdr", session="h1"),
+            comment(2, "worker.queued", 61, at, reason="machine-full", run="self")]
+
+    def test_a_ticket_waiting_for_a_slot_is_asked_however_recent_its_queueing(self):
+        # Waiting is not dying, and not exempt: a worker that dies in the queue would
+        # otherwise hold its ticket for good.
+        self.queued(minutes_ago=2)
         self.watchdog().round()
-        self.assertEqual((self.ask.calls, self.post.calls, self.send.calls), ([], [], []))
+        self.assertEqual(self.ask.calls, [("herdr", "h1")])
+        self.assertEqual((self.post.calls, self.send.calls), ([], []))
         beat = self.heartbeat()
         self.assertEqual((beat["held"], beat["waiting"]), ([61], [61]))
+
+    def test_a_worker_that_died_in_the_queue_is_lost(self):
+        self.queued(minutes_ago=2)
+        self.ask.default = "stopped"
+        self.watchdog().round()
+        self.assertEqual([(c[1], c[2], c[4], c[5]) for c in self.post.calls],
+                         [("worker", 61, "herdr", "h1")])
+
+    def test_a_waiting_worker_its_runner_cannot_answer_for_is_unknown_not_lost(self):
+        self.queued(minutes_ago=2)
+        self.ask.default = "unknown"
+        self.watchdog().round()
+        self.assertEqual(self.post.calls, [])
+        self.assertIn("#61 liveness unknown", self.send.calls[0][2])
 
     def children(self, *extra):
         """A live worker, then a reviewer and a verifier it started, then `extra`."""

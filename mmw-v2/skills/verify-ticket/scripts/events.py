@@ -487,7 +487,6 @@ def apply(state: dict, event: dict) -> None:
             "worktree": payload.get("worktree"),
             "branch": payload.get("branch"),
             "base": payload.get("base"),
-            "slot": payload.get("slot"),
             "started_at": payload.get("at"),
             "comment": event["comment"],
             "live": True,

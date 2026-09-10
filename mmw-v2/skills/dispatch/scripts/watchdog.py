@@ -36,13 +36,16 @@ night is closed this process writes a last heartbeat saying so and exits.
 2. Every watched ticket is read in full and folded (`events.py` of the verify-ticket
    skill). A ticket not held is skipped. A held ticket in the waiting step — the fold's
    `waiting`: a `worker.queued` its run still waits under, because no product slot was
-   free — is skipped: queueing is not dying. A held ticket whose newest event is less than
-   `--silence` seconds old (default 600) is skipped.
-3. Every other held ticket is silent. For each session that still holds it — the
-   (runner, session) pair of every `worker.started`, `reviewer.started` or
-   `verifier.started` no later event has ended, less a reviewer or verifier whose result
-   is already on the ticket after its start — this asks that session's own runner, and no
-   other runner, `runners/<runner>.sh liveness <session>`:
+   free — is quiet by design, so its silence proves nothing, and it is asked about every
+   round however long it has been quiet: queueing is not dying, and it is not exempt
+   either, since a worker that dies in the queue would otherwise hold its ticket for good.
+   Any other held ticket whose newest event is less than `--silence` seconds old (default
+   600) is skipped.
+3. Every other held ticket is silent. For each session that still holds a silent or a
+   waiting ticket — the (runner, session) pair of every `worker.started`,
+   `reviewer.started` or `verifier.started` no later event has ended, less a reviewer or
+   verifier whose result is already on the ticket after its start — this asks that
+   session's own runner, and no other runner, `runners/<runner>.sh liveness <session>`:
 
        alive     nothing
        stopped   `<kind>.lost` is posted on the ticket, naming that pair: `worker.lost`,
@@ -208,9 +211,11 @@ def judge(fold: dict, now: datetime, silence: int) -> dict:
 
         {"state": "unreadable"}                        a comment's event cannot be read
         {"state": "free"}                              no hold on it
-        {"state": "waiting", "since": T}               in the waiting step: the fold's
+        {"state": "waiting", "since": T, "sessions": [...], "comment": C}
+                                                       in the waiting step: the fold's
                                                        `waiting`, the `worker.queued` its
-                                                       run still waits under
+                                                       run still waits under; asked about
+                                                       whatever its silence
         {"state": "recent", "since": T}                newest event younger than `silence`
         {"state": "silent", "since": T, "sessions": [...], "comment": C}
                                                        held and silent; `sessions` is every
@@ -226,7 +231,8 @@ def judge(fold: dict, now: datetime, silence: int) -> dict:
     waiting = fold.get("waiting")
     if waiting:
         return {"state": "waiting",
-                "since": waiting.get("at") if isinstance(waiting, dict) else since}
+                "since": waiting.get("at") if isinstance(waiting, dict) else since,
+                "sessions": to_ask(fold), "comment": last.get("comment")}
     at = parse_iso(since)
     if at is not None and (now - at).total_seconds() < silence:
         return {"state": "recent", "since": since}
@@ -506,6 +512,7 @@ class Watchdog:
             elif state == "waiting":
                 held.append(number)
                 waiting.append(number)
+                self._silent(number, spec, verdict, unknown, findings)
             elif state == "recent":
                 held.append(number)
             else:
