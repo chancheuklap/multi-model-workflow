@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 import os
 import re
 import subprocess
@@ -756,7 +757,16 @@ def resolve_row(host: str, model: str, effort: str) -> tuple[str, str, str]:
 
 
 def bypass_argv(host: str, model: str, effort: str, name: str) -> list[str]:
-    """Resolved model expanded to the argv after `herdr agent start … --`."""
+    """The host CLI's own launch flags, model and effort filled in.
+
+    Read from the `herdr` block of a host in hosts.json. That block is the host's
+    command-line argv and nothing Herdr-specific: every runner that starts a host by
+    running its CLI in a terminal — Herdr after `agent start … --`, Orca inside
+    `terminal create --command` — runs these same flags, so an edit to the block is an
+    edit to how that host starts on all of them. The runner adapters build their launch
+    line from here (`models.py bypass-argv` and `models.py launch-line`); none keeps a
+    copy. An empty effort (`—`) drops the effort flag rather than passing `—`.
+    """
     spec = load_hosts()["hosts"].get(host)
     if not spec or "herdr" not in spec:
         raise ValueError(f"no bypass argv for host {host}")
@@ -842,12 +852,36 @@ def worker_role_names() -> list[str]:
     return seen
 
 
+def launch_line(host: str, model: str, effort: str, name: str) -> list[str]:
+    """The whole command that starts a host: its binary, then `bypass_argv`."""
+    return [HOST_BINARIES.get(host), *bypass_argv(host, model, effort, name)]
+
+
+USAGE = ("usage: models.py offerings\n"
+         "       models.py bypass-argv <host> <model> <effort> <name>\n"
+         "       models.py launch-line <host> <model> <effort> <name>\n")
+
+
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if args == ["offerings"]:
         print(refresh_live_offerings())
         return 0
-    sys.stderr.write("usage: models.py offerings\n")
+    if len(args) == 5 and args[0] in ("bypass-argv", "launch-line"):
+        verb, host, model, effort, name = args
+        try:
+            if verb == "bypass-argv":
+                print("\n".join(bypass_argv(host, model, effort, name)))
+            else:
+                print(shlex.join(launch_line(host, model, effort, name)))
+        except (ValueError, OSError, json.JSONDecodeError) as exc:
+            # A host with no launch block, or a hosts.json that cannot be read, is a
+            # refusal: starting the host without its model and effort would run a session
+            # nobody asked for, and would look like one that started fine.
+            sys.stderr.write(f"models.py: cannot build the launch line for {host}: {exc}\n")
+            return 2
+        return 0
+    sys.stderr.write(USAGE)
     return 2
 
 

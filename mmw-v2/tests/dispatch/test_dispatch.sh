@@ -508,6 +508,9 @@ if args[:2] == ["agent", "list"]:
     if scenario == "list-garbage":
         print("not-json")
         sys.exit(0)
+    if scenario == "list-shape":
+        print(json.dumps({"result": "x"}))
+        sys.exit(0)
     print(json.dumps({
         "id": "cli:agent:list",
         "result": {"agents": load_agents(), "type": "agent_list"},
@@ -3625,7 +3628,68 @@ scenario_unknownnotalive() {
   hasnt "paseo :: archive"
 }
 
-ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir paseorejectspath landarchivesagents noadapterretract noadapterwait unknownnotalive"
+scenario_herdrunreadablelist() {
+  local code
+  RUNNER="$HERDR_RUNNER"
+  echo "--- a list in the wrong shape is unknown, never stopped"
+  reset_log
+  seed_herdr_agent agt_w61 idle
+  code="$(MMW_FAKE_HERDR_SCENARIO=list-shape run_runner liveness agt_w61)"
+  [ "$code" = 0 ] || fail "liveness expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/out")" = unknown ] || fail "a list it cannot read must be unknown, got: $(cat "$TMP/out")"
+
+  echo "--- send on a list in the wrong shape is unknown (4), never 'no such session' (2)"
+  reset_log
+  seed_herdr_agent agt_w61 idle
+  code="$(MMW_FAKE_HERDR_SCENARIO=list-shape run_runner send agt_w61 hi)"
+  [ "$code" = 4 ] || fail "send on an unreadable list expected 4, got $code: $(cat "$TMP/err")"
+
+  echo "--- and a list that is not JSON at all is unknown too"
+  reset_log
+  seed_herdr_agent agt_w61 idle
+  MMW_FAKE_HERDR_SCENARIO=list-garbage run_runner liveness agt_w61 >/dev/null
+  [ "$(cat "$TMP/out")" = unknown ] || fail "a garbage list must be unknown, got: $(cat "$TMP/out")"
+}
+
+scenario_herdrnoeffort() {
+  local code
+  RUNNER="$HERDR_RUNNER"
+  echo "--- an empty effort starts grok without --reasoning-effort, never with a literal dash"
+  reset_log
+  fresh_repo
+  code="$(run_runner start --host grok --model "grok 4.6" --effort "—" --cwd "$TMP/repo" --prompt go)"
+  [ "$code" = 0 ] || fail "start expected 0, got $code: $(cat "$TMP/err")"
+  has "herdr :: agent :: start"
+  if grep "herdr :: agent :: start" "$MMW_TEST_LOG" | grep -q -- "--reasoning-effort"; then
+    fail "empty effort must drop the flag: $(grep 'herdr :: agent :: start' "$MMW_TEST_LOG")"
+  fi
+  grep "herdr :: agent :: start" "$MMW_TEST_LOG" | grep -qF ":: grok 4.6 ::" \
+    || fail "the model must still be passed: $(grep 'herdr :: agent :: start' "$MMW_TEST_LOG")"
+
+  echo "--- a host with no launch block refuses instead of starting without a model"
+  reset_log
+  fresh_repo
+  code="$(run_runner start --host nosuchhost --model m --effort high --cwd "$TMP/repo" --prompt go)"
+  [ "$code" = 1 ] || fail "an unknown host expected refusal 1, got $code"
+  grep -q "cannot build the launch line" "$TMP/err" || fail "stderr should say why: $(cat "$TMP/err")"
+  hasnt "herdr :: agent :: start"
+}
+
+scenario_herdrstartloud() {
+  local code
+  RUNNER="$HERDR_RUNNER"
+  echo "--- a refused start says what failed, on stderr"
+  reset_log
+  fresh_repo
+  code="$(MMW_FAKE_HERDR_SCENARIO=tab-fail run_runner start --host grok --model "grok 4.6" --effort high --cwd "$TMP/repo" --prompt go)"
+  [ "$code" = 1 ] || fail "expected 1, got $code"
+  grep -q "could not open a tab" "$TMP/err" || fail "stderr should name the failed tab create: $(cat "$TMP/err")"
+  code="$(MMW_FAKE_HERDR_SCENARIO=start-fail run_runner start --host grok --model "grok 4.6" --effort high --cwd "$TMP/repo" --prompt go)"
+  [ "$code" = 1 ] || fail "expected 1, got $code"
+  grep -q "agent start refused" "$TMP/err" || fail "stderr should name the refused agent start: $(cat "$TMP/err")"
+}
+
+ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir paseorejectspath landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -3666,6 +3730,9 @@ banner_for() {
     noadapterretract) echo NO-ADAPTER-RETRACT-OK ;;
     noadapterwait) echo NO-ADAPTER-WAIT-OK ;;
     unknownnotalive) echo UNKNOWN-NOT-ALIVE-OK ;;
+    herdrunreadablelist) echo HERDR-UNREADABLE-LIST-OK ;;
+    herdrnoeffort) echo HERDR-NO-EFFORT-OK ;;
+    herdrstartloud) echo HERDR-START-LOUD-OK ;;
     runnersend) echo RUNNER-SEND-OK ;;
     runnerliveness) echo RUNNER-LIVENESS-OK ;;
     runnerparity) echo RUNNER-PARITY-OK ;;
