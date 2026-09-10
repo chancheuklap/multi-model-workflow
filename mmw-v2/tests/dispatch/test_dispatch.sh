@@ -327,28 +327,6 @@ if args[:1] == ["run"]:
     print(json.dumps({"agentId": ident, "status": "running", "cwd": request["cwd"]}))
     sys.exit(0)
 
-if args[:1] == ["wait"]:
-    ident = args[1] if len(args) > 1 else ""
-    if scenario == "wait-timeout":
-        sys.exit(1)
-    ticket = ""
-    rows = load("agents.json")
-    for row in rows:
-        if row.get("id") == ident:
-            row["status"] = os.environ.get("MMW_FAKE_WAIT_STATUS", "idle")
-            ticket = str((row.get("labels") or {}).get("mmw.ticket") or "")
-    save("agents.json", rows)
-    comment = os.environ.get("MMW_FAKE_WAIT_COMMENT", "")
-    tickets_path = os.environ.get("FAKE_GH_TICKETS_FILE", "")
-    if comment and tickets_path and Path(tickets_path).is_file() and ticket:
-        tickets = json.loads(Path(tickets_path).read_text(encoding="utf-8"))
-        for t in tickets:
-            if str(t.get("number")) == ticket:
-                t.setdefault("comments", []).append(comment)
-                break
-        Path(tickets_path).write_text(json.dumps(tickets), encoding="utf-8")
-    sys.exit(0)
-
 if args[:1] == ["send"]:
     # MMW_FAKE_SEND_FAILS makes the daemon refuse the message the way it does when the
     # agent is in a turn: exit non-zero with the reason in one English sentence.
@@ -1074,31 +1052,7 @@ try:
     want = int(os.environ["MMW_WANT"])
 except Exception:
     want = None
-# Time passing while `wait` waits. `wait` reads the ticket, sleeps a beat, and reads it
-# again; from the second read on, the agent has finished: MMW_FAKE_WAIT_COMMENT lands on
-# the ticket and MMW_FAKE_WAIT_STATUS becomes every agent status. The first read sees
-# neither, so a scenario can tell "already there" from "arrived while waiting".
 state = os.environ.get("MMW_FAKE_PASEO_STATE")
-if state and (os.environ.get("MMW_FAKE_WAIT_COMMENT") or os.environ.get("MMW_FAKE_WAIT_STATUS")):
-    counter = Path(state) / "comment_reads"
-    reads = int(counter.read_text()) + 1 if counter.is_file() else 1
-    counter.write_text(str(reads))
-    done = Path(state) / "wait_delivered"
-    if reads >= 2 and not done.is_file():
-        done.write_text("1")
-        comment = os.environ.get("MMW_FAKE_WAIT_COMMENT", "")
-        if comment and path:
-            for t in rows:
-                if t.get("number") == want:
-                    t.setdefault("comments", []).append(comment)
-            Path(path).write_text(json.dumps(rows), encoding="utf-8")
-        status = os.environ.get("MMW_FAKE_WAIT_STATUS", "")
-        agents = Path(state) / "agents.json"
-        if status and agents.is_file():
-            ag = json.loads(agents.read_text(encoding="utf-8"))
-            for a in ag:
-                a["status"] = status
-            agents.write_text(json.dumps(ag), encoding="utf-8")
 found = next((t for t in rows if t.get("number") == want), {})
 store = Path(state or ".") / "gh-comments.json"
 posted = json.loads(store.read_text()).get(str(want), []) if state and store.is_file() else []
@@ -2072,7 +2026,6 @@ scenario_start_worker() {
 import json, sys
 from pathlib import Path
 obj = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])
-assert "mmw.profile" not in obj["labels"], obj["labels"]
 assert obj["settings"].get("thinkingOptionId") == "true", obj["settings"]
 assert obj["settings"].get("modeId") == "agent", obj["settings"]
 ' "$MMW_FAKE_PASEO_STATE/runs.jsonl" || fail "paseo run settings changed: $(cat "$TMP/out")"
@@ -2130,12 +2083,6 @@ assert obj["settings"].get("modeId") == "agent", obj["settings"]
   started_once
   [ "$(out_json provider)" = "grok/$SENIOR_MODEL" ] || fail "provider: $(out_json provider)"
   [ "$(out_json settings.thinkingOptionId)" = xhigh ] || fail "effort: $(out_json settings.thinkingOptionId)"
-  python3 -c '
-import json, sys
-from pathlib import Path
-obj = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])
-assert "mmw.profile" not in obj["labels"], obj["labels"]
-' "$MMW_FAKE_PASEO_STATE/runs.jsonl" || fail "the senior-worker start carries a profile label"
 
   echo "--- two worker labels are refused, and nothing is started"
   reset_log
@@ -2366,7 +2313,6 @@ scenario_start_reviewer() {
 import json, sys
 from pathlib import Path
 obj = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])
-assert "mmw.profile" not in obj["labels"], obj["labels"]
 assert obj["provider"] == "claude/claude-opus-5", obj["provider"]
 assert obj["settings"].get("thinkingOptionId") == "high"
 ' "$MMW_FAKE_PASEO_STATE/runs.jsonl" || fail "reviewer payload: $(cat "$TMP/out")"
@@ -2393,7 +2339,6 @@ scenario_start_verifier() {
 import json, sys
 from pathlib import Path
 obj = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])
-assert "mmw.profile" not in obj["labels"], obj["labels"]
 assert obj["provider"] == "claude/claude-sonnet-5", obj["provider"]
 assert obj["settings"].get("thinkingOptionId") == "high"
 ' "$MMW_FAKE_PASEO_STATE/runs.jsonl" || fail "verifier payload: $(cat "$TMP/out")"
@@ -3645,6 +3590,13 @@ scenario_runnerparity() {
           --cwd "$TMP/repo" --prompt hi --skip-approval)"
   [ "$code" = 0 ] || fail "paseo start expected 0, got $code: $(cat "$TMP/err")"
 
+  echo "--- start takes no --label: a usage error, and nothing is started"
+  reset_log
+  code="$(run_runner start --host grok --model grok-4.6 --effort high \
+          --cwd "$TMP/repo" --prompt hi --label mmw.ticket=61)"
+  [ "$code" = 2 ] || fail "paseo start with --label expected usage 2, got $code: $(cat "$TMP/err")"
+  never_ran
+
   echo "--- send three states"
   reset_log
   python3 -c '
@@ -3713,6 +3665,13 @@ path.write_text(json.dumps([{
   hasnt "herdr :: pane :: layout"
   hasnt "herdr :: tab :: close"
   hasnt "herdr :: pane :: close"
+
+  echo "--- start takes no --label: a usage error, and no tab is opened"
+  reset_log
+  code="$(run_runner start --host grok --model grok-4.6 --effort high \
+          --cwd "$TMP/repo" --prompt hi --label mmw.ticket=61)"
+  [ "$code" = 2 ] || fail "herdr start with --label expected usage 2, got $code: $(cat "$TMP/err")"
+  hasnt "herdr :: tab :: create"
 
   echo "--- send three states"
   reset_log
@@ -3790,6 +3749,13 @@ assert argv[-1] == os.environ["MMW_FIRST"], argv
   hasnt "--for :: tui-idle"
   grep -q -- '--for :: exit' "$MMW_TEST_LOG" \
     || fail "start should wait for the host to exit: $(cat "$MMW_TEST_LOG")"
+
+  echo "--- start takes no --label: a usage error, and no terminal is created"
+  reset_log
+  code="$(run_runner start --host grok --model grok-4.6 --effort high \
+          --cwd . --prompt hi --label mmw.ticket=61)"
+  [ "$code" = 2 ] || fail "orca start with --label expected usage 2, got $code: $(cat "$TMP/err")"
+  hasnt "orca :: terminal :: create"
 
   echo "--- send three states"
   reset_log

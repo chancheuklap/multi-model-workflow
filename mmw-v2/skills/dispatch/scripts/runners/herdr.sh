@@ -2,7 +2,7 @@
 #
 # Herdr adapter: the three verbs of the runner boundary, `stop`, and `self`.
 #
-#   runners/herdr.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--label K=V]... --prompt TEXT
+#   runners/herdr.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] --prompt TEXT
 #   runners/herdr.sh send <session-id> <text>
 #   runners/herdr.sh liveness <session-id>
 #   runners/herdr.sh stop <session-id>
@@ -51,7 +51,7 @@ herdr_() {
 }
 
 usage() {
-  echo "usage: runners/herdr.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--label K=V]... --prompt TEXT" >&2
+  echo "usage: runners/herdr.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] --prompt TEXT" >&2
   echo "       runners/herdr.sh send <session-id> <text>" >&2
   echo "       runners/herdr.sh liveness <session-id>" >&2
   echo "       runners/herdr.sh stop <session-id>" >&2
@@ -141,11 +141,6 @@ start() {
       --title)
         [ "$#" -ge 2 ] || usage
         title="$2"
-        shift 2
-        ;;
-      --label)
-        # Metadata for runners that keep it; this one does not.
-        [ "$#" -ge 2 ] || usage
         shift 2
         ;;
       *)

@@ -600,10 +600,8 @@ for b in nodes:
 grades = sorted(name for name in labels if name and name.endswith("-worker"))
 # The batch is the parent link the tracker records, and nothing else. `## Parent` is
 # prose written for a person: #193 opens that section with 「无 spec；本仓自建票。收口
-# #188 的评审票外」, so any reader taking the first `#N` in it comes back with 188.
-# That is how the three agents of #193 came to be labelled `mmw.spec=188`, where a
-# `suspend 188` would have archived them. A ticket with no parent link belongs to no
-# batch, and says so by carrying no spec label at all.
+# #188 的评审票外」, so any reader taking the first `#N` in it comes back with 188. A
+# ticket with no parent link belongs to no batch, and its events carry an empty `spec`.
 parent = ticket.get("parent") or {}
 spec = str(parent.get("number") or "")
 

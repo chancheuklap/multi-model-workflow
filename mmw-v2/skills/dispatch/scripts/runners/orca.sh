@@ -2,7 +2,7 @@
 #
 # Orca adapter: the three verbs of the runner boundary, `stop`, and `self`.
 #
-#   runners/orca.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--label K=V]... --prompt TEXT
+#   runners/orca.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] --prompt TEXT
 #   runners/orca.sh send <session-id> <text>
 #   runners/orca.sh liveness <session-id>
 #   runners/orca.sh stop <session-id>
@@ -76,7 +76,7 @@ orca_() {
 }
 
 usage() {
-  echo "usage: runners/orca.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--label K=V]... --prompt TEXT" >&2
+  echo "usage: runners/orca.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] --prompt TEXT" >&2
   echo "       runners/orca.sh send <session-id> <text>" >&2
   echo "       runners/orca.sh liveness <session-id>" >&2
   echo "       runners/orca.sh stop <session-id>" >&2
@@ -221,8 +221,8 @@ start() {
       --skip-approval)
         shift
         ;;
-      --title|--label)
-        # Metadata for runners that keep it; this one names the session after its worktree.
+      --title)
+        # This runner names the session after its worktree.
         [ "$#" -ge 2 ] || usage
         shift 2
         ;;
