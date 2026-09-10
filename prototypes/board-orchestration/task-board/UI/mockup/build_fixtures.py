@@ -464,6 +464,9 @@ MINE = {"junior-worker": ("grok", "grok 4.6", "high"),
 def settings() -> dict:
     hosts = models.load_hosts()
     initial = {r["agent"]: (r["host"], r["model"], r["effort"]) for r in hosts["defaults"]}
+    # The host the new machine lacks is the one MMW's initial junior-worker row names, so the
+    # scene shows a flagged cell whatever `hosts.json` `defaults` say.
+    absent = initial["junior-worker"][0]
     full = scanned(example_catalog())
     # Each scene carries both scans a page can show: asked of the hosts' own CLIs, and asked
     # of Paseo. Which one the page shows follows the runner, as the one `start` asks does.
@@ -473,8 +476,8 @@ def settings() -> dict:
                  "saved": config("orca", MINE)},
         # A new machine: the first install filled in MMW's initial values, and one of them
         # names a host this machine does not have.
-        "fresh": {"name": "新机器 · 初始值里的 cursor 没装", "scannedAt": iso("07:02"),
-                  "scans": both(scanned(example_catalog(), missing=frozenset({"cursor"}))),
+        "fresh": {"name": f"新机器 · 初始值里的 {absent} 没装", "scannedAt": iso("07:02"),
+                  "scans": both(scanned(example_catalog(), missing=frozenset({absent}))),
                   "saved": config(models.DEFAULT_RUNNER, initial)},
         # A saved model the host's CLI no longer lists.
         "retired": {"name": "选中的 model 本机已经没有", "scannedAt": iso("07:30"),
