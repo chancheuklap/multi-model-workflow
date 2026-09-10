@@ -59,9 +59,10 @@ CLASS_LABELS = {
 # The scripts of the drive-target skill that run a command `.mmw/target.json` declares,
 # under this worktree's lease. A criterion naming one needs the product, and so a slot.
 PRODUCT_JUDGES = ("story-parity.py", "journey.py", "screen_driver.py", "lease.py")
-# How long one run waits for a product slot before it hands back exit 3, and how often it
-# asks again in between. The bound stays under the time a host lets a command run before
-# it moves it to the background; a run given back 3 is run again, and the wait goes on.
+# How long a reverify waits for a product slot before it hands back exit 3, and how often
+# it asks again in between. The bound stays under the time a host lets a command run
+# before it moves it to the background; a reverify given back 3 is run again, and the wait
+# goes on. The worker's own run does not wait here: it is woken when a slot is given back.
 SLOT_WAIT_S = int(os.environ.get("MMW_SLOT_WAIT_S", "90"))
 SLOT_BEAT_S = int(os.environ.get("MMW_SLOT_BEAT_S", "10"))
 
@@ -1549,11 +1550,17 @@ def hold_slot(number: int, root: Path, run: str, comments: list,
     Writing code takes no slot. The first run of the criteria that needs the product
     claims one, and the worktree holds it until its ticket's work ends — landed, handed
     back, released, suspended or retracted — so every later run — the verifier's
-    reverify, the closeout's checks — finds it already there. When no
-    slot is free the run waits: a `worker.queued` event goes on the ticket, once for
-    this wait, so a ticket quiet for twenty minutes reads as queued and not as dead;
-    the claim is asked again every `SLOT_BEAT_S` seconds, and after `SLOT_WAIT_S` the run
-    exits 3 with nothing judged, to be run again.
+    reverify, the closeout's checks — finds it already there.
+
+    When no slot is free, a `worker.queued` event goes on the ticket, once for this wait,
+    so a ticket quiet for twenty minutes reads as queued and not as dead. The worker's
+    own run then exits 3 at once with nothing judged. A slot comes back only when another
+    ticket's work ends, and the event that ends it is what the relay of the dispatch skill
+    wakes every queued worker on, with `#<n> worker.queued`; the worker runs the same
+    command again then. Waiting here instead would cost the worker a turn every
+    `SLOT_WAIT_S` for as long as the slots stay held. A reverify — the verifier's, or the
+    main agent's — normally finds its worktree's slot already held; when it does not, it
+    asks again every `SLOT_BEAT_S` seconds and exits 3 after `SLOT_WAIT_S`, to be run again.
     """
     lease = load_lease()
     if lease is None:
@@ -1587,6 +1594,14 @@ def hold_slot(number: int, root: Path, run: str, comments: list,
                                      f"nothing was run. Run it again.\n")
                     return NOT_RECORDED
                 announced = True
+            if run == "self":
+                sys.stderr.write(
+                    f"#{number}: no product slot is free — {full.reason}, "
+                    f"{len(full.holders)} of {full.limit} held. Nothing was run; the ticket "
+                    f"says it is waiting. End your turn: the relay wakes you with "
+                    f"`#{number} worker.queued` when a slot is given back. Run the same "
+                    f"command again then.\n")
+                return 3
             if spent >= SLOT_WAIT_S:
                 sys.stderr.write(
                     f"#{number}: no product slot came free in {spent}s — {full.reason}, "
@@ -1606,8 +1621,9 @@ def run_checks(number: int, reverify: bool, timeout: int | None,
     """Run the ticket's criteria and post the run as one `ticket.checked` event.
 
     Exit 0 every criterion met, 1 not, 2 the run could not start (nothing was judged and
-    nothing was written), 3 it waited for a product slot and none came free, 4 the
-    criteria ran and the ticket.checked recording them could not be written.
+    nothing was written), 3 no product slot was free — at once for the worker's own run,
+    after `SLOT_WAIT_S` for a reverify — 4 the criteria ran and the ticket.checked
+    recording them could not be written.
     """
     body = fetch_body(number)
     require_judges(body)

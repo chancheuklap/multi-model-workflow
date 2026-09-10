@@ -670,7 +670,7 @@ class TestTheProductSlot(unittest.TestCase):
         return main, (main / ".worktrees" / "issue-1").resolve()
 
     def run_in(self, root: Path, body: str, comments=(), tools=(DRIVE,), lease="patched",
-               reverify=False, actor=None, post=None):
+               reverify=False, actor=None, post=None, wait_s=0):
         posted: list[str] = []
         real_run = vt.subprocess.run
 
@@ -686,7 +686,7 @@ class TestTheProductSlot(unittest.TestCase):
                    mock.patch.object(vt, "post_comment",
                                      side_effect=post or (lambda n, b: posted.append(b))),
                    mock.patch.object(vt, "TOOLS", [Path(t) for t in tools]),
-                   mock.patch.object(vt, "SLOT_WAIT_S", 0),
+                   mock.patch.object(vt, "SLOT_WAIT_S", wait_s),
                    mock.patch.object(vt.subprocess, "run", side_effect=spy)]
         if lease == "patched":
             patches.append(mock.patch.object(vt, "load_lease", return_value=self.lease))
@@ -815,6 +815,44 @@ class TestTheProductSlot(unittest.TestCase):
         code, posted, _ = self.run_in(root, PRODUCT)
         self.assertEqual(code, 3)
         self.assertEqual(payload_of(posted[0])["reason"], "machine-full")
+
+    def every_slot_held(self):
+        def full(worktree):
+            raise self.lease.Full("machine-full", 8, ["/a", "/b"])
+
+        self.lease.try_claim = full
+
+    def test_a_workers_own_run_hands_back_3_at_once_and_is_woken_for_the_slot(self):
+        """A wait inside the command would cost the worker a turn every `SLOT_WAIT_S` for
+        as long as the slots stay held. It is the relay that wakes it, with
+        `#<n> worker.queued`, when a slot is given back."""
+        _, root = self.main_repo()
+        self.every_slot_held()
+        with mock.patch.object(vt.time, "sleep") as sleep:
+            code, posted, err = self.run_in(root, PRODUCT, wait_s=90)
+            self.assertEqual(code, 3, err)
+            sleep.assert_not_called()
+            self.assertEqual([payload_of(b)["event"] for b in posted], ["worker.queued"])
+            self.assertIn("Nothing was run", err)
+            self.assertIn("`#1 worker.queued`", err)
+
+            # Woken, run again, and the slots are still held: the same wait, no second event.
+            code, again, err = self.run_in(root, PRODUCT, comments=posted, wait_s=90)
+            self.assertEqual((code, again), (3, []), err)
+            sleep.assert_not_called()
+        self.assertNotIn("gate", self.order)
+
+    def test_a_reverify_with_every_slot_held_still_waits_in_the_command(self):
+        _, root = self.main_repo()
+        self.every_slot_held()
+        with mock.patch.object(vt.time, "sleep") as sleep, \
+             mock.patch.object(vt, "SLOT_BEAT_S", 10):
+            code, posted, err = self.run_in(root, PRODUCT, reverify=True, wait_s=20)
+        self.assertEqual(code, 3, err)
+        self.assertEqual([c.args for c in sleep.call_args_list], [(10,), (10,)])
+        queued = payload_of(posted[0])
+        self.assertEqual((queued["event"], queued["run"]), ("worker.queued", "reverify"))
+        self.assertIn("Run the same command again to keep waiting", err)
 
     def test_a_product_criterion_with_no_lease_py_reachable_is_refused(self):
         _, root = self.main_repo()
