@@ -7,6 +7,7 @@
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh resume|wait|reverify|summary
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh instancegate|countfail|stopproduct|suspend|suspendbusy|status
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh runnerstart|runnersend|runnerliveness
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh all
 #
 # A fake `paseo` and a fake `gh` sit in front of the real ones on PATH and write every
@@ -17,6 +18,7 @@
 
 set -uo pipefail
 unset PASEO_AGENT_ID
+unset MMW_SPEC
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 SKILL="$(dirname "$(dirname "$HERE")")/skills/dispatch"
@@ -181,6 +183,9 @@ if args[:2] == ["workspace", "archive"]:
 if args[:1] == ["ls"]:
     if scenario == "ls-fail":
         sys.exit(1)
+    if scenario == "ls-garbage":
+        print("not-json")
+        sys.exit(0)
     wanted = {}
     for item in labels_from_args():
         if "=" in item:
@@ -2153,12 +2158,207 @@ scenario_status() {
   [ "$code" = 2 ] || fail "expected exit 2 for a non-numeric spec, got $code: $(cat "$TMP/err")"
 }
 
+RUNNER="$SKILL/scripts/runners/paseo.sh"
+
+run_runner() {
+  (cd "$TMP/repo" && bash "$RUNNER" "$@") > "$TMP/out" 2> "$TMP/err"
+  echo "$?"
+}
+
+scenario_runnerstart() {
+  local code copy
+  echo "--- start <n> worker still prints create_agent, and fake paseo records the workspace create"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  never_ran
+  assert_create_shape || fail "create_agent print surface moved: $(cat "$TMP/out")"
+  has "paseo :: workspace :: create"
+  has ":: --worktree-slug :: issue-61"
+
+  echo "--- that path goes through the adapter: without it, start refuses and prints no create_agent"
+  copy="$(skill_copy_for start)"
+  rm -f "$copy/scripts/runners/paseo.sh"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 2 ] || fail "expected exit 2 with no adapter, got $code: $(cat "$TMP/err")"
+  grep -q "runners/paseo.sh" "$TMP/err" \
+    || fail "the refusal should name the adapter: $(cat "$TMP/err")"
+  nothing_printed
+  never_ran
+
+  echo "--- the adapter's start verb does not spawn (create_agent print stays)"
+  reset_log
+  code="$(run_runner start --host grok --model grok-4.6 --effort high \
+          --cwd "$TMP/repo" --prompt "hi" --skip-approval)"
+  [ "$code" = 0 ] || fail "adapter start expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(count_of 'paseo :: run')" = 0 ] || fail "adapter start called paseo run: $(cat "$MMW_TEST_LOG")"
+}
+
+scenario_runnersend() {
+  local code
+  echo "--- delivered: resume exit 0, fake paseo recorded send"
+  reset_log
+  python3 -c '
+import json, os
+from pathlib import Path
+path = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "agents.json"
+path.write_text(json.dumps([{
+    "id": "agt_w61",
+    "name": "#61 worker",
+    "status": "idle",
+    "cwd": "/tmp/issue-61",
+    "labels": {"mmw.ticket": "61", "mmw.kind": "worker", "mmw.spec": "76"},
+}]))
+'
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" resume 61 continue)"
+  [ "$code" = 0 ] || fail "delivered must be exit 0, got $code: $(cat "$TMP/err")"
+  has "paseo :: send :: --no-wait :: agt_w61 :: continue"
+
+  echo "--- the adapter itself maps delivered to exit 0"
+  reset_log
+  python3 -c '
+import json, os
+from pathlib import Path
+path = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "agents.json"
+path.write_text(json.dumps([{
+    "id": "agt_w61",
+    "name": "#61 worker",
+    "status": "idle",
+    "cwd": "/tmp/issue-61",
+    "labels": {"mmw.ticket": "61", "mmw.kind": "worker"},
+}]))
+'
+  code="$(run_runner send agt_w61 continue)"
+  [ "$code" = 0 ] || fail "adapter send delivered expected 0, got $code: $(cat "$TMP/err")"
+  has "paseo :: send :: --no-wait :: agt_w61 :: continue"
+
+  echo "--- busy: it is there and did not take the message, exit 3 not 2"
+  reset_log
+  seed_agent 61 worker
+  code="$(run_dispatch env MMW_FAKE_SEND_FAILS=1 \
+          bash "$DISPATCH" "${TOOLS[@]}" resume 61 continue)"
+  [ "$code" = 3 ] || fail "a busy worker must not read as a missing one, got $code: $(cat "$TMP/err")"
+  has "paseo :: send :: --no-wait :: agt_61_worker :: continue"
+
+  echo "--- the adapter itself maps busy to exit 3"
+  reset_log
+  seed_agent 61 worker
+  code="$(MMW_FAKE_SEND_FAILS=1 run_runner send agt_61_worker continue)"
+  [ "$code" = 3 ] || fail "adapter send busy expected 3, got $code: $(cat "$TMP/err")"
+
+  echo "--- no such session: exit 2, nothing is sent"
+  reset_log
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" resume 61 continue)"
+  [ "$code" = 2 ] || fail "no such session must be exit 2, got $code: $(cat "$TMP/err")"
+  hasnt "paseo :: send"
+
+  echo "--- the adapter itself maps a missing session to exit 2 and does not send"
+  reset_log
+  code="$(run_runner send agt_missing continue)"
+  [ "$code" = 2 ] || fail "adapter send missing expected 2, got $code: $(cat "$TMP/err")"
+  hasnt "paseo :: send"
+}
+
+scenario_runnerliveness() {
+  local code answer
+  echo "--- listed running is alive"
+  reset_log
+  seed_agent 61 worker
+  code="$(run_runner liveness agt_61_worker)"
+  [ "$code" = 0 ] || fail "liveness expected exit 0, got $code: $(cat "$TMP/err")"
+  answer="$(cat "$TMP/out")"
+  [ "$answer" = alive ] || fail "running should be alive, got: $answer"
+
+  echo "--- idle is alive (a turn that ended is still on the hook)"
+  reset_log
+  python3 -c '
+import json, os
+from pathlib import Path
+path = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "agents.json"
+path.write_text(json.dumps([{
+    "id": "agt_61_worker",
+    "name": "#61 worker",
+    "status": "idle",
+    "cwd": "/tmp/issue-61",
+    "labels": {"mmw.ticket": "61", "mmw.kind": "worker"},
+}]))
+'
+  code="$(run_runner liveness agt_61_worker)"
+  [ "$code" = 0 ] || fail "liveness expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/out")" = alive ] || fail "idle should be alive, got: $(cat "$TMP/out")"
+
+  echo "--- not listed is stopped"
+  reset_log
+  code="$(run_runner liveness agt_missing)"
+  [ "$code" = 0 ] || fail "liveness expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/out")" = stopped ] || fail "missing should be stopped, got: $(cat "$TMP/out")"
+
+  echo "--- closed is stopped"
+  reset_log
+  python3 -c '
+import json, os
+from pathlib import Path
+path = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "agents.json"
+path.write_text(json.dumps([{
+    "id": "agt_61_worker",
+    "name": "#61 worker",
+    "status": "closed",
+    "cwd": "/tmp/issue-61",
+    "labels": {"mmw.ticket": "61", "mmw.kind": "worker"},
+}]))
+'
+  code="$(run_runner liveness agt_61_worker)"
+  [ "$code" = 0 ] || fail "liveness expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/out")" = stopped ] || fail "closed should be stopped, got: $(cat "$TMP/out")"
+
+  echo "--- ls cannot be asked is unknown, not alive"
+  reset_log
+  seed_agent 61 worker
+  code="$(MMW_FAKE_PASEO_SCENARIO=ls-fail run_runner liveness agt_61_worker)"
+  [ "$code" = 0 ] || fail "liveness expected exit 0 when it cannot ask, got $code: $(cat "$TMP/err")"
+  answer="$(cat "$TMP/out")"
+  [ "$answer" = unknown ] || fail "cannot-ask should be unknown, got: $answer"
+  [ "$answer" != alive ] || fail "cannot-ask must not be rendered as alive"
+
+  echo "--- unreadable ls output is unknown, not alive"
+  reset_log
+  seed_agent 61 worker
+  code="$(MMW_FAKE_PASEO_SCENARIO=ls-garbage run_runner liveness agt_61_worker)"
+  [ "$code" = 0 ] || fail "liveness expected exit 0 on garbage, got $code: $(cat "$TMP/err")"
+  answer="$(cat "$TMP/out")"
+  [ "$answer" = unknown ] || fail "garbage should be unknown, got: $answer"
+  [ "$answer" != alive ] || fail "garbage must not be rendered as alive"
+
+  echo "--- a listed agent with no recognisable status is unknown, not alive"
+  reset_log
+  python3 -c '
+import json, os
+from pathlib import Path
+path = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "agents.json"
+path.write_text(json.dumps([{
+    "id": "agt_61_worker",
+    "name": "#61 worker",
+    "status": "",
+    "cwd": "/tmp/issue-61",
+    "labels": {"mmw.ticket": "61", "mmw.kind": "worker"},
+}]))
+'
+  code="$(run_runner liveness agt_61_worker)"
+  [ "$code" = 0 ] || fail "liveness expected exit 0, got $code: $(cat "$TMP/err")"
+  answer="$(cat "$TMP/out")"
+  [ "$answer" = unknown ] || fail "empty status should be unknown, got: $answer"
+  [ "$answer" != alive ] || fail "empty status must not be rendered as alive"
+}
+
 # ------------------------------------------------------------------ entry
 
-ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status"
+ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness"
 
 case "${1:-}" in
-  check|advance|advanceconflict|advancedirty|land|start-worker|start-reviewer|start-verifier|retract|resume|wait|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|stopproduct|suspend|suspendbusy|status)
+  check|advance|advanceconflict|advancedirty|land|start-worker|start-reviewer|start-verifier|retract|resume|wait|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|stopproduct|suspend|suspendbusy|status|runnerstart|runnersend|runnerliveness)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -2193,6 +2393,9 @@ banner_for() {
     suspend) echo SUSPEND-OK ;;
     suspendbusy) echo SUSPEND-BUSY-OK ;;
     status) echo DISPATCH-STATUS-OK ;;
+    runnerstart) echo RUNNER-START-OK ;;
+    runnersend) echo RUNNER-SEND-OK ;;
+    runnerliveness) echo RUNNER-LIVENESS-OK ;;
   esac
 }
 
