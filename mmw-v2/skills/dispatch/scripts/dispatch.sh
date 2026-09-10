@@ -874,8 +874,10 @@ check_machine() {
   #
   # One diagnostic per host, not per row of the live table: several agents share a host, and
   # the call costs seconds (measured: claude 0.7s, pi 1.7s, grok 2.5s, cursor 6.7s).
-  local role host host_line hosts="" diag
-  for role in $(worker_roles) reviewer verifier; do
+  # Paseo's provider snapshot only says something about sessions Paseo starts.
+  local role host host_line hosts="" diag roles=""
+  [ "$(tonight_runner)" = paseo ] && roles="$(worker_roles) reviewer verifier"
+  for role in $roles; do
     host_line="$(row_for_role "$role")" || { failed=1; continue; }
     host="$(printf '%s\n' "$host_line" | cut -f1)"
     [ -n "$host" ] || continue
@@ -1132,8 +1134,8 @@ advance() {
 
 # Land one ticket.
 #
-# Landing is what closing a ticket does not do: merge the branch, take this
-# ticket's agents off Paseo's list (`paseo archive --force`), remove the worktree
+# Landing is what closing a ticket does not do: merge the branch, stop this
+# ticket's sessions through their runners, remove the worktree
 # with git, give the slot back, and give the claim back. `advance` does it for a
 # batch after a merge; this does it for one ticket, and asks for a ticket number
 # rather than a spec — which is the whole point. A ticket dispatched outside a
@@ -1245,9 +1247,8 @@ suspend_comment() {
 
 # Suspend the night without throwing its work away.
 #
-# Four things happen: every live worker of the batch is archived (`paseo archive
-# --force`, which interrupts a running agent and drops it from the live list, workspace
-# and branch stay), every ticket still in the agent queue is told the night was
+# Four things happen: every live worker of the batch is stopped through the runner its
+# RUNNER line names (workspace and branch stay), every ticket still in the agent queue is told the night was
 # suspended, every OPEN ready-for-agent ticket assigned to this pipeline's account
 # has that claim given back, and every lease slot the batch holds is given back. A batch
 # dispatched again from scratch would throw the night's work away along with the
