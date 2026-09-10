@@ -30,15 +30,11 @@ been through `--closeout`, so there is no draft of its to check; a hook that gue
 one and let the command through when the guess passed would produce exactly the
 outcome it exists to prevent — the ticket closed with no closing comment on it.
 
-Whether this session is governed is read off the process:
-
-- pretool: the working directory's basename. `issue-<n>` (digits only) is ticket
-  `<n>`; any other basename is not a ticket worktree and is not refused. No
-  `paseo` call.
-- question: `PASEO_AGENT_ID`. The gate asks
-  `paseo ls -g --json --label mmw.autonomous=1` and refuses only when that id is
-  in the returned list. No id, no `paseo` on PATH, a failed call, or an id that
-  is not in the list: no refusal.
+Whether this session is governed is read off the process, the same way for both gates
+and on every runner: the working directory's basename. `issue-<n>` (digits only) is
+ticket `<n>`, and every session a runner starts on a ticket — worker, reviewer and
+verifier — runs in that worktree, with nobody at its screen. Any other basename is not a
+ticket worktree and is not refused. Nothing is asked of any runner.
 
 Cursor CLI imports Claude Code hooks and has no off switch, so this file is
 invoked twice: `pretool cursor` from `~/.cursor/hooks.json`, and `pretool
@@ -55,7 +51,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -126,47 +121,6 @@ def command_of(event: dict) -> str | None:
         if isinstance(value, str) and value:
             return value
     return None
-
-
-def autonomous() -> bool:
-    """Whether this process is a Paseo agent labelled `mmw.autonomous=1`."""
-    agent_id = os.environ.get("PASEO_AGENT_ID", "").strip()
-    if not agent_id:
-        return False
-    return agent_id in autonomous_agent_ids()
-
-
-def autonomous_agent_ids() -> set[str]:
-    """Ids from `paseo ls -g --json --label mmw.autonomous=1`.
-
-    An unanswered or unreadable call is an empty set: the question gate then
-    does not refuse, the same as a session with no `PASEO_AGENT_ID`.
-    """
-    env = dict(os.environ)
-    env.pop("CLICOLOR_FORCE", None)
-    env.pop("CLICOLOR", None)
-    try:
-        run = subprocess.run(
-            ["paseo", "ls", "-g", "--json", "--label", "mmw.autonomous=1"],
-            capture_output=True, text=True, env=env, timeout=5,
-        )
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-        return set()
-    if run.returncode != 0:
-        return set()
-    try:
-        rows = json.loads(run.stdout)
-    except Exception:
-        return set()
-    if not isinstance(rows, list):
-        return set()
-    ids: set[str] = set()
-    for row in rows:
-        if isinstance(row, dict):
-            value = row.get("id")
-            if isinstance(value, str) and value:
-                ids.add(value)
-    return ids
 
 
 def tool_of(event: dict) -> str:
@@ -309,7 +263,7 @@ def run_pretool(host: str, event: dict) -> int:
 
 
 def run_question(host: str, event: dict) -> int:
-    if not autonomous():
+    if governed_ticket() is None:
         return 0
     if tool_of(event) not in QUESTION_TOOLS.get(host, ()):
         return 0
