@@ -4,9 +4,9 @@ You are starting one worker on one ticket, with no batch behind it. A ticket out
 
 Three steps:
 
-1. `<dispatch> start <n> worker`, then the one `create_agent` path in [../SKILL.md](../SKILL.md).
-2. End your turn. What wakes you is a message whose first line is `#<n> ALL MET` or `#<n> HANDOFF REQUIRED`, sent by `verify-ticket.py` at the moment the ticket comes to rest.
-3. `<dispatch> land <n>`: it runs the product's `stop` in the ticket's worktree, merges its branch, archives its workspace (the agents inside it included), and gives its slot and its claim back.
+1. `<dispatch> start <n> worker`.
+2. `<dispatch> wait <n> worker` until it answers `ALL MET` or `HANDOFF REQUIRED` (exit codes in [inside-a-ticket.md](inside-a-ticket.md)); a ticket message with the same first line may arrive first when both sessions are on Paseo.
+3. `<dispatch> land <n>`: it runs the product's `stop` in the ticket's worktree, merges its branch, stops every session the ticket's `RUNNER` lines name, removes its worktree, and gives its slot and its claim back.
 
 ## Exit codes
 
@@ -14,8 +14,8 @@ Three steps:
 
 | Code | What happened |
 | --- | --- |
-| `0` | One JSON object is on stdout. A second live-table row for that agent is nested as `fallback` |
-| `2` | Nothing was started. The reason is on stderr — read it verbatim. Typical causes: the ticket is not `OPEN` / not `ready-for-agent` / still blocked; two worker-grade labels; no live-table row for that agent; the Paseo daemon could not be asked to register this checkout as a project; an argument this form does not take |
+| `0` | The session is running; its id is on stdout and a `RUNNER` line is on the ticket |
+| `2` | Nothing was started. The reason is on stderr — read it verbatim. Typical causes: the ticket is not `OPEN` / not `ready-for-agent` / still blocked; two worker-grade labels; no live-table row for that agent; the runner refused the start (its reason is on stderr, and it was not retried); an argument this form does not take |
 
 **`land <n>`:**
 

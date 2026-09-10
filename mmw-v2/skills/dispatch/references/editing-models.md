@@ -1,14 +1,14 @@
 # Changing host, model, or which night this machine runs
 
-Read this only when the user has told you to change which host, model or `effort` a dispatched session uses, or whether the night runs on Herdr or Paseo. `start` does not read this file.
+Read this only when the user has told you to change which host, model or `effort` a dispatched session uses, or which runner the night runs on. `start` does not read this file.
 
 ## The live table
 
 The table is `~/.mmw/models.md`. It is this machine's fact. Edit it; do not edit anything in git for tonight's reviewer.
 
-Four columns: `agent | host | model | effort`. The `model` and `effort` cells are copied from the tables under `<!-- mmw-offerings -->` in that same file — those tables are the legal pairs for tonight. Allowed `agent` values: `junior-worker`, `senior-worker`, `reviewer`, `verifier`, `advisor`. The first row for an agent is the host `start` uses; a later row on a different host is the fallback. Two rows for one agent cannot share a host.
+Four columns: `agent | host | model | effort`. The `model` and `effort` cells are copied from the tables under `<!-- mmw-offerings -->` in that same file — those tables are the legal pairs for tonight. Allowed `agent` values: `junior-worker`, `senior-worker`, `reviewer`, `verifier`, `advisor`. One row per agent: a second row for the same agent is refused when the table is read.
 
-A two-cell `runner` row may sit above those: `| runner | <name> |`. Names: `herdr`, `orca`, `paseo`, `tmux`, `lody`. Do not write those into `host`. `parse_live_runner` can read that row; `pick_runner` ranks it with the other levels. `MMW_RUNNER` is the name reserved for level 2; nothing reads it yet. Until #325 lands, `start` reads neither. Tonight's runner is still which checkout is installed. A fresh table has no runner row, so runtime detection can speak; the fallback is `paseo`. `lody` is only used when written in the row or on the ticket.
+A two-cell `runner` row may sit above those: `| runner | <name> |`. Names: `herdr`, `orca`, `paseo`, `tmux`, `lody`. Do not write those into `host`. `start` picks tonight's runner in this order: `MMW_RUNNER`, then this row, then the runner the calling session runs in, then `orca`. A fresh table has no runner row, so runtime detection can speak. `start` has an adapter for `herdr`, `orca` and `paseo`; naming `tmux` or `lody` is refused at `start`. A per-ticket choice has no place on the ticket yet.
 
 Runtime detection treats `TERM_PROGRAM=Orca` as the outer signal: Herdr opened inside an Orca terminal is `herdr`. When `HERDR_ENV` and `TMUX` are both set, the code returns `tmux`; that does not say which is nested in which.
 
