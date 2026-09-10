@@ -1,12 +1,11 @@
-"""`--review`: post the review report on the ticket and tell the worker in one call.
+"""`--review`: post the review report on the ticket, as the `reviewer.reported` event.
 
-The report and the telling are one act, so the two things asserted here are that the
-comment lands with the first line the worker matches on, and that the session that started
-this one is told in the same run.
+What is asserted here is the comment: it lands with the first line a person reads and the
+event block that names both commits. Nobody is told by this run; the relay wakes the
+worker from the event (`test_no_runner_call.py`).
 """
 
 import io
-import json
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -18,7 +17,6 @@ from _load import load
 vt = load()
 
 AGENT = "cccccccc-1111-4222-8333-444444444444"
-PARENT = "dddddddd-5555-4666-8777-888888888888"
 
 REPORT = """REVIEW abcdef0..1234567
 
@@ -49,8 +47,7 @@ Standards: 0 findings. Spec: 0 findings. Tests: 0 findings.
 class FakeCalls:
     """Every subprocess this run makes, answered the way the real commands answer."""
 
-    def __init__(self, *, send_fails=False):
-        self.send_fails = send_fails
+    def __init__(self):
         self.recorded = []
         self.posted = []
 
@@ -62,25 +59,15 @@ class FakeCalls:
             path = cmd[cmd.index("--body-file") + 1]
             self.posted.append((number, Path(path).read_text(encoding="utf-8")))
             return result
-        if cmd[:2] == ["paseo", "inspect"]:
-            result.stdout = json.dumps({"ParentAgentId": PARENT})
-            return result
-        if cmd[:2] == ["paseo", "send"]:
-            if self.send_fails:
-                result.returncode = 1
-                result.stderr = "SEND_FAILED"
-            return result
         result.returncode = 1
         result.stderr = "unexpected command: " + " ".join(cmd)
         return result
 
-    def sent(self):
-        return [c for c in self.recorded if c[:2] == ["paseo", "send"]]
 
-
-def run_review(text=REPORT, *, agent=AGENT, send_fails=False, write=True):
-    """Run --review against a made-up ticket; return (exit, stderr, fake)."""
-    fake = FakeCalls(send_fails=send_fails)
+def run_review(text=REPORT, *, agent=AGENT, write=True):
+    """Run --review against a made-up ticket, inside a Paseo agent unless `agent` is empty;
+    return (exit, stderr, fake)."""
+    fake = FakeCalls()
     environ = {"PASEO_AGENT_ID": agent} if agent else {}
     with TemporaryDirectory() as tmp:
         path = Path(tmp) / "review.md"
@@ -144,8 +131,7 @@ class TestRefusesWhatTheWorkerCouldNotFind(unittest.TestCase):
         code, err, fake = run_review("## Standards\n\nNone\n")
         self.assertEqual(code, 2)
         self.assertIn("REVIEW <base commit>..<HEAD commit>", err)
-        self.assertEqual(fake.posted, [])
-        self.assertEqual(fake.sent(), [])
+        self.assertEqual(fake.recorded, [])
 
     def test_an_empty_file_is_refused(self):
         code, err, fake = run_review("\n\n")
@@ -154,33 +140,11 @@ class TestRefusesWhatTheWorkerCouldNotFind(unittest.TestCase):
         self.assertEqual(fake.posted, [])
 
 
-class TestTellsTheSessionThatStartedIt(unittest.TestCase):
-    def test_the_reviewer_tells_its_parent_the_review_landed(self):
-        code, err, fake = run_review()
-        self.assertEqual(code, 0, err)
-        sent = fake.sent()
-        self.assertEqual(len(sent), 1)
-        self.assertEqual(sent[0][-2], PARENT)
-        self.assertEqual(sent[0][-1], "#77 reviewer.reported")
-
-    def test_the_comment_is_posted_before_the_message_goes_out(self):
-        code, err, fake = run_review()
-        self.assertEqual(code, 0, err)
-        order = [c[:3] for c in fake.recorded]
-        self.assertLess(order.index(["gh", "issue", "comment"]),
-                        order.index(["paseo", "send", "--no-wait"]))
-
-    def test_outside_paseo_the_report_still_lands(self):
+class TestLandsWhereverItRuns(unittest.TestCase):
+    def test_outside_any_runner_session_the_report_lands_the_same(self):
         code, err, fake = run_review(agent="")
         self.assertEqual(code, 0, err)
         self.assertEqual(len(fake.posted), 1)
-        self.assertEqual(fake.sent(), [])
-
-    def test_a_send_that_fails_says_so_and_leaves_the_exit_code_alone(self):
-        code, err, fake = run_review(send_fails=True)
-        self.assertEqual(code, 0)
-        self.assertEqual(len(fake.posted), 1)
-        self.assertIn("could not tell", err)
 
 
 if __name__ == "__main__":

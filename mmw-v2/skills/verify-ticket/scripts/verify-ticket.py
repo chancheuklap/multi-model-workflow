@@ -84,44 +84,6 @@ STATEFUL_COMMAND_RE = re.compile(
 GH_ENV = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR_FORCE", "CLICOLOR")}
 
 
-def notify_parent(text: str) -> None:
-    """Tell the session that started this one that the ticket came to rest.
-
-    Paseo gives a session one terminal notification, spent the first time it ends a
-    turn. A worker ends several — one for every agent it starts and sleeps on — so
-    that notification is spent on a middle state and the main agent never hears the
-    ticket land. This message is what it hears instead.
-
-    The call lives here rather than in the worker's own steps so that the write and
-    the telling are one act: the comment lands, the message goes out, and no worker
-    can do the first and forget the second.
-
-    Outside a Paseo session, or with no parent, nobody is listening. A send that
-    fails says so on stderr and changes no exit code — the ticket is already where it
-    belongs, and an undelivered message does not undo that.
-    """
-    agent = os.environ.get("PASEO_AGENT_ID", "").strip()
-    if not agent:
-        return
-    try:
-        found = subprocess.run(["paseo", "inspect", agent, "--json"],
-                               capture_output=True, text=True, timeout=15, env=GH_ENV)
-        parent = json.loads(found.stdout).get("ParentAgentId") if found.returncode == 0 else None
-    except (OSError, subprocess.SubprocessError, json.JSONDecodeError, AttributeError):
-        parent = None
-    if not isinstance(parent, str) or not parent:
-        return
-    try:
-        sent = subprocess.run(["paseo", "send", "--no-wait", parent, text],
-                              capture_output=True, text=True, timeout=30, env=GH_ENV)
-    except (OSError, subprocess.SubprocessError) as exc:
-        sys.stderr.write(f"could not tell {parent}: {exc}\n")
-        return
-    if sent.returncode != 0:
-        sys.stderr.write(f"could not tell {parent}: "
-                         + (sent.stderr or sent.stdout or "paseo send failed").rstrip() + "\n")
-
-
 def fetch_body(number: int) -> str:
     """The issue body, straight from the tracker. Patched out in tests."""
     out = subprocess.run(
@@ -180,7 +142,7 @@ def fetch_ticket(number: int) -> dict:
     """State, labels, assignees, blockers and parent of the ticket. Patched out in tests."""
     out = subprocess.run(
         ["gh", "issue", "view", str(number), "--json",
-         "state,labels,assignees,blockedBy,parent"],
+         "state,stateReason,labels,assignees,blockedBy,parent"],
         capture_output=True, text=True, check=True, env=GH_ENV,
     )
     return json.loads(out.stdout)
@@ -193,26 +155,75 @@ def gh_login() -> str:
     return out.stdout.strip()
 
 
+def own_session() -> tuple[str, str] | None:
+    """(runner, session) of the session this run is part of, as `dispatch.sh self` of the
+    dispatch skill beside this one reads it, or None when it cannot say: outside any
+    runner, or with that skill not there. Patched out in tests."""
+    script = HERE.parents[1] / "dispatch" / "scripts" / "dispatch.sh"
+    if not script.is_file():
+        return None
+    try:
+        out = subprocess.run(["bash", str(script), "self"], capture_output=True, text=True,
+                             timeout=60, env=GH_ENV)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    runner, _, session = out.stdout.strip().partition("\t")
+    return (runner, session) if out.returncode == 0 and runner and session else None
+
+
 def assign_self(number: int) -> None:
     """Claim the ticket. Patched out in tests."""
     subprocess.run(["gh", "issue", "edit", str(number), "--add-assignee", "@me"], check=True, env=GH_ENV)
 
 
 def close_ticket(number: int) -> None:
-    """Take the ticket out of the agent queue, take its claim off, and close it.
+    """Close the ticket, then take it out of the agent queue and take its claim off.
 
-    The assignee comes off in the same edit as the label, for the same reason it does
-    on the hand back to triage: a claim outlives the session that made it, and only
-    that session knows it is done. `advance`'s give-a-claim-back reads open tickets
-    alone, so a claim left on a closed one is one nothing else ever takes off.
-    Patched out in tests.
+    The close comes first because it is the change `ticket.passed` announces: when it
+    fails nothing has changed, and the closeout can simply be run again. The assignee
+    comes off in the same edit as the label, for the same reason it does on the hand back
+    to triage: a claim outlives the session that made it, and only that session knows it
+    is done. `advance`'s give-a-claim-back reads open tickets alone, so a claim left on a
+    closed one is one nothing else ever takes off — an edit that fails after the close is
+    said on stderr, and the close stands. Patched out in tests.
     """
-    subprocess.run(
+    subprocess.run(["gh", "issue", "close", str(number), "--reason", "completed"], check=True, env=GH_ENV)
+    edit = subprocess.run(
         ["gh", "issue", "edit", str(number),
          "--remove-label", "ready-for-agent", "--remove-assignee", "@me"],
-        check=True, env=GH_ENV,
+        capture_output=True, text=True, env=GH_ENV,
     )
-    subprocess.run(["gh", "issue", "close", str(number), "--reason", "completed"], check=True, env=GH_ENV)
+    if edit.returncode != 0:
+        sys.stderr.write(f"#{number} is closed, and its ready-for-agent label or your claim could "
+                         f"not be taken off: {' '.join((edit.stderr or edit.stdout).split())[:200]}\n")
+
+
+def unannounced_change(ticket: dict, comments: list[str], me: str, first: str) -> str | None:
+    """The state change a closeout of this worker's round made without posting its event:
+    "closed" or "handed", or None.
+
+    A closeout makes the change first and posts the event after it, so a post that fails
+    leaves a ticket closed (or handed back) with no `ticket.passed` (or `ticket.returned`)
+    — which the ordinary checks then refuse, since the ticket is no longer open and yours.
+    It is this round's when the newest `ticket.claimed` is yours and no closing event
+    follows it; a ticket closed as anything but completed is somebody else's decision.
+    """
+    state = events.fold(comments)
+    names = [e["event"] for e in state["events"]]
+    if "ticket.claimed" not in names or state.get("claimant") != me:
+        return None
+    last = len(names) - 1 - names[::-1].index("ticket.claimed")
+    if any(name in ("ticket.passed", "ticket.returned") for name in names[last + 1:]):
+        return None
+    labels = {label.get("name") for label in ticket.get("labels") or []}
+    assigned = any(a.get("login") == me for a in ticket.get("assignees") or [])
+    if first == "ALL MET" and ticket.get("state") == "CLOSED" \
+            and str(ticket.get("stateReason") or "").upper() == "COMPLETED":
+        return "closed"
+    if first.startswith("HANDOFF REQUIRED") and ticket.get("state") == "OPEN" and not assigned \
+            and "needs-triage" in labels and "ready-for-agent" not in labels:
+        return "handed"
+    return None
 
 
 def hand_back_for_triage(number: int) -> None:
@@ -1270,14 +1281,11 @@ REVIEW_HEAD_RE = re.compile(r"^REVIEW (\S+?)\.\.(\S+)")
 
 
 def run_review(number: int, path: Path) -> int:
-    """Post the review report on the ticket, and tell the session that started this one.
+    """Post the review report on the ticket, as the `reviewer.reported` event.
 
-    Posting and telling are one call because they are one act. A reviewer session that
-    posts its report and then simply ends has told nobody: Paseo gives a session one
-    terminal notification, spent the first time that session ends a turn, and a reviewer
-    that hands its three axes to subagents and comes back for their answers has already
-    ended one turn before the report exists. The worker waiting on that report would
-    then have nothing left but to ask again and again.
+    Nothing here tells the worker: the event on the ticket is what the relay of the
+    dispatch skill turns into the worker's wake-up, so a report that lands is a report
+    its worker hears about, however the reviewer's turns fell.
 
     The file opens `REVIEW <base commit>..<HEAD commit>`: that line becomes the
     comment's first line, and the two commits become the `reviewer.reported` event's
@@ -1296,7 +1304,6 @@ def run_review(number: int, path: Path) -> int:
     post_event(number, "reviewer.reported", head, rest,
                base=found.group(1), head=found.group(2))
     print(f"REVIEW: posted on #{number}")
-    notify_parent(f"#{number} reviewer.reported")
     return 0
 
 
@@ -1462,10 +1469,6 @@ def run_sub_issue(number: int, kind: str, path: Path) -> int:
             sys.stderr.write(f"opened #{child} under #{number}, but the child.opened event "
                              f"on #{number} was not written ({exc}); do not open it again\n")
             recorded = 1
-    # `pipeline` is the kind the worker stops on, so the ticket comes to rest here and
-    # the parent is told. Every other kind is opened mid-work and the worker carries on.
-    if kind == "pipeline":
-        notify_parent(f"#{number} child.opened kind=pipeline")
     print(found.group(1) if found else printed)
     return recorded
 
@@ -1574,9 +1577,11 @@ def run_preflight(number: int) -> int:
     problems = refusals(number, ticket, me, branch, dirty_tracked(root))
     if problems:
         reason, sentence = problems[0]
+        # The refusing session is named so its own hold ends with this event and the
+        # ticket is free for the next start; a session that cannot name itself ends none.
+        runner, session = own_session() or (None, None)
         post_event(number, "ticket.refused", sentence, spec=spec_field(ticket),
-                   reason=reason, branch=branch or None)
-        notify_parent(f"#{number} ticket.refused")
+                   reason=reason, branch=branch or None, runner=runner, session=session)
         sys.stderr.write(sentence + "\n")
         return 2
     assign_self(number)
@@ -1724,10 +1729,14 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     problems += event_problems(comments)
     problems += git_problems(repo_root())
     ticket = fetch_ticket(number)
-    if ticket.get("state") != "OPEN":
-        problems.append(f"#{number} is already {ticket.get('state', 'unreadable')}")
     me = gh_login()
-    if not any(a.get("login") == me for a in ticket.get("assignees", [])):
+    first = (draft.strip().splitlines() or [""])[0].strip()
+    # A previous run of this closeout that closed (or handed back) the ticket and could not
+    # post the event: this run posts it, and does nothing else.
+    pending = unannounced_change(ticket, comments, me, first)
+    if ticket.get("state") != "OPEN" and pending != "closed":
+        problems.append(f"#{number} is already {ticket.get('state', 'unreadable')}")
+    if pending is None and not any(a.get("login") == me for a in ticket.get("assignees", [])):
         problems.append(f"#{number} is not assigned to you ({me}); run --preflight first")
 
     if problems:
@@ -1746,8 +1755,7 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
         print(f"CLOSEOUT OK: #{number} draft passes every check")
         return 0
 
-    first = draft.strip().splitlines()[0].strip()
-    if first == "ALL MET":
+    if first == "ALL MET" and pending is None:
         ok, extra = run_target_json_checks(repo_root())
         if not ok:
             post_prose(number, extra)
@@ -1760,21 +1768,45 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     # event block after it. `abandoned` carries every `ABANDON:` line — on a pass only
     # `decision` ones can be there, on a hand back they are the reason it came back.
     abandons = parse_abandons(draft)
-    post_event(number, "ticket.passed" if first == "ALL MET" else "ticket.returned",
-               first, "\n".join(draft.strip("\n").splitlines()[1:]).strip("\n"),
-               spec=spec_field(ticket), commit=git("rev-parse", "HEAD") or None,
-               branch=current_branch(repo_root()) or None,
-               counts=tally(parse_criteria(draft), abandons),
-               abandoned=[{"ac": a["ac"], "kind": a["kind"], "reason": a["reason"]}
-                          for a in abandons] or None)
-    if first == "ALL MET":
-        close_ticket(number)
-        notify_parent(f"#{number} ticket.passed")
-        print(f"CLOSED: #{number}")
+    passed = first == "ALL MET"
+    event = "ticket.passed" if passed else "ticket.returned"
+    fields = dict(spec=spec_field(ticket), commit=git("rev-parse", "HEAD") or None,
+                  branch=current_branch(repo_root()) or None,
+                  counts=tally(parse_criteria(draft), abandons),
+                  abandoned=[{"ac": a["ac"], "kind": a["kind"], "reason": a["reason"]}
+                             for a in abandons] or None)
+    # The state change first, then the event that announces it: the event is what wakes
+    # the main agent and what `advance` merges on, so it must never stand on a ticket the
+    # tracker did not close or hand back.
+    if pending is None:
+        try:
+            if passed:
+                close_ticket(number)
+            else:
+                hand_back_for_triage(number)
+        except (OSError, subprocess.CalledProcessError) as exc:
+            act = "close" if passed else "hand back to needs-triage"
+            sys.stderr.write(f"closeout refused: the tracker did not {act} #{number} ({exc}), so "
+                             f"no {event} event was posted and nothing reads the ticket as "
+                             f"{'passed' if passed else 'returned'}. Read #{number} on the "
+                             f"tracker for what the edit left done, then run --closeout again\n")
+            return 1
+    try:
+        post_event(number, event, first,
+                   "\n".join(draft.strip("\n").splitlines()[1:]).strip("\n"), **fields)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        done = "closed" if passed else "handed back to needs-triage"
+        sys.stderr.write(f"closeout incomplete: #{number} is {done}, and its {event} event could "
+                         f"not be posted ({exc}), so nothing wakes the main agent and nothing "
+                         f"reads the ticket as {'passed' if passed else 'returned'} yet. Run "
+                         f"--closeout again with the same draft: it sees the {done} ticket and "
+                         f"posts the missing event\n")
+        return 1
+    note = f" (posted the {event} event a previous run could not)" if pending else ""
+    if passed:
+        print(f"CLOSED: #{number}{note}")
     else:
-        hand_back_for_triage(number)
-        notify_parent(f"#{number} ticket.returned")
-        print(f"HANDED BACK: #{number} is now needs-triage and stays open")
+        print(f"HANDED BACK: #{number} is now needs-triage and stays open{note}")
     return 0
 
 
@@ -2465,7 +2497,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sub-issue", nargs=2, metavar=("KIND", "FILE"),
                         help="open a needs-triage sub-issue under this ticket")
     parser.add_argument("--review", type=Path, metavar="FILE",
-                        help="post the review report and tell the session that started this one")
+                        help="post the review report on the ticket")
     parser.add_argument("--verdict", metavar="LINE",
                         help="post the verifier's verdict on HEAD, read off its newest reverify")
     parser.add_argument("--model", help="with --verdict: the model this verifier runs on")

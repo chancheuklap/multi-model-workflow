@@ -82,8 +82,11 @@ EVENTS: dict[str, dict] = {
     "spec.closed":       {"stage": "night",    "actor": "main"},
 
     "ticket.claimed":    {"stage": "intake",   "actor": "worker"},
+    # The session that refused is named when it could name itself, so its own hold ends
+    # and the ticket is free for the next start; nobody else's hold is touched.
     "ticket.refused":    {"stage": "intake",   "actor": "worker",
-                          "required": ("reason",), "closed": {"reason": REFUSALS}},
+                          "required": ("reason",), "closed": {"reason": REFUSALS},
+                          "together": (("session", "runner"),)},
     "ticket.passed":     {"stage": "close",    "actor": "worker"},
     "ticket.returned":   {"stage": "close",    "actor": "worker"},
     "ticket.released":   {"stage": "land",     "actor": "main",
@@ -144,8 +147,10 @@ COMMON = ("v", "event", "stage", "actor", "spec", "ticket", "at")
 ENDS_EVERY_HOLD = ("ticket.landed", "ticket.returned", "ticket.released", "spec.suspended")
 # These end the hold of the one session they name, matched by its (runner, session)
 # pair and never by the id alone: two runners can hand out the same id. A retraction
-# also ends a claim no started session has taken over, since it gives the claim back.
-ENDS_ONE_HOLD = ("worker.retracted", "worker.lost", "worker.replaced")
+# also ends a claim no started session has taken over, since it gives the claim back. A
+# refusal ends the hold of the session that refused to claim, which does nothing more on
+# the ticket; a refusal that names no session ends nothing.
+ENDS_ONE_HOLD = ("worker.retracted", "worker.lost", "worker.replaced", "ticket.refused")
 
 # The fields `result` prints after an event's name.
 RESULT_FIELDS = {
