@@ -17,6 +17,7 @@
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh mergewithoutbranch|retractunreadable
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh open|openrefused|openticket|ack|unopened|runnerself|orcaunobserved|adopt
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh keepunfinished|advancerefused|catalogbyrunner
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh startunlandedblocker
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh all
 #
 # A fake `paseo`, a fake `herdr`, a fake `orca` and a fake `gh` sit in front of the
@@ -3213,6 +3214,8 @@ JSON
   mkdir -p "$ws/.mmw"
   printf '{"start":"true","discover":"true","reach":"true","stop":"touch %s"}\n' "$marker" \
     > "$ws/.mmw/target.json"
+  # The product runs only under a slot, which the first run of the worker's criteria claims.
+  python3 "$LEASE_PY" claim "$ws" >/dev/null
 
   : > "$MMW_TEST_LOG"
   code="$(run_dispatch env MMW_LEASE_SLOTS=1 FAKE_GH_LOGIN=mmw-bot \
@@ -4840,6 +4843,43 @@ JSON
   [ -z "$(posted_events 60)" ] || fail "#60 must not be recorded landed: $(posted_events 60)"
 }
 
+# `start` holds a ticket back on the rule the frontier and the worker's preflight use: a
+# blocker lets go once its work has landed on the base branch, not when it closed.
+scenario_startunlandedblocker() {
+  local code
+  echo "--- start refuses a ticket whose blocker passed and has not landed, and starts it once it has"
+  reset_log
+  fresh_repo
+  cat > "$TMP/tickets.json" <<JSON
+[
+  {"number": 60, "state": "CLOSED", "labels": [],
+   "comments": [$(ev ticket.passed 60 "ALL MET" --field branch=issue-60)]},
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"],
+   "blockedBy": [{"number": 60, "state": "CLOSED"}]}
+]
+JSON
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  never_ran
+  grep -q "still blocked by #60 (passed, not landed)" "$TMP/err" \
+    || fail "stderr should say #61 waits on #60's landing: $(cat "$TMP/err")"
+
+  reset_log
+  cat > "$TMP/tickets.json" <<JSON
+[
+  {"number": 60, "state": "CLOSED", "labels": [],
+   "comments": [$(ev ticket.passed 60 "ALL MET" --field branch=issue-60),
+                $(ev ticket.landed 60 "Landed issue-60 into main" --field branch=issue-60)]},
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"],
+   "blockedBy": [{"number": 60, "state": "CLOSED"}]}
+]
+JSON
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "#60 has landed, so #61 starts; exit $code: $(cat "$TMP/err")"
+}
+
 # A ticket carrying an event nobody can read has no answer: retract archives nothing.
 scenario_retractunreadable() {
   local code
@@ -5217,7 +5257,7 @@ scenario_orcanohosts() {
   hasnt "orca :: terminal :: create"
 }
 
-ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openrefused openticket ack unopened runnerself orcaunobserved adopt orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner"
+ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openrefused openticket ack unopened runnerself orcaunobserved adopt orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -5278,6 +5318,7 @@ banner_for() {
     keepunfinished) echo KEEP-UNFINISHED-OK ;;
     advancerefused) echo ADVANCE-REFUSED-OK ;;
     catalogbyrunner) echo CATALOG-BY-RUNNER-OK ;;
+    startunlandedblocker) echo START-UNLANDED-BLOCKER-OK ;;
     runnersend) echo RUNNER-SEND-OK ;;
     runnerliveness) echo RUNNER-LIVENESS-OK ;;
     runnerparity) echo RUNNER-PARITY-OK ;;

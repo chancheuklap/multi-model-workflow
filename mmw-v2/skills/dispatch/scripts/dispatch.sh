@@ -96,8 +96,6 @@ LEASE=""
 DEFAULT_WORKER=junior-worker
 
 MERGE_TRIES=3                # a worker's commit in its worktree can hold the .git lock while advance merges
-# A `stop` that hangs would hold up the whole night, and a night is unattended.
-STOP_TIMEOUT_S="${MMW_STOP_TIMEOUT_S:-300}"
 
 AUTONOMOUS="You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
 PIPELINE_FAULT="A fault in the pipeline itself is reported, not worked around: verify-ticket.py <n> --sub-issue fault <file>, then stop (rule 5 of that section)."
@@ -566,7 +564,7 @@ read_ticket() {
   json="$(gh_ issue view "$number" --json state,labels,blockedBy,title,parent 2>/dev/null)" \
     || { echo "REFUSE could not read ticket #$number from the tracker"; return; }
   printf '%s' "$json" | MMW_TICKET_NUMBER="$number" python3 -c '
-import json, os, re, sys
+import importlib.util, json, os, re, subprocess, sys
 
 number = os.environ["MMW_TICKET_NUMBER"]
 try:
@@ -575,10 +573,30 @@ except Exception:
     print("REFUSE the tracker did not answer with a readable ticket #" + number)
     sys.exit(0)
 
+where = importlib.util.spec_from_file_location("mmw_events", os.environ["MMW_EVENTS_PY"])
+events = importlib.util.module_from_spec(where)
+where.loader.exec_module(events)
+
+# A blocker holds until its work has landed (`events.blocker_hold`), the rule the frontier
+# and the worker`s --preflight both apply; a closed one is read for its events.
+def blocker_fold(n):
+    env = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR_FORCE", "CLICOLOR")}
+    run = subprocess.run(["gh", "issue", "view", str(n), "--json", "comments"],
+                         capture_output=True, text=True, env=env)
+    try:
+        return events.fold(json.loads(run.stdout).get("comments") or [], issue=int(n))
+    except Exception:
+        return None
+
 state = (ticket.get("state") or "unreadable").lower()
 labels = [label.get("name") for label in ticket.get("labels") or []]
 nodes = (ticket.get("blockedBy") or {}).get("nodes") or []
-blockers = ["#" + str(b.get("number")) for b in nodes if b.get("state") != "CLOSED"]
+blockers = []
+for b in nodes:
+    b_state = (b.get("state") or "").upper()
+    why = events.blocker_hold(b_state, blocker_fold(b.get("number")) if b_state == "CLOSED" else None)
+    if why:
+        blockers.append("#" + str(b.get("number")) + ("" if why == "open" else " (" + why + ")"))
 grades = sorted(name for name in labels if name and name.endswith("-worker"))
 # The batch is the parent link the tracker records, and nothing else. `## Parent` is
 # prose written for a person: #193 opens that section with 「无 spec；本仓自建票。收口
@@ -711,57 +729,25 @@ raise SystemExit(0 if login in [a.get("login") for a in rows if isinstance(a, di
   return 0
 }
 
-# The command `.mmw/target.json` names for taking this run's product down, or nothing
-# when the repository declares none. A file that is there but cannot be read is a fault,
-# not "none declared": exit 2 with the reason.
-target_stop_command() {
-  python3 - "$1" <<'TARGET_STOP_PY'
-import json, sys
-from pathlib import Path
-path = Path(sys.argv[1]) / ".mmw" / "target.json"
-if not path.exists():
-    print("")
-    sys.exit(0)
-try:
-    data = json.loads(path.read_text(encoding="utf-8"))
-except (OSError, ValueError) as exc:
-    print(f"dispatch: {path} cannot be read as JSON: {exc}", file=sys.stderr)
-    sys.exit(2)
-value = data.get("stop") if isinstance(data, dict) else None
-print(value if isinstance(value, str) and value.strip() else "")
-TARGET_STOP_PY
-}
-
-# What a run leaves behind outlasts the run: the application's own processes, and the
-# containers its stack brings up. The command that takes them down lives in the worktree
-# and names that worktree's own compose project, so it runs only from inside — which
-# means before the worktree is archived, because archiving deletes it. Nothing here ran
-# it until 2026-09-07, and the shape of that was: the stack stays up, `lease.py` rightly
-# refuses a slot something is still listening on, the worktree goes anyway, and the slot
-# is held by a stack nothing can reach any more. Nine tickets and 36 containers had
-# collected that way, and a night with two slots could only ever run one worker.
-stop_product() {
-  local cwd="$1" cmd out
-  [ -n "$cwd" ] && [ -d "$cwd" ] || return 0
-  cmd="$(target_stop_command "$cwd")" || return 2
-  [ -n "$cmd" ] || return 0
-  local -a runner=()
-  command -v timeout >/dev/null 2>&1 && runner=(timeout "$STOP_TIMEOUT_S")
-  if ! out="$(cd "$cwd" && "${runner[@]}" sh -c "$cmd" 2>&1)"; then
-    printf 'dispatch: the product of %s did not stop: %s\n' "$cwd" \
-      "$(printf '%s' "$out" | tail -3 | tr '\n' ' ')" >&2
-    return 1
-  fi
-  return 0
-}
-
-# Stopping the product and giving its slot back are one act, and every caller wants both:
-# a slot is free only once nothing listens on its ports, and `lease.py` is right to refuse
-# one held by a live process rather than take it. Exit codes are `release_lease`'s: 0
-# released, 1 refused (something still listens), 3 no lease was registered for that path.
+# Take a worktree's product down and give its slot back: `lease.py release --stop`, which
+# runs the `stop` that worktree's `.mmw/target.json` declares, from inside it, and then
+# releases the slot. The stop lives in the worktree and names that worktree's own compose
+# project, so this runs before the worktree is archived; a stack left up holds its slot
+# with nothing left to reach it. `lease.py` answers in its exit code, never its wording:
+# 0 released, 3 no slot was held there, anything else kept — something still listens on
+# the slot, or `.mmw/target.json` cannot be read, so the stop is unknown. Returns 0, 3, or
+# 1 for kept, with `lease.py`'s reason on stderr.
 give_slot_back() {
-  stop_product "$1" || true
-  release_lease "$1"
+  local err rc
+  err="$(python3 "$LEASE" release "$1" --stop 2>&1 >/dev/null)"
+  rc=$?
+  case "$rc" in
+    0) [ -z "$err" ] || printf '%s\n' "$err" >&2
+       return 0 ;;
+    3) return 3 ;;
+  esac
+  printf 'dispatch: lease not released for %s: %s\n' "$1" "$err" >&2
+  return 1
 }
 
 # Give ticket <n>'s slot back at the moment a released claim ends its work: a slot is
@@ -779,22 +765,6 @@ give_ticket_slot_back() {
     0 | 3) return 0 ;;
   esac
   echo "dispatch: #$number's claim is given back, but its slot is still held: stop its product in $cwd, then python3 $LEASE release $cwd" >&2
-  return 1
-}
-
-# `lease.py release` says which of the three outcomes happened in its exit code — 0 given
-# back, 3 there was no lease to give back, anything else refused — so this reads the code
-# and never the wording. It used to match the front of the sentence for "no lease", which
-# meant `lease.py` could not reword its own output without silently breaking this caller.
-release_lease() {
-  local out rc
-  out="$(python3 "$LEASE" release "$1" 2>&1)"
-  rc=$?
-  case "$rc" in
-    0) return 0 ;;
-    3) return 3 ;;
-  esac
-  printf 'dispatch: lease not released for %s: %s\n' "$1" "$out" >&2
   return 1
 }
 
