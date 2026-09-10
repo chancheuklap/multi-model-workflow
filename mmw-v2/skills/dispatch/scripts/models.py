@@ -78,6 +78,9 @@ def default_live_markdown() -> str:
         "Do not commit this file. First `install.sh` copies the defaults; later ones leave the rows",
         "and refresh the copy-tables.",
         "",
+        "| runner | orca |",
+        "| --- | --- |",
+        "",
         "| agent | host | model | effort |",
         "| --- | --- | --- | --- |",
     ]

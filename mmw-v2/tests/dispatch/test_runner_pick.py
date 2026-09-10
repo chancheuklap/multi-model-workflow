@@ -181,7 +181,7 @@ class LiveRunnerRowTest(unittest.TestCase):
             TABLE_HEAD + "| junior-worker | grok | grok 4.6 | high |\n")
         self.assertIsNone(models.parse_live_runner(path))
 
-    def test_fresh_table_reaches_runtime(self):
+    def test_fresh_table_names_orca_over_runtime(self):
         fh = tempfile.NamedTemporaryFile(
             "w", suffix=".md", delete=False, encoding="utf-8")
         fh.write(models.default_live_markdown())
@@ -189,11 +189,10 @@ class LiveRunnerRowTest(unittest.TestCase):
         path = Path(fh.name)
         self._temps = (*getattr(self, "_temps", ()), path)
         live = models.parse_live_runner(path)
-        self.assertIsNone(live)
+        self.assertEqual(live, "orca")
         self.assertEqual(
             models.pick_runner(live=live, runtime={"HERDR_ENV": "1"}),
-            "herdr")
-        self.assertEqual(models.pick_runner(live=live), "orca")
+            "orca")
 
 
 if __name__ == "__main__":
