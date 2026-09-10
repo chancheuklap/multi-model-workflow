@@ -21,6 +21,10 @@
 # 2 there is no such session.
 # liveness prints one of `alive`, `stopped`, `unknown` on stdout. Stopped means
 # the name is absent from `agent list`; a name still on that list is not stopped.
+# Tolerance, 1 second: that is how long a dead agent may still read `alive`. Measured on
+# Herdr 0.9.0 (2026-09-10, a throwaway Herdr session): a pi agent killed with `kill -9`
+# was gone from `agent list` 0.07 s and 0.29 s after the kill (two runs, the list read
+# every 0.05 s), and this verb answered `alive` before the kill and `stopped` after.
 # stop closes the session's pane: exit 0 it is gone (or was already), 1 it could not
 # be ended.
 # self prints the id of the session this process itself runs in, the id `send` reaches:

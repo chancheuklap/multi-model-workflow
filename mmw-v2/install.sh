@@ -2,7 +2,7 @@
 # 把七样东西装到本机，让每个 host 都读得到：
 #
 #   技能              skills.txt 列出的，软链进 ~/.agents/skills 与 ~/.claude/skills
-#   hook              drive-target 的 hook.py，写进各 host 自己的配置
+#   hook              drive-target 的 hook.py 与 dispatch 的 turn-guard.py，写进各 host 自己的配置
 #   提示词            prompt/shared.md 与 prompt/hosts/<host>.md：Claude Code 读软链，Codex、Pi、Grok
 #                     读 prompt/render.py 拼出的 AGENTS.md
 #   launchd 任务      盯着源文件，改了就重拼 Codex、Pi、Grok 的 AGENTS.md
@@ -307,9 +307,16 @@ done
 # ---------------- hook ----------------
 
 # 技能和 subagent 是 host 去读的，hook 是 host 来调的，所以它要在每个 host 的配置里各有一条。
-# 两样东西：drive-target 的 hook.py 的 pretool gate（五个 host）与 question gate（起 session
-# 的三个 host）。四家写 JSON，pi 写一个扩展文件；每一处都指向 ~/.agents/skills 下的脚本——
-# 那已经是指回仓库的软链，所以改脚本不用重装。
+# 三样东西：drive-target 的 hook.py 的 pretool gate（五个 host）与 question gate（起 session
+# 的三个 host），dispatch 的 turn-guard.py 挂在五个 host 的回合结束事件上（claude、codex、grok
+# 的 Stop，cursor 的 stop，pi 的 agent_settled）。四家写 JSON，pi 写扩展文件；每一处都指向
+# ~/.agents/skills 下的脚本——那已经是指回仓库的软链，所以改脚本不用重装。
+#
+# Cursor 与 Grok 都读 ~/.claude/settings.json，Grok 还读 ~/.cursor/hooks.json，所以写给 claude
+# 的每一条命令前面都带同一个环境变量守卫：GROK_AGENT 或 GROK_HOOK_EVENT 有值就退出——两个都判，
+# Grok 0.2.73 只设前一个、1.0 只设后一个；GROK_SESSION_ID 不能判，Grok 把它传进每个子进程，
+# 会一路带进 Grok 起的 Claude 会话，把那个会话自己的 hook 也关掉。Cursor 那一侧由脚本读它 payload
+# 里的 cursor_version 分辨，不读环境变量（turn-guard.py 头部有全文）。
 #
 # 合并而不是覆盖：这几处别人也各装了自己的东西。只认 command 里带本脚本名与 gate 名的
 # 那一条，认得出就换成新的，认不出就在后面添一条，别人的条目一个字不动。
@@ -320,6 +327,7 @@ if [ -f "$HOOK_SRC" ]; then
   hooks_ran=1
   MMW_MODE="$mode" \
   MMW_HOOK="$NEUTRAL_DIR/drive-target/scripts/hook.py" \
+  MMW_GUARD="$NEUTRAL_DIR/dispatch/scripts/turn-guard.py" \
   MMW_NEUTRAL="$NEUTRAL_DIR" \
   MMW_HOME="$HOME_DIR" \
   MMW_CODEX="${CODEX_HOME:-$HOME_DIR/.codex}" \
@@ -376,6 +384,70 @@ export default function (pi) {
 COMMAND = f"python3 '{hook}' pretool "
 QUESTION = f"python3 '{hook}' question "
 
+guard = os.environ["MMW_GUARD"]
+# turn-guard.py 在回合结束时可能要拉起 watchdog 并等它最多 5 秒，再问 runner 一次 self，
+# 所以给它比 hook.py 长的超时。
+GUARD_TIMEOUT = 30
+STOP = f"python3 '{guard}' stop "
+# 写给 claude 的每一条命令前面都带它（见本段开头）。
+GROK_GUARD = '[ -z "${GROK_AGENT:-}${GROK_HOOK_EVENT:-}" ] || exit 0; exec '
+# Cursor 自己的回合上限：turn-guard.py 只在 loop_count 为 0 时要一次 follow-up，这个数是
+# 脚本失灵时 Cursor 那一侧仍然成立的外层边界。
+CURSOR_LOOP_LIMIT = 3
+
+
+def for_host(host, command):
+    return GROK_GUARD + command + host if host == "claude" else command + host
+
+
+GUARD_EXTENSION = """// installed by mmw-v2/install.sh
+// turn-guard.py 在 pi 这一侧的形状：pi 不读 JSON 配置，所以由这个扩展在 agent_settled 上调
+// 同一个 turn-guard.py。那一刻 pi 已经不能把这一轮留住；它答 2 时，把它 stderr 上的理由作为
+// 一条 follow-up 送回去，由它开下一轮。那一轮自己的 agent_settled 跳过一次，所以只要一次。
+// @ts-nocheck
+
+import { spawn } from "node:child_process";
+
+const GUARD = "%(guard)s";
+let followupPending = false;
+
+function runGuard() {
+  return new Promise((resolve) => {
+    let child;
+    try {
+      child = spawn("python3", [GUARD, "stop", "pi"], { stdio: ["pipe", "ignore", "pipe"] });
+    } catch {
+      resolve({ code: 0, stderr: "" });
+      return;
+    }
+    let stderr = "";
+    const timer = setTimeout(() => { try { child.kill(); } catch {} }, %(timeout)d000);
+    child.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
+    child.on("error", () => { clearTimeout(timer); resolve({ code: 0, stderr: "" }); });
+    child.on("close", (code) => { clearTimeout(timer); resolve({ code: code ?? 0, stderr }); });
+    child.stdin.on("error", () => {});
+    child.stdin.end(JSON.stringify({ hook_event_name: "agent_settled", cwd: process.cwd() }));
+  });
+}
+
+export default function (pi) {
+  pi.on("agent_settled", async () => {
+    if (followupPending) {
+      followupPending = false;
+      return;
+    }
+    const result = await runGuard();
+    if (result.code !== 2) return;
+    followupPending = true;
+    try {
+      await pi.sendUserMessage(result.stderr.trim(), { deliverAs: "followUp" });
+    } catch {
+      followupPending = false;
+    }
+  });
+}
+""" % {"guard": guard, "timeout": GUARD_TIMEOUT}
+
 # The tool each host calls to put a question on the screen: the matcher of its
 # question gate. Only the hosts the live table starts sessions on carry one.
 QUESTION_TOOLS = {"claude": "AskUserQuestion", "grok": "ask_user_question",
@@ -413,7 +485,7 @@ def ours(handler, command):
     return isinstance(handler, dict) and marker_of(command) in str(handler.get("command", ""))
 
 
-def grouped(path, event, matcher, command):
+def grouped(path, event, matcher, command, timeout=TIMEOUT):
     """Claude Code、Codex、Grok Build 都把处理器按 matcher 分组。
 
     `command` 是完整的一条：脚本路径、gate 与 host。同一个文件里的同一个事件可以带两条我们
@@ -423,7 +495,7 @@ def grouped(path, event, matcher, command):
     def install():
         data = load(path)
         hooks = data.setdefault("hooks", {})
-        handler = {"type": "command", "command": command, "timeout": TIMEOUT}
+        handler = {"type": "command", "command": command, "timeout": timeout}
         for group in hooks.setdefault(event, []):
             inner = group.get("hooks") if isinstance(group, dict) else None
             if not isinstance(inner, list):
@@ -456,16 +528,16 @@ def grouped(path, event, matcher, command):
     return install, installed
 
 
-def cursor(path, event):
-    """Cursor 把处理器直接列在事件下面。"""
+def cursor(path, event, command, timeout=TIMEOUT, extra=None):
+    """Cursor 把处理器直接列在事件下面。`extra` 是这一条另带的字段（stop 的 loop_limit）。"""
 
     def install():
         data = load(path)
         data.setdefault("version", 1)
         entries = data.setdefault("hooks", {}).setdefault(event, [])
-        handler = {"command": COMMAND + "cursor", "timeout": TIMEOUT}
+        handler = {"command": command, "timeout": timeout, **(extra or {})}
         for index, existing in enumerate(entries):
-            if ours(existing, COMMAND + "cursor"):
+            if ours(existing, command):
                 entries[index] = handler
                 break
         else:
@@ -474,22 +546,26 @@ def cursor(path, event):
 
     def installed():
         entries = (load(path).get("hooks") or {}).get(event) or []
-        return any(isinstance(e, dict) and e.get("command") == COMMAND + "cursor"
+        return any(isinstance(e, dict) and e.get("command") == command
+                   and all(e.get(k) == v for k, v in (extra or {}).items())
                    for e in entries)
 
     return install, installed
 
 
-def extension(path):
+def extension(path, text=PI_EXTENSION, needle=None):
+    """pi 的一个扩展文件，整份写入。装没装：带 `needle` 时认它在不在文件里，否则整份对得上。"""
+
     def install():
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(PI_EXTENSION, encoding="utf-8")
+        path.write_text(text, encoding="utf-8")
 
     def installed():
         try:
-            return hook in path.read_text(encoding="utf-8")
+            found = path.read_text(encoding="utf-8")
         except Exception:
             return False
+        return needle in found if needle is not None else found == text
 
     return install, installed
 
@@ -517,6 +593,7 @@ SWEPT = [
     (home / ".grok/hooks/mmw-verify-ticket.json", "grouped", True),
     (home / ".grok/hooks/mmw-turn.json", "grouped", True),
     (home / ".grok/hooks/mmw-discipline.json", "grouped", True),
+    (home / ".grok/hooks/mmw-turn-guard.json", "grouped", True),
 ]
 
 # pi 那一侧是整文件写入，不存在半条残留；改过名的扩展文件列在这里，每次安装删一遍。
@@ -587,13 +664,31 @@ def point(host_home, path, label, actions, command=None):
 
 for host, host_home, path in grouped_hosts:
     point(host_home, path, "PreToolUse Bash",
-          grouped(path, "PreToolUse", "Bash", COMMAND + host), COMMAND + host)
+          grouped(path, "PreToolUse", "Bash", for_host(host, COMMAND)), for_host(host, COMMAND))
     point(host_home, path, "PreToolUse " + QUESTION_TOOLS[host],
-          grouped(path, "PreToolUse", QUESTION_TOOLS[host], QUESTION + host), QUESTION + host)
+          grouped(path, "PreToolUse", QUESTION_TOOLS[host], for_host(host, QUESTION)),
+          for_host(host, QUESTION))
 point(home / ".cursor", home / ".cursor/hooks.json", "beforeShellExecution",
-      cursor(home / ".cursor/hooks.json", "beforeShellExecution"), COMMAND + "cursor")
+      cursor(home / ".cursor/hooks.json", "beforeShellExecution", COMMAND + "cursor"),
+      COMMAND + "cursor")
 point(pi_home, pi_home / "extensions/mmw-verify-ticket.ts", "tool_call",
-      extension(pi_home / "extensions/mmw-verify-ticket.ts"))
+      extension(pi_home / "extensions/mmw-verify-ticket.ts", needle=hook))
+
+# turn-guard.py 挂在主 agent 的回合结束事件上。grok 那一条独占一个文件，理由同上。
+stop_hosts = [
+    ("claude", home / ".claude", home / ".claude/settings.json"),
+    ("grok", home / ".grok", home / ".grok/hooks/mmw-turn-guard.json"),
+    ("codex", codex_home, codex_home / "hooks.json"),
+]
+for host, host_home, path in stop_hosts:
+    point(host_home, path, "Stop",
+          grouped(path, "Stop", None, for_host(host, STOP), GUARD_TIMEOUT), for_host(host, STOP))
+point(home / ".cursor", home / ".cursor/hooks.json", "stop",
+      cursor(home / ".cursor/hooks.json", "stop", STOP + "cursor", GUARD_TIMEOUT,
+             {"loop_limit": CURSOR_LOOP_LIMIT}),
+      STOP + "cursor")
+point(pi_home, pi_home / "extensions/mmw-turn-guard.ts", "agent_settled",
+      extension(pi_home / "extensions/mmw-turn-guard.ts", GUARD_EXTENSION))
 
 failed = False
 count = 0
@@ -649,14 +744,141 @@ for path in RETIRED_PI:
         path.unlink()
         print(f"摘掉  {path}")
 
+# ---- codex 的 hook 信任 ----
+#
+# 2026-08-29 实测：写进 hooks.json 还不够。Codex 开场先弹「N hooks need review」，按一次 t
+# 之前这条 hook 是 Installed 而 Active 为 0。按下去记的是 config.toml 里的一张表
+# [hooks.state."<hooks.json 路径>:<事件>:<组号>:<处理器号>"]，trusted_hash 一行。这个哈希由
+# codex-rs 的 hooks/src/engine/discovery.rs（hook_hash）与 config/src/fingerprint.rs
+# （version_for_toml）算：规范化之后的 {event_name, matcher, hooks: [这一条处理器]} 按键排序、
+# 紧凑 JSON 的 sha256。所以本段替本仓库写进 hooks.json 的那几条处理器照同一算法算出哈希，
+# 写进这张表，不用再按 t；别的处理器一条不碰。2026-09-10 拿本机 ~/.codex/hooks.json 的 16 条
+# 处理器核对过这个算法：14 条与 config.toml 已记的哈希一致，另 2 条是信任之后又改过的。
+# Codex 换了算法，这里写的哈希就对不上，Codex 照旧弹「need review」，--check 不会知道。
+CODEX_LABELS = {"PreToolUse": "pre_tool_use", "PermissionRequest": "permission_request",
+                "PostToolUse": "post_tool_use", "PreCompact": "pre_compact",
+                "PostCompact": "post_compact", "SessionStart": "session_start",
+                "SessionEnd": "session_end", "UserPromptSubmit": "user_prompt_submit",
+                "SubagentStart": "subagent_start", "SubagentStop": "subagent_stop",
+                "Stop": "stop", "Interrupt": "interrupt"}
+CODEX_CONTEXT_EVENTS = {"PreToolUse", "PostToolUse", "SessionStart", "UserPromptSubmit",
+                        "SubagentStart"}
+
+
+def codex_trust_hash(event, matcher, handler):
+    import hashlib
+
+    timeout = handler.get("timeout")
+    if event in ("SessionEnd", "Interrupt"):
+        timeout = max(1, min(timeout if timeout is not None else 1, 3))
+    else:
+        timeout = max(1, timeout if timeout is not None else 600)
+    normal = {"type": "command", "command": handler["command"], "timeout": timeout,
+              "async": bool(handler.get("async", False))}
+    if handler.get("statusMessage") is not None:
+        normal["statusMessage"] = handler["statusMessage"]
+    limit = handler.get("additionalContextLimit")
+    if event in CODEX_CONTEXT_EVENTS and limit is not None and limit != 2500:
+        normal["additionalContextLimit"] = limit
+    identity = {"event_name": CODEX_LABELS[event], "hooks": [normal]}
+    if matcher is not None:
+        identity["matcher"] = matcher
+    text = json.dumps(identity, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def codex_trust_wanted():
+    """{hooks.state 表名: 哈希}，本仓库写进 codex hooks.json 的每一条处理器一行。"""
+    path = codex_home / "hooks.json"
+    ours_there = keep.get(path, set())
+    wanted = {}
+    for event, groups in (load(path).get("hooks") or {}).items():
+        if event not in CODEX_LABELS or not isinstance(groups, list):
+            continue
+        for gi, group in enumerate(groups):
+            for hi, handler in enumerate((group or {}).get("hooks") or []):
+                if isinstance(handler, dict) and handler.get("command") in ours_there:
+                    name = f"{path}:{CODEX_LABELS[event]}:{gi}:{hi}"
+                    wanted[name] = codex_trust_hash(event, group.get("matcher"), handler)
+    return wanted
+
+
+def codex_trust_recorded():
+    import tomllib
+
+    try:
+        data = tomllib.loads((codex_home / "config.toml").read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {}
+    except Exception as exc:
+        sys.stderr.write(f"读不懂  {codex_home / 'config.toml'}：{exc}\n")
+        return None
+    state = (data.get("hooks") or {}).get("state") or {}
+    return {k: (v or {}).get("trusted_hash") for k, v in state.items() if isinstance(v, dict)}
+
+
+def toml_key(name):
+    return '"' + name.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def codex_trust_write(wanted):
+    """把 wanted 里对不上的每一条写进 config.toml：表已在就换它的 trusted_hash 行，不在就追加。"""
+    import re
+
+    path = codex_home / "config.toml"
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    recorded = codex_trust_recorded() or {}
+    changed = False
+    for name, digest in wanted.items():
+        if recorded.get(name) == digest:
+            continue
+        header = f"[hooks.state.{toml_key(name)}]"
+        line = f'trusted_hash = "{digest}"'
+        at = text.find(header + "\n")
+        if at >= 0:
+            start = at + len(header) + 1
+            nxt = re.search(r"^\[", text[start:], re.M)
+            end = start + nxt.start() if nxt else len(text)
+            body = re.sub(r"^trusted_hash\s*=.*$", line, text[start:end], flags=re.M)
+            if line not in body:
+                body = line + "\n" + body
+            text = text[:start] + body + text[end:]
+        else:
+            text = text.rstrip("\n") + ("\n\n" if text.strip() else "") + header + "\n" + line + "\n"
+        changed = True
+    if changed:
+        import tomllib
+
+        # 写坏的 config.toml 会让 codex 起不来：写之前先读一遍自己要写的东西。
+        try:
+            tomllib.loads(text)
+        except Exception as exc:
+            sys.stderr.write(f"没写  {path}：改完读不回来（{exc}），原文件没动\n")
+            return False
+        if path.is_file():
+            stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            shutil.copy2(path, path.with_name(path.name + ".bak-" + stamp))
+        scratch = path.with_name(path.name + ".mmw-tmp")
+        scratch.write_text(text, encoding="utf-8")
+        scratch.replace(path)
+    return changed
+
+
+if codex_home.is_dir():
+    wanted = codex_trust_wanted()
+    if mode != "check" and wanted and codex_trust_recorded() is not None:
+        codex_trust_write(wanted)
+    recorded = codex_trust_recorded()
+    for name, digest in wanted.items():
+        if recorded is not None and recorded.get(name) == digest:
+            print(f"信任  {codex_home / 'config.toml'}  {name}")
+        else:
+            sys.stderr.write(f"缺    {codex_home / 'config.toml'}  hooks.state {name} 的 trusted_hash"
+                             f"（codex 会弹「hooks need review」）\n")
+            failed = True
+
 if mode != "check":
     print(f"已装  {count} 条 hook")
-    if codex_home.is_dir():
-        # 2026-08-29 实测：写进 hooks.json 还不够。Codex 开场先弹「N hooks need review」，
-        # 按一次 t 之前这条 hook 是 Installed 而 Active 为 0。按下去记的是这条 hook 的哈希
-        # （config.toml 的 [hooks.state]），所以 hook.py 的路径一变要再按一次。
-        print("注意  codex 里这条 hook 要按一次 t 才生效：下次开 codex 会看到"
-              "「hooks need review」，按 t 信任")
 sys.exit(1 if failed else 0)
 PY
 fi

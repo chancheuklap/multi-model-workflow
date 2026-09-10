@@ -53,9 +53,9 @@ REQUIRED = {
     "ticket.released": {"reason": "worker-lost"},
     "child.opened": {"child": 90, "kind": "review"},
     "worker.lost": {"session": "gone", "runner": "paseo"},
-    "worker.started": {"host": "grok", "model": "grok-4.6", "effort": "high", "grade": "junior-worker", "worktree": "/repo/.worktrees/issue-61", "branch": "issue-61", "base": "0" * 40},
-    "reviewer.started": {"session": "rv-1", "runner": "paseo"},
-    "verifier.started": {"session": "vf-1", "runner": "paseo"},
+    "worker.started": {"machine": "mac-1", "host": "grok", "model": "grok-4.6", "effort": "high", "grade": "junior-worker", "worktree": "/repo/.worktrees/issue-61", "branch": "issue-61", "base": "0" * 40},
+    "reviewer.started": {"session": "rv-1", "runner": "paseo", "machine": "mac-1"},
+    "verifier.started": {"session": "vf-1", "runner": "paseo", "machine": "mac-1"},
 }
 
 
@@ -210,6 +210,20 @@ class QueueTest(RelayCase):
         self.relay = self.fresh()
         self.poll()
         self.assertEqual(self.rows(), [])
+
+    def test_a_lost_reviewer_or_verifier_wakes_the_worker_that_started_it(self):
+        self.board[61] += [
+            started(101, 61, "wk-61"),
+            comment(102, "reviewer.started", 61),
+            comment(103, "reviewer.lost", 61, session="rv-1", runner="paseo"),
+            comment(104, "verifier.started", 61),
+            comment(105, "verifier.lost", 61, session="vf-1", runner="paseo"),
+        ]
+        self.poll()
+        self.assertEqual(self.addressed(), [
+            (1, "reviewer.lost", "worker", "wk-61"),
+            (2, "verifier.lost", "worker", "wk-61"),
+        ])
 
     def test_only_the_events_in_wakes_are_queued_each_for_its_role(self):
         self.board[61] += [
