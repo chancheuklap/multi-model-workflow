@@ -10,22 +10,26 @@
 # prints a session id, or refuses. One call: `terminal create --worktree path:<abs>
 # --command <launch line> --title <name> --json`. The worktree is already cut; this
 # verb only starts a session at that absolute path.
+# The launch line is models.py `launch-line`: the host binary and its own flags from
+# hosts.json, which carry the approval bypass, so `--skip-approval` is always honoured
+# by those flags. A host with no launch block (today `pi`) is a refusal, not a start
+# with no model, no effort and no bypass.
 # send: exit 0 the text was delivered (input_accepted and turn_started); 3 the
 # session is there and did not take it (input_accepted without turn_started); 2
-# there is no such session (terminal_not_writable).
+# there is no such session (terminal_not_writable); 4 unknown — the list or the
+# receipt could not be read, or the handle is past a truncated list.
 # liveness prints one of `alive`, `stopped`, `unknown` on stdout. A running process
 # and an idle UI are two fields; idle is not what this verb answers.
 #
 # MMW_USES: terminal create --worktree --command --title --json
 # MMW_USES: terminal send --terminal --text --enter --wait-submit --json
 # MMW_USES: terminal wait --terminal --for --timeout-ms --json
-# MMW_USES: terminal list --worktree --json
+# MMW_USES: terminal list --json
 # MMW_USES: terminal close --terminal --json
 
 set -uo pipefail
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-HOSTS="$(dirname "$(dirname "$HERE")")/hosts.json"
 START_WAIT_MS=30000
 SEND_WAIT_S=30
 LIVENESS_WAIT_MS=100
@@ -49,27 +53,34 @@ list_row() {
   printf '%s' "$json" | MMW_IDENT="$ident" python3 -c '
 import json, os, sys
 
+# Exit 0 with "<connected> <writable>" when the handle is listed; 1 when a complete list
+# was read and the handle is not on it; 2 for everything else. Exit 1 is the one answer
+# that becomes "stopped" and "no such session", so only a readable, untruncated list may
+# give it: a handle past a truncated page is not known to be gone. Python exits 1 on an
+# uncaught error, so the whole read sits inside one try.
 want = os.environ["MMW_IDENT"]
+
+def flag(value):
+    if value is None:
+        return "absent"
+    return "true" if value is True or str(value).lower() == "true" else "false"
+
 try:
     payload = json.load(sys.stdin)
+    result = payload.get("result") if isinstance(payload, dict) else None
+    rows = result.get("terminals") if isinstance(result, dict) else None
+    if not isinstance(rows, list):
+        sys.exit(2)
+    for row in rows:
+        if isinstance(row, dict) and str(row.get("handle") or "") == want:
+            print("%s %s" % (flag(row.get("connected")), flag(row.get("writable"))))
+            sys.exit(0)
+    if result.get("truncated"):
+        sys.exit(2)
+except SystemExit:
+    raise
 except Exception:
     sys.exit(2)
-if not isinstance(payload, dict):
-    sys.exit(2)
-rows = (payload.get("result") or {}).get("terminals") or payload.get("terminals") or []
-if not isinstance(rows, list):
-    sys.exit(2)
-for row in rows:
-    if not isinstance(row, dict):
-        continue
-    if str(row.get("handle") or "") == want:
-        connected = row.get("connected")
-        writable = row.get("writable")
-        print("%s %s" % (
-            "true" if connected is True or str(connected).lower() == "true" else "false",
-            "true" if writable is True or str(writable).lower() == "true" else "false",
-        ))
-        sys.exit(0)
 sys.exit(1)
 '
 }
@@ -129,43 +140,7 @@ else:
 }
 
 host_command() {
-  local host="$1" model="$2" effort="$3" name="$4"
-  [ -f "$HOSTS" ] || { printf '%s\n' "$host"; return 0; }
-  MMW_HOSTS="$HOSTS" MMW_HOST="$host" MMW_MODEL="$model" \
-    MMW_EFFORT="$effort" MMW_NAME="$name" python3 -c '
-import json, os, shlex
-from pathlib import Path
-
-try:
-    catalog = json.loads(Path(os.environ["MMW_HOSTS"]).read_text(encoding="utf-8"))
-except Exception:
-    print(os.environ.get("MMW_HOST") or "")
-    raise SystemExit
-block = (catalog.get("hosts") or {}).get(os.environ["MMW_HOST"]) or {}
-binary = str(block.get("binary") or os.environ.get("MMW_HOST") or "")
-argv = ((block.get("herdr") or {}).get("argv")) or []
-repl = {
-    "{model}": os.environ.get("MMW_MODEL") or "",
-    "{effort}": os.environ.get("MMW_EFFORT") or "",
-    "{name}": os.environ.get("MMW_NAME") or "",
-}
-parts = [binary] if binary else []
-skip_next = False
-for i, part in enumerate(argv):
-    if skip_next:
-        skip_next = False
-        continue
-    text = str(part)
-    if text == "{effort}" or "{effort}" in text:
-        if (os.environ.get("MMW_EFFORT") or "") in ("—", "-", ""):
-            if parts and parts[-1] in ("--reasoning-effort", "--effort", "-c"):
-                parts.pop()
-            continue
-    for token, value in repl.items():
-        text = text.replace(token, value)
-    parts.append(text)
-print(shlex.join(parts))
-'
+  python3 "$(dirname "$HERE")/models.py" launch-line "$@"
 }
 
 start() {
@@ -197,22 +172,32 @@ start() {
   abs="$(CDPATH='' cd -- "$cwd" && pwd -P)" || exit 1
   name="$(basename -- "$abs")"
   [ -n "$name" ] && [ "$name" != "/" ] || name=mmw
-  cmd="$(host_command "$host" "$model" "$effort" "$name")"
-  [ -n "$cmd" ] || exit 1
+  cmd="$(host_command "$host" "$model" "$effort" "$name")" || exit 1
 
+  local err
+  err="$(mktemp)"
+  trap 'rm -f "$err"' EXIT
   if ! json="$(orca_ terminal create \
         --worktree "path:$abs" \
         --command "$cmd" \
         --title "$name" \
-        --json 2>/dev/null)"; then
+        --json 2>"$err")"; then
+    echo "runners/orca.sh: terminal create refused $host at $abs: $(tr '\n' ' ' < "$err")" >&2
     exit 1
   fi
-  handle="$(printf '%s' "$json" | parse_json handle)" || exit 1
-  [ -n "$handle" ] || exit 1
+  handle="$(printf '%s' "$json" | parse_json handle)" || handle=""
+  if [ -z "$handle" ]; then
+    echo "runners/orca.sh: terminal create answered without a handle, so there is no session to report" >&2
+    exit 1
+  fi
 
   orca_ terminal wait --terminal "$handle" --for tui-idle \
     --timeout-ms "$START_WAIT_MS" --json >/dev/null 2>&1 || true
   if ! bash "$0" send "$handle" "$prompt" >/dev/null; then
+    # A refused start must not leave its agent behind: dispatch is about to say this
+    # ticket has no session, and a second start would put two agents on one worktree.
+    orca_ terminal close --terminal "$handle" --json >/dev/null 2>&1 || true
+    echo "runners/orca.sh: $host started at $abs but did not take its first prompt; that terminal ($handle) was closed" >&2
     exit 1
   fi
   printf '%s\n' "$handle"
@@ -274,12 +259,10 @@ liveness() {
       exit 0
       ;;
   esac
-  connected="${row%% *}"
-  writable="${row#* }"
-  if [ "$connected" != true ] || [ "$writable" != true ]; then
-    printf '%s\n' stopped
-    exit 0
-  fi
+  # A listed handle whose connected or writable is not true is not proven stopped: Orca
+  # falls back to a background handle when its UI cannot adopt a terminal, which can show
+  # as not connected while the process runs. The `terminal wait --for exit` probe below
+  # decides; nothing is answered from those two fields alone.
 
   exit_out="$(orca_ terminal wait --terminal "$ident" --for exit \
               --timeout-ms "$LIVENESS_WAIT_MS" --json 2>&1)" || true

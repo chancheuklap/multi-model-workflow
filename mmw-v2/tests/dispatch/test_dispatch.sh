@@ -691,10 +691,23 @@ if args[:2] == ["terminal", "list"]:
     if scenario == "list-garbage":
         print("not-json")
         sys.exit(0)
+    if scenario == "list-shape":
+        print(json.dumps({"result": "x"}))
+        sys.exit(0)
+    if scenario == "list-truncated":
+        # The page Orca returns under --limit, with the asked-for handle past its end.
+        print(json.dumps({"ok": True, "result": {"terminals": [], "truncated": True}}))
+        sys.exit(0)
     print(json.dumps({
         "ok": True,
         "result": {"terminals": load_terminals()},
     }))
+    sys.exit(0)
+
+if args[:2] == ["terminal", "close"]:
+    handle = opt("--terminal") or ""
+    save_terminals([t for t in load_terminals() if t.get("handle") != handle])
+    print(json.dumps({"ok": True, "result": {"closed": handle}}))
     sys.exit(0)
 
 if args[:2] == ["terminal", "send"]:
@@ -3689,7 +3702,57 @@ scenario_herdrstartloud() {
   grep -q "agent start refused" "$TMP/err" || fail "stderr should name the refused agent start: $(cat "$TMP/err")"
 }
 
-ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir paseorejectspath landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud"
+scenario_orcatruncated() {
+  local code
+  RUNNER="$ORCA_RUNNER"
+  echo "--- a handle past a truncated list is unknown, never stopped"
+  reset_log
+  code="$(MMW_FAKE_ORCA_SCENARIO=list-truncated run_runner liveness term_61)"
+  [ "$code" = 0 ] || fail "liveness expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/out")" = unknown ] || fail "past a truncated list must be unknown, got: $(cat "$TMP/out")"
+  echo "--- and a list in the wrong shape is unknown too"
+  reset_log
+  MMW_FAKE_ORCA_SCENARIO=list-shape run_runner liveness term_61 >/dev/null
+  [ "$(cat "$TMP/out")" = unknown ] || fail "a list it cannot read must be unknown, got: $(cat "$TMP/out")"
+}
+
+scenario_orcanotconnected() {
+  local code
+  RUNNER="$ORCA_RUNNER"
+  echo "--- listed with connected:false is not stopped on that field alone; the exit probe decides"
+  reset_log
+  seed_orca_terminal term_61 false false
+  code="$(MMW_FAKE_ORCA_SCENARIO=wait-busy run_runner liveness term_61)"
+  [ "$code" = 0 ] || fail "liveness expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/out")" != stopped ] || fail "connected:false alone must not read as stopped"
+  has "orca :: terminal :: wait"
+}
+
+scenario_orcanoorphan() {
+  local code
+  RUNNER="$ORCA_RUNNER"
+  echo "--- a start whose first prompt is not taken closes its terminal and says so"
+  reset_log
+  fresh_repo
+  code="$(MMW_FAKE_ORCA_SEND=accepted-only run_runner start --host grok --model "grok 4.6" --effort high --cwd "$TMP/repo" --prompt go)"
+  [ "$code" = 1 ] || fail "expected refusal 1, got $code: $(cat "$TMP/err")"
+  has "orca :: terminal :: close"
+  grep -q "was closed" "$TMP/err" || fail "stderr should say the terminal was closed: $(cat "$TMP/err")"
+}
+
+scenario_orcanohosts() {
+  local code
+  RUNNER="$ORCA_RUNNER"
+  echo "--- a host with no launch block refuses before any terminal is created"
+  reset_log
+  fresh_repo
+  code="$(run_runner start --host pi --model m --effort high --cwd "$TMP/repo" --prompt go)"
+  [ "$code" = 1 ] || fail "pi has no launch block, expected refusal 1, got $code"
+  grep -q "cannot build the launch line" "$TMP/err" || fail "stderr should say why: $(cat "$TMP/err")"
+  hasnt "orca :: terminal :: create"
+}
+
+ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir paseorejectspath landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -3733,6 +3796,10 @@ banner_for() {
     herdrunreadablelist) echo HERDR-UNREADABLE-LIST-OK ;;
     herdrnoeffort) echo HERDR-NO-EFFORT-OK ;;
     herdrstartloud) echo HERDR-START-LOUD-OK ;;
+    orcatruncated) echo ORCA-TRUNCATED-OK ;;
+    orcanotconnected) echo ORCA-NOT-CONNECTED-OK ;;
+    orcanoorphan) echo ORCA-NO-ORPHAN-OK ;;
+    orcanohosts) echo ORCA-NO-HOSTS-OK ;;
     runnersend) echo RUNNER-SEND-OK ;;
     runnerliveness) echo RUNNER-LIVENESS-OK ;;
     runnerparity) echo RUNNER-PARITY-OK ;;
