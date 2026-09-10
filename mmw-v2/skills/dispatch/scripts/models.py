@@ -77,9 +77,6 @@ def default_live_markdown() -> str:
         "Do not commit this file. First `install.sh` copies the defaults; later ones leave the rows",
         "and refresh the copy-tables.",
         "",
-        "| runner | paseo |",
-        "| --- | --- |",
-        "",
         "| agent | host | model | effort |",
         "| --- | --- | --- | --- |",
     ]
@@ -213,12 +210,18 @@ def _spoken_runner(value: str | None) -> str | None:
 
 
 def runtime_from_environ(environ: Mapping[str, str]) -> tuple[str, ...]:
-    """Outer-to-inner runners visible in this process. Innermost wins at level 4."""
+    """Outer-to-inner runners visible in this process. Innermost wins at level 4.
+
+    Environment variables cannot express nesting. TERM_PROGRAM is treated as
+    outermost (last to win): Herdr opened inside an Orca terminal is herdr, not
+    orca. Herdr versus tmux still cannot be told apart from the environment
+    alone.
+    """
     found: list[str] = []
-    if (environ.get("HERDR_ENV") or "").strip():
-        found.append("herdr")
     if (environ.get("TERM_PROGRAM") or "").strip().lower() == "orca":
         found.append("orca")
+    if (environ.get("HERDR_ENV") or "").strip():
+        found.append("herdr")
     if (environ.get("TMUX") or "").strip():
         found.append("tmux")
     return tuple(found)

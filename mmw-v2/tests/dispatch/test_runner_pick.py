@@ -48,7 +48,7 @@ class PickRunnerLevelsTest(unittest.TestCase):
             models.pick_runner(runtime=("tmux",), default="paseo"), "tmux")
 
     def test_default_when_nobody_spoke(self):
-        self.assertEqual(models.pick_runner(default="paseo"), "paseo")
+        self.assertEqual(models.pick_runner(), "paseo")
 
     def test_ticket_beats_env(self):
         self.assertEqual(
@@ -95,6 +95,15 @@ class PickRunnerLevelsTest(unittest.TestCase):
         self.assertEqual(names, ("orca",))
         self.assertEqual(
             models.pick_runner(runtime=names, default="paseo"), "orca")
+
+    def test_runtime_reads_environ(self):
+        self.assertEqual(
+            models.pick_runner(runtime={"HERDR_ENV": "1"}), "herdr")
+
+    def test_herdr_inside_orca(self):
+        env = {"HERDR_ENV": "1", "TERM_PROGRAM": "Orca"}
+        self.assertEqual(models.runtime_from_environ(env), ("orca", "herdr"))
+        self.assertEqual(models.pick_runner(runtime=env), "herdr")
 
 
 class WorktreeOwningTest(unittest.TestCase):
@@ -172,10 +181,19 @@ class LiveRunnerRowTest(unittest.TestCase):
             TABLE_HEAD + "| junior-worker | grok | grok 4.6 | high |\n")
         self.assertIsNone(models.parse_live_runner(path))
 
-    def test_default_live_markdown_has_a_runner_row(self):
-        text = models.default_live_markdown()
-        path = self._live(text)
-        self.assertEqual(models.parse_live_runner(path), "paseo")
+    def test_fresh_table_reaches_runtime(self):
+        fh = tempfile.NamedTemporaryFile(
+            "w", suffix=".md", delete=False, encoding="utf-8")
+        fh.write(models.default_live_markdown())
+        fh.close()
+        path = Path(fh.name)
+        self._temps = (*getattr(self, "_temps", ()), path)
+        live = models.parse_live_runner(path)
+        self.assertIsNone(live)
+        self.assertEqual(
+            models.pick_runner(live=live, runtime={"HERDR_ENV": "1"}),
+            "herdr")
+        self.assertEqual(models.pick_runner(live=live), "paseo")
 
 
 if __name__ == "__main__":
