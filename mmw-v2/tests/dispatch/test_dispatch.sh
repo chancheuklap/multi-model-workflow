@@ -8,13 +8,14 @@
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh instancegate|countfail|stopproduct|suspend|suspendbusy|status
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh runnerstart|runnersend|runnerliveness
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh runnerparity|herdrworkingsend|herdrliveness
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh all
 #
-# A fake `paseo` and a fake `gh` sit in front of the real ones on PATH and write every
-# call they receive to a log, one call per line, fields joined by ` :: `. What the
-# script does to Paseo and to the tracker is therefore checkable without a daemon,
-# a network, or a ticket. The last line of a passing run is the scenario's EXPECT
-# string; everything before it says what was checked.
+# A fake `paseo`, a fake `herdr` and a fake `gh` sit in front of the real ones on
+# PATH and write every call they receive to a log, one call per line, fields joined
+# by ` :: `. What the script does to Paseo, to Herdr and to the tracker is therefore
+# checkable without a daemon, a network, or a ticket. The last line of a passing run
+# is the scenario's EXPECT string; everything before it says what was checked.
 
 set -uo pipefail
 unset PASEO_AGENT_ID
@@ -275,6 +276,121 @@ print("{}", file=sys.stderr)
 sys.exit(2)
 FAKE
 
+cat > "$TMP/bin/herdr" <<'FAKE'
+#!/usr/bin/env python3
+import json, os, sys
+from pathlib import Path
+
+log = os.environ["MMW_TEST_LOG"]
+with open(log, "a", encoding="utf-8") as fh:
+    fh.write("herdr" + "".join(" :: " + a for a in sys.argv[1:]) + "\n")
+
+args = sys.argv[1:]
+state = Path(os.environ["MMW_FAKE_HERDR_STATE"])
+state.mkdir(parents=True, exist_ok=True)
+scenario = os.environ.get("MMW_FAKE_HERDR_SCENARIO", "")
+
+
+def load_agents():
+    path = state / "agents.json"
+    if not path.is_file():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    return data if isinstance(data, list) else []
+
+
+def save_agents(rows):
+    (state / "agents.json").write_text(json.dumps(rows), encoding="utf-8")
+
+
+def opt(flag):
+    if flag in args:
+        i = args.index(flag)
+        if i + 1 < len(args):
+            return args[i + 1]
+    return ""
+
+
+if args[:2] == ["tab", "create"]:
+    if scenario == "tab-fail":
+        print(json.dumps({"error": {"code": "tab_create_failed", "message": "no pane"}}),
+              file=sys.stderr)
+        sys.exit(1)
+    print(json.dumps({
+        "id": "cli:tab:create",
+        "result": {
+            "tab": {"tab_id": "tab_1"},
+            "root_pane": {"pane_id": "pane_1"},
+        },
+    }))
+    sys.exit(0)
+
+if args[:2] == ["agent", "start"]:
+    if scenario == "start-fail":
+        print(json.dumps({"error": {"code": "agent_not_ready", "message": "not ready"},
+                          "id": "cli:agent:start"}))
+        sys.exit(1)
+    name = args[2] if len(args) > 2 else ""
+    rows = load_agents()
+    rows.append({"name": name, "agent_status": "idle", "pane_id": opt("--pane") or "pane_1"})
+    save_agents(rows)
+    print(json.dumps({
+        "id": "cli:agent:start",
+        "result": {"agent": {"name": name, "agent_status": "idle"}},
+    }))
+    sys.exit(0)
+
+if args[:2] == ["agent", "list"]:
+    if scenario == "list-fail":
+        sys.exit(1)
+    if scenario == "list-garbage":
+        print("not-json")
+        sys.exit(0)
+    print(json.dumps({
+        "id": "cli:agent:list",
+        "result": {"agents": load_agents(), "type": "agent_list"},
+    }))
+    sys.exit(0)
+
+if args[:2] == ["agent", "prompt"]:
+    target = args[2] if len(args) > 2 else ""
+    row = next((a for a in load_agents() if a.get("name") == target), None)
+    if row is None:
+        print(json.dumps({
+            "error": {"code": "agent_not_found",
+                      "message": "agent target %s not found" % target},
+            "id": "cli:agent:prompt",
+        }))
+        sys.exit(1)
+    code = os.environ.get("MMW_FAKE_HERDR_PROMPT") or scenario
+    if code in ("agent_blocked", "send-blocked"):
+        print(json.dumps({"error": {"code": "agent_blocked", "message": "blocked"},
+                          "id": "cli:agent:prompt"}))
+        sys.exit(1)
+    if code in ("agent_prompt_stalled", "send-stalled"):
+        print(json.dumps({"error": {"code": "agent_prompt_stalled", "message": "stalled"},
+                          "id": "cli:agent:prompt"}))
+        sys.exit(1)
+    if code in ("timeout", "send-timeout"):
+        print(json.dumps({"error": {"code": "timeout", "message": "timeout"},
+                          "id": "cli:agent:prompt"}))
+        sys.exit(1)
+    print(json.dumps({
+        "id": "cli:agent:prompt",
+        "result": {"status": "working"},
+    }))
+    sys.exit(0)
+
+if args[:2] == ["agent", "wait"]:
+    sys.exit(1)
+
+print("{}", file=sys.stderr)
+sys.exit(2)
+FAKE
+
 cat > "$TMP/bin/gh" <<'FAKE'
 #!/usr/bin/env bash
 line=gh
@@ -432,10 +548,11 @@ for a in "\$@"; do
 done
 exec "$REAL_PYTHON" "\$@"
 WRAPPER
-chmod +x "$TMP/bin/python3" "$TMP/bin/paseo" "$TMP/bin/gh"
+chmod +x "$TMP/bin/python3" "$TMP/bin/paseo" "$TMP/bin/herdr" "$TMP/bin/gh"
 export PATH="$TMP/bin:$PATH"
 export MMW_TEST_LOG="$TMP/calls.log"
 export MMW_FAKE_PASEO_STATE="$TMP/paseo-state"
+export MMW_FAKE_HERDR_STATE="$TMP/herdr-state"
 export MMW_GH_LAST_BODY="$TMP/gh-last-body"
 export MMW_HOME="$TMP/mmw-home"
 export MMW_LIVE_MODELS="$TMP/live-models.md"
@@ -484,9 +601,11 @@ git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m f
 reset_log() {
   : > "$MMW_TEST_LOG"
   : > "$MMW_GH_LAST_BODY"
-  mkdir -p "$MMW_FAKE_PASEO_STATE"
+  mkdir -p "$MMW_FAKE_PASEO_STATE" "$MMW_FAKE_HERDR_STATE"
   echo '[]' > "$MMW_FAKE_PASEO_STATE/workspaces.json"
   echo '[]' > "$MMW_FAKE_PASEO_STATE/agents.json"
+  echo '[]' > "$MMW_FAKE_HERDR_STATE/agents.json"
+  unset MMW_FAKE_HERDR_SCENARIO MMW_FAKE_HERDR_PROMPT MMW_FAKE_SEND_FAILS
   rm -rf "$MMW_HOME/leases"
 }
 has() { grep -qF -- "$1" "$MMW_TEST_LOG" || fail "no call matching: $1"; }
@@ -606,6 +725,23 @@ rows.append({
     "status": "running",
     "cwd": str(state / ("issue-" + n)),
     "labels": {"mmw.ticket": n, "mmw.kind": kind, "mmw.spec": spec},
+})
+path.write_text(json.dumps(rows))
+'
+}
+
+seed_herdr_agent() {
+  local name="$1" status="${2:-idle}"
+  MMW_NAME="$name" MMW_STATUS="$status" python3 -c '
+import json, os
+from pathlib import Path
+state = Path(os.environ["MMW_FAKE_HERDR_STATE"])
+path = state / "agents.json"
+rows = json.loads(path.read_text()) if path.is_file() else []
+rows.append({
+    "name": os.environ["MMW_NAME"],
+    "agent_status": os.environ["MMW_STATUS"],
+    "pane_id": "pane_1",
 })
 path.write_text(json.dumps(rows))
 '
@@ -2353,12 +2489,189 @@ path.write_text(json.dumps([{
   [ "$answer" != alive ] || fail "empty status must not be rendered as alive"
 }
 
+PASEO_RUNNER="$SKILL/scripts/runners/paseo.sh"
+HERDR_RUNNER="$SKILL/scripts/runners/herdr.sh"
+
+scenario_runnerparity() {
+  local code
+  echo "=== paseo adapter"
+  RUNNER="$PASEO_RUNNER"
+
+  echo "--- start succeeds"
+  reset_log
+  code="$(run_runner start --host grok --model grok-4.6 --effort high \
+          --cwd "$TMP/repo" --prompt hi --skip-approval)"
+  [ "$code" = 0 ] || fail "paseo start expected 0, got $code: $(cat "$TMP/err")"
+
+  echo "--- send three states"
+  reset_log
+  python3 -c '
+import json, os
+from pathlib import Path
+path = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "agents.json"
+path.write_text(json.dumps([{
+    "id": "agt_w61",
+    "name": "#61 worker",
+    "status": "idle",
+    "cwd": "/tmp/issue-61",
+    "labels": {"mmw.ticket": "61", "mmw.kind": "worker"},
+}]))
+'
+  code="$(run_runner send agt_w61 continue)"
+  [ "$code" = 0 ] || fail "paseo delivered expected 0, got $code: $(cat "$TMP/err")"
+  reset_log
+  seed_agent 61 worker
+  code="$(MMW_FAKE_SEND_FAILS=1 run_runner send agt_61_worker continue)"
+  [ "$code" = 3 ] || fail "paseo busy expected 3, got $code: $(cat "$TMP/err")"
+  reset_log
+  code="$(run_runner send agt_missing continue)"
+  [ "$code" = 2 ] || fail "paseo missing expected 2, got $code: $(cat "$TMP/err")"
+  hasnt "paseo :: send"
+
+  echo "--- liveness three states"
+  reset_log
+  seed_agent 61 worker
+  code="$(run_runner liveness agt_61_worker)"
+  [ "$code" = 0 ] || fail "paseo liveness expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/out")" = alive ] || fail "paseo listed should be alive, got: $(cat "$TMP/out")"
+  reset_log
+  code="$(run_runner liveness agt_missing)"
+  [ "$(cat "$TMP/out")" = stopped ] || fail "paseo missing should be stopped, got: $(cat "$TMP/out")"
+  reset_log
+  seed_agent 61 worker
+  code="$(MMW_FAKE_PASEO_SCENARIO=ls-fail run_runner liveness agt_61_worker)"
+  [ "$(cat "$TMP/out")" = unknown ] || fail "paseo cannot-ask should be unknown, got: $(cat "$TMP/out")"
+  [ "$(cat "$TMP/out")" != alive ] || fail "paseo cannot-ask must not be alive"
+
+  echo "=== herdr adapter"
+  RUNNER="$HERDR_RUNNER"
+
+  echo "--- start succeeds, pane exists before agent start"
+  reset_log
+  code="$(run_runner start --host grok --model grok-4.6 --effort high \
+          --cwd "$TMP/repo" --prompt hi --skip-approval)"
+  [ "$code" = 0 ] || fail "herdr start expected 0, got $code: $(cat "$TMP/err")"
+  has "herdr :: tab :: create"
+  has "herdr :: agent :: start"
+  local created started
+  created="$(line_of 'herdr :: tab :: create')"
+  started="$(line_of 'herdr :: agent :: start')"
+  [ "$created" -gt 0 ] && [ "$started" -gt 0 ] && [ "$created" -lt "$started" ] \
+    || fail "tab create must precede agent start"
+  grep -q -- '--pane' "$MMW_TEST_LOG" || fail "agent start must name a pane"
+  hasnt "herdr :: pane :: split"
+  hasnt "herdr :: pane :: rename"
+  hasnt "herdr :: pane :: report-metadata"
+  hasnt "herdr :: pane :: layout"
+  hasnt "herdr :: tab :: close"
+  hasnt "herdr :: pane :: close"
+
+  echo "--- send three states"
+  reset_log
+  seed_herdr_agent agt_w61 idle
+  code="$(run_runner send agt_w61 continue)"
+  [ "$code" = 0 ] || fail "herdr delivered expected 0, got $code: $(cat "$TMP/err")"
+  has "herdr :: agent :: prompt"
+  has "--until :: working"
+  has "--until :: blocked"
+  has "--wait"
+  reset_log
+  seed_herdr_agent agt_w61 idle
+  code="$(MMW_FAKE_HERDR_SCENARIO=send-blocked run_runner send agt_w61 continue)"
+  [ "$code" = 3 ] || fail "herdr busy expected 3, got $code: $(cat "$TMP/err")"
+  [ "$code" != 2 ] || fail "herdr busy must not read as missing"
+  reset_log
+  code="$(run_runner send agt_missing continue)"
+  [ "$code" = 2 ] || fail "herdr missing expected 2, got $code: $(cat "$TMP/err")"
+  hasnt "herdr :: agent :: prompt"
+
+  echo "--- liveness three states"
+  reset_log
+  seed_herdr_agent agt_w61 idle
+  code="$(run_runner liveness agt_w61)"
+  [ "$code" = 0 ] || fail "herdr liveness expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/out")" = alive ] || fail "herdr listed should be alive, got: $(cat "$TMP/out")"
+  reset_log
+  code="$(run_runner liveness agt_missing)"
+  [ "$(cat "$TMP/out")" = stopped ] || fail "herdr missing should be stopped, got: $(cat "$TMP/out")"
+  reset_log
+  seed_herdr_agent agt_w61 idle
+  code="$(MMW_FAKE_HERDR_SCENARIO=list-fail run_runner liveness agt_w61)"
+  [ "$(cat "$TMP/out")" = unknown ] || fail "herdr cannot-ask should be unknown, got: $(cat "$TMP/out")"
+  [ "$(cat "$TMP/out")" != alive ] || fail "herdr cannot-ask must not be alive"
+
+  RUNNER="$PASEO_RUNNER"
+}
+
+scenario_herdrworkingsend() {
+  local code answer
+  RUNNER="$HERDR_RUNNER"
+  echo "--- already working: unknown, not delivered, and prompt is not asked"
+  reset_log
+  seed_herdr_agent agt_w61 working
+  code="$(run_runner send agt_w61 continue)"
+  answer="$(cat "$TMP/out")"
+  [ "$answer" = unknown ] || fail "working send should print unknown, got: $answer"
+  [ "$code" != 0 ] || fail "working send must not be delivered (exit 0)"
+  hasnt "herdr :: agent :: prompt"
+  has "herdr :: agent :: list"
+
+  echo "--- idle still delivers, so the hole is only the working case"
+  reset_log
+  seed_herdr_agent agt_w61 idle
+  code="$(run_runner send agt_w61 continue)"
+  [ "$code" = 0 ] || fail "idle send should deliver, got $code: $(cat "$TMP/err")"
+  has "herdr :: agent :: prompt"
+  RUNNER="$PASEO_RUNNER"
+}
+
+scenario_herdrliveness() {
+  local code answer
+  RUNNER="$HERDR_RUNNER"
+
+  echo "--- listed, even as done, is not stopped; the list is what was asked"
+  reset_log
+  seed_herdr_agent agt_w61 done
+  code="$(run_runner liveness agt_w61)"
+  [ "$code" = 0 ] || fail "liveness expected 0, got $code: $(cat "$TMP/err")"
+  answer="$(cat "$TMP/out")"
+  [ "$answer" != stopped ] || fail "a listed agent must not be stopped, got: $answer"
+  has "herdr :: agent :: list"
+  hasnt "herdr :: agent :: wait"
+  hasnt "--until :: done"
+
+  echo "--- listed idle is alive, still without agent wait"
+  reset_log
+  seed_herdr_agent agt_w61 idle
+  code="$(run_runner liveness agt_w61)"
+  [ "$(cat "$TMP/out")" = alive ] || fail "listed idle should be alive, got: $(cat "$TMP/out")"
+  hasnt "herdr :: agent :: wait"
+
+  echo "--- not listed is stopped"
+  reset_log
+  code="$(run_runner liveness agt_missing)"
+  [ "$(cat "$TMP/out")" = stopped ] || fail "missing should be stopped, got: $(cat "$TMP/out")"
+  has "herdr :: agent :: list"
+  hasnt "herdr :: agent :: wait"
+
+  echo "--- list cannot be asked is unknown, not stopped"
+  reset_log
+  seed_herdr_agent agt_w61 idle
+  code="$(MMW_FAKE_HERDR_SCENARIO=list-fail run_runner liveness agt_w61)"
+  answer="$(cat "$TMP/out")"
+  [ "$answer" = unknown ] || fail "cannot-ask should be unknown, got: $answer"
+  [ "$answer" != stopped ] || fail "cannot-ask must not be rendered as stopped"
+  hasnt "herdr :: agent :: wait"
+
+  RUNNER="$PASEO_RUNNER"
+}
+
 # ------------------------------------------------------------------ entry
 
-ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness"
+ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness"
 
 case "${1:-}" in
-  check|advance|advanceconflict|advancedirty|land|start-worker|start-reviewer|start-verifier|retract|resume|wait|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|stopproduct|suspend|suspendbusy|status|runnerstart|runnersend|runnerliveness)
+  check|advance|advanceconflict|advancedirty|land|start-worker|start-reviewer|start-verifier|retract|resume|wait|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|stopproduct|suspend|suspendbusy|status|runnerstart|runnersend|runnerliveness|runnerparity|herdrworkingsend|herdrliveness)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -2396,6 +2709,9 @@ banner_for() {
     runnerstart) echo RUNNER-START-OK ;;
     runnersend) echo RUNNER-SEND-OK ;;
     runnerliveness) echo RUNNER-LIVENESS-OK ;;
+    runnerparity) echo RUNNER-PARITY-OK ;;
+    herdrworkingsend) echo HERDR-WORKING-SEND-OK ;;
+    herdrliveness) echo HERDR-LIVENESS-OK ;;
   esac
 }
 
