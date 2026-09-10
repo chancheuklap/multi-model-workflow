@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 把六样东西装到本机，让每个 host 都读得到：
+# 把七样东西装到本机，让每个 host 都读得到：
 #
 #   技能              skills.txt 列出的，软链进 ~/.agents/skills 与 ~/.claude/skills
 #   hook              drive-target 的 hook.py，写进各 host 自己的配置
@@ -971,11 +971,15 @@ fi
 #
 # 协议自己用 git 切工作树，落点是每个仓库的 `.worktrees/`。这两条只约束 runner 自己
 # 建出来的树也落在同一处，以及外部工作树对人可见（只为人眼，寻址一律用绝对路径）。
-# 没有 orca 的机器跳过。--check 只读：`orca project setups --json` 与
-# `orca repo list --json`。setup-update 只在安装时写，--check 不写。
-# worktree-base-path 还没写过（字段缺席）不当成缺：这台机器要等下一次安装才写，
-# 字段在而不是 `.worktrees` 才报缺。可见性没有 CLI 可写，只核对
-# `externalWorktreeVisibility` 为 `show`。
+# 没有 orca 的机器跳过。--check 只读：`orca project setups --json`（result.setups）与
+# `orca repo list --json`（result.repos）。setup-update 只在安装时写，--check 不写。
+# base path 的字段名是 `worktreeBasePath`，只在设过之后出现在 setup 行上；相对值挂在
+# 仓库路径下（Orca 1.4.199 `shared/worktree/configured-worktree-base-path.js`）。所以
+# 字段缺席就是没设，报缺；设了但解析出来不是 `<仓库>/.worktrees` 也报缺。
+# 可见性按 Orca 自己的判定链：仓库级 `externalWorktreeVisibility` 有值就是它；没值时
+# 看全局 `worktreeVisibilityDefaults.external`，再按仓库加入日期兜底。Orca 的 CLI 读不出
+# 全局默认，所以仓库级没值的那一行报「没查」，不猜。可见性没有 CLI 可写，只核对。
+# 列表读不出、形状不对，报「没查」：一个空列表读起来和「全都对」一样。
 
 if command -v orca >/dev/null 2>&1; then
   MMW_MODE="$mode" python3 - <<'PY' || rc=1
@@ -1000,46 +1004,42 @@ def orca(*args):
     )
 
 
-def payload(proc):
+def rows_of(proc, key):
+    """The list under result.<key>, or None when the answer has any other shape."""
     try:
         data = json.loads(proc.stdout or "")
     except Exception:
         return None
-    return data if isinstance(data, dict) else None
+    value = data.get("result") if isinstance(data, dict) else None
+    rows = value.get(key) if isinstance(value, dict) else None
+    if not isinstance(rows, list):
+        return None
+    return [x for x in rows if isinstance(x, dict)]
 
 
-def result_list(data, *keys):
-    if not isinstance(data, dict):
-        return []
-    value = data.get("result")
-    if isinstance(value, list):
-        return [x for x in value if isinstance(x, dict)]
-    if isinstance(value, dict):
-        for key in keys:
-            rows = value.get(key)
-            if isinstance(rows, list):
-                return [x for x in rows if isinstance(x, dict)]
-    return []
+def unread(what, proc):
+    detail = (proc.stderr or proc.stdout or "").strip().splitlines()
+    why = f"退出 {proc.returncode}" if proc.returncode != 0 else "回答里没有这张列表"
+    if detail:
+        why += f"：{detail[0][:160]}"
+    sys.stderr.write(
+        f"没查  读不出 orca {what}（{why}）：确认 Orca 在运行，再跑一次 --check\n"
+    )
+    sys.exit(1)
 
 
-def base_path_of(row):
-    for key in ("worktreeBasePath", "worktree_base_path", "worktree-base-path"):
-        value = row.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return ""
-
-
-def base_path_ok(value):
-    return value == ".worktrees" or value.endswith("/.worktrees")
+def base_path_ok(value, repo_path):
+    if value == ".worktrees":
+        return True
+    resolved = value if os.path.isabs(value) else os.path.join(repo_path, value)
+    return os.path.normpath(resolved) == os.path.normpath(os.path.join(repo_path, ".worktrees"))
 
 
 failed = False
 setups_proc = orca("project", "setups", "--json")
-if setups_proc.returncode != 0:
-    sys.stderr.write("缺    orca project setups --json\n")
-    sys.exit(1)
-setups = result_list(payload(setups_proc))
+setups = rows_of(setups_proc, "setups") if setups_proc.returncode == 0 else None
+if setups is None:
+    unread("project setups --json", setups_proc)
 
 if mode != "check":
     for row in setups:
@@ -1053,37 +1053,54 @@ if mode != "check":
             "--json",
         )
         if upd.returncode != 0:
-            sys.stderr.write(f"缺    orca project setup-update --setup {ident} --worktree-base-path .worktrees\n")
+            why = (upd.stderr or upd.stdout or "").strip().splitlines()
+            sys.stderr.write(
+                f"缺    orca setup {ident} 的 worktree-base-path 没写上"
+                f"（{why[0][:160] if why else f'退出 {upd.returncode}'}）："
+                f"手动跑 orca project setup-update --setup {ident} --worktree-base-path .worktrees\n"
+            )
             failed = True
         else:
             print(f"已装  orca setup {ident} worktree-base-path .worktrees")
-    setups_proc = orca("project", "setups", "--json")
-    setups = result_list(payload(setups_proc)) if setups_proc.returncode == 0 else setups
 
 if mode == "check":
     for row in setups:
-        ident = str(row.get("id") or row.get("path") or "?")
-        have = base_path_of(row)
-        if not have:
-            continue
-        if not base_path_ok(have):
+        ident = str(row.get("id") or "?")
+        repo_path = str(row.get("path") or "")
+        have = row.get("worktreeBasePath")
+        fix = (
+            f"跑 bash mmw-v2/install.sh 写上，或只改这一条："
+            f"orca project setup-update --setup {ident} --worktree-base-path .worktrees"
+        )
+        if not isinstance(have, str) or not have.strip():
+            sys.stderr.write(f"缺    orca worktree-base-path 没设（{repo_path or ident}）：{fix}\n")
+            failed = True
+        elif not base_path_ok(have.strip(), repo_path):
             sys.stderr.write(
-                f"缺    orca worktree-base-path 应为 .worktrees 实为 {have}（setup {ident}）\n"
+                f"缺    orca worktree-base-path 应为 .worktrees 实为 {have}（{repo_path or ident}）：{fix}\n"
             )
             failed = True
 
 repos_proc = orca("repo", "list", "--json")
-if repos_proc.returncode != 0:
-    sys.stderr.write("缺    orca repo list --json\n")
-    sys.exit(1)
-for row in result_list(payload(repos_proc), "repos"):
+repos = rows_of(repos_proc, "repos") if repos_proc.returncode == 0 else None
+if repos is None:
+    unread("repo list --json", repos_proc)
+for row in repos:
     vis = row.get("externalWorktreeVisibility")
     path = row.get("path") or row.get("id") or "?"
-    if vis != "show":
+    if vis == "show":
+        continue
+    if vis in (None, ""):
         sys.stderr.write(
-            f"缺    orca externalWorktreeVisibility 应为 show 实为 {vis}（{path}）\n"
+            f"没查  orca 没给 {path} 的 externalWorktreeVisibility，它落到全局默认上，"
+            f"而全局默认 Orca 的 CLI 读不出：在 Orca 里给这个仓库的外部工作树明确选 Show\n"
         )
-        failed = True
+    else:
+        sys.stderr.write(
+            f"缺    orca externalWorktreeVisibility 应为 show 实为 {vis}（{path}）："
+            f"在 Orca 里把这个仓库的外部工作树改成 Show，Orca 的 CLI 没有写这一项的命令\n"
+        )
+    failed = True
 
 sys.exit(1 if failed else 0)
 PY
@@ -1099,7 +1116,10 @@ fi
 # 页（退出码 0），所以必须先确认读到的是这一页：首行不是顶层用法的首行，且
 # Usage 行点名这个子命令。确认不了就报「没查」，不拿那一页去对 flag——掉回的
 # 顶层页上，flag 名碰巧出现是假一致，碰巧不出现是假不一致。本机没有这个二进制
-# 则跳过。只报，不禁止：不扫 skills.txt，也不删任何技能。
+# 则跳过。没有东西可查——`runners/` 不在、里面没有适配器、一个适配器一条声明都
+# 没有、一行声明没有命令名——也报「没查」：什么都没核的检查不许读起来像通过。
+# 每一句「没查」「不一致」都带上唯一那条出路。只报，不禁止：不扫 skills.txt，
+# 也不删任何技能。
 
 if [ "$mode" = check ]; then
   MMW_ROOT="$ROOT" python3 - <<'PY' || rc=1
@@ -1137,6 +1157,12 @@ def first_line(text):
     return ""
 
 
+def not_checked(line):
+    global failed
+    failed = True
+    sys.stderr.write(f"没查    {line}\n")
+
+
 def parse_uses(path):
     rows = []
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -1152,6 +1178,11 @@ def parse_uses(path):
                 cmd.append(token)
         if cmd:
             rows.append((cmd, flags, rest))
+        else:
+            not_checked(
+                f"{path.name} 有一行 MMW_USES 没有命令名（{rest or '空'}）："
+                f"写成「# MMW_USES: <子命令> --flag …」"
+            )
     return rows
 
 
@@ -1172,36 +1203,43 @@ def usage_names(text, binary, cmd):
 
 
 def help_text(binary, cmd):
+    """The subcommand's own help page, or (None, why the last try was not it)."""
     top = run_cmd(binary, ["--help"])
     top_first = first_line(top.stdout or top.stderr)
+    why = "没有输出"
     for _ in range(3):
         for flag in ("--help", "-h"):
             proc = run_cmd(binary, [*cmd, flag])
             text = proc.stdout or proc.stderr or ""
             if not text.strip():
+                why = "没有输出"
                 continue
             if first_line(text) == top_first:
+                why = "掉回了顶层用法页"
                 continue
             if not usage_names(text, binary, cmd):
+                why = "Usage 行没点这个子命令的名"
                 continue
-            return text
-    return None
+            return text, ""
+    return None, why
 
 
-def unread(binary, cmd):
-    global failed
-    failed = True
+def unread(binary, cmd, why):
     named = " ".join([binary, *cmd])
-    sys.stderr.write(f"没查    读不到 {named} 的帮助页\n")
+    not_checked(
+        f"读不到 {named} 的帮助页（{why}，--help 与 -h 各试三次）："
+        f"手动跑 {named} --help，对着适配器的 MMW_USES 看一遍"
+    )
 
 
-def mismatch(cmd, flag):
+def mismatch(binary, cmd, flag):
     global failed
     failed = True
     named = " ".join([*cmd, flag])
     key = flag.lstrip("-")
     sys.stderr.write(
-        f"不一致  适配器说它要用 {named}，二进制的 flags 里没有 {key}\n"
+        f"不一致  适配器说它要用 {named}，二进制的 flags 里没有 {key}："
+        f"按 {binary} 现在的用法改 runners/{binary}.sh 里这条命令和它的 MMW_USES\n"
     )
 
 
@@ -1209,13 +1247,13 @@ def check_help(binary, rows):
     if shutil.which(binary) is None:
         return
     for cmd, flags, rest in rows:
-        text = help_text(binary, cmd)
+        text, why = help_text(binary, cmd)
         if text is None:
-            unread(binary, cmd)
+            unread(binary, cmd, why)
             continue
         for flag in flags:
             if not flag_in_help(text, flag):
-                mismatch(cmd, flag)
+                mismatch(binary, cmd, flag)
 
 
 def orca_catalog():
@@ -1240,35 +1278,51 @@ def check_orca(rows):
         return
     catalog = orca_catalog()
     if catalog is None:
-        sys.stderr.write("没查    读不到 orca agent-context --json\n")
-        failed = True
+        not_checked("读不到 orca agent-context --json 的命令表：确认 Orca 在运行，再跑一次 --check")
         return
     for cmd, flags, rest in rows:
         name = " ".join(cmd)
         row = catalog.get(name)
         if not isinstance(row, dict):
             sys.stderr.write(
-                f"不一致  适配器说它要用 {rest}，二进制没有 {name}\n"
+                f"不一致  适配器说它要用 {rest}，二进制没有 {name}："
+                f"按 orca 现在的命令表改 runners/orca.sh 里这条命令和它的 MMW_USES\n"
             )
             failed = True
             continue
-        have = {str(item).lstrip("-") for item in (row.get("flags") or [])}
+        listed = row.get("flags")
+        if not isinstance(listed, list):
+            not_checked(
+                f"orca agent-context 里 {name} 那一行读不出 flags 列表："
+                f"手动跑 orca {name} --help，对着适配器的 MMW_USES 看一遍"
+            )
+            continue
+        have = {str(item).lstrip("-") for item in listed}
         for flag in flags:
             key = flag.lstrip("-")
             if key not in have:
-                mismatch(cmd, flag)
+                mismatch("orca", cmd, flag)
 
 
-if runners.is_dir():
-    for path in sorted(runners.glob("*.sh")):
-        binary = path.stem
-        rows = parse_uses(path)
-        if not rows:
-            continue
-        if binary == "orca":
-            check_orca(rows)
-        else:
-            check_help(binary, rows)
+adapters = sorted(runners.glob("*.sh")) if runners.is_dir() else []
+if not adapters:
+    not_checked(
+        f"{runners} 下没有适配器，MMW_USES 一条都没核："
+        f"从这个 checkout 的 git 历史里恢复 skills/dispatch/scripts/runners/"
+    )
+for path in adapters:
+    binary = path.stem
+    rows = parse_uses(path)
+    if not rows:
+        not_checked(
+            f"{path.name} 一条 MMW_USES 声明都没有，它调 {binary} 的命令一条都没核："
+            f"在文件头为它调用的每条命令写一行「# MMW_USES: <子命令> --flag …」"
+        )
+        continue
+    if binary == "orca":
+        check_orca(rows)
+    else:
+        check_help(binary, rows)
 
 sys.exit(1 if failed else 0)
 PY

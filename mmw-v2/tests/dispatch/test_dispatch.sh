@@ -598,6 +598,8 @@ if args[:1] == ["agent-context"]:
                   "terminal", "for", "timeout-ms"]
     if uses == "mismatch":
         wait_flags = [f for f in wait_flags if f != "for"]
+    if uses == "orca-unreadable":
+        wait_flags = "terminal for timeout-ms"
     print(json.dumps({
         "schemaVersion": 1,
         "commandCount": 5,
@@ -625,7 +627,11 @@ if args[:2] == ["project", "setups"]:
             rows = loaded if isinstance(loaded, list) else []
         except Exception:
             rows = []
-    print(json.dumps({"ok": True, "result": rows}))
+    if scenario == "setups-shape":
+        print(json.dumps({"ok": True, "result": rows}))
+        sys.exit(0)
+    # Orca 1.4.199 answers with an object: {"ok": true, "result": {"setups": [...]}}.
+    print(json.dumps({"ok": True, "result": {"setups": rows}}))
     sys.exit(0)
 
 if args[:2] == ["project", "setup-update"]:
@@ -3374,10 +3380,12 @@ state = Path(os.environ["MMW_FAKE_ORCA_STATE"])
 '
   : > "$MMW_TEST_LOG"
   (MMW_V2_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
-  grep -q "缺    orca worktree-base-path" "$TMP/err" \
-    && fail "correct base path should not 缺: $(cat "$TMP/err")"
-  grep -q "缺    orca externalWorktreeVisibility" "$TMP/err" \
-    && fail "show should not 缺: $(cat "$TMP/err")"
+  if grep -q "orca worktree-base-path" "$TMP/err"; then
+    fail "correct base path should not 缺: $(cat "$TMP/err")"
+  fi
+  if grep -q "orca externalWorktreeVisibility\|orca 没给" "$TMP/err"; then
+    fail "show should not be reported: $(cat "$TMP/err")"
+  fi
   hasnt "orca :: project :: setup-update"
 
   echo "--- --check with hidden visibility is a miss"
@@ -3439,8 +3447,12 @@ scenario_usesagree() {
   echo "--- declared flags the binary has: --check is silent about MMW_USES"
   reset_log
   MMW_FAKE_USES=agree run_uses_check
-  grep -E '没查|不一致' "$TMP/err" "$TMP/out" \
-    && fail "agree should print neither 没查 nor 不一致: $(cat "$TMP/err") $(cat "$TMP/out")"
+  if grep -E '没查|不一致' "$TMP/err" "$TMP/out"; then
+    fail "agree should print neither 没查 nor 不一致: $(cat "$TMP/err") $(cat "$TMP/out")"
+  fi
+  if grep -q Traceback "$TMP/err"; then
+    fail "the check crashed: $(cat "$TMP/err")"
+  fi
   has "orca :: agent-context"
   has "herdr :: agent :: start :: --help"
   has "paseo :: send :: --help"
@@ -3458,6 +3470,9 @@ scenario_usesmismatch() {
     || fail "should name tab create --no-focus: $(cat "$TMP/err")"
   grep -qE '没有 no-focus' "$TMP/err" \
     || fail "should say the binary lacks no-focus: $(cat "$TMP/err")"
+  grep -qE '^不一致  适配器说它要用 terminal wait --for，二进制的 flags 里没有 for：' "$TMP/err" \
+    || fail "should name Orca's terminal wait --for: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/code")" = 1 ] || fail "a mismatch must exit 1, got $(cat "$TMP/code")"
 }
 
 scenario_usesunreadable() {
@@ -3468,9 +3483,138 @@ scenario_usesunreadable() {
     || fail "fallback help must print 没查: $(cat "$TMP/err")"
   grep -q '不一致' "$TMP/err" \
     && fail "fallback help must not print 不一致: $(cat "$TMP/err")"
-  grep -q 'herdr' "$TMP/err" \
-    || fail "没查 should name herdr: $(cat "$TMP/err")"
+  local row
+  for row in "tab create" "agent start" "agent prompt" "agent list"; do
+    grep -q "^没查    读不到 herdr $row 的帮助页（掉回了顶层用法页" "$TMP/err" \
+      || fail "herdr $row should have its own 没查 line: $(cat "$TMP/err")"
+  done
   has "herdr :: tab :: create :: --help"
+}
+
+# Writes setups.json and repos.json for the fake orca: $1 setups with ids setup_1..,
+# path /repo<i>; $2 is the base path to give each ("" leaves the field out); $3 the
+# visibility of every repo ("" leaves it out).
+seed_orca_projects() {
+  MMW_N="$1" MMW_BASE="$2" MMW_VIS="$3" python3 -c '
+import json, os
+from pathlib import Path
+state = Path(os.environ["MMW_FAKE_ORCA_STATE"])
+state.mkdir(parents=True, exist_ok=True)
+n, base, vis = int(os.environ["MMW_N"]), os.environ["MMW_BASE"], os.environ["MMW_VIS"]
+setups, repos = [], []
+for i in range(1, n + 1):
+    row = {"id": "setup_%d" % i, "path": "/repo%d" % i}
+    if base:
+        row["worktreeBasePath"] = base
+    setups.append(row)
+    repo = {"id": "repo_%d" % i, "path": "/repo%d" % i}
+    if vis:
+        repo["externalWorktreeVisibility"] = vis
+    repos.append(repo)
+(state / "setups.json").write_text(json.dumps(setups))
+(state / "repos.json").write_text(json.dumps(repos))
+'
+}
+
+run_installer() {
+  local installer home
+  installer="$(dirname "$(dirname "$HERE")")/install.sh"
+  home="$TMP/install-home"
+  rm -rf "$home"
+  mkdir -p "$home"
+  if [ -n "${MMW_TEST_ROOT_COPY:-}" ]; then
+    mkdir -p "$home/.mmw"
+    printf '%s\n' "$MMW_TEST_ROOT_COPY" > "$home/.mmw/installed-root"
+  fi
+  : > "$MMW_TEST_LOG"
+  (MMW_V2_HOME="$home" bash "$installer" "$@" > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
+}
+
+scenario_installorcashape() {
+  echo "--- install reads every setup out of result.setups and updates each one"
+  reset_log
+  seed_orca_projects 3 "" show
+  run_installer
+  [ "$(count_of "orca :: project :: setup-update")" = 3 ] \
+    || fail "3 setups in, expected 3 setup-update calls, got $(count_of "orca :: project :: setup-update")"
+  echo "--- --check reports every setup with no base path, and writes nothing"
+  seed_orca_projects 3 "" show
+  run_installer --check
+  [ "$(grep -c '^缺    orca worktree-base-path 没设' "$TMP/err")" = 3 ] \
+    || fail "3 unset setups should give 3 缺 lines: $(cat "$TMP/err")"
+  grep -q "orca project setup-update --setup setup_2 --worktree-base-path .worktrees" "$TMP/err" \
+    || fail "the 缺 line should give the command that fixes it: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/code")" = 1 ] || fail "--check with a miss must exit 1"
+  hasnt "orca :: project :: setup-update"
+  echo "--- a base path that resolves to <repo>/.worktrees passes; one elsewhere does not"
+  seed_orca_projects 1 /repo1/.worktrees show
+  run_installer --check
+  if grep -q "orca worktree-base-path" "$TMP/err"; then fail "/repo1/.worktrees is the repo's own .worktrees: $(cat "$TMP/err")"; fi
+  seed_orca_projects 1 /elsewhere/.worktrees show
+  run_installer --check
+  grep -q "^缺    orca worktree-base-path 应为 .worktrees 实为 /elsewhere/.worktrees" "$TMP/err" \
+    || fail "/elsewhere/.worktrees is not this repo's .worktrees: $(cat "$TMP/err")"
+  echo "--- a setups answer in any other shape is 没查, not a pass"
+  seed_orca_projects 2 .worktrees show
+  MMW_FAKE_ORCA_SCENARIO=setups-shape run_installer --check
+  grep -q "^没查  读不出 orca project setups --json" "$TMP/err" \
+    || fail "an unreadable setups list must say 没查: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/code")" = 1 ] || fail "没查 must exit 1"
+  echo "--- a repo with no visibility of its own is 没查; hide is 缺"
+  seed_orca_projects 1 .worktrees ""
+  run_installer --check
+  grep -q "^没查  orca 没给 /repo1 的 externalWorktreeVisibility" "$TMP/err" \
+    || fail "no repo-level visibility must be 没查: $(cat "$TMP/err")"
+  seed_orca_projects 1 .worktrees hide
+  run_installer --check
+  grep -q "^缺    orca externalWorktreeVisibility 应为 show 实为 hide（/repo1）：" "$TMP/err" \
+    || fail "hide must be 缺: $(cat "$TMP/err")"
+}
+
+# A copy of this mmw-v2 that --check reads through installed-root, so a test can take
+# the runners apart without touching the checkout.
+root_copy() {
+  local copy="$TMP/mmw-copy"
+  rm -rf "$copy"
+  cp -R "$(dirname "$(dirname "$HERE")")" "$copy"
+  printf '%s\n' "$copy"
+}
+
+scenario_usesnorunners() {
+  local copy
+  echo "--- no runners directory: 没查, exit 1"
+  reset_log
+  seed_orca_projects 1 .worktrees show
+  copy="$(root_copy)"
+  rm -rf "$copy/skills/dispatch/scripts/runners"
+  MMW_TEST_ROOT_COPY="$copy" run_installer --check
+  grep -q "^没查    .*runners 下没有适配器，MMW_USES 一条都没核" "$TMP/err" \
+    || fail "a missing runners/ must say 没查: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/code")" = 1 ] || fail "没查 must exit 1"
+  echo "--- a runner with no MMW_USES: 没查 naming that file"
+  copy="$(root_copy)"
+  sed -i.bak '/^# MMW_USES:/d' "$copy/skills/dispatch/scripts/runners/paseo.sh"
+  rm -f "$copy/skills/dispatch/scripts/runners/paseo.sh.bak"
+  MMW_TEST_ROOT_COPY="$copy" run_installer --check
+  grep -q "^没查    paseo.sh 一条 MMW_USES 声明都没有" "$TMP/err" \
+    || fail "an undeclared runner must say 没查: $(cat "$TMP/err")"
+  echo "--- a declaration line with no command: 没查"
+  copy="$(root_copy)"
+  printf '# MMW_USES: --json\n' >> "$copy/skills/dispatch/scripts/runners/paseo.sh"
+  MMW_TEST_ROOT_COPY="$copy" run_installer --check
+  grep -q "^没查    paseo.sh 有一行 MMW_USES 没有命令名（--json）" "$TMP/err" \
+    || fail "a row without a command must say 没查: $(cat "$TMP/err")"
+}
+
+scenario_usesorcaunreadable() {
+  echo "--- an Orca catalog row whose flags cannot be read: 没查, never 不一致"
+  reset_log
+  MMW_FAKE_USES=orca-unreadable run_uses_check
+  grep -q "^没查    orca agent-context 里 terminal wait 那一行读不出 flags 列表" "$TMP/err" \
+    || fail "an unreadable catalog row must say 没查: $(cat "$TMP/err")"
+  if grep -q "不一致.*terminal wait" "$TMP/err"; then
+    fail "an unreadable row is not a mismatch: $(cat "$TMP/err")"
+  fi
 }
 
 # Feed a create_agent object to the fake. Exit 0 accepted, 1 rejected.
@@ -3752,7 +3896,7 @@ scenario_orcanohosts() {
   hasnt "orca :: terminal :: create"
 }
 
-ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir paseorejectspath landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts"
+ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir paseorejectspath landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -3800,6 +3944,9 @@ banner_for() {
     orcanotconnected) echo ORCA-NOT-CONNECTED-OK ;;
     orcanoorphan) echo ORCA-NO-ORPHAN-OK ;;
     orcanohosts) echo ORCA-NO-HOSTS-OK ;;
+    installorcashape) echo INSTALL-ORCA-SHAPE-OK ;;
+    usesnorunners) echo USES-NO-RUNNERS-OK ;;
+    usesorcaunreadable) echo USES-ORCA-UNREADABLE-OK ;;
     runnersend) echo RUNNER-SEND-OK ;;
     runnerliveness) echo RUNNER-LIVENESS-OK ;;
     runnerparity) echo RUNNER-PARITY-OK ;;
