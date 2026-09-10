@@ -106,7 +106,7 @@ host_argv() {
   python3 "$(dirname "$HERE")/models.py" bypass-argv "$@"
 }
 start() {
-  local host="" model="" effort="" cwd="" prompt=""
+  local host="" model="" effort="" cwd="" prompt="" title=""
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --host|--model|--effort|--cwd|--prompt)
@@ -123,8 +123,13 @@ start() {
       --skip-approval)
         shift
         ;;
-      --title|--label)
-        # Metadata for runners that keep it; this one names the session after its worktree.
+      --title)
+        [ "$#" -ge 2 ] || usage
+        title="$2"
+        shift 2
+        ;;
+      --label)
+        # Metadata for runners that keep it; this one does not.
         [ "$#" -ge 2 ] || usage
         shift 2
         ;;
@@ -138,6 +143,9 @@ start() {
   local name pane json
   name="$(basename -- "$cwd")"
   [ -n "$name" ] && [ "$name" != "/" ] || name=mmw
+  # The session name is its id, and one worktree runs a worker, a reviewer and a
+  # verifier: the last word of the title ("#61 reviewer") keeps the three apart.
+  [ -z "$title" ] || name="$name-${title##* }"
 
   local err
   err="$(mktemp)"

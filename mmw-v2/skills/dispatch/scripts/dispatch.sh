@@ -918,8 +918,10 @@ check_machine() {
   #
   # One diagnostic per host, not per row of the live table: several agents share a host, and
   # the call costs seconds (measured: claude 0.7s, pi 1.7s, grok 2.5s, cursor 6.7s).
-  local role host host_line hosts="" diag
-  for role in $(worker_roles) reviewer verifier; do
+  # Paseo's provider snapshot only says something about sessions Paseo starts.
+  local role host host_line hosts="" diag roles=""
+  [ "$(tonight_runner)" = paseo ] && roles="$(worker_roles) reviewer verifier"
+  for role in $roles; do
     host_line="$(row_for_role "$role")" || { failed=1; continue; }
     host="$(printf '%s\n' "$host_line" | cut -f1)"
     [ -n "$host" ] || continue

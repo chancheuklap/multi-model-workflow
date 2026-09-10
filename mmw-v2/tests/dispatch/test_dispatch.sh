@@ -2045,7 +2045,7 @@ assert obj["settings"].get("thinkingOptionId") == "high"
 
 scenario_resume() {
   local code
-  echo "--- a live worker is found by the RUNNER line on its ticket and sent the text"
+  echo "--- a live worker is found by the worker.started event on its ticket and sent the text"
   reset_log
   python3 -c '
 import json, os
@@ -3173,6 +3173,12 @@ path.write_text(json.dumps([{
   [ "$created" -gt 0 ] && [ "$started" -gt 0 ] && [ "$created" -lt "$started" ] \
     || fail "tab create must precede agent start"
   grep -q -- '--pane' "$MMW_TEST_LOG" || fail "agent start must name a pane"
+
+  echo "--- the reviewer and the worker of one worktree get different session names"
+  reset_log
+  run_runner start --host grok --model grok-4.6 --effort high \
+    --cwd "$TMP/repo" --prompt hi --title "#61 reviewer" >/dev/null
+  [ "$(cat "$TMP/out")" = repo-reviewer ] || fail "the session name should carry the kind: $(cat "$TMP/out")"
   hasnt "herdr :: pane :: split"
   hasnt "herdr :: pane :: rename"
   hasnt "herdr :: pane :: report-metadata"

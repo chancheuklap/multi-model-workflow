@@ -15,7 +15,7 @@
 | 读 `## Read first` 那一段末尾加「目标树」一段（照 `targets/<page>.aria` 与 `.classes` 写，再跑判据；`--render-only` 看设计侧）；writing rules 里「一条代码路径」改成目标无关的表述（任何请求路径不得按数据源在不在、按查询参数、按构建开关选投影），并加「每个表面组件的根带 `data-screen="<mount>"`，谁建谁带」一条 | 我们改的，来自 mmw #115。原句是 Electron/SPA 形状的特例；老板控制台的服务端在 `hasattr(db_pool)` 分支下渲染预览投影，同一条纪律要能抓住它，而且在服务端渲染目标上它是让 `observe` 有意义的前提。目标树前置一次，判据从「审判」变成「规格」。上游改这两处 → 收上游措辞，这两条保留 |
 | writing rules 里 `data-screen` 那条之后加一句：写展示组件的同时写它的 story adapter 与边界测试 | 我们加的，来自 mmw #216 第 8 节。上游改 writing rules → 收上游措辞，这一句保留 |
 | `Run typechecking regularly` 之后、「Once done」之前的测试范围段 | 我们加的：验证手段随意、scratch 脚本不必保留；只在票要求或仓库本来就为这类改动留测试时提交测试，规模比照相邻测试文件（每条声明的行为约一个测试），不把临时检查变成永久测试文件；这段只管多出来的东西，票要的每个行为仍要完整实现。来源是 Anthropic 的 `Prompting Claude Fable 5.1` 指南 `Keep changes and tests to what the task asks for` 一节：`Owns two grades` 管改动范围，这段补上测试文件数量。上游若加了同类约束 → 收上游措辞 |
-| 「Once done」之后的 closing steps | 我们改的：八步，顺序是 `self-run` → reviewer → DECISIONS → verifier → Audit → `--touched` → `--draft` → `--closeout`。**verifier 排在 reviewer 之后**，因为 closeout 要求 `VERDICT` 指向将被合并的那个 commit，而 reviewer 的票内 finding 一修就会产生新 commit；上游的顺序（verifier 在前）下这个条件永远不成立。verifier 只跑一轮：判定失败就直接写 `ABANDON: AC<n> failed` 并以 `HANDOFF REQUIRED` 收尾，不再起第二个 verifier——重起的重验是这一步唯一可能永不结束的地方，而这样也没有一张票会烧掉两个 verifier 会话。第 1 步 `self-run`（`<engine> <n>`，写完码那一条 run；一条 acceptance criterion 试几轮由 worker 自己判断，closeout 不数轮次，`ABANDON: AC<n> failed` 那一行写清每轮试了什么）。第 2、4 步都是 `<dispatch> start <n> <kind>` 之后 `create_agent`、结束回合、被叫醒、回票上读结果首行（`REVIEW ` / `VERDICT`），评论还没到就 `<dispatch> wait <n> <kind>` 兜一次；reviewer 与 verifier 各只起一次，都不复跑。两者都是 Paseo agent，`start` 是唯一起法，host 的 `spawn_subagent` / `Agent` 不能替代（换不了 provider，Paseo 也看不见它）；start 退出 2 是流水线故障，`<engine> <n> --sub-issue pipeline <file>` 然后停。第 3 步 `<engine> <n> --decisions <file>` 留一条 `DECISIONS`，排在 verifier 之前、只贴一次。四个子命令（`--decisions`、`--touched`、`--draft`、`--closeout`）各自的行为与 exit code 不在这里，写在 `verify-ticket` 技能的 `references/closeout.md`；`implement` 只留次序与每一步为什么在那个位置。续跑表之前另有一句前置：先跑 `--preflight` 重新认领，因为 `advance` 会把 claim 收走而第 8 步拒绝不属于自己的票。第 2、4 两步指进 `dispatch` 技能 reviewer 行与 verifier 行的写法不依赖任何节名，路径由读者从那份技能自己的 `SKILL.md` 解析。第 2 步原有的半句「stderr 会点名兜底」随两道守卫一起退场：reviewer 停了没留评论就是 `wait` 退 1，不补任何替代出路。第 8 步 closeout 不 archive 任何 agent：**landing 是另一个动作，由 main agent 跑**（单票 `land <n>`，成批 `advance`），它连 workspace 带里面的 agent 一起收。三个 `ABANDON` kind：`failed` 与 `stuck` 都不看轮次、都把票交回；`decision` 开 sub-issue 不挡 `ALL MET`。理由：关票是一道门不是一个动作；idle sessions 不花钱，所以没有关 pane 那一步；pull request 整步退场，见下方 `No pull request, and no push`。`Branch: … Commit: … PR: …` 三个值写一行、没有 pull request 时把理由接在 `PR: none` 后面。上游改收尾 → 收上游措辞，但下列必须保留：八步顺序（**verifier 在 reviewer 之后**）、verifier 只跑一轮、四个子命令、`start <n> reviewer` 与 `start <n> verifier` 不带开关、`create_agent` 之后结束回合等叫醒、第 4 步的 `spawn_subagent` 禁令、`--sub-issue pipeline` 然后停、closeout 不 archive 而由 `land` / `advance` 收、没有关 pane 那一步、`failed` 与 `stuck` 都不看轮次、`--closeout`、`No pull request, and no push`、第 2 步内部 in-ticket round 在前（按文末那一节取舍）。frontmatter 的 `description` 补了「什么时候用我」并去掉引号（值里没有冒号加空格，去了仍然合法） |
+| 「Once done」之后的 closing steps | 我们改的：八步，顺序是 `self-run` → reviewer → DECISIONS → verifier → Audit → `--touched` → `--draft` → `--closeout`。**verifier 排在 reviewer 之后**，因为 closeout 要求 `VERDICT` 指向将被合并的那个 commit，而 reviewer 的票内 finding 一修就会产生新 commit；上游的顺序（verifier 在前）下这个条件永远不成立。verifier 只跑一轮：判定失败就直接写 `ABANDON: AC<n> failed` 并以 `HANDOFF REQUIRED` 收尾，不再起第二个 verifier——重起的重验是这一步唯一可能永不结束的地方，而这样也没有一张票会烧掉两个 verifier 会话。第 1 步 `self-run`（`<engine> <n>`，写完码那一条 run；一条 acceptance criterion 试几轮由 worker 自己判断，closeout 不数轮次，`ABANDON: AC<n> failed` 那一行写清每轮试了什么）。第 2、4 步都是 `<dispatch> start <n> <kind>` 之后反复跑 `<dispatch> wait <n> <kind>` 直到它回答，再回票上读结果首行（`REVIEW ` / `VERDICT`）；reviewer 与 verifier 各只起一次，都不复跑。`start` 是唯一起法，host 的 `spawn_subagent` / `Agent` 不能替代（换不了 provider，票上也不会有它的 `verifier.started` 事件）；start 退出 2 是流水线故障，`<engine> <n> --sub-issue pipeline <file>` 然后停。第 3 步 `<engine> <n> --decisions <file>` 留一条 `DECISIONS`，排在 verifier 之前、只贴一次。四个子命令（`--decisions`、`--touched`、`--draft`、`--closeout`）各自的行为与 exit code 不在这里，写在 `verify-ticket` 技能的 `references/closeout.md`；`implement` 只留次序与每一步为什么在那个位置。续跑表之前另有一句前置：先跑 `--preflight` 重新认领，因为 `advance` 会把 claim 收走而第 8 步拒绝不属于自己的票。第 2、4 两步指进 `dispatch` 技能 reviewer 行与 verifier 行的写法不依赖任何节名，路径由读者从那份技能自己的 `SKILL.md` 解析。第 2 步原有的半句「stderr 会点名兜底」随两道守卫一起退场：reviewer 停了没留评论就是 `wait` 退 1，不补任何替代出路。第 8 步 closeout 不 archive 任何 agent：**landing 是另一个动作，由 main agent 跑**（单票 `land <n>`，成批 `advance`），它连 workspace 带里面的 agent 一起收。三个 `ABANDON` kind：`failed` 与 `stuck` 都不看轮次、都把票交回；`decision` 开 sub-issue 不挡 `ALL MET`。理由：关票是一道门不是一个动作；idle sessions 不花钱，所以没有关 pane 那一步；pull request 整步退场，见下方 `No pull request, and no push`。`Branch: … Commit: … PR: …` 三个值写一行、没有 pull request 时把理由接在 `PR: none` 后面。上游改收尾 → 收上游措辞，但下列必须保留：八步顺序（**verifier 在 reviewer 之后**）、verifier 只跑一轮、四个子命令、`start <n> reviewer` 与 `start <n> verifier` 不带开关、`start` 之后跑 `wait` 直到它回答、第 4 步的 `spawn_subagent` 禁令、`--sub-issue pipeline` 然后停、closeout 不 archive 而由 `land` / `advance` 收、没有关 pane 那一步、`failed` 与 `stuck` 都不看轮次、`--closeout`、`No pull request, and no push`、第 2 步内部 in-ticket round 在前（按文末那一节取舍）。frontmatter 的 `description` 补了「什么时候用我」并去掉引号（值里没有冒号加空格，去了仍然合法） |
 | frontmatter 的 `disable-model-invocation` 与 `agents/openai.yaml` 的 `policy.allow_implicit_invocation` | 我们删的：上游两处都设了只许人触发，我们要模型自己就能调用 implement，所以两处一起删。上游若再带回来 → 仍然删 |
 
 ## Reaching the two scripts
@@ -97,33 +97,11 @@ output it saw, then stop). All five are parented to this ticket.
 Upstream rewrites the writing rules → keep the bullet and these five kinds, parented
 to the ticket.
 
-## What wakes the worker between the closing steps
+## How the worker learns its reviewer and verifier are done
 
-A paragraph sits between closing steps 2 and 4 naming the two shapes. One is a message whose first line is `#<n> REVIEW`: the review report landing on the ticket, sent by the same call that posts it. The other is a finish notification — a `<paseo-system>` block whose first sentence is `Agent <id> (<title>) finished|errored|was closed|needs permission.`, carrying an `<agent-response>`, arriving in the current turn when busy or as a new turn when idle — which is what the verifier wakes the worker with, and what a reviewer that stopped without writing anything wakes it with. A last sentence says ending a turn to wait for either costs nothing, because what tells the main agent the ticket is done is `verify-ticket.py` at the closeout. Upstream has no such paragraph. Spec #118 §5 / ticket #129 What to build item 3. Keep it on the next pull.
+Steps 2 and 4 are `<dispatch> start <n> <kind>` and then `<dispatch> wait <n> <kind>` run until it answers; the paragraph after step 2 says `wait` reads the ticket, so the result comment is the answer. Upstream has no such wording. Keep it on the next pull.
 
-Step 2 names the message rather than the notification because a reviewer's one notification is not reliably the report: it is spent the first time that session ends a turn, and whether a dispatcher ends one after handing its three axes to subagents is the model's own choice. See the `code-review` merge-note, 「报告和报信是同一次调用」.
-
-## End the turn on the verifier and the reviewer
-
-Steps 2 and 4 both end with `create_agent` and then the worker ending its turn. The
-worker is woken — by the reviewer's message, by the verifier's finish notification —
-and reads the ticket for the result comment. `<dispatch> wait` is the fallback for one
-case only: woken, and the comment is not on the ticket yet.
-
-This replaces a loop the worker used to sit in, running `wait` every ninety seconds
-until it exited 0. Two facts, both measured 2026-09-06, retired it. Paseo delivers a
-child's finish notification to the session that started it and wakes that session with
-its context intact, so the loop bought nothing. And no host kills a shell command that
-outlasts its own bound: Cursor backgrounds it at 30 seconds, Grok Build and Claude Code
-at 120, all of them handing back no exit code at all, so a bound written for one host
-silently broke the loop on another.
-
-What the loop was protecting against was a real cost, and it moved rather than
-vanished: a worker that ends a turn spends the one terminal notification Paseo gives
-per created agent, so the main agent hears a middle state instead of the ticket
-landing. That is why the worker is now started with `notifyOnFinish: false` and why
-`verify-ticket.py` sends the main agent a message when the ticket comes to rest.
-Upstream brings a wait loop back → put the end-of-turn wording back on steps 2 and 4.
+Until spec #316 (wake-ups sent from the board through the runner's send verb) lands, nothing else tells a worker on Orca or Herdr that its reviewer or verifier finished: `start` no longer prints a `create_agent` object (spec #314 §3.0), so Paseo's finish notification is not wired for it, and `verify-ticket.py` sends its `#<n> REVIEW` message only through Paseo. When #316 lands, steps 2 and 4 go back to ending the turn and waiting to be woken. Upstream brings its own wait loop back → keep ours, which reads the ticket rather than a session.
 
 ## This ticket's sub-issues
 
