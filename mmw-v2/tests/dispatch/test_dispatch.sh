@@ -9,13 +9,15 @@
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh instancegate|countfail|stopproduct|suspend|suspendbusy|status
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh runnerstart|runnersend|runnerliveness
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh runnerparity|herdrworkingsend|herdrliveness
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh orcasend|orcaclosed
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh all
 #
-# A fake `paseo`, a fake `herdr` and a fake `gh` sit in front of the real ones on
-# PATH and write every call they receive to a log, one call per line, fields joined
-# by ` :: `. What the script does to Paseo, to Herdr and to the tracker is therefore
-# checkable without a daemon, a network, or a ticket. The last line of a passing run
-# is the scenario's EXPECT string; everything before it says what was checked.
+# A fake `paseo`, a fake `herdr`, a fake `orca` and a fake `gh` sit in front of the
+# real ones on PATH and write every call they receive to a log, one call per line,
+# fields joined by ` :: `. What the script does to Paseo, to Herdr, to Orca and to
+# the tracker is therefore checkable without a daemon, a network, or a ticket. The
+# last line of a passing run is the scenario's EXPECT string; everything before it
+# says what was checked.
 
 set -uo pipefail
 unset PASEO_AGENT_ID
@@ -391,6 +393,161 @@ print("{}", file=sys.stderr)
 sys.exit(2)
 FAKE
 
+cat > "$TMP/bin/orca" <<'FAKE'
+#!/usr/bin/env python3
+import json, os, sys
+from pathlib import Path
+
+log = os.environ["MMW_TEST_LOG"]
+with open(log, "a", encoding="utf-8") as fh:
+    fh.write("orca" + "".join(" :: " + a for a in sys.argv[1:]) + "\n")
+
+args = sys.argv[1:]
+state = Path(os.environ["MMW_FAKE_ORCA_STATE"])
+state.mkdir(parents=True, exist_ok=True)
+scenario = os.environ.get("MMW_FAKE_ORCA_SCENARIO", "")
+send_mode = os.environ.get("MMW_FAKE_ORCA_SEND", "") or scenario
+
+
+def load_terminals():
+    path = state / "terminals.json"
+    if not path.is_file():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    return data if isinstance(data, list) else []
+
+
+def save_terminals(rows):
+    (state / "terminals.json").write_text(json.dumps(rows), encoding="utf-8")
+
+
+def opt(flag):
+    if flag in args:
+        i = args.index(flag)
+        if i + 1 < len(args):
+            return args[i + 1]
+    return ""
+
+
+if args[:2] == ["worktree", "ps"] or args[:2] == ["worktree", "rm"] \
+        or args[:2] == ["worktree", "create"]:
+    print(json.dumps({"ok": True, "result": {}}))
+    sys.exit(0)
+
+if args[:2] == ["terminal", "create"]:
+    if scenario == "start-fail":
+        print(json.dumps({"ok": False, "error": {"code": "create_failed"}}),
+              file=sys.stderr)
+        sys.exit(1)
+    handle = "term_%s" % (len(load_terminals()) + 1)
+    rows = load_terminals()
+    rows.append({
+        "handle": handle,
+        "connected": True,
+        "writable": True,
+        "worktree": opt("--worktree"),
+        "title": opt("--title"),
+    })
+    save_terminals(rows)
+    print(json.dumps({
+        "ok": True,
+        "result": {"handle": handle, "connected": True, "writable": True},
+    }))
+    sys.exit(0)
+
+if args[:2] == ["terminal", "list"]:
+    if scenario == "list-fail":
+        sys.exit(1)
+    if scenario == "list-garbage":
+        print("not-json")
+        sys.exit(0)
+    print(json.dumps({
+        "ok": True,
+        "result": {"terminals": load_terminals()},
+    }))
+    sys.exit(0)
+
+if args[:2] == ["terminal", "send"]:
+    if send_mode in ("accepted-only", "send-accepted"):
+        print(json.dumps({
+            "ok": True,
+            "result": {
+                "stages": ["input_accepted"],
+                "warning": "input was accepted but no turn start was observed",
+                "retryRequestId": "retry_1",
+            },
+        }))
+        sys.exit(0)
+    if send_mode in ("not-writable", "send-closed", "terminal_not_writable"):
+        print(json.dumps({
+            "ok": False,
+            "code": "terminal_not_writable",
+            "error": {"code": "terminal_not_writable",
+                      "message": "terminal_not_writable"},
+        }))
+        sys.exit(1)
+    target = opt("--terminal")
+    row = next((t for t in load_terminals() if t.get("handle") == target), None)
+    if row is None:
+        print(json.dumps({
+            "ok": False,
+            "error": {"code": "terminal_handle_stale",
+                      "message": "terminal_handle_stale"},
+        }))
+        sys.exit(1)
+    print(json.dumps({
+        "ok": True,
+        "result": {"stages": ["input_accepted", "turn_started"]},
+    }))
+    sys.exit(0)
+
+if args[:2] == ["terminal", "wait"]:
+    if scenario == "wait-fail":
+        sys.exit(1)
+    if scenario == "wait-garbage":
+        print("not-json")
+        sys.exit(0)
+    target = opt("--terminal")
+    want = opt("--for")
+    row = next((t for t in load_terminals() if t.get("handle") == target), None)
+    if row is None:
+        print(json.dumps({
+            "ok": False,
+            "error": {"code": "terminal_handle_stale",
+                      "message": "terminal_handle_stale"},
+        }))
+        sys.exit(1)
+    if want == "exit":
+        if scenario == "exited":
+            print(json.dumps({
+                "ok": True,
+                "result": {"satisfied": True, "status": "exited"},
+            }))
+            sys.exit(0)
+        print(json.dumps({
+            "ok": False,
+            "error": {"code": "timeout", "message": "timeout"},
+        }))
+        sys.exit(1)
+    if scenario == "wait-busy":
+        print(json.dumps({
+            "ok": True,
+            "result": {"satisfied": False, "status": "running"},
+        }))
+        sys.exit(0)
+    print(json.dumps({
+        "ok": True,
+        "result": {"satisfied": True, "status": "running"},
+    }))
+    sys.exit(0)
+
+print("{}", file=sys.stderr)
+sys.exit(2)
+FAKE
+
 cat > "$TMP/bin/gh" <<'FAKE'
 #!/usr/bin/env bash
 line=gh
@@ -548,11 +705,12 @@ for a in "\$@"; do
 done
 exec "$REAL_PYTHON" "\$@"
 WRAPPER
-chmod +x "$TMP/bin/python3" "$TMP/bin/paseo" "$TMP/bin/herdr" "$TMP/bin/gh"
+chmod +x "$TMP/bin/python3" "$TMP/bin/paseo" "$TMP/bin/herdr" "$TMP/bin/orca" "$TMP/bin/gh"
 export PATH="$TMP/bin:$PATH"
 export MMW_TEST_LOG="$TMP/calls.log"
 export MMW_FAKE_PASEO_STATE="$TMP/paseo-state"
 export MMW_FAKE_HERDR_STATE="$TMP/herdr-state"
+export MMW_FAKE_ORCA_STATE="$TMP/orca-state"
 export MMW_GH_LAST_BODY="$TMP/gh-last-body"
 export MMW_HOME="$TMP/mmw-home"
 export MMW_LIVE_MODELS="$TMP/live-models.md"
@@ -601,11 +759,13 @@ git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m f
 reset_log() {
   : > "$MMW_TEST_LOG"
   : > "$MMW_GH_LAST_BODY"
-  mkdir -p "$MMW_FAKE_PASEO_STATE" "$MMW_FAKE_HERDR_STATE"
+  mkdir -p "$MMW_FAKE_PASEO_STATE" "$MMW_FAKE_HERDR_STATE" "$MMW_FAKE_ORCA_STATE"
   echo '[]' > "$MMW_FAKE_PASEO_STATE/workspaces.json"
   echo '[]' > "$MMW_FAKE_PASEO_STATE/agents.json"
   echo '[]' > "$MMW_FAKE_HERDR_STATE/agents.json"
+  echo '[]' > "$MMW_FAKE_ORCA_STATE/terminals.json"
   unset MMW_FAKE_HERDR_SCENARIO MMW_FAKE_HERDR_PROMPT MMW_FAKE_SEND_FAILS
+  unset MMW_FAKE_ORCA_SCENARIO MMW_FAKE_ORCA_SEND
   rm -rf "$MMW_HOME/leases"
 }
 has() { grep -qF -- "$1" "$MMW_TEST_LOG" || fail "no call matching: $1"; }
@@ -742,6 +902,23 @@ rows.append({
     "name": os.environ["MMW_NAME"],
     "agent_status": os.environ["MMW_STATUS"],
     "pane_id": "pane_1",
+})
+path.write_text(json.dumps(rows))
+'
+}
+
+seed_orca_terminal() {
+  local handle="$1" connected="${2:-true}" writable="${3:-true}"
+  MMW_HANDLE="$handle" MMW_CONNECTED="$connected" MMW_WRITABLE="$writable" python3 -c '
+import json, os
+from pathlib import Path
+state = Path(os.environ["MMW_FAKE_ORCA_STATE"])
+path = state / "terminals.json"
+rows = json.loads(path.read_text()) if path.is_file() else []
+rows.append({
+    "handle": os.environ["MMW_HANDLE"],
+    "connected": os.environ["MMW_CONNECTED"] == "true",
+    "writable": os.environ["MMW_WRITABLE"] == "true",
 })
 path.write_text(json.dumps(rows))
 '
@@ -2491,6 +2668,7 @@ path.write_text(json.dumps([{
 
 PASEO_RUNNER="$SKILL/scripts/runners/paseo.sh"
 HERDR_RUNNER="$SKILL/scripts/runners/herdr.sh"
+ORCA_RUNNER="$SKILL/scripts/runners/orca.sh"
 
 scenario_runnerparity() {
   local code
@@ -2600,6 +2778,79 @@ path.write_text(json.dumps([{
   [ "$(cat "$TMP/out")" = unknown ] || fail "herdr cannot-ask should be unknown, got: $(cat "$TMP/out")"
   [ "$(cat "$TMP/out")" != alive ] || fail "herdr cannot-ask must not be alive"
 
+  echo "=== orca adapter"
+  RUNNER="$ORCA_RUNNER"
+
+  echo "--- start succeeds, one create, path: selector, no worktree enumeration"
+  reset_log
+  code="$(run_runner start --host grok --model grok-4.6 --effort high \
+          --cwd . --prompt hi --skip-approval)"
+  [ "$code" = 0 ] || fail "orca start expected 0, got $code: $(cat "$TMP/err")"
+  [ -n "$(cat "$TMP/out")" ] || fail "orca start should print a session id"
+  has "orca :: terminal :: create"
+  [ "$(count_of 'orca :: terminal :: create')" = 1 ] \
+    || fail "start must be one terminal create, got $(count_of 'orca :: terminal :: create')"
+  has "--command"
+  has "--title"
+  has "--json"
+  worktree="$(arg_after --worktree)"
+  case "$worktree" in
+    path:/*) ;;
+    *) fail "start must address by path:<absolute>, got: $worktree" ;;
+  esac
+  hasnt "orca :: worktree :: ps"
+  hasnt "orca :: worktree :: rm"
+  hasnt "orca :: worktree :: create"
+  hasnt "orca :: orchestration"
+
+  echo "--- send three states"
+  reset_log
+  seed_orca_terminal term_w61
+  code="$(run_runner send term_w61 continue)"
+  [ "$code" = 0 ] || fail "orca delivered expected 0, got $code: $(cat "$TMP/err")"
+  has "orca :: terminal :: send"
+  has "--enter"
+  reset_log
+  seed_orca_terminal term_w61
+  code="$(MMW_FAKE_ORCA_SEND=accepted-only run_runner send term_w61 continue)"
+  [ "$code" = 3 ] || fail "orca busy expected 3, got $code: $(cat "$TMP/err")"
+  [ "$code" != 0 ] || fail "orca busy must not read as delivered"
+  [ "$code" != 2 ] || fail "orca busy must not read as missing"
+  reset_log
+  code="$(run_runner send term_missing continue)"
+  [ "$code" = 2 ] || fail "orca missing expected 2, got $code: $(cat "$TMP/err")"
+  hasnt "orca :: terminal :: send"
+
+  echo "--- liveness three states"
+  reset_log
+  seed_orca_terminal term_w61
+  code="$(run_runner liveness term_w61)"
+  [ "$code" = 0 ] || fail "orca liveness expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/out")" = alive ] || fail "orca listed should be alive, got: $(cat "$TMP/out")"
+  has "orca :: terminal :: list"
+  has "orca :: terminal :: wait"
+  grep -q -- '--for :: tui-idle' "$MMW_TEST_LOG" \
+    || fail "liveness must ask tui-idle: $(cat "$MMW_TEST_LOG")"
+  grep -q -- '--for :: exit' "$MMW_TEST_LOG" \
+    || fail "liveness must ask exit: $(cat "$MMW_TEST_LOG")"
+  hasnt "orca :: worktree :: ps"
+  reset_log
+  code="$(run_runner liveness term_missing)"
+  [ "$(cat "$TMP/out")" = stopped ] || fail "orca missing should be stopped, got: $(cat "$TMP/out")"
+  reset_log
+  seed_orca_terminal term_w61
+  code="$(MMW_FAKE_ORCA_SCENARIO=list-fail run_runner liveness term_w61)"
+  [ "$(cat "$TMP/out")" = unknown ] || fail "orca cannot-ask should be unknown, got: $(cat "$TMP/out")"
+  [ "$(cat "$TMP/out")" != alive ] || fail "orca cannot-ask must not be alive"
+
+  echo "--- a running process whose UI is not idle is still alive"
+  reset_log
+  seed_orca_terminal term_w61
+  code="$(MMW_FAKE_ORCA_SCENARIO=wait-busy run_runner liveness term_w61)"
+  [ "$(cat "$TMP/out")" = alive ] \
+    || fail "running-not-idle should be alive, got: $(cat "$TMP/out")"
+  [ "$(cat "$TMP/out")" != stopped ] || fail "UI-not-idle must not read as stopped"
+
   RUNNER="$PASEO_RUNNER"
 }
 
@@ -2666,12 +2917,51 @@ scenario_herdrliveness() {
   RUNNER="$PASEO_RUNNER"
 }
 
+scenario_orcasend() {
+  local code
+  RUNNER="$ORCA_RUNNER"
+
+  echo "--- both stages: delivered, exit 0"
+  reset_log
+  seed_orca_terminal term_w61
+  code="$(run_runner send term_w61 continue)"
+  [ "$code" = 0 ] || fail "both stages should deliver, got $code: $(cat "$TMP/err")"
+  has "orca :: terminal :: send"
+  has "--enter"
+
+  echo "--- input_accepted without turn_started: busy, exit 3, not delivered"
+  reset_log
+  seed_orca_terminal term_w61
+  code="$(MMW_FAKE_ORCA_SEND=accepted-only run_runner send term_w61 continue)"
+  [ "$code" = 3 ] || fail "accepted-only must be busy exit 3, got $code: $(cat "$TMP/err")"
+  [ "$code" != 0 ] || fail "accepted-only must not read as delivered"
+  has "orca :: terminal :: send"
+
+  RUNNER="$PASEO_RUNNER"
+}
+
+scenario_orcaclosed() {
+  local code
+  RUNNER="$ORCA_RUNNER"
+
+  echo "--- terminal_not_writable maps to no such session, exit 2"
+  reset_log
+  seed_orca_terminal term_w61
+  code="$(MMW_FAKE_ORCA_SEND=not-writable run_runner send term_w61 continue)"
+  [ "$code" = 2 ] || fail "closed session must be exit 2, got $code: $(cat "$TMP/err")"
+  [ "$code" != 0 ] || fail "closed session must not read as delivered"
+  [ "$code" != 3 ] || fail "closed session must not read as busy"
+  has "orca :: terminal :: send"
+
+  RUNNER="$PASEO_RUNNER"
+}
+
 # ------------------------------------------------------------------ entry
 
-ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness"
+ALL="check advance advanceconflict advancedirty land start-worker start-reviewer start-verifier retract resume wait reverify summary release releaseother releaselive releasestanding frontierwhy instancegate countfail stopproduct suspend suspendbusy status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed"
 
 case "${1:-}" in
-  check|advance|advanceconflict|advancedirty|land|start-worker|start-reviewer|start-verifier|retract|resume|wait|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|stopproduct|suspend|suspendbusy|status|runnerstart|runnersend|runnerliveness|runnerparity|herdrworkingsend|herdrliveness)
+  check|advance|advanceconflict|advancedirty|land|start-worker|start-reviewer|start-verifier|retract|resume|wait|reverify|summary|release|releaseother|releaselive|releasestanding|frontierwhy|instancegate|countfail|stopproduct|suspend|suspendbusy|status|runnerstart|runnersend|runnerliveness|runnerparity|herdrworkingsend|herdrliveness|orcasend|orcaclosed)
     wanted="$1" ;;
   all)
     wanted="$ALL" ;;
@@ -2712,6 +3002,8 @@ banner_for() {
     runnerparity) echo RUNNER-PARITY-OK ;;
     herdrworkingsend) echo HERDR-WORKING-SEND-OK ;;
     herdrliveness) echo HERDR-LIVENESS-OK ;;
+    orcasend) echo ORCA-SEND-OK ;;
+    orcaclosed) echo ORCA-CLOSED-OK ;;
   esac
 }
 
