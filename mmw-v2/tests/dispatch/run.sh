@@ -17,6 +17,15 @@ HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 
 unset MMW_CATALOG_MODE
 
+# The suite runs its own fixtures, so the session's own identity has to be off the
+# environment first. `dispatch.sh` reads `MMW_SPEC`, `MMW_TICKET` and `MMW_KIND` to know
+# which ticket the session it is running in belongs to; a worker session sets all three,
+# and under one of those the fixtures get labelled with that session's spec instead of
+# the fake parent the scenarios assert on, so `start-worker` fails on `spec label` while
+# the same suite is green from a plain shell. A test that passes or fails by who ran it
+# is not a test. Measured 2026-09-10 on #320.
+unset MMW_SPEC MMW_TICKET MMW_KIND
+
 rc=0
 
 echo "### unittest"
