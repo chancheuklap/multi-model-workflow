@@ -13,8 +13,8 @@ amends: []
 
 ## Consequences
 
-- `dispatch.sh` 的动词是 `check`、`advance`、`start`、`wait`、`resume`、`status`、`reverify`、`summary`、`suspend`。没有 `run`。`wait` 只读一个自己起的 agent 的结果首行，不写票、不设超时评论。夜的顺序在 `mmw-v2/skills/dispatch/references/night.md`。（谁被谁叫醒，改由 ADR 0010 说。）
+- `dispatch.sh` 的动词是 `check`、`advance`、`start`、`wait`、`resume`、`status`、`reverify`、`summary`、`suspend`。没有 `run`。`wait` 只读一个自己起的 agent 的结果首行，不写票、不设超时评论。夜的顺序在 `mmw-v2/skills/dispatch/references/night.md`。（谁被谁叫醒，改由 ADR 0010 说；`wait` 读的是结果事件而不是首行，改由 ADR 0019 说。）
 - `install.sh` 装什么，就负责把它上一代装过、这一代不再装的东西摘掉——技能软链、hook 登记、Agent profile 三类都一样；`--check` 把它们报为残留。一个 host 配置里指着已删脚本的登记，会在每次事件上让 host 调用失败。
-- `status.py` 只读：tracker 与 `paseo ls` / `paseo inspect`。`phase` 从票的评论推出。
+- `status.py` 只读：tracker 与 `paseo ls` / `paseo inspect`。`phase` 从票的评论推出。（改由 ADR 0019 说：`status.py` 只读 tracker，票的状态是它的事件折叠出来的，见 spec #315。）
 - 归档只有一处：`advance` 合并该票分支后归档其 workspace，连带其中的 agent。`--closeout` 不归档。
 - reviewer 与 verifier 是 worker 起的 Paseo subagent，结果写回票。

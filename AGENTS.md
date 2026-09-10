@@ -14,7 +14,7 @@ MMW 是用户跨 host、跨 repository、跨电脑共用的工作流 toolbox：�
 | `bash mmw-v2/install.sh --check` | 只查不写：齐了回 0，缺东西或有 stale link 回 1。从别的 checkout 跑时按 `~/.mmw/installed-root` 记下的那个 checkout 核对，只核对不接管 |
 | `python3 mmw-v2/prompt/render.py --adopt` | 每台机器首次装提示词时跑一次：目标位置原有的 AGENTS.md 不是生成物，`render.py` 默认拒绝覆盖 |
 | `bash mmw-v2/prompt/tests/run.sh` | `render.py` 的测试 |
-| `bash mmw-v2/tests/<名>/run.sh` | 单个技能的测试（`verify-ticket`、`drive-target`、`align-screens`、`dispatch`、`exe-release`、`manage-agents-md` 各有一份） |
+| `bash mmw-v2/tests/<名>/run.sh` | 单个技能的测试（`verify-ticket`、`drive-target`、`align-screens`、`dispatch`、`exe-release`、`manage-agents-md` 各有一份；dispatch 技能的 `relay.py` 另有一份 `relay`） |
 | `bash mmw-v2/tests/claude-design-blocks/run.sh` | 交接包每个场景的数据导出（`export_scene_data.py`）、`mk.py` 生成页的语法、`selector_check.py` 的判据、`deadsweep.py` 的清扫范围：迷你夹具，Node 跑页自己的 logic class，无浏览器 |
 | `bash mmw-v2/hooks/tests/run.sh` | `rule-at-moment.py` 的测试 |
 
