@@ -111,9 +111,12 @@ for (const key of SCENES) {
             else if (!nt.closeout || nt.closeout.from !== n) flag(key, n, 'child', `#${e.payload.became} is not marked as opened in #${n}'s closing pass`);
           }
         }
-        // A fault stops the agent where it is (#315 §3, implement: "then stop").
+        // A fault stops the agent where it is (#315 §3, implement: "then stop") until the main
+        // agent fixes the cause and resumes it (dispatch's references/night.md, `worker.resumed`).
         const fault = t.events.find(e => e.event === 'child.opened' && e.payload.kind === 'fault');
-        if (fault) for (const e of t.events) if (e.actor !== 'main' && min(e.at) > min(fault.at)) flag(key, n, 'fault', `${e.event} after the fault stopped the worker`);
+        const resumed = fault && t.events.find(e => e.event === 'worker.resumed' && min(e.at) >= min(fault.at));
+        if (fault) for (const e of t.events) if (e.actor !== 'main' && min(e.at) > min(fault.at) && !(resumed && min(e.at) >= min(resumed.at)))
+          flag(key, n, 'fault', `${e.event} after the fault stopped the worker`);
         // #315 §9: a run waits for a slot before it runs; the fold's `waiting` is that wait.
         if (f.waiting && !f.sessions.some(s => s.live)) flag(key, n, 'slot', 'waits for a slot with no live worker');
         if (g.cyclic.has(n) && key !== 'bad-data') flag(key, n, 'bad-data', 'a blocking cycle outside the bad-data scene');

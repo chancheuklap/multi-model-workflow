@@ -51,6 +51,7 @@
 .hs.missing { border-style: dashed; color: var(--faint); --hs-name: var(--soft); }
 .hs.silent { border-style: dashed; color: var(--faint); --hs-name: var(--soft); }
 .hs.down { border-style: dashed; color: var(--faint); --hs-name: var(--soft); }
+.hs.unlaunchable { border-style: dashed; color: var(--faint); --hs-name: var(--soft); }
 
 /* one grid template for the header and every row, so the columns line up down the table */
 .roles { --cols: 150px 100px minmax(0, 1fr) 104px; display: flex; flex-direction: column; }

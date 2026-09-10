@@ -20,7 +20,8 @@ The settings page's data (#318 §12–17: which host, model and effort each agen
 runner, chosen on this machine) goes between the `SETTINGS:BEGIN` and `SETTINGS:END`
 markers of both files, and the mockup's settings logic between its `SETTINGS-LOGIC`
 markers is copied into `../work/data/fixtures.js` the way the board logic is. It is built with the dispatch skill's own `models.py`: the
-hosts, their CLI binaries and the default rows are `hosts.json` read by `load_hosts`, the
+hosts, their CLI binaries, which runners can start each of them (a `cli` block for orca and
+herdr, a `paseo` block for Paseo) and the default rows are `hosts.json` read by `load_hosts`, the
 runners are the adapters under `scripts/runners/`, and each host's `model` and `effort`
 options are `fillable_rows` of an example catalog in the shape `scan_cli_catalogs` returns
 when it asks the hosts' CLIs — the everyday names `start` resolves. Each scene also carries
@@ -231,7 +232,10 @@ class Ticket:
             fold[key] = strip(fold[key])
         fold["results"] = {k: strip(v) for k, v in fold["results"].items()}
         fold["checks"] = {k: strip(v) for k, v in fold["checks"].items()}
-        return {"n": self.n, "title": self.title, "blocked": self.blocked, "closeout": self.closeout,
+        # The tracker's own state, which the tree read carries: the closeout closes a ticket
+        # when it passes (verify-ticket.py `close_ticket`), and a hand-back leaves it open.
+        return {"n": self.n, "title": self.title, "state": "closed" if state["passed"] else "open",
+                "blocked": self.blocked, "closeout": self.closeout,
                 "fold": fold, "events": [strip(r) for r in records]}
 
 
@@ -284,7 +288,7 @@ def morning():
     t138.returned("07:26", "AC3")
 
     t141 = Ticket(141, "中继日志轮转", 131, [132], closeout={"from": 132, "child": 147})
-    t141.start("06:38", "pi", "kimi k2.6", "—", runner="orca")
+    t141.start("06:38", "cursor", "composer 2.5", "—", runner="orca")
     t141.checked("07:02", slot=1)
     t141.review("07:04", "07:24")
     t141.decided("07:28")
@@ -322,7 +326,7 @@ def morning():
 def twenty_tickets():
     S = 211
     t = lambda n, title, b=(), **kw: Ticket(n, title, S, b, **kw)  # noqa: E731
-    t218 = t(218, "Orca tui-idle 等待", [212]); t218.start("02:56", "pi", "kimi k2.6", "—", runner="orca")
+    t218 = t(218, "Orca tui-idle 等待", [212]); t218.start("02:56", "cursor", "composer 2.5", "—", runner="orca")
     t218.checked("06:36", slot=1); t218.review("06:40", "07:05"); t218.decided("07:10"); t218.verify("07:28")
     t219 = t(219, "tmux pane 探活", [212]); t219.start("02:56", "grok", "grok 4.6", "high")
     t229 = t(229, "远程 --on 探活", [212]).handing_back("stuck", "远程机器上 orca 不回 hostScope，判不了")
@@ -497,6 +501,9 @@ def settings() -> dict:
         "agents": list(models.ALLOWED_AGENTS),
         "hosts": list(hosts["hosts"]),
         "binaries": {h: models.HOST_BINARIES.get(h) for h in hosts["hosts"]},
+        # Which runners can start each host at all: one that runs the host's CLI in a terminal
+        # (orca, herdr) starts it from its `cli` block, Paseo from its `paseo` block.
+        "launch": {h: {"cli": "cli" in spec, "paseo": "paseo" in spec} for h, spec in hosts["hosts"].items()},
         "runners": sorted(p.stem for p in (DISPATCH_SCRIPTS / "runners").glob("*.sh")),
         "scenes": scenes,
     }
