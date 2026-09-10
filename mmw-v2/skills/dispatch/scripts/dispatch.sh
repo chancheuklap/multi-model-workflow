@@ -49,6 +49,7 @@ else
 fi
 export MMW_CATALOG_MODE="${MMW_CATALOG_MODE:-paseo}"
 STATUS="$SKILL_ROOT/scripts/status.py"
+RUNNER="$SKILL_ROOT/scripts/runners/paseo.sh"
 # The skill lives under mmw-v2/skills/<name> of the toolbox checkout, so `install.sh`
 # is two directories up, and `verify-ticket.py` and `lease.py` are in the `scripts/` of
 # their own skills one directory over. A `--tools` directory given on the command line
@@ -79,6 +80,11 @@ gh_() {
 refuse() {
   echo "dispatch: $1" >&2
   exit 2
+}
+
+runner() {
+  [ -f "$RUNNER" ] || refuse "no runner adapter at $RUNNER"
+  bash "$RUNNER" "$@"
 }
 
 usage() {
@@ -422,17 +428,6 @@ live_instances() {
   python3 "$LEASE" count "$1"
 }
 
-# Whether an agent listing's status means it is still on the hook. `idle` is the
-# subtle one: a reviewer that started its three axis subagents and ended its turn
-# sits there for the whole of that work, so only an agent that is gone — `closed`,
-# `error`, or not listed at all — has nobody left to do the job.
-agent_is_live() {
-  case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
-    running | initializing | idle) return 0 ;;
-  esac
-  return 1
-}
-
 # Give a ticket's claim back, when this pipeline's own account holds it. Returns 0
 # given back, 1 nothing to give back (no login, or someone else holds it), 2 the
 # write failed. A ticket a person took for themselves is left exactly as it is.
@@ -654,6 +649,7 @@ print(json.dumps(primary, ensure_ascii=False))
 
 start_one() {
   local number="$1" kind="$2"
+  [ -f "$RUNNER" ] || refuse "no runner adapter at $RUNNER"
   case "$kind" in
     worker|reviewer|verifier) ;;
     *) refuse "the second argument is worker, reviewer or verifier, got $kind" ;;
@@ -737,6 +733,14 @@ start_one() {
   local agent_title="#$number $kind" rows
   rows="$row"
   [ -z "$fb_row" ] || rows="$row"$'\n'"$fb_row"
+  if ! runner start --host "$host" --model "$model" --effort "$effort" \
+       --cwd "$cwd" --prompt "$prompt" --skip-approval; then
+    if [ "$created" = 1 ] && [ -n "$workspace" ]; then
+      paseo workspace archive "$workspace" >/dev/null \
+        || echo "dispatch: could not archive the workspace for #$number" >&2
+    fi
+    refuse "could not start a session for #$number"
+  fi
   MMW_WORKSPACE="$workspace" MMW_TITLE="$agent_title" \
     MMW_ROWS="$rows" \
     MMW_TICKET="$number" MMW_KIND="$kind" MMW_SPEC="$spec" \
@@ -762,8 +766,12 @@ retract_one() {
   local live ident
   live="$(agents_by_label --label "mmw.ticket=$number" | head -n 1)"
   ident="$(printf '%s\n' "$live" | cut -f2)"
-  if agent_is_live "$(printf '%s\n' "$live" | cut -f3)"; then
-    refuse "#$number still has a live agent $ident; retract is for a start whose create_agent never ran"
+  if [ -n "$ident" ]; then
+    case "$(runner liveness "$ident")" in
+      alive|unknown)
+        refuse "#$number still has a live agent $ident; retract is for a start whose create_agent never ran"
+        ;;
+    esac
   fi
 
   local cwd archived=0 slot=0 claim=0 rc
@@ -810,9 +818,11 @@ resume_one() {
   [ -n "$text" ] || refuse "resume needs the text to send"
   ident="$(agents_by_label --label "mmw.ticket=$number" --label mmw.kind=worker | head -n 1 | cut -f2)"
   [ -n "$ident" ] || refuse "no worker agent labelled mmw.ticket=$number"
-  if out="$(paseo send --no-wait "$ident" "$text" 2>&1)"; then
-    return 0
-  fi
+  out="$(runner send "$ident" "$text" 2>&1)"
+  case "$?" in
+    0) return 0 ;;
+    2) refuse "no worker agent labelled mmw.ticket=$number" ;;
+  esac
   echo "dispatch: the worker $ident on #$number did not take the message" >&2
   [ -n "$out" ] && printf '  %s\n' "$out" >&2
   echo "dispatch: it is most likely in a turn — wait, then run resume again. If it keeps refusing, ask \`get_agent_status\` for this agent: an \`activeTurn\` of null with the send still failing is a stuck session, and the only way out is to replace it" >&2
@@ -896,7 +906,7 @@ wait_one() {
     *) refuse "the second argument is worker, reviewer or verifier, got $kind" ;;
   esac
 
-  local head ident status
+  local head ident
   head="$(result_first_line "$number" "$kind")"
   if [ -n "$head" ]; then
     printf '%s\n' "$head"
@@ -927,13 +937,17 @@ wait_one() {
   # as "stopped" sends the caller to a fallback while a healthy agent is mid-job; on
   # 2026-09-06 that closed #162 on a thinner review than the one that arrived 50 seconds
   # later, and did the same to #159. Only an agent that is gone — `closed`, `error`, or
-  # no longer listed — has nobody left to do the job.
-  status="$(agents_by_label --label "mmw.ticket=$number" --label "mmw.kind=$kind" | head -n 1 | cut -f3 | tr '[:upper:]' '[:lower:]')"
-  if agent_is_live "$status"; then
-    echo "still working: run wait again" >&2
-    exit 3
-  fi
-  wait_no_result "$number" "$kind" "$ident"
+  # no longer listed — has nobody left to do the job. `unknown` is not alive; wait
+  # retries rather than taking the fallback, which is the same class of mistake.
+  case "$(runner liveness "$ident")" in
+    stopped)
+      wait_no_result "$number" "$kind" "$ident"
+      ;;
+    *)
+      echo "still working: run wait again" >&2
+      exit 3
+      ;;
+  esac
 }
 
 # ------------------------------------------------------------------ check
