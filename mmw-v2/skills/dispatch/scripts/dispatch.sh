@@ -36,8 +36,6 @@
 
 set -uo pipefail
 
-LABEL_TITLE_CHARS=20         # how much of the ticket title fits on a workspace title
-
 SELF="$(realpath "${BASH_SOURCE[0]}")"
 SKILL_ROOT="$(dirname "$(dirname "$SELF")")"
 if [ -n "${MMW_LIVE_MODELS:-}" ]; then
@@ -102,17 +100,6 @@ usage: dispatch.sh check <spec>
        dispatch.sh suspend <spec>
 USAGE
   exit 2
-}
-
-# ------------------------------------------------------------------ small helpers
-
-# Truncates stdin to a number of characters, not bytes: ticket titles are not ASCII.
-head_chars() {
-  MMW_HEAD_CHARS="$1" python3 -c '
-import os, sys
-
-print(sys.stdin.read().rstrip("\n")[:int(os.environ["MMW_HEAD_CHARS"])])
-'
 }
 
 # ------------------------------------------------------------------ live table
@@ -218,118 +205,26 @@ record_base_if_missing() {
   fi
 }
 
-# ------------------------------------------------------------------ Paseo
+# ------------------------------------------------------------------ worktrees
+#
+# The protocol cuts and removes the worktree with git. The runner only receives
+# the absolute directory. The location is always `<repo>/.worktrees/issue-<n>`:
+# no runner name in the path, and the slug stays `issue-<n>` so hook.py's
+# TICKET_DIR still governs the session.
 
-# The Paseo project this checkout belongs to, registering it when it is not registered
-# yet. `paseo project create` answers with the existing project for a path it already
-# knows, so asking which project a checkout is and asking for one to be made are the
-# same call. Prints nothing when the daemon could not be asked.
-ensure_project_id() {
-  paseo project create "$1" --json 2>/dev/null | python3 -c '
-import json, sys
-
-try:
-    row = json.load(sys.stdin)
-except Exception:
-    sys.exit(0)
-if isinstance(row, dict) and row.get("projectId"):
-    print(row["projectId"])
-'
-}
-
-# This checkout's workspaces as a JSON list. One read of the workspace list.
-workspace_rows() {
+worktrees_root() {
   local root
   root="$(git rev-parse --show-toplevel 2>/dev/null)" || true
-  { paseo workspace ls --json 2>/dev/null || true; } | \
-  MMW_ROOT="$root" python3 -c '
-import json, os, subprocess, sys
-
-own = set()
-git_root = os.path.realpath(os.environ.get("MMW_ROOT") or "")
-if git_root:
-    try:
-        for prow in json.loads(subprocess.check_output(
-                ["paseo", "project", "ls", "--json"], text=True)):
-            if isinstance(prow, dict) and os.path.realpath(prow.get("path") or "") == git_root:
-                own.update(x for x in (prow.get("projectId"), prow.get("name")) if x)
-    except Exception:
-        pass
-try:
-    rows = json.load(sys.stdin)
-except Exception:
-    print("[]")
-    sys.exit(0)
-if not isinstance(rows, list):
-    print("[]")
-    sys.exit(0)
-out = []
-for row in rows:
-    if not isinstance(row, dict):
-        continue
-    theirs = row.get("project") or ""
-    if own and theirs and theirs not in own:
-        continue
-    out.append(row)
-print(json.dumps(out))
-' 2>/dev/null
-}
-
-# workspaceId<TAB>cwd for issue-<n>, one read of the list.
-workspace_row_for() {
-  workspace_rows | MMW_SLUG="issue-$1" python3 -c '
-import json, os, sys
-from pathlib import Path
-
-want = os.environ["MMW_SLUG"]
-try:
-    rows = json.load(sys.stdin)
-except Exception:
-    sys.exit(0)
-if not isinstance(rows, list):
-    sys.exit(0)
-for row in rows:
-    if not isinstance(row, dict):
-        continue
-    if Path(row.get("cwd") or "").name != want:
-        continue
-    print((row.get("workspaceId") or "") + "\t" + (row.get("cwd") or ""))
-    break
-'
-}
-
-workspace_id_for() {
-  workspace_row_for "$1" | cut -f1
+  [ -n "$root" ] || return 0
+  printf '%s/.worktrees\n' "$root"
 }
 
 workspace_cwd_for() {
-  workspace_row_for "$1" | cut -f2
-}
-
-# Parent of this checkout's issue-* workspaces. lease.py count compares resolved
-# paths, and those worktrees are not inside the git repo.
-worktrees_root() {
-  workspace_rows | python3 -c '
-import json, sys
-from pathlib import Path
-
-try:
-    rows = json.load(sys.stdin)
-except Exception:
-    sys.exit(0)
-if not isinstance(rows, list):
-    sys.exit(0)
-for row in rows:
-    if not isinstance(row, dict):
-        continue
-    cwd = Path(row.get("cwd") or "")
-    if not cwd.name.startswith("issue-"):
-        continue
-    parent = str(cwd.parent.resolve()) if cwd.name else ""
-    if parent:
-        print(parent)
-        break
-'
+  local root dest
+  root="$(worktrees_root)"
+  [ -n "$root" ] || return 0
+  dest="$root/issue-$1"
+  [ -d "$dest" ] && printf '%s\n' "$dest"
 }
 
 # ticket<TAB>id<TAB>status for every live agent matching the `--label` filters.
@@ -519,64 +414,52 @@ release_lease() {
   return 1
 }
 
-# Prints workspaceId<TAB>cwd so start_one can claim a lease without a second list read.
+# Prints workspaceId<TAB>cwd<TAB>created. workspaceId is the absolute worktree
+# path: the protocol no longer opens a runner workspace, and create_agent still
+# needs a non-empty id in the printed object.
 ensure_workspace() {
-  local number="$1" root="$2" title="$3" row existing project base json ident cwd
-  row="$(workspace_row_for "$number")"
-  existing="$(printf '%s\n' "$row" | cut -f1)"
-  if [ -n "$existing" ]; then
+  local number="$1" root="$2" dest
+  dest="$root/.worktrees/issue-$number"
+  if [ -d "$dest" ]; then
     if git -C "$root" rev-parse --verify --quiet "refs/heads/issue-$number" >/dev/null; then
       record_base_if_missing "$number" "$root"
     fi
-    printf '%s\t0\n' "$row"
+    printf '%s\t%s\t0\n' "$dest" "$dest"
     return 0
   fi
-  project="$(ensure_project_id "$root")"
-  [ -n "$project" ] \
-    || { echo "dispatch: could not register a Paseo project for $root; ask the daemon what is wrong with \`paseo daemon status\`" >&2; return 1; }
-
-  local ws_title
-  ws_title="$(printf '#%s %s' "$number" "$(printf '%s' "$title" | head_chars "$LABEL_TITLE_CHARS")")"
-
-  local -a extra
+  mkdir -p "$root/.worktrees"
   if git -C "$root" rev-parse --verify --quiet "refs/heads/issue-$number" >/dev/null; then
-    extra=(--mode checkout-branch --branch "issue-$number")
+    git -C "$root" worktree add --quiet "$dest" "issue-$number" \
+      || { echo "dispatch: could not create a worktree for issue-$number" >&2; return 1; }
   else
+    local base
     base="$(git -C "$root" rev-parse --abbrev-ref HEAD)"
     [ -n "$base" ] && [ "$base" != HEAD ] \
-      || { echo "dispatch: not on a named branch, so --base would be rejected" >&2; return 1; }
-    extra=(--mode branch-off --new-branch "issue-$number" --base "$base")
+      || { echo "dispatch: not on a named branch, so a new issue-$number cannot be cut" >&2; return 1; }
+    git -C "$root" worktree add --quiet -b "issue-$number" "$dest" \
+      || { echo "dispatch: could not create a worktree for issue-$number" >&2; return 1; }
   fi
-
-  json="$(paseo workspace create --isolation worktree --path "$root" --project "$project" \
-            --worktree-slug "issue-$number" --title "$ws_title" --json "${extra[@]}")" \
-    || { echo "dispatch: could not create a workspace for issue-$number" >&2; return 1; }
-  ident="$(printf '%s' "$json" | python3 -c '
-import json, sys
-try:
-    row = json.load(sys.stdin)
-except Exception:
-    sys.exit(0)
-print((row.get("workspaceId") or "") + "\t" + (row.get("cwd") or ""))
-')"
-  cwd="$(printf '%s\n' "$ident" | cut -f2)"
-  ident="$(printf '%s\n' "$ident" | cut -f1)"
-  [ -n "$ident" ] || { echo "dispatch: workspace create printed no workspaceId" >&2; return 1; }
-
-  if git -C "$root" rev-parse --verify --quiet "refs/heads/issue-$number" >/dev/null; then
-    record_base_if_missing "$number" "$root"
-  fi
-  printf '%s\t%s\t1\n' "$ident" "$cwd"
+  record_base_if_missing "$number" "$root"
+  printf '%s\t%s\t1\n' "$dest" "$dest"
 }
 
-# Archiving deletes the worktree, and the worktree is where the product's stop command
-# lives — so a workspace whose slot did not come back is kept, not archived. Keeping it
-# is recoverable (stop the product there and run this again); archiving it is not.
+remove_worktree() {
+  local root="$1" dest="$2"
+  [ -n "$dest" ] || return 0
+  git -C "$root" worktree remove --force "$dest" >/dev/null 2>&1 && return 0
+  [ -d "$dest" ] || return 0
+  echo "dispatch: could not remove the worktree at $dest" >&2
+  return 1
+}
+
+# Removing the worktree is where the product's stop command lives — so a worktree
+# whose slot did not come back is kept, not removed. Keeping it is recoverable
+# (stop the product there and run this again); deleting it is not.
 archive_workspace() {
-  local number="$1" ident cwd row rc
-  row="$(workspace_row_for "$number")"
-  cwd="$(printf '%s\n' "$row" | cut -f2)"
-  ident="$(printf '%s\n' "$row" | cut -f1)"
+  local number="$1" cwd rc root
+  root="$(git rev-parse --show-toplevel 2>/dev/null)" || true
+  cwd="$(workspace_cwd_for "$number")"
+  [ -n "$cwd" ] || cwd="$(lease_worktree_for "$number")"
   if [ -n "$cwd" ] && [ -f "$LEASE" ]; then
     give_slot_back "$cwd"
     rc=$?
@@ -585,9 +468,9 @@ archive_workspace() {
       return 1
     fi
   fi
-  [ -n "$ident" ] || return 0
-  paseo workspace archive "$ident" >/dev/null \
-    || echo "dispatch: could not archive the workspace for #$number" >&2
+  [ -n "$cwd" ] || return 0
+  [ -n "$root" ] || root="$(dirname "$(dirname "$cwd")")"
+  remove_worktree "$root" "$cwd"
 }
 
 # ------------------------------------------------------------------ dispatch payload
@@ -709,8 +592,8 @@ start_one() {
   esac
 
   local workspace cwd created ws_row
-  ws_row="$(ensure_workspace "$number" "$root" "$title")" \
-    || refuse "could not open a workspace for issue-$number"
+  ws_row="$(ensure_workspace "$number" "$root")" \
+    || refuse "could not open a worktree for issue-$number"
   workspace="$(printf '%s\n' "$ws_row" | cut -f1)"
   cwd="$(printf '%s\n' "$ws_row" | cut -f2)"
   created="$(printf '%s\n' "$ws_row" | cut -f3)"
@@ -722,9 +605,9 @@ start_one() {
       || refuse "could not read the workspace cwd for issue-$number, so no lease can be claimed"
     local claim_err
     if ! claim_err="$(python3 "$LEASE" claim "$cwd" 2>&1 >/dev/null)"; then
-      if [ "$created" = 1 ] && [ -n "$workspace" ]; then
-        paseo workspace archive "$workspace" >/dev/null \
-          || echo "dispatch: could not archive the workspace for #$number" >&2
+      if [ "$created" = 1 ] && [ -n "$cwd" ]; then
+        remove_worktree "$root" "$cwd" \
+          || echo "dispatch: could not remove the worktree for #$number" >&2
       fi
       refuse "issue-$number: $claim_err"
     fi
@@ -735,9 +618,9 @@ start_one() {
   [ -z "$fb_row" ] || rows="$row"$'\n'"$fb_row"
   if ! runner start --host "$host" --model "$model" --effort "$effort" \
        --cwd "$cwd" --prompt "$prompt" --skip-approval; then
-    if [ "$created" = 1 ] && [ -n "$workspace" ]; then
-      paseo workspace archive "$workspace" >/dev/null \
-        || echo "dispatch: could not archive the workspace for #$number" >&2
+    if [ "$created" = 1 ] && [ -n "$cwd" ]; then
+      remove_worktree "$root" "$cwd" \
+        || echo "dispatch: could not remove the worktree for #$number" >&2
     fi
     refuse "could not start a session for #$number"
   fi
@@ -784,7 +667,7 @@ retract_one() {
       slot=1
     fi
   fi
-  if [ -n "$(workspace_id_for "$number")" ]; then
+  if [ -n "$cwd" ] && [ -d "$cwd" ]; then
     archive_workspace "$number" && archived=1
   fi
 
