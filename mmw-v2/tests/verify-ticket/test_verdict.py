@@ -1,7 +1,7 @@
 """`--verdict`: the verifier's one line becomes `verifier.passed` or `verifier.failed`.
 
 Which of the two it is, and the commit it covers, are read by the script — off HEAD and
-off the verifier's own newest `reverify` run — never typed by the verifier.
+off the newest reverify `ticket.checked` event — never typed by the verifier.
 """
 
 import io
@@ -9,22 +9,23 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from unittest import mock
 
-from _load import load
+from _load import checked, load
 
 vt = load()
 
 HEAD = "9b1d40c7feedface0011223344556677889900aa"
 
-REVERIFY_MET = "\n".join([
-    "reverify", "ALL MET (1 met)", "",
-    "- [x] AC1: the importer writes six rows",
-    "  EVIDENCE: exit=0; EXPECT=matched", "", "Outside Owns: None"])
-REVERIFY_UNMET = "\n".join([
-    "reverify", "UNMET: 1 (met: 1)", "",
-    "- [x] AC1: the importer writes six rows",
-    "  EVIDENCE: exit=0; EXPECT=matched",
-    "- [ ] AC2: the expiry page says the link is stale",
-    "  EVIDENCE: exit=1", "", "Outside Owns: None"])
+MET_AC1 = ["- [x] AC1: the importer writes six rows",
+           "  EVIDENCE: exit=0; EXPECT=matched"]
+UNMET_AC2 = ["- [ ] AC2: the expiry page says the link is stale",
+             "  EVIDENCE: exit=1"]
+
+REVERIFY_MET = checked("reverify", MET_AC1, "ALL MET (1 met)", commit=HEAD)
+REVERIFY_UNMET = checked("reverify", MET_AC1 + UNMET_AC2, "UNMET: 1 (met: 1)", commit=HEAD)
+SELF_RUN_MET = checked("self", MET_AC1, "ALL MET (1 met)", commit=HEAD)
+# The old reverify comment, typed by hand: first line `reverify`, no event.
+TYPED_REVERIFY = "\n".join(["reverify", "ALL MET (1 met)", "", *MET_AC1, "",
+                            "Outside Owns: None"])
 
 
 def verdict(line, comments, model="sonnet-5", head=HEAD):
@@ -67,6 +68,19 @@ class TestTheRunDecides(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertEqual(event_of(posted[0][1])["event"], "verifier.failed")
 
+    def test_the_newest_reverify_is_the_one_read(self):
+        code, err, posted = verdict("commands only; all passed",
+                                    [REVERIFY_UNMET, REVERIFY_MET])
+        self.assertEqual(code, 0, err)
+        self.assertEqual(event_of(posted[0][1])["event"], "verifier.passed")
+
+    def test_a_handoff_reverify_is_a_failure(self):
+        handoff = checked("reverify", MET_AC1 + UNMET_AC2,
+                          "HANDOFF REQUIRED: 1 abandoned (met: 1)", commit=HEAD)
+        code, err, posted = verdict("commands only", [handoff])
+        self.assertEqual(code, 0, err)
+        self.assertEqual(event_of(posted[0][1])["event"], "verifier.failed")
+
     def test_could_not_start_is_a_failure_whose_criteria_never_ran(self):
         code, err, posted = verdict("could not start: chromium is missing", [REVERIFY_MET])
         self.assertEqual(code, 0, err)
@@ -76,10 +90,27 @@ class TestTheRunDecides(unittest.TestCase):
 
 
 class TestRefusals(unittest.TestCase):
-    def test_no_reverify_run_is_refused_and_nothing_is_posted(self):
-        code, err, posted = verdict("commands only; all passed", ["self-run\nALL MET (1 met)"])
+    def test_a_reverify_of_an_older_commit_is_no_run_of_head(self):
+        """The newest reverify passed on an older commit; HEAD moved on since. A verdict
+        on HEAD would report a run nobody made."""
+        older = checked("reverify", MET_AC1, "ALL MET (1 met)", commit="1" * 40)
+        code, err, posted = verdict("all passed", [older])
         self.assertEqual(code, 2)
-        self.assertIn("no `reverify` comment", err)
+        self.assertEqual(posted, [])
+        self.assertIn("Run --reverify first, on this commit", err)
+
+    def test_no_reverify_run_is_refused_and_nothing_is_posted(self):
+        code, err, posted = verdict("commands only; all passed", [SELF_RUN_MET])
+        self.assertEqual(code, 2)
+        self.assertIn("carries no reverify `ticket.checked` event", err)
+        self.assertEqual(posted, [])
+
+    def test_a_typed_reverify_comment_is_not_a_run(self):
+        """A comment whose first line is `reverify` and that carries no event is prose:
+        there is still no run for the verdict to report."""
+        code, err, posted = verdict("commands only; all passed", [TYPED_REVERIFY])
+        self.assertEqual(code, 2)
+        self.assertIn("carries no reverify `ticket.checked` event", err)
         self.assertEqual(posted, [])
 
     def test_no_model_is_refused(self):

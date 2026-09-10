@@ -3,14 +3,15 @@
 
 The ticket is the only state. Every run reads the `## Acceptance criteria` and
 `## Owns` sections fresh from the issue, writes them to a ledger, hands
-that ledger to unlazy's `gate-check`, and posts the updated ledger back as one
-comment. Nothing is cached and no file is left behind.
+that ledger to unlazy's `gate-check`, and posts the result back as one
+`ticket.checked` event. Nothing is cached and no file is left behind.
 """
 
 from __future__ import annotations
 
 import argparse
 import fnmatch
+import hashlib
 import importlib.util
 import json
 import os
@@ -20,28 +21,49 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from collections import defaultdict, deque
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 
 
-def _load_events():
-    """`events.py` beside this file: the event vocabulary and the fold."""
-    spec = importlib.util.spec_from_file_location("mmw_events", HERE / "events.py")
+def _load(name: str, filename: str):
+    """A module beside this file."""
+    spec = importlib.util.spec_from_file_location(name, HERE / filename)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-events = _load_events()
+# `events.py`: the event vocabulary and the fold. `tree.py`: the tree of issues under a
+# spec, read with one query.
+events = _load("mmw_events", "events.py")
+tree = _load("mmw_tree", "tree.py")
 GATE_CHECK = HERE / "gate-check" / "gate-check.mjs"
 GATE_LINT = HERE / "gate-check" / "gate-lint.mjs"
 LEDGER_NAME = "AC.md"
+# The summary line gate-check prints on its own stdout.
 SUMMARY_RE = re.compile(r"^(ALL MET|UNMET:|HANDOFF REQUIRED:)")
 GATE_LINE_RE = re.compile(r"^- \[( |x|X)\] ([A-Za-z0-9][A-Za-z0-9._-]*):")
 SUB_ISSUE_KINDS = events.CHILD_KINDS
 FILL = "<fill>"
+# The layer label every issue this pipeline opens carries beside its queue label: which
+# layer of the tree it is, so a reader of the board never counts nesting to find out.
+CLASS_LABELS = {
+    "mmw:map": ("5319e7", "MMW layer: the map one discussion opened"),
+    "mmw:spec": ("1d76db", "MMW layer: a spec, the container of one batch of tickets"),
+    "mmw:ticket": ("0e8a16", "MMW layer: a ticket, one unit of work"),
+    "mmw:child": ("c5def5", "MMW layer: a child issue a ticket opened"),
+}
+# The scripts of the drive-target skill that run a command `.mmw/target.json` declares,
+# under this worktree's lease. A criterion naming one needs the product, and so a slot.
+PRODUCT_JUDGES = ("story-parity.py", "journey.py", "screen_driver.py", "lease.py")
+# How long one run waits for a product slot before it hands back exit 3, and how often it
+# asks again in between. The bound stays under the time a host lets a command run before
+# it moves it to the background; a run given back 3 is run again, and the wait goes on.
+SLOT_WAIT_S = int(os.environ.get("MMW_SLOT_WAIT_S", "90"))
+SLOT_BEAT_S = int(os.environ.get("MMW_SLOT_BEAT_S", "10"))
 
 # A criterion is abandoned for one of three reasons. `failed` ran and did not pass;
 # `stuck` never ran or cannot be done; the two are told apart for whoever reads the
@@ -113,22 +135,28 @@ def post_comment(number: int, body: str) -> None:
         os.unlink(path)
 
 
-def post_prose(number: int, text: str) -> None:
-    """Post a comment that is not an event: a run's ledger, `CHECKS FAILED`, `TOUCHED BY`.
-
-    What it quotes — a command's output, a file path — may hold an `<!-- mmw` opener, and
-    that would read on the ticket as an event nobody wrote. `events.neutralise` makes any
-    such opener visible text.
-    """
-    post_comment(number, events.neutralise(text))
-
-
 def post_event(number: int, event: str, line: str, text: str = "",
                spec: int | None = None, **fields) -> str:
-    """Post one event on ticket `number`: `line` for a person, the block for the fold."""
+    """Post one event on ticket `number`: `line` for a person, the block for the fold.
+
+    `spec` is the spec the ticket sits under; left out, it is looked up with
+    `ticket_spec`, so no event goes out without one the tracker could have given.
+    """
+    if spec is None:
+        spec = ticket_spec(number)
     body = events.build(event, ticket=number, spec=spec, line=line, text=text, **fields)
     post_comment(number, body)
     return body
+
+
+def ticket_spec(number: int) -> int | None:
+    """The spec an event about ticket `number` names: `spec_of`, or None when the tracker
+    could not say. An event is written either way — the spec field is a reader's
+    convenience, and an unwritten event is the loss that matters. Patched out in tests."""
+    try:
+        return spec_of(number)
+    except (ParentUnreadable, subprocess.CalledProcessError, OSError):
+        return None
 
 
 def spec_field(ticket: dict) -> int | None:
@@ -273,22 +301,27 @@ class SubIssuesUnreadable(RuntimeError):
     """
 
 
-def fetch_sub_issues(number: int) -> list[int]:
-    """The tickets GitHub records as children of any issue, in its own order, every
-    page of them (GitHub pages the list at 30, and an issue past its thirtieth child
-    would otherwise lose its newest children to every batch check). Called with a
-    spec, that is the batch; called with a ticket, that is what the ticket opened.
-    Raises `SubIssuesUnreadable` when the tracker could not be asked. Patched out in
-    tests."""
-    out = subprocess.run(
-        ["gh", "api", "--paginate",
-         f"repos/{{owner}}/{{repo}}/issues/{number}/sub_issues?per_page=100",
-         "-q", ".[] | .number"],
-        capture_output=True, text=True, env=GH_ENV,
-    )
-    if out.returncode != 0:
-        raise SubIssuesUnreadable(gh_detail(out))
-    return [int(line) for line in out.stdout.split() if line.strip()]
+def _gh(args: list[str]) -> tuple[int, str, str]:
+    out = subprocess.run(["gh", *args], capture_output=True, text=True, env=GH_ENV)
+    return out.returncode, out.stdout, out.stderr
+
+
+def fetch_tree(number: int, root: str = "spec") -> dict:
+    """The tree of issues under `number`, an issue of layer `root`, in one query
+    (`tree.py`). Raises `SubIssuesUnreadable` when the tracker could not answer for the
+    whole of it. Patched out in tests."""
+    try:
+        return tree.read(number, root, gh=_gh)
+    except tree.TreeUnreadable as exc:
+        raise SubIssuesUnreadable(str(exc)) from None
+
+
+def fetch_sub_issues(number: int, root: str = "spec") -> list[int]:
+    """The issues GitHub records as children of `number`, in its own order. Called with
+    a spec, that is the batch; called with a ticket (`root="ticket"`), that is what the
+    ticket opened. Raises `SubIssuesUnreadable` when the tracker could not be asked, or
+    answered with fewer children than it counts. Patched out in tests."""
+    return [child["number"] for child in tree.children(fetch_tree(number, root))]
 
 
 class ParentUnreadable(RuntimeError):
@@ -422,20 +455,27 @@ def repo_root() -> Path:
     return Path(top) if top else Path.cwd()
 
 
-def outside_owns_line(number: int, globs: list[str], root: Path) -> str:
-    """The comment's `Outside Owns:` line.
+def outside_owns_fields(number: int, globs: list[str], root: Path) -> dict:
+    """What the worker's own run records about files outside `## Owns`: `outside_owns`,
+    the list, or `outside_owns_unchecked`, the branch it could not be asked on.
 
-    The question it answers — did this ticket write outside what it owns — is asked of
-    this ticket's own commits, so it can only be answered on this ticket's own branch.
-    A re-run on the branch the tickets were merged into is walking every ticket's
-    commits, which answers nothing and runs past the 65536 characters a comment holds.
+    The question — did this ticket write outside what it owns — is asked of this ticket's
+    own commits, so it can only be answered on this ticket's own branch. A re-run on the
+    branch the tickets were merged into is walking every ticket's commits, which answers
+    nothing and runs past the 65536 characters a comment holds.
     """
     branch = current_branch(root)
     if branch != f"issue-{number}":
-        return (f"Outside Owns: not checked on {branch or '(detached)'}, which carries "
-                f"more than this ticket")
-    outside = outside_owns(globs, root)
-    return "Outside Owns: " + (", ".join(outside) if outside else "None")
+        return {"outside_owns_unchecked": branch or "(detached)"}
+    return {"outside_owns": outside_owns(globs, root)}
+
+
+def outside_owns_text(payload: dict) -> str:
+    """The `Outside Owns:` line a person reads, from a run's fields."""
+    if "outside_owns" in payload:
+        return "Outside Owns: " + (", ".join(payload["outside_owns"]) or "None")
+    return (f"Outside Owns: not checked on {payload.get('outside_owns_unchecked')}, which "
+            f"carries more than this ticket")
 
 
 def current_branch(root: Path | None = None) -> str:
@@ -492,20 +532,6 @@ def outside_owns(globs: list[str], root: Path) -> list[str]:
 
 # ------------------------------------------------------------------- ledger
 
-def ledger_from_comment(comment: str) -> list[str]:
-    """The ledger a previous run posted: from its first gate line to `Outside Owns:`."""
-    lines = comment.splitlines()
-    start = next((i for i, line in enumerate(lines) if GATE_LINE_RE.match(line)), None)
-    if start is None:
-        return []
-    end = next((i for i, line in enumerate(lines[start:], start)
-                if line.startswith("Outside Owns:")), len(lines))
-    out = lines[start:end]
-    while out and not out[-1].strip():
-        out.pop()
-    return out
-
-
 EVIDENCE_LINE_RE = re.compile(r"^\s+EVIDENCE:")
 
 
@@ -521,35 +547,90 @@ def criteria_shape(lines: list[str]) -> list[str]:
     return out
 
 
-def carried_ledger(number: int, body: str) -> list[str]:
-    """The previous run's ledger, when it still describes the body's criteria.
+def shape_digest(lines: list[str]) -> str:
+    """One fingerprint of a ledger's criteria as identity alone (`criteria_shape`): the
+    same criteria, whatever any run ticked, give the same digest."""
+    return hashlib.sha256("\n".join(criteria_shape(lines)).encode("utf-8")).hexdigest()
 
-    A criterion the ticket has since rewritten — a decision changed what this ticket
-    must do, and the ticket says so — lives on the body and not in that comment, so a
-    ledger that no longer matches is dropped and the criteria are read fresh. What is
-    lost with it is the evidence of a run of the criteria as they used to be.
+
+def newest_run(comments: list, *runs: str) -> dict | None:
+    """The newest `ticket.checked` among `runs`, as its event record, or None."""
+    state = events.fold(comments)
+    found = [state["checks"][run] for run in runs if state["checks"].get(run)]
+    return max(found, key=lambda r: r["comment"]) if found else None
+
+
+def ledger_with_results(lines: list[str], results: list[dict]) -> list[str]:
+    """The ledger `lines` with each criterion ticked and its `EVIDENCE:` written the way
+    one run left it: `results` is that run's `criteria`, `{id, met, evidence}` each.
+
+    A fenced `CHECK:` is skipped over whole, so a `- [ ]` line inside a heredoc is never
+    mistaken for a criterion, the same reading `parse_criteria` gives it.
     """
-    carried = previous_ledger(number)
-    if not carried:
-        return []
-    if criteria_shape(carried) != criteria_shape(section(body, "Acceptance criteria")):
-        return []
-    return carried
+    by_id = {r.get("id"): r for r in results if isinstance(r, dict)}
+    out: list[str] = []
+    current = None
+    fence = None
+
+    def close_item():
+        if current is not None and not current["evidence_seen"] and current["result"]:
+            out.insert(current["insert_at"], "  EVIDENCE: " + current["result"]["evidence"])
+
+    for line in lines:
+        if fence is not None:
+            out.append(line)
+            close = FENCE_CLOSE_RE.match(line)
+            if close and close.group(1)[0] == fence[0] and len(close.group(1)) >= fence[1]:
+                fence = None
+                if current is not None:
+                    current["insert_at"] = len(out)
+            continue
+        opened = FENCE_OPEN_RE.match(line)
+        if opened and not (opened.group(2)[0] == "`" and "`" in opened.group(3)):
+            fence = (opened.group(2)[0], len(opened.group(2)))
+            out.append(line)
+            continue
+        gate = GATE_LINE_RE.match(line)
+        if gate:
+            close_item()
+            result = by_id.get(gate.group(2))
+            if result:
+                line = ("- [x]" if result.get("met") else "- [ ]") + line[5:]
+                result = {"evidence": str(result.get("evidence") or "pending")}
+            out.append(line)
+            current = {"result": result, "evidence_seen": False, "insert_at": len(out)}
+            continue
+        if current is not None and EVIDENCE_LINE_RE.match(line):
+            current["evidence_seen"] = True
+            if current["result"]:
+                indent = line[:len(line) - len(line.lstrip())]
+                line = f"{indent}EVIDENCE: {current['result']['evidence']}"
+        out.append(line)
+        if current is not None and ATTR_LINE_RE.match(line):
+            current["insert_at"] = len(out)
+    close_item()
+    return out
 
 
-def previous_ledger(number: int) -> list[str]:
-    """The ledger from the newest `self-run` / `reverify` comment, if there is one.
+def carried_ledger(body: str, comments: list) -> list[str]:
+    """The criteria as the newest run left them, when it ran the criteria the body
+    states now; empty otherwise.
 
-    A re-verification re-runs what the last run ticked, so the previous run's comment is
-    where that state lives.
+    A re-verification re-runs what the last run ticked, so the newest `ticket.checked`
+    of the worker's run or of a reverify is where that state lives. A criterion the
+    ticket has since rewritten — a decision changed what this ticket must do, and the
+    ticket says so — has a different fingerprint, so that run is dropped and the
+    criteria are read fresh. What is lost with it is the evidence of a run of the
+    criteria as they used to be.
     """
-    for comment in reversed(fetch_comments(number)):
-        first = comment.strip().splitlines()[0].strip() if comment.strip() else ""
-        if first in ("self-run", "reverify"):
-            ledger = ledger_from_comment(comment)
-            if ledger:
-                return ledger
-    return []
+    record = newest_run(comments, "self", "reverify")
+    if record is None:
+        return []
+    criteria = section(body, "Acceptance criteria")
+    payload = record["payload"]
+    if payload.get("shape") != shape_digest(criteria):
+        return []
+    return ledger_with_results(criteria, payload.get("criteria") or [])
 
 
 def write_ledger(body: str, directory: Path, lines: list[str] | None = None) -> Path:
@@ -700,63 +781,15 @@ def last_verdict(comments: list) -> str | None:
     return commit if isinstance(commit, str) and commit else None
 
 
-def newest_with_first_line(comments: list[str], *prefixes: str) -> str | None:
-    """The newest comment whose first line is one of `prefixes`, `None` when none.
+def last_reverify(comments: list) -> dict | None:
+    """The payload of the newest reverify `ticket.checked` on the ticket, None when none.
 
-    A first line matches a prefix when it equals it or starts with that prefix
-    plus a space.
-    """
-    for comment in reversed(comments):
-        first = comment.strip().splitlines()[0].strip() if comment.strip() else ""
-        if any(first == prefix or first.startswith(prefix + " ") for prefix in prefixes):
-            return comment
-    return None
-
-
-def last_run(comments: list[str]) -> str | None:
-    """The newest `self-run` or `reverify` comment on the ticket, `None` when none."""
-    return newest_with_first_line(comments, "self-run", "reverify")
-
-
-def last_reverify(comments: list[str]) -> str | None:
-    """The newest `reverify` comment on the ticket, `None` when none.
-
-    A `self-run` is the worker's own measurement of its own work; a `reverify` is the
+    The worker's own run is its measurement of its own work; a reverify is the
     verifier's, of the same criteria on the same commit. The closing gate reads only
     this one, because the other is written by the party being judged.
     """
-    return newest_with_first_line(comments, "reverify")
-
-
-def run_summary(run: str | None) -> str | None:
-    """The gate-check summary line of one run comment, `None` when it has none.
-
-    A run comment opens with its own name and carries gate-check's summary on the line
-    under it, so that line is what the run reports about the criteria.
-    """
-    if run is None:
-        return None
-    lines = run.strip().splitlines()
-    summary = lines[1].strip() if len(lines) > 1 else ""
-    return summary if SUMMARY_RE.match(summary) else None
-
-
-def run_unmet(run: str | None) -> list[str]:
-    """The criteria one run's ledger left unmet, by id."""
-    if run is None:
-        return []
-    return [c["id"] for c in parse_criteria(run)
-            if not (c["ticked"] and c["evidence"] and c["evidence"] != "pending")]
-
-
-def last_run_summary(comments: list[str]) -> str | None:
-    """The summary line of the newest `self-run` or `reverify` comment on the ticket."""
-    return run_summary(last_run(comments))
-
-
-def last_run_unmet(comments: list[str]) -> list[str]:
-    """The criteria the newest run's ledger left unmet, by id."""
-    return run_unmet(last_run(comments))
+    record = newest_run(comments, "reverify")
+    return record["payload"] if record else None
 
 
 def draft_problems(draft: str, comments: list[str]) -> list[str]:
@@ -847,33 +880,32 @@ def verified_problems(draft: str, body: str, comments: list[str]) -> list[str]:
 
     reverify = last_reverify(comments)
     if reverify is None:
-        problems.append("the ticket carries no `reverify` comment, so nothing but this "
-                        "ticket's own author has run its criteria. Dispatch the verifier; "
-                        "if it cannot run, close out as `HANDOFF REQUIRED` instead and say so")
+        problems.append("the ticket carries no reverify `ticket.checked` event, so nothing "
+                        "but this ticket's own author has run its criteria. Dispatch the "
+                        "verifier; if it cannot run, close out as `HANDOFF REQUIRED` instead "
+                        "and say so")
     else:
         # A run is generated from the ticket body, which carries no `ABANDON:` line, so a
         # criterion the draft abandons as `decision` still runs and still reports unmet.
         # That unmet is the one this draft is allowed to carry: the sub-issue is open and
         # the ticket closes on it. Any other unmet is a claim the draft cannot make.
         decided = {a["ac"] for a in parse_abandons(draft) if a["kind"] == "decision"}
-        summary = run_summary(reverify)
-        unmet = run_unmet(reverify)
-        covered = (summary is not None and summary.startswith("UNMET:")
-                   and unmet and set(unmet) <= decided)
-        if summary and summary.startswith(("UNMET:", "HANDOFF REQUIRED:")) and not covered:
-            problems.append("the verifier's newest `reverify` still reports unmet or "
-                            "abandoned criteria — a `self-run` of your own does not settle "
-                            "it. Dispatch the verifier again, or close out as "
+        result = reverify.get("result")
+        unmet = list(reverify.get("failed") or [])
+        covered = result == "unmet" and unmet and set(unmet) <= decided
+        if result != "met" and not covered:
+            problems.append("the verifier's newest reverify still reports unmet or "
+                            "abandoned criteria — a run of your own does not settle it. "
+                            "Dispatch the verifier again, or close out as "
                             "`HANDOFF REQUIRED`")
         # The criteria the verifier ran must be the criteria the ticket now states. A
         # ticket may legitimately rewrite one — a decision changed what it must do — but
         # then what stands is a verification of something else, and the verifier runs again.
-        if criteria_shape(ledger_from_comment(reverify)) != \
-                criteria_shape(section(body, "Acceptance criteria")):
+        if reverify.get("shape") != shape_digest(section(body, "Acceptance criteria")):
             problems.append("the acceptance criteria have changed since the verifier ran: "
-                            "its `reverify` ledger and the ticket body no longer describe "
-                            "the same criteria. Dispatch the verifier again so the run and "
-                            "the ticket agree")
+                            "the criteria its reverify ran and the ticket body no longer "
+                            "describe the same criteria. Dispatch the verifier again so the "
+                            "run and the ticket agree")
 
     verdict = last_verdict(comments)
     if verdict is None:
@@ -1191,25 +1223,15 @@ def decisions_line_for(decisions: str | None, path: str, number: int) -> str:
     return path
 
 
-def outside_owns_files(line: str | None) -> list[str]:
-    """The paths on an `Outside Owns:` line; empty when `None` or not checked."""
-    if not line:
-        return []
-    rest = line[len("Outside Owns:"):].strip()
-    if rest == "None" or rest.startswith("not checked"):
-        return []
-    return [p.strip() for p in rest.split(",") if p.strip()]
-
-
-def overlay_run_evidence(body: str, run: str | None) -> list[dict]:
-    """Criteria from the ticket body, ticks and evidence from the newest `self-run`."""
+def overlay_run_evidence(body: str, run: dict | None) -> list[dict]:
+    """Criteria from the ticket body, ticks and evidence from one run's `criteria`."""
     base = parse_criteria("\n".join(section(body, "Acceptance criteria")))
-    ran = {c["id"]: c for c in parse_criteria(run or "")}
+    ran = {c.get("id"): c for c in (run or {}).get("criteria") or [] if isinstance(c, dict)}
     for item in base:
         if item["id"] in ran:
-            item["ticked"] = ran[item["id"]]["ticked"]
-            if ran[item["id"]]["evidence"]:
-                item["evidence"] = ran[item["id"]]["evidence"]
+            item["ticked"] = bool(ran[item["id"]].get("met"))
+            if ran[item["id"]].get("evidence"):
+                item["evidence"] = str(ran[item["id"]]["evidence"])
     return base
 
 
@@ -1254,26 +1276,27 @@ def run_decisions(number: int, path: Path) -> int:
                           "`Decisions I made on my own` then `Outside Owns`")
         return refuse("the file must have exactly two sections, "
                       "`Decisions I made on my own` then `Outside Owns`")
-    run = newest_with_first_line(comments, "self-run")
+    run = newest_run(comments, "self")
     if run is None:
-        return refuse(f"#{number} carries no self-run comment to check Outside Owns against")
-    want = outside_owns_from(run)
+        return refuse(f"#{number} carries no ticket.checked of your own run to check "
+                      f"Outside Owns against")
+    want = outside_owns_text(run["payload"])
     got = outside_owns_from("\n".join(section(text, "Outside Owns")))
     if want != got:
-        return refuse("the file's `Outside Owns` line does not match the newest self-run")
+        return refuse(f"the file's `Outside Owns` line does not match your newest run, "
+                      f"which says `{want}`")
     post_event(number, "worker.decided", "DECISIONS", text.lstrip("\n"))
     print(f"DECISIONS: posted on #{number}")
     return 0
 
 
 def open_children_owns(number: int) -> list[tuple[int, list[str]]]:
-    """OPEN children of `number` and each child's `## Owns` globs, loaded once."""
+    """OPEN children of spec `number` and each child's `## Owns` globs, loaded once."""
     found = []
-    for child in fetch_sub_issues(number):
-        ticket = fetch_ticket(child)
-        if (ticket.get("state") or "").upper() != "OPEN":
+    for child in tree.children(fetch_tree(number, "spec")):
+        if child.get("state") != "OPEN":
             continue
-        found.append((child, owns_globs(fetch_body(child))))
+        found.append((child["number"], owns_globs(fetch_body(child["number"]))))
     return found
 
 
@@ -1308,15 +1331,16 @@ def run_review(number: int, path: Path) -> int:
 
 
 def run_touched(number: int) -> int:
-    """Comment `TOUCHED BY #<n>` on open siblings whose `## Owns` covers a file."""
+    """Post `worker.touched` on each open sibling whose `## Owns` covers a file this
+    ticket changed outside its own, naming the files and why they were changed."""
     comments = fetch_comments(number)
     review = (events.newest(comments, "reviewer.reported") or {}).get("body")
     if review is None:
-        return refuse(f"#{number} carries no REVIEW comment")
-    run = newest_with_first_line(comments, "self-run")
+        return refuse(f"#{number} carries no reviewer.reported event")
+    run = newest_run(comments, "self")
     if run is None:
-        return refuse(f"#{number} carries no self-run comment")
-    files = outside_owns_files(outside_owns_from(run))
+        return refuse(f"#{number} carries no ticket.checked of your own run")
+    files = list(run["payload"].get("outside_owns") or [])
     if not files:
         return 0
     decisions = (events.newest(comments, "worker.decided") or {}).get("body")
@@ -1330,30 +1354,30 @@ def run_touched(number: int) -> int:
         siblings = open_children_owns(spec)
     except SubIssuesUnreadable as exc:
         return refuse(f"#{number}: the tracker could not list the children of #{spec} ({exc})")
-    posted_to: list[int] = []
+    details = []
     for path in files:
         sentence = decisions_line_for(decisions, path, number)
-        judgement = spec_judgement(review, path)
-        ac = ""
         found = re.search(r"\bAC\d+\b", sentence)
-        if found:
-            ac = found.group(0)
-        lines = [
-            f"TOUCHED BY #{number}",
-            "",
-            path,
-            sentence,
-        ]
-        if ac:
-            lines.append(ac)
-        if judgement:
-            lines.append(judgement)
-        comment = "\n".join(lines) + "\n"
-        for child, globs in siblings:
-            if not any(glob_covers(g, path) for g in globs):
-                continue
-            post_prose(child, comment)
-            posted_to.append(child)
+        details.append({"path": path, "sentence": sentence,
+                        "ac": found.group(0) if found else None,
+                        "judgement": spec_judgement(review, path)})
+    posted_to: list[int] = []
+    for child, globs in siblings:
+        if child == number:
+            continue
+        mine = [d for d in details if any(glob_covers(g, d["path"]) for g in globs)]
+        if not mine:
+            continue
+        prose = []
+        for d in mine:
+            prose += ["", d["path"], d["sentence"]]
+            prose += [x for x in (d["ac"], d["judgement"]) if x]
+        post_event(child, "worker.touched",
+                   f"#{number} changed {len(mine)} file(s) this ticket owns",
+                   "\n".join(prose).strip("\n"), spec=spec, by=number,
+                   files=[d["path"] for d in mine],
+                   details=[{k: v for k, v in d.items() if v} for d in mine])
+        posted_to.append(child)
     if posted_to:
         print("TOUCHED: " + ", ".join(f"#{n}" for n in posted_to))
     return 0
@@ -1363,9 +1387,10 @@ def run_draft(number: int, out_file: Path) -> int:
     """Write the closing-comment skeleton to `out_file`."""
     body = fetch_body(number)
     comments = fetch_comments(number)
-    run = newest_with_first_line(comments, "self-run")
+    record = newest_run(comments, "self")
+    run = record["payload"] if record else None
     criteria = overlay_run_evidence(body, run)
-    abandons = parse_abandons(run or "")
+    abandons = list((run or {}).get("abandons") or [])
     counts = tally(criteria, abandons)
     blocking = [a for a in abandons if a["kind"] in HANDOFF_KINDS]
     if blocking:
@@ -1379,7 +1404,7 @@ def run_draft(number: int, out_file: Path) -> int:
     branch_line = (f"Branch: issue-{number} Commit: {head} PR: none — will be merged into "
                    f"{base_branch} by dispatch.sh advance")
     review = (events.newest(comments, "reviewer.reported") or {}).get("body") or ""
-    files = outside_owns_files(outside_owns_from(run or ""))
+    files = list((run or {}).get("outside_owns") or [])
     if files:
         judged = []
         for path in files:
@@ -1389,7 +1414,7 @@ def run_draft(number: int, out_file: Path) -> int:
     else:
         outside = "Outside Owns: None"
     try:
-        opened = [f"#{child}" for child in fetch_sub_issues(number)]
+        opened = [f"#{child}" for child in fetch_sub_issues(number, "ticket")]
         sub = "Sub-issues opened: " + (", ".join(opened) if opened else "none")
     except SubIssuesUnreadable:
         sub = "Sub-issues opened: unknown (the tracker could not be asked)"
@@ -1418,13 +1443,30 @@ def run_draft(number: int, out_file: Path) -> int:
     return 0
 
 
-def run_sub_issue(number: int, kind: str, path: Path) -> int:
-    """Open a `needs-triage` sub-issue under this ticket, and record it on this ticket.
+def ensure_label(name: str) -> str | None:
+    """Make sure the repository has the layer label `name`; the reason when it could not.
 
-    The child's body opens with a line a person reads; which kind it is and where it
-    came from is the `child.opened` event posted on this ticket, which is where the
-    ticket's own fold finds its children. A child opened whose event could not be
-    written exits 1 and says so: the child exists, and opening it again would make two.
+    A label the repository lacks makes `gh issue create --label` fail outright, so the
+    first issue of each layer creates its label. One that already exists is left exactly
+    as it is. Patched out in tests.
+    """
+    color, description = CLASS_LABELS[name]
+    out = subprocess.run(["gh", "label", "create", name, "--color", color,
+                          "--description", description],
+                         capture_output=True, text=True, env=GH_ENV)
+    if out.returncode == 0 or "already exists" in (out.stderr or out.stdout or ""):
+        return None
+    return gh_detail(out)
+
+
+def run_sub_issue(number: int, kind: str, path: Path) -> int:
+    """Open a `needs-triage` child under this ticket, and record it on this ticket.
+
+    The child carries the layer label `mmw:child` beside its queue label. Its body opens
+    with a line a person reads; which kind it is and where it came from is the
+    `child.opened` event posted on this ticket, which is where the ticket's own fold finds
+    its children. A child opened whose event could not be written exits 1 and says so:
+    the child exists, and opening it again would make two.
     """
     if kind not in SUB_ISSUE_KINDS:
         return refuse(f"kind `{kind}` is not one of {', '.join(SUB_ISSUE_KINDS)}")
@@ -1432,7 +1474,11 @@ def run_sub_issue(number: int, kind: str, path: Path) -> int:
     if not text.strip():
         return refuse(f"{path} is empty")
     title = text.strip().splitlines()[0].strip()
-    posted = f"SUB-ISSUE {kind} from #{number}\n" + text
+    missing = ensure_label("mmw:child")
+    if missing:
+        return refuse(f"the repository has no `mmw:child` label and it could not be "
+                      f"created ({missing}); nothing was opened")
+    posted = f"A `{kind}` child of #{number}.\n\n" + text
     if not posted.endswith("\n"):
         posted += "\n"
     with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as fh:
@@ -1443,6 +1489,7 @@ def run_sub_issue(number: int, kind: str, path: Path) -> int:
             ["gh", "issue", "create",
              "--parent", str(number),
              "--label", "needs-triage",
+             "--label", "mmw:child",
              "--title", title,
              "--body-file", body_path],
             capture_output=True, text=True, check=False, env=GH_ENV,
@@ -1475,11 +1522,109 @@ def run_sub_issue(number: int, kind: str, path: Path) -> int:
 
 # ----------------------------------------------------------------- subcommands
 
-def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
+def needs_product(body: str) -> bool:
+    """Whether a criterion of this ticket runs the product: its `CHECK:` names a script
+    that starts a command `.mmw/target.json` declares, under this worktree's lease."""
+    return any(judge in check for _, check, _ in criteria_lines(body)
+               for judge in PRODUCT_JUDGES)
+
+
+def load_lease():
+    """`lease.py` of the drive-target skill, from the directories in force; None when
+    none holds it."""
+    path = tool("lease.py")
+    if path is None:
+        return None
+    spec = importlib.util.spec_from_file_location("mmw_lease", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def hold_slot(number: int, root: Path, run: str, comments: list,
+              actor: str | None = None) -> dict | int:
+    """This worktree's product slot, claimed now when it holds none; an exit code when
+    the run cannot go on.
+
+    Writing code takes no slot. The first run of the criteria that needs the product
+    claims one, and the worktree holds it until its ticket's work ends — landed, handed
+    back, released, suspended or retracted — so every later run — the verifier's
+    reverify, the closeout's checks — finds it already there. When no
+    slot is free the run waits: a `worker.queued` event goes on the ticket, once for
+    this wait, so a ticket quiet for twenty minutes reads as queued and not as dead;
+    the claim is asked again every `SLOT_BEAT_S` seconds, and after `SLOT_WAIT_S` the run
+    exits 3 with nothing judged, to be run again.
+    """
+    lease = load_lease()
+    if lease is None:
+        return refuse("a criterion runs the product and no directory in force holds "
+                      "lease.py, so no slot can be claimed for it. Nothing was run and "
+                      "nothing was written. Pass --tools <the drive-target skill's scripts "
+                      "directory> and run again.")
+    worktree = lease.worktree_of(root)
+    announced = events.fold(comments)["waiting"] is not None
+    spent = 0
+    while True:
+        try:
+            return lease.try_claim(worktree)
+        except lease.CapUnreadable as exc:
+            return refuse(f"{exc}; the product's limit is unknown, so no slot was claimed "
+                          f"and nothing was run. Fix that file and run again.")
+        except lease.Full as full:
+            if not announced:
+                what = ("this product's instance.max" if full.reason == "product-full"
+                        else "every slot of this machine")
+                try:
+                    post_event(number, "worker.queued",
+                               f"Waiting for a product slot: {what} ({full.limit}) is held",
+                               "\n".join(f"- {h}" for h in full.holders),
+                               run=run, reason=full.reason, limit=full.limit,
+                               holders=full.holders, worktree=str(worktree), actor=actor)
+                except (OSError, subprocess.CalledProcessError) as exc:
+                    # A wait the ticket does not show reads as a dead worker.
+                    sys.stderr.write(f"#{number}: no product slot is free and the "
+                                     f"worker.queued event could not be written ({exc}); "
+                                     f"nothing was run. Run it again.\n")
+                    return NOT_RECORDED
+                announced = True
+            if spent >= SLOT_WAIT_S:
+                sys.stderr.write(
+                    f"#{number}: no product slot came free in {spent}s — {full.reason}, "
+                    f"{len(full.holders)} of {full.limit} held. Nothing was run; the ticket "
+                    f"says it is waiting. Run the same command again to keep waiting.\n")
+                return 3
+            time.sleep(SLOT_BEAT_S)
+            spent += SLOT_BEAT_S
+
+
+# Where each run is recorded, by whom it is written when nothing else is said.
+RUN_STAGE = {"self": "work", "reverify": "verify", "repo-checks": "close"}
+
+
+def run_checks(number: int, reverify: bool, timeout: int | None,
+               actor: str | None = None) -> int:
+    """Run the ticket's criteria and post the run as one `ticket.checked` event.
+
+    Exit 0 every criterion met, 1 not, 2 the run could not start (nothing was judged and
+    nothing was written), 3 it waited for a product slot and none came free, 4 the
+    criteria ran and the ticket.checked recording them could not be written.
+    """
     body = fetch_body(number)
     require_judges(body)
     root = repo_root()
-    carried = carried_ledger(number, body) if reverify else []
+    run = "reverify" if reverify else "self"
+    actor = actor or ("verifier" if reverify else "worker")
+    head = git("rev-parse", "HEAD", cwd=root)
+    if not re.fullmatch(r"[0-9a-f]{40}", head or ""):
+        return refuse("could not read HEAD, so this run would name no commit. Nothing was "
+                      "run and nothing was written.")
+    comments = fetch_comments(number)
+    slot = None
+    if needs_product(body):
+        slot = hold_slot(number, root, run, comments, actor)
+        if isinstance(slot, int):
+            return slot
+    carried = carried_ledger(body, comments) if reverify else []
     with tempfile.TemporaryDirectory(prefix="verify-ticket-") as tmp:
         ledger = write_ledger(body, Path(tmp), carried or None)
         cmd = ["node", str(GATE_CHECK), "--cwd", str(root)]
@@ -1496,19 +1641,93 @@ def run_checks(number: int, reverify: bool, timeout: int | None) -> int:
         sys.stdout.write(printed)
         if result.returncode == 2:
             return 2
-        summary = [line for line in printed.splitlines() if SUMMARY_RE.match(line)]
+        summary = next((line for line in printed.splitlines() if SUMMARY_RE.match(line)), "")
         updated = ledger.read_text(encoding="utf-8").rstrip("\n")
 
-    comment = "\n".join([
-        "reverify" if reverify else "self-run",
-        *summary,
-        "",
-        updated,
-        "",
-        outside_owns_line(number, owns_globs(body), root),
-    ])
-    post_prose(number, comment)
-    return result.returncode
+    criteria = parse_criteria(updated)
+    abandons = parse_abandons(updated)
+    results = [{"id": c["id"],
+                "met": bool(c["ticked"] and c["evidence"] and c["evidence"] != "pending"),
+                "evidence": c["evidence"] or "pending"} for c in criteria]
+    if result.returncode == 0:
+        outcome = "met"
+    elif summary.startswith("HANDOFF REQUIRED:"):
+        outcome = "handoff"
+    else:
+        outcome = "unmet"
+    fields = {} if reverify else outside_owns_fields(number, owns_globs(body), root)
+    prose = [updated]
+    if not reverify:
+        prose += ["", outside_owns_text(fields)]
+    try:
+        post_event(number, "ticket.checked",
+                   f"{'Reverify' if reverify else 'Own run'} on {head[:12]}: "
+                   f"{summary or outcome}",
+                   "\n".join(prose), run=run, commit=head, result=outcome,
+                   counts=tally(criteria, abandons),
+                   criteria=results,
+                   failed=[r["id"] for r in results if not r["met"]],
+                   abandons=abandons or None,
+                   shape=shape_digest(section(body, "Acceptance criteria")),
+                   slot=slot.get("slot") if slot else None,
+                   port_base=slot.get("port_base") if slot else None,
+                   actor=actor, stage=("regress" if actor == "main" else RUN_STAGE[run]),
+                   **fields)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        # The criteria ran, but nothing on the ticket says how. Every reader decides from
+        # that event, so this run counts as one that did not happen — never as red.
+        sys.stderr.write(f"#{number}: the run finished {outcome} on {head[:12]}, but its "
+                         f"ticket.checked event could not be written ({exc}), so the ticket "
+                         f"records no run. Run it again once the tracker takes comments.\n")
+        recorded = False
+    else:
+        recorded = True
+    # The main agent's reverify runs in the main checkout, which no ticket's work ends
+    # for: its slot is given back when the run ends.
+    if slot and actor == "main":
+        problem = give_slot_back(root)
+        if problem:
+            sys.stderr.write(f"#{number}: the main checkout's product slot was not given "
+                             f"back: {problem}\n")
+    return result.returncode if recorded else NOT_RECORDED
+
+
+# The exit of a run whose criteria ran and whose result could not be written on the
+# ticket. It is not 1: a caller reads 1 as "the criteria are red", and nothing says so.
+NOT_RECORDED = 4
+STOP_TIMEOUT_S = int(os.environ.get("MMW_STOP_TIMEOUT_S", "300"))
+
+
+def give_slot_back(root: Path) -> str | None:
+    """Take this worktree's product down and give its slot back; the reason when that
+    could not be done, None when it was or there was no slot to give.
+
+    The product's `stop` in `.mmw/target.json` runs first, from the worktree, because a
+    slot is free only once nothing listens on its ports and `lease.py` rightly refuses
+    one held by a live process.
+    """
+    lease = load_lease()
+    if lease is None:
+        return "no directory in force holds lease.py"
+    worktree = lease.worktree_of(root)
+    if not any(r.get("worktree") == str(worktree) for r in lease.claimed()):
+        return None
+    try:
+        data = json.loads((Path(root) / ".mmw" / "target.json").read_text(encoding="utf-8"))
+        stop = data.get("stop") if isinstance(data, dict) else None
+    except (OSError, json.JSONDecodeError):
+        stop = None
+    if isinstance(stop, str) and stop.strip():
+        try:
+            subprocess.run(stop, shell=True, cwd=root, capture_output=True, text=True,
+                           timeout=STOP_TIMEOUT_S)
+        except (OSError, subprocess.SubprocessError) as exc:
+            return f"its stop command did not finish ({exc})"
+    try:
+        lease.release(worktree)
+    except SystemExit as exc:
+        return str(exc)
+    return None
 
 
 def refusals(number: int, ticket: dict, me: str, branch: str,
@@ -1672,22 +1891,22 @@ def target_json_checks(root: Path | None) -> list[tuple[str, int]] | None:
     return commands
 
 
-def run_target_json_checks(root: Path | None) -> tuple[bool, str]:
+def run_target_json_checks(root: Path | None) -> dict | None:
     """Run each `checks` command at the repository root, in order.
 
-    Returns `(True, "")` when the key is absent; `(True, "CHECKS OK n/n\\n")` when
-    every command exited 0; `(False, body)` when any did not — `body` starts with
-    `CHECKS FAILED` and, for each failed command, the command and its last
-    `CHECKS_TAIL` lines of output. A malformed file is a failure, not absence.
-    A string entry is held to `DEFAULT_TIMEOUT`, the same bound as a `CHECK:`; an
-    entry written as `{"run": …, "timeout": …}` is held to its own.
+    None when the key is absent: nothing ran. Otherwise `{"total", "failed",
+    "problem"}`: `failed` is `{"command", "tail"}` for each command that did not exit 0,
+    with its last `CHECKS_TAIL` lines of output, and `problem` says why the file itself
+    could not be read — a malformed file is a failure, not absence. A string entry is
+    held to `DEFAULT_TIMEOUT`, the same bound as a `CHECK:`; an entry written as
+    `{"run": …, "timeout": …}` is held to its own.
     """
     try:
         commands = target_json_checks(root)
     except TargetJsonChecksError as exc:
-        return False, f"CHECKS FAILED\n{exc}\n"
+        return {"total": 0, "failed": [], "problem": str(exc)}
     if commands is None:
-        return True, ""
+        return None
     failed: list[tuple[str, str]] = []
     for command, bound in commands:
         try:
@@ -1708,14 +1927,31 @@ def run_target_json_checks(root: Path | None) -> tuple[bool, str]:
             combined = (proc.stdout or "") + (proc.stderr or "")
             tail = "\n".join(combined.splitlines()[-CHECKS_TAIL:])
             failed.append((command, tail))
-    if failed:
-        lines = ["CHECKS FAILED"]
-        for command, tail in failed:
-            lines.append(command)
-            if tail:
-                lines.append(tail)
-        return False, "\n".join(lines) + "\n"
-    return True, f"CHECKS OK {len(commands)}/{len(commands)}\n"
+    return {"total": len(commands),
+            "failed": [{"command": c, "tail": t} for c, t in failed], "problem": None}
+
+
+def post_repo_checks(number: int, checks: dict, spec: int | None) -> bool:
+    """Post the repository checks' run as a `ticket.checked` event; True when all passed."""
+    ok = not checks["failed"] and not checks["problem"]
+    total = checks["total"]
+    lines = []
+    if checks["problem"]:
+        lines.append(checks["problem"])
+    for failure in checks["failed"]:
+        lines += ["", failure["command"]]
+        if failure["tail"]:
+            lines.append(failure["tail"])
+    head = git("rev-parse", "HEAD")
+    post_event(number, "ticket.checked",
+               (f"Repository checks on {head[:12]}: {total - len(checks['failed'])}/{total} "
+                f"passed" if not checks["problem"] else
+                f"Repository checks on {head[:12]}: .mmw/target.json `checks` unreadable"),
+               "\n".join(lines).strip("\n"), spec=spec, run="repo-checks", commit=head,
+               result="met" if ok else "unmet", stage="close",
+               counts={"passed": total - len(checks["failed"]), "total": total},
+               commands=checks["failed"] or None, problem=checks["problem"])
+    return ok
 
 
 def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
@@ -1756,13 +1992,13 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
         return 0
 
     if first == "ALL MET" and pending is None:
-        ok, extra = run_target_json_checks(repo_root())
-        if not ok:
-            post_prose(number, extra)
-            sys.stderr.write(extra.splitlines()[0] + "\n")
+        checks = run_target_json_checks(repo_root())
+        if checks is not None and not post_repo_checks(number, checks, spec_field(ticket)):
+            named = ", ".join(f["command"] for f in checks["failed"]) or checks["problem"]
+            sys.stderr.write(f"closeout stopped: the repository's checks did not pass "
+                             f"({named}); the ticket.checked event on #{number} carries "
+                             f"each failed command and its last lines\n")
             return 1
-        if extra:
-            draft = draft.rstrip("\n") + "\n" + extra
 
     # The draft is the comment: its first line for a person, the rest as written, and the
     # event block after it. `abandoned` carries every `ABANDON:` line — on a pass only
@@ -1806,6 +2042,12 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     if passed:
         print(f"CLOSED: #{number}{note}")
     else:
+        # A handed-back ticket's work is over for the night: its slot goes back now, not
+        # when somebody next lands it, or it holds the product from every other ticket.
+        problem = give_slot_back(repo_root())
+        if problem:
+            sys.stderr.write(f"#{number} is handed back, but its product slot was not given "
+                             f"back: {problem}\n")
         print(f"HANDED BACK: #{number} is now needs-triage and stays open{note}")
     return 0
 
@@ -1815,8 +2057,8 @@ def run_verdict(number: int, line: str, model: str) -> int:
 
     The verifier writes one line and names its model; which of the two events it is,
     and the commit it covers, are read here rather than typed. A line opening `could not
-    start` is a failure whose criteria never ran. Otherwise the verifier's own newest
-    `reverify` run decides: `ALL MET` is a pass, anything else a failure naming the
+    start` is a failure whose criteria never ran. Otherwise the newest reverify
+    `ticket.checked` decides: result `met` is a pass, anything else a failure naming the
     criteria it left unmet — so a verdict can never say more than the run it reports.
     """
     line = " ".join((line or "").split())
@@ -1830,15 +2072,21 @@ def run_verdict(number: int, line: str, model: str) -> int:
     reverify = last_reverify(fetch_comments(number))
     ran = not line.lower().startswith("could not start")
     if ran and reverify is None:
-        return refuse(f"#{number} carries no `reverify` comment, so there is no run for this "
-                      f"verdict to report. Run --reverify first; if it could not start, "
-                      f"say `could not start` in the line")
-    summary = run_summary(reverify) if ran else None
-    passed = bool(summary and summary.startswith("ALL MET"))
+        return refuse(f"#{number} carries no reverify `ticket.checked` event, so there is no "
+                      f"run for this verdict to report. Run --reverify first; if it could "
+                      f"not start, say `could not start` in the line")
+    # A verdict covers HEAD, so the run it reports has to be a run of HEAD. The newest
+    # reverify on an older commit says nothing about the commit this verdict would name.
+    if ran and reverify.get("commit") != commit:
+        return refuse(f"#{number}'s newest reverify ran on {str(reverify.get('commit'))[:12]}, "
+                      f"and HEAD is {commit[:12]}: no run of HEAD exists for this verdict to "
+                      f"report. Run --reverify first, on this commit")
+    passed = bool(ran and reverify.get("result") == "met")
     post_event(number, "verifier.passed" if passed else "verifier.failed",
                f"VERDICT {commit} by {model.strip()} — {line}",
                commit=commit, model=model.strip(), says=line, ran=ran,
-               failed=(run_unmet(reverify) if ran and not passed else None) or None)
+               failed=(list(reverify.get("failed") or []) if ran and not passed else None)
+               or None)
     print(f"VERDICT: {'passed' if passed else 'failed'} on {commit[:12]}, posted on #{number}")
     return 0
 
@@ -2491,11 +2739,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--decisions", type=Path, metavar="FILE",
                         help="post the two-section file as a DECISIONS comment")
     parser.add_argument("--touched", action="store_true",
-                        help="comment TOUCHED BY on open siblings whose Owns covers a file")
+                        help="post worker.touched on open siblings whose Owns covers a file")
     parser.add_argument("--draft", type=Path, metavar="OUT",
                         help="write the closing-comment skeleton to this file")
     parser.add_argument("--sub-issue", nargs=2, metavar=("KIND", "FILE"),
-                        help="open a needs-triage sub-issue under this ticket")
+                        help="open a needs-triage child under this ticket; KIND is one of "
+                             + ", ".join(SUB_ISSUE_KINDS))
+    parser.add_argument("--actor", choices=("verifier", "main"),
+                        help="with --reverify: who runs it, the verifier (the default) or the "
+                             "main agent re-running a landed ticket on the base branch")
     parser.add_argument("--review", type=Path, metavar="FILE",
                         help="post the review report on the ticket")
     parser.add_argument("--verdict", metavar="LINE",
@@ -2524,6 +2776,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--check-only belongs to --closeout")
     if args.model is not None and args.verdict is None:
         parser.error("--model belongs to --verdict")
+    if args.actor is not None and not args.reverify:
+        parser.error("--actor belongs to --reverify")
     if args.verdict is not None:
         return run_verdict(args.ticket, args.verdict, args.model or "")
     if args.preflight:
@@ -2550,7 +2804,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.lint:
             return run_lint(args.ticket)
-        return run_checks(args.ticket, args.reverify, args.timeout)
+        return run_checks(args.ticket, args.reverify, args.timeout, args.actor)
     except JudgeUnreachable as exc:
         print(f"verify-ticket: {exc}", file=sys.stderr)
         return 2

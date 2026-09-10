@@ -10,9 +10,19 @@
 <engine> <n> --sub-issue <kind> <file>
 ```
 
-`--sub-issue` takes a kind (`baseline`, `outside-owns`, `review`, `decision`, or `pipeline`) and a file whose first line is the title. It opens a new issue labelled `needs-triage`, parented to this ticket, whose own first line is `SUB-ISSUE <kind> from #<n>`, and posts a `child.opened` event on this ticket naming the new issue and its kind — the ticket's events are where its children are counted.
+`--sub-issue` takes a kind and a file whose first line is the title. It opens a new issue labelled `needs-triage` and `mmw:child` (the layer label; the repository's first child creates it), parented to this ticket, whose body opens with the line ``A `<kind>` child of #<n>.``, and posts a `child.opened` event on this ticket naming the new issue and its kind — the ticket's events are where its children are counted.
 
-The kind says what was cut out: a baseline under `## Read first` that does not fit; a change outside `## Owns` that was merely convenient; an out-of-ticket finding from the review comment; a question whose answer would change what this ticket delivers; or a fault in the pipeline itself. An empty file, or a kind that is not one of the five, is refused and nothing is opened.
+A kind is named for who can answer the child, not for where it came from:
+
+| Kind | Who opens it | What it records | Where it goes next |
+| --- | --- | --- | --- |
+| `finding` | the worker, from the review comment | the review found a defect that does not fall inside this ticket's scope | the closing pass of the night: fixed by the main agent, closed as no longer true, or made a ticket |
+| `contract` | the worker | a baseline under `## Read first` this ticket was told to follow does not hold — a missing state, field or case, or two baselines that contradict each other | back to whoever wrote the spec or the baseline; never changed quietly and worked on |
+| `deferred` | the worker | work outside `## Owns` seen here that was merely convenient to change, and left alone on purpose | a later ticket. A change a criterion cannot pass without is made and listed under `Outside Owns`, not opened here |
+| `decision` | the worker | a choice only a person can make; the worker carries on with the default | the user |
+| `fault` | any role | the pipeline itself is broken — a script, a hook, the driver, the target contract | the user, to fix the pipeline. The agent that opens it stops where it is |
+
+An empty file, or a kind that is not one of the five, is refused and nothing is opened. A repository that lacks the `mmw:child` label and will not let it be created is refused the same way. `fault` is the one kind that brings the ticket to rest: it sends `#<n> child.opened kind=fault` to the session that started this one.
 
 ## Exit codes
 

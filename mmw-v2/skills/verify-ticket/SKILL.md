@@ -5,9 +5,9 @@ description: Run one ticket's acceptance criteria, and close the ticket when the
 
 # Verify ticket
 
-Each acceptance criterion on a ticket carries a `CHECK:` command and the `EXPECT:` string a passing run prints. This skill runs them and comments the outcome on the ticket.
+Each acceptance criterion on a ticket carries a `CHECK:` command and the `EXPECT:` string a passing run prints. This skill runs them and posts the outcome on the ticket as an event.
 
-The ticket is the only state. Every run reads it fresh, writes at most one comment, and carries nothing to the next run.
+The ticket is the only state. Every run reads it fresh, writes its events, and carries nothing to the next run. Every comment it posts is an event: a first line for a person and a trailing `<!-- mmw {...} -->` block, which is the only part any program reads.
 
 ## Resolve `<engine>` once
 
@@ -32,7 +32,7 @@ A criterion names a judge by its bare name (`story-parity.py …`, `boundary-che
 | The **reviewer**, with the report written to a file | [references/reporting.md](references/reporting.md) |
 | Publishing a batch, or opening a night on a spec | [references/linting.md](references/linting.md) |
 
-No run of this skill tells anybody anything. What a run posts on the ticket is the news: the relay of the `dispatch` skill reads the event there and wakes the session waiting on it — the main agent for a `--closeout` either way, a `--preflight` that refuses and a `--sub-issue pipeline` or `decision`, the worker for a `--review` and a `--verdict`. A comment that lands is therefore a comment its reader hears about, whatever the run did after posting it.
+No run of this skill tells anybody anything. What a run posts on the ticket is the news: the relay of the `dispatch` skill reads the event there and wakes the session waiting on it — the main agent for a `--closeout` either way, a `--preflight` that refuses and a `--sub-issue fault` or `decision`, the worker for a `--review` and a `--verdict`. A comment that lands is therefore a comment its reader hears about, whatever the run did after posting it.
 
 ## Reached from here
 

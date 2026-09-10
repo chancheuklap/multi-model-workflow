@@ -1,6 +1,6 @@
 ---
 name: dispatch
-description: Put another agent to work on a ticket, and move a night's batch of tickets forward. Use to start a worker, reviewer or verifier, to retract a start whose session is gone, to resume a worker, to check the machine before a night, to open a night or one ticket, to advance a spec, to suspend a night, to read what woke you about an agent you started and acknowledge that wake, to reverify closed tickets, to post the night summary, or to change which host, model or thinking level an agent in this pipeline runs on.
+description: Put another agent to work on a ticket, and move a night's batch of tickets forward. Use to start a worker, reviewer or verifier, to replace a stuck worker, to retract a start whose session is gone, to resume a worker, to check the machine before a night, to open a night or one ticket, to advance a spec, to suspend a night, to read what woke you about an agent you started and acknowledge that wake, to route a finding on the closing pass, to reverify closed tickets, to post the night summary, or to change which host, model or thinking level an agent in this pipeline runs on.
 ---
 
 # Dispatch
@@ -23,13 +23,17 @@ Four names in the doors belong to other skills; resolve each from that skill's o
 
 `start` starts the session itself and prints its id, one line; `advance` prints one such line per ticket it starts. Which runner runs it is tonight's runner: `MMW_RUNNER`, else the `runner` row of the live table, else the runner this session itself runs in, else `orca`. `start` also writes a `worker.started`, `reviewer.started` or `verifier.started` event on the ticket — the session, its runner, host, model, effort, grade, the worktree's absolute path, the branch and the base commit — and every later command — `resume`, `wait`, `retract`, `land`, `suspend` — finds the session in that event and asks that runner, and no other.
 
+A worker takes no product slot when it starts. The first run of its criteria that runs the product claims the worktree's slot, waiting while the product's `instance.max` or the machine's slots are all held — its ticket carries a `worker.queued` event meanwhile — and the worktree keeps the slot until the ticket's work ends: it lands, is handed back, has its claim released, the night is suspended, or its start is retracted.
+
+`start <n> worker` on a ticket whose events still show a live worker replaces that worker: the old session is stopped through its own runner first, then a `worker.replaced` event naming it and a `worker.started` for the new one go on the ticket. A worker that will not stop is refused (exit 2) and nothing is started beside it.
+
 Every comment this pipeline writes on a ticket is such an event: a first line for a person, and a trailing `<!-- mmw {...} -->` block that is the only thing a program reads. Where a ticket stands is computed by replaying its events (`scripts/events.py` of the `verify-ticket` skill); a first line is never read. A ticket is **held** from its `ticket.claimed` or any `*.started` until an event ends the hold: `ticket.landed`, `ticket.returned`, `ticket.released` or `spec.suspended` end every hold on it, and `worker.retracted`, `worker.lost`, `worker.replaced` or a `ticket.refused` that names its session end the one session they name by its runner and its id together. `ticket.passed` ends none — the close after a pass can fail and leave the worker retrying — and no label ends one. That holds whichever runner and whichever machine the worker runs on.
 
-A start the runner refuses is refused once, exit 2, with the runner's reason on stderr: nothing is retried, and no other host or runner is tried. Fix what it names, or change that agent's row in the live table, then `start` again; if you cannot, `<engine> <n> --sub-issue pipeline <file>` with the command and its output as the file's body, then stop.
+A start the runner refuses is refused once, exit 2, with the runner's reason on stderr: nothing is retried, and no other host or runner is tried. Fix what it names, or change that agent's row in the live table, then `start` again; if you cannot, `<engine> <n> --sub-issue fault <file>` with the command and its output as the file's body, then stop.
 
 ## What tells you it is done
 
-The session you started is working the moment `start` returns, and you end your turn: you are woken, you never wait or ask. Its result lands on the ticket as an event — `ticket.passed` or `ticket.returned` from a worker, `reviewer.reported` from a reviewer, `verifier.passed` or `verifier.failed` from a verifier — and the **relay**, a process that watches the board from the moment the main agent opens the night (or the one ticket), sends the session waiting on that event a **wake**: a message `#<n> <event>`, the ticket number and the event's name and nothing else. A worker is woken for its reviewer's `reviewer.reported` and its verifier's `verifier.passed` or `verifier.failed`. The main agent is woken for `ticket.passed`, `ticket.returned`, `ticket.refused`, a `child.opened` of kind `pipeline` or `decision`, `worker.lost`, and `relay.recovered since <time>` — the relay was down or could not read the board from that time on, has read every ticket again, and the wakes for what it found follow this one.
+The session you started is working the moment `start` returns, and you end your turn: you are woken, you never wait or ask. Its result lands on the ticket as an event — `ticket.passed` or `ticket.returned` from a worker, `reviewer.reported` from a reviewer, `verifier.passed` or `verifier.failed` from a verifier — and the **relay**, a process that watches the board from the moment the main agent opens the night (or the one ticket), sends the session waiting on that event a **wake**: a message `#<n> <event>`, the ticket number and the event's name and nothing else. A worker is woken for its reviewer's `reviewer.reported` and its verifier's `verifier.passed` or `verifier.failed`. The main agent is woken for `ticket.passed`, `ticket.returned`, `ticket.refused`, a `child.opened` of kind `fault` or `decision`, `worker.lost`, and `relay.recovered since <time>` — the relay was down or could not read the board from that time on, has read every ticket again, and the wakes for what it found follow this one.
 
 On waking:
 
@@ -42,7 +46,7 @@ The relay runs between `open` and `summary` or `suspend` for a night, and betwee
 
 ## The arguments you supply
 
-`<n>` and `<spec>` are digits only, no `#`.
+`<n>`, `<spec>` and `<child>` are digits only, no `#`.
 
 `start`'s third argument is `worker`, `reviewer` or `verifier`. Which of the two worker rows in the live table (`~/.mmw/models.md`) a worker starts from is the ticket's own `junior-worker` or `senior-worker` label, read fresh on every start. A ticket carrying neither label starts on `junior-worker`; one carrying both, or one naming a grade the live table has no row for, is refused (exit 2, stderr names the ticket). The reviewer reads `git config branch.issue-<n>.mmw-base` itself; you do not pass a base commit.
 
@@ -51,6 +55,6 @@ The relay runs between `open` and `summary` or `suspend` for a night, and betwee
 | Door | You are | Read |
 | --- | --- | --- |
 | 1 | the worker inside a ticket, starting its reviewer or its verifier | [references/inside-a-ticket.md](references/inside-a-ticket.md) |
-| 2 | the main agent running a night on a spec | [references/night.md](references/night.md) |
+| 2 | the main agent running a night on a spec, including routing its findings with `route` on the closing pass | [references/night.md](references/night.md) |
 | 3 | starting one worker on one ticket, outside any night | [references/one-ticket.md](references/one-ticket.md) |
 | 4 | changing which host, model or `effort` an agent runs on, or which runner the night runs on | [references/editing-models.md](references/editing-models.md) |
