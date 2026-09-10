@@ -414,9 +414,9 @@ release_lease() {
   return 1
 }
 
-# Prints workspaceId<TAB>cwd<TAB>created. workspaceId is the absolute worktree
-# path: the protocol no longer opens a runner workspace, and create_agent still
-# needs a non-empty id in the printed object.
+# Prints dest<TAB>cwd<TAB>created. dest is the absolute worktree path, which
+# emit_create_json puts in workspace.source.path. Paseo reads workspaceId as
+# an already-registered wks_<16 hex> id, so a path must not go there.
 ensure_workspace() {
   local number="$1" root="$2" dest
   dest="$root/.worktrees/issue-$number"
@@ -452,9 +452,23 @@ remove_worktree() {
   return 1
 }
 
+# Take this ticket's agents off Paseo's list. `paseo archive --force` is the
+# same command suspend uses: it interrupts a running agent and drops it from
+# `paseo ls`. Git removes the worktree separately; Paseo is not asked to.
+archive_ticket_agents() {
+  local number="$1" ident
+  while IFS=$'\t' read -r _ ident _; do
+    [ -n "$ident" ] || continue
+    if ! paseo archive --force "$ident" >/dev/null 2>&1; then
+      echo "dispatch: could not archive $ident on #$number, so it stays on Paseo's list" >&2
+    fi
+  done < <(agents_by_label --label "mmw.ticket=$number")
+}
+
 # Removing the worktree is where the product's stop command lives — so a worktree
 # whose slot did not come back is kept, not removed. Keeping it is recoverable
-# (stop the product there and run this again); deleting it is not.
+# (stop the product there and run this again); deleting it is not. Agents come
+# off Paseo's list here as well: git worktree remove does not take them with it.
 archive_workspace() {
   local number="$1" cwd rc root
   root="$(git rev-parse --show-toplevel 2>/dev/null)" || true
@@ -468,6 +482,7 @@ archive_workspace() {
       return 1
     fi
   fi
+  archive_ticket_agents "$number"
   [ -n "$cwd" ] || return 0
   [ -n "$root" ] || root="$(dirname "$(dirname "$cwd")")"
   remove_worktree "$root" "$cwd"
@@ -494,7 +509,6 @@ def payload(host, model, effort):
     if thinking is not None:
         settings["thinkingOptionId"] = thinking
     body = {
-        "workspaceId": os.environ["MMW_WORKSPACE"],
         "title": os.environ["MMW_TITLE"],
         "provider": host + "/" + model,
         "settings": settings,
@@ -505,6 +519,14 @@ def payload(host, model, effort):
             "mmw.autonomous": "1",
         },
         "initialPrompt": os.environ["MMW_PROMPT"],
+        "relationship": {"kind": "subagent"},
+        "workspace": {
+            "kind": "create",
+            "source": {
+                "kind": "directory",
+                "path": os.environ["MMW_WORKSPACE"],
+            },
+        },
     }
     if os.environ["MMW_SPEC"]:
         body["labels"]["mmw.spec"] = os.environ["MMW_SPEC"]
@@ -1117,17 +1139,19 @@ advance() {
 
 # Land one ticket.
 #
-# Landing is what closing a ticket does not do: merge the branch, archive the
-# workspace (which takes the agents inside it and deletes the worktree), give the
-# slot back, and give the claim back. `advance` does it for a batch after a merge;
-# this does it for one ticket, and asks for a ticket number rather than a spec —
-# which is the whole point. A ticket dispatched outside a night belongs to no spec,
-# so before this there was no command it could be landed with, and its agents, its
-# worktree and its slot stayed until somebody noticed.
+# Landing is what closing a ticket does not do: merge the branch, take this
+# ticket's agents off Paseo's list (`paseo archive --force`), remove the worktree
+# with git, give the slot back, and give the claim back. `advance` does it for a
+# batch after a merge; this does it for one ticket, and asks for a ticket number
+# rather than a spec — which is the whole point. A ticket dispatched outside a
+# night belongs to no spec, so before this there was no command it could be
+# landed with, and its agents, its worktree and its slot stayed until somebody
+# noticed.
 #
-# Order is fixed and the reason is the measurement: archiving a workspace deletes
-# its directory, so a branch not yet in HEAD has to be merged first or the work has
-# to be rebuilt from the branch to get it back.
+# Order is fixed: the worktree directory is where the product's stop command
+# lives, so a branch not yet in HEAD has to be merged first or the work has to
+# be rebuilt from the branch to get it back. Agents are archived in the same
+# step as the worktree, after that merge.
 land_tickets() {
   local root
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
