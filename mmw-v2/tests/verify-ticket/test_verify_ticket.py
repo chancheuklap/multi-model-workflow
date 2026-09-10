@@ -652,7 +652,8 @@ class TestOutsideOwns(unittest.TestCase):
                                    return_value=[started(ticket=4, base=base, into="spec-x")]), \
                  mock.patch.object(vt, "post_comment",
                                    side_effect=lambda n, b: posted.append(b)):
-                code = vt.run_checks(4, False, None)
+                with redirect_stdout(io.StringIO()):
+                    code = vt.run_checks(4, False, None)
             self.assertEqual(code, 0, posted)
             payload = payload_of(posted[0])
             self.assertEqual(payload["outside_owns"], [])
