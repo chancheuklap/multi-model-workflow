@@ -592,9 +592,7 @@ const Board = {
     const f = t.fold;
     return !!f.returned && !!f.outcome && !f.sessions.some(s => s.kind === 'worker' && s.started_at > f.outcome.at);
   },
-  // Held: a live session, or a claim no recorded start has taken over (`claim_hold`: someone
-  // picked the ticket up outside `start`).
-  running: t => (t.fold.sessions.some(s => s.live) || t.fold.claim_hold) && !Board.stoppedByFault(t),
+  running: t => t.fold.sessions.some(s => s.live) && !Board.stoppedByFault(t),
   // The step, from what still holds the ticket. A reviewer's report and a verifier's
   // verdict end their own hold (events.py ENDS_OWN_HOLD), so a live reviewer is a review
   // in progress and a live verifier a verification; a passing verdict keeps the ticket at
@@ -605,7 +603,7 @@ const Board = {
     if (f.landed) return 'landed';
     const live = f.sessions.filter(s => s.live);
     if (Board.handedBack(t) || (live.length && Board.stoppedByFault(t))) return Board.stoppedAt(t);
-    if (!live.length) return f.claim_hold ? 'working' : 'queued';
+    if (!live.length) return 'queued';
     if (live.some(s => s.kind === 'verifier')) return 'verify';
     if (f.verdict && f.verdict.event === 'verifier.passed') return 'verify';
     if (live.some(s => s.kind === 'reviewer')) return 'review';
@@ -628,9 +626,6 @@ const Board = {
       const abandoned = f.outcome.payload.abandoned || [];
       out.push({ text: abandoned.length ? abandoned.map(a => `交回：${a.ac} 放弃（${a.kind}）。${a.reason}`).join('；') : f.outcome.line });
     }
-    // A comment whose event block nothing can read keeps the ticket held until a person
-    // fixes that comment (dispatch's references/night.md, `status`).
-    for (const u of f.unreadable) out.push({ text: `评论 ${u.comment} 的事件读不懂（${u.reason}）。这张票会一直被占着，要人去修这条评论` });
     return out;
   },
   light(t) {
@@ -640,31 +635,17 @@ const Board = {
     if (Board.running(t)) return 'green';
     return 'hollow';
   },
-  // When a run began waiting for a product slot, while it still waits. A worker's own run
-  // writes `worker.queued` and ends its turn; the relay wakes it when a slot is given back and
-  // it runs again. A verifier's reverify waits inside its command. The next `ticket.checked`,
-  // written once the criteria have run, ends the wait, so the span includes the wake, the
-  // worker's next turn and the run: the board says when it began, never how long it waited.
+  // When the worker began waiting for a product slot, while it still waits. It wrote
+  // `worker.queued` and ended its turn; the relay wakes it when a slot is given back and it
+  // runs again. The next `ticket.checked`, written once the criteria have run, ends the wait,
+  // so the span includes the wake and the run: the board says when it began, never how long.
   waitingSince: t => (t.fold.waiting && t.fold.sessions.some(s => s.live) ? t.fold.waiting.at : null),
-  // The newest `ticket.refused` when no start came after it: the session that refused has
-  // gone, the claim was never made, and the main agent fixes what it names.
-  refusal(t) {
-    let found = null;
-    for (const e of t.events) {
-      if (e.event === 'ticket.refused') found = e;
-      else if (/\.started$/.test(e.event)) found = null;
-    }
-    return found && !t.fold.sessions.some(s => s.live) ? found : null;
-  },
   runLine(t) {
     const f = t.fold;
     const live = f.sessions.filter(s => s.live);
-    if (!live.length && f.claim_hold) return { text: `已认领 · 没有记录会话${f.claimant ? '（' + f.claimant + '）' : ''}` };
-    const refused = Board.refusal(t);
-    if (refused) return { text: `拒绝认领 · ${refused.payload.reason}` };
     if (!f.sessions.length) return { text: '尚未派发' };
     const since = Board.waitingSince(t);
-    if (since) return { text: `等槽位 · ${hhmm(since)} 起${f.waiting.payload.run === 'reverify' ? '（复验）' : ''}` };
+    if (since) return { text: `等槽位 · ${hhmm(since)} 起` };
     const s = live.length ? live[live.length - 1] : f.worker;
     if (live.length && Board.stoppedByFault(t)) return { text: `已停下 · ${s.host} · ${s.model}`, flag: true };
     return { text: `${s.host} · ${s.model} · ${s.effort}` };
@@ -684,7 +665,7 @@ const Board = {
     const since = Board.waitingSince(t);
     if (since) {
       const q = f.waiting.payload;
-      rows.push(['槽位', `${hhmm(since)} 起排队${q.run === 'reverify' ? '（复验）' : ''}：${QUEUE_REASON[q.reason]}（上限 ${q.limit}）。到下一条 ticket.checked 为止，其中含等中继叫醒、重跑与跑判据的时间`]);
+      rows.push(['槽位', `${hhmm(since)} 起排队：${QUEUE_REASON[q.reason]}（上限 ${q.limit}）。到下一条 ticket.checked 为止，其中含等中继叫醒与跑判据的时间`]);
     } else if (f.slot != null) {
       rows.push(['槽位', `${f.slot} 号，持有到这张票落地或交回`]);
     }
@@ -736,14 +717,12 @@ const Board = {
   // closed blocker whose events cannot be read has not said which, and holds.
   released: a => a.state === 'closed' && !a.fold.unreadable.length && (!a.fold.passed || a.fold.landed),
   // What one blocking edge says, read from both ends.
-  //   done     grey, solid     the blocker let go and the blocked is not running: it landed, was
-  //                            returned, its spec is suspended, it stopped on a fault, or it has
-  //                            not started yet — its own lamp and pill say which
+  //   done     grey, solid     the blocker let go and the blocked is not running: it landed,
+  //                            was returned, or its spec is suspended — its own lamp and pill say which
   //   flow     green, moving   the blocker let go and the blocked is being worked on now
   //   blocked  red, still      the blocker still holds: the blocked waits on it
-  // "Let go but not started" lasts a moment when `advance` lands a ticket and dispatches what
-  // that unblocks in one run (#316 §5); it lasts until the main agent acts when the runner
-  // refused the start (advance exit 4) or a merge stopped the run (exit 3).
+  // "Let go but not dispatched" is not a state: `advance` lands a ticket and dispatches
+  // what that unblocks in one indivisible run (#316 §5), with no cap on workers (#315 §9).
   edgeState(a, b, type) {
     if (type === 'decision') return a.state === 'closed' ? 'done' : 'blocked';
     if (!Board.released(a)) return 'blocked';
@@ -1076,7 +1055,7 @@ function renderTop() {
   const sc = scene();
   const all = sc.tasks.flatMap(Board.allTickets);
   const count = l => all.filter(t => Board.light(t) === l).length;
-  const waiting = all.filter(t => Board.waitingSince(t)).length;
+  const waiting = all.filter(t => Board.step(t) === 'waiting').length;
   const orange = count('orange');
   $('counters').innerHTML = `
     <button class="counter ${orange ? 'hot' : ''}" id="need-you" ${orange ? '' : 'disabled'} title="${orange ? '跳到下一张需要你的票' : ''}">
