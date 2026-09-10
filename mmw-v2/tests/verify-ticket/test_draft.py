@@ -9,13 +9,17 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from _load import checked, event, load
+from _load import checked, event, load, started
 
 vt = load()
 
 ME = "chancheuklap"
 VERIFIED = "3f9c2e1adeadbeefcafe0123456789abcdef0123"
 HEAD = "9b1d40c7feedface0011223344556677889900aa"
+
+
+STARTED = started(into="spec-337")
+STARTED_BEFORE_SWITCH = started()
 
 BODY = """## Parent
 
@@ -164,9 +168,10 @@ class FakeGh:
         return result
 
 
-def run_draft(comments, body=BODY, sub_issues=()):
+def run_draft(comments, body=BODY, sub_issues=(), started_event=STARTED):
     """Write a skeleton for ticket 77; return (exit, stderr, text, fake)."""
-    fake = FakeGh(comments, body=body, sub_issues=sub_issues)
+    starts = started_event if isinstance(started_event, tuple) else (started_event,)
+    fake = FakeGh((*starts, *comments), body=body, sub_issues=sub_issues)
     with TemporaryDirectory() as tmp:
         path = Path(tmp) / "draft.md"
         with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
@@ -222,14 +227,24 @@ class TestOnlyTheRunsEventIsRead(unittest.TestCase):
 
 
 class TestFixedLines(unittest.TestCase):
-    def test_the_branch_line_names_head_and_the_base_branch(self):
-        code, err, text, _ = run_draft((MET_RUN, VERDICT))
+    def test_draft_names_into_from_worker_started(self):
+        code, err, text, _ = run_draft(
+            (MET_RUN, VERDICT), started_event=(started(into="main"), STARTED))
         self.assertEqual(code, 0, err)
         self.assertIn(
             f"Branch: issue-77 Commit: {HEAD} PR: none — will be merged into "
-            "herdr-to-paseo by dispatch.sh advance",
+            "spec-337 by dispatch.sh advance",
             text,
         )
+
+    def test_draft_refuses_a_ticket_started_without_into(self):
+        code, err, text, _ = run_draft(
+            (MET_RUN, VERDICT),
+            started_event=(started(into="main"), STARTED_BEFORE_SWITCH))
+        self.assertNotEqual(code, 0)
+        self.assertEqual(text, "")
+        self.assertIn("newest worker.started carries no `into`", err)
+        self.assertIn("dispatch.sh start 77 worker", err)
 
     def test_the_draft_carries_no_line_about_commits_after_the_verdict(self):
         """A worker's account of its own commits settled nothing, so the skeleton

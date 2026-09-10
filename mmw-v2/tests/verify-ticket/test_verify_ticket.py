@@ -18,12 +18,13 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from _load import SCRIPT, checked, load
+from _load import SCRIPT, checked, event, load, started
 
 vt = load()
 
 DRIVE = SCRIPT.parents[2] / "drive-target" / "scripts"
 HEAD_RE = r"^[0-9a-f]{40}$"
+STARTED = started(ticket=1, into="spec-337")
 
 
 def ticket(*criteria: str, owns: str = "- src/**") -> str:
@@ -40,10 +41,11 @@ class LedgerRun(unittest.TestCase):
     """Runs the real gate-check against a fixed body and captures what it posts."""
 
     def run_ticket(self, body: str, reverify: bool = False, comments: list[str] | None = None,
-                   actor: str | None = None, outside=()):
+                   actor: str | None = None, outside=(), started_event=STARTED):
         posted: list[str] = []
+        history = ([] if started_event is None else [started_event]) + (comments or [])
         with mock.patch.object(vt, "fetch_body", return_value=body), \
-             mock.patch.object(vt, "fetch_comments", return_value=list(comments or [])), \
+             mock.patch.object(vt, "fetch_comments", return_value=history), \
              mock.patch.object(vt, "outside_owns", return_value=list(outside)), \
              mock.patch.object(vt, "current_branch", return_value="issue-1"), \
              mock.patch.object(vt, "post_comment", side_effect=lambda n, b: posted.append(b)):
@@ -51,6 +53,12 @@ class LedgerRun(unittest.TestCase):
                 code = vt.run_checks(1, reverify, None, actor)
         self.posted = posted
         return code, (posted[0] if posted else ""), out.getvalue()
+
+    def test_worker_run_without_started_leaves_outside_owns_unchecked(self):
+        code, comment, _ = self.run_ticket(PLAIN, started_event=None)
+        self.assertEqual(code, 0, comment)
+        payload = payload_of(comment)
+        self.assertEqual(payload["outside_owns_unchecked"], "issue-1")
 
 
 class TestACheckMaySpanLines(LedgerRun):
@@ -569,7 +577,7 @@ class TestOutsideOwns(unittest.TestCase):
             sh("commit", "-qm", "issue-4 work")
             # ...then merges the earlier ticket's branch to build on it.
             sh("merge", "-q", "--no-ff", "-m", "merge issue-2", "issue-2")
-            self.assertEqual(vt.outside_owns(["mine.txt"], tmp), ["stray.txt"])
+            self.assertEqual(vt.outside_owns(["mine.txt"], tmp, "main"), ["stray.txt"])
 
     def test_backticked_owns_that_cover_the_commit_report_none(self):
         """A `## Owns` bullet written `` `path` `` still excludes that path."""
@@ -582,7 +590,7 @@ class TestOutsideOwns(unittest.TestCase):
             sh("commit", "-qm", "issue-4 work")
             globs = vt.owns_globs("## Owns\n\n- `mine.txt`\n")
             self.assertEqual(globs, ["mine.txt"])
-            fields = vt.outside_owns_fields(4, globs, tmp)
+            fields = vt.outside_owns_fields(4, globs, tmp, "main")
             self.assertEqual(fields, {"outside_owns": []})
             self.assertEqual(vt.outside_owns_text(fields), "Outside Owns: None")
 
@@ -594,7 +602,7 @@ class TestOutsideOwns(unittest.TestCase):
             (tmp / "stray.txt").write_text("stray\n")
             sh("add", "-A")
             sh("commit", "-qm", "issue-4 work")
-            fields = vt.outside_owns_fields(4, ["mine.txt"], tmp)
+            fields = vt.outside_owns_fields(4, ["mine.txt"], tmp, "main")
             self.assertEqual(fields, {"outside_owns": ["stray.txt"]})
             self.assertEqual(vt.outside_owns_text(fields), "Outside Owns: stray.txt")
 
@@ -607,12 +615,50 @@ class TestOutsideOwns(unittest.TestCase):
             (tmp / "stray.txt").write_text("stray\n")
             sh("add", "-A")
             sh("commit", "-qm", "somebody else's work")
-            fields = vt.outside_owns_fields(4, ["mine.txt"], tmp)
+            fields = vt.outside_owns_fields(4, ["mine.txt"], tmp, "main")
             self.assertEqual(fields, {"outside_owns_unchecked": "spec-branch"})
             self.assertEqual(
                 vt.outside_owns_text(fields),
                 "Outside Owns: not checked on spec-branch, which carries more than "
                 "this ticket")
+
+    def test_outside_owns_starts_at_worker_started_base(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            sh = self.repo(tmp)
+            sh("checkout", "-qb", "spec-x")
+            (tmp / "spec-start.txt").write_text("base branch before ticket\n")
+            sh("add", "-A")
+            sh("commit", "-qm", "spec start")
+            base = subprocess.run(["git", "rev-parse", "HEAD"], cwd=tmp, check=True,
+                                  capture_output=True, text=True).stdout.strip()
+            sh("checkout", "-qb", "issue-4")
+            (tmp / "mine.txt").write_text("mine\n")
+            sh("add", "-A")
+            sh("commit", "-qm", "issue work")
+            sh("checkout", "-q", "spec-x")
+            (tmp / "spec-later.txt").write_text("base branch after ticket\n")
+            sh("add", "-A")
+            sh("commit", "-qm", "base moved")
+            sh("checkout", "-q", "issue-4")
+            sh("merge", "-q", "--no-ff", "-m", "merge latest base", "spec-x")
+            body = ticket("- [ ] AC1: the check runs",
+                          "  CHECK: echo ok", "  EXPECT: ok", "  EVIDENCE: pending",
+                          owns="- mine.txt")
+            posted = []
+            with mock.patch.object(vt, "repo_root", return_value=tmp), \
+                 mock.patch.object(vt, "fetch_body", return_value=body), \
+                 mock.patch.object(vt, "fetch_comments",
+                                   return_value=[started(ticket=4, base=base, into="spec-x")]), \
+                 mock.patch.object(vt, "post_comment",
+                                   side_effect=lambda n, b: posted.append(b)):
+                with redirect_stdout(io.StringIO()):
+                    code = vt.run_checks(4, False, None)
+            self.assertEqual(code, 0, posted)
+            payload = payload_of(posted[0])
+            self.assertEqual(payload["outside_owns"], [])
+            self.assertEqual(vt.outside_owns(["mine.txt"], tmp, "main"),
+                             ["spec-start.txt"])
 
 
 def lease_in(home: Path):
@@ -681,7 +727,7 @@ class TestTheProductSlot(unittest.TestCase):
 
         patches = [mock.patch.object(vt, "repo_root", return_value=root),
                    mock.patch.object(vt, "fetch_body", return_value=body),
-                   mock.patch.object(vt, "fetch_comments", return_value=list(comments)),
+                   mock.patch.object(vt, "fetch_comments", return_value=[STARTED, *comments]),
                    mock.patch.object(vt, "outside_owns", return_value=[]),
                    mock.patch.object(vt, "post_comment",
                                      side_effect=post or (lambda n, b: posted.append(b))),

@@ -53,6 +53,7 @@ REQUIRED = {
     "verifier.failed": {"commit": "a" * 40},
     "ticket.refused": {"reason": "blocked"},
     "ticket.released": {"reason": "worker-lost"},
+    "ticket.bounced": {"reason": "conflict", "commit": "a" * 40},
     "child.opened": {"child": 90, "kind": "review"},
     "worker.lost": {"session": "gone", "runner": "paseo"},
     "worker.started": {"machine": "mac-1", "host": "grok", "model": "grok-4.6", "effort": "high", "grade": "junior-worker", "worktree": "/repo/.worktrees/issue-61", "branch": "issue-61", "base": "0" * 40},
@@ -871,6 +872,13 @@ class SlotWakeTest(RelayCase):
         self.poll()
         self.assertEqual(len(self.rows()), 1)
         self.assertEqual(self.relay.ack_wake(("paseo", "wk-62"), 62, "worker.queued"), (1, 1, 0))
+
+    def test_bounced_wakes_the_worker_waiting_for_a_slot(self):
+        self.board[62].append(self.queued(110))
+        self.board[61].append(comment(120, "ticket.bounced", 61, into="main",
+                                      files=["src/app.py"]))
+        self.poll()
+        self.assertEqual(self.addressed(), [(1, "worker.queued", "worker", "wk-62")])
 
     def test_the_run_that_got_a_slot_ends_the_wait_and_the_next_release_wakes_nobody(self):
         self.board[62] += [self.queued(110),
