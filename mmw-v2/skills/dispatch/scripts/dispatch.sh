@@ -8,6 +8,7 @@
 #   dispatch.sh adopt <n>
 #   dispatch.sh self
 #   dispatch.sh advance <spec>
+#   dispatch.sh integrate <n>
 #   dispatch.sh land <n>
 #   dispatch.sh start <n> worker|reviewer|verifier
 #   dispatch.sh retract <n>
@@ -244,20 +245,37 @@ print(value)
 '
 }
 
+# Read a field from the newest worker.started while preserving "there is no event" as
+# exit 3 for callers that have another source. Every other failure is explained here.
+newest_worker_field() {
+  local number="$1" field="$2" value rc
+  value="$(newest_field "$number" "$field" worker.started)"
+  rc=$?
+  case "$rc" in
+    0) printf '%s\n' "$value" ;;
+    2) echo "dispatch: could not read #$number's events, so its $field is unknown" >&2; return 2 ;;
+    3) return 3 ;;
+    4) echo "dispatch: #$number's latest worker.started carries no $field; re-start the worker so it is recorded" >&2; return 2 ;;
+    *) echo "dispatch: could not resolve #$number's $field from its worker.started event" >&2; return 2 ;;
+  esac
+}
+
+base_commit() {
+  git -C "$1" merge-base "origin/$2" "$3" 2>/dev/null
+}
+
 # Resolve worker.started.into first, then an open night's spec.opened.into, then the
 # caller's explicit fallback. `start` supplies its current branch as that fallback;
 # `adopt` supplies only --into. A worker.started with no into is refused; a new start
 # records the base branch.
 resolve_into() {
   local number="$1" spec="$2" fallback="$3" into rc
-  into="$(newest_field "$number" into worker.started)"
+  into="$(newest_worker_field "$number" into)"
   rc=$?
   case "$rc" in
     0) printf '%s\n' "$into"; return 0 ;;
-    2) echo "dispatch: could not read #$number's events, so its base branch is unknown" >&2; return 2 ;;
-    4) echo "dispatch: #$number's latest worker.started carries no into; re-start the worker so the base branch is recorded" >&2; return 2 ;;
+    2) return 2 ;;
     3) ;;
-    *) echo "dispatch: could not resolve #$number's base branch from its events" >&2; return 2 ;;
   esac
   if [ -n "$spec" ]; then
     into="$(newest_field "$spec" into spec.opened spec.suspended spec.closed)"
@@ -316,6 +334,7 @@ usage: dispatch.sh check <spec>
        dispatch.sh adopt <n> [--into <branch>]
        dispatch.sh self
        dispatch.sh advance <spec>
+       dispatch.sh integrate <n>
        dispatch.sh land <n>
        dispatch.sh start <n> worker|reviewer|verifier
        dispatch.sh retract <n>
@@ -527,7 +546,12 @@ adopt_ticket() {
   into="$(resolve_into "$number" "$spec" "$explicit_into")" || exit 2
   fetch_origin "$tree" || exit 2
   require_origin_branch "$tree" "$into" || exit 2
-  base="$(git -C "$tree" merge-base HEAD "origin/$into" 2>/dev/null)"
+  base="$(newest_worker_field "$number" base)"
+  case "$?" in
+    0) ;;
+    3) base="$(base_commit "$tree" "$into" HEAD)" ;;
+    *) exit 2 ;;
+  esac
   [ -n "$base" ] || refuse "issue-$number and origin/$into share no commit, so there is no base to review from"
 
   local -a marked
@@ -572,7 +596,6 @@ for r in state.get("sessions") or []:
     case "$opened" in *$'\t'started) started=1 ;; esac
   fi
 
-  record_base_if_missing "$number" "$tree" "$into"
   if [ -n "$already" ]; then
     echo "dispatch: #$number's worker.started already names $runner session $session" >&2
     printf '%s\n' "$session"
@@ -693,20 +716,6 @@ else:
     print(ticket.get("title") or "")
     print(spec)
 '
-}
-
-# Records the ticket branch's merge base with `origin/<base branch>` and the base branch
-# name when either value is absent. Existing values remain the review boundary.
-record_base_if_missing() {
-  local number="$1" root="$2" base_branch="$3" found
-  [ -n "$base_branch" ] || return 0
-  if [ -z "$(git -C "$root" config --get "branch.issue-$number.mmw-base")" ]; then
-    found="$(git -C "$root" merge-base "origin/$base_branch" "issue-$number" 2>/dev/null)"
-    [ -n "$found" ] && git -C "$root" config "branch.issue-$number.mmw-base" "$found"
-  fi
-  if [ -z "$(git -C "$root" config --get "branch.issue-$number.mmw-base-branch")" ]; then
-    git -C "$root" config "branch.issue-$number.mmw-base-branch" "$base_branch"
-  fi
 }
 
 # ------------------------------------------------------------------ worktrees
@@ -944,7 +953,6 @@ ensure_workspace() {
   fi
 
   if [ -d "$dest" ]; then
-    record_base_if_missing "$number" "$root" "$into"
     if [ "$remote" = 0 ]; then
       push_ticket_branch "$number" "$dest" || return 1
     fi
@@ -965,7 +973,6 @@ ensure_workspace() {
       || { echo "dispatch: could not create a worktree for $branch from origin/$into" >&2; return 1; }
     created=1
   fi
-  record_base_if_missing "$number" "$root" "$into"
   if [ "$remote" = 0 ]; then
     push_ticket_branch "$number" "$dest" || return 1
   fi
@@ -1111,20 +1118,6 @@ start_one() {
   workspace_origin_ready "$number" "$root" "$into" \
     || refuse "could not use origin to prepare issue-$number; an existing worker was not stopped"
 
-  local prompt
-  case "$kind" in
-    worker)
-      prompt="Use the implement skill to work ticket #$number. $AUTONOMOUS $PRODUCT_RULES $PIPELINE_FAULT" ;;
-    reviewer)
-      local base
-      base="$(git -C "$root" config --get "branch.issue-$number.mmw-base")"
-      [ -n "$base" ] \
-        || refuse "no branch.issue-$number.mmw-base, so the reviewer has no commit to start from"
-      prompt="Use the code-review skill to review ticket #$number from base commit $base. $AUTONOMOUS" ;;
-    verifier)
-      prompt="Use the verdict skill to verify ticket #$number. $AUTONOMOUS $PRODUCT_RULES" ;;
-  esac
-
   # A worker started on a ticket whose events still show a live worker replaces it. Two
   # workers in one worktree commit over each other, so the old session is stopped first,
   # through its own runner, and a start whose predecessor will not stop starts nothing.
@@ -1148,6 +1141,34 @@ start_one() {
     || refuse "could not open a worktree for issue-$number"
   cwd="$(printf '%s\n' "$ws_row" | cut -f2)"
   created="$(printf '%s\n' "$ws_row" | cut -f3)"
+
+  local base="" prompt
+  case "$kind" in
+    worker)
+      base="$(newest_worker_field "$number" base)"
+      case "$?" in
+        0) ;;
+        3) base="$(base_commit "$root" "$into" "issue-$number")" ;;
+        *) exit 2 ;;
+      esac
+      [ -n "$base" ] \
+        || refuse "issue-$number and origin/$into share no commit, so the worker has no base to record"
+      prompt="Use the implement skill to work ticket #$number. $AUTONOMOUS $PRODUCT_RULES $PIPELINE_FAULT" ;;
+    reviewer)
+      base="$(base_commit "$root" "$into" "issue-$number")"
+      if [ -z "$base" ]; then
+        base="$(newest_worker_field "$number" base)" || base=""
+      fi
+      [ -n "$base" ] \
+        || refuse "#${number}'s branch has no merge-base with origin/$into and worker.started carries no base, so the reviewer has no commit to start from"
+      prompt="Use the code-review skill to review ticket #$number from base commit $base. $AUTONOMOUS" ;;
+    verifier)
+      base="$(base_commit "$root" "$into" "issue-$number")"
+      if [ -z "$base" ]; then
+        base="$(newest_worker_field "$number" base)" || base=""
+      fi
+      prompt="Use the verdict skill to verify ticket #$number. $AUTONOMOUS $PRODUCT_RULES" ;;
+  esac
 
   # A standing worktree a worker of this ticket left — lost, stopped by a suspension, or
   # replaced a moment ago — can hold its uncommitted edits. They are this ticket's work,
@@ -1207,7 +1228,7 @@ start_one() {
        --field "machine=$(machine_name)" \
        --field "host=$host" --field "model=$model" --field "effort=${effort:-—}" \
        --field "grade=$profile" --field "worktree=$cwd" --field "branch=issue-$number" \
-       --field "base=$(git -C "$root" config --get "branch.issue-$number.mmw-base")" \
+       --field "base=$base" \
        --field "into=$into"; then
     if runner stop "$session"; then
       refuse "could not write the $kind.started event on #$number, so session $session on $RUNNER_NAME was stopped again rather than left running where no command can find it; start again once the tracker takes comments"
@@ -1538,6 +1559,92 @@ for line in text.splitlines():
   done <<<"$grades"
 
   [ "$failed" -eq 0 ] || exit 2
+}
+
+# ------------------------------------------------------------------ integrating
+
+# Ticket numbers represented by first-parent merge commits in one revision range, in
+# merge order. `advance` writes this exact subject when it lands a ticket on the base branch.
+integrated_ticket_numbers() {
+  git -C "$1" log --reverse --first-parent --format='%s' "$2" 2>/dev/null \
+    | sed -n "s/^Merge branch 'issue-\([0-9][0-9]*\)'$/\1/p" \
+    | awk '!seen[$0]++'
+}
+
+integrate_conflict_report() {
+  local root="$1" number="$2" into="$3" tickets="$4" ticket title
+  {
+    echo "CONFLICT merging origin/$into into issue-$number"
+    echo
+    echo "  incoming tickets:"
+    if [ -z "$tickets" ]; then
+      echo "    none represented by Merge branch 'issue-<n>' commits"
+    else
+      while IFS= read -r ticket; do
+        [ -n "$ticket" ] || continue
+        title="$(ticket_title "$ticket")"
+        echo "    #$ticket  $title"
+      done <<<"$tickets"
+    fi
+    echo
+    echo "  conflicted files:"
+    git -C "$root" diff --name-only --diff-filter=U | sed 's/^/    /'
+    echo
+    echo "  Resolve this merge with the resolving-merge-conflicts skill, run the"
+    echo "  repository checks affected by the merged tickets, commit the merge,"
+    echo "  then run dispatch.sh integrate $number again."
+  } >&2
+}
+
+# Bring the `origin/<base branch>` recorded by the newest worker.started into this
+# ticket's branch. The command is run by that ticket's worker from its own worktree. It never
+# pushes, rebases, or aborts a conflict.
+integrate_ticket() {
+  local number="$1" root branch into base tickets out
+  root="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$root" ] || refuse "not inside a git repository, so there is no issue-$number to integrate"
+  branch="$(current_branch "$root")" || branch=""
+  [ "$branch" = "issue-$number" ] \
+    || refuse "integrate $number runs from branch issue-$number, not ${branch:-a detached HEAD}"
+  [ -z "$(git -C "$root" status --porcelain --untracked-files=no)" ] \
+    || refuse "issue-$number has uncommitted tracked changes; commit them before integrating the base branch"
+
+  into="$(newest_worker_field "$number" into)"
+  case "$?" in
+    0) ;;
+    3) refuse "#${number} has no worker.started event, so its base branch is unknown" ;;
+    *) exit 2 ;;
+  esac
+
+  fetch_origin "$root" || exit 2
+  require_origin_branch "$root" "$into" || exit 2
+  if git -C "$root" merge-base --is-ancestor "origin/$into" HEAD; then
+    echo "issue-$number is already current with origin/$into"
+    return 0
+  fi
+  base="$(git -C "$root" merge-base HEAD "origin/$into" 2>/dev/null)"
+  [ -n "$base" ] \
+    || refuse "issue-$number and origin/$into share no commit, so they cannot be integrated"
+  tickets="$(integrated_ticket_numbers "$root" "$base..origin/$into")"
+
+  if out="$(git -C "$root" merge --no-ff -m "Merge $into into issue-$number" "origin/$into" 2>&1)"; then
+    if [ -n "$tickets" ]; then
+      printf 'integrated origin/%s into issue-%s; incoming tickets:' "$into" "$number"
+      while IFS= read -r ticket; do
+        [ -n "$ticket" ] && printf ' #%s' "$ticket"
+      done <<<"$tickets"
+      printf '\n'
+    else
+      echo "integrated origin/$into into issue-$number; incoming tickets: none"
+    fi
+    return 0
+  fi
+  if git -C "$root" rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
+    integrate_conflict_report "$root" "$number" "$into" "$tickets"
+    return 3
+  fi
+  echo "dispatch: git merge origin/$into into issue-$number failed: $(printf '%s' "$out" | tail -2 | tr '\n' ' ')" >&2
+  return 2
 }
 
 # ------------------------------------------------------------------ advancing
@@ -2427,6 +2534,11 @@ case "${1:-}" in
   advance)
     [ "$#" -eq 2 ] || usage
     advance "$2"
+    ;;
+  integrate)
+    [ "$#" -eq 2 ] || usage
+    case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
+    integrate_ticket "$2"
     ;;
   land)
     [ "$#" -eq 2 ] || usage

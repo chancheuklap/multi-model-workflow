@@ -1,6 +1,6 @@
 ## What it does
 
-`resolving-merge-conflicts` works through an in-progress git merge or rebase, hunk by hunk, then runs the project's own checks and finishes the operation with a commit.
+`resolving-merge-conflicts` works through an in-progress git merge or rebase, hunk by hunk, then runs the project's own checks and finishes the operation with a commit. It also handles a clean merge that makes those checks fail: there are no conflict markers, so it traces the failing interaction across the tickets newly merged into the base branch.
 
 It refuses to treat a conflict as a text problem. Before touching a hunk it traces each side back to its **[primary source](https://www.aihero.dev/ai-coding-dictionary/primary-source)** (the commit message, the PR, the original issue), so it is choosing between two intents rather than between two blocks of text, and it preserves both wherever they are compatible. Where they genuinely are not, it picks the side matching the merge's stated goal and names the trade-off. It invents no new behaviour to paper over a clash, and `--abort` is not an option it has: the merge is always carried to a finished commit.
 
@@ -8,19 +8,20 @@ It refuses to treat a conflict as a text problem. Before touching a hunk it trac
 
 Type `/resolving-merge-conflicts`, or the [agent](https://www.aihero.dev/ai-coding-dictionary/agent) reaches for it automatically when a task fits.
 
-Reach for it when git has already stopped on conflicts it could not resolve itself. It is scoped to the conflict in front of you, not to anything either side of it:
+Reach for it when git has stopped on conflicts it could not resolve itself, or when a clean merge of `origin/<base branch>` makes repository checks red. It is scoped to the merge interaction in front of you, not to unrelated work on either side:
 
 | Your situation | Skill |
 | --- | --- |
 | Mid-merge or mid-rebase, conflict markers in the tree | This one |
-| Merge finished, something now misbehaves for reasons you can't see | [diagnosing-bugs](https://aihero.dev/skills-diagnosing-bugs) |
+| Merge of `origin/<base branch>` finished cleanly, but repository checks became red | This one: read the merged tickets, their closeout evidence and the merge commits before repairing the interaction |
+| Something misbehaves with no preceding merge and the cause is unknown | [diagnosing-bugs](https://aihero.dev/skills-diagnosing-bugs) |
 | Planning how to slice work so branches collide less | Neither: see the parallel-work question below |
 
 ## Primary sources over `ours` and `theirs`
 
 The failure mode this exists to kill is resolving by flag: `--ours`, `--theirs`, or hand-deleting whichever block looks less important, so the markers go away and the build compiles. That resolution can be syntactically perfect and still silently drop a change somebody made on purpose.
 
-You cannot preserve an intent you have not read. So the work starts in the history (commits, PRs, [tickets](https://www.aihero.dev/ai-coding-dictionary/ticket)) and only then moves to the diff. Another step in the loop exists for the same reason: the skill finds the repo's own [automated checks](https://www.aihero.dev/ai-coding-dictionary/automated-check) and runs them before committing, because a merge is the easiest place in git to produce code that satisfies both branches and passes neither's tests.
+You cannot preserve an intent you have not read. So the work starts in the history (commits, PRs, [tickets](https://www.aihero.dev/ai-coding-dictionary/ticket)) and only then moves to the diff. After a clean merge of `origin/<base branch>`, the first-parent merge commits identify the tickets to read; their ticket bodies and closeout evidence state the contracts that now interact. Another step in the loop exists for the same reason: the skill finds the repo's own [automated checks](https://www.aihero.dev/ai-coding-dictionary/automated-check) and runs them before committing, because a merge is the easiest place in git to produce code that satisfies both branches and passes neither's tests.
 
 ## Common questions
 
@@ -42,10 +43,11 @@ Aborting throws away the resolution work and returns you to the same conflict, u
 
 - The agent quotes commit messages, PRs or issues at you while resolving, not just diff hunks.
 - Every hunk ends up with both sides' behaviour, or with an explicit note naming what was dropped and why.
+- A clean merge with red checks is repaired from the merged tickets' stated intents, even though no conflict marker points at the interaction.
 - Nothing appears in the result that was on neither branch.
 - Typecheck, tests and format were located and run green *before* the commit, not after you noticed something broken.
 - You end on a clean tree with the operation completed, including every remaining commit in a multi-commit rebase.
 
 ## Where it fits
 
-A reach-for-it-anytime standalone with no dependencies on any other skill: it starts when git stalls and ends when the tree is clean and committed. Its only real neighbour is [diagnosing-bugs](https://aihero.dev/skills-diagnosing-bugs), which takes over at the point where a merge resolved cleanly but the merged code misbehaves: a diagnosis problem, not a conflict one. It sits off the main idea-to-ship flow entirely, so [ask-matt](https://aihero.dev/skills-ask-matt) is the map for what runs before and after it.
+A reach-for-it-anytime standalone with no dependencies on any other skill: it starts when git stalls, or when a merge of `origin/<base branch>` first makes checks red, and ends when the tree is clean, committed and green. [diagnosing-bugs](https://aihero.dev/skills-diagnosing-bugs) takes over when something misbehaves without a preceding merge interaction. It sits off the main idea-to-ship flow entirely, so [ask-matt](https://aihero.dev/skills-ask-matt) is the map for what runs before and after it.

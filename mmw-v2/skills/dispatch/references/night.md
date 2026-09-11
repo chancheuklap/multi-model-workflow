@@ -8,7 +8,7 @@ Between the steps below you end your turn. The relay you start in step 1 wakes y
 
 ## 1. The user says the night starts
 
-Run on the base branch, in whichever checkout has it: the main checkout or a task worktree of your own. It must already exist on `origin`, and the local branch must not be ahead of `origin/<base branch>`. Ticket branches are cut from the fetched remote ref; their worktrees always go under the main checkout's `.worktrees/`, and a name `issue-<n>` there belongs to the pipeline.
+Run on the base branch, in whichever checkout has it: the main checkout or a task worktree of your own. It must already exist on `origin`, and the local branch must not be ahead of `origin/<base branch>`. Ticket branches are cut from the fetched `origin/<base branch>`; their worktrees always go under the main checkout's `.worktrees/`, and a name `issue-<n>` there belongs to the pipeline.
 
 ```bash
 <dispatch> check <spec>
@@ -69,7 +69,7 @@ What `advance` does inside that one command — merge, archive, give claims back
 
 `<dispatch> advance <spec>` merges the branch of every ticket that closed with a `ticket.passed` event and has not landed into the branch you are on at that moment, records `ticket.landed` on each, archives each merged ticket's workspace, gives back the claims whose workers are gone, then dispatches every ticket on the frontier.
 
-An open ticket's branch is never merged, whatever its criteria say: closed with `ticket.passed` is the whole rule. A contract defect a worker cannot answer from its own code comes back as a red criterion and a `HANDOFF REQUIRED` ticket, the way any other defect does. The branch you open the night on is the base branch, so stay on it all night: every `advance` merges into whatever `HEAD` is on, and `git config branch.issue-<n>.mmw-base-branch` is a record for readers, not something `advance` consults.
+An open ticket's branch is never merged, whatever its criteria say: closed with `ticket.passed` is the whole rule. A contract defect a worker cannot answer from its own code comes back as a red criterion and a `HANDOFF REQUIRED` ticket, the way any other defect does. The branch you open the night on is the base branch, so stay on it all night: every `advance` merges into whatever `HEAD` is on. Its name travels in `spec.opened.into` and each ticket's `worker.started.into`.
 
 The four are one command because the order is the reason. A new ticket branch is cut from the fetched `origin/<base branch>`; the frontier is read after the claims come off, so a ticket freed by this run starts in this run rather than the next one; and `advance` archives a ticket's workspace only after that ticket's branch is already in `HEAD`, releasing its lease first.
 
