@@ -121,6 +121,8 @@
 .card:hover { border-color: rgba(45, 49, 66, 0.34); }
 .card.on { border-color: var(--ink); border-width: 1.5px; padding: 10.5px 12.5px 9.5px 14.5px; box-shadow: 0 4px 16px rgba(45, 49, 66, 0.14); }
 .card.cycle { border-style: dashed; border-color: var(--ink); }
+.card-hit { position: absolute; inset: 0; padding: 0; border: 0; border-radius: inherit; background: none; cursor: pointer; }
+.card-hit:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .card.closeout::before {
   content: ""; position: absolute; left: 1.5px; top: 10px; bottom: 10px; width: 3px; border-radius: 1.5px; background: var(--closeout);
 }
@@ -140,6 +142,7 @@
 .chev {
   width: 20px; height: 20px; display: inline-grid; place-items: center; border-radius: 5px;
   border: 1px solid transparent; background: none; color: var(--soft); cursor: pointer; font-size: 10px; padding: 0;
+  position: relative; z-index: 1;
 }
 .chev:hover { border-color: var(--rule); background: rgba(45, 49, 66, 0.04); color: var(--ink); }
 .card-bar { position: absolute; left: 15px; right: 13px; bottom: 7px; height: 2px; border-radius: 1px; background: rgba(45, 49, 66, 0.08); overflow: hidden; }

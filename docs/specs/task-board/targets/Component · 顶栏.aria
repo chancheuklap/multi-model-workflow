@@ -1,0 +1,32 @@
+# target trees of the handoff package page: Component · 顶栏.dc.html
+# derived by extract_skeleton.py — the handoff package is the baseline and this file is its readable view; the lint fails when the hashes below no longer match the package
+# scenes.json sha256=5873450cb918666f5b2f7919883486055f1ada43e45589bacca22d1e3a93be5f
+# page sha256=02e547d8b41d2fbc1d3e29b5a6ff24f788cb5290a74ac31544d6f6f0f70fdb03
+
+## scene 顶栏.morning
+- text: MMW task board chancheuklap/multi-model-workflow
+- button "需要你 3"
+- text: 在跑 3 其中等槽位 1 待派 9 好了 9 只读 · 07:39 读取
+- button "立刻重读 GitHub"
+- button "本机配置"
+
+## scene 顶栏.twenty-tickets
+- text: MMW task board chancheuklap/multi-model-workflow
+- button "需要你 2"
+- text: 在跑 4 其中等槽位 1 待派 7 好了 7 只读 · 07:39 读取
+- button "立刻重读 GitHub"
+- button "本机配置"
+
+## scene 顶栏.bad-data
+- text: MMW task board chancheuklap/multi-model-workflow
+- button "需要你 1"
+- text: 在跑 1 待派 3 好了 1 读 GitHub 失败 · 下面是 07:12 的数据（28 分钟前）
+- button "立刻重读 GitHub"
+- button "本机配置"
+
+## scene 顶栏.empty
+- text: MMW task board chancheuklap/multi-model-workflow
+- button "需要你 0" [disabled]
+- text: 在跑 0 待派 0 好了 0 只读 · 07:39 读取
+- button "立刻重读 GitHub"
+- button "本机配置"

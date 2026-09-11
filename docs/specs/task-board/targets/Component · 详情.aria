@@ -1,0 +1,276 @@
+# target trees of the handoff package page: Component · 详情.dc.html
+# derived by extract_skeleton.py — the handoff package is the baseline and this file is its readable view; the lint fails when the hashes below no longer match the package
+# scenes.json sha256=5873450cb918666f5b2f7919883486055f1ada43e45589bacca22d1e3a93be5f
+# page sha256=256ee4b3cce4e0b842fc671f04236fe50e67ae2ce278a14e43b722ff846f8f72
+
+## scene 详情.morning
+- text: Ticket
+- button: ×
+- text: "#133 ·"
+- button "spec #131"
+- text: ·
+- button "map #98"
+- heading "折叠接入中继" [level=2]
+- text: "需要你 已跑 1h02m working 现在在这一步 queued › working › waiting › review › verify › landed 为什么是橙的 #150 contract spec 没写队列为空时中继读什么。spec 本身不成立，要回到写 spec 的人 #151 decision 唤醒要不要跨过已暂停的 spec。只有你能拍板；worker 先按默认值继续 运行时 取自 worker.started host grok · grok 4.6 · xhigh runner herdr · w94b8 机器 cheuk-mbp 分支 issue-133 @ 38f8f22 合进 wake-relay 工作树 …/.worktrees/133-fold-relay 档位 senior-worker 阻塞 阻塞它的"
+- button "#132 中继进程骨架 已合入"
+- text: 它阻塞的
+- button "#135 投递回执 待派"
+- text: "子 issue 3 #150 contract 等你 spec 没写队列为空时中继读什么 #151 decision 等你 唤醒要不要跨过已暂停的 spec #152 deferred 留给以后的票 status.py 的表头还是旧词 事件 5 条评论 06:38 worker.started herdr · w94b8 · cheuk-mbp worker started on herdr: session w94b8, grok grok 4.6 (xhigh) 06:38 ticket.claimed login=chancheuklap Claimed #133 on issue-133 as chancheuklap 06:51 child.opened kind=contract #150 Opened #150 (contract): spec 没写队列为空时中继读什么 07:10 child.opened kind=deferred #152 Opened #152 (deferred): status.py 的表头还是旧词 07:31 child.opened kind=decision #151 Opened #151 (decision): 唤醒要不要跨过已暂停的 spec"
+- button "在 GitHub 打开 #133 ↗"
+
+## scene 详情.twenty-tickets
+- text: Ticket
+- button: ×
+- text: "#220 ·"
+- button "spec #211"
+- text: ·
+- button "map #210"
+- heading "判活扫描循环" [level=2]
+- text: "需要你 已跑 3h34m working 现在在这一步 queued › working › waiting › review › verify › landed 为什么是橙的 #241 decision 扫描发现心跳停了 5 分钟，算死还是算不知道。只有你能拍板；worker 先按默认值继续 运行时 取自 worker.started host claude · opus 5 · high runner herdr · w2ce4 机器 cheuk-mbp 分支 issue-220 @ 0af724c 合进 main 工作树 …/.worktrees/220-work 档位 senior-worker 阻塞 阻塞它的"
+- button "#213 心跳写入钩子 已合入"
+- button "#214 回合守卫骨架 已合入"
+- text: 它阻塞的
+- button "#221 worker.lost 写入 待派"
+- text: "子 issue 1 #241 decision 等你 扫描发现心跳停了 5 分钟，算死还是算不知道 事件 3 条评论 04:06 worker.started herdr · w2ce4 · cheuk-mbp worker started on herdr: session w2ce4, claude opus 5 (high) 04:06 ticket.claimed login=chancheuklap Claimed #220 on issue-220 as chancheuklap 06:47 child.opened kind=decision #241 Opened #241 (decision): 扫描发现心跳停了 5 分钟，算死还是算不知道"
+- button "在 GitHub 打开 #220 ↗"
+
+## scene 详情.bad-data
+- text: Ticket
+- button: ×
+- text: "#306 ·"
+- button "spec #301"
+- text: ·
+- button "map #300"
+- heading "lease --check" [level=2]
+- text: 在跑 已跑 1h41m working 现在在这一步 queued › working › waiting › review › verify › landed 运行时 取自 worker.started host codex · gpt-5.5 · high runner herdr · wb263 机器 cheuk-mbp 分支 issue-306 @ 1a9eeff 合进 main 工作树 …/.worktrees/306-work 档位 senior-worker 阻塞 阻塞它的
+- button "#302 租约登记表 已合入"
+- text: 它阻塞的
+- paragraph: 无
+- text: 子 issue 0
+- paragraph: 没有开出子 issue
+- text: "事件 2 条评论 05:59 worker.started herdr · wb263 · cheuk-mbp worker started on herdr: session wb263, codex gpt-5.5 (high) 05:59 ticket.claimed login=chancheuklap Claimed #306 on issue-306 as chancheuklap"
+- button "在 GitHub 打开 #306 ↗"
+
+## scene 详情.empty
+- paragraph: 这里是详情
+- text: 有了任务之后，点画布上的卡，它的细节显示在这一栏。
+
+## scene ticket-returned
+- text: Ticket
+- button: ×
+- text: "#138 ·"
+- button "spec #131"
+- text: ·
+- button "map #98"
+- heading "离线时唤醒去向" [level=2]
+- text: 需要你 跑了 48 分钟 后交回 verify 停在这一步 queued › working › waiting › review › verify › landed 为什么是橙的 交回：AC3 放弃（stuck）。离线投递要一个真的 main 会话来收，夜里起不来 运行时 取自 worker.started host grok · grok 4.6 · high runner herdr · we7c5 机器 cheuk-mbp 分支 issue-138 @ 3d82cd1 合进 wake-relay 工作树 …/.worktrees/138-work 档位 senior-worker worker grok · grok 4.6 · high 已交回 reviewer codex · gpt-5.5 · medium 已交评审 verifier claude · sonnet 5 · medium 复验没过 阻塞 阻塞它的
+- button "#132 中继进程骨架 已合入"
+- text: 它阻塞的
+- paragraph: 无
+- text: 子 issue 0
+- paragraph: 没有开出子 issue
+- text: "事件 10 条评论 06:38 worker.started herdr · we7c5 · cheuk-mbp worker started on herdr: session we7c5, grok grok 4.6 (high) 06:38 ticket.claimed login=chancheuklap Claimed #138 on issue-138 as chancheuklap 06:58 ticket.checked run=self result=handoff slot=1 Own run on 47e282b29080: HANDOFF REQUIRED: AC3 stuck 07:00 reviewer.started herdr · w709a · cheuk-mbp reviewer started on herdr: session w709a, codex gpt-5.5 (medium) 07:14 reviewer.reported 3d82cd1..47e282b REVIEW 3d82cd10637f3d66d0a93d3d072bb2d245fd4089..47e282b2908040aafb0c4f5601876073ea90929a 07:16 worker.decided DECISIONS 07:18 verifier.started herdr · w72bf · cheuk-mbp verifier started on herdr: session w72bf, claude sonnet 5 (medium) 07:22 ticket.checked run=reverify result=handoff Reverify on 47e282b29080: HANDOFF REQUIRED: AC3 stuck 07:24 verifier.failed commit=47e282b VERDICT 47e282b2908040aafb0c4f5601876073ea90929a by sonnet 5 — AC3 abandoned (stuck); the rest met on HEAD 07:26 ticket.returned AC3=stuck HANDOFF REQUIRED: AC3 stuck"
+- button "在 GitHub 打开 #138 ↗"
+
+## scene ticket-bounced
+- text: Ticket
+- button: ×
+- text: "#139 ·"
+- button "spec #131"
+- text: ·
+- button "map #98"
+- heading "槽位交还后叫醒" [level=2]
+- text: 需要你 跑了 51 分钟 后合不进去 verify 停在这一步 queued › working › waiting › review › verify › landed 为什么是橙的 合不进 wake-relay（f3bebc0）：冲突在 mmw-v2/skills/dispatch/scripts/relay.py、mmw-v2/tests/relay/test_relay.py。等早上 triage 运行时 取自 worker.started host claude · opus 5 · high runner herdr · w0871 机器 cheuk-mbp 分支 issue-139 @ 524c928 合进 wake-relay 工作树 …/.worktrees/139-work 档位 senior-worker worker claude · opus 5 · high 合不进去 reviewer codex · gpt-5.5 · medium 已交评审 verifier claude · sonnet 5 · medium 复验通过 阻塞 阻塞它的
+- button "#132 中继进程骨架 已合入"
+- text: 它阻塞的
+- paragraph: 无
+- text: 子 issue 0
+- paragraph: 没有开出子 issue
+- text: "事件 12 条评论 06:38 worker.started herdr · w0871 · cheuk-mbp worker started on herdr: session w0871, claude opus 5 (high) 06:38 ticket.claimed login=chancheuklap Claimed #139 on issue-139 as chancheuklap 07:00 ticket.checked run=self result=met slot=2 Own run on 51159e38b9e6: ALL MET 07:02 reviewer.started herdr · wb28e · cheuk-mbp reviewer started on herdr: session wb28e, codex gpt-5.5 (medium) 07:15 reviewer.reported 524c928..51159e3 REVIEW 524c928981e6cb134fe1dfd637f1e19ed8543de5..51159e38b9e618fbd0ba0a5150f98362d4db163a 07:17 worker.decided DECISIONS 07:18 verifier.started herdr · w2f09 · cheuk-mbp verifier started on herdr: session w2f09, claude sonnet 5 (medium) 07:24 ticket.checked run=reverify result=met Reverify on 51159e38b9e6: ALL MET 07:26 verifier.passed commit=51159e3 VERDICT 51159e38b9e618fbd0ba0a5150f98362d4db163a by sonnet 5 — every criterion met on HEAD 07:27 ticket.checked run=repo-checks result=met Repository checks on 51159e38b9e6: 3/3 passed 07:28 ticket.passed commit=51159e3 ALL MET 07:29 ticket.bounced reason=conflict onto=f3bebc0 Did not land issue-139 into wake-relay: 2 files conflict"
+- button "在 GitHub 打开 #139 ↗"
+
+## scene ticket-closeout
+- text: Ticket
+- button: ×
+- text: "#141 ·"
+- button "spec #131"
+- text: ·
+- button "map #98"
+- text: 收口那一轮新开 · 出自
+- button "#132"
+- text: "的 finding #147"
+- heading "中继日志轮转" [level=2]
+- text: 在跑 已跑 1h02m verify 现在在这一步 queued › working › waiting › review › verify › landed 运行时 取自 worker.started host cursor · composer 2.5 · — runner orca · term_5666 机器 cheuk-mbp 分支 issue-141 @ ae0a1c6 合进 wake-relay 工作树 …/.worktrees/141-work 档位 senior-worker 槽位 1 号，持有到这张票落地、交回或合不进去 worker cursor · composer 2.5 · — 在跑 reviewer codex · gpt-5.5 · medium 已交评审 verifier claude · sonnet 5 · medium 在跑 阻塞 阻塞它的
+- button "#132 中继进程骨架 已合入"
+- text: 它阻塞的
+- paragraph: 无
+- text: 子 issue 0
+- paragraph: 没有开出子 issue
+- text: "事件 7 条评论 06:38 worker.started orca · term_5666 · cheuk-mbp worker started on orca: session term_5666, cursor composer 2.5 (—) 06:38 ticket.claimed login=chancheuklap Claimed #141 on issue-141 as chancheuklap 07:02 ticket.checked run=self result=met slot=1 Own run on d1fc16755a5e: ALL MET 07:04 reviewer.started herdr · w4a5a · cheuk-mbp reviewer started on herdr: session w4a5a, codex gpt-5.5 (medium) 07:24 reviewer.reported ae0a1c6..d1fc167 REVIEW ae0a1c6e5d86efc074539319b3f5dd21c2b71880..d1fc16755a5e6b6a258774dbcb2b75aa9bd77183 07:28 worker.decided DECISIONS 07:32 verifier.started herdr · w13b1 · cheuk-mbp verifier started on herdr: session w13b1, claude sonnet 5 (medium)"
+- button "在 GitHub 打开 #141 ↗"
+
+## scene ticket-waiting
+- text: Ticket
+- button: ×
+- text: "#136 ·"
+- button "spec #131"
+- text: ·
+- button "map #98"
+- heading "重试与退避" [level=2]
+- text: 在跑 已跑 1h02m waiting 现在在这一步 queued › working › waiting › review › verify › landed 运行时 取自 worker.started host claude · opus 5 · high runner herdr · wa0be 机器 cheuk-mbp 分支 issue-136 @ 3893a19 合进 wake-relay 工作树 …/.worktrees/136-work 档位 senior-worker 槽位 07:32 起排队：本产品的实例都占着（上限 2）。到下一条 ticket.checked 为止，其中含等中继叫醒与跑判据的时间 阻塞 阻塞它的
+- button "#132 中继进程骨架 已合入"
+- text: 它阻塞的
+- paragraph: 无
+- text: 子 issue 0
+- paragraph: 没有开出子 issue
+- text: "事件 3 条评论 06:38 worker.started herdr · wa0be · cheuk-mbp worker started on herdr: session wa0be, claude opus 5 (high) 06:38 ticket.claimed login=chancheuklap Claimed #136 on issue-136 as chancheuklap 07:32 worker.queued reason=product-full run=self Waiting for a product slot: this product's instance.max (2) is held"
+- button "在 GitHub 打开 #136 ↗"
+
+## scene ticket-review
+- text: Ticket
+- button: ×
+- text: "#134 ·"
+- button "spec #131"
+- text: ·
+- button "map #98"
+- heading "唤醒队列持久化" [level=2]
+- text: 在跑 已跑 1h02m review 现在在这一步 queued › working › waiting › review › verify › landed 运行时 取自 worker.started host codex · gpt-5.5 · high runner herdr · w5d14 机器 cheuk-mbp 分支 issue-134 @ a581acf 合进 wake-relay 工作树 …/.worktrees/134-work 档位 senior-worker 槽位 2 号，持有到这张票落地、交回或合不进去 worker codex · gpt-5.5 · high 在跑 reviewer codex · gpt-5.5 · medium 在跑 阻塞 阻塞它的
+- button "#132 中继进程骨架 已合入"
+- text: 它阻塞的
+- button "#135 投递回执 待派"
+- text: 子 issue 0
+- paragraph: 没有开出子 issue
+- text: "事件 4 条评论 06:38 worker.started herdr · w5d14 · cheuk-mbp worker started on herdr: session w5d14, codex gpt-5.5 (high) 06:38 ticket.claimed login=chancheuklap Claimed #134 on issue-134 as chancheuklap 07:18 ticket.checked run=self result=met slot=2 Own run on b04d79f94420: ALL MET 07:22 reviewer.started herdr · we7e3 · cheuk-mbp reviewer started on herdr: session we7e3, codex gpt-5.5 (medium)"
+- button "在 GitHub 打开 #134 ↗"
+
+## scene ticket-queued
+- text: Ticket
+- button: ×
+- text: "#135 ·"
+- button "spec #131"
+- text: ·
+- button "map #98"
+- heading "投递回执" [level=2]
+- text: 待派 queued 还没开始 queued › working › waiting › review › verify › landed 运行时
+- paragraph: 尚未派发。frontier 选中它之后，这里会出现它跑在哪个 host、哪个 runner。
+- text: 阻塞 阻塞它的
+- button "#133 折叠接入中继 未合入"
+- button "#134 唤醒队列持久化 未合入"
+- text: 它阻塞的
+- button "#137 中继自检命令 待派"
+- text: 子 issue 0
+- paragraph: 没有开出子 issue
+- text: 事件 0 条评论
+- paragraph: 还没有事件。第一条会是 worker.started。
+- button "在 GitHub 打开 #135 ↗"
+
+## scene ticket-landed
+- text: Ticket
+- button: ×
+- text: "#132 ·"
+- button "spec #131"
+- text: ·
+- button "map #98"
+- heading "中继进程骨架" [level=2]
+- text: 好了 用时 2h06m landed 走完了 queued › working › waiting › review › verify › landed 运行时 取自 worker.started host claude · opus 5 · high runner herdr · wc257 机器 cheuk-mbp 分支 issue-132 @ 44aaf05 合进 wake-relay 工作树 …/.worktrees/132-relay-skeleton 档位 senior-worker worker claude · opus 5 · high 已结束 reviewer codex · gpt-5.5 · medium 已交评审 verifier claude · sonnet 5 · medium 复验通过 阻塞 阻塞它的
+- paragraph: 无，一开始就能动
+- text: 它阻塞的
+- button "#133 折叠接入中继 需要你"
+- button "#134 唤醒队列持久化 在跑"
+- button "#142 唤醒日志落盘 已合入"
+- button "#139 槽位交还后叫醒 需要你"
+- button "#138 离线时唤醒去向 需要你"
+- button "#141 中继日志轮转 在跑"
+- button "#136 重试与退避 在跑"
+- text: "子 issue 2 #147 finding"
+- button "变成了 #141"
+- text: "中继日志不轮转，一夜能写满磁盘 #148 deferred 已修 status 表头少一列 runner 事件 16 条评论 04:30 worker.started herdr · wc257 · cheuk-mbp worker started on herdr: session wc257, claude opus 5 (high) 04:30 ticket.claimed login=chancheuklap Claimed #132 on issue-132 as chancheuklap 05:05 child.opened kind=deferred #148 Opened #148 (deferred): status 表头少一列 runner 05:18 ticket.checked run=self result=met slot=1 Own run on d1aa5a2a1955: ALL MET 05:20 reviewer.started herdr · wada4 · cheuk-mbp reviewer started on herdr: session wada4, codex gpt-5.5 (medium) 05:48 reviewer.reported 44aaf05..d1aa5a2 REVIEW 44aaf05df78c69da95e8b522dbaef7b22b5260dd..d1aa5a2a1955154cb7b1e656f89738daff02fe3e 05:50 child.opened kind=finding #147 Opened #147 (finding): 中继日志不轮转，一夜能写满磁盘 05:52 worker.decided DECISIONS 05:55 verifier.started herdr · wf7c9 · cheuk-mbp verifier started on herdr: session wf7c9, claude sonnet 5 (medium) 06:10 ticket.checked run=reverify result=met Reverify on d1aa5a2a1955: ALL MET 06:15 verifier.passed commit=d1aa5a2 VERDICT d1aa5a2a1955154cb7b1e656f89738daff02fe3e by sonnet 5 — every criterion met on HEAD 06:18 ticket.checked run=repo-checks result=met Repository checks on d1aa5a2a1955: 3/3 passed 06:20 ticket.passed commit=d1aa5a2 ALL MET 06:36 child.closed #148 → fixed Fixed #148 on the closing pass 06:36 child.closed #147 → became-ticket #141 #147 became ticket #141 under #131 06:36 ticket.landed commit=d1aa5a2 Landed issue-132 into wake-relay"
+- button "在 GitHub 打开 #132 ↗"
+
+## scene ticket-fault
+- text: Ticket
+- button: ×
+- text: "#307 ·"
+- button "spec #301"
+- text: ·
+- button "map #300"
+- heading "回收冲突告警" [level=2]
+- text: "需要你 已跑 1h41m working 停在这一步 queued › working › waiting › review › verify › landed 为什么是橙的 #310 fault verify-ticket.py 自跑判据时租约登记表读不出来，直接崩了。MMW 自己坏了，开它的 agent 已停下 运行时 取自 worker.started host grok · grok 4.6 · xhigh runner herdr · w04d8 机器 cheuk-mbp 分支 issue-307 @ e415162 合进 main 工作树 …/.worktrees/307-reclaim-alert 档位 senior-worker 阻塞 阻塞它的"
+- button "#302 租约登记表 已合入"
+- text: 它阻塞的
+- paragraph: 无
+- text: "子 issue 1 #310 fault 等你 verify-ticket.py 自跑判据时租约登记表读不出来，直接崩了 事件 3 条评论 05:59 worker.started herdr · w04d8 · cheuk-mbp worker started on herdr: session w04d8, grok grok 4.6 (xhigh) 05:59 ticket.claimed login=chancheuklap Claimed #307 on issue-307 as chancheuklap 06:34 child.opened kind=fault #310 Opened #310 (fault): verify-ticket.py 自跑判据时租约登记表读不出来，直接崩了"
+- button "在 GitHub 打开 #307 ↗"
+
+## scene ticket-missing-blocker
+- text: Ticket
+- button: ×
+- text: "#305 ·"
+- button "spec #301"
+- text: ·
+- button "map #300"
+- heading "回收日志" [level=2]
+- text: 待派 queued 还没开始 queued › working › waiting › review › verify › landed 运行时
+- paragraph: 尚未派发。frontier 选中它之后，这里会出现它跑在哪个 host、哪个 runner。
+- text: "阻塞 阻塞它的 #399 不在这棵树里，读不到它的状态 未知 它阻塞的"
+- paragraph: 无
+- text: 子 issue 0
+- paragraph: 没有开出子 issue
+- text: 事件 0 条评论
+- paragraph: 还没有事件。第一条会是 worker.started。
+- button "在 GitHub 打开 #305 ↗"
+
+## scene spec
+- text: Spec
+- button: ×
+- text: "#131 ·"
+- button "map #98"
+- heading "唤醒回路" [level=2]
+- text: 需要你 2/10 落地 它的 ticket 10 需要你 3 在跑 3 待派 2 好了 2 queued · 2 working · 1 waiting · 1 review · 1 verify · 3 landed · 2 按票号
+- button "#132 中继进程骨架 landed"
+- button "#133 折叠接入中继 working"
+- button "#134 唤醒队列持久化 review"
+- button "#142 唤醒日志落盘 landed"
+- button "#139 槽位交还后叫醒 verify"
+- button "#138 离线时唤醒去向 verify"
+- button "#141 中继日志轮转 verify"
+- button "#136 重试与退避 waiting"
+- button "#135 投递回执 queued"
+- button "#137 中继自检命令 queued"
+- button "在 GitHub 打开 #131 ↗"
+
+## scene map
+- text: Map · 任务
+- button: ×
+- text: "#98 · wayfinder"
+- heading "落地流水线改造" [level=2]
+- text: 需要你 6/18 落地 全部 ticket 18 需要你 3 在跑 3 待派 6 好了 6 queued · 6 working · 1 waiting · 1 review · 1 verify · 3 landed · 6 spec 3
+- button "#123 事件评论格式 4/4"
+- button "#131 唤醒回路 2/10"
+- button "#140 判活三层 0/4"
+- text: 决策票 6
+- button "#99 事件格式怎么定 已关闭"
+- button "#100 读票用什么 已关闭"
+- button "#104 唤醒要不要队列 已关闭"
+- button "#105 槽位推到哪一步 已关闭"
+- button "#106 判活放哪一层 已关闭"
+- button "#107 团队版什么时候做 开着"
+- button "在 GitHub 打开 #98 ↗"
+
+## scene decision
+- text: 决策票 · grilling
+- button: ×
+- text: "#105 ·"
+- button "map #98"
+- heading "槽位推到哪一步" [level=2]
+- text: 已定 阻塞 阻塞它的
+- button "#100 读票用什么 已关闭"
+- button "#104 唤醒要不要队列 已关闭"
+- text: 它阻塞的
+- button "#106 判活放哪一层 已关闭"
+- button "#107 团队版什么时候做 开着"
+- button "在 GitHub 打开 #105 ↗"
+
+## scene 详情.nothing-selected
+- paragraph: 点一张卡
+- text: 画布上任意一张卡——map、spec、ticket 或决策票——点一下，它的全部细节就在这一栏。

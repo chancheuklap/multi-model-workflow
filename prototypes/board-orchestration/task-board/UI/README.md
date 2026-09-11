@@ -13,7 +13,7 @@ The design is ported into Claude Design as five components (the four regions of 
 - Project: https://claude.ai/design/p/457777fa-6ee0-43e9-85f1-e78e457f0629
 - Design system: https://claude.ai/design/p/1d871e1b-2359-439c-a986-37e5657993f6
 
-The handoff package #318 section 2 asks for is in `work/`. The screen contract `align-screens` writes from it (`docs/specs/task-board/screen-contract.yaml`) does not exist yet.
+The handoff package #318 section 2 asks for is in `work/`; the screen contract `align-screens` wrote from it is `docs/specs/task-board/screen-contract.yaml`, with its target trees under `docs/specs/task-board/targets/`.
 
 ## Which parts the real code has taken
 

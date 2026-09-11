@@ -1,4 +1,7 @@
-# The centre: one task's tree on a pan-and-zoom canvas. Cards are template markup; the lines
+# The centre: one task's tree on a pan-and-zoom canvas. Cards are template markup, each
+# selected through one transparent button laid over it and named by the card's number and
+# title (`.card-hit`), so a card is a control a keyboard and the accessibility tree reach;
+# the expand arrow is its own button above it. The lines
 # (trunk, expand, blocking curves and their beams) are one SVG drawn after each render,
 # since they are computed geometry and nobody polishes them from the editor.
 # Build: DC_FX=FIXTURES DC_FRAME=864x848 python3 mk.py "src/Component · 画布.py"
@@ -17,7 +20,8 @@ TEMPLATE = r'''      <main class="canvas board" data-screen-label="画布" aria-
               <div class="{{ lb.cls }}" style="{{ lb.pos }}">{{ lb.text }}</div>
             </sc-for>
             <sc-for list="{{ containers }}" as="c" hint-placeholder-count="3">
-              <div class="{{ c.cls }}" style="{{ c.pos }}" onClick="{{ c.pick }}">
+              <div class="{{ c.cls }}" style="{{ c.pos }}">
+                <button type="button" class="card-hit" onClick="{{ c.pick }}" aria-label="{{ c.label }}"></button>
                 <div class="card-top"><span class="{{ c.lightCls }}" title="{{ c.lightWord }}"></span><span class="card-num">{{ c.num }}</span>
                   <span class="card-right"><span class="card-count">{{ c.count }}</span><sc-if value="{{ c.canExpand }}" hint-placeholder-val="{{ true }}"><button type="button" class="chev" onClick="{{ c.toggle }}" aria-label="{{ c.toggleLabel }}">{{ c.chev }}</button></sc-if></span></div>
                 <div class="{{ c.titleCls }}">{{ c.title }}</div>
@@ -25,13 +29,15 @@ TEMPLATE = r'''      <main class="canvas board" data-screen-label="画布" aria-
               </div>
             </sc-for>
             <sc-for list="{{ decisions }}" as="d" hint-placeholder-count="3">
-              <div class="{{ d.cls }}" style="{{ d.pos }}" onClick="{{ d.pick }}" title="{{ d.title }}">
+              <div class="{{ d.cls }}" style="{{ d.pos }}" title="{{ d.title }}">
+                <button type="button" class="card-hit" onClick="{{ d.pick }}" aria-label="{{ d.label }}"></button>
                 <div class="card-top"><span class="{{ d.lightCls }}"></span><span class="card-num">{{ d.num }}</span><span class="card-right"><span class="card-kind">{{ d.kind }}</span></span></div>
                 <div class="card-title decision">{{ d.title }}</div>
               </div>
             </sc-for>
             <sc-for list="{{ tickets }}" as="t" hint-placeholder-count="5">
-              <div class="{{ t.cls }}" style="{{ t.pos }}" onClick="{{ t.pick }}" title="{{ t.title }}">
+              <div class="{{ t.cls }}" style="{{ t.pos }}" title="{{ t.title }}">
+                <button type="button" class="card-hit" onClick="{{ t.pick }}" aria-label="{{ t.label }}"></button>
                 <div class="card-top"><span class="{{ t.lightCls }}" title="{{ t.lightWord }}"></span><span class="card-num">{{ t.num }}</span><span class="card-right"><span class="{{ t.pillCls }}">{{ t.step }}</span></span></div>
                 <div class="card-title">{{ t.title }}</div>
                 <div class="{{ t.runCls }}">{{ t.run }}</div>
@@ -215,9 +221,9 @@ LOGIC = r'''        dataKey() {
           const center = () => { const r = this.canvasEl ? this.size() : { width: 0, height: 0 }; return [r.width / 2, r.height / 2]; };
           return {
             toast: this.state.toast, v, rf: this.rf,
-            containers: v.containers.map(c => Object.assign({}, c, { pick: () => this.choose(c.n), toggle: e => this.toggleOpen(e, c.n) })),
-            decisions: v.decisions.map(d => Object.assign({}, d, { pick: () => this.choose(d.n) })),
-            tickets: v.tickets.map(t => Object.assign({}, t, { pick: () => this.choose(t.n) })),
+            containers: v.containers.map(c => Object.assign({}, c, { label: "#" + c.n + " " + c.title, pick: () => this.choose(c.n), toggle: e => this.toggleOpen(e, c.n) })),
+            decisions: v.decisions.map(d => Object.assign({}, d, { label: "#" + d.n + " " + d.title, pick: () => this.choose(d.n) })),
+            tickets: v.tickets.map(t => Object.assign({}, t, { label: "#" + t.n + " " + t.title, pick: () => this.choose(t.n) })),
             down: e => {
               if (e.button !== 0 || (e.target.closest && e.target.closest(".zoom, .legend, .chev"))) return;
               this.drag = { x: e.clientX, y: e.clientY, vx: this.view.x, vy: this.view.y, moved: false, id: e.pointerId };
