@@ -201,12 +201,12 @@ _Avoid_: ticket message, closeout notification, 通知 (as a term)
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **worktree**:
-The per-ticket git worktree of a workspace, `<main checkout>/.worktrees/issue-<n>`, on the ticket branch `issue-<n>`. A directory `issue-<n>` on any other branch is not this workspace. `dispatch.sh` creates and removes it with git; no runner name is in the path, and a runner is only told the absolute path. The reviewer and verifier run inside it.
+Either the per-ticket git worktree of a workspace, `<main checkout>/.worktrees/issue-<n>` on the ticket branch, or the detached merge worktree `<main checkout>/.worktrees/merge-<base branch>` that `advance`, `land` and `reverify` reset to `origin/<base branch>`. The latter persists so ignored dependencies and caches survive, and one lock per base branch permits one merge at a time. A runner receives only the ticket worktree.
 _Avoid_: 工作区, checkout (when this is meant), ~/.mmw/worktrees
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **ticket branch**:
-The branch `issue-<n>`, shared through `origin/issue-<n>`; `dispatch.sh` pushes it and never force-pushes it. `--preflight` refuses when the session is not on it.
+The branch `issue-<n>`, shared through `origin/issue-<n>`; `dispatch.sh` pushes it and never force-pushes it. Landing uses the exact `ticket.passed.commit`, not the current tip of this branch. `--preflight` refuses when the session is not on it.
 _Admitted_: `issue-<n>`
 _Avoid_: branch (bare), 分支名 (as a term)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
@@ -526,7 +526,7 @@ _Avoid_: phase inference, state file, incremental state
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **held**:
-What the fold says of a ticket an agent may still be working: it stays off the frontier and `advance` does not give its claim back. A ticket is held from its `ticket.claimed` or any `worker.started`, `reviewer.started` or `verifier.started` until an event ends the hold. `ticket.landed`, `ticket.returned`, `ticket.released` and `spec.suspended` end every hold on it; `worker.retracted`, `worker.lost`, `worker.replaced`, `reviewer.lost`, `verifier.lost` and a `ticket.refused` that names its session end the one session they name, matched by its (runner, session) pair and never by the id alone, since two runners can hand out the same id; a retraction also ends a claim no started session has taken over; `worker.resumed` makes the session it names live again. A result ends the hold of the session that produced it: `reviewer.reported` that reviewer's, `verifier.passed` or `verifier.failed` that verifier's (the one it names, else the newest live one of that kind), so a finished reviewer never keeps a ticket whose worker is gone. `ticket.passed` ends none — the close after a pass can fail and leave the worker retrying — and no label ends one. It is the same answer whichever runner and machine the worker runs on. A worker that died with nothing ending its hold keeps its ticket held until the **watchdog** writes `worker.lost` — once the worker's own runner says its session has stopped — or `retract` writes `worker.retracted`; one whose runner cannot say stays held; a claim that no event ever showed held — one assigned by hand, say — is never given back by `advance`, since nothing shows its worker gone. A hold is not a product slot, which a worktree keeps until its ticket's work ends, past a replaced or lost worker (see **lease**).
+What the fold says of a ticket an agent may still be working: it stays off the frontier and `advance` does not give its claim back. A ticket is held from its `ticket.claimed` or any `worker.started`, `reviewer.started` or `verifier.started` until an event ends the hold. `ticket.landed`, `ticket.returned`, `ticket.bounced`, `ticket.released` and `spec.suspended` end every hold on it; `worker.retracted`, `worker.lost`, `worker.replaced`, `reviewer.lost`, `verifier.lost` and a `ticket.refused` that names its session end the one session they name, matched by its (runner, session) pair and never by the id alone, since two runners can hand out the same id; a retraction also ends a claim no started session has taken over; `worker.resumed` makes the session it names live again. A result ends the hold of the session that produced it: `reviewer.reported` that reviewer's, `verifier.passed` or `verifier.failed` that verifier's (the one it names, else the newest live one of that kind), so a finished reviewer never keeps a ticket whose worker is gone. `ticket.passed` ends none — the close after a pass can fail and leave the worker retrying — and no label ends one. It is the same answer whichever runner and machine the worker runs on. A worker that died with nothing ending its hold keeps its ticket held until the **watchdog** writes `worker.lost` — once the worker's own runner says its session has stopped — or `retract` writes `worker.retracted`; one whose runner cannot say stays held; a claim that no event ever showed held — one assigned by hand, say — is never given back by `advance`, since nothing shows its worker gone. A hold is not a product slot, which a worktree keeps until its ticket's work ends, past a replaced or lost worker (see **lease**).
 _Admitted_: hold (the noun)
 _Avoid_: live worker (as what keeps a ticket off the frontier), occupied, 占用 (as a term)
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
@@ -536,7 +536,7 @@ A comment carrying an `<!-- mmw` block the fold cannot read: never closed, two b
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **landed**:
-A ticket whose branch is in the base branch, recorded by the `ticket.landed` event `advance` or `land` writes once the merge is in `HEAD`, or once it finds the branch already there. It is not **closed**: `--closeout` closes the ticket on the tracker together with `ticket.passed`, before anything is merged, so a ticket is closed and not landed until the next `advance` or `land`. A blocked ticket is let go when its blocker has landed, because the blocked ticket's worktree is cut from the base branch and an unmerged blocker left nothing there; a blocker that closed without a `ticket.passed` lets go on closing, since nothing of it will ever land. That rule is `events.blocker_hold`, the one answer the frontier, `start`, `adopt` and `--preflight` all give. `reverify` re-runs landed tickets only, and `ticket.regressed` takes back both the pass and the landing.
+A passed ticket whose accepted commit is present in `origin/<base branch>` and whose events record `ticket.landed`. It is distinct from **closed**: closeout closes before landing, while blockers and reverify use landing state. `ticket.regressed` or `ticket.bounced` takes the state back.
 _Avoid_: closed (for this), merged (as the state of a ticket), done
 _Home_: `mmw-v2/skills/dispatch/scripts/status.py`
 
@@ -566,6 +566,10 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`ticket.regressed`**:
 The event `dispatch.sh reverify` posts on a landed ticket whose criteria went red on the base branch, with that `commit` and the `failed` criteria, in the same pass that reopens it, labels it `needs-triage` and removes its assignee. It takes back the ticket's pass and its landing.
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
+**`ticket.bounced`**:
+The event that hands a passed ticket to triage when its landing merge conflicts or its repository checks fail. It records the failed attempt's evidence, takes back pass and landing, ends the ticket's holds, and leaves its workspace standing.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`worker.resumed`, `worker.retracted`, `worker.replaced`, `worker.lost`**:
@@ -624,7 +628,7 @@ _Avoid_: review report comment, REVIEW 评论, report (bare)
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
 **closing comment**:
-The comment a worker leaves on handing over, written first as a **draft** file that `--closeout <draft>` checks and posts. Its fixed parts: the first line `ALL MET` or `HANDOFF REQUIRED: <abandoned> abandoned (<kinds>), <unmet> unmet, <met> met of <total>`; `Branch: … Commit: … PR: none — will be merged into <base branch> by dispatch.sh advance`; `Post-verdict:` (every commit after the one the verdict covers, with where it came from, `None` when the verdict is on HEAD); four lines per criterion, with `ABANDON:` where given; `Outside Owns:` (each file followed by the Spec axis's judgement, `reasonable` or `should not`); `skipped: [X], add when [Y]` (what was deliberately not built and the condition to build it); `Sub-issues opened:` (this ticket's sub-issues); `Counts: <met> met, <unmet> unmet, <abandoned> abandoned of <total>` (recounted at the Audit, agreeing with the first line); `Decisions I made on my own` (one line per thing the worker settled that neither ticket nor spec decides). `--closeout` posts it as `ticket.passed` when its first line is `ALL MET` and as `ticket.returned` otherwise, and that event, never the line, decides whether `advance` merges the branch. The draft is written by `verify-ticket.py <n> --draft`, so its `ALL MET` is not evidence until `--closeout` accepts it.
+The comment a worker leaves on handing over, written first as a **draft** file that `--closeout <draft>` checks and posts. Its fixed parts: the first line `ALL MET` or `HANDOFF REQUIRED: <abandoned> abandoned (<kinds>), <unmet> unmet, <met> met of <total>`; `Branch: … Commit: … PR: none — will be merged into <base branch> by dispatch.sh advance`, where `<base branch>` is the newest `worker.started.into`; `Post-verdict:` (every commit after the one the verdict covers, with where it came from, `None` when the verdict is on HEAD); four lines per criterion, with `ABANDON:` where given; `Outside Owns:` (each file followed by the Spec axis's judgement, `reasonable` or `should not`); `skipped: [X], add when [Y]` (what was deliberately not built and the condition to build it); `Sub-issues opened:` (this ticket's sub-issues); `Counts: <met> met, <unmet> unmet, <abandoned> abandoned of <total>` (recounted at the Audit, agreeing with the first line); `Decisions I made on my own` (one line per thing the worker settled that neither ticket nor spec decides). `--closeout` posts it as `ticket.passed` when its first line is `ALL MET` and as `ticket.returned` otherwise, and that event, never the line, decides whether `advance` merges the exact commit and origin base branch it names. The draft is written by `verify-ticket.py <n> --draft`, so its `ALL MET` is not evidence until `--closeout` accepts it.
 _Avoid_: 收尾评论, handoff comment, 收尾评论草稿, 草稿 (as a term), 本票我自己拿的主意
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
@@ -646,7 +650,7 @@ _Avoid_: form, 提问表单, BLOCKED:, MMW_AUTONOMOUS
 _Home_: `mmw-v2/skills/drive-target/scripts/hook.py`
 
 **`NIGHT SUMMARY`**:
-The `spec.closed` event `dispatch.sh summary <spec>` posts on the spec when the night is over, first line `NIGHT SUMMARY <date>`, then five lines, `Closed:`, `Handed back to needs-triage:`, `Not dispatched, a blocker stayed open:`, `Sub-issues opened tonight:` (each ticket's children opened in the night window, by number and title), and `Findings routed:` (`opened/fixed/became/skipped/unread/open`, the closing pass's own account of the `finding` kind only, each child's kind and route taken from the `child.opened` and `child.closed` events on the ticket it came from, and a closed finding no `child.closed` accounts for counted `unread` — the batch's `contract`, `deferred`, `decision` and `fault` children are on the line above and not in this count). If `reverify` ran in this checkout, a `Reverify: <green>/<red>` line is appended.
+The `spec.closed` event `dispatch.sh summary <spec>` posts on the spec when the night is over, first line `NIGHT SUMMARY <date>`, then six lines: `Closed:`, `Handed back to needs-triage:`, `Bounced:` (each `ticket.bounced` ticket and its reason), `Not dispatched, a blocker stayed open:`, `Sub-issues opened tonight:` and `Findings routed:` (`opened/fixed/became/skipped/unread/open`). If `reverify` ran, a `Reverify: <green>/<red>` line is appended.
 _Avoid_: 夜间总结, the night summary
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
@@ -858,13 +862,17 @@ The branch on `origin` a night's tickets merge into; `origin/<base branch>` is a
 _Avoid_: main branch, 基线分支, main (as a name)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
+**`MMW_BASE_REF`**:
+The environment variable repository checks receive as `origin/<base branch>`. It makes a check's comparison base portable across ticket worktrees, detached merge worktrees and fresh clones instead of naming a machine-local branch.
+_Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
+
 **`dispatch.sh integrate`**:
 `dispatch.sh integrate <n>`, run by the worker before its criteria, brings `origin/<base branch>` into the ticket branch without pushing, rebasing or aborting.
 _Avoid_: integrate (bare), update the branch, sync (as a term), pull
 _Home_: `mmw-v2/skills/dispatch/references/inside-a-ticket.md`
 
 **conflict report**:
-The stderr account printed when a dispatch merge leaves `MERGE_HEAD` in the tree. It names the merged tickets and conflicted files and tells the reader which command follows the committed resolution.
+The stderr account printed when `integrate` leaves `MERGE_HEAD` in the ticket worktree. Landing conflicts do not produce one: they are aborted in the detached merge worktree and recorded as `ticket.bounced` with the conflicted files.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **landing pipeline**:
@@ -937,7 +945,7 @@ _Home_: `mmw-v2/skills/dispatch/references/night.md`
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **`dispatch.sh reverify`**:
-`dispatch.sh reverify <spec>`: on the current branch, every ticket under the spec whose events show it passed and landed (`status.py --reverify-plan`) is run through `verify-ticket.py <n> --reverify --actor main`, whose `ticket.checked` names the main agent as its writer; a run that needs the product claims a slot that counts toward `instance.max` like any worktree's and gives it back as the run ends. One that passed and has not landed is named on stderr and not run. Exit 0 all green; exit 1 at least one red — a `reverify` `ticket.checked` of `HEAD` that is not `met` — that ticket is reopened, labelled `needs-triage`, its assignee removed, and a `ticket.regressed` event names the failing `AC<n>` that event gives; exit 2 a ticket could not be re-run at all — it could not start, its run was not recorded, or it waited for a slot and none came free — so nothing was judged on it and the rest of the batch is skipped. A run that could not start is never a red ticket.
+`dispatch.sh reverify <spec>`: fetches origin, resets the detached merge worktree to `origin/<base branch>`, and there runs every ticket under the spec whose events show it passed and landed (`status.py --reverify-plan`) through `verify-ticket.py <n> --reverify --actor main`, with `MMW_BASE_REF` set and the resulting `ticket.checked.commit` equal to that fetched commit. One that passed and has not landed is named and not run. Exit 0 all green; exit 1 reopens each red ticket for triage and writes `ticket.regressed`; exit 2 means a run could not establish a result, so nothing was judged on it and the rest are skipped.
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **summary**:
@@ -971,12 +979,12 @@ The line `status.py --advance-plan` prints for a ticket whose claim is to be giv
 _Home_: `mmw-v2/skills/dispatch/scripts/status.py`
 
 **advance**:
-`dispatch.sh advance <spec>`: first merge the branches of the tickets that closed, by closing time from earliest to latest, into the base branch — a ticket is merged when it is `CLOSED`, its events carry a `ticket.passed` no `ticket.landed` has followed, its branch exists, and it is not already an ancestor; one merge commit each, and `ticket.landed` written on the ticket once its branch is in `HEAD` (a branch already there is recorded as landed without a merge); `MERGE_TRIES` retries against a worker's commit in its own worktree holding the shared `.git` lock, and exit 2 when every try fails — then **land** each merged ticket (archive its workspace, giving back its product slot first when it holds one), give back the claims whose workers are gone, and dispatch the frontier, all as `status.py --advance-plan` lists it (`MERGE <n>`, `RELEASE <n>` and `DISPATCH <n>` lines, in that order — the **advance plan**). It starts each dispatched ticket's session through `start` and prints one session id per ticket. A conflict is left in place with exit 3 and a **conflict report** on stderr; the main agent resolves it with `resolving-merge-conflicts` — never `--abort` — runs this repository's checks, commits the merge, and runs `advance` again. Uncommitted changes in the working tree give exit 2. It ends with the **advance summary line** `advance #<spec>: merged <m>, already in <s>, released <g>, started <k>, refused <r>` and may be run repeatedly; a run in which the runner refused any start exits 4, since that ticket stays on the frontier and nothing wakes anyone about it. It starts every frontier ticket: `instance.max` holds no start back, and bites at a worker's first run that needs the product (see **lease**).
+`dispatch.sh advance <spec>`: lands the batch's passed tickets onto their recorded branch on origin, gives back claims whose holds ended, then starts the frontier. A landing conflict or red repository checks writes `ticket.bounced` and does not stop independent tickets.
 _Avoid_: 并回来 (as a term)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **land**:
-`dispatch.sh land <n>`: merge the ticket branch into the branch the caller is on and write `ticket.landed`, archive its workspace, stopping every session the ticket's started events name, give back its product slot if its worktree holds one, and give its claim back with a `ticket.released` event (reason `landed`). It takes a ticket number and never a spec, which is the whole reason it exists: a ticket dispatched outside a night belongs to no batch, so `advance` can never reach it, and before this there was no command that ended one. Archiving a workspace deletes the worktree directory and takes the worker, reviewer and verifier inside it, leaving the branch; that is why the merge goes first, and why a ticket that closed without a `ticket.passed` and whose branch is not in `HEAD` is named on stderr and left standing rather than archived (exit 1). `advance` does the same four things for a whole batch after its merges. What a ticket needs before any of it is that the tracker says it is over: `CLOSED`, or open and handed back to triage. Open with no verdict either way is untouched.
+`dispatch.sh land <n>`: the one-ticket form of **advance**. It lands only the commit recorded by `ticket.passed`, releases the ticket's resources on success, and closes its one-ticket watch.
 _Avoid_: 落地 (as a term), 收尾 (that is the worker's closing steps), archive the ticket, finish (as a name)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
@@ -1137,7 +1145,7 @@ _Avoid_: the verifier's boundary
 _Home_: `mmw-v2/skills/verdict/SKILL.md`
 
 **No pull request**:
-No step of the pipeline reads a pull request. Ticket branches are pushed to origin for cross-machine handoff; a ticket's work still reaches the base branch through `advance`'s local merge, and the closing comment's `PR:` line is written in the future tense.
+No step of the pipeline reads a pull request. Ticket branches are pushed to origin for cross-machine handoff; `advance` and `land` merge in a detached worktree, check the result, and fast-forward push the base branch. The closing comment's `PR:` line is written in the future tense.
 _Home_: `mmw-v2/merge-notes/implement.md`
 
 **fixed headings**:

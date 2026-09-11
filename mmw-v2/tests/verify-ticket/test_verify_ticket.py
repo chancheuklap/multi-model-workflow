@@ -241,6 +241,25 @@ class TestMmwTicketInCheckEnv(LedgerRun):
         self.assertIn("- [x] AC1:", comment)
 
 
+class TestMmwBaseRefInCheckEnv(LedgerRun):
+    """Both criterion runs compare against the base branch recorded at start."""
+
+    BODY = ticket(
+        "- [ ] AC1: the check shell sees the fetched integration base",
+        "  CHECK: echo B=$MMW_BASE_REF",
+        "  EXPECT: B=origin/spec-337",
+        "  EVIDENCE: pending",
+    )
+
+    def test_the_workers_own_run_sees_the_base_ref(self):
+        code, comment, _ = self.run_ticket(self.BODY)
+        self.assertEqual(code, 0, comment)
+
+    def test_reverify_sees_the_same_base_ref(self):
+        code, comment, _ = self.run_ticket(self.BODY, reverify=True)
+        self.assertEqual(code, 0, comment)
+
+
 class TestNoRoundCap(LedgerRun):
     """How many rounds a criterion gets is the worker's own judgement: no run names a
     limit, however many runs of its own the ticket already carries."""

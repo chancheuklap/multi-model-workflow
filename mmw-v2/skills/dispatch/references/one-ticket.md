@@ -10,7 +10,7 @@ Four steps:
    - `#<n> worker.lost`: the worker's session stopped. `<dispatch> start <n> worker` starts another in the same workspace; it first commits tracked edits and pushes the ticket branch to origin.
    - `#<n> ticket.refused`: the worker refused to claim the ticket, and the event's `reason` says why. Fix that, then `<dispatch> start <n> worker` again.
    - `#<n> child.opened`: a `fault` stopped the worker — fix what the child names, then `<dispatch> resume <n> "<what you fixed>, then: continue"`; a `decision` is for the user in the morning, and the worker carries on.
-4. Once the ticket passed or came back: `<dispatch> land <n>`, run in the checkout of the branch it merges into. It merges the ticket's branch, gives its claim back, runs the product's `stop` in the ticket's worktree and gives its slot back, stops every session the ticket's `*.started` events name, removes its worktree, records `ticket.landed` on the ticket, and closes the watch `open-ticket` opened; the relay ends with it when it watched nothing else.
+4. Once the ticket passed or came back: `<dispatch> land <n>` from any checkout of this repository. It reads `into` and `ticket.passed.commit` from the ticket, merges and checks in the detached merge worktree, fast-forward pushes `origin/<into>`, gives the claim and slot back, archives the ticket workspace, records `ticket.landed`, and closes the one-ticket watch. A conflict or red check writes `ticket.bounced`, leaves the workspace for triage, and closes the watch.
 
 ## Exit codes
 
@@ -32,7 +32,6 @@ Four steps:
 
 | Code | What happened |
 | --- | --- |
-| `0` | Done. Stderr carries the merge line and the tally `land: merged <m>, archived <a>, released <r>, still working <w>, left unmerged <u>`. A ticket still being worked is named on stderr, nothing is done to it, and its relay keeps running. A ticket whose product would not go down keeps its workspace and is named there too — archiving deletes the worktree the `stop` command lives in, so that one is left recoverable |
-| `1` | Something was left standing, and stderr names it: the ticket closed without a `ticket.passed` and its branch is not in `HEAD` — archiving deletes the worktree, so this one waits for you: merge that branch, or decide the work is abandoned and archive it yourself — or the relay watching the ticket did not end, and stderr names its pid |
-| `2` | Nothing was touched: not a git repository, uncommitted tracked changes, or a ticket number that is not digits |
-| `3` | A merge is in conflict and is still in the tree. Resolve it with the `resolving-merge-conflicts` skill, run this repository's checks, commit the merge, then run `land` again |
+| `0` | Done, already present, or handed to triage as `ticket.bounced`; stderr carries `land: merged <m>, already in <a>, bounced <b>, still working <w>, already landed <d>, failed <f>` |
+| `1` | Something was left standing: a ticket closed without `ticket.passed` has work outside `origin/<into>`, a landing could not finish, or the relay did not end; stderr names it |
+| `2` | Nothing was touched: not a git repository, an unreadable ticket, a missing remote base, or invalid arguments |
