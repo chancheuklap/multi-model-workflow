@@ -126,7 +126,7 @@ or the sorting step → keep both the four-angle pass and this ownership rule.
 
 ### docs page
 
-`mmw-v2/upstream/docs/engineering/code-review.md` describes the same first-parent range, four interaction angles and ownership boundary without introducing other names for the base commit or `origin/<base branch>`.
+`mmw-v2/upstream/docs/engineering/code-review.md` describes the same first-parent range, four interaction angles and ownership boundary without introducing other names for the base commit or `origin/<base branch>`. Its opening sentence carries the same capability branch as `session.md` § 2: subagents where the host can run them, the three axis files run in sequence by the session where it cannot.
 
 ### agents/openai.yaml
 

@@ -30,7 +30,7 @@ The verifier's `--reverify`, and the main agent's `--reverify --actor main`, wai
 ## The verifier's verdict
 
 ```bash
-<engine> <n> --verdict "<one line>" --model <the model you run on>
+<engine> <n> --verdict "<one line>" --model <the model field of the ticket's newest verifier.started event>
 ```
 
 The verifier runs this after its `--reverify`. It posts one event on the ticket, first line `VERDICT <commit> by <model> — <one line>`: `verifier.passed` when the newest reverify `ticket.checked` has the result `met`, `verifier.failed` otherwise, naming the criteria it left unmet. The commit is `HEAD`, all 40 characters, read by the script, and that reverify must be a run of it: a newest reverify on an older commit is refused, and `--reverify` on this commit comes first. A line that opens `could not start` is a `verifier.failed` whose criteria never ran. Which of the two it is comes from the run, never from the words of the line, so a verdict cannot say more than the run it reports. Exit `0` posted; `2` refused and nothing posted — no `--model`, no `HEAD`, or no reverify `ticket.checked` of `HEAD` on the ticket for a line that does not open `could not start`.

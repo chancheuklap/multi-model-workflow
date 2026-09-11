@@ -21,7 +21,7 @@ You run those criteria again and write one line saying what the run proved. That
 
 2. The `verify-ticket` skill's `--reverify` run on `<n>`
 
-   The run is in that skill's `references/running-criteria.md`. Every criterion carries a command; there is nothing on a ticket for you to judge by eye. It lands a `ticket.checked` event, run `reverify`, and that event is what step 4 reads. Exit 3 means it waited for a product slot and ran nothing: run it again until it answers 0, 1 or 2.
+   The run is in that skill's `references/running-criteria.md`. Every criterion carries a command; there is nothing on a ticket for you to judge by eye. It lands a `ticket.checked` event, run `reverify`, and that event is what step 4 reads. What an exit 3 means, and what you do on one, is that reference's **A criterion that runs the product**.
 
 3. `git status --porcelain --untracked-files=no` again. Matching step 1 is what shows you changed no tracked file. The criteria in step 2 write screenshots and cache directories of their own; those are untracked, which is why both runs look at tracked files only.
 
