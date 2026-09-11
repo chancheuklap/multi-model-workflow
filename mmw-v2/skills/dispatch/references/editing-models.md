@@ -1,25 +1,31 @@
-# Changing host, model, or which night this machine runs
+# Changing host, model, or which runner this machine uses
 
-Read this only when the user has told you to change which host, model or `effort` a dispatched session uses, or which runner the night runs on. `start` does not read this file.
+Read this only when the user has told you to change which host, model or `effort` a dispatched session uses, or which runner the machine uses. The saved configuration is `MMW_HOME/models.json`; when `MMW_HOME` is unset, that means `~/.mmw/models.json`. Do not edit it by hand.
 
-## The live table
+## Resolve `<models>` once
 
-The table is `~/.mmw/models.md`. It is this machine's fact. Edit it; do not edit anything in git for tonight's reviewer.
+Resolve `../scripts/models.py` once from this reference file's own location. Throughout the commands below, `<models>` expands to `python3 <absolute path to that models.py>`.
 
-Four columns: `agent | host | model | effort`. The `model` and `effort` cells are copied from the tables under `<!-- mmw-offerings -->` in that same file — those tables are the legal pairs for tonight. Allowed `agent` values: `junior-worker`, `senior-worker`, `reviewer`, `verifier`, `advisor`. One row per agent: a second row for the same agent is refused when the table is read.
+## Change one role
 
-A two-cell `runner` row may sit above those: `| runner | <name> |`. Names: `herdr`, `orca`, `paseo`, `tmux`, `lody`. Do not write those into `host`. `start` picks tonight's runner in this order: `MMW_RUNNER`, then this row, then the runner the calling session runs in, then `orca`. A fresh table carries `| runner | orca |`, so tonight's runner is `orca` even when the calling session runs inside Herdr or tmux; delete that row to let runtime detection speak. `start` has an adapter for `herdr`, `orca` and `paseo`; naming `tmux` or `lody` is refused at `start`. A per-ticket choice has no place on the ticket yet.
+The `models.py config set` command changes one role. Run:
 
-Runtime detection treats `TERM_PROGRAM=Orca` as the outer signal: Herdr opened inside an Orca terminal is `herdr`. It names only a runner this skill has an adapter for, so `TMUX` alone falls through to `orca`, and `HERDR_ENV` with `TMUX` gives `herdr`.
+```bash
+<models> config set <role> <host> <model> <effort>
+```
 
-The next `start` reads the agent rows above `<!-- mmw-offerings -->`. First `install.sh` copies the defaults if the file is missing; a later `install.sh` leaves the rows and refreshes the copy-tables.
+Allowed roles are `junior-worker`, `senior-worker`, `reviewer`, `verifier`, and `advisor`. Allowed hosts are `claude`, `codex`, `grok`, `cursor`, and `pi`, subject to what the selected runner can start. The command scans that runner's current catalog, refuses a model or effort it does not offer, takes the configuration lock, checks the saved version has not changed, increments the version, and replaces the JSON file atomically.
 
-## Confirm a host
+On Cursor, effort is set per model in the Cursor app. A level the scan does not return is unavailable until it is added there. `fast` belongs in the model name (`grok 4.6 fast`), not in `effort`. On a Paseo run, Cursor thinking is only on or off: `high` turns it on and `off` turns it off.
 
-The `host` cell is one of `claude`, `codex`, `grok`, `cursor`, `pi`. `<dispatch> check <spec>` resolves every row against the catalog of tonight's runner before the night opens, and names each row that does not resolve, in the resolver's own words.
+## Change the runner
 
-## Confirm a model or an `effort`
+Run:
 
-Run `python3` on this skill's `scripts/models.py offerings` (resolve the path from this skill's `SKILL.md`, same way as `<dispatch>`). That rewrites the copy-tables under the live table. Then copy one whole row from the host's table into `model` and `effort`. `start` does not read the copy-tables; it asks the catalog of tonight's runner again and uses the unique match. The copy-tables are each host CLI's own catalog, the one a runner that runs the host's CLI in a terminal resolves against; a runner that starts hosts through a provider list of its own resolves against that list, where a model can carry another id.
+```bash
+<models> config runner <runner>
+```
 
-On Cursor, effort is not a free cell: it is set per model in the Cursor app, and `cursor-agent models` only lists the pairs that already exist. Copy one whole Cursor row. A level with no row is not available until you add it in the app and scan again. `fast` is its own `model` cell (`grok 4.6 fast`), never an `effort`. On a Paseo night, Cursor thinking is only on or off — `high` turns it on, `off` turns it off; copying `xhigh` does not select extra-high.
+Saved runner values are `orca`, `herdr`, `paseo`, or `auto`. `start` chooses `MMW_RUNNER` first, then this saved value, then a runner detected from the current process when the saved value is `auto`, then `orca`. The command scans the catalog belonging to the proposed runner and refuses it unless every saved role can still start.
+
+Use `<models> config show` to read the current saved object. The next `start` reads it again; no daemon restart or install is required.

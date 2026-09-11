@@ -713,7 +713,7 @@ def worker_grades(spec: int) -> int:
 
     The labels are the ticket's own ending in `-worker`, in name order, and a ticket
     carrying none prints the number alone. `dispatch.sh check` reads the `GRADE` lines
-    before the night opens, and refuses the night when a label names a row the live table
+    before the night opens, and refuses the night when a label names a row models.json
     lacks or a ticket carries two — the same refusals a dispatch would make, brought
     to the one moment somebody is here to fix them. `dispatch.sh suspend` reads the
     `BATCH` lines as the spec's children, so that list is not fetched a second time.

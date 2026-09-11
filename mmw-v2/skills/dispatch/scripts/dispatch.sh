@@ -37,9 +37,9 @@
 # of the worker rows a worker session starts from is the ticket's own `*-worker`
 # label, so one ticket keeps the same worker every time it is started. Which
 # host, model and thinking level the session gets come from that
-# row of the live table (~/.mmw/models.md), resolved against the catalog of the runner
+# row of models.json under MMW_HOME, resolved against the catalog of the runner
 # that starts it (`use_catalog_of`). Tonight's runner is `models.py runner`: MMW_RUNNER,
-# then the table's runner row, then the runner this process runs in, then orca.
+# then models.json, then, when its runner is auto, the runner this process runs in, then orca.
 # `start` has that runner's adapter (scripts/runners/<runner>.sh) start the
 # session, writes a `worker.started`, `reviewer.started` or `verifier.started` event
 # on the ticket — session, runner, host, model, effort, grade, the worktree's absolute
@@ -73,13 +73,7 @@ set -uo pipefail
 
 SELF="$(realpath "${BASH_SOURCE[0]}")"
 SKILL_ROOT="$(dirname "$(dirname "$SELF")")"
-if [ -n "${MMW_LIVE_MODELS:-}" ]; then
-  MODELS="$MMW_LIVE_MODELS"
-elif [ -n "${MMW_V2_HOME:-}" ]; then
-  MODELS="$MMW_V2_HOME/.mmw/models.md"
-else
-  MODELS="$HOME/.mmw/models.md"
-fi
+MODELS_JSON="${MMW_HOME:-$HOME/.mmw}/models.json"
 STATUS="$SKILL_ROOT/scripts/status.py"
 RELAY="$SKILL_ROOT/scripts/relay.py"
 STATEDIR="$SKILL_ROOT/scripts/statedir.py"
@@ -90,7 +84,7 @@ RUNNER_NAME=""
 # their own skills one directory over. A `--tools` directory given on the command line
 # is searched before those.
 INSTALLER="$(dirname "$(dirname "$SKILL_ROOT")")/install.sh"
-# `models.py` reads the live table, so it belongs to this skill and travels with it.
+# `models.py` reads models.json, so it belongs to this skill and travels with it.
 MODELS_PY="$SKILL_ROOT/scripts/models.py"
 VERIFY=""
 LEASE=""
@@ -119,13 +113,21 @@ runner() {
   bash "$RUNNER" "$@"
 }
 
+# Invoke a named adapter without changing the adapter selected for the surrounding
+# command. `check` uses this for Paseo-only provider diagnostics.
+runner_call() {
+  local name="$1"
+  shift
+  bash "$SKILL_ROOT/scripts/runners/$name.sh" "$@"
+}
+
 # Called once at the top of every command that talks to the runner, before any `$(…)`.
 # The check cannot live in `runner()`: its callers run it inside `$(…)`, and a `refuse`
 # there ends only that subshell — the command then carries on with an empty answer. With
 # the adapter file gone that made `retract` archive a running worker's workspace and
 # exit 0.
 require_runner() {
-  [ -f "$RUNNER" ] || refuse "no runner adapter for ${RUNNER_NAME:-this runner} at ${RUNNER:-scripts/runners/}; name paseo, orca or herdr in MMW_RUNNER or the runner row of $MODELS, or restore that file, then run the command again"
+  [ -f "$RUNNER" ] || refuse "no runner adapter for ${RUNNER_NAME:-this runner} at ${RUNNER:-scripts/runners/}; name paseo, orca or herdr in MMW_RUNNER or models.json, or restore that file, then run the command again"
 }
 
 # Points `runner` at one adapter. The name comes from `models.py runner` for a start,
@@ -139,15 +141,15 @@ use_runner() {
 tonight_runner() {
   local name
   name="$(python3 "$MODELS_PY" runner)" && [ -n "$name" ] \
-    || refuse "could not tell tonight's runner from MMW_RUNNER, $MODELS or this process"
+    || refuse "could not tell tonight's runner from MMW_RUNNER, $MODELS_JSON or this process"
   printf '%s\n' "$name"
 }
 
-# Which catalog `models.py` resolves a live-table row against: the runner that starts the
+# Which catalog `models.py` resolves a models.json row against: the runner that starts the
 # session decides. Paseo is handed Paseo's own provider model ids; a runner that runs the
 # host's CLI in a terminal (Orca, Herdr) is handed the CLI's own ids, so its row is
-# resolved against the CLI's catalog, the one the table under the live table is copied
-# from. Resolving against another runner's catalog either fails outright (Paseo's daemon is
+# resolved against the CLI's catalog. Resolving against another runner's catalog either
+# fails outright (Paseo's daemon is
 # not running) or names a model the CLI does not have.
 use_catalog_of() {
   case "$1" in
@@ -515,7 +517,7 @@ ack_wake() {
 # ticket up itself was started by no `start`, so no `worker.started` names it: its
 # reviewer's report would wake nobody, and `start <n> reviewer` would refuse. This writes
 # that event with the session's own runner and session (its adapter's `self`) and the
-# facts `start` writes — the grade's live-table row, this worktree, its branch and base,
+# facts `start` writes — the grade's models.json row, this worktree, its branch and base,
 # and no slot, which the first run of its criteria that runs the product claims — and makes sure a relay watches the ticket: the
 # watch already covering it, or a watch of this ticket alone with this session as its main
 # agent. Run it from the ticket's worktree, on branch issue-<n>, before claiming.
@@ -565,7 +567,7 @@ adopt_ticket() {
   esac
   use_catalog_of "$runner"
   row="$(row_for_role "$profile")" || exit 2
-  [ -n "$row" ] || refuse "#$number needs the $profile row, and $MODELS has none"
+  [ -n "$row" ] || refuse "#$number needs the $profile row, and $MODELS_JSON has none"
   IFS=$'\t' read -r host model effort <<<"$row"
 
   # A worker that is still live on the ticket is somebody else's hold; this is not how a
@@ -615,7 +617,7 @@ for r in state.get("sessions") or []:
   printf '%s\n' "$session"
 }
 
-# ------------------------------------------------------------------ live table
+# ------------------------------------------------------------------ local model configuration
 
 # Prints "host<TAB>resolved-model<TAB>effort" for the agent asked for.
 row_for_role() {
@@ -1100,7 +1102,7 @@ start_one() {
   local row host model effort
   use_catalog_of "$RUNNER_NAME"
   row="$(row_for_role "$profile")" || exit 2
-  [ -n "$row" ] || refuse "#$number needs the $profile row, and $MODELS has none"
+  [ -n "$row" ] || refuse "#$number needs the $profile row, and $MODELS_JSON has none"
   IFS=$'\t' read -r host model effort <<<"$row"
 
   local fallback into
@@ -1201,9 +1203,13 @@ start_one() {
       remove_worktree "$root" "$cwd" \
         || echo "dispatch: could not remove the worktree for #$number" >&2
     fi
-    refuse "$RUNNER_NAME did not start $host for #$number $kind (its reason is above); nothing was retried. Fix what it names, or change this agent's row in $MODELS, then start again"
+    refuse "$RUNNER_NAME did not start $host for #$number $kind (its reason is above); nothing was retried. Fix what it names, or change this agent's row in $MODELS_JSON, then start again"
   fi
   session="$(printf '%s\n' "$session" | tail -n 1)"
+
+  if ! runner attach --cwd "$cwd" --issue "$number" 2>/dev/null; then
+    echo "dispatch: $RUNNER_NAME started session $session for #$number, but did not attach the worktree to that issue; the session continues" >&2
+  fi
 
   # The replaced sessions are closed on the ticket before the new one is recorded, so the
   # fold never reads two live workers. One whose event could not be written is stopped
@@ -1463,19 +1469,19 @@ check_machine() {
   local runner roles role out err_file
   runner="$(tonight_runner)"
   if [ ! -f "$SKILL_ROOT/scripts/runners/$runner.sh" ]; then
-    echo "dispatch: tonight's runner is $runner, and this skill has no adapter for it (scripts/runners/$runner.sh); name paseo, orca or herdr in MMW_RUNNER or the runner row of $MODELS" >&2
+    echo "dispatch: tonight's runner is $runner, and this skill has no adapter for it (scripts/runners/$runner.sh); name paseo, orca or herdr in MMW_RUNNER or models.json" >&2
     failed=1
   fi
   use_catalog_of "$runner"
   roles="$(worker_roles | tr '\n' ' ')" \
-    || { echo "dispatch: $MODELS cannot be read (the reason is above)" >&2; failed=1; roles=""; }
+    || { echo "dispatch: $MODELS_JSON cannot be read (the reason is above)" >&2; failed=1; roles=""; }
   err_file="$(mktemp)"
   for role in $roles reviewer verifier; do
     if ! out="$(row_for_role "$role" 2>"$err_file")"; then
-      echo "dispatch: the $role row of $MODELS does not resolve on $runner: $(tr '\n' ' ' < "$err_file")" >&2
+      echo "dispatch: the $role row of $MODELS_JSON does not resolve on $runner: $(tr '\n' ' ' < "$err_file")" >&2
       failed=1
     elif [ -z "$out" ]; then
-      echo "dispatch: $MODELS has no $role row, and every $role start reads one" >&2
+      echo "dispatch: $MODELS_JSON has no $role row, and every $role start reads one" >&2
       failed=1
     fi
   done
@@ -1491,7 +1497,7 @@ check_machine() {
   # rather than off the English sentence the diagnostic prints. That sentence is what a
   # reader needs when the verdict is no, so it is kept and printed under the refusal.
   #
-  # One diagnostic per host, not per row of the live table: several agents share a host, and
+  # One diagnostic per host, not per row of models.json: several agents share a host, and
   # the call costs seconds (measured: claude 0.7s, pi 1.7s, grok 2.5s, cursor 6.7s).
   # Paseo's provider snapshot only says something about sessions Paseo starts.
   local host host_line hosts="" diag paseo_roles=""
@@ -1502,8 +1508,8 @@ check_machine() {
     [ -n "$host" ] || continue
     case " $hosts " in *" $host "*) continue ;; esac
     hosts="$hosts $host"
-    diag="$(paseo provider diagnostic "$host" --json 2>&1)" || diag=""
-    MMW_HOST="$host" MMW_PROVIDERS="$(paseo provider ls --json 2>/dev/null)" python3 -c '
+    diag="$(runner_call paseo diagnostic "$host" 2>&1)" || diag=""
+    MMW_HOST="$host" MMW_PROVIDERS="$(runner_call paseo catalog-status 2>/dev/null)" python3 -c '
 import json, os, sys
 
 host = os.environ["MMW_HOST"]
@@ -1551,7 +1557,7 @@ for line in text.splitlines():
       0) ;;
       1) case " $roles " in
            *" ${marked[0]} "*) ;;
-           *) echo "dispatch: #$number asks for ${marked[0]}, and $MODELS has no such row" >&2
+           *) echo "dispatch: #$number asks for ${marked[0]}, and $MODELS_JSON has no such row" >&2
               failed=1 ;;
          esac ;;
       *) echo "dispatch: #$number carries ${#marked[@]} worker labels (${marked[*]}), and it takes one" >&2
@@ -2639,14 +2645,14 @@ route_child() {
 
 # ------------------------------------------------------------------ entry
 
-# `self` reads nothing but this process and its runner, so it answers without a live
-# table: `verify-ticket.py` asks it for the session a refusal is written by.
+# `self` reads nothing but this process and its runner, so it answers without models.json:
+# `verify-ticket.py` asks it for the session a refusal is written by.
 if [ "${1:-}" = self ] && [ "$#" -eq 1 ]; then
   own_session
   exit $?
 fi
 
-[ -f "$MODELS" ] || refuse "no live table at $MODELS; run install.sh"
+[ -f "$MODELS_JSON" ] || refuse "no models.json at $MODELS_JSON; run install.sh"
 
 # `--tools <dir>` may appear anywhere and any number of times. Everything else is
 # positional. A script of another skill is looked up by basename in those directories,

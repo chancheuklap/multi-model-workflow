@@ -7,8 +7,8 @@
 #                     读 prompt/render.py 拼出的 AGENTS.md
 #   launchd 任务      盯着源文件，改了就重拼 Codex、Pi、Grok 的 AGENTS.md
 #   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里 grok/cursor 两条 provider、
-#                     worktrees.root。不写 Agent profile。第一次把活表拷进 ~/.mmw/models.md，之后不覆盖行；
-#                     每次安装刷新表下五个 CLI host 的目录。
+#                     worktrees.root。不写 Agent profile。~/.mmw/models.json 缺席时写入默认值，
+#                     或把同目录遗留的 models.md 一次性导入后删除；已有 JSON 不覆盖。
 #   Orca 侧工作树     有 orca 时：每个 setup 的 worktree-base-path 为 .worktrees；
 #                     repo 的 externalWorktreeVisibility 为 show。没有 orca 则跳过。
 #   Cursor 的 MCP     ~/.cursor/mcp.json 里 nowledge-mem 一条，内容问本机 nmem 要
@@ -329,7 +329,7 @@ if [ -f "$HOOK_SRC" ]; then
   MMW_HOOK="$NEUTRAL_DIR/drive-target/scripts/hook.py" \
   MMW_GUARD="$NEUTRAL_DIR/dispatch/scripts/turn-guard.py" \
   MMW_NEUTRAL="$NEUTRAL_DIR" \
-  MMW_HOME="$HOME_DIR" \
+  MMW_HOOK_HOME="$HOME_DIR" \
   MMW_CODEX="${CODEX_HOME:-$HOME_DIR/.codex}" \
   MMW_PI="${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME_DIR/.pi}/agent}" \
   python3 - <<'PY' || { rc=1; hooks_rc=1; }
@@ -343,7 +343,7 @@ from pathlib import Path
 mode = os.environ["MMW_MODE"]
 hook = os.environ["MMW_HOOK"]
 neutral = os.environ["MMW_NEUTRAL"]
-home = Path(os.environ["MMW_HOME"])
+home = Path(os.environ["MMW_HOOK_HOME"])
 codex_home = Path(os.environ["MMW_CODEX"])
 pi_home = Path(os.environ["MMW_PI"])
 
@@ -449,7 +449,7 @@ export default function (pi) {
 """ % {"guard": guard, "timeout": GUARD_TIMEOUT}
 
 # The tool each host calls to put a question on the screen: the matcher of its
-# question gate. Only the hosts the live table starts sessions on carry one.
+# question gate. Only hosts that expose a supported question tool carry one.
 QUESTION_TOOLS = {"claude": "AskUserQuestion", "grok": "ask_user_question",
                   "codex": "request_user_input"}
 
@@ -993,8 +993,8 @@ fi
 # ---------------- Paseo 侧配置 ----------------
 #
 # 源在仓库（hosts.json 里两条 provider 的字面量），host 侧只放生成物：CLI 软链、
-# ~/.paseo/config.json 里的 provider、worktrees.root。活表在 ~/.mmw/models.md：第一次
-# install 从 hosts.json 的 defaults 拷入，之后不覆盖。不写 Agent profile。笔记含
+# ~/.paseo/config.json 里的 provider、worktrees.root。models.json 在 ~/.mmw/：第一次
+# install 从 hosts.json 的 defaults 写入，或从遗留 Markdown 导入，之后不覆盖。不写 Agent profile。笔记含
 # `from models.md` 的生成 profile 安装时摘掉、--check 报残留；手写的不动。
 # MMW_V2_HOME 之下不跑 paseo reload（与 launchd 同构）。
 
@@ -1023,7 +1023,7 @@ MMW_PASEO_CONFIG="$PASEO_CONFIG" \
 MMW_MODELS_PY="$SELF_SRC/dispatch/scripts/models.py" \
 MMW_PASEO_WORKTREES="$PASEO_WORKTREES_ROOT" \
 MMW_HOME_DIR="$HOME_DIR" \
-MMW_LIVE_MODELS="$HOME_DIR/.mmw/models.md" \
+MMW_HOME="${MMW_HOME:-$HOME_DIR/.mmw}" \
 python3 - <<'PY' || rc=1
 import importlib.util
 import json
@@ -1037,7 +1037,7 @@ mode = os.environ["MMW_MODE"]
 config_path = Path(os.environ["MMW_PASEO_CONFIG"])
 models_py = Path(os.environ["MMW_MODELS_PY"])
 worktrees_root = os.environ["MMW_PASEO_WORKTREES"]
-GENERATED_MARK = "from models.md"
+RETIRED_PROFILE_NOTE = "from models.md"
 
 _spec = importlib.util.spec_from_file_location("mmw_models", models_py)
 models = importlib.util.module_from_spec(_spec)
@@ -1086,7 +1086,7 @@ def save(path, data):
 
 def is_generated(profile):
     notes = profile.get("notes") if isinstance(profile, dict) else None
-    return isinstance(notes, str) and GENERATED_MARK in notes
+    return isinstance(notes, str) and RETIRED_PROFILE_NOTE in notes
 
 
 def drop_generated(data):
@@ -1116,29 +1116,24 @@ def merge_providers(data):
 
 failed = False
 try:
+    config_file = models.models_json_path()
+    legacy_file = config_file.with_name("models.md")
     if mode != "check":
-        created = models.adopt_live_table()
-        models.refresh_live_offerings()
-        if created:
-            print(f"已装  活表 {models.live_path()}")
-        print(f"已扫  目录 {models.live_path()}")
-    live = models.live_path()
-    if not live.is_file():
-        sys.stderr.write(f"缺    活表 {live}\n")
+        installed = models.install_local_config(legacy_file)
+        config = installed.config
+        if installed.created:
+            print(f"已装  {config_file}")
+        if installed.imported:
+            print(f"迁移  {legacy_file} -> {config_file}，旧文件已删除")
+    else:
+        config = models.read_local_config()
+    config, scan, errors = models.check_local_config(config)
+    if errors:
+        for item in errors:
+            sys.stderr.write(f"缺    {config_file} {item['cell']}: {item['reason']}\n")
         sys.exit(1)
-    rows = models.session_rows()
 except ValueError as exc:
     die(str(exc))
-if not rows:
-    die(f"{models.live_path()} 里一行都没有")
-for row in rows:
-    try:
-        host, model, effort = models.resolve_row(row.host, row.model, row.effort)
-        models.create_agent_settings(host)
-        models.thinking_option(host, effort)
-    except ValueError as exc:
-        sys.stderr.write(f"缺    {exc}\n")
-        failed = True
 
 if mode == "check":
     data = load(config_path)

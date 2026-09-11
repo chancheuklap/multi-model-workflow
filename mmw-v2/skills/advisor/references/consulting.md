@@ -12,7 +12,7 @@ What you can settle by reading the code, settle by reading the code. One decisio
 
 ## Start it
 
-Start the advisor row of the live table (`~/.mmw/models.md`) with `create_agent`. Expand host, model and thinking the same way `start` does — do not copy tonight's cells by hand, and do not read an Agent profile. Where your session has no `create_agent` tool, say so and decide without it.
+Start the advisor row of `MMW_HOME/models.json` with `create_agent`. Expand host, model and thinking the same way `start` does — do not copy the saved cells by hand, and do not read an Agent profile. Where your session has no `create_agent` tool, say so and decide without it.
 
 `initialPrompt` is the line `Use the advisor skill.` followed by the packet. To change which host or model the advisor uses, read the dispatch skill's `references/editing-models.md`.
 

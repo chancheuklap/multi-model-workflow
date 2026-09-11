@@ -8,6 +8,10 @@
 #   runners/paseo.sh liveness <session-id>
 #   runners/paseo.sh stop <session-id>
 #   runners/paseo.sh self
+#   runners/paseo.sh attach --cwd DIR --issue N
+#   runners/paseo.sh catalog-status
+#   runners/paseo.sh catalog-models <host>
+#   runners/paseo.sh diagnostic <host>
 #
 # start runs `paseo run -d` in DIR and prints the agent id Paseo answers with; exit 1,
 # with the reason on stderr, when Paseo did not start it. The host's mode and thinking
@@ -25,6 +29,9 @@
 # MMW_USES: send --no-wait
 # MMW_USES: ls -g --json
 # MMW_USES: archive --force
+# MMW_USES: provider ls --json
+# MMW_USES: provider models --json
+# MMW_USES: provider diagnostic --json
 
 set -uo pipefail
 
@@ -40,6 +47,10 @@ usage() {
   echo "       runners/paseo.sh liveness <session-id>" >&2
   echo "       runners/paseo.sh stop <session-id>" >&2
   echo "       runners/paseo.sh self" >&2
+  echo "       runners/paseo.sh attach --cwd DIR --issue N" >&2
+  echo "       runners/paseo.sh catalog-status" >&2
+  echo "       runners/paseo.sh catalog-models <host>" >&2
+  echo "       runners/paseo.sh diagnostic <host>" >&2
   exit 2
 }
 
@@ -207,5 +218,13 @@ case "$verb" in
   liveness) liveness "$@" ;;
   stop) stop "$@" ;;
   self) self_ ;;
+  attach) exit 0 ;;
+  catalog-status) paseo_ provider ls --json ;;
+  catalog-models)
+    [ "$#" -eq 1 ] || usage
+    paseo_ provider models "$1" --json ;;
+  diagnostic)
+    [ "$#" -eq 1 ] || usage
+    paseo_ provider diagnostic "$1" --json ;;
   *) usage ;;
 esac

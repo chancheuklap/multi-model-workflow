@@ -13,15 +13,15 @@ Vocabulary that belongs to one skill alone — `exe-release`'s release key, tier
 **agent**:
 Any session or subagent this pipeline sends out or runs: the main agent, a worker, a reviewer, the verifier, the advisor, a code-review axis subagent.
 _Avoid_: board
-_Home_: `~/.mmw/models.md`
+_Home_: `~/.mmw/models.json`
 
 **session**:
 A host process a runner started, or the main agent the user started themselves. It carries a host. A session `dispatch.sh start` started is named on its ticket by its started event — `worker.started`, `reviewer.started` or `verifier.started` — whose payload carries the runner that runs it and that runner's own id for it, always as a pair. The main agent, a worker, a reviewer, the verifier, and the advisor are sessions; the three code-review axis subagents are not — they are subagents inside the reviewer session.
 _Avoid_: 会话 (as a term), pane, terminal (for this)
-_Home_: `~/.mmw/models.md`
+_Home_: `~/.mmw/models.json`
 
 **main agent**:
-The session the user started themselves. By day it works with the user to produce specs and tickets; by night it runs `check`, then `open`, then `advance`, then on each **wake** `status`, one `advance` and `ack`, the **收口轮** when the frontier is empty and open `finding` children remain, then `reverify` and `summary`, and only reads tickets. It is the one agent with no row in the live table; it is tied to no host. One main agent holds one spec.
+The session the user started themselves. By day it works with the user to produce specs and tickets; by night it runs `check`, then `open`, then `advance`, then on each **wake** `status`, one `advance` and `ack`, the **收口轮** when the frontier is empty and open `finding` children remain, then `reverify` and `summary`, and only reads tickets. It is the one agent with no row in `models.json`; it is tied to no host. One main agent holds one spec.
 _Avoid_: coordinator, orchestrator, 编排者, 主 agent, 出票的主 agent, 落地 agent, the single Claude Code session, mmw-main, board
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
@@ -32,14 +32,14 @@ _Avoid_: 工人, 做票的 agent, 领票的 agent, MMW_TICKET
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **worker grade**:
-Which of the two workers a ticket goes to. Each grade is at once a ticket label and a row of the live table; the user sees it once, as the `Worker:` line of the `to-tickets` quiz, and the label is read afresh every time the ticket is started.
+Which of the two workers a ticket goes to. Each grade is at once a ticket label and a row of `models.json`; the user sees it once, as the `Worker:` line of the `to-tickets` quiz, and the label is read afresh every time the ticket is started.
 _Avoid_: grade of worker, seat, lane (for this)
-_Home_: `~/.mmw/models.md`
+_Home_: `~/.mmw/models.json`
 
 **`junior-worker`**:
 The default worker grade (`DEFAULT_WORKER` in `dispatch.sh`).
 _Avoid_: 初级工人, 初级 worker
-_Home_: `~/.mmw/models.md`
+_Home_: `~/.mmw/models.json`
 
 **`senior-worker`**:
 The worker grade a ticket names when getting it wrong would be wrong silently.
@@ -63,7 +63,7 @@ _Avoid_: 复验者, verifier 子代理, subagent verifier
 _Home_: `mmw-v2/skills/verdict/SKILL.md`
 
 **advisor**:
-The second-opinion agent on a stronger model; it implements nothing. One door: a session from the advisor row of the live table, started by whichever agent hit the decision, its first prompt naming the `advisor` skill plus the **question packet**; how it is started is the skill's `references/consulting.md`. Nothing but its own instructions holds it to reading — a session on any host can write through a shell.
+The second-opinion agent on a stronger model; it implements nothing. One door: a session from the advisor row of `models.json`, started by whichever agent hit the decision, its first prompt naming the `advisor` skill plus the **question packet**; how it is started is the skill's `references/consulting.md`. Nothing but its own instructions holds it to reading — a session on any host can write through a shell.
 _Home_: `mmw-v2/skills/advisor/SKILL.md`
 
 **question packet**:
@@ -77,12 +77,12 @@ _Avoid_: verdict (for this)
 _Home_: `mmw-v2/skills/advisor/references/advising.md`
 
 **host**:
-The command-line agent program a session runs on: one of `claude`, `codex`, `grok`, `cursor`, `pi`. It is the `host` column of the live table. Each host has its own install locations, hook configuration, form close key, and effort spelling.
+The command-line agent program a session runs on: one of `claude`, `codex`, `grok`, `cursor`, `pi`. It is the `host` field of a `models.json` row. Each host has its own install locations, hook configuration, form close key, and effort spelling.
 _Avoid_: 宿主, agent kind
 _Home_: `mmw-v2/skills/drive-target/scripts/hook.py`
 
 **runner**:
-The program that runs the sessions this pipeline starts on this machine: `paseo`, `orca` or `herdr`, one adapter each, `scripts/runners/<runner>.sh` of the dispatch skill. The adapter answers the three verbs the protocol asks of a runner — start a session in the directory it is given (`start`), deliver a message to one (`send`), say whether one is alive (`liveness`, whose third answer `unknown` is what it says when it cannot prove `alive` or `stopped`) — plus `stop` to end one and `self` to name the session the calling process runs in, and nothing else; its `# MMW_USES:` lines name the runner commands it calls, and `install.sh --check` holds them against the binary. It is not the host: the host is the agent program a session runs, the runner is what keeps it running and reachable. The worktree is not its either: `dispatch.sh` cuts and removes it with git and hands the runner only the absolute path. Tonight's runner is `python3 models.py runner` — `MMW_RUNNER`, then the live table's `runner` row, then the runner this process runs in when an adapter exists for it, then `orca`; the live table's rows are resolved against that runner's catalog (Paseo's own provider catalog on Paseo, each host CLI's own catalog on the other two). Once a session is started, every later command asks the runner its started event names, and no other.
+The program that runs the sessions this pipeline starts on this machine: `paseo`, `orca` or `herdr`, one adapter each, `scripts/runners/<runner>.sh` of the dispatch skill. Every runner operation, including optional worktree association and catalog access, crosses that adapter. Its `# MMW_USES:` lines are the authoritative declaration of every runner command it calls, and `install.sh --check` compares them with the binary. The runner is not the host: the host is the agent program a session runs, while the runner keeps the session running and reachable. `dispatch.sh` creates and removes worktrees with git. Tonight's runner is selected by `python3 models.py runner`: `MMW_RUNNER`, then the saved `runner`; only a saved `auto` permits detection from the current process, followed by `orca`. Saved rows are resolved against the selected runner's catalog. Once a session is started, every later command asks the runner named by its started event, and no other.
 _Avoid_: backend, night-process host, 夜间进程宿主, host (for this)
 _Home_: `mmw-v2/skills/dispatch/scripts/runners/`
 
@@ -92,7 +92,7 @@ _Avoid_: human (for this), maintainer (in this repository's text), reporter (in 
 _Home_: `docs/agents/triage-labels.md`
 
 **subagent**:
-An agent started inside another agent's session, holding its own context and answering back into that session. The toolbox ships no subagent definitions and installs nothing into any host's `agents/` directory: a skill that needs one asks for the host's own general-purpose subagent, which runs on the model of the session that starts it and has no live-table row. Results that must be written back to the ticket, read by another role, and openable by a person run as a session a runner starts (`dispatch.sh start`) instead; work that is only an internal split of the current step runs as a subagent. The three code-review axis subagents are subagents of the reviewer session; the reviewer and the verifier themselves are sessions the worker starts, not its subagents.
+An agent started inside another agent's session, holding its own context and answering back into that session. The toolbox ships no subagent definitions and installs nothing into any host's `agents/` directory: a skill that needs one asks for the host's own general-purpose subagent, which runs on the model of the session that starts it and has no `models.json` row. Results that must be written back to the ticket, read by another role, and openable by a person run as a session a runner starts (`dispatch.sh start`) instead; work that is only an internal split of the current step runs as a subagent. The three code-review axis subagents are subagents of the reviewer session; the reviewer and the verifier themselves are sessions the worker starts, not its subagents.
 _Avoid_: sub-agent, background agent, seat, 子代理 (as a term), native subagent, assembled subagent file
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
@@ -109,8 +109,13 @@ _Admitted_: the toolbox
 _Avoid_: 工具箱, this repository (as a name), 活层, live layer
 _Home_: `AGENTS.md`
 
+**task board**:
+The local browser interface for reading a spec's ticket state and editing this machine's dispatch configuration. It reads ticket state from GitHub and reads or writes `MMW_HOME/models.json`; it does not become a second store for either. A model change uses the same validation and write operation as `models.py config`.
+_Avoid_: board (for an agent), dashboard
+_Home_: `mmw-v2/board/server.py`
+
 **consuming repository**:
-The outside repository where real tickets are run, as distinct from the toolbox. It must hold a `DESIGN.md` before UI refinement; the live table is never placed in it.
+The outside repository where real tickets are run, as distinct from the toolbox. It must hold a `DESIGN.md` before UI refinement; the machine-level `models.json` is never placed in it.
 _Avoid_: consumer repo, 消费仓库, the project (for this), the repo (for this)
 _Home_: `AGENTS.md`
 
@@ -168,7 +173,7 @@ The CLI every issue-tracker operation goes through. `CLICOLOR` and `CLICOLOR_FOR
 _Home_: `docs/agents/issue-tracker.md`
 
 **Paseo**:
-One of the three runners, a daemon whose sessions are Paseo agents; its CLI is `paseo`. Its adapter starts each session in one call, in the directory it is given, never in a Paseo workspace. What sets it apart from the other two: a live-table row is resolved against its own provider catalog rather than the host CLI's, and it is the one runner a script asks directly rather than through the adapter — `check` asks it whether each host is available when it is tonight's runner.
+One of the three runners, a daemon whose sessions are Paseo agents; its CLI is `paseo`. Its adapter starts each session in one call, in the directory it is given, never in a Paseo workspace. A `models.json` row selected for Paseo is resolved against Paseo's provider catalog. Catalog, status, and diagnostic commands cross the Paseo adapter, whose `MMW_USES` declarations let `install.sh --check` detect command changes.
 _Avoid_: terminal multiplexer
 _Home_: `mmw-v2/skills/dispatch/scripts/runners/paseo.sh`
 
@@ -181,12 +186,12 @@ A Paseo agent started from inside another Paseo agent, which Paseo records as it
 _Home_: `mmw-v2/skills/dispatch/scripts/runners/paseo.sh`
 
 **workspace**:
-The per-ticket unit `dispatch.sh` opens and archives: the worktree `<repository root>/.worktrees/issue-<n>` together with every session the ticket's started events name. `start` opens it with git (`git worktree add`, or reuses the one standing), has tonight's runner start a session in it by absolute path, and writes that path into the started event, so no runner is ever asked to find it. Archiving it — `advance` after merging that ticket's branch, `land`, `retract` — gives back the product slot its worktree holds, if it holds one, stops each of those sessions through the runner its event names, and removes the worktree with `git worktree remove --force`. No runner creates or removes it.
+The per-ticket unit `dispatch.sh` opens and archives: the worktree `<repository root>/.worktrees/issue-<n>` together with every session the ticket's started events name. `start` opens it with git, has tonight's runner start a session in it by absolute path, writes that path into the started event, and asks the runner adapter to associate the ticket with the worktree where that capability exists. That association neither creates nor owns the worktree, and failure does not stop the session. Archiving it — `advance` after merging that ticket's branch, `land`, `retract` — gives back the product slot its worktree holds, if it holds one, stops each of those sessions through the runner its event names, and removes the worktree with git. No runner creates or removes it.
 _Avoid_: 工作区 (for the git sense, that is a worktree), pane, monitor tab, Herdr workspace, Paseo workspace
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **Agent profile**:
-A hand-written entry in `~/.paseo/config.json` under `daemon.agentProfiles`. It is not MMW config: `install.sh` does not write these from the live table. Notes containing `from models.md` are leftover generated profiles — `--check` reports `残留`, install drops them. Hand-written profiles are left alone.
+A hand-written entry in `~/.paseo/config.json` under `daemon.agentProfiles`. It is not MMW config: `install.sh` does not generate one from `models.json`. Notes containing `from models.md` identify leftover generated profiles from the retired format; `--check` reports `残留` and install drops them. Hand-written profiles are left alone.
 _Home_: `mmw-v2/install.sh`
 
 **finish notification**:
@@ -887,7 +892,7 @@ _Avoid_: 发布 (as a term), 出票 (as a term), 回读 (as a term)
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **dispatch**:
-Turning a ticket into a running session in its worktree: `dispatch.sh start <n> worker|reviewer|verifier`. The script checks the ticket may start, reads the role's live-table row, opens the workspace, computes the started event's base commit from `origin/<base branch>` and the ticket branch, has tonight's runner start the session, writes its started event (`worker.started`, `reviewer.started` or `verifier.started`) on the ticket, and prints the session id. The caller gives the ticket number and the kind; the worker-grade label picks which worker row. A ticket or session that has been through it is **dispatched**.
+Turning a ticket into a running session in its worktree: `dispatch.sh start <n> worker|reviewer|verifier`. The script checks the ticket may start, reads the role's `models.json` row, opens the workspace, computes the started event's base commit from `origin/<base branch>` and the ticket branch, has tonight's runner start the session, writes its started event (`worker.started`, `reviewer.started` or `verifier.started`) on the ticket, and prints the session id. The caller gives the ticket number and the kind; the worker-grade label picks which worker row. A ticket or session that has been through it is **dispatched**.
 _Avoid_: 派发 (as a term), run (as a dispatch.sh verb)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
@@ -901,7 +906,7 @@ _Avoid_: 派发 (as a term)词, prompt (bare)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **check**:
-`dispatch.sh check <spec>`: runs `install.sh --check`, confirms tonight's runner has an adapter, resolves the live-table row of each worker grade, the reviewer and the verifier against that runner's catalog, confirms the host of each is `available` in `paseo provider ls --json` when Paseo is tonight's runner, and confirms every queued ticket has at most one worker-grade label that the live table has a row for. Exit 0 all passed; exit 2 one or more failed, stderr one `dispatch: …` line per failure. Do not `open` on 2.
+`dispatch.sh check <spec>`: runs `install.sh --check`, confirms tonight's runner has an adapter, resolves the `models.json` row of each worker grade, the reviewer and the verifier against that runner's catalog, confirms the host of each is `available` in `paseo provider ls --json` when Paseo is tonight's runner, and confirms every queued ticket has at most one worker-grade label that `models.json` contains. Exit 0 all passed; exit 2 one or more failed, stderr one `dispatch: …` line per failure. Do not `open` on 2.
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **open**:
@@ -914,16 +919,16 @@ _Home_: `mmw-v2/skills/dispatch/references/night.md`
 _Home_: `mmw-v2/skills/dispatch/references/one-ticket.md`
 
 **start**:
-`dispatch.sh start <n> worker|reviewer|verifier`: one ticket, one agent. Tonight's runner — `MMW_RUNNER`, the live table's `runner` row, the runner the caller runs in when an adapter exists for it, then `orca` — starts the session through its adapter, with the agent's live-table row resolved against that runner's catalog; `start` writes the session's started event on the ticket and prints the session id. A start the runner refuses is refused once: no retry, no other host. On a ticket whose events still show a live worker, `start <n> worker` replaces it: that session is stopped through its own runner, `worker.replaced` names it, and the new worker starts in the same workspace; a worker that will not stop is refused and nothing starts beside it. A worker started in a standing workspace an earlier worker of the ticket left with uncommitted edits first commits them on the ticket branch, and a start whose edits cannot be committed is refused. A start takes no product slot. A session whose started event the tracker will not take is stopped again and the start refused, since no command could find it. The worker row of the live table is chosen by the ticket's `junior-worker` / `senior-worker` label; a replacement worker keeps the first `worker.started.base`, and a reviewer gets the base commit computed from `origin/<base branch>` and the ticket branch; the verifier's first prompt names the `verdict` skill and the ticket. A ticket no running relay watches is refused too: its result would wake nobody. It cuts the worktree under the main checkout whichever worktree it is run from, so a worker starts its reviewer and verifier from its own worktree. Exit 0 started; exit 2 refused (`REFUSE`, reason on stderr), nothing started.
+`dispatch.sh start <n> worker|reviewer|verifier`: one ticket, one agent. Tonight's runner — `MMW_RUNNER`, `runner` in `MMW_HOME/models.json`, the runner the caller runs in when an adapter exists and the saved value is `auto`, then `orca` — starts the session through its adapter, with the agent's saved row resolved against that runner's catalog; `start` writes the session's started event on the ticket and prints the session id. After an Orca start, the adapter associates the absolute worktree path with the ticket; failure is reported once and the start remains successful. A start the runner refuses is refused once: no retry, no other host. On a ticket whose events still show a live worker, `start <n> worker` replaces it: that session is stopped through its own runner, `worker.replaced` names it, and the new worker starts in the same workspace; a worker that will not stop is refused and nothing starts beside it. A worker started in a standing workspace an earlier worker of the ticket left with uncommitted edits first commits them on the ticket branch, and a start whose edits cannot be committed is refused. A start takes no product slot. A session whose started event the tracker will not take is stopped again and the start refused, since no command could find it. The worker row is chosen by the ticket's `junior-worker` / `senior-worker` label; a replacement worker keeps the first `worker.started.base`, and a reviewer gets the base commit computed from `origin/<base branch>` and the ticket branch; the verifier's first prompt names the `verdict` skill and the ticket. A ticket no running relay watches is refused too: its result would wake nobody. It cuts the worktree under the main checkout whichever worktree it is run from, so a worker starts its reviewer and verifier from its own worktree. Exit 0 started; exit 2 refused (`REFUSE`, reason on stderr), nothing started.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **adopt**:
-`dispatch.sh adopt <n>`: the calling session becomes ticket `<n>`'s worker, for a session that picked the ticket up itself and was started by no `start`. Run from the ticket's worktree on `issue-<n>`, before claiming, it writes `worker.started` with the session's own runner and session (its adapter's `self`) and the facts `start` writes — the grade's live-table row, the worktree, branch and base — plus `adopted: true`, takes no product slot, and makes sure a relay watches the ticket: the watch already covering it, or a watch of the ticket alone with this session as its main agent. A session that adopted a ticket outside a night is its own main agent, so it hands `land <n>` to the user rather than running it from the ticket's worktree. The same session adopting again writes nothing; a ticket another live worker holds is refused. Without it no event names the session, so its reviewer's report would wake nobody and `start <n> reviewer` would refuse. Exit 0 adopted, the session id on stdout; exit 2 refused.
+`dispatch.sh adopt <n>`: the calling session becomes ticket `<n>`'s worker, for a session that picked the ticket up itself and was started by no `start`. Run from the ticket's worktree on `issue-<n>`, before claiming, it writes `worker.started` with the session's own runner and session (its adapter's `self`) and the facts `start` writes — the grade's `models.json` row, the worktree, branch and base — plus `adopted: true`, takes no product slot, and makes sure a relay watches the ticket: the watch already covering it, or a watch of the ticket alone with this session as its main agent. A session that adopted a ticket outside a night is its own main agent, so it hands `land <n>` to the user rather than running it from the ticket's worktree. The same session adopting again writes nothing; a ticket another live worker holds is refused. Without it no event names the session, so its reviewer's report would wake nobody and `start <n> reviewer` would refuse. Exit 0 adopted, the session id on stdout; exit 2 refused.
 _Avoid_: claim (for this; claiming is `--preflight`)
 _Home_: `mmw-v2/skills/dispatch/references/inside-a-ticket.md`
 
 **self**:
-The fifth verb of a runner's adapter, and `dispatch.sh self`: the runner and session the calling process itself runs in, as `runner<TAB>session`. Each adapter reads its own runner's mark on the process — Paseo's `PASEO_AGENT_ID`, Orca's `ORCA_TERMINAL_HANDLE`, the name `herdr agent list` gives the agent in Herdr's `HERDR_PANE_ID` — and answers 0 with the id, 3 when the process runs in none of its sessions, 1 when it does and the id cannot be read (a Herdr agent with no name, an Orca terminal with no handle). `dispatch.sh self` asks the innermost runner first — Paseo, then Herdr, then Orca — since a wake sent to an outer terminal is typed into whatever it shows, and it needs no live table. `open`, `open-ticket`, `adopt` and `ack` name the calling session with it, and `verify-ticket.py` names the session a `ticket.refused` is written by.
+The `self` verb of a runner's adapter, and `dispatch.sh self`: the runner and session the calling process itself runs in, as `runner<TAB>session`. Each adapter reads its own runner's mark on the process — Paseo's `PASEO_AGENT_ID`, Orca's `ORCA_TERMINAL_HANDLE`, the name `herdr agent list` gives the agent in Herdr's `HERDR_PANE_ID` — and answers 0 with the id, 3 when the process runs in none of its sessions, 1 when it does and the id cannot be read (a Herdr agent with no name, an Orca terminal with no handle). `dispatch.sh self` asks the innermost runner first — Paseo, then Herdr, then Orca — since a wake sent to an outer terminal is typed into whatever it shows, and it needs no `models.json`. `open`, `open-ticket`, `adopt` and `ack` name the calling session with it, and `verify-ticket.py` names the session a `ticket.refused` is written by.
 _Home_: `mmw-v2/skills/dispatch/scripts/runners/`
 
 **retract**:
@@ -1196,28 +1201,28 @@ _Home_: `mmw-v2/downstream-notes/README.md`
 The note written whenever upstream scripts are copied in without a subtree: source repository, commit, date, and which lines were changed.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/UPSTREAM.md`
 
-**`models.md`**:
-The live table at `~/.mmw/models.md`, one row per agent — a second row for the same agent is refused when the table is read. Four columns `agent | host | model | effort`, everyday names, for every agent the pipeline sends out except the main agent and the three code-review axis subagents — the only place a dispatched agent's model is written. A two-cell `| runner | <name> |` row may sit above them: the live table's say in which runner runs tonight, below `MMW_RUNNER` and above runtime detection. `start` asks this machine what that host offers and uses the unique match; it reads only the rows above `<!-- mmw-offerings -->`. Below that marker is this machine's last scan of the five CLI hosts, written by `python3 models.py offerings` and refreshed by a later `install.sh`; `start` does not read it. `models.py` next to `hosts.json` is the only reader of the rows. Git holds no human-edited copy: `hosts.json` records how each host starts — its own command-line flags, which every runner that runs the host's CLI in a terminal uses, and its settings on Paseo — plus the default rows first `install.sh` copies here. The three code-review axis subagents have no row of their own: they run on the model of the reviewer session that starts them. An agent told to change host, model, `effort`, or tonight's runner reads `references/editing-models.md`.
-_Avoid_: the table (for this), 模型表, 角色表, launch arguments
-_Home_: `~/.mmw/models.md`
+**`models.json`**:
+The versioned machine-level dispatch configuration at `MMW_HOME/models.json`, defaulting to `~/.mmw/models.json`. It is the only place a dispatched agent's model is written. `models.py config` and the task board share its validation and atomic write operation. `dispatch.sh start` reads it fresh. `install.sh` creates it from `hosts.json` defaults when absent, or imports and deletes the retired Markdown file once; it never overwrites an existing JSON file. The main agent and code-review axis subagents have no row.
+_Avoid_: the table (for this), model table, role table, launch arguments, 活表, 模型表, 角色表
+_Home_: `~/.mmw/models.json`
 
 **`effort`**:
-The `effort` column of the live table: the everyday thinking level (`high`, `xhigh`, `medium`, …). Grok, Claude, Codex and pi take it as a flag or thinking option. Cursor does not: effort is set per model in the Cursor app, and `start` only selects among the pairs `cursor-agent models` already lists. Where the host takes it, a runner that runs the host's own CLI passes it as that CLI's flag from `hosts.json`; on Paseo it becomes the `--thinking` value of `paseo run`, which for Cursor is only on or off. Every row needs one.
+The `effort` field of a `models.json` row: the everyday thinking level (`high`, `xhigh`, `medium`, …). Grok, Claude, Codex and pi take it as a flag or thinking option. Cursor does not: effort is set per model in the Cursor app, and `start` only selects among the pairs `cursor-agent models` already lists. Where the host takes it, a runner that runs the host's own CLI passes it as that CLI's flag from `hosts.json`; on Paseo it becomes the `--thinking` value of `paseo run`, which for Cursor is only on or off. Every row needs one.
 _Admitted_: thinking level
 _Avoid_: thinking effort, reasoning effort (in prose), 思考强度
-_Home_: `~/.mmw/models.md`
+_Home_: `~/.mmw/models.json`
 
 **permissions**:
-How a dispatched session is started: all tools granted. It is not a column of the live table. Each host's spelling lives in `hosts.json` (`bypassPermissions`, Cursor `auto_accept`, …). There is no read-only value: no host has a mode that both keeps a session to reading and lets it finish a turn on its own, so an agent that must not write is a subagent, held to reading by what it is told to do and by whatever restriction the call that starts it can carry.
+How a dispatched session is started: all tools granted. It is not a field in `models.json`. Each host's spelling lives in `hosts.json` (`bypassPermissions`, Cursor `auto_accept`, …). There is no read-only value: no host has a mode that both keeps a session to reading and lets it finish a turn on its own, so an agent that must not write is a subagent, held to reading by what it is told to do and by whatever restriction the call that starts it can carry.
 _Avoid_: launch arguments
 _Home_: `mmw-v2/skills/dispatch/hosts.json`
 
 **`models.py`**:
-`mmw-v2/skills/dispatch/scripts/models.py`, the only reader of the live table and of `hosts.json`. It resolves everyday names against tonight's catalog and turns a row into the flags a runner starts the host with, so `install.sh --check` and `dispatch.sh start` cannot disagree about it. `python3 models.py offerings` asks the five CLI hosts and writes the catalog under the live table; `start` does not read that block.
+`mmw-v2/skills/dispatch/scripts/models.py`, the shared reader and writer of `models.json` and reader of `hosts.json`. It resolves everyday names against the selected runner's current catalog and turns a saved row into the flags a runner starts the host with, so the task board, `install.sh --check`, and `dispatch.sh start` cannot disagree. Paseo catalog commands are executed by the Paseo adapter, not by this file.
 _Home_: `mmw-v2/skills/dispatch/scripts/models.py`
 
 **`install.sh`**:
-`mmw-v2/install.sh`, the only install entry. It installs seven things: skill symlinks into `~/.agents/skills` and `~/.claude/skills`; hooks into each host's own configuration; user-level prompts (`~/.claude/CLAUDE.md` a symlink to `prompt/shared.md`, Codex, Pi and Grok each a file `prompt/render.py` writes); a launchd task that re-renders those three when the source changes; Paseo configuration (`~/.local/bin/paseo`, two providers in `~/.paseo/config.json`, `worktrees.root`); Orca worktree configuration, only where `orca` is installed (every Orca setup's `worktree-base-path` is `.worktrees`, and `--check` also wants each repository's external worktrees shown); the `nowledge-mem` entry in `~/.cursor/mcp.json`. It does not write Agent profiles; leftover generated profiles (notes containing `from models.md`) are reported as `残留`. First install copies the live table if it is missing; later ones leave the rows and refresh the CLI catalog below them. It reads `skills.txt`, clears the retired locations, and prints one line per item with the prefixes `已装`, `残留`, `退役`, `冲突`, ending with markers such as `HOOKS-INSTALLED`. **`install.sh --check`** looks and changes nothing: exit 0 when complete, 1 when something is missing or a stale link remains; it expands every live-table row through `models.py`, holds each runner adapter's `# MMW_USES:` lines against the binary on `PATH` — printing `没查` when it could not read what the binary accepts and `不一致` when a command or flag is gone, never one for the other — and `dispatch.sh check` runs it before a night. `MMW_V2_HOME` moves the install location for tests.
+`mmw-v2/install.sh`, the only install entry. It installs seven things: skill symlinks into `~/.agents/skills` and `~/.claude/skills`; hooks into each host's own configuration; user-level prompts (`~/.claude/CLAUDE.md` a symlink to `prompt/shared.md`, Codex, Pi and Grok each a file `prompt/render.py` writes); a launchd task that re-renders those three when the source changes; Paseo configuration (`~/.local/bin/paseo`, two providers in `~/.paseo/config.json`, `worktrees.root`); Orca worktree configuration, only where `orca` is installed (every Orca setup's `worktree-base-path` is `.worktrees`, and `--check` also wants each repository's external worktrees shown); the `nowledge-mem` entry in `~/.cursor/mcp.json`. It does not write Agent profiles; leftover generated profiles (notes containing `from models.md`) are reported as `残留`. When `models.json` is absent, install writes the defaults or imports and deletes the retired Markdown file; an existing JSON file is untouched. It reads `skills.txt`, clears the retired locations, and prints one line per item with the prefixes `已装`, `残留`, `退役`, `冲突`, ending with markers such as `HOOKS-INSTALLED`. **`install.sh --check`** looks and changes nothing: exit 0 when complete, 1 when something is missing or stale; it validates every saved row against the selected runner's catalog and holds each runner adapter's `# MMW_USES:` lines against the binary on `PATH`, printing `没查` when it could not read what the binary accepts and `不一致` when a command or flag is gone. `dispatch.sh check` runs it before a night. `MMW_V2_HOME` moves the install location for tests.
 _Avoid_: the installer, 安装器, 安装入口 (as a term), 只看不动 (as a term)
 _Home_: `mmw-v2/install.sh`
 

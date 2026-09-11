@@ -5,6 +5,7 @@ import json
 import os
 import tempfile
 import unittest
+from unittest import mock
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
@@ -37,14 +38,12 @@ class LocalConfigTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.home = Path(self.tmp.name)
-        self.saved = dict(os.environ)
-        self.addCleanup(self._restore_env)
-        os.environ["MMW_HOME"] = str(self.home)
-        os.environ["MMW_HOST_CATALOG"] = str(ALL_CATALOG)
-
-    def _restore_env(self):
-        os.environ.clear()
-        os.environ.update(self.saved)
+        env = mock.patch.dict(os.environ, {
+            "MMW_HOME": str(self.home),
+            "MMW_HOST_CATALOG": str(ALL_CATALOG),
+        })
+        env.start()
+        self.addCleanup(env.stop)
 
     def seed(self, config=None):
         config = config or base_config()
@@ -129,8 +128,6 @@ class LocalConfigTest(unittest.TestCase):
 
     def test_models_json_follows_mmw_home(self):
         elsewhere = self.home / "elsewhere"
-        os.environ["MMW_LIVE_MODELS"] = str(elsewhere / "models.md")
-        os.environ["MMW_V2_HOME"] = str(elsewhere)
         elsewhere.mkdir()
         other = elsewhere / "models.json"
         other.write_text(json.dumps(base_config(version=40)) + "\n", encoding="utf-8")
@@ -210,6 +207,32 @@ class LocalConfigTest(unittest.TestCase):
         with self.assertRaisesRegex(models.ConfigMissing, "models.json.*install.sh"):
             models.write_local_config(base_config(), 1, self.scan())
         self.assertFalse(models.models_json_path().exists())
+
+    def test_install_imports_a_legacy_file_without_runner_as_auto(self):
+        legacy = self.home / "models.md"
+        rows = base_config()["rows"]
+        legacy.write_text(
+            "| agent | host | model | effort |\n"
+            + "".join(
+                f"| {role} | {row['host']} | {row['model']} | {row['effort']} |\n"
+                for role, row in rows.items()
+            ),
+            encoding="utf-8",
+        )
+        result = models.install_local_config(legacy)
+        self.assertEqual((result.created, result.imported), (True, True))
+        self.assertEqual(result.config["runner"], "auto")
+        self.assertFalse(legacy.exists())
+        self.assertEqual(models.read_local_config(), result.config)
+
+    def test_a_malformed_role_is_reported_once(self):
+        config = base_config()
+        config["rows"]["reviewer"] = None
+        errors = models._validate_local_config(config, self.scan())
+        self.assertEqual(
+            [item for item in errors if item["cell"] == "reviewer"],
+            [{"cell": "reviewer", "reason": "host, model, and effort are required"}],
+        )
 
 
 if __name__ == "__main__":
