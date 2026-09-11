@@ -9,7 +9,7 @@ The **control axis** is `rows`: one row per user-visible behaviour, keyed by the
 ```yaml
 effort: notes-v2                          # the wayfinder map's title, as in docs/specs/<effort>/
 baselines:
-  look: docs/prototypes/<task>/claude-design   # the handoff package directory, unchanged
+  look: docs/prototypes/<task>/claude-design   # example: the handoff package directory, unchanged
   precedence: "look & verbatim copy -> handoff package; calls, shows, next, on_failure -> this file"
 target:
   kind: electron                          # electron | web-spa | web-server-rendered | chrome-extension
