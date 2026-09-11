@@ -10,11 +10,11 @@ import os
 import subprocess
 import threading
 import urllib.parse
-from dataclasses import dataclass, field
 from pathlib import Path
 
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "skills" / "verify-ticket" / "scripts"
+DISPATCH_SCRIPTS = Path(__file__).resolve().parents[1] / "skills" / "dispatch" / "scripts"
 
 
 def _load(name: str):
@@ -24,12 +24,19 @@ def _load(name: str):
     return module
 
 
+def _load_path(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(f"mmw_board_{name}", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 events = _load("events")
 tree = _load("tree")
+ghlist = _load_path("ghlist", DISPATCH_SCRIPTS / "ghlist.py")
 
 
-class GitHubReadFailed(RuntimeError):
-    """A read did not produce a complete answer."""
+GitHubReadFailed = ghlist.ListReadError
 
 
 def utc_now() -> dt.datetime:
@@ -93,20 +100,13 @@ def _structural_keys(comments: list[dict]) -> set[tuple[int | str, str]]:
     }
 
 
-@dataclass
-class CommentCache:
-    pages: dict[str, list[dict]] = field(default_factory=dict)
-    etags: dict[str, str] = field(default_factory=dict)
-    next_pages: dict[str, str | None] = field(default_factory=dict)
-
-
 class BoardStore:
     def __init__(self, gh=None, clock=utc_now):
         self.gh = gh or _run_gh
         self.clock = clock
         self.map_trees: list[dict] = []
         self.comments: dict[int, list[dict]] = {}
-        self.comment_cache: dict[int, CommentCache] = {}
+        self.comment_reader = ghlist.ConditionalListReader(self.gh)
         self.last_tree_at: dt.datetime | None = None
         self.snapshot = {"tasks": [], "read_at": None}
         self.lock = threading.Lock()
@@ -134,82 +134,6 @@ class BoardStore:
             read["labels"] = _labels(item)
             result.append(read)
         return result
-
-    @staticmethod
-    def _parse_http_response(output: str) -> tuple[int, dict[str, str], str]:
-        normal = output.replace("\r\n", "\n")
-        head, separator, body = normal.partition("\n\n")
-        if not separator:
-            raise GitHubReadFailed("the comments response had no HTTP headers")
-        lines = head.splitlines()
-        try:
-            status = int(lines[0].split()[1])
-        except (IndexError, ValueError) as exc:
-            raise GitHubReadFailed("the comments response had no HTTP status") from exc
-        headers = {}
-        for line in lines[1:]:
-            name, found, value = line.partition(":")
-            if found:
-                headers[name.strip().lower()] = value.strip()
-        return status, headers, body
-
-    def _read_comment_page(self, number: int, endpoint: str,
-                           etag: str | None) -> tuple[list[dict] | None, str | None, str | None]:
-        args = ["api", "-i", endpoint, "-H", "Accept: application/vnd.github+json"]
-        if etag:
-            args += ["-H", f"If-None-Match: {etag}"]
-        code, out, err = self.gh(args)
-        status = None
-        headers = {}
-        body = ""
-        if out:
-            status, headers, body = self._parse_http_response(out)
-        if status == 304:
-            return None, etag, None
-        if code != 0:
-            raise GitHubReadFailed(
-                f"comments for #{number}: {_last_error(err, out, 'GitHub did not answer')}")
-        if status != 200:
-            raise GitHubReadFailed(f"comments for #{number}: HTTP {status}")
-        try:
-            comments = json.loads(body)
-        except json.JSONDecodeError as exc:
-            raise GitHubReadFailed(f"comments for #{number} were unreadable") from exc
-        if not isinstance(comments, list):
-            raise GitHubReadFailed(f"comments for #{number} were not an array")
-        if not headers.get("etag"):
-            raise GitHubReadFailed(f"comments for #{number} had no ETag")
-        next_url = None
-        for part in headers.get("link", "").split(","):
-            if 'rel="next"' in part:
-                start = part.find("<")
-                end = part.find(">", start + 1)
-                if start >= 0 and end > start:
-                    next_url = part[start + 1:end]
-        return comments, headers["etag"], next_url
-
-    def _read_comments(self, number: int, cache: "CommentCache") -> list[dict]:
-        endpoint = f"repos/{{owner}}/{{repo}}/issues/{number}/comments?per_page=100"
-        visited = []
-        while endpoint:
-            result, etag, reported_next = self._read_comment_page(
-                number, endpoint, cache.etags.get(endpoint))
-            if result is None:
-                if endpoint not in cache.pages:
-                    raise GitHubReadFailed(f"comments for #{number} returned 304 without a cached page")
-                next_url = cache.next_pages.get(endpoint)
-            else:
-                cache.pages[endpoint] = result
-                next_url = reported_next
-                cache.next_pages[endpoint] = next_url
-            if etag:
-                cache.etags[endpoint] = etag
-            visited.append(endpoint)
-            endpoint = next_url
-        cache.pages = {url: cache.pages[url] for url in visited}
-        cache.etags = {url: cache.etags[url] for url in visited if url in cache.etags}
-        cache.next_pages = {url: cache.next_pages.get(url) for url in visited}
-        return [comment for url in visited for comment in cache.pages[url]]
 
     @staticmethod
     def _ticket_nodes(map_trees: list[dict]) -> list[dict]:
@@ -300,7 +224,7 @@ class BoardStore:
             now = self.clock()
             map_trees = copy.deepcopy(self.map_trees)
             comments = copy.deepcopy(self.comments)
-            comment_cache = copy.deepcopy(self.comment_cache)
+            comment_reader = self.comment_reader.clone()
             last_tree_at = self.last_tree_at
             first_read = last_tree_at is None
             try:
@@ -320,8 +244,8 @@ class BoardStore:
                 structural = False
                 for number in plan["comments"]:
                     old_structural = _structural_keys(comments.get(number, []))
-                    cache = comment_cache.setdefault(number, CommentCache())
-                    result = self._read_comments(number, cache)
+                    endpoint = f"repos/{{owner}}/{{repo}}/issues/{number}/comments?per_page=100"
+                    result = comment_reader.read(endpoint)
                     comments[number] = result
                     structural = structural or bool(_structural_keys(result) - old_structural)
 
@@ -331,10 +255,9 @@ class BoardStore:
                 new_numbers = [node["number"] for node in self._ticket_nodes(map_trees)
                                if node["number"] not in comments]
                 for number in new_numbers:
-                    cache = CommentCache()
-                    result = self._read_comments(number, cache)
+                    endpoint = f"repos/{{owner}}/{{repo}}/issues/{number}/comments?per_page=100"
+                    result = comment_reader.read(endpoint)
                     comments[number] = result
-                    comment_cache[number] = cache
 
                 snapshot = {"tasks": self._shape(map_trees, comments), "read_at": iso(now)}
             except GitHubReadFailed as exc:
@@ -344,7 +267,7 @@ class BoardStore:
 
             self.map_trees = map_trees
             self.comments = comments
-            self.comment_cache = comment_cache
+            self.comment_reader = comment_reader
             self.last_tree_at = last_tree_at
             self.snapshot = snapshot
             return copy.deepcopy(snapshot)

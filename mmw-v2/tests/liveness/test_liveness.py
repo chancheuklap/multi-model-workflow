@@ -782,6 +782,30 @@ class Rounds(StateCase):
         self.watchdog().round()
         self.assertIsNone(self.heartbeat()["held"])
 
+    def test_watchdog_reads_comments_conditionally(self):
+        calls = []
+        rows = [comment(1, "worker.started", 61, T0 - timedelta(minutes=2),
+                        runner="herdr", session="h1")]
+
+        def list_gh(args):
+            return [{"number": 61, "state": "open"}]
+
+        def raw_gh(args):
+            calls.append(args)
+            if 'If-None-Match: "comments"' in args:
+                return 1, "HTTP/2 304 Not Modified\n\n", "gh: HTTP 304"
+            return 0, ("HTTP/2 200 OK\nETag: \"comments\"\n\n"
+                       + json.dumps(rows)), ""
+
+        reader = dog.relay_mod.ghlist.ConditionalListReader(raw_gh)
+        self.board = dog.relay_mod.Board("o/r", list_gh, reader)
+        wd = self.watchdog()
+        wd.round()
+        self.assertEqual(self.heartbeat()["held"], [61])
+        wd.round()
+        self.assertIn('If-None-Match: "comments"', calls[-1])
+        self.assertEqual(self.heartbeat()["held"], [61])
+
 
 class Arm(StateCase):
     def test_a_watchdog_that_beats_is_not_ended_for_failing_reads(self):

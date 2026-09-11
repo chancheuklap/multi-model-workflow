@@ -175,7 +175,8 @@ Files in the state directory:
                     time, and `ending` once it has no watch left and is on its way out
     relay.log       what every started relay printed, appended
     beat.json       the last good poll, seconds spent delivering since it, the pass under way,
-                    the last failed poll and why, the run's interval and grace
+                    the last failed poll and why, the run's interval and grace, and `reads`:
+                    billed and not-modified comment-list reads since this process started
     gap.json        the latest unattended stretch announced
     relay.lock      held for as long as a `run` runs: one relay per repository
 
@@ -232,6 +233,7 @@ if str(HERE) not in sys.path:
 
 import statedir  # noqa: E402
 from statedir import LockHeld  # noqa: E402
+import ghlist  # noqa: E402
 
 
 def _load_events():
@@ -497,15 +499,30 @@ def gh_list(args: list[str]) -> list:
 class Board:
     """The tracker, read-only: comments of one issue, and the sub-issues of one issue."""
 
-    def __init__(self, repo: str, gh: Callable[[list[str]], list] = gh_list):
+    def __init__(self, repo: str, gh: Callable[[list[str]], list] = gh_list,
+                 comment_reader: ghlist.ConditionalListReader | None = None):
         self.repo = repo
         self.gh = gh
+        self.comment_reader = comment_reader or ghlist.ConditionalListReader()
+        self.comment_addresses: dict[int, str] = {}
+
+    @property
+    def reads(self) -> dict[str, int]:
+        return self.comment_reader.reads
 
     def comments(self, ticket: int, since: str | None) -> list[dict]:
         url = f"repos/{self.repo}/issues/{ticket}/comments?per_page=100"
         if since:
             url += f"&since={since}"
-        return [c for c in self.gh(["api", "--paginate", "--slurp", url]) if isinstance(c, dict)]
+        previous = self.comment_addresses.get(ticket)
+        if previous and previous != url:
+            self.comment_reader.discard(previous)
+        self.comment_addresses[ticket] = url
+        try:
+            rows = self.comment_reader.read(url)
+        except ghlist.ListReadError as exc:
+            raise PollError(str(exc)) from None
+        return [c for c in rows if isinstance(c, dict)]
 
     def children(self, number: int) -> list[tuple[int, str]]:
         """Each sub-issue of `number` as (number, state): the state lower case, `open` or
@@ -1078,7 +1095,7 @@ class Relay:
                 beat.update(failed_at=iso(now), failure="; ".join(failures))
             else:
                 beat.update(at=iso(now), delivering=0, failed_at=None, failure=None)
-            beat.update(interval=interval, grace=grace)
+            beat.update(interval=interval, grace=grace, reads=self.board.reads)
             statedir.write_atomic(self.path("beat.json"), json.dumps(beat, sort_keys=True) + "\n")
 
         self.reconciled.update(read)

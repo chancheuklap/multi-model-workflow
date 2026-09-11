@@ -45,7 +45,8 @@ args = sys.argv[1:]
 with open(os.environ["MMW_TEST_LOG"], "a", encoding="utf-8") as fh:
     fh.write("gh" + "".join(" :: " + a for a in args) + "\n")
 board = Path(os.environ["FAKE_BOARD"])
-url = args[-1] if args else ""
+conditional = args[:2] == ["api", "-i"]
+url = args[2] if conditional else (args[-1] if args else "")
 found = re.search(r"repos/[^/]+/[^/]+/issues/(\d+)/(comments|sub_issues)(?:\?(.*))?$", url)
 if args[:1] != ["api"] or not found:
     sys.stderr.write(f"fake gh: no answer for {args}\n")
@@ -63,6 +64,18 @@ since = params.get("since")
 path = board / f"{number}.json"
 rows = json.loads(path.read_text()) if path.is_file() else []
 rows = [c for c in rows if not since or c["updated_at"] >= since]
+if conditional:
+    etag = '"' + str(hash(json.dumps(rows, sort_keys=True))) + '"'
+    supplied = next((args[i + 1].split(":", 1)[1].strip()
+                     for i, value in enumerate(args[:-1])
+                     if value == "-H" and args[i + 1].lower().startswith("if-none-match:")), None)
+    if supplied == etag:
+        print("HTTP/2 304 Not Modified\n")
+        sys.stderr.write("gh: HTTP 304\n")
+        sys.exit(1)
+    print(f"HTTP/2 200 OK\nETag: {etag}\n")
+    print(json.dumps(rows))
+    sys.exit(0)
 # `--paginate --slurp` answers with one list per page: two pages here, to prove they are joined.
 half = len(rows) // 2
 print(json.dumps([rows[:half], rows[half:]]))
@@ -373,7 +386,8 @@ scenario_pollfail() {
   event 62 102 ticket.passed
   code="$(FAKE_GH_FAIL=62 relay_ run --repo "$REPO" --once)"
   [ "$code" = 3 ] || fail "run --once with an unreadable ticket expected 3, got $code"
-  grep -q "could not read #62: gh exited 1: HTTP 502" "$TMP/err" || fail "stderr should name #62 and why: $(cat "$TMP/err")"
+  grep -q "could not read #62: repos/o/r/issues/62/comments?per_page=100: gh exited 1: HTTP 502" "$TMP/err" \
+    || fail "stderr should name #62, its address and why: $(cat "$TMP/err")"
   expect_rows "1 61 ticket.passed main-a delivered"
   python3 -c 'import json,sys; b=json.load(open(sys.argv[1])); sys.exit(0 if b.get("at") is None and "#62" in b["failure"] else 1)' \
     "$STATE/beat.json" || fail "beat.json should hold no good poll and name the failure: $(cat "$STATE/beat.json")"
@@ -462,7 +476,7 @@ scenario_readonly() {
   sub_issues 50 61
   relay_ run --repo "$REPO" --once >/dev/null
   has "gh :: api :: --paginate :: --slurp :: repos/o/r/issues/50/sub_issues?per_page=100"
-  has "gh :: api :: --paginate :: --slurp :: repos/o/r/issues/61/comments?per_page=100"
+  has "gh :: api :: -i :: repos/o/r/issues/61/comments?per_page=100"
   python3 - "$MMW_TEST_LOG" <<'PY' || fail "a gh call that is not a plain read: $(grep '^gh' "$MMW_TEST_LOG")"
 import sys
 writes = ("-X", "--method", "-f", "-F", "--field", "--raw-field", "--input")

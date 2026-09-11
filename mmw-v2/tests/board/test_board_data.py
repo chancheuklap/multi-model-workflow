@@ -168,14 +168,33 @@ class BoardDataTest(unittest.TestCase):
             return 0, f"HTTP/2 200 OK\nETag: {tag}\n{link}\n[{{\"id\":{ident},\"body\":\"\"}}]\n", ""
 
         store = board_data.BoardStore(gh=gh)
-        cache = board_data.CommentCache()
-        comments = store._read_comments(12, cache)
+        address = "repos/{owner}/{repo}/issues/12/comments?per_page=100"
+        comments = store.comment_reader.read(address)
         self.assertEqual([comment["id"] for comment in comments], [1, 2])
-        cached = store._read_comments(12, cache)
+        cached = store.comment_reader.read(address)
         self.assertEqual(cached, comments)
         self.assertEqual(len(calls), 4)
         self.assertTrue(all(any(value.startswith("If-None-Match:") for value in call)
                             for call in calls[2:]))
+
+    def test_past_a_full_page(self):
+        address = "repos/{owner}/{repo}/issues/12/comments?per_page=100"
+        next_url = "https://api.github.test/comments?per_page=100&page=2"
+        calls = []
+
+        def gh(args):
+            calls.append(args)
+            if args[2] == next_url:
+                return 0, "HTTP/2 200 OK\nETag: \"two\"\n\n[{\"id\":101}]", ""
+            rows = [{"id": n} for n in range(1, 101)]
+            link = f'Link: <{next_url}>; rel="next"\n' if len(calls) > 1 else ""
+            return 0, (f"HTTP/2 200 OK\nETag: \"full\"\n{link}\n"
+                       + json.dumps(rows)), ""
+
+        store = board_data.BoardStore(gh=gh)
+        self.assertEqual(len(store.comment_reader.read(address)), 100)
+        self.assertEqual(len(store.comment_reader.read(address)), 101)
+        self.assertNotIn('If-None-Match: "full"', calls[1])
 
     def test_board_answers_the_tree_with_each_fold(self):
         data = scenario()
