@@ -7,6 +7,7 @@
 #   runners/herdr.sh liveness <session-id>
 #   runners/herdr.sh stop <session-id>
 #   runners/herdr.sh self
+#   runners/herdr.sh attach --cwd DIR --issue N
 #
 # start takes host, model, effort, cwd, skip-approval, and the first prompt, and
 # prints a session id, or refuses with exit 1 and one stderr line naming what failed.
@@ -56,6 +57,7 @@ usage() {
   echo "       runners/herdr.sh liveness <session-id>" >&2
   echo "       runners/herdr.sh stop <session-id>" >&2
   echo "       runners/herdr.sh self" >&2
+  echo "       runners/herdr.sh attach --cwd DIR --issue N" >&2
   exit 2
 }
 

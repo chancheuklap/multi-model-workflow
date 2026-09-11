@@ -44,6 +44,7 @@ unset MMW_SPEC
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 SKILL="$(dirname "$(dirname "$HERE")")/skills/dispatch"
 DISPATCH="$SKILL/scripts/dispatch.sh"
+INSTALLER="$(dirname "$(dirname "$HERE")")/install.sh"
 
 rc=0
 fail() { echo "  FAILED: $1" >&2; rc=1; }
@@ -4279,7 +4280,7 @@ scenario_runnerself() {
   RUNNER="$PASEO_RUNNER"
 
   echo "--- dispatch.sh self prints the pair, with no models.json needed"
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_self bash "$DISPATCH" self)"
+  code="$(run_dispatch env MMW_HOME="$TMP/no-such-home" PASEO_AGENT_ID=agt_self bash "$DISPATCH" self)"
   [ "$code" = 0 ] || fail "self expected 0, got $code: $(cat "$TMP/err")"
   [ "$(cat "$TMP/out")" = "$(printf 'paseo\tagt_self')" ] || fail "self should print paseo<TAB>agt_self: $(cat "$TMP/out")"
   code="$(run_dispatch env -u TERM_PROGRAM -u HERDR_ENV bash "$DISPATCH" self)"
@@ -4795,7 +4796,7 @@ state = Path(os.environ["MMW_FAKE_ORCA_STATE"])
 }]))
 '
   : > "$MMW_TEST_LOG"
-  (MMW_INSTALL_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
+  (MMW_V2_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
   grep -q "缺    orca worktree-base-path" "$TMP/err" \
     || fail "wrong base path should be 缺: $(cat "$TMP/err")"
   has "orca :: project :: setups"
@@ -4819,7 +4820,7 @@ state = Path(os.environ["MMW_FAKE_ORCA_STATE"])
 }]))
 '
   : > "$MMW_TEST_LOG"
-  (MMW_INSTALL_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
+  (MMW_V2_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
   if grep -q "orca worktree-base-path" "$TMP/err"; then
     fail "correct base path should not 缺: $(cat "$TMP/err")"
   fi
@@ -4845,7 +4846,7 @@ state = Path(os.environ["MMW_FAKE_ORCA_STATE"])
 }]))
 '
   : > "$MMW_TEST_LOG"
-  (MMW_INSTALL_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
+  (MMW_V2_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
   grep -q "缺    orca externalWorktreeVisibility" "$TMP/err" \
     || fail "hidden visibility should be 缺: $(cat "$TMP/err")"
   hasnt "orca :: project :: setup-update"
@@ -4866,7 +4867,7 @@ state = Path(os.environ["MMW_FAKE_ORCA_STATE"])
 }]))
 '
   : > "$MMW_TEST_LOG"
-  (MMW_INSTALL_HOME="$home" bash "$installer" > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
+  (MMW_V2_HOME="$home" bash "$installer" > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
   has "orca :: project :: setup-update"
   has ":: --setup :: setup_1"
   has ":: --worktree-base-path :: .worktrees"
@@ -4880,14 +4881,14 @@ run_uses_check() {
   rm -rf "$home"
   mkdir -p "$home"
   : > "$MMW_TEST_LOG"
-  (MMW_INSTALL_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
+  (MMW_V2_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
 }
 
 scenario_usesagree() {
   echo "--- declared flags the binary has: --check is silent about MMW_USES"
   reset_log
   MMW_FAKE_USES=agree run_uses_check
-  if grep -E '没查|不一致' "$TMP/err" "$TMP/out"; then
+  if grep -E '^没查    (orca|herdr|paseo)|^不一致  适配器' "$TMP/err" "$TMP/out"; then
     fail "agree should print neither 没查 nor 不一致: $(cat "$TMP/err") $(cat "$TMP/out")"
   fi
   if grep -q Traceback "$TMP/err"; then
@@ -4896,6 +4897,9 @@ scenario_usesagree() {
   has "orca :: agent-context"
   has "herdr :: agent :: start :: --help"
   has "paseo :: send :: --help"
+  has "paseo :: provider :: ls :: --help"
+  has "paseo :: provider :: models :: --help"
+  has "paseo :: provider :: diagnostic :: --help"
 }
 
 scenario_usesmismatch() {
@@ -4921,7 +4925,7 @@ scenario_usesunreadable() {
   MMW_FAKE_USES=unreadable run_uses_check
   grep -q '没查' "$TMP/err" \
     || fail "fallback help must print 没查: $(cat "$TMP/err")"
-  grep -q '不一致' "$TMP/err" \
+  grep -q '^不一致  适配器' "$TMP/err" \
     && fail "fallback help must not print 不一致: $(cat "$TMP/err")"
   local row
   for row in "tab create" "agent start" "agent prompt" "agent list"; do
@@ -4967,7 +4971,7 @@ run_installer() {
     printf '%s\n' "$MMW_TEST_ROOT_COPY" > "$home/.mmw/installed-root"
   fi
   : > "$MMW_TEST_LOG"
-  (MMW_INSTALL_HOME="$home" bash "$installer" "$@" > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
+  (MMW_V2_HOME="$home" bash "$installer" "$@" > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
 }
 
 scenario_installorcashape() {
@@ -5085,7 +5089,7 @@ scenario_startreadsmodelsjson() {
   cat > "$legacy" <<'TABLE'
 | runner | herdr |
 | agent | host | model | effort |
-| junior-worker | grok | grok 4.6 | high |
+| junior-worker | claude | opus 5 | max |
 TABLE
   reset_log
   fresh_repo
@@ -5093,6 +5097,8 @@ TABLE
   [ "$code" = 0 ] || fail "start expected 0, got $code: $(cat "$TMP/err")"
   [ "$(out_json provider)" = "cursor/grok-4.6" ] \
     || fail "start did not use models.json: $(cat "$TMP/out")"
+  [ "$(out_json settings.thinkingOptionId)" = "true" ] \
+    || fail "start did not use the models.json effort: $(cat "$TMP/out")"
   rm -f "$legacy"
 }
 
@@ -5112,8 +5118,7 @@ scenario_startnomodelsjson() {
 }
 
 scenario_installimportsmodelsmd() {
-  local home="$TMP/import-home" installer
-  installer="$(dirname "$(dirname "$HERE")")/install.sh"
+  local home="$TMP/import-home"
   rm -rf "$home"; mkdir -p "$home/.mmw"
   cat > "$home/.mmw/models.md" <<'TABLE'
 | runner | herdr |
@@ -5124,77 +5129,98 @@ scenario_installimportsmodelsmd() {
 | verifier | claude | sonnet 5 | high |
 | advisor | claude | fable 5.1 | medium |
 TABLE
-  MMW_INSTALL_HOME="$home" bash "$installer" > "$TMP/out" 2> "$TMP/err" || true
+  MMW_V2_HOME="$home" MMW_HOME="$home/.mmw" bash "$INSTALLER" > "$TMP/out" 2> "$TMP/err" || true
   [ -f "$home/.mmw/models.json" ] || fail "models.json was not imported"
   [ ! -e "$home/.mmw/models.md" ] || fail "the imported Markdown file was not deleted"
   python3 - "$home/.mmw/models.json" <<'PY' || fail "the import did not preserve values"
 import json, sys
 data = json.load(open(sys.argv[1]))
-assert data["version"] == 1 and data["runner"] == "herdr", data
-assert data["rows"]["senior-worker"]["effort"] == "xhigh", data
+expected = {
+    "junior-worker": {"host": "cursor", "model": "grok 4.6", "effort": "high"},
+    "senior-worker": {"host": "grok", "model": "grok 4.6", "effort": "xhigh"},
+    "reviewer": {"host": "claude", "model": "opus 5", "effort": "high"},
+    "verifier": {"host": "claude", "model": "sonnet 5", "effort": "high"},
+    "advisor": {"host": "claude", "model": "fable 5.1", "effort": "medium"},
+}
+assert data == {"version": 1, "runner": "herdr", "rows": expected}, data
 PY
 }
 
 scenario_installinitialvalues() {
-  local home="$TMP/initial-home" installer
-  installer="$(dirname "$(dirname "$HERE")")/install.sh"
+  local home="$TMP/initial-home"
   rm -rf "$home"; mkdir -p "$home"
-  MMW_INSTALL_HOME="$home" bash "$installer" > "$TMP/out" 2> "$TMP/err" || true
-  python3 - "$home/.mmw/models.json" <<'PY' || fail "fresh defaults are wrong"
+  MMW_V2_HOME="$home" MMW_HOME="$home/.mmw" bash "$INSTALLER" > "$TMP/out" 2> "$TMP/err" || true
+  python3 - "$home/.mmw/models.json" "$SKILL/hosts.json" <<'PY' || fail "fresh defaults are wrong"
 import json, sys
 data = json.load(open(sys.argv[1]))
+hosts = json.load(open(sys.argv[2]))
+expected = {
+    row["agent"]: {key: row[key] for key in ("host", "model", "effort")}
+    for row in hosts["defaults"]
+}
 assert data["version"] == 1 and data["runner"] == "orca", data
-assert set(data["rows"]) == {"junior-worker", "senior-worker", "reviewer", "verifier", "advisor"}, data
+assert data["rows"] == expected, data
 PY
 }
 
 scenario_installkeepsmodelsjson() {
-  local home="$TMP/keep-home" installer before after
-  installer="$(dirname "$(dirname "$HERE")")/install.sh"
+  local home="$TMP/keep-home" before after
   rm -rf "$home"; mkdir -p "$home/.mmw"
   cp "$MMW_HOME/models.json" "$home/.mmw/models.json"
   python3 - "$home/.mmw/models.json" <<'PY'
 import json, sys
 p=sys.argv[1]; d=json.load(open(p)); d["version"]=41; json.dump(d, open(p,"w"), separators=(",",":"))
 PY
+  printf '%s\n' '| junior-worker | claude | opus 5 | max |' > "$home/.mmw/models.md"
   before="$(shasum -a 256 "$home/.mmw/models.json" | cut -d' ' -f1)"
-  MMW_INSTALL_HOME="$home" bash "$installer" > "$TMP/out" 2> "$TMP/err" || true
+  MMW_V2_HOME="$home" MMW_HOME="$home/.mmw" bash "$INSTALLER" > "$TMP/out" 2> "$TMP/err" || true
   after="$(shasum -a 256 "$home/.mmw/models.json" | cut -d' ' -f1)"
   [ "$before" = "$after" ] || fail "install rewrote an existing models.json"
+  [ -f "$home/.mmw/models.md" ] || fail "install imported models.md beside existing JSON"
 }
 
 scenario_installcheckmodelsjson() {
-  local home="$TMP/check-models-home" installer code
-  installer="$(dirname "$(dirname "$HERE")")/install.sh"
+  local home="$TMP/check-models-home" code
+  rm -rf "$home"; mkdir -p "$home/.mmw"
+  MMW_V2_HOME="$home" MMW_HOME="$home/.mmw" bash "$INSTALLER" --check > "$TMP/out" 2> "$TMP/err"; code=$?
+  [ "$code" = 1 ] || fail "missing models.json expected check exit 1, got $code"
+  grep -q "no models.json.*run install.sh" "$TMP/err" \
+    || fail "check did not name the missing file: $(cat "$TMP/err")"
+
   rm -rf "$home"; mkdir -p "$home/.mmw"
   cp "$MMW_HOME/models.json" "$home/.mmw/models.json"
   python3 - "$home/.mmw/models.json" <<'PY'
 import json, sys
 p=sys.argv[1]; d=json.load(open(p)); del d["rows"]["reviewer"]; json.dump(d, open(p,"w"))
 PY
-  MMW_INSTALL_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; code=$?
+  MMW_V2_HOME="$home" MMW_HOME="$home/.mmw" bash "$INSTALLER" --check > "$TMP/out" 2> "$TMP/err"; code=$?
   [ "$code" = 1 ] || fail "invalid models.json expected check exit 1, got $code"
   grep -q "models.json rows:.*missing reviewer" "$TMP/err" \
     || fail "check did not name the bad row: $(cat "$TMP/err")"
 }
 
 scenario_installmodelsjsonhome() {
-  local home="$TMP/home-contract" installer
-  installer="$(dirname "$(dirname "$HERE")")/install.sh"
+  local home="$TMP/home-contract"
   rm -rf "$home"; mkdir -p "$home"
-  MMW_INSTALL_HOME="$home" MMW_HOME="$home/elsewhere" bash "$installer" > "$TMP/out" 2> "$TMP/err" || true
-  [ -f "$home/.mmw/models.json" ] || fail "install did not use its HOME_DIR/.mmw"
-  [ ! -e "$home/elsewhere/models.json" ] || fail "ambient MMW_HOME overrode HOME_DIR"
+  MMW_V2_HOME="$home" MMW_HOME="$home/config" bash "$INSTALLER" > "$TMP/out" 2> "$TMP/err" || true
+  [ -f "$home/config/models.json" ] || fail "install did not honor MMW_HOME"
+  [ ! -e "$home/.mmw/models.json" ] || fail "install also wrote HOME_DIR/.mmw"
+
+  rm -rf "$home"; mkdir -p "$home"
+  env -u MMW_HOME MMW_V2_HOME="$home" bash "$INSTALLER" > "$TMP/out" 2> "$TMP/err" || true
+  [ -f "$home/.mmw/models.json" ] || fail "install did not default to HOME_DIR/.mmw"
 }
 
 scenario_orcaworktreelink() {
-  local code
+  local code actual expected destination
   reset_log; fresh_repo
   code="$(run_dispatch env MMW_RUNNER=orca bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "Orca start expected 0: $(cat "$TMP/err")"
-  has "orca :: worktree :: set"
-  grep -q "orca :: worktree :: set :: --worktree :: path:.*\.worktrees/issue-61 :: --issue :: 61" "$MMW_TEST_LOG" \
-    || fail "worktree set did not use the absolute ticket path and issue: $(cat "$MMW_TEST_LOG")"
+  destination="$(cd "$(wt 61)" && pwd -P)"
+  actual="$(grep '^orca :: worktree :: set' "$MMW_TEST_LOG")"
+  expected="orca :: worktree :: set :: --worktree :: path:$destination :: --issue :: 61"
+  [ "$actual" = "$expected" ] \
+    || fail "worktree set was not exact: got '$actual', want '$expected'"
 }
 
 scenario_orcaworktreelinkfails() {
@@ -5209,13 +5235,21 @@ scenario_orcaworktreelinkfails() {
 }
 
 scenario_worktreelinknoop() {
-  local code
-  for RUNNER in "$PASEO_RUNNER" "$HERDR_RUNNER"; do
+  local code name
+  for name in paseo herdr; do
+    fresh_repo
     reset_log
+    code="$(run_dispatch env MMW_RUNNER="$name" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+    [ "$code" = 0 ] || fail "$name start expected 0, got $code: $(cat "$TMP/err")"
+    posted_events 61 | grep -q worker.started || fail "$name start recorded no session"
+    ! grep -q 'did not attach' "$TMP/err" || fail "$name attach reported a failure"
+
+    reset_log
+    RUNNER="$SKILL/scripts/runners/$name.sh"
     code="$(run_runner attach --cwd "$TMP/repo" --issue 61)"
-    [ "$code" = 0 ] || fail "$(basename "$RUNNER") attach expected 0, got $code"
+    [ "$code" = 0 ] || fail "$name attach expected 0, got $code"
+    [ ! -s "$MMW_TEST_LOG" ] || fail "$name attach called a runner command: $(cat "$MMW_TEST_LOG")"
   done
-  hasnt "orca :: worktree :: set"
   RUNNER="$PASEO_RUNNER"
 }
 

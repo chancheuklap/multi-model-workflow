@@ -10,6 +10,7 @@ import tempfile
 import unittest
 import json
 import os
+from unittest import mock
 
 from pathlib import Path
 
@@ -28,9 +29,9 @@ class PickRunnerLevelsTest(unittest.TestCase):
         self.assertEqual(
             models.pick_runner(env="orca", default="paseo"), "orca")
 
-    def test_live_alone_is_used(self):
+    def test_saved_alone_is_used(self):
         self.assertEqual(
-            models.pick_runner(live="herdr", default="paseo"), "herdr")
+            models.pick_runner(saved="herdr", default="paseo"), "herdr")
 
     def test_runtime_alone_is_used(self):
         self.assertEqual(
@@ -45,15 +46,15 @@ class PickRunnerLevelsTest(unittest.TestCase):
                 ticket="herdr", env="orca", default="paseo"),
             "herdr")
 
-    def test_env_beats_live(self):
+    def test_env_beats_saved(self):
         self.assertEqual(
-            models.pick_runner(env="orca", live="herdr", default="paseo"),
+            models.pick_runner(env="orca", saved="herdr", default="paseo"),
             "orca")
 
-    def test_live_beats_runtime(self):
+    def test_saved_beats_runtime(self):
         self.assertEqual(
             models.pick_runner(
-                live="herdr", runtime=("orca",), default="paseo"),
+                saved="herdr", runtime=("orca",), default="paseo"),
             "herdr")
 
     def test_runtime_beats_default(self):
@@ -112,7 +113,7 @@ class RuntimeHasAnAdapterTest(unittest.TestCase):
         self.assertEqual(
             models.runner_name({"MMW_RUNNER": "tmux", "HERDR_ENV": "1"}), "tmux")
         self.assertEqual(
-            models.pick_runner(live="tmux", runtime={"HERDR_ENV": "1"}), "tmux")
+            models.pick_runner(saved="tmux", runtime={"HERDR_ENV": "1"}), "tmux")
 
 
 class WorktreeOwningTest(unittest.TestCase):
@@ -136,27 +137,22 @@ class WorktreeOwningTest(unittest.TestCase):
         self.assertEqual(
             models.pick_runner(env="lody", default="paseo"), "lody")
 
-    def test_worktree_owning_live_is_used(self):
+    def test_worktree_owning_saved_is_used(self):
         self.assertEqual(
             models.pick_runner(
-                live="lody", runtime=("tmux",), default="paseo"),
+                saved="lody", runtime=("tmux",), default="paseo"),
             "lody")
 
 
 class ConfigRunnerTest(unittest.TestCase):
     def test_saved_runner_precedes_runtime(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            saved = os.environ.get("MMW_HOME")
-            os.environ["MMW_HOME"] = tmp
-            try:
-                Path(tmp, "models.json").write_text(
-                    json.dumps(models.default_local_config()) + "\n", encoding="utf-8")
-                self.assertEqual(models.runner_name({"HERDR_ENV": "1"}), "orca")
-            finally:
-                if saved is None:
-                    os.environ.pop("MMW_HOME", None)
-                else:
-                    os.environ["MMW_HOME"] = saved
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.dict(os.environ, {"MMW_HOME": tmp}):
+            config = models.default_local_config()
+            config["runner"] = "paseo"
+            Path(tmp, "models.json").write_text(
+                json.dumps(config) + "\n", encoding="utf-8")
+            self.assertEqual(models.runner_name({"HERDR_ENV": "1"}), "paseo")
 
 
 if __name__ == "__main__":

@@ -8,6 +8,10 @@
 #   runners/paseo.sh liveness <session-id>
 #   runners/paseo.sh stop <session-id>
 #   runners/paseo.sh self
+#   runners/paseo.sh attach --cwd DIR --issue N
+#   runners/paseo.sh catalog-status
+#   runners/paseo.sh catalog-models <host>
+#   runners/paseo.sh diagnostic <host>
 #
 # start runs `paseo run -d` in DIR and prints the agent id Paseo answers with; exit 1,
 # with the reason on stderr, when Paseo did not start it. The host's mode and thinking
@@ -43,6 +47,10 @@ usage() {
   echo "       runners/paseo.sh liveness <session-id>" >&2
   echo "       runners/paseo.sh stop <session-id>" >&2
   echo "       runners/paseo.sh self" >&2
+  echo "       runners/paseo.sh attach --cwd DIR --issue N" >&2
+  echo "       runners/paseo.sh catalog-status" >&2
+  echo "       runners/paseo.sh catalog-models <host>" >&2
+  echo "       runners/paseo.sh diagnostic <host>" >&2
   exit 2
 }
 

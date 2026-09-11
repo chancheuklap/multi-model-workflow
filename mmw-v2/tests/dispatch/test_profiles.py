@@ -12,6 +12,7 @@ import shlex
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 HERE = Path(__file__).resolve().parent
 MODELS_PY = HERE.parents[1] / "skills" / "dispatch" / "scripts" / "models.py"
@@ -25,17 +26,10 @@ def config_with(rows: dict) -> dict:
 
 
 def rows_from(rows: dict) -> list:
-    with tempfile.TemporaryDirectory() as tmp:
-        old = os.environ.get("MMW_HOME")
-        os.environ["MMW_HOME"] = tmp
-        try:
-            models.models_json_path().write_text(json.dumps(config_with(rows)) + "\n")
-            return models.session_rows()
-        finally:
-            if old is None:
-                os.environ.pop("MMW_HOME", None)
-            else:
-                os.environ["MMW_HOME"] = old
+    with tempfile.TemporaryDirectory() as tmp, \
+            mock.patch.dict(os.environ, {"MMW_HOME": tmp}):
+        models.models_json_path().write_text(json.dumps(config_with(rows)) + "\n")
+        return models.session_rows()
 
 
 class BypassArgvTest(unittest.TestCase):
@@ -108,8 +102,11 @@ class LaunchLineTest(unittest.TestCase):
 class SessionRowsTest(unittest.TestCase):
     def test_one_row_per_agent_is_read_in_fixed_order(self):
         config = models.default_local_config()
-        rows = rows_from(config["rows"])
-        self.assertEqual([r.agent for r in rows], list(models.ALLOWED_AGENTS))
+        shuffled = {role: config["rows"][role] for role in reversed(models.ALLOWED_AGENTS)}
+        rows = rows_from(shuffled)
+        self.assertEqual(
+            [r.agent for r in rows],
+            ["junior-worker", "senior-worker", "reviewer", "verifier", "advisor"])
 
     def test_an_unknown_agent_is_refused(self):
         config = models.default_local_config()["rows"]

@@ -28,4 +28,4 @@ Run:
 
 Saved runner values are `orca`, `herdr`, `paseo`, or `auto`. `start` chooses `MMW_RUNNER` first, then this saved value, then a runner detected from the current process when the saved value is `auto`, then `orca`. The command scans the catalog belonging to the proposed runner and refuses it unless every saved role can still start.
 
-Use `config show` to read the current saved object. The next `start` reads it again; no daemon restart or install is required.
+Use `<models> config show` to read the current saved object. The next `start` reads it again; no daemon restart or install is required.

@@ -94,8 +94,8 @@ stale_links() {
   return 0
 }
 
-# MMW_INSTALL_HOME 只给测试用：把安装位置整体搬到一个一次性目录下，不碰真的家目录。
-HOME_DIR="${MMW_INSTALL_HOME:-$HOME}"
+# MMW_V2_HOME 只给测试用：把安装位置整体搬到一个一次性目录下，不碰真的家目录。
+HOME_DIR="${MMW_V2_HOME:-$HOME}"
 
 # 不属于任何一个 host，所以无条件建。
 NEUTRAL_DIR="$HOME_DIR/.agents/skills"
@@ -329,7 +329,7 @@ if [ -f "$HOOK_SRC" ]; then
   MMW_HOOK="$NEUTRAL_DIR/drive-target/scripts/hook.py" \
   MMW_GUARD="$NEUTRAL_DIR/dispatch/scripts/turn-guard.py" \
   MMW_NEUTRAL="$NEUTRAL_DIR" \
-  MMW_HOME="$HOME_DIR" \
+  MMW_HOOK_HOME="$HOME_DIR" \
   MMW_CODEX="${CODEX_HOME:-$HOME_DIR/.codex}" \
   MMW_PI="${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME_DIR/.pi}/agent}" \
   python3 - <<'PY' || { rc=1; hooks_rc=1; }
@@ -343,7 +343,7 @@ from pathlib import Path
 mode = os.environ["MMW_MODE"]
 hook = os.environ["MMW_HOOK"]
 neutral = os.environ["MMW_NEUTRAL"]
-home = Path(os.environ["MMW_HOME"])
+home = Path(os.environ["MMW_HOOK_HOME"])
 codex_home = Path(os.environ["MMW_CODEX"])
 pi_home = Path(os.environ["MMW_PI"])
 
@@ -449,7 +449,7 @@ export default function (pi) {
 """ % {"guard": guard, "timeout": GUARD_TIMEOUT}
 
 # The tool each host calls to put a question on the screen: the matcher of its
-# question gate. Only the hosts the live table starts sessions on carry one.
+# question gate. Only hosts that expose a supported question tool carry one.
 QUESTION_TOOLS = {"claude": "AskUserQuestion", "grok": "ask_user_question",
                   "codex": "request_user_input"}
 
@@ -893,7 +893,7 @@ fi
 # ~/.claude/CLAUDE.md 直接指 shared.md，~/.claude/rules/mmw-claude.md 指 hosts/claude.md，改源即生效。
 # Codex、Pi、Grok 没有引入语法，只能由 render.py 把两份拼成各自的 AGENTS.md；生成物带哈希，
 # 被人直接改过 render.py 就拒绝覆盖。launchd 任务监视五个源文件，改动即重拼——Claude Code 那两条
-# 软链不需要它。MMW_INSTALL_HOME 之下（测试）不装 launchd。
+# 软链不需要它。MMW_V2_HOME 之下（测试）不装 launchd。
 
 PROMPT_SRC="$ROOT/prompt"
 
@@ -928,9 +928,9 @@ if [ -f "$PROMPT_SRC/shared.md" ]; then
   fi
 
   if [ "$mode" = check ]; then
-    HOME="$HOME_DIR" python3 "$PROMPT_SRC/render.py" --check || prompt_rc=1
+    MMW_V2_HOME="$HOME_DIR" python3 "$PROMPT_SRC/render.py" --check || prompt_rc=1
   else
-    HOME="$HOME_DIR" python3 "$PROMPT_SRC/render.py" || {
+    MMW_V2_HOME="$HOME_DIR" python3 "$PROMPT_SRC/render.py" || {
       prompt_rc=1
       echo "注意  首次装或生成物被改过时，跑：python3 $PROMPT_SRC/render.py --adopt" >&2
     }
@@ -996,7 +996,7 @@ fi
 # ~/.paseo/config.json 里的 provider、worktrees.root。models.json 在 ~/.mmw/：第一次
 # install 从 hosts.json 的 defaults 写入，或从遗留 Markdown 导入，之后不覆盖。不写 Agent profile。笔记含
 # `from models.md` 的生成 profile 安装时摘掉、--check 报残留；手写的不动。
-# MMW_INSTALL_HOME 之下不跑 paseo reload（与 launchd 同构）。
+# MMW_V2_HOME 之下不跑 paseo reload（与 launchd 同构）。
 
 PASEO_BIN_SRC="/Applications/Paseo.app/Contents/Resources/bin/paseo"
 PASEO_BIN_LINK="$HOME_DIR/.local/bin/paseo"
@@ -1023,7 +1023,7 @@ MMW_PASEO_CONFIG="$PASEO_CONFIG" \
 MMW_MODELS_PY="$SELF_SRC/dispatch/scripts/models.py" \
 MMW_PASEO_WORKTREES="$PASEO_WORKTREES_ROOT" \
 MMW_HOME_DIR="$HOME_DIR" \
-MMW_HOME="$HOME_DIR/.mmw" \
+MMW_HOME="${MMW_HOME:-$HOME_DIR/.mmw}" \
 python3 - <<'PY' || rc=1
 import importlib.util
 import json
@@ -1118,47 +1118,22 @@ failed = False
 try:
     config_file = models.models_json_path()
     legacy_file = config_file.with_name("models.md")
-    if mode != "check" and not config_file.is_file():
-        config = models.default_local_config()
-        if legacy_file.is_file():
-            imported = {}
-            for agent, host, model, effort in models.parse_legacy_rows(legacy_file):
-                if agent in imported:
-                    die(f"{legacy_file}: {agent} has two rows")
-                imported[agent] = {"host": host, "model": model, "effort": effort}
-            config["rows"] = imported
-            config["runner"] = models.parse_legacy_runner(legacy_file) or models.DEFAULT_RUNNER
-        shape_errors = models._validate_config_shape(config)
-        if shape_errors:
-            die("; ".join(f"{item['cell']}: {item['reason']}" for item in shape_errors))
-        config_file.parent.mkdir(parents=True, exist_ok=True)
-        models.statedir.write_atomic(
-            config_file, json.dumps(config, ensure_ascii=False, indent=2) + "\n")
-        print(f"已装  {config_file}")
-        if legacy_file.is_file():
-            legacy_file.unlink()
+    if mode != "check":
+        installed = models.install_local_config(legacy_file)
+        config = installed.config
+        if installed.created:
+            print(f"已装  {config_file}")
+        if installed.imported:
             print(f"迁移  {legacy_file} -> {config_file}，旧文件已删除")
-    config = models.read_local_config()
-    os.environ["MMW_CATALOG_MODE"] = models.catalog_source(str(config.get("runner") or ""))
-    scan = models.scan_host_catalogs(str(config.get("runner") or ""))
-    errors = models._validate_local_config(config, scan)
+    else:
+        config = models.read_local_config()
+    config, scan, errors = models.check_local_config(config)
     if errors:
         for item in errors:
             sys.stderr.write(f"缺    {config_file} {item['cell']}: {item['reason']}\n")
         sys.exit(1)
-    rows = models.session_rows()
 except ValueError as exc:
     die(str(exc))
-if not rows:
-    die(f"{models.models_json_path()} 里一行都没有")
-for row in rows:
-    try:
-        host, model, effort = models.resolve_row(row.host, row.model, row.effort)
-        models.create_agent_settings(host)
-        models.thinking_option(host, effort)
-    except ValueError as exc:
-        sys.stderr.write(f"缺    {exc}\n")
-        failed = True
 
 if mode == "check":
     data = load(config_path)

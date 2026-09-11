@@ -39,7 +39,7 @@
 # host, model and thinking level the session gets come from that
 # row of models.json under MMW_HOME, resolved against the catalog of the runner
 # that starts it (`use_catalog_of`). Tonight's runner is `models.py runner`: MMW_RUNNER,
-# then models.json, then the runner this process runs in, then orca.
+# then models.json, then, when its runner is auto, the runner this process runs in, then orca.
 # `start` has that runner's adapter (scripts/runners/<runner>.sh) start the
 # session, writes a `worker.started`, `reviewer.started` or `verifier.started` event
 # on the ticket — session, runner, host, model, effort, grade, the worktree's absolute

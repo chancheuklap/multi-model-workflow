@@ -11,11 +11,11 @@ amends: [0016, 0018]
 
 `models.json` 含版本号、一个 runner，以及 `junior-worker`、`senior-worker`、`reviewer`、`verifier`、`advisor` 各一行 host、model 与 effort。写入先拿 `models.lock`，核对调用方读到的版本，再以临时文件原子替换整份配置。这样 task board 和命令行同时修改时，一个过期写入会被拒绝，不会静默覆盖另一个人的选择。
 
-`install.sh` 只在 JSON 不存在时创建 version 1：有旧 `models.md` 就导入后删除旧文件，没有就用 `hosts.json` defaults 和 `runner: orca`。已经存在的 JSON 只校验，不被默认值或旧文件覆盖。`MMW_HOME` 改变唯一配置目录；安装测试用的 home 覆盖不成为第二个运行时配置入口。
+`install.sh` 只在 JSON 不存在时创建 version 1：有旧 `models.md` 就导入后删除旧文件，其中没有 runner 行表示 `runner: auto`；没有旧文件就用 `hosts.json` defaults 和 `runner: orca`。已经存在的 JSON 只校验，不被默认值或旧文件覆盖。`MMW_HOME` 改变唯一配置目录；安装测试用的 home 覆盖不成为第二个运行时配置入口。
 
 ## runner 附加操作
 
-附加操作不是所有 runner 都必须实现的共同协议。`attach` 在会话成功启动后把已有工作树与 ticket 关联：Orca 调 `orca worktree set --worktree path:<absolute-path> --issue <ticket>`，失败只记事件并在 stderr 报一行，已启动的会话继续；Herdr 与 Paseo 明确返回成功但不做事。Paseo 的 provider 状态、模型目录与诊断也由 Paseo 适配器的具名操作提供，`models.py` 和 `dispatch.sh check` 不直接调用 Paseo。
+附加操作不是所有 runner 都必须实现的共同协议。`attach` 在会话成功启动后把已有工作树与 ticket 关联：能显示这种关联的 runner 执行自己的关联命令，失败只在 stderr 报一行，已启动的会话继续；不支持的 runner 明确返回成功但不做事。Paseo 的 provider 状态、模型目录与诊断也由 Paseo 适配器的具名操作提供，`models.py` 和 `dispatch.sh check` 不直接调用 Paseo。
 
 安装器为了安装或核对 runner 本身而执行的配置命令不属于会话运行边界；这些命令仍由 `install.sh` 管理并在那里声明其期望。
 
@@ -28,6 +28,6 @@ amends: [0016, 0018]
 
 ## Consequences
 
-- 0016 的本机选择原则保留，但 Markdown 活表、目录刷新区和 `models.py offerings` 作废；修改入口是 task board 或 `models.py config set`。
+- 0016 整份作废；本机选择改由 `models.json` 保存，修改入口是 task board 或 `models.py config set`。
 - 0018 的 runner 选择顺序保留，但其中的活表行改为 `models.json` 的 `runner` 字段；边界由固定共同协议加具名附加操作组成。
 - 新 runner 若不需要某项附加操作，可以明确 no-op；若执行 runner CLI，命令与 `MMW_USES` 都写在该 runner 的适配器。

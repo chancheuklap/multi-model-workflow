@@ -432,7 +432,7 @@ class TestOnlyTheVerifiersRunSettlesAllMet(unittest.TestCase):
 FENCED = """- [x] AC4: install.sh 装完五处配置
   CHECK:
   ```sh
-  T=$(mktemp -d) && MMW_INSTALL_HOME="$T" bash mmw-v2/install.sh >/dev/null
+  T=$(mktemp -d) && MMW_V2_HOME="$T" bash mmw-v2/install.sh >/dev/null
   python3 - <<'EOF'
   print("HOOKS-INSTALLED")
   EOF

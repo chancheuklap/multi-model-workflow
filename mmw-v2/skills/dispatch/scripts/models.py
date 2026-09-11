@@ -30,7 +30,7 @@ HOSTS_JSON = SKILL_DIR / "hosts.json"
 RUNNERS_DIR = SKILL_DIR / "scripts" / "runners"
 ALLOWED_AGENTS = (
     "junior-worker", "senior-worker", "reviewer", "verifier", "advisor")
-# Lody cuts its own worktree. Level 4 must not pick it; ticket / env / live may.
+# Lody cuts its own worktree. Runtime detection must not pick it; an explicit choice may.
 WORKTREE_OWNING = frozenset({"lody"})
 DEFAULT_RUNNER = "orca"
 # Which catalog a row resolves against: `paseo` asks paseo, `cli` asks the host's own
@@ -76,7 +76,7 @@ class ConfigLockHeld(ValueError):
 
 
 def models_json_path() -> Path:
-    """The one local configuration path; legacy model path variables never affect it."""
+    """The one local configuration path."""
     return statedir.home() / "models.json"
 
 
@@ -160,8 +160,6 @@ def _validate_config_shape(config: dict) -> list[dict[str, str]]:
 
 def parse_legacy_rows(source: Path) -> list[tuple[str, str, str, str]]:
     """Read the retired Markdown table during the installer's one-time migration."""
-    if not source.is_file():
-        raise ValueError(f"missing migration source: {source}")
     rows: list[tuple[str, str, str, str]] = []
     text = source.read_text(encoding="utf-8")
     for line in text.splitlines():
@@ -189,8 +187,6 @@ def parse_legacy_rows(source: Path) -> list[tuple[str, str, str, str]]:
 
 def parse_legacy_runner(source: Path) -> str | None:
     """Read the retired Markdown runner cell during one-time migration."""
-    if not source.is_file():
-        return None
     for line in source.read_text(encoding="utf-8").splitlines():
         if not line.lstrip().startswith("|"):
             continue
@@ -207,10 +203,40 @@ class SessionRow(NamedTuple):
     effort: str
 
 
-def session_rows(path: Path | None = None) -> list[SessionRow]:
+class InstallResult(NamedTuple):
+    config: dict
+    created: bool
+    imported: bool
+
+
+def install_local_config(legacy_path: Path) -> InstallResult:
+    """Create models.json once, importing legacy_path when present."""
+    path = models_json_path()
+    with config_lock(purpose="install models.json"):
+        if path.is_file():
+            return InstallResult(read_local_config(), False, False)
+        config = default_local_config()
+        imported = legacy_path.is_file()
+        if imported:
+            rows = {}
+            for agent, host, model, effort in parse_legacy_rows(legacy_path):
+                if agent in rows:
+                    raise ValueError(f"{legacy_path}: {agent} has two rows")
+                rows[agent] = {"host": host, "model": model, "effort": effort}
+            config["rows"] = rows
+            config["runner"] = parse_legacy_runner(legacy_path) or "auto"
+        errors = _validate_config_shape(config)
+        if errors:
+            raise InvalidConfig(errors)
+        statedir.write_atomic(
+            path, json.dumps(config, ensure_ascii=False, indent=2) + "\n")
+        if imported:
+            legacy_path.unlink()
+        return InstallResult(config, True, imported)
+
+
+def session_rows() -> list[SessionRow]:
     """One saved row per dispatched role, in the fixed role order."""
-    if path is not None:
-        raise ValueError("session_rows no longer accepts a Markdown path")
     config = read_local_config()
     errors = _validate_config_shape(config)
     if errors:
@@ -267,7 +293,7 @@ def runtime_from_environ(environ: Mapping[str, str]) -> tuple[str, ...]:
 def pick_runner(
     ticket: str | None = None,
     env: str | None = None,
-    live: str | None = None,
+    saved: str | None = None,
     runtime: Mapping[str, str] | Sequence[str] = (),
     default: str = DEFAULT_RUNNER,
 ) -> str:
@@ -279,7 +305,7 @@ def pick_runner(
     runner that has an adapter (`has_adapter`) and does not cut its own worktree: a
     guess that names tmux, which nothing here can drive, would refuse every start.
     """
-    for value in (ticket, env, live):
+    for value in (ticket, env, saved):
         spoken = _spoken_runner(value)
         if spoken:
             return spoken
@@ -338,10 +364,8 @@ def match_offering(
     for offering in pool:
         oid = _norm(str(offering.get("id") or ""))
         name = _norm(str(offering.get("name") or ""))
-        # The catalog display renders ids through `_slug_everyday`,
-        # so a cell copied from it ("fable 5.1") must match the id it was
-        # rendered from ("claude-fable-5-1"). Compare against that form too, or
-        # the table tells you to write a name nothing can resolve.
+        # Configuration displays ids through `_slug_everyday`; a displayed name
+        # ("fable 5.1") must match the source id ("claude-fable-5-1").
         slug = _norm(_slug_everyday(str(offering.get("id") or "")))
         cursor_name = _norm(_cursor_family_name(
             str(offering.get("name") or ""), str(offering.get("id") or ""),
@@ -381,8 +405,8 @@ def match_offering(
 
 def _which(name: str) -> str | None:
     # The only caller is `_run`, which has to find each host's CLI from a non-login
-    # shell whose PATH may be short: an agent's shell tool, `install.sh` refreshing the
-    # copy table, `dispatch.sh` starting an agent. On this machine those CLIs are
+    # shell whose PATH may be short: an agent's shell tool, `install.sh` checking the
+    # saved configuration, or `dispatch.sh` starting an agent. On this machine those CLIs are
     # installed in ~/.local/bin and /opt/homebrew/bin, so the list assumes a Mac with
     # Homebrew.
     extra = [
@@ -879,17 +903,12 @@ def _validate_local_config(config: dict, scan: dict,
     rows = config.get("rows")
     if not isinstance(rows, dict):
         return errors
-    missing = [role for role in ALLOWED_AGENTS if role not in rows]
     checked = set(roles or ALLOWED_AGENTS)
     catalog_hosts = scan.get("hosts") if isinstance(scan, dict) else {}
     host_specs = load_hosts()["hosts"]
     for role in ALLOWED_AGENTS:
         row = rows.get(role)
-        if not isinstance(row, dict):
-            if role not in missing:
-                errors.append({"cell": role, "reason": "host, model, and effort are required"})
-            continue
-        if role not in checked:
+        if not isinstance(row, dict) or role not in checked:
             continue
         host = row.get("host")
         if host not in host_specs:
@@ -918,6 +937,14 @@ def _validate_local_config(config: dict, scan: dict,
             errors.append({"cell": f"{role}.effort",
                            "reason": f"effort {effort!r} is not offered for {host} model {model!r}; choose an offered effort"})
     return errors
+
+
+def check_local_config(config: dict | None = None) -> tuple[dict, dict, list[dict[str, str]]]:
+    """Read and scan the saved configuration once, returning every validation error."""
+    current = read_local_config() if config is None else config
+    runner = str(current.get("runner") or "")
+    scan = scan_host_catalogs(runner)
+    return current, scan, _validate_local_config(current, scan)
 
 
 def write_local_config(config: dict, expected_version: int, scan: dict,
@@ -1068,7 +1095,7 @@ def runner_name(environ: Mapping[str, str] | None = None) -> str:
     if configured == "auto":
         configured = None
     return pick_runner(
-        live=configured,
+        saved=configured,
         runtime=env,
     )
 
