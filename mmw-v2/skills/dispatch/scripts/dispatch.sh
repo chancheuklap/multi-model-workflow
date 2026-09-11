@@ -5,6 +5,7 @@
 #   dispatch.sh check <spec>
 #   dispatch.sh open <spec>
 #   dispatch.sh open-ticket <n>
+#   dispatch.sh board
 #   dispatch.sh adopt <n>
 #   dispatch.sh self
 #   dispatch.sh advance <spec>
@@ -67,8 +68,9 @@
 # picked a ticket up itself that ticket's worker, as `start` would have. `self` prints the
 # runner and session this process runs in.
 #
-# Each command's exit codes are written beside that command, in the door that carries it;
-# SKILL.md next to this script is the index of doors.
+# Each pipeline command's exit codes are written beside that command, in the door that
+# carries it. `board` is the one command documented directly in SKILL.md; that file is
+# otherwise the index of doors.
 
 set -uo pipefail
 
@@ -86,6 +88,7 @@ REPO_URL=""
 # their own skills one directory over. A `--tools` directory given on the command line
 # is searched before those.
 INSTALLER="$(dirname "$(dirname "$SKILL_ROOT")")/install.sh"
+BOARD_SUPERVISOR="$(dirname "$(dirname "$SKILL_ROOT")")/board/supervisor.py"
 # `models.py` reads models.json, so it belongs to this skill and travels with it.
 MODELS_PY="$SKILL_ROOT/scripts/models.py"
 VERIFY=""
@@ -336,6 +339,7 @@ usage() {
 usage: dispatch.sh check <spec>
        dispatch.sh open <spec>
        dispatch.sh open-ticket <n>
+       dispatch.sh board
        dispatch.sh adopt <n> [--into <branch>]
        dispatch.sh self
        dispatch.sh advance <spec>
@@ -354,6 +358,28 @@ usage: dispatch.sh check <spec>
        dispatch.sh route <ticket> <child> fixed|stale|became-ticket [<new ticket>]
 USAGE
   exit 2
+}
+
+# ------------------------------------------------------------------ task board
+
+open_board() {
+  [ -f "$BOARD_SUPERVISOR" ] || refuse "no task board supervisor at $BOARD_SUPERVISOR"
+  local repository current port url answer rc
+  repository="$(main_checkout)"
+  [ -n "$repository" ] || refuse "not inside a git repository, so there is no main checkout to register"
+  current="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$current" ] || refuse "not inside a git repository, so there is no workspace for the task board tab"
+  port="$(python3 "$BOARD_SUPERVISOR" --ensure "$repository")" \
+    || refuse "could not register and start the task board for $repository"
+  url="http://127.0.0.1:$port"
+  use_runner "$(tonight_runner)"
+  answer="$(runner open-url --cwd "$current" --url "$url" 2>&1)"
+  rc=$?
+  case "$rc" in
+    0) return 0 ;;
+    3) printf '%s\n' "$url"; return 0 ;;
+    *) refuse "$RUNNER_NAME could not open $url in $current: ${answer:-the adapter gave no reason}" ;;
+  esac
 }
 
 # ------------------------------------------------------------------ the relay
@@ -3306,6 +3332,10 @@ for dir in ${TOOLS[@]+"${TOOLS[@]}"}; do
 done
 
 case "${1:-}" in
+  board)
+    [ "$#" -eq 1 ] || usage
+    open_board
+    ;;
   check)
     [ "$#" -eq 2 ] || usage
     case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac

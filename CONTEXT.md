@@ -110,9 +110,17 @@ _Avoid_: 工具箱, this repository (as a name), 活层, live layer
 _Home_: `AGENTS.md`
 
 **task board**:
-The local browser interface for reading a spec's ticket state and editing this machine's dispatch configuration. It reads ticket state from GitHub and reads or writes `MMW_HOME/models.json`; it does not become a second store for either. A model change uses the same validation and write operation as `models.py config`.
+The local browser interface for reading a spec's ticket state and editing this machine's dispatch configuration. One server runs per registered consuming repository; `supervisor.py` keeps them running. It reads ticket state from GitHub and reads or writes `MMW_HOME/models.json`; it does not become a second store for either. A model change uses the same validation and write operation as `models.py config`.
 _Avoid_: board (for an agent), dashboard
 _Home_: `mmw-v2/board/server.py`
+
+**`boards.json`**:
+The machine-level task board registry at `MMW_HOME/boards.json`, defaulting to `~/.mmw/boards.json`. It is a JSON object from each consuming repository's absolute main-checkout path to that repository's fixed local port; it owns no ticket or model state.
+_Home_: `~/.mmw/boards.json`
+
+**`supervisor.py`**:
+`mmw-v2/board/supervisor.py`, the process kept alive by the `com.mmw.board` LaunchAgent. It reads `boards.json`, starts `server.py` in every registered main checkout on the assigned port, restarts an exited server, and reports a missing checkout without preventing the other registered servers from running.
+_Home_: `mmw-v2/board/supervisor.py`
 
 **consuming repository**:
 The outside repository where real tickets are run, as distinct from the toolbox. It must hold a `DESIGN.md` before UI refinement; the machine-level `models.json` is never placed in it.
@@ -906,7 +914,11 @@ _Avoid_: 派发 (as a term), run (as a dispatch.sh verb)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`dispatch.sh`**:
-The dispatch skill's script: `check <spec>`, `open <spec>`, `finish <spec>`, `open-ticket <n>`, `adopt <n>`, `self`, `advance <spec>`, `integrate <n>`, `land <n>`, `start <n> worker|reviewer|verifier`, `retract <n>`, `wait <n> worker|reviewer|verifier`, `ack <n> <event>` / `ack relay.recovered`, `resume <n> "<text>"`, `status <spec>`, `reverify <spec>`, `route <ticket> <child> fixed|stale|became-ticket [<new ticket>]`, `summary <spec>`, `suspend <spec>`. It starts, messages, asks after and stops a session only through the adapter of the runner that runs it; the ticket's events carry its shared state. It reads the worker-grade label and nothing else to pick the worker row. The skill's own text calls it `<dispatch>`.
+The dispatch skill's script: `board`, `check <spec>`, `open <spec>`, `finish <spec>`, `open-ticket <n>`, `adopt <n>`, `self`, `advance <spec>`, `integrate <n>`, `land <n>`, `start <n> worker|reviewer|verifier`, `retract <n>`, `wait <n> worker|reviewer|verifier`, `ack <n> <event>` / `ack relay.recovered`, `resume <n> "<text>"`, `status <spec>`, `reverify <spec>`, `route <ticket> <child> fixed|stale|became-ticket [<new ticket>]`, `summary <spec>`, `suspend <spec>`. It starts, messages, asks after and stops a session only through the adapter of the runner that runs it; the ticket's events carry its shared state. It reads the worker-grade label and nothing else to pick the worker row. The skill's own text calls it `<dispatch>`.
+_Home_: `mmw-v2/skills/dispatch/SKILL.md`
+
+**`dispatch.sh board`**:
+The task board entry command, run from any checkout or worktree: it makes sure the consuming repository's task board is registered in `boards.json` and answering, then has tonight's runner open it or prints its URL.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **dispatch line**:
@@ -1236,7 +1248,7 @@ _Home_: `mmw-v2/skills/dispatch/hosts.json`
 _Home_: `mmw-v2/skills/dispatch/scripts/models.py`
 
 **`install.sh`**:
-`mmw-v2/install.sh`, the only install entry. It installs seven things: skill symlinks into `~/.agents/skills` and `~/.claude/skills`; hooks into each host's own configuration; user-level prompts (`~/.claude/CLAUDE.md` a symlink to `prompt/shared.md`, Codex, Pi and Grok each a file `prompt/render.py` writes); a launchd task that re-renders those three when the source changes; Paseo configuration (`~/.local/bin/paseo`, two providers in `~/.paseo/config.json`, `worktrees.root`); Orca worktree configuration, only where `orca` is installed (every Orca setup's `worktree-base-path` is `.worktrees`, and `--check` also wants each repository's external worktrees shown); the `nowledge-mem` entry in `~/.cursor/mcp.json`. It does not write Agent profiles; leftover generated profiles (notes containing `from models.md`) are reported as `残留`. When `models.json` is absent, install writes the defaults or imports and deletes the retired Markdown file; an existing JSON file is untouched. It reads `skills.txt`, clears the retired locations, and prints one line per item with the prefixes `已装`, `残留`, `退役`, `冲突`, ending with markers such as `HOOKS-INSTALLED`. **`install.sh --check`** looks and changes nothing: exit 0 when complete, 1 when something is missing or stale; it validates every saved row against the selected runner's catalog and holds each runner adapter's `# MMW_USES:` lines against the binary on `PATH`, printing `没查` when it could not read what the binary accepts and `不一致` when a command or flag is gone. `dispatch.sh check` runs it before a night. `MMW_V2_HOME` moves the install location for tests.
+`mmw-v2/install.sh`, the only install entry. It installs eight things: skill symlinks into `~/.agents/skills` and `~/.claude/skills`; hooks into each host's own configuration; user-level prompts (`~/.claude/CLAUDE.md` a symlink to `prompt/shared.md`, Codex, Pi and Grok each a file `prompt/render.py` writes); a launchd task that re-renders those three when the source changes; the `com.mmw.board` LaunchAgent that keeps `supervisor.py` running; Paseo configuration (`~/.local/bin/paseo`, two providers in `~/.paseo/config.json`, `worktrees.root`); Orca worktree configuration, only where `orca` is installed (every Orca setup's `worktree-base-path` is `.worktrees`, and `--check` also wants each repository's external worktrees shown); the `nowledge-mem` entry in `~/.cursor/mcp.json`. It does not write Agent profiles; leftover generated profiles (notes containing `from models.md`) are reported as `残留`. When `models.json` is absent, install writes the defaults or imports and deletes the retired Markdown file; an existing JSON file is untouched. It reads `skills.txt`, clears the retired locations, and prints one line per item with the prefixes `已装`, `残留`, `退役`, `冲突`, ending with markers such as `HOOKS-INSTALLED`. **`install.sh --check`** looks and changes nothing: exit 0 when complete, 1 when something is missing or stale; it validates the task board LaunchAgent, every saved row against the selected runner's catalog, and each runner adapter's `# MMW_USES:` lines against the binary on `PATH`, printing `没查` when it could not read what the binary accepts and `不一致` when a command or flag is gone. `dispatch.sh check` runs it before a night. `MMW_V2_HOME` moves the install location for tests and suppresses launchctl operations.
 _Avoid_: the installer, 安装器, 安装入口 (as a term), 只看不动 (as a term)
 _Home_: `mmw-v2/install.sh`
 
@@ -1324,7 +1336,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | finish notification | `finished` · `errored` · `was closed` · `needs permission` |
 | host | `claude` · `codex` · `grok` · `cursor` · `pi` |
 | runner (one adapter each) | `paseo` · `orca` · `herdr` |
-| adapter verb | `start` · `send` · `liveness` · `stop` · `self` |
+| adapter verb | `start` · `send` · `liveness` · `stop` · `self` · optional `attach` · optional `open-url` |
 | `liveness` answer | `alive` · `stopped` · `unknown` |
 | `target.kind` | `electron` · `web-spa` · `web-server-rendered` · `chrome-extension` |
 | mechanism `via` | `api` · `storage` |
@@ -1342,5 +1354,5 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | category role | `bug` · `enhancement` |
 | `dispatch.sh` constants | `MERGE_TRIES = 3` · `LABEL_TITLE_CHARS` · `DEFAULT_WORKER` |
 | `lease.py` constants | `MMW_LEASE_SLOTS = 8` · `MMW_LEASE_PORT_BASE = 21000` · `MMW_LEASE_PORT_STRIDE = 20` |
-| `dispatch.sh` verbs | `check` · `open` · `open-ticket` · `adopt` · `self` · `advance` · `land` · `start` · `retract` · `wait` · `ack` · `resume` · `status` · `reverify` · `route` · `summary` · `suspend` |
+| `dispatch.sh` verbs | `board` · `check` · `open` · `open-ticket` · `adopt` · `self` · `advance` · `land` · `start` · `retract` · `wait` · `ack` · `resume` · `status` · `reverify` · `route` · `summary` · `suspend` |
 | `relay.py` verbs | `run` · `start` · `add` · `stop` · `watching` · `ack` · `queue` |

@@ -1,11 +1,11 @@
 ---
 name: dispatch
-description: Put another agent to work on a ticket, and move a night's batch of tickets forward. Use to start a worker, reviewer or verifier, to replace a stuck worker, to retract a start whose session is gone, to resume a worker, to check the machine before a night, to open a night or one ticket, to advance a spec, to suspend a night, to read what woke you about an agent you started and acknowledge that wake, to route a finding on the closing pass, to reverify closed tickets, to post the night summary, to finish a night after user acceptance by merging its base branch into its project branch and cleaning up, or to change which host, model or thinking level an agent in this pipeline runs on.
+description: Put another agent to work on a ticket, move a night's batch of tickets forward, or open the local task board. Use to start a worker, reviewer or verifier, to replace a stuck worker, to retract a start whose session is gone, to resume a worker, to check the machine before a night, to open a night or one ticket, to advance a spec, to suspend a night, to read what woke you about an agent you started and acknowledge that wake, to route a finding on the closing pass, to reverify closed tickets, to post the night summary, to finish a night after user acceptance by merging its base branch into its project branch and cleaning up, or to change which host, model or thinking level an agent in this pipeline runs on.
 ---
 
 # Dispatch
 
-Nothing here runs on its own. Pick your door in `Find your door` below and read that file: the commands you run and the exit codes you act on are in it, next to each other.
+Nothing here runs on its own. To open the task board, use `Open the task board` below. For pipeline work, pick your door in `Find your door` and read that file: the commands you run and the exit codes you act on are in it, next to each other.
 
 ## Resolve `<dispatch>` once
 
@@ -55,6 +55,10 @@ A session that dies writes nothing, so the relay has nothing to send. Two things
 `start`'s third argument is `worker`, `reviewer` or `verifier`. Which of the two worker rows in `MMW_HOME/models.json` a worker starts from is the ticket's own `junior-worker` or `senior-worker` label, read fresh on every start. A ticket carrying neither label starts on `junior-worker`; one carrying both, or one naming a grade the configuration has no row for, is refused (exit 2, stderr names the ticket). The base commit is computed from `origin/<base branch>` and the ticket branch; you do not pass it.
 
 `adopt <n>` uses the same `into` lookup as `start`. Outside an open night, a ticket with no prior `worker.started.into` is adopted with `adopt <n> --into <branch>`; that branch must exist on origin. A latest `worker.started` with no `into` is refused with the instruction to re-start it.
+
+## Open the task board
+
+Run `<dispatch> board` from any checkout or worktree of the consuming repository. It registers the main checkout in `MMW_HOME/boards.json`, reuses that repository's fixed local port, and starts the task board if it is not already answering. The selected runner's adapter opens the URL in the current worktree when it implements `open-url`; otherwise the command prints the exact local URL for you to open. Exit 0 means the tab was opened or the URL was printed. Exit 2 means setup or startup was refused, with the reason on stderr.
 
 ## Find your door
 

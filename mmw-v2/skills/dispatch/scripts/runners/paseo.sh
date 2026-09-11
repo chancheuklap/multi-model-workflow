@@ -12,6 +12,7 @@
 #   runners/paseo.sh catalog-status
 #   runners/paseo.sh catalog-models <host>
 #   runners/paseo.sh diagnostic <host>
+# `open-url` is optional and unsupported here: exit 3.
 #
 # start runs `paseo run -d` in DIR and prints the agent id Paseo answers with; exit 1,
 # with the reason on stderr, when Paseo did not start it. The host's mode and thinking
@@ -219,6 +220,7 @@ case "$verb" in
   stop) stop "$@" ;;
   self) self_ ;;
   attach) exit 0 ;;
+  open-url) exit 3 ;;
   catalog-status) paseo_ provider ls --json ;;
   catalog-models)
     [ "$#" -eq 1 ] || usage
