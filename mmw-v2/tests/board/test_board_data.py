@@ -196,6 +196,27 @@ class BoardDataTest(unittest.TestCase):
         self.assertEqual(got["children"][0]["number"], 50)
         self.assertEqual(got["closeout"], {"from": 11, "child": 40})
 
+    def test_a_spec_with_no_map_is_a_task_of_its_own(self):
+        data = scenario()
+        spec30 = container(30, "lone spec", [container(31, "its ticket", [], ["mmw:ticket"])],
+                           ["mmw:spec"])
+        spec30["subIssuesSummary"] = {"total": 1, "completed": 0}
+        data["specs"] = [{"number": 10, "title": "first spec", "state": "OPEN",
+                          "labels": [{"name": "mmw:spec"}]},
+                         {"number": 30, "title": "lone spec", "state": "OPEN",
+                          "labels": [{"name": "mmw:spec"}]}]
+        data["trees"] = [tree_fixture(), spec30]
+        data["tree_by_root"] = {"1": 0, "30": 1}
+        with running_board(data) as board:
+            result = read_board(board)
+        by_number = {task["n"]: task for task in result["tasks"]}
+        self.assertEqual(sorted(by_number), [1, 30])
+        lone = by_number[30]
+        self.assertEqual((lone["kind"], lone["decisions"], [s["n"] for s in lone["specs"]]),
+                         ("spec", [], [30]))
+        self.assertEqual([t["n"] for t in lone["specs"][0]["tickets"]], [31])
+        self.assertNotIn(10, by_number, "a spec under an open map is not a second task")
+
     def test_board_names_its_repository(self):
         data = scenario()
         data["repo"] = "owner/board-repo"

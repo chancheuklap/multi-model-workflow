@@ -145,3 +145,15 @@ test("a decision in a blocking cycle gets a dashed card", () => {
   assert.equal(cards.length, 2);
   for (const card of cards) assert.match(card.cls, /\bcycle\b/);
 });
+
+test("a spec with no map is the top container, its tickets hang straight off it", () => {
+  const spec = {n: 30, title: "lone spec", tickets: [ticket({n: 31, title: "its ticket"})]};
+  const task = {n: 30, kind: "spec", title: "lone spec", state: "open", decisions: [], specs: [spec]};
+  const view = canvasView(task, null, [...defaultExpanded(task)], true);
+  assert.deepEqual(view.containers.map(c => c.n), [30]);
+  assert.equal(view.containers[0].num, "#30");
+  assert.equal(view.containers[0].titleCls, "card-title");
+  assert.deepEqual(view.tickets.map(t => t.n), [31]);
+  assert.equal(view.labels.length, 0);
+  assert.equal(view.layout.nodes.filter(node => node.id === 30).length, 1);
+});

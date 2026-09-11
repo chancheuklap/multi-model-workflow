@@ -143,3 +143,16 @@ test("fromBoard maps a folded ticket onto the detail panel", () => {
   namedButton(root, "在 GitHub 打开 #133 ↗").click();
   assert.equal(globalThis.window.opened[0][0], "https://github.com/example/board/issues/133");
 });
+
+test("selecting a spec that has no map shows the spec card with no map link", () => {
+  const fold = {children: {}, sessions: [], landed: false, returned: false, bounced: false,
+    outcome: null, unreadable: [], passed: false, review: null, verdict: null, waiting: null};
+  const ticket = {n: 31, title: "its ticket", state: "open", blocked: [], blockers: [], children: [], events: [], fold};
+  const spec = {n: 30, title: "lone spec", tickets: [ticket]};
+  const tasks = [{n: 30, kind: "spec", title: "lone spec", state: "open", decisions: [], specs: [spec]}];
+  const view = fromBoard({tasks, repo: "x/y"}, 30);
+  assert.equal(view.kind, "spec");
+  assert.equal(view.eyebrow, "Spec");
+  assert.deepEqual(view.links, []);
+  assert.equal(view.listCount, 1);
+});

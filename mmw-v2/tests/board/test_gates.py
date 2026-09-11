@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import socket
 import sys
 import tempfile
@@ -8,7 +9,9 @@ import unittest
 import urllib.parse
 from pathlib import Path
 
-from test_settings_api import config, ROOT, running_board
+from board_process import RunningBoard
+from test_board_data import FAKE_BIN
+from test_settings_api import config, ROOT, CATALOG
 from test_server import RunningHandler
 
 sys.path.insert(0, str(ROOT / "mmw-v2" / "board"))
@@ -23,6 +26,14 @@ class TouchModule:
     def handle(self, request):
         self.marker.touch()
         return 204, {}, b""
+
+
+def running_board(home):
+    """A board whose GitHub is the fixture `gh` with nothing on it: these tests judge the
+    gates, so no request may depend on the real tracker or its speed."""
+    path = str(FAKE_BIN) + os.pathsep + os.environ.get("PATH", "")
+    return RunningBoard(environment={"MMW_HOME": str(home), "MMW_HOST_CATALOG": str(CATALOG), "PATH": path},
+                        fixture={"maps": [], "specs": [], "trees": [], "comments": {}})
 
 
 class GatesTest(unittest.TestCase):
