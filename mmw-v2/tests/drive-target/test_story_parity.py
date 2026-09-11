@@ -11,6 +11,7 @@ import importlib.util
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -284,6 +285,32 @@ class TestStoryFixture(unittest.TestCase):
         self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
         self.assertIn("story page 404", proc.stderr)
         self.assertIn("scene=missing", proc.stderr)
+
+    def test_a_server_the_stories_command_started_is_gone_after_the_run(self):
+        """fixtures/story/repo/stories/launch.py holds serve.py as a child and forwards
+        no signal, so ending only the stories command would leave serve.py running."""
+        root = self.copied_fixture()
+        (root / ".mmw" / "target.json").write_text(
+            '{"stories": "python3 -u stories/launch.py"}\n', encoding="utf-8")
+        pid_file = root / "child.pid"
+        proc = self.run_story(cwd=root, extra_env={"STORY_CHILD_PID": str(pid_file)})
+        pid = int(pid_file.read_text(encoding="utf-8"))
+        self.addCleanup(end_if_running, pid)
+        self.assertFalse(running(pid), f"serve.py (pid {pid}) outlived story-parity.py")
+        self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+
+
+def running(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def end_if_running(pid: int) -> None:
+    if running(pid):
+        os.kill(pid, signal.SIGKILL)
 
 
 if __name__ == "__main__":

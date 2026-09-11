@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["numpy>=2", "Pillow>=10", "playwright>=1.58", "pyyaml>=6"]
+# dependencies = ["numpy>=2", "Pillow>=10", "playwright>=1.58", "psutil>=7", "pyyaml>=6"]
 # ///
 """Compare a product story page with the design page it was built from, scene by scene.
 
@@ -83,11 +83,12 @@ def _ensure_script_env() -> None:
         import numpy  # noqa: F401
         import PIL  # noqa: F401
         import playwright.sync_api  # noqa: F401
+        import psutil  # noqa: F401
         import yaml  # noqa: F401
     except ImportError:
         if os.environ.get(_BOOTSTRAP) == "1":
             raise SystemExit(
-                "story-parity.py is missing numpy, Pillow, playwright or pyyaml "
+                "story-parity.py is missing numpy, Pillow, playwright, psutil or pyyaml "
                 "after uv run --script; install those with the script's metadata"
             )
         env = dict(os.environ)
@@ -204,12 +205,40 @@ class Stories:
         proc = self.proc
         if proc is None or proc.poll() is not None:
             return
-        proc.terminate()
+        stop_tree(proc)
+
+
+def stop_tree(proc: subprocess.Popen, grace_s: float = 5.0) -> None:
+    """End the `stories` command and every process under it.
+
+    The server is usually a grandchild (`uv run` → python → pnpm → vite), and a member
+    of the chain that dies on SIGTERM without forwarding it leaves the rest reparented
+    to init, still holding its port: ten Vite servers were found three days after the
+    runs that started them (2026-09-12). The tree is read before anything is signalled,
+    because after the first death the survivors can no longer be traced to this run.
+    The command stays in this process group, so gate-check's group kill on a timed-out
+    `CHECK:` still reaches it.
+    """
+    import psutil
+
+    try:
+        leader = psutil.Process(proc.pid)
+        tree = [leader, *leader.children(recursive=True)]
+    except psutil.NoSuchProcess:
+        tree = []
+    for member in tree:
         try:
-            proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait(timeout=2)
+            member.terminate()
+        except psutil.NoSuchProcess:
+            pass
+    _, alive = psutil.wait_procs(tree, timeout=grace_s)
+    for member in alive:
+        try:
+            member.kill()
+        except psutil.NoSuchProcess:
+            pass
+    psutil.wait_procs(alive, timeout=2)
+    proc.poll()
 
 
 def negative_control(scene, viewport, pages, capture_impl, capture_baseline, media) -> Comparison:

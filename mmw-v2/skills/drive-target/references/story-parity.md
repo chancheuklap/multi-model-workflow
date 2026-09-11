@@ -22,8 +22,10 @@ judge can read, and none of them is visible from a `DIFF` line months later.
 
 - **`.mmw/target.json`'s `stories` command brings the service up and prints its
   `origin`**, the same shape `start` and `discover` have. The judge runs it, reads that
-  one line, and stops the service when it finishes. Nothing else tells it where the
-  pages are.
+  one line, and when it finishes ends the command together with every process under it,
+  so a server the command starts as a child or grandchild (`uv run` → python → pnpm →
+  vite) goes too. The command stays in the foreground for the whole run. Nothing else
+  tells it where the pages are.
 - **The address carries the whole request.** The judge opens
   `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>` and nothing else: `page` is the
   screen contract's `pages.<page>.mount`, `scene` is a name from `scenes.json`,
