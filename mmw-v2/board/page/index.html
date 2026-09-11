@@ -14,6 +14,7 @@
       .app-top { grid-column: 1 / -1; min-width: 0; }
       .app-slot { min-width: 0; min-height: 0; overflow: hidden; }
       .app-sheet { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
+      .app-sheet:has([data-screen="settings"]) { pointer-events: auto; }
     </style>
   </head>
   <body>
