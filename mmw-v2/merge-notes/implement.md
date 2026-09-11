@@ -58,8 +58,11 @@ when the pipeline itself failed. After a conflict is resolved, the worker runs t
 checks, commits, and runs `<dispatch> integrate <n>` again. The command never pushes,
 rebases or aborts. Step 1 keeps the worker-run command and points its exit 3 to
 `verify-ticket/references/running-criteria.md` under **A criterion that runs the
-product**. Upstream rewrites the first closing step → keep integration before the
-criteria and keep that pointer.
+product**. The run used to wait up to 90 seconds inside the command and hand back 3
+to be run again, which cost the worker a model turn every 90 seconds for as long as
+slots stayed held; the relay now wakes it when a slot-ending event lands. Upstream
+rewrites the first closing step → keep integration before the criteria and keep that
+pointer.
 
 ## Put no question on the screen
 
@@ -80,7 +83,7 @@ It is a table rather than the one sentence it replaced ("resume at the step afte
 
 A `reviewer.lost` or `verifier.lost` after the newest start of that kind (the watchdog's word that the child's session stopped before its result landed, spec #317) sends the worker back to that step's start, and the two sleep rows exclude it. Without that, a worker prompted back after its reviewer died would go back to sleep on a reviewer that will never report, and nothing would wake it again.
 
-Every row is an event the ticket carries (mmw #315): the worker's own run is a `ticket.checked` event whose `run` is `self`, not a comment whose first line is `self-run` — nothing in the pipeline reads a comment's first line, so a table keyed on one would match nothing the scripts write. The paragraph after the table lists the events that do not move the worker: `worker.touched`, a `repo-checks` `ticket.checked` whose result is `unmet`, `worker.queued`, and `ticket.refused`. The exit 3 mechanism lives in `verify-ticket/references/running-criteria.md` under **A criterion that runs the product**; this file records only why step 1 points there. Upstream rewrites the exit path → keep the pointer and do not restore its mechanism here.
+Every row is an event the ticket carries (mmw #315): the worker's own run is a `ticket.checked` event whose `run` is `self`, not a comment whose first line is `self-run` — nothing in the pipeline reads a comment's first line, so a table keyed on one would match nothing the scripts write. The paragraph after the table lists the events that do not move the worker: `worker.touched`, a `repo-checks` `ticket.checked` whose result is `unmet`, `worker.queued`, and `ticket.refused`.
 
 Upstream rewrites the "Once done" paragraph → take its wording and put the table back, rows and all, keyed on events.
 

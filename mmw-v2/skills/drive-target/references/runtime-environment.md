@@ -64,13 +64,14 @@ field. This section says why each one is shaped the way it is.
   and `instance.max`, when present, counting every slot this repository already holds
   wherever its checkout is — the ticket worktrees and the main checkout re-running the night's
   criteria alike. A ticket takes its slot at the first run of its criteria that runs
-  the product and keeps it until its work ends — landed, handed back, released,
-  suspended or retracted — so `max` bounds how many tickets are past that point at
+  the product and keeps it until its work ends — landed, handed back, bounced,
+  released, suspended or retracted — so `max` bounds how many tickets are past that point at
   once; how many workers write code at once is not bounded by it. A criterion or judge
   run outside a ticket worktree gives its slot back as that run ends; `lease.py run`
   starts a product for a person or agent and keeps its slot. `MMW_DATA_DIR` remains
   while its ticket worktree remains and is removed after that worktree is archived.
-  A run that finds `max` reached waits, and its ticket says so.
+  A worker's run that finds `max` reached takes no slot and exits at once; a
+  `--reverify` waits inside the command. Either way its ticket says so.
 
 - **`checks`.** The repository's own checks. The `verify-ticket` skill's
   `--closeout` runs them.

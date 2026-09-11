@@ -10,7 +10,7 @@ Four steps:
    - `#<n> worker.lost`: the worker's session stopped. `<dispatch> start <n> worker` starts another in the same workspace; it first commits tracked edits and pushes the ticket branch to origin.
    - `#<n> ticket.refused`: the worker refused to claim the ticket, and the event's `reason` says why. Fix that, then `<dispatch> start <n> worker` again.
    - `#<n> child.opened`: a `fault` stopped the worker — fix what the child names, then `<dispatch> resume <n> "<what you fixed>, then: continue"`; a `decision` is for the user in the morning, and the worker carries on.
-4. Once the ticket passed or came back, run `<dispatch> land <n>` from any checkout of this repository. It closes the one-ticket watch; its work is defined in [one-ticket.md](#exit-codes) under **Exit codes**.
+4. Once the ticket passed or came back, run `<dispatch> land <n>` from any checkout of this repository; what it does is under [Exit codes](#exit-codes) below.
 
 ## Exit codes
 
@@ -30,7 +30,7 @@ Four steps:
 
 **`land <n>`:**
 
-It reads `into` and `ticket.passed.commit` from the ticket, merges and checks in the detached merge worktree, fast-forward pushes `origin/<into>`, gives back the claim and slot, archives the workspace, records `ticket.landed`, and closes the watch. It deletes contained ticket branches when safe. A conflict or red check writes `ticket.bounced`, leaves the workspace and ticket branch for triage, and closes the watch.
+It reads `into` and `ticket.passed.commit` from the ticket, merges and checks in the detached merge worktree, fast-forward pushes `origin/<into>`, gives back the claim and slot, archives the workspace, records `ticket.landed`, and closes the watch. It deletes the ticket branch locally and on origin only when no worktree uses it and each copy is contained in `origin/<into>`; an unlanded copy is kept, and a deletion failure does not undo the landing. A conflict or red check writes `ticket.bounced`, leaves the workspace and ticket branch for triage, and closes the watch.
 
 | Code | What happened |
 | --- | --- |

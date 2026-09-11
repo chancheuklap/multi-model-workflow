@@ -4,7 +4,7 @@ You are the worker on ticket `<n>`. From here you start the two agents that judg
 
 | You want to | Run |
 | --- | --- |
-| Work a ticket you picked up yourself, with no `start` behind you | Run `<dispatch> adopt <n>` before you claim it; its full contract is in [inside-a-ticket.md](#exit-codes) under **Exit codes** |
+| Work a ticket you picked up yourself, with no `start` behind you | Run `<dispatch> adopt <n>` before you claim it; its full contract is under [Exit codes](#exit-codes) below |
 | Bring in tickets that landed on your base branch while you worked | `<dispatch> integrate <n>`, from the ticket's worktree on `issue-<n>`, before running your criteria. Exit 0 merged `origin/<base branch>` or it was already contained; a clean merge names the tickets it brought in. Exit 2 changed nothing: stderr names a dirty tracked tree, the wrong branch, missing or unreadable `worker.started.into`, a missing `origin/<base branch>` or a merge that could not start. Exit 3 leaves the merge in conflict and reports those ticket numbers and titles plus the conflicted files; use the `resolving-merge-conflicts` skill, run the affected repository checks, commit that merge, then run `<dispatch> integrate <n>` again. It never pushes, rebases or aborts |
 | Start the reviewer on your ticket | `<dispatch> start <n> reviewer`, then end your turn. You are woken with `#<n> reviewer.reported` once its report is on the ticket: read the report, the comment on the ticket that carries that event, then `<dispatch> ack <n> reviewer.reported` |
 | Start the verifier on your ticket | `<dispatch> start <n> verifier`, then end your turn. Start it once. You are woken with `#<n> verifier.passed` or `#<n> verifier.failed`: read the verdict — `<dispatch> wait <n> verifier` prints it with the commit it covers and, on a failure, the criteria it failed — then `<dispatch> ack <n> <that event>` |
@@ -21,7 +21,7 @@ The `wait` and `ack` rows and their exit codes are also what the main agent of a
 | Code | What happened |
 | --- | --- |
 | `0` | The session is running; its id is on stdout and its `reviewer.started` or `verifier.started` event is on the ticket |
-| `2` | Nothing was started, or a session was stopped again because its start event could not be written. The reason is on stderr; read it verbatim. A 2 here is a pipeline fault: `<engine> <n> --sub-issue fault <file>`, where the file's body is the command you ran and the output you saw, then stop |
+| `2` | Nothing was started — or a session was started and stopped again because its start event could not be written, so no command could have found it. The reason is on stderr — read it verbatim. A 2 here is a pipeline fault: `<engine> <n> --sub-issue fault <file>`, where the file's body is the command you ran and the output you saw, then stop |
 
 **`ack <n> <event>`**, or **`ack relay.recovered`:** `0` that wake is acked — the relay removes it, and every earlier wake it sent this session, from the wake queue; `2` nothing was acked: this session cannot name itself (its runner's reason is on stderr), or no wake with that ticket and event is queued for this session — acked already, sent to another session, or never queued — and stderr lists the wakes that are queued for it (check the number and the event name against the wake you read).
 
