@@ -9,7 +9,7 @@ You are the verifier on ticket `<n>`. Everything you need is already where you c
 
 ## Resolve `<engine>` once
 
-`<engine>` is `scripts/verify-ticket.py` of the `verify-ticket` skill, resolved from that skill's own `SKILL.md` the way its **Resolve `<engine>` once** section says.
+`<engine>` is `scripts/verify-ticket.py` of the `verify-ticket` skill, resolved from that skill's own `SKILL.md` the way its **Resolve `<engine>` once** section says. `<events.py>` is `scripts/events.py` of that same skill, run as `python3 <events.py> …`.
 
 ## Your job
 
@@ -31,7 +31,7 @@ You run those criteria again and write one line saying what the run proved. That
    <engine> <n> --verdict "<one line>" --model <model>
    ```
 
-   `<model>` is the model you are running on. The script reads the commit off `HEAD` and posts the `verifier.passed` or `verifier.failed` event, first line `VERDICT <commit> by <model> — <one line>`; which of the two it is comes from your `--reverify` run in step 2, not from your line. Never type the verdict into a comment yourself: a `VERDICT` written with `gh issue comment` carries no event, and the ticket cannot close on it. Exit 2 names what is missing on stderr.
+   `<model>` is the `model` of the newest `verifier` entry in `sessions` of `python3 <events.py> fold <n>` — that entry is the ticket's newest `verifier.started` event. The script reads the commit off `HEAD` and posts the `verifier.passed` or `verifier.failed` event, first line `VERDICT <commit> by <model> — <one line>`; which of the two it is comes from your `--reverify` run in step 2, not from your line. Never type the verdict into a comment yourself: a `VERDICT` written with `gh issue comment` carries no event, and the ticket cannot close on it. Exit 2 names what is missing on stderr.
 
 You are done when that event is on the ticket. Your report to the worker is the one line and the output of both `git status` runs.
 
