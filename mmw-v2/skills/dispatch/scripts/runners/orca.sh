@@ -7,6 +7,7 @@
 #   runners/orca.sh liveness <session-id>
 #   runners/orca.sh stop <session-id>
 #   runners/orca.sh self
+#   runners/orca.sh attach --cwd DIR --issue N
 #
 # start takes host, model, effort, cwd, skip-approval, and the first prompt, and
 # prints a session id, or refuses with exit 1 and the reason on stderr. The worktree is
@@ -62,6 +63,7 @@
 # MMW_USES: terminal read --terminal --json
 # MMW_USES: terminal list --json
 # MMW_USES: terminal close --terminal --json
+# MMW_USES: worktree set --worktree --issue
 
 set -uo pipefail
 
@@ -81,7 +83,23 @@ usage() {
   echo "       runners/orca.sh liveness <session-id>" >&2
   echo "       runners/orca.sh stop <session-id>" >&2
   echo "       runners/orca.sh self" >&2
+  echo "       runners/orca.sh attach --cwd DIR --issue N" >&2
   exit 2
+}
+
+attach() {
+  local cwd="" issue=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --cwd) [ "$#" -ge 2 ] || usage; cwd="$2"; shift 2 ;;
+      --issue) [ "$#" -ge 2 ] || usage; issue="$2"; shift 2 ;;
+      *) usage ;;
+    esac
+  done
+  [ -d "$cwd" ] && [[ "$issue" =~ ^[0-9]+$ ]] || usage
+  local abs
+  abs="$(CDPATH='' cd -- "$cwd" && pwd -P)" || return 1
+  orca_ worktree set --worktree "path:$abs" --issue "$issue" >/dev/null
 }
 
 # Prints "connected writable" when list named the handle. Exit 0 found, 1 listed
@@ -451,5 +469,6 @@ case "$verb" in
   liveness) liveness "$@" ;;
   stop) stop "$@" ;;
   self) self_ ;;
+  attach) attach "$@" ;;
   *) usage ;;
 esac

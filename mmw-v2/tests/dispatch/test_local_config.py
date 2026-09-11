@@ -129,8 +129,6 @@ class LocalConfigTest(unittest.TestCase):
 
     def test_models_json_follows_mmw_home(self):
         elsewhere = self.home / "elsewhere"
-        os.environ["MMW_LIVE_MODELS"] = str(elsewhere / "models.md")
-        os.environ["MMW_V2_HOME"] = str(elsewhere)
         elsewhere.mkdir()
         other = elsewhere / "models.json"
         other.write_text(json.dumps(base_config(version=40)) + "\n", encoding="utf-8")

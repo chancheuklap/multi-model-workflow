@@ -8,6 +8,9 @@ from __future__ import annotations
 import importlib.util
 import tempfile
 import unittest
+import json
+import os
+
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -15,20 +18,6 @@ MODELS_PY = HERE.parents[1] / "skills" / "dispatch" / "scripts" / "models.py"
 _spec = importlib.util.spec_from_file_location("mmw_models", MODELS_PY)
 models = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(models)
-
-TABLE_HEAD = (
-    "| agent | host | model | effort |\n"
-    "| --- | --- | --- | --- |\n"
-)
-
-
-def write_live(text: str) -> Path:
-    fh = tempfile.NamedTemporaryFile(
-        "w", suffix=".md", delete=False, encoding="utf-8")
-    fh.write("# Models\n\n" + text)
-    fh.close()
-    return Path(fh.name)
-
 
 class PickRunnerLevelsTest(unittest.TestCase):
     def test_ticket_alone_is_used(self):
@@ -154,65 +143,20 @@ class WorktreeOwningTest(unittest.TestCase):
             "lody")
 
 
-class LiveRunnerRowTest(unittest.TestCase):
-    def tearDown(self):
-        for path in getattr(self, "_temps", ()):
-            path.unlink(missing_ok=True)
-
-    def _live(self, text: str) -> Path:
-        path = write_live(text)
-        self._temps = (*getattr(self, "_temps", ()), path)
-        return path
-
-    def test_two_cell_runner_row_is_read(self):
-        path = self._live(
-            "| runner | orca |\n"
-            "| --- | --- |\n"
-            "\n"
-            + TABLE_HEAD
-            + "| junior-worker | grok | grok 4.6 | high |\n"
-        )
-        self.assertEqual(models.parse_live_runner(path), "orca")
-        previous = models.MODELS
-        try:
-            models.MODELS = path
-            rows = models.session_rows()
-        finally:
-            models.MODELS = previous
-        self.assertEqual([r.agent for r in rows], ["junior-worker"])
-
-    def test_four_cell_runner_row_is_not_an_agent(self):
-        path = self._live(
-            TABLE_HEAD
-            + "| junior-worker | grok | grok 4.6 | high |\n"
-            + "| runner | herdr | — | — |\n"
-        )
-        self.assertEqual(models.parse_live_runner(path), "herdr")
-        previous = models.MODELS
-        try:
-            models.MODELS = path
-            rows = models.session_rows()
-        finally:
-            models.MODELS = previous
-        self.assertEqual([r.agent for r in rows], ["junior-worker"])
-
-    def test_missing_runner_row_is_silent(self):
-        path = self._live(
-            TABLE_HEAD + "| junior-worker | grok | grok 4.6 | high |\n")
-        self.assertIsNone(models.parse_live_runner(path))
-
-    def test_fresh_table_names_orca_over_runtime(self):
-        fh = tempfile.NamedTemporaryFile(
-            "w", suffix=".md", delete=False, encoding="utf-8")
-        fh.write(models.default_live_markdown())
-        fh.close()
-        path = Path(fh.name)
-        self._temps = (*getattr(self, "_temps", ()), path)
-        live = models.parse_live_runner(path)
-        self.assertEqual(live, "orca")
-        self.assertEqual(
-            models.pick_runner(live=live, runtime={"HERDR_ENV": "1"}),
-            "orca")
+class ConfigRunnerTest(unittest.TestCase):
+    def test_saved_runner_precedes_runtime(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            saved = os.environ.get("MMW_HOME")
+            os.environ["MMW_HOME"] = tmp
+            try:
+                Path(tmp, "models.json").write_text(
+                    json.dumps(models.default_local_config()) + "\n", encoding="utf-8")
+                self.assertEqual(models.runner_name({"HERDR_ENV": "1"}), "orca")
+            finally:
+                if saved is None:
+                    os.environ.pop("MMW_HOME", None)
+                else:
+                    os.environ["MMW_HOME"] = saved
 
 
 if __name__ == "__main__":

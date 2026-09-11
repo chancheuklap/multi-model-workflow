@@ -344,5 +344,6 @@ case "$verb" in
   liveness) liveness "$@" ;;
   stop) stop "$@" ;;
   self) self_ ;;
+  attach) exit 0 ;;
   *) usage ;;
 esac

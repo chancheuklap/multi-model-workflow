@@ -79,6 +79,21 @@ Options:
 """
 
 PASEO_HELP = {
+    ("provider", "ls"): """Usage: paseo provider ls [options]
+
+Options:
+  --json                Output in JSON format
+""",
+    ("provider", "models"): """Usage: paseo provider models [options] <provider>
+
+Options:
+  --json                Output in JSON format
+""",
+    ("provider", "diagnostic"): """Usage: paseo provider diagnostic [options] <provider>
+
+Options:
+  --json                Output in JSON format
+""",
     ("run",): """Usage: paseo run [options] <prompt>
 
 Create and start an agent with a task
@@ -630,7 +645,7 @@ if args[:1] == ["agent-context"]:
         wait_flags = "terminal for timeout-ms"
     print(json.dumps({
         "schemaVersion": 1,
-        "commandCount": 6,
+        "commandCount": 7,
         "commands": [
             {"command": "terminal create",
              "flags": ["help", "json", "worktree", "command", "title"]},
@@ -644,6 +659,8 @@ if args[:1] == ["agent-context"]:
              "flags": ["help", "json", "worktree"]},
             {"command": "terminal close",
              "flags": ["help", "json", "terminal"]},
+            {"command": "worktree set",
+             "flags": ["help", "worktree", "issue"]},
         ],
     }))
     sys.exit(0)
@@ -693,6 +710,13 @@ if args[:2] == ["repo", "list"]:
         except Exception:
             rows = []
     print(json.dumps({"ok": True, "result": {"repos": rows}}))
+    sys.exit(0)
+
+if args[:2] == ["worktree", "set"]:
+    if scenario == "worktree-set-fail":
+        print(json.dumps({"ok": False, "error": {"code": "link_failed"}}))
+        sys.exit(1)
+    print(json.dumps({"ok": True, "result": {}}))
     sys.exit(0)
 
 if args[:2] == ["worktree", "ps"] or args[:2] == ["worktree", "rm"] \
@@ -1159,7 +1183,6 @@ export MMW_FAKE_HERDR_STATE="$TMP/herdr-state"
 export MMW_FAKE_ORCA_STATE="$TMP/orca-state"
 export MMW_GH_LAST_BODY="$TMP/gh-last-body"
 export MMW_HOME="$TMP/mmw-home"
-export MMW_LIVE_MODELS="$TMP/live-models.md"
 # Tonight's runner is pinned: the session running this suite may itself sit in Orca,
 # Herdr or tmux, and runtime detection would pick that runner.
 export MMW_RUNNER=paseo
@@ -1196,24 +1219,13 @@ else:
 ')"
 mkdir -p "$MMW_HOME"
 : > "$MMW_GH_LAST_BODY"
-# The live table every scenario starts from. It is this suite's own fixture, not
+# The models.json every scenario starts from. It is this suite's own fixture, not
 # hosts.json's defaults: what a fresh machine is given can change without changing what
 # the scenarios exercise (a Cursor junior row with its effort inside the model id, a Grok
 # senior row at xhigh).
-cat > "$MMW_LIVE_MODELS" <<'TABLE'
-# Models
-
-| runner | orca |
-| --- | --- |
-
-| agent | host | model | effort |
-| --- | --- | --- | --- |
-| junior-worker | cursor | grok 4.6 | high |
-| senior-worker | grok | grok 4.6 | xhigh |
-| reviewer | claude | opus 5 | high |
-| verifier | claude | sonnet 5 | high |
-| advisor | claude | fable 5.1 | medium |
-TABLE
+cat > "$MMW_HOME/models.json" <<'JSON'
+{"version":1,"runner":"orca","rows":{"junior-worker":{"host":"cursor","model":"grok 4.6","effort":"high"},"senior-worker":{"host":"grok","model":"grok 4.6","effort":"xhigh"},"reviewer":{"host":"claude","model":"opus 5","effort":"high"},"verifier":{"host":"claude","model":"sonnet 5","effort":"high"},"advisor":{"host":"claude","model":"fable 5.1","effort":"medium"}}}
+JSON
 
 git init -q --bare -b main "$TMP/origin.git"
 git init -q -b main "$TMP/repo"
@@ -1508,8 +1520,7 @@ assert found["worktree"] == run["cwd"] and found["branch"] == "issue-" + ticket,
 ' "$TMP/out" "$MMW_FAKE_PASEO_STATE/runs.jsonl" "$MMW_FAKE_PASEO_STATE/gh-comments.json"
 }
 
-row_host() { awk -F'|' -v want="$1" 'function t(s){gsub(/^[ \t`]+|[ \t`]+$/,"",s);return s} /^[ \t]*\|/ && NF==6 && t($2)==want {print t($3); exit}' "$MMW_LIVE_MODELS"; }
-JUNIOR_HOST="$(row_host junior-worker)"
+JUNIOR_HOST=cursor
 JUNIOR_MODEL=grok-4.6
 SENIOR_MODEL=grok-4.6
 one_line_reason() {
@@ -4267,11 +4278,11 @@ scenario_runnerself() {
   [ "$code" = 3 ] || fail "herdr self outside Herdr should be 3, got $code"
   RUNNER="$PASEO_RUNNER"
 
-  echo "--- dispatch.sh self prints the pair, with no live table needed"
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_self MMW_LIVE_MODELS="$TMP/no-such-table.md" bash "$DISPATCH" self)"
+  echo "--- dispatch.sh self prints the pair, with no models.json needed"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_self bash "$DISPATCH" self)"
   [ "$code" = 0 ] || fail "self expected 0, got $code: $(cat "$TMP/err")"
   [ "$(cat "$TMP/out")" = "$(printf 'paseo\tagt_self')" ] || fail "self should print paseo<TAB>agt_self: $(cat "$TMP/out")"
-  code="$(run_dispatch env -u TERM_PROGRAM -u HERDR_ENV MMW_LIVE_MODELS="$TMP/no-such-table.md" bash "$DISPATCH" self)"
+  code="$(run_dispatch env -u TERM_PROGRAM -u HERDR_ENV bash "$DISPATCH" self)"
   [ "$code" = 2 ] || fail "self outside any runner expected 2, got $code"
 }
 
@@ -4784,7 +4795,7 @@ state = Path(os.environ["MMW_FAKE_ORCA_STATE"])
 }]))
 '
   : > "$MMW_TEST_LOG"
-  (MMW_V2_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
+  (MMW_INSTALL_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
   grep -q "缺    orca worktree-base-path" "$TMP/err" \
     || fail "wrong base path should be 缺: $(cat "$TMP/err")"
   has "orca :: project :: setups"
@@ -4808,7 +4819,7 @@ state = Path(os.environ["MMW_FAKE_ORCA_STATE"])
 }]))
 '
   : > "$MMW_TEST_LOG"
-  (MMW_V2_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
+  (MMW_INSTALL_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
   if grep -q "orca worktree-base-path" "$TMP/err"; then
     fail "correct base path should not 缺: $(cat "$TMP/err")"
   fi
@@ -4834,7 +4845,7 @@ state = Path(os.environ["MMW_FAKE_ORCA_STATE"])
 }]))
 '
   : > "$MMW_TEST_LOG"
-  (MMW_V2_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
+  (MMW_INSTALL_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
   grep -q "缺    orca externalWorktreeVisibility" "$TMP/err" \
     || fail "hidden visibility should be 缺: $(cat "$TMP/err")"
   hasnt "orca :: project :: setup-update"
@@ -4855,7 +4866,7 @@ state = Path(os.environ["MMW_FAKE_ORCA_STATE"])
 }]))
 '
   : > "$MMW_TEST_LOG"
-  (MMW_V2_HOME="$home" bash "$installer" > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
+  (MMW_INSTALL_HOME="$home" bash "$installer" > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
   has "orca :: project :: setup-update"
   has ":: --setup :: setup_1"
   has ":: --worktree-base-path :: .worktrees"
@@ -4869,7 +4880,7 @@ run_uses_check() {
   rm -rf "$home"
   mkdir -p "$home"
   : > "$MMW_TEST_LOG"
-  (MMW_V2_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
+  (MMW_INSTALL_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
 }
 
 scenario_usesagree() {
@@ -4956,7 +4967,7 @@ run_installer() {
     printf '%s\n' "$MMW_TEST_ROOT_COPY" > "$home/.mmw/installed-root"
   fi
   : > "$MMW_TEST_LOG"
-  (MMW_V2_HOME="$home" bash "$installer" "$@" > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
+  (MMW_INSTALL_HOME="$home" bash "$installer" "$@" > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
 }
 
 scenario_installorcashape() {
@@ -5066,6 +5077,146 @@ scenario_startreturnssession() {
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   [ "$(cat "$TMP/out")" = agt_run_1 ] || fail "stdout should be the session id: $(cat "$TMP/out")"
   if grep -q '{' "$TMP/out"; then fail "stdout still carries an object: $(cat "$TMP/out")"; fi
+}
+
+scenario_startreadsmodelsjson() {
+  local code legacy="$MMW_HOME/models.md"
+  echo "--- start reads models.json and ignores a conflicting retired Markdown file"
+  cat > "$legacy" <<'TABLE'
+| runner | herdr |
+| agent | host | model | effort |
+| junior-worker | grok | grok 4.6 | high |
+TABLE
+  reset_log
+  fresh_repo
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "start expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(out_json provider)" = "cursor/grok-4.6" ] \
+    || fail "start did not use models.json: $(cat "$TMP/out")"
+  rm -f "$legacy"
+}
+
+scenario_startnomodelsjson() {
+  local code saved="$TMP/models.saved"
+  mv "$MMW_HOME/models.json" "$saved"
+  printf '%s\n' '| junior-worker | cursor | grok 4.6 | high |' > "$MMW_HOME/models.md"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 2 ] || fail "missing models.json expected 2, got $code"
+  grep -q "no models.json.*run install.sh" "$TMP/err" \
+    || fail "the refusal is not actionable: $(cat "$TMP/err")"
+  never_ran
+  rm -f "$MMW_HOME/models.md"
+  mv "$saved" "$MMW_HOME/models.json"
+}
+
+scenario_installimportsmodelsmd() {
+  local home="$TMP/import-home" installer
+  installer="$(dirname "$(dirname "$HERE")")/install.sh"
+  rm -rf "$home"; mkdir -p "$home/.mmw"
+  cat > "$home/.mmw/models.md" <<'TABLE'
+| runner | herdr |
+| agent | host | model | effort |
+| junior-worker | cursor | grok 4.6 | high |
+| senior-worker | grok | grok 4.6 | xhigh |
+| reviewer | claude | opus 5 | high |
+| verifier | claude | sonnet 5 | high |
+| advisor | claude | fable 5.1 | medium |
+TABLE
+  MMW_INSTALL_HOME="$home" bash "$installer" > "$TMP/out" 2> "$TMP/err" || true
+  [ -f "$home/.mmw/models.json" ] || fail "models.json was not imported"
+  [ ! -e "$home/.mmw/models.md" ] || fail "the imported Markdown file was not deleted"
+  python3 - "$home/.mmw/models.json" <<'PY' || fail "the import did not preserve values"
+import json, sys
+data = json.load(open(sys.argv[1]))
+assert data["version"] == 1 and data["runner"] == "herdr", data
+assert data["rows"]["senior-worker"]["effort"] == "xhigh", data
+PY
+}
+
+scenario_installinitialvalues() {
+  local home="$TMP/initial-home" installer
+  installer="$(dirname "$(dirname "$HERE")")/install.sh"
+  rm -rf "$home"; mkdir -p "$home"
+  MMW_INSTALL_HOME="$home" bash "$installer" > "$TMP/out" 2> "$TMP/err" || true
+  python3 - "$home/.mmw/models.json" <<'PY' || fail "fresh defaults are wrong"
+import json, sys
+data = json.load(open(sys.argv[1]))
+assert data["version"] == 1 and data["runner"] == "orca", data
+assert set(data["rows"]) == {"junior-worker", "senior-worker", "reviewer", "verifier", "advisor"}, data
+PY
+}
+
+scenario_installkeepsmodelsjson() {
+  local home="$TMP/keep-home" installer before after
+  installer="$(dirname "$(dirname "$HERE")")/install.sh"
+  rm -rf "$home"; mkdir -p "$home/.mmw"
+  cp "$MMW_HOME/models.json" "$home/.mmw/models.json"
+  python3 - "$home/.mmw/models.json" <<'PY'
+import json, sys
+p=sys.argv[1]; d=json.load(open(p)); d["version"]=41; json.dump(d, open(p,"w"), separators=(",",":"))
+PY
+  before="$(shasum -a 256 "$home/.mmw/models.json" | cut -d' ' -f1)"
+  MMW_INSTALL_HOME="$home" bash "$installer" > "$TMP/out" 2> "$TMP/err" || true
+  after="$(shasum -a 256 "$home/.mmw/models.json" | cut -d' ' -f1)"
+  [ "$before" = "$after" ] || fail "install rewrote an existing models.json"
+}
+
+scenario_installcheckmodelsjson() {
+  local home="$TMP/check-models-home" installer code
+  installer="$(dirname "$(dirname "$HERE")")/install.sh"
+  rm -rf "$home"; mkdir -p "$home/.mmw"
+  cp "$MMW_HOME/models.json" "$home/.mmw/models.json"
+  python3 - "$home/.mmw/models.json" <<'PY'
+import json, sys
+p=sys.argv[1]; d=json.load(open(p)); del d["rows"]["reviewer"]; json.dump(d, open(p,"w"))
+PY
+  MMW_INSTALL_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; code=$?
+  [ "$code" = 1 ] || fail "invalid models.json expected check exit 1, got $code"
+  grep -q "models.json rows:.*missing reviewer" "$TMP/err" \
+    || fail "check did not name the bad row: $(cat "$TMP/err")"
+}
+
+scenario_installmodelsjsonhome() {
+  local home="$TMP/home-contract" installer
+  installer="$(dirname "$(dirname "$HERE")")/install.sh"
+  rm -rf "$home"; mkdir -p "$home"
+  MMW_INSTALL_HOME="$home" MMW_HOME="$home/elsewhere" bash "$installer" > "$TMP/out" 2> "$TMP/err" || true
+  [ -f "$home/.mmw/models.json" ] || fail "install did not use its HOME_DIR/.mmw"
+  [ ! -e "$home/elsewhere/models.json" ] || fail "ambient MMW_HOME overrode HOME_DIR"
+}
+
+scenario_orcaworktreelink() {
+  local code
+  reset_log; fresh_repo
+  code="$(run_dispatch env MMW_RUNNER=orca bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "Orca start expected 0: $(cat "$TMP/err")"
+  has "orca :: worktree :: set"
+  grep -q "orca :: worktree :: set :: --worktree :: path:.*\.worktrees/issue-61 :: --issue :: 61" "$MMW_TEST_LOG" \
+    || fail "worktree set did not use the absolute ticket path and issue: $(cat "$MMW_TEST_LOG")"
+}
+
+scenario_orcaworktreelinkfails() {
+  local code
+  reset_log; fresh_repo
+  code="$(run_dispatch env MMW_RUNNER=orca MMW_FAKE_ORCA_SCENARIO=worktree-set-fail bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "link failure blocked the start: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/out")" = term_1 ] || fail "the session id was not returned"
+  [ "$(grep -c 'did not attach the worktree' "$TMP/err")" = 1 ] \
+    || fail "link failure should be one stderr line: $(cat "$TMP/err")"
+  posted_events 61 | grep -q worker.started || fail "worker.started was not recorded"
+}
+
+scenario_worktreelinknoop() {
+  local code
+  for RUNNER in "$PASEO_RUNNER" "$HERDR_RUNNER"; do
+    reset_log
+    code="$(run_runner attach --cwd "$TMP/repo" --issue 61)"
+    [ "$code" = 0 ] || fail "$(basename "$RUNNER") attach expected 0, got $code"
+  done
+  hasnt "orca :: worktree :: set"
+  RUNNER="$PASEO_RUNNER"
 }
 
 scenario_startonce() {
@@ -6490,7 +6641,7 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields advancealreadyin advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openrefusesahead openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields advancealreadyin advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openrefusesahead openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -6503,6 +6654,16 @@ if [ "$1" = all ]; then wanted="$ALL"; else wanted="$1"; fi
 
 banner_for() {
   case "$1" in
+    startreadsmodelsjson) echo START-READS-MODELS-JSON-OK ;;
+    startnomodelsjson) echo START-NO-MODELS-JSON-OK ;;
+    installimportsmodelsmd) echo INSTALL-IMPORTS-MODELS-MD-OK ;;
+    installinitialvalues) echo INSTALL-INITIAL-VALUES-OK ;;
+    installkeepsmodelsjson) echo INSTALL-KEEPS-MODELS-JSON-OK ;;
+    installcheckmodelsjson) echo INSTALL-CHECK-MODELS-JSON-OK ;;
+    installmodelsjsonhome) echo INSTALL-MODELS-JSON-HOME-OK ;;
+    orcaworktreelink) echo ORCA-WORKTREE-LINK-OK ;;
+    orcaworktreelinkfails) echo ORCA-WORKTREE-LINK-FAILS-OK ;;
+    worktreelinknoop) echo WORKTREE-LINK-NOOP-OK ;;
     check) echo DISPATCH-CHECK-OK ;;
     checknoorigin) echo CHECK-NO-ORIGIN-OK ;;
     checknopush) echo CHECK-NO-PUSH-OK ;;

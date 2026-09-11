@@ -25,6 +25,9 @@
 # MMW_USES: send --no-wait
 # MMW_USES: ls -g --json
 # MMW_USES: archive --force
+# MMW_USES: provider ls --json
+# MMW_USES: provider models --json
+# MMW_USES: provider diagnostic --json
 
 set -uo pipefail
 
@@ -207,5 +210,13 @@ case "$verb" in
   liveness) liveness "$@" ;;
   stop) stop "$@" ;;
   self) self_ ;;
+  attach) exit 0 ;;
+  catalog-status) paseo_ provider ls --json ;;
+  catalog-models)
+    [ "$#" -eq 1 ] || usage
+    paseo_ provider models "$1" --json ;;
+  diagnostic)
+    [ "$#" -eq 1 ] || usage
+    paseo_ provider diagnostic "$1" --json ;;
   *) usage ;;
 esac

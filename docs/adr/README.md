@@ -34,14 +34,15 @@
 | [0013](0013-a-report-and-its-message-are-one-call.md) | reviewer 与 worker 一样，报告落地和报信是同一次脚本调用 | 2026-09-08 | 0010 | 0020（整份作废） |
 | [0014](0014-advisor-has-one-door.md) | advisor 只有一扇门：正文是技能，两侧共用 | 2026-09-08 | 无 | 0015 |
 | [0015](0015-no-custom-subagents.md) | 工具箱不再交付 subagent：用 host 自带的通用 subagent | 2026-09-09 | 0003、0006、0014 | 0016 |
-| [0016](0016-live-session-table.md) | 会话怎么起写在本机活表里 | 2026-09-09 | 0015 | 0018 |
+| [0016](0016-live-session-table.md) | 会话怎么起写在本机活表里 | 2026-09-09 | 0015 | 0018、0024 |
 | [0017](0017-the-night-has-no-clock.md) | 这一夜没有任何时钟 | 2026-09-10 | 0010 | 0020、0021 |
-| [0018](0018-runner-behind-one-boundary.md) | runner 收进一条边界：协议只调三个动词，一个 runner 一个适配器，今晚用哪个是本机一行配置 | 2026-09-10 | 0009、0016 | 0019、0020 |
+| [0018](0018-runner-behind-one-boundary.md) | runner 收进一条边界：协议只调三个动词，一个 runner 一个适配器，今晚用哪个是本机一行配置 | 2026-09-10 | 0009、0016 | 0019、0020、0024 |
 | [0019](0019-ticket-state-is-a-fold-of-events.md) | 票的状态是它的事件折叠出来的：评论首行不再是协议，谁在跑这张票写在票上 | 2026-09-10 | 0009、0018 | 无 |
 | [0020](0020-wakes-come-from-the-board.md) | 唤醒从 board 上发出：中继读票上的结果事件，经 runner 的送消息动词送到等它的那个会话，任何脚本都不再报信 | 2026-09-10 | 0010、0013、0017、0018 | 0021、0022 |
 | [0021](0021-liveness-in-three-layers.md) | 判活分三层，都不是 agent：回合守卫在主 agent 的回合结束时重新武装看门进程，看门进程看中继并问沉默票的 runner，`worker.lost` 只由它写 | 2026-09-10 | 0017、0020 | 0022 |
 | [0022](0022-one-relay-many-watches.md) | 唤醒按 watch 分：一个仓库一个中继，同时看多个 watch，每个 watch 叫醒开它的那个主 agent；等槽位的 worker 也由中继叫醒 | 2026-09-11 | 0020、0021 | 无 |
 | [0023](0023-origin-base-branch.md) | base branch 以 GitHub 上那份为准：本机与云端走同一条合并路径，先合、再查、再 fast-forward 推送，合不进去交给 triage | 2026-09-11 | 0012 | 无 |
+| [0024](0024-models-json-and-runner-extension-boundary.md) | 会话配置只存进 `models.json`，runner 的附加操作也只经适配器 | 2026-09-11 | 0016、0018 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`，两份 ADR 里的 A3（设计系统 token 越界）与 B1（设计系统规则违反）由 `mmw-v2/skills/drive-target/scripts/story-parity.py` 部分承接。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 

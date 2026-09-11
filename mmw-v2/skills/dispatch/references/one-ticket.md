@@ -26,7 +26,7 @@ Four steps:
 | Code | What happened |
 | --- | --- |
 | `0` | The session is running; its id is on stdout and its `worker.started` event is on the ticket |
-| `2` | Nothing was started. The reason is on stderr — read it verbatim. Typical causes: the ticket is not `OPEN` / not `ready-for-agent` / still blocked (a blocker that passed holds until it has landed); no running relay watches the ticket (step 1 was not run); two worker-grade labels; no live-table row for that agent; the runner refused the start (its reason is on stderr, and it was not retried); an argument this form does not take |
+| `2` | Nothing was started. The reason is on stderr — read it verbatim. Typical causes: the ticket is not `OPEN` / not `ready-for-agent` / still blocked (a blocker that passed holds until it has landed); no running relay watches the ticket (step 1 was not run); two worker-grade labels; no `models.json` row for that agent; the runner refused the start (its reason is on stderr, and it was not retried); an argument this form does not take |
 
 **`land <n>`:**
 
