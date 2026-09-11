@@ -60,9 +60,9 @@ field. This section says why each one is shaped the way it is.
 
 - **`instance`.** A product whose ports cannot move says
   `{"max": <n>, "why": "…"}`; absent means the product takes its ports from the
-  lease and the machine's own limit applies. `lease.py` enforces `max` at the moment
-  a slot is claimed, counting every slot this repository already holds, wherever its
-  checkout is — the ticket worktrees and the main checkout re-running the night's
+  lease. `lease.py` enforces two limits when a slot is claimed: the machine's slots,
+  and `instance.max`, when present, counting every slot this repository already holds
+  wherever its checkout is — the ticket worktrees and the main checkout re-running the night's
   criteria alike. A ticket takes its slot at the first run of its criteria that runs
   the product and keeps it until its work ends — landed, handed back, released,
   suspended or retracted — so `max` bounds how many tickets are past that point at

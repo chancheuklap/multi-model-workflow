@@ -16,7 +16,7 @@ A start the runner refuses is refused once, exit 2: no retry and no other host o
 
 `start <n> worker` replaces a worker whose events still show it live. It checks origin and the ticket branch, stops the old session through its runner, commits tracked edits as `wip(#<n>): uncommitted work of <that worker>`, pushes the branch, writes `worker.replaced`, and starts the new worker in the same workspace. The branch, commits and product slot carry over; instructions given only inside the old session do not. A worker that will not stop, or a rejected push, is refused and nothing starts beside it. `retract` and `suspend` also commit and push before releasing a worktree, claim, slot or event hold. A push rejection never uses force and leaves the recoverable state standing.
 
-A worker takes no product slot when it starts. The first run of its criteria that runs the product claims the worktree's slot, and the worktree keeps it until the ticket's work ends: it lands, is handed back, bounces during landing, has its claim released, the night is suspended, or its start is retracted. While the product's `instance.max` or the machine's slots are all held, that run runs nothing, its ticket carries a `worker.queued` event, and the worker ends its turn until a slot is given back.
+A worker takes no product slot when it starts. The slot lifecycle and its two limits are in the `drive-target` skill's `references/runtime-environment.md` under **`instance`**. When a criteria run gets no slot, the `verify-ticket` skill's `references/running-criteria.md` under **A criterion that runs the product** defines its `worker.queued` event, exit 3, wake and ack.
 
 ## Events and holds
 
