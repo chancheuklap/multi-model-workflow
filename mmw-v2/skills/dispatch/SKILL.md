@@ -1,6 +1,6 @@
 ---
 name: dispatch
-description: Dispatch a worker inside a ticket, run a night as its main agent, run one ticket outside a night, change the host, model, effort or runner, or open the local task board.
+description: Start a reviewer or verifier from inside a ticket, run a night as its main agent, run one ticket outside a night, change the host, model, effort or runner, or open the local task board.
 ---
 
 # Dispatch
@@ -28,6 +28,7 @@ Four names in the doors belong to other skills; resolve each from that skill's o
 | 3 | starting one worker on one ticket, outside any night | [references/one-ticket.md](references/one-ticket.md) |
 | 4 | changing which host, model or `effort` an agent runs on, or which runner the night runs on | [references/editing-models.md](references/editing-models.md) |
 | 5 | a command's behaviour surprised you, or you are changing the relay, watchdog or turn guard | [references/how-it-works.md](references/how-it-works.md) |
+| 6 | opening the local task board | [Open the task board](#open-the-task-board) |
 
 ## Open the task board
 

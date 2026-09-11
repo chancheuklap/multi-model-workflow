@@ -4,7 +4,7 @@ You are the main agent. A spec's tickets will be worked while you are not watchi
 
 This file is the order of the night. How a wake reaches you and what you do on one is in `SKILL.md` next to this file, and `<dispatch>`, `<engine>`, `<lease.py>` and `<drive-target scripts>` are resolved in its `## Resolve `<dispatch>` once` section.
 
-Between the steps below you end your turn. The relay you start in step 1 wakes you when a ticket of the batch comes to rest (step 3), and the watchdog tells you when the board has gone silent where it should not (`SKILL.md`, next to this file, says what it is); nothing else does, and no agent polls another.
+Between the steps below you end your turn. The relay you start in step 1 wakes you when a ticket of the batch comes to rest (step 3), and the watchdog tells you when the board has gone silent where it should not ([how-it-works.md](how-it-works.md) under **The watchdog and turn guard** says what it is); nothing else does, and no agent polls another.
 
 ## 1. The user says the night starts
 
@@ -72,7 +72,7 @@ Handle each wake in this order, one wake at a time — two tickets landing secon
 1. Run again any command the wake interrupted.
 2. Run `<dispatch> status <spec>`. Exit 0 prints the table; exit 2 means the tracker did not return the whole batch, so run it again when the tracker answers. The table's mechanics are in [how-it-works.md](how-it-works.md) under **Interpreting a night**.
 3. Take every row the table matches, not only the ticket named by the wake.
-4. Run `<dispatch> advance <spec>` once. Its exit codes are under `## 2. First advance`.
+4. Run `<dispatch> advance <spec>` once. Its exit codes are under [**2. First `advance`**](#2-first-advance).
 5. Run `<dispatch> ack <n> <event>` for the named wake, or `<dispatch> ack relay.recovered`. Its exit codes are in [inside-a-ticket.md](inside-a-ticket.md). Ack last, then end your turn.
 
 | What you see | What you do |

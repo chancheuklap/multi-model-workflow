@@ -1,8 +1,8 @@
 # How dispatch works
 
-Read this when a command's behaviour surprised you, or when changing the relay, watchdog or turn guard. The command and exit code to act on stay in the role's door.
+Read this when a command's behaviour surprised you, or when changing the relay, watchdog or turn guard.
 
-`<dispatch>`, `<engine>`, `<events.py>`, `<lease.py>` and `<drive-target scripts>` are resolved in the `dispatch` skill's `SKILL.md` under `## Resolve `<dispatch>` once`.
+`<dispatch>` and `<engine>` are resolved in the `dispatch` skill's `SKILL.md` under `## Resolve `<dispatch>` once`.
 
 ## Starting a session
 
@@ -10,13 +10,13 @@ Read this when a command's behaviour surprised you, or when changing the relay, 
 
 Before reading or creating a ticket branch, `start` fetches `origin`. The base branch is the newest `worker.started.into`, else the open night's `spec.opened.into`, else the current checkout branch; `origin/<base branch>` must exist. A new ticket branch is cut from it and pushed with its upstream set. An existing `origin/issue-<n>` fast-forwards the local branch when the remote is ahead; histories with commits on both sides are refused with both counts. No path rebases, squashes or force-pushes.
 
-After the runner starts the session, `start` writes `worker.started`, `reviewer.started` or `verifier.started` on the ticket. The event carries the session, runner, host, model, effort, grade, absolute worktree path, ticket branch, base branch (`into`) and base commit. `resume`, `wait`, `retract`, `land` and `suspend` find the session in that event and ask that runner only. The adapter then associates the worktree with the ticket where it has that capability; a failed association is reported once and does not stop the session.
+After the runner starts the session, its adapter uses `attach` to associate the worktree with the ticket where it has that capability; a failed attach is reported once on stderr and does not stop the session. Then `start` writes `worker.started`, `reviewer.started` or `verifier.started` on the ticket. The event carries the session, runner, host, model, effort, grade, absolute worktree path, ticket branch, base branch (`into`) and base commit. `resume`, `wait`, `retract`, `land` and `suspend` find the session in that event and ask that runner only.
 
 A start the runner refuses is refused once, exit 2: no retry and no other host or runner. Fix stderr's reason, or change the row as [editing-models.md](editing-models.md) says and start again. When it cannot be fixed, the worker opens a `fault` child with `<engine> <n> --sub-issue fault <file>`, using the command and output as the file's body, then stops.
 
 `start <n> worker` replaces a worker whose events still show it live. It checks origin and the ticket branch, stops the old session through its runner, commits tracked edits as `wip(#<n>): uncommitted work of <that worker>`, pushes the branch, writes `worker.replaced`, and starts the new worker in the same workspace. The branch, commits and product slot carry over; instructions given only inside the old session do not. A worker that will not stop, or a rejected push, is refused and nothing starts beside it. `retract` and `suspend` also commit and push before releasing a worktree, claim, slot or event hold. A push rejection never uses force and leaves the recoverable state standing.
 
-A start takes no product slot. The drive-target skill's `references/runtime-environment.md` section **instance** is the authority for the slot lifecycle and its two limits; the verify-ticket skill's `references/running-criteria.md` section **A criterion that runs the product** is the authority for `worker.queued`, exit 3, its wake and its ack.
+A worker takes no product slot when it starts. The first run of its criteria that runs the product claims the worktree's slot, and the worktree keeps it until the ticket's work ends: it lands, is handed back, bounces during landing, has its claim released, the night is suspended, or its start is retracted. While the product's `instance.max` or the machine's slots are all held, that run runs nothing, its ticket carries a `worker.queued` event, and the worker ends its turn until a slot is given back.
 
 ## Events and holds
 
@@ -32,8 +32,6 @@ The relay watches a night's spec from `open` to `summary` or `suspend`, and tick
 
 A wake is `#<n> <event>`, with `relay.recovered since <time>` as the relay-wide form. The worker receives `reviewer.reported`, `verifier.passed`, `verifier.failed`, `reviewer.lost`, `verifier.lost`, and `worker.queued` after a slot is given back. The main agent receives `ticket.passed`, `ticket.returned`, `ticket.refused`, `child.opened` of kind `fault` or `decision`, `worker.lost`, and `relay.recovered`. A recovered relay reads every ticket again and queues the events it found after the recovery wake.
 
-Only `ack` removes a delivered wake. Until then, restarting the relay sends it again. The ack reads only the calling session's queue; a wake already acked, sent to another session, or never queued is refused and nothing is removed.
-
 ## The watchdog and turn guard
 
 A dead session writes no event. The watchdog covers that gap: one process per repository, restarted when necessary by the turn guard at the end of a main agent's turn while a watch is open.
@@ -46,7 +44,7 @@ While tickets are held and the watchdog is not healthy, the turn guard installed
 
 ## Opening a night
 
-`check` and `open` infer the project branch from an earlier `spec.opened.project`, then the base branch's creation reflog, then `branch.<base branch>.vscode-merge-base`, then the uniquely closest eligible origin branch. They refuse a default base branch, a project branch equal to the default branch, an ambiguous result, or local/origin divergence.
+The current checkout names the base branch. `check` and `open` infer the project branch from an earlier `spec.opened.project`, then the base branch's creation reflog, then `branch.<base branch>.vscode-merge-base`, then the uniquely closest eligible origin branch. They refuse a default base branch, a project branch equal to the default branch, an ambiguous result, or local/origin divergence.
 
 `check` reports the project branch, its source and the counts an `open` would push, without pushing. It also runs `install.sh --check`, checks the runner adapter and every required `models.json` row, checks each host where the runner exposes that status, and checks queued tickets' worker-grade labels.
 
@@ -80,35 +78,14 @@ When no ticket can start but open agent-queue tickets remain, stderr names each 
 
 `status` is the fold of every ticket, not runner state. Its `note` identifies ready tickets, blockers, multiple live workers, unreadable events, a claim with no started session, a product-slot wait, or the newest event; it is empty while a worker holds the ticket. The `ac` column is the newest worker or reverify criteria count.
 
-Use these facts when the table and wake need interpretation:
+A live worker continues through `resume`. Exit 0 delivered the message. Exit 4 handed it over without proving a new turn and must not be sent again. Exit 3 delivered nothing or could not decide, so wait and retry the same command; a runner can hand over the message before it confirms the new turn and still return 3, so word the retry so a worker that receives both reads them as one instruction. Exit 2 means the session in `worker.started` is gone, so read `status` and do not send again. After repeated exit 3 with no ticket event, `start <n> worker` replaces it. The replacement checks and recoverable state are in **Starting a session**.
 
-- `ticket.passed`, or a ready frontier row: `advance` lands or starts it.
-- `child.opened` of kind `fault`: the worker stopped. Read the child from `<events.py> fold <n>`, fix its cause, then resume the worker.
-- `child.opened` of kind `decision`: the worker took the default and continues; the question waits for the user.
-- A live worker whose newest event is `reviewer.started` or `verifier.started`: it ended its turn waiting on that result; do nothing.
-- `ticket.returned`: the closeout handed it back, gave its claim back and left the workspace for triage. `advance` continues the rest of the batch.
-- A bounced ticket: it is open in triage, unclaimed and excluded from later advances; its workspace remains and tickets it blocks do not run that night.
-- `ticket.refused`: its event names the session and reason. It ended that session's hold and claimed nothing. Fix the reason; the next `advance` starts it when the frontier permits.
-- `worker.lost`: its hold ended. `advance` gives back the claim, commits and pushes recoverable tracked work at the next start, and starts another worker in the standing workspace.
-- `relay.recovered`: the relay's subsequent rows contain the recovered events.
+For `watchdog: #<n> silent since <time> with nothing to wait on: …`, run `<dispatch> resume <n> "You ended your turn with no result on the ticket. Carry on from where its events say you are. If something outside your code stops you, open a fault sub-issue saying what you ran and what you saw, then stop; if only a person can settle it, open a decision sub-issue, take the default and carry on."` Change no label.
 
-A live worker continues through `resume`. Exit 0 delivered the message; exit 4 handed it over without proving a new turn and must not be sent again; exit 3 delivered nothing or could not decide, so wait and retry the same command; exit 2 means the session in `worker.started` is gone, so read `status` and do not send again. After repeated exit 3 with no ticket event, `start <n> worker` replaces it. The replacement checks and recoverable state are in **Starting a session**.
-
-Watchdog findings have these consequences:
-
-- `relay down`: reopen the spec or ticket watch. The relay's full read queues missed events.
-- `liveness unknown`: send `Say in one line where you are, then continue`. Exit 0 proves the session is there; exit 2 leads to `retract`; any other result waits for the user.
-- `held with no session to ask`: read `status`; when nothing is working it, run `retract`.
-- `cannot read the board`: run the named `gh issue view` read. Wait out tracker or network failure; a credential failure is for the user.
-- `events unreadable`: a person fixes the named comment.
-- `silent … with nothing to wait on`: resume with the instruction to continue, open a `fault` child and stop if something outside the code blocks it, or open a `decision` child, take the default and continue when only the user can decide.
-
-When `status` shows a worker live but its runner no longer has the session, `retract` closes that start, gives the claim back and leaves the ticket ready for `advance`. For a gone session with a workspace, slot or claim still held, `retract` commits tracked edits, pushes the ticket branch, runs the product's `stop`, archives the workspace, gives back the slot and claim, and writes `worker.retracted`. A rejected push leaves them standing and never force-pushes. Exit 0 prints `retract #<n>: archived <a>, slot given back <s>, claim given back <c>`; `archived` and `slot given back` are 1 only when performed. Exit 2 names a live or unknown session, unreadable events, commit or push failure, missing lease tool, bad repository or arguments, or a product still listening.
-
-Changing a ticket's `junior-worker` or `senior-worker` label changes the worker grade read by its next `start`. A live worker with no fault is not resumed. An empty frontier and no live agent lead to the closing pass.
+For a gone session with a workspace, slot or claim still held, `retract` commits tracked edits, pushes the ticket branch, runs the product's `stop`, archives the workspace, gives back the slot and claim, and writes `worker.retracted`. A rejected push leaves them standing and never force-pushes.
 
 ## Reverify and summary
 
-`reverify` fetches origin, resets the detached merge worktree to `origin/<into>`, and runs every passed-and-landed ticket through `<engine> <n> --reverify --actor main` with `MMW_BASE_REF=origin/<into>`. Each run posts `ticket.checked` with run `reverify`, actor `main`. A passed but unlanded ticket is named and skipped. A green batch exits 0. Exit 1 reopens each red ticket in triage, removes its assignee and writes `ticket.regressed`. Exit 2 means a ticket could not establish a result; it is not red, nothing is changed on it, and the remaining tickets are skipped.
+`reverify` fetches origin, resets the detached merge worktree to `origin/<into>`, and runs every passed-and-landed ticket through `<engine> <n> --reverify --actor main` with `MMW_BASE_REF=origin/<into>`. Each run posts `ticket.checked` with run `reverify`, actor `main`. A passed but unlanded ticket is named and skipped. A red ticket is reopened in triage, unassigned and given `ticket.regressed`; a ticket that establishes no result is not treated as red and leaves the remaining tickets unrun.
 
 `summary` posts `spec.closed` with `NIGHT SUMMARY <date>` and the six lines `Closed:`, `Handed back to needs-triage:`, `Bounced:`, `Not dispatched, a blocker stayed open:`, `Sub-issues opened tonight:` and `Findings routed: <opened>/<fixed>/<became>/<skipped>/<unread>/<open>`, then closes the spec watch. It counts `finding` children through `child.opened` and `child.closed`; other child kinds appear on the sub-issues line, and a closed finding with no `child.closed` is `unread`. A reverify run in this checkout adds `Reverify: <green>/<red>`. The relay continues for other watches and ends with the last.
