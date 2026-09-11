@@ -151,31 +151,76 @@ def tickets(answer):
             for ticket in spec["tickets"]}
 
 
+def prepared_store(gh):
+    now = dt.datetime(2026, 9, 11, tzinfo=dt.timezone.utc)
+    store = board_data.BoardStore(gh=gh, clock=lambda: now)
+    store.map_trees = [board_data.tree._node(tree_fixture(), "#1")]
+    store.last_tree_at = now
+    return store
+
+
 class BoardDataTest(unittest.TestCase):
     def test_every_comment_page_is_read_and_cached_by_etag(self):
         calls = []
         second_url = "https://api.github.test/repos/x/issues/12/comments?per_page=100&page=2"
+        first = event("ticket.claimed", 12, id=1201)
+        second = event("ticket.claimed", 12, id=1202)
 
         def gh(args):
             calls.append(args)
             url = args[2]
-            tag = '"page-two"' if url == second_url else '"page-one"'
+            number = int(re.search(r"/issues/(\d+)/comments", url).group(1))
+            tag = ('"page-two"' if url == second_url else
+                   '"page-one"' if number == 12 else f'"ticket-{number}"')
             conditional = f"If-None-Match: {tag}" in args
             if conditional:
                 return 1, "HTTP/2 304 Not Modified\n\n", "gh: HTTP 304\n"
-            link = f"Link: <{second_url}>; rel=\"next\"\n" if url != second_url else ""
-            ident = 2 if url == second_url else 1
-            return 0, f"HTTP/2 200 OK\nETag: {tag}\n{link}\n[{{\"id\":{ident},\"body\":\"\"}}]\n", ""
+            link = f"Link: <{second_url}>; rel=\"next\"\n" if number == 12 and url != second_url else ""
+            rows = [second] if url == second_url else [first] if number == 12 else []
+            return 0, f"HTTP/2 200 OK\nETag: {tag}\n{link}\n{json.dumps(rows)}\n", ""
 
-        store = board_data.BoardStore(gh=gh)
-        cache = board_data.CommentCache()
-        comments = store._read_comments(12, cache)
-        self.assertEqual([comment["id"] for comment in comments], [1, 2])
-        cached = store._read_comments(12, cache)
-        self.assertEqual(cached, comments)
-        self.assertEqual(len(calls), 4)
-        self.assertTrue(all(any(value.startswith("If-None-Match:") for value in call)
-                            for call in calls[2:]))
+        store = prepared_store(gh)
+        first_answer = store.answer()
+        second_answer = store.answer()
+        self.assertEqual([row["comment"] for row in tickets(first_answer)[12]["events"]],
+                         [1201, 1202])
+        self.assertEqual(tickets(second_answer)[12]["events"], tickets(first_answer)[12]["events"])
+        twelve = [call for call in calls if "/issues/12/comments" in call[2]]
+        self.assertEqual(len(twelve), 4)
+        self.assertIn('If-None-Match: "page-one"', twelve[2])
+        self.assertIn('If-None-Match: "page-two"', twelve[3])
+
+    def test_past_a_full_page(self):
+        next_url = "https://api.github.test/comments?per_page=100&page=2"
+        calls = []
+        first_page = [event("ticket.claimed", 12, id=1200 + n) for n in range(1, 101)]
+        last = event("ticket.claimed", 12, id=1301)
+        first_page_reads = 0
+
+        def gh(args):
+            nonlocal first_page_reads
+            calls.append(args)
+            url = args[2]
+            if url == next_url:
+                return 0, f"HTTP/2 200 OK\nETag: \"two\"\n\n{json.dumps([last])}", ""
+            number = int(re.search(r"/issues/(\d+)/comments", url).group(1))
+            if number != 12:
+                tag = f'"ticket-{number}"'
+                if f"If-None-Match: {tag}" in args:
+                    return 1, "HTTP/2 304 Not Modified\n\n", "gh: HTTP 304"
+                return 0, f"HTTP/2 200 OK\nETag: {tag}\n\n[]", ""
+            if 'If-None-Match: "full"' in args:
+                return 1, "HTTP/2 304 Not Modified\n\n", "gh: HTTP 304"
+            first_page_reads += 1
+            link = f'Link: <{next_url}>; rel="next"\n' if first_page_reads > 1 else ""
+            return 0, f"HTTP/2 200 OK\nETag: \"full\"\n{link}\n{json.dumps(first_page)}", ""
+
+        store = prepared_store(gh)
+        self.assertEqual(len(tickets(store.answer())[12]["events"]), 100)
+        self.assertEqual(len(tickets(store.answer())[12]["events"]), 101)
+        twelve = [call for call in calls if "/issues/12/comments" in call[2]]
+        self.assertNotIn('If-None-Match: "full"', twelve[1])
+        self.assertEqual([call[2] for call in calls if call[2] == next_url], [next_url])
 
     def test_board_answers_the_tree_with_each_fold(self):
         data = scenario()
