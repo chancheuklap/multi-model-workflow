@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -111,6 +112,9 @@ class RunningBoard:
         self.origin = self.process.stdout.readline().strip()
         if not self.origin.startswith("http://127.0.0.1:"):
             raise RuntimeError(self.process.stderr.read())
+        with urllib.request.urlopen(self.origin + "/", timeout=5) as response:
+            page = response.read().decode()
+        self.token = re.search(r'name="mmw-page-token" content="([^"]+)"', page).group(1)
         return self
 
     def __exit__(self, *args):
@@ -126,7 +130,11 @@ class RunningBoard:
         (self.directory / "scenario.json").write_text(json.dumps(data))
 
     def request(self, method="GET", path="/api/board"):
-        request = urllib.request.Request(self.origin + path, method=method)
+        headers = {} if method == "GET" else {
+            "Origin": self.origin,
+            "X-MMW-Token": self.token,
+        }
+        request = urllib.request.Request(self.origin + path, headers=headers, method=method)
         with urllib.request.urlopen(request, timeout=5) as response:
             return json.loads(response.read())
 
