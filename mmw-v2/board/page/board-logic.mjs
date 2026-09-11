@@ -350,6 +350,21 @@ export const Board = {
     };
 
     let y = 40;
+    if (task.kind === "spec") {
+      // A spec with no map above it is the task itself: one container at the top,
+      // its tickets hanging straight off it, no trunk and no spec row.
+      const spec = task.specs[0];
+      const specNode = {id: spec.n, type: "spec", ref: spec, x: geometry.mapX, y,
+        w: geometry.containerRight - geometry.mapX, h: geometry.containerHeight};
+      nodes.push(specNode);
+      if (expanded.has(spec.n)) {
+        place(spec.tickets, "ticket", geometry.ticketWidth, geometry.ticketHeight,
+          y, spec.n, y + geometry.containerHeight / 2);
+      }
+      return {nodes, edges, labels,
+        W: Math.max(...nodes.map(node => node.x + node.w)) + 60,
+        H: Math.max(...nodes.map(node => node.y + node.h)) + 60};
+    }
     const mapNode = {id: task.n, type: "map", ref: task, x: geometry.mapX, y,
       w: geometry.containerRight - geometry.mapX, h: geometry.containerHeight};
     nodes.push(mapNode);
