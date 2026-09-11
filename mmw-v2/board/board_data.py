@@ -6,9 +6,11 @@ import copy
 import datetime as dt
 import importlib.util
 import json
+import os
 import subprocess
 import threading
 import urllib.parse
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -40,30 +42,44 @@ def iso(value: dt.datetime) -> str:
 
 def plan_read(last_tree_at: dt.datetime | None, tickets: list[dict], now: dt.datetime) -> dict:
     """Choose this poll's GitHub reads from cached state and an explicit clock."""
-    first = last_tree_at is None
-    stale = first or (now - last_tree_at).total_seconds() >= 600
-    numbers = [ticket["n"] for ticket in tickets if first or not ticket["fold"]["landed"]]
+    stale = last_tree_at is None or (now - last_tree_at).total_seconds() >= 600
+    numbers = [ticket["n"] for ticket in tickets if not ticket["fold"]["landed"]]
     return {"tree": stale, "comments": numbers}
 
 
 def _run_gh(args: list[str]) -> tuple[int, str, str]:
-    run = subprocess.run(["gh", *args], capture_output=True, text=True)
+    env = {key: value for key, value in os.environ.items()
+           if key not in ("CLICOLOR_FORCE", "CLICOLOR")}
+    run = subprocess.run(["gh", *args], capture_output=True, text=True, env=env)
     return run.returncode, run.stdout, run.stderr
 
 
 def _labels(raw: dict) -> list[str]:
-    labels = raw.get("labels") or []
-    if isinstance(labels, dict):
-        labels = labels.get("nodes") or []
-    return [item.get("name") or "" if isinstance(item, dict) else str(item) for item in labels]
+    return [item.get("name") or "" for item in raw.get("labels") or []]
+
+
+def _last_error(err: str, out: str, fallback: str) -> str:
+    return (err or out or fallback).strip().splitlines()[-1]
+
+
+def _wayfinder_kind(labels: list[str], fallback=None):
+    return next((label.split(":", 1)[1] for label in labels
+                 if label.startswith("wayfinder:")), fallback)
 
 
 def _replay(comments: list[dict]) -> list[dict]:
     replay = []
-    for what, record in events._records(comments):
+    for comment in events.normalise(comments):
+        what, payload = events.parse(comment["body"])
         if what == "event":
-            replay.append({key: record[key] for key in
-                           ("comment", "event", "at", "actor", "line", "payload")})
+            replay.append({
+                "comment": comment["id"] if comment["id"] is not None else comment["position"],
+                "event": payload["event"],
+                "at": payload.get("at"),
+                "actor": payload.get("actor"),
+                "line": events.first_line(comment["body"]),
+                "payload": payload,
+            })
     return replay
 
 
@@ -77,15 +93,20 @@ def _structural_keys(comments: list[dict]) -> set[tuple[int | str, str]]:
     }
 
 
+@dataclass
+class CommentCache:
+    pages: dict[str, list[dict]] = field(default_factory=dict)
+    etags: dict[str, str] = field(default_factory=dict)
+    next_pages: dict[str, str | None] = field(default_factory=dict)
+
+
 class BoardStore:
     def __init__(self, gh=None, clock=utc_now):
         self.gh = gh or _run_gh
         self.clock = clock
         self.map_trees: list[dict] = []
         self.comments: dict[int, list[dict]] = {}
-        self.comment_pages: dict[int, dict[str, list[dict]]] = {}
-        self.etags: dict[int, dict[str, str]] = {}
-        self.next_pages: dict[int, dict[str, str | None]] = {}
+        self.comment_cache: dict[int, CommentCache] = {}
         self.last_tree_at: dt.datetime | None = None
         self.snapshot = {"tasks": [], "read_at": None}
         self.lock = threading.Lock()
@@ -93,15 +114,14 @@ class BoardStore:
     def _json(self, args: list[str]):
         code, out, err = self.gh(args)
         if code != 0:
-            detail = (err or out or "GitHub did not answer").strip().splitlines()[-1]
-            raise GitHubReadFailed(detail)
+            raise GitHubReadFailed(_last_error(err, out, "GitHub did not answer"))
         try:
             return json.loads(out)
         except json.JSONDecodeError as exc:
             raise GitHubReadFailed("GitHub returned unreadable JSON") from exc
 
     def _read_trees(self) -> list[dict]:
-        maps = self._json(["issue", "list", "--state", "all", "--label", "mmw:map",
+        maps = self._json(["issue", "list", "--state", "open", "--label", "mmw:map",
                            "--limit", "1000", "--json", "number,title,state,labels"])
         if not isinstance(maps, list):
             raise GitHubReadFailed("the map list was not an array")
@@ -116,14 +136,14 @@ class BoardStore:
         return result
 
     @staticmethod
-    def _comment_headers(output: str) -> tuple[int, dict[str, str], str]:
+    def _parse_http_response(output: str) -> tuple[int, dict[str, str], str]:
         normal = output.replace("\r\n", "\n")
         head, separator, body = normal.partition("\n\n")
         if not separator:
             raise GitHubReadFailed("the comments response had no HTTP headers")
         lines = head.splitlines()
         try:
-            status = int(lines[0].split()[1].split(".")[0])
+            status = int(lines[0].split()[1])
         except (IndexError, ValueError) as exc:
             raise GitHubReadFailed("the comments response had no HTTP status") from exc
         headers = {}
@@ -143,12 +163,12 @@ class BoardStore:
         headers = {}
         body = ""
         if out:
-            status, headers, body = self._comment_headers(out)
+            status, headers, body = self._parse_http_response(out)
         if status == 304:
             return None, etag, None
         if code != 0:
-            detail = (err or out or "GitHub did not answer").strip().splitlines()[-1]
-            raise GitHubReadFailed(f"comments for #{number}: {detail}")
+            raise GitHubReadFailed(
+                f"comments for #{number}: {_last_error(err, out, 'GitHub did not answer')}")
         if status != 200:
             raise GitHubReadFailed(f"comments for #{number}: HTTP {status}")
         try:
@@ -168,30 +188,28 @@ class BoardStore:
                     next_url = part[start + 1:end]
         return comments, headers["etag"], next_url
 
-    def _read_comments(self, number: int, pages: dict[str, list[dict]],
-                       etags: dict[str, str], next_pages: dict[str, str | None]):
+    def _read_comments(self, number: int, cache: "CommentCache") -> list[dict]:
         endpoint = f"repos/{{owner}}/{{repo}}/issues/{number}/comments?per_page=100"
         visited = []
         while endpoint:
             result, etag, reported_next = self._read_comment_page(
-                number, endpoint, etags.get(endpoint))
+                number, endpoint, cache.etags.get(endpoint))
             if result is None:
-                if endpoint not in pages:
+                if endpoint not in cache.pages:
                     raise GitHubReadFailed(f"comments for #{number} returned 304 without a cached page")
-                next_url = next_pages.get(endpoint)
+                next_url = cache.next_pages.get(endpoint)
             else:
-                pages[endpoint] = result
+                cache.pages[endpoint] = result
                 next_url = reported_next
-                next_pages[endpoint] = next_url
+                cache.next_pages[endpoint] = next_url
             if etag:
-                etags[endpoint] = etag
+                cache.etags[endpoint] = etag
             visited.append(endpoint)
             endpoint = next_url
-        pages = {url: pages[url] for url in visited}
-        etags = {url: etags[url] for url in visited if url in etags}
-        next_pages = {url: next_pages.get(url) for url in visited}
-        combined = [comment for url in visited for comment in pages[url]]
-        return combined, pages, etags, next_pages
+        cache.pages = {url: cache.pages[url] for url in visited}
+        cache.etags = {url: cache.etags[url] for url in visited if url in cache.etags}
+        cache.next_pages = {url: cache.next_pages.get(url) for url in visited}
+        return [comment for url in visited for comment in cache.pages[url]]
 
     @staticmethod
     def _ticket_nodes(map_trees: list[dict]) -> list[dict]:
@@ -207,8 +225,7 @@ class BoardStore:
         for raw_map in map_trees:
             task = {
                 "n": raw_map["number"],
-                "kind": next((label.split(":", 1)[1] for label in raw_map.get("labels", [])
-                              if label.startswith("wayfinder:")), "map"),
+                "kind": _wayfinder_kind(raw_map.get("labels", []), "map"),
                 "title": raw_map["title"],
                 "state": raw_map["state"].lower(),
                 "decisions": [],
@@ -217,8 +234,7 @@ class BoardStore:
             for child in raw_map.get("children", []):
                 labels = child.get("labels", [])
                 blockers = [item["number"] for item in child.get("blockedBy", [])]
-                decision_kind = next((label.split(":", 1)[1] for label in labels
-                                      if label.startswith("wayfinder:")), None)
+                decision_kind = _wayfinder_kind(labels)
                 if decision_kind:
                     task["decisions"].append({"n": child["number"], "kind": decision_kind,
                                               "title": child["title"],
@@ -238,7 +254,6 @@ class BoardStore:
                         "title": raw_ticket["title"],
                         "state": raw_ticket["state"].lower(),
                         "blocked": [item["number"] for item in raw_ticket.get("blockedBy", [])],
-                        "blockedBy": raw_ticket.get("blockedBy", []),
                         "blockers": [],
                         "blocker_hold": events.blocker_hold(raw_ticket["state"], folded),
                         "closeout": None,
@@ -247,6 +262,7 @@ class BoardStore:
                         "events": _replay(ticket_comments),
                     }
                     spec["tickets"].append(ticket)
+                    ticket["_blocked_by"] = raw_ticket.get("blockedBy", [])
                     tickets_by_number[number] = ticket
                     specs_by_ticket[number] = spec["n"]
                 task["specs"].append(spec)
@@ -256,13 +272,11 @@ class BoardStore:
                         for spec in raw_map.get("children", [])
                         for node in spec.get("children", [])}
         for ticket in tickets_by_number.values():
-            for reference in ticket["blockedBy"]:
+            for reference in ticket.pop("_blocked_by"):
                 number = reference["number"]
                 blocker = tickets_by_number.get(number)
                 raw = raw_blockers.get(number, {})
                 state = (blocker or raw or reference).get("state", "").upper()
-                if not state:
-                    state = str(reference.get("state") or "").upper()
                 ticket["blockers"].append({
                     "number": number,
                     "title": (blocker or raw).get("title", ""),
@@ -281,15 +295,12 @@ class BoardStore:
                         became["closeout"] = {"from": source["n"], "child": payload.get("child")}
         return tasks
 
-    def answer(self, refresh: bool = False) -> dict:
-        del refresh
+    def answer(self) -> dict:
         with self.lock:
             now = self.clock()
             map_trees = copy.deepcopy(self.map_trees)
             comments = copy.deepcopy(self.comments)
-            comment_pages = copy.deepcopy(self.comment_pages)
-            etags = copy.deepcopy(self.etags)
-            next_pages = copy.deepcopy(self.next_pages)
+            comment_cache = copy.deepcopy(self.comment_cache)
             last_tree_at = self.last_tree_at
             first_read = last_tree_at is None
             try:
@@ -300,19 +311,18 @@ class BoardStore:
                 if plan["tree"]:
                     map_trees = self._read_trees()
                     last_tree_at = now
-                    if not flat:
-                        plan["comments"] = [node["number"] for node in self._ticket_nodes(map_trees)]
+                    current = self._shape(map_trees, comments)
+                    flat = [ticket for task in current for spec in task["specs"]
+                            for ticket in spec["tickets"]]
+                    plan["comments"] = [ticket["n"] for ticket in flat
+                                        if not ticket["fold"]["landed"]]
 
                 structural = False
                 for number in plan["comments"]:
                     old_structural = _structural_keys(comments.get(number, []))
-                    result, pages, tags, links = self._read_comments(
-                        number, comment_pages.get(number, {}), etags.get(number, {}),
-                        next_pages.get(number, {}))
+                    cache = comment_cache.setdefault(number, CommentCache())
+                    result = self._read_comments(number, cache)
                     comments[number] = result
-                    comment_pages[number] = pages
-                    etags[number] = tags
-                    next_pages[number] = links
                     structural = structural or bool(_structural_keys(result) - old_structural)
 
                 if structural and not first_read:
@@ -321,11 +331,10 @@ class BoardStore:
                 new_numbers = [node["number"] for node in self._ticket_nodes(map_trees)
                                if node["number"] not in comments]
                 for number in new_numbers:
-                    result, pages, tags, links = self._read_comments(number, {}, {}, {})
+                    cache = CommentCache()
+                    result = self._read_comments(number, cache)
                     comments[number] = result
-                    comment_pages[number] = pages
-                    etags[number] = tags
-                    next_pages[number] = links
+                    comment_cache[number] = cache
 
                 snapshot = {"tasks": self._shape(map_trees, comments), "read_at": iso(now)}
             except GitHubReadFailed as exc:
@@ -335,9 +344,7 @@ class BoardStore:
 
             self.map_trees = map_trees
             self.comments = comments
-            self.comment_pages = comment_pages
-            self.etags = etags
-            self.next_pages = next_pages
+            self.comment_cache = comment_cache
             self.last_tree_at = last_tree_at
             self.snapshot = snapshot
             return copy.deepcopy(snapshot)
@@ -351,7 +358,7 @@ def handle(request) -> tuple[int, dict[str, str], bytes]:
     if request.command == "GET" and path == "/api/board":
         answer = STORE.answer()
     elif request.command == "POST" and path == "/api/board/refresh":
-        answer = STORE.answer(refresh=True)
+        answer = STORE.answer()
     else:
         body = b'{"error":"not found"}\n'
         return 404, {"Content-Type": "application/json"}, body

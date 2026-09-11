@@ -27,20 +27,27 @@ test("lamp is orange for an open decision, fault or contract child", () => {
 });
 
 test("lamp is orange for a returned or bounced ticket until a worker starts again", () => {
-  const returned = ticket({fold: {returned: true, outcome: {at: "2026-01-01T01:00:00Z"}}});
+  const earlier = {...worker(), live: false, ended_by: "ticket.returned"};
+  const returned = ticket({fold: {returned: true, outcome: {at: "2026-01-01T01:00:00Z"}, sessions: [earlier]}});
   assert.equal(Board.light(returned), "orange");
   returned.fold.sessions.push(worker("2026-01-01T02:00:00Z"));
   assert.equal(Board.light(returned), "green");
 
-  const bounced = ticket({fold: {bounced: true}, events: [{event: "ticket.bounced", at: "2026-01-01T01:00:00Z"}]});
+  const bounced = ticket({fold: {bounced: true, sessions: [{...earlier, ended_by: "ticket.bounced"}]},
+    events: [{event: "ticket.bounced", at: "2026-01-01T01:00:00Z",
+      payload: {reason: "checks", into: "main", commit: "abcdef012345",
+        commands: [{command: "bash checks.sh", output: ["first line", "last line"]}]}}]});
   assert.equal(Board.light(bounced), "orange");
+  assert.match(Board.why(bounced)[0].text, /bash checks\.sh：first line \/ last line/);
   bounced.fold.sessions.push(worker("2026-01-01T02:00:00Z"));
   assert.equal(Board.light(bounced), "green");
 });
 
 test("lamp is green while held, ink when landed, hollow otherwise", () => {
   assert.equal(Board.light(ticket({fold: {sessions: [worker()]}})), "green");
-  assert.equal(Board.light(ticket({fold: {landed: true, sessions: [worker()]}})), "ink");
+  assert.equal(Board.light(ticket({fold: {claim_hold: true, held: true}})), "green");
+  assert.equal(Board.runLine(ticket({fold: {claim_hold: true, held: true}})).text, "已认领 · 待派发");
+  assert.equal(Board.light(ticket({fold: {landed: true}})), "ink");
   assert.equal(Board.light(ticket()), "hollow");
 });
 
@@ -67,8 +74,8 @@ test("step follows who still holds the ticket", () => {
   assert.equal(Board.step(ticket()), "queued");
   assert.equal(Board.step(ticket({fold: {sessions: [worker()]}})), "working");
   assert.equal(Board.step(ticket({fold: {sessions: [worker()], waiting: {at: "2026-01-01T00:00:00Z"}}})), "waiting");
-  assert.equal(Board.step(ticket({fold: {sessions: [{kind: "reviewer", live: true}]}})), "review");
-  assert.equal(Board.step(ticket({fold: {sessions: [{kind: "verifier", live: true}]}})), "verify");
+  assert.equal(Board.step(ticket({fold: {sessions: [worker(), {kind: "reviewer", live: true}]}})), "review");
+  assert.equal(Board.step(ticket({fold: {sessions: [worker(), {kind: "verifier", live: true}]}})), "verify");
   assert.equal(Board.step(ticket({fold: {sessions: [worker()], verdict: {event: "verifier.passed"}}})), "verify");
   assert.equal(Board.step(ticket({fold: {landed: true}})), "landed");
 });
@@ -102,21 +109,33 @@ test("a blocker closed without a pass lets go and a passed unlanded one holds", 
 });
 
 test("layers follow the longest chain and an implied edge is not drawn", () => {
-  const layout = Board.graphLayout([{n: 1, blocked: []}, {n: 2, blocked: [1]}, {n: 3, blocked: [1, 2]}]);
-  assert.deepEqual(layout.columns, [{number: 1, column: 0}, {number: 2, column: 1}, {number: 3, column: 2}]);
-  assert.deepEqual(layout.edges.map(edge => [edge.from, edge.to]), [[1, 2], [2, 3]]);
+  const graph = Board.graph([{n: 1, blocked: []}, {n: 2, blocked: [1]}, {n: 3, blocked: [1, 2]}]);
+  assert.deepEqual([...graph.layer], [[1, 0], [2, 1], [3, 2]]);
+  assert.deepEqual(graph.edges.map(edge => [edge.from, edge.to]), [[1, 2], [2, 3]]);
 });
 
 test("a blocking cycle goes to the last column with its label", () => {
-  const layout = Board.graphLayout([{n: 1, blocked: []}, {n: 2, blocked: [3]}, {n: 3, blocked: [2]}]);
-  assert.deepEqual(layout.columns, [{number: 1, column: 0}, {number: 2, column: 1}, {number: 3, column: 1}]);
-  assert.ok(layout.edges.filter(edge => edge.from !== 1).every(edge => edge.state === "blocked"));
-  assert.equal(layout.cycle, "阻塞成环 · #2 ⇄ #3 · 排不出先后");
+  const items = [
+    ticket({n: 1, blocked: [], blocker_hold: ""}),
+    ticket({n: 4, blocked: [1], blocker_hold: ""}),
+    ticket({n: 5, blocked: [4], blocker_hold: ""}),
+    ticket({n: 2, blocked: [3], blocker_hold: "open"}),
+    ticket({n: 3, blocked: [2], blocker_hold: "open"}),
+    ticket({n: 6, blocked: [3], blocker_hold: "open"}),
+  ];
+  const layout = Board.layout({n: 100, decisions: [], specs: [{n: 10, tickets: items}]}, new Set([10]));
+  const tickets = layout.nodes.filter(node => node.type === "ticket");
+  assert.equal(tickets.find(node => node.id === 2).x, tickets.find(node => node.id === 5).x + 268);
+  assert.deepEqual(layout.edges.filter(edge => edge.cyc).map(edge => [edge.from, edge.to, edge.state]),
+    [[3, 2, "blocked"], [2, 3, "blocked"]]);
+  assert.equal(tickets.find(node => node.id === 6).cyclic, false);
+  assert.equal(layout.edges.find(edge => edge.from === 3 && edge.to === 6).cyc, false);
+  assert.equal(layout.labels.find(label => label.warn).text, "阻塞成环 · #2 ⇄ #3 · 排不出先后");
 });
 
 test("a blocker outside the container draws no line", () => {
-  const layout = Board.graphLayout([{n: 2, blocked: [99]}]);
-  assert.deepEqual(layout.edges, []);
+  const graph = Board.graph([{n: 2, blocked: [99]}]);
+  assert.deepEqual(graph.edges, []);
 });
 
 test("container and decision lamps", () => {
@@ -136,5 +155,6 @@ test("default expansion", () => {
   const active = {n: 2, tickets: [ticket({fold: {sessions: [worker()]}})]};
   const done = {n: 3, tickets: [ticket({fold: {landed: true}})]};
   const untouched = {n: 4, tickets: [ticket()]};
-  assert.deepEqual([...defaultExpanded({n: 1, specs: [active, done, untouched]})], [1, 2]);
+  const orange = {n: 5, tickets: [ticket({fold: {children: {8: {child: 8, kind: "decision"}}}})]};
+  assert.deepEqual([...defaultExpanded({n: 1, specs: [active, done, untouched, orange]})], [1, 2, 5]);
 });

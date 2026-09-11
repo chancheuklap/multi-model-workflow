@@ -13,7 +13,6 @@ export function startBoardFeed({
   void run(true);
   const timer = setTimer(() => void run(false), 60000);
   return {
-    refresh: () => run(true),
     stop() {
       stopped = true;
       clearTimer(timer);

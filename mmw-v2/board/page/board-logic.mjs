@@ -18,6 +18,8 @@ const minutes = (from, to = new Date()) => Math.max(0, Math.round((new Date(to) 
 const duration = value => value < 60 ? `${value} 分钟` : `${Math.floor(value / 60)}h${String(value % 60).padStart(2, "0")}m`;
 const hhmm = value => new Date(value).toLocaleTimeString("en-GB", {hour: "2-digit", minute: "2-digit", hour12: false});
 const short = value => String(value || "").slice(0, 7);
+const workerStartedAfter = (fold, at) => fold.sessions.some(session =>
+  session.kind === "worker" && session.started_at > at);
 
 function childIsOpen(ticket, child) {
   const issue = (ticket.children || []).find(item => item.number === child.child);
@@ -39,23 +41,19 @@ export const Board = {
 
   handedBack(ticket) {
     const fold = ticket.fold;
-    return Boolean(fold.returned && fold.outcome
-      && !fold.sessions.some(session => session.kind === "worker" && session.started_at > fold.outcome.at));
+    return Boolean(fold.returned && fold.outcome && !workerStartedAfter(fold, fold.outcome.at));
   },
 
   bounce(ticket) {
     if (!ticket.fold.bounced) return null;
     const event = [...ticket.events].reverse().find(item => item.event === "ticket.bounced");
-    return event && !ticket.fold.sessions.some(session => session.kind === "worker"
-      && session.started_at > event.at) ? event : null;
-  },
-
-  stopped(ticket) {
-    return this.handedBack(ticket) || Boolean(this.bounce(ticket)) || this.stoppedByFault(ticket);
+    return event && !workerStartedAfter(ticket.fold, event.at) ? event : null;
   },
 
   running(ticket) {
-    return ticket.fold.sessions.some(session => session.live) && !this.stoppedByFault(ticket);
+    const held = ticket.fold.held ?? (ticket.fold.claim_hold
+      || ticket.fold.sessions.some(session => session.live));
+    return held && !this.stoppedByFault(ticket);
   },
 
   stoppedAt(ticket) {
@@ -96,19 +94,21 @@ export const Board = {
     const bounce = this.bounce(ticket);
     if (bounce) {
       const payload = bounce.payload || {};
+      const failures = (payload.commands || []).map(item => {
+        const output = item.output || item.last || item.stderr;
+        return output ? `${item.command}：${Array.isArray(output) ? output.join(" / ") : output}` : item.command;
+      });
       reasons.push({kind: "bounced", text: payload.reason === "conflict"
         ? `合不进 ${payload.into}（${short(payload.commit)}）：冲突在 ${(payload.files || []).join("、")}。等早上 triage`
-        : `合不进 ${payload.into}（${short(payload.commit)}）：合并后检查没过 ${(payload.commands || []).map(item => item.command).join("、")}。等早上 triage`});
+        : `合不进 ${payload.into}（${short(payload.commit)}）：合并后检查没过 ${failures.join("、")}。等早上 triage`});
     }
     return reasons;
   },
 
-  reasons(ticket) { return this.why(ticket); },
-
   light(ticket) {
     if (this.why(ticket).length) return "orange";
-    if (ticket.fold.landed) return "ink";
     if (this.running(ticket)) return "green";
+    if (ticket.fold.landed) return "ink";
     return "hollow";
   },
 
@@ -119,8 +119,6 @@ export const Board = {
     if (/^ticket\.(landed|passed)$|^verifier\.passed$|^reviewer\.reported$|^child\.closed$/.test(event.event)) return "ink";
     return "hollow";
   },
-
-  evLight(event) { return this.eventLight(event); },
 
   evFields(event) {
     const payload = event.payload || {};
@@ -144,7 +142,9 @@ export const Board = {
 
   runLine(ticket) {
     const live = ticket.fold.sessions.filter(session => session.live);
-    if (!ticket.fold.sessions.length) return {text: "尚未派发"};
+    if (!ticket.fold.sessions.length) {
+      return {text: ticket.fold.claim_hold || ticket.fold.held ? "已认领 · 待派发" : "尚未派发"};
+    }
     const since = this.waitingSince(ticket);
     if (since) return {text: `等槽位 · ${hhmm(since)} 起`};
     const session = live.length ? live[live.length - 1] : ticket.fold.worker;
@@ -206,9 +206,7 @@ export const Board = {
   },
 
   released(blocker) {
-    if (Object.hasOwn(blocker, "blocker_hold")) return blocker.blocker_hold === "";
-    return String(blocker.state).toLowerCase() === "closed"
-      && !blocker.fold.unreadable.length && (!blocker.fold.passed || blocker.fold.landed);
+    return blocker.blocker_hold === "";
   },
 
   edgeState(blocker, blocked, type = "ticket") {
@@ -236,12 +234,12 @@ export const Board = {
       }
     }
 
-    const cyclic = new Set(items.filter(item => !layers.has(item.n)).map(item => item.n));
+    const unresolved = new Set(items.filter(item => !layers.has(item.n)).map(item => item.n));
     const last = Math.max(-1, ...layers.values()) + 1;
-    for (const number of cyclic) layers.set(number, last);
+    for (const number of unresolved) layers.set(number, last);
 
     const reachable = (from, to, omitDirect) => {
-      const seen = new Set();
+      const seen = new Set([from]);
       const pending = successors.get(from).filter(next => !(omitDirect && next === to));
       while (pending.length) {
         const next = pending.pop();
@@ -252,24 +250,15 @@ export const Board = {
       }
       return false;
     };
+    const cyclic = new Set([...unresolved].filter(number =>
+      successors.get(number).some(next => unresolved.has(next) && reachable(next, number, false))));
     const edges = [];
     for (const [to, blockers] of predecessors) for (const from of blockers) {
-      const cycle = cyclic.has(from) && cyclic.has(to);
+      const cycle = cyclic.has(from) && cyclic.has(to) && reachable(to, from, false);
       if (!cycle && reachable(from, to, true)) continue;
-      edges.push({from, to, cyc: cycle, cycle, state: cycle ? "blocked" : undefined});
+      edges.push({from, to, cyc: cycle});
     }
-    return {layer: layers, layers, preds: predecessors, predecessors, cyclic, edges};
-  },
-
-  graphLayout(items) {
-    const graph = this.graph(items);
-    return {
-      columns: [...graph.layers.entries()].map(([number, column]) => ({number, column})),
-      edges: graph.edges,
-      cycle: graph.cyclic.size
-        ? `阻塞成环 · ${[...graph.cyclic].map(number => `#${number}`).join(" ⇄ ")} · 排不出先后`
-        : null,
-    };
+    return {layer: layers, preds: predecessors, cyclic, edges};
   },
 
   layout(task, expanded) {

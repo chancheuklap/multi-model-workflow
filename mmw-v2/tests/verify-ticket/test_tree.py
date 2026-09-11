@@ -10,6 +10,7 @@ blockers capped at ten items, taking the worst case to 356,050 nodes and 152 poi
 
 import importlib.util
 import json
+import math
 import re
 import unittest
 from pathlib import Path
@@ -33,13 +34,15 @@ class TheQuery(unittest.TestCase):
         self.assertEqual(pages(tree.query("ticket")), [50])
 
     def test_the_whole_map_stays_under_the_trackers_node_limit(self):
+        query = tree.query("map")
         nodes, width = 0, 1
-        for size in pages(tree.query("map")):
+        for size in pages(query):
             width *= size
             nodes += width
-        metadata = 2 * tree.META_PAGE * (tree.PAGE["spec"]
-                                         + tree.PAGE["spec"] * tree.PAGE["ticket"])
-        nodes += metadata
+        for connection in re.finditer(r"(?:labels|blockedBy)\(first:(\d+)\)", query):
+            ancestors = [int(size) for size in
+                         re.findall(r"subIssues\(first:(\d+)\)", query[:connection.start()])]
+            nodes += int(connection.group(1)) * math.prod(ancestors)
         self.assertEqual(nodes, 356050)
         self.assertLess(nodes, 500000)
 
@@ -98,21 +101,23 @@ class TheAnswer(unittest.TestCase):
         self.assertEqual(got["children"][0]["blockedBy"],
                          [{"number": 70, "state": "CLOSED"}])
 
-    def test_metadata_cut_short_by_its_page_is_a_refusal(self):
-        with self.assertRaises(tree.TreeUnreadable) as caught:
-            tree.read(18, "map", gh=answer({
-                "number": 18, "title": "map", "state": "OPEN",
-                "subIssuesSummary": {"total": 1, "completed": 0},
-                "subIssues": {"nodes": [{
-                    "number": 76, "title": "spec", "state": "OPEN",
-                    "labels": {"totalCount": 11,
-                               "nodes": [{"name": f"label-{n}"} for n in range(10)]},
-                    "blockedBy": {"totalCount": 0, "nodes": []},
-                    "subIssuesSummary": {"total": 0, "completed": 0},
-                    "subIssues": {"nodes": []},
-                }]},
-            }))
-        self.assertIn("11 labels and only 10 came back", str(caught.exception))
+    def test_metadata_capped_by_its_page_keeps_existing_readers_working(self):
+        got = tree.read(18, "map", gh=answer({
+            "number": 18, "title": "map", "state": "OPEN",
+            "subIssuesSummary": {"total": 1, "completed": 0},
+            "subIssues": {"nodes": [{
+                "number": 76, "title": "spec", "state": "OPEN",
+                "labels": {"totalCount": 11,
+                           "nodes": [{"name": f"label-{n}"} for n in range(10)]},
+                "blockedBy": {"totalCount": 11,
+                              "nodes": [{"number": n, "state": "OPEN"}
+                                        for n in range(10)]},
+                "subIssuesSummary": {"total": 0, "completed": 0},
+                "subIssues": {"nodes": []},
+            }]},
+        }))
+        self.assertEqual(len(got["children"][0]["labels"]), 10)
+        self.assertEqual(len(got["children"][0]["blockedBy"]), 10)
 
     def test_a_layer_cut_short_by_its_page_is_a_refusal_not_a_smaller_tree(self):
         with self.assertRaises(tree.TreeUnreadable) as caught:

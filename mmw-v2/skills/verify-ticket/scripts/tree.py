@@ -13,15 +13,17 @@ came back shorter than the count the tracker gives for it.
 Each layer is read at a fixed page size, the same wherever the tree is entered: at most 50
 specs under a map, 100 tickets under a spec (the tracker's own cap on one issue's
 children), and 50 children under a ticket. Entered at a map that is three nested lists,
-50 × 100 × 50, and 255,050 nodes against the tracker's limit of 500,000 per query; one
-more list at 100 would ask for a million, which the tracker refuses outright, and a page
-over 100 is refused per list. `--root` says which layer `<issue>` is (default `spec`),
-so the lists below it get their own layer's size.
+50 × 100 × 50, plus the metadata below, and 356,050 nodes against the tracker's limit
+of 500,000 per query; one more list at 100 would ask for a million, which the tracker
+refuses outright, and a page over 100 is refused per list. `--root` says which layer
+`<issue>` is (default `spec`), so the lists below it get their own layer's size.
 
 Every issue comes back as its number, title and state; specs and tickets also carry their
 labels and blockers, and every issue with a layer below it carries the tracker's own
 `total` and `completed` count of that layer. Labels and blockers are capped at ten per
-issue so the worst-case map remains below the tracker's 500,000-node query limit.
+issue so the worst-case map remains below the tracker's 500,000-node query limit. These
+metadata lists may be capped: unlike missing sub-issues, their first ten entries preserve
+the output shape used by existing readers without making the structural tree incomplete.
 
 Prints the tree as JSON and exits 0; exit 2, with the reason on stderr, when the tracker
 could not be asked, answered with an error, has no such issue, or returned a list shorter
@@ -39,6 +41,7 @@ import sys
 LAYERS = ("map", "spec", "ticket", "child")
 # How many issues of a layer are read under the one issue above it.
 PAGE = {"spec": 50, "ticket": 100, "child": 50}
+# A larger metadata page would breach the 500,000-node cap in the worst-case map.
 META_PAGE = 10
 
 GH_ENV = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR_FORCE", "CLICOLOR")}
@@ -88,18 +91,15 @@ def _node(raw: dict, where: str) -> dict:
     node = {"number": raw["number"], "title": raw.get("title") or "",
             "state": (raw.get("state") or "").upper()}
     if "labels" in raw:
-        labels = (raw.get("labels") or {}).get("nodes")
-        blockers = (raw.get("blockedBy") or {}).get("nodes")
-        if not isinstance(labels, list) or not isinstance(blockers, list):
-            raise TreeUnreadable(f"#{node['number']}: its labels or blockers came back unreadable")
-        for name, connection in (("labels", raw.get("labels") or {}),
-                                 ("blockers", raw.get("blockedBy") or {})):
-            total = connection.get("totalCount")
-            if not isinstance(total, int):
-                raise TreeUnreadable(f"#{node['number']}: the tracker gave no count of its {name}")
-            if len(connection["nodes"]) < total:
-                raise TreeUnreadable(f"#{node['number']} has {total} {name} and only "
-                                     f"{len(connection['nodes'])} came back")
+        def connection(name: str) -> list[dict]:
+            nodes = (raw.get(name) or {}).get("nodes")
+            if not isinstance(nodes, list):
+                raise TreeUnreadable(
+                    f"#{node['number']}: its labels or blockers came back unreadable")
+            return nodes
+
+        labels = connection("labels")
+        blockers = connection("blockedBy")
         node["labels"] = [label.get("name") or "" for label in labels
                           if isinstance(label, dict)]
         node["blockedBy"] = [

@@ -2,7 +2,7 @@
   "[\"api\",\"test\"]": {
     "stdout": "fixture-ok\n"
   },
-  "[\"issue\",\"list\",\"--state\",\"all\",\"--label\",\"mmw:map\",\"--limit\",\"1000\",\"--json\",\"number,title,state,labels\"]": {
+  "[\"issue\",\"list\",\"--state\",\"open\",\"--label\",\"mmw:map\",\"--limit\",\"1000\",\"--json\",\"number,title,state,labels\"]": {
     "stdout": "[{\"number\":900,\"title\":\"Automation task\",\"state\":\"OPEN\",\"labels\":[{\"name\":\"mmw:map\"},{\"name\":\"wayfinder:map\"}]}]\n"
   },
   "[\"api\",\"graphql\",\"-F\",\"o={owner}\",\"-F\",\"n={repo}\",\"-F\",\"root=900\",\"-f\",\"query=query($o:String!, $n:String!, $root:Int!) {\\n  repository(owner:$o, name:$n) {\\n    issue(number:$root) {\\n      number title state subIssuesSummary { total completed }\\n      subIssues(first:50) { nodes {\\n        number title state labels(first:10) { totalCount nodes { name } } blockedBy(first:10) { totalCount nodes { number state } } subIssuesSummary { total completed } subIssues(first:100) { nodes {\\n          number title state labels(first:10) { totalCount nodes { name } } blockedBy(first:10) { totalCount nodes { number state } } subIssuesSummary { total completed } subIssues(first:50) { nodes {\\n            number title state }} }} }}\\n    }\\n  }\\n}\\n\"]": {

@@ -51,15 +51,19 @@ def container(number, title, children, labels):
 def tree_fixture():
     child = {"number": 50, "title": "decision needed", "state": "OPEN"}
     ticket12 = leaf(12, "blocked work", blocked=[
-        {"number": 11, "state": "CLOSED"}, {"number": 99, "state": "OPEN"}], children=[child])
+        {"number": 11, "state": "CLOSED"}, {"number": 13, "state": "CLOSED"},
+        {"number": 99, "state": "CLOSED"}], children=[child])
     ticket11 = leaf(11, "landed blocker", state="CLOSED")
+    ticket13 = leaf(13, "passed blocker", state="CLOSED")
+    ignored_ticket = leaf(14, "not a ticket", labels=["other"])
     decision = container(2, "research", [], ["wayfinder:research"])
-    spec10 = container(10, "first spec", [ticket12], ["mmw:spec"])
-    spec20 = container(20, "other spec", [ticket11], ["mmw:spec"])
+    ignored_map_child = container(3, "not a spec", [], ["other"])
+    spec10 = container(10, "first spec", [ticket12, ignored_ticket], ["mmw:spec"])
+    spec20 = container(20, "other spec", [ticket11, ticket13], ["mmw:spec"])
     return {
         "number": 1, "title": "task", "state": "OPEN",
-        "subIssuesSummary": {"total": 3, "completed": 0},
-        "subIssues": {"nodes": [decision, spec10, spec20]},
+        "subIssuesSummary": {"total": 4, "completed": 0},
+        "subIssues": {"nodes": [decision, ignored_map_child, spec10, spec20]},
     }
 
 
@@ -69,6 +73,10 @@ def scenario():
                    resolution="became-ticket", became=12)
     claimed = event("ticket.claimed", 12)
     opened = event("child.opened", 12, child=50, kind="decision", title="choose")
+    fixed = event("child.closed", 12, id=1202, child=50, resolution="fixed")
+    became = event("child.closed", 12, id=1203, child=51,
+                   resolution="became-ticket", became=15)
+    passed = event("ticket.passed", 13, commit="a" * 40)
     return {
         "maps": [{"number": 1, "title": "task", "state": "OPEN",
                   "labels": [{"name": "mmw:map"}, {"name": "wayfinder:map"}]}],
@@ -76,9 +84,12 @@ def scenario():
         "comments": {
             "11": [{"etag": '"eleven"', "comments": [landed, routed]}],
             "12": [{"etag": '"twelve-a"', "comments": [claimed]},
-                   {"etag": '"twelve-b"', "comments": [claimed, opened]}],
+                   {"etag": '"twelve-b"', "comments": [claimed, opened]},
+                   {"etag": '"twelve-c"', "comments": [claimed, opened, fixed]},
+                   {"etag": '"twelve-d"', "comments": [claimed, opened, fixed, became]}],
+            "13": [{"etag": '"thirteen"', "comments": [passed]}],
         },
-        "comment_active": {"11": 0, "12": 0},
+        "comment_active": {"11": 0, "12": 0, "13": 0},
     }
 
 
@@ -149,9 +160,10 @@ class BoardDataTest(unittest.TestCase):
             return 0, f"HTTP/2 200 OK\nETag: {tag}\n{link}\n[{{\"id\":{ident},\"body\":\"\"}}]\n", ""
 
         store = board_data.BoardStore(gh=gh)
-        comments, pages, tags, links = store._read_comments(12, {}, {}, {})
+        cache = board_data.CommentCache()
+        comments = store._read_comments(12, cache)
         self.assertEqual([comment["id"] for comment in comments], [1, 2])
-        cached, _, _, _ = store._read_comments(12, pages, tags, links)
+        cached = store._read_comments(12, cache)
         self.assertEqual(cached, comments)
         self.assertEqual(len(calls), 4)
         self.assertTrue(all(any(value.startswith("If-None-Match:") for value in call)
@@ -164,6 +176,7 @@ class BoardDataTest(unittest.TestCase):
         task = answer["tasks"][0]
         self.assertEqual((task["n"], task["decisions"][0]["kind"]), (1, "research"))
         self.assertEqual([spec["n"] for spec in task["specs"]], [10, 20])
+        self.assertEqual([item["n"] for item in task["specs"][0]["tickets"]], [12])
         got = tickets(answer)[12]
         expected = board_data.events.fold(data["comments"]["12"][0]["comments"], 12)
         self.assertEqual(got["fold"], expected)
@@ -177,8 +190,9 @@ class BoardDataTest(unittest.TestCase):
         blockers = {item["number"]: item for item in got["blockers"]}
         self.assertEqual(blockers[11]["blocker_hold"], "")
         self.assertEqual((blockers[11]["spec"], blockers[11]["readable"]), (20, True))
+        self.assertEqual(blockers[13]["blocker_hold"], "passed, not landed")
         self.assertEqual((blockers[99]["spec"], blockers[99]["readable"]), (None, False))
-        self.assertEqual(blockers[99]["blocker_hold"], "open")
+        self.assertEqual(blockers[99]["blocker_hold"], "the tracker did not answer for it")
 
     def test_later_reads_send_etags_for_unlanded_only(self):
         with RunningBoard(scenario()) as board:
@@ -196,11 +210,23 @@ class BoardDataTest(unittest.TestCase):
         data = scenario()
         with RunningBoard(data) as board:
             board.request()
+            board.request()
+            self.assertEqual(board.state()["tree_reads"], 1)
             data["comment_active"]["12"] = 1
             board.write(data)
             board.request()
+            self.assertEqual(board.state()["tree_reads"], 2)
+            board.request()
+            self.assertEqual(board.state()["tree_reads"], 2)
+            data["comment_active"]["12"] = 2
+            board.write(data)
+            board.request()
+            self.assertEqual(board.state()["tree_reads"], 2)
+            data["comment_active"]["12"] = 3
+            board.write(data)
+            board.request()
             reads = board.state()["tree_reads"]
-        self.assertEqual(reads, 2)
+        self.assertEqual(reads, 3)
 
     def test_tree_is_reread_after_ten_minutes(self):
         now = dt.datetime(2026, 9, 11, tzinfo=dt.timezone.utc)
@@ -214,6 +240,8 @@ class BoardDataTest(unittest.TestCase):
         data = scenario()
         with RunningBoard(data) as board:
             first = board.request()
+            time.sleep(1.05)
+            data["comment_active"]["12"] = 1
             data["fail_comments"] = [12]
             board.write(data)
             failed = board.request()
@@ -224,23 +252,37 @@ class BoardDataTest(unittest.TestCase):
     def test_refresh_reads_now(self):
         with RunningBoard(scenario()) as board:
             first = board.request()
+            before = len(board.calls())
             time.sleep(1.05)
             refreshed = board.request("POST", "/api/board/refresh")
+            refresh_calls = board.calls()[before:]
         self.assertGreater(refreshed["read_at"], first["read_at"])
         self.assertEqual(refreshed.keys(), first.keys())
         self.assertEqual(refreshed["tasks"], first["tasks"])
+        twelve = [call for call in refresh_calls if call[:2] == ["api", "-i"]
+                  and "/issues/12/comments" in call[2]]
+        self.assertEqual(len(twelve), 1)
+        self.assertIn("If-None-Match: \"twelve-a\"", twelve[0])
 
     def test_never_writes_github(self):
         with RunningBoard(scenario()) as board:
-            board.request()
-            board.request("POST", "/api/board/refresh")
-            board.request()
+            answers = [board.request(), board.request("POST", "/api/board/refresh"),
+                       board.request()]
             calls = board.calls()
-        mutation = {"create", "edit", "close", "reopen", "delete", "comment"}
-        self.assertFalse(any(call and call[0] == "issue" and len(call) > 1 and call[1] in mutation
-                             for call in calls))
-        self.assertFalse(any(method in call for call in calls
-                             for method in ["POST", "PATCH", "PUT", "DELETE"]))
+        self.assertTrue(all("read_failed" not in answer for answer in answers))
+        for call in calls:
+            if call[:2] == ["issue", "list"]:
+                self.assertEqual(call[call.index("--state") + 1], "open")
+                continue
+            if call[:2] == ["api", "graphql"]:
+                query_arg = next(value for value in call if value.startswith("query="))
+                self.assertTrue(query_arg.startswith("query=query("))
+                self.assertNotIn("mutation", query_arg.lower())
+                continue
+            self.assertEqual(call[:2], ["api", "-i"])
+            self.assertRegex(call[2], r"/issues/\d+/comments")
+            self.assertFalse(any(value in call for value in
+                                 ["-X", "--method", "-f", "-F", "--input"]))
 
 
 if __name__ == "__main__":
