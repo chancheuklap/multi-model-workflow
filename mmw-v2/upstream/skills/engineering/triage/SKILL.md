@@ -68,9 +68,9 @@ Show counts and a one-line summary per item. Let the maintainer pick.
 
 ## A ticket handed back by this repo's own pipeline
 
-A `needs-triage` ticket whose newest result is a `ticket.returned` event — the closing comment whose first line reads `HANDOFF REQUIRED` — did not arrive from outside. It came back from this repo's own pipeline, and everything established about it is already on the ticket.
+A `needs-triage` ticket whose newest result is `ticket.returned` or `ticket.bounced` did not arrive from outside. `ticket.returned` means the worker could not finish it. `ticket.bounced` means a passed ticket could not merge into the recorded base commit because the merge conflicted or the repository checks failed.
 
-Read that comment and the ticket's event trail — its `ticket.checked` runs, its `verifier.passed` / `verifier.failed` and its `reviewer.reported` — instead of reproducing from a reporter's steps, and skip `.out-of-scope/`: nobody rejected this request, an agent could not finish it. Then recommend one of the four outcomes from what the worker already established.
+Read the ticket's event trail instead of reproducing from a reporter's steps, and skip `.out-of-scope/`: nobody rejected this request. For `ticket.returned`, read its `ticket.checked` runs, `verifier.passed` or `verifier.failed`, and `reviewer.reported`. For `ticket.bounced`, read the attempted base `commit`, the target branch in `into`, the sibling tickets that landed after this ticket started, and the `files` or `commands` attached to the event. Then recommend one of the four outcomes, `needs-info`, `ready-for-agent`, `ready-for-human`, or `wontfix`, from what the pipeline already established.
 
 ## Triage a specific issue or PR
 
