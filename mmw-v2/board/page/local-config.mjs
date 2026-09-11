@@ -56,9 +56,9 @@ export const LocalConfig = {
         out.push({key: a, cell: "host", text: `${r.host} 不是 MMW 认识的 host`});
         continue;
       }
-      const hs = L.hostScan(scan, r.host), st = L.hostState(scan, d, r.host, catalog);
-      if (st !== "ok") {
-        out.push({key: a, cell: "host", text: L.hostWhy(st, r.host, d, catalog)});
+      const hs = L.hostScan(scan, r.host), hostState = L.hostState(scan, d, r.host, catalog);
+      if (hostState !== "ok") {
+        out.push({key: a, cell: "host", text: L.hostWhy(hostState, r.host, d, catalog)});
         continue;
       }
       if (!r.model) {
@@ -104,7 +104,7 @@ export const LocalConfig = {
   },
   saveOff(scan, d, saved, flags = {}, catalog = CATALOG) {
     const ch = LocalConfig.changes(d, saved, catalog);
-    const probs = flags.scanning ? [] : LocalConfig.problems(scan, d, catalog);
+    const probs = LocalConfig.problems(scan, d, catalog);
     return !ch.length || probs.length > 0 || !!flags.scanning || !!flags.refused;
   },
 
@@ -125,25 +125,36 @@ export const LocalConfig = {
     const host = [
       ...(catalog.hosts.includes(r.host) ? [] : [{value: r.host, text: `${r.host} · MMW 不认识`}]),
       ...catalog.hosts.map(h => {
-        const st = L.hostState(scan, d, h, catalog);
-        return {value: h, text: st === "ok" ? h : `${h} · ${L.stateWord(st, d)}`, disabled: st !== "ok" && h !== r.host};
+        const hostState = L.hostState(scan, d, h, catalog);
+        return {
+          value: h,
+          text: hostState === "ok" ? h : `${h} · ${L.stateWord(hostState, d)}`,
+          disabled: hostState !== "ok" && h !== r.host,
+        };
       }),
     ];
+    const offeredEfforts = L.effortsOf(scan, r.host, r.model);
+    const effortKnown = modelKnown && offeredEfforts.includes(r.effort);
     const model = !hostOk ? [{value: r.model, text: r.model || "—"}] : [
       ...(!r.model ? [{value: "", text: "选一个 model", disabled: true}]
         : modelKnown ? [] : [{value: r.model, text: `${r.model} · 本机已经没有`}]),
       ...hs.offered.map(o => ({value: o.model, text: o.model})),
     ];
     const effort = !modelKnown ? [{value: r.effort, text: r.effort || "—"}] : [
-      ...(!r.effort ? [{value: "", text: "选一档", disabled: true}] : []),
-      ...L.effortsOf(scan, r.host, r.model).map(e => ({value: e, text: e === "—" ? "—（不设）" : e})),
+      ...(!r.effort ? [{value: "", text: "选一档", disabled: true}]
+        : effortKnown ? [] : [{value: r.effort, text: `${r.effort} · 本机已经没有`}]),
+      ...offeredEfforts.map(e => ({value: e, text: e === "—" ? "—（不设）" : e})),
     ];
     return {host: mark(host, r.host), model: mark(model, r.model), effort: mark(effort, r.effort), hostOk, modelKnown};
   },
   hostChips(scan, d, catalog = CATALOG) {
     return catalog.hosts.map(h => {
-      const s = LocalConfig.hostScan(scan, h), st = LocalConfig.hostState(scan, d, h, catalog);
-      return {host: h, state: st, what: st === "ok" ? `${s.offered.length} 个 model` : LocalConfig.stateWord(st, d)};
+      const offered = LocalConfig.hostScan(scan, h);
+      const hostState = LocalConfig.hostState(scan, d, h, catalog);
+      return {
+        host: h, state: hostState,
+        what: hostState === "ok" ? `${offered.offered.length} 个 model` : LocalConfig.stateWord(hostState, d),
+      };
     });
   },
 };
@@ -152,55 +163,52 @@ const hhmm = value => new Date(value).toLocaleTimeString("en-GB", {
   hour: "2-digit", minute: "2-digit", hour12: false,
 });
 
-export function catalogFromPayload(payload = {}) {
-  const listed = payload.hosts || [];
+export function catalogFromPayload(payload) {
   const hosts = [];
   const launch = {};
   const binaries = {};
-  for (const item of listed) {
-    if (typeof item === "string") {
-      hosts.push(item);
-      continue;
-    }
+  for (const item of payload.hosts) {
     hosts.push(item.name);
     launch[item.name] = {cli: !!item.cli, paseo: !!item.paseo};
     if (item.binary) binaries[item.name] = item.binary;
   }
-  const runners = (payload.runners || CATALOG.runners).filter(name => name !== "auto");
   return {
     store: CATALOG.store,
     agents: CATALOG.agents,
-    hosts: hosts.length ? hosts : CATALOG.hosts,
-    binaries: Object.keys(binaries).length ? binaries : CATALOG.binaries,
-    launch: Object.keys(launch).length ? launch : CATALOG.launch,
-    runners: runners.length ? runners : CATALOG.runners,
+    hosts,
+    binaries,
+    launch,
+    runners: payload.runners.filter(name => name !== "auto"),
   };
 }
 
-export function settingsView(st, scan, catalog = CATALOG) {
-  const L = LocalConfig, d = st.draft;
-  const probs = st.scanning ? [] : L.problems(scan, d, catalog);
-  const ch = L.changes(d, st.saved, catalog);
+export function settingsView(sheet, scan, catalog) {
+  const L = LocalConfig, draft = sheet.draft;
+  const probs = [
+    ...(sheet.scanning ? [] : L.problems(scan, draft, catalog)),
+    ...(sheet.serverFlags || []),
+  ];
+  const ch = L.changes(draft, sheet.saved, catalog);
   const cls = (key, cell) => (probs.some(p => p.key === key && p.cell === cell) ? "sel bad"
     : ch.some(c => c.key === key && c.cells.includes(cell)) ? "sel changed" : "sel");
   const bads = key => probs.filter(p => p.key === key).map(p => ({text: p.text}));
   const rows = catalog.agents.map(a => {
-    const o = L.rowOptions(scan, d, a, catalog), r = d.rows[a], b = bads(a);
+    const o = L.rowOptions(scan, draft, a, catalog), r = draft.rows[a], b = bads(a);
     return {
       agent: a, what: L.ROLE_WHAT[a], host: r.host, model: r.model, effort: r.effort,
       hostCls: cls(a, "host"), modelCls: cls(a, "model"), effortCls: cls(a, "effort"),
       hostOpts: o.host, modelOpts: o.model, effortOpts: o.effort,
-      hostOff: st.scanning, modelOff: st.scanning || !o.hostOk, effortOff: st.scanning || !o.modelKnown,
+      hostOff: sheet.scanning, modelOff: sheet.scanning || !o.hostOk, effortOff: sheet.scanning || !o.modelKnown,
       hostLabel: `${a} 的 host`, modelLabel: `${a} 的 model`, effortLabel: `${a} 的 effort`,
       bads: b, hasBad: b.length > 0,
     };
   });
   const when = "保存后，下一个新起的 agent 就用新值；已经在跑的不受影响。";
   let strong, quiet, hatch = false;
-  if (st.refused) {
+  if (sheet.refused) {
     strong = "没有保存";
     quiet = "这一页打开之后，本机配置被别处改过，先重新读取。";
-  } else if (st.scanning) {
+  } else if (sheet.scanning) {
     strong = "正在扫描本机的 host";
     quiet = "扫描完之前不能保存。";
   } else if (probs.length) {
@@ -210,30 +218,30 @@ export function settingsView(st, scan, catalog = CATALOG) {
   } else if (ch.length) {
     strong = `改了 ${ch.length} 处：${ch.map(c => c.text).join("；")}`;
     quiet = when;
-  } else if (st.savedAt) {
-    strong = `已保存 · ${hhmm(st.savedAt)}`;
+  } else if (sheet.savedAt) {
+    strong = `已保存 · ${hhmm(sheet.savedAt)}`;
     quiet = "从下一个新起的 agent 开始用；已经在跑的不受影响。";
   } else {
     strong = "没有改动";
     quiet = "上面就是下一个新起的 agent 会用的配置。";
   }
   const rb = bads("runner");
-  const at = st.modifiedAt;
+  const at = sheet.modifiedAt;
   return {
     store: catalog.store, rows,
-    runner: d.runner, runnerCls: cls("runner", "runner"), runnerOpts: L.runnerOptions(d, catalog),
-    runnerOff: st.scanning, runnerBads: rb, runnerHasBad: rb.length > 0,
-    chips: L.hostChips(scan, d, catalog).map(c => ({
-      cls: "hs " + (st.scanning ? "" : c.state), host: c.host, what: st.scanning ? "…" : c.what,
+    runner: draft.runner, runnerCls: cls("runner", "runner"), runnerOpts: L.runnerOptions(draft, catalog),
+    runnerOff: sheet.scanning, runnerBads: rb, runnerHasBad: rb.length > 0,
+    chips: L.hostChips(scan, draft, catalog).map(c => ({
+      cls: "hs " + (sheet.scanning ? "" : c.state), host: c.host, what: sheet.scanning ? "…" : c.what,
     })),
-    scanning: st.scanning, notScanning: !st.scanning,
-    scanningText: L.source(d) === "paseo" ? "正在向 Paseo 要每个 host 的 model…" : "正在问每个 host 的 CLI 有哪些 model…",
-    scannedText: `${st.scannedAt ? hhmm(st.scannedAt) : ""} 问${st.scanSource === "paseo" ? " Paseo" : "各 host 的 CLI"} ·`,
-    refused: !!st.refused,
-    refusedText: `这一页打开之后，本机配置在 ${at ? hhmm(at) : ""} 被别处改过（一个 agent 从命令行改的）。重新读取会换成现在保存着的内容，你刚才改的 ${st.refused} 处要再改一次。`,
+    scanning: sheet.scanning,
+    scanningText: L.source(draft) === "paseo" ? "正在向 Paseo 要每个 host 的 model…" : "正在问每个 host 的 CLI 有哪些 model…",
+    scannedText: `${sheet.scannedAt ? hhmm(sheet.scannedAt) : ""} 问${sheet.scanSource === "paseo" ? " Paseo" : "各 host 的 CLI"} ·`,
+    refused: !!sheet.refused,
+    refusedText: `这一页打开之后，本机配置在 ${at ? hhmm(at) : ""} 被别处改过（一个 agent 从命令行改的）。重新读取会换成现在保存着的内容，你刚才改的 ${sheet.refused} 处要再改一次。`,
     strong, quiet, hatch,
     closeLabel: ch.length ? "取消" : "关闭",
-    saveOff: L.saveOff(scan, d, st.saved, st, catalog),
-    changeText: ch.map(c => c.text).join("；"), changed: ch.length > 0,
+    saveOff: !ch.length || probs.length > 0 || !!sheet.scanning || !!sheet.refused,
+    changed: ch.length > 0,
   };
 }

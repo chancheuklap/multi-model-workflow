@@ -1,9 +1,9 @@
-import {Board} from "./board-logic.mjs";
+import {Board, defaultExpanded} from "./board-logic.mjs";
 import {render as topbar, fromBoard as topbarFromBoard} from "./topbar.mjs";
 import {render as tasks} from "./tasks.mjs";
 import {render as canvas} from "./canvas.mjs";
 import {render as detail, fromBoard as detailFromBoard} from "./detail.mjs";
-import {render as settings, fromPayload as settingsFromPayload} from "./settings.mjs";
+import {render as settings, fromPayload as settingsFromPayload, unmount as unmountSettings} from "./settings.mjs";
 import {api} from "./api.mjs";
 import {startBoardFeed} from "./board-feed.mjs";
 
@@ -27,10 +27,8 @@ function find(tasks, n) {
 function nextOrange(tasks, current) {
   const list = [];
   for (const task of tasks) {
-    for (const spec of task.specs || []) {
-      for (const ticket of spec.tickets || []) {
-        if (Board.light(ticket) === "orange") list.push({task: task.n, node: ticket.n});
-      }
+    for (const ticket of Board.allTickets(task)) {
+      if (Board.light(ticket) === "orange") list.push({task: task.n, node: ticket.n});
     }
   }
   if (!list.length) return null;
@@ -50,20 +48,35 @@ export function mountPage(doc = document) {
     payload: {tasks: []},
     task: null,
     sel: null,
+    expanded: null,
     settingsOpen: false,
     settingsPayload: null,
   };
 
   const taskOf = n => (state.payload.tasks || []).find(task => task.n === n) || null;
 
+  const setTask = n => {
+    if (state.task === n) return;
+    state.task = n;
+    const task = taskOf(n);
+    state.expanded = task ? [...defaultExpanded(task)] : [];
+  };
+
+  const closeSettings = () => {
+    if (!state.settingsOpen) return;
+    state.settingsOpen = false;
+    unmountSettings(slots.settings);
+    paint();
+  };
+
   const paint = () => {
     const list = state.payload.tasks || [];
-    if (state.task == null && list[0]) state.task = list[0].n;
+    if (state.task == null && list[0]) setTask(list[0].n);
     topbar(slots.topbar, topbarFromBoard({...state.payload, settingsOpen: state.settingsOpen}), api, {
       onJumpNeedYou() {
         const next = nextOrange(list, state.sel);
         if (next) {
-          state.task = next.task;
+          setTask(next.task);
           state.sel = next.node;
           paint();
         }
@@ -82,7 +95,7 @@ export function mountPage(doc = document) {
       tasks: list,
       selectedTask: state.task,
       onSelectTask(n) {
-        state.task = n;
+        setTask(n);
         state.sel = null;
         paint();
       },
@@ -90,16 +103,20 @@ export function mountPage(doc = document) {
     canvas(slots.canvas, {
       task: taskOf(state.task),
       sel: state.sel,
+      expanded: state.expanded,
       onSelectNode(n) {
         state.sel = n;
         paint();
+      },
+      onToggle(_n, expanded) {
+        state.expanded = expanded;
       },
     });
     detail(slots.detail, detailFromBoard(state.payload, state.sel), api, {
       onGoto(n) {
         const found = find(list, n);
         if (found) {
-          state.task = found.task.n;
+          setTask(found.task.n);
           state.sel = n;
           paint();
         }
@@ -110,16 +127,13 @@ export function mountPage(doc = document) {
       },
     });
     if (!slots.settings) return;
-    slots.settings.style.pointerEvents = state.settingsOpen ? "auto" : "none";
-    if (state.settingsOpen && state.settingsPayload) {
+    const open = slots.settings.querySelector('[data-screen="settings"]');
+    if (state.settingsOpen && state.settingsPayload && !open) {
       settings(slots.settings, settingsFromPayload(state.settingsPayload), api, {
-        onClose() {
-          state.settingsOpen = false;
-          paint();
-        },
+        onClose: closeSettings,
       });
-    } else {
-      slots.settings.replaceChildren();
+    } else if (!state.settingsOpen && open) {
+      unmountSettings(slots.settings);
     }
   };
 

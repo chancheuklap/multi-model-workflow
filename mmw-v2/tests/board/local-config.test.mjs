@@ -11,7 +11,7 @@ function offered(models) {
 const scan = {
   cursor: offered([
     {model: "auto", efforts: ["—"]},
-    {model: "grok 4.6", efforts: ["high"]},
+    {model: "grok 4.6", efforts: ["low", "medium", "high"]},
     {model: "composer 2.5", efforts: ["high"]},
   ]),
   grok: offered([
@@ -42,9 +42,17 @@ const saved = {
 };
 
 test("changing the host keeps a model the new host offers and clears it otherwise", () => {
-  const keep = LocalConfig.setCell(scan, copy(saved), "junior-worker", "host", "cursor");
+  const keepFrom = copy(saved);
+  keepFrom.rows["junior-worker"] = {host: "cursor", model: "grok 4.6", effort: "high"};
+  const keep = LocalConfig.setCell(scan, keepFrom, "junior-worker", "host", "grok");
   assert.equal(keep.rows["junior-worker"].model, "grok 4.6");
   assert.equal(keep.rows["junior-worker"].effort, "high");
+
+  const dropEffort = copy(saved);
+  dropEffort.rows["junior-worker"].effort = "xhigh";
+  const keptModel = LocalConfig.setCell(scan, dropEffort, "junior-worker", "host", "cursor");
+  assert.equal(keptModel.rows["junior-worker"].model, "grok 4.6");
+  assert.equal(keptModel.rows["junior-worker"].effort, "");
 
   const clear = LocalConfig.setCell(scan, copy(saved), "junior-worker", "host", "claude");
   assert.equal(clear.rows["junior-worker"].model, "");
@@ -61,14 +69,37 @@ test("a model with one effort takes it", () => {
 test("a saved value this machine no longer offers is flagged with its reason", () => {
   const retired = copy(scan);
   retired.grok = offered([{model: "grok 4.5", efforts: ["high"]}]);
-  const flags = LocalConfig.problems(retired, saved);
-  const model = flags.find(item => item.key === "junior-worker" && item.cell === "model");
+  const modelFlags = LocalConfig.problems(retired, saved);
+  const model = modelFlags.find(item => item.key === "junior-worker" && item.cell === "model");
   assert.ok(model);
   assert.match(model.text, /这台机器的 grok 已经不提供 grok 4.6/);
-  const options = LocalConfig.rowOptions(retired, saved, "junior-worker");
-  assert.equal(options.model[0].value, "grok 4.6");
-  assert.match(options.model[0].text, /本机已经没有/);
-  assert.equal(options.model[0].selected, true);
+  const modelOpts = LocalConfig.rowOptions(retired, saved, "junior-worker").model;
+  assert.equal(modelOpts[0].value, "grok 4.6");
+  assert.match(modelOpts[0].text, /本机已经没有/);
+  assert.equal(modelOpts[0].selected, true);
+
+  const missing = copy(scan);
+  missing.grok = {state: "missing", offered: []};
+  const hostFlags = LocalConfig.problems(missing, saved);
+  const host = hostFlags.find(item => item.key === "junior-worker" && item.cell === "host");
+  assert.ok(host);
+  assert.match(host.text, /没装 grok/);
+  assert.match(host.text, /换一个这台机器有的/);
+  const grokOpt = LocalConfig.rowOptions(missing, saved, "junior-worker").host.find(o => o.value === "grok");
+  assert.equal(grokOpt.selected, true);
+  assert.match(grokOpt.text, /本机没装/);
+  assert.equal(grokOpt.disabled, false);
+
+  const stale = copy(saved);
+  stale.rows["junior-worker"].effort = "max";
+  const effortFlags = LocalConfig.problems(scan, stale);
+  const effort = effortFlags.find(item => item.key === "junior-worker" && item.cell === "effort");
+  assert.ok(effort);
+  assert.match(effort.text, /没有 max 这一档/);
+  const effortOpts = LocalConfig.rowOptions(scan, stale, "junior-worker").effort;
+  assert.equal(effortOpts[0].value, "max");
+  assert.equal(effortOpts[0].selected, true);
+  assert.match(effortOpts[0].text, /本机已经没有/);
 });
 
 test("pi under orca or herdr is flagged as a host the runner cannot start", () => {
@@ -101,11 +132,15 @@ test("with paseo down every row is flagged", () => {
 
 test("changes are listed per row", () => {
   const draft = copy(saved);
+  draft.runner = "herdr";
   LocalConfig.setCell(scan, draft, "senior-worker", "host", "claude");
   LocalConfig.setCell(scan, draft, "senior-worker", "model", "opus 5");
   LocalConfig.setCell(scan, draft, "senior-worker", "effort", "high");
+  LocalConfig.setCell(scan, draft, "reviewer", "model", "sonnet 5");
   const listed = LocalConfig.changes(draft, saved);
-  assert.deepEqual(listed.map(item => item.text), ["senior-worker 的 host、model"]);
+  assert.deepEqual(listed.map(item => item.text), [
+    "runner", "senior-worker 的 host、model", "reviewer 的 model",
+  ]);
 });
 
 test("save is enabled only with changes, no flag and no scan running", () => {

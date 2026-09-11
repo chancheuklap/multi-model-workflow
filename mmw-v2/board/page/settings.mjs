@@ -24,15 +24,6 @@ function copy(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function code(...parts) {
-  const node = el("p", {class: "set-note"});
-  for (const part of parts) {
-    if (Array.isArray(part)) node.append(el("span", {class: "sheet-code"}, part[0]));
-    else node.append(part);
-  }
-  return node;
-}
-
 function selectEl(cls, value, disabled, label, opts, onChange) {
   const node = el("select", {
     class: cls, "aria-label": label, disabled: !!disabled,
@@ -51,55 +42,74 @@ function roleFoot(items) {
     el("div", {class: "role-bad"}, el("span", {class: "hatch"}), item.text)));
 }
 
-export function fromScene(data = {}) {
-  const st = copy(data.state?.st || {});
-  if (st.saved && st.saved.version == null) st.version = st.version ?? 1;
-  else st.version = st.saved?.version ?? st.version;
-  return {view: data.vals?.v, st, catalog: CATALOG};
+function flagsFromErrors(errors) {
+  return (errors || []).map(error => {
+    const [key, cell] = String(error.cell || "").split(".");
+    return {key, cell: cell || key, text: error.reason};
+  });
 }
 
-export function fromPayload(payload = {}) {
+function detachEsc(host) {
+  if (!host._settingsEsc) return;
+  document.removeEventListener("keydown", host._settingsEsc, true);
+  host._settingsEsc = null;
+}
+
+export function unmount(host) {
+  detachEsc(host);
+  host.replaceChildren();
+}
+
+export function fromScene(data = {}) {
+  const st = copy(data.state.st);
+  st.version = st.saved?.version ?? 1;
+  st.serverFlags = [];
+  return {view: data.vals.v, st, catalog: CATALOG, scan: {}};
+}
+
+export function fromPayload(payload) {
   const catalog = catalogFromPayload(payload);
-  const scan = payload.scan?.hosts || {};
-  const saved = {runner: payload.runner, rows: copy(payload.rows || {})};
+  const saved = {runner: payload.runner, rows: copy(payload.rows)};
   return {
-    catalog, scan,
+    catalog, scan: payload.scan.hosts,
     st: {
       saved, draft: copy(saved),
-      scanSource: payload.scan?.source || LocalConfig.source(saved),
-      scannedAt: payload.scan?.scanned_at,
-      scanning: Boolean(payload.scan?.scanning),
+      scanSource: payload.scan.source,
+      scannedAt: payload.scan.scanned_at,
+      scanning: Boolean(payload.scan.scanning),
       savedAt: payload.saved_at || null,
       refused: 0, reread: false,
       version: payload.version,
       modifiedAt: payload.modified_at || null,
+      serverFlags: [],
     },
   };
 }
 
 function viewOf(model) {
-  if (model.view && !model.dirty) return model.view;
-  return settingsView(model.st, model.scan || {}, model.catalog || CATALOG);
+  if (model.view) return model.view;
+  return settingsView(model.st, model.scan, model.catalog);
 }
 
 function saveBody(model) {
-  const draft = model.st?.draft;
-  const view = model.view;
-  const rows = draft?.rows || Object.fromEntries((view?.rows || []).map(row => [
-    row.agent, {host: row.host, model: row.model, effort: row.effort},
-  ]));
   return {
-    version: model.st?.version ?? model.st?.saved?.version ?? 1,
-    runner: draft?.runner ?? view?.runner,
-    rows,
+    version: model.st.version,
+    runner: model.st.draft.runner,
+    rows: model.st.draft.rows,
   };
 }
 
-async function hand(method, apply) {
+async function readJson(response) {
   try {
-    const response = await method();
-    if (response?.ok) apply?.(await response.json());
-    return response;
+    return await response.json();
+  } catch {
+    return {};
+  }
+}
+
+async function hand(method) {
+  try {
+    return await method();
   } catch {
     return null;
   }
@@ -107,75 +117,86 @@ async function hand(method, apply) {
 
 function paint(host, model, api, hooks) {
   const v = viewOf(model);
-  const close = () => hooks.onClose?.();
+  const close = () => {
+    unmount(host);
+    hooks.onClose?.();
+  };
+  const redraw = () => {
+    model.view = null;
+    paint(host, model, api, hooks);
+  };
+
   const applyScan = body => {
-    if (!body?.hosts) return;
     model.scan = body.hosts;
-    model.st.scanSource = body.source || model.st.scanSource;
-    model.st.scannedAt = body.scanned_at || model.st.scannedAt;
+    model.st.scanSource = body.source;
+    model.st.scannedAt = body.scanned_at;
     model.st.scanning = Boolean(body.scanning);
-    model.view = null;
-    model.dirty = true;
-    paint(host, model, api, hooks);
+    redraw();
   };
-  const rescan = source => {
+
+  const rescan = async source => {
     model.st.scanning = true;
-    model.view = null;
-    model.dirty = true;
-    paint(host, model, api, hooks);
-    void hand(() => api?.scanSettings({source}), applyScan);
-  };
-  const setCell = (key, cell, value) => {
-    if (model.st?.draft) {
-      const scan = model.scan || {};
-      const previous = {runner: model.st.draft.runner};
-      LocalConfig.setCell(scan, model.st.draft, key, cell, value);
-      model.st.savedAt = null;
-      model.view = null;
-      model.dirty = true;
-      if (key === "runner" && LocalConfig.needsRescan(previous, model.st.draft)) {
-        rescan(LocalConfig.source(model.st.draft));
-        return;
-      }
-    } else if (key === "runner") {
-      const prev = LocalConfig.source({runner: v.runner});
-      const next = LocalConfig.source({runner: value});
-      if (prev !== next) void api?.scanSettings({source: next});
+    redraw();
+    const response = await hand(() => api.scanSettings({source}));
+    if (!response?.ok) {
+      model.st.scanning = false;
+      redraw();
+      return;
     }
-    paint(host, model, api, hooks);
+    const body = await readJson(response);
+    if (!body.hosts) {
+      model.st.scanning = false;
+      redraw();
+      return;
+    }
+    applyScan(body);
   };
+
+  const setCell = (key, cell, value) => {
+    const previous = {runner: model.st.draft.runner};
+    LocalConfig.setCell(model.scan, model.st.draft, key, cell, value);
+    model.st.savedAt = null;
+    model.st.serverFlags = [];
+    if (key === "runner" && LocalConfig.needsRescan(previous, model.st.draft)) {
+      void rescan(LocalConfig.source(model.st.draft));
+      return;
+    }
+    redraw();
+  };
+
   const save = async () => {
-    const response = await hand(() => api?.saveSettings(saveBody(model)));
+    const response = await hand(() => api.saveSettings(saveBody(model)));
     if (!response) return;
+    const body = await readJson(response);
     if (response.status === 409) {
-      const body = await response.json().catch(() => ({}));
       model.st.refused = LocalConfig.changes(model.st.draft, model.st.saved).length || 1;
       model.st.modifiedAt = body.modified_at;
-      model.view = null;
-      model.dirty = true;
-      paint(host, model, api, hooks);
+      redraw();
+      return;
+    }
+    if (response.status === 422) {
+      model.st.serverFlags = flagsFromErrors(body.errors);
+      redraw();
       return;
     }
     if (!response.ok) return;
-    const body = await response.json().catch(() => ({}));
     model.st.saved = copy(model.st.draft);
     model.st.version = body.version ?? model.st.version;
-    model.st.savedAt = body.saved_at || new Date().toISOString();
+    model.st.savedAt = body.saved_at;
     model.st.refused = 0;
-    model.view = null;
-    model.dirty = true;
-    paint(host, model, api, hooks);
+    model.st.serverFlags = [];
+    redraw();
   };
-  const reread = () => {
-    void hand(() => api?.settings(), body => {
-      if (!body || body.runner == null) return;
-      const next = fromPayload(body);
-      Object.assign(model, next);
-      model.st.reread = true;
-      model.view = null;
-      model.dirty = true;
-      paint(host, model, api, hooks);
-    });
+
+  const reread = async () => {
+    const response = await hand(() => api.settings());
+    if (!response?.ok) return;
+    const body = await readJson(response);
+    if (body.runner == null) return;
+    const next = fromPayload(body);
+    Object.assign(model, next);
+    model.st.reread = true;
+    redraw();
   };
 
   const root = el("div", {
@@ -217,7 +238,7 @@ function paint(host, model, api, hooks) {
           v.scanning ? [el("span", {class: "spin"}), v.scanningText] : [
             v.scannedText,
             el("button", {type: "button", class: "linkbtn",
-              onClick: () => rescan(LocalConfig.source(model.st?.draft || {runner: v.runner}))},
+              onClick: () => void rescan(LocalConfig.source(model.st.draft))},
               "重新扫描"),
           ],
         ),
@@ -234,9 +255,13 @@ function paint(host, model, api, hooks) {
           value => setCell("runner", "runner", value)),
         v.runnerHasBad ? roleFoot(v.runnerBads) : null,
       ),
-      code("环境变量 ", ["MMW_RUNNER"], " 设了时，它优先于这一格。「按所在环境判断」让 ",
-        ["start"], " 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，",
-        ["start"], " 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。"),
+      el("p", {class: "set-note"},
+        "环境变量 ", el("span", {class: "sheet-code"}, "MMW_RUNNER"),
+        " 设了时，它优先于这一格。「按所在环境判断」让 ",
+        el("span", {class: "sheet-code"}, "start"),
+        " 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，",
+        el("span", {class: "sheet-code"}, "start"),
+        " 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。"),
     ),
     el("section", {class: "set-block ruled"},
       el("div", {class: "set-block-head"},
@@ -275,7 +300,7 @@ function paint(host, model, api, hooks) {
   ));
   root.append(sheet);
 
-  if (host._settingsEsc) document.removeEventListener("keydown", host._settingsEsc, true);
+  detachEsc(host);
   host._settingsEsc = event => {
     if (event.key !== "Escape") return;
     event.preventDefault();
@@ -287,10 +312,6 @@ function paint(host, model, api, hooks) {
   return root;
 }
 
-export function render(host, data = {}, api, hooks = {}) {
-  const model = data?.vals ? fromScene(data)
-    : data?.st ? data
-      : fromScene({state: {}, vals: {v: data.view || data}});
-  if (!model.st) model.st = {draft: {runner: model.view?.runner, rows: {}}, saved: {runner: model.view?.runner, rows: {}}, refused: 0};
+export function render(host, model, api, hooks = {}) {
   return paint(host, model, api, hooks);
 }
