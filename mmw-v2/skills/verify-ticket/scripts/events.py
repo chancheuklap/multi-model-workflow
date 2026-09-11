@@ -100,6 +100,10 @@ EVENTS: dict[str, dict] = {
     "spec.opened":       {"stage": "night",    "actor": "main"},
     "spec.suspended":    {"stage": "night",    "actor": "main"},
     "spec.closed":       {"stage": "night",    "actor": "main"},
+    "spec.merged":       {"stage": "land",     "actor": "main",
+                          "required": ("into", "project", "merge", "base"),
+                          "patterns": {"merge": r"[0-9a-f]{40}",
+                                       "base": r"[0-9a-f]{40}"}},
 
     "ticket.claimed":    {"stage": "intake",   "actor": "worker"},
     # The session that refused is named when it could name itself, so its own hold ends
@@ -457,6 +461,7 @@ def empty_state(issue: int | None = None) -> dict:
         "ever_held": False,
         "spec_opened": False,
         "spec_closed": False,
+        "spec_merged": False,
     }
 
 
@@ -551,6 +556,8 @@ def apply(state: dict, event: dict) -> None:
         state["spec_opened"] = True
     elif name == "spec.closed":
         state["spec_closed"] = True
+    elif name == "spec.merged":
+        state["spec_merged"] = True
     elif name == "reviewer.reported":
         state["review"] = event
     elif name in ("verifier.passed", "verifier.failed"):

@@ -913,6 +913,8 @@ for a in "$@"; do
   [ "$a" = "--body" ] && body_next=1
 done
 case "$*" in
+  *"issues?state=all&labels=mmw%3Aspec&per_page=100"*)
+    printf '%s\n' ${FAKE_GH_SPECS:-76} ;;
   "repo view --json url -q .url")
     [ "${FAKE_GH_URL_FAIL:-0}" = 1 ] && exit 1
     printf '%s\n' "${FAKE_GH_URL:-https://github.com/o/r}" ;;
@@ -1000,7 +1002,11 @@ found = re.search(r"/issues/(\d+)/sub_issues", url)
 want = int(found.group(1)) if found else None
 owned = {t["number"] for t in rows if "number" in t}
 page = [] if want is None or want in owned else [{"number": t["number"]} for t in rows]
-print(json.dumps(page))
+if "--jq .[].number" in url:
+    for row in page:
+        print(row["number"])
+else:
+    print(json.dumps(page))
 ' ;;
   *"--json parent"*)
     # `parent_of` and `ticket_spec`: the issue this one sits under. A fixture ticket
@@ -1411,6 +1417,18 @@ store.write_text(json.dumps(posted))
 '
 }
 
+post_raw_comment() {
+  local n="$1" body="$2"
+  MMW_N="$n" MMW_BODY="$body" python3 -c '
+import json, os
+from pathlib import Path
+store = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "gh-comments.json"
+posted = json.loads(store.read_text()) if store.is_file() else {}
+posted.setdefault(os.environ["MMW_N"], []).append(os.environ["MMW_BODY"])
+store.write_text(json.dumps(posted))
+'
+}
+
 # The events posted on ticket <n> during this run, one `name key=value...` per line, for
 # the keys asked for: `posted_events 61 session runner`.
 posted_events() {
@@ -1551,6 +1569,22 @@ fresh_repo() {
   git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m fixture
   git -C "$TMP/repo" remote add origin "$TMP/origin.git"
   git -C "$TMP/repo" push -q -u origin main
+}
+
+fresh_project_night() {
+  fresh_repo
+  git -C "$TMP/repo" checkout -q -b proj main
+  commit_file "$TMP/repo" project.txt project project
+  git -C "$TMP/repo" push -q -u origin proj
+  git -C "$TMP/repo" checkout -q -b night proj
+  commit_file "$TMP/repo" night.txt night night
+}
+
+closed_night_spec() {
+  local project="${1:-proj}" into="${2:-night}"
+  post_ev 76 spec.opened --ticket '' --spec 76 --line "NIGHT OPENED" \
+    --field runner=paseo --field session=agt_main --field "into=$into" --field "project=$project"
+  post_ev 76 spec.closed --ticket '' --spec 76 --line "NIGHT SUMMARY" --field date=2026-09-11
 }
 
 # A second clone is the other machine in origin-authority scenarios.
@@ -1748,7 +1782,7 @@ skill_copy_for() {
 scenario_check() {
   local copy code
   copy="$(skill_copy_for check)"
-  fresh_repo
+  fresh_project_night
 
   echo "--- a complete machine, one grade per queued ticket, exits 0"
   cat > "$TMP/tickets.json" <<'JSON'
@@ -4314,7 +4348,8 @@ scenario_runnerself() {
 
 scenario_open() {
   local code pid
-  fresh_repo
+  fresh_project_night
+  git -C "$TMP/repo" push -q -u origin night
   reset_log
   no_relay
   write_open_batch
@@ -4381,7 +4416,8 @@ scenario_open() {
 
 scenario_openrefused() {
   local code
-  fresh_repo
+  fresh_project_night
+  git -C "$TMP/repo" push -q -u origin night
   write_open_batch
   echo "--- a session no adapter can name is refused, and nothing is opened"
   reset_log
@@ -5872,41 +5908,44 @@ scenario_checknoorigin() {
 
 scenario_checknopush() {
   local code
-  fresh_repo
+  fresh_project_night
+  git -C "$TMP/repo" push -q -u origin night
   git -C "$TMP/repo" remote set-url --push origin "$TMP/no-such-parent/origin.git"
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" check 76)"
   [ "$code" = 2 ] || fail "check with no push path expected 2, got $code"
-  grep -q "git push --dry-run origin origin/main:main failed" "$TMP/err" \
+  grep -Eq "dry-run fast-forward of (proj|night) failed" "$TMP/err" \
     || fail "the dry-run push failure was not named: $(cat "$TMP/err")"
 }
 
 scenario_checkbasemissing() {
-  local code
-  fresh_repo
-  git -C "$TMP/origin.git" update-ref -d refs/heads/main
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" check 76)"
-  [ "$code" = 2 ] || fail "check without origin/main expected 2, got $code"
-  grep -q "origin/main does not exist" "$TMP/err" \
-    || fail "the missing remote base was not named: $(cat "$TMP/err")"
+  local code copy
+  copy="$(skill_copy_for check-base-missing)"
+  fresh_project_night
+  code="$(run_dispatch bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
+  [ "$code" = 0 ] || fail "check with a local-only base expected 0, got $code: $(cat "$TMP/err")"
+  grep -q "open would push proj: 0 commit(s), night: 1 commit(s)" "$TMP/out" \
+    || fail "the missing remote base was not reported as a pending push: $(cat "$TMP/out")"
 }
 
 scenario_checklocalahead() {
   local code copy other
-  fresh_repo
+  copy="$(skill_copy_for check-ahead)"
+  fresh_project_night
+  git -C "$TMP/repo" push -q -u origin night
   commit_file "$TMP/repo" ahead-1.txt one ahead-one
   commit_file "$TMP/repo" ahead-2.txt two ahead-two
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" check 76)"
-  [ "$code" = 2 ] || fail "check on an ahead base expected 2, got $code"
-  grep -q "main is 2 commit(s) ahead of origin/main" "$TMP/err" \
-    || fail "the ahead count was not reported: $(cat "$TMP/err")"
-  grep -q "git push origin main" "$TMP/err" \
-    || fail "the remediation command was not reported: $(cat "$TMP/err")"
+  code="$(run_dispatch bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
+  [ "$code" = 0 ] || fail "check on an ahead base expected 0, got $code: $(cat "$TMP/err")"
+  grep -q "open would push proj: 0 commit(s), night: 2 commit(s)" "$TMP/out" \
+    || fail "the pending push count was not reported: $(cat "$TMP/out")"
 
   copy="$(skill_copy_for check-behind)"
-  fresh_repo
+  fresh_project_night
+  git -C "$TMP/repo" push -q -u origin night
   other="$(other_clone)"
+  git -C "$other" checkout -q night
   commit_file "$other" remote-ahead.txt remote remote-ahead
-  git -C "$other" push -q origin main
+  git -C "$other" push -q origin night
   reset_log
   code="$(run_dispatch bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
   [ "$code" = 0 ] || fail "a remote-ahead base cache should pass check, got $code: $(cat "$TMP/err")"
@@ -5915,7 +5954,10 @@ scenario_checklocalahead() {
 scenario_openinto() {
   local code
   fresh_repo
-  git -C "$TMP/repo" checkout -q -b night-base
+  git -C "$TMP/repo" checkout -q -b proj main
+  commit_file "$TMP/repo" project.txt project project
+  git -C "$TMP/repo" push -q -u origin proj
+  git -C "$TMP/repo" checkout -q -b night-base proj
   git -C "$TMP/repo" push -q -u origin night-base
   reset_log
   no_relay
@@ -5929,23 +5971,398 @@ scenario_openinto() {
   no_relay
 }
 
-scenario_openrefusesahead() {
-  local code remote_head
-  fresh_repo
-  remote_head="$(git -C "$TMP/origin.git" rev-parse main)"
-  commit_file "$TMP/repo" ahead.txt ahead ahead
+scenario_openpushesahead() {
+  local code local_head
+  fresh_project_night
+  local_head="$(git -C "$TMP/repo" rev-parse night)"
   reset_log
   no_relay
   write_open_batch
   seed_main_agent agt_main
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 2 ] || fail "open on an ahead base expected 2, got $code"
-  grep -q "ahead of origin/main" "$TMP/err" || fail "ahead base was not named: $(cat "$TMP/err")"
-  [ -z "$(posted_events 76)" ] || fail "a refused open posted an event: $(posted_events 76)"
-  [ -z "$(relay_now)" ] || fail "a refused open started a relay: $(relay_now)"
-  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$remote_head" ] \
-    || fail "a refused open pushed the local commit"
+  [ "$code" = 0 ] || fail "open on an ahead base expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse night)" = "$local_head" ] \
+    || fail "open did not push the local base branch"
+  no_relay
+}
+
+open_project_fixture() {
+  reset_log
+  no_relay
+  write_open_batch
+  seed_main_agent agt_main
+}
+
+scenario_openprojectreflog() {
+  local code
+  fresh_project_night
+  open_project_fixture
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "reflog open failed: $(cat "$TMP/err")"
+  posted_events 76 project | grep -qx 'spec.opened project=proj' \
+    || fail "spec.opened did not record reflog project: $(posted_events 76 project)"
+  no_relay
+}
+
+scenario_openprojectconfig() {
+  local code
+  fresh_project_night
+  git -C "$TMP/repo" reflog expire --expire=now --all
+  git -C "$TMP/repo" config branch.night.vscode-merge-base origin/proj
+  open_project_fixture
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "config open failed: $(cat "$TMP/err")"
+  posted_events 76 project | grep -qx 'spec.opened project=proj' \
+    || fail "spec.opened did not record config project: $(posted_events 76 project)"
+  no_relay
+}
+
+scenario_openprojecthistory() {
+  local code
+  fresh_project_night
+  git -C "$TMP/repo" push -q -u origin night
+  git -C "$TMP/repo" branch issue-61 night
+  git -C "$TMP/repo" push -q origin issue-61
+  git -C "$TMP/repo" reflog expire --expire=now --all
+  open_project_fixture
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "history open failed: $(cat "$TMP/err")"
+  posted_events 76 project | grep -qx 'spec.opened project=proj' \
+    || fail "spec.opened did not record history project: $(posted_events 76 project)"
+  no_relay
+}
+
+scenario_openprojecttie() {
+  local code
+  fresh_repo
+  git -C "$TMP/repo" checkout -q -b proj main
+  commit_file "$TMP/repo" shared.txt shared shared
+  git -C "$TMP/repo" branch alt
+  git -C "$TMP/repo" push -q origin proj alt
+  git -C "$TMP/repo" checkout -q -b night proj
+  commit_file "$TMP/repo" night.txt night night
+  git -C "$TMP/repo" reflog expire --expire=now --all
+  open_project_fixture
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 2 ] || fail "history tie expected 2, got $code"
+  grep -qw 'alt' "$TMP/err" && grep -qw 'proj' "$TMP/err" && grep -q 'vscode-merge-base' "$TMP/err" \
+    || fail "tie refusal omitted branches or remedy: $(cat "$TMP/err")"
+  [ -z "$(posted_events 76)" ] || fail "tie wrote spec.opened"
+  no_relay
+}
+
+scenario_openrefusesdefault() {
+  local code
+  fresh_repo
+  open_project_fixture
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 2 ] || fail "default branch open expected 2, got $code"
+  grep -q 'default branch' "$TMP/err" || fail "default refusal missing: $(cat "$TMP/err")"
+  [ -z "$(posted_events 76)" ] || fail "default open wrote spec.opened"
+}
+
+scenario_openrefusesfromdefault() {
+  local code
+  fresh_repo
+  git -C "$TMP/repo" checkout -q -b night main
+  commit_file "$TMP/repo" night.txt night night
+  git -C "$TMP/repo" reflog expire --expire=now --all
+  open_project_fixture
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 2 ] || fail "base from default expected 2, got $code"
+  grep -q 'default branch main' "$TMP/err" || fail "from-default refusal missing: $(cat "$TMP/err")"
+  [ -z "$(posted_events 76)" ] || fail "from-default open wrote spec.opened"
+}
+
+scenario_openpushes() {
+  local code proj_tip night_tip
+  fresh_repo
+  git -C "$TMP/repo" checkout -q -b proj main
+  commit_file "$TMP/repo" project.txt project project
+  git -C "$TMP/repo" checkout -q -b night proj
+  git -C "$TMP/repo" push -q -u origin night
+  commit_file "$TMP/repo" one.txt one one
+  commit_file "$TMP/repo" two.txt two two
+  proj_tip="$(git -C "$TMP/repo" rev-parse proj)"; night_tip="$(git -C "$TMP/repo" rev-parse night)"
+  open_project_fixture
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "push open failed: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$proj_tip" ] || fail "project was not pushed"
+  [ "$(git -C "$TMP/origin.git" rev-parse night)" = "$night_tip" ] || fail "base was not pushed"
+  no_relay
+}
+
+scenario_openrefusesdiverged() {
+  local code other project_remote night_remote
+  fresh_project_night
+  git -C "$TMP/repo" push -q -u origin night
+  other="$(other_clone)"
+  git -C "$other" checkout -q night
+  commit_file "$other" remote.txt remote remote
+  git -C "$other" push -q origin night
+  commit_file "$TMP/repo" local.txt local local
+  git -C "$TMP/repo" fetch -q origin
+  project_remote="$(git -C "$TMP/origin.git" rev-parse proj)"; night_remote="$(git -C "$TMP/origin.git" rev-parse night)"
+  open_project_fixture
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 2 ] || fail "diverged open expected 2, got $code"
+  grep -q 'local has 1 commit(s), origin has 1 commit(s)' "$TMP/err" || fail "divergence counts missing: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$project_remote" ] || fail "project changed on refusal"
+  [ "$(git -C "$TMP/origin.git" rev-parse night)" = "$night_remote" ] || fail "base changed on refusal"
+  [ -z "$(posted_events 76)" ] || fail "diverged open wrote spec.opened"
+}
+
+scenario_openkeepsproject() {
+  local code
+  fresh_project_night
+  git -C "$TMP/repo" reflog expire --expire=now --all
+  git -C "$TMP/repo" branch alt proj
+  git -C "$TMP/repo" push -q origin alt
+  open_project_fixture
+  post_ev 76 spec.opened --ticket '' --spec 76 --line opened --field into=night --field project=proj
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "repeat open failed: $(cat "$TMP/err")"
+  [ "$(posted_events 76 project | grep -c '^spec.opened ' | tr -d ' ')" = 2 ] \
+    || fail "repeat open did not write a second spec.opened: $(posted_events 76 project)"
+  [ "$(posted_events 76 project | tail -1)" = 'spec.opened project=proj' ] || fail "repeat open changed project"
+  no_relay
+}
+
+scenario_openprojecthead() {
+  local code
+  fresh_repo
+  git -C "$TMP/repo" checkout -q -b proj main
+  commit_file "$TMP/repo" project.txt project project
+  git -C "$TMP/repo" push -q -u origin proj
+  git -C "$TMP/repo" checkout -q -b night
+  commit_file "$TMP/repo" night.txt night night
+  open_project_fixture
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "plain checkout project inference failed: $(cat "$TMP/err")"
+  [ "$(posted_events 76 project | tail -1)" = 'spec.opened project=proj' ] \
+    || fail "HEAD was recorded instead of the current project branch: $(posted_events 76 project)"
+  no_relay
+}
+
+scenario_checkproject() {
+  local code copy before
+  copy="$(skill_copy_for checkproject)"
+  fresh_project_night
+  before="$(git -C "$TMP/origin.git" show-ref | sort)"
+  cat > "$TMP/tickets.json" <<'JSON'
+[{"number":61,"state":"OPEN","labels":["ready-for-agent","junior-worker"]}]
+JSON
+  reset_log
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
+  [ "$code" = 0 ] || fail "check project failed: $(cat "$TMP/err")"
+  grep -q 'project branch: proj (source: reflog)' "$TMP/out" || fail "check omitted project/source: $(cat "$TMP/out")"
+  [ "$(git -C "$TMP/origin.git" show-ref | sort)" = "$before" ] || fail "check pushed a branch"
+}
+
+setup_finish_closed() {
+  fresh_project_night
+  git -C "$TMP/repo" push -q -u origin night
+  git -C "$TMP/repo" checkout -q proj
+  cat > "$TMP/tickets.json" <<'JSON'
+[{"number":61,"state":"CLOSED","labels":[]}]
+JSON
+  reset_log
+  closed_night_spec
+}
+
+scenario_finishmerges() {
+  local code merge base
+  setup_finish_closed
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 0 ] || fail "finish merge failed: $(cat "$TMP/err")"
+  merge="$(git -C "$TMP/origin.git" rev-parse proj)"; base="$(git -C "$TMP/origin.git" rev-parse "$merge^1")"
+  [ "$(git -C "$TMP/origin.git" show -s --format=%s "$merge")" = "Merge branch 'night'" ] || fail "wrong merge subject"
+  posted_events 76 into project merge base line | grep -qx "spec.merged into=night project=proj merge=$merge base=$base line=Merged night into proj: https://github.com/o/r/compare/$base...$merge (merge commit https://github.com/o/r/commit/$merge)" \
+    || fail "spec.merged fields or links wrong: $(posted_events 76 into project merge base line)"
+}
+
+scenario_finishcleans() {
+  local code main_path lock
+  setup_finish_closed
+  mkdir -p "$TMP/repo/.worktrees"
+  git -C "$TMP/repo" worktree add -q "$TMP/repo/.worktrees/night-checkout" night
+  git -C "$TMP/repo" worktree add -q --detach "$TMP/repo/.worktrees/merge-night" origin/night
+  lock="$MMW_HOME/state/o__r/merge-night.lock"
+  mkdir -p "$(dirname "$lock")"
+  : > "$lock"
+  main_path="$(git -C "$TMP/repo" worktree list --porcelain | head -1 | sed 's/^worktree //')"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 0 ] || fail "finish clean failed: $(cat "$TMP/err")"
+  git -C "$TMP/repo" show-ref --verify --quiet refs/heads/night && fail "local night remains"
+  git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night && fail "origin night remains"
+  [ ! -e "$TMP/repo/.worktrees/night-checkout" ] || fail "base worktree remains"
+  [ ! -e "$TMP/repo/.worktrees/merge-night" ] || fail "base merge worktree remains"
+  [ ! -e "$lock" ] || fail "base merge lock remains"
+  [ -d "$main_path" ] || fail "main checkout was removed"
+  return 0
+}
+
+scenario_finishrefusesunclosed() {
+  local code before local_night
+  fresh_project_night; git -C "$TMP/repo" push -q -u origin night; git -C "$TMP/repo" checkout -q proj
+  echo '[]' > "$TMP/tickets.json"; reset_log
+  post_ev 76 spec.opened --ticket '' --spec 76 --line opened --field into=night --field project=proj
+  before="$(git -C "$TMP/origin.git" show-ref | sort)"
+  local_night="$(git -C "$TMP/repo" rev-parse night)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 2 ] || fail "unclosed finish expected 2, got $code"
+  grep -q 'spec.closed' "$TMP/err" || fail "unclosed refusal missing: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" show-ref | sort)" = "$before" ] || fail "unclosed finish changed origin"
+  [ "$(git -C "$TMP/repo" rev-parse night)" = "$local_night" ] || fail "unclosed finish changed local night"
+}
+
+scenario_finishrefusesopenticket() {
+  local code before
+  setup_finish_closed
+  printf '%s\n' '[{"number":61,"state":"OPEN","labels":[]}]' > "$TMP/tickets.json"
+  before="$(git -C "$TMP/origin.git" rev-parse proj)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 2 ] || fail "open-ticket finish expected 2, got $code"
+  grep -q '#61' "$TMP/err" || fail "open ticket number missing: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$before" ] || fail "open-ticket finish changed project"
+}
+
+scenario_finishrefusesothernight() {
+  local code before
+  setup_finish_closed
+  post_ev 77 spec.opened --ticket '' --spec 77 --line opened --field into=night --field project=proj
+  before="$(git -C "$TMP/origin.git" rev-parse proj)"
+  code="$(run_dispatch env FAKE_GH_SPECS='76 77' FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 2 ] || fail "other-night finish expected 2, got $code"
+  grep -q '#77' "$TMP/err" || fail "other night missing: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$before" ] || fail "other-night finish changed project"
+}
+
+scenario_finishrefusesnoproject() {
+  local code before
+  fresh_project_night; git -C "$TMP/repo" push -q -u origin night; git -C "$TMP/repo" checkout -q proj
+  echo '[]' > "$TMP/tickets.json"; reset_log
+  post_ev 76 spec.opened --ticket '' --spec 76 --line opened --field into=night
+  post_ev 76 spec.closed --ticket '' --spec 76 --line closed --field date=2026-09-11
+  before="$(git -C "$TMP/origin.git" rev-parse proj)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 2 ] || fail "no-project finish expected 2, got $code"
+  grep -q 'open 76 again' "$TMP/err" || fail "no-project remedy missing: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$before" ] || fail "no-project finish changed project"
+}
+
+scenario_finishconflict() {
+  local code before
+  fresh_repo
+  printf 'base\n' > "$TMP/repo/shared.txt"; git -C "$TMP/repo" add shared.txt; git -C "$TMP/repo" commit -q -m base; git -C "$TMP/repo" push -q origin main
+  git -C "$TMP/repo" checkout -q -b proj; commit_file "$TMP/repo" shared.txt project project; git -C "$TMP/repo" push -q -u origin proj
+  git -C "$TMP/repo" checkout -q -b night HEAD~1; commit_file "$TMP/repo" shared.txt night night; git -C "$TMP/repo" push -q -u origin night; git -C "$TMP/repo" checkout -q proj
+  echo '[]' > "$TMP/tickets.json"; reset_log; closed_night_spec
+  before="$(git -C "$TMP/origin.git" rev-parse proj)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 1 ] || fail "conflict finish expected 1, got $code: $(cat "$TMP/err")"
+  grep -q 'shared.txt' "$TMP/err" || fail "conflict file missing: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$before" ] || fail "conflict changed project"
+  git -C "$TMP/repo" show-ref --verify --quiet refs/heads/night || fail "local night deleted"
+  git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night || fail "origin night deleted"
+}
+
+scenario_finishred() {
+  local code before
+  fresh_repo
+  git -C "$TMP/repo" checkout -q -b proj main
+  mkdir -p "$TMP/repo/.mmw"; printf '%s\n' '{"checks":["echo RED-CHECK >&2; false"]}' > "$TMP/repo/.mmw/target.json"
+  git -C "$TMP/repo" add .mmw/target.json; git -C "$TMP/repo" commit -q -m checks; git -C "$TMP/repo" push -q -u origin proj
+  git -C "$TMP/repo" checkout -q -b night; commit_file "$TMP/repo" night.txt night night; git -C "$TMP/repo" push -q -u origin night; git -C "$TMP/repo" checkout -q proj
+  echo '[]' > "$TMP/tickets.json"; reset_log; closed_night_spec
+  before="$(git -C "$TMP/origin.git" rev-parse proj)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 1 ] || fail "red finish expected 1, got $code: $(cat "$TMP/err")"
+  grep -q 'echo RED-CHECK' "$TMP/err" || fail "failed command missing: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$before" ] || fail "red finish changed project"
+  posted_events 76 | grep -q spec.merged && fail "red finish wrote spec.merged"
+  return 0
+}
+
+scenario_finishkeepsdirty() {
+  local code dirty
+  setup_finish_closed
+  dirty="$TMP/repo/.worktrees/night-dirty"; mkdir -p "$TMP/repo/.worktrees"
+  git -C "$TMP/repo" worktree add -q "$dirty" night
+  printf 'dirty\n' > "$dirty/untracked.txt"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 0 ] || fail "dirty cleanup changed success: $(cat "$TMP/err")"
+  [ -d "$dirty" ] || fail "dirty worktree was removed"
+  grep -q "$dirty" "$TMP/err" || fail "dirty worktree path missing: $(cat "$TMP/err")"
+}
+
+scenario_finishrerun() {
+  local code dirty first_merge
+  setup_finish_closed
+  dirty="$TMP/repo/.worktrees/night-dirty"; mkdir -p "$TMP/repo/.worktrees"
+  git -C "$TMP/repo" worktree add -q "$dirty" night
+  printf 'dirty\n' > "$dirty/untracked.txt"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 0 ] || fail "first finish failed: $(cat "$TMP/err")"
+  first_merge="$(git -C "$TMP/origin.git" rev-parse proj)"
+  rm -f "$dirty/untracked.txt"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 0 ] || fail "finish rerun failed: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$first_merge" ] || fail "rerun made a second merge"
+  [ ! -d "$dirty" ] || fail "rerun did not finish cleanup"
+  git -C "$TMP/repo" show-ref --verify --quiet refs/heads/night && fail "rerun left local night"
+  [ "$(posted_events 76 | grep -c '^spec.merged' | tr -d ' ')" = 1 ] || fail "rerun wrote another spec.merged"
+}
+
+scenario_finishcontained() {
+  local code
+  fresh_repo
+  git -C "$TMP/repo" checkout -q -b proj main
+  commit_file "$TMP/repo" project.txt project project
+  git -C "$TMP/repo" push -q -u origin proj
+  git -C "$TMP/repo" checkout -q -b night proj
+  git -C "$TMP/repo" push -q -u origin night
+  git -C "$TMP/repo" checkout -q proj
+  echo '[]' > "$TMP/tickets.json"
+  reset_log
+  closed_night_spec
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 0 ] || fail "already-contained finish failed: $(cat "$TMP/err")"
+  git -C "$TMP/repo" show-ref --verify --quiet refs/heads/night && fail "contained local night remains"
+  git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night && fail "contained origin night remains"
+  return 0
+}
+
+scenario_finishrefusesunreadablespec() {
+  local code before
+  setup_finish_closed
+  post_raw_comment 77 'broken event <!-- mmw {"v":1,"event":"spec.opened","into": -->'
+  before="$(git -C "$TMP/origin.git" show-ref | sort)"
+  code="$(run_dispatch env FAKE_GH_SPECS='76 77' FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 2 ] || fail "unreadable-spec finish expected 2, got $code"
+  grep -q '#77' "$TMP/err" || fail "unreadable spec was not named: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" show-ref | sort)" = "$before" ] || fail "unreadable-spec finish changed origin"
+}
+
+scenario_finishcleanupindependent() {
+  local code merge base checked merge_wt
+  setup_finish_closed
+  merge="$(git -C "$TMP/repo" rev-parse proj)"
+  base="$(git -C "$TMP/repo" rev-parse "$merge^1")"
+  post_ev 76 spec.merged --ticket '' --spec 76 --line merged --field into=night \
+    --field project=proj --field "merge=$merge" --field "base=$base"
+  checked="$TMP/repo/.worktrees/night-clean"
+  merge_wt="$TMP/repo/.worktrees/merge-night"
+  mkdir -p "$TMP/repo/.worktrees"
+  git -C "$TMP/repo" worktree add -q "$checked" night
+  git -C "$TMP/repo" worktree add -q --detach "$merge_wt" origin/night
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 0 ] || fail "independent cleanup failed: $(cat "$TMP/err")"
+  [ ! -d "$checked" ] || fail "clean base worktree was gated on branch containment"
+  [ ! -d "$merge_wt" ] || fail "base merge worktree was gated on branch containment"
+  git -C "$TMP/repo" show-ref --verify --quiet refs/heads/night || fail "uncontained local branch was deleted"
+  git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night || fail "uncontained origin branch was deleted"
 }
 
 scenario_startfromorigin() {
@@ -7163,7 +7580,8 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openrefusesahead openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="$ALL openprojecthead finishmerges finishcleans finishrefusesunclosed finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -7314,7 +7732,31 @@ banner_for() {
     retractunreadable) echo RETRACT-UNREADABLE-OK ;;
     open) echo OPEN-OK ;;
     openinto) echo OPEN-INTO-OK ;;
-    openrefusesahead) echo OPEN-REFUSES-AHEAD-OK ;;
+    openpushesahead) echo OPEN-PUSHES-AHEAD-OK ;;
+    openprojectreflog) echo OPEN-PROJECT-REFLOG-OK ;;
+    openprojectconfig) echo OPEN-PROJECT-CONFIG-OK ;;
+    openprojecthistory) echo OPEN-PROJECT-HISTORY-OK ;;
+    openprojecttie) echo OPEN-PROJECT-TIE-OK ;;
+    openrefusesdefault) echo OPEN-REFUSES-DEFAULT-OK ;;
+    openrefusesfromdefault) echo OPEN-REFUSES-FROM-DEFAULT-OK ;;
+    openpushes) echo OPEN-PUSHES-OK ;;
+    openrefusesdiverged) echo OPEN-REFUSES-DIVERGED-OK ;;
+    openkeepsproject) echo OPEN-KEEPS-PROJECT-OK ;;
+    checkproject) echo CHECK-PROJECT-OK ;;
+    openprojecthead) echo OPEN-PROJECT-HEAD-OK ;;
+    finishmerges) echo FINISH-MERGES-OK ;;
+    finishcleans) echo FINISH-CLEANS-OK ;;
+    finishrefusesunclosed) echo FINISH-REFUSES-UNCLOSED-OK ;;
+    finishrefusesopenticket) echo FINISH-REFUSES-OPEN-TICKET-OK ;;
+    finishrefusesothernight) echo FINISH-REFUSES-OTHER-NIGHT-OK ;;
+    finishrefusesnoproject) echo FINISH-REFUSES-NO-PROJECT-OK ;;
+    finishconflict) echo FINISH-CONFLICT-OK ;;
+    finishred) echo FINISH-RED-OK ;;
+    finishkeepsdirty) echo FINISH-KEEPS-DIRTY-OK ;;
+    finishrerun) echo FINISH-RERUN-OK ;;
+    finishcontained) echo FINISH-CONTAINED-OK ;;
+    finishrefusesunreadablespec) echo FINISH-REFUSES-UNREADABLE-SPEC-OK ;;
+    finishcleanupindependent) echo FINISH-CLEANUP-INDEPENDENT-OK ;;
     openrefused) echo OPEN-REFUSED-OK ;;
     openticket) echo OPEN-TICKET-OK ;;
     ack) echo ACK-OK ;;

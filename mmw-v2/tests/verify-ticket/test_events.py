@@ -38,15 +38,29 @@ def started(session="term_7", runner="orca", kind="worker"):
 
 
 class TheVocabulary(unittest.TestCase):
-    """29 events — the spec's 25 plus worker.queued, reviewer.lost, verifier.lost and
+    """30 events — the spec's 26 plus worker.queued, reviewer.lost, verifier.lost and
     ticket.bounced — one shape and closed sets."""
 
-    def test_there_are_twenty_nine_events(self):
-        self.assertEqual(len(events.EVENTS), 29)
+    def test_there_are_thirty_events(self):
+        self.assertEqual(len(events.EVENTS), 30)
         for name in ("ticket.checked", "worker.touched", "worker.queued", "reviewer.lost",
                      "verifier.lost", "ticket.bounced"):
             with self.subTest(name=name):
                 self.assertIn(name, events.EVENTS)
+
+    def test_spec_merged_is_readable_and_spec_opened_keeps_project_optional(self):
+        opened = ev("spec.opened", "NIGHT OPENED", runner="paseo", session="main-1",
+                    into="night")
+        what, payload = events.parse(opened)
+        self.assertEqual(what, "event")
+        self.assertNotIn("project", payload)
+
+        merged = ev("spec.merged", "Merged night into proj", into="night", project="proj",
+                    merge="a" * 40, base="b" * 40)
+        what, payload = events.parse(merged)
+        self.assertEqual(what, "event")
+        self.assertEqual((payload["into"], payload["project"], payload["merge"], payload["base"]),
+                         ("night", "proj", "a" * 40, "b" * 40))
 
     def test_bounced_needs_reason_and_commit(self):
         readable = ev("ticket.bounced", "Could not land", reason="conflict",

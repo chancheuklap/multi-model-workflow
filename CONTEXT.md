@@ -206,7 +206,7 @@ _Avoid_: ticket message, closeout notification, 通知 (as a term)
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **worktree**:
-Either the per-ticket git worktree of a workspace, `<main checkout>/.worktrees/issue-<n>` on the ticket branch, or the detached merge worktree `<main checkout>/.worktrees/merge-<base branch>` that `advance`, `land` and `reverify` reset to `origin/<base branch>`. The latter persists so ignored dependencies and caches survive, and one lock per base branch permits one merge at a time. A runner receives only the ticket worktree.
+Either the per-ticket git worktree of a workspace, `<main checkout>/.worktrees/issue-<n>` on the ticket branch, or a detached merge worktree: `<main checkout>/.worktrees/merge-<base branch>` for `advance`, `land` and `reverify`, and `<main checkout>/.worktrees/merge-<project branch>` while `finish` merges a base branch back. A merge worktree is reset to its authoritative origin branch before use and persists so ignored dependencies and caches survive; after the accepted base branch is contained in the project branch, `finish` removes the base branch's merge worktree and lock. One lock per merge target permits one merge at a time. A runner receives only the ticket worktree.
 _Avoid_: 工作区, checkout (when this is meant), ~/.mmw/worktrees
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
@@ -659,6 +659,10 @@ The `spec.closed` event `dispatch.sh summary <spec>` posts on the spec when the 
 _Avoid_: 夜间总结, the night summary
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
+**`spec.merged`**:
+The event `dispatch.sh finish <spec>` posts on the spec only after the accepted base branch has been merged into and pushed to the project branch. Its payload names `into`, `project`, the pushed merge commit in `merge`, and that merge's first parent in `base`; its first line links the compare from `base` to `merge` and the merge commit. Once present it is the durable precondition for retrying only the remaining cleanup, never for making another merge.
+_Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
+
 ### Running the criteria
 
 **ledger**:
@@ -863,8 +867,13 @@ _Avoid_: base-commit (in prose), 起点 commit, cut point, 切点, review bounda
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **base branch**:
-The branch on `origin` a night's tickets merge into; `origin/<base branch>` is authoritative and a local branch of the same name is a cache. The main agent opens the night on it, and `spec.opened` and `worker.started` name it in `into`.
+The temporary integration branch on `origin` a night's tickets merge into; `origin/<base branch>` is authoritative and a local branch of the same name is a cache. The main agent opens the night on it, `spec.opened` and `worker.started` name it in `into`, and after user acceptance `finish` merges it into the recorded project branch and removes every contained clean copy of it.
 _Avoid_: main branch, 基线分支, main (as a name)
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
+**project branch**:
+The branch from which a night's base branch was cut and to which `finish` returns the accepted night. `open` records it in `spec.opened.project`, preferring an earlier such event, then the base branch's creation reflog, `branch.<base branch>.vscode-merge-base`, and finally the uniquely closest eligible origin branch. It is pushed before the night opens and is never merged into the repository default branch by MMW.
+_Avoid_: default branch (for this), target branch, parent branch
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`MMW_BASE_REF`**:
@@ -897,7 +906,7 @@ _Avoid_: 派发 (as a term), run (as a dispatch.sh verb)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`dispatch.sh`**:
-The dispatch skill's script: `check <spec>`, `open <spec>`, `open-ticket <n>`, `adopt <n>`, `self`, `advance <spec>`, `integrate <n>`, `land <n>`, `start <n> worker|reviewer|verifier`, `retract <n>`, `wait <n> worker|reviewer|verifier`, `ack <n> <event>` / `ack relay.recovered`, `resume <n> "<text>"`, `status <spec>`, `reverify <spec>`, `route <ticket> <child> fixed|stale|became-ticket [<new ticket>]`, `summary <spec>`, `suspend <spec>`. It starts, messages, asks after and stops a session only through the adapter of the runner that runs it; the ticket's events carry its shared state. It reads the worker-grade label and nothing else to pick the worker row. The skill's own text calls it `<dispatch>`.
+The dispatch skill's script: `check <spec>`, `open <spec>`, `finish <spec>`, `open-ticket <n>`, `adopt <n>`, `self`, `advance <spec>`, `integrate <n>`, `land <n>`, `start <n> worker|reviewer|verifier`, `retract <n>`, `wait <n> worker|reviewer|verifier`, `ack <n> <event>` / `ack relay.recovered`, `resume <n> "<text>"`, `status <spec>`, `reverify <spec>`, `route <ticket> <child> fixed|stale|became-ticket [<new ticket>]`, `summary <spec>`, `suspend <spec>`. It starts, messages, asks after and stops a session only through the adapter of the runner that runs it; the ticket's events carry its shared state. It reads the worker-grade label and nothing else to pick the worker row. The skill's own text calls it `<dispatch>`.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **dispatch line**:
@@ -906,12 +915,17 @@ _Avoid_: 派发 (as a term)词, prompt (bare)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **check**:
-`dispatch.sh check <spec>`: runs `install.sh --check`, confirms tonight's runner has an adapter, resolves the `models.json` row of each worker grade, the reviewer and the verifier against that runner's catalog, confirms the host of each is `available` in `paseo provider ls --json` when Paseo is tonight's runner, and confirms every queued ticket has at most one worker-grade label that `models.json` contains. Exit 0 all passed; exit 2 one or more failed, stderr one `dispatch: …` line per failure. Do not `open` on 2.
+`dispatch.sh check <spec>`: infers the current base branch's project branch, fetches origin, reports each branch's pending push count and verifies the push by dry-run without changing origin; runs `install.sh --check`; confirms tonight's runner has an adapter; resolves the `models.json` row of each worker grade, the reviewer and the verifier against that runner's catalog; confirms the host of each is `available` in `paseo provider ls --json` when Paseo is tonight's runner; and confirms every queued ticket has at most one worker-grade label that `models.json` contains. Exit 0 all passed; exit 2 one or more failed, stderr one `dispatch: …` line per failure. Do not `open` on 2.
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **open**:
-`dispatch.sh open <spec>`: the night begins. The relay opens a **watch** on the spec with the calling session as its main agent, named by the runner and session its adapter's `self` reads (`relay.py start --spec <spec> --runner <runner> --session <session>`), starting the relay when none runs, and `spec.opened` is written on the spec naming that runner and session. Opening the same night again makes the calling session its main agent and touches no other watch; a spec one of whose tickets is already watched on its own is refused before anything is written. A `spec.opened` that could not be written closes the watch this call opened. `advance` refuses a night that is not open, and `summary` and `suspend` close its watch. Exit 0 opened; exit 2 nothing opened, the reason on stderr.
+`dispatch.sh open <spec>`: the night begins. It infers the project branch from an earlier `spec.opened.project`, the base branch's creation reflog, `branch.<base branch>.vscode-merge-base`, or the uniquely closest eligible origin history, in that order. Before opening it rejects a default base or project branch and any local/origin divergence, then fast-forward pushes local-only or locally ahead project and base branches. The relay opens a **watch** on the spec with the calling session as its main agent, named by the runner and session its adapter's `self` reads (`relay.py start --spec <spec> --runner <runner> --session <session>`), starting the relay when none runs, and `spec.opened` is written on the spec naming that runner, session, `into` and `project`. Opening the same night again keeps that project branch, makes the calling session its main agent and touches no other watch. `advance` refuses a night that is not open, and `summary` and `suspend` close its watch. Exit 0 opened; exit 2 refused, the reason on stderr.
 _Avoid_: register (as the name of this), 开夜 (as a term)
+_Home_: `mmw-v2/skills/dispatch/references/night.md`
+
+**`dispatch.sh finish`**:
+`dispatch.sh finish <spec>`, run by the main agent after the user accepts a closed night, merges `origin/<base branch>` into the recorded project branch in a detached merge worktree, runs repository checks with `MMW_BASE_REF=origin/<project branch>`, fast-forward pushes the checked result, and writes `spec.merged`. It then removes the contained base branch from origin and locally, clean worktrees that have it checked out, the merge worktree and its lock. It refuses before changing anything while the spec is not closed, has no project branch, shares its open base branch with another night, or any ticket under a spec using that base remains open. Conflict or red checks push and delete nothing. Once `spec.merged` exists, another run performs only unfinished cleanup.
+_Avoid_: finish (bare), summary (for this)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **open-ticket**:
@@ -1285,7 +1299,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 
 | name | values |
 | --- | --- |
-| event | `spec.opened` · `spec.suspended` · `spec.closed` · `ticket.claimed` · `ticket.refused` · `ticket.passed` · `ticket.returned` · `ticket.released` · `ticket.landed` · `ticket.regressed` · `ticket.checked` · `worker.started` · `worker.resumed` · `worker.retracted` · `worker.replaced` · `worker.decided` · `worker.queued` · `worker.touched` · `worker.lost` · `reviewer.started` · `reviewer.reported` · `reviewer.lost` · `verifier.started` · `verifier.passed` · `verifier.failed` · `verifier.lost` · `child.opened` · `child.closed` |
+| event | `spec.opened` · `spec.suspended` · `spec.closed` · `spec.merged` · `ticket.claimed` · `ticket.refused` · `ticket.passed` · `ticket.returned` · `ticket.released` · `ticket.landed` · `ticket.regressed` · `ticket.checked` · `worker.started` · `worker.resumed` · `worker.retracted` · `worker.replaced` · `worker.decided` · `worker.queued` · `worker.touched` · `worker.lost` · `reviewer.started` · `reviewer.reported` · `reviewer.lost` · `verifier.started` · `verifier.passed` · `verifier.failed` · `verifier.lost` · `child.opened` · `child.closed` |
 | event subject | `spec` · `ticket` · `worker` · `reviewer` · `verifier` · `child` |
 | common payload field | `v` · `event` · `stage` · `actor` · `spec` · `ticket` · `at` |
 | ends every hold | `ticket.landed` · `ticket.returned` · `ticket.released` · `spec.suspended` |
