@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {fromBoard, fromScene, render} from "../../board/page/detail.mjs";
-import {accessibleName, installDom, walk} from "./fake-dom.mjs";
+import {accessibleName, installDom, namedButton, walk} from "./fake-dom.mjs";
 
 const ticketScene = {
   vals: {
@@ -52,10 +52,6 @@ const emptyScene = {
     links: [], blockers: [], blocks: [], kids: [], ticketRows: [], specRows: [], decisionRows: [],
   },
 };
-
-function namedButton(root, name) {
-  return walk(root).find(node => node.tagName === "BUTTON" && accessibleName(node) === name);
-}
 
 function mount(view, api, hooks) {
   const {document, window} = installDom();

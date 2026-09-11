@@ -1,3 +1,4 @@
+// Shared DOM substitute for page-component tests that run directly in Node.
 export class TextNode {
   constructor(text) {
     this.nodeType = 3;
@@ -106,4 +107,8 @@ export function accessibleName(node) {
   };
   visit(node);
   return parts.join(" ");
+}
+
+export function namedButton(root, name) {
+  return walk(root).find(node => node.tagName === "BUTTON" && accessibleName(node) === name);
 }

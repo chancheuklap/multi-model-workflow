@@ -5,8 +5,6 @@ import re
 import sys
 import threading
 import unittest
-import urllib.error
-import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -34,7 +32,7 @@ class FakeGate:
         return True
 
 
-class RunningHandler:
+class RunningHandler(RunningBoard):
     def __init__(self, handler):
         self.handler = handler
 
@@ -49,16 +47,6 @@ class RunningHandler:
         self.server.shutdown()
         self.server.server_close()
         self.thread.join(timeout=5)
-
-    def request(self, method: str, path: str) -> tuple[int, str]:
-        request = urllib.request.Request(self.origin + path, method=method)
-        try:
-            response = urllib.request.urlopen(request, timeout=3)
-        except urllib.error.HTTPError as error:
-            response = error
-        with response:
-            return response.status, response.read().decode("utf-8")
-
 
 class ServerTest(unittest.TestCase):
     def test_shell_carries_a_fresh_token(self):

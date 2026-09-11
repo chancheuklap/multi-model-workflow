@@ -1,3 +1,5 @@
+"""Run the real task-board server behind reusable HTTP test helpers."""
+
 from __future__ import annotations
 
 import json
@@ -20,9 +22,11 @@ class RunningBoard:
         self.fixture = fixture
 
     def __enter__(self):
-        self.temp = tempfile.TemporaryDirectory() if self.fixture is not None else None
-        self.directory = Path(self.temp.name) if self.temp else None
+        self.temp = None
+        self.directory = None
         if self.fixture is not None:
+            self.temp = tempfile.TemporaryDirectory()
+            self.directory = Path(self.temp.name)
             self.write_fixture(self.fixture)
             self.environment["MMW_BOARD_FAKE_DIR"] = str(self.directory)
         env = os.environ.copy()
@@ -67,9 +71,6 @@ class RunningBoard:
             response = error
         with response:
             return response.status, response.read().decode()
-
-    def write(self, method, path, payload=None):
-        return self.request(method, path, payload, self.write_headers)
 
     def write_fixture(self, fixture):
         self.fixture = fixture

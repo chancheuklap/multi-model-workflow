@@ -28,10 +28,10 @@ def config(version=1):
         "advisor": {"host": "claude", "model": "fable 5.1", "effort": "medium"}}}
 
 
-def Board(home, catalog=CATALOG, extra_env=None):
-    environment = dict(extra_env or {})
-    environment.update(MMW_HOME=str(home), MMW_HOST_CATALOG=str(catalog))
-    return RunningBoard(environment=environment)
+def running_board(home, catalog=CATALOG):
+    return RunningBoard(environment={
+        "MMW_HOME": str(home), "MMW_HOST_CATALOG": str(catalog),
+    })
 
 
 class SettingsApiTest(unittest.TestCase):
@@ -42,7 +42,7 @@ class SettingsApiTest(unittest.TestCase):
     def test_get_settings_answers_config_and_scan(self):
         catalog = self.home / "catalog.json"
         catalog.write_bytes(CATALOG.read_bytes())
-        with Board(self.home, catalog) as board:
+        with running_board(self.home, catalog) as board:
             catalog.write_text(json.dumps({"cli": {}}))
             status, raw = board.request("GET", "/api/settings")
             data = json.loads(raw)
@@ -57,13 +57,13 @@ class SettingsApiTest(unittest.TestCase):
 
     def test_put_saves_with_the_read_version(self):
         proposed = config(); proposed["rows"]["reviewer"]["model"] = "sonnet 5"
-        with Board(self.home) as board:
+        with running_board(self.home) as board:
             status, raw = board.request("PUT", "/api/settings", proposed, board.write_headers)
         self.assertEqual(status, 200); self.assertEqual(json.loads(raw)["version"], 2)
         self.assertEqual(json.loads((self.home / "models.json").read_text())["rows"]["reviewer"]["model"], "sonnet 5")
 
     def test_put_after_a_change_elsewhere_is_409(self):
-        with Board(self.home) as board:
+        with running_board(self.home) as board:
             elsewhere = config(2); elsewhere["runner"] = "herdr"
             (self.home / "models.json").write_text(json.dumps(elsewhere) + "\n")
             stamp = 1_700_000_000
@@ -77,7 +77,7 @@ class SettingsApiTest(unittest.TestCase):
     def test_put_invalid_cell_is_422(self):
         proposed = config(); proposed["rows"]["reviewer"]["model"] = "missing"
         before = (self.home / "models.json").read_bytes()
-        with Board(self.home) as board:
+        with running_board(self.home) as board:
             status, raw = board.request("PUT", "/api/settings", proposed, board.write_headers)
         self.assertEqual(status, 422); self.assertEqual(json.loads(raw)["errors"][0]["cell"], "reviewer.model")
         self.assertEqual((self.home / "models.json").read_bytes(), before)
@@ -88,7 +88,7 @@ class SettingsApiTest(unittest.TestCase):
         holder = subprocess.Popen(["python3", "-c", code, str(scripts), str(self.home / "models.lock")], stdout=subprocess.PIPE, text=True)
         self.assertEqual(holder.stdout.readline().strip(), "ready")
         try:
-            with Board(self.home) as board:
+            with running_board(self.home) as board:
                 status, raw = board.request("PUT", "/api/settings", config(), board.write_headers)
             self.assertEqual(status, 423)
             payload = json.loads(raw)
@@ -99,7 +99,7 @@ class SettingsApiTest(unittest.TestCase):
 
     def test_scan_answers_the_new_catalog(self):
         down = ROOT / "mmw-v2" / "tests" / "dispatch" / "catalogs" / "cli.json"
-        with Board(self.home, down) as board:
+        with running_board(self.home, down) as board:
             status, raw = board.request(
                 "POST", "/api/settings/scan", {"source": "paseo"}, board.write_headers,
             )

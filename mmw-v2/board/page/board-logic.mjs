@@ -1,4 +1,4 @@
-import {hhmm} from "./shared.mjs";
+import {hhmm, minutes} from "./shared.mjs";
 
 export const STEPS = ["queued", "working", "waiting", "review", "verify", "landed"];
 export const LIGHT_WORD = {orange: "需要你", green: "在跑", ink: "好了", hollow: "待派"};
@@ -16,7 +16,6 @@ const ENDED_BY = {
   "worker.replaced": "已换人", "ticket.refused": "拒绝认领", "worker.lost": "会话没了",
   "reviewer.lost": "会话没了", "verifier.lost": "会话没了",
 };
-const minutes = (from, to = new Date()) => Math.max(0, Math.round((new Date(to) - new Date(from)) / 60000));
 const duration = value => value < 60 ? `${value} 分钟` : `${Math.floor(value / 60)}h${String(value % 60).padStart(2, "0")}m`;
 const short = value => String(value || "").slice(0, 7);
 const workerStartedAfter = (fold, at) => fold.sessions.some(session =>

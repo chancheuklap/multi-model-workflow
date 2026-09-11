@@ -3,7 +3,7 @@ import test from "node:test";
 
 import {makeApi} from "../../board/page/api.mjs";
 import {fromBoard, fromScene, render} from "../../board/page/topbar.mjs";
-import {accessibleName, installDom, walk} from "./fake-dom.mjs";
+import {installDom, namedButton, walk} from "./fake-dom.mjs";
 
 const morningScene = {
   vals: {
@@ -28,10 +28,6 @@ const emptyScene = {
     gearCls: "gear",
   },
 };
-
-function namedButton(root, name) {
-  return walk(root).find(node => node.tagName === "BUTTON" && accessibleName(node) === name);
-}
 
 function counterNs(root) {
   return walk(root)
@@ -97,6 +93,19 @@ test("本机配置 does not open the sheet when the read fails", async () => {
   namedButton(root, "本机配置").click();
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(opened, false);
+});
+
+test("topbar actions keep parse and hook failures silent", async () => {
+  const malformed = mount(fromScene(morningScene), {
+    settings: async () => ({ok: true, json: async () => { throw new Error("bad json"); }}),
+  }, {onOpenSettings: () => { throw new Error("must not run"); }});
+  namedButton(malformed.root, "本机配置").click();
+
+  const hookFailure = mount(fromScene(morningScene), {
+    settings: async () => ({ok: true, json: async () => ({version: 1})}),
+  }, {onOpenSettings: () => { throw new Error("hook failed"); }});
+  namedButton(hookFailure.root, "本机配置").click();
+  await new Promise(resolve => setTimeout(resolve, 0));
 });
 
 test("需要你 fires onJumpNeedYou only when some ticket is orange", () => {

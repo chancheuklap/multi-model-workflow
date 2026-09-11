@@ -21,6 +21,9 @@ export const hhmm = value => new Date(value).toLocaleTimeString("en-GB", {
   hour: "2-digit", minute: "2-digit", hour12: false,
 });
 
+export const minutes = (from, to = new Date()) =>
+  Math.max(0, Math.round((new Date(to) - new Date(from)) / 60000));
+
 export async function hand(method) {
   try {
     return await method();
