@@ -4,7 +4,8 @@ The page sizes are the decision: 50 specs under a map, 100 tickets under a spec,
 children under a ticket. Read against the real repository on 2026-09-10: a list over 100
 is refused per list (EXCESSIVE_PAGINATION), 100 at every layer asks for a million nodes
 and is refused whole (MAX_NODE_LIMIT_EXCEEDED, limit 500,000), and 50 × 100 × 50 is
-255,050 nodes at a cost of 51 points.
+255,050 structural nodes at a cost of 51 points. Specs and tickets each add labels and
+blockers capped at ten items, taking the worst case to 356,050 nodes and 152 points.
 """
 
 import importlib.util
@@ -36,8 +37,19 @@ class TheQuery(unittest.TestCase):
         for size in pages(tree.query("map")):
             width *= size
             nodes += width
-        self.assertEqual(nodes, 255050)
+        metadata = 2 * tree.META_PAGE * (tree.PAGE["spec"]
+                                         + tree.PAGE["spec"] * tree.PAGE["ticket"])
+        nodes += metadata
+        self.assertEqual(nodes, 356050)
         self.assertLess(nodes, 500000)
+
+    def test_labels_and_blocked_by_are_on_specs_and_tickets_not_children(self):
+        query = tree.query("map")
+        self.assertEqual(query.count("labels(first:10) { totalCount"), 2)
+        self.assertEqual(query.count("blockedBy(first:10) { totalCount"), 2)
+        child_fields = query.rsplit("subIssues(first:50)", 1)[1]
+        self.assertNotIn("labels(", child_fields)
+        self.assertNotIn("blockedBy(", child_fields)
 
     def test_every_layer_with_one_below_brings_its_count(self):
         query = tree.query("map")
@@ -68,6 +80,39 @@ class TheAnswer(unittest.TestCase):
         spec = got["children"][0]
         self.assertEqual((got["total"], spec["number"], spec["completed"]), (1, 76, 1))
         self.assertEqual(spec["children"][0]["children"][0]["number"], 90)
+
+    def test_labels_and_blockers_are_normalised_for_existing_readers(self):
+        got = tree.read(18, "map", gh=answer({
+            "number": 18, "title": "map", "state": "OPEN",
+            "subIssuesSummary": {"total": 1, "completed": 0},
+            "subIssues": {"nodes": [{
+                "number": 76, "title": "spec", "state": "OPEN",
+                "labels": {"totalCount": 1, "nodes": [{"name": "mmw:spec"}]},
+                "blockedBy": {"totalCount": 1,
+                              "nodes": [{"number": 70, "state": "CLOSED"}]},
+                "subIssuesSummary": {"total": 0, "completed": 0},
+                "subIssues": {"nodes": []},
+            }]},
+        }))
+        self.assertEqual(got["children"][0]["labels"], ["mmw:spec"])
+        self.assertEqual(got["children"][0]["blockedBy"],
+                         [{"number": 70, "state": "CLOSED"}])
+
+    def test_metadata_cut_short_by_its_page_is_a_refusal(self):
+        with self.assertRaises(tree.TreeUnreadable) as caught:
+            tree.read(18, "map", gh=answer({
+                "number": 18, "title": "map", "state": "OPEN",
+                "subIssuesSummary": {"total": 1, "completed": 0},
+                "subIssues": {"nodes": [{
+                    "number": 76, "title": "spec", "state": "OPEN",
+                    "labels": {"totalCount": 11,
+                               "nodes": [{"name": f"label-{n}"} for n in range(10)]},
+                    "blockedBy": {"totalCount": 0, "nodes": []},
+                    "subIssuesSummary": {"total": 0, "completed": 0},
+                    "subIssues": {"nodes": []},
+                }]},
+            }))
+        self.assertIn("11 labels and only 10 came back", str(caught.exception))
 
     def test_a_layer_cut_short_by_its_page_is_a_refusal_not_a_smaller_tree(self):
         with self.assertRaises(tree.TreeUnreadable) as caught:

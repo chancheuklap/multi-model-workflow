@@ -18,8 +18,10 @@ more list at 100 would ask for a million, which the tracker refuses outright, an
 over 100 is refused per list. `--root` says which layer `<issue>` is (default `spec`),
 so the lists below it get their own layer's size.
 
-Every issue comes back as its number, title and state; every issue with a layer below it
-also as the tracker's own `total` and `completed` count of that layer.
+Every issue comes back as its number, title and state; specs and tickets also carry their
+labels and blockers, and every issue with a layer below it carries the tracker's own
+`total` and `completed` count of that layer. Labels and blockers are capped at ten per
+issue so the worst-case map remains below the tracker's 500,000-node query limit.
 
 Prints the tree as JSON and exits 0; exit 2, with the reason on stderr, when the tracker
 could not be asked, answered with an error, has no such issue, or returned a list shorter
@@ -37,6 +39,7 @@ import sys
 LAYERS = ("map", "spec", "ticket", "child")
 # How many issues of a layer are read under the one issue above it.
 PAGE = {"spec": 50, "ticket": 100, "child": 50}
+META_PAGE = 10
 
 GH_ENV = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR_FORCE", "CLICOLOR")}
 
@@ -56,6 +59,9 @@ def query(root: str = "spec") -> str:
         pad = "  " * depth
         head, rest = layers[0], layers[1:]
         fields = "number title state"
+        if head in ("spec", "ticket"):
+            fields += (f" labels(first:{META_PAGE}) {{ totalCount nodes {{ name }} }}"
+                       f" blockedBy(first:{META_PAGE}) {{ totalCount nodes {{ number state }} }}")
         if rest:
             fields += " subIssuesSummary { total completed } " + level(rest, depth + 1)
         return (f"subIssues(first:{PAGE[head]}) {{ nodes {{\n"
@@ -81,6 +87,26 @@ def _node(raw: dict, where: str) -> dict:
         raise TreeUnreadable(f"{where}: an issue came back with no number")
     node = {"number": raw["number"], "title": raw.get("title") or "",
             "state": (raw.get("state") or "").upper()}
+    if "labels" in raw:
+        labels = (raw.get("labels") or {}).get("nodes")
+        blockers = (raw.get("blockedBy") or {}).get("nodes")
+        if not isinstance(labels, list) or not isinstance(blockers, list):
+            raise TreeUnreadable(f"#{node['number']}: its labels or blockers came back unreadable")
+        for name, connection in (("labels", raw.get("labels") or {}),
+                                 ("blockers", raw.get("blockedBy") or {})):
+            total = connection.get("totalCount")
+            if not isinstance(total, int):
+                raise TreeUnreadable(f"#{node['number']}: the tracker gave no count of its {name}")
+            if len(connection["nodes"]) < total:
+                raise TreeUnreadable(f"#{node['number']} has {total} {name} and only "
+                                     f"{len(connection['nodes'])} came back")
+        node["labels"] = [label.get("name") or "" for label in labels
+                          if isinstance(label, dict)]
+        node["blockedBy"] = [
+            {"number": blocker["number"], "state": (blocker.get("state") or "").upper()}
+            for blocker in blockers
+            if isinstance(blocker, dict) and isinstance(blocker.get("number"), int)
+        ]
     if "subIssues" in raw:
         summary = raw.get("subIssuesSummary") or {}
         nodes = (raw.get("subIssues") or {}).get("nodes")
