@@ -5,9 +5,9 @@ You are starting one worker on one ticket, with no batch behind it. A ticket out
 Four steps:
 
 1. `<dispatch> open-ticket <n>`: it opens a watch on ticket `<n>` alone with this session as its main agent — the runner and session its runner's adapter reads from this process — and starts the relay when none runs for this repository. A night open on this repository keeps its own watch and its own main agent.
-2. `<dispatch> start <n> worker`, then end your turn.
+2. `<dispatch> start <n> worker`, from the checkout branch this ticket will merge into. That branch must exist on origin; `start` fetches it, records it as `worker.started.into`, creates the ticket branch from `origin/<branch>` and pushes the new ticket branch before the worker runs. Then end your turn.
 3. You are woken with `#<n> ticket.passed` or `#<n> ticket.returned`, or with one of the three below. Read that event on the ticket, act on it, then `<dispatch> ack <n> <that event>` (exit codes in [inside-a-ticket.md](inside-a-ticket.md)).
-   - `#<n> worker.lost`: the worker's session stopped. `<dispatch> start <n> worker` starts another in the same workspace; it first commits what the lost one left uncommitted on the ticket branch.
+   - `#<n> worker.lost`: the worker's session stopped. `<dispatch> start <n> worker` starts another in the same workspace; it first commits tracked edits and pushes the ticket branch to origin.
    - `#<n> ticket.refused`: the worker refused to claim the ticket, and the event's `reason` says why. Fix that, then `<dispatch> start <n> worker` again.
    - `#<n> child.opened`: a `fault` stopped the worker — fix what the child names, then `<dispatch> resume <n> "<what you fixed>, then: continue"`; a `decision` is for the user in the morning, and the worker carries on.
 4. Once the ticket passed or came back: `<dispatch> land <n>`, run in the checkout of the branch it merges into. It merges the ticket's branch, gives its claim back, runs the product's `stop` in the ticket's worktree and gives its slot back, stops every session the ticket's `*.started` events name, removes its worktree, records `ticket.landed` on the ticket, and closes the watch `open-ticket` opened; the relay ends with it when it watched nothing else.

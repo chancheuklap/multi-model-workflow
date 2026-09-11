@@ -35,7 +35,12 @@ HARNESS = "harness-guard.py ."
 
 
 class RequireJudges(unittest.TestCase):
+    def setUp(self):
+        self.no_path = mock.patch.dict(os.environ, {"PATH": ""})
+        self.no_path.start()
+
     def tearDown(self):
+        self.no_path.stop()
         vt.TOOLS[:] = []
 
     def test_a_judge_in_no_tools_directory_and_not_on_path_is_refused(self):
@@ -93,8 +98,11 @@ class NothingIsWritten(unittest.TestCase):
         self.empty = tempfile.TemporaryDirectory()
         self.nowhere = mock.patch.object(vt, "HERE", Path(self.empty.name))
         self.nowhere.start()
+        self.no_path = mock.patch.dict(os.environ, {"PATH": ""})
+        self.no_path.start()
 
     def tearDown(self):
+        self.no_path.stop()
         self.nowhere.stop()
         self.empty.cleanup()
         vt.TOOLS[:] = []

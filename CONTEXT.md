@@ -201,12 +201,12 @@ _Avoid_: ticket message, closeout notification, 通知 (as a term)
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **worktree**:
-The per-ticket git worktree of a workspace, `<main checkout>/.worktrees/issue-<n>` — the repository's first worktree, whichever checkout the command runs from — on the branch `issue-<n>`, cut from the branch of the checkout `advance` (or `start`) runs in, the branch the night merges into; the commit it was cut at is recorded in `branch.issue-<n>.mmw-base` and that branch in `branch.issue-<n>.mmw-base-branch`. A directory `issue-<n>` on any other branch is refused, never taken over. `dispatch.sh` cuts and removes it with git; no runner name is in the path, and a runner is only told the absolute path. The reviewer and the verifier run inside it. `advance` archives the workspace only after that ticket's branch is already in HEAD; archive uses `git worktree remove --force` and does not inspect uncommitted work.
+The per-ticket git worktree of a workspace, `<main checkout>/.worktrees/issue-<n>`, on the ticket branch `issue-<n>`. A directory `issue-<n>` on any other branch is not this workspace. `dispatch.sh` creates and removes it with git; no runner name is in the path, and a runner is only told the absolute path. The reviewer and verifier run inside it.
 _Avoid_: 工作区, checkout (when this is meant), ~/.mmw/worktrees
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **ticket branch**:
-The branch `issue-<n>`. A ticket started again reuses it as it stands; `--preflight` refuses when the session is not on it; `advance` merges it into the base branch when the ticket is `CLOSED`, its events carry a `ticket.passed` that no `ticket.landed` has followed, the branch exists, and it is not already an ancestor.
+The branch `issue-<n>`, shared through `origin/issue-<n>`; `dispatch.sh` pushes it and never force-pushes it. `--preflight` refuses when the session is not on it.
 _Admitted_: `issue-<n>`
 _Avoid_: branch (bare), 分支名 (as a term)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
@@ -217,7 +217,7 @@ _Avoid_: base-commit (in prose), 起点 commit, cut point, 切点
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **base branch**:
-The branch the main agent is on when it opens the night and runs `advance`: every `advance` merges into whatever HEAD is on, so the main agent stays on that branch all night. `git config branch.issue-<n>.mmw-base-branch` records it when the workspace is created; `advance` does not read it. The closing comment's `PR:` line reads `none — will be merged into <base branch> by dispatch.sh advance`.
+The branch on `origin` a night's tickets merge into; the copy at `origin/<base branch>` is authoritative and a local branch of the same name is a cache. The main agent opens the night on it, and `spec.opened` and `worker.started` name it in `into`.
 _Avoid_: main branch, 基线分支, main (as a name)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
@@ -1127,8 +1127,8 @@ The verifier may install a dependency, download a browser, or find a connection 
 _Avoid_: the verifier's boundary
 _Home_: `mmw-v2/skills/verdict/SKILL.md`
 
-**No pull request, and no push**:
-No step of the pipeline reads a pull request and no branch is pushed; a ticket's work reaches the base branch through `advance`'s local merge, and the closing comment's `PR:` line is written in the future tense.
+**No pull request**:
+No step of the pipeline reads a pull request. Ticket branches are pushed to origin for cross-machine handoff; a ticket's work still reaches the base branch through `advance`'s local merge, and the closing comment's `PR:` line is written in the future tense.
 _Home_: `mmw-v2/merge-notes/implement.md`
 
 **fixed headings**:
