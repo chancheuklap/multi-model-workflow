@@ -136,6 +136,9 @@
 }
 .card-title.decision { font-size: 12px; color: var(--muted); }
 .card-title.map { font-size: 14px; }
+/* A container card is 72px tall (board-logic layout geometry), room for one title line; a
+   title that would wrap is cut at the edge with an ellipsis and shown whole on hover. */
+.card-title.container { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card-run { margin-top: auto; font: 9.5px var(--mono); color: #8a92a6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card-run.flag { color: var(--ink); font-weight: 600; }
 .card-count { font: 9.5px var(--mono); color: var(--soft); font-variant-numeric: tabular-nums; }
