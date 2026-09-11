@@ -97,7 +97,7 @@ The CLI every issue-tracker operation goes through. Every script that shells out
 _Home_: `docs/agents/issue-tracker.md`
 
 **`docs/agents/`**:
-The three files `setup-matt-pocock-skills` seeds once: `issue-tracker.md`, `triage-labels.md`, `domain.md`. `triage-labels.md`'s `## What carries a label here` section is this repository's own and a re-run would overwrite it; the other two differ from the seeds only in the passages the merge-note records. The root `AGENTS.md` points at all three from its External References table rather than from the seeded `## Agent skills` block, whose `### Domain docs` sub-block this repository no longer carries; this repository is a single context, `CONTEXT.md` plus `docs/adr/`.
+The three files `setup-matt-pocock-skills` seeds once: `issue-tracker.md`, `triage-labels.md`, `domain.md`. `triage-labels.md`'s `## What carries a label here` section is this repository's own and a re-run would overwrite it; the other two differ from the seeds only in the passages the merge-note records. The root `AGENTS.md` points at all three from its External References table rather than from the seeded `## Agent skills` block, whose `### Domain docs` sub-block this repository no longer carries; this repository is multi-context: the root `CONTEXT-MAP.md` and one `CONTEXT.md` per context under `docs/contexts/`, with every ADR system-wide in `docs/adr/`.
 _Avoid_: tracker 配置, 单 context (as a term)
 _Home_: `mmw-v2/merge-notes/setup-matt-pocock-skills.md`
 
@@ -165,9 +165,29 @@ _Home_: `mmw-v2/skills/dispatch/hosts.json`
 `mmw-v2/skills/dispatch/scripts/models.py`, the shared reader and writer of `models.json` and the reader of `hosts.json`, which travels with the dispatch skill and so is present on every host. It resolves everyday names against a catalog — Paseo's when tonight's runner is Paseo, otherwise the host's own CLI — and turns a saved row into the arguments a runner starts the host with, so the task board, `install.sh --check` and `dispatch.sh start` cannot disagree; it also answers which runner tonight uses, ending in a default. It runs no runner command itself: those belong to `runners/<runner>.sh`.
 _Home_: `mmw-v2/skills/dispatch/scripts/models.py`
 
+**`MMW_CATALOG_MODE`**:
+Which catalog `models.py` resolves a `models.json` row's everyday model name against: `paseo` asks Paseo's provider catalog, `cli` asks the host's own CLI, and `cli` is the default when the variable is unset. `dispatch.sh` exports it from tonight's runner — `paseo` for Paseo, `cli` for every other — so one host is never asked of two sources in one night, which is how a saved name could validate on the task board and then fail at start. Only tests set it by hand (or set `MMW_HOST_CATALOG` to skip the binaries), and a runner strips it from a session's environment before running, so a suite run from inside a worker session does not inherit that night's answer.
+_Avoid_: catalog switch, 目录来源 (as a term)
+_Home_: `mmw-v2/skills/dispatch/scripts/models.py`
+
 **`install.sh`**:
 `mmw-v2/install.sh`, the only install entry. It installs eight things: skill symlinks into `~/.agents/skills` and `~/.claude/skills`; hooks into each host's own configuration (`hook.py` and `turn-guard.py`, with Codex's `trusted_hash` lines written into `~/.codex/config.toml`); user-level prompts (`~/.claude/CLAUDE.md` a symlink to `prompt/shared.md` and `~/.claude/rules/mmw-claude.md` one to `prompt/hosts/claude.md`, Codex, Pi and Grok each a file `prompt/render.py` writes); a launchd task that re-renders those three when the source changes; the `com.mmw.board` LaunchAgent that keeps `supervisor.py` running; Paseo configuration (`~/.local/bin/paseo`, two providers in `~/.paseo/config.json`, `worktrees.root`); Orca worktree configuration, only where `orca` is installed (every Orca setup's `worktree-base-path` is `.worktrees`, and each repository's `externalWorktreeVisibility` is `show`); the `nowledge-mem` entry in `~/.cursor/mcp.json`. It does not write Agent profiles; leftover generated profiles (notes containing `from models.md`) are reported as `残留`. When `models.json` is absent, install writes the `hosts.json` defaults or imports and deletes the retired Markdown file; an existing JSON file is untouched. It reads `skills.txt`, clears the retired locations, records the checkout it ran from in `~/.mmw/installed-root`, and prints one line per item with the prefixes `已装`, `残留`, `退役`, `冲突`, ending with markers such as `HOOKS-INSTALLED`. **`install.sh --check`** looks and changes nothing: exit 0 when complete, 1 when something is missing or stale; run from a different checkout it hands over to the `install.sh` of the checkout `~/.mmw/installed-root` names, which checks without taking over. It validates the task board LaunchAgent, every saved row against the selected runner's catalog, and each runner adapter's `# MMW_USES:` lines against the binary on `PATH`, printing `没查` when it could not read what the binary accepts and `不一致` when a command or flag is gone. `dispatch.sh check` runs it before a night. `MMW_V2_HOME` moves the whole install location for tests and suppresses `launchctl` and `paseo reload`.
 _Avoid_: the installer, 安装器, 安装入口 (as a term), 只看不动 (as a term)
+_Home_: `mmw-v2/install.sh`
+
+**`# MMW_USES:`**:
+A comment line in a runner adapter's header declaring one command that adapter runs: `# MMW_USES: <subcommand> [--flag …]`, the bare words naming the subcommand and the `-`-prefixed tokens its flags. Together those lines are the authoritative declaration of everything the adapter asks of its binary — nothing at run time reads them, and an adapter carrying none is reported rather than passed. `install.sh --check` reads them, opens that subcommand's own help page on the binary now on `PATH`, and prints `不一致` for a declared flag the help page does not have and `没查` when the help page could not be read or a line names no command, so a runner that changed its CLI under us is found before a night rather than during one.
+_Avoid_: uses line, 声明行 (as a term)
+_Home_: `mmw-v2/install.sh`
+
+**`~/.mmw/installed-root`**:
+The file a full `install.sh` run writes with the absolute path of the checkout it ran from, so the machine knows which checkout is the installed one. `--check` run from any other checkout prints `装自 <that one>` and hands the whole check over to that checkout's own `install.sh --check`: a frozen checkout serves the hosts while the night that rebuilds the toolbox runs in another, and checking one version's files with another version's checking code is what would break. It hands over the check only; nothing about it ever takes over an install.
+_Avoid_: install marker, 安装来源文件
+_Home_: `mmw-v2/install.sh`
+
+**`MMW_V2_HOME`**:
+The variable that moves the whole install location: every path `install.sh` reads or writes goes under it instead of `$HOME`. Under it the run also writes and checks the launchd plist without ever calling `launchctl`, and runs no `paseo reload`, so a suite verifies the same definitions without touching the machine's services. It exists for tests alone — `install.sh`'s own, and `prompt/tests/run.sh`, which runs `render.py` against a throwaway home under it. It is not `MMW_HOME`, which is where `models.json` and the leases live.
+_Avoid_: install prefix, 测试家目录
 _Home_: `mmw-v2/install.sh`
 
 **`--tools`**:

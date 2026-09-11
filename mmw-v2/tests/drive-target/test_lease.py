@@ -25,10 +25,12 @@ SCRIPT = Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scri
 
 
 def load(home: Path, slots: int = 4, port_base: int = 21400, stride: int = 5):
-    """A fresh module bound to a registry of its own.
+    """A fresh module bound to a registry of its own, and the patch that binds it.
 
-    `lease.py` reads its limits once, at import, so a test that wants different ones
-    imports it again rather than reaching into it afterwards.
+    `lease.py` reads its port and slot limits once, at import, so a test that wants
+    different ones imports it again rather than reaching into it afterwards. `MMW_HOME`
+    it reads at every call, so the environment this test's registry is named in has to
+    stay in force while the test runs: the caller stops the patcher it gets back.
     """
     env = {
         "MMW_HOME": str(home),
@@ -36,11 +38,16 @@ def load(home: Path, slots: int = 4, port_base: int = 21400, stride: int = 5):
         "MMW_LEASE_PORT_BASE": str(port_base),
         "MMW_LEASE_PORT_STRIDE": str(stride),
     }
-    with mock.patch.dict(os.environ, env, clear=False):
+    patcher = mock.patch.dict(os.environ, env, clear=False)
+    patcher.start()
+    try:
         spec = importlib.util.spec_from_file_location("mmw_lease_under_test", SCRIPT)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-    return module
+    except BaseException:
+        patcher.stop()
+        raise
+    return module, patcher
 
 
 class Base(unittest.TestCase):
@@ -50,7 +57,8 @@ class Base(unittest.TestCase):
         self.trees = Path(self.tmp.name) / "trees"
         self.trees.mkdir(parents=True)
         self.addCleanup(self.tmp.cleanup)
-        self.lease = load(self.home)
+        self.lease, patcher = load(self.home)
+        self.addCleanup(patcher.stop)
 
     def tree(self, name: str) -> Path:
         path = self.trees / name
@@ -347,6 +355,40 @@ class Counting(Base):
         self.assertEqual(self.lease.count_under(self.trees / "nothing-here"), 0)
 
 
+class WhichRootThePathsAreUnder(unittest.TestCase):
+    """`MMW_HOME` names the root, and it is read at the moment a path is needed.
+
+    Bound once at import instead, two things go wrong and neither says so: an empty
+    value becomes `Path("")`, the process's working directory, so a lease is written
+    into whatever repository the run happens to be in; and a caller that sets the
+    variable after this module is in memory is ignored. The reading is `home()` in the
+    `dispatch` skill's `statedir.py`, the canonical reader: empty is no value.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.lease, patcher = load(Path(self.tmp.name) / "at-import")
+        self.addCleanup(patcher.stop)
+
+    def test_an_empty_value_is_no_value(self):
+        default = Path.home() / ".mmw"
+        with mock.patch.dict(os.environ, {"MMW_HOME": ""}, clear=False):
+            self.assertEqual(self.lease.home(), default)
+            self.assertEqual(self.lease.registry(), default / "leases")
+            self.assertNotEqual(self.lease.registry(), Path("") / "leases")
+
+    def test_a_changed_value_is_seen_without_importing_again(self):
+        moved = Path(self.tmp.name) / "moved"
+        with mock.patch.dict(os.environ, {"MMW_HOME": str(moved)}, clear=False):
+            self.assertEqual(self.lease.home(), moved)
+            # The paths every verb is built out of, not just the reader beside them.
+            self.assertEqual(self.lease.slot_file(1), moved / "leases" / "slot-1.json")
+            self.assertEqual(
+                self.lease.instance_data_dir(Path(self.tmp.name) / "issue-640").parent,
+                moved / "instances")
+
+
 class RegistryIsolation(unittest.TestCase):
     """No test of this suite may write to the machine's own lease registry.
 
@@ -357,10 +399,10 @@ class RegistryIsolation(unittest.TestCase):
     four slots were lost that way on 2026-09-05, to a suite that had no registry of its
     own.
 
-    `lease.py` reads `MMW_HOME` once, at import, so whichever module pulls it in decides
-    then and there which registry it writes to. The two checks below are the two ways a
-    module can get that wrong: importing it with the ambient environment, and running a
-    script that imports it in a subprocess.
+    `lease.py` reads `MMW_HOME` at the moment it needs a path, so the environment a
+    module runs under decides which registry it writes to. The two checks below are the
+    two ways a module can get that wrong: running it with the ambient environment, and
+    running a script that claims a lease in a subprocess.
     """
 
     TESTS = Path(__file__).resolve().parent
@@ -373,14 +415,14 @@ class RegistryIsolation(unittest.TestCase):
         for name, module in list(sys.modules.items()):
             if not str(getattr(module, "__file__", "")).endswith("lease.py"):
                 continue
-            registry = getattr(module, "REGISTRY", None)
-            if registry is None:
+            registry = getattr(module, "registry", None)
+            if not callable(registry):
                 continue
             with self.subTest(module=name):
                 self.assertNotEqual(
-                    Path(registry).expanduser(), self.REAL,
+                    Path(registry()).expanduser(), self.REAL,
                     f"`{name}` writes leases to the machine's own registry; set "
-                    f"MMW_HOME to a directory of the test's own before importing it")
+                    f"MMW_HOME to a directory of the test's own while it runs")
 
     def lease_bound_scripts(self) -> set[str]:
         """Every script under `scripts/` that reaches `lease.py`, directly or through
@@ -540,10 +582,10 @@ class TheProductsLimit(Base):
         import subprocess
         import time
         tree = self.ticket_tree(1)
-        self.lease.REGISTRY.mkdir(parents=True, exist_ok=True)
+        self.lease.registry().mkdir(parents=True, exist_ok=True)
         env = dict(os.environ, MMW_HOME=str(self.home), MMW_LEASE_SLOTS="4",
                    MMW_LEASE_PORT_BASE="21400", MMW_LEASE_PORT_STRIDE="5")
-        with open(self.lease.REGISTRY / ".lock", "a+") as held:
+        with open(self.lease.registry() / ".lock", "a+") as held:
             fcntl.flock(held, fcntl.LOCK_EX)
             proc = subprocess.Popen([sys.executable, str(SCRIPT), "claim", str(tree)],
                                     env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

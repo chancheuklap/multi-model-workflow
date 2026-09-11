@@ -64,6 +64,10 @@ _Admitted_: `story-parity.py`
 _Avoid_: visual-parity.py (as the judge), interface parity, PARITY OK (the whole-product judge's success line), visual parity
 _Home_: `mmw-v2/skills/drive-target/references/story-parity.md`
 
+**story adapter**:
+What puts a product's presentational component into one scene on a **story** page: one module per design page, `stories/adapters/<page>.mjs` under `.mmw/`, named by that page's `mount`, so a `?page=` with no adapter is a 404. It takes the scene's **scene data** and maps those fields onto the component's props; the screen contract's `shows` column for each row says which field feeds which displayed value, and the `code-review` Spec axis checks that mapping field by field. It reaches for no backend, no seed and no route — the page puts the component in the scene by itself. The contract ticket lands the first one as the precedent every later interface ticket copies. `adapter` is a dead word on the **target** side only; this is the sense that stays.
+_Home_: `mmw-v2/skills/drive-target/references/story-parity.md`, `.mmw/stories/serve.py`
+
 **boundary**:
 In this repository the word names one class of acceptance criterion and the judge that runs it: a **boundary criterion**, in the fixed shape of `references/boundary-check.md`, run by `boundary-check.py`. It is not a word for a **seam**.
 _Avoid_: boundary (as a word for a seam)
@@ -79,6 +83,11 @@ _Home_: `mmw-v2/skills/drive-target/references/boundary-check.md`
 The second pass of a boundary criterion: the same command, with `MMW_NEGATIVE=1`, must go red. The product's shared interaction helper does nothing under that variable, so an assertion that does not depend on the click stays green and is refused. It is mechanical; a reviewer does not read the test to decide whether it can fail.
 _Home_: `mmw-v2/skills/drive-target/references/boundary-check.md`
 
+**interaction helper**:
+The one shared click-and-fill helper a consuming repository's **contract ticket** delivers, which every boundary test calls instead of touching the page itself. Under `MMW_NEGATIVE=1` it does nothing, and that is what makes the **mutation check** mechanical: a test whose assertion really depends on the interaction goes red on that second pass, while one that is true without the click stays green and is reported rather than passed. It is the interaction half of the boundary seam — the other half is the product's own API client module, which the test replaces with a mock.
+_Avoid_: click helper, 交互 helper, page object (for this)
+_Home_: `mmw-v2/skills/drive-target/references/boundary-check.md`
+
 **journey**:
 One Playwright path run against the real product on this machine: a directory `<journeys>/<name>/` holding an executable `run`, or a `package.json` declaring `scripts.run`, where `<journeys>` is `.mmw/target.json`'s `journeys` key, default `.mmw/journeys`. `scripts/journey.py run <name>` claims the lease, runs `start`, runs `discover`, puts the addresses (uppercased, so `origin` arrives as `ORIGIN`) and lease variables into the environment, runs the script in that directory, and runs `stop` whether the script succeeded or not; then runs the script once more as its **negative control**. Prints `JOURNEY OK <name>`, `JOURNEY FAILED <name> at <last line>`, or `JOURNEY GREEN WITHOUT PRODUCT <name> at <last line>`. Quantity and content are the owner's; the default three are money, the login gate, and one submit chain.
 _Admitted_: `journey.py`
@@ -89,6 +98,12 @@ _Home_: `mmw-v2/skills/drive-target/references/journey.md`
 The directory in a consuming repository that holds start-the-stack, vendor stubs, account seeds, the few seeds a journey uses, and the entry that records an action that would leave the machine. Product answers live in `.mmw/` (`target.json`, `harness/`, `journeys/`, `stories/`); `harness-guard.py` fails a name that leaks outside `.mmw/`, `tests/`, `scripts/dev/`, or a file `leaves_machine` names.
 _Avoid_: reach script, `scripts/testing/` (when this directory is meant)
 _Home_: `mmw-v2/skills/drive-target/references/runtime-environment.md`
+
+**harness guard**:
+`scripts/harness-guard.py` beside the drive-target `SKILL.md`: given one argument, the repository root, it walks the repository, reads every text file it can, and decides whether the names a repository uses only to make itself drivable have stayed in the places `.mmw/harness` names. Anywhere else is a leak — a back door opened for automated acceptance that ships to a customer's machine with the release. It prints `HARNESS OK` (exit 0), or one `HARNESS LEAK <file>:<line>` line per leak (exit 1). What widens the allowed set is `.mmw/target.json`'s `leaves_machine`, never an exception written into the check. The **contract ticket** carries its criterion, `CHECK: harness-guard.py .`, and names it bare like every other judge. It judges names in files, not a running product: it starts nothing and takes no lease.
+_Admitted_: `harness-guard.py`
+_Avoid_: leak check, back-door check
+_Home_: `mmw-v2/skills/drive-target/references/harness-guard.md`
 
 **negative control**:
 The pair each judge builds to prove it can fail. The story judge's is judged before any real result: after the first scene at the first viewport, the baseline server serves that scene's own address with an error banner in the served bytes, the story page is captured again, and the two must differ — equal means the product capture read the design's server, and the run stops with `NEGATIVE CONTROL FAILED`. The boundary criterion's is the **mutation check**. The journey's runs last, after `stop`: the script runs again with every discovered address repointed to a closed port and `MMW_JOURNEY_NEGATIVE=1` set, and a second pass is `JOURNEY GREEN WITHOUT PRODUCT`.
@@ -115,6 +130,21 @@ _Home_: `mmw-v2/upstream/skills/engineering/wayfinder/SKILL.md`
 The rows of a screen contract whose `gap` is `design-only` or `backend-only`, written by `align-screens` for the person to settle — the one judgement in that skill that is theirs.
 _Avoid_: 差集
 _Home_: `mmw-v2/skills/align-screens/SKILL.md`
+
+**`extract_skeleton.py`**:
+`scripts/extract_skeleton.py` beside the drive-target `SKILL.md`: one offline render of every scene of a **handoff package**, through the same driver and the same normaliser the story judge uses, so what comes out is what the judge will later read. It judges nothing and needs no product. `align-screens` runs it twice on one contract — once for the **skeleton**, and once more with `--targets` (and `--contract`, which hides the contract's `retired_ids` the way the judge hides them) to write the **target trees**. It drives a real browser, so Chromium has to be installed for Playwright before it will run at all.
+_Avoid_: the extractor, 骨架脚本
+_Home_: `mmw-v2/skills/drive-target/scripts/extract_skeleton.py`
+
+**skeleton**:
+The JSON `extract_skeleton.py` writes from that render, and the **row inventory** a screen contract is linted against: every interactive control of the handoff package keyed by (page, role, accessible name) with the list of scenes it is visible in, plus each scene's normalised tree and the class names in that subtree. It is the design side's inventory of controls, never the contract's: a control the skeleton has and the contract lacks is a lint error, and so is the reverse, and a row's `trigger` is a role and an accessible name copied from it exactly, hint text the tree folded in included. It is written to a scratch path and read there by `lint_contract.py`, which is why `--tools` stays required for that script; what is kept out of the same render is the target trees.
+_Avoid_: 骨架 (as a term), control inventory
+_Home_: `mmw-v2/skills/align-screens/references/contract-format.md`, `mmw-v2/skills/drive-target/scripts/extract_skeleton.py`
+
+**`retired_ids`**:
+The top-level list on a screen contract of row ids that once had a row and no longer do: an id is never renumbered and never reused, and the lint prints every entry on every run. An entry carries the id and a one-line note saying when and why it was retired; when the handoff package still shows the control, it also carries the `page` the control is on and a `trigger` in the same shape as `volatile_values` — a handoff role and accessible name — and that pair does two things at once: the lint stops asking for a row for that control, and the judges hide it, on that page's scenes and on the design side only. An entry that names no `page` whose name also lives on another page is hidden everywhere, which the lint warns about.
+_Avoid_: 退役 id, deleted rows
+_Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
 
 **contract ticket**:
 The first ticket cut from a spec with a screen contract: `.mmw/` in full (target.json, harness, journeys, stories and adapters), the interaction helper the boundary check uses, a `journey.py run smoke` criterion that starts the stack and logs in, and the harness guard. Every other ticket of the batch is blocked by it. Interface tickets own by design page: one story criterion (`--pages`) and one boundary criterion per `calls` row.

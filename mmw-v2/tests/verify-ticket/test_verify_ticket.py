@@ -686,8 +686,9 @@ def lease_in(home: Path):
                                                   DRIVE / "lease.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    module.REGISTRY = home / "leases"
-    module.INSTANCES = home / "instances"
+    # `lease.py` asks `home()` for the root every time it needs a path, so the test's
+    # own root is given by replacing that one reader, not by writing paths into it.
+    module.home = lambda: home
     return module
 
 

@@ -105,9 +105,24 @@ SLOTS = int(os.environ.get("MMW_LEASE_SLOTS", "8"))
 # anyway.
 STOP_TIMEOUT_S = int(os.environ.get("MMW_STOP_TIMEOUT_S", "300"))
 
-ROOT = Path(os.environ.get("MMW_HOME", str(Path.home() / ".mmw")))
-REGISTRY = ROOT / "leases"
-INSTANCES = ROOT / "instances"
+
+# Where the registry and the instance directories live. Read at the moment one is
+# needed, never bound once at import: a process that sets `MMW_HOME` after this module
+# is in memory means it, and an empty value is no value — the same reading as `home()`
+# in the `dispatch` skill's `statedir.py`, which is the canonical reader.
+def home() -> Path:
+    """The machine's MMW root: `MMW_HOME`, else `~/.mmw`."""
+    return Path(os.environ.get("MMW_HOME") or (Path.home() / ".mmw"))
+
+
+def registry() -> Path:
+    """The directory holding every slot file and the lock they are taken under."""
+    return home() / "leases"
+
+
+def instances() -> Path:
+    """The directory holding every run's data directory."""
+    return home() / "instances"
 
 
 # ----------------------------------------------------------------- naming
@@ -141,7 +156,7 @@ def is_ticket_worktree(worktree: Path) -> bool:
 
 def instance_data_dir(worktree: Path) -> Path:
     """The data directory deterministically assigned to `worktree`."""
-    return INSTANCES / instance_name(worktree)
+    return instances() / instance_name(worktree)
 
 
 def remove_instance(worktree: Path) -> dict:
@@ -164,7 +179,7 @@ def remove_instance(worktree: Path) -> dict:
 
 # ----------------------------------------------------------------- the registry
 def slot_file(slot: int) -> Path:
-    return REGISTRY / f"slot-{slot}.json"
+    return registry() / f"slot-{slot}.json"
 
 
 def read_slot(slot: int) -> dict | None:
@@ -343,8 +358,9 @@ class _Locked:
     """An exclusive lock on the registry, held while a claim counts and takes."""
 
     def __enter__(self):
-        REGISTRY.mkdir(parents=True, exist_ok=True)
-        self.handle = open(REGISTRY / ".lock", "a+")
+        directory = registry()
+        directory.mkdir(parents=True, exist_ok=True)
+        self.handle = open(directory / ".lock", "a+")
         fcntl.flock(self.handle, fcntl.LOCK_EX)
         return self
 

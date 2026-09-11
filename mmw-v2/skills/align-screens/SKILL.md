@@ -13,7 +13,9 @@ The file's shape is in [references/contract-format.md](references/contract-forma
 
 `<scripts>` in every command below is the `scripts/` directory next to this file. Resolve it from this file's own location. The path differs by machine and by host, and `install.sh` puts this skill wherever the host that gave it to you reads its skills from.
 
-Every one of them is run as `uv run python <scripts>/…`, never `python3`: `scripts/lint_contract.py` carries a `# /// script` dependency block (`pyyaml>=6`), and `scripts/dump_openapi.py` imports the consuming repository's own application module. Both need the environment `uv` builds.
+One name in the commands below belongs to another skill; resolve it from that skill's own `SKILL.md`. `<drive-target scripts>` is the `scripts/` directory of the `drive-target` skill.
+
+Every one of this skill's own scripts is run as `uv run python <scripts>/…`, never `python3`: `<scripts>/lint_contract.py` carries a `# /// script` dependency block (`pyyaml>=6`), and `<scripts>/dump_openapi.py` imports the consuming repository's own application module. Both need the environment `uv` builds.
 
 ## Inputs
 
@@ -30,7 +32,7 @@ Write every path in a command out in full. Some hosts refuse `uv run … $VAR`.
 
 ### 1. Extract the skeleton
 
-The render is the `drive-target` skill's: resolve `<drive-target scripts>` from that skill's `SKILL.md`, then
+The render is the `drive-target` skill's:
 
 ```
 uv run python <drive-target scripts>/extract_skeleton.py <handoff dir> <scratch>/skeleton.json
@@ -101,7 +103,7 @@ The lint asks the drive-target skill's driver for the target kinds and for the s
 
 ## Exit codes
 
-`scripts/lint_contract.py` prints its warnings first, one per line under `WARN  `, then its errors, one per line under `ERROR `, and last — whatever the outcome — one line `<n> errors, <n> warnings over <n> rows`. A warning never makes the run red.
+`<scripts>/lint_contract.py` prints its warnings first, one per line under `WARN  `, then its errors, one per line under `ERROR `, and last — whatever the outcome — one line `<n> errors, <n> warnings over <n> rows`. A warning never makes the run red.
 
 - `0`: no errors. Warnings may still be there to read.
 - `1`: at least one error. Fix the contract and run it again; zero errors is the bar step 6 sets.

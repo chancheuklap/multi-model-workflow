@@ -101,6 +101,10 @@ _Home_: `mmw-v2/skills/verify-ticket/references/closeout.md`
 The event that follows a claim given back by `land` (reason `landed`), `suspend` (`suspended`) or `advance`'s `RELEASE` (`worker-lost`). It ends every hold on the ticket.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
+**`ticket.landed`**:
+The event `dispatch.sh advance` and `dispatch.sh land` post on a ticket once its `ticket.passed` commit is in `origin/<base branch>`. It is written only after the push, so the record never runs ahead of the fact, and it is what lets the tickets this one blocks start: a ticket is cut from the base branch and has to find its blockers' work there, so closing the ticket is not that signal and landing is. It ends every hold on the ticket and gives its worktree's product slot back; what it records of the ticket is the **landed** state. A landing whose event could not be written leaves the tickets it blocks blocked until the next `advance` or `land` writes it.
+_Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
+
 **`ticket.regressed`**:
 The event `dispatch.sh reverify` posts on a landed ticket whose criteria went red on the base branch, with that `commit` and the `failed` criteria, in the same pass that reopens it, labels it `needs-triage` and removes its assignee. It takes back the ticket's pass and its landing.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
@@ -113,8 +117,16 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 The events about one worker session after its start, each naming it by `runner` and `session` together. `resume` posts `worker.resumed` once the runner has taken the text, or handed it over without being able to show a turn starting (exit 4). `retract` posts `worker.retracted` once the runner shows the session gone, recording whether the workspace, the slot and the claim were given back. `start <n> worker` on a ticket whose events still show a live worker stops that session through its own runner and posts `worker.replaced` naming it, then the new session's `worker.started`; the worktree, the branch and the worktree's product slot carry over to the new worker, and what the old one left uncommitted is committed on the branch first (`wip(#<n>): uncommitted work of …`). `worker.lost` is not written by the agent it is about, since a dead agent cannot write its own: the **watchdog** posts it, actor `judge`, once the ticket has been silent past its silence and the session's own runner answers `stopped`; the relay wakes the main agent on it.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
+**`reviewer.reported`**:
+The event `verify-ticket.py <n> --review <file>` posts on the ticket, carrying the **review comment** and the `base` and `head` commits read off that comment's first line — a report that names no commits does not say which diff it read, so a file that does not open with them, or is empty, is refused and nothing is posted. It is the reviewer's whole output: `--review` tells nobody, and the **relay** is what turns the event into the worker's **wake**, so a report that lands is a report its worker hears about however the reviewer's own turns fell. It ends that one reviewer's hold and no other.
+_Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
+
 **`reviewer.lost`, `verifier.lost`**:
 A reviewer or verifier session that stopped before its result landed, named by `runner` and `session` together, the same shape as `worker.lost` and posted the same way, by the **watchdog**, actor `judge`: the ticket was silent past its silence, the session had no `reviewer.reported` (or verdict) after its own start, and its runner answered `stopped`. Each ends that one session's hold, and not the wait of a worker run in the waiting step. The relay wakes the ticket's worker on it — the worker waiting for that result — which starts another reviewer or verifier.
+_Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
+
+**`spec.opened`, `spec.closed`**:
+The two events that bracket a night on its spec. `dispatch.sh open <spec>` posts `spec.opened` once the watch is open and this session is the night's main agent, recording that main agent's runner and session, the base branch as `into` and the project branch as `project`; every later command reads those from it — `start` takes the base branch from it when no `worker.started` carries one, and `finish` refuses a spec whose `spec.opened` names neither. A night whose `spec.opened` could not be written is not open, and the watch that call opened is closed again. `dispatch.sh summary <spec>` posts `spec.closed` when the night is over, carrying the **`NIGHT SUMMARY`** comment and the night's `date`; `finish` refuses a spec that carries no `spec.closed`. Neither is `spec.merged`, which comes after the user has accepted the night's work.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **`spec.suspended`**:
@@ -160,7 +172,7 @@ _Avoid_: decisions comment, 临时决策评论
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **review comment**:
-The reviewer's report on the ticket, posted by `verify-ticket.py <n> --review <file>` as the `reviewer.reported` event: first line `REVIEW <base commit>..<HEAD commit>` (the refs as given, even when one does not resolve or the diff is empty), whose two commits are the event's `base` and `head` — a file that does not open that way, or is empty, is refused and nothing is posted — then the three axis reports under `## Standards`, `## Spec`, `## Tests`, never merged or reordered across axes, then `## In-ticket` and `## Out-of-ticket`, then one summary line per axis. The worker, which ended its turn after starting the reviewer, is woken with `#<n> reviewer.reported` once it lands, reads it off the ticket, and acks the wake.
+The reviewer's report on the ticket, the comment the **`reviewer.reported`** event carries. Its shape: first line `REVIEW <base commit>..<HEAD commit>`, the refs as given, even when one does not resolve or the diff is empty; then the three axis reports under `## Standards`, `## Spec`, `## Tests`, never merged or reordered across axes; then `## In-ticket` and `## Out-of-ticket`; then one summary line per axis. The worker, which ended its turn after starting the reviewer, is woken with `#<n> reviewer.reported` once it lands, reads the comment off the ticket, and acks the wake.
 _Avoid_: review report comment, REVIEW 评论, report (bare)
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
@@ -316,6 +328,7 @@ _Home_: `mmw-v2/merge-notes/implement.md`
 | gives the product slot back (`SLOT_ENDS`) | `ticket.landed` · `ticket.returned` · `ticket.released` · `ticket.bounced` · `spec.suspended` · `worker.retracted` |
 | `ticket.refused` reason | `wrong-branch` · `dirty-tree` · `not-open` · `not-ready` · `blocked` · `claimed-by-other` |
 | `ticket.released` reason | `landed` · `suspended` · `worker-lost` |
+| `ticket.bounced` reason | `conflict` · `checks` |
 | `ticket.checked` run | `self` · `reverify` · `repo-checks` |
 | `ticket.checked` result | `met` · `unmet` · `handoff` |
 | `worker.queued` reason | `product-full` · `machine-full` |

@@ -4,7 +4,7 @@ Whether a control's click produces the request its screen-contract `calls` colum
 
 ## The criterion, in one shape
 
-Written onto the ticket, run by a shell months later with no model between. The script is named bare: `verify-ticket.py` puts this skill's `scripts/` on the `PATH` of the shell that runs the line (its `--tools`).
+Written onto the ticket, run by a shell months later with no model between. The script is named bare: `verify-ticket.py` puts `<scripts>` on the `PATH` of the shell that runs the line (its `--tools`).
 
 ```
 CHECK: boundary-check.py --run "<the product's test command, a file or a case>"

@@ -53,7 +53,7 @@ A hand-written entry in `~/.paseo/config.json` under `daemon.agentProfiles`. It 
 _Home_: `mmw-v2/install.sh`
 
 **finish notification**:
-The message a runner delivers to the session that started an agent through that runner's own tools, saying the agent finished, errored, was closed, or needs permission. `start` starts every session through the runner adapter, never through those tools, so nothing in the pipeline waits on one: a result is an event on the ticket, and the **relay** turns it into a **wake**. No live script in this repository reads one.
+The message a runner delivers to the session that started an agent through that runner's own tools, saying the agent finished, errored, was closed, or needs permission. `start` starts every session through the runner adapter, never through those tools, so nothing in the pipeline waits on one: a result is an event on the ticket, and the **relay** turns it into a **wake**. No live script in this repository reads one. Those four words are this repository's own prose for what such a message says, not any runner's value set, and the table below carries no row for them. Paseo's own words, read off `agent-attention-notification.js` in the app bundle, are the three reasons `finished`, `permission` and `error`, titled `Agent finished`, `Agent needs permission` and `Agent needs attention`, with no message of its own for an agent that was closed. What an outside program calls these is that program's to change and no part of this vocabulary; what this repository decided about them is the ADR.
 _Avoid_: wakeup loop, re-prompt, STOPPED, TIME LIMIT, `mmw board:` line, pane event, turn, turn.py, board log
 _Home_: `docs/adr/0020-wakes-come-from-the-board.md`
 
@@ -289,6 +289,7 @@ _Home_: `mmw-v2/skills/dispatch/scripts/watchdog.py`
 
 **turn guard**:
 `scripts/turn-guard.py` of the dispatch skill, the first layer of liveness: a hook `install.sh` registers on the turn-end event of all five hosts (`Stop` for Claude, Codex and Grok, `stop` for Cursor, `agent_settled` through an extension for Pi). It acts only in a session that is the main agent of an open watch in `watches.json`: that watch's runner's `self` must answer this session's id, and anything it cannot establish — no watch, no adapter, a `self` that cannot answer — means it is not a main agent and nothing is held. It arms the **watchdog** when it is not healthy and, when tickets are held and the watchdog still is not healthy, keeps the turn from ending — exit 2 on Claude, Codex and Grok; one follow-up message on Cursor and Pi, which cannot hold a turn — once per turn end, with the one command to run. The copy registered for Claude stands down when `GROK_AGENT` or `GROK_HOOK_EVENT` is set and when the payload carries Cursor's `cursor_version`, and never on `GROK_SESSION_ID`; the copy registered for Cursor acts only on a payload with `cursor_version`. Every decision it makes is appended to `guard.log` in the state directory. What each host was seen to do is recorded in the script's header.
+_Admitted_: `turn-guard.py`
 _Avoid_: stop hook (as its name), turnend guard, auto-arm
 _Home_: `mmw-v2/skills/dispatch/scripts/turn-guard.py`
 
@@ -304,7 +305,6 @@ _Home_: `mmw-v2/skills/dispatch/scripts/turn-guard.py`
 | relay send answer | `0` delivered · `4` handed over, unconfirmed (treated as delivered) · `3` nothing sent · `2` no such session · other kept |
 | watchdog finding | `relay down` · `liveness unknown` (the runner could not say, or the session was started on another machine) · `held with no session to ask` · `silent … with nothing to wait on` (an idle worker) · `events unreadable` · `cannot read the board` |
 | turn-end event (turn guard) | Claude, Codex, Grok `Stop` (exit 2 holds the turn) · Cursor `stop` (`followup_message`) · Pi `agent_settled` (follow-up) |
-| finish notification | `finished` · `errored` · `was closed` · `needs permission` |
 | runner (one adapter each) | `paseo` · `orca` · `herdr` |
 | adapter verb | `start` · `send` · `liveness` · `stop` · `self` · optional `attach` · optional `open-url` · Paseo only: `catalog-status` · `catalog-models` · `diagnostic` |
 | `liveness` answer | `alive` · `stopped` · `unknown` |

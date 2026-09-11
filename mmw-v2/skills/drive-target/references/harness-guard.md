@@ -12,8 +12,8 @@ the release.
 ## The criterion, in one shape
 
 Written onto the ticket, run by a shell months later with no model between. The script
-is named bare: `verify-ticket.py` puts this skill's `scripts/` on the `PATH` of the
-shell that runs the line (its `--tools`).
+is named bare: `verify-ticket.py` puts `<scripts>` on the `PATH` of the shell that
+runs the line (its `--tools`).
 
 ```
 CHECK: harness-guard.py .

@@ -94,8 +94,8 @@ A display value the seed must not write is declared under the contract's
 
 Nobody types this command. It is written onto the ticket as a criterion, and a
 run of `verify-ticket.py` hands it to a shell months later with no model in
-between. The script is named bare — `verify-ticket.py` puts this skill's
-`scripts/` on that shell's `PATH` (its `--tools`) — and nothing else on the line
+between. The script is named bare — `verify-ticket.py` puts `<scripts>`
+on that shell's `PATH` (its `--tools`) — and nothing else on the line
 can go stale:
 
 ```
