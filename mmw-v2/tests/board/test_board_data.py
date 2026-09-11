@@ -237,6 +237,16 @@ class BoardDataTest(unittest.TestCase):
         self.assertEqual(got["children"][0]["number"], 50)
         self.assertEqual(got["closeout"], {"from": 11, "child": 40})
 
+    def test_board_names_its_repository(self):
+        data = scenario()
+        data["repo"] = "owner/board-repo"
+        with RunningBoard(data) as board:
+            first = board.request()
+            second = board.request()
+            calls = board.calls()
+        self.assertEqual((first["repo"], second["repo"]), ("owner/board-repo", "owner/board-repo"))
+        self.assertEqual(sum(call[:2] == ["repo", "view"] for call in calls), 1)
+
     def test_blockers_carry_hold_and_where(self):
         with RunningBoard(scenario()) as board:
             got = tickets(board.request())[12]
@@ -324,6 +334,8 @@ class BoardDataTest(unittest.TestCase):
             calls = board.calls()
         self.assertTrue(all("read_failed" not in answer for answer in answers))
         for call in calls:
+            if call[:2] == ["repo", "view"]:
+                continue
             if call[:2] == ["issue", "list"]:
                 self.assertEqual(call[call.index("--state") + 1], "open")
                 continue

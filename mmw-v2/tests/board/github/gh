@@ -19,7 +19,9 @@ if scenario.get("fail_all"):
     sys.stderr.write("fixture GitHub failure\n")
     sys.exit(1)
 
-if args[:2] == ["issue", "list"]:
+if args[:2] == ["repo", "view"]:
+    print(scenario.get("repo", "fixture/board"))
+elif args[:2] == ["issue", "list"]:
     print(json.dumps(scenario["maps"]))
 elif args[:2] == ["api", "graphql"]:
     trees = scenario["trees"]
