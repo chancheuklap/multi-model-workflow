@@ -211,25 +211,6 @@ _Admitted_: `issue-<n>`
 _Avoid_: branch (bare), 分支名 (as a term)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
-**base commit**:
-The review boundary computed when `start <n> reviewer` runs: the merge-base of `origin/<base branch>` and the ticket branch. After **integrate**, this is the newest remote base tip contained by the ticket; without an integration it is the `base` recorded by `worker.started`. It is written into the review dispatch line and the `reviewer.started` event, starts code review's three-dot diff (`git diff <base-commit>...HEAD`), and ends the base branch interval whose first-parent merge commits identify sibling tickets for the Spec axis. Written `<base-commit>` as a placeholder.
-_Avoid_: base-commit (in prose), 起点 commit, cut point, 切点
-_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
-
-**base branch**:
-The branch on `origin` a night's tickets merge into; the copy at `origin/<base branch>` is authoritative and a local branch of the same name is a cache. The main agent opens the night on it, and `spec.opened` and `worker.started` name it in `into`.
-_Avoid_: main branch, 基线分支, main (as a name)
-_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
-
-**`dispatch.sh integrate`**:
-`dispatch.sh integrate <n>`, run by the worker in the ticket's worktree before its criteria: fetch `origin`, read `into` from the newest `worker.started`, and merge `origin/<into>` into `issue-<n>` as `Merge <into> into issue-<n>`. A contained remote tip is a successful no-op. A clean merge lists the sibling ticket numbers represented by `Merge branch 'issue-<m>'` commits. A conflict remains in the tree with exit 3 and a report naming those tickets, their titles and the conflicted files; tracked changes are refused before fetch with exit 2. It never pushes, rebases or aborts.
-_Avoid_: update the branch, sync (as a term), pull
-_Home_: `mmw-v2/skills/dispatch/references/inside-a-ticket.md`
-
-**conflict report**:
-The stderr account printed when a dispatch merge leaves `MERGE_HEAD` in the tree. A **`dispatch.sh integrate`** report names `origin/<into>`, every sibling ticket represented by the incoming base commits with its title, and every conflicted file, so the ticket's worker can resolve it from the tickets' stated intents. An **advance** report names the incoming ticket branch, the recently merged ticket branches and every conflicted file, so the night's main agent can do the same. Both direct the reader to `resolving-merge-conflicts`, keep the merge in place and name the command that follows the committed resolution.
-_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
-
 **Claude Design**:
 The design tool whose downloaded project is the handoff package and the baseline side of a parity run. Its page format is Design Components (`<x-dc>`, helmet, `sc-if` / `sc-for`, `data-props`, `dc-import`); its runtime is `support.js`.
 _Home_: `mmw-v2/skills/claude-design-blocks/references/porting.md`
@@ -867,6 +848,25 @@ _Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
 
 ### Dispatch and the night
 
+**base commit**:
+The commit supplied to code review. `start <n> reviewer` computes it as the merge-base of `origin/<base branch>` and the ticket branch, records it in `reviewer.started`, and uses it for `git diff <base-commit>...HEAD`. The first `worker.started.base` and the base commit bound the first-parent commits the Spec axis reads. Written `<base-commit>` as a placeholder.
+_Avoid_: base-commit (in prose), 起点 commit, cut point, 切点, review boundary, remote base, base tip, integrated tip
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
+**base branch**:
+The branch on `origin` a night's tickets merge into; `origin/<base branch>` is authoritative and a local branch of the same name is a cache. The main agent opens the night on it, and `spec.opened` and `worker.started` name it in `into`.
+_Avoid_: main branch, 基线分支, main (as a name)
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
+**`dispatch.sh integrate`**:
+`dispatch.sh integrate <n>`, run by the worker before its criteria, brings `origin/<base branch>` into the ticket branch without pushing, rebasing or aborting.
+_Avoid_: integrate (bare), update the branch, sync (as a term), pull
+_Home_: `mmw-v2/skills/dispatch/references/inside-a-ticket.md`
+
+**conflict report**:
+The stderr account printed when a dispatch merge leaves `MERGE_HEAD` in the tree. It names the merged tickets and conflicted files and tells the reader which command follows the committed resolution.
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
 **landing pipeline**:
 The whole path from spec to closed ticket, made of stations that each have an entry here: by night **dispatch**, **preflight**, the worker's closing steps, **closeout**, **land**, **advance** and the **收口轮**; in the morning **reverify**, **NIGHT SUMMARY** and the triage queue. What feeds the night — **publish**, a spec, its tickets, their lint — is the day's work and has its own entries. Every rule of the path lives with its station; this entry only names them.
 _Admitted_: ticket pipeline (in triage text)
@@ -879,12 +879,12 @@ _Avoid_: 发布 (as a term), 出票 (as a term), 回读 (as a term)
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **dispatch**:
-Turning a ticket into a running session in its worktree: `dispatch.sh start <n> worker|reviewer|verifier`. The script checks the ticket may start, reads the role's live-table row, opens the workspace, computes the started event's base from the remote base and ticket branch, has tonight's runner start the session, writes its started event (`worker.started`, `reviewer.started` or `verifier.started`) on the ticket, and prints the session id. The caller gives the ticket number and the kind; the worker-grade label picks which worker row. A ticket or session that has been through it is **dispatched**.
+Turning a ticket into a running session in its worktree: `dispatch.sh start <n> worker|reviewer|verifier`. The script checks the ticket may start, reads the role's live-table row, opens the workspace, computes the started event's base commit from `origin/<base branch>` and the ticket branch, has tonight's runner start the session, writes its started event (`worker.started`, `reviewer.started` or `verifier.started`) on the ticket, and prints the session id. The caller gives the ticket number and the kind; the worker-grade label picks which worker row. A ticket or session that has been through it is **dispatched**.
 _Avoid_: 派发 (as a term), run (as a dispatch.sh verb)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`dispatch.sh`**:
-The dispatch skill's script: `check <spec>`, `open <spec>`, `open-ticket <n>`, `adopt <n>`, `self`, `advance <spec>`, `integrate <n>`, `land <n>`, `start <n> worker|reviewer|verifier`, `retract <n>`, `wait <n> worker|reviewer|verifier`, `ack <n> <event>` / `ack relay.recovered`, `resume <n> "<text>"`, `status <spec>`, `reverify <spec>`, `route <ticket> <child> fixed|stale|became-ticket [<new ticket>]`, `summary <spec>`, `suspend <spec>`. It starts, messages, asks after and stops a session only through the adapter of the runner that runs it; the ticket's events carry its shared state, and no local git configuration carries a ticket's base commit or base branch. It reads the worker-grade label and nothing else to pick the worker row. The skill's own text calls it `<dispatch>`.
+The dispatch skill's script: `check <spec>`, `open <spec>`, `open-ticket <n>`, `adopt <n>`, `self`, `advance <spec>`, `integrate <n>`, `land <n>`, `start <n> worker|reviewer|verifier`, `retract <n>`, `wait <n> worker|reviewer|verifier`, `ack <n> <event>` / `ack relay.recovered`, `resume <n> "<text>"`, `status <spec>`, `reverify <spec>`, `route <ticket> <child> fixed|stale|became-ticket [<new ticket>]`, `summary <spec>`, `suspend <spec>`. It starts, messages, asks after and stops a session only through the adapter of the runner that runs it; the ticket's events carry its shared state. It reads the worker-grade label and nothing else to pick the worker row. The skill's own text calls it `<dispatch>`.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **dispatch line**:
@@ -906,7 +906,7 @@ _Home_: `mmw-v2/skills/dispatch/references/night.md`
 _Home_: `mmw-v2/skills/dispatch/references/one-ticket.md`
 
 **start**:
-`dispatch.sh start <n> worker|reviewer|verifier`: one ticket, one agent. Tonight's runner — `MMW_RUNNER`, the live table's `runner` row, the runner the caller runs in when an adapter exists for it, then `orca` — starts the session through its adapter, with the agent's live-table row resolved against that runner's catalog; `start` writes the session's started event on the ticket and prints the session id. A start the runner refuses is refused once: no retry, no other host. On a ticket whose events still show a live worker, `start <n> worker` replaces it: that session is stopped through its own runner, `worker.replaced` names it, and the new worker starts in the same workspace; a worker that will not stop is refused and nothing starts beside it. A worker started in a standing workspace an earlier worker of the ticket left with uncommitted edits first commits them on the ticket branch, and a start whose edits cannot be committed is refused. A start takes no product slot. A session whose started event the tracker will not take is stopped again and the start refused, since no command could find it. The worker row of the live table is chosen by the ticket's `junior-worker` / `senior-worker` label; the reviewer base is the merge-base of `origin/<into>` and the ticket branch, falling back to `worker.started.base` when the ticket contains no newer base integration; the verifier's first prompt names the `verdict` skill and the ticket. A ticket no running relay watches is refused too: its result would wake nobody. It cuts the worktree under the main checkout whichever worktree it is run from, so a worker starts its reviewer and verifier from its own worktree. Exit 0 started; exit 2 refused (`REFUSE`, reason on stderr), nothing started.
+`dispatch.sh start <n> worker|reviewer|verifier`: one ticket, one agent. Tonight's runner — `MMW_RUNNER`, the live table's `runner` row, the runner the caller runs in when an adapter exists for it, then `orca` — starts the session through its adapter, with the agent's live-table row resolved against that runner's catalog; `start` writes the session's started event on the ticket and prints the session id. A start the runner refuses is refused once: no retry, no other host. On a ticket whose events still show a live worker, `start <n> worker` replaces it: that session is stopped through its own runner, `worker.replaced` names it, and the new worker starts in the same workspace; a worker that will not stop is refused and nothing starts beside it. A worker started in a standing workspace an earlier worker of the ticket left with uncommitted edits first commits them on the ticket branch, and a start whose edits cannot be committed is refused. A start takes no product slot. A session whose started event the tracker will not take is stopped again and the start refused, since no command could find it. The worker row of the live table is chosen by the ticket's `junior-worker` / `senior-worker` label; a replacement worker keeps the first `worker.started.base`, and a reviewer gets the base commit computed from `origin/<base branch>` and the ticket branch; the verifier's first prompt names the `verdict` skill and the ticket. A ticket no running relay watches is refused too: its result would wake nobody. It cuts the worktree under the main checkout whichever worktree it is run from, so a worker starts its reviewer and verifier from its own worktree. Exit 0 started; exit 2 refused (`REFUSE`, reason on stderr), nothing started.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **adopt**:

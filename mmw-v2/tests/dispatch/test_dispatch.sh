@@ -1980,10 +1980,7 @@ obj = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])
 assert obj["cwd"].endswith("/.worktrees/issue-63"), obj["cwd"]
 ' "$MMW_FAKE_PASEO_STATE/runs.jsonl" || fail "the session must start in the ticket worktree"
   grep -q "advance #76:" "$TMP/err" || fail "the summary line should be on stderr: $(cat "$TMP/err")"
-  [ -z "$(git -C "$TMP/repo" config --get branch.issue-63.mmw-base)" ] \
-    || fail "advance wrote retired mmw-base config"
-  [ -z "$(git -C "$TMP/repo" config --get branch.issue-63.mmw-base-branch)" ] \
-    || fail "advance wrote retired mmw-base-branch config"
+  assert_no_retired_base_config "$TMP/repo" 63 advance
 
   echo "--- each merge is recorded on its ticket as ticket.landed"
   posted_events 61 branch | grep -qx "ticket.landed branch=issue-61" \
@@ -2072,7 +2069,7 @@ scenario_advancedirty() {
   never_ran
 }
 
-seed_integrate_worker() {
+seed_worker_started_for_integration() {
   local base="$1"
   post_ev 61 worker.started --ticket 61 --spec 76 --line "worker started" \
     --field session=agt_worker --field runner=paseo \
@@ -2083,16 +2080,22 @@ start_integrate_ticket() {
   local base
   base="$(git -C "$TMP/repo" rev-parse main)"
   git -C "$TMP/repo" checkout -q -b issue-61 main
-  seed_integrate_worker "$base"
+  seed_worker_started_for_integration "$base"
 }
 
 merge_sibling_to_origin() {
-  local number="$1" file="$2" value="$3" title="$4" other
+  local number="$1" file="$2" value="$3" title="$4" clean_file="${5:-}" clean_value="${6:-}" other
   other="$(other_clone)"
   git -C "$other" checkout -q main
   git -C "$other" pull -q --ff-only origin main
   git -C "$other" checkout -q -b "issue-$number" main
-  commit_file "$other" "$file" "$value" "ticket $number"
+  printf '%s\n' "$value" > "$other/$file"
+  git -C "$other" add "$file"
+  if [ -n "$clean_file" ]; then
+    printf '%s\n' "$clean_value" > "$other/$clean_file"
+    git -C "$other" add "$clean_file"
+  fi
+  git -C "$other" -c user.email=t@t -c user.name=t commit -q -m "ticket $number"
   git -C "$other" checkout -q main
   git -C "$other" merge -q --no-ff "issue-$number" -m "Merge branch 'issue-$number'"
   git -C "$other" push -q origin main
@@ -2107,11 +2110,20 @@ path.write_text(json.dumps(rows))
 '
 }
 
+assert_no_retired_base_config() {
+  local root="$1" number="$2" action="$3"
+  [ -z "$(git -C "$root" config --get "branch.issue-$number.mmw-base")" ] \
+    || fail "$action wrote retired branch.issue-$number.mmw-base"
+  [ -z "$(git -C "$root" config --get "branch.issue-$number.mmw-base-branch")" ] \
+    || fail "$action wrote retired branch.issue-$number.mmw-base-branch"
+}
+
 scenario_integrateuptodate() {
   local before code
   fresh_repo
   echo '[]' > "$TMP/tickets.json"
   start_integrate_ticket
+  commit_file "$TMP/repo" ticket.txt ticket ticket-work
   before="$(git -C "$TMP/repo" rev-parse HEAD)"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" integrate 61)"
@@ -2151,14 +2163,16 @@ scenario_integratenamestickets() {
   local code
   fresh_repo
   echo '[]' > "$TMP/tickets.json"
+  merge_sibling_to_origin 60 earlier.txt earlier "earlier ticket"
+  git -C "$TMP/repo" pull -q --ff-only origin main
   start_integrate_ticket
   merge_sibling_to_origin 62 first.txt first "first sibling"
   merge_sibling_to_origin 63 second.txt second "second sibling"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" integrate 61)"
   [ "$code" = 0 ] || fail "named integrate expected 0, got $code: $(cat "$TMP/err")"
-  grep -q "#62" "$TMP/out" || fail "clean result omitted #62: $(cat "$TMP/out")"
-  grep -q "#63" "$TMP/out" || fail "clean result omitted #63: $(cat "$TMP/out")"
+  [ "$(cat "$TMP/out")" = "integrated origin/main into issue-61; incoming tickets: #62 #63" ] \
+    || fail "clean result did not name exactly #62 and #63: $(cat "$TMP/out")"
 }
 
 scenario_integrateconflict() {
@@ -2171,7 +2185,7 @@ scenario_integrateconflict() {
   git -C "$TMP/repo" push -q origin main
   start_integrate_ticket
   commit_file "$TMP/repo" shared.txt ticket ticket-change
-  merge_sibling_to_origin 62 shared.txt sibling "conflicting sibling"
+  merge_sibling_to_origin 62 shared.txt sibling "conflicting sibling" clean.txt clean
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" integrate 61)"
   [ "$code" = 3 ] || fail "conflicting integrate expected 3, got $code: $(cat "$TMP/err")"
@@ -2182,17 +2196,20 @@ scenario_integrateconflict() {
     || fail "the report omitted #62's title: $(cat "$TMP/err")"
   grep -q "shared.txt" "$TMP/err" \
     || fail "the report omitted the conflicted file: $(cat "$TMP/err")"
+  ! sed -n '/conflicted files:/,/^$/p' "$TMP/err" | grep -q "clean.txt" \
+    || fail "the report listed a cleanly merged file as conflicted: $(cat "$TMP/err")"
 }
 
 scenario_integratedirty() {
   local cached code head status
   fresh_repo
   echo '[]' > "$TMP/tickets.json"
+  commit_file "$TMP/repo" tracked.txt original tracked-base
+  git -C "$TMP/repo" push -q origin main
   start_integrate_ticket
   cached="$(git -C "$TMP/repo" rev-parse origin/main)"
   merge_sibling_to_origin 62 sibling.txt sibling "sibling feature"
-  printf 'dirty\n' > "$TMP/repo/dirty.txt"
-  git -C "$TMP/repo" add dirty.txt
+  printf 'dirty\n' > "$TMP/repo/tracked.txt"
   head="$(git -C "$TMP/repo" rev-parse HEAD)"
   status="$(git -C "$TMP/repo" status --porcelain --untracked-files=no)"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
@@ -2203,7 +2220,7 @@ scenario_integratedirty() {
     || fail "dirty integrate fetched origin before refusing"
   [ "$(git -C "$TMP/repo" status --porcelain --untracked-files=no)" = "$status" ] \
     || fail "dirty integrate changed the index or working tree"
-  [ "$(cat "$TMP/repo/dirty.txt")" = dirty ] || fail "dirty integrate changed the tracked file"
+  [ "$(cat "$TMP/repo/tracked.txt")" = dirty ] || fail "dirty integrate changed the tracked file"
   grep -q "uncommitted tracked changes" "$TMP/err" \
     || fail "the dirty refusal was not named: $(cat "$TMP/err")"
 }
@@ -2493,9 +2510,11 @@ scenario_start_reviewer() {
   echo "--- a reviewer uses worker.started.base when the base branch was never integrated"
   reset_log
   fresh_repo
+  echo '[]' > "$TMP/tickets.json"
   base="$(git -C "$TMP/repo" rev-parse main)"
-  seed_integrate_worker "$base"
+  seed_worker_started_for_integration "$base"
   seed_workspace 61
+  merge_sibling_to_origin 62 sibling.txt sibling "not integrated"
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   started_once
@@ -2523,7 +2542,7 @@ scenario_reviewerbaseafterintegrate() {
   fresh_repo
   echo '[]' > "$TMP/tickets.json"
   base="$(git -C "$TMP/repo" rev-parse main)"
-  seed_integrate_worker "$base"
+  seed_worker_started_for_integration "$base"
   seed_workspace 61
   tree="$(wt 61)"
   merge_sibling_to_origin 62 sibling.txt sibling "sibling feature"
@@ -2531,6 +2550,14 @@ scenario_reviewerbaseafterintegrate() {
           bash "$DISPATCH" "${TOOLS[@]}" integrate 61) > "$TMP/out" 2> "$TMP/err"; echo $?)"
   [ "$code" = 0 ] || fail "integrate before reviewer expected 0, got $code: $(cat "$TMP/err")"
   integrated="$(git -C "$TMP/origin.git" rev-parse main)"
+  : > "$MMW_TEST_LOG"
+  rm -f "$MMW_FAKE_PASEO_STATE/runs.jsonl"
+  code="$( (cd "$tree" && env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker) > "$TMP/out" 2> "$TMP/err"; echo $?)"
+  [ "$code" = 0 ] || fail "replacement worker after integrate expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(posted_events 61 base | tail -n 1)" = "worker.started base=$base" ] \
+    || fail "replacement worker moved worker.started.base: $(posted_events 61 base)"
+  merge_sibling_to_origin 63 later.txt later "landed after integration"
   : > "$MMW_TEST_LOG"
   rm -f "$MMW_FAKE_PASEO_STATE/runs.jsonl"
   code="$( (cd "$tree" && env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
@@ -2552,10 +2579,7 @@ scenario_nobaseconfig() {
   fresh_repo
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "worker start expected 0, got $code: $(cat "$TMP/err")"
-  [ -z "$(git -C "$TMP/repo" config --get branch.issue-61.mmw-base)" ] \
-    || fail "start wrote retired branch.issue-61.mmw-base"
-  [ -z "$(git -C "$TMP/repo" config --get branch.issue-61.mmw-base-branch)" ] \
-    || fail "start wrote retired branch.issue-61.mmw-base-branch"
+  assert_no_retired_base_config "$TMP/repo" 61 start
   : > "$MMW_TEST_LOG"
   rm -f "$MMW_FAKE_PASEO_STATE/runs.jsonl"
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
@@ -2571,10 +2595,7 @@ scenario_nobaseconfig() {
   code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self \
           bash "$DISPATCH" "${TOOLS[@]}" adopt 61 --into main) > "$TMP/out" 2> "$TMP/err"; echo $?)"
   [ "$code" = 0 ] || fail "adopt expected 0, got $code: $(cat "$TMP/err")"
-  [ -z "$(git -C "$TMP/repo" config --get branch.issue-61.mmw-base)" ] \
-    || fail "adopt wrote retired branch.issue-61.mmw-base"
-  [ -z "$(git -C "$TMP/repo" config --get branch.issue-61.mmw-base-branch)" ] \
-    || fail "adopt wrote retired branch.issue-61.mmw-base-branch"
+  assert_no_retired_base_config "$TMP/repo" 61 adopt
   no_relay
 }
 
@@ -5860,8 +5881,7 @@ scenario_adoptinto() {
   [ "$code" = 0 ] || fail "adopt --into expected 0, got $code: $(cat "$TMP/err")"
   posted_events 61 into | grep -qx "worker.started into=adopted-base" \
     || fail "adopt did not record into=adopted-base: $(posted_events 61 into)"
-  [ -z "$(git -C "$TMP/repo" config --get branch.issue-61.mmw-base)" ] \
-    || fail "adopt wrote retired mmw-base config"
+  assert_no_retired_base_config "$TMP/repo" 61 adopt
   no_relay
 }
 

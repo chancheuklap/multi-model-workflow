@@ -1,6 +1,6 @@
 ## What it does
 
-`code-review` reviews one ticket's committed diff from a fixed base commit along three axes. **Standards** asks whether the code follows how this repo writes code. **Spec** asks whether the code does what the ticket and its named spec sections asked for, including interactions with sibling tickets already integrated into the base. **Tests** asks whether the ticket's checks prove their stated behavior. Each axis runs in its own [sub-agent](https://www.aihero.dev/ai-coding-dictionary/subagent) so none sees another's reasoning.
+`code-review` reviews one ticket's committed diff from a fixed base commit along three axes. **Standards** asks whether the code follows how this repo writes code. **Spec** asks whether the code does what the ticket and its named spec sections asked for, including interactions with tickets already integrated into the base branch. **Tests** asks whether the ticket's checks prove their stated behavior. Each axis runs in its own [sub-agent](https://www.aihero.dev/ai-coding-dictionary/subagent) so none sees another's reasoning.
 
 The three axes are never merged and never re-ranked. The report ends with a worst issue *per axis* and refuses to name a single winner across them, because a change can pass one axis and fail another: code that follows every convention while implementing the wrong thing passes Standards and fails Spec; code that does the right thing with a test that would pass either way fails Tests. A blended verdict lets a passing axis hide a failing one.
 
@@ -37,11 +37,11 @@ Step 1 depends on `docs/agents/issue-tracker.md`, which [setup-matt-pocock-skill
 | | Standards | Spec | Tests |
 | --- | --- | --- | --- |
 | Question | Is it built right? | Is it the right thing? | Do the checks prove it? |
-| Reads | The repo's documented standards, plus the smell baseline | The ticket, its named spec sections and integrated sibling tickets | The acceptance checks and their test cases |
+| Reads | The repo's documented standards, plus the smell baseline | The ticket, its named spec sections and tickets integrated into the base branch | The acceptance checks and their test cases |
 | Reports | Documented breaches (can be hard), and smells (always judgement calls) | Missing or partial requirements, scope creep, requirements implemented wrongly | Tautological, implementation-coupled or incomplete proof |
 | Every finding cites | The standards file and the rule, or the named smell plus the hunk | The line of a ticket, spec or baseline | The check and the test line |
 
-The Spec axis reads sibling tickets represented by first-parent merge commits between `worker.started.base` and the review base. It checks combination behavior, contract consistency, migration completeness and shared state, without treating a sibling verdict as proof. A repair inside the current ticket's `## Owns` is handled on the current ticket; a repair only inside a sibling's `## Owns` becomes an out-of-ticket finding.
+The Spec axis reads tickets represented by first-parent merge commits between the first `worker.started.base` and the base commit. It checks combination behavior, contract consistency, migration completeness and shared state, without treating another ticket's verdict as proof. A repair inside the current ticket's `## Owns` is handled on the current ticket; a repair only inside another ticket's `## Owns` becomes an out-of-ticket finding.
 
 A generic review skill that does not know your standards is the thing this design is trying to avoid: it flags what is deliberate in your codebase and misses the invariants your codebase actually depends on. So the repo's own documentation is the [primary source](https://www.aihero.dev/ai-coding-dictionary/primary-source) on the Standards axis, and **the repo always overrides**.
 

@@ -35,9 +35,9 @@ A run is five beats, in order:
 1. Read the ticket or spec and work out the seams.
 2. Drive [tdd](https://aihero.dev/skills-tdd) at the pre-agreed seams, one red-green slice at a time.
 3. Typecheck often, run single test files as it goes.
-4. Commit the ticket work, integrate the current `origin/<base branch>` into it, and run the full test suite once. A conflict, or a clean merge that makes repository checks red, is resolved by the worker that knows the ticket's intent.
+4. Commit the ticket work, integrate `origin/<base branch>` into it, and run the full test suite once. A conflict, or a clean merge that makes repository checks red, is resolved by the worker that knows the ticket's intent.
 5. Run an independent [code-review](https://aihero.dev/skills-code-review), apply its in-ticket findings once, then run the verifier.
-6. Push `issue-<n>` without force, write the closeout, and let the main agent merge the remote ticket branch. No pull request is created.
+6. Write the closeout, which pushes `issue-<n>` without force, and let the main agent merge the ticket branch. No pull request is created.
 
 One run covers one ticket. The tickets [to-tickets](https://aihero.dev/skills-to-tickets) produces are tracer-bullet vertical slices sized to fit a single fresh [context window](https://www.aihero.dev/ai-coding-dictionary/context-window), so the intended rhythm is: clear context, implement one ticket, commit, clear again. Each ticket is self-contained, which is what makes the previous ticket's context disposable.
 
@@ -51,7 +51,7 @@ The word "pre-agreed" is doing real work, and it is also the skill's weakest joi
 
 **It finished, but my ticket is still open and the acceptance criteria are still unchecked.**
 
-That is not a completed `implement` run in this pipeline. The worker runs each criterion through the `verify-ticket` skill, records review and verifier evidence, pushes the ticket branch, and uses `--closeout`; that command closes an all-met ticket or returns an unmet one to triage. The tracker, not the worker's transcript, is the completion record.
+That is not a completed `implement` run in this pipeline. The worker runs each criterion through the `verify-ticket` skill, records review and verifier evidence, and uses `--closeout`; that command pushes the ticket branch, then closes an all-met ticket or returns an unmet one to triage. The tracker, not the worker's transcript, is the completion record.
 
 **Can I point it at all my tickets at once, or run several in parallel?**
 
@@ -59,11 +59,11 @@ No. One invocation, one ticket. Batch dispatch across a ticket queue and [subage
 
 **Can it open a pull request instead of committing?**
 
-No. It commits to `issue-<n>`, integrates the remote base, completes review and verification, then pushes `origin/issue-<n>` before closeout. The main agent merges that branch through `dispatch.sh`; no step reads a pull request.
+No. It commits to `issue-<n>`, integrates `origin/<base branch>`, completes review and verification, then lets `--closeout` push `origin/issue-<n>`. The main agent merges that branch through `dispatch.sh`; no step reads a pull request.
 
 **`code-review` says it cannot see my changes.**
 
-`code-review` reviews `git diff <base-commit>...HEAD`, which excludes staged and working-tree changes. `implement` commits before it starts the reviewer. The review base is the merge-base of the ticket branch and `origin/<base branch>` after integration, so the reviewer sees the ticket's committed work without treating already-landed sibling work as this ticket's diff.
+`code-review` reviews `git diff <base-commit>...HEAD`, which excludes staged and working-tree changes. `implement` commits before it starts the reviewer. The base commit is the merge-base of the ticket branch and `origin/<base branch>`, so the reviewer sees the ticket's committed work without treating work already landed on the base branch as this ticket's diff.
 
 Separately, some people deliberately do not want the review inside the run at all, because an agent reviewing the code it just wrote is biased toward its own solution. Running [code-review](https://aihero.dev/skills-code-review) in a fresh session against a fixed point is a legitimate alternative, and is the same reason that skill runs its two axes in separate sub-agents.
 

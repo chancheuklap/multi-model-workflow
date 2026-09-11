@@ -111,18 +111,22 @@ Reason, in the numbers from #277 Problem Statement: on the #216 night, 38 review
 
 If upstream rewrites section 3 → take its wording and put the sixth condition back, with the sentence that a file outside `## Owns` is still not written.
 
-## The Spec axis reviews integrated sibling tickets
+## The Spec axis reviews tickets integrated into the base branch
 
-`references/spec-reviewer.md` reads the current ticket's `worker.started.base`, then the
-first-parent `Merge branch 'issue-<n>'` commits through the review base. It reads each
-sibling ticket and its closeout evidence and checks four interactions: combination
-behavior, contract consistency, migration completeness and shared state. A sibling's
-verdict is evidence of what ran, not proof that the combination is correct.
+`references/spec-reviewer.md` reads the first `worker.started.base`, then the first-parent
+`Merge branch 'issue-<n>'` commits through the base commit. It reads each ticket those
+commits name and its closeout evidence and checks four interactions: combination behavior,
+contract consistency, migration completeness and shared state. Another ticket's verdict
+is evidence of what ran, not proof that the combination is correct.
 
 `references/session.md` keeps the ownership boundary when it sorts those findings: a
-repair inside the current ticket's `## Owns` is in-ticket; one only inside a sibling's
+repair inside the current ticket's `## Owns` is in-ticket; one only inside another ticket's
 `## Owns` is out-of-ticket and becomes a `finding` child. Upstream rewrites the Spec axis
 or the sorting step → keep both the four-angle pass and this ownership rule.
+
+### docs page
+
+`mmw-v2/upstream/docs/engineering/code-review.md` describes the same first-parent range, four interaction angles and ownership boundary without introducing other names for the base commit or `origin/<base branch>`.
 
 ### agents/openai.yaml
 
