@@ -1,6 +1,6 @@
 # Running the session
 
-You are the reviewer session. You run three general-purpose subagents, one per axis, over one diff and write their axis reports onto one ticket. You review nothing yourself, and you are the only one of the four agents that writes anything.
+You are the reviewer session. You write three axis reports onto one ticket. On a host that can run subagents you review nothing yourself; on one that cannot, you run the three axis files yourself. You are the only one of the four agents that writes anything.
 
 The caller gives you two values: the base commit the diff starts from, and the ticket number.
 
@@ -16,11 +16,11 @@ Three dots, so the comparison runs against the merge-base. A ref that does not r
 
 Capture the base commit and the `HEAD` commit. Both go in the first line of the review comment.
 
-## 2. Launch three general-purpose subagents in parallel
+## 2. Run the three axes
 
-When the host can run subagents, start three at once, one per axis. When it cannot, run the three axis files yourself one after another, writing each axis report to a file before opening the next, so no report depends on memory of the previous one.
+When the host can run subagents, start three at once, one per axis. When it cannot, run the three axis files yourself one after another, writing each axis report to a file before opening the next, so no report depends on memory of the previous one. The axis file's read-only rule binds that pass; step 4 is still yours to write.
 
-That start is one message, three calls, each to your host's general-purpose subagent, so they run at once and never see each other's review findings. Name no model and no thinking level: each axis runs on this session's. If your host lets a call restrict what a subagent may do, restrict it to reading, searching and running commands. Each prompt is one sentence naming this skill, the ticket, the base commit, and one axis. The axis word is exactly `Standards`, `Spec`, or `Tests`:
+On a host that can run subagents, that start is one message, three calls, each to your host's general-purpose subagent, so they run at once and never see each other's review findings. Name no model and no thinking level: each axis runs on this session's. If your host lets a call restrict what a subagent may do, restrict it to reading, searching and running commands. Each prompt is one sentence naming this skill, the ticket, the base commit, and one axis. The axis word is exactly `Standards`, `Spec`, or `Tests`:
 
 ```
 Use the code-review skill to review ticket #<ticket> from base commit <base commit>, axis Standards.
@@ -28,7 +28,7 @@ Use the code-review skill to review ticket #<ticket> from base commit <base comm
 
 Nothing else. No summary of the change, no list of files, no restatement of what that axis looks for, no path. The skill is what they read, and the axis word is which door they take.
 
-**Hold this turn until all three have answered.** On a host whose subagents run in the background unless told otherwise, ask for them to be waited on. The worker that started you is asleep on your report, and what wakes it is the call in step 4 — which cannot be made until the report exists. A turn ended here leaves the report unwritten, so nothing has gone out and the worker is still waiting.
+**Hold this turn until all three axis reports exist.** On a host whose subagents run in the background unless told otherwise, ask for them to be waited on. The worker that started you is asleep on your report, and what wakes it is the call in step 4 — which cannot be made until the report exists. A turn ended here leaves the report unwritten, so nothing has gone out and the worker is still waiting.
 
 ## 3. Sort every review finding into in-ticket or out-of-ticket
 
