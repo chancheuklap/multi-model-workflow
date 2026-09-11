@@ -74,7 +74,7 @@ Walk the map's decisions and the backend contract the other way: every decision 
 
 ### 5. Write the gap list and stop for the person
 
-Collect every row whose `gap` is `design-only` or `backend-only`, and every scene a person has judged cannot be captured (record that as a dated `retired_ids`-style entry after the verdict; there is no exemption field, and the lint prints every retirement on every run). Write them to `<scratch>/gap-list.md`: one entry each, with the row id, what the design shows, what the backend decides, the options, and the one you would take. Then hand the list to the person — this is the one judgement in this skill that is theirs, and it is a grilling, not a form. Expect a handful of entries, not dozens; dozens means a decision ticket was skipped upstream, and that goes back to the wayfinder map.
+Collect every row whose `gap` is `design-only` or `backend-only`, and every scene a person has judged cannot be captured (record that as a `retired_ids` entry whose `note` carries the date and the verdict, as `contract-format.md` shows; there is no exemption field, and the lint prints every retirement on every run). Write them to `<scratch>/gap-list.md`: one entry each, with the row id, what the design shows, what the backend decides, the options, and the one you would take. Then hand the list to the person — this is the one judgement in this skill that is theirs, and it is a grilling, not a form. Expect a handful of entries, not dozens; dozens means a decision ticket was skipped upstream, and that goes back to the wayfinder map.
 
 When the person is not reachable in this run (a batch, a test run), write the gap list and stop. The contract stays in the run's scratch directory with its `gap` values as they are; the lint reports each unresolved gap as an error, and that is the intended state. Nothing is written under `docs/specs/` until every gap is `aligned`.
 
@@ -82,14 +82,22 @@ Two things a gap list does not carry: an implementation that today does less tha
 
 ### 6. Publish, write the target trees, and lint
 
-Write `docs/specs/<effort>/screen-contract.yaml`, then render once more with the contract in hand so the retired controls are hidden, writing the target trees beside it:
+1. Write `docs/specs/<effort>/screen-contract.yaml`.
+2. Render once more with the contract in hand so the retired controls are hidden, writing the target trees beside it:
 
 ```
 uv run python <drive-target scripts>/extract_skeleton.py <handoff dir> <scratch>/skeleton.json --targets docs/specs/<effort>/targets --contract docs/specs/<effort>/screen-contract.yaml
+```
+
+The target trees — one `.aria` and one `.classes` file per design page under `docs/specs/<effort>/targets/` — are what a worker writes toward and what the judges compare against, produced by the judges' own normaliser. They are a derived view of the handoff package and carry its hashes; the lint fails when they go stale.
+3. Lint to zero errors:
+
+```
 uv run python <scripts>/lint_contract.py --tools <drive-target scripts> docs/specs/<effort>/screen-contract.yaml <scratch>/skeleton.json [<openapi.json>]
 ```
 
-The lint asks the drive-target skill's driver for the target kinds and for the state of the repository's `.mmw/target.json` (a warning while the contract ticket has not landed it; an error once the file is there and a field is still missing), which is why it takes `--tools`. The target trees — one `.aria` and one `.classes` file per design page under `docs/specs/<effort>/targets/` — are what a worker writes toward and what the judges compare against, produced by the judges' own normaliser. They are a derived view of the handoff package and carry its hashes; the lint fails when they go stale. When a `story-parity.py --out` directory sits under the contract directory, the lint warns if a non-App page has a scene that inventory does not cover. `App · ` pages are outside that warning: the story judge's `--pages` takes only non-App mounts. Zero errors, or fix the file. Then write the **API contract** draft — one entry per distinct operation in `calls`, with the request and response fields the rows' `shows` and `on_failure` imply — to `<scratch>/api-contract.md`, for the `to-spec` skill to fold into the spec's Implementation Decisions.
+The lint asks the drive-target skill's driver for the target kinds and for the state of the repository's `.mmw/target.json` (a warning while the contract ticket has not landed it; an error once the file is there and a field is still missing), which is why it takes `--tools`. When a `story-parity.py --out` directory sits under the contract directory, the lint warns if a non-App page has a scene that inventory does not cover. `App · ` pages are outside that warning: the story judge's `--pages` takes only non-App mounts. Zero errors, or fix the file.
+4. Write the **API contract** draft — one entry per distinct operation in `calls`, with the request and response fields the rows' `shows` and `on_failure` imply — to `<scratch>/api-contract.md`, for the `to-spec` skill to fold into the spec's Implementation Decisions.
 
 ## Re-runs
 
