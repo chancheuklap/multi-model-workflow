@@ -8,13 +8,6 @@ import interact
 from story_helper import recorded_requests, story_page
 
 
-def request_line(page, method, path):
-    calls = recorded_requests(page)
-    return [{key: call[key] for key in ("method", "path")} for call in calls] == [
-        {"method": method, "path": path},
-    ]
-
-
 class TopbarCallsTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -29,17 +22,23 @@ class TopbarCallsTest(unittest.TestCase):
     def test_refresh_after_a_good_read(self):
         with story_page(self.browser, "topbar", "顶栏.morning") as page:
             interact.click(page, "button", "立刻重读 GitHub")
-            self.assertTrue(request_line(page, "POST", "/api/board/refresh"), recorded_requests(page))
+            self.assertEqual(recorded_requests(page), [
+                {"method": "POST", "path": "/api/board/refresh", "fields": None},
+            ])
 
     def test_refresh_after_a_failed_read(self):
         with story_page(self.browser, "topbar", "顶栏.bad-data") as page:
             interact.click(page, "button", "立刻重读 GitHub")
-            self.assertTrue(request_line(page, "POST", "/api/board/refresh"), recorded_requests(page))
+            self.assertEqual(recorded_requests(page), [
+                {"method": "POST", "path": "/api/board/refresh", "fields": None},
+            ])
 
     def test_gear_reads_the_settings(self):
         with story_page(self.browser, "topbar", "顶栏.morning") as page:
             interact.click(page, "button", "本机配置")
-            self.assertTrue(request_line(page, "GET", "/api/settings"), recorded_requests(page))
+            self.assertEqual(recorded_requests(page), [
+                {"method": "GET", "path": "/api/settings", "fields": None},
+            ])
 
 
 if __name__ == "__main__":
