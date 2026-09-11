@@ -15,9 +15,13 @@ import os
 import re
 import subprocess
 import sys
+import importlib.util
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from collections.abc import Mapping, Sequence
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import NamedTuple
+from typing import Iterator, NamedTuple
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 HOSTS_JSON = SKILL_DIR / "hosts.json"
@@ -32,6 +36,7 @@ DEFAULT_RUNNER = "orca"
 # sets MMW_CATALOG_MODE from tonight's runner; tests set it or MMW_HOST_CATALOG.
 DEFAULT_CATALOG_MODE = "cli"
 CLI_HOSTS = ("cursor", "grok", "claude", "codex", "pi")
+CONFIG_RUNNERS = ("herdr", "orca", "paseo", "auto")
 OFFERINGS_BEGIN = "<!-- mmw-offerings -->"
 OFFERINGS_END = "<!-- /mmw-offerings -->"
 _CURSOR_EFFORT_IN_ID = re.compile(
@@ -60,6 +65,83 @@ def load_hosts() -> dict:
     data = json.loads(HOSTS_JSON.read_text(encoding="utf-8"))
     if not isinstance(data, dict) or "hosts" not in data:
         raise ValueError(f"{HOSTS_JSON} 不是一份 host 启动表")
+    return data
+
+
+def _load_statedir():
+    """Load the sibling module when this file was imported directly by a test."""
+    name = "mmw_dispatch_statedir"
+    if name in sys.modules:
+        return sys.modules[name]
+    source = Path(__file__).resolve().with_name("statedir.py")
+    spec = importlib.util.spec_from_file_location(name, source)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load {source}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+statedir = _load_statedir()
+
+
+class ConfigMissing(ValueError):
+    pass
+
+
+class VersionConflict(ValueError):
+    def __init__(self, expected: int, found: int, modified_at: str):
+        self.expected = expected
+        self.found = found
+        self.modified_at = modified_at
+        super().__init__(f"expected version {expected}, found {found}; reload the saved configuration")
+
+
+class InvalidConfig(ValueError):
+    def __init__(self, errors: list[dict[str, str]]):
+        self.errors = errors
+        super().__init__("; ".join(f"{item['cell']}: {item['reason']}" for item in errors))
+
+
+class ConfigLockHeld(ValueError):
+    def __init__(self, lock_error):
+        self.holder = lock_error.record
+        super().__init__(str(lock_error))
+
+
+def models_json_path() -> Path:
+    """The one local configuration path; legacy model path variables never affect it."""
+    return statedir.home() / "models.json"
+
+
+def models_lock_path() -> Path:
+    return statedir.home() / "models.lock"
+
+
+@contextmanager
+def config_lock(*, purpose: str = "write models.json") -> Iterator[None]:
+    """Hold the machine-wide configuration lock without waiting."""
+    models_lock_path().parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with statedir.locked(models_lock_path(), wait=0, purpose=purpose):
+        yield
+
+
+def _modified_at(path: Path) -> str:
+    stamp = path.stat().st_mtime
+    return datetime.fromtimestamp(stamp, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def read_local_config() -> dict:
+    path = models_json_path()
+    if not path.is_file():
+        raise ConfigMissing(f"no models.json at {path}; run install.sh first")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"cannot read {path}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValueError(f"{path} is not a configuration object")
     return data
 
 
@@ -445,7 +527,7 @@ def _claude_settings_models() -> list[str]:
     seen = set()
     out = []
     for name in names:
-        if name not in seen:
+        if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]*", name) and name not in seen:
             seen.add(name)
             out.append(name)
     return out
@@ -676,6 +758,207 @@ def fillable_rows(host: str, offerings: list[dict]) -> list[tuple[str, str]]:
         efforts = _sort_efforts(_host_efforts(host, offering))
         rows.append((model, ", ".join(efforts) if efforts else "—"))
     return _collapse_fillable(rows)
+
+
+_STATE_LABELS = {
+    "ok": "答出了几个 model",
+    "missing": "本机没装",
+    "silent": "没有回答",
+    "down": "Paseo 没开",
+    "unlaunchable": "这个 runner 起不了它",
+}
+
+
+def _fixture_catalog() -> dict | None:
+    source = os.environ.get("MMW_HOST_CATALOG")
+    if not source:
+        return None
+    data = json.loads(Path(source).read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"{source} is not a host catalog object")
+    return data
+
+
+def _fixture_entry(data: dict, source: str, host: str):
+    section = data.get(source)
+    if isinstance(section, dict):
+        if source == "paseo" and section.get("state") == "down":
+            return {"state": "down"}
+        hosts = section.get("hosts") if isinstance(section.get("hosts"), dict) else section
+        if host in hosts:
+            return hosts[host]
+    if host in data:
+        return data[host]
+    return None
+
+
+def _offered_rows(host: str, offerings: list[dict]) -> list[dict]:
+    rows: list[dict] = []
+    by_model: dict[str, dict] = {}
+    for model, effort_text in fillable_rows(host, offerings):
+        efforts = [part.strip() for part in effort_text.split(",") if part.strip()]
+        if model not in by_model:
+            by_model[model] = {"model": model, "efforts": []}
+            rows.append(by_model[model])
+        for effort in efforts or ["—"]:
+            if effort not in by_model[model]["efforts"]:
+                by_model[model]["efforts"].append(effort)
+    return rows
+
+
+def _scan_one_host(host: str, runner: str, source: str, fixture: dict | None) -> dict:
+    spec = load_hosts()["hosts"].get(host) or {}
+    launch_block = "paseo" if runner == "paseo" else "cli"
+    if launch_block not in spec:
+        state = "unlaunchable"
+        return {"state": state, "label": _STATE_LABELS[state], "offered": []}
+
+    entry = _fixture_entry(fixture, source, host) if fixture is not None else None
+    if fixture is not None:
+        if isinstance(entry, list):
+            offerings = list(entry)
+            state = "ok" if offerings else "silent"
+        elif isinstance(entry, dict):
+            state = str(entry.get("state") or "")
+            offerings = list(entry.get("offerings") or entry.get("offered") or [])
+            if not state:
+                state = "ok" if offerings else "silent"
+        else:
+            state, offerings = "silent", []
+    elif source == "paseo":
+        offerings = _paseo_models(host)
+        state = "ok" if offerings else "silent"
+    else:
+        binary = str(spec.get("binary") or host)
+        if _which(binary) is None:
+            state, offerings = "missing", []
+        else:
+            offerings = fetch_cli_offerings(host)
+            state = "ok" if offerings else "silent"
+    if state not in _STATE_LABELS:
+        raise ValueError(f"MMW_HOST_CATALOG gives {host} unknown state {state!r}")
+    return {"state": state, "label": _STATE_LABELS[state],
+            "offered": _offered_rows(host, offerings) if state == "ok" else []}
+
+
+def scan_host_catalogs(runner: str, hosts: Sequence[str] = CLI_HOSTS) -> dict:
+    """Scan all requested hosts concurrently from the source the runner will use."""
+    source = "paseo" if runner == "paseo" else "cli"
+    fixture = _fixture_catalog()
+    selected = [host for host in CLI_HOSTS if host in hosts]
+
+    paseo_down = False
+    if source == "paseo":
+        if fixture is not None:
+            paseo = fixture.get("paseo")
+            paseo_down = isinstance(paseo, dict) and paseo.get("state") == "down"
+        else:
+            paseo_down = not bool(_run(["paseo", "provider", "ls", "--json"]))
+    if paseo_down:
+        result = {host: {"state": "down", "label": _STATE_LABELS["down"], "offered": []}
+                  for host in selected}
+    else:
+        with ThreadPoolExecutor(max_workers=max(1, len(selected))) as pool:
+            values = pool.map(lambda host: _scan_one_host(host, runner, source, fixture), selected)
+            result = dict(zip(selected, values))
+    return {
+        "source": source,
+        "scanned_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "scanning": False,
+        "hosts": result,
+    }
+
+
+def _validate_local_config(config: dict, scan: dict,
+                           roles: Sequence[str] | None = None) -> list[dict[str, str]]:
+    errors: list[dict[str, str]] = []
+    runner = config.get("runner")
+    if runner not in CONFIG_RUNNERS:
+        errors.append({"cell": "runner", "reason": f"{runner!r} is not herdr, orca, paseo, or auto"})
+    else:
+        required_source = "paseo" if runner == "paseo" else "cli"
+    if runner in CONFIG_RUNNERS and scan.get("source") != required_source:
+        errors.append({"cell": "runner",
+                       "reason": f"runner {runner} requires a fresh {required_source} scan"})
+    rows = config.get("rows")
+    if not isinstance(rows, dict):
+        return errors + [{"cell": "rows", "reason": "five role rows are required"}]
+    missing = [role for role in ALLOWED_AGENTS if role not in rows]
+    extra = [role for role in rows if role not in ALLOWED_AGENTS]
+    if missing or extra:
+        reason = "five role rows are required"
+        if missing:
+            reason += "; missing " + ", ".join(missing)
+        if extra:
+            reason += "; unknown " + ", ".join(extra)
+        errors.append({"cell": "rows", "reason": reason})
+    checked = set(roles or ALLOWED_AGENTS)
+    catalog_hosts = scan.get("hosts") if isinstance(scan, dict) else {}
+    host_specs = load_hosts()["hosts"]
+    for role in ALLOWED_AGENTS:
+        row = rows.get(role)
+        if not isinstance(row, dict):
+            if role not in missing:
+                errors.append({"cell": role, "reason": "host, model, and effort are required"})
+            continue
+        if role not in checked:
+            continue
+        host = row.get("host")
+        if host not in host_specs:
+            errors.append({"cell": f"{role}.host", "reason": f"unknown host {host!r}"})
+            continue
+        launch_block = "paseo" if runner == "paseo" else "cli"
+        if runner in CONFIG_RUNNERS and launch_block not in host_specs[host]:
+            errors.append({"cell": f"{role}.host",
+                           "reason": f"runner {runner} cannot start host {host}: hosts.json has no {launch_block} block"})
+            continue
+        found = catalog_hosts.get(host) if isinstance(catalog_hosts, dict) else None
+        if not isinstance(found, dict) or found.get("state") != "ok":
+            state = found.get("label") if isinstance(found, dict) else "was not scanned"
+            errors.append({"cell": f"{role}.host", "reason": f"host {host} is unavailable: {state}"})
+            continue
+        model = row.get("model")
+        offered = next((item for item in found.get("offered") or []
+                        if item.get("model") == model), None)
+        if offered is None:
+            errors.append({"cell": f"{role}.model",
+                           "reason": f"model {model!r} is not in the current {scan.get('source')} catalog for {host}"})
+            continue
+        effort = row.get("effort")
+        if effort not in (offered.get("efforts") or []):
+            errors.append({"cell": f"{role}.effort",
+                           "reason": f"effort {effort!r} is not offered for {host} model {model!r}"})
+    return errors
+
+
+def write_local_config(config: dict, expected_version: int, scan: dict,
+                       *, validate_roles: Sequence[str] | None = None) -> dict:
+    """Validate, lock, version-check, and atomically replace models.json."""
+    path = models_json_path()
+    if not path.is_file():
+        raise ConfigMissing(f"no models.json at {path}; run install.sh first")
+    errors = _validate_local_config(config, scan, validate_roles)
+    if errors:
+        raise InvalidConfig(errors)
+    try:
+        with config_lock():
+            current = read_local_config()
+            found_version = current.get("version")
+            if found_version != expected_version:
+                raise VersionConflict(expected_version, found_version, _modified_at(path))
+            written = {
+                "version": expected_version + 1,
+                "runner": config["runner"],
+                "rows": {
+                    role: {key: config["rows"][role][key]
+                           for key in ("host", "model", "effort")}
+                    for role in ALLOWED_AGENTS
+                },
+            }
+            statedir.write_atomic(path, json.dumps(written, ensure_ascii=False, indent=2) + "\n")
+            return written
+    except statedir.LockHeld as exc:
+        raise ConfigLockHeld(exc) from None
 
 
 def offerings_markdown(catalogs: dict | None = None) -> str:
@@ -914,6 +1197,9 @@ def launch_line(host: str, model: str, effort: str, name: str,
 
 
 USAGE = ("usage: models.py offerings\n"
+         "       models.py config show\n"
+         "       models.py config runner <runner>\n"
+         "       models.py config set <role> <host> <model> <effort>\n"
          "       models.py runner\n"
          "       models.py paseo-args <host> <model> <effort>\n"
          "       models.py bypass-argv <host> <model> <effort> <name>\n"
@@ -922,6 +1208,37 @@ USAGE = ("usage: models.py offerings\n"
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
+    if args[:1] == ["config"]:
+        try:
+            if args == ["config", "show"]:
+                print(json.dumps(read_local_config(), ensure_ascii=False, indent=2))
+                return 0
+            if len(args) == 3 and args[1] == "runner":
+                current = read_local_config()
+                proposed = json.loads(json.dumps(current))
+                proposed["runner"] = args[2]
+                scan = scan_host_catalogs(args[2])
+                written = write_local_config(proposed, current["version"], scan)
+                print(json.dumps(written, ensure_ascii=False))
+                return 0
+            if len(args) == 6 and args[1] == "set":
+                role, host, model, effort = args[2:]
+                current = read_local_config()
+                if role not in ALLOWED_AGENTS:
+                    raise InvalidConfig([{"cell": "role", "reason": f"unknown role {role!r}"}])
+                proposed = json.loads(json.dumps(current))
+                proposed["rows"][role] = {"host": host, "model": model, "effort": effort}
+                scan = scan_host_catalogs(current["runner"], [host])
+                written = write_local_config(
+                    proposed, current["version"], scan, validate_roles=[role])
+                print(json.dumps(written, ensure_ascii=False))
+                return 0
+        except (ConfigMissing, ConfigLockHeld, InvalidConfig, VersionConflict,
+                ValueError, OSError, json.JSONDecodeError) as exc:
+            sys.stderr.write(f"models.py: {exc}\n")
+            return 2
+        sys.stderr.write(USAGE)
+        return 2
     if args == ["offerings"]:
         print(refresh_live_offerings())
         return 0
