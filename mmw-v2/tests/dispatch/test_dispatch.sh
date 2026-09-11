@@ -5,7 +5,7 @@
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh check|advance|advanceconflict|advancedirty
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh integrateuptodate|integrateclean|integratenamestickets
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh integrateconflict|integratedirty
-#   bash mmw-v2/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|start-verifier|retract
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|start-verifier|advise|retract
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh resume|wait|reverify|summary
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh slotatclaim|route|specfield|stopproduct|suspend|suspendbusy|status
@@ -2794,6 +2794,57 @@ assert obj["settings"].get("thinkingOptionId") == "high"
     *"You are operating autonomously"*) ;;
     *) fail "the autonomous sentence is missing from the verifier prompt" ;;
   esac
+}
+
+scenario_advise() {
+  local code packet dest
+  packet="$TMP/packet.txt"
+  printf '%s\n' 'the packet body' > "$packet"
+
+  echo "--- advise starts the advisor row in the current worktree and prints the session id"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" advise "$packet")"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  started_once
+  [ "$(cat "$TMP/out")" = agt_run_1 ] || fail "stdout should be the session id: $(cat "$TMP/out")"
+  [ "$(out_json provider)" = "claude/claude-fable-5-1" ] \
+    || fail "advise did not start the advisor row: $(out_json provider)"
+  [ "$(out_json settings.thinkingOptionId)" = medium ] \
+    || fail "effort: $(out_json settings.thinkingOptionId)"
+  case "$(out_json initialPrompt)" in
+    "Use the advisor skill."*) ;;
+    *) fail "the advisor dispatch line is missing: $(out_json initialPrompt)" ;;
+  esac
+  case "$(out_json initialPrompt)" in
+    *"the packet body"*) ;;
+    *) fail "the packet is missing from the prompt: $(out_json initialPrompt)" ;;
+  esac
+  dest="$(cd "$TMP/repo" && git rev-parse --show-toplevel)"
+  [ "$(out_json cwd)" = "$dest" ] || fail "cwd: $(out_json cwd), want $dest"
+  hasnt "gh :: issue :: comment"
+  hasnt_runner_worktree
+
+  echo "--- advise does not need a relay"
+  reset_log
+  fresh_repo
+  no_relay
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" advise "$packet")"
+  [ "$code" = 0 ] || fail "advise without a relay expected 0, got $code: $(cat "$TMP/err")"
+  started_once
+  [ "$(cat "$TMP/out")" = agt_run_1 ] || fail "stdout should be the session id: $(cat "$TMP/out")"
+  hasnt "gh :: issue :: comment"
+
+  echo "--- a start the runner refuses is refused once: one paseo run, no second host"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch env MMW_FAKE_PASEO_SCENARIO=run-fail \
+          bash "$DISPATCH" "${TOOLS[@]}" advise "$packet")"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  started_once
+  grep -q "nothing was retried" "$TMP/err" \
+    || fail "the refusal should say it was not retried: $(cat "$TMP/err")"
+  nothing_printed
 }
 
 scenario_resume() {
@@ -7998,7 +8049,7 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="boardregisters boardsameport boardopenstab boardprintsurl installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="boardregisters boardsameport boardopenstab boardprintsurl installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL openprojecthead finishmerges finishcleans finishrefusesunclosed finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
@@ -8089,6 +8140,7 @@ banner_for() {
     start-worker) echo DISPATCH-START-WORKER-OK ;;
     start-reviewer) echo DISPATCH-START-REVIEWER-OK ;;
     start-verifier) echo DISPATCH-START-VERIFIER-OK ;;
+    advise) echo ADVISE-OK ;;
     startfromorigin) echo START-FROM-ORIGIN-OK ;;
     startresumesorigin) echo START-RESUMES-ORIGIN-OK ;;
     startdiverged) echo START-DIVERGED-OK ;;

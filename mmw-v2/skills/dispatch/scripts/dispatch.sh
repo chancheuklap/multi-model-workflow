@@ -12,6 +12,7 @@
 #   dispatch.sh integrate <n>
 #   dispatch.sh land <n>
 #   dispatch.sh start <n> worker|reviewer|verifier
+#   dispatch.sh advise <packet file>
 #   dispatch.sh retract <n>
 #   dispatch.sh wait <n> worker|reviewer|verifier
 #   dispatch.sh ack <n> <event> | relay.recovered
@@ -346,6 +347,7 @@ usage: dispatch.sh check <spec>
        dispatch.sh integrate <n>
        dispatch.sh land <n>
        dispatch.sh start <n> worker|reviewer|verifier
+       dispatch.sh advise <packet file>
        dispatch.sh retract <n>
        dispatch.sh wait <n> worker|reviewer|verifier
        dispatch.sh ack <n> <event> | relay.recovered
@@ -1461,6 +1463,40 @@ start_one() {
     fi
     refuse "could not write the $kind.started event on #$number, and session $session on $RUNNER_NAME could not be stopped either: it is running and no command can find it. End it on $RUNNER_NAME by hand"
   fi
+  printf '%s\n' "$session"
+}
+
+# `advise <packet file>`: resolve the advisor row against tonight's runner, start a
+# session in the current worktree with `Use the advisor skill.` followed by the file,
+# and print the session id. An advisor is not a ticket's agent, so this writes no
+# event. A start the runner refuses is refused once: no retry, no other runner.
+advise_one() {
+  local packet="$1"
+  [ -n "$packet" ] || usage
+  [ -f "$packet" ] || refuse "no packet file at $packet"
+
+  use_runner "$(tonight_runner)"
+  use_catalog_of "$RUNNER_NAME"
+
+  local row host model effort
+  row="$(row_for_role advisor)" || exit 2
+  [ -n "$row" ] || refuse "the advisor row is missing from $MODELS_JSON"
+  IFS=$'\t' read -r host model effort <<<"$row"
+
+  local cwd body prompt session
+  cwd="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$cwd" ] \
+    || refuse "not inside a git repository, so there is no worktree to start the advisor in"
+  body="$(cat -- "$packet")" \
+    || refuse "could not read the packet file $packet"
+  prompt="Use the advisor skill."$'\n'"$body"
+
+  if ! session="$(runner start --host "$host" --model "$model" --effort "$effort" \
+       --cwd "$cwd" --prompt "$prompt" --skip-approval --title advisor)" \
+     || [ -z "$session" ]; then
+    refuse "$RUNNER_NAME did not start $host as advisor (its reason is above); nothing was retried. Fix what it names, or change this agent's row in $MODELS_JSON, then advise again"
+  fi
+  session="$(printf '%s\n' "$session" | tail -n 1)"
   printf '%s\n' "$session"
 }
 
@@ -3393,6 +3429,10 @@ case "${1:-}" in
     [ "$#" -eq 3 ] || usage
     case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
     start_one "$2" "$3"
+    ;;
+  advise)
+    [ "$#" -eq 2 ] || usage
+    advise_one "$2"
     ;;
   retract)
     [ "$#" -eq 2 ] || usage
