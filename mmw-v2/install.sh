@@ -1037,7 +1037,7 @@ mode = os.environ["MMW_MODE"]
 config_path = Path(os.environ["MMW_PASEO_CONFIG"])
 models_py = Path(os.environ["MMW_MODELS_PY"])
 worktrees_root = os.environ["MMW_PASEO_WORKTREES"]
-GENERATED_MARK = "from models.md"
+RETIRED_PROFILE_NOTE = "from models.md"
 
 _spec = importlib.util.spec_from_file_location("mmw_models", models_py)
 models = importlib.util.module_from_spec(_spec)
@@ -1086,7 +1086,7 @@ def save(path, data):
 
 def is_generated(profile):
     notes = profile.get("notes") if isinstance(profile, dict) else None
-    return isinstance(notes, str) and GENERATED_MARK in notes
+    return isinstance(notes, str) and RETIRED_PROFILE_NOTE in notes
 
 
 def drop_generated(data):

@@ -218,11 +218,6 @@ def session_rows(path: Path | None = None) -> list[SessionRow]:
     return [SessionRow(role, **config["rows"][role]) for role in ALLOWED_AGENTS]
 
 
-def bypass_rows(path: Path | None = None) -> list[SessionRow]:
-    """旧名：全部派出的行都是会话。"""
-    return session_rows(path)
-
-
 def _spoken_runner(value: str | None) -> str | None:
     if value is None:
         return None
