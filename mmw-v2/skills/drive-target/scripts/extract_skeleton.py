@@ -1,3 +1,7 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["playwright>=1.58", "pyyaml>=6"]
+# ///
 """Render every scene of a handoff package once, offline, and write what the rest of the
 pipeline reads from that render.
 
@@ -19,8 +23,11 @@ come out:
 - With `--contract <yaml>` beside `--targets`: the contract's `retired_ids` triggers are
   hidden before the tree is read, as the judge hides them.
 
-Needs Playwright with Chromium. The three CDN scripts `support.js` loads are answered
-from the package's `vendor/` directory, else a local cache, else fetched once.
+Needs Chromium installed for Playwright. Playwright and PyYAML come from the dependency
+block above: `uv run --script` reads it, and a `uv run python` invocation, which does not,
+re-execs once through `uv run --script` when either import is missing. The three CDN
+scripts `support.js` loads are answered from the package's `vendor/` directory, else a
+local cache, else fetched once.
 """
 from __future__ import annotations
 
@@ -28,6 +35,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import os
 import re
 import sys
 import tempfile
@@ -53,10 +61,19 @@ def load_driver():
     return mod
 
 
+def driver():
+    """The driver beside this script: the one already loaded, else loaded now."""
+    return sys.modules.get("screen_driver") or load_driver()
+
+
 def controls(aria: str) -> list[tuple[str, str]]:
+    """Every interactive node of a snapshot as (role, accessible name). A line whose key
+    Playwright wrote in single quotes is read through the driver's `unquote_key`, the
+    same reading the normaliser gives it."""
+    unquote = driver().unquote_key
     found = []
     for raw in aria.splitlines():
-        m = LINE.match(raw)
+        m = LINE.match(unquote(raw))
         if m and m.group(1) in INTERACTIVE:
             found.append((m.group(1), m.group(2) or ""))
     return found
@@ -202,7 +219,29 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     return p.parse_args(argv)
 
 
+_BOOTSTRAP = "MMW_EXTRACT_SKELETON_BOOTSTRAPPED"
+
+
+def _ensure_script_env() -> None:
+    """A `uv run python extract_skeleton.py` does not read the dependency block above;
+    `uv run --script` does. Re-exec once when an import is missing, so both forms reach
+    Chromium. Called from the command line only: `lint_contract.py` imports this module
+    for its helpers and has no Playwright."""
+    try:
+        import playwright.sync_api  # noqa: F401
+        import yaml  # noqa: F401
+    except ImportError:
+        if os.environ.get(_BOOTSTRAP) == "1":
+            raise SystemExit("extract_skeleton.py is missing playwright or pyyaml after "
+                             "uv run --script; install those with the script's metadata")
+        env = dict(os.environ)
+        env[_BOOTSTRAP] = "1"
+        os.execvpe("uv", ["uv", "run", "--script", str(Path(__file__).resolve()),
+                          *sys.argv[1:]], env)
+
+
 if __name__ == "__main__":
+    _ensure_script_env()
     a = parse_args(sys.argv[1:])
     main(a.handoff.resolve(), a.out.resolve(),
          a.targets.resolve() if a.targets else None,

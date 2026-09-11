@@ -26,4 +26,5 @@
 - [221-contract-format.md](221-contract-format.md) — mmw #221
 - [255-journey-address-case.md](255-journey-address-case.md) — mmw #255
 - [298-scene-data-from-the-page.md](298-scene-data-from-the-page.md) — mmw #298
+- [344-quoted-accessible-names.md](344-quoted-accessible-names.md) — mmw #344
 
