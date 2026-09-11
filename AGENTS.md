@@ -16,6 +16,7 @@ MMW 是用户跨 host、跨 repository、跨电脑共用的工作流 toolbox：�
 | `bash mmw-v2/prompt/tests/run.sh` | `render.py` 的测试 |
 | `bash mmw-v2/tests/<名>/run.sh` | 单个技能的测试（`verify-ticket`、`drive-target`、`align-screens`、`dispatch`、`exe-release`、`manage-agents-md` 各有一份；dispatch 技能的 `relay.py` 另有一份 `relay`） |
 | `bash mmw-v2/tests/claude-design-blocks/run.sh` | 交接包每个场景的数据导出（`export_scene_data.py`）、`mk.py` 生成页的语法、`selector_check.py` 的判据、`deadsweep.py` 的清扫范围：迷你夹具，Node 跑页自己的 logic class，无浏览器 |
+| `bash mmw-v2/tests/board/run.sh` | task board 的本地进程、story page、API client 替身与交互 helper 的测试 |
 | `bash mmw-v2/tests/liveness/run.sh` | 判活三层的测试：`turn-guard.py` 的守卫谓词与五个 host 的 payload（含三条撞车对策）、`watchdog.py` 的心跳、容差、锁身份、问 runner 的三种答案；假 board、假 runner，不起 host |
 | `bash mmw-v2/hooks/tests/run.sh` | `rule-at-moment.py` 的测试 |
 
