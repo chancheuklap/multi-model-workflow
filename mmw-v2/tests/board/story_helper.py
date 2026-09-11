@@ -19,7 +19,7 @@ def free_base() -> int:
 
 
 @contextlib.contextmanager
-def story_page(browser, mount: str, scene: str):
+def story_page(browser, mount: str, scene: str, before_goto=None):
     env = os.environ.copy()
     env["MMW_PORT_BASE"] = str(free_base())
     process = subprocess.Popen(["python3", "-u", str(SERVER)], cwd=ROOT, env=env,
@@ -30,6 +30,8 @@ def story_page(browser, mount: str, scene: str):
             raise RuntimeError(process.stderr.read() or f"story server said {line!r}")
         origin = line.removeprefix("origin=")
         page = browser.new_page()
+        if before_goto:
+            before_goto(page)
         page.goto(f"{origin}/?page={mount}&scene={scene}&viewport=1440x900",
                   wait_until="networkidle")
         yield page
@@ -42,4 +44,4 @@ def story_page(browser, mount: str, scene: str):
 
 
 def recorded_requests(page):
-    return page.evaluate("window.storyApi.calls()")
+    return page.evaluate("window.storyCalls()")

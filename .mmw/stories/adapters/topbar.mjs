@@ -1,7 +1,7 @@
-export function render(host) {
-  const root = document.createElement("header");
+import {render as renderProduct} from "/product/topbar.mjs";
+
+export function render(host, data, api) {
+  const root = renderProduct(host, data, api);
   root.dataset.storyRoot = "";
-  root.dataset.screen = "topbar";
   root.style.height = "52px";
-  host.replaceChildren(root);
 }

@@ -1,8 +1,8 @@
-"""Write-request gate seam; the settings backend ticket supplies the three checks."""
+"""Write-request gate seam for the board process skeleton."""
 
 from __future__ import annotations
 
 
 def allow_request(request, token: str) -> bool:
-    """Allow every request until Host, Origin, and token checks are implemented."""
+    """Allow every request in the process skeleton."""
     return True

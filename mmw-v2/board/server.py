@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import functools
 import http.server
 import secrets
 import sys
@@ -27,6 +26,14 @@ def make_handler(token: str, board_module=board_data, settings_module=settings_a
         def log_message(self, *args):
             pass
 
+        def _respond(self, status: int, headers: dict[str, str], body: bytes) -> None:
+            self.send_response(status)
+            for name, value in headers.items():
+                self.send_header(name, value)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
         def _api(self) -> bool:
             path = urllib.parse.urlsplit(self.path).path
             module = None
@@ -40,12 +47,7 @@ def make_handler(token: str, board_module=board_data, settings_module=settings_a
                 self.send_error(403)
                 return True
             status, headers, body = module.handle(self)
-            self.send_response(status)
-            for name, value in headers.items():
-                self.send_header(name, value)
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+            self._respond(status, headers, body)
             return True
 
         def do_GET(self):
@@ -56,29 +58,18 @@ def make_handler(token: str, board_module=board_data, settings_module=settings_a
                 raw = (PAGE / "index.html").read_text(encoding="utf-8")
                 raw = raw.replace("__MMW_PAGE_TOKEN__", token)
                 body = raw.encode("utf-8")
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
+                self._respond(200, {"Content-Type": "text/html; charset=utf-8"}, body)
                 return
             super().do_GET()
 
-        def do_POST(self):
+        def _write(self):
             if not self._api():
                 self.send_error(404)
 
-        def do_PUT(self):
-            if not self._api():
-                self.send_error(404)
-
-        def do_DELETE(self):
-            if not self._api():
-                self.send_error(404)
-
-        def do_PATCH(self):
-            if not self._api():
-                self.send_error(404)
+        do_POST = _write
+        do_PUT = _write
+        do_DELETE = _write
+        do_PATCH = _write
 
     return Handler
 

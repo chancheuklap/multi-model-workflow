@@ -1,7 +1,7 @@
-export function render(host) {
-  const root = document.createElement("div");
+import {render as renderProduct} from "/product/settings.mjs";
+
+export function render(host, data, api) {
+  const root = renderProduct(host, data, api);
   root.dataset.storyRoot = "";
-  root.dataset.screen = "settings";
   root.style.cssText = "width:1440px;height:900px";
-  host.replaceChildren(root);
 }

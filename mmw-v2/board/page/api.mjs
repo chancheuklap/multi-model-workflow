@@ -12,10 +12,14 @@ export async function request(method, path, fields = undefined) {
   return fetch(path, options);
 }
 
-export const api = {
-  board: () => request("GET", "/api/board"),
-  refresh: () => request("POST", "/api/board/refresh"),
-  settings: () => request("GET", "/api/settings"),
-  saveSettings: fields => request("PUT", "/api/settings", fields),
-  scanSettings: fields => request("POST", "/api/settings/scan", fields),
-};
+export function makeApi(transport = request) {
+  return {
+    board: () => transport("GET", "/api/board"),
+    refresh: () => transport("POST", "/api/board/refresh"),
+    settings: () => transport("GET", "/api/settings"),
+    saveSettings: fields => transport("PUT", "/api/settings", fields),
+    scanSettings: fields => transport("POST", "/api/settings/scan", fields),
+  };
+}
+
+export const api = makeApi();

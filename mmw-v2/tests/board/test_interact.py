@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import unittest
+from unittest import mock
 
 from playwright.sync_api import sync_playwright
 
@@ -17,15 +18,8 @@ class InteractTest(unittest.TestCase):
                              '<script>window.clicks = 0</script>')
             interact.click(page, "button", "保存")
             self.assertEqual(page.evaluate("window.clicks"), 1)
-            old = os.environ.get("MMW_NEGATIVE")
-            os.environ["MMW_NEGATIVE"] = "1"
-            try:
+            with mock.patch.dict(os.environ, {"MMW_NEGATIVE": "1"}):
                 interact.click(page, "button", "保存")
-            finally:
-                if old is None:
-                    os.environ.pop("MMW_NEGATIVE", None)
-                else:
-                    os.environ["MMW_NEGATIVE"] = old
             self.assertEqual(page.evaluate("window.clicks"), 1)
             browser.close()
 

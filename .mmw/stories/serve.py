@@ -13,10 +13,10 @@ ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 PAGE = ROOT / "mmw-v2" / "board" / "page"
 SCENES = ROOT / "prototypes" / "board-orchestration" / "task-board" / "UI" / "work" / "scenes.json"
-VALID_PAGES = {"topbar", "tasks", "canvas", "detail", "settings"}
+ADAPTERS = HERE / "adapters"
 
 
-class Handler(http.server.SimpleHTTPRequestHandler):
+class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
@@ -26,7 +26,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if path in ("/", "/index.html"):
             query = urllib.parse.parse_qs(parsed.query)
             page = (query.get("page") or [""])[0]
-            if page and page not in VALID_PAGES:
+            if page and not (ADAPTERS / f"{page}.mjs").is_file():
                 self.send_error(404)
                 return
             return self.send_file(HERE / "index.html", "text/html; charset=utf-8")
@@ -36,7 +36,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.send_file(SCENES, "application/json")
         if path.startswith("/adapters/"):
             target = (HERE / path.removeprefix("/")).resolve()
-            if target.parent == (HERE / "adapters").resolve():
+            if target.parent == ADAPTERS.resolve():
+                return self.send_file(target, "text/javascript; charset=utf-8")
+        if path.startswith("/product/"):
+            target = (PAGE / path.removeprefix("/product/")).resolve()
+            if target.parent == PAGE.resolve():
                 return self.send_file(target, "text/javascript; charset=utf-8")
         if path.startswith("/styles/"):
             target = (PAGE / path.removeprefix("/")).resolve()

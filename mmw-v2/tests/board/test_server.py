@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import http.server
 import re
 import subprocess
+import sys
+import threading
 import unittest
 import urllib.error
 import urllib.request
@@ -9,6 +12,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 SERVER = ROOT / "mmw-v2" / "board" / "server.py"
+sys.path.insert(0, str(SERVER.parent))
+import server as board_server  # noqa: E402
 
 
 class RunningBoard:
@@ -28,13 +33,52 @@ class RunningBoard:
         self.process.stdout.close()
         self.process.stderr.close()
 
-    def get(self, path: str) -> tuple[int, str]:
+    def request(self, method: str, path: str) -> tuple[int, str]:
+        request = urllib.request.Request(self.origin + path, method=method)
         try:
-            response = urllib.request.urlopen(self.origin + path, timeout=3)
+            response = urllib.request.urlopen(request, timeout=3)
         except urllib.error.HTTPError as error:
             response = error
         with response:
             return response.status, response.read().decode("utf-8")
+
+    def get(self, path: str) -> tuple[int, str]:
+        return self.request("GET", path)
+
+
+class FakeModule:
+    def __init__(self):
+        self.requests = []
+
+    def handle(self, request):
+        self.requests.append((request.command, request.path))
+        return 204, {}, b""
+
+
+class FakeGate:
+    def __init__(self):
+        self.requests = []
+
+    def allow_request(self, request, token):
+        self.requests.append((request.command, request.path, token))
+        return True
+
+
+class RunningHandler(RunningBoard):
+    def __init__(self, handler):
+        self.handler = handler
+
+    def __enter__(self):
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), self.handler)
+        self.origin = f"http://127.0.0.1:{self.server.server_address[1]}"
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        return self
+
+    def __exit__(self, *args):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=5)
 
 
 class ServerTest(unittest.TestCase):
@@ -51,16 +95,27 @@ class ServerTest(unittest.TestCase):
         self.assertNotEqual(tokens[0], tokens[1])
 
     def test_api_prefix_reaches_its_family(self):
-        with RunningBoard() as board:
-            status, body = board.get("/api/board/anything")
-            self.assertEqual(status, 501)
-            self.assertIn('"family":"board"', body)
-            status, body = board.get("/api/settings/anything")
-            self.assertEqual(status, 501)
-            self.assertIn('"family":"settings"', body)
-            status, body = board.get("/api/other")
+        board_family = FakeModule()
+        settings_family = FakeModule()
+        gate = FakeGate()
+        handler = board_server.make_handler("test-token", board_family, settings_family, gate)
+        with RunningHandler(handler) as board:
+            self.assertEqual(board.request("GET", "/api/board/anything")[0], 204)
+            self.assertEqual(board.request("POST", "/api/board/refresh")[0], 204)
+            self.assertEqual(board.request("GET", "/api/settings/anything")[0], 204)
+            self.assertEqual(board.request("PUT", "/api/settings")[0], 204)
+            status, body = board.request("POST", "/api/other")
             self.assertEqual(status, 404)
-            self.assertNotIn('"family"', body)
+        self.assertEqual(board_family.requests, [
+            ("GET", "/api/board/anything"), ("POST", "/api/board/refresh")
+        ])
+        self.assertEqual(settings_family.requests, [
+            ("GET", "/api/settings/anything"), ("PUT", "/api/settings")
+        ])
+        self.assertEqual(gate.requests, [
+            ("POST", "/api/board/refresh", "test-token"),
+            ("PUT", "/api/settings", "test-token"),
+        ])
 
 
 if __name__ == "__main__":

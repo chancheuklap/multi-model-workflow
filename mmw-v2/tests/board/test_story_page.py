@@ -30,19 +30,53 @@ class StoryPageTest(unittest.TestCase):
             with self.subTest(mount=mount), story_page(self.browser, mount, scene) as page:
                 root = page.locator("[data-story-root]")
                 self.assertEqual(root.count(), 1)
-                self.assertTrue(root.is_visible())
+                box = root.bounding_box()
+                self.assertIsNotNone(box)
+                self.assertGreater(box["width"], 0)
+                self.assertGreater(box["height"], 0)
                 self.assertEqual(root.get_attribute("data-screen"), mount)
 
     def test_story_api_records_requests(self):
-        with story_page(self.browser, "topbar", "顶栏.morning") as page:
-            escaped = []
-            page.on("request", lambda request: escaped.append(request.url)
-                    if "/api/should-not-leave" in request.url else None)
-            page.evaluate("window.storyApi.request('PUT', '/api/should-not-leave', {version: 7})")
+        escaped = []
+
+        def install_probe(page):
+            page.route("**/api/**", lambda route: (
+                escaped.append(route.request.url), route.abort()
+            ))
+            page.route("**/adapters/topbar.mjs", lambda route: route.fulfill(
+                content_type="text/javascript",
+                body="""export function render(host, data, api) {
+                  const root = document.createElement('header');
+                  root.dataset.storyRoot = '';
+                  root.dataset.screen = 'topbar';
+                  root.style.height = '52px';
+                  host.replaceChildren(root);
+                  api.saveSettings({version: 7});
+                }""",
+            ))
+
+        with story_page(self.browser, "topbar", "顶栏.morning", install_probe) as page:
             self.assertEqual(recorded_requests(page), [{
-                "method": "PUT", "path": "/api/should-not-leave", "fields": {"version": 7}
+                "method": "PUT", "path": "/api/settings", "fields": {"version": 7}
             }])
             self.assertEqual(escaped, [])
+
+    def test_adapter_renders_the_product_module(self):
+        def replace_product(page):
+            page.route("**/product/topbar.mjs", lambda route: route.fulfill(
+                content_type="text/javascript",
+                body="""export function render(host) {
+                  const root = document.createElement('header');
+                  root.dataset.screen = 'topbar';
+                  root.dataset.productProbe = 'rendered';
+                  host.replaceChildren(root);
+                  return root;
+                }""",
+            ))
+
+        with story_page(self.browser, "topbar", "顶栏.morning", replace_product) as page:
+            root = page.locator('[data-story-root][data-product-probe="rendered"]')
+            self.assertEqual(root.count(), 1)
 
 
 if __name__ == "__main__":

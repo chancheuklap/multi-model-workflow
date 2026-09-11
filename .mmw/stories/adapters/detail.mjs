@@ -1,8 +1,7 @@
-export function render(host) {
-  const root = document.createElement("aside");
+import {render as renderProduct} from "/product/detail.mjs";
+
+export function render(host, data, api) {
+  const root = renderProduct(host, data, api);
   root.dataset.storyRoot = "";
-  root.dataset.screen = "detail";
-  root.setAttribute("aria-label", "详情");
   root.style.cssText = "width:340px;height:848px";
-  host.replaceChildren(root);
 }

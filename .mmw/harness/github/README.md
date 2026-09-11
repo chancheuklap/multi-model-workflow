@@ -1,4 +1,5 @@
 # GitHub fixtures
 
-The board-data ticket owns the fixture responses in this directory. The harness `gh`
-records every invocation and returns an empty JSON list until those responses land.
+`responses.json` maps one compact JSON array of `gh` arguments to an object with
+`stdout`, optional `stderr`, and optional `exit`. The harness records every argument
+array in `$MMW_DATA_DIR/gh-calls` and fails loudly when the exact array has no response.

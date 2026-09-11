@@ -5,6 +5,6 @@
   "stories": "python3 -u .mmw/stories/serve.py",
   "journeys": ".mmw/journeys",
   "leaves_machine": [
-    "board reads GitHub through gh; .mmw/harness/bin/gh records calls under MMW_DATA_DIR during automation"
+    "board reads GitHub through gh; .mmw/harness/bin/gh records calls in $MMW_DATA_DIR/gh-calls during automation"
   ]
 }

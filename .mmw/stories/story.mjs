@@ -1,13 +1,11 @@
 const calls = [];
-export const api = {
-  async request(method, path, fields = undefined) {
-    calls.push({method, path, fields});
-    return {ok: true, status: 200, async json() { return {}; }};
-  },
-  calls() { return calls.map(call => structuredClone(call)); },
-  clear() { calls.length = 0; },
-};
+const {makeApi} = await import("/product/api.mjs");
+const api = makeApi(async (method, path, fields = undefined) => {
+  calls.push({method, path, fields});
+  return {ok: true, status: 200, async json() { return {}; }};
+});
 window.storyApi = api;
+window.storyCalls = () => calls.map(call => structuredClone(call));
 
 const params = new URLSearchParams(location.search);
 const page = params.get("page") || "";
