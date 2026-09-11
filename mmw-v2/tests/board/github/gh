@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+import json
+import os
+import re
+import sys
+from pathlib import Path
+
+
+root = Path(os.environ["MMW_BOARD_FAKE_DIR"])
+scenario_path = root / "scenario.json"
+state_path = root / "state.json"
+scenario = json.loads(scenario_path.read_text())
+state = json.loads(state_path.read_text()) if state_path.exists() else {"tree_reads": 0}
+args = sys.argv[1:]
+with (root / "calls.jsonl").open("a") as stream:
+    stream.write(json.dumps(args, separators=(",", ":")) + "\n")
+
+if scenario.get("fail_all"):
+    sys.stderr.write("fixture GitHub failure\n")
+    sys.exit(1)
+
+if args[:2] == ["issue", "list"]:
+    print(json.dumps(scenario["maps"]))
+elif args[:2] == ["api", "graphql"]:
+    trees = scenario["trees"]
+    index = min(int(scenario.get("tree_active", 0)), len(trees) - 1)
+    print(json.dumps({"data": {"repository": {"issue": trees[index]}}}))
+    state["tree_reads"] = state.get("tree_reads", 0) + 1
+elif args[:2] == ["api", "-i"]:
+    match = re.search(r"/issues/(\d+)/comments", args[2])
+    if not match:
+        sys.stderr.write("unknown fixture endpoint\n")
+        sys.exit(2)
+    number = match.group(1)
+    if number in {str(item) for item in scenario.get("fail_comments", [])}:
+        sys.stderr.write(f"fixture comments failure for #{number}\n")
+        sys.exit(1)
+    versions = scenario["comments"].get(number, [{"etag": '"empty"', "comments": []}])
+    active = min(int(scenario.get("comment_active", {}).get(number, 0)), len(versions) - 1)
+    answer = versions[active]
+    supplied = next((args[index + 1].split(":", 1)[1].strip()
+                     for index, value in enumerate(args[:-1])
+                     if value == "-H" and args[index + 1].lower().startswith("if-none-match:")), None)
+    if supplied == answer["etag"]:
+        print("HTTP/2 304 Not Modified\n")
+        sys.stderr.write("gh: HTTP 304\n")
+        sys.exit(1)
+    else:
+        print(f"HTTP/2 200 OK\nETag: {answer['etag']}\n")
+        print(json.dumps(answer["comments"]))
+else:
+    sys.stderr.write("unknown fixture gh call: " + json.dumps(args) + "\n")
+    sys.exit(2)
+
+state_path.write_text(json.dumps(state))
