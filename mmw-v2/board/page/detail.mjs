@@ -1,30 +1,11 @@
 import {Board, LIGHT_WORD, STEPS} from "./board-logic.mjs";
+import {el, hhmm} from "./shared.mjs";
 
 const NOW_CLASS = {
   queued: "now-queued", working: "now-working", waiting: "now-waiting",
   review: "now-review", verify: "now-verify", landed: "now-landed",
 };
 const NEEDS_YOU = new Set(["decision", "fault", "contract"]);
-const hhmm = value => new Date(value).toLocaleTimeString("en-GB", {
-  hour: "2-digit", minute: "2-digit", hour12: false,
-});
-
-function el(tag, attrs = {}, ...kids) {
-  const node = document.createElement(tag);
-  for (const [key, value] of Object.entries(attrs)) {
-    if (value == null || value === false) continue;
-    if (key === "class") node.className = value;
-    else if (key.startsWith("on") && typeof value === "function") {
-      node.addEventListener(key.slice(2).toLowerCase(), value);
-    } else node.setAttribute(key, value === true ? "" : String(value));
-  }
-  for (const kid of kids.flat(Infinity)) {
-    if (kid == null || kid === false) continue;
-    node.append(typeof kid === "object" ? kid : String(kid));
-  }
-  return node;
-}
-
 function lightFrom(cls) {
   if (!cls) return "hollow";
   if (/\borange\b/.test(cls)) return "orange";
@@ -129,7 +110,7 @@ export function fromScene(data = {}) {
   };
 }
 
-function find(tasks, n) {
+export function find(tasks, n) {
   if (n == null) return null;
   for (const task of tasks) {
     if (task.n === n) return {type: "map", ref: task, task};

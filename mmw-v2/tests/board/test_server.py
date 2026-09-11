@@ -2,48 +2,16 @@ from __future__ import annotations
 
 import http.server
 import re
-import subprocess
 import sys
 import threading
 import unittest
-import urllib.error
-import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 SERVER = ROOT / "mmw-v2" / "board" / "server.py"
 sys.path.insert(0, str(SERVER.parent))
 import server as board_server  # noqa: E402
-
-
-class RunningBoard:
-    def __enter__(self):
-        self.process = subprocess.Popen(
-            ["python3", "-u", str(SERVER), "--port", "0"], cwd=ROOT,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-        )
-        self.origin = self.process.stdout.readline().strip()
-        if not self.origin.startswith("http://127.0.0.1:"):
-            raise RuntimeError(self.process.stderr.read())
-        return self
-
-    def __exit__(self, *args):
-        self.process.terminate()
-        self.process.wait(timeout=5)
-        self.process.stdout.close()
-        self.process.stderr.close()
-
-    def request(self, method: str, path: str) -> tuple[int, str]:
-        request = urllib.request.Request(self.origin + path, method=method)
-        try:
-            response = urllib.request.urlopen(request, timeout=3)
-        except urllib.error.HTTPError as error:
-            response = error
-        with response:
-            return response.status, response.read().decode("utf-8")
-
-    def get(self, path: str) -> tuple[int, str]:
-        return self.request("GET", path)
+from board_process import RunningBoard  # noqa: E402
 
 
 class FakeModule:
@@ -80,13 +48,12 @@ class RunningHandler(RunningBoard):
         self.server.server_close()
         self.thread.join(timeout=5)
 
-
 class ServerTest(unittest.TestCase):
     def test_shell_carries_a_fresh_token(self):
         tokens = []
         for _ in range(2):
             with RunningBoard() as board:
-                status, body = board.get("/")
+                status, body = board.request("GET", "/")
                 self.assertEqual(status, 200)
                 self.assertIn("data-board-root", body)
                 match = re.search(r'<meta name="mmw-page-token" content="([^"]+)">', body)
