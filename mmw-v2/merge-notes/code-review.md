@@ -133,3 +133,7 @@ or the sorting step → keep both the four-angle pass and this ownership rule.
 | 字段 | 我们的意图 |
 | --- | --- |
 | `interface.short_description` | 改成「一张 ticket 的 diff」加三个 axis，与 `SKILL.md` 的 `description` 同一个形态。上游改这一行 → 收上游措辞，axis 数与 ticket 按我们的 |
+
+## A host that cannot run subagents
+
+`references/session.md` section 2 gained the capability branch, in the form `manage-agents-md/references/survey.md` § Dispatch already uses: a host that can run subagents starts three at once; one that cannot runs the three axis files itself, one after another, writing each axis report to a file before opening the next, so no report depends on memory of the previous one. The existing launch, prompt and hold-the-turn sentences stay the can-run path. Reason: a reviewer session on a host without subagents had no path (spec #374 Implementation Decisions section 3). If upstream rewrites section 2 → take its wording and put the capability branch back.

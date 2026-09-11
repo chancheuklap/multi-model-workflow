@@ -18,7 +18,9 @@ Capture the base commit and the `HEAD` commit. Both go in the first line of the 
 
 ## 2. Launch three general-purpose subagents in parallel
 
-One message, three calls, each to your host's general-purpose subagent, so they run at once and never see each other's review findings. Name no model and no thinking level: each axis runs on this session's. If your host lets a call restrict what a subagent may do, restrict it to reading, searching and running commands. Each prompt is one sentence naming this skill, the ticket, the base commit, and one axis. The axis word is exactly `Standards`, `Spec`, or `Tests`:
+When the host can run subagents, start three at once, one per axis. When it cannot, run the three axis files yourself one after another, writing each axis report to a file before opening the next, so no report depends on memory of the previous one.
+
+That start is one message, three calls, each to your host's general-purpose subagent, so they run at once and never see each other's review findings. Name no model and no thinking level: each axis runs on this session's. If your host lets a call restrict what a subagent may do, restrict it to reading, searching and running commands. Each prompt is one sentence naming this skill, the ticket, the base commit, and one axis. The axis word is exactly `Standards`, `Spec`, or `Tests`:
 
 ```
 Use the code-review skill to review ticket #<ticket> from base commit <base commit>, axis Standards.
