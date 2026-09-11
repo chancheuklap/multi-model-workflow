@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="mmw-page-token" content="__MMW_PAGE_TOKEN__">
+    <title>MMW task board</title>
+    <link rel="stylesheet" href="./styles/tokens.css">
+    <link rel="stylesheet" href="./styles/board.css">
+    <link rel="stylesheet" href="./styles/settings.css">
+    <style>
+      html, body { margin: 0; height: 100%; background: #e6e3df; }
+      .app-shell { position: relative; height: 100%; display: grid; grid-template-rows: 52px minmax(0, 1fr); grid-template-columns: 236px minmax(0, 1fr) 340px; background: var(--panel); }
+      .app-top { grid-column: 1 / -1; min-width: 0; }
+      .app-slot { min-width: 0; min-height: 0; overflow: hidden; }
+      .app-sheet { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
+      .app-sheet:has([data-screen="settings"]) { pointer-events: auto; }
+    </style>
+  </head>
+  <body>
+    <main class="app-shell board" data-screen="board" data-board-root>
+      <div class="app-top" data-mount="topbar"></div>
+      <div class="app-slot" data-mount="tasks"></div>
+      <div class="app-slot" data-mount="canvas"></div>
+      <div class="app-slot" data-mount="detail"></div>
+      <div class="app-sheet" data-mount="settings"></div>
+    </main>
+    <script type="module" src="./app.mjs"></script>
+  </body>
+</html>

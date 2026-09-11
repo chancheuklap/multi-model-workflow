@@ -13,3 +13,6 @@ __pycache__/
 .scratch/
 .release/
 .playwright-cli/
+
+# story-parity.py writes its screenshots here when it runs in a checkout
+story-shots/

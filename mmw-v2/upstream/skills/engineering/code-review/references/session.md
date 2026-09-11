@@ -14,14 +14,14 @@ git log <base-commit>..HEAD --oneline
 
 Three dots, so the comparison runs against the merge-base. A ref that does not resolve or an empty diff is a failure here, before three subagents spend a context each on nothing. Report it on the ticket anyway, through the same call step 4 uses, first line `REVIEW <base commit>..<HEAD commit>` (the refs as you were given them, when one of them does not resolve), then one line saying which of the two failures it was. That report is what the worker is waiting for, so write it even when there is nothing to review. Then stop.
 
-Capture the resolved base commit and the resolved `HEAD` commit. Both go in the first line of the review comment.
+Capture the base commit and the `HEAD` commit. Both go in the first line of the review comment.
 
 ## 2. Launch three general-purpose subagents in parallel
 
-One message, three calls, each to your host's general-purpose subagent, so they run at once and never see each other's review findings. Name no model and no thinking level: each axis runs on this session's. If your host lets a call restrict what a subagent may do, restrict it to reading, searching and running commands. Each prompt is one sentence naming this skill, the ticket, the resolved base commit, and one axis. The axis word is exactly `Standards`, `Spec`, or `Tests`:
+One message, three calls, each to your host's general-purpose subagent, so they run at once and never see each other's review findings. Name no model and no thinking level: each axis runs on this session's. If your host lets a call restrict what a subagent may do, restrict it to reading, searching and running commands. Each prompt is one sentence naming this skill, the ticket, the base commit, and one axis. The axis word is exactly `Standards`, `Spec`, or `Tests`:
 
 ```
-Use the code-review skill to review ticket #<ticket> from base commit <resolved base commit>, axis Standards.
+Use the code-review skill to review ticket #<ticket> from base commit <base commit>, axis Standards.
 ```
 
 Nothing else. No summary of the change, no list of files, no restatement of what that axis looks for, no path. The skill is what they read, and the axis word is which door they take.
@@ -35,6 +35,8 @@ A review finding is **in-ticket** when it touches one of six things: this ticket
 A line the Spec axis marks `should not` under its `Decisions` heading is **in-ticket**: it is the worker's own decision or a file it changed outside `## Owns`, so this ticket is where it is undone.
 
 A file outside `## Owns` is still not written: the sixth condition sorts a review finding onto this ticket's fix round; it does not widen where the worker may write.
+
+For a finding about a ticket merged into the base branch, apply the same ownership boundary explicitly: a repair target inside this ticket's `## Owns` is in-ticket; one that lies only inside that other ticket's `## Owns` is out-of-ticket and becomes a `finding` child.
 
 The split decides what happens next, which is why you make it rather than leaving it to the reader: in-ticket review findings get one round of fixes on this ticket; out-of-ticket review findings become this ticket's `finding` children (`--sub-issue finding`) and block nothing. The worker opens them; you list them. The parent is this ticket.
 

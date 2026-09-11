@@ -13,15 +13,15 @@ Vocabulary that belongs to one skill alone — `exe-release`'s release key, tier
 **agent**:
 Any session or subagent this pipeline sends out or runs: the main agent, a worker, a reviewer, the verifier, the advisor, a code-review axis subagent.
 _Avoid_: board
-_Home_: `~/.mmw/models.md`
+_Home_: `~/.mmw/models.json`
 
 **session**:
 A host process a runner started, or the main agent the user started themselves. It carries a host. A session `dispatch.sh start` started is named on its ticket by its started event — `worker.started`, `reviewer.started` or `verifier.started` — whose payload carries the runner that runs it and that runner's own id for it, always as a pair. The main agent, a worker, a reviewer, the verifier, and the advisor are sessions; the three code-review axis subagents are not — they are subagents inside the reviewer session.
 _Avoid_: 会话 (as a term), pane, terminal (for this)
-_Home_: `~/.mmw/models.md`
+_Home_: `~/.mmw/models.json`
 
 **main agent**:
-The session the user started themselves. By day it works with the user to produce specs and tickets; by night it runs `check`, then `open`, then `advance`, then on each **wake** `status`, one `advance` and `ack`, the **收口轮** when the frontier is empty and open `finding` children remain, then `reverify` and `summary`, and only reads tickets. It is the one agent with no row in the live table; it is tied to no host. One main agent holds one spec.
+The session the user started themselves. By day it works with the user to produce specs and tickets; by night it runs `check`, then `open`, then `advance`, then on each **wake** `status`, one `advance` and `ack`, the **收口轮** when the frontier is empty and open `finding` children remain, then `reverify` and `summary`, and only reads tickets. It is the one agent with no row in `models.json`; it is tied to no host. One main agent holds one spec.
 _Avoid_: coordinator, orchestrator, 编排者, 主 agent, 出票的主 agent, 落地 agent, the single Claude Code session, mmw-main, board
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
@@ -32,14 +32,14 @@ _Avoid_: 工人, 做票的 agent, 领票的 agent, MMW_TICKET
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **worker grade**:
-Which of the two workers a ticket goes to. Each grade is at once a ticket label and a row of the live table; the user sees it once, as the `Worker:` line of the `to-tickets` quiz, and the label is read afresh every time the ticket is started.
+Which of the two workers a ticket goes to. Each grade is at once a ticket label and a row of `models.json`; the user sees it once, as the `Worker:` line of the `to-tickets` quiz, and the label is read afresh every time the ticket is started.
 _Avoid_: grade of worker, seat, lane (for this)
-_Home_: `~/.mmw/models.md`
+_Home_: `~/.mmw/models.json`
 
 **`junior-worker`**:
 The default worker grade (`DEFAULT_WORKER` in `dispatch.sh`).
 _Avoid_: 初级工人, 初级 worker
-_Home_: `~/.mmw/models.md`
+_Home_: `~/.mmw/models.json`
 
 **`senior-worker`**:
 The worker grade a ticket names when getting it wrong would be wrong silently.
@@ -63,7 +63,7 @@ _Avoid_: 复验者, verifier 子代理, subagent verifier
 _Home_: `mmw-v2/skills/verdict/SKILL.md`
 
 **advisor**:
-The second-opinion agent on a stronger model; it implements nothing. One door: a session from the advisor row of the live table, started by whichever agent hit the decision, its first prompt naming the `advisor` skill plus the **question packet**; how it is started is the skill's `references/consulting.md`. Nothing but its own instructions holds it to reading — a session on any host can write through a shell.
+The second-opinion agent on a stronger model; it implements nothing. One door: a session from the advisor row of `models.json`, started by whichever agent hit the decision, its first prompt naming the `advisor` skill plus the **question packet**; how it is started is the skill's `references/consulting.md`. Nothing but its own instructions holds it to reading — a session on any host can write through a shell.
 _Home_: `mmw-v2/skills/advisor/SKILL.md`
 
 **question packet**:
@@ -77,12 +77,12 @@ _Avoid_: verdict (for this)
 _Home_: `mmw-v2/skills/advisor/references/advising.md`
 
 **host**:
-The command-line agent program a session runs on: one of `claude`, `codex`, `grok`, `cursor`, `pi`. It is the `host` column of the live table. Each host has its own install locations, hook configuration, form close key, and effort spelling.
+The command-line agent program a session runs on: one of `claude`, `codex`, `grok`, `cursor`, `pi`. It is the `host` field of a `models.json` row. Each host has its own install locations, hook configuration, form close key, and effort spelling.
 _Avoid_: 宿主, agent kind
 _Home_: `mmw-v2/skills/drive-target/scripts/hook.py`
 
 **runner**:
-The program that runs the sessions this pipeline starts on this machine: `paseo`, `orca` or `herdr`, one adapter each, `scripts/runners/<runner>.sh` of the dispatch skill. The adapter answers the three verbs the protocol asks of a runner — start a session in the directory it is given (`start`), deliver a message to one (`send`), say whether one is alive (`liveness`, whose third answer `unknown` is what it says when it cannot prove `alive` or `stopped`) — plus `stop` to end one and `self` to name the session the calling process runs in, and nothing else; its `# MMW_USES:` lines name the runner commands it calls, and `install.sh --check` holds them against the binary. It is not the host: the host is the agent program a session runs, the runner is what keeps it running and reachable. The worktree is not its either: `dispatch.sh` cuts and removes it with git and hands the runner only the absolute path. Tonight's runner is `python3 models.py runner` — `MMW_RUNNER`, then the live table's `runner` row, then the runner this process runs in when an adapter exists for it, then `orca`; the live table's rows are resolved against that runner's catalog (Paseo's own provider catalog on Paseo, each host CLI's own catalog on the other two). Once a session is started, every later command asks the runner its started event names, and no other.
+The program that runs the sessions this pipeline starts on this machine: `paseo`, `orca` or `herdr`, one adapter each, `scripts/runners/<runner>.sh` of the dispatch skill. Every runner operation, including optional worktree association and catalog access, crosses that adapter. Its `# MMW_USES:` lines are the authoritative declaration of every runner command it calls, and `install.sh --check` compares them with the binary. The runner is not the host: the host is the agent program a session runs, while the runner keeps the session running and reachable. `dispatch.sh` creates and removes worktrees with git. Tonight's runner is selected by `python3 models.py runner`: `MMW_RUNNER`, then the saved `runner`; only a saved `auto` permits detection from the current process, followed by `orca`. Saved rows are resolved against the selected runner's catalog. Once a session is started, every later command asks the runner named by its started event, and no other.
 _Avoid_: backend, night-process host, 夜间进程宿主, host (for this)
 _Home_: `mmw-v2/skills/dispatch/scripts/runners/`
 
@@ -92,7 +92,7 @@ _Avoid_: human (for this), maintainer (in this repository's text), reporter (in 
 _Home_: `docs/agents/triage-labels.md`
 
 **subagent**:
-An agent started inside another agent's session, holding its own context and answering back into that session. The toolbox ships no subagent definitions and installs nothing into any host's `agents/` directory: a skill that needs one asks for the host's own general-purpose subagent, which runs on the model of the session that starts it and has no live-table row. Results that must be written back to the ticket, read by another role, and openable by a person run as a session a runner starts (`dispatch.sh start`) instead; work that is only an internal split of the current step runs as a subagent. The three code-review axis subagents are subagents of the reviewer session; the reviewer and the verifier themselves are sessions the worker starts, not its subagents.
+An agent started inside another agent's session, holding its own context and answering back into that session. The toolbox ships no subagent definitions and installs nothing into any host's `agents/` directory: a skill that needs one asks for the host's own general-purpose subagent, which runs on the model of the session that starts it and has no `models.json` row. Results that must be written back to the ticket, read by another role, and openable by a person run as a session a runner starts (`dispatch.sh start`) instead; work that is only an internal split of the current step runs as a subagent. The three code-review axis subagents are subagents of the reviewer session; the reviewer and the verifier themselves are sessions the worker starts, not its subagents.
 _Avoid_: sub-agent, background agent, seat, 子代理 (as a term), native subagent, assembled subagent file
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
@@ -109,8 +109,21 @@ _Admitted_: the toolbox
 _Avoid_: 工具箱, this repository (as a name), 活层, live layer
 _Home_: `AGENTS.md`
 
+**task board**:
+The local browser interface for reading a spec's ticket state and editing this machine's dispatch configuration. One server runs per registered consuming repository; `supervisor.py` keeps them running. It reads ticket state from GitHub and reads or writes `MMW_HOME/models.json`; it does not become a second store for either. A model change uses the same validation and write operation as `models.py config`.
+_Avoid_: board (for an agent), dashboard
+_Home_: `mmw-v2/board/server.py`
+
+**`boards.json`**:
+The machine-level task board registry at `MMW_HOME/boards.json`, defaulting to `~/.mmw/boards.json`. It is a JSON object from each consuming repository's absolute main-checkout path to that repository's fixed local port; it owns no ticket or model state.
+_Home_: `~/.mmw/boards.json`
+
+**`supervisor.py`**:
+`mmw-v2/board/supervisor.py`, the process kept alive by the `com.mmw.board` LaunchAgent. It reads `boards.json`, starts `server.py` in every registered main checkout on the assigned port, restarts an exited server, and reports a missing checkout without preventing the other registered servers from running.
+_Home_: `mmw-v2/board/supervisor.py`
+
 **consuming repository**:
-The outside repository where real tickets are run, as distinct from the toolbox. It must hold a `DESIGN.md` before UI refinement; the live table is never placed in it.
+The outside repository where real tickets are run, as distinct from the toolbox. It must hold a `DESIGN.md` before UI refinement; the machine-level `models.json` is never placed in it.
 _Avoid_: consumer repo, 消费仓库, the project (for this), the repo (for this)
 _Home_: `AGENTS.md`
 
@@ -168,7 +181,7 @@ The CLI every issue-tracker operation goes through. `CLICOLOR` and `CLICOLOR_FOR
 _Home_: `docs/agents/issue-tracker.md`
 
 **Paseo**:
-One of the three runners, a daemon whose sessions are Paseo agents; its CLI is `paseo`. Its adapter starts each session in one call, in the directory it is given, never in a Paseo workspace. What sets it apart from the other two: a live-table row is resolved against its own provider catalog rather than the host CLI's, and it is the one runner a script asks directly rather than through the adapter — `check` asks it whether each host is available when it is tonight's runner.
+One of the three runners, a daemon whose sessions are Paseo agents; its CLI is `paseo`. Its adapter starts each session in one call, in the directory it is given, never in a Paseo workspace. A `models.json` row selected for Paseo is resolved against Paseo's provider catalog. Catalog, status, and diagnostic commands cross the Paseo adapter, whose `MMW_USES` declarations let `install.sh --check` detect command changes.
 _Avoid_: terminal multiplexer
 _Home_: `mmw-v2/skills/dispatch/scripts/runners/paseo.sh`
 
@@ -181,12 +194,12 @@ A Paseo agent started from inside another Paseo agent, which Paseo records as it
 _Home_: `mmw-v2/skills/dispatch/scripts/runners/paseo.sh`
 
 **workspace**:
-The per-ticket unit `dispatch.sh` opens and archives: the worktree `<repository root>/.worktrees/issue-<n>` together with every session the ticket's started events name. `start` opens it with git (`git worktree add`, or reuses the one standing), has tonight's runner start a session in it by absolute path, and writes that path into the started event, so no runner is ever asked to find it. Archiving it — `advance` after merging that ticket's branch, `land`, `retract` — gives back the product slot its worktree holds, if it holds one, stops each of those sessions through the runner its event names, and removes the worktree with `git worktree remove --force`. No runner creates or removes it.
+The per-ticket unit `dispatch.sh` opens and archives: the worktree `<repository root>/.worktrees/issue-<n>` together with every session the ticket's started events name. `start` opens it with git, has tonight's runner start a session in it by absolute path, writes that path into the started event, and asks the runner adapter to associate the ticket with the worktree where that capability exists. That association neither creates nor owns the worktree, and failure does not stop the session. Archiving it — `advance` after merging that ticket's branch, `land`, `retract` — gives back the product slot its worktree holds, if it holds one, stops each of those sessions through the runner its event names, removes the worktree with git, and removes its `MMW_DATA_DIR`. A `ticket.bounced` stops the ticket's sessions at once, and the next `advance` stops the sessions of a `ticket.returned`; both leave the worktree and `MMW_DATA_DIR` standing for triage. No runner creates or removes a worktree.
 _Avoid_: 工作区 (for the git sense, that is a worktree), pane, monitor tab, Herdr workspace, Paseo workspace
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **Agent profile**:
-A hand-written entry in `~/.paseo/config.json` under `daemon.agentProfiles`. It is not MMW config: `install.sh` does not write these from the live table. Notes containing `from models.md` are leftover generated profiles — `--check` reports `残留`, install drops them. Hand-written profiles are left alone.
+A hand-written entry in `~/.paseo/config.json` under `daemon.agentProfiles`. It is not MMW config: `install.sh` does not generate one from `models.json`. Notes containing `from models.md` identify leftover generated profiles from the retired format; `--check` reports `残留` and install drops them. Hand-written profiles are left alone.
 _Home_: `mmw-v2/install.sh`
 
 **finish notification**:
@@ -201,24 +214,14 @@ _Avoid_: ticket message, closeout notification, 通知 (as a term)
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **worktree**:
-The per-ticket git worktree of a workspace, `<main checkout>/.worktrees/issue-<n>` — the repository's first worktree, whichever checkout the command runs from — on the branch `issue-<n>`, cut from the branch of the checkout `advance` (or `start`) runs in, the branch the night merges into; the commit it was cut at is recorded in `branch.issue-<n>.mmw-base` and that branch in `branch.issue-<n>.mmw-base-branch`. A directory `issue-<n>` on any other branch is refused, never taken over. `dispatch.sh` cuts and removes it with git; no runner name is in the path, and a runner is only told the absolute path. The reviewer and the verifier run inside it. `advance` archives the workspace only after that ticket's branch is already in HEAD; archive uses `git worktree remove --force` and does not inspect uncommitted work.
+Either the per-ticket git worktree of a workspace, `<main checkout>/.worktrees/issue-<n>` on the ticket branch, or a detached merge worktree: `<main checkout>/.worktrees/merge-<base branch>` for `advance`, `land` and `reverify`, and `<main checkout>/.worktrees/merge-<project branch>` while `finish` merges a base branch back. A merge worktree is reset to its authoritative origin branch before use and persists so ignored dependencies and caches survive. After `advance`, `land` or `finish`, a merge worktree whose corresponding origin branch no longer exists is removed together with its lock when that lock can be acquired; a held lock preserves both. After the accepted base branch is contained in the project branch, `finish` removes the base branch's merge worktree and lock. One lock per merge target permits one merge at a time. A runner receives only the ticket worktree.
 _Avoid_: 工作区, checkout (when this is meant), ~/.mmw/worktrees
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **ticket branch**:
-The branch `issue-<n>`. A ticket started again reuses it as it stands; `--preflight` refuses when the session is not on it; `advance` merges it into the base branch when the ticket is `CLOSED`, its events carry a `ticket.passed` that no `ticket.landed` has followed, the branch exists, and it is not already an ancestor.
+The branch `issue-<n>`, shared through `origin/issue-<n>` while a ticket is worked and deleted locally and on origin after it lands.
 _Admitted_: `issue-<n>`
 _Avoid_: branch (bare), 分支名 (as a term)
-_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
-
-**base commit**:
-The commit recorded in `git config branch.issue-<n>.mmw-base` when the workspace was created: HEAD at a new `branch-off`, or — for a ticket branch that already existed with no record — its merge base with HEAD at that dispatch. `start` reads it and writes it into the review dispatch line and into the `base` field of every started event; it is where code review's diff starts (`git diff <base-commit>...HEAD`, three dots), and where the first-parent chain behind `Outside Owns:` begins. Written `<base-commit>` as a placeholder.
-_Avoid_: base-commit (in prose), 起点 commit, cut point, 切点
-_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
-
-**base branch**:
-The branch the main agent is on when it opens the night and runs `advance`: every `advance` merges into whatever HEAD is on, so the main agent stays on that branch all night. `git config branch.issue-<n>.mmw-base-branch` records it when the workspace is created; `advance` does not read it. The closing comment's `PR:` line reads `none — will be merged into <base branch> by dispatch.sh advance`.
-_Avoid_: main branch, 基线分支, main (as a name)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **Claude Design**:
@@ -427,7 +430,7 @@ The line `ABANDON: AC<n> <kind> <reason>` a worker — never the verifier — wr
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **blocking link**:
-The tracker's native dependency edge, the copy every script reads. A **blocker** is a ticket that must land before this one is dispatched; `--preflight` refuses only while it is open. `--lint`'s ticket graph and the night's frontier are computed from it; GitHub's `issue_dependencies_summary.blocked_by` counts open blockers only. Adding one takes the blocker's **database id** (`gh api … --jq .id`). A blocker under another spec is reported as `cross-batch`.
+The tracker's native dependency edge, the copy every script reads. A **blocker** is a ticket that must land before this one is dispatched, unless it closed without a `ticket.passed` and so lets go on closing; `--preflight` refuses while it holds — open, passed and not landed, or closed with events that cannot be read (`events.py` `blocker_hold`). `--lint`'s ticket graph and the night's frontier are computed from it; GitHub's `issue_dependencies_summary.blocked_by` counts open blockers only. Adding one takes the blocker's **database id** (`gh api … --jq .id`). A blocker under another spec is reported as `cross-batch`.
 _Admitted_: native issue dependencies (when naming the GitHub feature)
 _Avoid_: blocking edge, dependency (for this), edge (for this), native blocking link, 上游票号, blocking ticket
 _Home_: `docs/agents/issue-tracker.md`
@@ -536,7 +539,7 @@ _Avoid_: phase inference, state file, incremental state
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **held**:
-What the fold says of a ticket an agent may still be working: it stays off the frontier and `advance` does not give its claim back. A ticket is held from its `ticket.claimed` or any `worker.started`, `reviewer.started` or `verifier.started` until an event ends the hold. `ticket.landed`, `ticket.returned`, `ticket.released` and `spec.suspended` end every hold on it; `worker.retracted`, `worker.lost`, `worker.replaced`, `reviewer.lost`, `verifier.lost` and a `ticket.refused` that names its session end the one session they name, matched by its (runner, session) pair and never by the id alone, since two runners can hand out the same id; a retraction also ends a claim no started session has taken over; `worker.resumed` makes the session it names live again. A result ends the hold of the session that produced it: `reviewer.reported` that reviewer's, `verifier.passed` or `verifier.failed` that verifier's (the one it names, else the newest live one of that kind), so a finished reviewer never keeps a ticket whose worker is gone. `ticket.passed` ends none — the close after a pass can fail and leave the worker retrying — and no label ends one. It is the same answer whichever runner and machine the worker runs on. A worker that died with nothing ending its hold keeps its ticket held until the **watchdog** writes `worker.lost` — once the worker's own runner says its session has stopped — or `retract` writes `worker.retracted`; one whose runner cannot say stays held; a claim that no event ever showed held — one assigned by hand, say — is never given back by `advance`, since nothing shows its worker gone. A hold is not a product slot, which a worktree keeps until its ticket's work ends, past a replaced or lost worker (see **lease**).
+What the fold says of a ticket an agent may still be working: it stays off the frontier and `advance` does not give its claim back. A ticket is held from its `ticket.claimed` or any `worker.started`, `reviewer.started` or `verifier.started` until an event ends the hold. `ticket.landed`, `ticket.returned`, `ticket.bounced`, `ticket.released` and `spec.suspended` end every hold on it; `worker.retracted`, `worker.lost`, `worker.replaced`, `reviewer.lost`, `verifier.lost` and a `ticket.refused` that names its session end the one session they name, matched by its (runner, session) pair and never by the id alone, since two runners can hand out the same id; a retraction also ends a claim no started session has taken over; `worker.resumed` makes the session it names live again. A result ends the hold of the session that produced it: `reviewer.reported` that reviewer's, `verifier.passed` or `verifier.failed` that verifier's (the one it names, else the newest live one of that kind), so a finished reviewer never keeps a ticket whose worker is gone. `ticket.passed` ends none — the close after a pass can fail and leave the worker retrying — and no label ends one. It is the same answer whichever runner and machine the worker runs on. A worker that died with nothing ending its hold keeps its ticket held until the **watchdog** writes `worker.lost` — once the worker's own runner says its session has stopped — or `retract` writes `worker.retracted`; one whose runner cannot say stays held; a claim that no event ever showed held — one assigned by hand, say — is never given back by `advance`, since nothing shows its worker gone. A hold is not a product slot, which a worktree keeps until its ticket's work ends, past a replaced or lost worker (see **lease**).
 _Admitted_: hold (the noun)
 _Avoid_: live worker (as what keeps a ticket off the frontier), occupied, 占用 (as a term)
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
@@ -546,7 +549,7 @@ A comment carrying an `<!-- mmw` block the fold cannot read: never closed, two b
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **landed**:
-A ticket whose branch is in the base branch, recorded by the `ticket.landed` event `advance` or `land` writes once the merge is in `HEAD`, or once it finds the branch already there. It is not **closed**: `--closeout` closes the ticket on the tracker together with `ticket.passed`, before anything is merged, so a ticket is closed and not landed until the next `advance` or `land`. A blocked ticket is let go when its blocker has landed, because the blocked ticket's worktree is cut from the base branch and an unmerged blocker left nothing there; a blocker that closed without a `ticket.passed` lets go on closing, since nothing of it will ever land. That rule is `events.blocker_hold`, the one answer the frontier, `start`, `adopt` and `--preflight` all give. `reverify` re-runs landed tickets only, and `ticket.regressed` takes back both the pass and the landing.
+A passed ticket whose accepted commit is present in `origin/<base branch>` and whose active landing record points to the merge that brought it onto that base branch.
 _Avoid_: closed (for this), merged (as the state of a ticket), done
 _Home_: `mmw-v2/skills/dispatch/scripts/status.py`
 
@@ -576,6 +579,10 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`ticket.regressed`**:
 The event `dispatch.sh reverify` posts on a landed ticket whose criteria went red on the base branch, with that `commit` and the `failed` criteria, in the same pass that reopens it, labels it `needs-triage` and removes its assignee. It takes back the ticket's pass and its landing.
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
+**`ticket.bounced`**:
+The event that hands a passed ticket to triage when its landing merge conflicts or its repository checks fail. It records the failed attempt's evidence, takes back pass and landing, ends the ticket's holds, and leaves its workspace standing.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`worker.resumed`, `worker.retracted`, `worker.replaced`, `worker.lost`**:
@@ -634,7 +641,7 @@ _Avoid_: review report comment, REVIEW 评论, report (bare)
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
 **closing comment**:
-The comment a worker leaves on handing over, written first as a **draft** file that `--closeout <draft>` checks and posts. Its fixed parts: the first line `ALL MET` or `HANDOFF REQUIRED: <abandoned> abandoned (<kinds>), <unmet> unmet, <met> met of <total>`; `Branch: … Commit: … PR: none — will be merged into <base branch> by dispatch.sh advance`; `Post-verdict:` (every commit after the one the verdict covers, with where it came from, `None` when the verdict is on HEAD); four lines per criterion, with `ABANDON:` where given; `Outside Owns:` (each file followed by the Spec axis's judgement, `reasonable` or `should not`); `skipped: [X], add when [Y]` (what was deliberately not built and the condition to build it); `Sub-issues opened:` (this ticket's sub-issues); `Counts: <met> met, <unmet> unmet, <abandoned> abandoned of <total>` (recounted at the Audit, agreeing with the first line); `Decisions I made on my own` (one line per thing the worker settled that neither ticket nor spec decides). `--closeout` posts it as `ticket.passed` when its first line is `ALL MET` and as `ticket.returned` otherwise, and that event, never the line, decides whether `advance` merges the branch. The draft is written by `verify-ticket.py <n> --draft`, so its `ALL MET` is not evidence until `--closeout` accepts it.
+The comment a worker leaves on handing over, written first as a **draft** file that `--closeout <draft>` checks and posts. Its fixed parts: the first line `ALL MET` or `HANDOFF REQUIRED: <abandoned> abandoned (<kinds>), <unmet> unmet, <met> met of <total>`; `Branch: … Commit: … PR: none — will be merged into <base branch> by dispatch.sh advance`, where `<base branch>` is the newest `worker.started.into`; `Post-verdict:` (every commit after the one the verdict covers, with where it came from, `None` when the verdict is on HEAD); four lines per criterion, with `ABANDON:` where given; `Outside Owns:` (each file followed by the Spec axis's judgement, `reasonable` or `should not`); `skipped: [X], add when [Y]` (what was deliberately not built and the condition to build it); `Sub-issues opened:` (this ticket's sub-issues); `Counts: <met> met, <unmet> unmet, <abandoned> abandoned of <total>` (recounted at the Audit, agreeing with the first line); `Decisions I made on my own` (one line per thing the worker settled that neither ticket nor spec decides). `--closeout` posts it as `ticket.passed` when its first line is `ALL MET` and as `ticket.returned` otherwise, and that event, never the line, decides whether `advance` merges the exact commit and origin base branch it names. The draft is written by `verify-ticket.py <n> --draft`, so its `ALL MET` is not evidence until `--closeout` accepts it.
 _Avoid_: 收尾评论, handoff comment, 收尾评论草稿, 草稿 (as a term), 本票我自己拿的主意
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
@@ -656,9 +663,13 @@ _Avoid_: form, 提问表单, BLOCKED:, MMW_AUTONOMOUS
 _Home_: `mmw-v2/skills/drive-target/scripts/hook.py`
 
 **`NIGHT SUMMARY`**:
-The `spec.closed` event `dispatch.sh summary <spec>` posts on the spec when the night is over, first line `NIGHT SUMMARY <date>`, then five lines, `Closed:`, `Handed back to needs-triage:`, `Not dispatched, a blocker stayed open:`, `Sub-issues opened tonight:` (each ticket's children opened in the night window, by number and title), and `Findings routed:` (`opened/fixed/became/skipped/unread/open`, the closing pass's own account of the `finding` kind only, each child's kind and route taken from the `child.opened` and `child.closed` events on the ticket it came from, and a closed finding no `child.closed` accounts for counted `unread` — the batch's `contract`, `deferred`, `decision` and `fault` children are on the line above and not in this count). If `reverify` ran in this checkout, a `Reverify: <green>/<red>` line is appended.
+The `spec.closed` event `dispatch.sh summary <spec>` posts on the spec when the night is over, first line `NIGHT SUMMARY <date>`, then six lines: `Closed:`, `Handed back to needs-triage:`, `Bounced:` (each `ticket.bounced` ticket and its reason), `Not dispatched, a blocker stayed open:`, `Sub-issues opened tonight:` and `Findings routed:` (`opened/fixed/became/skipped/unread/open`). If `reverify` ran, a `Reverify: <green>/<red>` line is appended.
 _Avoid_: 夜间总结, the night summary
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
+
+**`spec.merged`**:
+The event `dispatch.sh finish <spec>` posts on the spec only after the accepted base branch has been merged into and pushed to the project branch. Its payload names `into`, `project`, the pushed merge commit in `merge`, and that merge's first parent in `base`; its first line links the compare from `base` to `merge` and the merge commit. Once present it is the durable precondition for retrying only the remaining cleanup, never for making another merge.
+_Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 ### Running the criteria
 
@@ -813,7 +824,7 @@ The optional key of `.mmw/target.json`: a list run in order at the repository ro
 _Home_: `mmw-v2/skills/verify-ticket/references/closeout.md`
 
 **lease**:
-One run's share of this machine: a registration of `worktree path -> slot` in `~/.mmw/leases`, recording the repository's git directory. A worktree claims it at the first run of its criteria that needs the product — writing code takes none, and neither `start` nor `adopt` takes one — and keeps it until its ticket's work ends, at an event in `SLOT_ENDS`, since the worker's run, the verifier's reverify and the closeout's checks all want the same application; a replaced or lost worker's worktree keeps it for the worker that carries on there. `advance` and `land` give it back when they archive the workspace, `advance` also when it gives back a lost worker's claim, `--closeout` when it hands the ticket back, `suspend` and `retract` with the claim; the main agent's `reverify --actor main` in the main checkout gives its slot back as each run ends. `lease.py claim | env | run | release | list | count` is the whole surface. Two limits bound a claim: the machine's `MMW_LEASE_SLOTS`, and the product's `instance.max`, which counts every claim made from the repository wherever its directory is. A claim past either is not taken — `claim` exits 4 naming the limit and who holds the slots — and the run waits under a `worker.queued` event. The count and the take happen under one lock on the registry, the take is atomic (`O_CREAT | O_EXCL`), there is no fallback to a second slot, and **nothing in it ever ends a process**: `release` refuses while anything still listens on the slot and names the pid and the directory. The driver claims the lease before it runs any command `.mmw/target.json` declares.
+One run's share of this machine: a registration of `worktree path -> slot` in `~/.mmw/leases`, recording the repository's git directory. A ticket worktree claims it at the first run of its criteria that needs the product — writing code takes none, and neither `start` nor `adopt` takes one — and keeps it until its ticket's work ends, at an event in `SLOT_ENDS`, since the worker's run, the verifier's reverify and the closeout's checks all want the same application; a replaced or lost worker's worktree keeps it for the worker that carries on there. A criterion or judge run outside an `issue-<n>` ticket worktree gives its lease back when that run ends; `lease.py run` instead starts a product for a person or agent and keeps the lease. `advance` and `land` give a ticket's lease back when they archive the workspace, `advance` also when it gives back a lost worker's claim, `--closeout` when it hands the ticket back, `suspend` and `retract` with the claim. `claim` reclaims a registration whose worktree no longer exists and whose ports are quiet. `lease.py claim | env | run | release | list | count` is the whole surface. Two limits bound a claim: the machine's `MMW_LEASE_SLOTS`, and the product's `instance.max`, which counts every claim made from the repository wherever its directory is. A claim past either is not taken — `claim` exits 4 naming the limit and who holds the slots — and the run waits under a `worker.queued` event. The count and the take happen under one lock on the registry, the take is atomic (`O_CREAT | O_EXCL`), there is no fallback to a second slot, and **nothing in it ever ends a process**: `release` refuses while anything still listens on the slot and names the pid and the directory. The driver claims the lease before it runs any command `.mmw/target.json` declares.
 _Admitted_: instance lease
 _Avoid_: 租约 (as a term), seat, reservation
 _Home_: `mmw-v2/skills/drive-target/scripts/lease.py`
@@ -824,7 +835,7 @@ _Avoid_: 槽位, port range (for this), seat
 _Home_: `mmw-v2/skills/drive-target/scripts/lease.py`
 
 **instance**:
-One run of a product on this machine, and the optional `instance` field of `.mmw/target.json`: how many of them one machine holds at once, and how a run takes one. `.mmw/target.json`'s `"instance": {"max": <n>, "why": "<what stops a second one>"}` is where a repository whose product cannot move says so: every claim the repository holds counts toward `max`, the main checkout's included, and a run past it waits for a slot under a `worker.queued` event; `advance` still starts every frontier ticket. `discover` prints `instance`, a readable name for messages, and `instance_check`, one `observe` line whose truth means the product answering is the one this run started — which is what makes question 2 mean *answering and mine*.
+One run of a product on this machine, and the optional `instance` field of `.mmw/target.json`: how many of them one machine holds at once, and how a run takes one. `.mmw/target.json`'s `"instance": {"max": <n>, "why": "<what stops a second one>"}` is where a repository whose product cannot move says so: every claim the repository holds counts toward `max`, the main checkout's included, and a run past it waits for a slot under a `worker.queued` event; `advance` still starts every frontier ticket. Its `MMW_DATA_DIR` remains as long as its ticket worktree remains and is deleted after the workspace archive removes that worktree. `discover` prints `instance`, a readable name for messages, and `instance_check`, one `observe` line whose truth means the product answering is the one this run started — which is what makes question 2 mean *answering and mine*.
 _Avoid_: 实例 (as a term)
 _Home_: `mmw-v2/skills/drive-target/references/runtime-environment.md`
 
@@ -858,6 +869,34 @@ _Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
 
 ### Dispatch and the night
 
+**base commit**:
+The commit supplied to code review. `start <n> reviewer` computes it as the merge-base of `origin/<base branch>` and the ticket branch, records it in `reviewer.started`, and uses it for `git diff <base-commit>...HEAD`. The first `worker.started.base` and the base commit bound the first-parent commits the Spec axis reads. Written `<base-commit>` as a placeholder.
+_Avoid_: base-commit (in prose), 起点 commit, cut point, 切点, review boundary, remote base, base tip, integrated tip
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
+**base branch**:
+The temporary integration branch on `origin` a night's tickets merge into; `origin/<base branch>` is authoritative and a local branch of the same name is a cache. The main agent opens the night on it, `spec.opened` and `worker.started` name it in `into`, and after user acceptance `finish` merges it into the recorded project branch and removes every contained clean copy of it.
+_Avoid_: main branch, 基线分支, main (as a name)
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
+**project branch**:
+The branch from which a night's base branch was cut and to which `finish` returns the accepted night. `open` records it in `spec.opened.project`, preferring an earlier such event, then the base branch's creation reflog, `branch.<base branch>.vscode-merge-base`, and finally the uniquely closest eligible origin branch. It is pushed before the night opens and is never merged into the repository default branch by MMW.
+_Avoid_: default branch (for this), target branch, parent branch
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
+**`MMW_BASE_REF`**:
+The environment variable repository checks receive as `origin/<base branch>`. It makes a check's comparison base portable across ticket worktrees, detached merge worktrees and fresh clones instead of naming a machine-local branch.
+_Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
+
+**`dispatch.sh integrate`**:
+`dispatch.sh integrate <n>`, run by the worker before its criteria, brings `origin/<base branch>` into the ticket branch without pushing, rebasing or aborting.
+_Avoid_: integrate (bare), update the branch, sync (as a term), pull
+_Home_: `mmw-v2/skills/dispatch/references/inside-a-ticket.md`
+
+**conflict report**:
+The stderr account printed when `integrate` leaves `MERGE_HEAD` in the ticket worktree. Landing conflicts do not produce one: they are aborted in the detached merge worktree and recorded as `ticket.bounced` with the conflicted files.
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
 **landing pipeline**:
 The whole path from spec to closed ticket, made of stations that each have an entry here: by night **dispatch**, **preflight**, the worker's closing steps, **closeout**, **land**, **advance** and the **收口轮**; in the morning **reverify**, **NIGHT SUMMARY** and the triage queue. What feeds the night — **publish**, a spec, its tickets, their lint — is the day's work and has its own entries. Every rule of the path lives with its station; this entry only names them.
 _Admitted_: ticket pipeline (in triage text)
@@ -870,12 +909,16 @@ _Avoid_: 发布 (as a term), 出票 (as a term), 回读 (as a term)
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **dispatch**:
-Turning a ticket into a running session in its worktree: `dispatch.sh start <n> worker|reviewer|verifier`. The script checks the ticket may start, reads the role's live-table row, opens the workspace and records the base commit, has tonight's runner start the session, writes its started event (`worker.started`, `reviewer.started` or `verifier.started`) on the ticket, and prints the session id. The caller gives the ticket number and the kind; the worker-grade label picks which worker row. A ticket or session that has been through it is **dispatched**.
+Turning a ticket into a running session in its worktree: `dispatch.sh start <n> worker|reviewer|verifier`. The script checks the ticket may start, reads the role's `models.json` row, opens the workspace, computes the started event's base commit from `origin/<base branch>` and the ticket branch, has tonight's runner start the session, writes its started event (`worker.started`, `reviewer.started` or `verifier.started`) on the ticket, and prints the session id. The caller gives the ticket number and the kind; the worker-grade label picks which worker row. A ticket or session that has been through it is **dispatched**.
 _Avoid_: 派发 (as a term), run (as a dispatch.sh verb)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`dispatch.sh`**:
-The dispatch skill's script: `check <spec>`, `open <spec>`, `open-ticket <n>`, `adopt <n>`, `self`, `advance <spec>`, `land <n>`, `start <n> worker|reviewer|verifier`, `retract <n>`, `wait <n> worker|reviewer|verifier`, `ack <n> <event>` / `ack relay.recovered`, `resume <n> "<text>"`, `status <spec>`, `reverify <spec>`, `route <ticket> <child> fixed|stale|became-ticket [<new ticket>]`, `summary <spec>`, `suspend <spec>`. It starts, messages, asks after and stops a session only through the adapter of the runner that runs it; it records `branch.issue-<n>.mmw-base`; reads the worker-grade label and nothing else to pick the worker row. The skill's own text calls it `<dispatch>`.
+The dispatch skill's script: `board`, `check <spec>`, `open <spec>`, `finish <spec>`, `open-ticket <n>`, `adopt <n>`, `self`, `advance <spec>`, `integrate <n>`, `land <n>`, `start <n> worker|reviewer|verifier`, `retract <n>`, `wait <n> worker|reviewer|verifier`, `ack <n> <event>` / `ack relay.recovered`, `resume <n> "<text>"`, `status <spec>`, `reverify <spec>`, `route <ticket> <child> fixed|stale|became-ticket [<new ticket>]`, `summary <spec>`, `suspend <spec>`. It starts, messages, asks after and stops a session only through the adapter of the runner that runs it; the ticket's events carry its shared state. It reads the worker-grade label and nothing else to pick the worker row. The skill's own text calls it `<dispatch>`.
+_Home_: `mmw-v2/skills/dispatch/SKILL.md`
+
+**`dispatch.sh board`**:
+The task board entry command, run from any checkout or worktree: it makes sure the consuming repository's task board is registered in `boards.json` and answering, then has tonight's runner open it or prints its URL.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **dispatch line**:
@@ -884,12 +927,17 @@ _Avoid_: 派发 (as a term)词, prompt (bare)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **check**:
-`dispatch.sh check <spec>`: runs `install.sh --check`, confirms tonight's runner has an adapter, resolves the live-table row of each worker grade, the reviewer and the verifier against that runner's catalog, confirms the host of each is `available` in `paseo provider ls --json` when Paseo is tonight's runner, and confirms every queued ticket has at most one worker-grade label that the live table has a row for. Exit 0 all passed; exit 2 one or more failed, stderr one `dispatch: …` line per failure. Do not `open` on 2.
+`dispatch.sh check <spec>`: infers the current base branch's project branch, fetches origin, reports each branch's pending push count and verifies the push by dry-run without changing origin; runs `install.sh --check`; confirms tonight's runner has an adapter; resolves the `models.json` row of each worker grade, the reviewer and the verifier against that runner's catalog; confirms the host of each is `available` in `paseo provider ls --json` when Paseo is tonight's runner; and confirms every queued ticket has at most one worker-grade label that `models.json` contains. Exit 0 all passed; exit 2 one or more failed, stderr one `dispatch: …` line per failure. Do not `open` on 2.
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **open**:
-`dispatch.sh open <spec>`: the night begins. The relay opens a **watch** on the spec with the calling session as its main agent, named by the runner and session its adapter's `self` reads (`relay.py start --spec <spec> --runner <runner> --session <session>`), starting the relay when none runs, and `spec.opened` is written on the spec naming that runner and session. Opening the same night again makes the calling session its main agent and touches no other watch; a spec one of whose tickets is already watched on its own is refused before anything is written. A `spec.opened` that could not be written closes the watch this call opened. `advance` refuses a night that is not open, and `summary` and `suspend` close its watch. Exit 0 opened; exit 2 nothing opened, the reason on stderr.
+`dispatch.sh open <spec>`: the night begins. It infers the project branch from an earlier `spec.opened.project`, the base branch's creation reflog, `branch.<base branch>.vscode-merge-base`, or the uniquely closest eligible origin history, in that order. Before opening it rejects a default base or project branch and any local/origin divergence, then fast-forward pushes local-only or locally ahead project and base branches. The relay opens a **watch** on the spec with the calling session as its main agent, named by the runner and session its adapter's `self` reads (`relay.py start --spec <spec> --runner <runner> --session <session>`), starting the relay when none runs, and `spec.opened` is written on the spec naming that runner, session, `into` and `project`. Opening the same night again keeps that project branch, makes the calling session its main agent and touches no other watch. `advance` refuses a night that is not open, and `summary` and `suspend` close its watch. Exit 0 opened; exit 2 refused, the reason on stderr.
 _Avoid_: register (as the name of this), 开夜 (as a term)
+_Home_: `mmw-v2/skills/dispatch/references/night.md`
+
+**`dispatch.sh finish`**:
+`dispatch.sh finish <spec>`, run by the main agent after the user accepts a closed night, merges `origin/<base branch>` into the recorded project branch in a detached merge worktree, runs repository checks with `MMW_BASE_REF=origin/<project branch>`, fast-forward pushes the checked result, and writes `spec.merged`. It then removes the contained base branch from origin and locally, clean worktrees that have it checked out, the merge worktree and its lock. It refuses before changing anything while the spec is not closed, has no project branch, shares its open base branch with another night, or any ticket under a spec using that base remains open. Conflict or red checks push and delete nothing. Once `spec.merged` exists, another run performs only unfinished cleanup.
+_Avoid_: finish (bare), summary (for this)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **open-ticket**:
@@ -897,16 +945,16 @@ _Home_: `mmw-v2/skills/dispatch/references/night.md`
 _Home_: `mmw-v2/skills/dispatch/references/one-ticket.md`
 
 **start**:
-`dispatch.sh start <n> worker|reviewer|verifier`: one ticket, one agent. Tonight's runner — `MMW_RUNNER`, the live table's `runner` row, the runner the caller runs in when an adapter exists for it, then `orca` — starts the session through its adapter, with the agent's live-table row resolved against that runner's catalog; `start` writes the session's started event on the ticket and prints the session id. A start the runner refuses is refused once: no retry, no other host. On a ticket whose events still show a live worker, `start <n> worker` replaces it: that session is stopped through its own runner, `worker.replaced` names it, and the new worker starts in the same workspace; a worker that will not stop is refused and nothing starts beside it. A worker started in a standing workspace an earlier worker of the ticket left with uncommitted edits first commits them on the ticket branch, and a start whose edits cannot be committed is refused. A start takes no product slot. A session whose started event the tracker will not take is stopped again and the start refused, since no command could find it. The worker row of the live table is chosen by the ticket's `junior-worker` / `senior-worker` label; the reviewer's base commit is read from `git config branch.issue-<n>.mmw-base` by the script; the verifier's first prompt names the `verdict` skill and the ticket. A ticket no running relay watches is refused too: its result would wake nobody. It cuts the worktree under the main checkout whichever worktree it is run from, so a worker starts its reviewer and verifier from its own worktree. Exit 0 started; exit 2 refused (`REFUSE`, reason on stderr), nothing started.
+`dispatch.sh start <n> worker|reviewer|verifier`: one ticket, one agent. Tonight's runner — `MMW_RUNNER`, `runner` in `MMW_HOME/models.json`, the runner the caller runs in when an adapter exists and the saved value is `auto`, then `orca` — starts the session through its adapter, with the agent's saved row resolved against that runner's catalog; `start` writes the session's started event on the ticket and prints the session id. After an Orca start, the adapter associates the absolute worktree path with the ticket; failure is reported once and the start remains successful. A start the runner refuses is refused once: no retry, no other host. On a ticket whose events still show a live worker, `start <n> worker` replaces it: that session is stopped through its own runner, `worker.replaced` names it, and the new worker starts in the same workspace; a worker that will not stop is refused and nothing starts beside it. A worker started in a standing workspace an earlier worker of the ticket left with uncommitted edits first commits them on the ticket branch, and a start whose edits cannot be committed is refused. A start takes no product slot. A session whose started event the tracker will not take is stopped again and the start refused, since no command could find it. The worker row is chosen by the ticket's `junior-worker` / `senior-worker` label; a replacement worker keeps the first `worker.started.base`, and a reviewer gets the base commit computed from `origin/<base branch>` and the ticket branch; the verifier's first prompt names the `verdict` skill and the ticket. A ticket no running relay watches is refused too: its result would wake nobody. It cuts the worktree under the main checkout whichever worktree it is run from, so a worker starts its reviewer and verifier from its own worktree. Exit 0 started; exit 2 refused (`REFUSE`, reason on stderr), nothing started.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **adopt**:
-`dispatch.sh adopt <n>`: the calling session becomes ticket `<n>`'s worker, for a session that picked the ticket up itself and was started by no `start`. Run from the ticket's worktree on `issue-<n>`, before claiming, it writes `worker.started` with the session's own runner and session (its adapter's `self`) and the facts `start` writes — the grade's live-table row, the worktree, branch and base — plus `adopted: true`, takes no product slot, and makes sure a relay watches the ticket: the watch already covering it, or a watch of the ticket alone with this session as its main agent. A session that adopted a ticket outside a night is its own main agent, so it hands `land <n>` to the user rather than running it from the ticket's worktree. The same session adopting again writes nothing; a ticket another live worker holds is refused. Without it no event names the session, so its reviewer's report would wake nobody and `start <n> reviewer` would refuse. Exit 0 adopted, the session id on stdout; exit 2 refused.
+`dispatch.sh adopt <n>`: the calling session becomes ticket `<n>`'s worker, for a session that picked the ticket up itself and was started by no `start`. Run from the ticket's worktree on `issue-<n>`, before claiming, it writes `worker.started` with the session's own runner and session (its adapter's `self`) and the facts `start` writes — the grade's `models.json` row, the worktree, branch and base — plus `adopted: true`, takes no product slot, and makes sure a relay watches the ticket: the watch already covering it, or a watch of the ticket alone with this session as its main agent. A session that adopted a ticket outside a night is its own main agent, so it hands `land <n>` to the user rather than running it from the ticket's worktree. The same session adopting again writes nothing; a ticket another live worker holds is refused. Without it no event names the session, so its reviewer's report would wake nobody and `start <n> reviewer` would refuse. Exit 0 adopted, the session id on stdout; exit 2 refused.
 _Avoid_: claim (for this; claiming is `--preflight`)
 _Home_: `mmw-v2/skills/dispatch/references/inside-a-ticket.md`
 
 **self**:
-The fifth verb of a runner's adapter, and `dispatch.sh self`: the runner and session the calling process itself runs in, as `runner<TAB>session`. Each adapter reads its own runner's mark on the process — Paseo's `PASEO_AGENT_ID`, Orca's `ORCA_TERMINAL_HANDLE`, the name `herdr agent list` gives the agent in Herdr's `HERDR_PANE_ID` — and answers 0 with the id, 3 when the process runs in none of its sessions, 1 when it does and the id cannot be read (a Herdr agent with no name, an Orca terminal with no handle). `dispatch.sh self` asks the innermost runner first — Paseo, then Herdr, then Orca — since a wake sent to an outer terminal is typed into whatever it shows, and it needs no live table. `open`, `open-ticket`, `adopt` and `ack` name the calling session with it, and `verify-ticket.py` names the session a `ticket.refused` is written by.
+The `self` verb of a runner's adapter, and `dispatch.sh self`: the runner and session the calling process itself runs in, as `runner<TAB>session`. Each adapter reads its own runner's mark on the process — Paseo's `PASEO_AGENT_ID`, Orca's `ORCA_TERMINAL_HANDLE`, the name `herdr agent list` gives the agent in Herdr's `HERDR_PANE_ID` — and answers 0 with the id, 3 when the process runs in none of its sessions, 1 when it does and the id cannot be read (a Herdr agent with no name, an Orca terminal with no handle). `dispatch.sh self` asks the innermost runner first — Paseo, then Herdr, then Orca — since a wake sent to an outer terminal is typed into whatever it shows, and it needs no `models.json`. `open`, `open-ticket`, `adopt` and `ack` name the calling session with it, and `verify-ticket.py` names the session a `ticket.refused` is written by.
 _Home_: `mmw-v2/skills/dispatch/scripts/runners/`
 
 **retract**:
@@ -928,7 +976,7 @@ _Home_: `mmw-v2/skills/dispatch/references/night.md`
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **`dispatch.sh reverify`**:
-`dispatch.sh reverify <spec>`: on the current branch, every ticket under the spec whose events show it passed and landed (`status.py --reverify-plan`) is run through `verify-ticket.py <n> --reverify --actor main`, whose `ticket.checked` names the main agent as its writer; a run that needs the product claims a slot that counts toward `instance.max` like any worktree's and gives it back as the run ends. One that passed and has not landed is named on stderr and not run. Exit 0 all green; exit 1 at least one red — a `reverify` `ticket.checked` of `HEAD` that is not `met` — that ticket is reopened, labelled `needs-triage`, its assignee removed, and a `ticket.regressed` event names the failing `AC<n>` that event gives; exit 2 a ticket could not be re-run at all — it could not start, its run was not recorded, or it waited for a slot and none came free — so nothing was judged on it and the rest of the batch is skipped. A run that could not start is never a red ticket.
+`dispatch.sh reverify <spec>`: fetches origin, resets the detached merge worktree to `origin/<base branch>`, and there runs every ticket under the spec whose events show it passed and landed (`status.py --reverify-plan`) through `verify-ticket.py <n> --reverify --actor main`, with `MMW_BASE_REF` set and the resulting `ticket.checked.commit` equal to that fetched commit. One that passed and has not landed is named and not run. Exit 0 all green; exit 1 reopens each red ticket for triage and writes `ticket.regressed`; exit 2 means a run could not establish a result, so nothing was judged on it and the rest are skipped.
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **summary**:
@@ -962,12 +1010,12 @@ The line `status.py --advance-plan` prints for a ticket whose claim is to be giv
 _Home_: `mmw-v2/skills/dispatch/scripts/status.py`
 
 **advance**:
-`dispatch.sh advance <spec>`: first merge the branches of the tickets that closed, by closing time from earliest to latest, into the base branch — a ticket is merged when it is `CLOSED`, its events carry a `ticket.passed` no `ticket.landed` has followed, its branch exists, and it is not already an ancestor; one merge commit each, and `ticket.landed` written on the ticket once its branch is in `HEAD` (a branch already there is recorded as landed without a merge); `MERGE_TRIES` retries against a worker's commit in its own worktree holding the shared `.git` lock, and exit 2 when every try fails — then **land** each merged ticket (archive its workspace, giving back its product slot first when it holds one), give back the claims whose workers are gone, and dispatch the frontier, all as `status.py --advance-plan` lists it (`MERGE <n>`, `RELEASE <n>` and `DISPATCH <n>` lines, in that order — the **advance plan**). It starts each dispatched ticket's session through `start` and prints one session id per ticket. A conflict is left in place with exit 3 and a **conflict report** on stderr; the main agent resolves it with `resolving-merge-conflicts` — never `--abort` — runs this repository's checks, commits the merge, and runs `advance` again. Uncommitted changes in the working tree give exit 2. It ends with the **advance summary line** `advance #<spec>: merged <m>, already in <s>, released <g>, started <k>, refused <r>` and may be run repeatedly; a run in which the runner refused any start exits 4, since that ticket stays on the frontier and nothing wakes anyone about it. It starts every frontier ticket: `instance.max` holds no start back, and bites at a worker's first run that needs the product (see **lease**).
+`dispatch.sh advance <spec>`: lands the batch's passed tickets onto their recorded branch on origin, deletes each landed **ticket branch**, gives back claims whose holds ended, then starts the frontier.
 _Avoid_: 并回来 (as a term)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **land**:
-`dispatch.sh land <n>`: merge the ticket branch into the branch the caller is on and write `ticket.landed`, archive its workspace, stopping every session the ticket's started events name, give back its product slot if its worktree holds one, and give its claim back with a `ticket.released` event (reason `landed`). It takes a ticket number and never a spec, which is the whole reason it exists: a ticket dispatched outside a night belongs to no batch, so `advance` can never reach it, and before this there was no command that ended one. Archiving a workspace deletes the worktree directory and takes the worker, reviewer and verifier inside it, leaving the branch; that is why the merge goes first, and why a ticket that closed without a `ticket.passed` and whose branch is not in `HEAD` is named on stderr and left standing rather than archived (exit 1). `advance` does the same four things for a whole batch after its merges. What a ticket needs before any of it is that the tracker says it is over: `CLOSED`, or open and handed back to triage. Open with no verdict either way is untouched.
+`dispatch.sh land <n>`: the one-ticket form of **advance** that lands the recorded commit, deletes its **ticket branch**, releases its resources and closes its watch.
 _Avoid_: 落地 (as a term), 收尾 (that is the worker's closing steps), archive the ticket, finish (as a name)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
@@ -1052,12 +1100,12 @@ _Avoid_: watcher, heartbeat (for the process), board.py, judge (as a name for th
 _Home_: `mmw-v2/skills/dispatch/scripts/watchdog.py`
 
 **heartbeat**:
-`watchdog.json` in the state directory: what the **watchdog** writes at start, after every ticket and at the end of every round — its `pid` and process `identity`, `at`, `poll`, `tolerance`, `silence`, `idle`, the watches it read, the tickets `held` and `waiting` at its last round (`held` is null when that round could not read every ticket), the sessions whose runner answered `unknown`, the `*.lost` it posted, the relay's problem if any, and the findings `pending` and `reported`. The watchdog is **healthy** when its `watchdog.lock` names a live process by pid and identity, that same process wrote the heartbeat, and the heartbeat is no older than its **tolerance**. A heartbeat another process wrote proves nothing about the one holding the lock.
+`watchdog.json` in the state directory: what the **watchdog** writes at start, after every ticket and at the end of every round — its `pid` and process `identity`, `at`, `poll`, `tolerance`, `silence`, `idle`, the watches it read, the tickets `held` and `waiting` at its last round (`held` is null when that round could not read every ticket), the sessions whose runner answered `unknown`, the `*.lost` it posted, the relay's problem if any, and the findings `pending` and `reported`, and `reads`, its billed and not-modified comment-list reads since it started. The watchdog is **healthy** when its `watchdog.lock` names a live process by pid and identity, that same process wrote the heartbeat, and the heartbeat is no older than its **tolerance**. A heartbeat another process wrote proves nothing about the one holding the lock.
 _Avoid_: `mmw-night-<spec>`, beat (for this file; the relay's `beat.json` is its last good poll)
 _Home_: `mmw-v2/skills/dispatch/scripts/watchdog.py`
 
 **tolerance**:
-How old a heartbeat may be and still be fresh, and how long the board may go unread: `max(300, poll + margin)` seconds, the margin being one adapter call plus one gh read (60 + 120), the longest a watchdog waits between two beats. A fixed number would read a healthy watchdog as dead mid-sleep as soon as its poll grew past it, and a smaller margin would have `arm` end one that is only slow. For a runner, the tolerance of a `stopped` answer is how long a dead session may still read `alive`; the Herdr adapter records its measured value (1 second) in its header.
+How old a heartbeat may be and still be fresh, and how long the board may go unread: `max(300, poll + margin)` seconds, the margin being one adapter call plus one list read, every page of one address together (60 + 120), the longest a watchdog waits between two beats. A fixed number would read a healthy watchdog as dead mid-sleep as soon as its poll grew past it, and a smaller margin would have `arm` end one that is only slow. For a runner, the tolerance of a `stopped` answer is how long a dead session may still read `alive`; the Herdr adapter records its measured value (1 second) in its header.
 _Home_: `mmw-v2/skills/dispatch/scripts/watchdog.py`
 
 **turn guard**:
@@ -1084,7 +1132,7 @@ _Avoid_: 写码纪律, 写码纪律七条, the seven working rules, 不问 (as a
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **closing steps**:
-What `implement` does once the code is written: the worker's own run (`<engine> <n>`); start the reviewer (`<dispatch> start <n> reviewer`), fix in-ticket findings for one round, `--sub-issue finding` for the out-of-ticket ones, no re-review; `--decisions`; start the verifier (`<dispatch> start <n> verifier`) once, since `--closeout` requires its verdict to cover `HEAD` and every earlier step still writes commits; `Audit`; `--touched`; `--sub-issue decision` for criteria that only wait for a person's one sentence, then `--draft` and fill the two placeholders; `--closeout`. `--closeout` archives no agent: landing does that, and takes the workspace with the agents inside it (`land <n>` for one ticket, `advance` for a batch). A resumed worker resumes at the step `implement`'s resume table gives for the `ticket.checked` events and the `reviewer.reported`, `worker.decided`, `verifier.passed` and `verifier.failed` events on the ticket. No branch is pushed and no pull request is opened: work reaches the base branch through `land` or `advance`.
+What `implement` does once the code is written: the worker's own run (`<engine> <n>`); start the reviewer (`<dispatch> start <n> reviewer`), fix in-ticket findings for one round, `--sub-issue finding` for the out-of-ticket ones, no re-review; `--decisions`; start the verifier (`<dispatch> start <n> verifier`) once, since `--closeout` requires its verdict to cover `HEAD` and every earlier step still writes commits; `Audit`; `--touched`; `--sub-issue decision` for criteria that only wait for a person's one sentence, then `--draft` and fill the two placeholders; `--closeout`. `--closeout` archives no agent: landing does that, and takes the workspace with the agents inside it (`land <n>` for one ticket, `advance` for a batch). A resumed worker resumes at the step `implement`'s resume table gives for the `ticket.checked` events and the `reviewer.reported`, `worker.decided`, `verifier.passed` and `verifier.failed` events on the ticket. `--closeout` pushes the ticket branch to `origin` before it closes the ticket, and no pull request is opened: work reaches the base branch through `land` or `advance`.
 _Avoid_: 收尾七步, 收尾六步, the seven closing steps, the closeout (for the sequence)
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
@@ -1127,8 +1175,8 @@ The verifier may install a dependency, download a browser, or find a connection 
 _Avoid_: the verifier's boundary
 _Home_: `mmw-v2/skills/verdict/SKILL.md`
 
-**No pull request, and no push**:
-No step of the pipeline reads a pull request and no branch is pushed; a ticket's work reaches the base branch through `advance`'s local merge, and the closing comment's `PR:` line is written in the future tense.
+**No pull request**:
+No step of the pipeline reads a pull request; the landing record's compare and commit links provide the whole-ticket diff and merge destination instead.
 _Home_: `mmw-v2/merge-notes/implement.md`
 
 **fixed headings**:
@@ -1179,28 +1227,28 @@ _Home_: `mmw-v2/downstream-notes/README.md`
 The note written whenever upstream scripts are copied in without a subtree: source repository, commit, date, and which lines were changed.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/UPSTREAM.md`
 
-**`models.md`**:
-The live table at `~/.mmw/models.md`, one row per agent — a second row for the same agent is refused when the table is read. Four columns `agent | host | model | effort`, everyday names, for every agent the pipeline sends out except the main agent and the three code-review axis subagents — the only place a dispatched agent's model is written. A two-cell `| runner | <name> |` row may sit above them: the live table's say in which runner runs tonight, below `MMW_RUNNER` and above runtime detection. `start` asks this machine what that host offers and uses the unique match; it reads only the rows above `<!-- mmw-offerings -->`. Below that marker is this machine's last scan of the five CLI hosts, written by `python3 models.py offerings` and refreshed by a later `install.sh`; `start` does not read it. `models.py` next to `hosts.json` is the only reader of the rows. Git holds no human-edited copy: `hosts.json` records how each host starts — its own command-line flags, which every runner that runs the host's CLI in a terminal uses, and its settings on Paseo — plus the default rows first `install.sh` copies here. The three code-review axis subagents have no row of their own: they run on the model of the reviewer session that starts them. An agent told to change host, model, `effort`, or tonight's runner reads `references/editing-models.md`.
-_Avoid_: the table (for this), 模型表, 角色表, launch arguments
-_Home_: `~/.mmw/models.md`
+**`models.json`**:
+The versioned machine-level dispatch configuration at `MMW_HOME/models.json`, defaulting to `~/.mmw/models.json`. It is the only place a dispatched agent's model is written. `models.py config` and the task board share its validation and atomic write operation. `dispatch.sh start` reads it fresh. `install.sh` creates it from `hosts.json` defaults when absent, or imports and deletes the retired Markdown file once; it never overwrites an existing JSON file. The main agent and code-review axis subagents have no row.
+_Avoid_: the table (for this), model table, role table, launch arguments, 活表, 模型表, 角色表
+_Home_: `~/.mmw/models.json`
 
 **`effort`**:
-The `effort` column of the live table: the everyday thinking level (`high`, `xhigh`, `medium`, …). Grok, Claude, Codex and pi take it as a flag or thinking option. Cursor does not: effort is set per model in the Cursor app, and `start` only selects among the pairs `cursor-agent models` already lists. Where the host takes it, a runner that runs the host's own CLI passes it as that CLI's flag from `hosts.json`; on Paseo it becomes the `--thinking` value of `paseo run`, which for Cursor is only on or off. Every row needs one.
+The `effort` field of a `models.json` row: the everyday thinking level (`high`, `xhigh`, `medium`, …). Grok, Claude, Codex and pi take it as a flag or thinking option. Cursor does not: effort is set per model in the Cursor app, and `start` only selects among the pairs `cursor-agent models` already lists. Where the host takes it, a runner that runs the host's own CLI passes it as that CLI's flag from `hosts.json`; on Paseo it becomes the `--thinking` value of `paseo run`, which for Cursor is only on or off. Every row needs one.
 _Admitted_: thinking level
 _Avoid_: thinking effort, reasoning effort (in prose), 思考强度
-_Home_: `~/.mmw/models.md`
+_Home_: `~/.mmw/models.json`
 
 **permissions**:
-How a dispatched session is started: all tools granted. It is not a column of the live table. Each host's spelling lives in `hosts.json` (`bypassPermissions`, Cursor `auto_accept`, …). There is no read-only value: no host has a mode that both keeps a session to reading and lets it finish a turn on its own, so an agent that must not write is a subagent, held to reading by what it is told to do and by whatever restriction the call that starts it can carry.
+How a dispatched session is started: all tools granted. It is not a field in `models.json`. Each host's spelling lives in `hosts.json` (`bypassPermissions`, Cursor `auto_accept`, …). There is no read-only value: no host has a mode that both keeps a session to reading and lets it finish a turn on its own, so an agent that must not write is a subagent, held to reading by what it is told to do and by whatever restriction the call that starts it can carry.
 _Avoid_: launch arguments
 _Home_: `mmw-v2/skills/dispatch/hosts.json`
 
 **`models.py`**:
-`mmw-v2/skills/dispatch/scripts/models.py`, the only reader of the live table and of `hosts.json`. It resolves everyday names against tonight's catalog and turns a row into the flags a runner starts the host with, so `install.sh --check` and `dispatch.sh start` cannot disagree about it. `python3 models.py offerings` asks the five CLI hosts and writes the catalog under the live table; `start` does not read that block.
+`mmw-v2/skills/dispatch/scripts/models.py`, the shared reader and writer of `models.json` and reader of `hosts.json`. It resolves everyday names against the selected runner's current catalog and turns a saved row into the flags a runner starts the host with, so the task board, `install.sh --check`, and `dispatch.sh start` cannot disagree. Paseo catalog commands are executed by the Paseo adapter, not by this file.
 _Home_: `mmw-v2/skills/dispatch/scripts/models.py`
 
 **`install.sh`**:
-`mmw-v2/install.sh`, the only install entry. It installs seven things: skill symlinks into `~/.agents/skills` and `~/.claude/skills`; hooks into each host's own configuration; user-level prompts (`~/.claude/CLAUDE.md` a symlink to `prompt/shared.md`, Codex, Pi and Grok each a file `prompt/render.py` writes); a launchd task that re-renders those three when the source changes; Paseo configuration (`~/.local/bin/paseo`, two providers in `~/.paseo/config.json`, `worktrees.root`); Orca worktree configuration, only where `orca` is installed (every Orca setup's `worktree-base-path` is `.worktrees`, and `--check` also wants each repository's external worktrees shown); the `nowledge-mem` entry in `~/.cursor/mcp.json`. It does not write Agent profiles; leftover generated profiles (notes containing `from models.md`) are reported as `残留`. First install copies the live table if it is missing; later ones leave the rows and refresh the CLI catalog below them. It reads `skills.txt`, clears the retired locations, and prints one line per item with the prefixes `已装`, `残留`, `退役`, `冲突`, ending with markers such as `HOOKS-INSTALLED`. **`install.sh --check`** looks and changes nothing: exit 0 when complete, 1 when something is missing or a stale link remains; it expands every live-table row through `models.py`, holds each runner adapter's `# MMW_USES:` lines against the binary on `PATH` — printing `没查` when it could not read what the binary accepts and `不一致` when a command or flag is gone, never one for the other — and `dispatch.sh check` runs it before a night. `MMW_V2_HOME` moves the install location for tests.
+`mmw-v2/install.sh`, the only install entry. It installs eight things: skill symlinks into `~/.agents/skills` and `~/.claude/skills`; hooks into each host's own configuration; user-level prompts (`~/.claude/CLAUDE.md` a symlink to `prompt/shared.md`, Codex, Pi and Grok each a file `prompt/render.py` writes); a launchd task that re-renders those three when the source changes; the `com.mmw.board` LaunchAgent that keeps `supervisor.py` running; Paseo configuration (`~/.local/bin/paseo`, two providers in `~/.paseo/config.json`, `worktrees.root`); Orca worktree configuration, only where `orca` is installed (every Orca setup's `worktree-base-path` is `.worktrees`, and `--check` also wants each repository's external worktrees shown); the `nowledge-mem` entry in `~/.cursor/mcp.json`. It does not write Agent profiles; leftover generated profiles (notes containing `from models.md`) are reported as `残留`. When `models.json` is absent, install writes the defaults or imports and deletes the retired Markdown file; an existing JSON file is untouched. It reads `skills.txt`, clears the retired locations, and prints one line per item with the prefixes `已装`, `残留`, `退役`, `冲突`, ending with markers such as `HOOKS-INSTALLED`. **`install.sh --check`** looks and changes nothing: exit 0 when complete, 1 when something is missing or stale; it validates the task board LaunchAgent, every saved row against the selected runner's catalog, and each runner adapter's `# MMW_USES:` lines against the binary on `PATH`, printing `没查` when it could not read what the binary accepts and `不一致` when a command or flag is gone. `dispatch.sh check` runs it before a night. `MMW_V2_HOME` moves the install location for tests and suppresses launchctl operations.
 _Avoid_: the installer, 安装器, 安装入口 (as a term), 只看不动 (as a term)
 _Home_: `mmw-v2/install.sh`
 
@@ -1263,7 +1311,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 
 | name | values |
 | --- | --- |
-| event | `spec.opened` · `spec.suspended` · `spec.closed` · `ticket.claimed` · `ticket.refused` · `ticket.passed` · `ticket.returned` · `ticket.released` · `ticket.landed` · `ticket.regressed` · `ticket.checked` · `worker.started` · `worker.resumed` · `worker.retracted` · `worker.replaced` · `worker.decided` · `worker.queued` · `worker.touched` · `worker.lost` · `reviewer.started` · `reviewer.reported` · `reviewer.lost` · `verifier.started` · `verifier.passed` · `verifier.failed` · `verifier.lost` · `child.opened` · `child.closed` |
+| event | `spec.opened` · `spec.suspended` · `spec.closed` · `spec.merged` · `ticket.claimed` · `ticket.refused` · `ticket.passed` · `ticket.returned` · `ticket.released` · `ticket.landed` · `ticket.regressed` · `ticket.checked` · `worker.started` · `worker.resumed` · `worker.retracted` · `worker.replaced` · `worker.decided` · `worker.queued` · `worker.touched` · `worker.lost` · `reviewer.started` · `reviewer.reported` · `reviewer.lost` · `verifier.started` · `verifier.passed` · `verifier.failed` · `verifier.lost` · `child.opened` · `child.closed` |
 | event subject | `spec` · `ticket` · `worker` · `reviewer` · `verifier` · `child` |
 | common payload field | `v` · `event` · `stage` · `actor` · `spec` · `ticket` · `at` |
 | ends every hold | `ticket.landed` · `ticket.returned` · `ticket.released` · `spec.suspended` |
@@ -1288,7 +1336,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | finish notification | `finished` · `errored` · `was closed` · `needs permission` |
 | host | `claude` · `codex` · `grok` · `cursor` · `pi` |
 | runner (one adapter each) | `paseo` · `orca` · `herdr` |
-| adapter verb | `start` · `send` · `liveness` · `stop` · `self` |
+| adapter verb | `start` · `send` · `liveness` · `stop` · `self` · optional `attach` · optional `open-url` |
 | `liveness` answer | `alive` · `stopped` · `unknown` |
 | `target.kind` | `electron` · `web-spa` · `web-server-rendered` · `chrome-extension` |
 | mechanism `via` | `api` · `storage` |
@@ -1306,5 +1354,5 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | category role | `bug` · `enhancement` |
 | `dispatch.sh` constants | `MERGE_TRIES = 3` · `LABEL_TITLE_CHARS` · `DEFAULT_WORKER` |
 | `lease.py` constants | `MMW_LEASE_SLOTS = 8` · `MMW_LEASE_PORT_BASE = 21000` · `MMW_LEASE_PORT_STRIDE = 20` |
-| `dispatch.sh` verbs | `check` · `open` · `open-ticket` · `adopt` · `self` · `advance` · `land` · `start` · `retract` · `wait` · `ack` · `resume` · `status` · `reverify` · `route` · `summary` · `suspend` |
+| `dispatch.sh` verbs | `board` · `check` · `open` · `open-ticket` · `adopt` · `self` · `advance` · `land` · `start` · `retract` · `wait` · `ack` · `resume` · `status` · `reverify` · `route` · `summary` · `suspend` |
 | `relay.py` verbs | `run` · `start` · `add` · `stop` · `watching` · `ack` · `queue` |

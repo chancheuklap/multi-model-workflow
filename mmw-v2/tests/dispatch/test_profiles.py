@@ -1,4 +1,4 @@
-"""Live table, catalog match, and host argv from hosts.json.
+"""Local configuration, catalog match, and host argv from hosts.json.
 
     python3 -m unittest discover -s mmw-v2/tests/dispatch -p test_profiles.py
 """
@@ -12,6 +12,7 @@ import shlex
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 HERE = Path(__file__).resolve().parent
 MODELS_PY = HERE.parents[1] / "skills" / "dispatch" / "scripts" / "models.py"
@@ -20,23 +21,15 @@ _spec = importlib.util.spec_from_file_location("mmw_models", MODELS_PY)
 models = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(models)
 
-TABLE_HEAD = (
-    "| agent | host | model | effort |\n"
-    "| --- | --- | --- | --- |\n"
-)
+def config_with(rows: dict) -> dict:
+    return {"version": 1, "runner": "orca", "rows": rows}
 
 
-def rows_from(text: str) -> list:
-    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as fh:
-        fh.write("# Models\n\n" + TABLE_HEAD + text)
-        path = Path(fh.name)
-    previous = models.MODELS
-    try:
-        models.MODELS = path
+def rows_from(rows: dict) -> list:
+    with tempfile.TemporaryDirectory() as tmp, \
+            mock.patch.dict(os.environ, {"MMW_HOME": tmp}):
+        models.models_json_path().write_text(json.dumps(config_with(rows)) + "\n")
         return models.session_rows()
-    finally:
-        models.MODELS = previous
-        path.unlink(missing_ok=True)
 
 
 class BypassArgvTest(unittest.TestCase):
@@ -107,24 +100,19 @@ class LaunchLineTest(unittest.TestCase):
 
 
 class SessionRowsTest(unittest.TestCase):
-    def test_two_rows_for_one_agent_are_refused(self):
-        with self.assertRaisesRegex(ValueError, "junior-worker has two rows"):
-            rows_from(
-                "| junior-worker | cursor | grok 4.6 | high |\n"
-                "| junior-worker | grok | grok 4.6 | high |\n"
-            )
-
-    def test_one_row_per_agent_is_read_in_order(self):
-        rows = rows_from(
-            "| junior-worker | cursor | grok 4.6 | high |\n"
-            "| reviewer | claude | opus 5 | high |\n"
-        )
-        self.assertEqual([(r.agent, r.host) for r in rows],
-                         [("junior-worker", "cursor"), ("reviewer", "claude")])
+    def test_one_row_per_agent_is_read_in_fixed_order(self):
+        config = models.default_local_config()
+        shuffled = {role: config["rows"][role] for role in reversed(models.ALLOWED_AGENTS)}
+        rows = rows_from(shuffled)
+        self.assertEqual(
+            [r.agent for r in rows],
+            ["junior-worker", "senior-worker", "reviewer", "verifier", "advisor"])
 
     def test_an_unknown_agent_is_refused(self):
-        with self.assertRaisesRegex(ValueError, "不是派出的角色"):
-            rows_from("| intern | grok | grok 4.6 | high |\n")
+        config = models.default_local_config()["rows"]
+        config["intern"] = {"host": "grok", "model": "grok 4.6", "effort": "high"}
+        with self.assertRaisesRegex(ValueError, "unknown intern"):
+            rows_from(config)
 
 
 class CatalogMatchTest(unittest.TestCase):
@@ -167,25 +155,12 @@ class PaseoSettingsTest(unittest.TestCase):
         )
 
 
-class AdoptTest(unittest.TestCase):
-    def test_missing_live_file_is_written_once(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            dest = Path(tmp) / ".mmw" / "models.md"
-            os.environ["MMW_LIVE_MODELS"] = str(dest)
-            self.addCleanup(os.environ.pop, "MMW_LIVE_MODELS", None)
-            models.MODELS = None
-            self.assertTrue(models.adopt_live_table())
-            self.assertTrue(dest.is_file())
-            dest.write_text(dest.read_text(encoding="utf-8") + "\n# touched\n",
-                            encoding="utf-8")
-            self.assertFalse(models.adopt_live_table())
-            self.assertIn("touched", dest.read_text(encoding="utf-8"))
-
+class DefaultsTest(unittest.TestCase):
     def test_defaults_include_the_five_roles(self):
-        text = models.default_live_markdown()
-        for name in ("junior-worker", "senior-worker", "reviewer",
-                     "verifier", "advisor"):
-            self.assertIn(name, text)
+        config = models.default_local_config()
+        self.assertEqual(config["version"], 1)
+        self.assertEqual(config["runner"], "orca")
+        self.assertEqual(set(config["rows"]), set(models.ALLOWED_AGENTS))
 
 
 class CliCatalogParseTest(unittest.TestCase):
@@ -249,56 +224,10 @@ class CliCatalogParseTest(unittest.TestCase):
         self.assertNotIn(("grok 4.6", "low, high"), by_model)
 
 
-class OfferingsBlockTest(unittest.TestCase):
-    def setUp(self):
-        os.environ["MMW_HOST_CATALOG"] = str(CATALOG)
-        self.addCleanup(os.environ.pop, "MMW_HOST_CATALOG", None)
-
-    def test_a_catalog_table_below_the_rows_is_not_read_as_an_agent(self):
-        rows = rows_from(
-            "| junior-worker | grok | grok 4.6 | high |\n"
-            "\n"
-            "<!-- mmw-offerings -->\n"
-            "| intern | grok | nope | high |\n"
-            "<!-- /mmw-offerings -->\n"
-        )
-        self.assertEqual([r.agent for r in rows], ["junior-worker"])
-
-    def test_refresh_rewrites_the_catalog_and_keeps_the_rows(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            dest = Path(tmp) / "models.md"
-            dest.write_text(
-                "# Models\n\n" + TABLE_HEAD
-                + "| junior-worker | grok | grok 4.6 | high |\n"
-                + "\n# touched\n",
-                encoding="utf-8")
-            os.environ["MMW_LIVE_MODELS"] = str(dest)
-            self.addCleanup(os.environ.pop, "MMW_LIVE_MODELS", None)
-            models.MODELS = dest
-            models.refresh_live_offerings()
-            text = dest.read_text(encoding="utf-8")
-            self.assertIn("touched", text)
-            self.assertIn("<!-- mmw-offerings -->", text)
-            self.assertIn("| model | effort |", text)
-            self.assertIn("| grok 4.6 |", text)
-            self.assertIn("| gpt 5.6 sol |", text)
-            self.assertIn("Copy one whole row", text)
-            self.assertNotIn("| grok 4.6 | low, high |", text)
-            again = models.session_rows()
-            self.assertEqual([(r.agent, r.host) for r in again],
-                             [("junior-worker", "grok")])
-
-    def test_offerings_command_prints_the_live_path(self):
+class RetiredCommandTest(unittest.TestCase):
+    def test_offerings_is_a_usage_error(self):
         from io import StringIO
         from unittest.mock import patch
-        with tempfile.TemporaryDirectory() as tmp:
-            dest = Path(tmp) / "models.md"
-            os.environ["MMW_LIVE_MODELS"] = str(dest)
-            self.addCleanup(os.environ.pop, "MMW_LIVE_MODELS", None)
-            models.MODELS = None
-            with patch("sys.stdout", new_callable=StringIO) as out:
-                self.assertEqual(models.main(["offerings"]), 0)
-            self.assertEqual(out.getvalue().strip(), str(dest))
-            self.assertTrue(dest.is_file())
-            self.assertIn("junior-worker", dest.read_text(encoding="utf-8"))
-            self.assertIn("<!-- mmw-offerings -->", dest.read_text(encoding="utf-8"))
+        with patch("sys.stderr", new_callable=StringIO) as err:
+            self.assertEqual(models.main(["offerings"]), 2)
+        self.assertIn("usage: models.py config show", err.getvalue())

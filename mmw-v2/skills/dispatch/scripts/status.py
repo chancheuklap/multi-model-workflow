@@ -124,6 +124,10 @@ def normalise_ticket(number: int, raw: dict) -> dict:
     comments = [c for c in raw.get("comments") or [] if isinstance(c, dict)]
     blocked_by = [{"number": int(n["number"]), "state": (n.get("state") or "").upper()}
                   for n in nodes if isinstance(n, dict) and n.get("number")]
+    landing_result = events.newest(comments, "ticket.bounced", "ticket.passed",
+                                   "ticket.returned", "ticket.landed",
+                                   "ticket.regressed")
+    bounced = landing_result if (landing_result or {}).get("event") == "ticket.bounced" else None
     return {
         "number": number,
         "state": (raw.get("state") or "").upper(),
@@ -136,6 +140,7 @@ def normalise_ticket(number: int, raw: dict) -> dict:
         "blocked_by": blocked_by,
         "blockers": [b["number"] for b in blocked_by if b["state"] != "CLOSED"],
         "fold": events.fold(comments, issue=number),
+        "bounced_reason": ((bounced or {}).get("payload") or {}).get("reason"),
         # `gh_json` answers `{}` when the call fails. That ticket still exists as a
         # number; reading it as an empty ticket would drop it from every decision.
         "unread_raw": not raw,
@@ -283,6 +288,7 @@ def build_rows(numbers: list[int], tickets: dict[int, dict], *, lookup=None) -> 
             "outcome": outcome_line(ticket),
             "created": ticket.get("created") or "",
             "closed_at": ticket.get("closed_at") or "",
+            "bounced_reason": ticket.get("bounced_reason"),
         })
         rows[-1]["note"] = note_of(ticket, rows[-1])
     return rows
@@ -515,7 +521,10 @@ def summary(rows: list[dict], opened: str, now: datetime | None = None,
     closed = [f"#{r['ticket']} {r['outcome'][:80]}".strip()
               for r in rows if r["state"] == "CLOSED" and r["closed_at"] > opened]
     back = [f"#{r['ticket']} {r['outcome'][:80]}".strip()
-            for r in rows if r["state"] == "OPEN" and "needs-triage" in r["labels"]]
+            for r in rows if r["state"] == "OPEN" and "needs-triage" in r["labels"]
+            and not r.get("bounced_reason")]
+    bounced = [f"#{r['ticket']} ({r['bounced_reason']})"
+               for r in rows if r.get("bounced_reason")]
     waiting = [f"#{r['ticket']} blocked by " + blocking_text(r["blocking"])
                for r in rows if r["state"] == "OPEN" and r["blocking"]]
     fresh = [f"#{c['number']} {(c.get('title') or '')[:80]}".strip()
@@ -525,6 +534,7 @@ def summary(rows: list[dict], opened: str, now: datetime | None = None,
         "",
         "Closed: " + (", ".join(closed) or "None"),
         "Handed back to needs-triage: " + (", ".join(back) or "None"),
+        "Bounced: " + (", ".join(bounced) or "None"),
         "Not dispatched, a blocker stayed open: " + (", ".join(waiting) or "None"),
         "Sub-issues opened tonight: " + (", ".join(fresh) or "None"),
         routed_line(routed_counts(kids)),
@@ -563,7 +573,7 @@ def advance_plan(spec: int) -> int:
     whose events cannot be read is neither merged nor released nor dispatched, and says
     why.
 
-    Whether a branch exists and whether it is already in the base branch are git's
+    Whether a commit exists and whether it is already in `origin/<base branch>` are git's
     questions, and git is not this program's source. `dispatch.sh` asks them.
 
     What no line accounts for goes to stderr: an empty frontier with tickets still in
@@ -622,7 +632,7 @@ def reverify_plan(spec: int) -> int:
 
         REVERIFY <ticket>   closed with a pass, and landed
 
-    A ticket that passed and has not landed is not on the base branch, so running its
+    A ticket that passed and has not landed is not recorded in `origin/<base branch>`, so running its
     criteria there would fail it for work that is not there yet; it is named on stderr
     instead.
     """
@@ -644,8 +654,8 @@ def land_plan(numbers: list[int]) -> int:
 
     Five kinds of line and nothing else on stdout, because a script reads this:
 
-        MERGE <ticket>        closed with a pass that has not landed: its branch belongs
-                              in the base branch
+        MERGE <ticket>        closed with a pass that has not landed: its passed commit
+                              belongs in `origin/<base branch>`
         RELEASE <ticket>      this pipeline still holds the claim, and the work is over
         ARCHIVE <ticket>      its workspace, the agents inside it and its slot may all go
         HOLD <ticket> <why>   still being worked, or its events cannot be read: nothing
@@ -703,7 +713,7 @@ def worker_grades(spec: int) -> int:
 
     The labels are the ticket's own ending in `-worker`, in name order, and a ticket
     carrying none prints the number alone. `dispatch.sh check` reads the `GRADE` lines
-    before the night opens, and refuses the night when a label names a row the live table
+    before the night opens, and refuses the night when a label names a row models.json
     lacks or a ticket carries two — the same refusals a dispatch would make, brought
     to the one moment somebody is here to fix them. `dispatch.sh suspend` reads the
     `BATCH` lines as the spec's children, so that list is not fetched a second time.

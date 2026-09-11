@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# 把七样东西装到本机，让每个 host 都读得到：
+# 把八样东西装到本机，让每个 host 都读得到：
 #
 #   技能              skills.txt 列出的，软链进 ~/.agents/skills 与 ~/.claude/skills
 #   hook              drive-target 的 hook.py 与 dispatch 的 turn-guard.py，写进各 host 自己的配置
 #   提示词            prompt/shared.md 与 prompt/hosts/<host>.md：Claude Code 读软链，Codex、Pi、Grok
 #                     读 prompt/render.py 拼出的 AGENTS.md
 #   launchd 任务      盯着源文件，改了就重拼 Codex、Pi、Grok 的 AGENTS.md
+#   task board        一个 com.mmw.board LaunchAgent，按 ~/.mmw/boards.json 为每个仓库守住本机服务
 #   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里 grok/cursor 两条 provider、
-#                     worktrees.root。不写 Agent profile。第一次把活表拷进 ~/.mmw/models.md，之后不覆盖行；
-#                     每次安装刷新表下五个 CLI host 的目录。
+#                     worktrees.root。不写 Agent profile。~/.mmw/models.json 缺席时写入默认值，
+#                     或把同目录遗留的 models.md 一次性导入后删除；已有 JSON 不覆盖。
 #   Orca 侧工作树     有 orca 时：每个 setup 的 worktree-base-path 为 .worktrees；
 #                     repo 的 externalWorktreeVisibility 为 show。没有 orca 则跳过。
 #   Cursor 的 MCP     ~/.cursor/mcp.json 里 nowledge-mem 一条，内容问本机 nmem 要
@@ -119,19 +120,18 @@ case "${1:-}" in
   *) die "用法：install.sh [--check]" 2 ;;
 esac
 
-# 装过之后记下是从哪个 checkout 装的。--check 从另一个 checkout 跑时，按记下的那个核对
-# 软链，只核对、不接管：一个冻结的 checkout 装给各 host 用，改造这套工具箱的那一夜就在
-# 别的 checkout 上进行，advance 并进去多少都不会动到正在运行的 host。
+# 装过之后记下是从哪个 checkout 装的。--check 从另一个 checkout 跑时，交给记下的那个
+# checkout 自己的 install.sh 核对，只核对、不接管：一个冻结的 checkout 装给各 host 用，
+# 改造这套工具箱的那一夜就在别的 checkout 上进行，advance 并进去多少都不会动到正在运行的
+# host。核对用的是装着的那一份自己的脚本：拿这个 checkout 的核对逻辑去读另一个版本的
+# 文件，两边的函数对不上时核对本身就会出错。
 INSTALLED_ROOT_FILE="$HOME_DIR/.mmw/installed-root"
 if [ "$mode" = check ] && [ -f "$INSTALLED_ROOT_FILE" ]; then
   installed_root="$(cat "$INSTALLED_ROOT_FILE")"
   if [ -n "$installed_root" ] && [ -d "$installed_root" ] && [ "$installed_root" != "$ROOT" ]; then
     echo "装自  ${installed_root}（本 checkout ${ROOT} 只核对，不接管）"
-    ROOT="$installed_root"
-    SKILLS_SRC="$ROOT/upstream/skills"
-    SELF_SRC="$ROOT/skills"
-    DD_SRC="$ROOT/upstream-diagram-design/skills"
-    LIST="$ROOT/skills.txt"
+    [ -f "$installed_root/install.sh" ] || die "装着的 checkout 里没有 install.sh：$installed_root"
+    exec bash "$installed_root/install.sh" --check
   fi
 fi
 
@@ -329,7 +329,7 @@ if [ -f "$HOOK_SRC" ]; then
   MMW_HOOK="$NEUTRAL_DIR/drive-target/scripts/hook.py" \
   MMW_GUARD="$NEUTRAL_DIR/dispatch/scripts/turn-guard.py" \
   MMW_NEUTRAL="$NEUTRAL_DIR" \
-  MMW_HOME="$HOME_DIR" \
+  MMW_HOOK_HOME="$HOME_DIR" \
   MMW_CODEX="${CODEX_HOME:-$HOME_DIR/.codex}" \
   MMW_PI="${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME_DIR/.pi}/agent}" \
   python3 - <<'PY' || { rc=1; hooks_rc=1; }
@@ -343,7 +343,7 @@ from pathlib import Path
 mode = os.environ["MMW_MODE"]
 hook = os.environ["MMW_HOOK"]
 neutral = os.environ["MMW_NEUTRAL"]
-home = Path(os.environ["MMW_HOME"])
+home = Path(os.environ["MMW_HOOK_HOME"])
 codex_home = Path(os.environ["MMW_CODEX"])
 pi_home = Path(os.environ["MMW_PI"])
 
@@ -449,7 +449,7 @@ export default function (pi) {
 """ % {"guard": guard, "timeout": GUARD_TIMEOUT}
 
 # The tool each host calls to put a question on the screen: the matcher of its
-# question gate. Only the hosts the live table starts sessions on carry one.
+# question gate. Only hosts that expose a supported question tool carry one.
 QUESTION_TOOLS = {"claude": "AskUserQuestion", "grok": "ask_user_question",
                   "codex": "request_user_input"}
 
@@ -462,14 +462,22 @@ def load(path):
     return value if isinstance(value, dict) else {}
 
 
+def backup_latest(path):
+    stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    backup = path.with_name(path.name + ".bak-" + stamp)
+    shutil.copy2(path, backup)
+    for old in path.parent.glob(path.name + ".bak-*"):
+        if old != backup and (old.is_file() or old.is_symlink()):
+            old.unlink()
+
+
 def save(path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
     text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
     if path.is_file():
         old = path.read_text(encoding="utf-8")
         if old != text:
-            stamp = datetime.now().strftime("%Y%m%d%H%M%S")
-            shutil.copy2(path, path.with_name(path.name + ".bak-" + stamp))
+            backup_latest(path)
     scratch = path.with_name(path.name + ".mmw-tmp")
     scratch.write_text(text, encoding="utf-8")
     scratch.replace(path)
@@ -856,8 +864,7 @@ def codex_trust_write(wanted):
             sys.stderr.write(f"没写  {path}：改完读不回来（{exc}），原文件没动\n")
             return False
         if path.is_file():
-            stamp = datetime.now().strftime("%Y%m%d%H%M%S")
-            shutil.copy2(path, path.with_name(path.name + ".bak-" + stamp))
+            backup_latest(path)
         scratch = path.with_name(path.name + ".mmw-tmp")
         scratch.write_text(text, encoding="utf-8")
         scratch.replace(path)
@@ -920,6 +927,36 @@ link_prompt() {
   ln -sfn "$want" "$link"
 }
 
+launch_agent() {
+  local label="$1" plist="$2" want="$3" installed="$4" status=0
+  if [ "$mode" = check ]; then
+    if [ ! -f "$plist" ] || [ "$(cat "$plist")" != "$want" ]; then
+      echo "缺    $plist 不存在或指向别的 checkout，跑一次 install.sh" >&2
+      return 1
+    fi
+    if [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ] \
+       && ! launchctl print "gui/$(id -u)/$label" >/dev/null 2>&1; then
+      echo "缺    launchd 任务 $label 没在跑，跑一次 install.sh" >&2
+      return 1
+    fi
+    return 0
+  fi
+  if [ ! -f "$plist" ] || [ "$(cat "$plist")" != "$want" ]; then
+    mkdir -p "$(dirname "$plist")"
+    if [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ]; then
+      launchctl bootout "gui/$(id -u)/$label" >/dev/null 2>&1 || true
+    fi
+    printf '%s\n' "$want" > "$plist"
+  fi
+  if [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ] \
+     && ! launchctl print "gui/$(id -u)/$label" >/dev/null 2>&1; then
+    launchctl bootstrap "gui/$(id -u)" "$plist" \
+      || { echo "缺    launchd 任务装不上：$plist" >&2; status=1; }
+  fi
+  echo "$installed"
+  return "$status"
+}
+
 if [ -f "$PROMPT_SRC/shared.md" ]; then
   prompt_rc=0
   if [ -d "$HOME_DIR/.claude" ]; then
@@ -964,25 +1001,8 @@ if [ -f "$PROMPT_SRC/shared.md" ]; then
 </plist>
 XML
 )"
-    if [ "$mode" = check ]; then
-      if [ ! -f "$PLIST" ] || [ "$(cat "$PLIST")" != "$want_plist" ]; then
-        echo "缺    $PLIST 不存在或指向别的 checkout，跑一次 install.sh" >&2
-        prompt_rc=1
-      elif ! launchctl print "gui/$(id -u)/com.mmw.prompt-sync" >/dev/null 2>&1; then
-        echo "缺    launchd 任务 com.mmw.prompt-sync 没在跑，跑一次 install.sh" >&2
-        prompt_rc=1
-      fi
-    else
-      if [ ! -f "$PLIST" ] || [ "$(cat "$PLIST")" != "$want_plist" ]; then
-        mkdir -p "$HOME/Library/LaunchAgents"
-        launchctl bootout "gui/$(id -u)/com.mmw.prompt-sync" >/dev/null 2>&1 || true
-        printf '%s\n' "$want_plist" > "$PLIST"
-      fi
-      if ! launchctl print "gui/$(id -u)/com.mmw.prompt-sync" >/dev/null 2>&1; then
-        launchctl bootstrap "gui/$(id -u)" "$PLIST" || { echo "缺    launchd 任务装不上：$PLIST" >&2; prompt_rc=1; }
-      fi
-      echo "已装  launchd 任务 com.mmw.prompt-sync 盯着 $PROMPT_SRC"
-    fi
+    launch_agent com.mmw.prompt-sync "$PLIST" "$want_plist" \
+      "已装  launchd 任务 com.mmw.prompt-sync 盯着 $PROMPT_SRC" || prompt_rc=1
   fi
   if [ "$mode" != check ] && [ "$prompt_rc" -eq 0 ]; then
     echo "已装  提示词：~/.claude 两条软链，Codex、Pi、Grok 各一份生成的 AGENTS.md"
@@ -990,11 +1010,54 @@ XML
   [ "$prompt_rc" -eq 0 ] || rc=1
 fi
 
+# ---------------- task board LaunchAgent ----------------
+#
+# MMW_V2_HOME 下只写或核 plist，绝不调用 launchctl；这让测试能验证同一份定义而不改变本机服务。
+# 真家目录下由 launchd 守住 supervisor.py，后者再按 MMW_HOME/boards.json 守住各仓库的 board。
+
+BOARD_PLIST="$HOME_DIR/Library/LaunchAgents/com.mmw.board.plist"
+BOARD_SUPERVISOR="$ROOT/board/supervisor.py"
+BOARD_PATH="$HOME_DIR/.local/bin:$HOME_DIR/.grok/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+board_gh="$(command -v gh 2>/dev/null || true)"
+if [ -n "$board_gh" ]; then
+  board_gh_dir="$(dirname "$board_gh")"
+  case ":$BOARD_PATH:" in
+    *":$board_gh_dir:"*) ;;
+    *) BOARD_PATH="$board_gh_dir:$BOARD_PATH" ;;
+  esac
+fi
+board_plist="$(cat <<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.mmw.board</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$(command -v python3)</string>
+    <string>$BOARD_SUPERVISOR</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>$BOARD_PATH</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>$HOME_DIR/Library/Logs/mmw-board.log</string>
+  <key>StandardErrorPath</key><string>$HOME_DIR/Library/Logs/mmw-board.log</string>
+</dict>
+</plist>
+XML
+)"
+
+launch_agent com.mmw.board "$BOARD_PLIST" "$board_plist" \
+  "已装  launchd 任务 com.mmw.board 守住 $BOARD_SUPERVISOR" || rc=1
+
 # ---------------- Paseo 侧配置 ----------------
 #
 # 源在仓库（hosts.json 里两条 provider 的字面量），host 侧只放生成物：CLI 软链、
-# ~/.paseo/config.json 里的 provider、worktrees.root。活表在 ~/.mmw/models.md：第一次
-# install 从 hosts.json 的 defaults 拷入，之后不覆盖。不写 Agent profile。笔记含
+# ~/.paseo/config.json 里的 provider、worktrees.root。models.json 在 ~/.mmw/：第一次
+# install 从 hosts.json 的 defaults 写入，或从遗留 Markdown 导入，之后不覆盖。不写 Agent profile。笔记含
 # `from models.md` 的生成 profile 安装时摘掉、--check 报残留；手写的不动。
 # MMW_V2_HOME 之下不跑 paseo reload（与 launchd 同构）。
 
@@ -1023,7 +1086,7 @@ MMW_PASEO_CONFIG="$PASEO_CONFIG" \
 MMW_MODELS_PY="$SELF_SRC/dispatch/scripts/models.py" \
 MMW_PASEO_WORKTREES="$PASEO_WORKTREES_ROOT" \
 MMW_HOME_DIR="$HOME_DIR" \
-MMW_LIVE_MODELS="$HOME_DIR/.mmw/models.md" \
+MMW_HOME="${MMW_HOME:-$HOME_DIR/.mmw}" \
 python3 - <<'PY' || rc=1
 import importlib.util
 import json
@@ -1037,7 +1100,7 @@ mode = os.environ["MMW_MODE"]
 config_path = Path(os.environ["MMW_PASEO_CONFIG"])
 models_py = Path(os.environ["MMW_MODELS_PY"])
 worktrees_root = os.environ["MMW_PASEO_WORKTREES"]
-GENERATED_MARK = "from models.md"
+RETIRED_PROFILE_NOTE = "from models.md"
 
 _spec = importlib.util.spec_from_file_location("mmw_models", models_py)
 models = importlib.util.module_from_spec(_spec)
@@ -1071,14 +1134,22 @@ def load(path):
     return value if isinstance(value, dict) else {}
 
 
+def backup_latest(path):
+    stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    backup = path.with_name(path.name + ".bak-" + stamp)
+    shutil.copy2(path, backup)
+    for old in path.parent.glob(path.name + ".bak-*"):
+        if old != backup and (old.is_file() or old.is_symlink()):
+            old.unlink()
+
+
 def save(path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
     text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
     if path.is_file():
         old = path.read_text(encoding="utf-8")
         if old != text:
-            stamp = datetime.now().strftime("%Y%m%d%H%M%S")
-            shutil.copy2(path, path.with_name(path.name + ".bak-" + stamp))
+            backup_latest(path)
     scratch = path.with_name(path.name + ".mmw-tmp")
     scratch.write_text(text, encoding="utf-8")
     scratch.replace(path)
@@ -1086,7 +1157,7 @@ def save(path, data):
 
 def is_generated(profile):
     notes = profile.get("notes") if isinstance(profile, dict) else None
-    return isinstance(notes, str) and GENERATED_MARK in notes
+    return isinstance(notes, str) and RETIRED_PROFILE_NOTE in notes
 
 
 def drop_generated(data):
@@ -1116,29 +1187,24 @@ def merge_providers(data):
 
 failed = False
 try:
+    config_file = models.models_json_path()
+    legacy_file = config_file.with_name("models.md")
     if mode != "check":
-        created = models.adopt_live_table()
-        models.refresh_live_offerings()
-        if created:
-            print(f"已装  活表 {models.live_path()}")
-        print(f"已扫  目录 {models.live_path()}")
-    live = models.live_path()
-    if not live.is_file():
-        sys.stderr.write(f"缺    活表 {live}\n")
+        installed = models.install_local_config(legacy_file)
+        config = installed.config
+        if installed.created:
+            print(f"已装  {config_file}")
+        if installed.imported:
+            print(f"迁移  {legacy_file} -> {config_file}，旧文件已删除")
+    else:
+        config = models.read_local_config()
+    config, scan, errors = models.check_local_config(config)
+    if errors:
+        for item in errors:
+            sys.stderr.write(f"缺    {config_file} {item['cell']}: {item['reason']}\n")
         sys.exit(1)
-    rows = models.session_rows()
 except ValueError as exc:
     die(str(exc))
-if not rows:
-    die(f"{models.live_path()} 里一行都没有")
-for row in rows:
-    try:
-        host, model, effort = models.resolve_row(row.host, row.model, row.effort)
-        models.create_agent_settings(host)
-        models.thinking_option(host, effort)
-    except ValueError as exc:
-        sys.stderr.write(f"缺    {exc}\n")
-        failed = True
 
 if mode == "check":
     data = load(config_path)
@@ -1599,6 +1665,15 @@ def load(p):
     return value if isinstance(value, dict) else {}
 
 
+def backup_latest(p):
+    stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    backup = p.with_name(p.name + ".bak-" + stamp)
+    shutil.copy2(p, backup)
+    for old in p.parent.glob(p.name + ".bak-*"):
+        if old != backup and (old.is_file() or old.is_symlink()):
+            old.unlink()
+
+
 data = load(path)
 have = (data.get("mcpServers") or {}).get(NAME)
 
@@ -1612,8 +1687,7 @@ if have != want:
     data.setdefault("mcpServers", {})[NAME] = want
     text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
     if path.is_file():
-        stamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        shutil.copy2(path, path.with_name(path.name + ".bak-" + stamp))
+        backup_latest(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     scratch = path.with_name(path.name + ".mmw-tmp")
     scratch.write_text(text, encoding="utf-8")

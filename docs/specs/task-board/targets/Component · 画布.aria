@@ -1,0 +1,202 @@
+# target trees of the handoff package page: Component · 画布.dc.html
+# derived by extract_skeleton.py — the handoff package is the baseline and this file is its readable view; the lint fails when the hashes below no longer match the package
+# scenes.json sha256=5873450cb918666f5b2f7919883486055f1ada43e45589bacca22d1e3a93be5f
+# page sha256=0d166211979b6d1d06197c915ab62af18349c04eefc96bb782b8a0ed3a293c8e
+
+## scene 画布.morning
+- text: 这次讨论自己的票 · 6 张 讨论产出的 spec · 3 个
+- button "#98 落地流水线改造"
+- text: "#98 · wayfinder 6/18"
+- button: ▾
+- text: 落地流水线改造
+- button "#123 事件评论格式"
+- text: "#123 4/4"
+- button: ▸
+- text: 事件评论格式
+- button "#131 唤醒回路"
+- text: "#131 2/10"
+- button: ▾
+- text: 唤醒回路
+- button "#140 判活三层"
+- text: "#140 0/4"
+- button: ▸
+- text: 判活三层
+- button "#99 事件格式怎么定"
+- text: "#99 grilling 事件格式怎么定"
+- button "#100 读票用什么"
+- text: "#100 research 读票用什么"
+- button "#104 唤醒要不要队列"
+- text: "#104 prototype 唤醒要不要队列"
+- button "#105 槽位推到哪一步"
+- text: "#105 grilling 槽位推到哪一步"
+- button "#106 判活放哪一层"
+- text: "#106 task 判活放哪一层"
+- button "#107 团队版什么时候做"
+- text: "#107 grilling 团队版什么时候做"
+- button "#132 中继进程骨架"
+- text: "#132 landed 中继进程骨架 claude · opus 5 · high"
+- button "#133 折叠接入中继"
+- text: "#133 working 折叠接入中继 grok · grok 4.6 · xhigh"
+- button "#134 唤醒队列持久化"
+- text: "#134 review 唤醒队列持久化 codex · gpt-5.5 · medium"
+- button "#142 唤醒日志落盘"
+- text: "#142 landed 唤醒日志落盘 codex · gpt 5.6 sol · medium"
+- button "#139 槽位交还后叫醒"
+- text: "#139 verify 槽位交还后叫醒 claude · opus 5 · high"
+- button "#138 离线时唤醒去向"
+- text: "#138 verify 离线时唤醒去向 grok · grok 4.6 · high"
+- button "#141 中继日志轮转"
+- text: "#141 verify 中继日志轮转 claude · sonnet 5 · medium"
+- button "#136 重试与退避"
+- text: "#136 waiting 重试与退避 等槽位 · 07:32 起"
+- button "#135 投递回执"
+- text: "#135 queued 投递回执 尚未派发"
+- button "#137 中继自检命令"
+- text: "#137 queued 中继自检命令 尚未派发 展开 · 走过 在走 被挡 收口新开"
+- button: −
+- text: 90%
+- button: +
+- button "适配"
+
+## scene 画布.twenty-tickets
+- text: 这次讨论自己的票 · 2 张 讨论产出的 spec · 1 个
+- button "#210 判活三层落地"
+- text: "#210 · wayfinder 7/20"
+- button: ▾
+- text: 判活三层落地
+- button "#211 判活：心跳、回合、扫描"
+- text: "#211 7/20"
+- button: ▾
+- text: 判活：心跳、回合、扫描
+- button "#208 三层各看什么"
+- text: "#208 grilling 三层各看什么"
+- button "#209 runner 能不能证明它停了"
+- text: "#209 research runner 能不能证明它停了"
+- button "#212 心跳文件格式"
+- text: "#212 landed 心跳文件格式 claude · opus 5 · high"
+- button "#213 心跳写入钩子"
+- text: "#213 landed 心跳写入钩子 codex · gpt-5.5 · high"
+- button "#214 回合守卫骨架"
+- text: "#214 landed 回合守卫骨架 grok · grok 4.6 · xhigh"
+- button "#216 Paseo 回合字段读取"
+- text: "#216 landed Paseo 回合字段读取 cursor · grok 4.6 · high"
+- button "#217 Herdr 状态读取"
+- text: "#217 landed Herdr 状态读取 codex · gpt-5.5 · high"
+- button "#218 Orca tui-idle 等待"
+- text: "#218 verify Orca tui-idle 等待 claude · sonnet 5 · medium"
+- button "#219 tmux pane 探活"
+- text: "#219 working tmux pane 探活 grok · grok 4.6 · high"
+- button "#229 远程 --on 探活"
+- text: "#229 verify 远程 --on 探活 grok · grok 4.6 · xhigh"
+- button "#215 Stop hook 叠挂"
+- text: "#215 landed Stop hook 叠挂 claude · opus 5 · high"
+- button "#220 判活扫描循环"
+- text: "#220 working 判活扫描循环 claude · opus 5 · high"
+- button "#223 扫描间隔配置"
+- text: "#223 review 扫描间隔配置 codex · gpt-5.5 · medium"
+- button "#225 陈旧绑定检测"
+- text: "#225 waiting 陈旧绑定检测 等槽位 · 07:26 起"
+- button "#228 install --check 覆盖叠挂"
+- text: "#228 landed install --check 覆盖叠挂 grok · grok 4.6 · high"
+- button "#221 worker.lost 写入"
+- text: "#221 queued worker.lost 写入 尚未派发"
+- button "#222 「不知道」与「死了」分开"
+- text: "#222 queued 「不知道」与「死了」分开 尚未派发"
+- button "#224 误判回放测试"
+- text: "#224 queued 误判回放测试 尚未派发"
+- button "#226 retract 联动"
+- text: "#226 queued retract 联动 尚未派发"
+- button "#227 夜间摘要一行"
+- text: "#227 queued 夜间摘要一行 尚未派发"
+- button "#230 判活文档"
+- text: "#230 queued 判活文档 尚未派发"
+- button "#231 端到端夜跑"
+- text: "#231 queued 端到端夜跑 尚未派发 展开 · 走过 在走 被挡 收口新开"
+- button: −
+- text: 90%
+- button: +
+- button "适配"
+
+## scene 画布.bad-data
+- text: "讨论产出的 spec · 1 个 阻塞成环 · #304 · 排不出先后"
+- button "#300 端口租约回收"
+- text: "#300 · grilling 1/6 端口租约回收"
+- button "#301 租约回收"
+- text: "#301 1/6"
+- button: ▾
+- text: 租约回收
+- button "#302 租约登记表"
+- text: "#302 landed 租约登记表 claude · opus 5 · high"
+- button "#303 回收脚本"
+- text: "#303 queued 回收脚本 尚未派发"
+- button "#304 占用探测"
+- text: "#304 queued 占用探测 尚未派发"
+- button "#305 回收日志"
+- text: "#305 queued 回收日志 尚未派发"
+- button "#307 回收冲突告警"
+- text: "#307 working 回收冲突告警 已停下 · grok · grok 4.6"
+- button "#306 lease --check"
+- text: "#306 working lease --check codex · gpt-5.5 · high 展开 · 走过 在走 被挡 收口新开"
+- button: −
+- text: 90%
+- button: +
+- button "适配"
+
+## scene 画布.empty
+- paragraph: 还没有任务
+- paragraph: 一个任务就是一次讨论开出的那张票。给它打上 mmw:map label，下一次读取时它和它下面的 spec、ticket 就会出现在这里。
+
+## scene 画布.nothing-selected
+- text: 这次讨论自己的票 · 6 张 讨论产出的 spec · 3 个
+- button "#98 落地流水线改造"
+- text: "#98 · wayfinder 6/18"
+- button: ▾
+- text: 落地流水线改造
+- button "#123 事件评论格式"
+- text: "#123 4/4"
+- button: ▸
+- text: 事件评论格式
+- button "#131 唤醒回路"
+- text: "#131 2/10"
+- button: ▾
+- text: 唤醒回路
+- button "#140 判活三层"
+- text: "#140 0/4"
+- button: ▸
+- text: 判活三层
+- button "#99 事件格式怎么定"
+- text: "#99 grilling 事件格式怎么定"
+- button "#100 读票用什么"
+- text: "#100 research 读票用什么"
+- button "#104 唤醒要不要队列"
+- text: "#104 prototype 唤醒要不要队列"
+- button "#105 槽位推到哪一步"
+- text: "#105 grilling 槽位推到哪一步"
+- button "#106 判活放哪一层"
+- text: "#106 task 判活放哪一层"
+- button "#107 团队版什么时候做"
+- text: "#107 grilling 团队版什么时候做"
+- button "#132 中继进程骨架"
+- text: "#132 landed 中继进程骨架 claude · opus 5 · high"
+- button "#133 折叠接入中继"
+- text: "#133 working 折叠接入中继 grok · grok 4.6 · xhigh"
+- button "#134 唤醒队列持久化"
+- text: "#134 review 唤醒队列持久化 codex · gpt-5.5 · medium"
+- button "#142 唤醒日志落盘"
+- text: "#142 landed 唤醒日志落盘 codex · gpt 5.6 sol · medium"
+- button "#139 槽位交还后叫醒"
+- text: "#139 verify 槽位交还后叫醒 claude · opus 5 · high"
+- button "#138 离线时唤醒去向"
+- text: "#138 verify 离线时唤醒去向 grok · grok 4.6 · high"
+- button "#141 中继日志轮转"
+- text: "#141 verify 中继日志轮转 claude · sonnet 5 · medium"
+- button "#136 重试与退避"
+- text: "#136 waiting 重试与退避 等槽位 · 07:32 起"
+- button "#135 投递回执"
+- text: "#135 queued 投递回执 尚未派发"
+- button "#137 中继自检命令"
+- text: "#137 queued 中继自检命令 尚未派发 展开 · 走过 在走 被挡 收口新开"
+- button: −
+- text: 90%
+- button: +
+- button "适配"

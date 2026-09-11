@@ -23,8 +23,10 @@ unset MMW_CATALOG_MODE
 # and under one of those the fixtures get labelled with that session's spec instead of
 # the fake parent the scenarios assert on, so `start-worker` fails on `spec label` while
 # the same suite is green from a plain shell. A test that passes or fails by who ran it
-# is not a test. Measured 2026-09-10 on #320.
-unset MMW_SPEC MMW_TICKET MMW_KIND
+# is not a test. Measured 2026-09-10 on #320. `MMW_EVENTS_PY` goes for the same reason:
+# `dispatch.sh` exports it to every command it runs, pointing at its own checkout's
+# events.py, and `status.py` and `relay.py` would load that one instead of this checkout's.
+unset MMW_SPEC MMW_TICKET MMW_KIND MMW_EVENTS_PY
 
 rc=0
 

@@ -7,12 +7,17 @@
 #   runners/orca.sh liveness <session-id>
 #   runners/orca.sh stop <session-id>
 #   runners/orca.sh self
+#   runners/orca.sh attach --cwd DIR --issue N
+#   runners/orca.sh open-url --cwd DIR --url URL
 #
 # start takes host, model, effort, cwd, skip-approval, and the first prompt, and
 # prints a session id, or refuses with exit 1 and the reason on stderr. The worktree is
 # already cut; this verb only starts a session at that absolute path, with one
 # `terminal create --worktree path:<abs> --command 'exec <launch line>' --title <name>
-# --json`.
+# --json`. <name> is the title dispatch passes (`#<n> worker`, `#<n> reviewer`,
+# `#<n> verifier`), so the sessions of one ticket, which share its worktree, have tabs
+# that tell them apart; a start without a title is named after its worktree. The same
+# name is the session name a host that takes one is given.
 # The launch line is models.py `launch-line` with the first prompt: the host binary, its
 # own flags from hosts.json, which carry the approval bypass, so `--skip-approval` is
 # always honoured by those flags, and last the prompt, which each host takes as its first
@@ -55,6 +60,8 @@
 # cannot be read (the reason on stderr). The main agent names itself to the relay with it.
 # Orca sets ORCA_TERMINAL_HANDLE in every terminal it runs, and that handle is the one
 # `terminal list` lists and `send` takes.
+# open-url: exit 0 the tab was opened; 1 the runner operation failed; 2 the arguments
+# are malformed. Adapters that do not implement this optional verb answer exit 3.
 #
 # MMW_USES: terminal create --worktree --command --title --json
 # MMW_USES: terminal send --terminal --text --enter --wait-submit --json
@@ -62,6 +69,8 @@
 # MMW_USES: terminal read --terminal --json
 # MMW_USES: terminal list --json
 # MMW_USES: terminal close --terminal --json
+# MMW_USES: worktree set --worktree --issue
+# MMW_USES: tab create --url --worktree --json
 
 set -uo pipefail
 
@@ -81,7 +90,49 @@ usage() {
   echo "       runners/orca.sh liveness <session-id>" >&2
   echo "       runners/orca.sh stop <session-id>" >&2
   echo "       runners/orca.sh self" >&2
+  echo "       runners/orca.sh attach --cwd DIR --issue N" >&2
+  echo "       runners/orca.sh open-url --cwd DIR --url URL" >&2
   exit 2
+}
+
+worktree_arg() {
+  local cwd="$1" abs
+  [ -d "$cwd" ] || return 1
+  abs="$(CDPATH='' cd -- "$cwd" && pwd -P)" || return 1
+  printf 'path:%s\n' "$abs"
+}
+
+attach() {
+  local cwd="" issue=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --cwd) [ "$#" -ge 2 ] || usage; cwd="$2"; shift 2 ;;
+      --issue) [ "$#" -ge 2 ] || usage; issue="$2"; shift 2 ;;
+      *) usage ;;
+    esac
+  done
+  [ -n "$cwd" ] && [[ "$issue" =~ ^[0-9]+$ ]] || usage
+  local worktree
+  worktree="$(worktree_arg "$cwd")" || return 1
+  orca_ worktree set --worktree "$worktree" --issue "$issue" >/dev/null
+}
+
+open_url() {
+  local cwd="" url=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --cwd) [ "$#" -ge 2 ] || usage; cwd="$2"; shift 2 ;;
+      --url) [ "$#" -ge 2 ] || usage; url="$2"; shift 2 ;;
+      *) usage ;;
+    esac
+  done
+  [ -n "$cwd" ] && [ -n "$url" ] || usage
+  local worktree
+  worktree="$(worktree_arg "$cwd")" || {
+    echo "runners/orca.sh: no workspace directory at $cwd" >&2
+    return 1
+  }
+  orca_ tab create --url "$url" --worktree "$worktree" --json >/dev/null
 }
 
 # Prints "connected writable" when list named the handle. Exit 0 found, 1 listed
@@ -204,7 +255,7 @@ except Exception:
 }
 
 start() {
-  local host="" model="" effort="" cwd="" prompt=""
+  local host="" model="" effort="" cwd="" prompt="" title=""
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --host|--model|--effort|--cwd|--prompt)
@@ -222,8 +273,8 @@ start() {
         shift
         ;;
       --title)
-        # This runner names the session after its worktree.
         [ "$#" -ge 2 ] || usage
+        title="$2"
         shift 2
         ;;
       *)
@@ -235,7 +286,8 @@ start() {
 
   local abs name cmd json handle
   abs="$(CDPATH='' cd -- "$cwd" && pwd -P)" || exit 1
-  name="$(basename -- "$abs")"
+  name="$title"
+  [ -n "$name" ] || name="$(basename -- "$abs")"
   [ -n "$name" ] && [ "$name" != "/" ] || name=mmw
   cmd="$(host_command "$host" "$model" "$effort" "$name" "$prompt")" || exit 1
 
@@ -451,5 +503,7 @@ case "$verb" in
   liveness) liveness "$@" ;;
   stop) stop "$@" ;;
   self) self_ ;;
+  attach) attach "$@" ;;
+  open-url) open_url "$@" ;;
   *) usage ;;
 esac

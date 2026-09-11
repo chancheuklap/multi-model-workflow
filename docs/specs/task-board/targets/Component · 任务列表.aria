@@ -1,0 +1,22 @@
+# target trees of the handoff package page: Component · 任务列表.dc.html
+# derived by extract_skeleton.py — the handoff package is the baseline and this file is its readable view; the lint fails when the hashes below no longer match the package
+# scenes.json sha256=5873450cb918666f5b2f7919883486055f1ada43e45589bacca22d1e3a93be5f
+# page sha256=573aee9bf969e928487a4172edc98dd3c2216d4e3d453e98626d706ee8633221
+
+## scene 任务列表.morning
+- text: 任务 3
+- button: "#98 · wayfinder 落地流水线改造 6/18 落地"
+- button: "#77 · grilling 交接包比对 3/3 落地"
+- button: "#101 · grilling 子 issue 五种改名 0/3 落地"
+
+## scene 任务列表.twenty-tickets
+- text: 任务 1
+- button: "#210 · wayfinder 判活三层落地 7/20 落地"
+
+## scene 任务列表.bad-data
+- text: 任务 1
+- button: "#300 · grilling 端口租约回收 1/6 落地"
+
+## scene 任务列表.empty
+- text: 任务 0
+- paragraph: 没有带 mmw:map label 的票。

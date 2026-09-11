@@ -132,7 +132,9 @@ Files in the state directory, beside the relay's:
                     held, waiting, unknown, lost, relay, read_at, read_failure, pending
                     (findings not yet sent, each with the runner and session it is for),
                     reported ([runner, session, key] of each finding sent), main (per main
-                    agent, why its findings could not be sent), closed
+                    agent, why its findings could not be sent), closed, reads (billed and
+                    not-modified comment-list reads since this process started; null for a
+                    board that does not count them)
     watchdog.log    what every started watchdog printed, appended
 
 Exit codes:
@@ -498,6 +500,8 @@ class Watchdog:
     def write_beat(self) -> None:
         """The heartbeat, stamped now, written in one step. Only the lock holder writes it."""
         self.beat["at"] = iso(self.clock())
+        reads = getattr(self.board, "reads", None)
+        self.beat["reads"] = dict(reads) if isinstance(reads, dict) else None
         statedir.write_atomic(self.state / "watchdog.json",
                               json.dumps(self.beat, sort_keys=True, indent=1) + "\n")
 

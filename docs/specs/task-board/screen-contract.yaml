@@ -1,0 +1,2295 @@
+effort: task-board
+baselines:
+  look: prototypes/board-orchestration/task-board/UI/work
+  precedence: "look & verbatim copy -> handoff package; calls, shows, next, on_failure -> this file"
+target:
+  kind: web-spa
+viewports: [1440x900]
+pages:
+  "App · 任务板.dc.html":
+    mount: "board"
+    route: "/"
+  "Component · 顶栏.dc.html":
+    mount: "topbar"
+    component: "顶栏"
+  "Component · 任务列表.dc.html":
+    mount: "tasks"
+    component: "任务列表"
+  "Component · 画布.dc.html":
+    mount: "canvas"
+    component: "画布"
+  "Component · 详情.dc.html":
+    mount: "detail"
+    component: "详情"
+  "Component · 本机配置.dc.html":
+    mount: "settings"
+    component: "本机配置"
+scenes:
+  "任务板.morning":
+    page: "App · 任务板.dc.html"
+  "任务板.twenty-tickets":
+    page: "App · 任务板.dc.html"
+  "任务板.bad-data":
+    page: "App · 任务板.dc.html"
+  "任务板.empty":
+    page: "App · 任务板.dc.html"
+  "顶栏.morning":
+    page: "Component · 顶栏.dc.html"
+  "顶栏.twenty-tickets":
+    page: "Component · 顶栏.dc.html"
+  "顶栏.bad-data":
+    page: "Component · 顶栏.dc.html"
+  "顶栏.empty":
+    page: "Component · 顶栏.dc.html"
+  "任务列表.morning":
+    page: "Component · 任务列表.dc.html"
+  "任务列表.twenty-tickets":
+    page: "Component · 任务列表.dc.html"
+  "任务列表.bad-data":
+    page: "Component · 任务列表.dc.html"
+  "任务列表.empty":
+    page: "Component · 任务列表.dc.html"
+  "画布.morning":
+    page: "Component · 画布.dc.html"
+  "画布.twenty-tickets":
+    page: "Component · 画布.dc.html"
+  "画布.bad-data":
+    page: "Component · 画布.dc.html"
+  "画布.empty":
+    page: "Component · 画布.dc.html"
+  "画布.nothing-selected":
+    page: "Component · 画布.dc.html"
+  "详情.morning":
+    page: "Component · 详情.dc.html"
+  "详情.twenty-tickets":
+    page: "Component · 详情.dc.html"
+  "详情.bad-data":
+    page: "Component · 详情.dc.html"
+  "详情.empty":
+    page: "Component · 详情.dc.html"
+  "ticket-returned":
+    page: "Component · 详情.dc.html"
+  "ticket-bounced":
+    page: "Component · 详情.dc.html"
+  "ticket-closeout":
+    page: "Component · 详情.dc.html"
+  "ticket-waiting":
+    page: "Component · 详情.dc.html"
+  "ticket-review":
+    page: "Component · 详情.dc.html"
+  "ticket-queued":
+    page: "Component · 详情.dc.html"
+  "ticket-landed":
+    page: "Component · 详情.dc.html"
+  "ticket-fault":
+    page: "Component · 详情.dc.html"
+  "ticket-missing-blocker":
+    page: "Component · 详情.dc.html"
+  "spec":
+    page: "Component · 详情.dc.html"
+  "map":
+    page: "Component · 详情.dc.html"
+  "decision":
+    page: "Component · 详情.dc.html"
+  "详情.nothing-selected":
+    page: "Component · 详情.dc.html"
+  "mine":
+    page: "Component · 本机配置.dc.html"
+  "fresh":
+    page: "Component · 本机配置.dc.html"
+  "retired":
+    page: "Component · 本机配置.dc.html"
+  "paseo-off":
+    page: "Component · 本机配置.dc.html"
+  "changed":
+    page: "Component · 本机配置.dc.html"
+  "edited":
+    page: "Component · 本机配置.dc.html"
+  "incomplete":
+    page: "Component · 本机配置.dc.html"
+  "scanning":
+    page: "Component · 本机配置.dc.html"
+  "saved":
+    page: "Component · 本机配置.dc.html"
+  "refused":
+    page: "Component · 本机配置.dc.html"
+readme_dispositions: []   # the package has no README.md: the Claude Design project holds none
+backend_without_ui:
+  - "GET /api/board on page load and every 60 s while the page is open and in the foreground tab — no control; the top bar's read time shows it (#318 Implementation Decisions 11)"
+  - "board process: whole-tree GraphQL read (tree.py plus labels and blockedBy) every 10 minutes and at once after child.opened or a became-ticket child.closed — no control (#318 Implementation Decisions 11)"
+  - "board process: comment reads of unlanded tickets with ETag, 304 not counted against the quota — no control (#318 Implementation Decisions 11)"
+  - "board process: one host scan at start-up, held in memory with its time, never written to a file — no control; the sheet shows its result (#318 Implementation Decisions 13)"
+  - "board process: binds 127.0.0.1, checks Host and Origin, a per-start token on every write — no control; a refused write is settings.save's on_failure (#318 Implementation Decisions 16)"
+  - "models.py write function and the dispatch skill's command-line entry that changes one role or the runner — no-ui: an agent's command, not the page (#318 Implementation Decisions 16)"
+  - "start reads models.json on every session start; running sessions keep their configuration — no-ui: dispatch.sh (#318 Implementation Decisions 15)"
+  - "switch-over: models.md imported as version 1 and removed; install.sh writes initial values on a new machine — no-ui (#318 Implementation Decisions 17)"
+  - "start attaches the worktree to its ticket through the runner adapter (orca worktree set --issue) — no-ui: shows in the runner's own sidebar, not on this page (#318 Implementation Decisions 9)"
+  - "the runner's Workspace Board sync switch stays off — no-ui: a rule for people and scripts (#318 Implementation Decisions 9)"
+  - "regression, advisor consultations and the watchdog's unknown answer are not shown — no-ui by decision (#318 Implementation Decisions 10)"
+  - "the board never writes a ticket and takes no part in wakes — no-ui: nothing on the page may call GitHub with a write (#318 Implementation Decisions 8)"
+  - "the page is served on localhost and may be opened in the runner's built-in browser tab — no-ui (#318 Implementation Decisions 1)"
+proposed_operations:
+  - "GET /api/board"
+  - "POST /api/board/refresh"
+  - "GET /api/settings"
+  - "PUT /api/settings"
+  - "POST /api/settings/scan"
+retired_ids: []
+volatile_values: []
+rows:
+  # jumps to the next orange ticket after the selected one, opens its spec, selects it (the name embeds the count; one row per count the handoff shows)
+  - id: topbar.jump-need-you-3
+    component: "顶栏"
+    trigger: {role: button, name: "需要你 3"}
+    precondition: {orange_tickets: "some"}
+    scenes: ["任务板.morning", "顶栏.morning"]
+    calls: ["none"]
+    shows: {count: "count(lamp(tickets[].fold)=orange)@GET /api/board"}
+    next: "ticket-bounced"
+    source: ["#318 Implementation Decisions 4", "#318 Implementation Decisions 3"]
+    gap: aligned
+  # jumps to the next orange ticket after the selected one, opens its spec, selects it (the name embeds the count; one row per count the handoff shows)
+  - id: topbar.jump-need-you-2
+    component: "顶栏"
+    trigger: {role: button, name: "需要你 2"}
+    precondition: {orange_tickets: "some"}
+    scenes: ["任务板.twenty-tickets", "顶栏.twenty-tickets"]
+    calls: ["none"]
+    shows: {count: "count(lamp(tickets[].fold)=orange)@GET /api/board"}
+    next: "详情.twenty-tickets"
+    source: ["#318 Implementation Decisions 4", "#318 Implementation Decisions 3"]
+    gap: aligned
+  # jumps to the next orange ticket after the selected one, opens its spec, selects it (the name embeds the count; one row per count the handoff shows)
+  - id: topbar.jump-need-you-1
+    component: "顶栏"
+    trigger: {role: button, name: "需要你 1"}
+    precondition: {orange_tickets: "some"}
+    scenes: ["任务板.bad-data", "顶栏.bad-data"]
+    calls: ["none"]
+    shows: {count: "count(lamp(tickets[].fold)=orange)@GET /api/board"}
+    next: "ticket-fault"
+    source: ["#318 Implementation Decisions 4", "#318 Implementation Decisions 3"]
+    gap: aligned
+  # disabled: no ticket has an orange lamp, so there is nothing to jump to
+  - id: topbar.need-you-none
+    component: "顶栏"
+    trigger: {role: button, name: "需要你 0"}
+    precondition: {orange_tickets: "none"}
+    scenes: ["任务板.empty", "顶栏.empty"]
+    calls: ["none"]
+    shows: {count: "count(lamp(tickets[].fold)=orange)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 4"]
+    gap: aligned
+  # reads GitHub now over §11's scope; the page also polls GET /api/board every 60 s while it is open and visible
+  - id: topbar.refresh
+    component: "顶栏"
+    trigger: {role: button, name: "立刻重读 GitHub"}
+    precondition: {last_read: "ok"}
+    scenes: ["任务板.morning", "任务板.twenty-tickets", "任务板.empty", "顶栏.morning", "顶栏.twenty-tickets", "顶栏.empty"]
+    calls: ["POST /api/board/refresh"]
+    shows: {read_time: "read_at@POST /api/board/refresh", board: "tasks@POST /api/board/refresh"}
+    next: "stay"
+    on_failure: {github_read_failed: "顶栏.bad-data", board_unreachable: "stay; the read time keeps its old value"}
+    source: ["#318 Implementation Decisions 11", "#318 Implementation Decisions 4"]
+    gap: aligned
+  - id: topbar.refresh-after-failure
+    component: "顶栏"
+    trigger: {role: button, name: "立刻重读 GitHub"}
+    precondition: {last_read: "failed"}
+    scenes: ["任务板.bad-data", "顶栏.bad-data"]
+    calls: ["POST /api/board/refresh"]
+    shows: {read_time: "read_at@POST /api/board/refresh", read_failed: "read_failed@POST /api/board/refresh"}
+    next: "顶栏.morning"
+    on_failure: {github_read_failed: "顶栏.bad-data", board_unreachable: "stay"}
+    source: ["#318 Implementation Decisions 11", "#318 Implementation Decisions 4"]
+    gap: aligned
+  # every opening reads the saved configuration afresh; unsaved edits from the last opening are dropped (§14)
+  - id: topbar.open-settings
+    component: "顶栏"
+    trigger: {role: button, name: "本机配置"}
+    precondition: {}
+    scenes: ["任务板.morning", "任务板.twenty-tickets", "任务板.bad-data", "任务板.empty", "顶栏.morning", "顶栏.twenty-tickets", "顶栏.bad-data", "顶栏.empty"]
+    calls: ["GET /api/settings"]
+    shows: {sheet: "version, runner, rows, scan@GET /api/settings"}
+    next: "mine"
+    on_failure: {settings_read_failed: "stay; the sheet does not open"}
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 12"]
+    gap: aligned
+  # puts this task's tree on the canvas; nothing is fetched
+  - id: tasks.pick-77
+    component: "任务列表"
+    trigger: {role: button, name: "好了 #77 · grilling 交接包比对 3/3 落地"}
+    precondition: {lamp: "好了"}
+    scenes: ["任务板.morning", "任务列表.morning"]
+    calls: ["none"]
+    shows: {lamp: "aggregate_lamp(task.specs[].tickets[].fold)@GET /api/board", number: "task.number@GET /api/board", kind: "task.kind@GET /api/board", title: "task.title@GET /api/board", progress: "count(landed)/count(tickets)@GET /api/board"}
+    next: "canvas.fit"
+    source: ["#318 Implementation Decisions 3", "#318 Implementation Decisions 4"]
+    gap: aligned
+  # puts this task's tree on the canvas; nothing is fetched
+  - id: tasks.pick-101
+    component: "任务列表"
+    trigger: {role: button, name: "待派 #101 · grilling 子 issue 五种改名 0/3 落地"}
+    precondition: {lamp: "待派"}
+    scenes: ["任务板.morning", "任务列表.morning"]
+    calls: ["none"]
+    shows: {lamp: "aggregate_lamp(task.specs[].tickets[].fold)@GET /api/board", number: "task.number@GET /api/board", kind: "task.kind@GET /api/board", title: "task.title@GET /api/board", progress: "count(landed)/count(tickets)@GET /api/board"}
+    next: "canvas.fit"
+    source: ["#318 Implementation Decisions 3", "#318 Implementation Decisions 4"]
+    gap: aligned
+  # puts this task's tree on the canvas; nothing is fetched
+  - id: tasks.pick-210
+    component: "任务列表"
+    trigger: {role: button, name: "需要你 #210 · wayfinder 判活三层落地 7/20 落地"}
+    precondition: {lamp: "需要你"}
+    scenes: ["任务板.twenty-tickets", "任务列表.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "aggregate_lamp(task.specs[].tickets[].fold)@GET /api/board", number: "task.number@GET /api/board", kind: "task.kind@GET /api/board", title: "task.title@GET /api/board", progress: "count(landed)/count(tickets)@GET /api/board"}
+    next: "canvas.fit"
+    source: ["#318 Implementation Decisions 3", "#318 Implementation Decisions 4"]
+    gap: aligned
+  # puts this task's tree on the canvas; nothing is fetched
+  - id: tasks.pick-300
+    component: "任务列表"
+    trigger: {role: button, name: "需要你 #300 · grilling 端口租约回收 1/6 落地"}
+    precondition: {lamp: "需要你"}
+    scenes: ["任务板.bad-data", "任务列表.bad-data"]
+    calls: ["none"]
+    shows: {lamp: "aggregate_lamp(task.specs[].tickets[].fold)@GET /api/board", number: "task.number@GET /api/board", kind: "task.kind@GET /api/board", title: "task.title@GET /api/board", progress: "count(landed)/count(tickets)@GET /api/board"}
+    next: "canvas.fit"
+    source: ["#318 Implementation Decisions 3", "#318 Implementation Decisions 4"]
+    gap: aligned
+  # puts this task's tree on the canvas; nothing is fetched
+  - id: tasks.pick-98
+    component: "任务列表"
+    trigger: {role: button, name: "需要你 #98 · wayfinder 落地流水线改造 6/18 落地"}
+    precondition: {lamp: "需要你"}
+    scenes: ["任务板.morning", "任务列表.morning"]
+    calls: ["none"]
+    shows: {lamp: "aggregate_lamp(task.specs[].tickets[].fold)@GET /api/board", number: "task.number@GET /api/board", kind: "task.kind@GET /api/board", title: "task.title@GET /api/board", progress: "count(landed)/count(tickets)@GET /api/board"}
+    next: "canvas.fit"
+    source: ["#318 Implementation Decisions 3", "#318 Implementation Decisions 4"]
+    gap: aligned
+  # also ⌘ + wheel and pinch (§3.3); no control for those
+  - id: canvas.zoom-in
+    component: "画布"
+    trigger: {role: button, name: "放大"}
+    precondition: {}
+    scenes: ["任务板.morning", "任务板.twenty-tickets", "任务板.bad-data", "画布.morning", "画布.twenty-tickets", "画布.bad-data", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {}
+    next: "stay"
+    source: ["#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: canvas.zoom-out
+    component: "画布"
+    trigger: {role: button, name: "缩小"}
+    precondition: {}
+    scenes: ["任务板.morning", "任务板.twenty-tickets", "任务板.bad-data", "画布.morning", "画布.twenty-tickets", "画布.bad-data", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {}
+    next: "stay"
+    source: ["#318 Implementation Decisions 3"]
+    gap: aligned
+  # the F key does the same (§3.3); dragging pans, no control
+  - id: canvas.fit
+    component: "画布"
+    trigger: {role: button, name: "适配"}
+    precondition: {}
+    scenes: ["任务板.morning", "任务板.twenty-tickets", "任务板.bad-data", "画布.morning", "画布.twenty-tickets", "画布.bad-data", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {}
+    next: "stay"
+    source: ["#318 Implementation Decisions 3"]
+    gap: aligned
+  # opens or closes a map (its decision tickets) or a spec (its tickets); other cards keep their place (§3.2)
+  - id: canvas.expand-123
+    component: "画布"
+    trigger: {role: button, name: "展开 #123"}
+    precondition: {container: "collapsed"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {number: "container.number@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 3"]
+    gap: aligned
+  # opens or closes a map (its decision tickets) or a spec (its tickets); other cards keep their place (§3.2)
+  - id: canvas.expand-140
+    component: "画布"
+    trigger: {role: button, name: "展开 #140"}
+    precondition: {container: "collapsed"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {number: "container.number@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 3"]
+    gap: aligned
+  # opens or closes a map (its decision tickets) or a spec (its tickets); other cards keep their place (§3.2)
+  - id: canvas.collapse-131
+    component: "画布"
+    trigger: {role: button, name: "收起 #131"}
+    precondition: {container: "expanded"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {number: "container.number@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 3"]
+    gap: aligned
+  # opens or closes a map (its decision tickets) or a spec (its tickets); other cards keep their place (§3.2)
+  - id: canvas.collapse-210
+    component: "画布"
+    trigger: {role: button, name: "收起 #210"}
+    precondition: {container: "expanded"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {number: "container.number@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 3"]
+    gap: aligned
+  # opens or closes a map (its decision tickets) or a spec (its tickets); other cards keep their place (§3.2)
+  - id: canvas.collapse-211
+    component: "画布"
+    trigger: {role: button, name: "收起 #211"}
+    precondition: {container: "expanded"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {number: "container.number@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 3"]
+    gap: aligned
+  # opens or closes a map (its decision tickets) or a spec (its tickets); other cards keep their place (§3.2)
+  - id: canvas.collapse-301
+    component: "画布"
+    trigger: {role: button, name: "收起 #301"}
+    precondition: {container: "expanded"}
+    scenes: ["任务板.bad-data", "画布.bad-data"]
+    calls: ["none"]
+    shows: {number: "container.number@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 3"]
+    gap: aligned
+  # opens or closes a map (its decision tickets) or a spec (its tickets); other cards keep their place (§3.2)
+  - id: canvas.collapse-98
+    component: "画布"
+    trigger: {role: button, name: "收起 #98"}
+    precondition: {container: "expanded"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {number: "container.number@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 3"]
+    gap: aligned
+  # a card's number and title are one button laid over the card: a click or Enter selects it and the detail column opens it; a drag that ends on a card selects nothing (#318 §7, §3.3)
+  - id: canvas.select-decision-100
+    component: "画布"
+    trigger: {role: button, name: "#100 读票用什么"}
+    precondition: {card: "decision"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {lamp: "decision_lamp(decision.state)@GET /api/board", number: "decision.number@GET /api/board", kind: "decision.kind@GET /api/board", title: "decision.title@GET /api/board"}
+    next: "decision"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: canvas.select-decision-104
+    component: "画布"
+    trigger: {role: button, name: "#104 唤醒要不要队列"}
+    precondition: {card: "decision"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {lamp: "decision_lamp(decision.state)@GET /api/board", number: "decision.number@GET /api/board", kind: "decision.kind@GET /api/board", title: "decision.title@GET /api/board"}
+    next: "decision"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: canvas.select-decision-105
+    component: "画布"
+    trigger: {role: button, name: "#105 槽位推到哪一步"}
+    precondition: {card: "decision"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {lamp: "decision_lamp(decision.state)@GET /api/board", number: "decision.number@GET /api/board", kind: "decision.kind@GET /api/board", title: "decision.title@GET /api/board"}
+    next: "decision"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: canvas.select-decision-106
+    component: "画布"
+    trigger: {role: button, name: "#106 判活放哪一层"}
+    precondition: {card: "decision"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {lamp: "decision_lamp(decision.state)@GET /api/board", number: "decision.number@GET /api/board", kind: "decision.kind@GET /api/board", title: "decision.title@GET /api/board"}
+    next: "decision"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: canvas.select-decision-107
+    component: "画布"
+    trigger: {role: button, name: "#107 团队版什么时候做"}
+    precondition: {card: "decision"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {lamp: "decision_lamp(decision.state)@GET /api/board", number: "decision.number@GET /api/board", kind: "decision.kind@GET /api/board", title: "decision.title@GET /api/board"}
+    next: "decision"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: canvas.select-spec-123
+    component: "画布"
+    trigger: {role: button, name: "#123 事件评论格式"}
+    precondition: {card: "spec"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {lamp: "aggregate_lamp(spec.tickets[].fold)@GET /api/board", number: "spec.number@GET /api/board", title: "spec.title@GET /api/board", progress: "count(landed)/count(tickets)@GET /api/board"}
+    next: "spec"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 4", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: canvas.select-spec-131
+    component: "画布"
+    trigger: {role: button, name: "#131 唤醒回路"}
+    precondition: {card: "spec"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {lamp: "aggregate_lamp(spec.tickets[].fold)@GET /api/board", number: "spec.number@GET /api/board", title: "spec.title@GET /api/board", progress: "count(landed)/count(tickets)@GET /api/board"}
+    next: "spec"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 4", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: canvas.select-ticket-132
+    component: "画布"
+    trigger: {role: button, name: "#132 中继进程骨架"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "ticket-landed"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-133
+    component: "画布"
+    trigger: {role: button, name: "#133 折叠接入中继"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-134
+    component: "画布"
+    trigger: {role: button, name: "#134 唤醒队列持久化"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "ticket-review"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-135
+    component: "画布"
+    trigger: {role: button, name: "#135 投递回执"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "ticket-queued"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-136
+    component: "画布"
+    trigger: {role: button, name: "#136 重试与退避"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "ticket-waiting"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-137
+    component: "画布"
+    trigger: {role: button, name: "#137 中继自检命令"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-138
+    component: "画布"
+    trigger: {role: button, name: "#138 离线时唤醒去向"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "ticket-returned"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-139
+    component: "画布"
+    trigger: {role: button, name: "#139 槽位交还后叫醒"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "ticket-bounced"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-spec-140
+    component: "画布"
+    trigger: {role: button, name: "#140 判活三层"}
+    precondition: {card: "spec"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {lamp: "aggregate_lamp(spec.tickets[].fold)@GET /api/board", number: "spec.number@GET /api/board", title: "spec.title@GET /api/board", progress: "count(landed)/count(tickets)@GET /api/board"}
+    next: "spec"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 4", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: canvas.select-ticket-141
+    component: "画布"
+    trigger: {role: button, name: "#141 中继日志轮转"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "ticket-closeout"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-142
+    component: "画布"
+    trigger: {role: button, name: "#142 唤醒日志落盘"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-decision-208
+    component: "画布"
+    trigger: {role: button, name: "#208 三层各看什么"}
+    precondition: {card: "decision"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "decision_lamp(decision.state)@GET /api/board", number: "decision.number@GET /api/board", kind: "decision.kind@GET /api/board", title: "decision.title@GET /api/board"}
+    next: "decision"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: canvas.select-decision-209
+    component: "画布"
+    trigger: {role: button, name: "#209 runner 能不能证明它停了"}
+    precondition: {card: "decision"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "decision_lamp(decision.state)@GET /api/board", number: "decision.number@GET /api/board", kind: "decision.kind@GET /api/board", title: "decision.title@GET /api/board"}
+    next: "decision"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: canvas.select-map-210
+    component: "画布"
+    trigger: {role: button, name: "#210 判活三层落地"}
+    precondition: {card: "map"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "aggregate_lamp(task.specs[].tickets[].fold)@GET /api/board", number: "task.number@GET /api/board", kind: "task.kind@GET /api/board", title: "task.title@GET /api/board", progress: "count(landed)/count(tickets)@GET /api/board"}
+    next: "map"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 4", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: canvas.select-spec-211
+    component: "画布"
+    trigger: {role: button, name: "#211 判活：心跳、回合、扫描"}
+    precondition: {card: "spec"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "aggregate_lamp(spec.tickets[].fold)@GET /api/board", number: "spec.number@GET /api/board", title: "spec.title@GET /api/board", progress: "count(landed)/count(tickets)@GET /api/board"}
+    next: "spec"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 4", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: canvas.select-ticket-212
+    component: "画布"
+    trigger: {role: button, name: "#212 心跳文件格式"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-213
+    component: "画布"
+    trigger: {role: button, name: "#213 心跳写入钩子"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-214
+    component: "画布"
+    trigger: {role: button, name: "#214 回合守卫骨架"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-215
+    component: "画布"
+    trigger: {role: button, name: "#215 Stop hook 叠挂"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-216
+    component: "画布"
+    trigger: {role: button, name: "#216 Paseo 回合字段读取"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-217
+    component: "画布"
+    trigger: {role: button, name: "#217 Herdr 状态读取"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-218
+    component: "画布"
+    trigger: {role: button, name: "#218 Orca tui-idle 等待"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-219
+    component: "画布"
+    trigger: {role: button, name: "#219 tmux pane 探活"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-220
+    component: "画布"
+    trigger: {role: button, name: "#220 判活扫描循环"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-221
+    component: "画布"
+    trigger: {role: button, name: "#221 worker.lost 写入"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-222
+    component: "画布"
+    trigger: {role: button, name: "#222 「不知道」与「死了」分开"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-223
+    component: "画布"
+    trigger: {role: button, name: "#223 扫描间隔配置"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-224
+    component: "画布"
+    trigger: {role: button, name: "#224 误判回放测试"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-225
+    component: "画布"
+    trigger: {role: button, name: "#225 陈旧绑定检测"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-226
+    component: "画布"
+    trigger: {role: button, name: "#226 retract 联动"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-227
+    component: "画布"
+    trigger: {role: button, name: "#227 夜间摘要一行"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-228
+    component: "画布"
+    trigger: {role: button, name: "#228 install --check 覆盖叠挂"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-229
+    component: "画布"
+    trigger: {role: button, name: "#229 远程 --on 探活"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-230
+    component: "画布"
+    trigger: {role: button, name: "#230 判活文档"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-231
+    component: "画布"
+    trigger: {role: button, name: "#231 端到端夜跑"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-map-300
+    component: "画布"
+    trigger: {role: button, name: "#300 端口租约回收"}
+    precondition: {card: "map"}
+    scenes: ["任务板.bad-data", "画布.bad-data"]
+    calls: ["none"]
+    shows: {lamp: "aggregate_lamp(task.specs[].tickets[].fold)@GET /api/board", number: "task.number@GET /api/board", kind: "task.kind@GET /api/board", title: "task.title@GET /api/board", progress: "count(landed)/count(tickets)@GET /api/board"}
+    next: "map"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 4", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: canvas.select-spec-301
+    component: "画布"
+    trigger: {role: button, name: "#301 租约回收"}
+    precondition: {card: "spec"}
+    scenes: ["任务板.bad-data", "画布.bad-data"]
+    calls: ["none"]
+    shows: {lamp: "aggregate_lamp(spec.tickets[].fold)@GET /api/board", number: "spec.number@GET /api/board", title: "spec.title@GET /api/board", progress: "count(landed)/count(tickets)@GET /api/board"}
+    next: "spec"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 4", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: canvas.select-ticket-302
+    component: "画布"
+    trigger: {role: button, name: "#302 租约登记表"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.bad-data", "画布.bad-data"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-303
+    component: "画布"
+    trigger: {role: button, name: "#303 回收脚本"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.bad-data", "画布.bad-data"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-304
+    component: "画布"
+    trigger: {role: button, name: "#304 占用探测"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.bad-data", "画布.bad-data"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-305
+    component: "画布"
+    trigger: {role: button, name: "#305 回收日志"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.bad-data", "画布.bad-data"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "ticket-missing-blocker"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-306
+    component: "画布"
+    trigger: {role: button, name: "#306 lease --check"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.bad-data", "画布.bad-data"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-ticket-307
+    component: "画布"
+    trigger: {role: button, name: "#307 回收冲突告警"}
+    precondition: {card: "ticket"}
+    scenes: ["任务板.bad-data", "画布.bad-data"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", step: "step(ticket.fold)@GET /api/board", number: "ticket.number@GET /api/board", title: "ticket.title@GET /api/board", runs_on: "run_line(ticket.fold.sessions, ticket.fold.waiting)@GET /api/board"}
+    next: "ticket-fault"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 4", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: canvas.select-map-98
+    component: "画布"
+    trigger: {role: button, name: "#98 落地流水线改造"}
+    precondition: {card: "map"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {lamp: "aggregate_lamp(task.specs[].tickets[].fold)@GET /api/board", number: "task.number@GET /api/board", kind: "task.kind@GET /api/board", title: "task.title@GET /api/board", progress: "count(landed)/count(tickets)@GET /api/board"}
+    next: "map"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 4", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: canvas.select-decision-99
+    component: "画布"
+    trigger: {role: button, name: "#99 事件格式怎么定"}
+    precondition: {card: "decision"}
+    scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
+    calls: ["none"]
+    shows: {lamp: "decision_lamp(decision.state)@GET /api/board", number: "decision.number@GET /api/board", kind: "decision.kind@GET /api/board", title: "decision.title@GET /api/board"}
+    next: "decision"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6", "#318 Implementation Decisions 3"]
+    gap: aligned
+  # Esc does the same (§7); the canvas deselects
+  - id: detail.close
+    component: "详情"
+    trigger: {role: button, name: "关闭详情"}
+    precondition: {}
+    scenes: ["任务板.morning", "任务板.twenty-tickets", "任务板.bad-data", "详情.morning", "详情.twenty-tickets", "详情.bad-data", "ticket-returned", "ticket-bounced", "ticket-closeout", "ticket-waiting", "ticket-review", "ticket-queued", "ticket-landed", "ticket-fault", "ticket-missing-blocker", "spec", "map", "decision"]
+    calls: ["none"]
+    shows: {}
+    next: "详情.nothing-selected"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
+  - id: detail.blocking-132-landed
+    component: "详情"
+    trigger: {role: button, name: "#132 中继进程骨架 已合入"}
+    precondition: {panel: "ticket", related: "landed"}
+    scenes: ["任务板.morning", "详情.morning", "ticket-returned", "ticket-bounced", "ticket-closeout", "ticket-waiting", "ticket-review"]
+    calls: ["none"]
+    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
+    next: "ticket-landed"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
+  - id: detail.blocking-135-not-dispatched
+    component: "详情"
+    trigger: {role: button, name: "#135 投递回执 待派"}
+    precondition: {panel: "ticket", related: "not-dispatched"}
+    scenes: ["任务板.morning", "详情.morning", "ticket-review"]
+    calls: ["none"]
+    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
+    next: "ticket-queued"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
+  - id: detail.blocking-213-landed
+    component: "详情"
+    trigger: {role: button, name: "#213 心跳写入钩子 已合入"}
+    precondition: {panel: "ticket", related: "landed"}
+    scenes: ["任务板.twenty-tickets", "详情.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
+  - id: detail.blocking-214-landed
+    component: "详情"
+    trigger: {role: button, name: "#214 回合守卫骨架 已合入"}
+    precondition: {panel: "ticket", related: "landed"}
+    scenes: ["任务板.twenty-tickets", "详情.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
+  - id: detail.blocking-221-not-dispatched
+    component: "详情"
+    trigger: {role: button, name: "#221 worker.lost 写入 待派"}
+    precondition: {panel: "ticket", related: "not-dispatched"}
+    scenes: ["任务板.twenty-tickets", "详情.twenty-tickets"]
+    calls: ["none"]
+    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
+  - id: detail.blocking-302-landed
+    component: "详情"
+    trigger: {role: button, name: "#302 租约登记表 已合入"}
+    precondition: {panel: "ticket", related: "landed"}
+    scenes: ["任务板.bad-data", "详情.bad-data", "ticket-fault"]
+    calls: ["none"]
+    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  # origin line: pans the canvas to that container and selects it
+  - id: detail.goto-map-210
+    component: "详情"
+    trigger: {role: button, name: "map #210"}
+    precondition: {}
+    scenes: ["任务板.twenty-tickets", "详情.twenty-tickets"]
+    calls: ["none"]
+    shows: {number: "map.number@GET /api/board"}
+    next: "map"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  # origin line: pans the canvas to that container and selects it
+  - id: detail.goto-map-300
+    component: "详情"
+    trigger: {role: button, name: "map #300"}
+    precondition: {}
+    scenes: ["任务板.bad-data", "详情.bad-data", "ticket-fault", "ticket-missing-blocker"]
+    calls: ["none"]
+    shows: {number: "map.number@GET /api/board"}
+    next: "map"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  # origin line: pans the canvas to that container and selects it
+  - id: detail.goto-map-98
+    component: "详情"
+    trigger: {role: button, name: "map #98"}
+    precondition: {}
+    scenes: ["任务板.morning", "详情.morning", "ticket-returned", "ticket-bounced", "ticket-closeout", "ticket-waiting", "ticket-review", "ticket-queued", "ticket-landed", "spec", "decision"]
+    calls: ["none"]
+    shows: {number: "map.number@GET /api/board"}
+    next: "map"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  # origin line: pans the canvas to that container and selects it
+  - id: detail.goto-spec-131
+    component: "详情"
+    trigger: {role: button, name: "spec #131"}
+    precondition: {}
+    scenes: ["任务板.morning", "详情.morning", "ticket-returned", "ticket-bounced", "ticket-closeout", "ticket-waiting", "ticket-review", "ticket-queued", "ticket-landed"]
+    calls: ["none"]
+    shows: {number: "spec.number@GET /api/board"}
+    next: "spec"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  # origin line: pans the canvas to that container and selects it
+  - id: detail.goto-spec-211
+    component: "详情"
+    trigger: {role: button, name: "spec #211"}
+    precondition: {}
+    scenes: ["任务板.twenty-tickets", "详情.twenty-tickets"]
+    calls: ["none"]
+    shows: {number: "spec.number@GET /api/board"}
+    next: "spec"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  # origin line: pans the canvas to that container and selects it
+  - id: detail.goto-spec-301
+    component: "详情"
+    trigger: {role: button, name: "spec #301"}
+    precondition: {}
+    scenes: ["任务板.bad-data", "详情.bad-data", "ticket-fault", "ticket-missing-blocker"]
+    calls: ["none"]
+    shows: {number: "spec.number@GET /api/board"}
+    next: "spec"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  # opens the issue on GitHub in a new tab; the board itself writes nothing
+  - id: detail.open-github-133
+    component: "详情"
+    trigger: {role: button, name: "在 GitHub 打开 #133 ↗"}
+    precondition: {}
+    scenes: ["任务板.morning", "详情.morning"]
+    calls: ["none"]
+    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
+    gap: aligned
+  # opens the issue on GitHub in a new tab; the board itself writes nothing
+  - id: detail.open-github-220
+    component: "详情"
+    trigger: {role: button, name: "在 GitHub 打开 #220 ↗"}
+    precondition: {}
+    scenes: ["任务板.twenty-tickets", "详情.twenty-tickets"]
+    calls: ["none"]
+    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
+    gap: aligned
+  # opens the issue on GitHub in a new tab; the board itself writes nothing
+  - id: detail.open-github-306
+    component: "详情"
+    trigger: {role: button, name: "在 GitHub 打开 #306 ↗"}
+    precondition: {}
+    scenes: ["任务板.bad-data", "详情.bad-data"]
+    calls: ["none"]
+    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
+    gap: aligned
+  - id: detail.decision-100-closed
+    component: "详情"
+    trigger: {role: button, name: "#100 读票用什么 已关闭"}
+    precondition: {panel: "map | decision", decision: "closed"}
+    scenes: ["map", "decision"]
+    calls: ["none"]
+    shows: {lamp: "decision_lamp(decision.state)@GET /api/board", title: "decision.title@GET /api/board", state: "decision.state@GET /api/board"}
+    next: "decision"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 4"]
+    gap: aligned
+  - id: detail.decision-104-closed
+    component: "详情"
+    trigger: {role: button, name: "#104 唤醒要不要队列 已关闭"}
+    precondition: {panel: "map | decision", decision: "closed"}
+    scenes: ["map", "decision"]
+    calls: ["none"]
+    shows: {lamp: "decision_lamp(decision.state)@GET /api/board", title: "decision.title@GET /api/board", state: "decision.state@GET /api/board"}
+    next: "decision"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 4"]
+    gap: aligned
+  - id: detail.decision-105-closed
+    component: "详情"
+    trigger: {role: button, name: "#105 槽位推到哪一步 已关闭"}
+    precondition: {panel: "map | decision", decision: "closed"}
+    scenes: ["map"]
+    calls: ["none"]
+    shows: {lamp: "decision_lamp(decision.state)@GET /api/board", title: "decision.title@GET /api/board", state: "decision.state@GET /api/board"}
+    next: "decision"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 4"]
+    gap: aligned
+  - id: detail.decision-106-closed
+    component: "详情"
+    trigger: {role: button, name: "#106 判活放哪一层 已关闭"}
+    precondition: {panel: "map | decision", decision: "closed"}
+    scenes: ["map", "decision"]
+    calls: ["none"]
+    shows: {lamp: "decision_lamp(decision.state)@GET /api/board", title: "decision.title@GET /api/board", state: "decision.state@GET /api/board"}
+    next: "decision"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 4"]
+    gap: aligned
+  - id: detail.decision-107-open
+    component: "详情"
+    trigger: {role: button, name: "#107 团队版什么时候做 开着"}
+    precondition: {panel: "map | decision", decision: "open"}
+    scenes: ["map", "decision"]
+    calls: ["none"]
+    shows: {lamp: "decision_lamp(decision.state)@GET /api/board", title: "decision.title@GET /api/board", state: "decision.state@GET /api/board"}
+    next: "decision"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 4"]
+    gap: aligned
+  - id: detail.map-spec-123
+    component: "详情"
+    trigger: {role: button, name: "#123 事件评论格式 4/4"}
+    precondition: {panel: "map"}
+    scenes: ["map"]
+    calls: ["none"]
+    shows: {lamp: "aggregate_lamp(spec.tickets[].fold)@GET /api/board", title: "spec.title@GET /api/board", progress: "count(landed)/count(tickets)@GET /api/board"}
+    next: "spec"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  - id: detail.map-spec-131
+    component: "详情"
+    trigger: {role: button, name: "#131 唤醒回路 2/10"}
+    precondition: {panel: "map"}
+    scenes: ["map"]
+    calls: ["none"]
+    shows: {lamp: "aggregate_lamp(spec.tickets[].fold)@GET /api/board", title: "spec.title@GET /api/board", progress: "count(landed)/count(tickets)@GET /api/board"}
+    next: "spec"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # 「出自 #n 的 finding #m」: the ticket whose finding this one came from
+  - id: detail.goto-closeout-origin-132
+    component: "详情"
+    trigger: {role: button, name: "#132"}
+    precondition: {closeout: "yes"}
+    scenes: ["ticket-closeout"]
+    calls: ["none"]
+    shows: {from: "ticket.closeout.from@GET /api/board"}
+    next: "ticket-landed"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6"]
+    gap: aligned
+  - id: detail.spec-ticket-132-landed
+    component: "详情"
+    trigger: {role: button, name: "#132 中继进程骨架 landed"}
+    precondition: {panel: "spec", step: "landed"}
+    scenes: ["spec"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", title: "ticket.title@GET /api/board", step: "step(ticket.fold)@GET /api/board"}
+    next: "ticket-landed"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: detail.spec-ticket-133-working
+    component: "详情"
+    trigger: {role: button, name: "#133 折叠接入中继 working"}
+    precondition: {panel: "spec", step: "working"}
+    scenes: ["spec"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", title: "ticket.title@GET /api/board", step: "step(ticket.fold)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 5"]
+    gap: aligned
+  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
+  - id: detail.blocking-133-not-landed
+    component: "详情"
+    trigger: {role: button, name: "#133 折叠接入中继 未合入"}
+    precondition: {panel: "ticket", related: "not-landed"}
+    scenes: ["ticket-queued"]
+    calls: ["none"]
+    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
+  - id: detail.blocking-133-needs-you
+    component: "详情"
+    trigger: {role: button, name: "#133 折叠接入中继 需要你"}
+    precondition: {panel: "ticket", related: "needs-you"}
+    scenes: ["ticket-landed"]
+    calls: ["none"]
+    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: detail.spec-ticket-134-review
+    component: "详情"
+    trigger: {role: button, name: "#134 唤醒队列持久化 review"}
+    precondition: {panel: "spec", step: "review"}
+    scenes: ["spec"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", title: "ticket.title@GET /api/board", step: "step(ticket.fold)@GET /api/board"}
+    next: "ticket-review"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 5"]
+    gap: aligned
+  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
+  - id: detail.blocking-134-running
+    component: "详情"
+    trigger: {role: button, name: "#134 唤醒队列持久化 在跑"}
+    precondition: {panel: "ticket", related: "running"}
+    scenes: ["ticket-landed"]
+    calls: ["none"]
+    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
+    next: "ticket-review"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
+  - id: detail.blocking-134-not-landed
+    component: "详情"
+    trigger: {role: button, name: "#134 唤醒队列持久化 未合入"}
+    precondition: {panel: "ticket", related: "not-landed"}
+    scenes: ["ticket-queued"]
+    calls: ["none"]
+    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
+    next: "ticket-review"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: detail.spec-ticket-135-queued
+    component: "详情"
+    trigger: {role: button, name: "#135 投递回执 queued"}
+    precondition: {panel: "spec", step: "queued"}
+    scenes: ["spec"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", title: "ticket.title@GET /api/board", step: "step(ticket.fold)@GET /api/board"}
+    next: "ticket-queued"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 5"]
+    gap: aligned
+  - id: detail.spec-ticket-136-waiting
+    component: "详情"
+    trigger: {role: button, name: "#136 重试与退避 waiting"}
+    precondition: {panel: "spec", step: "waiting"}
+    scenes: ["spec"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", title: "ticket.title@GET /api/board", step: "step(ticket.fold)@GET /api/board"}
+    next: "ticket-waiting"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 5"]
+    gap: aligned
+  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
+  - id: detail.blocking-136-running
+    component: "详情"
+    trigger: {role: button, name: "#136 重试与退避 在跑"}
+    precondition: {panel: "ticket", related: "running"}
+    scenes: ["ticket-landed"]
+    calls: ["none"]
+    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
+    next: "ticket-waiting"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: detail.spec-ticket-137-queued
+    component: "详情"
+    trigger: {role: button, name: "#137 中继自检命令 queued"}
+    precondition: {panel: "spec", step: "queued"}
+    scenes: ["spec"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", title: "ticket.title@GET /api/board", step: "step(ticket.fold)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 5"]
+    gap: aligned
+  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
+  - id: detail.blocking-137-not-dispatched
+    component: "详情"
+    trigger: {role: button, name: "#137 中继自检命令 待派"}
+    precondition: {panel: "ticket", related: "not-dispatched"}
+    scenes: ["ticket-queued"]
+    calls: ["none"]
+    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: detail.spec-ticket-138-verify
+    component: "详情"
+    trigger: {role: button, name: "#138 离线时唤醒去向 verify"}
+    precondition: {panel: "spec", step: "verify"}
+    scenes: ["spec"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", title: "ticket.title@GET /api/board", step: "step(ticket.fold)@GET /api/board"}
+    next: "ticket-returned"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 5"]
+    gap: aligned
+  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
+  - id: detail.blocking-138-needs-you
+    component: "详情"
+    trigger: {role: button, name: "#138 离线时唤醒去向 需要你"}
+    precondition: {panel: "ticket", related: "needs-you"}
+    scenes: ["ticket-landed"]
+    calls: ["none"]
+    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
+    next: "ticket-returned"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: detail.spec-ticket-139-verify
+    component: "详情"
+    trigger: {role: button, name: "#139 槽位交还后叫醒 verify"}
+    precondition: {panel: "spec", step: "verify"}
+    scenes: ["spec"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", title: "ticket.title@GET /api/board", step: "step(ticket.fold)@GET /api/board"}
+    next: "ticket-bounced"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 5"]
+    gap: aligned
+  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
+  - id: detail.blocking-139-needs-you
+    component: "详情"
+    trigger: {role: button, name: "#139 槽位交还后叫醒 需要你"}
+    precondition: {panel: "ticket", related: "needs-you"}
+    scenes: ["ticket-landed"]
+    calls: ["none"]
+    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
+    next: "ticket-bounced"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: detail.map-spec-140
+    component: "详情"
+    trigger: {role: button, name: "#140 判活三层 0/4"}
+    precondition: {panel: "map"}
+    scenes: ["map"]
+    calls: ["none"]
+    shows: {lamp: "aggregate_lamp(spec.tickets[].fold)@GET /api/board", title: "spec.title@GET /api/board", progress: "count(landed)/count(tickets)@GET /api/board"}
+    next: "spec"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  - id: detail.spec-ticket-141-verify
+    component: "详情"
+    trigger: {role: button, name: "#141 中继日志轮转 verify"}
+    precondition: {panel: "spec", step: "verify"}
+    scenes: ["spec"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", title: "ticket.title@GET /api/board", step: "step(ticket.fold)@GET /api/board"}
+    next: "ticket-closeout"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 5"]
+    gap: aligned
+  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
+  - id: detail.blocking-141-running
+    component: "详情"
+    trigger: {role: button, name: "#141 中继日志轮转 在跑"}
+    precondition: {panel: "ticket", related: "running"}
+    scenes: ["ticket-landed"]
+    calls: ["none"]
+    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
+    next: "ticket-closeout"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: detail.spec-ticket-142-landed
+    component: "详情"
+    trigger: {role: button, name: "#142 唤醒日志落盘 landed"}
+    precondition: {panel: "spec", step: "landed"}
+    scenes: ["spec"]
+    calls: ["none"]
+    shows: {lamp: "lamp(ticket.fold)@GET /api/board", title: "ticket.title@GET /api/board", step: "step(ticket.fold)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 5"]
+    gap: aligned
+  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
+  - id: detail.blocking-142-landed
+    component: "详情"
+    trigger: {role: button, name: "#142 唤醒日志落盘 已合入"}
+    precondition: {panel: "ticket", related: "landed"}
+    scenes: ["ticket-landed"]
+    calls: ["none"]
+    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
+    next: "详情.morning"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
+    gap: aligned
+  - id: detail.decision-99-closed
+    component: "详情"
+    trigger: {role: button, name: "#99 事件格式怎么定 已关闭"}
+    precondition: {panel: "map | decision", decision: "closed"}
+    scenes: ["map"]
+    calls: ["none"]
+    shows: {lamp: "decision_lamp(decision.state)@GET /api/board", title: "decision.title@GET /api/board", state: "decision.state@GET /api/board"}
+    next: "decision"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 4"]
+    gap: aligned
+  # a finding the closing pass turned into a ticket
+  - id: detail.goto-became-141
+    component: "详情"
+    trigger: {role: button, name: "变成了 #141"}
+    precondition: {child: "became-ticket"}
+    scenes: ["ticket-landed"]
+    calls: ["none"]
+    shows: {ticket: "ticket.fold.children[].ticket@GET /api/board"}
+    next: "ticket-closeout"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens the issue on GitHub in a new tab; the board itself writes nothing
+  - id: detail.open-github-105
+    component: "详情"
+    trigger: {role: button, name: "在 GitHub 打开 #105 ↗"}
+    precondition: {}
+    scenes: ["decision"]
+    calls: ["none"]
+    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
+    gap: aligned
+  # opens the issue on GitHub in a new tab; the board itself writes nothing
+  - id: detail.open-github-131
+    component: "详情"
+    trigger: {role: button, name: "在 GitHub 打开 #131 ↗"}
+    precondition: {}
+    scenes: ["spec"]
+    calls: ["none"]
+    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
+    gap: aligned
+  # opens the issue on GitHub in a new tab; the board itself writes nothing
+  - id: detail.open-github-132
+    component: "详情"
+    trigger: {role: button, name: "在 GitHub 打开 #132 ↗"}
+    precondition: {}
+    scenes: ["ticket-landed"]
+    calls: ["none"]
+    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
+    gap: aligned
+  # opens the issue on GitHub in a new tab; the board itself writes nothing
+  - id: detail.open-github-134
+    component: "详情"
+    trigger: {role: button, name: "在 GitHub 打开 #134 ↗"}
+    precondition: {}
+    scenes: ["ticket-review"]
+    calls: ["none"]
+    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
+    gap: aligned
+  # opens the issue on GitHub in a new tab; the board itself writes nothing
+  - id: detail.open-github-135
+    component: "详情"
+    trigger: {role: button, name: "在 GitHub 打开 #135 ↗"}
+    precondition: {}
+    scenes: ["ticket-queued"]
+    calls: ["none"]
+    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
+    gap: aligned
+  # opens the issue on GitHub in a new tab; the board itself writes nothing
+  - id: detail.open-github-136
+    component: "详情"
+    trigger: {role: button, name: "在 GitHub 打开 #136 ↗"}
+    precondition: {}
+    scenes: ["ticket-waiting"]
+    calls: ["none"]
+    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
+    gap: aligned
+  # opens the issue on GitHub in a new tab; the board itself writes nothing
+  - id: detail.open-github-138
+    component: "详情"
+    trigger: {role: button, name: "在 GitHub 打开 #138 ↗"}
+    precondition: {}
+    scenes: ["ticket-returned"]
+    calls: ["none"]
+    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
+    gap: aligned
+  # opens the issue on GitHub in a new tab; the board itself writes nothing
+  - id: detail.open-github-139
+    component: "详情"
+    trigger: {role: button, name: "在 GitHub 打开 #139 ↗"}
+    precondition: {}
+    scenes: ["ticket-bounced"]
+    calls: ["none"]
+    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
+    gap: aligned
+  # opens the issue on GitHub in a new tab; the board itself writes nothing
+  - id: detail.open-github-141
+    component: "详情"
+    trigger: {role: button, name: "在 GitHub 打开 #141 ↗"}
+    precondition: {}
+    scenes: ["ticket-closeout"]
+    calls: ["none"]
+    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
+    gap: aligned
+  # opens the issue on GitHub in a new tab; the board itself writes nothing
+  - id: detail.open-github-305
+    component: "详情"
+    trigger: {role: button, name: "在 GitHub 打开 #305 ↗"}
+    precondition: {}
+    scenes: ["ticket-missing-blocker"]
+    calls: ["none"]
+    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
+    gap: aligned
+  # opens the issue on GitHub in a new tab; the board itself writes nothing
+  - id: detail.open-github-307
+    component: "详情"
+    trigger: {role: button, name: "在 GitHub 打开 #307 ↗"}
+    precondition: {}
+    scenes: ["ticket-fault"]
+    calls: ["none"]
+    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
+    gap: aligned
+  # opens the issue on GitHub in a new tab; the board itself writes nothing
+  - id: detail.open-github-98
+    component: "详情"
+    trigger: {role: button, name: "在 GitHub 打开 #98 ↗"}
+    precondition: {}
+    scenes: ["map"]
+    calls: ["none"]
+    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
+    gap: aligned
+  # drops unsaved edits; Esc does the same, and a click beside the sheet does it when nothing is changed (§14)
+  - id: settings.close-x
+    component: "本机配置"
+    trigger: {role: button, name: "关闭本机配置"}
+    precondition: {}
+    scenes: ["mine", "fresh", "retired", "paseo-off", "changed", "edited", "incomplete", "scanning", "saved", "refused"]
+    calls: ["none"]
+    shows: {}
+    next: "topbar.open-settings"
+    source: ["#318 Implementation Decisions 14"]
+    gap: aligned
+  - id: settings.close
+    component: "本机配置"
+    trigger: {role: button, name: "关闭"}
+    precondition: {draft: "unchanged"}
+    scenes: ["mine", "fresh", "retired", "paseo-off", "changed", "scanning", "saved"]
+    calls: ["none"]
+    shows: {}
+    next: "topbar.open-settings"
+    source: ["#318 Implementation Decisions 14"]
+    gap: aligned
+  # the same button as 关闭, renamed while the draft differs from what is saved
+  - id: settings.cancel
+    component: "本机配置"
+    trigger: {role: button, name: "取消"}
+    precondition: {draft: "changed"}
+    scenes: ["edited", "incomplete", "refused"]
+    calls: ["none"]
+    shows: {}
+    next: "topbar.open-settings"
+    source: ["#318 Implementation Decisions 14"]
+    gap: aligned
+  # sends the version it read; the board refuses a stale version, validates by start's rules, takes the lock, replaces the file whole (§16)
+  - id: settings.save
+    component: "本机配置"
+    trigger: {role: button, name: "保存"}
+    precondition: {draft: "changed", flagged_cells: "none", scan: "done", refused: "no"}
+    scenes: ["edited"]
+    calls: ["PUT /api/settings"]
+    shows: {version: "version@PUT /api/settings", saved_at: "saved_at@PUT /api/settings", changes: "changes(draft, saved)@GET /api/settings"}
+    next: "saved"
+    on_failure: {version_conflict: "refused", invalid_value: "stay; each cell the board names is flagged with its reason", forbidden_origin_or_token: "stay; nothing is written", lock_held: "stay; nothing is written"}
+    source: ["#318 Implementation Decisions 16", "#318 Implementation Decisions 15", "#318 Implementation Decisions 14"]
+    gap: aligned
+  # disabled
+  - id: settings.save-unchanged
+    component: "本机配置"
+    trigger: {role: button, name: "保存"}
+    precondition: {draft: "unchanged"}
+    scenes: ["mine", "changed", "saved"]
+    calls: ["none"]
+    shows: {}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14"]
+    gap: aligned
+  # disabled while any cell is flagged
+  - id: settings.save-flagged
+    component: "本机配置"
+    trigger: {role: button, name: "保存"}
+    precondition: {flagged_cells: "some"}
+    scenes: ["fresh", "retired", "paseo-off", "incomplete"]
+    calls: ["none"]
+    shows: {flags: "problems(scan, draft)@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled while a scan runs
+  - id: settings.save-scanning
+    component: "本机配置"
+    trigger: {role: button, name: "保存"}
+    precondition: {scan: "running"}
+    scenes: ["scanning"]
+    calls: ["none"]
+    shows: {}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14"]
+    gap: aligned
+  # disabled until 重新读取
+  - id: settings.save-refused
+    component: "本机配置"
+    trigger: {role: button, name: "保存"}
+    precondition: {refused: "yes"}
+    scenes: ["refused"]
+    calls: ["none"]
+    shows: {}
+    next: "stay"
+    source: ["#318 Implementation Decisions 16", "#318 Implementation Decisions 14"]
+    gap: aligned
+  # asks Paseo when the draft's runner is paseo, each host's CLI otherwise — the place start asks (§13)
+  - id: settings.rescan
+    component: "本机配置"
+    trigger: {role: button, name: "重新扫描"}
+    precondition: {scan: "done"}
+    scenes: ["mine", "fresh", "retired", "paseo-off", "changed", "edited", "incomplete", "saved", "refused"]
+    calls: ["POST /api/settings/scan"]
+    shows: {scan: "scan.hosts[].state, scan.hosts[].offered, scan.scanned_at, scan.source@POST /api/settings/scan"}
+    next: "scanning"
+    on_failure: {host_answers_nothing: "that host's chip reads 没有回答", paseo_down: "paseo-off", board_unreachable: "stay"}
+    source: ["#318 Implementation Decisions 13", "#318 Implementation Decisions 14"]
+    gap: aligned
+  # replaces the draft with what is saved now; the refused edits have to be made again
+  - id: settings.reread
+    component: "本机配置"
+    trigger: {role: button, name: "重新读取"}
+    precondition: {refused: "yes"}
+    scenes: ["refused"]
+    calls: ["GET /api/settings"]
+    shows: {sheet: "version, runner, rows@GET /api/settings"}
+    next: "mine"
+    on_failure: {settings_read_failed: "stay"}
+    source: ["#318 Implementation Decisions 16", "#318 Implementation Decisions 14"]
+    gap: aligned
+  # orca ⇄ herdr ⇄ 按所在环境判断: the options stay those of the hosts' CLIs
+  - id: settings.runner-same-source
+    component: "本机配置"
+    trigger: {role: combobox, name: "runner"}
+    precondition: {choice: "keeps the scan source"}
+    scenes: ["mine", "fresh", "retired", "paseo-off", "changed", "edited", "incomplete", "saved", "refused"]
+    calls: ["none"]
+    shows: {runner: "runner@GET /api/settings", options: "runners@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 13", "#318 Implementation Decisions 14"]
+    gap: aligned
+  # to or from paseo the options come from another place, so they are asked again
+  - id: settings.runner-cross-paseo
+    component: "本机配置"
+    trigger: {role: combobox, name: "runner"}
+    precondition: {choice: "crosses paseo"}
+    scenes: ["mine", "fresh", "retired", "paseo-off", "changed", "edited", "incomplete", "saved", "refused"]
+    calls: ["POST /api/settings/scan"]
+    shows: {runner: "runner@GET /api/settings", scan: "scan@POST /api/settings/scan"}
+    next: "scanning"
+    on_failure: {paseo_down: "paseo-off", board_unreachable: "stay"}
+    source: ["#318 Implementation Decisions 13", "#318 Implementation Decisions 14"]
+    gap: aligned
+  # a saved runner with no adapter (tmux, lody) stays in the list, named and hatched
+  - id: settings.runner-flagged
+    component: "本机配置"
+    trigger: {role: combobox, name: "runner"}
+    precondition: {saved_runner: "has no adapter"}
+    scenes: []
+    calls: ["none"]
+    shows: {flag: "problems(scan, draft)@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 13", "#318 Implementation Decisions 14"]
+    gap: aligned
+  # disabled while a scan runs
+  - id: settings.runner-scanning
+    component: "本机配置"
+    trigger: {role: combobox, name: "runner"}
+    precondition: {scan: "running"}
+    scenes: ["scanning"]
+    calls: ["none"]
+    shows: {}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14"]
+    gap: aligned
+  # cascade: the model stays when the new host offers it, else waits for a choice; the effort follows the same way; a model with one effort takes it
+  - id: settings.junior-worker-host-offered
+    component: "本机配置"
+    trigger: {role: combobox, name: "junior-worker 的 host"}
+    precondition: {cell: "offered"}
+    scenes: ["mine", "retired", "changed", "edited", "incomplete", "saved", "refused"]
+    calls: ["none"]
+    shows: {value: "rows.junior-worker.host@GET /api/settings", options: "hosts[], scan.hosts[].state@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # the saved value this machine no longer offers stays in its list, named, hatched, with a line saying what to change
+  - id: settings.junior-worker-host-flagged
+    component: "本机配置"
+    trigger: {role: combobox, name: "junior-worker 的 host"}
+    precondition: {cell: "flagged"}
+    scenes: ["fresh", "paseo-off"]
+    calls: ["none"]
+    shows: {value: "rows.junior-worker.host@GET /api/settings", options: "hosts[], scan.hosts[].state@GET /api/settings", flag: "problems(scan, draft)@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled while a scan runs
+  - id: settings.junior-worker-host-scanning
+    component: "本机配置"
+    trigger: {role: combobox, name: "junior-worker 的 host"}
+    precondition: {scan: "running"}
+    scenes: ["scanning"]
+    calls: ["none"]
+    shows: {value: "rows.junior-worker.host@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # cascade: the effort stays when the new model has it, else waits; one effort is taken
+  - id: settings.junior-worker-model-offered
+    component: "本机配置"
+    trigger: {role: combobox, name: "junior-worker 的 model"}
+    precondition: {cell: "offered"}
+    scenes: ["mine", "retired", "changed", "edited", "incomplete", "saved", "refused"]
+    calls: ["none"]
+    shows: {value: "rows.junior-worker.model@GET /api/settings", options: "scan.hosts[host].offered[].model@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # the saved value this machine no longer offers stays in its list, named, hatched, with a line saying what to change
+  - id: settings.junior-worker-model-flagged
+    component: "本机配置"
+    trigger: {role: combobox, name: "junior-worker 的 model"}
+    precondition: {cell: "flagged"}
+    scenes: []
+    calls: ["none"]
+    shows: {value: "rows.junior-worker.model@GET /api/settings", options: "scan.hosts[host].offered[].model@GET /api/settings", flag: "problems(scan, draft)@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled
+  - id: settings.junior-worker-model-unavailable
+    component: "本机配置"
+    trigger: {role: combobox, name: "junior-worker 的 model"}
+    precondition: {cell: "disabled: host is not usable"}
+    scenes: ["fresh", "paseo-off"]
+    calls: ["none"]
+    shows: {value: "rows.junior-worker.model@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled while a scan runs
+  - id: settings.junior-worker-model-scanning
+    component: "本机配置"
+    trigger: {role: combobox, name: "junior-worker 的 model"}
+    precondition: {scan: "running"}
+    scenes: ["scanning"]
+    calls: ["none"]
+    shows: {value: "rows.junior-worker.model@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # cascade: nothing else moves
+  - id: settings.junior-worker-effort-offered
+    component: "本机配置"
+    trigger: {role: combobox, name: "junior-worker 的 effort"}
+    precondition: {cell: "offered"}
+    scenes: ["mine", "retired", "changed", "edited", "incomplete", "saved", "refused"]
+    calls: ["none"]
+    shows: {value: "rows.junior-worker.effort@GET /api/settings", options: "scan.hosts[host].offered[model].efforts@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # the saved value this machine no longer offers stays in its list, named, hatched, with a line saying what to change
+  - id: settings.junior-worker-effort-flagged
+    component: "本机配置"
+    trigger: {role: combobox, name: "junior-worker 的 effort"}
+    precondition: {cell: "flagged"}
+    scenes: []
+    calls: ["none"]
+    shows: {value: "rows.junior-worker.effort@GET /api/settings", options: "scan.hosts[host].offered[model].efforts@GET /api/settings", flag: "problems(scan, draft)@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled
+  - id: settings.junior-worker-effort-unavailable
+    component: "本机配置"
+    trigger: {role: combobox, name: "junior-worker 的 effort"}
+    precondition: {cell: "disabled: model is not offered"}
+    scenes: ["fresh", "paseo-off"]
+    calls: ["none"]
+    shows: {value: "rows.junior-worker.effort@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled while a scan runs
+  - id: settings.junior-worker-effort-scanning
+    component: "本机配置"
+    trigger: {role: combobox, name: "junior-worker 的 effort"}
+    precondition: {scan: "running"}
+    scenes: ["scanning"]
+    calls: ["none"]
+    shows: {value: "rows.junior-worker.effort@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # cascade: the model stays when the new host offers it, else waits for a choice; the effort follows the same way; a model with one effort takes it
+  - id: settings.senior-worker-host-offered
+    component: "本机配置"
+    trigger: {role: combobox, name: "senior-worker 的 host"}
+    precondition: {cell: "offered"}
+    scenes: ["mine", "fresh", "retired", "changed", "edited", "incomplete", "saved", "refused"]
+    calls: ["none"]
+    shows: {value: "rows.senior-worker.host@GET /api/settings", options: "hosts[], scan.hosts[].state@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # the saved value this machine no longer offers stays in its list, named, hatched, with a line saying what to change
+  - id: settings.senior-worker-host-flagged
+    component: "本机配置"
+    trigger: {role: combobox, name: "senior-worker 的 host"}
+    precondition: {cell: "flagged"}
+    scenes: ["paseo-off"]
+    calls: ["none"]
+    shows: {value: "rows.senior-worker.host@GET /api/settings", options: "hosts[], scan.hosts[].state@GET /api/settings", flag: "problems(scan, draft)@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled while a scan runs
+  - id: settings.senior-worker-host-scanning
+    component: "本机配置"
+    trigger: {role: combobox, name: "senior-worker 的 host"}
+    precondition: {scan: "running"}
+    scenes: ["scanning"]
+    calls: ["none"]
+    shows: {value: "rows.senior-worker.host@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # cascade: the effort stays when the new model has it, else waits; one effort is taken
+  - id: settings.senior-worker-model-offered
+    component: "本机配置"
+    trigger: {role: combobox, name: "senior-worker 的 model"}
+    precondition: {cell: "offered"}
+    scenes: ["mine", "fresh", "retired", "changed", "edited", "saved", "refused"]
+    calls: ["none"]
+    shows: {value: "rows.senior-worker.model@GET /api/settings", options: "scan.hosts[host].offered[].model@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # the saved value this machine no longer offers stays in its list, named, hatched, with a line saying what to change
+  - id: settings.senior-worker-model-flagged
+    component: "本机配置"
+    trigger: {role: combobox, name: "senior-worker 的 model"}
+    precondition: {cell: "flagged"}
+    scenes: ["incomplete"]
+    calls: ["none"]
+    shows: {value: "rows.senior-worker.model@GET /api/settings", options: "scan.hosts[host].offered[].model@GET /api/settings", flag: "problems(scan, draft)@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled
+  - id: settings.senior-worker-model-unavailable
+    component: "本机配置"
+    trigger: {role: combobox, name: "senior-worker 的 model"}
+    precondition: {cell: "disabled: host is not usable"}
+    scenes: ["paseo-off"]
+    calls: ["none"]
+    shows: {value: "rows.senior-worker.model@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled while a scan runs
+  - id: settings.senior-worker-model-scanning
+    component: "本机配置"
+    trigger: {role: combobox, name: "senior-worker 的 model"}
+    precondition: {scan: "running"}
+    scenes: ["scanning"]
+    calls: ["none"]
+    shows: {value: "rows.senior-worker.model@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # cascade: nothing else moves
+  - id: settings.senior-worker-effort-offered
+    component: "本机配置"
+    trigger: {role: combobox, name: "senior-worker 的 effort"}
+    precondition: {cell: "offered"}
+    scenes: ["mine", "fresh", "retired", "changed", "edited", "saved", "refused"]
+    calls: ["none"]
+    shows: {value: "rows.senior-worker.effort@GET /api/settings", options: "scan.hosts[host].offered[model].efforts@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # the saved value this machine no longer offers stays in its list, named, hatched, with a line saying what to change
+  - id: settings.senior-worker-effort-flagged
+    component: "本机配置"
+    trigger: {role: combobox, name: "senior-worker 的 effort"}
+    precondition: {cell: "flagged"}
+    scenes: []
+    calls: ["none"]
+    shows: {value: "rows.senior-worker.effort@GET /api/settings", options: "scan.hosts[host].offered[model].efforts@GET /api/settings", flag: "problems(scan, draft)@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled
+  - id: settings.senior-worker-effort-unavailable
+    component: "本机配置"
+    trigger: {role: combobox, name: "senior-worker 的 effort"}
+    precondition: {cell: "disabled: model is not offered"}
+    scenes: ["paseo-off", "incomplete"]
+    calls: ["none"]
+    shows: {value: "rows.senior-worker.effort@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled while a scan runs
+  - id: settings.senior-worker-effort-scanning
+    component: "本机配置"
+    trigger: {role: combobox, name: "senior-worker 的 effort"}
+    precondition: {scan: "running"}
+    scenes: ["scanning"]
+    calls: ["none"]
+    shows: {value: "rows.senior-worker.effort@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # cascade: the model stays when the new host offers it, else waits for a choice; the effort follows the same way; a model with one effort takes it
+  - id: settings.reviewer-host-offered
+    component: "本机配置"
+    trigger: {role: combobox, name: "reviewer 的 host"}
+    precondition: {cell: "offered"}
+    scenes: ["mine", "fresh", "retired", "changed", "edited", "incomplete", "saved", "refused"]
+    calls: ["none"]
+    shows: {value: "rows.reviewer.host@GET /api/settings", options: "hosts[], scan.hosts[].state@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # the saved value this machine no longer offers stays in its list, named, hatched, with a line saying what to change
+  - id: settings.reviewer-host-flagged
+    component: "本机配置"
+    trigger: {role: combobox, name: "reviewer 的 host"}
+    precondition: {cell: "flagged"}
+    scenes: ["paseo-off"]
+    calls: ["none"]
+    shows: {value: "rows.reviewer.host@GET /api/settings", options: "hosts[], scan.hosts[].state@GET /api/settings", flag: "problems(scan, draft)@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled while a scan runs
+  - id: settings.reviewer-host-scanning
+    component: "本机配置"
+    trigger: {role: combobox, name: "reviewer 的 host"}
+    precondition: {scan: "running"}
+    scenes: ["scanning"]
+    calls: ["none"]
+    shows: {value: "rows.reviewer.host@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # cascade: the effort stays when the new model has it, else waits; one effort is taken
+  - id: settings.reviewer-model-offered
+    component: "本机配置"
+    trigger: {role: combobox, name: "reviewer 的 model"}
+    precondition: {cell: "offered"}
+    scenes: ["mine", "fresh", "retired", "changed", "edited", "incomplete", "saved", "refused"]
+    calls: ["none"]
+    shows: {value: "rows.reviewer.model@GET /api/settings", options: "scan.hosts[host].offered[].model@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # the saved value this machine no longer offers stays in its list, named, hatched, with a line saying what to change
+  - id: settings.reviewer-model-flagged
+    component: "本机配置"
+    trigger: {role: combobox, name: "reviewer 的 model"}
+    precondition: {cell: "flagged"}
+    scenes: []
+    calls: ["none"]
+    shows: {value: "rows.reviewer.model@GET /api/settings", options: "scan.hosts[host].offered[].model@GET /api/settings", flag: "problems(scan, draft)@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled
+  - id: settings.reviewer-model-unavailable
+    component: "本机配置"
+    trigger: {role: combobox, name: "reviewer 的 model"}
+    precondition: {cell: "disabled: host is not usable"}
+    scenes: ["paseo-off"]
+    calls: ["none"]
+    shows: {value: "rows.reviewer.model@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled while a scan runs
+  - id: settings.reviewer-model-scanning
+    component: "本机配置"
+    trigger: {role: combobox, name: "reviewer 的 model"}
+    precondition: {scan: "running"}
+    scenes: ["scanning"]
+    calls: ["none"]
+    shows: {value: "rows.reviewer.model@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # cascade: nothing else moves
+  - id: settings.reviewer-effort-offered
+    component: "本机配置"
+    trigger: {role: combobox, name: "reviewer 的 effort"}
+    precondition: {cell: "offered"}
+    scenes: ["mine", "fresh", "retired", "changed", "edited", "incomplete", "saved", "refused"]
+    calls: ["none"]
+    shows: {value: "rows.reviewer.effort@GET /api/settings", options: "scan.hosts[host].offered[model].efforts@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # the saved value this machine no longer offers stays in its list, named, hatched, with a line saying what to change
+  - id: settings.reviewer-effort-flagged
+    component: "本机配置"
+    trigger: {role: combobox, name: "reviewer 的 effort"}
+    precondition: {cell: "flagged"}
+    scenes: []
+    calls: ["none"]
+    shows: {value: "rows.reviewer.effort@GET /api/settings", options: "scan.hosts[host].offered[model].efforts@GET /api/settings", flag: "problems(scan, draft)@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled
+  - id: settings.reviewer-effort-unavailable
+    component: "本机配置"
+    trigger: {role: combobox, name: "reviewer 的 effort"}
+    precondition: {cell: "disabled: model is not offered"}
+    scenes: ["paseo-off"]
+    calls: ["none"]
+    shows: {value: "rows.reviewer.effort@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled while a scan runs
+  - id: settings.reviewer-effort-scanning
+    component: "本机配置"
+    trigger: {role: combobox, name: "reviewer 的 effort"}
+    precondition: {scan: "running"}
+    scenes: ["scanning"]
+    calls: ["none"]
+    shows: {value: "rows.reviewer.effort@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # cascade: the model stays when the new host offers it, else waits for a choice; the effort follows the same way; a model with one effort takes it
+  - id: settings.verifier-host-offered
+    component: "本机配置"
+    trigger: {role: combobox, name: "verifier 的 host"}
+    precondition: {cell: "offered"}
+    scenes: ["mine", "fresh", "retired", "changed", "edited", "incomplete", "saved", "refused"]
+    calls: ["none"]
+    shows: {value: "rows.verifier.host@GET /api/settings", options: "hosts[], scan.hosts[].state@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # the saved value this machine no longer offers stays in its list, named, hatched, with a line saying what to change
+  - id: settings.verifier-host-flagged
+    component: "本机配置"
+    trigger: {role: combobox, name: "verifier 的 host"}
+    precondition: {cell: "flagged"}
+    scenes: ["paseo-off"]
+    calls: ["none"]
+    shows: {value: "rows.verifier.host@GET /api/settings", options: "hosts[], scan.hosts[].state@GET /api/settings", flag: "problems(scan, draft)@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled while a scan runs
+  - id: settings.verifier-host-scanning
+    component: "本机配置"
+    trigger: {role: combobox, name: "verifier 的 host"}
+    precondition: {scan: "running"}
+    scenes: ["scanning"]
+    calls: ["none"]
+    shows: {value: "rows.verifier.host@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # cascade: the effort stays when the new model has it, else waits; one effort is taken
+  - id: settings.verifier-model-offered
+    component: "本机配置"
+    trigger: {role: combobox, name: "verifier 的 model"}
+    precondition: {cell: "offered"}
+    scenes: ["mine", "fresh", "retired", "changed", "edited", "incomplete", "saved", "refused"]
+    calls: ["none"]
+    shows: {value: "rows.verifier.model@GET /api/settings", options: "scan.hosts[host].offered[].model@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # the saved value this machine no longer offers stays in its list, named, hatched, with a line saying what to change
+  - id: settings.verifier-model-flagged
+    component: "本机配置"
+    trigger: {role: combobox, name: "verifier 的 model"}
+    precondition: {cell: "flagged"}
+    scenes: []
+    calls: ["none"]
+    shows: {value: "rows.verifier.model@GET /api/settings", options: "scan.hosts[host].offered[].model@GET /api/settings", flag: "problems(scan, draft)@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled
+  - id: settings.verifier-model-unavailable
+    component: "本机配置"
+    trigger: {role: combobox, name: "verifier 的 model"}
+    precondition: {cell: "disabled: host is not usable"}
+    scenes: ["paseo-off"]
+    calls: ["none"]
+    shows: {value: "rows.verifier.model@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled while a scan runs
+  - id: settings.verifier-model-scanning
+    component: "本机配置"
+    trigger: {role: combobox, name: "verifier 的 model"}
+    precondition: {scan: "running"}
+    scenes: ["scanning"]
+    calls: ["none"]
+    shows: {value: "rows.verifier.model@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # cascade: nothing else moves
+  - id: settings.verifier-effort-offered
+    component: "本机配置"
+    trigger: {role: combobox, name: "verifier 的 effort"}
+    precondition: {cell: "offered"}
+    scenes: ["mine", "fresh", "retired", "changed", "edited", "incomplete", "saved", "refused"]
+    calls: ["none"]
+    shows: {value: "rows.verifier.effort@GET /api/settings", options: "scan.hosts[host].offered[model].efforts@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # the saved value this machine no longer offers stays in its list, named, hatched, with a line saying what to change
+  - id: settings.verifier-effort-flagged
+    component: "本机配置"
+    trigger: {role: combobox, name: "verifier 的 effort"}
+    precondition: {cell: "flagged"}
+    scenes: []
+    calls: ["none"]
+    shows: {value: "rows.verifier.effort@GET /api/settings", options: "scan.hosts[host].offered[model].efforts@GET /api/settings", flag: "problems(scan, draft)@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled
+  - id: settings.verifier-effort-unavailable
+    component: "本机配置"
+    trigger: {role: combobox, name: "verifier 的 effort"}
+    precondition: {cell: "disabled: model is not offered"}
+    scenes: ["paseo-off"]
+    calls: ["none"]
+    shows: {value: "rows.verifier.effort@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled while a scan runs
+  - id: settings.verifier-effort-scanning
+    component: "本机配置"
+    trigger: {role: combobox, name: "verifier 的 effort"}
+    precondition: {scan: "running"}
+    scenes: ["scanning"]
+    calls: ["none"]
+    shows: {value: "rows.verifier.effort@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # cascade: the model stays when the new host offers it, else waits for a choice; the effort follows the same way; a model with one effort takes it
+  - id: settings.advisor-host-offered
+    component: "本机配置"
+    trigger: {role: combobox, name: "advisor 的 host"}
+    precondition: {cell: "offered"}
+    scenes: ["mine", "fresh", "retired", "changed", "edited", "incomplete", "saved", "refused"]
+    calls: ["none"]
+    shows: {value: "rows.advisor.host@GET /api/settings", options: "hosts[], scan.hosts[].state@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # the saved value this machine no longer offers stays in its list, named, hatched, with a line saying what to change
+  - id: settings.advisor-host-flagged
+    component: "本机配置"
+    trigger: {role: combobox, name: "advisor 的 host"}
+    precondition: {cell: "flagged"}
+    scenes: ["paseo-off"]
+    calls: ["none"]
+    shows: {value: "rows.advisor.host@GET /api/settings", options: "hosts[], scan.hosts[].state@GET /api/settings", flag: "problems(scan, draft)@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled while a scan runs
+  - id: settings.advisor-host-scanning
+    component: "本机配置"
+    trigger: {role: combobox, name: "advisor 的 host"}
+    precondition: {scan: "running"}
+    scenes: ["scanning"]
+    calls: ["none"]
+    shows: {value: "rows.advisor.host@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # cascade: the effort stays when the new model has it, else waits; one effort is taken
+  - id: settings.advisor-model-offered
+    component: "本机配置"
+    trigger: {role: combobox, name: "advisor 的 model"}
+    precondition: {cell: "offered"}
+    scenes: ["mine", "fresh", "changed", "edited", "incomplete", "saved", "refused"]
+    calls: ["none"]
+    shows: {value: "rows.advisor.model@GET /api/settings", options: "scan.hosts[host].offered[].model@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # the saved value this machine no longer offers stays in its list, named, hatched, with a line saying what to change
+  - id: settings.advisor-model-flagged
+    component: "本机配置"
+    trigger: {role: combobox, name: "advisor 的 model"}
+    precondition: {cell: "flagged"}
+    scenes: ["retired"]
+    calls: ["none"]
+    shows: {value: "rows.advisor.model@GET /api/settings", options: "scan.hosts[host].offered[].model@GET /api/settings", flag: "problems(scan, draft)@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled
+  - id: settings.advisor-model-unavailable
+    component: "本机配置"
+    trigger: {role: combobox, name: "advisor 的 model"}
+    precondition: {cell: "disabled: host is not usable"}
+    scenes: ["paseo-off"]
+    calls: ["none"]
+    shows: {value: "rows.advisor.model@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled while a scan runs
+  - id: settings.advisor-model-scanning
+    component: "本机配置"
+    trigger: {role: combobox, name: "advisor 的 model"}
+    precondition: {scan: "running"}
+    scenes: ["scanning"]
+    calls: ["none"]
+    shows: {value: "rows.advisor.model@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # cascade: nothing else moves
+  - id: settings.advisor-effort-offered
+    component: "本机配置"
+    trigger: {role: combobox, name: "advisor 的 effort"}
+    precondition: {cell: "offered"}
+    scenes: ["mine", "fresh", "changed", "edited", "incomplete", "saved", "refused"]
+    calls: ["none"]
+    shows: {value: "rows.advisor.effort@GET /api/settings", options: "scan.hosts[host].offered[model].efforts@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # the saved value this machine no longer offers stays in its list, named, hatched, with a line saying what to change
+  - id: settings.advisor-effort-flagged
+    component: "本机配置"
+    trigger: {role: combobox, name: "advisor 的 effort"}
+    precondition: {cell: "flagged"}
+    scenes: []
+    calls: ["none"]
+    shows: {value: "rows.advisor.effort@GET /api/settings", options: "scan.hosts[host].offered[model].efforts@GET /api/settings", flag: "problems(scan, draft)@GET /api/settings"}
+    next: "edited"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled
+  - id: settings.advisor-effort-unavailable
+    component: "本机配置"
+    trigger: {role: combobox, name: "advisor 的 effort"}
+    precondition: {cell: "disabled: model is not offered"}
+    scenes: ["retired", "paseo-off"]
+    calls: ["none"]
+    shows: {value: "rows.advisor.effort@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # disabled while a scan runs
+  - id: settings.advisor-effort-scanning
+    component: "本机配置"
+    trigger: {role: combobox, name: "advisor 的 effort"}
+    precondition: {scan: "running"}
+    scenes: ["scanning"]
+    calls: ["none"]
+    shows: {value: "rows.advisor.effort@GET /api/settings"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned

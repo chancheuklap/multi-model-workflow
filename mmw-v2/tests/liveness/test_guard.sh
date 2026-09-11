@@ -56,7 +56,11 @@ FAKE
 
 cat > "$TMP/bin/gh" <<'FAKE'
 #!/usr/bin/env bash
-echo '[[]]'
+if [ "${1:-}" = api ] && [ "${2:-}" = -i ]; then
+  printf 'HTTP/2 200 OK\nETag: "empty"\n\n[]\n'
+else
+  echo '[[]]'
+fi
 FAKE
 chmod +x "$TMP/bin/gh"
 

@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+"""Answer exact gh argument lists from the board harness response catalog."""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parents[1]
+RESPONSES = HERE / "github" / "responses.json"
+key = json.dumps(sys.argv[1:], ensure_ascii=False, separators=(",", ":"))
+
+data_dir = os.environ.get("MMW_DATA_DIR")
+if not data_dir:
+    sys.stderr.write("MMW_DATA_DIR is unset; the harness cannot record this gh call\n")
+    sys.exit(2)
+record = Path(data_dir) / "gh-calls"
+record.parent.mkdir(parents=True, exist_ok=True)
+with record.open("a", encoding="utf-8") as stream:
+    stream.write(key + "\n")
+
+try:
+    catalog = json.loads(RESPONSES.read_text(encoding="utf-8"))
+except (FileNotFoundError, json.JSONDecodeError) as exc:
+    sys.stderr.write(f"cannot read gh responses from {RESPONSES}: {exc}\n")
+    sys.exit(2)
+
+response = catalog.get(key)
+if response is None:
+    sys.stderr.write(f"no gh response for {key} in {RESPONSES}; add that exact call before rerunning\n")
+    sys.exit(2)
+sys.stdout.write(response.get("stdout", ""))
+sys.stderr.write(response.get("stderr", ""))
+sys.exit(response.get("exit", 0))

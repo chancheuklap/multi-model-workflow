@@ -345,6 +345,18 @@ def discover(cfg: dict, root: Path, env: dict[str, str] | None = None) -> dict:
 ARIA_LINE = re.compile(
     r'^(?P<indent>\s*)- (?P<role>[a-zA-Z]+)(?: "(?P<name>(?:[^"\\]|\\.)*)")?'
     r'(?P<attrs>(?: \[[^\]]*\])*)(?::\s*(?P<value>.*))?\s*$')
+# Playwright writes a node's key — `role "name" [attrs]` — in single quotes, doubling
+# any quote inside, whenever the key would not read as plain YAML: a name holding " #" or
+# ": " is enough. The quotes are YAML's, not the tree's; the line is a node like any other.
+QUOTED_KEY = re.compile(r"^(?P<indent>\s*- )'(?P<key>(?:[^']|'')*)'(?P<rest>:.*)?$")
+
+
+def unquote_key(line: str) -> str:
+    """A snapshot line with its key's YAML quoting taken off; any other line unchanged."""
+    m = QUOTED_KEY.match(line)
+    if not m:
+        return line
+    return m.group("indent") + m.group("key").replace("''", "'") + (m.group("rest") or "")
 
 
 def normalize_aria(text: str) -> list[str]:
@@ -364,7 +376,7 @@ def normalize_aria(text: str) -> list[str]:
     # (indent, rendered node) for every named node on the path from the root.
     stack: list[tuple[int, str]] = []
     for ln in text.splitlines():
-        m = ARIA_LINE.match(ln)
+        m = ARIA_LINE.match(unquote_key(ln))
         if not m:
             continue
         indent = len(m.group("indent").expandtabs(2))
@@ -419,7 +431,7 @@ def name_options_from_dom(aria: str, texts: list[str]) -> str:
     remaining = list(texts)
     out = []
     for line in aria.splitlines():
-        m = OPTION_LINE.match(line)
+        m = OPTION_LINE.match(unquote_key(line))
         if not m or not remaining:
             out.append(line)
             continue

@@ -15,15 +15,17 @@ once per worktree, by the first run of that worktree's criteria that needs the p
 and lives until the ticket's work ends — landed, handed back, released, suspended or its
 start retracted: a worktree runs its criteria many times in a night — the worker's own
 run, the verifier's reverify, the closeout checks — and they all want the same
-application, so the lease cannot be per run. Writing code takes no slot. The one run
-that is not a ticket's, the main agent's reverify in the main checkout, gives its slot
-back when it ends.
+application, so the lease cannot be per run. Writing code takes no slot. A criterion or
+judge run outside a ticket worktree gives its slot back when that run ends; `lease.py
+run` starts a product for a person or agent and leaves its lease in place.
 
     lease.py claim [<worktree>]           claim (or return) this worktree's slot; 4 none free
     lease.py env [<worktree>]             print the claim as KEY=VALUE lines
     lease.py run [<worktree>] -- CMD…     run CMD with the claim in its environment
     lease.py release <worktree> [--stop]  give the slot back, with --stop after running the
                                           product's `stop`; 0 given back, 3 there was none
+    lease.py remove-instance <worktree>   remove its data directory after its worktree is gone;
+                                          0 removed or absent, 3 worktree exists/delete failed
     lease.py list                         every live claim
     lease.py count <directory>            how many claims sit under a directory
 
@@ -43,11 +45,11 @@ processes racing for the last slot cannot both win. There is no fallback to anot
 on conflict — a worktree's slot is decided once and then it is simply looked up.
 
 Every verb answers a program or an agent; none of them formats for a person, because on
-this pipeline nobody reads a terminal. `claim`, `release` and `list` print JSON, `env`
-prints `KEY=VALUE`, `count` prints a number, and what a caller has to *decide* on is the
-exit code, never the wording. The one piece of prose here is the refusal a live listener
-earns, on stderr: its reader is an agent choosing what to do next, and it is written so
-that agent needs nothing else.
+this pipeline nobody reads a terminal. `claim`, `release`, `remove-instance` and `list`
+print JSON, `env` prints `KEY=VALUE`, `count` prints a number, and what a caller has to
+*decide* on is the exit code, never the wording. The one piece of prose here is the
+refusal a live listener earns, on stderr: its reader is an agent choosing what to do
+next, and it is written so that agent needs nothing else.
 
 **Nothing here ends a process except through the repository's own `stop`.** `release
 --stop` runs that command, which ends only what this run started, and ends the command
@@ -76,10 +78,13 @@ import fcntl
 import hashlib
 import json
 import os
+import re
+import shutil
 import socket
 import subprocess
 import sys
 import tempfile
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -126,6 +131,35 @@ def instance_name(worktree: Path) -> str:
     """
     digest = hashlib.sha256(str(worktree).encode("utf-8")).hexdigest()[:6]
     return f"{worktree.name}-{digest}"
+
+
+def is_ticket_worktree(worktree: Path) -> bool:
+    """Whether this is the persistent worktree of one ticket run."""
+    return worktree.parent.name == ".worktrees" and re.fullmatch(
+        r"issue-[0-9]+", worktree.name) is not None
+
+
+def instance_data_dir(worktree: Path) -> Path:
+    """The data directory deterministically assigned to `worktree`."""
+    return INSTANCES / instance_name(worktree)
+
+
+def remove_instance(worktree: Path) -> dict:
+    """Remove a gone worktree's data directory; never remove one still in use."""
+    target = worktree.resolve()
+    data_dir = instance_data_dir(target)
+    if target.exists():
+        return {"removed": False, "worktree": str(target), "data_dir": str(data_dir),
+                "reason": "worktree-exists"}
+    try:
+        shutil.rmtree(data_dir)
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        return {"removed": False, "worktree": str(target), "data_dir": str(data_dir),
+                "reason": str(exc)}
+    return {"removed": True, "worktree": str(target), "data_dir": str(data_dir),
+            "reason": None}
 
 
 # ----------------------------------------------------------------- the registry
@@ -202,9 +236,8 @@ def busy(slot: int) -> tuple[int, int] | None:
 def sweep() -> list[int]:
     """Slots whose worktree is gone and whose ports are quiet, given back.
 
-    Without this a machine fills up and never empties: `dispatch.sh` prunes worktree
-    registrations but never removes a worktree directory, and a night that dispatches
-    more tickets than it merges would leave every slot claimed forever.
+    Without this a machine fills up and never empties: a worktree may be removed while
+    its registration remains, and later claims need to recover that quiet slot.
 
     A slot is only taken back when **both** are true — the directory is gone *and*
     nothing listens on the block. A live process on a slot whose directory somebody
@@ -495,7 +528,7 @@ def count_under(prefix: Path) -> int:
 
 
 def environment(record: dict) -> dict[str, str]:
-    data_dir = INSTANCES / record["instance"]
+    data_dir = instance_data_dir(Path(record["worktree"]))
     return {
         "MMW_INSTANCE": record["instance"],
         "MMW_SLOT": str(record["slot"]),
@@ -516,6 +549,28 @@ def leased_environment(worktree: Path | None = None) -> dict[str, str]:
     env = environment(record)
     Path(env["MMW_DATA_DIR"]).mkdir(parents=True, exist_ok=True)
     return env
+
+
+@contextmanager
+def judge_run(worktree: Path | None = None, *, stop: bool = False):
+    """Release a judge's non-ticket lease after its own product cleanup.
+
+    Ticket worktrees keep one lease across the worker's, reviewer's and verifier's runs.
+    A judge in any other checkout owns its lease only for this context. `stop=True` is
+    for an outer criteria runner that must also clean up a product its check left up.
+    """
+    tree = worktree_of(worktree)
+    scope = "MMW_JUDGE_LEASE_OWNER"
+    outer = scope not in os.environ
+    if outer:
+        os.environ[scope] = str(tree)
+    try:
+        yield
+    finally:
+        if outer:
+            os.environ.pop(scope, None)
+            if not is_ticket_worktree(tree):
+                release(tree, stop=stop)
 
 
 # ----------------------------------------------------------------- entry
@@ -546,8 +601,9 @@ def main(argv: list[str] | None = None) -> int:
         if not command:
             sys.stderr.write("usage: lease.py run [<worktree>] -- <command>…\n")
             return 2
+        tree = worktree_of(head[0] if head else None)
         env = dict(os.environ)
-        env.update(leased_environment(worktree_of(head[0] if head else None)))
+        env.update(leased_environment(tree))
         return subprocess.run(command, env=env).returncode
 
     if verb == "count":
@@ -556,6 +612,14 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print(count_under(Path(rest[0])))
         return 0
+
+    if verb == "remove-instance":
+        if not rest:
+            sys.stderr.write("usage: lease.py remove-instance <worktree>\n")
+            return 2
+        result = remove_instance(worktree_of(rest[0]))
+        print(json.dumps(result, ensure_ascii=False))
+        return 0 if result["removed"] else 3
 
     stop = verb == "release" and "--stop" in rest
     if stop:
