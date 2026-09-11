@@ -79,6 +79,7 @@ RELAY="$SKILL_ROOT/scripts/relay.py"
 STATEDIR="$SKILL_ROOT/scripts/statedir.py"
 RUNNER=""
 RUNNER_NAME=""
+REPO_URL=""
 # The skill lives under mmw-v2/skills/<name> of the toolbox checkout, so `install.sh`
 # is two directories up, and `verify-ticket.py` and `lease.py` are in the `scripts/` of
 # their own skills one directory over. A `--tools` directory given on the command line
@@ -1873,25 +1874,133 @@ print(" | ".join("{}: {}".format(row.get("command", "?"), row.get("tail", "")).r
     || { echo "dispatch: #$number was handed to triage, but its ticket.bounced event was not written" >&2; return 2; }
 }
 
+# The repository web URL is presentation, not landing authority. Ask the tracker once
+# per landing command; a failure removes only the links from the event's first line.
+load_repo_url() {
+  REPO_URL="$(gh_ repo view --json url -q .url 2>/dev/null | tr -d '[:space:]')"
+  if [ -z "$REPO_URL" ]; then
+    echo "dispatch: the tracker could not provide this repository's web URL; ticket.landed will be recorded without compare or commit links" >&2
+  fi
+}
+
+# Find the first merge on the fetched base branch's first-parent line that introduced
+# the passed commit. A direct fast-forward has no such merge and prints nothing.
+landed_merge_and_base() {
+  local root="$1" passed="$2" into="$3" candidate first_parent
+  while IFS= read -r candidate; do
+    [ -n "$candidate" ] || continue
+    first_parent="$(git -C "$root" rev-parse "$candidate^1" 2>/dev/null)" || continue
+    if git -C "$root" merge-base --is-ancestor "$passed" "$candidate" \
+       && ! git -C "$root" merge-base --is-ancestor "$passed" "$first_parent"; then
+      printf '%s\t%s\n' "$candidate" "$first_parent"
+      return 0
+    fi
+  done < <(git -C "$root" rev-list --first-parent --reverse --merges \
+            "origin/$into" 2>/dev/null)
+}
+
+# Count commits on one branch copy that the fetched base branch does not contain.
+commits_outside_base() {
+  git -C "$1" rev-list --count "origin/$3..$2" 2>/dev/null
+}
+
+# Remove the local and origin copies of a landed ticket branch. Both containment
+# decisions use refs from the fetch that prepared the merge worktree; each copy can be
+# kept independently, and the remote deletion is leased to that fetched tip.
+delete_landed_ticket_branch() {
+  local root="$1" number="$2" into="$3" branch remote_ref remote_tip ahead output probe_rc
+
+  branch="$(ticket_branch "$number")"
+  [[ "$branch" =~ ^issue-[0-9]+$ ]] || return 0
+  [ "$branch" != "$into" ] || return 0
+  remote_ref="refs/remotes/origin/$branch"
+
+  if git -C "$root" worktree list --porcelain \
+       | grep -Fx "branch refs/heads/$branch" >/dev/null; then
+    echo "dispatch: keeping $branch because a worktree still has it checked out" >&2
+    return 0
+  fi
+
+  if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
+    ahead="$(commits_outside_base "$root" "refs/heads/$branch" "$into")" || ahead=""
+    if [ -z "$ahead" ]; then
+      echo "dispatch: keeping local $branch because its containment in origin/$into could not be checked" >&2
+    elif [ "$ahead" -ne 0 ]; then
+      echo "dispatch: keeping local $branch because it has $ahead commit(s) not in origin/$into" >&2
+    elif ! output="$(git -C "$root" branch -D "$branch" 2>&1)"; then
+      echo "dispatch: could not delete local $branch: $(printf '%s' "$output" | tail -2 | tr '\n' ' '); delete it manually with: git branch -D $branch" >&2
+    fi
+  fi
+
+  git -C "$root" show-ref --verify --quiet "$remote_ref" || return 0
+  remote_tip="$(git -C "$root" rev-parse "$remote_ref")"
+  ahead="$(commits_outside_base "$root" "$remote_ref" "$into")" || ahead=""
+  if [ -z "$ahead" ]; then
+    echo "dispatch: keeping origin/$branch because its containment in origin/$into could not be checked" >&2
+    return 0
+  fi
+  if [ "$ahead" -ne 0 ]; then
+    echo "dispatch: keeping origin/$branch because it has $ahead commit(s) not in origin/$into" >&2
+    return 0
+  fi
+  if output="$(git -C "$root" push \
+      "--force-with-lease=refs/heads/$branch:$remote_tip" origin --delete "$branch" 2>&1)"; then
+    return 0
+  fi
+  git -C "$root" ls-remote --exit-code origin "refs/heads/$branch" >/dev/null 2>&1
+  probe_rc=$?
+  if [ "$probe_rc" -eq 2 ]; then
+    return 0
+  fi
+  [ "$probe_rc" -eq 0 ] \
+    || output="$output The remote could not be checked after the failed deletion."
+  echo "dispatch: could not delete origin/$branch: $(printf '%s' "$output" | tr '\n' ' '); after confirming its tip is contained in origin/$into, delete it manually with: git push origin --delete $branch" >&2
+}
+
+# Whether the ticket's complete event fold currently says it is landed.
+ticket_is_landed() {
+  local folded
+  folded="$(ticket_events "$1" fold)" || return 1
+  printf '%s\n' "$folded" | python3 -c '
+import json, sys
+raise SystemExit(0 if json.load(sys.stdin).get("landed") else 1)
+'
+}
+
+# Release one-ticket resources, archive the workspace, record the landing, then remove
+# branch copies only if both preceding state transitions succeeded.
+finish_landing() {
+  local root="$1" number="$2" spec="$3" into="$4" passed="$5"
+  local merge_commit="$6" base="$7" mode="$8" archived=0
+  if [ "$mode" = land ]; then
+    gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1 \
+      || echo "land: could not give #$number's claim back" >&2
+    post_event "$number" ticket.released --ticket "$number" --spec "$spec" \
+        --line "Gave the claim on #$number back: its work is over" --field reason=landed \
+      || echo "land: #$number's claim is given back, but its ticket.released event was not written" >&2
+  fi
+  archive_workspace "$number" && archived=1
+  if record_landed "$number" "$spec" "$into" "$passed" "$merge_commit" "$base"; then
+    [ "$archived" -eq 0 ] || delete_landed_ticket_branch "$root" "$number" "$into"
+  fi
+}
+
 # Merge the exact ticket.passed commit, check the result, then fast-forward origin.
 # 0 merged, 1 bounced, 2 could not complete, 3 was already in origin.
 land_one_via_origin() {
   local root="$1" number="$2" spec="$3" into="$4" passed="$5" mode="${6:-advance}"
-  local attempt merge_root base merge_commit rc files failed push_error=""
+  local attempt merge_root base merge_commit landed_base rc files failed push_error=""
   for ((attempt = 1; attempt <= MERGE_TRIES; attempt++)); do
     prepare_merge_worktree "$root" "$into" || return 2
     merge_root="$MERGE_ROOT"
     base="$(git -C "$merge_root" rev-parse "origin/$into")"
     if git -C "$merge_root" merge-base --is-ancestor "$passed" "origin/$into"; then
-      if [ "$mode" = land ]; then
-        gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1 \
-          || echo "land: could not give #$number's claim back" >&2
-        post_event "$number" ticket.released --ticket "$number" --spec "$spec" \
-            --line "Gave the claim on #$number back: its work is over" --field reason=landed \
-          || echo "land: #$number's claim is given back, but its ticket.released event was not written" >&2
-      fi
-      archive_workspace "$number"
-      record_landed "$number" "$spec" "$into" "$passed" "$base"
+      merge_commit=""
+      landed_base=""
+      IFS=$'\t' read -r merge_commit landed_base \
+        < <(landed_merge_and_base "$merge_root" "$passed" "$into") || true
+      finish_landing "$root" "$number" "$spec" "$into" "$passed" \
+        "$merge_commit" "$landed_base" "$mode"
       release_merge_lock
       return 3
     fi
@@ -1946,16 +2055,8 @@ print(json.dumps(rows, separators=(",", ":")))
     fi
 
     if push_error="$(git -C "$merge_root" push origin "HEAD:$into" 2>&1)"; then
-      if [ "$mode" = land ]; then
-        gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1 \
-          || echo "land: could not give #$number's claim back" >&2
-        post_event "$number" ticket.released --ticket "$number" --spec "$spec" \
-            --line "Gave the claim on #$number back: its work is over" \
-            --field reason=landed \
-          || echo "land: #$number's claim is given back, but its ticket.released event was not written" >&2
-      fi
-      archive_workspace "$number"
-      record_landed "$number" "$spec" "$into" "$passed" "$merge_commit"
+      finish_landing "$root" "$number" "$spec" "$into" "$passed" \
+        "$merge_commit" "$base" "$mode"
       release_merge_lock
       return 0
     fi
@@ -1970,13 +2071,23 @@ print(json.dumps(rows, separators=(",", ":")))
 # landed, and that — not its closing — is what lets the tickets it blocks start: a
 # ticket is cut from the base branch and has to find its blockers' work there.
 record_landed() {
-  local number="$1" spec="${2:-}" into="$3" commit="$4" merge="$5" branch
+  local number="$1" spec="${2:-}" into="$3" commit="$4" merge="${5:-}" base="${6:-}" branch line
+  local -a fields
   branch="$(ticket_branch "$number")"
-  post_event "$number" ticket.landed --ticket "$number" --spec "$spec" \
-      --line "Landed $branch into $into" \
-      --field "branch=$branch" --field "into=$into" \
-      --field "commit=$commit" --field "merge=$merge" \
-    || echo "dispatch: $commit is in origin/$into, but the ticket.landed event on #$number was not written; the tickets it blocks stay blocked until the next advance or land writes it" >&2
+  line="Landed $branch into $into"
+  if [ -n "$REPO_URL" ] && [ -n "$merge" ] && [ -n "$base" ]; then
+    line="$line: $REPO_URL/compare/$base...$merge (merge commit $REPO_URL/commit/$merge)"
+  elif [ -n "$REPO_URL" ] && [ -z "$merge" ]; then
+    line="$line: $REPO_URL/commit/$commit"
+  fi
+  fields=(--field "branch=$branch" --field "into=$into" --field "commit=$commit")
+  [ -z "$merge" ] || fields+=(--field "merge=$merge")
+  [ -z "$base" ] || fields+=(--field "base=$base")
+  if ! post_event "$number" ticket.landed --ticket "$number" --spec "$spec" \
+      --line "$line" "${fields[@]}"; then
+    echo "dispatch: $commit is in origin/$into, but the ticket.landed event on #$number was not written; the tickets it blocks stay blocked until the next advance or land writes it" >&2
+    return 1
+  fi
 }
 
 advance() {
@@ -1988,6 +2099,7 @@ advance() {
   [ -n "$root" ] || refuse "not inside a git repository, so there is nothing to merge into"
 
   export MMW_SPEC="$spec"
+  load_repo_url
 
   # A night that is not open has no relay, so a ticket landing would wake nobody.
   local watched
@@ -2093,6 +2205,7 @@ land_tickets() {
   local root
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] || refuse "not inside a git repository, so there is nothing to land into"
+  load_repo_url
 
   local -a numbers=("$@")
 
@@ -2151,7 +2264,13 @@ land_tickets() {
       failed=$((failed + 1))
       continue
     fi
-    archive_workspace "$number" || failed=$((failed + 1))
+    if archive_workspace "$number"; then
+      if ticket_is_landed "$number"; then
+        delete_landed_ticket_branch "$root" "$number" "$archive_into"
+      fi
+    else
+      failed=$((failed + 1))
+    fi
   done
 
   while IFS= read -r line; do
