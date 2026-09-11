@@ -6516,6 +6516,83 @@ scenario_advancelandedfields() {
     || fail "ticket.landed fields are wrong: $(posted_events 61 commit into merge)"
 }
 
+# Two nights on one repository, each landing into its own base branch at the same time.
+# Each merge runs in its own merge worktree under its own lock, so the two overlap in
+# time, and neither base branch receives the other night's ticket. The slow check marks
+# when each merge's checks begin and end: both begin before either ends only when
+# nothing serialises the two. Each night posts into its own fake tracker state and its
+# own fake body file: the fake gh stages a comment body in a file before storing it, and
+# two posts at the same instant would overwrite each other there. dispatch.sh itself
+# passes the body to gh directly.
+scenario_parallelbases() {
+  reset_log
+  fresh_repo
+  python3 - "$STATE_DIR/watches.json" <<'PY'
+import json, sys
+watches = json.load(open(sys.argv[1]))
+watches["spec:77"] = {**watches["spec:76"], "spec": 77}
+json.dump(watches, open(sys.argv[1], "w"))
+PY
+  mkdir -p "$TMP/repo/.mmw"
+  cat > "$TMP/repo/slow-check.sh" <<'SH'
+#!/usr/bin/env bash
+echo "start $MMW_BASE_REF" >> "$MMW_OVERLAP_LOG"
+sleep 3
+echo "end $MMW_BASE_REF" >> "$MMW_OVERLAP_LOG"
+SH
+  printf '{"checks":["bash slow-check.sh"]}\n' > "$TMP/repo/.mmw/target.json"
+  git -C "$TMP/repo" add .mmw/target.json slow-check.sh
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q -m checks
+  git -C "$TMP/repo" push -q origin main
+  git -C "$TMP/repo" checkout -q -b feature main
+  commit_file "$TMP/repo" feature.txt feature "feature base"
+  git -C "$TMP/repo" push -q -u origin feature
+  git -C "$TMP/repo" checkout -q main
+  make_branch issue-61 ticket-61.txt "lands on main"
+  git -C "$TMP/repo" checkout -q -b issue-62 feature
+  commit_file "$TMP/repo" ticket-62.txt "lands on feature" issue-62
+  git -C "$TMP/repo" checkout -q main
+  local passed61 passed62 side log="$TMP/overlap.log"
+  passed61="$(git -C "$TMP/repo" rev-parse issue-61)"
+  passed62="$(git -C "$TMP/repo" rev-parse issue-62)"
+  cat > "$TMP/tickets-76.json" <<JSON
+[{"number": 61, "state": "CLOSED", "labels": [], "closedAt": "2026-09-11T01:00:00Z",
+  "assignees": ["mmw-bot"], "parent": {"number": 76},
+  "comments": [$(ev ticket.passed 61 "ALL MET" --field branch=issue-61 --field "commit=$passed61" --field into=main)]}]
+JSON
+  cat > "$TMP/tickets-77.json" <<JSON
+[{"number": 62, "state": "CLOSED", "labels": [], "closedAt": "2026-09-11T01:00:00Z",
+  "assignees": ["mmw-bot"], "parent": {"number": 77},
+  "comments": [$(ev ticket.passed 62 "ALL MET" --field branch=issue-62 --field "commit=$passed62" --field into=feature)]}]
+JSON
+  rm -f "$log"
+  for side in 76 77; do
+    rm -rf "$TMP/state-$side"
+    cp -R "$MMW_FAKE_PASEO_STATE" "$TMP/state-$side"
+    (cd "$TMP/repo" && env FAKE_GH_TICKETS_FILE="$TMP/tickets-$side.json" \
+       MMW_FAKE_PASEO_STATE="$TMP/state-$side" MMW_GH_LAST_BODY="$TMP/gh-last-body-$side" \
+       MMW_OVERLAP_LOG="$log" \
+       bash "$DISPATCH" "${TOOLS[@]}" advance "$side" > "$TMP/out-$side" 2> "$TMP/err-$side"
+     echo "$?" > "$TMP/code-$side") &
+  done
+  wait
+  for side in 76 77; do
+    [ "$(cat "$TMP/code-$side")" = 0 ] || fail "advance $side expected 0: $(cat "$TMP/err-$side")"
+  done
+  [ "$(sed -n '1p;2p' "$log" | cut -d' ' -f1 | tr '\n' ' ')" = "start start " ] \
+    || fail "the two merges did not overlap; their checks ran in turn: $(cat "$log")"
+  git -C "$TMP/origin.git" show main:ticket-61.txt >/dev/null || fail "main did not get #61"
+  git -C "$TMP/origin.git" show feature:ticket-62.txt >/dev/null || fail "feature did not get #62"
+  if git -C "$TMP/origin.git" show main:ticket-62.txt >/dev/null 2>&1; then fail "main got feature's #62"; fi
+  if git -C "$TMP/origin.git" show feature:ticket-61.txt >/dev/null 2>&1; then fail "feature got main's #61"; fi
+  [ -d "$TMP/repo/.worktrees/merge-main" ] && [ -d "$TMP/repo/.worktrees/merge-feature" ] \
+    || fail "each base branch should have its own merge worktree: $(ls "$TMP/repo/.worktrees")"
+  MMW_FAKE_PASEO_STATE="$TMP/state-76" posted_events 61 into | grep -qx "ticket.landed into=main" \
+    || fail "#61 was not recorded landed into main: $(MMW_FAKE_PASEO_STATE="$TMP/state-76" posted_events 61 into)"
+  MMW_FAKE_PASEO_STATE="$TMP/state-77" posted_events 62 into | grep -qx "ticket.landed into=feature" \
+    || fail "#62 was not recorded landed into feature: $(MMW_FAKE_PASEO_STATE="$TMP/state-77" posted_events 62 into)"
+}
+
 scenario_advancealreadyin() {
   rm -f "$TMP/check-ran"
   setup_checked_ticket "printf 'ran\\n' > '$TMP/check-ran'; exit 1"
@@ -7076,7 +7153,7 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openrefusesahead openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openrefusesahead openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -7135,6 +7212,7 @@ banner_for() {
     archiveunlandedkeepsbranch) echo ARCHIVE-UNLANDED-KEEPS-BRANCH-OK ;;
     landedworktreekept) echo LANDED-WORKTREE-KEPT-OK ;;
     regressedrestart) echo REGRESSED-RESTART-OK ;;
+    parallelbases) echo PARALLEL-BASES-OK ;;
     advancesummaryline) echo ADVANCE-SUMMARY-LINE-OK ;;
     bouncednotretried) echo BOUNCED-NOT-RETRIED-OK ;;
     landviaorigin) echo LAND-VIA-ORIGIN-OK ;;
