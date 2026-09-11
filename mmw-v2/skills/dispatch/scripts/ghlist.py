@@ -7,6 +7,7 @@ import copy
 import json
 import os
 import subprocess
+import time
 from typing import Callable
 from urllib.parse import parse_qs, urlsplit
 
@@ -18,17 +19,17 @@ class ListReadError(RuntimeError):
     """A GitHub list address did not produce one complete JSON list."""
 
 
-def _quiet_env() -> dict[str, str]:
+def quiet_env() -> dict[str, str]:
     env = dict(os.environ)
     env.pop("CLICOLOR_FORCE", None)
     env.pop("CLICOLOR", None)
     return env
 
 
-def run_gh(args: list[str]) -> tuple[int, str, str]:
+def run_gh(args: list[str], timeout: float = GH_TIMEOUT) -> tuple[int, str, str]:
     try:
         run = subprocess.run(["gh", *args], capture_output=True, text=True,
-                             env=_quiet_env(), timeout=GH_TIMEOUT)
+                             env=quiet_env(), timeout=timeout)
     except (OSError, subprocess.SubprocessError) as exc:
         raise ListReadError(f"gh could not be run: {exc}") from None
     return run.returncode, run.stdout, run.stderr
@@ -72,7 +73,7 @@ def _page_size(address: str) -> int | None:
     return value if value and value > 0 else None
 
 
-def _reason(code: int, out: str, err: str) -> str:
+def failure_reason(code: int, out: str, err: str) -> str:
     said = " ".join((err or out or "").split())[:300]
     return f"gh exited {code}: {said or 'nothing on stderr'}"
 
@@ -85,7 +86,14 @@ class _Cache:
 
 
 class ConditionalListReader:
-    """A process-local cache of complete GitHub REST list addresses."""
+    """A process-local cache of complete GitHub REST list addresses.
+
+    The address is the cache identity and must include ``per_page``. A cached last page
+    whose length equals that value is fetched without ``If-None-Match``: GitHub's ETag
+    describes the response body, not its pagination Link header, so that page may have
+    acquired a next page while its body and ETag stayed unchanged. With the default
+    runner, ``GH_TIMEOUT`` bounds the complete address read across all of its pages.
+    """
 
     def __init__(self, gh: Callable[[list[str]], tuple[int, str, str]] = run_gh):
         self.gh = gh
@@ -110,6 +118,7 @@ class ConditionalListReader:
         endpoint: str | None = address
         visited: list[str] = []
         page_size = _page_size(address)
+        deadline = time.monotonic() + GH_TIMEOUT
         while endpoint:
             etag = cache.etags.get(endpoint)
             if (page_size is not None and cache.next_pages.get(endpoint) is None
@@ -119,15 +128,20 @@ class ConditionalListReader:
             if etag:
                 args += ["-H", f"If-None-Match: {etag}"]
             try:
-                code, out, err = self.gh(args)
+                if self.gh is run_gh:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise ListReadError(f"timed out after {GH_TIMEOUT} seconds")
+                    code, out, err = run_gh(args, timeout=remaining)
+                else:
+                    code, out, err = self.gh(args)
             except ListReadError as exc:
                 raise ListReadError(f"{address}: {exc}") from None
-            except Exception as exc:
-                raise ListReadError(f"{address}: gh could not be run: {exc}") from None
             try:
                 status, headers, body = _parse_response(out)
             except ValueError as exc:
-                raise ListReadError(f"{address}: {_reason(code, out, err) if code else exc}") from None
+                reason = failure_reason(code, out, err) if code else exc
+                raise ListReadError(f"{address}: {reason}") from None
 
             if status == 304:
                 self._reads["not_modified"] += 1
@@ -137,7 +151,7 @@ class ConditionalListReader:
             elif status == 200:
                 self._reads["billed"] += 1
                 if code != 0:
-                    raise ListReadError(f"{address}: {_reason(code, out, err)}")
+                    raise ListReadError(f"{address}: {failure_reason(code, out, err)}")
                 try:
                     page = json.loads(body)
                 except json.JSONDecodeError:
@@ -152,7 +166,7 @@ class ConditionalListReader:
                 else:
                     cache.etags.pop(endpoint, None)
             else:
-                raise ListReadError(f"{address}: HTTP {status}; {_reason(code, out, err)}")
+                raise ListReadError(f"{address}: HTTP {status}; {failure_reason(code, out, err)}")
             visited.append(endpoint)
             endpoint = next_page
 

@@ -71,11 +71,13 @@ acks the wake like any other.
 **Reading the board.** Every `--interval` seconds (default 30) the relay reads the
 comments of each watched ticket updated since the newest one it saw there, less two
 minutes of overlap, and records every (comment, event) pair it has translated, so the
-overlap never queues one twice. On start it reads every watched ticket in full, not since
-anything: a relay that was down does not get to assume it missed nothing. So is a ticket
-the first time a watch brings it in. A ticket whose read fails is reported on stderr,
-keeps its old mark and is read again next cycle, and a cycle with a failed read is never
-recorded as a good poll (docs/adr/0008-silence-is-never-a-pass.md).
+overlap never queues one twice. Each comment page's ETag is sent on the next read; a 304
+costs no primary rate-limit quota. This cache lives only in memory, so a restart reads
+every watched ticket in full, not since anything: a relay that was down does not get to
+assume it missed nothing. So is a ticket the first time a watch brings it in. A ticket
+whose read fails is reported on stderr, keeps its old mark and is read again next cycle,
+and a cycle with a failed read is never recorded as a good poll
+(docs/adr/0008-silence-is-never-a-pass.md).
 
 **A row's life.** Queued: `seq` (monotonic across all recipients, never reused, even after
 the queue empties), `ticket`, `event`, `to` (worker or main), `watch` (the key of the
@@ -234,6 +236,7 @@ if str(HERE) not in sys.path:
 import statedir  # noqa: E402
 from statedir import LockHeld  # noqa: E402
 import ghlist  # noqa: E402
+from ghlist import GH_TIMEOUT, quiet_env  # noqa: E402
 
 
 def _load_events():
@@ -258,8 +261,6 @@ DEFAULT_INTERVAL = 30
 OVERLAP = timedelta(seconds=120)
 QUEUE_WAIT = 10.0
 SEND_TIMEOUT = 180
-# How long one `gh` read of the board may take before it counts as failed.
-GH_TIMEOUT = 120
 # How long one adapter's `liveness` may take before its answer counts as unknown.
 LIVENESS_TIMEOUT = 60
 START_WAIT = 15.0
@@ -464,15 +465,6 @@ def overlap(want: dict, watches: dict[str, dict], children: dict[int, list[int]]
 
 # ----------------------------------------------------------------- reading the board
 
-def quiet_env() -> dict:
-    """The environment without the colour forcing some hosts inject: `gh` writes ANSI
-    escapes into its JSON under CLICOLOR_FORCE, and no JSON reader can parse them."""
-    env = dict(os.environ)
-    env.pop("CLICOLOR_FORCE", None)
-    env.pop("CLICOLOR", None)
-    return env
-
-
 def gh_list(args: list[str]) -> list:
     """Run `gh` and read its answer as a list, pages flattened. Raises PollError otherwise."""
     try:
@@ -481,8 +473,7 @@ def gh_list(args: list[str]) -> list:
     except (OSError, subprocess.SubprocessError) as exc:
         raise PollError(f"gh could not be run: {exc}") from None
     if run.returncode != 0:
-        said = " ".join((run.stderr or run.stdout or "").split())[:300]
-        raise PollError(f"gh exited {run.returncode}: {said or 'nothing on stderr'}")
+        raise PollError(ghlist.failure_reason(run.returncode, run.stdout, run.stderr))
     try:
         data = json.loads(run.stdout)
     except ValueError:

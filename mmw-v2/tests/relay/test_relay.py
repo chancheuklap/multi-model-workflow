@@ -14,6 +14,7 @@ queue, their order and recipients, what was sent to whom, and what is left after
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import io
 import json
@@ -107,7 +108,8 @@ class FakeGh:
         since = dict(p.split("=", 1) for p in query.split("&") if "=" in p).get("since")
         rows = [c for c in self.board.get(number, []) if not since or c["updated_at"] >= since]
         if conditional:
-            etag = '"' + str(hash(json.dumps(rows, sort_keys=True))) + '"'
+            payload = json.dumps(rows, sort_keys=True).encode()
+            etag = '"' + hashlib.sha1(payload).hexdigest() + '"'
             if f"If-None-Match: {etag}" in args:
                 return 1, "HTTP/2 304 Not Modified\n\n", "gh: HTTP 304"
             return 0, f"HTTP/2 200 OK\nETag: {etag}\n\n{json.dumps(rows)}", ""
@@ -599,12 +601,16 @@ class PollingTest(RelayCase):
         # `since` address, as two normal relay rounds do while no comment changes.
         self.poll()
         self.gh.calls.clear()
-        self.poll()
+        self.assertTrue(self.poll())
         rows = list(self.rows())
-        self.poll()
+        before = self.relay.board.reads["not_modified"]
+        self.assertTrue(self.poll())
         comment_calls = [call for call in self.gh.calls if call[:2] == ["api", "-i"]
                          and "/issues/61/comments" in call[2]]
-        self.assertIn("If-None-Match:", " ".join(comment_calls[-1]))
+        expected = '"' + hashlib.sha1(
+            json.dumps(self.board[61], sort_keys=True).encode()).hexdigest() + '"'
+        self.assertIn(f"If-None-Match: {expected}", comment_calls[-1])
+        self.assertEqual(self.relay.board.reads["not_modified"], before + 2)
         self.assertEqual(self.rows(), rows)
 
     def test_new_since_address_is_read_without_an_etag(self):
@@ -612,11 +618,18 @@ class PollingTest(RelayCase):
         self.poll()
         self.clock.moment = T0 + timedelta(seconds=30)
         self.board[61].append(comment(102, "ticket.passed", 61, updated=self.clock.moment))
-        self.poll()
+        self.assertTrue(self.poll())
         calls = [call for call in self.gh.calls if call[:2] == ["api", "-i"]
                  and "/issues/61/comments" in call[2]]
-        self.assertIn("since=", calls[-1][2])
-        self.assertNotIn("If-None-Match:", " ".join(calls[-1]))
+        second_url = calls[-1][2]
+        self.assertTrue(self.poll())
+        calls = [call for call in self.gh.calls if call[:2] == ["api", "-i"]
+                 and "/issues/61/comments" in call[2]]
+        third = calls[-1]
+        expected_since = stamp(T0 + timedelta(seconds=30) - timedelta(seconds=120))
+        self.assertIn("since=" + expected_since, third[2])
+        self.assertNotEqual(third[2], second_url)
+        self.assertNotIn("If-None-Match:", " ".join(third))
 
     def test_beat_records_read_counts(self):
         self.relay.close_watch(None)

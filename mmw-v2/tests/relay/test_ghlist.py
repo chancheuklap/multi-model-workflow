@@ -64,6 +64,8 @@ class ConditionalListReaderTest(unittest.TestCase):
             calls.append(args)
             if args[2] == second:
                 return response(200, [{"id": 101}], '"second"')
+            if 'If-None-Match: "full"' in args:
+                return response(304)
             rows = [{"id": n} for n in range(1, 101)]
             return response(200, rows, '"full"', second if len(calls) > 1 else None)
 
@@ -85,17 +87,20 @@ class ConditionalListReaderTest(unittest.TestCase):
             lambda args: (0, "HTTP/2 200 OK\n\nnot-json", ""),
             lambda args: (0, "HTTP/2 200 OK\n\n{}", ""),
         ]
-        for gh in failures:
+        for index, gh in enumerate(failures):
             with self.subTest(gh=gh):
                 with self.assertRaises(ghlist.ListReadError) as caught:
                     ghlist.ConditionalListReader(gh).read(address)
                 self.assertIn(address, str(caught.exception))
+                if index == 0:
+                    self.assertTrue("HTTP 502" in str(caught.exception)
+                                    or "gh exited 1" in str(caught.exception))
 
     def test_counts_billed_and_not_modified(self):
         gh = TwoPageGh()
         reader = ghlist.ConditionalListReader(gh)
-        reader.read(gh.first)
-        reader.read(gh.first)
+        self.assertEqual(reader.read(gh.first), [{"id": 1}, {"id": 2}])
+        self.assertEqual(reader.read(gh.first), [{"id": 1}, {"id": 2}])
         self.assertEqual(reader.reads, {"billed": 2, "not_modified": 2})
 
     def test_a_page_without_an_etag_is_read_again(self):
@@ -103,11 +108,12 @@ class ConditionalListReaderTest(unittest.TestCase):
 
         def gh(args):
             calls.append(args)
-            return response(200, [], None)
+            return response(200, [{"id": 1}], None)
 
         reader = ghlist.ConditionalListReader(gh)
-        reader.read("repos/o/r/issues/1/comments?per_page=100")
-        reader.read("repos/o/r/issues/1/comments?per_page=100")
+        address = "repos/o/r/issues/1/comments?per_page=100"
+        self.assertEqual(reader.read(address), [{"id": 1}])
+        self.assertEqual(reader.read(address), [{"id": 1}])
         self.assertFalse(any("If-None-Match:" in value for value in calls[1]))
 
 

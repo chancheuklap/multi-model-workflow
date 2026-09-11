@@ -6,8 +6,6 @@ import copy
 import datetime as dt
 import importlib.util
 import json
-import os
-import subprocess
 import threading
 import urllib.parse
 from pathlib import Path
@@ -17,15 +15,8 @@ SCRIPTS = Path(__file__).resolve().parents[1] / "skills" / "verify-ticket" / "sc
 DISPATCH_SCRIPTS = Path(__file__).resolve().parents[1] / "skills" / "dispatch" / "scripts"
 
 
-def _load(name: str):
-    spec = importlib.util.spec_from_file_location(f"mmw_board_{name}", SCRIPTS / f"{name}.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def _load_path(name: str, path: Path):
-    spec = importlib.util.spec_from_file_location(f"mmw_board_{name}", path)
+def _load(name: str, directory: Path = SCRIPTS):
+    spec = importlib.util.spec_from_file_location(f"mmw_board_{name}", directory / f"{name}.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -33,7 +24,7 @@ def _load_path(name: str, path: Path):
 
 events = _load("events")
 tree = _load("tree")
-ghlist = _load_path("ghlist", DISPATCH_SCRIPTS / "ghlist.py")
+ghlist = _load("ghlist", DISPATCH_SCRIPTS)
 
 
 GitHubReadFailed = ghlist.ListReadError
@@ -52,13 +43,6 @@ def plan_read(last_tree_at: dt.datetime | None, tickets: list[dict], now: dt.dat
     stale = last_tree_at is None or (now - last_tree_at).total_seconds() >= 600
     numbers = [ticket["n"] for ticket in tickets if not ticket["fold"]["landed"]]
     return {"tree": stale, "comments": numbers}
-
-
-def _run_gh(args: list[str]) -> tuple[int, str, str]:
-    env = {key: value for key, value in os.environ.items()
-           if key not in ("CLICOLOR_FORCE", "CLICOLOR")}
-    run = subprocess.run(["gh", *args], capture_output=True, text=True, env=env)
-    return run.returncode, run.stdout, run.stderr
 
 
 def _labels(raw: dict) -> list[str]:
@@ -100,9 +84,13 @@ def _structural_keys(comments: list[dict]) -> set[tuple[int | str, str]]:
     }
 
 
+def _comments_address(number: int) -> str:
+    return f"repos/{{owner}}/{{repo}}/issues/{number}/comments?per_page=100"
+
+
 class BoardStore:
     def __init__(self, gh=None, clock=utc_now):
-        self.gh = gh or _run_gh
+        self.gh = gh or ghlist.run_gh
         self.clock = clock
         self.map_trees: list[dict] = []
         self.comments: dict[int, list[dict]] = {}
@@ -244,8 +232,7 @@ class BoardStore:
                 structural = False
                 for number in plan["comments"]:
                     old_structural = _structural_keys(comments.get(number, []))
-                    endpoint = f"repos/{{owner}}/{{repo}}/issues/{number}/comments?per_page=100"
-                    result = comment_reader.read(endpoint)
+                    result = comment_reader.read(_comments_address(number))
                     comments[number] = result
                     structural = structural or bool(_structural_keys(result) - old_structural)
 
@@ -255,8 +242,7 @@ class BoardStore:
                 new_numbers = [node["number"] for node in self._ticket_nodes(map_trees)
                                if node["number"] not in comments]
                 for number in new_numbers:
-                    endpoint = f"repos/{{owner}}/{{repo}}/issues/{number}/comments?per_page=100"
-                    result = comment_reader.read(endpoint)
+                    result = comment_reader.read(_comments_address(number))
                     comments[number] = result
 
                 snapshot = {"tasks": self._shape(map_trees, comments), "read_at": iso(now)}

@@ -38,7 +38,7 @@ mkdir -p "$TMP/bin"
 
 cat > "$TMP/bin/gh" <<'FAKE'
 #!/usr/bin/env python3
-import json, os, re, sys
+import hashlib, json, os, re, sys
 from pathlib import Path
 
 args = sys.argv[1:]
@@ -65,7 +65,7 @@ path = board / f"{number}.json"
 rows = json.loads(path.read_text()) if path.is_file() else []
 rows = [c for c in rows if not since or c["updated_at"] >= since]
 if conditional:
-    etag = '"' + str(hash(json.dumps(rows, sort_keys=True))) + '"'
+    etag = '"' + hashlib.sha1(json.dumps(rows, sort_keys=True).encode()).hexdigest() + '"'
     supplied = next((args[i + 1].split(":", 1)[1].strip()
                      for i, value in enumerate(args[:-1])
                      if value == "-H" and args[i + 1].lower().startswith("if-none-match:")), None)
@@ -76,9 +76,6 @@ if conditional:
     print(f"HTTP/2 200 OK\nETag: {etag}\n")
     print(json.dumps(rows))
     sys.exit(0)
-# `--paginate --slurp` answers with one list per page: two pages here, to prove they are joined.
-half = len(rows) // 2
-print(json.dumps([rows[:half], rows[half:]]))
 FAKE
 
 cat > "$TMP/bin/paseo" <<'FAKE'
