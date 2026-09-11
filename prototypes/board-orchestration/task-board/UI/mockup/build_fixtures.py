@@ -10,8 +10,10 @@ process would hand the page. The result is written between the `FIXTURES:BEGIN` 
 `FIXTURES:END` markers of `task-board-mockup.html` beside this file and of
 `../work/data/fixtures.js`. The tickets obey the pipeline they depict: a ticket is
 dispatched in the same `advance` that lands its last blocker, every result goes through
-the closing steps of `implement`, and a ticket is handed back only for a `failed` or
-`stuck` criterion; `check-fixtures.js` checks that after the build.
+the closing steps of `implement`, a ticket is handed back only for a `failed` or
+`stuck` criterion, and a passed ticket fails to land (`ticket.bounced`) only after another
+ticket of its spec landed while it was being worked; `check-fixtures.js` checks that after
+the build.
 
 The data is an example, not the owner's tickets. Times are local wall-clock times of the
 night of 2026-09-10; the board read the tracker at 07:39 on 09-11.
@@ -86,9 +88,12 @@ def session_id(n: int, kind: str, runner: str) -> str:
 class Ticket:
     """One example ticket: its events in the order the pipeline writes them."""
 
-    def __init__(self, n: int, title: str, spec: int, blocked=(), closeout=None, slug="work"):
+    def __init__(self, n: int, title: str, spec: int, blocked=(), closeout=None, slug="work", into="main"):
         self.n, self.title, self.spec = n, title, spec
         self.blocked, self.closeout, self.slug = list(blocked), closeout, slug
+        # The base branch on GitHub this ticket merges into (#337 §2): `worker.started`,
+        # `ticket.passed` and `ticket.landed` carry it as `into`.
+        self.into = into
         self.bodies: list[tuple[str, str]] = []  # (at, body)
         self.runner = "herdr"
         self.acs = 4
@@ -100,14 +105,15 @@ class Ticket:
 
     # ── the pipeline's steps, each written the way its script writes it ──
     # First lines and fields follow dispatch.sh (`*.started`, `ticket.landed`,
-    # `child.closed`) and verify-ticket.py (claim, runs, queue, review, decisions, verdict,
-    # closeout, `child.opened`); only titles, reasons and evidence are example prose.
+    # `ticket.bounced`, `child.closed`) and verify-ticket.py (claim, runs, queue, review,
+    # decisions, verdict, closeout, `child.opened`); only titles, reasons and evidence are
+    # example prose.
     def _started(self, kind, hm, host, model, effort, runner, grade):
         sid = session_id(self.n, kind, runner)
         self.emit(hm, f"{kind}.started", f"{kind} started on {runner}: session {sid}, {host} {model} ({effort})",
                   session=sid, runner=runner, machine=MACHINE, host=host, model=model, effort=effort,
                   grade=grade, worktree=f"{WORKTREES}{self.n}-{self.slug}", branch=f"issue-{self.n}",
-                  base=sha(self.n, "base"))
+                  base=sha(self.n, "base"), into=self.into if kind == "worker" else None)
         return sid
 
     def start(self, hm, host, model, effort, runner="herdr"):
@@ -176,20 +182,31 @@ class Ticket:
             self.emit(verdict, "verifier.passed" if ok else "verifier.failed", f"VERDICT {head} by {model} — {says}",
                       commit=head, model=model, says=says, ran=True, failed=None if ok else [handoff_ac])
 
-    def _closeout(self, hm, event, first, handoff_ac=None):
+    def _closeout(self, hm, event, first, handoff_ac=None, **extra):
         _, abandons, counts = self._criteria(handoff_ac)
         self.emit(hm, event, first, commit=sha(self.n, "head"), branch=f"issue-{self.n}",
-                  counts=counts, abandoned=abandons)
+                  counts=counts, abandoned=abandons, **extra)
 
     def passed(self, hm):
-        self._closeout(hm, "ticket.passed", "ALL MET")
+        self._closeout(hm, "ticket.passed", "ALL MET", into=self.into)
 
     def returned(self, hm, ac):
         self._closeout(hm, "ticket.returned", f"HANDOFF REQUIRED: {ac} {self.abandon_kind}", handoff_ac=ac)
 
     def landed(self, hm):
-        self.emit(hm, "ticket.landed", f"Landed issue-{self.n} into main",
-                  branch=f"issue-{self.n}", into="main", commit=sha(self.n, "merge"))
+        self.emit(hm, "ticket.landed", f"Landed issue-{self.n} into {self.into}",
+                  branch=f"issue-{self.n}", into=self.into, commit=sha(self.n, "head"),
+                  merge=sha(self.n, "merge"))
+
+    def bounced(self, hm, tried, files=None, commands=None):
+        """`advance` could not land the passed commit (#337 §7–8): the merge onto `tried`, the
+        base branch's newest commit on GitHub, conflicted in `files`, or it merged and the
+        repository's `checks` went red (`commands`, the shape a `repo-checks` run writes)."""
+        reason = "conflict" if files else "checks"
+        what = (f"{len(files)} files conflict" if files
+                else f"{len(commands)} of the repository's checks failed")
+        self.emit(hm, "ticket.bounced", f"Did not land issue-{self.n} into {self.into}: {what}",
+                  reason=reason, commit=tried, into=self.into, files=files, commands=commands)
 
     def child(self, hm, n, kind, title, resolution=None, at=None, became=None):
         """A child opened by the worker; `resolution` is routed by main on the closing pass."""
@@ -255,8 +272,9 @@ def morning():
         Ticket(127, "一次 GraphQL 读四层", 123, [124]).done("21:42", "23:04"),
         Ticket(126, "status.py 改读折叠", 123, [125]).done("23:34", "01:26", "codex", "gpt-5.5", "high"),
     ]
-    # spec #131: tonight
-    t132 = Ticket(132, "中继进程骨架", 131, slug="relay-skeleton")
+    # spec #131: tonight, on its own base branch
+    R = "wake-relay"
+    t132 = Ticket(132, "中继进程骨架", 131, slug="relay-skeleton", into=R)
     t132.start("04:30", "claude", "opus 5", "high")
     t132.child("05:05", 148, "deferred", "status 表头少一列 runner", "fixed", at="06:36")
     t132.checked("05:18", slot=1)
@@ -268,18 +286,32 @@ def morning():
     t132.passed("06:20")
     t132.landed("06:36")
 
-    t133 = Ticket(133, "折叠接入中继", 131, [132], slug="fold-relay")
+    t133 = Ticket(133, "折叠接入中继", 131, [132], slug="fold-relay", into=R)
     t133.start("06:38", "grok", "grok 4.6", "xhigh")
     t133.child("06:51", 150, "contract", "spec 没写队列为空时中继读什么")
     t133.child("07:10", 152, "deferred", "status.py 的表头还是旧词")
     t133.child("07:31", 151, "decision", "唤醒要不要跨过已暂停的 spec")
 
-    t134 = Ticket(134, "唤醒队列持久化", 131, [132])
+    t134 = Ticket(134, "唤醒队列持久化", 131, [132], into=R)
     t134.start("06:38", "codex", "gpt-5.5", "high")
     t134.checked("07:18", slot=2)
     t134.review("07:22")
 
-    t138 = Ticket(138, "离线时唤醒去向", 131, [132]).handing_back("stuck", "离线投递要一个真的 main 会话来收，夜里起不来")
+    # #142 and #139 start together; #142 lands first, and #139, verified on the code it
+    # started from, no longer merges onto the base branch #142 moved (#337 §8).
+    t142 = Ticket(142, "唤醒日志落盘", 131, [132], into=R).done("06:38", "07:12", "codex", "gpt 5.6 sol", "medium")
+    t139 = Ticket(139, "槽位交还后叫醒", 131, [132], into=R)
+    t139.start("06:38", "claude", "opus 5", "high")
+    t139.checked("07:00", slot=2)
+    t139.review("07:02", "07:15")
+    t139.decided("07:17")
+    t139.verify("07:18", rerun="07:24", verdict="07:26")
+    t139.checked("07:27", run="repo-checks")
+    t139.passed("07:28")
+    t139.bounced("07:29", sha(R, "after-142"),
+                 files=["mmw-v2/skills/dispatch/scripts/relay.py", "mmw-v2/tests/relay/test_relay.py"])
+
+    t138 = Ticket(138, "离线时唤醒去向", 131, [132], into=R).handing_back("stuck", "离线投递要一个真的 main 会话来收，夜里起不来")
     t138.start("06:38", "grok", "grok 4.6", "high")
     t138.checked("06:58", slot=1, handoff_ac="AC3")
     t138.review("07:00", "07:14")
@@ -287,19 +319,19 @@ def morning():
     t138.verify("07:18", rerun="07:22", verdict="07:24", handoff_ac="AC3")
     t138.returned("07:26", "AC3")
 
-    t141 = Ticket(141, "中继日志轮转", 131, [132], closeout={"from": 132, "child": 147})
+    t141 = Ticket(141, "中继日志轮转", 131, [132], closeout={"from": 132, "child": 147}, into=R)
     t141.start("06:38", "cursor", "composer 2.5", "—", runner="orca")
     t141.checked("07:02", slot=1)
     t141.review("07:04", "07:24")
     t141.decided("07:28")
     t141.verify("07:32")
 
-    t136 = Ticket(136, "重试与退避", 131, [132])
+    t136 = Ticket(136, "重试与退避", 131, [132], into=R)
     t136.start("06:38", "claude", "opus 5", "high")
     t136.queued("07:32")
 
-    s131 = [t132, t133, t134, t138, t141, t136,
-            Ticket(135, "投递回执", 131, [133, 134]), Ticket(137, "中继自检命令", 131, [135])]
+    s131 = [t132, t133, t134, t142, t139, t138, t141, t136,
+            Ticket(135, "投递回执", 131, [133, 134], into=R), Ticket(137, "中继自检命令", 131, [135], into=R)]
     s140 = [Ticket(143, "心跳读取", 140), Ticket(144, "回合守卫", 140, [143]),
             Ticket(145, "worker.lost 写入", 140, [144]), Ticket(146, "判活扫描", 140, [143])]
     s80 = [Ticket(81, "scenes.json 导出", 80).done("19:10", "20:31"),

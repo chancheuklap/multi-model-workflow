@@ -5,7 +5,7 @@ CSS = ["tokens.css", "board.css"]
 EXTRA_CSS = "          .sc-host { height: 100%; }"   # an imported component's host fills the slot the page gives it
 PROPS = {
   "scene": {"editor": "enum", "default": "morning", "tsType": "string",
-            "options": ["morning", "twenty-tickets", "bad-data", "empty", "ticket-returned", "ticket-closeout",
+            "options": ["morning", "twenty-tickets", "bad-data", "empty", "ticket-returned", "ticket-bounced", "ticket-closeout",
                         "ticket-waiting", "ticket-review", "ticket-queued", "ticket-landed", "ticket-fault",
                         "ticket-missing-blocker", "spec", "map", "decision", "nothing-selected"]},
 }

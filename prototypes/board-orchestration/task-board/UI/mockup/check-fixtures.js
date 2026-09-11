@@ -22,7 +22,7 @@ const ORDER = [
   ['worker.started'], ['ticket.checked', run('self')], ['reviewer.started'], ['reviewer.reported'],
   ['worker.decided'], ['verifier.started'], ['ticket.checked', run('reverify')],
   ['verifier.passed'], ['verifier.failed'], ['ticket.checked', run('repo-checks')],
-  ['ticket.passed'], ['ticket.returned'], ['ticket.landed'],
+  ['ticket.passed'], ['ticket.returned'], ['ticket.bounced'], ['ticket.landed'],
 ];
 const label = ([name, pred]) => name + (pred ? `(${['self', 'reverify', 'repo-checks'].find(r => pred({ run: r }))})` : '');
 
@@ -85,6 +85,7 @@ for (const key of SCENES) {
           ['ticket.passed', 'verifier.passed', has('ticket.passed'), has('verifier.passed')],
           ['ticket.passed', 'ticket.checked(repo-checks)', has('ticket.passed'), has('ticket.checked', run('repo-checks'))],
           ['ticket.landed', 'ticket.passed', has('ticket.landed'), has('ticket.passed')],
+          ['ticket.bounced', 'ticket.passed', has('ticket.bounced'), has('ticket.passed')],
         ];
         for (const [a, b, hasA, hasB] of needs) if (hasA && !hasB) flag(key, n, 'closing-steps', `${a} without ${b}`);
         if (all(t, 'worker.decided').length > 1) flag(key, n, 'closing-steps', 'more than one DECISIONS comment');
@@ -96,6 +97,13 @@ for (const key of SCENES) {
         if (back && !(back.payload.abandoned || []).some(a => ['failed', 'stuck'].includes(a.kind)))
           flag(key, n, 'handoff', 'handed back without a failed or stuck criterion');
         if (f.landed && f.sessions.some(s => s.live)) flag(key, n, 'hold', 'landed but a session still holds it');
+        // #337 §8: the worker merges the base branch in before its review, so a passed ticket
+        // fails to land only when another ticket of its spec landed after it started; and the
+        // bounce ends every hold on it (events.py ENDS_EVERY_HOLD).
+        const bounce = first(t, 'ticket.bounced');
+        if (bounce && S && !spec.tickets.some(o => o !== t && landedAt(o.n) != null && landedAt(o.n) > min(S.at) && landedAt(o.n) <= min(bounce.at)))
+          flag(key, n, 'bounce', 'did not land although no other ticket of its spec landed while it was worked');
+        if (f.bounced && f.sessions.some(s => s.live && s.started_at <= bounce.at)) flag(key, n, 'hold', 'did not land but a session from before still holds it');
         // Children: opened while the worker works; a finding only after the review reported;
         // routed by main only on the closing pass, after the ticket passed or came back.
         const closedOut = at(t, 'ticket.passed') ?? at(t, 'ticket.returned');
