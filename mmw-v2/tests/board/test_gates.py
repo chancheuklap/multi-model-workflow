@@ -10,7 +10,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from test_settings_api import Board, config, ROOT
+from test_settings_api import config, ROOT, running_board
 from test_server import RunningHandler
 
 sys.path.insert(0, str(ROOT / "mmw-v2" / "board"))
@@ -33,7 +33,7 @@ class GatesTest(unittest.TestCase):
         self.home = Path(self.tmp.name); (self.home / "models.json").write_text(json.dumps(config()) + "\n")
 
     def test_listens_on_loopback_only(self):
-        with Board(self.home) as board:
+        with running_board(self.home) as board:
             parsed = urllib.parse.urlparse(board.origin)
             host = parsed.hostname
             self.assertEqual(host, "127.0.0.1")
@@ -49,19 +49,19 @@ class GatesTest(unittest.TestCase):
 
     def test_foreign_origin_is_403(self):
         before = (self.home / "models.json").read_bytes()
-        with Board(self.home) as board:
+        with running_board(self.home) as board:
             status, _ = board.request("PUT", "/api/settings", config(), {"Origin": "https://evil.example", "X-MMW-Token": board.token})
         self.assertEqual(status, 403); self.assertEqual((self.home / "models.json").read_bytes(), before)
 
     def test_missing_or_wrong_token_is_403(self):
         before = (self.home / "models.json").read_bytes()
-        with Board(self.home) as board:
+        with running_board(self.home) as board:
             statuses = [board.request("PUT", "/api/settings", config(), {"Origin": board.origin})[0],
                         board.request("PUT", "/api/settings", config(), {"Origin": board.origin, "X-MMW-Token": "wrong"})[0]]
         self.assertEqual(statuses, [403, 403]); self.assertEqual((self.home / "models.json").read_bytes(), before)
 
     def test_foreign_host_is_403(self):
-        with Board(self.home) as board:
+        with running_board(self.home) as board:
             status, _ = board.request("PUT", "/api/settings", config(), {"Host": "evil.example", "Origin": board.origin, "X-MMW-Token": board.token})
         self.assertEqual(status, 403)
 
@@ -92,7 +92,7 @@ class GatesTest(unittest.TestCase):
         self.assertTrue(settings_marker.exists())
 
     def test_gets_need_no_token(self):
-        with Board(self.home) as board:
+        with running_board(self.home) as board:
             a = board.request("GET", "/api/board")[0]
             b = board.request("GET", "/api/settings")[0]
         self.assertNotEqual(a, 403); self.assertNotEqual(b, 403)

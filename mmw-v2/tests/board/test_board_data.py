@@ -4,12 +4,9 @@ import datetime as dt
 import json
 import os
 import re
-import subprocess
 import sys
-import tempfile
 import time
 import unittest
-import urllib.request
 from pathlib import Path
 
 
@@ -18,6 +15,7 @@ SERVER = ROOT / "mmw-v2" / "board" / "server.py"
 FAKE_BIN = ROOT / "mmw-v2" / "tests" / "board" / "github"
 sys.path.insert(0, str(SERVER.parent))
 import board_data  # noqa: E402
+from board_process import RunningBoard  # noqa: E402
 
 
 def event(name: str, ticket: int, **fields) -> dict:
@@ -94,56 +92,17 @@ def scenario():
     }
 
 
-class RunningBoard:
-    def __init__(self, data):
-        self.data = data
+def running_board(data):
+    path = str(FAKE_BIN) + os.pathsep + os.environ.get("PATH", "")
+    return RunningBoard(environment={"PATH": path}, fixture=data)
 
-    def __enter__(self):
-        self.temp = tempfile.TemporaryDirectory()
-        self.directory = Path(self.temp.name)
-        self.write(self.data)
-        env = os.environ.copy()
-        env["MMW_BOARD_FAKE_DIR"] = str(self.directory)
-        env["PATH"] = str(FAKE_BIN) + os.pathsep + env.get("PATH", "")
-        self.process = subprocess.Popen(
-            ["python3", "-u", str(SERVER), "--port", "0"], cwd=ROOT, env=env,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-        )
-        self.origin = self.process.stdout.readline().strip()
-        if not self.origin.startswith("http://127.0.0.1:"):
-            raise RuntimeError(self.process.stderr.read())
-        with urllib.request.urlopen(self.origin + "/", timeout=5) as response:
-            page = response.read().decode()
-        self.token = re.search(r'name="mmw-page-token" content="([^"]+)"', page).group(1)
-        return self
 
-    def __exit__(self, *args):
-        self.process.terminate()
-        self.process.wait(timeout=5)
-        self.process.stdout.close()
-        self.process.stderr.close()
-        self.temp.cleanup()
-
-    def write(self, data):
-        self.data = data
-        self.directory.mkdir(parents=True, exist_ok=True)
-        (self.directory / "scenario.json").write_text(json.dumps(data))
-
-    def request(self, method="GET", path="/api/board"):
-        headers = {} if method == "GET" else {
-            "Origin": self.origin,
-            "X-MMW-Token": self.token,
-        }
-        request = urllib.request.Request(self.origin + path, headers=headers, method=method)
-        with urllib.request.urlopen(request, timeout=5) as response:
-            return json.loads(response.read())
-
-    def calls(self):
-        path = self.directory / "calls.jsonl"
-        return [json.loads(line) for line in path.read_text().splitlines()]
-
-    def state(self):
-        return json.loads((self.directory / "state.json").read_text())
+def read_board(board, method="GET", path="/api/board"):
+    headers = {} if method == "GET" else board.write_headers
+    status, raw = board.request(method, path, headers=headers)
+    if status != 200:
+        raise AssertionError(f"board request returned HTTP {status}: {raw}")
+    return json.loads(raw)
 
 
 def tickets(answer):
@@ -224,22 +183,32 @@ class BoardDataTest(unittest.TestCase):
 
     def test_board_answers_the_tree_with_each_fold(self):
         data = scenario()
-        with RunningBoard(data) as board:
-            answer = board.request()
-        task = answer["tasks"][0]
+        with running_board(data) as board:
+            result = read_board(board)
+        task = result["tasks"][0]
         self.assertEqual((task["n"], task["decisions"][0]["kind"]), (1, "research"))
         self.assertEqual([spec["n"] for spec in task["specs"]], [10, 20])
         self.assertEqual([item["n"] for item in task["specs"][0]["tickets"]], [12])
-        got = tickets(answer)[12]
+        got = tickets(result)[12]
         expected = board_data.events.fold(data["comments"]["12"][0]["comments"], 12)
         self.assertEqual(got["fold"], expected)
         self.assertEqual(got["events"][0]["event"], "ticket.claimed")
         self.assertEqual(got["children"][0]["number"], 50)
         self.assertEqual(got["closeout"], {"from": 11, "child": 40})
 
+    def test_board_names_its_repository(self):
+        data = scenario()
+        data["repo"] = "owner/board-repo"
+        with running_board(data) as board:
+            first = read_board(board)
+            second = read_board(board)
+            calls = board.fixture_calls()
+        self.assertEqual((first["repo"], second["repo"]), ("owner/board-repo", "owner/board-repo"))
+        self.assertEqual(sum(call[:2] == ["repo", "view"] for call in calls), 1)
+
     def test_blockers_carry_hold_and_where(self):
-        with RunningBoard(scenario()) as board:
-            got = tickets(board.request())[12]
+        with running_board(scenario()) as board:
+            got = tickets(read_board(board))[12]
         blockers = {item["number"]: item for item in got["blockers"]}
         self.assertEqual(blockers[11]["blocker_hold"], "")
         self.assertEqual((blockers[11]["spec"], blockers[11]["readable"]), (20, True))
@@ -248,10 +217,10 @@ class BoardDataTest(unittest.TestCase):
         self.assertEqual(blockers[99]["blocker_hold"], "the tracker did not answer for it")
 
     def test_later_reads_send_etags_for_unlanded_only(self):
-        with RunningBoard(scenario()) as board:
-            first = board.request()
-            second = board.request()
-            calls = board.calls()
+        with running_board(scenario()) as board:
+            first = read_board(board)
+            second = read_board(board)
+            calls = board.fixture_calls()
         self.assertEqual(first["tasks"], second["tasks"])
         comment_calls = [call for call in calls if call[:2] == ["api", "-i"]]
         self.assertEqual(sum("/issues/11/comments" in call[2] for call in comment_calls), 1)
@@ -261,24 +230,24 @@ class BoardDataTest(unittest.TestCase):
 
     def test_structure_event_rereads_the_tree(self):
         data = scenario()
-        with RunningBoard(data) as board:
-            board.request()
-            board.request()
-            self.assertEqual(board.state()["tree_reads"], 1)
+        with running_board(data) as board:
+            read_board(board)
+            read_board(board)
+            self.assertEqual(board.fixture_state()["tree_reads"], 1)
             data["comment_active"]["12"] = 1
-            board.write(data)
-            board.request()
-            self.assertEqual(board.state()["tree_reads"], 2)
-            board.request()
-            self.assertEqual(board.state()["tree_reads"], 2)
+            board.write_fixture(data)
+            read_board(board)
+            self.assertEqual(board.fixture_state()["tree_reads"], 2)
+            read_board(board)
+            self.assertEqual(board.fixture_state()["tree_reads"], 2)
             data["comment_active"]["12"] = 2
-            board.write(data)
-            board.request()
-            self.assertEqual(board.state()["tree_reads"], 2)
+            board.write_fixture(data)
+            read_board(board)
+            self.assertEqual(board.fixture_state()["tree_reads"], 2)
             data["comment_active"]["12"] = 3
-            board.write(data)
-            board.request()
-            reads = board.state()["tree_reads"]
+            board.write_fixture(data)
+            read_board(board)
+            reads = board.fixture_state()["tree_reads"]
         self.assertEqual(reads, 3)
 
     def test_tree_is_reread_after_ten_minutes(self):
@@ -291,24 +260,24 @@ class BoardDataTest(unittest.TestCase):
 
     def test_failed_read_keeps_the_last_data(self):
         data = scenario()
-        with RunningBoard(data) as board:
-            first = board.request()
+        with running_board(data) as board:
+            first = read_board(board)
             time.sleep(1.05)
             data["comment_active"]["12"] = 1
             data["fail_comments"] = [12]
-            board.write(data)
-            failed = board.request()
+            board.write_fixture(data)
+            failed = read_board(board)
         self.assertEqual(failed["tasks"], first["tasks"])
         self.assertEqual(failed["read_at"], first["read_at"])
         self.assertIn("read_failed", failed)
 
     def test_refresh_reads_now(self):
-        with RunningBoard(scenario()) as board:
-            first = board.request()
-            before = len(board.calls())
+        with running_board(scenario()) as board:
+            first = read_board(board)
+            before = len(board.fixture_calls())
             time.sleep(1.05)
-            refreshed = board.request("POST", "/api/board/refresh")
-            refresh_calls = board.calls()[before:]
+            refreshed = read_board(board, "POST", "/api/board/refresh")
+            refresh_calls = board.fixture_calls()[before:]
         self.assertGreater(refreshed["read_at"], first["read_at"])
         self.assertEqual(refreshed.keys(), first.keys())
         self.assertEqual(refreshed["tasks"], first["tasks"])
@@ -318,12 +287,14 @@ class BoardDataTest(unittest.TestCase):
         self.assertIn("If-None-Match: \"twelve-a\"", twelve[0])
 
     def test_never_writes_github(self):
-        with RunningBoard(scenario()) as board:
-            answers = [board.request(), board.request("POST", "/api/board/refresh"),
-                       board.request()]
-            calls = board.calls()
+        with running_board(scenario()) as board:
+            answers = [read_board(board), read_board(board, "POST", "/api/board/refresh"),
+                       read_board(board)]
+            calls = board.fixture_calls()
         self.assertTrue(all("read_failed" not in answer for answer in answers))
         for call in calls:
+            if call[:2] == ["repo", "view"]:
+                continue
             if call[:2] == ["issue", "list"]:
                 self.assertEqual(call[call.index("--state") + 1], "open")
                 continue

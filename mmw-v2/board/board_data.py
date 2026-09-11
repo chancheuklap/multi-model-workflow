@@ -96,7 +96,8 @@ class BoardStore:
         self.comments: dict[int, list[dict]] = {}
         self.comment_reader = ghlist.ConditionalListReader(self.gh)
         self.last_tree_at: dt.datetime | None = None
-        self.snapshot = {"tasks": [], "read_at": None}
+        self.repo: str | None = None
+        self.snapshot = {"tasks": [], "repo": None, "read_at": None}
         self.lock = threading.Lock()
 
     def _json(self, args: list[str]):
@@ -107,6 +108,13 @@ class BoardStore:
             return json.loads(out)
         except json.JSONDecodeError as exc:
             raise GitHubReadFailed("GitHub returned unreadable JSON") from exc
+
+    def _read_repo(self) -> str:
+        code, out, err = self.gh(["repo", "view", "--json", "nameWithOwner",
+                                  "--jq", ".nameWithOwner"])
+        if code != 0 or not out.strip():
+            raise GitHubReadFailed(_last_error(err, out, "GitHub did not name the repository"))
+        return out.strip()
 
     def _read_trees(self) -> list[dict]:
         maps = self._json(["issue", "list", "--state", "open", "--label", "mmw:map",
@@ -214,6 +222,7 @@ class BoardStore:
             comments = copy.deepcopy(self.comments)
             comment_reader = self.comment_reader.clone()
             last_tree_at = self.last_tree_at
+            repo = self.repo
             first_read = last_tree_at is None
             try:
                 cached_tasks = self._shape(map_trees, comments) if map_trees else []
@@ -221,6 +230,7 @@ class BoardStore:
                         for ticket in spec["tickets"]]
                 plan = plan_read(last_tree_at, flat, now)
                 if plan["tree"]:
+                    repo = repo or self._read_repo()
                     map_trees = self._read_trees()
                     last_tree_at = now
                     current = self._shape(map_trees, comments)
@@ -245,7 +255,8 @@ class BoardStore:
                     result = comment_reader.read(_comments_address(number))
                     comments[number] = result
 
-                snapshot = {"tasks": self._shape(map_trees, comments), "read_at": iso(now)}
+                snapshot = {"tasks": self._shape(map_trees, comments), "repo": repo,
+                            "read_at": iso(now)}
             except GitHubReadFailed as exc:
                 failed = copy.deepcopy(self.snapshot)
                 failed["read_failed"] = {"at": iso(now), "message": str(exc)}
@@ -255,6 +266,7 @@ class BoardStore:
             self.comments = comments
             self.comment_reader = comment_reader
             self.last_tree_at = last_tree_at
+            self.repo = repo
             self.snapshot = snapshot
             return copy.deepcopy(snapshot)
 
