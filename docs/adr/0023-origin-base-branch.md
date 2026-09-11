@@ -24,6 +24,7 @@ amends: [0012]
 
 ## Consequences
 
+- `open` 现在会在开夜前 fast-forward 推送本机独有或本机领先的 project branch 与 base branch；这推翻了原来「只拒绝本机领先、让用户自己推」的做法。任何一条分支与 origin 分叉时仍先拒绝，绝不 force-push。
 - 本机与云端 worker 从同一个 origin 基线开始，base branch 的集成结果也只在 origin 上成立；本机同名分支只是缓存。
 - 每条 base branch 多一个常驻 detached worktree 和一把锁，换来 ignored dependencies 可复用、caller checkout 不动、同机合并串行。
 - `ticket.landed` 只在 push 成功后写，并记录 passed commit 与 base branch；有落地 merge 时也记录它与第一个父提交，fast-forward 已在 origin 时不虚构 merge。

@@ -8,13 +8,13 @@ Between the steps below you end your turn. The relay you start in step 1 wakes y
 
 ## 1. The user says the night starts
 
-The current checkout names the base branch that `check` validates and `open` records. It must already exist on `origin`, and the local branch must not be ahead of `origin/<base branch>`. Ticket branches are cut from the fetched `origin/<base branch>`; their worktrees always go under the main checkout's `.worktrees/`, and a name `issue-<n>` there belongs to the pipeline. Landing and reverification later use the recorded branch on origin, not this checkout or its local branch.
+The current checkout names the base branch. `check` and `open` infer its project branch from the base branch's creation reflog, then `branch.<base branch>.vscode-merge-base`, then the closest eligible branch on origin; an earlier `spec.opened.project` is reused. They refuse a default base branch, a project branch equal to the default branch, an ambiguous history result, or a branch that has diverged from origin. `check` reports the project branch, its source and the commit counts `open` would push without pushing anything. `open` fast-forward pushes the project branch and base branch when either is local-only or locally ahead, then records both as `spec.opened.project` and `spec.opened.into`. Ticket branches are cut from the fetched `origin/<base branch>`; their worktrees always go under the main checkout's `.worktrees/`, and a name `issue-<n>` there belongs to the pipeline. Landing and reverification later use the recorded branch on origin, not this checkout or its local branch.
 
 ```bash
 <dispatch> check <spec>
 ```
 
-**Exit 0:** the machine is ready — `origin` exists, `git fetch origin` and a dry-run push work, the current branch exists at `origin/<base branch>` and is not ahead of it; `install.sh --check` passed; tonight's runner has an adapter; every row in `MMW_HOME/models.json` resolves, each listed host is `available`, and each queued ticket has at most one valid worker-grade label. Then open the night. **Exit 2:** stderr gives one line per failure. A local-ahead line includes the exact count and `git push origin <base branch>`. Fix what the lines name — run `install.sh`, change an invalid row as [editing-models.md](editing-models.md) says, relabel the ticket, wait for the host, or push the named branch — or tell the user when only they can, then run `check` again. Do not open the night on 2: a row that does not resolve refuses every start of its agent.
+**Exit 0:** the machine is ready — `origin` exists, the project branch was inferred, neither branch has diverged, and their dry-run fast-forward pushes work; `install.sh --check` passed; tonight's runner has an adapter; every row in `MMW_HOME/models.json` resolves, each listed host is `available`, and each queued ticket has at most one valid worker-grade label. Then open the night. **Exit 2:** stderr gives one line per failure. Fix what the lines name — run `install.sh`, set the printed `branch.<base branch>.vscode-merge-base` configuration, reconcile a named divergence without force-pushing, change an invalid row as [editing-models.md](editing-models.md) says, relabel the ticket, or wait for the host — or tell the user when only they can, then run `check` again. Do not open the night on 2: a row that does not resolve refuses every start of its agent.
 
 Then, from this session — the one the night's wakes must reach:
 
@@ -22,7 +22,7 @@ Then, from this session — the one the night's wakes must reach:
 <dispatch> open <spec>
 ```
 
-It fetches origin and refuses before opening anything unless the current base branch exists remotely and is not locally ahead. It then opens a watch on the spec's tickets with this session as its main agent and writes `spec.opened` with that runner, session and `into=<base branch>`. **Exit 0:** stdout reads `opened #<spec>: wake-ups go to <runner> session <session>`; stderr says whether the watch was opened now or was already open, and whether the relay was started or found running. Opening the same night again makes this session its main agent and touches no other watch. **Exit 2:** nothing was opened and every existing watch is unchanged; stderr names the remote, a session no runner can identify, an overlapping `open-ticket` or `adopt` watch, the board, the relay or the event write. Run from a session a runner can send to, land or wait for the overlapping ticket, or fix the named failure, then run `open` again. `advance` refuses a night that is not open.
+It fetches origin, infers and fast-forward pushes the project branch and base branch, then opens a watch on the spec's tickets with this session as its main agent and writes `spec.opened` with that runner, session, `into=<base branch>` and `project=<project branch>`. **Exit 0:** stdout reads `opened #<spec>: wake-ups go to <runner> session <session>`; stderr says whether the watch was opened now or was already open, and whether the relay was started or found running. Opening the same night again keeps the recorded project branch, makes this session its main agent and touches no other watch. **Exit 2:** stderr names the inference, divergence, remote, a session no runner can identify, an overlapping `open-ticket` or `adopt` watch, the board, the relay or the event write. Inference and divergence refusals happen before either push; a later relay or event failure can leave a successful fast-forward push but no open night, and running `open` again completes it. Run from a session a runner can send to, land or wait for the overlapping ticket, or fix the named failure, then run `open` again. `advance` refuses a night that is not open.
 
 A watch whose main agent's session has been shown stopped by its runner for an hour is closed by the relay itself: a night whose main agent was closed without `summary` or `suspend` is not read for ever, and the next `open` reads everything again.
 
@@ -191,7 +191,19 @@ It then closes the spec's watch: the night is over, and nothing is left to wake 
 
 Exit 0: that comment is posted and no relay watches the spec. Exit 1: the comment is posted and the spec's watch is closed, and the relay, which had no other watch, did not end — stderr names its pid; end that process. Exit 2: the comment could not be posted, and stderr says so; the relay still runs, so run `summary` again once the tracker answers.
 
-Tell the user the night finished, and point them at that comment.
+Tell the user the night finished, point them at that comment, and say that after they accept the result the main agent will run `finish` to close the night.
+
+## 6. Close the night after acceptance
+
+Only after the user has accepted the result, the main agent runs:
+
+```bash
+<dispatch> finish <spec>
+```
+
+`finish` requires `spec.closed`, the recorded project branch, no other open night with the same base branch, and no open ticket under any spec that used that base branch. It merges `origin/<base branch>` into `origin/<project branch>` in the detached merge worktree, runs the repository checks with `MMW_BASE_REF=origin/<project branch>`, and fast-forward pushes the checked result. A conflict or red check pushes and deletes nothing. After the push it writes `spec.merged`, then removes the contained base branch from origin and locally, its clean worktrees, the merge worktree and its lock. Dirty worktrees stay and stderr gives the exact cleanup command. Running `finish` again after `spec.merged` only completes cleanup; it does not create another merge commit.
+
+Exit 0 means the merge is recorded and every safe cleanup was attempted. Exit 1 means the merge conflicted or repository checks failed; nothing was pushed or deleted. Exit 2 means a precondition, fetch, push or event write failed. Preconditions fail before any change; a push rejection deletes nothing, while an event-write failure can leave the checked merge on origin and the next `finish` records it before cleanup. Do not merge the project branch into the repository default branch here; that remains the user's release decision.
 
 ## Suspending the night
 

@@ -1,6 +1,6 @@
 ---
 name: dispatch
-description: Put another agent to work on a ticket, and move a night's batch of tickets forward. Use to start a worker, reviewer or verifier, to replace a stuck worker, to retract a start whose session is gone, to resume a worker, to check the machine before a night, to open a night or one ticket, to advance a spec, to suspend a night, to read what woke you about an agent you started and acknowledge that wake, to route a finding on the closing pass, to reverify closed tickets, to post the night summary, or to change which host, model or thinking level an agent in this pipeline runs on.
+description: Put another agent to work on a ticket, and move a night's batch of tickets forward. Use to start a worker, reviewer or verifier, to replace a stuck worker, to retract a start whose session is gone, to resume a worker, to check the machine before a night, to open a night or one ticket, to advance a spec, to suspend a night, to read what woke you about an agent you started and acknowledge that wake, to route a finding on the closing pass, to reverify closed tickets, to post the night summary, to finish a night after user acceptance by merging its base branch into its project branch and cleaning up, or to change which host, model or thinking level an agent in this pipeline runs on.
 ---
 
 # Dispatch
@@ -61,6 +61,6 @@ A session that dies writes nothing, so the relay has nothing to send. Two things
 | Door | You are | Read |
 | --- | --- | --- |
 | 1 | the worker inside a ticket, starting its reviewer or its verifier | [references/inside-a-ticket.md](references/inside-a-ticket.md) |
-| 2 | the main agent running a night on a spec, including routing its findings with `route` on the closing pass | [references/night.md](references/night.md) |
+| 2 | the main agent running a night on a spec, including routing its findings with `route` on the closing pass and running `finish` after user acceptance | [references/night.md](references/night.md) |
 | 3 | starting one worker on one ticket, outside any night | [references/one-ticket.md](references/one-ticket.md) |
 | 4 | changing which host, model or `effort` an agent runs on, or which runner the night runs on | [references/editing-models.md](references/editing-models.md) |

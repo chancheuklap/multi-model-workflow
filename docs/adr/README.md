@@ -41,8 +41,9 @@
 | [0020](0020-wakes-come-from-the-board.md) | 唤醒从 board 上发出：中继读票上的结果事件，经 runner 的送消息动词送到等它的那个会话，任何脚本都不再报信 | 2026-09-10 | 0010、0013、0017、0018 | 0021、0022 |
 | [0021](0021-liveness-in-three-layers.md) | 判活分三层，都不是 agent：回合守卫在主 agent 的回合结束时重新武装看门进程，看门进程看中继并问沉默票的 runner，`worker.lost` 只由它写 | 2026-09-10 | 0017、0020 | 0022 |
 | [0022](0022-one-relay-many-watches.md) | 唤醒按 watch 分：一个仓库一个中继，同时看多个 watch，每个 watch 叫醒开它的那个主 agent；等槽位的 worker 也由中继叫醒 | 2026-09-11 | 0020、0021 | 无 |
-| [0023](0023-origin-base-branch.md) | base branch 以 GitHub 上那份为准：本机与云端走同一条合并路径，先合、再查、再 fast-forward 推送，合不进去交给 triage | 2026-09-11 | 0012 | 无 |
+| [0023](0023-origin-base-branch.md) | base branch 以 GitHub 上那份为准：本机与云端走同一条合并路径，先合、再查、再 fast-forward 推送，合不进去交给 triage | 2026-09-11 | 0012 | 0025 |
 | [0024](0024-models-json-and-runner-extension-boundary.md) | 会话配置只存进 `models.json`，runner 的附加操作也只经适配器 | 2026-09-11 | 0016、0018 | 无 |
+| [0025](0025-project-branch-and-finish.md) | 开夜记住并推送 project branch；用户验收后 finish 把 base branch 合回并清理 | 2026-09-11 | 0023 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`，两份 ADR 里的 A3（设计系统 token 越界）与 B1（设计系统规则违反）由 `mmw-v2/skills/drive-target/scripts/story-parity.py` 部分承接。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 
