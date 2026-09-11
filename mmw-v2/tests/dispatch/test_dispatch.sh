@@ -5025,7 +5025,7 @@ run_installer() {
   local installer home
   installer="$(dirname "$(dirname "$HERE")")/install.sh"
   home="$TMP/install-home"
-  rm -rf "$home"
+  [ "${MMW_TEST_REUSE_INSTALL_HOME:-0}" = 1 ] || rm -rf "$home"
   mkdir -p "$home"
   if [ -n "${MMW_TEST_ROOT_COPY:-}" ]; then
     mkdir -p "$home/.mmw"
@@ -5074,6 +5074,19 @@ scenario_installorcashape() {
   run_installer --check
   grep -q "^缺    orca externalWorktreeVisibility 应为 show 实为 hide（/repo1）：" "$TMP/err" \
     || fail "hide must be 缺: $(cat "$TMP/err")"
+}
+
+scenario_installkeepsnewestbackup() {
+  reset_log
+  seed_orca_projects 1 .worktrees show
+  run_installer
+  local config="$TMP/install-home/.paseo/config.json"
+  [ -f "$config" ] || fail "the first install did not create $config"
+  printf '%s\n' '{"version":999}' > "$config"
+  : > "$config.bak-old"
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
+  [ "$(find "$TMP/install-home/.paseo" -maxdepth 1 -name 'config.json.bak-*' | wc -l | tr -d ' ')" = 1 ] \
+    || fail "install kept more than its newest backup: $(find "$TMP/install-home/.paseo" -maxdepth 1 -name 'config.json.bak-*' -print)"
 }
 
 # A copy of this mmw-v2 that --check reads through installed-root, so a test can take
@@ -7185,6 +7198,123 @@ scenario_bouncedkeepsbranch() {
   assert_remote_branch 61
 }
 
+scenario_bouncestopssessions() {
+  setup_bounced_conflict
+  seed_agent 61 worker
+  seed_agent 61 reviewer
+  seed_agent 61 verifier
+  local code kind
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "bounced landing failed: $(cat "$TMP/err")"
+  for kind in worker reviewer verifier; do
+    [ "$(count_of "paseo :: archive :: --force :: agt_61_$kind")" = 1 ] \
+      || fail "$kind was not stopped exactly once: $(cat "$MMW_TEST_LOG")"
+  done
+  assert_wt 61
+}
+
+scenario_returnedstopssessions() {
+  reset_log
+  fresh_repo
+  cat > "$TMP/tickets.json" <<JSON
+[
+  {"number": 61, "state": "OPEN", "labels": ["needs-triage"], "assignees": [],
+   "comments": [$(ev ticket.returned 61 "HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 0 met of 1")]}
+]
+JSON
+  seed_workspace 61
+  seed_agent 61 worker
+  seed_agent 61 reviewer
+  seed_agent 61 verifier
+  post_ev 61 ticket.returned --ticket 61 --spec 76 \
+    --line "HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 0 met of 1"
+  local code kind
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "advance of a returned ticket failed: $(cat "$TMP/err")"
+  for kind in worker reviewer verifier; do
+    [ "$(count_of "paseo :: archive :: --force :: agt_61_$kind")" = 1 ] \
+      || fail "$kind was not stopped exactly once: $(cat "$MMW_TEST_LOG")"
+  done
+  assert_wt 61
+}
+
+scenario_archiveremovesinstance() {
+  rm -f "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py"
+  reset_log
+  fresh_repo
+  make_branch issue-64 four.txt "from 64"
+  write_landable
+  seed_workspace 64
+  local data code
+  data="$(python3 "$LEASE_PY" env "$(wt 64)" | sed -n 's/^MMW_DATA_DIR=//p')"
+  [ -d "$data" ] || fail "the fixture did not create its instance data directory"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 64)"
+  [ "$code" = 0 ] || fail "land failed: $(cat "$TMP/err")"
+  [ ! -e "$data" ] || fail "archiving left instance data at $data"
+}
+
+scenario_bouncekeepsinstance() {
+  setup_bounced_conflict
+  local data code
+  data="$(python3 "$LEASE_PY" env "$(wt 61)" | sed -n 's/^MMW_DATA_DIR=//p')"
+  [ -d "$data" ] || fail "the fixture did not create its instance data directory"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "bounce failed: $(cat "$TMP/err")"
+  [ -d "$data" ] || fail "bouncing removed instance data at $data"
+}
+
+orphan_merge_fixture() {
+  reset_log
+  fresh_repo
+  git -C "$TMP/repo" checkout -q -b gone main
+  commit_file "$TMP/repo" gone.txt gone gone
+  git -C "$TMP/repo" push -q -u origin gone
+  git -C "$TMP/repo" checkout -q main
+  mkdir -p "$TMP/repo/.worktrees"
+  git -C "$TMP/repo" worktree add -q --detach "$TMP/repo/.worktrees/merge-gone" origin/gone
+  mkdir -p "$STATE_DIR"
+  : > "$STATE_DIR/merge-gone.lock"
+  git -C "$TMP/repo" push -q origin --delete gone
+  printf '%s\n' '[]' > "$TMP/tickets.json"
+}
+
+scenario_sweepsorphanmerge() {
+  orphan_merge_fixture
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "advance failed: $(cat "$TMP/err")"
+  [ ! -e "$TMP/repo/.worktrees/merge-gone" ] || fail "orphan merge worktree remains"
+  [ ! -e "$STATE_DIR/merge-gone.lock" ] || fail "orphan merge lock remains"
+}
+
+scenario_sweepkeepslockedmerge() {
+  orphan_merge_fixture
+  local ready="$TMP/merge-lock-ready" holder code
+  python3 - "$SKILL/scripts/statedir.py" "$STATE_DIR/merge-gone.lock" "$ready" <<'PY' &
+import importlib.util, sys, time
+from pathlib import Path
+spec = importlib.util.spec_from_file_location("statedir", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+with module.locked(Path(sys.argv[2]), wait=0, purpose="test held merge lock"):
+    Path(sys.argv[3]).touch()
+    time.sleep(30)
+PY
+  holder=$!
+  while [ ! -e "$ready" ]; do sleep 0.05; done
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  kill "$holder" 2>/dev/null || true
+  wait "$holder" 2>/dev/null || true
+  [ "$code" = 0 ] || fail "advance failed: $(cat "$TMP/err")"
+  [ -d "$TMP/repo/.worktrees/merge-gone" ] || fail "locked merge worktree was removed"
+}
+
 scenario_landedkeepsunmerged() {
   reset_log
   fresh_repo
@@ -7580,7 +7710,7 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL openprojecthead finishmerges finishcleans finishrefusesunclosed finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
@@ -7601,6 +7731,7 @@ banner_for() {
     installkeepsmodelsjson) echo INSTALL-KEEPS-MODELS-JSON-OK ;;
     installcheckmodelsjson) echo INSTALL-CHECK-MODELS-JSON-OK ;;
     installmodelsjsonhome) echo INSTALL-MODELS-JSON-HOME-OK ;;
+    installkeepsnewestbackup) echo INSTALL-KEEPS-NEWEST-BACKUP-OK ;;
     orcaworktreelink) echo ORCA-WORKTREE-LINK-OK ;;
     orcaworktreelinkfails) echo ORCA-WORKTREE-LINK-FAILS-OK ;;
     worktreelinknoop) echo WORKTREE-LINK-NOOP-OK ;;
@@ -7632,6 +7763,12 @@ banner_for() {
     landeddeletesbranch) echo LANDED-DELETES-BRANCH-OK ;;
     landdeletesbranch) echo LAND-DELETES-BRANCH-OK ;;
     bouncedkeepsbranch) echo BOUNCED-KEEPS-BRANCH-OK ;;
+    bouncestopssessions) echo BOUNCE-STOPS-SESSIONS-OK ;;
+    returnedstopssessions) echo RETURNED-STOPS-SESSIONS-OK ;;
+    archiveremovesinstance) echo ARCHIVE-REMOVES-INSTANCE-OK ;;
+    bouncekeepsinstance) echo BOUNCE-KEEPS-INSTANCE-OK ;;
+    sweepsorphanmerge) echo SWEEPS-ORPHAN-MERGE-OK ;;
+    sweepkeepslockedmerge) echo SWEEP-KEEPS-LOCKED-MERGE-OK ;;
     landedkeepsunmerged) echo LANDED-KEEPS-UNMERGED-OK ;;
     landedbranchraced) echo LANDED-BRANCH-RACED-OK ;;
     landedbranchgone) echo LANDED-BRANCH-GONE-OK ;;

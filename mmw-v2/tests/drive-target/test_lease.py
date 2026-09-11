@@ -134,6 +134,19 @@ class Releasing(Base):
         self.assertLessEqual(len(reason), self.lease.refusal.__globals__["REASON_LIMIT"])
         self.assertEqual(len(self.lease.claimed()), 1, "the slot was taken anyway")
 
+    def test_a_run_outside_a_ticket_gives_the_slot_back(self):
+        tree = self.tree("main-checkout")
+        code = self.lease.main(["run", str(tree), "--", sys.executable, "-c", "pass"])
+        self.assertEqual(code, 0)
+        self.assertEqual(self.lease.claimed(), [])
+
+    def test_a_ticket_run_keeps_the_slot_for_its_later_runs(self):
+        tree = self.trees / ".worktrees" / "issue-640"
+        tree.mkdir(parents=True)
+        code = self.lease.main(["run", str(tree), "--", sys.executable, "-c", "pass"])
+        self.assertEqual(code, 0)
+        self.assertEqual([r["worktree"] for r in self.lease.claimed()], [str(tree.resolve())])
+
 
 class StoppingBeforeReleasing(Base):
     """`release --stop` takes the product down with the `stop` its repository declares,
@@ -237,15 +250,16 @@ class Sweeping(Base):
         self.assertEqual(self.lease.sweep(), [0])
         self.assertEqual(self.lease.claimed(), [])
 
-    def test_a_live_process_keeps_its_slot_even_with_no_worktree(self):
+    def test_claim_keeps_a_missing_worktree_slot_that_still_listens(self):
         tree = self.tree("issue-640")
         record = self.lease.claim(tree)
         self.bind(record["port_base"])
         tree.rmdir()
-        self.assertEqual(self.lease.sweep(), [])
-        self.assertEqual(len(self.lease.claimed()), 1)
+        claimed = self.lease.claim(self.tree("issue-new"))
+        self.assertNotEqual(claimed["slot"], record["slot"])
+        self.assertEqual(len(self.lease.claimed()), 2)
 
-    def test_claiming_sweeps_before_it_gives_up(self):
+    def test_claim_reclaims_the_slot_of_a_missing_worktree(self):
         trees = [self.tree(f"issue-{n}") for n in range(4)]
         for tree in trees:
             self.lease.claim(tree)

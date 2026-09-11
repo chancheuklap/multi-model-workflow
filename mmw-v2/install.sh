@@ -461,14 +461,22 @@ def load(path):
     return value if isinstance(value, dict) else {}
 
 
+def backup_latest(path):
+    stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    backup = path.with_name(path.name + ".bak-" + stamp)
+    shutil.copy2(path, backup)
+    for old in path.parent.glob(path.name + ".bak-*"):
+        if old != backup and (old.is_file() or old.is_symlink()):
+            old.unlink()
+
+
 def save(path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
     text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
     if path.is_file():
         old = path.read_text(encoding="utf-8")
         if old != text:
-            stamp = datetime.now().strftime("%Y%m%d%H%M%S")
-            shutil.copy2(path, path.with_name(path.name + ".bak-" + stamp))
+            backup_latest(path)
     scratch = path.with_name(path.name + ".mmw-tmp")
     scratch.write_text(text, encoding="utf-8")
     scratch.replace(path)
@@ -855,8 +863,7 @@ def codex_trust_write(wanted):
             sys.stderr.write(f"没写  {path}：改完读不回来（{exc}），原文件没动\n")
             return False
         if path.is_file():
-            stamp = datetime.now().strftime("%Y%m%d%H%M%S")
-            shutil.copy2(path, path.with_name(path.name + ".bak-" + stamp))
+            backup_latest(path)
         scratch = path.with_name(path.name + ".mmw-tmp")
         scratch.write_text(text, encoding="utf-8")
         scratch.replace(path)
@@ -1070,14 +1077,22 @@ def load(path):
     return value if isinstance(value, dict) else {}
 
 
+def backup_latest(path):
+    stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    backup = path.with_name(path.name + ".bak-" + stamp)
+    shutil.copy2(path, backup)
+    for old in path.parent.glob(path.name + ".bak-*"):
+        if old != backup and (old.is_file() or old.is_symlink()):
+            old.unlink()
+
+
 def save(path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
     text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
     if path.is_file():
         old = path.read_text(encoding="utf-8")
         if old != text:
-            stamp = datetime.now().strftime("%Y%m%d%H%M%S")
-            shutil.copy2(path, path.with_name(path.name + ".bak-" + stamp))
+            backup_latest(path)
     scratch = path.with_name(path.name + ".mmw-tmp")
     scratch.write_text(text, encoding="utf-8")
     scratch.replace(path)
@@ -1593,6 +1608,15 @@ def load(p):
     return value if isinstance(value, dict) else {}
 
 
+def backup_latest(p):
+    stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    backup = p.with_name(p.name + ".bak-" + stamp)
+    shutil.copy2(p, backup)
+    for old in p.parent.glob(p.name + ".bak-*"):
+        if old != backup and (old.is_file() or old.is_symlink()):
+            old.unlink()
+
+
 data = load(path)
 have = (data.get("mcpServers") or {}).get(NAME)
 
@@ -1606,8 +1630,7 @@ if have != want:
     data.setdefault("mcpServers", {})[NAME] = want
     text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
     if path.is_file():
-        stamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        shutil.copy2(path, path.with_name(path.name + ".bak-" + stamp))
+        backup_latest(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     scratch = path.with_name(path.name + ".mmw-tmp")
     scratch.write_text(text, encoding="utf-8")

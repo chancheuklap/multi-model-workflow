@@ -24,6 +24,7 @@ back when it ends.
     lease.py run [<worktree>] -- CMD…     run CMD with the claim in its environment
     lease.py release <worktree> [--stop]  give the slot back, with --stop after running the
                                           product's `stop`; 0 given back, 3 there was none
+    lease.py remove-instance <worktree>   remove its data directory after its worktree is gone
     lease.py list                         every live claim
     lease.py count <directory>            how many claims sit under a directory
 
@@ -76,6 +77,8 @@ import fcntl
 import hashlib
 import json
 import os
+import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -126,6 +129,29 @@ def instance_name(worktree: Path) -> str:
     """
     digest = hashlib.sha256(str(worktree).encode("utf-8")).hexdigest()[:6]
     return f"{worktree.name}-{digest}"
+
+
+def is_ticket_worktree(worktree: Path) -> bool:
+    """Whether this is the persistent worktree of one ticket run."""
+    return worktree.parent.name == ".worktrees" and re.fullmatch(
+        r"issue-[0-9]+", worktree.name) is not None
+
+
+def instance_data_dir(worktree: Path) -> Path:
+    """The data directory deterministically assigned to `worktree`."""
+    return INSTANCES / instance_name(worktree)
+
+
+def remove_instance(worktree: Path) -> dict:
+    """Remove a gone worktree's data directory; never remove one still in use."""
+    target = worktree.resolve()
+    data_dir = instance_data_dir(target)
+    if target.exists():
+        return {"removed": False, "worktree": str(target), "data_dir": str(data_dir),
+                "reason": "worktree-exists"}
+    shutil.rmtree(data_dir, ignore_errors=True)
+    return {"removed": True, "worktree": str(target), "data_dir": str(data_dir),
+            "reason": None}
 
 
 # ----------------------------------------------------------------- the registry
@@ -546,9 +572,18 @@ def main(argv: list[str] | None = None) -> int:
         if not command:
             sys.stderr.write("usage: lease.py run [<worktree>] -- <command>…\n")
             return 2
+        tree = worktree_of(head[0] if head else None)
         env = dict(os.environ)
-        env.update(leased_environment(worktree_of(head[0] if head else None)))
-        return subprocess.run(command, env=env).returncode
+        env.update(leased_environment(tree))
+        code = subprocess.run(command, env=env).returncode
+        if not is_ticket_worktree(tree):
+            try:
+                release(tree, stop=True)
+            except StopUnreadable as exc:
+                sys.stderr.write(f"{exc}; the product's stop is unknown, so the slot "
+                                 "was not given back\n")
+                return 2
+        return code
 
     if verb == "count":
         if not rest:
@@ -556,6 +591,14 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print(count_under(Path(rest[0])))
         return 0
+
+    if verb == "remove-instance":
+        if not rest:
+            sys.stderr.write("usage: lease.py remove-instance <worktree>\n")
+            return 2
+        result = remove_instance(worktree_of(rest[0]))
+        print(json.dumps(result, ensure_ascii=False))
+        return 0 if result["removed"] else 3
 
     stop = verb == "release" and "--stop" in rest
     if stop:
