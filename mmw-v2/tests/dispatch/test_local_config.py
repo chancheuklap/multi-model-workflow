@@ -58,14 +58,18 @@ class LocalConfigTest(unittest.TestCase):
     def test_write_raises_the_version_by_one(self):
         old = self.seed()
         proposed = json.loads(json.dumps(old))
-        proposed["rows"]["reviewer"]["effort"] = "high"
+        proposed["rows"]["reviewer"]["model"] = "sonnet 5"
         scan = self.scan()
         cursor = scan["hosts"]["cursor"]["offered"]
         self.assertEqual(cursor, [{"model": "grok 4.6", "efforts": ["high", "xhigh"]}])
         written = models.write_local_config(proposed, old["version"], scan)
         self.assertEqual(written["version"], 2)
         self.assertEqual(set(written), {"version", "runner", "rows"})
-        self.assertEqual(set(written["rows"]), set(models.ALLOWED_AGENTS))
+        self.assertEqual(set(written["rows"]), {
+            "junior-worker", "senior-worker", "reviewer", "verifier", "advisor"})
+        on_disk = json.loads(models.models_json_path().read_text(encoding="utf-8"))
+        self.assertEqual(on_disk, written)
+        self.assertEqual(on_disk["rows"]["reviewer"]["model"], "sonnet 5")
 
     def test_refuses_a_host_the_runner_cannot_start(self):
         old = self.seed()
@@ -108,8 +112,10 @@ class LocalConfigTest(unittest.TestCase):
         self.seed()
         before = models.models_json_path().read_bytes()
         with models.config_lock(purpose="test holder"):
-            with self.assertRaisesRegex(models.ConfigLockHeld, "pid .*test holder"):
+            holder = json.loads(models.models_lock_path().read_text(encoding="utf-8"))
+            with self.assertRaisesRegex(models.ConfigLockHeld, "pid .*test holder.*retry") as caught:
                 models.write_local_config(base_config(), 1, self.scan())
+            self.assertEqual(caught.exception.holder["pid"], holder["pid"])
         self.assertEqual(models.models_json_path().read_bytes(), before)
 
     def test_lock_sits_beside_models_json(self):
@@ -125,10 +131,15 @@ class LocalConfigTest(unittest.TestCase):
         elsewhere = self.home / "elsewhere"
         os.environ["MMW_LIVE_MODELS"] = str(elsewhere / "models.md")
         os.environ["MMW_V2_HOME"] = str(elsewhere)
+        elsewhere.mkdir()
+        other = elsewhere / "models.json"
+        other.write_text(json.dumps(base_config(version=40)) + "\n", encoding="utf-8")
+        other_before = other.read_bytes()
         self.seed()
-        models.write_local_config(base_config(), 1, self.scan())
+        written = models.write_local_config(base_config(), 1, self.scan())
+        self.assertEqual(written["version"], 2)
         self.assertTrue((self.home / "models.json").is_file())
-        self.assertFalse((elsewhere / "models.json").exists())
+        self.assertEqual(other.read_bytes(), other_before)
 
     def test_cli_sets_one_row(self):
         self.seed()
@@ -154,9 +165,28 @@ class LocalConfigTest(unittest.TestCase):
             self.assertEqual(models.main(["config", "show"]), 0)
         self.assertEqual(json.loads(out.getvalue())["runner"], "herdr")
 
+    def test_auto_and_paseo_are_valid_saved_runners(self):
+        for runner in ("auto", "paseo"):
+            self.seed()
+            proposed = base_config(runner=runner)
+            written = models.write_local_config(proposed, 1, self.scan(runner))
+            self.assertEqual(written["runner"], runner)
+
+    def test_every_scanned_cell_resolves_for_start(self):
+        for runner in ("orca", "paseo"):
+            scan = self.scan(runner)
+            os.environ["MMW_CATALOG_MODE"] = scan["source"]
+            self.assertEqual(set(scan["hosts"]), set(models.CLI_HOSTS))
+            for host, result in scan["hosts"].items():
+                for offered in result["offered"]:
+                    for effort in offered["efforts"]:
+                        resolved = models.resolve_row(host, offered["model"], effort)
+                        self.assertEqual((resolved[0], resolved[2]), (host, effort))
+
     def test_scan_tells_missing_from_silent(self):
         os.environ["MMW_HOST_CATALOG"] = str(STATE_CATALOG)
-        scan = models.scan_host_catalogs("paseo" if False else "auto")
+        scan = models.scan_host_catalogs("auto")
+        self.assertEqual(set(scan["hosts"]), set(models.CLI_HOSTS))
         self.assertEqual(scan["hosts"]["cursor"]["state"], "missing")
         self.assertEqual(scan["hosts"]["cursor"]["label"], "本机没装")
         self.assertEqual(scan["hosts"]["grok"]["state"], "silent")

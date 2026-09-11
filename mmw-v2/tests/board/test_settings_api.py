@@ -4,15 +4,21 @@ import json
 import os
 import re
 import subprocess
+import sys
 import tempfile
+import threading
 import unittest
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[3]
 SERVER = ROOT / "mmw-v2" / "board" / "server.py"
 CATALOG = ROOT / "mmw-v2" / "tests" / "dispatch" / "catalogs" / "all.json"
+sys.path.insert(0, str(SERVER.parent))
+import settings_api  # noqa: E402
 
 
 def config(version=1):
@@ -68,6 +74,10 @@ class SettingsApiTest(unittest.TestCase):
         self.assertEqual(len(data["rows"]), 5); self.assertIn("sources", data)
         self.assertTrue(data["scan"]["scanned_at"]); self.assertEqual(data["scan"]["source"], "cli")
         self.assertEqual(data["scan"]["hosts"]["grok"]["state"], "ok")
+        self.assertEqual(set(data["scan"]["hosts"]), {"cursor", "grok", "claude", "codex", "pi"})
+        self.assertEqual(data["runners"], ["herdr", "orca", "paseo", "auto"])
+        self.assertEqual(data["sources"], {
+            "hosts": "hosts.json", "runners": "scripts/runners/*.sh"})
 
     def test_put_saves_with_the_read_version(self):
         proposed = config(); proposed["rows"]["reviewer"]["model"] = "sonnet 5"
@@ -80,8 +90,12 @@ class SettingsApiTest(unittest.TestCase):
         with Board(self.home) as board:
             elsewhere = config(2); elsewhere["runner"] = "herdr"
             (self.home / "models.json").write_text(json.dumps(elsewhere) + "\n")
+            stamp = 1_700_000_000
+            os.utime(self.home / "models.json", (stamp, stamp))
             status, raw = board.write("PUT", "/api/settings", config())
-        self.assertEqual(status, 409); self.assertIn("modified_at", json.loads(raw))
+        self.assertEqual(status, 409)
+        self.assertEqual(json.loads(raw)["modified_at"],
+                         datetime.fromtimestamp(stamp, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
         self.assertEqual(json.loads((self.home / "models.json").read_text())["runner"], "herdr")
 
     def test_put_invalid_cell_is_422(self):
@@ -98,7 +112,10 @@ class SettingsApiTest(unittest.TestCase):
         self.assertEqual(holder.stdout.readline().strip(), "ready")
         try:
             with Board(self.home) as board: status, raw = board.write("PUT", "/api/settings", config())
-            self.assertEqual(status, 423); self.assertIn("holder", json.loads(raw))
+            self.assertEqual(status, 423)
+            payload = json.loads(raw)
+            self.assertEqual(payload["holder"]["pid"], holder.pid)
+            self.assertIn("retry", payload["error"])
         finally:
             holder.terminate(); holder.wait(timeout=5); holder.stdout.close()
 
@@ -109,6 +126,28 @@ class SettingsApiTest(unittest.TestCase):
         data = json.loads(raw); self.assertEqual(status, 200); self.assertEqual(data["source"], "paseo")
         self.assertEqual({v["state"] for v in data["hosts"].values()}, {"down"})
         self.assertEqual({v["label"] for v in data["hosts"].values()}, {"Paseo 没开"})
+
+    def test_get_observes_scanning_while_rescan_is_running(self):
+        started = threading.Event()
+        release = threading.Event()
+
+        def slow_scan(source):
+            started.set()
+            release.wait(timeout=3)
+            return {"source": source, "scanned_at": "done", "scanning": False, "hosts": {}}
+
+        settings_api._scan = {"source": "cli", "scanned_at": "old", "scanning": False,
+                              "hosts": {"cursor": {"state": "ok"}}}
+        with mock.patch.object(settings_api.models, "scan_host_catalogs", side_effect=slow_scan):
+            worker = threading.Thread(target=settings_api._replace_scan, args=("paseo",))
+            worker.start()
+            self.assertTrue(started.wait(timeout=2))
+            current = settings_api._cached_scan("orca")
+            self.assertTrue(current["scanning"])
+            self.assertEqual(current["source"], "paseo")
+            release.set()
+            worker.join(timeout=2)
+        self.assertFalse(worker.is_alive())
 
 
 if __name__ == "__main__": unittest.main()

@@ -1,10 +1,12 @@
-"""读本机活表，问今晚的目录，再按 hosts.json 展开成启动参数。
+"""读本机活表与 models.json，扫描目录，再按 hosts.json 展开成启动参数。
 
 活表是 ~/.mmw/models.md（MMW_LIVE_MODELS / MMW_V2_HOME 可改）。hosts.json 跟着
 技能走，记下每个 host 怎么起——它自己的命令行（`cli` 块，凡是在终端里跑 host CLI
 的 runner 都读它）与它在 Paseo 上的 settings（`paseo` 块）——以及第一次 install
-拷进活表的默认行。`python3 models.py offerings` 扫五个 CLI host 的目录，写在活表下半；
-`start` 不读那一块。dispatch.sh 的 start 与 install.sh 共用本文件。
+拷进活表的默认行。`models.py config` 读写 MMW_HOME 下带版本的 models.json，写时沿用
+statedir 的锁与整体替换；board 与命令行共用这一写入函数和并行扫描。`python3 models.py
+offerings` 扫五个 CLI host 的目录，写在活表下半；`start` 不读那一块。dispatch.sh 的
+start 与 install.sh 共用本文件。
 """
 
 from __future__ import annotations
@@ -15,7 +17,6 @@ import os
 import re
 import subprocess
 import sys
-import importlib.util
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from collections.abc import Mapping, Sequence
@@ -23,7 +24,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator, NamedTuple
 
-SKILL_DIR = Path(__file__).resolve().parent.parent
+SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+import statedir  # noqa: E402
+
+SKILL_DIR = SCRIPTS_DIR.parent
 HOSTS_JSON = SKILL_DIR / "hosts.json"
 RUNNERS_DIR = SKILL_DIR / "scripts" / "runners"
 ALLOWED_AGENTS = (
@@ -36,7 +42,6 @@ DEFAULT_RUNNER = "orca"
 # sets MMW_CATALOG_MODE from tonight's runner; tests set it or MMW_HOST_CATALOG.
 DEFAULT_CATALOG_MODE = "cli"
 CLI_HOSTS = ("cursor", "grok", "claude", "codex", "pi")
-CONFIG_RUNNERS = ("herdr", "orca", "paseo", "auto")
 OFFERINGS_BEGIN = "<!-- mmw-offerings -->"
 OFFERINGS_END = "<!-- /mmw-offerings -->"
 _CURSOR_EFFORT_IN_ID = re.compile(
@@ -68,24 +73,6 @@ def load_hosts() -> dict:
     return data
 
 
-def _load_statedir():
-    """Load the sibling module when this file was imported directly by a test."""
-    name = "mmw_dispatch_statedir"
-    if name in sys.modules:
-        return sys.modules[name]
-    source = Path(__file__).resolve().with_name("statedir.py")
-    spec = importlib.util.spec_from_file_location(name, source)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"cannot load {source}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-statedir = _load_statedir()
-
-
 class ConfigMissing(ValueError):
     pass
 
@@ -107,7 +94,7 @@ class InvalidConfig(ValueError):
 class ConfigLockHeld(ValueError):
     def __init__(self, lock_error):
         self.holder = lock_error.record
-        super().__init__(str(lock_error))
+        super().__init__(f"{lock_error}; retry after that process releases the lock")
 
 
 def models_json_path() -> Path:
@@ -297,6 +284,19 @@ def has_adapter(name: str) -> bool:
     return (RUNNERS_DIR / f"{name}.sh").is_file()
 
 
+def config_runners() -> tuple[str, ...]:
+    """Runners a saved configuration may name, derived from installed adapters."""
+    return tuple(sorted(path.stem for path in RUNNERS_DIR.glob("*.sh"))) + ("auto",)
+
+
+def catalog_source(runner: str) -> str:
+    return "paseo" if runner == "paseo" else "cli"
+
+
+def _can_start(runner: str, host_spec: dict) -> bool:
+    return catalog_source(runner) in host_spec
+
+
 def runtime_from_environ(environ: Mapping[str, str]) -> tuple[str, ...]:
     """Runners visible in this process: TERM_PROGRAM, then HERDR_ENV, then TMUX.
 
@@ -395,7 +395,10 @@ def match_offering(
         # rendered from ("claude-fable-5-1"). Compare against that form too, or
         # the table tells you to write a name nothing can resolve.
         slug = _norm(_slug_everyday(str(offering.get("id") or "")))
-        if needle in (oid, name, slug) or needle in oid or needle in name:
+        cursor_name = _norm(_cursor_family_name(
+            str(offering.get("name") or ""), str(offering.get("id") or ""),
+            fast=_is_fast_id(str(offering.get("id") or "")))) if effort_in_model else ""
+        if needle in (oid, name, slug, cursor_name) or needle in oid or needle in name:
             hits.append(offering)
     # exact id, name or everyday name wins over substring
     exact = [
@@ -404,6 +407,9 @@ def match_offering(
             _norm(str(o.get("id") or "")),
             _norm(str(o.get("name") or "")),
             _norm(_slug_everyday(str(o.get("id") or ""))),
+            _norm(_cursor_family_name(
+                str(o.get("name") or ""), str(o.get("id") or ""),
+                fast=_is_fast_id(str(o.get("id") or "")))) if effort_in_model else "",
         )
     ]
     if len(exact) == 1:
@@ -527,7 +533,7 @@ def _claude_settings_models() -> list[str]:
     seen = set()
     out = []
     for name in names:
-        if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]*", name) and name not in seen:
+        if name not in seen:
             seen.add(name)
             out.append(name)
     return out
@@ -647,10 +653,9 @@ def fetch_cli_offerings(host: str) -> list[dict]:
 
 def scan_cli_catalogs() -> dict[str, list[dict]]:
     """Tonight's five CLI catalogs. Tests set MMW_HOST_CATALOG to skip the binaries."""
-    catalog = os.environ.get("MMW_HOST_CATALOG")
-    if catalog:
-        data = json.loads(Path(catalog).read_text(encoding="utf-8"))
-        return {host: list(data.get(host) or []) for host in CLI_HOSTS}
+    fixture = _fixture_catalog()
+    if fixture is not None:
+        return {host: _fixture_offerings(fixture, "cli", host) for host in CLI_HOSTS}
     return {host: fetch_cli_offerings(host) for host in CLI_HOSTS}
 
 
@@ -784,34 +789,69 @@ def _fixture_entry(data: dict, source: str, host: str):
     if isinstance(section, dict):
         if source == "paseo" and section.get("state") == "down":
             return {"state": "down"}
-        hosts = section.get("hosts") if isinstance(section.get("hosts"), dict) else section
-        if host in hosts:
-            return hosts[host]
+        if host in section:
+            return section[host]
     if host in data:
         return data[host]
     return None
 
 
-def _offered_rows(host: str, offerings: list[dict]) -> list[dict]:
+def _fixture_offerings(data: dict, source: str, host: str) -> list[dict]:
+    entry = _fixture_entry(data, source, host)
+    if isinstance(entry, list):
+        return list(entry)
+    if isinstance(entry, dict):
+        return list(entry.get("offerings") or [])
+    return []
+
+
+def _resolve_from_offerings(host: str, model: str, effort: str,
+                            offerings: list[dict], source: str) -> tuple[str, str, str]:
+    hosts = load_hosts()["hosts"]
+    if host not in hosts:
+        raise ValueError(f"unknown host {host}")
+    spec = hosts[host]
+    offering = match_offering(
+        model, offerings, effort=effort,
+        effort_in_model=bool(spec.get("effort_in_model")) and source != "paseo")
+    resolved = str(offering.get("id") or "")
+    allowed = spec.get("efforts")
+    thinking_ids = offering.get("thinkingOptionIds")
+    if allowed and effort not in ("—", "-", "") and spec.get("thinking") != "boolean":
+        names = [str(x) for x in (thinking_ids or allowed)]
+        if names and effort not in names and spec.get("paseo", {}).get("thinking") != "boolean":
+            if not spec.get("effort_in_model") and effort not in [str(x) for x in allowed]:
+                raise ValueError(
+                    f"effort {effort!r} is not one of {', '.join(str(x) for x in allowed)}")
+    return host, resolved, effort
+
+
+def _offered_rows(host: str, offerings: list[dict], source: str) -> list[dict]:
     rows: list[dict] = []
     by_model: dict[str, dict] = {}
     for model, effort_text in fillable_rows(host, offerings):
         efforts = [part.strip() for part in effort_text.split(",") if part.strip()]
-        if model not in by_model:
-            by_model[model] = {"model": model, "efforts": []}
-            rows.append(by_model[model])
         for effort in efforts or ["—"]:
+            try:
+                _resolve_from_offerings(host, model, effort, offerings, source)
+            except ValueError:
+                continue
+            if model not in by_model:
+                by_model[model] = {"model": model, "efforts": []}
+                rows.append(by_model[model])
             if effort not in by_model[model]["efforts"]:
                 by_model[model]["efforts"].append(effort)
     return rows
 
 
+def _host_result(state: str, offered: list[dict] | None = None) -> dict:
+    return {"state": state, "label": _STATE_LABELS[state], "offered": offered or []}
+
+
 def _scan_one_host(host: str, runner: str, source: str, fixture: dict | None) -> dict:
     spec = load_hosts()["hosts"].get(host) or {}
-    launch_block = "paseo" if runner == "paseo" else "cli"
-    if launch_block not in spec:
-        state = "unlaunchable"
-        return {"state": state, "label": _STATE_LABELS[state], "offered": []}
+    if not _can_start(runner, spec):
+        return _host_result("unlaunchable")
 
     entry = _fixture_entry(fixture, source, host) if fixture is not None else None
     if fixture is not None:
@@ -820,7 +860,7 @@ def _scan_one_host(host: str, runner: str, source: str, fixture: dict | None) ->
             state = "ok" if offerings else "silent"
         elif isinstance(entry, dict):
             state = str(entry.get("state") or "")
-            offerings = list(entry.get("offerings") or entry.get("offered") or [])
+            offerings = _fixture_offerings(fixture, source, host)
             if not state:
                 state = "ok" if offerings else "silent"
         else:
@@ -829,7 +869,7 @@ def _scan_one_host(host: str, runner: str, source: str, fixture: dict | None) ->
         offerings = _paseo_models(host)
         state = "ok" if offerings else "silent"
     else:
-        binary = str(spec.get("binary") or host)
+        binary = HOST_BINARIES.get(host)
         if _which(binary) is None:
             state, offerings = "missing", []
         else:
@@ -837,13 +877,13 @@ def _scan_one_host(host: str, runner: str, source: str, fixture: dict | None) ->
             state = "ok" if offerings else "silent"
     if state not in _STATE_LABELS:
         raise ValueError(f"MMW_HOST_CATALOG gives {host} unknown state {state!r}")
-    return {"state": state, "label": _STATE_LABELS[state],
-            "offered": _offered_rows(host, offerings) if state == "ok" else []}
+    return _host_result(
+        state, _offered_rows(host, offerings, source) if state == "ok" else [])
 
 
 def scan_host_catalogs(runner: str, hosts: Sequence[str] = CLI_HOSTS) -> dict:
     """Scan all requested hosts concurrently from the source the runner will use."""
-    source = "paseo" if runner == "paseo" else "cli"
+    source = catalog_source(runner)
     fixture = _fixture_catalog()
     selected = [host for host in CLI_HOSTS if host in hosts]
 
@@ -855,15 +895,14 @@ def scan_host_catalogs(runner: str, hosts: Sequence[str] = CLI_HOSTS) -> dict:
         else:
             paseo_down = not bool(_run(["paseo", "provider", "ls", "--json"]))
     if paseo_down:
-        result = {host: {"state": "down", "label": _STATE_LABELS["down"], "offered": []}
-                  for host in selected}
+        result = {host: _host_result("down") for host in selected}
     else:
         with ThreadPoolExecutor(max_workers=max(1, len(selected))) as pool:
             values = pool.map(lambda host: _scan_one_host(host, runner, source, fixture), selected)
             result = dict(zip(selected, values))
     return {
         "source": source,
-        "scanned_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "scanned_at": statedir.now_iso(),
         "scanning": False,
         "hosts": result,
     }
@@ -873,13 +912,14 @@ def _validate_local_config(config: dict, scan: dict,
                            roles: Sequence[str] | None = None) -> list[dict[str, str]]:
     errors: list[dict[str, str]] = []
     runner = config.get("runner")
-    if runner not in CONFIG_RUNNERS:
-        errors.append({"cell": "runner", "reason": f"{runner!r} is not herdr, orca, paseo, or auto"})
-    else:
-        required_source = "paseo" if runner == "paseo" else "cli"
-    if runner in CONFIG_RUNNERS and scan.get("source") != required_source:
+    valid_runner = runner == "auto" or (isinstance(runner, str) and has_adapter(runner))
+    if not valid_runner:
+        errors.append({"cell": "runner", "reason":
+                       f"{runner!r} has no adapter; choose one of {', '.join(config_runners())}"})
+    required_source = catalog_source(str(runner))
+    if valid_runner and scan.get("source") != required_source:
         errors.append({"cell": "runner",
-                       "reason": f"runner {runner} requires a fresh {required_source} scan"})
+                       "reason": f"runner {runner} requires a fresh {required_source} scan; scan it and retry"})
     rows = config.get("rows")
     if not isinstance(rows, dict):
         return errors + [{"cell": "rows", "reason": "five role rows are required"}]
@@ -907,27 +947,28 @@ def _validate_local_config(config: dict, scan: dict,
         if host not in host_specs:
             errors.append({"cell": f"{role}.host", "reason": f"unknown host {host!r}"})
             continue
-        launch_block = "paseo" if runner == "paseo" else "cli"
-        if runner in CONFIG_RUNNERS and launch_block not in host_specs[host]:
+        launch_block = catalog_source(str(runner))
+        if valid_runner and not _can_start(str(runner), host_specs[host]):
             errors.append({"cell": f"{role}.host",
-                           "reason": f"runner {runner} cannot start host {host}: hosts.json has no {launch_block} block"})
+                           "reason": f"runner {runner} cannot start host {host}: hosts.json has no {launch_block} block; choose another host or runner"})
             continue
         found = catalog_hosts.get(host) if isinstance(catalog_hosts, dict) else None
         if not isinstance(found, dict) or found.get("state") != "ok":
             state = found.get("label") if isinstance(found, dict) else "was not scanned"
-            errors.append({"cell": f"{role}.host", "reason": f"host {host} is unavailable: {state}"})
+            errors.append({"cell": f"{role}.host", "reason":
+                           f"host {host} is unavailable: {state}; restore it and scan again"})
             continue
         model = row.get("model")
         offered = next((item for item in found.get("offered") or []
                         if item.get("model") == model), None)
         if offered is None:
             errors.append({"cell": f"{role}.model",
-                           "reason": f"model {model!r} is not in the current {scan.get('source')} catalog for {host}"})
+                           "reason": f"model {model!r} is not in the current {scan.get('source')} catalog for {host}; choose an offered model"})
             continue
         effort = row.get("effort")
         if effort not in (offered.get("efforts") or []):
             errors.append({"cell": f"{role}.effort",
-                           "reason": f"effort {effort!r} is not offered for {host} model {model!r}"})
+                           "reason": f"effort {effort!r} is not offered for {host} model {model!r}; choose an offered effort"})
     return errors
 
 
@@ -1009,12 +1050,10 @@ def refresh_live_offerings() -> Path:
 
 
 def fetch_offerings(host: str) -> list[dict]:
-    catalog = os.environ.get("MMW_HOST_CATALOG")
-    if catalog:
-        data = json.loads(Path(catalog).read_text(encoding="utf-8"))
-        rows = data.get(host) or []
-        return list(rows)
     mode = os.environ.get("MMW_CATALOG_MODE", DEFAULT_CATALOG_MODE)
+    fixture = _fixture_catalog()
+    if fixture is not None:
+        return _fixture_offerings(fixture, mode, host)
     if mode == "paseo":
         return _paseo_models(host)
     # One catalog source per host, shared with the block written under the live
@@ -1026,31 +1065,9 @@ def fetch_offerings(host: str) -> list[dict]:
 
 def resolve_row(host: str, model: str, effort: str) -> tuple[str, str, str]:
     """Everyday cells → (host, resolved model id, effort to pass on)."""
-    hosts = load_hosts()["hosts"]
-    if host not in hosts:
-        raise ValueError(f"unknown host {host}")
-    spec = hosts[host]
     offerings = fetch_offerings(host)
     mode = os.environ.get("MMW_CATALOG_MODE", DEFAULT_CATALOG_MODE)
-    # Cursor's own CLI burns effort into the model id; on Paseo the same host
-    # lists `grok-4.6` and thinking is on/off, so do not require a `-high` suffix.
-    effort_in_model = bool(spec.get("effort_in_model")) and mode != "paseo"
-    offering = match_offering(
-        model, offerings,
-        effort=effort,
-        effort_in_model=effort_in_model,
-    )
-    resolved = str(offering.get("id") or "")
-    allowed = spec.get("efforts")
-    thinking_ids = offering.get("thinkingOptionIds")
-    if allowed and effort not in ("—", "-", "") and spec.get("thinking") != "boolean":
-        names = [str(x) for x in (thinking_ids or allowed)]
-        if names and effort not in names and spec.get("paseo", {}).get("thinking") != "boolean":
-            if not spec.get("effort_in_model"):
-                if effort not in [str(x) for x in allowed]:
-                    raise ValueError(
-                        f"effort {effort!r} is not one of {', '.join(str(x) for x in allowed)}")
-    return host, resolved, effort
+    return _resolve_from_offerings(host, model, effort, offerings, mode)
 
 
 def bypass_argv(host: str, model: str, effort: str, name: str) -> list[str]:
@@ -1233,8 +1250,7 @@ def main(argv: list[str] | None = None) -> int:
                     proposed, current["version"], scan, validate_roles=[role])
                 print(json.dumps(written, ensure_ascii=False))
                 return 0
-        except (ConfigMissing, ConfigLockHeld, InvalidConfig, VersionConflict,
-                ValueError, OSError, json.JSONDecodeError) as exc:
+        except (ValueError, OSError) as exc:
             sys.stderr.write(f"models.py: {exc}\n")
             return 2
         sys.stderr.write(USAGE)
@@ -1248,7 +1264,7 @@ def main(argv: list[str] | None = None) -> int:
     if len(args) == 4 and args[0] == "paseo-args":
         try:
             print("\n".join(paseo_run_args(*args[1:])))
-        except (ValueError, OSError, json.JSONDecodeError) as exc:
+        except (ValueError, OSError) as exc:
             sys.stderr.write(f"models.py: {exc}\n")
             return 2
         return 0
@@ -1261,7 +1277,7 @@ def main(argv: list[str] | None = None) -> int:
                 print("\n".join(bypass_argv(host, model, effort, name)))
             else:
                 print(shlex.join(launch_line(host, model, effort, name, prompt)))
-        except (ValueError, OSError, json.JSONDecodeError) as exc:
+        except (ValueError, OSError) as exc:
             # A host with no launch block, or a hosts.json that cannot be read, is a
             # refusal: starting the host without its model and effort would run a session
             # nobody asked for, and would look like one that started fine.
