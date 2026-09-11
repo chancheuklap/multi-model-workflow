@@ -1,53 +1,87 @@
 # AGENTS.md
 
-MMW 是用户跨 host、跨 repository、跨电脑共用的工作流 toolbox：交付技能。个人使用，没有 CI，测试手工跑。
-只有 `mmw-v2/` 是活的。`archive/` 装的是 MMW 早先那一代，`deprecated/` 是 MMW v2 自己 retired 的技能与 subagent：两者都不改、不当事实，`archive/` 里的安装脚本一个都不要跑。
-仓库里的技能是交付物，不是你的工作指南。
+MMW is the user's toolbox of skills shared across hosts, repositories and machines, together with the landing pipeline behind them (spec → ticket → a worker dispatched for the night → closed ticket) and a local task board. Personal use, no CI, tests run by hand.
+Only `mmw-v2/` is live. `archive/` is the previous generation, `deprecated/` what v2 itself retired, `docs/research/` read-only snapshots of third-party repositories: read them for history, treat nothing in them as fact, and leave their scripts unrun.
+This repository is also a consuming repository of its own pipeline: root `.mmw/` is the task board's acceptance runtime, `docs/specs/task-board/screen-contract.yaml` its screen contract, `prototypes/` its handoff package. Tickets about the board run from here.
+The skills in this repository are deliverables, not the working instructions of an agent working on it.
 
-## 命令
+## Package Manager
 
-没有包管理器和构建步骤。运行时只有 bash、`python3` 标准库和按需的 `uv`。
+No package manager, no build step. Runtime is bash and the `python3` standard library; scripts with a PEP 723 dependency block and some suites run under `uv run`; the claude-design-blocks, verify-ticket and gate-check tests need `node`; the board and drive-target tests need Playwright's browsers.
 
-| 命令 | 干什么 |
+## Commands
+
+| Command | What it does |
 | --- | --- |
-| `bash mmw-v2/install.sh` | MMW 的全部安装都经这里，装八样：技能 symlink 进 `~/.agents/skills` 和 `~/.claude/skills`，hook 写进各 host 自己的配置（drive-target 的 `hook.py`、dispatch 的回合守卫 `turn-guard.py`；Codex 那几条的信任哈希一并写进 `~/.codex/config.toml`），用户级提示词（`~/.claude/CLAUDE.md` 软链到 `mmw-v2/prompt/shared.md`，Codex、Pi、Grok 各一份由 `mmw-v2/prompt/render.py` 拼出的 AGENTS.md），一个盯着源的 launchd 任务，守住 task board `supervisor.py` 的 `com.mmw.board` LaunchAgent，Paseo 侧配置（`~/.local/bin/paseo` 软链、`~/.paseo/config.json` 里 grok/cursor 两条 provider、`worktrees.root`；不写 Agent profile；`~/.mmw/models.json` 缺席时写默认值，或把遗留 Markdown 一次性导入后删除；已有 JSON 不覆盖），Orca 侧工作树配置（有 orca 时每个 setup 的 `worktree-base-path` 为 `.worktrees`，`--check` 另核每个仓库的外部工作树可见性为 `show`），Cursor 的 Nowledge Mem MCP（`~/.cursor/mcp.json` 里 `mcpServers.nowledge-mem` 一条） |
-| `bash mmw-v2/install.sh --check` | 只查不写：齐了回 0，缺东西或有 stale link 回 1。从别的 checkout 跑时交给 `~/.mmw/installed-root` 记下的那个 checkout 自己的 `install.sh` 核对，只核对不接管 |
-| `python3 mmw-v2/prompt/render.py --adopt` | 每台机器首次装提示词时跑一次：目标位置原有的 AGENTS.md 不是生成物，`render.py` 默认拒绝覆盖 |
-| `bash mmw-v2/prompt/tests/run.sh` | `render.py` 的测试 |
-| `bash mmw-v2/tests/<名>/run.sh` | 单个技能的测试（`verify-ticket`、`drive-target`、`align-screens`、`dispatch`、`exe-release`、`manage-agents-md` 各有一份；dispatch 技能的 `relay.py` 与中继、看门进程、board 共用的列表读取器 `ghlist.py` 另有一份 `relay`） |
-| `bash mmw-v2/tests/claude-design-blocks/run.sh` | 交接包每个场景的数据导出（`export_scene_data.py`）、`mk.py` 生成页的语法、`selector_check.py` 的判据、`deadsweep.py` 的清扫范围：迷你夹具，Node 跑页自己的 logic class，无浏览器 |
-| `bash mmw-v2/tests/board/run.sh` | task board 的本地进程、story page、API client 替身与交互 helper 的测试 |
-| `bash mmw-v2/tests/liveness/run.sh` | 判活三层的测试：`turn-guard.py` 的守卫谓词与五个 host 的 payload（含三条撞车对策）、`watchdog.py` 的心跳、容差、锁身份、问 runner 的三种答案；假 board、假 runner，不起 host |
-| `bash mmw-v2/hooks/tests/run.sh` | `rule-at-moment.py` 的测试 |
+| `bash mmw-v2/install.sh` | The one install entry, eight items: skill symlinks into `~/.agents/skills` and `~/.claude/skills`; hooks into each host's own configuration (drive-target's `hook.py`, dispatch's turn guard `turn-guard.py`; Codex trust hashes into `~/.codex/config.toml`); user-level prompts (`~/.claude/CLAUDE.md` → `mmw-v2/prompt/shared.md`, `~/.claude/rules/mmw-claude.md` → `mmw-v2/prompt/hosts/claude.md`, one AGENTS.md each for Codex, Pi and Grok rendered by `mmw-v2/prompt/render.py`); a launchd task watching the prompt sources; the `com.mmw.board` LaunchAgent keeping `mmw-v2/board/supervisor.py` alive; Paseo configuration (`~/.local/bin/paseo`, grok/cursor providers and `worktrees.root` in `~/.paseo/config.json`, no Agent profiles; `~/.mmw/models.json` written with defaults only when absent, a legacy Markdown file imported once and deleted); Orca setups' `worktree-base-path` set to `.worktrees`; the `nowledge-mem` entry in `~/.cursor/mcp.json`. It records this checkout in `~/.mmw/installed-root` |
+| `bash mmw-v2/install.sh --check` | Read-only: exit 0 when complete, 1 when something is missing or stale. Run from another checkout it hands over to the installed checkout's own `install.sh` and only reports. It also reads each runner adapter's `# MMW_USES:` header and asks the binary on `PATH`: `没查` when the help page is unreadable, `不一致` when a flag is gone; a binary absent from `PATH` skips that adapter silently. `dispatch.sh check <spec>` runs it before every night |
+| `python3 mmw-v2/prompt/render.py --adopt` | Once per machine: the AGENTS.md already at a target is not a generated file, and `render.py` refuses to overwrite it otherwise |
+| `bash mmw-v2/prompt/tests/run.sh` | Tests `render.py`; needs only `python3` |
+| `bash mmw-v2/tests/<name>/run.sh` | One skill's or subsystem's suite, ten of them: `verify-ticket`, `drive-target`, `align-screens`, `dispatch`, `exe-release`, `manage-agents-md`, `claude-design-blocks`, `board`, `liveness`, `relay`. `advisor`, `code-checkers` and `verdict` have none. There is no aggregate runner; each `run.sh` header names what it tests and what runtime it needs (the `board` one does not: `uv`, Playwright and a real headless Chromium) |
+| `bash mmw-v2/tests/dispatch/test_dispatch.sh <scenario>` | One dispatch scenario (about seventy; `all` runs them all); `mmw-v2/tests/relay/test_relay.sh` takes the same argument |
+| `bash mmw-v2/hooks/tests/run.sh` | Tests `rule-at-moment.py`, a hook kept in the repository that `install.sh` leaves alone; whoever wants it registers it by hand under `~/.claude/hooks/` |
+| `cd mmw-v2/skills/verify-ticket/scripts/gate-check/tests && node run-tests.mjs && node lint-tests.mjs` | The tests that came with gate-check from unlazy (the vendored layer); `verify-ticket`'s `run.sh` runs them too |
+| `python3 mmw-v2/skills/dispatch/scripts/models.py config show\|set\|runner …` | The only way to change `~/.mmw/models.json` (which host, model and effort each agent runs on; tonight's runner). Takes effect at the next start, no restart or reinstall. Usage in `mmw-v2/skills/dispatch/references/editing-models.md` |
 
-## 约定
+## External References
 
-- `SKILL.md` 对所有 host、所有 runner 是同一份：不把任何 host 当默认或首选，不按 host 名或 runner 名分支；能力差异用按能力判断的自然语言写。今晚用哪个 runner 由 `models.py runner` 选（最后一级是默认值），正文照写这个选法，不替它假定。某个 runner 自己的命令只写在它的适配器 `mmw-v2/skills/dispatch/scripts/runners/<runner>.sh` 里。frontmatter 的 `description` 不写任何 runner 的名字：它被扫进各 host 的系统提示，写一个就把整份技能锁在那个 runner 上；选定的 runner 起不来时，拒绝是脚本运行时 stderr 上的一行，不是 `description` 里的前置条件。
-- 装哪些技能只改 `mmw-v2/skills.txt`。host 上的 symlink 直接指向 source directory，改完下一次调用即生效；只有 frontmatter 的 `description` 是 host 启动时扫进去的，改它要重开会话。
-- `mmw-v2/skills/<名>/` 整个目录被软链进各 host，所以它只装拿着这份技能的 agent 要读要跑的东西：`SKILL.md`、reference 文件、`scripts/`。技能的测试在 `mmw-v2/tests/<名>/`，只存在于本仓库的 checkout 里；它从 `mmw-v2/tests/<名>/` 数两级回到 `mmw-v2/`，再进 `skills/<名>/scripts/` 找被测的脚本。
-- 技能自带的脚本，由拿着这份技能的 agent 从它的 `SKILL.md` 就地解析 `scripts/…`；caller 只点技能名与要做的事，不写安装路径。装了技能就是拿到脚本，两者不会各自漂移，路径在五个 host 上都对。写进 ticket 的那条 `CHECK:` 也不写路径：它由 shell 执行、中间没有 agent，所以由跑它的 `verify-ticket.py` 把 drive-target 技能的 `scripts/` 放上那个 shell 的 `PATH`（`--tools`），判官按裸名调用；形状在 `mmw-v2/skills/drive-target/references/boundary-check.md` 与 `story-parity.md`。
-- 一份技能指自己或兄弟技能的脚本，只用一种写法：开一节定义一个贯穿全文的记号，节名统一成 `` ## Resolve `<记号>` once ``，节里说这个记号在下文每条命令里展开成什么、并且从这份文件自己的位置解析一次。正文里不再出现裸相对路径，也不出现全文没有定义的记号。一个记号在整个工具箱里只解析出一个可执行文件——一个 agent 一次拿着好几份技能，把所有技能的词汇当成一套。
-- 散文与命令里的绝对路径只有三类是合法的：(a) 本机用户级的固定位置（`~/.mmw/models.json`、`~/.agents/skills`、`~/.claude/skills` 这一类，它们就是那台机器上的地址，没有相对写法）；(b) 一个记号在运行时展开成的绝对路径（`` `<dispatch>` `` 展开成 `bash <absolute path to scripts/dispatch.sh>` 这一类——写在正文里的是记号，绝对路径只在执行时才有）；(c) 一次运行自己造出来的临时路径（`mktemp` 派生的，不是 `/tmp` 下的固定名）。这三类之外出现的绝对路径是缺陷。
-- 本仓自写的技能不带 `agents/openai.yaml` 之类的 host 侧清单文件：一份技能的名字与描述只有 `SKILL.md` 的 frontmatter 一处权威。
-- 每个 agent 用哪个 host、哪个 model、哪档 effort，只用 `models.py config` 改本机 `MMW_HOME/models.json`；`MMW_HOME` 未设时是 `~/.mmw/models.json`。第一次 `install.sh` 写入默认值，之后不覆盖已有 JSON。仓里的 `hosts.json` 只记各 host 怎么起，不记今晚谁用谁。consuming repository 里不放。`dispatch.sh` 拿 `models.py` 解析这一行，再交给今晚的 runner 适配器（`mmw-v2/skills/dispatch/scripts/runners/<runner>.sh`）起会话。
-- 用户级提示词只改 `mmw-v2/prompt/shared.md`（四家共用）和 `mmw-v2/prompt/hosts/<host>.md`（只给那一家）。`~/.codex/AGENTS.md`、`~/.pi/agent/AGENTS.md`、`~/.grok/AGENTS.md` 是生成物，直接改会被 `render.py` 拒绝覆盖。Cursor 不参与，它的用户级提示词在 app 里手动维护。
-- `~/.cursor/mcp.json` 里的 `nowledge-mem` 一条由 `install.sh` 管：内容问本机 `nmem config mcp show --host cursor` 要，写进去之前摘掉它给的 `type` 字段——`cursor-agent` 只认 `url` 与 `headers`，带上 `type` 它把整条 server 跳过，症状是 worker 静默地没有 memory 工具。同一份文件里别的 server 不动；手改这一条，下次 `install.sh` 会覆盖，`--check` 会先报出来。
-- `mmw-v2/upstream/` 是 mattpocock/skills 的 git subtree（squash），`mmw-v2/upstream-diagram-design/` 是 cathrynlavery/diagram-design 的另一个。两者都可编辑；upstream 自带的 `AGENTS.md`、`CLAUDE.md`、`CONTEXT.md` 原样不动——`mmw-v2/upstream/CONTEXT.md` 是 upstream 自己的 vocabulary，本仓的 vocabulary 只有根 `CONTEXT.md`。拉 upstream 和解冲突见 `mmw-v2/merge-notes/README.md`；改了 upstream 的技能就写或更新它的 merge-note。
-- 本仓库改动作废了 consuming repository 已有的产物，就写一份 downstream-note，判据与写法见 `mmw-v2/downstream-notes/README.md`。
-- 两个 subtree 之外还有一份从 unlazy 抄进来的脚本：`mmw-v2/skills/verify-ticket/scripts/gate-check/`。它没有 subtree，`git subtree pull` 和 merge-note 都不管它，来源、commit 与改过哪几行记在 `mmw-v2/skills/verify-ticket/scripts/gate-check/UPSTREAM.md`。这份 `UPSTREAM.md` 是「技能目录只装拿着这份技能的 agent 要读要跑的东西」那条约定的唯一例外：它记的是这个目录里这几个文件的来源与本地改动，读它的人是下一次去 unlazy 那边比对的人，而他手上唯一的线索就是这个目录本身；挪出去，`scripts/` 里就剩一批看不出出处的第三方文件。
+| Need | File |
+| --- | --- |
+| Every fixed word of the landing pipeline and its interface record (event names, command signatures, constant tables), split into six bounded contexts; read the map before changing vocabulary | `CONTEXT-MAP.md`, then `docs/contexts/<name>/CONTEXT.md` |
+| ADR shape, the index, the translation table for two earlier numberings | `docs/adr/README.md` |
+| Every `gh` operation of the issue tracker, the three label sets, the two morning queries | `docs/agents/issue-tracker.md` |
+| The five triage roles and this repository's label strings | `docs/agents/triage-labels.md` |
+| How to read the contexts and the ADRs before exploring code | `docs/agents/domain.md` |
+| The night runbook: `check`, `open`, `advance`, the closing pass, `reverify`, `summary`, `finish`, `suspend`, each with its exit codes | `mmw-v2/skills/dispatch/references/night.md` |
+| The eight installed items, the two modes, what the previous generation installed and install now removes | `mmw-v2/install.sh` header comment |
+| Which prompt file reaches which host by which route, the generated file's shape, Grok's `[compat.claude]` requirement | `mmw-v2/prompt/README.md` |
+| Pulling an upstream subtree, resolving conflicts, the `disable-model-invocation` pairing rule, the three host-neutral rewrites | `mmw-v2/merge-notes/README.md` |
+| When a downstream-note is due and its three fixed headings | `mmw-v2/downstream-notes/README.md` |
+| gate-check's source commit, which files are byte-identical, which lines were changed | `mmw-v2/skills/verify-ticket/scripts/gate-check/UPSTREAM.md` |
 
-## Agent skills
+## Key Conventions
 
-### Issue tracker
+- A `SKILL.md` is one text for every host and every runner: no host is default or preferred, nothing branches on a host or runner name, and a capability difference is written as the capability ("a host that cannot hold a turn", "a host that can run subagents"). Tonight's runner is whatever `models.py runner` selects (its last step is a default); the text states that selection and assumes nothing past it. A runner's own commands live only in its adapter `mmw-v2/skills/dispatch/scripts/runners/<runner>.sh`, whose `# MMW_USES:` header is the authoritative list of what it calls. The frontmatter `description` names no runner: every host scans it into its system prompt, so one name locks the skill to that runner; a runner that cannot start is refused by one stderr line at run time.
+- `mmw-v2/skills.txt` alone decides which skills are installed. A host's symlink points straight at the source directory, so an edit is live at the next call; only the frontmatter `description` is scanned at host start and needs a new session.
+- A skill directory `mmw-v2/skills/<name>/` is symlinked whole into every host, so it holds only what the agent holding the skill reads or runs: `SKILL.md`, reference files, `scripts/<…>`. Its tests live in `mmw-v2/tests/<name>/`, which exists only in a checkout and climbs two levels to `mmw-v2/` and down into `skills/<name>/scripts/` to reach the script under test. The one exception is the whole of `mmw-v2/skills/verify-ticket/scripts/gate-check/`, copied entire from unlazy with its own tests and the `UPSTREAM.md` that records source, commit and every local edit; no subtree, no merge-note, and the directory itself is the only lead the next person comparing against unlazy has.
+- A skill's scripts are resolved by the agent holding the skill, from its `SKILL.md`, as `scripts/<…>`; a caller names the skill and the job, never an install path. A ticket's `CHECK:` line names no path either: a shell runs it with no agent in between, and `verify-ticket.py` puts the drive-target skill's `scripts/<…>` on that shell's `PATH` (`--tools`), so a judge is named bare. A judge no directory in force holds is refused, exit 2, before any criterion runs, because `command not found` reads exactly like a criterion that ran and failed. Shapes in `mmw-v2/skills/drive-target/references/boundary-check.md` and `story-parity.md`.
+- A skill refers to its own or a sibling skill's scripts through one token, defined once in a section headed `` ## Resolve `<token>` once `` that says what the token expands to in every command below and resolves it from the file's own location; one section may define several tokens. The body carries no bare relative path and no undefined token. A token naming an executable (`<engine>`, `<dispatch>`, `<events.py>`, `<lease.py>`, `<release>`) resolves to exactly one file across the toolbox, because an agent holding several skills reads all their vocabulary as one. The directory token `<scripts>` is each skill's own; a skill reaching into drive-target's directory writes `<drive-target scripts>`.
+- An absolute path in prose or a command is legal in three cases only: (a) a fixed user-level location (`~/.mmw/models.json`, `~/.agents/skills`, `~/.claude/skills`: the address on that machine, with no relative spelling); (b) a token's runtime expansion (`<dispatch>` becomes `bash <absolute path to dispatch.sh>` at run time and stays a token in text); (c) a path the run made itself (`mktemp`-derived, never a fixed name under `/tmp`). A script finds its neighbours from its own resolved location. Any other absolute path is a defect.
+- A self-written skill ships no host-side manifest (upstream skills carry an `openai.yaml`; ours do not) and its frontmatter has exactly two keys, `name` and `description`: a skill's name and description have one authority.
+- Which host, model and effort each agent runs on is written only in `~/.mmw/models.json` (under `MMW_HOME` when set), through `models.py config`; the task board writes the same file, under the same lock, with the same atomic replace. The first `install.sh` writes the defaults and later runs leave an existing JSON alone. `mmw-v2/skills/dispatch/hosts.json` records how each host starts and the first-install defaults, never tonight's choice. Neither file ever sits in a consuming repository. `dispatch.sh` resolves the row through `models.py` and hands it to tonight's runner adapter.
+- `~/.mmw` holds two more things: `boards.json` (each consuming repository's main-checkout path → its task board's fixed port; `dispatch.sh board` writes it, `supervisor.py` reads it) and `state/<owner>__<name>/` (one 0700 directory per repository holding every file the relay, the watchdog and the turn guard keep, and not one byte of ticket state). The canonical reader of `MMW_HOME` is `home()` in `statedir.py`.
+- A ticket's state is the fold of the `<!-- mmw {...} -->` blocks in its comments, in comment-id order. Every event is posted by a script; a model types none, so a `VERDICT` written with `gh issue comment` carries no block and counts for nothing. Agents wake each other through the relay, which turns ticket events into wakes: nobody polls, and the night has no clock.
+- Landing is done on `origin/<base branch>`: `advance`, `land` and `reverify` merge, check and fast-forward push inside the persistent detached worktree `.worktrees/merge-<branch>`; a conflict or a red check becomes `ticket.bounced` for triage and leaves the base branch untouched. The base branch is cut from a project branch recorded in `spec.opened.project`; after the user accepts the night, `dispatch.sh finish <spec>` merges it back. Merging into the repository's default branch is not MMW's job.
+- Every git worktree the pipeline makes sits under the main checkout's `.worktrees/`: `issue-<n>` per ticket, `merge-<branch>` per merge target with one lock each; those names belong to the pipeline. This checkout also carries hand-made worktrees (`mmw-installed`, `318-task-board`, `mmw-cursor`, `pi-canvas`), each a full checkout.
+- Every refusal has the three parts `refusal.py` builds: what happened, with one checkable fact; why; what to do next. A check that could verify nothing says so instead of reading like a pass (ADR 0008). Script headers record dated, version-pinned measurements from real runs (each host's hook payload, each runner's liveness tolerance) rather than claims from documentation.
+- User-level prompts are edited in `mmw-v2/prompt/shared.md` (shared by four hosts) and `mmw-v2/prompt/hosts/<host>.md` (one host). `~/.codex/AGENTS.md`, `~/.pi/agent/AGENTS.md` and `~/.grok/AGENTS.md` are generated, and `render.py` refuses to overwrite a hand edit. Cursor's user-level prompt is maintained in the app.
+- The `nowledge-mem` entry in `~/.cursor/mcp.json` belongs to `install.sh`: its content comes from `nmem config mcp show --host cursor` with the `type` field removed, because `cursor-agent` reads only `url` and `headers` and skips the whole server when `type` is present (the symptom: a worker silently without memory tools). Other servers in the file are left as they are; a hand edit of this entry is overwritten at the next install and reported by `--check` first.
+- `mmw-v2/upstream/` is a squash subtree of mattpocock/skills and `mmw-v2/upstream-diagram-design/` of cathrynlavery/diagram-design; both are edited in place. Upstream's own `AGENTS.md`, `CLAUDE.md` and `CONTEXT.md` (only `mmw-v2/upstream/` has them) stay as upstream wrote them; `mmw-v2/upstream/CONTEXT.md` is upstream's vocabulary; this repository's lives under `docs/contexts/` behind the root `CONTEXT-MAP.md`. A changed upstream skill gets its merge-note written or updated.
+- A change here that invalidates a consuming repository's screen contract, ticket `CHECK:` or `.mmw/target.json` gets a downstream-note named after the ticket that caused it plus a slug.
 
-本仓的 issue tracker 在 GitHub，全部操作走 `gh` CLI。See `docs/agents/issue-tracker.md`.
+## Gotchas
 
-### Triage labels
+- This machine's install is served from the frozen worktree `.worktrees/mmw-installed` (recorded in `~/.mmw/installed-root`), and every host symlink points there: an edit to a `SKILL.md` or script in the main checkout reaches no host until that worktree is moved to the new commit or `install.sh` is rerun from the main checkout to take over.
+- With Claude Code's Bash sandbox on, the PreToolUse hook `install.sh` registered cannot open the symlink target under `~/.agents/skills` and blocks every command with `can't open file '…/drive-target/scripts/hook.py'`. The file is there; the same command passes with the sandbox off. Leave the install alone.
+- `MMW_V2_HOME` is a test seam for `install.sh` only: it moves the whole install target to a throwaway directory and skips `launchctl` and `paseo reload`. Runtime configuration goes through `MMW_HOME`.
+- Each Codex hook needs a `trusted_hash` line in `~/.codex/config.toml`; `install.sh` computes it with Codex's own algorithm. When Codex changes the algorithm it prompts "hooks need review" again and `--check` cannot tell.
+- Both hooks decide whether to stand down from the host's own payload fields, never from the environment: Cursor and Grok export their variables into every child process, and an environment test would also switch off the hooks of a Claude session started from one of their panes.
+- A skill directory is one symlink shared by every repository on the machine: a credential written into any file under its `scripts/<…>` is loaded by every other run.
+- `mmw-v2/upstream/CONTEXT.md` gives the label example `ready-for-afk` where this repository's label is `ready-for-agent`: a recorded, deliberate deviation, see `mmw-v2/merge-notes/README.md`.
 
-五个 triage role 用默认 label（`needs-triage` / `needs-info` / `ready-for-agent` / `ready-for-human` / `wontfix`）。See `docs/agents/triage-labels.md`.
+<important if="you are opening a night or working one ticket inside this repository">
+- `dispatch.sh start` cuts the ticket worktree under the main checkout's `.worktrees/` whichever worktree it is run from, so a worker starts its reviewer and verifier from its own worktree and they land in the same place.
+- This repository's `.mmw/target.json` has no `checks` key; `advance`'s merge step says so on stderr. Known, not a fault.
+- This repository's own changes are numbered tickets; the one that invalidates a consuming repository's artifacts lands with its downstream-note.
+</important>
 
-### Domain docs
+<important if="you are editing events.py or tree.py in verify-ticket, or ghlist.py or models.py in dispatch">
+- The task board imports those four scripts by file path (`mmw-v2/board/board_data.py`, `settings_api.py`); a change to them is a change to the board. Run `mmw-v2/tests/board/run.sh` together with the `relay` suite.
+</important>
 
-本仓的 Domain docs 是一份 `CONTEXT.md`（在 repository root，landing pipeline 的全部固定词，改 vocabulary 先读它）加 `docs/adr/`。See `docs/agents/domain.md`.
+<important if="you are pulling an upstream subtree or editing an upstream skill">
+- Read `mmw-v2/merge-notes/README.md` first; resolve each conflict by the skill's merge-note entry, take upstream for passages no note covers, and finish with `bash mmw-v2/install.sh --check`.
+- `disable-model-invocation` in `SKILL.md` and `policy.allow_implicit_invocation: false` in `openai.yaml` change together; this repository keeps them only on `setup-matt-pocock-skills`, `grill-me`, `handoff` and `wait-what`.
+</important>
 
 Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.
