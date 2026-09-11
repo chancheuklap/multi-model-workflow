@@ -1648,8 +1648,10 @@ def run_checks(number: int, reverify: bool, timeout: int | None,
         return refuse("could not read HEAD, so this run would name no commit. Nothing was "
                       "run and nothing was written.")
     comments = fetch_comments(number)
-    started = events.newest(comments, "worker.started") if not reverify else None
-    base = (started or {}).get("payload", {}).get("base")
+    started = events.newest(comments, "worker.started")
+    started_payload = (started or {}).get("payload", {})
+    base = started_payload.get("base") if not reverify else None
+    into = started_payload.get("into")
     slot = None
     if needs_product(body):
         slot = hold_slot(number, root, run, comments, actor)
@@ -1665,6 +1667,8 @@ def run_checks(number: int, reverify: bool, timeout: int | None,
         cmd.append(str(ledger))
         env = os.environ.copy()
         env["MMW_TICKET"] = str(number)
+        if isinstance(into, str) and into:
+            env["MMW_BASE_REF"] = f"origin/{into}"
         if TOOLS:
             env["PATH"] = os.pathsep.join([str(d) for d in TOOLS] + [env.get("PATH", "")])
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=root, env=env)

@@ -13,12 +13,18 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
+import os
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timezone
 from pathlib import Path
 
 STATUS_PATH = Path(__file__).resolve().parents[2] / "skills" / "dispatch" / "scripts" / "status.py"
+# The module under test finds events.py through `MMW_EVENTS_PY` when a caller set it, and
+# `dispatch.sh` exports it to every command it runs — pointing at its own checkout's
+# events.py, not this one's. Tested under it, this suite would read another version's
+# vocabulary; the events.py beside the module is the one under test.
+os.environ.pop("MMW_EVENTS_PY", None)
 _spec = importlib.util.spec_from_file_location("status", STATUS_PATH)
 status = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(status)
@@ -59,6 +65,13 @@ def landed(ticket):
 
 def returned(ticket, line="HANDOFF REQUIRED: 1 abandoned (failed), 0 unmet, 4 met of 5"):
     return ev("ticket.returned", line, ticket)
+
+
+def bounced(ticket, reason="conflict"):
+    fields = {"files": ["shared.txt"]} if reason == "conflict" else {
+        "commands": [{"command": "false", "tail": "failed"}]}
+    return ev("ticket.bounced", "bounced", ticket, reason=reason, commit="a" * 40,
+              into="main", **fields)
 
 
 def ticket(number, state="OPEN", labels=("ready-for-agent",), blockers=(),
@@ -660,10 +673,25 @@ class Summary(unittest.TestCase):
         self.assertEqual(body[3], "Handed back to needs-triage: "
                                   "#62 HANDOFF REQUIRED: 1 abandoned (failed), 0 unmet, "
                                   "4 met of 5, #64")
-        self.assertEqual(body[4], "Not dispatched, a blocker stayed open: "
+        self.assertEqual(body[4], "Bounced: None")
+        self.assertEqual(body[5], "Not dispatched, a blocker stayed open: "
                                   "#63 blocked by #62")
-        self.assertEqual(body[5], "Sub-issues opened tonight: None")
-        self.assertEqual(body[6], status.routed_line((0, 0, 0, 0, 0, 0)))
+        self.assertEqual(body[6], "Sub-issues opened tonight: None")
+        self.assertEqual(body[7], status.routed_line((0, 0, 0, 0, 0, 0)))
+
+    def test_the_summary_lists_bounced_tickets_with_their_reason(self):
+        tickets = {61: ticket(61, labels=("needs-triage",), comments=[bounced(61)])}
+        body = status.summary(rows_of(tickets), opened="2026-08-30T00:00:00Z",
+                              now=datetime(2026, 8, 31, 2, 14)).splitlines()
+        self.assertEqual(body[3], "Handed back to needs-triage: None")
+        self.assertEqual(body[4], "Bounced: #61 (conflict)")
+
+    def test_a_later_pass_replaces_an_old_bounce_in_the_summary(self):
+        tickets = {61: ticket(61, state="CLOSED", labels=(),
+                              comments=[bounced(61), passed(61)])}
+        body = status.summary(rows_of(tickets), opened="2026-08-30T00:00:00Z",
+                              now=datetime(2026, 8, 31, 2, 14)).splitlines()
+        self.assertEqual(body[4], "Bounced: None")
 
     def test_the_cli_window_is_sixteen_hours_back(self):
         self.assertEqual(
@@ -738,8 +766,8 @@ class Summary(unittest.TestCase):
                 self.assertEqual(status.main(["--summary", "76"]), 0)
             lines = out.getvalue().splitlines()
             self.assertEqual(
-                lines[5], "Sub-issues opened tonight: #90 REVIEW: RUNNER is now a Path")
-            self.assertEqual(lines[6], status.routed_line((1, 0, 1, 0, 0, 0)))
+                lines[6], "Sub-issues opened tonight: #90 REVIEW: RUNNER is now a Path")
+            self.assertEqual(lines[7], status.routed_line((1, 0, 1, 0, 0, 0)))
             # The tickets and every ticket's children come from one read of the tree.
             self.assertEqual(read_trees, [76])
         finally:
@@ -781,7 +809,7 @@ class Summary(unittest.TestCase):
                 self.assertEqual(status.main(["--summary", "76"]), 0)
         finally:
             (status.gh_json, status.spec_tree, status.night_opened) = saved
-        self.assertEqual(out.getvalue().splitlines()[6],
+        self.assertEqual(out.getvalue().splitlines()[7],
                          status.routed_line((1, 0, 1, 0, 0, 0)))
 
     def test_a_child_the_tracker_could_not_answer_is_unread_not_omitted(self):
