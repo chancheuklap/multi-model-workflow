@@ -4,6 +4,11 @@
 
 ## 逐段意图
 
+#340 supersedes the closing-step row below where it says no push or names local branch
+configuration: step 1 now integrates `origin/<into>` before criteria, and step 8 pushes
+`issue-<n>` before closeout. The dedicated sections below are authoritative for the next
+upstream merge.
+
 ### SKILL.md
 
 | 段落 | 我们的意图 |
@@ -35,24 +40,27 @@ review comment its reviewer was still writing. Upstream brings a timeout number 
 drop it; the worker ends its turn and is woken, see `## How the worker learns its
 reviewer and verifier are done` below.
 
-## No pull request, and no push
+## Push the ticket branch, no pull request
 
-Upstream's step 6 pushed the branch and opened a pull request. This pipeline opens
-none, and the step is gone: nothing here reads a pull request — `code-review` takes its
-diff from git, the verifier reads the ticket and the worktree, and the closeout
-reads neither. What does read a branch is `dispatch.sh advance`, which merges it once the ticket
-closes, on this machine, with no `gh` call at all, into the branch the main agent is on
-when it runs `advance` — the branch it opened the night on, recorded at dispatch in
-`git config branch.issue-<n>.mmw-base-branch`. `advance` does not read that record;
-the skill text names it so the worker can write the `PR:` line. A pull request would
-only be a second place to remember to merge and pull back from.
+Step 8 pushes `issue-<n>` to origin before `--closeout`, without force, and opens no
+pull request. The push makes the completed ticket branch available to a main agent on
+another computer; `worker.started.into` is the shared record of which base branch it
+belongs to. `dispatch.sh land` and `advance` fetch origin and perform the merge, so a pull
+request would only be a second merge queue that nothing in this pipeline reads.
 
-The `Branch: … Commit: … PR: …` line stays, with `PR: none — will be merged into <base
-branch> by dispatch.sh advance`. It is written in the future tense on purpose: the
-closing comment is written before the ticket closes, and the merge happens after.
+The `Branch: … Commit: … PR: …` line stays, with `PR: none` and the reason that the main
+agent will merge the remote ticket branch into `worker.started.into`. Upstream brings a
+pull request back → drop it. Upstream removes the pre-closeout push → restore it, keeping
+the no-force rule and the requirement to reconcile a rejected push before closeout.
 
-Upstream brings the push or the pull request back → drop them again, and keep the
-sentence saying which branch `advance` merges into and where that name is recorded.
+## Integrate before the worker criteria
+
+Closing step 1 begins with `<dispatch> integrate <n>`, then runs the worker's criteria.
+It merges the current `origin/<into>` into the ticket branch with a fixed merge message,
+so the worker that knows this ticket resolves conflicts and clean-merge regressions before
+review and verification. Exit 3 uses `resolving-merge-conflicts`; exit 2 becomes a `fault`
+when the pipeline itself failed. The command never pushes, rebases or aborts. Upstream
+rewrites the first closing step → keep integration before the criteria.
 
 ## Put no question on the screen
 

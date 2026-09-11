@@ -3,6 +3,8 @@
 # Tests for dispatch.sh. One scenario per run:
 #
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh check|advance|advanceconflict|advancedirty
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh integrateuptodate|integrateclean|integratenamestickets
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh integrateconflict|integratedirty
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|start-verifier|retract
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh resume|wait|reverify|summary
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
@@ -1072,7 +1074,16 @@ print(json.dumps({
 }))
 ' ;;
   *"--json title"*)
-    echo '{"title":"a ticket"}' ;;
+    MMW_WANT="$3" python3 -c '
+import json, os
+path = os.environ.get("FAKE_GH_TICKETS_FILE")
+rows = json.load(open(path)) if path else []
+try:
+    want = int(os.environ["MMW_WANT"])
+except Exception:
+    want = None
+print(next((t for t in rows if t.get("number") == want), {}).get("title", "a ticket"))
+' ;;
   *"api user"*)
     printf '%s\n' "${FAKE_GH_LOGIN:-mmw-bot}" ;;
   "issue comment "*)
@@ -1969,10 +1980,10 @@ obj = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])
 assert obj["cwd"].endswith("/.worktrees/issue-63"), obj["cwd"]
 ' "$MMW_FAKE_PASEO_STATE/runs.jsonl" || fail "the session must start in the ticket worktree"
   grep -q "advance #76:" "$TMP/err" || fail "the summary line should be on stderr: $(cat "$TMP/err")"
-  [ "$(git -C "$TMP/repo" config --get branch.issue-63.mmw-base)" = "$(git -C "$TMP/repo" rev-parse origin/main)" ] \
-    || fail "mmw-base should be origin/main for a branch-off"
-  [ "$(git -C "$TMP/repo" config --get branch.issue-63.mmw-base-branch)" = main ] \
-    || fail "mmw-base-branch should be main"
+  [ -z "$(git -C "$TMP/repo" config --get branch.issue-63.mmw-base)" ] \
+    || fail "advance wrote retired mmw-base config"
+  [ -z "$(git -C "$TMP/repo" config --get branch.issue-63.mmw-base-branch)" ] \
+    || fail "advance wrote retired mmw-base-branch config"
 
   echo "--- each merge is recorded on its ticket as ticket.landed"
   posted_events 61 branch | grep -qx "ticket.landed branch=issue-61" \
@@ -2059,6 +2070,142 @@ scenario_advancedirty() {
   hasnt "workspace :: create"
   nothing_printed
   never_ran
+}
+
+seed_integrate_worker() {
+  local base="$1"
+  post_ev 61 worker.started --ticket 61 --spec 76 --line "worker started" \
+    --field session=agt_worker --field runner=paseo \
+    $(start_facts "$TMP/repo" 61 worker) --field "base=$base" --field into=main
+}
+
+start_integrate_ticket() {
+  local base
+  base="$(git -C "$TMP/repo" rev-parse main)"
+  git -C "$TMP/repo" checkout -q -b issue-61 main
+  seed_integrate_worker "$base"
+}
+
+merge_sibling_to_origin() {
+  local number="$1" file="$2" value="$3" title="$4" other
+  other="$(other_clone)"
+  git -C "$other" checkout -q main
+  git -C "$other" pull -q --ff-only origin main
+  git -C "$other" checkout -q -b "issue-$number" main
+  commit_file "$other" "$file" "$value" "ticket $number"
+  git -C "$other" checkout -q main
+  git -C "$other" merge -q --no-ff "issue-$number" -m "Merge branch 'issue-$number'"
+  git -C "$other" push -q origin main
+  FAKE_GH_TICKETS_FILE="$TMP/tickets.json" MMW_NUMBER="$number" MMW_TITLE="$title" python3 -c '
+import json, os
+from pathlib import Path
+path = Path(os.environ["FAKE_GH_TICKETS_FILE"])
+rows = json.loads(path.read_text()) if path.is_file() else []
+rows = [row for row in rows if row.get("number") != int(os.environ["MMW_NUMBER"])]
+rows.append({"number": int(os.environ["MMW_NUMBER"]), "title": os.environ["MMW_TITLE"]})
+path.write_text(json.dumps(rows))
+'
+}
+
+scenario_integrateuptodate() {
+  local before code
+  fresh_repo
+  echo '[]' > "$TMP/tickets.json"
+  start_integrate_ticket
+  before="$(git -C "$TMP/repo" rev-parse HEAD)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" integrate 61)"
+  [ "$code" = 0 ] || fail "up-to-date integrate expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/repo" rev-parse HEAD)" = "$before" ] \
+    || fail "an up-to-date integrate moved HEAD"
+  grep -q "already current with origin/main" "$TMP/out" \
+    || fail "the no-op result was not named: $(cat "$TMP/out")"
+}
+
+scenario_integrateclean() {
+  local code original parents
+  fresh_repo
+  echo '[]' > "$TMP/tickets.json"
+  start_integrate_ticket
+  commit_file "$TMP/repo" ticket.txt ticket ticket-work
+  original="$(git -C "$TMP/repo" rev-parse HEAD)"
+  merge_sibling_to_origin 62 sibling.txt sibling "sibling feature"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" integrate 61)"
+  [ "$code" = 0 ] || fail "clean integrate expected 0, got $code: $(cat "$TMP/err")"
+  [ -f "$TMP/repo/sibling.txt" ] || fail "origin/main was not merged into issue-61"
+  [ "$(git -C "$TMP/repo" log -1 --format=%s)" = "Merge main into issue-61" ] \
+    || fail "the integrate merge message is not fixed: $(git -C "$TMP/repo" log -1 --format=%s)"
+  parents="$(git -C "$TMP/repo" show -s --format='%P' HEAD)"
+  [ "$(printf '%s\n' "$parents" | wc -w | tr -d ' ')" = 2 ] \
+    || fail "integrate did not create a two-parent merge commit: $parents"
+  [ "${parents%% *}" = "$original" ] \
+    || fail "the ticket commit is not the merge's first parent: $parents"
+  [ "${parents#* }" = "$(git -C "$TMP/repo" rev-parse origin/main)" ] \
+    || fail "origin/main is not the merge's second parent: $parents"
+  git -C "$TMP/repo" merge-base --is-ancestor "$original" HEAD \
+    || fail "the ticket's original commit left its history"
+}
+
+scenario_integratenamestickets() {
+  local code
+  fresh_repo
+  echo '[]' > "$TMP/tickets.json"
+  start_integrate_ticket
+  merge_sibling_to_origin 62 first.txt first "first sibling"
+  merge_sibling_to_origin 63 second.txt second "second sibling"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" integrate 61)"
+  [ "$code" = 0 ] || fail "named integrate expected 0, got $code: $(cat "$TMP/err")"
+  grep -q "#62" "$TMP/out" || fail "clean result omitted #62: $(cat "$TMP/out")"
+  grep -q "#63" "$TMP/out" || fail "clean result omitted #63: $(cat "$TMP/out")"
+}
+
+scenario_integrateconflict() {
+  local code
+  fresh_repo
+  echo '[]' > "$TMP/tickets.json"
+  printf 'base\n' > "$TMP/repo/shared.txt"
+  git -C "$TMP/repo" add shared.txt
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q -m shared-base
+  git -C "$TMP/repo" push -q origin main
+  start_integrate_ticket
+  commit_file "$TMP/repo" shared.txt ticket ticket-change
+  merge_sibling_to_origin 62 shared.txt sibling "conflicting sibling"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" integrate 61)"
+  [ "$code" = 3 ] || fail "conflicting integrate expected 3, got $code: $(cat "$TMP/err")"
+  git -C "$TMP/repo" rev-parse -q --verify MERGE_HEAD >/dev/null \
+    || fail "integrate aborted the conflicted merge"
+  grep -q "#62" "$TMP/err" || fail "the report omitted #62: $(cat "$TMP/err")"
+  grep -q "conflicting sibling" "$TMP/err" \
+    || fail "the report omitted #62's title: $(cat "$TMP/err")"
+  grep -q "shared.txt" "$TMP/err" \
+    || fail "the report omitted the conflicted file: $(cat "$TMP/err")"
+}
+
+scenario_integratedirty() {
+  local cached code head status
+  fresh_repo
+  echo '[]' > "$TMP/tickets.json"
+  start_integrate_ticket
+  cached="$(git -C "$TMP/repo" rev-parse origin/main)"
+  merge_sibling_to_origin 62 sibling.txt sibling "sibling feature"
+  printf 'dirty\n' > "$TMP/repo/dirty.txt"
+  git -C "$TMP/repo" add dirty.txt
+  head="$(git -C "$TMP/repo" rev-parse HEAD)"
+  status="$(git -C "$TMP/repo" status --porcelain --untracked-files=no)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" integrate 61)"
+  [ "$code" = 2 ] || fail "dirty integrate expected 2, got $code: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/repo" rev-parse HEAD)" = "$head" ] || fail "dirty integrate moved HEAD"
+  [ "$(git -C "$TMP/repo" rev-parse origin/main)" = "$cached" ] \
+    || fail "dirty integrate fetched origin before refusing"
+  [ "$(git -C "$TMP/repo" status --porcelain --untracked-files=no)" = "$status" ] \
+    || fail "dirty integrate changed the index or working tree"
+  [ "$(cat "$TMP/repo/dirty.txt")" = dirty ] || fail "dirty integrate changed the tracked file"
+  grep -q "uncommitted tracked changes" "$TMP/err" \
+    || fail "the dirty refusal was not named: $(cat "$TMP/err")"
 }
 
 scenario_start_worker() {
@@ -2342,20 +2489,12 @@ JSON
 }
 
 scenario_start_reviewer() {
-  local code
-  echo "--- a reviewer with no mmw-base is refused and nothing is started"
+  local base code
+  echo "--- a reviewer uses worker.started.base when the base branch was never integrated"
   reset_log
   fresh_repo
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
-  [ "$code" = 2 ] || fail "expected exit 2 without mmw-base, got $code: $(cat "$TMP/err")"
-  grep -q 'mmw-base' "$TMP/err" || fail "the reason should name mmw-base: $(cat "$TMP/err")"
-  nothing_printed
-  never_ran
-  hasnt "workspace :: create"
-
-  reset_log
-  fresh_repo
-  git -C "$TMP/repo" config branch.issue-61.mmw-base abcdef0123456789abcdef0123456789abcdef01
+  base="$(git -C "$TMP/repo" rev-parse main)"
+  seed_integrate_worker "$base"
   seed_workspace 61
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
@@ -2369,13 +2508,74 @@ assert obj["provider"] == "claude/claude-opus-5", obj["provider"]
 assert obj["settings"].get("thinkingOptionId") == "high"
 ' "$MMW_FAKE_PASEO_STATE/runs.jsonl" || fail "reviewer payload: $(cat "$TMP/out")"
   case "$(out_json initialPrompt)" in
-    "Use the code-review skill to review ticket #61 from base commit abcdef0123456789abcdef0123456789abcdef01."*) ;;
+    "Use the code-review skill to review ticket #61 from base commit $base."*) ;;
     *) fail "the reviewer dispatch line did not carry the recorded base commit: $(out_json initialPrompt)" ;;
   esac
   case "$(out_json initialPrompt)" in
     *"You are operating autonomously"*) ;;
     *) fail "the autonomous sentence is missing from the reviewer prompt" ;;
   esac
+}
+
+scenario_reviewerbaseafterintegrate() {
+  local base code integrated tree
+  reset_log
+  fresh_repo
+  echo '[]' > "$TMP/tickets.json"
+  base="$(git -C "$TMP/repo" rev-parse main)"
+  seed_integrate_worker "$base"
+  seed_workspace 61
+  tree="$(wt 61)"
+  merge_sibling_to_origin 62 sibling.txt sibling "sibling feature"
+  code="$( (cd "$tree" && env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" integrate 61) > "$TMP/out" 2> "$TMP/err"; echo $?)"
+  [ "$code" = 0 ] || fail "integrate before reviewer expected 0, got $code: $(cat "$TMP/err")"
+  integrated="$(git -C "$TMP/origin.git" rev-parse main)"
+  : > "$MMW_TEST_LOG"
+  rm -f "$MMW_FAKE_PASEO_STATE/runs.jsonl"
+  code="$( (cd "$tree" && env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer) > "$TMP/out" 2> "$TMP/err"; echo $?)"
+  [ "$code" = 0 ] || fail "reviewer after integrate expected 0, got $code: $(cat "$TMP/err")"
+  case "$(out_json initialPrompt)" in
+    "Use the code-review skill to review ticket #61 from base commit $integrated."*) ;;
+    *) fail "reviewer did not use the integrated origin/main tip: $(out_json initialPrompt)" ;;
+  esac
+}
+
+scenario_reviewerbasefromstarted() {
+  scenario_start_reviewer
+}
+
+scenario_nobaseconfig() {
+  local code tree
+  reset_log
+  fresh_repo
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "worker start expected 0, got $code: $(cat "$TMP/err")"
+  [ -z "$(git -C "$TMP/repo" config --get branch.issue-61.mmw-base)" ] \
+    || fail "start wrote retired branch.issue-61.mmw-base"
+  [ -z "$(git -C "$TMP/repo" config --get branch.issue-61.mmw-base-branch)" ] \
+    || fail "start wrote retired branch.issue-61.mmw-base-branch"
+  : > "$MMW_TEST_LOG"
+  rm -f "$MMW_FAKE_PASEO_STATE/runs.jsonl"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
+  [ "$code" = 0 ] || fail "reviewer without base config expected 0, got $code: $(cat "$TMP/err")"
+  started_once
+
+  fresh_repo
+  reset_log
+  no_relay
+  seed_main_agent agt_self
+  self_picked_worktree
+  tree="$(wt 61)"
+  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self \
+          bash "$DISPATCH" "${TOOLS[@]}" adopt 61 --into main) > "$TMP/out" 2> "$TMP/err"; echo $?)"
+  [ "$code" = 0 ] || fail "adopt expected 0, got $code: $(cat "$TMP/err")"
+  [ -z "$(git -C "$TMP/repo" config --get branch.issue-61.mmw-base)" ] \
+    || fail "adopt wrote retired branch.issue-61.mmw-base"
+  [ -z "$(git -C "$TMP/repo" config --get branch.issue-61.mmw-base-branch)" ] \
+    || fail "adopt wrote retired branch.issue-61.mmw-base-branch"
+  no_relay
 }
 
 scenario_start_verifier() {
@@ -5312,8 +5512,8 @@ scenario_nightfromtask() {
   [ -d "$TMP/repo/.worktrees/issue-61" ] || fail "the ticket worktree should be under the main checkout's .worktrees"
   [ ! -d "$task/.worktrees/issue-61" ] || fail "no second .worktrees under the task worktree"
   [ -f "$TMP/repo/.worktrees/issue-61/feat.txt" ] || fail "issue-61 should be cut from feature-x, the branch the night runs on"
-  [ "$(git -C "$TMP/repo" config --get branch.issue-61.mmw-base-branch)" = feature-x ] \
-    || fail "mmw-base-branch should be feature-x, got $(git -C "$TMP/repo" config --get branch.issue-61.mmw-base-branch)"
+  posted_events 61 into | grep -qx "worker.started into=feature-x" \
+    || fail "worker.started should record feature-x: $(posted_events 61 into)"
 
   echo "--- a directory named issue-<n> on another branch is not taken over"
   reset_log
@@ -5652,7 +5852,6 @@ scenario_adoptinto() {
   seed_main_agent agt_self
   self_picked_worktree
   tree="$(wt 61)"
-  git -C "$TMP/repo" config branch.issue-61.mmw-base preserved-review-base
   code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self bash "$DISPATCH" "${TOOLS[@]}" adopt 61) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
   [ "$code" = 2 ] || fail "adopt without --into expected 2, got $code"
   grep -q "pass --into <base branch>" "$TMP/err" \
@@ -5661,8 +5860,8 @@ scenario_adoptinto() {
   [ "$code" = 0 ] || fail "adopt --into expected 0, got $code: $(cat "$TMP/err")"
   posted_events 61 into | grep -qx "worker.started into=adopted-base" \
     || fail "adopt did not record into=adopted-base: $(posted_events 61 into)"
-  [ "$(git -C "$TMP/repo" config --get branch.issue-61.mmw-base)" = preserved-review-base ] \
-    || fail "adopt replaced the reviewer's recorded base commit"
+  [ -z "$(git -C "$TMP/repo" config --get branch.issue-61.mmw-base)" ] \
+    || fail "adopt wrote retired mmw-base config"
   no_relay
 }
 
@@ -5673,7 +5872,6 @@ scenario_startwithoutinto() {
   post_ev 61 worker.started --ticket 61 --line "old worker" \
     --field session=old --field runner=paseo \
     $(start_facts "$(wt 61)" 61 worker) --field into=
-  git -C "$TMP/repo" config branch.issue-61.mmw-base-branch main
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 2 ] || fail "old worker.started without into expected 2, got $code"
   grep -q "carries no into; re-start the worker" "$TMP/err" \
@@ -5773,7 +5971,7 @@ scenario_handoffpushrejected() {
     || fail "retract rewrote the commit another clone pushed"
 }
 
-ALL="check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty land start-worker start-reviewer start-verifier startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openrefusesahead openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openrefusesahead openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -5794,6 +5992,14 @@ banner_for() {
     advance) echo DISPATCH-ADVANCE-OK ;;
     advanceconflict) echo DISPATCH-ADVANCE-CONFLICT-OK ;;
     advancedirty) echo DISPATCH-ADVANCE-DIRTY-OK ;;
+    integrateuptodate) echo INTEGRATE-UP-TO-DATE-OK ;;
+    integrateclean) echo INTEGRATE-CLEAN-OK ;;
+    integratenamestickets) echo INTEGRATE-NAMES-TICKETS-OK ;;
+    integrateconflict) echo INTEGRATE-CONFLICT-OK ;;
+    integratedirty) echo INTEGRATE-DIRTY-OK ;;
+    reviewerbaseafterintegrate) echo REVIEWER-BASE-AFTER-INTEGRATE-OK ;;
+    reviewerbasefromstarted) echo REVIEWER-BASE-FROM-STARTED-OK ;;
+    nobaseconfig) echo NO-BASE-CONFIG-OK ;;
     land) echo DISPATCH-LAND-OK ;;
     start-worker) echo DISPATCH-START-WORKER-OK ;;
     start-reviewer) echo DISPATCH-START-REVIEWER-OK ;;

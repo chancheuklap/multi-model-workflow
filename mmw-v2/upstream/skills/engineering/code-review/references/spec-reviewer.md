@@ -28,6 +28,19 @@ The rest of the spec covers other tickets. Reading it makes you flag work that w
 
 When the ticket has no `## Parent`, the ticket itself is the whole spec. When it names a spec you cannot reach, say so in your report and review against the ticket alone.
 
+### Read sibling tickets already integrated into the base
+
+Read `worker.started.base` from this ticket's events. Between that commit and the resolved base commit from your prompt, follow the base's first-parent history and select commits whose subject is exactly `Merge branch 'issue-<n>'`. Those numbers are the sibling tickets integrated while this worker was active. For each one, read the whole ticket and the closeout comment that carries `ticket.passed` or `ticket.returned`; do not trust its verdict as proof that the combined result is correct.
+
+Review the current ticket together with those sibling tickets from four angles:
+
+- **Combination behavior**: behaviors that pass alone still work when both changes are present.
+- **Contract consistency**: shared names, values, states and interface shapes mean the same thing across tickets.
+- **Migration completeness**: a migration, rename or retirement completed by one ticket has no old caller, reader or writer restored by another.
+- **Shared state**: both tickets agree on ownership, ordering and lifecycle of persistent or process-wide state.
+
+Report a mismatch under `Missing`, `Scope creep` or `Built wrong`, with quotes from both tickets or their named baselines. State whether the repair target is inside the current ticket's `## Owns`. A repair inside current `## Owns` is an in-ticket finding. A repair that touches only a sibling ticket's `## Owns` is out-of-ticket and becomes a `finding` child; do not move it into the current ticket merely because the interaction exposed it.
+
 ## 3. What you are looking for
 
 Three kinds of review finding, each quoting the line of the ticket, the spec, or a baseline it comes from, and one judgement per line of the `DECISIONS` comment:

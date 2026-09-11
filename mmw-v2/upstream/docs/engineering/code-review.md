@@ -1,8 +1,8 @@
 ## What it does
 
-`code-review` reviews the diff between `HEAD` and a fixed point you name (a commit, a branch, a tag, `main`, `HEAD~5`) along two axes. **Standards** asks whether the code follows how this repo writes code. **Spec** asks whether the code does what the originating issue or [spec](https://www.aihero.dev/ai-coding-dictionary/spec) asked for. Each axis runs in its own [sub-agent](https://www.aihero.dev/ai-coding-dictionary/subagent) so neither sees the other's reasoning.
+`code-review` reviews one ticket's committed diff from a fixed base commit along three axes. **Standards** asks whether the code follows how this repo writes code. **Spec** asks whether the code does what the ticket and its named spec sections asked for, including interactions with sibling tickets already integrated into the base. **Tests** asks whether the ticket's checks prove their stated behavior. Each axis runs in its own [sub-agent](https://www.aihero.dev/ai-coding-dictionary/subagent) so none sees another's reasoning.
 
-The two axes are never merged and never re-ranked. The report ends with a worst issue *per axis* and refuses to name a single winner across them, because a change can pass one axis and fail the other: code that follows every convention while implementing the wrong thing passes Standards and fails Spec; code that does exactly what the [ticket](https://www.aihero.dev/ai-coding-dictionary/ticket) asked while breaking the repo's conventions does the reverse. A blended verdict lets the passing axis hide the failing one.
+The three axes are never merged and never re-ranked. The report ends with a worst issue *per axis* and refuses to name a single winner across them, because a change can pass one axis and fail another: code that follows every convention while implementing the wrong thing passes Standards and fails Spec; code that does the right thing with a test that would pass either way fails Tests. A blended verdict lets a passing axis hide a failing one.
 
 ## When to reach for it
 
@@ -17,7 +17,7 @@ Type `/code-review`, or the agent reaches for it automatically when you ask to r
 | The whole codebase has drifted, not one diff | [improve-codebase-architecture](https://aihero.dev/skills-improve-codebase-architecture) |
 | Something is broken and you do not know why | [diagnosing-bugs](https://aihero.dev/skills-diagnosing-bugs) |
 
-You must supply the fixed point. If you do not, the skill asks for one rather than guessing; it then checks the ref resolves and the diff is non-empty before spawning anything, so a typo'd branch name fails in front of you instead of inside two sub-agents.
+The caller supplies the ticket number and fixed base commit. The skill checks that the ref resolves and the diff is non-empty before spawning anything, so a bad commit fails before three sub-agents are started.
 
 ## Prerequisites
 
@@ -32,18 +32,20 @@ The Spec axis needs a spec to exist and be findable. It looks in this order:
 
 Step 1 depends on `docs/agents/issue-tracker.md`, which [setup-matt-pocock-skills](https://aihero.dev/skills-setup-matt-pocock-skills) writes. Without it the axis still works if you hand it a path. With no spec at all, the Spec sub-agent is skipped and the report says "no spec available" rather than inventing requirements.
 
-## The two axes
+## The three axes
 
-| | Standards | Spec |
-| --- | --- | --- |
-| Question | Is it built right? | Is it the right thing? |
-| Reads | The repo's documented standards, plus the smell baseline | The originating issue or spec |
-| Reports | Documented breaches (can be hard), and smells (always judgement calls) | Missing or partial requirements, scope creep, requirements implemented wrongly |
-| Every finding cites | The standards file and the rule, or the named smell plus the hunk | The line of the spec |
+| | Standards | Spec | Tests |
+| --- | --- | --- | --- |
+| Question | Is it built right? | Is it the right thing? | Do the checks prove it? |
+| Reads | The repo's documented standards, plus the smell baseline | The ticket, its named spec sections and integrated sibling tickets | The acceptance checks and their test cases |
+| Reports | Documented breaches (can be hard), and smells (always judgement calls) | Missing or partial requirements, scope creep, requirements implemented wrongly | Tautological, implementation-coupled or incomplete proof |
+| Every finding cites | The standards file and the rule, or the named smell plus the hunk | The line of a ticket, spec or baseline | The check and the test line |
+
+The Spec axis reads sibling tickets represented by first-parent merge commits between `worker.started.base` and the review base. It checks combination behavior, contract consistency, migration completeness and shared state, without treating a sibling verdict as proof. A repair inside the current ticket's `## Owns` is handled on the current ticket; a repair only inside a sibling's `## Owns` becomes an out-of-ticket finding.
 
 A generic review skill that does not know your standards is the thing this design is trying to avoid: it flags what is deliberate in your codebase and misses the invariants your codebase actually depends on. So the repo's own documentation is the [primary source](https://www.aihero.dev/ai-coding-dictionary/primary-source) on the Standards axis, and **the repo always overrides**.
 
-The **smell baseline** is the floor underneath it, twelve Fowler code smells from _Refactoring_ ch.3: Mysterious Name, Duplicated Code, Feature Envy, Data Clumps, Primitive Obsession, Repeated Switches, Shotgun Surgery, Divergent Change, Speculative Generality, Message Chains, Middle Man, Refused Bequest. Each is a labelled heuristic ("possible Feature Envy"), never a hard violation, and each is stated as *what it is* → *how to fix*, so a finding arrives with a move attached rather than a complaint. Anything your linter already enforces is skipped by both axes.
+The **smell baseline** is the floor underneath it, twelve Fowler code smells from _Refactoring_ ch.3: Mysterious Name, Duplicated Code, Feature Envy, Data Clumps, Primitive Obsession, Repeated Switches, Shotgun Surgery, Divergent Change, Speculative Generality, Message Chains, Middle Man, Refused Bequest. Each is a labelled heuristic ("possible Feature Envy"), never a hard violation, and each is stated as *what it is* → *how to fix*, so a finding arrives with a move attached rather than a complaint. Anything the repository's checker already enforces is skipped by the Standards axis.
 
 ## Common questions
 
@@ -53,7 +55,7 @@ This is the most reported problem with the skill, and it is not fixed. Claude Co
 
 **Its sub-agents keep invoking `/code-review` again and spawn more agents.**
 
-Known open bug, reproduced by several people and in more than one harness. The Standards and Spec prompts do not forbid delegation, so a sub-agent can rediscover the skill and fan out again: one report reached 50-plus agents. The fix people have applied on forks is one line appended to both sub-agent briefs: "Do not invoke `/code-review` or spawn additional agents: perform this review directly." Some prefer to handle it at the harness level so every skill inherits the guard. Neither is in the shipped skill yet. If you run this unattended, watch the agent count.
+Each axis sub-agent enters the named axis door of the skill and performs that review directly. The session starts exactly Standards, Spec and Tests, then waits for all three before writing the report.
 
 **Should I run it in the same [session](https://www.aihero.dev/ai-coding-dictionary/session) that wrote the code?**
 
@@ -65,7 +67,7 @@ Both work, and the skill does not decide for you. Per-ticket keeps each diff sma
 
 **Can I trust the findings?**
 
-Not without checking. Sub-agent output is a hypothesis, not evidence: one team reported a dozen breaking changes that prose-based reviews had waved through. The skill aggregates the two reports verbatim or lightly cleaned rather than re-verifying each claim against the files, so a finding can cite the wrong location or overstate an impact. Read the citation on each finding before acting on it. That every finding is required to carry one (a standards rule, a smell plus its hunk, or a spec line) is what makes this checkable at all.
+Not without checking. Sub-agent output is a hypothesis, not evidence. The skill aggregates the three reports verbatim or lightly cleaned rather than re-verifying each claim against the files, so a finding can cite the wrong location or overstate an impact. Read the citation on each finding before acting on it. Every finding must carry a repository rule, a requirement, or a check and test line, which makes it checkable.
 
 **Why does it find new problems every single time I run it?**
 

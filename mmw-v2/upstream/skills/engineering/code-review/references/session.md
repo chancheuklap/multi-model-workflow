@@ -36,6 +36,8 @@ A line the Spec axis marks `should not` under its `Decisions` heading is **in-ti
 
 A file outside `## Owns` is still not written: the sixth condition sorts a review finding onto this ticket's fix round; it does not widen where the worker may write.
 
+For a sibling-interaction finding from the Spec axis, apply the same ownership boundary explicitly: a repair target inside this ticket's `## Owns` is in-ticket; one that lies only inside a sibling ticket's `## Owns` is out-of-ticket and becomes a `finding` child.
+
 The split decides what happens next, which is why you make it rather than leaving it to the reader: in-ticket review findings get one round of fixes on this ticket; out-of-ticket review findings become this ticket's `finding` children (`--sub-issue finding`) and block nothing. The worker opens them; you list them. The parent is this ticket.
 
 The Tests axis splits on one question — is the test case the review finding names one that a `CHECK:` names?
