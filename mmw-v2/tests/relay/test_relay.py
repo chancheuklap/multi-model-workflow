@@ -28,6 +28,11 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "dispatch" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
+# The module under test finds events.py through `MMW_EVENTS_PY` when a caller set it, and
+# `dispatch.sh` exports it to every command it runs — pointing at its own checkout's
+# events.py, not this one's. Tested under it, this suite would read another version's
+# vocabulary; the events.py beside the module is the one under test.
+os.environ.pop("MMW_EVENTS_PY", None)
 _spec = importlib.util.spec_from_file_location("relay", SCRIPTS / "relay.py")
 relay = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(relay)
