@@ -211,29 +211,31 @@ print("worker %s on %s, left when %s" % (last.get("session"), last.get("runner")
 '
 }
 
-# The value of one field on the newest named event. Exit 0 prints it, 3 means no such
-# event, 4 means the event predates that field, and 2 means the comments cannot be read.
-# The distinction is part of the migration: an old worker.started is not permission to
-# guess its integration branch from git config.
-latest_event_field() {
-  local number="$1" event="$2" field="$3" json
+# The value of one field on the newest named event. When several event names are given,
+# the first is the active state and any later one ends it. Exit 0 prints the value, 3
+# means no active event, 4 means its field is absent, and 2 means the comments cannot be
+# read.
+newest_field() {
+  local number="$1" field="$2" json
+  shift 2
   json="$(ticket_comments "$number")" || return 2
-  printf '%s' "$json" | MMW_EVENTS="$EVENTS" MMW_EVENT="$event" MMW_FIELD="$field" \
+  printf '%s' "$json" | MMW_EVENT_NAMES="$*" MMW_FIELD="$field" MMW_N="$number" \
     python3 -c '
-import importlib.util, json, os, sys
-spec = importlib.util.spec_from_file_location("mmw_events", os.environ["MMW_EVENTS"])
+import importlib.util, os, sys
+spec = importlib.util.spec_from_file_location("mmw_events", os.environ["MMW_EVENTS_PY"])
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
-data = json.load(sys.stdin)
-comments = data.get("comments", []) if isinstance(data, dict) else data
-state = mod.fold(comments)
-if state.get("unreadable"):
-    for item in state["unreadable"]:
-        print("dispatch: unreadable event comment %s: %s" %
-              (item.get("comment"), item.get("reason")), file=sys.stderr)
+try:
+    comments = mod.read_comments(None, "-")
+except mod.Unreadable as exc:
+    print("dispatch: " + str(exc), file=sys.stderr)
     raise SystemExit(2)
-record = mod.newest(comments, os.environ["MMW_EVENT"])
-if record is None:
+state = mod.fold(comments)
+if mod.refuse_unreadable(state, int(os.environ["MMW_N"])):
+    raise SystemExit(2)
+names = os.environ["MMW_EVENT_NAMES"].split()
+record = mod.newest(comments, *names)
+if record is None or (len(names) > 1 and record["event"] != names[0]):
     raise SystemExit(3)
 value = record["payload"].get(os.environ["MMW_FIELD"])
 if value in (None, ""):
@@ -242,54 +244,34 @@ print(value)
 '
 }
 
-# The integration branch of a night that is open now. A closed or suspended night is
-# not a source for a later ticket start. Exit codes match latest_event_field.
-open_spec_into() {
-  local spec="$1" json
-  json="$(ticket_comments "$spec")" || return 2
-  printf '%s' "$json" | MMW_EVENTS="$EVENTS" python3 -c '
-import importlib.util, json, os, sys
-spec = importlib.util.spec_from_file_location("mmw_events", os.environ["MMW_EVENTS"])
-mod = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(mod)
-data = json.load(sys.stdin)
-comments = data.get("comments", []) if isinstance(data, dict) else data
-state = mod.fold(comments)
-if state.get("unreadable"):
-    raise SystemExit(2)
-record = mod.newest(comments, "spec.opened", "spec.suspended", "spec.closed")
-if record is None or record["event"] != "spec.opened":
-    raise SystemExit(3)
-value = record["payload"].get("into")
-if value in (None, ""):
-    raise SystemExit(4)
-print(value)
-'
-}
-
 # Resolve worker.started.into first, then an open night's spec.opened.into, then the
 # caller's explicit fallback. `start` supplies its current branch as that fallback;
-# `adopt` supplies only --into. Nothing reads the retired git-config copy.
+# `adopt` supplies only --into. A worker.started with no into is refused; a new start
+# records the base branch.
 resolve_into() {
   local number="$1" spec="$2" fallback="$3" into rc
-  into="$(latest_event_field "$number" worker.started into)"
+  into="$(newest_field "$number" into worker.started)"
   rc=$?
   case "$rc" in
     0) printf '%s\n' "$into"; return 0 ;;
-    2) echo "dispatch: could not read #$number's events, so its integration branch is unknown" >&2; return 2 ;;
-    4) echo "dispatch: #$number's latest worker.started predates its into field; re-start the worker with the current dispatch before continuing" >&2; return 2 ;;
+    2) echo "dispatch: could not read #$number's events, so its base branch is unknown" >&2; return 2 ;;
+    4) echo "dispatch: #$number's latest worker.started carries no into; re-start the worker so the base branch is recorded" >&2; return 2 ;;
+    3) ;;
+    *) echo "dispatch: could not resolve #$number's base branch from its events" >&2; return 2 ;;
   esac
   if [ -n "$spec" ]; then
-    into="$(open_spec_into "$spec")"
+    into="$(newest_field "$spec" into spec.opened spec.suspended spec.closed)"
     rc=$?
     case "$rc" in
       0) printf '%s\n' "$into"; return 0 ;;
-      2) echo "dispatch: could not read whether the night on #$spec is open, so #$number's integration branch is unknown" >&2; return 2 ;;
-      4) echo "dispatch: the open night on #$spec predates spec.opened.into; open it again with the current dispatch before continuing" >&2; return 2 ;;
+      2) echo "dispatch: could not read whether the night on #$spec is open, so #$number's base branch is unknown" >&2; return 2 ;;
+      4) echo "dispatch: the open night on #$spec carries no spec.opened.into; open it again so the base branch is recorded" >&2; return 2 ;;
+      3) ;;
+      *) echo "dispatch: could not resolve #$number's base branch from the night on #$spec" >&2; return 2 ;;
     esac
   fi
   [ -n "$fallback" ] || {
-    echo "dispatch: #$number has no worker.started.into and is outside an open night; pass --into <branch>" >&2
+    echo "dispatch: #$number has no worker.started.into and is outside an open night; pass --into <base branch>" >&2
     return 2
   }
   printf '%s\n' "$fallback"
@@ -463,13 +445,13 @@ open_relay() {
 open_night() {
   local spec="$1" root into opened runner session how
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
-  [ -n "$root" ] || refuse "not inside a git repository, so the night has no integration branch"
-  into="$(git -C "$root" rev-parse --abbrev-ref HEAD 2>/dev/null)"
-  case "$into" in HEAD | "") refuse "the checkout has no branch to record as spec.opened.into" ;; esac
+  [ -n "$root" ] || refuse "not inside a git repository, so the night has no base branch"
+  into="$(current_branch "$root")" \
+    || refuse "the checkout has no branch to record as spec.opened.into"
   fetch_origin "$root" || exit 2
   require_origin_branch "$root" "$into" || exit 2
   local ahead
-  ahead="$(git -C "$root" rev-list --count "origin/$into..$into" 2>/dev/null)" \
+  ahead="$(ahead_of_origin "$root" "$into")" \
     || refuse "could not compare $into with origin/$into"
   [ "$ahead" = 0 ] \
     || refuse "$into is $ahead commit(s) ahead of origin/$into; push it with git push origin $into before opening the night"
@@ -539,14 +521,14 @@ adopt_ticket() {
   [ "$branch" = "issue-$number" ] \
     || refuse "this worktree is on ${branch:-a detached HEAD}, and #$number is worked on branch issue-$number; adopt it from a worktree on issue-$number, where its preflight will claim it"
 
-  # The event log is authoritative for the integration branch. Outside a night, a
+  # The event log is authoritative for the base branch. Outside a night, a
   # self-picked ticket with no prior start has no such event and must name --into.
-  local base base_branch
-  base_branch="$(resolve_into "$number" "$spec" "$explicit_into")" || exit 2
+  local base into
+  into="$(resolve_into "$number" "$spec" "$explicit_into")" || exit 2
   fetch_origin "$tree" || exit 2
-  require_origin_branch "$tree" "$base_branch" || exit 2
-  base="$(git -C "$tree" merge-base HEAD "origin/$base_branch" 2>/dev/null)"
-  [ -n "$base" ] || refuse "issue-$number and origin/$base_branch share no commit, so there is no base to review from"
+  require_origin_branch "$tree" "$into" || exit 2
+  base="$(git -C "$tree" merge-base HEAD "origin/$into" 2>/dev/null)"
+  [ -n "$base" ] || refuse "issue-$number and origin/$into share no commit, so there is no base to review from"
 
   local -a marked
   local profile row host model effort
@@ -590,8 +572,7 @@ for r in state.get("sessions") or []:
     case "$opened" in *$'\t'started) started=1 ;; esac
   fi
 
-  git -C "$tree" config "branch.issue-$number.mmw-base" "$base"
-  git -C "$tree" config "branch.issue-$number.mmw-base-branch" "$base_branch"
+  record_base_if_missing "$number" "$tree" "$into"
   if [ -n "$already" ]; then
     echo "dispatch: #$number's worker.started already names $runner session $session" >&2
     printf '%s\n' "$session"
@@ -603,7 +584,7 @@ for r in state.get("sessions") or []:
        --field "machine=$(machine_name)" \
        --field "host=$host" --field "model=$model" --field "effort=${effort:-—}" \
        --field "grade=$profile" --field "worktree=$tree" --field "branch=issue-$number" \
-       --field "base=$base" --field "into=$base_branch" --json-field adopted=true; then
+       --field "base=$base" --field "into=$into" --json-field adopted=true; then
     [ -n "$started" ] && stop_relay --tickets "$number"
     refuse "could not write the worker.started event on #$number, so this session is not its worker$([ -n "$started" ] && echo " and the watch this opened was closed again"); adopt again once the tracker takes comments"
   fi
@@ -714,20 +695,13 @@ else:
 '
 }
 
-# Fills `branch.issue-<n>.mmw-base` for a branch that exists without one, with the
-# merge base of HEAD and that branch; `mmw-base-branch` likewise, with the branch HEAD
-# is on. A value already there is left alone: it was recorded when the branch was cut
-# and is the better answer.
-# `base_branch` is the branch the ticket's branch was cut from: the one the night merges
-# into. Recorded once, when the branch is cut; later starts leave it as it is.
+# Records the ticket branch's merge base with `origin/<base branch>` and the base branch
+# name when either value is absent. Existing values remain the review boundary.
 record_base_if_missing() {
-  local number="$1" root="$2" base_branch="$3" found source
+  local number="$1" root="$2" base_branch="$3" found
   [ -n "$base_branch" ] || return 0
-  source="$base_branch"
-  git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$base_branch" \
-    && source="origin/$base_branch"
   if [ -z "$(git -C "$root" config --get "branch.issue-$number.mmw-base")" ]; then
-    found="$(git -C "$root" merge-base "$source" "issue-$number" 2>/dev/null)"
+    found="$(git -C "$root" merge-base "origin/$base_branch" "issue-$number" 2>/dev/null)"
     [ -n "$found" ] && git -C "$root" config "branch.issue-$number.mmw-base" "$found"
   fi
   if [ -z "$(git -C "$root" config --get "branch.issue-$number.mmw-base-branch")" ]; then
@@ -763,7 +737,34 @@ workspace_cwd_for() {
   [ -d "$dest" ] && printf '%s\n' "$dest"
 }
 
-# Refresh origin before any branch decision. The remote is the integration authority;
+# Read-only checks that must pass before a replacement stops the worker holding the
+# ticket. `ensure_workspace` repeats them after the stop because origin may move between
+# the check and the worktree update.
+workspace_origin_ready() {
+  local number="$1" root="$2" into="$3" dest branch local_left remote_left
+  dest="$root/.worktrees/issue-$number"
+  branch="issue-$number"
+  fetch_origin "$root" || return 1
+  require_origin_branch "$root" "$into" || return 1
+  if [ -d "$dest" ]; then
+    local on
+    on="$(git -C "$dest" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+    [ "$on" = "$branch" ] || {
+      echo "dispatch: $dest is on ${on:-no branch}, not $branch; it is not this ticket's worktree — move it or rename it, then start again" >&2
+      return 1
+    }
+  fi
+  if git -C "$root" show-ref --verify --quiet "refs/heads/$branch" \
+      && git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+    read -r local_left remote_left <<<"$(git -C "$root" rev-list --left-right --count "$branch...origin/$branch")"
+    if [ "$local_left" -gt 0 ] && [ "$remote_left" -gt 0 ]; then
+      echo "dispatch: $branch and origin/$branch have diverged: local is $local_left commit(s) ahead and origin is $remote_left commit(s) ahead; reconcile them without force-push, then start again" >&2
+      return 1
+    fi
+  fi
+}
+
+# Refresh origin before any branch decision. The remote is authoritative;
 # a missing or unreadable origin is not replaced with the checkout's stale knowledge.
 fetch_origin() {
   local root="$1" out
@@ -771,16 +772,27 @@ fetch_origin() {
     echo "dispatch: this repository has no origin remote" >&2
     return 1
   fi
-  if ! out="$(git -C "$root" fetch origin 2>&1)"; then
+  if ! out="$(git -C "$root" fetch --prune origin 2>&1)"; then
     echo "dispatch: git fetch origin failed: $(printf '%s' "$out" | tail -2 | tr '\n' ' ')" >&2
     return 1
   fi
 }
 
+current_branch() {
+  local branch
+  branch="$(git -C "$1" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+  case "$branch" in HEAD | "") return 1 ;; esac
+  printf '%s\n' "$branch"
+}
+
+ahead_of_origin() {
+  git -C "$1" rev-list --count "origin/$2..$2" 2>/dev/null
+}
+
 require_origin_branch() {
   local root="$1" branch="$2"
   git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$branch" && return 0
-  echo "dispatch: origin/$branch does not exist; push the integration branch to origin before continuing" >&2
+  echo "dispatch: origin/$branch does not exist; push the base branch to origin before continuing" >&2
   return 1
 }
 
@@ -789,7 +801,7 @@ require_origin_branch() {
 push_ticket_branch() {
   local number="$1" cwd="$2" out
   if ! out="$(git -C "$cwd" push --set-upstream origin "issue-$number" 2>&1)"; then
-    echo "dispatch: git push origin issue-$number was rejected: $(printf '%s' "$out" | tail -3 | tr '\n' ' '); nothing was force-pushed" >&2
+    echo "dispatch: git push origin issue-$number was rejected: $(printf '%s' "$out" | tr '\n' ' '); nothing was force-pushed" >&2
     return 1
   fi
   echo "dispatch: pushed issue-$number to origin" >&2
@@ -915,9 +927,7 @@ ensure_workspace() {
   git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$branch" && remote=1
 
   if git -C "$root" show-ref --verify --quiet "refs/heads/$branch" && [ "$remote" = 1 ]; then
-    read -r local_left remote_left <<EOF
-$(git -C "$root" rev-list --left-right --count "$branch...origin/$branch")
-EOF
+    read -r local_left remote_left <<<"$(git -C "$root" rev-list --left-right --count "$branch...origin/$branch")"
     if [ "$local_left" -gt 0 ] && [ "$remote_left" -gt 0 ]; then
       echo "dispatch: $branch and origin/$branch have diverged: local is $local_left commit(s) ahead and origin is $remote_left commit(s) ahead; reconcile them without force-push, then start again" >&2
       return 1
@@ -935,6 +945,9 @@ EOF
 
   if [ -d "$dest" ]; then
     record_base_if_missing "$number" "$root" "$into"
+    if [ "$remote" = 0 ]; then
+      push_ticket_branch "$number" "$dest" || return 1
+    fi
     printf '%s\t%s\t0\n' "$dest" "$dest"
     return 0
   fi
@@ -942,6 +955,7 @@ EOF
   if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
     git -C "$root" worktree add --quiet "$dest" "$branch" \
       || { echo "dispatch: could not create a worktree for $branch" >&2; return 1; }
+    created=1
   elif [ "$remote" = 1 ]; then
     git -C "$root" worktree add --quiet -b "$branch" "$dest" "origin/$branch" \
       || { echo "dispatch: could not create a worktree for $branch from origin/$branch" >&2; return 1; }
@@ -1082,8 +1096,8 @@ start_one() {
   IFS=$'\t' read -r host model effort <<<"$row"
 
   local fallback into
-  fallback="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
-  case "$fallback" in HEAD | issue-[0-9]* | "") fallback="" ;; esac
+  fallback="$(current_branch .)" || fallback=""
+  case "$fallback" in issue-[0-9]* | "") fallback="" ;; esac
   into="$(resolve_into "$number" "$spec" "$fallback")" || exit 2
 
   # The checkout the night runs in, whichever worktree this runs from: a worker starts its
@@ -1093,6 +1107,9 @@ start_one() {
   root="$(main_checkout)"
   [ -n "$root" ] \
     || refuse "not inside a git repository, so there is no working directory to give the session"
+
+  workspace_origin_ready "$number" "$root" "$into" \
+    || refuse "could not use origin to prepare issue-$number; an existing worker was not stopped"
 
   local prompt
   case "$kind" in
@@ -1137,7 +1154,7 @@ start_one() {
   # and the new worker continues from them; left uncommitted, its `--preflight` would
   # refuse the worktree. A worktree no worker of this ticket has had is not touched: its
   # changes are somebody else's, and the preflight refuses them rather than take them.
-  local handoff=0
+  local publish=0
   if [ "$kind" = worker ] && [ "$created" = 0 ]; then
     local left_by
     left_by="$(last_worker_on_ticket "$number")" \
@@ -1145,13 +1162,13 @@ start_one() {
     if [ -n "$left_by" ]; then
       keep_unfinished_work "$number" "$cwd" "$left_by" \
         || refuse "the uncommitted work in $cwd was not saved (the reason is above), and a new worker cannot start on it; commit or set it aside on issue-$number, then start again. Nothing was started"
-      handoff=1
+      publish=1
     fi
   fi
-  [ "${#replaced[@]}" -eq 0 ] || handoff=1
-  if [ "$handoff" = 1 ]; then
+  [ "${#replaced[@]}" -eq 0 ] || publish=1
+  if [ "$publish" = 1 ]; then
     push_ticket_branch "$number" "$cwd" \
-      || refuse "#${number}'s previous worker was stopped, but its branch was not handed off; reconcile issue-$number with origin/issue-$number and start again"
+      || refuse "#${number}'s previous worker was stopped, but its ticket branch was not pushed; reconcile issue-$number with origin/issue-$number and start again"
   fi
 
   local session
@@ -1373,26 +1390,18 @@ check_origin_integration() {
   local root branch failed=0 ahead out
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   if [ -z "$root" ]; then
-    echo "dispatch: not inside a git repository, so origin and the integration branch cannot be checked" >&2
+    echo "dispatch: not inside a git repository, so origin and the base branch cannot be checked" >&2
     return 1
   fi
-  branch="$(git -C "$root" rev-parse --abbrev-ref HEAD 2>/dev/null)"
-  case "$branch" in
-    HEAD | "") echo "dispatch: the checkout has no current branch to use as the integration branch" >&2; return 1 ;;
-  esac
-  if ! git -C "$root" remote get-url origin >/dev/null 2>&1; then
-    echo "dispatch: this repository has no origin remote" >&2
+  branch="$(current_branch "$root")" || {
+    echo "dispatch: the checkout has no current branch to use as the base branch" >&2
     return 1
-  fi
-  if ! out="$(git -C "$root" fetch origin 2>&1)"; then
-    echo "dispatch: git fetch origin failed: $(printf '%s' "$out" | tail -2 | tr '\n' ' ')" >&2
-    return 1
-  fi
-  if ! git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
-    echo "dispatch: origin/$branch does not exist; push the integration branch before opening the night" >&2
+  }
+  fetch_origin "$root" || return 1
+  if ! require_origin_branch "$root" "$branch"; then
     failed=1
   else
-    ahead="$(git -C "$root" rev-list --count "origin/$branch..$branch" 2>/dev/null)" || ahead=""
+    ahead="$(ahead_of_origin "$root" "$branch")" || ahead=""
     if [ -z "$ahead" ]; then
       echo "dispatch: could not count commits by which $branch is ahead of origin/$branch" >&2
       failed=1
@@ -1401,9 +1410,11 @@ check_origin_integration() {
       failed=1
     fi
   fi
-  if ! out="$(git -C "$root" push --dry-run origin "$branch" 2>&1)"; then
-    echo "dispatch: git push --dry-run origin $branch failed: $(printf '%s' "$out" | tail -3 | tr '\n' ' ')" >&2
-    failed=1
+  if git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+    if ! out="$(git -C "$root" push --dry-run origin "refs/remotes/origin/$branch:refs/heads/$branch" 2>&1)"; then
+      echo "dispatch: git push --dry-run origin origin/$branch:$branch failed: $(printf '%s' "$out" | tr '\n' ' ')" >&2
+      failed=1
+    fi
   fi
   [ "$failed" -eq 0 ]
 }
@@ -1874,7 +1885,7 @@ suspend_text() {
   if [ -n "$ident" ]; then
     printf '%s\n' "Interrupted: $ident. Its tracked edits were committed and issue-$number was pushed to origin before the hold ended. The batch is taken up again where it stands with advance."
   else
-    printf '%s\n' "No session of ours was working on it at that moment. Its ticket branch, if it has one, was pushed to origin, and it keeps its label, so the next advance of #$spec starts it."
+    printf '%s\n' "No session of ours was working on it at that moment. It keeps its label, so the next advance of #$spec starts it."
   fi
 }
 
@@ -1919,11 +1930,11 @@ suspend_night() {
   # slot is given back under it below. One already shown to be stopped is left alone. A
   # ticket whose events cannot be read, or one of whose sessions will not stop, is left as
   # it is: nobody can say nothing still runs on it.
-  local live="" number ident name sessions stopped=0 still_live=""
+  local live="" number ident name sessions stopped=0 kept="" push_failed=""
   for number in $batch; do
     if ! sessions="$(ticket_events "$number" live)"; then
       echo "dispatch: could not read #$number's events, so whether a session still runs on it is unknown; it is left as it is" >&2
-      still_live="$still_live $number"
+      kept="$kept $number"
       left=$((left + 1))
       continue
     fi
@@ -1936,27 +1947,30 @@ suspend_night() {
         live="$live$number"$'\t'"$ident"$'\n'
       else
         echo "dispatch: could not stop $ident on #$number, so it is still running" >&2
-        still_live="$still_live $number"
+        kept="$kept $number"
         left=$((left + 1))
         break
       fi
     done <<<"$sessions"
   done
 
-  # A stopped session hands off through origin before its event hold, claim or slot is
+  # A stopped session commits and pushes its ticket branch before its event hold, claim or slot is
   # released. If commit or push fails, that ticket stays held exactly as a session that
   # could not be stopped does; the rest of the night can still be suspended.
   local cwd left_by
   for number in $queued; do
-    case " $still_live " in *" $number "*) continue ;; esac
+    case " $kept " in *" $number "*) continue ;; esac
+    printf '%s\n' "$live" | awk -F '\t' -v n="$number" '$1 == n { found=1 } END { exit !found }' \
+      || continue
     cwd="$(workspace_cwd_for "$number")"
     [ -n "$cwd" ] || continue
     left_by="$(last_worker_on_ticket "$number")" || left_by=""
     [ -n "$left_by" ] || left_by="the suspended work on #$number"
     if ! keep_unfinished_work "$number" "$cwd" "$left_by" \
         || ! push_ticket_branch "$number" "$cwd"; then
-      echo "dispatch: #$number could not be handed off through origin, so its workspace, claim, slot and event hold are kept" >&2
-      still_live="$still_live $number"
+      echo "dispatch: #$number could not commit and push its ticket branch, so its workspace, claim, slot and event hold are kept" >&2
+      kept="$kept $number"
+      push_failed="$push_failed $number"
       left=$((left + 1))
     fi
   done
@@ -1967,7 +1981,7 @@ suspend_night() {
       --field "suspended_at=$when" \
     || { echo "dispatch: could not write the spec.suspended event on #$spec" >&2; left=$((left + 1)); }
   for number in $queued; do
-    case " $still_live " in *" $number "*) continue ;; esac
+    case " $kept " in *" $number "*) continue ;; esac
     ident="$(printf '%s\n' "$live" | awk -F '\t' -v n="$number" '$1 == n { ids = ids sep $2; sep = ", " } END { print ids }')"
     local -a interrupted=()
     [ -z "$ident" ] || interrupted=(--field "interrupted=$ident")
@@ -1984,7 +1998,7 @@ suspend_night() {
   local claims=0
   for number in $queued; do
     [ -n "$number" ] || continue
-    case " $still_live " in *" $number "*) continue ;; esac
+    case " $kept " in *" $number "*) continue ;; esac
     give_claim_back "$number"
     case "$?" in
       0)
@@ -2011,9 +2025,12 @@ suspend_night() {
       # tears up the record of what it started — leaving processes that stop can no
       # longer reach. So a ticket whose worker survived the archive keeps its slot: it
       # is already counted as left behind, and this only says why.
-      case " $still_live " in
+      case " $kept " in
         *" $number "*)
-          echo "dispatch: #$number keeps its slot while its worker runs; stopping a product under a live worker leaves processes its own stop cannot reach. End that agent, then suspend again" >&2
+          case " $push_failed " in
+            *" $number "*) echo "dispatch: #$number keeps its slot because its ticket branch could not be committed and pushed; reconcile issue-$number with origin/issue-$number, then suspend again" >&2 ;;
+            *) echo "dispatch: #$number keeps its slot while a session may still run; stopping a product under a live session leaves processes its own stop cannot reach. End that agent, then suspend again" >&2 ;;
+          esac
           continue
           ;;
       esac

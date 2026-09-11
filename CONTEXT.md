@@ -201,12 +201,12 @@ _Avoid_: ticket message, closeout notification, 通知 (as a term)
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **worktree**:
-The per-ticket git worktree of a workspace, `<main checkout>/.worktrees/issue-<n>`, on the ticket branch `issue-<n>`. `start` fetches origin first. When `origin/issue-<n>` exists, the local branch is created from it or fast-forwarded to it; commits on both sides are a refusal. When it does not, the branch is created from `origin/<into>` and immediately pushed with its upstream set. A directory `issue-<n>` on any other branch is refused, never taken over. `dispatch.sh` creates and removes the worktree with git; no runner name is in the path, and a runner is only told the absolute path. The reviewer and verifier run inside it.
+The per-ticket git worktree of a workspace, `<main checkout>/.worktrees/issue-<n>`, on the ticket branch `issue-<n>`. A directory `issue-<n>` on any other branch is not this workspace. `dispatch.sh` creates and removes it with git; no runner name is in the path, and a runner is only told the absolute path. The reviewer and verifier run inside it.
 _Avoid_: 工作区, checkout (when this is meant), ~/.mmw/worktrees
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **ticket branch**:
-The branch `issue-<n>`, shared through `origin/issue-<n>`. A new start publishes it before the worker runs. A replacement, `retract` and `suspend` commit tracked edits and push it before the handoff releases anything; a rejected push is a refusal and is never forced. A later start fetches and fast-forwards a remote-ahead local branch, and refuses divergent histories with both ahead counts. `--preflight` refuses when the session is not on it; `advance` keeps its existing local merge behavior.
+The branch `issue-<n>`, shared through `origin/issue-<n>`; `dispatch.sh` pushes it and never force-pushes it. `--preflight` refuses when the session is not on it.
 _Admitted_: `issue-<n>`
 _Avoid_: branch (bare), 分支名 (as a term)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
@@ -217,7 +217,7 @@ _Avoid_: base-commit (in prose), 起点 commit, cut point, 切点
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **base branch**:
-The integration branch the main agent is on when it opens the night and runs `advance`. `check` requires `origin`, a working fetch and dry-run push, `origin/<base branch>`, and no local commits ahead of it. `open` records it as `spec.opened.into`; a worker records the resolved value as `worker.started.into`. Resolution reads the latest worker event, else the open night's event, else the current checkout branch outside a night. An old latest `worker.started` without `into` is refused rather than filled from git config. `advance` still merges into local `HEAD` and does not read this field.
+The branch on `origin` a night's tickets merge into; the copy at `origin/<base branch>` is authoritative and a local branch of the same name is a cache. The main agent opens the night on it, and `spec.opened` and `worker.started` name it in `into`.
 _Avoid_: main branch, 基线分支, main (as a name)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 

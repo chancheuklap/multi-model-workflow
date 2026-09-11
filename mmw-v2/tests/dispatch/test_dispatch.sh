@@ -1519,6 +1519,13 @@ other_clone() {
   printf '%s\n' "$TMP/other-clone"
 }
 
+commit_file() {
+  local repo="$1" file="$2" text="$3" message="$4"
+  printf '%s\n' "$text" > "$repo/$file"
+  git -C "$repo" add "$file"
+  git -C "$repo" -c user.email=t@t -c user.name=t commit -q -m "$message"
+}
+
 make_branch() {
   local name="$1" file="$2" text="$3"
   git -C "$TMP/repo" checkout -q -b "$name" main
@@ -4236,7 +4243,7 @@ JSON
   code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" adopt 61) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
   [ "$code" = 2 ] || fail "adopt without a base branch expected 2, got $code"
-  grep -q "pass --into <branch>" "$TMP/err" \
+  grep -q "pass --into <base branch>" "$TMP/err" \
     || fail "the refusal should ask for --into: $(cat "$TMP/err")"
 
   echo "--- a session that picked #61 up itself becomes its worker, and a relay watches #61"
@@ -5422,7 +5429,7 @@ scenario_checknopush() {
   git -C "$TMP/repo" remote set-url --push origin "$TMP/no-such-parent/origin.git"
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" check 76)"
   [ "$code" = 2 ] || fail "check with no push path expected 2, got $code"
-  grep -q "git push --dry-run origin main failed" "$TMP/err" \
+  grep -q "git push --dry-run origin origin/main:main failed" "$TMP/err" \
     || fail "the dry-run push failure was not named: $(cat "$TMP/err")"
 }
 
@@ -5430,7 +5437,6 @@ scenario_checkbasemissing() {
   local code
   fresh_repo
   git -C "$TMP/origin.git" update-ref -d refs/heads/main
-  git -C "$TMP/repo" update-ref -d refs/remotes/origin/main
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" check 76)"
   [ "$code" = 2 ] || fail "check without origin/main expected 2, got $code"
   grep -q "origin/main does not exist" "$TMP/err" \
@@ -5438,22 +5444,32 @@ scenario_checkbasemissing() {
 }
 
 scenario_checklocalahead() {
-  local code
+  local code copy other
   fresh_repo
-  printf 'ahead\n' > "$TMP/repo/ahead.txt"
-  git -C "$TMP/repo" add ahead.txt
-  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q -m ahead
+  commit_file "$TMP/repo" ahead-1.txt one ahead-one
+  commit_file "$TMP/repo" ahead-2.txt two ahead-two
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" check 76)"
   [ "$code" = 2 ] || fail "check on an ahead base expected 2, got $code"
-  grep -q "main is 1 commit(s) ahead of origin/main" "$TMP/err" \
+  grep -q "main is 2 commit(s) ahead of origin/main" "$TMP/err" \
     || fail "the ahead count was not reported: $(cat "$TMP/err")"
   grep -q "git push origin main" "$TMP/err" \
     || fail "the remediation command was not reported: $(cat "$TMP/err")"
+
+  copy="$(skill_copy_for check-behind)"
+  fresh_repo
+  other="$(other_clone)"
+  commit_file "$other" remote-ahead.txt remote remote-ahead
+  git -C "$other" push -q origin main
+  reset_log
+  code="$(run_dispatch bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
+  [ "$code" = 0 ] || fail "a remote-ahead base cache should pass check, got $code: $(cat "$TMP/err")"
 }
 
 scenario_openinto() {
   local code
   fresh_repo
+  git -C "$TMP/repo" checkout -q -b night-base
+  git -C "$TMP/repo" push -q -u origin night-base
   reset_log
   no_relay
   write_open_batch
@@ -5461,17 +5477,16 @@ scenario_openinto() {
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 0 ] || fail "open expected 0, got $code: $(cat "$TMP/err")"
-  posted_events 76 into | grep -qx "spec.opened into=main" \
-    || fail "spec.opened should record main: $(posted_events 76 into)"
+  posted_events 76 into | grep -qx "spec.opened into=night-base" \
+    || fail "spec.opened should record night-base: $(posted_events 76 into)"
   no_relay
 }
 
 scenario_openrefusesahead() {
-  local code
+  local code remote_head
   fresh_repo
-  printf 'ahead\n' > "$TMP/repo/ahead.txt"
-  git -C "$TMP/repo" add ahead.txt
-  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q -m ahead
+  remote_head="$(git -C "$TMP/origin.git" rev-parse main)"
+  commit_file "$TMP/repo" ahead.txt ahead ahead
   reset_log
   no_relay
   write_open_batch
@@ -5482,6 +5497,8 @@ scenario_openrefusesahead() {
   grep -q "ahead of origin/main" "$TMP/err" || fail "ahead base was not named: $(cat "$TMP/err")"
   [ -z "$(posted_events 76)" ] || fail "a refused open posted an event: $(posted_events 76)"
   [ -z "$(relay_now)" ] || fail "a refused open started a relay: $(relay_now)"
+  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$remote_head" ] \
+    || fail "a refused open pushed the local commit"
 }
 
 scenario_startfromorigin() {
@@ -5499,23 +5516,64 @@ scenario_startfromorigin() {
   [ -f "$(wt 61)/remote.txt" ] || fail "the ticket did not start from origin/main"
   [ "$(git -C "$(wt 61)" rev-parse HEAD)" = "$remote_head" ] \
     || fail "the new branch tip is not origin/main"
+  [ "$(git -C "$TMP/origin.git" rev-parse issue-61)" = "$remote_head" ] \
+    || fail "origin/issue-61 was not published at start"
+  [ "$(git -C "$(wt 61)" rev-parse --abbrev-ref '@{upstream}')" = origin/issue-61 ] \
+    || fail "issue-61 does not track origin/issue-61"
+  posted_events 61 base | grep -qx "worker.started base=$remote_head" \
+    || fail "worker.started did not record the fetched base: $(posted_events 61 base)"
 }
 
 scenario_startresumesorigin() {
-  local code other
+  local code other base remote_head
   fresh_repo
+  base="$(git -C "$TMP/repo" rev-parse main)"
+  git -C "$TMP/repo" branch issue-61 "$base"
   other="$(other_clone)"
   git -C "$other" checkout -q -b issue-61 origin/main
   printf 'remote ticket\n' > "$other/ticket.txt"
   git -C "$other" add ticket.txt
   git -C "$other" commit -q -m remote-ticket
   git -C "$other" push -q -u origin issue-61
+  remote_head="$(git -C "$TMP/origin.git" rev-parse issue-61)"
   reset_log
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "resume from origin expected 0, got $code: $(cat "$TMP/err")"
   [ -f "$(wt 61)/ticket.txt" ] || fail "the remote ticket branch was not resumed"
-  [ "$(git -C "$(wt 61)" rev-parse HEAD)" = "$(git -C "$TMP/origin.git" rev-parse issue-61)" ] \
+  [ "$(git -C "$(wt 61)" rev-parse HEAD)" = "$remote_head" ] \
     || fail "the local ticket branch was not fast-forwarded to origin"
+
+  fresh_repo
+  git -C "$TMP/repo" branch issue-61 main
+  git -C "$TMP/repo" worktree add -q "$(wt 61)" issue-61
+  other="$(other_clone)"
+  git -C "$other" checkout -q -b issue-61 origin/main
+  commit_file "$other" standing.txt standing remote-standing
+  git -C "$other" push -q -u origin issue-61
+  remote_head="$(git -C "$TMP/origin.git" rev-parse issue-61)"
+  reset_log
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "resume a standing worktree expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(git -C "$(wt 61)" rev-parse HEAD)" = "$remote_head" ] \
+    || fail "the standing worktree was not fast-forwarded to origin"
+
+  fresh_repo
+  git -C "$TMP/repo" branch issue-61 main
+  reset_log
+  code="$(run_dispatch env MMW_FAKE_PASEO_SCENARIO=run-fail \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 2 ] || fail "a refused runner start expected 2, got $code"
+  assert_no_wt 61
+
+  fresh_repo
+  git -C "$TMP/repo" branch issue-61 main
+  git -C "$TMP/repo" worktree add -q "$(wt 61)" issue-61
+  commit_file "$(wt 61)" local-ticket.txt local local-ticket
+  reset_log
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "a standing local ticket branch expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse issue-61)" = "$(git -C "$(wt 61)" rev-parse HEAD)" ] \
+    || fail "a standing local ticket branch was not published"
 }
 
 scenario_startdiverged() {
@@ -5530,18 +5588,17 @@ scenario_startdiverged() {
   git -C "$TMP/repo" fetch -q origin
   git -C "$TMP/repo" branch issue-61 origin/issue-61
   git -C "$TMP/repo" worktree add -q "$(wt 61)" issue-61
-  printf 'local\n' > "$(wt 61)/local.txt"
-  git -C "$(wt 61)" add local.txt
-  git -C "$(wt 61)" -c user.email=t@t -c user.name=t commit -q -m local
-  printf 'remote two\n' >> "$other/shared.txt"
-  git -C "$other" add shared.txt
-  git -C "$other" commit -q -m remote-two
+  commit_file "$(wt 61)" local.txt local local
+  git -C "$TMP/repo" worktree remove "$(wt 61)"
+  commit_file "$other" remote-two.txt two remote-two
+  commit_file "$other" remote-three.txt three remote-three
   git -C "$other" push -q origin issue-61
   reset_log
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 2 ] || fail "diverged start expected 2, got $code"
-  grep -q "local is 1 commit(s) ahead and origin is 1 commit(s) ahead" "$TMP/err" \
+  grep -q "local is 1 commit(s) ahead and origin is 2 commit(s) ahead" "$TMP/err" \
     || fail "both divergence counts were not reported: $(cat "$TMP/err")"
+  assert_no_wt 61
   never_ran
 }
 
@@ -5566,25 +5623,46 @@ scenario_startintofromnight() {
 scenario_startintooutside() {
   local code
   fresh_repo
+  git -C "$TMP/repo" checkout -q -b outside-base
+  git -C "$TMP/repo" push -q -u origin outside-base
   reset_log
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "outside-night start expected 0, got $code: $(cat "$TMP/err")"
-  posted_events 61 into | grep -qx "worker.started into=main" \
-    || fail "outside-night worker.started should record current main: $(posted_events 61 into)"
+  posted_events 61 into | grep -qx "worker.started into=outside-base" \
+    || fail "outside-night worker.started should record outside-base: $(posted_events 61 into)"
+
+  fresh_repo
+  git -C "$TMP/repo" checkout -q -b local-only
+  reset_log
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 2 ] || fail "an unpushed outside-night base expected 2, got $code"
+  grep -q "origin/local-only does not exist" "$TMP/err" \
+    || fail "the missing remote base was not named: $(cat "$TMP/err")"
+  assert_no_wt 61
 }
 
 scenario_adoptinto() {
   local code tree
   fresh_repo
+  git -C "$TMP/repo" checkout -q -b adopted-base
+  git -C "$TMP/repo" push -q -u origin adopted-base
+  git -C "$TMP/repo" checkout -q main
   reset_log
   no_relay
   seed_main_agent agt_self
   self_picked_worktree
   tree="$(wt 61)"
-  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self bash "$DISPATCH" "${TOOLS[@]}" adopt 61 --into main) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
+  git -C "$TMP/repo" config branch.issue-61.mmw-base preserved-review-base
+  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self bash "$DISPATCH" "${TOOLS[@]}" adopt 61) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
+  [ "$code" = 2 ] || fail "adopt without --into expected 2, got $code"
+  grep -q "pass --into <base branch>" "$TMP/err" \
+    || fail "adopt did not ask for --into: $(cat "$TMP/err")"
+  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self bash "$DISPATCH" "${TOOLS[@]}" adopt 61 --into adopted-base) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
   [ "$code" = 0 ] || fail "adopt --into expected 0, got $code: $(cat "$TMP/err")"
-  posted_events 61 into | grep -qx "worker.started into=main" \
-    || fail "adopt did not record into=main: $(posted_events 61 into)"
+  posted_events 61 into | grep -qx "worker.started into=adopted-base" \
+    || fail "adopt did not record into=adopted-base: $(posted_events 61 into)"
+  [ "$(git -C "$TMP/repo" config --get branch.issue-61.mmw-base)" = preserved-review-base ] \
+    || fail "adopt replaced the reviewer's recorded base commit"
   no_relay
 }
 
@@ -5594,19 +5672,17 @@ scenario_startwithoutinto() {
   reset_log
   post_ev 61 worker.started --ticket 61 --line "old worker" \
     --field session=old --field runner=paseo \
-    --field "machine=$(python3 -c 'import socket; print(socket.gethostname())')" \
-    --field host=grok --field model=grok-4.6 --field effort=high --field grade=junior-worker \
-    --field "worktree=$(wt 61)" --field branch=issue-61 \
-    --field base=0000000000000000000000000000000000000000
+    $(start_facts "$(wt 61)" 61 worker) --field into=
+  git -C "$TMP/repo" config branch.issue-61.mmw-base-branch main
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 2 ] || fail "old worker.started without into expected 2, got $code"
-  grep -q "predates its into field; re-start the worker" "$TMP/err" \
+  grep -q "carries no into; re-start the worker" "$TMP/err" \
     || fail "the migration refusal was not actionable: $(cat "$TMP/err")"
   never_ran
 }
 
 scenario_replacepushes() {
-  local code
+  local code other
   fresh_repo
   reset_log
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
@@ -5617,6 +5693,20 @@ scenario_replacepushes() {
   [ "$code" = 0 ] || fail "replacement expected 0, got $code: $(cat "$TMP/err")"
   git -C "$TMP/origin.git" show issue-61:handoff.txt | grep -qx handoff \
     || fail "replacement did not push the committed handoff"
+  git -C "$TMP/origin.git" log -1 --format=%s issue-61 \
+    | grep -q '^wip(#61): uncommitted work of worker .* on paseo, left when it was replaced$' \
+    || fail "replacement did not push the named wip commit"
+
+  commit_file "$(wt 61)" local-after.txt local local-after
+  other="$(other_clone)"
+  git -C "$other" fetch -q origin
+  git -C "$other" checkout -q -b issue-61 origin/issue-61
+  commit_file "$other" remote-after.txt remote remote-after
+  git -C "$other" push -q origin issue-61
+  reset_log
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 2 ] || fail "a divergent replacement expected 2, got $code"
+  hasnt "paseo :: archive"
 }
 
 scenario_retractpushes() {
@@ -5633,6 +5723,8 @@ scenario_retractpushes() {
   [ "$code" = 0 ] || fail "retract expected 0, got $code: $(cat "$TMP/err")"
   git -C "$TMP/origin.git" show issue-61:retract.txt | grep -qx retract \
     || fail "retract did not push the committed handoff"
+  git -C "$TMP/origin.git" log -1 --format=%s issue-61 | grep -q '^wip(#61): uncommitted work of ' \
+    || fail "retract did not push the named wip commit"
 }
 
 scenario_suspendpushes() {
@@ -5643,32 +5735,42 @@ scenario_suspendpushes() {
   open_a_night
   printf 'suspend\n' > "$(wt 61)/suspend.txt"
   git -C "$(wt 61)" add suspend.txt
+  printf 'also suspend\n' > "$(wt 63)/also-suspend.txt"
+  git -C "$(wt 63)" add also-suspend.txt
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_LOGIN=mmw-bot \
           bash "$DISPATCH" "${TOOLS[@]}" suspend 76)"
   [ "$code" = 0 ] || fail "suspend expected 0, got $code: $(cat "$TMP/err")"
   git -C "$TMP/origin.git" show issue-61:suspend.txt | grep -qx suspend \
     || fail "suspend did not push the committed handoff"
+  git -C "$TMP/origin.git" show issue-63:also-suspend.txt | grep -qx 'also suspend' \
+    || fail "suspend did not push every interrupted ticket branch"
 }
 
 scenario_handoffpushrejected() {
-  local code
+  local code session other remote_head
   fresh_repo
   reset_log
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  session="$(cat "$TMP/out")"
   [ "$code" = 0 ] || fail "first start expected 0, got $code: $(cat "$TMP/err")"
-  printf 'reject\n' > "$(wt 61)/reject.txt"
-  git -C "$(wt 61)" add reject.txt
-  printf '%s\n' '#!/bin/sh' 'echo rejected-by-test >&2' 'exit 1' > "$TMP/origin.git/hooks/pre-receive"
-  chmod +x "$TMP/origin.git/hooks/pre-receive"
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
-  [ "$code" = 2 ] || fail "rejected handoff expected 2, got $code"
+  printf 'local work\n' > "$(wt 61)/local.txt"
+  git -C "$(wt 61)" add local.txt
+  other="$(other_clone)"
+  git -C "$other" fetch -q origin
+  git -C "$other" checkout -q -b issue-61 origin/issue-61
+  commit_file "$other" remote.txt remote remote-first
+  git -C "$other" push -q origin issue-61
+  remote_head="$(git -C "$TMP/origin.git" rev-parse issue-61)"
+  set_agent_status "$session" closed
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" retract 61)"
+  [ "$code" = 2 ] || fail "rejected retract push expected 2, got $code"
   grep -q "nothing was force-pushed" "$TMP/err" \
     || fail "the rejection did not state the no-force rule: $(cat "$TMP/err")"
+  grep -Eq 'fetch first|non-fast-forward|rejected' "$TMP/err" \
+    || fail "the git rejection reason was cut off: $(cat "$TMP/err")"
   assert_wt 61
-  [ "$(count_of 'paseo :: run')" = 1 ] || fail "a new worker started after push rejection"
-  if git -C "$TMP/origin.git" show issue-61:reject.txt >/dev/null 2>&1; then
-    fail "the rejected commit appeared on origin"
-  fi
+  [ "$(git -C "$TMP/origin.git" rev-parse issue-61)" = "$remote_head" ] \
+    || fail "retract rewrote the commit another clone pushed"
 }
 
 ALL="check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty land start-worker start-reviewer start-verifier startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openrefusesahead openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
