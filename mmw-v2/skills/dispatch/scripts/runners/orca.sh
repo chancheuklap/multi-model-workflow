@@ -13,7 +13,10 @@
 # prints a session id, or refuses with exit 1 and the reason on stderr. The worktree is
 # already cut; this verb only starts a session at that absolute path, with one
 # `terminal create --worktree path:<abs> --command 'exec <launch line>' --title <name>
-# --json`.
+# --json`. <name> is the title dispatch passes (`#<n> worker`, `#<n> reviewer`,
+# `#<n> verifier`), so the sessions of one ticket, which share its worktree, have tabs
+# that tell them apart; a start without a title is named after its worktree. The same
+# name is the session name a host that takes one is given.
 # The launch line is models.py `launch-line` with the first prompt: the host binary, its
 # own flags from hosts.json, which carry the approval bypass, so `--skip-approval` is
 # always honoured by those flags, and last the prompt, which each host takes as its first
@@ -222,7 +225,7 @@ except Exception:
 }
 
 start() {
-  local host="" model="" effort="" cwd="" prompt=""
+  local host="" model="" effort="" cwd="" prompt="" title=""
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --host|--model|--effort|--cwd|--prompt)
@@ -240,8 +243,8 @@ start() {
         shift
         ;;
       --title)
-        # This runner names the session after its worktree.
         [ "$#" -ge 2 ] || usage
+        title="$2"
         shift 2
         ;;
       *)
@@ -253,7 +256,8 @@ start() {
 
   local abs name cmd json handle
   abs="$(CDPATH='' cd -- "$cwd" && pwd -P)" || exit 1
-  name="$(basename -- "$abs")"
+  name="$title"
+  [ -n "$name" ] || name="$(basename -- "$abs")"
   [ -n "$name" ] && [ "$name" != "/" ] || name=mmw
   cmd="$(host_command "$host" "$model" "$effort" "$name" "$prompt")" || exit 1
 

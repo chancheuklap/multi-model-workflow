@@ -4046,6 +4046,16 @@ path.write_text(json.dumps([{
   hasnt "orca :: worktree :: rm"
   hasnt "orca :: worktree :: create"
   hasnt "orca :: orchestration"
+  [ "$(arg_after --title)" = "$(basename -- "${worktree#path:}")" ] \
+    || fail "a start with no title should be named after its worktree, got: $(arg_after --title)"
+
+  echo "--- the tab carries the title dispatch passes, so one ticket's sessions differ"
+  reset_log
+  code="$(run_runner start --host grok --model grok-4.6 --effort high \
+          --cwd . --prompt hi --skip-approval --title "#61 reviewer")"
+  [ "$code" = 0 ] || fail "orca start with a title expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(arg_after --title)" = "#61 reviewer" ] \
+    || fail "the tab should be named '#61 reviewer', got: $(arg_after --title)"
 
   echo "--- the first prompt is the last argument of the command exec runs, and nothing is typed"
   reset_log
