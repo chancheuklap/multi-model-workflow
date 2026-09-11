@@ -1631,6 +1631,26 @@ RUN_STAGE = {"self": "work", "reverify": "verify", "repo-checks": "close"}
 
 def run_checks(number: int, reverify: bool, timeout: int | None,
                actor: str | None = None) -> int:
+    """Run criteria under the lifetime of a non-ticket judge lease."""
+    body = fetch_body(number)
+    require_judges(body)
+    root = repo_root()
+    lease = load_lease() if needs_product(body) else None
+    if lease is None:
+        return _run_checks(number, reverify, timeout, actor, body, root)
+    try:
+        with lease.judge_run(root, stop=True):
+            return _run_checks(number, reverify, timeout, actor, body, root)
+    except lease.StopUnreadable as exc:
+        sys.stderr.write(f"#{number}: {exc}; the judge's product slot was kept\n")
+        return 2
+    except SystemExit as exc:
+        sys.stderr.write(f"#{number}: the judge's product slot was not given back: {exc}\n")
+        return 2
+
+
+def _run_checks(number: int, reverify: bool, timeout: int | None,
+                actor: str | None, body: str, root: Path) -> int:
     """Run the ticket's criteria and post the run as one `ticket.checked` event.
 
     Exit 0 every criterion met, 1 not, 2 the run could not start (nothing was judged and
@@ -1638,9 +1658,6 @@ def run_checks(number: int, reverify: bool, timeout: int | None,
     after `SLOT_WAIT_S` for a reverify — 4 the criteria ran and the ticket.checked
     recording them could not be written.
     """
-    body = fetch_body(number)
-    require_judges(body)
-    root = repo_root()
     run = "reverify" if reverify else "self"
     actor = actor or ("verifier" if reverify else "worker")
     head = git("rev-parse", "HEAD", cwd=root)
@@ -1718,13 +1735,6 @@ def run_checks(number: int, reverify: bool, timeout: int | None,
         recorded = False
     else:
         recorded = True
-    # The main agent's reverify runs in the main checkout, which no ticket's work ends
-    # for: its slot is given back when the run ends.
-    if slot and actor == "main":
-        problem = give_slot_back(root)
-        if problem:
-            sys.stderr.write(f"#{number}: the main checkout's product slot was not given "
-                             f"back: {problem}\n")
     return result.returncode if recorded else NOT_RECORDED
 
 

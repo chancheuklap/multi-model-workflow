@@ -38,6 +38,7 @@ if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
 from screen_driver import command_env, discover, repo_root, run_command, target_config  # noqa: E402
+from lease import judge_run  # noqa: E402
 
 DEFAULT_JOURNEYS = ".mmw/journeys"
 
@@ -127,8 +128,7 @@ def negative_env(env: dict[str, str], data: dict) -> dict[str, str]:
     return control
 
 
-def run_named(name: str, start: Path | None = None) -> int:
-    root = repo_root(start)
+def _run_named(name: str, root: Path) -> int:
     try:
         env = command_env(root)
         cfg = target_config(root)
@@ -199,6 +199,12 @@ def run_named(name: str, start: Path | None = None) -> int:
         return 1
     print(f"JOURNEY OK {name}")
     return 0
+
+
+def run_named(name: str, start: Path | None = None) -> int:
+    root = repo_root(start)
+    with judge_run(root):
+        return _run_named(name, root)
 
 
 def main(argv: list[str] | None = None) -> int:

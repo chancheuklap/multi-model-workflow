@@ -29,8 +29,10 @@ def run_judge(*commands: str, extra_env: dict[str, str] | None = None,
     argv = [sys.executable, str(SCRIPT)]
     for command in commands:
         argv.extend(["--run", command])
-    return subprocess.run(argv, cwd=cwd or REPO, capture_output=True, text=True,
-                          env=env)
+    with tempfile.TemporaryDirectory(prefix="boundary-mmw-home-") as home:
+        env["MMW_HOME"] = home
+        return subprocess.run(argv, cwd=cwd or REPO, capture_output=True, text=True,
+                              env=env)
 
 
 class BoundaryCheck(unittest.TestCase):

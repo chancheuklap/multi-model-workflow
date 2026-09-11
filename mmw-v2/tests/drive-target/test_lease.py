@@ -11,9 +11,12 @@ import io
 import json
 import os
 import re
+import shlex
+import signal
 import socket
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -134,17 +137,53 @@ class Releasing(Base):
         self.assertLessEqual(len(reason), self.lease.refusal.__globals__["REASON_LIMIT"])
         self.assertEqual(len(self.lease.claimed()), 1, "the slot was taken anyway")
 
-    def test_a_run_outside_a_ticket_gives_the_slot_back(self):
+    def test_a_judge_run_outside_a_ticket_gives_the_slot_back(self):
         tree = self.tree("main-checkout")
-        code = self.lease.main(["run", str(tree), "--", sys.executable, "-c", "pass"])
-        self.assertEqual(code, 0)
+        with self.lease.judge_run(tree):
+            self.lease.leased_environment(tree)
+            self.assertEqual(len(self.lease.claimed()), 1)
         self.assertEqual(self.lease.claimed(), [])
 
-    def test_a_ticket_run_keeps_the_slot_for_its_later_runs(self):
+    def test_an_outer_judge_run_owns_the_slot_until_all_nested_judges_finish(self):
+        tree = self.tree("main-checkout")
+        with self.lease.judge_run(tree):
+            with self.lease.judge_run(tree):
+                self.lease.leased_environment(tree)
+            self.assertEqual(len(self.lease.claimed()), 1)
+        self.assertEqual(self.lease.claimed(), [])
+
+    def test_a_run_outside_a_ticket_keeps_the_product(self):
+        tree = self.tree("main-checkout")
+        pidfile = self.trees / "server.pid"
+        command = (
+            f"{shlex.quote(sys.executable)} -m http.server \"$MMW_PORT_BASE\" "
+            f"--bind 127.0.0.1 --directory {shlex.quote(str(tree))} >/dev/null 2>&1 & "
+            f"echo $! > {shlex.quote(str(pidfile))}"
+        )
+        code = self.lease.main(["run", str(tree), "--", "/bin/sh", "-c", command])
+        self.assertEqual(code, 0)
+        record = self.lease.claimed()[0]
+        pid = int(pidfile.read_text(encoding="utf-8"))
+        try:
+            for _ in range(50):
+                if self.lease.listener(record["port_base"]) is not None:
+                    break
+                time.sleep(0.05)
+            self.assertIsNotNone(self.lease.listener(record["port_base"]))
+            self.assertEqual(record["worktree"], str(tree.resolve()))
+        finally:
+            os.kill(pid, signal.SIGTERM)
+            for _ in range(50):
+                if self.lease.listener(record["port_base"]) is None:
+                    break
+                time.sleep(0.05)
+            self.lease.release(tree.resolve())
+
+    def test_a_ticket_judge_run_keeps_the_slot_for_its_later_runs(self):
         tree = self.trees / ".worktrees" / "issue-640"
         tree.mkdir(parents=True)
-        code = self.lease.main(["run", str(tree), "--", sys.executable, "-c", "pass"])
-        self.assertEqual(code, 0)
+        with self.lease.judge_run(tree):
+            self.lease.leased_environment(tree)
         self.assertEqual([r["worktree"] for r in self.lease.claimed()], [str(tree.resolve())])
 
 
@@ -238,6 +277,16 @@ class StoppingBeforeReleasing(Base):
         code, _, _ = self.run_cli("release", str(tree), "--stop")
         self.assertEqual(code, 3)
         self.assertFalse(stopped.exists())
+
+    def test_remove_instance_reports_a_failed_deletion(self):
+        tree = self.tree("issue-640")
+        data = self.lease.instance_data_dir(tree.resolve())
+        data.mkdir(parents=True)
+        tree.rmdir()
+        with mock.patch.object(self.lease.shutil, "rmtree", side_effect=PermissionError("no")):
+            result = self.lease.remove_instance(tree)
+        self.assertEqual(result["removed"], False)
+        self.assertIn("no", result["reason"])
 
 
 class Sweeping(Base):

@@ -29,6 +29,7 @@ if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
 from refusal import REPORT_BLOCKED, refusal  # noqa: E402
+from lease import judge_run  # noqa: E402
 
 SHELL_TOKENS = frozenset({"&&", "||", ";", "|"})
 TAIL_LINES = 20
@@ -127,7 +128,7 @@ def check_one(command: str) -> int:
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
+def _main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     n = len(args.run)
     for command in args.run:
@@ -136,6 +137,11 @@ def main(argv: list[str] | None = None) -> int:
             return code
     print(f"BOUNDARY OK {n}/{n}")
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    with judge_run(Path.cwd(), stop=True):
+        return _main(argv)
 
 
 if __name__ == "__main__":

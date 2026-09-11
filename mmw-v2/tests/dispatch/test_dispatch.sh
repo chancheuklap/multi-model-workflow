@@ -5085,6 +5085,10 @@ scenario_installkeepsnewestbackup() {
   printf '%s\n' '{"version":999}' > "$config"
   : > "$config.bak-old"
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
+  [ "$(cat "$TMP/code")" = 0 ] || fail "the second install failed: $(cat "$TMP/err")"
+  [ ! -e "$config.bak-old" ] || fail "the stale backup survived"
+  grep -q '"version":999' "$TMP/install-home/.paseo/config.json.bak-"* \
+    || fail "the surviving backup is not the configuration the install replaced"
   [ "$(find "$TMP/install-home/.paseo" -maxdepth 1 -name 'config.json.bak-*' | wc -l | tr -d ' ')" = 1 ] \
     || fail "install kept more than its newest backup: $(find "$TMP/install-home/.paseo" -maxdepth 1 -name 'config.json.bak-*' -print)"
 }
@@ -6359,7 +6363,7 @@ scenario_finishrefusesunreadablespec() {
 }
 
 scenario_finishcleanupindependent() {
-  local code merge base checked merge_wt
+  local code merge base checked merge_wt orphan_wt orphan_lock
   setup_finish_closed
   merge="$(git -C "$TMP/repo" rev-parse proj)"
   base="$(git -C "$TMP/repo" rev-parse "$merge^1")"
@@ -6370,10 +6374,20 @@ scenario_finishcleanupindependent() {
   mkdir -p "$TMP/repo/.worktrees"
   git -C "$TMP/repo" worktree add -q "$checked" night
   git -C "$TMP/repo" worktree add -q --detach "$merge_wt" origin/night
+  git -C "$TMP/repo" branch gone proj
+  git -C "$TMP/repo" push -q origin gone
+  orphan_wt="$TMP/repo/.worktrees/merge-gone"
+  git -C "$TMP/repo" worktree add -q --detach "$orphan_wt" origin/gone
+  orphan_lock="$STATE_DIR/merge-gone.lock"
+  mkdir -p "$STATE_DIR"
+  : > "$orphan_lock"
+  git -C "$TMP/repo" push -q origin --delete gone
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
   [ "$code" = 0 ] || fail "independent cleanup failed: $(cat "$TMP/err")"
   [ ! -d "$checked" ] || fail "clean base worktree was gated on branch containment"
   [ ! -d "$merge_wt" ] || fail "base merge worktree was gated on branch containment"
+  [ ! -d "$orphan_wt" ] || fail "finish left an orphan merge worktree"
+  [ ! -e "$orphan_lock" ] || fail "finish left an orphan merge lock"
   git -C "$TMP/repo" show-ref --verify --quiet refs/heads/night || fail "uncontained local branch was deleted"
   git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night || fail "uncontained origin branch was deleted"
 }
@@ -7238,6 +7252,14 @@ JSON
       || fail "$kind was not stopped exactly once: $(cat "$MMW_TEST_LOG")"
   done
   assert_wt 61
+
+  post_ev 61 ticket.claimed --ticket 61 --spec 76 --line claimed --field login=mmw-bot
+  seed_agent 61 worker
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "advance after a returned ticket was restarted failed: $(cat "$TMP/err")"
+  hasnt "paseo :: archive :: --force :: agt_61_worker"
 }
 
 scenario_archiveremovesinstance() {
@@ -7264,6 +7286,8 @@ scenario_bouncekeepsinstance() {
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "bounce failed: $(cat "$TMP/err")"
+  posted_events 61 reason | grep -q '^ticket\.bounced reason=' \
+    || fail "the ticket was not recorded bounced: $(posted_events 61 reason)"
   [ -d "$data" ] || fail "bouncing removed instance data at $data"
 }
 

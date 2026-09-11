@@ -1162,46 +1162,53 @@ keep_unfinished_work() {
 # Git removes the worktree separately; no runner is asked to. Exit 1 when the ticket's
 # events could not be read: then nobody knows which sessions run in the worktree, and
 # the caller keeps it.
-archive_ticket_agents() {
-  local number="$1" name ident listed
-  listed="$(sessions_on_ticket "$number")" || return 1
+stop_ticket_agents() {
+  local number="$1" live_only="${2:-0}" listed name ident state
+  if [ "$#" -ge 3 ]; then
+    listed="$3"
+  else
+    listed="$(sessions_on_ticket "$number")" || return 1
+  fi
   while IFS=$'\t' read -r name ident; do
     [ -n "$ident" ] || continue
     use_runner "$name"
+    if [ "$live_only" = 1 ]; then
+      state="$(runner liveness "$ident")" || state=unknown
+      [ "$state" = stopped ] && continue
+    fi
     runner stop "$ident" \
       || echo "dispatch: could not stop $ident on #$number; it is still open on $name" >&2
   done <<<"$listed"
+}
+
+archive_ticket_agents() {
+  stop_ticket_agents "$1"
 }
 
 # Stop sessions that are still present on their runner without removing the worktree.
 # A bounced or returned ticket keeps that worktree for triage.
 stop_live_ticket_agents() {
-  local number="$1" name ident listed state
-  listed="$(sessions_on_ticket "$number")" || return 1
-  while IFS=$'\t' read -r name ident; do
-    [ -n "$ident" ] || continue
-    use_runner "$name"
-    state="$(runner liveness "$ident")" || state=unknown
-    [ "$state" = stopped ] && continue
-    runner stop "$ident" \
-      || echo "dispatch: could not stop $ident on #$number; it is still open on $name" >&2
-  done <<<"$listed"
+  stop_ticket_agents "$1" 1
 }
 
-ticket_is_returned() {
+latest_returned_sessions() {
   ticket_events "$1" fold | python3 -c '
 import json, sys
-raise SystemExit(0 if json.load(sys.stdin).get("returned") else 1)
+state = json.load(sys.stdin)
+if (state.get("last") or {}).get("event") != "ticket.returned":
+    raise SystemExit(0)
+for row in state.get("sessions") or []:
+    print("{}\t{}".format(row.get("runner") or "", row.get("session") or ""))
 '
 }
 
 stop_returned_ticket_agents() {
-  local spec="$1" batch number
+  local spec="$1" batch number listed
   batch="$(python3 "$STATUS" --worker-grades "$spec")" || return 1
   for number in $(printf '%s\n' "$batch" | awk '$1 == "BATCH" { print $2 }'); do
-    ticket_is_returned "$number" || continue
-    stop_live_ticket_agents "$number" \
-      || echo "dispatch: could not read #$number's sessions after ticket.returned" >&2
+    listed="$(latest_returned_sessions "$number")" \
+      || { echo "dispatch: could not read #$number after ticket.returned" >&2; continue; }
+    [ -z "$listed" ] || stop_ticket_agents "$number" 1 "$listed"
   done
 }
 
@@ -1214,7 +1221,11 @@ archive_workspace() {
   root="$(git rev-parse --show-toplevel 2>/dev/null)" || true
   cwd="$(workspace_cwd_for "$number")"
   [ -n "$cwd" ] || cwd="$(lease_worktree_for "$number")"
-  if [ -n "$cwd" ] && [ -f "$LEASE" ]; then
+  if [ -n "$cwd" ] && [ ! -f "$LEASE" ]; then
+    echo "dispatch: #$number keeps its workspace — no lease.py was found, so its instance data cannot be removed safely" >&2
+    return 1
+  fi
+  if [ -n "$cwd" ]; then
     give_slot_back "$cwd"
     rc=$?
     if [ "$rc" = 1 ]; then
@@ -1231,6 +1242,8 @@ archive_workspace() {
   if remove_worktree "$root" "$cwd"; then
     python3 "$LEASE" remove-instance "$cwd" >/dev/null \
       || echo "dispatch: could not remove #$number's instance data after its worktree was removed" >&2
+  else
+    return 1
   fi
 }
 
@@ -1941,6 +1954,8 @@ for path in sorted(Path(trees).glob("merge-*")):
         continue
     if removed:
         lock.unlink(missing_ok=True)
+    else:
+        print(f"dispatch: could not remove orphan merge worktree {path}", file=sys.stderr)
 PY
 }
 
@@ -3000,6 +3015,8 @@ finish_cleanup() {
     delete_base_branch "$root" "$into" "$project"
   fi
   clean_base_merge_worktree "$root" "$into"
+  sweep_orphan_merge_worktrees "$root" \
+    || echo "dispatch: could not sweep orphan merge worktrees after finish" >&2
 }
 
 finish_spec() {
