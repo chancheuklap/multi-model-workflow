@@ -5,9 +5,7 @@ import socket
 import sys
 import tempfile
 import unittest
-import urllib.error
 import urllib.parse
-import urllib.request
 from pathlib import Path
 
 from test_settings_api import config, ROOT, running_board
@@ -71,23 +69,14 @@ class GatesTest(unittest.TestCase):
         handler = board_server.make_handler(
             "test-token", TouchModule(board_marker), TouchModule(settings_marker), gates)
 
-        def post(origin, path, headers):
-            request = urllib.request.Request(origin + path, data=b"{}", headers=headers, method="POST")
-            try:
-                response = urllib.request.urlopen(request, timeout=3)
-            except urllib.error.HTTPError as error:
-                response = error
-            with response:
-                return response.status
-
         with RunningHandler(handler) as board:
-            self.assertEqual(post(board.origin, "/api/board/refresh", {}), 403)
-            self.assertEqual(post(board.origin, "/api/settings/scan", {}), 403)
+            self.assertEqual(board.request("POST", "/api/board/refresh", {}, {})[0], 403)
+            self.assertEqual(board.request("POST", "/api/settings/scan", {}, {})[0], 403)
             self.assertFalse(board_marker.exists())
             self.assertFalse(settings_marker.exists())
             headers = {"Origin": board.origin, "X-MMW-Token": "test-token"}
-            self.assertEqual(post(board.origin, "/api/board/refresh", headers), 204)
-            self.assertEqual(post(board.origin, "/api/settings/scan", headers), 204)
+            self.assertEqual(board.request("POST", "/api/board/refresh", {}, headers)[0], 204)
+            self.assertEqual(board.request("POST", "/api/settings/scan", {}, headers)[0], 204)
         self.assertTrue(board_marker.exists())
         self.assertTrue(settings_marker.exists())
 
