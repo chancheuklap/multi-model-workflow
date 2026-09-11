@@ -1,0 +1,40 @@
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap");
+
+/* Paper and ink. Orange belongs to the lamp that says "needs you" and to nothing else;
+   green is "running", on the lamp and on the moving blocking line alike. */
+:root {
+  color-scheme: light;
+  --paper: #f3f3f1;
+  --canvas: #ebecee;
+  --panel: #ffffff;
+  --ink: #2d3142;
+  --muted: #4f5d75;
+  --soft: #7a8399;
+  --faint: #a3aabb;
+  --ghost: #c3c9d4;
+  --rule: rgba(45, 49, 66, 0.12);
+  --rule-2: rgba(45, 49, 66, 0.07);
+  --orange: #eb6c36;
+  --orange-ink: #b8471a;
+  --orange-tint: rgba(235, 108, 54, 0.10);
+  --focus: #2e5aa8;
+  --closeout: #5e7a9b;
+  --led-green: #22a06b;
+  --led-green-ink: #17784f;
+  --led-red: #c9304f;
+  --line-grey: rgba(45, 49, 66, 0.30);
+  --s-working: #7c8f6f;  --s-working-ink: #46553d;
+  --s-waiting: #9a8c58;  --s-waiting-ink: #5d5430;
+  --s-review:  #7b6a9b;  --s-review-ink:  #4b3f63;
+  --s-verify:  #4f8783;  --s-verify-ink:  #2c5552;
+  --sans: 'Geist', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+  --mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --serif: 'Instrument Serif', 'Times New Roman', serif;
+}
+*,
+    *::before,
+    *::after { box-sizing: border-box; }
+button { font: inherit; color: inherit; }
+a { color: var(--ink); }
+a:hover { color: var(--muted); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

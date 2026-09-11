@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ -n "${MMW_DATA_DIR:-}" ]]; then
+  printf '%q ' "$0" "$@" >> "$MMW_DATA_DIR/gh-calls"
+  printf '\n' >> "$MMW_DATA_DIR/gh-calls"
+fi
+printf '[]\n'
