@@ -100,4 +100,4 @@ A mismatch: ship that product again (back to step 3, only the mismatches). Then 
 
 Give the user: which products shipped, where each package is, which commit this set is.
 
-**Stop and wait for the user to install and try it.** The machine cannot judge install or use. Pass: report the packages, the commit, and the test result, then hand back to the user. Fail: open a `needs-triage` ticket with the symptoms and repro steps, have it triaged to `ready-for-agent`, then dispatch `implement #<n>`; ship again after it closes.
+**Stop and wait for the user to install and try it.** The machine cannot judge install or use. Pass: report the packages, the commit, and the test result, then hand back to the user. Fail: open a `needs-triage` ticket with the symptoms and repro steps, have it triaged to `ready-for-agent`, then start it as the `dispatch` skill's `references/one-ticket.md` says; ship again after it closes.
