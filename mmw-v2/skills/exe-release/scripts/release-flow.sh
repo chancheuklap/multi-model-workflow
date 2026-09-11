@@ -5,7 +5,7 @@
 #   where       报当前 stage+run / SUCCESS / PAUSED / NO-STAGES / CORRUPT
 #   stage       run|done|fail
 #   round next  轮账;到 max_rounds 自动 surface 熔断
-#   surface|resume|close|exit-check
+#   surface|resume|close|abort|exit-check
 #   receipt     从 attempt_ledger 渲染已试动作
 #   dispatch    --stage <n> --findings <p>  收敛护栏 + 按 tier 派修(P2 derive/P1 fix/P0 停)
 set -euo pipefail
@@ -37,7 +37,7 @@ release-flow.sh init --manifest <path> [--max-rounds N]
 release-flow.sh where
 release-flow.sh stage run|done|fail
 release-flow.sh round next
-release-flow.sh surface|resume|close|exit-check
+release-flow.sh surface|resume|close|abort|exit-check
 release-flow.sh receipt
 release-flow.sh dispatch --stage <n> --findings <path>
 
