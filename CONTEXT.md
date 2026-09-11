@@ -211,7 +211,7 @@ _Avoid_: 工作区, checkout (when this is meant), ~/.mmw/worktrees
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **ticket branch**:
-The branch `issue-<n>`, shared through `origin/issue-<n>`; `dispatch.sh` pushes it and never force-pushes it. Landing uses the exact `ticket.passed.commit`, not the current tip of this branch. After the workspace is archived and `ticket.landed` is recorded, the local and origin copies are deleted independently only when no worktree has it checked out and that copy is contained in `origin/<base branch>`; a failed deletion does not undo the landing. `--preflight` refuses when the session is not on it.
+The branch `issue-<n>`, shared through `origin/issue-<n>` while a ticket is worked and deleted locally and on origin after it lands.
 _Admitted_: `issue-<n>`
 _Avoid_: branch (bare), 分支名 (as a term)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
@@ -541,7 +541,7 @@ A comment carrying an `<!-- mmw` block the fold cannot read: never closed, two b
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **landed**:
-A passed ticket whose accepted commit is present in `origin/<base branch>` and whose events record `ticket.landed`. The event carries `base` and `merge` for a merge landing, and its first line links both the whole-ticket compare and the merge commit; a fast-forward already in origin has neither field and links the passed commit. It is distinct from **closed**: closeout closes before landing, while blockers and reverify use landing state. `ticket.regressed` or `ticket.bounced` takes the state back.
+A passed ticket whose accepted commit is present in `origin/<base branch>` and whose active landing record points to the merge that brought it onto that base branch.
 _Avoid_: closed (for this), merged (as the state of a ticket), done
 _Home_: `mmw-v2/skills/dispatch/scripts/status.py`
 
@@ -984,12 +984,12 @@ The line `status.py --advance-plan` prints for a ticket whose claim is to be giv
 _Home_: `mmw-v2/skills/dispatch/scripts/status.py`
 
 **advance**:
-`dispatch.sh advance <spec>`: lands the batch's passed tickets onto their recorded branch on origin, archives each landed workspace, deletes its ticket branch when the protection conditions hold, gives back claims whose holds ended, then starts the frontier. A landing conflict or red repository checks writes `ticket.bounced` and does not stop independent tickets.
+`dispatch.sh advance <spec>`: lands the batch's passed tickets onto their recorded branch on origin, deletes each landed **ticket branch**, gives back claims whose holds ended, then starts the frontier.
 _Avoid_: 并回来 (as a term)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **land**:
-`dispatch.sh land <n>`: the one-ticket form of **advance**. It lands only the commit recorded by `ticket.passed`, releases the ticket's resources, deletes its ticket branch when the protection conditions hold, and closes its one-ticket watch.
+`dispatch.sh land <n>`: the one-ticket form of **advance** that lands the recorded commit, deletes its **ticket branch**, releases its resources and closes its watch.
 _Avoid_: 落地 (as a term), 收尾 (that is the worker's closing steps), archive the ticket, finish (as a name)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
@@ -1150,7 +1150,7 @@ _Avoid_: the verifier's boundary
 _Home_: `mmw-v2/skills/verdict/SKILL.md`
 
 **No pull request**:
-No step of the pipeline reads a pull request. Ticket branches are pushed to origin for cross-machine handoff; `advance` and `land` merge in a detached worktree, check the result, and fast-forward push the base branch. The `ticket.landed` compare and commit links provide the whole-ticket diff and merge destination a pull request would show. The closing comment's `PR:` line is written in the future tense.
+No step of the pipeline reads a pull request; the landing record's compare and commit links provide the whole-ticket diff and merge destination instead.
 _Home_: `mmw-v2/merge-notes/implement.md`
 
 **fixed headings**:

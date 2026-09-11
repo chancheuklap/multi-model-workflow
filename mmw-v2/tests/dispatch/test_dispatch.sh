@@ -1430,7 +1430,8 @@ for body in posted:
     if what != "event":
         print("UNREADABLE " + str(payload))
         continue
-    print(" ".join([payload["event"]] + [f"{k}={payload.get(k)}" for k in keys]))
+    values = [body.splitlines()[0] if k == "line" else payload.get(k) for k in keys]
+    print(" ".join([payload["event"]] + [f"{k}={v}" for k, v in zip(keys, values)]))
 '
 }
 export MMW_EVENTS_PY_FOR_TESTS="$(dirname "$SKILL")/verify-ticket/scripts/events.py"
@@ -1464,6 +1465,10 @@ assert_no_wt() {
 assert_branch() {
   git -C "$TMP/repo" show-ref --verify --quiet "refs/heads/issue-$1" \
     || fail "branch issue-$1 was deleted"
+}
+assert_remote_branch() {
+  git -C "$TMP/origin.git" show-ref --verify --quiet "refs/heads/issue-$1" \
+    || fail "origin branch issue-$1 was deleted"
 }
 assert_no_branch() {
   git -C "$TMP/repo" show-ref --verify --quiet "refs/heads/issue-$1" \
@@ -6535,14 +6540,7 @@ scenario_advancealreadyin() {
 }
 
 landed_first_line() {
-  MMW_N="$1" python3 -c '
-import json, os
-from pathlib import Path
-path = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "gh-comments.json"
-rows = json.loads(path.read_text()).get(os.environ["MMW_N"], [])
-body = next(b for b in reversed(rows) if "ticket.landed" in b)
-print(body.splitlines()[0])
-'
+  posted_events "$1" line | sed -n 's/^ticket\.landed line=//p' | tail -1
 }
 
 scenario_landedlinks() {
@@ -6569,14 +6567,18 @@ scenario_landednourl() {
   reset_log
   fresh_repo
   make_branch issue-61 ticket.txt ticket
-  local passed code
+  local passed base merge code
   passed="$(git -C "$TMP/repo" rev-parse issue-61)"
+  base="$(git -C "$TMP/origin.git" rev-parse main)"
   write_one_passed 61 "$passed"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_URL_FAIL=1 \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "URL lookup changed landing success: $(cat "$TMP/err")"
+  merge="$(git -C "$TMP/origin.git" rev-parse main)"
   [ "$(landed_first_line 61)" = "Landed issue-61 into main" ] \
     || fail "a failed URL lookup left a partial link: $(landed_first_line 61)"
+  posted_events 61 base merge | grep -qx "ticket.landed base=$base merge=$merge" \
+    || fail "URL failure omitted landing fields: $(posted_events 61 base merge)"
   grep -q "without compare or commit links" "$TMP/err" \
     || fail "URL lookup failure was silent: $(cat "$TMP/err")"
 }
@@ -6585,12 +6587,17 @@ scenario_alreadyinmerge() {
   reset_log
   fresh_repo
   make_branch issue-61 ticket.txt ticket
-  local passed base merge code
+  local passed base sibling_merge merge tip code
   passed="$(git -C "$TMP/repo" rev-parse issue-61)"
   base="$(git -C "$TMP/repo" rev-parse main)"
+  git -C "$TMP/repo" checkout -q -b issue-62 main
+  git -C "$TMP/repo" merge -q --no-ff -m "Merge main into issue-62" issue-61
+  sibling_merge="$(git -C "$TMP/repo" rev-parse HEAD)"
   git -C "$TMP/repo" checkout -q main
-  git -C "$TMP/repo" merge -q --no-ff -m "prior integration" issue-61
+  git -C "$TMP/repo" merge -q --no-ff -m "Merge branch 'issue-61'" issue-62
   merge="$(git -C "$TMP/repo" rev-parse HEAD)"
+  commit_file "$TMP/repo" after.txt after after
+  tip="$(git -C "$TMP/repo" rev-parse HEAD)"
   git -C "$TMP/repo" push -q origin main
   write_one_passed 61 "$passed"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
@@ -6599,11 +6606,30 @@ scenario_alreadyinmerge() {
   posted_events 61 commit merge base | grep -qx \
     "ticket.landed commit=$passed merge=$merge base=$base" \
     || fail "the prior merge/base were not recovered: $(posted_events 61 commit merge base)"
+  [ "$sibling_merge" != "$merge" ] && [ "$merge" != "$tip" ] \
+    || fail "fixture did not distinguish sibling merge, landing merge and base tip"
 }
 
 scenario_alreadyinfastforward() {
-  scenario_advancealreadyin
-  [ "$(landed_first_line 61)" = "Landed issue-61 into main: https://github.com/o/r/commit/$(git -C "$TMP/origin.git" rev-parse main)" ] \
+  reset_log
+  fresh_repo
+  make_branch issue-61 ticket.txt ticket
+  local passed other tip code
+  passed="$(git -C "$TMP/repo" rev-parse issue-61)"
+  git -C "$TMP/repo" push -q origin "$passed:main"
+  other="$(other_clone)"
+  commit_file "$other" after.txt after after
+  git -C "$other" push -q origin main
+  tip="$(git -C "$TMP/origin.git" rev-parse main)"
+  [ "$tip" != "$passed" ] || fail "fixture left passed commit at the base tip"
+  write_one_passed 61 "$passed"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "fast-forward already-in landing failed: $(cat "$TMP/err")"
+  posted_events 61 commit merge base | grep -qx \
+    "ticket.landed commit=$passed merge=None base=None" \
+    || fail "fast-forward landing invented a merge: $(posted_events 61 commit merge base)"
+  [ "$(landed_first_line 61)" = "Landed issue-61 into main: https://github.com/o/r/commit/$passed" ] \
     || fail "fast-forward landing should link the passed commit: $(landed_first_line 61)"
 }
 
@@ -6612,6 +6638,7 @@ scenario_landeddeletesbranch() {
   fresh_repo
   make_branch issue-61 ticket.txt ticket
   git -C "$TMP/repo" push -q -u origin issue-61
+  assert_remote_branch 61
   local passed code
   passed="$(git -C "$TMP/repo" rev-parse issue-61)"
   write_one_passed 61 "$passed"
@@ -6628,6 +6655,7 @@ scenario_landdeletesbranch() {
   fresh_repo
   make_branch issue-61 ticket.txt ticket
   git -C "$TMP/repo" push -q -u origin issue-61
+  assert_remote_branch 61
   local passed code
   passed="$(git -C "$TMP/repo" rev-parse issue-61)"
   write_one_passed 61 "$passed"
@@ -6646,9 +6674,11 @@ scenario_bouncedkeepsbranch() {
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "bounced landing failed: $(cat "$TMP/err")"
+  posted_events 61 reason | grep -q '^ticket\.bounced reason=' \
+    || fail "the ticket was not recorded bounced: $(posted_events 61 reason)"
+  assert_wt 61
   assert_branch 61
-  git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/issue-61 \
-    || fail "a bounced remote ticket branch was deleted"
+  assert_remote_branch 61
 }
 
 scenario_landedkeepsunmerged() {
@@ -6656,24 +6686,25 @@ scenario_landedkeepsunmerged() {
   fresh_repo
   make_branch issue-61 ticket.txt ticket
   git -C "$TMP/repo" push -q -u origin issue-61
-  local passed other code
+  local passed other later code
   passed="$(git -C "$TMP/repo" rev-parse issue-61)"
   other="$(other_clone)"
   git -C "$other" checkout -q -b issue-61 origin/issue-61
   commit_file "$other" later.txt later later
+  later="$(git -C "$other" rev-parse HEAD)"
   git -C "$other" push -q origin issue-61
   write_one_passed 61 "$passed"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "landing with later remote work failed: $(cat "$TMP/err")"
-  git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/issue-61 \
-    || fail "remote work beyond ticket.passed was deleted"
+  [ "$(git -C "$TMP/origin.git" rev-parse issue-61)" = "$later" ] \
+    || fail "remote work beyond ticket.passed was changed or deleted"
+  grep -q 'merged 1' "$TMP/err" || fail "landing was not counted: $(cat "$TMP/err")"
   grep -q "origin/issue-61.*1 commit(s) not in origin/main" "$TMP/err" \
     || fail "stderr did not quantify the retained work: $(cat "$TMP/err")"
 }
 
 setup_branch_race_check() {
-  local action="$1"
   fresh_repo
   mkdir -p "$TMP/repo/.mmw"
   cat > "$TMP/repo/branch-race.sh" <<'SH'
@@ -6688,6 +6719,7 @@ else
   printf 'later\n' > "$MMW_RACE_CLONE/later.txt"
   git -C "$MMW_RACE_CLONE" add later.txt
   git -C "$MMW_RACE_CLONE" commit -q -m later
+  git -C "$MMW_RACE_CLONE" rev-parse HEAD > "$MMW_RACE_TIP_FILE"
   git -C "$MMW_RACE_CLONE" push -q origin issue-61
 fi
 : > "$MMW_RACE_MARKER"
@@ -6698,39 +6730,42 @@ SH
   git -C "$TMP/repo" push -q origin main
   make_branch issue-61 ticket.txt ticket
   git -C "$TMP/repo" push -q -u origin issue-61
-  other_clone >/dev/null
+  BRANCH_RACE_CLONE="$(other_clone)"
   local passed
   passed="$(git -C "$TMP/repo" rev-parse issue-61)"
   write_one_passed 61 "$passed"
-  export MMW_RACE_ACTION="$action"
 }
 
 scenario_landedbranchraced() {
   reset_log
-  setup_branch_race_check update
+  setup_branch_race_check
   rm -f "$TMP/branch-raced.once"
-  local code
+  local code later
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          MMW_RACE_CLONE="$TMP/other-clone" MMW_RACE_MARKER="$TMP/branch-raced.once" \
-          MMW_RACE_ACTION=update bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+          MMW_RACE_CLONE="$BRANCH_RACE_CLONE" MMW_RACE_MARKER="$TMP/branch-raced.once" \
+          MMW_RACE_TIP_FILE="$TMP/branch-raced.tip" MMW_RACE_ACTION=update \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "branch race changed landing success: $(cat "$TMP/err")"
-  git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/issue-61 \
+  later="$(cat "$TMP/branch-raced.tip")"
+  [ "$(git -C "$TMP/origin.git" rev-parse issue-61)" = "$later" ] \
     || fail "the lease erased work pushed after fetch"
+  grep -q 'merged 1' "$TMP/err" || fail "landing was not counted: $(cat "$TMP/err")"
   grep -q "could not delete origin/issue-61" "$TMP/err" \
     || fail "lease rejection was not reported: $(cat "$TMP/err")"
 }
 
 scenario_landedbranchgone() {
   reset_log
-  setup_branch_race_check delete
+  setup_branch_race_check
   rm -f "$TMP/branch-gone.once"
   local code
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          MMW_RACE_CLONE="$TMP/other-clone" MMW_RACE_MARKER="$TMP/branch-gone.once" \
-          MMW_RACE_ACTION=delete bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+          MMW_RACE_CLONE="$BRANCH_RACE_CLONE" MMW_RACE_MARKER="$TMP/branch-gone.once" \
+          MMW_RACE_TIP_FILE="$TMP/unused.tip" MMW_RACE_ACTION=delete \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "already-gone remote changed landing success: $(cat "$TMP/err")"
-  grep -q "could not delete origin/issue-61" "$TMP/err" \
-    && fail "an already-gone remote was reported as an error: $(cat "$TMP/err")"
+  grep -Eq 'keeping (local |origin/)?issue-61|could not delete .*issue-61' "$TMP/err" \
+    && fail "an already-gone remote was reported as retained: $(cat "$TMP/err")"
   assert_no_branch 61
 }
 
@@ -6759,8 +6794,12 @@ scenario_landeddeleterefused() {
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "delete refusal changed landing success: $(cat "$TMP/err")"
-  git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/issue-61 \
-    || fail "the protected branch unexpectedly disappeared"
+  git -C "$TMP/origin.git" show main:ticket.txt >/dev/null \
+    || fail "the ticket commit did not land on origin/main"
+  posted_events 61 branch | grep -qx 'ticket.landed branch=issue-61' \
+    || fail "ticket.landed was not recorded: $(posted_events 61 branch)"
+  grep -q 'merged 1' "$TMP/err" || fail "landing was not counted: $(cat "$TMP/err")"
+  assert_remote_branch 61
 }
 
 scenario_landeddeleterefusedsays() {
@@ -6794,8 +6833,7 @@ JSON
   [ "$code" = 0 ] || fail "archive-only ticket failed: $(cat "$TMP/err")"
   assert_no_wt 61
   assert_branch 61
-  git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/issue-61 \
-    || fail "an unlanded archived ticket lost its remote branch"
+  assert_remote_branch 61
 }
 
 scenario_landedworktreekept() {
@@ -6803,6 +6841,7 @@ scenario_landedworktreekept() {
   fresh_repo
   make_branch issue-61 ticket.txt ticket
   git -C "$TMP/repo" push -q -u origin issue-61
+  assert_remote_branch 61
   local passed code ws port listener
   passed="$(git -C "$TMP/repo" rev-parse issue-61)"
   write_one_passed 61 "$passed"
@@ -6813,25 +6852,38 @@ scenario_landedworktreekept() {
   port="$(python3 "$LEASE_PY" claim "$ws" | python3 -c 'import json,sys; print(json.load(sys.stdin)["port_base"])')"
   python3 -m http.server "$port" --bind 127.0.0.1 --directory "$TMP" >/dev/null 2>&1 &
   listener=$!
-  sleep 0.3
+  local waited=0
+  until python3 - "$port" <<'PY'
+import socket, sys
+try:
+    socket.create_connection(("127.0.0.1", int(sys.argv[1])), timeout=0.1).close()
+except OSError:
+    raise SystemExit(1)
+PY
+  do
+    sleep 0.1
+    waited=$((waited + 1))
+    [ "$waited" -lt 50 ] || { fail "the test listener never came up"; break; }
+  done
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" MMW_LEASE_SLOTS=1 \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "kept workspace changed landing success: $(cat "$TMP/err")"
   assert_wt 61
   assert_branch 61
-  git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/issue-61 \
-    || fail "remote branch was deleted while its worktree stayed"
+  assert_remote_branch 61
   grep -q "keeps its workspace" "$TMP/err" \
     || fail "kept workspace was not reported: $(cat "$TMP/err")"
   kill "$listener" 2>/dev/null || true
   wait "$listener" 2>/dev/null || true
-  python3 "$LEASE_PY" release "$ws" >/dev/null 2>&1 || true
-  reset_log
+  : > "$MMW_TEST_LOG"
+  : > "$MMW_GH_LAST_BODY"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" MMW_LEASE_SLOTS=1 \
           bash "$DISPATCH" "${TOOLS[@]}" land 61)"
   [ "$code" = 0 ] || fail "archive retry failed: $(cat "$TMP/err")"
   assert_no_wt 61
   assert_no_branch 61
+  [ "$(posted_events 61 | grep -c '^ticket\.landed' | tr -d ' ')" = 1 ] \
+    || fail "archive retry wrote a second ticket.landed: $(posted_events 61)"
 }
 
 scenario_regressedrestart() {
@@ -6839,6 +6891,7 @@ scenario_regressedrestart() {
   fresh_repo
   make_branch issue-61 ticket.txt ticket
   git -C "$TMP/repo" push -q -u origin issue-61
+  assert_remote_branch 61
   local passed code
   passed="$(git -C "$TMP/repo" rev-parse issue-61)"
   write_one_passed 61 "$passed"
@@ -6858,12 +6911,17 @@ rows[0]["labels"] = ["ready-for-agent"]
 rows[0]["assignees"] = []
 json.dump(rows, open(path, "w"))
 PY
-  reset_log
+  : > "$MMW_TEST_LOG"
+  : > "$MMW_GH_LAST_BODY"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "regressed ticket did not restart: $(cat "$TMP/err")"
   assert_wt 61
   assert_branch 61
+  [ "$(git -C "$TMP/origin.git" rev-parse issue-61)" = "$(git -C "$TMP/origin.git" rev-parse main)" ] \
+    || fail "the restarted origin branch was not cut from origin/main"
+  git -C "$TMP/origin.git" merge-base --is-ancestor "$passed" issue-61 \
+    || fail "the restarted branch lost the original passed commit"
 }
 
 scenario_advancesummaryline() {
