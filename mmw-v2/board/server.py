@@ -79,6 +79,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, required=True)
     args = parser.parse_args(argv)
     token = secrets.token_urlsafe(32)
+    settings_api.initialize()
     server = http.server.ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(token))
     host, port = server.server_address
     print(f"http://{host}:{port}", flush=True)

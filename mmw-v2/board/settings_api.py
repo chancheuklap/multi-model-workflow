@@ -131,6 +131,3 @@ def handle(request) -> tuple[int, dict[str, str], bytes]:
     except ValueError as exc:
         return _json(400, {"error": str(exc)})
 
-
-if Path(sys.argv[0]).resolve() == Path(__file__).resolve().with_name("server.py"):
-    initialize()
