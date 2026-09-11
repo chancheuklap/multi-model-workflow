@@ -119,19 +119,18 @@ case "${1:-}" in
   *) die "用法：install.sh [--check]" 2 ;;
 esac
 
-# 装过之后记下是从哪个 checkout 装的。--check 从另一个 checkout 跑时，按记下的那个核对
-# 软链，只核对、不接管：一个冻结的 checkout 装给各 host 用，改造这套工具箱的那一夜就在
-# 别的 checkout 上进行，advance 并进去多少都不会动到正在运行的 host。
+# 装过之后记下是从哪个 checkout 装的。--check 从另一个 checkout 跑时，交给记下的那个
+# checkout 自己的 install.sh 核对，只核对、不接管：一个冻结的 checkout 装给各 host 用，
+# 改造这套工具箱的那一夜就在别的 checkout 上进行，advance 并进去多少都不会动到正在运行的
+# host。核对用的是装着的那一份自己的脚本：拿这个 checkout 的核对逻辑去读另一个版本的
+# 文件，两边的函数对不上时核对本身就会出错。
 INSTALLED_ROOT_FILE="$HOME_DIR/.mmw/installed-root"
 if [ "$mode" = check ] && [ -f "$INSTALLED_ROOT_FILE" ]; then
   installed_root="$(cat "$INSTALLED_ROOT_FILE")"
   if [ -n "$installed_root" ] && [ -d "$installed_root" ] && [ "$installed_root" != "$ROOT" ]; then
     echo "装自  ${installed_root}（本 checkout ${ROOT} 只核对，不接管）"
-    ROOT="$installed_root"
-    SKILLS_SRC="$ROOT/upstream/skills"
-    SELF_SRC="$ROOT/skills"
-    DD_SRC="$ROOT/upstream-diagram-design/skills"
-    LIST="$ROOT/skills.txt"
+    [ -f "$installed_root/install.sh" ] || die "装着的 checkout 里没有 install.sh：$installed_root"
+    exec bash "$installed_root/install.sh" --check
   fi
 fi
 

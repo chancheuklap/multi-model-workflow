@@ -11,7 +11,7 @@ MMW 是用户跨 host、跨 repository、跨电脑共用的工作流 toolbox：�
 | 命令 | 干什么 |
 | --- | --- |
 | `bash mmw-v2/install.sh` | MMW 的全部安装都经这里，装七样：技能 symlink 进 `~/.agents/skills` 和 `~/.claude/skills`，hook 写进各 host 自己的配置（drive-target 的 `hook.py`、dispatch 的回合守卫 `turn-guard.py`；Codex 那几条的信任哈希一并写进 `~/.codex/config.toml`），用户级提示词（`~/.claude/CLAUDE.md` 软链到 `mmw-v2/prompt/shared.md`，Codex、Pi、Grok 各一份由 `mmw-v2/prompt/render.py` 拼出的 AGENTS.md），一个盯着源的 launchd 任务，Paseo 侧配置（`~/.local/bin/paseo` 软链、`~/.paseo/config.json` 里 grok/cursor 两条 provider、`worktrees.root`；不写 Agent profile；`~/.mmw/models.json` 缺席时写默认值，或把遗留 Markdown 一次性导入后删除；已有 JSON 不覆盖），Orca 侧工作树配置（有 orca 时每个 setup 的 `worktree-base-path` 为 `.worktrees`，`--check` 另核每个仓库的外部工作树可见性为 `show`），Cursor 的 Nowledge Mem MCP（`~/.cursor/mcp.json` 里 `mcpServers.nowledge-mem` 一条） |
-| `bash mmw-v2/install.sh --check` | 只查不写：齐了回 0，缺东西或有 stale link 回 1。从别的 checkout 跑时按 `~/.mmw/installed-root` 记下的那个 checkout 核对，只核对不接管 |
+| `bash mmw-v2/install.sh --check` | 只查不写：齐了回 0，缺东西或有 stale link 回 1。从别的 checkout 跑时交给 `~/.mmw/installed-root` 记下的那个 checkout 自己的 `install.sh` 核对，只核对不接管 |
 | `python3 mmw-v2/prompt/render.py --adopt` | 每台机器首次装提示词时跑一次：目标位置原有的 AGENTS.md 不是生成物，`render.py` 默认拒绝覆盖 |
 | `bash mmw-v2/prompt/tests/run.sh` | `render.py` 的测试 |
 | `bash mmw-v2/tests/<名>/run.sh` | 单个技能的测试（`verify-ticket`、`drive-target`、`align-screens`、`dispatch`、`exe-release`、`manage-agents-md` 各有一份；dispatch 技能的 `relay.py` 与中继、看门进程、board 共用的列表读取器 `ghlist.py` 另有一份 `relay`） |
