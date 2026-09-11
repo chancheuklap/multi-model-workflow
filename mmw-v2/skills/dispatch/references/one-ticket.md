@@ -1,6 +1,6 @@
 # One ticket, outside a night
 
-You are starting one worker on one ticket, with no batch behind it. A ticket outside a night belongs to no spec, so no `advance` will ever collect it: `land <n>` is its whole ending. Resolve `<dispatch>` in the `## Resolve `<dispatch>` once` section of [../SKILL.md](../SKILL.md); how a wake reaches you, and what you do on one, are in that same file.
+You are starting one worker on one ticket, with no batch behind it. A ticket outside a night belongs to no spec, so no `advance` will ever collect it: `land <n>` is its whole ending. Resolve `<dispatch>` in the `## Resolve `<dispatch>` once` section of [../SKILL.md](../SKILL.md); how a wake reaches you is in [how-it-works.md](how-it-works.md), and what you do on one is `## On waking` in [../SKILL.md](../SKILL.md).
 
 Four steps:
 

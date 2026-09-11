@@ -1,6 +1,6 @@
 # Inside a ticket
 
-You are the worker on ticket `<n>`. From here you start the two agents that judge your work, and read what became of one you started when its wake arrives. Resolve `<dispatch>` and `<engine>` in the `## Resolve `<dispatch>` once` section of [../SKILL.md](../SKILL.md); what `start` does and how a wake reaches you are in that same file.
+You are the worker on ticket `<n>`. From here you start the two agents that judge your work, and read what became of one you started when its wake arrives. Resolve `<dispatch>` and `<engine>` in the `## Resolve `<dispatch>` once` section of [../SKILL.md](../SKILL.md); what `start` does and how a wake reaches you are in [how-it-works.md](how-it-works.md).
 
 | You want to | Run |
 | --- | --- |
