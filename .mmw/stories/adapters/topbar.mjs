@@ -4,4 +4,5 @@ export function render(host, data, api) {
   const root = renderProduct(host, data, api);
   root.dataset.storyRoot = "";
   root.style.height = "52px";
+  return root;
 }
