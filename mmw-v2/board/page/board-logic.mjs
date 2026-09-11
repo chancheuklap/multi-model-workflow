@@ -329,7 +329,12 @@ export const Board = {
       }
       for (const node of placed.values()) {
         if (result.graph.layer.get(node.id) === 0) {
-          edges.push({kind: "expand", from: container, to: node.id, d: expansionCurve(middle, node)});
+          // The container feeds a first-layer ticket the way a landed blocker feeds the
+          // ticket behind it: while that ticket is being worked, the line carries the flow.
+          const flowing = type === "ticket" && this.running(node.ref);
+          edges.push({kind: "expand", from: container, to: node.id, d: expansionCurve(middle, node),
+            state: flowing ? "flow" : "done",
+            ends: [[geometry.containerRight, middle], [node.x, node.y + node.h / 2]]});
         }
       }
       for (const edge of result.graph.edges) {

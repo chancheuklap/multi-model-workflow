@@ -50,7 +50,8 @@ function edgesSVG(layout, sel, selIsIssue, reduced) {
   const blocks = layout.edges.filter(edge => edge.kind === "block")
     .sort((a, b) => order[a.state] - order[b.state]);
   const lines = layout.edges.filter(edge => edge.kind !== "block")
-    .map(edge => `<path class="${edge.kind === "trunk" ? "e-trunk" : "e-expand"}" d="${edge.d}"/>`).join("");
+    .map(edge => `<path class="${edge.kind === "trunk" ? "e-trunk" : "e-expand"}" d="${edge.d}"/>`
+      + (edge.kind === "expand" && edge.state === "flow" ? beamSVG(edge, reduced) : "")).join("");
   const curves = blocks.map(edge => {
     const hot = selIsIssue && (edge.from === sel || edge.to === sel);
     const cls = `e-block ${edge.state}${hot ? " hot" : ""}${edge.cyc ? " cyc" : ""}`;
@@ -112,7 +113,7 @@ export function canvasView(task, sel, expandedList, reduced) {
       containers.push({
         n: container.n, pos: pos(node), title: container.title,
         num: "#" + container.n + (isMap ? " · " + container.kind : ""),
-        cls: "card" + (on ? " on" : ""), titleCls: isMap ? "card-title map" : "card-title",
+        cls: "card" + (on ? " on" : ""), titleCls: isMap ? "card-title map container" : "card-title container",
         lightCls: "light " + light, lightWord: LIGHT_WORD[light], count: `${done}/${list.length}`,
         canExpand, chev: open ? "▾" : "▸", toggleLabel: (open ? "收起 #" : "展开 #") + container.n,
         barStyle: {width: (list.length ? 100 * done / list.length : 0) + "%"},
@@ -210,7 +211,7 @@ function containerCard(item, onPick, onToggle) {
   const bar = document.createElement("div");
   bar.className = "card-bar";
   bar.append(fill);
-  return cardShell(item, onPick, {lightTitle: true, titled: false, titleCls: item.titleCls, right, after: [bar]});
+  return cardShell(item, onPick, {lightTitle: true, titled: true, titleCls: item.titleCls, right, after: [bar]});
 }
 
 function decisionCard(item, onPick) {
