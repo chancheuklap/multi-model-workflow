@@ -1162,15 +1162,54 @@ keep_unfinished_work() {
 # Git removes the worktree separately; no runner is asked to. Exit 1 when the ticket's
 # events could not be read: then nobody knows which sessions run in the worktree, and
 # the caller keeps it.
-archive_ticket_agents() {
-  local number="$1" name ident listed
-  listed="$(sessions_on_ticket "$number")" || return 1
+stop_ticket_agents() {
+  local number="$1" live_only="${2:-0}" listed name ident state
+  if [ "$#" -ge 3 ]; then
+    listed="$3"
+  else
+    listed="$(sessions_on_ticket "$number")" || return 1
+  fi
   while IFS=$'\t' read -r name ident; do
     [ -n "$ident" ] || continue
     use_runner "$name"
+    if [ "$live_only" = 1 ]; then
+      state="$(runner liveness "$ident")" || state=unknown
+      [ "$state" = stopped ] && continue
+    fi
     runner stop "$ident" \
       || echo "dispatch: could not stop $ident on #$number; it is still open on $name" >&2
   done <<<"$listed"
+}
+
+archive_ticket_agents() {
+  stop_ticket_agents "$1"
+}
+
+# Stop sessions that are still present on their runner without removing the worktree.
+# A bounced or returned ticket keeps that worktree for triage.
+stop_live_ticket_agents() {
+  stop_ticket_agents "$1" 1
+}
+
+latest_returned_sessions() {
+  ticket_events "$1" fold | python3 -c '
+import json, sys
+state = json.load(sys.stdin)
+if (state.get("last") or {}).get("event") != "ticket.returned":
+    raise SystemExit(0)
+for row in state.get("sessions") or []:
+    print("{}\t{}".format(row.get("runner") or "", row.get("session") or ""))
+'
+}
+
+stop_returned_ticket_agents() {
+  local spec="$1" batch number listed
+  batch="$(python3 "$STATUS" --worker-grades "$spec")" || return 1
+  for number in $(printf '%s\n' "$batch" | awk '$1 == "BATCH" { print $2 }'); do
+    listed="$(latest_returned_sessions "$number")" \
+      || { echo "dispatch: could not read #$number after ticket.returned" >&2; continue; }
+    [ -z "$listed" ] || stop_ticket_agents "$number" 1 "$listed"
+  done
 }
 
 # Removing the worktree is where the product's stop command lives — so a worktree
@@ -1182,7 +1221,11 @@ archive_workspace() {
   root="$(git rev-parse --show-toplevel 2>/dev/null)" || true
   cwd="$(workspace_cwd_for "$number")"
   [ -n "$cwd" ] || cwd="$(lease_worktree_for "$number")"
-  if [ -n "$cwd" ] && [ -f "$LEASE" ]; then
+  if [ -n "$cwd" ] && [ ! -f "$LEASE" ]; then
+    echo "dispatch: #$number keeps its workspace — no lease.py was found, so its instance data cannot be removed safely" >&2
+    return 1
+  fi
+  if [ -n "$cwd" ]; then
     give_slot_back "$cwd"
     rc=$?
     if [ "$rc" = 1 ]; then
@@ -1196,7 +1239,12 @@ archive_workspace() {
   fi
   [ -n "$cwd" ] || return 0
   [ -n "$root" ] || root="$(dirname "$(dirname "$cwd")")"
-  remove_worktree "$root" "$cwd"
+  if remove_worktree "$root" "$cwd"; then
+    python3 "$LEASE" remove-instance "$cwd" >/dev/null \
+      || echo "dispatch: could not remove #$number's instance data after its worktree was removed" >&2
+  else
+    return 1
+  fi
 }
 
 # ------------------------------------------------------------------ start
@@ -1865,6 +1913,52 @@ print(mod.state_dir(repo))
 PY
 }
 
+# Remove persistent merge worktrees whose matching origin branch no longer exists.
+# A slug cannot be reversed when a branch contains '-', so compare it with the set made
+# by applying the same slug rule to every fetched origin branch.
+sweep_orphan_merge_worktrees() {
+  local root="$1" main state
+  main="$(main_checkout)" || return 0
+  [ -n "$main" ] || return 0
+  fetch_origin "$root" || return 1
+  state="$(repository_state_dir)" || return 1
+  python3 - "$STATEDIR" "$root" "$main/.worktrees" "$state" <<'PY'
+import importlib.util
+import subprocess
+import sys
+from pathlib import Path
+
+script, root, trees, state = sys.argv[1:]
+spec = importlib.util.spec_from_file_location("mmw_statedir", script)
+statedir = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(statedir)
+refs = subprocess.run(
+    ["git", "-C", root, "for-each-ref", "--format=%(refname:strip=3)",
+     "refs/remotes/origin/"], capture_output=True, text=True, check=True
+).stdout.splitlines()
+active = {name.replace("/", "-") for name in refs if name and name != "HEAD"}
+for path in sorted(Path(trees).glob("merge-*")):
+    if not path.is_dir():
+        continue
+    slug = path.name.removeprefix("merge-")
+    if slug in active:
+        continue
+    lock = Path(state) / f"merge-{slug}.lock"
+    try:
+        with statedir.locked(lock, wait=0, purpose=f"sweeping orphan merge-{slug}"):
+            removed = subprocess.run(
+                ["git", "-C", root, "worktree", "remove", "--force", str(path)],
+                capture_output=True, text=True
+            ).returncode == 0
+    except statedir.LockHeld:
+        continue
+    if removed:
+        lock.unlink(missing_ok=True)
+    else:
+        print(f"dispatch: could not remove orphan merge worktree {path}", file=sys.stderr)
+PY
+}
+
 # One detached, persistent worktree per base branch. Reset changes tracked files only:
 # ignored dependency directories and caches stay warm between landings.
 prepare_merge_worktree() {
@@ -2007,6 +2101,8 @@ print(" | ".join("{}: {}".format(row.get("command", "?"), row.get("tail", "")).r
       --line "$text" --field "reason=$reason" --field "commit=$base" \
       --field "into=$into" "${fields[@]}" \
     || { echo "dispatch: #$number was handed to triage, but its ticket.bounced event was not written" >&2; return 2; }
+  stop_live_ticket_agents "$number" \
+    || echo "dispatch: #$number was bounced, but its sessions could not be read and stopped" >&2
 }
 
 # The repository web URL is presentation, not landing authority. Ask the tracker once
@@ -2241,6 +2337,12 @@ advance() {
   watched="$(relay_watches "" "$spec" 2>&1)" \
     || refuse "the night on #$spec is not open: ${watched#relay: }. Nothing would wake you when a ticket lands, so nothing was merged or started; run open $spec first"
 
+  # A reviewer can return a ticket while its worker session is still present. The
+  # returned event gives the ticket back to triage; the next advance ends every
+  # named session without removing the worktree that triage will inspect.
+  stop_returned_ticket_agents "$spec" \
+    || echo "dispatch: could not finish checking returned tickets under #$spec" >&2
+
   # The first plan says what to merge and which claims to give back. Its stderr repeats
   # in the second plan, which is the one read for what to start, so it is shown only
   # when the plan could not be made at all.
@@ -2312,6 +2414,8 @@ advance() {
   done
 
   echo "advance #$spec: merged $merged, already in $skipped, bounced $bounced, released $released, started $started, refused $refused" >&2
+  sweep_orphan_merge_worktrees "$root" \
+    || echo "dispatch: could not sweep orphan merge worktrees after advancing #$spec" >&2
   # A refused start is its own exit code. Read as success it ends the main agent's turn,
   # and when nothing else of the batch is running no wake will ever come: the ticket sits
   # on the frontier, never started, and the night stops there without a word.
@@ -2433,6 +2537,8 @@ land_tickets() {
     stop_relay --tickets "${numbers[0]}"
     [ "$?" = 1 ] && relay_left=1
   fi
+  sweep_orphan_merge_worktrees "$root" \
+    || echo "land: could not sweep orphan merge worktrees" >&2
   [ "$failed" -eq 0 ] && [ "$relay_left" -eq 0 ] || return 1
 }
 
@@ -2909,6 +3015,8 @@ finish_cleanup() {
     delete_base_branch "$root" "$into" "$project"
   fi
   clean_base_merge_worktree "$root" "$into"
+  sweep_orphan_merge_worktrees "$root" \
+    || echo "dispatch: could not sweep orphan merge worktrees after finish" >&2
 }
 
 finish_spec() {

@@ -58,6 +58,7 @@ def _load(name: str, modname: str):
 
 vp = _load("visual-parity.py", "visual_parity")
 sd = vp.sd
+from lease import judge_run  # noqa: E402
 
 # Reused from visual-parity.py: do not copy.
 pixel_diff = vp.pixel_diff
@@ -429,7 +430,10 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     _ensure_script_env()
     try:
-        return run(args)
+        if args.render_only:
+            return run(args)
+        with judge_run(product_root()):
+            return run(args)
     except SystemExit as exc:
         if isinstance(exc.code, int):
             return exc.code
