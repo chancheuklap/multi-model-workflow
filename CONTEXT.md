@@ -110,12 +110,12 @@ _Avoid_: 工具箱, this repository (as a name), 活层, live layer
 _Home_: `AGENTS.md`
 
 **task board**:
-The local browser interface for reading a spec's ticket state and editing this machine's dispatch configuration. One server runs per registered consuming repository: `supervisor.py` reads `MMW_HOME/boards.json`, starts each server in that repository's main checkout on its fixed local port, and restarts a server that exits. It reads ticket state from GitHub and reads or writes `MMW_HOME/models.json`; it does not become a second store for either. A model change uses the same validation and write operation as `models.py config`.
+The local browser interface for reading a spec's ticket state and editing this machine's dispatch configuration. One server runs per registered consuming repository; `supervisor.py` keeps them running. It reads ticket state from GitHub and reads or writes `MMW_HOME/models.json`; it does not become a second store for either. A model change uses the same validation and write operation as `models.py config`.
 _Avoid_: board (for an agent), dashboard
 _Home_: `mmw-v2/board/server.py`
 
 **`boards.json`**:
-The machine-level task board registry at `MMW_HOME/boards.json`, defaulting to `~/.mmw/boards.json`. It is a JSON object from each consuming repository's absolute main-checkout path to that repository's fixed local port. `dispatch.sh board` adds a missing repository atomically and never creates a second entry for one of its worktrees; `supervisor.py` reads it but does not own ticket or model state.
+The machine-level task board registry at `MMW_HOME/boards.json`, defaulting to `~/.mmw/boards.json`. It is a JSON object from each consuming repository's absolute main-checkout path to that repository's fixed local port; it owns no ticket or model state.
 _Home_: `~/.mmw/boards.json`
 
 **`supervisor.py`**:
@@ -918,7 +918,7 @@ The dispatch skill's script: `board`, `check <spec>`, `open <spec>`, `finish <sp
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **`dispatch.sh board`**:
-The task board entry command, run from any checkout or worktree. It resolves the consuming repository's main checkout, atomically registers one fixed port in `boards.json`, starts the server immediately when the port does not answer, and asks the current runner adapter to open that URL for the current worktree. An adapter without the optional `open-url` verb causes the exact URL to be printed instead; either successful outcome exits 0.
+The task board entry command, run from any checkout or worktree: it makes sure the consuming repository's task board is registered in `boards.json` and answering, then has tonight's runner open it or prints its URL.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **dispatch line**:
@@ -1336,7 +1336,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 | finish notification | `finished` · `errored` · `was closed` · `needs permission` |
 | host | `claude` · `codex` · `grok` · `cursor` · `pi` |
 | runner (one adapter each) | `paseo` · `orca` · `herdr` |
-| adapter verb | `start` · `send` · `liveness` · `stop` · `self` · optional `open-url` |
+| adapter verb | `start` · `send` · `liveness` · `stop` · `self` · optional `attach` · optional `open-url` |
 | `liveness` answer | `alive` · `stopped` · `unknown` |
 | `target.kind` | `electron` · `web-spa` · `web-server-rendered` · `chrome-extension` |
 | mechanism `via` | `api` · `storage` |

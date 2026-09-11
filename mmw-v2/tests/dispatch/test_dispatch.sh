@@ -54,8 +54,16 @@ fail() { echo "  FAILED: $1" >&2; rc=1; }
 TMP="$(mktemp -d)"
 # A relay left running would go on polling a board that is gone, through whatever `gh`
 # is next on PATH.
-trap 'stop_test_boards; no_relay; rm -rf "$TMP"' EXIT
+trap 'stop_test_listeners; stop_test_boards; no_relay; rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/bin" "$TMP/paseo-state"
+
+cat > "$TMP/bin/launchctl" <<'FAKE'
+#!/usr/bin/env bash
+printf 'launchctl' >> "$MMW_TEST_LOG"
+printf ' :: %s' "$@" >> "$MMW_TEST_LOG"
+printf '\n' >> "$MMW_TEST_LOG"
+exit 0
+FAKE
 
 cat > "$TMP/bin/paseo" <<'FAKE'
 #!/usr/bin/env python3
@@ -1193,7 +1201,7 @@ for a in "\$@"; do
 done
 exec "$REAL_PYTHON" "\$@"
 WRAPPER
-chmod +x "$TMP/bin/python3" "$TMP/bin/paseo" "$TMP/bin/herdr" "$TMP/bin/orca" "$TMP/bin/gh"
+chmod +x "$TMP/bin/python3" "$TMP/bin/paseo" "$TMP/bin/herdr" "$TMP/bin/orca" "$TMP/bin/gh" "$TMP/bin/launchctl"
 export PATH="$TMP/bin:$PATH"
 export MMW_TEST_LOG="$TMP/calls.log"
 export MMW_FAKE_PASEO_STATE="$TMP/paseo-state"
@@ -1402,6 +1410,41 @@ for line in open(os.environ["MMW_TEST_LOG"], encoding="utf-8"):
 run_dispatch() { (cd "$TMP/repo" && "$@") > "$TMP/out" 2> "$TMP/err"; echo "$?"; }
 
 BOARD_TEST_PORTS=""
+BOARD_TEST_LISTENER_PIDS=""
+stop_test_listeners() {
+  local pid
+  for pid in ${BOARD_TEST_LISTENER_PIDS:-}; do
+    kill "$pid" >/dev/null 2>&1 || true
+    wait "$pid" 2>/dev/null || true
+  done
+  BOARD_TEST_LISTENER_PIDS=""
+}
+
+start_test_listener() {
+  local port="$1" ready="$TMP/listener-$1.ready" pid attempt
+  rm -f "$ready"
+  python3 - "$port" "$ready" <<'PY' &
+import signal, socket, sys
+from pathlib import Path
+
+sock = socket.socket()
+sock.bind(("0.0.0.0", int(sys.argv[1])))
+sock.listen()
+Path(sys.argv[2]).write_text("ready\n")
+signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+while True:
+    connection, _ = sock.accept()
+    connection.close()
+PY
+  pid=$!
+  BOARD_TEST_LISTENER_PIDS="$BOARD_TEST_LISTENER_PIDS $pid"
+  for attempt in $(seq 1 100); do
+    [ -f "$ready" ] && return 0
+    sleep 0.01
+  done
+  return 1
+}
+
 stop_test_boards() {
   [ -n "${BOARD_TEST_PORTS:-}" ] || return 0
   MMW_PORTS="$BOARD_TEST_PORTS" MMW_SERVER="$(dirname "$(dirname "$HERE")")/board/server.py" \
@@ -1439,9 +1482,11 @@ PY
 }
 
 fresh_board_registry() {
+  stop_test_listeners
   stop_test_boards
   BOARD_TEST_PORTS=""
-  rm -f "$MMW_HOME/boards.json" "$MMW_HOME/boards.json.lock" "$MMW_HOME"/board-*.log
+  rm -f "$MMW_HOME/boards.json" "$MMW_HOME/boards.json.lock" \
+    "$MMW_HOME/board.log" "$MMW_HOME"/board-*.log
   reset_log
   fresh_repo
 }
@@ -4989,33 +5034,54 @@ state = Path(os.environ["MMW_FAKE_ORCA_STATE"])
 }
 
 scenario_boardregisters() {
-  local code port expected repository
-  echo "--- board registers the main checkout on the first free port and starts it"
+  local code port listening registered expected repository candidates
+  echo "--- board skips a listening port and a registered port, then starts on the first free one"
   fresh_board_registry
-  expected="$(python3 - <<'PY'
+  candidates="$(python3 - <<'PY'
 import socket
+found = []
 for port in range(47100, 65536):
     sock = socket.socket()
     try:
-        sock.bind(("127.0.0.1", port))
+        sock.bind(("0.0.0.0", port))
     except OSError:
         sock.close()
         continue
     sock.close()
-    print(port)
-    break
+    found.append(port)
+    if len(found) == 3:
+        break
+print(*found)
 PY
 )"
+  set -- $candidates
+  listening="$1"; registered="$2"; expected="$3"
+  start_test_listener "$listening" || fail "could not start the all-address listener"
+  python3 - "$MMW_HOME/boards.json" "$registered" <<'PY'
+import json, sys
+with open(sys.argv[1], "w") as fh:
+    json.dump({"/already/registered": int(sys.argv[2])}, fh)
+PY
+  MMW_PORT="$listening" python3 - <<'PY' || fail "the occupied candidate does not answer"
+import os, socket
+with socket.create_connection(("127.0.0.1", int(os.environ["MMW_PORT"])), timeout=1):
+    pass
+PY
   code="$(run_dispatch env MMW_RUNNER=paseo bash "$DISPATCH" board)"
   [ "$code" = 0 ] || fail "board expected 0: $(cat "$TMP/err")"
-  port="$(board_registry_port)"
-  BOARD_TEST_PORTS="$port"
   repository="$(cd "$TMP/repo" && pwd -P)"
+  port="$(MMW_REPOSITORY="$repository" python3 - "$MMW_HOME/boards.json" <<'PY'
+import json, os, sys
+print(json.load(open(sys.argv[1]))[os.environ["MMW_REPOSITORY"]])
+PY
+)"
+  BOARD_TEST_PORTS="$port"
   MMW_REPOSITORY="$repository" MMW_PORT="$port" MMW_EXPECTED="$expected" \
     python3 - "$MMW_HOME/boards.json" <<'PY' || fail "boards.json has the wrong registration"
 import json, os, sys
 data = json.load(open(sys.argv[1]))
-assert data == {os.environ["MMW_REPOSITORY"]: int(os.environ["MMW_PORT"])}, data
+assert data[os.environ["MMW_REPOSITORY"]] == int(os.environ["MMW_PORT"]), data
+assert len(data) == 2, data
 assert int(os.environ["MMW_PORT"]) == int(os.environ["MMW_EXPECTED"]), data
 PY
   [ "$(cat "$TMP/out")" = "http://127.0.0.1:$port" ] \
@@ -5052,16 +5118,25 @@ PY
 }
 
 scenario_boardopenstab() {
-  local code port repository
+  local code port workspace calls
   echo "--- board asks the Orca adapter for a tab tied to the current worktree"
   fresh_board_registry
-  code="$(run_dispatch env MMW_RUNNER=orca bash "$DISPATCH" board)"
+  git -C "$TMP/repo" worktree add -q -b board-open "$TMP/board-open"
+  (cd "$TMP/board-open" && env MMW_RUNNER=orca bash "$DISPATCH" board) \
+    > "$TMP/out" 2> "$TMP/err"
+  code=$?
   [ "$code" = 0 ] || fail "Orca board expected 0: $(cat "$TMP/err")"
   port="$(board_registry_port)"
   BOARD_TEST_PORTS="$port"
-  repository="$(cd "$TMP/repo" && pwd -P)"
-  has "orca :: tab :: create :: --url :: http://127.0.0.1:$port :: --worktree :: path:$repository :: --json"
+  workspace="$(cd "$TMP/board-open" && pwd -P)"
+  calls="$(count_of 'orca :: tab :: create')"
+  [ "$calls" = 1 ] || fail "expected one tab create, got $calls"
+  has "orca :: tab :: create :: --url :: http://127.0.0.1:$port :: --worktree :: path:$workspace :: --json"
   [ ! -s "$TMP/out" ] || fail "successful tab creation should print nothing: $(cat "$TMP/out")"
+  bash "$SKILL/scripts/runners/orca.sh" open-url --cwd "$TMP/no-such-workspace" \
+    --url "http://127.0.0.1:$port" > "$TMP/out" 2> "$TMP/err"
+  code=$?
+  [ "$code" = 1 ] || fail "a bad Orca workspace must fail, got $code"
 }
 
 scenario_boardprintsurl() {
@@ -5079,7 +5154,7 @@ scenario_boardprintsurl() {
 }
 
 scenario_installboardagent() {
-  local home="$TMP/install-home" plist
+  local home="$TMP/install-home" plist supervisor fake_gh
   echo "--- install writes the board LaunchAgent in the test home without launchctl"
   rm -rf "$home"
   mkdir -p "$home"
@@ -5087,15 +5162,18 @@ scenario_installboardagent() {
   MMW_V2_HOME="$home" bash "$INSTALLER" > "$TMP/out" 2> "$TMP/err" || true
   plist="$home/Library/LaunchAgents/com.mmw.board.plist"
   [ -f "$plist" ] || fail "install did not write $plist"
-  python3 - "$plist" <<'PY' || fail "the board LaunchAgent has the wrong contract"
-import plistlib, sys
+  supervisor="$(dirname "$(dirname "$HERE")")/board/supervisor.py"
+  fake_gh="$TMP/bin/gh"
+  python3 - "$plist" "$supervisor" "$fake_gh" <<'PY' || fail "the board LaunchAgent has the wrong contract"
+import os, plistlib, shutil, sys
 with open(sys.argv[1], "rb") as fh:
     data = plistlib.load(fh)
 assert data["Label"] == "com.mmw.board", data
 assert data["KeepAlive"] is True, data
 assert data["RunAtLoad"] is True, data
-assert any(value.endswith("/mmw-v2/board/supervisor.py")
-           for value in data["ProgramArguments"]), data
+assert sys.argv[2] in data["ProgramArguments"], data
+path = data["EnvironmentVariables"]["PATH"]
+assert os.path.samefile(shutil.which("gh", path=path), sys.argv[3]), path
 PY
   hasnt "launchctl"
 }
@@ -5108,6 +5186,10 @@ scenario_installcheckboardagent() {
   reset_log
   MMW_V2_HOME="$home" bash "$INSTALLER" > "$TMP/out" 2> "$TMP/err" || true
   plist="$home/Library/LaunchAgents/com.mmw.board.plist"
+  MMW_V2_HOME="$home" bash "$INSTALLER" --check > "$TMP/out" 2> "$TMP/err" || true
+  if grep -q 'com\.mmw\.board' "$TMP/err"; then
+    fail "--check reported the board LaunchAgent while its plist was present: $(cat "$TMP/err")"
+  fi
   rm -f "$plist"
   MMW_V2_HOME="$home" bash "$INSTALLER" --check > "$TMP/out" 2> "$TMP/err"
   code=$?

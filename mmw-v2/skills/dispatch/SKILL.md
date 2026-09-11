@@ -5,7 +5,7 @@ description: Put another agent to work on a ticket, move a night's batch of tick
 
 # Dispatch
 
-Nothing here runs on its own. Pick your door in `Find your door` below and read that file: the commands you run and the exit codes you act on are in it, next to each other.
+Nothing here runs on its own. To open the task board, use `Open the task board` below. For pipeline work, pick your door in `Find your door` and read that file: the commands you run and the exit codes you act on are in it, next to each other.
 
 ## Resolve `<dispatch>` once
 

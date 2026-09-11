@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import fcntl
 import json
 import os
 import signal
@@ -16,11 +15,16 @@ from pathlib import Path
 
 
 SERVER = Path(__file__).resolve().with_name("server.py")
+SCRIPTS = Path(__file__).resolve().parents[1] / "skills" / "dispatch" / "scripts"
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
+import statedir  # noqa: E402
+
 FIRST_PORT = 47100
 
 
 def mmw_home() -> Path:
-    return Path(os.environ.get("MMW_HOME") or Path.home() / ".mmw").expanduser()
+    return statedir.home()
 
 
 def registry_path() -> Path:
@@ -47,18 +51,6 @@ def read_registry(path: Path | None = None) -> dict[str, int]:
     return result
 
 
-def port_available(port: int) -> bool:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind(("127.0.0.1", port))
-        return True
-    except OSError:
-        return False
-    finally:
-        sock.close()
-
-
 def port_answers(port: int) -> bool:
     try:
         with socket.create_connection(("127.0.0.1", port), timeout=0.2):
@@ -67,37 +59,62 @@ def port_answers(port: int) -> bool:
         return False
 
 
-def _replace_registry(path: Path, registry: dict[str, int]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    scratch = path.with_name(path.name + ".tmp")
-    fd = os.open(scratch, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as stream:
-        json.dump(registry, stream, ensure_ascii=False, indent=2, sort_keys=True)
-        stream.write("\n")
-        stream.flush()
-        os.fsync(stream.fileno())
-    os.replace(scratch, path)
-
-
 def register_repository(repository: Path) -> int:
     repository = repository.resolve()
     path = registry_path()
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     lock_path = path.with_name(path.name + ".lock")
-    with lock_path.open("a+", encoding="utf-8") as lock:
-        os.chmod(lock_path, 0o600)
-        fcntl.flock(lock, fcntl.LOCK_EX)
+    with statedir.locked(lock_path, purpose="registering a task board"):
         registry = read_registry(path)
         key = str(repository)
         if key in registry:
             return registry[key]
         registered = set(registry.values())
         for port in range(FIRST_PORT, 65536):
-            if port not in registered and port_available(port):
+            if port not in registered and not port_answers(port):
                 registry[key] = port
-                _replace_registry(path, registry)
+                statedir.write_atomic(
+                    path, json.dumps(registry, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+                )
+                os.chmod(path, 0o600)
                 return port
     raise RuntimeError(f"no unregistered port is available from {FIRST_PORT} through 65535")
+
+
+def start_server(repository: str, port: int, *, output=None,
+                 new_session: bool = False) -> subprocess.Popen:
+    return subprocess.Popen(
+        [sys.executable, "-u", str(SERVER), "--port", str(port)],
+        cwd=repository,
+        stdin=subprocess.DEVNULL,
+        stdout=output,
+        stderr=subprocess.STDOUT if output is not None else None,
+        start_new_session=new_session,
+    )
+
+
+def ensure_repository(repository: Path, timeout: float = 10.0) -> int:
+    repository = repository.resolve()
+    port = register_repository(repository)
+    process = None
+    log_path = mmw_home() / "board.log"
+    if not port_answers(port):
+        log_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        with log_path.open("ab", buffering=0) as output:
+            process = start_server(str(repository), port, output=output, new_session=True)
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if port_answers(port):
+            return port
+        if process is not None and process.poll() is not None:
+            break
+        time.sleep(0.1)
+    if process is not None and process.poll() is None:
+        process.terminate()
+    raise RuntimeError(
+        f"task board for {repository} did not answer on 127.0.0.1:{port} "
+        f"after {timeout:g} seconds; see {log_path}"
+    )
 
 
 class Supervisor:
@@ -111,10 +128,7 @@ class Supervisor:
         self.stopping = True
 
     def _start(self, repository: str, port: int) -> None:
-        process = subprocess.Popen(
-            [sys.executable, "-u", str(SERVER), "--port", str(port)],
-            cwd=repository,
-        )
+        process = start_server(repository, port)
         self.processes[repository] = process
         print(f"started task board for {repository} on 127.0.0.1:{port} as pid {process.pid}",
               flush=True)
@@ -165,14 +179,23 @@ class Supervisor:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--register", type=Path, metavar="MAIN_CHECKOUT")
+    operation = parser.add_mutually_exclusive_group()
+    operation.add_argument("--register", type=Path, metavar="MAIN_CHECKOUT")
+    operation.add_argument("--ensure", type=Path, metavar="MAIN_CHECKOUT")
     parser.add_argument("--interval", type=float, default=1.0)
     args = parser.parse_args(argv)
     if args.register is not None:
         try:
             print(register_repository(args.register))
             return 0
-        except (OSError, ValueError, RuntimeError) as exc:
+        except (OSError, ValueError, RuntimeError, statedir.LockHeld) as exc:
+            print(f"supervisor: {exc}", file=sys.stderr)
+            return 1
+    if args.ensure is not None:
+        try:
+            print(ensure_repository(args.ensure))
+            return 0
+        except (OSError, ValueError, RuntimeError, statedir.LockHeld) as exc:
             print(f"supervisor: {exc}", file=sys.stderr)
             return 1
     if args.interval <= 0:

@@ -60,6 +60,8 @@
 # cannot be read (the reason on stderr). The main agent names itself to the relay with it.
 # Orca sets ORCA_TERMINAL_HANDLE in every terminal it runs, and that handle is the one
 # `terminal list` lists and `send` takes.
+# open-url: exit 0 the tab was opened; 1 the runner operation failed; 2 the arguments
+# are malformed. Adapters that do not implement this optional verb answer exit 3.
 #
 # MMW_USES: terminal create --worktree --command --title --json
 # MMW_USES: terminal send --terminal --text --enter --wait-submit --json
@@ -93,6 +95,13 @@ usage() {
   exit 2
 }
 
+worktree_arg() {
+  local cwd="$1" abs
+  [ -d "$cwd" ] || return 1
+  abs="$(CDPATH='' cd -- "$cwd" && pwd -P)" || return 1
+  printf 'path:%s\n' "$abs"
+}
+
 attach() {
   local cwd="" issue=""
   while [ "$#" -gt 0 ]; do
@@ -102,10 +111,10 @@ attach() {
       *) usage ;;
     esac
   done
-  [ -d "$cwd" ] && [[ "$issue" =~ ^[0-9]+$ ]] || usage
-  local abs
-  abs="$(CDPATH='' cd -- "$cwd" && pwd -P)" || return 1
-  orca_ worktree set --worktree "path:$abs" --issue "$issue" >/dev/null
+  [ -n "$cwd" ] && [[ "$issue" =~ ^[0-9]+$ ]] || usage
+  local worktree
+  worktree="$(worktree_arg "$cwd")" || return 1
+  orca_ worktree set --worktree "$worktree" --issue "$issue" >/dev/null
 }
 
 open_url() {
@@ -117,10 +126,13 @@ open_url() {
       *) usage ;;
     esac
   done
-  [ -d "$cwd" ] && [ -n "$url" ] || usage
-  local abs
-  abs="$(CDPATH='' cd -- "$cwd" && pwd -P)" || return 1
-  orca_ tab create --url "$url" --worktree "path:$abs" --json >/dev/null
+  [ -n "$cwd" ] && [ -n "$url" ] || usage
+  local worktree
+  worktree="$(worktree_arg "$cwd")" || {
+    echo "runners/orca.sh: no workspace directory at $cwd" >&2
+    return 1
+  }
+  orca_ tab create --url "$url" --worktree "$worktree" --json >/dev/null
 }
 
 # Prints "connected writable" when list named the handle. Exit 0 found, 1 listed

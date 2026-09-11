@@ -927,6 +927,36 @@ link_prompt() {
   ln -sfn "$want" "$link"
 }
 
+launch_agent() {
+  local label="$1" plist="$2" want="$3" installed="$4" status=0
+  if [ "$mode" = check ]; then
+    if [ ! -f "$plist" ] || [ "$(cat "$plist")" != "$want" ]; then
+      echo "缺    $plist 不存在或指向别的 checkout，跑一次 install.sh" >&2
+      return 1
+    fi
+    if [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ] \
+       && ! launchctl print "gui/$(id -u)/$label" >/dev/null 2>&1; then
+      echo "缺    launchd 任务 $label 没在跑，跑一次 install.sh" >&2
+      return 1
+    fi
+    return 0
+  fi
+  if [ ! -f "$plist" ] || [ "$(cat "$plist")" != "$want" ]; then
+    mkdir -p "$(dirname "$plist")"
+    if [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ]; then
+      launchctl bootout "gui/$(id -u)/$label" >/dev/null 2>&1 || true
+    fi
+    printf '%s\n' "$want" > "$plist"
+  fi
+  if [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ] \
+     && ! launchctl print "gui/$(id -u)/$label" >/dev/null 2>&1; then
+    launchctl bootstrap "gui/$(id -u)" "$plist" \
+      || { echo "缺    launchd 任务装不上：$plist" >&2; status=1; }
+  fi
+  echo "$installed"
+  return "$status"
+}
+
 if [ -f "$PROMPT_SRC/shared.md" ]; then
   prompt_rc=0
   if [ -d "$HOME_DIR/.claude" ]; then
@@ -971,25 +1001,8 @@ if [ -f "$PROMPT_SRC/shared.md" ]; then
 </plist>
 XML
 )"
-    if [ "$mode" = check ]; then
-      if [ ! -f "$PLIST" ] || [ "$(cat "$PLIST")" != "$want_plist" ]; then
-        echo "缺    $PLIST 不存在或指向别的 checkout，跑一次 install.sh" >&2
-        prompt_rc=1
-      elif ! launchctl print "gui/$(id -u)/com.mmw.prompt-sync" >/dev/null 2>&1; then
-        echo "缺    launchd 任务 com.mmw.prompt-sync 没在跑，跑一次 install.sh" >&2
-        prompt_rc=1
-      fi
-    else
-      if [ ! -f "$PLIST" ] || [ "$(cat "$PLIST")" != "$want_plist" ]; then
-        mkdir -p "$HOME/Library/LaunchAgents"
-        launchctl bootout "gui/$(id -u)/com.mmw.prompt-sync" >/dev/null 2>&1 || true
-        printf '%s\n' "$want_plist" > "$PLIST"
-      fi
-      if ! launchctl print "gui/$(id -u)/com.mmw.prompt-sync" >/dev/null 2>&1; then
-        launchctl bootstrap "gui/$(id -u)" "$PLIST" || { echo "缺    launchd 任务装不上：$PLIST" >&2; prompt_rc=1; }
-      fi
-      echo "已装  launchd 任务 com.mmw.prompt-sync 盯着 $PROMPT_SRC"
-    fi
+    launch_agent com.mmw.prompt-sync "$PLIST" "$want_plist" \
+      "已装  launchd 任务 com.mmw.prompt-sync 盯着 $PROMPT_SRC" || prompt_rc=1
   fi
   if [ "$mode" != check ] && [ "$prompt_rc" -eq 0 ]; then
     echo "已装  提示词：~/.claude 两条软链，Codex、Pi、Grok 各一份生成的 AGENTS.md"
@@ -1004,6 +1017,15 @@ fi
 
 BOARD_PLIST="$HOME_DIR/Library/LaunchAgents/com.mmw.board.plist"
 BOARD_SUPERVISOR="$ROOT/board/supervisor.py"
+BOARD_PATH="$HOME_DIR/.local/bin:$HOME_DIR/.grok/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+board_gh="$(command -v gh 2>/dev/null || true)"
+if [ -n "$board_gh" ]; then
+  board_gh_dir="$(dirname "$board_gh")"
+  case ":$BOARD_PATH:" in
+    *":$board_gh_dir:"*) ;;
+    *) BOARD_PATH="$board_gh_dir:$BOARD_PATH" ;;
+  esac
+fi
 board_plist="$(cat <<XML
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -1015,6 +1037,10 @@ board_plist="$(cat <<XML
     <string>$(command -v python3)</string>
     <string>$BOARD_SUPERVISOR</string>
   </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>$BOARD_PATH</string>
+  </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>StandardOutPath</key><string>$HOME_DIR/Library/Logs/mmw-board.log</string>
@@ -1024,31 +1050,8 @@ board_plist="$(cat <<XML
 XML
 )"
 
-if [ "$mode" = check ]; then
-  if [ ! -f "$BOARD_PLIST" ] || [ "$(cat "$BOARD_PLIST")" != "$board_plist" ]; then
-    echo "缺    $BOARD_PLIST 不存在或指向别的 checkout，跑一次 install.sh" >&2
-    rc=1
-  elif [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ] \
-       && ! launchctl print "gui/$(id -u)/com.mmw.board" >/dev/null 2>&1; then
-    echo "缺    launchd 任务 com.mmw.board 没在跑，跑一次 install.sh" >&2
-    rc=1
-  fi
-else
-  if [ ! -f "$BOARD_PLIST" ] || [ "$(cat "$BOARD_PLIST")" != "$board_plist" ]; then
-    mkdir -p "$(dirname "$BOARD_PLIST")" "$HOME_DIR/Library/Logs"
-    if [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ]; then
-      launchctl bootout "gui/$(id -u)/com.mmw.board" >/dev/null 2>&1 || true
-    fi
-    printf '%s\n' "$board_plist" > "$BOARD_PLIST"
-  fi
-  if [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ]; then
-    if ! launchctl print "gui/$(id -u)/com.mmw.board" >/dev/null 2>&1; then
-      launchctl bootstrap "gui/$(id -u)" "$BOARD_PLIST" \
-        || { echo "缺    launchd 任务装不上：$BOARD_PLIST" >&2; rc=1; }
-    fi
-  fi
-  echo "已装  launchd 任务 com.mmw.board 守住 $BOARD_SUPERVISOR"
-fi
+launch_agent com.mmw.board "$BOARD_PLIST" "$board_plist" \
+  "已装  launchd 任务 com.mmw.board 守住 $BOARD_SUPERVISOR" || rc=1
 
 # ---------------- Paseo 侧配置 ----------------
 #
