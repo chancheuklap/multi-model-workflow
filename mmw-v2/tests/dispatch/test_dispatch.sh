@@ -2844,6 +2844,49 @@ scenario_advise() {
   started_once
   grep -q "nothing was retried" "$TMP/err" \
     || fail "the refusal should say it was not retried: $(cat "$TMP/err")"
+  grep -q "provider initialization failed" "$TMP/err" \
+    || fail "stderr should carry the runner's own reason: $(cat "$TMP/err")"
+  nothing_printed
+
+  echo "--- a missing packet file is refused, and nothing is started"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" advise "$TMP/nope.txt")"
+  [ "$code" = 2 ] || fail "missing file expected exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "no packet file at" "$TMP/err" \
+    || fail "the refusal should name the missing file: $(cat "$TMP/err")"
+  never_ran
+  nothing_printed
+
+  echo "--- an empty packet file is refused, and nothing is started"
+  reset_log
+  fresh_repo
+  : > "$TMP/empty-packet.txt"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" advise "$TMP/empty-packet.txt")"
+  [ "$code" = 2 ] || fail "empty file expected exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "is empty" "$TMP/err" \
+    || fail "the refusal should say the packet is empty: $(cat "$TMP/err")"
+  never_ran
+  nothing_printed
+
+  echo "--- a missing advisor row is refused, and nothing is started"
+  reset_log
+  fresh_repo
+  local saved="$TMP/models.saved"
+  cp "$MMW_HOME/models.json" "$saved"
+  python3 - "$MMW_HOME/models.json" <<'PY'
+import json, sys
+path = sys.argv[1]
+data = json.load(open(path))
+del data["rows"]["advisor"]
+json.dump(data, open(path, "w"))
+PY
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" advise "$packet")"
+  mv "$saved" "$MMW_HOME/models.json"
+  [ "$code" = 2 ] || fail "missing advisor row expected exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "missing advisor" "$TMP/err" \
+    || fail "the refusal should name the missing row: $(cat "$TMP/err")"
+  never_ran
   nothing_printed
 }
 

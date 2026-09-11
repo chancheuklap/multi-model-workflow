@@ -10,9 +10,13 @@ You have hit a decision. The advisor is a second opinion on a stronger model, st
 
 What you can settle by reading the code, settle by reading the code. One decision gets one consultation, and reading this page is not that consultation: the value is a session that has not spent the last hour convincing itself.
 
+## Resolve `<dispatch>` once
+
+`<dispatch>` is `scripts/dispatch.sh` of the dispatch skill, resolved from that skill's own `SKILL.md` the way its **Resolve `<dispatch>` once** section says.
+
 ## Start it
 
-Write the packet to a file. Run `<dispatch> advise <file>`. `<dispatch>` is resolved the way the dispatch skill's `SKILL.md` says. Read the answer where tonight's runner shows the session.
+Write the packet to a file. Run `<dispatch> advise <file>`. Read the answer where tonight's runner shows the session. Exit 0 prints the session id. Exit 2 starts nothing; the reason is on stderr, read it verbatim.
 
 To change which host or model the advisor uses, read the dispatch skill's `references/editing-models.md`.
 
