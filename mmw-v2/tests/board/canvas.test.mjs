@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {canvasView, stillEdges} from "../../board/page/canvas.mjs";
+import {defaultExpanded} from "../../board/page/board-logic.mjs";
 
 function ticket(overrides = {}) {
   const fold = {
@@ -22,7 +23,7 @@ test("no task is the empty canvas", () => {
   assert.equal(view.svg, "");
 });
 
-test("cards take lamp, pill and run line from board-logic", () => {
+test("a ticket card shows its lamp, step pill and run line", () => {
   const running = ticket({
     n: 2, title: "折叠接入中继",
     fold: {sessions: [{...worker(), host: "grok", model: "grok 4.6", effort: "xhigh"}]},
@@ -48,7 +49,7 @@ test("cards take lamp, pill and run line from board-logic", () => {
   assert.equal(byN[2].lightCls, "light green");
   assert.equal(byN[2].pillCls, "pill working");
   assert.equal(byN[2].cls, "card on");
-  assert.match(byN[2].run, /grok/);
+  assert.equal(byN[2].run, "grok · grok 4.6 · xhigh");
   assert.equal(byN[3].lightCls, "light ink");
   assert.equal(byN[3].step, "landed");
   assert.equal(byN[4].lightCls, "light orange");
@@ -80,6 +81,23 @@ test("a collapsed spec hides its tickets and the chevron says expand", () => {
   assert.equal(open.containers.find(item => item.n === 10).chev, "▾");
 });
 
+test("the default expansion opens orange and green specs and leaves the rest closed", () => {
+  const active = ticket({n: 2, fold: {sessions: [worker()]}});
+  const done = ticket({n: 3, fold: {landed: true}});
+  const task = {
+    n: 1, kind: "wayfinder", title: "map", decisions: [],
+    specs: [
+      {n: 10, title: "active", tickets: [active]},
+      {n: 11, title: "done", tickets: [done]},
+    ],
+  };
+  const view = canvasView(task, null, defaultExpanded(task), true);
+  assert.ok(view.tickets.some(item => item.n === 2));
+  assert.equal(view.tickets.some(item => item.n === 3), false);
+  assert.equal(view.containers.find(item => item.n === 10).chev, "▾");
+  assert.equal(view.containers.find(item => item.n === 11).chev, "▸");
+});
+
 test("reduced motion draws a still beam on a flow edge", () => {
   const blocker = ticket({n: 2, fold: {landed: true}, blocker_hold: ""});
   const running = ticket({
@@ -105,12 +123,25 @@ test("reduced motion draws a still beam on a flow edge", () => {
 test("a selected issue lights the blocking curve that touches it", () => {
   const blocker = ticket({n: 2, fold: {landed: true}, blocker_hold: ""});
   const running = ticket({n: 3, blocked: [2], fold: {sessions: [worker()]}});
+  const other = ticket({n: 4, fold: {sessions: [worker()]}});
   const task = {
     n: 1, kind: "wayfinder", title: "map", decisions: [],
-    specs: [{n: 10, title: "spec", tickets: [blocker, running]}],
+    specs: [{n: 10, title: "spec", tickets: [blocker, running, other]}],
   };
-  const view = canvasView(task, 3, [1, 10], true);
-  assert.match(view.svg, /e-block flow hot/);
-  const quiet = canvasView(task, 1, [1, 10], true);
-  assert.doesNotMatch(quiet.svg, /e-block flow hot/);
+  const atBlocked = canvasView(task, 3, [1, 10], true);
+  assert.match(atBlocked.svg, /e-block flow hot/);
+  const atBlocker = canvasView(task, 2, [1, 10], true);
+  assert.match(atBlocker.svg, /e-block flow hot/);
+  const atOther = canvasView(task, 4, [1, 10], true);
+  assert.doesNotMatch(atOther.svg, /e-block flow hot/);
+});
+
+test("a decision in a blocking cycle gets a dashed card", () => {
+  const first = {n: 2, title: "a", kind: "grilling", state: "open", blocked: [3]};
+  const second = {n: 3, title: "b", kind: "research", state: "open", blocked: [2]};
+  const task = {n: 1, kind: "wayfinder", title: "map", decisions: [first, second], specs: []};
+  const view = canvasView(task, null, [1], true);
+  const cards = view.decisions.filter(item => item.n === 2 || item.n === 3);
+  assert.equal(cards.length, 2);
+  for (const card of cards) assert.match(card.cls, /\bcycle\b/);
 });

@@ -1,40 +1,39 @@
 import {Board, LIGHT_WORD} from "./board-logic.mjs";
 
-function css(value) {
-  if (value == null || value === "") return "";
-  if (typeof value === "string") return value;
-  return Object.entries(value)
-    .map(([key, val]) => `${key.replace(/[A-Z]/g, ch => `-${ch.toLowerCase()}`)}: ${val}`)
-    .join("; ");
+function markOn(row, selectedTask) {
+  const on = row.n === selectedTask;
+  return {...row, cls: on ? "task on" : "task", titleCls: on ? "task-title on" : "task-title"};
 }
 
-export function taskListView(tasks, taskN) {
+export function taskListView(tasks, selectedTask) {
   return {
     count: tasks.length,
     empty: !tasks.length,
     rows: tasks.map(task => {
       const progress = Board.progress(task);
       const light = Board.aggregate(Board.allTickets(task));
-      const on = task.n === taskN;
-      return {
+      return markOn({
         n: task.n,
-        cls: on ? "task on" : "task",
-        titleCls: on ? "task-title on" : "task-title",
         lightCls: "light " + light,
         lightWord: LIGHT_WORD[light],
         meta: `#${task.n} · ${task.kind}`,
         title: task.title,
         barStyle: {width: (progress.total ? 100 * progress.done / progress.total : 0) + "%"},
         count: `${progress.done}/${progress.total} 落地`,
-      };
+      }, selectedTask);
     }),
   };
 }
 
-function viewFrom(data) {
-  if (data?.vals?.v) return data.vals.v;
-  if (data?.view) return data.view;
-  if (Array.isArray(data?.tasks)) return taskListView(data.tasks, data.task ?? data.state?.task);
+function rowsFor(data, selectedTask) {
+  if (Array.isArray(data.tasks)) return taskListView(data.tasks, selectedTask);
+  if (data.view) {
+    return {
+      count: data.view.count,
+      empty: data.view.empty,
+      rows: data.view.rows.map(row => markOn(row, selectedTask)),
+    };
+  }
   return {count: 0, empty: true, rows: []};
 }
 
@@ -58,7 +57,7 @@ function rowButton(row, onPick) {
 
   const fill = document.createElement("span");
   fill.className = "bar-fill";
-  fill.style.cssText = css(row.barStyle);
+  fill.style.width = row.barStyle.width;
   const bar = document.createElement("span");
   bar.className = "bar";
   bar.append(fill);
@@ -74,24 +73,13 @@ function rowButton(row, onPick) {
 }
 
 export function render(host, data = {}, api = undefined) {
-  const selected = data.state?.task ?? data.task ?? null;
-  const view = viewFrom(data);
   const root = document.createElement("nav");
   root.dataset.screen = "tasks";
   root.className = "tasks board";
   root.setAttribute("aria-label", "任务");
 
-  const paint = (taskN) => {
-    const next = data.vals?.v || data.view
-      ? {
-          ...view,
-          rows: view.rows.map(row => ({
-            ...row,
-            cls: row.n === taskN ? "task on" : "task",
-            titleCls: row.n === taskN ? "task-title on" : "task-title",
-          })),
-        }
-      : viewFrom({...data, task: taskN, state: {...data.state, task: taskN}});
+  const paint = (selectedTask) => {
+    const next = rowsFor(data, selectedTask);
     const eyebrow = document.createElement("div");
     eyebrow.className = "col-eyebrow";
     const label = document.createElement("span");
@@ -115,7 +103,7 @@ export function render(host, data = {}, api = undefined) {
     root.replaceChildren(...kids);
   };
 
-  paint(selected);
+  paint(data.selectedTask ?? null);
   host.replaceChildren(root);
   return root;
 }
