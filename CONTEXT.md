@@ -206,7 +206,7 @@ _Avoid_: ticket message, closeout notification, 通知 (as a term)
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **worktree**:
-Either the per-ticket git worktree of a workspace, `<main checkout>/.worktrees/issue-<n>` on the ticket branch, or a detached merge worktree: `<main checkout>/.worktrees/merge-<base branch>` for `advance`, `land` and `reverify`, and `<main checkout>/.worktrees/merge-<project branch>` while `finish` merges a base branch back. A merge worktree is reset to its authoritative origin branch before use; the base-branch one persists so ignored dependencies and caches survive, while `finish` removes its project-branch one after recording `spec.merged`. One lock per merge target permits one merge at a time. A runner receives only the ticket worktree.
+Either the per-ticket git worktree of a workspace, `<main checkout>/.worktrees/issue-<n>` on the ticket branch, or a detached merge worktree: `<main checkout>/.worktrees/merge-<base branch>` for `advance`, `land` and `reverify`, and `<main checkout>/.worktrees/merge-<project branch>` while `finish` merges a base branch back. A merge worktree is reset to its authoritative origin branch before use and persists so ignored dependencies and caches survive; after the accepted base branch is contained in the project branch, `finish` removes the base branch's merge worktree and lock. One lock per merge target permits one merge at a time. A runner receives only the ticket worktree.
 _Avoid_: 工作区, checkout (when this is meant), ~/.mmw/worktrees
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 

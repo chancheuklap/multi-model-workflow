@@ -483,7 +483,7 @@ project_remedy() {
 # Print "project<TAB>source". The recorded event wins; otherwise the three sources are
 # tried in the order fixed by #337 section 13.
 project_for_night() {
-  local root="$1" spec="$2" into="$3" default="$4" project source configured
+  local root="$1" spec="$2" into="$3" project configured
   project="$(newest_field "$spec" project spec.opened 2>/dev/null)" || project=""
   if [ -n "$project" ]; then
     printf '%s\tevent\n' "$project"
@@ -493,7 +493,10 @@ project_for_night() {
   project="$(git -C "$root" reflog show --format='%gs' "refs/heads/$into" 2>/dev/null \
     | sed -n 's/^branch: Created from //p' | tail -1)"
   project="${project#origin/}"
-  if [ -n "$project" ]; then
+  project="${project#refs/heads/}"
+  if [ -n "$project" ] && [ "$project" != HEAD ] \
+     && { git -C "$root" show-ref --verify --quiet "refs/heads/$project" \
+          || git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$project"; }; then
     printf '%s\treflog\n' "$project"
     return 0
   fi
@@ -530,7 +533,14 @@ project_for_night() {
 
 branch_sync_counts() {
   local root="$1" branch="$2" base_ref="${3:-}" local_ref="refs/heads/$2" remote_ref="refs/remotes/origin/$2" ahead
-  git -C "$root" show-ref --verify --quiet "$local_ref" || { printf '0\t0\tremote-only\n'; return 0; }
+  if ! git -C "$root" show-ref --verify --quiet "$local_ref"; then
+    if git -C "$root" show-ref --verify --quiet "$remote_ref"; then
+      printf '0\t0\tremote-only\n'
+      return 0
+    fi
+    echo "dispatch: project branch $branch exists neither locally nor on origin; run $(project_remedy "$(current_branch "$root")")" >&2
+    return 2
+  fi
   if ! git -C "$root" show-ref --verify --quiet "$remote_ref"; then
     if [ -n "$base_ref" ] && git -C "$root" rev-parse --verify --quiet "$base_ref" >/dev/null; then
       ahead="$(git -C "$root" rev-list --count "$base_ref..$local_ref")"
@@ -550,7 +560,7 @@ inspect_open_branches() {
   default="$(default_branch "$root")" || { echo "dispatch: origin did not advertise a default branch" >&2; return 2; }
   [ "$into" != "$default" ] \
     || { echo "dispatch: $into is the repository default branch; open a base branch cut from a project branch; run $(project_remedy "$into")" >&2; return 2; }
-  line="$(project_for_night "$root" "$spec" "$into" "$default")" || return 2
+  line="$(project_for_night "$root" "$spec" "$into")" || return 2
   IFS=$'\t' read -r project source <<<"$line"
   [ "$project" != "$default" ] \
     || { echo "dispatch: project branch for $into resolved to the repository default branch $default; run $(project_remedy "$into")" >&2; return 2; }
@@ -569,13 +579,13 @@ inspect_open_branches() {
       echo "dispatch: $branch has diverged from origin/$branch: local has $ahead commit(s), origin has $behind commit(s); nothing was pushed" >&2
       return 2
     fi
-    printf '%s\t%s\t%s\t%s\t%s\n' "$project" "$source" "$branch" "$ahead" "$presence"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$project" "$source" "$branch" "$ahead" "$presence" "$behind"
   done
 }
 
 push_open_branches() {
-  local root="$1" rows="$2" branch ahead presence output
-  while IFS=$'\t' read -r _ _ branch ahead presence; do
+  local root="$1" rows="$2" branch ahead presence behind output
+  while IFS=$'\t' read -r _ _ branch ahead presence behind; do
     [ -n "$branch" ] || continue
     [ "$presence" = remote-only ] && continue
     if [ "$presence" = missing ] || [ "$ahead" -gt 0 ]; then
@@ -586,12 +596,27 @@ push_open_branches() {
   done <<<"$rows"
 }
 
+check_open_pushes() {
+  local root="$1" rows="$2" branch ahead presence behind source output failed=0
+  while IFS=$'\t' read -r _ _ branch ahead presence behind; do
+    [ -n "$branch" ] || continue
+    if [ "$presence" = missing ] || [ "$ahead" -gt 0 ]; then
+      source="refs/heads/$branch"
+    else
+      source="refs/remotes/origin/$branch"
+    fi
+    output="$(git -C "$root" push --dry-run origin "$source:refs/heads/$branch" 2>&1)" \
+      || { echo "dispatch: dry-run fast-forward of $branch failed: $(printf '%s' "$output" | tr '\n' ' ')" >&2; failed=1; }
+  done <<<"$rows"
+  [ "$failed" -eq 0 ]
+}
+
 # `open <spec>`: the night begins. The relay watches the spec's tickets with this session
 # as the night's main agent, and `spec.opened` on the spec records who is woken. A
 # spec.opened that could not be written closes the watch this call opened: a night that
 # says nowhere that it is open is not opened.
 open_night() {
-  local spec="$1" root into opened runner session how rows project source
+  local spec="$1" root into opened runner session how rows project
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] || refuse "not inside a git repository, so the night has no base branch"
   into="$(current_branch "$root")" \
@@ -599,14 +624,13 @@ open_night() {
   fetch_origin "$root" || exit 2
   rows="$(inspect_open_branches "$root" "$spec" "$into")" || exit 2
   project="$(printf '%s\n' "$rows" | head -1 | cut -f1)"
-  source="$(printf '%s\n' "$rows" | head -1 | cut -f2)"
   push_open_branches "$root" "$rows" || exit 2
   opened="$(open_relay --spec "$spec")" || exit 2
   IFS=$'\t' read -r runner session how <<<"$opened"
   if ! post_event "$spec" spec.opened --spec "$spec" \
        --line "NIGHT OPENED #$spec: wake-ups go to the main agent, $runner session $session" \
        --field "runner=$runner" --field "session=$session" --field "into=$into" \
-       --field "project=$project" --field "project_source=$source"; then
+       --field "project=$project"; then
     [ "$how" = started ] && stop_relay --spec "$spec"
     refuse "could not write the spec.opened event on #$spec, so the night is not open$([ "$how" = started ] && echo " and the watch this opened was closed again"); run open again once the tracker takes comments"
   fi
@@ -920,10 +944,6 @@ current_branch() {
   branch="$(git -C "$1" rev-parse --abbrev-ref HEAD 2>/dev/null)"
   case "$branch" in HEAD | "") return 1 ;; esac
   printf '%s\n' "$branch"
-}
-
-ahead_of_origin() {
-  git -C "$1" rev-list --count "origin/$2..$2" 2>/dev/null
 }
 
 require_origin_branch() {
@@ -1537,46 +1557,11 @@ wait_one() {
 
 # ------------------------------------------------------------------ check
 
-# The four repository checks needed before a night can open. They are all reported in
-# one pass where possible, so the operator does not discover them one night at a time.
-check_origin_integration() {
-  local root branch failed=0 ahead out
-  root="$(git rev-parse --show-toplevel 2>/dev/null)"
-  if [ -z "$root" ]; then
-    echo "dispatch: not inside a git repository, so origin and the base branch cannot be checked" >&2
-    return 1
-  fi
-  branch="$(current_branch "$root")" || {
-    echo "dispatch: the checkout has no current branch to use as the base branch" >&2
-    return 1
-  }
-  fetch_origin "$root" || return 1
-  if ! require_origin_branch "$root" "$branch"; then
-    failed=1
-  else
-    ahead="$(ahead_of_origin "$root" "$branch")" || ahead=""
-    if [ -z "$ahead" ]; then
-      echo "dispatch: could not count commits by which $branch is ahead of origin/$branch" >&2
-      failed=1
-    elif [ "$ahead" -ne 0 ]; then
-      echo "dispatch: $branch is $ahead commit(s) ahead of origin/$branch; run git push origin $branch before opening the night" >&2
-      failed=1
-    fi
-  fi
-  if git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
-    if ! out="$(git -C "$root" push --dry-run origin "refs/remotes/origin/$branch:refs/heads/$branch" 2>&1)"; then
-      echo "dispatch: git push --dry-run origin origin/$branch:$branch failed: $(printf '%s' "$out" | tr '\n' ' ')" >&2
-      failed=1
-    fi
-  fi
-  [ "$failed" -eq 0 ]
-}
-
 check_machine() {
   local spec="$1"
   local failed=0
 
-  local root into rows project source project_push=0 base_push=0 branch ahead presence dry
+  local root into rows project source project_push=0 base_push=0 branch ahead presence
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   if [ -z "$root" ]; then
     echo "dispatch: not inside a git repository, so the project branch cannot be checked" >&2
@@ -1589,15 +1574,11 @@ check_machine() {
     elif fetch_origin "$root" && rows="$(inspect_open_branches "$root" "$spec" "$into")"; then
       project="$(printf '%s\n' "$rows" | head -1 | cut -f1)"
       source="$(printf '%s\n' "$rows" | head -1 | cut -f2)"
-      while IFS=$'\t' read -r _ _ branch ahead presence; do
+      while IFS=$'\t' read -r _ _ branch ahead presence _behind; do
         [ "$branch" = "$project" ] && project_push="$ahead"
         [ "$branch" = "$into" ] && base_push="$ahead"
-        [ "$presence" = missing ] && [ "$ahead" -eq 0 ] && ahead=1
-        if [ "$presence" = missing ] || [ "$ahead" -gt 0 ]; then
-          dry="$(git -C "$root" push --dry-run origin "refs/heads/$branch:refs/heads/$branch" 2>&1)" \
-            || { echo "dispatch: dry-run fast-forward of $branch failed: $(printf '%s' "$dry" | tr '\n' ' ')" >&2; failed=1; }
-        fi
       done <<<"$rows"
+      check_open_pushes "$root" "$rows" || failed=1
       echo "project branch: $project (source: $source); open would push $project: $project_push commit(s), $into: $base_push commit(s)"
     else
       failed=1
@@ -1831,20 +1812,9 @@ release_merge_lock() {
 }
 
 acquire_merge_lock() {
-  local into="$1" repo slug state answer i
-  repo="$(repo_slug)" || return 2
+  local into="$1" slug state answer i
   slug="$(merge_slug "$into")"
-  state="$(python3 - "$STATEDIR" "$repo" <<'PY'
-import importlib.util, sys
-from pathlib import Path
-
-script, repo = sys.argv[1:]
-spec = importlib.util.spec_from_file_location("mmw_statedir", script)
-mod = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(mod)
-print(mod.state_dir(repo))
-PY
-)" || return 2
+  state="$(repository_state_dir)" || return 2
   MERGE_LOCK="$state/merge-$slug.lock"
   MERGE_LOCK_READY="$(mktemp)"
   python3 - "$STATEDIR" "$MERGE_LOCK" "$into" "$$" <<'PY' >"$MERGE_LOCK_READY" 2>&1 &
@@ -1878,6 +1848,21 @@ PY
   esac
   release_merge_lock
   return 2
+}
+
+repository_state_dir() {
+  local repo
+  repo="$(repo_slug)" || return 2
+  python3 - "$STATEDIR" "$repo" <<'PY'
+import importlib.util, sys
+from pathlib import Path
+
+script, repo = sys.argv[1:]
+spec = importlib.util.spec_from_file_location("mmw_statedir", script)
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+print(mod.state_dir(repo))
+PY
 }
 
 # One detached, persistent worktree per base branch. Reset changes tracked files only:
@@ -2777,7 +2762,10 @@ summary_spec() {
 # ------------------------------------------------------------------ finish
 
 spec_numbers() {
-  gh_ issue list --state all --label mmw:spec --limit 1000 --json number --jq '.[].number' 2>/dev/null
+  local slug
+  slug="$(repo_slug)" || return 2
+  gh_ api --paginate "repos/$slug/issues?state=all&labels=mmw%3Aspec&per_page=100" \
+    --jq '.[].number' 2>/dev/null
 }
 
 spec_children() {
@@ -2787,7 +2775,7 @@ spec_children() {
 }
 
 finish_preflight() {
-  local spec="$1" into="$2" specs children other active seen child state open=""
+  local spec="$1" into="$2" specs children other active seen child state open="" rc
   newest_field "$spec" at spec.closed spec.opened >/dev/null 2>&1 \
     || { echo "dispatch: #$spec carries no spec.closed; run summary before finish" >&2; return 2; }
 
@@ -2797,7 +2785,13 @@ finish_preflight() {
   }
   for other in $specs; do
     [ "$other" = "$spec" ] && continue
-    active="$(newest_field "$other" into spec.opened spec.suspended spec.closed 2>/dev/null)" || active=""
+    active="$(newest_field "$other" into spec.opened spec.suspended spec.closed 2>/dev/null)"; rc=$?
+    case "$rc" in
+      0) ;;
+      2) echo "dispatch: could not read #$other while checking open nights into $into" >&2; return 2 ;;
+      3 | 4) active="" ;;
+      *) echo "dispatch: could not decide whether #$other is an open night into $into" >&2; return 2 ;;
+    esac
     if [ "$active" = "$into" ]; then
       echo "dispatch: #$other is another open night into $into; finish or suspend it before finish $spec" >&2
       return 2
@@ -2805,7 +2799,13 @@ finish_preflight() {
   done
 
   for other in $specs; do
-    seen="$(newest_field "$other" into spec.opened 2>/dev/null)" || seen=""
+    seen="$(newest_field "$other" into spec.opened 2>/dev/null)"; rc=$?
+    case "$rc" in
+      0) ;;
+      2) echo "dispatch: could not read #$other while finding specs that used $into" >&2; return 2 ;;
+      3 | 4) seen="" ;;
+      *) echo "dispatch: could not decide whether #$other used $into" >&2; return 2 ;;
+    esac
     [ "$seen" = "$into" ] || continue
     children="$(spec_children "$other")" || {
       echo "dispatch: could not list #$other's tickets while checking tickets into $into" >&2
@@ -2863,7 +2863,6 @@ clean_base_worktrees() {
 
 delete_base_branch() {
   local root="$1" into="$2" project="$3" remote="refs/remotes/origin/$into" tip ahead out rc
-  clean_base_worktrees "$root" "$into"
   if git -C "$root" show-ref --verify --quiet "refs/heads/$into"; then
     ahead="$(git -C "$root" rev-list --count "origin/$project..refs/heads/$into" 2>/dev/null)" || ahead=""
     if [ "$ahead" = 0 ]; then
@@ -2888,34 +2887,27 @@ delete_base_branch() {
 }
 
 clean_base_merge_worktree() {
-  local root="$1" into="$2" main dest repo state
+  local root="$1" into="$2" main dest state
   main="$(main_checkout)" || return 0
   dest="$main/.worktrees/merge-$(merge_slug "$into")"
   if [ -e "$dest" ]; then
     git -C "$root" worktree remove --force "$dest" >/dev/null 2>&1 \
       || echo "dispatch: could not remove $dest; run git worktree remove --force $dest" >&2
   fi
-  repo="$(repo_slug)" || return 0
-  state="$(python3 - "$STATEDIR" "$repo" <<'PY'
-import importlib.util, sys
-spec = importlib.util.spec_from_file_location("mmw_statedir", sys.argv[1])
-mod = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(mod)
-print(mod.state_dir(sys.argv[2]))
-PY
-)" || return 0
+  state="$(repository_state_dir)" || return 0
   rm -f "$state/merge-$(merge_slug "$into").lock"
 }
 
 finish_cleanup() {
   local root="$1" into="$2" project="$3"
   fetch_origin "$root" || { echo "dispatch: merge was recorded, but origin could not be fetched for cleanup; run finish again" >&2; return 0; }
+  clean_base_worktrees "$root" "$into"
   if git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$into" \
      && ! git -C "$root" merge-base --is-ancestor "origin/$into" "origin/$project" 2>/dev/null; then
     echo "dispatch: keeping $into because origin/$project does not contain origin/$into; run finish again after reconciling the branches" >&2
-    return 0
+  else
+    delete_base_branch "$root" "$into" "$project"
   fi
-  delete_base_branch "$root" "$into" "$project"
   clean_base_merge_worktree "$root" "$into"
 }
 
@@ -2940,13 +2932,31 @@ finish_spec() {
 
   for ((attempt = 1; attempt <= MERGE_TRIES; attempt++)); do
     prepare_merge_worktree "$root" "$project" || exit 2
-    fetch_origin "$MERGE_ROOT" || { release_merge_lock; exit 2; }
-    require_origin_branch "$MERGE_ROOT" "$into" || { release_merge_lock; exit 2; }
     base="$(git -C "$MERGE_ROOT" rev-parse "origin/$project")"
+    if ! git -C "$MERGE_ROOT" show-ref --verify --quiet "refs/remotes/origin/$into"; then
+      if git -C "$root" show-ref --verify --quiet "refs/heads/$into" \
+         && ! git -C "$root" merge-base --is-ancestor "refs/heads/$into" "origin/$project"; then
+        release_merge_lock
+        refuse "origin/$into is absent and the local $into is not contained in origin/$project; nothing was deleted"
+      fi
+      release_merge_lock
+      finish_cleanup "$root" "$into" "$project"
+      echo "finish #$spec: origin/$into was already absent; cleanup checked"
+      return 0
+    fi
     if git -C "$MERGE_ROOT" merge-base --is-ancestor "origin/$into" "origin/$project"; then
+      merge=""
       IFS=$'\t' read -r merge base < <(landed_merge_and_base "$MERGE_ROOT" "origin/$into" "$project") || true
-      [ -n "$merge" ] && [ -n "$base" ] \
-        || { release_merge_lock; refuse "origin/$project already contains origin/$into but no introducing merge could be identified; nothing was deleted"; }
+      if [ -n "$merge" ] && [ -n "$base" ]; then
+        if ! record_spec_merged "$spec" "$into" "$project" "$merge" "$base"; then
+          release_merge_lock
+          refuse "origin/$project contains $into, but the spec.merged event on #$spec was not written; run finish again"
+        fi
+      fi
+      release_merge_lock
+      finish_cleanup "$root" "$into" "$project"
+      echo "finish #$spec: origin/$project already contained $into; cleanup checked"
+      return 0
     else
       if ! git -C "$MERGE_ROOT" merge --no-ff -m "Merge branch '$into'" "origin/$into" >/dev/null 2>&1; then
         files="$(git -C "$MERGE_ROOT" diff --name-only --diff-filter=U | paste -sd, -)"
